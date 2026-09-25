@@ -183,6 +183,31 @@ actions! {
     SortTime = "sort_time", "Sort by time", ["Ctrl+F5"];
     SortSize = "sort_size", "Sort by size", ["Ctrl+F6"];
     CopyPath = "copy_path", "Path to command line", ["Ctrl+Enter", "Ctrl+J"];
+    NewTab = "new_tab", "New tab", ["Ctrl+T"];
+    CloseTab = "close_tab", "Close tab", ["Ctrl+W"];
+    NextTab = "next_tab", "Next tab", ["Ctrl+Tab"];
+    PrevTab = "prev_tab", "Previous tab", ["Ctrl+Shift+Tab"];
+    TogglePreview = "toggle_preview", "Preview", ["Space"];
+    ToggleView = "toggle_view", "Details/columns view", ["Alt+V"];
+    ToggleSidebar = "toggle_sidebar", "Sidebar", ["Ctrl+B"];
+    EditPath = "edit_path", "Edit path", ["Ctrl+L"];
+    DirSizes = "dir_sizes", "Folder sizes", ["Ctrl+Space"];
+    BatchRename = "batch_rename", "Batch rename", ["Ctrl+M"];
+    Tag = "tag", "Color tag", ["Alt+T"];
+    Notes = "notes", "Folder notes", ["Alt+N"];
+    Back = "back", "Back", ["Alt+Left"];
+    Forward = "forward", "Forward", ["Alt+Right"];
+}
+
+impl Action {
+    /// Actions only the GUI implements.
+    pub fn gui_only(self) -> bool {
+        use Action::*;
+        matches!(
+            self,
+            NewTab | CloseTab | NextTab | PrevTab | TogglePreview | ToggleView | ToggleSidebar | EditPath | BatchRename | Tag | Notes | Back | Forward
+        )
+    }
 }
 
 // ---------------------------------------------------------------- theme
@@ -224,7 +249,7 @@ theme!(
     panel, border, header, directory, executable, hidden, symlink, cursor, marked, marked_cursor,
     status, keybar_num, keybar_label, cmdline, dialog, dialog_border, dialog_input, git_branch,
     git_modified, git_added, git_untracked, git_deleted, git_renamed, git_conflict, git_ignored,
-    search_hit,
+    search_hit, accent, sidebar, tab, tab_active, preview,
 );
 
 impl Default for Theme {
@@ -263,41 +288,102 @@ impl Theme {
             git_conflict: bold(st("lightred", "blue")),
             git_ignored: st("darkgray", "blue"),
             search_hit: bold(st("yellow", "")),
+            accent: st("yellow", "blue"),
+            sidebar: st("lightcyan", "blue"),
+            tab: st("cyan", "blue"),
+            tab_active: st("black", "cyan"),
+            preview: st("lightcyan", "blue"),
         }
     }
 
-    /// A modern dark scheme (Tokyo Night-ish).
+    /// A modern dark scheme (Tokyo Night).
     pub fn midnight() -> Self {
-        let (bg, fg, dim, alt) = ("#1a1b26", "#c0caf5", "#565f89", "#24283b");
+        Theme::from_palette(&Palette {
+            bg: "#1a1b26", alt: "#16161e", raised: "#24283b", fg: "#c0caf5", dim: "#565f89", border: "#292e42",
+            accent: "#7aa2f7", sel_bg: "#283457", dir: "#7aa2f7", red: "#f7768e", green: "#9ece6a", yellow: "#e0af68",
+            blue: "#2ac3de", magenta: "#bb9af7", orange: "#ff9e64",
+        })
+    }
+
+    /// Default GUI theme: neutral dark, blue accent.
+    pub fn dark() -> Self {
+        Theme::from_palette(&Palette {
+            bg: "#1e1f22", alt: "#18191b", raised: "#2b2d31", fg: "#dcdde1", dim: "#80848e", border: "#313338",
+            accent: "#4c8dff", sel_bg: "#2e436e", dir: "#8ab4f8", red: "#f28b82", green: "#81c995", yellow: "#fdd663",
+            blue: "#78d9ec", magenta: "#c58af9", orange: "#fcad70",
+        })
+    }
+
+    pub fn light() -> Self {
+        Theme::from_palette(&Palette {
+            bg: "#ffffff", alt: "#f3f4f6", raised: "#ffffff", fg: "#1f2328", dim: "#6e7781", border: "#d8dee4",
+            accent: "#0969da", sel_bg: "#cfe3ff", dir: "#0550ae", red: "#cf222e", green: "#1a7f37", yellow: "#9a6700",
+            blue: "#0598bc", magenta: "#8250df", orange: "#bc4c00",
+        })
+    }
+
+    pub fn nord() -> Self {
+        Theme::from_palette(&Palette {
+            bg: "#2e3440", alt: "#272c36", raised: "#3b4252", fg: "#e5e9f0", dim: "#7b88a1", border: "#3b4252",
+            accent: "#88c0d0", sel_bg: "#434c5e", dir: "#88c0d0", red: "#bf616a", green: "#a3be8c", yellow: "#ebcb8b",
+            blue: "#81a1c1", magenta: "#b48ead", orange: "#d08770",
+        })
+    }
+
+    pub fn from_palette(p: &Palette) -> Self {
         Theme {
-            panel: st(fg, bg),
-            border: st("#3b4261", bg),
-            header: bold(st("#7aa2f7", bg)),
-            directory: bold(st("#7aa2f7", bg)),
-            executable: st("#9ece6a", bg),
-            hidden: st(dim, bg),
-            symlink: st("#bb9af7", bg),
-            cursor: st(bg, "#7aa2f7"),
-            marked: bold(st("#e0af68", bg)),
-            marked_cursor: bold(st("#e0af68", "#3d59a1")),
-            status: st(dim, bg),
-            keybar_num: st(fg, bg),
-            keybar_label: st(bg, "#414868"),
-            cmdline: st(fg, bg),
-            dialog: st(fg, alt),
-            dialog_border: st("#7aa2f7", alt),
-            dialog_input: st(fg, "#414868"),
-            git_branch: bold(st("#bb9af7", bg)),
-            git_modified: st("#e0af68", bg),
-            git_added: st("#9ece6a", bg),
-            git_untracked: st("#f7768e", bg),
-            git_deleted: st("#db4b4b", bg),
-            git_renamed: st("#2ac3de", bg),
-            git_conflict: bold(st("#ff007c", bg)),
-            git_ignored: st("#414868", bg),
-            search_hit: bold(st("#ff9e64", "")),
+            panel: st(p.fg, p.bg),
+            border: st(p.border, p.bg),
+            header: st(p.dim, p.bg),
+            directory: st(p.dir, p.bg),
+            executable: st(p.green, p.bg),
+            hidden: st(p.dim, p.bg),
+            symlink: st(p.magenta, p.bg),
+            cursor: st(p.fg, p.sel_bg),
+            marked: bold(st(p.yellow, p.bg)),
+            marked_cursor: bold(st(p.yellow, p.sel_bg)),
+            status: st(p.dim, p.alt),
+            keybar_num: st(p.dim, p.alt),
+            keybar_label: st(p.fg, p.raised),
+            cmdline: st(p.fg, p.alt),
+            dialog: st(p.fg, p.raised),
+            dialog_border: st(p.accent, p.raised),
+            dialog_input: st(p.fg, p.bg),
+            git_branch: bold(st(p.magenta, p.bg)),
+            git_modified: st(p.yellow, p.bg),
+            git_added: st(p.green, p.bg),
+            git_untracked: st(p.red, p.bg),
+            git_deleted: st(p.red, p.bg),
+            git_renamed: st(p.blue, p.bg),
+            git_conflict: bold(st(p.red, p.bg)),
+            git_ignored: st(p.dim, p.bg),
+            search_hit: bold(st(p.orange, "")),
+            accent: st(p.bg, p.accent),
+            sidebar: st(p.fg, p.alt),
+            tab: st(p.dim, p.alt),
+            tab_active: st(p.fg, p.bg),
+            preview: st(p.fg, p.alt),
         }
     }
+}
+
+/// The handful of colors a modern theme is derived from.
+pub struct Palette {
+    pub bg: &'static str,
+    pub alt: &'static str,
+    pub raised: &'static str,
+    pub fg: &'static str,
+    pub dim: &'static str,
+    pub border: &'static str,
+    pub accent: &'static str,
+    pub sel_bg: &'static str,
+    pub dir: &'static str,
+    pub red: &'static str,
+    pub green: &'static str,
+    pub yellow: &'static str,
+    pub blue: &'static str,
+    pub magenta: &'static str,
+    pub orange: &'static str,
 }
 
 /// CGA palette for the 16 named colors, so the GUI can render names too.
@@ -478,8 +564,14 @@ impl Default for SearchConfig {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(default)]
 pub struct GuiConfig {
-    /// CSS font-family list. Include a Nerd Font for the git glyphs.
+    /// The GUI's own theme, so the terminal can stay NC blue.
+    pub theme: String,
+    /// CSS font-family for the interface.
     pub font: String,
+    /// For file icons and git glyphs: a Nerd Font.
+    pub icon_font: String,
+    /// For the text preview and the command line.
+    pub mono_font: String,
     pub font_size: f32,
     /// Row height as a multiple of the font size.
     pub line_height: f32,
@@ -488,9 +580,12 @@ pub struct GuiConfig {
 impl Default for GuiConfig {
     fn default() -> Self {
         GuiConfig {
-            font: "'JetBrainsMono Nerd Font', 'MesloLGS Nerd Font', 'FiraCode Nerd Font', 'CaskaydiaCove Nerd Font', 'Hack Nerd Font', 'Symbols Nerd Font Mono', 'Cascadia Code', Menlo, Consolas, monospace".into(),
-            font_size: 14.0,
-            line_height: 1.35,
+            theme: "dark".into(),
+            font: "Inter, 'Segoe UI Variable', 'Segoe UI', system-ui, -apple-system, 'Noto Sans', sans-serif".into(),
+            icon_font: "'Symbols Nerd Font Mono', 'JetBrainsMono Nerd Font', 'MesloLGS Nerd Font', 'MesloLGM Nerd Font Mono', 'FiraCode Nerd Font', 'CaskaydiaCove Nerd Font', 'Hack Nerd Font', monospace".into(),
+            mono_font: "'JetBrains Mono', 'Cascadia Code', 'MesloLGS Nerd Font', Menlo, Consolas, monospace".into(),
+            font_size: 13.0,
+            line_height: 1.9,
         }
     }
 }
@@ -569,6 +664,9 @@ impl Config {
         }
         self.themes.entry("nc".into()).or_insert_with(Theme::nc);
         self.themes.entry("midnight".into()).or_insert_with(Theme::midnight);
+        self.themes.entry("dark".into()).or_insert_with(Theme::dark);
+        self.themes.entry("light".into()).or_insert_with(Theme::light);
+        self.themes.entry("nord".into()).or_insert_with(Theme::nord);
     }
 
     pub fn to_toml(&self) -> String {
@@ -592,6 +690,10 @@ impl Config {
 
     pub fn theme(&self) -> Theme {
         self.themes.get(&self.theme).cloned().unwrap_or_else(Theme::nc)
+    }
+
+    pub fn gui_theme(&self, name: Option<&str>) -> Theme {
+        self.themes.get(name.unwrap_or(&self.gui.theme)).cloned().unwrap_or_else(Theme::dark)
     }
 
     pub fn glyphs(&self) -> Glyphs {

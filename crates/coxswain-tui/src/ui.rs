@@ -191,9 +191,16 @@ fn panel(f: &mut Frame, app: &mut App, side: usize, area: Rect) {
             }
             None => (String::new(), s),
         };
-        let name = &e.name;
+        let name = if app.cfg.glyphs == "ascii" || e.is_parent() {
+            format!("  {}", e.name)
+        } else {
+            format!("{} {}", coxswain_core::icons::icon(&e.name, e.is_dir).glyph, e.name)
+        };
+        let name = &name;
         let sz = if e.is_parent() {
             "UP--DIR".into()
+        } else if let Some(n) = p.sizes.get(&e.path) {
+            size(*n)
         } else if e.is_dir {
             "SUB-DIR".into()
         } else {

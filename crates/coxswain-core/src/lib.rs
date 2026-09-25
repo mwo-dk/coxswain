@@ -3,5 +3,7 @@
 pub mod config;
 pub mod fs;
 pub mod git;
+pub mod icons;
 pub mod index;
 pub mod rename;
+pub mod state;

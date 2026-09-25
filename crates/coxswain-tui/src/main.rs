@@ -29,6 +29,8 @@ pub struct Panel {
     pub reverse: bool,
     pub git: Option<git::Status>,
     pub error: Option<String>,
+    /// Folder sizes computed on demand (Ctrl+Space).
+    pub sizes: HashMap<PathBuf, u64>,
 }
 
 impl Panel {
@@ -44,6 +46,7 @@ impl Panel {
             reverse: false,
             git: None,
             error: None,
+            sizes: HashMap::new(),
         };
         p.load(show_hidden);
         p
@@ -84,6 +87,7 @@ impl Panel {
     fn cd(&mut self, dir: PathBuf, show_hidden: bool) {
         let from = std::mem::replace(&mut self.dir, dir);
         self.marked.clear();
+        self.sizes.clear();
         self.cursor = 0;
         self.offset = 0;
         self.git = None;
@@ -484,6 +488,16 @@ impl App {
                 self.dialog = Some(Dialog::Menu { title: "Commands".into(), filter: String::new(), items, cursor: 0, direct: false });
             }
             Action::Help => self.dialog = Some(Dialog::Help { scroll: 0 }),
+            Action::DirSizes => {
+                let p = self.panel_mut();
+                let dirs: Vec<PathBuf> = p.entries.iter().filter(|e| e.is_dir && !e.is_parent()).map(|e| e.path.clone()).collect();
+                // ponytail: blocks the UI on huge trees; move to a thread with progress if it bites.
+                for d in dirs {
+                    let (bytes, _) = bfs::dir_size(&d);
+                    p.sizes.insert(d, bytes);
+                }
+            }
+            a => self.status = Some(format!("{} is available in the GUI (coxswain-gui)", a.label())),
         }
     }
 

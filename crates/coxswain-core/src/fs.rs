@@ -235,6 +235,25 @@ pub fn mkdir(path: &Path) -> io::Result<()> {
     fs::create_dir_all(path)
 }
 
+/// Total bytes and file count under `path`, in parallel. Symlinks are counted, not followed;
+/// unreadable parts are skipped.
+pub fn dir_size(path: &Path) -> (u64, u64) {
+    use rayon::prelude::*;
+    let Ok(meta) = fs::symlink_metadata(path) else { return (0, 0) };
+    if !meta.is_dir() {
+        return (meta.len(), 1);
+    }
+    let Ok(rd) = fs::read_dir(path) else { return (0, 0) };
+    rd.flatten()
+        .collect::<Vec<_>>()
+        .par_iter()
+        .map(|de| match de.file_type() {
+            Ok(t) if t.is_dir() => dir_size(&de.path()),
+            _ => (de.metadata().map_or(0, |m| m.len()), 1),
+        })
+        .reduce(|| (0, 0), |a, b| (a.0 + b.0, a.1 + b.1))
+}
+
 /// Open with the desktop's default application, detached.
 pub fn open_default(path: &Path) -> io::Result<()> {
     let opener: &[&str] = if cfg!(target_os = "macos") {
@@ -298,6 +317,7 @@ mod tests {
         assert!(!d.join("src").exists() && d.join("moved/sub/f").exists());
         fs::write(d.join("dst/moved"), "").unwrap();
         assert!(rename(&d.join("moved"), &d.join("dst")).is_err());
+        assert_eq!(dir_size(&d.join("moved")), (1, 1));
         delete(&d.join("moved")).unwrap();
         assert!(!d.join("moved").exists());
         fs::remove_dir_all(d).unwrap();
