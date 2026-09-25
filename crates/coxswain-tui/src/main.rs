@@ -177,6 +177,7 @@ pub struct App {
     pub areas: [Rect; 2],
     git_tx: mpsc::Sender<(PathBuf, Option<git::Status>)>,
     git_rx: mpsc::Receiver<(PathBuf, Option<git::Status>)>,
+    update_rx: mpsc::Receiver<String>,
     run: Option<Run>,
     last_click: Option<(Instant, u16, u16)>,
     quit: bool,
@@ -206,6 +207,14 @@ impl App {
     fn new(cfg: Config, left: PathBuf, right: PathBuf) -> Result<App, String> {
         let keymap = cfg.keymap()?;
         let (git_tx, git_rx) = mpsc::channel();
+        let (update_tx, update_rx) = mpsc::channel();
+        if cfg.check_updates {
+            std::thread::spawn(move || {
+                if let Some(v) = coxswain_core::update::check() {
+                    let _ = update_tx.send(v);
+                }
+            });
+        }
         let show_hidden = cfg.show_hidden;
         let app = App {
             keymap,
@@ -222,6 +231,7 @@ impl App {
             areas: [Rect::default(); 2],
             git_tx,
             git_rx,
+            update_rx,
             run: None,
             last_click: None,
             quit: false,
@@ -794,6 +804,9 @@ impl App {
 
     /// Git results and index progress, polled between events.
     fn tick(&mut self, last_state: &mut State) {
+        if let Ok(v) = self.update_rx.try_recv() {
+            self.status = Some(format!("Coxswain {v} is available: {}", coxswain_core::update::RELEASES_URL));
+        }
         while let Ok((dir, st)) = self.git_rx.try_recv() {
             for p in self.panels.iter_mut().filter(|p| p.dir == dir) {
                 p.git = st.clone();
@@ -895,12 +908,14 @@ fn main_loop(term: &mut DefaultTerminal, app: &mut App) -> std::io::Result<()> {
 const USAGE: &str = "coxswain [LEFT_DIR] [RIGHT_DIR]
   --dump-config   print the full default config (redirect it to the config file to customise)
   --config-path   print where the config file is read from
+  --version
   --help";
 
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
     match args.first().map(String::as_str) {
         Some("--help" | "-h") => return println!("{USAGE}"),
+        Some("--version" | "-V") => return println!("coxswain {}", coxswain_core::update::VERSION),
         Some("--dump-config") => return print!("{}", Config::default().to_toml()),
         Some("--config-path") => return println!("{}", Config::path().map(|p| p.display().to_string()).unwrap_or_default()),
         _ => {}

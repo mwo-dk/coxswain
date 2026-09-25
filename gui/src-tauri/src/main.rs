@@ -61,6 +61,7 @@ struct UiConfig {
     gui: GuiConfig,
     home: PathBuf,
     sep: char,
+    version: &'static str,
 }
 
 fn css(c: &str) -> Option<String> {
@@ -91,6 +92,7 @@ fn get_config(ctx: tauri::State<Ctx>) -> Res<UiConfig> {
         gui: cfg.gui.clone(),
         home: std::env::home_dir().unwrap_or_default(),
         sep: std::path::MAIN_SEPARATOR,
+        version: coxswain_core::update::VERSION,
     })
 }
 
@@ -436,6 +438,23 @@ async fn run_script(user: Option<usize>, path: Option<PathBuf>, dir: PathBuf, fi
     output(c, &dir)
 }
 
+/// A newer release, if the (daily, cached) check found one. The network call runs outside the
+/// state lock so other commands are not held up.
+#[tauri::command]
+async fn check_update(ctx: tauri::State<'_, Ctx>) -> Res<Option<String>> {
+    use coxswain_core::update;
+    if !ctx.cfg.check_updates {
+        return Ok(None);
+    }
+    let due = update::due(&*ctx.state.lock().map_err(|e| e.to_string())?);
+    if due {
+        if let Some(latest) = update::fetch_latest() {
+            ctx.edit(|st| update::record(st, latest))?;
+        }
+    }
+    Ok(update::available(&*ctx.state.lock().map_err(|e| e.to_string())?))
+}
+
 fn main() {
     let cfg = Config::load().unwrap_or_else(|e| {
         eprintln!("coxswain: {e}; using defaults");
@@ -456,7 +475,7 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             get_config, list_dir, git_status, places, disks, get_state, save_session, save_favorites, set_tags, set_note, get_note,
             search, resolve_path, copy, rename, delete, mkdir, dir_sizes, rename_plan, rename_apply, open_path, edit_path,
-            read_text, run_command, scripts, run_script
+            read_text, run_command, scripts, run_script, check_update
         ])
         .run(tauri::generate_context!())
         .expect("error while running Coxswain");

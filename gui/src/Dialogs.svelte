@@ -193,7 +193,7 @@
         <pre>{m.text}</pre>
         <div class="buttons"><button class="primary" bind:this={input} onclick={close}>OK</button></div>
       {:else if m.kind === "help"}
-        <h2>Keyboard shortcuts</h2>
+        <h2>Coxswain {ui.cfg.version} · keyboard shortcuts</h2>
         <div class="help" bind:this={input} tabindex="-1">
           <table>
             <tbody>

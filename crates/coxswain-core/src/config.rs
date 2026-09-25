@@ -604,6 +604,8 @@ pub struct Config {
     pub editor: Option<String>,
     pub viewer: Option<String>,
     pub confirm_delete: bool,
+    /// Look for a newer release on GitHub at startup (at most once a day).
+    pub check_updates: bool,
     /// Action -> keys. Listing an action replaces its default keys; `[]` unbinds it.
     pub keys: BTreeMap<Action, Vec<String>>,
     pub themes: BTreeMap<String, Theme>,
@@ -622,6 +624,7 @@ impl Default for Config {
             editor: None,
             viewer: None,
             confirm_delete: true,
+            check_updates: true,
             keys: BTreeMap::new(),
             themes: BTreeMap::new(),
             user_menu: vec![

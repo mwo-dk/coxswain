@@ -24,6 +24,9 @@ pub struct AppState {
     pub notes: BTreeMap<PathBuf, String>,
     /// Most recent first.
     pub recent_repos: Vec<PathBuf>,
+    /// Unix time of the last update check, and the latest version it found.
+    pub update_checked: u64,
+    pub latest_version: String,
 }
 
 impl Default for AppState {
@@ -34,6 +37,8 @@ impl Default for AppState {
             tags: BTreeMap::new(),
             notes: BTreeMap::new(),
             recent_repos: vec![],
+            update_checked: 0,
+            latest_version: String::new(),
         }
     }
 }

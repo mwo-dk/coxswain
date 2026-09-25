@@ -17,8 +17,12 @@
   let notesFocus = $state(0);
   let ready = $state(false);
 
+  let update = $state(null);
   init().then(
-    () => (ready = true),
+    () => {
+      ready = true;
+      invoke("check_update").then((v) => (update = v), () => {});
+    },
     (e) => (ui.status = String(e)),
   );
 
@@ -402,6 +406,11 @@
       <span class="prompt">{ui.quick !== null ? `Quick search: ${ui.quick}` : `${tab().dir} ❯`}</span>
       <input class="cmd" bind:this={cmdInput} bind:value={ui.cmd} spellcheck="false" autocomplete="off" placeholder="Type a command…" aria-label="Command line" />
       {#if ui.status}<span class="status">{ui.status}</span>{/if}
+      {#if update}
+        <button class="update" title="Open the releases page" onclick={() => invoke("open_path", { path: "https://github.com/mwo-dk/coxswain/releases/latest" })}>
+          Coxswain {update} is available
+        </button>
+      {/if}
     </label>
     <nav class="keybar" aria-label="Function keys">
       {#each fkeys as f (f.n)}
@@ -537,6 +546,17 @@
     font-family: var(--mono-font);
     font-size: 0.85em;
     color: var(--keybar-num-fg);
+  }
+  .update {
+    font: inherit;
+    font-family: var(--font);
+    color: var(--accent-fg);
+    background: var(--accent-bg);
+    border: 0;
+    border-radius: 999px;
+    padding: 1px 10px;
+    cursor: pointer;
+    white-space: nowrap;
   }
   .loading {
     display: grid;

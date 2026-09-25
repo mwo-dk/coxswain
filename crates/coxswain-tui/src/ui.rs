@@ -435,7 +435,7 @@ fn dstyle(t: &config::Theme) -> Style {
 
 fn help_text(app: &App) -> Vec<Line<'static>> {
     let mut v = vec![
-        Line::from("Coxswain — the ship's officer who gets the work done.").bold(),
+        Line::from(format!("Coxswain {} — the ship's officer who gets the work done.", coxswain_core::update::VERSION)).bold(),
         Line::from(""),
         Line::from("Keys (from your config):").bold(),
     ];

@@ -7,3 +7,4 @@ pub mod icons;
 pub mod index;
 pub mod rename;
 pub mod state;
+pub mod update;
