@@ -26,6 +26,13 @@
 
   const close = () => (ui.modal = null);
 
+  /** Close `m` and run its action, once, even if Enter and a button click both fire. */
+  function confirm(m, ...args) {
+    if (ui.modal !== m) return;
+    close();
+    m.run(...args);
+  }
+
   // ------------------------------------------------------------ find file
 
   let seq = 0;
@@ -116,14 +123,11 @@
     switch (m.kind) {
       case "input":
         if (k !== "Enter") return false;
-        close();
-        m.run(m.value);
+        confirm(m, m.value);
         return true;
       case "confirm":
-        if (k === "Enter" || k === "y" || k === "Shift+Y") {
-          close();
-          m.run();
-        } else if (k === "n" || k === "Shift+N") close();
+        if (k === "Enter" || k === "y" || k === "Shift+Y") confirm(m);
+        else if (k === "n" || k === "Shift+N") close();
         return true;
       case "search": {
         const hits = m.res?.hits ?? [];
@@ -174,14 +178,14 @@
         <h2>{m.title}</h2>
         <label>{m.label}<input bind:this={input} bind:value={m.value} spellcheck="false" /></label>
         <div class="buttons">
-          <button class="primary" onclick={() => { close(); m.run(m.value); }}>OK</button>
+          <button class="primary" onclick={() => confirm(m, m.value)}>OK</button>
           <button onclick={close}>Cancel</button>
         </div>
       {:else if m.kind === "confirm"}
         <h2>{m.title}</h2>
         <p>{m.text}</p>
         <div class="buttons">
-          <button class="primary danger" bind:this={input} onclick={() => { close(); m.run(); }}>{m.ok ?? "Delete"}</button>
+          <button class="primary danger" bind:this={input} onclick={() => confirm(m)}>{m.ok ?? "Delete"}</button>
           <button onclick={close}>Cancel</button>
         </div>
       {:else if m.kind === "message"}

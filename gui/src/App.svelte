@@ -189,9 +189,10 @@
       ui.cmd = (ui.cmd && !ui.cmd.endsWith(" ") ? ui.cmd + " " : ui.cmd) + quote(e.name) + " ";
       cmdInput?.focus();
     },
+    // F3 toggles the preview, as NC's F3 toggled its viewer; Esc closes it too.
     view: () => {
+      ui.showPreview = !(ui.showPreview && !output);
       output = null;
-      ui.showPreview = true;
     },
     edit: () => {
       const e = item();
@@ -294,8 +295,11 @@
       if (dialogs.handleKey(e, k)) e.preventDefault();
       return;
     }
-    // Typing in notes, the path bar or another field: leave it alone.
-    if (e.target.closest?.("textarea, input:not(.cmd)")) return;
+    // Typing in notes, the path bar or another field: leave it alone, except that Esc
+    // leaves the field and function keys keep working (otherwise F3/F8 seem dead).
+    const field = e.target.closest?.("textarea, input:not(.cmd)");
+    if (field && k === "Esc") return field.blur();
+    if (field && !/^F\d+$/.test(k)) return;
     ui.status = "";
     const plain = [...e.key].length === 1 && !e.ctrlKey && !e.altKey && !e.metaKey;
 
@@ -314,6 +318,12 @@
       if (esc) return e.preventDefault();
     }
     const act = ui.cfg.keymap[k];
+    if (k === "Esc" && !ui.cmd && ui.showPreview) {
+      e.preventDefault();
+      output = null;
+      ui.showPreview = false;
+      return;
+    }
     if (!act && e.altKey && !e.ctrlKey && /^Key[A-Z]$|^Digit/.test(e.code)) {
       ui.quick = k.split("+").pop().toLowerCase();
       return quickJump(e);

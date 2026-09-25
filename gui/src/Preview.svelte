@@ -161,8 +161,7 @@
 
     <section class="notes">
       <label for="notes">{"\u{f249}"} Notes for {notesDir === t.dir ? "this folder" : e.name}</label>
-      <textarea id="notes" bind:this={noteArea} bind:value={note} onblur={saveNote} placeholder="To-dos, reminders… saved when you leave the field"
-        onkeydown={(ev) => ev.stopPropagation()}></textarea>
+      <textarea id="notes" bind:this={noteArea} bind:value={note} onblur={saveNote} placeholder="To-dos, reminders… saved when you leave the field (Esc)"></textarea>
     </section>
   {/if}
 </aside>
