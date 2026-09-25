@@ -13,3 +13,7 @@
 - **Commits:** plain messages. No `Co-Authored-By` or other Claude attribution.
 - **Check before pushing:** `cargo test --workspace`, and for GUI changes
   `cd gui && npx svelte-check && npm run build`.
+- **Screenshots** in `docs/screenshots/` are taken in a sandbox with a fake home, so nothing
+  personal shows (Linux, needs `bwrap`): build release, then
+  `docs/screenshots/sandbox.sh coxswain-gui /home/demo/projects/rocket` or
+  `docs/screenshots/sandbox.sh alacritty -e coxswain`. `demo-home.sh` builds the demo files.

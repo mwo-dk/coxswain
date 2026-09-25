@@ -14,6 +14,15 @@ shared Rust core and read the same config file.
 - **Configurable.** Key bindings, color schemes, glyphs, user menu and fonts all live in one
   TOML file.
 
+![The terminal app: two panels, git status on the left](docs/screenshots/tui-panels.png)
+
+| | |
+|---|---|
+| ![Find file searches every file on the machine](docs/screenshots/tui-search.png) | ![The desktop app with sidebar, tabs and tags](docs/screenshots/gui-details.png) |
+| Find file: every file on the machine, in milliseconds | Desktop app: sidebar, tabs, color tags, git |
+| ![Miller columns, light theme](docs/screenshots/gui-columns.png) | |
+| Desktop app: Miller columns and preview, light theme | |
+
 ## Install
 
 **Download:** pick your platform under [Releases](https://github.com/mwo-dk/coxswain/releases/latest).
@@ -55,6 +64,41 @@ one, set `glyphs = "ascii"`.
 Typing goes to the command line. Enter runs it in the panel's directory, and `cd` works. Both
 apps support the mouse: click, double-click, right-click to mark, and the wheel. The GUI also
 does Shift-click ranges, drag-and-drop between panels, and clickable column headers and paths.
+
+## Using Coxswain
+
+Start either app with up to two folders: `coxswain ~/src ~/Downloads` or `coxswain-gui .`. Without
+arguments both panels open in the current folder (the desktop app restores your last session).
+
+**The NC way.** One panel is active. Move with the arrows, Enter opens a folder or file, and
+Backspace goes up. Mark files with Insert (or `+` with a pattern like `*.rs`), then F5 copies
+or F6 moves them to the *other* panel's folder. With nothing marked, the file under the cursor
+is used. F3 views, F4 opens your `$EDITOR`, F8 deletes (after asking). F9 opens a searchable
+list of every command, so you never need to remember a key.
+
+**Reading the git line.** Inside a repository the panel's bottom line shows the branch,
+commits ahead/behind the upstream, and counts of staged, modified and untracked files and
+stashes. Each file and folder gets the same glyph, so a changed file deep
+in `src/` marks `src` too. Ignored files get a crossed-out eye.
+
+**Find file** (Alt+F7 or Ctrl+F). Start typing; results update per key. Enter jumps to the
+file with the cursor on it, F3 and F4 view and edit it in place, and Tab limits the search to
+the current folder. The first start builds the index in the background; after that it is
+loaded from disk and kept current while Coxswain runs.
+
+**Desktop app extras** (all rebindable, like everything else):
+
+| Key | Action | Key | Action |
+|---|---|---|---|
+| Ctrl+T / Ctrl+W | New / close tab | Space | Preview pane (text, code, images, Markdown) |
+| Ctrl+Tab | Next tab | Alt+V | Details or Miller columns |
+| Alt+Left / Alt+Right | Back / forward | Ctrl+B | Sidebar |
+| Ctrl+L | Type a path | Ctrl+Space | Folder sizes |
+| Ctrl+M | Batch rename with regex, previewed | Alt+T | Color tag |
+| Alt+N | Notes for this folder | Alt+. | Hidden files |
+
+The sidebar holds places, drives with free space, favorite groups (right-click a group, then
+"Add current folder") and the git repositories you visited recently. Pick a theme from the F9 command list (type "theme").
 
 ## Find file
 
