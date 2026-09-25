@@ -13,6 +13,12 @@ on:
 permissions:
   contents: write
 
+# One release run at a time. Two overlapping runs for the same version would each treat the
+# other's draft as a leftover and delete it mid-upload. Later runs wait instead.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
 jobs:
   draft:
     if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
