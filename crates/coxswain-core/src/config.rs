@@ -477,6 +477,26 @@ impl Default for SearchConfig {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(default)]
+pub struct GuiConfig {
+    /// CSS font-family list. Include a Nerd Font for the git glyphs.
+    pub font: String,
+    pub font_size: f32,
+    /// Row height as a multiple of the font size.
+    pub line_height: f32,
+}
+
+impl Default for GuiConfig {
+    fn default() -> Self {
+        GuiConfig {
+            font: "'JetBrainsMono Nerd Font', 'MesloLGS Nerd Font', 'FiraCode Nerd Font', 'CaskaydiaCove Nerd Font', 'Hack Nerd Font', 'Symbols Nerd Font Mono', 'Cascadia Code', Menlo, Consolas, monospace".into(),
+            font_size: 14.0,
+            line_height: 1.35,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(default)]
 pub struct Config {
     /// Name of a built-in (`nc`, `midnight`) or a `[themes.<name>]` table.
     pub theme: String,
@@ -493,6 +513,7 @@ pub struct Config {
     pub themes: BTreeMap<String, Theme>,
     pub user_menu: Vec<UserCommand>,
     pub search: SearchConfig,
+    pub gui: GuiConfig,
 }
 
 impl Default for Config {
@@ -514,6 +535,7 @@ impl Default for Config {
                 UserCommand { key: "b".into(), label: "git blame (file)".into(), command: "git blame -- %f | less".into(), wait: false },
             ],
             search: SearchConfig::default(),
+            gui: GuiConfig::default(),
         };
         c.fill_defaults();
         c

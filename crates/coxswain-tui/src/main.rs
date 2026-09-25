@@ -13,7 +13,7 @@ use ratatui::DefaultTerminal;
 use std::collections::{HashMap, HashSet};
 use std::io::Write;
 use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
+use std::process::Command;
 use std::sync::{mpsc, Arc};
 use std::time::{Duration, Instant};
 
@@ -498,23 +498,9 @@ impl App {
             self.run = Some(Run::Shell { cmd, dir, wait: true });
             return;
         }
-        let opener: &[&str] = if cfg!(target_os = "macos") {
-            &["open"]
-        } else if cfg!(windows) {
-            &["cmd", "/C", "start", ""]
-        } else {
-            &["xdg-open"]
-        };
-        let spawned = Command::new(opener[0])
-            .args(&opener[1..])
-            .arg(&e.path)
-            .stdin(Stdio::null())
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .spawn();
-        self.status = Some(match spawned {
-            Ok(_) => format!("Opened {}", e.name),
-            Err(err) => format!("{}: {err}", opener[0]),
+        self.status = Some(match bfs::open_default(&e.path) {
+            Ok(()) => format!("Opened {}", e.name),
+            Err(err) => format!("open: {err}"),
         });
     }
 

@@ -231,6 +231,25 @@ pub fn mkdir(path: &Path) -> io::Result<()> {
     fs::create_dir_all(path)
 }
 
+/// Open with the desktop's default application, detached.
+pub fn open_default(path: &Path) -> io::Result<()> {
+    let opener: &[&str] = if cfg!(target_os = "macos") {
+        &["open"]
+    } else if cfg!(windows) {
+        &["cmd", "/C", "start", ""]
+    } else {
+        &["xdg-open"]
+    };
+    std::process::Command::new(opener[0])
+        .args(&opener[1..])
+        .arg(path)
+        .stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .spawn()
+        .map(drop)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
