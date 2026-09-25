@@ -1,30 +1,55 @@
 name: Release
 
-# Push a tag like v1.0.0 to build every platform and publish a GitHub Release.
+# Hands-off: when CI passes on master and the version in Cargo.toml has no release yet, build
+# every platform, publish the GitHub Release (which creates the tag) and update the AUR.
+# To release, bump `version` in Cargo.toml. Nothing else.
 on:
-  push:
-    tags: ["v*"]
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [master]
+  workflow_dispatch: # retry by hand if a runner hiccupped
 
 permissions:
   contents: write
 
 jobs:
   draft:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-24.04
     outputs:
       id: ${{ steps.create.outputs.id }}
+      tag: ${{ steps.version.outputs.tag }}
+      sha: ${{ steps.version.outputs.sha }}
+    env:
+      GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+      - id: version
+        run: |
+          version="$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)"
+          echo "tag=v$version" >> "$GITHUB_OUTPUT"
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
       - id: create
         env:
-          GH_TOKEN: ${{ github.token }}
-          TAG: ${{ github.ref_name }}
+          TAG: ${{ steps.version.outputs.tag }}
+          SHA: ${{ steps.version.outputs.sha }}
         run: |
-          gh release create "$TAG" --draft --title "Coxswain $TAG" --notes-file .github/release-notes.md
+          state="$(gh release view "$TAG" --json isDraft -q .isDraft 2>/dev/null || echo none)"
+          if [ "$state" = false ]; then
+            echo "$TAG is already released; nothing to do."
+            exit 0
+          fi
+          # A draft left by a failed run is replaced, so a retry starts clean.
+          [ "$state" = true ] && gh release delete "$TAG" --yes
+          gh release create "$TAG" --draft --target "$SHA" --title "Coxswain $TAG" --notes-file .github/release-notes.md
           echo "id=$(gh release view "$TAG" --json databaseId -q .databaseId)" >> "$GITHUB_OUTPUT"
 
   desktop:
     needs: draft
+    if: needs.draft.outputs.id != ''
     strategy:
       fail-fast: false
       matrix:
@@ -40,6 +65,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.draft.outputs.sha }}
       - name: Linux libraries
         if: runner.os == 'Linux'
         run: |
@@ -66,6 +93,7 @@ jobs:
 
   terminal:
     needs: draft
+    if: needs.draft.outputs.id != ''
     strategy:
       fail-fast: false
       matrix:
@@ -81,6 +109,8 @@ jobs:
         shell: bash
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.draft.outputs.sha }}
       - name: musl toolchain
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y musl-tools
@@ -95,7 +125,7 @@ jobs:
       - name: Package and upload
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ github.ref_name }}
+          TAG: ${{ needs.draft.outputs.tag }}
           TARGET: ${{ matrix.target }}
         run: |
           name="coxswain-terminal-$TAG-$TARGET"
@@ -119,4 +149,36 @@ jobs:
     steps:
       - env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release edit "${{ github.ref_name }}" --repo "${{ github.repository }}" --draft=false --latest
+        run: gh release edit "${{ needs.draft.outputs.tag }}" --repo "${{ github.repository }}" --draft=false --latest
+
+  aur:
+    needs: [draft, publish]
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        pkg: [coxswain, coxswain-bin]
+    env:
+      HAS_KEY: ${{ secrets.AUR_SSH_PRIVATE_KEY != '' }}
+    steps:
+      - if: env.HAS_KEY != 'true'
+        run: echo "::notice::AUR_SSH_PRIVATE_KEY is not set, so the AUR is not updated. See packaging/aur/README.md."
+      - uses: actions/checkout@v4
+        if: env.HAS_KEY == 'true'
+        with:
+          ref: ${{ needs.draft.outputs.sha }}
+      - name: Set pkgver
+        if: env.HAS_KEY == 'true'
+        env:
+          TAG: ${{ needs.draft.outputs.tag }}
+        run: sed -i "s/^pkgver=.*/pkgver=${TAG#v}/; s/^pkgrel=.*/pkgrel=1/" packaging/aur/${{ matrix.pkg }}/PKGBUILD
+      - uses: KSXGitHub/github-actions-deploy-aur@v4.2.0
+        if: env.HAS_KEY == 'true'
+        with:
+          pkgname: ${{ matrix.pkg }}
+          pkgbuild: packaging/aur/${{ matrix.pkg }}/PKGBUILD
+          updpkgsums: true
+          commit_username: Michael W. Olesen
+          commit_email: michael.w.olesen@gmail.com
+          ssh_private_key: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
+          commit_message: Update to ${{ needs.draft.outputs.tag }}

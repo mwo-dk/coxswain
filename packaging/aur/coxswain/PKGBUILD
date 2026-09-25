@@ -25,7 +25,7 @@ prepare() {
 
 build() {
   cd "$pkgname-$pkgver"
-  export RUSTUP_TOOLCHAIN=stable CARGO_TARGET_DIR=target
+  export RUSTUP_TOOLCHAIN=stable CARGO_TARGET_DIR="$PWD/target"
   cargo build --frozen --release -p coxswain-tui
   (cd gui && npx tauri build --no-bundle)
 }

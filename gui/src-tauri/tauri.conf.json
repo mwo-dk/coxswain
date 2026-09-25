@@ -1,7 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Coxswain",
-  "version": "1.0.0",
   "identifier": "dk.mwo.coxswain",
   "build": {
     "beforeDevCommand": "npm run dev",
