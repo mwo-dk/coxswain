@@ -94,6 +94,8 @@ impl FromStr for Key {
             _ => {
                 let mut chars = rest.chars();
                 match (chars.next(), chars.next()) {
+                    // "Ctrl+F" means Ctrl+f; only a bare "F" implies Shift.
+                    (Some(c), None) if ctrl || alt => KeyCode::Char(c.to_ascii_lowercase()),
                     (Some(c), None) => KeyCode::Char(c),
                     _ => return Err(format!("unknown key '{s}'")),
                 }
@@ -408,6 +410,45 @@ pub struct UserCommand {
     /// Run by the shell in the active panel's directory. `%f` = file under cursor,
     /// `%d` = directory, `%s` = marked files (or the cursor file), each shell-quoted.
     pub command: String,
+    /// Wait for Enter afterwards so the output can be read.
+    #[serde(default)]
+    pub wait: bool,
+}
+
+impl UserCommand {
+    /// Substitute `%f`, `%d`, `%s` (shell-quoted) and `%%`.
+    pub fn expand(&self, dir: &std::path::Path, file: Option<&std::path::Path>, selected: &[PathBuf]) -> String {
+        let q = |p: &std::path::Path| quote(&p.to_string_lossy());
+        let file_q = file.map(|f| q(f.file_name().map(std::path::Path::new).unwrap_or(f))).unwrap_or_default();
+        let sel = if selected.is_empty() { file_q.clone() } else { selected.iter().map(|p| q(p)).collect::<Vec<_>>().join(" ") };
+        let mut out = String::new();
+        let mut it = self.command.chars().peekable();
+        while let Some(c) = it.next() {
+            match (c, it.peek()) {
+                ('%', Some('f')) => out += &file_q,
+                ('%', Some('d')) => out += &q(dir),
+                ('%', Some('s')) => out += &sel,
+                ('%', Some('%')) => out.push('%'),
+                _ => {
+                    out.push(c);
+                    continue;
+                }
+            }
+            it.next();
+        }
+        out
+    }
+}
+
+/// Quote a word for the platform shell.
+pub fn quote(s: &str) -> String {
+    if !s.is_empty() && s.chars().all(|c| c.is_ascii_alphanumeric() || "-_./+,:@".contains(c)) {
+        s.to_string()
+    } else if cfg!(windows) {
+        format!("\"{}\"", s.replace('"', "\"\""))
+    } else {
+        format!("'{}'", s.replace('\'', "'\\''"))
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -419,6 +460,8 @@ pub struct SearchConfig {
     /// skips every directory with that name.
     pub exclude: Vec<String>,
     pub max_results: usize,
+    /// Follow changes live (inotify / FSEvents / ReadDirectoryChanges). Off = hourly rebuild only.
+    pub watch: bool,
 }
 
 impl Default for SearchConfig {
@@ -427,6 +470,7 @@ impl Default for SearchConfig {
             roots: vec![],
             exclude: ["/proc", "/sys", "/dev", "/run", "/tmp/.X11-unix"].map(String::from).to_vec(),
             max_results: 10_000,
+            watch: true,
         }
     }
 }
@@ -464,9 +508,10 @@ impl Default for Config {
             keys: BTreeMap::new(),
             themes: BTreeMap::new(),
             user_menu: vec![
-                UserCommand { key: "s".into(), label: "git status".into(), command: "git status; read -n1".into() },
-                UserCommand { key: "l".into(), label: "git log".into(), command: "git log --oneline --graph --decorate -50 | less".into() },
-                UserCommand { key: "d".into(), label: "git diff file".into(), command: "git diff -- %f | less -R".into() },
+                UserCommand { key: "s".into(), label: "git status".into(), command: "git status".into(), wait: true },
+                UserCommand { key: "l".into(), label: "git log".into(), command: "git log --oneline --graph --decorate -50".into(), wait: true },
+                UserCommand { key: "d".into(), label: "git diff (file)".into(), command: "git diff -- %f".into(), wait: true },
+                UserCommand { key: "b".into(), label: "git blame (file)".into(), command: "git blame -- %f | less".into(), wait: false },
             ],
             search: SearchConfig::default(),
         };
@@ -549,6 +594,8 @@ mod tests {
         assert_eq!("a".parse::<Key>().unwrap().to_string(), "a");
         assert_eq!("Shift+a".parse::<Key>().unwrap(), "A".parse::<Key>().unwrap());
         assert_eq!("ctrl+alt+x".parse::<Key>().unwrap(), Key::new(KeyCode::Char('x'), true, true, false));
+        assert_eq!("Ctrl+F".parse::<Key>().unwrap(), Key::new(KeyCode::Char('f'), true, false, false));
+        assert!("Ctrl+Shift+F".parse::<Key>().unwrap().shift);
         assert!("Ctrl+Nope".parse::<Key>().is_err());
     }
 
@@ -576,6 +623,16 @@ mod tests {
         assert_eq!(c.theme().panel.fg, "#ffffff");
         assert_eq!(c.theme().cursor, Theme::nc().cursor);
         assert!(Config::parse("[keys]\nquit = [\"Hyper+Q\"]").is_err());
+    }
+
+    #[test]
+    fn config_user_command_expand() {
+        let u = UserCommand { key: "x".into(), label: "x".into(), command: "vim %f %s 100%%".into(), wait: false };
+        let dir = std::path::Path::new("/a b");
+        let out = u.expand(dir, Some(&dir.join("it's.txt")), &[]);
+        if cfg!(unix) {
+            assert_eq!(out, "vim 'it'\\''s.txt' 'it'\\''s.txt' 100%");
+        }
     }
 
     #[test]

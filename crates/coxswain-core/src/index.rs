@@ -586,7 +586,7 @@ impl Query {
 }
 
 /// `*` any run, `?` any one byte; anchored at both ends.
-fn glob(p: &[u8], s: &[u8]) -> bool {
+pub fn glob(p: &[u8], s: &[u8]) -> bool {
     let (mut pi, mut si, mut star, mut mark) = (0, 0, None, 0);
     while si < s.len() {
         if pi < p.len() && (p[pi] == b'?' || p[pi] == s[si]) {
@@ -632,8 +632,8 @@ impl Service {
         let cached = cache.as_deref().and_then(|p| Index::load(p).ok()).filter(|ix| ix.roots == roots && ix.exclude == cfg.exclude);
         let state = if cached.is_some() { State::Stale } else { State::Building };
         let svc = Arc::new(Service { index: RwLock::new(cached.unwrap_or_default()), state: AtomicU8::new(state as u8) });
-        let (s, exclude) = (svc.clone(), cfg.exclude.clone());
-        std::thread::spawn(move || s.run(roots, exclude, cache));
+        let (s, exclude, watch) = (svc.clone(), cfg.exclude.clone(), cfg.watch);
+        std::thread::spawn(move || s.run(roots, exclude, cache, watch));
         svc
     }
 
@@ -657,7 +657,7 @@ impl Service {
         self.index.read().unwrap().search(query, scope, max)
     }
 
-    fn run(&self, roots: Vec<PathBuf>, exclude: Vec<String>, cache: Option<PathBuf>) {
+    fn run(&self, roots: Vec<PathBuf>, exclude: Vec<String>, cache: Option<PathBuf>, watch: bool) {
         use notify::{RecursiveMode, Watcher};
         let (tx, rx) = std::sync::mpsc::channel::<notify::Result<notify::Event>>();
         let mut watcher: Option<notify::RecommendedWatcher> = None;
@@ -671,7 +671,7 @@ impl Service {
                     let _ = self.index.read().unwrap().save(c);
                 }
                 rebuild_at = Instant::now() + Duration::from_secs(3600);
-                if watcher.is_none() {
+                if watch && watcher.is_none() {
                     watcher = notify::RecommendedWatcher::new(tx.clone(), notify::Config::default().with_follow_symlinks(false)).ok();
                     for root in &roots {
                         let Some(w) = watcher.as_mut() else { break };
