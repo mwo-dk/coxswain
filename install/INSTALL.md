@@ -12,9 +12,23 @@ Node.js is missing, it offers to install them and waits for your yes.
 
 The first build takes a few minutes. After that, rebuilding is quick.
 
+**Rather not build?** Ready-made installers for Windows, macOS and Linux are on the
+[releases page](https://github.com/mwo-dk/coxswain/releases/latest).
+
+## Getting the code
+
+Clone it with git, or unpack an archive you were sent:
+
+```sh
+git clone https://github.com/mwo-dk/coxswain.git
+cd coxswain
+```
+
+To update later: `git pull`, then run the install script again.
+
 ## Linux and macOS
 
-Unpack the archive, open a terminal in the folder, and run:
+In the `coxswain` folder, run:
 
 ```sh
 ./install/install.sh
@@ -51,7 +65,7 @@ app.
 
 ## Windows 10 and 11
 
-Unpack the zip, open PowerShell in the folder, and run:
+In the `coxswain` folder, open PowerShell and run:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File install\install.ps1

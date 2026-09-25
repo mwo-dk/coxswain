@@ -1,0 +1,54 @@
+# Maintainer: Michael W. Olesen <michael.w.olesen@gmail.com>
+# Kept in https://github.com/mwo-dk/coxswain/tree/master/packaging/aur; the release workflow
+# bumps pkgver and pushes it to the AUR.
+pkgname=coxswain
+pkgver=1.0.0
+pkgrel=1
+pkgdesc='Two-pane file manager in the Norton Commander tradition, with git status and instant search (terminal and desktop)'
+arch=('x86_64' 'aarch64')
+url='https://github.com/mwo-dk/coxswain'
+license=('MIT')
+depends=('webkit2gtk-4.1' 'gtk3' 'gcc-libs' 'glibc')
+makedepends=('cargo' 'npm')
+optdepends=('git: git status in the panels'
+            'ttf-nerd-fonts-symbols-mono: file icons and git glyphs'
+            'xdg-utils: open files with their default application')
+source=("$pkgname-$pkgver.tar.gz::$url/archive/refs/tags/v$pkgver.tar.gz")
+sha256sums=('SKIP')
+
+prepare() {
+  cd "$pkgname-$pkgver"
+  export RUSTUP_TOOLCHAIN=stable
+  cargo fetch --locked --target "$(rustc -vV | sed -n 's/host: //p')"
+  (cd gui && npm ci --no-audit --no-fund)
+}
+
+build() {
+  cd "$pkgname-$pkgver"
+  export RUSTUP_TOOLCHAIN=stable CARGO_TARGET_DIR=target
+  cargo build --frozen --release -p coxswain-tui
+  (cd gui && npx tauri build --no-bundle)
+}
+
+check() {
+  cd "$pkgname-$pkgver"
+  RUSTUP_TOOLCHAIN=stable cargo test --frozen -p coxswain-core
+}
+
+package() {
+  cd "$pkgname-$pkgver"
+  install -Dm755 target/release/coxswain "$pkgdir/usr/bin/coxswain"
+  install -Dm755 target/release/coxswain-gui "$pkgdir/usr/bin/coxswain-gui"
+  install -Dm644 gui/src-tauri/icons/128x128.png "$pkgdir/usr/share/icons/hicolor/128x128/apps/coxswain.png"
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+  install -Dm644 /dev/stdin "$pkgdir/usr/share/applications/coxswain.desktop" <<DESKTOP
+[Desktop Entry]
+Type=Application
+Name=Coxswain
+Comment=File manager: two panes, git status, instant search
+Exec=coxswain-gui %F
+Icon=coxswain
+Terminal=false
+Categories=System;FileTools;FileManager;
+DESKTOP
+}

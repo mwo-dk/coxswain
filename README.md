@@ -14,18 +14,28 @@ shared Rust core and read the same config file.
 - **Configurable.** Key bindings, color schemes, glyphs, user menu and fonts all live in one
   TOML file.
 
-## Build
+## Install
+
+**Download:** pick your platform under [Releases](https://github.com/mwo-dk/coxswain/releases/latest).
+The builds are not code-signed; the release notes say how to get past the first-run warning
+on Windows and macOS.
+
+**Build from source:**
 
 ```sh
-cargo build --release -p coxswain-tui      # terminal app: target/release/coxswain
-cd gui && npm install && npx tauri build  # desktop app and installers
+git clone https://github.com/mwo-dk/coxswain.git
+cd coxswain
+./install/install.sh                                          # Linux, macOS
+powershell -ExecutionPolicy Bypass -File install\install.ps1  # Windows
 ```
 
-For development, run `cargo run -p coxswain-tui` or `cd gui && npx tauri dev`.
+The script offers to install Rust and Node.js when they are missing, and asks first. See
+[install/INSTALL.md](install/INSTALL.md). For development: `cargo run -p coxswain-tui`, or
+`cd gui && npm ci && npx tauri dev`.
 
-On Linux the GUI needs WebKitGTK 4.1 (`webkit2gtk-4.1`). Git glyphs need a
-[Nerd Font](https://www.nerdfonts.com/). In the terminal, use one as your terminal font. The GUI
-picks up any installed Nerd Font listed in `gui.font`. Without one, set `glyphs = "ascii"`.
+Git glyphs need a [Nerd Font](https://www.nerdfonts.com/). In the terminal, use one as your
+terminal font; the GUI picks up any installed Nerd Font listed in `gui.icon_font`. Without
+one, set `glyphs = "ascii"`.
 
 ## Keys (defaults)
 

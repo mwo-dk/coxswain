@@ -360,7 +360,7 @@ impl Index {
                 Pat::Glob(g, false) => glob(g, name),
                 Pat::Sub(_, true) | Pat::Glob(_, true) => {
                     let p = path.get_or_insert_with(|| {
-                        let s = self.path(id).map(|p| p.to_string_lossy().into_owned()).unwrap_or_default();
+                        let s = self.path(id).map(|p| p.to_string_lossy().replace(std::path::MAIN_SEPARATOR, "/")).unwrap_or_default();
                         if q.case { s.into_bytes() } else { lowercase(&s) }
                     });
                     match pat {
@@ -542,7 +542,9 @@ impl Query {
                 } else if let Some(e) = l.strip_prefix("ext:") {
                     Pat::Ext(e.split(';').filter(|x| !x.is_empty()).map(|x| x.as_bytes().to_vec()).collect())
                 } else {
-                    let path = a.contains('/') || (cfg!(windows) && a.contains('\\'));
+                    // Paths are matched with `/` everywhere, so `src/ui` works on Windows too.
+                    let a = &a.replace(std::path::MAIN_SEPARATOR, "/");
+                    let path = a.contains('/');
                     // Case folding happens at compile time of the finder; see Query::fold.
                     if a.contains(['*', '?']) {
                         Pat::Glob(a.as_bytes().to_vec(), path)
