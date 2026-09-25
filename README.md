@@ -180,3 +180,6 @@ gui/src-tauri       Tauri backend (binary: coxswain-gui)
 ## License
 
 MIT
+
+Norton Commander is a trademark of Gen Digital Inc. Coxswain is an independent project, not
+affiliated with or endorsed by Gen Digital.
