@@ -259,40 +259,41 @@ impl Default for Theme {
 }
 
 impl Theme {
-    /// Norton Commander 5: cyan on blue, black-on-cyan cursor, yellow marks.
+    /// Norton Commander 5: cyan on blue, black-on-cyan cursor, yellow marks. Exact CGA RGB, so
+    /// the terminal's own palette (often a pale "blue") does not wash it out.
     pub fn nc() -> Self {
         Theme {
-            panel: st("lightcyan", "blue"),
-            border: st("lightcyan", "blue"),
-            header: bold(st("yellow", "blue")),
-            directory: bold(st("white", "blue")),
-            executable: st("lightgreen", "blue"),
-            hidden: st("cyan", "blue"),
-            symlink: st("lightmagenta", "blue"),
-            cursor: st("black", "cyan"),
-            marked: bold(st("yellow", "blue")),
-            marked_cursor: bold(st("yellow", "cyan")),
-            status: st("lightcyan", "blue"),
-            keybar_num: st("white", "black"),
-            keybar_label: st("black", "cyan"),
-            cmdline: st("gray", "black"),
-            dialog: st("black", "gray"),
-            dialog_border: st("white", "gray"),
-            dialog_input: st("black", "cyan"),
-            git_branch: bold(st("lightmagenta", "blue")),
-            git_modified: st("yellow", "blue"),
-            git_added: st("lightgreen", "blue"),
-            git_untracked: st("lightred", "blue"),
-            git_deleted: st("red", "blue"),
-            git_renamed: st("lightblue", "blue"),
-            git_conflict: bold(st("lightred", "blue")),
-            git_ignored: st("darkgray", "blue"),
-            search_hit: bold(st("yellow", "")),
-            accent: st("yellow", "blue"),
-            sidebar: st("lightcyan", "blue"),
-            tab: st("cyan", "blue"),
-            tab_active: st("black", "cyan"),
-            preview: st("lightcyan", "blue"),
+            panel: st("#55ffff", "#0000aa"),
+            border: st("#55ffff", "#0000aa"),
+            header: bold(st("#ffff55", "#0000aa")),
+            directory: bold(st("#ffffff", "#0000aa")),
+            executable: st("#55ff55", "#0000aa"),
+            hidden: st("#00aaaa", "#0000aa"),
+            symlink: st("#ff55ff", "#0000aa"),
+            cursor: st("#000000", "#00aaaa"),
+            marked: bold(st("#ffff55", "#0000aa")),
+            marked_cursor: bold(st("#ffff55", "#00aaaa")),
+            status: st("#55ffff", "#0000aa"),
+            keybar_num: st("#ffffff", "#000000"),
+            keybar_label: st("#000000", "#00aaaa"),
+            cmdline: st("#aaaaaa", "#000000"),
+            dialog: st("#000000", "#aaaaaa"),
+            dialog_border: st("#ffffff", "#aaaaaa"),
+            dialog_input: st("#000000", "#00aaaa"),
+            git_branch: bold(st("#ff55ff", "#0000aa")),
+            git_modified: st("#ffff55", "#0000aa"),
+            git_added: st("#55ff55", "#0000aa"),
+            git_untracked: st("#ff5555", "#0000aa"),
+            git_deleted: st("#aa0000", "#0000aa"),
+            git_renamed: st("#5555ff", "#0000aa"),
+            git_conflict: bold(st("#ff5555", "#0000aa")),
+            git_ignored: st("#555555", "#0000aa"),
+            search_hit: bold(st("#ffff55", "")),
+            accent: st("#ffff55", "#0000aa"),
+            sidebar: st("#55ffff", "#0000aa"),
+            tab: st("#00aaaa", "#0000aa"),
+            tab_active: st("#000000", "#00aaaa"),
+            preview: st("#55ffff", "#0000aa"),
         }
     }
 
@@ -730,7 +731,9 @@ mod tests {
         assert_eq!(km[&"F5".parse().unwrap()], Action::Copy);
         assert_eq!(km[&"F10".parse().unwrap()], Action::Quit);
         assert_eq!(km[&"Alt+F7".parse().unwrap()], Action::Search);
-        assert_eq!(c.theme().panel.bg, "blue");
+        // Exact CGA colors: named colors would follow the terminal's palette, which is rarely NC blue.
+        assert_eq!(c.theme().panel.bg, "#0000aa");
+        assert!(c.theme().slots().iter().all(|(_, s)| [&s.fg, &s.bg].iter().all(|c| c.is_empty() || c.starts_with('#'))));
     }
 
     #[test]
