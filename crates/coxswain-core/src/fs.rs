@@ -200,6 +200,10 @@ fn copy_tree(src: &Path, to: &Path) -> io::Result<()> {
             copy_tree(&de.path(), &to.join(de.file_name()))?;
         }
         Ok(())
+    } else if fs::symlink_metadata(to).is_ok() {
+        // Never overwrite: copying a file onto itself would truncate it.
+        // ponytail: no overwrite prompt yet; delete the target first.
+        Err(io::Error::new(io::ErrorKind::AlreadyExists, format!("{} exists", to.display())))
     } else {
         fs::copy(src, to).map(drop)
     }
@@ -287,6 +291,9 @@ mod tests {
         assert_eq!(copy(&d.join("src"), &d.join("dst")).unwrap(), d.join("dst/src"));
         assert_eq!(fs::read_to_string(d.join("dst/src/sub/f")).unwrap(), "x");
         assert!(copy(&d.join("src"), &d.join("src/sub")).is_err());
+        // Copying a file onto itself or over another file is refused, not truncated.
+        assert!(copy(&d.join("src/sub/f"), &d.join("src/sub")).is_err());
+        assert_eq!(fs::read_to_string(d.join("src/sub/f")).unwrap(), "x");
         rename(&d.join("src"), &d.join("moved")).unwrap();
         assert!(!d.join("src").exists() && d.join("moved/sub/f").exists());
         fs::write(d.join("dst/moved"), "").unwrap();
