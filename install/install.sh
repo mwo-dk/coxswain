@@ -135,7 +135,7 @@ fi
 # ---------------------------------------------------------------- build
 
 bold "Building the terminal app (a few minutes the first time)…"
-cargo build --release --locked -p bosum-tui
+cargo build --release --locked -p bosum
 mkdir -p "$PREFIX/bin"
 install -m 755 target/release/bosum "$PREFIX/bin/bosum"
 info "Installed $PREFIX/bin/bosum"

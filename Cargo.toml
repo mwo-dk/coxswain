@@ -6,6 +6,15 @@ members = ["crates/bosum-core", "crates/bosum-tui", "gui/src-tauri"]
 version = "1.1.0"
 edition = "2024"
 license = "MIT"
+repository = "https://github.com/mwo-dk/bosum"
+homepage = "https://github.com/mwo-dk/bosum"
+readme = "README.md"
+keywords = ["file-manager", "norton-commander", "tui", "search", "git"]
+categories = ["command-line-utilities", "filesystem"]
+
+# `version` must admit the workspace version, for crates.io.
+[workspace.dependencies]
+bosum-core = { path = "crates/bosum-core", version = "1" }
 
 [profile.release]
 lto = "thin"

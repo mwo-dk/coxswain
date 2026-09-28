@@ -1,8 +1,13 @@
 [package]
-name = "bosum-tui"
+name = "bosum"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+readme.workspace = true
+keywords.workspace = true
+categories.workspace = true
 description = "Bosum: a Norton Commander style file manager for the terminal"
 
 [[bin]]
@@ -10,7 +15,7 @@ name = "bosum"
 path = "src/main.rs"
 
 [dependencies]
-bosum-core = { path = "../bosum-core" }
+bosum-core.workspace = true
 ratatui = "0.30"
 chrono = { version = "0.4", default-features = false, features = ["clock"] }
 unicode-width = "0.2"

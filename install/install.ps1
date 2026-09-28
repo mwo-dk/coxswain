@@ -99,7 +99,7 @@ if (-not $TuiOnly -and -not (Have npm)) {
 # ---------------------------------------------------------------- build
 
 Say "Building the terminal app (a few minutes the first time)..."
-Run cargo build --release --locked -p bosum-tui
+Run cargo build --release --locked -p bosum
 New-Item -ItemType Directory -Force -Path $Dest | Out-Null
 Copy-Item "target\release\bosum.exe" $Dest -Force
 Info "Installed $Dest\bosum.exe"

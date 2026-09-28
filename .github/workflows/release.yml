@@ -1,7 +1,8 @@
 name: Release
 
 # Hands-off: when CI passes on master and the version in Cargo.toml has no release yet, build
-# every platform, publish the GitHub Release (which creates the tag) and update the AUR.
+# every platform, publish the GitHub Release (which creates the tag) and update the AUR,
+# crates.io, Homebrew and Scoop.
 # To release, bump `version` in Cargo.toml. Nothing else.
 on:
   workflow_run:
@@ -127,7 +128,7 @@ jobs:
         with:
           key: ${{ matrix.target }}
       # Static musl binaries on Linux run on any distribution.
-      - run: cargo build --release --locked -p bosum-tui --target ${{ matrix.target }}
+      - run: cargo build --release --locked -p bosum --target ${{ matrix.target }}
       - name: Package and upload
         env:
           GH_TOKEN: ${{ github.token }}
@@ -188,3 +189,52 @@ jobs:
           commit_email: michael.w.olesen@gmail.com
           ssh_private_key: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
           commit_message: Update to ${{ needs.draft.outputs.tag }}
+
+  crates:
+    needs: [draft, publish]
+    runs-on: ubuntu-24.04
+    env:
+      CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+    steps:
+      - if: env.CARGO_REGISTRY_TOKEN == ''
+        run: echo "::notice::CARGO_REGISTRY_TOKEN is not set, so crates.io is not updated. See packaging/README.md."
+      - uses: actions/checkout@v7
+        if: env.CARGO_REGISTRY_TOKEN != ''
+        with:
+          ref: ${{ needs.draft.outputs.sha }}
+      - uses: dtolnay/rust-toolchain@stable
+        if: env.CARGO_REGISTRY_TOKEN != ''
+      # Core first: the terminal app depends on it. Cargo waits until it is in the index.
+      - if: env.CARGO_REGISTRY_TOKEN != ''
+        run: |
+          cargo publish --locked -p bosum-core
+          cargo publish --locked -p bosum
+
+  taps:
+    needs: [draft, publish]
+    runs-on: ubuntu-24.04
+    env:
+      TAP_TOKEN: ${{ secrets.TAP_TOKEN }}
+    steps:
+      - if: env.TAP_TOKEN == ''
+        run: echo "::notice::TAP_TOKEN is not set, so Homebrew and Scoop are not updated. See packaging/README.md."
+      - uses: actions/checkout@v7
+        if: env.TAP_TOKEN != ''
+        with:
+          ref: ${{ needs.draft.outputs.sha }}
+      - name: Update mwo-dk/homebrew-bosum and mwo-dk/scoop-bosum
+        if: env.TAP_TOKEN != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.draft.outputs.tag }}
+        run: |
+          git config --global user.name "Michael W. Olesen"
+          git config --global user.email michael.w.olesen@gmail.com
+          for repo in homebrew-bosum scoop-bosum; do
+            git clone -q "https://x-access-token:$TAP_TOKEN@github.com/mwo-dk/$repo.git"
+          done
+          packaging/taps/generate.sh "$TAG" homebrew-bosum scoop-bosum
+          for repo in homebrew-bosum scoop-bosum; do
+            git -C "$repo" add -A
+            git -C "$repo" commit -qm "Bosum ${TAG#v}" && git -C "$repo" push -q || echo "$repo: nothing to update"
+          done
