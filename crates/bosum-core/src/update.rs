@@ -1,5 +1,6 @@
 //! The built-in version, and a once-a-day check for a newer release on GitHub.
 
+use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use crate::state::AppState;
@@ -66,6 +67,37 @@ pub fn check() -> Option<String> {
     available(&st)
 }
 
+/// The command that upgrades this copy, from where it is installed. `None` means it came
+/// from the releases page (or a source build), so that is where the new version is.
+pub fn upgrade_hint() -> Option<&'static str> {
+    // Inside an AppImage the executable is in a temporary mount; $APPIMAGE is the file itself.
+    let exe = std::env::var_os("APPIMAGE").map(PathBuf::from).or_else(|| std::env::current_exe().ok())?;
+    let exe = std::fs::canonicalize(&exe).unwrap_or(exe);
+    // A cask copies Bosum.app into /Applications, so the path alone does not show Homebrew.
+    let cask = ["/opt/homebrew", "/usr/local"].iter().any(|p| Path::new(p).join("Caskroom/bosum-gui").is_dir());
+    hint_for(&exe.to_string_lossy(), cfg!(target_os = "macos") && cask)
+}
+
+fn hint_for(exe: &str, mac_cask: bool) -> Option<&'static str> {
+    let p = exe.replace('\\', "/").to_lowercase();
+    Some(if p.contains("/caskroom/") || (mac_cask && p.contains("/applications/bosum.app/")) {
+        "brew upgrade --cask bosum-gui"
+    } else if p.contains("/cellar/") {
+        "brew upgrade bosum"
+    } else if p.contains("/.cargo/bin/") {
+        "cargo install bosum"
+    } else if p.contains("/scoop/apps/") {
+        "scoop update bosum"
+    } else if p.contains("/microsoft/winget/packages/") {
+        "winget upgrade mwo-dk.Bosum.Terminal"
+    } else if p.contains("/program files/bosum/") {
+        // The MSI, whether winget or a download put it there: winget upgrades either.
+        "winget upgrade mwo-dk.Bosum"
+    } else {
+        return None;
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -81,5 +113,21 @@ mod tests {
         assert!(!is_newer("1.0.0", "garbage"));
         assert!(is_newer("1.0.0", "1.1.0-rc.1"));
         assert!(parse(VERSION).is_some());
+    }
+
+    #[test]
+    fn update_hint_follows_the_install_source() {
+        let h = |p| hint_for(p, false);
+        assert_eq!(h("/home/linuxbrew/.linuxbrew/Cellar/bosum/1.2.0/bin/bosum"), Some("brew upgrade bosum"));
+        assert_eq!(h("/opt/homebrew/Cellar/bosum/1.2.0/bin/bosum"), Some("brew upgrade bosum"));
+        assert_eq!(h("/home/linuxbrew/.linuxbrew/Caskroom/bosum-gui/1.2.0/Bosum_1.2.0_amd64.AppImage"), Some("brew upgrade --cask bosum-gui"));
+        assert_eq!(hint_for("/Applications/Bosum.app/Contents/MacOS/bosum-gui", true), Some("brew upgrade --cask bosum-gui"));
+        assert_eq!(h("/Applications/Bosum.app/Contents/MacOS/bosum-gui"), None);
+        assert_eq!(h("/home/me/.cargo/bin/bosum"), Some("cargo install bosum"));
+        assert_eq!(h(r"C:\Users\me\scoop\apps\bosum\1.2.0\bosum.exe"), Some("scoop update bosum"));
+        assert_eq!(h(r"C:\Users\me\AppData\Local\Microsoft\WinGet\Packages\mwo-dk.Bosum.Terminal_x\bosum.exe"), Some("winget upgrade mwo-dk.Bosum.Terminal"));
+        assert_eq!(h(r"C:\Program Files\Bosum\bosum-gui.exe"), Some("winget upgrade mwo-dk.Bosum"));
+        assert_eq!(h("/home/me/.local/bin/bosum"), None);
+        assert_eq!(h("/home/me/Downloads/Bosum_1.2.0_amd64.AppImage"), None);
     }
 }

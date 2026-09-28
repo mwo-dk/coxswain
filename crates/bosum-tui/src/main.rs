@@ -810,7 +810,8 @@ impl App {
     /// Git results and index progress, polled between events.
     fn tick(&mut self, last_state: &mut State) {
         if let Ok(v) = self.update_rx.try_recv() {
-            self.status = Some(format!("Bosum {v} is available: {}", bosum_core::update::RELEASES_URL));
+            let how = bosum_core::update::upgrade_hint().unwrap_or(bosum_core::update::RELEASES_URL);
+            self.status = Some(format!("Bosum {v} is available: {how}"));
         }
         while let Ok((dir, st)) = self.git_rx.try_recv() {
             for p in self.panels.iter_mut().filter(|p| p.dir == dir) {
