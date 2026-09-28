@@ -3,6 +3,7 @@
   // under the cursor. Left/Right walk the hierarchy (handled in App).
   import { ui, cd, load, openItem, toggleMark } from "./app.svelte.js";
   import { invoke, parent, TAG_COLORS } from "./lib.js";
+  import { t as tr, i18n } from "./i18n.svelte.js"; // `t` is the tab here
 
   /** @type {{ t: any, active: boolean, onfocus: Function }} */
   let { t, active, onfocus } = $props();
@@ -43,7 +44,8 @@
   $effect(() => {
     ancestors;
     peek;
-    strip?.scrollTo({ left: strip.scrollWidth, behavior: "smooth" });
+    // Right to left (Hebrew), the newest column is at the left end, and scrollLeft counts down.
+    strip?.scrollTo({ left: i18n.rtl ? -strip.scrollWidth : strip.scrollWidth, behavior: "smooth" });
   });
 
   $effect(() => {
@@ -64,7 +66,7 @@
     <span class="icon" style:color={e.icon.color || null}>{e.icon.glyph}</span>
     <span class="label">{e.name}</span>
     {#if e.tag}<span class="tag" style:background={TAG_COLORS[e.tag]}></span>{/if}
-    {#if e.is_dir}<span class="chev">{"\u{f054}"}</span>{/if}
+    {#if e.is_dir}<span class="chev flip">{"\u{f054}"}</span>{/if}
   </div>
 {/snippet}
 
@@ -99,13 +101,16 @@
       {#each peek.items as e (e.path)}
         {@render entry(e, "", () => jump(peek.dir, e.name), () => jump(peek.dir, e.name))}
       {:else}
-        <p class="empty">Empty folder</p>
+        <p class="empty">{tr("columns.empty")}</p>
       {/each}
     </div>
   {/if}
 </div>
 
 <style>
+  :global([dir="rtl"]) .flip {
+    transform: scaleX(-1);
+  }
   .strip {
     flex: 1;
     display: flex;
@@ -117,7 +122,7 @@
   .col {
     flex: 0 0 clamp(180px, 22%, 280px);
     overflow-y: auto;
-    border-right: 1px solid var(--border-fg);
+    border-inline-end: 1px solid var(--border-fg);
     padding: 4px;
     box-sizing: border-box;
   }

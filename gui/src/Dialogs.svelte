@@ -3,7 +3,8 @@
   // App forwards keys through `handleKey`; returning true means "handled".
   import { tick } from "svelte";
   import { ui, tab, cd, load } from "./app.svelte.js";
-  import { invoke, basename, parent, size, date, TAGS, TAG_COLORS } from "./lib.js";
+  import { invoke, basename, parent, size, date, TAGS, TAG_COLORS, tagName } from "./lib.js";
+  import { t, tn, num } from "./i18n.svelte.js";
 
   let input = $state();
   let listEl = $state();
@@ -69,10 +70,10 @@
 
   async function goToHit(h) {
     close();
-    const t = tab();
-    await cd(t, parent(h.path));
-    const i = t.items.findIndex((e) => e.path === h.path);
-    if (i >= 0) t.cursor = i;
+    const tb = tab();
+    await cd(tb, parent(h.path));
+    const i = tb.items.findIndex((e) => e.path === h.path);
+    if (i >= 0) tb.cursor = i;
   }
 
   // ------------------------------------------------------------ batch rename
@@ -102,7 +103,7 @@
     if (!changed.length || m.plan.some((p) => p.conflict)) return;
     try {
       await invoke("rename_apply", { dir: m.dir, plan: $state.snapshot(m.plan) });
-      ui.status = `Renamed ${changed.length} item${changed.length > 1 ? "s" : ""}`;
+      ui.status = tn("dialogs.renamed", changed.length);
       close();
       load(tab());
     } catch (e) {
@@ -124,7 +125,7 @@
   async function savePerms() {
     const m = ui.modal;
     const mode = m.props.mode === null ? null : parseInt(m.mode, 8);
-    if (mode !== null && !validMode(m.mode)) return void (m.error = "Permissions are 3 or 4 octal digits, e.g. 644");
+    if (mode !== null && !validMode(m.mode)) return void (m.error = t("dialogs.perm_invalid"));
     try {
       await invoke("set_permissions", { path: m.props.path, mode, readonly: m.readonly });
       close();
@@ -138,6 +139,13 @@
 
   /** rwxr-xr-x for 0o755. */
   const rwx = (mode) => [6, 3, 0].map((s) => ["r", "w", "x"].map((c, i) => (mode >> (s + 2 - i)) & 1 ? c : "-").join("")).join("");
+
+  // Splits a text at its {placeholders}: odd entries are the placeholder names, so the
+  // markup around them (code, bold) stays out of the translated text.
+  const parts = (s) => s.split(/\{(\w+)\}/);
+
+  // Screen-reader name for modals that have no title of their own.
+  const KIND_LABEL = { help: "help.title", search: "search.title", rename: "action.batch_rename", props: "action.properties", tag: "action.tag" };
 
   // ------------------------------------------------------------ menus
 
@@ -207,30 +215,30 @@
   }
 </script>
 
-{#if ui.modal && ui.modal.kind !== "dupes"}
+{#if ui.modal && !["dupes", "settings"].includes(ui.modal.kind)}
   {@const m = ui.modal}
   <div class="backdrop" role="presentation" onclick={(e) => e.target === e.currentTarget && close()}>
-    <div class="dialog {m.kind}" role="dialog" aria-modal="true" aria-label={m.title ?? m.kind}>
+    <div class="dialog {m.kind}" role="dialog" aria-modal="true" aria-label={m.title ?? (KIND_LABEL[m.kind] ? t(KIND_LABEL[m.kind]) : m.kind)}>
       {#if m.kind === "input"}
         <h2>{m.title}</h2>
         <label>{m.label}<input bind:this={input} bind:value={m.value} spellcheck="false" /></label>
         <div class="buttons">
-          <button class="primary" onclick={() => confirm(m, m.value)}>OK</button>
-          <button onclick={close}>Cancel</button>
+          <button class="primary" onclick={() => confirm(m, m.value)}>{t("common.ok")}</button>
+          <button onclick={close}>{t("common.cancel")}</button>
         </div>
       {:else if m.kind === "confirm"}
         <h2>{m.title}</h2>
         <p>{m.text}</p>
         <div class="buttons">
-          <button class="primary danger" bind:this={input} onclick={() => confirm(m)}>{m.ok ?? "Delete"}</button>
-          <button onclick={close}>Cancel</button>
+          <button class="primary danger" bind:this={input} onclick={() => confirm(m)}>{m.ok ?? t("common.delete")}</button>
+          <button onclick={close}>{t("common.cancel")}</button>
         </div>
       {:else if m.kind === "message"}
         <h2>{m.title}</h2>
         <pre>{m.text}</pre>
-        <div class="buttons"><button class="primary" bind:this={input} onclick={close}>OK</button></div>
+        <div class="buttons"><button class="primary" bind:this={input} onclick={close}>{t("common.ok")}</button></div>
       {:else if m.kind === "help"}
-        <h2>Coxswain {ui.cfg.version} · keyboard shortcuts</h2>
+        <h2>{t("dialogs.help_title", { version: ui.cfg.version })}</h2>
         <div class="help" bind:this={input} tabindex="-1">
           <table>
             <tbody>
@@ -240,14 +248,16 @@
               {/each}
             </tbody>
           </table>
-          <p>Mouse: double-click opens · Ctrl-click / right-click marks · Shift-click marks a range · drag to a pane or another app to copy or move · click the path bar to type a path.</p>
-          <p><b>Find file</b> uses Everything's syntax: <code>foo bar</code> · <code>foo|bar</code> · <code>!foo</code> · <code>*.rs</code> · <code>ext:rs;toml</code> · <code>file:</code> <code>folder:</code> · <code>src/ foo</code> · <code>case:</code></p>
-          <p>Config: <code>{ui.cfg.config_path}</code> · every option: <code>coxswain --dump-config</code></p>
+          <p>{t("dialogs.help_mouse")}</p>
+          <p>{#each parts(t("dialogs.help_syntax")) as s, i (i)}{#if i % 2}<b>{t("search.title")}</b>{:else}{s}{/if}{/each} <code>foo bar</code> · <code>foo|bar</code> · <code>!foo</code> · <code>*.rs</code> · <code>ext:rs;toml</code> · <code>file:</code> <code>folder:</code> · <code>src/ foo</code> · <code>case:</code></p>
+          <p>
+            {#each parts(t("dialogs.help_config")) as s, i (i)}{#if i % 2}<code>{s === "path" ? ui.cfg.config_path : "coxswain --dump-config"}</code>{:else}{s}{/if}{/each}
+          </p>
         </div>
       {:else if m.kind === "menu"}
         <h2>{m.title}</h2>
         {#if !m.direct}
-          <input bind:this={input} bind:value={m.filter} oninput={() => (m.cursor = 0)} placeholder="Type to filter…" spellcheck="false" />
+          <input bind:this={input} bind:value={m.filter} oninput={() => (m.cursor = 0)} placeholder={t("dialogs.filter")} spellcheck="false" />
         {/if}
         <ul class="list" bind:this={listEl}>
           {#each menuItems(m) as it, i (it.label + i)}
@@ -259,21 +269,21 @@
               </button>
             </li>
           {:else}
-            <li class="none">No matches</li>
+            <li class="none">{t("dialogs.no_matches")}</li>
           {/each}
         </ul>
       {:else if m.kind === "search"}
         <div class="search-bar">
           <span class="glyph">{"\u{f002}"}</span>
-          <input bind:this={input} bind:value={m.query} oninput={runSearch} placeholder="Search every file…  *.rs · ext:md · src/ foo · !test" spellcheck="false" />
+          <input bind:this={input} bind:value={m.query} oninput={runSearch} placeholder={t("dialogs.search_placeholder")} spellcheck="false" />
           <button class="scope" title="Tab" onclick={() => { m.scoped = !m.scoped; runSearch(); input.focus(); }}>
-            {m.scoped ? `In ${basename(tab().dir)}` : "Everywhere"}
+            {m.scoped ? t("dialogs.scope_in", { folder: basename(tab().dir) }) : t("dialogs.scope_everywhere")}
           </button>
         </div>
         <p class="meta">
           {#if m.res}
-            {m.query ? `${m.res.total.toLocaleString()} matches · ${(m.res.micros / 1000).toFixed(1)} ms · ` : ""}{m.res.indexed.toLocaleString()} files indexed{m.res.state === "building" ? " · building index…" : m.res.state === "stale" ? " · refreshing" : ""}{m.res.total > m.res.hits.length ? ` · showing the first ${m.res.hits.length}, type more to narrow` : ""}
-          {:else}Type to search every file name on this machine.{/if}
+            {m.query ? `${tn("search.matches", m.res.total, { ms: num(m.res.micros / 1000, { minimumFractionDigits: 1, maximumFractionDigits: 1 }) })} · ` : ""}{tn("search.indexed", m.res.indexed)}{m.res.state === "building" ? t("search.building") : m.res.state === "stale" ? t("search.refreshing") : ""}{m.res.total > m.res.hits.length ? ` · ${tn("dialogs.showing_first", m.res.hits.length)}` : ""}
+          {:else}{t("dialogs.search_hint")}{/if}
         </p>
         <ul class="list hits" bind:this={listEl}>
           {#each m.res?.hits ?? [] as h, i (h.path)}
@@ -286,17 +296,17 @@
             </li>
           {/each}
         </ul>
-        <p class="meta">Enter go to · Tab everywhere/here · F4 edit · Esc close</p>
+        <p class="meta">{t("dialogs.search_footer")}</p>
       {:else if m.kind === "rename"}
-        <h2>Batch rename {m.names.length} items</h2>
+        <h2>{tn("dialogs.rename_title", m.names.length)}</h2>
         <div class="grid2">
-          <label>Find (regex)<input bind:this={input} bind:value={m.pattern} oninput={replan} spellcheck="false" placeholder="e.g. IMG_(\d+)" /></label>
-          <label>Replace with<input bind:value={m.replacement} oninput={replan} spellcheck="false" placeholder={"$1 · {n} · {n:3}"} /></label>
+          <label>{t("dialogs.rename_find")}<input bind:this={input} bind:value={m.pattern} oninput={replan} spellcheck="false" placeholder={t("dialogs.rename_find_hint")} /></label>
+          <label>{t("dialogs.rename_replace")}<input bind:value={m.replacement} oninput={replan} spellcheck="false" placeholder={"$1 · {n} · {n:3}"} /></label>
         </div>
         <div class="flags">
-          <label><input type="checkbox" bind:checked={m.ci} onchange={replan} /> Ignore case</label>
-          <label><input type="checkbox" bind:checked={m.global} onchange={replan} /> Replace all matches</label>
-          <label><input type="checkbox" bind:checked={m.whole} onchange={replan} /> Include extension</label>
+          <label><input type="checkbox" bind:checked={m.ci} onchange={replan} /> {t("dialogs.rename_ignore_case")}</label>
+          <label><input type="checkbox" bind:checked={m.global} onchange={replan} /> {t("dialogs.rename_all")}</label>
+          <label><input type="checkbox" bind:checked={m.whole} onchange={replan} /> {t("dialogs.rename_extension")}</label>
         </div>
         {#if m.error}<p class="err">{m.error}</p>{/if}
         <ul class="list plan">
@@ -308,39 +318,39 @@
           {/each}
         </ul>
         <div class="buttons">
-          <button class="primary" disabled={!m.plan.some((p) => p.from !== p.to) || m.plan.some((p) => p.conflict)} onclick={applyRename}>Rename</button>
-          <button onclick={close}>Cancel</button>
+          <button class="primary" disabled={!m.plan.some((p) => p.from !== p.to) || m.plan.some((p) => p.conflict)} onclick={applyRename}>{t("common.rename")}</button>
+          <button onclick={close}>{t("common.cancel")}</button>
         </div>
       {:else if m.kind === "props"}
         {@const p = m.props}
         <h2>{basename(p.path)}</h2>
         <dl class="props">
-          <dt>Location</dt><dd>{parent(p.path)}</dd>
-          <dt>Type</dt><dd>{p.kind}{#if p.link_target} → {p.link_target}{/if}</dd>
-          <dt>Size</dt><dd>{size(p.size)}{#if p.size >= 10_240} ({p.size.toLocaleString()} bytes){/if}{#if p.kind === "Folder"} in {p.files.toLocaleString()} files{/if}</dd>
-          {#if p.created}<dt>Created</dt><dd>{date(p.created)}</dd>{/if}
-          {#if p.modified}<dt>Modified</dt><dd>{date(p.modified)}</dd>{/if}
-          {#if p.accessed}<dt>Accessed</dt><dd>{date(p.accessed)}</dd>{/if}
+          <dt>{t("dialogs.location")}</dt><dd>{parent(p.path)}</dd>
+          <dt>{t("dialogs.type")}</dt><dd>{t(`dialogs.kind.${p.kind}`)}{#if p.link_target} → {p.link_target}{/if}</dd>
+          <dt>{t("dialogs.size")}</dt><dd>{size(p.size)}{#if p.size >= 10_240} {tn("dialogs.bytes", p.size)}{/if}{#if p.kind === "folder"} {tn("dialogs.in_files", p.files)}{/if}</dd>
+          {#if p.created}<dt>{t("dialogs.created")}</dt><dd>{date(p.created)}</dd>{/if}
+          {#if p.modified}<dt>{t("dialogs.modified")}</dt><dd>{date(p.modified)}</dd>{/if}
+          {#if p.accessed}<dt>{t("dialogs.accessed")}</dt><dd>{date(p.accessed)}</dd>{/if}
           {#if p.mode !== null}
-            <dt>Owner</dt><dd>uid {p.uid}, gid {p.gid}</dd>
-            <dt>Permissions</dt>
+            <dt>{t("dialogs.owner")}</dt><dd>{t("dialogs.owner_ids", { uid: p.uid, gid: p.gid })}</dd>
+            <dt>{t("dialogs.permissions")}</dt>
             <dd class="perm"><input bind:this={input} bind:value={m.mode} size="5" spellcheck="false" /> <code>{validMode(m.mode) ? rwx(parseInt(m.mode, 8)) : ""}</code></dd>
           {:else}
-            <dt>Attributes</dt><dd><label class="check"><input type="checkbox" bind:checked={m.readonly} /> Read-only</label></dd>
+            <dt>{t("dialogs.attributes")}</dt><dd><label class="check"><input type="checkbox" bind:checked={m.readonly} /> {t("dialogs.readonly")}</label></dd>
           {/if}
         </dl>
         {#if m.error}<p class="err">{m.error}</p>{/if}
         <div class="buttons">
-          <button class="primary" onclick={savePerms}>Apply</button>
-          <button onclick={close}>Close</button>
+          <button class="primary" onclick={savePerms}>{t("common.apply")}</button>
+          <button onclick={close}>{t("common.close")}</button>
         </div>
       {:else if m.kind === "tag"}
-        <h2>Color tag</h2>
+        <h2>{t("action.tag")}</h2>
         <div class="tags">
           {#each TAGS as c, i (c)}
-            <button onclick={() => setTag(c)} title={c}><span class="dot" style:background={TAG_COLORS[c]}></span>{i + 1} {c}</button>
+            <button onclick={() => setTag(c)} title={tagName(c)}><span class="dot" style:background={TAG_COLORS[c]}></span>{i + 1} {tagName(c)}</button>
           {/each}
-          <button onclick={() => setTag("")}><span class="dot none"></span>0 none</button>
+          <button onclick={() => setTag("")}><span class="dot none"></span>0 {t("dialogs.tag_none")}</button>
         </div>
       {/if}
     </div>
@@ -469,7 +479,7 @@
     width: 100%;
     padding: 6px 10px;
     border-radius: 7px;
-    text-align: left;
+    text-align: start;
     white-space: nowrap;
   }
   .list button.cursor {
@@ -483,7 +493,7 @@
     font-family: var(--mono-font);
     font-size: 0.8em;
     padding: 1px 6px;
-    margin-left: 4px;
+    margin-inline-start: 4px;
     border-radius: 4px;
     border: 1px solid var(--border-fg);
     color: var(--hidden-fg);

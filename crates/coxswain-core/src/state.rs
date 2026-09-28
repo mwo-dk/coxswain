@@ -33,7 +33,8 @@ impl Default for AppState {
     fn default() -> Self {
         AppState {
             session: serde_json::Value::Null,
-            favorites: vec![FavoriteGroup { name: "Favorites".into(), paths: vec![] }],
+            // Named in the language in use when the state is first created.
+            favorites: vec![FavoriteGroup { name: crate::t!("state.favourites"), paths: vec![] }],
             tags: BTreeMap::new(),
             notes: BTreeMap::new(),
             recent_repos: vec![],

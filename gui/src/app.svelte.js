@@ -2,6 +2,7 @@
 
 import { SvelteSet } from "svelte/reactivity";
 import { invoke, basename, parent, applyTheme } from "./lib.js";
+import { setLanguage, t } from "./i18n.svelte.js";
 
 export const ui = $state({
   cfg: null,
@@ -198,6 +199,7 @@ export function snapshot() {
 
 export async function init() {
   ui.cfg = await invoke("get_config");
+  setLanguage(ui.cfg);
   const st = await invoke("get_state");
   const s = st.session ?? {};
   ui.favorites = st.favorites;
@@ -230,16 +232,17 @@ export async function init() {
   invoke("places").then((p) => (ui.places = p));
   // `coxswain-gui --duplicates <folders>` starts straight in a scan of those folders.
   if (ui.cfg.duplicates) ui.modal = { kind: "dupes", roots: Object.fromEntries(ui.cfg.duplicates.map((p) => [p, true])), autostart: true };
+  if (ui.cfg.open_settings) ui.modal = { kind: "settings" };
   invoke("disks").then((d) => (ui.disks = d));
 }
 
 /** Enter / double-click: folders open in place, files in their default application. */
-export function openItem(t, i = t.cursor) {
-  const e = t.items[i];
+export function openItem(tb, i = tb.cursor) {
+  const e = tb.items[i];
   if (!e) return;
-  if (e.is_dir) return cd(t, e.path);
+  if (e.is_dir) return cd(tb, e.path);
   invoke("open_path", { path: e.path }).then(
-    () => (ui.status = `Opened ${e.name}`),
+    () => (ui.status = t("status.opened", { name: e.name })),
     (err) => (ui.status = String(err)),
   );
 }
@@ -261,22 +264,22 @@ export function dragOut(t, i) {
 
 /** The details view's column choices and automatic folder sizes, as a menu. */
 export function columnMenu() {
-  const names = { type: "Type", size: "Size", files: "Files (in folders)", modified: "Modified", created: "Created" };
+  const names = { type: t("app.col.type"), size: t("app.col.size"), files: t("app.col.files"), modified: t("app.col.modified"), created: t("app.col.created") };
   const box = (on) => (on ? "\u{f0132}" : "\u{f0131}");
   ui.modal = {
     kind: "menu",
-    title: "Columns and folder sizes",
+    title: t("action.columns"),
     direct: false,
     filter: "",
     cursor: 0,
     items: [
       ...Object.entries(names).map(([id, label]) => ({ label, icon: box(ui.columns[id]), run: () => ((ui.columns[id] = !ui.columns[id]), columnMenu()) })),
       {
-        label: "Measure folder sizes automatically",
+        label: t("app.auto_sizes"),
         icon: box(ui.autoSizes),
         run: () => {
           ui.autoSizes = !ui.autoSizes;
-          if (ui.autoSizes) for (const t of visibleTabs()) measureFolders(t);
+          if (ui.autoSizes) for (const x of visibleTabs()) measureFolders(x);
           columnMenu();
         },
       },

@@ -2,6 +2,7 @@
 
 mod ui;
 
+use coxswain_core::{t, tn};
 use coxswain_core::config::{self, Action, Config, Glyphs, Key, KeyCode};
 use coxswain_core::fs::{self as bfs, Entry, SortKey};
 use coxswain_core::git;
@@ -291,7 +292,7 @@ impl App {
     fn describe(paths: &[PathBuf]) -> String {
         match paths {
             [one] => format!("\"{}\"", one.file_name().unwrap_or_default().to_string_lossy()),
-            _ => format!("{} items", paths.len()),
+            _ => tn!("items", paths.len()),
         }
     }
 
@@ -397,8 +398,8 @@ impl App {
             }
             Action::SelectGroup | Action::UnselectGroup => {
                 let sel = a == Action::SelectGroup;
-                let title = if sel { "Select" } else { "Unselect" };
-                self.input(title, "Files matching:".into(), "*".into(), Prompt::Select(sel));
+                let title = if sel { t!("tui.select") } else { t!("tui.unselect") };
+                self.input(&title, t!("tui.files_matching"), "*".into(), Prompt::Select(sel));
             }
             Action::InvertSelection => {
                 let p = self.panel_mut();
@@ -410,7 +411,7 @@ impl App {
             }
             Action::Refresh => {
                 self.reload();
-                self.status = Some("Reread".into());
+                self.status = Some(t!("status.reread"));
             }
             Action::SwapPanels => {
                 self.panels.swap(0, 1);
@@ -424,8 +425,8 @@ impl App {
             Action::GotoLeft | Action::GotoRight => {
                 let side = (a == Action::GotoRight) as usize;
                 let cur = self.panels[side].dir.to_string_lossy().into_owned();
-                let title = if side == 0 { "Left panel" } else { "Right panel" };
-                self.input(title, "Go to directory:".into(), cur, Prompt::Goto(side));
+                let title = if side == 0 { t!("tui.left_panel") } else { t!("tui.right_panel") };
+                self.input(&title, t!("tui.goto"), cur, Prompt::Goto(side));
             }
             Action::SameDir => {
                 let d = self.panel().dir.clone();
@@ -465,12 +466,12 @@ impl App {
                     return;
                 }
                 let dst = self.panels[self.active ^ 1].dir.to_string_lossy().into_owned();
-                let (title, verb) = if a == Action::Copy { ("Copy", "Copy") } else { ("Rename/Move", "Move") };
-                let label = format!("{verb} {} to:", Self::describe(&src));
+                let (title, label) = if a == Action::Copy { ("dialog.copy", "dialog.copy_to") } else { ("dialog.move", "dialog.move_to") };
+                let label = t!(label, "what" => Self::describe(&src));
                 let prompt = if a == Action::Copy { Prompt::Copy(src) } else { Prompt::Move(src) };
-                self.input(title, label, dst, prompt);
+                self.input(&t!(title), label, dst, prompt);
             }
-            Action::Mkdir => self.input("Make directory", "Create the directory:".into(), String::new(), Prompt::Mkdir),
+            Action::Mkdir => self.input(&t!("dialog.new_folder"), t!("tui.mkdir_label"), String::new(), Prompt::Mkdir),
             Action::Delete | Action::DeleteForever => {
                 let paths = self.panel().targets();
                 if paths.is_empty() {
@@ -478,9 +479,8 @@ impl App {
                 }
                 let forever = a == Action::DeleteForever;
                 if self.cfg.confirm_delete {
-                    let how = if forever { "permanently delete" } else { "move to the trash" };
-                    let text = format!("Do you wish to {how} {}?", Self::describe(&paths));
-                    self.dialog = Some(Dialog::Confirm { title: "Delete".into(), text, paths, forever });
+                    let text = t!(if forever { "confirm.delete_forever" } else { "confirm.trash" }, "what" => Self::describe(&paths));
+                    self.dialog = Some(Dialog::Confirm { title: t!("dialog.delete"), text, paths, forever });
                 } else {
                     self.delete(paths, forever);
                 }
@@ -496,7 +496,7 @@ impl App {
                     .enumerate()
                     .map(|(i, u)| MenuItem { key: u.key.clone(), label: u.label.clone(), run: MenuRun::User(i) })
                     .collect();
-                self.dialog = Some(Dialog::Menu { title: "User menu".into(), filter: String::new(), items, cursor: 0, direct: true });
+                self.dialog = Some(Dialog::Menu { title: t!("tui.user_menu"), filter: String::new(), items, cursor: 0, direct: true });
             }
             Action::Menu => {
                 let items = Action::ALL
@@ -504,7 +504,7 @@ impl App {
                     .filter(|&&x| !x.gui_only() && !matches!(x, Action::Menu | Action::Up | Action::Down))
                     .map(|&x| MenuItem { key: self.key_label(x).to_string(), label: x.label().to_string(), run: MenuRun::Action(x) })
                     .collect();
-                self.dialog = Some(Dialog::Menu { title: "Commands".into(), filter: String::new(), items, cursor: 0, direct: false });
+                self.dialog = Some(Dialog::Menu { title: t!("menu.commands"), filter: String::new(), items, cursor: 0, direct: false });
             }
             Action::Help => self.dialog = Some(Dialog::Help { scroll: 0 }),
             Action::DirSizes => {
@@ -516,7 +516,7 @@ impl App {
                     p.sizes.insert(d, bytes);
                 }
             }
-            a => self.status = Some(format!("{} is available in the GUI (coxswain-gui)", a.label())),
+            a => self.status = Some(t!("tui.gui_only", "action" => a.label())),
         }
     }
 
@@ -532,8 +532,8 @@ impl App {
             return;
         }
         self.status = Some(match bfs::open_default(&e.path) {
-            Ok(()) => format!("Opened {}", e.name),
-            Err(err) => format!("open: {err}"),
+            Ok(()) => t!("status.opened", "name" => e.name),
+            Err(err) => t!("status.open_failed", "error" => err),
         });
     }
 
@@ -561,7 +561,7 @@ impl App {
             if target.is_dir() {
                 self.cd(self.active, std::fs::canonicalize(&target).unwrap_or(target));
             } else {
-                self.status = Some(format!("cd: no such directory: {arg}"));
+                self.status = Some(t!("status.no_dir", "dir" => arg));
             }
             return;
         }
@@ -571,8 +571,8 @@ impl App {
     fn delete(&mut self, paths: Vec<PathBuf>, forever: bool) {
         let op = if forever { bfs::delete } else { bfs::trash };
         let errors: Vec<String> = paths.iter().filter_map(|p| op(p).err().map(|e| format!("{}: {e}", p.display()))).collect();
-        let verb = if forever { "Deleted" } else { "Trashed" };
-        self.after_op(format!("{verb} {}", Self::describe(&paths)), errors);
+        let verb = if forever { "status.deleted" } else { "status.trashed" };
+        self.after_op(t!(verb, "what" => Self::describe(&paths)), errors);
     }
 
     fn after_op(&mut self, ok: String, errors: Vec<String>) {
@@ -581,7 +581,7 @@ impl App {
         if errors.is_empty() {
             self.status = Some(ok);
         } else {
-            self.dialog = Some(Dialog::Message { title: "Error".into(), text: errors.join("\n") });
+            self.dialog = Some(Dialog::Message { title: t!("dialog.error"), text: errors.join("\n") });
         }
     }
 
@@ -592,12 +592,12 @@ impl App {
             Prompt::Copy(src) => {
                 let dst = resolve(&base, &value);
                 let errors = src.iter().filter_map(|p| bfs::copy(p, &dst).err().map(|e| format!("{}: {e}", p.display()))).collect();
-                self.after_op(format!("Copied {}", Self::describe(&src)), errors);
+                self.after_op(t!("status.copied", "what" => Self::describe(&src)), errors);
             }
             Prompt::Move(src) => {
                 let dst = resolve(&base, &value);
                 let errors = src.iter().filter_map(|p| bfs::rename(p, &dst).err().map(|e| format!("{}: {e}", p.display()))).collect();
-                self.after_op(format!("Moved {}", Self::describe(&src)), errors);
+                self.after_op(t!("status.moved", "what" => Self::describe(&src)), errors);
                 if src.len() == 1 && dst.parent() == Some(base.as_path()) {
                     let n = dst.file_name().unwrap_or_default().to_string_lossy().into_owned();
                     self.panel_mut().select_name(&n);
@@ -607,7 +607,7 @@ impl App {
             Prompt::Mkdir => {
                 let d = resolve(&base, &value);
                 let errors = bfs::mkdir(&d).err().map(|e| vec![format!("{}: {e}", d.display())]).unwrap_or_default();
-                self.after_op(format!("Created {}", d.display()), errors);
+                self.after_op(t!("status.created", "what" => d.display()), errors);
                 if let Some(first) = d.strip_prefix(&base).ok().and_then(|r| r.components().next()) {
                     self.panel_mut().select_name(&first.as_os_str().to_string_lossy());
                 }
@@ -618,7 +618,7 @@ impl App {
                 if d.is_dir() {
                     self.cd(side, d);
                 } else {
-                    self.status = Some(format!("Not a directory: {}", d.display()));
+                    self.status = Some(t!("status.not_dir", "dir" => d.display()));
                 }
             }
             Prompt::Select(sel) => {
@@ -817,7 +817,7 @@ impl App {
     fn tick(&mut self, last_state: &mut State) {
         if let Ok(v) = self.update_rx.try_recv() {
             let how = coxswain_core::update::upgrade_hint().unwrap_or(coxswain_core::update::RELEASES_URL);
-            self.status = Some(format!("Coxswain {v} is available: {how}"));
+            self.status = Some(t!("status.update", "version" => v, "how" => how));
         }
         while let Ok((dir, st)) = self.git_rx.try_recv() {
             for p in self.panels.iter_mut().filter(|p| p.dir == dir) {
@@ -882,7 +882,7 @@ fn run_shell(cmd: &str, dir: &Path, wait: bool) {
         println!("coxswain: {sh}: {e}");
     }
     if wait {
-        print!("\n-- press Enter --");
+        print!("\n{}", t!("tui.press_enter"));
         let _ = std::io::stdout().flush();
         let _ = std::io::stdin().read_line(&mut String::new());
     }
@@ -936,6 +936,7 @@ fn main() {
         eprintln!("coxswain: {e}");
         std::process::exit(2)
     });
+    coxswain_core::i18n::set_language(coxswain_core::i18n::resolve(&cfg.language));
     let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("/"));
     let dir = |i: usize| {
         let d = args.get(i).map(|a| resolve(&cwd, a)).unwrap_or_else(|| cwd.clone());
