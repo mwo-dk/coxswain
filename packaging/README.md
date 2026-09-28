@@ -8,6 +8,7 @@ job just leaves a notice.
 | crates.io | `coxswain-core`, then `coxswain` (`cargo install coxswain`) | `CARGO_REGISTRY_TOKEN` |
 | Homebrew | `coxswain` formula (terminal) and `coxswain-gui` cask (desktop: .dmg on macOS, AppImage on Linux) in [mwo-dk/homebrew-coxswain](https://github.com/mwo-dk/homebrew-coxswain) | `TAP_TOKEN` |
 | Scoop | manifest in [mwo-dk/scoop-coxswain](https://github.com/mwo-dk/scoop-coxswain) | `TAP_TOKEN` |
+| winget | `mwo-dk.Coxswain` (the MSI) and `mwo-dk.Coxswain.Terminal` (the zip), as pull requests to [microsoft/winget-pkgs](https://github.com/microsoft/winget-pkgs) | `WINGET_TOKEN` |
 
 The AUR packages in `aur/` are kept, but not published while AUR registration is closed.
 
@@ -21,3 +22,10 @@ assets.
 **Homebrew and Scoop:** make a fine-grained token at <https://github.com/settings/personal-access-tokens>
 limited to `mwo-dk/homebrew-coxswain` and `mwo-dk/scoop-coxswain`, with *Contents: read and write*,
 then `gh secret set TAP_TOKEN -R mwo-dk/coxswain`.
+
+**winget:** the release job only adds versions to packages that already exist, so the first
+version of each was submitted by hand with [Komac](https://github.com/russellbanks/Komac)
+(`komac new`). Each pull request is reviewed by winget's maintainers, which takes hours to
+days; until it merges, `winget upgrade` does not see the new version. For the job, make a
+classic token at <https://github.com/settings/tokens> with only the `public_repo` scope
+(Komac pushes to your fork of winget-pkgs), then `gh secret set WINGET_TOKEN -R mwo-dk/coxswain`.

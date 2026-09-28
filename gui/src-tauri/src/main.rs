@@ -668,10 +668,10 @@ async fn run_script(user: Option<usize>, path: Option<PathBuf>, dir: PathBuf, fi
     output(c, &dir)
 }
 
-/// A newer release, if the (daily, cached) check found one. The network call runs outside the
-/// state lock so other commands are not held up.
+/// A newer release, if the (daily, cached) check found one, and the command that upgrades this
+/// copy. The network call runs outside the state lock so other commands are not held up.
 #[tauri::command]
-async fn check_update(ctx: tauri::State<'_, Ctx>) -> Res<Option<String>> {
+async fn check_update(ctx: tauri::State<'_, Ctx>) -> Res<Option<(String, Option<&'static str>)>> {
     use coxswain_core::update;
     if !ctx.cfg.check_updates {
         return Ok(None);
@@ -682,7 +682,8 @@ async fn check_update(ctx: tauri::State<'_, Ctx>) -> Res<Option<String>> {
             ctx.edit(|st| update::record(st, latest))?;
         }
     }
-    Ok(update::available(&*ctx.state.lock().map_err(|e| e.to_string())?))
+    let v = update::available(&*ctx.state.lock().map_err(|e| e.to_string())?);
+    Ok(v.map(|v| (v, update::upgrade_hint())))
 }
 
 fn main() {

@@ -497,8 +497,10 @@
       <input class="cmd" bind:this={cmdInput} bind:value={ui.cmd} spellcheck="false" autocomplete="off" placeholder="Type a command…" aria-label="Command line" />
       {#if ui.status}<span class="status">{ui.status}</span>{/if}
       {#if update}
-        <button class="update" title="Open the releases page" onclick={() => invoke("open_path", { path: "https://github.com/mwo-dk/coxswain/releases/latest" })}>
-          Coxswain {update} is available
+        <!-- With a package manager, the command upgrades; the page still has the release notes. -->
+        <button class="update" title={update[1] ? `Upgrade with: ${update[1]}. Click for the release notes.` : "Open the releases page"}
+          onclick={() => invoke("open_path", { path: "https://github.com/mwo-dk/coxswain/releases/latest" })}>
+          Coxswain {update[0]} is available{update[1] ? `: ${update[1]}` : ""}
         </button>
       {/if}
     </label>

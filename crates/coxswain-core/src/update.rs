@@ -1,5 +1,6 @@
 //! The built-in version, and a once-a-day check for a newer release on GitHub.
 
+use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use crate::state::AppState;
@@ -66,6 +67,37 @@ pub fn check() -> Option<String> {
     available(&st)
 }
 
+/// The command that upgrades this copy, from where it is installed. `None` means it came
+/// from the releases page (or a source build), so that is where the new version is.
+pub fn upgrade_hint() -> Option<&'static str> {
+    // Inside an AppImage the executable is in a temporary mount; $APPIMAGE is the file itself.
+    let exe = std::env::var_os("APPIMAGE").map(PathBuf::from).or_else(|| std::env::current_exe().ok())?;
+    let exe = std::fs::canonicalize(&exe).unwrap_or(exe);
+    // A cask copies Coxswain.app into /Applications, so the path alone does not show Homebrew.
+    let cask = ["/opt/homebrew", "/usr/local"].iter().any(|p| Path::new(p).join("Caskroom/coxswain-gui").is_dir());
+    hint_for(&exe.to_string_lossy(), cfg!(target_os = "macos") && cask)
+}
+
+fn hint_for(exe: &str, mac_cask: bool) -> Option<&'static str> {
+    let p = exe.replace('\\', "/").to_lowercase();
+    Some(if p.contains("/caskroom/") || (mac_cask && p.contains("/applications/coxswain.app/")) {
+        "brew upgrade --cask coxswain-gui"
+    } else if p.contains("/cellar/") {
+        "brew upgrade coxswain"
+    } else if p.contains("/.cargo/bin/") {
+        "cargo install coxswain"
+    } else if p.contains("/scoop/apps/") {
+        "scoop update coxswain"
+    } else if p.contains("/microsoft/winget/packages/") {
+        "winget upgrade mwo-dk.Coxswain.Terminal"
+    } else if p.contains("/program files/coxswain/") {
+        // The MSI, whether winget or a download put it there: winget upgrades either.
+        "winget upgrade mwo-dk.Coxswain"
+    } else {
+        return None;
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -81,5 +113,21 @@ mod tests {
         assert!(!is_newer("1.0.0", "garbage"));
         assert!(is_newer("1.0.0", "1.1.0-rc.1"));
         assert!(parse(VERSION).is_some());
+    }
+
+    #[test]
+    fn update_hint_follows_the_install_source() {
+        let h = |p| hint_for(p, false);
+        assert_eq!(h("/home/linuxbrew/.linuxbrew/Cellar/coxswain/1.2.0/bin/coxswain"), Some("brew upgrade coxswain"));
+        assert_eq!(h("/opt/homebrew/Cellar/coxswain/1.2.0/bin/coxswain"), Some("brew upgrade coxswain"));
+        assert_eq!(h("/home/linuxbrew/.linuxbrew/Caskroom/coxswain-gui/1.2.0/Coxswain_1.2.0_amd64.AppImage"), Some("brew upgrade --cask coxswain-gui"));
+        assert_eq!(hint_for("/Applications/Coxswain.app/Contents/MacOS/coxswain-gui", true), Some("brew upgrade --cask coxswain-gui"));
+        assert_eq!(h("/Applications/Coxswain.app/Contents/MacOS/coxswain-gui"), None);
+        assert_eq!(h("/home/me/.cargo/bin/coxswain"), Some("cargo install coxswain"));
+        assert_eq!(h(r"C:\Users\me\scoop\apps\coxswain\1.2.0\coxswain.exe"), Some("scoop update coxswain"));
+        assert_eq!(h(r"C:\Users\me\AppData\Local\Microsoft\WinGet\Packages\mwo-dk.Coxswain.Terminal_x\coxswain.exe"), Some("winget upgrade mwo-dk.Coxswain.Terminal"));
+        assert_eq!(h(r"C:\Program Files\Coxswain\coxswain-gui.exe"), Some("winget upgrade mwo-dk.Coxswain"));
+        assert_eq!(h("/home/me/.local/bin/coxswain"), None);
+        assert_eq!(h("/home/me/Downloads/Coxswain_1.2.0_amd64.AppImage"), None);
     }
 }
