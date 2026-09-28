@@ -52,30 +52,50 @@ class Coxswain < Formula
 end
 RUBY
 
-# The desktop app, as a cask. The .dmg has no .sha256 asset, so hash the download. The builds
-# are not notarized; clearing the quarantine flag is what lets macOS open them.
-dmg_sha() { gh release download "$tag" -R mwo-dk/coxswain -p "Coxswain_${version}_$1.dmg" -O - | shasum -a 256 | cut -d' ' -f1; }
+# The desktop app, as a cask: the .dmg on macOS, the AppImage on Linux. These have no .sha256
+# assets, so hash the downloads. The macOS builds are not notarized; clearing the quarantine
+# flag is what lets macOS open them.
+asset_sha() { gh release download "$tag" -R mwo-dk/coxswain -p "$1" -O - | sha256sum | cut -d' ' -f1; }
+appimage="Coxswain_#{version}_amd64.AppImage"
 mkdir -p "$brew/Casks"
 cat > "$brew/Casks/coxswain-gui.rb" <<RUBY
 cask "coxswain-gui" do
-  arch arm: "aarch64", intel: "x64"
-
   version "$version"
-  sha256 arm:   "$(dmg_sha aarch64)",
-         intel: "$(dmg_sha x64)"
 
-  url "$repo/releases/download/v#{version}/Coxswain_#{version}_#{arch}.dmg"
+  on_macos do
+    arch arm: "aarch64", intel: "x64"
+
+    sha256 arm:   "$(asset_sha "Coxswain_${version}_aarch64.dmg")",
+           intel: "$(asset_sha "Coxswain_${version}_x64.dmg")"
+
+    url "$repo/releases/download/v#{version}/Coxswain_#{version}_#{arch}.dmg"
+
+    app "Coxswain.app"
+
+    postflight do
+      system_command "/usr/bin/xattr", args: ["-cr", "#{appdir}/Coxswain.app"]
+    end
+  end
+
+  on_linux do
+    depends_on arch: :x86_64
+
+    sha256 "$(asset_sha "Coxswain_${version}_amd64.AppImage")"
+
+    url "$repo/releases/download/v#{version}/$appimage"
+
+    binary "$appimage", target: "coxswain-gui"
+
+    preflight do
+      set_permissions "#{staged_path}/$appimage", "0755"
+    end
+  end
+
   name "Coxswain"
   desc "$desc (desktop app)"
   homepage "$repo"
 
-  app "Coxswain.app"
-
-  postflight do
-    system_command "/usr/bin/xattr", args: ["-cr", "#{appdir}/Coxswain.app"]
-  end
-
-  # Config and state in ~/Library/Application Support/coxswain stay: the terminal app shares them.
+  # Config and state in the coxswain config folder stay: the terminal app shares them.
   zap trash: [
     "~/Library/Caches/coxswain",
     "~/Library/WebKit/dk.mwo.coxswain",

@@ -6,7 +6,7 @@ job just leaves a notice.
 | Where | What | Secret |
 |---|---|---|
 | crates.io | `coxswain-core`, then `coxswain` (`cargo install coxswain`) | `CARGO_REGISTRY_TOKEN` |
-| Homebrew | `coxswain` formula (terminal) and `coxswain-gui` cask (desktop, macOS) in [mwo-dk/homebrew-coxswain](https://github.com/mwo-dk/homebrew-coxswain) | `TAP_TOKEN` |
+| Homebrew | `coxswain` formula (terminal) and `coxswain-gui` cask (desktop: .dmg on macOS, AppImage on Linux) in [mwo-dk/homebrew-coxswain](https://github.com/mwo-dk/homebrew-coxswain) | `TAP_TOKEN` |
 | Scoop | manifest in [mwo-dk/scoop-coxswain](https://github.com/mwo-dk/scoop-coxswain) | `TAP_TOKEN` |
 
 The AUR packages in `aur/` are kept, but not published while AUR registration is closed.

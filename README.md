@@ -32,7 +32,7 @@ brew install mwo-dk/coxswain/coxswain                                           
 scoop bucket add coxswain https://github.com/mwo-dk/scoop-coxswain; scoop install coxswain   # Windows
 ```
 
-**Desktop app on macOS:** `brew install --cask mwo-dk/coxswain/coxswain-gui`
+**Desktop app** (macOS, Linux x86-64): `brew install --cask mwo-dk/coxswain/coxswain-gui`
 
 **Download:** pick your platform under [Releases](https://github.com/mwo-dk/coxswain/releases/latest).
 The builds are not code-signed; the release notes say how to get past the first-run warning
