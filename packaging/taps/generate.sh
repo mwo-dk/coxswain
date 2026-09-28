@@ -52,6 +52,37 @@ class Bosum < Formula
 end
 RUBY
 
+# The desktop app, as a cask. The .dmg has no .sha256 asset, so hash the download. The builds
+# are not notarized; clearing the quarantine flag is what lets macOS open them.
+dmg_sha() { gh release download "$tag" -R mwo-dk/bosum -p "Bosum_${version}_$1.dmg" -O - | shasum -a 256 | cut -d' ' -f1; }
+mkdir -p "$brew/Casks"
+cat > "$brew/Casks/bosum-gui.rb" <<RUBY
+cask "bosum-gui" do
+  arch arm: "aarch64", intel: "x64"
+
+  version "$version"
+  sha256 arm:   "$(dmg_sha aarch64)",
+         intel: "$(dmg_sha x64)"
+
+  url "$repo/releases/download/v#{version}/Bosum_#{version}_#{arch}.dmg"
+  name "Bosum"
+  desc "$desc (desktop app)"
+  homepage "$repo"
+
+  app "Bosum.app"
+
+  postflight do
+    system_command "/usr/bin/xattr", args: ["-cr", "#{appdir}/Bosum.app"]
+  end
+
+  # Config and state in ~/Library/Application Support/bosum stay: the terminal app shares them.
+  zap trash: [
+    "~/Library/Caches/bosum",
+    "~/Library/WebKit/dk.mwo.bosum",
+  ]
+end
+RUBY
+
 win="x86_64-pc-windows-msvc"
 cat > "$scoop/bucket/bosum.json" <<JSON
 {

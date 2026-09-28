@@ -235,5 +235,6 @@ jobs:
           done
           packaging/taps/generate.sh "$TAG" homebrew-bosum scoop-bosum
           for repo in homebrew-bosum scoop-bosum; do
-            git -C "$repo" commit -qam "Bosum ${TAG#v}" && git -C "$repo" push -q || echo "$repo: nothing to update"
+            git -C "$repo" add -A
+            git -C "$repo" commit -qm "Bosum ${TAG#v}" && git -C "$repo" push -q || echo "$repo: nothing to update"
           done
