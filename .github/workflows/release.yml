@@ -236,7 +236,13 @@ jobs:
           packaging/taps/generate.sh "$TAG" homebrew-coxswain scoop-coxswain
           for repo in homebrew-coxswain scoop-coxswain; do
             git -C "$repo" add -A
-            git -C "$repo" commit -qm "Coxswain ${TAG#v}" && git -C "$repo" push -q || echo "$repo: nothing to update"
+            # Only "no changes" is fine; a failed push must fail the job.
+            if git -C "$repo" diff --cached --quiet; then
+              echo "$repo: already up to date"
+            else
+              git -C "$repo" commit -qm "Coxswain ${TAG#v}"
+              git -C "$repo" push -q
+            fi
           done
 
   # Only updates: the first version of each package is submitted by hand (packaging/README.md).
