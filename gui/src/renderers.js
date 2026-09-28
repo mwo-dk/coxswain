@@ -221,3 +221,34 @@ export function logLines(src) {
     })
     .join("\n");
 }
+
+// ------------------------------------------------------------ Graphviz, AsciiDoc, Parquet
+
+let vizReady;
+/** A Graphviz graph (.dot, .gv) as sanitized SVG, drawn by Graphviz compiled to WebAssembly. */
+export async function renderGraphviz(src) {
+  vizReady ??= import("@viz-js/viz").then((m) => m.instance());
+  try {
+    return `<div class="diagram">${clean((await vizReady).renderString(src, { format: "svg" }))}</div>`;
+  } catch (e) {
+    return `<pre class="diagram-error">${escape(String(e?.message ?? e))}</pre>`;
+  }
+}
+
+/** AsciiDoc as HTML, in Asciidoctor's secure mode (no file includes), sanitized. */
+export async function renderAsciidoc(src) {
+  const { convert } = await import("@asciidoctor/core");
+  return clean(await convert(src, { safe: "secure", attributes: { showtitle: true } }));
+}
+
+/** A Parquet file: its column schema, row count and the first 200 rows as a table. */
+export async function readParquet(path) {
+  const [{ parquetMetadata, parquetReadObjects }, { compressors }] = await Promise.all([import("hyparquet"), import("hyparquet-compressors")]);
+  const file = await bytes(path, 500 * 1024 * 1024);
+  const meta = parquetMetadata(file);
+  const objs = await parquetReadObjects({ file, rowEnd: 200, compressors });
+  const cols = objs.length ? Object.keys(objs[0]) : meta.schema.slice(1).map((s) => s.name);
+  const cell = (v) => (v === null || v === undefined ? "" : typeof v === "object" ? JSON.stringify(v, (_, x) => (typeof x === "bigint" ? x.toString() : x)) : String(v));
+  const schema = meta.schema.slice(1).map((s) => [s.name, s.type ?? "group", s.repetition_type ?? ""]);
+  return { rows: Number(meta.num_rows), schema, table: [cols, ...objs.map((o) => cols.map((c) => cell(o[c])))] };
+}

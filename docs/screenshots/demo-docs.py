@@ -91,6 +91,8 @@ if font.endswith((".ttf", ".otf")):
 # ---------------------------------------------------------------- part 2 formats
 import plistlib, sqlite3
 
+if os.path.exists(os.path.join(docs, "launches.db")):
+    os.remove(os.path.join(docs, "launches.db"))
 db = sqlite3.connect(os.path.join(docs, "launches.db"))
 db.executescript("""
 CREATE TABLE launch(id INTEGER PRIMARY KEY, date TEXT, vehicle TEXT, outcome TEXT);
@@ -173,3 +175,101 @@ if shutil.which("openssl"):
     subprocess.run(["openssl", "req", "-x509", "-newkey", "rsa:2048", "-nodes", "-days", "20", "-subj", "/CN=launch.example.com/O=Rocket Team",
                     "-addext", "subjectAltName=DNS:launch.example.com,DNS:telemetry.example.com",
                     "-keyout", os.devnull, "-out", os.path.join(docs, "launch.example.com.pem")], check=True, capture_output=True)
+
+# ---------------------------------------------------------------- part 3 formats
+papers = os.path.join(home, "projects", "paper")
+os.makedirs(papers, exist_ok=True)
+open(os.path.join(papers, "flight7.tex"), "w").write(r"""\documentclass[11pt]{article}
+\usepackage[margin=2cm]{geometry}
+\usepackage{amsmath,pgfplots,tikz}
+\usetikzlibrary{arrows.meta,positioning,shadows}
+\pgfplotsset{compat=1.18}
+\definecolor{teal}{HTML}{2A9D8F}\definecolor{coral}{HTML}{E76F51}\definecolor{navy}{HTML}{264653}
+\title{\bfseries Flight 7: early engine cut-off}
+\author{Rocket Team}\date{28 September 2026}
+\begin{document}
+\maketitle
+\section*{Ascent}
+The engine stopped at $t = 92\,\mathrm{s}$, when the valve closed early. Up to then the
+ascent followed the model; the rocket equation bounds what the burn could deliver:
+\[ \Delta v = v_e \ln\frac{m_0}{m_f}, \qquad v_e = 3.1\ \mathrm{km/s},\quad \frac{m_0}{m_f} = 8
+   \;\Longrightarrow\; \Delta v \approx 6.4\ \mathrm{km/s}. \]
+\begin{center}
+\begin{tikzpicture}
+\begin{axis}[width=12cm, height=6cm, xlabel={time (s)}, ylabel={speed (m/s)},
+  grid=major, grid style={gray!25}, xmin=0, xmax=140, ymin=0, ymax=900, legend pos=north west]
+  \addplot[very thick, teal, domain=0:92, samples=60] {6.66*x};
+  \addlegendentry{flight 7}
+  \addplot[thick, dashed, navy, domain=0:140, samples=60] {6.3*x};
+  \addlegendentry{model}
+  \addplot[very thick, coral, domain=92:140, samples=20] {612.7 - 9.81*(x-92)};
+  \addlegendentry{coasting}
+  \node[circle, fill=coral, inner sep=2pt, label={[coral]above:{MECO, $T{+}92$ s}}] at (axis cs:92,612.7) {};
+\end{axis}
+\end{tikzpicture}
+\end{center}
+\section*{Sequence}
+\begin{center}
+\begin{tikzpicture}[node distance=6mm, >={Stealth[round]},
+  box/.style={rounded corners=3pt, draw=navy, fill=navy!8, thick, minimum height=9mm, align=center, drop shadow},
+  bad/.style={box, draw=coral, fill=coral!12}]
+  \node[box] (count) {Countdown\\\small T$-$600};
+  \node[box, right=of count] (go) {Go / no-go\\\small T$-$30};
+  \node[box, right=of go] (ign) {Ignition\\\small T$-$0};
+  \node[bad, right=of ign] (meco) {Cut-off\\\small T$+$92};
+  \node[box, right=of meco] (coast) {Coast\\\small T$+$140};
+  \foreach \a/\b in {count/go, go/ign, ign/meco, meco/coast} \draw[->, thick, navy] (\a) -- (\b);
+  \draw[->, thick, coral, dashed] (go.south) to[bend left=35] node[below, font=\small] {hold} (count.south);
+\end{tikzpicture}
+\end{center}
+\section*{Next steps}
+\begin{itemize}
+  \item Bench-test the valve before flight 8.
+  \item Re-fly on 15 October if the test passes.
+\end{itemize}
+\end{document}
+""")
+open(os.path.join(papers, "pipeline.dot"), "w").write("""digraph pipeline {
+  rankdir=LR; node [shape=box, style=rounded];
+  sensors -> telemetry -> "ground station" -> dashboard;
+  telemetry -> archive;
+}
+""")
+open(os.path.join(papers, "sequence.puml"), "w").write("""@startuml
+actor Director
+Director -> Rocket: go for launch
+Rocket -> Engine: ignite
+Engine --> Rocket: thrust nominal
+Rocket --> Director: lift-off
+@enduml
+""")
+open(os.path.join(papers, "README.rst"), "w").write("""Flight 8 checklist
+==================
+
+Before the go / no-go poll:
+
+* Valve bench test passed
+* Weather within limits (wind below 25 kt)
+
+.. note:: Abort if fuel pressure drops more than 5% below the model.
+""")
+open(os.path.join(papers, "guide.adoc"), "w").write("""= Launch operations guide
+:toc:
+
+== Countdown
+
+. Start the clock at T-600.
+. Poll the team at T-30.
+
+NOTE: Any "no-go" holds the count.
+
+== After lift-off
+
+|===
+|Event |Time
+|Max Q |T+62 s
+|Stage separation |T+140 s
+|===
+""")
+# A short RTF memo for the LibreOffice preview.
+open(os.path.join(docs, "memo.rtf"), "w").write(r"{\rtf1\ansi{\fonttbl{\f0 Helvetica;}}\f0\fs32 \b Memo\b0\par\fs24 The bench test is booked for 6 October.\par Bring the pressure logger.\par}")

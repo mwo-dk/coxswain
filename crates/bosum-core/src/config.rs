@@ -546,6 +546,46 @@ pub fn quote(s: &str) -> String {
     }
 }
 
+/// Previews made by external tools (desktop app): LaTeX, LibreOffice, PlantUML, pandoc,
+/// draw.io, DuckDB. Each runs from a locally installed tool or from a container image.
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+#[serde(default)]
+pub struct PreviewConfig {
+    /// "auto" (an installed tool first, else a container), "local" or "container".
+    pub prefer: String,
+    /// Per tool, overrides `prefer`: `prefer_tool = { latex = "container" }`.
+    pub prefer_tool: BTreeMap<String, String>,
+    /// "auto" (podman, else docker), "podman", "docker", or "off" for no containers.
+    pub container: String,
+    /// Container image per tool. An empty image means that tool never runs in a container.
+    /// Containers run without network, with the file's folder mounted read-only.
+    pub images: BTreeMap<String, String>,
+    /// Seconds before a conversion is stopped. A first container run also pulls the image,
+    /// which the timeout does not cover.
+    pub timeout: u64,
+}
+
+impl Default for PreviewConfig {
+    fn default() -> Self {
+        let images = [
+            ("latex", "docker.io/texlive/texlive:latest"),
+            ("plantuml", "docker.io/plantuml/plantuml:latest"),
+            ("pandoc", "docker.io/pandoc/core:latest"),
+            // No official images for these; set one you trust (see docs/previews.md).
+            ("libreoffice", ""),
+            ("drawio", ""),
+            ("duckdb", ""),
+        ];
+        PreviewConfig {
+            prefer: "auto".into(),
+            prefer_tool: BTreeMap::new(),
+            container: "auto".into(),
+            images: images.map(|(k, v)| (k.to_string(), v.to_string())).into_iter().collect(),
+            timeout: 120,
+        }
+    }
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(default)]
 pub struct SearchConfig {
@@ -619,6 +659,7 @@ pub struct Config {
     pub themes: BTreeMap<String, Theme>,
     pub user_menu: Vec<UserCommand>,
     pub search: SearchConfig,
+    pub preview: PreviewConfig,
     pub gui: GuiConfig,
 }
 
@@ -642,6 +683,7 @@ impl Default for Config {
                 UserCommand { key: "b".into(), label: "git blame (file)".into(), command: "git blame -- %f | less".into(), wait: false },
             ],
             search: SearchConfig::default(),
+            preview: PreviewConfig::default(),
             gui: GuiConfig::default(),
         };
         c.fill_defaults();
@@ -671,6 +713,10 @@ impl Config {
     }
 
     fn fill_defaults(&mut self) {
+        // Setting one image (`images.latex = ...`) must not drop the others' defaults.
+        for (tool, image) in PreviewConfig::default().images {
+            self.preview.images.entry(tool).or_insert(image);
+        }
         for &a in Action::ALL {
             self.keys.entry(a).or_insert_with(|| a.default_keys().iter().map(|k| k.to_string()).collect());
         }
@@ -720,6 +766,15 @@ impl Config {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn preview_images_keep_defaults() {
+        let c = Config::parse("[preview]\nprefer = \"container\"\nimages.latex = \"texlive:medium\"\n").unwrap();
+        assert_eq!(c.preview.prefer, "container");
+        assert_eq!(c.preview.images["latex"], "texlive:medium");
+        assert_eq!(c.preview.images["plantuml"], "docker.io/plantuml/plantuml:latest");
+        assert_eq!(Config::default().preview.timeout, 120);
+    }
 
     #[test]
     fn config_key_roundtrip() {

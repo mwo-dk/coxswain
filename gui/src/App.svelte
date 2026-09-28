@@ -486,7 +486,7 @@
       </div>
       {#if ui.showPreview}
         <Splitter onmove={(dx) => (ui.previewW = clamp(ui.previewW - dx, 240, 900))} />
-        <div class="side" style:width="min({ui.previewW}px, 34vw)">
+        <div class="side" style:width="min({ui.previewW}px, 60vw)">
           <Preview {output} {notesFocus} onclearoutput={() => (output = null)} />
         </div>
       {/if}
