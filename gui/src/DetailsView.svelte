@@ -23,7 +23,7 @@
     { id: "type", w: "6rem", min: 620 },
     { id: "size", w: "6.5rem", min: 340 },
     { id: "files", w: "5rem", min: 620 },
-    { id: "modified", w: "12rem", narrow: "3.2rem" },
+    { id: "modified", w: "13rem", narrow: "3.2rem" },
     { id: "created", w: "6.5rem", min: 620 },
   ];
   const shown = $derived(new Set(COLS.filter((c) => ui.columns[c.id] && width >= (c.min ?? 0)).map((c) => c.id)));
@@ -136,7 +136,7 @@
         {#if shown.has("modified")}
           <span class="time">
             {#if e.name !== ".."}
-              <span class="age" style:background={ageColor(e.modified)} title={date(e.modified)}>{age(e.modified)}</span><span class="d">{date(e.modified)}</span>
+              <span class="age" style:background={ageColor(e.modified, ui.cfg.looks[ui.theme])} title={date(e.modified)}>{age(e.modified)}</span><span class="d">{date(e.modified)}</span>
             {/if}
           </span>
         {/if}
@@ -212,7 +212,7 @@
     contain-intrinsic-size: auto var(--row);
     cursor: default;
     user-select: none;
-    border-radius: 5px;
+    border-radius: var(--r-sm);
     padding: 0 4px;
   }
   .row:hover {
@@ -269,7 +269,7 @@
     display: inline-block;
     min-width: 2.6em;
     text-align: center;
-    border-radius: 4px;
+    border-radius: var(--r-sm);
     font-size: 0.8em;
     color: #fff;
     text-shadow: 0 0 2px rgb(0 0 0 / 0.6);

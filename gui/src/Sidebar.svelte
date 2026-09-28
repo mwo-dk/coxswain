@@ -205,7 +205,7 @@
   .remove {
     visibility: hidden;
     padding: 0 6px;
-    border-radius: 4px;
+    border-radius: var(--r-sm);
     font-size: 1.2em;
     line-height: 1;
   }
@@ -229,7 +229,7 @@
     width: 100%;
     min-height: var(--row);
     padding: 2px 8px;
-    border-radius: 6px;
+    border-radius: var(--r);
   }
   .row:hover {
     background: color-mix(in srgb, var(--cursor-bg) 55%, transparent);
@@ -267,7 +267,7 @@
   }
   .bar {
     height: 3px;
-    border-radius: 2px;
+    border-radius: var(--r-sm);
     background: var(--border-fg);
     overflow: hidden;
   }
