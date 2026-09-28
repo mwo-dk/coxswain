@@ -1,12 +1,13 @@
 <script>
   import { tick } from "svelte";
-  import { ui, newTab, load, cd, goBack, goForward, focusPane } from "./app.svelte.js";
+  import { ui, newTab, load, cd, goBack, goForward, focusPane, nextView } from "./app.svelte.js";
   import { invoke, basename, parent, crumbs, size } from "./lib.js";
   import DetailsView from "./DetailsView.svelte";
   import ColumnsView from "./ColumnsView.svelte";
+  import GridView from "./GridView.svelte";
 
-  /** @type {{ index: number, ondrop: Function }} */
-  let { index, ondrop } = $props();
+  /** @type {{ index: number }} */
+  let { index } = $props();
 
   const p = $derived(ui.panes[index]);
   const t = $derived(p.tabs[p.active]);
@@ -14,7 +15,6 @@
   let editing = $state(false);
   let pathInput = $state();
   let pathValue = $state("");
-  let dragOver = $state(false);
 
   export async function editPath() {
     pathValue = t.dir;
@@ -48,19 +48,10 @@
 <section
   class="pane"
   class:active
-  class:drag-over={dragOver}
+  class:drag-over={ui.dropPane === index}
+  data-pane={index}
   aria-label="Pane {index + 1}"
   onpointerdown={() => focusPane(index)}
-  ondragover={(e) => {
-    e.preventDefault();
-    dragOver = true;
-  }}
-  ondragleave={() => (dragOver = false)}
-  ondrop={(e) => {
-    e.preventDefault();
-    dragOver = false;
-    ondrop(index, e.shiftKey);
-  }}
 >
   <div class="tabs" role="tablist">
     {#each p.tabs as tb, i (tb.id)}
@@ -103,8 +94,8 @@
         {/each}
       </div>
     {/if}
-    <button class="nav" title="Details / columns (Alt+V)" onclick={() => (t.view = t.view === "details" ? "columns" : "details")}>
-      {t.view === "details" ? "\u{f0db}" : "\u{f03a}"}
+    <button class="nav" title="Details / columns / thumbnails (Alt+V)" onclick={() => (t.view = nextView(t.view))}>
+      {({ details: "\u{f03a}", columns: "\u{f0db}", grid: "\u{f00a}" })[t.view]}
     </button>
   </div>
 
@@ -112,6 +103,8 @@
 
   {#if t.view === "columns"}
     <ColumnsView {t} {active} onfocus={() => focusPane(index)} />
+  {:else if t.view === "grid"}
+    <GridView {t} {active} onfocus={() => focusPane(index)} />
   {:else}
     <DetailsView {t} {active} onfocus={() => focusPane(index)} />
   {/if}

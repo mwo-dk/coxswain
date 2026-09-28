@@ -1,5 +1,5 @@
 <script>
-  import { ui, load, openItem, toggleMark } from "./app.svelte.js";
+  import { ui, load, openItem, toggleMark, dragOut } from "./app.svelte.js";
   import { size, date, age, ageColor, TAG_COLORS } from "./lib.js";
 
   /** @type {{ t: any, active: boolean, onfocus: Function }} */
@@ -66,9 +66,8 @@
         class:focused={active}
         draggable={e.name !== ".."}
         ondragstart={(ev) => {
-          t.cursor = i;
-          ev.dataTransfer.setData("text/plain", e.path);
-          ev.dataTransfer.effectAllowed = "copyMove";
+          ev.preventDefault();
+          dragOut(t, i);
         }}
         onclick={(ev) => click(ev, i)}
         ondblclick={() => openItem(t, i)}

@@ -155,6 +155,7 @@ actions! {
     Move = "move", "RenMov", ["F6"];
     Mkdir = "mkdir", "Mkdir", ["F7"];
     Delete = "delete", "Delete", ["F8", "Delete"];
+    DeleteForever = "delete_forever", "Delete permanently", ["Shift+F8", "Shift+Delete"];
     Menu = "menu", "PullDn", ["F9"];
     Quit = "quit", "Quit", ["F10"];
     Up = "up", "Up", ["Up"];
@@ -188,7 +189,7 @@ actions! {
     NextTab = "next_tab", "Next tab", ["Ctrl+Tab"];
     PrevTab = "prev_tab", "Previous tab", ["Ctrl+Shift+Tab"];
     TogglePreview = "toggle_preview", "Preview", ["Space"];
-    ToggleView = "toggle_view", "Details/columns view", ["Alt+V"];
+    ToggleView = "toggle_view", "Details/columns/thumbnails", ["Alt+V"];
     ToggleSidebar = "toggle_sidebar", "Sidebar", ["Ctrl+B"];
     EditPath = "edit_path", "Edit path", ["Ctrl+L"];
     DirSizes = "dir_sizes", "Folder sizes", ["Ctrl+Space"];
@@ -197,6 +198,11 @@ actions! {
     Notes = "notes", "Folder notes", ["Alt+N"];
     Back = "back", "Back", ["Alt+Left"];
     Forward = "forward", "Forward", ["Alt+Right"];
+    ClipCopy = "clip_copy", "Copy to clipboard", ["Ctrl+C"];
+    ClipCut = "clip_cut", "Cut to clipboard", ["Ctrl+X"];
+    Paste = "paste", "Paste", ["Ctrl+V"];
+    Properties = "properties", "Properties", ["Alt+Enter"];
+    Extract = "extract", "Extract archive", ["Ctrl+E"];
 }
 
 impl Action {
@@ -206,6 +212,7 @@ impl Action {
         matches!(
             self,
             NewTab | CloseTab | NextTab | PrevTab | TogglePreview | ToggleView | ToggleSidebar | EditPath | BatchRename | Tag | Notes | Back | Forward
+                | ClipCopy | ClipCut | Paste | Properties | Extract
         )
     }
 }
