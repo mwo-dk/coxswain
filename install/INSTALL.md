@@ -104,7 +104,7 @@ The desktop app uses WebView2, which is already part of Windows 10 and 11.
 If you'd rather not use the script, run these in the folder:
 
 ```sh
-cargo build --release -p bosum-tui            # -> target/release/bosum
+cargo build --release -p bosum            # -> target/release/bosum
 cd gui && npm ci && npx tauri build           # -> installers in target/release/bundle
 ```
 

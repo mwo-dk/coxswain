@@ -188,6 +188,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "bosum"
+version = "1.1.0"
+dependencies = [
+ "bosum-core",
+ "chrono",
+ "ratatui",
+ "unicode-width",
+]
+
+[[package]]
 name = "bosum-core"
 version = "1.1.0"
 dependencies = [
@@ -213,16 +223,6 @@ dependencies = [
  "sysinfo",
  "tauri",
  "tauri-build",
-]
-
-[[package]]
-name = "bosum-tui"
-version = "1.1.0"
-dependencies = [
- "bosum-core",
- "chrono",
- "ratatui",
- "unicode-width",
 ]
 
 [[package]]
