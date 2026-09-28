@@ -439,7 +439,7 @@ fn help_text(app: &App) -> Vec<Line<'static>> {
         Line::from(""),
         Line::from("Keys (from your config):").bold(),
     ];
-    for &a in Action::ALL {
+    for &a in Action::ALL.iter().filter(|a| !a.gui_only()) {
         let keys = app.cfg.keys.get(&a).map(|k| k.join(", ")).unwrap_or_default();
         v.push(Line::from(format!("  {:<22} {keys}", a.label())));
     }

@@ -174,11 +174,17 @@ const IMAGE = ["png", "jpg", "jpeg", "gif", "webp", "bmp", "ico", "svg", "avif"]
 const VIDEO = ["mp4", "webm", "mkv", "mov", "m4v", "ogv"];
 const AUDIO = ["mp3", "flac", "wav", "ogg", "m4a", "opus", "aac"];
 
+const ARCHIVE = /\.(zip|jar|apk|nupkg|whl|vsix|tar|tgz|tar\.gz)$/i;
+
+export const isArchive = (name) => ARCHIVE.test(name);
+
 /** How the preview pane should show a file. */
 export function previewKind(item) {
   if (!item) return "none";
   if (item.is_dir) return "folder";
+  if (isArchive(item.name)) return "archive";
   const ext = item.name.includes(".") ? item.name.split(".").pop().toLowerCase() : "";
+  if (ext === "pdf") return "pdf";
   if (IMAGE.includes(ext)) return "image";
   if (VIDEO.includes(ext)) return "video";
   if (AUDIO.includes(ext)) return "audio";

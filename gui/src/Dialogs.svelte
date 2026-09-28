@@ -3,7 +3,7 @@
   // App forwards keys through `handleKey`; returning true means "handled".
   import { tick } from "svelte";
   import { ui, tab, cd, load } from "./app.svelte.js";
-  import { invoke, basename, parent, TAGS, TAG_COLORS } from "./lib.js";
+  import { invoke, basename, parent, size, date, TAGS, TAG_COLORS } from "./lib.js";
 
   let input = $state();
   let listEl = $state();
@@ -106,6 +106,26 @@
     load(tab());
   }
 
+  // ------------------------------------------------------------ properties
+
+  async function savePerms() {
+    const m = ui.modal;
+    const mode = m.props.mode === null ? null : parseInt(m.mode, 8);
+    if (mode !== null && !validMode(m.mode)) return void (m.error = "Permissions are 3 or 4 octal digits, e.g. 644");
+    try {
+      await invoke("set_permissions", { path: m.props.path, mode, readonly: m.readonly });
+      close();
+      load(tab());
+    } catch (e) {
+      m.error = String(e);
+    }
+  }
+
+  const validMode = (s) => /^[0-7]{3,4}$/.test(s);
+
+  /** rwxr-xr-x for 0o755. */
+  const rwx = (mode) => [6, 3, 0].map((s) => ["r", "w", "x"].map((c, i) => (mode >> (s + 2 - i)) & 1 ? c : "-").join("")).join("");
+
   // ------------------------------------------------------------ menus
 
   const menuItems = (m) => m.items.filter((it) => it.label.toLowerCase().includes(m.filter.toLowerCase()));
@@ -153,6 +173,10 @@
         else return false;
         return true;
       }
+      case "props":
+        if (k === "Enter") savePerms();
+        else return false;
+        return true;
       case "rename":
         if (k === "Enter") applyRename();
         else return false;
@@ -203,7 +227,7 @@
               {/each}
             </tbody>
           </table>
-          <p>Mouse: double-click opens · Ctrl-click / right-click marks · Shift-click marks a range · drag to the other pane copies (Shift moves) · click the path bar to type a path.</p>
+          <p>Mouse: double-click opens · Ctrl-click / right-click marks · Shift-click marks a range · drag to a pane or another app to copy or move · click the path bar to type a path.</p>
           <p><b>Find file</b> uses Everything's syntax: <code>foo bar</code> · <code>foo|bar</code> · <code>!foo</code> · <code>*.rs</code> · <code>ext:rs;toml</code> · <code>file:</code> <code>folder:</code> · <code>src/ foo</code> · <code>case:</code></p>
           <p>Config: <code>{ui.cfg.config_path}</code> · every option: <code>coxswain --dump-config</code></p>
         </div>
@@ -273,6 +297,29 @@
         <div class="buttons">
           <button class="primary" disabled={!m.plan.some((p) => p.from !== p.to) || m.plan.some((p) => p.conflict)} onclick={applyRename}>Rename</button>
           <button onclick={close}>Cancel</button>
+        </div>
+      {:else if m.kind === "props"}
+        {@const p = m.props}
+        <h2>{basename(p.path)}</h2>
+        <dl class="props">
+          <dt>Location</dt><dd>{parent(p.path)}</dd>
+          <dt>Type</dt><dd>{p.kind}{#if p.link_target} → {p.link_target}{/if}</dd>
+          <dt>Size</dt><dd>{size(p.size)}{#if p.size >= 10_240} ({p.size.toLocaleString()} bytes){/if}{#if p.kind === "Folder"} in {p.files.toLocaleString()} files{/if}</dd>
+          {#if p.created}<dt>Created</dt><dd>{date(p.created)}</dd>{/if}
+          {#if p.modified}<dt>Modified</dt><dd>{date(p.modified)}</dd>{/if}
+          {#if p.accessed}<dt>Accessed</dt><dd>{date(p.accessed)}</dd>{/if}
+          {#if p.mode !== null}
+            <dt>Owner</dt><dd>uid {p.uid}, gid {p.gid}</dd>
+            <dt>Permissions</dt>
+            <dd class="perm"><input bind:this={input} bind:value={m.mode} size="5" spellcheck="false" /> <code>{validMode(m.mode) ? rwx(parseInt(m.mode, 8)) : ""}</code></dd>
+          {:else}
+            <dt>Attributes</dt><dd><label class="check"><input type="checkbox" bind:checked={m.readonly} /> Read-only</label></dd>
+          {/if}
+        </dl>
+        {#if m.error}<p class="err">{m.error}</p>{/if}
+        <div class="buttons">
+          <button class="primary" onclick={savePerms}>Apply</button>
+          <button onclick={close}>Close</button>
         </div>
       {:else if m.kind === "tag"}
         <h2>Color tag</h2>
@@ -547,6 +594,35 @@
   }
   .dot.none {
     border: 1px dashed var(--hidden-fg);
+  }
+  .props {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 6px 16px;
+    margin: 0;
+  }
+  .props dt {
+    color: var(--hidden-fg);
+  }
+  .props dd {
+    margin: 0;
+    overflow-wrap: anywhere;
+  }
+  .perm {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .perm input {
+    width: 5em;
+    font-family: var(--mono-font);
+    padding: 3px 8px;
+  }
+  .check {
+    flex-direction: row;
+    align-items: center;
+    gap: 6px;
+    color: var(--dialog-fg);
   }
   .help {
     overflow: auto;

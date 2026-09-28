@@ -1,7 +1,9 @@
 <script>
   import { getCurrentWindow } from "@tauri-apps/api/window";
-  import { ui, init, tab, pane, otherTab, item, load, cd, newTab, goBack, goForward, openItem, toggleMark, targets, reloadAll, snapshot, setTheme } from "./app.svelte.js";
-  import { invoke, keyString, basename, parent, glob, quote } from "./lib.js";
+  import { getCurrentWebview } from "@tauri-apps/api/webview";
+  import { listen } from "@tauri-apps/api/event";
+  import { ui, init, tab, pane, otherTab, item, load, cd, newTab, goBack, goForward, openItem, toggleMark, targets, reloadAll, snapshot, setTheme, nextView } from "./app.svelte.js";
+  import { invoke, keyString, basename, parent, glob, quote, isArchive } from "./lib.js";
   import Sidebar from "./Sidebar.svelte";
   import Pane from "./Pane.svelte";
   import Preview from "./Preview.svelte";
@@ -32,6 +34,44 @@
     const snap = JSON.stringify(snapshot());
     const timer = setTimeout(() => invoke("save_session", { session: JSON.parse(snap) }), 600);
     return () => clearTimeout(timer);
+  });
+
+  // Folders open in any tab reread themselves when something changes in them.
+  const allTabs = () => ui.panes.flatMap((p) => p.tabs);
+  $effect(() => {
+    if (!ready) return;
+    invoke("watch_dirs", { dirs: [...new Set(allTabs().map((t) => t.dir))] });
+  });
+  listen("dir-changed", (ev) => {
+    for (const t of allTabs()) if (ev.payload.includes(t.dir)) load(t);
+  });
+
+  // Files dragged in from other applications, or from a pane (the drag is native, see dragOut).
+  const paneAt = ({ x, y }) => {
+    const el = document.elementFromPoint(x / devicePixelRatio, y / devicePixelRatio)?.closest("[data-pane]");
+    return el ? Number(el.dataset.pane) : null;
+  };
+  getCurrentWebview().onDragDropEvent(({ payload: p }) => {
+    if (p.type === "leave") return void (ui.dropPane = null);
+    const at = p.position ? paneAt(p.position) : null;
+    if (p.type !== "drop") return void (ui.dropPane = at);
+    ui.dropPane = null;
+    if (at === null || !p.paths.length) return;
+    const dest = tab(at).dir;
+    if (p.paths.every((x) => parent(x) === dest)) return; // dropped where it came from
+    const n = describe(p.paths);
+    const go = (isMove) => op(invoke(isMove ? "rename" : "copy", { paths: p.paths, base: dest, dest }), `${isMove ? "Moved" : "Copied"} ${n}`);
+    ui.modal = {
+      kind: "menu",
+      title: `Drop ${n} in ${basename(dest) || dest}`,
+      direct: true,
+      filter: "",
+      cursor: 0,
+      items: [
+        { key: "c", label: "Copy here", icon: "\u{f0c5}", run: () => go(false) },
+        { key: "m", label: "Move here", icon: "\u{f0b2}", run: () => go(true) },
+      ],
+    };
   });
 
   const describe = (paths) => (paths.length === 1 ? `"${basename(paths[0])}"` : `${paths.length} items`);
@@ -66,6 +106,26 @@
     prompt(isMove ? "Move or rename" : "Copy", `${isMove ? "Move" : "Copy"} ${describe(paths)} to:`, dest, (d) => {
       if (d.trim()) op(invoke(isMove ? "rename" : "copy", { paths, base: tab().dir, dest: d }), `${isMove ? "Moved" : "Copied"} ${describe(paths)}`);
     });
+  }
+
+  function remove(forever) {
+    const paths = targets();
+    if (!paths.length) return;
+    const run = () => op(invoke("delete", { paths, forever }), `${forever ? "Deleted" : "Moved to the trash:"} ${describe(paths)}`);
+    const text = forever ? `Permanently delete ${describe(paths)}? This cannot be undone.` : `Move ${describe(paths)} to the trash?`;
+    if (ui.cfg.confirm_delete) ui.modal = { kind: "confirm", title: "Delete", text, ok: forever ? "Delete" : "Move to trash", run };
+    else run();
+  }
+
+  async function clip(cut) {
+    const paths = targets();
+    if (!paths.length) return;
+    try {
+      await invoke("clip_set", { paths, cut });
+      ui.status = `${cut ? "Cut" : "Copied"} ${describe(paths)} to the clipboard`;
+    } catch (e) {
+      ui.status = String(e);
+    }
   }
 
   function showOutput(title, text) {
@@ -210,12 +270,38 @@
         await op(invoke("mkdir", { base: tab().dir, name }), `Created ${name}`);
         await load(tab(), tab().dir, name.split(/[\\/]/)[0]);
       }),
-    delete: () => {
-      const paths = targets();
-      if (!paths.length) return;
-      const run = () => op(invoke("delete", { paths }), `Deleted ${describe(paths)}`);
-      if (ui.cfg.confirm_delete) ui.modal = { kind: "confirm", title: "Delete", text: `Permanently delete ${describe(paths)}?`, run };
-      else run();
+    delete: () => remove(false),
+    delete_forever: () => remove(true),
+    clip_copy: () => clip(false),
+    clip_cut: () => clip(true),
+    paste: async () => {
+      const dir = tab().dir;
+      try {
+        const [n, moved] = await invoke("paste", { dir });
+        ui.status = `${moved ? "Moved" : "Pasted"} ${n} item${n > 1 ? "s" : ""}`;
+      } catch (e) {
+        ui.modal = { kind: "message", title: "Paste", text: String(e) };
+      }
+      reloadAll();
+    },
+    properties: async () => {
+      const e = item();
+      if (!e || e.name === "..") return;
+      ui.status = "Reading properties…";
+      try {
+        const p = await invoke("properties", { path: e.path });
+        ui.modal = { kind: "props", props: p, mode: p.mode?.toString(8).padStart(3, "0") ?? "", readonly: p.readonly };
+      } catch (err) {
+        ui.modal = { kind: "message", title: "Properties", text: String(err) };
+      }
+      ui.status = "";
+    },
+    extract: () => {
+      const paths = targets().filter((p) => isArchive(basename(p)));
+      if (!paths.length) return void (ui.status = "Not a zip or tar archive");
+      prompt("Extract", `Extract ${describe(paths)} into a new folder in:`, otherTab().dir, (d) => {
+        if (d.trim()) op(invoke("extract", { paths, base: tab().dir, dest: d }), `Extracted ${describe(paths)}`);
+      });
     },
     user_menu: async () => {
       const list = await invoke("scripts");
@@ -257,7 +343,7 @@
       output = null;
       ui.showPreview = !ui.showPreview;
     },
-    toggle_view: () => (tab().view = tab().view === "details" ? "columns" : "details"),
+    toggle_view: () => (tab().view = nextView(tab().view)),
     toggle_sidebar: () => (ui.showSidebar = !ui.showSidebar),
     edit_path: () => panes[ui.dual ? ui.activePane : 0]?.editPath(),
     dir_sizes: async () => {
@@ -302,6 +388,8 @@
     // Typing in notes, the path bar or another field: leave it alone, except that Esc
     // leaves the field and function keys keep working (otherwise F3/F8 seem dead).
     const field = e.target.closest?.("textarea, input:not(.cmd)");
+    // Copy/cut/paste of text in the command line stays native.
+    if (["clip_copy", "clip_cut", "paste"].includes(ui.cfg.keymap[k]) && e.target.closest?.(".cmd") && ui.cmd) return;
     if (field && k === "Esc") return field.blur();
     if (field && !/^F\d+$/.test(k)) return;
     ui.status = "";
@@ -339,6 +427,12 @@
       else return cmdInput.focus();
       return e.preventDefault();
     }
+    // Thumbnails: arrows move in two dimensions.
+    if (tab().view === "grid" && ["Left", "Right", "Up", "Down"].includes(k)) {
+      e.preventDefault();
+      const cols = Number(document.querySelector(`[data-pane="${ui.activePane}"] .grid`)?.dataset.cols) || 1;
+      return move({ Left: -1, Right: 1, Up: -cols, Down: cols }[k]);
+    }
     // Miller columns: Left/Right walk the tree.
     if (tab().view === "columns" && (k === "Left" || k === "Right")) {
       e.preventDefault();
@@ -359,10 +453,6 @@
     const t = tab();
     const i = t.items.findIndex((x) => x.name.toLowerCase().startsWith(ui.quick.toLowerCase()));
     if (i >= 0) t.cursor = i;
-  }
-
-  function dropOn(index, isMove) {
-    if (index !== ui.activePane) transfer(isMove, tab(index).dir);
   }
 
   const fkeys = $derived.by(() => {
@@ -387,11 +477,11 @@
       {/if}
       <div class="panes">
         {#if ui.dual}
-          <div class="pane-slot" style:flex-basis="{ui.split}%"><Pane bind:this={panes[0]} index={0} ondrop={dropOn} /></div>
+          <div class="pane-slot" style:flex-basis="{ui.split}%"><Pane bind:this={panes[0]} index={0} /></div>
           <Splitter onmove={(dx) => (ui.split = clamp(ui.split + (dx / main.clientWidth) * 100, 20, 80))} />
-          <div class="pane-slot" style:flex-basis="{100 - ui.split}%"><Pane bind:this={panes[1]} index={1} ondrop={dropOn} /></div>
+          <div class="pane-slot" style:flex-basis="{100 - ui.split}%"><Pane bind:this={panes[1]} index={1} /></div>
         {:else}
-          <div class="pane-slot" style:flex-basis="100%"><Pane bind:this={panes[0]} index={ui.activePane} ondrop={dropOn} /></div>
+          <div class="pane-slot" style:flex-basis="100%"><Pane bind:this={panes[0]} index={ui.activePane} /></div>
         {/if}
       </div>
       {#if ui.showPreview}

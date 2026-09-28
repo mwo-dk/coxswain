@@ -231,6 +231,23 @@ pub fn delete(path: &Path) -> io::Result<()> {
     }
 }
 
+/// Move to the desktop's trash (Recycle Bin on Windows).
+pub fn trash(path: &Path) -> io::Result<()> {
+    trash::delete(path).map_err(io::Error::other)
+}
+
+/// A free name for `name` in `dir`: `name`, else `stem (2).ext`, `stem (3).ext`, ...
+pub fn free_name(dir: &Path, name: &str) -> PathBuf {
+    let (stem, ext) = match name.rfind('.') {
+        Some(i) if i > 0 => name.split_at(i),
+        _ => (name, ""),
+    };
+    std::iter::once(dir.join(name))
+        .chain((2..).map(|n| dir.join(format!("{stem} ({n}){ext}"))))
+        .find(|p| fs::symlink_metadata(p).is_err())
+        .expect("some name is free")
+}
+
 pub fn mkdir(path: &Path) -> io::Result<()> {
     fs::create_dir_all(path)
 }
@@ -318,6 +335,10 @@ mod tests {
         fs::write(d.join("dst/moved"), "").unwrap();
         assert!(rename(&d.join("moved"), &d.join("dst")).is_err());
         assert_eq!(dir_size(&d.join("moved")), (1, 1));
+        fs::write(d.join("a.txt"), "").unwrap();
+        assert_eq!(free_name(&d, "a.txt"), d.join("a (2).txt"));
+        assert_eq!(free_name(&d, "b.txt"), d.join("b.txt"));
+        assert_eq!(free_name(&d, "moved"), d.join("moved (2)"));
         delete(&d.join("moved")).unwrap();
         assert!(!d.join("moved").exists());
         fs::remove_dir_all(d).unwrap();

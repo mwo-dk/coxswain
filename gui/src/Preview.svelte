@@ -52,6 +52,19 @@
     return () => clearTimeout(timer);
   });
 
+  // Archive: what is inside.
+  let archive = $state(null);
+  $effect(() => {
+    const cur = e;
+    archive = null;
+    if (kind !== "archive") return;
+    const timer = setTimeout(async () => {
+      const r = await invoke("archive_list", { path: cur.path }).catch((err) => ({ error: String(err) }));
+      if (item(tab())?.path === cur.path) archive = r;
+    }, 80);
+    return () => clearTimeout(timer);
+  });
+
   // Folder: summary and notes.
   $effect(() => {
     const cur = e;
@@ -134,6 +147,19 @@
         </div>
       {:else if kind === "audio"}
         <div class="media"><audio src={convertFileSrc(e.path)} controls preload="metadata"></audio></div>
+      {:else if kind === "pdf"}
+        <iframe class="pdf" src={convertFileSrc(e.path)} title={e.name}></iframe>
+      {:else if kind === "archive"}
+        {#if archive?.error}
+          <p class="more">{archive.error}</p>
+        {:else if archive}
+          <p class="more">{archive.entries.length}{archive.more ? "+" : ""} entries · Ctrl+E extracts to the other pane</p>
+          <ul class="archive mono">
+            {#each archive.entries as a (a.name)}
+              <li class:dir={a.is_dir}><span>{a.name}</span>{#if !a.is_dir}<span class="sz">{size(a.size)}</span>{/if}</li>
+            {/each}
+          </ul>
+        {/if}
       {:else if kind === "markdown" && html}
         <article class="markdown">{@html html}</article>
       {:else if kind === "text"}
@@ -238,6 +264,35 @@
     max-width: 100%;
     max-height: 60vh;
     border-radius: 6px;
+  }
+  .pdf {
+    width: 100%;
+    height: 100%;
+    min-height: 60vh;
+    border: 0;
+    border-radius: 6px;
+    background: #fff;
+  }
+  .archive {
+    list-style: none;
+    padding: 0;
+    margin: 6px 0 0;
+  }
+  .archive li {
+    display: flex;
+    gap: 12px;
+    white-space: nowrap;
+  }
+  .archive li span:first-child {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .archive .dir {
+    color: var(--directory-fg);
+  }
+  .sz {
+    color: var(--hidden-fg);
   }
   .checker {
     background: repeating-conic-gradient(color-mix(in srgb, var(--border-fg) 50%, transparent) 0 25%, transparent 0 50%) 0 0 / 16px 16px;

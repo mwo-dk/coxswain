@@ -66,7 +66,8 @@ one, set `glyphs = "ascii"`.
 | F5 | Copy | Ctrl+R | Reread |
 | F6 | Rename/move | Ctrl+U | Swap panels |
 | F7 | Mkdir | Ctrl+O | Show command output |
-| F8 / Delete | Delete | Alt+F1 / Alt+F2 | Left/right panel: go to |
+| F8 / Delete | Move to trash | Alt+F1 / Alt+F2 | Left/right panel: go to |
+| Shift+F8 / Shift+Delete | Delete permanently | | |
 | F9 | Command palette | Ctrl+F3..F6 | Sort by name/ext/time/size (again = reverse) |
 | F10 | Quit | Alt+letter | Quick search |
 
@@ -82,7 +83,8 @@ arguments both panels open in the current folder (the desktop app restores your 
 **The NC way.** One panel is active. Move with the arrows, Enter opens a folder or file, and
 Backspace goes up. Mark files with Insert (or `+` with a pattern like `*.rs`), then F5 copies
 or F6 moves them to the *other* panel's folder. With nothing marked, the file under the cursor
-is used. F3 views, F4 opens your `$EDITOR`, F8 deletes (after asking). F9 opens a searchable
+is used. F3 views, F4 opens your `$EDITOR`, F8 moves to the trash (after asking), and Shift+F8 deletes
+for good. F9 opens a searchable
 list of every command, so you never need to remember a key.
 
 **Reading the git line.** Inside a repository the panel's bottom line shows the branch,
@@ -99,12 +101,17 @@ loaded from disk and kept current while Coxswain runs.
 
 | Key | Action | Key | Action |
 |---|---|---|---|
-| Ctrl+T / Ctrl+W | New / close tab | Space | Preview pane (text, code, images, Markdown) |
-| Ctrl+Tab | Next tab | Alt+V | Details or Miller columns |
+| Ctrl+T / Ctrl+W | New / close tab | Space | Preview pane (code, Markdown, images, video, PDF, archives) |
+| Ctrl+Tab | Next tab | Alt+V | Details, Miller columns or thumbnails |
+| Ctrl+C / Ctrl+X / Ctrl+V | Copy, cut, paste files (shared with other file managers) | Alt+Enter | Properties and permissions |
+| Ctrl+E | Extract a zip or tar archive to the other pane | | |
 | Alt+Left / Alt+Right | Back / forward | Ctrl+B | Sidebar |
 | Ctrl+L | Type a path | Ctrl+Space | Folder sizes |
 | Ctrl+M | Batch rename with regex, previewed | Alt+T | Color tag |
 | Alt+N | Notes for this folder | Alt+. | Hidden files |
+
+Folders reread themselves when something changes in them. Drag files to the other pane, to
+another application, or in from one; Coxswain asks whether to copy or move.
 
 The sidebar holds places, drives with free space, favorite groups (right-click a group, then
 "Add current folder") and the git repositories you visited recently. Pick a theme from the F9 command list (type "theme").

@@ -19,6 +19,8 @@ export const ui = $state({
   quick: null,
   cmd: "",
   lastOutput: "",
+  /** Pane under a file being dragged in, for the highlight. */
+  dropPane: null,
   /** One modal at a time: { kind, ... } */
   modal: null,
   favorites: [],
@@ -201,6 +203,18 @@ export function toggleMark(t, i) {
   if (!e || e.name === "..") return;
   t.marked.has(e.path) ? t.marked.delete(e.path) : t.marked.add(e.path);
 }
+
+/** Native drag of the marked files (or the one at `i`), so other apps can take them. */
+export function dragOut(t, i) {
+  const e = t.items[i];
+  if (!e || e.name === "..") return;
+  t.cursor = i;
+  const paths = t.marked.has(e.path) ? targets(t) : [e.path];
+  invoke("start_drag", { paths }).catch((err) => (ui.status = String(err)));
+}
+
+const VIEWS = ["details", "columns", "grid"];
+export const nextView = (v) => VIEWS[(VIEWS.indexOf(v) + 1) % VIEWS.length];
 
 /** Make pane `p` (and optionally its tab `ti`) the active one. */
 export function focusPane(p, ti) {
