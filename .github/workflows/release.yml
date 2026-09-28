@@ -2,7 +2,7 @@ name: Release
 
 # Hands-off: when CI passes on master and the version in Cargo.toml has no release yet, build
 # every platform, publish the GitHub Release (which creates the tag) and update the AUR,
-# crates.io, Homebrew and Scoop.
+# crates.io, Homebrew, Scoop and winget.
 # To release, bump `version` in Cargo.toml. Nothing else.
 on:
   workflow_run:
@@ -238,3 +238,28 @@ jobs:
             git -C "$repo" add -A
             git -C "$repo" commit -qm "Bosum ${TAG#v}" && git -C "$repo" push -q || echo "$repo: nothing to update"
           done
+
+  # Only updates: the first version of each package is submitted by hand (packaging/README.md).
+  winget:
+    needs: [draft, publish]
+    runs-on: ubuntu-24.04
+    env:
+      WINGET_TOKEN: ${{ secrets.WINGET_TOKEN }}
+    steps:
+      - if: env.WINGET_TOKEN == ''
+        run: echo "::notice::WINGET_TOKEN is not set, so winget is not updated. See packaging/README.md."
+      - name: Open winget-pkgs pull requests
+        if: env.WINGET_TOKEN != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.draft.outputs.tag }}
+        run: |
+          gh release download --repo russellbanks/Komac --pattern 'komac-*-x86_64-unknown-linux-gnu.tar.gz' --output komac.tar.gz
+          tar xzf komac.tar.gz
+          v="${TAG#v}"
+          base="https://github.com/${{ github.repository }}/releases/download/$TAG"
+          notes="https://github.com/${{ github.repository }}/releases/tag/$TAG"
+          ./komac update mwo-dk.Bosum --version "$v" --urls "$base/Bosum_${v}_x64_en-US.msi" \
+            --release-notes-url "$notes" --submit --token "$WINGET_TOKEN"
+          ./komac update mwo-dk.Bosum.Terminal --version "$v" --urls "$base/bosum-terminal-$TAG-x86_64-pc-windows-msvc.zip" \
+            --release-notes-url "$notes" --submit --token "$WINGET_TOKEN"
