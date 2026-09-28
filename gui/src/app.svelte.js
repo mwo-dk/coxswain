@@ -228,6 +228,8 @@ export async function init() {
     }),
   );
   invoke("places").then((p) => (ui.places = p));
+  // `coxswain-gui --duplicates <folders>` starts straight in a scan of those folders.
+  if (ui.cfg.duplicates) ui.modal = { kind: "dupes", roots: Object.fromEntries(ui.cfg.duplicates.map((p) => [p, true])), autostart: true };
   invoke("disks").then((d) => (ui.disks = d));
 }
 

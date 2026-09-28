@@ -110,3 +110,11 @@ printf 'Add a landing burn\n' > TODO.txt
 
 # An archive, for the preview's contents list and for extracting.
 cd "$d" && tar czf Downloads/website-0.3.0.tar.gz --exclude=.git -C projects website
+
+# Duplicates, the way an old disk has them: a backup of Pictures, a PDF downloaded twice and a
+# document kept in two places.
+mkdir -p "$d/Backups/old-laptop-2019"
+cp -r "$d/Pictures" "$d/Backups/old-laptop-2019/Pictures"
+cp "$d/Documents/launch-report.pdf" "$d/Downloads/launch-report (1).pdf"
+cp "$d/Documents/debrief.docx" "$d/Backups/old-laptop-2019/debrief.docx"
+touch -d "2019-06-01 12:00" "$d/Backups/old-laptop-2019/debrief.docx"

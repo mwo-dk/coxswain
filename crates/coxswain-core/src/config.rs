@@ -204,6 +204,7 @@ actions! {
     Properties = "properties", "Properties", ["Alt+Enter"];
     Extract = "extract", "Extract archive", ["Ctrl+E"];
     Columns = "columns", "Columns and folder sizes", [];
+    Duplicates = "duplicates", "Find duplicates", ["Ctrl+D"];
 }
 
 impl Action {
@@ -213,7 +214,7 @@ impl Action {
         matches!(
             self,
             NewTab | CloseTab | NextTab | PrevTab | TogglePreview | ToggleView | ToggleSidebar | EditPath | BatchRename | Tag | Notes | Back | Forward
-                | ClipCopy | ClipCut | Paste | Properties | Extract | Columns
+                | ClipCopy | ClipCut | Paste | Properties | Extract | Columns | Duplicates
         )
     }
 }

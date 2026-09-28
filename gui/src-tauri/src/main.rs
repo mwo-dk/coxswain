@@ -24,12 +24,16 @@ pub struct Ctx {
     pub cfg: Config,
     index: Arc<Service>,
     start: [PathBuf; 2],
+    /// `--duplicates <folders>`: open the duplicate finder on these folders at start.
+    duplicates: Option<Vec<PathBuf>>,
     state: Mutex<AppState>,
     /// Folders shown in the panes, watched so they reread themselves.
     watched: Mutex<Vec<PathBuf>>,
     watcher: Mutex<Option<notify::RecommendedWatcher>>,
     /// What Coxswain last put on the clipboard, and whether it was a cut.
     clip: Mutex<(Vec<PathBuf>, bool)>,
+    /// The running duplicate scan's progress, if any.
+    dupes: Mutex<Option<Arc<coxswain_core::dupes::Progress>>>,
 }
 
 impl Ctx {
@@ -66,6 +70,7 @@ struct UiConfig {
     confirm_delete: bool,
     user_menu: Vec<UserCommand>,
     start: [PathBuf; 2],
+    duplicates: Option<Vec<PathBuf>>,
     config_path: Option<PathBuf>,
     gui: GuiConfig,
     home: PathBuf,
@@ -97,6 +102,7 @@ fn get_config(ctx: tauri::State<Ctx>) -> Res<UiConfig> {
         confirm_delete: cfg.confirm_delete,
         user_menu: cfg.user_menu.clone(),
         start: ctx.start.clone(),
+        duplicates: ctx.duplicates.clone(),
         config_path: Config::path(),
         gui: cfg.gui.clone(),
         home: std::env::home_dir().unwrap_or_default(),
@@ -609,6 +615,41 @@ fn start_watcher(app: &tauri::AppHandle) -> Option<notify::RecommendedWatcher> {
     Some(watcher)
 }
 
+// ---------------------------------------------------------------- duplicates
+
+/// Scan for duplicate files and folders; one scan at a time. Poll `dupes_progress` meanwhile.
+#[tauri::command]
+async fn dupes_scan(options: coxswain_core::dupes::Options, ctx: tauri::State<'_, Ctx>) -> Res<coxswain_core::dupes::Report> {
+    let p = Arc::new(coxswain_core::dupes::Progress::default());
+    *ctx.dupes.lock().map_err(|e| e.to_string())? = Some(p.clone());
+    let report = tauri::async_runtime::spawn_blocking(move || coxswain_core::dupes::scan(&options, &p)).await.map_err(|e| e.to_string());
+    let cancelled = ctx.dupes.lock().map_err(|e| e.to_string())?.take().is_some_and(|p| p.cancel.load(std::sync::atomic::Ordering::Relaxed));
+    if cancelled { Err("Cancelled".into()) } else { report }
+}
+
+#[derive(Serialize)]
+struct DupesProgress {
+    phase: u64,
+    files: u64,
+    done: u64,
+    total: u64,
+    bytes: u64,
+}
+
+#[tauri::command]
+fn dupes_progress(ctx: tauri::State<Ctx>) -> Option<DupesProgress> {
+    use std::sync::atomic::Ordering::Relaxed;
+    let p = ctx.dupes.lock().ok()?.clone()?;
+    Some(DupesProgress { phase: p.phase.load(Relaxed), files: p.files.load(Relaxed), done: p.done.load(Relaxed), total: p.total.load(Relaxed), bytes: p.bytes.load(Relaxed) })
+}
+
+#[tauri::command]
+fn dupes_cancel(ctx: tauri::State<Ctx>) {
+    if let Some(p) = ctx.dupes.lock().ok().and_then(|g| g.clone()) {
+        p.cancel.store(true, std::sync::atomic::Ordering::Relaxed);
+    }
+}
+
 // ---------------------------------------------------------------- commands & scripts
 
 fn shell(cmd: &str) -> std::process::Command {
@@ -713,16 +754,24 @@ fn main() {
     // Launched from a desktop menu the cwd is usually `/`; home is a better start.
     let home = std::env::home_dir().unwrap_or_default();
     let cwd = std::env::current_dir().ok().filter(|d| d.parent().is_some()).unwrap_or(home);
-    let args: Vec<String> = std::env::args().skip(1).collect();
+    let mut args: Vec<String> = std::env::args().skip(1).collect();
+    // `coxswain-gui --duplicates [folders…]`: the folders (default: the current one) are scanned for
+    // duplicates at start instead of being opened in the panes.
+    let duplicates = (args.first().map(String::as_str) == Some("--duplicates")).then(|| {
+        let roots: Vec<PathBuf> = args.drain(..).skip(1).map(|a| resolve(&cwd, &a)).collect();
+        if roots.is_empty() { vec![cwd.clone()] } else { roots }
+    });
     let dir = |i: usize| args.get(i).map(|a| resolve(&cwd, a)).unwrap_or_else(|| cwd.clone());
     let ctx = Ctx {
         index: Service::start(&cfg.search),
         start: [dir(0), dir(1)],
+        duplicates,
         state: Mutex::new(AppState::load()),
         cfg,
         watched: Mutex::default(),
         watcher: Mutex::default(),
         clip: Mutex::default(),
+        dupes: Mutex::default(),
     };
     tauri::Builder::default()
         .manage(ctx)
@@ -736,7 +785,7 @@ fn main() {
             read_text, run_command, scripts, run_script, check_update, archive_list, extract, properties, set_permissions,
             clip_set, paste, start_drag, watch_dirs, preview::git_diff, preview::sqlite_info, preview::epub_preview,
             preview::file_facts, preview::cert_info, preview::mail_preview, preview::plist_xml, convert::preview_engines,
-            convert::convert
+            convert::convert, dupes_scan, dupes_progress, dupes_cancel
         ])
         .run(tauri::generate_context!())
         .expect("error while running Coxswain");

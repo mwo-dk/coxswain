@@ -21,6 +21,11 @@ shared Rust core and read the same config file.
   [the full list](docs/previews.md).
 - **Plays well with the desktop.** Delete goes to the trash, folders refresh themselves, files
   drag to and from other apps, and Ctrl+C / Ctrl+V share files with your other file manager.
+- **Finds duplicates.** Ctrl+D compares folders and whole disks, old backups included, and
+  finds duplicate files and folders by content, whatever they are called: sizes first, then
+  BLAKE3 hashes, cached for next time.
+  Mark the extra copies by rule and move them to the trash. See
+  [finding duplicates](docs/duplicates.md).
 - **Configurable.** Key bindings, color schemes, glyphs, user menu and fonts all live in one
   TOML file.
 
@@ -50,6 +55,10 @@ spreadsheet, a Word document and a font.*
 
 ![A PlantUML sequence diagram, a Graphviz graph and an AsciiDoc guide](docs/screenshots/gui-previews-tools.png)
 *PlantUML (in a container), Graphviz and AsciiDoc (both built in).*
+
+![The Duplicates window with a duplicated folder, a PDF downloaded twice, a photo in three places and a document in an old backup](docs/screenshots/gui-duplicates.png)
+*Duplicates (Ctrl+D): a backed-up Pictures folder, a PDF downloaded twice, a photo in three
+places and a document in an old backup.*
 
 ## Install
 
@@ -170,7 +179,7 @@ loaded from disk and kept current while Coxswain runs.
 | Ctrl+Tab | Next tab | Alt+V | Details, Miller columns or thumbnails |
 | Ctrl+C / Ctrl+X / Ctrl+V | Copy, cut, paste files (shared with other file managers) | Alt+Enter | Properties and permissions |
 | Alt+Left / Alt+Right | Back / forward | Ctrl+E | Extract a zip or tar archive to the other pane |
-| Ctrl+B | Sidebar | | |
+| Ctrl+B | Sidebar | Ctrl+D | Find duplicates |
 | Ctrl+L | Type a path | Ctrl+Space | Folder sizes |
 | Ctrl+M | Batch rename with regex, previewed | Alt+T | Color tag |
 | Alt+N | Notes for this folder | Alt+. | Hidden files |
@@ -193,6 +202,12 @@ loaded from disk and kept current while Coxswain runs.
 **[docs/previews.md](docs/previews.md) lists every format, what it shows and how it works.**
 Where there is a choice, buttons at the top of the preview pick it, and the choice sticks.
 Ctrl+O, or the button next to the view switcher, toggles one or two panes.
+
+**Duplicates.** Ctrl+D (or `coxswain-gui --duplicates <folders>`) scans the folders and drives
+you tick for duplicate files and whole duplicate folders, and lists them by wasted space.
+"Mark all but the newest / oldest / the one under a folder" marks the extra copies; at least
+one copy of each always stays, and marked copies go to the trash.
+**[docs/duplicates.md](docs/duplicates.md)** explains how it works and stays fast.
 
 **Columns and folder sizes.** Right-click the column header (or F9, "Columns and folder
 sizes") to add **Files** and **Created** columns or hide Type, and to turn on **automatic folder

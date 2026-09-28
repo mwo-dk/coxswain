@@ -207,7 +207,7 @@
   }
 </script>
 
-{#if ui.modal}
+{#if ui.modal && ui.modal.kind !== "dupes"}
   {@const m = ui.modal}
   <div class="backdrop" role="presentation" onclick={(e) => e.target === e.currentTarget && close()}>
     <div class="dialog {m.kind}" role="dialog" aria-modal="true" aria-label={m.title ?? m.kind}>
