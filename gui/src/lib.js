@@ -173,6 +173,8 @@ export const TAG_COLORS = {
 const IMAGE = ["png", "jpg", "jpeg", "gif", "webp", "bmp", "ico", "svg", "avif"];
 const VIDEO = ["mp4", "webm", "mkv", "mov", "m4v", "ogv"];
 const AUDIO = ["mp3", "flac", "wav", "ogg", "m4a", "opus", "aac"];
+const FONT = ["ttf", "otf", "woff", "woff2"];
+const SHEET = ["csv", "tsv", "xlsx", "xlsm", "xls", "ods"];
 
 const ARCHIVE = /\.(zip|jar|apk|nupkg|whl|vsix|tar|tgz|tar\.gz)$/i;
 
@@ -185,6 +187,11 @@ export function previewKind(item) {
   if (isArchive(item.name)) return "archive";
   const ext = item.name.includes(".") ? item.name.split(".").pop().toLowerCase() : "";
   if (ext === "pdf") return "pdf";
+  if (FONT.includes(ext)) return "font";
+  if (SHEET.includes(ext)) return "sheet";
+  if (ext === "docx") return "docx";
+  if (ext === "ipynb") return "notebook";
+  if (ext === "mmd" || ext === "mermaid") return "mermaid";
   if (IMAGE.includes(ext)) return "image";
   if (VIDEO.includes(ext)) return "video";
   if (AUDIO.includes(ext)) return "audio";

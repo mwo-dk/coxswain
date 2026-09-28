@@ -12,7 +12,12 @@
     "@tauri-apps/api": "^2",
     "dompurify": "^3.4.16",
     "highlight.js": "^11.12.0",
-    "marked": "^18.0.14"
+    "katex": "^0.18.9",
+    "mammoth": "^1.13.0",
+    "marked": "^18.0.14",
+    "marked-katex-extension": "^5.1.13",
+    "mermaid": "^12.0.0",
+    "xlsx": "file:vendor/xlsx-0.20.3.tgz"
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^7",

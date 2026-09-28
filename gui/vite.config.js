@@ -6,5 +6,6 @@ export default defineConfig({
   plugins: [svelte()],
   clearScreen: false,
   server: { port: 1420, strictPort: true },
-  build: { target: "es2022" },
+  // The big chunks (Mermaid, SheetJS, KaTeX) load only when a preview needs them.
+  build: { target: "es2022", chunkSizeWarningLimit: 1000 },
 });
