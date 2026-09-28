@@ -830,7 +830,7 @@ pub struct Config {
 impl Default for Config {
     fn default() -> Self {
         let mut c = Config {
-            theme: "cyber".into(),
+            theme: "nc".into(),
             glyphs: "nerd".into(),
             glyph_set: None,
             language: "auto".into(),
@@ -910,7 +910,7 @@ impl Config {
     }
 
     pub fn theme(&self) -> Theme {
-        self.themes.get(&self.theme).cloned().unwrap_or_else(Theme::cyber)
+        self.themes.get(&self.theme).cloned().unwrap_or_else(Theme::nc)
     }
 
     pub fn gui_theme(&self, name: Option<&str>) -> Theme {
@@ -960,7 +960,7 @@ mod tests {
         assert_eq!(km[&"F5".parse().unwrap()], Action::Copy);
         assert_eq!(km[&"F10".parse().unwrap()], Action::Quit);
         assert_eq!(km[&"Alt+F7".parse().unwrap()], Action::Search);
-        assert_eq!(c.theme().look, "crt");
+        assert_eq!(c.theme().look, "dos");
         assert_eq!(c.gui_theme(None).look, "crt");
         // Exact RGB everywhere: named colors would follow the terminal's own palette.
         for (_, t) in Theme::builtin() {
