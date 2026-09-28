@@ -17,6 +17,8 @@ pub struct Entry {
     pub size: u64,
     /// Seconds since the Unix epoch.
     pub modified: u64,
+    /// Seconds since the Unix epoch; 0 where the file system does not record it.
+    pub created: u64,
 }
 
 impl Entry {
@@ -43,6 +45,7 @@ impl Entry {
             is_symlink,
             size: if meta.is_dir() { 0 } else { meta.len() },
             modified: meta.modified().ok().and_then(|t| t.duration_since(UNIX_EPOCH).ok()).map_or(0, |d| d.as_secs()),
+            created: meta.created().ok().and_then(|t| t.duration_since(UNIX_EPOCH).ok()).map_or(0, |d| d.as_secs()),
             name,
             path,
         })
@@ -85,6 +88,7 @@ pub fn list(dir: &Path, show_hidden: bool) -> io::Result<Vec<Entry>> {
             hidden: false,
             size: 0,
             modified: 0,
+            created: 0,
         });
     }
     for de in fs::read_dir(dir)? {

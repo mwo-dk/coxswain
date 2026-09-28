@@ -21,6 +21,13 @@ export const ui = $state({
   lastOutput: "",
   /** Pane under a file being dragged in, for the highlight. */
   dropPane: null,
+  /** Optional columns in the details view. */
+  columns: { type: true, size: true, files: false, modified: true, created: false },
+  /** Measure every folder's size as a folder opens. */
+  autoSizes: false,
+  /** Preview: source instead of rendered/tree, and diff instead of file. Kept across files. */
+  previewSource: false,
+  previewDiff: false,
   /** One modal at a time: { kind, ... } */
   modal: null,
   favorites: [],
@@ -44,6 +51,8 @@ export function newTab(dir, view = "details") {
     git: null,
     error: null,
     sizes: {},
+    /** Folder path -> number of files inside it, all levels (measured with the size). */
+    counts: {},
     hasNotes: false,
     back: [],
     fwd: [],
@@ -70,6 +79,7 @@ export async function load(t, dir = t.dir, focus) {
       t.marked.clear();
       t.git = null;
       t.sizes = {};
+      t.counts = {};
     }
     const alive = new Set(r.items.map((e) => e.path));
     for (const m of [...t.marked]) if (!alive.has(m)) t.marked.delete(m);
@@ -83,6 +93,7 @@ export async function load(t, dir = t.dir, focus) {
     t.error = String(e);
     return false;
   }
+  if (ui.autoSizes) measureFolders(t);
   invoke("git_status", { dir: t.dir }).then((g) => {
     if (t.dir === dir) t.git = g;
     if (g && !ui.recent.includes(g.root)) ui.recent = [g.root, ...ui.recent].slice(0, 12);
@@ -124,6 +135,28 @@ export function goForward(t = tab()) {
   }
 }
 
+/** Size and file count of the given folders (default: all in the tab), one at a time so the
+ *  first results show quickly. Stops as soon as the tab shows another folder. */
+const measuring = new WeakMap();
+export async function measureFolders(t, paths) {
+  const dir = t.dir;
+  // A reload while the automatic run is going (the watcher does that) must not start a second one.
+  if (!paths && measuring.get(t) === dir) return;
+  if (!paths) measuring.set(t, dir);
+  try {
+    const todo = paths ?? t.items.filter((e) => e.is_dir && e.name !== ".." && t.sizes[e.path] === undefined).map((e) => e.path);
+    for (const p of todo) {
+      if (t.dir !== dir) return;
+      const r = (await invoke("dir_sizes", { paths: [p] }))[p];
+      if (t.dir !== dir || !r) return;
+      t.sizes[p] = r[0];
+      t.counts[p] = r[1];
+    }
+  } finally {
+    if (!paths && measuring.get(t) === dir) measuring.delete(t);
+  }
+}
+
 export const reloadAll = () => Promise.all(visibleTabs().map((t) => load(t)));
 
 export function visibleTabs() {
@@ -149,6 +182,10 @@ export function snapshot() {
     showHidden: ui.showHidden,
     showSidebar: ui.showSidebar,
     showPreview: ui.showPreview,
+    columns: ui.columns,
+    autoSizes: ui.autoSizes,
+    previewSource: ui.previewSource,
+    previewDiff: ui.previewDiff,
     sidebarW: ui.sidebarW,
     previewW: ui.previewW,
     split: ui.split,
@@ -162,7 +199,8 @@ export async function init() {
   const s = st.session ?? {};
   ui.favorites = st.favorites;
   ui.recent = st.recent_repos;
-  for (const k of ["dual", "showHidden", "showSidebar", "showPreview", "sidebarW", "previewW", "split"]) if (k in s) ui[k] = s[k];
+  for (const k of ["dual", "showHidden", "showSidebar", "showPreview", "sidebarW", "previewW", "split", "autoSizes", "previewSource", "previewDiff"]) if (k in s) ui[k] = s[k];
+  if (s.columns) ui.columns = { ...ui.columns, ...s.columns };
   if (!("showHidden" in s)) ui.showHidden = ui.cfg.show_hidden;
   setTheme(s.theme ?? ui.cfg.gui.theme);
   // Directories given on the command line win over the saved session.
@@ -214,6 +252,31 @@ export function dragOut(t, i) {
   t.cursor = i;
   const paths = t.marked.has(e.path) ? targets(t) : [e.path];
   invoke("start_drag", { paths }).catch((err) => (ui.status = String(err)));
+}
+
+/** The details view's column choices and automatic folder sizes, as a menu. */
+export function columnMenu() {
+  const names = { type: "Type", size: "Size", files: "Files (in folders)", modified: "Modified", created: "Created" };
+  const box = (on) => (on ? "\u{f0132}" : "\u{f0131}");
+  ui.modal = {
+    kind: "menu",
+    title: "Columns and folder sizes",
+    direct: false,
+    filter: "",
+    cursor: 0,
+    items: [
+      ...Object.entries(names).map(([id, label]) => ({ label, icon: box(ui.columns[id]), run: () => ((ui.columns[id] = !ui.columns[id]), columnMenu()) })),
+      {
+        label: "Measure folder sizes automatically",
+        icon: box(ui.autoSizes),
+        run: () => {
+          ui.autoSizes = !ui.autoSizes;
+          if (ui.autoSizes) for (const t of visibleTabs()) measureFolders(t);
+          columnMenu();
+        },
+      },
+    ],
+  };
 }
 
 const VIEWS = ["details", "columns", "grid"];

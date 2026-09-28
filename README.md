@@ -11,9 +11,10 @@ shared Rust core and read the same config file.
   counts and stashes, plus a glyph per file (Nerd Font, or ASCII).
 - **Search like Everything.** Every file name on the machine sits in RAM and queries run in
   parallel: about 1.4M files index in ~0.2 s and answer in under 10 ms.
-- **See before you open.** The desktop app previews code, Markdown with Mermaid diagrams and
-  math, Jupyter notebooks, Word documents, spreadsheets, fonts, images, video, audio, PDFs and
-  what is inside zip and tar archives, and has a thumbnail view.
+- **See before you open.** The desktop app previews over 60 file types: code, Markdown with
+  Mermaid diagrams and math, Jupyter notebooks, Word, spreadsheets, PDFs, SQLite databases,
+  JSON/YAML/TOML as trees, certificates, e-mail, calendars, EPUB books, fonts, images, video
+  and audio, plus the git diff of any changed file. See [the full list](docs/previews.md).
 - **Plays well with the desktop.** Delete goes to the trash, folders refresh themselves, files
   drag to and from other apps, and Ctrl+C / Ctrl+V share files with your other file manager.
 - **Configurable.** Key bindings, color schemes, glyphs, user menu and fonts all live in one
@@ -33,6 +34,12 @@ shared Rust core and read the same config file.
 ![The preview pane showing Markdown with a Mermaid diagram and math, a Jupyter notebook, a spreadsheet, a Word document and a font](docs/screenshots/gui-previews.png)
 *The preview pane (Space): Markdown with a Mermaid diagram and math, a Jupyter notebook, a
 spreadsheet, a Word document and a font.*
+
+![The preview pane showing a YAML tree, a SQLite database, a certificate and an e-mail](docs/screenshots/gui-previews-data.png)
+*YAML as a tree, a SQLite database's tables, a certificate about to expire, and an e-mail.*
+
+![The preview pane showing a calendar, a git diff, a log file and an EPUB book](docs/screenshots/gui-previews-more.png)
+*A calendar, the git diff of a changed file, a log colored by level, and an EPUB book.*
 
 ## Install
 
@@ -127,24 +134,28 @@ loaded from disk and kept current while Coxswain runs.
 | Ctrl+M | Batch rename with regex, previewed | Alt+T | Color tag |
 | Alt+N | Notes for this folder | Alt+. | Hidden files |
 
-**The preview pane** (Space) follows the cursor and shows:
+**The preview pane** (Space) follows the cursor. At a glance:
 
 | Files | Preview |
 |---|---|
-| Code, config, text | Syntax highlighted |
-| Markdown | Rendered, with Mermaid diagrams and `$math$`; switch to **Source** at the top |
-| `.mmd` | Mermaid diagram |
-| `.ipynb` | Jupyter notebook: Markdown, code and outputs, including plots |
-| `.docx` | Word document |
-| `.xlsx`, `.ods`, `.xls`, `.csv`, `.tsv` | Table of the first 200 rows; a button per sheet |
-| `.ttf`, `.otf`, `.woff`, `.woff2` | Sample text at several sizes |
-| Images, video, audio, PDF | Shown, played or paged through in place |
-| `.zip`, `.jar`, `.tar`, `.tar.gz` | The list of files inside |
-| Folders | Counts, size, git status and notes |
+| Code, config, logs | Highlighted; logs colored by level. A changed file gets **File / Diff** |
+| Markdown, `.mmd` | Rendered, with Mermaid diagrams and math; **Rendered / Source** |
+| JSON, YAML, TOML | A collapsible tree; **Tree / Source** |
+| `.ipynb`, `.docx`, `.epub`, `.eml`, PDF | Notebook with outputs, Word document, first chapter, e-mail, pages |
+| Spreadsheets, CSV, JSON Lines, SQLite | Tables, a button per sheet; database tables with row counts and schema |
+| `.ics`, `.vcf`, `.plist`, certificates | Events, contact cards, property lists, certificate details with expiry |
+| Images, video, audio, fonts | Shown or played; photo EXIF, audio tags, font samples |
+| Archives, programs, folders | Contents; the platform a binary is built for; folder counts, sizes, notes |
 
-Where there is a choice, such as rendered or source, it appears as buttons at the top of the
-preview. The heavier renderers load the first time they are needed, so they cost nothing at
-startup. Ctrl+O, or the button next to the view switcher, toggles between one and two panes.
+**[docs/previews.md](docs/previews.md) lists every format, what it shows and how it works.**
+Where there is a choice, buttons at the top of the preview pick it, and the choice sticks.
+Ctrl+O, or the button next to the view switcher, toggles one or two panes.
+
+**Columns and folder sizes.** Right-click the column header (or F9, "Columns and folder
+sizes") to add **Files** and **Created** columns or hide Type, and to turn on **automatic folder
+sizes**: every folder is measured as you open its parent, in the background.
+
+![The details view with every column and automatically measured folder sizes](docs/screenshots/gui-folder-sizes.png)
 
 Folders reread themselves when something changes in them. Drag files to the other pane, to
 another application, or in from one; Coxswain asks whether to copy or move.
@@ -237,7 +248,7 @@ Known limits and upgrade paths:
 
 ```
 crates/coxswain-core   config, fs ops, git status, search index (shared)
-crates/coxswain-tui    terminal UI (package and binary: coxswain)
+crates/coxswain        terminal UI (package and binary: coxswain)
 gui/                Svelte 5 frontend
 gui/src-tauri       Tauri backend (binary: coxswain-gui)
 ```

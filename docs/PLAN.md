@@ -5,7 +5,7 @@ Tauri + Svelte 5 GUI, both on one shared Rust core.
 
 ## Decisions
 
-- **Workspace:** `crates/coxswain-core` (everything that is not UI), `crates/coxswain-tui` (binary
+- **Workspace:** `crates/coxswain-core` (everything that is not UI), `crates/coxswain` (binary
   `coxswain`), `gui/` (Svelte 5 + Vite) with `gui/src-tauri` (binary `coxswain-gui`).
 - **Git:** shell out to `git status --porcelain=v2 --branch -z`. It respects every git
   config, hook and attribute, needs no C dependency and is fast. Glyphs are Nerd Font
@@ -39,6 +39,6 @@ Each step ends with its acceptance command green.
 4. Core `index` (build, save/load, query, watch) — `cargo test -p coxswain-core index`, then
    `cargo run --release -p coxswain-core --example bench -- /` for real timings.
 5. TUI: panels, function-key bar, command line, dialogs, viewer/editor via `$PAGER`/`$EDITOR`,
-   search dialog (Alt+F7) — `cargo build -p coxswain-tui` and a manual run.
+   search dialog (Alt+F7) — `cargo build -p coxswain` and a manual run.
 6. GUI: Tauri commands over core, Svelte 5 dual panel with the same key map and theme —
    `npm run build` in `gui/` and `cargo build -p coxswain-gui`.

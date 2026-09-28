@@ -7,7 +7,7 @@ import DOMPurify from "dompurify";
 import hljs from "highlight.js/lib/common";
 import { convertFileSrc } from "./lib.js";
 
-const clean = (html) => DOMPurify.sanitize(html, { USE_PROFILES: { html: true, svg: true, svgFilters: true, mathMl: true } });
+export const clean = (html) => DOMPurify.sanitize(html, { USE_PROFILES: { html: true, svg: true, svgFilters: true, mathMl: true } });
 const escape = (s) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
 
 /** File bytes through the asset protocol; refuses files too big to preview. */
@@ -120,4 +120,104 @@ export async function loadFont(path) {
   const face = new FontFace(family, `url("${convertFileSrc(path)}")`);
   document.fonts.add(await face.load());
   return family;
+}
+
+// ------------------------------------------------------------ structured data
+
+/** JSON, YAML or TOML text as a plain value, for the tree view. */
+export async function parseData(src, ext) {
+  if (ext === "json" || ext === "geojson") return JSON.parse(src);
+  if (ext === "yaml" || ext === "yml") return (await import("yaml")).parse(src);
+  if (ext === "toml") return (await import("smol-toml")).parse(src);
+  throw new Error(`No tree view for .${ext}`);
+}
+
+/** JSON Lines: up to 200 objects as rows, with the union of their keys as columns. */
+export function jsonLines(src) {
+  const objs = src
+    .split("\n")
+    .filter((l) => l.trim())
+    .slice(0, 200)
+    .map((l) => {
+      try {
+        return JSON.parse(l);
+      } catch {
+        return { "(not JSON)": l };
+      }
+    });
+  const cols = [...new Set(objs.flatMap((o) => (o && typeof o === "object" && !Array.isArray(o) ? Object.keys(o) : ["value"])))];
+  const cell = (v) => (v === undefined ? "" : typeof v === "object" ? JSON.stringify(v) : String(v));
+  const rows = objs.map((o) => cols.map((c) => cell(o && typeof o === "object" && !Array.isArray(o) ? o[c] : o)));
+  return [cols, ...rows];
+}
+
+// ------------------------------------------------------------ calendar and contacts
+
+/** RFC 5545 / 6350 content lines, unfolded: [{ name, params, value }]. */
+function contentLines(src) {
+  return src
+    .replace(/\r?\n[ \t]/g, "")
+    .split(/\r?\n/)
+    .filter(Boolean)
+    .map((l) => {
+      const i = l.indexOf(":");
+      const [name, ...params] = l.slice(0, i).split(";");
+      const value = l.slice(i + 1).replace(/\\n/gi, "\n").replace(/\\([,;\\])/g, "$1");
+      return { name: name.toUpperCase(), params: params.join(";"), value };
+    });
+}
+
+/** 20260928T100000Z -> "2026-09-28 10:00 UTC"; all-day 20260928 -> "2026-09-28". */
+function icalDate(v) {
+  const m = /^(\d{4})(\d{2})(\d{2})(?:T(\d{2})(\d{2}))?(Z)?/.exec(v ?? "");
+  if (!m) return v ?? "";
+  return `${m[1]}-${m[2]}-${m[3]}${m[4] ? ` ${m[4]}:${m[5]}` : ""}${m[6] ? " UTC" : ""}`;
+}
+
+/** Events of an .ics file, in file order. */
+export function calendar(src) {
+  const events = [];
+  let cur = null;
+  for (const { name, value } of contentLines(src)) {
+    if (name === "BEGIN" && value === "VEVENT") cur = {};
+    else if (name === "END" && value === "VEVENT" && cur) events.push(cur), (cur = null);
+    else if (cur) cur[name] ??= value;
+  }
+  return events.map((e) => ({ title: e.SUMMARY ?? "(no title)", start: icalDate(e.DTSTART), end: icalDate(e.DTEND), where: e.LOCATION ?? "", note: e.DESCRIPTION ?? "" }));
+}
+
+/** Cards of a .vcf file. */
+export function contacts(src) {
+  const cards = [];
+  let cur = null;
+  for (const { name, value } of contentLines(src)) {
+    if (name === "BEGIN" && value.toUpperCase() === "VCARD") cur = { email: [], tel: [] };
+    else if (name === "END" && cur) cards.push(cur), (cur = null);
+    else if (cur && name === "FN") cur.name = value;
+    else if (cur && name === "ORG") cur.org = value.replaceAll(";", ", ");
+    else if (cur && name === "TITLE") cur.title = value;
+    else if (cur && name === "EMAIL") cur.email.push(value);
+    else if (cur && name === "TEL") cur.tel.push(value);
+  }
+  return cards;
+}
+
+// ------------------------------------------------------------ logs
+
+const LEVELS = [
+  [/\b(FATAL|CRIT(ICAL)?|ERROR|ERR|PANIC)\b/, "lv-error"],
+  [/\b(WARN(ING)?)\b/, "lv-warn"],
+  [/\b(INFO|NOTICE)\b/, "lv-info"],
+  [/\b(DEBUG|TRACE|VERBOSE)\b/, "lv-debug"],
+];
+
+/** A log file with each line coloured by its level. */
+export function logLines(src) {
+  return src
+    .split("\n")
+    .map((l) => {
+      const cls = LEVELS.find(([re]) => re.test(l))?.[1];
+      return cls ? `<span class="${cls}">${escape(l)}</span>` : escape(l);
+    })
+    .join("\n");
 }
