@@ -21,17 +21,18 @@
     error = "";
     try {
       const cfg = await invoke("save_settings", { changes: { [name]: value } });
-      const themeChanged = cfg.settings.theme !== ui.cfg.settings.theme;
       ui.cfg = cfg;
       setLanguage(cfg);
-      setTheme(themeChanged ? cfg.settings.theme : ui.theme);
+      setTheme(cfg.settings.theme);
       saved = true;
     } catch (e) {
       error = String(e);
     }
   }
 
-  const THEMES = ["dark", "light", "nord", "midnight", "nc"];
+  // Built-in themes first, in their order, then any `[themes.<name>]` from config.toml.
+  const themes = $derived([...ui.cfg.builtin_themes, ...Object.keys(ui.cfg.themes).filter((id) => !ui.cfg.builtin_themes.includes(id))]);
+  const themeName = (id) => (ui.cfg.builtin_themes.includes(id) ? t(`theme.${id}`) : id);
   const close = () => (ui.modal = null);
 </script>
 
@@ -61,12 +62,25 @@
 
     <section>
       <h3>{t("settings.appearance")}</h3>
+      <p class="label">{t("settings.theme")}</p>
+      <div class="themes" role="radiogroup" aria-label={t("settings.theme")}>
+        {#each themes as id (id)}
+          {@const th = ui.cfg.themes[id]}
+          <button class="theme" class:on={s.theme === id} role="radio" aria-checked={s.theme === id} onclick={() => set("theme", id)}>
+            <!-- A tiny window in the theme's colours: sidebar, a folder, the cursor row, a file. -->
+            <span class="swatch" style:background={th.panel.bg} style:border-color={th.border.fg} aria-hidden="true">
+              <span class="side" style:background={th.sidebar.bg}></span>
+              <span class="rows">
+                <i style:background={th.directory.fg}></i>
+                <i class="cur" style:background={th.cursor.bg}><b style:background={th.cursor.fg}></b></i>
+                <i style:background={th.panel.fg}></i>
+              </span>
+            </span>
+            <span>{themeName(id)}</span>
+          </button>
+        {/each}
+      </div>
       <div class="grid">
-        <label for="theme">{t("settings.theme")}</label>
-        <select id="theme" value={s.theme} onchange={(e) => set("theme", e.currentTarget.value)}>
-          {#each THEMES.filter((id) => ui.cfg.themes[id]) as id (id)}<option value={id}>{t(`theme.${id}`)}</option>{/each}
-          {#each Object.keys(ui.cfg.themes).filter((id) => !THEMES.includes(id)) as id (id)}<option value={id}>{id}</option>{/each}
-        </select>
         <label for="glyphs">{t("settings.glyphs")}</label>
         <select id="glyphs" value={s.glyphs} onchange={(e) => set("glyphs", e.currentTarget.value)}>
           <option value="nerd">{t("settings.glyphs_nerd")}</option>
@@ -78,6 +92,7 @@
         <input id="font" value={s.font} spellcheck="false" onchange={(e) => set("font", e.currentTarget.value)} />
         <label for="mono">{t("settings.mono_font")}</label>
         <input id="mono" value={s.mono_font} spellcheck="false" onchange={(e) => set("mono_font", e.currentTarget.value)} />
+        {#if ui.cfg.looks[s.theme] !== "modern"}<span></span><span class="hint">{t("settings.font_theme_hint")}</span>{/if}
         <label for="icons">{t("settings.icon_font")}</label>
         <input id="icons" value={s.icon_font} spellcheck="false" onchange={(e) => set("icon_font", e.currentTarget.value)} />
       </div>
@@ -130,8 +145,8 @@
     background: var(--dialog-bg);
     color: var(--dialog-fg);
     border: 1px solid var(--border-fg);
-    border-radius: 12px;
-    box-shadow: 0 20px 60px rgb(0 0 0 / 0.45);
+    border-radius: var(--r-lg);
+    box-shadow: var(--shadow);
     overflow: hidden;
   }
   header,
@@ -174,7 +189,7 @@
     color: inherit;
     background: none;
     border: 1px solid var(--border-fg);
-    border-radius: 7px;
+    border-radius: var(--r);
     padding: 4px 12px;
     cursor: pointer;
   }
@@ -207,7 +222,7 @@
   .lang img {
     width: 24px;
     height: 18px;
-    border-radius: 2px;
+    border-radius: var(--r-sm);
     box-shadow: 0 0 0 1px color-mix(in srgb, var(--border-fg) 80%, transparent);
     flex: none;
   }
@@ -221,6 +236,64 @@
     text-align: center;
     font-family: var(--icon-font);
     font-size: 1.2em;
+  }
+  p.label {
+    margin: 0 0 6px;
+    color: var(--hidden-fg);
+  }
+  .themes {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 6px;
+    margin-bottom: 12px;
+  }
+  .theme {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 5px;
+    padding: 6px;
+    text-align: start;
+  }
+  .theme.on {
+    border-color: var(--accent-bg);
+    background: color-mix(in srgb, var(--accent-bg) 18%, transparent);
+  }
+  .swatch {
+    display: flex;
+    height: 44px;
+    border: 1px solid;
+    border-radius: var(--r-sm);
+    overflow: hidden;
+  }
+  .side {
+    width: 28%;
+  }
+  .rows {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 5px;
+    padding: 0 6px;
+  }
+  .rows i {
+    display: block;
+    height: 4px;
+    width: 60%;
+    border-radius: var(--r-sm);
+  }
+  .rows i.cur {
+    width: auto;
+    height: 9px;
+    padding: 2.5px 5px;
+    border-radius: 0;
+  }
+  .rows i.cur b {
+    display: block;
+    height: 4px;
+    width: 50%;
+    border-radius: var(--r-sm);
   }
   .grid {
     display: grid;
@@ -244,7 +317,7 @@
     color: var(--dialog-input-fg);
     background: var(--dialog-input-bg);
     border: 1px solid var(--border-fg);
-    border-radius: 7px;
+    border-radius: var(--r);
     padding: 4px 8px;
   }
   .hint {

@@ -251,7 +251,13 @@ macro_rules! theme {
     ($($slot:ident),* $(,)?) => {
         #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
         #[serde(default)]
-        pub struct Theme { $(pub $slot: Style),* }
+        pub struct Theme {
+            /// The desktop app's shapes and chrome: `modern`, `crt`, `dos`, `win31`, `win95`,
+            /// `winxp`, `win7`, `win10`, `win11`, `system7`, `platinum`, `aqua` or `macos`.
+            /// Colors come from the slots; the terminal app ignores it.
+            pub look: String,
+            $(pub $slot: Style),*
+        }
 
         impl Theme {
             /// (slot name, style) pairs, used by the GUI to emit CSS variables.
@@ -278,6 +284,7 @@ impl Theme {
     /// the terminal's own palette (often a pale "blue") does not wash it out.
     pub fn nc() -> Self {
         Theme {
+            look: "dos".into(),
             panel: st("#55ffff", "#0000aa"),
             border: st("#55ffff", "#0000aa"),
             header: bold(st("#ffff55", "#0000aa")),
@@ -312,19 +319,29 @@ impl Theme {
         }
     }
 
+    /// The default in the desktop app: a green phosphor terminal, as in WarGames. Black, green
+    /// text with cyan folders, amber instead of red.
+    pub fn cyber() -> Self {
+        Theme::from_palette(&Palette {
+            look: "crt", bg: "#020805", alt: "#010503", raised: "#06140b", fg: "#33ff66", sel_fg: "#d8ffe2",
+            dim: "#1c9c48", border: "#0d3f1f", accent: "#33ff66", sel_bg: "#0f5528", dir: "#5cf2ff", red: "#ffa31a",
+            green: "#33ff66", yellow: "#d4ff3a", blue: "#3fd0ff", magenta: "#3fffd2", orange: "#ffb000",
+        })
+    }
+
     /// A modern dark scheme (Tokyo Night).
     pub fn midnight() -> Self {
         Theme::from_palette(&Palette {
-            bg: "#1a1b26", alt: "#16161e", raised: "#24283b", fg: "#c0caf5", dim: "#565f89", border: "#292e42",
+            look: "modern", bg: "#1a1b26", alt: "#16161e", raised: "#24283b", fg: "#c0caf5", sel_fg: "#c0caf5", dim: "#565f89", border: "#292e42",
             accent: "#7aa2f7", sel_bg: "#283457", dir: "#7aa2f7", red: "#f7768e", green: "#9ece6a", yellow: "#e0af68",
             blue: "#2ac3de", magenta: "#bb9af7", orange: "#ff9e64",
         })
     }
 
-    /// Default GUI theme: neutral dark, blue accent.
+    /// Neutral dark, blue accent.
     pub fn dark() -> Self {
         Theme::from_palette(&Palette {
-            bg: "#1e1f22", alt: "#18191b", raised: "#2b2d31", fg: "#dcdde1", dim: "#80848e", border: "#313338",
+            look: "modern", bg: "#1e1f22", alt: "#18191b", raised: "#2b2d31", fg: "#dcdde1", sel_fg: "#dcdde1", dim: "#80848e", border: "#313338",
             accent: "#4c8dff", sel_bg: "#2e436e", dir: "#8ab4f8", red: "#f28b82", green: "#81c995", yellow: "#fdd663",
             blue: "#78d9ec", magenta: "#c58af9", orange: "#fcad70",
         })
@@ -332,7 +349,7 @@ impl Theme {
 
     pub fn light() -> Self {
         Theme::from_palette(&Palette {
-            bg: "#ffffff", alt: "#f3f4f6", raised: "#ffffff", fg: "#1f2328", dim: "#6e7781", border: "#d8dee4",
+            look: "modern", bg: "#ffffff", alt: "#f3f4f6", raised: "#ffffff", fg: "#1f2328", sel_fg: "#1f2328", dim: "#6e7781", border: "#d8dee4",
             accent: "#0969da", sel_bg: "#cfe3ff", dir: "#0550ae", red: "#cf222e", green: "#1a7f37", yellow: "#9a6700",
             blue: "#0598bc", magenta: "#8250df", orange: "#bc4c00",
         })
@@ -340,14 +357,147 @@ impl Theme {
 
     pub fn nord() -> Self {
         Theme::from_palette(&Palette {
-            bg: "#2e3440", alt: "#272c36", raised: "#3b4252", fg: "#e5e9f0", dim: "#7b88a1", border: "#3b4252",
+            look: "modern", bg: "#2e3440", alt: "#272c36", raised: "#3b4252", fg: "#e5e9f0", sel_fg: "#e5e9f0", dim: "#7b88a1", border: "#3b4252",
             accent: "#88c0d0", sel_bg: "#434c5e", dir: "#88c0d0", red: "#bf616a", green: "#a3be8c", yellow: "#ebcb8b",
             blue: "#81a1c1", magenta: "#b48ead", orange: "#d08770",
         })
     }
 
+    /// Windows 3.11: white lists, grey chrome, navy selection.
+    pub fn win31() -> Self {
+        Theme::from_palette(&Palette {
+            look: "win31", bg: "#ffffff", alt: "#ffffff", raised: "#c0c0c0", fg: "#000000", sel_fg: "#ffffff",
+            dim: "#808080", border: "#000000", accent: "#000080", sel_bg: "#000080", dir: "#000000", red: "#800000",
+            green: "#008000", yellow: "#808000", blue: "#0000ff", magenta: "#800080", orange: "#808000",
+        })
+    }
+
+    /// Windows 95 and 98: grey 3D chrome, navy selection.
+    pub fn win95() -> Self {
+        Theme::from_palette(&Palette {
+            look: "win95", bg: "#ffffff", alt: "#c0c0c0", raised: "#c0c0c0", fg: "#000000", sel_fg: "#ffffff",
+            dim: "#808080", border: "#808080", accent: "#000080", sel_bg: "#000080", dir: "#000000", red: "#800000",
+            green: "#008000", yellow: "#808000", blue: "#0000ff", magenta: "#800080", orange: "#808000",
+        })
+    }
+
+    /// Windows XP (Luna): beige chrome, blue task pane, blue selection.
+    pub fn winxp() -> Self {
+        Theme::from_palette(&Palette {
+            look: "winxp", bg: "#ffffff", alt: "#d6dff7", raised: "#ece9d8", fg: "#000000", sel_fg: "#ffffff",
+            dim: "#7f7f7f", border: "#7f9db9", accent: "#316ac5", sel_bg: "#316ac5", dir: "#000000", red: "#c00000",
+            green: "#008000", yellow: "#a07000", blue: "#0000ff", magenta: "#800080", orange: "#c05000",
+        })
+    }
+
+    /// Windows 7 (Aero): pale blue navigation, glassy light-blue selection.
+    pub fn win7() -> Self {
+        Theme::from_palette(&Palette {
+            look: "win7", bg: "#ffffff", alt: "#f1f5fb", raised: "#f0f0f0", fg: "#1e1e1e", sel_fg: "#000000",
+            dim: "#6d6d6d", border: "#d5dfe5", accent: "#3399ff", sel_bg: "#cce8ff", dir: "#1e1e1e", red: "#c42b1c",
+            green: "#107c10", yellow: "#9d5d00", blue: "#0066cc", magenta: "#881798", orange: "#ca5010",
+        })
+    }
+
+    /// Windows 10: flat and white, square corners.
+    pub fn win10() -> Self {
+        Theme::from_palette(&Palette {
+            look: "win10", bg: "#ffffff", alt: "#ffffff", raised: "#f0f0f0", fg: "#000000", sel_fg: "#000000",
+            dim: "#6d6d6d", border: "#e5e5e5", accent: "#0078d7", sel_bg: "#cce8ff", dir: "#000000", red: "#c42b1c",
+            green: "#107c10", yellow: "#9d5d00", blue: "#0063b1", magenta: "#881798", orange: "#ca5010",
+        })
+    }
+
+    /// Windows 11 (Mica), light.
+    pub fn win11() -> Self {
+        Theme::from_palette(&Palette {
+            look: "win11", bg: "#ffffff", alt: "#f3f3f3", raised: "#fbfbfb", fg: "#1a1a1a", sel_fg: "#1a1a1a",
+            dim: "#5f5f5f", border: "#e5e5e5", accent: "#005fb8", sel_bg: "#d3e5f7", dir: "#1a1a1a", red: "#c42b1c",
+            green: "#0f7b0f", yellow: "#9d5d00", blue: "#005fb8", magenta: "#881798", orange: "#ca5010",
+        })
+    }
+
+    /// Windows 11 (Mica), dark.
+    pub fn win11_dark() -> Self {
+        Theme::from_palette(&Palette {
+            look: "win11", bg: "#1c1c1c", alt: "#202020", raised: "#2b2b2b", fg: "#ffffff", sel_fg: "#ffffff",
+            dim: "#9d9d9d", border: "#333333", accent: "#4cc2ff", sel_bg: "#2e4a66", dir: "#ffffff", red: "#ff99a4",
+            green: "#6ccb5f", yellow: "#fce100", blue: "#60cdff", magenta: "#d59dff", orange: "#fcb57c",
+        })
+    }
+
+    /// Macintosh System 7: black on white, one-pixel lines, inverted selection.
+    pub fn system7() -> Self {
+        Theme::from_palette(&Palette {
+            look: "system7", bg: "#ffffff", alt: "#ffffff", raised: "#ffffff", fg: "#000000", sel_fg: "#ffffff",
+            dim: "#555555", border: "#000000", accent: "#000000", sel_bg: "#000000", dir: "#000000", red: "#dd0806",
+            green: "#006411", yellow: "#90713a", blue: "#0000d4", magenta: "#f20884", orange: "#ff6403",
+        })
+    }
+
+    /// Mac OS 8 and 9 (Platinum): grey bevels, lavender selection.
+    pub fn platinum() -> Self {
+        Theme::from_palette(&Palette {
+            look: "platinum", bg: "#ffffff", alt: "#dddddd", raised: "#dddddd", fg: "#000000", sel_fg: "#000000",
+            dim: "#777777", border: "#999999", accent: "#6666cc", sel_bg: "#ccccff", dir: "#000000", red: "#dd0806",
+            green: "#006411", yellow: "#90713a", blue: "#0000d4", magenta: "#b000a0", orange: "#d05000",
+        })
+    }
+
+    /// Mac OS X Aqua (10.0 to 10.4): pinstripes, gel buttons, blue selection.
+    pub fn aqua() -> Self {
+        Theme::from_palette(&Palette {
+            look: "aqua", bg: "#ffffff", alt: "#e8edf5", raised: "#ececec", fg: "#000000", sel_fg: "#ffffff",
+            dim: "#808080", border: "#a5a5a5", accent: "#3875d7", sel_bg: "#3875d7", dir: "#000000", red: "#c4161c",
+            green: "#1d8b2c", yellow: "#a07000", blue: "#1a5fd0", magenta: "#9b30b0", orange: "#d06000",
+        })
+    }
+
+    /// Current macOS, light.
+    pub fn macos() -> Self {
+        Theme::from_palette(&Palette {
+            look: "macos", bg: "#ffffff", alt: "#ececec", raised: "#f6f6f6", fg: "#1d1d1f", sel_fg: "#ffffff",
+            dim: "#86868b", border: "#e0e0e0", accent: "#007aff", sel_bg: "#0064e1", dir: "#1d1d1f", red: "#d70015",
+            green: "#248a3d", yellow: "#a05a00", blue: "#0071e3", magenta: "#8944ab", orange: "#c93400",
+        })
+    }
+
+    /// Current macOS, dark.
+    pub fn macos_dark() -> Self {
+        Theme::from_palette(&Palette {
+            look: "macos", bg: "#1e1e1e", alt: "#2a2a2a", raised: "#323232", fg: "#e5e5e5", sel_fg: "#ffffff",
+            dim: "#98989d", border: "#3a3a3a", accent: "#0a84ff", sel_bg: "#0a5ad6", dir: "#e5e5e5", red: "#ff6961",
+            green: "#30d158", yellow: "#ffd60a", blue: "#64d2ff", magenta: "#bf5af2", orange: "#ff9f0a",
+        })
+    }
+
+    /// Every built-in theme: (name, theme).
+    pub fn builtin() -> Vec<(&'static str, Theme)> {
+        vec![
+            ("cyber", Theme::cyber()),
+            ("dark", Theme::dark()),
+            ("light", Theme::light()),
+            ("nord", Theme::nord()),
+            ("midnight", Theme::midnight()),
+            ("nc", Theme::nc()),
+            ("win31", Theme::win31()),
+            ("win95", Theme::win95()),
+            ("winxp", Theme::winxp()),
+            ("win7", Theme::win7()),
+            ("win10", Theme::win10()),
+            ("win11", Theme::win11()),
+            ("win11-dark", Theme::win11_dark()),
+            ("system7", Theme::system7()),
+            ("platinum", Theme::platinum()),
+            ("aqua", Theme::aqua()),
+            ("macos", Theme::macos()),
+            ("macos-dark", Theme::macos_dark()),
+        ]
+    }
+
     pub fn from_palette(p: &Palette) -> Self {
         Theme {
+            look: p.look.into(),
             panel: st(p.fg, p.bg),
             border: st(p.border, p.bg),
             header: st(p.dim, p.bg),
@@ -355,7 +505,7 @@ impl Theme {
             executable: st(p.green, p.bg),
             hidden: st(p.dim, p.bg),
             symlink: st(p.magenta, p.bg),
-            cursor: st(p.fg, p.sel_bg),
+            cursor: st(p.sel_fg, p.sel_bg),
             marked: bold(st(p.yellow, p.bg)),
             marked_cursor: bold(st(p.yellow, p.sel_bg)),
             status: st(p.dim, p.alt),
@@ -385,6 +535,7 @@ impl Theme {
 
 /// The handful of colors a modern theme is derived from.
 pub struct Palette {
+    pub look: &'static str,
     pub bg: &'static str,
     pub alt: &'static str,
     pub raised: &'static str,
@@ -393,6 +544,8 @@ pub struct Palette {
     pub border: &'static str,
     pub accent: &'static str,
     pub sel_bg: &'static str,
+    /// Text on `sel_bg`, the cursor row.
+    pub sel_fg: &'static str,
     pub dir: &'static str,
     pub red: &'static str,
     pub green: &'static str,
@@ -620,7 +773,7 @@ impl Default for SearchConfig {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(default)]
 pub struct GuiConfig {
-    /// The GUI's own theme, so the terminal can stay NC blue.
+    /// The desktop app's own theme, so the two apps can differ.
     pub theme: String,
     /// CSS font-family for the interface.
     pub font: String,
@@ -636,7 +789,7 @@ pub struct GuiConfig {
 impl Default for GuiConfig {
     fn default() -> Self {
         GuiConfig {
-            theme: "dark".into(),
+            theme: "cyber".into(),
             font: "Inter, 'Segoe UI Variable', 'Segoe UI', system-ui, -apple-system, 'Noto Sans', sans-serif".into(),
             icon_font: "'Symbols Nerd Font Mono', 'JetBrainsMono Nerd Font', 'MesloLGS Nerd Font', 'MesloLGM Nerd Font Mono', 'FiraCode Nerd Font', 'CaskaydiaCove Nerd Font', 'Hack Nerd Font', monospace".into(),
             mono_font: "'JetBrains Mono', 'Cascadia Code', 'MesloLGS Nerd Font', Menlo, Consolas, monospace".into(),
@@ -649,7 +802,8 @@ impl Default for GuiConfig {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Config {
-    /// Name of a built-in (`nc`, `midnight`) or a `[themes.<name>]` table.
+    /// The terminal app's theme: a built-in (`cyber`, `nc`, `win95`, see `Theme::builtin`) or a
+    /// `[themes.<name>]` table.
     pub theme: String,
     /// `nerd` or `ascii`, or a full `[glyph_set]` table.
     pub glyphs: String,
@@ -731,11 +885,9 @@ impl Config {
         for &a in Action::ALL {
             self.keys.entry(a).or_insert_with(|| a.default_keys().iter().map(|k| k.to_string()).collect());
         }
-        self.themes.entry("nc".into()).or_insert_with(Theme::nc);
-        self.themes.entry("midnight".into()).or_insert_with(Theme::midnight);
-        self.themes.entry("dark".into()).or_insert_with(Theme::dark);
-        self.themes.entry("light".into()).or_insert_with(Theme::light);
-        self.themes.entry("nord".into()).or_insert_with(Theme::nord);
+        for (name, theme) in Theme::builtin() {
+            self.themes.entry(name.into()).or_insert(theme);
+        }
     }
 
     pub fn to_toml(&self) -> String {
@@ -762,7 +914,7 @@ impl Config {
     }
 
     pub fn gui_theme(&self, name: Option<&str>) -> Theme {
-        self.themes.get(name.unwrap_or(&self.gui.theme)).cloned().unwrap_or_else(Theme::dark)
+        self.themes.get(name.unwrap_or(&self.gui.theme)).cloned().unwrap_or_else(Theme::cyber)
     }
 
     pub fn glyphs(&self) -> Glyphs {
@@ -808,9 +960,12 @@ mod tests {
         assert_eq!(km[&"F5".parse().unwrap()], Action::Copy);
         assert_eq!(km[&"F10".parse().unwrap()], Action::Quit);
         assert_eq!(km[&"Alt+F7".parse().unwrap()], Action::Search);
-        // Exact CGA colors: named colors would follow the terminal's palette, which is rarely NC blue.
-        assert_eq!(c.theme().panel.bg, "#0000aa");
-        assert!(c.theme().slots().iter().all(|(_, s)| [&s.fg, &s.bg].iter().all(|c| c.is_empty() || c.starts_with('#'))));
+        assert_eq!(c.theme().look, "dos");
+        assert_eq!(c.gui_theme(None).look, "crt");
+        // Exact RGB everywhere: named colors would follow the terminal's own palette.
+        for (_, t) in Theme::builtin() {
+            assert!(t.slots().iter().all(|(_, s)| [&s.fg, &s.bg].iter().all(|c| c.is_empty() || c.starts_with('#'))));
+        }
     }
 
     #[test]

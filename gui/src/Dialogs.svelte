@@ -379,8 +379,8 @@
     background: var(--dialog-bg);
     color: var(--dialog-fg);
     border: 1px solid var(--border-fg);
-    border-radius: 12px;
-    box-shadow: 0 20px 60px rgb(0 0 0 / 0.45);
+    border-radius: var(--r-lg);
+    box-shadow: var(--shadow);
     box-sizing: border-box;
   }
   .dialog.search,
@@ -416,7 +416,7 @@
     color: var(--dialog-input-fg);
     background: var(--dialog-input-bg);
     border: 1px solid var(--border-fg);
-    border-radius: 7px;
+    border-radius: var(--r);
     padding: 7px 10px;
     outline: none;
   }
@@ -437,7 +437,7 @@
   }
   .buttons button {
     padding: 6px 16px;
-    border-radius: 7px;
+    border-radius: var(--r);
     border: 1px solid var(--border-fg);
   }
   .buttons .primary {
@@ -478,7 +478,7 @@
     gap: 10px;
     width: 100%;
     padding: 6px 10px;
-    border-radius: 7px;
+    border-radius: var(--r);
     text-align: start;
     white-space: nowrap;
   }
@@ -494,7 +494,7 @@
     font-size: 0.8em;
     padding: 1px 6px;
     margin-inline-start: 4px;
-    border-radius: 4px;
+    border-radius: var(--r-sm);
     border: 1px solid var(--border-fg);
     color: var(--hidden-fg);
   }
@@ -518,7 +518,7 @@
   .scope {
     padding: 4px 10px;
     border: 1px solid var(--border-fg);
-    border-radius: 999px;
+    border-radius: var(--r-pill);
     font-size: 0.85em;
     color: var(--hidden-fg);
   }
@@ -567,7 +567,7 @@
     font-family: var(--mono-font);
     font-size: 0.9em;
     border: 1px solid var(--border-fg);
-    border-radius: 8px;
+    border-radius: var(--r);
     padding: 6px 10px;
   }
   .plan li {
@@ -604,7 +604,7 @@
     align-items: center;
     gap: 8px;
     padding: 6px 10px;
-    border-radius: 7px;
+    border-radius: var(--r);
     border: 1px solid var(--border-fg);
   }
   .tags button:hover {

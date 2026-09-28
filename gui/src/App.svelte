@@ -178,9 +178,6 @@
     p.active = (p.active + d + p.tabs.length) % p.tabs.length;
   }
 
-  /** Theme ids; each shows as t(`theme.<id>`). */
-  const THEMES = ["dark", "light", "nord", "midnight", "nc"];
-
   function sortBy(k) {
     const t = tab();
     t.reverse = t.sort === k && !t.reverse;
@@ -326,7 +323,7 @@
           ...Object.entries(ui.cfg.actions)
             .filter(([n]) => !["menu", "up", "down"].includes(n))
             .map(([n, [label, key]]) => ({ key, label, run: () => actions[n]?.() })),
-          ...THEMES.map((id) => ({ key: id === ui.theme ? t("app.current") : "", label: t("app.theme", { name: t(`theme.${id}`) }), icon: "\u{f53f}", run: () => setTheme(id) })),
+          ...ui.cfg.builtin_themes.map((id) => ({ key: id === ui.theme ? t("app.current") : "", label: t("app.theme", { name: t(`theme.${id}`) }), icon: "\u{f53f}", run: () => setTheme(id, true) })),
         ],
       }),
     help: () => (ui.modal = { kind: "help" }),
@@ -499,6 +496,7 @@
       <span class="prompt">{#if ui.quick !== null}{t("quick_search", { query: ui.quick })}{:else}<bdi dir="ltr">{tab().dir}</bdi> ❯{/if}</span>
       <input class="cmd" dir="auto" bind:this={cmdInput} bind:value={ui.cmd} spellcheck="false" autocomplete="off" placeholder={t("app.cmd_placeholder")} aria-label={t("app.cmd_line")} />
       {#if ui.status}<span class="status">{ui.status}</span>{/if}
+      <button class="gear" title={`${t("settings.title")} (${ui.cfg.actions.settings?.[1] ?? ""})`} onclick={() => (ui.modal = { kind: "settings" })}>{"\u{f013}"} {t("settings.title")}</button>
       {#if update}
         <!-- With a package manager, the command upgrades; the page still has the release notes. -->
         <button class="update" title={update[1] ? t("app.update_how", { how: update[1] }) : t("app.update_releases")}
@@ -541,7 +539,7 @@
   }
   :global(*::-webkit-scrollbar-thumb) {
     background: color-mix(in srgb, var(--hidden-fg) 40%, transparent);
-    border-radius: 5px;
+    border-radius: var(--r-sm);
     border: 2px solid transparent;
     background-clip: content-box;
   }
@@ -560,7 +558,7 @@
   .side {
     flex: none;
     min-height: 0;
-    border-radius: 8px;
+    border-radius: var(--r);
     overflow: hidden;
   }
   .panes {
@@ -581,7 +579,7 @@
     margin: 6px 6px 0;
     padding: 0 12px;
     height: 30px;
-    border-radius: 8px;
+    border-radius: var(--r);
     background: var(--cmdline-bg);
     color: var(--cmdline-fg);
     font-family: var(--mono-font);
@@ -627,7 +625,7 @@
     color: var(--keybar-label-fg);
     background: var(--keybar-label-bg);
     border: 1px solid var(--border-fg);
-    border-radius: 6px;
+    border-radius: var(--r);
     cursor: pointer;
     white-space: nowrap;
     overflow: hidden;
@@ -644,13 +642,26 @@
     font-size: 0.85em;
     color: var(--keybar-num-fg);
   }
+  .gear {
+    font: inherit;
+    font-family: var(--icon-font), var(--font);
+    color: var(--hidden-fg);
+    background: none;
+    border: 0;
+    padding: 0 2px;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .gear:hover {
+    color: var(--cmdline-fg);
+  }
   .update {
     font: inherit;
     font-family: var(--font);
     color: var(--accent-fg);
     background: var(--accent-bg);
     border: 0;
-    border-radius: 999px;
+    border-radius: var(--r-pill);
     padding: 1px 10px;
     cursor: pointer;
     white-space: nowrap;

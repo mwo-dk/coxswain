@@ -15,7 +15,7 @@ export const ui = $state({
   sidebarW: 230,
   previewW: 400,
   split: 50,
-  theme: "dark",
+  theme: "cyber",
   status: "",
   quick: null,
   cmd: "",
@@ -67,10 +67,17 @@ export const tab = (i = ui.activePane) => ui.panes[i]?.tabs[ui.panes[i].active];
 export const otherTab = () => tab(ui.dual ? ui.activePane ^ 1 : ui.activePane);
 export const item = (t = tab()) => t?.items[t.cursor];
 
-export function setTheme(name) {
-  const t = ui.cfg.themes[name] ?? ui.cfg.themes.dark;
-  ui.theme = ui.cfg.themes[name] ? name : "dark";
-  applyTheme(t, ui.cfg.gui);
+/** Show a theme; with `save`, also store it in config.toml, as Settings does. */
+export async function setTheme(name, save = false) {
+  if (!ui.cfg.themes[name]) name = "cyber";
+  ui.theme = name;
+  applyTheme(ui.cfg.themes[name], ui.cfg.gui, ui.cfg.looks[name]);
+  if (!save) return;
+  try {
+    ui.cfg = await invoke("save_settings", { changes: { theme: name } });
+  } catch (e) {
+    ui.status = String(e);
+  }
 }
 
 /** Re-read a tab, keeping the cursor on `focus` (default: the current name). */
@@ -193,7 +200,6 @@ export function snapshot() {
     sidebarW: ui.sidebarW,
     previewW: ui.previewW,
     split: ui.split,
-    theme: ui.theme,
   };
 }
 
@@ -207,7 +213,7 @@ export async function init() {
   for (const k of ["dual", "showHidden", "showSidebar", "showPreview", "sidebarW", "previewW", "split", "autoSizes", "previewSource", "previewDiff", "previewEngine"]) if (k in s) ui[k] = s[k];
   if (s.columns) ui.columns = { ...ui.columns, ...s.columns };
   if (!("showHidden" in s)) ui.showHidden = ui.cfg.show_hidden;
-  setTheme(s.theme ?? ui.cfg.gui.theme);
+  setTheme(ui.cfg.gui.theme);
   // Directories given on the command line win over the saved session.
   const fromArgs = ui.cfg.start;
   ui.panes = (s.panes?.length === 2 ? s.panes : [{ tabs: [{ dir: fromArgs[0] }] }, { tabs: [{ dir: fromArgs[1] }] }]).map((p, i) => ({

@@ -132,7 +132,7 @@
     gap: 8px;
     height: var(--row);
     padding: 0 8px;
-    border-radius: 5px;
+    border-radius: var(--r-sm);
     white-space: nowrap;
     cursor: default;
     user-select: none;
