@@ -174,6 +174,31 @@ const IMAGE = ["png", "jpg", "jpeg", "gif", "webp", "bmp", "ico", "svg", "avif"]
 const VIDEO = ["mp4", "webm", "mkv", "mov", "m4v", "ogv"];
 const AUDIO = ["mp3", "flac", "wav", "ogg", "m4a", "opus", "aac"];
 const FONT = ["ttf", "otf", "woff", "woff2"];
+
+/** Kinds drawn in the browser (graphviz, asciidoc, parquet) or by an external tool (the rest). */
+const CONVERTED = Object.fromEntries(
+  Object.entries({
+    graphviz: "dot gv",
+    asciidoc: "adoc asciidoc",
+    parquet: "parquet pq",
+    latex: "tex ltx",
+    office: "doc docm dotx odt ott rtf ppt pptx pps ppsx pot potx odp otp odg vsd vsdx pub wpd wps",
+    plantuml: "puml plantuml pu iuml wsd",
+    rst: "rst rest",
+    drawio: "drawio dio",
+    duckdb: "duckdb ddb",
+  }).flatMap(([kind, exts]) => exts.split(" ").map((e) => [e, kind])),
+);
+
+/** Which external tool renders a kind (see convert.rs), and whether it is quick enough to run by itself. */
+export const CONVERTER = {
+  latex: { tool: "latex", auto: false, verb: "Build PDF" },
+  office: { tool: "libreoffice", auto: false, verb: "Render" },
+  plantuml: { tool: "plantuml", auto: true, verb: "Render" },
+  rst: { tool: "pandoc", auto: true, verb: "Render" },
+  drawio: { tool: "drawio", auto: false, verb: "Render" },
+  duckdb: { tool: "duckdb", auto: true, verb: "Read tables" },
+};
 const SHEET = ["csv", "tsv", "xlsx", "xlsm", "xls", "ods"];
 
 const ARCHIVE = /\.(zip|jar|apk|nupkg|whl|vsix|tar|tgz|tar\.gz)$/i;
@@ -194,6 +219,7 @@ export function previewKind(item) {
   if (ext === "mmd" || ext === "mermaid") return "mermaid";
   const special = { db: "sqlite", sqlite: "sqlite", sqlite3: "sqlite", db3: "sqlite", epub: "epub", pem: "cert", crt: "cert", cer: "cert", der: "cert", eml: "mail", plist: "plist", ics: "calendar", vcf: "contacts", jsonl: "jsonl", ndjson: "jsonl", json: "data", geojson: "data", yaml: "data", yml: "data", toml: "data", log: "log" };
   if (special[ext]) return special[ext];
+  if (CONVERTED[ext]) return CONVERTED[ext];
   if (IMAGE.includes(ext)) return "image";
   if (VIDEO.includes(ext)) return "video";
   if (AUDIO.includes(ext)) return "audio";

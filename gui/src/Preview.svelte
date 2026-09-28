@@ -1,7 +1,7 @@
 <script>
   import { ui, tab, item } from "./app.svelte.js";
-  import { renderMarkdown, renderMermaid, highlight, renderDocx, readSheet, renderNotebook, loadFont, clean, parseData, jsonLines, calendar, contacts, logLines } from "./renderers.js";
-  import { invoke, convertFileSrc, size, date, age, ageColor, previewKind } from "./lib.js";
+  import { renderMarkdown, renderMermaid, highlight, renderDocx, readSheet, renderNotebook, loadFont, clean, parseData, jsonLines, calendar, contacts, logLines, renderGraphviz, renderAsciidoc, readParquet } from "./renderers.js";
+  import { invoke, convertFileSrc, size, date, age, ageColor, previewKind, CONVERTER } from "./lib.js";
 
   /** Set by App when the command output should show here instead of the file. */
   let { output = null, onclearoutput, notesFocus = 0 } = $props();
@@ -23,7 +23,7 @@
   const source = $derived(ui.previewSource);
   /** For a file git has changes for: show the file, or its diff. Kept across files. */
   const showDiff = $derived(ui.previewDiff);
-  const TEXTUAL = ["text", "markdown", "mermaid", "data", "jsonl", "calendar", "contacts", "log"];
+  const TEXTUAL = ["text", "markdown", "mermaid", "data", "jsonl", "calendar", "contacts", "log", "graphviz", "asciidoc"];
   const ext = (f) => f.name.split(".").pop().toLowerCase();
   const gitKind = $derived(e && !e.is_dir ? t.git?.files[e.name]?.kind : undefined);
   const hasDiff = $derived(gitKind && !["untracked", "ignored"].includes(gitKind));
@@ -69,12 +69,13 @@
         if (!bin && k === "contacts" && !src) return void (cards = { people: contacts(s) });
         if (!bin && k === "log") return void (html = logLines(s));
         // Rendered markdown and diagrams come back sanitized from renderers.js.
-        const rendered = bin || src ? "" : k === "markdown" ? await renderMarkdown(s) : k === "mermaid" ? await renderMermaid(s) : "";
+        const render = { markdown: renderMarkdown, mermaid: renderMermaid, graphviz: renderGraphviz, asciidoc: renderAsciidoc }[k];
+        const rendered = bin || src || !render ? "" : await render(s);
         if (item(tab())?.path !== cur.path) return;
         if (rendered) {
           html = rendered;
         } else if (!bin && s.length < 200_000) {
-          const lang = { markdown: "markdown", mermaid: "plaintext", jsonl: "json", calendar: "plaintext", contacts: "plaintext" }[k];
+          const lang = { markdown: "markdown", mermaid: "plaintext", jsonl: "json", calendar: "plaintext", contacts: "plaintext", graphviz: "plaintext", asciidoc: "asciidoc" }[k];
           html = highlight(s, lang ?? ext(cur));
         } else {
           text = s;
@@ -93,13 +94,14 @@
     const cur = e;
     const k = kind;
     rich = null;
-    if (!["docx", "notebook", "sheet", "font"].includes(k)) return;
+    if (!["docx", "notebook", "sheet", "font", "parquet"].includes(k)) return;
     const timer = setTimeout(async () => {
       let r;
       try {
         if (k === "docx") r = { html: await renderDocx(cur.path) };
         else if (k === "notebook") r = { html: await renderNotebook(cur.path) };
         else if (k === "font") r = { family: await loadFont(cur.path) };
+        else if (k === "parquet") r = { parquet: await readParquet(cur.path) };
         else r = { sheet: await readSheet(cur.path) };
       } catch (err) {
         r = { error: String(err?.message ?? err) };
@@ -144,6 +146,51 @@
   });
 
   const days = (secs) => Math.round(secs / 86400);
+
+  // Previews made by an external tool (convert.rs): pick an engine, render, show the cached result.
+  let conv = $state(null);
+  const engineOf = (c) => c.engines.find((x) => x.id === ui.previewEngine[c.tool] && x.available) ?? c.engines.find((x) => x.available);
+  $effect(() => {
+    const cur = e;
+    const spec = CONVERTER[kind];
+    conv = null;
+    if (!spec || !cur || diffing) return;
+    const timer = setTimeout(async () => {
+      const engines = await invoke("preview_engines", { tool: spec.tool }).catch(() => []);
+      if (item(tab())?.path !== cur.path) return;
+      conv = { ...spec, path: cur.path, engines, status: "idle", result: null, error: "" };
+      const eng = engineOf(conv);
+      if (!eng) return;
+      const cached = await invoke("convert", { path: cur.path, tool: spec.tool, engine: eng.id, cachedOnly: true }).catch(() => null);
+      if (conv?.path !== cur.path) return;
+      if (cached) Object.assign(conv, { status: "done", result: cached });
+      // Quick tools run by themselves, unless a container image still has to be pulled.
+      else if (spec.auto && !eng.note.startsWith("First run pulls")) renderConv();
+    }, 150);
+    return () => clearTimeout(timer);
+  });
+
+  async function renderConv(engineId) {
+    const c = conv;
+    if (!c) return;
+    if (engineId) ui.previewEngine = { ...ui.previewEngine, [c.tool]: engineId };
+    const eng = engineOf(c);
+    if (!eng) return;
+    Object.assign(c, { status: "running", error: "", result: null });
+    try {
+      const r = await invoke("convert", { path: c.path, tool: c.tool, engine: eng.id, cachedOnly: false });
+      if (conv === c) Object.assign(c, { status: "done", result: r });
+    } catch (err) {
+      if (conv === c) Object.assign(c, { status: "error", error: String(err) });
+    }
+  }
+
+  /** DuckDB's JSON rows as a table. */
+  const jsonTable = (text) => {
+    const rows = JSON.parse(text || "[]");
+    const cols = rows.length ? Object.keys(rows[0]) : [];
+    return [cols, ...rows.map((r) => cols.map((c) => String(r[c] ?? "")))];
+  };
 
   // Archive: what is inside.
   let archive = $state(null);
@@ -261,7 +308,7 @@
           <button class:on={showDiff} onclick={() => (ui.previewDiff = true)} title="Changes against HEAD">Diff</button>
         </div>
       {/if}
-      {#if !diffing && ["markdown", "mermaid", "data", "jsonl", "calendar", "contacts"].includes(kind)}
+      {#if !diffing && ["markdown", "mermaid", "data", "jsonl", "calendar", "contacts", "graphviz", "asciidoc"].includes(kind)}
         <div class="modes" role="group" aria-label="Show">
           <button class:on={!source} onclick={() => (ui.previewSource = false)}>{kind === "data" ? "Tree" : kind === "jsonl" ? "Table" : "Rendered"}</button>
           <button class:on={source} onclick={() => (ui.previewSource = true)}>Source</button>
@@ -336,6 +383,38 @@
         <pre class="mail">{backend.mail.text}</pre>
       {:else if backend?.plist}
         <pre class="mono code"><code class="hljs">{@html highlight(backend.plist, "xml")}</code></pre>
+      {:else if conv}
+        <div class="engines" role="group" aria-label="Render with">
+          {#each conv.engines as en (en.id)}
+            <button class:on={engineOf(conv)?.id === en.id} disabled={!en.available || conv.status === "running"} title={en.note} onclick={() => renderConv(en.id)}>{en.label}</button>
+          {/each}
+        </div>
+        {#if !conv.engines.some((x) => x.available)}
+          <p class="more">{conv.engines.map((x) => x.note).filter(Boolean).join(". ")}. See the [preview] section in the config.</p>
+        {:else if conv.status === "idle"}
+          <button class="render" onclick={() => renderConv()}>{conv.verb}</button>
+          <p class="more">{engineOf(conv)?.note}</p>
+        {:else if conv.status === "running"}
+          <p class="more">Rendering with {engineOf(conv)?.label}…</p>
+        {:else if conv.status === "error"}
+          <pre class="diagram-error mono">{conv.error}</pre>
+          <button class="render" onclick={() => renderConv()}>Try again</button>
+        {:else if conv.result?.kind === "pdf"}
+          <iframe class="pdf" src={convertFileSrc(conv.result.file) + "#zoom=page-width"} title={e.name}></iframe>
+        {:else if conv.result?.kind === "svg"}
+          <div class="media svg"><img src={convertFileSrc(conv.result.file)} alt={e.name} /></div>
+        {:else if conv.result?.kind === "html"}
+          <article class="markdown">{@html clean(conv.result.text)}</article>
+        {:else if conv.result?.kind === "json"}
+          {@render grid(jsonTable(conv.result.text))}
+        {/if}
+      {:else if rich?.parquet}
+        <p class="more">{rich.parquet.rows.toLocaleString()} rows · {rich.parquet.schema.length} columns</p>
+        {@render grid(rich.parquet.table)}
+        <details class="schema">
+          <summary>Schema</summary>
+          {@render grid([["Column", "Type", "Repetition"], ...rich.parquet.schema])}
+        </details>
       {:else if kind === "image"}
         <div class="media checker"><img src={convertFileSrc(e.path)} alt={e.name} /></div>
       {:else if kind === "video"}
@@ -346,7 +425,7 @@
       {:else if kind === "audio"}
         <div class="media"><audio src={convertFileSrc(e.path)} controls preload="metadata"></audio></div>
       {:else if kind === "pdf"}
-        <iframe class="pdf" src={convertFileSrc(e.path)} title={e.name}></iframe>
+        <iframe class="pdf" src={convertFileSrc(e.path) + "#zoom=page-width"} title={e.name}></iframe>
       {:else if kind === "archive"}
         {#if archive?.error}
           <p class="more">{archive.error}</p>
@@ -358,9 +437,9 @@
             {/each}
           </ul>
         {/if}
-      {:else if (kind === "markdown" || kind === "mermaid") && html && !source}
+      {:else if ["markdown", "mermaid", "graphviz", "asciidoc"].includes(kind) && html && !source}
         <article class="markdown">{@html html}</article>
-      {:else if (kind === "markdown" || kind === "mermaid") && html}
+      {:else if ["markdown", "mermaid", "graphviz", "asciidoc"].includes(kind) && html}
         <pre class="mono code"><code class="hljs">{@html html}</code></pre>
       {:else if rich?.error}
         <p class="more">{rich.error}</p>
@@ -719,6 +798,46 @@
     margin-top: 12px;
     padding-top: 10px;
     border-top: 1px solid var(--border-fg);
+  }
+  .engines {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 10px;
+  }
+  .engines button,
+  .render {
+    font: inherit;
+    font-size: 0.85em;
+    color: var(--panel-fg);
+    background: none;
+    border: 1px solid var(--border-fg);
+    border-radius: 7px;
+    padding: 3px 10px;
+    cursor: pointer;
+  }
+  .engines button.on {
+    background: var(--cursor-bg);
+    color: var(--cursor-fg);
+    border-color: transparent;
+  }
+  .engines button:disabled {
+    opacity: 0.45;
+    cursor: default;
+  }
+  .render {
+    background: var(--accent-bg);
+    color: var(--accent-fg);
+    border-color: transparent;
+    padding: 5px 14px;
+  }
+  .media.svg img {
+    background: #fff;
+    border-radius: 6px;
+    padding: 8px;
+  }
+  .schema {
+    margin-top: 10px;
   }
   .checker {
     background: repeating-conic-gradient(color-mix(in srgb, var(--border-fg) 50%, transparent) 0 25%, transparent 0 50%) 0 0 / 16px 16px;

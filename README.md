@@ -13,8 +13,12 @@ shared Rust core and read the same config file.
   parallel: about 1.4M files index in ~0.2 s and answer in under 10 ms.
 - **See before you open.** The desktop app previews over 60 file types: code, Markdown with
   Mermaid diagrams and math, Jupyter notebooks, Word, spreadsheets, PDFs, SQLite databases,
-  JSON/YAML/TOML as trees, certificates, e-mail, calendars, EPUB books, fonts, images, video
-  and audio, plus the git diff of any changed file. See [the full list](docs/previews.md).
+  JSON/YAML/TOML as trees, Parquet, certificates, e-mail, calendars, EPUB books, fonts,
+  images, video and audio, plus the git diff of any changed file.
+- **Builds what needs building.** LaTeX to PDF, Office and Visio files through LibreOffice,
+  PlantUML, Graphviz, AsciiDoc and reStructuredText, with an installed tool or in a podman or
+  docker container, so rarely used tools need not be installed. See
+  [the full list](docs/previews.md).
 - **Plays well with the desktop.** Delete goes to the trash, folders refresh themselves, files
   drag to and from other apps, and Ctrl+C / Ctrl+V share files with your other file manager.
 - **Configurable.** Key bindings, color schemes, glyphs, user menu and fonts all live in one
@@ -41,26 +45,60 @@ spreadsheet, a Word document and a font.*
 ![The preview pane showing a calendar, a git diff, a log file and an EPUB book](docs/screenshots/gui-previews-more.png)
 *A calendar, the git diff of a changed file, a log colored by level, and an EPUB book.*
 
+![A LaTeX document with a pgfplots chart and a TikZ diagram, built in a container and shown in the preview](docs/screenshots/gui-latex.png)
+*A LaTeX document, built with the texlive image in podman; the buttons pick the engine.*
+
+![A PlantUML sequence diagram, a Graphviz graph and an AsciiDoc guide](docs/screenshots/gui-previews-tools.png)
+*PlantUML (in a container), Graphviz and AsciiDoc (both built in).*
+
 ## Install
 
-**Terminal app, one command:**
+Coxswain comes as a **terminal app** (`coxswain`) and a **desktop app** (`coxswain-gui`). Pick one or
+both. Both check once a day for a newer release and tell you the exact update command for the
+way you installed them.
 
-```sh
-brew install mwo-dk/coxswain/coxswain                                                    # macOS, Linux
-scoop bucket add coxswain https://github.com/mwo-dk/scoop-coxswain; scoop install coxswain   # Windows
-cargo install coxswain                                                                # anywhere with Rust
-```
+### macOS
 
-**Desktop app** (macOS, Linux x86-64): `brew install --cask mwo-dk/coxswain/coxswain-gui`
+| How | App | Install | Update |
+|---|---|---|---|
+| [Homebrew](https://brew.sh) | Terminal | `brew install mwo-dk/coxswain/coxswain` | `brew upgrade coxswain` |
+| Homebrew | Desktop | `brew install --cask mwo-dk/coxswain/coxswain-gui` | `brew upgrade --cask coxswain-gui` |
+| Download | Desktop | `Coxswain_<version>_aarch64.dmg` (Apple silicon) or `_x64.dmg` (Intel) from [Releases](https://github.com/mwo-dk/coxswain/releases/latest); drag Coxswain to Applications | Download the new `.dmg` and drag it over the old app |
+| Download | Terminal | `coxswain-terminal-<version>-aarch64-apple-darwin.tar.gz` (or `x86_64-…`); put `coxswain` on your PATH | Replace the file |
+| [Cargo](https://rustup.rs) | Terminal | `cargo install coxswain` | `cargo install coxswain` again |
 
-**Download:** pick your platform under [Releases](https://github.com/mwo-dk/coxswain/releases/latest).
-The builds are not code-signed; the release notes say how to get past the first-run warning
-on Windows and macOS.
+### Linux
 
-Both apps check once a day for a newer release and tell you the command that upgrades your copy
-(`brew upgrade`, `scoop update`, `cargo install`, ...), or link to the download.
+| How | App | Install | Update |
+|---|---|---|---|
+| [Homebrew](https://brew.sh) | Terminal | `brew install mwo-dk/coxswain/coxswain` | `brew upgrade coxswain` |
+| Homebrew | Desktop (x86-64) | `brew install --cask mwo-dk/coxswain/coxswain-gui` | `brew upgrade --cask coxswain-gui` |
+| Debian, Ubuntu | Desktop | `sudo apt install ./Coxswain_<version>_amd64.deb` | The same with the new `.deb` |
+| Fedora, openSUSE | Desktop | `sudo dnf install ./Coxswain-<version>-1.x86_64.rpm` | The same with the new `.rpm` |
+| Any distro | Desktop | `Coxswain_<version>_amd64.AppImage`: `chmod +x` and run it | Replace the file |
+| Any distro | Terminal | `coxswain-terminal-<version>-x86_64-unknown-linux-musl.tar.gz` (or `aarch64-…`), a static binary; put `coxswain` on your PATH | Replace the file |
+| [Cargo](https://rustup.rs) | Terminal | `cargo install coxswain` | `cargo install coxswain` again |
 
-**Build from source:**
+### Windows
+
+| How | App | Install | Update |
+|---|---|---|---|
+| [winget](https://learn.microsoft.com/windows/package-manager/) | Desktop | `winget install mwo-dk.Coxswain` | `winget upgrade mwo-dk.Coxswain` |
+| winget | Terminal | `winget install mwo-dk.Coxswain.Terminal` | `winget upgrade mwo-dk.Coxswain.Terminal` |
+| [Scoop](https://scoop.sh) | Terminal | `scoop bucket add coxswain https://github.com/mwo-dk/scoop-coxswain`, then `scoop install coxswain` | `scoop update coxswain` |
+| Download | Desktop | `Coxswain_<version>_x64_en-US.msi` or `_x64-setup.exe` from [Releases](https://github.com/mwo-dk/coxswain/releases/latest) | Run the new installer; it upgrades in place |
+| Download | Terminal | `coxswain-terminal-<version>-x86_64-pc-windows-msvc.zip`; put `coxswain.exe` on your PATH | Replace the file |
+| [Cargo](https://rustup.rs) | Terminal | `cargo install coxswain` | `cargo install coxswain` again |
+
+winget listing is new: if `winget install` does not find Coxswain yet, Microsoft is still
+reviewing it; use one of the other ways meanwhile. `brew upgrade` (no name) and
+`winget upgrade --all` update Coxswain along with everything else.
+
+**The builds are not code-signed.** The first start shows a warning: on Windows, click *More
+info* and then *Run anyway*. On macOS, if the app "is damaged" or "can't be opened", run
+`xattr -cr /Applications/Coxswain.app` once; the Homebrew cask does this for you.
+
+### From source (any platform)
 
 ```sh
 git clone https://github.com/mwo-dk/coxswain.git
@@ -69,9 +107,12 @@ cd coxswain
 powershell -ExecutionPolicy Bypass -File install\install.ps1  # Windows
 ```
 
-The script offers to install Rust and Node.js when they are missing, and asks first. See
+To update, `git pull` in that folder and run the script again. The script offers to install
+Rust and Node.js when they are missing, and asks first. See
 [install/INSTALL.md](install/INSTALL.md). For development: `cargo run -p coxswain`, or
 `cd gui && npm ci && npx tauri dev`.
+
+### Fonts
 
 Git glyphs need a [Nerd Font](https://www.nerdfonts.com/). In the terminal, use one as your
 terminal font; the GUI picks up any installed Nerd Font listed in `gui.icon_font`. Without
@@ -145,6 +186,8 @@ loaded from disk and kept current while Coxswain runs.
 | Spreadsheets, CSV, JSON Lines, SQLite | Tables, a button per sheet; database tables with row counts and schema |
 | `.ics`, `.vcf`, `.plist`, certificates | Events, contact cards, property lists, certificate details with expiry |
 | Images, video, audio, fonts | Shown or played; photo EXIF, audio tags, font samples |
+| LaTeX, Office/Visio/RTF, PlantUML, draw.io, `.rst` | Built to PDF, SVG or HTML by an installed tool or a container; buttons pick the engine |
+| Graphviz, AsciiDoc, Parquet, `.duckdb` | Graphs, rendered documents, tables with schema |
 | Archives, programs, folders | Contents; the platform a binary is built for; folder counts, sizes, notes |
 
 **[docs/previews.md](docs/previews.md) lists every format, what it shows and how it works.**
@@ -221,6 +264,10 @@ wait = true
 [search]
 exclude = ["/proc", "/sys", "node_modules"]   # a path skips a tree; a bare name skips every such directory
 watch = true
+
+[preview]                   # previews made by tools: LaTeX, LibreOffice, PlantUML, ...
+prefer = "container"        # use podman/docker even when a tool is installed ("auto", "local")
+images.latex = "docker.io/texlive/texlive:latest-medium"   # see docs/previews.md
 
 [gui]
 font_size = 15

@@ -28,6 +28,8 @@ export const ui = $state({
   /** Preview: source instead of rendered/tree, and diff instead of file. Kept across files. */
   previewSource: false,
   previewDiff: false,
+  /** Tool -> the engine id picked in the preview (local program or container). */
+  previewEngine: {},
   /** One modal at a time: { kind, ... } */
   modal: null,
   favorites: [],
@@ -186,6 +188,7 @@ export function snapshot() {
     autoSizes: ui.autoSizes,
     previewSource: ui.previewSource,
     previewDiff: ui.previewDiff,
+    previewEngine: ui.previewEngine,
     sidebarW: ui.sidebarW,
     previewW: ui.previewW,
     split: ui.split,
@@ -199,7 +202,7 @@ export async function init() {
   const s = st.session ?? {};
   ui.favorites = st.favorites;
   ui.recent = st.recent_repos;
-  for (const k of ["dual", "showHidden", "showSidebar", "showPreview", "sidebarW", "previewW", "split", "autoSizes", "previewSource", "previewDiff"]) if (k in s) ui[k] = s[k];
+  for (const k of ["dual", "showHidden", "showSidebar", "showPreview", "sidebarW", "previewW", "split", "autoSizes", "previewSource", "previewDiff", "previewEngine"]) if (k in s) ui[k] = s[k];
   if (s.columns) ui.columns = { ...ui.columns, ...s.columns };
   if (!("showHidden" in s)) ui.showHidden = ui.cfg.show_hidden;
   setTheme(s.theme ?? ui.cfg.gui.theme);

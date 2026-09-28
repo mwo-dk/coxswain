@@ -9,6 +9,8 @@ else `$PAGER`, else `less`).
 ![Markdown with a Mermaid diagram and math, a Jupyter notebook, a spreadsheet, a Word document and a font](screenshots/gui-previews.png)
 ![A YAML tree, a SQLite database, a certificate and an e-mail](screenshots/gui-previews-data.png)
 ![A calendar, a git diff, a log file and an EPUB book](screenshots/gui-previews-more.png)
+![A PlantUML sequence diagram, a Graphviz graph and an AsciiDoc guide](screenshots/gui-previews-tools.png)
+![A LaTeX document built in a container and shown in the preview pane](screenshots/gui-latex.png)
 
 ## Switches
 
@@ -22,6 +24,7 @@ Your choice sticks: it applies to the next file of that kind too, and survives a
 | **Tree / Source** | JSON, YAML, TOML | A collapsible tree (the first two levels open), or the source |
 | **Table / Source** | JSON Lines | A table, or the source |
 | **Sheet names** | Workbooks with more than one sheet | One button per sheet |
+| **Engine** | Files made by an external tool (LaTeX, Office, PlantUML, ...) | The installed programs and the container, e.g. **latexmk · tectonic · podman texlive**; see [Previews made by tools](#previews-made-by-tools) |
 
 ## Formats
 
@@ -47,6 +50,8 @@ scrolling stays smooth.
 | `.pdf` | The PDF, with paging and zoom | The webview's own PDF viewer |
 | `.epub` | The book's title and its first chapter with real text (covers and title pages are skipped) | Read in Rust |
 | `.eml` | Subject, sender, recipients, date, attachments with sizes, and the text of the message | [mail-parser](https://crates.io/crates/mail-parser) |
+| `.adoc`, `.asciidoc` | Rendered AsciiDoc (headings, lists, tables, admonitions, table of contents); **Rendered / Source** | [Asciidoctor.js](https://asciidoctor.org/), in secure mode (no file includes) |
+| `.dot`, `.gv` | The Graphviz graph | [Graphviz](https://graphviz.org/) compiled to WebAssembly ([viz.js](https://github.com/mdaines/viz-js)); nothing to install |
 
 ### Data
 
@@ -56,6 +61,7 @@ scrolling stays smooth.
 | `.jsonl`, `.ndjson` | The first 200 lines as a table, one column per key | Built in |
 | `.csv`, `.tsv`, `.xlsx`, `.xlsm`, `.xls`, `.ods` | The first 200 rows as a table, with a button per sheet | [SheetJS](https://sheetjs.com/) |
 | `.db`, `.sqlite`, `.sqlite3`, `.db3` | Every table and view with its row count; click a name for its schema | [SQLite](https://sqlite.org/), opened read-only |
+| `.parquet`, `.pq` | Row and column counts, the first 200 rows, and the schema (click **Schema**) | [hyparquet](https://github.com/hyparam/hyparquet), with Snappy, Gzip, Zstd, Brotli and LZ4; nothing to install |
 | `.ics` | The events: title, start and end, place, description | Built in |
 | `.vcf` | The contact cards: name, title, organization, e-mail, phone | Built in |
 | `.plist` | Binary or XML property lists, as XML | [plist](https://crates.io/crates/plist) |
@@ -82,6 +88,78 @@ Under the preview, some files get a short list of facts:
 - **Programs and libraries:** the platform and CPU they are built for (Linux ELF, Windows PE,
   macOS Mach-O including universal binaries; x86, x86-64, ARM, ARM64, RISC-V and more) and
   what they are (program, windowed or console program, shared library, object file).
+
+## Previews made by tools
+
+Some formats need a real program: a TeX distribution, LibreOffice, PlantUML. Coxswain uses one
+that is installed, or runs it in a **container** (podman or docker), so nothing has to be
+installed for a preview you only need now and then.
+
+| Files | Tool | Installed programs it looks for | Container image (default) | Result |
+|---|---|---|---|---|
+| `.tex`, `.ltx` | LaTeX | `latexmk`, `tectonic`, `pdflatex` | `docker.io/texlive/texlive:latest` (about 5 GB) | PDF |
+| `.doc` `.docm` `.dotx` `.odt` `.ott` `.rtf` `.ppt` `.pptx` `.pps` `.ppsx` `.pot` `.potx` `.odp` `.otp` `.odg` `.vsd` `.vsdx` `.pub` `.wpd` `.wps` | LibreOffice | `soffice` (also its usual macOS and Windows install folders) | none; set one you trust | PDF |
+| `.puml`, `.plantuml`, `.pu`, `.iuml`, `.wsd` | PlantUML | `plantuml` | `docker.io/plantuml/plantuml:latest` | SVG |
+| `.rst`, `.rest` | pandoc | `pandoc` | `docker.io/pandoc/core:latest` | HTML |
+| `.drawio`, `.dio` | draw.io | `drawio` (also the macOS and Windows apps) | none; set one you trust | SVG |
+| `.duckdb`, `.ddb` | DuckDB | `duckdb` | none; set one you trust | Tables, row estimates, column counts |
+
+### How it works
+
+1. **Pick an engine.** The buttons at the top of the preview list the installed programs and
+   the container, e.g. **latexmk · podman texlive:latest**. Unavailable ones are greyed out;
+   hover for the reason ("tectonic is not installed", "No image for drawio"). Your pick is
+   remembered per tool.
+2. **Render.** LaTeX, LibreOffice and draw.io wait for **Build PDF** / **Render**, because
+   they take seconds and run someone else's document. PlantUML, pandoc and DuckDB run by
+   themselves, since they are quick, unless their container image still has to be pulled.
+3. **Reuse.** Results are cached in the cache folder (`~/.cache/coxswain/previews` on Linux),
+   keyed by the file's path, size, modification time and the engine. A file renders once and
+   shows at once afterwards; editing it makes the next render fresh.
+4. **Errors** show in the preview. For LaTeX that is the first `!` error from the log with
+   its context, e.g. `! Undefined control sequence.` and the offending line.
+
+### Containers
+
+- **Chosen by the config.** Containers run with podman, or docker where podman is missing
+  (`container` below).
+- **No network:** `--network=none`.
+- **The file's folder is mounted read-only at `/src`.** LaTeX can still `\input` its sibling
+  files, and nothing in your folder can be changed.
+- **Results only go to a fresh folder in the cache,** mounted at `/out`. With rootful docker
+  the container runs as your user, so the cache gets no root-owned files.
+- **No SELinux relabeling** (`--security-opt label=disable`), so your folders' labels are
+  never changed.
+- **The first run pulls the image.** The engine button says so beforehand ("First run pulls
+  docker.io/texlive/texlive:latest (about 5 GB)").
+- **A run that takes longer than the timeout** (120 s by default) is stopped and its
+  container killed. Pulling is not counted.
+- LaTeX runs without `-shell-escape`, so a document cannot run commands.
+
+### Configuration
+
+```toml
+[preview]
+prefer = "container"     # "auto" (installed program first, else container), "local", "container"
+container = "podman"     # "auto" (podman, else docker), "podman", "docker", "off"
+timeout = 120            # seconds per conversion
+
+[preview.prefer_tool]    # per tool, overrides prefer
+libreoffice = "local"
+
+[preview.images]         # "" means that tool never uses a container
+latex = "docker.io/texlive/texlive:latest"   # or :latest-medium, about 2 GB
+plantuml = "docker.io/plantuml/plantuml:latest"
+pandoc = "docker.io/pandoc/core:latest"
+libreoffice = ""
+drawio = ""
+duckdb = ""
+```
+
+LibreOffice, draw.io and DuckDB have no official images. If you set one, it must provide the
+command Coxswain runs: `soffice` for LibreOffice. For draw.io and DuckDB, the image's entry
+point must be the tool itself, which is how community images such as
+`rlespinasse/drawio-desktop-headless` are built (not tested with Coxswain).
 
 ## Columns and folder sizes
 
@@ -115,12 +193,16 @@ Previews show other people's files, so:
 - SQLite databases open read-only, and counting rows stops after about a second per table.
 - Previews never write anything. The only thing that does is extracting an archive, and only
   when you press Ctrl+E.
-- Nothing is sent over the network; every library is bundled with the app.
+- Nothing is sent over the network; every library is bundled with the app. Tool previews run
+  local programs or network-less containers ([above](#containers)); only pulling a container
+  image, which the engine button announces first, downloads anything.
 
 ## Speed
 
 The libraries behind the heavier previews (Mermaid, KaTeX, SheetJS, mammoth, the YAML and
-TOML parsers) load the first time a file needs them, so they add nothing to startup. Files
+TOML parsers, Graphviz, Asciidoctor, hyparquet) load the first time a file needs them, so they
+add nothing to startup. The preview pane can be dragged to 60% of the window; documents and
+PDFs open fitted to its width. Files
 bigger than 25 MB are not rendered as documents or spreadsheets.
 
 ## Adding a format
@@ -128,6 +210,9 @@ bigger than 25 MB are not rendered as documents or spreadsheets.
 - A format that is easy in the browser goes into `gui/src/renderers.js`: a function that
   returns sanitized HTML or plain data.
 - One that needs native code goes into `gui/src-tauri/src/preview.rs`, as a Tauri command.
+- One that needs an external program goes into `gui/src-tauri/src/convert.rs`: add the tool,
+  its programs, its container command and its output, and map the extensions to it in
+  `CONVERTER` in `gui/src/lib.js`.
 - `previewKind` in `gui/src/lib.js` maps extensions to a kind.
 - `gui/src/Preview.svelte` shows each kind.
 
