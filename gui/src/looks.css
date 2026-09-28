@@ -1,0 +1,487 @@
+/*
+ * Looks: the shapes and chrome of a theme. A theme's colours arrive as CSS variables
+ * (--panel-bg, --cursor-fg, ... see applyTheme in lib.js); its look arrives as
+ * <html data-look="...">. Components use --r-lg, --r, --r-sm, --r-pill and --shadow for their
+ * corners and shadows; each look below sets those and dresses the chrome of its era.
+ *
+ * Selectors start with html:root so they outrank the components' scoped styles.
+ * A look that brings its era's font sets --font with !important, over the configured font.
+ */
+
+:root {
+  --r-lg: 12px;
+  --r: 7px;
+  --r-sm: 4px;
+  --r-pill: 999px;
+  --shadow: 0 20px 60px rgb(0 0 0 / 0.45);
+}
+
+/* Everything square: the terminal and early Windows and Mac. */
+html:root:is([data-look="crt"], [data-look="dos"], [data-look="win31"], [data-look="win95"], [data-look="win10"], [data-look="system7"]) {
+  --r-lg: 0;
+  --r: 0;
+  --r-sm: 0;
+  --r-pill: 0;
+}
+
+/* ------------------------------------------------------------------ crt (Cyber) */
+/* A green phosphor terminal: monospace everywhere, glowing text, faint scanlines. */
+
+html:root[data-look="crt"] {
+  --font: var(--mono-font) !important;
+  --shadow: 0 0 0 1px var(--border-fg), 0 0 40px color-mix(in srgb, var(--panel-fg) 18%, transparent);
+  text-shadow: 0 0 5px color-mix(in srgb, currentColor 55%, transparent);
+  caret-color: var(--panel-fg);
+}
+html:root[data-look="crt"]::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  pointer-events: none;
+  background:
+    repeating-linear-gradient(to bottom, rgb(0 0 0 / 0.1) 0 1px, transparent 1px 3px),
+    radial-gradient(ellipse at center, transparent 60%, rgb(0 0 0 / 0.35));
+}
+html:root[data-look="crt"] ::selection {
+  color: var(--panel-bg);
+  background: var(--panel-fg);
+}
+html:root[data-look="crt"] .pane.active {
+  box-shadow: 0 0 12px color-mix(in srgb, var(--accent-bg) 25%, transparent);
+}
+/* One phosphor: file icons take the text colour instead of their own. */
+html:root[data-look="crt"] :is(.row, .preview header) .icon {
+  color: inherit !important;
+}
+html:root[data-look="crt"] .cursor.focused {
+  box-shadow: inset 3px 0 0 var(--panel-fg);
+}
+html:root[data-look="crt"] :is(.dialog, .settings, .dupes) h2,
+html:root[data-look="crt"] :is(.settings, .dupes) > header {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+html:root[data-look="crt"] *::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--panel-fg) 45%, transparent);
+  border: 0;
+}
+
+/* ------------------------------------------------------------------ dos (NC) */
+
+html:root[data-look="dos"] {
+  --font: var(--mono-font) !important;
+  --shadow: 6px 6px 0 rgb(0 0 0 / 0.6);
+}
+html:root[data-look="dos"] .pane {
+  border: 3px double var(--border-fg);
+}
+
+/* ------------------------------------------------------------------ Windows 3.11 */
+
+html:root[data-look="win31"] {
+  --font: "MS Sans Serif", "Microsoft Sans Serif", Arial, sans-serif !important;
+  --shadow: none;
+  --bevel-out: inset -1px -1px #808080, inset 1px 1px #ffffff;
+}
+html:root[data-look="win31"] body {
+  background: #c0c0c0;
+}
+html:root[data-look="win31"] :is(.pane, .side, .cmdline) {
+  border: 1px solid #000000;
+}
+html:root[data-look="win31"] :is(.dialog, .settings, .dupes) {
+  border: 1px solid #000000;
+  outline: 3px solid #c0c0c0;
+  box-shadow: 0 0 0 4px #000000;
+}
+html:root[data-look="win31"] :is(.keybar button, .buttons button, .settings footer button, .dupes button, .head button) {
+  background: #c0c0c0;
+  color: #000000;
+  border: 1px solid #000000;
+  border-radius: 2px;
+  box-shadow: var(--bevel-out), inset -2px -2px #808080;
+}
+
+/* ------------------------------------------------------------------ Windows 95 and 98 */
+
+html:root[data-look="win95"] {
+  --font: "MS Sans Serif", "Microsoft Sans Serif", Tahoma, Arial, sans-serif !important;
+  --shadow: inset -1px -1px #0a0a0a, inset 1px 1px #dfdfdf, inset -2px -2px #808080, inset 2px 2px #ffffff;
+  --bevel-out: inset -1px -1px #0a0a0a, inset 1px 1px #ffffff, inset -2px -2px #808080, inset 2px 2px #dfdfdf;
+  --bevel-in: inset -1px -1px #ffffff, inset 1px 1px #808080, inset -2px -2px #dfdfdf, inset 2px 2px #0a0a0a;
+}
+html:root[data-look="win95"] body {
+  background: #c0c0c0;
+}
+html:root[data-look="win95"] :is(.pane, .cmdline, input:not([type="checkbox"], .cmd), select, textarea) {
+  border: 0;
+  box-shadow: var(--bevel-in);
+}
+html:root[data-look="win95"] .pane {
+  padding: 2px;
+}
+html:root[data-look="win95"] :is(.dialog, .settings, .dupes) {
+  border: 0;
+  background: #c0c0c0;
+  padding: 3px;
+}
+html:root[data-look="win95"] :is(.keybar button, .buttons button, .settings footer button, .settings .lang, .settings .theme, .dupes button, .head button, .modes button) {
+  background: #c0c0c0;
+  color: #000000;
+  border: 0;
+  box-shadow: var(--bevel-out);
+}
+html:root[data-look="win95"] :is(.keybar button, .buttons button, .dupes button, .settings button):active {
+  box-shadow: var(--bevel-in);
+}
+html:root[data-look="win95"] .settings :is(.lang, .theme).on {
+  box-shadow: var(--bevel-in);
+  background: #dfdfdf;
+}
+html:root[data-look="win95"] .tabs {
+  background: #c0c0c0;
+}
+html:root[data-look="win95"] .tab.current {
+  background: #c0c0c0;
+  box-shadow: inset 1px 1px #ffffff, inset -1px 0 #0a0a0a, inset -2px 0 #808080;
+}
+html:root[data-look="win95"] *::-webkit-scrollbar {
+  width: 16px;
+  height: 16px;
+  background: repeating-conic-gradient(#c0c0c0 0 25%, #ffffff 0 50%) 0 0 / 2px 2px;
+}
+html:root[data-look="win95"] *::-webkit-scrollbar-thumb {
+  background: #c0c0c0;
+  border: 0;
+  box-shadow: var(--bevel-out);
+}
+
+/* Title bars: navy in 3.11 and 95, a navy-to-blue gradient in 98. */
+html:root:is([data-look="win31"], [data-look="win95"]) .dialog > h2:first-child {
+  margin: -16px -18px 0;
+  padding: 3px 6px;
+}
+html:root:is([data-look="win31"], [data-look="win95"]) .dialog.search > h2:first-child {
+  margin: -10px -12px 0;
+}
+html:root:is([data-look="win31"], [data-look="win95"]) :is(.dialog > h2:first-child, .settings > header, .dupes > header) {
+  color: #ffffff;
+  font-weight: bold;
+  border: 0;
+}
+html:root[data-look="win31"] :is(.dialog > h2:first-child, .settings > header, .dupes > header) {
+  background: #000080;
+  justify-content: center;
+  text-align: center;
+}
+html:root[data-look="win95"] :is(.dialog > h2:first-child, .settings > header, .dupes > header) {
+  background: linear-gradient(90deg, #000080, #1084d0);
+}
+html:root:is([data-look="win31"], [data-look="win95"]) :is(.settings, .dupes) > header :is(button, h2) {
+  color: #ffffff;
+}
+
+/* ------------------------------------------------------------------ Windows XP (Luna) */
+
+html:root[data-look="winxp"] {
+  --font: Tahoma, "Segoe UI", Verdana, sans-serif !important;
+  --r-lg: 8px;
+  --r: 3px;
+  --r-sm: 3px;
+  --r-pill: 3px;
+  --shadow: 0 0 0 1px #0831d9, 4px 4px 12px rgb(0 0 0 / 0.35);
+}
+html:root[data-look="winxp"] body {
+  background: #ece9d8;
+}
+html:root[data-look="winxp"] .side {
+  background: linear-gradient(180deg, #7ba2e7, #6375d6);
+  padding: 8px;
+}
+html:root[data-look="winxp"] .side .sidebar {
+  border-radius: 3px;
+}
+html:root[data-look="winxp"] :is(.dialog > h2:first-child, .settings > header, .dupes > header) {
+  color: #ffffff;
+  background: linear-gradient(180deg, #0997ff, #0053ee 8%, #0050ee 40%, #06f 88%, #0053ee);
+  text-shadow: 1px 1px #0f1089;
+  font-weight: bold;
+  border: 0;
+}
+html:root[data-look="winxp"] .dialog > h2:first-child {
+  margin: -16px -18px 0;
+  padding: 6px 10px;
+  border-radius: 8px 8px 0 0;
+}
+html:root[data-look="winxp"] .dialog.search > h2:first-child {
+  margin: -10px -12px 0;
+}
+html:root[data-look="winxp"] :is(.settings, .dupes) > header :is(button, h2) {
+  color: #ffffff;
+}
+html:root[data-look="winxp"] :is(.dialog, .settings, .dupes) {
+  border: 3px solid #0054e3;
+  border-top-width: 0;
+  background: #ece9d8;
+}
+html:root[data-look="winxp"] :is(.keybar button, .buttons button, .settings footer button, .dupes button, .modes button) {
+  color: #000000;
+  background: linear-gradient(180deg, #ffffff, #ecebe6 86%, #d6d0c5);
+  border: 1px solid #003c74;
+}
+html:root[data-look="winxp"] :is(.keybar button, .buttons button, .settings footer button, .dupes button):hover {
+  box-shadow: inset 0 -2px #f8b636, inset 0 2px #ffe8a5;
+}
+html:root[data-look="winxp"] .tab.current {
+  box-shadow: inset 0 3px #ffc83c;
+}
+html:root[data-look="winxp"] *::-webkit-scrollbar-thumb {
+  background: linear-gradient(90deg, #c8d6fb, #b7cafa);
+  border: 1px solid #fff;
+  border-radius: 3px;
+}
+
+/* ------------------------------------------------------------------ Windows 7 (Aero) */
+
+html:root[data-look="win7"] {
+  --font: "Segoe UI", system-ui, sans-serif !important;
+  --r-lg: 6px;
+  --r: 4px;
+  --r-sm: 3px;
+  --r-pill: 3px;
+  --shadow: 0 0 0 1px rgb(0 0 0 / 0.5), 0 8px 24px rgb(0 0 0 / 0.4);
+}
+html:root[data-look="win7"] body {
+  background: linear-gradient(180deg, #dae6f4, #bcd2ee);
+}
+html:root[data-look="win7"] :is(.dialog > h2:first-child, .settings > header, .dupes > header) {
+  background: linear-gradient(180deg, rgb(255 255 255 / 0.7), rgb(255 255 255 / 0.2)), #b9d1ea;
+}
+html:root[data-look="win7"] .dialog > h2:first-child {
+  margin: -16px -18px 0;
+  padding: 6px 10px;
+}
+html:root[data-look="win7"] .dialog.search > h2:first-child {
+  margin: -10px -12px 0;
+}
+html:root[data-look="win7"] :is(.keybar button, .buttons button, .settings footer button, .dupes button, .modes button) {
+  color: #000000;
+  background: linear-gradient(180deg, #f2f2f2, #ebebeb 50%, #dddddd 51%, #cfcfcf);
+  border: 1px solid #707070;
+}
+html:root[data-look="win7"] :is(.keybar button, .buttons button, .settings footer button, .dupes button):hover {
+  background: linear-gradient(180deg, #eaf6fd, #d9f0fc 50%, #bee6fd 51%, #a7d9f5);
+  border-color: #3c7fb1;
+}
+html:root[data-look="win7"] .cursor.focused {
+  background: linear-gradient(180deg, #dcebfc, #c1dbfc);
+  box-shadow: inset 0 0 0 1px #7da2ce;
+}
+html:root[data-look="win7"] .tabs {
+  background: linear-gradient(180deg, #f5f9fd, #dde9f7);
+}
+
+/* ------------------------------------------------------------------ Windows 10 */
+
+html:root[data-look="win10"] {
+  --font: "Segoe UI", system-ui, sans-serif !important;
+  --shadow: 0 0 0 1px var(--accent-bg), 0 7px 20px rgb(0 0 0 / 0.3);
+}
+html:root[data-look="win10"] :is(.keybar button, .buttons button, .settings footer button, .dupes button, .modes button) {
+  color: #000000;
+  background: #e1e1e1;
+  border: 1px solid #adadad;
+}
+html:root[data-look="win10"] :is(.keybar button, .buttons button, .settings footer button, .dupes button):hover {
+  background: #e5f1fb;
+  border-color: #0078d7;
+}
+html:root[data-look="win10"] :is(.buttons .primary, .settings .primary, .dupes .primary) {
+  background: #0078d7;
+  color: #ffffff;
+  border-color: #0078d7;
+}
+html:root[data-look="win10"] .cursor.focused {
+  box-shadow: inset 0 0 0 1px #99d1ff;
+}
+
+/* ------------------------------------------------------------------ Windows 11 (Mica) */
+
+html:root[data-look="win11"] {
+  --font: "Segoe UI Variable Text", "Segoe UI Variable", "Segoe UI", system-ui, sans-serif !important;
+  --r-lg: 8px;
+  --r: 6px;
+  --r-sm: 4px;
+  --shadow: 0 0 0 1px rgb(0 0 0 / 0.1), 0 32px 64px rgb(0 0 0 / 0.28);
+}
+html:root[data-look="win11"] .cursor.focused {
+  box-shadow: inset 3px 0 0 var(--accent-bg);
+}
+html:root[data-look="win11"] :is(.keybar button, .buttons button, .settings footer button, .dupes button) {
+  border-bottom-color: color-mix(in srgb, var(--border-fg) 60%, #000);
+}
+
+/* ------------------------------------------------------------------ Mac System 7 */
+
+html:root[data-look="system7"] {
+  --font: Chicago, ChicagoFLF, Charcoal, Geneva, "Helvetica Neue", sans-serif !important;
+  --shadow: 2px 2px 0 #000000;
+}
+html:root[data-look="system7"] body {
+  background: repeating-conic-gradient(#ffffff 0 25%, #aaaaaa 0 50%) 0 0 / 2px 2px;
+}
+html:root[data-look="system7"] :is(.pane, .side, .cmdline, .dialog, .settings, .dupes) {
+  border: 1px solid #000000;
+}
+html:root[data-look="system7"] :is(.pane, .side) {
+  box-shadow: 1px 1px 0 #000000;
+}
+html:root[data-look="system7"] :is(.dialog, .settings, .dupes) {
+  outline: 1px solid #000000;
+  outline-offset: -5px;
+}
+/* The striped title bar, the title on a white patch in the middle. */
+html:root[data-look="system7"] :is(.settings, .dupes) > header,
+html:root[data-look="system7"] .pane .tabs {
+  background: repeating-linear-gradient(to bottom, #ffffff 0 2px, #000000 2px 3px) 0 3px / 100% calc(100% - 6px) no-repeat, #ffffff;
+}
+html:root[data-look="system7"] :is(.settings, .dupes) > header h2,
+html:root[data-look="system7"] .tab {
+  background: #ffffff;
+  padding-inline: 8px;
+}
+html:root[data-look="system7"] :is(.keybar button, .buttons button, .settings footer button, .dupes button) {
+  color: #000000;
+  background: #ffffff;
+  border: 1px solid #000000;
+  border-radius: 6px;
+}
+html:root[data-look="system7"] :is(.buttons .primary, .settings .primary, .dupes .primary) {
+  box-shadow: 0 0 0 1px #ffffff, 0 0 0 3px #000000;
+}
+html:root[data-look="system7"] *::-webkit-scrollbar {
+  width: 16px;
+  height: 16px;
+  background: repeating-conic-gradient(#ffffff 0 25%, #aaaaaa 0 50%) 0 0 / 2px 2px;
+  border-left: 1px solid #000000;
+}
+html:root[data-look="system7"] *::-webkit-scrollbar-thumb {
+  background: #ffffff;
+  border: 1px solid #000000;
+  border-radius: 0;
+}
+
+/* ------------------------------------------------------------------ Mac OS 8 and 9 (Platinum) */
+
+html:root[data-look="platinum"] {
+  --font: Charcoal, "Charcoal CY", Geneva, Chicago, "Helvetica Neue", sans-serif !important;
+  --r-lg: 0;
+  --r: 0;
+  --r-sm: 4px;
+  --r-pill: 4px;
+  --shadow: 1px 1px 0 #555555, 3px 3px 8px rgb(0 0 0 / 0.3);
+  --bevel-out: inset 1px 1px #ffffff, inset -1px -1px #888888;
+}
+html:root[data-look="platinum"] body {
+  background: #dddddd;
+}
+html:root[data-look="platinum"] :is(.pane, .side, .cmdline) {
+  border: 1px solid #555555;
+  box-shadow: inset 1px 1px #aaaaaa;
+}
+html:root[data-look="platinum"] :is(.settings, .dupes) > header,
+html:root[data-look="platinum"] .tabs {
+  background: repeating-linear-gradient(to bottom, #eeeeee 0 1px, #bbbbbb 1px 2px) 0 4px / 100% calc(100% - 8px) no-repeat, #dddddd;
+}
+html:root[data-look="platinum"] :is(.settings, .dupes) > header h2 {
+  background: #dddddd;
+  padding-inline: 8px;
+  flex: none;
+  margin-inline: auto;
+}
+html:root[data-look="platinum"] :is(.keybar button, .buttons button, .settings footer button, .settings .lang, .settings .theme, .dupes button, .modes button, .head button) {
+  color: #000000;
+  background: linear-gradient(180deg, #eeeeee, #cccccc);
+  border: 1px solid #333333;
+  box-shadow: var(--bevel-out);
+}
+html:root[data-look="platinum"] *::-webkit-scrollbar {
+  width: 16px;
+  height: 16px;
+  background: #aaaaaa;
+  box-shadow: inset 1px 1px #777777;
+}
+html:root[data-look="platinum"] *::-webkit-scrollbar-thumb {
+  background: linear-gradient(90deg, #ccccff, #9999ff);
+  border: 1px solid #333333;
+  border-radius: 0;
+  box-shadow: var(--bevel-out);
+}
+
+/* ------------------------------------------------------------------ Mac OS X Aqua (10.0 to 10.4) */
+
+html:root[data-look="aqua"] {
+  --font: "Lucida Grande", "Lucida Sans Unicode", Geneva, Verdana, sans-serif !important;
+  --r-lg: 8px;
+  --r: 6px;
+  --r-sm: 5px;
+  --shadow: 0 10px 30px rgb(0 0 0 / 0.45);
+  --gel: linear-gradient(180deg, #ffffff, #e6e6e6 50%, #d2d2d2 51%, #f4f4f4);
+  --gel-blue: linear-gradient(180deg, #cde5fb, #6cb3f5 50%, #3d8fe8 51%, #9dd4ff);
+}
+/* Pinstripes. */
+html:root[data-look="aqua"] body,
+html:root[data-look="aqua"] :is(.dialog, .settings, .dupes) {
+  background: repeating-linear-gradient(to bottom, #efefef 0 2px, #e4e4e4 2px 4px);
+}
+html:root[data-look="aqua"] :is(.settings, .dupes) > header,
+html:root[data-look="aqua"] .tabs {
+  background: linear-gradient(180deg, #e9e9e9, #c9c9c9);
+}
+html:root[data-look="aqua"] :is(.keybar button, .buttons button, .settings footer button, .dupes button, .modes button) {
+  color: #000000;
+  background: var(--gel);
+  border: 1px solid #8e8e8e;
+  border-radius: var(--r-pill);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.2);
+}
+html:root[data-look="aqua"] :is(.buttons .primary, .settings .primary, .dupes .primary, .update) {
+  background: var(--gel-blue);
+  color: #000000;
+  border-color: #3065b8;
+}
+html:root[data-look="aqua"] *::-webkit-scrollbar {
+  width: 15px;
+  height: 15px;
+  background: linear-gradient(90deg, #dddddd, #f4f4f4);
+}
+html:root[data-look="aqua"] *::-webkit-scrollbar-thumb {
+  background: var(--gel-blue);
+  border: 1px solid #3065b8;
+  border-radius: var(--r-pill);
+}
+
+/* ------------------------------------------------------------------ macOS today */
+
+html:root[data-look="macos"] {
+  --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Inter, sans-serif !important;
+  --r-lg: 10px;
+  --r: 6px;
+  --r-sm: 5px;
+  --shadow: 0 0 0 0.5px rgb(0 0 0 / 0.25), 0 22px 70px rgb(0 0 0 / 0.35);
+}
+html:root[data-look="macos"] .row {
+  border-radius: 5px;
+}
+html:root[data-look="macos"] :is(.keybar button, .buttons button, .settings footer button, .dupes button) {
+  border-color: transparent;
+  box-shadow: 0 0 0 0.5px rgb(0 0 0 / 0.2), 0 1px 1px rgb(0 0 0 / 0.1);
+}
+html:root[data-look="macos"] :is(.buttons .primary, .settings .primary, .dupes .primary) {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent-bg) 80%, #fff), var(--accent-bg));
+}
+html:root[data-look="macos"] *::-webkit-scrollbar-thumb {
+  border: 3px solid transparent;
+  border-radius: var(--r-pill);
+}

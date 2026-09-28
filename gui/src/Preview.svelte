@@ -299,7 +299,7 @@
         <b title={e.name}>{e.name}</b>
         <small>
           {#if e.is_dir}{pane.sizes[e.path] !== undefined ? size(pane.sizes[e.path]) : t("preview.folder")}{:else}{size(e.size)}{/if}
-          · <span class="age" style:background={ageColor(e.modified)}>{age(e.modified)}</span>
+          · <span class="age" style:background={ageColor(e.modified, ui.cfg.looks[ui.theme])}>{age(e.modified)}</span>
           {date(e.modified)}
         </small>
       </div>
@@ -512,7 +512,7 @@
     min-width: 0;
     background: var(--preview-bg);
     color: var(--preview-fg);
-    border-radius: 8px;
+    border-radius: var(--r);
     border: 1px solid var(--border-fg);
     overflow: hidden;
     box-sizing: border-box;
@@ -547,7 +547,7 @@
     color: var(--hidden-fg);
   }
   .age {
-    border-radius: 4px;
+    border-radius: var(--r-sm);
     padding: 0 5px;
     color: #fff;
     font-size: 0.9em;
@@ -575,14 +575,14 @@
   .media video {
     max-width: 100%;
     max-height: 60vh;
-    border-radius: 6px;
+    border-radius: var(--r);
   }
   .pdf {
     width: 100%;
     height: 100%;
     min-height: 60vh;
     border: 0;
-    border-radius: 6px;
+    border-radius: var(--r);
     background: #fff;
   }
   .archive {
@@ -610,7 +610,7 @@
     display: flex;
     flex: none;
     border: 1px solid var(--border-fg);
-    border-radius: 7px;
+    border-radius: var(--r);
     overflow: hidden;
   }
   .modes button {
@@ -637,7 +637,7 @@
     margin: 10px 0;
     padding: 10px;
     background: color-mix(in srgb, var(--dialog-input-bg) 60%, transparent);
-    border-radius: 6px;
+    border-radius: var(--r);
   }
   .markdown :global(.diagram svg) {
     max-width: 100%;
@@ -749,7 +749,7 @@
     padding: 8px 10px;
     margin-bottom: 6px;
     border: 1px solid var(--border-fg);
-    border-radius: 7px;
+    border-radius: var(--r);
   }
   .cards p {
     margin: 0;
@@ -813,7 +813,7 @@
     color: var(--panel-fg);
     background: none;
     border: 1px solid var(--border-fg);
-    border-radius: 7px;
+    border-radius: var(--r);
     padding: 3px 10px;
     cursor: pointer;
   }
@@ -834,7 +834,7 @@
   }
   .media.svg img {
     background: #fff;
-    border-radius: 6px;
+    border-radius: var(--r);
     padding: 8px;
   }
   .schema {
@@ -842,7 +842,7 @@
   }
   .checker {
     background: repeating-conic-gradient(color-mix(in srgb, var(--border-fg) 50%, transparent) 0 25%, transparent 0 50%) 0 0 / 16px 16px;
-    border-radius: 6px;
+    border-radius: var(--r);
   }
   .mono {
     font-family: var(--mono-font);
@@ -865,7 +865,7 @@
   .markdown :global(code) {
     font-family: var(--mono-font);
     background: var(--dialog-input-bg);
-    border-radius: 4px;
+    border-radius: var(--r-sm);
   }
   .markdown :global(pre) {
     padding: 8px;
@@ -929,7 +929,7 @@
     background: var(--dialog-input-bg);
     color: var(--dialog-input-fg);
     border: 1px solid var(--border-fg);
-    border-radius: 6px;
+    border-radius: var(--r);
     padding: 6px 8px;
     outline: none;
   }

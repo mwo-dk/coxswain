@@ -87,7 +87,7 @@
     align-items: center;
     gap: 4px;
     padding: 6px;
-    border-radius: 8px;
+    border-radius: var(--r);
     cursor: default;
     user-select: none;
     min-width: 0;
@@ -101,7 +101,7 @@
     width: 100%;
     aspect-ratio: 4 / 3;
     overflow: hidden;
-    border-radius: 6px;
+    border-radius: var(--r);
   }
   .thumb img {
     max-width: 100%;

@@ -223,7 +223,13 @@ Folders reread themselves when something changes in them. Drag files to the othe
 another application, or in from one; Bosum asks whether to copy or move.
 
 The sidebar holds places, drives with free space, favorite groups (right-click a group, then
-"Add current folder") and the git repositories you visited recently. Pick a theme from the F9 command list (type "theme").
+"Add current folder") and the git repositories you visited recently. Pick a theme from the F9
+command list (type "theme") or in Settings. Besides Cyber, a green phosphor terminal and the
+default, there are modern ones (dark, light, Nord, Tokyo Night), Norton Commander blue, and
+period looks from Windows 3.11 to 11 and Mac System 7 to today, each with the corners, bevels
+and fonts of its era.
+
+![Windows 3.11, 95, XP, 7 and 11, Mac System 7, Mac OS 9, Aqua and macOS](docs/screenshots/gui-themes.png)
 
 ## Languages
 
@@ -317,7 +323,7 @@ Everything's syntax:
 
 ```toml
 language = "auto"           # or "en-GB", "da", "de", "es-AR", "he", ... (docs/languages.md)
-theme = "midnight"          # or "nc", or your own [themes.<name>]
+theme = "cyber"             # or "nc", "win95", "macos", ... or your own [themes.<name>]
 glyphs = "nerd"             # or "ascii"
 editor = "hx"               # else $VISUAL / $EDITOR
 

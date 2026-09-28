@@ -234,8 +234,8 @@
     background: var(--dialog-bg);
     color: var(--dialog-fg);
     border: 1px solid var(--border-fg);
-    border-radius: 12px;
-    box-shadow: 0 20px 60px rgb(0 0 0 / 0.45);
+    border-radius: var(--r-lg);
+    box-shadow: var(--shadow);
     overflow: hidden;
   }
   header,
@@ -262,7 +262,7 @@
     color: inherit;
     background: none;
     border: 1px solid var(--border-fg);
-    border-radius: 7px;
+    border-radius: var(--r);
     padding: 4px 12px;
     cursor: pointer;
   }
@@ -310,7 +310,7 @@
     gap: 4px;
     padding: 2px 10px 2px 6px;
     border: 1px solid var(--border-fg);
-    border-radius: 999px;
+    border-radius: var(--r-pill);
     font-size: 0.9em;
     max-width: 22em;
     overflow: hidden;
@@ -327,7 +327,7 @@
     color: var(--dialog-input-fg);
     background: var(--dialog-input-bg);
     border: 1px solid var(--border-fg);
-    border-radius: 7px;
+    border-radius: var(--r);
     padding: 3px 8px;
   }
   .opts label {
@@ -344,7 +344,7 @@
   }
   .bar {
     height: 6px;
-    border-radius: 3px;
+    border-radius: var(--r-sm);
     background: var(--dialog-input-bg);
     overflow: hidden;
   }
@@ -363,7 +363,7 @@
   .group {
     margin-bottom: 10px;
     border: 1px solid var(--border-fg);
-    border-radius: 8px;
+    border-radius: var(--r);
     overflow: hidden;
   }
   .ghead {
@@ -393,7 +393,7 @@
     width: 40px;
     height: 30px;
     object-fit: cover;
-    border-radius: 4px;
+    border-radius: var(--r-sm);
     flex: none;
   }
   .glyph {

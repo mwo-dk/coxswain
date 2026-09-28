@@ -116,9 +116,14 @@ export function age(secs) {
  * File age as heat: red within the hour, yellow within a day, green within a week, cyan
  * within a month, blue within a year, gray after. Hue moves on a log scale in between.
  */
-export function ageColor(secs) {
+export function ageColor(secs, look) {
   if (!secs) return "transparent";
   const s = Math.max(1, Date.now() / 1000 - secs);
+  // Phosphor (the Cyber theme): no red. Cyan when new, fading through green to dim green.
+  if (look === "crt") {
+    const f = Math.min(1, Math.log(s) / Math.log(365 * D));
+    return `hsl(${185 - 60 * f} 100% ${42 - 26 * f}%)`;
+  }
   const stops = [
     [H, 0],
     [D, 50],
@@ -147,7 +152,9 @@ export function glob(pattern, name) {
 export const quote = (s) => (/^[\w\-./+,:@]+$/.test(s) ? s : `'${s.replaceAll("'", "'\\''")}'`);
 
 /** Theme slots become CSS variables: --panel-fg, --panel-bg, ... */
-export function applyTheme(theme, gui) {
+export function applyTheme(theme, gui, look = "modern") {
+  // Shapes and chrome per look: looks.css.
+  document.documentElement.dataset.look = look;
   const root = document.documentElement.style;
   for (const [slot, s] of Object.entries(theme)) {
     const name = slot.replaceAll("_", "-");

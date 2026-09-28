@@ -72,6 +72,10 @@ struct UiConfig {
     actions: BTreeMap<&'static str, (String, String)>,
     /// Every theme, by name, so the GUI can switch live.
     themes: BTreeMap<String, UiTheme>,
+    /// Each theme's look (shapes and chrome, see `Theme::look`), by name.
+    looks: BTreeMap<String, String>,
+    /// The built-in themes' names, in the order Settings shows them.
+    builtin_themes: Vec<&'static str>,
     glyphs: Glyphs,
     show_hidden: bool,
     confirm_delete: bool,
@@ -114,6 +118,8 @@ fn get_config(ctx: tauri::State<Ctx>) -> Res<UiConfig> {
         keymap: cfg.keymap()?.into_iter().map(|(k, a)| (k.to_string(), a.name())).collect(),
         actions: Action::ALL.iter().map(|&a| (a.name(), (a.label(), cfg.key_for(a).unwrap_or("").to_string()))).collect(),
         themes,
+        looks: cfg.themes.iter().map(|(name, t)| (name.clone(), t.look.clone())).collect(),
+        builtin_themes: bosum_core::config::Theme::builtin().into_iter().map(|(name, _)| name).collect(),
         glyphs: cfg.glyphs(),
         show_hidden: cfg.show_hidden,
         confirm_delete: cfg.confirm_delete,

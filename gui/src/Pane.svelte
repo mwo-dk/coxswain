@@ -133,7 +133,7 @@
     flex: 1;
     background: var(--panel-bg);
     color: var(--panel-fg);
-    border-radius: 8px;
+    border-radius: var(--r);
     border: 1px solid var(--border-fg);
     overflow: hidden;
   }
@@ -167,7 +167,7 @@
     gap: 6px;
     max-width: 200px;
     padding: 5px 10px;
-    border-radius: 7px 7px 0 0;
+    border-radius: var(--r) var(--r) 0 0;
     color: var(--tab-fg);
     cursor: default;
     white-space: nowrap;
@@ -190,7 +190,7 @@
   .x {
     opacity: 0;
     width: 1.3em;
-    border-radius: 4px;
+    border-radius: var(--r-sm);
     line-height: 1.2;
   }
   .tab:hover .x,
@@ -204,7 +204,7 @@
   .newtab {
     padding: 4px 10px;
     color: var(--tab-fg);
-    border-radius: 6px;
+    border-radius: var(--r);
     margin-bottom: 2px;
   }
   .newtab:hover {
@@ -222,7 +222,7 @@
     font-family: var(--icon-font);
     width: 28px;
     height: 26px;
-    border-radius: 6px;
+    border-radius: var(--r);
     color: var(--hidden-fg);
   }
   .nav:hover:not(:disabled) {
@@ -239,7 +239,7 @@
     min-width: 0;
     height: 26px;
     margin: 0 4px;
-    border-radius: 6px;
+    border-radius: var(--r);
     background: var(--dialog-input-bg);
     border: 1px solid var(--border-fg);
     box-sizing: border-box;
@@ -254,7 +254,7 @@
   }
   .crumb {
     padding: 1px 6px;
-    border-radius: 4px;
+    border-radius: var(--r-sm);
     cursor: pointer;
     flex: none;
   }
