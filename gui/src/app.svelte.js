@@ -177,10 +177,13 @@ export async function init() {
     ui.panes[0].tabs.push(newTab(fromArgs[0]));
     ui.panes[0].active = ui.panes[0].tabs.length - 1;
   }
-  // A saved directory may be gone; fall back to home.
+  // A file (`bosum-gui ~/Pictures/cat.jpg`) opens its folder with the cursor on it. A saved
+  // directory may be gone; fall back to home.
   await Promise.all(
     ui.panes.flatMap((p) => p.tabs).map(async (t) => {
-      if (!(await load(t))) await load(t, ui.cfg.home);
+      if (await load(t)) return;
+      const up = parent(t.dir);
+      if (!(up && (await load(t, up, basename(t.dir))))) await load(t, ui.cfg.home);
     }),
   );
   invoke("places").then((p) => (ui.places = p));

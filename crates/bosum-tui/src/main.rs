@@ -35,6 +35,9 @@ pub struct Panel {
 
 impl Panel {
     fn new(dir: PathBuf, show_hidden: bool) -> Panel {
+        // A file opens its folder with the cursor on it.
+        let file = dir.is_file().then(|| dir.file_name().map(|n| n.to_string_lossy().into_owned())).flatten();
+        let dir = if file.is_some() { dir.parent().map_or(dir.clone(), Path::to_path_buf) } else { dir };
         let mut p = Panel {
             dir,
             entries: vec![],
@@ -49,6 +52,9 @@ impl Panel {
             sizes: HashMap::new(),
         };
         p.load(show_hidden);
+        if let Some(name) = file {
+            p.select_name(&name);
+        }
         p
     }
 
@@ -911,7 +917,7 @@ fn main_loop(term: &mut DefaultTerminal, app: &mut App) -> std::io::Result<()> {
     Ok(())
 }
 
-const USAGE: &str = "bosum [LEFT_DIR] [RIGHT_DIR]
+const USAGE: &str = "bosum [LEFT] [RIGHT]      a folder, or a file to open its folder with the cursor on it
   --dump-config   print the full default config (redirect it to the config file to customise)
   --config-path   print where the config file is read from
   --version
@@ -946,5 +952,24 @@ fn main() {
     ratatui::restore();
     if let Err(e) = res {
         eprintln!("bosum: {e}");
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_file_argument_opens_its_folder_on_the_file() {
+        let d = std::env::temp_dir().join(format!("bosum-test-panel-{}", std::process::id()));
+        std::fs::create_dir_all(&d).unwrap();
+        for f in ["a.txt", "b.txt", "c.txt"] {
+            std::fs::write(d.join(f), "").unwrap();
+        }
+        let p = Panel::new(d.join("b.txt"), false);
+        assert_eq!(p.dir, d);
+        assert_eq!(p.current().map(|e| e.name.as_str()), Some("b.txt"));
+        assert_eq!(Panel::new(d.clone(), false).dir, d);
+        std::fs::remove_dir_all(d).unwrap();
     }
 }
