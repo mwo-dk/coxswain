@@ -1,8 +1,6 @@
 <script>
-  import hljs from "highlight.js/lib/common";
-  import { marked } from "marked";
-  import DOMPurify from "dompurify";
   import { ui, tab, item } from "./app.svelte.js";
+  import { renderMarkdown, renderMermaid, highlight, renderDocx, readSheet, renderNotebook, loadFont } from "./renderers.js";
   import { invoke, convertFileSrc, size, date, age, ageColor, previewKind } from "./lib.js";
 
   /** Set by App when the command output should show here instead of the file. */
@@ -21,6 +19,8 @@
   let summary = $state(null);
 
   const LIMIT = 512 * 1024;
+  /** Markdown and Mermaid: show the rendered result, or the source. Kept across files. */
+  let source = $state(false);
 
   // Load text-like previews; debounced so holding an arrow key stays smooth.
   $effect(() => {
@@ -28,20 +28,22 @@
     const k = kind;
     text = "";
     html = "";
-    if (!cur || !["text", "markdown"].includes(k)) return;
+    const src = source;
+    if (!cur || !["text", "markdown", "mermaid"].includes(k)) return;
     const timer = setTimeout(async () => {
       try {
         const [s, trunc, bin] = await invoke("read_text", { path: cur.path, max: LIMIT });
         if (item(tab())?.path !== cur.path) return;
         truncated = trunc;
         binary = bin;
-        if (k === "markdown" && !bin) {
-          // Untrusted file content: sanitize before it touches the DOM.
-          html = DOMPurify.sanitize(await marked.parse(s));
+        // Rendered markdown and diagrams come back sanitized from renderers.js.
+        const rendered = bin || src ? "" : k === "markdown" ? await renderMarkdown(s) : k === "mermaid" ? await renderMermaid(s) : "";
+        if (item(tab())?.path !== cur.path) return;
+        if (rendered) {
+          html = rendered;
         } else if (!bin && s.length < 200_000) {
           const ext = cur.name.split(".").pop().toLowerCase();
-          const lang = hljs.getLanguage(ext) ? ext : null;
-          html = lang ? hljs.highlight(s, { language: lang }).value : hljs.highlightAuto(s).value;
+          html = highlight(s, k === "text" ? ext : "markdown");
         } else {
           text = s;
         }
@@ -51,6 +53,32 @@
     }, 80);
     return () => clearTimeout(timer);
   });
+
+  // Documents, notebooks, spreadsheets and fonts, each rendered by a library loaded on first use.
+  let rich = $state(null);
+  let sheetName = $state("");
+  $effect(() => {
+    const cur = e;
+    const k = kind;
+    rich = null;
+    if (!["docx", "notebook", "sheet", "font"].includes(k)) return;
+    const timer = setTimeout(async () => {
+      let r;
+      try {
+        if (k === "docx") r = { html: await renderDocx(cur.path) };
+        else if (k === "notebook") r = { html: await renderNotebook(cur.path) };
+        else if (k === "font") r = { family: await loadFont(cur.path) };
+        else r = { sheet: await readSheet(cur.path) };
+      } catch (err) {
+        r = { error: String(err?.message ?? err) };
+      }
+      if (item(tab())?.path !== cur.path) return;
+      if (r.sheet) sheetName = r.sheet.names[0] ?? "";
+      rich = r;
+    }, 80);
+    return () => clearTimeout(timer);
+  });
+  const rows = $derived(rich?.sheet && sheetName ? rich.sheet.rows(sheetName) : []);
 
   // Archive: what is inside.
   let archive = $state(null);
@@ -135,6 +163,12 @@
           {date(e.modified)}
         </small>
       </div>
+      {#if kind === "markdown" || kind === "mermaid"}
+        <div class="modes" role="group" aria-label="Show">
+          <button class:on={!source} onclick={() => (source = false)}>Rendered</button>
+          <button class:on={source} onclick={() => (source = true)}>Source</button>
+        </div>
+      {/if}
     </header>
 
     <div class="body">
@@ -160,8 +194,37 @@
             {/each}
           </ul>
         {/if}
-      {:else if kind === "markdown" && html}
+      {:else if (kind === "markdown" || kind === "mermaid") && html && !source}
         <article class="markdown">{@html html}</article>
+      {:else if (kind === "markdown" || kind === "mermaid") && html}
+        <pre class="mono code"><code class="hljs">{@html html}</code></pre>
+      {:else if rich?.error}
+        <p class="more">{rich.error}</p>
+      {:else if rich?.html !== undefined}
+        <article class="markdown {kind}">{@html rich.html}</article>
+      {:else if rich?.family}
+        <div class="font" style:font-family="'{rich.family}'">
+          <p style:font-size="2.6em">The quick brown fox jumps over the lazy dog</p>
+          <p style:font-size="1.6em">Sphinx of black quartz, judge my vow</p>
+          <p style:font-size="1.1em">ABCDEFGHIJKLMNOPQRSTUVWXYZ<br />abcdefghijklmnopqrstuvwxyz<br />0123456789 &amp;@#$%*(){"{}"}[]&lt;&gt;?!</p>
+          <p style:font-size="0.85em">Æble, øl og å — Grüße — ﬁ ﬂ — “quotes” — €£¥</p>
+        </div>
+      {:else if rich?.sheet}
+        {#if rich.sheet.names.length > 1}
+          <div class="modes sheets" role="group" aria-label="Sheet">
+            {#each rich.sheet.names as n (n)}<button class:on={n === sheetName} onclick={() => (sheetName = n)}>{n}</button>{/each}
+          </div>
+        {/if}
+        <div class="table-wrap">
+          <table class="sheet">
+            <tbody>
+              {#each rows.slice(0, 200) as row, i (i)}
+                <tr>{#each row as c, j (j)}{#if i === 0}<th>{c}</th>{:else}<td>{c}</td>{/if}{/each}</tr>
+              {/each}
+            </tbody>
+          </table>
+        </div>
+        {#if rows.length > 200}<p class="more">Showing the first 200 rows</p>{/if}
       {:else if kind === "text"}
         {#if html}
           <pre class="mono code"><code class="hljs">{@html html}</code></pre>
@@ -293,6 +356,96 @@
   }
   .sz {
     color: var(--hidden-fg);
+  }
+  .modes {
+    display: flex;
+    flex: none;
+    border: 1px solid var(--border-fg);
+    border-radius: 7px;
+    overflow: hidden;
+  }
+  .modes button {
+    font: inherit;
+    font-size: 0.85em;
+    color: var(--hidden-fg);
+    background: none;
+    border: 0;
+    padding: 3px 9px;
+    cursor: pointer;
+  }
+  .modes button.on {
+    background: var(--cursor-bg);
+    color: var(--cursor-fg);
+  }
+  .modes.sheets {
+    flex-wrap: wrap;
+    margin-bottom: 8px;
+    width: fit-content;
+  }
+  .markdown :global(.diagram) {
+    display: grid;
+    place-items: center;
+    margin: 10px 0;
+    padding: 10px;
+    background: color-mix(in srgb, var(--dialog-input-bg) 60%, transparent);
+    border-radius: 6px;
+  }
+  .markdown :global(.diagram svg) {
+    max-width: 100%;
+    max-height: 360px;
+    height: auto;
+  }
+  .markdown :global(.diagram-error),
+  .notebook :global(.err) {
+    color: var(--git-deleted-fg);
+    white-space: pre-wrap;
+  }
+  .notebook :global(.cell) {
+    margin: 8px 0;
+  }
+  .notebook :global(.prompt) {
+    font-family: var(--mono-font);
+    font-size: 0.8em;
+    color: var(--hidden-fg);
+  }
+  .notebook :global(pre) {
+    white-space: pre-wrap;
+  }
+  .notebook :global(.out) {
+    margin: 4px 0 10px;
+    max-width: 100%;
+    font-family: var(--mono-font);
+    font-size: 0.9em;
+  }
+  .docx :global(img) {
+    max-width: 100%;
+  }
+  .font p {
+    margin: 0 0 14px;
+    line-height: 1.25;
+    overflow-wrap: anywhere;
+  }
+  .table-wrap {
+    overflow: auto;
+  }
+  .sheet {
+    border-collapse: collapse;
+    font-size: 0.9em;
+    font-variant-numeric: tabular-nums;
+  }
+  .sheet th,
+  .sheet td {
+    border: 1px solid var(--border-fg);
+    padding: 2px 8px;
+    white-space: nowrap;
+    max-width: 22em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    text-align: left;
+  }
+  .sheet th {
+    background: var(--dialog-input-bg);
+    font-weight: 600;
   }
   .checker {
     background: repeating-conic-gradient(color-mix(in srgb, var(--border-fg) 50%, transparent) 0 25%, transparent 0 50%) 0 0 / 16px 16px;

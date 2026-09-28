@@ -94,6 +94,9 @@
         {/each}
       </div>
     {/if}
+    <button class="nav" title={ui.dual ? "One pane (Ctrl+O)" : "Two panes (Ctrl+O)"} onclick={() => (ui.dual = !ui.dual)}>
+      {ui.dual ? "\u{f2d0}" : "\u{eb56}"}
+    </button>
     <button class="nav" title="Details / columns / thumbnails (Alt+V)" onclick={() => (t.view = nextView(t.view))}>
       {({ details: "\u{f03a}", columns: "\u{f0db}", grid: "\u{f00a}" })[t.view]}
     </button>

@@ -11,8 +11,9 @@ shared Rust core and read the same config file.
   counts and stashes, plus a glyph per file (Nerd Font, or ASCII).
 - **Search like Everything.** Every file name on the machine sits in RAM and queries run in
   parallel: about 1.4M files index in ~0.2 s and answer in under 10 ms.
-- **See before you open.** The desktop app previews code with syntax highlighting, Markdown,
-  images, video, audio, PDFs and what is inside zip and tar archives, and has a thumbnail view.
+- **See before you open.** The desktop app previews code, Markdown with Mermaid diagrams and
+  math, Jupyter notebooks, Word documents, spreadsheets, fonts, images, video, audio, PDFs and
+  what is inside zip and tar archives, and has a thumbnail view.
 - **Plays well with the desktop.** Delete goes to the trash, folders refresh themselves, files
   drag to and from other apps, and Ctrl+C / Ctrl+V share files with your other file manager.
 - **Configurable.** Key bindings, color schemes, glyphs, user menu and fonts all live in one
@@ -28,6 +29,10 @@ shared Rust core and read the same config file.
 | Thumbnails (Alt+V) with the preview pane (Space) | PDFs preview in place; the left pane shows git status |
 | ![The contents of a tar.gz archive in the preview](docs/screenshots/gui-archive.png) | ![Miller columns, light theme](docs/screenshots/gui-columns.png) |
 | Archives list their contents; Ctrl+E extracts them | Miller columns and preview, light theme |
+
+![The preview pane showing Markdown with a Mermaid diagram and math, a Jupyter notebook, a spreadsheet, a Word document and a font](docs/screenshots/gui-previews.png)
+*The preview pane (Space): Markdown with a Mermaid diagram and math, a Jupyter notebook, a
+spreadsheet, a Word document and a font.*
 
 ## Install
 
@@ -113,7 +118,7 @@ loaded from disk and kept current while Bosum runs.
 
 | Key | Action | Key | Action |
 |---|---|---|---|
-| Ctrl+T / Ctrl+W | New / close tab | Space | Preview pane (code, Markdown, images, video, PDF, archives) |
+| Ctrl+T / Ctrl+W | New / close tab | Space | Preview pane (see below) |
 | Ctrl+Tab | Next tab | Alt+V | Details, Miller columns or thumbnails |
 | Ctrl+C / Ctrl+X / Ctrl+V | Copy, cut, paste files (shared with other file managers) | Alt+Enter | Properties and permissions |
 | Alt+Left / Alt+Right | Back / forward | Ctrl+E | Extract a zip or tar archive to the other pane |
@@ -121,6 +126,25 @@ loaded from disk and kept current while Bosum runs.
 | Ctrl+L | Type a path | Ctrl+Space | Folder sizes |
 | Ctrl+M | Batch rename with regex, previewed | Alt+T | Color tag |
 | Alt+N | Notes for this folder | Alt+. | Hidden files |
+
+**The preview pane** (Space) follows the cursor and shows:
+
+| Files | Preview |
+|---|---|
+| Code, config, text | Syntax highlighted |
+| Markdown | Rendered, with Mermaid diagrams and `$math$`; switch to **Source** at the top |
+| `.mmd` | Mermaid diagram |
+| `.ipynb` | Jupyter notebook: Markdown, code and outputs, including plots |
+| `.docx` | Word document |
+| `.xlsx`, `.ods`, `.xls`, `.csv`, `.tsv` | Table of the first 200 rows; a button per sheet |
+| `.ttf`, `.otf`, `.woff`, `.woff2` | Sample text at several sizes |
+| Images, video, audio, PDF | Shown, played or paged through in place |
+| `.zip`, `.jar`, `.tar`, `.tar.gz` | The list of files inside |
+| Folders | Counts, size, git status and notes |
+
+Where there is a choice, such as rendered or source, it appears as buttons at the top of the
+preview. The heavier renderers load the first time they are needed, so they cost nothing at
+startup. Ctrl+O, or the button next to the view switcher, toggles between one and two panes.
 
 Folders reread themselves when something changes in them. Drag files to the other pane, to
 another application, or in from one; Bosum asks whether to copy or move.
