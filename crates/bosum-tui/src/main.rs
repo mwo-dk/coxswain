@@ -146,7 +146,8 @@ pub struct MenuItem {
 
 pub enum Dialog {
     Input { title: String, label: String, value: String, prompt: Prompt },
-    Confirm { title: String, text: String, paths: Vec<PathBuf> },
+    /// Delete `paths`; `forever` skips the trash.
+    Confirm { title: String, text: String, paths: Vec<PathBuf>, forever: bool },
     Search { query: String, scoped: bool, results: Results, cursor: usize, offset: usize },
     /// `direct`: a typed key runs the item with that key (F2); otherwise it filters (F9).
     Menu { title: String, filter: String, items: Vec<MenuItem>, cursor: usize, direct: bool },
@@ -464,16 +465,18 @@ impl App {
                 self.input(title, label, dst, prompt);
             }
             Action::Mkdir => self.input("Make directory", "Create the directory:".into(), String::new(), Prompt::Mkdir),
-            Action::Delete => {
+            Action::Delete | Action::DeleteForever => {
                 let paths = self.panel().targets();
                 if paths.is_empty() {
                     return;
                 }
+                let forever = a == Action::DeleteForever;
                 if self.cfg.confirm_delete {
-                    let text = format!("Do you wish to delete {}?", Self::describe(&paths));
-                    self.dialog = Some(Dialog::Confirm { title: "Delete".into(), text, paths });
+                    let how = if forever { "permanently delete" } else { "move to the trash" };
+                    let text = format!("Do you wish to {how} {}?", Self::describe(&paths));
+                    self.dialog = Some(Dialog::Confirm { title: "Delete".into(), text, paths, forever });
                 } else {
-                    self.delete(paths);
+                    self.delete(paths, forever);
                 }
             }
             Action::Search => {
@@ -492,7 +495,7 @@ impl App {
             Action::Menu => {
                 let items = Action::ALL
                     .iter()
-                    .filter(|&&x| !matches!(x, Action::Menu | Action::Up | Action::Down))
+                    .filter(|&&x| !x.gui_only() && !matches!(x, Action::Menu | Action::Up | Action::Down))
                     .map(|&x| MenuItem { key: self.key_label(x).to_string(), label: x.label().to_string(), run: MenuRun::Action(x) })
                     .collect();
                 self.dialog = Some(Dialog::Menu { title: "Commands".into(), filter: String::new(), items, cursor: 0, direct: false });
@@ -559,9 +562,11 @@ impl App {
         self.run = Some(Run::Shell { cmd, dir: self.panel().dir.clone(), wait: false });
     }
 
-    fn delete(&mut self, paths: Vec<PathBuf>) {
-        let errors: Vec<String> = paths.iter().filter_map(|p| bfs::delete(p).err().map(|e| format!("{}: {e}", p.display()))).collect();
-        self.after_op(format!("Deleted {}", Self::describe(&paths)), errors);
+    fn delete(&mut self, paths: Vec<PathBuf>, forever: bool) {
+        let op = if forever { bfs::delete } else { bfs::trash };
+        let errors: Vec<String> = paths.iter().filter_map(|p| op(p).err().map(|e| format!("{}: {e}", p.display()))).collect();
+        let verb = if forever { "Deleted" } else { "Trashed" };
+        self.after_op(format!("{verb} {}", Self::describe(&paths)), errors);
     }
 
     fn after_op(&mut self, ok: String, errors: Vec<String>) {
@@ -661,10 +666,10 @@ impl App {
                     self.dialog = Some(Dialog::Input { title, label, value, prompt });
                 }
             },
-            Dialog::Confirm { title, text, paths } => match (key.code, ch) {
-                (KeyCode::Enter, _) | (_, Some('y' | 'Y')) => self.delete(paths),
+            Dialog::Confirm { title, text, paths, forever } => match (key.code, ch) {
+                (KeyCode::Enter, _) | (_, Some('y' | 'Y')) => self.delete(paths, forever),
                 _ if esc || matches!(ch, Some('n' | 'N')) => {}
-                _ => self.dialog = Some(Dialog::Confirm { title, text, paths }),
+                _ => self.dialog = Some(Dialog::Confirm { title, text, paths, forever }),
             },
             Dialog::Search { mut query, mut scoped, results, mut cursor, offset } => {
                 let hit = results.hits.get(cursor).cloned();

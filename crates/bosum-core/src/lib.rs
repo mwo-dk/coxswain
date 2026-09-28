@@ -1,5 +1,6 @@
 //! Bosum core: everything that is not UI, shared by the TUI and the GUI.
 
+pub mod archive;
 pub mod config;
 pub mod fs;
 pub mod git;

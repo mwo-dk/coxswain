@@ -15,12 +15,18 @@ use std::collections::BTreeMap;
 use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
+use tauri::{Emitter, Manager};
 
 struct Ctx {
     cfg: Config,
     index: Arc<Service>,
     start: [PathBuf; 2],
     state: Mutex<AppState>,
+    /// Folders shown in the panes, watched so they reread themselves.
+    watched: Mutex<Vec<PathBuf>>,
+    watcher: Mutex<Option<notify::RecommendedWatcher>>,
+    /// What Bosum last put on the clipboard, and whether it was a cut.
+    clip: Mutex<(Vec<PathBuf>, bool)>,
 }
 
 impl Ctx {
@@ -290,9 +296,10 @@ async fn rename(paths: Vec<PathBuf>, base: PathBuf, dest: String) -> Res<()> {
     each(&paths, |p| bfs::rename(p, &dst).map(drop))
 }
 
+/// To the trash, or gone for good with `forever`.
 #[tauri::command]
-async fn delete(paths: Vec<PathBuf>) -> Res<()> {
-    each(&paths, bfs::delete)
+async fn delete(paths: Vec<PathBuf>, forever: bool) -> Res<()> {
+    each(&paths, if forever { bfs::delete } else { bfs::trash })
 }
 
 #[tauri::command]
@@ -362,6 +369,229 @@ async fn read_text(path: PathBuf, max: usize) -> Res<(String, bool, bool)> {
         return Ok((hex, truncated, true));
     }
     Ok((String::from_utf8_lossy(&buf).into_owned(), truncated, false))
+}
+
+// ---------------------------------------------------------------- archives
+
+#[derive(Serialize)]
+struct ArchiveListing {
+    entries: Vec<bosum_core::archive::ArchiveEntry>,
+    more: bool,
+}
+
+#[tauri::command]
+async fn archive_list(path: PathBuf) -> Res<ArchiveListing> {
+    let (entries, more) = bosum_core::archive::list(&path, 2000).map_err(|e| e.to_string())?;
+    Ok(ArchiveListing { entries, more })
+}
+
+#[tauri::command]
+async fn extract(paths: Vec<PathBuf>, base: PathBuf, dest: String) -> Res<()> {
+    let dst = resolve(&base, &dest);
+    each(&paths, |p| bosum_core::archive::extract(p, &dst).map(drop))
+}
+
+// ---------------------------------------------------------------- properties
+
+#[derive(Serialize)]
+struct Props {
+    path: PathBuf,
+    kind: &'static str,
+    link_target: Option<PathBuf>,
+    size: u64,
+    files: u64,
+    created: Option<u64>,
+    modified: Option<u64>,
+    accessed: Option<u64>,
+    readonly: bool,
+    /// Unix permission bits, e.g. 0o644, and owner ids.
+    mode: Option<u32>,
+    uid: Option<u32>,
+    gid: Option<u32>,
+}
+
+fn secs(t: std::io::Result<std::time::SystemTime>) -> Option<u64> {
+    Some(t.ok()?.duration_since(std::time::UNIX_EPOCH).ok()?.as_secs())
+}
+
+#[tauri::command]
+async fn properties(path: PathBuf) -> Res<Props> {
+    let lmeta = std::fs::symlink_metadata(&path).map_err(|e| format!("{}: {e}", path.display()))?;
+    let meta = std::fs::metadata(&path).unwrap_or_else(|_| lmeta.clone());
+    let (size, files) = bfs::dir_size(&path);
+    #[cfg(unix)]
+    let (mode, uid, gid) = {
+        use std::os::unix::fs::MetadataExt;
+        (Some(meta.mode() & 0o7777), Some(meta.uid()), Some(meta.gid()))
+    };
+    #[cfg(not(unix))]
+    let (mode, uid, gid) = (None, None, None);
+    Ok(Props {
+        kind: if lmeta.is_symlink() { "Symbolic link" } else if meta.is_dir() { "Folder" } else { "File" },
+        link_target: std::fs::read_link(&path).ok(),
+        size,
+        files,
+        created: secs(meta.created()),
+        modified: secs(meta.modified()),
+        accessed: secs(meta.accessed()),
+        readonly: meta.permissions().readonly(),
+        mode,
+        uid,
+        gid,
+        path,
+    })
+}
+
+/// Unix permission bits when `mode` is given, else the read-only flag.
+#[tauri::command]
+fn set_permissions(path: PathBuf, mode: Option<u32>, readonly: bool) -> Res<()> {
+    let mut perms = std::fs::metadata(&path).map_err(|e| e.to_string())?.permissions();
+    match mode {
+        #[cfg(unix)]
+        Some(m) => std::os::unix::fs::PermissionsExt::set_mode(&mut perms, m & 0o7777),
+        _ => perms.set_readonly(readonly),
+    }
+    std::fs::set_permissions(&path, perms).map_err(|e| e.to_string())
+}
+
+// ---------------------------------------------------------------- clipboard
+
+// Linux file managers exchange percent-encoded `file://` URIs; macOS and Windows take paths.
+fn to_clip(p: &Path) -> String {
+    if !cfg!(target_os = "linux") {
+        return p.to_string_lossy().into_owned();
+    }
+    let mut s = String::from("file://");
+    for &b in p.as_os_str().as_encoded_bytes() {
+        if b.is_ascii_alphanumeric() || b"/-_.~".contains(&b) {
+            s.push(b as char);
+        } else {
+            s += &format!("%{b:02X}");
+        }
+    }
+    s
+}
+
+fn from_clip(s: &str) -> PathBuf {
+    let Some(rest) = s.strip_prefix("file://") else { return PathBuf::from(s) };
+    let (b, mut out, mut i) = (rest.as_bytes(), vec![], 0);
+    while i < b.len() {
+        let hex = (b[i] == b'%').then(|| std::str::from_utf8(b.get(i + 1..i + 3)?).ok()).flatten();
+        match hex.and_then(|h| u8::from_str_radix(h, 16).ok()) {
+            Some(v) => {
+                out.push(v);
+                i += 3;
+            }
+            None => {
+                out.push(b[i]);
+                i += 1;
+            }
+        }
+    }
+    PathBuf::from(String::from_utf8_lossy(&out).into_owned())
+}
+
+fn os_clipboard() -> Option<clipboard_rs::ClipboardContext> {
+    clipboard_rs::ClipboardContext::new().ok()
+}
+
+/// Put files on the system clipboard (other file managers can paste them); a cut is
+/// remembered here, since there is no portable way to mark one.
+#[tauri::command]
+fn clip_set(paths: Vec<PathBuf>, cut: bool, ctx: tauri::State<Ctx>) -> Res<()> {
+    use clipboard_rs::Clipboard;
+    if let Some(c) = os_clipboard() {
+        // Best effort: without a system clipboard, paste inside Bosum still works.
+        let _ = c.set_files(paths.iter().map(|p| to_clip(p)).collect());
+    }
+    *ctx.clip.lock().map_err(|e| e.to_string())? = (paths, cut);
+    Ok(())
+}
+
+/// Paste into `dir`: files from the system clipboard, else what Bosum copied. Moves when
+/// Bosum cut exactly those files. A name that is taken becomes `name (2)`.
+#[tauri::command]
+async fn paste(dir: PathBuf, ctx: tauri::State<'_, Ctx>) -> Res<(usize, bool)> {
+    use clipboard_rs::Clipboard;
+    let os: Vec<PathBuf> = os_clipboard().and_then(|c| c.get_files().ok()).unwrap_or_default().iter().map(|s| from_clip(s)).collect();
+    let mut clip = ctx.clip.lock().map_err(|e| e.to_string())?;
+    let cut = clip.1 && (os.is_empty() || os == clip.0);
+    let paths = if os.is_empty() { clip.0.clone() } else { os };
+    if paths.is_empty() {
+        return Err("The clipboard holds no files".into());
+    }
+    if cut {
+        // A cut pastes once.
+        *clip = (vec![], false);
+    }
+    drop(clip);
+    // ponytail: text copied elsewhere after a Bosum copy still pastes Bosum's files on
+    // clipboards that report "no files" as empty; track the clipboard owner if that confuses.
+    each(&paths, |p| {
+        if cut && p.parent() == Some(dir.as_path()) {
+            return Ok(()); // cut and pasted in place
+        }
+        let to = bfs::free_name(&dir, &p.file_name().unwrap_or_default().to_string_lossy());
+        if cut { bfs::rename(p, &to).map(drop) } else { bfs::copy(p, &to).map(drop) }
+    })?;
+    Ok((paths.len(), cut))
+}
+
+// ---------------------------------------------------------------- drag out, watching
+
+/// A native drag, so files can be dropped on other applications (and back on Bosum).
+#[tauri::command]
+fn start_drag(paths: Vec<PathBuf>, window: tauri::Window) -> Res<()> {
+    let app = window.app_handle().clone();
+    app.run_on_main_thread(move || {
+        let icon = drag::Image::Raw(include_bytes!("../icons/32x32.png").to_vec());
+        #[cfg(target_os = "linux")]
+        let target = window.gtk_window();
+        #[cfg(not(target_os = "linux"))]
+        let target = Ok::<_, tauri::Error>(window.clone());
+        if let Ok(w) = target {
+            let _ = drag::start_drag(&w, drag::DragItem::Files(paths), icon, |_, _| {}, drag::Options::default());
+        }
+    })
+    .map_err(|e| e.to_string())
+}
+
+/// Watch exactly these folders (not their subfolders).
+#[tauri::command]
+fn watch_dirs(dirs: Vec<PathBuf>, ctx: tauri::State<Ctx>) -> Res<()> {
+    use notify::{RecursiveMode, Watcher};
+    let mut watched = ctx.watched.lock().map_err(|e| e.to_string())?;
+    let mut w = ctx.watcher.lock().map_err(|e| e.to_string())?;
+    let Some(w) = w.as_mut() else { return Ok(()) };
+    for d in watched.iter().filter(|d| !dirs.contains(d)) {
+        let _ = w.unwatch(d);
+    }
+    for d in dirs.iter().filter(|d| !watched.contains(d)) {
+        let _ = w.watch(d, RecursiveMode::NonRecursive);
+    }
+    *watched = dirs;
+    Ok(())
+}
+
+/// Emit `dir-changed` with the watched folders that changed, at most every 250 ms.
+fn start_watcher(app: &tauri::AppHandle) -> Option<notify::RecommendedWatcher> {
+    use notify::Watcher;
+    let (tx, rx) = std::sync::mpsc::channel::<notify::Result<notify::Event>>();
+    let watcher = notify::RecommendedWatcher::new(tx, notify::Config::default()).ok()?;
+    let app = app.clone();
+    std::thread::spawn(move || {
+        while let Ok(first) = rx.recv() {
+            std::thread::sleep(std::time::Duration::from_millis(250));
+            let events = std::iter::once(first).chain(rx.try_iter());
+            let paths: Vec<PathBuf> = events.flatten().filter(|e| !e.kind.is_access()).flat_map(|e| e.paths).collect();
+            let watched = app.state::<Ctx>().watched.lock().map(|w| w.clone()).unwrap_or_default();
+            let changed: Vec<&PathBuf> = watched.iter().filter(|d| paths.iter().any(|p| p == *d || p.parent() == Some(d.as_path()))).collect();
+            if !changed.is_empty() {
+                let _ = app.emit("dir-changed", changed);
+            }
+        }
+    });
+    Some(watcher)
 }
 
 // ---------------------------------------------------------------- commands & scripts
@@ -469,14 +699,42 @@ fn main() {
     let cwd = std::env::current_dir().ok().filter(|d| d.parent().is_some()).unwrap_or(home);
     let args: Vec<String> = std::env::args().skip(1).collect();
     let dir = |i: usize| args.get(i).map(|a| resolve(&cwd, a)).unwrap_or_else(|| cwd.clone());
-    let ctx = Ctx { index: Service::start(&cfg.search), start: [dir(0), dir(1)], state: Mutex::new(AppState::load()), cfg };
+    let ctx = Ctx {
+        index: Service::start(&cfg.search),
+        start: [dir(0), dir(1)],
+        state: Mutex::new(AppState::load()),
+        cfg,
+        watched: Mutex::default(),
+        watcher: Mutex::default(),
+        clip: Mutex::default(),
+    };
     tauri::Builder::default()
         .manage(ctx)
+        .setup(|app| {
+            *app.state::<Ctx>().watcher.lock().expect("fresh lock") = start_watcher(app.handle());
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             get_config, list_dir, git_status, places, disks, get_state, save_session, save_favorites, set_tags, set_note, get_note,
             search, resolve_path, copy, rename, delete, mkdir, dir_sizes, rename_plan, rename_apply, open_path, edit_path,
-            read_text, run_command, scripts, run_script, check_update
+            read_text, run_command, scripts, run_script, check_update, archive_list, extract, properties, set_permissions,
+            clip_set, paste, start_drag, watch_dirs
         ])
         .run(tauri::generate_context!())
         .expect("error while running Bosum");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn clipboard_uris_roundtrip() {
+        let p = PathBuf::from("/tmp/a b/ø%.txt");
+        if cfg!(target_os = "linux") {
+            assert_eq!(to_clip(&p), "file:///tmp/a%20b/%C3%B8%25.txt");
+        }
+        assert_eq!(from_clip(&to_clip(&p)), p);
+        assert_eq!(from_clip("file:///x/%zz"), PathBuf::from("/x/%zz"));
+    }
 }
