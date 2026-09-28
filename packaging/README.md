@@ -6,7 +6,7 @@ job just leaves a notice.
 | Where | What | Secret |
 |---|---|---|
 | crates.io | `bosum-core`, then `bosum` (`cargo install bosum`) | `CARGO_REGISTRY_TOKEN` |
-| Homebrew | `bosum` formula (terminal) and `bosum-gui` cask (desktop, macOS) in [mwo-dk/homebrew-bosum](https://github.com/mwo-dk/homebrew-bosum) | `TAP_TOKEN` |
+| Homebrew | `bosum` formula (terminal) and `bosum-gui` cask (desktop: .dmg on macOS, AppImage on Linux) in [mwo-dk/homebrew-bosum](https://github.com/mwo-dk/homebrew-bosum) | `TAP_TOKEN` |
 | Scoop | manifest in [mwo-dk/scoop-bosum](https://github.com/mwo-dk/scoop-bosum) | `TAP_TOKEN` |
 
 The AUR packages in `aur/` are kept, but not published while AUR registration is closed.
