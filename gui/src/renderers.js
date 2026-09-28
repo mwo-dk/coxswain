@@ -1,0 +1,123 @@
+// Rich previews. Each heavy library is imported the first time a file needs it, so none of
+// them cost anything at startup. Everything here renders untrusted file content, so every
+// HTML result goes through DOMPurify before it reaches the DOM.
+
+import { marked } from "marked";
+import DOMPurify from "dompurify";
+import hljs from "highlight.js/lib/common";
+import { convertFileSrc } from "./lib.js";
+
+const clean = (html) => DOMPurify.sanitize(html, { USE_PROFILES: { html: true, svg: true, svgFilters: true, mathMl: true } });
+const escape = (s) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+
+/** File bytes through the asset protocol; refuses files too big to preview. */
+export async function bytes(path, max = 25 * 1024 * 1024) {
+  const r = await fetch(convertFileSrc(path));
+  if (!r.ok) throw new Error(`${r.status} ${r.statusText}`);
+  if (Number(r.headers.get("content-length")) > max) throw new Error("Too large to preview");
+  return r.arrayBuffer();
+}
+
+// ------------------------------------------------------------ markdown, math, mermaid
+
+let mathReady;
+function withMath() {
+  mathReady ??= Promise.all([import("marked-katex-extension"), import("katex/dist/katex.min.css")]).then(([k]) =>
+    marked.use(k.default({ throwOnError: false, nonStandard: true })),
+  );
+  return mathReady;
+}
+
+let mermaidReady;
+let mermaidSeq = 0;
+async function mermaid() {
+  mermaidReady ??= import("mermaid").then(({ default: m }) => m);
+  const m = await mermaidReady;
+  // Plain SVG text labels (no foreignObject HTML), so the sanitizer keeps them intact.
+  const dark = getComputedStyle(document.documentElement).colorScheme === "dark";
+  m.initialize({ startOnLoad: false, securityLevel: "strict", theme: dark ? "dark" : "default", htmlLabels: false, flowchart: { htmlLabels: false } });
+  return m;
+}
+
+/** One diagram as sanitized SVG, or the error as text. */
+export async function renderMermaid(src) {
+  try {
+    const { svg } = await (await mermaid()).render(`coxswain-mermaid-${++mermaidSeq}`, src);
+    return `<div class="diagram">${clean(svg)}</div>`;
+  } catch (e) {
+    return `<pre class="diagram-error">${escape(String(e?.message ?? e))}</pre>`;
+  }
+}
+
+/** Markdown with $math$ (KaTeX) and ```mermaid blocks drawn as diagrams. */
+export async function renderMarkdown(src) {
+  if (/\$|\\\(|\\\[/.test(src)) await withMath();
+  const doc = new DOMParser().parseFromString(clean(await marked.parse(src)), "text/html");
+  for (const code of doc.querySelectorAll("pre > code.language-mermaid")) {
+    // renderMermaid's result is already sanitized; parse it in an inert document too.
+    const svg = new DOMParser().parseFromString(await renderMermaid(code.textContent), "text/html");
+    code.parentElement.replaceWith(...doc.adoptNode(svg.body).childNodes);
+  }
+  return clean(doc.body.innerHTML);
+}
+
+export const highlight = (src, lang) =>
+  hljs.getLanguage(lang ?? "") ? hljs.highlight(src, { language: lang }).value : hljs.highlightAuto(src).value;
+
+// ------------------------------------------------------------ documents
+
+/** Word .docx as HTML (text, headings, lists, tables, embedded images). */
+export async function renderDocx(path) {
+  const { default: mammoth } = await import("mammoth");
+  const r = await mammoth.convertToHtml({ arrayBuffer: await bytes(path) });
+  return clean(r.value);
+}
+
+/** A workbook (xlsx, xls, ods, csv, tsv): sheet names, and rows per sheet on demand. */
+export async function readSheet(path) {
+  const XLSX = await import("xlsx");
+  const wb = XLSX.read(await bytes(path), { type: "array", sheetRows: 201, dense: true });
+  return {
+    names: wb.SheetNames,
+    rows: (name) => XLSX.utils.sheet_to_json(wb.Sheets[name], { header: 1, raw: false, defval: "" }),
+  };
+}
+
+/** A Jupyter notebook: markdown cells, highlighted code, and text, image and HTML outputs. */
+export async function renderNotebook(path) {
+  const nb = JSON.parse(new TextDecoder().decode(await bytes(path)));
+  const lang = nb.metadata?.kernelspec?.language ?? nb.metadata?.language_info?.name ?? "python";
+  const join = (v) => (Array.isArray(v) ? v.join("") : (v ?? ""));
+  const parts = [];
+  for (const cell of nb.cells ?? []) {
+    const src = join(cell.source);
+    if (cell.cell_type === "markdown") {
+      parts.push(`<div class="cell md">${await renderMarkdown(src)}</div>`);
+      continue;
+    }
+    if (cell.cell_type !== "code") continue;
+    const n = cell.execution_count ?? " ";
+    parts.push(`<div class="cell code"><span class="prompt">In [${n}]</span><pre class="hljs"><code>${highlight(src, lang)}</code></pre></div>`);
+    for (const out of cell.outputs ?? []) {
+      const data = out.data ?? {};
+      if (out.output_type === "stream") parts.push(`<pre class="out">${escape(join(out.text))}</pre>`);
+      else if (out.output_type === "error") parts.push(`<pre class="out err">${escape(`${out.ename}: ${out.evalue}`)}</pre>`);
+      else if (data["image/png"]) parts.push(`<img class="out" src="data:image/png;base64,${join(data["image/png"]).trim()}">`);
+      else if (data["image/svg+xml"]) parts.push(`<div class="out">${clean(join(data["image/svg+xml"]))}</div>`);
+      else if (data["text/html"]) parts.push(`<div class="out">${clean(join(data["text/html"]))}</div>`);
+      else if (data["text/plain"]) parts.push(`<pre class="out">${escape(join(data["text/plain"]))}</pre>`);
+    }
+  }
+  return clean(parts.join(""));
+}
+
+// ------------------------------------------------------------ fonts
+
+let fontSeq = 0;
+/** Load a font file under a fresh family name and return that name. */
+export async function loadFont(path) {
+  const family = `coxswain-preview-${++fontSeq}`;
+  const face = new FontFace(family, `url("${convertFileSrc(path)}")`);
+  document.fonts.add(await face.load());
+  return family;
+}

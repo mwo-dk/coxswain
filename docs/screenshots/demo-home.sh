@@ -6,6 +6,7 @@
 #   docs/screenshots/demo-home.sh DIR
 set -euo pipefail
 d="${1:?usage: demo-home.sh DIR}"
+here="$(cd "$(dirname "$0")" && pwd)"
 rm -rf "$d"
 mkdir -p "$d"/{Desktop,Documents,Downloads,Music,Pictures,Videos,projects/rocket/src,projects/website}
 cd "$d"
@@ -15,8 +16,8 @@ g() {
     -c user.email=demo@example.com -c commit.gpgsign=false -c init.defaultBranch=master "$@"
 }
 
-truncate -s 40K Documents/budget.xlsx
 truncate -s 12K Documents/letter.odt
+python3 "$here/demo-docs.py" "$d"
 printf '# Notes\n\n- Book the ferry\n- Renew the domain\n- Try `coxswain` on the laptop\n' > Documents/notes.md
 truncate -s 5M Downloads/setup.iso
 # Real pictures for the thumbnail view and the preview (ImageMagick draws them).
