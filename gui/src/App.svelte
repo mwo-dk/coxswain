@@ -9,6 +9,7 @@
   import Preview from "./Preview.svelte";
   import Splitter from "./Splitter.svelte";
   import Dialogs from "./Dialogs.svelte";
+  import Duplicates from "./Duplicates.svelte";
 
   let dialogs = $state();
   let panes = $state([]);
@@ -371,6 +372,7 @@
       notesFocus++;
     },
     columns: () => columnMenu(),
+    duplicates: () => (ui.modal = { kind: "dupes" }),
     back: () => goBack(),
     forward: () => goForward(),
   };
@@ -515,6 +517,7 @@
 {/if}
 
 <Dialogs bind:this={dialogs} />
+{#if ui.modal?.kind === "dupes"}<Duplicates />{/if}
 
 <style>
   :global(html, body) {

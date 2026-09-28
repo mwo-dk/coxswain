@@ -2,6 +2,7 @@
 
 pub mod archive;
 pub mod config;
+pub mod dupes;
 pub mod fs;
 pub mod git;
 pub mod icons;
