@@ -17,10 +17,11 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use tauri::{Emitter, Manager};
 
+mod convert;
 mod preview;
 
-struct Ctx {
-    cfg: Config,
+pub struct Ctx {
+    pub cfg: Config,
     index: Arc<Service>,
     start: [PathBuf; 2],
     state: Mutex<AppState>,
@@ -734,7 +735,8 @@ fn main() {
             search, resolve_path, copy, rename, delete, mkdir, dir_sizes, rename_plan, rename_apply, open_path, edit_path,
             read_text, run_command, scripts, run_script, check_update, archive_list, extract, properties, set_permissions,
             clip_set, paste, start_drag, watch_dirs, preview::git_diff, preview::sqlite_info, preview::epub_preview,
-            preview::file_facts, preview::cert_info, preview::mail_preview, preview::plist_xml
+            preview::file_facts, preview::cert_info, preview::mail_preview, preview::plist_xml, convert::preview_engines,
+            convert::convert
         ])
         .run(tauri::generate_context!())
         .expect("error while running Bosum");
