@@ -69,8 +69,8 @@
   </div>
 
   <div class="bar">
-    <button class="nav" title={tr("pane.back")} disabled={!t.back.length} onclick={() => goBack(t)}>{"\u{f060}"}</button>
-    <button class="nav" title={tr("pane.forward")} disabled={!t.fwd.length} onclick={() => goForward(t)}>{"\u{f061}"}</button>
+    <button class="nav flip" title={tr("pane.back")} disabled={!t.back.length} onclick={() => goBack(t)}>{"\u{f060}"}</button>
+    <button class="nav flip" title={tr("pane.forward")} disabled={!t.fwd.length} onclick={() => goForward(t)}>{"\u{f061}"}</button>
     <button class="nav" title={tr("pane.up")} disabled={!parent(t.dir)} onclick={() => cd(t, parent(t.dir))}>{"\u{f062}"}</button>
     {#if editing}
       <input
@@ -90,7 +90,7 @@
       <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_noninteractive_element_interactions -->
       <div class="crumbs" role="navigation" onclick={(e) => e.target === e.currentTarget && editPath()} title={tr("pane.path_tip")}>
         {#each crumbs(t.dir, ui.cfg.home) as c, i (c.path)}
-          {#if i > 0}<span class="sep">{"\u{f054}"}</span>{/if}
+          {#if i > 0}<span class="sep flip">{"\u{f054}"}</span>{/if}
           <button class="crumb" onclick={() => cd(t, c.path)}>{c.name}</button>
         {/each}
       </div>
@@ -121,6 +121,10 @@
 </section>
 
 <style>
+  /* Right to left, "back" points right and the path chevrons point left. */
+  :global([dir="rtl"]) .flip {
+    transform: scaleX(-1);
+  }
   .pane {
     display: flex;
     flex-direction: column;
@@ -295,7 +299,7 @@
     color: var(--marked-fg);
   }
   .git-prompt {
-    margin-left: auto;
+    margin-inline-start: auto;
     font-family: var(--icon-font), var(--font);
     color: var(--git-branch-fg);
     overflow: hidden;

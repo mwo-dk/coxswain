@@ -337,7 +337,7 @@
     font-size: 0.9em;
   }
   .opts .primary {
-    margin-left: auto;
+    margin-inline-start: auto;
   }
   p {
     margin: 0;
@@ -375,7 +375,7 @@
     font-size: 0.9em;
   }
   .waste {
-    margin-left: auto;
+    margin-inline-start: auto;
     color: var(--git-modified-fg);
   }
   .copy {

@@ -179,12 +179,12 @@
     background: none;
     border: 0;
     padding: 0;
-    text-align: left;
+    text-align: start;
     cursor: pointer;
   }
   .head .r {
     width: 100%;
-    text-align: right;
+    text-align: end;
   }
   .head button:hover {
     color: var(--panel-fg);
@@ -199,7 +199,7 @@
   }
   .r,
   .size {
-    text-align: right;
+    text-align: end;
   }
   .rows {
     flex: 1;

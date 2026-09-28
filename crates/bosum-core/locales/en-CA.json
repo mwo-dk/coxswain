@@ -13,5 +13,6 @@
   "one": "Moved {n} duplicate to the trash",
   "other": "Moved {n} duplicates to the trash"
  },
+ "err.not_email": "Not an email message",
  "status.trashed": "Moved {what} to the trash"
 }

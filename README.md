@@ -26,6 +26,9 @@ shared Rust core and read the same config file.
   BLAKE3 hashes, cached for next time.
   Mark the extra copies by rule and move them to the trash. See
   [finding duplicates](docs/duplicates.md).
+- **Speaks your language.** 18 languages, from British, Australian, Canadian and New Zealand
+  English to Danish, Finnish, the Baltic languages, Catalan, Basque and Hebrew (right to left).
+  Bosum picks your system's language, or the nearest one it has; Settings changes it.
 - **Configurable.** Key bindings, color schemes, glyphs, user menu and fonts all live in one
   TOML file.
 
@@ -180,6 +183,7 @@ loaded from disk and kept current while Bosum runs.
 | Ctrl+C / Ctrl+X / Ctrl+V | Copy, cut, paste files (shared with other file managers) | Alt+Enter | Properties and permissions |
 | Alt+Left / Alt+Right | Back / forward | Ctrl+E | Extract a zip or tar archive to the other pane |
 | Ctrl+B | Sidebar | Ctrl+D | Find duplicates |
+| Ctrl+, | Settings (language, theme, fonts, ...) | | |
 | Ctrl+L | Type a path | Ctrl+Space | Folder sizes |
 | Ctrl+M | Batch rename with regex, previewed | Alt+T | Color tag |
 | Alt+N | Notes for this folder | Alt+. | Hidden files |
@@ -221,6 +225,60 @@ another application, or in from one; Bosum asks whether to copy or move.
 The sidebar holds places, drives with free space, favorite groups (right-click a group, then
 "Add current folder") and the git repositories you visited recently. Pick a theme from the F9 command list (type "theme").
 
+## Languages
+
+<img src="docs/flags/gb.svg" width="20" alt="British English"> <img src="docs/flags/au.svg" width="20" alt="Australian English">
+<img src="docs/flags/ca.svg" width="20" alt="Canadian English"> <img src="docs/flags/nz.svg" width="20" alt="New Zealand English">
+<img src="docs/flags/dk.svg" width="20" alt="Danish"> <img src="docs/flags/se.svg" width="20" alt="Swedish">
+<img src="docs/flags/fi.svg" width="20" alt="Finnish"> <img src="docs/flags/ee.svg" width="20" alt="Estonian">
+<img src="docs/flags/lv.svg" width="20" alt="Latvian"> <img src="docs/flags/lt.svg" width="20" alt="Lithuanian">
+<img src="docs/flags/de.svg" width="20" alt="German"> <img src="docs/flags/fr.svg" width="20" alt="French">
+<img src="docs/flags/it.svg" width="20" alt="Italian"> <img src="docs/flags/nl.svg" width="20" alt="Dutch">
+<img src="docs/flags/ar.svg" width="20" alt="Argentinian Spanish"> <img src="docs/flags/es-ct.svg" width="20" alt="Catalan">
+<img src="docs/flags/es-pv.svg" width="20" alt="Basque"> <img src="docs/flags/il.svg" width="20" alt="Hebrew">
+
+Both apps speak **English** (British, Australian, Canadian, New Zealand), **Dansk**, **Svenska**,
+**Suomi**, **Eesti**, **Latviešu**, **Lietuvių**, **Deutsch**, **Français**, **Italiano**,
+**Nederlands**, **Español (Argentina)**, **Català**, **Euskara** and **עברית** (Hebrew, laid out
+right to left in the desktop app).
+
+- **Automatic by default.** Bosum uses your system's language, or the nearest one it has:
+  Norwegian gets Danish, any Spanish gets Argentinian Spanish, US English gets Canadian, any other
+  English gets British.
+- **Your choice, remembered.** Pick a language in **Settings** (Ctrl+,), where each is listed by
+  its own name and flag, or set `language = "da"` in the config. It is saved in `config.toml`
+  and used by both apps.
+- **All of it:** menus, the F-key bar, dialogs, previews, the duplicate finder, messages, sizes
+  (`Ko` in French) and numbers (1.234,5 in German).
+
+![Bosum in Danish, previewing a picture](docs/screenshots/gui-lang-da.png)
+*Danish: the F-key bar, sidebar, columns and preview all in Danish.*
+
+![Bosum in Hebrew, laid out right to left, previewing a PDF](docs/screenshots/gui-lang-he.png)
+*Hebrew: the whole window is mirrored; file names, sizes and paths stay left to right.*
+
+**[docs/languages.md](docs/languages.md)** has the full list, how the language is chosen, and
+how to correct or add a translation.
+
+## Settings
+
+**Ctrl+,** (or F9 → *Settings*, or `bosum-gui --settings` from a terminal) opens the desktop
+app's settings:
+
+![The Settings window: languages with their flags, appearance, behaviour and previews](docs/screenshots/gui-settings.png)
+
+| Section | Settings |
+|---|---|
+| Language | Automatic, or any of the 18, each with its flag |
+| Appearance | Theme, Nerd Font glyphs or plain ASCII, text size, fonts |
+| Behaviour | Show hidden files, ask before deleting, check for updates |
+| Previews made by tools | Installed programs or containers, podman or docker, LaTeX image, timeout |
+
+Every change applies at once and is written to `config.toml`, **keeping your comments and
+layout**; a change that would make the file invalid is refused rather than saved. The terminal
+app reads the same file. Everything else (keys, colour themes, the user menu) is set in
+`config.toml` directly; see [Configuration](#configuration).
+
 ## Find file
 
 **Alt+F7** or **Ctrl+F** opens it in both apps. Results update as you type.
@@ -258,6 +316,7 @@ Everything's syntax:
 `bosum --dump-config` prints every option with its default. Set only what you want to change:
 
 ```toml
+language = "auto"           # or "en-GB", "da", "de", "es-AR", "he", ... (docs/languages.md)
 theme = "midnight"          # or "nc", or your own [themes.<name>]
 glyphs = "nerd"             # or "ascii"
 editor = "hx"               # else $VISUAL / $EDITOR

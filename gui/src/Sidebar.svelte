@@ -173,7 +173,7 @@
     background: none;
     border: 0;
     cursor: pointer;
-    text-align: left;
+    text-align: start;
   }
   .head {
     display: flex;

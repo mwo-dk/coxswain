@@ -27,6 +27,8 @@ pub struct Ctx {
     start: [PathBuf; 2],
     /// `--duplicates <folders>`: open the duplicate finder on these folders at start.
     duplicates: Option<Vec<PathBuf>>,
+    /// `--settings`: open the Settings window at start.
+    open_settings: bool,
     state: Mutex<AppState>,
     /// Folders shown in the panes, watched so they reread themselves.
     watched: Mutex<Vec<PathBuf>>,
@@ -76,6 +78,7 @@ struct UiConfig {
     user_menu: Vec<UserCommand>,
     start: [PathBuf; 2],
     duplicates: Option<Vec<PathBuf>>,
+    open_settings: bool,
     /// The language in use (resolved from `language`), its texts, and whether it is written
     /// right to left.
     language: &'static str,
@@ -117,6 +120,7 @@ fn get_config(ctx: tauri::State<Ctx>) -> Res<UiConfig> {
         user_menu: cfg.user_menu.clone(),
         start: ctx.start.clone(),
         duplicates: ctx.duplicates.clone(),
+        open_settings: ctx.open_settings,
         language: bosum_core::i18n::language(),
         strings: bosum_core::i18n::catalogue(bosum_core::i18n::language()),
         rtl: bosum_core::i18n::is_rtl(bosum_core::i18n::language()),
@@ -891,6 +895,11 @@ fn main() {
     let home = std::env::home_dir().unwrap_or_default();
     let cwd = std::env::current_dir().ok().filter(|d| d.parent().is_some()).unwrap_or(home);
     let mut args: Vec<String> = std::env::args().skip(1).collect();
+    // `bosum-gui --settings [folders…]`: start with the Settings window open.
+    let open_settings = args.first().map(String::as_str) == Some("--settings");
+    if open_settings {
+        args.remove(0);
+    }
     // `bosum-gui --duplicates [folders…]`: the folders (default: the current one) are scanned for
     // duplicates at start instead of being opened in the panes.
     let duplicates = (args.first().map(String::as_str) == Some("--duplicates")).then(|| {
@@ -902,6 +911,7 @@ fn main() {
         index: Service::start(&cfg.search),
         start: [dir(0), dir(1)],
         duplicates,
+        open_settings,
         state: Mutex::new(AppState::load()),
         cfg: std::sync::RwLock::new(cfg),
         watched: Mutex::default(),

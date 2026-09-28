@@ -479,7 +479,7 @@
     width: 100%;
     padding: 6px 10px;
     border-radius: 7px;
-    text-align: left;
+    text-align: start;
     white-space: nowrap;
   }
   .list button.cursor {
@@ -493,7 +493,7 @@
     font-family: var(--mono-font);
     font-size: 0.8em;
     padding: 1px 6px;
-    margin-left: 4px;
+    margin-inline-start: 4px;
     border-radius: 4px;
     border: 1px solid var(--border-fg);
     color: var(--hidden-fg);

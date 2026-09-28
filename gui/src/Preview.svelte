@@ -499,7 +499,7 @@
 
     <section class="notes">
       <label for="notes">{"\u{f249}"} {notesDir === pane.dir ? t("preview.notes_here") : t("preview.notes_for", { name: e.name })}</label>
-      <textarea id="notes" bind:this={noteArea} bind:value={note} onblur={saveNote} placeholder={t("preview.notes_placeholder")}></textarea>
+      <textarea id="notes" dir="auto" bind:this={noteArea} bind:value={note} onblur={saveNote} placeholder={t("preview.notes_placeholder")}></textarea>
     </section>
   {/if}
 </aside>
@@ -690,7 +690,7 @@
     max-width: 22em;
     overflow: hidden;
     text-overflow: ellipsis;
-    text-align: left;
+    text-align: start;
   }
   .sheet th {
     background: var(--dialog-input-bg);
@@ -705,9 +705,9 @@
     cursor: pointer;
   }
   .tree .kids {
-    padding-left: 1.2em;
-    border-left: 1px solid color-mix(in srgb, var(--border-fg) 60%, transparent);
-    margin-left: 0.3em;
+    padding-inline-start: 1.2em;
+    border-inline-start: 1px solid color-mix(in srgb, var(--border-fg) 60%, transparent);
+    margin-inline-start: 0.3em;
   }
   .tree .k {
     color: var(--directory-fg);
@@ -767,7 +767,7 @@
     color: var(--hidden-fg);
   }
   .num {
-    text-align: right !important;
+    text-align: end !important;
   }
   .book {
     margin: 0 0 8px;

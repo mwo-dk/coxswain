@@ -74,9 +74,12 @@ export function crumbs(p, home) {
   return out;
 }
 
+// Left-to-right isolate: keeps "338 B" and dates in order inside right-to-left (Hebrew) text.
+const ltr = (s) => `\u2066${s}\u2069`;
+
 /** Exact bytes below 10 KB, then one decimal. */
 export function size(n) {
-  const fmt = (v, digits, u) => `${num(v, { minimumFractionDigits: digits, maximumFractionDigits: digits, useGrouping: false })} ${t(`unit.${u}`)}`;
+  const fmt = (v, digits, u) => ltr(`${num(v, { minimumFractionDigits: digits, maximumFractionDigits: digits, useGrouping: false })} ${t(`unit.${u}`)}`);
   if (n < 10_240) return fmt(n, 0, "B");
   let v = n;
   for (const u of ["KB", "MB", "GB", "TB", "PB"]) {
@@ -90,7 +93,7 @@ export function date(secs) {
   if (!secs) return "";
   const d = new Date(secs * 1000);
   const p = (n) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+  return ltr(`${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`);
 }
 
 const H = 3600;

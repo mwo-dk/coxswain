@@ -496,8 +496,8 @@
     </div>
 
     <label class="cmdline">
-      <span class="prompt">{ui.quick !== null ? t("quick_search", { query: ui.quick }) : `${tab().dir} ❯`}</span>
-      <input class="cmd" bind:this={cmdInput} bind:value={ui.cmd} spellcheck="false" autocomplete="off" placeholder={t("app.cmd_placeholder")} aria-label={t("app.cmd_line")} />
+      <span class="prompt">{#if ui.quick !== null}{t("quick_search", { query: ui.quick })}{:else}<bdi dir="ltr">{tab().dir}</bdi> ❯{/if}</span>
+      <input class="cmd" dir="auto" bind:this={cmdInput} bind:value={ui.cmd} spellcheck="false" autocomplete="off" placeholder={t("app.cmd_placeholder")} aria-label={t("app.cmd_line")} />
       {#if ui.status}<span class="status">{ui.status}</span>{/if}
       {#if update}
         <!-- With a package manager, the command upgrades; the page still has the release notes. -->
