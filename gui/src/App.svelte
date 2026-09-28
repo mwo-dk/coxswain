@@ -2,7 +2,7 @@
   import { getCurrentWindow } from "@tauri-apps/api/window";
   import { getCurrentWebview } from "@tauri-apps/api/webview";
   import { listen } from "@tauri-apps/api/event";
-  import { ui, init, tab, pane, otherTab, item, load, cd, newTab, goBack, goForward, openItem, toggleMark, targets, reloadAll, snapshot, setTheme, nextView } from "./app.svelte.js";
+  import { ui, init, tab, pane, otherTab, item, load, cd, newTab, goBack, goForward, openItem, toggleMark, targets, reloadAll, snapshot, setTheme, nextView, measureFolders, columnMenu } from "./app.svelte.js";
   import { invoke, keyString, basename, parent, glob, quote, isArchive } from "./lib.js";
   import Sidebar from "./Sidebar.svelte";
   import Pane from "./Pane.svelte";
@@ -351,8 +351,7 @@
       const dirs = t.marked.size ? targets(t) : t.items.filter((e) => e.is_dir && e.name !== "..").map((e) => e.path);
       if (!dirs.length) return;
       ui.status = `Measuring ${dirs.length} folder${dirs.length > 1 ? "s" : ""}…`;
-      const sizes = await invoke("dir_sizes", { paths: dirs });
-      for (const [p, [bytes]] of Object.entries(sizes)) t.sizes[p] = bytes;
+      await measureFolders(t, dirs);
       ui.status = "";
     },
     batch_rename: () => {
@@ -371,6 +370,7 @@
       ui.showPreview = true;
       notesFocus++;
     },
+    columns: () => columnMenu(),
     back: () => goBack(),
     forward: () => goForward(),
   };

@@ -1,10 +1,34 @@
 <script>
-  import { ui, load, openItem, toggleMark, dragOut } from "./app.svelte.js";
+  import { ui, load, openItem, toggleMark, dragOut, columnMenu } from "./app.svelte.js";
   import { size, date, age, ageColor, TAG_COLORS } from "./lib.js";
 
   /** @type {{ t: any, active: boolean, onfocus: Function }} */
   let { t, active, onfocus } = $props();
   let list = $state();
+  let root = $state();
+  let width = $state(1000);
+
+  $effect(() => {
+    if (!root) return;
+    const ro = new ResizeObserver(() => (width = root.clientWidth));
+    ro.observe(root);
+    return () => ro.disconnect();
+  });
+
+  // Chosen columns, minus the ones a narrow pane has no room for. Modified shrinks to its age
+  // chip before anything else goes.
+  const COLS = [
+    // rem, not em: the header's smaller font must not make its columns narrower than the rows'.
+    { id: "type", w: "6rem", min: 620 },
+    { id: "size", w: "6.5rem", min: 340 },
+    { id: "files", w: "5rem", min: 620 },
+    { id: "modified", w: "12rem", narrow: "3.2rem" },
+    { id: "created", w: "6.5rem", min: 620 },
+  ];
+  const shown = $derived(new Set(COLS.filter((c) => ui.columns[c.id] && width >= (c.min ?? 0)).map((c) => c.id)));
+  const template = $derived(
+    ["minmax(0, 1fr)", ...COLS.filter((c) => shown.has(c.id)).map((c) => (c.narrow && width < 620 ? c.narrow : c.w))].join(" "),
+  );
 
   $effect(() => {
     list?.children[t.cursor]?.scrollIntoView({ block: "nearest" });
@@ -42,12 +66,23 @@
   }
 </script>
 
-<div class="details">
-  <div class="cols head">
+<div class="details" bind:this={root} style:--cols={template} class:narrow={width < 620}>
+  <div
+    class="cols head"
+    role="row"
+    tabindex="-1"
+    title="Right-click for columns and folder sizes"
+    oncontextmenu={(ev) => {
+      ev.preventDefault();
+      columnMenu();
+    }}
+  >
     <button onclick={() => sortBy("name")}>Name <i>{arrow("name")}</i></button>
-    <button onclick={() => sortBy("ext")}>Type <i>{arrow("ext")}</i></button>
-    <button class="r" onclick={() => sortBy("size")}>Size <i>{arrow("size")}</i></button>
-    <button onclick={() => sortBy("time")}>Modified <i>{arrow("time")}</i></button>
+    {#if shown.has("type")}<button onclick={() => sortBy("ext")}>Type <i>{arrow("ext")}</i></button>{/if}
+    {#if shown.has("size")}<button class="r" onclick={() => sortBy("size")}>Size <i>{arrow("size")}</i></button>{/if}
+    {#if shown.has("files")}<span class="r" title="Files inside a folder, all levels">Files</span>{/if}
+    {#if shown.has("modified")}<button onclick={() => sortBy("time")}>Modified <i>{arrow("time")}</i></button>{/if}
+    {#if shown.has("created")}<span>Created</span>{/if}
   </div>
   <div class="rows" bind:this={list} role="listbox" tabindex="-1" aria-label={t.dir}>
     {#each t.items as e, i (e.path)}
@@ -84,15 +119,21 @@
           {#if e.tag}<span class="tag" style:background={TAG_COLORS[e.tag]} title={e.tag}></span>{/if}
           {#if st}<span class="git git-{st.kind}" title="{st.kind}{st.staged ? ' (staged)' : ''}">{gitGlyph(st.kind)}</span>{/if}
         </span>
-        <span class="ext">{e.is_dir ? (e.name === ".." ? "" : "Folder") : ext(e)}</span>
-        <span class="size">
-          {#if e.is_dir}{t.sizes[e.path] !== undefined ? size(t.sizes[e.path]) : ""}{:else}{size(e.size)}{/if}
-        </span>
-        <span class="time">
-          {#if e.name !== ".."}
-            <span class="age" style:background={ageColor(e.modified)} title={date(e.modified)}>{age(e.modified)}</span><span class="d">{date(e.modified)}</span>
-          {/if}
-        </span>
+        {#if shown.has("type")}<span class="ext">{e.is_dir ? (e.name === ".." ? "" : "Folder") : ext(e)}</span>{/if}
+        {#if shown.has("size")}
+          <span class="size">
+            {#if e.is_dir}{t.sizes[e.path] !== undefined ? size(t.sizes[e.path]) : ""}{:else}{size(e.size)}{/if}
+          </span>
+        {/if}
+        {#if shown.has("files")}<span class="size">{e.is_dir && t.counts[e.path] !== undefined ? t.counts[e.path].toLocaleString() : ""}</span>{/if}
+        {#if shown.has("modified")}
+          <span class="time">
+            {#if e.name !== ".."}
+              <span class="age" style:background={ageColor(e.modified)} title={date(e.modified)}>{age(e.modified)}</span><span class="d">{date(e.modified)}</span>
+            {/if}
+          </span>
+        {/if}
+        {#if shown.has("created")}<span class="time">{e.created ? date(e.created).slice(0, 10) : ""}</span>{/if}
       </div>
     {/each}
   </div>
@@ -108,7 +149,7 @@
   }
   .cols {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 6em 6.5em 11.5em;
+    grid-template-columns: var(--cols);
     align-items: center;
     height: var(--row);
     white-space: nowrap;
@@ -123,6 +164,7 @@
     color: var(--header-fg);
     font-size: 0.85em;
     border-bottom: 1px solid var(--border-fg);
+    outline: none;
   }
   .head button {
     font: inherit;
@@ -133,6 +175,10 @@
     text-align: left;
     cursor: pointer;
   }
+  .head .r {
+    width: 100%;
+    text-align: right;
+  }
   .head button:hover {
     color: var(--panel-fg);
   }
@@ -140,25 +186,9 @@
     font-style: normal;
     font-family: var(--icon-font);
   }
-  /* Narrow panes drop Type, then the date (the age chip stays), then Size. */
-  @container (max-width: 620px) {
-    .cols {
-      grid-template-columns: minmax(0, 1fr) 6.5em 3.2em;
-    }
-    .cols > :nth-child(2) {
-      display: none;
-    }
-    .d {
-      display: none;
-    }
-  }
-  @container (max-width: 340px) {
-    .cols {
-      grid-template-columns: minmax(0, 1fr) 3.2em;
-    }
-    .cols > :nth-child(3) {
-      display: none;
-    }
+  /* A narrow pane keeps the age chip and drops the date. */
+  .narrow .d {
+    display: none;
   }
   .r,
   .size {
