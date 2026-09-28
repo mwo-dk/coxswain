@@ -17,6 +17,8 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use tauri::{Emitter, Manager};
 
+mod preview;
+
 struct Ctx {
     cfg: Config,
     index: Arc<Service>,
@@ -731,7 +733,8 @@ fn main() {
             get_config, list_dir, git_status, places, disks, get_state, save_session, save_favorites, set_tags, set_note, get_note,
             search, resolve_path, copy, rename, delete, mkdir, dir_sizes, rename_plan, rename_apply, open_path, edit_path,
             read_text, run_command, scripts, run_script, check_update, archive_list, extract, properties, set_permissions,
-            clip_set, paste, start_drag, watch_dirs
+            clip_set, paste, start_drag, watch_dirs, preview::git_diff, preview::sqlite_info, preview::epub_preview,
+            preview::file_facts, preview::cert_info, preview::mail_preview, preview::plist_xml
         ])
         .run(tauri::generate_context!())
         .expect("error while running Bosum");
