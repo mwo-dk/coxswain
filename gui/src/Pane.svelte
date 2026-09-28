@@ -2,6 +2,7 @@
   import { tick } from "svelte";
   import { ui, newTab, load, cd, goBack, goForward, focusPane, nextView } from "./app.svelte.js";
   import { invoke, basename, parent, crumbs, size } from "./lib.js";
+  import { t as tr, tn } from "./i18n.svelte.js"; // `t` is the tab here
   import DetailsView from "./DetailsView.svelte";
   import ColumnsView from "./ColumnsView.svelte";
   import GridView from "./GridView.svelte";
@@ -50,7 +51,7 @@
   class:active
   class:drag-over={ui.dropPane === index}
   data-pane={index}
-  aria-label="Pane {index + 1}"
+  aria-label={tr("pane.label", { n: index + 1 })}
   onpointerdown={() => focusPane(index)}
 >
   <div class="tabs" role="tablist">
@@ -60,17 +61,17 @@
         <span class="ticon">{tb.git ? "\u{e702}" : "\u{f07b}"}</span>
         <span class="tname">{basename(tb.dir) || tb.dir}</span>
         {#if p.tabs.length > 1}
-          <button class="x" title="Close tab (Ctrl+W)" onclick={(e) => { e.stopPropagation(); closeTab(i); }}>×</button>
+          <button class="x" title={tr("pane.close_tab")} onclick={(e) => { e.stopPropagation(); closeTab(i); }}>×</button>
         {/if}
       </div>
     {/each}
-    <button class="newtab" title="New tab (Ctrl+T)" onclick={addTab}>+</button>
+    <button class="newtab" title={tr("pane.new_tab")} onclick={addTab}>+</button>
   </div>
 
   <div class="bar">
-    <button class="nav" title="Back (Alt+Left)" disabled={!t.back.length} onclick={() => goBack(t)}>{"\u{f060}"}</button>
-    <button class="nav" title="Forward (Alt+Right)" disabled={!t.fwd.length} onclick={() => goForward(t)}>{"\u{f061}"}</button>
-    <button class="nav" title="Up (Backspace)" disabled={!parent(t.dir)} onclick={() => cd(t, parent(t.dir))}>{"\u{f062}"}</button>
+    <button class="nav" title={tr("pane.back")} disabled={!t.back.length} onclick={() => goBack(t)}>{"\u{f060}"}</button>
+    <button class="nav" title={tr("pane.forward")} disabled={!t.fwd.length} onclick={() => goForward(t)}>{"\u{f061}"}</button>
+    <button class="nav" title={tr("pane.up")} disabled={!parent(t.dir)} onclick={() => cd(t, parent(t.dir))}>{"\u{f062}"}</button>
     {#if editing}
       <input
         class="path-edit"
@@ -87,17 +88,17 @@
     {:else}
       <!-- Ctrl+L is the keyboard way in; a click on empty space is a shortcut. -->
       <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_noninteractive_element_interactions -->
-      <div class="crumbs" role="navigation" onclick={(e) => e.target === e.currentTarget && editPath()} title="Click empty space or press Ctrl+L to type a path">
+      <div class="crumbs" role="navigation" onclick={(e) => e.target === e.currentTarget && editPath()} title={tr("pane.path_tip")}>
         {#each crumbs(t.dir, ui.cfg.home) as c, i (c.path)}
           {#if i > 0}<span class="sep">{"\u{f054}"}</span>{/if}
           <button class="crumb" onclick={() => cd(t, c.path)}>{c.name}</button>
         {/each}
       </div>
     {/if}
-    <button class="nav" title={ui.dual ? "One pane (Ctrl+O)" : "Two panes (Ctrl+O)"} onclick={() => (ui.dual = !ui.dual)}>
+    <button class="nav" title={ui.dual ? tr("pane.one_pane") : tr("pane.two_panes")} onclick={() => (ui.dual = !ui.dual)}>
       {ui.dual ? "\u{f2d0}" : "\u{eb56}"}
     </button>
-    <button class="nav" title="Details / columns / thumbnails (Alt+V)" onclick={() => (t.view = nextView(t.view))}>
+    <button class="nav" title={tr("pane.view")} onclick={() => (t.view = nextView(t.view))}>
       {({ details: "\u{f03a}", columns: "\u{f0db}", grid: "\u{f00a}" })[t.view]}
     </button>
   </div>
@@ -113,8 +114,8 @@
   {/if}
 
   <footer class="foot">
-    <span>{count} items{#if t.marked.size}&nbsp;· <b>{t.marked.size} selected</b> ({size(selBytes)}){/if}</span>
-    {#if t.hasNotes}<span class="note" title="This folder has notes (Alt+N)">{"\u{f249}"}</span>{/if}
+    <span>{tn("items", count)}{#if t.marked.size}&nbsp;· <b>{tn("pane.selected", t.marked.size, { size: size(selBytes) })}</b>{/if}</span>
+    {#if t.hasNotes}<span class="note" title={tr("pane.has_notes")}>{"\u{f249}"}</span>{/if}
     <span class="git-prompt" title={t.git?.root ?? ""}>{t.git?.prompt ?? ""}</span>
   </footer>
 </section>

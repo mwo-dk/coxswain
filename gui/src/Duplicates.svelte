@@ -3,6 +3,7 @@
   // scan, review the groups, mark the copies to remove, move them to the trash.
   import { ui, tab, otherTab, cd } from "./app.svelte.js";
   import { invoke, convertFileSrc, size, date, basename, parent, previewKind } from "./lib.js";
+  import { t, tn, num } from "./i18n.svelte.js";
 
   const d = ui.modal;
 
@@ -17,13 +18,14 @@
   d.folders ??= true;
   let extra = $state("");
 
-  const SIZES = [
-    [1, "any size"],
-    [1024, "1 KB"],
-    [100 * 1024, "100 KB"],
-    [1024 * 1024, "1 MB"],
-    [10 * 1024 * 1024, "10 MB"],
-  ];
+  // Sizes stay as literals: size() would show 1024 B, and units are not translated elsewhere either.
+  const SIZES = $derived([
+    [1, t("dupes.any_size")],
+    [1024, `${num(1)} ${t("unit.KB")}`],
+    [100 * 1024, `${num(100)} ${t("unit.KB")}`],
+    [1024 * 1024, `${num(1)} ${t("unit.MB")}`],
+    [10 * 1024 * 1024, `${num(10)} ${t("unit.MB")}`],
+  ]);
 
   async function addRoot() {
     const p = await invoke("resolve_path", { base: tab().dir, input: extra });
@@ -33,7 +35,7 @@
 
   // ------------------------------------------------------------ scanning
 
-  const PHASES = ["Looking at files", "Comparing the first 16 KB", "Comparing whole files", "Done"];
+  const PHASES = ["dupes.phase.listing", "dupes.phase.head", "dupes.phase.whole", "dupes.phase.done"];
 
   async function scan() {
     const roots = Object.keys(d.roots).filter((p) => d.roots[p]);
@@ -74,7 +76,7 @@
   /** Mark or unmark one copy; the last unmarked copy of a group cannot be marked. */
   function toggle(g, path) {
     if (!d.marked[path] && g.items.filter((it) => !d.marked[it.path]).length <= 1) {
-      d.error = "Every group keeps at least one copy.";
+      d.error = t("dupes.keep_one");
       return;
     }
     d.error = "";
@@ -100,9 +102,9 @@
     const paths = marked;
     ui.modal = {
       kind: "confirm",
-      title: "Move duplicates to the trash",
-      text: `Move ${paths.length} ${paths.length === 1 ? "copy" : "copies"} (${size(freed)}) to the trash? At least one copy of each stays.`,
-      ok: "Move to trash",
+      title: t("dupes.confirm_title"),
+      text: tn("dupes.confirm_text", paths.length, { size: size(freed) }),
+      ok: t("dupes.confirm_ok"),
       run: async () => {
         try {
           await invoke("delete", { paths, forever: false });
@@ -110,7 +112,7 @@
           d.report.folders = d.report.folders.map((g) => ({ ...g, paths: g.paths.filter((p) => !gone.has(p)) })).filter((g) => g.paths.length > 1);
           d.report.groups = d.report.groups.map((g) => ({ ...g, files: g.files.filter((f) => !gone.has(f.path)) })).filter((g) => g.files.length > 1);
           d.marked = {};
-          ui.status = `Moved ${paths.length} duplicate${paths.length === 1 ? "" : "s"} to the trash`;
+          ui.status = tn("dupes.trashed", paths.length);
         } catch (e) {
           d.error = String(e);
         }
@@ -121,10 +123,10 @@
 
   function show(path) {
     ui.modal = null;
-    const t = tab();
-    cd(t, parent(path)).then(() => {
-      const i = t.items.findIndex((e) => e.path === path);
-      if (i >= 0) t.cursor = i;
+    const tb = tab();
+    cd(tb, parent(path)).then(() => {
+      const i = tb.items.findIndex((e) => e.path === path);
+      if (i >= 0) tb.cursor = i;
     });
   }
 
@@ -135,33 +137,33 @@
   const isImage = (p) => previewKind({ name: basename(p) }) === "image";
 </script>
 
-<div class="dupes" role="dialog" aria-modal="true" aria-label="Duplicates">
+<div class="dupes" role="dialog" aria-modal="true" aria-label={t("dupes.title")}>
   <header>
-    <h2>{"\u{f0c5}"} Duplicates</h2>
-    <button class="x" title="Close (Esc)" onclick={close}>×</button>
+    <h2>{"\u{f0c5}"} {t("dupes.title")}</h2>
+    <button class="x" title={t("dupes.close")} onclick={close}>×</button>
   </header>
 
   <section class="setup">
     <div class="roots">
-      <span class="label">Look in</span>
+      <span class="label">{t("dupes.look_in")}</span>
       {#each Object.keys(d.roots) as p (p)}
         <label class="chip" class:on={d.roots[p]} title={p}>
           <input type="checkbox" bind:checked={d.roots[p]} disabled={d.scanning} />
           {p === home ? "~" : p.startsWith(home + "/") ? "~/" + p.slice(home.length + 1) : p}
         </label>
       {/each}
-      <input class="add" bind:value={extra} placeholder="Add a folder…" spellcheck="false" onkeydown={(e) => e.key === "Enter" && (e.stopPropagation(), addRoot())} />
+      <input class="add" bind:value={extra} placeholder={t("dupes.add_folder")} spellcheck="false" onkeydown={(e) => e.key === "Enter" && (e.stopPropagation(), addRoot())} />
     </div>
     <div class="opts">
-      <label>Ignore files under
+      <label>{t("dupes.min_size")}
         <select bind:value={d.minSize} disabled={d.scanning}>{#each SIZES as [v, l] (v)}<option value={v}>{l}</option>{/each}</select>
       </label>
-      <label><input type="checkbox" bind:checked={d.hidden} disabled={d.scanning} /> Include hidden files</label>
-      <label><input type="checkbox" bind:checked={d.folders} disabled={d.scanning} /> Find duplicate folders</label>
+      <label><input type="checkbox" bind:checked={d.hidden} disabled={d.scanning} /> {t("dupes.hidden")}</label>
+      <label><input type="checkbox" bind:checked={d.folders} disabled={d.scanning} /> {t("dupes.folders")}</label>
       {#if d.scanning}
-        <button class="primary" onclick={() => invoke("dupes_cancel")}>Cancel</button>
+        <button class="primary" onclick={() => invoke("dupes_cancel")}>{t("common.cancel")}</button>
       {:else}
-        <button class="primary" disabled={!Object.values(d.roots).some(Boolean)} onclick={scan}>{d.report ? "Scan again" : "Scan"}</button>
+        <button class="primary" disabled={!Object.values(d.roots).some(Boolean)} onclick={scan}>{d.report ? t("dupes.scan_again") : t("dupes.scan")}</button>
       {/if}
     </div>
   </section>
@@ -169,25 +171,24 @@
   {#if d.scanning}
     {@const p = d.progress}
     <section class="progress">
-      <p>{PHASES[p?.phase ?? 0]}{p?.phase ? ` · ${p.done.toLocaleString()} of ${p.total.toLocaleString()}` : ""} · {(p?.files ?? 0).toLocaleString()} files found · {size(p?.bytes ?? 0)} read</p>
+      <p>{tn(p?.phase ? "dupes.progress_counted" : "dupes.progress", p?.files ?? 0, { phase: t(PHASES[p?.phase ?? 0]), done: num(p?.done ?? 0), total: num(p?.total ?? 0), size: size(p?.bytes ?? 0) })}</p>
       <div class="bar"><div style:width="{p?.phase && p.total ? (100 * p.done) / p.total : 0}%"></div></div>
     </section>
   {:else if d.report}
     <section class="summary">
       <p>
-        <b>{groups.length.toLocaleString()} groups</b> of duplicates · <b>{size(d.report.wasted)}</b> could be freed ·
-        {d.report.scanned_files.toLocaleString()} files ({size(d.report.scanned_bytes)}) scanned in {d.seconds?.toFixed(1)} s, {size(d.report.hashed_bytes)} read
+        <b>{tn("dupes.groups", groups.length)}</b> · <b>{t("dupes.freeable", { size: size(d.report.wasted) })}</b> ·
+        {tn("dupes.scanned", d.report.scanned_files, { size: size(d.report.scanned_bytes), s: num(d.seconds ?? 0, { minimumFractionDigits: 1, maximumFractionDigits: 1 }), read: size(d.report.hashed_bytes) })}
       </p>
       <div class="rules">
-        <span class="label">Mark all but</span>
-        <button onclick={() => rule(newest)}>the newest</button>
-        <button onclick={() => rule(oldest)}>the oldest</button>
-        <button disabled={!keepUnder} onclick={() => rule(under)}>the one under</button>
-        <select bind:value={keepUnder}>
-          <option value="">choose a folder…</option>
+        <button onclick={() => rule(newest)}>{t("dupes.keep_newest")}</button>
+        <button onclick={() => rule(oldest)}>{t("dupes.keep_oldest")}</button>
+        <button disabled={!keepUnder} onclick={() => rule(under)}>{t("dupes.keep_under")}</button>
+        <select bind:value={keepUnder} aria-label={t("dupes.keep_under")}>
+          <option value="">{t("dupes.choose_folder")}</option>
           {#each Object.keys(d.roots).filter((p) => d.roots[p]) as p (p)}<option value={p}>{p}</option>{/each}
         </select>
-        <button onclick={() => (d.marked = {})}>Clear marks</button>
+        <button onclick={() => (d.marked = {})}>{t("dupes.clear_marks")}</button>
       </div>
     </section>
     <ul class="groups">
@@ -195,31 +196,31 @@
         <li class="group">
           <div class="ghead">
             <span class="glyph">{g.folder ? "\u{f07b}" : "\u{f0c5}"}</span>
-            <b>{g.folder ? `${g.items.length} identical folders` : `${g.items.length} copies`}</b>
-            <span>{size(g.size)} each{g.folder ? `, ${g.files} files` : ""}</span>
-            <span class="waste">{size(g.wasted)} extra</span>
+            <b>{g.folder ? tn("dupes.identical_folders", g.items.length) : tn("dupes.copies", g.items.length)}</b>
+            <span>{g.folder ? tn("dupes.each_files", g.files, { size: size(g.size) }) : t("dupes.each", { size: size(g.size) })}</span>
+            <span class="waste">{t("dupes.extra", { size: size(g.wasted) })}</span>
           </div>
           {#each g.items as it (it.path)}
             <div class="copy" class:marked={d.marked[it.path]}>
-              <input type="checkbox" checked={!!d.marked[it.path]} onchange={() => toggle(g, it.path)} title="Mark to move to the trash" />
+              <input type="checkbox" checked={!!d.marked[it.path]} onchange={() => toggle(g, it.path)} title={t("dupes.mark_tip")} />
               {#if !g.folder && isImage(it.path)}<img src={convertFileSrc(it.path)} alt="" loading="lazy" />{:else}<span class="glyph">{g.folder ? "\u{f07b}" : "\u{f15b}"}</span>{/if}
               <span class="path" title={it.path}><bdi><span class="dir">{parent(it.path)}/</span>{basename(it.path)}</bdi></span>
               {#if it.modified}<span class="when">{date(it.modified)}</span>{/if}
-              <button class="show" title="Show in the pane" onclick={() => show(it.path)}>Show</button>
+              <button class="show" title={t("dupes.show_tip")} onclick={() => show(it.path)}>{t("common.show")}</button>
             </div>
           {/each}
         </li>
       {:else}
-        <li class="none">No duplicates found.</li>
+        <li class="none">{t("dupes.none")}</li>
       {/each}
-      {#if groups.length > 500}<li class="none">Showing the 500 groups that waste the most space.</li>{/if}
+      {#if groups.length > 500}<li class="none">{t("dupes.top_500")}</li>{/if}
     </ul>
   {/if}
 
   <footer>
     {#if d.error}<span class="err">{d.error}</span>{/if}
-    <span class="grow">{marked.length ? `${marked.length} marked · ${size(freed)} to free` : ""}</span>
-    <button class="primary danger" disabled={!marked.length} onclick={trash}>Move marked to trash</button>
+    <span class="grow">{marked.length ? tn("dupes.marked", marked.length, { size: size(freed) }) : ""}</span>
+    <button class="primary danger" disabled={!marked.length} onclick={trash}>{t("dupes.trash_marked")}</button>
   </footer>
 </div>
 

@@ -194,12 +194,12 @@ const SETTING_PATHS: &[(&str, &[&str])] = &[
 fn apply_settings(text: &str, changes: &serde_json::Map<String, serde_json::Value>) -> Res<String> {
     let mut doc: toml_edit::DocumentMut = text.parse().map_err(|e| format!("config: {e}"))?;
     for (name, v) in changes {
-        let keys = SETTING_PATHS.iter().find(|(n, _)| n == name).map(|(_, k)| *k).ok_or(format!("unknown setting {name}"))?;
+        let keys = SETTING_PATHS.iter().find(|(n, _)| n == name).map(|(_, k)| *k).ok_or_else(|| bosum_core::t!("err.unknown_setting", "name" => name))?;
         let value: toml_edit::Value = match v {
             serde_json::Value::Bool(b) => (*b).into(),
-            serde_json::Value::Number(n) => n.as_i64().ok_or("not a whole number")?.into(),
+            serde_json::Value::Number(n) => n.as_i64().ok_or_else(|| bosum_core::t!("err.not_whole_number"))?.into(),
             serde_json::Value::String(s) => s.as_str().into(),
-            _ => return Err(format!("{name}: unsupported value")),
+            _ => return Err(bosum_core::t!("err.unsupported_value", "name" => name)),
         };
         let (last, parents) = keys.split_last().unwrap();
         let mut table = doc.as_table_mut();
@@ -209,7 +209,7 @@ fn apply_settings(text: &str, changes: &serde_json::Map<String, serde_json::Valu
                 t.set_implicit(true);
                 toml_edit::Item::Table(t)
             });
-            table = item.as_table_mut().ok_or(format!("{k} in the config is not a table"))?;
+            table = item.as_table_mut().ok_or_else(|| bosum_core::t!("err.not_a_table", "key" => k))?;
         }
         // Update in place where the key exists, so its comments stay.
         match table.get_mut(last).and_then(|i| i.as_value_mut()) {
@@ -230,7 +230,7 @@ fn apply_settings(text: &str, changes: &serde_json::Map<String, serde_json::Valu
 /// the new config at once. Returns the new UI config (texts in the new language and so on).
 #[tauri::command]
 fn save_settings(changes: serde_json::Map<String, serde_json::Value>, ctx: tauri::State<Ctx>) -> Res<UiConfig> {
-    let path = Config::path().ok_or("no config folder")?;
+    let path = Config::path().ok_or_else(|| bosum_core::t!("err.no_config_folder"))?;
     let text = std::fs::read_to_string(&path).unwrap_or_default();
     let new_text = apply_settings(&text, &changes)?;
     // Only write what parses: a broken config must never replace a working one.
@@ -306,15 +306,15 @@ struct Place {
 
 #[tauri::command]
 fn places() -> Vec<Place> {
-    let p = |name: &str, dir: Option<PathBuf>, icon: &'static str| dir.filter(|d| d.is_dir()).map(|path| Place { name: name.into(), path, icon });
+    let p = |name: &str, dir: Option<PathBuf>, icon: &'static str| dir.filter(|d| d.is_dir()).map(|path| Place { name: bosum_core::t!(name), path, icon });
     [
-        p("Home", dirs::home_dir(), "\u{f015}"),
-        p("Desktop", dirs::desktop_dir(), "\u{f108}"),
-        p("Documents", dirs::document_dir(), "\u{f0219}"),
-        p("Downloads", dirs::download_dir(), "\u{f019}"),
-        p("Pictures", dirs::picture_dir(), "\u{f03e}"),
-        p("Music", dirs::audio_dir(), "\u{f001}"),
-        p("Videos", dirs::video_dir(), "\u{f03d}"),
+        p("place.home", dirs::home_dir(), "\u{f015}"),
+        p("place.desktop", dirs::desktop_dir(), "\u{f108}"),
+        p("place.documents", dirs::document_dir(), "\u{f0219}"),
+        p("place.downloads", dirs::download_dir(), "\u{f019}"),
+        p("place.pictures", dirs::picture_dir(), "\u{f03e}"),
+        p("place.music", dirs::audio_dir(), "\u{f001}"),
+        p("place.videos", dirs::video_dir(), "\u{f03d}"),
     ]
     .into_iter()
     .flatten()
@@ -351,7 +351,7 @@ async fn disks() -> Vec<Disk> {
         if skip || out.iter().any(|o| o.device == name) {
             continue;
         }
-        let label = if mount.parent().is_none() { "System".into() } else { mount.file_name().map_or(name.clone(), |n| n.to_string_lossy().into_owned()) };
+        let label = if mount.parent().is_none() { bosum_core::t!("place.system") } else { mount.file_name().map_or(name.clone(), |n| n.to_string_lossy().into_owned()) };
         out.push(Disk { label, device: name, mount, total: d.total_space(), free: d.available_space(), removable: d.is_removable() });
     }
     out
@@ -551,6 +551,7 @@ async fn extract(paths: Vec<PathBuf>, base: PathBuf, dest: String) -> Res<()> {
 #[derive(Serialize)]
 struct Props {
     path: PathBuf,
+    /// "file", "folder" or "symlink"; the UI shows it in its language.
     kind: &'static str,
     link_target: Option<PathBuf>,
     size: u64,
@@ -582,7 +583,7 @@ async fn properties(path: PathBuf) -> Res<Props> {
     #[cfg(not(unix))]
     let (mode, uid, gid) = (None, None, None);
     Ok(Props {
-        kind: if lmeta.is_symlink() { "Symbolic link" } else if meta.is_dir() { "Folder" } else { "File" },
+        kind: if lmeta.is_symlink() { "symlink" } else if meta.is_dir() { "folder" } else { "file" },
         link_target: std::fs::read_link(&path).ok(),
         size,
         files,
@@ -673,7 +674,7 @@ async fn paste(dir: PathBuf, ctx: tauri::State<'_, Ctx>) -> Res<(usize, bool)> {
     let cut = clip.1 && (os.is_empty() || os == clip.0);
     let paths = if os.is_empty() { clip.0.clone() } else { os };
     if paths.is_empty() {
-        return Err("The clipboard holds no files".into());
+        return Err(bosum_core::t!("err.clipboard_no_files"));
     }
     if cut {
         // A cut pastes once.
@@ -758,7 +759,7 @@ async fn dupes_scan(options: bosum_core::dupes::Options, ctx: tauri::State<'_, C
     *ctx.dupes.lock().map_err(|e| e.to_string())? = Some(p.clone());
     let report = tauri::async_runtime::spawn_blocking(move || bosum_core::dupes::scan(&options, &p)).await.map_err(|e| e.to_string());
     let cancelled = ctx.dupes.lock().map_err(|e| e.to_string())?.take().is_some_and(|p| p.cancel.load(std::sync::atomic::Ordering::Relaxed));
-    if cancelled { Err("Cancelled".into()) } else { report }
+    if cancelled { Err(bosum_core::t!("err.cancelled")) } else { report }
 }
 
 #[derive(Serialize)]
@@ -842,15 +843,15 @@ fn scripts(ctx: tauri::State<Ctx>) -> Vec<Script> {
 #[tauri::command]
 async fn run_script(user: Option<usize>, path: Option<PathBuf>, dir: PathBuf, file: Option<PathBuf>, selected: Vec<PathBuf>, ctx: tauri::State<'_, Ctx>) -> Res<String> {
     if let Some(i) = user {
-        let cmd = ctx.cfg().user_menu.get(i).ok_or("no such command")?.expand(&dir, file.as_deref(), &selected);
+        let cmd = ctx.cfg().user_menu.get(i).ok_or_else(|| bosum_core::t!("err.no_such_command"))?.expand(&dir, file.as_deref(), &selected);
         return output(shell(&cmd), &dir);
     }
-    let script = path.ok_or("nothing to run")?;
+    let script = path.ok_or_else(|| bosum_core::t!("err.nothing_to_run"))?;
     // Only files from the scripts directory may run this way.
     let allowed = scripts_dir().and_then(|d| std::fs::canonicalize(d).ok());
     let real = std::fs::canonicalize(&script).map_err(|e| e.to_string())?;
     if !allowed.is_some_and(|d| real.starts_with(d)) {
-        return Err("not a Bosum script".into());
+        return Err(bosum_core::t!("err.not_bosum_script"));
     }
     let args = if selected.is_empty() { file.into_iter().collect() } else { selected };
     let mut c = std::process::Command::new(&real);

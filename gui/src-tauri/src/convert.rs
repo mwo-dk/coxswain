@@ -8,6 +8,7 @@
 //! Containers get no network, the file's folder read-only at /src and an empty /out.
 
 use bosum_core::config::PreviewConfig;
+use bosum_core::t;
 use serde::Serialize;
 use std::hash::{Hash, Hasher};
 use std::io::{Read, Write};
@@ -70,6 +71,8 @@ pub struct Engine {
     available: bool,
     /// Why it is unavailable, or what a first run will do (pull an image).
     note: String,
+    /// A container whose image is not pulled yet: never run it without a click.
+    needs_pull: bool,
 }
 
 /// The ways `tool` can run here, in the order of preference; the first available one is the
@@ -86,7 +89,7 @@ fn engines(cfg: &PreviewConfig, tool: &str) -> Vec<Engine> {
         .iter()
         .map(|p| {
             let found = which(p);
-            Engine { id: format!("local:{p}"), label: p.to_string(), available: found.is_some(), note: if found.is_some() { String::new() } else { format!("{p} is not installed") } }
+            Engine { id: format!("local:{p}"), label: p.to_string(), available: found.is_some(), note: if found.is_some() { String::new() } else { t!("convert.not_installed", "program" => p) }, needs_pull: false }
         })
         .collect();
     // Only show missing local programs when none is installed, to keep the buttons few, and
@@ -101,8 +104,8 @@ fn engines(cfg: &PreviewConfig, tool: &str) -> Vec<Engine> {
     }
     let image = cfg.images.get(tool).cloned().unwrap_or_default();
     let container = match (runtime(cfg), image.is_empty()) {
-        (_, true) => Engine { id: "container:".into(), label: "container".into(), available: false, note: format!("No image for {tool}: set [preview.images] {tool} in the config") },
-        (None, false) => Engine { id: "container:".into(), label: "container".into(), available: false, note: "Neither podman nor docker is installed".into() },
+        (_, true) => Engine { id: "container:".into(), label: t!("convert.container"), available: false, note: t!("convert.no_image", "tool" => tool), needs_pull: false },
+        (None, false) => Engine { id: "container:".into(), label: t!("convert.container"), available: false, note: t!("convert.no_runtime"), needs_pull: false },
         (Some((rt, path)), false) => {
             let pulled = Command::new(&path).args(if rt == "podman" { vec!["image", "exists", &image] } else { vec!["image", "inspect", &image] }).stdout(Stdio::null()).stderr(Stdio::null()).status().is_ok_and(|s| s.success());
             let short = image.rsplit('/').next().unwrap_or(&image).to_string();
@@ -110,7 +113,14 @@ fn engines(cfg: &PreviewConfig, tool: &str) -> Vec<Engine> {
                 id: format!("container:{rt}"),
                 label: format!("{rt} {short}"),
                 available: true,
-                note: if pulled { format!("Runs {image} without network access") } else { format!("First run pulls {image}{}", if tool == "latex" { " (about 5 GB)" } else { "" }) },
+                note: if pulled {
+                    t!("convert.runs_offline", "image" => image)
+                } else if tool == "latex" {
+                    t!("convert.first_run_pulls_large", "image" => image, "size" => "5 GB")
+                } else {
+                    t!("convert.first_run_pulls", "image" => image)
+                },
+                needs_pull: !pulled,
             }
         }
     };
@@ -141,7 +151,7 @@ fn cache_dir(path: &Path, tool: &str, engine: &str) -> Res<PathBuf> {
     let meta = std::fs::metadata(path).map_err(|e| e.to_string())?;
     let mut h = std::collections::hash_map::DefaultHasher::new();
     (path, meta.len(), meta.modified().ok(), tool, engine).hash(&mut h);
-    let dir = dirs::cache_dir().ok_or("no cache folder")?.join("bosum").join("previews").join(format!("{:016x}", h.finish()));
+    let dir = dirs::cache_dir().ok_or_else(|| t!("err.no_cache_folder"))?.join("bosum").join("previews").join(format!("{:016x}", h.finish()));
     Ok(dir)
 }
 
@@ -180,7 +190,7 @@ pub async fn convert(path: PathBuf, tool: String, engine: String, cached_only: b
         std::fs::create_dir_all(&out).map_err(|e| e.to_string())?;
         match run(&cfg, &tool, &engine, &path, &out, &file) {
             Ok(()) if file.is_file() => done(file),
-            Ok(()) => Err(failure(&tool, &path, &out, "The tool finished without producing a result.")),
+            Ok(()) => Err(failure(&tool, &path, &out, &t!("convert.no_result"))),
             Err(e) => Err(failure(&tool, &path, &out, &e)),
         }
     })
@@ -206,17 +216,17 @@ fn failure(tool: &str, path: &Path, out: &Path, err: &str) -> String {
 static LIBREOFFICE: Mutex<()> = Mutex::new(());
 
 fn run(cfg: &PreviewConfig, tool: &str, engine: &str, path: &Path, out: &Path, file: &Path) -> Res<()> {
-    let dir = path.parent().ok_or("no folder")?;
-    let name = path.file_name().ok_or("no file name")?.to_string_lossy().into_owned();
+    let dir = path.parent().ok_or_else(|| t!("err.no_folder"))?;
+    let name = path.file_name().ok_or_else(|| t!("err.no_file_name"))?.to_string_lossy().into_owned();
     let timeout = Duration::from_secs(cfg.timeout.max(10));
-    let (kind, which_one) = engine.split_once(':').ok_or("unknown engine")?;
+    let (kind, which_one) = engine.split_once(':').ok_or_else(|| t!("convert.unknown_engine"))?;
 
     if kind == "container" {
-        let (rt, rt_path) = runtime(cfg).ok_or("Neither podman nor docker is installed")?;
+        let (rt, rt_path) = runtime(cfg).ok_or_else(|| t!("convert.no_runtime"))?;
         if rt != which_one {
-            return Err(format!("{which_one} is not available"));
+            return Err(t!("convert.not_available", "program" => which_one));
         }
-        let image = cfg.images.get(tool).filter(|i| !i.is_empty()).ok_or(format!("No container image for {tool}"))?;
+        let image = cfg.images.get(tool).filter(|i| !i.is_empty()).ok_or_else(|| t!("convert.no_container_image", "tool" => tool))?;
         pull(&rt_path, image)?;
         let container_name = format!("bosum-preview-{}", out.file_name().unwrap_or_default().to_string_lossy());
         let mut c = Command::new(&rt_path);
@@ -260,7 +270,7 @@ fn run(cfg: &PreviewConfig, tool: &str, engine: &str, path: &Path, out: &Path, f
         return if stdin.is_some() { capture(c, stdin, timeout, file, Some((&rt_path, &container_name))) } else { wait(c, timeout, Some((&rt_path, &container_name))) };
     }
 
-    let program = which(which_one).ok_or(format!("{which_one} is not installed"))?;
+    let program = which(which_one).ok_or_else(|| t!("convert.not_installed", "program" => which_one))?;
     let mut c = Command::new(&program);
     c.current_dir(dir);
     match (tool, which_one) {
@@ -275,7 +285,7 @@ fn run(cfg: &PreviewConfig, tool: &str, engine: &str, path: &Path, out: &Path, f
         }
         ("libreoffice", _) => {
             // Its own profile, so a running LibreOffice does not swallow the conversion.
-            let profile = dirs::cache_dir().ok_or("no cache folder")?.join("bosum").join("libreoffice-profile");
+            let profile = dirs::cache_dir().ok_or_else(|| t!("err.no_cache_folder"))?.join("bosum").join("libreoffice-profile");
             let url = format!("file:///{}", profile.to_string_lossy().trim_start_matches('/').replace('\\', "/"));
             c.arg(format!("-env:UserInstallation={url}")).args(["--headless", "--convert-to", "pdf", "--outdir"]).arg(out).arg(path);
             let _one = LIBREOFFICE.lock().map_err(|e| e.to_string())?;
@@ -309,7 +319,7 @@ fn pull(rt: &Path, image: &str) -> Res<()> {
         return Ok(());
     }
     let out = Command::new(rt).args(["pull", "-q", image]).stdin(Stdio::null()).output().map_err(|e| e.to_string())?;
-    if out.status.success() { Ok(()) } else { Err(format!("Pulling {image} failed: {}", String::from_utf8_lossy(&out.stderr).trim())) }
+    if out.status.success() { Ok(()) } else { Err(t!("convert.pull_failed", "image" => image, "error" => String::from_utf8_lossy(&out.stderr).trim())) }
 }
 
 /// Run to completion within `timeout`; on timeout kill it (and its container).
@@ -325,7 +335,7 @@ fn wait(mut c: Command, timeout: Duration, container: Option<(&Path, &str)>) -> 
     });
     let status = wait_child(&mut child, timeout, container)?;
     let stderr = reader.join().unwrap_or_default();
-    if status.success() { Ok(()) } else { Err(last_lines(&stderr, 12).unwrap_or_else(|| format!("Failed ({status})"))) }
+    if status.success() { Ok(()) } else { Err(last_lines(&stderr, 12).unwrap_or_else(|| t!("convert.failed", "status" => status))) }
 }
 
 /// Run with `input` on stdin and its stdout saved as `file`.
@@ -356,7 +366,7 @@ fn capture(mut c: Command, input: Option<&Path>, timeout: Duration, file: &Path,
     let stdout = out_reader.join().unwrap_or_default();
     let stderr = err_reader.join().unwrap_or_default();
     if !status.success() || stdout.is_empty() {
-        return Err(last_lines(&stderr, 12).unwrap_or_else(|| format!("Failed ({status})")));
+        return Err(last_lines(&stderr, 12).unwrap_or_else(|| t!("convert.failed", "status" => status)));
     }
     std::fs::write(file, stdout).map_err(|e| e.to_string())
 }
@@ -373,7 +383,7 @@ fn wait_child(child: &mut std::process::Child, timeout: Duration, container: Opt
                 let _ = Command::new(rt).args(["kill", name]).stdout(Stdio::null()).stderr(Stdio::null()).status();
             }
             let _ = child.wait();
-            return Err(format!("Stopped after {} s (the timeout in [preview])", timeout.as_secs()));
+            return Err(t!("convert.timed_out", "seconds" => timeout.as_secs()));
         }
         std::thread::sleep(Duration::from_millis(100));
     }

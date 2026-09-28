@@ -1,5 +1,7 @@
 import { invoke, convertFileSrc } from "@tauri-apps/api/core";
 
+import { t, num } from "./i18n.svelte.js";
+
 export { invoke, convertFileSrc };
 
 const NAMED = {
@@ -74,13 +76,14 @@ export function crumbs(p, home) {
 
 /** Exact bytes below 10 KB, then one decimal. */
 export function size(n) {
-  if (n < 10_240) return `${n} B`;
+  const fmt = (v, digits, u) => `${num(v, { minimumFractionDigits: digits, maximumFractionDigits: digits, useGrouping: false })} ${t(`unit.${u}`)}`;
+  if (n < 10_240) return fmt(n, 0, "B");
   let v = n;
   for (const u of ["KB", "MB", "GB", "TB", "PB"]) {
     v /= 1024;
-    if (v < 1024) return `${v < 100 ? v.toFixed(1) : v.toFixed(0)} ${u}`;
+    if (v < 1024) return fmt(v, v < 100 ? 1 : 0, u);
   }
-  return `${v.toFixed(0)} EB`;
+  return fmt(v, 0, "EB");
 }
 
 export function date(secs) {
@@ -97,12 +100,13 @@ const D = 24 * H;
 export function age(secs) {
   if (!secs) return "";
   const s = Math.max(0, Date.now() / 1000 - secs);
-  if (s < H) return `${Math.max(1, Math.round(s / 60))}m`;
-  if (s < D) return `${Math.round(s / H)}h`;
-  if (s < 14 * D) return `${Math.round(s / D)}d`;
-  if (s < 60 * D) return `${Math.round(s / (7 * D))}w`;
-  if (s < 365 * D) return `${Math.round(s / (30 * D))}mo`;
-  return `${Math.round(s / (365 * D))}y`;
+  const a = (key, n) => t(`age.${key}`, { n: num(n) });
+  if (s < H) return a("minutes", Math.max(1, Math.round(s / 60)));
+  if (s < D) return a("hours", Math.round(s / H));
+  if (s < 14 * D) return a("days", Math.round(s / D));
+  if (s < 60 * D) return a("weeks", Math.round(s / (7 * D)));
+  if (s < 365 * D) return a("months", Math.round(s / (30 * D)));
+  return a("years", Math.round(s / (365 * D)));
 }
 
 /**
@@ -159,7 +163,9 @@ export function applyTheme(theme, gui) {
   root.setProperty("--row", `${Math.round(gui.font_size * gui.line_height)}px`);
 }
 
+/** Tag colour ids (stored; never translated). Show them with tagName(). */
 export const TAGS = ["red", "orange", "yellow", "green", "blue", "purple", "gray"];
+export const tagName = (id) => t(`tag.${id}`);
 export const TAG_COLORS = {
   red: "#ef5350",
   orange: "#ffa726",
@@ -190,14 +196,15 @@ const CONVERTED = Object.fromEntries(
   }).flatMap(([kind, exts]) => exts.split(" ").map((e) => [e, kind])),
 );
 
-/** Which external tool renders a kind (see convert.rs), and whether it is quick enough to run by itself. */
+/** Which external tool renders a kind (see convert.rs), and whether it is quick enough to run by itself.
+ *  `verb` is a catalogue key for the button text: callers show it with t(conv.verb). */
 export const CONVERTER = {
-  latex: { tool: "latex", auto: false, verb: "Build PDF" },
-  office: { tool: "libreoffice", auto: false, verb: "Render" },
-  plantuml: { tool: "plantuml", auto: true, verb: "Render" },
-  rst: { tool: "pandoc", auto: true, verb: "Render" },
-  drawio: { tool: "drawio", auto: false, verb: "Render" },
-  duckdb: { tool: "duckdb", auto: true, verb: "Read tables" },
+  latex: { tool: "latex", auto: false, verb: "convert.build_pdf" },
+  office: { tool: "libreoffice", auto: false, verb: "convert.render" },
+  plantuml: { tool: "plantuml", auto: true, verb: "convert.render" },
+  rst: { tool: "pandoc", auto: true, verb: "convert.render" },
+  drawio: { tool: "drawio", auto: false, verb: "convert.render" },
+  duckdb: { tool: "duckdb", auto: true, verb: "convert.read_tables" },
 };
 const SHEET = ["csv", "tsv", "xlsx", "xlsm", "xls", "ods"];
 

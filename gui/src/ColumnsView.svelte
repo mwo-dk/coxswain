@@ -3,6 +3,7 @@
   // under the cursor. Left/Right walk the hierarchy (handled in App).
   import { ui, cd, load, openItem, toggleMark } from "./app.svelte.js";
   import { invoke, parent, TAG_COLORS } from "./lib.js";
+  import { t as tr } from "./i18n.svelte.js"; // `t` is the tab here
 
   /** @type {{ t: any, active: boolean, onfocus: Function }} */
   let { t, active, onfocus } = $props();
@@ -99,7 +100,7 @@
       {#each peek.items as e (e.path)}
         {@render entry(e, "", () => jump(peek.dir, e.name), () => jump(peek.dir, e.name))}
       {:else}
-        <p class="empty">Empty folder</p>
+        <p class="empty">{tr("columns.empty")}</p>
       {/each}
     </div>
   {/if}

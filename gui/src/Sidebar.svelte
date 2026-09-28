@@ -1,13 +1,14 @@
 <script>
   import { ui, tab, cd } from "./app.svelte.js";
   import { invoke, basename, size } from "./lib.js";
+  import { t } from "./i18n.svelte.js";
 
   let collapsed = $state({});
   const here = $derived(tab()?.dir);
 
   const go = (path) => {
-    const t = tab();
-    if (t) cd(t, path);
+    const tb = tab();
+    if (tb) cd(tb, path);
   };
 
   const saveFavorites = () => invoke("save_favorites", { favorites: $state.snapshot(ui.favorites) });
@@ -27,8 +28,8 @@
   function addGroup() {
     ui.modal = {
       kind: "input",
-      title: "New favorites group",
-      label: "Name:",
+      title: t("sidebar.new_group_title"),
+      label: t("sidebar.name"),
       value: "",
       run: (name) => {
         if (!name.trim()) return;
@@ -47,15 +48,15 @@
       filter: "",
       cursor: 0,
       items: [
-        { key: "", label: "Add current folder", run: () => addHere(g) },
+        { key: "", label: t("sidebar.add_here"), run: () => addHere(g) },
         {
           key: "",
-          label: "Rename group",
+          label: t("sidebar.rename_group"),
           run: () =>
             (ui.modal = {
               kind: "input",
-              title: "Rename group",
-              label: "Name:",
+              title: t("sidebar.rename_group"),
+              label: t("sidebar.name"),
               value: g.name,
               run: (n) => {
                 if (n.trim()) g.name = n.trim();
@@ -65,7 +66,7 @@
         },
         {
           key: "",
-          label: "Delete group",
+          label: t("sidebar.delete_group"),
           run: () => {
             ui.favorites.splice(i, 1);
             saveFavorites();
@@ -94,8 +95,8 @@
   </li>
 {/snippet}
 
-<nav class="sidebar" aria-label="Places">
-  {@render section("places", "Places")}
+<nav class="sidebar" aria-label={t("sidebar.places")}>
+  {@render section("places", t("sidebar.places"))}
   {#if !collapsed.places}
     <ul>
       {#each ui.places as p (p.path)}
@@ -104,7 +105,7 @@
     </ul>
   {/if}
 
-  {@render section("drives", "Drives")}
+  {@render section("drives", t("sidebar.drives"))}
   {#if !collapsed.drives}
     <ul>
       {#each ui.disks as d (d.mount)}
@@ -113,7 +114,7 @@
           <button class="row drive" class:here={d.mount === here} title="{d.device} · {d.mount}" onclick={() => go(d.mount)}>
             <span class="icon">{d.removable ? "\u{f0287}" : "\u{f02ca}"}</span>
             <span class="label">
-              <span class="drive-name"><span>{d.label}</span><small>{size(d.free)} free</small></span>
+              <span class="drive-name"><span>{d.label}</span><small>{t("sidebar.free", { size: size(d.free) })}</small></span>
               <span class="bar"><span style:width="{used * 100}%" class:full={used > 0.9}></span></span>
             </span>
           </button>
@@ -124,7 +125,7 @@
 
   {#each ui.favorites as g, gi (gi)}
     {#snippet add()}
-      <span class="add" role="button" tabindex="-1" title="Add current folder" onclick={(e) => { e.stopPropagation(); addHere(g); }} onkeydown={() => {}}>+</span>
+      <span class="add" role="button" tabindex="-1" title={t("sidebar.add_here")} onclick={(e) => { e.stopPropagation(); addHere(g); }} onkeydown={() => {}}>+</span>
     {/snippet}
     <div oncontextmenu={(e) => groupMenu(e, g, gi)} role="group">
       {@render section(`fav${gi}`, g.name, add)}
@@ -133,19 +134,19 @@
       <ul>
         {#each g.paths as p (p)}
           {#snippet x()}
-            <span class="remove" role="button" tabindex="-1" title="Remove" onclick={(e) => { e.stopPropagation(); remove(g, p); }} onkeydown={() => {}}>×</span>
+            <span class="remove" role="button" tabindex="-1" title={t("common.remove")} onclick={(e) => { e.stopPropagation(); remove(g, p); }} onkeydown={() => {}}>×</span>
           {/snippet}
           {@render row(p, basename(p) || p, "\u{f005}", "var(--marked-fg)", x)}
         {:else}
-          <li class="empty">Right-click the group or press + to add the current folder</li>
+          <li class="empty">{t("sidebar.empty_group")}</li>
         {/each}
       </ul>
     {/if}
   {/each}
-  <button class="new-group" onclick={addGroup}>+ New group</button>
+  <button class="new-group" onclick={addGroup}>{t("sidebar.new_group")}</button>
 
   {#if ui.recent.length}
-    {@render section("repos", "Git repositories")}
+    {@render section("repos", t("sidebar.repos"))}
     {#if !collapsed.repos}
       <ul>
         {#each ui.recent as r (r)}

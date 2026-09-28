@@ -2,12 +2,13 @@
   import { ui, tab, item } from "./app.svelte.js";
   import { renderMarkdown, renderMermaid, highlight, renderDocx, readSheet, renderNotebook, loadFont, clean, parseData, jsonLines, calendar, contacts, logLines, renderGraphviz, renderAsciidoc, readParquet } from "./renderers.js";
   import { invoke, convertFileSrc, size, date, age, ageColor, previewKind, CONVERTER } from "./lib.js";
+  import { t, tn, num } from "./i18n.svelte.js";
 
   /** Set by App when the command output should show here instead of the file. */
   let { output = null, onclearoutput, notesFocus = 0 } = $props();
 
-  const t = $derived(tab());
-  const e = $derived(item(t));
+  const pane = $derived(tab());
+  const e = $derived(item(pane));
   const kind = $derived(output ? "output" : previewKind(e));
   let text = $state("");
   let html = $state("");
@@ -25,7 +26,7 @@
   const showDiff = $derived(ui.previewDiff);
   const TEXTUAL = ["text", "markdown", "mermaid", "data", "jsonl", "calendar", "contacts", "log", "graphviz", "asciidoc"];
   const ext = (f) => f.name.split(".").pop().toLowerCase();
-  const gitKind = $derived(e && !e.is_dir ? t.git?.files[e.name]?.kind : undefined);
+  const gitKind = $derived(e && !e.is_dir ? pane.git?.files[e.name]?.kind : undefined);
   const hasDiff = $derived(gitKind && !["untracked", "ignored"].includes(gitKind));
   const diffing = $derived(hasDiff && showDiff);
   /** Parsed forms of textual files: a data tree, a table, calendar events or contact cards. */
@@ -49,7 +50,7 @@
       try {
         if (diff) {
           const d = await invoke("git_diff", { path: cur.path });
-          if (item(tab())?.path === cur.path) html = d ? highlight(d, "diff") : highlight("(no changes against HEAD)", "plaintext");
+          if (item(tab())?.path === cur.path) html = d ? highlight(d, "diff") : highlight(t("preview.no_changes"), "plaintext");
           return;
         }
         const [s, trunc, bin] = await invoke("read_text", { path: cur.path, max: LIMIT });
@@ -165,7 +166,7 @@
       if (conv?.path !== cur.path) return;
       if (cached) Object.assign(conv, { status: "done", result: cached });
       // Quick tools run by themselves, unless a container image still has to be pulled.
-      else if (spec.auto && !eng.note.startsWith("First run pulls")) renderConv();
+      else if (spec.auto && !eng.needs_pull) renderConv();
     }, 150);
     return () => clearTimeout(timer);
   });
@@ -228,7 +229,7 @@
   });
 
   // Notes belong to the folder under the cursor, or to the current folder for files.
-  const notesDir = $derived(e?.is_dir && e.name !== ".." ? e.path : t?.dir);
+  const notesDir = $derived(e?.is_dir && e.name !== ".." ? e.path : pane?.dir);
   $effect(() => {
     const dir = notesDir;
     if (!dir) return;
@@ -250,7 +251,7 @@
 
   async function calcSize() {
     const [bytes] = (await invoke("dir_sizes", { paths: [e.path] }))[e.path];
-    t.sizes[e.path] = bytes;
+    pane.sizes[e.path] = bytes;
   }
 </script>
 
@@ -261,7 +262,7 @@
       <summary>{#if key !== null}<span class="k">{key}</span>{/if} <span class="meta">{Array.isArray(v) ? `[${v.length}]` : `{${entries.length}}`}</span></summary>
       <div class="kids">
         {#each entries.slice(0, 500) as [k, c] (k)}{@render node(k, c, depth + 1)}{/each}
-        {#if entries.length > 500}<div class="meta">… {entries.length - 500} more</div>{/if}
+        {#if entries.length > 500}<div class="meta">{tn("preview.more", entries.length - 500)}</div>{/if}
       </div>
     </details>
   {:else}
@@ -281,37 +282,37 @@
   </div>
 {/snippet}
 
-<aside class="preview" aria-label="Preview">
+<aside class="preview" aria-label={t("action.toggle_preview")}>
   {#if kind === "output"}
     <header>
       <span class="icon">{"\u{f120}"}</span>
-      <div class="title"><b>{output.title}</b><small>Command output</small></div>
-      <button class="close" title="Back to preview" onclick={onclearoutput}>×</button>
+      <div class="title"><b>{output.title}</b><small>{t("preview.command_output")}</small></div>
+      <button class="close" title={t("preview.back")} onclick={onclearoutput}>×</button>
     </header>
-    <pre class="body mono">{output.text || "(no output)"}</pre>
+    <pre class="body mono">{output.text || t("preview.no_output")}</pre>
   {:else if !e}
-    <p class="empty">Nothing selected</p>
+    <p class="empty">{t("preview.nothing_selected")}</p>
   {:else}
     <header>
       <span class="icon big" style:color={e.icon.color || "var(--directory-fg)"}>{e.icon.glyph}</span>
       <div class="title">
         <b title={e.name}>{e.name}</b>
         <small>
-          {#if e.is_dir}{t.sizes[e.path] !== undefined ? size(t.sizes[e.path]) : "Folder"}{:else}{size(e.size)}{/if}
+          {#if e.is_dir}{pane.sizes[e.path] !== undefined ? size(pane.sizes[e.path]) : t("preview.folder")}{:else}{size(e.size)}{/if}
           · <span class="age" style:background={ageColor(e.modified)}>{age(e.modified)}</span>
           {date(e.modified)}
         </small>
       </div>
       {#if hasDiff}
-        <div class="modes" role="group" aria-label="Git">
-          <button class:on={!showDiff} onclick={() => (ui.previewDiff = false)}>File</button>
-          <button class:on={showDiff} onclick={() => (ui.previewDiff = true)} title="Changes against HEAD">Diff</button>
+        <div class="modes" role="group" aria-label={t("preview.git")}>
+          <button class:on={!showDiff} onclick={() => (ui.previewDiff = false)}>{t("preview.file")}</button>
+          <button class:on={showDiff} onclick={() => (ui.previewDiff = true)} title={t("preview.changes_against_head")}>{t("preview.diff")}</button>
         </div>
       {/if}
       {#if !diffing && ["markdown", "mermaid", "data", "jsonl", "calendar", "contacts", "graphviz", "asciidoc"].includes(kind)}
-        <div class="modes" role="group" aria-label="Show">
-          <button class:on={!source} onclick={() => (ui.previewSource = false)}>{kind === "data" ? "Tree" : kind === "jsonl" ? "Table" : "Rendered"}</button>
-          <button class:on={source} onclick={() => (ui.previewSource = true)}>Source</button>
+        <div class="modes" role="group" aria-label={t("preview.show")}>
+          <button class:on={!source} onclick={() => (ui.previewSource = false)}>{kind === "data" ? t("preview.tree") : kind === "jsonl" ? t("preview.table") : t("preview.rendered")}</button>
+          <button class:on={source} onclick={() => (ui.previewSource = true)}>{t("preview.source")}</button>
         </div>
       {/if}
     </header>
@@ -327,28 +328,28 @@
         <ul class="cards">
           {#each cards.events as ev, i (i)}
             <li><b>{ev.title}</b><small>{ev.start}{ev.end ? ` – ${ev.end}` : ""}{ev.where ? ` · ${ev.where}` : ""}</small>{#if ev.note}<p>{ev.note}</p>{/if}</li>
-          {:else}<li>No events</li>{/each}
+          {:else}<li>{t("preview.no_events")}</li>{/each}
         </ul>
       {:else if cards?.people}
         <ul class="cards">
           {#each cards.people as c, i (i)}
-            <li><b>{c.name ?? "(no name)"}</b>{#if c.org || c.title}<small>{[c.title, c.org].filter(Boolean).join(", ")}</small>{/if}
+            <li><b>{c.name ?? t("preview.no_name")}</b>{#if c.org || c.title}<small>{[c.title, c.org].filter(Boolean).join(", ")}</small>{/if}
               {#each c.email as m (m)}<p>{m}</p>{/each}{#each c.tel as n (n)}<p>{n}</p>{/each}</li>
-          {:else}<li>No contacts</li>{/each}
+          {:else}<li>{t("preview.no_contacts")}</li>{/each}
         </ul>
       {:else if kind === "log" && html}
         <pre class="mono log">{@html html}</pre>
-        {#if truncated}<p class="more">Showing the first {size(LIMIT)}</p>{/if}
+        {#if truncated}<p class="more">{t("preview.showing_first", { size: size(LIMIT) })}</p>{/if}
       {:else if backend?.error}
         <p class="more">{backend.error}</p>
       {:else if backend?.sqlite}
         <table class="sheet db">
           <tbody>
-            <tr><th>Table</th><th>Rows</th></tr>
+            <tr><th>{t("preview.db_table")}</th><th>{t("preview.db_rows")}</th></tr>
             {#each backend.sqlite as tb (tb.name)}
               <tr>
-                <td><details><summary>{tb.name}{tb.kind === "view" ? " (view)" : ""}</summary><pre class="mono">{tb.sql}</pre></details></td>
-                <td class="num">{tb.rows?.toLocaleString() ?? "–"}</td>
+                <td><details><summary>{tb.kind === "view" ? t("preview.view", { name: tb.name }) : tb.name}</summary><pre class="mono">{tb.sql}</pre></details></td>
+                <td class="num">{tb.rows != null ? num(tb.rows) : "–"}</td>
               </tr>
             {/each}
           </tbody>
@@ -359,46 +360,46 @@
       {:else if backend?.cert}
         {#each backend.cert as c, i (i)}
           <dl class="facts cert">
-            <dt>Subject</dt><dd>{c.subject}</dd>
-            <dt>Issuer</dt><dd>{c.issuer}{c.is_ca ? " (CA)" : ""}</dd>
-            <dt>Valid</dt><dd>{c.not_before} – {c.not_after}</dd>
-            <dt>Expires</dt>
+            <dt>{t("preview.subject")}</dt><dd>{c.subject}</dd>
+            <dt>{t("preview.issuer")}</dt><dd>{c.is_ca ? t("preview.ca", { name: c.issuer }) : c.issuer}</dd>
+            <dt>{t("preview.valid")}</dt><dd>{c.not_before} – {c.not_after}</dd>
+            <dt>{t("preview.expires")}</dt>
             <dd class:bad={c.expires_in < 0} class:warn={c.expires_in >= 0 && c.expires_in < 30 * 86400}>
-              {c.expires_in < 0 ? `expired ${-days(c.expires_in)} days ago` : `in ${days(c.expires_in)} days`}
+              {c.expires_in < 0 ? tn("preview.expired_ago", -days(c.expires_in)) : tn("preview.expires_in", days(c.expires_in))}
             </dd>
-            {#if c.names.length}<dt>Names</dt><dd>{c.names.join(", ")}</dd>{/if}
-            <dt>Serial</dt><dd class="mono">{c.serial}</dd>
+            {#if c.names.length}<dt>{t("preview.names")}</dt><dd>{c.names.join(", ")}</dd>{/if}
+            <dt>{t("preview.serial")}</dt><dd class="mono">{c.serial}</dd>
           </dl>
         {/each}
       {:else if backend?.mail}
         <dl class="facts">
-          <dt>Subject</dt><dd><b>{backend.mail.subject}</b></dd>
-          <dt>From</dt><dd>{backend.mail.from}</dd>
-          <dt>To</dt><dd>{backend.mail.to}</dd>
-          <dt>Date</dt><dd>{backend.mail.date}</dd>
+          <dt>{t("preview.subject")}</dt><dd><b>{backend.mail.subject}</b></dd>
+          <dt>{t("preview.from")}</dt><dd>{backend.mail.from}</dd>
+          <dt>{t("preview.to")}</dt><dd>{backend.mail.to}</dd>
+          <dt>{t("preview.date")}</dt><dd>{backend.mail.date}</dd>
           {#if backend.mail.attachments.length}
-            <dt>Attachments</dt><dd>{#each backend.mail.attachments as [n, sz], i (i)}<div>{n} ({size(sz)})</div>{/each}</dd>
+            <dt>{t("preview.attachments")}</dt><dd>{#each backend.mail.attachments as [n, sz], i (i)}<div>{n} ({size(sz)})</div>{/each}</dd>
           {/if}
         </dl>
         <pre class="mail">{backend.mail.text}</pre>
       {:else if backend?.plist}
         <pre class="mono code"><code class="hljs">{@html highlight(backend.plist, "xml")}</code></pre>
       {:else if conv}
-        <div class="engines" role="group" aria-label="Render with">
+        <div class="engines" role="group" aria-label={t("preview.render_with")}>
           {#each conv.engines as en (en.id)}
             <button class:on={engineOf(conv)?.id === en.id} disabled={!en.available || conv.status === "running"} title={en.note} onclick={() => renderConv(en.id)}>{en.label}</button>
           {/each}
         </div>
         {#if !conv.engines.some((x) => x.available)}
-          <p class="more">{conv.engines.map((x) => x.note).filter(Boolean).join(". ")}. See the [preview] section in the config.</p>
+          <p class="more">{t("preview.no_engine", { notes: conv.engines.map((x) => x.note).filter(Boolean).join(". ") })}</p>
         {:else if conv.status === "idle"}
-          <button class="render" onclick={() => renderConv()}>{conv.verb}</button>
+          <button class="render" onclick={() => renderConv()}>{t(conv.verb)}</button>
           <p class="more">{engineOf(conv)?.note}</p>
         {:else if conv.status === "running"}
-          <p class="more">Rendering with {engineOf(conv)?.label}…</p>
+          <p class="more">{t("preview.rendering_with", { engine: engineOf(conv)?.label })}</p>
         {:else if conv.status === "error"}
           <pre class="diagram-error mono">{conv.error}</pre>
-          <button class="render" onclick={() => renderConv()}>Try again</button>
+          <button class="render" onclick={() => renderConv()}>{t("common.try_again")}</button>
         {:else if conv.result?.kind === "pdf"}
           <iframe class="pdf" src={convertFileSrc(conv.result.file) + "#zoom=page-width"} title={e.name}></iframe>
         {:else if conv.result?.kind === "svg"}
@@ -409,11 +410,11 @@
           {@render grid(jsonTable(conv.result.text))}
         {/if}
       {:else if rich?.parquet}
-        <p class="more">{rich.parquet.rows.toLocaleString()} rows · {rich.parquet.schema.length} columns</p>
+        <p class="more">{t("preview.parquet_summary", { rows: tn("preview.rows", rich.parquet.rows), columns: tn("preview.columns", rich.parquet.schema.length) })}</p>
         {@render grid(rich.parquet.table)}
         <details class="schema">
-          <summary>Schema</summary>
-          {@render grid([["Column", "Type", "Repetition"], ...rich.parquet.schema])}
+          <summary>{t("preview.schema")}</summary>
+          {@render grid([[t("preview.column"), t("preview.type"), t("preview.repetition")], ...rich.parquet.schema])}
         </details>
       {:else if kind === "image"}
         <div class="media checker"><img src={convertFileSrc(e.path)} alt={e.name} /></div>
@@ -430,7 +431,7 @@
         {#if archive?.error}
           <p class="more">{archive.error}</p>
         {:else if archive}
-          <p class="more">{archive.entries.length}{archive.more ? "+" : ""} entries · Ctrl+E extracts to the other pane</p>
+          <p class="more">{tn(archive.more ? "preview.archive_more" : "preview.archive", archive.entries.length)}</p>
           <ul class="archive mono">
             {#each archive.entries as a (a.name)}
               <li class:dir={a.is_dir}><span>{a.name}</span>{#if !a.is_dir}<span class="sz">{size(a.size)}</span>{/if}</li>
@@ -447,14 +448,14 @@
         <article class="markdown {kind}">{@html rich.html}</article>
       {:else if rich?.family}
         <div class="font" style:font-family="'{rich.family}'">
-          <p style:font-size="2.6em">The quick brown fox jumps over the lazy dog</p>
-          <p style:font-size="1.6em">Sphinx of black quartz, judge my vow</p>
+          <p style:font-size="2.6em">{t("preview.font_sample1")}</p>
+          <p style:font-size="1.6em">{t("preview.font_sample2")}</p>
           <p style:font-size="1.1em">ABCDEFGHIJKLMNOPQRSTUVWXYZ<br />abcdefghijklmnopqrstuvwxyz<br />0123456789 &amp;@#$%*(){"{}"}[]&lt;&gt;?!</p>
-          <p style:font-size="0.85em">Æble, øl og å — Grüße — ﬁ ﬂ — “quotes” — €£¥</p>
+          <p style:font-size="0.85em">{t("preview.font_sample3")}</p>
         </div>
       {:else if rich?.sheet}
         {#if rich.sheet.names.length > 1}
-          <div class="modes sheets" role="group" aria-label="Sheet">
+          <div class="modes sheets" role="group" aria-label={t("preview.sheet")}>
             {#each rich.sheet.names as n (n)}<button class:on={n === sheetName} onclick={() => (sheetName = n)}>{n}</button>{/each}
           </div>
         {/if}
@@ -467,26 +468,26 @@
             </tbody>
           </table>
         </div>
-        {#if rows.length > 200}<p class="more">Showing the first 200 rows</p>{/if}
+        {#if rows.length > 200}<p class="more">{tn("preview.first_rows", 200)}</p>{/if}
       {:else if kind === "text"}
         {#if html}
           <pre class="mono code"><code class="hljs">{@html html}</code></pre>
         {:else}
           <pre class="mono" class:hex={binary}>{text}</pre>
         {/if}
-        {#if truncated}<p class="more">Showing the first {size(LIMIT)}</p>{/if}
+        {#if truncated}<p class="more">{t("preview.showing_first", { size: size(LIMIT) })}</p>{/if}
       {:else if kind === "folder"}
         <dl class="facts">
           {#if summary}
-            <dt>Contents</dt><dd>{summary.folders} folders, {summary.files} files</dd>
-            <dt>Files here</dt><dd>{size(summary.bytes)}</dd>
-            {#if summary.newest}<dt>Newest</dt><dd>{date(summary.newest)} ({age(summary.newest)})</dd>{/if}
+            <dt>{t("preview.contents")}</dt><dd>{t("preview.contents_value", { folders: tn("preview.folders", summary.folders), files: tn("preview.files", summary.files) })}</dd>
+            <dt>{t("preview.files_here")}</dt><dd>{size(summary.bytes)}</dd>
+            {#if summary.newest}<dt>{t("preview.newest")}</dt><dd>{date(summary.newest)} ({age(summary.newest)})</dd>{/if}
           {/if}
-          <dt>Total size</dt>
+          <dt>{t("preview.total_size")}</dt>
           <dd>
-            {#if t.sizes[e.path] !== undefined}{size(t.sizes[e.path])}{:else}<button class="link" onclick={calcSize}>Calculate (Ctrl+Space)</button>{/if}
+            {#if pane.sizes[e.path] !== undefined}{size(pane.sizes[e.path])}{:else}<button class="link" onclick={calcSize}>{t("preview.calculate")}</button>{/if}
           </dd>
-          {#if t.git}<dt>Git</dt><dd class="git">{t.git.prompt}</dd>{/if}
+          {#if pane.git}<dt>{t("preview.git")}</dt><dd class="git">{pane.git.prompt}</dd>{/if}
         </dl>
       {/if}
       {#if facts.length}
@@ -497,8 +498,8 @@
     </div>
 
     <section class="notes">
-      <label for="notes">{"\u{f249}"} Notes for {notesDir === t.dir ? "this folder" : e.name}</label>
-      <textarea id="notes" bind:this={noteArea} bind:value={note} onblur={saveNote} placeholder="To-dos, reminders… saved when you leave the field (Esc)"></textarea>
+      <label for="notes">{"\u{f249}"} {notesDir === pane.dir ? t("preview.notes_here") : t("preview.notes_for", { name: e.name })}</label>
+      <textarea id="notes" bind:this={noteArea} bind:value={note} onblur={saveNote} placeholder={t("preview.notes_placeholder")}></textarea>
     </section>
   {/if}
 </aside>

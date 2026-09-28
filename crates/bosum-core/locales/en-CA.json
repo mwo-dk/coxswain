@@ -1,1 +1,17 @@
-{}
+{
+ "app.move_to_trash": "Move to trash",
+ "confirm.trash": "Move {what} to the trash?",
+ "dupes.confirm_ok": "Move to trash",
+ "dupes.confirm_text": {
+  "one": "Move {n} copy ({size}) to the trash? At least one copy of each stays.",
+  "other": "Move {n} copies ({size}) to the trash? At least one copy of each stays."
+ },
+ "dupes.confirm_title": "Move duplicates to the trash",
+ "dupes.mark_tip": "Mark to move to the trash",
+ "dupes.trash_marked": "Move marked to trash",
+ "dupes.trashed": {
+  "one": "Moved {n} duplicate to the trash",
+  "other": "Moved {n} duplicates to the trash"
+ },
+ "status.trashed": "Moved {what} to the trash"
+}
