@@ -254,6 +254,10 @@ jobs:
     steps:
       - if: env.WINGET_TOKEN == ''
         run: echo "::notice::WINGET_TOKEN is not set, so winget is not updated. See packaging/README.md."
+      - uses: actions/checkout@v7
+        if: env.WINGET_TOKEN != ''
+        with:
+          ref: ${{ needs.draft.outputs.sha }}
       - name: Open winget-pkgs pull requests
         if: env.WINGET_TOKEN != ''
         env:
@@ -267,5 +271,6 @@ jobs:
           notes="https://github.com/${{ github.repository }}/releases/tag/$TAG"
           ./komac update mwo-dk.Bosum --version "$v" --urls "$base/Bosum_${v}_x64_en-US.msi" \
             --release-notes-url "$notes" --submit --token "$WINGET_TOKEN"
-          ./komac update mwo-dk.Bosum.Terminal --version "$v" --urls "$base/bosum-terminal-$TAG-x86_64-pc-windows-msvc.zip" \
-            --release-notes-url "$notes" --submit --token "$WINGET_TOKEN"
+          # The terminal zip's exe path carries the version, so its manifests are written, not updated.
+          packaging/winget/terminal.sh "$TAG" winget-terminal
+          ./komac submit --yes --token "$WINGET_TOKEN" winget-terminal/manifests/m/mwo-dk/Bosum/Terminal/"$v"
