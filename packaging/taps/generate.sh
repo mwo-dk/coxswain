@@ -53,47 +53,49 @@ end
 RUBY
 
 # The desktop app, as a cask: the .dmg on macOS, the AppImage on Linux. These have no .sha256
-# assets, so hash the downloads. The macOS builds are not notarized; clearing the quarantine
-# flag is what lets macOS open them.
+# assets, so hash the downloads. Homebrew 7 wants declarative *_steps stanzas: the Ruby
+# preflight/postflight blocks are deprecated and fail on macOS.
 asset_sha() { gh release download "$tag" -R mwo-dk/coxswain -p "$1" -O - | sha256sum | cut -d' ' -f1; }
 appimage="Coxswain_#{version}_amd64.AppImage"
 mkdir -p "$brew/Casks"
 cat > "$brew/Casks/coxswain-gui.rb" <<RUBY
 cask "coxswain-gui" do
   version "$version"
+  sha256 arm:          "$(asset_sha "Coxswain_${version}_aarch64.dmg")",
+         intel:        "$(asset_sha "Coxswain_${version}_x64.dmg")",
+         x86_64_linux: "$(asset_sha "Coxswain_${version}_amd64.AppImage")"
 
   on_macos do
     arch arm: "aarch64", intel: "x64"
 
-    sha256 arm:   "$(asset_sha "Coxswain_${version}_aarch64.dmg")",
-           intel: "$(asset_sha "Coxswain_${version}_x64.dmg")"
-
     url "$repo/releases/download/v#{version}/Coxswain_#{version}_#{arch}.dmg"
 
     app "Coxswain.app"
-
-    postflight do
-      system_command "/usr/bin/xattr", args: ["-cr", "#{appdir}/Coxswain.app"]
-    end
   end
-
   on_linux do
-    depends_on arch: :x86_64
-
-    sha256 "$(asset_sha "Coxswain_${version}_amd64.AppImage")"
-
     url "$repo/releases/download/v#{version}/$appimage"
 
-    binary "$appimage", target: "coxswain-gui"
+    depends_on arch: :x86_64
 
-    preflight do
-      set_permissions "#{staged_path}/$appimage", "0755"
-    end
+    binary "$appimage", target: "coxswain-gui"
   end
 
   name "Coxswain"
   desc "$desc (desktop app)"
   homepage "$repo"
+
+  preflight_steps do
+    on_linux do
+      set_permissions "Coxswain_{{version}}_amd64.AppImage", "0755"
+    end
+  end
+
+  # Not notarized: without the quarantine flag cleared, macOS says the app is damaged.
+  postflight_steps do
+    on_macos do
+      run "/usr/bin/xattr", args: ["-cr", "{{appdir}}/Coxswain.app"]
+    end
+  end
 
   # Config and state in the coxswain config folder stay: the terminal app shares them.
   zap trash: [
