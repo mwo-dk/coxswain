@@ -21,11 +21,14 @@ mod convert;
 mod preview;
 
 pub struct Ctx {
-    pub cfg: Config,
+    /// Replaced when Settings are saved.
+    cfg: std::sync::RwLock<Config>,
     index: Arc<Service>,
     start: [PathBuf; 2],
     /// `--duplicates <folders>`: open the duplicate finder on these folders at start.
     duplicates: Option<Vec<PathBuf>>,
+    /// `--settings`: open the Settings window at start.
+    open_settings: bool,
     state: Mutex<AppState>,
     /// Folders shown in the panes, watched so they reread themselves.
     watched: Mutex<Vec<PathBuf>>,
@@ -37,6 +40,10 @@ pub struct Ctx {
 }
 
 impl Ctx {
+    pub fn cfg(&self) -> std::sync::RwLockReadGuard<'_, Config> {
+        self.cfg.read().unwrap_or_else(|e| e.into_inner())
+    }
+
     /// Change the persisted state and save it right away (the file is small).
     fn edit<T>(&self, f: impl FnOnce(&mut AppState) -> T) -> Res<T> {
         let mut st = self.state.lock().map_err(|e| e.to_string())?;
@@ -62,7 +69,7 @@ struct UiConfig {
     /// Canonical key string (as `Key` displays it) -> action name.
     keymap: BTreeMap<String, &'static str>,
     /// Action name -> (label, first key).
-    actions: BTreeMap<&'static str, (&'static str, String)>,
+    actions: BTreeMap<&'static str, (String, String)>,
     /// Every theme, by name, so the GUI can switch live.
     themes: BTreeMap<String, UiTheme>,
     glyphs: Glyphs,
@@ -71,6 +78,16 @@ struct UiConfig {
     user_menu: Vec<UserCommand>,
     start: [PathBuf; 2],
     duplicates: Option<Vec<PathBuf>>,
+    open_settings: bool,
+    /// The language in use (resolved from `language`), its texts, and whether it is written
+    /// right to left.
+    language: &'static str,
+    strings: std::collections::HashMap<String, serde_json::Value>,
+    rtl: bool,
+    /// Every language Bosum has: (code, own name, flag).
+    languages: &'static [(&'static str, &'static str, &'static str)],
+    /// The config file's raw values, for the Settings window.
+    settings: Settings,
     config_path: Option<PathBuf>,
     gui: GuiConfig,
     home: PathBuf,
@@ -84,7 +101,7 @@ fn css(c: &str) -> Option<String> {
 
 #[tauri::command]
 fn get_config(ctx: tauri::State<Ctx>) -> Res<UiConfig> {
-    let cfg = &ctx.cfg;
+    let cfg = ctx.cfg();
     let themes = cfg
         .themes
         .iter()
@@ -103,12 +120,132 @@ fn get_config(ctx: tauri::State<Ctx>) -> Res<UiConfig> {
         user_menu: cfg.user_menu.clone(),
         start: ctx.start.clone(),
         duplicates: ctx.duplicates.clone(),
+        open_settings: ctx.open_settings,
+        language: bosum_core::i18n::language(),
+        strings: bosum_core::i18n::catalogue(bosum_core::i18n::language()),
+        rtl: bosum_core::i18n::is_rtl(bosum_core::i18n::language()),
+        languages: bosum_core::i18n::LANGUAGES,
+        settings: Settings::from(&*cfg),
         config_path: Config::path(),
         gui: cfg.gui.clone(),
         home: std::env::home_dir().unwrap_or_default(),
         sep: std::path::MAIN_SEPARATOR,
         version: bosum_core::update::VERSION,
     })
+}
+
+// ---------------------------------------------------------------- settings
+
+/// What the Settings window edits, as stored in config.toml.
+#[derive(Serialize)]
+struct Settings {
+    language: String,
+    theme: String,
+    glyphs: String,
+    show_hidden: bool,
+    confirm_delete: bool,
+    check_updates: bool,
+    font: String,
+    mono_font: String,
+    icon_font: String,
+    font_size: u32,
+    preview_prefer: String,
+    preview_container: String,
+    preview_timeout: u64,
+    latex_image: String,
+}
+
+impl From<&Config> for Settings {
+    fn from(c: &Config) -> Self {
+        Settings {
+            language: c.language.clone(),
+            theme: c.gui.theme.clone(),
+            glyphs: c.glyphs.clone(),
+            show_hidden: c.show_hidden,
+            confirm_delete: c.confirm_delete,
+            check_updates: c.check_updates,
+            font: c.gui.font.clone(),
+            mono_font: c.gui.mono_font.clone(),
+            icon_font: c.gui.icon_font.clone(),
+            font_size: c.gui.font_size as u32,
+            preview_prefer: c.preview.prefer.clone(),
+            preview_container: c.preview.container.clone(),
+            preview_timeout: c.preview.timeout,
+            latex_image: c.preview.images.get("latex").cloned().unwrap_or_default(),
+        }
+    }
+}
+
+/// Where each setting lives in config.toml.
+const SETTING_PATHS: &[(&str, &[&str])] = &[
+    ("language", &["language"]),
+    ("theme", &["gui", "theme"]),
+    ("glyphs", &["glyphs"]),
+    ("show_hidden", &["show_hidden"]),
+    ("confirm_delete", &["confirm_delete"]),
+    ("check_updates", &["check_updates"]),
+    ("font", &["gui", "font"]),
+    ("mono_font", &["gui", "mono_font"]),
+    ("icon_font", &["gui", "icon_font"]),
+    ("font_size", &["gui", "font_size"]),
+    ("preview_prefer", &["preview", "prefer"]),
+    ("preview_container", &["preview", "container"]),
+    ("preview_timeout", &["preview", "timeout"]),
+    ("latex_image", &["preview", "images", "latex"]),
+];
+
+/// `text` (a config.toml) with the settings in `changes` set, comments and layout kept.
+fn apply_settings(text: &str, changes: &serde_json::Map<String, serde_json::Value>) -> Res<String> {
+    let mut doc: toml_edit::DocumentMut = text.parse().map_err(|e| format!("config: {e}"))?;
+    for (name, v) in changes {
+        let keys = SETTING_PATHS.iter().find(|(n, _)| n == name).map(|(_, k)| *k).ok_or_else(|| bosum_core::t!("err.unknown_setting", "name" => name))?;
+        let value: toml_edit::Value = match v {
+            serde_json::Value::Bool(b) => (*b).into(),
+            serde_json::Value::Number(n) => n.as_i64().ok_or_else(|| bosum_core::t!("err.not_whole_number"))?.into(),
+            serde_json::Value::String(s) => s.as_str().into(),
+            _ => return Err(bosum_core::t!("err.unsupported_value", "name" => name)),
+        };
+        let (last, parents) = keys.split_last().unwrap();
+        let mut table = doc.as_table_mut();
+        for k in parents {
+            let item = table.entry(k).or_insert_with(|| {
+                let mut t = toml_edit::Table::new();
+                t.set_implicit(true);
+                toml_edit::Item::Table(t)
+            });
+            table = item.as_table_mut().ok_or_else(|| bosum_core::t!("err.not_a_table", "key" => k))?;
+        }
+        // Update in place where the key exists, so its comments stay.
+        match table.get_mut(last).and_then(|i| i.as_value_mut()) {
+            Some(old) => {
+                let decor = old.decor().clone();
+                *old = value;
+                *old.decor_mut() = decor;
+            }
+            None => {
+                table.insert(last, toml_edit::value(value));
+            }
+        }
+    }
+    Ok(doc.to_string())
+}
+
+/// Write the changed settings into config.toml, keeping its comments and layout, then use
+/// the new config at once. Returns the new UI config (texts in the new language and so on).
+#[tauri::command]
+fn save_settings(changes: serde_json::Map<String, serde_json::Value>, ctx: tauri::State<Ctx>) -> Res<UiConfig> {
+    let path = Config::path().ok_or_else(|| bosum_core::t!("err.no_config_folder"))?;
+    let text = std::fs::read_to_string(&path).unwrap_or_default();
+    let new_text = apply_settings(&text, &changes)?;
+    // Only write what parses: a broken config must never replace a working one.
+    let cfg = Config::parse(&new_text)?;
+    if let Some(dir) = path.parent() {
+        std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
+    }
+    std::fs::write(&path, new_text).map_err(|e| format!("{}: {e}", path.display()))?;
+    bosum_core::i18n::set_language(bosum_core::i18n::resolve(&cfg.language));
+    *ctx.cfg.write().map_err(|e| e.to_string())? = cfg;
+    get_config(ctx)
 }
 
 // ---------------------------------------------------------------- listing
@@ -159,7 +296,7 @@ async fn git_status(dir: PathBuf, ctx: tauri::State<'_, Ctx>) -> Res<Option<GitI
         .filter_map(|de| Some((de.file_name().to_string_lossy().into_owned(), s.get(&de.path())?)))
         .collect();
     ctx.edit(|st| st.touch_repo(&s.root))?;
-    Ok(Some(GitInfo { prompt: s.prompt(&ctx.cfg.glyphs()), branch: s.summary.branch.clone(), root: s.root, files }))
+    Ok(Some(GitInfo { prompt: s.prompt(&ctx.cfg().glyphs()), branch: s.summary.branch.clone(), root: s.root, files }))
 }
 
 // ---------------------------------------------------------------- sidebar
@@ -173,15 +310,15 @@ struct Place {
 
 #[tauri::command]
 fn places() -> Vec<Place> {
-    let p = |name: &str, dir: Option<PathBuf>, icon: &'static str| dir.filter(|d| d.is_dir()).map(|path| Place { name: name.into(), path, icon });
+    let p = |name: &str, dir: Option<PathBuf>, icon: &'static str| dir.filter(|d| d.is_dir()).map(|path| Place { name: bosum_core::t!(name), path, icon });
     [
-        p("Home", dirs::home_dir(), "\u{f015}"),
-        p("Desktop", dirs::desktop_dir(), "\u{f108}"),
-        p("Documents", dirs::document_dir(), "\u{f0219}"),
-        p("Downloads", dirs::download_dir(), "\u{f019}"),
-        p("Pictures", dirs::picture_dir(), "\u{f03e}"),
-        p("Music", dirs::audio_dir(), "\u{f001}"),
-        p("Videos", dirs::video_dir(), "\u{f03d}"),
+        p("place.home", dirs::home_dir(), "\u{f015}"),
+        p("place.desktop", dirs::desktop_dir(), "\u{f108}"),
+        p("place.documents", dirs::document_dir(), "\u{f0219}"),
+        p("place.downloads", dirs::download_dir(), "\u{f019}"),
+        p("place.pictures", dirs::picture_dir(), "\u{f03e}"),
+        p("place.music", dirs::audio_dir(), "\u{f001}"),
+        p("place.videos", dirs::video_dir(), "\u{f03d}"),
     ]
     .into_iter()
     .flatten()
@@ -218,7 +355,7 @@ async fn disks() -> Vec<Disk> {
         if skip || out.iter().any(|o| o.device == name) {
             continue;
         }
-        let label = if mount.parent().is_none() { "System".into() } else { mount.file_name().map_or(name.clone(), |n| n.to_string_lossy().into_owned()) };
+        let label = if mount.parent().is_none() { bosum_core::t!("place.system") } else { mount.file_name().map_or(name.clone(), |n| n.to_string_lossy().into_owned()) };
         out.push(Disk { label, device: name, mount, total: d.total_space(), free: d.available_space(), removable: d.is_removable() });
     }
     out
@@ -272,7 +409,7 @@ const GUI_MAX_HITS: usize = 500;
 async fn search(query: String, scope: Option<PathBuf>, ctx: tauri::State<'_, Ctx>) -> Res<SearchOut> {
     // A CPU-bound scan (rayon, all cores), so off the async runtime's worker threads.
     let index = ctx.index.clone();
-    let max = ctx.cfg.search.max_results.min(GUI_MAX_HITS);
+    let max = ctx.cfg().search.max_results.min(GUI_MAX_HITS);
     tauri::async_runtime::spawn_blocking(move || SearchOut {
         results: index.search(&query, scope.as_deref(), max),
         state: index.state(),
@@ -358,7 +495,8 @@ fn open_path(path: PathBuf) -> Res<()> {
 /// `editor` from the config, else the desktop default.
 #[tauri::command]
 fn edit_path(path: PathBuf, ctx: tauri::State<Ctx>) -> Res<()> {
-    match &ctx.cfg.editor {
+    let editor = ctx.cfg().editor.clone();
+    match &editor {
         Some(ed) => {
             let cmd = format!("{ed} {}", bosum_core::config::quote(&path.to_string_lossy()));
             shell(&cmd).spawn().map(drop).map_err(|e| e.to_string())
@@ -417,6 +555,7 @@ async fn extract(paths: Vec<PathBuf>, base: PathBuf, dest: String) -> Res<()> {
 #[derive(Serialize)]
 struct Props {
     path: PathBuf,
+    /// "file", "folder" or "symlink"; the UI shows it in its language.
     kind: &'static str,
     link_target: Option<PathBuf>,
     size: u64,
@@ -448,7 +587,7 @@ async fn properties(path: PathBuf) -> Res<Props> {
     #[cfg(not(unix))]
     let (mode, uid, gid) = (None, None, None);
     Ok(Props {
-        kind: if lmeta.is_symlink() { "Symbolic link" } else if meta.is_dir() { "Folder" } else { "File" },
+        kind: if lmeta.is_symlink() { "symlink" } else if meta.is_dir() { "folder" } else { "file" },
         link_target: std::fs::read_link(&path).ok(),
         size,
         files,
@@ -539,7 +678,7 @@ async fn paste(dir: PathBuf, ctx: tauri::State<'_, Ctx>) -> Res<(usize, bool)> {
     let cut = clip.1 && (os.is_empty() || os == clip.0);
     let paths = if os.is_empty() { clip.0.clone() } else { os };
     if paths.is_empty() {
-        return Err("The clipboard holds no files".into());
+        return Err(bosum_core::t!("err.clipboard_no_files"));
     }
     if cut {
         // A cut pastes once.
@@ -624,7 +763,7 @@ async fn dupes_scan(options: bosum_core::dupes::Options, ctx: tauri::State<'_, C
     *ctx.dupes.lock().map_err(|e| e.to_string())? = Some(p.clone());
     let report = tauri::async_runtime::spawn_blocking(move || bosum_core::dupes::scan(&options, &p)).await.map_err(|e| e.to_string());
     let cancelled = ctx.dupes.lock().map_err(|e| e.to_string())?.take().is_some_and(|p| p.cancel.load(std::sync::atomic::Ordering::Relaxed));
-    if cancelled { Err("Cancelled".into()) } else { report }
+    if cancelled { Err(bosum_core::t!("err.cancelled")) } else { report }
 }
 
 #[derive(Serialize)]
@@ -692,7 +831,7 @@ fn scripts_dir() -> Option<PathBuf> {
 #[tauri::command]
 fn scripts(ctx: tauri::State<Ctx>) -> Vec<Script> {
     let mut out: Vec<Script> =
-        ctx.cfg.user_menu.iter().enumerate().map(|(i, u)| Script { key: u.key.clone(), label: u.label.clone(), user: Some(i), path: None }).collect();
+        ctx.cfg().user_menu.iter().enumerate().map(|(i, u)| Script { key: u.key.clone(), label: u.label.clone(), user: Some(i), path: None }).collect();
     if let Some(Ok(rd)) = scripts_dir().map(std::fs::read_dir) {
         let mut files: Vec<PathBuf> = rd.flatten().map(|d| d.path()).filter(|p| p.is_file()).collect();
         files.sort();
@@ -708,15 +847,15 @@ fn scripts(ctx: tauri::State<Ctx>) -> Vec<Script> {
 #[tauri::command]
 async fn run_script(user: Option<usize>, path: Option<PathBuf>, dir: PathBuf, file: Option<PathBuf>, selected: Vec<PathBuf>, ctx: tauri::State<'_, Ctx>) -> Res<String> {
     if let Some(i) = user {
-        let u = ctx.cfg.user_menu.get(i).ok_or("no such command")?;
-        return output(shell(&u.expand(&dir, file.as_deref(), &selected)), &dir);
+        let cmd = ctx.cfg().user_menu.get(i).ok_or_else(|| bosum_core::t!("err.no_such_command"))?.expand(&dir, file.as_deref(), &selected);
+        return output(shell(&cmd), &dir);
     }
-    let script = path.ok_or("nothing to run")?;
+    let script = path.ok_or_else(|| bosum_core::t!("err.nothing_to_run"))?;
     // Only files from the scripts directory may run this way.
     let allowed = scripts_dir().and_then(|d| std::fs::canonicalize(d).ok());
     let real = std::fs::canonicalize(&script).map_err(|e| e.to_string())?;
     if !allowed.is_some_and(|d| real.starts_with(d)) {
-        return Err("not a Bosum script".into());
+        return Err(bosum_core::t!("err.not_bosum_script"));
     }
     let args = if selected.is_empty() { file.into_iter().collect() } else { selected };
     let mut c = std::process::Command::new(&real);
@@ -729,7 +868,7 @@ async fn run_script(user: Option<usize>, path: Option<PathBuf>, dir: PathBuf, fi
 #[tauri::command]
 async fn check_update(ctx: tauri::State<'_, Ctx>) -> Res<Option<(String, Option<&'static str>)>> {
     use bosum_core::update;
-    if !ctx.cfg.check_updates {
+    if !ctx.cfg().check_updates {
         return Ok(None);
     }
     let due = update::due(&*ctx.state.lock().map_err(|e| e.to_string())?);
@@ -747,6 +886,7 @@ fn main() {
         eprintln!("bosum: {e}; using defaults");
         Config::default()
     });
+    bosum_core::i18n::set_language(bosum_core::i18n::resolve(&cfg.language));
     // Validate early: a bad key in the config should not surface as a blank window.
     if let Err(e) = cfg.keymap() {
         eprintln!("bosum: {e}");
@@ -755,6 +895,11 @@ fn main() {
     let home = std::env::home_dir().unwrap_or_default();
     let cwd = std::env::current_dir().ok().filter(|d| d.parent().is_some()).unwrap_or(home);
     let mut args: Vec<String> = std::env::args().skip(1).collect();
+    // `bosum-gui --settings [folders…]`: start with the Settings window open.
+    let open_settings = args.first().map(String::as_str) == Some("--settings");
+    if open_settings {
+        args.remove(0);
+    }
     // `bosum-gui --duplicates [folders…]`: the folders (default: the current one) are scanned for
     // duplicates at start instead of being opened in the panes.
     let duplicates = (args.first().map(String::as_str) == Some("--duplicates")).then(|| {
@@ -766,8 +911,9 @@ fn main() {
         index: Service::start(&cfg.search),
         start: [dir(0), dir(1)],
         duplicates,
+        open_settings,
         state: Mutex::new(AppState::load()),
-        cfg,
+        cfg: std::sync::RwLock::new(cfg),
         watched: Mutex::default(),
         watcher: Mutex::default(),
         clip: Mutex::default(),
@@ -785,7 +931,7 @@ fn main() {
             read_text, run_command, scripts, run_script, check_update, archive_list, extract, properties, set_permissions,
             clip_set, paste, start_drag, watch_dirs, preview::git_diff, preview::sqlite_info, preview::epub_preview,
             preview::file_facts, preview::cert_info, preview::mail_preview, preview::plist_xml, convert::preview_engines,
-            convert::convert, dupes_scan, dupes_progress, dupes_cancel
+            convert::convert, dupes_scan, dupes_progress, dupes_cancel, save_settings
         ])
         .run(tauri::generate_context!())
         .expect("error while running Bosum");
@@ -794,6 +940,25 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn settings_keep_comments_and_other_keys() {
+        let text = "# my config\ntheme = \"nc\"  # terminal\n\n[gui]\n# big text\nfont_size = 15\n\n[keys]\nquit = [\"F10\"]\n";
+        let mut ch = serde_json::Map::new();
+        ch.insert("font_size".into(), 17.into());
+        ch.insert("language".into(), "da".into());
+        ch.insert("latex_image".into(), "texlive:medium".into());
+        ch.insert("show_hidden".into(), false.into());
+        let out = apply_settings(text, &ch).unwrap();
+        for kept in ["# my config", "theme = \"nc\"  # terminal", "# big text", "quit = [\"F10\"]"] {
+            assert!(out.contains(kept), "{kept} lost:\n{out}");
+        }
+        let cfg = Config::parse(&out).unwrap();
+        assert_eq!((cfg.gui.font_size, cfg.language.as_str(), cfg.show_hidden), (17.0, "da", false));
+        assert_eq!(cfg.preview.images["latex"], "texlive:medium");
+        assert_eq!(cfg.preview.images["plantuml"], "docker.io/plantuml/plantuml:latest", "other defaults stay");
+        assert!(apply_settings(text, &serde_json::Map::from_iter([("nope".into(), 1.into())])).is_err());
+    }
 
     #[test]
     fn clipboard_uris_roundtrip() {

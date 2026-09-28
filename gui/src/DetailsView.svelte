@@ -1,6 +1,7 @@
 <script>
   import { ui, load, openItem, toggleMark, dragOut, columnMenu } from "./app.svelte.js";
-  import { size, date, age, ageColor, TAG_COLORS } from "./lib.js";
+  import { size, date, age, ageColor, TAG_COLORS, tagName } from "./lib.js";
+  import { t as tr, num } from "./i18n.svelte.js"; // `t` is the tab here
 
   /** @type {{ t: any, active: boolean, onfocus: Function }} */
   let { t, active, onfocus } = $props();
@@ -38,6 +39,12 @@
   const gitGlyph = (kind) =>
     ({ modified: g.modified, added: g.staged, untracked: g.untracked, deleted: g.deleted, renamed: g.renamed, conflict: g.conflict, ignored: g.ignored })[kind] ?? "";
 
+  /** The git status for a tooltip: "modified", or "modified (staged)". */
+  const gitTip = (st) => {
+    const k = tr(`details.git.${st.kind}`);
+    return st.staged ? tr("details.git_staged", { kind: k }) : k;
+  };
+
   function kind(e) {
     if (e.is_dir) return "directory";
     if (e.is_symlink) return "symlink";
@@ -71,18 +78,18 @@
     class="cols head"
     role="row"
     tabindex="-1"
-    title="Right-click for columns and folder sizes"
+    title={tr("details.head_tip")}
     oncontextmenu={(ev) => {
       ev.preventDefault();
       columnMenu();
     }}
   >
-    <button onclick={() => sortBy("name")}>Name <i>{arrow("name")}</i></button>
-    {#if shown.has("type")}<button onclick={() => sortBy("ext")}>Type <i>{arrow("ext")}</i></button>{/if}
-    {#if shown.has("size")}<button class="r" onclick={() => sortBy("size")}>Size <i>{arrow("size")}</i></button>{/if}
-    {#if shown.has("files")}<span class="r" title="Files inside a folder, all levels">Files</span>{/if}
-    {#if shown.has("modified")}<button onclick={() => sortBy("time")}>Modified <i>{arrow("time")}</i></button>{/if}
-    {#if shown.has("created")}<span>Created</span>{/if}
+    <button onclick={() => sortBy("name")}>{tr("details.col.name")} <i>{arrow("name")}</i></button>
+    {#if shown.has("type")}<button onclick={() => sortBy("ext")}>{tr("details.col.type")} <i>{arrow("ext")}</i></button>{/if}
+    {#if shown.has("size")}<button class="r" onclick={() => sortBy("size")}>{tr("details.col.size")} <i>{arrow("size")}</i></button>{/if}
+    {#if shown.has("files")}<span class="r" title={tr("details.files_tip")}>{tr("details.col.files")}</span>{/if}
+    {#if shown.has("modified")}<button onclick={() => sortBy("time")}>{tr("details.col.modified")} <i>{arrow("time")}</i></button>{/if}
+    {#if shown.has("created")}<span>{tr("details.col.created")}</span>{/if}
   </div>
   <div class="rows" bind:this={list} role="listbox" tabindex="-1" aria-label={t.dir}>
     {#each t.items as e, i (e.path)}
@@ -116,16 +123,16 @@
         <span class="name">
           <span class="icon" style:color={e.icon.color || null}>{e.name === ".." ? "\u{f062}" : e.icon.glyph}</span>
           <span class="label">{e.name}</span>
-          {#if e.tag}<span class="tag" style:background={TAG_COLORS[e.tag]} title={e.tag}></span>{/if}
-          {#if st}<span class="git git-{st.kind}" title="{st.kind}{st.staged ? ' (staged)' : ''}">{gitGlyph(st.kind)}</span>{/if}
+          {#if e.tag}<span class="tag" style:background={TAG_COLORS[e.tag]} title={tagName(e.tag)}></span>{/if}
+          {#if st}<span class="git git-{st.kind}" title={gitTip(st)}>{gitGlyph(st.kind)}</span>{/if}
         </span>
-        {#if shown.has("type")}<span class="ext">{e.is_dir ? (e.name === ".." ? "" : "Folder") : ext(e)}</span>{/if}
+        {#if shown.has("type")}<span class="ext">{e.is_dir ? (e.name === ".." ? "" : tr("details.folder")) : ext(e)}</span>{/if}
         {#if shown.has("size")}
           <span class="size">
             {#if e.is_dir}{t.sizes[e.path] !== undefined ? size(t.sizes[e.path]) : ""}{:else}{size(e.size)}{/if}
           </span>
         {/if}
-        {#if shown.has("files")}<span class="size">{e.is_dir && t.counts[e.path] !== undefined ? t.counts[e.path].toLocaleString() : ""}</span>{/if}
+        {#if shown.has("files")}<span class="size">{e.is_dir && t.counts[e.path] !== undefined ? num(t.counts[e.path]) : ""}</span>{/if}
         {#if shown.has("modified")}
           <span class="time">
             {#if e.name !== ".."}
@@ -172,12 +179,12 @@
     background: none;
     border: 0;
     padding: 0;
-    text-align: left;
+    text-align: start;
     cursor: pointer;
   }
   .head .r {
     width: 100%;
-    text-align: right;
+    text-align: end;
   }
   .head button:hover {
     color: var(--panel-fg);
@@ -192,7 +199,7 @@
   }
   .r,
   .size {
-    text-align: right;
+    text-align: end;
   }
   .rows {
     flex: 1;

@@ -4,12 +4,14 @@
   import { listen } from "@tauri-apps/api/event";
   import { ui, init, tab, pane, otherTab, item, load, cd, newTab, goBack, goForward, openItem, toggleMark, targets, reloadAll, snapshot, setTheme, nextView, measureFolders, columnMenu } from "./app.svelte.js";
   import { invoke, keyString, basename, parent, glob, quote, isArchive } from "./lib.js";
+  import { t, tn } from "./i18n.svelte.js";
   import Sidebar from "./Sidebar.svelte";
   import Pane from "./Pane.svelte";
   import Preview from "./Preview.svelte";
   import Splitter from "./Splitter.svelte";
   import Dialogs from "./Dialogs.svelte";
   import Duplicates from "./Duplicates.svelte";
+  import Settings from "./Settings.svelte";
 
   let dialogs = $state();
   let panes = $state([]);
@@ -61,21 +63,21 @@
     const dest = tab(at).dir;
     if (p.paths.every((x) => parent(x) === dest)) return; // dropped where it came from
     const n = describe(p.paths);
-    const go = (isMove) => op(invoke(isMove ? "rename" : "copy", { paths: p.paths, base: dest, dest }), `${isMove ? "Moved" : "Copied"} ${n}`);
+    const go = (isMove) => op(invoke(isMove ? "rename" : "copy", { paths: p.paths, base: dest, dest }), t(isMove ? "status.moved" : "status.copied", { what: n }));
     ui.modal = {
       kind: "menu",
-      title: `Drop ${n} in ${basename(dest) || dest}`,
+      title: t("app.drop_title", { what: n, folder: basename(dest) || dest }),
       direct: true,
       filter: "",
       cursor: 0,
       items: [
-        { key: "c", label: "Copy here", icon: "\u{f0c5}", run: () => go(false) },
-        { key: "m", label: "Move here", icon: "\u{f0b2}", run: () => go(true) },
+        { key: "c", label: t("app.copy_here"), icon: "\u{f0c5}", run: () => go(false) },
+        { key: "m", label: t("app.move_here"), icon: "\u{f0b2}", run: () => go(true) },
       ],
     };
   });
 
-  const describe = (paths) => (paths.length === 1 ? `"${basename(paths[0])}"` : `${paths.length} items`);
+  const describe = (paths) => (paths.length === 1 ? `"${basename(paths[0])}"` : tn("items", paths.length));
   const move = (d) => {
     const t = tab();
     t.cursor = Math.max(0, Math.min(t.items.length - 1, t.cursor + d));
@@ -95,7 +97,7 @@
       await promise;
       ui.status = ok;
     } catch (e) {
-      ui.modal = { kind: "message", title: "Something went wrong", text: String(e) };
+      ui.modal = { kind: "message", title: t("dialog.error"), text: String(e) };
     }
     for (const p of ui.panes) for (const t of p.tabs) t.marked.clear();
     await reloadAll();
@@ -104,17 +106,19 @@
   function transfer(isMove, dest = otherTab().dir) {
     const paths = targets();
     if (!paths.length) return;
-    prompt(isMove ? "Move or rename" : "Copy", `${isMove ? "Move" : "Copy"} ${describe(paths)} to:`, dest, (d) => {
-      if (d.trim()) op(invoke(isMove ? "rename" : "copy", { paths, base: tab().dir, dest: d }), `${isMove ? "Moved" : "Copied"} ${describe(paths)}`);
+    const what = describe(paths);
+    prompt(t(isMove ? "dialog.move" : "dialog.copy"), t(isMove ? "dialog.move_to" : "dialog.copy_to", { what }), dest, (d) => {
+      if (d.trim()) op(invoke(isMove ? "rename" : "copy", { paths, base: tab().dir, dest: d }), t(isMove ? "status.moved" : "status.copied", { what }));
     });
   }
 
   function remove(forever) {
     const paths = targets();
     if (!paths.length) return;
-    const run = () => op(invoke("delete", { paths, forever }), `${forever ? "Deleted" : "Moved to the trash:"} ${describe(paths)}`);
-    const text = forever ? `Permanently delete ${describe(paths)}? This cannot be undone.` : `Move ${describe(paths)} to the trash?`;
-    if (ui.cfg.confirm_delete) ui.modal = { kind: "confirm", title: "Delete", text, ok: forever ? "Delete" : "Move to trash", run };
+    const what = describe(paths);
+    const run = () => op(invoke("delete", { paths, forever }), t(forever ? "status.deleted" : "status.trashed", { what }));
+    const text = t(forever ? "confirm.delete_forever" : "confirm.trash", { what });
+    if (ui.cfg.confirm_delete) ui.modal = { kind: "confirm", title: t("dialog.delete"), text, ok: t(forever ? "common.delete" : "app.move_to_trash"), run };
     else run();
   }
 
@@ -123,7 +127,7 @@
     if (!paths.length) return;
     try {
       await invoke("clip_set", { paths, cut });
-      ui.status = `${cut ? "Cut" : "Copied"} ${describe(paths)} to the clipboard`;
+      ui.status = t(cut ? "app.clip_cut" : "app.clip_copied", { what: describe(paths) });
     } catch (e) {
       ui.status = String(e);
     }
@@ -136,7 +140,7 @@
   }
 
   async function runShell(command, dir) {
-    ui.status = `Running ${command}…`;
+    ui.status = t("app.running", { what: command });
     const text = await invoke("run_command", { cmd: command, dir }).catch(String);
     ui.status = "";
     showOutput(command, text);
@@ -155,7 +159,7 @@
   }
 
   function selectGroup(sel) {
-    prompt(sel ? "Select files" : "Unselect files", "Matching:", "*", (v) => {
+    prompt(t(sel ? "app.select_files" : "app.unselect_files"), t("app.matching"), "*", (v) => {
       const pats = v.split(/[\s;,]+/).filter(Boolean);
       const t = tab();
       for (const e of t.items) if (!e.is_dir && pats.some((g) => glob(g, e.name))) sel ? t.marked.add(e.path) : t.marked.delete(e.path);
@@ -174,13 +178,8 @@
     p.active = (p.active + d + p.tabs.length) % p.tabs.length;
   }
 
-  const THEMES = [
-    ["dark", "Dark"],
-    ["light", "Light"],
-    ["nord", "Nord"],
-    ["midnight", "Tokyo Night"],
-    ["nc", "Classic blue (NC)"],
-  ];
+  /** Theme ids; each shows as t(`theme.<id>`). */
+  const THEMES = ["dark", "light", "nord", "midnight", "nc"];
 
   function sortBy(k) {
     const t = tab();
@@ -190,12 +189,12 @@
   }
 
   function runScript(s) {
-    const t = tab();
-    const e = item(t);
+    const tb = tab();
+    const e = item(tb);
     const file = e && e.name !== ".." ? e.path : null;
-    const selected = t.items.filter((x) => t.marked.has(x.path)).map((x) => x.path);
-    ui.status = `Running ${s.label}…`;
-    invoke("run_script", { user: s.user, path: s.path, dir: t.dir, file, selected }).then(
+    const selected = tb.items.filter((x) => tb.marked.has(x.path)).map((x) => x.path);
+    ui.status = t("app.running", { what: s.label });
+    invoke("run_script", { user: s.user, path: s.path, dir: tb.dir, file, selected }).then(
       (text) => {
         ui.status = "";
         showOutput(s.label, text);
@@ -229,7 +228,7 @@
     search: () => (ui.modal = { kind: "search", query: "", scoped: false, res: null, cursor: 0 }),
     refresh: async () => {
       await reloadAll();
-      ui.status = "Reread";
+      ui.status = t("status.reread");
     },
     swap_panels: () => {
       ui.panes = [ui.panes[1], ui.panes[0]];
@@ -266,9 +265,9 @@
     copy: () => transfer(false),
     move: () => transfer(true),
     mkdir: () =>
-      prompt("New folder", "Name:", "", async (name) => {
+      prompt(t("dialog.new_folder"), t("app.name_label"), "", async (name) => {
         if (!name.trim()) return;
-        await op(invoke("mkdir", { base: tab().dir, name }), `Created ${name}`);
+        await op(invoke("mkdir", { base: tab().dir, name }), t("status.created", { what: name }));
         await load(tab(), tab().dir, name.split(/[\\/]/)[0]);
       }),
     delete: () => remove(false),
@@ -279,36 +278,37 @@
       const dir = tab().dir;
       try {
         const [n, moved] = await invoke("paste", { dir });
-        ui.status = `${moved ? "Moved" : "Pasted"} ${n} item${n > 1 ? "s" : ""}`;
+        ui.status = tn(moved ? "app.moved_items" : "app.pasted_items", n);
       } catch (e) {
-        ui.modal = { kind: "message", title: "Paste", text: String(e) };
+        ui.modal = { kind: "message", title: t("action.paste"), text: String(e) };
       }
       reloadAll();
     },
     properties: async () => {
       const e = item();
       if (!e || e.name === "..") return;
-      ui.status = "Reading properties…";
+      ui.status = t("app.reading_properties");
       try {
         const p = await invoke("properties", { path: e.path });
         ui.modal = { kind: "props", props: p, mode: p.mode?.toString(8).padStart(3, "0") ?? "", readonly: p.readonly };
       } catch (err) {
-        ui.modal = { kind: "message", title: "Properties", text: String(err) };
+        ui.modal = { kind: "message", title: t("action.properties"), text: String(err) };
       }
       ui.status = "";
     },
     extract: () => {
       const paths = targets().filter((p) => isArchive(basename(p)));
-      if (!paths.length) return void (ui.status = "Not a zip or tar archive");
-      prompt("Extract", `Extract ${describe(paths)} into a new folder in:`, otherTab().dir, (d) => {
-        if (d.trim()) op(invoke("extract", { paths, base: tab().dir, dest: d }), `Extracted ${describe(paths)}`);
+      if (!paths.length) return void (ui.status = t("app.not_archive"));
+      const what = describe(paths);
+      prompt(t("app.extract"), t("app.extract_into", { what }), otherTab().dir, (d) => {
+        if (d.trim()) op(invoke("extract", { paths, base: tab().dir, dest: d }), t("app.extracted", { what }));
       });
     },
     user_menu: async () => {
       const list = await invoke("scripts");
       ui.modal = {
         kind: "menu",
-        title: "Scripts",
+        title: t("app.scripts"),
         direct: true,
         filter: "",
         cursor: 0,
@@ -318,7 +318,7 @@
     menu: () =>
       (ui.modal = {
         kind: "menu",
-        title: "Commands",
+        title: t("menu.commands"),
         direct: false,
         filter: "",
         cursor: 0,
@@ -326,7 +326,7 @@
           ...Object.entries(ui.cfg.actions)
             .filter(([n]) => !["menu", "up", "down"].includes(n))
             .map(([n, [label, key]]) => ({ key, label, run: () => actions[n]?.() })),
-          ...THEMES.map(([id, label]) => ({ key: id === ui.theme ? "current" : "", label: `Theme: ${label}`, icon: "\u{f53f}", run: () => setTheme(id) })),
+          ...THEMES.map((id) => ({ key: id === ui.theme ? t("app.current") : "", label: t("app.theme", { name: t(`theme.${id}`) }), icon: "\u{f53f}", run: () => setTheme(id) })),
         ],
       }),
     help: () => (ui.modal = { kind: "help" }),
@@ -348,11 +348,11 @@
     toggle_sidebar: () => (ui.showSidebar = !ui.showSidebar),
     edit_path: () => panes[ui.dual ? ui.activePane : 0]?.editPath(),
     dir_sizes: async () => {
-      const t = tab();
-      const dirs = t.marked.size ? targets(t) : t.items.filter((e) => e.is_dir && e.name !== "..").map((e) => e.path);
+      const tb = tab();
+      const dirs = tb.marked.size ? targets(tb) : tb.items.filter((e) => e.is_dir && e.name !== "..").map((e) => e.path);
       if (!dirs.length) return;
-      ui.status = `Measuring ${dirs.length} folder${dirs.length > 1 ? "s" : ""}…`;
-      await measureFolders(t, dirs);
+      ui.status = tn("app.measuring", dirs.length);
+      await measureFolders(tb, dirs);
       ui.status = "";
     },
     batch_rename: () => {
@@ -373,6 +373,7 @@
     },
     columns: () => columnMenu(),
     duplicates: () => (ui.modal = { kind: "dupes" }),
+    settings: () => (ui.modal = { kind: "settings" }),
     back: () => goBack(),
     forward: () => goForward(),
   };
@@ -495,29 +496,30 @@
     </div>
 
     <label class="cmdline">
-      <span class="prompt">{ui.quick !== null ? `Quick search: ${ui.quick}` : `${tab().dir} ❯`}</span>
-      <input class="cmd" bind:this={cmdInput} bind:value={ui.cmd} spellcheck="false" autocomplete="off" placeholder="Type a command…" aria-label="Command line" />
+      <span class="prompt">{#if ui.quick !== null}{t("quick_search", { query: ui.quick })}{:else}<bdi dir="ltr">{tab().dir}</bdi> ❯{/if}</span>
+      <input class="cmd" dir="auto" bind:this={cmdInput} bind:value={ui.cmd} spellcheck="false" autocomplete="off" placeholder={t("app.cmd_placeholder")} aria-label={t("app.cmd_line")} />
       {#if ui.status}<span class="status">{ui.status}</span>{/if}
       {#if update}
         <!-- With a package manager, the command upgrades; the page still has the release notes. -->
-        <button class="update" title={update[1] ? `Upgrade with: ${update[1]}. Click for the release notes.` : "Open the releases page"}
+        <button class="update" title={update[1] ? t("app.update_how", { how: update[1] }) : t("app.update_releases")}
           onclick={() => invoke("open_path", { path: "https://github.com/mwo-dk/bosum/releases/latest" })}>
-          Bosum {update[0]} is available{update[1] ? `: ${update[1]}` : ""}
+          {update[1] ? t("status.update", { version: update[0], how: update[1] }) : t("app.update_available", { version: update[0] })}
         </button>
       {/if}
     </label>
-    <nav class="keybar" aria-label="Function keys">
+    <nav class="keybar" aria-label={t("app.fkeys")}>
       {#each fkeys as f (f.n)}
         <button disabled={!f.act} onclick={() => f.act && actions[f.act]()}><kbd>F{f.n}</kbd><span>{f.label}</span></button>
       {/each}
     </nav>
   </div>
 {:else}
-  <div class="loading">{ui.status || "Loading…"}</div>
+  <div class="loading">{ui.status || t("common.loading")}</div>
 {/if}
 
 <Dialogs bind:this={dialogs} />
 {#if ui.modal?.kind === "dupes"}<Duplicates />{/if}
+{#if ui.modal?.kind === "settings"}<Settings />{/if}
 
 <style>
   :global(html, body) {

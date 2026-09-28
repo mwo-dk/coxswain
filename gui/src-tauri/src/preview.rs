@@ -1,6 +1,7 @@
 //! Previews that need Rust: a file's git diff, SQLite databases, EPUB books, and facts for
 //! the preview pane (photo EXIF, audio tags, what an executable was built for).
 
+use bosum_core::{t, tn};
 use serde::Serialize;
 use std::fs::File;
 use std::io::{BufReader, Read};
@@ -83,7 +84,7 @@ pub async fn epub_preview(path: PathBuf) -> Res<Book> {
         regex::Regex::new(&format!(r#"\b{name}\s*=\s*["']([^"']*)["']"#)).ok()?.captures(tag).map(|c| c[1].to_string())
     };
     let container = read("META-INF/container.xml")?;
-    let opf_path = regex::Regex::new(r"<rootfile\b[^>]*>").unwrap().find(&container).and_then(|m| attr(m.as_str(), "full-path")).ok_or("no rootfile")?;
+    let opf_path = regex::Regex::new(r"<rootfile\b[^>]*>").unwrap().find(&container).and_then(|m| attr(m.as_str(), "full-path")).ok_or_else(|| t!("err.epub_no_rootfile"))?;
     let opf = read(&opf_path)?;
     let base = Path::new(&opf_path).parent().map(|p| p.to_string_lossy().into_owned()).unwrap_or_default();
     let title = regex::Regex::new(r"(?s)<dc:title[^>]*>(.*?)</dc:title>").unwrap().captures(&opf).map(|c| c[1].trim().to_string()).unwrap_or_default();
@@ -105,7 +106,7 @@ pub async fn epub_preview(path: PathBuf) -> Res<Book> {
             return Ok(Book { title, html });
         }
     }
-    Err("No readable chapter found".into())
+    Err(t!("err.no_readable_chapter"))
 }
 
 // ---------------------------------------------------------------- certificates
@@ -167,7 +168,7 @@ pub async fn cert_info(path: PathBuf) -> Res<Vec<Cert>> {
                 }
             }
         }
-        return if out.is_empty() { Err("No certificate in this PEM file".into()) } else { Ok(out) };
+        return if out.is_empty() { Err(t!("err.no_certificate")) } else { Ok(out) };
     }
     let (_, c) = parse_x509_certificate(&data).map_err(|e| e.to_string())?;
     Ok(vec![describe(&c)])
@@ -189,7 +190,7 @@ pub struct Mail {
 pub async fn mail_preview(path: PathBuf) -> Res<Mail> {
     use mail_parser::{Address, MessageParser, MimeHeaders};
     let data = std::fs::read(&path).map_err(|e| e.to_string())?;
-    let m = MessageParser::default().parse(&data[..]).ok_or("Not an e-mail message")?;
+    let m = MessageParser::default().parse(&data[..]).ok_or_else(|| t!("err.not_email"))?;
     let who = |a: Option<&Address>| {
         a.map(|a| {
             a.iter()
@@ -210,7 +211,7 @@ pub async fn mail_preview(path: PathBuf) -> Res<Mail> {
         to: who(m.to()),
         date: m.date().map(|d| d.to_rfc822()).unwrap_or_default(),
         text: m.body_text(0).map(|t| t.chars().take(200_000).collect()).unwrap_or_default(),
-        attachments: m.attachments().map(|a| (a.attachment_name().unwrap_or("(unnamed)").to_string(), a.contents().len())).collect(),
+        attachments: m.attachments().map(|a| (a.attachment_name().map_or_else(|| t!("facts.unnamed"), str::to_string), a.contents().len())).collect(),
     })
 }
 
@@ -245,18 +246,17 @@ fn exif_facts(path: &Path) -> Vec<(String, String)> {
     let Ok(ex) = exif::Reader::new().read_from_container(&mut BufReader::new(f)) else { return vec![] };
     let get = |t: Tag| ex.get_field(t, In::PRIMARY).map(|f| f.display_value().with_unit(&ex).to_string().trim_matches('"').to_string());
     let mut out: Vec<(String, String)> = [
-        ("Camera", [get(Tag::Make), get(Tag::Model)].into_iter().flatten().collect::<Vec<_>>().join(" ")),
-        ("Lens", get(Tag::LensModel).unwrap_or_default()),
-        ("Taken", get(Tag::DateTimeOriginal).unwrap_or_default()),
-        ("Exposure", get(Tag::ExposureTime).unwrap_or_default()),
-        ("Aperture", get(Tag::FNumber).unwrap_or_default()),
-        ("ISO", get(Tag::PhotographicSensitivity).unwrap_or_default()),
-        ("Focal length", get(Tag::FocalLength).unwrap_or_default()),
+        (t!("facts.camera"), [get(Tag::Make), get(Tag::Model)].into_iter().flatten().collect::<Vec<_>>().join(" ")),
+        (t!("facts.lens"), get(Tag::LensModel).unwrap_or_default()),
+        (t!("facts.taken"), get(Tag::DateTimeOriginal).unwrap_or_default()),
+        (t!("facts.exposure"), get(Tag::ExposureTime).unwrap_or_default()),
+        (t!("facts.aperture"), get(Tag::FNumber).unwrap_or_default()),
+        (t!("facts.iso"), get(Tag::PhotographicSensitivity).unwrap_or_default()),
+        (t!("facts.focal_length"), get(Tag::FocalLength).unwrap_or_default()),
     ]
     .into_iter()
     .filter(|(_, v)| !v.is_empty())
-    .map(|(k, v)| (k.to_string(), v))
-    .collect();
+        .collect();
     // GPS as decimal degrees, which maps and search boxes accept.
     let deg = |t: Tag, r: Tag| {
         let v = ex.get_field(t, In::PRIMARY)?;
@@ -266,7 +266,7 @@ fn exif_facts(path: &Path) -> Vec<(String, String)> {
         Some(if neg { -d } else { d })
     };
     if let (Some(lat), Some(lon)) = (deg(Tag::GPSLatitude, Tag::GPSLatitudeRef), deg(Tag::GPSLongitude, Tag::GPSLongitudeRef)) {
-        out.push(("Location".into(), format!("{lat:.5}, {lon:.5}")));
+        out.push((t!("facts.location"), format!("{lat:.5}, {lon:.5}")));
     }
     out
 }
@@ -278,24 +278,29 @@ fn audio_facts(path: &Path) -> Vec<(String, String)> {
     if let Some(tag) = file.primary_tag().or_else(|| file.first_tag()) {
         let mut add = |k: &str, v: Option<String>| {
             if let Some(v) = v.filter(|v| !v.trim().is_empty()) {
-                out.push((k.to_string(), v));
+                out.push((t!(k), v));
             }
         };
-        add("Title", tag.title().map(|s| s.to_string()));
-        add("Artist", tag.artist().map(|s| s.to_string()));
-        add("Album", tag.album().map(|s| s.to_string()));
-        add("Year", tag.date().map(|d| d.year.to_string()));
-        add("Track", tag.track().map(|n| n.to_string()));
-        add("Genre", tag.genre().map(|s| s.to_string()));
+        add("facts.title", tag.title().map(|s| s.to_string()));
+        add("facts.artist", tag.artist().map(|s| s.to_string()));
+        add("facts.album", tag.album().map(|s| s.to_string()));
+        add("facts.year", tag.date().map(|d| d.year.to_string()));
+        add("facts.track", tag.track().map(|n| n.to_string()));
+        add("facts.genre", tag.genre().map(|s| s.to_string()));
     }
     let p = file.properties();
     let secs = p.duration().as_secs();
-    out.push(("Length".into(), format!("{}:{:02}", secs / 60, secs % 60)));
+    out.push((t!("facts.length"), format!("{}:{:02}", secs / 60, secs % 60)));
     if let Some(b) = p.audio_bitrate() {
-        out.push(("Bitrate".into(), format!("{b} kbps")));
+        out.push((t!("facts.bitrate"), format!("{b} kbps")));
     }
     if let (Some(r), Some(c)) = (p.sample_rate(), p.channels()) {
-        out.push(("Format".into(), format!("{:.1} kHz, {}", r as f64 / 1000.0, if c == 1 { "mono".into() } else if c == 2 { "stereo".into() } else { format!("{c} channels") })));
+        let channels = match c {
+            1 => t!("facts.mono"),
+            2 => t!("facts.stereo"),
+            _ => tn!("facts.channels", c),
+        };
+        out.push((t!("facts.format"), t!("facts.sample_format", "rate" => format!("{:.1}", r as f64 / 1000.0), "channels" => channels)));
     }
     out
 }
@@ -304,7 +309,7 @@ fn audio_facts(path: &Path) -> Vec<(String, String)> {
 fn binary_facts(path: &Path) -> Vec<(String, String)> {
     let mut h = [0u8; 4096];
     let n = File::open(path).and_then(|mut f| f.read(&mut h)).unwrap_or(0);
-    binary_kind(&h[..n]).map(|(fmt, cpu, kind)| vec![("Executable".into(), format!("{fmt}, {cpu}")), ("Kind".into(), kind)]).unwrap_or_default()
+    binary_kind(&h[..n]).map(|(fmt, cpu, kind)| vec![(t!("facts.executable"), format!("{fmt}, {cpu}")), (t!("facts.kind"), kind)]).unwrap_or_default()
 }
 
 fn binary_kind(h: &[u8]) -> Option<(String, String, String)> {
@@ -325,33 +330,33 @@ fn binary_kind(h: &[u8]) -> Option<(String, String, String)> {
             243 => "RISC-V",
             8 => "MIPS",
             21 => "PowerPC 64",
-            _ => "other CPU",
+            _ => "",
         };
         let kind = match t {
-            1 => "object file",
+            1 => "object",
             2 => "program",
-            3 => "program or shared library",
-            4 => "core dump",
+            3 => "program_or_shared",
+            4 => "core_dump",
             _ => "other",
         };
-        return Some((format!("Linux/Unix ELF {bits}-bit"), cpu.into(), kind.into()));
+        return Some((t!("facts.elf", "bits" => bits), cpu_name(cpu), kind_name(kind)));
     }
     if h.starts_with(b"MZ") {
         let pe = u32le(0x3c)? as usize;
         if h.get(pe..pe + 4)? != b"PE\0\0" {
-            return Some(("DOS".into(), "x86".into(), "program".into()));
+            return Some((t!("facts.dos"), "x86".into(), kind_name("program")));
         }
         let cpu = match u16le(pe + 4)? {
             0x8664 => "x86-64",
             0x14c => "x86",
             0xaa64 => "ARM64",
             0x1c4 => "ARM",
-            _ => "other CPU",
+            _ => "",
         };
         let dll = u16le(pe + 22)? & 0x2000 != 0;
         let gui = u16le(pe + 24 + 68)? == 2;
-        let kind = if dll { "library (DLL)" } else if gui { "program (windowed)" } else { "program (console)" };
-        return Some(("Windows PE".into(), cpu.into(), kind.into()));
+        let kind = if dll { "dll" } else if gui { "windowed" } else { "console" };
+        return Some((t!("facts.windows_pe"), cpu_name(cpu), kind_name(kind)));
     }
     let magic = u32le(0)?;
     if magic == 0xfeedfacf || magic == 0xfeedface {
@@ -359,35 +364,46 @@ fn binary_kind(h: &[u8]) -> Option<(String, String, String)> {
             0x0100_0007 => "x86-64",
             0x0100_000c => "ARM64",
             7 => "x86",
-            _ => "other CPU",
+            _ => "",
         };
         let kind = match u32le(12)? {
             2 => "program",
-            6 => "dynamic library",
+            6 => "dylib",
             8 => "bundle",
-            1 => "object file",
+            1 => "object",
             _ => "other",
         };
-        return Some(("macOS Mach-O".into(), cpu.into(), kind.into()));
+        return Some((t!("facts.macho"), cpu_name(cpu), kind_name(kind)));
     }
     // Universal ("fat") binaries are big-endian and list one slice per CPU.
     if h.starts_with(&[0xca, 0xfe, 0xba, 0xbe]) {
         let n = u32::from_be_bytes(h.get(4..8)?.try_into().ok()?);
         if n > 0 && n < 10 {
-            let cpus: Vec<&str> = (0..n as usize)
+            let cpus: Vec<String> = (0..n as usize)
                 .filter_map(|i| {
                     let o = 8 + i * 20;
                     Some(match u32::from_be_bytes(h.get(o..o + 4)?.try_into().ok()?) {
                         0x0100_0007 => "x86-64",
                         0x0100_000c => "ARM64",
-                        _ => "other",
+                        _ => "",
                     })
+                    .map(cpu_name)
                 })
                 .collect();
-            return Some(("macOS universal".into(), cpus.join(" + "), "program or library".into()));
+            return Some((t!("facts.macos_universal"), cpus.join(" + "), kind_name("program_or_library")));
         }
     }
     None
+}
+
+/// A CPU name as shown; empty means one Bosum does not name.
+fn cpu_name(cpu: &str) -> String {
+    if cpu.is_empty() { t!("facts.other_cpu") } else { cpu.to_string() }
+}
+
+/// The text for a binary kind code: `facts.bin.<code>`.
+fn kind_name(code: &str) -> String {
+    t!(&format!("facts.bin.{code}"))
 }
 
 #[cfg(test)]
@@ -402,7 +418,7 @@ mod tests {
         elf[5] = 1;
         elf[16] = 3;
         elf[18] = 62;
-        assert_eq!(binary_kind(&elf).unwrap(), ("Linux/Unix ELF 64-bit".into(), "x86-64".into(), "program or shared library".into()));
+        assert_eq!(binary_kind(&elf).unwrap(), (t!("facts.elf", "bits" => 64), "x86-64".into(), t!("facts.bin.program_or_shared")));
 
         let mut pe = vec![0u8; 512];
         pe[..2].copy_from_slice(b"MZ");
@@ -410,14 +426,14 @@ mod tests {
         pe[0x80..0x84].copy_from_slice(b"PE\0\0");
         pe[0x84..0x86].copy_from_slice(&0xaa64u16.to_le_bytes());
         pe[0x80 + 24 + 68] = 3;
-        assert_eq!(binary_kind(&pe).unwrap().2, "program (console)");
+        assert_eq!(binary_kind(&pe).unwrap().2, t!("facts.bin.console"));
         assert_eq!(binary_kind(&pe).unwrap().1, "ARM64");
 
         let mut macho = vec![0u8; 32];
         macho[..4].copy_from_slice(&0xfeedfacfu32.to_le_bytes());
         macho[4..8].copy_from_slice(&0x0100_000cu32.to_le_bytes());
         macho[12] = 2;
-        assert_eq!(binary_kind(&macho).unwrap(), ("macOS Mach-O".into(), "ARM64".into(), "program".into()));
+        assert_eq!(binary_kind(&macho).unwrap(), (t!("facts.macho"), "ARM64".into(), t!("facts.bin.program")));
 
         assert!(binary_kind(b"hello world").is_none());
         // This test binary itself is a real executable for the host.
