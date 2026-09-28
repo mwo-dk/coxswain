@@ -11,6 +11,10 @@ shared Rust core and read the same config file.
   counts and stashes, plus a glyph per file (Nerd Font, or ASCII).
 - **Search like Everything.** Every file name on the machine sits in RAM and queries run in
   parallel: about 1.4M files index in ~0.2 s and answer in under 10 ms.
+- **See before you open.** The desktop app previews code with syntax highlighting, Markdown,
+  images, video, audio, PDFs and what is inside zip and tar archives, and has a thumbnail view.
+- **Plays well with the desktop.** Delete goes to the trash, folders refresh themselves, files
+  drag to and from other apps, and Ctrl+C / Ctrl+V share files with your other file manager.
 - **Configurable.** Key bindings, color schemes, glyphs, user menu and fonts all live in one
   TOML file.
 
@@ -20,8 +24,10 @@ shared Rust core and read the same config file.
 |---|---|
 | ![Find file searches every file on the machine](docs/screenshots/tui-search.png) | ![The desktop app with sidebar, tabs and tags](docs/screenshots/gui-details.png) |
 | Find file: every file on the machine, in milliseconds | Desktop app: sidebar, tabs, color tags, git |
-| ![Miller columns, light theme](docs/screenshots/gui-columns.png) | |
-| Desktop app: Miller columns and preview, light theme | |
+| ![Thumbnails and an image preview](docs/screenshots/gui-thumbnails.png) | ![A PDF in the preview pane, next to a git repository](docs/screenshots/gui-pdf.png) |
+| Thumbnails (Alt+V) with the preview pane (Space) | PDFs preview in place; the left pane shows git status |
+| ![The contents of a tar.gz archive in the preview](docs/screenshots/gui-archive.png) | ![Miller columns, light theme](docs/screenshots/gui-columns.png) |
+| Archives list their contents; Ctrl+E extracts them | Miller columns and preview, light theme |
 
 ## Install
 
@@ -30,6 +36,7 @@ shared Rust core and read the same config file.
 ```sh
 brew install mwo-dk/coxswain/coxswain                                                    # macOS, Linux
 scoop bucket add coxswain https://github.com/mwo-dk/scoop-coxswain; scoop install coxswain   # Windows
+cargo install coxswain                                                                # anywhere with Rust
 ```
 
 **Desktop app** (macOS, Linux x86-64): `brew install --cask mwo-dk/coxswain/coxswain-gui`
@@ -37,6 +44,9 @@ scoop bucket add coxswain https://github.com/mwo-dk/scoop-coxswain; scoop instal
 **Download:** pick your platform under [Releases](https://github.com/mwo-dk/coxswain/releases/latest).
 The builds are not code-signed; the release notes say how to get past the first-run warning
 on Windows and macOS.
+
+Both apps check once a day for a newer release and tell you the command that upgrades your copy
+(`brew upgrade`, `scoop update`, `cargo install`, ...), or link to the download.
 
 **Build from source:**
 
@@ -77,15 +87,17 @@ does Shift-click ranges, drag-and-drop between panels, and clickable column head
 
 ## Using Coxswain
 
-Start either app with up to two folders: `coxswain ~/src ~/Downloads` or `coxswain-gui .`. Without
-arguments both panels open in the current folder (the desktop app restores your last session).
+Start either app with up to two folders: `coxswain ~/src ~/Downloads` or `coxswain-gui .`. A file
+opens its folder with the cursor on it, so `coxswain-gui ~/Pictures/cat.jpg` shows that picture.
+Without arguments both panels open in the current folder (the desktop app restores your last
+session).
 
 **The NC way.** One panel is active. Move with the arrows, Enter opens a folder or file, and
 Backspace goes up. Mark files with Insert (or `+` with a pattern like `*.rs`), then F5 copies
 or F6 moves them to the *other* panel's folder. With nothing marked, the file under the cursor
-is used. F3 views, F4 opens your `$EDITOR`, F8 moves to the trash (after asking), and Shift+F8 deletes
-for good. F9 opens a searchable
-list of every command, so you never need to remember a key.
+is used. F3 views, F4 opens your `$EDITOR`, F8 moves to the trash (after asking), and Shift+F8
+deletes for good. F9 opens a searchable list of every command, so you never need to remember a
+key.
 
 **Reading the git line.** Inside a repository the panel's bottom line shows the branch,
 commits ahead/behind the upstream, and counts of staged, modified and untracked files and
@@ -104,8 +116,8 @@ loaded from disk and kept current while Coxswain runs.
 | Ctrl+T / Ctrl+W | New / close tab | Space | Preview pane (code, Markdown, images, video, PDF, archives) |
 | Ctrl+Tab | Next tab | Alt+V | Details, Miller columns or thumbnails |
 | Ctrl+C / Ctrl+X / Ctrl+V | Copy, cut, paste files (shared with other file managers) | Alt+Enter | Properties and permissions |
-| Ctrl+E | Extract a zip or tar archive to the other pane | | |
-| Alt+Left / Alt+Right | Back / forward | Ctrl+B | Sidebar |
+| Alt+Left / Alt+Right | Back / forward | Ctrl+E | Extract a zip or tar archive to the other pane |
+| Ctrl+B | Sidebar | | |
 | Ctrl+L | Type a path | Ctrl+Space | Folder sizes |
 | Ctrl+M | Batch rename with regex, previewed | Alt+T | Color tag |
 | Alt+N | Notes for this folder | Alt+. | Hidden files |

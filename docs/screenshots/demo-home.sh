@@ -19,8 +19,20 @@ truncate -s 40K Documents/budget.xlsx
 truncate -s 12K Documents/letter.odt
 printf '# Notes\n\n- Book the ferry\n- Renew the domain\n- Try `coxswain` on the laptop\n' > Documents/notes.md
 truncate -s 5M Downloads/setup.iso
-truncate -s 800K Downloads/wallpaper.jpg
-truncate -s 2M Pictures/holiday.jpg
+# Real pictures for the thumbnail view and the preview (ImageMagick draws them).
+img() { magick -size 1200x800 "$@"; }
+img gradient:'#0b3d91'-'#f4a261' -swirl 60 Pictures/sunset.jpg
+img plasma:'#2a9d8f'-'#264653' -blur 0x2 Pictures/lagoon.jpg
+img radial-gradient:'#ffd166'-'#ef476f' Pictures/glow.jpg
+img plasma:'#8ecae6'-'#023047' Pictures/holiday.jpg
+img gradient:'#606c38'-'#fefae0' -wave 60x300 -resize 1200x800! Pictures/hills.png
+img xc:'#1d3557' -fill '#e63946' -draw 'circle 600,400 600,150' -fill '#f1faee' -draw 'circle 600,400 600,300' Pictures/target.png
+cp Pictures/lagoon.jpg Downloads/wallpaper.jpg
+# A one-page PDF for the preview pane.
+magick -size 1240x1754 xc:white -font "$(fc-match -f '%{file}' sans)" -fill '#1d3557' -pointsize 64 -annotate +120+220 'Launch report' \
+  -fill '#333' -pointsize 34 -annotate +120+320 'Rocket, flight 7: nominal ascent, early engine cut-off.' \
+  -fill '#2a9d8f' -draw 'rectangle 120,420 1120,900' -fill white -pointsize 40 -annotate +160+680 'Speed over time' \
+  Documents/launch-report.pdf
 
 cd projects/website
 cat > package.json <<'EOF'
@@ -94,3 +106,6 @@ echo "Launch window: Tuesday" >> README.md && g stash -q
 sed -i 's/30.0/45.0/' src/main.rs
 printf 'pub const TANK: f64 = 45.0;\n' > src/fuel.rs && g add src/fuel.rs
 printf 'Add a landing burn\n' > TODO.txt
+
+# An archive, for the preview's contents list and for extracting.
+cd "$d" && tar czf Downloads/website-0.3.0.tar.gz --exclude=.git -C projects website
