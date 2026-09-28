@@ -138,7 +138,12 @@ macro_rules! actions {
             /// snake_case name, as used in config files and by the GUI.
             pub fn name(self) -> &'static str { match self { $(Action::$variant => $name),* } }
             /// Human label for menus and the key bar.
-            pub fn label(self) -> &'static str { match self { $(Action::$variant => $label),* } }
+            /// The name shown for the action, in the current language.
+            pub fn label(self) -> String {
+                let key = format!("action.{}", self.name());
+                let t = $crate::i18n::tr(&key, &[]);
+                if t == key { match self { $(Action::$variant => $label.to_string()),* } } else { t }
+            }
             fn default_keys(self) -> &'static [&'static str] { match self { $(Action::$variant => &[$($key),*]),* } }
         }
     };
@@ -194,7 +199,7 @@ actions! {
     EditPath = "edit_path", "Edit path", ["Ctrl+L"];
     DirSizes = "dir_sizes", "Folder sizes", ["Ctrl+Space"];
     BatchRename = "batch_rename", "Batch rename", ["Ctrl+M"];
-    Tag = "tag", "Color tag", ["Alt+T"];
+    Tag = "tag", "Colour tag", ["Alt+T"];
     Notes = "notes", "Folder notes", ["Alt+N"];
     Back = "back", "Back", ["Alt+Left"];
     Forward = "forward", "Forward", ["Alt+Right"];
@@ -648,6 +653,9 @@ pub struct Config {
     /// `nerd` or `ascii`, or a full `[glyph_set]` table.
     pub glyphs: String,
     pub glyph_set: Option<Glyphs>,
+    /// "auto" (the system's language, or the nearest one Bosum has) or a code such as "da",
+    /// "en-AU" or "es-AR"; see `i18n::LANGUAGES`.
+    pub language: String,
     pub show_hidden: bool,
     /// Overrides `$EDITOR` / `$PAGER`.
     pub editor: Option<String>,
@@ -670,6 +678,7 @@ impl Default for Config {
             theme: "nc".into(),
             glyphs: "nerd".into(),
             glyph_set: None,
+            language: "auto".into(),
             show_hidden: true,
             editor: None,
             viewer: None,

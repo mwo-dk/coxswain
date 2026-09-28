@@ -2,6 +2,7 @@
 
 import { SvelteSet } from "svelte/reactivity";
 import { invoke, basename, parent, applyTheme } from "./lib.js";
+import { setLanguage } from "./i18n.svelte.js";
 
 export const ui = $state({
   cfg: null,
@@ -198,6 +199,7 @@ export function snapshot() {
 
 export async function init() {
   ui.cfg = await invoke("get_config");
+  setLanguage(ui.cfg);
   const st = await invoke("get_state");
   const s = st.session ?? {};
   ui.favorites = st.favorites;

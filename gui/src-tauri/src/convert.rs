@@ -76,7 +76,7 @@ pub struct Engine {
 /// default.
 #[tauri::command]
 pub async fn preview_engines(tool: String, ctx: tauri::State<'_, crate::Ctx>) -> Res<Vec<Engine>> {
-    let cfg = ctx.cfg.preview.clone();
+    let cfg = ctx.cfg().preview.clone();
     tauri::async_runtime::spawn_blocking(move || engines(&cfg, &tool)).await.map_err(|e| e.to_string())
 }
 
@@ -160,7 +160,7 @@ fn output(tool: &str, path: &Path, out: &Path) -> (&'static str, PathBuf) {
 /// returns the earlier result if there is one and does nothing otherwise.
 #[tauri::command]
 pub async fn convert(path: PathBuf, tool: String, engine: String, cached_only: bool, ctx: tauri::State<'_, crate::Ctx>) -> Res<Option<Converted>> {
-    let cfg = ctx.cfg.preview.clone();
+    let cfg = ctx.cfg().preview.clone();
     tauri::async_runtime::spawn_blocking(move || {
         let out = cache_dir(&path, &tool, &engine)?;
         let (kind, file) = output(&tool, &path, &out);

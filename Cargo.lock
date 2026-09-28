@@ -268,6 +268,7 @@ dependencies = [
  "regex",
  "serde",
  "serde_json",
+ "sys-locale",
  "tar",
  "toml 1.1.6+spec-1.1.0",
  "trash",
@@ -295,6 +296,7 @@ dependencies = [
  "sysinfo",
  "tauri",
  "tauri-build",
+ "toml_edit 0.25.15+spec-1.1.0",
  "x509-parser",
  "zip",
 ]
@@ -4401,6 +4403,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sys-locale"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8eab9a99a024a169fe8a903cf9d4a3b3601109bcc13bd9e3c6fff259138626c4"
+dependencies = [
+ "libc",
+]
+
+[[package]]
 name = "sysinfo"
 version = "0.39.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5009,6 +5020,7 @@ dependencies = [
  "indexmap 2.14.2",
  "toml_datetime 1.1.1+spec-1.1.0",
  "toml_parser",
+ "toml_writer",
  "winnow 1.0.4",
 ]
 
