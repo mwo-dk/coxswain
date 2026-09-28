@@ -32,7 +32,7 @@ brew install mwo-dk/bosum/bosum                                                 
 scoop bucket add bosum https://github.com/mwo-dk/scoop-bosum; scoop install bosum   # Windows
 ```
 
-**Desktop app on macOS:** `brew install --cask mwo-dk/bosum/bosum-gui`
+**Desktop app** (macOS, Linux x86-64): `brew install --cask mwo-dk/bosum/bosum-gui`
 
 **Download:** pick your platform under [Releases](https://github.com/mwo-dk/bosum/releases/latest).
 The builds are not code-signed; the release notes say how to get past the first-run warning
