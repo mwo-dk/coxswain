@@ -130,6 +130,21 @@ The sidebar holds places, drives with free space, favorite groups (right-click a
 
 ## Find file
 
+**Alt+F7** or **Ctrl+F** opens it in both apps. Results update as you type.
+
+| Key | Action |
+|---|---|
+| Up / Down, PageUp / PageDown | Move through the results |
+| Enter | Go to the file, with the cursor on it |
+| F3 / F4 | View / edit the file without leaving the search |
+| Tab | Search everywhere, or only the current folder |
+| Esc | Close |
+
+**Alt+letter** is the other, smaller search: it jumps to the first name in the current panel
+starting with that letter. Keep typing to narrow it; Backspace takes a letter back, Esc ends it.
+
+The desktop app lists the first 500 hits and counts the rest; type more to narrow them down.
+
 Everything's syntax:
 
 | Query | Matches |
@@ -143,8 +158,6 @@ Everything's syntax:
 | `src/ lib` | a term with `/` matches the full path |
 | `case:` | case-sensitive |
 | `"a b"` | phrase with a space |
-
-Tab switches between searching everywhere and the current directory only.
 
 ## Configuration
 

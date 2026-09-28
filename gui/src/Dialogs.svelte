@@ -35,22 +35,35 @@
 
   // ------------------------------------------------------------ find file
 
-  let seq = 0;
+  // One search at a time: keys typed while one runs collapse into a single follow-up, so
+  // fast typing never queues a scan per keystroke.
+  let busy = false;
+  let again = false;
   export async function runSearch() {
     const m = ui.modal;
     if (m?.kind !== "search") return;
-    const n = ++seq;
-    const res = await invoke("search", { query: m.query, scope: m.scoped ? tab().dir : null });
-    if (n === seq && ui.modal === m) {
-      m.res = res;
-      m.cursor = 0;
+    if (busy) return void (again = true);
+    busy = true;
+    try {
+      const res = await invoke("search", { query: m.query, scope: m.scoped ? tab().dir : null });
+      if (ui.modal === m) {
+        m.res = res;
+        m.cursor = 0;
+      }
+    } finally {
+      busy = false;
+    }
+    if (again) {
+      again = false;
+      runSearch();
     }
   }
 
-  // Refresh results while the index is still building.
+  // Refresh results while the first index is still being built. A stale index (being
+  // refreshed in the background) already answers correctly, so it is not polled.
   $effect(() => {
     if (ui.modal?.kind !== "search") return;
-    const timer = setInterval(() => ui.modal?.res?.state !== "ready" && runSearch(), 700);
+    const timer = setInterval(() => ui.modal?.res?.state === "building" && runSearch(), 700);
     return () => clearInterval(timer);
   });
 
@@ -259,7 +272,7 @@
         </div>
         <p class="meta">
           {#if m.res}
-            {m.query ? `${m.res.total.toLocaleString()} matches · ${(m.res.micros / 1000).toFixed(1)} ms · ` : ""}{m.res.indexed.toLocaleString()} files indexed{m.res.state === "building" ? " · building index…" : m.res.state === "stale" ? " · refreshing" : ""}
+            {m.query ? `${m.res.total.toLocaleString()} matches · ${(m.res.micros / 1000).toFixed(1)} ms · ` : ""}{m.res.indexed.toLocaleString()} files indexed{m.res.state === "building" ? " · building index…" : m.res.state === "stale" ? " · refreshing" : ""}{m.res.total > m.res.hits.length ? ` · showing the first ${m.res.hits.length}, type more to narrow` : ""}
           {:else}Type to search every file name on this machine.{/if}
         </p>
         <ul class="list hits" bind:this={listEl}>

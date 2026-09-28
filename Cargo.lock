@@ -189,7 +189,7 @@ dependencies = [
 
 [[package]]
 name = "coxswain"
-version = "1.4.0"
+version = "1.4.1"
 dependencies = [
  "coxswain-core",
  "chrono",
@@ -199,7 +199,7 @@ dependencies = [
 
 [[package]]
 name = "coxswain-core"
-version = "1.4.0"
+version = "1.4.1"
 dependencies = [
  "dirs 7.0.0",
  "flate2",
@@ -218,7 +218,7 @@ dependencies = [
 
 [[package]]
 name = "coxswain-gui"
-version = "1.4.0"
+version = "1.4.1"
 dependencies = [
  "coxswain-core",
  "clipboard-rs",
