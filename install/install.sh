@@ -135,7 +135,7 @@ fi
 # ---------------------------------------------------------------- build
 
 bold "Building the terminal app (a few minutes the first time)…"
-cargo build --release --locked -p coxswain-tui
+cargo build --release --locked -p coxswain
 mkdir -p "$PREFIX/bin"
 install -m 755 target/release/coxswain "$PREFIX/bin/coxswain"
 info "Installed $PREFIX/bin/coxswain"

@@ -25,6 +25,15 @@ shared Rust core and read the same config file.
 
 ## Install
 
+**Terminal app, one command:**
+
+```sh
+brew install mwo-dk/coxswain/coxswain                                                    # macOS, Linux
+scoop bucket add coxswain https://github.com/mwo-dk/scoop-coxswain; scoop install coxswain   # Windows
+```
+
+**Desktop app on macOS:** `brew install --cask mwo-dk/coxswain/coxswain-gui`
+
 **Download:** pick your platform under [Releases](https://github.com/mwo-dk/coxswain/releases/latest).
 The builds are not code-signed; the release notes say how to get past the first-run warning
 on Windows and macOS.
@@ -39,7 +48,7 @@ powershell -ExecutionPolicy Bypass -File install\install.ps1  # Windows
 ```
 
 The script offers to install Rust and Node.js when they are missing, and asks first. See
-[install/INSTALL.md](install/INSTALL.md). For development: `cargo run -p coxswain-tui`, or
+[install/INSTALL.md](install/INSTALL.md). For development: `cargo run -p coxswain`, or
 `cd gui && npm ci && npx tauri dev`.
 
 Git glyphs need a [Nerd Font](https://www.nerdfonts.com/). In the terminal, use one as your
@@ -172,7 +181,7 @@ Known limits and upgrade paths:
 
 ```
 crates/coxswain-core   config, fs ops, git status, search index (shared)
-crates/coxswain-tui    terminal UI (binary: coxswain)
+crates/coxswain-tui    terminal UI (package and binary: coxswain)
 gui/                Svelte 5 frontend
 gui/src-tauri       Tauri backend (binary: coxswain-gui)
 ```

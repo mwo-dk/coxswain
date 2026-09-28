@@ -3,6 +3,12 @@ name = "coxswain-core"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+readme.workspace = true
+keywords.workspace = true
+categories.workspace = true
+description = "Core of Coxswain: config, file operations, git status and an Everything-style file name index"
 
 [dependencies]
 serde = { version = "1", features = ["derive"] }

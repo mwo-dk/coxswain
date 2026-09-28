@@ -3,13 +3,14 @@ name = "coxswain-gui"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+publish = false
 description = "Coxswain: a Norton Commander style file manager, desktop edition"
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-coxswain-core = { path = "../../crates/coxswain-core" }
+coxswain-core.workspace = true
 tauri = { version = "2", features = ["protocol-asset"] }
 sysinfo = { version = "0.39", default-features = false, features = ["disk"] }
 dirs = "7"
