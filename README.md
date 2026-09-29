@@ -50,8 +50,8 @@ Mac OS 9; see [themes](#themes).*
 | Find file: every file on the machine, in milliseconds | Themes with the look of their era |
 | ![Thumbnails and an image preview](docs/screenshots/gui-thumbnails.png) | ![A PDF in the preview pane, next to a git repository](docs/screenshots/gui-pdf.png) |
 | Thumbnails (Alt+V) with the preview pane (Space) | PDFs preview in place; the left pane shows git status |
-| ![The contents of a tar.gz archive in the preview](docs/screenshots/gui-archive.png) | ![Miller columns, light theme](docs/screenshots/gui-columns.png) |
-| Archives list their contents; Ctrl+E extracts them | Miller columns and preview, light theme |
+| ![The contents of a tar.gz archive in the preview](docs/screenshots/gui-archive.png) | ![Miller columns with a source file in the preview](docs/screenshots/gui-columns.png) |
+| Archives list their contents; Ctrl+E extracts them | Miller columns with the preview pane |
 
 ![The preview pane showing Markdown with a Mermaid diagram and math, a Jupyter notebook, a spreadsheet, a Word document and a font](docs/screenshots/gui-previews.png)
 *The preview pane (Space): Markdown with a Mermaid diagram and math, a Jupyter notebook, a
@@ -63,8 +63,9 @@ spreadsheet, a Word document and a font.*
 ![The preview pane showing a calendar, a git diff, a log file and an EPUB book](docs/screenshots/gui-previews-more.png)
 *A calendar, the git diff of a changed file, a log colored by level, and an EPUB book.*
 
-![A LaTeX document with a pgfplots chart and a TikZ diagram, built in a container and shown in the preview](docs/screenshots/gui-latex.png)
-*A LaTeX document, built with the texlive image in podman; the buttons pick the engine.
+![A LaTeX document with a pgfplots chart, built with tectonic and shown in the preview](docs/screenshots/gui-latex.png)
+*A LaTeX document, built with tectonic; the buttons pick the engine, an installed program or a
+container.
 Multi-file projects build from any of their files: Coxswain finds the main document
 (`% !TEX root`), the engine (`% !TEX program`) and the project folder, like a LaTeX editor.*
 
@@ -107,15 +108,9 @@ exact update command for the way you installed them.
 
 | How | App | Install | Update |
 |---|---|---|---|
-| [winget](https://learn.microsoft.com/windows/package-manager/) | Desktop | `winget install mwo-dk.Coxswain` | `winget upgrade mwo-dk.Coxswain` |
-| winget | Terminal | `winget install mwo-dk.Coxswain.Terminal` | `winget upgrade mwo-dk.Coxswain.Terminal` |
-| [Scoop](https://scoop.sh) | Terminal | `scoop bucket add coxswain https://github.com/mwo-dk/scoop-coxswain`, then `scoop install coxswain` | `scoop update coxswain` |
 | Download | Desktop | `Coxswain_<version>_x64_en-US.msi` or `_x64-setup.exe` from [Releases](https://github.com/mwo-dk/coxswain/releases/latest) | Run the new installer; it upgrades in place |
 | Download | Terminal | `coxswain-terminal-<version>-x86_64-pc-windows-msvc.zip`; put `coxswain.exe` on your PATH | Replace the file |
 | [Cargo](https://rustup.rs) | Terminal | `cargo install coxswain` | `cargo install coxswain` again |
-
-The winget listing is not there yet: Coxswain has to be accepted by Microsoft first. Until
-then, use Scoop or the MSI from the [releases](https://github.com/mwo-dk/coxswain/releases).
 
 **The builds are not code-signed.** The first start shows a warning: on Windows, click *More
 info* and then *Run anyway*. On macOS, if the app "is damaged" or "can't be opened", run

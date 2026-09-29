@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# Write the Homebrew formula and the Scoop manifest for a released tag, from its .sha256 assets.
+# Write the Homebrew formula and cask for a released tag, from its .sha256 assets.
 #
-#   packaging/taps/generate.sh v1.2.0 <homebrew-tap-dir> <scoop-bucket-dir>
+#   packaging/taps/generate.sh v1.2.0 <homebrew-tap-dir>
 set -euo pipefail
-tag="$1" brew="$2" scoop="$3"
+tag="$1" brew="$2"
 version="${tag#v}"
 repo="https://github.com/mwo-dk/coxswain"
 base="$repo/releases/download/$tag"
@@ -11,7 +11,7 @@ desc="Norton Commander style file manager with Everything-speed search"
 
 sha() { gh release download "$tag" -R mwo-dk/coxswain -p "coxswain-terminal-$tag-$1.$2.sha256" -O - | cut -d' ' -f1; }
 
-mkdir -p "$brew/Formula" "$scoop/bucket"
+mkdir -p "$brew/Formula"
 url() { echo "$base/coxswain-terminal-$tag-$1.tar.gz"; }
 cat > "$brew/Formula/coxswain.rb" <<RUBY
 class Coxswain < Formula
@@ -104,31 +104,3 @@ cask "coxswain-gui" do
   ]
 end
 RUBY
-
-win="x86_64-pc-windows-msvc"
-cat > "$scoop/bucket/coxswain.json" <<JSON
-{
-    "version": "$version",
-    "description": "$desc",
-    "homepage": "$repo",
-    "license": "MIT",
-    "architecture": {
-        "64bit": {
-            "url": "$base/coxswain-terminal-$tag-$win.zip",
-            "hash": "$(sha $win zip)",
-            "extract_dir": "coxswain-terminal-$tag-$win"
-        }
-    },
-    "bin": ["coxswain.exe", "cox.exe"],
-    "checkver": "github",
-    "autoupdate": {
-        "architecture": {
-            "64bit": {
-                "url": "$repo/releases/download/v\$version/coxswain-terminal-v\$version-$win.zip",
-                "hash": { "url": "\$url.sha256" },
-                "extract_dir": "coxswain-terminal-v\$version-$win"
-            }
-        }
-    }
-}
-JSON

@@ -35,8 +35,45 @@ async function mermaid() {
   mermaidReady ??= import("mermaid").then(({ default: m }) => m);
   const m = await mermaidReady;
   // Plain SVG text labels (no foreignObject HTML), so the sanitizer keeps them intact.
-  const dark = getComputedStyle(document.documentElement).colorScheme === "dark";
-  m.initialize({ startOnLoad: false, securityLevel: "strict", theme: dark ? "dark" : "default", htmlLabels: false, flowchart: { htmlLabels: false } });
+  // The diagram takes the theme's own colours, so it is green in Cyber and grey in Windows 95.
+  const css = getComputedStyle(document.documentElement);
+  const v = (name, fallback) => css.getPropertyValue(name).trim() || fallback;
+  const dark = css.colorScheme === "dark";
+  const [bg, fg, box, line] = [v("--panel-bg", dark ? "#1e1f22" : "#ffffff"), v("--panel-fg", dark ? "#dcdde1" : "#1f2328"), v("--status-bg", dark ? "#2b2d31" : "#f3f4f6"), v("--border-fg", "#808080")];
+  m.initialize({
+    startOnLoad: false,
+    securityLevel: "strict",
+    theme: "base",
+    themeVariables: {
+      darkMode: dark,
+      background: bg,
+      primaryColor: box,
+      primaryTextColor: fg,
+      primaryBorderColor: fg,
+      secondaryColor: box,
+      tertiaryColor: bg,
+      lineColor: fg,
+      textColor: fg,
+      mainBkg: box,
+      nodeBorder: fg,
+      clusterBkg: bg,
+      clusterBorder: line,
+      edgeLabelBackground: bg,
+      actorBkg: box,
+      actorBorder: fg,
+      actorTextColor: fg,
+      signalColor: fg,
+      signalTextColor: fg,
+      labelBoxBkgColor: box,
+      labelTextColor: fg,
+      noteBkgColor: box,
+      noteTextColor: fg,
+      noteBorderColor: line,
+      fontFamily: v("--font", "sans-serif"),
+    },
+    htmlLabels: false,
+    flowchart: { htmlLabels: false },
+  });
   return m;
 }
 

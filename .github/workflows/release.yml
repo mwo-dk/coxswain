@@ -2,7 +2,7 @@ name: Release
 
 # Hands-off: when CI passes on master and the version in Cargo.toml has no release yet, build
 # every platform, publish the GitHub Release (which creates the tag) and update the AUR,
-# crates.io, Homebrew, Scoop and winget.
+# crates.io and Homebrew.
 # To release, bump `version` in Cargo.toml. Nothing else.
 on:
   workflow_run:
@@ -217,12 +217,12 @@ jobs:
       TAP_TOKEN: ${{ secrets.TAP_TOKEN }}
     steps:
       - if: env.TAP_TOKEN == ''
-        run: echo "::notice::TAP_TOKEN is not set, so Homebrew and Scoop are not updated. See packaging/README.md."
+        run: echo "::notice::TAP_TOKEN is not set, so Homebrew is not updated. See packaging/README.md."
       - uses: actions/checkout@v7
         if: env.TAP_TOKEN != ''
         with:
           ref: ${{ needs.draft.outputs.sha }}
-      - name: Update mwo-dk/homebrew-coxswain and mwo-dk/scoop-coxswain
+      - name: Update mwo-dk/homebrew-coxswain
         if: env.TAP_TOKEN != ''
         env:
           GH_TOKEN: ${{ github.token }}
@@ -230,63 +230,13 @@ jobs:
         run: |
           git config --global user.name "Michael W. Olesen"
           git config --global user.email michael.w.olesen@gmail.com
-          # Without the tap and the bucket there is nothing to update, and a release must not fail.
-          for repo in homebrew-coxswain scoop-coxswain; do
-            if ! git clone -q "https://x-access-token:$TAP_TOKEN@github.com/mwo-dk/$repo.git"; then
-              echo "::notice::mwo-dk/$repo does not exist or the token cannot reach it, so Homebrew and Scoop are not updated."
-              exit 0
-            fi
-          done
-          packaging/taps/generate.sh "$TAG" homebrew-coxswain scoop-coxswain
-          for repo in homebrew-coxswain scoop-coxswain; do
-            git -C "$repo" add -A
-            # Only "no changes" is fine; a failed push must fail the job.
-            if git -C "$repo" diff --cached --quiet; then
-              echo "$repo: already up to date"
-            else
-              git -C "$repo" commit -qm "Coxswain ${TAG#v}"
-              git -C "$repo" push -q
-            fi
-          done
-
-  # Only updates: the first version of each package is submitted by hand (packaging/README.md).
-  winget:
-    needs: [draft, publish]
-    runs-on: ubuntu-24.04
-    env:
-      WINGET_TOKEN: ${{ secrets.WINGET_TOKEN }}
-    steps:
-      - if: env.WINGET_TOKEN == ''
-        run: echo "::notice::WINGET_TOKEN is not set, so winget is not updated. See packaging/README.md."
-      - uses: actions/checkout@v7
-        if: env.WINGET_TOKEN != ''
-        with:
-          ref: ${{ needs.draft.outputs.sha }}
-      - name: Open winget-pkgs pull requests
-        if: env.WINGET_TOKEN != ''
-        env:
-          GH_TOKEN: ${{ github.token }}
-          TAG: ${{ needs.draft.outputs.tag }}
-        run: |
-          gh release download --repo russellbanks/Komac --pattern 'komac-*-x86_64-unknown-linux-gnu.tar.gz' --output komac.tar.gz
-          tar xzf komac.tar.gz
-          v="${TAG#v}"
-          base="https://github.com/${{ github.repository }}/releases/download/$TAG"
-          notes="https://github.com/${{ github.repository }}/releases/tag/$TAG"
-          # Only packages that are already in winget-pkgs: the first version of each is submitted
-          # by hand and reviewed by winget's maintainers (packaging/README.md), and a release
-          # must not fail while that review is pending.
-          listed() { gh api "repos/microsoft/winget-pkgs/contents/manifests/m/mwo-dk/$1" --silent 2>/dev/null; }
-          if listed Coxswain; then
-            ./komac update mwo-dk.Coxswain --version "$v" --urls "$base/Coxswain_${v}_x64_en-US.msi" \
-              --release-notes-url "$notes" --submit --token "$WINGET_TOKEN"
+          git clone -q "https://x-access-token:$TAP_TOKEN@github.com/mwo-dk/homebrew-coxswain.git"
+          packaging/taps/generate.sh "$TAG" homebrew-coxswain
+          git -C homebrew-coxswain add -A
+          # Only "no changes" is fine; a failed push must fail the job.
+          if git -C homebrew-coxswain diff --cached --quiet; then
+            echo "homebrew-coxswain: already up to date"
           else
-            echo "::notice::mwo-dk.Coxswain is not in winget-pkgs yet (first submission under review), so winget is not updated."
-          fi
-          # The terminal zip's exe path carries the version, so its manifests are written, not updated.
-          if listed Coxswain/Terminal; then
-            packaging/winget/terminal.sh "$TAG" winget-terminal
-            ./komac submit --yes --token "$WINGET_TOKEN" winget-terminal/manifests/m/mwo-dk/Coxswain/Terminal/"$v"
-          else
-            echo "::notice::mwo-dk.Coxswain.Terminal is not in winget-pkgs yet; submit its first version by hand (packaging/README.md)."
+            git -C homebrew-coxswain commit -qm "Coxswain ${TAG#v}"
+            git -C homebrew-coxswain push -q
           fi

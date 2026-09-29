@@ -10,7 +10,7 @@ else `$PAGER`, else `less`).
 ![A YAML tree, a SQLite database, a certificate and an e-mail](screenshots/gui-previews-data.png)
 ![A calendar, a git diff, a log file and an EPUB book](screenshots/gui-previews-more.png)
 ![A PlantUML sequence diagram, a Graphviz graph and an AsciiDoc guide](screenshots/gui-previews-tools.png)
-![A LaTeX document built in a container and shown in the preview pane](screenshots/gui-latex.png)
+![A LaTeX document built with tectonic and shown in the preview pane](screenshots/gui-latex.png)
 
 ## Switches
 
