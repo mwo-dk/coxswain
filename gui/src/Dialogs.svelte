@@ -364,8 +364,7 @@
     display: grid;
     place-items: start center;
     padding-top: 12vh;
-    background: rgb(0 0 0 / 0.35);
-    backdrop-filter: blur(2px);
+    background: rgb(0 0 0 / 0.45);
     z-index: 10;
   }
   .dialog {
