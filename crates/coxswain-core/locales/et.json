@@ -394,7 +394,7 @@
  "preview.attachments": "Manused",
  "preview.back": "Tagasi eelvaatesse",
  "preview.ca": "{name} (CA)",
- "preview.calculate": "Arvuta (Ctrl+Space)",
+ "preview.calculate": "Arvuta",
  "preview.changes_against_head": "Muudatused võrreldes HEAD-iga",
  "preview.column": "Veerg",
  "preview.columns": {

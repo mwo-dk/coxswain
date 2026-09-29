@@ -37,6 +37,9 @@ pub struct Ctx {
     clip: Mutex<(Vec<PathBuf>, bool)>,
     /// The running duplicate scan's progress, if any.
     dupes: Mutex<Option<Arc<coxswain_core::dupes::Progress>>>,
+    sizer: Arc<coxswain_core::sizes::Sizer>,
+    /// The stop flag of each tab's background measuring.
+    measuring: Mutex<std::collections::HashMap<String, Arc<std::sync::atomic::AtomicBool>>>,
 }
 
 impl Ctx {
@@ -78,6 +81,7 @@ struct UiConfig {
     builtin_themes: Vec<&'static str>,
     glyphs: Glyphs,
     show_hidden: bool,
+    folder_sizes: bool,
     confirm_delete: bool,
     user_menu: Vec<UserCommand>,
     start: [PathBuf; 2],
@@ -122,6 +126,7 @@ fn get_config(ctx: tauri::State<Ctx>) -> Res<UiConfig> {
         builtin_themes: coxswain_core::config::Theme::builtin().into_iter().map(|(name, _)| name).collect(),
         glyphs: cfg.glyphs(),
         show_hidden: cfg.show_hidden,
+        folder_sizes: cfg.folder_sizes,
         confirm_delete: cfg.confirm_delete,
         user_menu: cfg.user_menu.clone(),
         start: ctx.start.clone(),
@@ -449,20 +454,23 @@ fn each(paths: &[PathBuf], op: impl Fn(&Path) -> std::io::Result<()>) -> Res<()>
 }
 
 #[tauri::command]
-async fn copy(paths: Vec<PathBuf>, base: PathBuf, dest: String) -> Res<()> {
+async fn copy(paths: Vec<PathBuf>, base: PathBuf, dest: String, ctx: tauri::State<'_, Ctx>) -> Res<()> {
     let dst = resolve(&base, &dest);
+    ctx.sizer.forget(&dst.join("new"));
     each(&paths, |p| bfs::copy(p, &dst).map(drop))
 }
 
 #[tauri::command]
-async fn rename(paths: Vec<PathBuf>, base: PathBuf, dest: String) -> Res<()> {
+async fn rename(paths: Vec<PathBuf>, base: PathBuf, dest: String, ctx: tauri::State<'_, Ctx>) -> Res<()> {
     let dst = resolve(&base, &dest);
+    paths.iter().chain([&dst.join("new")]).for_each(|p| ctx.sizer.forget(p));
     each(&paths, |p| bfs::rename(p, &dst).map(drop))
 }
 
 /// To the trash, or gone for good with `forever`.
 #[tauri::command]
-async fn delete(paths: Vec<PathBuf>, forever: bool) -> Res<()> {
+async fn delete(paths: Vec<PathBuf>, forever: bool, ctx: tauri::State<'_, Ctx>) -> Res<()> {
+    paths.iter().for_each(|p| ctx.sizer.forget(p));
     each(&paths, if forever { bfs::delete } else { bfs::trash })
 }
 
@@ -473,9 +481,24 @@ fn mkdir(base: PathBuf, name: String) -> Res<PathBuf> {
     Ok(d)
 }
 
+/// Bytes and file count of each folder. With `tab` it is that tab's background measuring: the
+/// run before it stops, and a size measured a short while ago is taken as it is. Without, the
+/// user asked, and gets a fresh measure. A folder that was stopped is left out.
 #[tauri::command]
-async fn dir_sizes(paths: Vec<PathBuf>) -> BTreeMap<PathBuf, (u64, u64)> {
-    paths.into_iter().map(|p| (bfs::dir_size(&p), p)).map(|(s, p)| (p, s)).collect()
+async fn dir_sizes(paths: Vec<PathBuf>, tab: Option<String>, ctx: tauri::State<'_, Ctx>) -> Res<BTreeMap<PathBuf, (u64, u64)>> {
+    use std::sync::atomic::{AtomicBool, Ordering};
+    let (sizer, stop) = (ctx.sizer.clone(), Arc::new(AtomicBool::new(false)));
+    match tab {
+        Some(tab) => {
+            if let Some(before) = ctx.measuring.lock().map_err(|e| e.to_string())?.insert(tab, stop.clone()) {
+                before.store(true, Ordering::Relaxed);
+            }
+        }
+        None => paths.iter().for_each(|p| sizer.forget(p)),
+    }
+    tauri::async_runtime::spawn_blocking(move || paths.into_iter().filter_map(|p| sizer.measure(&p, &stop).map(|s| (p, s))).collect())
+        .await
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -551,8 +574,9 @@ async fn archive_list(path: PathBuf) -> Res<ArchiveListing> {
 }
 
 #[tauri::command]
-async fn extract(paths: Vec<PathBuf>, base: PathBuf, dest: String) -> Res<()> {
+async fn extract(paths: Vec<PathBuf>, base: PathBuf, dest: String, ctx: tauri::State<'_, Ctx>) -> Res<()> {
     let dst = resolve(&base, &dest);
+    ctx.sizer.forget(&dst.join("new"));
     each(&paths, |p| coxswain_core::archive::extract(p, &dst).map(drop))
 }
 
@@ -698,6 +722,10 @@ async fn paste(dir: PathBuf, ctx: tauri::State<'_, Ctx>) -> Res<(usize, bool)> {
             return Ok(()); // cut and pasted in place
         }
         let to = bfs::free_name(&dir, &p.file_name().unwrap_or_default().to_string_lossy());
+        ctx.sizer.forget(&to);
+        if cut {
+            ctx.sizer.forget(p);
+        }
         if cut { bfs::rename(p, &to).map(drop) } else { bfs::copy(p, &to).map(drop) }
     })?;
     Ok((paths.len(), cut))
@@ -750,6 +778,7 @@ fn start_watcher(app: &tauri::AppHandle) -> Option<notify::RecommendedWatcher> {
             std::thread::sleep(std::time::Duration::from_millis(250));
             let events = std::iter::once(first).chain(rx.try_iter());
             let paths: Vec<PathBuf> = events.flatten().filter(|e| !e.kind.is_access()).flat_map(|e| e.paths).collect();
+            paths.iter().for_each(|p| app.state::<Ctx>().sizer.forget(p));
             let watched = app.state::<Ctx>().watched.lock().map(|w| w.clone()).unwrap_or_default();
             let changed: Vec<&PathBuf> = watched.iter().filter(|d| paths.iter().any(|p| p == *d || p.parent() == Some(d.as_path()))).collect();
             if !changed.is_empty() {
@@ -936,6 +965,8 @@ fn main() {
         watcher: Mutex::default(),
         clip: Mutex::default(),
         dupes: Mutex::default(),
+        sizer: Arc::default(),
+        measuring: Mutex::default(),
     };
     tauri::Builder::default()
         .manage(ctx)

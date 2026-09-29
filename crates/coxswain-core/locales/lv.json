@@ -417,7 +417,7 @@
  "preview.attachments": "Pielikumi",
  "preview.back": "Atpakaļ uz priekšskatījumu",
  "preview.ca": "{name} (CA)",
- "preview.calculate": "Aprēķināt (Ctrl+Space)",
+ "preview.calculate": "Aprēķināt",
  "preview.changes_against_head": "Izmaiņas salīdzinājumā ar HEAD",
  "preview.column": "Kolonna",
  "preview.columns": {

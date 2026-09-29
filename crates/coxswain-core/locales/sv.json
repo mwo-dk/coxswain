@@ -394,7 +394,7 @@
  "preview.attachments": "Bilagor",
  "preview.back": "Tillbaka till förhandsvisning",
  "preview.ca": "{name} (CA)",
- "preview.calculate": "Beräkna (Ctrl+Space)",
+ "preview.calculate": "Beräkna",
  "preview.changes_against_head": "Ändringar mot HEAD",
  "preview.column": "Kolumn",
  "preview.columns": {

@@ -417,7 +417,7 @@
  "preview.attachments": "Pièces jointes",
  "preview.back": "Retour à l’aperçu",
  "preview.ca": "{name} (AC)",
- "preview.calculate": "Calculer (Ctrl+Space)",
+ "preview.calculate": "Calculer",
  "preview.changes_against_head": "Modifications par rapport à HEAD",
  "preview.column": "Colonne",
  "preview.columns": {

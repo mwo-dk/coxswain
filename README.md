@@ -27,6 +27,8 @@ Mac OS 9; see [themes](#themes).*
   PlantUML, Graphviz, AsciiDoc and reStructuredText, with an installed tool or in a podman or
   docker container, so rarely used tools need not be installed. See
   [the full list](docs/previews.md).
+- **Folder sizes, without asking.** Both apps measure folders in the background and fill
+  the sizes in as they come, on two threads so the machine stays yours.
 - **Plays well with the desktop.** Delete goes to the trash, folders refresh themselves, files
   drag to and from other apps, and Ctrl+C / Ctrl+V share files with your other file manager.
 - **Finds duplicates.** Ctrl+D compares folders and whole disks, old backups included, and
@@ -193,8 +195,7 @@ loaded from disk and kept current while Coxswain runs.
 | Ctrl+C / Ctrl+X / Ctrl+V | Copy, cut, paste files (shared with other file managers) | Alt+Enter | Properties and permissions |
 | Alt+Left / Alt+Right | Back / forward | Ctrl+E | Extract a zip or tar archive to the other pane |
 | Ctrl+B | Sidebar | Ctrl+D | Find duplicates |
-| Ctrl+, | Settings (language, theme, fonts, ...) | | |
-| Ctrl+L | Type a path | Ctrl+Space | Folder sizes |
+| Ctrl+, | Settings (language, theme, fonts, ...) | Ctrl+L | Type a path |
 | Ctrl+M | Batch rename with regex, previewed | Alt+T | Color tag |
 | Alt+N | Notes for this folder | Alt+. | Hidden files |
 
@@ -223,9 +224,10 @@ you tick for duplicate files and whole duplicate folders, and lists them by wast
 one copy of each always stays, and marked copies go to the trash.
 **[docs/duplicates.md](docs/duplicates.md)** explains how it works and stays fast.
 
-**Columns and folder sizes.** Right-click the column header (or F9, "Columns and folder
-sizes") to add **Files** and **Created** columns or hide Type, and to turn on **automatic folder
-sizes**: every folder is measured as you open its parent, in the background.
+**Columns and folder sizes.** Folders show their size without being asked: each is measured
+in the background as you open its parent, in both apps. Right-click the column header (or F9,
+"Columns and folder sizes") to add **Files** and **Created** columns, hide Type, or switch the
+measuring off.
 
 ![The details view with every column and automatically measured folder sizes](docs/screenshots/gui-folder-sizes.png)
 
@@ -338,6 +340,7 @@ Everything's syntax:
 language = "auto"           # or "en-GB", "da", "de", "es-AR", "he", ... (docs/languages.md)
 theme = "nc"                # terminal app; or "cyber", "win95", ... or your own [themes.<name>]
 glyphs = "nerd"             # or "ascii"
+folder_sizes = true         # measure folders in the background; false to switch it off
 editor = "hx"               # else $VISUAL / $EDITOR
 
 [keys]

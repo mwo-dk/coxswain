@@ -30,7 +30,7 @@ pub struct Panel {
     pub reverse: bool,
     pub git: Option<git::Status>,
     pub error: Option<String>,
-    /// Folder sizes computed on demand (Ctrl+Space).
+    /// Folder sizes, measured in the background.
     pub sizes: HashMap<PathBuf, u64>,
 }
 
@@ -186,6 +186,12 @@ pub struct App {
     git_tx: mpsc::Sender<(PathBuf, Option<git::Status>)>,
     git_rx: mpsc::Receiver<(PathBuf, Option<git::Status>)>,
     update_rx: mpsc::Receiver<String>,
+    sizer: Arc<coxswain_core::sizes::Sizer>,
+    /// Folder sizes arrive here: the panel's folder, the folder measured, its bytes.
+    sizes_tx: mpsc::Sender<(PathBuf, PathBuf, u64)>,
+    sizes_rx: mpsc::Receiver<(PathBuf, PathBuf, u64)>,
+    /// The stop flag of each panel's measuring.
+    measuring: [Arc<std::sync::atomic::AtomicBool>; 2],
     run: Option<Run>,
     last_click: Option<(Instant, u16, u16)>,
     quit: bool,
@@ -216,6 +222,7 @@ impl App {
         let keymap = cfg.keymap()?;
         let (git_tx, git_rx) = mpsc::channel();
         let (update_tx, update_rx) = mpsc::channel();
+        let (sizes_tx, sizes_rx) = mpsc::channel();
         if cfg.check_updates {
             std::thread::spawn(move || {
                 if let Some(v) = coxswain_core::update::check() {
@@ -240,12 +247,19 @@ impl App {
             git_tx,
             git_rx,
             update_rx,
+            sizer: Arc::default(),
+            sizes_tx,
+            sizes_rx,
+            measuring: Default::default(),
             run: None,
             last_click: None,
             quit: false,
             cfg,
         };
+        let mut app = app;
         app.refresh_git();
+        app.measure(0);
+        app.measure(1);
         Ok(app)
     }
 
@@ -273,16 +287,49 @@ impl App {
         }
     }
 
+    /// These were added, removed or written: the folders they are in are measured again.
+    fn changed(&mut self, paths: &[PathBuf]) {
+        for p in paths {
+            self.sizer.forget(p);
+            self.panels.iter_mut().for_each(|panel| panel.sizes.retain(|folder, _| !p.starts_with(folder)));
+        }
+    }
+
+    /// Measure the folders in a panel on a thread, the first ones first; results arrive
+    /// through `sizes_rx`. The run before it in that panel stops.
+    fn measure(&mut self, side: usize) {
+        use std::sync::atomic::{AtomicBool, Ordering};
+        if !self.cfg.folder_sizes {
+            return;
+        }
+        let stop = Arc::new(AtomicBool::new(false));
+        std::mem::replace(&mut self.measuring[side], stop.clone()).store(true, Ordering::Relaxed);
+        let p = &self.panels[side];
+        let (dir, tx, sizer) = (p.dir.clone(), self.sizes_tx.clone(), self.sizer.clone());
+        let folders: Vec<PathBuf> = p.entries.iter().filter(|e| e.is_dir && !e.is_parent() && !p.sizes.contains_key(&e.path)).map(|e| e.path.clone()).collect();
+        std::thread::spawn(move || {
+            for f in folders {
+                let Some((bytes, _)) = sizer.measure(&f, &stop) else { continue };
+                if stop.load(Ordering::Relaxed) || tx.send((dir.clone(), f, bytes)).is_err() {
+                    return;
+                }
+            }
+        });
+    }
+
     fn reload(&mut self) {
         let h = self.show_hidden;
         self.panels.iter_mut().for_each(|p| p.load(h));
         self.refresh_git();
+        self.measure(0);
+        self.measure(1);
     }
 
     fn cd(&mut self, side: usize, dir: PathBuf) {
         let h = self.show_hidden;
         self.panels[side].cd(dir, h);
         self.refresh_git();
+        self.measure(side);
     }
 
     fn input(&mut self, title: &str, label: String, value: String, prompt: Prompt) {
@@ -507,14 +554,15 @@ impl App {
                 self.dialog = Some(Dialog::Menu { title: t!("menu.commands"), filter: String::new(), items, cursor: 0, direct: false });
             }
             Action::Help => self.dialog = Some(Dialog::Help { scroll: 0 }),
+            // Asked for: measure afresh, whatever is remembered and whether or not sizes are on.
             Action::DirSizes => {
-                let p = self.panel_mut();
-                let dirs: Vec<PathBuf> = p.entries.iter().filter(|e| e.is_dir && !e.is_parent()).map(|e| e.path.clone()).collect();
-                // ponytail: blocks the UI on huge trees; move to a thread with progress if it bites.
-                for d in dirs {
-                    let (bytes, _) = bfs::dir_size(&d);
-                    p.sizes.insert(d, bytes);
+                let (side, on) = (self.active, std::mem::replace(&mut self.cfg.folder_sizes, true));
+                for e in self.panels[side].entries.iter().filter(|e| e.is_dir) {
+                    self.sizer.forget(&e.path);
                 }
+                self.panels[side].sizes.clear();
+                self.measure(side);
+                self.cfg.folder_sizes = on;
             }
             a => self.status = Some(t!("tui.gui_only", "action" => a.label())),
         }
@@ -569,6 +617,7 @@ impl App {
     }
 
     fn delete(&mut self, paths: Vec<PathBuf>, forever: bool) {
+        self.changed(&paths);
         let op = if forever { bfs::delete } else { bfs::trash };
         let errors: Vec<String> = paths.iter().filter_map(|p| op(p).err().map(|e| format!("{}: {e}", p.display()))).collect();
         let verb = if forever { "status.deleted" } else { "status.trashed" };
@@ -591,11 +640,14 @@ impl App {
             Prompt::Copy(src) | Prompt::Move(src) if value.trim().is_empty() => drop(src),
             Prompt::Copy(src) => {
                 let dst = resolve(&base, &value);
+                self.changed(&[dst.join("new")]);
                 let errors = src.iter().filter_map(|p| bfs::copy(p, &dst).err().map(|e| format!("{}: {e}", p.display()))).collect();
                 self.after_op(t!("status.copied", "what" => Self::describe(&src)), errors);
             }
             Prompt::Move(src) => {
                 let dst = resolve(&base, &value);
+                self.changed(&src);
+                self.changed(&[dst.join("new")]);
                 let errors = src.iter().filter_map(|p| bfs::rename(p, &dst).err().map(|e| format!("{}: {e}", p.display()))).collect();
                 self.after_op(t!("status.moved", "what" => Self::describe(&src)), errors);
                 if src.len() == 1 && dst.parent() == Some(base.as_path()) {
@@ -818,6 +870,11 @@ impl App {
         if let Ok(v) = self.update_rx.try_recv() {
             let how = coxswain_core::update::upgrade_hint().unwrap_or(coxswain_core::update::RELEASES_URL);
             self.status = Some(t!("status.update", "version" => v, "how" => how));
+        }
+        while let Ok((dir, folder, bytes)) = self.sizes_rx.try_recv() {
+            for p in self.panels.iter_mut().filter(|p| p.dir == dir) {
+                p.sizes.insert(folder.clone(), bytes);
+            }
         }
         while let Ok((dir, st)) = self.git_rx.try_recv() {
             for p in self.panels.iter_mut().filter(|p| p.dir == dir) {

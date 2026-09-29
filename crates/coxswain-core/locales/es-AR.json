@@ -417,7 +417,7 @@
  "preview.attachments": "Adjuntos",
  "preview.back": "Volver a la vista previa",
  "preview.ca": "{name} (CA)",
- "preview.calculate": "Calcular (Ctrl+Space)",
+ "preview.calculate": "Calcular",
  "preview.changes_against_head": "Cambios respecto de HEAD",
  "preview.column": "Columna",
  "preview.columns": {

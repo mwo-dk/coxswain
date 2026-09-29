@@ -25,7 +25,9 @@ export const ui = $state({
   /** Optional columns in the details view. */
   columns: { type: true, size: true, files: false, modified: true, created: false },
   /** Measure every folder's size as a folder opens. */
-  autoSizes: false,
+  // Folder sizes measured in the background. `sizes` in the session: the older `autoSizes`
+  // was off unless switched on, and is not read any more.
+  autoSizes: true,
   /** Preview: source instead of rendered/tree, and diff instead of file. Kept across files. */
   previewSource: false,
   previewDiff: false,
@@ -148,6 +150,9 @@ export function goForward(t = tab()) {
 /** Size and file count of the given folders (default: all in the tab), one at a time so the
  *  first results show quickly. Stops as soon as the tab shows another folder. */
 const measuring = new WeakMap();
+const tabIds = new WeakMap();
+let tabCount = 0;
+const tabId = (t) => tabIds.get(t) ?? (tabIds.set(t, String(++tabCount)), tabIds.get(t));
 export async function measureFolders(t, paths) {
   const dir = t.dir;
   // A reload while the automatic run is going (the watcher does that) must not start a second one.
@@ -157,8 +162,10 @@ export async function measureFolders(t, paths) {
     const todo = paths ?? t.items.filter((e) => e.is_dir && e.name !== ".." && t.sizes[e.path] === undefined).map((e) => e.path);
     for (const p of todo) {
       if (t.dir !== dir) return;
-      const r = (await invoke("dir_sizes", { paths: [p] }))[p];
-      if (t.dir !== dir || !r) return;
+      // The automatic run is this tab's own: a new one stops it, and recent sizes are reused.
+      const r = (await invoke("dir_sizes", { paths: [p], tab: paths ? null : tabId(t) }))[p];
+      if (t.dir !== dir) return;
+      if (!r) continue;
       t.sizes[p] = r[0];
       t.counts[p] = r[1];
     }
@@ -193,7 +200,7 @@ export function snapshot() {
     showSidebar: ui.showSidebar,
     showPreview: ui.showPreview,
     columns: ui.columns,
-    autoSizes: ui.autoSizes,
+    sizes: ui.autoSizes,
     previewSource: ui.previewSource,
     previewDiff: ui.previewDiff,
     previewEngine: ui.previewEngine,
@@ -210,9 +217,10 @@ export async function init() {
   const s = st.session ?? {};
   ui.favorites = st.favorites;
   ui.recent = st.recent_repos;
-  for (const k of ["dual", "showHidden", "showSidebar", "showPreview", "sidebarW", "previewW", "split", "autoSizes", "previewSource", "previewDiff", "previewEngine"]) if (k in s) ui[k] = s[k];
+  for (const k of ["dual", "showHidden", "showSidebar", "showPreview", "sidebarW", "previewW", "split", "previewSource", "previewDiff", "previewEngine"]) if (k in s) ui[k] = s[k];
   if (s.columns) ui.columns = { ...ui.columns, ...s.columns };
   if (!("showHidden" in s)) ui.showHidden = ui.cfg.show_hidden;
+  ui.autoSizes = s.sizes ?? ui.cfg.folder_sizes;
   setTheme(ui.cfg.gui.theme);
   // Directories given on the command line win over the saved session.
   const fromArgs = ui.cfg.start;

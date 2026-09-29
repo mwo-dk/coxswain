@@ -394,7 +394,7 @@
  "preview.attachments": "Liitteet",
  "preview.back": "Takaisin esikatseluun",
  "preview.ca": "{name} (CA)",
- "preview.calculate": "Laske (Ctrl+Space)",
+ "preview.calculate": "Laske",
  "preview.changes_against_head": "Muutokset HEADiin verrattuna",
  "preview.column": "Sarake",
  "preview.columns": {

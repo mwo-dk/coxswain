@@ -417,7 +417,7 @@
  "preview.attachments": "Adjunts",
  "preview.back": "Torna a la previsualització",
  "preview.ca": "{name} (CA)",
- "preview.calculate": "Calcula (Ctrl+Space)",
+ "preview.calculate": "Calcula",
  "preview.changes_against_head": "Canvis respecte a HEAD",
  "preview.column": "Columna",
  "preview.columns": {
