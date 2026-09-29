@@ -67,16 +67,25 @@ pub fn text_of(path: &Path, size: u64, max: u64) -> Option<String> {
 pub fn tidy(text: &str) -> String {
     let mut out = String::with_capacity(text.len().min(MAX_TEXT));
     for line in text.lines().map(|l| l.replace(unseen, "").split_whitespace().collect::<Vec<_>>().join(" ")).filter(|l| !l.is_empty()) {
-        if out.len() + line.len() + 1 > MAX_TEXT {
-            out.push_str(start(&line, MAX_TEXT.saturating_sub(out.len() + 1)));
-            break;
-        }
         if !out.is_empty() {
             out.push('\n');
+        }
+        // The line that does not fit is cut at a word, and the text ends there.
+        if out.len() + line.len() > MAX_TEXT {
+            let room = start(&line, MAX_TEXT.saturating_sub(out.len()));
+            out.push_str(&room[..room.rfind(' ').unwrap_or(room.len())]);
+            break;
         }
         out.push_str(&line);
     }
     out
+}
+
+/// The bytes as text, as far as they are UTF-8. A part of an office file is UTF-8 through and
+/// through; what a hostile file puts after a byte that is not is left out, and nothing is
+/// copied: a byte that is no UTF-8 would take three as a replacement character.
+pub fn utf8(bytes: &[u8]) -> &str {
+    std::str::from_utf8(bytes).unwrap_or_else(|e| std::str::from_utf8(&bytes[..e.valid_up_to()]).unwrap_or_default())
 }
 
 /// What stands in a text and is no part of what it says. A control character that is no blank
@@ -136,19 +145,30 @@ fn unpack(entry: impl Read) -> Option<Vec<u8>> {
 }
 
 /// The text inside an XML document, tags dropped and entities resolved. An element whose
-/// name (without its prefix) is in `lines` ends a line; one in `skip` is left out with all
-/// inside it. What is left of a broken document is still returned. No more than `MAX_TEXT`
-/// bytes are built: one text may be as long as the document, which may be `MAX_ENTRY`.
+/// name (without its prefix, and in whatever case) is in `lines` ends a line where it
+/// closes; one in `skip` is left out with all inside it. What is left of a broken document
+/// is still returned. No more than `MAX_TEXT` bytes are built: one text may be as long as
+/// the document, which may be `MAX_ENTRY`.
 pub fn xml_text(xml: &[u8], lines: &[&str], skip: &[&str]) -> String {
+    tags_dropped(xml, lines, skip, false)
+}
+
+/// The text of a web page, as `xml_text` reads it, but an element in `lines` ends a line
+/// where it opens as well: a page closes no `<br>`, and often no `<td>` or `<li>`.
+pub fn page_text(xml: &[u8], lines: &[&str], skip: &[&str]) -> String {
+    tags_dropped(xml, lines, skip, true)
+}
+
+fn tags_dropped(xml: &[u8], lines: &[&str], skip: &[&str], opens: bool) -> String {
     use quick_xml::events::Event;
-    let xml = String::from_utf8_lossy(xml);
-    let mut reader = quick_xml::Reader::from_str(&xml);
+    let mut reader = quick_xml::Reader::from_str(utf8(xml));
     reader.config_mut().check_end_names = false;
     let (mut out, mut skipping) = (String::new(), 0usize);
-    let named = |name: &str, among: &[&str]| among.contains(&name);
+    let named = |name: &str, among: &[&str]| among.iter().any(|one| one.eq_ignore_ascii_case(name));
     while out.len() < MAX_TEXT {
         match reader.read_event() {
             Ok(Event::Start(e)) if skipping > 0 || named(e.local_name().as_ref(), skip) => skipping += 1,
+            Ok(Event::Start(e)) if opens && named(e.local_name().as_ref(), lines) => out.push('\n'),
             Ok(Event::End(e)) => {
                 if skipping > 0 {
                     skipping -= 1;
@@ -213,11 +233,21 @@ pub(crate) mod tests {
         // The store's marks, a command for a terminal and a bell are taken out, and blank space of any kind is a space.
         assert_eq!(tidy("be\u{1}fore\u{2} \u{1b}[31mred\u{7}\tand\u{c}green \u{1} end"), "before [31mred and green end");
         assert_eq!(tidy("bud\u{AD}get, bud\u{200B}get and bud\u{2060}get"), "budget, budget and budget");
+        // The line that does not fit begins on a line of its own and is cut at a word: no two words are joined at the end.
+        let cut = tidy(&format!("{}\nslut\nfærge diesel {}", "x".repeat(MAX_TEXT - 20), "y".repeat(40)));
+        assert!(cut.ends_with("x\nslut\nfærge diesel") && cut.len() <= MAX_TEXT, "{}", &cut[cut.len() - 40..]);
         // One text longer than what is kept is cut where it is read, not after it was built.
         let built = xml_text(format!("<a>{long}</a>").as_bytes(), &[], &[]);
         assert!(built.len() <= MAX_TEXT && built.len() > MAX_TEXT - 4 && built.chars().all(|c| c == 'é'), "{} bytes", built.len());
 
         assert_eq!(xml_text(b"<w:p><w:r><w:t>Fuel &amp; fire</w:t></w:r></w:p><w:p><w:t>Go</w:t><w:br/>now</w:p>", &["p", "br"], &[]), "Fuel & fire\nGo\nnow\n");
+        // A web page ends a line where a cell or a break begins, since it need not close them; and it writes the names as it likes.
+        assert_eq!(xml_text(b"<table><tr><td>budget<br>Fuel<td>Bro</table>", &["td", "br"], &[]), "budgetFuelBro");
+        assert_eq!(page_text(b"<TABLE><tr><td>budget<br>Fuel<td>Bro<BR>Tunnel</table>", &["td", "br"], &[]), "\nbudget\nFuel\nBro\nTunnel");
+        assert_eq!(xml_text(b"<a>keep<STYLE>p { x }</STYLE>this</a>", &[], &["style"]), "keepthis");
+        // A byte that is no UTF-8 ends the reading, and costs no copy of the document.
+        assert_eq!(xml_text(b"<a>caf\xc3\xa9 and\xff then</a>", &[], &[]), "café and");
+        assert_eq!(utf8(b"\xffabc"), "");
         assert_eq!(xml_text(b"<a>keep<style>p { x }</style><b>this</b></a>", &[], &["style"]), "keepthis");
         assert_eq!(xml_text(b"<a>cut <b>short", &[], &[]), "cut short", "what is left of a broken document");
         assert_eq!(xml_text("<a>caf&#233; &#x41;&lt;&nbsp;b&made-up;</a>".as_bytes(), &[], &[]), "café A< b");
