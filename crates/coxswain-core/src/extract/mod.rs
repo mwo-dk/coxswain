@@ -62,18 +62,13 @@ pub fn text_of(path: &Path, size: u64, max: u64) -> Option<String> {
     (!text.is_empty()).then_some(text)
 }
 
-/// One space between words, one line break between lines, no more than `MAX_TEXT` bytes.
+/// One space between words, one line break between lines, no more than `MAX_TEXT` bytes, and
+/// nothing of what `unseen` names.
 pub fn tidy(text: &str) -> String {
     let mut out = String::with_capacity(text.len().min(MAX_TEXT));
-    for line in text.lines().map(|l| l.split_whitespace().collect::<Vec<_>>().join(" ")).filter(|l| !l.is_empty()) {
+    for line in text.lines().map(|l| l.replace(unseen, "").split_whitespace().collect::<Vec<_>>().join(" ")).filter(|l| !l.is_empty()) {
         if out.len() + line.len() + 1 > MAX_TEXT {
-            let mut room = MAX_TEXT.saturating_sub(out.len() + 1).min(line.len());
-            while !line.is_char_boundary(room) {
-                room -= 1;
-            }
-            if room > 0 {
-                out.push_str(&line[..room]);
-            }
+            out.push_str(start(&line, MAX_TEXT.saturating_sub(out.len() + 1)));
             break;
         }
         if !out.is_empty() {
@@ -82,6 +77,24 @@ pub fn tidy(text: &str) -> String {
         out.push_str(&line);
     }
     out
+}
+
+/// What stands in a text and is no part of what it says. A control character that is no blank
+/// space: the store marks the words it found with two of them, and a terminal takes others for
+/// commands. And the soft hyphen, the zero width space and the word joiner, which say where a
+/// word may be broken at the end of a line or may not: left in, they end the word for the
+/// store, and "bud-get" is not found as "budget".
+fn unseen(c: char) -> bool {
+    c.is_control() && !c.is_whitespace() || matches!(c, '\u{AD}' | '\u{200B}' | '\u{2060}')
+}
+
+/// The start of a text: no more than `most` bytes of it, and no part of a character.
+fn start(text: &str, most: usize) -> &str {
+    let mut end = most.min(text.len());
+    while !text.is_char_boundary(end) {
+        end -= 1;
+    }
+    &text[..end]
 }
 
 // ---------------------------------------------------------------- for the readers
@@ -124,7 +137,8 @@ fn unpack(entry: impl Read) -> Option<Vec<u8>> {
 
 /// The text inside an XML document, tags dropped and entities resolved. An element whose
 /// name (without its prefix) is in `lines` ends a line; one in `skip` is left out with all
-/// inside it. What is left of a broken document is still returned.
+/// inside it. What is left of a broken document is still returned. No more than `MAX_TEXT`
+/// bytes are built: one text may be as long as the document, which may be `MAX_ENTRY`.
 pub fn xml_text(xml: &[u8], lines: &[&str], skip: &[&str]) -> String {
     use quick_xml::events::Event;
     let xml = String::from_utf8_lossy(xml);
@@ -132,7 +146,7 @@ pub fn xml_text(xml: &[u8], lines: &[&str], skip: &[&str]) -> String {
     reader.config_mut().check_end_names = false;
     let (mut out, mut skipping) = (String::new(), 0usize);
     let named = |name: &str, among: &[&str]| among.contains(&name);
-    while out.len() <= MAX_TEXT {
+    while out.len() < MAX_TEXT {
         match reader.read_event() {
             Ok(Event::Start(e)) if skipping > 0 || named(e.local_name().as_ref(), skip) => skipping += 1,
             Ok(Event::End(e)) => {
@@ -143,8 +157,8 @@ pub fn xml_text(xml: &[u8], lines: &[&str], skip: &[&str]) -> String {
                 }
             }
             Ok(Event::Empty(e)) if skipping == 0 && named(e.local_name().as_ref(), lines) => out.push('\n'),
-            Ok(Event::Text(t)) if skipping == 0 => out.push_str(&t.into_inner()),
-            Ok(Event::CData(t)) if skipping == 0 => out.push_str(&t.into_inner()),
+            Ok(Event::Text(t)) if skipping == 0 => out.push_str(start(&t.into_inner(), MAX_TEXT - out.len())),
+            Ok(Event::CData(t)) if skipping == 0 => out.push_str(start(&t.into_inner(), MAX_TEXT - out.len())),
             // &amp; and &#233; arrive on their own. An entity the document made up is dropped:
             // none is ever looked up or unfolded, so none can grow without end.
             Ok(Event::GeneralRef(r)) if skipping == 0 => match r.resolve_char_ref() {
@@ -196,6 +210,12 @@ pub(crate) mod tests {
         let long = "é".repeat(MAX_TEXT);
         let cut = tidy(&long);
         assert!(cut.len() <= MAX_TEXT && cut.len() > MAX_TEXT - 4 && cut.chars().all(|c| c == 'é'));
+        // The store's marks, a command for a terminal and a bell are taken out, and blank space of any kind is a space.
+        assert_eq!(tidy("be\u{1}fore\u{2} \u{1b}[31mred\u{7}\tand\u{c}green \u{1} end"), "before [31mred and green end");
+        assert_eq!(tidy("bud\u{AD}get, bud\u{200B}get and bud\u{2060}get"), "budget, budget and budget");
+        // One text longer than what is kept is cut where it is read, not after it was built.
+        let built = xml_text(format!("<a>{long}</a>").as_bytes(), &[], &[]);
+        assert!(built.len() <= MAX_TEXT && built.len() > MAX_TEXT - 4 && built.chars().all(|c| c == 'é'), "{} bytes", built.len());
 
         assert_eq!(xml_text(b"<w:p><w:r><w:t>Fuel &amp; fire</w:t></w:r></w:p><w:p><w:t>Go</w:t><w:br/>now</w:p>", &["p", "br"], &[]), "Fuel & fire\nGo\nnow\n");
         assert_eq!(xml_text(b"<a>keep<style>p { x }</style><b>this</b></a>", &[], &["style"]), "keepthis");

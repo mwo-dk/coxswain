@@ -21,7 +21,7 @@ Mac OS 9; see [themes](#themes).*
   parallel: about 1.4M files index in ~0.2 s and answer in under 10 ms. Every window and the
   terminal app share one index.
 - **Search inside your files.** Tab in Find file switches from names to the text of your
-  files, with the passage that matched under each hit: text and code, PDF, Word, spreadsheets,
+  files, with the passage that matched under each hit: text and code, Word, spreadsheets,
   presentations, mail, books and notebooks. It stays on your machine.
 - **See before you open.** The desktop app previews over 60 file types: code, Markdown with
   Mermaid diagrams and math, Jupyter notebooks, Word, spreadsheets, PDFs, SQLite databases,
@@ -338,7 +338,6 @@ More folders, other excludes and another size limit are `text_roots`, `text_excl
 
 | Kind | Files |
 |---|---|
-| PDF | `.pdf` |
 | Word and OpenDocument text | `.docx` `.docm` `.dotx` `.odt` `.ott`, with headers, footers, footnotes and comments |
 | Rich text | `.rtf` |
 | Spreadsheets | `.xlsx` `.xlsm` `.xlsb` `.xls` `.ods`: every sheet, the values and not the formulas |
@@ -347,8 +346,8 @@ More folders, other excludes and another size limit are `text_roots`, `text_excl
 | Books and web pages | `.epub` `.html` `.htm` `.xhtml` |
 | Notebooks and diagrams | Jupyter `.ipynb` with what the cells printed, draw.io `.drawio` `.dio` |
 
-Coxswain reads them itself: no other program is started and nothing is installed. A scanned
-page is a picture and has no text to find, and a file locked with a password is not read.
+Coxswain reads them itself: no other program is started and nothing is installed. A file
+locked with a password is not read. PDF follows.
 The first start after an update reads your files again, since the documents are new to it.
 
 The terminal app does the same, with the passage on a second line:
