@@ -223,7 +223,7 @@
  },
  "dialogs.size": "Mida",
  "dialogs.tag_none": "cap",
- "dialogs.text_hint": "Escriviu paraules per cercar dins dels vostres fitxers.",
+ "dialogs.text_hint": "Escriviu paraules per cercar dins dels vostres fitxers: text, Word, fulls de càlcul, presentacions, correu i llibres.",
  "dialogs.text_placeholder": "Cerca dins dels fitxers…  coet pressupost",
  "dialogs.type": "Tipus",
  "dupes.add_folder": "Afegeix una carpeta…",

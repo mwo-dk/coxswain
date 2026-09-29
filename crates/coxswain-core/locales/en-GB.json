@@ -215,7 +215,7 @@
  },
  "dialogs.size": "Size",
  "dialogs.tag_none": "none",
- "dialogs.text_hint": "Type words to search inside your files.",
+ "dialogs.text_hint": "Type words to search inside your files: text, Word, spreadsheets, slides, mail and books.",
  "dialogs.text_placeholder": "Search inside files…  rocket budget",
  "dialogs.type": "Type",
  "dupes.add_folder": "Add a folder…",

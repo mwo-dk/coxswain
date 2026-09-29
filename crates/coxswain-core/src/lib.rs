@@ -4,6 +4,7 @@ pub mod archive;
 pub mod config;
 pub mod i18n;
 pub mod dupes;
+pub mod extract;
 pub mod fs;
 pub mod git;
 pub mod helper;

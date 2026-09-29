@@ -215,7 +215,7 @@
  },
  "dialogs.size": "Størrelse",
  "dialogs.tag_none": "ingen",
- "dialogs.text_hint": "Skriv ord for at søge inde i dine filer.",
+ "dialogs.text_hint": "Skriv ord for at søge inde i dine filer: tekst, Word, regneark, præsentationer, mail og bøger.",
  "dialogs.text_placeholder": "Søg inde i filer…  raket budget",
  "dialogs.type": "Type",
  "dupes.add_folder": "Tilføj en mappe…",

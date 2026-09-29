@@ -14,8 +14,9 @@ use rusqlite::{params, Connection};
 use crate::config::SearchConfig;
 use crate::index::{Hit, Results};
 
-/// Bumped when the tables change.
-const VERSION: i32 = 1;
+/// Bumped when the tables change, and when the readers learn formats: files the store has
+/// marked as without text are only read again when they change.
+const VERSION: i32 = 3;
 /// A snippet marks the words it found with these; the apps turn them into a highlight.
 pub const MARK: (char, char) = ('\u{1}', '\u{2}');
 
@@ -119,24 +120,6 @@ impl Store {
 
 // ---------------------------------------------------------------- filling it
 
-/// A file's text, if it is one we can read. Plain text for now: no zero bytes at its start,
-/// and UTF-8.
-pub fn text_of(path: &Path, size: u64, max: u64) -> Option<String> {
-    use std::io::Read;
-    if size == 0 || size > max {
-        return None;
-    }
-    let mut f = std::fs::File::open(path).ok()?;
-    let mut head = [0u8; 8192];
-    let n = f.read(&mut head).ok()?;
-    if head[..n].contains(&0) {
-        return None;
-    }
-    let mut bytes = head[..n].to_vec();
-    f.take(max).read_to_end(&mut bytes).ok()?;
-    String::from_utf8(bytes).ok()
-}
-
 /// The folders whose text is kept: the ones in the config, or the home folder.
 fn roots(cfg: &SearchConfig) -> Vec<PathBuf> {
     if cfg.text_roots.is_empty() { std::env::home_dir().into_iter().collect() } else { cfg.text_roots.clone() }
@@ -178,7 +161,7 @@ pub fn scan(store: &Store, cfg: &SearchConfig, stop: &AtomicBool) -> rusqlite::R
     store.pending.store(changed.len(), Ordering::Relaxed);
     for batch in changed.chunks(200) {
         let start = Instant::now();
-        let rows: Vec<_> = batch.iter().map(|(path, text, size, at)| (text.clone(), *size, *at, text_of(path, *size, cfg.text_max_size))).collect();
+        let rows: Vec<_> = batch.iter().map(|(path, text, size, at)| (text.clone(), *size, *at, crate::extract::text_of(path, *size, cfg.text_max_size))).collect();
         store.put(&rows)?;
         store.pending.fetch_sub(batch.len(), Ordering::Relaxed);
         if stop.load(Ordering::Relaxed) {

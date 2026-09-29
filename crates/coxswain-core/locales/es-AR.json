@@ -223,7 +223,7 @@
  },
  "dialogs.size": "Tamaño",
  "dialogs.tag_none": "ninguna",
- "dialogs.text_hint": "Escribí palabras para buscar dentro de tus archivos.",
+ "dialogs.text_hint": "Escribí palabras para buscar dentro de tus archivos: texto, Word, hojas de cálculo, presentaciones, correo y libros.",
  "dialogs.text_placeholder": "Buscar dentro de archivos…  cohete presupuesto",
  "dialogs.type": "Tipo",
  "dupes.add_folder": "Agregar una carpeta…",
