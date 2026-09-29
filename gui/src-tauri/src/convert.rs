@@ -14,6 +14,7 @@ use std::hash::{Hash, Hasher};
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
+use std::collections::BTreeMap;
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
@@ -107,7 +108,7 @@ fn engines(cfg: &PreviewConfig, tool: &str) -> Vec<Engine> {
         (_, true) => Engine { id: "container:".into(), label: t!("convert.container"), available: false, note: t!("convert.no_image", "tool" => tool), needs_pull: false },
         (None, false) => Engine { id: "container:".into(), label: t!("convert.container"), available: false, note: t!("convert.no_runtime"), needs_pull: false },
         (Some((rt, path)), false) => {
-            let pulled = Command::new(&path).args(if rt == "podman" { vec!["image", "exists", &image] } else { vec!["image", "inspect", &image] }).stdout(Stdio::null()).stderr(Stdio::null()).status().is_ok_and(|s| s.success());
+            let pulled = image_size(&path, &image).is_some();
             let short = image.rsplit('/').next().unwrap_or(&image).to_string();
             Engine {
                 id: format!("container:{rt}"),
@@ -227,7 +228,9 @@ fn run(cfg: &PreviewConfig, tool: &str, engine: &str, path: &Path, out: &Path, f
             return Err(t!("convert.not_available", "program" => which_one));
         }
         let image = cfg.images.get(tool).filter(|i| !i.is_empty()).ok_or_else(|| t!("convert.no_container_image", "tool" => tool))?;
-        pull(&rt_path, image)?;
+        if image_size(&rt_path, image).is_none() {
+            pull(&rt_path, image)?;
+        }
         let container_name = format!("bosum-preview-{}", out.file_name().unwrap_or_default().to_string_lossy());
         let mut c = Command::new(&rt_path);
         c.args(["run", "--rm", "--network=none", "--security-opt", "label=disable", "--name", &container_name]);
@@ -312,14 +315,106 @@ fn run(cfg: &PreviewConfig, tool: &str, engine: &str, path: &Path, out: &Path, f
 
 const DUCKDB_SQL: &str = "SELECT schema_name, table_name, estimated_size AS rows, column_count AS columns FROM duckdb_tables() ORDER BY 1, 2";
 
-/// Pull `image` if it is not there yet. Not covered by the timeout: images can be gigabytes.
+/// The size of `image` in bytes, if the runtime has it.
+fn image_size(rt: &Path, image: &str) -> Option<u64> {
+    let out = Command::new(rt).args(["image", "inspect", "--format", "{{.Size}}", image]).stdin(Stdio::null()).output().ok()?;
+    out.status.success().then(|| String::from_utf8_lossy(&out.stdout).trim().parse().ok()).flatten()
+}
+
+/// The last progress line of every pull under way, by image, for the GUI to show.
+static PULLING: Mutex<BTreeMap<String, String>> = Mutex::new(BTreeMap::new());
+
+/// Pull (or update) `image`, streaming its progress into `PULLING`. Not covered by the
+/// timeout: images can be gigabytes. Two windows pulling the same image at once are fine, the
+/// runtime shares one download.
 fn pull(rt: &Path, image: &str) -> Res<()> {
-    let have = Command::new(rt).args(["image", "inspect", image]).stdout(Stdio::null()).stderr(Stdio::null()).status().is_ok_and(|s| s.success());
-    if have {
-        return Ok(());
+    PULLING.lock().unwrap().insert(image.to_string(), String::new());
+    let result = (|| {
+        let mut child = Command::new(rt).args(["pull", image]).stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::piped()).spawn().map_err(|e| e.to_string())?;
+        // docker reports on stdout, podman on stderr; errors come on stderr.
+        let (out, err) = (child.stdout.take().unwrap(), child.stderr.take().unwrap());
+        let name = image.to_string();
+        let t = std::thread::spawn(move || follow(out, &name));
+        let last_err = follow(err, image);
+        let _ = t.join();
+        let status = child.wait().map_err(|e| e.to_string())?;
+        if status.success() { Ok(()) } else { Err(t!("convert.pull_failed", "image" => image, "error" => last_err)) }
+    })();
+    PULLING.lock().unwrap().remove(image);
+    result
+}
+
+/// Keep the latest line (progress bars redraw with `\r`) of `r` in `PULLING` for `image`;
+/// returns the last one.
+fn follow(mut r: impl Read, image: &str) -> String {
+    let (mut buf, mut acc, mut last) = ([0u8; 4096], String::new(), String::new());
+    loop {
+        let n = match r.read(&mut buf) {
+            Ok(0) | Err(_) => break,
+            Ok(n) => n,
+        };
+        acc.push_str(&String::from_utf8_lossy(&buf[..n]));
+        let Some(i) = acc.rfind(['\n', '\r']) else { continue };
+        if let Some(line) = acc[..i].rsplit(['\n', '\r']).map(str::trim).find(|l| !l.is_empty()) {
+            last = line.to_string();
+            PULLING.lock().unwrap().insert(image.to_string(), last.clone());
+        }
+        acc.drain(..=i);
     }
-    let out = Command::new(rt).args(["pull", "-q", image]).stdin(Stdio::null()).output().map_err(|e| e.to_string())?;
-    if out.status.success() { Ok(()) } else { Err(t!("convert.pull_failed", "image" => image, "error" => String::from_utf8_lossy(&out.stderr).trim())) }
+    last
+}
+
+#[derive(Serialize)]
+pub struct Image {
+    tool: String,
+    image: String,
+    /// Bytes, when the runtime has it.
+    size: Option<u64>,
+    /// The latest progress line while it is being pulled.
+    pulling: Option<String>,
+}
+
+/// Every configured image and whether the runtime has it, for Settings.
+#[tauri::command]
+pub async fn images(ctx: tauri::State<'_, crate::Ctx>) -> Res<Vec<Image>> {
+    let cfg = ctx.cfg().preview.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let (_, rt) = runtime(&cfg).ok_or_else(|| t!("convert.no_runtime"))?;
+        let pulling = PULLING.lock().unwrap().clone();
+        Ok(cfg
+            .images
+            .iter()
+            .filter(|(_, image)| !image.is_empty())
+            .map(|(tool, image)| Image { tool: tool.clone(), image: image.clone(), size: image_size(&rt, image), pulling: pulling.get(image).cloned() })
+            .collect())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// Pull `image`, or update it to the newest. Poll `pull_progress` meanwhile.
+#[tauri::command]
+pub async fn pull_image(image: String, ctx: tauri::State<'_, crate::Ctx>) -> Res<()> {
+    let cfg = ctx.cfg().preview.clone();
+    tauri::async_runtime::spawn_blocking(move || pull(&runtime(&cfg).ok_or_else(|| t!("convert.no_runtime"))?.1, &image)).await.map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+pub async fn remove_image(image: String, ctx: tauri::State<'_, crate::Ctx>) -> Res<()> {
+    let cfg = ctx.cfg().preview.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let (_, rt) = runtime(&cfg).ok_or_else(|| t!("convert.no_runtime"))?;
+        let out = Command::new(rt).args(["image", "rm", &image]).stdin(Stdio::null()).output().map_err(|e| e.to_string())?;
+        if out.status.success() { Ok(()) } else { Err(last_lines(&String::from_utf8_lossy(&out.stderr), 3).unwrap_or_default()) }
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// The latest progress line of every pull under way, by image.
+#[tauri::command]
+pub fn pull_progress() -> BTreeMap<String, String> {
+    PULLING.lock().unwrap().clone()
 }
 
 /// Run to completion within `timeout`; on timeout kill it (and its container).
@@ -418,6 +513,24 @@ mod tests {
         assert_eq!(output("plantuml", Path::new("/a/seq.puml"), out).0, "svg");
         assert_eq!(last_lines("a\n\nb\nc\n", 2).unwrap(), "b\nc");
         assert!(last_lines("\n \n", 3).is_none());
+    }
+
+    #[test]
+    fn follow_keeps_last_complete_line() {
+        assert_eq!(follow("one\ntwo\rthree".as_bytes(), "t"), "two");
+        assert_eq!(PULLING.lock().unwrap().get("t").map(String::as_str), Some("two"));
+    }
+
+    /// Needs podman and the network: `cargo test -- --ignored real_pull`.
+    #[test]
+    #[ignore]
+    fn real_pull_streams_progress() {
+        let rt = which("podman").unwrap();
+        let image = "docker.io/library/alpine:latest";
+        pull(&rt, image).unwrap();
+        assert!(image_size(&rt, image).is_some());
+        assert!(PULLING.lock().unwrap().is_empty());
+        assert!(pull(&rt, "docker.io/library/no-such-image-bosum:1").is_err());
     }
 
     /// Needs podman with the texlive image and LibreOffice: `cargo test -- --ignored`.

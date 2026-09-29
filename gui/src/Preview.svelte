@@ -171,6 +171,18 @@
     return () => clearTimeout(timer);
   });
 
+  // While a container run pulls its image, show the runtime's progress line.
+  let pulling = $state("");
+  $effect(() => {
+    if (conv?.status !== "running") return void (pulling = "");
+    const id = setInterval(async () => {
+      const p = await invoke("pull_progress").catch(() => ({}));
+      const [image, line] = Object.entries(p)[0] ?? [];
+      pulling = image ? `${t("convert.pulling", { image })} ${line ?? ""}` : "";
+    }, 500);
+    return () => clearInterval(id);
+  });
+
   async function renderConv(engineId) {
     const c = conv;
     if (!c) return;
@@ -397,6 +409,7 @@
           <p class="more">{engineOf(conv)?.note}</p>
         {:else if conv.status === "running"}
           <p class="more">{t("preview.rendering_with", { engine: engineOf(conv)?.label })}</p>
+          {#if pulling}<p class="more mono">{pulling}</p>{/if}
         {:else if conv.status === "error"}
           <pre class="diagram-error mono">{conv.error}</pre>
           <button class="render" onclick={() => renderConv()}>{t("common.try_again")}</button>
