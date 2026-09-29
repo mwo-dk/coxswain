@@ -6,7 +6,15 @@ Coxswain is a two-panel file manager in the Norton Commander tradition, built fo
 comes as a terminal app (Rust + Ratatui) and a desktop app (Tauri + Svelte 5). Both run on one
 shared Rust core and read the same config file.
 
-- **Norton Commander at heart.** Blue panels, F-key bar, command line, and NC's keys by default.
+![The desktop app in Cyber, its default theme: a green phosphor terminal with two panes, git status, color tags and the F-key bar](docs/screenshots/gui-details.png)
+*The desktop app in **Cyber**, its default: a green phosphor terminal, glow and scanlines
+included. Seventeen more themes are one F9 away, from Norton Commander blue to Windows 95 and
+Mac OS 9; see [themes](#themes).*
+
+- **Norton Commander at heart.** Blue panels in the terminal, F-key bar, command line, and
+  NC's keys by default.
+- **Eighteen themes with the looks of their era.** Cyber by default in the desktop app;
+  Windows 3.11 to 11 and Mac System 7 to today come with their corners, bevels and fonts.
 - **Git in every panel.** oh-my-posh style branch, ahead/behind, staged/modified/untracked
   counts and stashes, plus a glyph per file (Nerd Font, or ASCII).
 - **Search like Everything.** Every file name on the machine sits in RAM and queries run in
@@ -36,8 +44,8 @@ shared Rust core and read the same config file.
 
 | | |
 |---|---|
-| ![Find file searches every file on the machine](docs/screenshots/tui-search.png) | ![The desktop app with sidebar, tabs and tags](docs/screenshots/gui-details.png) |
-| Find file: every file on the machine, in milliseconds | Desktop app: sidebar, tabs, color tags, git |
+| ![Find file searches every file on the machine](docs/screenshots/tui-search.png) | ![Nine of the themes: Windows 3.11, 95, XP, 7 and 11, Mac System 7, Mac OS 9, Aqua and macOS](docs/screenshots/gui-themes.png) |
+| Find file: every file on the machine, in milliseconds | Themes with the look of their era |
 | ![Thumbnails and an image preview](docs/screenshots/gui-thumbnails.png) | ![A PDF in the preview pane, next to a git repository](docs/screenshots/gui-pdf.png) |
 | Thumbnails (Alt+V) with the preview pane (Space) | PDFs preview in place; the left pane shows git status |
 | ![The contents of a tar.gz archive in the preview](docs/screenshots/gui-archive.png) | ![Miller columns, light theme](docs/screenshots/gui-columns.png) |
@@ -225,11 +233,14 @@ Folders reread themselves when something changes in them. Drag files to the othe
 another application, or in from one; Coxswain asks whether to copy or move.
 
 The sidebar holds places, drives with free space, favorite groups (right-click a group, then
-"Add current folder") and the git repositories you visited recently. Pick a theme from the F9
-command list (type "theme") or in Settings. Besides Cyber, a green phosphor terminal and the
-desktop default, and Norton Commander blue, the terminal default, there are modern ones (dark,
-light, Nord, Tokyo Night) and period looks from Windows 3.11 to 11 and Mac System 7 to today,
-each with the corners, bevels and fonts of its era.
+"Add current folder") and the git repositories you visited recently.
+
+### Themes
+
+Pick a theme from the F9 command list (type "theme") or in Settings. Besides Cyber, a green
+phosphor terminal and the desktop default, and Norton Commander blue, the terminal default,
+there are modern ones (dark, light, Nord, Tokyo Night) and period looks from Windows 3.11 to 11
+and Mac System 7 to today, each with the corners, bevels and fonts of its era.
 
 ![Windows 3.11, 95, XP, 7 and 11, Mac System 7, Mac OS 9, Aqua and macOS](docs/screenshots/gui-themes.png)
 
