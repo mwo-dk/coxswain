@@ -375,10 +375,16 @@ fn search(f: &mut Frame, app: &mut App, full: Rect) {
     let area = centered(full, full.width.saturating_sub(8).max(40), full.height.saturating_sub(4));
     let inner = frame(f, app, area, &t!("search.title"));
     let dir = app.panel().dir.to_string_lossy().into_owned();
-    let (state, count) = (app.index.state(), app.index.len());
-    let Some(Dialog::Search { query, scoped, results, cursor, offset }) = &mut app.dialog else { return };
+    let now = app.index.status();
+    let (state, count) = (now.state, now.len);
+    let Some(Dialog::Search { query, mode, results, cursor, offset }) = &mut app.dialog else { return };
+    let text = *mode == 2;
     let [q, info, list, help] = Layout::vertical([Constraint::Length(1), Constraint::Length(1), Constraint::Min(0), Constraint::Length(1)]).areas(inner);
-    let prompt = if *scoped { t!("search.in", "dir" => fit_left(&dir, 30)) } else { t!("search.everywhere") };
+    let prompt = match *mode {
+        2 => t!("search.text"),
+        1 => t!("search.in", "dir" => fit_left(&dir, 30)),
+        _ => t!("search.everywhere"),
+    };
     f.render_widget(Paragraph::new(prompt.as_str()), q);
     let qa = Rect { x: q.x + prompt.width() as u16, width: q.width.saturating_sub(prompt.width() as u16), ..q };
     let w = qa.width as usize;
@@ -391,7 +397,11 @@ fn search(f: &mut Frame, app: &mut App, full: Rect) {
         State::Building => t!("search.building"),
         State::Ready => String::new(),
     };
-    let indexed = tn!("search.indexed", count);
+    let (indexed, st) = if text {
+        (tn!("search.texts", now.texts), if now.pending > 0 { t!("search.reading", "n" => now.pending) } else { String::new() })
+    } else {
+        (tn!("search.indexed", count), st)
+    };
     let msg = if query.is_empty() {
         format!("{indexed}{st}")
     } else {
@@ -400,7 +410,8 @@ fn search(f: &mut Frame, app: &mut App, full: Rect) {
     };
     f.render_widget(Paragraph::new(msg), info);
 
-    let rows = list.height as usize;
+    // A hit in the text takes two lines: the file, and the passage that matched.
+    let rows = list.height as usize / if text { 2 } else { 1 };
     if *cursor < *offset {
         *offset = *cursor;
     } else if *cursor >= *offset + rows {
@@ -413,16 +424,24 @@ fn search(f: &mut Frame, app: &mut App, full: Rect) {
         .enumerate()
         .skip(*offset)
         .take(rows)
-        .map(|(i, h)| {
+        .flat_map(|(i, h)| {
             let base = if i == *cursor { sty(&t.dialog_input) } else { dstyle(&t) };
             let p = h.path.to_string_lossy();
             let (parent, name) = p.rsplit_once(std::path::MAIN_SEPARATOR).unwrap_or(("", &p));
             let name = if h.is_dir { format!("{name}{}", std::path::MAIN_SEPARATOR) } else { name.to_string() };
             let pw = (list.width as usize).saturating_sub(name.width() + 2);
-            Line::from(vec![
+            let file = Line::from(vec![
                 Span::styled(format!(" {name} "), base.patch(hit_style).bg(base.bg.unwrap_or(Color::Reset))),
                 Span::styled(fit(&fit_left(parent, pw), pw), base),
-            ])
+            ]);
+            let Some(snippet) = h.snippet.as_deref().filter(|_| text) else { return vec![file] };
+            // The words found stand out; the rest is dim.
+            let dim = dstyle(&t).add_modifier(Modifier::DIM);
+            let mut passage = vec![Span::styled("   ", dim)];
+            for (n, part) in fit(snippet, (list.width as usize).saturating_sub(3)).split([coxswain_core::store::MARK.0, coxswain_core::store::MARK.1]).enumerate() {
+                passage.push(Span::styled(part.to_string(), if n % 2 == 1 { dstyle(&t).patch(hit_style) } else { dim }));
+            }
+            vec![file, Line::from(passage)]
         })
         .collect();
     f.render_widget(Paragraph::new(lines), list);

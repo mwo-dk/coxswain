@@ -47,6 +47,10 @@ pub struct Index {
 pub struct Hit {
     pub path: PathBuf,
     pub is_dir: bool,
+    /// A search in the files' text: the passage that matched, its words between
+    /// `store::MARK`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub snippet: Option<String>,
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
@@ -337,7 +341,7 @@ impl Index {
         ids.truncate(max);
         let hits = ids
             .into_iter()
-            .filter_map(|id| Some(Hit { path: self.path(id)?, is_dir: self.nodes[id as usize].flags & DIR != 0 }))
+            .filter_map(|id| Some(Hit { path: self.path(id)?, is_dir: self.nodes[id as usize].flags & DIR != 0, snippet: None }))
             .collect();
         Results { hits, total, micros: t.elapsed().as_micros() as u64 }
     }

@@ -212,7 +212,8 @@
  },
  "dialogs.scope_everywhere": "Partout",
  "dialogs.scope_in": "Dans {folder}",
- "dialogs.search_footer": "Enter aller à · Tab partout/ici · F4 modifier · Esc fermer",
+ "dialogs.scope_text": "Texte des fichiers",
+ "dialogs.search_footer": "Enter aller à · Tab partout/ici/texte · F4 modifier · Esc fermer",
  "dialogs.search_hint": "Saisissez du texte pour rechercher parmi tous les noms de fichiers de cet ordinateur.",
  "dialogs.search_placeholder": "Rechercher dans tous les fichiers…  *.rs · ext:md · src/ foo · !test",
  "dialogs.showing_first": {
@@ -222,6 +223,8 @@
  },
  "dialogs.size": "Taille",
  "dialogs.tag_none": "aucune",
+ "dialogs.text_hint": "Saisissez des mots pour chercher dans vos fichiers.",
+ "dialogs.text_placeholder": "Chercher dans les fichiers…  fusée budget",
  "dialogs.type": "Type",
  "dupes.add_folder": "Ajouter un dossier…",
  "dupes.any_size": "toute taille",
@@ -527,7 +530,14 @@
   "one": "{n} résultat en {ms} ms",
   "other": "{n} résultats en {ms} ms"
  },
+ "search.reading": " · {n} restent à lire",
  "search.refreshing": " · actualisation de l’index",
+ "search.text": "texte : ",
+ "search.texts": {
+  "many": "texte de {n} fichiers",
+  "one": "texte de {n} fichier",
+  "other": "texte de {n} fichiers"
+ },
  "search.title": "Rechercher un fichier",
  "settings.appearance": "Apparence",
  "settings.behaviour": "Comportement",
@@ -620,7 +630,7 @@
  "tui.ok_cancel": "Enter = OK   Esc = Annuler",
  "tui.press_enter": "-- appuyez sur Enter --",
  "tui.right_panel": "Panneau droit",
- "tui.search_footer": "Enter aller à · Tab partout/ici · F3 voir · F4 modifier · Esc fermer · syntaxe : F1",
+ "tui.search_footer": "Enter aller à · Tab partout/ici/texte · F3 voir · F4 modifier · Esc fermer · syntaxe : F1",
  "tui.select": "Sélectionner",
  "tui.selected": {
   "many": "{size} dans {n} sélectionnés",

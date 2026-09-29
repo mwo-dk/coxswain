@@ -21,6 +21,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::config::{Config, SearchConfig};
 use crate::index::{Results, Service, State};
+use crate::store::{self, Store};
 
 /// The argument that makes an app the helper.
 pub const ARG: &str = "--index-helper";
@@ -33,7 +34,14 @@ const VERSION: &str = env!("CARGO_PKG_VERSION");
 #[serde(tag = "op", rename_all = "snake_case")]
 enum Request {
     Hello { token: String, version: String },
-    Search { query: String, scope: Option<PathBuf>, max: usize },
+    /// `text`: in the files' text, not in their names.
+    Search {
+        query: String,
+        scope: Option<PathBuf>,
+        max: usize,
+        #[serde(default)]
+        text: bool,
+    },
     Status,
 }
 
@@ -43,7 +51,20 @@ enum Reply {
     /// `same`: the helper is our version. Otherwise it exits, and we start ours.
     Hello { same: bool },
     Results(Results),
-    Status { state: State, len: usize },
+    Status(Status),
+}
+
+/// How the index is doing.
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+pub struct Status {
+    pub state: State,
+    /// File names in the index.
+    pub len: usize,
+    /// Files whose text can be searched, and files still to be read.
+    #[serde(default)]
+    pub texts: usize,
+    #[serde(default)]
+    pub pending: usize,
 }
 
 /// Where the helper's address and lock live: the cache folder, which is the user's own.
@@ -74,11 +95,14 @@ fn write_private(path: &Path, text: &str) -> io::Result<()> {
 pub fn serve() -> io::Result<()> {
     let dir = folder().ok_or_else(|| io::Error::other("no cache folder"))?;
     let search = Config::load().map(|c| c.search).unwrap_or_default();
-    serve_in(&dir, LINGER, move || Service::start(&search))
+    let store = if search.text { Store::open(&dir.join("search.db")).ok().map(Arc::new) } else { None };
+    std::fs::create_dir_all(&dir)?;
+    let cfg = search.clone();
+    serve_in(&dir, LINGER, move || Service::start(&search), store.map(|s| (s, cfg)))
 }
 
 /// `serve` with its folder, its patience and its index given, for tests.
-pub fn serve_in(dir: &Path, linger: Duration, index: impl FnOnce() -> Arc<Service>) -> io::Result<()> {
+pub fn serve_in(dir: &Path, linger: Duration, index: impl FnOnce() -> Arc<Service>, texts: Option<(Arc<Store>, SearchConfig)>) -> io::Result<()> {
     std::fs::create_dir_all(dir)?;
     #[cfg(unix)]
     std::fs::set_permissions(dir, std::os::unix::fs::PermissionsExt::from_mode(0o700))?;
@@ -92,15 +116,21 @@ pub fn serve_in(dir: &Path, linger: Duration, index: impl FnOnce() -> Arc<Servic
     write_private(&addr, &format!("{}\n{token}\n", listener.local_addr()?.port()))?;
 
     let index = index();
+    let stop = Arc::new(AtomicBool::new(false));
+    let store = texts.map(|(store, cfg)| {
+        let (s, stop) = (store.clone(), stop.clone());
+        std::thread::spawn(move || store::keep_current(&s, &cfg, &stop));
+        store
+    });
     let (clients, quit, last) = (Arc::new(AtomicUsize::new(0)), Arc::new(AtomicBool::new(false)), Arc::new(Mutex::new(Instant::now())));
     {
         let (clients, quit, last) = (clients.clone(), quit.clone(), last.clone());
         std::thread::spawn(move || {
             for stream in listener.incoming().flatten() {
-                let (index, token, clients, quit, last) = (index.clone(), token.clone(), clients.clone(), quit.clone(), last.clone());
+                let (index, store, token, clients, quit, last) = (index.clone(), store.clone(), token.clone(), clients.clone(), quit.clone(), last.clone());
                 std::thread::spawn(move || {
                     clients.fetch_add(1, Ordering::SeqCst);
-                    let _ = answer(stream, &index, &token, &quit);
+                    let _ = answer(stream, &index, store.as_deref(), &token, &quit);
                     clients.fetch_sub(1, Ordering::SeqCst);
                     *last.lock().unwrap() = Instant::now();
                 });
@@ -110,11 +140,12 @@ pub fn serve_in(dir: &Path, linger: Duration, index: impl FnOnce() -> Arc<Servic
     while !quit.load(Ordering::SeqCst) && (clients.load(Ordering::SeqCst) > 0 || last.lock().unwrap().elapsed() < linger) {
         std::thread::sleep(linger.min(Duration::from_millis(200)));
     }
+    stop.store(true, Ordering::SeqCst);
     let _ = std::fs::remove_file(addr);
     Ok(())
 }
 
-fn answer(stream: TcpStream, index: &Service, token: &str, quit: &AtomicBool) -> io::Result<()> {
+fn answer(stream: TcpStream, index: &Service, store: Option<&Store>, token: &str, quit: &AtomicBool) -> io::Result<()> {
     stream.set_nodelay(true)?;
     let mut out = stream.try_clone()?;
     let mut said_hello = false;
@@ -131,8 +162,14 @@ fn answer(stream: TcpStream, index: &Service, token: &str, quit: &AtomicBool) ->
                 Reply::Hello { same }
             }
             _ if !said_hello => return Ok(()),
-            Request::Search { query, scope, max } => Reply::Results(index.search(&query, scope.as_deref(), max)),
-            Request::Status => Reply::Status { state: index.state(), len: index.len() },
+            Request::Search { query, max, text: true, .. } => Reply::Results(store.map(|s| s.search(&query, max)).unwrap_or_default()),
+            Request::Search { query, scope, max, .. } => Reply::Results(index.search(&query, scope.as_deref(), max)),
+            Request::Status => Reply::Status(Status {
+                state: index.state(),
+                len: index.len(),
+                texts: store.map_or(0, Store::texts),
+                pending: store.map_or(0, |s| s.pending.load(Ordering::Relaxed)),
+            }),
         };
         let mut text = serde_json::to_string(&reply).map_err(io::Error::other)?;
         text.push('\n');
@@ -153,7 +190,7 @@ pub struct Client {
     search: SearchConfig,
     line: Mutex<Option<Line>>,
     /// The last status and when it was asked: the terminal app asks with every frame.
-    status: Mutex<Option<(Instant, State, usize)>>,
+    status: Mutex<Option<(Instant, Status)>>,
     own: OnceLock<Arc<Service>>,
 }
 
@@ -175,18 +212,26 @@ impl Client {
     }
 
     pub fn search(&self, query: &str, scope: Option<&Path>, max: usize) -> Results {
-        match self.ask(&Request::Search { query: query.into(), scope: scope.map(Path::to_path_buf), max }) {
+        match self.ask(&Request::Search { query: query.into(), scope: scope.map(Path::to_path_buf), max, text: false }) {
             Some(Reply::Results(r)) => r,
             _ => self.own().search(query, scope, max),
         }
     }
 
+    /// Search in the files' text. Nothing without the helper: the store is its alone.
+    pub fn search_text(&self, query: &str, max: usize) -> Results {
+        match self.ask(&Request::Search { query: query.into(), scope: None, max, text: true }) {
+            Some(Reply::Results(r)) => r,
+            _ => Results::default(),
+        }
+    }
+
     pub fn state(&self) -> State {
-        self.status().0
+        self.status().state
     }
 
     pub fn len(&self) -> usize {
-        self.status().1
+        self.status().len
     }
 
     pub fn is_empty(&self) -> bool {
@@ -198,19 +243,19 @@ impl Client {
         self.own.get().is_none()
     }
 
-    fn status(&self) -> (State, usize) {
+    pub fn status(&self) -> Status {
         let mut status = self.status.lock().unwrap();
-        if let Some((at, state, len)) = *status {
+        if let Some((at, known)) = *status {
             if at.elapsed() < Duration::from_millis(500) {
-                return (state, len);
+                return known;
             }
         }
-        let (state, len) = match self.ask(&Request::Status) {
-            Some(Reply::Status { state, len }) => (state, len),
-            _ => (self.own().state(), self.own().len()),
+        let now = match self.ask(&Request::Status) {
+            Some(Reply::Status(s)) => s,
+            _ => Status { state: self.own().state(), len: self.own().len(), texts: 0, pending: 0 },
         };
-        *status = Some((Instant::now(), state, len));
-        (state, len)
+        *status = Some((Instant::now(), now));
+        now
     }
 
     fn own(&self) -> &Arc<Service> {
@@ -307,14 +352,15 @@ mod tests {
         let d = std::env::temp_dir().join(format!("coxswain-helper-{name}-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&d);
         std::fs::create_dir_all(d.join("files/src")).unwrap();
-        for f in ["files/src/main.rs", "files/src/lib.rs", "files/README.md"] {
-            std::fs::write(d.join(f), "x").unwrap();
+        std::fs::create_dir_all(d.join("cache")).unwrap();
+        for (f, text) in [("files/src/main.rs", "fn main() { launch(); }"), ("files/src/lib.rs", "pub fn orbit() {}"), ("files/README.md", "# Rocket")] {
+            std::fs::write(d.join(f), text).unwrap();
         }
         d
     }
 
     fn config(d: &Path) -> SearchConfig {
-        SearchConfig { roots: vec![d.join("files")], watch: false, ..SearchConfig::default() }
+        SearchConfig { roots: vec![d.join("files")], text_roots: vec![d.join("files")], watch: false, ..SearchConfig::default() }
     }
 
     /// A helper in a thread of this test, as an app would start one.
@@ -322,7 +368,10 @@ mod tests {
         let (dir, search) = (d.join("cache"), config(d));
         move || {
             let (dir, search) = (dir.clone(), search.clone());
-            std::thread::spawn(move || serve_in(&dir, linger, move || Service::start(&search)).unwrap());
+            std::thread::spawn(move || {
+                let store = Arc::new(Store::open(&dir.join("search.db")).unwrap());
+                serve_in(&dir, linger, { let s = search.clone(); move || Service::start(&s) }, Some((store, search))).unwrap()
+            });
         }
     }
 
@@ -357,6 +406,15 @@ mod tests {
         assert_eq!(names(&one).len(), 2);
         assert_eq!(names(&one), names(&two));
         assert_eq!(one.len(), two.len());
+
+        // The text of the files, from the same helper.
+        let wait = Instant::now();
+        while one.status().texts < 3 && wait.elapsed() < Duration::from_secs(10) {
+            std::thread::sleep(Duration::from_millis(100));
+        }
+        let found = two.search_text("launch", 10);
+        assert_eq!(found.hits.iter().map(|h| h.path.file_name().unwrap().to_string_lossy().into_owned()).collect::<Vec<_>>(), ["main.rs"]);
+        assert!(found.hits[0].snippet.as_deref().unwrap().contains("launch"));
 
         // Both apps go: the helper waits its while, then takes its address with it.
         drop((one, two));

@@ -205,7 +205,8 @@
  },
  "dialogs.scope_everywhere": "Overalt",
  "dialogs.scope_in": "I {folder}",
- "dialogs.search_footer": "Enter gå til · Tab overalt/her · F4 redigér · Esc luk",
+ "dialogs.scope_text": "Tekst i filer",
+ "dialogs.search_footer": "Enter gå til · Tab overalt/her/tekst · F4 redigér · Esc luk",
  "dialogs.search_hint": "Skriv for at søge i alle filnavne på denne computer.",
  "dialogs.search_placeholder": "Søg i alle filer…  *.rs · ext:md · src/ foo · !test",
  "dialogs.showing_first": {
@@ -214,6 +215,8 @@
  },
  "dialogs.size": "Størrelse",
  "dialogs.tag_none": "ingen",
+ "dialogs.text_hint": "Skriv ord for at søge inde i dine filer.",
+ "dialogs.text_placeholder": "Søg inde i filer…  raket budget",
  "dialogs.type": "Type",
  "dupes.add_folder": "Tilføj en mappe…",
  "dupes.any_size": "alle størrelser",
@@ -494,7 +497,13 @@
   "one": "{n} resultat på {ms} ms",
   "other": "{n} resultater på {ms} ms"
  },
+ "search.reading": " · {n} mangler at blive læst",
  "search.refreshing": " · opdaterer indeks",
+ "search.text": "tekst: ",
+ "search.texts": {
+  "one": "tekst fra {n} fil",
+  "other": "tekst fra {n} filer"
+ },
  "search.title": "Find fil",
  "settings.appearance": "Udseende",
  "settings.behaviour": "Adfærd",
@@ -587,7 +596,7 @@
  "tui.ok_cancel": "Enter = OK   Esc = Annuller",
  "tui.press_enter": "-- tryk på Enter --",
  "tui.right_panel": "Højre panel",
- "tui.search_footer": "Enter gå til · Tab overalt/her · F3 vis · F4 redigér · Esc luk · syntaks: F1",
+ "tui.search_footer": "Enter gå til · Tab overalt/her/tekst · F3 vis · F4 redigér · Esc luk · syntaks: F1",
  "tui.select": "Markér",
  "tui.selected": {
   "one": "{size} i {n} markeret",

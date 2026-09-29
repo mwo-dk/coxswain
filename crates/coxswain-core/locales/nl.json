@@ -205,7 +205,8 @@
  },
  "dialogs.scope_everywhere": "Overal",
  "dialogs.scope_in": "In {folder}",
- "dialogs.search_footer": "Enter ga naar · Tab overal/hier · F4 bewerken · Esc sluiten",
+ "dialogs.scope_text": "Tekst in bestanden",
+ "dialogs.search_footer": "Enter ga naar · Tab overal/hier/tekst · F4 bewerken · Esc sluiten",
  "dialogs.search_hint": "Typ om elke bestandsnaam op deze computer te doorzoeken.",
  "dialogs.search_placeholder": "Alle bestanden doorzoeken…  *.rs · ext:md · src/ foo · !test",
  "dialogs.showing_first": {
@@ -214,6 +215,8 @@
  },
  "dialogs.size": "Grootte",
  "dialogs.tag_none": "geen",
+ "dialogs.text_hint": "Typ woorden om in je bestanden te zoeken.",
+ "dialogs.text_placeholder": "Zoek in bestanden…  raket budget",
  "dialogs.type": "Soort",
  "dupes.add_folder": "Map toevoegen…",
  "dupes.any_size": "elke grootte",
@@ -494,7 +497,13 @@
   "one": "{n} resultaat in {ms} ms",
   "other": "{n} resultaten in {ms} ms"
  },
+ "search.reading": " · nog {n} te lezen",
  "search.refreshing": " · index vernieuwen",
+ "search.text": "tekst: ",
+ "search.texts": {
+  "one": "tekst van {n} bestand",
+  "other": "tekst van {n} bestanden"
+ },
  "search.title": "Bestand zoeken",
  "settings.appearance": "Weergave",
  "settings.behaviour": "Gedrag",
@@ -587,7 +596,7 @@
  "tui.ok_cancel": "Enter = OK   Esc = Annuleren",
  "tui.press_enter": "-- druk op Enter --",
  "tui.right_panel": "Rechterpaneel",
- "tui.search_footer": "Enter ga naar · Tab overal/hier · F3 bekijken · F4 bewerken · Esc sluiten · syntaxis: F1",
+ "tui.search_footer": "Enter ga naar · Tab overal/hier/tekst · F3 bekijken · F4 bewerken · Esc sluiten · syntaxis: F1",
  "tui.select": "Selecteren",
  "tui.selected": {
   "one": "{size} in {n} geselecteerd",

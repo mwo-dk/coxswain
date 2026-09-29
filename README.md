@@ -20,6 +20,8 @@ Mac OS 9; see [themes](#themes).*
 - **Search like Everything.** Every file name on the machine sits in RAM and queries run in
   parallel: about 1.4M files index in ~0.2 s and answer in under 10 ms. Every window and the
   terminal app share one index.
+- **Search inside your files.** Tab in Find file switches from names to the text of your
+  files, with the passage that matched under each hit. It stays on your machine.
 - **See before you open.** The desktop app previews over 60 file types: code, Markdown with
   Mermaid diagrams and math, Jupyter notebooks, Word, spreadsheets, PDFs, SQLite databases,
   JSON/YAML/TOML as trees, Parquet, certificates, e-mail, calendars, EPUB books, fonts,
@@ -304,13 +306,36 @@ app reads the same file. Everything else (keys, colour themes, the user menu) is
 | Up / Down, PageUp / PageDown | Move through the results |
 | Enter | Go to the file, with the cursor on it |
 | F3 / F4 | View / edit the file without leaving the search |
-| Tab | Search everywhere, or only the current folder |
+| Tab | Names everywhere, names in the current folder, or the **text inside your files** |
 | Esc | Close |
 
 **Alt+letter** is the other, smaller search: it jumps to the first name in the current panel
 starting with that letter. Keep typing to narrow it; Backspace takes a letter back, Esc ends it.
 
 The desktop app lists the first 500 hits and counts the rest; type more to narrow them down.
+
+### Search inside your files
+
+Press **Tab** twice in Find file and type words: Coxswain finds the files whose text has all
+of them, best match first, each with the passage that matched. The last word may be the start
+of one, so `rocket bud` finds "rocket budget".
+
+![Find file searching the text of files: seven hits for "engine", each with the passage that matched](docs/screenshots/gui-text-search.png)
+
+| | |
+|---|---|
+| **What is read** | Your home folder: text, code, Markdown, logs, configuration, and any other file that is plain text, up to 20 MB each |
+| **What is left out** | Hidden folders, `node_modules`, `target`, `build`, `dist`, `out`, `vendor`, `__pycache__` and the trash; any folder holding a file named `.nosearch`; files that are not text |
+| **When** | In the background, one file at a time and at half speed, by the [helper](#how-search-stays-fast). A change shows up in searches within ten minutes |
+| **Where it is kept** | `search.db` in Coxswain's cache folder, readable by you alone. Nothing leaves your machine. Delete the file to start afresh |
+| **Switching it off** | `text = false` under `[search]` in `config.toml` |
+
+More folders, other excludes and another size limit are `text_roots`, `text_exclude` and
+`text_max_size` under `[search]`. PDF, Word, spreadsheets and other formats follow.
+
+The terminal app does the same, with the passage on a second line:
+
+![The terminal app searching the text of files](docs/screenshots/tui-text-search.png)
 
 Everything's syntax:
 

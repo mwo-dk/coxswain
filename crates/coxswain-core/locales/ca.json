@@ -212,7 +212,8 @@
  },
  "dialogs.scope_everywhere": "Arreu",
  "dialogs.scope_in": "A {folder}",
- "dialogs.search_footer": "Enter vés-hi · Tab arreu/aquí · F4 edita · Esc tanca",
+ "dialogs.scope_text": "Text als fitxers",
+ "dialogs.search_footer": "Enter vés-hi · Tab arreu/aquí/text · F4 edita · Esc tanca",
  "dialogs.search_hint": "Escriviu per cercar tots els noms de fitxer d'aquest ordinador.",
  "dialogs.search_placeholder": "Cerca tots els fitxers…  *.rs · ext:md · src/ foo · !test",
  "dialogs.showing_first": {
@@ -222,6 +223,8 @@
  },
  "dialogs.size": "Mida",
  "dialogs.tag_none": "cap",
+ "dialogs.text_hint": "Escriviu paraules per cercar dins dels vostres fitxers.",
+ "dialogs.text_placeholder": "Cerca dins dels fitxers…  coet pressupost",
  "dialogs.type": "Tipus",
  "dupes.add_folder": "Afegeix una carpeta…",
  "dupes.any_size": "qualsevol mida",
@@ -527,7 +530,14 @@
   "one": "{n} coincidència en {ms} ms",
   "other": "{n} coincidències en {ms} ms"
  },
+ "search.reading": " · en falten {n} per llegir",
  "search.refreshing": " · s'està actualitzant l'índex",
+ "search.text": "text: ",
+ "search.texts": {
+  "many": "text de {n} fitxers",
+  "one": "text d'{n} fitxer",
+  "other": "text de {n} fitxers"
+ },
  "search.title": "Cerca fitxers",
  "settings.appearance": "Aparença",
  "settings.behaviour": "Comportament",
@@ -620,7 +630,7 @@
  "tui.ok_cancel": "Enter = D'acord   Esc = Cancel·la",
  "tui.press_enter": "-- premeu Enter --",
  "tui.right_panel": "Plafó dret",
- "tui.search_footer": "Enter vés-hi · Tab arreu/aquí · F3 mostra · F4 edita · Esc tanca · sintaxi: F1",
+ "tui.search_footer": "Enter vés-hi · Tab arreu/aquí/text · F3 mostra · F4 edita · Esc tanca · sintaxi: F1",
  "tui.select": "Selecciona",
  "tui.selected": {
   "many": "{size} en {n} de seleccionats",

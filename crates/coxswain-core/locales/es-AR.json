@@ -212,7 +212,8 @@
  },
  "dialogs.scope_everywhere": "En todas partes",
  "dialogs.scope_in": "En {folder}",
- "dialogs.search_footer": "Enter ir · Tab en todas partes/acá · F4 editar · Esc cerrar",
+ "dialogs.scope_text": "Texto en archivos",
+ "dialogs.search_footer": "Enter ir · Tab en todas partes/acá/texto · F4 editar · Esc cerrar",
  "dialogs.search_hint": "Escribí para buscar cualquier nombre de archivo en esta computadora.",
  "dialogs.search_placeholder": "Buscar en todos los archivos…  *.rs · ext:md · src/ foo · !test",
  "dialogs.showing_first": {
@@ -222,6 +223,8 @@
  },
  "dialogs.size": "Tamaño",
  "dialogs.tag_none": "ninguna",
+ "dialogs.text_hint": "Escribí palabras para buscar dentro de tus archivos.",
+ "dialogs.text_placeholder": "Buscar dentro de archivos…  cohete presupuesto",
  "dialogs.type": "Tipo",
  "dupes.add_folder": "Agregar una carpeta…",
  "dupes.any_size": "cualquier tamaño",
@@ -527,7 +530,14 @@
   "one": "{n} coincidencia en {ms} ms",
   "other": "{n} coincidencias en {ms} ms"
  },
+ "search.reading": " · faltan leer {n}",
  "search.refreshing": " · actualizando el índice",
+ "search.text": "texto: ",
+ "search.texts": {
+  "many": "texto de {n} archivos",
+  "one": "texto de {n} archivo",
+  "other": "texto de {n} archivos"
+ },
  "search.title": "Buscar archivo",
  "settings.appearance": "Apariencia",
  "settings.behaviour": "Comportamiento",
@@ -620,7 +630,7 @@
  "tui.ok_cancel": "Enter = Aceptar   Esc = Cancelar",
  "tui.press_enter": "-- presioná Enter --",
  "tui.right_panel": "Panel derecho",
- "tui.search_footer": "Enter ir · Tab en todas partes/acá · F3 ver · F4 editar · Esc cerrar · sintaxis: F1",
+ "tui.search_footer": "Enter ir · Tab en todas partes/acá/texto · F3 ver · F4 editar · Esc cerrar · sintaxis: F1",
  "tui.select": "Seleccionar",
  "tui.selected": {
   "many": "{size} en {n} seleccionados",

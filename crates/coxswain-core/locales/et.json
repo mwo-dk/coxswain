@@ -205,7 +205,8 @@
  },
  "dialogs.scope_everywhere": "Kõikjal",
  "dialogs.scope_in": "Kaustas {folder}",
- "dialogs.search_footer": "Enter mine · Tab kõikjal/siin · F4 muuda · Esc sulge",
+ "dialogs.scope_text": "Tekst failides",
+ "dialogs.search_footer": "Enter mine · Tab kõikjal/siin/tekst · F4 muuda · Esc sulge",
  "dialogs.search_hint": "Tippige, et otsida kõigi selle arvuti failide nimedest.",
  "dialogs.search_placeholder": "Otsi kõigist failidest…  *.rs · ext:md · src/ foo · !test",
  "dialogs.showing_first": {
@@ -214,6 +215,8 @@
  },
  "dialogs.size": "Suurus",
  "dialogs.tag_none": "puudub",
+ "dialogs.text_hint": "Sisesta sõnu, et otsida oma failide seest.",
+ "dialogs.text_placeholder": "Otsi failide seest…  rakett eelarve",
  "dialogs.type": "Tüüp",
  "dupes.add_folder": "Lisa kaust…",
  "dupes.any_size": "mis tahes suurus",
@@ -494,7 +497,13 @@
   "one": "{n} vaste ({ms} ms)",
   "other": "{n} vastet ({ms} ms)"
  },
+ "search.reading": " · {n} veel lugemata",
  "search.refreshing": " · indeksi värskendamine",
+ "search.text": "tekst: ",
+ "search.texts": {
+  "one": "{n} faili tekst",
+  "other": "{n} faili tekst"
+ },
  "search.title": "Otsi faili",
  "settings.appearance": "Välimus",
  "settings.behaviour": "Käitumine",
@@ -587,7 +596,7 @@
  "tui.ok_cancel": "Enter = OK   Esc = Loobu",
  "tui.press_enter": "-- vajuta Enter --",
  "tui.right_panel": "Parem paneel",
- "tui.search_footer": "Enter mine · Tab kõikjal/siin · F3 vaata · F4 muuda · Esc sulge · süntaks: F1",
+ "tui.search_footer": "Enter mine · Tab kõikjal/siin/tekst · F3 vaata · F4 muuda · Esc sulge · süntaks: F1",
  "tui.select": "Vali",
  "tui.selected": {
   "one": "{size}, valitud {n}",
