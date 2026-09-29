@@ -312,8 +312,9 @@ mod tests {
         write(&d.join("deck.pptx"), &deck());
         assert_eq!(read(&d.join("deck.pptx")).unwrap().lines().collect::<Vec<_>>(), DECK);
 
-        // A show, a template and a name in capitals are the same file by another name.
-        for name in ["deck.ppsx", "deck.potx", "DECK.PPTX"] {
+        // A show, a template and a name in capitals are the same file by another name. Not
+        // "DECK.PPTX": on Windows and macOS that is deck.pptx itself.
+        for name in ["deck.ppsx", "deck.potx", "COPY.PPTX"] {
             std::fs::copy(d.join("deck.pptx"), d.join(name)).unwrap();
             assert_eq!(read(&d.join(name)), read(&d.join("deck.pptx")), "{name}");
         }
