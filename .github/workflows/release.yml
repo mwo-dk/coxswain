@@ -269,8 +269,20 @@ jobs:
           v="${TAG#v}"
           base="https://github.com/${{ github.repository }}/releases/download/$TAG"
           notes="https://github.com/${{ github.repository }}/releases/tag/$TAG"
-          ./komac update mwo-dk.Bosum --version "$v" --urls "$base/Bosum_${v}_x64_en-US.msi" \
-            --release-notes-url "$notes" --submit --token "$WINGET_TOKEN"
+          # Only packages that are already in winget-pkgs: the first version of each is submitted
+          # by hand and reviewed by winget's maintainers (packaging/README.md), and a release
+          # must not fail while that review is pending.
+          listed() { gh api "repos/microsoft/winget-pkgs/contents/manifests/m/mwo-dk/$1" --silent 2>/dev/null; }
+          if listed Bosum; then
+            ./komac update mwo-dk.Bosum --version "$v" --urls "$base/Bosum_${v}_x64_en-US.msi" \
+              --release-notes-url "$notes" --submit --token "$WINGET_TOKEN"
+          else
+            echo "::notice::mwo-dk.Bosum is not in winget-pkgs yet (first submission under review), so winget is not updated."
+          fi
           # The terminal zip's exe path carries the version, so its manifests are written, not updated.
-          packaging/winget/terminal.sh "$TAG" winget-terminal
-          ./komac submit --yes --token "$WINGET_TOKEN" winget-terminal/manifests/m/mwo-dk/Bosum/Terminal/"$v"
+          if listed Bosum/Terminal; then
+            packaging/winget/terminal.sh "$TAG" winget-terminal
+            ./komac submit --yes --token "$WINGET_TOKEN" winget-terminal/manifests/m/mwo-dk/Bosum/Terminal/"$v"
+          else
+            echo "::notice::mwo-dk.Bosum.Terminal is not in winget-pkgs yet; submit its first version by hand (packaging/README.md)."
+          fi
