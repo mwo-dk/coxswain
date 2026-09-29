@@ -6,7 +6,8 @@ use coxswain_core::{t, tn};
 use coxswain_core::config::{self, Action, Config, Glyphs, Key, KeyCode};
 use coxswain_core::fs::{self as bfs, Entry, SortKey};
 use coxswain_core::git;
-use coxswain_core::index::{self, Results, Service, State};
+use coxswain_core::helper::{self, Client};
+use coxswain_core::index::{self, Results, State};
 use ratatui::crossterm::event::{self, Event, KeyCode as CK, KeyEvent, KeyEventKind, KeyModifiers, MouseButton, MouseEvent, MouseEventKind};
 use ratatui::crossterm::{cursor, execute, terminal};
 use ratatui::layout::Rect;
@@ -180,7 +181,7 @@ pub struct App {
     pub status: Option<String>,
     pub quick: Option<String>,
     pub show_hidden: bool,
-    pub index: Arc<Service>,
+    pub index: Arc<Client>,
     /// Panel rectangles from the last draw, for mouse hits.
     pub areas: [Rect; 2],
     git_tx: mpsc::Sender<(PathBuf, Option<git::Status>)>,
@@ -242,7 +243,7 @@ impl App {
             status: None,
             quick: None,
             show_hidden,
-            index: Service::start(&cfg.search),
+            index: Client::start(&cfg.search),
             areas: [Rect::default(); 2],
             git_tx,
             git_rx,
@@ -983,6 +984,8 @@ const USAGE: &str = "coxswain [LEFT] [RIGHT]      a folder, or a file to open it
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
     match args.first().map(String::as_str) {
+        // Started by an app, not by hand: hold the file name index for all of them.
+        Some(helper::ARG) => return drop(helper::serve()),
         Some("--help" | "-h") => return println!("{USAGE}"),
         Some("--version" | "-V") => return println!("coxswain {}", coxswain_core::update::VERSION),
         Some("--dump-config") => return print!("{}", Config::default().to_toml()),

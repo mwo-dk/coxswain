@@ -6,7 +6,7 @@
 
 use memchr::memmem::Finder;
 use rayon::prelude::*;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::io::{self, Read, Write};
@@ -43,13 +43,13 @@ pub struct Index {
     gone: usize,
 }
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Hit {
     pub path: PathBuf,
     pub is_dir: bool,
 }
 
-#[derive(Clone, Debug, Default, Serialize)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct Results {
     pub hits: Vec<Hit>,
     /// All matches, including those past `max`.
@@ -618,7 +618,7 @@ pub struct Service {
     state: AtomicU8,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum State {
     /// Serving a cached index while a fresh one is built.

@@ -6,7 +6,8 @@
 use coxswain_core::config::{color_to_rgb, Action, Config, Glyphs, GuiConfig, UserCommand};
 use coxswain_core::fs::{self as bfs, Entry, SortKey};
 use coxswain_core::icons::{icon, Icon};
-use coxswain_core::index::{Results, Service, State};
+use coxswain_core::helper::{self, Client};
+use coxswain_core::index::{Results, State};
 use coxswain_core::rename::{self, Flags, Planned};
 use coxswain_core::state::{AppState, FavoriteGroup};
 use coxswain_core::git;
@@ -23,7 +24,7 @@ mod preview;
 pub struct Ctx {
     /// Replaced when Settings are saved.
     cfg: std::sync::RwLock<Config>,
-    index: Arc<Service>,
+    index: Arc<Client>,
     start: [PathBuf; 2],
     /// `--duplicates <folders>`: open the duplicate finder on these folders at start.
     duplicates: Option<Vec<PathBuf>>,
@@ -917,6 +918,10 @@ async fn check_update(ctx: tauri::State<'_, Ctx>) -> Res<Option<(String, Option<
 }
 
 fn main() {
+    // Started by an app, not by hand: hold the file name index for all of them. No window.
+    if std::env::args().nth(1).as_deref() == Some(helper::ARG) {
+        return drop(helper::serve());
+    }
     let cfg = Config::load().unwrap_or_else(|e| {
         eprintln!("coxswain: {e}; using defaults");
         Config::default()
@@ -955,7 +960,7 @@ fn main() {
     });
     let dir = |i: usize| args.get(i).map(|a| resolve(&cwd, a)).unwrap_or_else(|| cwd.clone());
     let ctx = Ctx {
-        index: Service::start(&cfg.search),
+        index: Client::start(&cfg.search),
         start: [dir(0), dir(1)],
         duplicates,
         open_settings,

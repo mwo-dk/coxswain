@@ -6,6 +6,7 @@ pub mod i18n;
 pub mod dupes;
 pub mod fs;
 pub mod git;
+pub mod helper;
 pub mod icons;
 pub mod index;
 pub mod rename;

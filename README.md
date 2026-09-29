@@ -18,7 +18,8 @@ Mac OS 9; see [themes](#themes).*
 - **Git in every panel.** oh-my-posh style branch, ahead/behind, staged/modified/untracked
   counts and stashes, plus a glyph per file (Nerd Font, or ASCII).
 - **Search like Everything.** Every file name on the machine sits in RAM and queries run in
-  parallel: about 1.4M files index in ~0.2 s and answer in under 10 ms.
+  parallel: about 1.4M files index in ~0.2 s and answer in under 10 ms. Every window and the
+  terminal app share one index.
 - **See before you open.** The desktop app previews over 60 file types: code, Markdown with
   Mermaid diagrams and math, Jupyter notebooks, Word, spreadsheets, PDFs, SQLite databases,
   JSON/YAML/TOML as trees, Parquet, certificates, e-mail, calendars, EPUB books, fonts,
@@ -371,6 +372,13 @@ SIMD `memmem` scan over that buffer, split across all cores. Full paths are buil
 hits. The index is saved to the cache directory, so it loads in ~90 ms on the next start. It is
 then rebuilt in the background and kept current by file system events (inotify, FSEvents,
 ReadDirectoryChangesW).
+
+**One index for every window.** The index lives in a helper process, which the first window
+or terminal app starts and the others find. Two windows and a terminal share one copy in
+memory and one scan of the disk, and a new window searches at once. The helper is the app
+itself, started with `--index-helper`; it leaves ten minutes after the last app has closed.
+Nothing is installed as a service. The apps talk to it over a local socket that only you can
+use, and if it cannot be reached, each app indexes by itself as before.
 
 Run `cargo run --release -p coxswain-core --example bench -- /` to measure it on your machine.
 
