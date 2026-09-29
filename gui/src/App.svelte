@@ -26,7 +26,10 @@
   init().then(
     () => {
       ready = true;
-      invoke("check_update").then((v) => (update = v), () => {});
+      // Once a day (check_update itself throttles), so a window left open for weeks still hears.
+      const check = () => invoke("check_update").then((v) => (update = v), () => {});
+      check();
+      setInterval(check, 3600e3);
     },
     (e) => (ui.status = String(e)),
   );

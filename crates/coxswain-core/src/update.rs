@@ -22,7 +22,10 @@ pub fn is_newer(current: &str, latest: &str) -> bool {
 }
 
 pub fn fetch_latest() -> Option<String> {
-    let agent: ureq::Agent = ureq::Agent::config_builder().timeout_global(Some(Duration::from_secs(5))).build().into();
+    // The system's certificate store, not a bundled one: a work machine behind a TLS-inspecting
+    // proxy trusts its own CA, and the check would otherwise fail silently there.
+    let tls = ureq::tls::TlsConfig::builder().root_certs(ureq::tls::RootCerts::PlatformVerifier).build();
+    let agent: ureq::Agent = ureq::Agent::config_builder().timeout_global(Some(Duration::from_secs(5))).tls_config(tls).build().into();
     let body = agent
         .get(API_URL)
         .header("User-Agent", concat!("coxswain/", env!("CARGO_PKG_VERSION")))
