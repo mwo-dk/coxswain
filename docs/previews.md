@@ -76,7 +76,7 @@ scrolling stays smooth.
 | Fonts (`.ttf`, `.otf`, `.woff`, `.woff2`) | Sample text at several sizes, the alphabet, digits and some accented letters |
 | `.pem`, `.crt`, `.cer`, `.der` | Each certificate in the file (a chain shows all of them): subject, issuer, validity, the names it covers, serial number. Expiry within 30 days shows in yellow, an expired certificate in red |
 | `.zip`, `.jar`, `.apk`, `.nupkg`, `.whl`, `.vsix`, `.tar`, `.tar.gz`, `.tgz` | The list of files inside. **Ctrl+E** extracts into a new folder in the other pane; it never writes over an existing folder or outside it |
-| Folders | Number of folders and files, the size of the files directly inside, the newest change, the total size on request (Ctrl+Space), and the git line |
+| Folders | Number of folders and files, the size of the files directly inside, the newest change, the total size, and the git line |
 
 ### Facts
 
@@ -194,10 +194,15 @@ F9, to choose the columns:
 | Modified | The age chip (red within the hour, fading to grey after a year) and the date |
 | Created | The creation date, where the file system records it |
 
-**Measure folder sizes automatically**, in the same menu, fills in Size and Files for every
-folder as a folder opens. Folders are measured one at a time in the background, so the first
-ones appear quickly; leaving the folder stops the work. Without it, Ctrl+Space measures the
-marked folders (or all of them) on request. Narrow panes drop columns: Type, Files and
+**Folder sizes fill themselves in.** Both apps measure the folders of a folder as it opens,
+in the background: one at a time so the first appear quickly, on two threads so the machine
+stays responsive, and stopping when you leave the folder. A size is remembered for five
+minutes, so going back shows it at once; copying, moving or deleting with Bosum, or a change
+in a folder on screen, measures afresh. `/proc`, `/sys`, `/dev` and `/run` are skipped.
+**Measure folder sizes automatically**, in the same menu, switches it off and on in the
+desktop app; `folder_sizes = false` in `config.toml` does for the terminal app, and is where
+the desktop app starts. **Folder sizes** in the F9 list measures afresh, now.
+Narrow panes drop columns: Type, Files and
 Created first, then the date part of Modified, then Size.
 
 ![The details view with every column and measured folder sizes](screenshots/gui-folder-sizes.png)

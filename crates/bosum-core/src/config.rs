@@ -197,7 +197,9 @@ actions! {
     ToggleView = "toggle_view", "Details/columns/thumbnails", ["Alt+V"];
     ToggleSidebar = "toggle_sidebar", "Sidebar", ["Ctrl+B"];
     EditPath = "edit_path", "Edit path", ["Ctrl+L"];
-    DirSizes = "dir_sizes", "Folder sizes", ["Ctrl+Space"];
+    // No key of its own: sizes appear by themselves (`folder_sizes`), and Ctrl+Space belongs
+    // to the system on a Mac.
+    DirSizes = "dir_sizes", "Folder sizes", [];
     BatchRename = "batch_rename", "Batch rename", ["Ctrl+M"];
     Tag = "tag", "Colour tag", ["Alt+T"];
     Notes = "notes", "Folder notes", ["Alt+N"];
@@ -812,6 +814,9 @@ pub struct Config {
     /// "en-AU" or "es-AR"; see `i18n::LANGUAGES`.
     pub language: String,
     pub show_hidden: bool,
+    /// Measure folders in the background and show their sizes. The desktop app has its own
+    /// switch in the columns menu; this is where it starts.
+    pub folder_sizes: bool,
     /// Overrides `$EDITOR` / `$PAGER`.
     pub editor: Option<String>,
     pub viewer: Option<String>,
@@ -835,6 +840,7 @@ impl Default for Config {
             glyph_set: None,
             language: "auto".into(),
             show_hidden: true,
+            folder_sizes: true,
             editor: None,
             viewer: None,
             confirm_delete: true,

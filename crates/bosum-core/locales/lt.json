@@ -417,7 +417,7 @@
  "preview.attachments": "Priedai",
  "preview.back": "Atgal į peržiūrą",
  "preview.ca": "{name} (CA)",
- "preview.calculate": "Skaičiuoti (Ctrl+Space)",
+ "preview.calculate": "Skaičiuoti",
  "preview.changes_against_head": "Pakeitimai, palyginti su HEAD",
  "preview.column": "Stulpelis",
  "preview.columns": {

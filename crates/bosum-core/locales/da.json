@@ -394,7 +394,7 @@
  "preview.attachments": "Vedhæftede filer",
  "preview.back": "Tilbage til eksempel",
  "preview.ca": "{name} (CA)",
- "preview.calculate": "Beregn (Ctrl+Space)",
+ "preview.calculate": "Beregn",
  "preview.changes_against_head": "Ændringer i forhold til HEAD",
  "preview.column": "Kolonne",
  "preview.columns": {
