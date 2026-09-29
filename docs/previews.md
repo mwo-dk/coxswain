@@ -119,13 +119,29 @@ installed for a preview you only need now and then.
 4. **Errors** show in the preview. For LaTeX that is the first `!` error from the log with
    its context, e.g. `! Undefined control sequence.` and the offending line.
 
+### LaTeX projects
+
+Coxswain works out what a LaTeX editor would, so a document that builds in LaTeX Workshop,
+TeXShop or TeXstudio builds here, from whichever of its files the cursor is on:
+
+| | |
+|---|---|
+| **The document** | The file itself if it has a `\documentclass`; else the file named by `% !TEX root = ../main.tex` in its first lines; else the document in its folder, or up to two folders above, that includes it |
+| **The project** | The git repository the document is in; without one, as far up as the document's own `../` paths reach (three folders at most, never your home folder). A container sees this folder, read-only, and builds from the document's folder, so `\includegraphics{../figures/plot}` works |
+| **The engine** | `% !TEX program = xelatex` or `lualatex` in the document's first lines; pdfLaTeX otherwise. A `latexmkrc` next to the document is honored by latexmk as always |
+| **A fresh build** | Whenever a file in the document's folder or below has changed: a chapter, a picture, the bibliography |
+
+Still not possible, on purpose: `-shell-escape` (so no `minted`), and packages that write
+next to the source (the source is read-only; results go to the cache).
+
 ### Containers
 
 - **Chosen by the config.** Containers run with podman, or docker where podman is missing
   (`container` below).
 - **No network:** `--network=none`.
-- **The file's folder is mounted read-only at `/src`.** LaTeX can still `\input` its sibling
-  files, and nothing in your folder can be changed.
+- **The file's folder is mounted read-only at `/src`.** Nothing in your folder can be
+  changed. For LaTeX it is the whole project (see [LaTeX projects](#latex-projects)), so
+  chapters, pictures and the bibliography are found.
 - **Results only go to a fresh folder in the cache,** mounted at `/out`. With rootful docker
   the container runs as your user, so the cache gets no root-owned files.
 - **No SELinux relabeling** (`--security-opt label=disable`), so your folders' labels are
