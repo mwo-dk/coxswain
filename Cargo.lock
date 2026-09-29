@@ -590,6 +590,7 @@ dependencies = [
  "blake3",
  "dirs 7.0.0",
  "flate2",
+ "mail-parser",
  "memchr",
  "notify",
  "quick-xml 0.42.0",
