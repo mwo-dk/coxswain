@@ -215,7 +215,7 @@
  },
  "dialogs.size": "Grootte",
  "dialogs.tag_none": "geen",
- "dialogs.text_hint": "Typ woorden om in je bestanden te zoeken: tekst, Word, spreadsheets, presentaties, e-mail en boeken.",
+ "dialogs.text_hint": "Typ woorden om in je bestanden te zoeken: tekst, pdf, Word, spreadsheets, presentaties, e-mail en boeken.",
  "dialogs.text_placeholder": "Zoek in bestanden…  raket budget",
  "dialogs.type": "Soort",
  "dupes.add_folder": "Map toevoegen…",

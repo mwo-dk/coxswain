@@ -30,3 +30,4 @@ rusqlite = { version = "0.40.2", features = ["bundled"] }
 quick-xml = "0.42.0"
 mail-parser = "0.11.9"
 encoding_rs = "0.8.42"
+pdf-extract = "0.12.1"
