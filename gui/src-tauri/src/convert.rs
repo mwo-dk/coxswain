@@ -152,6 +152,10 @@ fn cache_dir(path: &Path, tool: &str, engine: &str) -> Res<PathBuf> {
     let meta = std::fs::metadata(path).map_err(|e| e.to_string())?;
     let mut h = std::collections::hash_map::DefaultHasher::new();
     (path, meta.len(), meta.modified().ok(), tool, engine).hash(&mut h);
+    if tool == "latex" {
+        // A chapter, a picture or the bibliography changed: that is a new document too.
+        latex::newest(&latex::main_file(path)).hash(&mut h);
+    }
     let dir = dirs::cache_dir().ok_or_else(|| t!("err.no_cache_folder"))?.join("bosum").join("previews").join(format!("{:016x}", h.finish()));
     Ok(dir)
 }
@@ -160,7 +164,8 @@ fn cache_dir(path: &Path, tool: &str, engine: &str) -> Res<PathBuf> {
 fn output(tool: &str, path: &Path, out: &Path) -> (&'static str, PathBuf) {
     let stem = path.file_stem().unwrap_or_default().to_string_lossy();
     match tool {
-        "latex" | "libreoffice" => ("pdf", out.join(format!("{stem}.pdf"))),
+        "latex" => ("pdf", out.join(latex::main_file(path).with_extension("pdf").file_name().unwrap_or_default())),
+        "libreoffice" => ("pdf", out.join(format!("{stem}.pdf"))),
         "plantuml" | "drawio" => ("svg", out.join("diagram.svg")),
         "pandoc" => ("html", out.join("doc.html")),
         _ => ("json", out.join("tables.json")),
@@ -204,7 +209,7 @@ fn failure(tool: &str, path: &Path, out: &Path, err: &str) -> String {
     if tool != "latex" {
         return err.to_string();
     }
-    let log = out.join(format!("{}.log", path.file_stem().unwrap_or_default().to_string_lossy()));
+    let log = out.join(latex::main_file(path).with_extension("log").file_name().unwrap_or_default());
     let text = std::fs::read_to_string(log).unwrap_or_default();
     let lines: Vec<&str> = text.lines().collect();
     match lines.iter().position(|l| l.starts_with('!')) {
@@ -217,6 +222,9 @@ fn failure(tool: &str, path: &Path, out: &Path, err: &str) -> String {
 static LIBREOFFICE: Mutex<()> = Mutex::new(());
 
 fn run(cfg: &PreviewConfig, tool: &str, engine: &str, path: &Path, out: &Path, file: &Path) -> Res<()> {
+    // A chapter builds its document, not itself.
+    let main = if tool == "latex" { latex::main_file(path) } else { path.to_path_buf() };
+    let path = main.as_path();
     let dir = path.parent().ok_or_else(|| t!("err.no_folder"))?;
     let name = path.file_name().ok_or_else(|| t!("err.no_file_name"))?.to_string_lossy().into_owned();
     let timeout = Duration::from_secs(cfg.timeout.max(10));
@@ -234,7 +242,10 @@ fn run(cfg: &PreviewConfig, tool: &str, engine: &str, path: &Path, out: &Path, f
         let container_name = format!("bosum-preview-{}", out.file_name().unwrap_or_default().to_string_lossy());
         let mut c = Command::new(&rt_path);
         c.args(["run", "--rm", "--network=none", "--security-opt", "label=disable", "--name", &container_name]);
-        c.arg("-v").arg(format!("{}:/src:ro", dir.display())).arg("-v").arg(format!("{}:/out", out.display()));
+        // LaTeX sees its whole project, so `../figures/plot.pdf` is found; the rest only their folder.
+        let mount = if tool == "latex" { latex::project(path) } else { dir.to_path_buf() };
+        let workdir = Path::new("/src").join(dir.strip_prefix(&mount).unwrap_or(Path::new("")));
+        c.arg("-v").arg(format!("{}:/src:ro", mount.display())).arg("-v").arg(format!("{}:/out", out.display()));
         #[cfg(unix)]
         if rt == "docker" {
             // Rootful docker would leave root-owned files in the cache.
@@ -242,10 +253,10 @@ fn run(cfg: &PreviewConfig, tool: &str, engine: &str, path: &Path, out: &Path, f
             let m = std::fs::metadata(out).map_err(|e| e.to_string())?;
             c.arg("--user").arg(format!("{}:{}", m.uid(), m.gid()));
         }
-        c.args(["-w", "/src"]);
+        c.arg("-w").arg(workdir.to_string_lossy().replace('\\', "/"));
         let stdin = match tool {
             "latex" => {
-                c.args([image.as_str(), "latexmk", "-pdf", "-interaction=nonstopmode", "-halt-on-error", "-outdir=/out", &name]);
+                c.args([image.as_str(), "latexmk", latex::engine_flag(path), "-interaction=nonstopmode", "-halt-on-error", "-outdir=/out", &name]);
                 None
             }
             "libreoffice" => {
@@ -278,7 +289,7 @@ fn run(cfg: &PreviewConfig, tool: &str, engine: &str, path: &Path, out: &Path, f
     c.current_dir(dir);
     match (tool, which_one) {
         ("latex", "latexmk") => {
-            c.args(["-pdf", "-interaction=nonstopmode", "-halt-on-error"]).arg(format!("-outdir={}", out.display())).arg(&name);
+            c.args([latex::engine_flag(path), "-interaction=nonstopmode", "-halt-on-error"]).arg(format!("-outdir={}", out.display())).arg(&name);
         }
         ("latex", "tectonic") => {
             c.arg("--outdir").arg(out).arg(&name);
@@ -314,6 +325,138 @@ fn run(cfg: &PreviewConfig, tool: &str, engine: &str, path: &Path, out: &Path, f
 }
 
 const DUCKDB_SQL: &str = "SELECT schema_name, table_name, estimated_size AS rows, column_count AS columns FROM duckdb_tables() ORDER BY 1, 2";
+
+/// What a LaTeX editor works out before building: which file is the document, which folder
+/// is the project, and which engine it asks for.
+mod latex {
+    use std::path::{Path, PathBuf};
+
+    fn head(path: &Path) -> String {
+        use std::io::Read;
+        let mut s = String::new();
+        if let Ok(f) = std::fs::File::open(path) {
+            let _ = f.take(64 * 1024).read_to_string(&mut s);
+        }
+        s
+    }
+
+    /// `% !TEX key = value` in the first lines, as TeXShop, TeXstudio and LaTeX Workshop read it.
+    fn magic(text: &str, key: &str) -> Option<String> {
+        text.lines().take(20).find_map(|l| {
+            let l = l.trim_start().strip_prefix('%')?.trim_start();
+            let l = l.strip_prefix("!TEX").or_else(|| l.strip_prefix("!TeX"))?.trim_start();
+            let (k, v) = l.split_once('=')?;
+            (k.trim().eq_ignore_ascii_case(key) || k.trim().eq_ignore_ascii_case(&format!("TS-{key}"))).then(|| v.trim().to_string())
+        })
+    }
+
+    /// The document `path` belongs to: itself, the file its `% !TEX root` names, or for a
+    /// file without `\documentclass` the document nearby that includes it.
+    pub fn main_file(path: &Path) -> PathBuf {
+        let text = head(path);
+        let dir = path.parent().unwrap_or(Path::new("."));
+        if let Some(root) = magic(&text, "root") {
+            let p = dir.join(root);
+            if p.is_file() {
+                return std::fs::canonicalize(&p).unwrap_or(p);
+            }
+        }
+        if text.contains("\\documentclass") {
+            return path.to_path_buf();
+        }
+        let stem = path.file_stem().unwrap_or_default().to_string_lossy().into_owned();
+        // ponytail: its folder and two above, not the whole tree; `% !TEX root` covers the rest.
+        dir.ancestors()
+            .take(3)
+            .flat_map(|d| std::fs::read_dir(d).into_iter().flatten().flatten().map(|e| e.path()))
+            .filter(|p| p.extension().is_some_and(|x| x == "tex" || x == "ltx") && p != path)
+            .find(|p| {
+                let t = std::fs::read_to_string(p).unwrap_or_default();
+                t.contains("\\documentclass") && t.contains(&stem)
+            })
+            .unwrap_or_else(|| path.to_path_buf())
+    }
+
+    /// The folder a build has to see: the git repository `main` is in, else as far up as the
+    /// document's `../` paths reach (three folders at most, never the home folder or above).
+    pub fn project(main: &Path) -> PathBuf {
+        let dir = main.parent().unwrap_or(Path::new("."));
+        if let Some(repo) = dir.ancestors().find(|d| d.join(".git").exists()) {
+            return repo.to_path_buf();
+        }
+        let text = std::fs::read_to_string(main).unwrap_or_default();
+        let depth = text.split(|c: char| c == '{' || c == ',' || c.is_whitespace()).map(|arg| arg.matches("../").count()).max().unwrap_or(0).min(3);
+        let home = std::env::home_dir();
+        dir.ancestors().take(depth + 1).take_while(|d| d.parent().is_some() && Some(*d) != home.as_deref()).last().unwrap_or(dir).to_path_buf()
+    }
+
+    /// When anything in the document's folder last changed.
+    pub fn newest(main: &Path) -> Option<std::time::SystemTime> {
+        // ponytail: the document's folder and below, 5000 files at most; pictures in `../figures`
+        // are not watched, press Build again after changing the opened file for those.
+        let mut stack = vec![main.parent()?.to_path_buf()];
+        let (mut newest, mut seen) = (None, 0);
+        while let Some(d) = stack.pop() {
+            for e in std::fs::read_dir(d).into_iter().flatten().flatten() {
+                let (p, Ok(m)) = (e.path(), e.metadata()) else { continue };
+                if e.file_name().to_string_lossy().starts_with('.') {
+                    continue;
+                }
+                seen += 1;
+                if seen > 5000 {
+                    return newest;
+                }
+                if m.is_dir() {
+                    stack.push(p);
+                } else {
+                    newest = newest.max(m.modified().ok());
+                }
+            }
+        }
+        newest
+    }
+
+    /// latexmk's flag for `% !TEX program = xelatex` and friends; pdfLaTeX otherwise.
+    pub fn engine_flag(main: &Path) -> &'static str {
+        match magic(&head(main), "program").unwrap_or_default().to_lowercase().as_str() {
+            "xelatex" => "-pdfxe",
+            "lualatex" => "-pdflua",
+            _ => "-pdf",
+        }
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        #[test]
+        fn latex_finds_the_document_the_project_and_the_engine() {
+            let d = std::env::temp_dir().join(format!("bosum-latex-{}", std::process::id()));
+            let _ = std::fs::remove_dir_all(&d);
+            std::fs::create_dir_all(d.join("paper/chapters")).unwrap();
+            std::fs::create_dir_all(d.join("figures")).unwrap();
+            let main = d.join("paper/main.tex");
+            std::fs::write(&main, "% !TEX program = xelatex\n\\documentclass{article}\n\\begin{document}\n\\includegraphics{../figures/plot}\n\\input{chapters/intro}\n\\end{document}\n").unwrap();
+            std::fs::write(d.join("paper/chapters/intro.tex"), "\\section{Intro}\n").unwrap();
+            std::fs::write(d.join("paper/chapters/method.tex"), "%!TEX root = ../main.tex\n\\section{Method}\n").unwrap();
+
+            assert_eq!(main_file(&main), main);
+            assert_eq!(main_file(&d.join("paper/chapters/intro.tex")), main, "found by who includes it");
+            assert_eq!(main_file(&d.join("paper/chapters/method.tex")), std::fs::canonicalize(&main).unwrap(), "found by its magic comment");
+            assert_eq!(project(&main), d, "one `../` up");
+            assert_eq!(engine_flag(&main), "-pdfxe");
+            assert_eq!(engine_flag(&d.join("paper/chapters/intro.tex")), "-pdf");
+            let before = newest(&main).unwrap();
+            let later = before + std::time::Duration::from_secs(60);
+            std::fs::File::options().write(true).open(d.join("paper/chapters/intro.tex")).unwrap().set_modified(later).unwrap();
+            assert_eq!(newest(&main), Some(later), "a chapter changed");
+
+            std::fs::create_dir_all(d.join(".git")).unwrap();
+            assert_eq!(project(&d.join("paper/chapters/intro.tex")), d, "the repository");
+            let _ = std::fs::remove_dir_all(&d);
+        }
+    }
+}
 
 /// The size of `image` in bytes, if the runtime has it.
 fn image_size(rt: &Path, image: &str) -> Option<u64> {
@@ -531,6 +674,31 @@ mod tests {
         assert!(image_size(&rt, image).is_some());
         assert!(PULLING.lock().unwrap().is_empty());
         assert!(pull(&rt, "docker.io/library/no-such-image-bosum:1").is_err());
+    }
+
+    /// Needs podman with the texlive image: `cargo test -- --ignored real_latex_project`.
+    /// A chapter of a document whose picture is in a folder next to the document's own.
+    #[test]
+    #[ignore]
+    fn real_latex_project_in_a_container() {
+        let d = std::env::temp_dir().join(format!("bosum-test-project-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        for sub in ["paper/chapters", "figures", "out-project"] {
+            std::fs::create_dir_all(d.join(sub)).unwrap();
+        }
+        // A one-pixel PNG.
+        let png: [u8; 67] = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0x0d, 0x49, 0x48, 0x44, 0x52, 0, 0, 0, 1, 0, 0, 0, 1, 8, 6, 0, 0, 0, 0x1f, 0x15, 0xc4, 0x89, 0, 0, 0, 0x0a, 0x49, 0x44, 0x41, 0x54, 0x78, 0x9c, 0x63, 0, 1, 0, 0, 5, 0, 1, 0x0d, 0x0a, 0x2d, 0xb4, 0, 0, 0, 0, 0x49, 0x45, 0x4e, 0x44, 0xae, 0x42, 0x60, 0x82];
+        std::fs::write(d.join("figures/dot.png"), png).unwrap();
+        std::fs::write(d.join("paper/main.tex"), "\\documentclass{article}\\usepackage{graphicx}\\begin{document}\\includegraphics{../figures/dot.png}\\input{chapters/method}\\end{document}\n").unwrap();
+        let chapter = d.join("paper/chapters/method.tex");
+        std::fs::write(&chapter, "% !TEX root = ../main.tex\n\\section{Method}\n").unwrap();
+        let (_, pdf) = output("latex", &chapter, &d.join("out-project"));
+        assert!(pdf.ends_with("out-project/main.pdf"), "{pdf:?}");
+        if let Err(e) = run(&PreviewConfig::default(), "latex", "container:podman", &chapter, &d.join("out-project"), &pdf) {
+            panic!("{}", failure("latex", &chapter, &d.join("out-project"), &e));
+        }
+        assert!(std::fs::read(&pdf).unwrap().starts_with(b"%PDF"));
+        std::fs::remove_dir_all(d).unwrap();
     }
 
     /// Needs podman with the texlive image and LibreOffice: `cargo test -- --ignored`.
