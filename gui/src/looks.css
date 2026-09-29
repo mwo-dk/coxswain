@@ -29,7 +29,7 @@ html:root:is([data-look="crt"], [data-look="dos"], [data-look="win31"], [data-lo
 
 html:root[data-look="crt"] {
   --font: var(--mono-font) !important;
-  --shadow: 0 0 0 1px var(--border-fg), 0 0 40px color-mix(in srgb, var(--panel-fg) 18%, transparent);
+  --shadow: 0 0 0 1px var(--border-fg), 0 0 0 4px color-mix(in srgb, var(--panel-fg) 10%, transparent);
   text-shadow: 0 0 5px color-mix(in srgb, currentColor 55%, transparent);
   caret-color: var(--panel-fg);
 }
@@ -39,16 +39,18 @@ html:root[data-look="crt"]::after {
   inset: 0;
   z-index: 100;
   pointer-events: none;
-  background:
-    repeating-linear-gradient(to bottom, rgb(0 0 0 / 0.1) 0 1px, transparent 1px 3px),
-    radial-gradient(ellipse at center, transparent 60%, rgb(0 0 0 / 0.35));
+  /* Scanlines, one dark line in three, as a tiled 96 px image: a gradient over the whole
+     window made every repaint five times as slow in the WebKit the AppImage brings. */
+  background: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAGAAAABgCAYAAADimHc4AAAAB3RJTUUH6gkdCi4g6ZbTRQAAAGVJREFUeNrt1AENAAAIA6C/hv2DGsPNQQiaZAJwogoCFAQoCEBBgIIAFAQoCEBBgIIAFAQoCEBBgIIAFAQoCEBBgIIAFAQoCEBBgIIAFAQoCFAQgIIABQEoCFAQgIIABQEoCPhiAdElA2GnMPTwAAAAAElFTkSuQmCC");
 }
 html:root[data-look="crt"] ::selection {
   color: var(--panel-bg);
   background: var(--panel-fg);
 }
+/* Rings, not blurred halos: a blurred shadow around a pane or a dialog is redrawn with every
+   repaint, and cost more than the text glow. */
 html:root[data-look="crt"] .pane.active {
-  box-shadow: 0 0 12px color-mix(in srgb, var(--accent-bg) 25%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent-bg) 45%, transparent);
 }
 /* One phosphor: file icons take the text colour instead of their own. */
 html:root[data-look="crt"] :is(.row, .preview header) .icon {
