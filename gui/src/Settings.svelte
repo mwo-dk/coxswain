@@ -2,7 +2,7 @@
   // Settings: every choice is written to config.toml at once (comments and layout kept, see
   // save_settings in main.rs) and applied without a restart.
   import { ui, setTheme } from "./app.svelte.js";
-  import { invoke } from "./lib.js";
+  import { invoke, size } from "./lib.js";
   import { t, setLanguage } from "./i18n.svelte.js";
 
   const flags = import.meta.glob("../node_modules/flag-icons/flags/4x3/{gb,au,ca,nz,dk,se,fi,ee,lv,lt,de,fr,it,nl,ar,es-ct,es-pv,il}.svg", {
@@ -25,6 +25,7 @@
       setLanguage(cfg);
       setTheme(cfg.settings.theme);
       saved = true;
+      loadImages();
     } catch (e) {
       error = String(e);
     }
@@ -34,6 +35,24 @@
   const themes = $derived([...ui.cfg.builtin_themes, ...Object.keys(ui.cfg.themes).filter((id) => !ui.cfg.builtin_themes.includes(id))]);
   const themeName = (id) => (ui.cfg.builtin_themes.includes(id) ? t(`theme.${id}`) : id);
   const close = () => (ui.modal = null);
+
+  // Container images: which the runtime has, with Pull (also updates) and Remove.
+  let images = $state(null);
+  const loadImages = () => invoke("images").then((v) => (images = v), (e) => (images = String(e)));
+  loadImages();
+  async function imageAction(cmd, im) {
+    error = "";
+    im.pulling = "";
+    await invoke(cmd, { image: im.image }).catch((e) => (error = String(e)));
+    loadImages();
+  }
+  // Refresh while a pull runs, so the progress line moves.
+  $effect(() => {
+    if (!Array.isArray(images) || !images.some((im) => im.pulling != null)) return;
+    const id = setInterval(loadImages, 1000);
+    return () => clearInterval(id);
+  });
+  const imageStatus = (im) => (im.pulling != null ? im.pulling || t("common.loading") : im.size != null ? t("settings.image_pulled", { size: size(im.size) }) : t("settings.image_not_pulled"));
 </script>
 
 <div class="settings" role="dialog" aria-modal="true" aria-label={t("settings.title")}>
@@ -125,6 +144,21 @@
         <input id="latex" value={s.latex_image} spellcheck="false" onchange={(e) => set("latex_image", e.currentTarget.value)} />
         <label for="timeout">{t("settings.timeout")}</label>
         <input id="timeout" type="number" min="10" max="3600" value={s.preview_timeout} onchange={(e) => set("preview_timeout", Number(e.currentTarget.value))} />
+        <span class="top">{t("settings.images")}</span>
+        <div class="images">
+          {#if typeof images === "string"}
+            <span class="hint">{images}</span>
+          {:else}
+            {#each images ?? [] as im (im.image)}
+              <div class="image">
+                <span class="mono" title={im.tool}>{im.image}</span>
+                <small class="hint">{imageStatus(im)}</small>
+                <button disabled={im.pulling != null} onclick={() => imageAction("pull_image", im)}>{t("settings.pull")}</button>
+                <button disabled={im.pulling != null || im.size == null} onclick={() => imageAction("remove_image", im)}>{t("common.remove")}</button>
+              </div>
+            {/each}
+          {/if}
+        </div>
       </div>
     </section>
   </div>
@@ -301,8 +335,32 @@
     gap: 8px 14px;
     align-items: center;
   }
-  label {
+  label,
+  .grid > span {
     color: var(--hidden-fg);
+  }
+  .images {
+    display: grid;
+    gap: 6px;
+  }
+  .image {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    gap: 2px 8px;
+    align-items: center;
+  }
+  /* The name on a line of its own, then its status with the buttons. */
+  .image span {
+    grid-column: 1 / -1;
+    overflow-wrap: anywhere;
+  }
+  .image small {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .top {
+    align-self: start;
   }
   .check {
     display: flex;

@@ -131,7 +131,11 @@ installed for a preview you only need now and then.
 - **No SELinux relabeling** (`--security-opt label=disable`), so your folders' labels are
   never changed.
 - **The first run pulls the image.** The engine button says so beforehand ("First run pulls
-  docker.io/texlive/texlive:latest (about 5 GB)").
+  docker.io/texlive/texlive:latest (about 5 GB)"), and while it downloads the preview shows
+  the runtime's own progress line.
+- **Settings lists the images** under *Previews made by tools*: each with its size, **Pull**
+  to download it ahead of time or update it to the newest, and **Remove** to free the space.
+  Coxswain never updates or removes an image by itself.
 - **A run that takes longer than the timeout** (120 s by default) is stopped and its
   container killed. Pulling is not counted.
 - LaTeX runs without `-shell-escape`, so a document cannot run commands.
