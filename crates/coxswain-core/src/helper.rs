@@ -423,7 +423,8 @@ mod tests {
             std::thread::sleep(Duration::from_millis(50));
         }
         assert!(!d.join("cache/index.addr").exists());
-        std::fs::remove_dir_all(d).unwrap();
+        // The helper may still hold the store: on Windows an open file cannot be removed.
+        let _ = std::fs::remove_dir_all(d);
     }
 
     #[test]
@@ -452,6 +453,7 @@ mod tests {
         ready(&alone);
         assert_eq!(alone.search("README", None, 10).total, 1);
         assert!(!alone.shared());
-        std::fs::remove_dir_all(d).unwrap();
+        // The helper may still hold the store: on Windows an open file cannot be removed.
+        let _ = std::fs::remove_dir_all(d);
     }
 }
