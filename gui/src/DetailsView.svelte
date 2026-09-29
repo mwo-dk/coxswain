@@ -140,7 +140,7 @@
             {/if}
           </span>
         {/if}
-        {#if shown.has("created")}<span class="time">{e.created ? date(e.created).slice(0, 10) : ""}</span>{/if}
+        {#if shown.has("created")}<span class="time">{date(e.created).replace(/ \d\d:\d\d/, "")}</span>{/if}
       </div>
     {/each}
   </div>

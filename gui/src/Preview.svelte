@@ -262,8 +262,8 @@
   }
 
   async function calcSize() {
-    const [bytes] = (await invoke("dir_sizes", { paths: [e.path] }))[e.path];
-    pane.sizes[e.path] = bytes;
+    const r = (await invoke("dir_sizes", { paths: [e.path] }))[e.path];
+    if (r) pane.sizes[e.path] = r[0];
   }
 </script>
 

@@ -394,7 +394,7 @@
  "preview.attachments": "Anhänge",
  "preview.back": "Zurück zur Vorschau",
  "preview.ca": "{name} (CA)",
- "preview.calculate": "Berechnen (Ctrl+Space)",
+ "preview.calculate": "Berechnen",
  "preview.changes_against_head": "Änderungen gegenüber HEAD",
  "preview.column": "Spalte",
  "preview.columns": {

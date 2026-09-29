@@ -417,7 +417,7 @@
  "preview.attachments": "קבצים מצורפים",
  "preview.back": "חזרה לתצוגה המקדימה",
  "preview.ca": "{name} (CA)",
- "preview.calculate": "חישוב (Ctrl+Space)",
+ "preview.calculate": "חישוב",
  "preview.changes_against_head": "שינויים מול HEAD",
  "preview.column": "עמודה",
  "preview.columns": {

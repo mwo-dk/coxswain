@@ -394,7 +394,7 @@
  "preview.attachments": "Bijlagen",
  "preview.back": "Terug naar voorvertoning",
  "preview.ca": "{name} (CA)",
- "preview.calculate": "Berekenen (Ctrl+Space)",
+ "preview.calculate": "Berekenen",
  "preview.changes_against_head": "Wijzigingen ten opzichte van HEAD",
  "preview.column": "Kolom",
  "preview.columns": {
