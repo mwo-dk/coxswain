@@ -1,6 +1,6 @@
 # Coxswain
 
-*The ship's officer who actually gets the work done.*
+*The one at the helm, who steers the boat and keeps the crew in time.*
 
 Coxswain is a two-panel file manager in the Norton Commander tradition, built for developers. It
 comes as a terminal app (Rust + Ratatui) and a desktop app (Tauri + Svelte 5). Both run on one
@@ -77,9 +77,14 @@ places and a document in an old backup.*
 
 ## Install
 
-Coxswain comes as a **terminal app** (`coxswain`) and a **desktop app** (`coxswain-gui`). Pick one or
-both. Both check once a day for a newer release and tell you the exact update command for the
-way you installed them.
+Coxswain comes as a **terminal app** (`coxswain`, or `cox` for short) and a **desktop app**
+(`coxswain-gui`). Pick one or both. Both check once a day for a newer release and tell you the
+exact update command for the way you installed them.
+
+**Coming from Coxswain?** Coxswain was called Coxswain until version 2.0. Install Coxswain as
+below and remove the old packages (`brew uninstall coxswain`, `brew uninstall --cask coxswain-gui`,
+`cargo uninstall coxswain`, `scoop uninstall coxswain`). On its first start Coxswain copies your
+settings, scripts, tabs, tags and notes from the Coxswain folders; those are left as they are.
 
 ### macOS
 
@@ -114,9 +119,8 @@ way you installed them.
 | Download | Terminal | `coxswain-terminal-<version>-x86_64-pc-windows-msvc.zip`; put `coxswain.exe` on your PATH | Replace the file |
 | [Cargo](https://rustup.rs) | Terminal | `cargo install coxswain` | `cargo install coxswain` again |
 
-winget listing is new: if `winget install` does not find Coxswain yet, Microsoft is still
-reviewing it; use one of the other ways meanwhile. `brew upgrade` (no name) and
-`winget upgrade --all` update Coxswain along with everything else.
+The winget listing is not there yet: Coxswain has to be accepted by Microsoft first. Until
+then, use Scoop or the MSI from the [releases](https://github.com/mwo-dk/coxswain/releases).
 
 **The builds are not code-signed.** The first start shows a warning: on Windows, click *More
 info* and then *Run anyway*. On macOS, if the app "is damaged" or "can't be opened", run

@@ -24,5 +24,6 @@ package() {
   # The desktop app, its menu entry and icons, as the release's .deb lays them out.
   bsdtar -xOf "coxswain-desktop-$pkgver.deb" 'data.tar.*' | bsdtar -xf - -C "$pkgdir"
   install -Dm755 "coxswain-terminal-v$pkgver-x86_64-unknown-linux-musl/coxswain" "$pkgdir/usr/bin/coxswain"
+  ln -s coxswain "$pkgdir/usr/bin/cox"
   install -Dm644 "coxswain-terminal-v$pkgver-x86_64-unknown-linux-musl/LICENSE" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
 }

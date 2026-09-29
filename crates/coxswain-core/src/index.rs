@@ -20,7 +20,7 @@ use crate::config::SearchConfig;
 const NONE: u32 = u32::MAX;
 const DIR: u8 = 1;
 const GONE: u8 = 2;
-const MAGIC: &[u8; 8] = b"COXSWAINIX1";
+const MAGIC: &[u8; 8] = b"COXSWIX1";
 
 #[derive(Clone, Copy, Debug)]
 struct Node {

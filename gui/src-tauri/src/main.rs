@@ -917,6 +917,7 @@ async fn check_update(ctx: tauri::State<'_, Ctx>) -> Res<Option<(String, Option<
 }
 
 fn main() {
+    coxswain_core::migrate::adopt_coxswain();
     let cfg = Config::load().unwrap_or_else(|e| {
         eprintln!("coxswain: {e}; using defaults");
         Config::default()

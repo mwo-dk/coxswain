@@ -38,6 +38,7 @@ check() {
 package() {
   cd "$pkgname-$pkgver"
   install -Dm755 target/release/coxswain "$pkgdir/usr/bin/coxswain"
+  ln -s coxswain "$pkgdir/usr/bin/cox"
   install -Dm755 target/release/coxswain-gui "$pkgdir/usr/bin/coxswain-gui"
   install -Dm644 gui/src-tauri/icons/128x128.png "$pkgdir/usr/share/icons/hicolor/128x128/apps/coxswain.png"
   install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"

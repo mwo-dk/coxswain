@@ -138,6 +138,7 @@ bold "Building the terminal app (a few minutes the first time)…"
 cargo build --release --locked -p coxswain
 mkdir -p "$PREFIX/bin"
 install -m 755 target/release/coxswain "$PREFIX/bin/coxswain"
+ln -sf coxswain "$PREFIX/bin/cox"
 info "Installed $PREFIX/bin/coxswain"
 
 if [ "$TUI_ONLY" = 0 ]; then
@@ -178,5 +179,5 @@ case ":$PATH:" in
   *) info "Add $PREFIX/bin to your PATH to run 'coxswain' from anywhere, e.g.:"
      info "  echo 'export PATH=\"$PREFIX/bin:\$PATH\"' >> ~/.bashrc" ;;
 esac
-info "Terminal app: coxswain        Desktop app: coxswain-gui (or Coxswain in your app menu)"
+info "Terminal app: coxswain (or cox)        Desktop app: coxswain-gui (or Coxswain in your app menu)"
 info "Git glyphs look best with a Nerd Font: https://www.nerdfonts.com"

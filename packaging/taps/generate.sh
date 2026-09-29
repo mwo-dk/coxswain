@@ -43,7 +43,7 @@ class Coxswain < Formula
   end
 
   def install
-    bin.install "coxswain"
+    bin.install "coxswain", "cox"
   end
 
   test do
@@ -119,7 +119,7 @@ cat > "$scoop/bucket/coxswain.json" <<JSON
             "extract_dir": "coxswain-terminal-$tag-$win"
         }
     },
-    "bin": "coxswain.exe",
+    "bin": ["coxswain.exe", "cox.exe"],
     "checkver": "github",
     "autoupdate": {
         "architecture": {

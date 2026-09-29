@@ -102,6 +102,7 @@ Say "Building the terminal app (a few minutes the first time)..."
 Run cargo build --release --locked -p coxswain
 New-Item -ItemType Directory -Force -Path $Dest | Out-Null
 Copy-Item "target\release\coxswain.exe" $Dest -Force
+Copy-Item "target\release\cox.exe" $Dest -Force
 Info "Installed $Dest\coxswain.exe"
 
 if (-not $TuiOnly) {
@@ -132,5 +133,5 @@ if (($userPath -split ";") -notcontains $Dest) {
 
 Write-Host ""
 Say "Done."
-Info "Terminal app: coxswain        Desktop app: Coxswain in the Start Menu"
+Info "Terminal app: coxswain (or cox)        Desktop app: Coxswain in the Start Menu"
 Info "Git glyphs look best with a Nerd Font: https://www.nerdfonts.com"

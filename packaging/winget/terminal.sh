@@ -22,6 +22,8 @@ NestedInstallerType: portable
 NestedInstallerFiles:
 - RelativeFilePath: $name\\coxswain.exe
   PortableCommandAlias: coxswain
+- RelativeFilePath: $name\\cox.exe
+  PortableCommandAlias: cox
 ReleaseDate: $(date -u +%F)
 Installers:
 - Architecture: x64
