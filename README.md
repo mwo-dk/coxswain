@@ -108,15 +108,9 @@ exact update command for the way you installed them.
 
 | How | App | Install | Update |
 |---|---|---|---|
-| [winget](https://learn.microsoft.com/windows/package-manager/) | Desktop | `winget install mwo-dk.Coxswain` | `winget upgrade mwo-dk.Coxswain` |
-| winget | Terminal | `winget install mwo-dk.Coxswain.Terminal` | `winget upgrade mwo-dk.Coxswain.Terminal` |
-| [Scoop](https://scoop.sh) | Terminal | `scoop bucket add coxswain https://github.com/mwo-dk/scoop-coxswain`, then `scoop install coxswain` | `scoop update coxswain` |
 | Download | Desktop | `Coxswain_<version>_x64_en-US.msi` or `_x64-setup.exe` from [Releases](https://github.com/mwo-dk/coxswain/releases/latest) | Run the new installer; it upgrades in place |
 | Download | Terminal | `coxswain-terminal-<version>-x86_64-pc-windows-msvc.zip`; put `coxswain.exe` on your PATH | Replace the file |
 | [Cargo](https://rustup.rs) | Terminal | `cargo install coxswain` | `cargo install coxswain` again |
-
-The winget listing is not there yet: Coxswain has to be accepted by Microsoft first. Until
-then, use Scoop or the MSI from the [releases](https://github.com/mwo-dk/coxswain/releases).
 
 **The builds are not code-signed.** The first start shows a warning: on Windows, click *More
 info* and then *Run anyway*. On macOS, if the app "is damaged" or "can't be opened", run
