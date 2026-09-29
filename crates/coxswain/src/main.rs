@@ -156,7 +156,8 @@ pub enum Dialog {
     Input { title: String, label: String, value: String, prompt: Prompt },
     /// Delete `paths`; `forever` skips the trash.
     Confirm { title: String, text: String, paths: Vec<PathBuf>, forever: bool },
-    Search { query: String, scoped: bool, results: Results, cursor: usize, offset: usize },
+    /// `mode`: 0 names everywhere, 1 names in this folder, 2 the text of files.
+    Search { query: String, mode: u8, results: Results, cursor: usize, offset: usize },
     /// `direct`: a typed key runs the item with that key (F2); otherwise it filters (F9).
     Menu { title: String, filter: String, items: Vec<MenuItem>, cursor: usize, direct: bool },
     Help { scroll: u16 },
@@ -534,7 +535,7 @@ impl App {
                 }
             }
             Action::Search => {
-                self.dialog = Some(Dialog::Search { query: String::new(), scoped: false, results: Results::default(), cursor: 0, offset: 0 });
+                self.dialog = Some(Dialog::Search { query: String::new(), mode: 0, results: Results::default(), cursor: 0, offset: 0 });
             }
             Action::UserMenu => {
                 let items = self
@@ -693,8 +694,11 @@ impl App {
     fn search_now(&mut self) {
         let max = self.cfg.search.max_results;
         let dir = self.panel().dir.clone();
-        if let Some(Dialog::Search { query, scoped, results, cursor, offset }) = &mut self.dialog {
-            *results = self.index.search(query, scoped.then_some(dir.as_path()), max);
+        if let Some(Dialog::Search { query, mode, results, cursor, offset }) = &mut self.dialog {
+            *results = match *mode {
+                2 => self.index.search_text(query, max),
+                _ => self.index.search(query, (*mode == 1).then_some(dir.as_path()), max),
+            };
             *cursor = 0;
             *offset = 0;
         }
@@ -730,7 +734,7 @@ impl App {
                 _ if esc || matches!(ch, Some('n' | 'N')) => {}
                 _ => self.dialog = Some(Dialog::Confirm { title, text, paths, forever }),
             },
-            Dialog::Search { mut query, mut scoped, results, mut cursor, offset } => {
+            Dialog::Search { mut query, mut mode, results, mut cursor, offset } => {
                 let hit = results.hits.get(cursor).cloned();
                 let page = 10isize;
                 let mut requery = false;
@@ -753,7 +757,7 @@ impl App {
                         }
                     }
                     (KeyCode::Tab, _) => {
-                        scoped = !scoped;
+                        mode = (mode + 1) % 3;
                         requery = true;
                     }
                     (KeyCode::Up, _) => cursor = cursor.saturating_sub(1),
@@ -768,7 +772,7 @@ impl App {
                     _ => {}
                 }
                 cursor = cursor.min(results.hits.len().saturating_sub(1));
-                self.dialog = Some(Dialog::Search { query, scoped, results, cursor, offset });
+                self.dialog = Some(Dialog::Search { query, mode, results, cursor, offset });
                 if requery {
                     self.search_now();
                 }

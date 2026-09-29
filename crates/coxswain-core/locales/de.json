@@ -205,7 +205,8 @@
  },
  "dialogs.scope_everywhere": "Überall",
  "dialogs.scope_in": "In {folder}",
- "dialogs.search_footer": "Enter gehe zu · Tab überall/hier · F4 bearbeiten · Esc schließen",
+ "dialogs.scope_text": "Text in Dateien",
+ "dialogs.search_footer": "Enter gehe zu · Tab überall/hier/Text · F4 bearbeiten · Esc schließen",
  "dialogs.search_hint": "Tippen, um jeden Dateinamen auf diesem Computer zu durchsuchen.",
  "dialogs.search_placeholder": "Alle Dateien durchsuchen …  *.rs · ext:md · src/ foo · !test",
  "dialogs.showing_first": {
@@ -214,6 +215,8 @@
  },
  "dialogs.size": "Größe",
  "dialogs.tag_none": "keine",
+ "dialogs.text_hint": "Wörter eingeben, um in Ihren Dateien zu suchen.",
+ "dialogs.text_placeholder": "In Dateien suchen…  Rakete Budget",
  "dialogs.type": "Art",
  "dupes.add_folder": "Ordner hinzufügen …",
  "dupes.any_size": "beliebige Größe",
@@ -494,7 +497,13 @@
   "one": "{n} Treffer in {ms} ms",
   "other": "{n} Treffer in {ms} ms"
  },
+ "search.reading": " · {n} noch zu lesen",
  "search.refreshing": " · Index wird aktualisiert",
+ "search.text": "Text: ",
+ "search.texts": {
+  "one": "Text aus {n} Datei",
+  "other": "Text aus {n} Dateien"
+ },
  "search.title": "Datei suchen",
  "settings.appearance": "Darstellung",
  "settings.behaviour": "Verhalten",
@@ -587,7 +596,7 @@
  "tui.ok_cancel": "Enter = OK   Esc = Abbrechen",
  "tui.press_enter": "-- Enter drücken --",
  "tui.right_panel": "Rechtes Fenster",
- "tui.search_footer": "Enter gehe zu · Tab überall/hier · F3 anzeigen · F4 bearbeiten · Esc schließen · Syntax: F1",
+ "tui.search_footer": "Enter gehe zu · Tab überall/hier/Text · F3 anzeigen · F4 bearbeiten · Esc schließen · Syntax: F1",
  "tui.select": "Auswählen",
  "tui.selected": {
   "one": "{size} in {n} ausgewählten",

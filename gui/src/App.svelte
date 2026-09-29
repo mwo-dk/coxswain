@@ -225,7 +225,8 @@
       const t = tab();
       for (const e of t.items) if (!e.is_dir) t.marked.has(e.path) ? t.marked.delete(e.path) : t.marked.add(e.path);
     },
-    search: () => (ui.modal = { kind: "search", query: "", scoped: false, res: null, cursor: 0 }),
+    // mode: 0 names everywhere, 1 names in this folder, 2 the text of files.
+    search: () => (ui.modal = { kind: "search", query: "", mode: 0, res: null, cursor: 0 }),
     refresh: async () => {
       await reloadAll();
       ui.status = t("status.reread");

@@ -411,6 +411,9 @@ struct SearchOut {
     results: Results,
     state: State,
     indexed: usize,
+    /// Files whose text can be searched, and files still to be read.
+    texts: usize,
+    pending: usize,
 }
 
 /// The GUI lists every hit it gets as a row, so it takes fewer than the TUI, which only draws
@@ -418,14 +421,14 @@ struct SearchOut {
 const GUI_MAX_HITS: usize = 500;
 
 #[tauri::command]
-async fn search(query: String, scope: Option<PathBuf>, ctx: tauri::State<'_, Ctx>) -> Res<SearchOut> {
+async fn search(query: String, scope: Option<PathBuf>, text: Option<bool>, ctx: tauri::State<'_, Ctx>) -> Res<SearchOut> {
     // A CPU-bound scan (rayon, all cores), so off the async runtime's worker threads.
     let index = ctx.index.clone();
     let max = ctx.cfg().search.max_results.min(GUI_MAX_HITS);
-    tauri::async_runtime::spawn_blocking(move || SearchOut {
-        results: index.search(&query, scope.as_deref(), max),
-        state: index.state(),
-        indexed: index.len(),
+    tauri::async_runtime::spawn_blocking(move || {
+        let results = if text == Some(true) { index.search_text(&query, max) } else { index.search(&query, scope.as_deref(), max) };
+        let now = index.status();
+        SearchOut { results, state: now.state, indexed: now.len, texts: now.texts, pending: now.pending }
     })
     .await
     .map_err(|e| e.to_string())

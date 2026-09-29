@@ -40,13 +40,26 @@
   // fast typing never queues a scan per keystroke.
   let busy = false;
   let again = false;
+  /** Tab in Find file: names everywhere, names in this folder, the text of files. */
+  function nextMode(m) {
+    m.mode = (m.mode + 1) % 3;
+    m.res = null;
+    runSearch();
+  }
+  /** A snippet with the words it found marked; everything else is text, never markup. */
+  const marked = (s) =>
+    s
+      .replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c])
+      .replaceAll("\u0001", "<mark>")
+      .replaceAll("\u0002", "</mark>");
+
   export async function runSearch() {
     const m = ui.modal;
     if (m?.kind !== "search") return;
     if (busy) return void (again = true);
     busy = true;
     try {
-      const res = await invoke("search", { query: m.query, scope: m.scoped ? tab().dir : null });
+      const res = await invoke("search", { query: m.query, scope: m.mode === 1 ? tab().dir : null, text: m.mode === 2 });
       if (ui.modal === m) {
         m.res = res;
         m.cursor = 0;
@@ -175,8 +188,7 @@
         const h = hits[m.cursor];
         if (k === "Enter" && h) goToHit(h);
         else if (k === "Tab") {
-          m.scoped = !m.scoped;
-          runSearch();
+          nextMode(m);
         } else if (k === "Up") m.cursor = Math.max(0, m.cursor - 1);
         else if (k === "Down") m.cursor = Math.min(hits.length - 1, m.cursor + 1);
         else if (k === "PageUp") m.cursor = Math.max(0, m.cursor - 15);
@@ -275,15 +287,15 @@
       {:else if m.kind === "search"}
         <div class="search-bar">
           <span class="glyph">{"\u{f002}"}</span>
-          <input bind:this={input} bind:value={m.query} oninput={runSearch} placeholder={t("dialogs.search_placeholder")} spellcheck="false" />
-          <button class="scope" title="Tab" onclick={() => { m.scoped = !m.scoped; runSearch(); input.focus(); }}>
-            {m.scoped ? t("dialogs.scope_in", { folder: basename(tab().dir) }) : t("dialogs.scope_everywhere")}
+          <input bind:this={input} bind:value={m.query} oninput={runSearch} placeholder={t(m.mode === 2 ? "dialogs.text_placeholder" : "dialogs.search_placeholder")} spellcheck="false" />
+          <button class="scope" title="Tab" onclick={() => { nextMode(m); input.focus(); }}>
+            {m.mode === 2 ? t("dialogs.scope_text") : m.mode === 1 ? t("dialogs.scope_in", { folder: basename(tab().dir) }) : t("dialogs.scope_everywhere")}
           </button>
         </div>
         <p class="meta">
           {#if m.res}
-            {m.query ? `${tn("search.matches", m.res.total, { ms: num(m.res.micros / 1000, { minimumFractionDigits: 1, maximumFractionDigits: 1 }) })} · ` : ""}{tn("search.indexed", m.res.indexed)}{m.res.state === "building" ? t("search.building") : m.res.state === "stale" ? t("search.refreshing") : ""}{m.res.total > m.res.hits.length ? ` · ${tn("dialogs.showing_first", m.res.hits.length)}` : ""}
-          {:else}{t("dialogs.search_hint")}{/if}
+            {m.query ? `${tn("search.matches", m.res.total, { ms: num(m.res.micros / 1000, { minimumFractionDigits: 1, maximumFractionDigits: 1 }) })} · ` : ""}{#if m.mode === 2}{tn("search.texts", m.res.texts)}{m.res.pending ? t("search.reading", { n: num(m.res.pending) }) : ""}{:else}{tn("search.indexed", m.res.indexed)}{m.res.state === "building" ? t("search.building") : m.res.state === "stale" ? t("search.refreshing") : ""}{/if}{m.res.total > m.res.hits.length ? ` · ${tn("dialogs.showing_first", m.res.hits.length)}` : ""}
+          {:else}{t(m.mode === 2 ? "dialogs.text_hint" : "dialogs.search_hint")}{/if}
         </p>
         <ul class="list hits" bind:this={listEl}>
           {#each m.res?.hits ?? [] as h, i (h.path)}
@@ -292,6 +304,7 @@
                 <span class="glyph" class:dir={h.is_dir}>{h.is_dir ? "\u{f07b}" : "\u{f15b}"}</span>
                 <b>{basename(h.path)}</b>
                 <span class="where"><bdi>{parent(h.path)}</bdi></span>
+                {#if h.snippet}<span class="snippet" dir="auto">{@html marked(h.snippet)}</span>{/if}
               </button>
             </li>
           {/each}
@@ -537,6 +550,25 @@
   }
   .list button.cursor b {
     color: inherit;
+  }
+  .snippet {
+    flex-basis: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    padding-inline-start: 1.9em;
+    color: var(--hidden-fg);
+    font-size: 0.9em;
+    text-align: start;
+  }
+  .snippet :global(mark) {
+    color: var(--search-hit-fg);
+    background: none;
+    font-weight: 600;
+  }
+  .list.hits button:has(.snippet) {
+    flex-wrap: wrap;
+    row-gap: 0;
   }
   .where {
     overflow: hidden;

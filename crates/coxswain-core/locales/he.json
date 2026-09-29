@@ -212,7 +212,8 @@
  },
  "dialogs.scope_everywhere": "בכל מקום",
  "dialogs.scope_in": "ב־{folder}",
- "dialogs.search_footer": "Enter מעבר · Tab בכל מקום/כאן · F4 עריכה · Esc סגירה",
+ "dialogs.scope_text": "טקסט בקבצים",
+ "dialogs.search_footer": "Enter מעבר · Tab בכל מקום/כאן/טקסט · F4 עריכה · Esc סגירה",
  "dialogs.search_hint": "הקלדה לחיפוש בכל שמות הקבצים במחשב זה.",
  "dialogs.search_placeholder": "חיפוש בכל הקבצים…  *.rs · ext:md · src/ foo · !test",
  "dialogs.showing_first": {
@@ -222,6 +223,8 @@
  },
  "dialogs.size": "גודל",
  "dialogs.tag_none": "ללא",
+ "dialogs.text_hint": "הקלידו מילים כדי לחפש בתוך הקבצים שלכם.",
+ "dialogs.text_placeholder": "חיפוש בתוך קבצים…  טיל תקציב",
  "dialogs.type": "סוג",
  "dupes.add_folder": "הוספת תיקייה…",
  "dupes.any_size": "כל גודל",
@@ -527,7 +530,14 @@
   "two": "{n} התאמות ב־{ms} אלפ׳ שנ׳",
   "other": "{n} התאמות ב־{ms} אלפ׳ שנ׳"
  },
+ "search.reading": " · נותרו {n} לקריאה",
  "search.refreshing": " · מרענן אינדקס",
+ "search.text": "טקסט: ",
+ "search.texts": {
+  "one": "טקסט של קובץ אחד",
+  "other": "טקסט של {n} קבצים",
+  "two": "טקסט של {n} קבצים"
+ },
  "search.title": "חיפוש קובץ",
  "settings.appearance": "מראה",
  "settings.behaviour": "התנהגות",
@@ -620,7 +630,7 @@
  "tui.ok_cancel": "Enter = אישור   Esc = ביטול",
  "tui.press_enter": "-- יש ללחוץ Enter --",
  "tui.right_panel": "לוח ימני",
- "tui.search_footer": "Enter מעבר · Tab בכל מקום/כאן · F3 הצגה · F4 עריכה · Esc סגירה · תחביר: F1",
+ "tui.search_footer": "Enter מעבר · Tab בכל מקום/כאן/טקסט · F3 הצגה · F4 עריכה · Esc סגירה · תחביר: F1",
  "tui.select": "בחירה",
  "tui.selected": {
   "one": "{size} ב־{n} נבחר",

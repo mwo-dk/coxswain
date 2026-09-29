@@ -212,7 +212,8 @@
  },
  "dialogs.scope_everywhere": "Visur",
  "dialogs.scope_in": "Mapē {folder}",
- "dialogs.search_footer": "Enter doties · Tab visur/šeit · F4 rediģēt · Esc aizvērt",
+ "dialogs.scope_text": "Teksts failos",
+ "dialogs.search_footer": "Enter doties · Tab visur/šeit/teksts · F4 rediģēt · Esc aizvērt",
  "dialogs.search_hint": "Rakstiet, lai meklētu visus failu nosaukumus šajā datorā.",
  "dialogs.search_placeholder": "Meklēt visus failus…  *.rs · ext:md · src/ foo · !test",
  "dialogs.showing_first": {
@@ -222,6 +223,8 @@
  },
  "dialogs.size": "Lielums",
  "dialogs.tag_none": "nav",
+ "dialogs.text_hint": "Rakstiet vārdus, lai meklētu savos failos.",
+ "dialogs.text_placeholder": "Meklēt failos…  raķete budžets",
  "dialogs.type": "Tips",
  "dupes.add_folder": "Pievienot mapi…",
  "dupes.any_size": "jebkurš lielums",
@@ -527,7 +530,14 @@
   "other": "{n} atbilstības {ms} ms laikā",
   "zero": "{n} atbilstības {ms} ms laikā"
  },
+ "search.reading": " · vēl jālasa {n}",
  "search.refreshing": " · atsvaidzina indeksu",
+ "search.text": "teksts: ",
+ "search.texts": {
+  "one": "{n} faila teksts",
+  "other": "{n} failu teksts",
+  "zero": "{n} failu teksts"
+ },
  "search.title": "Meklēt failu",
  "settings.appearance": "Izskats",
  "settings.behaviour": "Darbība",
@@ -620,7 +630,7 @@
  "tui.ok_cancel": "Enter = Labi   Esc = Atcelt",
  "tui.press_enter": "-- nospiediet Enter --",
  "tui.right_panel": "Labais panelis",
- "tui.search_footer": "Enter doties · Tab visur/šeit · F3 skatīt · F4 rediģēt · Esc aizvērt · sintakse: F1",
+ "tui.search_footer": "Enter doties · Tab visur/šeit/teksts · F3 skatīt · F4 rediģēt · Esc aizvērt · sintakse: F1",
  "tui.select": "Atlasīt",
  "tui.selected": {
   "one": "{size} {n} atlasītajā",

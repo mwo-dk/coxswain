@@ -205,7 +205,8 @@
  },
  "dialogs.scope_everywhere": "Kaikkialla",
  "dialogs.scope_in": "Kansiossa {folder}",
- "dialogs.search_footer": "Enter siirry · Tab kaikkialla/täällä · F4 muokkaa · Esc sulje",
+ "dialogs.scope_text": "Teksti tiedostoissa",
+ "dialogs.search_footer": "Enter siirry · Tab kaikkialla/täällä/teksti · F4 muokkaa · Esc sulje",
  "dialogs.search_hint": "Kirjoita hakeaksesi kaikkien tämän koneen tiedostojen nimistä.",
  "dialogs.search_placeholder": "Hae kaikista tiedostoista…  *.rs · ext:md · src/ foo · !test",
  "dialogs.showing_first": {
@@ -214,6 +215,8 @@
  },
  "dialogs.size": "Koko",
  "dialogs.tag_none": "ei mitään",
+ "dialogs.text_hint": "Kirjoita sanoja hakeaksesi tiedostojesi sisältä.",
+ "dialogs.text_placeholder": "Hae tiedostojen sisältä…  raketti budjetti",
  "dialogs.type": "Tyyppi",
  "dupes.add_folder": "Lisää kansio…",
  "dupes.any_size": "mikä tahansa koko",
@@ -494,7 +497,13 @@
   "one": "{n} osuma ({ms} ms)",
   "other": "{n} osumaa ({ms} ms)"
  },
+ "search.reading": " · {n} lukematta",
  "search.refreshing": " · päivitetään hakemistoa",
+ "search.text": "teksti: ",
+ "search.texts": {
+  "one": "{n} tiedoston teksti",
+  "other": "{n} tiedoston teksti"
+ },
  "search.title": "Etsi tiedosto",
  "settings.appearance": "Ulkoasu",
  "settings.behaviour": "Toiminta",
@@ -587,7 +596,7 @@
  "tui.ok_cancel": "Enter = OK   Esc = Peruuta",
  "tui.press_enter": "-- paina Enter --",
  "tui.right_panel": "Oikea paneeli",
- "tui.search_footer": "Enter siirry · Tab kaikkialla/täällä · F3 näytä · F4 muokkaa · Esc sulje · syntaksi: F1",
+ "tui.search_footer": "Enter siirry · Tab kaikkialla/täällä/teksti · F3 näytä · F4 muokkaa · Esc sulje · syntaksi: F1",
  "tui.select": "Valitse",
  "tui.selected": {
   "one": "{size}, valittu {n}",

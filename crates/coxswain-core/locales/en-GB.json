@@ -205,7 +205,8 @@
  },
  "dialogs.scope_everywhere": "Everywhere",
  "dialogs.scope_in": "In {folder}",
- "dialogs.search_footer": "Enter go to · Tab everywhere/here · F4 edit · Esc close",
+ "dialogs.scope_text": "Text in files",
+ "dialogs.search_footer": "Enter go to · Tab everywhere/here/text · F4 edit · Esc close",
  "dialogs.search_hint": "Type to search every file name on this machine.",
  "dialogs.search_placeholder": "Search every file…  *.rs · ext:md · src/ foo · !test",
  "dialogs.showing_first": {
@@ -214,6 +215,8 @@
  },
  "dialogs.size": "Size",
  "dialogs.tag_none": "none",
+ "dialogs.text_hint": "Type words to search inside your files.",
+ "dialogs.text_placeholder": "Search inside files…  rocket budget",
  "dialogs.type": "Type",
  "dupes.add_folder": "Add a folder…",
  "dupes.any_size": "any size",
@@ -494,7 +497,13 @@
   "one": "{n} match in {ms} ms",
   "other": "{n} matches in {ms} ms"
  },
+ "search.reading": " · {n} still to read",
  "search.refreshing": " · refreshing index",
+ "search.text": "text: ",
+ "search.texts": {
+  "one": "text of {n} file",
+  "other": "text of {n} files"
+ },
  "search.title": "Find file",
  "settings.appearance": "Appearance",
  "settings.behaviour": "Behaviour",
@@ -598,7 +607,7 @@
  "tui.ok_cancel": "Enter = OK   Esc = Cancel",
  "tui.press_enter": "-- press Enter --",
  "tui.right_panel": "Right panel",
- "tui.search_footer": "Enter go to · Tab everywhere/here · F3 view · F4 edit · Esc close · syntax: F1",
+ "tui.search_footer": "Enter go to · Tab everywhere/here/text · F3 view · F4 edit · Esc close · syntax: F1",
  "tui.select": "Select",
  "tui.selected": {
   "one": "{size} in {n} selected",

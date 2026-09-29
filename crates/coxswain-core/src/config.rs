@@ -759,6 +759,15 @@ pub struct SearchConfig {
     pub max_results: usize,
     /// Follow changes live (inotify / FSEvents / ReadDirectoryChanges). Off = hourly rebuild only.
     pub watch: bool,
+    /// Keep the text of files, to search in it (Find file, Tab).
+    pub text: bool,
+    /// The folders whose text is kept. Empty = the home folder.
+    pub text_roots: Vec<PathBuf>,
+    /// Folders left out by name, wherever they are. Hidden folders and folders holding a
+    /// `.nosearch` file are left out too.
+    pub text_exclude: Vec<String>,
+    /// Larger files are left out. Bytes.
+    pub text_max_size: u64,
 }
 
 impl Default for SearchConfig {
@@ -768,6 +777,10 @@ impl Default for SearchConfig {
             exclude: ["/proc", "/sys", "/dev", "/run", "/tmp/.X11-unix"].map(String::from).to_vec(),
             max_results: 10_000,
             watch: true,
+            text: true,
+            text_roots: vec![],
+            text_exclude: ["node_modules", "target", "build", "dist", "out", "vendor", "__pycache__", "Trash"].map(String::from).to_vec(),
+            text_max_size: 20 * 1024 * 1024,
         }
     }
 }

@@ -205,7 +205,8 @@
  },
  "dialogs.scope_everywhere": "Leku guztietan",
  "dialogs.scope_in": "Karpeta: {folder}",
- "dialogs.search_footer": "Enter joan · Tab leku guztietan/hemen · F4 editatu · Esc itxi",
+ "dialogs.scope_text": "Testua fitxategietan",
+ "dialogs.search_footer": "Enter joan · Tab leku guztietan/hemen/testua · F4 editatu · Esc itxi",
  "dialogs.search_hint": "Idatzi ordenagailu honetako fitxategi-izen guztietan bilatzeko.",
  "dialogs.search_placeholder": "Bilatu fitxategi guztietan…  *.rs · ext:md · src/ foo · !test",
  "dialogs.showing_first": {
@@ -214,6 +215,8 @@
  },
  "dialogs.size": "Tamaina",
  "dialogs.tag_none": "bat ere ez",
+ "dialogs.text_hint": "Idatzi hitzak zure fitxategien barruan bilatzeko.",
+ "dialogs.text_placeholder": "Bilatu fitxategien barruan…  suziria aurrekontua",
  "dialogs.type": "Mota",
  "dupes.add_folder": "Gehitu karpeta bat…",
  "dupes.any_size": "edozein tamaina",
@@ -494,7 +497,13 @@
   "one": "bat etortze {n} · {ms} ms",
   "other": "{n} bat etortze · {ms} ms"
  },
+ "search.reading": " · {n} irakurtzeko",
  "search.refreshing": " · indizea freskatzen",
+ "search.text": "testua: ",
+ "search.texts": {
+  "one": "fitxategi {n}en testua",
+  "other": "{n} fitxategiren testua"
+ },
  "search.title": "Bilatu fitxategia",
  "settings.appearance": "Itxura",
  "settings.behaviour": "Portaera",
@@ -587,7 +596,7 @@
  "tui.ok_cancel": "Enter = Ados   Esc = Utzi",
  "tui.press_enter": "-- sakatu Enter --",
  "tui.right_panel": "Eskuineko panela",
- "tui.search_footer": "Enter joan · Tab leku guztietan/hemen · F3 ikusi · F4 editatu · Esc itxi · sintaxia: F1",
+ "tui.search_footer": "Enter joan · Tab leku guztietan/hemen/testua · F3 ikusi · F4 editatu · Esc itxi · sintaxia: F1",
  "tui.select": "Hautatu",
  "tui.selected": {
   "one": "{size} · {n} hautatuta",

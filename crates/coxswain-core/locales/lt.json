@@ -212,7 +212,8 @@
  },
  "dialogs.scope_everywhere": "Visur",
  "dialogs.scope_in": "Aplanke {folder}",
- "dialogs.search_footer": "Enter eiti · Tab visur/čia · F4 taisyti · Esc uždaryti",
+ "dialogs.scope_text": "Tekstas failuose",
+ "dialogs.search_footer": "Enter eiti · Tab visur/čia/tekstas · F4 taisyti · Esc uždaryti",
  "dialogs.search_hint": "Rašykite, kad ieškotumėte visų šio kompiuterio failų pavadinimų.",
  "dialogs.search_placeholder": "Ieškoti visų failų…  *.rs · ext:md · src/ foo · !test",
  "dialogs.showing_first": {
@@ -222,6 +223,8 @@
  },
  "dialogs.size": "Dydis",
  "dialogs.tag_none": "nėra",
+ "dialogs.text_hint": "Rašykite žodžius, kad ieškotumėte savo failuose.",
+ "dialogs.text_placeholder": "Ieškoti failuose…  raketa biudžetas",
  "dialogs.type": "Tipas",
  "dupes.add_folder": "Pridėti aplanką…",
  "dupes.any_size": "bet koks dydis",
@@ -527,7 +530,14 @@
   "one": "{n} atitikmuo per {ms} ms",
   "other": "{n} atitikmenų per {ms} ms"
  },
+ "search.reading": " · dar reikia perskaityti {n}",
  "search.refreshing": " · atnaujinamas indeksas",
+ "search.text": "tekstas: ",
+ "search.texts": {
+  "few": "{n} failų tekstas",
+  "one": "{n} failo tekstas",
+  "other": "{n} failų tekstas"
+ },
  "search.title": "Ieškoti failo",
  "settings.appearance": "Išvaizda",
  "settings.behaviour": "Veikimas",
@@ -620,7 +630,7 @@
  "tui.ok_cancel": "Enter = Gerai   Esc = Atšaukti",
  "tui.press_enter": "-- paspauskite Enter --",
  "tui.right_panel": "Dešinysis skydelis",
- "tui.search_footer": "Enter eiti · Tab visur/čia · F3 peržiūra · F4 taisyti · Esc uždaryti · sintaksė: F1",
+ "tui.search_footer": "Enter eiti · Tab visur/čia/tekstas · F3 peržiūra · F4 taisyti · Esc uždaryti · sintaksė: F1",
  "tui.select": "Žymėti",
  "tui.selected": {
   "few": "{size}, pažymėta: {n}",
