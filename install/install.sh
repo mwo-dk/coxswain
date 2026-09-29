@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# Build and install Bosum from source on Linux or macOS.
+# Build and install Coxswain from source on Linux or macOS.
 #
 #   ./install/install.sh             terminal app and desktop app
 #   ./install/install.sh --tui-only  terminal app only (needs only Rust)
 #   ./install/install.sh --yes       answer yes to every question
 #
-# Installs into $PREFIX (default ~/.local): bin/bosum, bin/bosum-gui, plus a desktop entry
-# on Linux. On macOS the desktop app goes to ~/Applications/Bosum.app.
+# Installs into $PREFIX (default ~/.local): bin/coxswain, bin/coxswain-gui, plus a desktop entry
+# on Linux. On macOS the desktop app goes to ~/Applications/Coxswain.app.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
@@ -38,7 +38,7 @@ ask() {
 sudo_cmd() { if [ "$(id -u)" = 0 ]; then "$@"; else sudo "$@"; fi; }
 
 OS="$(uname -s)"
-bold "Installing Bosum ($OS)"
+bold "Installing Coxswain ($OS)"
 
 # ---------------------------------------------------------------- Rust
 
@@ -46,7 +46,7 @@ if ! have cargo && [ -x "$HOME/.cargo/bin/cargo" ]; then
   export PATH="$HOME/.cargo/bin:$PATH"
 fi
 if ! have cargo; then
-  bold "Rust is needed to build Bosum, and it isn't installed yet."
+  bold "Rust is needed to build Coxswain, and it isn't installed yet."
   info "The official installer (rustup, https://rustup.rs) puts it in ~/.cargo and ~/.rustup,"
   info "and touches nothing else. You can remove it later with 'rustup self uninstall'."
   if ask "Would you like me to install Rust now?"; then
@@ -57,10 +57,10 @@ if ! have cargo; then
     fail "No problem. Install Rust from https://rustup.rs when you're ready, then run this again."
   fi
 fi
-# Bosum uses the 2024 edition, which needs Rust 1.85 or newer.
+# Coxswain uses the 2024 edition, which needs Rust 1.85 or newer.
 RUST_MINOR="$(rustc --version | awk '{split($2, v, "."); print v[2]}')"
 if [ "${RUST_MINOR:-0}" -lt 85 ]; then
-  bold "Your Rust ($(rustc --version)) is older than Bosum needs (1.85)."
+  bold "Your Rust ($(rustc --version)) is older than Coxswain needs (1.85)."
   if have rustup && ask "Would you like me to update it with 'rustup update stable'?"; then
     rustup update stable
   else
@@ -135,10 +135,11 @@ fi
 # ---------------------------------------------------------------- build
 
 bold "Building the terminal app (a few minutes the first time)…"
-cargo build --release --locked -p bosum
+cargo build --release --locked -p coxswain
 mkdir -p "$PREFIX/bin"
-install -m 755 target/release/bosum "$PREFIX/bin/bosum"
-info "Installed $PREFIX/bin/bosum"
+install -m 755 target/release/coxswain "$PREFIX/bin/coxswain"
+ln -sf coxswain "$PREFIX/bin/cox"
+info "Installed $PREFIX/bin/coxswain"
 
 if [ "$TUI_ONLY" = 0 ]; then
   bold "Building the desktop app…"
@@ -146,28 +147,28 @@ if [ "$TUI_ONLY" = 0 ]; then
   if [ "$OS" = Darwin ]; then
     (cd gui && npx tauri build --bundles app)
     mkdir -p "$HOME/Applications"
-    rm -rf "$HOME/Applications/Bosum.app"
-    cp -R target/release/bundle/macos/Bosum.app "$HOME/Applications/"
-    ln -sf "$HOME/Applications/Bosum.app/Contents/MacOS/bosum-gui" "$PREFIX/bin/bosum-gui"
-    info "Installed ~/Applications/Bosum.app"
+    rm -rf "$HOME/Applications/Coxswain.app"
+    cp -R target/release/bundle/macos/Coxswain.app "$HOME/Applications/"
+    ln -sf "$HOME/Applications/Coxswain.app/Contents/MacOS/coxswain-gui" "$PREFIX/bin/coxswain-gui"
+    info "Installed ~/Applications/Coxswain.app"
   else
     (cd gui && npx tauri build --no-bundle)
-    install -m 755 target/release/bosum-gui "$PREFIX/bin/bosum-gui"
+    install -m 755 target/release/coxswain-gui "$PREFIX/bin/coxswain-gui"
     ICONS="$PREFIX/share/icons/hicolor/128x128/apps"
     APPS="$PREFIX/share/applications"
     mkdir -p "$ICONS" "$APPS"
-    install -m 644 gui/src-tauri/icons/128x128.png "$ICONS/bosum.png"
-    cat >"$APPS/bosum.desktop" <<EOF
+    install -m 644 gui/src-tauri/icons/128x128.png "$ICONS/coxswain.png"
+    cat >"$APPS/coxswain.desktop" <<EOF
 [Desktop Entry]
 Type=Application
-Name=Bosum
+Name=Coxswain
 Comment=File manager: two panes, git status, instant search
-Exec=$PREFIX/bin/bosum-gui %F
-Icon=bosum
+Exec=$PREFIX/bin/coxswain-gui %F
+Icon=coxswain
 Terminal=false
 Categories=System;FileTools;FileManager;
 EOF
-    info "Installed $PREFIX/bin/bosum-gui and a menu entry"
+    info "Installed $PREFIX/bin/coxswain-gui and a menu entry"
   fi
 fi
 
@@ -175,8 +176,8 @@ echo
 bold "Done."
 case ":$PATH:" in
   *":$PREFIX/bin:"*) ;;
-  *) info "Add $PREFIX/bin to your PATH to run 'bosum' from anywhere, e.g.:"
+  *) info "Add $PREFIX/bin to your PATH to run 'coxswain' from anywhere, e.g.:"
      info "  echo 'export PATH=\"$PREFIX/bin:\$PATH\"' >> ~/.bashrc" ;;
 esac
-info "Terminal app: bosum        Desktop app: bosum-gui (or Bosum in your app menu)"
+info "Terminal app: coxswain (or cox)        Desktop app: coxswain-gui (or Coxswain in your app menu)"
 info "Git glyphs look best with a Nerd Font: https://www.nerdfonts.com"

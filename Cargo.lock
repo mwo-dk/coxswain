@@ -246,62 +246,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "bosum"
-version = "1.12.0"
-dependencies = [
- "bosum-core",
- "chrono",
- "ratatui",
- "unicode-width",
-]
-
-[[package]]
-name = "bosum-core"
-version = "1.12.0"
-dependencies = [
- "blake3",
- "dirs 7.0.0",
- "flate2",
- "memchr",
- "notify",
- "rayon",
- "regex",
- "serde",
- "serde_json",
- "sys-locale",
- "tar",
- "toml 1.1.6+spec-1.1.0",
- "trash",
- "ureq",
- "zip",
-]
-
-[[package]]
-name = "bosum-gui"
-version = "1.12.0"
-dependencies = [
- "bosum-core",
- "clipboard-rs",
- "dirs 7.0.0",
- "drag",
- "kamadak-exif",
- "lofty",
- "mail-parser",
- "notify",
- "plist",
- "regex",
- "rusqlite",
- "serde",
- "serde_json",
- "sysinfo",
- "tauri",
- "tauri-build",
- "toml_edit 0.25.15+spec-1.1.0",
- "x509-parser",
- "zip",
-]
-
-[[package]]
 name = "brotli"
 version = "8.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -627,6 +571,62 @@ dependencies = [
  "bitflags 2.13.2",
  "core-foundation",
  "libc",
+]
+
+[[package]]
+name = "coxswain"
+version = "2.0.0"
+dependencies = [
+ "chrono",
+ "coxswain-core",
+ "ratatui",
+ "unicode-width",
+]
+
+[[package]]
+name = "coxswain-core"
+version = "2.0.0"
+dependencies = [
+ "blake3",
+ "dirs 7.0.0",
+ "flate2",
+ "memchr",
+ "notify",
+ "rayon",
+ "regex",
+ "serde",
+ "serde_json",
+ "sys-locale",
+ "tar",
+ "toml 1.1.6+spec-1.1.0",
+ "trash",
+ "ureq",
+ "zip",
+]
+
+[[package]]
+name = "coxswain-gui"
+version = "2.0.0"
+dependencies = [
+ "clipboard-rs",
+ "coxswain-core",
+ "dirs 7.0.0",
+ "drag",
+ "kamadak-exif",
+ "lofty",
+ "mail-parser",
+ "notify",
+ "plist",
+ "regex",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "sysinfo",
+ "tauri",
+ "tauri-build",
+ "toml_edit 0.25.15+spec-1.1.0",
+ "x509-parser",
+ "zip",
 ]
 
 [[package]]

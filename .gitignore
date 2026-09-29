@@ -28,5 +28,5 @@ gui/dist
 gui/src-tauri/gen
 
 # Release archives made by package.sh
-/bosum-*.tar.gz
-/bosum-*.zip
+/coxswain-*.tar.gz
+/coxswain-*.zip

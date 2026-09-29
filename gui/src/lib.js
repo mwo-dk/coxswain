@@ -26,7 +26,7 @@ const NAMED = {
 // physical key for these.
 const CODES = { Period: ".", Comma: ",", Minus: "-", Equal: "=", Slash: "/", Semicolon: ";", Space: "Space" };
 
-/** The canonical key string, exactly as bosum-core's `Key` displays it. */
+/** The canonical key string, exactly as coxswain-core's `Key` displays it. */
 export function keyString(e) {
   let k = e.key;
   let shift = e.shiftKey;
@@ -148,7 +148,7 @@ export function glob(pattern, name) {
   return new RegExp(`^${re}$`, "i").test(name);
 }
 
-/** Shell-quote a word the way bosum-core's `quote` does on Unix. */
+/** Shell-quote a word the way coxswain-core's `quote` does on Unix. */
 export const quote = (s) => (/^[\w\-./+,:@]+$/.test(s) ? s : `'${s.replaceAll("'", "'\\''")}'`);
 
 /** Theme slots become CSS variables: --panel-fg, --panel-bg, ... */

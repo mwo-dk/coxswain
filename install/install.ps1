@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-  Build and install Bosum from source on Windows.
+  Build and install Coxswain from source on Windows.
 
 .DESCRIPTION
   Run from PowerShell in the unpacked folder:
@@ -9,7 +9,7 @@
     powershell -ExecutionPolicy Bypass -File install\install.ps1 -TuiOnly   # terminal app only
     powershell -ExecutionPolicy Bypass -File install\install.ps1 -Yes       # no questions
 
-  Installs to %LOCALAPPDATA%\Programs\Bosum, adds that folder to your user PATH and creates
+  Installs to %LOCALAPPDATA%\Programs\Coxswain, adds that folder to your user PATH and creates
   a Start Menu shortcut for the desktop app.
 #>
 param(
@@ -19,7 +19,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 Set-Location (Split-Path -Parent $PSScriptRoot)
-$Dest = Join-Path $env:LOCALAPPDATA "Programs\Bosum"
+$Dest = Join-Path $env:LOCALAPPDATA "Programs\Coxswain"
 
 function Say($text) { Write-Host $text -ForegroundColor Cyan }
 function Info($text) { Write-Host "  $text" }
@@ -46,13 +46,13 @@ function Run {
     if ($LASTEXITCODE -ne 0) { Fail "'$($args -join ' ')' failed (exit code $LASTEXITCODE)." }
 }
 
-Say "Installing Bosum (Windows)"
+Say "Installing Coxswain (Windows)"
 
 # ---------------------------------------------------------------- Rust
 
 if (-not (Have cargo)) { Refresh-Path }
 if (-not (Have cargo)) {
-    Say "Rust is needed to build Bosum, and it isn't installed yet."
+    Say "Rust is needed to build Coxswain, and it isn't installed yet."
     Info "The official installer (rustup, https://rustup.rs) puts it in your user profile."
     Info "It may also offer to install the Visual Studio C++ Build Tools, which Rust needs"
     Info "on Windows; please accept that. You can remove Rust later with 'rustup self uninstall'."
@@ -68,10 +68,10 @@ if (-not (Have cargo)) {
     }
 }
 
-# Bosum uses the 2024 edition, which needs Rust 1.85 or newer.
+# Coxswain uses the 2024 edition, which needs Rust 1.85 or newer.
 $minor = [int]((rustc --version) -split " ")[1].Split(".")[1]
 if ($minor -lt 85) {
-    Say "Your Rust ($(rustc --version)) is older than Bosum needs (1.85)."
+    Say "Your Rust ($(rustc --version)) is older than Coxswain needs (1.85)."
     if ((Have rustup) -and (Ask "Would you like me to update it with 'rustup update stable'?")) {
         Run rustup update stable
     } else {
@@ -99,10 +99,11 @@ if (-not $TuiOnly -and -not (Have npm)) {
 # ---------------------------------------------------------------- build
 
 Say "Building the terminal app (a few minutes the first time)..."
-Run cargo build --release --locked -p bosum
+Run cargo build --release --locked -p coxswain
 New-Item -ItemType Directory -Force -Path $Dest | Out-Null
-Copy-Item "target\release\bosum.exe" $Dest -Force
-Info "Installed $Dest\bosum.exe"
+Copy-Item "target\release\coxswain.exe" $Dest -Force
+Copy-Item "target\release\cox.exe" $Dest -Force
+Info "Installed $Dest\coxswain.exe"
 
 if (-not $TuiOnly) {
     Say "Building the desktop app..."
@@ -113,13 +114,13 @@ if (-not $TuiOnly) {
     } finally {
         Pop-Location
     }
-    Copy-Item "target\release\bosum-gui.exe" $Dest -Force
+    Copy-Item "target\release\coxswain-gui.exe" $Dest -Force
     $shell = New-Object -ComObject WScript.Shell
-    $link = $shell.CreateShortcut((Join-Path ([Environment]::GetFolderPath("Programs")) "Bosum.lnk"))
-    $link.TargetPath = Join-Path $Dest "bosum-gui.exe"
+    $link = $shell.CreateShortcut((Join-Path ([Environment]::GetFolderPath("Programs")) "Coxswain.lnk"))
+    $link.TargetPath = Join-Path $Dest "coxswain-gui.exe"
     $link.WorkingDirectory = $env:USERPROFILE
     $link.Save()
-    Info "Installed $Dest\bosum-gui.exe and a Start Menu shortcut"
+    Info "Installed $Dest\coxswain-gui.exe and a Start Menu shortcut"
 }
 
 # ---------------------------------------------------------------- PATH
@@ -132,5 +133,5 @@ if (($userPath -split ";") -notcontains $Dest) {
 
 Write-Host ""
 Say "Done."
-Info "Terminal app: bosum        Desktop app: Bosum in the Start Menu"
+Info "Terminal app: coxswain (or cox)        Desktop app: Coxswain in the Start Menu"
 Info "Git glyphs look best with a Nerd Font: https://www.nerdfonts.com"

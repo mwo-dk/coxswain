@@ -234,7 +234,7 @@ export async function init() {
     ui.panes[0].tabs.push(newTab(fromArgs[0]));
     ui.panes[0].active = ui.panes[0].tabs.length - 1;
   }
-  // A file (`bosum-gui ~/Pictures/cat.jpg`) opens its folder with the cursor on it. A saved
+  // A file (`coxswain-gui ~/Pictures/cat.jpg`) opens its folder with the cursor on it. A saved
   // directory may be gone; fall back to home.
   await Promise.all(
     ui.panes.flatMap((p) => p.tabs).map(async (t) => {
@@ -244,7 +244,7 @@ export async function init() {
     }),
   );
   invoke("places").then((p) => (ui.places = p));
-  // `bosum-gui --duplicates <folders>` starts straight in a scan of those folders.
+  // `coxswain-gui --duplicates <folders>` starts straight in a scan of those folders.
   if (ui.cfg.duplicates) ui.modal = { kind: "dupes", roots: Object.fromEntries(ui.cfg.duplicates.map((p) => [p, true])), autostart: true };
   if (ui.cfg.open_settings) ui.modal = { kind: "settings" };
   invoke("disks").then((d) => (ui.disks = d));

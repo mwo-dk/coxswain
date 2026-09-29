@@ -1,4 +1,4 @@
-# Working on Bosum
+# Working on Coxswain
 
 - **Releases are automatic.** The version lives only in `Cargo.toml` (`[workspace.package]`).
   When CI passes on `master` and that version has no GitHub release yet, `release.yml` builds
@@ -15,5 +15,5 @@
   `cd gui && npx svelte-check && npm run build`.
 - **Screenshots** in `docs/screenshots/` are taken in a sandbox with a fake home, so nothing
   personal shows (Linux, needs `bwrap`): build release, then
-  `docs/screenshots/sandbox.sh bosum-gui /home/demo/projects/rocket` or
-  `docs/screenshots/sandbox.sh alacritty -e bosum`. `demo-home.sh` builds the demo files.
+  `docs/screenshots/sandbox.sh coxswain-gui /home/demo/projects/rocket` or
+  `docs/screenshots/sandbox.sh alacritty -e coxswain`. `demo-home.sh` builds the demo files.

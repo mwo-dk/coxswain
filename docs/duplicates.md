@@ -9,7 +9,7 @@ copies safely.
 ## Using it
 
 1. Press **Ctrl+D**, or pick **Find duplicates** in the F9 list. From a terminal,
-   `bosum-gui --duplicates ~/Pictures /mnt/old-disk` starts straight in a scan of those
+   `coxswain-gui --duplicates ~/Pictures /mnt/old-disk` starts straight in a scan of those
    folders.
 2. **Look in:** tick the places to compare. Offered are both panes' folders, your favorites
    and every drive in the sidebar; type any other folder into *Add a folder…* and press Enter.
@@ -59,7 +59,7 @@ Everything is compared **by content**. Names, dates and locations never matter.
 
 ## How it stays fast
 
-Reading every file on a large disk would take hours, so Bosum only reads what could match:
+Reading every file on a large disk would take hours, so Coxswain only reads what could match:
 
 1. **Sizes first.** A parallel walk lists every file with its size. A file whose size occurs
    only once cannot have a duplicate, and is never opened.
@@ -68,7 +68,7 @@ Reading every file on a large disk would take hours, so Bosum only reads what co
 3. **The whole file,** only for the files still matching. Hashing uses
    [BLAKE3](https://github.com/BLAKE3-team/BLAKE3), which uses SIMD instructions (AVX2 and
    AVX-512 on x86, NEON on ARM) and runs on all cores.
-4. **Cached.** Full hashes are kept in `~/.cache/bosum/dupes-hashes.json` (the cache folder on
+4. **Cached.** Full hashes are kept in `~/.cache/coxswain/dupes-hashes.json` (the cache folder on
    each platform), keyed by path, size and modification time. Scanning the same disk again
    only reads files that changed.
 
@@ -78,7 +78,7 @@ On a developer's home folder of 64,856 files (30 GB), the first scan read 1.9 GB
 Run the same engine from a terminal to try it on your own disks:
 
 ```sh
-cargo run --release -p bosum-core --example dupes -- ~/Pictures /mnt/old-disk
+cargo run --release -p coxswain-core --example dupes -- ~/Pictures /mnt/old-disk
 ```
 
 ## Limits
@@ -88,5 +88,5 @@ cargo run --release -p bosum-core --example dupes -- ~/Pictures /mnt/old-disk
 - **Spinning disks** are read by several threads at once, which makes their heads seek. On an
   old hard disk the full-hash phase is therefore slower than the drive's top speed.
 - The terminal app does not have the duplicate finder yet; the engine
-  (`crates/bosum-core/src/dupes.rs`) is shared and ready for it.
+  (`crates/coxswain-core/src/dupes.rs`) is shared and ready for it.
 - The results list shows the 500 groups that waste the most space.

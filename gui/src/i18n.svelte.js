@@ -1,4 +1,4 @@
-// Texts in the user's language. The catalogue comes from bosum-core (see crates/bosum-core/
+// Texts in the user's language. The catalogue comes from coxswain-core (see crates/coxswain-core/
 // src/i18n.rs and locales/), already merged with British English, the reference. Reading
 // `i18n` inside t() makes every text reactive: switching the language redraws all of them.
 

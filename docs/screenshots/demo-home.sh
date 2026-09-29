@@ -18,7 +18,7 @@ g() {
 
 truncate -s 12K Documents/letter.odt
 python3 "$here/demo-docs.py" "$d"
-printf '# Notes\n\n- Book the ferry\n- Renew the domain\n- Try `bosum` on the laptop\n' > Documents/notes.md
+printf '# Notes\n\n- Book the ferry\n- Renew the domain\n- Try `coxswain` on the laptop\n' > Documents/notes.md
 truncate -s 5M Downloads/setup.iso
 # Real pictures for the thumbnail view and the preview (ImageMagick draws them).
 img() { magick -size 1200x800 "$@"; }

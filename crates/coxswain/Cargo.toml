@@ -1,0 +1,26 @@
+[package]
+name = "coxswain"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+readme.workspace = true
+keywords.workspace = true
+categories.workspace = true
+description = "Coxswain: a Norton Commander style file manager for the terminal"
+
+[[bin]]
+name = "coxswain"
+path = "src/main.rs"
+
+# The same program under a name that is quick to type.
+[[bin]]
+name = "cox"
+path = "src/main.rs"
+
+[dependencies]
+coxswain-core.workspace = true
+ratatui = "0.30"
+chrono = { version = "0.4", default-features = false, features = ["clock"] }
+unicode-width = "0.2"

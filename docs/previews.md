@@ -91,7 +91,7 @@ Under the preview, some files get a short list of facts:
 
 ## Previews made by tools
 
-Some formats need a real program: a TeX distribution, LibreOffice, PlantUML. Bosum uses one
+Some formats need a real program: a TeX distribution, LibreOffice, PlantUML. Coxswain uses one
 that is installed, or runs it in a **container** (podman or docker), so nothing has to be
 installed for a preview you only need now and then.
 
@@ -113,7 +113,7 @@ installed for a preview you only need now and then.
 2. **Render.** LaTeX, LibreOffice and draw.io wait for **Build PDF** / **Render**, because
    they take seconds and run someone else's document. PlantUML, pandoc and DuckDB run by
    themselves, since they are quick, unless their container image still has to be pulled.
-3. **Reuse.** Results are cached in the cache folder (`~/.cache/bosum/previews` on Linux),
+3. **Reuse.** Results are cached in the cache folder (`~/.cache/coxswain/previews` on Linux),
    keyed by the file's path, size, modification time and the engine. A file renders once and
    shows at once afterwards; editing it makes the next render fresh.
 4. **Errors** show in the preview. For LaTeX that is the first `!` error from the log with
@@ -121,7 +121,7 @@ installed for a preview you only need now and then.
 
 ### LaTeX projects
 
-Bosum works out what a LaTeX editor would, so a document that builds in LaTeX Workshop,
+Coxswain works out what a LaTeX editor would, so a document that builds in LaTeX Workshop,
 TeXShop or TeXstudio builds here, from whichever of its files the cursor is on:
 
 | | |
@@ -151,7 +151,7 @@ next to the source (the source is read-only; results go to the cache).
   the runtime's own progress line.
 - **Settings lists the images** under *Previews made by tools*: each with its size, **Pull**
   to download it ahead of time or update it to the newest, and **Remove** to free the space.
-  Bosum never updates or removes an image by itself.
+  Coxswain never updates or removes an image by itself.
 - **A run that takes longer than the timeout** (120 s by default) is stopped and its
   container killed. Pulling is not counted.
 - LaTeX runs without `-shell-escape`, so a document cannot run commands.
@@ -177,9 +177,9 @@ duckdb = ""
 ```
 
 LibreOffice, draw.io and DuckDB have no official images. If you set one, it must provide the
-command Bosum runs: `soffice` for LibreOffice. For draw.io and DuckDB, the image's entry
+command Coxswain runs: `soffice` for LibreOffice. For draw.io and DuckDB, the image's entry
 point must be the tool itself, which is how community images such as
-`rlespinasse/drawio-desktop-headless` are built (not tested with Bosum).
+`rlespinasse/drawio-desktop-headless` are built (not tested with Coxswain).
 
 ## Columns and folder sizes
 
@@ -197,7 +197,7 @@ F9, to choose the columns:
 **Folder sizes fill themselves in.** Both apps measure the folders of a folder as it opens,
 in the background: one at a time so the first appear quickly, on two threads so the machine
 stays responsive, and stopping when you leave the folder. A size is remembered for five
-minutes, so going back shows it at once; copying, moving or deleting with Bosum, or a change
+minutes, so going back shows it at once; copying, moving or deleting with Coxswain, or a change
 in a folder on screen, measures afresh. `/proc`, `/sys`, `/dev` and `/run` are skipped.
 **Measure folder sizes automatically**, in the same menu, switches it off and on in the
 desktop app; `folder_sizes = false` in `config.toml` does for the terminal app, and is where

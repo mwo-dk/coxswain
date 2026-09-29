@@ -43,7 +43,7 @@ async function mermaid() {
 /** One diagram as sanitized SVG, or the error as text. */
 export async function renderMermaid(src) {
   try {
-    const { svg } = await (await mermaid()).render(`bosum-mermaid-${++mermaidSeq}`, src);
+    const { svg } = await (await mermaid()).render(`coxswain-mermaid-${++mermaidSeq}`, src);
     return `<div class="diagram">${clean(svg)}</div>`;
   } catch (e) {
     return `<pre class="diagram-error">${escape(String(e?.message ?? e))}</pre>`;
@@ -117,7 +117,7 @@ export async function renderNotebook(path) {
 let fontSeq = 0;
 /** Load a font file under a fresh family name and return that name. */
 export async function loadFont(path) {
-  const family = `bosum-preview-${++fontSeq}`;
+  const family = `coxswain-preview-${++fontSeq}`;
   const face = new FontFace(family, `url("${convertFileSrc(path)}")`);
   document.fonts.add(await face.load());
   return family;

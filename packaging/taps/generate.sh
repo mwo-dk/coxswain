@@ -5,16 +5,16 @@
 set -euo pipefail
 tag="$1" brew="$2" scoop="$3"
 version="${tag#v}"
-repo="https://github.com/mwo-dk/bosum"
+repo="https://github.com/mwo-dk/coxswain"
 base="$repo/releases/download/$tag"
 desc="Norton Commander style file manager with Everything-speed search"
 
-sha() { gh release download "$tag" -R mwo-dk/bosum -p "bosum-terminal-$tag-$1.$2.sha256" -O - | cut -d' ' -f1; }
+sha() { gh release download "$tag" -R mwo-dk/coxswain -p "coxswain-terminal-$tag-$1.$2.sha256" -O - | cut -d' ' -f1; }
 
 mkdir -p "$brew/Formula" "$scoop/bucket"
-url() { echo "$base/bosum-terminal-$tag-$1.tar.gz"; }
-cat > "$brew/Formula/bosum.rb" <<RUBY
-class Bosum < Formula
+url() { echo "$base/coxswain-terminal-$tag-$1.tar.gz"; }
+cat > "$brew/Formula/coxswain.rb" <<RUBY
+class Coxswain < Formula
   desc "$desc"
   homepage "$repo"
   version "$version"
@@ -43,11 +43,11 @@ class Bosum < Formula
   end
 
   def install
-    bin.install "bosum"
+    bin.install "coxswain", "cox"
   end
 
   test do
-    assert_match version.to_s, shell_output("#{bin}/bosum --version")
+    assert_match version.to_s, shell_output("#{bin}/coxswain --version")
   end
 end
 RUBY
@@ -55,58 +55,58 @@ RUBY
 # The desktop app, as a cask: the .dmg on macOS, the AppImage on Linux. These have no .sha256
 # assets, so hash the downloads. Homebrew 7 wants declarative *_steps stanzas: the Ruby
 # preflight/postflight blocks are deprecated and fail on macOS.
-asset_sha() { gh release download "$tag" -R mwo-dk/bosum -p "$1" -O - | sha256sum | cut -d' ' -f1; }
-appimage="Bosum_#{version}_amd64.AppImage"
+asset_sha() { gh release download "$tag" -R mwo-dk/coxswain -p "$1" -O - | sha256sum | cut -d' ' -f1; }
+appimage="Coxswain_#{version}_amd64.AppImage"
 mkdir -p "$brew/Casks"
-cat > "$brew/Casks/bosum-gui.rb" <<RUBY
-cask "bosum-gui" do
+cat > "$brew/Casks/coxswain-gui.rb" <<RUBY
+cask "coxswain-gui" do
   version "$version"
-  sha256 arm:          "$(asset_sha "Bosum_${version}_aarch64.dmg")",
-         intel:        "$(asset_sha "Bosum_${version}_x64.dmg")",
-         x86_64_linux: "$(asset_sha "Bosum_${version}_amd64.AppImage")"
+  sha256 arm:          "$(asset_sha "Coxswain_${version}_aarch64.dmg")",
+         intel:        "$(asset_sha "Coxswain_${version}_x64.dmg")",
+         x86_64_linux: "$(asset_sha "Coxswain_${version}_amd64.AppImage")"
 
   on_macos do
     arch arm: "aarch64", intel: "x64"
 
-    url "$repo/releases/download/v#{version}/Bosum_#{version}_#{arch}.dmg"
+    url "$repo/releases/download/v#{version}/Coxswain_#{version}_#{arch}.dmg"
 
-    app "Bosum.app"
+    app "Coxswain.app"
   end
   on_linux do
     url "$repo/releases/download/v#{version}/$appimage"
 
     depends_on arch: :x86_64
 
-    binary "$appimage", target: "bosum-gui"
+    binary "$appimage", target: "coxswain-gui"
   end
 
-  name "Bosum"
+  name "Coxswain"
   desc "$desc (desktop app)"
   homepage "$repo"
 
   preflight_steps do
     on_linux do
-      set_permissions "Bosum_{{version}}_amd64.AppImage", "0755"
+      set_permissions "Coxswain_{{version}}_amd64.AppImage", "0755"
     end
   end
 
   # Not notarized: without the quarantine flag cleared, macOS says the app is damaged.
   postflight_steps do
     on_macos do
-      run "/usr/bin/xattr", args: ["-cr", "{{appdir}}/Bosum.app"]
+      run "/usr/bin/xattr", args: ["-cr", "{{appdir}}/Coxswain.app"]
     end
   end
 
-  # Config and state in the bosum config folder stay: the terminal app shares them.
+  # Config and state in the coxswain config folder stay: the terminal app shares them.
   zap trash: [
-    "~/Library/Caches/bosum",
-    "~/Library/WebKit/dk.mwo.bosum",
+    "~/Library/Caches/coxswain",
+    "~/Library/WebKit/dk.mwo.coxswain",
   ]
 end
 RUBY
 
 win="x86_64-pc-windows-msvc"
-cat > "$scoop/bucket/bosum.json" <<JSON
+cat > "$scoop/bucket/coxswain.json" <<JSON
 {
     "version": "$version",
     "description": "$desc",
@@ -114,19 +114,19 @@ cat > "$scoop/bucket/bosum.json" <<JSON
     "license": "MIT",
     "architecture": {
         "64bit": {
-            "url": "$base/bosum-terminal-$tag-$win.zip",
+            "url": "$base/coxswain-terminal-$tag-$win.zip",
             "hash": "$(sha $win zip)",
-            "extract_dir": "bosum-terminal-$tag-$win"
+            "extract_dir": "coxswain-terminal-$tag-$win"
         }
     },
-    "bin": "bosum.exe",
+    "bin": ["coxswain.exe", "cox.exe"],
     "checkver": "github",
     "autoupdate": {
         "architecture": {
             "64bit": {
-                "url": "$repo/releases/download/v\$version/bosum-terminal-v\$version-$win.zip",
+                "url": "$repo/releases/download/v\$version/coxswain-terminal-v\$version-$win.zip",
                 "hash": { "url": "\$url.sha256" },
-                "extract_dir": "bosum-terminal-v\$version-$win"
+                "extract_dir": "coxswain-terminal-v\$version-$win"
             }
         }
     }

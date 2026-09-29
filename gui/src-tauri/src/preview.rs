@@ -1,7 +1,7 @@
 //! Previews that need Rust: a file's git diff, SQLite databases, EPUB books, and facts for
 //! the preview pane (photo EXIF, audio tags, what an executable was built for).
 
-use bosum_core::{t, tn};
+use coxswain_core::{t, tn};
 use serde::Serialize;
 use std::fs::File;
 use std::io::{BufReader, Read};
@@ -396,7 +396,7 @@ fn binary_kind(h: &[u8]) -> Option<(String, String, String)> {
     None
 }
 
-/// A CPU name as shown; empty means one Bosum does not name.
+/// A CPU name as shown; empty means one Coxswain does not name.
 fn cpu_name(cpu: &str) -> String {
     if cpu.is_empty() { t!("facts.other_cpu") } else { cpu.to_string() }
 }
@@ -443,23 +443,23 @@ mod tests {
 
     #[test]
     fn mail_and_plist() {
-        let d = std::env::temp_dir().join(format!("bosum-test-mail-{}", std::process::id()));
+        let d = std::env::temp_dir().join(format!("coxswain-test-mail-{}", std::process::id()));
         std::fs::create_dir_all(&d).unwrap();
         std::fs::write(d.join("m.eml"), "From: Ada <ada@example.com>\r\nTo: bob@example.com\r\nSubject: Launch\r\nDate: Mon, 28 Sep 2026 10:00:00 +0000\r\n\r\nGo for launch.\r\n").unwrap();
         let m = tauri::async_runtime::block_on(mail_preview(d.join("m.eml"))).unwrap();
         assert_eq!((m.subject.as_str(), m.from.as_str(), m.to.as_str()), ("Launch", "Ada <ada@example.com>", "bob@example.com"));
         assert!(m.text.contains("Go for launch"));
         let mut dict = plist::Dictionary::new();
-        dict.insert("Name".into(), "Bosum".into());
+        dict.insert("Name".into(), "Coxswain".into());
         plist::Value::Dictionary(dict).to_file_binary(d.join("i.plist")).unwrap();
         let xml = tauri::async_runtime::block_on(plist_xml(d.join("i.plist"))).unwrap();
-        assert!(xml.contains("<key>Name</key>") && xml.contains("<string>Bosum</string>"));
+        assert!(xml.contains("<key>Name</key>") && xml.contains("<string>Coxswain</string>"));
         std::fs::remove_dir_all(d).unwrap();
     }
 
     #[test]
     fn sqlite_tables_and_counts() {
-        let p = std::env::temp_dir().join(format!("bosum-test-{}.db", std::process::id()));
+        let p = std::env::temp_dir().join(format!("coxswain-test-{}.db", std::process::id()));
         let _ = std::fs::remove_file(&p);
         let db = rusqlite::Connection::open(&p).unwrap();
         db.execute_batch("CREATE TABLE launch(id INTEGER PRIMARY KEY, name TEXT); INSERT INTO launch(name) VALUES ('a'), ('b'); CREATE VIEW v AS SELECT * FROM launch;").unwrap();

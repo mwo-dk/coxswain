@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Write the winget manifests for the terminal app (mwo-dk.Bosum.Terminal) for a released tag.
+# Write the winget manifests for the terminal app (mwo-dk.Coxswain.Terminal) for a released tag.
 # Not `komac update`: the exe's path inside the zip contains the version, and an update would
 # carry the previous version's path forward.
 #
@@ -7,11 +7,11 @@
 set -euo pipefail
 tag="$1" out="$2"
 version="${tag#v}"
-name="bosum-terminal-$tag-x86_64-pc-windows-msvc"
-sha=$(gh release download "$tag" -R mwo-dk/bosum -p "$name.zip.sha256" -O - | cut -d' ' -f1 | tr a-f A-F)
-dir="$out/manifests/m/mwo-dk/Bosum/Terminal/$version"
+name="coxswain-terminal-$tag-x86_64-pc-windows-msvc"
+sha=$(gh release download "$tag" -R mwo-dk/coxswain -p "$name.zip.sha256" -O - | cut -d' ' -f1 | tr a-f A-F)
+dir="$out/manifests/m/mwo-dk/Coxswain/Terminal/$version"
 mkdir -p "$dir"
-id=mwo-dk.Bosum.Terminal
+id=mwo-dk.Coxswain.Terminal
 head() { printf '# yaml-language-server: $schema=https://aka.ms/winget-manifest.%s.1.12.0.schema.json\n\nPackageIdentifier: %s\nPackageVersion: %s\n' "$1" "$id" "$version"; }
 
 { head version; printf 'DefaultLocale: en-US\nManifestType: version\nManifestVersion: 1.12.0\n'; } > "$dir/$id.yaml"
@@ -20,12 +20,14 @@ head() { printf '# yaml-language-server: $schema=https://aka.ms/winget-manifest.
 InstallerType: zip
 NestedInstallerType: portable
 NestedInstallerFiles:
-- RelativeFilePath: $name\\bosum.exe
-  PortableCommandAlias: bosum
+- RelativeFilePath: $name\\coxswain.exe
+  PortableCommandAlias: coxswain
+- RelativeFilePath: $name\\cox.exe
+  PortableCommandAlias: cox
 ReleaseDate: $(date -u +%F)
 Installers:
 - Architecture: x64
-  InstallerUrl: https://github.com/mwo-dk/bosum/releases/download/$tag/$name.zip
+  InstallerUrl: https://github.com/mwo-dk/coxswain/releases/download/$tag/$name.zip
   InstallerSha256: $sha
 ManifestType: installer
 ManifestVersion: 1.12.0
@@ -36,15 +38,15 @@ YAML
 PackageLocale: en-US
 Publisher: Michael W. Olesen
 PublisherUrl: https://github.com/mwo-dk
-PublisherSupportUrl: https://github.com/mwo-dk/bosum/issues
+PublisherSupportUrl: https://github.com/mwo-dk/coxswain/issues
 Author: Michael W. Olesen
-PackageName: Bosum (terminal)
-PackageUrl: https://github.com/mwo-dk/bosum
+PackageName: Coxswain (terminal)
+PackageUrl: https://github.com/mwo-dk/coxswain
 License: MIT
-LicenseUrl: https://github.com/mwo-dk/bosum/blob/master/LICENSE
+LicenseUrl: https://github.com/mwo-dk/coxswain/blob/master/LICENSE
 ShortDescription: Norton Commander style file manager with Everything-speed search, in the terminal
-Description: 'A two-panel file manager in the Norton Commander tradition, built for developers: instant search across every file on the machine and git status in every panel. The desktop app is mwo-dk.Bosum.'
-Moniker: bosum
+Description: 'A two-panel file manager in the Norton Commander tradition, built for developers: instant search across every file on the machine and git status in every panel. The desktop app is mwo-dk.Coxswain.'
+Moniker: coxswain
 Tags:
 - everything
 - file-manager
@@ -54,7 +56,7 @@ Tags:
 - search
 - terminal
 - tui
-ReleaseNotesUrl: https://github.com/mwo-dk/bosum/releases/tag/$tag
+ReleaseNotesUrl: https://github.com/mwo-dk/coxswain/releases/tag/$tag
 ManifestType: defaultLocale
 ManifestVersion: 1.12.0
 YAML

@@ -1,0 +1,29 @@
+# Maintainer: Michael W. Olesen <michael.w.olesen@gmail.com>
+# Kept in https://github.com/mwo-dk/coxswain/tree/master/packaging/aur; the release workflow
+# bumps pkgver and pushes it to the AUR.
+pkgname=coxswain-bin
+pkgver=1.0.0
+pkgrel=1
+pkgdesc='Two-pane file manager in the Norton Commander tradition, with git status and instant search (prebuilt)'
+arch=('x86_64')
+url='https://github.com/mwo-dk/coxswain'
+license=('MIT')
+depends=('webkit2gtk-4.1' 'gtk3' 'gcc-libs' 'glibc')
+optdepends=('git: git status in the panels'
+            'ttf-nerd-fonts-symbols-mono: file icons and git glyphs'
+            'xdg-utils: open files with their default application')
+provides=('coxswain')
+conflicts=('coxswain')
+_rel="$url/releases/download/v$pkgver"
+source=("coxswain-terminal-$pkgver.tar.gz::$_rel/coxswain-terminal-v$pkgver-x86_64-unknown-linux-musl.tar.gz"
+        "coxswain-desktop-$pkgver.deb::$_rel/Coxswain_${pkgver}_amd64.deb")
+noextract=("coxswain-desktop-$pkgver.deb")
+sha256sums=('SKIP' 'SKIP')
+
+package() {
+  # The desktop app, its menu entry and icons, as the release's .deb lays them out.
+  bsdtar -xOf "coxswain-desktop-$pkgver.deb" 'data.tar.*' | bsdtar -xf - -C "$pkgdir"
+  install -Dm755 "coxswain-terminal-v$pkgver-x86_64-unknown-linux-musl/coxswain" "$pkgdir/usr/bin/coxswain"
+  ln -s coxswain "$pkgdir/usr/bin/cox"
+  install -Dm644 "coxswain-terminal-v$pkgver-x86_64-unknown-linux-musl/LICENSE" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}

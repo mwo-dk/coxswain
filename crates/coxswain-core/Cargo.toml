@@ -1,0 +1,28 @@
+[package]
+name = "coxswain-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+readme.workspace = true
+keywords.workspace = true
+categories.workspace = true
+description = "Core of Coxswain: config, file operations, git status and an Everything-style file name index"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+toml = "1"
+dirs = "7"
+rayon = "1"
+memchr = "2"
+notify = "8"
+regex = "1"
+serde_json = "1"
+ureq = { version = "3", features = ["platform-verifier"] }
+trash = "5.2.9"
+zip = { version = "8.6.0", default-features = false, features = ["deflate-flate2-zlib-rs"] }
+tar = "0.4.46"
+flate2 = "1.1.10"
+blake3 = "1.8.7"
+sys-locale = "0.3.2"

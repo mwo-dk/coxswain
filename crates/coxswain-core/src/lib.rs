@@ -1,0 +1,15 @@
+//! Coxswain core: everything that is not UI, shared by the TUI and the GUI.
+
+pub mod archive;
+pub mod config;
+pub mod i18n;
+pub mod dupes;
+pub mod fs;
+pub mod git;
+pub mod icons;
+pub mod index;
+pub mod migrate;
+pub mod rename;
+pub mod sizes;
+pub mod state;
+pub mod update;

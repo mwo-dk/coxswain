@@ -1,15 +1,15 @@
-//! Bosum GUI: Tauri commands over bosum-core. The Svelte side owns all UI state except what
-//! persists (session, favorites, tags, notes), which lives in `bosum_core::state`.
+//! Coxswain GUI: Tauri commands over coxswain-core. The Svelte side owns all UI state except what
+//! persists (session, favorites, tags, notes), which lives in `coxswain_core::state`.
 
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use bosum_core::config::{color_to_rgb, Action, Config, Glyphs, GuiConfig, UserCommand};
-use bosum_core::fs::{self as bfs, Entry, SortKey};
-use bosum_core::icons::{icon, Icon};
-use bosum_core::index::{Results, Service, State};
-use bosum_core::rename::{self, Flags, Planned};
-use bosum_core::state::{AppState, FavoriteGroup};
-use bosum_core::git;
+use coxswain_core::config::{color_to_rgb, Action, Config, Glyphs, GuiConfig, UserCommand};
+use coxswain_core::fs::{self as bfs, Entry, SortKey};
+use coxswain_core::icons::{icon, Icon};
+use coxswain_core::index::{Results, Service, State};
+use coxswain_core::rename::{self, Flags, Planned};
+use coxswain_core::state::{AppState, FavoriteGroup};
+use coxswain_core::git;
 use serde::Serialize;
 use std::collections::BTreeMap;
 use std::io::Read;
@@ -33,11 +33,11 @@ pub struct Ctx {
     /// Folders shown in the panes, watched so they reread themselves.
     watched: Mutex<Vec<PathBuf>>,
     watcher: Mutex<Option<notify::RecommendedWatcher>>,
-    /// What Bosum last put on the clipboard, and whether it was a cut.
+    /// What Coxswain last put on the clipboard, and whether it was a cut.
     clip: Mutex<(Vec<PathBuf>, bool)>,
     /// The running duplicate scan's progress, if any.
-    dupes: Mutex<Option<Arc<bosum_core::dupes::Progress>>>,
-    sizer: Arc<bosum_core::sizes::Sizer>,
+    dupes: Mutex<Option<Arc<coxswain_core::dupes::Progress>>>,
+    sizer: Arc<coxswain_core::sizes::Sizer>,
     /// The stop flag of each tab's background measuring.
     measuring: Mutex<std::collections::HashMap<String, Arc<std::sync::atomic::AtomicBool>>>,
 }
@@ -92,7 +92,7 @@ struct UiConfig {
     language: &'static str,
     strings: std::collections::HashMap<String, serde_json::Value>,
     rtl: bool,
-    /// Every language Bosum has: (code, own name, flag).
+    /// Every language Coxswain has: (code, own name, flag).
     languages: &'static [(&'static str, &'static str, &'static str)],
     /// The config file's raw values, for the Settings window.
     settings: Settings,
@@ -123,7 +123,7 @@ fn get_config(ctx: tauri::State<Ctx>) -> Res<UiConfig> {
         actions: Action::ALL.iter().map(|&a| (a.name(), (a.label(), cfg.key_for(a).unwrap_or("").to_string()))).collect(),
         themes,
         looks: cfg.themes.iter().map(|(name, t)| (name.clone(), t.look.clone())).collect(),
-        builtin_themes: bosum_core::config::Theme::builtin().into_iter().map(|(name, _)| name).collect(),
+        builtin_themes: coxswain_core::config::Theme::builtin().into_iter().map(|(name, _)| name).collect(),
         glyphs: cfg.glyphs(),
         show_hidden: cfg.show_hidden,
         folder_sizes: cfg.folder_sizes,
@@ -132,16 +132,16 @@ fn get_config(ctx: tauri::State<Ctx>) -> Res<UiConfig> {
         start: ctx.start.clone(),
         duplicates: ctx.duplicates.clone(),
         open_settings: ctx.open_settings,
-        language: bosum_core::i18n::language(),
-        strings: bosum_core::i18n::catalogue(bosum_core::i18n::language()),
-        rtl: bosum_core::i18n::is_rtl(bosum_core::i18n::language()),
-        languages: bosum_core::i18n::LANGUAGES,
+        language: coxswain_core::i18n::language(),
+        strings: coxswain_core::i18n::catalogue(coxswain_core::i18n::language()),
+        rtl: coxswain_core::i18n::is_rtl(coxswain_core::i18n::language()),
+        languages: coxswain_core::i18n::LANGUAGES,
         settings: Settings::from(&*cfg),
         config_path: Config::path(),
         gui: cfg.gui.clone(),
         home: std::env::home_dir().unwrap_or_default(),
         sep: std::path::MAIN_SEPARATOR,
-        version: bosum_core::update::VERSION,
+        version: coxswain_core::update::VERSION,
     })
 }
 
@@ -209,12 +209,12 @@ const SETTING_PATHS: &[(&str, &[&str])] = &[
 fn apply_settings(text: &str, changes: &serde_json::Map<String, serde_json::Value>) -> Res<String> {
     let mut doc: toml_edit::DocumentMut = text.parse().map_err(|e| format!("config: {e}"))?;
     for (name, v) in changes {
-        let keys = SETTING_PATHS.iter().find(|(n, _)| n == name).map(|(_, k)| *k).ok_or_else(|| bosum_core::t!("err.unknown_setting", "name" => name))?;
+        let keys = SETTING_PATHS.iter().find(|(n, _)| n == name).map(|(_, k)| *k).ok_or_else(|| coxswain_core::t!("err.unknown_setting", "name" => name))?;
         let value: toml_edit::Value = match v {
             serde_json::Value::Bool(b) => (*b).into(),
-            serde_json::Value::Number(n) => n.as_i64().ok_or_else(|| bosum_core::t!("err.not_whole_number"))?.into(),
+            serde_json::Value::Number(n) => n.as_i64().ok_or_else(|| coxswain_core::t!("err.not_whole_number"))?.into(),
             serde_json::Value::String(s) => s.as_str().into(),
-            _ => return Err(bosum_core::t!("err.unsupported_value", "name" => name)),
+            _ => return Err(coxswain_core::t!("err.unsupported_value", "name" => name)),
         };
         let (last, parents) = keys.split_last().unwrap();
         let mut table = doc.as_table_mut();
@@ -224,7 +224,7 @@ fn apply_settings(text: &str, changes: &serde_json::Map<String, serde_json::Valu
                 t.set_implicit(true);
                 toml_edit::Item::Table(t)
             });
-            table = item.as_table_mut().ok_or_else(|| bosum_core::t!("err.not_a_table", "key" => k))?;
+            table = item.as_table_mut().ok_or_else(|| coxswain_core::t!("err.not_a_table", "key" => k))?;
         }
         // Update in place where the key exists, so its comments stay.
         match table.get_mut(last).and_then(|i| i.as_value_mut()) {
@@ -245,7 +245,7 @@ fn apply_settings(text: &str, changes: &serde_json::Map<String, serde_json::Valu
 /// the new config at once. Returns the new UI config (texts in the new language and so on).
 #[tauri::command]
 fn save_settings(changes: serde_json::Map<String, serde_json::Value>, ctx: tauri::State<Ctx>) -> Res<UiConfig> {
-    let path = Config::path().ok_or_else(|| bosum_core::t!("err.no_config_folder"))?;
+    let path = Config::path().ok_or_else(|| coxswain_core::t!("err.no_config_folder"))?;
     let text = std::fs::read_to_string(&path).unwrap_or_default();
     let new_text = apply_settings(&text, &changes)?;
     // Only write what parses: a broken config must never replace a working one.
@@ -254,7 +254,7 @@ fn save_settings(changes: serde_json::Map<String, serde_json::Value>, ctx: tauri
         std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
     }
     std::fs::write(&path, new_text).map_err(|e| format!("{}: {e}", path.display()))?;
-    bosum_core::i18n::set_language(bosum_core::i18n::resolve(&cfg.language));
+    coxswain_core::i18n::set_language(coxswain_core::i18n::resolve(&cfg.language));
     *ctx.cfg.write().map_err(|e| e.to_string())? = cfg;
     get_config(ctx)
 }
@@ -321,7 +321,7 @@ struct Place {
 
 #[tauri::command]
 fn places() -> Vec<Place> {
-    let p = |name: &str, dir: Option<PathBuf>, icon: &'static str| dir.filter(|d| d.is_dir()).map(|path| Place { name: bosum_core::t!(name), path, icon });
+    let p = |name: &str, dir: Option<PathBuf>, icon: &'static str| dir.filter(|d| d.is_dir()).map(|path| Place { name: coxswain_core::t!(name), path, icon });
     [
         p("place.home", dirs::home_dir(), "\u{f015}"),
         p("place.desktop", dirs::desktop_dir(), "\u{f108}"),
@@ -366,7 +366,7 @@ async fn disks() -> Vec<Disk> {
         if skip || out.iter().any(|o| o.device == name) {
             continue;
         }
-        let label = if mount.parent().is_none() { bosum_core::t!("place.system") } else { mount.file_name().map_or(name.clone(), |n| n.to_string_lossy().into_owned()) };
+        let label = if mount.parent().is_none() { coxswain_core::t!("place.system") } else { mount.file_name().map_or(name.clone(), |n| n.to_string_lossy().into_owned()) };
         out.push(Disk { label, device: name, mount, total: d.total_space(), free: d.available_space(), removable: d.is_removable() });
     }
     out
@@ -527,7 +527,7 @@ fn edit_path(path: PathBuf, ctx: tauri::State<Ctx>) -> Res<()> {
     let editor = ctx.cfg().editor.clone();
     match &editor {
         Some(ed) => {
-            let cmd = format!("{ed} {}", bosum_core::config::quote(&path.to_string_lossy()));
+            let cmd = format!("{ed} {}", coxswain_core::config::quote(&path.to_string_lossy()));
             shell(&cmd).spawn().map(drop).map_err(|e| e.to_string())
         }
         None => open_path(path),
@@ -563,13 +563,13 @@ async fn read_text(path: PathBuf, max: usize) -> Res<(String, bool, bool)> {
 
 #[derive(Serialize)]
 struct ArchiveListing {
-    entries: Vec<bosum_core::archive::ArchiveEntry>,
+    entries: Vec<coxswain_core::archive::ArchiveEntry>,
     more: bool,
 }
 
 #[tauri::command]
 async fn archive_list(path: PathBuf) -> Res<ArchiveListing> {
-    let (entries, more) = bosum_core::archive::list(&path, 2000).map_err(|e| e.to_string())?;
+    let (entries, more) = coxswain_core::archive::list(&path, 2000).map_err(|e| e.to_string())?;
     Ok(ArchiveListing { entries, more })
 }
 
@@ -577,7 +577,7 @@ async fn archive_list(path: PathBuf) -> Res<ArchiveListing> {
 async fn extract(paths: Vec<PathBuf>, base: PathBuf, dest: String, ctx: tauri::State<'_, Ctx>) -> Res<()> {
     let dst = resolve(&base, &dest);
     ctx.sizer.forget(&dst.join("new"));
-    each(&paths, |p| bosum_core::archive::extract(p, &dst).map(drop))
+    each(&paths, |p| coxswain_core::archive::extract(p, &dst).map(drop))
 }
 
 // ---------------------------------------------------------------- properties
@@ -691,15 +691,15 @@ fn os_clipboard() -> Option<clipboard_rs::ClipboardContext> {
 fn clip_set(paths: Vec<PathBuf>, cut: bool, ctx: tauri::State<Ctx>) -> Res<()> {
     use clipboard_rs::Clipboard;
     if let Some(c) = os_clipboard() {
-        // Best effort: without a system clipboard, paste inside Bosum still works.
+        // Best effort: without a system clipboard, paste inside Coxswain still works.
         let _ = c.set_files(paths.iter().map(|p| to_clip(p)).collect());
     }
     *ctx.clip.lock().map_err(|e| e.to_string())? = (paths, cut);
     Ok(())
 }
 
-/// Paste into `dir`: files from the system clipboard, else what Bosum copied. Moves when
-/// Bosum cut exactly those files. A name that is taken becomes `name (2)`.
+/// Paste into `dir`: files from the system clipboard, else what Coxswain copied. Moves when
+/// Coxswain cut exactly those files. A name that is taken becomes `name (2)`.
 #[tauri::command]
 async fn paste(dir: PathBuf, ctx: tauri::State<'_, Ctx>) -> Res<(usize, bool)> {
     use clipboard_rs::Clipboard;
@@ -708,14 +708,14 @@ async fn paste(dir: PathBuf, ctx: tauri::State<'_, Ctx>) -> Res<(usize, bool)> {
     let cut = clip.1 && (os.is_empty() || os == clip.0);
     let paths = if os.is_empty() { clip.0.clone() } else { os };
     if paths.is_empty() {
-        return Err(bosum_core::t!("err.clipboard_no_files"));
+        return Err(coxswain_core::t!("err.clipboard_no_files"));
     }
     if cut {
         // A cut pastes once.
         *clip = (vec![], false);
     }
     drop(clip);
-    // ponytail: text copied elsewhere after a Bosum copy still pastes Bosum's files on
+    // ponytail: text copied elsewhere after a Coxswain copy still pastes Coxswain's files on
     // clipboards that report "no files" as empty; track the clipboard owner if that confuses.
     each(&paths, |p| {
         if cut && p.parent() == Some(dir.as_path()) {
@@ -733,7 +733,7 @@ async fn paste(dir: PathBuf, ctx: tauri::State<'_, Ctx>) -> Res<(usize, bool)> {
 
 // ---------------------------------------------------------------- drag out, watching
 
-/// A native drag, so files can be dropped on other applications (and back on Bosum).
+/// A native drag, so files can be dropped on other applications (and back on Coxswain).
 #[tauri::command]
 fn start_drag(paths: Vec<PathBuf>, window: tauri::Window) -> Res<()> {
     let app = window.app_handle().clone();
@@ -793,12 +793,12 @@ fn start_watcher(app: &tauri::AppHandle) -> Option<notify::RecommendedWatcher> {
 
 /// Scan for duplicate files and folders; one scan at a time. Poll `dupes_progress` meanwhile.
 #[tauri::command]
-async fn dupes_scan(options: bosum_core::dupes::Options, ctx: tauri::State<'_, Ctx>) -> Res<bosum_core::dupes::Report> {
-    let p = Arc::new(bosum_core::dupes::Progress::default());
+async fn dupes_scan(options: coxswain_core::dupes::Options, ctx: tauri::State<'_, Ctx>) -> Res<coxswain_core::dupes::Report> {
+    let p = Arc::new(coxswain_core::dupes::Progress::default());
     *ctx.dupes.lock().map_err(|e| e.to_string())? = Some(p.clone());
-    let report = tauri::async_runtime::spawn_blocking(move || bosum_core::dupes::scan(&options, &p)).await.map_err(|e| e.to_string());
+    let report = tauri::async_runtime::spawn_blocking(move || coxswain_core::dupes::scan(&options, &p)).await.map_err(|e| e.to_string());
     let cancelled = ctx.dupes.lock().map_err(|e| e.to_string())?.take().is_some_and(|p| p.cancel.load(std::sync::atomic::Ordering::Relaxed));
-    if cancelled { Err(bosum_core::t!("err.cancelled")) } else { report }
+    if cancelled { Err(coxswain_core::t!("err.cancelled")) } else { report }
 }
 
 #[derive(Serialize)]
@@ -862,7 +862,7 @@ fn scripts_dir() -> Option<PathBuf> {
     Config::path().and_then(|p| Some(p.parent()?.join("scripts")))
 }
 
-/// F2: `[[user_menu]]` entries, then executables in `<config>/bosum/scripts/`.
+/// F2: `[[user_menu]]` entries, then executables in `<config>/coxswain/scripts/`.
 #[tauri::command]
 fn scripts(ctx: tauri::State<Ctx>) -> Vec<Script> {
     let mut out: Vec<Script> =
@@ -882,15 +882,15 @@ fn scripts(ctx: tauri::State<Ctx>) -> Vec<Script> {
 #[tauri::command]
 async fn run_script(user: Option<usize>, path: Option<PathBuf>, dir: PathBuf, file: Option<PathBuf>, selected: Vec<PathBuf>, ctx: tauri::State<'_, Ctx>) -> Res<String> {
     if let Some(i) = user {
-        let cmd = ctx.cfg().user_menu.get(i).ok_or_else(|| bosum_core::t!("err.no_such_command"))?.expand(&dir, file.as_deref(), &selected);
+        let cmd = ctx.cfg().user_menu.get(i).ok_or_else(|| coxswain_core::t!("err.no_such_command"))?.expand(&dir, file.as_deref(), &selected);
         return output(shell(&cmd), &dir);
     }
-    let script = path.ok_or_else(|| bosum_core::t!("err.nothing_to_run"))?;
+    let script = path.ok_or_else(|| coxswain_core::t!("err.nothing_to_run"))?;
     // Only files from the scripts directory may run this way.
     let allowed = scripts_dir().and_then(|d| std::fs::canonicalize(d).ok());
     let real = std::fs::canonicalize(&script).map_err(|e| e.to_string())?;
     if !allowed.is_some_and(|d| real.starts_with(d)) {
-        return Err(bosum_core::t!("err.not_bosum_script"));
+        return Err(coxswain_core::t!("err.not_coxswain_script"));
     }
     let args = if selected.is_empty() { file.into_iter().collect() } else { selected };
     let mut c = std::process::Command::new(&real);
@@ -902,7 +902,7 @@ async fn run_script(user: Option<usize>, path: Option<PathBuf>, dir: PathBuf, fi
 /// copy. The network call runs outside the state lock so other commands are not held up.
 #[tauri::command]
 async fn check_update(ctx: tauri::State<'_, Ctx>) -> Res<Option<(String, Option<&'static str>)>> {
-    use bosum_core::update;
+    use coxswain_core::update;
     if !ctx.cfg().check_updates {
         return Ok(None);
     }
@@ -917,14 +917,15 @@ async fn check_update(ctx: tauri::State<'_, Ctx>) -> Res<Option<(String, Option<
 }
 
 fn main() {
+    coxswain_core::migrate::adopt_bosum();
     let cfg = Config::load().unwrap_or_else(|e| {
-        eprintln!("bosum: {e}; using defaults");
+        eprintln!("coxswain: {e}; using defaults");
         Config::default()
     });
-    bosum_core::i18n::set_language(bosum_core::i18n::resolve(&cfg.language));
+    coxswain_core::i18n::set_language(coxswain_core::i18n::resolve(&cfg.language));
     // Validate early: a bad key in the config should not surface as a blank window.
     if let Err(e) = cfg.keymap() {
-        eprintln!("bosum: {e}");
+        eprintln!("coxswain: {e}");
     }
     // Launched from the Dock, a macOS app gets the bare system PATH, so docker, podman,
     // pandoc and the rest of Homebrew are invisible. Ask the login shell for the real one.
@@ -942,12 +943,12 @@ fn main() {
     let home = std::env::home_dir().unwrap_or_default();
     let cwd = std::env::current_dir().ok().filter(|d| d.parent().is_some()).unwrap_or(home);
     let mut args: Vec<String> = std::env::args().skip(1).collect();
-    // `bosum-gui --settings [folders…]`: start with the Settings window open.
+    // `coxswain-gui --settings [folders…]`: start with the Settings window open.
     let open_settings = args.first().map(String::as_str) == Some("--settings");
     if open_settings {
         args.remove(0);
     }
-    // `bosum-gui --duplicates [folders…]`: the folders (default: the current one) are scanned for
+    // `coxswain-gui --duplicates [folders…]`: the folders (default: the current one) are scanned for
     // duplicates at start instead of being opened in the panes.
     let duplicates = (args.first().map(String::as_str) == Some("--duplicates")).then(|| {
         let roots: Vec<PathBuf> = args.drain(..).skip(1).map(|a| resolve(&cwd, &a)).collect();
@@ -984,7 +985,7 @@ fn main() {
             dupes_progress, dupes_cancel, save_settings
         ])
         .run(tauri::generate_context!())
-        .expect("error while running Bosum");
+        .expect("error while running Coxswain");
 }
 
 #[cfg(test)]

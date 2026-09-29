@@ -51,7 +51,7 @@ jobs:
           fi
           # A draft left by a failed run is replaced, so a retry starts clean.
           [ "$state" = true ] && gh release delete "$TAG" --yes
-          gh release create "$TAG" --draft --target "$SHA" --title "Bosum $TAG" --notes-file .github/release-notes.md
+          gh release create "$TAG" --draft --target "$SHA" --title "Coxswain $TAG" --notes-file .github/release-notes.md
           echo "id=$(gh release view "$TAG" --json databaseId -q .databaseId)" >> "$GITHUB_OUTPUT"
 
   desktop:
@@ -128,22 +128,22 @@ jobs:
         with:
           key: ${{ matrix.target }}
       # Static musl binaries on Linux run on any distribution.
-      - run: cargo build --release --locked -p bosum --target ${{ matrix.target }}
+      - run: cargo build --release --locked -p coxswain --target ${{ matrix.target }}
       - name: Package and upload
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ needs.draft.outputs.tag }}
           TARGET: ${{ matrix.target }}
         run: |
-          name="bosum-terminal-$TAG-$TARGET"
+          name="coxswain-terminal-$TAG-$TARGET"
           mkdir "$name"
           cp LICENSE README.md "$name/"
           if [ "$RUNNER_OS" = Windows ]; then
-            cp target/$TARGET/release/bosum.exe "$name/"
+            cp target/$TARGET/release/coxswain.exe target/$TARGET/release/cox.exe "$name/"
             7z a -bso0 "$name.zip" "$name"
             file="$name.zip"
           else
-            cp target/$TARGET/release/bosum "$name/"
+            cp target/$TARGET/release/coxswain target/$TARGET/release/cox "$name/"
             tar czf "$name.tar.gz" "$name"
             file="$name.tar.gz"
           fi
@@ -164,7 +164,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        pkg: [bosum, bosum-bin]
+        pkg: [coxswain, coxswain-bin]
     env:
       HAS_KEY: ${{ secrets.AUR_SSH_PRIVATE_KEY != '' }}
     steps:
@@ -207,8 +207,8 @@ jobs:
       # Core first: the terminal app depends on it. Cargo waits until it is in the index.
       - if: env.CARGO_REGISTRY_TOKEN != ''
         run: |
-          cargo publish --locked -p bosum-core
-          cargo publish --locked -p bosum
+          cargo publish --locked -p coxswain-core
+          cargo publish --locked -p coxswain
 
   taps:
     needs: [draft, publish]
@@ -222,7 +222,7 @@ jobs:
         if: env.TAP_TOKEN != ''
         with:
           ref: ${{ needs.draft.outputs.sha }}
-      - name: Update mwo-dk/homebrew-bosum and mwo-dk/scoop-bosum
+      - name: Update mwo-dk/homebrew-coxswain and mwo-dk/scoop-coxswain
         if: env.TAP_TOKEN != ''
         env:
           GH_TOKEN: ${{ github.token }}
@@ -230,17 +230,17 @@ jobs:
         run: |
           git config --global user.name "Michael W. Olesen"
           git config --global user.email michael.w.olesen@gmail.com
-          for repo in homebrew-bosum scoop-bosum; do
+          for repo in homebrew-coxswain scoop-coxswain; do
             git clone -q "https://x-access-token:$TAP_TOKEN@github.com/mwo-dk/$repo.git"
           done
-          packaging/taps/generate.sh "$TAG" homebrew-bosum scoop-bosum
-          for repo in homebrew-bosum scoop-bosum; do
+          packaging/taps/generate.sh "$TAG" homebrew-coxswain scoop-coxswain
+          for repo in homebrew-coxswain scoop-coxswain; do
             git -C "$repo" add -A
             # Only "no changes" is fine; a failed push must fail the job.
             if git -C "$repo" diff --cached --quiet; then
               echo "$repo: already up to date"
             else
-              git -C "$repo" commit -qm "Bosum ${TAG#v}"
+              git -C "$repo" commit -qm "Coxswain ${TAG#v}"
               git -C "$repo" push -q
             fi
           done
@@ -273,16 +273,16 @@ jobs:
           # by hand and reviewed by winget's maintainers (packaging/README.md), and a release
           # must not fail while that review is pending.
           listed() { gh api "repos/microsoft/winget-pkgs/contents/manifests/m/mwo-dk/$1" --silent 2>/dev/null; }
-          if listed Bosum; then
-            ./komac update mwo-dk.Bosum --version "$v" --urls "$base/Bosum_${v}_x64_en-US.msi" \
+          if listed Coxswain; then
+            ./komac update mwo-dk.Coxswain --version "$v" --urls "$base/Coxswain_${v}_x64_en-US.msi" \
               --release-notes-url "$notes" --submit --token "$WINGET_TOKEN"
           else
-            echo "::notice::mwo-dk.Bosum is not in winget-pkgs yet (first submission under review), so winget is not updated."
+            echo "::notice::mwo-dk.Coxswain is not in winget-pkgs yet (first submission under review), so winget is not updated."
           fi
           # The terminal zip's exe path carries the version, so its manifests are written, not updated.
-          if listed Bosum/Terminal; then
+          if listed Coxswain/Terminal; then
             packaging/winget/terminal.sh "$TAG" winget-terminal
-            ./komac submit --yes --token "$WINGET_TOKEN" winget-terminal/manifests/m/mwo-dk/Bosum/Terminal/"$v"
+            ./komac submit --yes --token "$WINGET_TOKEN" winget-terminal/manifests/m/mwo-dk/Coxswain/Terminal/"$v"
           else
-            echo "::notice::mwo-dk.Bosum.Terminal is not in winget-pkgs yet; submit its first version by hand (packaging/README.md)."
+            echo "::notice::mwo-dk.Coxswain.Terminal is not in winget-pkgs yet; submit its first version by hand (packaging/README.md)."
           fi

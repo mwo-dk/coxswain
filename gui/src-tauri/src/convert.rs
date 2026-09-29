@@ -7,8 +7,8 @@
 //!
 //! Containers get no network, the file's folder read-only at /src and an empty /out.
 
-use bosum_core::config::PreviewConfig;
-use bosum_core::t;
+use coxswain_core::config::PreviewConfig;
+use coxswain_core::t;
 use serde::Serialize;
 use std::hash::{Hash, Hasher};
 use std::io::{Read, Write};
@@ -156,7 +156,7 @@ fn cache_dir(path: &Path, tool: &str, engine: &str) -> Res<PathBuf> {
         // A chapter, a picture or the bibliography changed: that is a new document too.
         latex::newest(&latex::main_file(path)).hash(&mut h);
     }
-    let dir = dirs::cache_dir().ok_or_else(|| t!("err.no_cache_folder"))?.join("bosum").join("previews").join(format!("{:016x}", h.finish()));
+    let dir = dirs::cache_dir().ok_or_else(|| t!("err.no_cache_folder"))?.join("coxswain").join("previews").join(format!("{:016x}", h.finish()));
     Ok(dir)
 }
 
@@ -239,7 +239,7 @@ fn run(cfg: &PreviewConfig, tool: &str, engine: &str, path: &Path, out: &Path, f
         if image_size(&rt_path, image).is_none() {
             pull(&rt_path, image)?;
         }
-        let container_name = format!("bosum-preview-{}", out.file_name().unwrap_or_default().to_string_lossy());
+        let container_name = format!("coxswain-preview-{}", out.file_name().unwrap_or_default().to_string_lossy());
         let mut c = Command::new(&rt_path);
         c.args(["run", "--rm", "--network=none", "--security-opt", "label=disable", "--name", &container_name]);
         // LaTeX sees its whole project, so `../figures/plot.pdf` is found; the rest only their folder.
@@ -299,7 +299,7 @@ fn run(cfg: &PreviewConfig, tool: &str, engine: &str, path: &Path, out: &Path, f
         }
         ("libreoffice", _) => {
             // Its own profile, so a running LibreOffice does not swallow the conversion.
-            let profile = dirs::cache_dir().ok_or_else(|| t!("err.no_cache_folder"))?.join("bosum").join("libreoffice-profile");
+            let profile = dirs::cache_dir().ok_or_else(|| t!("err.no_cache_folder"))?.join("coxswain").join("libreoffice-profile");
             let url = format!("file:///{}", profile.to_string_lossy().trim_start_matches('/').replace('\\', "/"));
             c.arg(format!("-env:UserInstallation={url}")).args(["--headless", "--convert-to", "pdf", "--outdir"]).arg(out).arg(path);
             let _one = LIBREOFFICE.lock().map_err(|e| e.to_string())?;
@@ -431,7 +431,7 @@ mod latex {
 
         #[test]
         fn latex_finds_the_document_the_project_and_the_engine() {
-            let d = std::env::temp_dir().join(format!("bosum-latex-{}", std::process::id()));
+            let d = std::env::temp_dir().join(format!("coxswain-latex-{}", std::process::id()));
             let _ = std::fs::remove_dir_all(&d);
             std::fs::create_dir_all(d.join("paper/chapters")).unwrap();
             std::fs::create_dir_all(d.join("figures")).unwrap();
@@ -673,7 +673,7 @@ mod tests {
         pull(&rt, image).unwrap();
         assert!(image_size(&rt, image).is_some());
         assert!(PULLING.lock().unwrap().is_empty());
-        assert!(pull(&rt, "docker.io/library/no-such-image-bosum:1").is_err());
+        assert!(pull(&rt, "docker.io/library/no-such-image-coxswain:1").is_err());
     }
 
     /// Needs podman with the texlive image: `cargo test -- --ignored real_latex_project`.
@@ -681,7 +681,7 @@ mod tests {
     #[test]
     #[ignore]
     fn real_latex_project_in_a_container() {
-        let d = std::env::temp_dir().join(format!("bosum-test-project-{}", std::process::id()));
+        let d = std::env::temp_dir().join(format!("coxswain-test-project-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&d);
         for sub in ["paper/chapters", "figures", "out-project"] {
             std::fs::create_dir_all(d.join(sub)).unwrap();
@@ -705,7 +705,7 @@ mod tests {
     #[test]
     #[ignore]
     fn real_latex_container_and_libreoffice() {
-        let d = std::env::temp_dir().join(format!("bosum-test-convert-{}", std::process::id()));
+        let d = std::env::temp_dir().join(format!("coxswain-test-convert-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&d);
         std::fs::create_dir_all(d.join("out")).unwrap();
         std::fs::write(d.join("paper.tex"), "\\documentclass{article}\\begin{document}Hello $E=mc^2$\\end{document}\n").unwrap();
@@ -730,18 +730,18 @@ mod tests {
     }
 
     /// Fills the preview cache for screenshots, as a click on Build would:
-    /// `BOSUM_WARM="path|tool|engine" test-binary warm_cache --ignored`.
+    /// `COXSWAIN_WARM="path|tool|engine" test-binary warm_cache --ignored`.
     #[test]
     #[ignore]
     fn warm_cache() {
-        let spec = std::env::var("BOSUM_WARM").expect("BOSUM_WARM=path|tool|engine");
+        let spec = std::env::var("COXSWAIN_WARM").expect("COXSWAIN_WARM=path|tool|engine");
         let [path, tool, engine]: [&str; 3] = spec.split('|').collect::<Vec<_>>().try_into().unwrap();
         let path = PathBuf::from(path);
         let out = cache_dir(&path, tool, engine).unwrap();
         std::fs::create_dir_all(&out).unwrap();
         let (_, file) = output(tool, &path, &out);
-        // BOSUM_WARM_COPY: a result made outside (where the container runtime is), copied in.
-        match std::env::var("BOSUM_WARM_COPY") {
+        // COXSWAIN_WARM_COPY: a result made outside (where the container runtime is), copied in.
+        match std::env::var("COXSWAIN_WARM_COPY") {
             Ok(src) => drop(std::fs::copy(src, &file).unwrap()),
             Err(_) => run(&PreviewConfig::default(), tool, engine, &path, &out, &file).unwrap(),
         }

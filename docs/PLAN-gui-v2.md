@@ -1,4 +1,4 @@
-# Bosum GUI v2 — OneCommander-grade
+# Coxswain GUI v2 — OneCommander-grade
 
 The GUI moves from "NC in a window" to a modern file manager on par with
 [OneCommander](https://onecommander.com/). Norton Commander keys stay the default; the NC blue
@@ -30,18 +30,18 @@ yellow and green, to blue within a year, gray after.
 - Folder sizes on demand (Ctrl+Space), computed in parallel.
 - Regex batch rename (Ctrl+M) with a live preview and conflict detection.
 - Color tags (Alt+T, then 1–7, or 0 to clear), shown as a dot on the row.
-- Scripts: F2 lists `[[user_menu]]` entries plus executables in `<config>/bosum/scripts/`.
+- Scripts: F2 lists `[[user_menu]]` entries plus executables in `<config>/coxswain/scripts/`.
   They run on the selection, and their output shows in the preview pane.
-- Per-folder notes (Alt+N), kept in Bosum's state file, never written into the folder.
+- Per-folder notes (Alt+N), kept in Coxswain's state file, never written into the folder.
 
 ## Design
 
-- `bosum-core::state` — a JSON file in the data dir with the session (tabs, splits, modes),
+- `coxswain-core::state` — a JSON file in the data dir with the session (tabs, splits, modes),
   favorites, tags, notes and recent repos. Load it, change it, then save it atomically.
-- `bosum-core::icons` — maps a file name to a Nerd Font glyph and a color. Used by both UIs.
-- `bosum-core::rename` — `plan(names, pattern, replacement, flags)` returns the new name for
+- `coxswain-core::icons` — maps a file name to a Nerd Font glyph and a color. Used by both UIs.
+- `coxswain-core::rename` — `plan(names, pattern, replacement, flags)` returns the new name for
   each file and marks conflicts; `apply` runs the plan.
-- `bosum-core::fs::dir_size` — a parallel recursive size that does not follow symlinks.
+- `coxswain-core::fs::dir_size` — a parallel recursive size that does not follow symlinks.
 - New `Action`s, with the same keys in both UIs (the TUI shows "GUI only" where needed):
   `new_tab`, `close_tab`, `next_tab`, `prev_tab`, `toggle_preview`, `toggle_view`,
   `toggle_sidebar`, `edit_path`, `dir_sizes`, `batch_rename`, `tag`, `notes`.
@@ -53,9 +53,9 @@ yellow and green, to blue within a year, gray after.
 ## Steps
 
 1. Core: new actions, `state`, `icons`, `rename`, `dir_size`, and GUI themes.
-   Acceptance: `cargo test -p bosum-core`.
+   Acceptance: `cargo test -p coxswain-core`.
 2. Tauri commands: disks, places, state, sizes, rename, scripts, and the asset protocol.
-   Acceptance: `cargo build -p bosum-gui`.
+   Acceptance: `cargo build -p coxswain-gui`.
 3. Svelte shell: themes, sidebar, panes with tabs, breadcrumbs, splitters, status bar, and
    session persistence. Acceptance: `npm run build && npx svelte-check`, plus screenshots.
 4. Details view polish (icons, age heat, tags, folder sizes) and the Miller columns view.

@@ -1,5 +1,5 @@
 <script>
-  // Find duplicate files and folders (the engine is bosum-core's dupes.rs): pick where to look,
+  // Find duplicate files and folders (the engine is coxswain-core's dupes.rs): pick where to look,
   // scan, review the groups, mark the copies to remove, move them to the trash.
   import { ui, tab, otherTab, cd } from "./app.svelte.js";
   import { invoke, convertFileSrc, size, date, basename, parent, previewKind } from "./lib.js";

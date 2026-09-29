@@ -16,7 +16,7 @@ translations, so they always agree.
 | <img src="flags/lv.svg" width="24" alt=""> | Latviešu | `lv` | | | |
 | <img src="flags/lt.svg" width="24" alt=""> | Lietuvių | `lt` | | | |
 
-![Bosum in Danish](screenshots/gui-lang-da.png)
+![Coxswain in Danish](screenshots/gui-lang-da.png)
 
 British English is the reference: every text is written in it first. Australian and New Zealand
 English use British spelling and say "bin"; Canadian English keeps British spelling but says
@@ -24,11 +24,11 @@ English use British spelling and say "bin"; Canadian English keeps British spell
 
 ## Which language you get
 
-By default (`language = "auto"`) Bosum follows your system's language settings, on Linux, macOS
+By default (`language = "auto"`) Coxswain follows your system's language settings, on Linux, macOS
 and Windows alike. It takes the first of your system's languages that it has, in any regional
 form, and otherwise the nearest relative:
 
-| Your system | Bosum uses |
+| Your system | Coxswain uses |
 |---|---|
 | One of the languages above, in any region (`de-CH`, `fr-CA`, `sv-FI`, `ca-ES-valencia`, …) | That language |
 | US English, or English without a region | Canadian English |
@@ -47,15 +47,15 @@ form, and otherwise the nearest relative:
 ![The Settings window with every language and its flag](screenshots/gui-settings.png)
 
 - **Desktop app:** open **Settings** (Ctrl+, or F9 → *Settings*, or start it with
-  `bosum-gui --settings`) and click a language. Every
+  `coxswain-gui --settings`) and click a language. Every
   language is listed by its own name, with its flag. The change applies at once, and is saved.
   **Automatic** goes back to following the system and shows which language that picks.
-- **Config file:** `language = "da"` in `config.toml` (`bosum --config-path` shows where). Both
+- **Config file:** `language = "da"` in `config.toml` (`coxswain --config-path` shows where). Both
   apps read it; the terminal app picks it up the next time it starts.
 
 ## Right to left
 
-![Bosum in Hebrew, mirrored](screenshots/gui-lang-he.png)
+![Coxswain in Hebrew, mirrored](screenshots/gui-lang-he.png)
 
 In Hebrew the desktop app mirrors its layout: the sidebar is on the right, text is aligned to
 the right, and the back arrow points right. File names, paths and commands stay left to right
@@ -68,7 +68,7 @@ it (for example Konsole, or GNOME Terminal with bidi on) show it correctly.
 
 ## What is translated
 
-Everything Bosum itself says: menus, commands and the F-key bar, dialogs, the preview pane and
+Everything Coxswain itself says: menus, commands and the F-key bar, dialogs, the preview pane and
 its facts, the duplicate finder, settings, status messages, errors, sizes (`KB`, or `Ko` in
 French, with the decimal comma where the language uses one) and the age chips (`5m`, `2d`).
 Numbers are written the way the language writes them (1 234,5 or 1.234,5).
@@ -83,7 +83,7 @@ The translations were written with care but have not all been checked by native 
 Basque, Latvian and Lithuanian need a native reader most, and short labels such as the F-key
 bar ("Mkdir", "PullDn") are abbreviated to fit nine characters. Corrections are very welcome:
 
-1. Each language is one file in [`crates/bosum-core/locales/`](../crates/bosum-core/locales/),
+1. Each language is one file in [`crates/coxswain-core/locales/`](../crates/coxswain-core/locales/),
    for example `da.json`. It maps a key to its text:
    ```json
    "dupes.keep_newest": "Markér alle undtagen den nyeste",
@@ -93,12 +93,12 @@ bar ("Mkdir", "PullDn") are abbreviated to fit nine characters. Corrections are 
    entry per plural form your language uses: `one`/`other` for most, `one`/`few`/`other` for
    Lithuanian, `zero`/`one`/`other` for Latvian, `one`/`two`/`other` for Hebrew, and
    `one`/`many`/`other` for French, Italian, Spanish and Catalan.
-3. Run `cargo test -p bosum-core i18n`: it checks that every file parses, has no unknown keys,
+3. Run `cargo test -p coxswain-core i18n`: it checks that every file parses, has no unknown keys,
    keeps the placeholders and has an `other` form.
 4. Open a pull request.
 
 **Adding a language:** add its code, name and flag to `LANGUAGES` and `source()` in
-[`crates/bosum-core/src/i18n.rs`](../crates/bosum-core/src/i18n.rs), map its system codes in
+[`crates/coxswain-core/src/i18n.rs`](../crates/coxswain-core/src/i18n.rs), map its system codes in
 `nearest()`, give it plural rules in `plural()` if it needs other than one/other, copy
 `en-GB.json` to the new file and translate it, and add the flag (from
 [flag-icons](https://github.com/lipis/flag-icons)) to `docs/flags/` and the Settings window.
