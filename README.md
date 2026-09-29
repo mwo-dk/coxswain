@@ -63,8 +63,9 @@ spreadsheet, a Word document and a font.*
 ![The preview pane showing a calendar, a git diff, a log file and an EPUB book](docs/screenshots/gui-previews-more.png)
 *A calendar, the git diff of a changed file, a log colored by level, and an EPUB book.*
 
-![A LaTeX document with a pgfplots chart and a TikZ diagram, built in a container and shown in the preview](docs/screenshots/gui-latex.png)
-*A LaTeX document, built with the texlive image in podman; the buttons pick the engine.
+![A LaTeX document with a pgfplots chart, built with tectonic and shown in the preview](docs/screenshots/gui-latex.png)
+*A LaTeX document, built with tectonic; the buttons pick the engine, an installed program or a
+container.
 Multi-file projects build from any of their files: Coxswain finds the main document
 (`% !TEX root`), the engine (`% !TEX program`) and the project folder, like a LaTeX editor.*
 
