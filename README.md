@@ -54,7 +54,9 @@ spreadsheet, a Word document and a font.*
 *A calendar, the git diff of a changed file, a log colored by level, and an EPUB book.*
 
 ![A LaTeX document with a pgfplots chart and a TikZ diagram, built in a container and shown in the preview](docs/screenshots/gui-latex.png)
-*A LaTeX document, built with the texlive image in podman; the buttons pick the engine.*
+*A LaTeX document, built with the texlive image in podman; the buttons pick the engine.
+Multi-file projects build from any of their files: Bosum finds the main document
+(`% !TEX root`), the engine (`% !TEX program`) and the project folder, like a LaTeX editor.*
 
 ![A PlantUML sequence diagram, a Graphviz graph and an AsciiDoc guide](docs/screenshots/gui-previews-tools.png)
 *PlantUML (in a container), Graphviz and AsciiDoc (both built in).*
