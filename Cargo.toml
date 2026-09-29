@@ -3,7 +3,7 @@ resolver = "3"
 members = ["crates/coxswain-core", "crates/coxswain", "gui/src-tauri"]
 
 [workspace.package]
-version = "2.0.0"
+version = "1.0.0"
 edition = "2024"
 license = "MIT"
 repository = "https://github.com/mwo-dk/coxswain"
@@ -14,7 +14,7 @@ categories = ["command-line-utilities", "filesystem"]
 
 # `version` must admit the workspace version, for crates.io.
 [workspace.dependencies]
-coxswain-core = { path = "crates/coxswain-core", version = "2" }
+coxswain-core = { path = "crates/coxswain-core", version = "1" }
 
 [profile.release]
 lto = "thin"

@@ -989,7 +989,6 @@ fn main() {
         Some("--config-path") => return println!("{}", Config::path().map(|p| p.display().to_string()).unwrap_or_default()),
         _ => {}
     }
-    coxswain_core::migrate::adopt_coxswain();
     let cfg = Config::load().unwrap_or_else(|e| {
         eprintln!("coxswain: {e}");
         std::process::exit(2)

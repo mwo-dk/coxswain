@@ -8,7 +8,6 @@ pub mod fs;
 pub mod git;
 pub mod icons;
 pub mod index;
-pub mod migrate;
 pub mod rename;
 pub mod sizes;
 pub mod state;

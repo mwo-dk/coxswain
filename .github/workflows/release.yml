@@ -230,8 +230,12 @@ jobs:
         run: |
           git config --global user.name "Michael W. Olesen"
           git config --global user.email michael.w.olesen@gmail.com
+          # Without the tap and the bucket there is nothing to update, and a release must not fail.
           for repo in homebrew-coxswain scoop-coxswain; do
-            git clone -q "https://x-access-token:$TAP_TOKEN@github.com/mwo-dk/$repo.git"
+            if ! git clone -q "https://x-access-token:$TAP_TOKEN@github.com/mwo-dk/$repo.git"; then
+              echo "::notice::mwo-dk/$repo does not exist or the token cannot reach it, so Homebrew and Scoop are not updated."
+              exit 0
+            fi
           done
           packaging/taps/generate.sh "$TAG" homebrew-coxswain scoop-coxswain
           for repo in homebrew-coxswain scoop-coxswain; do

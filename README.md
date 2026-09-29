@@ -81,11 +81,6 @@ Coxswain comes as a **terminal app** (`coxswain`, or `cox` for short) and a **de
 (`coxswain-gui`). Pick one or both. Both check once a day for a newer release and tell you the
 exact update command for the way you installed them.
 
-**Coming from Coxswain?** Coxswain was called Coxswain until version 2.0. Install Coxswain as
-below and remove the old packages (`brew uninstall coxswain`, `brew uninstall --cask coxswain-gui`,
-`cargo uninstall coxswain`, `scoop uninstall coxswain`). On its first start Coxswain copies your
-settings, scripts, tabs, tags and notes from the Coxswain folders; those are left as they are.
-
 ### macOS
 
 | How | App | Install | Update |
