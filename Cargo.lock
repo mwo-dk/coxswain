@@ -575,7 +575,7 @@ dependencies = [
 
 [[package]]
 name = "coxswain"
-version = "1.0.1"
+version = "1.1.0"
 dependencies = [
  "chrono",
  "coxswain-core",
@@ -585,7 +585,7 @@ dependencies = [
 
 [[package]]
 name = "coxswain-core"
-version = "1.0.1"
+version = "1.1.0"
 dependencies = [
  "blake3",
  "dirs 7.0.0",
@@ -606,7 +606,7 @@ dependencies = [
 
 [[package]]
 name = "coxswain-gui"
-version = "1.0.1"
+version = "1.1.0"
 dependencies = [
  "clipboard-rs",
  "coxswain-core",
