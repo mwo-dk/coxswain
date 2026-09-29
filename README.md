@@ -50,8 +50,8 @@ Mac OS 9; see [themes](#themes).*
 | Find file: every file on the machine, in milliseconds | Themes with the look of their era |
 | ![Thumbnails and an image preview](docs/screenshots/gui-thumbnails.png) | ![A PDF in the preview pane, next to a git repository](docs/screenshots/gui-pdf.png) |
 | Thumbnails (Alt+V) with the preview pane (Space) | PDFs preview in place; the left pane shows git status |
-| ![The contents of a tar.gz archive in the preview](docs/screenshots/gui-archive.png) | ![Miller columns, light theme](docs/screenshots/gui-columns.png) |
-| Archives list their contents; Ctrl+E extracts them | Miller columns and preview, light theme |
+| ![The contents of a tar.gz archive in the preview](docs/screenshots/gui-archive.png) | ![Miller columns with a source file in the preview](docs/screenshots/gui-columns.png) |
+| Archives list their contents; Ctrl+E extracts them | Miller columns with the preview pane |
 
 ![The preview pane showing Markdown with a Mermaid diagram and math, a Jupyter notebook, a spreadsheet, a Word document and a font](docs/screenshots/gui-previews.png)
 *The preview pane (Space): Markdown with a Mermaid diagram and math, a Jupyter notebook, a
