@@ -592,6 +592,7 @@ dependencies = [
  "flate2",
  "memchr",
  "notify",
+ "quick-xml 0.42.0",
  "rayon",
  "regex",
  "rusqlite",
