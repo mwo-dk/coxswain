@@ -21,7 +21,8 @@ Mac OS 9; see [themes](#themes).*
   parallel: about 1.4M files index in ~0.2 s and answer in under 10 ms. Every window and the
   terminal app share one index.
 - **Search inside your files.** Tab in Find file switches from names to the text of your
-  files, with the passage that matched under each hit. It stays on your machine.
+  files, with the passage that matched under each hit: text and code, PDF, Word, spreadsheets,
+  presentations, mail, books and notebooks. It stays on your machine.
 - **See before you open.** The desktop app previews over 60 file types: code, Markdown with
   Mermaid diagrams and math, Jupyter notebooks, Word, spreadsheets, PDFs, SQLite databases,
   JSON/YAML/TOML as trees, Parquet, certificates, e-mail, calendars, EPUB books, fonts,
@@ -324,14 +325,31 @@ of one, so `rocket bud` finds "rocket budget".
 
 | | |
 |---|---|
-| **What is read** | Your home folder: text, code, Markdown, logs, configuration, and any other file that is plain text, up to 20 MB each |
-| **What is left out** | Hidden folders, `node_modules`, `target`, `build`, `dist`, `out`, `vendor`, `__pycache__` and the trash; any folder holding a file named `.nosearch`; files that are not text |
+| **What is read** | Your home folder: text, code, Markdown, logs, configuration and any other file that is plain text, and the [documents](#documents-it-reads) below, up to 20 MB each |
+| **What is left out** | Hidden folders, `node_modules`, `target`, `build`, `dist`, `out`, `vendor`, `__pycache__` and the trash; any folder holding a file named `.nosearch`; pictures, video, archives and other files without text |
 | **When** | In the background, one file at a time and at half speed, by the [helper](#how-search-stays-fast). A change shows up in searches within ten minutes |
 | **Where it is kept** | `search.db` in Coxswain's cache folder, readable by you alone. Nothing leaves your machine. Delete the file to start afresh |
 | **Switching it off** | `text = false` under `[search]` in `config.toml` |
 
 More folders, other excludes and another size limit are `text_roots`, `text_exclude` and
-`text_max_size` under `[search]`. PDF, Word, spreadsheets and other formats follow.
+`text_max_size` under `[search]`.
+
+#### Documents it reads
+
+| Kind | Files |
+|---|---|
+| PDF | `.pdf` |
+| Word and OpenDocument text | `.docx` `.docm` `.dotx` `.odt` `.ott`, with headers, footers, footnotes and comments |
+| Rich text | `.rtf` |
+| Spreadsheets | `.xlsx` `.xlsm` `.xlsb` `.xls` `.ods`: every sheet, the values and not the formulas |
+| Presentations | `.pptx` `.ppsx` `.potx` `.odp`, with the speaker notes |
+| Mail | `.eml` and `.mbox`: subject, sender, receivers, the message and the names of its attachments |
+| Books and web pages | `.epub` `.html` `.htm` `.xhtml` |
+| Notebooks and diagrams | Jupyter `.ipynb` with what the cells printed, draw.io `.drawio` `.dio` |
+
+Coxswain reads them itself: no other program is started and nothing is installed. A scanned
+page is a picture and has no text to find, and a file locked with a password is not read.
+The first start after an update reads your files again, since the documents are new to it.
 
 The terminal app does the same, with the passage on a second line:
 

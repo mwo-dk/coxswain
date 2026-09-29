@@ -215,7 +215,7 @@
  },
  "dialogs.size": "Koko",
  "dialogs.tag_none": "ei mitään",
- "dialogs.text_hint": "Kirjoita sanoja hakeaksesi tiedostojesi sisältä.",
+ "dialogs.text_hint": "Kirjoita sanoja hakeaksesi tiedostojesi sisältä: teksti, PDF, Word, laskentataulukot, esitykset, sähköposti ja kirjat.",
  "dialogs.text_placeholder": "Hae tiedostojen sisältä…  raketti budjetti",
  "dialogs.type": "Tyyppi",
  "dupes.add_folder": "Lisää kansio…",

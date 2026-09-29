@@ -223,7 +223,7 @@
  },
  "dialogs.size": "Taille",
  "dialogs.tag_none": "aucune",
- "dialogs.text_hint": "Saisissez des mots pour chercher dans vos fichiers.",
+ "dialogs.text_hint": "Saisissez des mots pour chercher dans vos fichiers : texte, PDF, Word, feuilles de calcul, présentations, courriels et livres.",
  "dialogs.text_placeholder": "Chercher dans les fichiers…  fusée budget",
  "dialogs.type": "Type",
  "dupes.add_folder": "Ajouter un dossier…",

@@ -223,7 +223,7 @@
  },
  "dialogs.size": "Dimensione",
  "dialogs.tag_none": "nessuna",
- "dialogs.text_hint": "Scrivi parole per cercare dentro i tuoi file.",
+ "dialogs.text_hint": "Scrivi parole per cercare dentro i tuoi file: testo, PDF, Word, fogli di calcolo, presentazioni, posta e libri.",
  "dialogs.text_placeholder": "Cerca dentro i file…  razzo bilancio",
  "dialogs.type": "Tipo",
  "dupes.add_folder": "Aggiungi una cartella…",

@@ -215,7 +215,7 @@
  },
  "dialogs.size": "Suurus",
  "dialogs.tag_none": "puudub",
- "dialogs.text_hint": "Sisesta sõnu, et otsida oma failide seest.",
+ "dialogs.text_hint": "Sisesta sõnu, et otsida oma failide seest: tekst, PDF, Word, arvutustabelid, esitlused, e-kirjad ja raamatud.",
  "dialogs.text_placeholder": "Otsi failide seest…  rakett eelarve",
  "dialogs.type": "Tüüp",
  "dupes.add_folder": "Lisa kaust…",

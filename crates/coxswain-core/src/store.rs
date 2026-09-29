@@ -14,8 +14,9 @@ use rusqlite::{params, Connection};
 use crate::config::SearchConfig;
 use crate::index::{Hit, Results};
 
-/// Bumped when the tables change.
-const VERSION: i32 = 2;
+/// Bumped when the tables change, and when the readers learn formats: files the store has
+/// marked as without text are only read again when they change.
+const VERSION: i32 = 3;
 /// A snippet marks the words it found with these; the apps turn them into a highlight.
 pub const MARK: (char, char) = ('\u{1}', '\u{2}');
 

@@ -215,7 +215,7 @@
  },
  "dialogs.size": "Storlek",
  "dialogs.tag_none": "ingen",
- "dialogs.text_hint": "Skriv ord för att söka i dina filer.",
+ "dialogs.text_hint": "Skriv ord för att söka i dina filer: text, PDF, Word, kalkylblad, presentationer, e-post och böcker.",
  "dialogs.text_placeholder": "Sök i filer…  raket budget",
  "dialogs.type": "Typ",
  "dupes.add_folder": "Lägg till en mapp…",

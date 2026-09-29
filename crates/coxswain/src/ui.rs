@@ -402,7 +402,9 @@ fn search(f: &mut Frame, app: &mut App, full: Rect) {
     } else {
         (tn!("search.indexed", count), st)
     };
-    let msg = if query.is_empty() {
+    let msg = if query.is_empty() && text {
+        format!("{indexed}{st} · {}", t!("dialogs.text_hint"))
+    } else if query.is_empty() {
         format!("{indexed}{st}")
     } else {
         let ms = format!("{:.2}", results.micros as f64 / 1000.0);
