@@ -247,7 +247,7 @@ dependencies = [
 
 [[package]]
 name = "bosum"
-version = "1.10.2"
+version = "1.11.0"
 dependencies = [
  "bosum-core",
  "chrono",
@@ -257,7 +257,7 @@ dependencies = [
 
 [[package]]
 name = "bosum-core"
-version = "1.10.2"
+version = "1.11.0"
 dependencies = [
  "blake3",
  "dirs 7.0.0",
@@ -278,7 +278,7 @@ dependencies = [
 
 [[package]]
 name = "bosum-gui"
-version = "1.10.2"
+version = "1.11.0"
 dependencies = [
  "bosum-core",
  "clipboard-rs",

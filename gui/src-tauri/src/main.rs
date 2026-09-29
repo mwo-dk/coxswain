@@ -949,7 +949,8 @@ fn main() {
             read_text, run_command, scripts, run_script, check_update, archive_list, extract, properties, set_permissions,
             clip_set, paste, start_drag, watch_dirs, preview::git_diff, preview::sqlite_info, preview::epub_preview,
             preview::file_facts, preview::cert_info, preview::mail_preview, preview::plist_xml, convert::preview_engines,
-            convert::convert, dupes_scan, dupes_progress, dupes_cancel, save_settings
+            convert::convert, convert::images, convert::pull_image, convert::remove_image, convert::pull_progress, dupes_scan,
+            dupes_progress, dupes_cancel, save_settings
         ])
         .run(tauri::generate_context!())
         .expect("error while running Bosum");

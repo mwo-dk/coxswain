@@ -278,7 +278,7 @@ app's settings:
 | Language | Automatic, or any of the 18, each with its flag |
 | Appearance | Theme, Nerd Font glyphs or plain ASCII, text size, fonts |
 | Behaviour | Show hidden files, ask before deleting, check for updates |
-| Previews made by tools | Installed programs or containers, podman or docker, LaTeX image, timeout |
+| Previews made by tools | Installed programs or containers, podman or docker, LaTeX image, timeout; each container image with its size, and Pull (which also updates it) and Remove |
 
 Every change applies at once and is written to `config.toml`, **keeping your comments and
 layout**; a change that would make the file invalid is refused rather than saved. The terminal
