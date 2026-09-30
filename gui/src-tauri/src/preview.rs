@@ -6,7 +6,6 @@ use serde::Serialize;
 use std::fs::File;
 use std::io::{BufReader, Read};
 use std::path::{Path, PathBuf};
-use std::process::Command;
 
 type Res<T> = Result<T, String>;
 
@@ -16,7 +15,7 @@ type Res<T> = Result<T, String>;
 #[tauri::command]
 pub async fn git_diff(path: PathBuf) -> Res<Option<String>> {
     let (Some(dir), Some(name)) = (path.parent(), path.file_name()) else { return Ok(None) };
-    let out = Command::new("git")
+    let out = coxswain_core::tools::command("git")
         .arg("-C")
         .arg(dir)
         .args(["diff", "--no-color", "--no-ext-diff", "HEAD", "--"])

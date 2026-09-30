@@ -3,7 +3,6 @@
 use serde::Serialize;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use std::process::Command;
 
 use crate::config::Glyphs;
 
@@ -55,7 +54,7 @@ impl Status {
     /// Run git in `dir`. `None` when `dir` is not inside a work tree or git is missing.
     pub fn read(dir: &Path) -> Option<Status> {
         let git = |args: &[&str]| {
-            Command::new("git")
+            crate::tools::command("git")
                 .arg("-C")
                 .arg(dir)
                 .args(args)

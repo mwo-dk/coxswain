@@ -15,7 +15,6 @@ use ratatui::DefaultTerminal;
 use std::collections::{HashMap, HashSet};
 use std::io::Write;
 use std::path::{Path, PathBuf};
-use std::process::Command;
 use std::sync::{mpsc, Arc};
 use std::time::{Duration, Instant};
 
@@ -941,7 +940,7 @@ fn suspended(term: &mut DefaultTerminal, f: impl FnOnce()) -> std::io::Result<()
 fn run_shell(cmd: &str, dir: &Path, wait: bool) {
     let (sh, flag) = shell();
     println!("{}> {cmd}", dir.display());
-    if let Err(e) = Command::new(&sh).arg(flag).arg(cmd).current_dir(dir).status() {
+    if let Err(e) = coxswain_core::tools::command(&sh).arg(flag).arg(cmd).current_dir(dir).status() {
         println!("coxswain: {sh}: {e}");
     }
     if wait {
@@ -992,7 +991,7 @@ const USAGE: &str = "coxswain [LEFT] [RIGHT]      a folder, or a file to open it
 fn index_service(on: Option<&str>) {
     use coxswain_core::service;
     let done = match on {
-        Some("on") => std::env::current_exe().and_then(|exe| service::install(&exe)),
+        Some("on") => coxswain_core::tools::this_app().and_then(|exe| service::install(&exe)),
         Some("off") => service::uninstall(),
         _ => return println!("{}", if service::installed() { "on" } else { "off" }),
     };

@@ -218,7 +218,7 @@ fn run(cfg: &PreviewConfig, tool: &str, engine: &str, path: &Path, out: &Path, f
             pull(&rt_path, image)?;
         }
         let container_name = format!("coxswain-preview-{}", out.file_name().unwrap_or_default().to_string_lossy());
-        let mut c = Command::new(&rt_path);
+        let mut c = coxswain_core::tools::command(&rt_path);
         c.args(["run", "--rm", "--network=none", "--security-opt", "label=disable", "--name", &container_name]);
         // LaTeX sees its whole project, so `../figures/plot.pdf` is found; the rest only their folder.
         let mount = if tool == "latex" { latex::project(path) } else { dir.to_path_buf() };
@@ -259,7 +259,7 @@ fn run(cfg: &PreviewConfig, tool: &str, engine: &str, path: &Path, out: &Path, f
     }
 
     let program = which(which_one).ok_or_else(|| t!("convert.not_installed", "program" => which_one))?;
-    let mut c = Command::new(&program);
+    let mut c = coxswain_core::tools::command(&program);
     c.current_dir(dir);
     match (tool, which_one) {
         ("latex", "latexmk") => {
@@ -431,7 +431,7 @@ mod latex {
 
 /// The size of `image` in bytes, if the runtime has it.
 fn image_size(rt: &Path, image: &str) -> Option<u64> {
-    let out = Command::new(rt).args(["image", "inspect", "--format", "{{.Size}}", image]).stdin(Stdio::null()).output().ok()?;
+    let out = coxswain_core::tools::command(rt).args(["image", "inspect", "--format", "{{.Size}}", image]).stdin(Stdio::null()).output().ok()?;
     out.status.success().then(|| String::from_utf8_lossy(&out.stdout).trim().parse().ok()).flatten()
 }
 
@@ -444,7 +444,7 @@ static PULLING: Mutex<BTreeMap<String, String>> = Mutex::new(BTreeMap::new());
 fn pull(rt: &Path, image: &str) -> Res<()> {
     PULLING.lock().unwrap().insert(image.to_string(), String::new());
     let result = (|| {
-        let mut child = Command::new(rt).args(["pull", image]).stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::piped()).spawn().map_err(|e| e.to_string())?;
+        let mut child = coxswain_core::tools::command(rt).args(["pull", image]).stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::piped()).spawn().map_err(|e| e.to_string())?;
         // docker reports on stdout, podman on stderr; errors come on stderr.
         let (out, err) = (child.stdout.take().unwrap(), child.stderr.take().unwrap());
         let name = image.to_string();
@@ -518,7 +518,7 @@ pub async fn remove_image(image: String, ctx: tauri::State<'_, crate::Ctx>) -> R
     let cfg = ctx.cfg().preview.clone();
     tauri::async_runtime::spawn_blocking(move || {
         let (_, rt) = runtime(&cfg).ok_or_else(|| t!("convert.no_runtime"))?;
-        let out = Command::new(rt).args(["image", "rm", &image]).stdin(Stdio::null()).output().map_err(|e| e.to_string())?;
+        let out = coxswain_core::tools::command(rt).args(["image", "rm", &image]).stdin(Stdio::null()).output().map_err(|e| e.to_string())?;
         if out.status.success() { Ok(()) } else { Err(last_lines(&String::from_utf8_lossy(&out.stderr), 3).unwrap_or_default()) }
     })
     .await
@@ -589,7 +589,7 @@ fn wait_child(child: &mut std::process::Child, timeout: Duration, container: Opt
         if start.elapsed() > timeout {
             let _ = child.kill();
             if let Some((rt, name)) = container {
-                let _ = Command::new(rt).args(["kill", name]).stdout(Stdio::null()).stderr(Stdio::null()).status();
+                let _ = coxswain_core::tools::command(rt).args(["kill", name]).stdout(Stdio::null()).stderr(Stdio::null()).status();
             }
             let _ = child.wait();
             return Err(t!("convert.timed_out", "seconds" => timeout.as_secs()));
