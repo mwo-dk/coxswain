@@ -108,6 +108,12 @@
     if (!engine) return;
     invoke("meaning_models", { engine, url }).then((list) => (models = { ok: true, list, error: "" }), (e) => (models = { ok: false, list: [], error: String(e) }));
   });
+  // Ask's chat models: on the same server, or on Ollama here when the vectors are built in.
+  let chatModels = $state([]);
+  $effect(() => {
+    const [engine, url] = [server ?? "ollama", server ? s.meaning_url : ""];
+    invoke("meaning_models", { engine, url }).then((list) => (chatModels = list), () => (chatModels = []));
+  });
   // A pull that finished brings its model into the list.
   let pulling = false;
   $effect(() => {
@@ -336,6 +342,13 @@
           {/if}
         </div>
       {/if}
+      <h4 id="settings-ask">{t("settings.ask")}</h4>
+      <p class="hint">{t("settings.ask_hint", { server: server ? s.meaning_url || (server === "ollama" ? "http://localhost:11434" : "") : "Ollama (http://localhost:11434)" })}</p>
+      <div class="grid">
+        <label for="askmodel">{t("settings.ask_model")}</label>
+        <input id="askmodel" list="askmodels" value={s.ask_model} spellcheck="false" placeholder="qwen3:8b" onchange={(e) => set("ask_model", e.currentTarget.value.trim())} />
+        <datalist id="askmodels">{#each chatModels as m (m)}<option value={m}></option>{/each}</datalist>
+      </div>
     </section>
 
     <section>

@@ -44,6 +44,8 @@ pub struct Ctx {
     meaning: Mutex<Option<(Arc<coxswain_core::meaning::Progress>, Option<String>)>>,
     /// The stop flag of each tab's background measuring.
     measuring: Mutex<std::collections::HashMap<String, Arc<std::sync::atomic::AtomicBool>>>,
+    /// Which Ask may still write its answer; a new question or Stop moves it on.
+    asking: Arc<std::sync::atomic::AtomicU64>,
 }
 
 impl Ctx {
@@ -179,6 +181,7 @@ struct Settings {
     meaning_url: String,
     meaning_model: String,
     meaning_key_env: String,
+    ask_model: String,
 }
 
 impl From<&Config> for Settings {
@@ -207,6 +210,7 @@ impl From<&Config> for Settings {
             meaning_url: c.search.meaning_url.clone(),
             meaning_model: c.search.meaning_model.clone(),
             meaning_key_env: c.search.meaning_key_env.clone(),
+            ask_model: c.search.ask_model.clone(),
         }
     }
 }
@@ -236,6 +240,7 @@ const SETTING_PATHS: &[(&str, &[&str])] = &[
     ("meaning_url", &["search", "meaning_url"]),
     ("meaning_model", &["search", "meaning_model"]),
     ("meaning_key_env", &["search", "meaning_key_env"]),
+    ("ask_model", &["search", "ask_model"]),
 ];
 
 /// `text` (a config.toml) with the settings in `changes` set, comments and layout kept.
@@ -653,6 +658,44 @@ async fn search(query: String, scope: Option<PathBuf>, text: Option<bool>, ctx: 
     })
     .await
     .map_err(|e| e.to_string())
+}
+
+/// What an Ask sends while it runs: first the numbered sources, then the answer piece by piece.
+#[derive(Clone, Serialize)]
+#[serde(tag = "k", rename_all = "snake_case")]
+enum AskEvent {
+    Sources { paths: Vec<PathBuf> },
+    Piece { text: String },
+}
+
+/// How many passages an answer is made from.
+const ASK_PASSAGES: usize = 10;
+
+/// Ask: `question` answered by the user's chat model from the closest passages, with the
+/// questions and answers `earlier` in this Find file. Nothing is kept.
+#[tauri::command]
+async fn ask(question: String, earlier: Vec<(String, String)>, on_event: tauri::ipc::Channel<AskEvent>, ctx: tauri::State<'_, Ctx>) -> Res<()> {
+    use std::sync::atomic::Ordering;
+    let (index, cfg, asking) = (ctx.index.clone(), ctx.cfg().search.clone(), ctx.asking.clone());
+    let me = asking.fetch_add(1, Ordering::SeqCst) + 1;
+    tauri::async_runtime::spawn_blocking(move || {
+        // A follow-up is looked up with the question before it, which it often leans on.
+        let lookup = earlier.last().map_or(question.clone(), |(q, _)| format!("{q} {question}"));
+        let sources = index.passages(&lookup, ASK_PASSAGES);
+        if sources.is_empty() {
+            return Err(coxswain_core::t!("search.ask_nothing"));
+        }
+        let _ = on_event.send(AskEvent::Sources { paths: sources.iter().map(|(p, _)| p.clone()).collect() });
+        coxswain_core::meaning::ask(&cfg, &earlier, &question, &sources, |text| asking.load(Ordering::SeqCst) == me && on_event.send(AskEvent::Piece { text: text.to_string() }).is_ok())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// Stop the answer being written.
+#[tauri::command]
+fn ask_stop(ctx: tauri::State<Ctx>) {
+    ctx.asking.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
 }
 
 fn resolve(base: &Path, s: &str) -> PathBuf {
@@ -1224,6 +1267,7 @@ fn main() {
         dupes: Mutex::default(),
         meaning: Mutex::default(),
         measuring: Mutex::default(),
+        asking: Arc::default(),
     };
     tauri::Builder::default()
         .manage(ctx)
@@ -1233,7 +1277,7 @@ fn main() {
         })
         .invoke_handler(tauri::generate_handler![
             get_config, notices, dismiss_notice, set_title, index_status, index_action, index_service, meaning_status, meaning_action, meaning_models, meaning_pull, list_dir, git_status, places, disks, get_state, save_session, save_favorites, set_tags, set_note, get_note,
-            search, resolve_path, copy, rename, delete, mkdir, dir_sizes, rename_plan, rename_apply, open_path, edit_path,
+            search, ask, ask_stop, resolve_path, copy, rename, delete, mkdir, dir_sizes, rename_plan, rename_apply, open_path, edit_path,
             read_text, run_command, scripts, run_script, check_update, archive_list, extract, pack, archive_password, properties, set_permissions,
             clip_set, paste, start_drag, watch_dirs, preview::git_diff, preview::sqlite_info, preview::epub_preview,
             preview::file_facts, preview::cert_info, bom::bom_info, bom::bom_node, bom::bom_diff, preview::mail_preview, preview::plist_xml, convert::preview_engines, convert::preview_cache, convert::clear_preview_cache,

@@ -3,6 +3,7 @@
   // App forwards keys through `handleKey`; returning true means "handled".
   import { tick } from "svelte";
   import { ui, tab, cd, load } from "./app.svelte.js";
+  import { Channel } from "@tauri-apps/api/core";
   import { invoke, basename, parent, size, date, TAGS, TAG_COLORS, tagName } from "./lib.js";
   import { t, tn, num } from "./i18n.svelte.js";
 
@@ -40,9 +41,9 @@
   // fast typing never queues a scan per keystroke.
   let busy = false;
   let again = false;
-  /** Tab in Find file: names everywhere, names in this folder, the text of files. */
+  /** Tab in Find file: names everywhere, names in this folder, the text of files, Ask. */
   function nextMode(m) {
-    m.mode = (m.mode + 1) % 3;
+    m.mode = (m.mode + 1) % 4;
     m.res = null;
     runSearch();
   }
@@ -55,7 +56,7 @@
 
   export async function runSearch() {
     const m = ui.modal;
-    if (m?.kind !== "search") return;
+    if (m?.kind !== "search" || m.mode === 3) return;
     if (busy) return void (again = true);
     busy = true;
     try {
@@ -80,6 +81,35 @@
     const timer = setInterval(() => ui.modal?.res?.state === "building" && runSearch(), 700);
     return () => clearInterval(timer);
   });
+
+  // Ask: a question answered by the user's chat model from the passages closest to it, with
+  // the sources numbered. Follow-ups carry the turns before; closing Find file forgets them.
+  const askReady = () => ui.cfg.settings.search_meaning && !!ui.cfg.settings.ask_model;
+  async function askNow(m) {
+    const question = m.query.trim();
+    if (!question || m.asking || !askReady()) return;
+    const earlier = (m.chat ?? []).filter((c) => c.a && !c.error).map((c) => [c.q, c.a]);
+    m.chat = [...(m.chat ?? []), { q: question, a: "", sources: [], error: "" }];
+    const turn = m.chat[m.chat.length - 1];
+    Object.assign(m, { query: "", asking: true, cursor: 0 });
+    const events = new Channel();
+    events.onmessage = (e) => {
+      if (ui.modal !== m) return void invoke("ask_stop");
+      if (e.k === "sources") turn.sources = e.paths;
+      else turn.a += e.text;
+      tick().then(() => listEl?.lastElementChild?.scrollIntoView({ block: "end" }));
+    };
+    try {
+      await invoke("ask", { question, earlier, onEvent: events });
+    } catch (e) {
+      turn.error = String(e);
+    } finally {
+      m.asking = false;
+    }
+  }
+  /** An answer in pieces: text, and the [n] that point at its sources. */
+  const cited = (text) => text.split(/(\[\d+\])/).map((part) => ({ part, n: /^\[\d+\]$/.test(part) ? +part.slice(1, -1) : 0 }));
+  const lastSources = (m) => m.chat?.at(-1)?.sources ?? [];
 
   async function goToHit(h) {
     close();
@@ -184,6 +214,17 @@
         else if (k === "n" || k === "Shift+N") close();
         return true;
       case "search": {
+        if (m.mode === 3) {
+          const src = lastSources(m);
+          if (k === "Enter" && m.query.trim()) askNow(m);
+          else if (k === "Enter" && src[m.cursor]) goToHit({ path: src[m.cursor] });
+          else if (k === "Tab") nextMode(m);
+          else if (k === "Up") m.cursor = Math.max(0, m.cursor - 1);
+          else if (k === "Down") m.cursor = Math.min(src.length - 1, m.cursor + 1);
+          else if (act === "edit" && src[m.cursor]) invoke("edit_path", { path: src[m.cursor] });
+          else return false;
+          return true;
+        }
         const hits = m.res?.hits ?? [];
         const h = hits[m.cursor];
         if (k === "Enter" && h) goToHit(h);
@@ -290,39 +331,67 @@
       {:else if m.kind === "search"}
         <div class="search-bar">
           <span class="glyph">{"\u{f002}"}</span>
-          <input bind:this={input} bind:value={m.query} oninput={runSearch} placeholder={t(m.mode === 2 ? "dialogs.text_placeholder" : "dialogs.search_placeholder")} spellcheck="false" />
-          <!-- The three places to look, all in sight; Tab goes to the next. -->
+          <input bind:this={input} bind:value={m.query} oninput={runSearch} placeholder={t(m.mode === 3 ? "dialogs.ask_placeholder" : m.mode === 2 ? "dialogs.text_placeholder" : "dialogs.search_placeholder")} spellcheck="false" />
+          <!-- The four ways to look, all in sight; Tab goes to the next. -->
           <div class="scopes" role="radiogroup" aria-label={t("search.title")} title="Tab">
-            {#each [t("dialogs.scope_everywhere"), t("dialogs.scope_in", { folder: basename(tab().dir) }), t("dialogs.scope_text")] as label, i (i)}
+            {#each [t("dialogs.scope_everywhere"), t("dialogs.scope_in", { folder: basename(tab().dir) }), t("dialogs.scope_text"), t("dialogs.scope_ask")] as label, i (i)}
               <button class="scope" class:on={m.mode === i} role="radio" aria-checked={m.mode === i} onclick={() => { m.mode = i; m.res = null; runSearch(); input.focus(); }}>{label}</button>
             {/each}
           </div>
         </div>
-        <p class="meta">
-          {#if m.res}
-            {m.query ? `${tn("search.matches", m.res.total, { ms: num(m.res.micros / 1000, { minimumFractionDigits: 1, maximumFractionDigits: 1 }) })} · ` : ""}{#if m.mode === 2}{tn("search.texts", m.res.texts)}{m.res.pending ? t("search.reading", { n: num(m.res.pending) }) : ""}{:else}{tn("search.indexed", m.res.indexed)}{m.res.state === "building" ? t("search.building") : m.res.state === "stale" ? t("search.refreshing") : ""}{/if}{m.res.total > m.res.hits.length ? ` · ${tn("dialogs.showing_first", m.res.hits.length)}` : ""}
-          {:else}{m.mode === 2 ? t("dialogs.text_hint") : `${t("dialogs.search_hint")} ${t("dialogs.search_tab_hint")}`}{/if}
-        </p>
-        {#if m.mode === 2 && m.res && !m.res.meaning}
-          <p class="meta tip">
-            {t("dialogs.meaning_tip")}
-            <button class="link" onclick={() => (ui.modal = { kind: "settings", section: "meaning" })}>{t("dialogs.meaning_tip_open")}</button>
+        {#if m.mode === 3}
+          {#if !askReady()}
+            <p class="meta tip">
+              {t(ui.cfg.settings.search_meaning ? "dialogs.ask_setup" : "dialogs.ask_setup_meaning")}
+              <button class="link" onclick={() => (ui.modal = { kind: "settings", section: ui.cfg.settings.search_meaning ? "ask" : "meaning" })}>{t("dialogs.ask_setup_open")}</button>
+            </p>
+          {:else if !m.chat?.length}
+            <p class="meta">{t("dialogs.ask_hint", { model: ui.cfg.settings.ask_model })}</p>
+          {/if}
+          <div class="list chat" bind:this={listEl}>
+            {#each m.chat ?? [] as c, ci (ci)}
+              <p class="question" dir="auto">{c.q}</p>
+              <p class="answer" dir="auto">
+                {#each cited(c.a) as { part, n }, pi (pi)}{#if n && c.sources[n - 1]}<button class="cite" title={c.sources[n - 1]} onclick={() => goToHit({ path: c.sources[n - 1] })}>{part}</button>{:else}{part}{/if}{/each}{#if m.asking && ci === m.chat.length - 1}<span class="typing">▍</span>{/if}
+              </p>
+              {#if c.error}<p class="err">{c.error}</p>{/if}
+              {#if c.sources.length}
+                <ol class="sources">
+                  {#each c.sources as src, i (i)}
+                    <li><button class:cursor={ci === m.chat.length - 1 && i === m.cursor} onclick={() => goToHit({ path: src })}><b>{basename(src)}</b> <span class="where"><bdi>{parent(src)}</bdi></span></button></li>
+                  {/each}
+                </ol>
+              {/if}
+            {/each}
+          </div>
+          <p class="meta">{t("dialogs.ask_footer")}</p>
+        {:else}
+          <p class="meta">
+            {#if m.res}
+              {m.query ? `${tn("search.matches", m.res.total, { ms: num(m.res.micros / 1000, { minimumFractionDigits: 1, maximumFractionDigits: 1 }) })} · ` : ""}{#if m.mode === 2}{tn("search.texts", m.res.texts)}{m.res.pending ? t("search.reading", { n: num(m.res.pending) }) : ""}{:else}{tn("search.indexed", m.res.indexed)}{m.res.state === "building" ? t("search.building") : m.res.state === "stale" ? t("search.refreshing") : ""}{/if}{m.res.total > m.res.hits.length ? ` · ${tn("dialogs.showing_first", m.res.hits.length)}` : ""}
+            {:else}{m.mode === 2 ? t("dialogs.text_hint") : `${t("dialogs.search_hint")} ${t("dialogs.search_tab_hint")}`}{/if}
           </p>
+          {#if m.mode === 2 && m.res && !m.res.meaning}
+            <p class="meta tip">
+              {t("dialogs.meaning_tip")}
+              <button class="link" onclick={() => (ui.modal = { kind: "settings", section: "meaning" })}>{t("dialogs.meaning_tip_open")}</button>
+            </p>
+          {/if}
+          <ul class="list hits" bind:this={listEl}>
+            {#each m.res?.hits ?? [] as h, i (h.path)}
+              <li>
+                <button class:cursor={i === m.cursor} onclick={() => (m.cursor = i)} ondblclick={() => goToHit(h)}>
+                  <span class="glyph" class:dir={h.is_dir}>{h.is_dir ? "\u{f07b}" : "\u{f15b}"}</span>
+                  <b>{basename(h.path)}</b>
+                  <span class="where"><bdi>{parent(h.path)}</bdi></span>
+                  {#if h.similar != null}<span class="snippet" dir="auto"><em>{t("search.similar_to")}</em> {h.snippet}</span>
+                  {:else if h.snippet}<span class="snippet" dir="auto">{@html marked(h.snippet)}</span>{/if}
+                </button>
+              </li>
+            {/each}
+          </ul>
+          <p class="meta">{t("dialogs.search_footer")}</p>
         {/if}
-        <ul class="list hits" bind:this={listEl}>
-          {#each m.res?.hits ?? [] as h, i (h.path)}
-            <li>
-              <button class:cursor={i === m.cursor} onclick={() => (m.cursor = i)} ondblclick={() => goToHit(h)}>
-                <span class="glyph" class:dir={h.is_dir}>{h.is_dir ? "\u{f07b}" : "\u{f15b}"}</span>
-                <b>{basename(h.path)}</b>
-                <span class="where"><bdi>{parent(h.path)}</bdi></span>
-                {#if h.similar != null}<span class="snippet" dir="auto"><em>{t("search.similar_to")}</em> {h.snippet}</span>
-                {:else if h.snippet}<span class="snippet" dir="auto">{@html marked(h.snippet)}</span>{/if}
-              </button>
-            </li>
-          {/each}
-        </ul>
-        <p class="meta">{t("dialogs.search_footer")}</p>
       {:else if m.kind === "rename"}
         <h2>{tn("dialogs.rename_title", m.names.length)}</h2>
         <div class="grid2">
@@ -569,6 +638,47 @@
     font-size: 0.85em;
     color: var(--hidden-fg);
     padding: 0 8px;
+  }
+  .chat {
+    overflow-y: auto;
+    padding: 0 0.25em;
+  }
+  .chat .question {
+    font-weight: bold;
+    margin: 0.8em 0 0.3em;
+  }
+  .chat .answer {
+    white-space: pre-wrap;
+    margin: 0 0 0.4em;
+    line-height: 1.45;
+  }
+  .chat .cite {
+    all: unset;
+    cursor: pointer;
+    color: var(--accent, currentColor);
+    text-decoration: underline;
+  }
+  .chat .sources {
+    margin: 0 0 0.6em;
+    padding-inline-start: 2em;
+    font-size: 0.9em;
+  }
+  .chat .sources button {
+    all: unset;
+    cursor: pointer;
+    display: block;
+    width: 100%;
+  }
+  .chat .sources button.cursor {
+    outline: 1px solid currentColor;
+  }
+  .typing {
+    animation: blink 1s steps(2) infinite;
+  }
+  @keyframes blink {
+    to {
+      opacity: 0;
+    }
   }
   .hits {
     flex: 1;

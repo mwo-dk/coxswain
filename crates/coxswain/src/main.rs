@@ -170,7 +170,8 @@ pub enum Dialog {
     Input { title: String, label: String, value: String, prompt: Prompt },
     /// Delete `paths`; `forever` skips the trash.
     Confirm { title: String, text: String, paths: Vec<PathBuf>, forever: bool },
-    /// `mode`: 0 names everywhere, 1 names in this folder, 2 the text of files.
+    /// `mode`: 0 names everywhere, 1 names in this folder, 2 the text of files, 3 Ask (its
+    /// questions and answers are in `App::chat`).
     Search { query: String, mode: u8, results: Results, cursor: usize, offset: usize },
     /// `direct`: a typed key runs the item with that key (F2); otherwise it filters (F9).
     Menu { title: String, filter: String, items: Vec<MenuItem>, cursor: usize, direct: bool },
@@ -178,6 +179,22 @@ pub enum Dialog {
     Message { title: String, text: String },
     /// A CycloneDX BOM, full screen (F3 on one).
     Bom(Box<bom::Viewer>),
+}
+
+/// A question asked in Find file, the sources it was answered from, and the answer so far.
+#[derive(Default)]
+pub struct Turn {
+    pub question: String,
+    pub sources: Vec<PathBuf>,
+    pub answer: String,
+    pub error: Option<String>,
+}
+
+/// What an Ask sends back while it runs.
+enum AskMsg {
+    Sources(Vec<PathBuf>),
+    Piece(String),
+    Done(Result<(), String>),
 }
 
 /// Work that needs the real terminal, done by the main loop.
@@ -212,6 +229,11 @@ pub struct App {
     search_tx: mpsc::Sender<(u64, String, u8, PathBuf)>,
     search_rx: mpsc::Receiver<(u64, Results)>,
     search_gen: u64,
+    /// Ask in Find file: the turns so far, the answer on its way, and its stop flag. Closing
+    /// Find file forgets them.
+    pub chat: Vec<Turn>,
+    ask_rx: Option<mpsc::Receiver<AskMsg>>,
+    ask_stop: Arc<std::sync::atomic::AtomicBool>,
     /// When `tell` last looked.
     told: Instant,
     /// The stop flag of each panel's measuring.
@@ -311,6 +333,9 @@ impl App {
             search_tx,
             search_rx,
             search_gen: 0,
+            chat: vec![],
+            ask_rx: None,
+            ask_stop: Arc::default(),
             told: Instant::now(),
             measuring: Default::default(),
             run: None,
@@ -865,6 +890,39 @@ impl App {
         }
     }
 
+    /// Ask the question in Find file on a thread of its own; the answer comes in `tick`.
+    fn ask(&mut self, question: String) {
+        use std::sync::atomic::Ordering;
+        // The one before stops writing; its turn stays as far as it came.
+        self.ask_stop.store(true, Ordering::SeqCst);
+        let stop = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        self.ask_stop = stop.clone();
+        let earlier: Vec<coxswain_core::meaning::Turn> = self.chat.iter().filter(|t| t.error.is_none() && !t.answer.is_empty()).map(|t| (t.question.clone(), t.answer.clone())).collect();
+        self.chat.push(Turn { question: question.clone(), ..Turn::default() });
+        let (tx, rx) = mpsc::channel();
+        self.ask_rx = Some(rx);
+        let (index, cfg) = (self.index.clone(), self.cfg.search.clone());
+        std::thread::spawn(move || {
+            // A follow-up is looked up with the question before it, which it often leans on.
+            let lookup = earlier.last().map_or(question.clone(), |(q, _)| format!("{q} {question}"));
+            let sources = index.passages(&lookup, 10);
+            let done = if sources.is_empty() {
+                Err(t!("search.ask_nothing"))
+            } else {
+                let _ = tx.send(AskMsg::Sources(sources.iter().map(|(p, _)| p.clone()).collect()));
+                coxswain_core::meaning::ask(&cfg, &earlier, &question, &sources, |text| !stop.load(Ordering::SeqCst) && tx.send(AskMsg::Piece(text.to_string())).is_ok())
+            };
+            let _ = tx.send(AskMsg::Done(done));
+        });
+    }
+
+    /// Find file is closed: an answer being written stops, and the questions are forgotten.
+    fn forget_chat(&mut self) {
+        self.ask_stop.store(true, std::sync::atomic::Ordering::SeqCst);
+        self.ask_rx = None;
+        self.chat.clear();
+    }
+
     fn dialog_key(&mut self, key: Key) {
         let action = self.keymap.get(&key).copied();
         let ch = match key.code {
@@ -895,13 +953,50 @@ impl App {
                 _ if esc || matches!(ch, Some('n' | 'N')) => {}
                 _ => self.dialog = Some(Dialog::Confirm { title, text, paths, forever }),
             },
+            Dialog::Search { mut query, mode: 3, results, mut cursor, offset } => {
+                let sources = self.chat.last().map(|t| t.sources.clone()).unwrap_or_default();
+                let source = sources.get(cursor).cloned();
+                match (key.code, ch) {
+                    _ if esc => return self.forget_chat(),
+                    (KeyCode::Enter, _) if !query.trim().is_empty() && self.cfg.search.meaning && !self.cfg.search.ask_model.is_empty() => {
+                        self.ask(std::mem::take(&mut query).trim().to_string());
+                        cursor = 0;
+                    }
+                    (KeyCode::Enter, _) => {
+                        if let Some(path) = source {
+                            self.forget_chat();
+                            if let (Some(dir), Some(name)) = (path.parent(), path.file_name()) {
+                                self.cd(self.active, dir.to_path_buf());
+                                self.panel_mut().select_name(&name.to_string_lossy());
+                            }
+                            return;
+                        }
+                    }
+                    _ if matches!(action, Some(Action::View | Action::Edit)) => {
+                        if let Some(path) = source {
+                            self.view_or_edit(action.unwrap(), &path);
+                        }
+                    }
+                    (KeyCode::Tab, _) => {
+                        self.dialog = Some(Dialog::Search { query, mode: 0, results: Results::default(), cursor: 0, offset: 0 });
+                        return self.search_now();
+                    }
+                    (KeyCode::Up, _) => cursor = cursor.saturating_sub(1),
+                    (KeyCode::Down, _) => cursor = (cursor + 1).min(sources.len().saturating_sub(1)),
+                    (KeyCode::Backspace, _) => drop(query.pop()),
+                    (_, Some(c)) => query.push(c),
+                    _ => {}
+                }
+                self.dialog = Some(Dialog::Search { query, mode: 3, results, cursor, offset });
+            }
             Dialog::Search { mut query, mut mode, results, mut cursor, offset } => {
                 let hit = results.hits.get(cursor).cloned();
                 let page = 10isize;
                 let mut requery = false;
                 match (key.code, ch) {
-                    _ if esc => return,
+                    _ if esc => return self.forget_chat(),
                     (KeyCode::Enter, _) => {
+                        self.forget_chat();
                         if let Some(h) = hit {
                             let (dir, name) = match (h.path.parent(), h.path.file_name()) {
                                 (Some(d), Some(n)) => (d.to_path_buf(), n.to_string_lossy().into_owned()),
@@ -918,8 +1013,8 @@ impl App {
                         }
                     }
                     (KeyCode::Tab, _) => {
-                        mode = (mode + 1) % 3;
-                        requery = true;
+                        mode += 1;
+                        requery = mode < 3;
                     }
                     (KeyCode::Up, _) => cursor = cursor.saturating_sub(1),
                     (KeyCode::Down, _) => cursor += 1,
@@ -1073,6 +1168,17 @@ impl App {
                 }
             }
         }
+        while let Some(msg) = self.ask_rx.as_ref().and_then(|rx| rx.try_recv().ok()) {
+            let Some(turn) = self.chat.last_mut() else { break };
+            match msg {
+                AskMsg::Sources(paths) => turn.sources = paths,
+                AskMsg::Piece(text) => turn.answer.push_str(&text),
+                AskMsg::Done(done) => {
+                    turn.error = done.err();
+                    self.ask_rx = None;
+                }
+            }
+        }
         while let Ok((dir, st)) = self.git_rx.try_recv() {
             for p in self.panels.iter_mut().filter(|p| p.dir == dir) {
                 p.git = st.clone();
@@ -1183,6 +1289,8 @@ const USAGE: &str = "coxswain [LEFT] [RIGHT]      a folder, or a file to open it
   --meaning ollama [MODEL] the vectors from Ollama here (bge-m3 unless named; pulled if missing)
   --meaning server URL MODEL  the vectors from a server with the OpenAI API (Lemonade, LM Studio)
   --meaning builtin        back to the built-in model
+  --meaning ask MODEL|off  Ask in Find file: the chat model on that server (Ollama here with the
+                           built-in model) that answers questions from your files
   --version
   --help";
 
@@ -1264,7 +1372,29 @@ fn meaning(what: Option<&str>, rest: &[String]) {
             Config::save_value(&["search", "meaning"], false.into()).unwrap_or_else(|e| fail(e));
             meaning::remove().unwrap_or_else(|e| fail(e.to_string()));
         }
-        _ => return println!("{}", if Config::load().is_ok_and(|c| c.search.meaning) && meaning::installed() { "on" } else { "off" }),
+        // Ask: a chat model on the server (Ollama on this machine when the vectors are built in).
+        Some("ask") => {
+            let Some(model) = rest.first() else { fail(t!("tui.ask_usage")) };
+            if model == "off" {
+                return save("ask_model", "");
+            }
+            let search = Config::load().map(|c| c.search).unwrap_or_default();
+            let openai = search.meaning_engine == "openai";
+            let url = if search.meaning_engine == "builtin" { "" } else { search.meaning_url.as_str() };
+            let have = meaning::server_models(openai, url).unwrap_or_else(|e| fail(e));
+            if !have.iter().any(|m| m == model || m.split(':').next() == Some(model)) {
+                if openai {
+                    fail(t!("tui.ask_no_model", "model" => model));
+                }
+                eprintln!("{}", t!("tui.meaning_pulling", "model" => model));
+                meaning::ollama_pull(url, model, &meaning::Progress::default()).unwrap_or_else(|e| fail(e.to_string()));
+            }
+            return save("ask_model", model);
+        }
+        _ => {
+            let on = Config::load().is_ok_and(|c| c.search.meaning && (c.search.meaning_engine != "builtin" || meaning::installed()));
+            return println!("{}", if on { "on" } else { "off" });
+        }
     }
     Client::start(&Config::load().map(|c| c.search).unwrap_or_default()).restart();
 }

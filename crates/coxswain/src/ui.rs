@@ -391,6 +391,7 @@ fn search(f: &mut Frame, app: &mut App, full: Rect) {
     let text = *mode == 2;
     let [q, info, list, help] = Layout::vertical([Constraint::Length(1), Constraint::Length(1), Constraint::Min(0), Constraint::Length(1)]).areas(inner);
     let prompt = match *mode {
+        3 => t!("search.ask"),
         2 => t!("search.text"),
         1 => t!("search.in", "dir" => fit_left(&dir, 30)),
         _ => t!("search.everywhere"),
@@ -402,6 +403,10 @@ fn search(f: &mut Frame, app: &mut App, full: Rect) {
     f.render_widget(Paragraph::new(fit(&shown, w)).style(sty(&t.dialog_input)), qa);
     f.set_cursor_position(Position::new(qa.x + shown.width() as u16, qa.y));
 
+    if *mode == 3 {
+        let cursor = *cursor;
+        return ask(f, &app.chat, &app.cfg.search, &t, cursor, info, list, help);
+    }
     let st = match state {
         State::Stale => t!("search.refreshing"),
         State::Building => t!("search.building"),
@@ -474,6 +479,46 @@ fn search(f: &mut Frame, app: &mut App, full: Rect) {
         Paragraph::new(t!("tui.search_footer")).centered(),
         help,
     );
+}
+
+/// Ask in Find file: each question, its answer as it comes, and its numbered sources; the
+/// newest at the bottom, in sight.
+#[allow(clippy::too_many_arguments)]
+fn ask(f: &mut Frame, chat: &[crate::Turn], search: &coxswain_core::config::SearchConfig, t: &config::Theme, cursor: usize, info: Rect, list: Rect, help: Rect) {
+    let dim = dstyle(t).add_modifier(Modifier::DIM);
+    let ready = search.meaning && !search.ask_model.is_empty();
+    let msg = if !search.meaning {
+        t!("tui.ask_setup_meaning")
+    } else if !ready {
+        t!("tui.ask_setup")
+    } else {
+        t!("dialogs.ask_hint", "model" => search.ask_model.as_str())
+    };
+    f.render_widget(Paragraph::new(msg).style(if ready { dstyle(t) } else { dim }), info);
+    let hit = sty(&t.search_hit);
+    let mut lines: Vec<Line> = vec![];
+    for (i, turn) in chat.iter().enumerate() {
+        lines.push(Line::from(Span::styled(format!("› {}", turn.question), dstyle(t).patch(hit))));
+        for text in turn.answer.lines() {
+            lines.push(Line::from(text.to_string()));
+        }
+        if let Some(e) = &turn.error {
+            lines.push(Line::from(Span::styled(e.clone(), dstyle(t).fg(Color::Red))));
+        }
+        for (n, src) in turn.sources.iter().enumerate() {
+            let last = i + 1 == chat.len();
+            let style = if last && n == cursor { sty(&t.dialog_input) } else { dim };
+            lines.push(Line::from(Span::styled(format!("  [{}] {}", n + 1, src.display()), style)));
+        }
+        lines.push(Line::from(""));
+    }
+    // Wrapped, the lines take more rows than there are lines: scroll so the end shows.
+    // ponytail: counts characters and one row more per wrapped line, not the real word wraps.
+    let width = list.width.max(1) as usize;
+    let rows = lines.iter().map(|l| l.width().div_ceil(width).max(1) + usize::from(l.width() > width)).sum::<usize>() as u16;
+    let para = Paragraph::new(lines).wrap(ratatui::widgets::Wrap { trim: false });
+    f.render_widget(para.scroll((rows.saturating_sub(list.height), 0)), list);
+    f.render_widget(Paragraph::new(t!("tui.ask_footer")).centered(), help);
 }
 
 fn dstyle(t: &config::Theme) -> Style {

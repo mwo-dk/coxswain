@@ -44,6 +44,8 @@ enum Request {
         text: bool,
     },
     Status,
+    /// Ask: the passages closest to a question, whole.
+    Passages { query: String, max: usize },
     /// Bytes and files below a folder, from the store.
     Size { path: PathBuf },
     /// Read the backlog without rests.
@@ -60,6 +62,7 @@ enum Reply {
     /// `same`: the helper is our version. Otherwise it exits, and we start ours.
     Hello { same: bool },
     Results(Results),
+    Passages { found: Vec<(PathBuf, String)> },
     Status(Status),
     /// With the time the walk they come from began.
     Size { size: Option<(Size, u64)> },
@@ -224,6 +227,7 @@ fn answer(stream: TcpStream, index: &Service, store: Option<&Store>, token: &str
             _ if !said_hello => return Ok(()),
             Request::Search { query, max, text: true, .. } => Reply::Results(store.map(|s| with_meaning(s, &query, max)).unwrap_or_default()),
             Request::Search { query, scope, max, .. } => Reply::Results(index.search(&query, scope.as_deref(), max)),
+            Request::Passages { query, max } => Reply::Passages { found: store.map(|s| s.passages(&query, max)).unwrap_or_default() },
             Request::Size { path } => Reply::Size { size: store.and_then(|s| s.size(&path)) },
             Request::IndexNow => {
                 store.inspect(|s| s.hurry.store(true, Ordering::Relaxed));
@@ -315,6 +319,15 @@ impl Client {
         match self.ask(&Request::Search { query: query.into(), scope: None, max, text: true }) {
             Some(Reply::Results(r)) => r,
             _ => Results::default(),
+        }
+    }
+
+    /// Ask: the `max` passages closest to `question`, with their files. Nothing without the
+    /// helper, or while search by meaning is off.
+    pub fn passages(&self, question: &str, max: usize) -> Vec<(PathBuf, String)> {
+        match self.ask(&Request::Passages { query: question.into(), max }) {
+            Some(Reply::Passages { found }) => found,
+            _ => vec![],
         }
     }
 
