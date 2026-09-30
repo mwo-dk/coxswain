@@ -23,6 +23,11 @@ fn secs(meta: &std::fs::Metadata) -> i64 {
     meta.modified().ok().and_then(|t| t.duration_since(UNIX_EPOCH).ok()).map_or(0, |d| d.as_secs() as i64)
 }
 
+/// `path` as the walk writes it: on Windows `C:\a/b` is stored as `C:\a\b`.
+fn key(path: &Path) -> Option<String> {
+    Some(path.components().collect::<PathBuf>().to_str()?.to_string())
+}
+
 /// The range of paths below `dir`: every path that starts with it and a separator.
 fn below(dir: &str) -> (String, String) {
     let sep = std::path::MAIN_SEPARATOR;
@@ -79,6 +84,7 @@ impl Store {
     /// Bytes and files below `dir`, and when the walk they come from began. `None` until a
     /// walk has finished, and for folders outside it.
     pub fn size(&self, dir: &Path) -> Option<(Size, u64)> {
+        let dir = &PathBuf::from(key(dir)?);
         let (roots, at) = self.walked.lock().unwrap().clone()?;
         let root = roots.iter().find(|r| dir.starts_with(r))?;
         let db = self.db.lock().unwrap();
@@ -103,7 +109,7 @@ impl Store {
     /// The hash of `path` when it had this size and date.
     pub fn hash(&self, path: &Path, size: u64, modified: u64) -> Option<String> {
         let db = self.db.lock().unwrap();
-        db.query_row("SELECT hash FROM hashes WHERE path = ?1 AND size = ?2 AND modified = ?3", params![path.to_str()?, size as i64, modified as i64], |r| r.get(0)).ok()
+        db.query_row("SELECT hash FROM hashes WHERE path = ?1 AND size = ?2 AND modified = ?3", params![key(path)?, size as i64, modified as i64], |r| r.get(0)).ok()
     }
 
     /// Hashes as (path, size, modified, hash), in one transaction.
@@ -111,7 +117,7 @@ impl Store {
         let mut db = self.db.lock().unwrap();
         let tx = db.transaction()?;
         for (path, size, modified, hash) in rows {
-            let Some(path) = path.to_str() else { continue };
+            let Some(path) = key(path) else { continue };
             tx.execute("INSERT OR REPLACE INTO hashes(path, size, modified, hash) VALUES (?1, ?2, ?3, ?4)", params![path, *size as i64, *modified as i64, hash])?;
         }
         tx.commit()
