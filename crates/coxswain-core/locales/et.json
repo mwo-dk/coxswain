@@ -182,6 +182,8 @@
  "dialogs.kind.folder": "Kaust",
  "dialogs.kind.symlink": "Sümbolink",
  "dialogs.location": "Asukoht",
+ "dialogs.meaning_tip": "Leia ka failid, mis räägivad sinu sõnadest, mis tahes keeles:",
+ "dialogs.meaning_tip_open": "lülita sisse otsing tähenduse järgi",
  "dialogs.modified": "Muudetud",
  "dialogs.no_matches": "Vasteid pole",
  "dialogs.owner": "Omanik",
@@ -209,6 +211,7 @@
  "dialogs.search_footer": "Enter mine · Tab kõikjal/siin/tekst · F4 muuda · Esc sulge",
  "dialogs.search_hint": "Tippige, et otsida kõigi selle arvuti failide nimedest.",
  "dialogs.search_placeholder": "Otsi kõigist failidest…  *.rs · ext:md · src/ foo · !test",
+ "dialogs.search_tab_hint": "Tab: ainult see kaust või sõnad sinu failides.",
  "dialogs.showing_first": {
   "one": "kuvatakse esimesed {n}, kitsendamiseks tippige rohkem",
   "other": "kuvatakse esimesed {n}, kitsendamiseks tippige rohkem"
@@ -629,6 +632,7 @@
  "tui.gui_only": "{action} on saadaval töölauarakenduses (coxswain-gui)",
  "tui.left_panel": "Vasak paneel",
  "tui.meaning_downloading": "Tähendusotsingu mudeli allalaadimine: {percent}%",
+ "tui.meaning_tip": "Leia ka failid sinu sõnade kohta, mis tahes keeles: coxswain --meaning on",
  "tui.mkdir_label": "Loo kaust:",
  "tui.ok_cancel": "Enter = OK   Esc = Loobu",
  "tui.press_enter": "-- vajuta Enter --",

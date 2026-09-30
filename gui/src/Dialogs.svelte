@@ -288,15 +288,24 @@
         <div class="search-bar">
           <span class="glyph">{"\u{f002}"}</span>
           <input bind:this={input} bind:value={m.query} oninput={runSearch} placeholder={t(m.mode === 2 ? "dialogs.text_placeholder" : "dialogs.search_placeholder")} spellcheck="false" />
-          <button class="scope" title="Tab" onclick={() => { nextMode(m); input.focus(); }}>
-            {m.mode === 2 ? t("dialogs.scope_text") : m.mode === 1 ? t("dialogs.scope_in", { folder: basename(tab().dir) }) : t("dialogs.scope_everywhere")}
-          </button>
+          <!-- The three places to look, all in sight; Tab goes to the next. -->
+          <div class="scopes" role="radiogroup" aria-label={t("search.title")} title="Tab">
+            {#each [t("dialogs.scope_everywhere"), t("dialogs.scope_in", { folder: basename(tab().dir) }), t("dialogs.scope_text")] as label, i (i)}
+              <button class="scope" class:on={m.mode === i} role="radio" aria-checked={m.mode === i} onclick={() => { m.mode = i; m.res = null; runSearch(); input.focus(); }}>{label}</button>
+            {/each}
+          </div>
         </div>
         <p class="meta">
           {#if m.res}
             {m.query ? `${tn("search.matches", m.res.total, { ms: num(m.res.micros / 1000, { minimumFractionDigits: 1, maximumFractionDigits: 1 }) })} · ` : ""}{#if m.mode === 2}{tn("search.texts", m.res.texts)}{m.res.pending ? t("search.reading", { n: num(m.res.pending) }) : ""}{:else}{tn("search.indexed", m.res.indexed)}{m.res.state === "building" ? t("search.building") : m.res.state === "stale" ? t("search.refreshing") : ""}{/if}{m.res.total > m.res.hits.length ? ` · ${tn("dialogs.showing_first", m.res.hits.length)}` : ""}
-          {:else}{t(m.mode === 2 ? "dialogs.text_hint" : "dialogs.search_hint")}{/if}
+          {:else}{m.mode === 2 ? t("dialogs.text_hint") : `${t("dialogs.search_hint")} ${t("dialogs.search_tab_hint")}`}{/if}
         </p>
+        {#if m.mode === 2 && m.res && !m.res.meaning}
+          <p class="meta tip">
+            {t("dialogs.meaning_tip")}
+            <button class="link" onclick={() => (ui.modal = { kind: "settings", section: "meaning" })}>{t("dialogs.meaning_tip_open")}</button>
+          </p>
+        {/if}
         <ul class="list hits" bind:this={listEl}>
           {#each m.res?.hits ?? [] as h, i (h.path)}
             <li>
@@ -527,6 +536,24 @@
     border: 0;
     background: transparent;
     padding: 6px 0;
+  }
+  .scopes {
+    display: flex;
+    gap: 4px;
+  }
+  .scope.on {
+    color: var(--accent-fg);
+    background: var(--accent-bg);
+    border-color: transparent;
+  }
+  .tip .link {
+    background: none;
+    border: 0;
+    padding: 0;
+    color: var(--accent-bg);
+    text-decoration: underline;
+    cursor: pointer;
+    font: inherit;
   }
   .scope {
     padding: 4px 10px;

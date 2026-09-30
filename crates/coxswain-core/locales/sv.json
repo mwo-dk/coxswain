@@ -182,6 +182,8 @@
  "dialogs.kind.folder": "Mapp",
  "dialogs.kind.symlink": "Symbolisk länk",
  "dialogs.location": "Plats",
+ "dialogs.meaning_tip": "Hitta även filer om dina ord, på alla språk:",
+ "dialogs.meaning_tip_open": "slå på sökning efter betydelse",
  "dialogs.modified": "Ändrad",
  "dialogs.no_matches": "Inga träffar",
  "dialogs.owner": "Ägare",
@@ -209,6 +211,7 @@
  "dialogs.search_footer": "Enter gå till · Tab överallt/här/text · F4 redigera · Esc stäng",
  "dialogs.search_hint": "Skriv för att söka bland alla filnamn på den här datorn.",
  "dialogs.search_placeholder": "Sök bland alla filer…  *.rs · ext:md · src/ foo · !test",
+ "dialogs.search_tab_hint": "Tabb: bara den här mappen, eller orden i dina filer.",
  "dialogs.showing_first": {
   "one": "visar de första {n}, skriv mer för att begränsa",
   "other": "visar de första {n}, skriv mer för att begränsa"
@@ -629,6 +632,7 @@
  "tui.gui_only": "{action} finns i skrivbordsappen (coxswain-gui)",
  "tui.left_panel": "Vänster panel",
  "tui.meaning_downloading": "Hämtar modellen för sökning efter betydelse: {percent} %",
+ "tui.meaning_tip": "Hitta även filer om dina ord, på alla språk: coxswain --meaning on",
  "tui.mkdir_label": "Skapa mappen:",
  "tui.ok_cancel": "Enter = OK   Esc = Avbryt",
  "tui.press_enter": "-- tryck på Enter --",
