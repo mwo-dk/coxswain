@@ -812,7 +812,7 @@ checksum = "7f8f80099a98041a3d1622845c271458a2d73e688351bf3cb999266764b81d48"
 
 [[package]]
 name = "coxswain"
-version = "1.22.0"
+version = "1.22.1"
 dependencies = [
  "chrono",
  "coxswain-core",
@@ -823,7 +823,7 @@ dependencies = [
 
 [[package]]
 name = "coxswain-core"
-version = "1.22.0"
+version = "1.22.1"
 dependencies = [
  "blake3",
  "bzip2",
@@ -833,6 +833,7 @@ dependencies = [
  "dirs 7.0.0",
  "encoding_rs",
  "flate2",
+ "getrandom 0.3.4",
  "lzma-rust2",
  "mail-parser",
  "memchr",
@@ -860,7 +861,7 @@ dependencies = [
 
 [[package]]
 name = "coxswain-gui"
-version = "1.22.0"
+version = "1.22.1"
 dependencies = [
  "clipboard-rs",
  "coxswain-core",

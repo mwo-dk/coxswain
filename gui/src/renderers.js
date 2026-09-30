@@ -310,7 +310,7 @@ async function mendPptx(JSZip, buffer) {
 }
 
 /** An HTML file as a page to show in a sandboxed frame: no script runs (the frame allows none)
- *  and nothing comes from the web (the page's content policy allows only the folder it is in),
+ *  and nothing comes from the web (the page's content policy allows only its own folder),
  *  so a downloaded page cannot run code or report that it was opened. Its own pictures,
  *  styles and fonts, next to it, come through the app's file protocol. */
 export function renderHtml(src, path) {
@@ -319,9 +319,11 @@ export function renderHtml(src, path) {
   // The folder, one segment at a time, so the page's relative links resolve beside it.
   const dir = path.split(/[\\/]/).slice(0, -1).filter(Boolean).map(encodeURIComponent).join("/");
   const base = `${origin}/${dir}/`;
-  const csp = `default-src 'none'; img-src ${origin} data:; style-src ${origin} 'unsafe-inline'; font-src ${origin} data:; media-src ${origin}`;
+  // Only the page's own folder and below: a page cannot show other files from the disk.
+  const csp = `default-src 'none'; img-src ${base} data:; style-src ${base} 'unsafe-inline'; font-src ${base} data:; media-src ${base}`;
   // Before the page's own head: the parser puts them in the head it makes, and the page cannot undo them.
-  return `<meta http-equiv="Content-Security-Policy" content="${csp}"><base href="${base}">${src}`;
+  // Links open in a new window, which the frame has no right to: a click goes nowhere.
+  return `<meta http-equiv="Content-Security-Policy" content="${csp}"><base href="${base}" target="_blank">${src}`;
 }
 
 let drawioReady;
@@ -331,7 +333,9 @@ let drawioReady;
 export async function renderDrawio(el, xml) {
   drawioReady ??= new Promise((ok, fail) => {
     const local = "vendor/drawio/none";
-    Object.assign(window, { STENCIL_PATH: local, SHAPES_PATH: local, STYLE_PATH: local, GRAPH_IMAGE_PATH: local, mxLoadResources: false, mxLoadStylesheets: false });
+    // Every address the viewer would otherwise fetch from diagrams.net (its MathJax, proxy and
+    // lightbox too) points at a folder that is not there: nothing is asked of the web.
+    Object.assign(window, { STENCIL_PATH: local, SHAPES_PATH: local, STYLE_PATH: local, GRAPH_IMAGE_PATH: local, DRAW_MATH_URL: local, PROXY_URL: local, DRAWIO_LIGHTBOX_URL: local, mxLoadResources: false, mxLoadStylesheets: false });
     const s = document.createElement("script");
     s.src = "vendor/drawio/viewer-static.min.js";
     s.onload = ok;

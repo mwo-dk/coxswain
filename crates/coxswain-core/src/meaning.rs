@@ -89,6 +89,10 @@ pub fn download(p: &Progress) -> io::Result<()> {
             out.write_all(&buf[..n])?;
             got += n as u64;
             p.done.fetch_add(n as u64, Ordering::Relaxed);
+            // More than the file: not the file. Stop before it fills the disk.
+            if got > *len {
+                break;
+            }
         }
         drop(out);
         let hex: String = hash.finalize().iter().map(|b| format!("{b:02x}")).collect();

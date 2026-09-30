@@ -27,7 +27,9 @@ placed before the page's own head, where the page cannot undo it.
 | | In the preview |
 |---|---|
 | The page's HTML and inline `<style>` | Shown |
-| Stylesheets, pictures, fonts, video and audio next to the page (`style.css`, `img/logo.png`) | Loaded, from disk through the app's file protocol; relative paths resolve from the page's folder |
+| Stylesheets, pictures, fonts, video and audio in the page's folder or below (`style.css`, `img/logo.png`) | Loaded, from disk through the app's file protocol; relative paths resolve from the page's folder |
+| Files elsewhere on the disk (`../shared/style.css`, `/home/me/photo.jpg`) | Blocked: the policy allows the page's own folder only |
+| Links | Go nowhere: the frame may open no window and the app never leaves its own pages. **Enter** opens the page in your browser |
 | Pictures and fonts written into the page as `data:` URLs | Shown |
 | `<script>`, `onclick=` and other scripts | Never run (the frame allows no scripts) |
 | Anything from the web: `https://` pictures, stylesheets, web fonts, trackers | Blocked (`default-src 'none'`) |

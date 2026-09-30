@@ -9,8 +9,7 @@
 //! and a token are in a file only the user can read; a connection that does not start with
 //! the token is dropped. If no helper can be reached, the app indexes by itself as before.
 
-use std::hash::{BuildHasher, Hasher};
-use std::io::{self, BufRead, BufReader, Write};
+use std::io::{self, BufRead, BufReader, Read, Write};
 use std::net::{Ipv4Addr, SocketAddr, TcpListener, TcpStream};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
@@ -112,12 +111,26 @@ pub fn folder() -> Option<PathBuf> {
     Some(dirs::cache_dir()?.join("coxswain"))
 }
 
+/// A request longer than this is nobody's: the connection is dropped, so a stray process on the
+/// machine cannot make the helper swallow memory.
+const LINE_MAX: u64 = 1 << 20;
+/// How long a connection has to say hello; an app does so at once.
+const HELLO_WAIT: Duration = Duration::from_secs(5);
+
+/// 128 bits from the system's random source, as hex.
 fn token() -> String {
-    // std's hash keys come from the system's random source: enough for a token that only has
-    // to be unguessable to other users of this machine.
-    (0..2).map(|_| format!("{:016x}", std::hash::RandomState::new().build_hasher().finish())).collect()
+    let mut bytes = [0u8; 16];
+    getrandom::fill(&mut bytes).expect("the system's random source");
+    bytes.iter().map(|b| format!("{b:02x}")).collect()
 }
 
+/// Whether `theirs` is the token, taking the same time whatever the first wrong byte.
+fn is_token(theirs: &str, token: &str) -> bool {
+    theirs.len() == token.len() && theirs.bytes().zip(token.bytes()).fold(0u8, |acc, (a, b)| acc | (a ^ b)) == 0
+}
+
+/// `text` into `path`, readable by this user alone. On Windows the cache folder is in the
+/// user's profile, which is theirs alone already; the file inherits that.
 fn write_private(path: &Path, text: &str) -> io::Result<()> {
     let tmp = path.with_extension("tmp");
     let mut o = std::fs::OpenOptions::new();
@@ -209,15 +222,24 @@ fn with_meaning(store: &Store, query: &str, max: usize) -> Results {
 
 fn answer(stream: TcpStream, index: &Service, store: Option<&Store>, token: &str, quit: &AtomicBool) -> io::Result<()> {
     stream.set_nodelay(true)?;
+    stream.set_read_timeout(Some(HELLO_WAIT))?;
     let mut out = stream.try_clone()?;
+    let mut from = BufReader::new(stream);
     let mut said_hello = false;
-    for line in BufReader::new(stream).lines() {
-        let reply = match serde_json::from_str(&line?).map_err(io::Error::other)? {
+    let mut line = String::new();
+    loop {
+        line.clear();
+        if (&mut from).take(LINE_MAX).read_line(&mut line)? == 0 || !line.ends_with('\n') {
+            return Ok(());
+        }
+        let reply = match serde_json::from_str(&line).map_err(io::Error::other)? {
             Request::Hello { token: theirs, version } => {
-                if theirs != token {
+                if !is_token(&theirs, token) {
                     return Ok(());
                 }
                 said_hello = true;
+                // An app keeps its line open for as long as it runs.
+                out.set_read_timeout(None)?;
                 // A helper on its way out sends newcomers to the next one.
                 let same = version == VERSION && !quit.load(Ordering::SeqCst);
                 // Another version of the app: it starts its own helper once this one is gone.
@@ -261,7 +283,6 @@ fn answer(stream: TcpStream, index: &Service, store: Option<&Store>, token: &str
         text.push('\n');
         out.write_all(text.as_bytes())?;
     }
-    Ok(())
 }
 
 // ---------------------------------------------------------------- the apps' side
@@ -586,7 +607,15 @@ mod tests {
         let (mut line, _) = dial(&d.join("cache")).unwrap();
         assert!(exchange(&mut line, &Request::Hello { token: "guess".into(), version: VERSION.into() }).is_err());
         let (mut line, _) = dial(&d.join("cache")).unwrap();
-        assert!(matches!(exchange(&mut line, &Request::Hello { token, version: VERSION.into() }), Ok(Reply::Hello { same: true })));
+        assert!(matches!(exchange(&mut line, &Request::Hello { token: token.clone(), version: VERSION.into() }), Ok(Reply::Hello { same: true })));
+        assert_eq!(token.len(), 32);
+        assert!(token.bytes().all(|b| b.is_ascii_hexdigit()) && token != super::token());
+        assert!(is_token(&token, &token) && !is_token(&token[1..], &token) && !is_token(&format!("{token}0"), &token));
+        // A line without end that goes on and on is dropped before it fills the memory.
+        let (mut long, _) = dial(&d.join("cache")).unwrap();
+        let _ = long.1.write_all(&vec![b'a'; 2 << 20]);
+        let _ = long.1.write_all(b"\n");
+        assert!(exchange(&mut long, &Request::Hello { token, version: VERSION.into() }).is_err());
 
         #[cfg(unix)]
         {

@@ -204,9 +204,17 @@ impl Scratch {
     fn new() -> io::Result<Scratch> {
         static N: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
         let dir = std::env::temp_dir().join(format!("coxswain-archive-{}-{}", std::process::id(), N.fetch_add(1, std::sync::atomic::Ordering::Relaxed)));
-        fs::create_dir_all(&dir)?;
+        private_dir(&dir)?;
         Ok(Scratch(dir))
     }
+}
+
+/// A folder made for this user alone: the temp folder is everyone's.
+pub(crate) fn private_dir(dir: &Path) -> io::Result<()> {
+    fs::create_dir_all(dir)?;
+    #[cfg(unix)]
+    fs::set_permissions(dir, std::os::unix::fs::PermissionsExt::from_mode(0o700))?;
+    Ok(())
 }
 
 impl Drop for Scratch {
@@ -443,6 +451,12 @@ mod tests {
         assert_eq!(free_name(&d, "a.txt"), d.join("a (2).txt"));
         assert_eq!(free_name(&d, "b.txt"), d.join("b.txt"));
         assert_eq!(free_name(&d, "moved"), d.join("moved (2)"));
+        let scratch = Scratch::new().unwrap();
+        #[cfg(unix)]
+        assert_eq!(std::os::unix::fs::PermissionsExt::mode(&fs::metadata(&scratch.0).unwrap().permissions()) & 0o777, 0o700);
+        let kept = scratch.0.clone();
+        drop(scratch);
+        assert!(!kept.exists());
         delete(&d.join("moved")).unwrap();
         assert!(!d.join("moved").exists());
         fs::remove_dir_all(d).unwrap();

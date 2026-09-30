@@ -54,8 +54,9 @@ impl Status {
     /// Run git in `dir`. `None` when `dir` is not inside a work tree or git is missing.
     pub fn read(dir: &Path) -> Option<Status> {
         let git = |args: &[&str]| {
+            // A repository's own config may name a file system monitor to run: not from here.
             crate::tools::command("git")
-                .arg("-C")
+                .args(["-c", "core.fsmonitor=false", "-C"])
                 .arg(dir)
                 .args(args)
                 .env("GIT_OPTIONAL_LOCKS", "0")

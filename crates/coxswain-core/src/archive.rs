@@ -472,11 +472,14 @@ fn rewrite(archive: &Path, keep: &dyn Fn(&str) -> Option<String>, add: &[(String
             // 7z has no copying of entries as they are: everything is read out, then packed again.
             let scratch = std::env::temp_dir().join(format!("coxswain-7z-{}-{}", std::process::id(), tmp.file_name().unwrap_or_default().len()));
             let _ = std::fs::remove_dir_all(&scratch);
-            std::fs::create_dir_all(&scratch)?;
+            // The entries lie there unlocked for a moment: for this user alone.
+            crate::fs::private_dir(&scratch)?;
             let result = (|| -> io::Result<()> {
                 let mut kept: Vec<(String, New)> = vec![];
+                let mut locked = false;
                 if exists {
                     let mut r = seven(archive, password_for(archive, None).as_deref())?;
+                    locked = r.archive().blocks.iter().any(|b| b.coders.iter().any(|c| c.encoder_method_id() == sevenz_rust2::EncoderMethod::ID_AES256_SHA256));
                     let mut n = 0usize;
                     let mut failed = None;
                     r.for_each_entries(|e, from| {
@@ -503,6 +506,11 @@ fn rewrite(archive: &Path, keep: &dyn Fn(&str) -> Option<String>, add: &[(String
                     }
                 }
                 let mut w = sevenz_rust2::ArchiveWriter::create(&tmp).map_err(io::Error::other)?;
+                // A locked archive stays locked, with the password that opened it.
+                if locked {
+                    let pw = password_for(archive, None).unwrap_or_default();
+                    w.set_content_methods(vec![sevenz_rust2::encoder_options::AesEncoderOptions::new(sevenz_rust2::Password::from(pw.as_str())).into(), sevenz_rust2::EncoderMethod::LZMA2.into()]);
+                }
                 for (name, new) in kept.iter().chain(add) {
                     match new {
                         New::Dir => w.push_archive_entry::<File>(sevenz_rust2::ArchiveEntry::new_directory(name), None),
@@ -794,6 +802,14 @@ mod tests {
         remember(&zp, "hunter2");
         assert_eq!(list_in(&zp, "").unwrap().len(), 2);
         assert_eq!(std::fs::read_to_string(crate::fs::copy(&zp.join("plan.txt"), &d.join("out")).unwrap()).unwrap(), "launch at noon");
+        // Changed, it is written anew: still locked, with the same password.
+        crate::fs::mkdir(&zp.join("docs")).unwrap();
+        crate::fs::rename(&zp.join("plan.txt"), &zp.join("docs")).unwrap();
+        forget(&zp);
+        assert_eq!(list_in(&zp, "").unwrap_err().to_string(), LOCKED, "a changed archive is as locked as before");
+        remember(&zp, "hunter2");
+        std::fs::create_dir_all(d.join("again")).unwrap();
+        assert_eq!(std::fs::read_to_string(crate::fs::copy(&zp.join("docs/plan.txt"), &d.join("again")).unwrap()).unwrap(), "launch at noon");
         forget(&zp);
         assert!(list_in(&zp, "").is_err());
         std::fs::remove_dir_all(d).unwrap();

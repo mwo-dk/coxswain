@@ -28,8 +28,8 @@ To keep everything on this machine:
    this machine (`localhost`). Downloading the built-in model is the one request it makes, once.
 3. Leave `[preview] container = "off"` if you do not want podman or docker to pull images.
 
-With those, nothing leaves the machine except pictures from the web that a Markdown file or
-notebook links, when you open it in the preview pane ([below](#what-can-leave-it)).
+With those, nothing leaves the machine. Previews load nothing from the web, not even a picture a
+Markdown file links: the app's own content security policy allows only the app and your disk.
 
 ## What stays on your machine
 
@@ -69,8 +69,7 @@ script or a picture on the web gets nothing from the web ([HTML pages](../previe
 | **Ask** | The question, the questions and answers before it in this Find file, and the ten closest passages with their paths, to the chat model on the server (Ollama on this machine with the built-in model). Nothing is stored | You: pressing **Enter** at Find file's Ask depth ([Ask](../search/ask.md)) | Leave *Chat model* empty, or use a server on `localhost` |
 | **Ollama pull** | Ollama downloads the model from its registry | You: *Pull bge-m3 with Ollama* or `coxswain --meaning ollama` | Do not pull |
 | **Container images** | podman or docker downloads the image from its registry (`docker.io`) | You: the first build or render with a container, or *Pull* in Settings. Never by itself | `[preview] container = "off"` |
-| **Pictures from the web in previews** | A Markdown file, notebook or book that links a picture at an `https://` address makes the preview load it, as a browser would | Moving the cursor onto such a file with the preview pane open | Close the preview pane (**Space**) for such files |
-| **Links you click** | The release notes, a notice's page | You | – |
+| **Links you click** | The release notes, a notice's page, a web link in a rendered Markdown or AsciiDoc file: each opens in your browser | You | – |
 
 On a machine with search by meaning on the built-in model, Coxswain also asks
 `http://localhost:11434`, now and then, whether Ollama runs there, to suggest it. That request
@@ -100,17 +99,18 @@ Every preview library ships inside the app, and draw.io's viewer runs offline.
 
 ## In the terminal app
 
-The same, with two differences: the terminal app has no preview pane, so it never loads pictures
-from the web, and its update check runs once when it starts (the result shared with the desktop
-app through `state.json`). `check_updates = false` turns it off in both.
+The same, with one difference: the terminal app's update check runs once when it starts (the
+result shared with the desktop app through `state.json`). `check_updates = false` turns it off in
+both.
 
 ## Questions
 
 #### Does anything leave my machine?
 
 Only what the table above lists. With update checks off and search by meaning either off or on
-the built-in model (after its one download), nothing does, apart from web pictures in previews
-you open.
+the built-in model (after its one download), nothing does. A picture a Markdown file links on
+the web stays an empty box in the preview; the webview itself is held to the app and your disk,
+so no preview of any kind can reach out.
 
 #### Can other users on the same machine see my index?
 
@@ -131,8 +131,9 @@ app quits.
 
 #### Can an HTML file I preview phone home?
 
-No. It is shown in a sandbox with no scripts, and it may load only files from your disk. Tracking
-pixels and web fonts on the web are blocked.
+No. It is shown in a sandbox with no scripts, and it may load only files from its own folder.
+Tracking pixels and web fonts on the web are blocked, and a link in it goes nowhere: press
+**Enter** to open the page in your browser.
 
 #### Does the update check send anything about me?
 

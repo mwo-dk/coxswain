@@ -53,7 +53,9 @@ Two details of the engine choice: commented-out lines count for nothing (`% \use
 asks for no engine), and a file that itself asks which engine runs (`\ifxetex`, `\ifluatex`,
 `iftex`) works with each and counts for neither. When pdfLaTeX stops because a package *requires
 either XeTeX or LuaTeX*, the build runs once more with XeLaTeX. A `latexmkrc` next to the
-document is honoured by latexmk as always.
+document is not read: it is Perl, and a downloaded project must not run anything while it is
+only looked at (latexmk gets `-norc`). Your own `~/.latexmkrc` or
+`~/.config/latexmk/latexmkrc` is read as always.
 
 **How each engine runs:**
 
