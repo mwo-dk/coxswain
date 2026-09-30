@@ -87,8 +87,8 @@ a browser does.
 
 #### A very large HTML file is cut off.
 
-The preview reads the first 512 KB of a text file, HTML included. Open larger pages with
-**Enter**.
+The preview reads the first 512 KB of a text file, HTML included, and says so under the page
+(*Showing the first 512 KB*). Open larger pages with **Enter**.
 
 ---
 [← Previous: Documents](documents.md) · [Next: PowerPoint and Office →](office.md)

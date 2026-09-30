@@ -26,6 +26,8 @@
   let summary = $state(null);
 
   const LIMIT = 512 * 1024;
+  /** A hex dump shows this much (read_text). */
+  const HEX_LIMIT = 64 * 1024;
 
   /** Draws a draw.io diagram into the element, again when it changes. */
   function drawioView(el, xml) {
@@ -445,6 +447,8 @@
           <!-- The deck at once; LibreOffice's exact rendering takes its place when it is ready. -->
           {#if conv.status === "running"}<p class="more">{t("preview.exact_coming", { engine: engineOf(conv)?.label })}</p>{/if}
           {#if conv.status === "error"}<p class="more">{conv.error.split("\n")[0]}</p>{/if}
+          <!-- Waiting for a click: a container whose image is not pulled yet never starts by itself. -->
+          {#if conv.status === "idle" && engineOf(conv)}<p class="more"><button class="render" onclick={() => renderConv()}>{t(conv.verb)}</button> {engineOf(conv)?.note}</p>{/if}
           <div class="slides">
             {#each rich.slides as s, i (i)}<div class="slide">{@html s}</div>{/each}
           </div>
@@ -508,6 +512,7 @@
       {:else if kind === "html" && page && !source}
         <!-- No allow-scripts, no allow-same-origin: the page runs nothing and reaches nothing. -->
         <iframe class="page" sandbox="" srcdoc={page} title={e.name}></iframe>
+        {#if truncated}<p class="more">{t("preview.showing_first", { size: size(LIMIT) })}</p>{/if}
       {:else if ["markdown", "mermaid", "graphviz", "asciidoc"].includes(kind) && html && !source}
         <article class="markdown">{@html html}</article>
       {:else if ["markdown", "mermaid", "graphviz", "asciidoc"].includes(kind) && html}
@@ -545,7 +550,7 @@
         {:else}
           <pre class="mono" class:hex={binary}>{text}</pre>
         {/if}
-        {#if truncated}<p class="more">{t("preview.showing_first", { size: size(LIMIT) })}</p>{/if}
+        {#if truncated}<p class="more">{t("preview.showing_first", { size: size(binary ? HEX_LIMIT : LIMIT) })}</p>{/if}
       {:else if kind === "folder"}
         <dl class="facts">
           {#if summary}

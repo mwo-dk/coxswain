@@ -56,7 +56,7 @@ or conflicted, not for untracked or ignored ones. A file whose changes cancel ou
 - The text, with the language's colours, in the pane's monospace font.
 - Under a file larger than 512 KB: *Showing the first 512 KB*.
 - Files under 200 KB are highlighted; larger ones stay plain, so scrolling stays smooth.
-- A hex dump in place of text for binary files.
+- A hex dump in place of text for binary files: its first 64 KB (*Showing the first 64 KB*).
 
 ## Settings and config.toml
 
@@ -81,8 +81,8 @@ use **F3**, which always toggles the pane.
 #### Why is a large file shown without colours?
 
 Highlighting a file over 200 KB would make scrolling slow, so it stays plain. Over 512 KB, only
-the first 512 KB is read at all (*Showing the first 512 KB*). Press **F4** to see all of it in
-your editor.
+the first 512 KB is read at all (*Showing the first 512 KB*); a hex dump stops after 64 KB.
+Press **F4** to see all of it in your editor.
 
 #### Why is my text file shown as a hex dump?
 
