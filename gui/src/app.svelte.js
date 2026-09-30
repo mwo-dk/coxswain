@@ -28,7 +28,8 @@ export const ui = $state({
   // Folder sizes measured in the background. `sizes` in the session: the older `autoSizes`
   // was off unless switched on, and is not read any more.
   autoSizes: true,
-  /** Preview: source instead of rendered/tree, and diff instead of file. Kept across files. */
+  /** Preview: source (true) instead of rendered/tree, and diff instead of file. Kept across files.
+   *  A BOM also has "sunburst", which other kinds show as rendered. */
   previewSource: false,
   previewDiff: false,
   /** Tool -> the engine id picked in the preview (local program or container). */

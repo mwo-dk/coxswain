@@ -78,3 +78,89 @@ export function visibleRows(rows, kids, open, shown, keep, hide) {
   }
   return out;
 }
+
+// ------------------------------------------------------------ sunburst
+//
+// The tree as rings: the zoomed-in node in the middle, its children in the first ring, and so on.
+// An arc's angle is proportional to the leaves beneath it. Arcs narrower than MIN_ANGLE are merged
+// into one "more" arc per parent, and at most RINGS rings are drawn, so a 50k-node BOM stays at a
+// few thousand paths.
+
+export const RINGS = 6;
+export const MIN_ANGLE = 0.5;
+const RANK = Object.fromEntries(STATUSES.map((s, i) => [s, STATUSES.length - i]));
+
+/** The worse of two statuses; not rated is neutral. */
+export function worse(a, b) {
+  if (!a || a === "not-rated") return b;
+  if (!b || b === "not-rated") return a;
+  return RANK[a] >= RANK[b] ? a : b;
+}
+
+/** Leaves beneath each row (a leaf counts itself). With `keep`, rows outside it count nothing. */
+export function leafCounts(rows, order, kids, keep) {
+  const leaves = new Float64Array(rows.length);
+  for (let k = order.length - 1; k >= 0; k--) {
+    const i = order[k];
+    if (keep && !keep[i]) continue;
+    let sum = 0;
+    for (const c of kids[i]) sum += leaves[c];
+    leaves[i] = kids[i].length ? sum : 1;
+  }
+  return leaves;
+}
+
+/**
+ * The arcs below `root`: `{ i, depth, a0, a1 }` in degrees for a node, or `{ more, n, depth, a0,
+ * a1, s }` for thin siblings merged (`s` their worst status). Depth 1 is the first ring.
+ */
+export function sunburstArcs(rows, kids, leaves, root, rings = RINGS, minAngle = MIN_ANGLE) {
+  const arcs = [];
+  const stack = [[root, 0, 0, 360]];
+  while (stack.length) {
+    const [p, depth, a0, a1] = stack.pop();
+    if (depth >= rings || !leaves[p]) continue;
+    const scale = (a1 - a0) / leaves[p];
+    let at = a0;
+    let merged = null;
+    for (const c of kids[p]) {
+      const span = leaves[c] * scale;
+      if (!span) continue;
+      if (span < minAngle) {
+        merged ??= { more: p, n: 0, depth: depth + 1, a0: at, a1: at, s: null };
+        merged.n++;
+        merged.a1 += span;
+        merged.s = worse(merged.s, rows[c].s);
+      } else {
+        arcs.push({ i: c, depth: depth + 1, a0: at, a1: at + span });
+        stack.push([c, depth + 1, at, at + span]);
+      }
+      at += span;
+    }
+    if (merged) arcs.push(merged);
+  }
+  return arcs;
+}
+
+const point = (cx, cy, r, deg) => {
+  const a = ((deg - 90) * Math.PI) / 180;
+  return `${(cx + r * Math.cos(a)).toFixed(2)} ${(cy + r * Math.sin(a)).toFixed(2)}`;
+};
+
+/** An SVG path for the ring sector from `a0` to `a1` degrees (clockwise from the top), between radii. */
+export function arcPath(cx, cy, r0, r1, a0, a1) {
+  // A whole ring is two halves: one arc cannot start and end at the same point.
+  if (a1 - a0 >= 359.99) return arcPath(cx, cy, r0, r1, a0, a0 + 180) + " " + arcPath(cx, cy, r0, r1, a0 + 180, a0 + 360);
+  const large = a1 - a0 > 180 ? 1 : 0;
+  return (
+    `M${point(cx, cy, r1, a0)} A${r1} ${r1} 0 ${large} 1 ${point(cx, cy, r1, a1)} ` +
+    `L${point(cx, cy, r0, a1)} A${r0} ${r0} 0 ${large} 0 ${point(cx, cy, r0, a0)} Z`
+  );
+}
+
+/** The rows from the root to `i`, for breadcrumbs. */
+export function pathTo(rows, i) {
+  const out = [];
+  for (let at = i; at >= 0; at = rows[at].p) out.unshift(at);
+  return out;
+}

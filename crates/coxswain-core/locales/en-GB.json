@@ -109,6 +109,10 @@
  "app.update_releases": "Open the releases page",
  "bom.advice": "What to do",
  "bom.as_in_file": "As in the file",
+ "bom.assets": {
+  "one": "{n} asset",
+  "other": "{n} assets"
+ },
  "bom.clear": "Clear filters",
  "bom.close": "Close",
  "bom.dim": "Dim",
@@ -164,6 +168,7 @@
  "bom.status.not-rated": "Not rated",
  "bom.status.safe": "Quantum-safe",
  "bom.status.unknown": "Unknown",
+ "bom.sunburst": "Sunburst",
  "bom.why": "Why",
  "bom.why.expired": {
   "one": "Expired {n} day ago",

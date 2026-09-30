@@ -43,6 +43,7 @@ jobs:
         run: |
           npm ci --no-audit --no-fund
           npx svelte-check
+          npm test
           npm run build
 
       - run: cargo test --workspace --locked

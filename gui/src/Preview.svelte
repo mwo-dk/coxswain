@@ -31,7 +31,7 @@
     return { update: draw };
   }
   /** Markdown, Mermaid and data files: show the rendered result or tree, or the source. Kept across files. */
-  const source = $derived(ui.previewSource);
+  const source = $derived(ui.previewSource === true);
   /** For a file git has changes for: show the file, or its diff. Kept across files. */
   const showDiff = $derived(ui.previewDiff);
   const TEXTUAL = ["text", "markdown", "mermaid", "data", "jsonl", "calendar", "contacts", "log", "graphviz", "asciidoc", "bom"];
@@ -340,9 +340,15 @@
           <button class:on={showDiff} onclick={() => (ui.previewDiff = true)} title={t("preview.changes_against_head")}>{t("preview.diff")}</button>
         </div>
       {/if}
-      {#if !diffing && ["markdown", "mermaid", "data", "jsonl", "calendar", "contacts", "graphviz", "asciidoc", "bom"].includes(kind)}
+      {#if !diffing && kind === "bom"}
         <div class="modes" role="group" aria-label={t("preview.show")}>
-          <button class:on={!source} onclick={() => (ui.previewSource = false)}>{kind === "data" || kind === "bom" ? t("preview.tree") : kind === "jsonl" ? t("preview.table") : t("preview.rendered")}</button>
+          <button class:on={ui.previewSource === false} onclick={() => (ui.previewSource = false)}>{t("preview.tree")}</button>
+          <button class:on={ui.previewSource === "sunburst"} onclick={() => (ui.previewSource = "sunburst")}>{t("bom.sunburst")}</button>
+          <button class:on={source} onclick={() => (ui.previewSource = true)}>{t("preview.source")}</button>
+        </div>
+      {:else if !diffing && ["markdown", "mermaid", "data", "jsonl", "calendar", "contacts", "graphviz", "asciidoc"].includes(kind)}
+        <div class="modes" role="group" aria-label={t("preview.show")}>
+          <button class:on={!source} onclick={() => (ui.previewSource = false)}>{kind === "data" ? t("preview.tree") : kind === "jsonl" ? t("preview.table") : t("preview.rendered")}</button>
           <button class:on={source} onclick={() => (ui.previewSource = true)}>{t("preview.source")}</button>
         </div>
       {/if}

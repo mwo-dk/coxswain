@@ -15,7 +15,7 @@
   embeds `gui/dist` (default feature `custom-protocol`). `npx tauri dev -- --no-default-features`
   for the live dev server; without that flag dev loads `dist` too.
 - **Check before pushing:** `cargo test --workspace`, and for GUI changes
-  `cd gui && npx svelte-check && npm run build`.
+  `cd gui && npx svelte-check && npm test && npm run build`.
 - **Screenshots** in `docs/screenshots/` are taken in a sandbox with a fake home, so nothing
   personal shows (Linux, needs `bwrap`): build release, then
   `docs/screenshots/sandbox.sh coxswain-gui /home/demo/projects/rocket` or

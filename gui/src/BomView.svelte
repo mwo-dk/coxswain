@@ -5,7 +5,7 @@
   import { ui, tab, otherTab, cd, focusPane } from "./app.svelte.js";
   import { invoke, basename, parent } from "./lib.js";
   import { t, tn, num } from "./i18n.svelte.js";
-  import { STATUSES, KINDS, FAMILIES, COLOR, isCrypto, childrenOf, filtering, mask, visibleRows, PAGE } from "./bom.js";
+  import { STATUSES, KINDS, FAMILIES, COLOR, isCrypto, childrenOf, filtering, mask, visibleRows, PAGE, leafCounts, sunburstArcs, arcPath, pathTo } from "./bom.js";
 
   let { path, full = false } = $props();
 
@@ -19,6 +19,10 @@
   const filters = $state({ status: new Set(), kind: new Set(), family: new Set(), query: "", hide: false });
   let treeEl = $state();
   let searchEl = $state();
+  /** Tree or sunburst; sticks, as the preview's other switches do (ui.previewSource). */
+  const shape = $derived(ui.previewSource === "sunburst" ? "sunburst" : "tree");
+  /** The row in the middle of the sunburst. */
+  let zoom = $state(0);
 
   // Read (or take from the cache) when the file or the grouping changes.
   $effect(() => {
@@ -30,10 +34,12 @@
         const v = await invoke("bom_info", { path: p, mode: m });
         if (p !== path) return;
         view = v;
-        // The first two levels open.
+        // The first two levels open, unless that makes a long list.
         const kids = childrenOf(v.rows, v.order);
-        open = new Set([0, ...kids[0]]);
+        const second = kids[0].reduce((n, c) => n + Math.min(kids[c].length, PAGE), kids[0].length);
+        open = new Set(second <= 1000 ? [0, ...kids[0]] : [0]);
         shown = {};
+        zoom = 0;
         if (selected >= v.rows.length) selected = 0;
       } catch (err) {
         if (p === path) error = String(err);
@@ -93,6 +99,13 @@
 
   function clearFilters() {
     Object.assign(filters, { status: new Set(), kind: new Set(), family: new Set(), query: "" });
+  }
+
+  /** Selects a row and opens what it sits in, so the tree shows it too. */
+  function select(i) {
+    selected = i;
+    const up = pathTo(rows, i).slice(0, -1).filter((p) => !open.has(p));
+    if (up.length) open = new Set([...open, ...up]);
   }
 
   function setOpen(i, on) {
@@ -209,6 +222,35 @@
   }
 
   const counted = (map, keys) => keys.filter((k) => map?.[k]).map((k) => [k, map[k]]);
+
+  // ------------------------------------------------------------ sunburst
+
+  const SIZE = 400;
+  const C = SIZE / 2;
+  const R = C - 4;
+  const R0 = R * 0.2;
+  const leaves = $derived(view && shape === "sunburst" ? leafCounts(rows, view.order, kids, hiding ? masked.keep : null) : null);
+  const arcs = $derived(leaves ? sunburstArcs(rows, kids, leaves, zoom < rows.length ? zoom : 0) : []);
+  const ringWidth = $derived((R - R0) / Math.max(1, ...arcs.map((a) => a.depth)));
+  const ring = (a) => [R0 + (a.depth - 1) * ringWidth, R0 + a.depth * ringWidth - 0.6];
+
+  function zoomOut() {
+    if (zoom > 0) zoom = rows[zoom].p;
+  }
+
+  function pickArc(a) {
+    const i = a.more ?? a.i;
+    select(i);
+    if (a.more !== undefined || kids[i].length) zoom = i;
+  }
+
+  function onSunKey(e) {
+    if (e.key === "Backspace") zoomOut();
+    else if (e.key === "Enter" && kids[selected]?.length) zoom = selected;
+    else return;
+    e.preventDefault();
+    e.stopPropagation();
+  }
 </script>
 
 {#snippet dot(status)}
@@ -219,6 +261,10 @@
   {#if full}
     <header class="top">
       <h2>{"\u{f0c9}"} {basename(path)}</h2>
+      <div class="modes" role="group">
+        <button class:on={shape === "tree"} onclick={() => (ui.previewSource = false)}>{t("preview.tree")}</button>
+        <button class:on={shape === "sunburst"} onclick={() => (ui.previewSource = "sunburst")}>{t("bom.sunburst")}</button>
+      </div>
       <button class="x" title={t("bom.close")} onclick={() => (ui.modal = null)}>×</button>
     </header>
   {/if}
@@ -260,7 +306,31 @@
     </div>
 
     <div class="main">
-      <div class="tree mono" bind:this={treeEl} tabindex="0" role="tree" aria-label={basename(path)} {onkeydown}>
+      {#if shape === "sunburst"}
+        <div class="sun">
+          <nav class="crumbs" aria-label={t("bom.sunburst")}>
+            {#each pathTo(rows, zoom) as c, k (c)}{#if k}<span class="sep">›</span>{/if}<button class="link" onclick={() => (zoom = c)}>{label(c)}</button>{/each}
+          </nav>
+          <!-- Keys: Backspace zooms out, Enter into the selected row. -->
+          <!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions -->
+          <svg class="bom-keys" viewBox="0 0 {SIZE} {SIZE}" tabindex="0" role="img" aria-label={label(zoom)} onkeydown={onSunKey}>
+            <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+            <circle class="hub {COLOR[rows[zoom]?.s]}" cx={C} cy={C} r={R0 - 1} onclick={zoomOut}><title>{label(zoom)} · {t(`bom.status.${rows[zoom]?.s}`)}</title></circle>
+            {#each arcs as a (a.i ?? `more-${a.more}`)}
+              {@const [r0, r1] = ring(a)}
+              {@const s = a.more !== undefined ? a.s : rows[a.i].s}
+              <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+              <path d={arcPath(C, C, r0, r1, a.a0, a.a1)} class="arc {COLOR[s] ?? 'muted'}" class:more={a.more !== undefined}
+                class:sel={a.i === selected} class:dim={active && !filters.hide && a.i !== undefined && !masked.keep[a.i]} onclick={() => pickArc(a)}>
+                <title>{a.more !== undefined ? tn("bom.more", a.n) : `${label(a.i)} · ${t(`bom.status.${s}`)} · ${tn("bom.assets", leaves[a.i])}`}</title>
+              </path>
+            {/each}
+            <text x={C} y={C} class="hub-label">{label(zoom).length > 16 ? label(zoom).slice(0, 15) + "…" : label(zoom)}</text>
+          </svg>
+          {#if active && !masked.keep[0]}<p class="note">{t("bom.no_match")}</p>{/if}
+        </div>
+      {:else}
+      <div class="tree bom-keys mono" bind:this={treeEl} tabindex="0" role="tree" aria-label={basename(path)} {onkeydown}>
         {#each visible as v (v.i ?? `more-${v.more}`)}
           {#if v.more !== undefined}
             <div class="line more-row" style:padding-inline-start="{v.depth * 1.1 + 1.4}em" role="none">
@@ -282,6 +352,7 @@
         {/each}
         {#if active && !masked.keep[0]}<p class="note">{t("bom.no_match")}</p>{/if}
       </div>
+      {/if}
 
       <section class="details">
         {#if details?.error}
@@ -293,7 +364,7 @@
             <ul class="why">
               {#each details.why as w, k (k)}
                 <li>
-                  {#if w.node !== null && w.node !== undefined}<button class="link" onclick={() => ((selected = w.node), setOpen(rows[w.node]?.p ?? 0, true))}>{why(w)}</button>{:else}{why(w)}{/if}
+                  {#if w.node !== null && w.node !== undefined}<button class="link" onclick={() => select(w.node)}>{why(w)}</button>{:else}{why(w)}{/if}
                   {#if w.source}<small class="src">{t("bom.why.source", { source: w.source })}</small>{/if}
                   {#if w.note}<small class="src">{w.note}</small>{/if}
                 </li>
@@ -668,5 +739,73 @@
   }
   .more-row {
     font-size: 0.85em;
+  }
+  .sun {
+    flex: 2;
+    min-height: 10em;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .crumbs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    font-size: 0.85em;
+  }
+  .sep {
+    color: var(--hidden-fg);
+  }
+  svg {
+    flex: 1;
+    min-height: 0;
+    width: 100%;
+    outline: none;
+  }
+  .arc,
+  .hub {
+    stroke: var(--preview-bg, var(--dialog-bg));
+    stroke-width: 0.8;
+    cursor: pointer;
+    fill: var(--st-grey);
+  }
+  .arc.green,
+  .hub.green {
+    fill: var(--st-green);
+  }
+  .arc.yellow,
+  .hub.yellow {
+    fill: var(--st-yellow);
+  }
+  .arc.red,
+  .hub.red {
+    fill: var(--st-red);
+  }
+  .arc.muted,
+  .hub.muted {
+    fill: color-mix(in srgb, var(--st-grey) 35%, transparent);
+  }
+  .arc.more {
+    fill-opacity: 0.55;
+  }
+  .arc:hover {
+    fill-opacity: 0.8;
+  }
+  .arc.dim {
+    opacity: 0.2;
+  }
+  .arc.sel {
+    stroke: var(--accent-bg);
+    stroke-width: 2.5;
+  }
+  .hub-label {
+    text-anchor: middle;
+    dominant-baseline: middle;
+    font-size: 11px;
+    fill: var(--dialog-fg, var(--preview-fg));
+    pointer-events: none;
+    paint-order: stroke;
+    stroke: var(--preview-bg, var(--dialog-bg));
+    stroke-width: 3px;
   }
 </style>

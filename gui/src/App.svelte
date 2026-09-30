@@ -409,7 +409,7 @@
     // leaves the field and function keys keep working (otherwise F3/F8 seem dead).
     const field = e.target.closest?.("textarea, input:not(.cmd)");
     // The BOM tree has keys of its own; what it leaves (function keys, Tab) still works here.
-    if (e.target.closest?.(".tree[role=tree]") && !/^F\d+$/.test(k)) return;
+    if (e.target.closest?.(".bom-keys") && !/^F\d+$/.test(k)) return;
     // Copy/cut/paste of text in the command line stays native.
     if (["clip_copy", "clip_cut", "paste"].includes(ui.cfg.keymap[k]) && e.target.closest?.(".cmd") && ui.cmd) return;
     if (field && k === "Esc") return field.blur();
