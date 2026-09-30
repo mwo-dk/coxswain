@@ -51,14 +51,23 @@ These rules hold for every contributor and every Claude session in this reposito
 
 ## Documentation
 
-The README is an **overview**: what Coxswain is, the highlights, install, and a map of the
-documentation. **Every feature, all of them, is walked through in detail under `docs/`.** When
+The README is an **overview**: what Coxswain is, the highlights, install, first steps, a map of the
+documentation, and the changelog at the bottom. **Every feature, all of them, is walked through in detail under `docs/`.** When
 you add or change a feature, the docs change in the same PR.
 
-- **Pages:** `docs/README.md` is the index. Each page starts with
-  `[← README](../README.md) · [Docs index](README.md)`, has a table of contents when it is
-  long, and ends with previous / next links in the index's order. The README's map links every
-  page; a new feature also gets a line there.
+- **The docs are a tree:** a folder per area (`docs/panels/`, `docs/search/`, `docs/previews/`,
+  `docs/files/`, …), each with a `README.md` index of its pages, and **one page per feature**
+  (`docs/search/meaning.md`, `docs/files/archives.md`). A new feature gets its own page in its
+  area, a line in the area index and in `docs/README.md` (the full map); a new area gets a line
+  in the README's documentation map.
+- **Pages:** each page starts with
+  `[← README](../../README.md) · [Docs index](../README.md) · [<Area>](README.md)`, has a table
+  of contents when it is long, and ends with previous / next links in `docs/README.md`'s order.
+  Screenshots are linked as `../screenshots/<name>.png`. Check every relative link and anchor
+  before pushing.
+- **Changelog:** every PR that bumps the version adds its row to the changelog table at the
+  bottom of `README.md` (version, date, what a user gets in plain words, link to the docs
+  page), newest first.
 - **Each feature section** says what it does, how to reach it (keys, menu, Settings, command
   line), what it needs, how the terminal app and the desktop app differ, and its `config.toml`
   keys.

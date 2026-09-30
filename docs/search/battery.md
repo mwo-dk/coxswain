@@ -1,0 +1,72 @@
+[← README](../../README.md) · [Docs index](../README.md) · [Search](README.md)
+
+# Battery
+
+While a laptop runs on its battery, the [search helper](helper.md) does not read files, hash them
+or make vectors: it waits until the mains is back, so search does not drain the battery. Searching
+itself goes on as usual.
+
+<!-- screenshot: search-battery-paused.png: desktop app, Cyber theme, Settings → Search inside files with the status "Searchable: … · still to read: …" and under it in bold "Paused while the machine runs on its battery. Index now reads anyway." -->
+
+## How to use it
+
+Nothing to do. To read anyway, on battery:
+
+1. Open *Settings → Search inside files* (**Ctrl+,**).
+2. Press **Index now**. The helper reads the backlog at full speed, without rests, until it is
+   done, and makes the vectors too.
+
+The terminal app has no Index now; plug in, or use the desktop app's Settings.
+
+## What you see
+
+| Where | What |
+|---|---|
+| *Settings → Search inside files* | In bold under the status: *Paused while the machine runs on its battery. Index now reads anyway.* |
+| *Settings → Search by meaning* | The same line under its status |
+| Find file | The count line's ` · 412 still to read` stops counting down |
+
+The name index, the file watcher and every search work as usual.
+
+## How it knows
+
+Whether the machine is on battery is asked at most every thirty seconds:
+
+| System | Asks |
+|---|---|
+| Linux | `/sys/class/power_supply`: a supply of type `Battery`, and no mains supply `online`; without a mains entry, a battery that is `Discharging` |
+| macOS | `pmset` |
+| Windows | The system's power status |
+
+## Settings and config.toml
+
+None: there is no key to read on battery all the time. **Index now** reads anyway, until the
+backlog is done.
+
+## In the terminal app
+
+The same helper, so the same pause. The terminal app does not show that it is paused; the
+backlog simply waits.
+
+## Questions
+
+#### My desktop PC says it is paused for battery.
+It reports a battery (a UPS can look like one). Press **Index now**, or check what
+`/sys/class/power_supply` lists: a `Battery` with no mains supply `online`.
+
+#### Does search stop working on battery?
+No. Names, text and meaning are all searched as usual. Only reading new and changed files, hashing
+them and making vectors wait.
+
+#### I pressed Index now on battery. Does it stay on?
+Until the backlog is done. After that, new files wait for the mains again.
+
+#### Does the file watcher still follow changes on battery?
+Yes, for names: a new file is found by name within a second. Its text is read once the mains is
+back.
+
+#### Why does it check only every thirty seconds?
+Asking costs a little each time, and a pause that starts half a minute late costs nothing.
+
+---
+[← Previous: The search helper](helper.md) · [Next: Notices and the window title →](notices.md)

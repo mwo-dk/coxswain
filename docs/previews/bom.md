@@ -1,4 +1,4 @@
-[← README](../README.md) · [Docs index](README.md)
+[← README](../../README.md) · [Docs index](../README.md) · [The preview pane](README.md)
 
 # Cryptography bills of materials
 
@@ -8,10 +8,10 @@ Scanners such as [CBOMkit](https://github.com/cbomkit/cbomkit) write them. Coxsw
 as a readable picture instead of a few thousand lines of JSON: which cryptography is weak,
 where it is, and what changed since the last scan. Both apps have it.
 
-![A CBOM of Keycloak in the preview pane: the rated tree by source file, and the reason for the top rating](screenshots/gui-cbom.png)
-![The same CBOM as a sunburst](screenshots/gui-cbom-sunburst.png)
-![The terminal app's BOM viewer, comparing the scan with last month's](screenshots/tui-cbom.png)
-![The terminal app's sunburst, drawn with half blocks](screenshots/tui-cbom-sunburst.png)
+![A CBOM of Keycloak in the preview pane: the rated tree by source file, and the reason for the top rating](../screenshots/gui-cbom.png)
+![The same CBOM as a sunburst](../screenshots/gui-cbom-sunburst.png)
+![The terminal app's BOM viewer, comparing the scan with last month's](../screenshots/tui-cbom.png)
+![The terminal app's sunburst, drawn with half blocks](../screenshots/tui-cbom-sunburst.png)
 
 - [Using it](#using-it)
 - [What the colours mean](#what-the-colours-mean)
@@ -19,6 +19,7 @@ where it is, and what changed since the last scan. Both apps have it.
 - [Comparing two scans](#comparing-two-scans)
 - [Files it reads](#files-it-reads)
 - [Safety and speed](#safety-and-speed)
+- [Settings and config.toml](#settings-and-configtoml)
 - [Questions](#questions)
 
 ## Using it
@@ -140,51 +141,61 @@ above it. A renewed certificate therefore counts as rated better, not as removed
 - A file named in the BOM is only offered when it is inside the BOM's folder: a path that
   climbs out of it is never followed.
 
+## Settings and config.toml
+
+| Where | Key | Default | Does |
+|---|---|---|---|
+| `config.toml`, top level | `bom_viewer` | `true` | The terminal app's **F3** on a BOM opens the BOM viewer; `false` opens the pager as for any file |
+
+The desktop app has no setting for it: the preview pane always shows a BOM, and the
+**Tree / Sunburst / Source** switch remembers your choice. See also
+[Configuration: every key](../reference/configuration.md#top-level-keys).
+
 ## Questions
 
-**Why is an RSA key or an elliptic curve "Unknown", when RSA is fine?**
+#### Why is an RSA key or an elliptic curve "Unknown", when RSA is fine?
 Because the rating depends on a parameter the BOM does not give. RSA-1024 is broken and
 RSA-2048 acceptable, so RSA without a key size cannot be rated honestly, and it is never
 guessed. The details box says what is missing: *RSA: unknown without the key size*. Scanners
 often know it; a newer CBOMkit or a scan with more context may fill it in.
 
-**Why is a whole folder red when almost everything in it is green?**
+#### Why is a whole folder red when almost everything in it is green?
 A folder, file or component shows the **worst** rating beneath it, so one DSA key turns its
 folder, its parents and the root red. Select the folder: the details box says *The worst below
 it is DSA: Disallowed*. In the desktop app, clicking that line selects DSA. In the terminal app,
 press **2** (disallowed) and **h** (hide) to see only what is disallowed, and where it sits.
 
-**Enter (or a click under "Found in") does nothing, or the line says "Not next to this BOM".**
+#### Enter (or a click under "Found in") does nothing, or the line says "Not next to this BOM".
 A BOM names files relative to the repository it scanned. Coxswain looks for them in the BOM's
 own folder, which is where scanners write it (`repo/cbom.json`). A BOM copied elsewhere, or
 from a scan of another checkout, finds nothing there. Paths that would climb out of the BOM's
 folder (`../`) are never followed.
 
-**The compare lists an asset as removed and added again. Why not as changed?**
+#### The compare lists an asset as removed and added again. Why not as changed?
 Assets are matched by what they are and where they sit. When a scan moves an algorithm to
 another file, or learns its key size, it is a different asset by that measure, so the old one
 is *removed* and the new one *added*. What changed only in its rating, such as a renewed
 certificate, is shown as better or worse.
 
-**Can it rate against CNSA 2.0, or show the ratings for 2031?**
+#### Can it rate against CNSA 2.0, or show the ratings for 2031?
 Not yet: both apps rate with the NIST profile for the current year. The catalogue already
 holds CNSA 2.0 and the dates on which ratings change, so a profile and year choice can follow.
 
-**How do I get the old F3 back in the terminal app?**
+#### How do I get the old F3 back in the terminal app?
 In the viewer, **F3** again (or `s`) opens the BOM in your pager, as F3 did before. Quitting
 the pager brings you back to the viewer, and **Esc** to the panels. To make F3 always open the pager, set `bom_viewer = false` in
 `config.toml`.
 
-**Does it read SPDX files, or the vulnerabilities in an SBOM?**
+#### Does it read SPDX files, or the vulnerabilities in an SBOM?
 No. It reads CycloneDX 1.6 and 1.7, JSON and XML. A CycloneDX SBOM without cryptography opens
 with its components, all *not rated*, and a line saying that views for software BOMs are to
 come.
 
-**The terminal app's sunburst is egg-shaped.**
+#### The terminal app's sunburst is egg-shaped.
 It is drawn in half blocks and needs the terminal's cell size to come out round. Terminals that
 report their size in pixels (Alacritty, kitty, WezTerm, foot) get round rings; others are
 assumed to have cells twice as tall as wide.
 
 ---
 
-← [Finding duplicates](duplicates.md) · [Docs index](README.md) · [Languages](languages.md) →
+[← Previous: Data](data.md) · [Next: Media and files →](media.md)
