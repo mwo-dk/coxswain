@@ -111,11 +111,27 @@
     ui.modal = { kind: "input", title, label, value, run };
   }
 
-  async function op(promise, ok) {
+  // What the core says when a file inside an archive is locked (archive::LOCKED).
+  const LOCKED = "locked: a password is needed";
+
+  /** Run `start(password)`; when it meets a locked archive, ask for the password and run it
+   *  again with that. The password lives only in this call. */
+  async function op(start, ok, password = null) {
     try {
-      await promise;
+      await (typeof start === "function" ? start(password) : start);
       ui.status = ok;
     } catch (e) {
+      if (typeof start === "function" && String(e).includes(LOCKED)) {
+        ui.modal = {
+          kind: "input",
+          secret: true,
+          title: t("archive.locked_title"),
+          label: t(password === null ? "archive.locked_label" : "archive.locked_again"),
+          value: "",
+          run: (pw) => op(start, ok, pw),
+        };
+        return;
+      }
       ui.modal = { kind: "message", title: t("dialog.error"), text: String(e) };
     }
     for (const p of ui.panes) for (const t of p.tabs) t.marked.clear();
@@ -127,7 +143,7 @@
     if (!paths.length) return;
     const what = describe(paths);
     prompt(t(isMove ? "dialog.move" : "dialog.copy"), t(isMove ? "dialog.move_to" : "dialog.copy_to", { what }), dest, (d) => {
-      if (d.trim()) op(invoke(isMove ? "rename" : "copy", { paths, base: tab().dir, dest: d }), t(isMove ? "status.moved" : "status.copied", { what }));
+      if (d.trim()) op((password) => invoke(isMove ? "rename" : "copy", { paths, base: tab().dir, dest: d, password }), t(isMove ? "status.moved" : "status.copied", { what }));
     });
   }
 
@@ -136,7 +152,8 @@
     if (!paths.length) return;
     const what = describe(paths);
     const run = () => op(invoke("delete", { paths, forever }), t(forever ? "status.deleted" : "status.trashed", { what }));
-    const text = t(forever ? "confirm.delete_forever" : "confirm.trash", { what });
+    // Inside an archive there is no trash: it is taken out of the archive, which is written anew.
+    const text = tab().archive ? t("confirm.archive_remove", { what, archive: basename(tab().archive) }) : t(forever ? "confirm.delete_forever" : "confirm.trash", { what });
     if (ui.cfg.confirm_delete) ui.modal = { kind: "confirm", title: t("dialog.delete"), text, ok: t(forever ? "common.delete" : "app.move_to_trash"), run };
     else run();
   }
@@ -318,7 +335,16 @@
       if (!paths.length) return void (ui.status = t("app.not_archive"));
       const what = describe(paths);
       prompt(t("app.extract"), t("app.extract_into", { what }), otherTab().dir, (d) => {
-        if (d.trim()) op(invoke("extract", { paths, base: tab().dir, dest: d }), t("app.extracted", { what }));
+        if (d.trim()) op((password) => invoke("extract", { paths, base: tab().dir, dest: d, password }), t("app.extracted", { what }));
+      });
+    },
+    pack: () => {
+      const paths = targets();
+      if (!paths.length) return;
+      const what = describe(paths);
+      const name = paths.length === 1 ? basename(paths[0]).replace(/\.[^.]*$/, "") || basename(paths[0]) : basename(tab().dir) || "archive";
+      prompt(t("archive.pack"), t("archive.pack_into", { what }), `${otherTab().dir}${ui.cfg.sep}${name}.zip`, (d) => {
+        if (d.trim()) op(invoke("pack", { paths, base: tab().dir, dest: d }), t("archive.packed", { what }));
       });
     },
     user_menu: async () => {

@@ -49,6 +49,7 @@
 <section
   class="pane"
   class:active
+  class:in-archive={!!t.archive}
   class:drag-over={ui.dropPane === index}
   data-pane={index}
   aria-label={tr("pane.label", { n: index + 1 })}
@@ -91,8 +92,12 @@
       <div class="crumbs" role="navigation" onclick={(e) => e.target === e.currentTarget && editPath()} title={tr("pane.path_tip")}>
         {#each crumbs(t.dir, ui.cfg.home) as c, i (c.path)}
           {#if i > 0}<span class="sep flip">{"\u{f054}"}</span>{/if}
-          <button class="crumb" onclick={() => cd(t, c.path)}>{c.name}</button>
+          <button class="crumb" class:archive-crumb={c.path === t.archive} onclick={() => cd(t, c.path)}>{c.name}</button>
         {/each}
+        {#if t.archive}
+          <!-- Inside an archive: said, so a copy out is not taken for a copy between folders. -->
+          <span class="archive-badge" title={tr("archive.inside_tip")}>{"\u{f410}"} {tr(t.locked ? "archive.badge_locked" : "archive.badge")}</span>
+        {/if}
       </div>
     {/if}
     <button class="nav" title={ui.dual ? tr("pane.one_pane") : tr("pane.two_panes")} onclick={() => (ui.dual = !ui.dual)}>
@@ -251,6 +256,23 @@
     padding: 0 4px;
     cursor: text;
     white-space: nowrap;
+  }
+  /* Inside an archive the pane is tinted, and the archive's name in the path is marked. */
+  .pane.in-archive {
+    background: color-mix(in srgb, var(--accent-bg) 7%, var(--panel-bg, transparent));
+  }
+  .archive-crumb {
+    color: var(--accent-fg);
+    background: color-mix(in srgb, var(--accent-bg) 60%, transparent);
+  }
+  .archive-badge {
+    margin-inline-start: auto;
+    padding: 0 8px;
+    border-radius: var(--r-pill);
+    font-size: 0.8em;
+    color: var(--accent-fg);
+    background: var(--accent-bg);
+    flex: none;
   }
   .crumb {
     padding: 1px 6px;

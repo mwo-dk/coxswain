@@ -75,8 +75,16 @@ fn is_hidden_attr(_meta: &fs::Metadata) -> bool {
     false
 }
 
-/// List a directory. The first entry is `..` unless `dir` is a root.
+/// List a directory, or a folder inside an archive (`…/tools.zip/bin`). The first entry is
+/// `..` unless `dir` is a root.
 pub fn list(dir: &Path, show_hidden: bool) -> io::Result<Vec<Entry>> {
+    if !dir.is_dir() {
+        if let Some((archive, inner)) = crate::archive::split(dir) {
+            let mut all = crate::archive::list_in(&archive, &inner)?;
+            all.retain(|e| show_hidden || !e.hidden || e.is_parent());
+            return Ok(all);
+        }
+    }
     let mut out = Vec::new();
     if let Some(parent) = dir.parent() {
         out.push(Entry {
@@ -176,6 +184,56 @@ pub fn target(src: &Path, dst: &Path) -> PathBuf {
 
 /// Copy a file, symlink or directory tree. Returns the created path.
 pub fn copy(src: &Path, dst: &Path) -> io::Result<PathBuf> {
+    copy_locked(src, dst, None)
+}
+
+/// The archive and the folder inside it that `dst` names, when it is inside one.
+fn into_archive(dst: &Path) -> Option<(PathBuf, String)> {
+    if dst.is_dir() { None } else { crate::archive::split(dst) }
+}
+
+/// `src` inside an archive, when it is.
+fn out_of_archive(src: &Path) -> Option<(PathBuf, String)> {
+    if src.exists() { None } else { crate::archive::split(src) }
+}
+
+/// A folder of its own under the temp folder, removed when dropped.
+struct Scratch(PathBuf);
+
+impl Scratch {
+    fn new() -> io::Result<Scratch> {
+        static N: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+        let dir = std::env::temp_dir().join(format!("coxswain-archive-{}-{}", std::process::id(), N.fetch_add(1, std::sync::atomic::Ordering::Relaxed)));
+        fs::create_dir_all(&dir)?;
+        Ok(Scratch(dir))
+    }
+}
+
+impl Drop for Scratch {
+    fn drop(&mut self) {
+        let _ = fs::remove_dir_all(&self.0);
+    }
+}
+
+/// `copy`, with the password of the archive `src` is inside, when it is locked. Into an
+/// archive it is added; from one archive to another it goes through a folder of its own.
+pub fn copy_locked(src: &Path, dst: &Path, password: Option<&str>) -> io::Result<PathBuf> {
+    if let Some((archive, inner)) = into_archive(dst) {
+        let name = src.file_name().ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "nothing to copy"))?;
+        let scratch;
+        let from = match out_of_archive(src) {
+            Some((a, i)) => {
+                scratch = Scratch::new()?;
+                crate::archive::copy_out(&a, &i, &scratch.0, password)?
+            }
+            None => src.to_path_buf(),
+        };
+        crate::archive::add(&archive, &inner, &[from])?;
+        return Ok(dst.join(name));
+    }
+    if let Some((archive, inner)) = out_of_archive(src) {
+        return crate::archive::copy_out(&archive, &inner, dst, password);
+    }
     let to = target(src, dst);
     if to.starts_with(src) && src.is_dir() {
         return Err(io::Error::new(io::ErrorKind::InvalidInput, "cannot copy a directory into itself"));
@@ -215,6 +273,35 @@ fn copy_tree(src: &Path, to: &Path) -> io::Result<()> {
 
 /// Move or rename. Falls back to copy + delete across filesystems.
 pub fn rename(src: &Path, dst: &Path) -> io::Result<PathBuf> {
+    rename_locked(src, dst, None)
+}
+
+/// `rename`, with the password of the archive `src` is inside: out of an archive it is copied
+/// out, then taken out of the archive.
+pub fn rename_locked(src: &Path, dst: &Path, password: Option<&str>) -> io::Result<PathBuf> {
+    match (out_of_archive(src), into_archive(dst)) {
+        // Within one archive: renamed there, the folder `dst` names, or a new name.
+        (Some((a, from)), Some((b, to))) if a == b => {
+            let name = src.file_name().unwrap_or_default().to_string_lossy();
+            let to = if crate::archive::is_folder(&a, &to)? { if to.is_empty() { name.to_string() } else { format!("{to}/{name}") } } else { to };
+            crate::archive::rename_in(&a, &from, &to)?;
+            Ok(a.join(to))
+        }
+        (Some((a, from)), _) => {
+            let to = copy_locked(src, dst, password)?;
+            crate::archive::remove(&a, &[from])?;
+            Ok(to)
+        }
+        (None, Some(_)) => {
+            let to = copy_locked(src, dst, password)?;
+            delete(src)?;
+            Ok(to)
+        }
+        (None, None) => rename_plain(src, dst),
+    }
+}
+
+fn rename_plain(src: &Path, dst: &Path) -> io::Result<PathBuf> {
     let to = target(src, dst);
     if to.exists() {
         return Err(io::Error::new(io::ErrorKind::AlreadyExists, format!("{} exists", to.display())));
@@ -226,8 +313,14 @@ pub fn rename(src: &Path, dst: &Path) -> io::Result<PathBuf> {
     Ok(to)
 }
 
-/// Delete a file, symlink (not its target) or directory tree.
+/// Delete a file, symlink (not its target) or directory tree; inside an archive, take it out of
+/// the archive.
 pub fn delete(path: &Path) -> io::Result<()> {
+    if !path.exists() {
+        if let Some((archive, inner)) = crate::archive::split(path) {
+            return crate::archive::remove(&archive, &[inner]);
+        }
+    }
     if fs::symlink_metadata(path)?.is_dir() {
         fs::remove_dir_all(path)
     } else {
@@ -235,8 +328,12 @@ pub fn delete(path: &Path) -> io::Result<()> {
     }
 }
 
-/// Move to the desktop's trash (Recycle Bin on Windows).
+/// Move to the desktop's trash (Recycle Bin on Windows). Inside an archive there is no trash:
+/// it is taken out of the archive, as `delete` does.
 pub fn trash(path: &Path) -> io::Result<()> {
+    if !path.exists() && crate::archive::split(path).is_some() {
+        return delete(path);
+    }
     trash::delete(path).map_err(io::Error::other)
 }
 
@@ -253,6 +350,9 @@ pub fn free_name(dir: &Path, name: &str) -> PathBuf {
 }
 
 pub fn mkdir(path: &Path) -> io::Result<()> {
+    if let Some((archive, inner)) = into_archive(path) {
+        return crate::archive::mkdir(&archive, &inner);
+    }
     fs::create_dir_all(path)
 }
 

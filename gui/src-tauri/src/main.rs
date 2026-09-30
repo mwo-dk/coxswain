@@ -291,6 +291,9 @@ struct Listing {
     dir: PathBuf,
     items: Vec<Item>,
     has_notes: bool,
+    /// The archive the folder is inside, and whether something in it is locked.
+    archive: Option<PathBuf>,
+    locked: bool,
 }
 
 #[tauri::command]
@@ -302,7 +305,9 @@ fn list_dir(dir: PathBuf, show_hidden: bool, sort: SortKey, reverse: bool, ctx: 
         .into_iter()
         .map(|e| Item { icon: icon(&e.name, e.is_dir), tag: st.tags.get(&e.path).cloned(), entry: e })
         .collect();
-    Ok(Listing { has_notes: st.notes.contains_key(&dir), dir, items })
+    let inside = coxswain_core::archive::split(&dir);
+    let locked = inside.as_ref().is_some_and(|(a, i)| coxswain_core::archive::locked_at(a, i).unwrap_or(false));
+    Ok(Listing { has_notes: st.notes.contains_key(&dir), dir, items, archive: inside.map(|(a, _)| a), locked })
 }
 
 #[derive(Serialize)]
@@ -674,17 +679,18 @@ fn each(paths: &[PathBuf], op: impl Fn(&Path) -> std::io::Result<()>) -> Res<()>
 }
 
 #[tauri::command]
-async fn copy(paths: Vec<PathBuf>, base: PathBuf, dest: String, ctx: tauri::State<'_, Ctx>) -> Res<()> {
+async fn copy(paths: Vec<PathBuf>, base: PathBuf, dest: String, password: Option<String>, ctx: tauri::State<'_, Ctx>) -> Res<()> {
     let dst = resolve(&base, &dest);
     ctx.sizer.forget(&dst.join("new"));
-    each(&paths, |p| bfs::copy(p, &dst).map(drop))
+    // The password of a locked archive, held for this copy only.
+    each(&paths, |p| bfs::copy_locked(p, &dst, password.as_deref()).map(drop))
 }
 
 #[tauri::command]
-async fn rename(paths: Vec<PathBuf>, base: PathBuf, dest: String, ctx: tauri::State<'_, Ctx>) -> Res<()> {
+async fn rename(paths: Vec<PathBuf>, base: PathBuf, dest: String, password: Option<String>, ctx: tauri::State<'_, Ctx>) -> Res<()> {
     let dst = resolve(&base, &dest);
     paths.iter().chain([&dst.join("new")]).for_each(|p| ctx.sizer.forget(p));
-    each(&paths, |p| bfs::rename(p, &dst).map(drop))
+    each(&paths, |p| bfs::rename_locked(p, &dst, password.as_deref()).map(drop))
 }
 
 /// To the trash, or gone for good with `forever`.
@@ -794,10 +800,19 @@ async fn archive_list(path: PathBuf) -> Res<ArchiveListing> {
 }
 
 #[tauri::command]
-async fn extract(paths: Vec<PathBuf>, base: PathBuf, dest: String, ctx: tauri::State<'_, Ctx>) -> Res<()> {
+async fn extract(paths: Vec<PathBuf>, base: PathBuf, dest: String, password: Option<String>, ctx: tauri::State<'_, Ctx>) -> Res<()> {
     let dst = resolve(&base, &dest);
     ctx.sizer.forget(&dst.join("new"));
-    each(&paths, |p| coxswain_core::archive::extract(p, &dst).map(drop))
+    each(&paths, |p| coxswain_core::archive::extract_locked(p, &dst, password.as_deref()).map(drop))
+}
+
+/// A new archive at `dest` (zip, tar or tar.gz, by its name) with `paths` in it.
+#[tauri::command]
+async fn pack(paths: Vec<PathBuf>, base: PathBuf, dest: String, ctx: tauri::State<'_, Ctx>) -> Res<PathBuf> {
+    let to = resolve(&base, &dest);
+    ctx.sizer.forget(&to);
+    coxswain_core::archive::create(&to, &paths).map_err(|e| format!("{}: {e}", to.display()))?;
+    Ok(to)
 }
 
 // ---------------------------------------------------------------- properties
@@ -1211,7 +1226,7 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             get_config, notices, dismiss_notice, set_title, index_status, index_action, index_service, meaning_status, meaning_action, meaning_models, meaning_pull, list_dir, git_status, places, disks, get_state, save_session, save_favorites, set_tags, set_note, get_note,
             search, resolve_path, copy, rename, delete, mkdir, dir_sizes, rename_plan, rename_apply, open_path, edit_path,
-            read_text, run_command, scripts, run_script, check_update, archive_list, extract, properties, set_permissions,
+            read_text, run_command, scripts, run_script, check_update, archive_list, extract, pack, properties, set_permissions,
             clip_set, paste, start_drag, watch_dirs, preview::git_diff, preview::sqlite_info, preview::epub_preview,
             preview::file_facts, preview::cert_info, bom::bom_info, bom::bom_node, bom::bom_diff, preview::mail_preview, preview::plist_xml, convert::preview_engines, convert::preview_cache, convert::clear_preview_cache,
             convert::convert, convert::images, convert::pull_image, convert::remove_image, convert::pull_progress, dupes_scan,

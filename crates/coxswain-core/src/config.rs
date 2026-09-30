@@ -210,6 +210,7 @@ actions! {
     Paste = "paste", "Paste", ["Ctrl+V"];
     Properties = "properties", "Properties", ["Alt+Enter"];
     Extract = "extract", "Extract archive", ["Ctrl+E"];
+    Pack = "pack", "Pack into an archive", ["Alt+F5"];
     Columns = "columns", "Columns and folder sizes", [];
     Duplicates = "duplicates", "Find duplicates", ["Ctrl+D"];
     Settings = "settings", "Settings", ["Ctrl+,"];
@@ -222,7 +223,7 @@ impl Action {
         matches!(
             self,
             NewTab | CloseTab | NextTab | PrevTab | TogglePreview | ToggleView | ToggleSidebar | EditPath | BatchRename | Tag | Notes | Back | Forward
-                | ClipCopy | ClipCut | Paste | Properties | Extract | Columns | Duplicates | Settings
+                | ClipCopy | ClipCut | Paste | Properties | Columns | Duplicates | Settings
         )
     }
 }

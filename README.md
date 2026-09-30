@@ -68,7 +68,7 @@ Mac OS 9; see [themes](#themes).*
 | ![Thumbnails and an image preview](docs/screenshots/gui-thumbnails.png) | ![A PDF in the preview pane, next to a git repository](docs/screenshots/gui-pdf.png) |
 | Thumbnails (Alt+V) with the preview pane (Space) | PDFs preview in place; the left pane shows git status |
 | ![The contents of a tar.gz archive in the preview](docs/screenshots/gui-archive.png) | ![Miller columns with a source file in the preview](docs/screenshots/gui-columns.png) |
-| Archives list their contents; Ctrl+E extracts them | Miller columns with the preview pane |
+| Archives open like folders (Enter); F5 / F6 / F8 copy in and out, Ctrl+E extracts, Alt+F5 packs | Miller columns with the preview pane |
 
 ![The preview pane showing Markdown with a Mermaid diagram and math, a Jupyter notebook, a spreadsheet, a Word document and a font](docs/screenshots/gui-previews.png)
 *The preview pane (Space): Markdown with a Mermaid diagram and math, a Jupyter notebook, a
@@ -204,11 +204,22 @@ loaded from disk and kept current while Coxswain runs.
 | Ctrl+T / Ctrl+W | New / close tab | Space | Preview pane (see below) |
 | Ctrl+Tab | Next tab | Alt+V | Details, Miller columns or thumbnails |
 | Ctrl+C / Ctrl+X / Ctrl+V | Copy, cut, paste files (shared with other file managers) | Alt+Enter | Properties and permissions |
-| Alt+Left / Alt+Right | Back / forward | Ctrl+E | Extract a zip or tar archive to the other pane |
+| Alt+Left / Alt+Right | Back / forward | Ctrl+E / Alt+F5 | Extract an archive to the other pane / pack the marked files into a new one |
 | Ctrl+B | Sidebar | Ctrl+D | Find duplicates |
 | Ctrl+, | Settings (language, theme, fonts, ...) | Ctrl+L | Type a path |
 | Ctrl+M | Batch rename with regex, previewed | Alt+T | Color tag |
 | Alt+N | Notes for this folder | Alt+. | Hidden files |
+
+**Archives are folders.** Enter on a `.zip` (or `.jar`, `.apk`, `.whl`, `.nupkg`, `.vsix`), `.tar`,
+`.tar.gz` or `.tgz` opens it like a folder, in both apps: the path shows the archive's name
+marked and the pane is tinted (the terminal app says `[archive]` in the panel title), so a copy
+out is never taken for a copy between folders. F5 copies files and folders out, into another
+folder or into another archive; F5 into an archive adds to it; F6 moves (also within the archive);
+F7 makes a folder inside; F8 takes things out of it (there is no trash inside an archive, so it
+asks first); Alt+F5 packs the marked files into a new `.zip`, `.tar` or `.tar.gz`. A locked zip
+(ZipCrypto or AES) asks for its password when a file in it is needed; the password is used for
+that copy only and never saved. Changing an archive writes it anew next to the old one, which it
+then replaces, so a failure leaves the archive as it was.
 
 **The preview pane** (Space) follows the cursor. At a glance:
 

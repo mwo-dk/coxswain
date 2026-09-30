@@ -30,6 +30,7 @@
  "action.next_tab": "הכרטיסייה הבאה",
  "action.notes": "הערות לתיקייה",
  "action.open": "פתיחה",
+ "action.pack": "אריזה לארכיון",
  "action.page_down": "עמוד למטה",
  "action.page_up": "עמוד למעלה",
  "action.parent": "תיקיית אב",
@@ -84,22 +85,22 @@
  "app.matching": "תואמים:",
  "app.measuring": {
   "one": "מודד תיקייה אחת…",
-  "other": "מודד {n} תיקיות…",
-  "two": "מודד {n} תיקיות…"
+  "two": "מודד {n} תיקיות…",
+  "other": "מודד {n} תיקיות…"
  },
  "app.move_here": "העברה לכאן",
  "app.move_to_trash": "העברה לסל המיחזור",
  "app.moved_items": {
   "one": "פריט אחד הועבר",
-  "other": "{n} פריטים הועברו",
-  "two": "{n} פריטים הועברו"
+  "two": "{n} פריטים הועברו",
+  "other": "{n} פריטים הועברו"
  },
  "app.name_label": "שם:",
  "app.not_archive": "זה לא ארכיון zip או tar",
  "app.pasted_items": {
   "one": "פריט אחד הודבק",
-  "other": "{n} פריטים הודבקו",
-  "two": "{n} פריטים הודבקו"
+  "two": "{n} פריטים הודבקו",
+  "other": "{n} פריטים הודבקו"
  },
  "app.reading_properties": "קריאת מאפיינים…",
  "app.running": "מריץ את {what}…",
@@ -110,6 +111,17 @@
  "app.update_available": "Coxswain {version} זמין",
  "app.update_how": "לשדרוג: {how}. לחיצה תציג את הערות הגרסה.",
  "app.update_releases": "פתיחת דף הגרסאות",
+ "archive.badge": "ארכיון",
+ "archive.badge_locked": "ארכיון, נעול",
+ "archive.copy_out_hint": "{archive} הוא ארכיון: F5 מעתיק את הקובץ הזה החוצה ממנו",
+ "archive.inside_tip": "אתם בתוך ארכיון: F5 מעתיק החוצה, F6 מעביר החוצה, F8 מוציא; מה שמועתק פנימה נוסף",
+ "archive.locked_again": "הסיסמה לא פתחה אותו. נסו שוב:",
+ "archive.locked_label": "הסיסמה שלו (רק לפעולה הזו, לעולם לא נשמרת):",
+ "archive.locked_title": "ארכיון נעול",
+ "archive.pack": "אריזה",
+ "archive.pack_into": "לארוז את {what} אל (‎.zip, ‎.tar או ‎.tar.gz):",
+ "archive.packed": "{what} נארז",
+ "archive.preview_hint": "הקובץ נמצא בתוך {archive}. העתיקו אותו החוצה עם F5 כדי לראות אותו.",
  "bom.advice": "מה לעשות",
  "bom.as_in_file": "כמו בקובץ",
  "bom.assets": {
@@ -253,6 +265,7 @@
  "common.rename": "שינוי שם",
  "common.show": "הצגה",
  "common.try_again": "ניסיון חוזר",
+ "confirm.archive_remove": "להוציא את {what} מ-{archive}? הארכיון נכתב מחדש בלעדיו; אין סל מחזור בתוך ארכיון.",
  "confirm.delete_forever": "למחוק את {what} לצמיתות? לא ניתן לבטל פעולה זו.",
  "confirm.trash": "להעביר את {what} לסל המיחזור?",
  "convert.build_pdf": "בניית PDF",
@@ -302,8 +315,8 @@
  "dialogs.attributes": "תכונות",
  "dialogs.bytes": {
   "one": "(בית אחד)",
-  "other": "({n} בתים)",
-  "two": "({n} בתים)"
+  "two": "({n} בתים)",
+  "other": "({n} בתים)"
  },
  "dialogs.created": "נוצר",
  "dialogs.filter": "הקלדה לסינון…",
@@ -313,8 +326,8 @@
  "dialogs.help_title": "Coxswain {version} · קיצורי מקשים",
  "dialogs.in_files": {
   "one": "בקובץ אחד",
-  "other": "ב־{n} קבצים",
-  "two": "ב־{n} קבצים"
+  "two": "ב־{n} קבצים",
+  "other": "ב־{n} קבצים"
  },
  "dialogs.kind.file": "קובץ",
  "dialogs.kind.folder": "תיקייה",
@@ -337,13 +350,13 @@
  "dialogs.rename_replace": "החלפה ב־",
  "dialogs.rename_title": {
   "one": "שינוי שם קבוצתי לפריט אחד",
-  "other": "שינוי שם קבוצתי ל־{n} פריטים",
-  "two": "שינוי שם קבוצתי ל־{n} פריטים"
+  "two": "שינוי שם קבוצתי ל־{n} פריטים",
+  "other": "שינוי שם קבוצתי ל־{n} פריטים"
  },
  "dialogs.renamed": {
   "one": "שם שונה לפריט אחד",
-  "other": "שם שונה ל־{n} פריטים",
-  "two": "שם שונה ל־{n} פריטים"
+  "two": "שם שונה ל־{n} פריטים",
+  "other": "שם שונה ל־{n} פריטים"
  },
  "dialogs.scope_everywhere": "בכל מקום",
  "dialogs.scope_in": "ב־{folder}",
@@ -354,8 +367,8 @@
  "dialogs.search_tab_hint": "Tab: רק התיקייה הזו, או המילים שבתוך הקבצים שלך.",
  "dialogs.showing_first": {
   "one": "מוצגת התוצאה הראשונה ({n}), יש להקליד עוד כדי לצמצם",
-  "other": "מוצגות {n} התוצאות הראשונות, יש להקליד עוד כדי לצמצם",
-  "two": "מוצגות {n} התוצאות הראשונות, יש להקליד עוד כדי לצמצם"
+  "two": "מוצגות {n} התוצאות הראשונות, יש להקליד עוד כדי לצמצם",
+  "other": "מוצגות {n} התוצאות הראשונות, יש להקליד עוד כדי לצמצם"
  },
  "dialogs.size": "גודל",
  "dialogs.tag_none": "ללא",
@@ -370,34 +383,34 @@
  "dupes.confirm_ok": "העברה לסל המיחזור",
  "dupes.confirm_text": {
   "one": "להעביר עותק אחד ({size}) לסל המיחזור? לפחות עותק אחד מכל קובץ יישאר.",
-  "other": "להעביר {n} עותקים ({size}) לסל המיחזור? לפחות עותק אחד מכל קובץ יישאר.",
-  "two": "להעביר {n} עותקים ({size}) לסל המיחזור? לפחות עותק אחד מכל קובץ יישאר."
+  "two": "להעביר {n} עותקים ({size}) לסל המיחזור? לפחות עותק אחד מכל קובץ יישאר.",
+  "other": "להעביר {n} עותקים ({size}) לסל המיחזור? לפחות עותק אחד מכל קובץ יישאר."
  },
  "dupes.confirm_title": "העברת כפילויות לסל המיחזור",
  "dupes.copies": {
   "one": "עותק אחד",
-  "other": "{n} עותקים",
-  "two": "{n} עותקים"
+  "two": "{n} עותקים",
+  "other": "{n} עותקים"
  },
  "dupes.each": "{size} כל אחד",
  "dupes.each_files": {
   "one": "{size} כל אחד, קובץ אחד",
-  "other": "{size} כל אחד, {n} קבצים",
-  "two": "{size} כל אחד, {n} קבצים"
+  "two": "{size} כל אחד, {n} קבצים",
+  "other": "{size} כל אחד, {n} קבצים"
  },
  "dupes.extra": "{size} מיותרים",
  "dupes.folders": "חיפוש תיקיות כפולות",
  "dupes.freeable": "אפשר לפנות {size}",
  "dupes.groups": {
   "one": "קבוצת כפילויות אחת",
-  "other": "{n} קבוצות כפילויות",
-  "two": "{n} קבוצות כפילויות"
+  "two": "{n} קבוצות כפילויות",
+  "other": "{n} קבוצות כפילויות"
  },
  "dupes.hidden": "כולל קבצים מוסתרים",
  "dupes.identical_folders": {
   "one": "תיקייה זהה אחת",
-  "other": "{n} תיקיות זהות",
-  "two": "{n} תיקיות זהות"
+  "two": "{n} תיקיות זהות",
+  "other": "{n} תיקיות זהות"
  },
  "dupes.keep_newest": "סימון הכול מלבד החדש ביותר",
  "dupes.keep_oldest": "סימון הכול מלבד הישן ביותר",
@@ -407,8 +420,8 @@
  "dupes.mark_tip": "סימון להעברה לסל המיחזור",
  "dupes.marked": {
   "one": "{n} מסומן · {size} לפינוי",
-  "other": "{n} מסומנים · {size} לפינוי",
-  "two": "{n} מסומנים · {size} לפינוי"
+  "two": "{n} מסומנים · {size} לפינוי",
+  "other": "{n} מסומנים · {size} לפינוי"
  },
  "dupes.min_size": "התעלמות מקבצים קטנים מ־",
  "dupes.none": "לא נמצאו כפילויות.",
@@ -418,20 +431,20 @@
  "dupes.phase.whole": "השוואת קבצים שלמים",
  "dupes.progress": {
   "one": "{phase} · נמצא קובץ אחד · נקראו {size}",
-  "other": "{phase} · נמצאו {n} קבצים · נקראו {size}",
-  "two": "{phase} · נמצאו {n} קבצים · נקראו {size}"
+  "two": "{phase} · נמצאו {n} קבצים · נקראו {size}",
+  "other": "{phase} · נמצאו {n} קבצים · נקראו {size}"
  },
  "dupes.progress_counted": {
   "one": "{phase} · {done} מתוך {total} · נמצא קובץ אחד · נקראו {size}",
-  "other": "{phase} · {done} מתוך {total} · נמצאו {n} קבצים · נקראו {size}",
-  "two": "{phase} · {done} מתוך {total} · נמצאו {n} קבצים · נקראו {size}"
+  "two": "{phase} · {done} מתוך {total} · נמצאו {n} קבצים · נקראו {size}",
+  "other": "{phase} · {done} מתוך {total} · נמצאו {n} קבצים · נקראו {size}"
  },
  "dupes.scan": "סריקה",
  "dupes.scan_again": "סריקה חוזרת",
  "dupes.scanned": {
   "one": "נסרק קובץ אחד ({size}) ב־{s} שנ׳, נקראו {read}",
-  "other": "נסרקו {n} קבצים ({size}) ב־{s} שנ׳, נקראו {read}",
-  "two": "נסרקו {n} קבצים ({size}) ב־{s} שנ׳, נקראו {read}"
+  "two": "נסרקו {n} קבצים ({size}) ב־{s} שנ׳, נקראו {read}",
+  "other": "נסרקו {n} קבצים ({size}) ב־{s} שנ׳, נקראו {read}"
  },
  "dupes.show_tip": "הצגה בלוח",
  "dupes.title": "כפילויות",
@@ -439,8 +452,8 @@
  "dupes.trash_marked": "העברת המסומנים לסל המיחזור",
  "dupes.trashed": {
   "one": "כפילות אחת הועברה לסל המיחזור",
-  "other": "{n} כפילויות הועברו לסל המיחזור",
-  "two": "{n} כפילויות הועברו לסל המיחזור"
+  "two": "{n} כפילויות הועברו לסל המיחזור",
+  "other": "{n} כפילויות הועברו לסל המיחזור"
  },
  "err.bom.invalid_json": "קובץ זה אינו JSON תקין (שורה {line}): {message}",
  "err.bom.invalid_xml": "קובץ זה אינו XML תקין (שורה {line}): {message}",
@@ -483,8 +496,8 @@
  "facts.camera": "מצלמה",
  "facts.channels": {
   "one": "ערוץ אחד",
-  "other": "{n} ערוצים",
-  "two": "{n} ערוצים"
+  "two": "{n} ערוצים",
+  "other": "{n} ערוצים"
  },
  "facts.dos": "DOS",
  "facts.elf": "Linux/Unix ELF {bits} סיביות",
@@ -522,8 +535,8 @@
  "help.title": "עזרה",
  "items": {
   "one": "פריט אחד",
-  "other": "{n} פריטים",
-  "two": "{n} פריטים"
+  "two": "{n} פריטים",
+  "other": "{n} פריטים"
  },
  "menu.commands": "פקודות",
  "notice.meaning": "חדש: חיפוש לפי משמעות מוצא קבצים שעוסקים במילים שלכם, בכל שפה. הפעלה",
@@ -542,8 +555,8 @@
  "pane.path_tip": "לחיצה על שטח ריק או Ctrl+L להקלדת נתיב",
  "pane.selected": {
   "one": "{n} נבחר ({size})",
-  "other": "{n} נבחרו ({size})",
-  "two": "{n} נבחרו ({size})"
+  "two": "{n} נבחרו ({size})",
+  "other": "{n} נבחרו ({size})"
  },
  "pane.two_panes": "שני לוחות (Ctrl+O)",
  "pane.up": "למעלה (Backspace)",
@@ -558,13 +571,13 @@
  "place.videos": "סרטונים",
  "preview.archive": {
   "one": "רשומה אחת · Ctrl+E מחלץ ללוח השני",
-  "other": "{n} רשומות · Ctrl+E מחלץ ללוח השני",
-  "two": "{n} רשומות · Ctrl+E מחלץ ללוח השני"
+  "two": "{n} רשומות · Ctrl+E מחלץ ללוח השני",
+  "other": "{n} רשומות · Ctrl+E מחלץ ללוח השני"
  },
  "preview.archive_more": {
   "one": "{n}+ רשומות · Ctrl+E מחלץ ללוח השני",
-  "other": "{n}+ רשומות · Ctrl+E מחלץ ללוח השני",
-  "two": "{n}+ רשומות · Ctrl+E מחלץ ללוח השני"
+  "two": "{n}+ רשומות · Ctrl+E מחלץ ללוח השני",
+  "other": "{n}+ רשומות · Ctrl+E מחלץ ללוח השני"
  },
  "preview.attachments": "קבצים מצורפים",
  "preview.back": "חזרה לתצוגה המקדימה",
@@ -575,8 +588,8 @@
  "preview.column": "עמודה",
  "preview.columns": {
   "one": "עמודה אחת",
-  "other": "{n} עמודות",
-  "two": "{n} עמודות"
+  "two": "{n} עמודות",
+  "other": "{n} עמודות"
  },
  "preview.command_output": "פלט הפקודה",
  "preview.contents": "תוכן",
@@ -588,32 +601,32 @@
  "preview.exact_coming": "מוצג מיד; העיבוד המדויק עם {engine} בדרך…",
  "preview.expired_ago": {
   "one": "פג לפני יום אחד",
-  "other": "פג לפני {n} ימים",
-  "two": "פג לפני {n} ימים"
+  "two": "פג לפני {n} ימים",
+  "other": "פג לפני {n} ימים"
  },
  "preview.expires": "תפוגה",
  "preview.expires_in": {
   "one": "בעוד יום אחד",
-  "other": "בעוד {n} ימים",
-  "two": "בעוד {n} ימים"
+  "two": "בעוד {n} ימים",
+  "other": "בעוד {n} ימים"
  },
  "preview.file": "קובץ",
  "preview.files": {
   "one": "קובץ אחד",
-  "other": "{n} קבצים",
-  "two": "{n} קבצים"
+  "two": "{n} קבצים",
+  "other": "{n} קבצים"
  },
  "preview.files_here": "קבצים כאן",
  "preview.first_rows": {
   "one": "מוצגת השורה הראשונה ({n})",
-  "other": "מוצגות {n} השורות הראשונות",
-  "two": "מוצגות {n} השורות הראשונות"
+  "two": "מוצגות {n} השורות הראשונות",
+  "other": "מוצגות {n} השורות הראשונות"
  },
  "preview.folder": "תיקייה",
  "preview.folders": {
   "one": "תיקייה אחת",
-  "other": "{n} תיקיות",
-  "two": "{n} תיקיות"
+  "two": "{n} תיקיות",
+  "other": "{n} תיקיות"
  },
  "preview.font_sample1": "דג סקרן שט בים מאוכזב ולפתע מצא חברה",
  "preview.font_sample2": "עטלף אבק נס דרך מזגן שהתפוצץ כי חם",
@@ -623,8 +636,8 @@
  "preview.issuer": "מנפיק",
  "preview.more": {
   "one": "… ועוד {n}",
-  "other": "… ועוד {n}",
-  "two": "… ועוד {n}"
+  "two": "… ועוד {n}",
+  "other": "… ועוד {n}"
  },
  "preview.names": "שמות",
  "preview.newest": "החדש ביותר",
@@ -645,8 +658,8 @@
  "preview.repetition": "חזרה",
  "preview.rows": {
   "one": "שורה אחת",
-  "other": "{n} שורות",
-  "two": "{n} שורות"
+  "two": "{n} שורות",
+  "other": "{n} שורות"
  },
  "preview.schema": "סכמה",
  "preview.serial": "מספר סידורי",
@@ -673,13 +686,13 @@
  "search.in": "ב־{dir}: ",
  "search.indexed": {
   "one": "קובץ אחד באינדקס",
-  "other": "{n} קבצים באינדקס",
-  "two": "{n} קבצים באינדקס"
+  "two": "{n} קבצים באינדקס",
+  "other": "{n} קבצים באינדקס"
  },
  "search.matches": {
   "one": "התאמה אחת ב־{ms} אלפ׳ שנ׳",
-  "other": "{n} התאמות ב־{ms} אלפ׳ שנ׳",
-  "two": "{n} התאמות ב־{ms} אלפ׳ שנ׳"
+  "two": "{n} התאמות ב־{ms} אלפ׳ שנ׳",
+  "other": "{n} התאמות ב־{ms} אלפ׳ שנ׳"
  },
  "search.reading": " · נותרו {n} לקריאה",
  "search.refreshing": " · מרענן אינדקס",
@@ -845,8 +858,8 @@
  "tui.select": "בחירה",
  "tui.selected": {
   "one": "{size} ב־{n} נבחר",
-  "other": "{size} ב־{n} נבחרים",
-  "two": "{size} ב־{n} נבחרים"
+  "two": "{size} ב־{n} נבחרים",
+  "other": "{size} ב־{n} נבחרים"
  },
  "tui.subdir": "SUB-DIR",
  "tui.unselect": "ביטול בחירה",
