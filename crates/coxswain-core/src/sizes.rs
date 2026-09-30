@@ -16,8 +16,8 @@ use crate::helper::Client;
 use rayon::prelude::*;
 
 /// How long a measured size is believed.
-// ponytail: a change deep inside a folder goes unnoticed for this long, and in the store until
-// its next walk; following the file watcher's events would make both seconds.
+// ponytail: outside the store's folders, a change deep inside a folder goes unnoticed for this
+// long; the store itself follows the file watcher.
 const FRESH: Duration = Duration::from_secs(300);
 
 /// Bytes and number of files.

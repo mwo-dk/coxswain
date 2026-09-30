@@ -136,15 +136,22 @@ impl Store {
         rows.collect()
     }
 
-    /// What one walk found, in one transaction: files gone lose their row, text and hash;
-    /// new or changed files wait to be read again; the folders left out get their totals.
-    fn walked(&self, gone: &[&String], changed: &[(String, u64, i64)], skipped: &[(String, Size)]) -> rusqlite::Result<()> {
+    /// What a walk found, in one transaction: rows at and below each of `gone` go, with their
+    /// text and hashes; new or changed files wait to be read again; the folders left out get
+    /// their totals. `all` is a walk of every root, which knows every folder left out.
+    fn apply(&self, gone: &[String], changed: &[(String, u64, i64)], skipped: &[(String, Size)], all: bool) -> rusqlite::Result<()> {
         let mut db = self.db.lock().unwrap();
         let tx = db.transaction()?;
+        if all {
+            tx.execute("DELETE FROM skipped", [])?;
+        }
         for path in gone {
-            tx.execute("DELETE FROM text WHERE rowid = (SELECT id FROM files WHERE path = ?1)", [path])?;
-            tx.execute("DELETE FROM files WHERE path = ?1", [path])?;
-            tx.execute("DELETE FROM hashes WHERE path = ?1", [path])?;
+            let (from, to) = below(path);
+            let at = "(path = ?1 OR (path > ?2 AND path < ?3))";
+            tx.execute(&format!("DELETE FROM text WHERE rowid IN (SELECT id FROM files WHERE {at})"), [path, &from, &to])?;
+            for table in ["files", "hashes", "skipped"] {
+                tx.execute(&format!("DELETE FROM {table} WHERE {at}"), [path, &from, &to])?;
+            }
         }
         for (path, size, modified) in changed {
             tx.execute("DELETE FROM text WHERE rowid = (SELECT id FROM files WHERE path = ?1)", [path])?;
@@ -154,11 +161,23 @@ impl Store {
                 params![path, *size as i64, modified],
             )?;
         }
-        tx.execute("DELETE FROM skipped", [])?;
         for (path, (bytes, files)) in skipped {
-            tx.execute("INSERT INTO skipped(path, bytes, files) VALUES (?1, ?2, ?3)", params![path, *bytes as i64, *files as i64])?;
+            tx.execute("INSERT OR REPLACE INTO skipped(path, bytes, files) VALUES (?1, ?2, ?3)", params![path, *bytes as i64, *files as i64])?;
         }
         tx.commit()
+    }
+
+    /// The size and date the store has for this file.
+    fn row(&self, path: &str) -> Option<(u64, i64)> {
+        self.db.lock().unwrap().query_row("SELECT size, modified FROM files WHERE path = ?1", [path], |r| Ok((r.get::<_, i64>(0)? as u64, r.get(1)?))).ok()
+    }
+
+    /// Whether the store has anything below this folder, or has it as a folder left out.
+    fn has(&self, dir: &str) -> bool {
+        let (from, to) = below(dir);
+        let db = self.db.lock().unwrap();
+        db.query_row("SELECT 1 FROM files WHERE path > ?1 AND path < ?2 LIMIT 1", [&from, &to], |_| Ok(())).is_ok()
+            || db.query_row("SELECT 1 FROM skipped WHERE path = ?1 OR (path > ?2 AND path < ?3) LIMIT 1", [dir, &from, &to], |_| Ok(())).is_ok()
     }
 
     /// Files still to be read: (id, path, size).
@@ -245,58 +264,70 @@ fn roots(cfg: &SearchConfig) -> Vec<PathBuf> {
     if cfg.text_roots.is_empty() { std::env::home_dir().into_iter().collect() } else { cfg.text_roots.clone() }
 }
 
-/// Bring the store up to date with the disk, once. Reads and hashes at half speed, one file
-/// at a time, so the machine stays the user's. Stops early when `stop` is set.
-pub fn scan(store: &Store, cfg: &SearchConfig, stop: &AtomicBool) -> rusqlite::Result<()> {
-    let began = std::time::SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |d| d.as_secs());
-    let known = store.known()?;
-    let mut seen: HashSet<String> = HashSet::new();
-    let (mut changed, mut skipped) = (vec![], vec![]);
+fn now() -> u64 {
+    std::time::SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |d| d.as_secs())
+}
+
+/// Hidden folders, folders a tool made and can make again, and folders holding `.nosearch`.
+fn left_out(dir: &Path, cfg: &SearchConfig) -> bool {
+    let name = dir.file_name().map(|n| n.to_string_lossy()).unwrap_or_default();
+    name.starts_with('.') || cfg.text_exclude.iter().any(|x| *x == name) || dir.join(".nosearch").exists()
+}
+
+/// What a walk of some folders found.
+#[derive(Default)]
+struct Walk {
+    /// Files that differ from what the store knew.
+    changed: Vec<(String, u64, i64)>,
+    /// Folders left out, with their totals.
+    skipped: Vec<(String, Size)>,
+    /// Every file.
+    seen: HashSet<String>,
+}
+
+/// Walk `dirs` and everything below them. `None` when `stop` was set meanwhile.
+fn walk(dirs: Vec<PathBuf>, cfg: &SearchConfig, known: &Known, stop: &AtomicBool) -> Option<Walk> {
+    let mut found = Walk::default();
     // Folders left out are only measured, one thread, like the rest of the scan.
     let slow = rayon::ThreadPoolBuilder::new().num_threads(1).build().expect("a thread");
-    let roots = roots(cfg);
-    let mut stack = roots.clone();
+    let mut stack = dirs;
     while let Some(dir) = stack.pop() {
         if stop.load(Ordering::Relaxed) {
-            return Ok(());
+            return None;
         }
         for entry in std::fs::read_dir(&dir).into_iter().flatten().flatten() {
-            let name = entry.file_name();
-            let name = name.to_string_lossy();
             let (Ok(kind), path) = (entry.file_type(), entry.path()) else { continue };
             if kind.is_dir() {
-                // Hidden folders, and folders a tool made and can make again.
-                if !name.starts_with('.') && !cfg.text_exclude.iter().any(|x| *x == name) && !path.join(".nosearch").exists() {
+                if !left_out(&path, cfg) {
                     stack.push(path);
                 } else if let (Some(text), Some(size)) = (path.to_str(), slow.install(|| crate::sizes::walk(&path, stop))) {
-                    skipped.push((text.to_string(), size));
+                    found.skipped.push((text.to_string(), size));
                 }
                 continue;
             }
             let (true, Some(text), Ok(meta)) = (kind.is_file(), path.to_str(), entry.metadata()) else { continue };
             let modified = secs(&meta);
             if known.get(text).is_none_or(|k| *k != (meta.len(), modified)) {
-                changed.push((text.to_string(), meta.len(), modified));
+                found.changed.push((text.to_string(), meta.len(), modified));
             }
-            seen.insert(text.to_string());
+            found.seen.insert(text.to_string());
         }
     }
-    let gone: Vec<&String> = known.keys().filter(|path| !seen.contains(*path)).collect();
-    store.walked(&gone, &changed, &skipped)?;
-    *store.walked.lock().unwrap() = Some((roots, began));
+    Some(found)
+}
 
-    let unread = store.unread()?;
-    store.pending.store(unread.len(), Ordering::Relaxed);
-    for batch in unread.chunks(200) {
-        let start = Instant::now();
-        let rows: Vec<_> = batch.iter().map(|(id, path, size)| (*id, crate::extract::text_of(Path::new(path), *size, cfg.text_max_size))).collect();
-        store.read(&rows)?;
-        store.pending.fetch_sub(batch.len(), Ordering::Relaxed);
-        if stop.load(Ordering::Relaxed) {
-            return Ok(());
-        }
-        // As long a rest as the work took.
-        std::thread::sleep(start.elapsed().min(Duration::from_secs(2)));
+/// Bring the store up to date with the disk, once. Reads and hashes at half speed, one file
+/// at a time, so the machine stays the user's. Stops early when `stop` is set.
+pub fn scan(store: &Store, cfg: &SearchConfig, stop: &AtomicBool) -> rusqlite::Result<()> {
+    let began = now();
+    let known = store.known()?;
+    let roots = roots(cfg);
+    let Some(found) = walk(roots.clone(), cfg, &known, stop) else { return Ok(()) };
+    let gone: Vec<String> = known.into_keys().filter(|path| !found.seen.contains(path)).collect();
+    store.apply(&gone, &found.changed, &found.skipped, true)?;
+    *store.walked.lock().unwrap() = Some((roots, began));
+    if read(store, cfg, stop)? {
+        return Ok(());
     }
 
     store.prune_hashes()?;
@@ -312,17 +343,125 @@ pub fn scan(store: &Store, cfg: &SearchConfig, stop: &AtomicBool) -> rusqlite::R
     Ok(())
 }
 
-/// Keep the store current until `stop`: a scan, then one every ten minutes.
-// ponytail: a change shows up in searches within ten minutes; following the file watcher's
-// events, as the name index does, makes it seconds.
-pub fn keep_current(store: &Store, cfg: &SearchConfig, stop: &AtomicBool) {
-    while !stop.load(Ordering::Relaxed) {
-        if let Err(e) = scan(store, cfg, stop) {
+/// Read the text of the files waiting for it. `true` when stopped.
+fn read(store: &Store, cfg: &SearchConfig, stop: &AtomicBool) -> rusqlite::Result<bool> {
+    let unread = store.unread()?;
+    store.pending.store(unread.len(), Ordering::Relaxed);
+    for batch in unread.chunks(200) {
+        let start = Instant::now();
+        let rows: Vec<_> = batch.iter().map(|(id, path, size)| (*id, crate::extract::text_of(Path::new(path), *size, cfg.text_max_size))).collect();
+        store.read(&rows)?;
+        store.pending.fetch_sub(batch.len(), Ordering::Relaxed);
+        if stop.load(Ordering::Relaxed) {
+            return Ok(true);
+        }
+        // As long a rest as the work took.
+        std::thread::sleep(start.elapsed().min(Duration::from_secs(2)));
+    }
+    Ok(false)
+}
+
+/// The store's sizes are as of now.
+fn walked_now(store: &Store, began: u64) {
+    if let Some((_, at)) = store.walked.lock().unwrap().as_mut() {
+        *at = began;
+    }
+}
+
+/// Follow what the file watcher saw at `paths`: files that changed, came or went, and folders
+/// that came. A change inside a folder left out only puts that folder in `later`, as measuring
+/// one takes a while: `measure` does it. Nothing happens before a first scan has finished.
+pub fn refresh(store: &Store, cfg: &SearchConfig, paths: &HashSet<PathBuf>, later: &mut HashSet<PathBuf>, stop: &AtomicBool) -> rusqlite::Result<()> {
+    let Some((roots, _)) = store.walked.lock().unwrap().clone() else { return Ok(()) };
+    let began = now();
+    let (mut gone, mut changed, mut new) = (vec![], vec![], vec![]);
+    for path in paths {
+        let Some(text) = key(path) else { continue };
+        let path = PathBuf::from(&text);
+        let Some(root) = roots.iter().find(|r| path.starts_with(r) && path != **r) else { continue };
+        // The topmost folder left out on the way down, this one included if it is a folder.
+        let mut down: Vec<&Path> = path.ancestors().take_while(|a| a != root).collect();
+        down.reverse();
+        let is_dir = path.is_dir();
+        if let Some(out) = down.iter().find(|a| (**a != path || is_dir) && left_out(a, cfg)) {
+            later.insert(out.to_path_buf());
+            continue;
+        }
+        // A `.nosearch` that came or went changes what its folder is.
+        if path.file_name().is_some_and(|n| n == ".nosearch") {
+            later.extend(path.parent().map(Path::to_path_buf));
+        }
+        match std::fs::symlink_metadata(&path) {
+            Err(_) => gone.push(text),
+            Ok(meta) if meta.is_file() => {
+                let now = (meta.len(), secs(&meta));
+                if store.row(&text) != Some(now) {
+                    changed.push((text, now.0, now.1));
+                }
+            }
+            // A folder that came, or was moved in: its files have not been seen.
+            Ok(meta) if meta.is_dir() && !store.has(&text) => new.push(path),
+            Ok(_) => {}
+        }
+    }
+    let Some(found) = walk(new, cfg, &Known::default(), stop) else { return Ok(()) };
+    changed.extend(found.changed);
+    store.apply(&gone, &changed, &found.skipped, false)?;
+    walked_now(store, began);
+    read(store, cfg, stop).map(|_| ())
+}
+
+/// Measure the folders in `later` again, and take them from it: folders left out that
+/// changed, and folders that stopped or started being left out.
+pub fn measure(store: &Store, cfg: &SearchConfig, later: &mut HashSet<PathBuf>, stop: &AtomicBool) -> rusqlite::Result<()> {
+    let began = now();
+    let (mut gone, mut skipped, mut again) = (vec![], vec![], vec![]);
+    for dir in later.drain() {
+        let Some(text) = key(&dir) else { continue };
+        gone.push(text.clone());
+        if !dir.is_dir() {
+            continue;
+        }
+        if !left_out(&dir, cfg) {
+            again.push(dir);
+        } else if let Some(size) = crate::sizes::walk(&dir, stop) {
+            skipped.push((text, size));
+        }
+    }
+    let Some(found) = walk(again, cfg, &Known::default(), stop) else { return Ok(()) };
+    skipped.extend(found.skipped);
+    store.apply(&gone, &found.changed, &skipped, false)?;
+    walked_now(store, began);
+    read(store, cfg, stop).map(|_| ())
+}
+
+/// Keep the store current until `stop`: a scan, then the watcher's `changes` within seconds
+/// (inside folders left out within a minute), and a scan every ten minutes for what the
+/// watcher missed.
+pub fn keep_current(store: &Store, cfg: &SearchConfig, stop: &AtomicBool, changes: Option<std::sync::mpsc::Receiver<Vec<PathBuf>>>) {
+    let report = |r: rusqlite::Result<()>| {
+        if let Err(e) = r {
             eprintln!("coxswain: search store: {e}");
         }
-        let rest = Instant::now();
+    };
+    while !stop.load(Ordering::Relaxed) {
+        report(scan(store, cfg, stop));
+        let (rest, mut refreshed, mut measured) = (Instant::now(), Instant::now(), Instant::now());
+        let (mut now, mut later) = (HashSet::new(), HashSet::new());
         while rest.elapsed() < Duration::from_secs(600) && !stop.load(Ordering::Relaxed) {
-            std::thread::sleep(Duration::from_millis(200));
+            match changes.as_ref().map(|c| c.recv_timeout(Duration::from_millis(200))) {
+                Some(Ok(paths)) => now.extend(paths),
+                Some(Err(std::sync::mpsc::RecvTimeoutError::Timeout)) => {}
+                _ => std::thread::sleep(Duration::from_millis(200)),
+            }
+            if !now.is_empty() && refreshed.elapsed() > Duration::from_secs(2) {
+                report(refresh(store, cfg, &std::mem::take(&mut now), &mut later, stop));
+                refreshed = Instant::now();
+            }
+            if !later.is_empty() && measured.elapsed() > Duration::from_secs(60) {
+                report(measure(store, cfg, &mut later, stop));
+                measured = Instant::now();
+            }
         }
     }
 }
@@ -392,6 +531,55 @@ mod tests {
         drop(store);
         Connection::open(d.join("search.db")).unwrap().pragma_update(None, "user_version", VERSION + 1).unwrap();
         assert_eq!(Store::open(&d.join("search.db")).unwrap().texts(), 0);
+        std::fs::remove_dir_all(d).unwrap();
+    }
+
+    #[test]
+    fn store_follows_the_watcher() {
+        let d = std::env::temp_dir().join(format!("coxswain-store-watch-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        let home = d.join("home");
+        for sub in ["docs", "node_modules"] {
+            std::fs::create_dir_all(home.join(sub)).unwrap();
+        }
+        let write = |name: &str, text: &[u8]| std::fs::write(home.join(name), text).unwrap();
+        write("docs/plan.txt", b"launch window in march\n");
+        write("node_modules/a.js", b"x");
+        let cfg = SearchConfig { text_roots: vec![home.clone()], ..SearchConfig::default() };
+        let (store, go) = (Store::open(&d.join("search.db")).unwrap(), AtomicBool::new(false));
+        scan(&store, &cfg, &go).unwrap();
+        let names = |q: &str| store.search(q, 10).hits.iter().map(|h| h.path.file_name().unwrap().to_string_lossy().into_owned()).collect::<Vec<_>>();
+        let size = |p: &Path| store.size(p).map(|s| s.0);
+        let mut later = HashSet::new();
+        let saw = |paths: &[PathBuf], later: &mut HashSet<PathBuf>| refresh(&store, &cfg, &paths.iter().cloned().collect(), later, &go).unwrap();
+
+        // A file comes, one goes, a folder is moved in.
+        write("docs/budget.txt", b"fuel for march\n");
+        std::fs::remove_file(home.join("docs/plan.txt")).unwrap();
+        std::fs::create_dir_all(d.join("elsewhere/deep")).unwrap();
+        std::fs::write(d.join("elsewhere/deep/orbit.txt"), b"orbit\n").unwrap();
+        std::fs::rename(d.join("elsewhere"), home.join("moved")).unwrap();
+        saw(&[home.join("docs/budget.txt"), home.join("docs/plan.txt"), home.join("moved")], &mut later);
+        assert_eq!((names("march"), names("orbit")), (vec!["budget.txt".to_string()], vec!["orbit.txt".to_string()]));
+        assert_eq!(size(&home), Some(crate::fs::dir_size(&home)));
+        assert!(later.is_empty());
+
+        // Inside a folder left out, and a folder that becomes one: measured later.
+        write("node_modules/b.js", b"yy");
+        write("moved/.nosearch", b"");
+        saw(&[home.join("node_modules/b.js"), home.join("moved/.nosearch")], &mut later);
+        assert_eq!(later, [home.join("node_modules"), home.join("moved")].into_iter().collect());
+        measure(&store, &cfg, &mut later, &go).unwrap();
+        assert_eq!(size(&home.join("node_modules")), Some((3, 2)));
+        assert_eq!(names("orbit"), [""; 0], "a .nosearch folder loses its text");
+        assert_eq!(size(&home), Some(crate::fs::dir_size(&home)));
+
+        // A folder removed.
+        std::fs::remove_dir_all(home.join("docs")).unwrap();
+        saw(&[home.join("docs")], &mut later);
+        assert_eq!(names("fuel"), [""; 0]);
+        assert_eq!(size(&home), Some(crate::fs::dir_size(&home)));
+        drop(store);
         std::fs::remove_dir_all(d).unwrap();
     }
 }

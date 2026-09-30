@@ -203,25 +203,29 @@ pub fn scan(opts: &Options, p: &Progress) -> Report {
     }
     let candidates: Vec<Vec<Found>> = by_size.into_values().filter(|v| v.len() > 1).collect();
 
+    // Groups whose every file the store has hashed are not read at all.
+    let store = Store::path().and_then(|path| Store::open(&path).ok());
+    let _ = Store::path().map(|path| fs::remove_file(path.with_file_name("dupes-hashes.json")));
+    let stored = |f: &Found| store.as_ref().and_then(|s| s.hash(&f.path, f.size, f.modified));
+    let (mut candidates, unknown): (Vec<_>, Vec<_>) = candidates.into_iter().partition(|g| g.iter().all(|f| stored(f).is_some()));
+
     // Head hashes (skipped for files that fit in the head: their full hash comes next anyway).
     p.phase.store(1, Ordering::Relaxed);
-    p.total.store(candidates.iter().map(|g| g.len() as u64).sum(), Ordering::Relaxed);
+    p.total.store(unknown.iter().map(|g| g.len() as u64).sum(), Ordering::Relaxed);
     p.done.store(0, Ordering::Relaxed);
-    let candidates = split(candidates, |f| {
+    candidates.extend(split(unknown, |f| {
         p.done.fetch_add(1, Ordering::Relaxed);
         if f.size as usize <= HEAD { Some(*blake3::hash(&[]).as_bytes()) } else { hash_file(&f.path, Some(HEAD), &p.cancel, Some(&p.bytes)).ok().map(|h| *h.as_bytes()) }
-    });
+    }));
 
     // Full hashes, from the store where the file has not changed.
     p.phase.store(2, Ordering::Relaxed);
     p.total.store(candidates.iter().map(|g| g.len() as u64).sum(), Ordering::Relaxed);
     p.done.store(0, Ordering::Relaxed);
-    let store = Store::path().and_then(|path| Store::open(&path).ok());
-    let _ = Store::path().map(|path| fs::remove_file(path.with_file_name("dupes-hashes.json")));
     let (new, hashes) = (std::sync::Mutex::new(vec![]), std::sync::Mutex::new(HashMap::new()));
     let full = split(candidates, |f| {
         p.done.fetch_add(1, Ordering::Relaxed);
-        let h = match store.as_ref().and_then(|s| s.hash(&f.path, f.size, f.modified)) {
+        let h = match stored(f) {
             Some(h) => h,
             None => {
                 let h = hash_file(&f.path, None, &p.cancel, Some(&p.bytes)).ok()?.to_hex().to_string();

@@ -124,7 +124,8 @@ pub fn serve_in(dir: &Path, linger: Duration, index: impl FnOnce() -> Arc<Servic
     let stop = Arc::new(AtomicBool::new(false));
     let store = texts.map(|(store, cfg)| {
         let (s, stop) = (store.clone(), stop.clone());
-        std::thread::spawn(move || store::keep_current(&s, &cfg, &stop));
+        let changes = index.changes();
+        std::thread::spawn(move || store::keep_current(&s, &cfg, &stop, Some(changes)));
         store
     });
     let (clients, quit, last) = (Arc::new(AtomicUsize::new(0)), Arc::new(AtomicBool::new(false)), Arc::new(Mutex::new(Instant::now())));
