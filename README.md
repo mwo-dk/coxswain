@@ -329,7 +329,7 @@ of one, so `rocket bud` finds "rocket budget".
 |---|---|
 | **What is read** | Your home folder: text, code, Markdown, logs, configuration and any other file that is plain text, and the [documents](#documents-it-reads) below, up to 20 MB each |
 | **What is left out** | Hidden folders, `node_modules`, `target`, `build`, `dist`, `out`, `vendor`, `__pycache__` and the trash; any folder holding a file named `.nosearch`; pictures, video, archives and other files without text |
-| **When** | In the background, one file at a time and at half speed, by the [helper](#how-search-stays-fast). A change shows up in searches within ten minutes |
+| **When** | In the background, one file at a time and at half speed, by the [helper](#how-search-stays-fast). It follows the file watcher, so a change shows up in searches within seconds |
 | **Also kept** | Every file's size and date, the total of each folder left out, so folder sizes are a sum; and the hash of files that share a size, for Duplicates |
 | **Where it is kept** | `search.db` in Coxswain's cache folder, readable by you alone. Nothing leaves your machine. Delete the file to start afresh |
 | **Switching it off** | `text = false` under `[search]` in `config.toml` |
