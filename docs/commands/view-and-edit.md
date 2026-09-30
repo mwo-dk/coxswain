@@ -62,6 +62,10 @@ needs it: `hx '/home/demo/My notes.txt'`. So arguments work (`editor = "code --w
 The desktop app has no terminal to lend, which is why its **F3** is the preview pane and its
 **F4** wants a windowed editor. Both apps read the same `editor` key.
 
+One exception: **F3** on a CycloneDX BOM opens the terminal app's own
+[BOM viewer](../previews/bom.md); **F3** (or `s`) there shows the source in your pager, and
+`bom_viewer = false` makes F3 open the pager straight away.
+
 ## Questions
 
 #### F4 in the desktop app does nothing, though `editor = "hx"` works in the terminal app.

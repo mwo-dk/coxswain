@@ -57,9 +57,9 @@ The questions people ask most, with a short answer and a link to the full one. E
 - **The LaTeX container never starts by itself.** Its 5 GB image is not pulled yet, and a pull waits for a click on Build PDF or Pull. [Answer](previews/containers.md#the-latex-container-never-starts-by-itself)
 - **Why does a file inside an archive have no preview?** It is not on disk; copy it out with F5 and preview the copy. [Answer](previews/media.md#why-does-a-file-inside-an-archive-have-no-preview)
 - **Why does a video not play?** The webview lacks the codec; on Linux install the GStreamer plugins. [Answer](previews/media.md#why-does-a-video-not-play)
+- **How do I get the old F3 back for a BOM in the terminal app?** Press F3 (or `s`) again in the viewer, or set `bom_viewer = false`. [Answer](previews/bom.md#how-do-i-get-the-old-f3-back-in-the-terminal-app)
 
 ## Files
-
 - **How do I get one file out of a zip without unpacking all of it?** Press Enter on the zip, go to the file and press F5: only that file is copied out. [Answer](files/archives.md#how-do-i-get-one-file-out-of-a-zip-without-unpacking-all-of-it)
 - **Is it safe to change an archive?** Yes: it is written anew into a `.coxswain-tmp` file next to it and only then renamed over the old one; a failure leaves it as it was. [Answer](files/archives.md#is-it-safe-to-change-an-archive-what-if-the-power-goes-off)
 - **Does Coxswain save my archive passwords?** No: a password lives in the running app's memory until it closes and is never written to disk. [Answer](files/archive-passwords.md#does-coxswain-save-my-archive-passwords)

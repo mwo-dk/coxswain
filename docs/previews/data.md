@@ -94,4 +94,4 @@ Snappy, Gzip, Zstd, Brotli and LZ4 are all read in the app; nothing to install.
 No, previews only read. Open the file with **Enter** in its program.
 
 ---
-[← Previous: PowerPoint and Office](office.md) · [Next: Media and files →](media.md)
+[← Previous: PowerPoint and Office](office.md) · [Next: Cryptography bills of materials →](bom.md)

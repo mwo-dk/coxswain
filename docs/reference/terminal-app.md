@@ -46,6 +46,7 @@ Every flag: [Command-line flags](command-line-flags.md#the-terminal-app-coxswain
 | Two panels, NC's keys, marking, groups, sorting, quick search, hidden files, go to folder, swap, other panel here | [Panels and keys](../panels/README.md) |
 | The command line (with `cd`) and the user menu (**F2**) | [The command line](../commands/command-line.md), [The user menu](../commands/user-menu.md) |
 | View (**F3**) and edit (**F4**) in your own programs | [View and edit](../commands/view-and-edit.md) |
+| A viewer for CycloneDX cryptography BOMs (**F3** on one): the rated tree, a half-block sunburst, filters and compare | [Cryptography bills of materials](../previews/bom.md) |
 | Copy (**F5**), move and rename (**F6**), new folder (**F7**), delete to the trash (**F8**) or for good (**Shift+F8**) | [Files](../files/README.md) |
 | Archives as folders: look inside, copy and move in and out, take out, extract (**Ctrl+E**), pack (**Alt+F5**), passwords | [Archives in the terminal app](#archives-in-the-terminal-app) |
 | Find file (**Alt+F7**, **Ctrl+F**) at all three depths: names everywhere, names here, text (with meaning) | [Find file](../search/find-file.md) |

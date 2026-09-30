@@ -1,5 +1,6 @@
 //! Coxswain TUI: two panels, a command line and a function-key bar, Norton Commander style.
 
+mod bom;
 mod ui;
 
 use coxswain_core::{t, tn};
@@ -175,6 +176,8 @@ pub enum Dialog {
     Menu { title: String, filter: String, items: Vec<MenuItem>, cursor: usize, direct: bool },
     Help { scroll: u16 },
     Message { title: String, text: String },
+    /// A CycloneDX BOM, full screen (F3 on one).
+    Bom(Box<bom::Viewer>),
 }
 
 /// Work that needs the real terminal, done by the main loop.
@@ -567,6 +570,13 @@ impl App {
             }
             Action::View | Action::Edit => {
                 if let Some(e) = self.panel().current().filter(|e| !e.is_dir).map(|e| e.path.clone()) {
+                    if a == Action::View && self.cfg.bom_viewer && coxswain_core::bom::sniff(&e) {
+                        match bom::Viewer::open(&e) {
+                            Ok(v) => return self.dialog = Some(Dialog::Bom(Box::new(v))),
+                            // Not readable as a BOM after all: the pager shows it as it is.
+                            Err(err) => self.status = Some(err.to_string()),
+                        }
+                    }
                     self.view_or_edit(a, &e);
                 }
             }
@@ -970,6 +980,27 @@ impl App {
                 _ => {}
             },
             Dialog::Message { .. } => {}
+            Dialog::Bom(mut v) => match v.key(key, action == Some(Action::Quit)) {
+                bom::Outcome::Stay => self.dialog = Some(Dialog::Bom(v)),
+                bom::Outcome::Close => {}
+                bom::Outcome::Source => {
+                    self.view_or_edit(Action::View, &v.path.clone());
+                    self.dialog = Some(Dialog::Bom(v));
+                }
+                bom::Outcome::Reveal(file) => {
+                    if let (Some(dir), Some(name)) = (file.parent(), file.file_name()) {
+                        self.cd(self.active, dir.to_path_buf());
+                        self.panel_mut().select_name(&name.to_string_lossy());
+                    }
+                }
+                bom::Outcome::Compare => {
+                    match self.panels[self.active ^ 1].current().filter(|e| !e.is_dir && e.path != v.path) {
+                        Some(e) => v.compare(&e.path.clone()),
+                        None => v.cannot_compare(t!("tui.bom.no_other")),
+                    }
+                    self.dialog = Some(Dialog::Bom(v));
+                }
+            },
         }
     }
 

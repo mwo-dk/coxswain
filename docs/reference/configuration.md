@@ -58,6 +58,7 @@ An unknown top-level or table key (a typo such as `show_hiden = false`) is ignor
 | `folder_sizes` | bool | `true` | Measure folders in the background. The desktop app starts from it, then keeps its own switch ([Folder sizes](../panels/folder-sizes.md)) | Both |
 | `editor` | string | none | The program for **F4**. Terminal app: else `$VISUAL`, `$EDITOR`, `vi` (`notepad` on Windows). Desktop app: else the default application ([View and edit](../commands/view-and-edit.md)) | Both |
 | `viewer` | string | none | The terminal app's **F3**; else `$PAGER`, `less` (`more` on Windows) | Terminal |
+| `bom_viewer` | bool | `true` | **F3** on a CycloneDX BOM opens the BOM viewer; `false` opens the pager ([Cryptography bills of materials](../previews/bom.md)) | Terminal |
 | `confirm_delete` | bool | `true` | Ask before moving to the trash, deleting, or taking something out of an archive | Both |
 | `check_updates` | bool | `true` | Look for a newer release once a day ([Update checks](updates.md)) | Both |
 

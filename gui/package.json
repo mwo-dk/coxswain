@@ -6,7 +6,8 @@
     "dev": "vite",
     "build": "vite build",
     "check": "svelte-check",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "test": "node --test \"src/**/*.test.js\""
   },
   "dependencies": {
     "@asciidoctor/core": "^4.1.0",

@@ -18,6 +18,7 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use tauri::{Emitter, Manager};
 
+mod bom;
 mod convert;
 mod preview;
 
@@ -1235,7 +1236,7 @@ fn main() {
             search, resolve_path, copy, rename, delete, mkdir, dir_sizes, rename_plan, rename_apply, open_path, edit_path,
             read_text, run_command, scripts, run_script, check_update, archive_list, extract, pack, archive_password, properties, set_permissions,
             clip_set, paste, start_drag, watch_dirs, preview::git_diff, preview::sqlite_info, preview::epub_preview,
-            preview::file_facts, preview::cert_info, preview::mail_preview, preview::plist_xml, convert::preview_engines, convert::preview_cache, convert::clear_preview_cache,
+            preview::file_facts, preview::cert_info, bom::bom_info, bom::bom_node, bom::bom_diff, preview::mail_preview, preview::plist_xml, convert::preview_engines, convert::preview_cache, convert::clear_preview_cache,
             convert::convert, convert::images, convert::pull_image, convert::remove_image, convert::pull_progress, dupes_scan,
             dupes_progress, dupes_cancel, save_settings
         ])

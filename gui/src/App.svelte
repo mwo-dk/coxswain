@@ -11,6 +11,7 @@
   import Splitter from "./Splitter.svelte";
   import Dialogs from "./Dialogs.svelte";
   import Duplicates from "./Duplicates.svelte";
+  import BomView from "./BomView.svelte";
   import Settings from "./Settings.svelte";
 
   let dialogs = $state();
@@ -431,6 +432,8 @@
     // Typing in notes, the path bar or another field: leave it alone, except that Esc
     // leaves the field and function keys keep working (otherwise F3/F8 seem dead).
     const field = e.target.closest?.("textarea, input:not(.cmd)");
+    // The BOM tree has keys of its own; what it leaves (function keys, Tab) still works here.
+    if (e.target.closest?.(".bom-keys") && !/^F\d+$/.test(k)) return;
     // Copy/cut/paste of text in the command line stays native.
     if (["clip_copy", "clip_cut", "paste"].includes(ui.cfg.keymap[k]) && e.target.closest?.(".cmd") && ui.cmd) return;
     if (field && k === "Esc") return field.blur();
@@ -566,6 +569,7 @@
 
 <Dialogs bind:this={dialogs} />
 {#if ui.modal?.kind === "dupes"}<Duplicates />{/if}
+{#if ui.modal?.kind === "bom"}<BomView path={ui.modal.path} full />{/if}
 {#if ui.modal?.kind === "settings"}<Settings />{/if}
 
 <style>

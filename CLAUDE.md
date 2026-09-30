@@ -30,7 +30,7 @@ These rules hold for every contributor and every Claude session in this reposito
   embeds `gui/dist` (default feature `custom-protocol`). `npx tauri dev -- --no-default-features`
   for the live dev server; without that flag dev loads `dist` too.
 - **Check before pushing:** `cargo test --workspace`, and for GUI changes
-  `cd gui && npx svelte-check && npm run build`.
+  `cd gui && npx svelte-check && npm test && npm run build`.
 - **The terminal app ships as a static musl binary.** A dependency that compiles C must build
   for `x86_64-unknown-linux-musl` too; CI checks it. Prefer pure-Rust crates.
 

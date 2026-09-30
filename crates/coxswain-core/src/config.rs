@@ -859,6 +859,9 @@ pub struct Config {
     /// Overrides `$EDITOR` / `$PAGER`.
     pub editor: Option<String>,
     pub viewer: Option<String>,
+    /// F3 on a CycloneDX BOM opens the terminal app's BOM viewer (F3 again shows the source).
+    /// Off, F3 opens it in the viewer like any file.
+    pub bom_viewer: bool,
     pub confirm_delete: bool,
     /// Look for a newer release on GitHub at startup (at most once a day).
     pub check_updates: bool,
@@ -882,6 +885,7 @@ impl Default for Config {
             folder_sizes: true,
             editor: None,
             viewer: None,
+            bom_viewer: true,
             confirm_delete: true,
             check_updates: true,
             keys: BTreeMap::new(),

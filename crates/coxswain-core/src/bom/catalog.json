@@ -1,0 +1,1571 @@
+{
+ "catalogVersion": "0.1.0",
+ "lastReviewed": null,
+ "defaultProfile": "nist",
+ "profiles": {
+  "nist": {
+   "id": "nist",
+   "name": "NIST",
+   "sources": {
+    "sp800-131a": "NIST SP 800-131A Rev. 2, Transitioning the Use of Cryptographic Algorithms and Key Lengths (2019)",
+    "sp800-57": "NIST SP 800-57 Part 1 Rev. 5, Recommendation for Key Management (2020)",
+    "ir8547": "NIST IR 8547 (ipd), Transition to Post-Quantum Cryptography Standards (Nov 2024)",
+    "fips203": "FIPS 203, ML-KEM (Aug 2024)",
+    "fips204": "FIPS 204, ML-DSA (Aug 2024)",
+    "fips205": "FIPS 205, SLH-DSA (Aug 2024)",
+    "sp800-208": "NIST SP 800-208, Stateful Hash-Based Signature Schemes (2020)",
+    "fips186-5": "FIPS 186-5, Digital Signature Standard (Feb 2023)",
+    "sha1-retire": "NIST announcement: SHA-1 to be retired by 31 Dec 2030 (Dec 2022)"
+   },
+   "milestones": [
+    2030,
+    2035
+   ]
+  },
+  "cnsa2": {
+   "id": "cnsa2",
+   "name": "NSA CNSA 2.0",
+   "sources": {
+    "cnsa2": "NSA, Announcing the Commercial National Security Algorithm Suite 2.0 (Sep 2022, updated)"
+   },
+   "milestones": [
+    2027,
+    2030,
+    2033,
+    2035
+   ]
+  }
+ },
+ "algorithms": [
+  {
+   "id": "md5",
+   "name": "MD5",
+   "family": "hash",
+   "aliases": [
+    "MD5"
+   ],
+   "oids": {
+    "1.2.840.113549.2.5": {}
+   },
+   "quantumVulnerable": false,
+   "rules": {
+    "*": [
+     {
+      "timeline": [
+       {
+        "from": 0,
+        "status": "broken"
+       }
+      ],
+      "source": {
+       "text": "Practical collisions since 2004"
+      }
+     }
+    ]
+   },
+   "remediation": [
+    {
+     "summary": "Replace MD5 with SHA-256 (or SHA-384 under CNSA 2.0).",
+     "detail": "If MD5 is used for password storage, use a password hash such as Argon2id, scrypt or bcrypt instead, never a plain digest.",
+     "replaceWith": [
+      "sha2"
+     ],
+     "source": {
+      "ref": "sp800-131a",
+      "text": "NIST SP 800-131A Rev. 2, Transitioning the Use of Cryptographic Algorithms and Key Lengths (2019)"
+     }
+    }
+   ]
+  },
+  {
+   "id": "sha1",
+   "name": "SHA-1",
+   "family": "hash",
+   "aliases": [
+    "SHA1",
+    "SHA-1",
+    "SHA"
+   ],
+   "oids": {
+    "1.3.14.3.2.26": {}
+   },
+   "quantumVulnerable": false,
+   "rules": {
+    "nist": [
+     {
+      "timeline": [
+       {
+        "from": 0,
+        "status": "deprecated"
+       },
+       {
+        "from": 2031,
+        "status": "disallowed"
+       }
+      ],
+      "source": {
+       "ref": "sha1-retire",
+       "text": "NIST announcement: SHA-1 to be retired by 31 Dec 2030 (Dec 2022)"
+      },
+      "note": "Already disallowed for digital signature generation (SP 800-131A)."
+     }
+    ],
+    "cnsa2": [
+     {
+      "timeline": [
+       {
+        "from": 0,
+        "status": "disallowed"
+       }
+      ],
+      "source": {
+       "ref": "cnsa2",
+       "text": "NSA, Announcing the Commercial National Security Algorithm Suite 2.0 (Sep 2022, updated)"
+      }
+     }
+    ]
+   },
+   "remediation": [
+    {
+     "summary": "Replace SHA-1 with SHA-256 or stronger.",
+     "detail": "Reissue any certificate or signature that uses SHA-1. HMAC-SHA1 is lower risk but should still be migrated before 2031.",
+     "replaceWith": [
+      "sha2"
+     ],
+     "source": {
+      "ref": "sha1-retire",
+      "text": "NIST announcement: SHA-1 to be retired by 31 Dec 2030 (Dec 2022)"
+     }
+    },
+    {
+     "summary": "Under CNSA 2.0, use SHA-384 or SHA-512.",
+     "profiles": [
+      "cnsa2"
+     ],
+     "replaceWith": [
+      "sha2"
+     ],
+     "source": {
+      "ref": "cnsa2",
+      "text": "NSA, Announcing the Commercial National Security Algorithm Suite 2.0 (Sep 2022, updated)"
+     }
+    }
+   ]
+  },
+  {
+   "id": "sha2",
+   "name": "SHA-2",
+   "family": "hash",
+   "aliases": [
+    "SHA-224",
+    "SHA-256",
+    "SHA-384",
+    "SHA-512",
+    "SHA224",
+    "SHA256",
+    "SHA384",
+    "SHA512",
+    "SHA-512/256",
+    "SHA-512/224"
+   ],
+   "oids": {
+    "2.16.840.1.101.3.4.2.4": {
+     "paramSet": "224"
+    },
+    "2.16.840.1.101.3.4.2.1": {
+     "paramSet": "256"
+    },
+    "2.16.840.1.101.3.4.2.2": {
+     "paramSet": "384"
+    },
+    "2.16.840.1.101.3.4.2.3": {
+     "paramSet": "512"
+    }
+   },
+   "quantumVulnerable": false,
+   "rules": {
+    "nist": [
+     {
+      "when": {
+       "paramSet": {
+        "in": [
+         "224",
+         "512/224"
+        ]
+       }
+      },
+      "timeline": [
+       {
+        "from": 0,
+        "status": "acceptable"
+       },
+       {
+        "from": 2031,
+        "status": "disallowed"
+       }
+      ],
+      "source": {
+       "ref": "sp800-57",
+       "text": "NIST SP 800-57 Part 1 Rev. 5, Recommendation for Key Management (2020)"
+      },
+      "note": "112-bit security strength acceptable through 2030."
+     },
+     {
+      "timeline": [
+       {
+        "from": 0,
+        "status": "acceptable"
+       }
+      ],
+      "source": {
+       "ref": "sp800-131a",
+       "text": "NIST SP 800-131A Rev. 2, Transitioning the Use of Cryptographic Algorithms and Key Lengths (2019)"
+      }
+     }
+    ],
+    "cnsa2": [
+     {
+      "when": {
+       "paramSet": {
+        "in": [
+         "384",
+         "512"
+        ]
+       }
+      },
+      "timeline": [
+       {
+        "from": 0,
+        "status": "acceptable"
+       }
+      ],
+      "source": {
+       "ref": "cnsa2",
+       "text": "NSA, Announcing the Commercial National Security Algorithm Suite 2.0 (Sep 2022, updated)"
+      }
+     },
+     {
+      "timeline": [
+       {
+        "from": 0,
+        "status": "disallowed"
+       }
+      ],
+      "source": {
+       "ref": "cnsa2",
+       "text": "NSA, Announcing the Commercial National Security Algorithm Suite 2.0 (Sep 2022, updated)"
+      }
+     }
+    ]
+   },
+   "remediation": [
+    {
+     "summary": "Move from SHA-224 to SHA-256 or stronger before 2031.",
+     "when": {
+      "paramSet": {
+       "in": [
+        "224",
+        "512/224"
+       ]
+      }
+     },
+     "replaceWith": [
+      "sha2"
+     ],
+     "source": {
+      "ref": "sp800-57",
+      "text": "NIST SP 800-57 Part 1 Rev. 5, Recommendation for Key Management (2020)"
+     }
+    },
+    {
+     "summary": "Under CNSA 2.0, use SHA-384 or SHA-512.",
+     "profiles": [
+      "cnsa2"
+     ],
+     "replaceWith": [
+      "sha2"
+     ],
+     "source": {
+      "ref": "cnsa2",
+      "text": "NSA, Announcing the Commercial National Security Algorithm Suite 2.0 (Sep 2022, updated)"
+     }
+    }
+   ]
+  },
+  {
+   "id": "sha3",
+   "name": "SHA-3",
+   "family": "hash",
+   "aliases": [
+    "SHA3-224",
+    "SHA3-256",
+    "SHA3-384",
+    "SHA3-512",
+    "SHAKE128",
+    "SHAKE256"
+   ],
+   "oids": {
+    "2.16.840.1.101.3.4.2.7": {
+     "paramSet": "224"
+    },
+    "2.16.840.1.101.3.4.2.8": {
+     "paramSet": "256"
+    },
+    "2.16.840.1.101.3.4.2.9": {
+     "paramSet": "384"
+    },
+    "2.16.840.1.101.3.4.2.10": {
+     "paramSet": "512"
+    }
+   },
+   "quantumVulnerable": false,
+   "rules": {
+    "nist": [
+     {
+      "timeline": [
+       {
+        "from": 0,
+        "status": "acceptable"
+       }
+      ],
+      "source": {
+       "ref": "sp800-131a",
+       "text": "NIST SP 800-131A Rev. 2, Transitioning the Use of Cryptographic Algorithms and Key Lengths (2019)"
+      }
+     }
+    ],
+    "cnsa2": [
+     {
+      "timeline": [
+       {
+        "from": 0,
+        "status": "disallowed"
+       }
+      ],
+      "source": {
+       "ref": "cnsa2",
+       "text": "NSA, Announcing the Commercial National Security Algorithm Suite 2.0 (Sep 2022, updated)"
+      },
+      "note": "CNSA 2.0 hashing is SHA-384/512; SHA-3 permitted only in specific uses."
+     }
+    ]
+   },
+   "remediation": [
+    {
+     "summary": "Under CNSA 2.0, use SHA-384 or SHA-512 for general hashing.",
+     "profiles": [
+      "cnsa2"
+     ],
+     "replaceWith": [
+      "sha2"
+     ],
+     "source": {
+      "ref": "cnsa2",
+      "text": "NSA, Announcing the Commercial National Security Algorithm Suite 2.0 (Sep 2022, updated)"
+     }
+    }
+   ]
+  },
+  {
+   "id": "hmac",
+   "name": "HMAC",
+   "family": "mac",
+   "aliases": [
+    "HMAC",
+    "HMAC-SHA1",
+    "HMAC-SHA256",
+    "HMAC-SHA384",
+    "HMAC-SHA512",
+    "HMACSHA2"
+   ],
+   "oids": {
+    "1.2.840.113549.2.7": {
+     "paramSet": "160"
+    },
+    "1.2.840.113549.2.9": {
+     "paramSet": "256"
+    },
+    "1.2.840.113549.2.10": {
+     "paramSet": "384"
+    },
+    "1.2.840.113549.2.11": {
+     "paramSet": "512"
+    }
+   },
+   "quantumVulnerable": false,
+   "rules": {
+    "nist": [
+     {
+      "timeline": [
+       {
+        "from": 0,
+        "status": "acceptable"
+       }
+      ],
+      "source": {
+       "ref": "sp800-131a",
+       "text": "NIST SP 800-131A Rev. 2, Transitioning the Use of Cryptographic Algorithms and Key Lengths (2019)"
+      },
+      "note": "HMAC-SHA-1 remains acceptable for HMAC use."
+     }
+    ],
+    "cnsa2": [
+     {
+      "when": {
+       "paramSet": {
+        "in": [
+         "384",
+         "512"
+        ]
+       }
+      },
+      "timeline": [
+       {
+        "from": 0,
+        "status": "acceptable"
+       }
+      ],
+      "source": {
+       "ref": "cnsa2",
+       "text": "NSA, Announcing the Commercial National Security Algorithm Suite 2.0 (Sep 2022, updated)"
+      }
+     },
+     {
+      "timeline": [
+       {
+        "from": 0,
+        "status": "disallowed"
+       }
+      ],
+      "source": {
+       "ref": "cnsa2",
+       "text": "NSA, Announcing the Commercial National Security Algorithm Suite 2.0 (Sep 2022, updated)"
+      }
+     }
+    ]
+   },
+   "remediation": [
+    {
+     "summary": "Under CNSA 2.0, use HMAC-SHA-384 or HMAC-SHA-512.",
+     "profiles": [
+      "cnsa2"
+     ],
+     "replaceWith": [
+      "hmac"
+     ],
+     "source": {
+      "ref": "cnsa2",
+      "text": "NSA, Announcing the Commercial National Security Algorithm Suite 2.0 (Sep 2022, updated)"
+     }
+    }
+   ]
+  },
+  {
+   "id": "des",
+   "name": "DES",
+   "family": "symmetric",
+   "aliases": [
+    "DES",
+    "DES-CBC",
+    "DES-ECB"
+   ],
+   "oids": {},
+   "quantumVulnerable": false,
+   "rules": {
+    "*": [
+     {
+      "timeline": [
+       {
+        "from": 0,
+        "status": "broken"
+       }
+      ],
+      "source": {
+       "text": "56-bit key; exhaustive search is practical"
+      }
+     }
+    ]
+   },
+   "remediation": [
+    {
+     "summary": "Replace DES with AES-256 in an authenticated mode (GCM).",
+     "detail": "Data protected with DES must be treated as exposed. Re-encrypt it rather than only changing the algorithm going forward.",
+     "replaceWith": [
+      "aes"
+     ],
+     "source": {
+      "ref": "sp800-131a",
+      "text": "NIST SP 800-131A Rev. 2, Transitioning the Use of Cryptographic Algorithms and Key Lengths (2019)"
+     }
+    }
+   ]
+  },
+  {
+   "id": "3des",
+   "name": "Triple DES",
+   "family": "symmetric",
+   "aliases": [
+    "3DES",
+    "TDEA",
+    "TDES",
+    "DESede",
+    "DES-EDE3",
+    "DES-EDE3-CBC",
+    "Triple-DES"
+   ],
+   "oids": {
+    "1.2.840.113549.3.7": {}
+   },
+   "quantumVulnerable": false,
+   "rules": {
+    "nist": [
+     {
+      "timeline": [
+       {
+        "from": 0,
+        "status": "disallowed"
+       }
+      ],
+      "source": {
+       "ref": "sp800-131a",
+       "text": "NIST SP 800-131A Rev. 2, Transitioning the Use of Cryptographic Algorithms and Key Lengths (2019)"
+      },
+      "note": "Encryption disallowed after 2023; legacy decryption only."
+     }
+    ],
+    "*": [
+     {
+      "timeline": [
+       {
+        "from": 0,
+        "status": "disallowed"
+       }
+      ],
+      "source": {
+       "ref": "sp800-131a",
+       "text": "NIST SP 800-131A Rev. 2, Transitioning the Use of Cryptographic Algorithms and Key Lengths (2019)"
+      }
+     }
+    ]
+   },
+   "remediation": [
+    {
+     "summary": "Replace 3DES with AES-256-GCM.",
+     "detail": "Keep 3DES only to decrypt legacy data during migration. 64-bit blocks are vulnerable to Sweet32-style attacks.",
+     "replaceWith": [
+      "aes"
+     ],
+     "source": {
+      "ref": "sp800-131a",
+      "text": "NIST SP 800-131A Rev. 2, Transitioning the Use of Cryptographic Algorithms and Key Lengths (2019)"
+     }
+    }
+   ]
+  },
+  {
+   "id": "rc4",
+   "name": "RC4",
+   "family": "symmetric",
+   "aliases": [
+    "RC4",
+    "ARC4",
+    "ARCFOUR"
+   ],
+   "oids": {
+    "1.2.840.113549.3.4": {}
+   },
+   "quantumVulnerable": false,
+   "rules": {
+    "*": [
+     {
+      "timeline": [
+       {
+        "from": 0,
+        "status": "broken"
+       }
+      ],
+      "source": {
+       "text": "RFC 7465: prohibited in TLS"
+      }
+     }
+    ]
+   },
+   "remediation": [
+    {
+     "summary": "Remove RC4; use AES-GCM or ChaCha20-Poly1305.",
+     "detail": "In TLS, disable all RC4 cipher suites and prefer TLS 1.3.",
+     "replaceWith": [
+      "aes",
+      "chacha20-poly1305"
+     ],
+     "source": {
+      "text": "RFC 7465"
+     }
+    }
+   ]
+  },
+  {
+   "id": "aes",
+   "name": "AES",
+   "family": "symmetric",
+   "aliases": [
+    "AES",
+    "AES-128",
+    "AES-192",
+    "AES-256",
+    "AES128",
+    "AES192",
+    "AES256",
+    "Rijndael"
+   ],
+   "oids": {},
+   "quantumVulnerable": false,
+   "rules": {
+    "nist": [
+     {
+      "timeline": [
+       {
+        "from": 0,
+        "status": "acceptable"
+       }
+      ],
+      "source": {
+       "ref": "sp800-131a",
+       "text": "NIST SP 800-131A Rev. 2, Transitioning the Use of Cryptographic Algorithms and Key Lengths (2019)"
+      }
+     }
+    ],
+    "cnsa2": [
+     {
+      "when": {
+       "keyBits": {
+        "gte": 256
+       }
+      },
+      "timeline": [
+       {
+        "from": 0,
+        "status": "acceptable"
+       }
+      ],
+      "source": {
+       "ref": "cnsa2",
+       "text": "NSA, Announcing the Commercial National Security Algorithm Suite 2.0 (Sep 2022, updated)"
+      }
+     },
+     {
+      "timeline": [
+       {
+        "from": 0,
+        "status": "disallowed"
+       }
+      ],
+      "source": {
+       "ref": "cnsa2",
+       "text": "NSA, Announcing the Commercial National Security Algorithm Suite 2.0 (Sep 2022, updated)"
+      }
+     }
+    ]
+   },
+   "remediation": [
+    {
+     "summary": "Under CNSA 2.0, use AES-256.",
+     "when": {
+      "keyBits": {
+       "lt": 256
+      }
+     },
+     "profiles": [
+      "cnsa2"
+     ],
+     "replaceWith": [
+      "aes"
+     ],
+     "source": {
+      "ref": "cnsa2",
+      "text": "NSA, Announcing the Commercial National Security Algorithm Suite 2.0 (Sep 2022, updated)"
+     }
+    }
+   ]
+  },
+  {
+   "id": "chacha20-poly1305",
+   "name": "ChaCha20-Poly1305",
+   "family": "symmetric",
+   "aliases": [
+    "ChaCha20-Poly1305",
+    "CHACHA20_POLY1305",
+    "ChaCha20"
+   ],
+   "oids": {},
+   "quantumVulnerable": false,
+   "fipsApproved": false,
+   "rules": {
+    "nist": [
+     {
+      "timeline": [
+       {
+        "from": 0,
+        "status": "acceptable"
+       }
+      ],
+      "source": {
+       "text": "RFC 8439"
+      },
+      "note": "Strong, but not FIPS-approved."
+     }
+    ],
+    "cnsa2": [
+     {
+      "timeline": [
+       {
+        "from": 0,
+        "status": "disallowed"
+       }
+      ],
+      "source": {
+       "ref": "cnsa2",
+       "text": "NSA, Announcing the Commercial National Security Algorithm Suite 2.0 (Sep 2022, updated)"
+      }
+     }
+    ]
+   },
+   "remediation": [
+    {
+     "summary": "Under CNSA 2.0 or FIPS requirements, use AES-256-GCM.",
+     "profiles": [
+      "cnsa2"
+     ],
+     "replaceWith": [
+      "aes"
+     ],
+     "source": {
+      "ref": "cnsa2",
+      "text": "NSA, Announcing the Commercial National Security Algorithm Suite 2.0 (Sep 2022, updated)"
+     }
+    }
+   ]
+  },
+  {
+   "id": "rsa",
+   "name": "RSA",
+   "family": "asymmetric",
+   "aliases": [
+    "RSA",
+    "RSA-OAEP",
+    "RSAES-OAEP",
+    "RSASSA-PSS",
+    "RSASSA-PKCS1-v1_5",
+    "RSAES-PKCS1-v1_5"
+   ],
+   "oids": {
+    "1.2.840.113549.1.1.1": {}
+   },
+   "quantumVulnerable": true,
+   "rules": {
+    "nist": [
+     {
+      "when": {
+       "keyBits": {
+        "lt": 2048
+       }
+      },
+      "timeline": [
+       {
+        "from": 0,
+        "status": "broken"
+       }
+      ],
+      "source": {
+       "ref": "sp800-131a",
+       "text": "NIST SP 800-131A Rev. 2, Transitioning the Use of Cryptographic Algorithms and Key Lengths (2019)"
+      }
+     },
+     {
+      "when": {
+       "keyBits": {
+        "lt": 3072
+       }
+      },
+      "timeline": [
+       {
+        "from": 0,
+        "status": "acceptable"
+       },
+       {
+        "from": 2031,
+        "status": "deprecated"
+       },
+       {
+        "from": 2036,
+        "status": "disallowed"
+       }
+      ],
+      "source": {
+       "ref": "ir8547",
+       "text": "NIST IR 8547 (ipd), Transition to Post-Quantum Cryptography Standards (Nov 2024)"
+      }
+     },
+     {
+      "timeline": [
+       {
+        "from": 0,
+        "status": "acceptable"
+       },
+       {
+        "from": 2036,
+        "status": "disallowed"
+       }
+      ],
+      "source": {
+       "ref": "ir8547",
+       "text": "NIST IR 8547 (ipd), Transition to Post-Quantum Cryptography Standards (Nov 2024)"
+      }
+     }
+    ],
+    "cnsa2": [
+     {
+      "when": {
+       "keyBits": {
+        "lt": 3072
+       }
+      },
+      "timeline": [
+       {
+        "from": 0,
+        "status": "disallowed"
+       }
+      ],
+      "source": {
+       "ref": "cnsa2",
+       "text": "NSA, Announcing the Commercial National Security Algorithm Suite 2.0 (Sep 2022, updated)"
+      }
+     },
+     {
+      "timeline": [
+       {
+        "from": 0,
+        "status": "deprecated"
+       },
+       {
+        "from": 2036,
+        "status": "disallowed"
+       }
+      ],
+      "source": {
+       "ref": "cnsa2",
+       "text": "NSA, Announcing the Commercial National Security Algorithm Suite 2.0 (Sep 2022, updated)"
+      }
+     }
+    ]
+   },
+   "remediation": [
+    {
+     "summary": "RSA below 2048 bits is broken: rotate to at least RSA-3072 now.",
+     "when": {
+      "keyBits": {
+       "lt": 2048
+      }
+     },
+     "replaceWith": [
+      "rsa"
+     ],
+     "source": {
+      "ref": "sp800-131a",
+      "text": "NIST SP 800-131A Rev. 2, Transitioning the Use of Cryptographic Algorithms and Key Lengths (2019)"
+     }
+    },
+    {
+     "summary": "Plan migration to post-quantum: ML-KEM for key establishment, ML-DSA for signatures.",
+     "detail": "Use hybrid schemes during the transition (for example X25519MLKEM768 key exchange in TLS 1.3). Prioritize long-lived secrets and signatures, which are exposed to harvest-now-decrypt-later attacks.",
+     "replaceWith": [
+      "ml-kem",
+      "ml-dsa"
+     ],
+     "source": {
+      "ref": "ir8547",
+      "text": "NIST IR 8547 (ipd), Transition to Post-Quantum Cryptography Standards (Nov 2024)"
+     }
+    },
+    {
+     "summary": "Under CNSA 2.0, target ML-KEM-1024 and ML-DSA-87.",
+     "profiles": [
+      "cnsa2"
+     ],
+     "replaceWith": [
+      "ml-kem",
+      "ml-dsa"
+     ],
+     "source": {
+      "ref": "cnsa2",
+      "text": "NSA, Announcing the Commercial National Security Algorithm Suite 2.0 (Sep 2022, updated)"
+     }
+    }
+   ]
+  },
+  {
+   "id": "ecc",
+   "name": "ECDSA / ECDH",
+   "family": "asymmetric",
+   "aliases": [
+    "ECDSA",
+    "ECDH",
+    "EC",
+    "ECC",
+    "ECDHE"
+   ],
+   "oids": {
+    "1.2.840.10045.2.1": {}
+   },
+   "quantumVulnerable": true,
+   "rules": {
+    "nist": [
+     {
+      "when": {
+       "securityBits": {
+        "lt": 112
+       }
+      },
+      "timeline": [
+       {
+        "from": 0,
+        "status": "broken"
+       }
+      ],
+      "source": {
+       "ref": "sp800-131a",
+       "text": "NIST SP 800-131A Rev. 2, Transitioning the Use of Cryptographic Algorithms and Key Lengths (2019)"
+      }
+     },
+     {
+      "when": {
+       "securityBits": {
+        "lt": 128
+       }
+      },
+      "timeline": [
+       {
+        "from": 0,
+        "status": "acceptable"
+       },
+       {
+        "from": 2031,
+        "status": "deprecated"
+       },
+       {
+        "from": 2036,
+        "status": "disallowed"
+       }
+      ],
+      "source": {
+       "ref": "ir8547",
+       "text": "NIST IR 8547 (ipd), Transition to Post-Quantum Cryptography Standards (Nov 2024)"
+      }
+     },
+     {
+      "timeline": [
+       {
+        "from": 0,
+        "status": "acceptable"
+       },
+       {
+        "from": 2036,
+        "status": "disallowed"
+       }
+      ],
+      "source": {
+       "ref": "ir8547",
+       "text": "NIST IR 8547 (ipd), Transition to Post-Quantum Cryptography Standards (Nov 2024)"
+      }
+     }
+    ],
+    "cnsa2": [
+     {
+      "when": {
+       "securityBits": {
+        "lt": 192
+       }
+      },
+      "timeline": [
+       {
+        "from": 0,
+        "status": "disallowed"
+       }
+      ],
+      "source": {
+       "ref": "cnsa2",
+       "text": "NSA, Announcing the Commercial National Security Algorithm Suite 2.0 (Sep 2022, updated)"
+      }
+     },
+     {
+      "timeline": [
+       {
+        "from": 0,
+        "status": "deprecated"
+       },
+       {
+        "from": 2036,
+        "status": "disallowed"
+       }
+      ],
+      "source": {
+       "ref": "cnsa2",
+       "text": "NSA, Announcing the Commercial National Security Algorithm Suite 2.0 (Sep 2022, updated)"
+      }
+     }
+    ]
+   },
+   "remediation": [
+    {
+     "summary": "Plan migration to post-quantum: ML-KEM for key agreement, ML-DSA for signatures.",
+     "detail": "Hybrid key exchange (X25519MLKEM768 or SecP256r1MLKEM768 in TLS 1.3) protects traffic today while staying interoperable.",
+     "replaceWith": [
+      "ml-kem",
+      "ml-dsa"
+     ],
+     "source": {
+      "ref": "ir8547",
+      "text": "NIST IR 8547 (ipd), Transition to Post-Quantum Cryptography Standards (Nov 2024)"
+     }
+    },
+    {
+     "summary": "Curves below 128-bit security (such as P-224) should move to P-256 or stronger now.",
+     "when": {
+      "securityBits": {
+       "lt": 128
+      }
+     },
+     "replaceWith": [
+      "ecc"
+     ],
+     "source": {
+      "ref": "sp800-57",
+      "text": "NIST SP 800-57 Part 1 Rev. 5, Recommendation for Key Management (2020)"
+     }
+    },
+    {
+     "summary": "Under CNSA 2.0, target ML-KEM-1024 and ML-DSA-87 (P-384 only in the interim).",
+     "profiles": [
+      "cnsa2"
+     ],
+     "replaceWith": [
+      "ml-kem",
+      "ml-dsa"
+     ],
+     "source": {
+      "ref": "cnsa2",
+      "text": "NSA, Announcing the Commercial National Security Algorithm Suite 2.0 (Sep 2022, updated)"
+     }
+    }
+   ]
+  },
+  {
+   "id": "eddsa",
+   "name": "EdDSA / X25519",
+   "family": "asymmetric",
+   "aliases": [
+    "EdDSA",
+    "Ed25519",
+    "Ed448",
+    "X25519",
+    "X448"
+   ],
+   "oids": {
+    "1.3.101.112": {},
+    "1.3.101.113": {},
+    "1.3.101.110": {},
+    "1.3.101.111": {}
+   },
+   "quantumVulnerable": true,
+   "rules": {
+    "nist": [
+     {
+      "timeline": [
+       {
+        "from": 0,
+        "status": "acceptable"
+       },
+       {
+        "from": 2036,
+        "status": "disallowed"
+       }
+      ],
+      "source": {
+       "ref": "ir8547",
+       "text": "NIST IR 8547 (ipd), Transition to Post-Quantum Cryptography Standards (Nov 2024)"
+      }
+     }
+    ],
+    "cnsa2": [
+     {
+      "timeline": [
+       {
+        "from": 0,
+        "status": "disallowed"
+       }
+      ],
+      "source": {
+       "ref": "cnsa2",
+       "text": "NSA, Announcing the Commercial National Security Algorithm Suite 2.0 (Sep 2022, updated)"
+      }
+     }
+    ]
+   },
+   "remediation": [
+    {
+     "summary": "Plan migration to post-quantum: ML-DSA for signatures, hybrid X25519MLKEM768 for key exchange.",
+     "replaceWith": [
+      "ml-dsa",
+      "ml-kem"
+     ],
+     "source": {
+      "ref": "ir8547",
+      "text": "NIST IR 8547 (ipd), Transition to Post-Quantum Cryptography Standards (Nov 2024)"
+     }
+    }
+   ]
+  },
+  {
+   "id": "ffdh",
+   "name": "Finite-field DH",
+   "family": "asymmetric",
+   "aliases": [
+    "DH",
+    "DHE",
+    "FFDH",
+    "Diffie-Hellman"
+   ],
+   "oids": {},
+   "quantumVulnerable": true,
+   "rules": {
+    "nist": [
+     {
+      "when": {
+       "keyBits": {
+        "lt": 2048
+       }
+      },
+      "timeline": [
+       {
+        "from": 0,
+        "status": "broken"
+       }
+      ],
+      "source": {
+       "ref": "sp800-131a",
+       "text": "NIST SP 800-131A Rev. 2, Transitioning the Use of Cryptographic Algorithms and Key Lengths (2019)"
+      }
+     },
+     {
+      "when": {
+       "keyBits": {
+        "lt": 3072
+       }
+      },
+      "timeline": [
+       {
+        "from": 0,
+        "status": "acceptable"
+       },
+       {
+        "from": 2031,
+        "status": "deprecated"
+       },
+       {
+        "from": 2036,
+        "status": "disallowed"
+       }
+      ],
+      "source": {
+       "ref": "ir8547",
+       "text": "NIST IR 8547 (ipd), Transition to Post-Quantum Cryptography Standards (Nov 2024)"
+      }
+     },
+     {
+      "timeline": [
+       {
+        "from": 0,
+        "status": "acceptable"
+       },
+       {
+        "from": 2036,
+        "status": "disallowed"
+       }
+      ],
+      "source": {
+       "ref": "ir8547",
+       "text": "NIST IR 8547 (ipd), Transition to Post-Quantum Cryptography Standards (Nov 2024)"
+      }
+     }
+    ],
+    "cnsa2": [
+     {
+      "timeline": [
+       {
+        "from": 0,
+        "status": "disallowed"
+       }
+      ],
+      "source": {
+       "ref": "cnsa2",
+       "text": "NSA, Announcing the Commercial National Security Algorithm Suite 2.0 (Sep 2022, updated)"
+      }
+     }
+    ]
+   },
+   "remediation": [
+    {
+     "summary": "Finite-field DH below 2048 bits is broken: switch to ECDHE (X25519 or P-256) now.",
+     "when": {
+      "keyBits": {
+       "lt": 2048
+      }
+     },
+     "replaceWith": [
+      "ecc",
+      "eddsa"
+     ],
+     "source": {
+      "ref": "sp800-131a",
+      "text": "NIST SP 800-131A Rev. 2, Transitioning the Use of Cryptographic Algorithms and Key Lengths (2019)"
+     }
+    },
+    {
+     "summary": "Move to hybrid post-quantum key exchange (for example X25519MLKEM768).",
+     "replaceWith": [
+      "ml-kem"
+     ],
+     "source": {
+      "ref": "ir8547",
+      "text": "NIST IR 8547 (ipd), Transition to Post-Quantum Cryptography Standards (Nov 2024)"
+     }
+    }
+   ]
+  },
+  {
+   "id": "dsa",
+   "name": "DSA",
+   "family": "signature",
+   "aliases": [
+    "DSA"
+   ],
+   "oids": {
+    "1.2.840.10040.4.1": {}
+   },
+   "quantumVulnerable": true,
+   "rules": {
+    "nist": [
+     {
+      "timeline": [
+       {
+        "from": 0,
+        "status": "disallowed"
+       }
+      ],
+      "source": {
+       "ref": "fips186-5",
+       "text": "FIPS 186-5, Digital Signature Standard (Feb 2023)"
+      },
+      "note": "No longer approved for signature generation."
+     }
+    ],
+    "*": [
+     {
+      "timeline": [
+       {
+        "from": 0,
+        "status": "disallowed"
+       }
+      ],
+      "source": {
+       "ref": "fips186-5",
+       "text": "FIPS 186-5, Digital Signature Standard (Feb 2023)"
+      }
+     }
+    ]
+   },
+   "remediation": [
+    {
+     "summary": "Replace DSA with ECDSA (P-256 or stronger) or Ed25519 now, and plan for ML-DSA.",
+     "detail": "FIPS 186-5 keeps DSA only for verifying existing signatures.",
+     "replaceWith": [
+      "ecc",
+      "eddsa",
+      "ml-dsa"
+     ],
+     "source": {
+      "ref": "fips186-5",
+      "text": "FIPS 186-5, Digital Signature Standard (Feb 2023)"
+     }
+    }
+   ]
+  },
+  {
+   "id": "ml-kem",
+   "name": "ML-KEM",
+   "family": "kem",
+   "aliases": [
+    "ML-KEM",
+    "ML-KEM-512",
+    "ML-KEM-768",
+    "ML-KEM-1024",
+    "Kyber",
+    "Kyber512",
+    "Kyber768",
+    "Kyber1024"
+   ],
+   "oids": {
+    "2.16.840.1.101.3.4.4.1": {
+     "paramSet": "512"
+    },
+    "2.16.840.1.101.3.4.4.2": {
+     "paramSet": "768"
+    },
+    "2.16.840.1.101.3.4.4.3": {
+     "paramSet": "1024"
+    }
+   },
+   "quantumVulnerable": false,
+   "rules": {
+    "nist": [
+     {
+      "timeline": [
+       {
+        "from": 0,
+        "status": "safe"
+       }
+      ],
+      "source": {
+       "ref": "fips203",
+       "text": "FIPS 203, ML-KEM (Aug 2024)"
+      }
+     }
+    ],
+    "cnsa2": [
+     {
+      "when": {
+       "paramSet": {
+        "eq": "1024"
+       }
+      },
+      "timeline": [
+       {
+        "from": 0,
+        "status": "safe"
+       }
+      ],
+      "source": {
+       "ref": "cnsa2",
+       "text": "NSA, Announcing the Commercial National Security Algorithm Suite 2.0 (Sep 2022, updated)"
+      }
+     },
+     {
+      "timeline": [
+       {
+        "from": 0,
+        "status": "disallowed"
+       }
+      ],
+      "source": {
+       "ref": "cnsa2",
+       "text": "NSA, Announcing the Commercial National Security Algorithm Suite 2.0 (Sep 2022, updated)"
+      }
+     }
+    ]
+   },
+   "remediation": [
+    {
+     "summary": "Under CNSA 2.0, use ML-KEM-1024.",
+     "profiles": [
+      "cnsa2"
+     ],
+     "replaceWith": [
+      "ml-kem"
+     ],
+     "source": {
+      "ref": "cnsa2",
+      "text": "NSA, Announcing the Commercial National Security Algorithm Suite 2.0 (Sep 2022, updated)"
+     }
+    }
+   ]
+  },
+  {
+   "id": "ml-dsa",
+   "name": "ML-DSA",
+   "family": "signature",
+   "aliases": [
+    "ML-DSA",
+    "ML-DSA-44",
+    "ML-DSA-65",
+    "ML-DSA-87",
+    "Dilithium",
+    "Dilithium2",
+    "Dilithium3",
+    "Dilithium5"
+   ],
+   "oids": {
+    "2.16.840.1.101.3.4.3.17": {
+     "paramSet": "44"
+    },
+    "2.16.840.1.101.3.4.3.18": {
+     "paramSet": "65"
+    },
+    "2.16.840.1.101.3.4.3.19": {
+     "paramSet": "87"
+    }
+   },
+   "quantumVulnerable": false,
+   "rules": {
+    "nist": [
+     {
+      "timeline": [
+       {
+        "from": 0,
+        "status": "safe"
+       }
+      ],
+      "source": {
+       "ref": "fips204",
+       "text": "FIPS 204, ML-DSA (Aug 2024)"
+      }
+     }
+    ],
+    "cnsa2": [
+     {
+      "when": {
+       "paramSet": {
+        "eq": "87"
+       }
+      },
+      "timeline": [
+       {
+        "from": 0,
+        "status": "safe"
+       }
+      ],
+      "source": {
+       "ref": "cnsa2",
+       "text": "NSA, Announcing the Commercial National Security Algorithm Suite 2.0 (Sep 2022, updated)"
+      }
+     },
+     {
+      "timeline": [
+       {
+        "from": 0,
+        "status": "disallowed"
+       }
+      ],
+      "source": {
+       "ref": "cnsa2",
+       "text": "NSA, Announcing the Commercial National Security Algorithm Suite 2.0 (Sep 2022, updated)"
+      }
+     }
+    ]
+   },
+   "remediation": [
+    {
+     "summary": "Under CNSA 2.0, use ML-DSA-87.",
+     "profiles": [
+      "cnsa2"
+     ],
+     "replaceWith": [
+      "ml-dsa"
+     ],
+     "source": {
+      "ref": "cnsa2",
+      "text": "NSA, Announcing the Commercial National Security Algorithm Suite 2.0 (Sep 2022, updated)"
+     }
+    }
+   ]
+  },
+  {
+   "id": "slh-dsa",
+   "name": "SLH-DSA",
+   "family": "signature",
+   "aliases": [
+    "SLH-DSA",
+    "SPHINCS+"
+   ],
+   "oids": {},
+   "quantumVulnerable": false,
+   "rules": {
+    "nist": [
+     {
+      "timeline": [
+       {
+        "from": 0,
+        "status": "safe"
+       }
+      ],
+      "source": {
+       "ref": "fips205",
+       "text": "FIPS 205, SLH-DSA (Aug 2024)"
+      }
+     }
+    ],
+    "cnsa2": [
+     {
+      "timeline": [
+       {
+        "from": 0,
+        "status": "disallowed"
+       }
+      ],
+      "source": {
+       "ref": "cnsa2",
+       "text": "NSA, Announcing the Commercial National Security Algorithm Suite 2.0 (Sep 2022, updated)"
+      },
+      "note": "CNSA 2.0 uses LMS/XMSS for firmware signing, ML-DSA-87 otherwise."
+     }
+    ]
+   },
+   "remediation": [
+    {
+     "summary": "Under CNSA 2.0, use ML-DSA-87, or LMS/XMSS for firmware signing.",
+     "profiles": [
+      "cnsa2"
+     ],
+     "replaceWith": [
+      "ml-dsa",
+      "lms-xmss"
+     ],
+     "source": {
+      "ref": "cnsa2",
+      "text": "NSA, Announcing the Commercial National Security Algorithm Suite 2.0 (Sep 2022, updated)"
+     }
+    }
+   ]
+  },
+  {
+   "id": "lms-xmss",
+   "name": "LMS / XMSS",
+   "family": "signature",
+   "aliases": [
+    "LMS",
+    "HSS",
+    "XMSS",
+    "XMSS^MT"
+   ],
+   "oids": {},
+   "quantumVulnerable": false,
+   "rules": {
+    "*": [
+     {
+      "timeline": [
+       {
+        "from": 0,
+        "status": "safe"
+       }
+      ],
+      "source": {
+       "ref": "sp800-208",
+       "text": "NIST SP 800-208, Stateful Hash-Based Signature Schemes (2020)"
+      },
+      "note": "Stateful: state management is critical."
+     }
+    ]
+   },
+   "remediation": []
+  }
+ ]
+}
