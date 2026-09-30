@@ -51,21 +51,23 @@ pub fn plan(selected: &[String], existing: &[String], pattern: &str, replacement
         })
         .collect();
 
-    // A name is free if nobody else ends up with it; files not selected keep theirs.
+    // A name is free if nobody else ends up with it; files not selected keep theirs. Where the
+    // disk does not mind the case, `A.txt` is `a.txt`: the rename would write over it.
+    let key = |name: &str| if cfg!(any(windows, target_os = "macos")) { name.to_lowercase() } else { name.to_string() };
     let chosen: HashSet<&str> = selected.iter().map(String::as_str).collect();
     let mut taken: HashMap<String, usize> = HashMap::new();
     for name in existing.iter().filter(|n| !chosen.contains(n.as_str())) {
-        *taken.entry(name.clone()).or_default() += 1;
+        *taken.entry(key(name)).or_default() += 1;
     }
     for p in &out {
-        *taken.entry(p.to.clone()).or_default() += 1;
+        *taken.entry(key(&p.to)).or_default() += 1;
     }
     for p in &mut out {
         p.conflict = if p.to.is_empty() {
             Some("empty name".into())
         } else if p.to.contains(['/', '\\']) {
             Some("contains a path separator".into())
-        } else if taken[&p.to] > 1 {
+        } else if taken[&key(&p.to)] > 1 {
             Some("name already taken".into())
         } else {
             None
@@ -75,19 +77,26 @@ pub fn plan(selected: &[String], existing: &[String], pattern: &str, replacement
 }
 
 /// Rename in `dir` as planned. Refuses if any entry has a conflict. Uses temporary names so
-/// swaps (a -> b, b -> a) work. Unchanged entries are skipped.
+/// swaps (a -> b, b -> a) work. Unchanged entries are skipped. When a rename fails, the files
+/// still under temporary names get their old names back.
 pub fn apply(dir: &Path, plan: &[Planned]) -> Result<(), String> {
     if let Some(p) = plan.iter().find(|p| p.conflict.is_some()) {
         return Err(format!("{}: {}", p.from, p.conflict.as_deref().unwrap_or("")));
     }
     let moves: Vec<&Planned> = plan.iter().filter(|p| p.from != p.to).collect();
     let tmp = |i: usize| dir.join(format!(".coxswain-rename-{}-{i}", std::process::id()));
+    let back = |from: usize, to: usize| (from..to).for_each(|j| drop(std::fs::rename(tmp(j), dir.join(&moves[j].from))));
     for (i, p) in moves.iter().enumerate() {
-        std::fs::rename(dir.join(&p.from), tmp(i)).map_err(|e| format!("{}: {e}", p.from))?;
+        if let Err(e) = std::fs::rename(dir.join(&p.from), tmp(i)) {
+            back(0, i);
+            return Err(format!("{}: {e}", p.from));
+        }
     }
     for (i, p) in moves.iter().enumerate() {
-        // ponytail: a failure here leaves this file under its temp name; a journal would fix it.
-        std::fs::rename(tmp(i), dir.join(&p.to)).map_err(|e| format!("{} -> {}: {e}", p.from, p.to))?;
+        if let Err(e) = std::fs::rename(tmp(i), dir.join(&p.to)) {
+            back(i, moves.len());
+            return Err(format!("{} -> {}: {e}", p.from, p.to));
+        }
     }
     Ok(())
 }
@@ -164,6 +173,22 @@ mod tests {
         let bad = vec![Planned { from: "a".into(), to: "c".into(), conflict: Some("x".into()) }];
         assert!(apply(&d, &bad).is_err());
         assert!(d.join("a").exists());
+        // A rename that fails halfway gives the files already set aside their names back.
+        let gone = vec![Planned { from: "a".into(), to: "c".into(), conflict: None }, Planned { from: "missing".into(), to: "d".into(), conflict: None }];
+        assert!(apply(&d, &gone).is_err());
+        let names: Vec<String> = std::fs::read_dir(&d).unwrap().flatten().map(|e| e.file_name().to_string_lossy().into_owned()).collect();
+        assert_eq!(names.iter().filter(|n| *n == "a" || *n == "b").count(), 2, "{names:?}");
+        assert!(names.iter().all(|n| !n.starts_with(".coxswain-rename")), "{names:?}");
         std::fs::remove_dir_all(d).unwrap();
+    }
+
+    #[test]
+    fn rename_case_only_conflicts_where_case_does_not_count() {
+        let existing = s(&["a.txt", "B.txt"]);
+        let p = plan(&s(&["a.txt"]), &existing, "a", "b", Flags::default()).unwrap();
+        assert_eq!(p[0].conflict.is_some(), cfg!(any(windows, target_os = "macos")));
+        // A file's own name in another case is free everywhere.
+        let p = plan(&s(&["a.txt"]), &existing, "a", "A", Flags::default()).unwrap();
+        assert!(p[0].conflict.is_none());
     }
 }

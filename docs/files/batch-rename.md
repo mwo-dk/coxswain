@@ -86,8 +86,14 @@ No; batch rename works on folders on disk. Inside an archive, rename one entry a
 #### What if something fails half-way?
 
 Each file is first renamed to a temporary name `.coxswain-rename-…` and then to its new name. If
-the system refuses the second step (a disk removed mid-way), that file is left under its
-temporary name, and the error is shown in the dialog. Rename it back with **F6**.
+the system refuses a step (a disk removed mid-way), the error is shown in the dialog, and every
+file still under a temporary name gets its old name back. Files already renamed before the
+failure keep their new names.
+
+#### Why is `b.txt` a conflict for `a.txt` when only `B.txt` exists?
+
+On macOS and Windows the disk does not mind the case: `b.txt` and `B.txt` are one file, and the
+rename would write over it. On Linux they are two files, and it is no conflict.
 
 ---
 [← Previous: Drag and drop](drag-and-drop.md) · [Next: Archives as folders →](archives.md)

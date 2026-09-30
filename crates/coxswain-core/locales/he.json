@@ -96,7 +96,7 @@
   "other": "{n} פריטים הועברו"
  },
  "app.name_label": "שם:",
- "app.not_archive": "זה לא ארכיון zip או tar",
+ "app.not_archive": "זה לא ארכיון zip, ‎7z או tar",
  "app.pasted_items": {
   "one": "פריט אחד הודבק",
   "two": "{n} פריטים הודבקו",
@@ -116,10 +116,10 @@
  "archive.copy_out_hint": "{archive} הוא ארכיון: F5 מעתיק את הקובץ הזה החוצה ממנו",
  "archive.inside_tip": "אתם בתוך ארכיון: F5 מעתיק החוצה, F6 מעביר החוצה, F8 מוציא; מה שמועתק פנימה נוסף",
  "archive.locked_again": "הסיסמה לא פתחה אותו. נסו שוב:",
- "archive.locked_label": "הסיסמה שלו (רק לפעולה הזו, לעולם לא נשמרת):",
+ "archive.locked_label": "הסיסמה שלו (נשמרת בזיכרון כל עוד היישום פועל, לעולם לא בדיסק):",
  "archive.locked_title": "ארכיון נעול",
  "archive.pack": "אריזה",
- "archive.pack_into": "לארוז את {what} אל (‎.zip, ‎.tar או ‎.tar.gz):",
+ "archive.pack_into": "לארוז את {what} אל (‎.zip, ‎.7z, ‎.tar, ‎.tar.gz…):",
  "archive.packed": "{what} נארז",
  "archive.preview_hint": "הקובץ נמצא בתוך {archive}. העתיקו אותו החוצה עם F5 כדי לראות אותו.",
  "bom.advice": "מה לעשות",

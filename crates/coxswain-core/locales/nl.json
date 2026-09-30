@@ -94,7 +94,7 @@
   "other": "{n} onderdelen verplaatst"
  },
  "app.name_label": "Naam:",
- "app.not_archive": "Geen zip- of tar-archief",
+ "app.not_archive": "Geen zip-, 7z- of tar-archief",
  "app.pasted_items": {
   "one": "{n} onderdeel geplakt",
   "other": "{n} onderdelen geplakt"
@@ -113,10 +113,10 @@
  "archive.copy_out_hint": "{archive} is een archief: F5 kopieert dit bestand eruit",
  "archive.inside_tip": "Je bent in een archief: F5 kopieert eruit, F6 verplaatst eruit, F8 haalt eruit; wat erin gekopieerd wordt, komt erbij",
  "archive.locked_again": "Dat wachtwoord opende het niet. Probeer opnieuw:",
- "archive.locked_label": "Het wachtwoord (alleen hiervoor, nooit bewaard):",
+ "archive.locked_label": "Het wachtwoord (blijft in het geheugen zolang de app draait, nooit bewaard):",
  "archive.locked_title": "Vergrendeld archief",
  "archive.pack": "Verpakken",
- "archive.pack_into": "{what} verpakken in (.zip, .tar of .tar.gz):",
+ "archive.pack_into": "{what} verpakken in (.zip, .7z, .tar, .tar.gz …):",
  "archive.packed": "{what} verpakt",
  "archive.preview_hint": "Dit bestand zit in {archive}. Kopieer het eruit met F5 om het te zien.",
  "bom.advice": "Wat te doen",
