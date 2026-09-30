@@ -143,6 +143,8 @@ mod tests {
         }
     }
 
+    /// AppImages are Linux's, with `:` between the folders of a path list.
+    #[cfg(unix)]
     #[test]
     fn tools_start_programs_without_the_appimage_inside() {
         let mut c = Command::new("soffice");
