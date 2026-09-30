@@ -1,5 +1,7 @@
-//! Zip and tar archives: list what is inside, and extract. Both crates refuse entries that
-//! would land outside the destination (`..`, absolute paths).
+//! Archives: zip (and the formats that are zips: jar, apk, whl, nupkg, vsix), tar, tar
+//! compressed with gzip, bzip2, xz or zstd, and 7z. List, extract, and inside them read and
+//! write as in a folder. All in pure Rust. Entries that would land outside the destination
+//! (`..`, absolute paths) are refused.
 
 use serde::Serialize;
 use std::fs::File;
@@ -17,21 +19,44 @@ pub struct ArchiveEntry {
 #[derive(Clone, Copy, PartialEq, Debug)]
 enum Kind {
     Zip,
-    Tar,
-    TarGz,
+    Tar(Pack),
+    SevenZ,
 }
+
+/// How a tar is compressed.
+#[derive(Clone, Copy, PartialEq, Debug)]
+enum Pack {
+    None,
+    Gz,
+    Bz2,
+    Xz,
+    Zst,
+}
+
+/// The endings each kind is known by, longest first where one ends another.
+const ENDINGS: &[(&str, Kind)] = &[
+    (".tar.gz", Kind::Tar(Pack::Gz)),
+    (".tgz", Kind::Tar(Pack::Gz)),
+    (".tar.bz2", Kind::Tar(Pack::Bz2)),
+    (".tbz2", Kind::Tar(Pack::Bz2)),
+    (".tbz", Kind::Tar(Pack::Bz2)),
+    (".tar.xz", Kind::Tar(Pack::Xz)),
+    (".txz", Kind::Tar(Pack::Xz)),
+    (".tar.zst", Kind::Tar(Pack::Zst)),
+    (".tzst", Kind::Tar(Pack::Zst)),
+    (".tar", Kind::Tar(Pack::None)),
+    (".7z", Kind::SevenZ),
+    (".zip", Kind::Zip),
+    (".jar", Kind::Zip),
+    (".apk", Kind::Zip),
+    (".nupkg", Kind::Zip),
+    (".whl", Kind::Zip),
+    (".vsix", Kind::Zip),
+];
 
 fn kind(path: &Path) -> Option<Kind> {
     let n = path.file_name()?.to_string_lossy().to_lowercase();
-    if n.ends_with(".tar.gz") || n.ends_with(".tgz") {
-        Some(Kind::TarGz)
-    } else if n.ends_with(".tar") {
-        Some(Kind::Tar)
-    } else if [".zip", ".jar", ".apk", ".nupkg", ".whl", ".vsix"].iter().any(|e| n.ends_with(e)) {
-        Some(Kind::Zip)
-    } else {
-        None
-    }
+    ENDINGS.iter().find(|(e, _)| n.ends_with(e)).map(|(_, k)| *k)
 }
 
 pub fn is_archive(path: &Path) -> bool {
@@ -39,37 +64,90 @@ pub fn is_archive(path: &Path) -> bool {
 }
 
 fn not_archive(path: &Path) -> io::Error {
-    io::Error::new(io::ErrorKind::InvalidInput, format!("{} is not a zip or tar archive", path.display()))
+    io::Error::new(io::ErrorKind::InvalidInput, format!("{} is not an archive Coxswain reads", path.display()))
 }
 
+/// A tar, its compression undone as it is read.
 fn tar_reader(path: &Path, k: Kind) -> io::Result<tar::Archive<Box<dyn Read>>> {
+    let Kind::Tar(pack) = k else { return Err(not_archive(path)) };
     let f = BufReader::new(File::open(path)?);
-    let r: Box<dyn Read> = if k == Kind::TarGz { Box::new(flate2::read::GzDecoder::new(f)) } else { Box::new(f) };
+    let r: Box<dyn Read> = match pack {
+        Pack::None => Box::new(f),
+        Pack::Gz => Box::new(flate2::read::MultiGzDecoder::new(f)),
+        Pack::Bz2 => Box::new(bzip2::read::MultiBzDecoder::new(f)),
+        Pack::Xz => Box::new(lzma_rust2::XzReader::new(f, true)),
+        Pack::Zst => Box::new(ruzstd::decoding::StreamingDecoder::new(f).map_err(io::Error::other)?),
+    };
     Ok(tar::Archive::new(r))
+}
+
+/// A tar written plain at `tar`, compressed into `to` as `pack` says.
+fn compress(tar: &Path, to: &Path, pack: Pack) -> io::Result<()> {
+    let (mut from, out) = (BufReader::new(File::open(tar)?), File::create(to)?);
+    match pack {
+        Pack::None => io::copy(&mut from, &mut io::BufWriter::new(out)).map(drop),
+        Pack::Gz => {
+            let mut w = flate2::write::GzEncoder::new(out, flate2::Compression::default());
+            io::copy(&mut from, &mut w)?;
+            w.finish().map(drop)
+        }
+        Pack::Bz2 => {
+            let mut w = bzip2::write::BzEncoder::new(out, bzip2::Compression::default());
+            io::copy(&mut from, &mut w)?;
+            w.finish().map(drop)
+        }
+        Pack::Xz => {
+            let mut w = lzma_rust2::XzWriter::new(out, lzma_rust2::XzOptions::with_preset(6)).map_err(io::Error::other)?;
+            io::copy(&mut from, &mut w)?;
+            w.finish().map(drop).map_err(io::Error::other)
+        }
+        Pack::Zst => {
+            ruzstd::encoding::compress(from, io::BufWriter::new(out), ruzstd::encoding::CompressionLevel::Fastest);
+            Ok(())
+        }
+    }
+}
+
+/// Passwords given for locked archives while the app runs: in memory only, never written, and
+/// gone when the app ends. A 7z whose names are locked needs one even to be looked into.
+static PASSWORDS: std::sync::Mutex<Vec<(PathBuf, String)>> = std::sync::Mutex::new(Vec::new());
+
+/// Remember `password` for `archive` until the app ends (or `forget`).
+pub fn remember(archive: &Path, password: &str) {
+    let mut all = PASSWORDS.lock().unwrap();
+    all.retain(|(a, _)| a != archive);
+    all.push((archive.to_path_buf(), password.to_string()));
+}
+
+/// Forget the password given for `archive`.
+pub fn forget(archive: &Path) {
+    PASSWORDS.lock().unwrap().retain(|(a, _)| a != archive);
+}
+
+/// The password to use: the one given, else the one remembered.
+fn password_for(archive: &Path, given: Option<&str>) -> Option<String> {
+    given.map(String::from).or_else(|| PASSWORDS.lock().unwrap().iter().find(|(a, _)| a == archive).map(|(_, p)| p.clone()))
+}
+
+/// A 7z, opened with `password` (none: an empty one).
+fn seven(path: &Path, password: Option<&str>) -> io::Result<sevenz_rust2::ArchiveReader<File>> {
+    let pw = password.map_or_else(sevenz_rust2::Password::empty, sevenz_rust2::Password::from);
+    sevenz_rust2::ArchiveReader::open(path, pw).map_err(seven_error)
+}
+
+/// A 7z's error, a missing or wrong password said as `LOCKED`.
+fn seven_error(e: sevenz_rust2::Error) -> io::Error {
+    match e {
+        sevenz_rust2::Error::PasswordRequired | sevenz_rust2::Error::MaybeBadPassword(_) => locked(),
+        e => io::Error::other(e),
+    }
 }
 
 /// The first `max` entries, and whether there were more.
 pub fn list(path: &Path, max: usize) -> io::Result<(Vec<ArchiveEntry>, bool)> {
-    let k = kind(path).ok_or_else(|| not_archive(path))?;
-    let mut out = vec![];
-    if k == Kind::Zip {
-        let mut z = zip::ZipArchive::new(BufReader::new(File::open(path)?)).map_err(io::Error::other)?;
-        for i in 0..z.len().min(max) {
-            let e = z.by_index_raw(i).map_err(io::Error::other)?;
-            out.push(ArchiveEntry { name: e.name().trim_end_matches('/').into(), size: e.size(), is_dir: e.is_dir() });
-        }
-        return Ok((out, z.len() > max));
-    }
-    let mut a = tar_reader(path, k)?;
-    for e in a.entries()? {
-        if out.len() == max {
-            return Ok((out, true));
-        }
-        let e = e?;
-        let name = e.path()?.to_string_lossy().trim_end_matches('/').to_string();
-        out.push(ArchiveEntry { name, size: e.size(), is_dir: e.header().entry_type().is_dir() });
-    }
-    Ok((out, false))
+    let all = items(path)?;
+    let more = all.len() > max;
+    Ok((all.into_iter().take(max).map(|it| ArchiveEntry { name: it.name, size: it.size, is_dir: it.dir }).collect(), more))
 }
 
 /// Extract into a new folder named after the archive inside `dest_dir`. Returns that folder.
@@ -82,17 +160,14 @@ pub fn extract_locked(path: &Path, dest_dir: &Path, password: Option<&str>) -> i
     let k = kind(path).ok_or_else(|| not_archive(path))?;
     let name = path.file_name().unwrap_or_default().to_string_lossy();
     let lower = name.to_lowercase();
-    let stem_len = [".tar.gz", ".tgz", ".tar"].iter().find(|e| lower.ends_with(*e)).map_or_else(
-        || name.rfind('.').unwrap_or(name.len()),
-        |e| name.len() - e.len(),
-    );
+    let stem_len = ENDINGS.iter().map(|(e, _)| *e).find(|e| lower.ends_with(e)).map_or_else(|| name.rfind('.').unwrap_or(name.len()), |e| name.len() - e.len());
     let to = dest_dir.join(&name[..stem_len]);
     if to.exists() {
         return Err(io::Error::new(io::ErrorKind::AlreadyExists, format!("{} exists", to.display())));
     }
     std::fs::create_dir_all(&to)?;
     // A locked zip goes entry by entry, with the password; the rest as the crates unpack it.
-    let r = if k == Kind::Zip && locked_at(path, "")? {
+    let r = if k == Kind::SevenZ || (k == Kind::Zip && locked_at(path, "")?) {
         list_in(path, "")?.into_iter().skip(1).try_for_each(|e| copy_out(path, &e.name, &to, password).map(drop))
     } else if k == Kind::Zip {
         zip::ZipArchive::new(BufReader::new(File::open(path)?)).and_then(|mut z| z.extract(&to)).map_err(io::Error::other)
@@ -165,6 +240,14 @@ fn items(archive: &Path) -> io::Result<Vec<Item>> {
         }
         return Ok(out);
     }
+    if k == Kind::SevenZ {
+        let r = seven(archive, password_for(archive, None).as_deref())?;
+        for f in &r.archive().files {
+            let modified = std::time::SystemTime::from(f.last_modified_date).duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_secs());
+            out.push(Item { name: f.name.replace('\\', "/").trim_end_matches('/').to_string(), size: f.size, dir: f.is_directory, modified, locked: false });
+        }
+        return Ok(out);
+    }
     for e in tar_reader(archive, k)?.entries()? {
         let e = e?;
         let name = e.path()?.to_string_lossy().trim_start_matches("./").trim_end_matches('/').to_string();
@@ -225,6 +308,15 @@ pub fn locked_at(archive: &Path, inner: &str) -> io::Result<bool> {
 /// `fs::copy` would: into it when it is a folder. Returns where it landed. A locked file needs
 /// `password`; without it, or with a wrong one, the error is `LOCKED`.
 pub fn copy_out(archive: &Path, inner: &str, dest: &Path, password: Option<&str>) -> io::Result<PathBuf> {
+    let to = copy_out_with(archive, inner, dest, password_for(archive, password).as_deref())?;
+    // A password that opened it is kept for the rest of this run.
+    if let Some(pw) = password {
+        remember(archive, pw);
+    }
+    Ok(to)
+}
+
+fn copy_out_with(archive: &Path, inner: &str, dest: &Path, password: Option<&str>) -> io::Result<PathBuf> {
     let name = inner.rsplit('/').next().filter(|n| !n.is_empty()).ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "nothing to copy"))?;
     let to = if dest.is_dir() { dest.join(name) } else { dest.to_path_buf() };
     if std::fs::symlink_metadata(&to).is_ok() {
@@ -277,6 +369,24 @@ pub fn copy_out(archive: &Path, inner: &str, dest: &Path, password: Option<&str>
                 let _ = std::fs::remove_file(&path);
                 return Err(if encrypted { locked() } else { err });
             }
+        }
+    } else if k == Kind::SevenZ {
+        let mut r = seven(archive, password)?;
+        let mut failed = None;
+        r.for_each_entries(|e, from| {
+            let name = e.name.replace('\\', "/").trim_end_matches('/').to_string();
+            let Some(path) = place(&name) else { return Ok(true) };
+            any = true;
+            let done = if e.is_directory { std::fs::create_dir_all(&path) } else { write(&path, from) };
+            if let Err(err) = done {
+                failed = Some(err);
+                return Ok(false);
+            }
+            Ok(true)
+        })
+        .map_err(seven_error)?;
+        if let Some(err) = failed {
+            return Err(err);
         }
     } else {
         for e in tar_reader(archive, k)?.entries()? {
@@ -358,9 +468,57 @@ fn rewrite(archive: &Path, keep: &dyn Fn(&str) -> Option<String>, add: &[(String
                 }
             }
             w.finish().map_err(io::Error::other)?;
+        } else if k == Kind::SevenZ {
+            // 7z has no copying of entries as they are: everything is read out, then packed again.
+            let scratch = std::env::temp_dir().join(format!("coxswain-7z-{}-{}", std::process::id(), tmp.file_name().unwrap_or_default().len()));
+            let _ = std::fs::remove_dir_all(&scratch);
+            std::fs::create_dir_all(&scratch)?;
+            let result = (|| -> io::Result<()> {
+                let mut kept: Vec<(String, New)> = vec![];
+                if exists {
+                    let mut r = seven(archive, password_for(archive, None).as_deref())?;
+                    let mut n = 0usize;
+                    let mut failed = None;
+                    r.for_each_entries(|e, from| {
+                        let old = e.name.replace('\\', "/").trim_end_matches('/').to_string();
+                        let Some(new) = keep(&old) else { return Ok(true) };
+                        if e.is_directory {
+                            kept.push((new, New::Dir));
+                        } else {
+                            n += 1;
+                            let file = scratch.join(n.to_string());
+                            match File::create(&file).and_then(|mut f| io::copy(from, &mut f)) {
+                                Ok(_) => kept.push((new, New::File(file))),
+                                Err(err) => {
+                                    failed = Some(err);
+                                    return Ok(false);
+                                }
+                            }
+                        }
+                        Ok(true)
+                    })
+                    .map_err(seven_error)?;
+                    if let Some(err) = failed {
+                        return Err(err);
+                    }
+                }
+                let mut w = sevenz_rust2::ArchiveWriter::create(&tmp).map_err(io::Error::other)?;
+                for (name, new) in kept.iter().chain(add) {
+                    match new {
+                        New::Dir => w.push_archive_entry::<File>(sevenz_rust2::ArchiveEntry::new_directory(name), None),
+                        New::File(path) => w.push_archive_entry(sevenz_rust2::ArchiveEntry::from_path(path, name.clone()), Some(File::open(path)?)),
+                    }
+                    .map_err(io::Error::other)?;
+                }
+                w.finish().map(drop)
+            })();
+            let _ = std::fs::remove_dir_all(&scratch);
+            result?;
         } else {
-            let out: Box<dyn Write> = if k == Kind::TarGz { Box::new(flate2::write::GzEncoder::new(File::create(&tmp)?, flate2::Compression::default())) } else { Box::new(File::create(&tmp)?) };
-            let mut b = tar::Builder::new(out);
+            let Kind::Tar(pack) = k else { unreachable!() };
+            // Written plain first, then compressed: every compression the same way.
+            let plain = archive.with_extension("coxswain-tar");
+            let mut b = tar::Builder::new(io::BufWriter::new(File::create(&plain)?));
             if exists {
                 for e in tar_reader(archive, k)?.entries()? {
                     let mut e = e?;
@@ -389,6 +547,9 @@ fn rewrite(archive: &Path, keep: &dyn Fn(&str) -> Option<String>, add: &[(String
                 }
             }
             b.into_inner()?.flush()?;
+            let done = compress(&plain, &tmp, pack);
+            let _ = std::fs::remove_file(&plain);
+            done?;
         }
         Ok(())
     })();
@@ -558,6 +719,10 @@ mod tests {
         crate::fs::delete(&zp.join("bin")).unwrap();
         assert_eq!(names(&zp), [("..".into(), true), ("keys".into(), true), ("readme.txt".into(), false)]);
         std::fs::remove_dir_all(d.join("out/keys")).unwrap();
+        // The password that opened it was kept for the run; forgotten, it is locked again.
+        assert!(crate::fs::copy(&zp.join("keys/old.pem"), &d.join("out")).is_ok());
+        std::fs::remove_file(d.join("out/old.pem")).unwrap();
+        forget(&zp);
         assert_eq!(crate::fs::copy(&zp.join("keys/old.pem"), &d.join("out")).unwrap_err().to_string(), LOCKED);
         // Moved out: copied, then gone from the archive.
         std::fs::remove_file(d.join("out/readme.txt")).unwrap();
@@ -584,7 +749,7 @@ mod tests {
         std::fs::write(d.join("src/a.txt"), "one").unwrap();
         std::fs::write(d.join("src/deep/b.txt"), "two").unwrap();
         let names = |p: &Path| crate::fs::list(p, true).unwrap().into_iter().skip(1).map(|e| e.name).collect::<Vec<_>>();
-        for pack in ["new.zip", "new.tar.gz", "new.tar"] {
+        for pack in ["new.zip", "new.tar.gz", "new.tar", "new.tar.bz2", "new.tar.xz", "new.tar.zst", "new.7z"] {
             let zp = d.join(pack);
             // Pack, then add, a folder inside, rename, move between archives.
             create(&zp, &[d.join("src/a.txt")]).unwrap();
@@ -607,6 +772,30 @@ mod tests {
             assert_eq!(std::fs::read_to_string(crate::fs::copy(&other.join("renamed/b.txt"), &d).unwrap()).unwrap(), "two");
             std::fs::remove_file(d.join("b.txt")).unwrap();
         }
+        std::fs::remove_dir_all(d).unwrap();
+    }
+
+    #[test]
+    fn archive_locked_7z_wants_its_password() {
+        let d = std::env::temp_dir().join(format!("coxswain-test-7z-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(d.join("out")).unwrap();
+        std::fs::write(d.join("plan.txt"), "launch at noon").unwrap();
+        let zp = d.join("secret.7z");
+        let mut w = sevenz_rust2::ArchiveWriter::create(&zp).unwrap();
+        w.set_content_methods(vec![sevenz_rust2::encoder_options::AesEncoderOptions::new(sevenz_rust2::Password::from("hunter2")).into(), sevenz_rust2::EncoderMethod::LZMA2.into()]);
+        w.push_archive_entry(sevenz_rust2::ArchiveEntry::from_path(d.join("plan.txt"), "plan.txt".into()), Some(File::open(d.join("plan.txt")).unwrap())).unwrap();
+        w.finish().unwrap();
+        // Even its names are locked: looking in needs the password, which is kept for the run.
+        assert_eq!(list_in(&zp, "").unwrap_err().to_string(), LOCKED);
+        assert_eq!(crate::fs::copy(&zp.join("plan.txt"), &d.join("out")).unwrap_err().to_string(), LOCKED);
+        remember(&zp, "wrong");
+        assert_eq!(list_in(&zp, "").unwrap_err().to_string(), LOCKED);
+        remember(&zp, "hunter2");
+        assert_eq!(list_in(&zp, "").unwrap().len(), 2);
+        assert_eq!(std::fs::read_to_string(crate::fs::copy(&zp.join("plan.txt"), &d.join("out")).unwrap()).unwrap(), "launch at noon");
+        forget(&zp);
+        assert!(list_in(&zp, "").is_err());
         std::fs::remove_dir_all(d).unwrap();
     }
 }

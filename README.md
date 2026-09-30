@@ -210,15 +210,18 @@ loaded from disk and kept current while Coxswain runs.
 | Ctrl+M | Batch rename with regex, previewed | Alt+T | Color tag |
 | Alt+N | Notes for this folder | Alt+. | Hidden files |
 
-**Archives are folders.** Enter on a `.zip` (or `.jar`, `.apk`, `.whl`, `.nupkg`, `.vsix`), `.tar`,
-`.tar.gz` or `.tgz` opens it like a folder, in both apps: the path shows the archive's name
+**Archives are folders.** Enter on a `.zip` (or `.jar`, `.apk`, `.whl`, `.nupkg`, `.vsix`), a `.7z`,
+or a `.tar`, plain or compressed (`.tar.gz` `.tgz`, `.tar.bz2` `.tbz2`, `.tar.xz` `.txz`,
+`.tar.zst` `.tzst`) opens it like a folder, in both apps: the path shows the archive's name
 marked and the pane is tinted (the terminal app says `[archive]` in the panel title), so a copy
 out is never taken for a copy between folders. F5 copies files and folders out, into another
 folder or into another archive; F5 into an archive adds to it; F6 moves (also within the archive);
 F7 makes a folder inside; F8 takes things out of it (there is no trash inside an archive, so it
-asks first); Alt+F5 packs the marked files into a new `.zip`, `.tar` or `.tar.gz`. A locked zip
-(ZipCrypto or AES) asks for its password when a file in it is needed; the password is used for
-that copy only and never saved. Changing an archive writes it anew next to the old one, which it
+asks first); Alt+F5 packs the marked files into a new archive of any of these kinds, by the name
+you give it. A locked zip (ZipCrypto or AES) or 7z (AES; one whose file names are locked too asks
+already when you open it) asks for its password; the app keeps it in memory until it closes, so
+you are asked once, and never writes it anywhere. RAR archives are not opened: their format may
+only be read with RAR's own code, under its own licence. Changing an archive writes it anew next to the old one, which it
 then replaces, so a failure leaves the archive as it was.
 
 **The preview pane** (Space) follows the cursor. At a glance:

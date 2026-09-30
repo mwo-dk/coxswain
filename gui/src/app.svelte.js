@@ -1,8 +1,10 @@
 // Shared app state and navigation. Components read `ui` and call these functions.
 
 import { SvelteSet } from "svelte/reactivity";
-import { invoke, basename, parent, applyTheme, isArchive } from "./lib.js";
+import { invoke, basename, parent, applyTheme, isArchive, LOCKED } from "./lib.js";
 import { setLanguage, t } from "./i18n.svelte.js";
+/** The texts, for functions whose tab is called `t`. */
+const tr = t;
 
 export const ui = $state({
   cfg: null,
@@ -105,6 +107,17 @@ export async function load(t, dir = t.dir, focus) {
     const at = keep ? r.items.findIndex((e) => e.name === keep) : -1;
     t.cursor = at >= 0 ? at : Math.max(0, Math.min(t.cursor, r.items.length - 1));
   } catch (e) {
+    // A locked archive, looked into: its password, kept by the app for this run, then again.
+    if (String(e).includes(LOCKED)) {
+      ui.modal = {
+        kind: "input",
+        secret: true,
+        title: tr("archive.locked_title"),
+        label: tr("archive.locked_label"),
+        value: "",
+        run: (password) => invoke("archive_password", { path: dir, password }).then(() => load(t, dir, focus)),
+      };
+    }
     t.error = String(e);
     return false;
   }

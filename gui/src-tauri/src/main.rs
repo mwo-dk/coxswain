@@ -806,6 +806,14 @@ async fn extract(paths: Vec<PathBuf>, base: PathBuf, dest: String, password: Opt
     each(&paths, |p| coxswain_core::archive::extract_locked(p, &dst, password.as_deref()).map(drop))
 }
 
+/// The password of the locked archive `path` is in (or is), kept in memory for this run.
+#[tauri::command]
+fn archive_password(path: PathBuf, password: String) {
+    if let Some((archive, _)) = coxswain_core::archive::split(&path).or_else(|| coxswain_core::archive::is_archive(&path).then(|| (path.clone(), String::new()))) {
+        coxswain_core::archive::remember(&archive, &password);
+    }
+}
+
 /// A new archive at `dest` (zip, tar or tar.gz, by its name) with `paths` in it.
 #[tauri::command]
 async fn pack(paths: Vec<PathBuf>, base: PathBuf, dest: String, ctx: tauri::State<'_, Ctx>) -> Res<PathBuf> {
@@ -1226,7 +1234,7 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             get_config, notices, dismiss_notice, set_title, index_status, index_action, index_service, meaning_status, meaning_action, meaning_models, meaning_pull, list_dir, git_status, places, disks, get_state, save_session, save_favorites, set_tags, set_note, get_note,
             search, resolve_path, copy, rename, delete, mkdir, dir_sizes, rename_plan, rename_apply, open_path, edit_path,
-            read_text, run_command, scripts, run_script, check_update, archive_list, extract, pack, properties, set_permissions,
+            read_text, run_command, scripts, run_script, check_update, archive_list, extract, pack, archive_password, properties, set_permissions,
             clip_set, paste, start_drag, watch_dirs, preview::git_diff, preview::sqlite_info, preview::epub_preview,
             preview::file_facts, preview::cert_info, bom::bom_info, bom::bom_node, bom::bom_diff, preview::mail_preview, preview::plist_xml, convert::preview_engines, convert::preview_cache, convert::clear_preview_cache,
             convert::convert, convert::images, convert::pull_image, convert::remove_image, convert::pull_progress, dupes_scan,

@@ -141,6 +141,8 @@ pub enum Prompt {
     /// A locked archive's password, to run the copy, move or extract again with; shown as
     /// stars and kept for that run only.
     Password(Transfer, Vec<PathBuf>, PathBuf),
+    /// A locked archive's password, to look into it (in that panel) with.
+    Unlock(usize, PathBuf),
     Mkdir,
     Goto(usize),
     Select(bool),
@@ -387,9 +389,13 @@ impl App {
 
     fn cd(&mut self, side: usize, dir: PathBuf) {
         let h = self.show_hidden;
-        self.panels[side].cd(dir, h);
+        self.panels[side].cd(dir.clone(), h);
         self.refresh_git();
         self.measure(side);
+        // A locked archive, looked into: its password, kept for this run, then again.
+        if self.panels[side].error.as_deref().is_some_and(|e| e.contains(coxswain_core::archive::LOCKED)) {
+            self.input(&t!("archive.locked_title"), t!("archive.locked_label"), String::new(), Prompt::Unlock(side, dir));
+        }
     }
 
     fn input(&mut self, title: &str, label: String, value: String, prompt: Prompt) {
@@ -766,6 +772,12 @@ impl App {
             Prompt::Copy(src) => self.transfer(Transfer::Copy, src, resolve(&base, &value), None),
             Prompt::Extract(src) => self.transfer(Transfer::Extract, src, resolve(&base, &value), None),
             Prompt::Password(op, src, dst) => self.transfer(op, src, dst, Some(value)),
+            Prompt::Unlock(side, dir) => {
+                if let Some((archive, _)) = coxswain_core::archive::split(&dir) {
+                    coxswain_core::archive::remember(&archive, &value);
+                }
+                self.cd(side, dir);
+            }
             Prompt::Move(src) => {
                 let dst = resolve(&base, &value);
                 let one = (src.len() == 1 && dst.parent() == Some(base.as_path())).then(|| dst.file_name().unwrap_or_default().to_string_lossy().into_owned());

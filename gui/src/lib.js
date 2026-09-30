@@ -219,9 +219,11 @@ export const CONVERTER = {
 };
 const SHEET = ["csv", "tsv", "xlsx", "xlsm", "xls", "ods"];
 
-const ARCHIVE = /\.(zip|jar|apk|nupkg|whl|vsix|tar|tgz|tar\.gz)$/i;
+const ARCHIVE = /\.(zip|jar|apk|nupkg|whl|vsix|tar|tgz|tar\.gz|tar\.bz2|tbz2?|tar\.xz|txz|tar\.zst|tzst|7z)$/i;
 
 export const isArchive = (name) => ARCHIVE.test(name);
+/** What the core says when an archive is locked and wants its password (archive::LOCKED). */
+export const LOCKED = "locked: a password is needed";
 
 /** Names that say CycloneDX BOM. Other JSON and XML files are recognised by their first bytes (looksLikeBom). */
 const BOM_NAME = /(\.(cdx|cbom)\.(json|xml)|^bom\.(json|xml))$/i;
