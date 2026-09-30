@@ -14,7 +14,7 @@ use ratatui::Frame;
 use std::str::FromStr;
 use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
 
-fn sty(s: &config::Style) -> Style {
+pub(crate) fn sty(s: &config::Style) -> Style {
     let color = |c: &str| (!c.is_empty()).then(|| Color::from_str(c).ok()).flatten();
     let mut out = Style::default();
     if let Some(c) = color(&s.fg) {
@@ -30,7 +30,7 @@ fn sty(s: &config::Style) -> Style {
 }
 
 /// Cut to `w` columns, marking the cut with `…`; pad to exactly `w`.
-fn fit(s: &str, w: usize) -> String {
+pub(crate) fn fit(s: &str, w: usize) -> String {
     if s.width() <= w {
         return format!("{s}{}", " ".repeat(w - s.width()));
     }
@@ -89,8 +89,11 @@ pub fn draw(f: &mut Frame, app: &mut App) {
     panel(f, app, 1, r);
     cmdline(f, app, cmd);
     keybar(f, app, keys);
-    if app.dialog.is_some() {
-        dialog(f, app);
+    let theme = app.theme.clone();
+    match &mut app.dialog {
+        Some(Dialog::Bom(v)) => v.draw(f, &theme),
+        Some(_) => dialog(f, app),
+        None => {}
     }
 }
 
@@ -367,6 +370,7 @@ fn dialog(f: &mut Frame, app: &mut App) {
             }
         }
         Dialog::Search { .. } => search(f, app, full),
+        Dialog::Bom(_) => {}
     }
 }
 
@@ -481,7 +485,7 @@ fn help_text(app: &App) -> Vec<Line<'static>> {
         v.push(Line::from(format!("  {:<22} {keys}", a.label())));
     }
     v.push(Line::from(""));
-    for k in ["help.also1", "help.also2", "help.also3"] {
+    for k in ["help.also1", "help.also2", "help.also3", "help.bom"] {
         v.push(Line::from(t!(k)));
     }
     v.push(Line::from(""));

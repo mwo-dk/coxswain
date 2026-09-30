@@ -747,6 +747,7 @@ dependencies = [
  "chrono",
  "coxswain-core",
  "ratatui",
+ "serde_json",
  "unicode-width",
 ]
 

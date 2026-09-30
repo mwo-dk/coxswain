@@ -6,6 +6,7 @@
 //! - `tree`: the tree the views show, by dependencies, source files or kind.
 //! - `policy`, `status` and `assess`: how good each asset is, and why.
 //! - `diff`: two versions of a BOM, compared.
+//! - `view`: a BOM read and rated in one go, with names, filters and sunburst geometry for views.
 
 pub mod assess;
 pub mod diff;
@@ -14,6 +15,7 @@ pub mod model;
 pub mod policy;
 pub mod status;
 pub mod tree;
+pub mod view;
 mod xml;
 
 use std::fmt;

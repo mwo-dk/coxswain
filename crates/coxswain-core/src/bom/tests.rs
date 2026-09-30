@@ -893,3 +893,36 @@ fn a_renewed_certificate_is_an_improvement_not_a_swap() {
     assert_eq!(b.labelled(&d.change, Change::Improved), ["google.com"]);
     assert_eq!((d.counts.added, d.counts.removed, d.counts.improved, d.counts.fixed), (0, 0, 1, 1));
 }
+
+// View helpers
+
+use view::{Filter, Loaded};
+
+#[test]
+fn view_names_filters_and_sunburst() {
+    let l = Loaded::open(&fixture("cbomkit/keycloak.cdx.json"), None).unwrap();
+    assert_eq!(l.mode, TreeMode::Files);
+    let key = (0..l.tree.len() as u32).find(|&i| l.node(i).label == "secret-key@ad2ff456-2f18-4c34-938b-54964e020aeb").unwrap();
+    assert_eq!(l.key_of(key), Some(("secret-key".into(), "HMAC-SHA256".into())));
+    assert_eq!(l.families(key), [policy::Family::Mac]);
+    let flat = Loaded::open(&fixture("cbomkit/keycloak.cdx.json"), Some(TreeMode::Flat)).unwrap();
+    assert!((0..flat.tree.len() as u32).any(|i| flat.group_kind(i) == Some(NodeKind::Algorithm)));
+
+    let text: Vec<String> = (0..l.tree.len() as u32).map(|i| l.search_text(i)).collect();
+    let f = Filter { status: [Status::Disallowed].into(), ..Default::default() };
+    let (matches, keep) = view::mask(&l, &f, &text);
+    assert_eq!(matches.iter().filter(|&&m| m).count(), 3);
+    assert!(keep[0] && !matches[0]);
+    let f = Filter { query: "jwkparser".into(), ..Default::default() };
+    let (matches, _) = view::mask(&l, &f, &text);
+    assert!(matches.iter().filter(|&&m| m).count() >= 2); // the file group and what is found in it
+
+    let leaves = view::leaf_counts(&l.tree, None);
+    let arcs = view::sunburst(&l, &leaves, 0, view::RINGS, view::MIN_ANGLE);
+    let ring1: f64 = arcs.iter().filter(|a| a.depth == 1).map(|a| a.a1 - a.a0).sum();
+    assert!((ring1 - 360.0).abs() < 1e-9);
+    assert!(arcs.iter().all(|a| a.node.is_none() || a.a1 - a.a0 >= view::MIN_ANGLE));
+    let (_, keep) = view::mask(&l, &Filter { status: [Status::Disallowed].into(), ..Default::default() }, &text);
+    let leaves = view::leaf_counts(&l.tree, Some(&keep));
+    assert_eq!(leaves[0], 3.0);
+}

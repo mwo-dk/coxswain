@@ -5,29 +5,31 @@
 //! nodes, switching between the preview and its window, and comparing two versions never read
 //! a file again.
 
-use coxswain_core::bom::assess::{self, Assessed, Context, Reason, Unresolved};
-use coxswain_core::bom::policy::{policy, Family, Param, Resolution};
-use coxswain_core::bom::diff::{self, Change, Counts, Removed, Side};
-use coxswain_core::bom::{self, tree, Bom, Crypto, EdgeKind, GroupKind, Issue, NodeKind, Status, Tree, TreeMode};
+use coxswain_core::bom::assess::{Reason, Unresolved};
+use coxswain_core::bom::policy::{policy, Family, Param};
+use coxswain_core::bom::diff::{self, Change, Counts, Removed};
+use coxswain_core::bom::{self, tree, view, EdgeKind, GroupKind, Issue, NodeKind, Status, TreeMode};
 use coxswain_core::t;
 use serde::Serialize;
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::SystemTime;
 
 type Res<T> = Result<T, String>;
 
+/// A BOM read and rated (coxswain-core's `view::Loaded`), with what tells whether it is still current.
 struct Loaded {
     path: PathBuf,
     modified: Option<SystemTime>,
-    mode: TreeMode,
-    bom: Bom,
-    tree: Tree,
-    resolutions: Vec<Option<Resolution>>,
-    issues: Vec<Issue>,
-    assessed: Assessed,
-    ctx: Context,
+    view: view::Loaded,
+}
+
+impl std::ops::Deref for Loaded {
+    type Target = view::Loaded;
+    fn deref(&self) -> &view::Loaded {
+        &self.view
+    }
 }
 
 /// Most recent first: the BOM in view, and the one it was compared with.
@@ -68,15 +70,8 @@ fn loaded(path: &Path, mode: Option<&str>) -> Res<Arc<Loaded>> {
             return Ok(l);
         }
     }
-    let bom = bom::load(path).map_err(error_text)?;
-    let modes = tree::modes(&bom);
-    let mode = want.filter(|m| modes.contains(m)).unwrap_or(modes[0]);
-    let tree = tree::build(&bom, mode);
-    let p = policy();
-    let (resolutions, issues) = assess::resolve(&bom, p);
-    let ctx = Context::today(p);
-    let assessed = assess::assess(&bom, &tree, p, &resolutions, &ctx);
-    let l = Arc::new(Loaded { path: path.to_path_buf(), modified, mode, bom, tree, resolutions, issues, assessed, ctx });
+    let view = view::Loaded::open(path, want).map_err(error_text)?;
+    let l = Arc::new(Loaded { path: path.to_path_buf(), modified, view });
     let mut last = LAST.lock().unwrap();
     last.retain(|x| x.path != l.path);
     last.insert(0, l.clone());
@@ -131,10 +126,6 @@ pub struct BomView {
     reviewed: bool,
 }
 
-fn is_crypto(kind: NodeKind) -> bool {
-    matches!(kind, NodeKind::Algorithm | NodeKind::Material | NodeKind::Certificate | NodeKind::Protocol)
-}
-
 fn kind_name(kind: NodeKind) -> &'static str {
     match kind {
         NodeKind::Application => "application",
@@ -147,47 +138,8 @@ fn kind_name(kind: NodeKind) -> &'static str {
     }
 }
 
-/// The families of an algorithm, from the catalog entries it resolved to.
-fn algorithm_families(l: &Loaded, i: u32) -> Vec<Family> {
-    match &l.resolutions[i as usize] {
-        Some(Resolution::Rated { parts, .. }) => parts.iter().filter_map(|p| policy().algorithm(&p.algorithm_id)).map(|a| a.family).collect(),
-        _ => vec![],
-    }
-}
 
-/// The families of any node: an algorithm's own, and those of the algorithms a key,
-/// certificate or protocol refers to, two steps deep (a certificate's key's algorithm).
-fn families(l: &Loaded, i: u32, out_edges: &[Vec<(EdgeKind, u32)>]) -> Vec<Family> {
-    let mut found = BTreeSet::new();
-    let mut todo = vec![(i, 0)];
-    while let Some((n, depth)) = todo.pop() {
-        match l.bom.nodes[n as usize].kind {
-            NodeKind::Algorithm => found.extend(algorithm_families(l, n)),
-            NodeKind::Material | NodeKind::Certificate | NodeKind::Protocol if depth < 2 => {
-                todo.extend(out_edges[n as usize].iter().filter(|(k, _)| *k != EdgeKind::Contains).map(|&(_, to)| (to, depth + 1)));
-            }
-            _ => {}
-        }
-    }
-    found.into_iter().collect()
-}
 
-/// A key CBOMkit named "secret-key@<uuid>": its type and its algorithm's label.
-fn uuid_key(l: &Loaded, i: u32, out_edges: &[Vec<(EdgeKind, u32)>]) -> Option<(String, String)> {
-    let node = &l.bom.nodes[i as usize];
-    let (prefix, rest) = node.label.split_once('@')?;
-    let uuid = rest.len() == 36 && rest.bytes().all(|b| b.is_ascii_hexdigit() || b == b'-');
-    if node.kind != NodeKind::Material || !uuid {
-        return None;
-    }
-    let kind = match &node.crypto {
-        Some(Crypto::Material(m)) => m.kind.clone(),
-        _ => None,
-    }
-    .unwrap_or_else(|| prefix.to_string());
-    let alg = out_edges[i as usize].iter().find(|(_, to)| l.bom.nodes[*to as usize].kind == NodeKind::Algorithm)?;
-    Some((kind, l.bom.nodes[alg.1 as usize].label.clone()))
-}
 
 fn short_place(o: &bom::Occurrence) -> String {
     let file = o.location.rsplit('/').next().unwrap_or(&o.location);
@@ -203,21 +155,15 @@ pub async fn bom_info(path: PathBuf, mode: Option<String>) -> Res<BomView> {
     tauri::async_runtime::spawn_blocking(move || {
         let l = loaded(&path, mode.as_deref())?;
         let (bom, tree) = (&l.bom, &l.tree);
-        let mut out_edges = vec![vec![]; bom.nodes.len()];
-        for e in &bom.edges {
-            out_edges[e.from as usize].push((e.kind, e.to));
-        }
-
         let mut by_status = BTreeMap::new();
         let mut by_kind = BTreeMap::new();
         let mut by_family = BTreeMap::new();
         let rows = (0..tree.len() as u32)
             .map(|i| {
-                let node = tree.node(bom, i);
-                let status = l.assessed.status[i as usize];
-                let own = (i as usize) < bom.nodes.len();
-                let f = if own { families(&l, i, &out_edges) } else { vec![] };
-                if is_crypto(node.kind) {
+                let node = l.node(i);
+                let status = l.status(i);
+                let f = l.families(i);
+                if view::is_crypto(node.kind) {
                     *by_status.entry(status).or_insert(0) += 1;
                     for x in &f {
                         *by_family.entry(*x).or_insert(0) += 1;
@@ -226,17 +172,6 @@ pub async fn bom_info(path: PathBuf, mode: Option<String>) -> Res<BomView> {
                 if node.kind != NodeKind::Group && i != 0 {
                     *by_kind.entry(kind_name(node.kind).to_string()).or_insert(0) += 1;
                 }
-                let mut q = node.label.to_lowercase();
-                if let Some(Crypto::Algorithm(a)) = &node.crypto
-                    && let Some(oid) = &a.oid
-                {
-                    q.push('\n');
-                    q.push_str(oid);
-                }
-                for o in &node.occurrences {
-                    q.push('\n');
-                    q.push_str(&o.location.to_lowercase());
-                }
                 Row {
                     l: node.label.clone(),
                     k: node.kind,
@@ -244,12 +179,10 @@ pub async fn bom_info(path: PathBuf, mode: Option<String>) -> Res<BomView> {
                     p: tree.parent[i as usize].map_or(-1, i64::from),
                     o: node.occurrences.first().map(short_place),
                     g: node.group.as_ref().map(|g| g.kind),
-                    gk: (node.group.as_ref().map(|g| g.kind) == Some(GroupKind::Kind))
-                        .then(|| tree.children[i as usize].first().map(|&c| tree.node(bom, c).kind))
-                        .flatten(),
+                    gk: l.group_kind(i),
                     f,
-                    key: if own { uuid_key(&l, i, &out_edges) } else { None },
-                    q,
+                    key: l.key_of(i),
+                    q: l.search_text(i),
                 }
             })
             .collect();
@@ -331,9 +264,6 @@ pub struct BomDiff {
     counts: Counts,
 }
 
-fn side(l: &Loaded) -> Side<'_> {
-    Side { bom: &l.bom, tree: &l.tree, resolutions: &l.resolutions, status: &l.assessed.status }
-}
 
 /// Compares `old` (the file in the other pane) with `path` (the BOM in view), in `mode`.
 #[tauri::command]
@@ -341,22 +271,16 @@ pub async fn bom_diff(old: PathBuf, path: PathBuf, mode: Option<String>) -> Res<
     tauri::async_runtime::spawn_blocking(move || {
         let before = loaded(&old, mode.as_deref())?;
         let after = loaded(&path, mode.as_deref())?;
-        let d = diff::diff(&side(&before), &side(&after));
+        let d = diff::diff(&before.side(), &after.side());
         Ok(BomDiff { change: d.change, removed: d.removed, counts: d.counts })
     })
     .await
     .map_err(|e| e.to_string())?
 }
 
-/// A path in the BOM, relative to the scanned repository, as a file next to the BOM.
+/// A path in the BOM as a file next to it (see `view::on_disk`), for the frontend.
 fn on_disk(bom_path: &Path, location: &str) -> Option<String> {
-    let base = bom_path.parent()?;
-    let rel = location.trim_start_matches(['/', '\\']);
-    if rel.is_empty() || rel.split(['/', '\\']).any(|s| s == "..") {
-        return None;
-    }
-    let p = base.join(rel);
-    p.exists().then(|| p.to_string_lossy().into_owned())
+    view::on_disk(bom_path, location).map(|p| p.to_string_lossy().into_owned())
 }
 
 const RAW_LIMIT: usize = 64 * 1024;
