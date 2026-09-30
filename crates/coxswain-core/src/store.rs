@@ -9,7 +9,7 @@
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
-use std::sync::{Mutex, OnceLock};
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant, UNIX_EPOCH};
 
 use rusqlite::{params, Connection};
@@ -40,9 +40,6 @@ fn below(dir: &str) -> (String, String) {
 const VERSION: i32 = 6;
 /// A snippet marks the words it found with these; the apps turn them into a highlight.
 pub const MARK: (char, char) = ('\u{1}', '\u{2}');
-/// The least score a passage found by meaning needs: with e5, unrelated text scores about
-/// 0.72 to 0.75, the same thing said in another language about 0.79, in the same one 0.85.
-const SIMILAR: f32 = 0.77;
 
 pub struct Store {
     db: Mutex<Connection>,
@@ -63,8 +60,10 @@ pub struct Store {
     configured: Mutex<Vec<PathBuf>>,
     /// Search by meaning is on (and the model is downloaded).
     pub meaning: AtomicBool,
-    /// The model, loaded the first time it is needed.
-    embedder: OnceLock<Option<crate::meaning::Embedder>>,
+    /// Where the vectors come from, when search by meaning is on: the built-in model or a server.
+    engine: Mutex<Option<Arc<crate::meaning::Engine>>>,
+    /// Why the last vectors could not be had (a server that did not answer), for Settings.
+    pub meaning_error: Mutex<Option<String>>,
     /// The signs of every passage's vector, (file, passage, signs), read from `chunks` for the
     /// first search by meaning and kept up to date after.
     signs: Mutex<Option<Signs>>,
@@ -72,7 +71,7 @@ pub struct Store {
 
 type Known = HashMap<String, (u64, i64)>;
 /// (file, passage, the signs of its vector).
-type Signs = Vec<(i64, u8, [u64; crate::meaning::DIMS / 64])>;
+type Signs = Vec<(i64, u8, Box<[u64]>)>;
 
 impl Store {
     pub fn path() -> Option<PathBuf> {
@@ -110,7 +109,7 @@ impl Store {
         if db.prepare("SELECT embedded FROM files LIMIT 0").is_err() {
             db.execute_batch("ALTER TABLE files ADD COLUMN embedded INTEGER")?;
         }
-        Ok(Store { db: Mutex::new(db), pending: AtomicUsize::new(0), hurry: AtomicBool::new(false), cleared: AtomicBool::new(false), walked: Mutex::default(), offline: Mutex::default(), paused: AtomicBool::new(false), configured: Mutex::default(), meaning: AtomicBool::new(false), embedder: OnceLock::new(), signs: Mutex::default() })
+        Ok(Store { db: Mutex::new(db), pending: AtomicUsize::new(0), hurry: AtomicBool::new(false), cleared: AtomicBool::new(false), walked: Mutex::default(), offline: Mutex::default(), paused: AtomicBool::new(false), configured: Mutex::default(), meaning: AtomicBool::new(false), engine: Mutex::default(), meaning_error: Mutex::default(), signs: Mutex::default() })
     }
 
     /// Bytes and files below `dir`, and when the walk they come from began. `None` until a
@@ -365,12 +364,33 @@ impl Store {
         tx.commit()
     }
 
-    /// The model, when search by meaning is on; loaded the first time.
-    fn embedder(&self) -> Option<&crate::meaning::Embedder> {
-        if !self.meaning.load(Ordering::Relaxed) {
-            return None;
+    /// Search by meaning with this engine, or none.
+    pub fn set_engine(&self, engine: Option<crate::meaning::Engine>) {
+        self.meaning.store(engine.is_some(), Ordering::Relaxed);
+        *self.engine.lock().unwrap() = engine.map(Arc::new);
+    }
+
+    /// Which model makes the vectors, when search by meaning is on.
+    pub fn engine_id(&self) -> Option<String> {
+        self.engine().map(|e| e.id())
+    }
+
+    /// The engine, when search by meaning is on.
+    fn engine(&self) -> Option<Arc<crate::meaning::Engine>> {
+        self.engine.lock().unwrap().clone().filter(|_| self.meaning.load(Ordering::Relaxed))
+    }
+
+    /// The vectors in the store were made by another model: they go, and every file gets new
+    /// ones, since vectors of two models cannot be compared.
+    fn model_is(&self, id: &str) -> rusqlite::Result<()> {
+        let db = self.db.lock().unwrap();
+        let before: String = db.query_row("SELECT value FROM meta WHERE key = 'meaning_model'", [], |r| r.get(0)).unwrap_or_default();
+        if before != id {
+            db.execute_batch("DELETE FROM chunks; UPDATE files SET embedded = NULL;")?;
+            db.execute("INSERT OR REPLACE INTO meta(key, value) VALUES ('meaning_model', ?1)", [id])?;
+            *self.signs.lock().unwrap() = None;
         }
-        self.embedder.get_or_init(crate::meaning::Embedder::load).as_ref()
+        Ok(())
     }
 
     /// Files with text whose passages have no vectors yet, and files that have them.
@@ -409,7 +429,14 @@ impl Store {
     /// the passage that was closest. Nothing while search by meaning is off.
     pub fn similar(&self, query: &str, max: usize) -> Vec<Hit> {
         use crate::meaning::{pack, score, signs, alike};
-        let Some(q) = self.embedder().and_then(|e| e.query(query)) else { return vec![] };
+        let Some(engine) = self.engine() else { return vec![] };
+        let q = match engine.query(query) {
+            Ok(q) => q,
+            Err(e) => {
+                *self.meaning_error.lock().unwrap() = Some(e);
+                return vec![];
+            }
+        };
         let wanted = signs(&pack(&q));
         let db = self.db.lock().unwrap();
         let mut known = self.signs.lock().unwrap();
@@ -446,7 +473,7 @@ impl Store {
         let offline: Vec<(String, String)> = self.offline.lock().unwrap().iter().map(|at| below(at)).collect();
         ranked
             .into_iter()
-            .filter(|r| r.1 >= SIMILAR.max(top - 0.10))
+            .filter(|r| r.1 >= engine.floor().max(top - 0.10))
             .filter_map(|(file, s, n)| {
                 let (path, body): (String, String) = db.query_row("SELECT f.path, t.body FROM files f JOIN text t ON t.rowid = f.id WHERE f.id = ?1", [file], |r| Ok((r.get(0)?, r.get(1)?))).ok()?;
                 if offline.iter().any(|(from, to)| path > *from && path < *to) {
@@ -597,9 +624,8 @@ fn hash(store: &Store, stop: &AtomicBool) -> rusqlite::Result<bool> {
 // ponytail: files the watcher brings get theirs at the next scan, within ten minutes; the
 // text is searchable by its words at once.
 fn embed(store: &Store, stop: &AtomicBool) -> rusqlite::Result<()> {
-    if store.embedder().is_none() {
-        return Ok(());
-    }
+    let Some(engine) = store.engine() else { return Ok(()) };
+    store.model_is(&engine.id())?;
     loop {
         let files = store.unembedded(8)?;
         if files.is_empty() {
@@ -607,9 +633,16 @@ fn embed(store: &Store, stop: &AtomicBool) -> rusqlite::Result<()> {
         }
         let start = Instant::now();
         for (id, body) in files {
-            let Some(e) = store.embedder() else { return Ok(()) };
-            let vectors: Vec<Vec<u8>> = crate::meaning::passages(&body).iter().filter_map(|p| e.passage(p)).map(|v| crate::meaning::pack(&v)).collect();
-            store.put_vectors(id, &vectors)?;
+            // A server that does not answer: the file waits for the next scan, word search goes on.
+            let vectors = match engine.passages(&crate::meaning::passages(&body)) {
+                Ok(v) => v,
+                Err(e) => {
+                    *store.meaning_error.lock().unwrap() = Some(e);
+                    return Ok(());
+                }
+            };
+            *store.meaning_error.lock().unwrap() = None;
+            store.put_vectors(id, &vectors.iter().map(|v| crate::meaning::pack(v)).collect::<Vec<_>>())?;
             if stop.load(Ordering::Relaxed) || store.cleared.load(Ordering::Relaxed) {
                 return Ok(());
             }
@@ -963,7 +996,7 @@ mod tests {
         write("cake.txt", "Opskrift på æblekage: smør, sukker, mel, æbler og kanel. Bag kagen i en time ved 180 grader og server med flødeskum.");
         let cfg = SearchConfig { text_roots: vec![d.join("home")], ..SearchConfig::default() };
         let (store, go) = (Store::open(&d.join("search.db")).unwrap(), AtomicBool::new(false));
-        store.meaning.store(true, Ordering::Relaxed);
+        store.set_engine(crate::meaning::Engine::from_config(&cfg));
         store.hurry.store(true, Ordering::Relaxed);
         scan(&store, &cfg, &go).unwrap();
         assert_eq!(store.meaning_counts(), (0, 3));
@@ -978,6 +1011,49 @@ mod tests {
         write("cake.txt", "Minutes of the board meeting: the budget was approved and the fuel supplier was changed.");
         scan(&store, &cfg, &go).unwrap();
         assert!(names("apple cake recipe").first().is_none_or(|n| n != "cake.txt"));
+        drop(store);
+        std::fs::remove_dir_all(d).unwrap();
+    }
+
+    /// With Ollama running and a small embedding model pulled (`ollama pull all-minilm`): the
+    /// vectors come from the server, a switch of model redoes them, and a server that does not
+    /// answer leaves the files to wait.
+    #[test]
+    fn store_takes_its_vectors_from_a_server() {
+        let models = crate::meaning::server_models(false, "").unwrap_or_default();
+        if !models.iter().any(|m| m.starts_with("all-minilm")) {
+            return;
+        }
+        let d = std::env::temp_dir().join(format!("coxswain-store-server-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(d.join("home")).unwrap();
+        std::fs::write(d.join("home/budget.txt"), "The fuel budget for flight seven is the largest cost of the launch, and the tanks are refilled twice before lift-off.").unwrap();
+        std::fs::write(d.join("home/cake.txt"), "An apple cake: butter, sugar, flour, apples and cinnamon. Bake it for an hour and serve it with whipped cream.").unwrap();
+        let mut cfg = SearchConfig { text_roots: vec![d.join("home")], meaning: true, meaning_engine: "ollama".into(), meaning_model: "all-minilm".into(), ..SearchConfig::default() };
+        let (store, go) = (Store::open(&d.join("search.db")).unwrap(), AtomicBool::new(false));
+        store.set_engine(crate::meaning::Engine::from_config(&cfg));
+        store.hurry.store(true, Ordering::Relaxed);
+        scan(&store, &cfg, &go).unwrap();
+        assert_eq!(store.meaning_counts(), (0, 2));
+        let first = |q: &str| store.similar(q, 10).first().map(|h| h.path.file_name().unwrap().to_string_lossy().into_owned());
+        assert_eq!(first("how much does fuelling the rocket cost").as_deref(), Some("budget.txt"));
+        assert_eq!(first("a recipe for baking").as_deref(), Some("cake.txt"));
+
+        // The same model through the OpenAI API (Ollama speaks it too, as Lemonade does).
+        cfg.meaning_engine = "openai".into();
+        cfg.meaning_url = format!("{}/v1", crate::meaning::OLLAMA);
+        store.set_engine(crate::meaning::Engine::from_config(&cfg));
+        scan(&store, &cfg, &go).unwrap();
+        assert_eq!(store.meaning_counts(), (0, 2));
+        assert_eq!(first("a recipe for baking").as_deref(), Some("cake.txt"));
+
+        // Nobody answers there: the files wait, and Settings is told why.
+        cfg.meaning_url = "http://127.0.0.1:9".into();
+        cfg.meaning_model = "other".into();
+        store.set_engine(crate::meaning::Engine::from_config(&cfg));
+        scan(&store, &cfg, &go).unwrap();
+        assert_eq!(store.meaning_counts(), (2, 0), "another model: the old vectors went");
+        assert!(store.meaning_error.lock().unwrap().is_some());
         drop(store);
         std::fs::remove_dir_all(d).unwrap();
     }

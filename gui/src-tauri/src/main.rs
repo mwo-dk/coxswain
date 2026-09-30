@@ -174,6 +174,10 @@ struct Settings {
     names_only: Vec<PathBuf>,
     search_meaning: bool,
     latex_auto: bool,
+    meaning_engine: String,
+    meaning_url: String,
+    meaning_model: String,
+    meaning_key_env: String,
 }
 
 impl From<&Config> for Settings {
@@ -198,6 +202,10 @@ impl From<&Config> for Settings {
             names_only: c.search.names_only.clone(),
             search_meaning: c.search.meaning,
             latex_auto: c.preview.latex_auto,
+            meaning_engine: c.search.meaning_engine.clone(),
+            meaning_url: c.search.meaning_url.clone(),
+            meaning_model: c.search.meaning_model.clone(),
+            meaning_key_env: c.search.meaning_key_env.clone(),
         }
     }
 }
@@ -223,6 +231,10 @@ const SETTING_PATHS: &[(&str, &[&str])] = &[
     ("names_only", &["search", "names_only"]),
     ("search_meaning", &["search", "meaning"]),
     ("latex_auto", &["preview", "latex_auto"]),
+    ("meaning_engine", &["search", "meaning_engine"]),
+    ("meaning_url", &["search", "meaning_url"]),
+    ("meaning_model", &["search", "meaning_model"]),
+    ("meaning_key_env", &["search", "meaning_key_env"]),
 ];
 
 /// `text` (a config.toml) with the settings in `changes` set, comments and layout kept.
@@ -471,6 +483,32 @@ fn meaning_status(ctx: tauri::State<Ctx>) -> Res<MeaningStatus> {
         downloading: m.as_ref().filter(|(_, err)| err.is_none()).map(|(p, _)| (p.done.load(Ordering::Relaxed), p.total.load(Ordering::Relaxed))),
         error: m.as_ref().and_then(|(_, e)| e.clone()),
     })
+}
+
+/// The embedding models a server offers, for Settings: Ollama's pulled ones, or an OpenAI
+/// server's list. An error when it does not answer.
+#[tauri::command]
+async fn meaning_models(engine: String, url: String) -> Res<Vec<String>> {
+    tauri::async_runtime::spawn_blocking(move || coxswain_core::meaning::server_models(engine == "openai", &url)).await.map_err(|e| e.to_string())?
+}
+
+/// Ask Ollama to pull `model`; the progress is the download's, in `meaning_status`.
+#[tauri::command]
+fn meaning_pull(model: String, url: String, app: tauri::AppHandle, ctx: tauri::State<Ctx>) -> Res<()> {
+    let p = Arc::new(coxswain_core::meaning::Progress::default());
+    *ctx.meaning.lock().map_err(|e| e.to_string())? = Some((p.clone(), None));
+    let index = ctx.index.clone();
+    std::thread::spawn(move || {
+        let done = coxswain_core::meaning::ollama_pull(&url, &model, &p);
+        if let Ok(mut m) = app.state::<Ctx>().meaning.lock() {
+            *m = match done {
+                Err(e) if !p.cancel.load(std::sync::atomic::Ordering::Relaxed) => Some((p, Some(e.to_string()))),
+                _ => None,
+            };
+        }
+        index.restart();
+    });
+    Ok(())
 }
 
 /// "download": fetch the model, then turn search by meaning on; "cancel" the download;
@@ -1141,7 +1179,7 @@ fn main() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            get_config, notices, dismiss_notice, index_status, index_action, index_service, meaning_status, meaning_action, list_dir, git_status, places, disks, get_state, save_session, save_favorites, set_tags, set_note, get_note,
+            get_config, notices, dismiss_notice, index_status, index_action, index_service, meaning_status, meaning_action, meaning_models, meaning_pull, list_dir, git_status, places, disks, get_state, save_session, save_favorites, set_tags, set_note, get_note,
             search, resolve_path, copy, rename, delete, mkdir, dir_sizes, rename_plan, rename_apply, open_path, edit_path,
             read_text, run_command, scripts, run_script, check_update, archive_list, extract, properties, set_permissions,
             clip_set, paste, start_drag, watch_dirs, preview::git_diff, preview::sqlite_info, preview::epub_preview,

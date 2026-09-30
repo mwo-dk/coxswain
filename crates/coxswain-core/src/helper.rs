@@ -87,6 +87,11 @@ pub struct Status {
     pub meaning_pending: usize,
     #[serde(default)]
     pub meaning_done: usize,
+    /// Which model makes the vectors (`builtin:…`, `ollama:bge-m3`), and why it could not.
+    #[serde(default)]
+    pub meaning_engine: String,
+    #[serde(default)]
+    pub meaning_error: Option<String>,
     /// Reading waits until the machine is off its battery.
     #[serde(default)]
     pub paused: bool,
@@ -129,7 +134,7 @@ pub fn serve() -> io::Result<()> {
     let search = Config::load().map(|c| c.search).unwrap_or_default();
     let store = if search.text { Store::open(&dir.join("search.db")).ok().map(Arc::new) } else { None };
     if let Some(s) = &store {
-        s.meaning.store(search.meaning && crate::meaning::installed(), Ordering::Relaxed);
+        s.set_engine(if search.meaning { crate::meaning::Engine::from_config(&search) } else { None });
     }
     std::fs::create_dir_all(&dir)?;
     let cfg = search.clone();
@@ -241,6 +246,8 @@ fn answer(stream: TcpStream, index: &Service, store: Option<&Store>, token: &str
                 meaning: store.is_some_and(|s| s.meaning.load(Ordering::Relaxed)),
                 meaning_pending: store.filter(|s| s.meaning.load(Ordering::Relaxed)).map_or(0, |s| s.meaning_counts().0),
                 meaning_done: store.map_or(0, |s| s.meaning_counts().1),
+                meaning_engine: store.and_then(Store::engine_id).unwrap_or_default(),
+                meaning_error: store.and_then(|s| s.meaning_error.lock().unwrap().clone()),
                 paused: store.is_some_and(|s| s.paused.load(Ordering::Relaxed)),
                 roots: store.map(Store::root_sizes).unwrap_or_default(),
                 tools: crate::extract::installed::found().iter().map(|(n, p)| (n.to_string(), p.is_some())).collect(),
@@ -369,7 +376,7 @@ impl Client {
         }
         let now = match self.ask(&Request::Status) {
             Some(Reply::Status(s)) => s,
-            _ => Status { state: self.own().state(), len: self.own().len(), texts: 0, pending: 0, bytes: 0, paused: false, roots: vec![], tools: vec![], meaning: false, meaning_pending: 0, meaning_done: 0 },
+            _ => Status { state: self.own().state(), len: self.own().len(), texts: 0, pending: 0, bytes: 0, paused: false, roots: vec![], tools: vec![], meaning: false, meaning_pending: 0, meaning_done: 0, meaning_engine: String::new(), meaning_error: None },
         };
         *status = Some((Instant::now(), now.clone()));
         now

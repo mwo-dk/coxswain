@@ -394,6 +394,28 @@ eight passages of each file with text get a vector, kept in `search.db`. Nothing
 the machine. *Turn off* stops it; *Delete the model* (`coxswain --meaning delete`) removes the
 model as well.
 
+**On a GPU, with your own server.** The built-in model needs nothing but is slow on a laptop's
+CPU. If you run [Ollama](https://ollama.com) or a server with the OpenAI API
+([Lemonade](https://lemonade-server.ai), LM Studio, llama.cpp, vLLM, LocalAI), it can make the
+vectors instead, on its GPU or NPU, with a bigger model:
+
+| | Settings → *Search by meaning* → *Vectors made by* | Terminal |
+|---|---|---|
+| Ollama on this machine | *Ollama*; the model `bge-m3` (multilingual, 1.2 GB) is suggested, and **Pull** fetches it | `coxswain --meaning ollama [model]` |
+| Ollama elsewhere | *Ollama*, *Server* `http://evo:11434` | `meaning_url` in `config.toml` |
+| Lemonade, LM Studio, … | *A server with the OpenAI API*, *Server* `http://localhost:8000/api/v1` (Lemonade's), then pick its embedding model | `coxswain --meaning server URL MODEL` |
+| Back to the built-in model | *Built-in model* | `coxswain --meaning builtin` |
+
+- A server on another machine gets the text of your files; Settings says so, with its name.
+  An API key, if the server wants one, is read from an environment variable you name
+  (`meaning_key_env`), never written into `config.toml`.
+- Vectors of two models cannot be compared, so another model makes them all again, in the
+  background; search by words goes on meanwhile.
+- A server that does not answer pauses search by meaning, and Settings says why; the files wait
+  and are done once it answers.
+- To clean up: *Turn off*, or back to the built-in model. Coxswain installs nothing on a server;
+  a model it pulled goes with `ollama rm bge-m3`.
+
 #### Documents it reads
 
 | Kind | Files |
