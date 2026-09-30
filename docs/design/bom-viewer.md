@@ -261,7 +261,7 @@ viewer is a new full-screen dialog, modelled on the scrollable `Dialog::Help`
     parse to the same `Bom`
   
   This departs from the repo's habit of building fixtures in a temp dir, because real files
-  are the point here. The files total under 150 KB.
+  are the point here. The files total about 220 KB, with their licenses.
 - The tests:
   - **Ingest:** every fixture parses, with the expected node, edge and issue counts, and each
     JSON/XML pair gives the same model.

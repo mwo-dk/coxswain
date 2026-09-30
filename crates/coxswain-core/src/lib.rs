@@ -1,6 +1,7 @@
 //! Coxswain core: everything that is not UI, shared by the TUI and the GUI.
 
 pub mod archive;
+pub mod bom;
 pub mod config;
 pub mod i18n;
 pub mod dupes;
