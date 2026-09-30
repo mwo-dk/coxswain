@@ -1322,19 +1322,21 @@ fn meaning(what: Option<&str>, rest: &[String]) {
         // Ollama on this machine makes the vectors; the model is pulled when it is not there.
         Some("ollama") => {
             let model = rest.first().map_or("bge-m3", String::as_str);
-            let have = meaning::server_models(false, "").unwrap_or_else(|e| fail(e));
+            let have = meaning::server_models(false, "", None).unwrap_or_else(|e| fail(e));
             if !have.iter().any(|m| m == model || m.split(':').next() == Some(model)) {
                 eprintln!("{}", t!("tui.meaning_pulling", "model" => model));
                 meaning::ollama_pull("", model, &meaning::Progress::default()).unwrap_or_else(|e| fail(e.to_string()));
             }
             save("meaning_engine", "ollama");
+            save("meaning_url", "");
             save("meaning_model", model);
             Config::save_value(&["search", "meaning"], true.into()).unwrap_or_else(|e| fail(e));
         }
         // Any server with the OpenAI API: `--meaning server http://evo:8000/api/v1 <model>`.
         Some("server") => {
             let (Some(url), Some(model)) = (rest.first(), rest.get(1)) else { fail(t!("tui.meaning_server_usage")) };
-            meaning::server_models(true, url).unwrap_or_else(|e| fail(e));
+            let key = meaning::key_of(&Config::load().map(|c| c.search).unwrap_or_default());
+            meaning::server_models(true, url, key.as_deref()).unwrap_or_else(|e| fail(e));
             save("meaning_engine", "openai");
             save("meaning_url", url);
             save("meaning_model", model);
@@ -1344,8 +1346,9 @@ fn meaning(what: Option<&str>, rest: &[String]) {
             save("meaning_engine", "builtin");
             return meaning(Some("on"), &[]);
         }
+        // The model is downloaded for the built-in engine; a server needs none.
         Some("on") => {
-            if !meaning::installed() {
+            if !meaning::installed() && Config::load().is_ok_and(|c| c.search.meaning_engine == "builtin") {
                 let p = std::sync::Arc::new(meaning::Progress::default());
                 let q = p.clone();
                 let shown = std::thread::spawn(move || {
@@ -1381,7 +1384,7 @@ fn meaning(what: Option<&str>, rest: &[String]) {
             let search = Config::load().map(|c| c.search).unwrap_or_default();
             let openai = search.meaning_engine == "openai";
             let url = if search.meaning_engine == "builtin" { "" } else { search.meaning_url.as_str() };
-            let have = meaning::server_models(openai, url).unwrap_or_else(|e| fail(e));
+            let have = meaning::server_models(openai, url, meaning::key_of(&search).as_deref()).unwrap_or_else(|e| fail(e));
             if !have.iter().any(|m| m == model || m.split(':').next() == Some(model)) {
                 if openai {
                     fail(t!("tui.ask_no_model", "model" => model));

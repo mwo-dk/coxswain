@@ -26,14 +26,14 @@ pub const OFFICE: &[&str] = &["doc", "dot", "wps", "wpd", "pub", "ppt", "pps", "
 const MAX_PAGES: u32 = 30;
 const TIMEOUT: Duration = Duration::from_secs(120);
 
-/// Which of `PROGRAMS` are installed, found once.
-pub fn found() -> &'static [(&'static str, Option<PathBuf>)] {
-    static FOUND: OnceLock<Vec<(&'static str, Option<PathBuf>)>> = OnceLock::new();
-    FOUND.get_or_init(|| PROGRAMS.iter().map(|p| (*p, tools::which(p))).collect())
+/// Which of `PROGRAMS` are installed, looked for now: one installed while the helper runs is
+/// used from the next scan, a few stats per file read.
+pub fn found() -> Vec<(&'static str, Option<PathBuf>)> {
+    PROGRAMS.iter().map(|p| (*p, tools::which(p))).collect()
 }
 
-fn program(name: &str) -> Option<&'static Path> {
-    found().iter().find(|(n, _)| *n == name)?.1.as_deref()
+fn program(name: &str) -> Option<PathBuf> {
+    tools::which(name)
 }
 
 /// The extensions installed programs read now: they are read again when that changes.
@@ -106,8 +106,8 @@ fn languages(tesseract: &Path) -> &'static str {
 /// The words tesseract finds in a picture.
 fn ocr(picture: &Path) -> Option<String> {
     let tesseract = program("tesseract")?;
-    let args = [picture.as_os_str(), OsStr::new("stdout"), OsStr::new("-l"), OsStr::new(languages(tesseract)), OsStr::new("--psm"), OsStr::new("3")];
-    let out = tools::output(tesseract, &args, TIMEOUT, super::MAX_TEXT as u64)?;
+    let args = [picture.as_os_str(), OsStr::new("stdout"), OsStr::new("-l"), OsStr::new(languages(&tesseract)), OsStr::new("--psm"), OsStr::new("3")];
+    let out = tools::output(&tesseract, &args, TIMEOUT, super::MAX_TEXT as u64)?;
     let text = String::from_utf8_lossy(&out).into_owned();
     // A picture without words gives a few stray letters.
     (text.split_whitespace().filter(|w| w.chars().filter(|c| c.is_alphabetic()).count() >= 3).count() >= 3).then_some(text)
@@ -128,7 +128,7 @@ pub fn scanned_pdf(path: &Path) -> Option<String> {
     let last = MAX_PAGES.to_string();
     let prefix = scratch.0.join("page");
     let args = [OsStr::new("-r"), OsStr::new("200"), OsStr::new("-gray"), OsStr::new("-png"), OsStr::new("-l"), OsStr::new(&last), path.as_os_str(), prefix.as_os_str()];
-    tools::output(pdftoppm, &args, TIMEOUT, 1024)?;
+    tools::output(&pdftoppm, &args, TIMEOUT, 1024)?;
     let mut pages: Vec<PathBuf> = std::fs::read_dir(&scratch.0).ok()?.flatten().map(|e| e.path()).collect();
     pages.sort();
     let text: Vec<String> = pages.iter().filter_map(|p| ocr(p)).collect();
@@ -143,7 +143,7 @@ pub fn office(path: &Path, max: u64) -> Option<String> {
     let profile = dirs::cache_dir()?.join("coxswain").join("libreoffice-index-profile");
     let url = format!("-env:UserInstallation=file:///{}", profile.to_string_lossy().trim_start_matches('/').replace('\\', "/"));
     let args = [OsStr::new(&url), OsStr::new("--headless"), OsStr::new("--norestore"), OsStr::new("--convert-to"), OsStr::new("pdf"), OsStr::new("--outdir"), scratch.0.as_os_str(), path.as_os_str()];
-    tools::output(soffice, &args, TIMEOUT, 64 * 1024)?;
+    tools::output(&soffice, &args, TIMEOUT, 64 * 1024)?;
     let pdf = std::fs::read_dir(&scratch.0).ok()?.flatten().map(|e| e.path()).find(|p| p.extension().is_some_and(|e| e == "pdf"))?;
     super::pdf::text(&pdf, max.max(std::fs::metadata(&pdf).ok()?.len()))
 }
