@@ -548,6 +548,7 @@
  "settings.search_root_size": "{size} in de index",
  "settings.search_roots": "Gelezen mappen",
  "settings.search_roots_home": "Je persoonlijke map",
+ "settings.search_service": "De zoekhulp met mijn sessie starten, zodat hij leest terwijl er geen venster open is",
  "settings.search_status": "Doorzoekbaar: {texts} bestanden · nog te lezen: {pending} · {size} op schijf",
  "settings.search_text": "De tekst van bestanden bewaren, zodat Bestand zoeken erin kan zoeken (Tab)",
  "settings.show_hidden": "Verborgen bestanden tonen als Coxswain start",

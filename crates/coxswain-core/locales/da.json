@@ -548,6 +548,7 @@
  "settings.search_root_size": "{size} i indekset",
  "settings.search_roots": "Mapper, der læses",
  "settings.search_roots_home": "Din hjemmemappe",
+ "settings.search_service": "Start søgehjælperen sammen med min session, så den læser, mens intet vindue er åbent",
  "settings.search_status": "Søgbare: {texts} filer · mangler at blive læst: {pending} · {size} på disken",
  "settings.search_text": "Gem filernes tekst, så Find fil kan søge i den (Tab)",
  "settings.show_hidden": "Vis skjulte filer, når Coxswain starter",

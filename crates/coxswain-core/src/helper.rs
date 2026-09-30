@@ -120,7 +120,9 @@ pub fn serve() -> io::Result<()> {
     let store = if search.text { Store::open(&dir.join("search.db")).ok().map(Arc::new) } else { None };
     std::fs::create_dir_all(&dir)?;
     let cfg = search.clone();
-    serve_in(&dir, LINGER, move || Service::start(&search), store.map(|s| (s, cfg)))
+    // Registered to start with the session: it stays when the apps have gone.
+    let linger = if std::env::args().any(|a| a == crate::service::STAY) { Duration::MAX } else { LINGER };
+    serve_in(&dir, linger, move || Service::start(&search), store.map(|s| (s, cfg)))
 }
 
 /// `serve` with its folder, its patience and its index given, for tests.
@@ -243,8 +245,18 @@ impl Client {
     /// Connects in the background, so the app starts without waiting for the helper.
     pub fn start(search: &SearchConfig) -> Arc<Client> {
         let client = Client::with(folder(), search, || {
+            // A registered helper is started again by systemd or launchd; on Windows nothing
+            // does, so the app starts one that stays.
+            let registered = crate::service::installed();
+            if registered && !cfg!(windows) {
+                return;
+            }
             if let Ok(exe) = std::env::current_exe() {
-                let _ = detached(&exe).spawn();
+                let mut c = detached(&exe);
+                if registered {
+                    c.arg(crate::service::STAY);
+                }
+                let _ = c.spawn();
             }
         });
         let c = client.clone();
@@ -356,6 +368,8 @@ impl Client {
         let dir = self.dir.as_deref()?;
         let mut started = false;
         let wait = Instant::now();
+        // A registered helper that was asked to go takes the system a moment to start again.
+        let patience = Duration::from_secs(if crate::service::installed() { 15 } else { 5 });
         loop {
             match dial(dir) {
                 Some((mut line, token)) => match exchange(&mut line, &Request::Hello { token, version: VERSION.into() }) {
@@ -369,7 +383,7 @@ impl Client {
                 }
                 None => {}
             }
-            if wait.elapsed() > Duration::from_secs(5) {
+            if wait.elapsed() > patience {
                 return None;
             }
             std::thread::sleep(Duration::from_millis(50));
@@ -402,7 +416,7 @@ fn exchange((from, to): &mut Line, request: &Request) -> io::Result<Reply> {
 }
 
 /// `exe` as a helper that outlives the app and its terminal.
-fn detached(exe: &Path) -> std::process::Command {
+pub(crate) fn detached(exe: &Path) -> std::process::Command {
     use std::process::{Command, Stdio};
     let mut c = Command::new(exe);
     c.arg(ARG).stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null());

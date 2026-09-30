@@ -548,6 +548,7 @@
  "settings.search_root_size": "{size} hakemistossa",
  "settings.search_roots": "Luettavat kansiot",
  "settings.search_roots_home": "Kotikansiosi",
+ "settings.search_service": "Käynnistä hakuapuri istunnon mukana, jotta se lukee silloinkin, kun mikään ikkuna ei ole auki",
  "settings.search_status": "Haettavissa: {texts} tiedostoa · lukematta: {pending} · {size} levyllä",
  "settings.search_text": "Säilytä tiedostojen teksti, jotta Etsi tiedosto voi hakea siitä (Tab)",
  "settings.show_hidden": "Näytä piilotetut tiedostot, kun Coxswain käynnistyy",

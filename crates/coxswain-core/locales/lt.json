@@ -582,6 +582,7 @@
  "settings.search_root_size": "{size} indekse",
  "settings.search_roots": "Skaitomi aplankai",
  "settings.search_roots_home": "Jūsų namų aplankas",
+ "settings.search_service": "Paleisti paieškos pagalbinę programą kartu su mano seansu, kad ji skaitytų ir tada, kai joks langas neatvertas",
  "settings.search_status": "Ieškoma: {texts} failų · liko perskaityti: {pending} · diske {size}",
  "settings.search_text": "Saugoti failų tekstą, kad „Ieškoti failo“ galėtų jame ieškoti (Tab)",
  "settings.show_hidden": "Rodyti paslėptus failus paleidus Coxswain",

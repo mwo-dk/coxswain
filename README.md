@@ -343,6 +343,12 @@ folders kept to *names only*: found by name and counted in folder sizes, never r
 
 ![Settings, Search inside files: 31 files searchable, Index now and Delete the index, the folders read and the names-only folders](docs/screenshots/gui-settings-search.png)
 
+**Start with my session** (a checkbox there, or `coxswain --index-service on`) registers the
+helper with the system: a systemd user unit on Linux, a LaunchAgent on macOS, a Run entry on
+Windows. It then starts at login and stays, so the backlog is read before any window is opened,
+and it runs at low priority. Unticking it (`--index-service off`) removes the registration, and
+the helper goes back to starting with the first app and leaving ten minutes after the last.
+
 **Removable disks** can be folders read too. Each is known by its disk (file system UUID, or
 the volume serial on Windows), not only by its path: while the disk is not plugged in its text
 stays in the index, out of search results, and Settings shows it as away; plugged in again, at

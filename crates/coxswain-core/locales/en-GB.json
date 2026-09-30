@@ -548,6 +548,7 @@
  "settings.search_root_size": "{size} in the index",
  "settings.search_roots": "Folders read",
  "settings.search_roots_home": "Your home folder",
+ "settings.search_service": "Start the search helper with my session, so it reads while no window is open",
  "settings.search_status": "Searchable: {texts} files · still to read: {pending} · {size} on disk",
  "settings.search_text": "Keep the text of files, so Find file can search in it (Tab)",
  "settings.show_hidden": "Show hidden files when Coxswain starts",

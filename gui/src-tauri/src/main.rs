@@ -429,12 +429,28 @@ struct IndexStatus {
     path: Option<PathBuf>,
     /// Whether the helper answers: without it there is no text search.
     shared: bool,
+    /// Whether the helper starts with the session.
+    service: bool,
 }
 
 #[tauri::command]
 async fn index_status(ctx: tauri::State<'_, Ctx>) -> Res<IndexStatus> {
     let index = ctx.index.clone();
-    tauri::async_runtime::spawn_blocking(move || IndexStatus { status: index.status(), path: coxswain_core::store::Store::path(), shared: index.shared() }).await.map_err(|e| e.to_string())
+    tauri::async_runtime::spawn_blocking(move || IndexStatus { status: index.status(), path: coxswain_core::store::Store::path(), shared: index.shared(), service: coxswain_core::service::installed() }).await.map_err(|e| e.to_string())
+}
+
+/// Start the search helper with the session, or stop doing so; the helper running now makes
+/// way for the right one.
+#[tauri::command]
+async fn index_service(on: bool, ctx: tauri::State<'_, Ctx>) -> Res<()> {
+    let index = ctx.index.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let done = if on { std::env::current_exe().and_then(|exe| coxswain_core::service::install(&exe)) } else { coxswain_core::service::uninstall() };
+        index.restart();
+        done.map_err(|e| e.to_string())
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 /// "now": read the backlog at full speed; "forget": empty the store; "restart": a helper
@@ -1031,7 +1047,7 @@ fn main() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            get_config, index_status, index_action, list_dir, git_status, places, disks, get_state, save_session, save_favorites, set_tags, set_note, get_note,
+            get_config, index_status, index_action, index_service, list_dir, git_status, places, disks, get_state, save_session, save_favorites, set_tags, set_note, get_note,
             search, resolve_path, copy, rename, delete, mkdir, dir_sizes, rename_plan, rename_apply, open_path, edit_path,
             read_text, run_command, scripts, run_script, check_update, archive_list, extract, properties, set_permissions,
             clip_set, paste, start_drag, watch_dirs, preview::git_diff, preview::sqlite_info, preview::epub_preview,

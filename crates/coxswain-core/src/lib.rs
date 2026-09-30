@@ -12,6 +12,7 @@ pub mod icons;
 pub mod index;
 pub mod machine;
 pub mod rename;
+pub mod service;
 pub mod sizes;
 pub mod state;
 pub mod store;

@@ -548,6 +548,7 @@
  "settings.search_root_size": "{size} i indexet",
  "settings.search_roots": "Mappar som läses",
  "settings.search_roots_home": "Din hemmapp",
+ "settings.search_service": "Starta sökhjälparen med min session, så att den läser medan inget fönster är öppet",
  "settings.search_status": "Sökbara: {texts} filer · kvar att läsa: {pending} · {size} på disken",
  "settings.search_text": "Spara filernas text, så att Hitta fil kan söka i den (Tab)",
  "settings.show_hidden": "Visa dolda filer när Coxswain startar",

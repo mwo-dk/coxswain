@@ -582,6 +582,7 @@
  "settings.search_root_size": "{size} a l'índex",
  "settings.search_roots": "Carpetes que es llegeixen",
  "settings.search_roots_home": "La vostra carpeta personal",
+ "settings.search_service": "Inicia l'assistent de cerca amb la meva sessió, perquè llegeixi encara que no hi hagi cap finestra oberta",
  "settings.search_status": "Cercables: {texts} fitxers · per llegir: {pending} · {size} al disc",
  "settings.search_text": "Desa el text dels fitxers, perquè Cerca fitxers hi pugui cercar (Tab)",
  "settings.show_hidden": "Mostra els fitxers ocults en iniciar el Coxswain",
