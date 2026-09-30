@@ -1,4 +1,5 @@
 use super::*;
+use std::collections::HashMap;
 use std::path::PathBuf;
 
 fn fixture(path: &str) -> PathBuf {
@@ -765,4 +766,128 @@ fn sniffing_by_name_and_by_content() {
     assert!(sniff(&fixture("spec/cryptography-full-1.7.xml")));
     assert!(!sniff(&fixture("README.md")));
     assert!(!sniff(&PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("Cargo.toml")));
+}
+
+// Diff
+
+use diff::Change;
+use serde_json::Value;
+
+struct Version {
+    bom: Bom,
+    tree: Tree,
+    resolutions: Vec<Option<Resolution>>,
+    status: Vec<Status>,
+}
+
+impl Version {
+    fn new(doc: &Value) -> Version {
+        let bom = ingest::from_value(doc, Format::Json, None).unwrap();
+        let tree = tree::build(&bom, tree::modes(&bom)[0]);
+        let (resolutions, _) = assess::resolve(&bom, policy());
+        let status = assess::assess(&bom, &tree, policy(), &resolutions, &context(2026)).status;
+        Version { bom, tree, resolutions, status }
+    }
+
+    fn side(&self) -> diff::Side<'_> {
+        diff::Side { bom: &self.bom, tree: &self.tree, resolutions: &self.resolutions, status: &self.status }
+    }
+
+    fn labelled(&self, change: &[Change], which: Change) -> Vec<String> {
+        let mut out: Vec<String> = (0..self.tree.len())
+            .filter(|&i| change[i] == which)
+            .map(|i| self.tree.node(&self.bom, i as u32).label.clone())
+            .collect();
+        out.sort();
+        out
+    }
+}
+
+fn json(path: &str) -> Value {
+    serde_json::from_str(&std::fs::read_to_string(fixture(path)).unwrap()).unwrap()
+}
+
+fn components(doc: &mut Value) -> &mut Vec<Value> {
+    doc["components"].as_array_mut().unwrap()
+}
+
+#[test]
+fn new_bom_refs_on_every_scan_change_nothing() {
+    let before = json("cbomkit/keycloak.cdx.json");
+    let mut after = before.clone();
+    let mut rekey = HashMap::new();
+    for (i, c) in components(&mut after).iter_mut().enumerate() {
+        let new = format!("new-uuid-{i}");
+        rekey.insert(c["bom-ref"].as_str().unwrap().to_string(), new.clone());
+        c["bom-ref"] = new.clone().into();
+        let name = c["name"].as_str().unwrap().to_string();
+        if let Some((prefix, _)) = name.split_once('@') {
+            c["name"] = format!("{prefix}@{new}").into();
+        }
+    }
+    for d in after["dependencies"].as_array_mut().unwrap() {
+        d["ref"] = rekey[d["ref"].as_str().unwrap()].clone().into();
+        for r in d["dependsOn"].as_array_mut().into_iter().flatten() {
+            *r = rekey[r.as_str().unwrap()].clone().into();
+        }
+    }
+    let d = diff::diff(&Version::new(&before).side(), &Version::new(&after).side());
+    assert_eq!(d.counts, diff::Counts::default());
+}
+
+#[test]
+fn a_crypto_asset_is_known_by_what_it_is_and_where_it_sits() {
+    let v = Version::new(&json("cbomkit/keycloak.cdx.json"));
+    let ids = diff::identities(&v.side());
+    assert_eq!(
+        ids[find(&v.tree, &v.bom, "DSA") as usize],
+        "alg:dsa:2048:: @ group:file:saml-core-api/src/main/java/org/keycloak/dom/xmlsec/w3/xmldsig/DSAKeyValueType.java"
+    );
+}
+
+#[test]
+fn keycloak_before_and_after_a_clean_up() {
+    let before = json("cbomkit/keycloak.cdx.json");
+    let mut after = before.clone();
+    // fixed: SHA-1 becomes SHA-256 in the same place; DSA and its two keys are gone
+    let sha1 = components(&mut after).iter_mut().find(|c| c["name"] == "SHA1").unwrap();
+    sha1["name"] = "SHA256".into();
+    sha1["cryptoProperties"]["oid"] = "2.16.840.1.101.3.4.2.1".into();
+    sha1["cryptoProperties"]["algorithmProperties"]["parameterSetIdentifier"] = "256".into();
+    let gone: Vec<Value> = components(&mut after)
+        .iter()
+        .filter(|c| {
+            c["name"] == "DSA"
+                || c["evidence"]["occurrences"][0]["location"].as_str().is_some_and(|l| l.ends_with("DSAKeyValueType.java"))
+        })
+        .map(|c| c["bom-ref"].clone())
+        .collect();
+    components(&mut after).retain(|c| !gone.contains(&c["bom-ref"]));
+    after["dependencies"].as_array_mut().unwrap().retain(|d| !gone.contains(&d["ref"]));
+    // a new risk: someone added MD5
+    components(&mut after).push(serde_json::json!({
+        "type": "cryptographic-asset", "bom-ref": "md5-new", "name": "MD5",
+        "cryptoProperties": {"assetType": "algorithm", "algorithmProperties": {"primitive": "hash"}, "oid": "1.2.840.113549.2.5"},
+        "evidence": {"occurrences": [{"location": "services/src/main/java/org/keycloak/NewChecksum.java", "line": 12}]}
+    }));
+
+    let (a, b) = (Version::new(&before), Version::new(&after));
+    let d = diff::diff(&a.side(), &b.side());
+    assert_eq!((d.counts.added, d.counts.removed, d.counts.new_risks), (2, 4, 1));
+    assert_eq!(d.counts.fixed, 4); // SHA-1 (deprecated), and DSA with its two keys (disallowed)
+    let removed: Vec<&str> = d.removed.iter().map(|r| r.label.as_str()).collect();
+    assert_eq!(removed, ["DSA", "key@b627000e-ed4e-449c-acb9-4e9547d6ee93", "key@58af0705-bf7c-4abc-9f49-5b3ed8dd31ca", "SHA1"]);
+    assert_eq!(b.labelled(&d.change, Change::Added), ["MD5", "SHA256"]);
+}
+
+#[test]
+fn a_renewed_certificate_is_an_improvement_not_a_swap() {
+    let before = json("bom-examples/certificate.cdx.json");
+    let mut after = before.clone();
+    let cert = components(&mut after).iter_mut().find(|c| c["cryptoProperties"]["assetType"] == "certificate").unwrap();
+    cert["cryptoProperties"]["certificateProperties"]["notValidAfter"] = "2027-11-22T07:59:59Z".into();
+    let (a, b) = (Version::new(&before), Version::new(&after));
+    let d = diff::diff(&a.side(), &b.side());
+    assert_eq!(b.labelled(&d.change, Change::Improved), ["google.com"]);
+    assert_eq!((d.counts.added, d.counts.removed, d.counts.improved, d.counts.fixed), (0, 0, 1, 1));
 }

@@ -5,8 +5,10 @@
 //! - `ingest` and `xml`: CycloneDX JSON and XML to the model.
 //! - `tree`: the tree the views show, by dependencies, source files or kind.
 //! - `policy`, `status` and `assess`: how good each asset is, and why.
+//! - `diff`: two versions of a BOM, compared.
 
 pub mod assess;
+pub mod diff;
 pub mod ingest;
 pub mod model;
 pub mod policy;
