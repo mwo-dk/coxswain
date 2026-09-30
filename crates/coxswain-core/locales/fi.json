@@ -94,7 +94,7 @@
   "other": "Siirretty {n} kohdetta"
  },
  "app.name_label": "Nimi:",
- "app.not_archive": "Ei zip- tai tar-arkisto",
+ "app.not_archive": "Ei zip-, 7z- tai tar-arkisto",
  "app.pasted_items": {
   "one": "Liitetty {n} kohde",
   "other": "Liitetty {n} kohdetta"
@@ -113,10 +113,10 @@
  "archive.copy_out_hint": "{archive} on arkisto: F5 kopioi tiedoston siitä ulos",
  "archive.inside_tip": "Olet arkiston sisällä: F5 kopioi ulos, F6 siirtää ulos, F8 poistaa; sisään kopioidut lisätään",
  "archive.locked_again": "Salasana ei avannut sitä. Yritä uudelleen:",
- "archive.locked_label": "Sen salasana (vain tähän, ei koskaan tallenneta):",
+ "archive.locked_label": "Sen salasana (pidetään muistissa sovelluksen ajan, ei koskaan tallenneta):",
  "archive.locked_title": "Lukittu arkisto",
  "archive.pack": "Pakkaa",
- "archive.pack_into": "Pakkaa {what} tiedostoon (.zip, .tar tai .tar.gz):",
+ "archive.pack_into": "Pakkaa {what} tiedostoon (.zip, .7z, .tar, .tar.gz …):",
  "archive.packed": "Pakattu {what}",
  "archive.preview_hint": "Tiedosto on arkistossa {archive}. Kopioi se ulos F5:llä nähdäksesi sen.",
  "bom.advice": "Mitä tehdä",

@@ -94,7 +94,7 @@
   "other": "Flyttede {n} emner"
  },
  "app.name_label": "Navn:",
- "app.not_archive": "Ikke et zip- eller tar-arkiv",
+ "app.not_archive": "Ikke et zip-, 7z- eller tar-arkiv",
  "app.pasted_items": {
   "one": "Indsatte {n} emne",
   "other": "Indsatte {n} emner"
@@ -113,10 +113,10 @@
  "archive.copy_out_hint": "{archive} er et arkiv: F5 kopierer filen ud af det",
  "archive.inside_tip": "Du er inde i et arkiv: F5 kopierer ud, F6 flytter ud, F8 fjerner; kopier ind tilføjes",
  "archive.locked_again": "Adgangskoden åbnede det ikke. Prøv igen:",
- "archive.locked_label": "Adgangskoden (bruges kun til dette, gemmes aldrig):",
+ "archive.locked_label": "Adgangskoden (huskes kun mens appen kører, gemmes aldrig):",
  "archive.locked_title": "Låst arkiv",
  "archive.pack": "Pak",
- "archive.pack_into": "Pak {what} i (.zip, .tar eller .tar.gz):",
+ "archive.pack_into": "Pak {what} i (.zip, .7z, .tar, .tar.gz …):",
  "archive.packed": "Pakkede {what}",
  "archive.preview_hint": "Filen er inde i {archive}. Kopiér den ud med F5 for at se den.",
  "bom.advice": "Hvad du kan gøre",

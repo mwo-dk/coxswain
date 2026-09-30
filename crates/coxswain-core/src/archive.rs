@@ -117,16 +117,63 @@ pub fn remember(archive: &Path, password: &str) {
     let mut all = PASSWORDS.lock().unwrap();
     all.retain(|(a, _)| a != archive);
     all.push((archive.to_path_buf(), password.to_string()));
+    drop(all);
+    uncache(archive);
 }
 
 /// Forget the password given for `archive`.
 pub fn forget(archive: &Path) {
     PASSWORDS.lock().unwrap().retain(|(a, _)| a != archive);
+    uncache(archive);
 }
 
-/// The password to use: the one given, else the one remembered.
+/// The password to use: the one that opened `archive` before (kept only once it did), else
+/// the one given, which may be another archive's when a copy goes from one into another.
 fn password_for(archive: &Path, given: Option<&str>) -> Option<String> {
-    given.map(String::from).or_else(|| PASSWORDS.lock().unwrap().iter().find(|(a, _)| a == archive).map(|(_, p)| p.clone()))
+    PASSWORDS.lock().unwrap().iter().find(|(a, _)| a == archive).map(|(_, p)| p.clone()).or_else(|| given.map(String::from))
+}
+
+/// The entries of the archive last looked into, with its size and modified time: browsing an
+/// archive lists it once per folder, and a compressed tar is read in full each time.
+static LAST: std::sync::Mutex<Option<(PathBuf, Stamp, Vec<Item>)>> = std::sync::Mutex::new(None);
+
+type Stamp = (u64, Option<std::time::SystemTime>);
+
+fn stamp(path: &Path) -> io::Result<Stamp> {
+    let m = std::fs::metadata(path)?;
+    Ok((m.len(), m.modified().ok()))
+}
+
+fn uncache(archive: &Path) {
+    let mut last = LAST.lock().unwrap();
+    if last.as_ref().is_some_and(|(p, ..)| p == archive) {
+        *last = None;
+    }
+}
+
+/// Whether a 7z's contents are locked: any of its blocks is AES-encrypted.
+fn seven_locked(a: &sevenz_rust2::Archive) -> bool {
+    a.blocks.iter().any(|b| b.coders.iter().any(|c| c.encoder_method_id() == sevenz_rust2::EncoderMethod::ID_AES256_SHA256))
+}
+
+/// A 7z entry being read out, noting whether the reading failed: with no password, or a wrong
+/// one, that is how a locked entry fails, as an error in what it reads rather than a word.
+struct Noting<'a> {
+    from: &'a mut dyn Read,
+    failed: bool,
+}
+
+impl Read for Noting<'_> {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        let r = self.from.read(buf);
+        self.failed |= r.is_err();
+        r
+    }
+}
+
+/// The error of copying a 7z entry: `LOCKED` when a locked entry could not be read.
+fn seven_copy_error(err: io::Error, noting: &Noting, locked: bool) -> io::Error {
+    if locked && noting.failed { self::locked() } else { err }
 }
 
 /// A 7z, opened with `password` (none: an empty one).
@@ -166,9 +213,9 @@ pub fn extract_locked(path: &Path, dest_dir: &Path, password: Option<&str>) -> i
         return Err(io::Error::new(io::ErrorKind::AlreadyExists, format!("{} exists", to.display())));
     }
     std::fs::create_dir_all(&to)?;
-    // A locked zip goes entry by entry, with the password; the rest as the crates unpack it.
+    // A 7z or a locked zip is read once, with the password; the rest as the crates unpack it.
     let r = if k == Kind::SevenZ || (k == Kind::Zip && locked_at(path, "")?) {
-        list_in(path, "")?.into_iter().skip(1).try_for_each(|e| copy_out(path, &e.name, &to, password).map(drop))
+        copy_out_with(path, "", &to, password_for(path, password).as_deref()).map(drop)
     } else if k == Kind::Zip {
         zip::ZipArchive::new(BufReader::new(File::open(path)?)).and_then(|mut z| z.extract(&to)).map_err(io::Error::other)
     } else {
@@ -221,6 +268,7 @@ fn unix(t: zip::DateTime) -> u64 {
 }
 
 /// An entry of an archive: its path inside, size, whether a folder, modified (seconds), locked.
+#[derive(Clone)]
 struct Item {
     name: String,
     size: u64,
@@ -229,7 +277,21 @@ struct Item {
     locked: bool,
 }
 
+/// The archive's entries, from the last look at it when it has not changed since.
 fn items(archive: &Path) -> io::Result<Vec<Item>> {
+    let stamp = stamp(archive)?;
+    if let Some((p, s, items)) = LAST.lock().unwrap().as_ref()
+        && p == archive
+        && *s == stamp
+    {
+        return Ok(items.clone());
+    }
+    let out = read_items(archive)?;
+    *LAST.lock().unwrap() = Some((archive.to_path_buf(), stamp, out.clone()));
+    Ok(out)
+}
+
+fn read_items(archive: &Path) -> io::Result<Vec<Item>> {
     let k = kind(archive).ok_or_else(|| not_archive(archive))?;
     let mut out = vec![];
     if k == Kind::Zip {
@@ -242,9 +304,10 @@ fn items(archive: &Path) -> io::Result<Vec<Item>> {
     }
     if k == Kind::SevenZ {
         let r = seven(archive, password_for(archive, None).as_deref())?;
+        let locked = seven_locked(r.archive());
         for f in &r.archive().files {
             let modified = std::time::SystemTime::from(f.last_modified_date).duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_secs());
-            out.push(Item { name: f.name.replace('\\', "/").trim_end_matches('/').to_string(), size: f.size, dir: f.is_directory, modified, locked: false });
+            out.push(Item { name: f.name.replace('\\', "/").trim_end_matches('/').to_string(), size: f.size, dir: f.is_directory, modified, locked: locked && f.has_stream });
         }
         return Ok(out);
     }
@@ -259,11 +322,19 @@ fn items(archive: &Path) -> io::Result<Vec<Item>> {
 /// What is inside `archive` at `inner`, as a folder listing: its files, and the folders in it,
 /// also those the archive only names in the paths of its files. `..` leads back out.
 pub fn list_in(archive: &Path, inner: &str) -> io::Result<Vec<crate::fs::Entry>> {
+    listing(archive, inner).map(|(entries, _)| entries)
+}
+
+/// `list_in`, and whether anything in that folder or below it is locked. A folder's size is
+/// that of the files in it.
+pub fn listing(archive: &Path, inner: &str) -> io::Result<(Vec<crate::fs::Entry>, bool)> {
     let at = if inner.is_empty() { archive.to_path_buf() } else { archive.join(inner) };
     let prefix = if inner.is_empty() { String::new() } else { format!("{inner}/") };
     let mut seen = std::collections::BTreeMap::new();
+    let mut locked = false;
     for it in items(archive)? {
         let Some(rest) = it.name.strip_prefix(&prefix).filter(|r| !r.is_empty()) else { continue };
+        locked |= it.locked;
         let (first, deeper) = match rest.split_once('/') {
             Some((first, _)) => (first.to_string(), true),
             None => (rest.to_string(), it.dir),
@@ -281,6 +352,9 @@ pub fn list_in(archive: &Path, inner: &str) -> io::Result<Vec<crate::fs::Entry>>
         });
         if deeper {
             e.is_dir = true;
+            e.size += it.size;
+        } else if it.dir {
+            e.modified = it.modified;
         } else {
             (e.size, e.modified) = (it.size, it.modified);
         }
@@ -288,7 +362,7 @@ pub fn list_in(archive: &Path, inner: &str) -> io::Result<Vec<crate::fs::Entry>>
     let up = at.parent().unwrap_or(archive).to_path_buf();
     let mut out = vec![crate::fs::Entry { name: "..".into(), path: up, is_dir: true, is_symlink: false, is_exec: false, hidden: false, size: 0, modified: 0, created: 0 }];
     out.extend(seen.into_values());
-    Ok(out)
+    Ok((out, locked))
 }
 
 /// Whether `inner` is a folder in the archive (its top, a folder entry, or a folder only named
@@ -308,25 +382,39 @@ pub fn locked_at(archive: &Path, inner: &str) -> io::Result<bool> {
 /// `fs::copy` would: into it when it is a folder. Returns where it landed. A locked file needs
 /// `password`; without it, or with a wrong one, the error is `LOCKED`.
 pub fn copy_out(archive: &Path, inner: &str, dest: &Path, password: Option<&str>) -> io::Result<PathBuf> {
-    let to = copy_out_with(archive, inner, dest, password_for(archive, password).as_deref())?;
-    // A password that opened it is kept for the rest of this run.
-    if let Some(pw) = password {
-        remember(archive, pw);
-    }
-    Ok(to)
-}
-
-fn copy_out_with(archive: &Path, inner: &str, dest: &Path, password: Option<&str>) -> io::Result<PathBuf> {
     let name = inner.rsplit('/').next().filter(|n| !n.is_empty()).ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "nothing to copy"))?;
     let to = if dest.is_dir() { dest.join(name) } else { dest.to_path_buf() };
     if std::fs::symlink_metadata(&to).is_ok() {
         return Err(io::Error::new(io::ErrorKind::AlreadyExists, format!("{} exists", to.display())));
     }
+    copy_out_with(archive, inner, &to, password_for(archive, password).as_deref()).map(|_| to)
+}
+
+/// `inner` (everything with "") out of `archive` to `to`, which is where it lands: the file, or
+/// the folder it is unpacked into. Whatever was written is removed when it fails. A password
+/// that opened a locked file is kept for the rest of this run.
+fn copy_out_with(archive: &Path, inner: &str, to: &Path, password: Option<&str>) -> io::Result<()> {
+    let (mut any, mut used) = (false, false);
+    let r = copy_entries(archive, inner, to, password, &mut any, &mut used);
+    if r.is_err() && !inner.is_empty() {
+        let _ = if to.is_dir() { std::fs::remove_dir_all(to) } else { std::fs::remove_file(to) };
+    }
+    r?;
+    if !any && !inner.is_empty() {
+        return Err(io::Error::new(io::ErrorKind::NotFound, format!("{inner} is not in {}", archive.display())));
+    }
+    if let (true, Some(pw)) = (used, password) {
+        remember(archive, pw);
+    }
+    Ok(())
+}
+
+fn copy_entries(archive: &Path, inner: &str, to: &Path, password: Option<&str>, any: &mut bool, used: &mut bool) -> io::Result<()> {
     let prefix = format!("{inner}/");
     // Where an entry lands, never outside `to`: `..` and absolute parts are refused.
     let place = |name: &str| -> Option<PathBuf> {
-        let rest = if name == inner { "" } else { name.strip_prefix(&prefix)? };
-        let mut p = to.clone();
+        let rest = if inner.is_empty() { name } else if name == inner { "" } else { name.strip_prefix(&prefix)? };
+        let mut p = to.to_path_buf();
         for part in rest.split('/').filter(|p| !p.is_empty()) {
             if part == ".." || part.contains(['\\', ':']) {
                 return None;
@@ -341,7 +429,6 @@ fn copy_out_with(archive: &Path, inner: &str, dest: &Path, password: Option<&str
         }
         io::copy(from, &mut File::create(path)?).map(drop)
     };
-    let mut any = false;
     let k = kind(archive).ok_or_else(|| not_archive(archive))?;
     if k == Kind::Zip {
         let mut z = zip::ZipArchive::new(BufReader::new(File::open(archive)?)).map_err(io::Error::other)?;
@@ -351,7 +438,7 @@ fn copy_out_with(archive: &Path, inner: &str, dest: &Path, password: Option<&str
                 (e.name().trim_end_matches('/').to_string(), e.is_dir(), e.encrypted())
             };
             let Some(path) = place(&name) else { continue };
-            any = true;
+            *any = true;
             if dir {
                 std::fs::create_dir_all(&path)?;
                 continue;
@@ -366,20 +453,22 @@ fn copy_out_with(archive: &Path, inner: &str, dest: &Path, password: Option<&str
             };
             // A wrong ZipCrypto password is only seen in what comes out: the check fails.
             if let Err(err) = write(&path, &mut e) {
-                let _ = std::fs::remove_file(&path);
                 return Err(if encrypted { locked() } else { err });
             }
+            *used |= encrypted;
         }
     } else if k == Kind::SevenZ {
         let mut r = seven(archive, password)?;
+        let locked = seven_locked(r.archive());
         let mut failed = None;
         r.for_each_entries(|e, from| {
             let name = e.name.replace('\\', "/").trim_end_matches('/').to_string();
             let Some(path) = place(&name) else { return Ok(true) };
-            any = true;
-            let done = if e.is_directory { std::fs::create_dir_all(&path) } else { write(&path, from) };
+            *any = true;
+            let mut from = Noting { from, failed: false };
+            let done = if e.is_directory { std::fs::create_dir_all(&path) } else { write(&path, &mut from) };
             if let Err(err) = done {
-                failed = Some(err);
+                failed = Some(seven_copy_error(err, &from, locked));
                 return Ok(false);
             }
             Ok(true)
@@ -388,12 +477,13 @@ fn copy_out_with(archive: &Path, inner: &str, dest: &Path, password: Option<&str
         if let Some(err) = failed {
             return Err(err);
         }
+        *used |= locked;
     } else {
         for e in tar_reader(archive, k)?.entries()? {
             let mut e = e?;
             let name = e.path()?.to_string_lossy().trim_start_matches("./").trim_end_matches('/').to_string();
             let Some(path) = place(&name) else { continue };
-            any = true;
+            *any = true;
             if e.header().entry_type().is_dir() {
                 std::fs::create_dir_all(&path)?;
             } else if e.header().entry_type().is_file() {
@@ -401,10 +491,7 @@ fn copy_out_with(archive: &Path, inner: &str, dest: &Path, password: Option<&str
             }
         }
     }
-    if !any {
-        return Err(io::Error::new(io::ErrorKind::NotFound, format!("{inner} is not in {}", archive.display())));
-    }
-    Ok(to)
+    Ok(())
 }
 
 /// What goes into an archive being written: a file from disk, or a folder.
@@ -433,13 +520,23 @@ fn modified(path: &Path) -> u64 {
     std::fs::metadata(path).ok().and_then(|m| m.modified().ok()).and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok()).map_or(0, |d| d.as_secs())
 }
 
+/// One archive is written at a time: two changes to one archive at once would each write it
+/// anew from the same old one, and the change done last would drop the other.
+// ponytail: one lock for all archives; a lock per archive if two panes ever wait on each other.
+static WRITING: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
 /// Write `archive` anew: each old entry by what `keep` says of its name (`None`: left out,
 /// `Some(name)`: kept under that name, as it was, locked or not), then `add`. Into a new
 /// file first, which then takes the old one's place, so a failure leaves the archive whole.
-fn rewrite(archive: &Path, keep: &dyn Fn(&str) -> Option<String>, add: &[(String, New)]) -> io::Result<()> {
+/// A 7z with locked contents is read with `password` (or the one remembered), which is then
+/// kept for this run.
+fn rewrite(archive: &Path, keep: &dyn Fn(&str) -> Option<String>, add: &[(String, New)], password: Option<&str>) -> io::Result<()> {
     let k = kind(archive).ok_or_else(|| not_archive(archive))?;
-    let tmp = archive.with_extension("coxswain-tmp");
+    let _one = WRITING.lock().unwrap_or_else(|e| e.into_inner());
+    let name = archive.file_name().unwrap_or_default().to_string_lossy();
+    let tmp = archive.with_file_name(format!("{name}.{}.coxswain-tmp", std::process::id()));
     let exists = archive.exists();
+    let mut used = false;
     let written = (|| -> io::Result<()> {
         if k == Kind::Zip {
             let mut w = zip::ZipWriter::new(File::create(&tmp)?);
@@ -462,70 +559,59 @@ fn rewrite(archive: &Path, keep: &dyn Fn(&str) -> Option<String>, add: &[(String
                 match new {
                     New::Dir => w.add_directory(format!("{name}/"), opts).map_err(io::Error::other)?,
                     New::File(path) => {
-                        w.start_file(name.as_str(), opts.last_modified_time(zip_time(modified(path)))).map_err(io::Error::other)?;
+                        let opts = opts.last_modified_time(zip_time(modified(path)));
+                        #[cfg(unix)]
+                        let opts = opts.unix_permissions(std::os::unix::fs::PermissionsExt::mode(&std::fs::metadata(path)?.permissions()));
+                        w.start_file(name.as_str(), opts).map_err(io::Error::other)?;
                         io::copy(&mut File::open(path)?, &mut w)?;
                     }
                 }
             }
             w.finish().map_err(io::Error::other)?;
         } else if k == Kind::SevenZ {
-            // 7z has no copying of entries as they are: everything is read out, then packed again.
-            let scratch = std::env::temp_dir().join(format!("coxswain-7z-{}-{}", std::process::id(), tmp.file_name().unwrap_or_default().len()));
-            let _ = std::fs::remove_dir_all(&scratch);
-            // The entries lie there unlocked for a moment: for this user alone.
-            crate::fs::private_dir(&scratch)?;
-            let result = (|| -> io::Result<()> {
-                let mut kept: Vec<(String, New)> = vec![];
-                let mut locked = false;
-                if exists {
-                    let mut r = seven(archive, password_for(archive, None).as_deref())?;
-                    locked = r.archive().blocks.iter().any(|b| b.coders.iter().any(|c| c.encoder_method_id() == sevenz_rust2::EncoderMethod::ID_AES256_SHA256));
-                    let mut n = 0usize;
-                    let mut failed = None;
-                    r.for_each_entries(|e, from| {
-                        let old = e.name.replace('\\', "/").trim_end_matches('/').to_string();
-                        let Some(new) = keep(&old) else { return Ok(true) };
-                        if e.is_directory {
-                            kept.push((new, New::Dir));
-                        } else {
-                            n += 1;
-                            let file = scratch.join(n.to_string());
-                            match File::create(&file).and_then(|mut f| io::copy(from, &mut f)) {
-                                Ok(_) => kept.push((new, New::File(file))),
-                                Err(err) => {
-                                    failed = Some(err);
-                                    return Ok(false);
-                                }
-                            }
-                        }
-                        Ok(true)
-                    })
-                    .map_err(seven_error)?;
-                    if let Some(err) = failed {
-                        return Err(err);
-                    }
-                }
-                let mut w = sevenz_rust2::ArchiveWriter::create(&tmp).map_err(io::Error::other)?;
+            // 7z has no copying of entries as they are: each is unpacked and packed again on
+            // its way from the old file to the new, as it was but for its name.
+            let mut w = sevenz_rust2::ArchiveWriter::create(&tmp).map_err(io::Error::other)?;
+            if exists {
+                let mut r = seven(archive, password_for(archive, password).as_deref())?;
+                let locked = seven_locked(r.archive());
                 // A locked archive stays locked, with the password that opened it.
                 if locked {
-                    let pw = password_for(archive, None).unwrap_or_default();
+                    let pw = password_for(archive, password).unwrap_or_default();
                     w.set_content_methods(vec![sevenz_rust2::encoder_options::AesEncoderOptions::new(sevenz_rust2::Password::from(pw.as_str())).into(), sevenz_rust2::EncoderMethod::LZMA2.into()]);
                 }
-                for (name, new) in kept.iter().chain(add) {
-                    match new {
-                        New::Dir => w.push_archive_entry::<File>(sevenz_rust2::ArchiveEntry::new_directory(name), None),
-                        New::File(path) => w.push_archive_entry(sevenz_rust2::ArchiveEntry::from_path(path, name.clone()), Some(File::open(path)?)),
+                let mut failed = None;
+                r.for_each_entries(|e, from| {
+                    let old = e.name.replace('\\', "/").trim_end_matches('/').to_string();
+                    let Some(new) = keep(&old) else { return Ok(true) };
+                    let mut entry = e.clone();
+                    entry.name = new;
+                    let mut from = Noting { from, failed: false };
+                    let pushed = if e.is_directory { w.push_archive_entry::<File>(entry, None) } else { w.push_archive_entry(entry, Some(&mut from)) };
+                    if let Err(err) = pushed {
+                        failed = Some(seven_copy_error(io::Error::other(err), &from, locked));
+                        return Ok(false);
                     }
-                    .map_err(io::Error::other)?;
+                    Ok(true)
+                })
+                .map_err(seven_error)?;
+                if let Some(err) = failed {
+                    return Err(err);
                 }
-                w.finish().map(drop)
-            })();
-            let _ = std::fs::remove_dir_all(&scratch);
-            result?;
+                used = locked;
+            }
+            for (name, new) in add {
+                match new {
+                    New::Dir => w.push_archive_entry::<File>(sevenz_rust2::ArchiveEntry::new_directory(name), None),
+                    New::File(path) => w.push_archive_entry(sevenz_rust2::ArchiveEntry::from_path(path, name.clone()), Some(File::open(path)?)),
+                }
+                .map_err(io::Error::other)?;
+            }
+            w.finish().map(drop).map_err(io::Error::other)?;
         } else {
             let Kind::Tar(pack) = k else { unreachable!() };
             // Written plain first, then compressed: every compression the same way.
-            let plain = archive.with_extension("coxswain-tar");
+            let plain = tmp.with_extension("coxswain-tar");
             let mut b = tar::Builder::new(io::BufWriter::new(File::create(&plain)?));
             if exists {
                 for e in tar_reader(archive, k)?.entries()? {
@@ -561,24 +647,30 @@ fn rewrite(archive: &Path, keep: &dyn Fn(&str) -> Option<String>, add: &[(String
         }
         Ok(())
     })();
-    match written {
+    let done = match written {
         Ok(()) => std::fs::rename(&tmp, archive),
         Err(e) => {
             let _ = std::fs::remove_file(&tmp);
             Err(e)
         }
+    };
+    uncache(archive);
+    if let (Ok(()), true, Some(pw)) = (&done, used, password) {
+        remember(archive, pw);
     }
+    done
 }
 
 /// Take `inner` (files, or folders and everything in them) out of the archive: it is written
-/// anew without them, the rest as it was (a locked file stays locked; no password is needed).
-pub fn remove(archive: &Path, inner: &[String]) -> io::Result<()> {
+/// anew without them, the rest as it was (a locked zip file stays locked, and needs no
+/// password; a locked 7z needs its `password`, or the one remembered).
+pub fn remove(archive: &Path, inner: &[String], password: Option<&str>) -> io::Result<()> {
     let gone = |name: &str| inner.iter().any(|i| name == i || name.starts_with(&format!("{i}/")));
-    rewrite(archive, &|name| (!gone(name)).then(|| name.to_string()), &[])
+    rewrite(archive, &|name| (!gone(name)).then(|| name.to_string()), &[], password)
 }
 
-/// The entries `sources` (files, or folders and everything in them) become under `inner`.
-fn entries_of(inner: &str, sources: &[PathBuf]) -> io::Result<Vec<(String, New)>> {
+/// The entries each `source` (a file, or a folder and everything in it) becomes under its name.
+fn entries_of(into: &[(String, PathBuf)]) -> io::Result<Vec<(String, New)>> {
     let mut out = vec![];
     fn walk(path: &Path, name: String, out: &mut Vec<(String, New)>) -> io::Result<()> {
         let meta = std::fs::symlink_metadata(path)?;
@@ -595,51 +687,63 @@ fn entries_of(inner: &str, sources: &[PathBuf]) -> io::Result<Vec<(String, New)>
         // Symlinks are left out: what they point at may be anywhere.
         Ok(())
     }
-    for src in sources {
-        let name = src.file_name().ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "nothing to add"))?.to_string_lossy().into_owned();
-        walk(src, if inner.is_empty() { name } else { format!("{inner}/{name}") }, &mut out)?;
+    for (name, src) in into {
+        walk(src, name.clone(), &mut out)?;
     }
     Ok(out)
 }
 
-/// Copy `sources` from disk into `archive`, into its folder `inner`. What is there by a name
-/// already is kept and the copy refused, as a copy between folders never overwrites.
-pub fn add(archive: &Path, inner: &str, sources: &[PathBuf]) -> io::Result<()> {
-    let new = entries_of(inner, sources)?;
+/// The sources each under their own name.
+fn named(sources: &[PathBuf]) -> io::Result<Vec<(String, PathBuf)>> {
+    sources
+        .iter()
+        .map(|src| {
+            let name = src.file_name().ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "nothing to add"))?;
+            Ok((name.to_string_lossy().into_owned(), src.clone()))
+        })
+        .collect()
+}
+
+/// Copy files from disk into `archive`, each source under the name given for it inside
+/// (`docs/a.txt`). What is there by a name already is kept and the copy refused, as a copy
+/// between folders never overwrites.
+pub fn add(archive: &Path, into: &[(String, PathBuf)], password: Option<&str>) -> io::Result<()> {
+    let new = entries_of(into)?;
     let have: std::collections::HashSet<String> = items(archive)?.into_iter().map(|it| it.name).collect();
     if let Some((name, _)) = new.iter().find(|(name, n)| !matches!(n, New::Dir) && have.contains(name)) {
         return Err(io::Error::new(io::ErrorKind::AlreadyExists, format!("{name} exists in {}", archive.display())));
     }
     // A folder the archive has already is not written twice.
     let new: Vec<_> = new.into_iter().filter(|(name, n)| !(matches!(n, New::Dir) && have.contains(name))).collect();
-    rewrite(archive, &|name| Some(name.to_string()), &new)
+    rewrite(archive, &|name| Some(name.to_string()), &new, password)
 }
 
 /// A new, empty folder inside the archive.
-pub fn mkdir(archive: &Path, inner: &str) -> io::Result<()> {
+pub fn mkdir(archive: &Path, inner: &str, password: Option<&str>) -> io::Result<()> {
     if items(archive)?.iter().any(|it| it.name == inner) {
         return Err(io::Error::new(io::ErrorKind::AlreadyExists, format!("{inner} exists")));
     }
-    rewrite(archive, &|name| Some(name.to_string()), &[(inner.to_string(), New::Dir)])
+    rewrite(archive, &|name| Some(name.to_string()), &[(inner.to_string(), New::Dir)], password)
 }
 
 /// Rename or move `from` (a file, or a folder and all in it) to `to`, inside the archive.
-pub fn rename_in(archive: &Path, from: &str, to: &str) -> io::Result<()> {
+pub fn rename_in(archive: &Path, from: &str, to: &str, password: Option<&str>) -> io::Result<()> {
     let names: Vec<String> = items(archive)?.into_iter().map(|it| it.name).collect();
     if names.iter().any(|n| n == to || n.starts_with(&format!("{to}/"))) {
         return Err(io::Error::new(io::ErrorKind::AlreadyExists, format!("{to} exists")));
     }
     let prefix = format!("{from}/");
-    rewrite(archive, &|name| Some(if name == from { to.to_string() } else if let Some(rest) = name.strip_prefix(&prefix) { format!("{to}/{rest}") } else { name.to_string() }), &[])
+    rewrite(archive, &|name| Some(if name == from { to.to_string() } else if let Some(rest) = name.strip_prefix(&prefix) { format!("{to}/{rest}") } else { name.to_string() }), &[], password)
 }
 
-/// A new archive at `path` (its kind by its name: .zip, .tar, .tar.gz / .tgz) with `sources`.
+/// A new archive at `path` (its kind by its name: .zip, .7z, .tar, .tar.gz / .tgz, ...) with
+/// `sources`.
 pub fn create(path: &Path, sources: &[PathBuf]) -> io::Result<()> {
     if path.exists() {
         return Err(io::Error::new(io::ErrorKind::AlreadyExists, format!("{} exists", path.display())));
     }
     kind(path).ok_or_else(|| not_archive(path))?;
-    rewrite(path, &|_| None, &entries_of("", sources)?)
+    rewrite(path, &|_| None, &entries_of(&named(sources)?)?, None)
 }
 
 #[cfg(test)]
@@ -769,6 +873,17 @@ mod tests {
             crate::fs::mkdir(&zp.join("docs")).unwrap();
             crate::fs::rename(&zp.join("a.txt"), &zp.join("docs")).unwrap();
             assert_eq!(names(&zp.join("docs")), ["a.txt"]);
+            // Copied in under a new name: not one folder too deep (docs/b.txt/b.txt).
+            assert_eq!(crate::fs::copy(&d.join("src/deep/b.txt"), &zp.join("docs/c.txt")).unwrap(), zp.join("docs/c.txt"));
+            assert_eq!(names(&zp.join("docs")), ["a.txt", "c.txt"], "{pack}");
+            assert_eq!(std::fs::read_to_string(crate::fs::copy(&zp.join("docs/c.txt"), &d).unwrap()).unwrap(), "two");
+            std::fs::remove_file(d.join("c.txt")).unwrap();
+            crate::fs::delete(&zp.join("docs/c.txt")).unwrap();
+            // A folder's size is that of the files in it, and the dates of what was added stay.
+            let docs = crate::fs::list(&zp, true).unwrap().into_iter().find(|e| e.name == "docs").unwrap();
+            assert_eq!((docs.is_dir, docs.size), (true, 3), "{pack}");
+            let a = crate::fs::list(&zp.join("docs"), true).unwrap().into_iter().find(|e| e.name == "a.txt").unwrap();
+            assert_eq!(a.modified / 60, modified(&d.join("src/a.txt")) / 60, "{pack}: modified kept through the rewrites");
             crate::fs::rename(&zp.join("deep"), &zp.join("renamed")).unwrap();
             assert_eq!(names(&zp), ["docs", "renamed"]);
             let other = d.join(format!("other-{pack}"));
@@ -812,6 +927,46 @@ mod tests {
         assert_eq!(std::fs::read_to_string(crate::fs::copy(&zp.join("docs/plan.txt"), &d.join("again")).unwrap()).unwrap(), "launch at noon");
         forget(&zp);
         assert!(list_in(&zp, "").is_err());
+        std::fs::remove_dir_all(d).unwrap();
+    }
+
+    #[test]
+    fn archive_7z_with_locked_contents_and_open_names_changes_with_its_password() {
+        let d = std::env::temp_dir().join(format!("coxswain-test-7z-open-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(d.join("out")).unwrap();
+        std::fs::write(d.join("plan.txt"), "launch at noon").unwrap();
+        std::fs::write(d.join("crew.txt"), "four").unwrap();
+        let zp = d.join("secret.7z");
+        let mut w = sevenz_rust2::ArchiveWriter::create(&zp).unwrap();
+        w.set_encrypt_header(false);
+        w.set_content_methods(vec![sevenz_rust2::encoder_options::AesEncoderOptions::new(sevenz_rust2::Password::from("hunter2")).into(), sevenz_rust2::EncoderMethod::LZMA2.into()]);
+        w.push_archive_entry(sevenz_rust2::ArchiveEntry::from_path(d.join("plan.txt"), "plan.txt".into()), Some(File::open(d.join("plan.txt")).unwrap())).unwrap();
+        w.finish().unwrap();
+        // The names are open: it lists, and says it is locked. Changing it needs the password.
+        let (entries, locked) = listing(&zp, "").unwrap();
+        assert!(locked && entries.len() == 2);
+        assert_eq!(crate::fs::mkdir(&zp.join("docs")).unwrap_err().to_string(), LOCKED);
+        assert_eq!(crate::fs::copy(&d.join("crew.txt"), &zp).unwrap_err().to_string(), LOCKED);
+        assert_eq!(crate::fs::delete(&zp.join("plan.txt")).unwrap_err().to_string(), LOCKED);
+        assert_eq!(crate::fs::mkdir_locked(&zp.join("docs"), Some("wrong")).unwrap_err().to_string(), LOCKED);
+        assert!(list_in(&zp, "").unwrap().iter().all(|e| e.name != "docs"), "a failed change leaves the archive as it was");
+        // With it, the change is made, and it is kept: the next change needs no password.
+        crate::fs::mkdir_locked(&zp.join("docs"), Some("hunter2")).unwrap();
+        crate::fs::copy(&d.join("crew.txt"), &zp.join("docs")).unwrap();
+        crate::fs::rename(&zp.join("plan.txt"), &zp.join("docs")).unwrap();
+        let names = |p: &Path| crate::fs::list(p, true).unwrap().into_iter().skip(1).map(|e| e.name).collect::<Vec<_>>();
+        assert_eq!(names(&zp), ["docs"]);
+        assert_eq!(names(&zp.join("docs")), ["crew.txt", "plan.txt"]);
+        // Extraction reads it once, with the password; without one, the changed archive is as
+        // locked as it was.
+        forget(&zp);
+        assert_eq!(extract(&zp, &d.join("out")).unwrap_err().to_string(), LOCKED);
+        let out = extract_locked(&zp, &d.join("out"), Some("hunter2")).unwrap();
+        assert_eq!(std::fs::read_to_string(out.join("docs/plan.txt")).unwrap(), "launch at noon");
+        assert_eq!(std::fs::read_to_string(out.join("docs/crew.txt")).unwrap(), "four");
+        crate::fs::delete(&zp.join("docs/crew.txt")).unwrap();
+        assert_eq!(names(&zp.join("docs")), ["plan.txt"]);
         std::fs::remove_dir_all(d).unwrap();
     }
 }

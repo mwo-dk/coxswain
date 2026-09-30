@@ -96,7 +96,7 @@
   "other": "{n} éléments déplacés"
  },
  "app.name_label": "Nom :",
- "app.not_archive": "Ce n’est pas une archive zip ou tar",
+ "app.not_archive": "Ce n’est pas une archive zip, 7z ou tar",
  "app.pasted_items": {
   "many": "{n} éléments collés",
   "one": "{n} élément collé",
@@ -116,10 +116,10 @@
  "archive.copy_out_hint": "{archive} est une archive : F5 en copie ce fichier",
  "archive.inside_tip": "Vous êtes dans une archive : F5 copie hors, F6 déplace hors, F8 retire ; ce qui y est copié est ajouté",
  "archive.locked_again": "Ce mot de passe ne l’a pas ouverte. Réessayez :",
- "archive.locked_label": "Son mot de passe (pour cette fois, jamais enregistré) :",
+ "archive.locked_label": "Son mot de passe (gardé en mémoire tant que l’application tourne, jamais enregistré) :",
  "archive.locked_title": "Archive verrouillée",
  "archive.pack": "Compresser",
- "archive.pack_into": "Compresser {what} dans (.zip, .tar ou .tar.gz) :",
+ "archive.pack_into": "Compresser {what} dans (.zip, .7z, .tar, .tar.gz…) :",
  "archive.packed": "{what} compressé",
  "archive.preview_hint": "Ce fichier est dans {archive}. Copiez-le avec F5 pour le voir.",
  "bom.advice": "Que faire",

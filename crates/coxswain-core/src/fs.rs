@@ -78,12 +78,20 @@ fn is_hidden_attr(_meta: &fs::Metadata) -> bool {
 /// List a directory, or a folder inside an archive (`…/tools.zip/bin`). The first entry is
 /// `..` unless `dir` is a root.
 pub fn list(dir: &Path, show_hidden: bool) -> io::Result<Vec<Entry>> {
-    if !dir.is_dir() {
-        if let Some((archive, inner)) = crate::archive::split(dir) {
-            let mut all = crate::archive::list_in(&archive, &inner)?;
-            all.retain(|e| show_hidden || !e.hidden || e.is_parent());
-            return Ok(all);
-        }
+    list_with_archive(dir, show_hidden).map(|(entries, _)| entries)
+}
+
+/// The archive a folder is inside, and whether anything in the folder is locked.
+pub type InArchive = (PathBuf, bool);
+
+/// `list`, and when `dir` is inside an archive, which and whether anything there is locked.
+pub fn list_with_archive(dir: &Path, show_hidden: bool) -> io::Result<(Vec<Entry>, Option<InArchive>)> {
+    if !dir.is_dir()
+        && let Some((archive, inner)) = crate::archive::split(dir)
+    {
+        let (mut all, locked) = crate::archive::listing(&archive, &inner)?;
+        all.retain(|e| show_hidden || !e.hidden || e.is_parent());
+        return Ok((all, Some((archive, locked))));
     }
     let mut out = Vec::new();
     if let Some(parent) = dir.parent() {
@@ -103,13 +111,13 @@ pub fn list(dir: &Path, show_hidden: bool) -> io::Result<Vec<Entry>> {
         let de = de?;
         let name = de.file_name().to_string_lossy().into_owned();
         // Entries can vanish between readdir and stat; skip them.
-        if let Ok(e) = Entry::from_path(de.path(), name) {
-            if show_hidden || !e.hidden {
-                out.push(e);
-            }
+        if let Ok(e) = Entry::from_path(de.path(), name)
+            && (show_hidden || !e.hidden)
+        {
+            out.push(e);
         }
     }
-    Ok(out)
+    Ok((out, None))
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -174,11 +182,30 @@ fn natord(a: &str, b: &str) -> std::cmp::Ordering {
     }
 }
 
-/// Where `src` lands when copied or moved to `dst`: inside it if `dst` is a directory.
+/// Where `src` lands when copied or moved to `dst`: inside it if `dst` is a directory (and not
+/// `src` itself, spelt in another case).
 pub fn target(src: &Path, dst: &Path) -> PathBuf {
-    match (dst.is_dir(), src.file_name()) {
+    match (dst.is_dir() && !same_file(src, dst), src.file_name()) {
         (true, Some(name)) => dst.join(name),
         _ => dst.to_path_buf(),
+    }
+}
+
+/// Whether `a` and `b` are one file: the same path in another case on a file system that
+/// does not mind the case, say.
+fn same_file(a: &Path, b: &Path) -> bool {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::MetadataExt;
+        match (fs::symlink_metadata(a), fs::symlink_metadata(b)) {
+            (Ok(x), Ok(y)) => x.dev() == y.dev() && x.ino() == y.ino(),
+            _ => false,
+        }
+    }
+    #[cfg(not(unix))]
+    {
+        // Canonical paths carry the case the disk has.
+        matches!((fs::canonicalize(a), fs::canonicalize(b)), (Ok(x), Ok(y)) if x == y)
     }
 }
 
@@ -227,7 +254,13 @@ impl Drop for Scratch {
 /// archive it is added; from one archive to another it goes through a folder of its own.
 pub fn copy_locked(src: &Path, dst: &Path, password: Option<&str>) -> io::Result<PathBuf> {
     if let Some((archive, inner)) = into_archive(dst) {
-        let name = src.file_name().ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "nothing to copy"))?;
+        let name = src.file_name().ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "nothing to copy"))?.to_string_lossy();
+        // Into a folder of the archive under its own name, or under the name `dst` gives.
+        let (to, inner) = if crate::archive::is_folder(&archive, &inner)? {
+            (dst.join(&*name), if inner.is_empty() { name.into_owned() } else { format!("{inner}/{name}") })
+        } else {
+            (dst.to_path_buf(), inner)
+        };
         let scratch;
         let from = match out_of_archive(src) {
             Some((a, i)) => {
@@ -236,8 +269,8 @@ pub fn copy_locked(src: &Path, dst: &Path, password: Option<&str>) -> io::Result
             }
             None => src.to_path_buf(),
         };
-        crate::archive::add(&archive, &inner, &[from])?;
-        return Ok(dst.join(name));
+        crate::archive::add(&archive, &[(inner, from)], password)?;
+        return Ok(to);
     }
     if let Some((archive, inner)) = out_of_archive(src) {
         return crate::archive::copy_out(&archive, &inner, dst, password);
@@ -292,12 +325,12 @@ pub fn rename_locked(src: &Path, dst: &Path, password: Option<&str>) -> io::Resu
         (Some((a, from)), Some((b, to))) if a == b => {
             let name = src.file_name().unwrap_or_default().to_string_lossy();
             let to = if crate::archive::is_folder(&a, &to)? { if to.is_empty() { name.to_string() } else { format!("{to}/{name}") } } else { to };
-            crate::archive::rename_in(&a, &from, &to)?;
+            crate::archive::rename_in(&a, &from, &to, password)?;
             Ok(a.join(to))
         }
         (Some((a, from)), _) => {
             let to = copy_locked(src, dst, password)?;
-            crate::archive::remove(&a, &[from])?;
+            crate::archive::remove(&a, &[from], password)?;
             Ok(to)
         }
         (None, Some(_)) => {
@@ -311,12 +344,17 @@ pub fn rename_locked(src: &Path, dst: &Path, password: Option<&str>) -> io::Resu
 
 fn rename_plain(src: &Path, dst: &Path) -> io::Result<PathBuf> {
     let to = target(src, dst);
-    if to.exists() {
+    // `to` may be `src` itself in another case (`Notes` to `notes` where case does not count).
+    if to.exists() && !same_file(src, &to) {
         return Err(io::Error::new(io::ErrorKind::AlreadyExists, format!("{} exists", to.display())));
     }
-    if fs::rename(src, &to).is_err() {
-        copy(src, &to)?;
-        delete(src)?;
+    match fs::rename(src, &to) {
+        // Another disk: copied over, then the original goes. Other failures are failures.
+        Err(e) if e.kind() == io::ErrorKind::CrossesDevices => {
+            copy(src, &to)?;
+            delete(src)?;
+        }
+        r => r?,
     }
     Ok(to)
 }
@@ -324,10 +362,15 @@ fn rename_plain(src: &Path, dst: &Path) -> io::Result<PathBuf> {
 /// Delete a file, symlink (not its target) or directory tree; inside an archive, take it out of
 /// the archive.
 pub fn delete(path: &Path) -> io::Result<()> {
-    if !path.exists() {
-        if let Some((archive, inner)) = crate::archive::split(path) {
-            return crate::archive::remove(&archive, &[inner]);
-        }
+    delete_locked(path, None)
+}
+
+/// `delete`, with the password of the locked 7z `path` is inside.
+pub fn delete_locked(path: &Path, password: Option<&str>) -> io::Result<()> {
+    if !path.exists()
+        && let Some((archive, inner)) = crate::archive::split(path)
+    {
+        return crate::archive::remove(&archive, &[inner], password);
     }
     if fs::symlink_metadata(path)?.is_dir() {
         fs::remove_dir_all(path)
@@ -339,8 +382,13 @@ pub fn delete(path: &Path) -> io::Result<()> {
 /// Move to the desktop's trash (Recycle Bin on Windows). Inside an archive there is no trash:
 /// it is taken out of the archive, as `delete` does.
 pub fn trash(path: &Path) -> io::Result<()> {
+    trash_locked(path, None)
+}
+
+/// `trash`, with the password of the locked 7z `path` is inside.
+pub fn trash_locked(path: &Path, password: Option<&str>) -> io::Result<()> {
     if !path.exists() && crate::archive::split(path).is_some() {
-        return delete(path);
+        return delete_locked(path, password);
     }
     trash::delete(path).map_err(io::Error::other)
 }
@@ -358,8 +406,13 @@ pub fn free_name(dir: &Path, name: &str) -> PathBuf {
 }
 
 pub fn mkdir(path: &Path) -> io::Result<()> {
+    mkdir_locked(path, None)
+}
+
+/// `mkdir`, with the password of the locked 7z `path` is inside.
+pub fn mkdir_locked(path: &Path, password: Option<&str>) -> io::Result<()> {
     if let Some((archive, inner)) = into_archive(path) {
-        return crate::archive::mkdir(&archive, &inner);
+        return crate::archive::mkdir(&archive, &inner, password);
     }
     fs::create_dir_all(path)
 }
@@ -446,6 +499,9 @@ mod tests {
         assert!(!d.join("src").exists() && d.join("moved/sub/f").exists());
         fs::write(d.join("dst/moved"), "").unwrap();
         assert!(rename(&d.join("moved"), &d.join("dst")).is_err());
+        // Renamed onto itself (as a case change is where case does not count): nothing lost.
+        assert_eq!(rename(&d.join("moved"), &d.join("moved")).unwrap(), d.join("moved"));
+        assert!(d.join("moved/sub/f").exists());
         assert_eq!(dir_size(&d.join("moved")), (1, 1));
         fs::write(d.join("a.txt"), "").unwrap();
         assert_eq!(free_name(&d, "a.txt"), d.join("a (2).txt"));

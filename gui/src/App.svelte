@@ -82,7 +82,7 @@
     const dest = tab(at).dir;
     if (p.paths.every((x) => parent(x) === dest)) return; // dropped where it came from
     const n = describe(p.paths);
-    const go = (isMove) => op(invoke(isMove ? "rename" : "copy", { paths: p.paths, base: dest, dest }), t(isMove ? "status.moved" : "status.copied", { what: n }));
+    const go = (isMove) => op((password, only) => invoke(isMove ? "rename" : "copy", { paths: only ?? p.paths, base: dest, dest, password }), t(isMove ? "status.moved" : "status.copied", { what: n }));
     ui.modal = {
       kind: "menu",
       title: t("app.drop_title", { what: n, folder: basename(dest) || dest }),
@@ -112,21 +112,25 @@
   }
 
 
-  /** Run `start(password)`; when it meets a locked archive, ask for the password and run it
-   *  again with that. The password lives only in this call. */
-  async function op(start, ok, password = null) {
+  /** Run `start(password, only)`; when only locked archives were in the way (every failure
+   *  says so), ask for the password and run it again with that, for just the paths that
+   *  failed. The password lives only in this call. */
+  async function op(start, ok, password = null, only = null) {
     try {
-      await (typeof start === "function" ? start(password) : start);
+      await (typeof start === "function" ? start(password, only) : start);
       ui.status = ok;
     } catch (e) {
-      if (typeof start === "function" && String(e).includes(LOCKED)) {
+      // Failures come one per line, `path: locked: …`.
+      const lines = String(e).split("\n");
+      if (typeof start === "function" && lines.every((l) => l.endsWith(LOCKED))) {
+        const locked = lines.map((l) => l.slice(0, -(LOCKED.length + 2)));
         ui.modal = {
           kind: "input",
           secret: true,
           title: t("archive.locked_title"),
           label: t(password === null ? "archive.locked_label" : "archive.locked_again"),
           value: "",
-          run: (pw) => op(start, ok, pw),
+          run: (pw) => op(start, ok, pw, locked),
         };
         return;
       }
@@ -141,7 +145,7 @@
     if (!paths.length) return;
     const what = describe(paths);
     prompt(t(isMove ? "dialog.move" : "dialog.copy"), t(isMove ? "dialog.move_to" : "dialog.copy_to", { what }), dest, (d) => {
-      if (d.trim()) op((password) => invoke(isMove ? "rename" : "copy", { paths, base: tab().dir, dest: d, password }), t(isMove ? "status.moved" : "status.copied", { what }));
+      if (d.trim()) op((password, only) => invoke(isMove ? "rename" : "copy", { paths: only ?? paths, base: tab().dir, dest: d, password }), t(isMove ? "status.moved" : "status.copied", { what }));
     });
   }
 
@@ -149,10 +153,12 @@
     const paths = targets();
     if (!paths.length) return;
     const what = describe(paths);
-    const run = () => op(invoke("delete", { paths, forever }), t(forever ? "status.deleted" : "status.trashed", { what }));
     // Inside an archive there is no trash: it is taken out of the archive, which is written anew.
-    const text = tab().archive ? t("confirm.archive_remove", { what, archive: basename(tab().archive) }) : t(forever ? "confirm.delete_forever" : "confirm.trash", { what });
-    if (ui.cfg.confirm_delete) ui.modal = { kind: "confirm", title: t("dialog.delete"), text, ok: t(forever ? "common.delete" : "app.move_to_trash"), run };
+    const inside = tab().archive;
+    const gone = forever || !!inside;
+    const run = () => op((password, only) => invoke("delete", { paths: only ?? paths, forever, password }), t(gone ? "status.deleted" : "status.trashed", { what }));
+    const text = inside ? t("confirm.archive_remove", { what, archive: basename(inside) }) : t(forever ? "confirm.delete_forever" : "confirm.trash", { what });
+    if (ui.cfg.confirm_delete) ui.modal = { kind: "confirm", title: t("dialog.delete"), text, ok: t(gone ? "common.delete" : "app.move_to_trash"), run };
     else run();
   }
 
@@ -292,14 +298,17 @@
     },
     edit: () => {
       const e = item();
-      if (e && !e.is_dir) invoke("edit_path", { path: e.path }).catch((err) => (ui.status = String(err)));
+      if (!e || e.is_dir) return;
+      // Inside an archive the file is not on disk: nothing to edit yet.
+      if (tab().archive) return void (ui.status = t("archive.copy_out_hint", { archive: basename(tab().archive) }));
+      invoke("edit_path", { path: e.path }).catch((err) => (ui.status = String(err)));
     },
     copy: () => transfer(false),
     move: () => transfer(true),
     mkdir: () =>
       prompt(t("dialog.new_folder"), t("app.name_label"), "", async (name) => {
         if (!name.trim()) return;
-        await op(invoke("mkdir", { base: tab().dir, name }), t("status.created", { what: name }));
+        await op((password) => invoke("mkdir", { base: tab().dir, name, password }), t("status.created", { what: name }));
         await load(tab(), tab().dir, name.split(/[\\/]/)[0]);
       }),
     delete: () => remove(false),
@@ -391,7 +400,8 @@
     dir_sizes: async () => {
       const tb = tab();
       const dirs = tb.marked.size ? targets(tb) : tb.items.filter((e) => e.is_dir && e.name !== "..").map((e) => e.path);
-      if (!dirs.length) return;
+      // Inside an archive the sizes come with the listing.
+      if (!dirs.length || tb.archive) return;
       ui.status = tn("app.measuring", dirs.length);
       await measureFolders(tb, dirs);
       ui.status = "";
