@@ -34,9 +34,10 @@ The dialog is titled *Delete*. The terminal app shows the question with
 again. A file that could not be deleted is listed in *Something went wrong* with the reason
 ([When something goes wrong](copy.md#when-something-goes-wrong)).
 
-Inside an archive, the desktop app's button still reads *Move to bin* for **F8**, and the status
-line says *Moved … to the bin* afterwards, but the files are taken out of the archive: they are
-not in the trash. Copy them out first (**F5**) if you may want them back.
+Inside an archive the button reads *Delete* for **F8** too, and the status line says
+*Deleted …* afterwards: the files are taken out of the archive, not put in the trash. Copy them
+out first (**F5**) if you may want them back. A 7z with locked contents asks for its password
+([Passwords](archive-passwords.md)).
 
 Things in the trash are restored with your desktop's own trash tools. Coxswain has no undo.
 

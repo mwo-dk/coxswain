@@ -339,7 +339,7 @@ fn folder_groups(opts: &Options, hash_of: &HashMap<PathBuf, String>) -> Vec<Fold
     // Keep only the topmost: drop a group whose folders all sit inside another group's folders.
     let all_paths: Vec<PathBuf> = groups.iter().flat_map(|g| g.paths.clone()).collect();
     groups.retain(|g| !g.paths.iter().all(|p| all_paths.iter().any(|q| q != p && p.starts_with(q))));
-    groups.sort_by(|a, b| b.wasted.cmp(&a.wasted));
+    groups.sort_by_key(|g| std::cmp::Reverse(g.wasted));
     groups
 }
 

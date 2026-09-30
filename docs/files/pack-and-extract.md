@@ -61,8 +61,8 @@ To take out only some files, open the archive with **Enter** and copy them with 
 - After packing, the status line says `Packed "photos"` or `Packed 3 items`, and the new archive
   shows in the other panel.
 - After extracting, it says `Extracted "photos.zip"`.
-- **Ctrl+E** on something that is not an archive says `Not a zip or tar archive` on the status
-  line (the text is older than the 7z support; 7z and every tar kind are extracted too).
+- **Ctrl+E** on something that is not an archive says `Not a zip, 7z or tar archive` on the
+  status line.
 - Errors show in *Something went wrong*: an archive or folder that already exists (`… exists`),
   an ending Coxswain cannot write.
 - A locked zip or 7z asks for its password before extracting

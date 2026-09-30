@@ -96,7 +96,7 @@
   "other": "S'han mogut {n} elements"
  },
  "app.name_label": "Nom:",
- "app.not_archive": "No és un arxiu zip ni tar",
+ "app.not_archive": "No és un arxiu zip, 7z ni tar",
  "app.pasted_items": {
   "many": "S'han enganxat {n} d'elements",
   "one": "S'ha enganxat {n} element",
@@ -116,10 +116,10 @@
  "archive.copy_out_hint": "{archive} és un arxiu: F5 en copia aquest fitxer fora",
  "archive.inside_tip": "Sou dins d'un arxiu: F5 copia fora, F6 mou fora, F8 treu; el que hi copieu s'hi afegeix",
  "archive.locked_again": "Aquesta contrasenya no l'ha obert. Torneu-ho a provar:",
- "archive.locked_label": "La contrasenya (només per a això, mai no es desa):",
+ "archive.locked_label": "La contrasenya (es manté en memòria mentre l’app és oberta, mai no es desa):",
  "archive.locked_title": "Arxiu blocat",
  "archive.pack": "Empaqueta",
- "archive.pack_into": "Empaqueta {what} a (.zip, .tar o .tar.gz):",
+ "archive.pack_into": "Empaqueta {what} a (.zip, .7z, .tar, .tar.gz…):",
  "archive.packed": "{what} empaquetat",
  "archive.preview_hint": "Aquest fitxer és dins de {archive}. Copieu-lo fora amb F5 per veure'l.",
  "bom.advice": "Què cal fer",

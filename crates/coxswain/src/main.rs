@@ -84,6 +84,10 @@ impl Panel {
             }
         }
         bfs::sort(&mut self.entries, self.sort, self.reverse);
+        // Inside an archive a folder's size comes with the listing; there is nothing to measure.
+        if coxswain_core::archive::split(&self.dir).is_some() {
+            self.sizes.extend(self.entries.iter().filter(|e| e.is_dir && !e.is_parent()).map(|e| (e.path.clone(), e.size)));
+        }
         let names: HashSet<&Path> = self.entries.iter().map(|e| e.path.as_path()).collect();
         self.marked.retain(|p| names.contains(p.as_path()));
         self.cursor = self.cursor.min(self.entries.len().saturating_sub(1));
@@ -153,6 +157,10 @@ pub enum Transfer {
     Copy,
     Move,
     Extract,
+    /// Delete, for good with `true` (inside an archive always: it is taken out).
+    Delete(bool),
+    /// A new folder, the one path given.
+    Mkdir,
 }
 
 pub enum MenuRun {
@@ -605,6 +613,10 @@ impl App {
             }
             Action::View | Action::Edit => {
                 if let Some(e) = self.panel().current().filter(|e| !e.is_dir).map(|e| e.path.clone()) {
+                    // Inside an archive the file is not on disk: nothing to view or edit yet.
+                    if let Some((archive, _)) = coxswain_core::archive::split(&self.panel().dir) {
+                        return self.status = Some(t!("archive.copy_out_hint", "archive" => archive.file_name().unwrap_or_default().to_string_lossy()));
+                    }
                     if a == Action::View && self.cfg.bom_viewer && coxswain_core::bom::sniff(&e) {
                         match bom::Viewer::open(&e) {
                             Ok(v) => return self.dialog = Some(Dialog::Bom(Box::new(v))),
@@ -649,10 +661,11 @@ impl App {
                 if paths.is_empty() {
                     return;
                 }
-                let forever = a == Action::DeleteForever;
+                // Inside an archive there is no trash: it is taken out of the archive, written anew.
+                let inside = coxswain_core::archive::split(&self.panel().dir);
+                let forever = a == Action::DeleteForever || inside.is_some();
                 if self.cfg.confirm_delete {
-                    // Inside an archive there is no trash: it is taken out of the archive, written anew.
-                    let text = match coxswain_core::archive::split(&self.panel().dir) {
+                    let text = match inside {
                         Some((archive, _)) => t!("confirm.archive_remove", "what" => Self::describe(&paths), "archive" => archive.file_name().unwrap_or_default().to_string_lossy()),
                         None => t!(if forever { "confirm.delete_forever" } else { "confirm.trash" }, "what" => Self::describe(&paths)),
                     };
@@ -685,6 +698,9 @@ impl App {
             Action::Help => self.dialog = Some(Dialog::Help { scroll: 0 }),
             // Asked for: measure afresh, whatever is remembered and whether or not sizes are on.
             Action::DirSizes => {
+                if coxswain_core::archive::split(&self.panel().dir).is_some() {
+                    return;
+                }
                 let (side, on) = (self.active, std::mem::replace(&mut self.cfg.folder_sizes, true));
                 for e in self.panels[side].entries.iter().filter(|e| e.is_dir) {
                     self.sizer.forget(&e.path);
@@ -699,11 +715,13 @@ impl App {
 
     fn open(&mut self) {
         let Some(e) = self.panel().current().cloned() else { return };
-        // An archive opens like a folder; its files are copied out with F5.
-        if e.is_dir || coxswain_core::archive::is_archive(&e.path) {
+        // An archive opens like a folder; its files are copied out with F5. An archive inside
+        // one is a file like the others.
+        let inside = coxswain_core::archive::split(&self.panel().dir);
+        if e.is_dir || (inside.is_none() && coxswain_core::archive::is_archive(&e.path)) {
             return self.cd(self.active, e.path);
         }
-        if let Some((archive, _)) = coxswain_core::archive::split(&self.panel().dir) {
+        if let Some((archive, _)) = inside {
             return self.status = Some(t!("archive.copy_out_hint", "archive" => archive.file_name().unwrap_or_default().to_string_lossy()));
         }
         let dir = self.panel().dir.clone();
@@ -750,11 +768,7 @@ impl App {
     }
 
     fn delete(&mut self, paths: Vec<PathBuf>, forever: bool) {
-        self.changed(&paths);
-        let op = if forever { bfs::delete } else { bfs::trash };
-        let errors: Vec<String> = paths.iter().filter_map(|p| op(p).err().map(|e| format!("{}: {e}", p.display()))).collect();
-        let verb = if forever { "status.deleted" } else { "status.trashed" };
-        self.after_op(t!(verb, "what" => Self::describe(&paths)), errors);
+        self.transfer(Transfer::Delete(forever), paths, PathBuf::new(), None);
     }
 
     fn after_op(&mut self, ok: String, errors: Vec<String>) {
@@ -767,35 +781,45 @@ impl App {
         }
     }
 
-    /// Copy, move or extract `src` to `dst`. A locked archive asks for its password, and the
-    /// same run starts again with it.
+    /// Copy, move or extract `src` to `dst`, delete `src`, or make the folder `src`. When only
+    /// locked archives were in the way, it asks for the password and runs again with it, for
+    /// just what was locked.
     fn transfer(&mut self, op: Transfer, src: Vec<PathBuf>, dst: PathBuf, password: Option<String>) {
-        if op == Transfer::Move {
+        if matches!(op, Transfer::Move | Transfer::Delete(_) | Transfer::Mkdir) {
             self.changed(&src);
+        } else {
+            self.changed(&[dst.join("new")]);
         }
-        self.changed(&[dst.join("new")]);
         let pw = password.as_deref();
-        let errors: Vec<String> = src
+        let failed: Vec<(&PathBuf, std::io::Error)> = src
             .iter()
             .filter_map(|p| {
                 match op {
                     Transfer::Copy => bfs::copy_locked(p, &dst, pw).map(drop),
                     Transfer::Move => bfs::rename_locked(p, &dst, pw).map(drop),
                     Transfer::Extract => coxswain_core::archive::extract_locked(p, &dst, pw).map(drop),
+                    Transfer::Delete(true) => bfs::delete_locked(p, pw),
+                    Transfer::Delete(false) => bfs::trash_locked(p, pw),
+                    Transfer::Mkdir => bfs::mkdir_locked(p, pw),
                 }
                 .err()
-                .map(|e| format!("{}: {e}", p.display()))
+                .map(|e| (p, e))
             })
             .collect();
-        if errors.iter().any(|e| e.contains(coxswain_core::archive::LOCKED)) {
+        if !failed.is_empty() && failed.iter().all(|(_, e)| e.to_string().contains(coxswain_core::archive::LOCKED)) {
             let label = t!(if password.is_none() { "archive.locked_label" } else { "archive.locked_again" });
-            return self.input(&t!("archive.locked_title"), label, String::new(), Prompt::Password(op, src, dst));
+            let again = failed.into_iter().map(|(p, _)| p.clone()).collect();
+            return self.input(&t!("archive.locked_title"), label, String::new(), Prompt::Password(op, again, dst));
         }
+        let errors = failed.iter().map(|(p, e)| format!("{}: {e}", p.display())).collect();
         let what = Self::describe(&src);
         let ok = match op {
             Transfer::Copy => t!("status.copied", "what" => what),
             Transfer::Move => t!("status.moved", "what" => what),
             Transfer::Extract => t!("app.extracted", "what" => what),
+            Transfer::Delete(true) => t!("status.deleted", "what" => what),
+            Transfer::Delete(false) => t!("status.trashed", "what" => what),
+            Transfer::Mkdir => t!("status.created", "what" => src.first().map(|p| p.display().to_string()).unwrap_or_default()),
         };
         self.after_op(ok, errors);
     }
@@ -830,8 +854,7 @@ impl App {
             Prompt::Mkdir if value.trim().is_empty() => {}
             Prompt::Mkdir => {
                 let d = resolve(&base, &value);
-                let errors = bfs::mkdir(&d).err().map(|e| vec![format!("{}: {e}", d.display())]).unwrap_or_default();
-                self.after_op(t!("status.created", "what" => d.display()), errors);
+                self.transfer(Transfer::Mkdir, vec![d.clone()], PathBuf::new(), None);
                 if let Some(first) = d.strip_prefix(&base).ok().and_then(|r| r.components().next()) {
                     self.panel_mut().select_name(&first.as_os_str().to_string_lossy());
                 }

@@ -94,7 +94,7 @@
   "other": "{n} elementu mugitu dira"
  },
  "app.name_label": "Izena:",
- "app.not_archive": "Ez da zip edo tar artxibo bat",
+ "app.not_archive": "Ez da zip, 7z edo tar artxibo bat",
  "app.pasted_items": {
   "one": "Elementu {n} itsatsi da",
   "other": "{n} elementu itsatsi dira"
@@ -113,10 +113,10 @@
  "archive.copy_out_hint": "{archive} artxibo bat da: F5ek fitxategi hau kanpora kopiatzen du",
  "archive.inside_tip": "Artxibo baten barruan zaude: F5ek kanpora kopiatzen du, F6k kanpora mugitzen, F8k kentzen; barrura kopiatutakoa gehitzen da",
  "archive.locked_again": "Pasahitz horrek ez du ireki. Saiatu berriro:",
- "archive.locked_label": "Bere pasahitza (honetarako soilik, inoiz ez da gordetzen):",
+ "archive.locked_label": "Bere pasahitza (memorian gordetzen da aplikazioa irekita dagoen bitartean, inoiz ez diskoan):",
  "archive.locked_title": "Artxibo blokeatua",
  "archive.pack": "Paketatu",
- "archive.pack_into": "Paketatu {what} hemen (.zip, .tar edo .tar.gz):",
+ "archive.pack_into": "Paketatu {what} hemen (.zip, .7z, .tar, .tar.gz…):",
  "archive.packed": "{what} paketatua",
  "archive.preview_hint": "Fitxategi hau {archive} barruan dago. Kopiatu kanpora F5ekin ikusteko.",
  "bom.advice": "Zer egin",

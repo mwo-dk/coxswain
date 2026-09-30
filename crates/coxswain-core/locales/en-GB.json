@@ -94,7 +94,7 @@
   "other": "Moved {n} items"
  },
  "app.name_label": "Name:",
- "app.not_archive": "Not a zip or tar archive",
+ "app.not_archive": "Not a zip, 7z or tar archive",
  "app.pasted_items": {
   "one": "Pasted {n} item",
   "other": "Pasted {n} items"
@@ -113,10 +113,10 @@
  "archive.copy_out_hint": "{archive} is an archive: F5 copies this file out of it",
  "archive.inside_tip": "You are inside an archive: F5 copies out of it, F6 moves out, F8 takes out; copies into it are added",
  "archive.locked_again": "That password did not open it. Try again:",
- "archive.locked_label": "Its password (kept only for this, never saved):",
+ "archive.locked_label": "Its password (kept in memory while the app runs, never saved):",
  "archive.locked_title": "Locked archive",
  "archive.pack": "Pack",
- "archive.pack_into": "Pack {what} into (.zip, .tar or .tar.gz):",
+ "archive.pack_into": "Pack {what} into (.zip, .7z, .tar, .tar.gz, …):",
  "archive.packed": "Packed {what}",
  "archive.preview_hint": "This file is inside {archive}. Copy it out with F5 to see it.",
  "bom.advice": "What to do",

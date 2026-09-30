@@ -109,11 +109,14 @@ export async function load(t, dir = t.dir, focus) {
     t.locked = r.locked;
     t.hasNotes = r.has_notes;
     t.error = null;
+    // Inside an archive a folder's size comes with the listing; there is nothing to measure.
+    if (r.archive) for (const e of r.items) if (e.is_dir && e.name !== "..") t.sizes[e.path] = e.size;
     const at = keep ? r.items.findIndex((e) => e.name === keep) : -1;
     t.cursor = at >= 0 ? at : Math.max(0, Math.min(t.cursor, r.items.length - 1));
   } catch (e) {
     // A locked archive, looked into: its password, kept by the app for this run, then again.
-    if (String(e).includes(LOCKED)) {
+    const locked = String(e).includes(LOCKED);
+    if (locked) {
       ui.modal = {
         kind: "input",
         secret: true,
@@ -123,7 +126,7 @@ export async function load(t, dir = t.dir, focus) {
         run: (password) => invoke("archive_password", { path: dir, password }).then(() => load(t, dir, focus)),
       };
     }
-    t.error = String(e);
+    t.error = locked ? tr("archive.locked_title") : String(e);
     return false;
   }
   if (ui.autoSizes) measureFolders(t);
@@ -276,8 +279,9 @@ export async function init() {
 export function openItem(tb, i = tb.cursor) {
   const e = tb.items[i];
   if (!e) return;
-  // An archive opens like a folder; its files are copied out with F5.
-  if (e.is_dir || isArchive(e.name)) return cd(tb, e.path);
+  // An archive opens like a folder; its files are copied out with F5. An archive inside one is
+  // a file like the others.
+  if (e.is_dir || (isArchive(e.name) && !tb.archive)) return cd(tb, e.path);
   if (tb.archive) return void (ui.status = t("archive.copy_out_hint", { archive: basename(tb.archive) }));
   invoke("open_path", { path: e.path }).then(
     () => (ui.status = t("status.opened", { name: e.name })),

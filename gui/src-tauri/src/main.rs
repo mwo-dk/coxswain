@@ -301,9 +301,10 @@ struct Listing {
     locked: bool,
 }
 
+/// Async, as a compressed tar is read in full to list a folder in it.
 #[tauri::command]
-fn list_dir(dir: PathBuf, show_hidden: bool, sort: SortKey, reverse: bool, ctx: tauri::State<Ctx>) -> Res<Listing> {
-    let mut entries = bfs::list(&dir, show_hidden).map_err(|e| format!("{}: {e}", dir.display()))?;
+async fn list_dir(dir: PathBuf, show_hidden: bool, sort: SortKey, reverse: bool, ctx: tauri::State<'_, Ctx>) -> Res<Listing> {
+    let (mut entries, inside) = bfs::list_with_archive(&dir, show_hidden).map_err(|e| format!("{}: {e}", dir.display()))?;
     bfs::sort(&mut entries, sort, reverse);
     let st = ctx.state.lock().map_err(|e| e.to_string())?;
     let cfg = ctx.cfg();
@@ -312,9 +313,8 @@ fn list_dir(dir: PathBuf, show_hidden: bool, sort: SortKey, reverse: bool, ctx: 
         .into_iter()
         .map(|e| Item { icon: icons::entry(&e.name, e.is_dir, e.is_symlink, plain.as_ref()), tag: st.tags.get(&e.path).cloned(), entry: e })
         .collect();
-    let inside = coxswain_core::archive::split(&dir);
-    let locked = inside.as_ref().is_some_and(|(a, i)| coxswain_core::archive::locked_at(a, i).unwrap_or(false));
-    Ok(Listing { has_notes: st.notes.contains_key(&dir), dir, items, archive: inside.map(|(a, _)| a), locked })
+    let (archive, locked) = inside.map_or((None, false), |(a, locked)| (Some(a), locked));
+    Ok(Listing { has_notes: st.notes.contains_key(&dir), dir, items, archive, locked })
 }
 
 #[derive(Serialize)]
@@ -744,17 +744,19 @@ async fn rename(paths: Vec<PathBuf>, base: PathBuf, dest: String, password: Opti
     each(&paths, |p| bfs::rename_locked(p, &dst, password.as_deref()).map(drop))
 }
 
-/// To the trash, or gone for good with `forever`.
+/// To the trash, or gone for good with `forever`. Inside a locked 7z, `password` opens it.
 #[tauri::command]
-async fn delete(paths: Vec<PathBuf>, forever: bool, ctx: tauri::State<'_, Ctx>) -> Res<()> {
+async fn delete(paths: Vec<PathBuf>, forever: bool, password: Option<String>, ctx: tauri::State<'_, Ctx>) -> Res<()> {
     paths.iter().for_each(|p| ctx.sizer.forget(p));
-    each(&paths, if forever { bfs::delete } else { bfs::trash })
+    let pw = password.as_deref();
+    each(&paths, |p| if forever { bfs::delete_locked(p, pw) } else { bfs::trash_locked(p, pw) })
 }
 
+/// Async, as inside an archive the archive is written anew.
 #[tauri::command]
-fn mkdir(base: PathBuf, name: String) -> Res<PathBuf> {
+async fn mkdir(base: PathBuf, name: String, password: Option<String>) -> Res<PathBuf> {
     let d = resolve(&base, &name);
-    bfs::mkdir(&d).map_err(|e| format!("{}: {e}", d.display()))?;
+    bfs::mkdir_locked(&d, password.as_deref()).map_err(|e| format!("{}: {e}", d.display()))?;
     Ok(d)
 }
 
