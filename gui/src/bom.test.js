@@ -1,7 +1,7 @@
 // node --test (npm test): the BOM view's logic, without a browser.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { childrenOf, mask, visibleRows, leafCounts, sunburstArcs, arcPath, worse, pathTo, MIN_ANGLE } from "./bom.js";
+import { childrenOf, mask, visibleRows, leafCounts, sunburstArcs, arcPath, worse, pathTo, changeIs, MIN_ANGLE } from "./bom.js";
 
 /** A root with `n` leaves under one group, plus one more leaf of its own. */
 function tree(n) {
@@ -71,4 +71,15 @@ test("filters keep what a match sits in; the tree pages long lists", () => {
   const hidden = visibleRows(rows, kids, () => true, {}, keep, true);
   assert.ok(hidden.every((v) => v.i === undefined || keep[v.i]));
   assert.deepEqual(pathTo(rows, 5), [0, 1, 5]);
+});
+
+test("a compare filters by change, and new risks are what got worse or came in red", () => {
+  const { rows, order } = tree(3);
+  const changes = ["unchanged", "unchanged", "added", "worsened", "improved", "added"];
+  const risk = { status: new Set(), kind: new Set(), family: new Set(), change: new Set(["risk"]), query: "" };
+  // row 2 is broken and added, row 3 got worse; row 5 (the certificate) is added but only deprecated... still not green
+  const { match } = mask(rows, order, risk, (i) => rows[i].q, changes);
+  assert.deepEqual([...match].map((m, i) => (m ? i : -1)).filter((i) => i >= 0), [2, 3, 5]);
+  assert.equal(changeIs({ s: "acceptable" }, "added", new Set(["risk"])), false);
+  assert.equal(changeIs({ s: "acceptable" }, "improved", new Set(["improved"])), true);
 });

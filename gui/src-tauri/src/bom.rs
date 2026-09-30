@@ -1,11 +1,13 @@
 //! The BOM view (docs/design/bom-viewer.md): a CycloneDX BOM as a rated tree, and the details
 //! of one node. Parsing and rating are coxswain-core's `bom`; this shapes them for BomView.svelte.
 //!
-//! The last BOM read is kept, by path, modification time and tree mode, so selecting nodes
-//! and switching between the preview and its window never reads the file again.
+//! The last two BOMs read are kept, by path, modification time and tree mode, so selecting
+//! nodes, switching between the preview and its window, and comparing two versions never read
+//! a file again.
 
 use coxswain_core::bom::assess::{self, Assessed, Context, Reason, Unresolved};
 use coxswain_core::bom::policy::{policy, Family, Param, Resolution};
+use coxswain_core::bom::diff::{self, Change, Counts, Removed, Side};
 use coxswain_core::bom::{self, tree, Bom, Crypto, EdgeKind, GroupKind, Issue, NodeKind, Status, Tree, TreeMode};
 use coxswain_core::t;
 use serde::Serialize;
@@ -28,7 +30,9 @@ struct Loaded {
     ctx: Context,
 }
 
-static LAST: Mutex<Option<Arc<Loaded>>> = Mutex::new(None);
+/// Most recent first: the BOM in view, and the one it was compared with.
+static LAST: Mutex<Vec<Arc<Loaded>>> = Mutex::new(Vec::new());
+const KEPT: usize = 2;
 
 fn mode_of(name: Option<&str>) -> Option<TreeMode> {
     match name? {
@@ -54,12 +58,15 @@ fn error_text(e: bom::Error) -> String {
 fn loaded(path: &Path, mode: Option<&str>) -> Res<Arc<Loaded>> {
     let modified = std::fs::metadata(path).and_then(|m| m.modified()).ok();
     let want = mode_of(mode);
-    if let Some(l) = LAST.lock().unwrap().as_ref()
-        && l.path == path
-        && l.modified == modified
-        && want.is_none_or(|m| m == l.mode)
     {
-        return Ok(l.clone());
+        let mut last = LAST.lock().unwrap();
+        // A mode this BOM does not have gives its best one, which is what is kept.
+        let fits = |l: &Loaded| want.is_none_or(|m| m == l.mode || !tree::modes(&l.bom).contains(&m));
+        if let Some(at) = last.iter().position(|l| l.path == path && l.modified == modified && fits(l)) {
+            let l = last.remove(at);
+            last.insert(0, l.clone());
+            return Ok(l);
+        }
     }
     let bom = bom::load(path).map_err(error_text)?;
     let modes = tree::modes(&bom);
@@ -70,7 +77,10 @@ fn loaded(path: &Path, mode: Option<&str>) -> Res<Arc<Loaded>> {
     let ctx = Context::today(p);
     let assessed = assess::assess(&bom, &tree, p, &resolutions, &ctx);
     let l = Arc::new(Loaded { path: path.to_path_buf(), modified, mode, bom, tree, resolutions, issues, assessed, ctx });
-    *LAST.lock().unwrap() = Some(l.clone());
+    let mut last = LAST.lock().unwrap();
+    last.retain(|x| x.path != l.path);
+    last.insert(0, l.clone());
+    last.truncate(KEPT);
     Ok(l)
 }
 
@@ -313,6 +323,31 @@ pub struct NodeDetails {
     raw: Option<String>,
 }
 
+#[derive(Serialize)]
+pub struct BomDiff {
+    /// By tree node of the newer BOM, as `bom_info` gave it in the same mode.
+    change: Vec<Change>,
+    removed: Vec<Removed>,
+    counts: Counts,
+}
+
+fn side(l: &Loaded) -> Side<'_> {
+    Side { bom: &l.bom, tree: &l.tree, resolutions: &l.resolutions, status: &l.assessed.status }
+}
+
+/// Compares `old` (the file in the other pane) with `path` (the BOM in view), in `mode`.
+#[tauri::command]
+pub async fn bom_diff(old: PathBuf, path: PathBuf, mode: Option<String>) -> Res<BomDiff> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let before = loaded(&old, mode.as_deref())?;
+        let after = loaded(&path, mode.as_deref())?;
+        let d = diff::diff(&side(&before), &side(&after));
+        Ok(BomDiff { change: d.change, removed: d.removed, counts: d.counts })
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
 /// A path in the BOM, relative to the scanned repository, as a file next to the BOM.
 fn on_disk(bom_path: &Path, location: &str) -> Option<String> {
     let base = bom_path.parent()?;
@@ -456,6 +491,38 @@ mod tests {
         assert!(flat.rows.iter().any(|r| r.gk == Some(NodeKind::Algorithm)));
 
         assert!(run(bom_node(bom_path, None, 999_999)).is_err());
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn bom_diff_against_an_older_scan() {
+        let dir = std::env::temp_dir().join(format!("coxswain-test-bomdiff-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let fixture = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../crates/coxswain-core/src/bom/testdata/cbomkit/keycloak.cdx.json");
+        let new = dir.join("new.cdx.json");
+        std::fs::copy(&fixture, &new).unwrap();
+        // the older scan had no SHA-1, and one more AES
+        let mut doc: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(&fixture).unwrap()).unwrap();
+        let components = doc["components"].as_array_mut().unwrap();
+        components.retain(|c| c["name"] != "SHA1");
+        components.push(serde_json::json!({"type": "cryptographic-asset", "name": "AES256-GCM", "bom-ref": "gone",
+            "cryptoProperties": {"assetType": "algorithm"}, "evidence": {"occurrences": [{"location": "Old.java"}]}}));
+        let old = dir.join("old.cdx.json");
+        std::fs::write(&old, doc.to_string()).unwrap();
+
+        let view = run(bom_info(new.clone(), None)).unwrap();
+        let d = run(bom_diff(old.clone(), new.clone(), Some("files".into()))).unwrap();
+        assert_eq!(d.change.len(), view.rows.len());
+        let added: Vec<&str> = (0..d.change.len()).filter(|&i| d.change[i] == Change::Added).map(|i| view.rows[i].l.as_str()).collect();
+        assert_eq!(added, ["SHA1"]);
+        assert_eq!((d.counts.added, d.counts.removed, d.counts.new_risks, d.counts.fixed), (1, 1, 1, 0));
+        assert_eq!((d.removed[0].label.as_str(), d.removed[0].place.as_str()), ("AES256-GCM", "Old.java"));
+
+        // a file that is not a BOM says so
+        let text = dir.join("notes.json");
+        std::fs::write(&text, "{}").unwrap();
+        assert!(run(bom_diff(text, new, None)).is_err());
         std::fs::remove_dir_all(&dir).unwrap();
     }
 

@@ -20,25 +20,37 @@ export function childrenOf(rows, order) {
 }
 
 /** Whether any filter is set. */
-export const filtering = (f) => f.status.size > 0 || f.kind.size > 0 || f.family.size > 0 || f.query.trim() !== "";
+export const filtering = (f) => f.status.size > 0 || f.kind.size > 0 || f.family.size > 0 || f.change?.size > 0 || f.query.trim() !== "";
+
+const GREEN = new Set(["safe", "acceptable", "not-rated"]);
+
+/** Whether a row's change in a compare is one of `wanted`: added, worsened, improved, or risk
+ *  (added and not green, or worsened). */
+export function changeIs(row, change, wanted) {
+  if (!change || change === "unchanged") return false;
+  if (wanted.has(change)) return true;
+  return wanted.has("risk") && (change === "worsened" || (change === "added" && !GREEN.has(row.s)));
+}
 
 /**
  * Which rows match the filters (`match`) and which have a match at or below them (`keep`), so
  * that what a match sits in stays visible. Status and family filters look at crypto assets only;
  * the search also finds groups and components by name. O(n).
  */
-export function mask(rows, order, f, label) {
+export function mask(rows, order, f, label, changes) {
   const n = rows.length;
   const match = new Uint8Array(n);
   const keep = new Uint8Array(n);
   const q = f.query.trim().toLowerCase();
-  const onlyAssets = f.status.size > 0 || f.family.size > 0;
+  const byChange = f.change?.size > 0 && changes;
+  const onlyAssets = f.status.size > 0 || f.family.size > 0 || byChange;
   for (let i = 0; i < n; i++) {
     const r = rows[i];
     if (onlyAssets && !isCrypto(r)) continue;
     if (f.status.size && !f.status.has(r.s)) continue;
     if (f.kind.size && !f.kind.has(r.k)) continue;
     if (f.family.size && !(r.f ?? []).some((x) => f.family.has(x))) continue;
+    if (byChange && !changeIs(r, changes[i], f.change)) continue;
     if (q && !r.q.includes(q) && !label(i).toLowerCase().includes(q)) continue;
     match[i] = 1;
   }

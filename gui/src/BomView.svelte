@@ -2,10 +2,12 @@
   // A CycloneDX BOM as a rated tree, with filters and a details box (docs/design/bom-viewer.md).
   // In the preview pane, and full-window (`full`) from its ⤢ button. The Rust side (bom.rs)
   // parses and rates; bom.js filters. Every string from the file is shown as text, never HTML.
-  import { ui, tab, otherTab, cd, focusPane } from "./app.svelte.js";
-  import { invoke, basename, parent } from "./lib.js";
+  import { ui, tab, otherTab, item, cd, focusPane } from "./app.svelte.js";
+  import { invoke, basename, parent, previewKind } from "./lib.js";
   import { t, tn, num } from "./i18n.svelte.js";
   import { STATUSES, KINDS, FAMILIES, COLOR, isCrypto, childrenOf, filtering, mask, visibleRows, PAGE, leafCounts, sunburstArcs, arcPath, pathTo } from "./bom.js";
+
+  const MARK = { added: "＋", worsened: "▲", improved: "▼" };
 
   let { path, full = false } = $props();
 
@@ -16,7 +18,10 @@
   let details = $state(null);
   let open = $state(new Set());
   let shown = $state({});
-  const filters = $state({ status: new Set(), kind: new Set(), family: new Set(), query: "", hide: false });
+  const filters = $state({ status: new Set(), kind: new Set(), family: new Set(), change: new Set(), query: "", hide: false });
+  /** A compare with an older version: { old, mode, diff } or { old, error }. */
+  let compare = $state(null);
+  let showRemoved = $state(false);
   let treeEl = $state();
   let searchEl = $state();
   /** Tree or sunburst; sticks, as the preview's other switches do (ui.previewSource). */
@@ -33,6 +38,8 @@
       try {
         const v = await invoke("bom_info", { path: p, mode: m });
         if (p !== path) return;
+        // A compare belongs to the BOM it was made for.
+        if (compare && compare.path !== p) stopCompare();
         view = v;
         // The first two levels open, unless that makes a long list.
         const kids = childrenOf(v.rows, v.order);
@@ -65,7 +72,8 @@
   }
 
   const active = $derived(filtering(filters));
-  const masked = $derived(view ? mask(rows, view.order, filters, label) : { match: [], keep: [] });
+  const changes = $derived(compare?.diff?.change ?? null);
+  const masked = $derived(view ? mask(rows, view.order, filters, label, changes) : { match: [], keep: [] });
   const hiding = $derived(active && filters.hide);
   const isOpen = (i) => open.has(i) || (hiding && i !== 0 && masked.keep[i] && kids[i].some((c) => masked.keep[c]));
   const visible = $derived(view ? visibleRows(rows, kids, isOpen, shown, masked.keep, hiding) : []);
@@ -95,11 +103,43 @@
     filters.status = new Set(filters.status);
     filters.kind = new Set(filters.kind);
     filters.family = new Set(filters.family);
+    filters.change = new Set(filters.change);
   }
 
   function clearFilters() {
-    Object.assign(filters, { status: new Set(), kind: new Set(), family: new Set(), query: "" });
+    Object.assign(filters, { status: new Set(), kind: new Set(), family: new Set(), change: new Set(), query: "" });
   }
+
+  // ------------------------------------------------------------ compare
+
+  /** The file under the cursor in the other pane, when it could be an older version of this BOM. */
+  const other = $derived.by(() => {
+    const e = ui.dual ? item(otherTab()) : null;
+    if (!e || e.is_dir || e.path === path) return null;
+    return previewKind(e) === "bom" || /\.(json|xml)$/i.test(e.name) ? e : null;
+  });
+
+  async function runCompare(old = other?.path) {
+    if (!old || !view) return;
+    const mode = view.mode;
+    try {
+      const diff = await invoke("bom_diff", { old, path, mode });
+      if (view?.mode === mode) compare = { old, path, mode, diff };
+    } catch (err) {
+      compare = { old, path, mode, error: String(err) };
+    }
+  }
+
+  function stopCompare() {
+    compare = null;
+    showRemoved = false;
+    filters.change = new Set();
+  }
+
+  // Another grouping gives other rows: compare again in it.
+  $effect(() => {
+    if (compare && view && compare.mode !== view.mode && compare.path === path) runCompare(compare.old);
+  });
 
   /** Selects a row and opens what it sits in, so the tree shows it too. */
   function select(i) {
@@ -301,9 +341,37 @@
           </select>
         {/if}
         {#if active}<button class="link" onclick={clearFilters}>{t("bom.clear")}</button>{/if}
+        {#if !compare}
+          <button class="plain" disabled={!other} title={other ? t("bom.compare_title", { name: other.name }) : t("bom.compare_none")} onclick={() => runCompare()}>⇄ {t("bom.compare")}</button>
+        {/if}
         {#if !full}<button class="icon-btn" title={t("bom.window")} onclick={() => (ui.modal = { kind: "bom", path })}>{"\u{f065}"}</button>{/if}
       </div>
     </div>
+
+    {#if compare}
+      <div class="chips compare">
+        <span class="label">{t("bom.compared", { name: basename(compare.old) })}</span>
+        {#if compare.error}
+          <span class="note">{compare.error}</span>
+        {:else}
+          {@const c = compare.diff.counts}
+          <button class="chip risk" class:on={filters.change.has("risk")} disabled={!c.newRisks} onclick={() => toggle(filters.change, "risk")}>{tn("bom.change.risk", c.newRisks)}</button>
+          <span class="chip static">{tn("bom.change.fixed", c.fixed)}</span>
+          {#each [["added", c.added], ["worsened", c.worsened], ["improved", c.improved]] as [k, n] (k)}
+            <button class="chip" class:on={filters.change.has(k)} disabled={!n} onclick={() => toggle(filters.change, k)}><span class="mark {k}">{MARK[k]}</span>{tn(`bom.change.${k}`, n)}</button>
+          {/each}
+          <button class="chip" class:on={showRemoved} disabled={!c.removed} onclick={() => (showRemoved = !showRemoved)}>− {tn("bom.change.removed", c.removed)}</button>
+        {/if}
+        <button class="x small" title={t("bom.stop_compare")} onclick={stopCompare}>×</button>
+      </div>
+      {#if showRemoved && compare.diff?.removed.length}
+        <ul class="removed">
+          {#each compare.diff.removed.slice(0, 500) as r, k (k)}
+            <li>{@render dot(r.status)}<span>{r.label}</span> <small class="word {COLOR[r.status]}">{t(`bom.status.${r.status}`)}</small> <small class="where">{r.where}</small></li>
+          {/each}
+        </ul>
+      {/if}
+    {/if}
 
     <div class="main">
       {#if shape === "sunburst"}
@@ -344,6 +412,7 @@
               onclick={() => ((selected = v.i), treeEl.focus())} ondblclick={() => (has ? setOpen(v.i, !isOpen(v.i)) : reveal(firstFile(details)))} onkeydown={onkeydown}>
               <button class="twist" tabindex="-1" aria-hidden="true" onclick={(e) => (e.stopPropagation(), has && setOpen(v.i, !isOpen(v.i)))}>{has ? (isOpen(v.i) ? "▾" : "▸") : ""}</button>
               {@render dot(r.s)}
+              {#if changes && MARK[changes[v.i]]}<span class="mark {changes[v.i]}" title={t(`bom.mark.${changes[v.i]}`)}>{MARK[changes[v.i]]}</span>{/if}
               <span class="name" class:group={r.k === "group" || r.k === "application" || r.k === "component"}>{label(v.i)}</span>
               {#if isCrypto(r)}<span class="word {COLOR[r.s]}">{t(`bom.status.${r.s}`)}</span>{/if}
               {#if r.o}<span class="where">{r.o}</span>{/if}
@@ -739,6 +808,67 @@
   }
   .more-row {
     font-size: 0.85em;
+  }
+  .plain {
+    font-size: 0.82em;
+    font-family: var(--icon-font), var(--font);
+    padding: 2px 8px;
+    border: 1px solid var(--border-fg);
+    border-radius: var(--r);
+  }
+  .plain:disabled,
+  .chip:disabled {
+    opacity: 0.4;
+    cursor: default;
+  }
+  .compare {
+    padding: 4px 6px;
+    border: 1px dashed var(--accent-bg);
+    border-radius: var(--r);
+  }
+  .compare .label {
+    font-size: 0.85em;
+    margin-inline-end: 4px;
+  }
+  .chip.static {
+    cursor: default;
+  }
+  .chip.risk:not(:disabled) {
+    border-color: var(--st-red);
+  }
+  .x.small {
+    margin-inline-start: auto;
+    font-size: 1.1em;
+  }
+  .mark {
+    flex: none;
+    font-size: 0.8em;
+    font-weight: 700;
+  }
+  .mark.added {
+    color: var(--accent-bg);
+  }
+  .mark.worsened {
+    color: var(--st-red);
+  }
+  .mark.improved {
+    color: var(--st-green);
+  }
+  .removed {
+    list-style: none;
+    margin: 0;
+    padding: 4px 8px;
+    max-height: 8em;
+    overflow: auto;
+    font-size: 0.88em;
+    border: 1px solid var(--border-fg);
+    border-radius: var(--r);
+  }
+  .removed li {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    white-space: nowrap;
   }
   .sun {
     flex: 2;

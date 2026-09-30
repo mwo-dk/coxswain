@@ -113,8 +113,36 @@
   "one": "{n} asset",
   "other": "{n} assets"
  },
+ "bom.change.added": {
+  "one": "{n} added",
+  "other": "{n} added"
+ },
+ "bom.change.fixed": {
+  "one": "{n} fixed",
+  "other": "{n} fixed"
+ },
+ "bom.change.improved": {
+  "one": "{n} better",
+  "other": "{n} better"
+ },
+ "bom.change.removed": {
+  "one": "{n} removed",
+  "other": "{n} removed"
+ },
+ "bom.change.risk": {
+  "one": "{n} new risk",
+  "other": "{n} new risks"
+ },
+ "bom.change.worsened": {
+  "one": "{n} worse",
+  "other": "{n} worse"
+ },
  "bom.clear": "Clear filters",
  "bom.close": "Close",
+ "bom.compare": "Compare",
+ "bom.compare_none": "Put an older version of this BOM under the cursor in the other pane to compare with it",
+ "bom.compare_title": "Compare with {name} in the other pane, as the older version",
+ "bom.compared": "Compared with {name}:",
  "bom.dim": "Dim",
  "bom.dim_title": "Grey out what does not match, keeping the tree",
  "bom.family.asymmetric": "Asymmetric",
@@ -137,6 +165,9 @@
  "bom.kind.component": "Components",
  "bom.kind.material": "Keys",
  "bom.kind.protocol": "Protocols",
+ "bom.mark.added": "New since the older version",
+ "bom.mark.improved": "Rated better than in the older version",
+ "bom.mark.worsened": "Rated worse than in the older version",
  "bom.material.key": "Key",
  "bom.material.private-key": "Private key",
  "bom.material.public-key": "Public key",
@@ -168,6 +199,7 @@
  "bom.status.not-rated": "Not rated",
  "bom.status.safe": "Quantum-safe",
  "bom.status.unknown": "Unknown",
+ "bom.stop_compare": "Stop comparing",
  "bom.sunburst": "Sunburst",
  "bom.why": "Why",
  "bom.why.expired": {
