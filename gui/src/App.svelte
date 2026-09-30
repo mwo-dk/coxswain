@@ -3,7 +3,7 @@
   import { getCurrentWebview } from "@tauri-apps/api/webview";
   import { listen } from "@tauri-apps/api/event";
   import { ui, init, tab, pane, otherTab, item, load, cd, newTab, goBack, goForward, openItem, toggleMark, targets, reloadAll, snapshot, setTheme, nextView, measureFolders, columnMenu } from "./app.svelte.js";
-  import { invoke, keyString, basename, parent, glob, quote, isArchive } from "./lib.js";
+  import { invoke, keyString, basename, parent, glob, quote, isArchive, LOCKED } from "./lib.js";
   import { t, tn } from "./i18n.svelte.js";
   import Sidebar from "./Sidebar.svelte";
   import Pane from "./Pane.svelte";
@@ -110,8 +110,6 @@
     ui.modal = { kind: "input", title, label, value, run };
   }
 
-  // What the core says when a file inside an archive is locked (archive::LOCKED).
-  const LOCKED = "locked: a password is needed";
 
   /** Run `start(password)`; when it meets a locked archive, ask for the password and run it
    *  again with that. The password lives only in this call. */
