@@ -582,6 +582,7 @@
  "settings.search_root_size": "{size} nell’indice",
  "settings.search_roots": "Cartelle lette",
  "settings.search_roots_home": "La tua cartella Home",
+ "settings.search_service": "Avvia l’assistente di ricerca con la mia sessione, così legge anche quando nessuna finestra è aperta",
  "settings.search_status": "Ricercabili: {texts} file · ancora da leggere: {pending} · {size} su disco",
  "settings.search_text": "Conserva il testo dei file, così Trova file può cercarvi (Tab)",
  "settings.show_hidden": "Mostra i file nascosti all’avvio di Coxswain",

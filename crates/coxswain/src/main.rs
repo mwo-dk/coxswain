@@ -983,8 +983,25 @@ fn main_loop(term: &mut DefaultTerminal, app: &mut App) -> std::io::Result<()> {
 const USAGE: &str = "coxswain [LEFT] [RIGHT]      a folder, or a file to open its folder with the cursor on it
   --dump-config   print the full default config (redirect it to the config file to customise)
   --config-path   print where the config file is read from
+  --index-service on|off   start the search helper with your session, or stop doing so
   --version
   --help";
+
+/// `--index-service on|off`: register the search helper with the system, or unregister it; the
+/// helper running now makes way for the right one.
+fn index_service(on: Option<&str>) {
+    use coxswain_core::service;
+    let done = match on {
+        Some("on") => std::env::current_exe().and_then(|exe| service::install(&exe)),
+        Some("off") => service::uninstall(),
+        _ => return println!("{}", if service::installed() { "on" } else { "off" }),
+    };
+    if let Err(e) = done {
+        eprintln!("coxswain: {e}");
+        std::process::exit(1)
+    }
+    Client::start(&Config::load().map(|c| c.search).unwrap_or_default()).restart();
+}
 
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
@@ -995,6 +1012,7 @@ fn main() {
         Some("--version" | "-V") => return println!("coxswain {}", coxswain_core::update::VERSION),
         Some("--dump-config") => return print!("{}", Config::default().to_toml()),
         Some("--config-path") => return println!("{}", Config::path().map(|p| p.display().to_string()).unwrap_or_default()),
+        Some("--index-service") => return index_service(args.get(1).map(String::as_str)),
         _ => {}
     }
     let cfg = Config::load().unwrap_or_else(|e| {

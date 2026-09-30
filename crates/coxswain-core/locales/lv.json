@@ -582,6 +582,7 @@
  "settings.search_root_size": "{size} indeksā",
  "settings.search_roots": "Lasāmās mapes",
  "settings.search_roots_home": "Jūsu mājas mape",
+ "settings.search_service": "Palaist meklēšanas palīgu kopā ar manu sesiju, lai tas lasa arī tad, kad neviens logs nav atvērts",
  "settings.search_status": "Meklējami: {texts} faili · vēl jāizlasa: {pending} · diskā {size}",
  "settings.search_text": "Saglabāt failu tekstu, lai Meklēt failu varētu tajā meklēt (Tab)",
  "settings.show_hidden": "Rādīt slēptos failus, kad Coxswain startē",

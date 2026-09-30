@@ -79,6 +79,11 @@
     adding[name] = "";
     if (!s[name].includes(dir)) setSearch(name, [...s[name], dir]);
   }
+  async function serviceSet(on) {
+    error = "";
+    await invoke("index_service", { on }).catch((e) => (error = String(e)));
+    loadIndex();
+  }
   // Deleting the index takes a second click.
   let forgetting = $state(false);
   async function indexAction(what) {
@@ -195,6 +200,7 @@
           {/if}
           {#if index?.path}<br /><span class="mono">{index.path}</span>{/if}
         </p>
+        <label class="check"><input type="checkbox" checked={index?.service} disabled={!index} onchange={(e) => serviceSet(e.currentTarget.checked)} /> {t("settings.search_service")}</label>
         <div class="buttons">
           <button disabled={!index?.shared || !index.pending} onclick={() => indexAction("now")}>{t("settings.search_now")}</button>
           <button disabled={!index?.shared} class:danger={forgetting} onclick={() => indexAction("forget")} onblur={() => (forgetting = false)}>{forgetting ? t("settings.search_forget_confirm") : t("settings.search_forget")}</button>

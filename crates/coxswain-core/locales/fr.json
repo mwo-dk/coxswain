@@ -582,6 +582,7 @@
  "settings.search_root_size": "{size} dans l’index",
  "settings.search_roots": "Dossiers lus",
  "settings.search_roots_home": "Votre dossier personnel",
+ "settings.search_service": "Démarrer l’assistant de recherche avec ma session, pour qu’il lise même quand aucune fenêtre n’est ouverte",
  "settings.search_status": "Consultables : {texts} fichiers · reste à lire : {pending} · {size} sur le disque",
  "settings.search_text": "Garder le texte des fichiers, pour que « Rechercher un fichier » puisse y chercher (Tab)",
  "settings.show_hidden": "Afficher les fichiers masqués au démarrage de Coxswain",

@@ -548,6 +548,7 @@
  "settings.search_root_size": "{size} im Index",
  "settings.search_roots": "Gelesene Ordner",
  "settings.search_roots_home": "Dein Persönlicher Ordner",
+ "settings.search_service": "Den Suchhelfer mit meiner Sitzung starten, damit er liest, auch wenn kein Fenster offen ist",
  "settings.search_status": "Durchsuchbar: {texts} Dateien · noch zu lesen: {pending} · {size} auf der Festplatte",
  "settings.search_text": "Den Text von Dateien behalten, damit „Datei suchen“ darin suchen kann (Tab)",
  "settings.show_hidden": "Versteckte Dateien beim Start von Coxswain anzeigen",

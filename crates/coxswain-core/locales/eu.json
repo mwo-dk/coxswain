@@ -548,6 +548,7 @@
  "settings.search_root_size": "{size} indizean",
  "settings.search_roots": "Irakurtzen diren karpetak",
  "settings.search_roots_home": "Zure karpeta nagusia",
+ "settings.search_service": "Abiarazi bilaketa-laguntzailea nire saioarekin, leihorik irekita ez dagoenean ere irakur dezan",
  "settings.search_status": "Bilagarriak: {texts} fitxategi · irakurtzeke: {pending} · {size} diskoan",
  "settings.search_text": "Gorde fitxategien testua, Bilatu fitxategia aukerak bertan bilatu ahal izan dezan (Tab)",
  "settings.show_hidden": "Erakutsi fitxategi ezkutuak Coxswain abiaraztean",
