@@ -62,6 +62,7 @@ New here? Start with [The screen](panels/the-screen.md) and [Every default key](
 | [Removable disks](search/removable-disks.md) | Text kept while unplugged, found again at any mount point |
 | [Search by meaning](search/meaning.md) | The built-in multilingual model, turning it on and off, what you see, how it works |
 | [Search by meaning on a server: Ollama, Lemonade, LM Studio](search/servers.md) | Ollama, Lemonade, LM Studio, any OpenAI-compatible server, API keys, privacy |
+| [Ask: questions answered from your files](search/ask.md) | The fourth depth of Find file: your chat model answers from the closest passages, citing them |
 | [The search helper](search/helper.md) | One process for all windows, privacy of its connection, starting with the session |
 | [Battery](search/battery.md) | Reading pauses on battery, Index now reads anyway |
 | [Notices and the window title](search/notices.md) | Version and search depths in the title, the four notices |

@@ -16,6 +16,7 @@ Commander blue to Windows 95 and Mac OS 9.*
 
 - **Norton Commander at heart:** two panels, the F-key bar, a command line and NC's keys. [Panels and keys](docs/panels/README.md)
 - **Find by name, text or meaning:** Ctrl+F, and Tab goes deeper, from every name on the machine to what a file is about. [Search](docs/search/README.md)
+- **Ask your files:** a question in your own words, answered by your own chat model from the closest passages, with numbered sources. [Ask](docs/search/ask.md)
 - **Search by meaning, in any language:** a small model on your machine, or your own Ollama, Lemonade or OpenAI-style server. [Search by meaning](docs/search/meaning.md)
 - **See before you open:** code, Markdown, PDF, Word, PowerPoint, spreadsheets, SQLite, HTML, fonts, video and more. [The preview pane](docs/previews/README.md)
 - **Builds what needs building:** LaTeX, Office, PlantUML and Graphviz previews, with your tools or a sealed container. [LaTeX](docs/previews/latex.md) · [Tools](docs/previews/tools.md)
@@ -106,6 +107,7 @@ Newest first. Downloads for each release are on the [releases page](https://gith
 
 | Version | Date | What's new |
 |---|---|---|
+| **1.22.0** | 2026-10-01 | Ask: Tab to the fourth depth of Find file, ask a question, and your own chat model answers from your files, citing them; follow-ups work, nothing is kept. [Ask](docs/search/ask.md) |
 | **1.21.0** | 2026-10-01 | Cryptography bills of materials (CycloneDX CBOMs): every algorithm, key, certificate and protocol rated, as a tree or sunburst, compared with an older scan, in both apps. [CBOMs](docs/previews/bom.md) |
 | **1.20.0** | 2026-10-01 | More archive kinds: tar.bz2, tar.xz, tar.zst and 7z, read and written, and locked 7z archives open with their password. [Archives](docs/files/archives.md) |
 | **1.19.0** | 2026-10-01 | Archives are folders: go in with Enter, copy and move in, out and between them, rename, make folders, take out, pack with Alt+F5, with passwords for locked zips. [Archives](docs/files/archives.md) |

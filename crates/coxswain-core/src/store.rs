@@ -443,6 +443,39 @@ impl Store {
     /// Files whose passages mean what `query` asks, closest first, each with the start of
     /// the passage that was closest. Nothing while search by meaning is off.
     pub fn similar(&self, query: &str, max: usize) -> Vec<Hit> {
+        let mut seen = HashSet::new();
+        self.closest(query, 400)
+            .into_iter()
+            .filter(|(path, ..)| seen.insert(path.clone()))
+            .take(max)
+            .map(|(path, s, passage)| {
+                let words: Vec<&str> = passage.split_whitespace().collect();
+                let snippet = if words.len() > 24 { format!("{} …", words[..24].join(" ")) } else { words.join(" ") };
+                Hit { path, is_dir: false, snippet: Some(snippet), similar: Some(s) }
+            })
+            .collect()
+    }
+
+    /// The `max` passages closest to what `question` asks, whole, with their files: what Ask
+    /// gives the chat model to answer from. A file may give more than one; at most three, so
+    /// one long document does not crowd out the rest.
+    pub fn passages(&self, question: &str, max: usize) -> Vec<(PathBuf, String)> {
+        let mut per_file: HashMap<PathBuf, usize> = HashMap::new();
+        self.closest(question, 400)
+            .into_iter()
+            .filter(|(path, ..)| {
+                let n = per_file.entry(path.clone()).or_default();
+                *n += 1;
+                *n <= 3
+            })
+            .take(max)
+            .map(|(path, _, passage)| (path, passage))
+            .collect()
+    }
+
+    /// Passages near what `query` means, closest first, with their file and score. The
+    /// passages near the best one, and above what unrelated text scores.
+    fn closest(&self, query: &str, keep: usize) -> Vec<(PathBuf, f32, String)> {
         use crate::meaning::{pack, score, signs, alike};
         let Some(engine) = self.engine() else { return vec![] };
         let q = match engine.query(query) {
@@ -466,40 +499,30 @@ impl Store {
         // The signs sieve out all but the few hundred closest; their vectors say how close.
         let mut close: Vec<(u32, i64, u8)> = known.as_ref().unwrap().iter().map(|(f, n, s)| (alike(&wanted, s), *f, *n)).collect();
         drop(known);
-        let keep = close.len().min(400);
+        let keep = close.len().min(keep);
         if keep < close.len() {
             close.select_nth_unstable_by(keep, |a, b| b.0.cmp(&a.0));
             close.truncate(keep);
         }
-        let mut best: HashMap<i64, (f32, u8)> = HashMap::new();
         let Ok(mut vec) = db.prepare("SELECT vector FROM chunks WHERE file = ?1 AND n = ?2") else { return vec![] };
-        for (_, file, n) in close {
-            let Ok(v) = vec.query_row(params![file, n as i64], |r| r.get::<_, Vec<u8>>(0)) else { continue };
-            let s = score(&v, &q);
-            if best.get(&file).is_none_or(|b| s > b.0) {
-                best.insert(file, (s, n));
-            }
-        }
+        let mut ranked: Vec<(i64, f32, u8)> = close.into_iter().filter_map(|(_, file, n)| vec.query_row(params![file, n as i64], |r| r.get::<_, Vec<u8>>(0)).ok().map(|v| (file, score(&v, &q), n))).collect();
         drop(vec);
-        let mut ranked: Vec<(i64, f32, u8)> = best.into_iter().map(|(f, (s, n))| (f, s, n)).collect();
         ranked.sort_by(|a, b| b.1.total_cmp(&a.1));
         // e5's scores sit close together: near the best one, and above what unrelated text scores.
         let top = ranked.first().map_or(0.0, |r| r.1);
         let offline: Vec<(String, String)> = self.offline.lock().unwrap().iter().map(|at| below(at)).collect();
+        let mut texts: HashMap<i64, Option<(String, Vec<String>)>> = HashMap::new();
         ranked
             .into_iter()
-            .filter(|r| r.1 >= engine.floor().max(top - 0.10))
+            .take_while(|r| r.1 >= engine.floor().max(top - 0.10))
             .filter_map(|(file, s, n)| {
-                let (path, body): (String, String) = db.query_row("SELECT f.path, t.body FROM files f JOIN text t ON t.rowid = f.id WHERE f.id = ?1", [file], |r| Ok((r.get(0)?, r.get(1)?))).ok()?;
-                if offline.iter().any(|(from, to)| path > *from && path < *to) {
-                    return None;
-                }
-                let passage = crate::meaning::passages(&body).into_iter().nth(n as usize)?;
-                let words: Vec<&str> = passage.split_whitespace().collect();
-                let snippet = if words.len() > 24 { format!("{} …", words[..24].join(" ")) } else { words.join(" ") };
-                Some(Hit { path: PathBuf::from(path), is_dir: false, snippet: Some(snippet), similar: Some(s) })
+                let found = texts.entry(file).or_insert_with(|| {
+                    let (path, body): (String, String) = db.query_row("SELECT f.path, t.body FROM files f JOIN text t ON t.rowid = f.id WHERE f.id = ?1", [file], |r| Ok((r.get(0)?, r.get(1)?))).ok()?;
+                    (!offline.iter().any(|(from, to)| path > *from && path < *to)).then(|| (path, crate::meaning::passages(&body)))
+                });
+                let (path, passages) = found.as_ref()?;
+                Some((PathBuf::from(path), s, passages.get(n as usize)?.clone()))
             })
-            .take(max)
             .collect()
     }
 
@@ -1022,6 +1045,9 @@ mod tests {
         assert!(found.contains(&"budget.txt".to_string()) && found.contains(&"budget-da.txt".to_string()), "{found:?}");
         assert!(!found.contains(&"cake.txt".to_string()), "{found:?}");
         assert_eq!(names("apple cake recipe").first().map(String::as_str), Some("cake.txt"));
+        // What Ask answers from: whole passages, closest first.
+        let passages = store.passages("what does the fuel cost", 12);
+        assert!(passages.first().is_some_and(|(p, text)| p.ends_with("budget.txt") || p.ends_with("budget-da.txt") && text.contains("syv")), "{passages:?}");
 
         // Changed: its vectors go with its old text, and come again for the new one.
         std::thread::sleep(Duration::from_millis(1100));

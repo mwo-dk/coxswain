@@ -786,6 +786,10 @@ pub struct SearchConfig {
     /// The environment variable that holds the server's API key, if it wants one; the key
     /// itself is never written into this file.
     pub meaning_key_env: String,
+    /// Ask: the chat model that answers questions from the closest passages, on the server
+    /// above (Ollama on this machine when the vectors are the built-in model's), e.g.
+    /// `qwen3:8b`. Empty: Ask is not set up.
+    pub ask_model: String,
     /// Larger files are left out. Bytes.
     pub text_max_size: u64,
 }
@@ -806,6 +810,7 @@ impl Default for SearchConfig {
             meaning_url: String::new(),
             meaning_model: String::new(),
             meaning_key_env: String::new(),
+            ask_model: String::new(),
             text_max_size: 20 * 1024 * 1024,
         }
     }

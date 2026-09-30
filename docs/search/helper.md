@@ -98,4 +98,4 @@ Make any change in Settings, or close every window and wait ten minutes; with th
 `coxswain --index-service off` then `on`.
 
 ---
-[← Previous: Search by meaning on a server](servers.md) · [Next: Battery →](battery.md)
+[← Previous: Ask](ask.md) · [Next: Battery →](battery.md)

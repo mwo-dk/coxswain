@@ -205,6 +205,7 @@ flags start a new one.
 | `meaning_url` | string | `""` | The server. Empty for Ollama on this machine (`http://localhost:11434`); for `"openai"` the base URL, for example `http://localhost:8000/api/v1` |
 | `meaning_model` | string | `""` | The server's embedding model, for example `bge-m3` (the Ollama suggestion) |
 | `meaning_key_env` | string | `""` | The name of the environment variable that holds the server's API key. The key itself is never in this file |
+| `ask_model` | string | `""` | The chat model that answers in [Ask](../search/ask.md), on the server above (Ollama on this machine with the built-in model), e.g. `qwen3:8b`. Empty: Ask is not set up |
 
 Changing `meaning_engine` or `meaning_model` makes the helper work out the vectors again,
 since vectors of two models cannot be compared.

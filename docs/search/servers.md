@@ -116,4 +116,4 @@ No. Files wait while it does not answer, and are done once it does.
 The model lives on the server, not in Coxswain. Remove it there, for example `ollama rm bge-m3`.
 
 ---
-[← Previous: Search by meaning](meaning.md) · [Next: The search helper →](helper.md)
+[← Previous: Search by meaning](meaning.md) · [Next: Ask →](ask.md)

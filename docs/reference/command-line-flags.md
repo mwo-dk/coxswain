@@ -54,6 +54,8 @@ coxswain [LEFT] [RIGHT]      a folder, or a file to open its folder with the cur
   --meaning ollama [MODEL] the vectors from Ollama here (bge-m3 unless named; pulled if missing)
   --meaning server URL MODEL  the vectors from a server with the OpenAI API (Lemonade, LM Studio)
   --meaning builtin        back to the built-in model
+  --meaning ask MODEL|off  Ask in Find file: the chat model on that server (Ollama here with the
+                           built-in model) that answers questions from your files
   --version
   --help
 ```
@@ -87,6 +89,7 @@ new search helper with the new settings. See [Search by meaning](../search/meani
 | `--meaning ollama [MODEL]` | Uses Ollama on this machine (`http://localhost:11434`) with `MODEL`, default `bge-m3`. When Ollama lacks the model it pulls it first: `Pulling bge-m3 with Ollama…`. Sets `meaning_engine = "ollama"`, `meaning_model` and `meaning = true` |
 | `--meaning server URL MODEL` | Uses a server with the OpenAI API at `URL` (for example `http://localhost:8000/api/v1` for Lemonade) with `MODEL`. It first asks the server for its models, so a wrong address fails here, not later. Sets `meaning_engine = "openai"`, `meaning_url`, `meaning_model` and `meaning = true` |
 | `--meaning builtin` | Back to the built-in model: sets `meaning_engine = "builtin"`, then does `--meaning on` |
+| `--meaning ask MODEL` | [Ask](../search/ask.md)'s chat model, on the vectors' server (Ollama here with the built-in model). On Ollama a missing model is pulled first; an OpenAI-style server must list it. Sets `ask_model`. `--meaning ask off` empties it |
 
 `--meaning server` without both a URL and a model prints
 `usage: coxswain --meaning server URL MODEL, e.g. http://localhost:8000/api/v1 nomic-embed-text-v1-GGUF`.
@@ -160,6 +163,7 @@ The flags write these keys:
 | `--meaning on`, `off`, `delete` | `[search] meaning` |
 | `--meaning ollama` | `[search] meaning_engine`, `meaning_model`, `meaning` |
 | `--meaning server` | `[search] meaning_engine`, `meaning_url`, `meaning_model`, `meaning` |
+| `--meaning ask` | `[search] ask_model` |
 | `--meaning builtin` | `[search] meaning_engine`, `meaning` |
 | `--index-service` | None: it writes the system's session registration, not `config.toml` |
 

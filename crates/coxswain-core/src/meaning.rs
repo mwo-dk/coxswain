@@ -264,6 +264,105 @@ impl Server {
     }
 }
 
+/// A question asked before in the same Find file, and its answer.
+pub type Turn = (String, String);
+
+/// What the chat model is told to do with the sources.
+const RULES: &str = "You answer questions about the user's own files. Use only the numbered sources below. \
+After each statement, cite the sources it comes from as [1] or [2][3]. If the sources do not hold the answer, \
+say so plainly and do not guess. Answer in the language of the question, briefly.";
+
+/// Ask: `question` answered by the chat model on the user's server, from `sources` (numbered
+/// in their order) and the turns before. Each piece of the answer goes to `piece` as it
+/// comes; `piece` returns false to stop. Nothing is kept.
+pub fn ask(cfg: &crate::config::SearchConfig, earlier: &[Turn], question: &str, sources: &[(std::path::PathBuf, String)], mut piece: impl FnMut(&str) -> bool) -> Result<(), String> {
+    if cfg.ask_model.is_empty() {
+        return Err("no chat model is set for Ask".into());
+    }
+    let s = Server::new(cfg);
+    let context: String = sources.iter().enumerate().map(|(i, (path, text))| format!("[{}] {}\n{text}\n\n", i + 1, path.display())).collect();
+    let mut messages = vec![serde_json::json!({ "role": "system", "content": format!("{RULES}\n\nSources:\n\n{context}") })];
+    for (q, a) in earlier {
+        messages.push(serde_json::json!({ "role": "user", "content": q }));
+        messages.push(serde_json::json!({ "role": "assistant", "content": a }));
+    }
+    messages.push(serde_json::json!({ "role": "user", "content": question }));
+    let path = if s.openai { "/chat/completions" } else { "/api/chat" };
+    let body = serde_json::json!({ "model": cfg.ask_model, "messages": messages, "stream": true });
+    // A model that is not loaded yet takes a while to answer at all; after that, pieces come.
+    let tls = ureq::tls::TlsConfig::builder().root_certs(ureq::tls::RootCerts::PlatformVerifier).build();
+    let agent: ureq::Agent = ureq::Agent::config_builder()
+        .timeout_connect(Some(Duration::from_secs(10)))
+        .timeout_recv_response(Some(Duration::from_secs(300)))
+        .http_status_as_error(false)
+        .tls_config(tls)
+        .build()
+        .into();
+    let mut req = agent.post(&format!("{}{path}", s.url)).header("Content-Type", "application/json");
+    if let Some(key) = &s.key {
+        req = req.header("Authorization", &format!("Bearer {key}"));
+    }
+    let mut res = req.send(body.to_string()).map_err(|e| format!("{}: {e}", s.url))?;
+    if res.status().as_u16() >= 400 {
+        let text = res.body_mut().read_to_string().unwrap_or_default();
+        let v: serde_json::Value = serde_json::from_str(&text).unwrap_or_default();
+        let why = v["error"].as_str().or_else(|| v["error"]["message"].as_str()).map(String::from).unwrap_or(text);
+        return Err(format!("{} {}: {why}", s.url, res.status()));
+    }
+    let mut thinking = false;
+    for line in io::BufRead::lines(io::BufReader::new(res.into_body().into_reader())) {
+        let line = line.map_err(|e| e.to_string())?;
+        // OpenAI servers send `data: {…}` lines and `data: [DONE]`; Ollama one JSON per line.
+        let data = if s.openai { line.strip_prefix("data:").unwrap_or("").trim() } else { line.trim() };
+        if data.is_empty() {
+            continue;
+        }
+        if data == "[DONE]" {
+            break;
+        }
+        let v: serde_json::Value = serde_json::from_str(data).map_err(|e| e.to_string())?;
+        if let Some(e) = v["error"].as_str().or_else(|| v["error"]["message"].as_str()) {
+            return Err(e.to_string());
+        }
+        let text = if s.openai { v["choices"][0]["delta"]["content"].as_str() } else { v["message"]["content"].as_str() };
+        if let Some(text) = text.map(|t| unthink(t, &mut thinking)).filter(|t| !t.is_empty()) {
+            if !piece(&text) {
+                break;
+            }
+        }
+        if v["done"].as_bool() == Some(true) {
+            break;
+        }
+    }
+    Ok(())
+}
+
+/// A piece of an answer without what a reasoning model thinks aloud between `<think>` and
+/// `</think>`; `thinking` carries over from piece to piece.
+// ponytail: tags split over two pieces are missed; servers send each tag as one token.
+fn unthink(piece: &str, thinking: &mut bool) -> String {
+    let mut out = String::new();
+    let mut rest = piece;
+    loop {
+        let tag = if *thinking { "</think>" } else { "<think>" };
+        match rest.find(tag) {
+            Some(i) => {
+                if !*thinking {
+                    out.push_str(&rest[..i]);
+                }
+                *thinking = !*thinking;
+                rest = &rest[i + tag.len()..];
+            }
+            None => {
+                if !*thinking {
+                    out.push_str(rest);
+                }
+                return out;
+            }
+        }
+    }
+}
+
 /// The embedding models a server has: Ollama's pulled models, or an OpenAI server's list.
 pub fn server_models(openai: bool, url: &str) -> Result<Vec<String>, String> {
     let url = if url.is_empty() { OLLAMA } else { url.trim_end_matches('/') };
@@ -348,6 +447,49 @@ pub fn alike(a: &[u64], b: &[u64]) -> u32 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn ask_streams_the_answer_without_the_thinking() {
+        use std::io::{Read, Write};
+        let mut thinking = false;
+        assert_eq!(unthink("a<think>b</think>c", &mut thinking), "ac");
+        assert_eq!(unthink("<think>still", &mut thinking), "");
+        assert!(thinking);
+        assert_eq!(unthink(" more</think>Yes", &mut thinking), "Yes");
+
+        // A server that answers once, the Ollama way, and shows what it was sent.
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let url = format!("http://{}", listener.local_addr().unwrap());
+        let server = std::thread::spawn(move || {
+            let (mut c, _) = listener.accept().unwrap();
+            let mut got = Vec::new();
+            let mut buf = [0; 4096];
+            while !String::from_utf8_lossy(&got).contains("\"stream\":true}") {
+                let n = c.read(&mut buf).unwrap();
+                got.extend_from_slice(&buf[..n]);
+            }
+            let lines = "{\"message\":{\"content\":\"<think>hm</think>\"}}\n{\"message\":{\"content\":\"Rocket \"}}\n{\"message\":{\"content\":\"[1]\"},\"done\":true}\n";
+            write!(c, "HTTP/1.1 200 OK\r\nContent-Length: {}\r\n\r\n{lines}", lines.len()).unwrap();
+            String::from_utf8_lossy(&got).into_owned()
+        });
+        let cfg = crate::config::SearchConfig { meaning_engine: "ollama".into(), meaning_url: url, ask_model: "chat".into(), ..Default::default() };
+        let mut answer = String::new();
+        let sources = [(std::path::PathBuf::from("/p/rocket.md"), "The rocket is named Tern.".to_string())];
+        ask(&cfg, &[("What is it?".into(), "A rocket [1].".into())], "Its name?", &sources, |p| {
+            answer.push_str(p);
+            true
+        })
+        .unwrap();
+        assert_eq!(answer, "Rocket [1]");
+        let sent = server.join().unwrap();
+        assert!(sent.starts_with("POST /api/chat"));
+        assert!(sent.contains("[1] /p/rocket.md\\nThe rocket is named Tern."), "{sent}");
+        assert!(sent.contains("\"model\":\"chat\""));
+        assert!(sent.contains("A rocket [1]."), "the turns before go along");
+
+        let off = crate::config::SearchConfig::default();
+        assert!(ask(&off, &[], "q", &sources, |_| true).is_err(), "no chat model, no Ask");
+    }
 
     #[test]
     fn meaning_packs_vectors_and_scores_them() {

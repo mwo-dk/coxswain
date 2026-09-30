@@ -2,8 +2,8 @@
 
 # Search
 
-Find file finds what you have the way you remember it, at three depths: every file name on the
-machine, the words inside your files, and what your files are about. Both apps have all three,
+Find file finds what you have the way you remember it, at four depths: every file name on the
+machine, the words inside your files, what your files are about, and answers to questions about them. Both apps have all three,
 and they share one index, kept by a [search helper](helper.md) in the background. These pages
 walk through each depth, what is read and when, and every setting.
 
@@ -15,6 +15,7 @@ walk through each depth, what is read and when, and every setting.
 | [Names everywhere](names.md) | Files and folders by name, on the whole machine | Nothing |
 | [Names in this folder](names.md#names-in-this-folder) | The same, in the active panel's folder and below | Nothing |
 | [Text in files](text.md) | Files whose text has your words; with [search by meaning](meaning.md), also files about them | *Search inside files* on (the default) and the [helper](helper.md) |
+| [Ask](ask.md) | An answer to your question, written from the passages closest to it, with numbered sources | Search by meaning and a chat model on your server |
 
 | Page | What it covers |
 |---|---|
@@ -29,6 +30,7 @@ walk through each depth, what is read and when, and every setting.
 | [Removable disks](removable-disks.md) | USB and external disks: kept while unplugged, found again anywhere |
 | [Search by meaning](meaning.md) | The built-in multilingual model: turning it on, what it finds |
 | [Search by meaning on a server](servers.md) | Ollama, Lemonade, LM Studio or any server with the OpenAI API |
+| [Ask](ask.md) | Questions answered from your files by your own chat model, with numbered sources |
 | [The search helper](helper.md) | The background process, and starting it with your session |
 | [Battery](battery.md) | Why reading waits while a laptop runs on its battery |
 | [Notices and the window title](notices.md) | What the status line tells you once, and the version and depths in the title |
@@ -39,7 +41,7 @@ walk through each depth, what is read and when, and every setting.
 | Key | Desktop app | Terminal app | Does |
 |---|---|---|---|
 | **Alt+F7**, **Ctrl+F** | yes | yes | Open Find file, at names everywhere |
-| **Tab** | yes | yes | The next depth: everywhere → this folder → text in files |
+| **Tab** | yes | yes | The next depth: everywhere → this folder → text in files → Ask |
 | **Up** / **Down** | yes | yes | Move through the results |
 | **PageUp** / **PageDown** | 15 at a time | 10 at a time | Move a page |
 | **Enter** | yes | yes | Go to the file: the active panel opens its folder, cursor on it |
