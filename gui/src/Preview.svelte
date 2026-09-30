@@ -431,6 +431,7 @@
           <pre class="diagram-error mono">{conv.error}</pre>
           <button class="render" onclick={() => renderConv()}>{t("common.try_again")}</button>
         {:else if conv.result?.kind === "pdf"}
+          {#if conv.result.note}<details class="note"><summary>{t("preview.built_with_errors")}</summary><pre class="mono">{conv.result.note}</pre></details>{/if}
           <iframe class="pdf" src={convertFileSrc(conv.result.file) + "#zoom=page-width"} title={e.name}></iframe>
         {:else if conv.result?.kind === "svg"}
           <div class="media svg"><img src={convertFileSrc(conv.result.file)} alt={e.name} /></div>
@@ -551,6 +552,15 @@
     color: #000;
     box-shadow: 0 0 0 1px var(--border-fg);
     overflow: hidden;
+  }
+  .note {
+    margin: 0 0 6px;
+    color: var(--git-modified-fg);
+  }
+  .note pre {
+    white-space: pre-wrap;
+    font-size: 0.85em;
+    margin: 4px 0 0;
   }
   /* Diagrams are drawn for a white page, whatever the theme. */
   .drawio {
