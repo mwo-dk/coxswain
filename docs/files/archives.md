@@ -103,24 +103,27 @@ archive. Hidden entries (names starting with a dot) follow **Alt+.** as elsewher
 
 **Every change writes the archive anew.** Adding, renaming, moving within, making a folder and
 taking out all write a complete new archive next to the old one, in a file ending in
-`.coxswain-tmp` (`tools.coxswain-tmp` for `tools.zip`). Only when it is complete does it take the
+`.coxswain-tmp` (`tools.zip.4711.coxswain-tmp` for `tools.zip`, the number being the app's process
+id, so two apps never write the same file). Only when it is complete does it take the
 old one's place, with a rename in the same folder. If anything fails on the way, the new file is
-removed and the archive is exactly as it was.
+removed and the archive is exactly as it was. One archive is written at a time per app: a second
+change waits for the first.
 
 | Format | How it is written anew |
 |---|---|
 | Zip | Every entry that stays is copied over as it is, compressed and (if locked) still locked: nothing is unpacked. New files are compressed with Deflate. Quick even for large zips. |
 | Tar, plain or compressed | Every entry is read and written into a plain tar next to the archive (`….coxswain-tar`), which is then compressed into the new file: gzip and bzip2 at their default level, xz at level 6, zstd at its fastest level. A compressed tar is unpacked and packed again in full, so it takes as long as packing it would, and its size may differ afterwards. |
-| 7z | 7z cannot copy entries as they are: every file is unpacked into a folder of its own in the system's temp folder, then everything is packed again (LZMA2), and the temp folder is removed. |
+| 7z | 7z cannot copy entries as they are: every entry is unpacked and packed again (LZMA2) on its way from the old file to the new, keeping its dates and attributes. Nothing is written to the temp folder. A 7z with locked contents needs its password for this ([Passwords](archive-passwords.md)). |
 
 Copying **from one archive into another** goes through a folder of its own in the system's temp
 folder (`coxswain-archive-…`), which is removed afterwards.
 
 Free space needed: room for the new archive next to the old one, and for a tar also the
-unpacked tar; for a 7z, room in the temp folder for its unpacked files.
+unpacked tar.
 
 The new archive is a new file: it gets your default permissions, and hard links to the old one
-keep pointing at the old contents.
+keep pointing at the old contents. Files added to a zip keep their Unix permissions (the
+executable bit).
 
 ## Why not RAR
 
@@ -131,20 +134,22 @@ supports with its own pure-Rust code, the same on every system, so RAR is left o
 
 ## Limits
 
-- **An archive inside an archive** is not opened: **Enter** on it shows an empty folder. Copy it
-  out with **F5** first, then open it.
+- **An archive inside an archive** is not opened: **Enter** on it says, like on any file inside,
+  that **F5** copies it out. Copy it out first, then open it.
 - **Files inside cannot be opened, viewed or edited** (**F3**, **F4**, the preview): they are not
-  on disk. Copy them out first.
-- **Batch rename, properties, folder sizes and search** do not look inside archives. Pack
-  (**Alt+F5**) takes files on disk, not entries of another archive.
+  on disk. **F3** and **F4** say so on the status line. Copy them out first.
+- **Batch rename, properties and search** do not look inside archives. A folder inside shows the
+  size of the files in it, as listed; nothing is measured. Pack (**Alt+F5**) takes files on
+  disk, not entries of another archive.
 - **Symbolic links** on disk are left out when added to an archive, since what they point at may
   be anywhere. When copying out of a tar, links and special entries are skipped; **Ctrl+E**
   extracts them.
 - **Changing a locked archive:** in a zip, locked files stay locked, but files you add are not
   locked. A locked 7z that you change is written anew **without** a password. Copy what you need
   out of a locked 7z rather than changing it.
-- **Large compressed tars** are read from the start each time a folder in them is opened, as the
-  format has no index. A multi-gigabyte `.tar.xz` is slow to browse; extract it instead.
+- **Large compressed tars** are read from the start when opened, as the format has no index.
+  The listing is kept while the archive does not change, so moving between its folders is
+  quick after that. A multi-gigabyte `.tar.xz` is still slow to open; extract it instead.
 - **No overwriting:** a name that already exists inside, or at the target outside, is refused
   with `… exists`, as between folders.
 
@@ -176,7 +181,7 @@ the target of **F5**.
 
 The archive is written anew into a `.coxswain-tmp` file next to it and only then renamed over the
 old one. Until that rename the old archive is untouched; if something fails, the new file is
-removed. After a crash a leftover `.coxswain-tmp` (or `.coxswain-tar`) file can be deleted.
+removed. After a crash a leftover `….coxswain-tmp` (or `….coxswain-tar`) file can be deleted.
 
 #### Why does adding one small file to a big .tar.xz take so long?
 

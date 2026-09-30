@@ -60,7 +60,14 @@ file you renamed in place; the desktop app keeps the cursor at the same row.
 
 On the same disk a move is a rename: instant, whatever the size. Across disks (or file systems)
 the system cannot rename, so Coxswain copies everything and then deletes the originals. The
-originals are only deleted after their copy succeeded.
+originals are only deleted after their copy succeeded. Any other failure to rename (no
+permission, say) is reported as it is; nothing is copied then.
+
+#### Can I change only the case of a name, `Notes` to `notes`?
+
+Yes, also on macOS and Windows, where `notes` already "exists" as the same folder: Coxswain sees
+that it is the folder itself and renames it. Where case counts (Linux), `notes` is another name
+and the rename is refused only if a `notes` is really there.
 
 #### Why did my move fail with "exists"?
 

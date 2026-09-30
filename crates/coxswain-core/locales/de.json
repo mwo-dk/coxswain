@@ -94,7 +94,7 @@
   "other": "{n} Objekte verschoben"
  },
  "app.name_label": "Name:",
- "app.not_archive": "Kein ZIP- oder TAR-Archiv",
+ "app.not_archive": "Kein ZIP-, 7z- oder TAR-Archiv",
  "app.pasted_items": {
   "one": "{n} Objekt eingefügt",
   "other": "{n} Objekte eingefügt"
@@ -113,10 +113,10 @@
  "archive.copy_out_hint": "{archive} ist ein Archiv: F5 kopiert diese Datei heraus",
  "archive.inside_tip": "Sie sind in einem Archiv: F5 kopiert heraus, F6 verschiebt heraus, F8 nimmt heraus; Hineinkopiertes wird hinzugefügt",
  "archive.locked_again": "Das Passwort öffnete es nicht. Noch einmal:",
- "archive.locked_label": "Sein Passwort (nur hierfür, nie gespeichert):",
+ "archive.locked_label": "Sein Passwort (bleibt im Speicher, solange die App läuft, nie gespeichert):",
  "archive.locked_title": "Gesperrtes Archiv",
  "archive.pack": "Packen",
- "archive.pack_into": "{what} packen in (.zip, .tar oder .tar.gz):",
+ "archive.pack_into": "{what} packen in (.zip, .7z, .tar, .tar.gz …):",
  "archive.packed": "{what} gepackt",
  "archive.preview_hint": "Diese Datei liegt in {archive}. Kopieren Sie sie mit F5 heraus, um sie zu sehen.",
  "bom.advice": "Was zu tun ist",

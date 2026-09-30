@@ -96,7 +96,7 @@
   "other": "Perkelta {n} elementų"
  },
  "app.name_label": "Pavadinimas:",
- "app.not_archive": "Tai ne zip ar tar archyvas",
+ "app.not_archive": "Tai ne zip, 7z ar tar archyvas",
  "app.pasted_items": {
   "few": "Įklijuoti {n} elementai",
   "one": "Įklijuotas {n} elementas",
@@ -116,10 +116,10 @@
  "archive.copy_out_hint": "{archive} yra archyvas: F5 iškopijuoja šį failą",
  "archive.inside_tip": "Esate archyve: F5 kopijuoja lauk, F6 perkelia lauk, F8 išima; įkopijuota pridedama",
  "archive.locked_again": "Šis slaptažodis jo neatrakino. Bandykite dar kartą:",
- "archive.locked_label": "Jo slaptažodis (tik šiam kartui, niekada neišsaugomas):",
+ "archive.locked_label": "Jo slaptažodis (laikomas atmintyje, kol programa veikia, niekada neišsaugomas):",
  "archive.locked_title": "Užrakintas archyvas",
  "archive.pack": "Supakuoti",
- "archive.pack_into": "Supakuoti {what} į (.zip, .tar arba .tar.gz):",
+ "archive.pack_into": "Supakuoti {what} į (.zip, .7z, .tar, .tar.gz …):",
  "archive.packed": "Supakuota: {what}",
  "archive.preview_hint": "Failas yra archyve {archive}. Iškopijuokite jį su F5, kad pamatytumėte.",
  "bom.advice": "Ką daryti",

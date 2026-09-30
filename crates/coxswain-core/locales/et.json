@@ -94,7 +94,7 @@
   "other": "Teisaldatud {n} üksust"
  },
  "app.name_label": "Nimi:",
- "app.not_archive": "Pole zip- ega tar-arhiiv",
+ "app.not_archive": "Pole zip-, 7z- ega tar-arhiiv",
  "app.pasted_items": {
   "one": "Kleebitud {n} üksus",
   "other": "Kleebitud {n} üksust"
@@ -113,10 +113,10 @@
  "archive.copy_out_hint": "{archive} on arhiiv: F5 kopeerib faili sellest välja",
  "archive.inside_tip": "Oled arhiivis: F5 kopeerib välja, F6 teisaldab välja, F8 eemaldab; sisse kopeeritu lisatakse",
  "archive.locked_again": "See parool ei avanud seda. Proovi uuesti:",
- "archive.locked_label": "Selle parool (ainult selleks, ei salvestata kunagi):",
+ "archive.locked_label": "Selle parool (hoitakse mälus, kuni rakendus töötab, ei salvestata kunagi):",
  "archive.locked_title": "Lukus arhiiv",
  "archive.pack": "Paki",
- "archive.pack_into": "Paki {what} faili (.zip, .tar või .tar.gz):",
+ "archive.pack_into": "Paki {what} faili (.zip, .7z, .tar, .tar.gz …):",
  "archive.packed": "Pakitud {what}",
  "archive.preview_hint": "Fail on arhiivis {archive}. Kopeeri see F5-ga välja, et seda näha.",
  "bom.advice": "Mida teha",

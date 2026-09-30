@@ -96,7 +96,7 @@
   "other": "Se movieron {n} elementos"
  },
  "app.name_label": "Nombre:",
- "app.not_archive": "No es un archivo zip ni tar",
+ "app.not_archive": "No es un archivo zip, 7z ni tar",
  "app.pasted_items": {
   "many": "Se pegaron {n} elementos",
   "one": "Se pegó {n} elemento",
@@ -116,10 +116,10 @@
  "archive.copy_out_hint": "{archive} es un archivo comprimido: F5 copia este archivo afuera",
  "archive.inside_tip": "Estás dentro de un archivo: F5 copia afuera, F6 mueve afuera, F8 saca; lo que copies adentro se agrega",
  "archive.locked_again": "Esa contraseña no lo abrió. Probá de nuevo:",
- "archive.locked_label": "Su contraseña (solo para esto, nunca se guarda):",
+ "archive.locked_label": "Su contraseña (se guarda en memoria mientras la app está abierta, nunca en disco):",
  "archive.locked_title": "Archivo bloqueado",
  "archive.pack": "Empaquetar",
- "archive.pack_into": "Empaquetar {what} en (.zip, .tar o .tar.gz):",
+ "archive.pack_into": "Empaquetar {what} en (.zip, .7z, .tar, .tar.gz…):",
  "archive.packed": "{what} empaquetado",
  "archive.preview_hint": "Este archivo está dentro de {archive}. Copialo afuera con F5 para verlo.",
  "bom.advice": "Qué hacer",

@@ -28,15 +28,17 @@ once per archive, and it is never written anywhere.
 | Archive | Asked when |
 |---|---|
 | Zip with locked files | You copy, move or extract a locked file. Its names are not locked, so it opens and lists without a password; the badge says *archive, locked* |
-| 7z with locked contents | You copy, move or extract a file. Changing it (adding, renaming, taking out) uses the password only once it is known: copy one file out first, or the change fails with `locked: a password is needed` |
+| 7z with locked contents | You copy, move or extract a file, or change the archive (add, rename, make a folder, take out): it is unpacked and packed again for that. The badge says *archive, locked* |
 | 7z with locked contents and names | Already when you open it with **Enter**: without the password even the list of names cannot be read |
 
 ## What you see
 
 - The dialog *Locked archive*, as above. After a wrong password the label changes to *That
-  password did not open it. Try again:* (for copy, move and extract; when opening a 7z, the
-  first label is shown again).
-- In the desktop app the pane inside a zip with locked files shows the badge *archive, locked*.
+  password did not open it. Try again:* (for copy, move, extract, delete and new folder; when
+  opening a 7z, the first label is shown again).
+- In the desktop app the pane inside a zip with locked files, or a 7z with locked contents,
+  shows the badge *archive, locked*.
+- While the password dialog is up, the pane says *Locked archive*.
 - If you press **Esc** when opening a locked 7z, the pane shows the error
   `locked: a password is needed` and stays empty; open it again to be asked again.
 - If you press **Esc** during a copy, nothing is copied from the locked part.
@@ -87,17 +89,18 @@ it; the badge *archive, locked* tells you the password will be needed to copy th
 That 7z was made with its file names locked as well (`7z -mhe=on`). Without the password there is
 nothing to list.
 
-#### I gave the password, and then got "exists" errors. Why?
+#### Some of the marked files were not locked. Are they copied twice?
 
-When some of the marked files were not locked, they were copied in the first try; the whole
-operation then runs again with the password, and those files are now in the target. The locked
-files were copied; the "exists" lines for the others are harmless.
+No. Whatever was not locked is copied in the first try; when the rest failed only for want of a
+password, you are asked for it and the operation runs again for just those files. If something
+else failed as well (a name that exists, say), the errors are shown instead and nothing runs
+again.
 
 #### Can I remove a locked file from a zip without the password?
 
 Yes. Taking out (**F8**) writes the zip anew with the other entries copied as they are, locked or
-not; nothing needs to be unlocked. A 7z has to be unpacked and packed again, so it needs the
-password (known from opening it or from a copy out), and it is then written back without one
+not; nothing needs to be unlocked. A 7z has to be unpacked and packed again, so it asks for the
+password unless it is known from opening it or from a copy out, and it is then written back without one
 ([Limits](archives.md#limits)).
 
 #### How do I make Coxswain forget a password?

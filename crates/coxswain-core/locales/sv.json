@@ -94,7 +94,7 @@
   "other": "Flyttade {n} objekt"
  },
  "app.name_label": "Namn:",
- "app.not_archive": "Inte ett zip- eller tar-arkiv",
+ "app.not_archive": "Inte ett zip-, 7z- eller tar-arkiv",
  "app.pasted_items": {
   "one": "Klistrade in {n} objekt",
   "other": "Klistrade in {n} objekt"
@@ -113,10 +113,10 @@
  "archive.copy_out_hint": "{archive} är ett arkiv: F5 kopierar ut filen ur det",
  "archive.inside_tip": "Du är inne i ett arkiv: F5 kopierar ut, F6 flyttar ut, F8 tar bort; kopior in läggs till",
  "archive.locked_again": "Lösenordet öppnade det inte. Försök igen:",
- "archive.locked_label": "Lösenordet (används bara för detta, sparas aldrig):",
+ "archive.locked_label": "Lösenordet (hålls i minnet medan appen kör, sparas aldrig):",
  "archive.locked_title": "Låst arkiv",
  "archive.pack": "Packa",
- "archive.pack_into": "Packa {what} i (.zip, .tar eller .tar.gz):",
+ "archive.pack_into": "Packa {what} i (.zip, .7z, .tar, .tar.gz …):",
  "archive.packed": "Packade {what}",
  "archive.preview_hint": "Filen finns i {archive}. Kopiera ut den med F5 för att se den.",
  "bom.advice": "Vad du kan göra",
