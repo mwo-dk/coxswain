@@ -4,9 +4,13 @@
 //! - `model`: the BOM as the views see it, whatever the file format.
 //! - `ingest` and `xml`: CycloneDX JSON and XML to the model.
 //! - `tree`: the tree the views show, by dependencies, source files or kind.
+//! - `policy`, `status` and `assess`: how good each asset is, and why.
 
+pub mod assess;
 pub mod ingest;
 pub mod model;
+pub mod policy;
+pub mod status;
 pub mod tree;
 mod xml;
 
@@ -15,6 +19,7 @@ use std::io::Read;
 use std::path::Path;
 
 pub use model::*;
+pub use status::Status;
 pub use tree::{Tree, TreeMode};
 
 /// Larger files are shown as ordinary text or JSON instead.
@@ -46,6 +51,39 @@ impl fmt::Display for Error {
 }
 
 impl std::error::Error for Error {}
+
+/// How much of a file [`sniff_head`] needs.
+pub const SNIFF_BYTES: usize = 8192;
+
+/// Whether a file is a CycloneDX BOM: by its name, else by its first bytes for JSON and XML.
+pub fn sniff(path: &Path) -> bool {
+    let name = path.file_name().map(|n| n.to_string_lossy().to_lowercase()).unwrap_or_default();
+    if sniff_name(&name) {
+        return true;
+    }
+    if !(name.ends_with(".json") || name.ends_with(".xml")) {
+        return false;
+    }
+    let Ok(file) = std::fs::File::open(path) else { return false };
+    if file.metadata().is_ok_and(|m| m.len() > MAX_SIZE) {
+        return false;
+    }
+    let mut head = Vec::with_capacity(SNIFF_BYTES);
+    file.take(SNIFF_BYTES as u64).read_to_end(&mut head).is_ok() && sniff_head(&head)
+}
+
+/// Names that say BOM: `*.cdx.json`, `*.cdx.xml`, `*.cbom.json`, `bom.json` and `bom.xml`.
+pub fn sniff_name(name: &str) -> bool {
+    let name = name.to_lowercase();
+    [".cdx.json", ".cdx.xml", ".cbom.json"].iter().any(|e| name.ends_with(e)) || name == "bom.json" || name == "bom.xml"
+}
+
+/// Whether the first bytes of a JSON or XML file are CycloneDX's.
+pub fn sniff_head(head: &[u8]) -> bool {
+    let head = &head[..head.len().min(SNIFF_BYTES)];
+    let has = |needle: &[u8]| head.windows(needle.len()).any(|w| w == needle);
+    (has(b"\"bomFormat\"") && has(b"\"CycloneDX\"")) || has(b"http://cyclonedx.org/schema/bom/")
+}
 
 /// Reads a CycloneDX file, JSON or XML by its first character.
 pub fn load(path: &Path) -> Result<Bom, Error> {

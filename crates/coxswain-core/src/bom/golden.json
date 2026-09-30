@@ -1,0 +1,374 @@
+[
+ {
+  "algorithm": "md5",
+  "profile": "nist",
+  "year": 2026,
+  "expect": "broken"
+ },
+ {
+  "algorithm": "md5",
+  "profile": "cnsa2",
+  "year": 2026,
+  "expect": "broken",
+  "why": "'*' fallback applies when a profile has no rules"
+ },
+ {
+  "algorithm": "des",
+  "profile": "nist",
+  "year": 2020,
+  "expect": "broken"
+ },
+ {
+  "algorithm": "rc4",
+  "profile": "cnsa2",
+  "year": 2040,
+  "expect": "broken"
+ },
+ {
+  "algorithm": "sha1",
+  "profile": "nist",
+  "year": 2026,
+  "expect": "deprecated"
+ },
+ {
+  "algorithm": "sha1",
+  "profile": "nist",
+  "year": 2030,
+  "expect": "deprecated"
+ },
+ {
+  "algorithm": "sha1",
+  "profile": "nist",
+  "year": 2031,
+  "expect": "disallowed"
+ },
+ {
+  "algorithm": "sha1",
+  "profile": "cnsa2",
+  "year": 2026,
+  "expect": "disallowed"
+ },
+ {
+  "algorithm": "sha2",
+  "param_set": "256",
+  "profile": "nist",
+  "year": 2040,
+  "expect": "acceptable"
+ },
+ {
+  "algorithm": "sha2",
+  "param_set": "224",
+  "profile": "nist",
+  "year": 2030,
+  "expect": "acceptable"
+ },
+ {
+  "algorithm": "sha2",
+  "param_set": "224",
+  "profile": "nist",
+  "year": 2031,
+  "expect": "disallowed"
+ },
+ {
+  "algorithm": "sha2",
+  "param_set": "384",
+  "profile": "cnsa2",
+  "year": 2026,
+  "expect": "acceptable"
+ },
+ {
+  "algorithm": "sha2",
+  "param_set": "256",
+  "profile": "cnsa2",
+  "year": 2026,
+  "expect": "disallowed"
+ },
+ {
+  "algorithm": "sha2",
+  "profile": "nist",
+  "year": 2026,
+  "expect": "unknown",
+  "why": "size unknown: could be SHA-224"
+ },
+ {
+  "algorithm": "aes",
+  "key_bits": 128,
+  "profile": "nist",
+  "year": 2035,
+  "expect": "acceptable"
+ },
+ {
+  "algorithm": "aes",
+  "key_bits": 128,
+  "profile": "cnsa2",
+  "year": 2026,
+  "expect": "disallowed"
+ },
+ {
+  "algorithm": "aes",
+  "key_bits": 256,
+  "profile": "cnsa2",
+  "year": 2026,
+  "expect": "acceptable"
+ },
+ {
+  "algorithm": "aes",
+  "profile": "cnsa2",
+  "year": 2026,
+  "expect": "unknown",
+  "why": "key size unknown under a size-sensitive profile"
+ },
+ {
+  "algorithm": "aes",
+  "profile": "nist",
+  "year": 2026,
+  "expect": "acceptable",
+  "why": "NIST accepts every AES key size"
+ },
+ {
+  "algorithm": "3des",
+  "profile": "nist",
+  "year": 2026,
+  "expect": "disallowed"
+ },
+ {
+  "algorithm": "3des",
+  "profile": "cnsa2",
+  "year": 2026,
+  "expect": "disallowed"
+ },
+ {
+  "algorithm": "chacha20-poly1305",
+  "profile": "nist",
+  "year": 2026,
+  "expect": "acceptable"
+ },
+ {
+  "algorithm": "rsa",
+  "key_bits": 1024,
+  "profile": "nist",
+  "year": 2026,
+  "expect": "broken"
+ },
+ {
+  "algorithm": "rsa",
+  "key_bits": 2048,
+  "profile": "nist",
+  "year": 2026,
+  "expect": "acceptable"
+ },
+ {
+  "algorithm": "rsa",
+  "key_bits": 2048,
+  "profile": "nist",
+  "year": 2030,
+  "expect": "acceptable"
+ },
+ {
+  "algorithm": "rsa",
+  "key_bits": 2048,
+  "profile": "nist",
+  "year": 2031,
+  "expect": "deprecated"
+ },
+ {
+  "algorithm": "rsa",
+  "key_bits": 2048,
+  "profile": "nist",
+  "year": 2035,
+  "expect": "deprecated"
+ },
+ {
+  "algorithm": "rsa",
+  "key_bits": 2048,
+  "profile": "nist",
+  "year": 2036,
+  "expect": "disallowed"
+ },
+ {
+  "algorithm": "rsa",
+  "key_bits": 3072,
+  "profile": "nist",
+  "year": 2035,
+  "expect": "acceptable"
+ },
+ {
+  "algorithm": "rsa",
+  "key_bits": 3072,
+  "profile": "nist",
+  "year": 2036,
+  "expect": "disallowed"
+ },
+ {
+  "algorithm": "rsa",
+  "profile": "nist",
+  "year": 2026,
+  "expect": "unknown",
+  "why": "without a key size it could be RSA-1024"
+ },
+ {
+  "algorithm": "rsa",
+  "key_bits": 2048,
+  "profile": "cnsa2",
+  "year": 2026,
+  "expect": "disallowed"
+ },
+ {
+  "algorithm": "rsa",
+  "key_bits": 3072,
+  "profile": "cnsa2",
+  "year": 2026,
+  "expect": "deprecated"
+ },
+ {
+  "algorithm": "rsa",
+  "key_bits": 3072,
+  "profile": "cnsa2",
+  "year": 2036,
+  "expect": "disallowed"
+ },
+ {
+  "algorithm": "ecc",
+  "security_bits": 128,
+  "profile": "nist",
+  "year": 2030,
+  "expect": "acceptable",
+  "why": "P-256"
+ },
+ {
+  "algorithm": "ecc",
+  "security_bits": 128,
+  "profile": "nist",
+  "year": 2036,
+  "expect": "disallowed"
+ },
+ {
+  "algorithm": "ecc",
+  "security_bits": 112,
+  "profile": "nist",
+  "year": 2031,
+  "expect": "deprecated",
+  "why": "P-224"
+ },
+ {
+  "algorithm": "ecc",
+  "security_bits": 192,
+  "profile": "cnsa2",
+  "year": 2026,
+  "expect": "deprecated",
+  "why": "P-384 is the CNSA 2.0 interim curve"
+ },
+ {
+  "algorithm": "ecc",
+  "security_bits": 128,
+  "profile": "cnsa2",
+  "year": 2026,
+  "expect": "disallowed"
+ },
+ {
+  "algorithm": "eddsa",
+  "profile": "nist",
+  "year": 2035,
+  "expect": "acceptable"
+ },
+ {
+  "algorithm": "eddsa",
+  "profile": "nist",
+  "year": 2036,
+  "expect": "disallowed"
+ },
+ {
+  "algorithm": "ffdh",
+  "key_bits": 1024,
+  "profile": "nist",
+  "year": 2026,
+  "expect": "broken"
+ },
+ {
+  "algorithm": "dsa",
+  "profile": "nist",
+  "year": 2026,
+  "expect": "disallowed",
+  "why": "FIPS 186-5"
+ },
+ {
+  "algorithm": "dsa",
+  "profile": "cnsa2",
+  "year": 2026,
+  "expect": "disallowed"
+ },
+ {
+  "algorithm": "hmac",
+  "param_set": "160",
+  "profile": "nist",
+  "year": 2026,
+  "expect": "acceptable",
+  "why": "HMAC-SHA-1 is still fine as a MAC"
+ },
+ {
+  "algorithm": "hmac",
+  "param_set": "256",
+  "profile": "cnsa2",
+  "year": 2026,
+  "expect": "disallowed"
+ },
+ {
+  "algorithm": "hmac",
+  "param_set": "384",
+  "profile": "cnsa2",
+  "year": 2026,
+  "expect": "acceptable"
+ },
+ {
+  "algorithm": "hmac",
+  "profile": "cnsa2",
+  "year": 2026,
+  "expect": "unknown"
+ },
+ {
+  "algorithm": "ml-kem",
+  "param_set": "768",
+  "profile": "nist",
+  "year": 2040,
+  "expect": "safe"
+ },
+ {
+  "algorithm": "ml-kem",
+  "param_set": "768",
+  "profile": "cnsa2",
+  "year": 2026,
+  "expect": "disallowed"
+ },
+ {
+  "algorithm": "ml-kem",
+  "param_set": "1024",
+  "profile": "cnsa2",
+  "year": 2026,
+  "expect": "safe"
+ },
+ {
+  "algorithm": "ml-dsa",
+  "param_set": "87",
+  "profile": "cnsa2",
+  "year": 2026,
+  "expect": "safe"
+ },
+ {
+  "algorithm": "slh-dsa",
+  "profile": "nist",
+  "year": 2026,
+  "expect": "safe"
+ },
+ {
+  "algorithm": "lms-xmss",
+  "profile": "cnsa2",
+  "year": 2026,
+  "expect": "safe"
+ },
+ {
+  "algorithm": "made-up-cipher",
+  "profile": "nist",
+  "year": 2026,
+  "expect": "unknown"
+ }
+]

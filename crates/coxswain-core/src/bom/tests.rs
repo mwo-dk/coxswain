@@ -382,3 +382,387 @@ fn a_large_bom_builds_quickly() {
     assert!(started.elapsed().as_secs() < 5, "took {:?}", started.elapsed());
 }
 
+
+// Ratings
+
+use assess::{Context, Reason};
+use policy::{policy, AssetParams, Param, Resolution};
+
+#[test]
+fn status_order_and_roll_up() {
+    assert_eq!(Status::NotRated.worst(Status::Safe), Status::Safe);
+    assert_eq!(Status::Broken.worst(Status::NotRated), Status::Broken);
+    assert_eq!(Status::NotRated.worst(Status::NotRated), Status::NotRated);
+    // an unknown asset never lets its component read as green
+    assert_eq!(Status::Safe.worst(Status::Unknown), Status::Unknown);
+    assert_eq!(Status::Unknown.worst(Status::Deprecated), Status::Deprecated);
+    let colors: Vec<_> = Status::ALL.iter().map(|s| s.color()).collect();
+    use status::Color::*;
+    assert_eq!(colors, [Green, Green, Grey, Yellow, Red, Red, Muted]);
+}
+
+#[test]
+fn golden_ratings_match_cipherscape() {
+    #[derive(serde::Deserialize)]
+    struct Case {
+        algorithm: String,
+        profile: String,
+        year: i32,
+        expect: Status,
+        key_bits: Option<u64>,
+        security_bits: Option<u64>,
+        param_set: Option<String>,
+    }
+    let cases: Vec<Case> = serde_json::from_str(include_str!("golden.json")).unwrap();
+    assert!(cases.len() > 50);
+    for c in cases {
+        let asset = AssetParams {
+            algorithm_id: c.algorithm.clone(),
+            key_bits: c.key_bits,
+            security_bits: c.security_bits,
+            param_set: c.param_set.clone(),
+        };
+        let got = policy().evaluate(&asset, &c.profile, c.year).status;
+        assert_eq!(got, c.expect, "{} {:?} {:?} {:?} @{} {}", c.algorithm, c.key_bits, c.security_bits, c.param_set, c.profile, c.year);
+    }
+}
+
+#[test]
+fn an_evaluation_says_what_is_missing_and_where_the_rule_comes_from() {
+    let e = policy().evaluate(&AssetParams::new("rsa"), "nist", 2026);
+    assert_eq!((e.status, e.missing), (Status::Unknown, vec![Param::KeyBits]));
+    let e = policy().evaluate(&AssetParams { key_bits: Some(2048), ..AssetParams::new("rsa") }, "nist", 2031);
+    let source = e.source.unwrap();
+    assert_eq!(source.reference.as_deref(), Some("ir8547"));
+    assert!(source.text.contains("IR 8547"));
+    assert_eq!(policy().milestones("nist"), [2030, 2035]);
+}
+
+#[test]
+fn remediation_fits_the_profile_and_parameters() {
+    let aes = |bits| AssetParams { key_bits: Some(bits), ..AssetParams::new("aes") };
+    let rsa1024 = policy().remediation(&AssetParams { key_bits: Some(1024), ..AssetParams::new("rsa") }, "nist");
+    assert_eq!(rsa1024.len(), 2);
+    assert!(rsa1024[0].summary.contains("broken"));
+    assert!(rsa1024[1].summary.contains("post-quantum"));
+    assert_eq!(policy().remediation(&aes(128), "cnsa2").len(), 1);
+    assert_eq!(policy().remediation(&aes(256), "cnsa2").len(), 0);
+    assert_eq!(policy().remediation(&aes(128), "nist").len(), 0);
+}
+
+/// The parts an algorithm resolves to, or why it has none.
+type Resolved = Result<Vec<AssetParams>, &'static str>;
+
+fn resolved(name: &str, info: AlgorithmInfo) -> Resolved {
+    match policy().resolve(name, &info) {
+        Resolution::Rated { parts, .. } => Ok(parts),
+        Resolution::NotRated { .. } => Err("not-rated"),
+        Resolution::Unresolved { .. } => Err("unresolved"),
+    }
+}
+
+fn params(id: &str, key_bits: Option<u64>, security_bits: Option<u64>, param_set: Option<&str>) -> AssetParams {
+    AssetParams { algorithm_id: id.into(), key_bits, security_bits, param_set: param_set.map(str::to_string) }
+}
+
+#[test]
+fn names_found_in_real_files_resolve() {
+    let none = AlgorithmInfo::default;
+    let one = |id, k, s, p| Ok(vec![params(id, k, s, p)]);
+    let info = |family: Option<&str>, param_set: Option<&str>, oid: &str| AlgorithmInfo {
+        family: family.map(str::to_string),
+        param_set: param_set.map(str::to_string),
+        oid: Some(oid.to_string()),
+        ..Default::default()
+    };
+    let cases: Vec<(&str, AlgorithmInfo, Resolved)> = vec![
+        // CBOMkit: Keycloak and Kafka
+        ("AES", none(), one("aes", None, None, None)),
+        ("AES128", none(), one("aes", Some(128), None, None)),
+        ("AES128-CBC-PKCS5", none(), one("aes", Some(128), None, None)),
+        ("AES128-GCM", none(), one("aes", Some(128), None, None)),
+        ("ConcatenationKDF", none(), Err("not-rated")),
+        ("DSA", none(), one("dsa", None, None, None)),
+        ("EC", none(), one("ecc", None, None, None)),
+        ("EC-secp256r1", none(), one("ecc", None, Some(128), None)),
+        ("EC-secp384r1", none(), one("ecc", None, Some(192), None)),
+        ("EC-secp521r1", none(), one("ecc", None, Some(256), None)),
+        ("ECDH", none(), one("ecc", None, None, None)),
+        ("Ed25519", none(), one("eddsa", None, None, None)),
+        ("EdDSA", none(), one("eddsa", None, None, None)),
+        ("HMAC-SHA256", none(), one("hmac", None, None, Some("256"))),
+        ("HMACSHA2", none(), one("hmac", None, None, None)),
+        ("MGF1", none(), Err("not-rated")),
+        ("RAW", none(), Err("unresolved")),
+        ("PRIVATE KEY", none(), Err("unresolved")),
+        ("RSA-2048", none(), one("rsa", Some(2048), None, None)),
+        ("RSASSA-PSS", none(), one("rsa", None, None, None)),
+        ("SHA1", none(), one("sha1", None, None, None)),
+        ("SHA256", none(), one("sha2", None, None, Some("256"))),
+        ("SHA512", none(), one("sha2", None, None, Some("512"))),
+        // the official examples: composites, and what parameterSetIdentifier means
+        (
+            "RSA-PKCS1-1.5-SHA512-2048",
+            info(Some("RSASSA-PKCS1"), Some("512"), "1.2.840.113549.1.1.13"),
+            Ok(vec![params("rsa", Some(2048), None, None), params("sha2", None, None, Some("512"))]),
+        ),
+        ("SHA384", info(None, Some("384"), "2.16.840.1.101.3.4.2.9"), one("sha2", None, None, Some("384"))),
+        (
+            "SHA512withRSA",
+            info(None, Some("512"), "1.2.840.113549.1.1.13"),
+            Ok(vec![params("sha2", None, None, Some("512")), params("rsa", None, None, None)]),
+        ),
+        ("RSA-2048", info(None, Some("2048"), "1.2.840.113549.1.1.1"), one("rsa", Some(2048), None, None)),
+        ("AES-128-GCM-128-12", info(Some("AES"), Some("128"), "2.16.840.1.101.3.4.1.6"), one("aes", Some(128), None, None)),
+        (
+            "AES-256-GCM",
+            AlgorithmInfo { classical_security_level: Some(256), ..info(Some("AES"), None, "2.16.840.1.101.3.4.1.46") },
+            one("aes", Some(256), None, None),
+        ),
+        (
+            "ECDH-secp521r1",
+            AlgorithmInfo { curve: Some("secp521r1".into()), ..info(Some("ECDH"), None, "1.3.132.0.35") },
+            one("ecc", None, Some(256), None),
+        ),
+        (
+            "draft-ietf-tls-hybrid-design-13",
+            AlgorithmInfo { primitive: Some("combiner".into()), ..info(None, None, "1.3.101.110") },
+            Err("not-rated"),
+        ),
+        ("ML-DSA-65", none(), one("ml-dsa", None, None, Some("65"))),
+        ("Kyber768", none(), one("ml-kem", None, None, Some("768"))),
+        ("sha256WithRSAEncryption", none(), Ok(vec![params("sha2", None, None, Some("256")), params("rsa", None, None, None)])),
+    ];
+    for (name, info, want) in cases {
+        assert_eq!(resolved(name, info), want, "{name}");
+    }
+}
+
+fn outvoted(name: &str, info: AlgorithmInfo) -> Vec<policy::SignalSource> {
+    match policy().resolve(name, &info) {
+        Resolution::Rated { signals, .. } => signals.iter().filter(|s| !s.agreed).map(|s| s.source).collect(),
+        other => panic!("{name}: {other:?}"),
+    }
+}
+
+#[test]
+fn wrong_oids_are_outvoted_not_trusted() {
+    use policy::SignalSource::*;
+    let with = |family: Option<&str>, param_set: Option<&str>, oid: &str| AlgorithmInfo {
+        family: family.map(str::to_string),
+        param_set: param_set.map(str::to_string),
+        oid: Some(oid.to_string()),
+        ..Default::default()
+    };
+
+    // ML-KEM-1024 with an AES OID
+    let info = AlgorithmInfo { primitive: Some("kem".into()), ..with(Some("ML-KEM"), None, "2.16.840.1.101.3.4.1.48") };
+    assert_eq!(resolved("ML-KEM-1024", info.clone()), Ok(vec![params("ml-kem", None, None, Some("1024"))]));
+    assert_eq!(outvoted("ML-KEM-1024", info), [Oid]);
+
+    // SHA-384 with the SHA3-384 OID
+    let info = with(Some("SHA-2"), Some("384"), "2.16.840.1.101.3.4.2.9");
+    assert_eq!(resolved("SHA-384", info.clone()), Ok(vec![params("sha2", None, None, Some("384"))]));
+    assert_eq!(outvoted("SHA-384", info), [Oid]);
+
+    // X25519 with the id-ecDH OID: ECC by majority, with the right strength
+    let info = AlgorithmInfo { curve: Some("Curve25519".into()), ..with(Some("ECDH"), None, "1.3.132.1.12") };
+    assert_eq!(resolved("X25519", info.clone()), Ok(vec![params("ecc", None, Some(128), None)]));
+    assert_eq!(outvoted("X25519", info), [Name]);
+
+    // a tie between name and OID goes to the name
+    let info = with(None, None, "2.16.840.1.101.3.4.2.9");
+    assert_eq!(resolved("SHA-384", info.clone()), Ok(vec![params("sha2", None, None, Some("384"))]));
+    assert_eq!(outvoted("SHA-384", info), [Oid]);
+
+    // OID and family disagreeing with no name to settle it: no answer rather than a guess
+    assert_eq!(resolved("?", with(Some("AES"), None, "2.16.840.1.101.3.4.2.9")), Err("unresolved"));
+}
+
+#[test]
+fn every_algorithm_in_the_fixtures_is_resolved_or_skipped_on_purpose() {
+    let mut unresolved = std::collections::BTreeSet::new();
+    for path in REAL {
+        let bom = open(path);
+        for n in &bom.nodes {
+            if let Some(Crypto::Algorithm(info)) = &n.crypto
+                && matches!(policy().resolve(&n.label, info), Resolution::Unresolved { .. })
+            {
+                unresolved.insert(n.label.clone());
+            }
+        }
+    }
+    // Only junk may stay unresolved. Teach the resolver or the catalog before adding to this.
+    assert_eq!(unresolved.into_iter().collect::<Vec<_>>(), ["PRIVATE KEY", "RAW"]);
+}
+
+/// The fixed moment the assessment tests rate at: 2026-09-24.
+fn context(year: i32) -> Context {
+    let now = assess::parse_time("2026-09-24T00:00:00Z").unwrap();
+    Context { profile: "nist".into(), year, now, expiry_warning_days: 90 }
+}
+
+struct Rated {
+    bom: Bom,
+    tree: Tree,
+    resolutions: Vec<Option<Resolution>>,
+    issues: Vec<Issue>,
+}
+
+impl Rated {
+    fn new(path: &str) -> Rated {
+        let bom = open(path);
+        let tree = tree::build(&bom, tree::modes(&bom)[0]);
+        let (resolutions, issues) = assess::resolve(&bom, policy());
+        Rated { bom, tree, resolutions, issues }
+    }
+
+    fn at(&self, year: i32) -> assess::Assessed {
+        assess::assess(&self.bom, &self.tree, policy(), &self.resolutions, &context(year))
+    }
+
+    fn find(&self, label: &str) -> u32 {
+        find(&self.tree, &self.bom, label)
+    }
+
+    fn status(&self, a: &assess::Assessed, label: &str) -> Status {
+        a.status[self.find(label) as usize]
+    }
+}
+
+#[test]
+fn keycloak_is_rated_by_the_catalog() {
+    let r = Rated::new("cbomkit/keycloak.cdx.json");
+    let now = r.at(2026);
+    for (label, want) in [
+        ("RSA-2048", Status::Acceptable),
+        ("SHA1", Status::Deprecated),
+        ("DSA", Status::Disallowed),
+        ("AES128-GCM", Status::Acceptable),
+        ("EC-secp256r1", Status::Acceptable),
+        ("MGF1", Status::NotRated),
+        // honest where parameters are missing: EC without a curve could be P-192
+        ("EC", Status::Unknown),
+        ("RAW", Status::Unknown),
+    ] {
+        assert_eq!(r.status(&now, label), want, "{label}");
+    }
+    let ec = now.explain(r.find("EC"));
+    assert!(matches!(&ec.reasons[0], Reason::Rule { evaluation, .. } if evaluation.missing == [Param::SecurityBits]));
+
+    // a key without parameters takes its algorithm's status
+    let key = now.explain(r.find("secret-key@ad2ff456-2f18-4c34-938b-54964e020aeb"));
+    assert_eq!(key.reasons, [Reason::Inherited { node: r.find("HMAC-SHA256"), status: Status::Acceptable }]);
+    assert_eq!(key.status, Status::Acceptable);
+
+    // the worst rolls up to the root, and the explanation names the asset, not a group or a key
+    assert_eq!(now.status[0], Status::Disallowed);
+    let Reason::Rollup { node, status } = now.explain(0).reasons[0].clone() else { panic!("not a roll-up") };
+    assert_eq!(status, Status::Disallowed);
+    assert_eq!(r.tree.node(&r.bom, node).label, "DSA");
+
+    // later years
+    assert_eq!(r.status(&r.at(2031), "RSA-2048"), Status::Deprecated);
+    assert_eq!(r.status(&r.at(2036), "RSA-2048"), Status::Disallowed);
+    assert_eq!(r.status(&r.at(2036), "AES128-GCM"), Status::Acceptable);
+
+    // one name nothing knows, and nothing else
+    assert_eq!(codes_of(&r.issues), [IssueCode::UnresolvedAlgorithm]);
+    assert!(r.issues[0].message.contains("\"RAW\""));
+}
+
+fn codes_of(issues: &[Issue]) -> Vec<IssueCode> {
+    issues.iter().map(|i| i.code).collect()
+}
+
+#[test]
+fn an_expired_certificate_is_red_whatever_its_algorithms() {
+    let r = Rated::new("bom-examples/certificate.cdx.json");
+    let now = r.at(2026);
+    assert_eq!(r.status(&now, "google.com"), Status::Disallowed);
+    let reasons = now.explain(r.find("google.com")).reasons;
+    assert!(reasons.iter().any(|x| matches!(x, Reason::Lifecycle { not_valid_after, status: Status::Disallowed, days_left, .. }
+        if not_valid_after == "2017-11-22T07:59:59Z" && *days_left < -3000)));
+
+    // a key is rated by its own size, through its algorithm (the key comes before the algorithm of the same name)
+    let key = now.explain(r.find("RSA-2048"));
+    assert!(matches!(&key.reasons[0], Reason::Rule { params, .. } if *params == params_rsa_2048()));
+
+    // SHA512withRSA names no key size, and none is guessed
+    assert_eq!(r.status(&now, "SHA512withRSA"), Status::Unknown);
+}
+
+fn params_rsa_2048() -> AssetParams {
+    AssetParams { key_bits: Some(2048), ..AssetParams::new("rsa") }
+}
+
+#[test]
+fn a_certificate_close_to_expiry_is_deprecated() {
+    let doc = |after: &str| {
+        format!(
+            r#"{{"bomFormat": "CycloneDX", "specVersion": "1.6", "components": [{{"type": "cryptographic-asset",
+            "name": "c", "cryptoProperties": {{"assetType": "certificate", "certificateProperties": {{"notValidAfter": "{after}"}}}}}}]}}"#
+        )
+    };
+    let status = |after| {
+        let bom = parse_json(&doc(after), None).unwrap();
+        let tree = tree::build(&bom, TreeMode::Flat);
+        let (res, _) = assess::resolve(&bom, policy());
+        assess::assess(&bom, &tree, policy(), &res, &context(2026)).status[1]
+    };
+    assert_eq!(status("2026-10-24T00:00:00Z"), Status::Deprecated);
+    assert_eq!(status("2027-09-24"), Status::Acceptable);
+    assert_eq!(status("2026-09-23T23:00:00+02:00"), Status::Disallowed);
+    assert_eq!(status("next tuesday"), Status::Unknown); // no date, no references
+}
+
+#[test]
+fn outvoted_oids_are_warnings() {
+    let r = Rated::new("bom-examples/algorithm.cdx.json");
+    let m: Vec<_> = r.issues.iter().filter(|i| i.code == IssueCode::OidMismatch).collect();
+    assert_eq!(m.len(), 1);
+    assert!(m[0].message.contains("ML-KEM-1024"), "{}", m[0].message);
+}
+
+#[test]
+fn assets_that_refer_to_each_other_in_a_circle_are_unknown() {
+    let bom = parse_json(
+        r#"{"bomFormat": "CycloneDX", "specVersion": "1.6", "components": [
+          {"type": "cryptographic-asset", "name": "a", "bom-ref": "a", "cryptoProperties": {"assetType": "protocol",
+            "protocolProperties": {"cipherSuites": [{"algorithms": ["b"]}]}}},
+          {"type": "cryptographic-asset", "name": "b", "bom-ref": "b", "cryptoProperties": {"assetType": "protocol",
+            "protocolProperties": {"cipherSuites": [{"algorithms": ["a"]}]}}}]}"#,
+        None,
+    )
+    .unwrap();
+    let tree = tree::build(&bom, TreeMode::Flat);
+    let (res, _) = assess::resolve(&bom, policy());
+    let a = assess::assess(&bom, &tree, policy(), &res, &context(2026));
+    assert_eq!((a.status[1], a.status[2]), (Status::Unknown, Status::Unknown));
+}
+
+#[test]
+fn dates_without_a_date_crate() {
+    use assess::{parse_time, start_of_year, year_of};
+    assert_eq!(parse_time("1970-01-01"), Some(0));
+    assert_eq!(parse_time("2000-03-01T00:00:00Z"), Some(951_868_800));
+    assert_eq!(parse_time("2000-03-01T01:00:00.123+01:00"), Some(951_868_800));
+    assert_eq!(parse_time("2000-13-01"), None);
+    assert_eq!(year_of(951_868_800), 2000);
+    assert_eq!(year_of(start_of_year(2031)), 2031);
+    assert_eq!(year_of(start_of_year(2031) - 1), 2030);
+}
+
+#[test]
+fn sniffing_by_name_and_by_content() {
+    assert!(sniff_name("app.cdx.json") && sniff_name("App.CDX.XML") && sniff_name("x.cbom.json") && sniff_name("bom.json"));
+    assert!(!sniff_name("package.json") && !sniff_name("sbom.txt"));
+    assert!(sniff_head(br#"{"$schema": "x", "bomFormat": "CycloneDX", "specVersion": "1.6"}"#));
+    assert!(sniff_head(br#"<?xml version="1.0"?><bom xmlns="http://cyclonedx.org/schema/bom/1.6">"#));
+    assert!(!sniff_head(br#"{"name": "CycloneDX", "version": "1"}"#));
+
+    assert!(sniff(&fixture("spec/cryptography-full-1.7.json")));
+    assert!(sniff(&fixture("spec/cryptography-full-1.7.xml")));
+    assert!(!sniff(&fixture("README.md")));
+    assert!(!sniff(&PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("Cargo.toml")));
+}

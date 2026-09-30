@@ -36,7 +36,7 @@ one parser and one set of ratings.
 |---|---|---|---|
 | `core/ingest/cyclonedx.ts`, `cyclonedx-xml.ts` | 250 + ~150 | `bom::ingest` | JSON with serde_json, XML with quick-xml (both already in core) |
 | `core/model/types.ts`, `hierarchy.ts` | 220 | `bom::model`, `bom::tree` | Same node and edge kinds, same three hierarchy modes |
-| `core/model/status.ts`, `analysis/assess.ts` | | `bom::status` | Same status scale, reasons and roll-up |
+| `core/model/status.ts`, `analysis/assess.ts` | | `bom::status`, `bom::assess` | Same status scale, reasons and roll-up |
 | `core/policy/{resolve,alias,evaluate}.ts` + `policy/algorithms.yaml` | 400 + catalog | `bom::policy` + vendored `catalog.json` | See [Ratings](#ratings) |
 | `core/analysis/filter.ts` | 140 | GUI: `bom.js`; TUI: `bom::filter` | A mask over nodes |
 | `core/analysis/diff.ts` | 170 | `bom::diff` | Identity by what and where, never by bom-ref |
@@ -114,7 +114,7 @@ already shows.
 
 **The catalog.** We vendor cipherscape's compiled catalog (`catalog.gen.json`, 32 KB, built
 from `policy/algorithms.yaml`) as `crates/coxswain-core/src/bom/catalog.json`, loaded with
-`include_str!`. The first line of `bom/README` records the cipherscape commit it came from.
+`include_str!`. The first line of `bom/README.md` records the cipherscape commit it came from.
 This keeps one source of truth, and core needs no YAML crate. A small script,
 `bom/sync-catalog.sh`, rebuilds and copies it.
 
@@ -292,7 +292,7 @@ green. The version is bumped once, in that PR (**minor**).
 
 1. **Core model and ingest** (`bom::{model, ingest, tree}`, fixtures): JSON and XML, issues,
    the three tree modes. Acceptance: `cargo test -p coxswain-core bom`.
-2. **Core ratings** (`bom::{policy, status}`, vendored catalog, golden table), plus
+2. **Core ratings** (`bom::{policy, status, assess}`, vendored catalog, golden table), plus
    `bom::sniff`. Acceptance: `cargo test -p coxswain-core bom`.
 3. **Core diff** (`bom::diff`). Acceptance: `cargo test -p coxswain-core bom::diff`.
 4. **GUI tree, filters and details** (`bom_info`, `bom_node`, `BomView.svelte`, detection,
