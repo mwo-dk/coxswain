@@ -708,8 +708,8 @@ pub fn quote(s: &str) -> String {
     }
 }
 
-/// Previews made by external tools (desktop app): LaTeX, LibreOffice, PlantUML, pandoc,
-/// draw.io, DuckDB. Each runs from a locally installed tool or from a container image.
+/// Previews made by external tools (desktop app): LaTeX, LibreOffice, PlantUML, pandoc and
+/// DuckDB. Each runs from a locally installed tool or from a container image.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 #[serde(default)]
 pub struct PreviewConfig {
@@ -735,7 +735,6 @@ impl Default for PreviewConfig {
             ("pandoc", "docker.io/pandoc/core:latest"),
             // No official images for these; set one you trust (see docs/previews.md).
             ("libreoffice", ""),
-            ("drawio", ""),
             ("duckdb", ""),
         ];
         PreviewConfig {

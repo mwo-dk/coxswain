@@ -101,18 +101,18 @@ installed for a preview you only need now and then.
 | `.doc` `.docm` `.dotx` `.odt` `.ott` `.rtf` `.ppt` `.pptx` `.pps` `.ppsx` `.pot` `.potx` `.odp` `.otp` `.odg` `.vsd` `.vsdx` `.pub` `.wpd` `.wps` | LibreOffice | `soffice` (also its usual macOS and Windows install folders) | none; set one you trust | PDF |
 | `.puml`, `.plantuml`, `.pu`, `.iuml`, `.wsd` | PlantUML | `plantuml` | `docker.io/plantuml/plantuml:latest` | SVG |
 | `.rst`, `.rest` | pandoc | `pandoc` | `docker.io/pandoc/core:latest` | HTML |
-| `.drawio`, `.dio` | draw.io | `drawio` (also the macOS and Windows apps) | none; set one you trust | SVG |
 | `.duckdb`, `.ddb` | DuckDB | `duckdb` | none; set one you trust | Tables, row estimates, column counts |
 
 ### How it works
 
 1. **Pick an engine.** The buttons at the top of the preview list the installed programs and
    the container, e.g. **latexmk · podman texlive:latest**. Unavailable ones are greyed out;
-   hover for the reason ("tectonic is not installed", "No image for drawio"). Your pick is
+   hover for the reason ("tectonic is not installed", "No image for duckdb"). Your pick is
    remembered per tool.
-2. **Render.** LaTeX, LibreOffice and draw.io wait for **Build PDF** / **Render**, because
-   they take seconds and run someone else's document. PlantUML, pandoc and DuckDB run by
-   themselves, since they are quick, unless their container image still has to be pulled.
+2. **Render.** LaTeX waits for **Build PDF**, because a build takes long and runs someone
+   else's document. The others run by themselves; LibreOffice once a file has stayed selected
+   for a moment, so moving through a folder of slides does not start one per file. None runs
+   by itself while its container image still has to be pulled.
 3. **Reuse.** Results are cached in the cache folder (`~/.cache/coxswain/previews` on Linux),
    keyed by the file's path, size, modification time and the engine. A file renders once and
    shows at once afterwards; editing it makes the next render fresh.
@@ -172,14 +172,17 @@ latex = "docker.io/texlive/texlive:latest"   # or :latest-medium, about 2 GB
 plantuml = "docker.io/plantuml/plantuml:latest"
 pandoc = "docker.io/pandoc/core:latest"
 libreoffice = ""
-drawio = ""
 duckdb = ""
 ```
 
-LibreOffice, draw.io and DuckDB have no official images. If you set one, it must provide the
-command Coxswain runs: `soffice` for LibreOffice. For draw.io and DuckDB, the image's entry
-point must be the tool itself, which is how community images such as
-`rlespinasse/drawio-desktop-headless` are built (not tested with Coxswain).
+LibreOffice and DuckDB have no official images. If you set one, it must provide the command
+Coxswain runs: `soffice` for LibreOffice; for DuckDB, the image's entry point must be `duckdb`
+itself.
+
+draw.io diagrams (`.drawio`, `.dio`) need no tool: draw.io's own viewer, which ships inside
+Coxswain, draws them in the preview, with a page switcher, zoom and layers. It works offline,
+so shapes from draw.io's extra libraries (AWS, Azure, Cisco, …), which it would fetch from
+diagrams.net, show as plain boxes.
 
 ## Columns and folder sizes
 

@@ -273,6 +273,26 @@ export async function renderGraphviz(src) {
   }
 }
 
+let drawioReady;
+/** A draw.io diagram drawn into `el` by draw.io's own viewer (gui/public/vendor/drawio), loaded on
+ *  first use. It works offline: shapes from draw.io's extra libraries (AWS, Azure, …) that it
+ *  would fetch from diagrams.net show as plain boxes. Several pages get a page switcher. */
+export async function renderDrawio(el, xml) {
+  drawioReady ??= new Promise((ok, fail) => {
+    const local = "vendor/drawio/none";
+    Object.assign(window, { STENCIL_PATH: local, SHAPES_PATH: local, STYLE_PATH: local, GRAPH_IMAGE_PATH: local, mxLoadResources: false, mxLoadStylesheets: false });
+    const s = document.createElement("script");
+    s.src = "vendor/drawio/viewer-static.min.js";
+    s.onload = ok;
+    s.onerror = () => fail(new Error("draw.io viewer"));
+    document.head.append(s);
+  });
+  await drawioReady;
+  el.replaceChildren();
+  const doc = window.mxUtils.parseXml(xml);
+  new window.GraphViewer(el, doc.documentElement, { nav: true, lightbox: false, toolbar: "pages zoom layers", "toolbar-nohide": true, "toolbar-position": "top", resize: true, center: true });
+}
+
 /** AsciiDoc as HTML, in Asciidoctor's secure mode (no file includes), sanitized. */
 export async function renderAsciidoc(src) {
   const { convert } = await import("@asciidoctor/core");

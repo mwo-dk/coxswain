@@ -1,6 +1,6 @@
 <script>
   import { ui, tab, item } from "./app.svelte.js";
-  import { renderMarkdown, renderMermaid, highlight, renderDocx, readSheet, renderNotebook, loadFont, clean, parseData, jsonLines, calendar, contacts, logLines, renderGraphviz, renderAsciidoc, readParquet } from "./renderers.js";
+  import { renderDrawio, renderMarkdown, renderMermaid, highlight, renderDocx, readSheet, renderNotebook, loadFont, clean, parseData, jsonLines, calendar, contacts, logLines, renderGraphviz, renderAsciidoc, readParquet } from "./renderers.js";
   import { invoke, convertFileSrc, size, date, age, ageColor, previewKind, CONVERTER } from "./lib.js";
   import { t, tn, num } from "./i18n.svelte.js";
 
@@ -20,6 +20,13 @@
   let summary = $state(null);
 
   const LIMIT = 512 * 1024;
+
+  /** Draws a draw.io diagram into the element, again when it changes. */
+  function drawioView(el, xml) {
+    const draw = (x) => renderDrawio(el, x).catch((err) => (el.textContent = String(err?.message ?? err)));
+    draw(xml);
+    return { update: draw };
+  }
   /** Markdown, Mermaid and data files: show the rendered result or tree, or the source. Kept across files. */
   const source = $derived(ui.previewSource);
   /** For a file git has changes for: show the file, or its diff. Kept across files. */
@@ -95,7 +102,7 @@
     const cur = e;
     const k = kind;
     rich = null;
-    if (!["docx", "notebook", "sheet", "font", "parquet"].includes(k)) return;
+    if (!["docx", "notebook", "sheet", "font", "parquet", "drawio"].includes(k)) return;
     const timer = setTimeout(async () => {
       let r;
       try {
@@ -103,6 +110,7 @@
         else if (k === "notebook") r = { html: await renderNotebook(cur.path) };
         else if (k === "font") r = { family: await loadFont(cur.path) };
         else if (k === "parquet") r = { parquet: await readParquet(cur.path) };
+        else if (k === "drawio") r = { drawio: (await invoke("read_text", { path: cur.path, max: 32 * 1024 * 1024 }))[0] };
         else r = { sheet: await readSheet(cur.path) };
       } catch (err) {
         r = { error: String(err?.message ?? err) };
@@ -167,7 +175,7 @@
       if (cached) Object.assign(conv, { status: "done", result: cached });
       // Quick tools run by themselves, unless a container image still has to be pulled.
       else if (spec.auto && !eng.needs_pull) renderConv();
-    }, 150);
+    }, spec.wait ?? 150);
     return () => clearTimeout(timer);
   });
 
@@ -429,6 +437,8 @@
           <summary>{t("preview.schema")}</summary>
           {@render grid([[t("preview.column"), t("preview.type"), t("preview.repetition")], ...rich.parquet.schema])}
         </details>
+      {:else if rich?.drawio !== undefined}
+        <div class="drawio" use:drawioView={rich.drawio}></div>
       {:else if kind === "image"}
         <div class="media checker"><img src={convertFileSrc(e.path)} alt={e.name} /></div>
       {:else if kind === "video"}
@@ -518,6 +528,15 @@
 </aside>
 
 <style>
+  /* Diagrams are drawn for a white page, whatever the theme. */
+  .drawio {
+    flex: 1;
+    min-height: 240px;
+    overflow: auto;
+    background: #fff;
+    color: #000;
+    border-radius: var(--r);
+  }
   .preview {
     display: flex;
     flex-direction: column;
