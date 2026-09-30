@@ -115,10 +115,13 @@ are drawn in the app at once by [pptx-to-html](https://github.com/javier-mora/pp
 chart. With LibreOffice installed (or a LibreOffice container image set), the exact rendering
 runs meanwhile and takes the quick view's place when it is ready.
 
-2. **Render.** LaTeX waits for **Build PDF**, because a build takes long and runs someone
-   else's document. The others run by themselves; LibreOffice once a file has stayed selected
-   for a moment, so moving through a folder of slides does not start one per file. None runs
-   by itself while its container image still has to be pulled.
+2. **Render.** Each runs by itself once a file has stayed selected for a moment, so moving
+   through a folder does not start one per file; a LaTeX build only when its sources changed
+   since the last one. Unticking *Build LaTeX documents by themselves* in Settings makes LaTeX
+   wait for **Build PDF** instead. None runs by itself while its container image still has to
+   be pulled. When the engine picked cannot build a LaTeX document, the others are tried in
+   turn (tectonic is XeTeX only; the TeX Live container has every engine and package), and the
+   preview says which one built it and why the first stopped.
 3. **Reuse.** Results are cached in the cache folder (`~/.cache/coxswain/previews` on Linux),
    keyed by the file's path, size, modification time and the engine. A file renders once and
    shows at once afterwards; editing it makes the next render fresh. Settings → *Previews made

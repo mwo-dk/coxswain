@@ -725,6 +725,9 @@ pub struct PreviewConfig {
     /// Seconds before a conversion is stopped. A first container run also pulls the image,
     /// which the timeout does not cover.
     pub timeout: u64,
+    /// Build a LaTeX document by itself when it is shown and its sources changed, instead of
+    /// waiting for *Build PDF*.
+    pub latex_auto: bool,
 }
 
 impl Default for PreviewConfig {
@@ -743,6 +746,7 @@ impl Default for PreviewConfig {
             container: "auto".into(),
             images: images.map(|(k, v)| (k.to_string(), v.to_string())).into_iter().collect(),
             timeout: 120,
+            latex_auto: true,
         }
     }
 }

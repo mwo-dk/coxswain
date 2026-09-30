@@ -176,7 +176,7 @@
       if (conv?.path !== cur.path) return;
       if (cached) Object.assign(conv, { status: "done", result: cached });
       // Quick tools run by themselves, unless a container image still has to be pulled.
-      else if (spec.auto && !eng.needs_pull) renderConv();
+      else if ((typeof spec.auto === "string" ? ui.cfg.settings[spec.auto] : spec.auto) && !eng.needs_pull) renderConv();
     }, spec.wait ?? 150);
     return () => clearTimeout(timer);
   });
@@ -431,6 +431,7 @@
           <pre class="diagram-error mono">{conv.error}</pre>
           <button class="render" onclick={() => renderConv()}>{t("common.try_again")}</button>
         {:else if conv.result?.kind === "pdf"}
+          {#if conv.result.instead}<p class="more">{conv.result.instead}</p>{/if}
           {#if conv.result.note}<details class="note"><summary>{t("preview.built_with_errors")}</summary><pre class="mono">{conv.result.note}</pre></details>{/if}
           <iframe class="pdf" src={convertFileSrc(conv.result.file) + "#zoom=page-width"} title={e.name}></iframe>
         {:else if conv.result?.kind === "svg"}
