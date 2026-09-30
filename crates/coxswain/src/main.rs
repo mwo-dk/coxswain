@@ -191,11 +191,47 @@ pub struct App {
     /// Folder sizes arrive here: the panel's folder, the folder measured, its bytes.
     sizes_tx: mpsc::Sender<(PathBuf, PathBuf, u64)>,
     sizes_rx: mpsc::Receiver<(PathBuf, PathBuf, u64)>,
+    /// Searches to run, (generation, query, mode, folder), and their answers by generation.
+    search_tx: mpsc::Sender<(u64, String, u8, PathBuf)>,
+    search_rx: mpsc::Receiver<(u64, Results)>,
+    search_gen: u64,
     /// The stop flag of each panel's measuring.
     measuring: [Arc<std::sync::atomic::AtomicBool>; 2],
     run: Option<Run>,
     last_click: Option<(Instant, u16, u16)>,
     quit: bool,
+}
+
+/// The searching thread: it runs the newest search asked for, after a pause for more typing,
+/// and skips the ones typed over meanwhile.
+#[allow(clippy::type_complexity)]
+fn searcher(index: Arc<Client>, max: usize) -> (mpsc::Sender<(u64, String, u8, PathBuf)>, mpsc::Receiver<(u64, Results)>) {
+    let (ask, asked) = mpsc::channel::<(u64, String, u8, PathBuf)>();
+    let (tell, told) = mpsc::channel();
+    std::thread::spawn(move || {
+        while let Ok(mut job) = asked.recv() {
+            // Typing goes on: wait for it to pause, and take the last word of it.
+            loop {
+                while let Ok(newer) = asked.try_recv() {
+                    job = newer;
+                }
+                std::thread::sleep(Duration::from_millis(80));
+                match asked.try_recv() {
+                    Ok(newer) => job = newer,
+                    Err(_) => break,
+                }
+            }
+            let (generation, query, mode, dir) = job;
+            let found = match mode {
+                2 => index.search_text(&query, max),
+                _ => index.search(&query, (mode == 1).then_some(dir.as_path()), max),
+            };
+            if tell.send((generation, found)).is_err() {
+                return;
+            }
+        }
+    });
+    (ask, told)
 }
 
 fn resolve(base: &Path, s: &str) -> PathBuf {
@@ -224,6 +260,8 @@ impl App {
         let (git_tx, git_rx) = mpsc::channel();
         let (update_tx, update_rx) = mpsc::channel();
         let (sizes_tx, sizes_rx) = mpsc::channel();
+        let index = Client::start(&cfg.search);
+        let (search_tx, search_rx) = searcher(index.clone(), cfg.search.max_results);
         if cfg.check_updates {
             std::thread::spawn(move || {
                 if let Some(v) = coxswain_core::update::check() {
@@ -231,7 +269,6 @@ impl App {
                 }
             });
         }
-        let index = Client::start(&cfg.search);
         let show_hidden = cfg.show_hidden;
         let app = App {
             keymap,
@@ -252,6 +289,9 @@ impl App {
             sizer: Arc::new(coxswain_core::sizes::Sizer::new(Some(index.clone()))),
             sizes_tx,
             sizes_rx,
+            search_tx,
+            search_rx,
+            search_gen: 0,
             measuring: Default::default(),
             run: None,
             last_click: None,
@@ -691,16 +731,12 @@ impl App {
         }
     }
 
+    /// Ask for the search in the dialog on the searching thread; the answer comes in `tick`.
+    /// Keys are never held up by a search, and a search that a newer one replaces is dropped.
     fn search_now(&mut self) {
-        let max = self.cfg.search.max_results;
-        let dir = self.panel().dir.clone();
-        if let Some(Dialog::Search { query, mode, results, cursor, offset }) = &mut self.dialog {
-            *results = match *mode {
-                2 => self.index.search_text(query, max),
-                _ => self.index.search(query, (*mode == 1).then_some(dir.as_path()), max),
-            };
-            *cursor = 0;
-            *offset = 0;
+        if let Some(Dialog::Search { query, mode, .. }) = &self.dialog {
+            self.search_gen += 1;
+            let _ = self.search_tx.send((self.search_gen, query.clone(), *mode, self.panel().dir.clone()));
         }
     }
 
@@ -881,6 +917,15 @@ impl App {
                 p.sizes.insert(folder.clone(), bytes);
             }
         }
+        while let Ok((generation, found)) = self.search_rx.try_recv() {
+            if let Some(Dialog::Search { results, cursor, offset, .. }) = &mut self.dialog {
+                if generation == self.search_gen {
+                    *results = found;
+                    *cursor = 0;
+                    *offset = 0;
+                }
+            }
+        }
         while let Ok((dir, st)) = self.git_rx.try_recv() {
             for p in self.panels.iter_mut().filter(|p| p.dir == dir) {
                 p.git = st.clone();
@@ -954,7 +999,9 @@ fn main_loop(term: &mut DefaultTerminal, app: &mut App) -> std::io::Result<()> {
     let mut state = app.index.state();
     while !app.quit {
         term.draw(|f| ui::draw(f, app))?;
-        if event::poll(Duration::from_millis(200))? {
+        // Quicker while a search is out, so its answer shows as soon as it comes.
+        let waiting = matches!(app.dialog, Some(Dialog::Search { .. }));
+        if event::poll(Duration::from_millis(if waiting { 30 } else { 200 }))? {
             match event::read()? {
                 Event::Key(k) => app.on_key(k),
                 Event::Mouse(m) => app.on_mouse(m),

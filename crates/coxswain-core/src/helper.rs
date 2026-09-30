@@ -360,6 +360,13 @@ impl Client {
                 return known.clone();
             }
         }
+        // A search under way holds the line: the status from before will do, so drawing the
+        // screen never waits for a search.
+        if self.line.try_lock().is_err() {
+            if let Some((_, known)) = &*status {
+                return known.clone();
+            }
+        }
         let now = match self.ask(&Request::Status) {
             Some(Reply::Status(s)) => s,
             _ => Status { state: self.own().state(), len: self.own().len(), texts: 0, pending: 0, bytes: 0, paused: false, roots: vec![], tools: vec![], meaning: false, meaning_pending: 0, meaning_done: 0 },
