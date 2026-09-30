@@ -4,7 +4,8 @@ The desktop app's preview pane (**Space**, or F3) shows the file or folder under
 and follows it as you move. It waits a moment before loading, so holding an arrow key stays
 smooth. This page covers everything it can show, the switches at its top, and the limits. The
 terminal app has no preview pane: F3 opens the file in your viewer (`viewer` in the config,
-else `$PAGER`, else `less`).
+else `$PAGER`, else `less`), except a CycloneDX BOM, which opens in its own viewer (see
+[cryptography bills of materials](bom.md)).
 
 ![Markdown with a Mermaid diagram and math, a Jupyter notebook, a spreadsheet, a Word document and a font](screenshots/gui-previews.png)
 ![A YAML tree, a SQLite database, a certificate and an e-mail](screenshots/gui-previews-data.png)
@@ -23,6 +24,7 @@ Your choice sticks: it applies to the next file of that kind too, and survives a
 | **Rendered / Source** | Markdown, Mermaid, calendars, contacts | The rendered view, or the highlighted source |
 | **Tree / Source** | JSON, YAML, TOML | A collapsible tree (the first two levels open), or the source |
 | **Table / Source** | JSON Lines | A table, or the source |
+| **Tree / Sunburst / Source** | CycloneDX BOMs | The rated tree, the rings, or the source; see [bom.md](bom.md) |
 | **Sheet names** | Workbooks with more than one sheet | One button per sheet |
 | **Engine** | Files made by an external tool (LaTeX, Office, PlantUML, ...) | The installed programs and the container, e.g. **latexmk · tectonic · podman texlive**; see [Previews made by tools](#previews-made-by-tools) |
 
@@ -59,6 +61,7 @@ scrolling stays smooth.
 |---|---|---|
 | `.json`, `.geojson`, `.yaml`, `.yml`, `.toml` | A collapsible tree with counts per level; strings, numbers and booleans colored | Built in, [yaml](https://eemeli.org/yaml/), [smol-toml](https://github.com/squirrelchat/smol-toml) |
 | `.jsonl`, `.ndjson` | The first 200 lines as a table, one column per key | Built in |
+| CycloneDX BOMs: `*.cdx.json`, `*.cdx.xml`, `bom.json`, … and any JSON or XML that is one | The cryptography rated as a tree or sunburst, with filters, reasons, where each asset is found, and a compare with an older scan; see [cryptography bills of materials](bom.md) | Built in (coxswain-core), ratings from cipherscape's catalogue |
 | `.csv`, `.tsv`, `.xlsx`, `.xlsm`, `.xls`, `.ods` | The first 200 rows as a table, with a button per sheet | [SheetJS](https://sheetjs.com/) |
 | `.db`, `.sqlite`, `.sqlite3`, `.db3` | Every table and view with its row count; click a name for its schema | [SQLite](https://sqlite.org/), opened read-only |
 | `.parquet`, `.pq` | Row and column counts, the first 200 rows, and the schema (click **Schema**) | [hyparquet](https://github.com/hyparam/hyparquet), with Snappy, Gzip, Zstd, Brotli and LZ4; nothing to install |

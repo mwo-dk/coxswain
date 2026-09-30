@@ -350,7 +350,7 @@
 
     {#if compare}
       <div class="chips compare">
-        <span class="label">{t("bom.compared", { name: basename(compare.old) })}</span>
+        <span class="label">{t("bom.compared", { name: basename(compare.old) === basename(path) ? `${basename(parent(compare.old))}/${basename(compare.old)}` : basename(compare.old) })}</span>
         {#if compare.error}
           <span class="note">{compare.error}</span>
         {:else}

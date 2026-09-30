@@ -302,7 +302,7 @@ impl Viewer {
 
     /// Compares with an older version of this BOM: `old` is the "before".
     pub fn compare(&mut self, old: &Path) {
-        let name = old.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+        let name = compared_name(old, &self.path);
         let result = Loaded::open(old, Some(self.l.mode)).map_err(|e| e.to_string()).map(|before| diff::diff(&before.side(), &self.l.side()));
         self.compare = Some(Compared { old: Some(old.to_path_buf()), name, result });
         self.refresh();
@@ -697,9 +697,12 @@ impl Viewer {
             r.sort_by(|a, b| a.a0.total_cmp(&b.a0));
         }
         let bg = sty(&theme.dialog).bg.unwrap_or(Color::Reset);
+        // A half block is as wide as a cell and half as tall. Where the terminal says how large its
+        // cells are, pixels are stretched to square; otherwise cells are taken to be 1:2.
+        let aspect = cell_aspect() / 2.0;
         let (w, h) = (rest.width as f64, rest.height as f64 * 2.0);
         let (cx, cy) = (w / 2.0, h / 2.0);
-        let r_max = (w / 2.0).min(h / 2.0) - 0.5;
+        let r_max = (w / 2.0).min(h / 2.0 * aspect) - 0.5;
         let r0 = r_max * 0.2;
         let ring_w = (r_max - r0) / rings as f64;
         let selected = self.selected();
@@ -713,7 +716,7 @@ impl Viewer {
         let dimmed = |a: &Arc| self.filtering() && !self.hide && a.node.is_some_and(|i| !self.keep[i as usize]);
 
         let pixel = |x: f64, y: f64| -> Color {
-            let (dx, dy) = (x + 0.5 - cx, y + 0.5 - cy);
+            let (dx, dy) = (x + 0.5 - cx, (y + 0.5 - cy) * aspect);
             let r = (dx * dx + dy * dy).sqrt();
             if r > r_max {
                 return bg;
@@ -884,6 +887,15 @@ impl Viewer {
     }
 }
 
+/// The older version's name, with its folder when it has the same name as the BOM in view.
+fn compared_name(old: &Path, current: &Path) -> String {
+    let name = old.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+    match old.parent().and_then(Path::file_name) {
+        Some(dir) if old.file_name() == current.file_name() => format!("{}/{name}", dir.to_string_lossy()),
+        _ => name,
+    }
+}
+
 fn param_key(p: coxswain_core::bom::policy::Param) -> &'static str {
     use coxswain_core::bom::policy::Param;
     match p {
@@ -898,6 +910,17 @@ fn mode_key(m: TreeMode) -> &'static str {
         TreeMode::Dependencies => "dependencies",
         TreeMode::Files => "files",
         TreeMode::Flat => "flat",
+    }
+}
+
+/// A character cell's height over its width, from the terminal when it tells, else 2.
+fn cell_aspect() -> f64 {
+    match ratatui::crossterm::terminal::window_size() {
+        Ok(s) if s.width > 0 && s.height > 0 && s.columns > 0 && s.rows > 0 => {
+            let a = (s.height as f64 / s.rows as f64) / (s.width as f64 / s.columns as f64);
+            if (1.0..=4.0).contains(&a) { a } else { 2.0 }
+        }
+        _ => 2.0,
     }
 }
 

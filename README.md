@@ -47,6 +47,11 @@ Mac OS 9; see [themes](#themes).*
   BLAKE3 hashes, kept for next time. The helper hashes your home folder's look-alikes ahead.
   Mark the extra copies by rule and move them to the trash. See
   [finding duplicates](docs/duplicates.md).
+- **Reads cryptography bills of materials.** A CycloneDX CBOM shows as a tree of the
+  application's algorithms, keys, certificates and protocols, each rated (broken, deprecated,
+  quantum-safe, …) with the reason and where in the code it is; as a sunburst; and compared
+  with last month's scan: new risks, fixed. In both apps. See
+  [cryptography bills of materials](docs/bom.md).
 - **Speaks your language.** 18 languages, from British, Australian, Canadian and New Zealand
   English to Danish, Finnish, the Baltic languages, Catalan, Basque and Hebrew (right to left).
   Coxswain picks your system's language, or the nearest one it has; Settings changes it.
@@ -229,6 +234,11 @@ you tick for duplicate files and whole duplicate folders, and lists them by wast
 "Mark all but the newest / oldest / the one under a folder" marks the extra copies; at least
 one copy of each always stays, and marked copies go to the trash.
 **[docs/duplicates.md](docs/duplicates.md)** explains how it works and stays fast.
+
+**CBOMs.** A CycloneDX cryptography bill of materials shows as a rated tree or sunburst in the
+preview (F3 in the terminal app), with filters, the reason for each rating, "Found in" that
+jumps to the source, and a compare with an older scan in the other pane.
+**[docs/bom.md](docs/bom.md)** explains the ratings and the keys.
 
 **Columns and folder sizes.** Folders show their size without being asked: each is measured
 in the background as you open its parent, in both apps. Right-click the column header (or F9,
