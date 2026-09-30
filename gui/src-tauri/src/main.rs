@@ -469,6 +469,8 @@ fn dismiss_notice(id: String, ctx: tauri::State<Ctx>) -> Res<()> {
 struct MeaningStatus {
     installed: bool,
     size: u64,
+    /// Where the built-in model is, or would be.
+    folder: Option<PathBuf>,
     downloading: Option<(u64, u64)>,
     error: Option<String>,
 }
@@ -480,6 +482,7 @@ fn meaning_status(ctx: tauri::State<Ctx>) -> Res<MeaningStatus> {
     Ok(MeaningStatus {
         installed: coxswain_core::meaning::installed(),
         size: coxswain_core::meaning::size(),
+        folder: coxswain_core::meaning::folder(),
         downloading: m.as_ref().filter(|(_, err)| err.is_none()).map(|(p, _)| (p.done.load(Ordering::Relaxed), p.total.load(Ordering::Relaxed))),
         error: m.as_ref().and_then(|(_, e)| e.clone()),
     })

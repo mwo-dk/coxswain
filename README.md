@@ -456,6 +456,9 @@ Names are searched with Everything's syntax:
 ## Configuration
 
 `coxswain --config-path` shows where the file lives (`~/.config/coxswain/config.toml` on Linux).
+`coxswain --paths` shows where everything is kept: the config, the state, the name index, the
+search store (`search.db`), the model for search by meaning, and the previews made by tools.
+Settings shows the search store's and the model's place in their sections.
 `coxswain --dump-config` prints every option with its default. Set only what you want to change:
 
 ```toml

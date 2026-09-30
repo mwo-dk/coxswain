@@ -905,6 +905,19 @@ impl Config {
         Some(dirs::config_dir()?.join("coxswain").join("config.toml"))
     }
 
+    /// Where Coxswain keeps things, (what, path), for `--paths`.
+    pub fn paths() -> Vec<(&'static str, Option<PathBuf>)> {
+        vec![
+            ("config", Config::path()),
+            ("state", crate::state::AppState::path()),
+            ("cache", crate::helper::folder()),
+            ("name index", crate::index::Index::cache_path()),
+            ("search store", crate::store::Store::path()),
+            ("model", crate::meaning::folder()),
+            ("previews", dirs::cache_dir().map(|d| d.join("coxswain").join("previews"))),
+        ]
+    }
+
     /// Load the user config, falling back to defaults when the file does not exist.
     pub fn load() -> Result<Config, String> {
         match Config::path().map(std::fs::read_to_string) {

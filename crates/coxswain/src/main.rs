@@ -1063,6 +1063,7 @@ fn main_loop(term: &mut DefaultTerminal, app: &mut App) -> std::io::Result<()> {
 const USAGE: &str = "coxswain [LEFT] [RIGHT]      a folder, or a file to open its folder with the cursor on it
   --dump-config   print the full default config (redirect it to the config file to customise)
   --config-path   print where the config file is read from
+  --paths         print where everything is kept: config, state, index, search store, model
   --index-service on|off   start the search helper with your session, or stop doing so
   --meaning on|off|delete  search by meaning: download the model and turn it on, turn it off,
                            or turn it off and delete the model
@@ -1164,6 +1165,12 @@ fn main() {
         Some("--version" | "-V") => return println!("coxswain {}", coxswain_core::update::VERSION),
         Some("--dump-config") => return print!("{}", Config::default().to_toml()),
         Some("--config-path") => return println!("{}", Config::path().map(|p| p.display().to_string()).unwrap_or_default()),
+        Some("--paths") => {
+            for (what, path) in Config::paths() {
+                println!("{what:<13} {}", path.map(|p| p.display().to_string()).unwrap_or_default());
+            }
+            return;
+        }
         Some("--index-service") => return index_service(args.get(1).map(String::as_str)),
         Some("--meaning") => return meaning(args.get(1).map(String::as_str), &args[2.min(args.len())..]),
         _ => {}
