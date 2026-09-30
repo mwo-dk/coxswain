@@ -435,6 +435,7 @@
  "preview.db_rows": "שורות",
  "preview.db_table": "טבלה",
  "preview.diff": "הבדלים",
+ "preview.exact_coming": "מוצג מיד; העיבוד המדויק עם {engine} בדרך…",
  "preview.expired_ago": {
   "one": "פג לפני יום אחד",
   "two": "פג לפני {n} ימים",

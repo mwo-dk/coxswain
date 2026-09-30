@@ -411,6 +411,7 @@
  "preview.db_rows": "Errenkadak",
  "preview.db_table": "Taula",
  "preview.diff": "Diff",
+ "preview.exact_coming": "Berehala erakutsita; {engine} bidezko bertsio zehatza bidean da…",
  "preview.expired_ago": {
   "one": "duela egun {n} iraungia",
   "other": "duela {n} egun iraungia"

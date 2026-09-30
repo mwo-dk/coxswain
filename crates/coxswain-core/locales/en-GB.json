@@ -411,6 +411,7 @@
  "preview.db_rows": "Rows",
  "preview.db_table": "Table",
  "preview.diff": "Diff",
+ "preview.exact_coming": "Shown at once; the exact rendering with {engine} is on its way…",
  "preview.expired_ago": {
   "one": "expired {n} day ago",
   "other": "expired {n} days ago"

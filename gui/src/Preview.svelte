@@ -1,6 +1,6 @@
 <script>
   import { ui, tab, item } from "./app.svelte.js";
-  import { renderDrawio, renderMarkdown, renderMermaid, highlight, renderDocx, readSheet, renderNotebook, loadFont, clean, parseData, jsonLines, calendar, contacts, logLines, renderGraphviz, renderAsciidoc, readParquet } from "./renderers.js";
+  import { renderPptx, renderDrawio, renderMarkdown, renderMermaid, highlight, renderDocx, readSheet, renderNotebook, loadFont, clean, parseData, jsonLines, calendar, contacts, logLines, renderGraphviz, renderAsciidoc, readParquet } from "./renderers.js";
   import { invoke, convertFileSrc, size, date, age, ageColor, previewKind, CONVERTER } from "./lib.js";
   import { t, tn, num } from "./i18n.svelte.js";
 
@@ -102,7 +102,8 @@
     const cur = e;
     const k = kind;
     rich = null;
-    if (!["docx", "notebook", "sheet", "font", "parquet", "drawio"].includes(k)) return;
+    const deck = k === "office" && ["pptx", "pptm", "ppsx", "potx"].includes(ext(cur));
+    if (!["docx", "notebook", "sheet", "font", "parquet", "drawio"].includes(k) && !deck) return;
     const timer = setTimeout(async () => {
       let r;
       try {
@@ -110,6 +111,7 @@
         else if (k === "notebook") r = { html: await renderNotebook(cur.path) };
         else if (k === "font") r = { family: await loadFont(cur.path) };
         else if (k === "parquet") r = { parquet: await readParquet(cur.path) };
+        else if (deck) r = { slides: await renderPptx(cur.path) };
         else if (k === "drawio") r = { drawio: (await invoke("read_text", { path: cur.path, max: 32 * 1024 * 1024 }))[0] };
         else r = { sheet: await readSheet(cur.path) };
       } catch (err) {
@@ -410,7 +412,14 @@
             <button class:on={engineOf(conv)?.id === en.id} disabled={!en.available || conv.status === "running"} title={en.note} onclick={() => renderConv(en.id)}>{en.label}</button>
           {/each}
         </div>
-        {#if !conv.engines.some((x) => x.available)}
+        {#if rich?.slides && conv.status !== "done"}
+          <!-- The deck at once; LibreOffice's exact rendering takes its place when it is ready. -->
+          {#if conv.status === "running"}<p class="more">{t("preview.exact_coming", { engine: engineOf(conv)?.label })}</p>{/if}
+          {#if conv.status === "error"}<p class="more">{conv.error.split("\n")[0]}</p>{/if}
+          <div class="slides">
+            {#each rich.slides as s, i (i)}<div class="slide">{@html s}</div>{/each}
+          </div>
+        {:else if !conv.engines.some((x) => x.available)}
           <p class="more">{t("preview.no_engine", { notes: conv.engines.map((x) => x.note).filter(Boolean).join(". ") })}</p>
         {:else if conv.status === "idle"}
           <button class="render" onclick={() => renderConv()}>{t(conv.verb)}</button>
@@ -437,6 +446,10 @@
           <summary>{t("preview.schema")}</summary>
           {@render grid([[t("preview.column"), t("preview.type"), t("preview.repetition")], ...rich.parquet.schema])}
         </details>
+      {:else if rich?.slides}
+        <div class="slides">
+          {#each rich.slides as s, i (i)}<div class="slide">{@html s}</div>{/each}
+        </div>
       {:else if rich?.drawio !== undefined}
         <div class="drawio" use:drawioView={rich.drawio}></div>
       {:else if kind === "image"}
@@ -528,6 +541,17 @@
 </aside>
 
 <style>
+  .slides {
+    display: grid;
+    gap: 10px;
+    overflow: auto;
+  }
+  .slide {
+    background: #fff;
+    color: #000;
+    box-shadow: 0 0 0 1px var(--border-fg);
+    overflow: hidden;
+  }
   /* Diagrams are drawn for a white page, whatever the theme. */
   .drawio {
     flex: 1;

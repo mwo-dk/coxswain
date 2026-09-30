@@ -411,6 +411,7 @@
  "preview.db_rows": "Rivit",
  "preview.db_table": "Taulu",
  "preview.diff": "Erot",
+ "preview.exact_coming": "Näytetään heti; tarkka hahmonnus ohjelmalla {engine} on tulossa…",
  "preview.expired_ago": {
   "one": "vanhentui {n} päivä sitten",
   "other": "vanhentui {n} päivää sitten"

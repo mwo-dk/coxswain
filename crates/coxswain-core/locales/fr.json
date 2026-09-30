@@ -435,6 +435,7 @@
  "preview.db_rows": "Lignes",
  "preview.db_table": "Table",
  "preview.diff": "Diff",
+ "preview.exact_coming": "Affiché tout de suite ; le rendu exact avec {engine} arrive…",
  "preview.expired_ago": {
   "many": "expiré depuis {n} jours",
   "one": "expiré depuis {n} jour",

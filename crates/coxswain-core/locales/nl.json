@@ -411,6 +411,7 @@
  "preview.db_rows": "Rijen",
  "preview.db_table": "Tabel",
  "preview.diff": "Diff",
+ "preview.exact_coming": "Meteen getoond; de exacte weergave met {engine} komt eraan…",
  "preview.expired_ago": {
   "one": "{n} dag geleden verlopen",
   "other": "{n} dagen geleden verlopen"

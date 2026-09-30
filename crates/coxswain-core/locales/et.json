@@ -411,6 +411,7 @@
  "preview.db_rows": "Read",
  "preview.db_table": "Tabel",
  "preview.diff": "Erinevused",
+ "preview.exact_coming": "Kuvatakse kohe; täpne renderdus programmiga {engine} on teel…",
  "preview.expired_ago": {
   "one": "aegus {n} päev tagasi",
   "other": "aegus {n} päeva tagasi"

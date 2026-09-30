@@ -435,6 +435,7 @@
  "preview.db_rows": "Files",
  "preview.db_table": "Taula",
  "preview.diff": "Diferències",
+ "preview.exact_coming": "Es mostra de seguida; la versió exacta amb {engine} és en camí…",
  "preview.expired_ago": {
   "many": "va caducar fa {n} de dies",
   "one": "va caducar fa {n} dia",

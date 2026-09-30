@@ -210,7 +210,7 @@ loaded from disk and kept current while Coxswain runs.
 | Spreadsheets, CSV, JSON Lines, SQLite | Tables, a button per sheet; database tables with row counts and schema |
 | `.ics`, `.vcf`, `.plist`, certificates | Events, contact cards, property lists, certificate details with expiry |
 | Images, video, audio, fonts | Shown or played; photo EXIF, audio tags, font samples |
-| LaTeX, Office/Visio/RTF, PlantUML, `.rst` | Built to PDF, SVG or HTML by an installed tool or a container; buttons pick the engine. Slides and documents render by themselves |
+| LaTeX, Office/Visio/RTF, PlantUML, `.rst` | Built to PDF, SVG or HTML by an installed tool or a container; buttons pick the engine. Slides and documents render by themselves. PowerPoint decks show at once, drawn in the app, and LibreOffice's exact rendering replaces that when it is ready |
 | draw.io `.drawio` `.dio` | Drawn by draw.io's own viewer, built in: pages, zoom, layers; nothing to install |
 | Graphviz, AsciiDoc, Parquet, `.duckdb` | Graphs, rendered documents, tables with schema |
 | Archives, programs, folders | Contents; the platform a binary is built for; folder counts, sizes, notes |

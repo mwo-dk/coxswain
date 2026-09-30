@@ -411,6 +411,7 @@
  "preview.db_rows": "Rækker",
  "preview.db_table": "Tabel",
  "preview.diff": "Diff",
+ "preview.exact_coming": "Vist med det samme; den præcise gengivelse med {engine} er på vej…",
  "preview.expired_ago": {
   "one": "udløb for {n} dag siden",
   "other": "udløb for {n} dage siden"
