@@ -329,7 +329,7 @@ of one, so `rocket bud` finds "rocket budget".
 |---|---|
 | **What is read** | Your home folder: text, code, Markdown, logs, configuration and any other file that is plain text, and the [documents](#documents-it-reads) below, up to 20 MB each |
 | **What is left out** | Hidden folders, `node_modules`, `target`, `build`, `dist`, `out`, `vendor`, `__pycache__` and the trash; folders you mark *names only* in Settings; any folder holding a file named `.nosearch`; pictures, video, archives and other files without text |
-| **When** | In the background, one file at a time and at half speed, by the [helper](#how-search-stays-fast). It follows the file watcher, so a change shows up in searches within seconds |
+| **When** | In the background, one file at a time and at half speed, by the [helper](#how-search-stays-fast), and not at all while a laptop runs on its battery (*Index now* in Settings reads anyway). It follows the file watcher, so a change shows up in searches within seconds |
 | **Also kept** | Every file's size and date, the total of each folder left out, so folder sizes are a sum; and the hash of files that share a size, for Duplicates |
 | **Where it is kept** | `search.db` in Coxswain's cache folder, readable by you alone. Nothing leaves your machine. Delete the file to start afresh |
 | **Switching it off** | Settings → *Search inside files*, or `text = false` under `[search]` in `config.toml` |
@@ -341,6 +341,11 @@ There you also pick the folders that are read (your home folder when none are se
 folders kept to *names only*: found by name and counted in folder sizes, never read.
 
 ![Settings, Search inside files: 31 files searchable, Index now and Delete the index, the folders read and the names-only folders](docs/screenshots/gui-settings-search.png)
+
+**Removable disks** can be folders read too. Each is known by its disk (file system UUID, or
+the volume serial on Windows), not only by its path: while the disk is not plugged in its text
+stays in the index, out of search results, and Settings shows it as away; plugged in again, at
+the same place or another, it is searched again without being read afresh. *Remove* forgets it.
 
 Other excludes and another size limit are `text_exclude` and `text_max_size` under `[search]`;
 the folders are `text_roots` and `names_only`.

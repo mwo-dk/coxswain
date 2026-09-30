@@ -31,3 +31,6 @@ quick-xml = "0.42.0"
 mail-parser = "0.11.9"
 encoding_rs = "0.8.42"
 pdf-extract = "0.12.1"
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61.2", features = ["Win32_System_Power", "Win32_Storage_FileSystem"] }

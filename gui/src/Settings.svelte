@@ -67,6 +67,13 @@
     loadIndex();
   }
   const adding = $state({ text_roots: "", names_only: "" });
+  /** What the store has of a folder read: its bytes and files, and whether its disk is away. */
+  const rootInfo = (dir) => {
+    const r = index?.roots?.find(([p]) => p === dir);
+    if (!r) return "";
+    const [, at, [bytes]] = r;
+    return at ? t("settings.search_root_size", { size: size(bytes) }) : t("settings.search_root_away", { size: size(bytes) });
+  };
   async function addFolder(name, input) {
     const dir = await invoke("resolve_path", { base: tab()?.dir ?? ui.cfg.home, input: input || tab()?.dir || "" });
     adding[name] = "";
@@ -162,11 +169,11 @@
       <div class="folders">
         {#each s[name] as dir (dir)}
           <div class="folder">
-            <span class="mono">{dir}</span>
+            <span class="mono">{dir}{#if name === "text_roots"}<small class="hint">{rootInfo(dir)}</small>{/if}</span>
             <button onclick={() => setSearch(name, s[name].filter((d) => d !== dir))}>{t("common.remove")}</button>
           </div>
         {:else}
-          <span class="hint">{none}</span>
+          <span class="hint">{none}{#if name === "text_roots" && index?.roots?.[0]} · {rootInfo(index.roots[0][0])}{/if}</span>
         {/each}
         <form class="folder" onsubmit={(e) => (e.preventDefault(), addFolder(name, adding[name]))}>
           <input bind:value={adding[name]} spellcheck="false" placeholder={tab()?.dir} aria-label={t("settings.search_add")} />
@@ -184,6 +191,7 @@
             {t("settings.search_no_helper")}
           {:else}
             {t("settings.search_status", { texts: index.texts, pending: index.pending, size: size(index.bytes) })}
+            {#if index.paused}<br /><strong>{t("settings.search_paused")}</strong>{/if}
           {/if}
           {#if index?.path}<br /><span class="mono">{index.path}</span>{/if}
         </p>
@@ -452,6 +460,10 @@
   }
   .folder span {
     overflow-wrap: anywhere;
+  }
+  .folder small {
+    display: block;
+    margin: 2px 0 0;
   }
   .danger {
     border-color: var(--git-deleted-fg);

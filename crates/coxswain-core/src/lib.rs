@@ -10,6 +10,7 @@ pub mod git;
 pub mod helper;
 pub mod icons;
 pub mod index;
+pub mod machine;
 pub mod rename;
 pub mod sizes;
 pub mod state;

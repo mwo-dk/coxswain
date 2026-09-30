@@ -67,7 +67,7 @@ enum Reply {
 }
 
 /// How the index is doing.
-#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Status {
     pub state: State,
     /// File names in the index.
@@ -80,6 +80,13 @@ pub struct Status {
     /// Bytes the store takes on disk.
     #[serde(default)]
     pub bytes: u64,
+    /// Reading waits until the machine is off its battery.
+    #[serde(default)]
+    pub paused: bool,
+    /// The folders read, each with where it is now (none while its disk is not plugged in)
+    /// and its bytes and files.
+    #[serde(default)]
+    pub roots: Vec<(PathBuf, Option<PathBuf>, Size)>,
 }
 
 /// Where the helper's address and lock live: the cache folder, which is the user's own.
@@ -205,6 +212,8 @@ fn answer(stream: TcpStream, index: &Service, store: Option<&Store>, token: &str
                 texts: store.map_or(0, Store::texts),
                 pending: store.map_or(0, |s| s.pending.load(Ordering::Relaxed)),
                 bytes: store.map_or(0, Store::bytes),
+                paused: store.is_some_and(|s| s.paused.load(Ordering::Relaxed)),
+                roots: store.map(Store::root_sizes).unwrap_or_default(),
             }),
         };
         let mut text = serde_json::to_string(&reply).map_err(io::Error::other)?;
@@ -306,16 +315,16 @@ impl Client {
 
     pub fn status(&self) -> Status {
         let mut status = self.status.lock().unwrap();
-        if let Some((at, known)) = *status {
+        if let Some((at, known)) = &*status {
             if at.elapsed() < Duration::from_millis(500) {
-                return known;
+                return known.clone();
             }
         }
         let now = match self.ask(&Request::Status) {
             Some(Reply::Status(s)) => s,
-            _ => Status { state: self.own().state(), len: self.own().len(), texts: 0, pending: 0, bytes: 0 },
+            _ => Status { state: self.own().state(), len: self.own().len(), texts: 0, pending: 0, bytes: 0, paused: false, roots: vec![] },
         };
-        *status = Some((Instant::now(), now));
+        *status = Some((Instant::now(), now.clone()));
         now
     }
 

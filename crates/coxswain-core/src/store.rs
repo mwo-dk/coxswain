@@ -37,7 +37,7 @@ fn below(dir: &str) -> (String, String) {
 
 /// Bumped when the tables change, and when the readers learn formats: files the store has
 /// marked as without text are only read again when they change.
-const VERSION: i32 = 5;
+const VERSION: i32 = 6;
 /// A snippet marks the words it found with these; the apps turn them into a highlight.
 pub const MARK: (char, char) = ('\u{1}', '\u{2}');
 
@@ -52,6 +52,12 @@ pub struct Store {
     /// The roots of the last walk, and when it began (seconds since the Unix epoch): sizes are
     /// known once one has finished.
     walked: Mutex<Option<(Vec<PathBuf>, u64)>>,
+    /// Where the rows of roots on disks that are not plugged in are: kept, not searched.
+    offline: Mutex<Vec<String>>,
+    /// Reading waits for the mains.
+    pub paused: AtomicBool,
+    /// The roots of the settings, as the last scan had them.
+    configured: Mutex<Vec<PathBuf>>,
 }
 
 type Known = HashMap<String, (u64, i64)>;
@@ -68,21 +74,24 @@ impl Store {
         db.pragma_update(None, "journal_mode", "WAL")?;
         db.pragma_update(None, "synchronous", "NORMAL")?;
         if db.pragma_query_value(None, "user_version", |r| r.get::<_, i32>(0))? != VERSION {
-            db.execute_batch("DROP TABLE IF EXISTS files; DROP TABLE IF EXISTS text; DROP TABLE IF EXISTS skipped; DROP TABLE IF EXISTS hashes;")?;
+            db.execute_batch("DROP TABLE IF EXISTS files; DROP TABLE IF EXISTS text; DROP TABLE IF EXISTS skipped; DROP TABLE IF EXISTS hashes; DROP TABLE IF EXISTS roots;")?;
             db.pragma_update(None, "user_version", VERSION)?;
         }
         // The duplicate finder writes hashes from the app while the helper scans.
         db.busy_timeout(Duration::from_secs(10))?;
-        // `has_text` is NULL until the file has been read. `skipped` holds the folders left
+        // `has_text` is NULL until the file has been read. `roots` knows each root's disk and
+        // where on it the root is, and where its rows are (`at`): a disk mounted elsewhere
+        // keeps its rows. `skipped` holds the folders left
         // out of the walk with their bytes and files; `hashes`, files' BLAKE3 as they were.
         db.execute_batch(
             "CREATE TABLE IF NOT EXISTS files(id INTEGER PRIMARY KEY, path TEXT NOT NULL UNIQUE, size INTEGER NOT NULL, modified INTEGER NOT NULL, has_text INTEGER);
              CREATE INDEX IF NOT EXISTS files_size ON files(size);
              CREATE VIRTUAL TABLE IF NOT EXISTS text USING fts5(body, tokenize = 'unicode61 remove_diacritics 2');
              CREATE TABLE IF NOT EXISTS skipped(path TEXT PRIMARY KEY, bytes INTEGER NOT NULL, files INTEGER NOT NULL);
-             CREATE TABLE IF NOT EXISTS hashes(path TEXT PRIMARY KEY, size INTEGER NOT NULL, modified INTEGER NOT NULL, hash TEXT NOT NULL);",
+             CREATE TABLE IF NOT EXISTS hashes(path TEXT PRIMARY KEY, size INTEGER NOT NULL, modified INTEGER NOT NULL, hash TEXT NOT NULL);
+             CREATE TABLE IF NOT EXISTS roots(path TEXT PRIMARY KEY, volume TEXT, inside TEXT, at TEXT NOT NULL);",
         )?;
-        Ok(Store { db: Mutex::new(db), pending: AtomicUsize::new(0), hurry: AtomicBool::new(false), cleared: AtomicBool::new(false), walked: Mutex::default() })
+        Ok(Store { db: Mutex::new(db), pending: AtomicUsize::new(0), hurry: AtomicBool::new(false), cleared: AtomicBool::new(false), walked: Mutex::default(), offline: Mutex::default(), paused: AtomicBool::new(false), configured: Mutex::default() })
     }
 
     /// Bytes and files below `dir`, and when the walk they come from began. `None` until a
@@ -141,11 +150,63 @@ impl Store {
         db.query_row("SELECT page_count * page_size FROM pragma_page_count(), pragma_page_size()", [], |r| r.get::<_, i64>(0)).unwrap_or(0) as u64
     }
 
-    /// Rest as long as the work since `start` took, unless in a hurry.
-    fn rest(&self, start: Instant) {
-        if !self.hurry.load(Ordering::Relaxed) {
-            std::thread::sleep(start.elapsed().min(Duration::from_secs(2)));
+    /// Rest as long as the work since `start` took, unless in a hurry; on battery, until the
+    /// mains is back.
+    fn rest(&self, start: Instant, stop: &AtomicBool) {
+        if self.hurry.load(Ordering::Relaxed) {
+            return;
         }
+        std::thread::sleep(start.elapsed().min(Duration::from_secs(2)));
+        while !self.hurry.load(Ordering::Relaxed) && !stop.load(Ordering::Relaxed) && crate::machine::on_battery() {
+            self.paused.store(true, Ordering::Relaxed);
+            std::thread::sleep(Duration::from_secs(1));
+        }
+        self.paused.store(false, Ordering::Relaxed);
+    }
+
+    /// Where each root's rows are, as the store last saw it: path -> (disk, place on it, rows at).
+    fn roots(&self) -> rusqlite::Result<HashMap<String, (Option<String>, Option<String>, String)>> {
+        let db = self.db.lock().unwrap();
+        let mut q = db.prepare("SELECT path, volume, inside, at FROM roots")?;
+        let rows = q.query_map([], |r| Ok((r.get(0)?, (r.get(1)?, r.get(2)?, r.get(3)?))))?;
+        rows.collect()
+    }
+
+    /// The root at `path` now has its rows at `at`, on this disk. Rows kept at `moved` (the
+    /// disk's earlier place) are moved there first.
+    fn place(&self, path: &str, volume: Option<(String, PathBuf)>, at: &str, moved: Option<&str>) -> rusqlite::Result<()> {
+        let mut db = self.db.lock().unwrap();
+        let tx = db.transaction()?;
+        if let Some(old) = moved.filter(|old| *old != at) {
+            let (from, to) = below(old);
+            for table in ["files", "hashes", "skipped"] {
+                tx.execute(&format!("UPDATE {table} SET path = ?4 || substr(path, length(?1) + 1) WHERE path = ?1 OR (path > ?2 AND path < ?3)"), [old, &from, &to, at])?;
+            }
+        }
+        let (volume, inside) = volume.map_or((None, None), |(v, i)| (Some(v), i.to_str().map(str::to_string)));
+        tx.execute("INSERT OR REPLACE INTO roots(path, volume, inside, at) VALUES (?1, ?2, ?3, ?4)", params![path, volume, inside, at])?;
+        tx.commit()
+    }
+
+    /// Each root: where it is now (`None` while its disk is not plugged in), and its bytes and
+    /// files in the store.
+    pub fn root_sizes(&self) -> Vec<(PathBuf, Option<PathBuf>, Size)> {
+        let placed = self.roots().unwrap_or_default();
+        let configured = self.configured.lock().unwrap().clone();
+        let db = self.db.lock().unwrap();
+        configured
+            .into_iter()
+            .map(|root| {
+                let text = key(&root).unwrap_or_default();
+                let at = placed.get(&text).map_or(text.clone(), |p| p.2.clone());
+                let (from, to) = below(&at);
+                let size = db
+                    .query_row("SELECT coalesce(sum(size), 0), count(*) FROM files WHERE path > ?1 AND path < ?2", [&from, &to], |r| Ok((r.get::<_, i64>(0)? as u64, r.get::<_, i64>(1)? as u64)))
+                    .unwrap_or_default();
+                let online = !self.offline.lock().unwrap().contains(&at) && Path::new(&at).is_dir();
+                (root, online.then(|| PathBuf::from(at)), size)
+            })
+            .collect()
     }
 
     /// How many files have their text in the store.
@@ -265,12 +326,15 @@ impl Store {
         }
         let ask = words.iter().enumerate().map(|(i, w)| format!("\"{w}\"{}", if i + 1 == words.len() { "*" } else { "" })).collect::<Vec<_>>().join(" ");
         let db = self.db.lock().unwrap();
+        // Disks that are not plugged in keep their rows, out of sight.
+        let offline: Vec<(String, String)> = self.offline.lock().unwrap().iter().map(|at| below(at)).collect();
+        let hidden: String = offline.iter().map(|(from, to)| format!(" AND NOT (f.path > '{}' AND f.path < '{}')", from.replace('\'', "''"), to.replace('\'', "''"))).collect();
         let found = || -> rusqlite::Result<(Vec<Hit>, usize)> {
-            let total = db.query_row("SELECT count(*) FROM text WHERE text MATCH ?1", [&ask], |r| r.get::<_, i64>(0))? as usize;
-            let mut q = db.prepare(
+            let total = db.query_row(&format!("SELECT count(*) FROM text JOIN files f ON f.id = text.rowid WHERE text MATCH ?1{hidden}"), [&ask], |r| r.get::<_, i64>(0))? as usize;
+            let mut q = db.prepare(&format!(
                 "SELECT f.path, snippet(text, 0, char(1), char(2), '…', 18) FROM text JOIN files f ON f.id = text.rowid
-                 WHERE text MATCH ?1 ORDER BY rank LIMIT ?2",
-            )?;
+                 WHERE text MATCH ?1{hidden} ORDER BY rank LIMIT ?2",
+            ))?;
             let hits = q.query_map(params![ask, max as i64], |r| {
                 let snippet: String = r.get(1)?;
                 Ok(Hit { path: PathBuf::from(r.get::<_, String>(0)?), is_dir: false, snippet: Some(snippet.split_whitespace().collect::<Vec<_>>().join(" ")) })
@@ -346,10 +410,13 @@ fn walk(dirs: Vec<PathBuf>, cfg: &SearchConfig, known: &Known, stop: &AtomicBool
 /// at a time, so the machine stays the user's. Stops early when `stop` is set.
 pub fn scan(store: &Store, cfg: &SearchConfig, stop: &AtomicBool) -> rusqlite::Result<()> {
     let began = now();
+    let (roots, offline) = place(store, cfg)?;
     let known = store.known()?;
-    let roots = roots(cfg);
     let Some(found) = walk(roots.clone(), cfg, &known, stop) else { return Ok(()) };
-    let gone: Vec<String> = known.into_keys().filter(|path| !found.seen.contains(path)).collect();
+    // Rows of a disk that is not plugged in stay.
+    let kept: Vec<(String, String)> = offline.iter().map(|at| below(at)).collect();
+    let gone: Vec<String> = known.into_keys().filter(|path| !found.seen.contains(path) && !kept.iter().any(|(from, to)| path > from && path < to)).collect();
+    *store.offline.lock().unwrap() = offline;
     store.apply(&gone, &found.changed, &found.skipped, true)?;
     *store.walked.lock().unwrap() = Some((roots, began));
     if read(store, cfg, stop)? {
@@ -364,10 +431,48 @@ pub fn scan(store: &Store, cfg: &SearchConfig, stop: &AtomicBool) -> rusqlite::R
         if stop.load(Ordering::Relaxed) {
             return Ok(());
         }
-        store.rest(start);
+        store.rest(start, stop);
     }
     store.hurry.store(false, Ordering::Relaxed);
     Ok(())
+}
+
+/// Where the roots are now: the ones to walk, and where the rows of those whose disk is not
+/// plugged in are. A disk mounted somewhere else than before has its rows moved there.
+fn place(store: &Store, cfg: &SearchConfig) -> rusqlite::Result<(Vec<PathBuf>, Vec<String>)> {
+    let placed = store.roots()?;
+    *store.configured.lock().unwrap() = roots(cfg);
+    let (mut online, mut offline) = (vec![], vec![]);
+    for root in roots(cfg) {
+        let Some(text) = key(&root) else { continue };
+        let known = placed.get(&text);
+        // The folder is there and on the disk it was on: an empty mount point, with the disk
+        // not plugged in, is on another disk.
+        let volume = crate::machine::volume(&root);
+        let same = match (known.and_then(|k| k.0.as_deref()), &volume) {
+            (Some(was), Some((now, _))) => was == now,
+            _ => true,
+        };
+        let at = if root.is_dir() && same {
+            Some(root.clone())
+        } else {
+            // Not where it was set: its disk may be mounted elsewhere. A folder with files in it
+            // on another disk is taken as it is (the disk was replaced).
+            let elsewhere = known.and_then(|(volume, inside, _)| crate::machine::locate(volume.as_deref()?, Path::new(inside.as_deref()?))).filter(|p| p.is_dir());
+            let full = || std::fs::read_dir(&root).is_ok_and(|mut d| d.next().is_some());
+            elsewhere.or_else(|| full().then(|| root.clone()))
+        };
+        match at {
+            Some(at) => {
+                let Some(at_text) = key(&at) else { continue };
+                let volume = if at == root { volume.clone() } else { crate::machine::volume(&at) };
+                store.place(&text, volume, &at_text, known.map(|k| k.2.as_str()))?;
+                online.push(at);
+            }
+            None => offline.extend(known.map(|k| k.2.clone())),
+        }
+    }
+    Ok((online, offline))
 }
 
 /// Read the text of the files waiting for it. `true` when stopped.
@@ -382,7 +487,7 @@ fn read(store: &Store, cfg: &SearchConfig, stop: &AtomicBool) -> rusqlite::Resul
         if stop.load(Ordering::Relaxed) || store.cleared.load(Ordering::Relaxed) {
             return Ok(true);
         }
-        store.rest(start);
+        store.rest(start, stop);
     }
     Ok(false)
 }
@@ -612,6 +717,34 @@ mod tests {
         saw(&[home.join("docs")], &mut later);
         assert_eq!(names("fuel"), [""; 0]);
         assert_eq!(size(&home), Some(crate::fs::dir_size(&home)));
+        drop(store);
+        std::fs::remove_dir_all(d).unwrap();
+    }
+
+    #[test]
+    fn store_keeps_a_disk_that_is_not_plugged_in() {
+        let d = std::env::temp_dir().join(format!("coxswain-store-disk-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(d.join("disk/photos")).unwrap();
+        std::fs::write(d.join("disk/photos/notes.txt"), b"orbit plan\n").unwrap();
+        let cfg = SearchConfig { text_roots: vec![d.join("disk")], ..SearchConfig::default() };
+        let (store, go) = (Store::open(&d.join("search.db")).unwrap(), AtomicBool::new(false));
+        let found = || store.search("orbit", 10).hits.len();
+        scan(&store, &cfg, &go).unwrap();
+        assert_eq!(found(), 1);
+
+        // Unplugged: the rows stay, out of sight, and Settings shows the disk as away.
+        std::fs::rename(d.join("disk"), d.join("away")).unwrap();
+        scan(&store, &cfg, &go).unwrap();
+        assert_eq!((found(), store.texts()), (0, 1));
+        let roots = store.root_sizes();
+        assert_eq!((roots[0].1.clone(), roots[0].2.1), (None, 1));
+
+        // Plugged in again: found again, nothing read twice.
+        std::fs::rename(d.join("away"), d.join("disk")).unwrap();
+        scan(&store, &cfg, &go).unwrap();
+        assert_eq!(found(), 1);
+        assert_eq!(store.root_sizes()[0].1.as_deref(), Some(d.join("disk").as_path()));
         drop(store);
         std::fs::remove_dir_all(d).unwrap();
     }
