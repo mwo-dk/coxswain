@@ -429,7 +429,12 @@ vectors instead, on its GPU or NPU, with a bigger model:
 | Presentations | `.pptx` `.ppsx` `.potx` `.odp`, with the speaker notes |
 | Mail | `.eml` and `.mbox`: subject, sender, receivers, the message and the names of its attachments |
 | Books and web pages | `.epub` `.html` `.htm` `.xhtml` |
-| Notebooks and diagrams | Jupyter `.ipynb` with what the cells printed, draw.io `.drawio` `.dio` |
+| Notebooks and diagrams | Jupyter `.ipynb` with what the cells printed; draw.io `.drawio` `.dio`, Mermaid `.mmd` and Mermaid blocks in Markdown, Graphviz `.dot` `.gv`, PlantUML `.puml` |
+
+A diagram is read as what it says, not only the words in its boxes: every arrow becomes a
+sentence, "Browser to Entra ID: authorize with PKCE", with the names the boxes show. So a search
+by meaning for "entra auth flow" finds the sequence diagram of your login, and a search by words
+for `browser entra` finds it too.
 
 Coxswain reads these itself, starting no other program. Scanned pages and pictures have words
 only an OCR program can read: with `tesseract` installed they are read too (see the table

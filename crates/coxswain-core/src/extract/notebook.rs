@@ -254,6 +254,10 @@ fn labels(xml: &str, out: &mut String, mut room: Option<&mut u64>) {
     let mut begun = false;
     // The label of an object waits for the mxCell inside the object, which has the style.
     let mut waiting = None;
+    // For a sentence per arrow: the shapes' labels by id, the arrows (from, to, id), and the
+    // labels of arrows, written on the arrow or in a cell of their own inside it.
+    let (mut names, mut arrows, mut on_arrow): (std::collections::HashMap<String, String>, Vec<(String, String, String)>, std::collections::HashMap<String, String>) = Default::default();
+    let mut object_id: Option<String> = None;
     while out.len() < MAX_TEXT {
         let page = std::mem::take(&mut begun);
         match reader.read_event() {
@@ -266,15 +270,54 @@ fn labels(xml: &str, out: &mut String, mut room: Option<&mut u64>) {
                     "object" | "UserObject" => (None, said("label")),
                     _ => continue,
                 };
+                let raw = |name: &str| e.try_get_attribute(name).ok().flatten().map(|a| a.value.to_string());
+                let id = raw("id").or_else(|| (e.local_name().as_ref() == "mxCell").then(|| object_id.take()).flatten());
+                if matches!(e.local_name().as_ref(), "object" | "UserObject") {
+                    object_id = raw("id");
+                }
                 begun = e.local_name().as_ref() == "diagram";
                 // draw.io shows a label as HTML when the style says one of these two. Any other label is text as it stands, and read
                 // as HTML it would lose the Table of List<Table>.
                 let style = e.try_get_attribute("style").ok().flatten();
                 let html = style.is_some_and(|style| style.value.split(';').any(|part| part == "html=1" || part == "whiteSpace=wrap"));
-                for label in std::mem::replace(&mut waiting, object).into_iter().chain(label) {
-                    push(out, &if html { words(&label) } else { label }, MAX_TEXT);
+                let shown: Vec<String> = std::mem::replace(&mut waiting, object).into_iter().chain(label).map(|label| if html { words(&label) } else { label }).collect();
+                if e.local_name().as_ref() == "mxCell" {
+                    let text = shown.join(" ").trim().to_string();
+                    match (raw("edge").as_deref(), raw("source"), raw("target"), &id) {
+                        (Some("1"), Some(from), Some(to), Some(id)) => {
+                            arrows.push((from, to, id.clone()));
+                            if !text.is_empty() {
+                                on_arrow.insert(id.clone(), text);
+                            }
+                        }
+                        _ if !text.is_empty() => {
+                            // A label on an arrow is a cell inside it; a shape is known by its id.
+                            if let Some(parent) = raw("parent") {
+                                on_arrow.entry(parent).or_insert_with(|| text.clone());
+                            }
+                            if let Some(id) = &id {
+                                names.insert(id.clone(), text);
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+                for label in shown {
+                    push(out, &label, MAX_TEXT);
                     push(out, "\n", MAX_TEXT);
                 }
+            }
+            // A page is whole: a sentence per arrow between two shapes with labels. Its ids are its
+            // own, as every page counts from 0 again.
+            Ok(Event::End(e)) if e.local_name().as_ref() == "root" => {
+                for (from, to, id) in arrows.drain(..) {
+                    if let (Some(a), Some(b)) = (names.get(&from), names.get(&to)) {
+                        let label = on_arrow.get(&id).filter(|l| names.get(&id) != Some(*l)).map_or(String::new(), |l| format!(": {}", l.replace('\n', " ")));
+                        push(out, &format!("{} to {}{label}.\n", a.replace('\n', " "), b.replace('\n', " ")), MAX_TEXT);
+                    }
+                }
+                names.clear();
+                on_arrow.clear();
             }
             Ok(Event::Text(packed)) if page => {
                 if let Some(room) = room.as_deref_mut() {
@@ -480,11 +523,20 @@ mod tests {
 
     #[test]
     fn diagram_gives_the_names_of_its_pages_and_its_labels_as_plain_words() {
-        let first = "Første side\nRocket\nstage 1\nBlåbærgrød på en ø\ncafé שלום 火箭\nStage\nThrust\nFuel & fire\nManual\n";
+        // The arrow from the rocket to the porridge is said as a sentence once its page is whole.
+        let first = "Første side\nRocket\nstage 1\nBlåbærgrød på en ø\ncafé שלום 火箭\nStage\nThrust\nFuel & fire\nManual\nRocket stage 1 to Blåbærgrød på en ø café שלום 火箭.\n";
         let second = "Page & two\nitems: List<String> & R&D\nsecond line";
         assert_eq!(read("rocket.drawio", DIAGRAM.as_bytes()), Some(format!("{first}{second}")));
 
         let bare = r#"<?xml version="1.0" encoding="UTF-8"?><mxGraphModel><root><mxCell id="2" value="No file around it" vertex="1"/></root></mxGraphModel>"#;
+        // Arrows with labels: on the arrow itself, or in a cell inside it, as draw.io writes both.
+        let flow = r#"<mxGraphModel><root><mxCell id="0"/><mxCell id="1" parent="0"/>
+            <mxCell id="b" value="Browser" vertex="1" parent="1"/><mxCell id="e" value="Entra ID" vertex="1" parent="1"/><mxCell id="a" value="API" vertex="1" parent="1"/>
+            <mxCell id="x" value="sign in" edge="1" source="b" target="e" parent="1"/>
+            <mxCell id="y" edge="1" source="e" target="a" parent="1"/><mxCell id="yl" value="token" vertex="1" connectable="0" parent="y"/>
+            <mxCell id="z" edge="1" source="a" target="gone" parent="1"/></root></mxGraphModel>"#;
+        let read_flow = read("flow.drawio", flow.as_bytes()).unwrap();
+        assert!(read_flow.ends_with("Browser to Entra ID: sign in.\nEntra ID to API: token."), "{read_flow}");
         assert_eq!(read("bare.dio", bare.as_bytes()).as_deref(), Some("No file around it"));
     }
 

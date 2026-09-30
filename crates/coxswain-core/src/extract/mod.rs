@@ -18,6 +18,7 @@ use std::io::Read;
 use std::path::Path;
 
 pub mod book;
+pub mod diagram;
 pub mod installed;
 pub mod mail;
 pub mod notebook;
@@ -48,6 +49,11 @@ fn reader(path: &Path) -> Option<Reader> {
         "ipynb" | "drawio" | "dio" => notebook::text,
         "eml" | "mbox" => mail::text,
         "rtf" => rtf::text,
+        // Diagrams as text: their words, and a sentence per arrow.
+        "mmd" | "mermaid" => |path, max| plain::text(path, max).map(diagram::mermaid),
+        "dot" | "gv" => |path, max| plain::text(path, max).map(diagram::graphviz),
+        "puml" | "plantuml" | "pu" | "iuml" | "wsd" => |path, max| plain::text(path, max).map(diagram::plantuml),
+        "md" | "markdown" | "mdx" => |path, max| plain::text(path, max).map(diagram::markdown),
         e if installed::PICTURES.contains(&e) => installed::picture,
         e if installed::OFFICE.contains(&e) => installed::office,
         _ => return None,
