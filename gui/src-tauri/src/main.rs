@@ -533,6 +533,8 @@ struct SearchOut {
     /// Files whose text can be searched, and files still to be read.
     texts: usize,
     pending: usize,
+    /// Search by meaning is on: without it, text mode points to where it is turned on.
+    meaning: bool,
 }
 
 /// The GUI lists every hit it gets as a row, so it takes fewer than the TUI, which only draws
@@ -547,7 +549,7 @@ async fn search(query: String, scope: Option<PathBuf>, text: Option<bool>, ctx: 
     tauri::async_runtime::spawn_blocking(move || {
         let results = if text == Some(true) { index.search_text(&query, max) } else { index.search(&query, scope.as_deref(), max) };
         let now = index.status();
-        SearchOut { results, state: now.state, indexed: now.len, texts: now.texts, pending: now.pending }
+        SearchOut { results, state: now.state, indexed: now.len, texts: now.texts, pending: now.pending, meaning: now.meaning }
     })
     .await
     .map_err(|e| e.to_string())

@@ -182,6 +182,8 @@
  "dialogs.kind.folder": "Map",
  "dialogs.kind.symlink": "Symbolische koppeling",
  "dialogs.location": "Locatie",
+ "dialogs.meaning_tip": "Vind ook bestanden over je woorden, in elke taal:",
+ "dialogs.meaning_tip_open": "zoeken op betekenis aanzetten",
  "dialogs.modified": "Gewijzigd",
  "dialogs.no_matches": "Geen resultaten",
  "dialogs.owner": "Eigenaar",
@@ -209,6 +211,7 @@
  "dialogs.search_footer": "Enter ga naar · Tab overal/hier/tekst · F4 bewerken · Esc sluiten",
  "dialogs.search_hint": "Typ om elke bestandsnaam op deze computer te doorzoeken.",
  "dialogs.search_placeholder": "Alle bestanden doorzoeken…  *.rs · ext:md · src/ foo · !test",
+ "dialogs.search_tab_hint": "Tab: alleen deze map, of de woorden in je bestanden.",
  "dialogs.showing_first": {
   "one": "de eerste {n} worden getoond, typ verder om te verfijnen",
   "other": "de eerste {n} worden getoond, typ verder om te verfijnen"
@@ -629,6 +632,7 @@
  "tui.gui_only": "{action} is beschikbaar in de desktop-app (coxswain-gui)",
  "tui.left_panel": "Linkerpaneel",
  "tui.meaning_downloading": "Model voor zoeken op betekenis downloaden: {percent}%",
+ "tui.meaning_tip": "Vind ook bestanden over je woorden, in elke taal: coxswain --meaning on",
  "tui.mkdir_label": "Map maken:",
  "tui.ok_cancel": "Enter = OK   Esc = Annuleren",
  "tui.press_enter": "-- druk op Enter --",

@@ -182,6 +182,8 @@
  "dialogs.kind.folder": "Ordner",
  "dialogs.kind.symlink": "Symbolischer Link",
  "dialogs.location": "Ort",
+ "dialogs.meaning_tip": "Auch Dateien finden, die von Ihren Wörtern handeln, in jeder Sprache:",
+ "dialogs.meaning_tip_open": "Suche nach Bedeutung einschalten",
  "dialogs.modified": "Geändert",
  "dialogs.no_matches": "Keine Treffer",
  "dialogs.owner": "Besitzer",
@@ -209,6 +211,7 @@
  "dialogs.search_footer": "Enter gehe zu · Tab überall/hier/Text · F4 bearbeiten · Esc schließen",
  "dialogs.search_hint": "Tippen, um jeden Dateinamen auf diesem Computer zu durchsuchen.",
  "dialogs.search_placeholder": "Alle Dateien durchsuchen …  *.rs · ext:md · src/ foo · !test",
+ "dialogs.search_tab_hint": "Tab: nur dieser Ordner oder die Wörter in Ihren Dateien.",
  "dialogs.showing_first": {
   "one": "die ersten {n} werden angezeigt, weitertippen zum Eingrenzen",
   "other": "die ersten {n} werden angezeigt, weitertippen zum Eingrenzen"
@@ -629,6 +632,7 @@
  "tui.gui_only": "{action} ist in der Desktop-App verfügbar (coxswain-gui)",
  "tui.left_panel": "Linkes Fenster",
  "tui.meaning_downloading": "Modell für die Suche nach Bedeutung wird geladen: {percent} %",
+ "tui.meaning_tip": "Auch Dateien über Ihre Wörter finden, in jeder Sprache: coxswain --meaning on",
  "tui.mkdir_label": "Ordner erstellen:",
  "tui.ok_cancel": "Enter = OK   Esc = Abbrechen",
  "tui.press_enter": "-- Enter drücken --",

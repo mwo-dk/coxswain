@@ -405,12 +405,20 @@ fn search(f: &mut Frame, app: &mut App, full: Rect) {
     let msg = if query.is_empty() && text {
         format!("{indexed}{st} · {}", t!("dialogs.text_hint"))
     } else if query.is_empty() {
-        format!("{indexed}{st}")
+        format!("{indexed}{st} · {}", t!("dialogs.search_tab_hint"))
     } else {
         let ms = format!("{:.2}", results.micros as f64 / 1000.0);
         format!("{} · {indexed}{st}", tn!("search.matches", results.total, "ms" => ms))
     };
     f.render_widget(Paragraph::new(msg), info);
+    // Search by meaning is off: say it is there, and how it is turned on.
+    let list = if text && !now.meaning && results.hits.is_empty() {
+        let [tip, rest] = Layout::vertical([Constraint::Length(1), Constraint::Min(0)]).areas(list);
+        f.render_widget(Paragraph::new(t!("tui.meaning_tip")).style(dstyle(&t).add_modifier(Modifier::DIM)), tip);
+        rest
+    } else {
+        list
+    };
 
     // A hit in the text takes two lines: the file, and the passage that matched.
     let rows = list.height as usize / if text { 2 } else { 1 };

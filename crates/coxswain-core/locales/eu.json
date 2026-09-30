@@ -182,6 +182,8 @@
  "dialogs.kind.folder": "Karpeta",
  "dialogs.kind.symlink": "Esteka sinbolikoa",
  "dialogs.location": "Kokalekua",
+ "dialogs.meaning_tip": "Aurkitu zure hitzei buruzko fitxategiak ere, edozein hizkuntzatan:",
+ "dialogs.meaning_tip_open": "aktibatu esanahiaren araberako bilaketa",
  "dialogs.modified": "Aldatze-data",
  "dialogs.no_matches": "Ez dago bat datorrenik",
  "dialogs.owner": "Jabea",
@@ -209,6 +211,7 @@
  "dialogs.search_footer": "Enter joan · Tab leku guztietan/hemen/testua · F4 editatu · Esc itxi",
  "dialogs.search_hint": "Idatzi ordenagailu honetako fitxategi-izen guztietan bilatzeko.",
  "dialogs.search_placeholder": "Bilatu fitxategi guztietan…  *.rs · ext:md · src/ foo · !test",
+ "dialogs.search_tab_hint": "Tab: karpeta hau soilik, edo zure fitxategien barruko hitzak.",
  "dialogs.showing_first": {
   "one": "lehena erakusten ({n}); idatzi gehiago murrizteko",
   "other": "lehen {n}ak erakusten; idatzi gehiago murrizteko"
@@ -629,6 +632,7 @@
  "tui.gui_only": "{action}: mahaigaineko aplikazioan dago eskuragarri (coxswain-gui)",
  "tui.left_panel": "Ezkerreko panela",
  "tui.meaning_downloading": "Esanahiaren araberako bilaketaren eredua deskargatzen: % {percent}",
+ "tui.meaning_tip": "Aurkitu zure hitzei buruzko fitxategiak ere, edozein hizkuntzatan: coxswain --meaning on",
  "tui.mkdir_label": "Sortu karpeta:",
  "tui.ok_cancel": "Enter = Ados   Esc = Utzi",
  "tui.press_enter": "-- sakatu Enter --",

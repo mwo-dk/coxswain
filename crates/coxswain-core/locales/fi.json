@@ -182,6 +182,8 @@
  "dialogs.kind.folder": "Kansio",
  "dialogs.kind.symlink": "Symbolinen linkki",
  "dialogs.location": "Sijainti",
+ "dialogs.meaning_tip": "Löydä myös tiedostot, jotka käsittelevät sanojasi, millä kielellä tahansa:",
+ "dialogs.meaning_tip_open": "ota merkityshaku käyttöön",
  "dialogs.modified": "Muokattu",
  "dialogs.no_matches": "Ei osumia",
  "dialogs.owner": "Omistaja",
@@ -209,6 +211,7 @@
  "dialogs.search_footer": "Enter siirry · Tab kaikkialla/täällä/teksti · F4 muokkaa · Esc sulje",
  "dialogs.search_hint": "Kirjoita hakeaksesi kaikkien tämän koneen tiedostojen nimistä.",
  "dialogs.search_placeholder": "Hae kaikista tiedostoista…  *.rs · ext:md · src/ foo · !test",
+ "dialogs.search_tab_hint": "Tab: vain tämä kansio tai tiedostojesi sanat.",
  "dialogs.showing_first": {
   "one": "näytetään ensimmäinen {n}, tarkenna kirjoittamalla lisää",
   "other": "näytetään ensimmäiset {n}, tarkenna kirjoittamalla lisää"
@@ -629,6 +632,7 @@
  "tui.gui_only": "{action} on käytettävissä työpöytäsovelluksessa (coxswain-gui)",
  "tui.left_panel": "Vasen paneeli",
  "tui.meaning_downloading": "Ladataan mallia merkityshakua varten: {percent} %",
+ "tui.meaning_tip": "Löydä myös sanojasi käsittelevät tiedostot, millä kielellä tahansa: coxswain --meaning on",
  "tui.mkdir_label": "Luo kansio:",
  "tui.ok_cancel": "Enter = OK   Esc = Peruuta",
  "tui.press_enter": "-- paina Enter --",
