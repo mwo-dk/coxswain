@@ -98,6 +98,15 @@
     if (ui.modal?.section) document.getElementById(`settings-${ui.modal.section}`)?.scrollIntoView();
   });
 
+  // Previews made by tools, kept in the cache: how much room, and a way to start afresh.
+  let previewCache = $state(null);
+  const loadPreviewCache = () => invoke("preview_cache").then((v) => (previewCache = v), () => (previewCache = null));
+  loadPreviewCache();
+  async function clearPreviewCache() {
+    await invoke("clear_preview_cache").catch((e) => (error = String(e)));
+    loadPreviewCache();
+  }
+
   const imageStatus = (im) => (im.pulling != null ? im.pulling || t("common.loading") : im.size != null ? t("settings.image_pulled", { size: size(im.size) }) : t("settings.image_not_pulled"));
 </script>
 
@@ -243,6 +252,11 @@
         <input id="latex" value={s.latex_image} spellcheck="false" onchange={(e) => set("latex_image", e.currentTarget.value)} />
         <label for="timeout">{t("settings.timeout")}</label>
         <input id="timeout" type="number" min="10" max="3600" value={s.preview_timeout} onchange={(e) => set("preview_timeout", Number(e.currentTarget.value))} />
+        <span>{t("settings.preview_cache")}</span>
+        <div class="folder">
+          <span class="hint">{previewCache == null ? "" : t("settings.preview_cache_size", { size: size(previewCache) })}</span>
+          <button disabled={!previewCache} onclick={clearPreviewCache}>{t("settings.preview_cache_clear")}</button>
+        </div>
         <span class="top">{t("settings.images")}</span>
         <div class="images">
           {#if typeof images === "string"}

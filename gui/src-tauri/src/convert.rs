@@ -124,6 +124,8 @@ pub struct Converted {
     file: Option<PathBuf>,
     /// The result text (html, json).
     text: Option<String>,
+    /// What went wrong, when a result came all the same (LaTeX builds past its errors).
+    note: Option<String>,
 }
 
 fn cache_dir(path: &Path, tool: &str, engine: &str) -> Res<PathBuf> {
@@ -134,7 +136,7 @@ fn cache_dir(path: &Path, tool: &str, engine: &str) -> Res<PathBuf> {
         // A chapter, a picture or the bibliography changed: that is a new document too.
         latex::newest(&latex::main_file(path)).hash(&mut h);
     }
-    let dir = dirs::cache_dir().ok_or_else(|| t!("err.no_cache_folder"))?.join("coxswain").join("previews").join(format!("{:016x}", h.finish()));
+    let dir = previews_dir()?.join(format!("{:016x}", h.finish()));
     Ok(dir)
 }
 
@@ -160,8 +162,8 @@ pub async fn convert(path: PathBuf, tool: String, engine: String, cached_only: b
         let (kind, file) = output(&tool, &path, &out);
         let done = |file: PathBuf| -> Res<Option<Converted>> {
             Ok(Some(match kind {
-                "pdf" | "svg" => Converted { kind, file: Some(file), text: None },
-                _ => Converted { kind, file: None, text: Some(std::fs::read_to_string(&file).map_err(|e| e.to_string())?) },
+                "pdf" | "svg" => Converted { kind, file: Some(file), text: None, note: None },
+                _ => Converted { kind, file: None, text: Some(std::fs::read_to_string(&file).map_err(|e| e.to_string())?), note: None },
             }))
         };
         if file.is_file() {
@@ -174,9 +176,32 @@ pub async fn convert(path: PathBuf, tool: String, engine: String, cached_only: b
         std::fs::create_dir_all(&out).map_err(|e| e.to_string())?;
         match run(&cfg, &tool, &engine, &path, &out, &file) {
             Ok(()) if file.is_file() => done(file),
+            // A document with an error still makes a PDF: shown, with the error above it.
+            Err(e) if file.is_file() => done(file.clone()).map(|c| c.map(|c| Converted { note: Some(failure(&tool, &path, &out, &e)), ..c })),
             Ok(()) => Err(failure(&tool, &path, &out, &t!("convert.no_result"))),
             Err(e) => Err(failure(&tool, &path, &out, &e)),
         }
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+fn previews_dir() -> Res<PathBuf> {
+    Ok(dirs::cache_dir().ok_or_else(|| t!("err.no_cache_folder"))?.join("coxswain").join("previews"))
+}
+
+/// Bytes the previews made so far take in the cache.
+#[tauri::command]
+pub async fn preview_cache() -> Res<u64> {
+    tauri::async_runtime::spawn_blocking(|| Ok(coxswain_core::fs::dir_size(&previews_dir()?).0)).await.map_err(|e| e.to_string())?
+}
+
+/// Forget every preview made so far: each is made again when next shown.
+#[tauri::command]
+pub async fn clear_preview_cache() -> Res<()> {
+    tauri::async_runtime::spawn_blocking(|| match std::fs::remove_dir_all(previews_dir()?) {
+        Err(e) if e.kind() != std::io::ErrorKind::NotFound => Err(e.to_string()),
+        _ => Ok(()),
     })
     .await
     .map_err(|e| e.to_string())?
@@ -200,6 +225,21 @@ fn failure(tool: &str, path: &Path, out: &Path, err: &str) -> String {
 static LIBREOFFICE: Mutex<()> = Mutex::new(());
 
 fn run(cfg: &PreviewConfig, tool: &str, engine: &str, path: &Path, out: &Path, file: &Path) -> Res<()> {
+    let first = build(cfg, tool, engine, path, out, file, None);
+    // pdfLaTeX was picked, and a package the document loads needs XeTeX: once more with that.
+    if tool == "latex" && first.is_err() && !file.is_file() && latex::engine_flag(&latex::main_file(path)) == "-pdf" {
+        let log = out.join(latex::main_file(path).with_extension("log").file_name().unwrap_or_default());
+        if std::fs::read_to_string(log).is_ok_and(|l| l.contains("requires either XeTeX or") || l.contains("requires either XeTeX or LuaTeX")) {
+            let _ = std::fs::remove_dir_all(out);
+            std::fs::create_dir_all(out).map_err(|e| e.to_string())?;
+            return build(cfg, tool, engine, path, out, file, Some("-pdfxe"));
+        }
+    }
+    first
+}
+
+/// One run of `tool`. `flag`: latexmk's engine, when not the document's own.
+fn build(cfg: &PreviewConfig, tool: &str, engine: &str, path: &Path, out: &Path, file: &Path, flag: Option<&'static str>) -> Res<()> {
     // A chapter builds its document, not itself.
     let main = if tool == "latex" { latex::main_file(path) } else { path.to_path_buf() };
     let path = main.as_path();
@@ -234,7 +274,7 @@ fn run(cfg: &PreviewConfig, tool: &str, engine: &str, path: &Path, out: &Path, f
         c.arg("-w").arg(workdir.to_string_lossy().replace('\\', "/"));
         let stdin = match tool {
             "latex" => {
-                c.args([image.as_str(), "latexmk", latex::engine_flag(path), "-interaction=nonstopmode", "-halt-on-error", "-outdir=/out", &name]);
+                c.args([image.as_str(), "latexmk", flag.unwrap_or_else(|| latex::engine_flag(path)), "-interaction=nonstopmode", "-outdir=/out", &name]);
                 None
             }
             "libreoffice" => {
@@ -263,7 +303,8 @@ fn run(cfg: &PreviewConfig, tool: &str, engine: &str, path: &Path, out: &Path, f
     c.current_dir(dir);
     match (tool, which_one) {
         ("latex", "latexmk") => {
-            c.args([latex::engine_flag(path), "-interaction=nonstopmode", "-halt-on-error"]).arg(format!("-outdir={}", out.display())).arg(&name);
+            // No -halt-on-error: past a first error LaTeX usually still makes the PDF.
+            c.args([flag.unwrap_or_else(|| latex::engine_flag(path)), "-interaction=nonstopmode"]).arg(format!("-outdir={}", out.display())).arg(&name);
         }
         ("latex", "tectonic") => {
             c.arg("--outdir").arg(out).arg(&name);
@@ -387,12 +428,34 @@ mod latex {
         newest
     }
 
-    /// latexmk's flag for `% !TEX program = xelatex` and friends; pdfLaTeX otherwise.
+    /// latexmk's flag for `% !TEX program = xelatex` and friends; without one, the engine the
+    /// packages ask for (fontspec: XeLaTeX, luacode: LuaLaTeX), in the document or in the style
+    /// and class files next to it; pdfLaTeX otherwise.
     pub fn engine_flag(main: &Path) -> &'static str {
-        match magic(&head(main), "program").unwrap_or_default().to_lowercase().as_str() {
+        let program = magic(&head(main), "program").unwrap_or_else(|| guess(main)).to_lowercase();
+        match program.as_str() {
             "xelatex" => "-pdfxe",
             "lualatex" => "-pdflua",
             _ => "-pdf",
+        }
+    }
+
+    /// "lualatex", "xelatex" or "" by the packages loaded.
+    fn guess(main: &Path) -> String {
+        let dir = main.parent().unwrap_or(Path::new("."));
+        let own: Vec<PathBuf> = std::fs::read_dir(dir).into_iter().flatten().flatten().map(|e| e.path()).filter(|p| p.extension().is_some_and(|e| e == "sty" || e == "cls")).take(20).collect();
+        // Without comments: `% \usepackage{fontspec}` asks for nothing. A file that asks which
+        // engine runs (`\ifxetex`, `iftex`) works with each and tells nothing either.
+        let uncommented = |t: String| t.lines().map(|l| l.split('%').next().unwrap_or("")).collect::<Vec<_>>().join("\n");
+        let branches = |t: &str| ["\\ifxetex", "\\ifluatex", "\\ifpdftex", "\\iftutex", "{iftex}", "{ifxetex}", "{ifluatex}"].iter().any(|w| t.to_lowercase().contains(w));
+        let text: String = [main.to_path_buf()].iter().chain(&own).map(|p| uncommented(head(p))).filter(|t| !branches(t)).collect::<Vec<_>>().join("\n");
+        let any = |words: &[&str]| words.iter().any(|w| text.contains(w));
+        if any(&["luacode", "luatexja", "luaotfload", "\\directlua", "luatexbase"]) {
+            "lualatex".into()
+        } else if any(&["fontspec", "unicode-math", "polyglossia", "xeCJK", "xltxtra", "mathspec", "\\setmainfont"]) {
+            "xelatex".into()
+        } else {
+            String::new()
         }
     }
 
@@ -417,6 +480,18 @@ mod latex {
             assert_eq!(project(&main), d, "one `../` up");
             assert_eq!(engine_flag(&main), "-pdfxe");
             assert_eq!(engine_flag(&d.join("paper/chapters/intro.tex")), "-pdf");
+            // No magic comment: the packages tell, also from the document's own style file.
+            std::fs::create_dir_all(d.join("book")).unwrap();
+            std::fs::write(d.join("book/main.tex"), "\\documentclass{book}\n% \\usepackage{luacode}\n\\usepackage{mybook}\n").unwrap();
+            std::fs::write(d.join("book/mybook.sty"), "\\RequirePackage{fontspec}\n\\setmainfont{Libertinus Serif}\n").unwrap();
+            assert_eq!(engine_flag(&d.join("book/main.tex")), "-pdfxe", "fontspec in mybook.sty; luacode only in a comment");
+            std::fs::write(d.join("book/mybook.cls"), "\\RequirePackage{iftex}\n\\ifXeTeX\\RequirePackage{fontspec}\\fi\n").unwrap();
+            std::fs::write(d.join("book/mybook.sty"), "").unwrap();
+            assert_eq!(engine_flag(&d.join("book/main.tex")), "-pdf", "a class that works with each engine asks for none");
+            std::fs::write(d.join("book/mybook.sty"), "\\usepackage{luacode}\n").unwrap();
+            assert_eq!(engine_flag(&d.join("book/main.tex")), "-pdflua");
+            std::fs::remove_file(d.join("book/mybook.sty")).unwrap();
+            assert_eq!(engine_flag(&d.join("book/main.tex")), "-pdf");
             let before = newest(&main).unwrap();
             let later = before + std::time::Duration::from_secs(60);
             std::fs::File::options().write(true).open(d.join("paper/chapters/intro.tex")).unwrap().set_modified(later).unwrap();

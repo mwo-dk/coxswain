@@ -121,9 +121,11 @@ runs meanwhile and takes the quick view's place when it is ready.
    by itself while its container image still has to be pulled.
 3. **Reuse.** Results are cached in the cache folder (`~/.cache/coxswain/previews` on Linux),
    keyed by the file's path, size, modification time and the engine. A file renders once and
-   shows at once afterwards; editing it makes the next render fresh.
+   shows at once afterwards; editing it makes the next render fresh. Settings → *Previews made
+   by tools* shows how much room they take, and **Clear** empties the cache.
 4. **Errors** show in the preview. For LaTeX that is the first `!` error from the log with
-   its context, e.g. `! Undefined control sequence.` and the offending line.
+   its context, e.g. `! Undefined control sequence.` and the offending line. LaTeX goes on past
+   an error, so a document that still makes a PDF is shown, with *Built with errors* above it.
 
 ### LaTeX projects
 
@@ -134,7 +136,7 @@ TeXShop or TeXstudio builds here, from whichever of its files the cursor is on:
 |---|---|
 | **The document** | The file itself if it has a `\documentclass`; else the file named by `% !TEX root = ../main.tex` in its first lines; else the document in its folder, or up to two folders above, that includes it |
 | **The project** | The git repository the document is in; without one, as far up as the document's own `../` paths reach (three folders at most, never your home folder). A container sees this folder, read-only, and builds from the document's folder, so `\includegraphics{../figures/plot}` works |
-| **The engine** | `% !TEX program = xelatex` or `lualatex` in the document's first lines; pdfLaTeX otherwise. A `latexmkrc` next to the document is honored by latexmk as always |
+| **The engine** | `% !TEX program = xelatex` or `lualatex` in the document's first lines. Without that, what the document and the style and class files next to it load: `fontspec`, `unicode-math`, `polyglossia` or `\setmainfont` means XeLaTeX, `luacode` or `\directlua` LuaLaTeX (a file that itself asks which engine runs, `\ifxetex` or `iftex`, counts for neither); pdfLaTeX otherwise. When pdfLaTeX stops because a package needs XeTeX, the build runs again with XeLaTeX. A `latexmkrc` next to the document is honored by latexmk as always |
 | **A fresh build** | Whenever a file in the document's folder or below has changed: a chapter, a picture, the bibliography |
 
 Still not possible, on purpose: `-shell-escape` (so no `minted`), and packages that write
