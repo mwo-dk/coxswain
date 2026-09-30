@@ -51,6 +51,10 @@ pub struct Hit {
     /// `store::MARK`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub snippet: Option<String>,
+    /// Found by meaning, not by its words: how close (1 the same). The snippet is then the
+    /// start of the passage that was close.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub similar: Option<f32>,
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
@@ -341,7 +345,7 @@ impl Index {
         ids.truncate(max);
         let hits = ids
             .into_iter()
-            .filter_map(|id| Some(Hit { path: self.path(id)?, is_dir: self.nodes[id as usize].flags & DIR != 0, snippet: None }))
+            .filter_map(|id| Some(Hit { path: self.path(id)?, is_dir: self.nodes[id as usize].flags & DIR != 0, snippet: None, similar: None }))
             .collect();
         Results { hits, total, micros: t.elapsed().as_micros() as u64 }
     }

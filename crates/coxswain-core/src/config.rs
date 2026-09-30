@@ -767,6 +767,8 @@ pub struct SearchConfig {
     pub text_exclude: Vec<String>,
     /// Folders whose files are found by name, and counted in folder sizes, but never read.
     pub names_only: Vec<PathBuf>,
+    /// Search by meaning too (a language model, downloaded when this is turned on).
+    pub meaning: bool,
     /// Larger files are left out. Bytes.
     pub text_max_size: u64,
 }
@@ -782,6 +784,7 @@ impl Default for SearchConfig {
             text_roots: vec![],
             text_exclude: ["node_modules", "target", "build", "dist", "out", "vendor", "__pycache__", "Trash"].map(String::from).to_vec(),
             names_only: vec![],
+            meaning: false,
             text_max_size: 20 * 1024 * 1024,
         }
     }
@@ -889,6 +892,47 @@ impl Config {
             Some(Err(e)) if e.kind() != std::io::ErrorKind::NotFound => Err(format!("config: {e}")),
             _ => Ok(Config::default()),
         }
+    }
+
+    /// `text` (a config.toml) with the value at `keys` (`["search", "meaning"]`) set, its
+    /// comments and layout kept.
+    pub fn edit(text: &str, keys: &[&str], value: toml_edit::Value) -> Result<String, String> {
+        let mut doc: toml_edit::DocumentMut = text.parse().map_err(|e| format!("config: {e}"))?;
+        let (last, parents) = keys.split_last().ok_or("config: no key")?;
+        let mut table = doc.as_table_mut();
+        for k in parents {
+            let item = table.entry(k).or_insert_with(|| {
+                let mut t = toml_edit::Table::new();
+                t.set_implicit(true);
+                toml_edit::Item::Table(t)
+            });
+            table = item.as_table_mut().ok_or_else(|| crate::t!("err.not_a_table", "key" => k))?;
+        }
+        // Update in place where the key exists, so its comments stay.
+        match table.get_mut(last).and_then(|i| i.as_value_mut()) {
+            Some(old) => {
+                let decor = old.decor().clone();
+                *old = value;
+                *old.decor_mut() = decor;
+            }
+            None => {
+                table.insert(last, toml_edit::value(value));
+            }
+        }
+        Ok(doc.to_string())
+    }
+
+    /// Set one value in the user's config.toml and write it; only what still parses is written.
+    pub fn save_value(keys: &[&str], value: toml_edit::Value) -> Result<Config, String> {
+        let path = Config::path().ok_or_else(|| crate::t!("err.no_config_folder"))?;
+        let text = std::fs::read_to_string(&path).unwrap_or_default();
+        let new = Config::edit(&text, keys, value)?;
+        let cfg = Config::parse(&new)?;
+        if let Some(dir) = path.parent() {
+            std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
+        }
+        std::fs::write(&path, new).map_err(|e| format!("{}: {e}", path.display()))?;
+        Ok(cfg)
     }
 
     pub fn parse(text: &str) -> Result<Config, String> {

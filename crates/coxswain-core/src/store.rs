@@ -9,7 +9,7 @@
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
-use std::sync::Mutex;
+use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, Instant, UNIX_EPOCH};
 
 use rusqlite::{params, Connection};
@@ -40,6 +40,9 @@ fn below(dir: &str) -> (String, String) {
 const VERSION: i32 = 6;
 /// A snippet marks the words it found with these; the apps turn them into a highlight.
 pub const MARK: (char, char) = ('\u{1}', '\u{2}');
+/// The least score a passage found by meaning needs: with e5, unrelated text scores about
+/// 0.72 to 0.75, the same thing said in another language about 0.79, in the same one 0.85.
+const SIMILAR: f32 = 0.77;
 
 pub struct Store {
     db: Mutex<Connection>,
@@ -58,9 +61,18 @@ pub struct Store {
     pub paused: AtomicBool,
     /// The roots of the settings, as the last scan had them.
     configured: Mutex<Vec<PathBuf>>,
+    /// Search by meaning is on (and the model is downloaded).
+    pub meaning: AtomicBool,
+    /// The model, loaded the first time it is needed.
+    embedder: OnceLock<Option<crate::meaning::Embedder>>,
+    /// The signs of every passage's vector, (file, passage, signs), read from `chunks` for the
+    /// first search by meaning and kept up to date after.
+    signs: Mutex<Option<Signs>>,
 }
 
 type Known = HashMap<String, (u64, i64)>;
+/// (file, passage, the signs of its vector).
+type Signs = Vec<(i64, u8, [u64; crate::meaning::DIMS / 64])>;
 
 impl Store {
     pub fn path() -> Option<PathBuf> {
@@ -90,9 +102,15 @@ impl Store {
              CREATE TABLE IF NOT EXISTS skipped(path TEXT PRIMARY KEY, bytes INTEGER NOT NULL, files INTEGER NOT NULL);
              CREATE TABLE IF NOT EXISTS hashes(path TEXT PRIMARY KEY, size INTEGER NOT NULL, modified INTEGER NOT NULL, hash TEXT NOT NULL);
              CREATE TABLE IF NOT EXISTS roots(path TEXT PRIMARY KEY, volume TEXT, inside TEXT, at TEXT NOT NULL);
-             CREATE TABLE IF NOT EXISTS meta(key TEXT PRIMARY KEY, value TEXT NOT NULL);",
+             CREATE TABLE IF NOT EXISTS meta(key TEXT PRIMARY KEY, value TEXT NOT NULL);
+             CREATE TABLE IF NOT EXISTS chunks(file INTEGER NOT NULL, n INTEGER NOT NULL, vector BLOB NOT NULL, PRIMARY KEY(file, n));",
         )?;
-        Ok(Store { db: Mutex::new(db), pending: AtomicUsize::new(0), hurry: AtomicBool::new(false), cleared: AtomicBool::new(false), walked: Mutex::default(), offline: Mutex::default(), paused: AtomicBool::new(false), configured: Mutex::default() })
+        // Search by meaning came later: a store from before gets the column, and keeps its text.
+        // `embedded` is NULL until the file's passages have their vectors in `chunks`.
+        if db.prepare("SELECT embedded FROM files LIMIT 0").is_err() {
+            db.execute_batch("ALTER TABLE files ADD COLUMN embedded INTEGER")?;
+        }
+        Ok(Store { db: Mutex::new(db), pending: AtomicUsize::new(0), hurry: AtomicBool::new(false), cleared: AtomicBool::new(false), walked: Mutex::default(), offline: Mutex::default(), paused: AtomicBool::new(false), configured: Mutex::default(), meaning: AtomicBool::new(false), embedder: OnceLock::new(), signs: Mutex::default() })
     }
 
     /// Bytes and files below `dir`, and when the walk they come from began. `None` until a
@@ -142,7 +160,8 @@ impl Store {
         *self.walked.lock().unwrap() = None;
         self.cleared.store(true, Ordering::SeqCst);
         let db = self.db.lock().unwrap();
-        db.execute_batch("DELETE FROM text; DELETE FROM files; DELETE FROM skipped; DELETE FROM hashes; VACUUM;")
+        *self.signs.lock().unwrap() = None;
+        db.execute_batch("DELETE FROM text; DELETE FROM files; DELETE FROM skipped; DELETE FROM hashes; DELETE FROM chunks; VACUUM;")
     }
 
     /// Bytes the store takes on disk.
@@ -249,26 +268,38 @@ impl Store {
         if all {
             tx.execute("DELETE FROM skipped", [])?;
         }
+        // The files whose passages lose their vectors, for the signs kept in memory.
+        let mut stale: HashSet<i64> = HashSet::new();
         for path in gone {
             let (from, to) = below(path);
             let at = "(path = ?1 OR (path > ?2 AND path < ?3))";
+            let mut q = tx.prepare(&format!("SELECT id FROM files WHERE {at}"))?;
+            stale.extend(q.query_map([path, &from, &to], |r| r.get::<_, i64>(0))?.flatten());
+            drop(q);
             tx.execute(&format!("DELETE FROM text WHERE rowid IN (SELECT id FROM files WHERE {at})"), [path, &from, &to])?;
+            tx.execute(&format!("DELETE FROM chunks WHERE file IN (SELECT id FROM files WHERE {at})"), [path, &from, &to])?;
             for table in ["files", "hashes", "skipped"] {
                 tx.execute(&format!("DELETE FROM {table} WHERE {at}"), [path, &from, &to])?;
             }
         }
         for (path, size, modified) in changed {
             tx.execute("DELETE FROM text WHERE rowid = (SELECT id FROM files WHERE path = ?1)", [path])?;
+            stale.extend(tx.query_row("SELECT id FROM files WHERE path = ?1", [path], |r| r.get::<_, i64>(0)).ok());
+            tx.execute("DELETE FROM chunks WHERE file = (SELECT id FROM files WHERE path = ?1)", [path])?;
             tx.execute(
                 "INSERT INTO files(path, size, modified, has_text) VALUES (?1, ?2, ?3, NULL)
-                 ON CONFLICT(path) DO UPDATE SET size = excluded.size, modified = excluded.modified, has_text = NULL",
+                 ON CONFLICT(path) DO UPDATE SET size = excluded.size, modified = excluded.modified, has_text = NULL, embedded = NULL",
                 params![path, *size as i64, modified],
             )?;
         }
         for (path, (bytes, files)) in skipped {
             tx.execute("INSERT OR REPLACE INTO skipped(path, bytes, files) VALUES (?1, ?2, ?3)", params![path, *bytes as i64, *files as i64])?;
         }
-        tx.commit()
+        tx.commit()?;
+        if let Some(signs) = self.signs.lock().unwrap().as_mut().filter(|_| !stale.is_empty()) {
+            signs.retain(|(file, ..)| !stale.contains(file));
+        }
+        Ok(())
     }
 
     /// The size and date the store has for this file.
@@ -334,6 +365,102 @@ impl Store {
         tx.commit()
     }
 
+    /// The model, when search by meaning is on; loaded the first time.
+    fn embedder(&self) -> Option<&crate::meaning::Embedder> {
+        if !self.meaning.load(Ordering::Relaxed) {
+            return None;
+        }
+        self.embedder.get_or_init(crate::meaning::Embedder::load).as_ref()
+    }
+
+    /// Files with text whose passages have no vectors yet, and files that have them.
+    pub fn meaning_counts(&self) -> (usize, usize) {
+        let db = self.db.lock().unwrap();
+        let count = |q: &str| db.query_row(q, [], |r| r.get::<_, i64>(0)).unwrap_or(0) as usize;
+        (count("SELECT count(*) FROM files WHERE has_text = 1 AND embedded IS NULL"), count("SELECT count(*) FROM files WHERE embedded = 1"))
+    }
+
+    /// Up to `n` files still to get their vectors: (id, text).
+    fn unembedded(&self, n: usize) -> rusqlite::Result<Vec<(i64, String)>> {
+        let db = self.db.lock().unwrap();
+        let mut q = db.prepare("SELECT f.id, t.body FROM files f JOIN text t ON t.rowid = f.id WHERE f.has_text = 1 AND f.embedded IS NULL LIMIT ?1")?;
+        let rows = q.query_map([n as i64], |r| Ok((r.get(0)?, r.get(1)?)))?;
+        rows.collect()
+    }
+
+    /// A file's passages' vectors, packed.
+    fn put_vectors(&self, file: i64, vectors: &[Vec<u8>]) -> rusqlite::Result<()> {
+        let mut db = self.db.lock().unwrap();
+        let tx = db.transaction()?;
+        tx.execute("DELETE FROM chunks WHERE file = ?1", [file])?;
+        for (n, v) in vectors.iter().enumerate() {
+            tx.execute("INSERT INTO chunks(file, n, vector) VALUES (?1, ?2, ?3)", params![file, n as i64, v])?;
+        }
+        tx.execute("UPDATE files SET embedded = 1 WHERE id = ?1", [file])?;
+        tx.commit()?;
+        if let Some(signs) = self.signs.lock().unwrap().as_mut() {
+            signs.retain(|(f, ..)| *f != file);
+            signs.extend(vectors.iter().enumerate().map(|(n, v)| (file, n as u8, crate::meaning::signs(v))));
+        }
+        Ok(())
+    }
+
+    /// Files whose passages mean what `query` asks, closest first, each with the start of
+    /// the passage that was closest. Nothing while search by meaning is off.
+    pub fn similar(&self, query: &str, max: usize) -> Vec<Hit> {
+        use crate::meaning::{pack, score, signs, alike};
+        let Some(q) = self.embedder().and_then(|e| e.query(query)) else { return vec![] };
+        let wanted = signs(&pack(&q));
+        let db = self.db.lock().unwrap();
+        let mut known = self.signs.lock().unwrap();
+        if known.is_none() {
+            let read = || -> rusqlite::Result<Vec<_>> {
+                let mut q = db.prepare("SELECT file, n, vector FROM chunks")?;
+                let rows = q.query_map([], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, i64>(1)? as u8, signs(&r.get::<_, Vec<u8>>(2)?))))?;
+                rows.collect()
+            };
+            *known = Some(read().unwrap_or_default());
+        }
+        // The signs sieve out all but the few hundred closest; their vectors say how close.
+        let mut close: Vec<(u32, i64, u8)> = known.as_ref().unwrap().iter().map(|(f, n, s)| (alike(&wanted, s), *f, *n)).collect();
+        drop(known);
+        let keep = close.len().min(400);
+        if keep < close.len() {
+            close.select_nth_unstable_by(keep, |a, b| b.0.cmp(&a.0));
+            close.truncate(keep);
+        }
+        let mut best: HashMap<i64, (f32, u8)> = HashMap::new();
+        let Ok(mut vec) = db.prepare("SELECT vector FROM chunks WHERE file = ?1 AND n = ?2") else { return vec![] };
+        for (_, file, n) in close {
+            let Ok(v) = vec.query_row(params![file, n as i64], |r| r.get::<_, Vec<u8>>(0)) else { continue };
+            let s = score(&v, &q);
+            if best.get(&file).is_none_or(|b| s > b.0) {
+                best.insert(file, (s, n));
+            }
+        }
+        drop(vec);
+        let mut ranked: Vec<(i64, f32, u8)> = best.into_iter().map(|(f, (s, n))| (f, s, n)).collect();
+        ranked.sort_by(|a, b| b.1.total_cmp(&a.1));
+        // e5's scores sit close together: near the best one, and above what unrelated text scores.
+        let top = ranked.first().map_or(0.0, |r| r.1);
+        let offline: Vec<(String, String)> = self.offline.lock().unwrap().iter().map(|at| below(at)).collect();
+        ranked
+            .into_iter()
+            .filter(|r| r.1 >= SIMILAR.max(top - 0.10))
+            .filter_map(|(file, s, n)| {
+                let (path, body): (String, String) = db.query_row("SELECT f.path, t.body FROM files f JOIN text t ON t.rowid = f.id WHERE f.id = ?1", [file], |r| Ok((r.get(0)?, r.get(1)?))).ok()?;
+                if offline.iter().any(|(from, to)| path > *from && path < *to) {
+                    return None;
+                }
+                let passage = crate::meaning::passages(&body).into_iter().nth(n as usize)?;
+                let words: Vec<&str> = passage.split_whitespace().collect();
+                let snippet = if words.len() > 24 { format!("{} …", words[..24].join(" ")) } else { words.join(" ") };
+                Some(Hit { path: PathBuf::from(path), is_dir: false, snippet: Some(snippet), similar: Some(s) })
+            })
+            .take(max)
+            .collect()
+    }
+
     /// Files whose text has every word of `query`; the last word may be the start of one.
     /// Best matches first, each with the passage that matched.
     pub fn search(&self, query: &str, max: usize) -> Results {
@@ -355,7 +482,7 @@ impl Store {
             ))?;
             let hits = q.query_map(params![ask, max as i64], |r| {
                 let snippet: String = r.get(1)?;
-                Ok(Hit { path: PathBuf::from(r.get::<_, String>(0)?), is_dir: false, snippet: Some(snippet.split_whitespace().collect::<Vec<_>>().join(" ")) })
+                Ok(Hit { path: PathBuf::from(r.get::<_, String>(0)?), is_dir: false, snippet: Some(snippet.split_whitespace().collect::<Vec<_>>().join(" ")), similar: None })
             })?;
             Ok((hits.collect::<rusqlite::Result<_>>()?, total))
         };
@@ -443,17 +570,52 @@ pub fn scan(store: &Store, cfg: &SearchConfig, stop: &AtomicBool) -> rusqlite::R
     }
 
     store.prune_hashes()?;
+    if hash(store, stop)? {
+        return Ok(());
+    }
+    embed(store, stop)?;
+    store.hurry.store(false, Ordering::Relaxed);
+    Ok(())
+}
+
+/// Hash the files that share a size. `true` when stopped.
+fn hash(store: &Store, stop: &AtomicBool) -> rusqlite::Result<bool> {
     for batch in store.unhashed()?.chunks(50) {
         let start = Instant::now();
         let rows: Vec<_> = batch.iter().filter_map(|(path, size, modified)| Some((path.clone(), *size, *modified, crate::dupes::hash_file(path, None, stop, None).ok()?.to_hex().to_string()))).collect();
         store.put_hashes(&rows)?;
         if stop.load(Ordering::Relaxed) {
-            return Ok(());
+            return Ok(true);
         }
         store.rest(start, stop);
     }
-    store.hurry.store(false, Ordering::Relaxed);
-    Ok(())
+    Ok(false)
+}
+
+/// Give the passages of files with text their vectors, when search by meaning is on: a few
+/// files at a time, resting as long as the work took, never on battery unless *Index now*.
+// ponytail: files the watcher brings get theirs at the next scan, within ten minutes; the
+// text is searchable by its words at once.
+fn embed(store: &Store, stop: &AtomicBool) -> rusqlite::Result<()> {
+    if store.embedder().is_none() {
+        return Ok(());
+    }
+    loop {
+        let files = store.unembedded(8)?;
+        if files.is_empty() {
+            return Ok(());
+        }
+        let start = Instant::now();
+        for (id, body) in files {
+            let Some(e) = store.embedder() else { return Ok(()) };
+            let vectors: Vec<Vec<u8>> = crate::meaning::passages(&body).iter().filter_map(|p| e.passage(p)).map(|v| crate::meaning::pack(&v)).collect();
+            store.put_vectors(id, &vectors)?;
+            if stop.load(Ordering::Relaxed) || store.cleared.load(Ordering::Relaxed) {
+                return Ok(());
+            }
+        }
+        store.rest(start, stop);
+    }
 }
 
 /// Where the roots are now: the ones to walk, and where the rows of those whose disk is not
@@ -781,6 +943,41 @@ mod tests {
         store.tools_changed(&["png", "jpg"]).unwrap();
         assert_eq!(store.unread().unwrap().iter().map(|r| r.1.as_str()).collect::<Vec<_>>(), ["/h/scan.PNG"], "tesseract came");
         store.tools_changed(&["png", "jpg"]).unwrap();
+        drop(store);
+        std::fs::remove_dir_all(d).unwrap();
+    }
+
+    /// With the model downloaded: files are found by what they are about, in any language,
+    /// and a file that changes loses its old vectors.
+    #[test]
+    fn store_finds_files_by_meaning() {
+        if !crate::meaning::installed() {
+            return;
+        }
+        let d = std::env::temp_dir().join(format!("coxswain-store-meaning-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(d.join("home")).unwrap();
+        let write = |name: &str, text: &str| std::fs::write(d.join("home").join(name), text).unwrap();
+        write("budget.txt", "The fuel budget for flight seven is the largest cost of the launch, and the tanks are refilled twice before lift-off.");
+        write("budget-da.txt", "Brændstofbudgettet for flyvning syv er den største udgift ved opsendelsen, og tankene fyldes to gange før afgang.");
+        write("cake.txt", "Opskrift på æblekage: smør, sukker, mel, æbler og kanel. Bag kagen i en time ved 180 grader og server med flødeskum.");
+        let cfg = SearchConfig { text_roots: vec![d.join("home")], ..SearchConfig::default() };
+        let (store, go) = (Store::open(&d.join("search.db")).unwrap(), AtomicBool::new(false));
+        store.meaning.store(true, Ordering::Relaxed);
+        store.hurry.store(true, Ordering::Relaxed);
+        scan(&store, &cfg, &go).unwrap();
+        assert_eq!(store.meaning_counts(), (0, 3));
+        let names = |q: &str| store.similar(q, 10).iter().map(|h| h.path.file_name().unwrap().to_string_lossy().into_owned()).collect::<Vec<_>>();
+        let found = names("how much does it cost to fuel the rocket");
+        assert!(found.contains(&"budget.txt".to_string()) && found.contains(&"budget-da.txt".to_string()), "{found:?}");
+        assert!(!found.contains(&"cake.txt".to_string()), "{found:?}");
+        assert_eq!(names("apple cake recipe").first().map(String::as_str), Some("cake.txt"));
+
+        // Changed: its vectors go with its old text, and come again for the new one.
+        std::thread::sleep(Duration::from_millis(1100));
+        write("cake.txt", "Minutes of the board meeting: the budget was approved and the fuel supplier was changed.");
+        scan(&store, &cfg, &go).unwrap();
+        assert!(names("apple cake recipe").first().is_none_or(|n| n != "cake.txt"));
         drop(store);
         std::fs::remove_dir_all(d).unwrap();
     }

@@ -13,6 +13,7 @@ description = "Core of Coxswain: config, file operations, git status and an Ever
 [dependencies]
 serde = { version = "1", features = ["derive"] }
 toml = "1"
+toml_edit = "0.25.15"
 dirs = "7"
 rayon = "1"
 memchr = "2"
@@ -31,6 +32,12 @@ quick-xml = "0.42.0"
 mail-parser = "0.11.9"
 encoding_rs = "0.8.42"
 pdf-extract = "0.12.1"
+candle-core = "0.11.0"
+candle-nn = "0.11.0"
+candle-transformers = "0.11.0"
+# Pure Rust: no Oniguruma or esaxx, so the static musl build of the terminal app keeps it.
+tokenizers = { version = "0.22", default-features = false, features = ["fancy-regex"] }
+sha2 = "0.10.9"
 
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.61.2", features = ["Win32_System_Power", "Win32_Storage_FileSystem"] }

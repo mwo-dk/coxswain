@@ -983,6 +983,8 @@ const USAGE: &str = "coxswain [LEFT] [RIGHT]      a folder, or a file to open it
   --dump-config   print the full default config (redirect it to the config file to customise)
   --config-path   print where the config file is read from
   --index-service on|off   start the search helper with your session, or stop doing so
+  --meaning on|off|delete  search by meaning: download the model and turn it on, turn it off,
+                           or turn it off and delete the model
   --version
   --help";
 
@@ -1002,6 +1004,47 @@ fn index_service(on: Option<&str>) {
     Client::start(&Config::load().map(|c| c.search).unwrap_or_default()).restart();
 }
 
+/// `--meaning on|off|delete`: search by meaning, as Settings in the desktop app does it.
+fn meaning(what: Option<&str>) {
+    use coxswain_core::meaning;
+    let fail = |e: String| -> ! {
+        eprintln!("coxswain: {e}");
+        std::process::exit(1)
+    };
+    match what {
+        Some("on") => {
+            if !meaning::installed() {
+                let p = std::sync::Arc::new(meaning::Progress::default());
+                let q = p.clone();
+                let shown = std::thread::spawn(move || {
+                    use std::sync::atomic::Ordering;
+                    while q.total.load(Ordering::Relaxed) == 0 || q.done.load(Ordering::Relaxed) < q.total.load(Ordering::Relaxed) {
+                        let (done, total) = (q.done.load(Ordering::Relaxed), q.total.load(Ordering::Relaxed).max(1));
+                        eprint!("\r{}", t!("tui.meaning_downloading", "percent" => done * 100 / total));
+                        if q.cancel.load(Ordering::Relaxed) {
+                            break;
+                        }
+                        std::thread::sleep(std::time::Duration::from_millis(250));
+                    }
+                    eprintln!();
+                });
+                let done = meaning::download(&p);
+                p.cancel.store(true, std::sync::atomic::Ordering::Relaxed);
+                let _ = shown.join();
+                done.unwrap_or_else(|e| fail(e.to_string()));
+            }
+            Config::save_value(&["search", "meaning"], true.into()).unwrap_or_else(|e| fail(e));
+        }
+        Some("off") => drop(Config::save_value(&["search", "meaning"], false.into()).unwrap_or_else(|e| fail(e))),
+        Some("delete") => {
+            Config::save_value(&["search", "meaning"], false.into()).unwrap_or_else(|e| fail(e));
+            meaning::remove().unwrap_or_else(|e| fail(e.to_string()));
+        }
+        _ => return println!("{}", if Config::load().is_ok_and(|c| c.search.meaning) && meaning::installed() { "on" } else { "off" }),
+    }
+    Client::start(&Config::load().map(|c| c.search).unwrap_or_default()).restart();
+}
+
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
     match args.first().map(String::as_str) {
@@ -1012,6 +1055,7 @@ fn main() {
         Some("--dump-config") => return print!("{}", Config::default().to_toml()),
         Some("--config-path") => return println!("{}", Config::path().map(|p| p.display().to_string()).unwrap_or_default()),
         Some("--index-service") => return index_service(args.get(1).map(String::as_str)),
+        Some("--meaning") => return meaning(args.get(1).map(String::as_str)),
         _ => {}
     }
     let cfg = Config::load().unwrap_or_else(|e| {
