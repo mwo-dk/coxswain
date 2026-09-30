@@ -39,6 +39,8 @@ pub struct Ctx {
     /// The running duplicate scan's progress, if any.
     dupes: Mutex<Option<Arc<coxswain_core::dupes::Progress>>>,
     sizer: Arc<coxswain_core::sizes::Sizer>,
+    /// The model download for search by meaning, while one runs or has failed.
+    meaning: Mutex<Option<(Arc<coxswain_core::meaning::Progress>, Option<String>)>>,
     /// The stop flag of each tab's background measuring.
     measuring: Mutex<std::collections::HashMap<String, Arc<std::sync::atomic::AtomicBool>>>,
 }
@@ -170,6 +172,7 @@ struct Settings {
     /// The folders whose text is read; the home folder when none are set.
     text_roots: Vec<PathBuf>,
     names_only: Vec<PathBuf>,
+    search_meaning: bool,
 }
 
 impl From<&Config> for Settings {
@@ -192,6 +195,7 @@ impl From<&Config> for Settings {
             search_text: c.search.text,
             text_roots: c.search.text_roots.clone(),
             names_only: c.search.names_only.clone(),
+            search_meaning: c.search.meaning,
         }
     }
 }
@@ -215,11 +219,12 @@ const SETTING_PATHS: &[(&str, &[&str])] = &[
     ("search_text", &["search", "text"]),
     ("text_roots", &["search", "text_roots"]),
     ("names_only", &["search", "names_only"]),
+    ("search_meaning", &["search", "meaning"]),
 ];
 
 /// `text` (a config.toml) with the settings in `changes` set, comments and layout kept.
 fn apply_settings(text: &str, changes: &serde_json::Map<String, serde_json::Value>) -> Res<String> {
-    let mut doc: toml_edit::DocumentMut = text.parse().map_err(|e| format!("config: {e}"))?;
+    let mut text = text.to_string();
     for (name, v) in changes {
         let keys = SETTING_PATHS.iter().find(|(n, _)| n == name).map(|(_, k)| *k).ok_or_else(|| coxswain_core::t!("err.unknown_setting", "name" => name))?;
         let value: toml_edit::Value = match v {
@@ -232,29 +237,9 @@ fn apply_settings(text: &str, changes: &serde_json::Map<String, serde_json::Valu
             }
             _ => return Err(coxswain_core::t!("err.unsupported_value", "name" => name)),
         };
-        let (last, parents) = keys.split_last().unwrap();
-        let mut table = doc.as_table_mut();
-        for k in parents {
-            let item = table.entry(k).or_insert_with(|| {
-                let mut t = toml_edit::Table::new();
-                t.set_implicit(true);
-                toml_edit::Item::Table(t)
-            });
-            table = item.as_table_mut().ok_or_else(|| coxswain_core::t!("err.not_a_table", "key" => k))?;
-        }
-        // Update in place where the key exists, so its comments stay.
-        match table.get_mut(last).and_then(|i| i.as_value_mut()) {
-            Some(old) => {
-                let decor = old.decor().clone();
-                *old = value;
-                *old.decor_mut() = decor;
-            }
-            None => {
-                table.insert(last, toml_edit::value(value));
-            }
-        }
+        text = Config::edit(&text, keys, value)?;
     }
-    Ok(doc.to_string())
+    Ok(text)
 }
 
 /// Write the changed settings into config.toml, keeping its comments and layout, then use
@@ -437,6 +422,78 @@ struct IndexStatus {
 async fn index_status(ctx: tauri::State<'_, Ctx>) -> Res<IndexStatus> {
     let index = ctx.index.clone();
     tauri::async_runtime::spawn_blocking(move || IndexStatus { status: index.status(), path: coxswain_core::store::Store::path(), shared: index.shared(), service: coxswain_core::service::installed() }).await.map_err(|e| e.to_string())
+}
+
+/// Search by meaning, for Settings: the model there or not, its size, a download under way
+/// (bytes done, bytes in all) or the error that stopped it.
+#[derive(Serialize)]
+struct MeaningStatus {
+    installed: bool,
+    size: u64,
+    downloading: Option<(u64, u64)>,
+    error: Option<String>,
+}
+
+#[tauri::command]
+fn meaning_status(ctx: tauri::State<Ctx>) -> Res<MeaningStatus> {
+    use std::sync::atomic::Ordering;
+    let m = ctx.meaning.lock().map_err(|e| e.to_string())?;
+    Ok(MeaningStatus {
+        installed: coxswain_core::meaning::installed(),
+        size: coxswain_core::meaning::size(),
+        downloading: m.as_ref().filter(|(_, err)| err.is_none()).map(|(p, _)| (p.done.load(Ordering::Relaxed), p.total.load(Ordering::Relaxed))),
+        error: m.as_ref().and_then(|(_, e)| e.clone()),
+    })
+}
+
+/// "download": fetch the model, then turn search by meaning on; "cancel" the download;
+/// "off": turn it off; "remove": turn it off and delete the model. The helper starts again
+/// with the new setting.
+#[tauri::command]
+async fn meaning_action(what: String, app: tauri::AppHandle, ctx: tauri::State<'_, Ctx>) -> Res<()> {
+    use std::sync::atomic::Ordering;
+    let set = |on: bool| -> Res<()> {
+        let cfg = Config::save_value(&["search", "meaning"], on.into())?;
+        *app.state::<Ctx>().cfg.write().map_err(|e| e.to_string())? = cfg;
+        Ok(())
+    };
+    match what.as_str() {
+        "download" => {
+            let p = Arc::new(coxswain_core::meaning::Progress::default());
+            *ctx.meaning.lock().map_err(|e| e.to_string())? = Some((p.clone(), None));
+            let (app, index) = (app.clone(), ctx.index.clone());
+            std::thread::spawn(move || {
+                let ctx = app.state::<Ctx>();
+                let done = coxswain_core::meaning::download(&p).map_err(|e| e.to_string()).and_then(|()| {
+                    let cfg = Config::save_value(&["search", "meaning"], true.into())?;
+                    *ctx.cfg.write().map_err(|e| e.to_string())? = cfg;
+                    Ok(())
+                });
+                if let Ok(mut m) = ctx.meaning.lock() {
+                    *m = match done {
+                        Ok(()) => None,
+                        Err(_) if p.cancel.load(Ordering::Relaxed) => None,
+                        Err(e) => Some((p, Some(e))),
+                    };
+                }
+                index.restart();
+            });
+            return Ok(());
+        }
+        "cancel" => {
+            if let Some((p, _)) = ctx.meaning.lock().map_err(|e| e.to_string())?.as_ref() {
+                p.cancel.store(true, Ordering::Relaxed);
+            }
+            return Ok(());
+        }
+        "off" => set(false)?,
+        _ => {
+            set(false)?;
+            coxswain_core::meaning::remove().map_err(|e| e.to_string())?;
+        }
+    }
+    let index = ctx.index.clone();
+    tauri::async_runtime::spawn_blocking(move || index.restart()).await.map_err(|e| e.to_string())
 }
 
 /// Start the search helper with the session, or stop doing so; the helper running now makes
@@ -1038,6 +1095,7 @@ fn main() {
         watcher: Mutex::default(),
         clip: Mutex::default(),
         dupes: Mutex::default(),
+        meaning: Mutex::default(),
         measuring: Mutex::default(),
     };
     tauri::Builder::default()
@@ -1047,7 +1105,7 @@ fn main() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            get_config, index_status, index_action, index_service, list_dir, git_status, places, disks, get_state, save_session, save_favorites, set_tags, set_note, get_note,
+            get_config, index_status, index_action, index_service, meaning_status, meaning_action, list_dir, git_status, places, disks, get_state, save_session, save_favorites, set_tags, set_note, get_note,
             search, resolve_path, copy, rename, delete, mkdir, dir_sizes, rename_plan, rename_apply, open_path, edit_path,
             read_text, run_command, scripts, run_script, check_update, archive_list, extract, properties, set_permissions,
             clip_set, paste, start_drag, watch_dirs, preview::git_diff, preview::sqlite_info, preview::epub_preview,

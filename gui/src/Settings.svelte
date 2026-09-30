@@ -84,6 +84,20 @@
     await invoke("index_service", { on }).catch((e) => (error = String(e)));
     loadIndex();
   }
+  // Search by meaning: the model, its download, and whether it is on.
+  let meaning = $state(null);
+  const loadMeaning = () => invoke("meaning_status").then((v) => (meaning = v), () => (meaning = null));
+  loadMeaning();
+  $effect(() => {
+    const id = setInterval(loadMeaning, meaning?.downloading ? 500 : 3000);
+    return () => clearInterval(id);
+  });
+  async function meaningAction(what) {
+    error = "";
+    await invoke("meaning_action", { what }).catch((e) => (error = String(e)));
+    loadMeaning();
+    loadIndex();
+  }
   // Deleting the index takes a second click.
   let forgetting = $state(false);
   async function indexAction(what) {
@@ -229,6 +243,35 @@
           {/if}
         </div>
         <p class="hint">{t("settings.search_hint")}</p>
+      {/if}
+    </section>
+
+    <section id="settings-meaning">
+      <h3>{t("settings.meaning")}</h3>
+      <p class="hint">{t("settings.meaning_hint")}</p>
+      {#if meaning?.downloading}
+        <p class="hint">{t("settings.meaning_downloading", { done: size(meaning.downloading[0]), total: size(meaning.downloading[1]) })}</p>
+        <progress max={meaning.downloading[1] || 1} value={meaning.downloading[0]}></progress>
+        <div class="buttons"><button onclick={() => meaningAction("cancel")}>{t("common.cancel")}</button></div>
+      {:else if s.search_meaning && meaning?.installed}
+        <p class="hint">
+          {t("settings.meaning_status", { done: index?.meaning_done ?? 0, pending: index?.meaning_pending ?? 0 })}
+          {#if index?.paused}<br /><strong>{t("settings.search_paused")}</strong>{/if}
+        </p>
+        <div class="buttons">
+          <button onclick={() => meaningAction("off")}>{t("settings.meaning_off")}</button>
+          <button onclick={() => meaningAction("remove")}>{t("settings.meaning_remove")}</button>
+        </div>
+      {:else}
+        {#if meaning?.error}<p class="err">{meaning.error}</p>{/if}
+        <div class="buttons">
+          {#if meaning?.installed}
+            <button class="primary" onclick={() => setSearch("search_meaning", true)}>{t("settings.meaning_on")}</button>
+            <button onclick={() => meaningAction("remove")}>{t("settings.meaning_remove")}</button>
+          {:else}
+            <button class="primary" disabled={!s.search_text} onclick={() => meaningAction("download")}>{t("settings.meaning_download", { size: size(meaning?.size ?? 0) })}</button>
+          {/if}
+        </div>
       {/if}
     </section>
 

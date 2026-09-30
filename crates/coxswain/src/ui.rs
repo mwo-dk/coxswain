@@ -440,7 +440,12 @@ fn search(f: &mut Frame, app: &mut App, full: Rect) {
             // The words found stand out; the rest is dim.
             let dim = dstyle(&t).add_modifier(Modifier::DIM);
             let mut passage = vec![Span::styled("   ", dim)];
-            for (n, part) in fit(snippet, (list.width as usize).saturating_sub(3)).split([coxswain_core::store::MARK.0, coxswain_core::store::MARK.1]).enumerate() {
+            // Found by meaning: the passage that was close, after what it is.
+            let label = h.similar.map(|_| format!("{} ", t!("search.similar_to"))).unwrap_or_default();
+            if !label.is_empty() {
+                passage.push(Span::styled(label.clone(), dstyle(&t).patch(hit_style)));
+            }
+            for (n, part) in fit(snippet, (list.width as usize).saturating_sub(3 + label.width())).split([coxswain_core::store::MARK.0, coxswain_core::store::MARK.1]).enumerate() {
                 passage.push(Span::styled(part.to_string(), if n % 2 == 1 { dstyle(&t).patch(hit_style) } else { dim }));
             }
             vec![file, Line::from(passage)]

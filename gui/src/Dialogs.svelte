@@ -304,7 +304,8 @@
                 <span class="glyph" class:dir={h.is_dir}>{h.is_dir ? "\u{f07b}" : "\u{f15b}"}</span>
                 <b>{basename(h.path)}</b>
                 <span class="where"><bdi>{parent(h.path)}</bdi></span>
-                {#if h.snippet}<span class="snippet" dir="auto">{@html marked(h.snippet)}</span>{/if}
+                {#if h.similar != null}<span class="snippet" dir="auto"><em>{t("search.similar_to")}</em> {h.snippet}</span>
+                {:else if h.snippet}<span class="snippet" dir="auto">{@html marked(h.snippet)}</span>{/if}
               </button>
             </li>
           {/each}

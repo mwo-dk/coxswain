@@ -358,6 +358,24 @@ the same place or another, it is searched again without being read afresh. *Remo
 Other excludes and another size limit are `text_exclude` and `text_max_size` under `[search]`;
 the folders are `text_roots` and `names_only`.
 
+#### Search by meaning
+
+Words find the files that contain them. **Search by meaning** also finds the files that are
+*about* what you type, whatever words they use and in whichever language: "what the rocket's
+fuel costs" finds `Brændstofbudget.docx`. In Find file, Tab to the text of files; files found
+this way come after the ones with your words, each with the passage that was close, marked
+*similar to*.
+
+It is off until you turn it on in **Settings → Search by meaning** (or
+`coxswain --meaning on`), which downloads a small language model once:
+[multilingual-e5-small](https://huggingface.co/intfloat/multilingual-e5-small), 471 MB, from
+Hugging Face, at a pinned version and checked against its SHA-256. It runs on your machine's
+CPU (with [candle](https://github.com/huggingface/candle), in pure Rust, in both apps), on two
+threads at the lowest priority and never on battery unless you press *Index now*; the first
+eight passages of each file with text get a vector, kept in `search.db`. Nothing you have leaves
+the machine. *Turn off* stops it; *Delete the model* (`coxswain --meaning delete`) removes the
+model as well.
+
 #### Documents it reads
 
 | Kind | Files |

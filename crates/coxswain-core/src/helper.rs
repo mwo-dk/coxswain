@@ -80,6 +80,13 @@ pub struct Status {
     /// Bytes the store takes on disk.
     #[serde(default)]
     pub bytes: u64,
+    /// Search by meaning: on, files still to get their vectors, files that have them.
+    #[serde(default)]
+    pub meaning: bool,
+    #[serde(default)]
+    pub meaning_pending: usize,
+    #[serde(default)]
+    pub meaning_done: usize,
     /// Reading waits until the machine is off its battery.
     #[serde(default)]
     pub paused: bool,
@@ -121,6 +128,9 @@ pub fn serve() -> io::Result<()> {
     let dir = folder().ok_or_else(|| io::Error::other("no cache folder"))?;
     let search = Config::load().map(|c| c.search).unwrap_or_default();
     let store = if search.text { Store::open(&dir.join("search.db")).ok().map(Arc::new) } else { None };
+    if let Some(s) = &store {
+        s.meaning.store(search.meaning && crate::meaning::installed(), Ordering::Relaxed);
+    }
     std::fs::create_dir_all(&dir)?;
     let cfg = search.clone();
     // Registered to start with the session: it stays when the apps have gone.
@@ -178,6 +188,17 @@ pub fn serve_in(dir: &Path, linger: Duration, index: impl FnOnce() -> Arc<Servic
     Ok(())
 }
 
+/// The files with the words, then the files about the same thing that the words missed.
+fn with_meaning(store: &Store, query: &str, max: usize) -> Results {
+    let mut found = store.search(query, max);
+    let start = std::time::Instant::now();
+    let similar: Vec<_> = store.similar(query, max).into_iter().filter(|h| !found.hits.iter().any(|w| w.path == h.path)).collect();
+    found.total += similar.len();
+    found.hits.extend(similar.into_iter().take(max.saturating_sub(found.hits.len())));
+    found.micros += start.elapsed().as_micros() as u64;
+    found
+}
+
 fn answer(stream: TcpStream, index: &Service, store: Option<&Store>, token: &str, quit: &AtomicBool) -> io::Result<()> {
     stream.set_nodelay(true)?;
     let mut out = stream.try_clone()?;
@@ -196,7 +217,7 @@ fn answer(stream: TcpStream, index: &Service, store: Option<&Store>, token: &str
                 Reply::Hello { same }
             }
             _ if !said_hello => return Ok(()),
-            Request::Search { query, max, text: true, .. } => Reply::Results(store.map(|s| s.search(&query, max)).unwrap_or_default()),
+            Request::Search { query, max, text: true, .. } => Reply::Results(store.map(|s| with_meaning(s, &query, max)).unwrap_or_default()),
             Request::Search { query, scope, max, .. } => Reply::Results(index.search(&query, scope.as_deref(), max)),
             Request::Size { path } => Reply::Size { size: store.and_then(|s| s.size(&path)) },
             Request::IndexNow => {
@@ -217,6 +238,9 @@ fn answer(stream: TcpStream, index: &Service, store: Option<&Store>, token: &str
                 texts: store.map_or(0, Store::texts),
                 pending: store.map_or(0, |s| s.pending.load(Ordering::Relaxed)),
                 bytes: store.map_or(0, Store::bytes),
+                meaning: store.is_some_and(|s| s.meaning.load(Ordering::Relaxed)),
+                meaning_pending: store.filter(|s| s.meaning.load(Ordering::Relaxed)).map_or(0, |s| s.meaning_counts().0),
+                meaning_done: store.map_or(0, |s| s.meaning_counts().1),
                 paused: store.is_some_and(|s| s.paused.load(Ordering::Relaxed)),
                 roots: store.map(Store::root_sizes).unwrap_or_default(),
                 tools: crate::extract::installed::found().iter().map(|(n, p)| (n.to_string(), p.is_some())).collect(),
@@ -338,7 +362,7 @@ impl Client {
         }
         let now = match self.ask(&Request::Status) {
             Some(Reply::Status(s)) => s,
-            _ => Status { state: self.own().state(), len: self.own().len(), texts: 0, pending: 0, bytes: 0, paused: false, roots: vec![], tools: vec![] },
+            _ => Status { state: self.own().state(), len: self.own().len(), texts: 0, pending: 0, bytes: 0, paused: false, roots: vec![], tools: vec![], meaning: false, meaning_pending: 0, meaning_done: 0 },
         };
         *status = Some((Instant::now(), now.clone()));
         now
