@@ -71,7 +71,7 @@ Reading every file on a large disk would take hours, so Coxswain only reads what
 4. **Kept.** Full hashes are kept in the search store, `search.db` in Coxswain's cache folder,
    keyed by path, size and modification time. Scanning the same disk again only reads files
    that changed. In the background the search helper hashes the home folder's files that
-   share a size, so the first scan there reads little. Hashes of files that are gone or have
+   share a size, so a scan there reads nothing it already knows, not even the first 16 KB. Hashes of files that are gone or have
    changed are dropped at its next pass.
 
 On a developer's home folder of 64,856 files (30 GB), the first scan read 1.9 GB and took

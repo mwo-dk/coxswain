@@ -12,7 +12,7 @@ use std::fs;
 use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU8, Ordering};
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc, Mutex, RwLock};
 use std::time::{Duration, Instant};
 
 use crate::config::SearchConfig;
@@ -620,6 +620,8 @@ pub fn glob(p: &[u8], s: &[u8]) -> bool {
 pub struct Service {
     index: RwLock<Index>,
     state: AtomicU8,
+    /// Who else follows the watcher: each burst of changed paths is sent to them.
+    listeners: Mutex<Vec<std::sync::mpsc::Sender<Vec<PathBuf>>>>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -637,7 +639,7 @@ impl Service {
         let cache = Index::cache_path();
         let cached = cache.as_deref().and_then(|p| Index::load(p).ok()).filter(|ix| ix.roots == roots && ix.exclude == cfg.exclude);
         let state = if cached.is_some() { State::Stale } else { State::Building };
-        let svc = Arc::new(Service { index: RwLock::new(cached.unwrap_or_default()), state: AtomicU8::new(state as u8) });
+        let svc = Arc::new(Service { index: RwLock::new(cached.unwrap_or_default()), state: AtomicU8::new(state as u8), listeners: Mutex::default() });
         let (s, exclude, watch) = (svc.clone(), cfg.exclude.clone(), cfg.watch);
         std::thread::spawn(move || s.run(roots, exclude, cache, watch));
         svc
@@ -661,6 +663,13 @@ impl Service {
 
     pub fn search(&self, query: &str, scope: Option<&Path>, max: usize) -> Results {
         self.index.read().unwrap().search(query, scope, max)
+    }
+
+    /// The paths the watcher sees change, a burst at a time.
+    pub fn changes(&self) -> std::sync::mpsc::Receiver<Vec<PathBuf>> {
+        let (tx, rx) = std::sync::mpsc::channel();
+        self.listeners.lock().unwrap().push(tx);
+        rx
     }
 
     fn run(&self, roots: Vec<PathBuf>, exclude: Vec<String>, cache: Option<PathBuf>, watch: bool) {
@@ -693,18 +702,20 @@ impl Service {
                 }
             }
             // Gather a burst of events, then apply them in one pass.
-            let mut dirty = HashSet::new();
+            let (mut dirty, mut paths) = (HashSet::new(), vec![]);
             let Ok(first) = rx.recv_timeout(Duration::from_secs(60)) else { continue };
             let deadline = Instant::now() + Duration::from_millis(500);
             let mut ev = Some(first);
             while let Some(e) = ev {
                 if let Ok(e) = e {
                     dirty.extend(e.paths.iter().filter_map(|p| p.parent().map(Path::to_path_buf)));
+                    paths.extend(e.paths);
                 }
                 ev = rx.recv_timeout(deadline.saturating_duration_since(Instant::now())).ok();
             }
             if !dirty.is_empty() {
                 self.index.write().unwrap().refresh(&dirty);
+                self.listeners.lock().unwrap().retain(|l| l.send(paths.clone()).is_ok());
             }
         }
     }
