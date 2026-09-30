@@ -81,15 +81,17 @@ pub fn list(dir: &Path, show_hidden: bool) -> io::Result<Vec<Entry>> {
     list_with_archive(dir, show_hidden).map(|(entries, _)| entries)
 }
 
-/// `list`, and when `dir` is inside an archive, that archive and whether anything in the
-/// folder is locked.
-pub fn list_with_archive(dir: &Path, show_hidden: bool) -> io::Result<(Vec<Entry>, Option<(PathBuf, bool)>)> {
-    if !dir.is_dir() {
-        if let Some((archive, inner)) = crate::archive::split(dir) {
-            let (mut all, locked) = crate::archive::listing(&archive, &inner)?;
-            all.retain(|e| show_hidden || !e.hidden || e.is_parent());
-            return Ok((all, Some((archive, locked))));
-        }
+/// The archive a folder is inside, and whether anything in the folder is locked.
+pub type InArchive = (PathBuf, bool);
+
+/// `list`, and when `dir` is inside an archive, which and whether anything there is locked.
+pub fn list_with_archive(dir: &Path, show_hidden: bool) -> io::Result<(Vec<Entry>, Option<InArchive>)> {
+    if !dir.is_dir()
+        && let Some((archive, inner)) = crate::archive::split(dir)
+    {
+        let (mut all, locked) = crate::archive::listing(&archive, &inner)?;
+        all.retain(|e| show_hidden || !e.hidden || e.is_parent());
+        return Ok((all, Some((archive, locked))));
     }
     let mut out = Vec::new();
     if let Some(parent) = dir.parent() {
@@ -109,10 +111,10 @@ pub fn list_with_archive(dir: &Path, show_hidden: bool) -> io::Result<(Vec<Entry
         let de = de?;
         let name = de.file_name().to_string_lossy().into_owned();
         // Entries can vanish between readdir and stat; skip them.
-        if let Ok(e) = Entry::from_path(de.path(), name) {
-            if show_hidden || !e.hidden {
-                out.push(e);
-            }
+        if let Ok(e) = Entry::from_path(de.path(), name)
+            && (show_hidden || !e.hidden)
+        {
+            out.push(e);
         }
     }
     Ok((out, None))
@@ -357,10 +359,10 @@ pub fn delete(path: &Path) -> io::Result<()> {
 
 /// `delete`, with the password of the locked 7z `path` is inside.
 pub fn delete_locked(path: &Path, password: Option<&str>) -> io::Result<()> {
-    if !path.exists() {
-        if let Some((archive, inner)) = crate::archive::split(path) {
-            return crate::archive::remove(&archive, &[inner], password);
-        }
+    if !path.exists()
+        && let Some((archive, inner)) = crate::archive::split(path)
+    {
+        return crate::archive::remove(&archive, &[inner], password);
     }
     if fs::symlink_metadata(path)?.is_dir() {
         fs::remove_dir_all(path)

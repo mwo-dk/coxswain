@@ -280,10 +280,11 @@ struct Item {
 /// The archive's entries, from the last look at it when it has not changed since.
 fn items(archive: &Path) -> io::Result<Vec<Item>> {
     let stamp = stamp(archive)?;
-    if let Some((p, s, items)) = LAST.lock().unwrap().as_ref() {
-        if p == archive && *s == stamp {
-            return Ok(items.clone());
-        }
+    if let Some((p, s, items)) = LAST.lock().unwrap().as_ref()
+        && p == archive
+        && *s == stamp
+    {
+        return Ok(items.clone());
     }
     let out = read_items(archive)?;
     *LAST.lock().unwrap() = Some((archive.to_path_buf(), stamp, out.clone()));
