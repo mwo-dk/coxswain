@@ -105,9 +105,9 @@ They work on files only. To look into a folder, press **Enter**; its summary, si
 
 #### Can I edit a file inside an archive with F4?
 
-No. A file in an archive is not a file on disk, so the editor or viewer gets a path that does not
-exist. Copy it out with **F5** first ([Archives as folders](../files/archives.md)); in the desktop
-app, **F3** shows its preview.
+No: the editor would change a copy, and the change would be lost. Copy it out with **F5** first
+([Archives as folders](../files/archives.md)). **F3** in the terminal app views it (a copy goes
+to the viewer), and the desktop app's preview pane shows it.
 
 #### F4 on a Find file hit: does the search close?
 

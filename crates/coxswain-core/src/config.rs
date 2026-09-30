@@ -925,6 +925,7 @@ impl Config {
             ("search store", crate::store::Store::path()),
             ("model", crate::meaning::folder()),
             ("previews", dirs::cache_dir().map(|d| d.join("coxswain").join("previews"))),
+            ("archive looks", dirs::cache_dir().map(|d| d.join("coxswain").join("peek"))),
         ]
     }
 

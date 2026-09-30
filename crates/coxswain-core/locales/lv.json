@@ -121,7 +121,9 @@
  "archive.pack": "Iepakot",
  "archive.pack_into": "Iepakot {what} (.zip, .7z, .tar, .tar.gz …):",
  "archive.packed": "Iepakots {what}",
- "archive.preview_hint": "Fails ir arhīvā {archive}. Izkopējiet to ar F5, lai to redzētu.",
+ "archive.preview_locked": "Šis fails ir aizslēgts ar paroli.",
+ "archive.preview_opening": "Atver no {archive}…",
+ "archive.preview_unlock": "Ievadiet paroli",
  "bom.advice": "Ko darīt",
  "bom.as_in_file": "Kā failā",
  "bom.assets": {

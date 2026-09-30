@@ -121,7 +121,9 @@
  "archive.pack": "Supakuoti",
  "archive.pack_into": "Supakuoti {what} į (.zip, .7z, .tar, .tar.gz …):",
  "archive.packed": "Supakuota: {what}",
- "archive.preview_hint": "Failas yra archyve {archive}. Iškopijuokite jį su F5, kad pamatytumėte.",
+ "archive.preview_locked": "Šis failas užrakintas slaptažodžiu.",
+ "archive.preview_opening": "Atveriama iš {archive}…",
+ "archive.preview_unlock": "Įveskite slaptažodį",
  "bom.advice": "Ką daryti",
  "bom.as_in_file": "Kaip faile",
  "bom.assets": {
