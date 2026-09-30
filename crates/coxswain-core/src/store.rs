@@ -200,6 +200,21 @@ impl Store {
         Ok(())
     }
 
+    /// A reader learnt to get more of some kinds of files: those files are read again, once,
+    /// and the rest of the store stays. `(tag, extensions)`: the tag names what changed.
+    fn readers_changed(&self, tag: &str, exts: &[&str]) -> rusqlite::Result<()> {
+        let db = self.db.lock().unwrap();
+        let before: String = db.query_row("SELECT value FROM meta WHERE key = 'readers'", [], |r| r.get(0)).unwrap_or_default();
+        if before == tag {
+            return Ok(());
+        }
+        for ext in exts {
+            db.execute("UPDATE files SET has_text = NULL, embedded = NULL WHERE lower(path) LIKE ?1", [format!("%.{ext}")])?;
+        }
+        db.execute("INSERT OR REPLACE INTO meta(key, value) VALUES ('readers', ?1)", [tag])?;
+        Ok(())
+    }
+
     /// Where each root's rows are, as the store last saw it: path -> (disk, place on it, rows at).
     fn roots(&self) -> rusqlite::Result<HashMap<String, (Option<String>, Option<String>, String)>> {
         let db = self.db.lock().unwrap();
@@ -584,6 +599,8 @@ pub fn scan(store: &Store, cfg: &SearchConfig, stop: &AtomicBool) -> rusqlite::R
     let began = now();
     let (roots, offline) = place(store, cfg)?;
     store.tools_changed(&crate::extract::installed::extensions())?;
+    // Diagrams got a sentence per arrow.
+    store.readers_changed("diagrams-1", &["drawio", "dio", "mmd", "mermaid", "dot", "gv", "puml", "plantuml", "pu", "iuml", "wsd", "md", "markdown", "mdx"])?;
     let known = store.known()?;
     let Some(found) = walk(roots.clone(), cfg, &known, stop) else { return Ok(()) };
     // Rows of a disk that is not plugged in stay.

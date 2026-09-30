@@ -458,6 +458,32 @@ async fn notices(ctx: tauri::State<'_, Ctx>) -> Res<Notices> {
     })
 }
 
+/// The window's title. On Linux the title bar that GTK draws keeps the title it was made
+/// with, so it is told too.
+#[tauri::command]
+fn set_title(title: String, window: tauri::WebviewWindow) -> Res<()> {
+    window.set_title(&title).map_err(|e| e.to_string())?;
+    #[cfg(target_os = "linux")]
+    {
+        let w = window.clone();
+        window
+            .run_on_main_thread(move || {
+                use gtk::prelude::{BinExt, Cast, GtkWindowExt, HeaderBarExt};
+                // On Wayland tao puts its header bar inside an event box.
+                let Some(top) = w.gtk_window().ok().and_then(|g| g.titlebar()) else { return };
+                let bar = match top.clone().downcast::<gtk::EventBox>() {
+                    Ok(event_box) => event_box.child().and_then(|c| c.downcast::<gtk::HeaderBar>().ok()),
+                    Err(_) => top.downcast::<gtk::HeaderBar>().ok(),
+                };
+                if let Some(bar) = bar {
+                    bar.set_title(Some(&title));
+                }
+            })
+            .map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
 #[tauri::command]
 fn dismiss_notice(id: String, ctx: tauri::State<Ctx>) -> Res<()> {
     ctx.edit(|st| coxswain_core::notices::dismiss(st, &id))
@@ -1182,7 +1208,7 @@ fn main() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            get_config, notices, dismiss_notice, index_status, index_action, index_service, meaning_status, meaning_action, meaning_models, meaning_pull, list_dir, git_status, places, disks, get_state, save_session, save_favorites, set_tags, set_note, get_note,
+            get_config, notices, dismiss_notice, set_title, index_status, index_action, index_service, meaning_status, meaning_action, meaning_models, meaning_pull, list_dir, git_status, places, disks, get_state, save_session, save_favorites, set_tags, set_note, get_note,
             search, resolve_path, copy, rename, delete, mkdir, dir_sizes, rename_plan, rename_apply, open_path, edit_path,
             read_text, run_command, scripts, run_script, check_update, archive_list, extract, properties, set_permissions,
             clip_set, paste, start_drag, watch_dirs, preview::git_diff, preview::sqlite_info, preview::epub_preview,
