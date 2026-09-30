@@ -241,20 +241,23 @@ fn answer(stream: TcpStream, index: &Service, store: Option<&Store>, token: &str
                 quit.store(true, Ordering::SeqCst);
                 Reply::Done
             }
-            Request::Status => Reply::Status(Status {
+            Request::Status => Reply::Status({
+                let counts = store.map(Store::meaning_counts).unwrap_or_default();
+                Status {
                 state: index.state(),
                 len: index.len(),
                 texts: store.map_or(0, Store::texts),
                 pending: store.map_or(0, |s| s.pending.load(Ordering::Relaxed)),
                 bytes: store.map_or(0, Store::bytes),
                 meaning: store.is_some_and(|s| s.meaning.load(Ordering::Relaxed)),
-                meaning_pending: store.filter(|s| s.meaning.load(Ordering::Relaxed)).map_or(0, |s| s.meaning_counts().0),
-                meaning_done: store.map_or(0, |s| s.meaning_counts().1),
+                meaning_pending: counts.0,
+                meaning_done: counts.1,
                 meaning_engine: store.and_then(Store::engine_id).unwrap_or_default(),
                 meaning_error: store.and_then(|s| s.meaning_error.lock().unwrap().clone()),
                 paused: store.is_some_and(|s| s.paused.load(Ordering::Relaxed)),
                 roots: store.map(Store::root_sizes).unwrap_or_default(),
                 tools: crate::extract::installed::found().iter().map(|(n, p)| (n.to_string(), p.is_some())).collect(),
+                }
             }),
         };
         let mut text = serde_json::to_string(&reply).map_err(io::Error::other)?;

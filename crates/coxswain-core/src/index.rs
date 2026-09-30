@@ -87,6 +87,14 @@ struct Scanned {
     children: Vec<Scanned>,
 }
 
+/// What `Index::look` read from the disk for `Index::apply`: each dirty directory's node, its
+/// hash, whether it still is one, and what it holds now; and the children the index knows.
+#[derive(Default)]
+pub struct Looked {
+    targets: Vec<(u32, u64, bool, Vec<Scanned>)>,
+    known: HashMap<u32, HashMap<Vec<u8>, u32>>,
+}
+
 impl Index {
     pub fn default_roots() -> Vec<PathBuf> {
         if cfg!(windows) {
@@ -207,10 +215,17 @@ impl Index {
     /// Re-read these directories (one level) and apply what changed. New subdirectories
     /// are scanned recursively.
     pub fn refresh(&mut self, dirs: &HashSet<PathBuf>) {
+        let looked = self.look(dirs);
+        self.apply(looked);
+    }
+
+    /// The disk side of `refresh`: what the dirty directories hold now, new subdirectories
+    /// scanned. Needs no write lock, so searches go on while a moved-in tree is read.
+    pub fn look(&self, dirs: &HashSet<PathBuf>) -> Looked {
         let targets: HashMap<u32, (PathBuf, u64)> =
             dirs.iter().filter_map(|d| self.find_dir(d).map(|(id, h)| (id, (d.clone(), h)))).collect();
         if targets.is_empty() {
-            return;
+            return Looked::default();
         }
         // One parallel pass finds the current children of every dirty directory.
         let kids: Vec<(u32, u32)> = self
@@ -220,14 +235,32 @@ impl Index {
             .filter(|(_, n)| n.flags & GONE == 0 && targets.contains_key(&n.parent))
             .map(|(i, n)| (n.parent, i as u32))
             .collect();
-        let mut by_parent: HashMap<u32, HashMap<Vec<u8>, u32>> = HashMap::new();
+        let mut known: HashMap<u32, HashMap<Vec<u8>, u32>> = HashMap::new();
         for (p, c) in kids {
-            by_parent.entry(p).or_default().insert(self.name(c).to_vec(), c);
+            known.entry(p).or_default().insert(self.name(c).to_vec(), c);
         }
-        for (id, (dir, h)) in targets {
-            let mut known = by_parent.remove(&id).unwrap_or_default();
-            let on_disk = if dir.is_dir() { self.scan_one(&dir) } else { vec![] };
-            if !dir.is_dir() {
+        let targets = targets
+            .into_iter()
+            .map(|(id, (dir, h))| {
+                let is_dir = dir.is_dir();
+                let mut on_disk = if is_dir { self.scan_one(&dir) } else { vec![] };
+                let same = |s: &Scanned| known.get(&id).and_then(|k| k.get(s.name.as_bytes())).is_some_and(|&c| (self.nodes[c as usize].flags & DIR != 0) == s.is_dir);
+                for s in on_disk.iter_mut().filter(|s| s.is_dir) {
+                    if !same(s) {
+                        s.children = self.scan(&dir.join(&s.name));
+                    }
+                }
+                (id, h, is_dir, on_disk)
+            })
+            .collect();
+        Looked { targets, known }
+    }
+
+    /// The index side of `refresh`: what `look` found goes in.
+    pub fn apply(&mut self, mut looked: Looked) {
+        for (id, h, is_dir, on_disk) in looked.targets {
+            let mut known = looked.known.remove(&id).unwrap_or_default();
+            if !is_dir {
                 self.remove(id, h);
             }
             for s in on_disk {
@@ -238,11 +271,9 @@ impl Index {
                         if let Some(c) = old {
                             self.remove(c, chain(h, self.name(c)));
                         }
-                        let p = dir.join(&s.name);
                         let is_dir = s.is_dir;
-                        let children = if is_dir { self.scan(&p) } else { vec![] };
                         let start = self.nodes.len();
-                        self.push_tree(id, Scanned { children, ..s });
+                        self.push_tree(id, s);
                         if is_dir {
                             self.hash_new(start);
                         }
@@ -450,7 +481,10 @@ impl Index {
             })
             .collect();
         let names = r.take(n_names)?.to_vec();
-        if nodes.iter().any(|n| n.off as usize + n.len as usize >= names.len()) {
+        // A damaged file must not take the helper down at every start: every name inside the
+        // buffer, every parent an earlier node (so no cycles), the names in order.
+        let sound = |(i, n): (usize, &Node)| (n.off as usize + n.len as usize) < names.len() && (n.parent == NONE || (n.parent as usize) < i) && (i == 0 || n.off > nodes[i - 1].off);
+        if !nodes.iter().enumerate().all(sound) {
             return Err(r.bad());
         }
         let mut lower = Vec::with_capacity(names.len());
@@ -718,7 +752,9 @@ impl Service {
                 ev = rx.recv_timeout(deadline.saturating_duration_since(Instant::now())).ok();
             }
             if !dirty.is_empty() {
-                self.index.write().unwrap().refresh(&dirty);
+                // The disk is read under a read lock: searches go on meanwhile.
+                let looked = self.index.read().unwrap().look(&dirty);
+                self.index.write().unwrap().apply(looked);
                 self.listeners.lock().unwrap().retain(|l| l.send(paths.clone()).is_ok());
             }
         }
@@ -792,6 +828,18 @@ mod tests {
         let back = Index::load(&file).unwrap();
         assert_eq!(names(&back, "ext:rs"), names(&ix, "ext:rs"));
         assert_eq!(back.len(), ix.len());
+        // A damaged cache is an error, never a crash: a node whose parent comes after it (a
+        // parent past the end), and one whose name lies outside the buffer.
+        let good = fs::read(&file).unwrap();
+        let at = 8 + 4 + (good[8..12].iter().rev().fold(0usize, |a, &b| a << 8 | b as usize)) + 4;
+        let excl = u32::from_le_bytes(good[at - 4..at].try_into().unwrap()) as usize;
+        let nodes_at = at + excl + 8 + 12;
+        for (off, bytes) in [(nodes_at, (u32::MAX - 1).to_le_bytes()), (nodes_at + 4, u32::MAX.to_le_bytes())] {
+            let mut bad = good.clone();
+            bad[off..off + 4].copy_from_slice(&bytes);
+            fs::write(&file, &bad).unwrap();
+            assert!(Index::load(&file).is_err());
+        }
         fs::remove_dir_all(d).unwrap();
     }
 

@@ -11,9 +11,8 @@ and a search finds those words too.
 ## How to use it
 
 1. Install the program (table below).
-2. Let the [search helper](helper.md) start again: close every Coxswain window and wait ten
-   minutes, or change anything under *Settings → Search inside files*, which starts a new helper.
-   The helper looks for the programs when it starts.
+2. Wait for the [search helper](helper.md)'s next scan, within ten minutes, or click **Index
+   now** under *Settings → Search inside files*: the helper looks for the programs at every scan.
 3. The files of that kind are then read again, by themselves. Search them as any
    [text](text.md): **Alt+F7**, **Tab**, **Tab**, your words.
 

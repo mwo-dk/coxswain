@@ -38,7 +38,8 @@ the diagrams read before this came in are read again once, by themselves.
 
 ## What a diagram becomes
 
-The diagram's own text is kept as it is; the sentences are added after it, one per line. The
+The diagram's own text is kept as it is; the sentences come before it, one per line, so that
+search by meaning, which reads the start of a file, sees them in a long file too. The
 examples come from Coxswain's own tests.
 
 **Mermaid flowchart**
@@ -111,8 +112,9 @@ start of the passage. To see the diagram itself, **Enter** to go to it and **Spa
 - At most 2,000 sentences per diagram: a generated graph can have thousands of arrows.
 - In draw.io, an arrow whose ends are not both shapes with labels gives no sentence.
 - Search by meaning gives vectors to the start of each file only (eight passages of about 120
-  words). The sentences come after the diagram's text, so in a long diagram or Markdown file they
-  may lie past that start: they are found by words, but not by meaning.
+  words). The sentences come first, so a long diagram or Markdown file is still found by its
+  arrows; a generated graph with hundreds of arrows can crowd its own text out of that start
+  (its words are still found by words).
 
 ## Settings and config.toml
 
@@ -144,9 +146,9 @@ label. Its words are still in the text. Tell us the line, so the pattern can lea
 A node that is never given a label is named by its id: `api to db.` in the Graphviz example, where
 `api` and `db` have no `label`.
 
-#### Why does search by meaning not find a large diagram by its arrows?
-Only the start of each file gets vectors, and the sentences are added after the diagram's text. In
-a long file they fall outside that start. Search by words still finds them.
+#### Why does search by meaning not find a large diagram by its text?
+Only the start of each file gets vectors, and the sentences come first: a graph with hundreds
+of arrows fills that start with them. Search by words still finds the text.
 
 #### Is this the same as the diagram preview?
 No. The [preview](../previews/diagrams.md) draws the diagram; this reads it for search. They work

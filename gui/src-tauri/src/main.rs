@@ -528,8 +528,9 @@ fn meaning_status(ctx: tauri::State<Ctx>) -> Res<MeaningStatus> {
 /// The embedding models a server offers, for Settings: Ollama's pulled ones, or an OpenAI
 /// server's list. An error when it does not answer.
 #[tauri::command]
-async fn meaning_models(engine: String, url: String) -> Res<Vec<String>> {
-    tauri::async_runtime::spawn_blocking(move || coxswain_core::meaning::server_models(engine == "openai", &url)).await.map_err(|e| e.to_string())?
+async fn meaning_models(engine: String, url: String, ctx: tauri::State<'_, Ctx>) -> Res<Vec<String>> {
+    let key = coxswain_core::meaning::key_of(&ctx.cfg().search);
+    tauri::async_runtime::spawn_blocking(move || coxswain_core::meaning::server_models(engine == "openai", &url, key.as_deref())).await.map_err(|e| e.to_string())?
 }
 
 /// Ask Ollama to pull `model`; the progress is the download's, in `meaning_status`.
@@ -805,6 +806,9 @@ fn edit_path(path: PathBuf, ctx: tauri::State<Ctx>) -> Res<()> {
     }
 }
 
+/// Lines of a hex dump, 16 bytes each: 64 KB. The UI says as much.
+const HEX_LINES: usize = 4096;
+
 /// Up to `max` bytes as text for the preview; binary files come back hex-dumped.
 #[tauri::command]
 async fn read_text(path: PathBuf, max: usize) -> Res<(String, bool, bool)> {
@@ -814,9 +818,10 @@ async fn read_text(path: PathBuf, max: usize) -> Res<(String, bool, bool)> {
     f.take(max as u64).read_to_end(&mut buf).map_err(|e| e.to_string())?;
     let truncated = len > buf.len() as u64;
     if buf.iter().take(8192).any(|&b| b == 0) {
+        // A hex dump of the first 64 KB: four thousand lines are plenty to see what a file is.
         let hex = buf
             .chunks(16)
-            .take(4096)
+            .take(HEX_LINES)
             .enumerate()
             .map(|(i, c)| {
                 let h: String = c.iter().map(|b| format!("{b:02x} ")).collect();
@@ -825,7 +830,7 @@ async fn read_text(path: PathBuf, max: usize) -> Res<(String, bool, bool)> {
             })
             .collect::<Vec<_>>()
             .join("\n");
-        return Ok((hex, truncated, true));
+        return Ok((hex, len > (HEX_LINES * 16) as u64, true));
     }
     Ok((String::from_utf8_lossy(&buf).into_owned(), truncated, false))
 }
