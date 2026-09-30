@@ -98,6 +98,37 @@
     loadMeaning();
     loadIndex();
   }
+  // A server makes the vectors instead: Ollama, or one that speaks the OpenAI API (Lemonade,
+  // LM Studio, llama.cpp …). Its models are listed; a server elsewhere is said to be elsewhere.
+  const server = $derived(s.meaning_engine === "builtin" ? null : s.meaning_engine);
+  const wanted = $derived(s.meaning_model || "bge-m3");
+  let models = $state({ ok: false, list: [], error: "" });
+  $effect(() => {
+    const [engine, url] = [server, s.meaning_url];
+    if (!engine) return;
+    invoke("meaning_models", { engine, url }).then((list) => (models = { ok: true, list, error: "" }), (e) => (models = { ok: false, list: [], error: String(e) }));
+  });
+  // A pull that finished brings its model into the list.
+  let pulling = false;
+  $effect(() => {
+    const now = !!meaning?.downloading;
+    if (pulling && !now && server) invoke("meaning_models", { engine: server, url: s.meaning_url }).then((list) => (models = { ok: true, list, error: "" }), () => {});
+    pulling = now;
+  });
+  const remote = $derived.by(() => {
+    if (!server) return "";
+    try {
+      const host = new URL(s.meaning_url || (server === "ollama" ? "http://localhost:11434" : "http://localhost")).hostname;
+      return ["localhost", "127.0.0.1", "[::1]", "::1"].includes(host) ? "" : host;
+    } catch {
+      return "";
+    }
+  });
+  async function pull(model) {
+    error = "";
+    await invoke("meaning_pull", { model, url: s.meaning_url }).catch((e) => (error = String(e)));
+    loadMeaning();
+  }
   // Deleting the index takes a second click.
   let forgetting = $state(false);
   async function indexAction(what) {
@@ -249,25 +280,57 @@
     <section id="settings-meaning">
       <h3>{t("settings.meaning")}</h3>
       <p class="hint">{t("settings.meaning_hint")}</p>
+      <div class="grid">
+        <label for="mengine">{t("settings.meaning_engine")}</label>
+        <select id="mengine" value={s.meaning_engine} onchange={(e) => setSearch("meaning_engine", e.currentTarget.value)}>
+          <option value="builtin">{t("settings.meaning_builtin", { size: size(meaning?.size ?? 0) })}</option>
+          <option value="ollama">Ollama</option>
+          <option value="openai">{t("settings.meaning_openai")}</option>
+        </select>
+        {#if server}
+          <label for="murl">{t("settings.meaning_url")}</label>
+          <input id="murl" value={s.meaning_url} spellcheck="false" placeholder={server === "ollama" ? "http://localhost:11434" : "http://localhost:8000/api/v1"} onchange={(e) => setSearch("meaning_url", e.currentTarget.value.trim())} />
+          <label for="mmodel">{t("settings.meaning_model")}</label>
+          <div class="folder">
+            <input id="mmodel" list="mmodels" value={s.meaning_model} spellcheck="false" placeholder={server === "ollama" ? "bge-m3" : ""} onchange={(e) => setSearch("meaning_model", e.currentTarget.value.trim())} />
+            <datalist id="mmodels">{#each models.list as m (m)}<option value={m}></option>{/each}</datalist>
+            {#if server === "ollama" && models.ok && !models.list.some((m) => m.split(":")[0] === wanted)}
+              <button disabled={!!meaning?.downloading} onclick={() => pull(wanted)}>{t("settings.meaning_pull", { model: wanted })}</button>
+            {/if}
+          </div>
+          {#if server === "openai"}
+            <label for="mkey">{t("settings.meaning_key_env")}</label>
+            <input id="mkey" value={s.meaning_key_env} spellcheck="false" placeholder="OPENAI_API_KEY" onchange={(e) => setSearch("meaning_key_env", e.currentTarget.value.trim())} />
+          {/if}
+          <span></span>
+          <p class="hint">
+            {models.ok ? t("settings.meaning_server_ok") : models.error}
+            {#if remote}<br /><strong>{t("settings.meaning_remote", { host: remote })}</strong>{/if}
+          </p>
+        {/if}
+      </div>
       {#if meaning?.downloading}
         <p class="hint">{t("settings.meaning_downloading", { done: size(meaning.downloading[0]), total: size(meaning.downloading[1]) })}</p>
         <progress max={meaning.downloading[1] || 1} value={meaning.downloading[0]}></progress>
         <div class="buttons"><button onclick={() => meaningAction("cancel")}>{t("common.cancel")}</button></div>
-      {:else if s.search_meaning && meaning?.installed}
+      {:else if s.search_meaning && (server || meaning?.installed)}
         <p class="hint">
           {t("settings.meaning_status", { done: index?.meaning_done ?? 0, pending: index?.meaning_pending ?? 0 })}
+          {#if index?.meaning_engine}<br /><span class="mono">{index.meaning_engine}</span>{/if}
+          {#if !server && meaning?.folder}<br /><span class="mono">{meaning.folder}</span>{/if}
+          {#if index?.meaning_error}<br /><span class="err">{index.meaning_error}</span>{/if}
           {#if index?.paused}<br /><strong>{t("settings.search_paused")}</strong>{/if}
         </p>
         <div class="buttons">
           <button onclick={() => meaningAction("off")}>{t("settings.meaning_off")}</button>
-          <button onclick={() => meaningAction("remove")}>{t("settings.meaning_remove")}</button>
+          {#if !server}<button onclick={() => meaningAction("remove")}>{t("settings.meaning_remove")}</button>{/if}
         </div>
       {:else}
         {#if meaning?.error}<p class="err">{meaning.error}</p>{/if}
         <div class="buttons">
-          {#if meaning?.installed}
-            <button class="primary" onclick={() => setSearch("search_meaning", true)}>{t("settings.meaning_on")}</button>
-            <button onclick={() => meaningAction("remove")}>{t("settings.meaning_remove")}</button>
+          {#if server || meaning?.installed}
+            <button class="primary" disabled={!s.search_text} onclick={() => setSearch("search_meaning", true)}>{t("settings.meaning_on")}</button>
+            {#if !server}<button onclick={() => meaningAction("remove")}>{t("settings.meaning_remove")}</button>{/if}
           {:else}
             <button class="primary" disabled={!s.search_text} onclick={() => meaningAction("download")}>{t("settings.meaning_download", { size: size(meaning?.size ?? 0) })}</button>
           {/if}
