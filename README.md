@@ -31,13 +31,15 @@ Mac OS 9; see [themes](#themes).*
   PlantUML, Graphviz, AsciiDoc and reStructuredText, with an installed tool or in a podman or
   docker container, so rarely used tools need not be installed. See
   [the full list](docs/previews.md).
-- **Folder sizes, without asking.** Both apps measure folders in the background and fill
-  the sizes in as they come, on two threads so the machine stays yours.
+- **Folder sizes, without asking.** In your home folder they are there at once: the
+  [search helper](#how-search-stays-fast) already knows every file's size. Other folders are
+  measured in the background and filled in as they come, on two threads so the machine stays
+  yours.
 - **Plays well with the desktop.** Delete goes to the trash, folders refresh themselves, files
   drag to and from other apps, and Ctrl+C / Ctrl+V share files with your other file manager.
 - **Finds duplicates.** Ctrl+D compares folders and whole disks, old backups included, and
   finds duplicate files and folders by content, whatever they are called: sizes first, then
-  BLAKE3 hashes, cached for next time.
+  BLAKE3 hashes, kept for next time. The helper hashes your home folder's look-alikes ahead.
   Mark the extra copies by rule and move them to the trash. See
   [finding duplicates](docs/duplicates.md).
 - **Speaks your language.** 18 languages, from British, Australian, Canadian and New Zealand
@@ -328,6 +330,7 @@ of one, so `rocket bud` finds "rocket budget".
 | **What is read** | Your home folder: text, code, Markdown, logs, configuration and any other file that is plain text, and the [documents](#documents-it-reads) below, up to 20 MB each |
 | **What is left out** | Hidden folders, `node_modules`, `target`, `build`, `dist`, `out`, `vendor`, `__pycache__` and the trash; any folder holding a file named `.nosearch`; pictures, video, archives and other files without text |
 | **When** | In the background, one file at a time and at half speed, by the [helper](#how-search-stays-fast). A change shows up in searches within ten minutes |
+| **Also kept** | Every file's size and date, the total of each folder left out, so folder sizes are a sum; and the hash of files that share a size, for Duplicates |
 | **Where it is kept** | `search.db` in Coxswain's cache folder, readable by you alone. Nothing leaves your machine. Delete the file to start afresh |
 | **Switching it off** | `text = false` under `[search]` in `config.toml` |
 

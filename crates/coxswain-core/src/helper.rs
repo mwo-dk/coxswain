@@ -21,6 +21,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::config::{Config, SearchConfig};
 use crate::index::{Results, Service, State};
+use crate::sizes::Size;
 use crate::store::{self, Store};
 
 /// The argument that makes an app the helper.
@@ -43,6 +44,8 @@ enum Request {
         text: bool,
     },
     Status,
+    /// Bytes and files below a folder, from the store.
+    Size { path: PathBuf },
 }
 
 #[derive(Serialize, Deserialize)]
@@ -52,6 +55,8 @@ enum Reply {
     Hello { same: bool },
     Results(Results),
     Status(Status),
+    /// With the time the walk they come from began.
+    Size { size: Option<(Size, u64)> },
 }
 
 /// How the index is doing.
@@ -164,6 +169,7 @@ fn answer(stream: TcpStream, index: &Service, store: Option<&Store>, token: &str
             _ if !said_hello => return Ok(()),
             Request::Search { query, max, text: true, .. } => Reply::Results(store.map(|s| s.search(&query, max)).unwrap_or_default()),
             Request::Search { query, scope, max, .. } => Reply::Results(index.search(&query, scope.as_deref(), max)),
+            Request::Size { path } => Reply::Size { size: store.and_then(|s| s.size(&path)) },
             Request::Status => Reply::Status(Status {
                 state: index.state(),
                 len: index.len(),
@@ -223,6 +229,14 @@ impl Client {
         match self.ask(&Request::Search { query: query.into(), scope: None, max, text: true }) {
             Some(Reply::Results(r)) => r,
             _ => Results::default(),
+        }
+    }
+
+    /// Bytes and files below `dir` as the store knew them, with when its walk began.
+    pub fn size(&self, dir: &Path) -> Option<(Size, u64)> {
+        match self.ask(&Request::Size { path: dir.to_path_buf() }) {
+            Some(Reply::Size { size }) => size,
+            _ => None,
         }
     }
 
@@ -415,6 +429,8 @@ mod tests {
         let found = two.search_text("launch", 10);
         assert_eq!(found.hits.iter().map(|h| h.path.file_name().unwrap().to_string_lossy().into_owned()).collect::<Vec<_>>(), ["main.rs"]);
         assert!(found.hits[0].snippet.as_deref().unwrap().contains("launch"));
+        // And folder sizes from its store.
+        assert_eq!(two.size(&d.join("files/src")).map(|s| s.0), Some(crate::fs::dir_size(&d.join("files/src"))));
 
         // Both apps go: the helper waits its while, then takes its address with it.
         drop((one, two));

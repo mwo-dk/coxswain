@@ -6,8 +6,8 @@
 //! 3. Hash the rest of the survivors in full (BLAKE3 uses SIMD: AVX2/AVX-512 on x86, NEON on ARM).
 //!
 //! Hardlinks to one file are not duplicates (they share the space) and are counted once.
-//! Full hashes are cached by path, size and modification time, so a second scan of an old
-//! disk only reads what changed. Folders whose whole contents match (names and bytes) are
+//! Full hashes are kept in the search store by path, size and modification time, so a second
+//! scan of an old disk only reads what changed; the helper hashes the home folder's files ahead. Folders whose whole contents match (names and bytes) are
 //! reported as one folder group instead of one group per file inside.
 
 use rayon::prelude::*;
@@ -18,6 +18,8 @@ use std::io::{self, Read};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::time::UNIX_EPOCH;
+
+use crate::store::Store;
 
 #[derive(Clone, Debug, Deserialize)]
 #[serde(default)]
@@ -143,13 +145,14 @@ fn walk(dir: &Path, opts: &Options, p: &Progress, out: &mut Vec<Found>) {
     out.extend(nested.into_iter().flatten());
 }
 
-fn hash_file(path: &Path, limit: Option<usize>, p: &Progress) -> io::Result<blake3::Hash> {
+/// BLAKE3 of the file, or of its first `limit` bytes. `read` counts the bytes as they go.
+pub(crate) fn hash_file(path: &Path, limit: Option<usize>, cancel: &AtomicBool, read: Option<&AtomicU64>) -> io::Result<blake3::Hash> {
     let mut f = fs::File::open(path)?;
     let mut h = blake3::Hasher::new();
     let mut buf = vec![0u8; 1 << 20];
     let mut left = limit.unwrap_or(usize::MAX);
     while left > 0 {
-        if p.cancel.load(Ordering::Relaxed) {
+        if cancel.load(Ordering::Relaxed) {
             return Err(io::Error::new(io::ErrorKind::Interrupted, "cancelled"));
         }
         let want = buf.len().min(left);
@@ -158,30 +161,12 @@ fn hash_file(path: &Path, limit: Option<usize>, p: &Progress) -> io::Result<blak
             break;
         }
         h.update(&buf[..n]);
-        p.bytes.fetch_add(n as u64, Ordering::Relaxed);
+        if let Some(read) = read {
+            read.fetch_add(n as u64, Ordering::Relaxed);
+        }
         left -= n;
     }
     Ok(h.finalize())
-}
-
-/// Full-hash cache on disk: path -> (size, modified, hash).
-type Cache = HashMap<PathBuf, (u64, u64, String)>;
-
-fn cache_path() -> Option<PathBuf> {
-    Some(dirs::cache_dir()?.join("coxswain").join("dupes-hashes.json"))
-}
-
-fn load_cache() -> Cache {
-    cache_path().and_then(|p| fs::read(p).ok()).and_then(|b| serde_json::from_slice(&b).ok()).unwrap_or_default()
-}
-
-fn save_cache(c: &Cache) {
-    if let Some(p) = cache_path() {
-        let _ = fs::create_dir_all(p.parent().unwrap());
-        if let Ok(b) = serde_json::to_vec(c) {
-            let _ = fs::write(p, b);
-        }
-    }
 }
 
 /// Split `groups` by `key`, keeping only subgroups with two or more files.
@@ -224,32 +209,40 @@ pub fn scan(opts: &Options, p: &Progress) -> Report {
     p.done.store(0, Ordering::Relaxed);
     let candidates = split(candidates, |f| {
         p.done.fetch_add(1, Ordering::Relaxed);
-        if f.size as usize <= HEAD { Some(*blake3::hash(&[]).as_bytes()) } else { hash_file(&f.path, Some(HEAD), p).ok().map(|h| *h.as_bytes()) }
+        if f.size as usize <= HEAD { Some(*blake3::hash(&[]).as_bytes()) } else { hash_file(&f.path, Some(HEAD), &p.cancel, Some(&p.bytes)).ok().map(|h| *h.as_bytes()) }
     });
 
-    // Full hashes, from the cache where the file has not changed.
+    // Full hashes, from the store where the file has not changed.
     p.phase.store(2, Ordering::Relaxed);
     p.total.store(candidates.iter().map(|g| g.len() as u64).sum(), Ordering::Relaxed);
     p.done.store(0, Ordering::Relaxed);
-    let cache = std::sync::Mutex::new(load_cache());
+    let store = Store::path().and_then(|path| Store::open(&path).ok());
+    let _ = Store::path().map(|path| fs::remove_file(path.with_file_name("dupes-hashes.json")));
+    let (new, hashes) = (std::sync::Mutex::new(vec![]), std::sync::Mutex::new(HashMap::new()));
     let full = split(candidates, |f| {
         p.done.fetch_add(1, Ordering::Relaxed);
-        if let Some((s, m, h)) = cache.lock().ok()?.get(&f.path).cloned() {
-            if s == f.size && m == f.modified {
-                return Some(h);
+        let h = match store.as_ref().and_then(|s| s.hash(&f.path, f.size, f.modified)) {
+            Some(h) => h,
+            None => {
+                let h = hash_file(&f.path, None, &p.cancel, Some(&p.bytes)).ok()?.to_hex().to_string();
+                new.lock().ok()?.push((f.path.clone(), f.size, f.modified, h.clone()));
+                h
             }
-        }
-        let h = hash_file(&f.path, None, p).ok()?.to_hex().to_string();
-        cache.lock().ok()?.insert(f.path.clone(), (f.size, f.modified, h.clone()));
+        };
+        hashes.lock().ok()?.insert(f.path.clone(), h.clone());
         Some(h)
     });
-    let cache = cache.into_inner().unwrap_or_default();
+    // Whatever was hashed is kept, also when the scan was cancelled.
+    if let Some(store) = &store {
+        let _ = store.put_hashes(&new.into_inner().unwrap_or_default());
+    }
+    let hashes = hashes.into_inner().unwrap_or_default();
 
     let mut hash_of: HashMap<PathBuf, String> = HashMap::new();
     let mut groups: Vec<Group> = full
         .into_iter()
         .map(|g| {
-            let hash = cache.get(&g[0].path).map(|c| c.2.clone()).unwrap_or_default();
+            let hash = hashes[&g[0].path].clone();
             for f in &g {
                 hash_of.insert(f.path.clone(), hash.clone());
             }
@@ -259,9 +252,6 @@ pub fn scan(opts: &Options, p: &Progress) -> Report {
             Group { wasted: size * (files.len() as u64 - 1), hash, size, files }
         })
         .collect();
-    if !p.cancel.load(Ordering::Relaxed) {
-        save_cache(&cache);
-    }
 
     let folders = if opts.folders { folder_groups(opts, &hash_of) } else { vec![] };
     // Files inside duplicate folders are already covered by the folder group.
