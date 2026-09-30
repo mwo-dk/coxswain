@@ -11,6 +11,9 @@
   `gh pr create`, then `gh pr merge --auto --squash` so it merges itself once CI is green.
   The squash commit title is what lands on `master`, so make the PR title a good commit title.
 - **Commits:** plain messages. No `Co-Authored-By` or other Claude attribution.
+- **Local GUI builds:** `cd gui && npm run build`, then `cargo build --release -p coxswain-gui`
+  embeds `gui/dist` (default feature `custom-protocol`). `npx tauri dev -- --no-default-features`
+  for the live dev server; without that flag dev loads `dist` too.
 - **Check before pushing:** `cargo test --workspace`, and for GUI changes
   `cd gui && npx svelte-check && npm run build`.
 - **Screenshots** in `docs/screenshots/` are taken in a sandbox with a fake home, so nothing
