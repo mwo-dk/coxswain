@@ -173,6 +173,7 @@ struct Settings {
     text_roots: Vec<PathBuf>,
     names_only: Vec<PathBuf>,
     search_meaning: bool,
+    latex_auto: bool,
 }
 
 impl From<&Config> for Settings {
@@ -196,6 +197,7 @@ impl From<&Config> for Settings {
             text_roots: c.search.text_roots.clone(),
             names_only: c.search.names_only.clone(),
             search_meaning: c.search.meaning,
+            latex_auto: c.preview.latex_auto,
         }
     }
 }
@@ -220,6 +222,7 @@ const SETTING_PATHS: &[(&str, &[&str])] = &[
     ("text_roots", &["search", "text_roots"]),
     ("names_only", &["search", "names_only"]),
     ("search_meaning", &["search", "meaning"]),
+    ("latex_auto", &["preview", "latex_auto"]),
 ];
 
 /// `text` (a config.toml) with the settings in `changes` set, comments and layout kept.

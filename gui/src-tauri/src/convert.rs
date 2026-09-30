@@ -126,6 +126,8 @@ pub struct Converted {
     text: Option<String>,
     /// What went wrong, when a result came all the same (LaTeX builds past its errors).
     note: Option<String>,
+    /// Which engine made it, when the one picked could not.
+    instead: Option<String>,
 }
 
 fn cache_dir(path: &Path, tool: &str, engine: &str) -> Res<PathBuf> {
@@ -162,8 +164,8 @@ pub async fn convert(path: PathBuf, tool: String, engine: String, cached_only: b
         let (kind, file) = output(&tool, &path, &out);
         let done = |file: PathBuf| -> Res<Option<Converted>> {
             Ok(Some(match kind {
-                "pdf" | "svg" => Converted { kind, file: Some(file), text: None, note: None },
-                _ => Converted { kind, file: None, text: Some(std::fs::read_to_string(&file).map_err(|e| e.to_string())?), note: None },
+                "pdf" | "svg" => Converted { kind, file: Some(file), text: None, note: None, instead: None },
+                _ => Converted { kind, file: None, text: Some(std::fs::read_to_string(&file).map_err(|e| e.to_string())?), note: None, instead: None },
             }))
         };
         if file.is_file() {
@@ -179,7 +181,25 @@ pub async fn convert(path: PathBuf, tool: String, engine: String, cached_only: b
             // A document with an error still makes a PDF: shown, with the error above it.
             Err(e) if file.is_file() => done(file.clone()).map(|c| c.map(|c| Converted { note: Some(failure(&tool, &path, &out, &e)), ..c })),
             Ok(()) => Err(failure(&tool, &path, &out, &t!("convert.no_result"))),
-            Err(e) => Err(failure(&tool, &path, &out, &e)),
+            Err(e) => {
+                let why = failure(&tool, &path, &out, &e);
+                // A LaTeX build that one engine cannot make, another often can (tectonic is
+                // XeTeX only, a TeX Live container has everything): the others are tried, and
+                // what they make is kept as this engine's result, so the next look finds it.
+                if tool == "latex" {
+                    let first = engines(&cfg, &tool).into_iter().find(|x| x.id == engine).map_or(engine.clone(), |x| x.label);
+                    for other in engines(&cfg, &tool).into_iter().filter(|x| x.available && !x.needs_pull && x.id != engine) {
+                        let _ = std::fs::remove_dir_all(&out);
+                        std::fs::create_dir_all(&out).map_err(|e| e.to_string())?;
+                        if run(&cfg, &tool, &other.id, &path, &out, &file).is_ok() || file.is_file() {
+                            let said = why.lines().next().unwrap_or_default().to_string();
+                            let note = t!("convert.built_instead", "engine" => other.label, "failed" => first, "why" => said);
+                            return done(file).map(|c| c.map(|c| Converted { instead: Some(note), ..c }));
+                        }
+                    }
+                }
+                Err(why)
+            }
         }
     })
     .await
@@ -217,7 +237,12 @@ fn failure(tool: &str, path: &Path, out: &Path, err: &str) -> String {
     let lines: Vec<&str> = text.lines().collect();
     match lines.iter().position(|l| l.starts_with('!')) {
         Some(i) => lines[i..(i + 6).min(lines.len())].join("\n"),
-        None => err.to_string(),
+        // No log (tectonic keeps none): what the program said, without its warnings, which
+        // come first and are seldom why it stopped.
+        None => {
+            let said: Vec<&str> = err.lines().filter(|l| !l.starts_with("warning:") && !l.starts_with("note:") && !l.trim().is_empty()).collect();
+            if said.is_empty() { err.to_string() } else { said.join("\n") }
+        }
     }
 }
 
@@ -462,6 +487,19 @@ mod latex {
     #[cfg(test)]
     mod tests {
         use super::*;
+
+        #[test]
+        fn latex_errors_say_why_it_stopped() {
+            let d = std::env::temp_dir().join(format!("coxswain-latex-why-{}", std::process::id()));
+            std::fs::create_dir_all(&d).unwrap();
+            let main = d.join("main.tex");
+            std::fs::write(&main, "\\documentclass{book}\n").unwrap();
+            let said = "warning: accessing absolute path `/usr/share/fonts/a.ttf`; build may not be reproducible\nnote: downloading x\ncalled `Result::unwrap()` on an `Err` value: NulError";
+            assert_eq!(super::super::failure("latex", &main, &d, said), "called `Result::unwrap()` on an `Err` value: NulError", "tectonic keeps no log: its warnings are not why");
+            std::fs::write(d.join("main.log"), "This is XeTeX\n! Undefined control sequence.\nl.3 \\foo\n").unwrap();
+            assert!(super::super::failure("latex", &main, &d, said).starts_with("! Undefined control sequence."));
+            std::fs::remove_dir_all(d).unwrap();
+        }
 
         #[test]
         fn latex_finds_the_document_the_project_and_the_engine() {

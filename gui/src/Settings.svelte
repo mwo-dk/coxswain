@@ -293,6 +293,8 @@
         </select>
         <label for="latex">{t("settings.latex_image")}</label>
         <input id="latex" value={s.latex_image} spellcheck="false" onchange={(e) => set("latex_image", e.currentTarget.value)} />
+        <span></span>
+        <label class="check"><input type="checkbox" checked={s.latex_auto} onchange={(e) => set("latex_auto", e.currentTarget.checked)} /> {t("settings.latex_auto")}</label>
         <label for="timeout">{t("settings.timeout")}</label>
         <input id="timeout" type="number" min="10" max="3600" value={s.preview_timeout} onchange={(e) => set("preview_timeout", Number(e.currentTarget.value))} />
         <span>{t("settings.preview_cache")}</span>

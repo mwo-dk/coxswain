@@ -209,7 +209,8 @@ const CONVERTED = Object.fromEntries(
 /** Which external tool renders a kind (see convert.rs), and whether it is quick enough to run by itself.
  *  `verb` is a catalogue key for the button text: callers show it with t(conv.verb). */
 export const CONVERTER = {
-  latex: { tool: "latex", auto: false, verb: "convert.build_pdf" },
+  // A build takes a while: by itself (the latex_auto setting) once the file has stayed selected.
+  latex: { tool: "latex", auto: "latex_auto", wait: 800, verb: "convert.build_pdf" },
   // LibreOffice takes a few seconds: it starts once the file has been selected a moment.
   office: { tool: "libreoffice", auto: true, wait: 600, verb: "convert.render" },
   plantuml: { tool: "plantuml", auto: true, verb: "convert.render" },
