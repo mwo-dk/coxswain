@@ -273,6 +273,42 @@ export async function renderGraphviz(src) {
   }
 }
 
+/** A PowerPoint deck's slides as HTML, drawn in the browser at once (layout, text, pictures,
+ *  tables; not every font, effect or chart). LibreOffice, where there is one, follows with an
+ *  exact rendering. */
+export async function renderPptx(path) {
+  const [{ pptxToHtml }, { default: JSZip }] = await Promise.all([import("@jvmr/pptx-to-html"), import("jszip")]);
+  const slides = await pptxToHtml(await mendPptx(JSZip, await bytes(path)), { width: 960, height: 540, scaleToFit: true, letterbox: false });
+  return slides.map(clean);
+}
+
+/** Files saved by PowerPoint for the web start their XML parts with a byte order mark, which the
+ *  browser's XML parser refuses, and name parts by absolute paths (`/ppt/slides/slide1.xml`)
+ *  where the library expects relative ones. Both are mended before the library sees them. */
+async function mendPptx(JSZip, buffer) {
+  const zip = await JSZip.loadAsync(buffer);
+  let changed = false;
+  for (const name of Object.keys(zip.files).filter((n) => /\.(xml|rels)$/.test(n))) {
+    const before = await zip.file(name).async("string");
+    let xml = before.replace(/^\uFEFF/, "");
+    if (name.endsWith(".rels") && xml.includes('Target="/')) {
+      // "ppt/slides/_rels/slide1.xml.rels" describes "ppt/slides/slide1.xml": targets are relative to "ppt/slides/".
+      const base = name.replace(/_rels\/[^/]*$/, "").split("/").filter(Boolean);
+      xml = xml.replace(/Target="\/([^"]*)"/g, (_, abs) => {
+        const to = abs.split("/");
+        let i = 0;
+        while (i < base.length && i < to.length - 1 && base[i] === to[i]) i++;
+        return `Target="${[...Array(base.length - i).fill(".."), ...to.slice(i)].join("/")}"`;
+      });
+    }
+    if (xml !== before) {
+      zip.file(name, xml);
+      changed = true;
+    }
+  }
+  return changed ? zip.generateAsync({ type: "arraybuffer" }) : buffer;
+}
+
 let drawioReady;
 /** A draw.io diagram drawn into `el` by draw.io's own viewer (gui/public/vendor/drawio), loaded on
  *  first use. It works offline: shapes from draw.io's extra libraries (AWS, Azure, …) that it

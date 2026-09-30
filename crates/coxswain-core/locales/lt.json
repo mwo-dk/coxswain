@@ -435,6 +435,7 @@
  "preview.db_rows": "Eilutės",
  "preview.db_table": "Lentelė",
  "preview.diff": "Skirtumai",
+ "preview.exact_coming": "Rodoma iš karto; tikslus atvaizdavimas su {engine} jau ruošiamas…",
  "preview.expired_ago": {
   "few": "baigėsi prieš {n} dienas",
   "one": "baigėsi prieš {n} dieną",

@@ -411,6 +411,7 @@
  "preview.db_rows": "Zeilen",
  "preview.db_table": "Tabelle",
  "preview.diff": "Diff",
+ "preview.exact_coming": "Sofort angezeigt; die genaue Darstellung mit {engine} folgt…",
  "preview.expired_ago": {
   "one": "vor {n} Tag abgelaufen",
   "other": "vor {n} Tagen abgelaufen"

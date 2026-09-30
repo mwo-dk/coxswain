@@ -435,6 +435,7 @@
  "preview.db_rows": "Righe",
  "preview.db_table": "Tabella",
  "preview.diff": "Diff",
+ "preview.exact_coming": "Mostrato subito; la resa esatta con {engine} è in arrivo…",
  "preview.expired_ago": {
   "many": "scaduto {n} giorni fa",
   "one": "scaduto {n} giorno fa",

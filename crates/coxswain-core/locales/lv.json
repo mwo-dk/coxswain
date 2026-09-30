@@ -435,6 +435,7 @@
  "preview.db_rows": "Rindas",
  "preview.db_table": "Tabula",
  "preview.diff": "Atšķirības",
+ "preview.exact_coming": "Parādīts uzreiz; precīzs atveidojums ar {engine} ir ceļā…",
  "preview.expired_ago": {
   "one": "beidzās pirms {n} dienas",
   "other": "beidzās pirms {n} dienām",

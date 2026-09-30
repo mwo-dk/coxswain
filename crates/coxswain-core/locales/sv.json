@@ -411,6 +411,7 @@
  "preview.db_rows": "Rader",
  "preview.db_table": "Tabell",
  "preview.diff": "Diff",
+ "preview.exact_coming": "Visas direkt; den exakta återgivningen med {engine} är på väg…",
  "preview.expired_ago": {
   "one": "gick ut för {n} dag sedan",
   "other": "gick ut för {n} dagar sedan"

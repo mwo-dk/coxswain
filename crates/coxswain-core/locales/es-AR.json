@@ -435,6 +435,7 @@
  "preview.db_rows": "Filas",
  "preview.db_table": "Tabla",
  "preview.diff": "Diferencias",
+ "preview.exact_coming": "Se muestra al instante; la versión exacta con {engine} está en camino…",
  "preview.expired_ago": {
   "many": "venció hace {n} días",
   "one": "venció hace {n} día",

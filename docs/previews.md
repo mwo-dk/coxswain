@@ -109,6 +109,12 @@ installed for a preview you only need now and then.
    the container, e.g. **latexmk · podman texlive:latest**. Unavailable ones are greyed out;
    hover for the reason ("tectonic is not installed", "No image for duckdb"). Your pick is
    remembered per tool.
+PowerPoint decks (`.pptx`, `.pptm`, `.ppsx`, `.potx`) need nothing installed to be seen: they
+are drawn in the app at once by [pptx-to-html](https://github.com/javier-mora/pptx-to-html)
+(MIT), with their layout, text, pictures and tables; not every font, colour scheme, effect or
+chart. With LibreOffice installed (or a LibreOffice container image set), the exact rendering
+runs meanwhile and takes the quick view's place when it is ready.
+
 2. **Render.** LaTeX waits for **Build PDF**, because a build takes long and runs someone
    else's document. The others run by themselves; LibreOffice once a file has stayed selected
    for a moment, so moving through a folder of slides does not start one per file. None runs
