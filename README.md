@@ -283,7 +283,7 @@ how to correct or add a translation.
 
 ## Settings
 
-**Ctrl+,** (or F9 → *Settings*, or `coxswain-gui --settings` from a terminal) opens the desktop
+**Ctrl+,** (or F9 → *Settings*, or `coxswain-gui --settings[=search]` from a terminal) opens the desktop
 app's settings:
 
 ![The Settings window: languages with their flags, appearance, behaviour and previews](docs/screenshots/gui-settings.png)
@@ -328,14 +328,22 @@ of one, so `rocket bud` finds "rocket budget".
 | | |
 |---|---|
 | **What is read** | Your home folder: text, code, Markdown, logs, configuration and any other file that is plain text, and the [documents](#documents-it-reads) below, up to 20 MB each |
-| **What is left out** | Hidden folders, `node_modules`, `target`, `build`, `dist`, `out`, `vendor`, `__pycache__` and the trash; any folder holding a file named `.nosearch`; pictures, video, archives and other files without text |
+| **What is left out** | Hidden folders, `node_modules`, `target`, `build`, `dist`, `out`, `vendor`, `__pycache__` and the trash; folders you mark *names only* in Settings; any folder holding a file named `.nosearch`; pictures, video, archives and other files without text |
 | **When** | In the background, one file at a time and at half speed, by the [helper](#how-search-stays-fast). It follows the file watcher, so a change shows up in searches within seconds |
 | **Also kept** | Every file's size and date, the total of each folder left out, so folder sizes are a sum; and the hash of files that share a size, for Duplicates |
 | **Where it is kept** | `search.db` in Coxswain's cache folder, readable by you alone. Nothing leaves your machine. Delete the file to start afresh |
-| **Switching it off** | `text = false` under `[search]` in `config.toml` |
+| **Switching it off** | Settings → *Search inside files*, or `text = false` under `[search]` in `config.toml` |
 
-More folders, other excludes and another size limit are `text_roots`, `text_exclude` and
-`text_max_size` under `[search]`.
+**Settings → Search inside files** (`coxswain-gui --settings=search`) shows how many files can
+be searched, how many are still to be read and how much room the index takes. *Index now* reads
+the backlog at full speed; *Delete the index* empties it, and it fills again from the start.
+There you also pick the folders that are read (your home folder when none are set) and the
+folders kept to *names only*: found by name and counted in folder sizes, never read.
+
+![Settings, Search inside files: 31 files searchable, Index now and Delete the index, the folders read and the names-only folders](docs/screenshots/gui-settings-search.png)
+
+Other excludes and another size limit are `text_exclude` and `text_max_size` under `[search]`;
+the folders are `text_roots` and `names_only`.
 
 #### Documents it reads
 

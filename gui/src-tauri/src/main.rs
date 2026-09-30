@@ -28,8 +28,8 @@ pub struct Ctx {
     start: [PathBuf; 2],
     /// `--duplicates <folders>`: open the duplicate finder on these folders at start.
     duplicates: Option<Vec<PathBuf>>,
-    /// `--settings`: open the Settings window at start.
-    open_settings: bool,
+    /// `--settings[=section]`: open the Settings window at start, at that section ("" for the top).
+    open_settings: Option<String>,
     state: Mutex<AppState>,
     /// Folders shown in the panes, watched so they reread themselves.
     watched: Mutex<Vec<PathBuf>>,
@@ -87,7 +87,8 @@ struct UiConfig {
     user_menu: Vec<UserCommand>,
     start: [PathBuf; 2],
     duplicates: Option<Vec<PathBuf>>,
-    open_settings: bool,
+    /// Start with Settings open, at this section ("" for the top).
+    open_settings: Option<String>,
     /// The language in use (resolved from `language`), its texts, and whether it is written
     /// right to left.
     language: &'static str,
@@ -132,7 +133,7 @@ fn get_config(ctx: tauri::State<Ctx>) -> Res<UiConfig> {
         user_menu: cfg.user_menu.clone(),
         start: ctx.start.clone(),
         duplicates: ctx.duplicates.clone(),
-        open_settings: ctx.open_settings,
+        open_settings: ctx.open_settings.clone(),
         language: coxswain_core::i18n::language(),
         strings: coxswain_core::i18n::catalogue(coxswain_core::i18n::language()),
         rtl: coxswain_core::i18n::is_rtl(coxswain_core::i18n::language()),
@@ -165,6 +166,10 @@ struct Settings {
     preview_container: String,
     preview_timeout: u64,
     latex_image: String,
+    search_text: bool,
+    /// The folders whose text is read; the home folder when none are set.
+    text_roots: Vec<PathBuf>,
+    names_only: Vec<PathBuf>,
 }
 
 impl From<&Config> for Settings {
@@ -184,6 +189,9 @@ impl From<&Config> for Settings {
             preview_container: c.preview.container.clone(),
             preview_timeout: c.preview.timeout,
             latex_image: c.preview.images.get("latex").cloned().unwrap_or_default(),
+            search_text: c.search.text,
+            text_roots: c.search.text_roots.clone(),
+            names_only: c.search.names_only.clone(),
         }
     }
 }
@@ -204,6 +212,9 @@ const SETTING_PATHS: &[(&str, &[&str])] = &[
     ("preview_container", &["preview", "container"]),
     ("preview_timeout", &["preview", "timeout"]),
     ("latex_image", &["preview", "images", "latex"]),
+    ("search_text", &["search", "text"]),
+    ("text_roots", &["search", "text_roots"]),
+    ("names_only", &["search", "names_only"]),
 ];
 
 /// `text` (a config.toml) with the settings in `changes` set, comments and layout kept.
@@ -215,6 +226,10 @@ fn apply_settings(text: &str, changes: &serde_json::Map<String, serde_json::Valu
             serde_json::Value::Bool(b) => (*b).into(),
             serde_json::Value::Number(n) => n.as_i64().ok_or_else(|| coxswain_core::t!("err.not_whole_number"))?.into(),
             serde_json::Value::String(s) => s.as_str().into(),
+            serde_json::Value::Array(a) => {
+                let texts: Option<Vec<&str>> = a.iter().map(|v| v.as_str()).collect();
+                texts.ok_or_else(|| coxswain_core::t!("err.unsupported_value", "name" => name))?.into_iter().collect::<toml_edit::Array>().into()
+            }
             _ => return Err(coxswain_core::t!("err.unsupported_value", "name" => name)),
         };
         let (last, parents) = keys.split_last().unwrap();
@@ -404,6 +419,37 @@ fn get_note(dir: PathBuf, ctx: tauri::State<Ctx>) -> Res<String> {
 }
 
 // ---------------------------------------------------------------- search & ops
+
+/// How the search helper is doing, for Settings.
+#[derive(Serialize)]
+struct IndexStatus {
+    #[serde(flatten)]
+    status: coxswain_core::helper::Status,
+    /// Where the store is kept.
+    path: Option<PathBuf>,
+    /// Whether the helper answers: without it there is no text search.
+    shared: bool,
+}
+
+#[tauri::command]
+async fn index_status(ctx: tauri::State<'_, Ctx>) -> Res<IndexStatus> {
+    let index = ctx.index.clone();
+    tauri::async_runtime::spawn_blocking(move || IndexStatus { status: index.status(), path: coxswain_core::store::Store::path(), shared: index.shared() }).await.map_err(|e| e.to_string())
+}
+
+/// "now": read the backlog at full speed; "forget": empty the store; "restart": a helper
+/// with the settings as they are now.
+#[tauri::command]
+async fn index_action(what: String, ctx: tauri::State<'_, Ctx>) -> Res<()> {
+    let index = ctx.index.clone();
+    tauri::async_runtime::spawn_blocking(move || match what.as_str() {
+        "now" => index.index_now(),
+        "forget" => index.forget(),
+        _ => index.restart(),
+    })
+    .await
+    .map_err(|e| e.to_string())
+}
 
 #[derive(Serialize)]
 struct SearchOut {
@@ -950,9 +996,10 @@ fn main() {
     let home = std::env::home_dir().unwrap_or_default();
     let cwd = std::env::current_dir().ok().filter(|d| d.parent().is_some()).unwrap_or(home);
     let mut args: Vec<String> = std::env::args().skip(1).collect();
-    // `coxswain-gui --settings [folders…]`: start with the Settings window open.
-    let open_settings = args.first().map(String::as_str) == Some("--settings");
-    if open_settings {
+    // `coxswain-gui --settings[=section] [folders…]`: start with the Settings window open, at
+    // that section (`search`).
+    let open_settings = args.first().and_then(|a| a.strip_prefix("--settings")).filter(|r| r.is_empty() || r.starts_with('=')).map(|r| r.trim_start_matches('=').to_string());
+    if open_settings.is_some() {
         args.remove(0);
     }
     // `coxswain-gui --duplicates [folders…]`: the folders (default: the current one) are scanned for
@@ -984,7 +1031,7 @@ fn main() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            get_config, list_dir, git_status, places, disks, get_state, save_session, save_favorites, set_tags, set_note, get_note,
+            get_config, index_status, index_action, list_dir, git_status, places, disks, get_state, save_session, save_favorites, set_tags, set_note, get_note,
             search, resolve_path, copy, rename, delete, mkdir, dir_sizes, rename_plan, rename_apply, open_path, edit_path,
             read_text, run_command, scripts, run_script, check_update, archive_list, extract, properties, set_permissions,
             clip_set, paste, start_drag, watch_dirs, preview::git_diff, preview::sqlite_info, preview::epub_preview,
@@ -1008,6 +1055,7 @@ mod tests {
         ch.insert("language".into(), "da".into());
         ch.insert("latex_image".into(), "texlive:medium".into());
         ch.insert("show_hidden".into(), false.into());
+        ch.insert("names_only".into(), serde_json::json!(["/home/me/Mail"]));
         let out = apply_settings(text, &ch).unwrap();
         for kept in ["# my config", "theme = \"nc\"  # terminal", "# big text", "quit = [\"F10\"]"] {
             assert!(out.contains(kept), "{kept} lost:\n{out}");
@@ -1015,6 +1063,7 @@ mod tests {
         let cfg = Config::parse(&out).unwrap();
         assert_eq!((cfg.gui.font_size, cfg.language.as_str(), cfg.show_hidden), (17.0, "da", false));
         assert_eq!(cfg.preview.images["latex"], "texlive:medium");
+        assert_eq!(cfg.search.names_only, [PathBuf::from("/home/me/Mail")]);
         assert_eq!(cfg.preview.images["plantuml"], "docker.io/plantuml/plantuml:latest", "other defaults stay");
         assert!(apply_settings(text, &serde_json::Map::from_iter([("nope".into(), 1.into())])).is_err());
     }

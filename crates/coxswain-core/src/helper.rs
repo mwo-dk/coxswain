@@ -46,6 +46,12 @@ enum Request {
     Status,
     /// Bytes and files below a folder, from the store.
     Size { path: PathBuf },
+    /// Read the backlog without rests.
+    IndexNow,
+    /// Empty the store; it fills again.
+    Forget,
+    /// Go, so that a helper with the new settings comes.
+    Restart,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -57,6 +63,7 @@ enum Reply {
     Status(Status),
     /// With the time the walk they come from began.
     Size { size: Option<(Size, u64)> },
+    Done,
 }
 
 /// How the index is doing.
@@ -70,6 +77,9 @@ pub struct Status {
     pub texts: usize,
     #[serde(default)]
     pub pending: usize,
+    /// Bytes the store takes on disk.
+    #[serde(default)]
+    pub bytes: u64,
 }
 
 /// Where the helper's address and lock live: the cache folder, which is the user's own.
@@ -113,8 +123,13 @@ pub fn serve_in(dir: &Path, linger: Duration, index: impl FnOnce() -> Arc<Servic
     std::fs::set_permissions(dir, std::os::unix::fs::PermissionsExt::from_mode(0o700))?;
     // One helper at a time: the lock is released when this process ends, however it ends.
     let lock = std::fs::File::create(dir.join("index.lock"))?;
-    if lock.try_lock().is_err() {
-        return Ok(());
+    // A helper that was asked to go may take a moment to let go.
+    let wait = Instant::now();
+    while lock.try_lock().is_err() {
+        if wait.elapsed() > Duration::from_secs(3) {
+            return Ok(());
+        }
+        std::thread::sleep(Duration::from_millis(100));
     }
     let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0))?;
     let (token, addr) = (token(), dir.join("index.addr"));
@@ -162,7 +177,8 @@ fn answer(stream: TcpStream, index: &Service, store: Option<&Store>, token: &str
                     return Ok(());
                 }
                 said_hello = true;
-                let same = version == VERSION;
+                // A helper on its way out sends newcomers to the next one.
+                let same = version == VERSION && !quit.load(Ordering::SeqCst);
                 // Another version of the app: it starts its own helper once this one is gone.
                 quit.fetch_or(!same, Ordering::SeqCst);
                 Reply::Hello { same }
@@ -171,11 +187,24 @@ fn answer(stream: TcpStream, index: &Service, store: Option<&Store>, token: &str
             Request::Search { query, max, text: true, .. } => Reply::Results(store.map(|s| s.search(&query, max)).unwrap_or_default()),
             Request::Search { query, scope, max, .. } => Reply::Results(index.search(&query, scope.as_deref(), max)),
             Request::Size { path } => Reply::Size { size: store.and_then(|s| s.size(&path)) },
+            Request::IndexNow => {
+                store.inspect(|s| s.hurry.store(true, Ordering::Relaxed));
+                Reply::Done
+            }
+            Request::Forget => {
+                store.map(Store::clear).transpose().map_err(io::Error::other)?;
+                Reply::Done
+            }
+            Request::Restart => {
+                quit.store(true, Ordering::SeqCst);
+                Reply::Done
+            }
             Request::Status => Reply::Status(Status {
                 state: index.state(),
                 len: index.len(),
                 texts: store.map_or(0, Store::texts),
                 pending: store.map_or(0, |s| s.pending.load(Ordering::Relaxed)),
+                bytes: store.map_or(0, Store::bytes),
             }),
         };
         let mut text = serde_json::to_string(&reply).map_err(io::Error::other)?;
@@ -241,6 +270,23 @@ impl Client {
         }
     }
 
+    /// Read the backlog of the files' text at full speed.
+    pub fn index_now(&self) {
+        self.ask(&Request::IndexNow);
+    }
+
+    /// Empty the search store; the helper fills it again.
+    pub fn forget(&self) {
+        self.ask(&Request::Forget);
+    }
+
+    /// The helper goes and a new one comes, with the settings as they are now.
+    pub fn restart(&self) {
+        self.ask(&Request::Restart);
+        *self.line.lock().unwrap() = None;
+        *self.status.lock().unwrap() = None;
+    }
+
     pub fn state(&self) -> State {
         self.status().state
     }
@@ -267,7 +313,7 @@ impl Client {
         }
         let now = match self.ask(&Request::Status) {
             Some(Reply::Status(s)) => s,
-            _ => Status { state: self.own().state(), len: self.own().len(), texts: 0, pending: 0 },
+            _ => Status { state: self.own().state(), len: self.own().len(), texts: 0, pending: 0, bytes: 0 },
         };
         *status = Some((Instant::now(), now));
         now
@@ -432,6 +478,11 @@ mod tests {
         assert!(found.hits[0].snippet.as_deref().unwrap().contains("launch"));
         // And folder sizes from its store.
         assert_eq!(two.size(&d.join("files/src")).map(|s| s.0), Some(crate::fs::dir_size(&d.join("files/src"))));
+
+        // A restart brings a new helper.
+        one.restart();
+        ready(&one);
+        assert_eq!(starts.load(Ordering::SeqCst), 2, "a new helper came");
 
         // Both apps go: the helper waits its while, then takes its address with it.
         drop((one, two));

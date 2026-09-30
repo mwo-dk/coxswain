@@ -766,6 +766,8 @@ pub struct SearchConfig {
     /// Folders left out by name, wherever they are. Hidden folders and folders holding a
     /// `.nosearch` file are left out too.
     pub text_exclude: Vec<String>,
+    /// Folders whose files are found by name, and counted in folder sizes, but never read.
+    pub names_only: Vec<PathBuf>,
     /// Larger files are left out. Bytes.
     pub text_max_size: u64,
 }
@@ -780,6 +782,7 @@ impl Default for SearchConfig {
             text: true,
             text_roots: vec![],
             text_exclude: ["node_modules", "target", "build", "dist", "out", "vendor", "__pycache__", "Trash"].map(String::from).to_vec(),
+            names_only: vec![],
             text_max_size: 20 * 1024 * 1024,
         }
     }

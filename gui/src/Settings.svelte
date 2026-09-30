@@ -1,7 +1,7 @@
 <script>
   // Settings: every choice is written to config.toml at once (comments and layout kept, see
   // save_settings in main.rs) and applied without a restart.
-  import { ui, setTheme } from "./app.svelte.js";
+  import { ui, setTheme, tab } from "./app.svelte.js";
   import { invoke, size } from "./lib.js";
   import { t, setLanguage } from "./i18n.svelte.js";
 
@@ -52,6 +52,40 @@
     const id = setInterval(loadImages, 1000);
     return () => clearInterval(id);
   });
+  // Search inside files: the helper's store, its folders, and what it is doing.
+  let index = $state(null);
+  const loadIndex = () => invoke("index_status").then((v) => (index = v), () => (index = null));
+  loadIndex();
+  $effect(() => {
+    const id = setInterval(loadIndex, 2000);
+    return () => clearInterval(id);
+  });
+  /** A search setting: saved, then a helper with the new settings takes over. */
+  async function setSearch(name, value) {
+    await set(name, value);
+    if (!error) await invoke("index_action", { what: "restart" }).catch((e) => (error = String(e)));
+    loadIndex();
+  }
+  const adding = $state({ text_roots: "", names_only: "" });
+  async function addFolder(name, input) {
+    const dir = await invoke("resolve_path", { base: tab()?.dir ?? ui.cfg.home, input: input || tab()?.dir || "" });
+    adding[name] = "";
+    if (!s[name].includes(dir)) setSearch(name, [...s[name], dir]);
+  }
+  // Deleting the index takes a second click.
+  let forgetting = $state(false);
+  async function indexAction(what) {
+    if (what === "forget" && !forgetting) return (forgetting = true);
+    forgetting = false;
+    await invoke("index_action", { what }).catch((e) => (error = String(e)));
+    loadIndex();
+  }
+
+  // Opened at a section: `--settings=search`.
+  $effect(() => {
+    if (ui.modal?.section) document.getElementById(`settings-${ui.modal.section}`)?.scrollIntoView();
+  });
+
   const imageStatus = (im) => (im.pulling != null ? im.pulling || t("common.loading") : im.size != null ? t("settings.image_pulled", { size: size(im.size) }) : t("settings.image_not_pulled"));
 </script>
 
@@ -122,6 +156,49 @@
       <label class="check"><input type="checkbox" checked={s.show_hidden} onchange={(e) => set("show_hidden", e.currentTarget.checked)} /> {t("settings.show_hidden")}</label>
       <label class="check"><input type="checkbox" checked={s.confirm_delete} onchange={(e) => set("confirm_delete", e.currentTarget.checked)} /> {t("settings.confirm_delete")}</label>
       <label class="check"><input type="checkbox" checked={s.check_updates} onchange={(e) => set("check_updates", e.currentTarget.checked)} /> {t("settings.check_updates")}</label>
+    </section>
+
+    {#snippet folders(name, none)}
+      <div class="folders">
+        {#each s[name] as dir (dir)}
+          <div class="folder">
+            <span class="mono">{dir}</span>
+            <button onclick={() => setSearch(name, s[name].filter((d) => d !== dir))}>{t("common.remove")}</button>
+          </div>
+        {:else}
+          <span class="hint">{none}</span>
+        {/each}
+        <form class="folder" onsubmit={(e) => (e.preventDefault(), addFolder(name, adding[name]))}>
+          <input bind:value={adding[name]} spellcheck="false" placeholder={tab()?.dir} aria-label={t("settings.search_add")} />
+          <button type="submit">{t("settings.search_add")}</button>
+        </form>
+      </div>
+    {/snippet}
+
+    <section id="settings-search">
+      <h3>{t("settings.search")}</h3>
+      <label class="check"><input type="checkbox" checked={s.search_text} onchange={(e) => setSearch("search_text", e.currentTarget.checked)} /> {t("settings.search_text")}</label>
+      {#if s.search_text}
+        <p class="hint">
+          {#if !index?.shared}
+            {t("settings.search_no_helper")}
+          {:else}
+            {t("settings.search_status", { texts: index.texts, pending: index.pending, size: size(index.bytes) })}
+          {/if}
+          {#if index?.path}<br /><span class="mono">{index.path}</span>{/if}
+        </p>
+        <div class="buttons">
+          <button disabled={!index?.shared || !index.pending} onclick={() => indexAction("now")}>{t("settings.search_now")}</button>
+          <button disabled={!index?.shared} class:danger={forgetting} onclick={() => indexAction("forget")} onblur={() => (forgetting = false)}>{forgetting ? t("settings.search_forget_confirm") : t("settings.search_forget")}</button>
+        </div>
+        <div class="grid">
+          <span class="top">{t("settings.search_roots")}</span>
+          {@render folders("text_roots", t("settings.search_roots_home"))}
+          <span class="top">{t("settings.search_names_only")}</span>
+          {@render folders("names_only", t("settings.search_names_only_none"))}
+        </div>
+        <p class="hint">{t("settings.search_hint")}</p>
+      {/if}
     </section>
 
     <section>
@@ -361,6 +438,29 @@
   }
   .top {
     align-self: start;
+  }
+  .folders {
+    display: grid;
+    gap: 6px;
+  }
+  .folder {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px;
+    align-items: center;
+    margin: 0;
+  }
+  .folder span {
+    overflow-wrap: anywhere;
+  }
+  .danger {
+    border-color: var(--git-deleted-fg);
+    color: var(--git-deleted-fg);
+  }
+  .buttons {
+    display: flex;
+    gap: 8px;
+    margin: 8px 0 12px;
   }
   .check {
     display: flex;

@@ -45,6 +45,10 @@ pub struct Store {
     db: Mutex<Connection>,
     /// Files still to be read in the scan under way.
     pub pending: AtomicUsize,
+    /// "Index now": no rests until the backlog is done.
+    pub hurry: AtomicBool,
+    /// Set by `clear`: the scan under way stops, and a new one begins.
+    cleared: AtomicBool,
     /// The roots of the last walk, and when it began (seconds since the Unix epoch): sizes are
     /// known once one has finished.
     walked: Mutex<Option<(Vec<PathBuf>, u64)>>,
@@ -78,7 +82,7 @@ impl Store {
              CREATE TABLE IF NOT EXISTS skipped(path TEXT PRIMARY KEY, bytes INTEGER NOT NULL, files INTEGER NOT NULL);
              CREATE TABLE IF NOT EXISTS hashes(path TEXT PRIMARY KEY, size INTEGER NOT NULL, modified INTEGER NOT NULL, hash TEXT NOT NULL);",
         )?;
-        Ok(Store { db: Mutex::new(db), pending: AtomicUsize::new(0), walked: Mutex::default() })
+        Ok(Store { db: Mutex::new(db), pending: AtomicUsize::new(0), hurry: AtomicBool::new(false), cleared: AtomicBool::new(false), walked: Mutex::default() })
     }
 
     /// Bytes and files below `dir`, and when the walk they come from began. `None` until a
@@ -121,6 +125,27 @@ impl Store {
             tx.execute("INSERT OR REPLACE INTO hashes(path, size, modified, hash) VALUES (?1, ?2, ?3, ?4)", params![path, *size as i64, *modified as i64, hash])?;
         }
         tx.commit()
+    }
+
+    /// Forget everything; the store fills again from the start.
+    pub fn clear(&self) -> rusqlite::Result<()> {
+        *self.walked.lock().unwrap() = None;
+        self.cleared.store(true, Ordering::SeqCst);
+        let db = self.db.lock().unwrap();
+        db.execute_batch("DELETE FROM text; DELETE FROM files; DELETE FROM skipped; DELETE FROM hashes; VACUUM;")
+    }
+
+    /// Bytes the store takes on disk.
+    pub fn bytes(&self) -> u64 {
+        let db = self.db.lock().unwrap();
+        db.query_row("SELECT page_count * page_size FROM pragma_page_count(), pragma_page_size()", [], |r| r.get::<_, i64>(0)).unwrap_or(0) as u64
+    }
+
+    /// Rest as long as the work since `start` took, unless in a hurry.
+    fn rest(&self, start: Instant) {
+        if !self.hurry.load(Ordering::Relaxed) {
+            std::thread::sleep(start.elapsed().min(Duration::from_secs(2)));
+        }
     }
 
     /// How many files have their text in the store.
@@ -268,10 +293,11 @@ fn now() -> u64 {
     std::time::SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |d| d.as_secs())
 }
 
-/// Hidden folders, folders a tool made and can make again, and folders holding `.nosearch`.
+/// Hidden folders, folders a tool made and can make again, folders marked "names only" and
+/// folders holding `.nosearch`.
 fn left_out(dir: &Path, cfg: &SearchConfig) -> bool {
     let name = dir.file_name().map(|n| n.to_string_lossy()).unwrap_or_default();
-    name.starts_with('.') || cfg.text_exclude.iter().any(|x| *x == name) || dir.join(".nosearch").exists()
+    name.starts_with('.') || cfg.text_exclude.iter().any(|x| *x == name) || cfg.names_only.iter().any(|p| p == dir) || dir.join(".nosearch").exists()
 }
 
 /// What a walk of some folders found.
@@ -338,8 +364,9 @@ pub fn scan(store: &Store, cfg: &SearchConfig, stop: &AtomicBool) -> rusqlite::R
         if stop.load(Ordering::Relaxed) {
             return Ok(());
         }
-        std::thread::sleep(start.elapsed().min(Duration::from_secs(2)));
+        store.rest(start);
     }
+    store.hurry.store(false, Ordering::Relaxed);
     Ok(())
 }
 
@@ -352,11 +379,10 @@ fn read(store: &Store, cfg: &SearchConfig, stop: &AtomicBool) -> rusqlite::Resul
         let rows: Vec<_> = batch.iter().map(|(id, path, size)| (*id, crate::extract::text_of(Path::new(path), *size, cfg.text_max_size))).collect();
         store.read(&rows)?;
         store.pending.fetch_sub(batch.len(), Ordering::Relaxed);
-        if stop.load(Ordering::Relaxed) {
+        if stop.load(Ordering::Relaxed) || store.cleared.load(Ordering::Relaxed) {
             return Ok(true);
         }
-        // As long a rest as the work took.
-        std::thread::sleep(start.elapsed().min(Duration::from_secs(2)));
+        store.rest(start);
     }
     Ok(false)
 }
@@ -445,10 +471,12 @@ pub fn keep_current(store: &Store, cfg: &SearchConfig, stop: &AtomicBool, change
         }
     };
     while !stop.load(Ordering::Relaxed) {
+        store.cleared.store(false, Ordering::SeqCst);
         report(scan(store, cfg, stop));
         let (rest, mut refreshed, mut measured) = (Instant::now(), Instant::now(), Instant::now());
         let (mut now, mut later) = (HashSet::new(), HashSet::new());
-        while rest.elapsed() < Duration::from_secs(600) && !stop.load(Ordering::Relaxed) {
+        let again = || rest.elapsed() > Duration::from_secs(600) || store.hurry.load(Ordering::Relaxed) || store.cleared.load(Ordering::Relaxed);
+        while !again() && !stop.load(Ordering::Relaxed) {
             match changes.as_ref().map(|c| c.recv_timeout(Duration::from_millis(200))) {
                 Some(Ok(paths)) => now.extend(paths),
                 Some(Err(std::sync::mpsc::RecvTimeoutError::Timeout)) => {}
@@ -474,7 +502,7 @@ mod tests {
     fn store_finds_text_follows_changes_and_forgets() {
         let d = std::env::temp_dir().join(format!("coxswain-store-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&d);
-        for sub in ["docs", "node_modules/pkg", ".hidden", "private"] {
+        for sub in ["docs", "node_modules/pkg", ".hidden", "private", "mail"] {
             std::fs::create_dir_all(d.join("home").join(sub)).unwrap();
         }
         let write = |name: &str, text: &[u8]| std::fs::write(d.join("home").join(name), text).unwrap();
@@ -485,13 +513,14 @@ mod tests {
         write(".hidden/secret.txt", b"fuel\n");
         write("private/diary.txt", b"fuel\n");
         write("private/.nosearch", b"");
+        write("mail/inbox.txt", b"fuel\n");
 
-        let cfg = SearchConfig { text_roots: vec![d.join("home")], ..SearchConfig::default() };
+        let cfg = SearchConfig { text_roots: vec![d.join("home")], names_only: vec![d.join("home/mail")], ..SearchConfig::default() };
         let (store, go) = (Store::open(&d.join("search.db")).unwrap(), AtomicBool::new(false));
         scan(&store, &cfg, &go).unwrap();
 
         let names = |q: &str| store.search(q, 10).hits.iter().map(|h| h.path.file_name().unwrap().to_string_lossy().into_owned()).collect::<Vec<_>>();
-        assert_eq!(names("fuel"), ["budget.md"], "not the binary, node_modules, the hidden folder or the .nosearch one");
+        assert_eq!(names("fuel"), ["budget.md"], "not the binary, node_modules, the hidden folder, the .nosearch one or the names-only one");
         assert_eq!(names("rocket bud"), ["budget.md"], "every word, the last one begun");
         assert_eq!(names("ferry fuel"), [""; 0]);
         assert_eq!(names("\"; DROP TABLE files"), [""; 0], "a query is words, never SQL");
@@ -526,6 +555,10 @@ mod tests {
         assert_eq!((names("ferry"), names("train"), names("launch"), names("fuel")), (vec![], vec!["notes.txt".to_string()], vec!["new.rs".to_string()], vec![]));
         assert_eq!(store.pending.load(Ordering::Relaxed), 0);
         assert_eq!(store.db.lock().unwrap().query_row("SELECT count(*) FROM hashes", [], |r| r.get::<_, i64>(0)).unwrap(), 0, "the copy's hash went with it");
+
+        // Deleting the index forgets everything, sizes included, until the next scan.
+        store.clear().unwrap();
+        assert_eq!((store.texts(), store.size(&home)), (0, None));
 
         // The store of another version is filled afresh.
         drop(store);
