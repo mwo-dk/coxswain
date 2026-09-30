@@ -45,6 +45,7 @@ name index `roots`, `exclude`, `watch`, `max_results`.
 | *Embedding model* | `meaning_model` | string, `""` | The server's model; empty is `bge-m3` for Ollama |
 | **Pull bge-m3 with Ollama** | | | Shown when Ollama lacks the model; fetches it with a progress bar |
 | *API key from the variable* | `meaning_key_env` | string, `""` | OpenAI API only: the environment variable holding the key |
+| *Ask → Chat model* | `ask_model` | string, `""` | The chat model that writes [Ask](ask.md)'s answers, on the same server (Ollama here with the built-in model). Empty: Ask is not set up |
 | **Download the model (465 MB) and turn on** | `meaning` | bool, `false` | Downloads the built-in model, then sets `meaning = true`. **Cancel** stops the download |
 | **Turn on** / **Turn off** | `meaning` | | On or off, keeping the model |
 | **Delete the model** | | | Turns it off and deletes the built-in model |
@@ -77,6 +78,7 @@ meaning_engine = "builtin" # or "ollama", "openai"
 meaning_url = ""
 meaning_model = ""
 meaning_key_env = ""
+ask_model = ""
 ```
 
 See also [Configuration](../reference/configuration.md).

@@ -2,8 +2,8 @@
 
 # Find file
 
-Find file is one window for all three kinds of search: names on the whole machine, names in
-this folder, and the text inside your files. Open it, type, and go to the file with **Enter**.
+Find file is one window for four kinds of search: names on the whole machine, names in
+this folder, the text inside your files, and [Ask](ask.md), questions answered from them. Open it, type, and go to the file with **Enter**.
 
 ![The desktop app's Find file over the panels: "engine" typed in Text in files, seven matches in 0.4 ms in the text of 27 files, each name in bold with its folder and the passage with "engine" highlighted](../screenshots/gui-text-search.png)
 *The desktop app searching the text of files. Each hit has its folder and the passage that matched.*
@@ -25,6 +25,7 @@ this folder, and the text inside your files. Open it, type, and go to the file w
 | [Names everywhere](names.md) | `everywhere: ` | *Everywhere* | Files and folders by name, on the whole machine |
 | [Names in this folder](names.md#names-in-this-folder) | `in ~/projects: ` | *In projects* | The same, in the active panel's folder and below |
 | [Text in files](text.md) | `text: ` | *Text in files* | Files whose text has your words; with [search by meaning](meaning.md), also files about them |
+| [Ask](ask.md) | `ask: ` | *Ask* | An answer to your question from the closest passages, with numbered sources |
 
 | Key | Desktop app | Terminal app |
 |---|---|---|
@@ -43,9 +44,9 @@ Find file follows. **Enter** on a folder opens the folder that holds it, with th
 
 ## What you see
 
-**Where it can look.** In the desktop app the three depths are three buttons side by side at the
+**Where it can look.** In the desktop app the four depths are four buttons side by side at the
 right of the search field, the current one highlighted: *Everywhere*, *In projects* (the
-active panel's folder name) and *Text in files*. The terminal app shows the depth as the prompt.
+active panel's folder name), *Text in files* and *Ask*. The terminal app shows the depth as the prompt.
 
 **Before you type**, the line under the field says what the depth does:
 
@@ -71,8 +72,8 @@ second line in the terminal app. A hit found by meaning starts its passage with 
 **How many.** The desktop app lists the first 500 and says *showing the first 500, type more to
 narrow*; the terminal app gets up to `max_results` (10,000) and draws what fits.
 
-**The footer** lists the keys: *Enter go to · Tab everywhere/here/text · F4 edit · Esc close*
-(desktop app), `Enter go to · Tab everywhere/here/text · F3 view · F4 edit · Esc close · syntax: F1`
+**The footer** lists the keys: *Enter go to · Tab everywhere/here/text/ask · F4 edit · Esc close*
+(desktop app), `Enter go to · Tab everywhere/here/text/ask · F3 view · F4 edit · Esc close · syntax: F1`
 (terminal app).
 
 ## Settings and config.toml

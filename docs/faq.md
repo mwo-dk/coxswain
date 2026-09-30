@@ -41,6 +41,8 @@ The questions people ask most, with a short answer and a link to the full one. E
 - **Why doesn't a file I just saved show up in text search?** It is read within seconds, unless it is outside the folders read, too large, the laptop is on battery, or the helper still has a backlog. [Answer](search/text.md#why-doesnt-a-file-i-just-saved-show-up-in-text-search)
 - **How do I search only this folder?** Press Tab once in Find file: "In <folder>" searches names in the active panel's folder and below. [Answer](search/find-file.md#how-do-i-search-only-this-folder)
 - **Why is search by meaning off?** It needs a 465 MB model and CPU time, so you choose: Settings → Search by meaning, or `coxswain --meaning on`. [Answer](search/meaning.md#why-is-search-by-meaning-off)
+- **Can I ask my files a question?** Yes: Tab to *Ask* in Find file, with search by meaning on and a chat model on your server. [Answer](search/ask.md)
+- **What does Ask send, and where?** [Answer](search/ask.md#what-is-sent-and-where)
 - **Can Ollama or Lemonade make the vectors instead?** Yes: pick it under Vectors made by, or `coxswain --meaning ollama` / `--meaning server URL MODEL`. [Answer](search/servers.md#which-model-should-i-pick-on-a-server)
 - **How do I keep a folder's text out of the index?** Add it to Names only in Settings, or put an empty `.nosearch` file in it. [Answer](search/folders.md#how-do-i-make-a-folder-names-only)
 - **Is Coxswain running in the background after I close it?** The search helper stays ten minutes, or for good if started with your session. [Answer](search/helper.md#is-coxswain-running-in-the-background-after-i-close-it)
