@@ -29,26 +29,7 @@ const TOOLS: &[(&str, &[&str])] = &[
     ("duckdb", &["duckdb"]),
 ];
 
-/// Where installers put these outside PATH.
-fn extra_paths(program: &str) -> Vec<PathBuf> {
-    let v: &[&str] = match program {
-        "soffice" if cfg!(target_os = "macos") => &["/Applications/LibreOffice.app/Contents/MacOS/soffice"],
-        "soffice" if cfg!(windows) => &[r"C:\Program Files\LibreOffice\program\soffice.exe"],
-        _ => &[],
-    };
-    v.iter().map(PathBuf::from).collect()
-}
-
-/// A program on PATH (or in its usual install folder), like `which`.
-fn which(program: &str) -> Option<PathBuf> {
-    let names = if cfg!(windows) { vec![format!("{program}.exe"), format!("{program}.cmd"), format!("{program}.bat")] } else { vec![program.to_string()] };
-    std::env::var_os("PATH")
-        .into_iter()
-        .flat_map(|p| std::env::split_paths(&p).collect::<Vec<_>>())
-        .flat_map(|dir| names.iter().map(move |n| dir.join(n)))
-        .chain(extra_paths(program))
-        .find(|p| p.is_file())
-}
+use coxswain_core::tools::which;
 
 /// podman or docker, as the config allows.
 fn runtime(cfg: &PreviewConfig) -> Option<(&'static str, PathBuf)> {

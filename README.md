@@ -329,6 +329,7 @@ of one, so `rocket bud` finds "rocket budget".
 | | |
 |---|---|
 | **What is read** | Your home folder: text, code, Markdown, logs, configuration and any other file that is plain text, and the [documents](#documents-it-reads) below, up to 20 MB each |
+| **With programs you have installed** | `tesseract`: the words in screenshots, scans and pictures (camera photos are skipped); with `pdftoppm` too, scanned PDFs (up to 30 pages). LibreOffice: older Office files (`.doc`, `.ppt`), Publisher, Visio, WordPerfect, Pages and Keynote. They run at the lowest priority with a time limit; files they can read are read again once you install one. Settings lists which are there |
 | **What is left out** | Hidden folders, `node_modules`, `target`, `build`, `dist`, `out`, `vendor`, `__pycache__` and the trash; folders you mark *names only* in Settings; any folder holding a file named `.nosearch`; pictures, video, archives and other files without text |
 | **When** | In the background, one file at a time and at half speed, by the [helper](#how-search-stays-fast), and not at all while a laptop runs on its battery (*Index now* in Settings reads anyway). It follows the file watcher, so a change shows up in searches within seconds |
 | **Also kept** | Every file's size and date, the total of each folder left out, so folder sizes are a sum; and the hash of files that share a size, for Duplicates |
