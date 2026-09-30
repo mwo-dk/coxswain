@@ -44,6 +44,11 @@ pub fn next(cfg: &Config, status: &Status, state: &AppState, terminal: bool) -> 
         let text = if terminal { t!("notice.meaning_tui") } else { t!("notice.meaning") };
         all.push(Notice { id: "meaning".into(), text, settings: Some("meaning"), url: None });
     }
+    // Meaning by the built-in model on the CPU, while Ollama answers here: it could use the GPU.
+    if status.meaning && status.meaning_engine.starts_with("builtin") && cfg.search.meaning_engine == "builtin" && !seen("ollama") && crate::meaning::ollama_here() {
+        let text = if terminal { t!("notice.ollama_tui") } else { t!("notice.ollama") };
+        all.push(Notice { id: "ollama".into(), text, settings: Some("meaning"), url: None });
+    }
     // The helper found no tesseract: pictures and scans have no words to search.
     if cfg.search.text && status.tools.iter().any(|(name, there)| name == "tesseract" && !there) {
         all.push(Notice { id: "tesseract".into(), text: t!("notice.tesseract"), settings: Some("search"), url: None });
@@ -77,7 +82,7 @@ mod tests {
     #[test]
     fn notices_come_one_at_a_time_and_stay_away_once_dismissed() {
         let cfg = Config::default();
-        let mut status = Status { state: crate::index::State::Ready, len: 1, texts: 10, pending: 0, bytes: 0, paused: false, roots: vec![], tools: vec![("tesseract".into(), false)], meaning: false, meaning_pending: 0, meaning_done: 0 };
+        let mut status = Status { state: crate::index::State::Ready, len: 1, texts: 10, pending: 0, bytes: 0, paused: false, roots: vec![], tools: vec![("tesseract".into(), false)], meaning: false, meaning_pending: 0, meaning_done: 0, meaning_engine: String::new(), meaning_error: None };
         let mut state = AppState::default();
         assert!(started(&mut state), "a first start is told of nothing new");
         assert!(!started(&mut state));

@@ -1063,9 +1063,13 @@ fn main_loop(term: &mut DefaultTerminal, app: &mut App) -> std::io::Result<()> {
 const USAGE: &str = "coxswain [LEFT] [RIGHT]      a folder, or a file to open its folder with the cursor on it
   --dump-config   print the full default config (redirect it to the config file to customise)
   --config-path   print where the config file is read from
+  --paths         print where everything is kept: config, state, index, search store, model
   --index-service on|off   start the search helper with your session, or stop doing so
   --meaning on|off|delete  search by meaning: download the model and turn it on, turn it off,
                            or turn it off and delete the model
+  --meaning ollama [MODEL] the vectors from Ollama here (bge-m3 unless named; pulled if missing)
+  --meaning server URL MODEL  the vectors from a server with the OpenAI API (Lemonade, LM Studio)
+  --meaning builtin        back to the built-in model
   --version
   --help";
 
@@ -1086,13 +1090,39 @@ fn index_service(on: Option<&str>) {
 }
 
 /// `--meaning on|off|delete`: search by meaning, as Settings in the desktop app does it.
-fn meaning(what: Option<&str>) {
+fn meaning(what: Option<&str>, rest: &[String]) {
     use coxswain_core::meaning;
     let fail = |e: String| -> ! {
         eprintln!("coxswain: {e}");
         std::process::exit(1)
     };
+    let save = |key: &str, value: &str| drop(Config::save_value(&["search", key], value.into()).unwrap_or_else(|e| fail(e)));
     match what {
+        // Ollama on this machine makes the vectors; the model is pulled when it is not there.
+        Some("ollama") => {
+            let model = rest.first().map_or("bge-m3", String::as_str);
+            let have = meaning::server_models(false, "").unwrap_or_else(|e| fail(e));
+            if !have.iter().any(|m| m == model || m.split(':').next() == Some(model)) {
+                eprintln!("{}", t!("tui.meaning_pulling", "model" => model));
+                meaning::ollama_pull("", model, &meaning::Progress::default()).unwrap_or_else(|e| fail(e.to_string()));
+            }
+            save("meaning_engine", "ollama");
+            save("meaning_model", model);
+            Config::save_value(&["search", "meaning"], true.into()).unwrap_or_else(|e| fail(e));
+        }
+        // Any server with the OpenAI API: `--meaning server http://evo:8000/api/v1 <model>`.
+        Some("server") => {
+            let (Some(url), Some(model)) = (rest.first(), rest.get(1)) else { fail(t!("tui.meaning_server_usage")) };
+            meaning::server_models(true, url).unwrap_or_else(|e| fail(e));
+            save("meaning_engine", "openai");
+            save("meaning_url", url);
+            save("meaning_model", model);
+            Config::save_value(&["search", "meaning"], true.into()).unwrap_or_else(|e| fail(e));
+        }
+        Some("builtin") => {
+            save("meaning_engine", "builtin");
+            return meaning(Some("on"), &[]);
+        }
         Some("on") => {
             if !meaning::installed() {
                 let p = std::sync::Arc::new(meaning::Progress::default());
@@ -1135,8 +1165,14 @@ fn main() {
         Some("--version" | "-V") => return println!("coxswain {}", coxswain_core::update::VERSION),
         Some("--dump-config") => return print!("{}", Config::default().to_toml()),
         Some("--config-path") => return println!("{}", Config::path().map(|p| p.display().to_string()).unwrap_or_default()),
+        Some("--paths") => {
+            for (what, path) in Config::paths() {
+                println!("{what:<13} {}", path.map(|p| p.display().to_string()).unwrap_or_default());
+            }
+            return;
+        }
         Some("--index-service") => return index_service(args.get(1).map(String::as_str)),
-        Some("--meaning") => return meaning(args.get(1).map(String::as_str)),
+        Some("--meaning") => return meaning(args.get(1).map(String::as_str), &args[2.min(args.len())..]),
         _ => {}
     }
     let cfg = Config::load().unwrap_or_else(|e| {

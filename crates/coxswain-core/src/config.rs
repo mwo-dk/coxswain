@@ -773,6 +773,18 @@ pub struct SearchConfig {
     pub names_only: Vec<PathBuf>,
     /// Search by meaning too (a language model, downloaded when this is turned on).
     pub meaning: bool,
+    /// Which model makes the vectors: "builtin" (downloaded, runs on the CPU here), "ollama"
+    /// (an Ollama server's `/api/embed`) or "openai" (any `/v1/embeddings`: LM Studio,
+    /// Lemonade, llama.cpp, vLLM, OpenAI itself).
+    pub meaning_engine: String,
+    /// The server: empty for Ollama on this machine (`http://localhost:11434`); for "openai" the
+    /// base URL, e.g. `http://localhost:8000/api/v1` for Lemonade.
+    pub meaning_url: String,
+    /// The server's embedding model, e.g. `bge-m3`.
+    pub meaning_model: String,
+    /// The environment variable that holds the server's API key, if it wants one; the key
+    /// itself is never written into this file.
+    pub meaning_key_env: String,
     /// Larger files are left out. Bytes.
     pub text_max_size: u64,
 }
@@ -789,6 +801,10 @@ impl Default for SearchConfig {
             text_exclude: ["node_modules", "target", "build", "dist", "out", "vendor", "__pycache__", "Trash"].map(String::from).to_vec(),
             names_only: vec![],
             meaning: false,
+            meaning_engine: "builtin".into(),
+            meaning_url: String::new(),
+            meaning_model: String::new(),
+            meaning_key_env: String::new(),
             text_max_size: 20 * 1024 * 1024,
         }
     }
@@ -887,6 +903,19 @@ impl Default for Config {
 impl Config {
     pub fn path() -> Option<PathBuf> {
         Some(dirs::config_dir()?.join("coxswain").join("config.toml"))
+    }
+
+    /// Where Coxswain keeps things, (what, path), for `--paths`.
+    pub fn paths() -> Vec<(&'static str, Option<PathBuf>)> {
+        vec![
+            ("config", Config::path()),
+            ("state", crate::state::AppState::path()),
+            ("cache", crate::helper::folder()),
+            ("name index", crate::index::Index::cache_path()),
+            ("search store", crate::store::Store::path()),
+            ("model", crate::meaning::folder()),
+            ("previews", dirs::cache_dir().map(|d| d.join("coxswain").join("previews"))),
+        ]
     }
 
     /// Load the user config, falling back to defaults when the file does not exist.
