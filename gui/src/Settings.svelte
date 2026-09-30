@@ -210,6 +210,14 @@
           {@render folders("text_roots", t("settings.search_roots_home"))}
           <span class="top">{t("settings.search_names_only")}</span>
           {@render folders("names_only", t("settings.search_names_only_none"))}
+          {#if index?.tools?.length}
+            <span class="top">{t("settings.search_tools")}</span>
+            <ul class="tools">
+              {#each index.tools as [name, there] (name)}
+                <li class:missing={!there}>{there ? "✓" : "✗"} {t(`settings.search_tool_${name}`)}{#if !there}<small class="hint"> · {t("settings.search_tool_missing")}</small>{/if}</li>
+              {/each}
+            </ul>
+          {/if}
         </div>
         <p class="hint">{t("settings.search_hint")}</p>
       {/if}
@@ -470,6 +478,16 @@
   .folder small {
     display: block;
     margin: 2px 0 0;
+  }
+  .tools {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: grid;
+    gap: 4px;
+  }
+  .tools .missing {
+    color: var(--hidden-fg);
   }
   .danger {
     border-color: var(--git-deleted-fg);

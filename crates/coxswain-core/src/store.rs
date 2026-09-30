@@ -74,7 +74,7 @@ impl Store {
         db.pragma_update(None, "journal_mode", "WAL")?;
         db.pragma_update(None, "synchronous", "NORMAL")?;
         if db.pragma_query_value(None, "user_version", |r| r.get::<_, i32>(0))? != VERSION {
-            db.execute_batch("DROP TABLE IF EXISTS files; DROP TABLE IF EXISTS text; DROP TABLE IF EXISTS skipped; DROP TABLE IF EXISTS hashes; DROP TABLE IF EXISTS roots;")?;
+            db.execute_batch("DROP TABLE IF EXISTS files; DROP TABLE IF EXISTS text; DROP TABLE IF EXISTS skipped; DROP TABLE IF EXISTS hashes; DROP TABLE IF EXISTS roots; DROP TABLE IF EXISTS meta;")?;
             db.pragma_update(None, "user_version", VERSION)?;
         }
         // The duplicate finder writes hashes from the app while the helper scans.
@@ -89,7 +89,8 @@ impl Store {
              CREATE VIRTUAL TABLE IF NOT EXISTS text USING fts5(body, tokenize = 'unicode61 remove_diacritics 2');
              CREATE TABLE IF NOT EXISTS skipped(path TEXT PRIMARY KEY, bytes INTEGER NOT NULL, files INTEGER NOT NULL);
              CREATE TABLE IF NOT EXISTS hashes(path TEXT PRIMARY KEY, size INTEGER NOT NULL, modified INTEGER NOT NULL, hash TEXT NOT NULL);
-             CREATE TABLE IF NOT EXISTS roots(path TEXT PRIMARY KEY, volume TEXT, inside TEXT, at TEXT NOT NULL);",
+             CREATE TABLE IF NOT EXISTS roots(path TEXT PRIMARY KEY, volume TEXT, inside TEXT, at TEXT NOT NULL);
+             CREATE TABLE IF NOT EXISTS meta(key TEXT PRIMARY KEY, value TEXT NOT NULL);",
         )?;
         Ok(Store { db: Mutex::new(db), pending: AtomicUsize::new(0), hurry: AtomicBool::new(false), cleared: AtomicBool::new(false), walked: Mutex::default(), offline: Mutex::default(), paused: AtomicBool::new(false), configured: Mutex::default() })
     }
@@ -162,6 +163,23 @@ impl Store {
             std::thread::sleep(Duration::from_secs(1));
         }
         self.paused.store(false, Ordering::Relaxed);
+    }
+
+    /// Files found without text are read again when an installed program can now read their
+    /// kind (`exts`, e.g. tesseract for pictures), or no longer can.
+    fn tools_changed(&self, exts: &[&str]) -> rusqlite::Result<()> {
+        let now = exts.join(",");
+        let db = self.db.lock().unwrap();
+        let before: String = db.query_row("SELECT value FROM meta WHERE key = 'tools'", [], |r| r.get(0)).unwrap_or_default();
+        if before == now {
+            return Ok(());
+        }
+        let kinds: Vec<&str> = before.split(',').chain(now.split(',')).filter(|e| !e.is_empty()).collect();
+        for ext in kinds {
+            db.execute("UPDATE files SET has_text = NULL WHERE has_text = 0 AND lower(path) LIKE ?1", [format!("%.{ext}")])?;
+        }
+        db.execute("INSERT OR REPLACE INTO meta(key, value) VALUES ('tools', ?1)", [now])?;
+        Ok(())
     }
 
     /// Where each root's rows are, as the store last saw it: path -> (disk, place on it, rows at).
@@ -411,6 +429,7 @@ fn walk(dirs: Vec<PathBuf>, cfg: &SearchConfig, known: &Known, stop: &AtomicBool
 pub fn scan(store: &Store, cfg: &SearchConfig, stop: &AtomicBool) -> rusqlite::Result<()> {
     let began = now();
     let (roots, offline) = place(store, cfg)?;
+    store.tools_changed(&crate::extract::installed::extensions())?;
     let known = store.known()?;
     let Some(found) = walk(roots.clone(), cfg, &known, stop) else { return Ok(()) };
     // Rows of a disk that is not plugged in stay.
@@ -745,6 +764,23 @@ mod tests {
         scan(&store, &cfg, &go).unwrap();
         assert_eq!(found(), 1);
         assert_eq!(store.root_sizes()[0].1.as_deref(), Some(d.join("disk").as_path()));
+        drop(store);
+        std::fs::remove_dir_all(d).unwrap();
+    }
+
+    #[test]
+    fn store_reads_again_what_a_new_program_can_read() {
+        let d = std::env::temp_dir().join(format!("coxswain-store-tools-{}", std::process::id()));
+        std::fs::create_dir_all(&d).unwrap();
+        let store = Store::open(&d.join("search.db")).unwrap();
+        store.apply(&[], &[("/h/scan.PNG".into(), 1, 1), ("/h/a.txt".into(), 1, 1)], &[], false).unwrap();
+        store.read(&store.unread().unwrap().iter().map(|(id, ..)| (*id, None)).collect::<Vec<_>>()).unwrap();
+        assert!(store.unread().unwrap().is_empty());
+        store.tools_changed(&[]).unwrap();
+        assert!(store.unread().unwrap().is_empty(), "nothing new");
+        store.tools_changed(&["png", "jpg"]).unwrap();
+        assert_eq!(store.unread().unwrap().iter().map(|r| r.1.as_str()).collect::<Vec<_>>(), ["/h/scan.PNG"], "tesseract came");
+        store.tools_changed(&["png", "jpg"]).unwrap();
         drop(store);
         std::fs::remove_dir_all(d).unwrap();
     }

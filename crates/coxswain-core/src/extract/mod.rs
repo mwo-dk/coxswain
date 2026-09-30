@@ -8,6 +8,9 @@
 //! - never panic, never loop without end, never read or build more than its limits allow;
 //! - no network, no other programs, nothing written anywhere.
 //!
+//! The one exception is `installed`: programs the user has installed (OCR, LibreOffice), run
+//! at low priority with a time limit, for what no reader here can get.
+//!
 //! `text_of` also catches a panic from a reader (they lean on other people's parsers) and
 //! cuts the text at `MAX_TEXT`.
 
@@ -15,6 +18,7 @@ use std::io::Read;
 use std::path::Path;
 
 pub mod book;
+pub mod installed;
 pub mod mail;
 pub mod notebook;
 pub mod pdf;
@@ -36,7 +40,7 @@ type Reader = fn(&Path, u64) -> Option<String>;
 fn reader(path: &Path) -> Option<Reader> {
     let ext = path.extension()?.to_str()?.to_ascii_lowercase();
     Some(match ext.as_str() {
-        "pdf" => pdf::text,
+        "pdf" => |path, max| pdf::text(path, max).or_else(|| installed::scanned_pdf(path)),
         "docx" | "docm" | "dotx" | "odt" | "ott" => word::text,
         "xlsx" | "xlsm" | "xls" | "xlsb" | "ods" => sheet::text,
         "pptx" | "ppsx" | "potx" | "odp" => slides::text,
@@ -44,6 +48,8 @@ fn reader(path: &Path) -> Option<Reader> {
         "ipynb" | "drawio" | "dio" => notebook::text,
         "eml" | "mbox" => mail::text,
         "rtf" => rtf::text,
+        e if installed::PICTURES.contains(&e) => installed::picture,
+        e if installed::OFFICE.contains(&e) => installed::office,
         _ => return None,
     })
 }
