@@ -172,6 +172,28 @@ pub struct Server {
 /// Ollama on this machine, where it listens unless told otherwise.
 pub const OLLAMA: &str = "http://localhost:11434";
 
+/// The API key the settings name a variable for, when that variable is set.
+pub fn key_of(cfg: &crate::config::SearchConfig) -> Option<String> {
+    (!cfg.meaning_key_env.is_empty()).then(|| std::env::var(&cfg.meaning_key_env).ok()).flatten()
+}
+
+/// Why a server gave no vectors: it did not answer, and the file waits for the next round; or
+/// it answered that it cannot (a model that is not there, an input it does not take), and the
+/// file is left until the next scan, so the rest go on.
+#[derive(Debug)]
+pub enum NoVectors {
+    Down(String),
+    Refused(String),
+}
+
+impl NoVectors {
+    pub fn why(&self) -> &str {
+        match self {
+            NoVectors::Down(s) | NoVectors::Refused(s) => s,
+        }
+    }
+}
+
 impl Engine {
     /// The engine the settings ask for; `None` for the built-in one before it is downloaded.
     pub fn from_config(cfg: &crate::config::SearchConfig) -> Option<Engine> {
@@ -193,15 +215,16 @@ impl Engine {
     pub fn query(&self, text: &str) -> Result<Vec<f32>, String> {
         match self {
             Engine::Builtin(e) => e.query(text).ok_or_else(|| "the model gave no vector".into()),
-            Engine::Server(s) => s.embed(&[format!("{}{text}", s.prefix().0)]).map(|mut v| v.remove(0)),
+            Engine::Server(s) => s.embed(&[format!("{}{text}", s.prefix().0)]).map(|mut v| v.remove(0)).map_err(|e| e.why().to_string()),
         }
     }
 
-    /// The vectors of a file's passages, all at once. An error: the server did not answer, and
-    /// the file waits for the next round.
-    pub fn passages(&self, texts: &[String]) -> Result<Vec<Vec<f32>>, String> {
+    /// The vectors of a file's passages, all at once, one per passage: a passage the built-in
+    /// model gives none for gets a vector of zeros, which scores nothing, so the ones after it
+    /// keep their place.
+    pub fn passages(&self, texts: &[String]) -> Result<Vec<Vec<f32>>, NoVectors> {
         match self {
-            Engine::Builtin(e) => Ok(texts.iter().filter_map(|t| e.passage(t)).collect()),
+            Engine::Builtin(e) => Ok(texts.iter().map(|t| e.passage(t).unwrap_or_else(|| vec![0.0; DIMS])).collect()),
             Engine::Server(s) => s.embed(&texts.iter().map(|t| format!("{}{t}", s.prefix().1)).collect::<Vec<_>>()),
         }
     }
@@ -223,9 +246,9 @@ impl Server {
         let openai = cfg.meaning_engine == "openai";
         let url = if cfg.meaning_url.is_empty() && !openai { OLLAMA.to_string() } else { cfg.meaning_url.trim_end_matches('/').to_string() };
         let model = if cfg.meaning_model.is_empty() && !openai { "bge-m3".to_string() } else { cfg.meaning_model.clone() };
-        let key = (!cfg.meaning_key_env.is_empty()).then(|| std::env::var(&cfg.meaning_key_env).ok()).flatten();
+        let key = key_of(cfg);
         let tls = ureq::tls::TlsConfig::builder().root_certs(ureq::tls::RootCerts::PlatformVerifier).build();
-        let agent = ureq::Agent::config_builder().timeout_global(Some(Duration::from_secs(120))).tls_config(tls).build().into();
+        let agent = ureq::Agent::config_builder().timeout_global(Some(Duration::from_secs(120))).http_status_as_error(false).tls_config(tls).build().into();
         Server { openai, url, model, key, agent }
     }
 
@@ -242,23 +265,29 @@ impl Server {
     }
 
     /// Vectors of `texts`, of length one, in their order.
-    fn embed(&self, texts: &[String]) -> Result<Vec<Vec<f32>>, String> {
+    fn embed(&self, texts: &[String]) -> Result<Vec<Vec<f32>>, NoVectors> {
         let (path, body) = if self.openai { ("/embeddings", serde_json::json!({ "model": self.model, "input": texts })) } else { ("/api/embed", serde_json::json!({ "model": self.model, "input": texts })) };
         let mut req = self.agent.post(&format!("{}{path}", self.url)).header("Content-Type", "application/json");
         if let Some(key) = &self.key {
             req = req.header("Authorization", &format!("Bearer {key}"));
         }
-        let text = req.send(body.to_string()).map_err(|e| format!("{}: {e}", self.url))?.body_mut().read_to_string().map_err(|e| e.to_string())?;
-        let v: serde_json::Value = serde_json::from_str(&text).map_err(|e| e.to_string())?;
+        let mut res = req.send(body.to_string()).map_err(|e| NoVectors::Down(format!("{}: {e}", self.url)))?;
+        let status = res.status();
+        let text = res.body_mut().read_to_string().map_err(|e| NoVectors::Down(e.to_string()))?;
+        let v: serde_json::Value = serde_json::from_str(&text).unwrap_or_default();
+        let said = || v["error"].as_str().or_else(|| v["error"]["message"].as_str()).map(String::from);
+        if status.as_u16() >= 400 {
+            return Err(NoVectors::Refused(format!("{} {}: {}", self.url, status, said().unwrap_or(text))));
+        }
         let rows: Vec<&serde_json::Value> = if self.openai { v["data"].as_array().map(|d| d.iter().map(|x| &x["embedding"]).collect()).unwrap_or_default() } else { v["embeddings"].as_array().map(|d| d.iter().collect()).unwrap_or_default() };
         if rows.len() != texts.len() {
-            return Err(v["error"].as_str().or_else(|| v["error"]["message"].as_str()).unwrap_or("no vectors in the answer").to_string());
+            return Err(NoVectors::Refused(said().unwrap_or_else(|| "no vectors in the answer".into())));
         }
         rows.into_iter()
             .map(|r| {
-                let v: Vec<f32> = r.as_array().ok_or("not a vector")?.iter().filter_map(|x| x.as_f64()).map(|x| x as f32).collect();
+                let v: Vec<f32> = r.as_array().ok_or(NoVectors::Refused("not a vector".into()))?.iter().filter_map(|x| x.as_f64()).map(|x| x as f32).collect();
                 let n = v.iter().map(|x| x * x).sum::<f32>().sqrt();
-                if n > 0.0 { Ok(v.iter().map(|x| x / n).collect()) } else { Err("an empty vector".to_string()) }
+                if n > 0.0 { Ok(v.iter().map(|x| x / n).collect()) } else { Err(NoVectors::Refused("an empty vector".into())) }
             })
             .collect()
     }
@@ -363,12 +392,17 @@ fn unthink(piece: &str, thinking: &mut bool) -> String {
     }
 }
 
-/// The embedding models a server has: Ollama's pulled models, or an OpenAI server's list.
-pub fn server_models(openai: bool, url: &str) -> Result<Vec<String>, String> {
+/// The embedding models a server has: Ollama's pulled models, or an OpenAI server's list,
+/// with the API `key` a server may want.
+pub fn server_models(openai: bool, url: &str, key: Option<&str>) -> Result<Vec<String>, String> {
     let url = if url.is_empty() { OLLAMA } else { url.trim_end_matches('/') };
     let agent: ureq::Agent = ureq::Agent::config_builder().timeout_global(Some(Duration::from_secs(5))).build().into();
     let path = if openai { "/models" } else { "/api/tags" };
-    let text = agent.get(&format!("{url}{path}")).call().map_err(|e| format!("{url}: {e}"))?.body_mut().read_to_string().map_err(|e| e.to_string())?;
+    let mut req = agent.get(&format!("{url}{path}"));
+    if let Some(key) = key {
+        req = req.header("Authorization", &format!("Bearer {key}"));
+    }
+    let text = req.call().map_err(|e| format!("{url}: {e}"))?.body_mut().read_to_string().map_err(|e| e.to_string())?;
     let v: serde_json::Value = serde_json::from_str(&text).map_err(|e| e.to_string())?;
     let names = if openai { v["data"].as_array().map(|d| d.iter().filter_map(|m| m["id"].as_str().map(String::from)).collect()) } else { v["models"].as_array().map(|d| d.iter().filter_map(|m| m["name"].as_str().map(String::from)).collect()) };
     Ok(names.unwrap_or_default())
@@ -489,6 +523,54 @@ mod tests {
 
         let off = crate::config::SearchConfig::default();
         assert!(ask(&off, &[], "q", &sources, |_| true).is_err(), "no chat model, no Ask");
+    }
+
+    /// A server that answers once, with what it was sent.
+    fn one_answer(status: &str, body: &str) -> (String, std::thread::JoinHandle<String>) {
+        use std::io::{Read, Write};
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let url = format!("http://{}", listener.local_addr().unwrap());
+        let reply = format!("HTTP/1.1 {status}\r\nContent-Length: {}\r\n\r\n{body}", body.len());
+        let server = std::thread::spawn(move || {
+            let (mut c, _) = listener.accept().unwrap();
+            let mut got = Vec::new();
+            let mut buf = [0; 4096];
+            loop {
+                let n = c.read(&mut buf).unwrap();
+                got.extend_from_slice(&buf[..n]);
+                let text = String::from_utf8_lossy(&got);
+                let Some((head, body)) = text.split_once("\r\n\r\n") else { continue };
+                let len = head.lines().find_map(|l| l.strip_prefix("Content-Length: ")).and_then(|n| n.parse::<usize>().ok()).unwrap_or(0);
+                if body.len() >= len {
+                    break;
+                }
+            }
+            write!(c, "{reply}").unwrap();
+            String::from_utf8_lossy(&got).into_owned()
+        });
+        (url, server)
+    }
+
+    #[test]
+    fn meaning_sends_the_key_and_tells_a_refusal_from_a_server_that_is_down() {
+        // A variable every machine has stands in for the key's.
+        let (var, secret) = std::env::vars().find(|(_, v)| !v.is_empty() && v.is_ascii() && !v.contains(['\r', '\n'])).unwrap();
+        let (url, server) = one_answer("200 OK", "{\"data\":[{\"id\":\"nomic\"}]}");
+        assert_eq!(server_models(true, &url, Some(&secret)).unwrap(), ["nomic"]);
+        let sent_key = |sent: String| sent.to_lowercase().contains(&format!("authorization: bearer {secret}").to_lowercase());
+        assert!(sent_key(server.join().unwrap()), "the models list wants the key too");
+
+        let cfg = crate::config::SearchConfig { meaning_engine: "openai".into(), meaning_url: String::new(), meaning_model: "m".into(), meaning_key_env: var, ..Default::default() };
+        assert_eq!(key_of(&cfg).as_deref(), Some(secret.as_str()));
+        let (url, server) = one_answer("404 Not Found", "{\"error\":{\"message\":\"no such model\"}}");
+        let engine = Engine::from_config(&crate::config::SearchConfig { meaning_url: url, ..cfg.clone() }).unwrap();
+        match engine.passages(&["a passage".into()]) {
+            Err(NoVectors::Refused(why)) => assert!(why.contains("no such model"), "{why}"),
+            other => panic!("{other:?}"),
+        }
+        assert!(sent_key(server.join().unwrap()));
+        let engine = Engine::from_config(&crate::config::SearchConfig { meaning_url: "http://127.0.0.1:9".into(), ..cfg }).unwrap();
+        assert!(matches!(engine.passages(&["a passage".into()]), Err(NoVectors::Down(_))));
     }
 
     #[test]

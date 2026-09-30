@@ -14,17 +14,18 @@ use regex::Regex;
 /// Lines of sentences at most per diagram: a generated graph can have thousands of arrows.
 const MOST: usize = 2000;
 
-/// `text` and, after it, a sentence per arrow in it.
+/// A sentence per arrow, then `text`. The sentences come first: search by meaning gives vectors
+/// to the start of a file only, and what flows where is what a diagram is about.
 fn with(text: String, sentences: Vec<String>) -> String {
     if sentences.is_empty() {
         return text;
     }
-    let mut out = text;
-    out.push('\n');
+    let mut out = String::with_capacity(text.len() + sentences.len() * 24);
     for s in sentences.into_iter().take(MOST) {
         out.push_str(&s);
         out.push('\n');
     }
+    out.push_str(&text);
     out
 }
 
@@ -187,7 +188,10 @@ mod tests {
 
         let md = "# Login\n\nHow it works:\n\n```mermaid\ngraph TD\n  A[App] --> B[Entra ID]\n```\n\nNot a diagram: a --> b\n";
         let read = markdown(md.into());
-        assert!(read.starts_with("# Login"), "the text stays");
+        assert!(read.ends_with(md), "the text stays");
+        // The sentences come first, so a long file's arrows still get vectors.
+        let long = format!("{}\n{md}", "words ".repeat(2000));
+        assert!(crate::meaning::passages(&markdown(long)).first().is_some_and(|p| p.starts_with("App to Entra ID.")));
         assert_eq!(said(&read), ["App to Entra ID.", "Not a diagram: a --> b"].map(String::from).into_iter().filter(|s| s.ends_with('.')).collect::<Vec<_>>());
         assert_eq!(mermaid("just words, no arrows".into()), "just words, no arrows");
     }

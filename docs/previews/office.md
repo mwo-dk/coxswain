@@ -102,7 +102,7 @@ The LibreOffice project publishes none, so Coxswain sets none by default. Set on
 
 Either LibreOffice is not found (the engine button is greyed; hover it for the reason), or the
 only engine is a container whose image is not pulled yet: that never starts by itself. Click
-the container's button, or **Pull** it in Settings.
+**Render** under the quick view (or the container's button), or **Pull** it in Settings.
 
 #### Why did LibreOffice stop with "Stopped after 120 s"?
 
