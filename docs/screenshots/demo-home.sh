@@ -118,3 +118,38 @@ cp -r "$d/Pictures" "$d/Backups/old-laptop-2019/Pictures"
 cp "$d/Documents/launch-report.pdf" "$d/Downloads/launch-report (1).pdf"
 cp "$d/Documents/debrief.docx" "$d/Backups/old-laptop-2019/debrief.docx"
 touch -d "2019-06-01 12:00" "$d/Backups/old-laptop-2019/debrief.docx"
+
+# No "new version" notice in the pictures.
+# No "new version" notice in the pictures.
+mkdir -p "$d/.config/coxswain" && printf 'check_updates = false\n' > "$d/.config/coxswain/config.toml"
+
+# A CBOM next to the source it was scanned from, and an older scan to compare with: CBOMkit's
+# real scan of Keycloak (Apache-2.0, from the BOM test fixtures), with a stub for every file it
+# names, so "Found in" finds them.
+mkdir -p "$d/projects/keycloak" "$d/projects/keycloak-last-month"
+cp "$here/../../crates/coxswain-core/src/bom/testdata/cbomkit/keycloak.cdx.json" "$d/projects/keycloak/cbom.cdx.json"
+python3 - "$d/projects" <<'PY'
+import json, os, sys
+projects = sys.argv[1]
+doc = json.load(open(f"{projects}/keycloak/cbom.cdx.json"))
+for c in doc["components"]:
+    for o in c.get("evidence", {}).get("occurrences", []):
+        path = os.path.join(projects, "keycloak", o["location"])
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        name = os.path.basename(path).rsplit(".", 1)[0]
+        open(path, "w").write(f"package org.keycloak;\n\npublic class {name} {{\n}}\n")
+# A month earlier: SHA-256 where SHA-1 is now, no DSA yet, and an RC4 that has since gone.
+c = doc["components"]
+sha1 = next(x for x in c if x["name"] == "SHA1")
+sha1["name"] = "SHA256"
+sha1["cryptoProperties"]["oid"] = "2.16.840.1.101.3.4.2.1"
+sha1["cryptoProperties"].setdefault("algorithmProperties", {})["parameterSetIdentifier"] = "256"
+dsa = lambda x: x["name"] == "DSA" or x.get("evidence", {}).get("occurrences", [{}])[0].get("location", "").endswith("DSAKeyValueType.java")
+gone = {x["bom-ref"] for x in c if dsa(x)}
+doc["components"] = [x for x in c if x["bom-ref"] not in gone]
+doc["dependencies"] = [x for x in doc.get("dependencies", []) if x["ref"] not in gone]
+doc["components"].append({"type": "cryptographic-asset", "bom-ref": "rc4", "name": "RC4",
+    "cryptoProperties": {"assetType": "algorithm", "algorithmProperties": {"primitive": "stream-cipher"}},
+    "evidence": {"occurrences": [{"location": "services/src/main/java/org/keycloak/keys/LegacyCipher.java", "line": 40}]}})
+json.dump(doc, open(f"{projects}/keycloak-last-month/cbom.cdx.json", "w"), indent=2)
+PY
