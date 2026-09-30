@@ -1,7 +1,7 @@
 // Shared app state and navigation. Components read `ui` and call these functions.
 
 import { SvelteSet } from "svelte/reactivity";
-import { invoke, basename, parent, applyTheme } from "./lib.js";
+import { invoke, basename, parent, applyTheme, isArchive } from "./lib.js";
 import { setLanguage, t } from "./i18n.svelte.js";
 
 export const ui = $state({
@@ -97,6 +97,8 @@ export async function load(t, dir = t.dir, focus) {
     for (const m of [...t.marked]) if (!alive.has(m)) t.marked.delete(m);
     t.dir = r.dir;
     t.items = r.items;
+    t.archive = r.archive;
+    t.locked = r.locked;
     t.hasNotes = r.has_notes;
     t.error = null;
     const at = keep ? r.items.findIndex((e) => e.name === keep) : -1;
@@ -254,7 +256,9 @@ export async function init() {
 export function openItem(tb, i = tb.cursor) {
   const e = tb.items[i];
   if (!e) return;
-  if (e.is_dir) return cd(tb, e.path);
+  // An archive opens like a folder; its files are copied out with F5.
+  if (e.is_dir || isArchive(e.name)) return cd(tb, e.path);
+  if (tb.archive) return void (ui.status = t("archive.copy_out_hint", { archive: basename(tb.archive) }));
   invoke("open_path", { path: e.path }).then(
     () => (ui.status = t("status.opened", { name: e.name })),
     (err) => (ui.status = String(err)),

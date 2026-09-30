@@ -135,9 +135,21 @@ impl Panel {
 pub enum Prompt {
     Copy(Vec<PathBuf>),
     Move(Vec<PathBuf>),
+    Extract(Vec<PathBuf>),
+    Pack(Vec<PathBuf>),
+    /// A locked archive's password, to run the copy, move or extract again with; shown as
+    /// stars and kept for that run only.
+    Password(Transfer, Vec<PathBuf>, PathBuf),
     Mkdir,
     Goto(usize),
     Select(bool),
+}
+
+#[derive(Clone, Copy, PartialEq)]
+pub enum Transfer {
+    Copy,
+    Move,
+    Extract,
 }
 
 pub enum MenuRun {
@@ -563,6 +575,23 @@ impl App {
                 let prompt = if a == Action::Copy { Prompt::Copy(src) } else { Prompt::Move(src) };
                 self.input(&t!(title), label, dst, prompt);
             }
+            Action::Extract => {
+                let src: Vec<PathBuf> = self.panel().targets().into_iter().filter(|p| coxswain_core::archive::is_archive(p)).collect();
+                if src.is_empty() {
+                    return self.status = Some(t!("app.not_archive"));
+                }
+                let dst = self.panels[1 - self.active].dir.display().to_string();
+                let label = t!("app.extract_into", "what" => Self::describe(&src));
+                self.input(&t!("app.extract"), label, dst, Prompt::Extract(src));
+            }
+            Action::Pack => {
+                let src = self.panel().targets();
+                let Some(first) = src.first() else { return };
+                let name = if src.len() == 1 { first.file_stem().unwrap_or_default().to_string_lossy().into_owned() } else { self.panel().dir.file_name().map_or("archive".into(), |n| n.to_string_lossy().into_owned()) };
+                let dst = self.panels[1 - self.active].dir.join(format!("{name}.zip")).display().to_string();
+                let label = t!("archive.pack_into", "what" => Self::describe(&src));
+                self.input(&t!("archive.pack"), label, dst, Prompt::Pack(src));
+            }
             Action::Mkdir => self.input(&t!("dialog.new_folder"), t!("tui.mkdir_label"), String::new(), Prompt::Mkdir),
             Action::Delete | Action::DeleteForever => {
                 let paths = self.panel().targets();
@@ -571,7 +600,11 @@ impl App {
                 }
                 let forever = a == Action::DeleteForever;
                 if self.cfg.confirm_delete {
-                    let text = t!(if forever { "confirm.delete_forever" } else { "confirm.trash" }, "what" => Self::describe(&paths));
+                    // Inside an archive there is no trash: it is taken out of the archive, written anew.
+                    let text = match coxswain_core::archive::split(&self.panel().dir) {
+                        Some((archive, _)) => t!("confirm.archive_remove", "what" => Self::describe(&paths), "archive" => archive.file_name().unwrap_or_default().to_string_lossy()),
+                        None => t!(if forever { "confirm.delete_forever" } else { "confirm.trash" }, "what" => Self::describe(&paths)),
+                    };
                     self.dialog = Some(Dialog::Confirm { title: t!("dialog.delete"), text, paths, forever });
                 } else {
                     self.delete(paths, forever);
@@ -615,8 +648,12 @@ impl App {
 
     fn open(&mut self) {
         let Some(e) = self.panel().current().cloned() else { return };
-        if e.is_dir {
+        // An archive opens like a folder; its files are copied out with F5.
+        if e.is_dir || coxswain_core::archive::is_archive(&e.path) {
             return self.cd(self.active, e.path);
+        }
+        if let Some((archive, _)) = coxswain_core::archive::split(&self.panel().dir) {
+            return self.status = Some(t!("archive.copy_out_hint", "archive" => archive.file_name().unwrap_or_default().to_string_lossy()));
         }
         let dir = self.panel().dir.clone();
         if e.is_exec {
@@ -679,26 +716,59 @@ impl App {
         }
     }
 
+    /// Copy, move or extract `src` to `dst`. A locked archive asks for its password, and the
+    /// same run starts again with it.
+    fn transfer(&mut self, op: Transfer, src: Vec<PathBuf>, dst: PathBuf, password: Option<String>) {
+        if op == Transfer::Move {
+            self.changed(&src);
+        }
+        self.changed(&[dst.join("new")]);
+        let pw = password.as_deref();
+        let errors: Vec<String> = src
+            .iter()
+            .filter_map(|p| {
+                match op {
+                    Transfer::Copy => bfs::copy_locked(p, &dst, pw).map(drop),
+                    Transfer::Move => bfs::rename_locked(p, &dst, pw).map(drop),
+                    Transfer::Extract => coxswain_core::archive::extract_locked(p, &dst, pw).map(drop),
+                }
+                .err()
+                .map(|e| format!("{}: {e}", p.display()))
+            })
+            .collect();
+        if errors.iter().any(|e| e.contains(coxswain_core::archive::LOCKED)) {
+            let label = t!(if password.is_none() { "archive.locked_label" } else { "archive.locked_again" });
+            return self.input(&t!("archive.locked_title"), label, String::new(), Prompt::Password(op, src, dst));
+        }
+        let what = Self::describe(&src);
+        let ok = match op {
+            Transfer::Copy => t!("status.copied", "what" => what),
+            Transfer::Move => t!("status.moved", "what" => what),
+            Transfer::Extract => t!("app.extracted", "what" => what),
+        };
+        self.after_op(ok, errors);
+    }
+
     fn submit(&mut self, prompt: Prompt, value: String) {
         let base = self.panel().dir.clone();
         match prompt {
-            Prompt::Copy(src) | Prompt::Move(src) if value.trim().is_empty() => drop(src),
-            Prompt::Copy(src) => {
-                let dst = resolve(&base, &value);
-                self.changed(&[dst.join("new")]);
-                let errors = src.iter().filter_map(|p| bfs::copy(p, &dst).err().map(|e| format!("{}: {e}", p.display()))).collect();
-                self.after_op(t!("status.copied", "what" => Self::describe(&src)), errors);
-            }
+            Prompt::Copy(src) | Prompt::Move(src) | Prompt::Extract(src) | Prompt::Pack(src) if value.trim().is_empty() => drop(src),
+            Prompt::Copy(src) => self.transfer(Transfer::Copy, src, resolve(&base, &value), None),
+            Prompt::Extract(src) => self.transfer(Transfer::Extract, src, resolve(&base, &value), None),
+            Prompt::Password(op, src, dst) => self.transfer(op, src, dst, Some(value)),
             Prompt::Move(src) => {
                 let dst = resolve(&base, &value);
-                self.changed(&src);
-                self.changed(&[dst.join("new")]);
-                let errors = src.iter().filter_map(|p| bfs::rename(p, &dst).err().map(|e| format!("{}: {e}", p.display()))).collect();
-                self.after_op(t!("status.moved", "what" => Self::describe(&src)), errors);
-                if src.len() == 1 && dst.parent() == Some(base.as_path()) {
-                    let n = dst.file_name().unwrap_or_default().to_string_lossy().into_owned();
+                let one = (src.len() == 1 && dst.parent() == Some(base.as_path())).then(|| dst.file_name().unwrap_or_default().to_string_lossy().into_owned());
+                self.transfer(Transfer::Move, src, dst, None);
+                if let Some(n) = one {
                     self.panel_mut().select_name(&n);
                 }
+            }
+            Prompt::Pack(src) => {
+                let to = resolve(&base, &value);
+                self.changed(&[to.clone()]);
+                let errors = coxswain_core::archive::create(&to, &src).err().map(|e| vec![format!("{}: {e}", to.display())]).unwrap_or_default();
+                self.after_op(t!("archive.packed", "what" => Self::describe(&src)), errors);
             }
             Prompt::Mkdir if value.trim().is_empty() => {}
             Prompt::Mkdir => {

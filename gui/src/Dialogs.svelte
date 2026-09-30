@@ -233,7 +233,7 @@
     <div class="dialog {m.kind}" role="dialog" aria-modal="true" aria-label={m.title ?? (KIND_LABEL[m.kind] ? t(KIND_LABEL[m.kind]) : m.kind)}>
       {#if m.kind === "input"}
         <h2>{m.title}</h2>
-        <label>{m.label}<input bind:this={input} bind:value={m.value} spellcheck="false" /></label>
+        <label>{m.label}{#if m.secret}<input bind:this={input} bind:value={m.value} type="password" autocomplete="off" />{:else}<input bind:this={input} bind:value={m.value} spellcheck="false" />{/if}</label>
         <div class="buttons">
           <button class="primary" onclick={() => confirm(m, m.value)}>{t("common.ok")}</button>
           <button onclick={close}>{t("common.cancel")}</button>
