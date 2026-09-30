@@ -70,7 +70,7 @@ fn unit(exe: &Path) -> String {
 /// Whether the helper is registered.
 pub fn installed() -> bool {
     if cfg!(windows) {
-        Command::new("reg").args(["query", RUN_KEY, "/v", NAME]).output().is_ok_and(|o| o.status.success())
+        crate::tools::command("reg").args(["query", RUN_KEY, "/v", NAME]).output().is_ok_and(|o| o.status.success())
     } else {
         file().is_some_and(|f| f.exists())
     }
@@ -85,7 +85,7 @@ const RUN_KEY: &str = "";
 pub fn install(exe: &Path) -> io::Result<()> {
     if cfg!(windows) {
         let line = format!("\"{}\" {} {STAY}", exe.display(), crate::helper::ARG);
-        run(Command::new("reg").args(["add", RUN_KEY, "/v", NAME, "/t", "REG_SZ", "/d", &line, "/f"]))?;
+        run(crate::tools::command("reg").args(["add", RUN_KEY, "/v", NAME, "/t", "REG_SZ", "/d", &line, "/f"]))?;
         // Now as well, not only from the next login.
         return crate::helper::detached(exe).arg(STAY).spawn().map(drop);
     }
@@ -93,27 +93,27 @@ pub fn install(exe: &Path) -> io::Result<()> {
     std::fs::create_dir_all(file.parent().unwrap_or(Path::new(".")))?;
     std::fs::write(&file, unit(exe))?;
     if cfg!(target_os = "macos") {
-        run(Command::new("launchctl").arg("load").arg("-w").arg(&file))
+        run(crate::tools::command("launchctl").arg("load").arg("-w").arg(&file))
     } else {
-        run(Command::new("systemctl").args(["--user", "daemon-reload"]))?;
-        run(Command::new("systemctl").args(["--user", "enable", "--now", NAME]))
+        run(crate::tools::command("systemctl").args(["--user", "daemon-reload"]))?;
+        run(crate::tools::command("systemctl").args(["--user", "enable", "--now", NAME]))
     }
 }
 
 /// Unregister the helper. The one running goes too; the next app starts its own.
 pub fn uninstall() -> io::Result<()> {
     if cfg!(windows) {
-        return run(Command::new("reg").args(["delete", RUN_KEY, "/v", NAME, "/f"]));
+        return run(crate::tools::command("reg").args(["delete", RUN_KEY, "/v", NAME, "/f"]));
     }
     let Some(file) = file().filter(|f| f.exists()) else { return Ok(()) };
     if cfg!(target_os = "macos") {
-        let _ = run(Command::new("launchctl").arg("unload").arg("-w").arg(&file));
+        let _ = run(crate::tools::command("launchctl").arg("unload").arg("-w").arg(&file));
     } else {
-        let _ = run(Command::new("systemctl").args(["--user", "disable", "--now", NAME]));
+        let _ = run(crate::tools::command("systemctl").args(["--user", "disable", "--now", NAME]));
     }
     std::fs::remove_file(&file)?;
     if !cfg!(target_os = "macos") {
-        let _ = run(Command::new("systemctl").args(["--user", "daemon-reload"]));
+        let _ = run(crate::tools::command("systemctl").args(["--user", "daemon-reload"]));
     }
     Ok(())
 }

@@ -284,7 +284,7 @@ pub fn open_default(path: &Path) -> io::Result<()> {
     } else {
         &["xdg-open"]
     };
-    std::process::Command::new(opener[0])
+    crate::tools::command(opener[0])
         .args(&opener[1..])
         .arg(path)
         .stdin(std::process::Stdio::null())

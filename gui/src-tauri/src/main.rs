@@ -445,7 +445,7 @@ async fn index_status(ctx: tauri::State<'_, Ctx>) -> Res<IndexStatus> {
 async fn index_service(on: bool, ctx: tauri::State<'_, Ctx>) -> Res<()> {
     let index = ctx.index.clone();
     tauri::async_runtime::spawn_blocking(move || {
-        let done = if on { std::env::current_exe().and_then(|exe| coxswain_core::service::install(&exe)) } else { coxswain_core::service::uninstall() };
+        let done = if on { coxswain_core::tools::this_app().and_then(|exe| coxswain_core::service::install(&exe)) } else { coxswain_core::service::uninstall() };
         index.restart();
         done.map_err(|e| e.to_string())
     })
@@ -894,7 +894,7 @@ fn dupes_cancel(ctx: tauri::State<Ctx>) {
 
 fn shell(cmd: &str) -> std::process::Command {
     let (sh, flag) = if cfg!(windows) { ("cmd", "/C") } else { ("sh", "-c") };
-    let mut c = std::process::Command::new(sh);
+    let mut c = coxswain_core::tools::command(sh);
     c.arg(flag).arg(cmd);
     c
 }
@@ -959,7 +959,7 @@ async fn run_script(user: Option<usize>, path: Option<PathBuf>, dir: PathBuf, fi
         return Err(coxswain_core::t!("err.not_coxswain_script"));
     }
     let args = if selected.is_empty() { file.into_iter().collect() } else { selected };
-    let mut c = std::process::Command::new(&real);
+    let mut c = coxswain_core::tools::command(&real);
     c.args(args);
     output(c, &dir)
 }
@@ -1000,7 +1000,7 @@ fn main() {
     // pandoc and the rest of Homebrew are invisible. Ask the login shell for the real one.
     if cfg!(target_os = "macos") {
         let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/zsh".into());
-        if let Ok(out) = std::process::Command::new(shell).args(["-lc", "echo $PATH"]).output() {
+        if let Ok(out) = coxswain_core::tools::command(shell).args(["-lc", "echo $PATH"]).output() {
             let path = String::from_utf8_lossy(&out.stdout).trim().to_string();
             if out.status.success() && !path.is_empty() {
                 // Safety: nothing else runs yet, so no other thread reads the environment.

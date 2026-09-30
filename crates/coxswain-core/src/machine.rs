@@ -33,7 +33,7 @@ fn battery_now() -> bool {
 
 #[cfg(target_os = "macos")]
 fn battery_now() -> bool {
-    std::process::Command::new("pmset").args(["-g", "batt"]).output().is_ok_and(|o| String::from_utf8_lossy(&o.stdout).contains("'Battery Power'"))
+    crate::tools::command("pmset").args(["-g", "batt"]).output().is_ok_and(|o| String::from_utf8_lossy(&o.stdout).contains("'Battery Power'"))
 }
 
 #[cfg(windows)]
@@ -116,7 +116,7 @@ fn locate_on(id: &str, inside: &Path) -> Option<PathBuf> {
 /// `diskutil info` of a path or volume, as (VolumeUUID, MountPoint).
 #[cfg(target_os = "macos")]
 fn diskutil(what: &Path) -> Option<(String, PathBuf)> {
-    let out = std::process::Command::new("diskutil").arg("info").arg("-plist").arg(what).output().ok()?;
+    let out = crate::tools::command("diskutil").arg("info").arg("-plist").arg(what).output().ok()?;
     let text = String::from_utf8_lossy(&out.stdout);
     let value = |key: &str| text.split(&format!("<key>{key}</key>")).nth(1)?.split("<string>").nth(1)?.split("</string>").next().map(str::to_string);
     Some((value("VolumeUUID")?, PathBuf::from(value("MountPoint")?)))

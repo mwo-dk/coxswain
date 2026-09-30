@@ -255,7 +255,7 @@ impl Client {
             if registered && !cfg!(windows) {
                 return;
             }
-            if let Ok(exe) = std::env::current_exe() {
+            if let Ok(exe) = crate::tools::this_app() {
                 let mut c = detached(&exe);
                 if registered {
                     c.arg(crate::service::STAY);
@@ -421,8 +421,8 @@ fn exchange((from, to): &mut Line, request: &Request) -> io::Result<Reply> {
 
 /// `exe` as a helper that outlives the app and its terminal.
 pub(crate) fn detached(exe: &Path) -> std::process::Command {
-    use std::process::{Command, Stdio};
-    let mut c = Command::new(exe);
+    use std::process::Stdio;
+    let mut c = crate::tools::command(exe);
     c.arg(ARG).stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null());
     #[cfg(unix)]
     std::os::unix::process::CommandExt::process_group(&mut c, 0);
