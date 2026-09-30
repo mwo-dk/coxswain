@@ -1,7 +1,8 @@
 <script>
   import { ui, tab, item } from "./app.svelte.js";
   import { renderPptx, renderDrawio, renderMarkdown, renderMermaid, highlight, renderDocx, readSheet, renderNotebook, loadFont, clean, parseData, jsonLines, calendar, contacts, logLines, renderGraphviz, renderAsciidoc, readParquet } from "./renderers.js";
-  import { invoke, convertFileSrc, size, date, age, ageColor, previewKind, CONVERTER } from "./lib.js";
+  import { invoke, convertFileSrc, size, date, age, ageColor, previewKind, looksLikeBom, CONVERTER } from "./lib.js";
+  import BomView from "./BomView.svelte";
   import { t, tn, num } from "./i18n.svelte.js";
 
   /** Set by App when the command output should show here instead of the file. */
@@ -9,7 +10,9 @@
 
   const pane = $derived(tab());
   const e = $derived(item(pane));
-  const kind = $derived(output ? "output" : previewKind(e));
+  /** A JSON or XML file whose first bytes turned out to be a CycloneDX BOM's. */
+  let sniffedBom = $state("");
+  const kind = $derived(output ? "output" : e && sniffedBom === e.path ? "bom" : previewKind(e));
   let text = $state("");
   let html = $state("");
   let truncated = $state(false);
@@ -31,7 +34,7 @@
   const source = $derived(ui.previewSource);
   /** For a file git has changes for: show the file, or its diff. Kept across files. */
   const showDiff = $derived(ui.previewDiff);
-  const TEXTUAL = ["text", "markdown", "mermaid", "data", "jsonl", "calendar", "contacts", "log", "graphviz", "asciidoc"];
+  const TEXTUAL = ["text", "markdown", "mermaid", "data", "jsonl", "calendar", "contacts", "log", "graphviz", "asciidoc", "bom"];
   const ext = (f) => f.name.split(".").pop().toLowerCase();
   const gitKind = $derived(e && !e.is_dir ? pane.git?.files[e.name]?.kind : undefined);
   const hasDiff = $derived(gitKind && !["untracked", "ignored"].includes(gitKind));
@@ -53,6 +56,8 @@
     const src = source;
     const diff = diffing;
     if (!cur || cur.is_dir || !(TEXTUAL.includes(k) || diff)) return;
+    // The BOM view reads the file itself; only its source is read here.
+    if (k === "bom" && !src && !diff) return;
     const timer = setTimeout(async () => {
       try {
         if (diff) {
@@ -64,6 +69,10 @@
         if (item(tab())?.path !== cur.path) return;
         truncated = trunc;
         binary = bin;
+        if (!bin && (k === "data" || k === "text") && /\.(json|xml)$/i.test(cur.name) && looksLikeBom(s)) {
+          sniffedBom = cur.path;
+          if (!src) return;
+        }
         if (!bin && !src && k === "data") {
           try {
             tree = await parseData(s, ext(cur));
@@ -331,17 +340,22 @@
           <button class:on={showDiff} onclick={() => (ui.previewDiff = true)} title={t("preview.changes_against_head")}>{t("preview.diff")}</button>
         </div>
       {/if}
-      {#if !diffing && ["markdown", "mermaid", "data", "jsonl", "calendar", "contacts", "graphviz", "asciidoc"].includes(kind)}
+      {#if !diffing && ["markdown", "mermaid", "data", "jsonl", "calendar", "contacts", "graphviz", "asciidoc", "bom"].includes(kind)}
         <div class="modes" role="group" aria-label={t("preview.show")}>
-          <button class:on={!source} onclick={() => (ui.previewSource = false)}>{kind === "data" ? t("preview.tree") : kind === "jsonl" ? t("preview.table") : t("preview.rendered")}</button>
+          <button class:on={!source} onclick={() => (ui.previewSource = false)}>{kind === "data" || kind === "bom" ? t("preview.tree") : kind === "jsonl" ? t("preview.table") : t("preview.rendered")}</button>
           <button class:on={source} onclick={() => (ui.previewSource = true)}>{t("preview.source")}</button>
         </div>
       {/if}
     </header>
 
-    <div class="body">
+    <div class="body" class:flush={kind === "bom" && !source && !diffing}>
       {#if diffing}
         {#if html}<pre class="mono code"><code class="hljs">{@html html}</code></pre>{/if}
+      {:else if kind === "bom" && !source}
+        <BomView path={e.path} />
+      {:else if kind === "bom"}
+        {#if html}<pre class="mono code"><code class="hljs">{@html html}</code></pre>{:else}<pre class="mono">{text}</pre>{/if}
+        {#if truncated}<p class="more">{t("preview.showing_first", { size: size(LIMIT) })}</p>{/if}
       {:else if tree !== undefined}
         <div class="tree">{@render node(null, tree, 0)}</div>
       {:else if table}
@@ -632,6 +646,12 @@
     overflow: auto;
     min-height: 0;
     padding: 10px 14px;
+  }
+  .body.flush {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    padding: 0;
   }
   .media {
     display: grid;

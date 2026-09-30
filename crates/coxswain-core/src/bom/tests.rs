@@ -287,10 +287,12 @@ fn scanner_output_is_grouped_by_source_file() {
     assert_eq!(tree::modes(&bom), [TreeMode::Files, TreeMode::Flat]);
     let t = tree::build(&bom, TreeMode::Files);
     let top = labels(&t, &bom, 0);
-    for want in ["core/src/main/java/org/keycloak/jose", "services/src/main/java/org/keycloak", "crypto"] {
+    for want in ["core/src/main/java/org/keycloak/jose", "services/src/main/java/org/keycloak/keys", "crypto"] {
         assert!(top.iter().any(|l| l == want), "{want} not in {top:?}");
     }
-    assert_eq!(top.len(), 12);
+    // cipherscape has 12: it also makes groups for files where assets only occur again
+    assert_eq!(top.len(), 9);
+    assert!(t.groups.iter().enumerate().all(|(g, _)| !t.children[bom.nodes.len() + g].is_empty()), "an empty group");
 
     // single-child directory chains are folded
     for (g, group) in t.groups.iter().enumerate() {

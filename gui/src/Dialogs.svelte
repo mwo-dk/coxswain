@@ -220,6 +220,9 @@
         else if (n >= 1 && n <= TAGS.length) setTag(TAGS[n - 1]);
         return true;
       }
+      case "bom":
+        // the window's own keys: Esc (above) closes it
+        return false;
       default:
         if (k === "Enter" || act === "help") close();
         return m.kind === "message";
@@ -227,7 +230,7 @@
   }
 </script>
 
-{#if ui.modal && !["dupes", "settings"].includes(ui.modal.kind)}
+{#if ui.modal && !["dupes", "settings", "bom"].includes(ui.modal.kind)}
   {@const m = ui.modal}
   <div class="backdrop" role="presentation" onclick={(e) => e.target === e.currentTarget && close()}>
     <div class="dialog {m.kind}" role="dialog" aria-modal="true" aria-label={m.title ?? (KIND_LABEL[m.kind] ? t(KIND_LABEL[m.kind]) : m.kind)}>

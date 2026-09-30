@@ -264,7 +264,9 @@ fn file_slot(dirs: &mut Vec<Dir>, location: &str) -> (usize, usize) {
 
 /// Groups assets by source path: root, directories, file, asset. A chain of directories with
 /// one child each becomes one group ("services/src/main/java/org/keycloak"). Each asset sits
-/// under the file of its first occurrence; the other files get an `OccursIn` edge to it.
+/// under the file of its first occurrence; the other files get an `OccursIn` edge to it when
+/// they have a group of their own. A file where assets only occur again gets none: it would be
+/// an empty row in the tree (cipherscape keeps it, for its graph).
 fn place_by_source_file(bom: &Bom, b: &mut Builder, extra_edges: &mut Vec<Edge>) {
     let mut dirs = vec![Dir::default()];
     let mut further: Vec<(String, u32)> = vec![];
@@ -275,7 +277,6 @@ fn place_by_source_file(bom: &Bom, b: &mut Builder, extra_edges: &mut Vec<Edge>)
         let mut seen = HashSet::new();
         for o in &node.occurrences[1..] {
             if o.location != first && seen.insert(o.location.as_str()) {
-                file_slot(&mut dirs, &o.location); // the file gets a group even when nothing sits under it
                 further.push((o.location.clone(), i as u32));
             }
         }

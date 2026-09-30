@@ -14,7 +14,7 @@ use std::sync::LazyLock;
 use super::model::AlgorithmInfo;
 use super::status::Status;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum Family {
     Hash,
