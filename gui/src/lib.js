@@ -145,7 +145,8 @@ export function ageColor(secs, look) {
 /** `*` and `?` wildcards, whole name, case-insensitive. */
 export function glob(pattern, name) {
   const re = pattern.replace(/[.+^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*").replace(/\?/g, ".");
-  return new RegExp(`^${re}$`, "i").test(name);
+  // `u`: `?` is one character, also outside the basic plane (an emoji).
+  return new RegExp(`^${re}$`, "iu").test(name);
 }
 
 /** Shell-quote a word the way coxswain-core's `quote` does on Unix. */

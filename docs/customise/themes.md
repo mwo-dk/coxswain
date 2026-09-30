@@ -119,10 +119,9 @@ Yes: give both keys the same name, `theme = "nord"` at the top and `theme = "nor
 `[gui]`. They stay separate keys so that you can run, say, NC in the terminal and macOS on the
 desktop.
 
-#### I picked a theme with F9 and my own themes are not in the list. Why?
+#### Where are my own themes in the F9 list?
 
-The command list offers the built-in themes only. Your own `[themes.<name>]` are in Settings
-(**Ctrl+,**) → *Theme*, after the built-in ones, under the name you gave them.
+After the built-in ones, under the name you gave them (`[themes.<name>]`), as in Settings.
 
 #### Which theme is closest to Midnight Commander or Far Manager?
 

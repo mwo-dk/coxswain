@@ -86,10 +86,15 @@ impl AppState {
         }
     }
 
-    pub fn touch_repo(&mut self, root: &Path) {
+    /// Moves `root` to the top of the recent repositories; false when it was there already.
+    pub fn touch_repo(&mut self, root: &Path) -> bool {
+        if self.recent_repos.first().is_some_and(|r| r == root) {
+            return false;
+        }
         self.recent_repos.retain(|r| r != root);
         self.recent_repos.insert(0, root.to_path_buf());
         self.recent_repos.truncate(RECENT_MAX);
+        true
     }
 
     /// Empty color or text removes the entry.
@@ -127,7 +132,8 @@ mod tests {
         for i in 0..20 {
             s.touch_repo(Path::new(&format!("/r{i}")));
         }
-        s.touch_repo(Path::new("/r5"));
+        assert!(s.touch_repo(Path::new("/r5")));
+        assert!(!s.touch_repo(Path::new("/r5")));
         s.session = serde_json::json!({"tabs": [1, 2]});
         s.save_to(&f).unwrap();
         let back = AppState::load_from(&f);

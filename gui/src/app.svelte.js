@@ -72,6 +72,11 @@ export const tab = (i = ui.activePane) => ui.panes[i]?.tabs[ui.panes[i].active];
 export const otherTab = () => tab(ui.dual ? ui.activePane ^ 1 : ui.activePane);
 export const item = (t = tab()) => t?.items[t.cursor];
 
+/** Every theme's id: the built-in ones in their order, then the user's `[themes.<name>]`. */
+export const themeIds = () => [...ui.cfg.builtin_themes, ...Object.keys(ui.cfg.themes).filter((id) => !ui.cfg.builtin_themes.includes(id))];
+/** A theme's name as shown: translated when built in, else as the user named it. */
+export const themeName = (id) => (ui.cfg.builtin_themes.includes(id) ? t(`theme.${id}`) : id);
+
 /** Show a theme; with `save`, also store it in config.toml, as Settings does. */
 export async function setTheme(name, save = false) {
   if (!ui.cfg.themes[name]) name = "cyber";
@@ -128,7 +133,7 @@ export async function load(t, dir = t.dir, focus) {
   invoke("git_status", { dir: t.dir }).then((g) => {
     if (t.dir === dir) t.git = g;
     if (g && !ui.recent.includes(g.root)) ui.recent = [g.root, ...ui.recent].slice(0, 12);
-  });
+  }, () => {});
   return true;
 }
 
@@ -263,9 +268,10 @@ export async function init() {
     }),
   );
   invoke("places").then((p) => (ui.places = p));
-  // `coxswain-gui --duplicates <folders>` starts straight in a scan of those folders.
+  // `coxswain-gui --duplicates <folders>` starts straight in a scan of those folders; with
+  // `--settings` too, the scan (which has work to do) wins, since there is one window at a time.
   if (ui.cfg.duplicates) ui.modal = { kind: "dupes", roots: Object.fromEntries(ui.cfg.duplicates.map((p) => [p, true])), autostart: true };
-  if (ui.cfg.open_settings != null) ui.modal = { kind: "settings", section: ui.cfg.open_settings };
+  else if (ui.cfg.open_settings != null) ui.modal = { kind: "settings", section: ui.cfg.open_settings };
   invoke("disks").then((d) => (ui.disks = d));
 }
 

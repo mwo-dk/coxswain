@@ -1,7 +1,7 @@
 <script>
   // Settings: every choice is written to config.toml at once (comments and layout kept, see
   // save_settings in main.rs) and applied without a restart.
-  import { ui, setTheme, tab } from "./app.svelte.js";
+  import { ui, setTheme, themeIds, themeName, tab } from "./app.svelte.js";
   import { invoke, size } from "./lib.js";
   import { t, setLanguage } from "./i18n.svelte.js";
 
@@ -31,9 +31,7 @@
     }
   }
 
-  // Built-in themes first, in their order, then any `[themes.<name>]` from config.toml.
-  const themes = $derived([...ui.cfg.builtin_themes, ...Object.keys(ui.cfg.themes).filter((id) => !ui.cfg.builtin_themes.includes(id))]);
-  const themeName = (id) => (ui.cfg.builtin_themes.includes(id) ? t(`theme.${id}`) : id);
+  const themes = $derived(themeIds());
   const close = () => (ui.modal = null);
 
   // Container images: which the runtime has, with Pull (also updates) and Remove.
@@ -158,6 +156,14 @@
     loadPreviewCache();
   }
 
+  /** A number field: saved when it holds a whole number in its range; emptied or out of range, it
+   *  goes back to what is saved (never 0). */
+  function whole(e, name) {
+    const el = e.currentTarget;
+    if (el.validity.valid && el.value !== "" && Number.isInteger(el.valueAsNumber)) set(name, el.valueAsNumber);
+    else el.value = s[name];
+  }
+
   const imageStatus = (im) => (im.pulling != null ? im.pulling || t("common.loading") : im.size != null ? t("settings.image_pulled", { size: size(im.size) }) : t("settings.image_not_pulled"));
 </script>
 
@@ -212,7 +218,7 @@
           <option value="ascii">{t("settings.glyphs_ascii")}</option>
         </select>
         <label for="size">{t("settings.font_size")}</label>
-        <input id="size" type="number" min="9" max="28" value={s.font_size} onchange={(e) => set("font_size", Number(e.currentTarget.value))} />
+        <input id="size" type="number" min="9" max="28" step="1" value={s.font_size} onchange={(e) => whole(e, "font_size")} />
         <label for="font">{t("settings.font")}</label>
         <input id="font" value={s.font} spellcheck="false" onchange={(e) => set("font", e.currentTarget.value)} />
         <label for="mono">{t("settings.mono_font")}</label>
@@ -372,7 +378,7 @@
         <span></span>
         <label class="check"><input type="checkbox" checked={s.latex_auto} onchange={(e) => set("latex_auto", e.currentTarget.checked)} /> {t("settings.latex_auto")}</label>
         <label for="timeout">{t("settings.timeout")}</label>
-        <input id="timeout" type="number" min="10" max="3600" value={s.preview_timeout} onchange={(e) => set("preview_timeout", Number(e.currentTarget.value))} />
+        <input id="timeout" type="number" min="10" max="3600" step="1" value={s.preview_timeout} onchange={(e) => whole(e, "preview_timeout")} />
         <span>{t("settings.preview_cache")}</span>
         <div class="folder">
           <span class="hint">{previewCache == null ? "" : t("settings.preview_cache_size", { size: size(previewCache) })}</span>

@@ -437,19 +437,37 @@ pub fn open_default(path: &Path) -> io::Result<()> {
     } else {
         &["xdg-open"]
     };
-    crate::tools::command(opener[0])
-        .args(&opener[1..])
-        .arg(path)
-        .stdin(std::process::Stdio::null())
-        .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::null())
-        .spawn()
-        .map(drop)
+    let mut c = crate::tools::command(opener[0]);
+    c.args(&opener[1..]).arg(path);
+    // An opener that finds no application says so and stops at once: that is an error, not
+    // "opened".
+    crate::tools::spawn_watched(c, std::time::Duration::from_secs(1))
+}
+
+/// `s` as a path: `~` is the home folder, and a relative path starts from `base`.
+pub fn resolve(base: &Path, s: &str) -> PathBuf {
+    let s = s.trim();
+    let p = match s.strip_prefix('~') {
+        Some(rest) if rest.is_empty() || rest.starts_with(['/', '\\']) => std::env::home_dir().unwrap_or_default().join(rest.trim_start_matches(['/', '\\'])),
+        _ => PathBuf::from(s),
+    };
+    if p.is_absolute() { p } else { base.join(p) }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn fs_resolve_paths() {
+        let base = Path::new("/base");
+        assert_eq!(resolve(base, " sub/x "), PathBuf::from("/base/sub/x"));
+        assert_eq!(resolve(base, "/abs"), PathBuf::from("/abs"));
+        let home = std::env::home_dir().unwrap_or_default();
+        assert_eq!(resolve(base, "~"), home);
+        assert_eq!(resolve(base, "~/x"), home.join("x"));
+        assert_eq!(resolve(base, "~x"), PathBuf::from("/base/~x"));
+    }
 
     fn tmp(name: &str) -> PathBuf {
         let d = std::env::temp_dir().join(format!("coxswain-test-{name}-{}", std::process::id()));

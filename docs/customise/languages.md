@@ -62,15 +62,15 @@ There are no keys for the language.
 ## Which language Automatic picks
 
 With `language = "auto"`, the default, Coxswain reads your system's list of preferred languages
-(on Linux, macOS and Windows alike), and takes the first one it has, in any regional form;
-otherwise the nearest relative:
+(on Linux, macOS and Windows alike), and takes the first one it has, in any regional form (any
+English counts); otherwise the nearest relative of the first one:
 
 | Your system | Coxswain uses |
 |---|---|
 | One of the languages above, in any region (`de-CH`, `fr-CA`, `sv-FI`, `ca-ES-valencia`, …) | That language |
 | US English, or English without a region | Canadian English |
 | Australian, Canadian, New Zealand English | That English |
-| Any other English (Ireland, South Africa, India, …) | British English |
+| Any other English (Britain, Ireland, South Africa, India, …) | British English |
 | Any Spanish (Spain, Mexico, …), Galician and Aragonese | Argentinian Spanish |
 | Norwegian (Bokmål, Nynorsk) | Danish, the closest written language |
 | Frisian, Afrikaans | Dutch |

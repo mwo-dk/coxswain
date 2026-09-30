@@ -1,16 +1,18 @@
 //! File-type icons: a Nerd Font glyph and a color per name or extension.
 
+use crate::config::Glyphs;
 use serde::Serialize;
+use std::borrow::Cow;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct Icon {
-    pub glyph: &'static str,
+    pub glyph: Cow<'static, str>,
     /// `#rrggbb`, or empty to use the theme's color for the entry.
     pub color: &'static str,
 }
 
 const fn i(glyph: &'static str, color: &'static str) -> Icon {
-    Icon { glyph, color }
+    Icon { glyph: Cow::Borrowed(glyph), color }
 }
 
 const FOLDER: Icon = i("\u{f07b}", "");
@@ -42,7 +44,7 @@ const NAMES: &[(&str, Icon)] = &[
 ];
 
 const EXTS: &[(&str, Icon)] = &[
-    // Formats the desktop app's preview renders (see docs/previews.md).
+    // Formats the desktop app's preview renders (see docs/previews/).
     ("tex", i("\u{e69b}", "#3d6117")),
     ("ltx", i("\u{e69b}", "#3d6117")),
     ("rtf", i("\u{f1c2}", "#185abd")),
@@ -164,17 +166,27 @@ const EXTS: &[(&str, Icon)] = &[
     ("crt", i("\u{f0a3}", "#e0af68")),
 ];
 
+/// The Nerd Font icon for a name: by the name itself, else its extension.
 pub fn icon(name: &str, is_dir: bool) -> Icon {
     let lower = name.to_lowercase();
     if let Some((_, ic)) = NAMES.iter().find(|(n, _)| *n == lower) {
-        return *ic;
+        return ic.clone();
     }
     if is_dir {
         return FOLDER;
     }
     match lower.rsplit_once('.') {
-        Some((stem, ext)) if !stem.is_empty() => EXTS.iter().find(|(e, _)| *e == ext).map_or(FILE, |(_, ic)| *ic),
+        Some((stem, ext)) if !stem.is_empty() => EXTS.iter().find(|(e, _)| *e == ext).map_or(FILE, |(_, ic)| ic.clone()),
         _ => FILE,
+    }
+}
+
+/// The icon for an entry: with Nerd Font glyphs (`plain` is None) one per kind of file; with
+/// a plain glyph set (ASCII, or the user's own) its one glyph for folders, files or symlinks.
+pub fn entry(name: &str, is_dir: bool, is_symlink: bool, plain: Option<&Glyphs>) -> Icon {
+    match plain {
+        None => icon(name, is_dir),
+        Some(g) => Icon { glyph: Cow::Owned(if is_dir { &g.folder } else if is_symlink { &g.symlink } else { &g.file }.clone()), color: "" },
     }
 }
 
@@ -190,5 +202,10 @@ mod tests {
         assert_eq!(icon(".git", true).color, "#f14e32");
         assert_eq!(icon(".bashrc", false), FILE);
         assert_eq!(icon("noext", false), FILE);
+        let ascii = Glyphs::ascii();
+        assert_eq!(entry("main.rs", false, false, Some(&ascii)).glyph, " ");
+        assert_eq!(entry("src", true, false, Some(&ascii)).glyph, "/");
+        assert_eq!(entry("link", false, true, Some(&ascii)).glyph, "@");
+        assert_eq!(entry("main.rs", false, false, None), icon("main.rs", false));
     }
 }

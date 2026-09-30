@@ -57,10 +57,11 @@ is often missing or finds nothing, and files do not open; use **F3** and **F4** 
 
 #### Enter on a file does nothing, and there is no error.
 
-Coxswain started `xdg-open` (or `open`), which found no application for that type, or failed
-without saying so. The status line still says *Opened …*, since the opener did start. Set a
-default application for the type in your system settings, or open the file with **F4** or a
-user-menu entry.
+Coxswain started `xdg-open` (or `open`), which found no application for that type and did not
+say so within a second, or failed later. (When the opener stops at once with an error, its
+words are in the status line instead of *Opened …*: *no method available for opening*, for
+example.) Set a default application for the type in your system settings, or open the file with
+**F4** or a user-menu entry.
 
 #### How do I run a script from the desktop app?
 

@@ -737,7 +737,7 @@ impl Default for PreviewConfig {
             ("latex", "docker.io/texlive/texlive:latest"),
             ("plantuml", "docker.io/plantuml/plantuml:latest"),
             ("pandoc", "docker.io/pandoc/core:latest"),
-            // No official images for these; set one you trust (see docs/previews.md).
+            // No official images for these; set one you trust (see docs/previews/containers.md).
             ("libreoffice", ""),
             ("duckdb", ""),
         ];
@@ -1032,6 +1032,12 @@ impl Config {
             (None, "ascii") => Glyphs::ascii(),
             _ => Glyphs::nerd(),
         }
+    }
+
+    /// Whether entries get the glyph set's one folder, file and symlink glyph (ASCII, or the
+    /// user's own set) instead of a Nerd Font icon per kind of file.
+    pub fn plain_glyphs(&self) -> bool {
+        self.glyph_set.is_some() || self.glyphs == "ascii"
     }
 }
 
