@@ -1,3 +1,5 @@
+[← README](../README.md) · [Docs index](README.md)
+
 # Languages
 
 Both apps, the terminal app and the desktop app, speak 18 languages. They share one set of
@@ -104,3 +106,7 @@ bar ("Mkdir", "PullDn") are abbreviated to fit nine characters. Corrections are 
 [flag-icons](https://github.com/lipis/flag-icons)) to `docs/flags/` and the Settings window.
 
 Flags: [flag-icons](https://github.com/lipis/flag-icons), MIT licence (`docs/flags/LICENSE`).
+
+---
+
+← [Cryptography bills of materials](bom.md) · [Docs index](README.md) · [Questions](faq.md) →

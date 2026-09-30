@@ -1,3 +1,5 @@
+[← README](../README.md) · [Docs index](README.md)
+
 # The preview pane
 
 The desktop app's preview pane (**Space**, or F3) shows the file or folder under the cursor
@@ -12,6 +14,14 @@ else `$PAGER`, else `less`), except a CycloneDX BOM, which opens in its own view
 ![A calendar, a git diff, a log file and an EPUB book](screenshots/gui-previews-more.png)
 ![A PlantUML sequence diagram, a Graphviz graph and an AsciiDoc guide](screenshots/gui-previews-tools.png)
 ![A LaTeX document built with tectonic and shown in the preview pane](screenshots/gui-latex.png)
+
+- [Switches](#switches)
+- [Formats](#formats)
+- [Previews made by tools](#previews-made-by-tools)
+- [Columns and folder sizes](#columns-and-folder-sizes)
+- [Safety](#safety)
+- [Speed](#speed)
+- [Adding a format](#adding-a-format)
 
 ## Switches
 
@@ -260,3 +270,7 @@ bigger than 25 MB are not rendered as documents or spreadsheets.
 
 For screenshots, `docs/screenshots/demo-docs.py` writes a demo file for each format, and
 [the README](../README.md) describes the sandbox the screenshots are taken in.
+
+---
+
+[Docs index](README.md) · [Finding duplicates](duplicates.md) →

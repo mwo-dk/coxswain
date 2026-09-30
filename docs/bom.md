@@ -1,3 +1,5 @@
+[← README](../README.md) · [Docs index](README.md)
+
 # Cryptography bills of materials
 
 A CycloneDX **CBOM** (Cryptography Bill of Materials) lists the cryptography an application
@@ -182,3 +184,7 @@ come.
 It is drawn in half blocks and needs the terminal's cell size to come out round. Terminals that
 report their size in pixels (Alacritty, kitty, WezTerm, foot) get round rings; others are
 assumed to have cells twice as tall as wide.
+
+---
+
+← [Finding duplicates](duplicates.md) · [Docs index](README.md) · [Languages](languages.md) →

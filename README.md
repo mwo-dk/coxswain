@@ -93,6 +93,19 @@ Multi-file projects build from any of their files: Coxswain finds the main docum
 *Duplicates (Ctrl+D): a backed-up Pictures folder, a PDF downloaded twice, a photo in three
 places and a document in an old backup.*
 
+## Documentation
+
+Every feature is walked through under [docs/](docs/README.md):
+
+- [The preview pane](docs/previews.md): every format, the switches, previews made by tools,
+  columns and folder sizes.
+- [Finding duplicates](docs/duplicates.md): duplicate files and folders by content.
+- [Cryptography bills of materials](docs/bom.md): CycloneDX CBOMs, rated, in both apps.
+- [Languages](docs/languages.md): the 18 languages and which one you get.
+- [Questions](docs/faq.md): the questions people ask most.
+
+The keys, deep search, settings and configuration are further down this page.
+
 ## Install
 
 Coxswain comes as a **terminal app** (`coxswain`, or `cox` for short) and a **desktop app**

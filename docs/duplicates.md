@@ -1,3 +1,5 @@
+[← README](../README.md) · [Docs index](README.md)
+
 # Finding duplicates
 
 The desktop app finds duplicate files and whole duplicate folders: across folders, across
@@ -92,3 +94,7 @@ cargo run --release -p coxswain-core --example dupes -- ~/Pictures /mnt/old-disk
 - The terminal app does not have the duplicate finder yet; the engine
   (`crates/coxswain-core/src/dupes.rs`) is shared and ready for it.
 - The results list shows the 500 groups that waste the most space.
+
+---
+
+← [The preview pane](previews.md) · [Docs index](README.md) · [Cryptography bills of materials](bom.md) →
