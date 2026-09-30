@@ -129,8 +129,9 @@ coxswain-gui [--settings[=SECTION]] [--duplicates [FOLDER …] | [LEFT] [RIGHT]]
 | `--duplicates [FOLDER …]` | Opens *Find duplicates* and scans these folders at once; without folders, the current one. The panes open as usual behind it |
 | `--index-helper` | Runs as the search helper, with no window: see [below](#the-helper---index-helper) |
 
-`--settings` must come first, then `--duplicates`; everything else is taken as folders. Another
-section name after `--settings=` opens it at the top.
+`--settings` must come first, then `--duplicates`; everything else is taken as folders. Given
+both, *Find duplicates* opens (there is one window at a time); Settings is a **Ctrl+,** away.
+Another section name after `--settings=` opens it at the top.
 
 The desktop app has no `--help`, `--version`, `--paths` or `--meaning`: use the terminal app's
 flags, which work on the same `config.toml`, the same cache and the same helper. A
