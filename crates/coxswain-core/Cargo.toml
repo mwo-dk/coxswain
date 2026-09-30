@@ -38,6 +38,11 @@ candle-transformers = "0.11.0"
 # Pure Rust: no Oniguruma or esaxx, so the static musl build of the terminal app keeps it.
 tokenizers = { version = "0.22", default-features = false, features = ["fancy-regex"] }
 sha2 = "0.10.9"
+# More archive formats, all pure Rust: bzip2 (its default backend), xz, zstd, 7z with AES.
+bzip2 = "0.6.1"
+lzma-rust2 = "0.21.0"
+ruzstd = "0.9.0"
+sevenz-rust2 = { version = "0.23.0", features = ["aes256"] }
 
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.61.2", features = ["Win32_System_Power", "Win32_Storage_FileSystem"] }
