@@ -162,10 +162,13 @@ pub async fn convert(path: PathBuf, tool: String, engine: String, cached_only: b
     tauri::async_runtime::spawn_blocking(move || {
         let out = cache_dir(&path, &tool, &engine)?;
         let (kind, file) = output(&tool, &path, &out);
+        // What the build said is kept next to its result, so the next look says it too.
+        let said = |what: &str| std::fs::read_to_string(out.join(what)).ok().filter(|s| !s.is_empty());
         let done = |file: PathBuf| -> Res<Option<Converted>> {
+            let (note, instead) = (said("note.txt"), said("instead.txt"));
             Ok(Some(match kind {
-                "pdf" | "svg" => Converted { kind, file: Some(file), text: None, note: None, instead: None },
-                _ => Converted { kind, file: None, text: Some(std::fs::read_to_string(&file).map_err(|e| e.to_string())?), note: None, instead: None },
+                "pdf" | "svg" => Converted { kind, file: Some(file), text: None, note, instead },
+                _ => Converted { kind, file: None, text: Some(std::fs::read_to_string(&file).map_err(|e| e.to_string())?), note, instead },
             }))
         };
         if file.is_file() {
@@ -179,7 +182,10 @@ pub async fn convert(path: PathBuf, tool: String, engine: String, cached_only: b
         match run(&cfg, &tool, &engine, &path, &out, &file) {
             Ok(()) if file.is_file() => done(file),
             // A document with an error still makes a PDF: shown, with the error above it.
-            Err(e) if file.is_file() => done(file.clone()).map(|c| c.map(|c| Converted { note: Some(failure(&tool, &path, &out, &e)), ..c })),
+            Err(e) if file.is_file() => {
+                let _ = std::fs::write(out.join("note.txt"), failure(&tool, &path, &out, &e));
+                done(file)
+            }
             Ok(()) => Err(failure(&tool, &path, &out, &t!("convert.no_result"))),
             Err(e) => {
                 let why = failure(&tool, &path, &out, &e);
@@ -193,8 +199,8 @@ pub async fn convert(path: PathBuf, tool: String, engine: String, cached_only: b
                         std::fs::create_dir_all(&out).map_err(|e| e.to_string())?;
                         if run(&cfg, &tool, &other.id, &path, &out, &file).is_ok() || file.is_file() {
                             let said = why.lines().next().unwrap_or_default().to_string();
-                            let note = t!("convert.built_instead", "engine" => other.label, "failed" => first, "why" => said);
-                            return done(file).map(|c| c.map(|c| Converted { instead: Some(note), ..c }));
+                            let _ = std::fs::write(out.join("instead.txt"), t!("convert.built_instead", "engine" => other.label, "failed" => first, "why" => said));
+                            return done(file);
                         }
                     }
                 }
@@ -337,6 +343,16 @@ fn build(cfg: &PreviewConfig, tool: &str, engine: &str, path: &Path, out: &Path,
             c.arg("--outdir").arg(out).arg(&name);
         }
         ("latex", _) => {
+            // A document that asks for XeLaTeX or LuaLaTeX gets it when TeX Live has it.
+            let wanted = match flag.unwrap_or_else(|| latex::engine_flag(path)) {
+                "-pdfxe" => which("xelatex"),
+                "-pdflua" => which("lualatex"),
+                _ => None,
+            };
+            if let Some(other) = wanted {
+                c = coxswain_core::tools::command(&other);
+                c.current_dir(dir);
+            }
             c.args(["-interaction=nonstopmode", "-halt-on-error"]).arg(format!("-output-directory={}", out.display())).arg(&name);
         }
         ("libreoffice", _) => {

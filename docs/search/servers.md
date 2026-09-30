@@ -78,7 +78,8 @@ meaning_key_env = "LEMONADE_KEY"
 ## In the terminal app
 
 `coxswain --meaning ollama [MODEL]`, `--meaning server URL MODEL` and `--meaning builtin` write
-the keys and start the helper again; `--meaning server` first checks that the server answers. For
+the keys and start the helper again; `--meaning server` first checks that the server answers,
+with the key `meaning_key_env` names when one is set, as the model lists in Settings do. For
 Ollama on another machine, or an API key, edit `config.toml`. The warning about text sent to
 another machine is shown only in the desktop app's Settings; see [Privacy](../reference/privacy.md).
 

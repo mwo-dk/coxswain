@@ -63,7 +63,7 @@ only looked at (latexmk gets `-norc`). Your own `~/.latexmkrc` or
 |---|---|
 | latexmk (installed or in the container) | `latexmk -pdf` (or `-pdfxe`, `-pdflua`) `-interaction=nonstopmode`, with output to the cache; no `-halt-on-error`, so it goes on past errors |
 | tectonic | `tectonic --outdir <cache> file.tex` (XeTeX only) |
-| pdflatex | `pdflatex -interaction=nonstopmode -halt-on-error`, one pass |
+| pdflatex | `pdflatex -interaction=nonstopmode -halt-on-error`, one pass; `xelatex` or `lualatex` instead, when the document asks for that engine and TeX Live has it |
 
 Output and auxiliary files (`.aux`, `.log`, `.toc`) go to the cache, never next to your
 source.
@@ -90,7 +90,8 @@ still shows at once.
 When the engine picked cannot build the document at all, the others that are ready (installed,
 or a container whose image is pulled) are tried in turn. tectonic is XeTeX only; the TeX Live
 container has every engine and package, so it is often the one that succeeds. The PDF that one
-makes is kept as the picked engine's result, so the next look finds it at once. Above the PDF:
+makes is kept as the picked engine's result, so the next look finds it at once, with the same
+line above it. Above the PDF:
 
 *Built with tectonic: latexmk stopped (! LaTeX Error: File `minted.sty' not found.)*
 
