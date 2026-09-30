@@ -136,7 +136,9 @@ pub fn on_disk(bom_path: &Path, location: &str) -> Option<std::path::PathBuf> {
     if rel.is_empty() || rel.split(['/', '\\']).any(|s| s == "..") {
         return None;
     }
-    let p = base.join(rel);
+    // One part at a time, so the path has the system's separators (a BOM's are always `/`).
+    let mut p = base.to_path_buf();
+    p.extend(rel.split(['/', '\\']).filter(|s| !s.is_empty() && *s != "."));
     p.exists().then_some(p)
 }
 

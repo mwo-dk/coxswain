@@ -380,7 +380,7 @@ mod tests {
         // A repository with its CBOM at the top, as CBOMkit leaves it.
         let dir = std::env::temp_dir().join(format!("coxswain-test-bom-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
-        let src = dir.join("core/src/main/java/org/keycloak/jose/jwk");
+        let src = ["core", "src", "main", "java", "org", "keycloak", "jose", "jwk"].iter().fold(dir.clone(), |p, s| p.join(s));
         std::fs::create_dir_all(&src).unwrap();
         std::fs::write(src.join("JWKParser.java"), "class JWKParser {}\n").unwrap();
         let fixture = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../crates/coxswain-core/src/bom/testdata/cbomkit/keycloak.cdx.json");

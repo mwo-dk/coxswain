@@ -926,3 +926,19 @@ fn view_names_filters_and_sunburst() {
     let leaves = view::leaf_counts(&l.tree, Some(&keep));
     assert_eq!(leaves[0], 3.0);
 }
+
+#[test]
+fn a_file_named_in_a_bom_gets_the_systems_separators() {
+    let dir = std::env::temp_dir().join(format!("coxswain-test-bom-disk-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    let file = dir.join("src").join("main").join("Keys.java");
+    std::fs::create_dir_all(file.parent().unwrap()).unwrap();
+    std::fs::write(&file, "").unwrap();
+    let bom = dir.join("cbom.json");
+    // the same string as joining part by part: on Windows, backslashes only
+    assert_eq!(view::on_disk(&bom, "src/main/Keys.java").unwrap().to_string_lossy(), file.to_string_lossy());
+    assert_eq!(view::on_disk(&bom, "/src/./main/Keys.java").unwrap().to_string_lossy(), file.to_string_lossy());
+    assert_eq!(view::on_disk(&bom, "src/../../etc/passwd"), None);
+    assert_eq!(view::on_disk(&bom, "src/main/Gone.java"), None);
+    std::fs::remove_dir_all(&dir).unwrap();
+}
