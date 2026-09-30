@@ -41,6 +41,30 @@ fn color(s: Status) -> Color {
     }
 }
 
+/// Whether the dialog's background is light, as the Norton theme's grey.
+fn is_light(theme: &Theme) -> bool {
+    match sty(&theme.dialog).bg {
+        Some(bg @ Color::Rgb(..)) => {
+            let (r, g, b) = rgb(bg);
+            0.299 * r + 0.587 * g + 0.114 * b > 128.0
+        }
+        _ => false,
+    }
+}
+
+/// A status word: the rating's colour, darker on a light dialog so that it can be read there.
+fn word(s: Status, theme: &Theme) -> Style {
+    use coxswain_core::bom::status::Color as C;
+    let c = match (s.color(), is_light(theme)) {
+        (C::Green, true) => Color::Rgb(0x1b, 0x5e, 0x20),
+        (C::Yellow, true) => Color::Rgb(0x7a, 0x4f, 0x00),
+        (C::Red, true) => Color::Rgb(0xb7, 0x1c, 0x1c),
+        (C::Grey | C::Muted, true) => Color::Rgb(0x42, 0x42, 0x42),
+        _ => color(s),
+    };
+    Style::default().fg(c)
+}
+
 /// Secondary text: the theme's colour for hidden files, on the dialog's own background (the
 /// hidden style's background is the panel's).
 fn faint(theme: &Theme) -> Style {
@@ -591,10 +615,10 @@ impl Viewer {
         let dim = faint(theme);
         let mut spans = vec![Span::raw(t!("bom.compared", "name" => c.name)), Span::raw(" ")];
         match &c.result {
-            Err(e) => spans.push(Span::styled(e.clone(), Style::default().fg(color(Status::Broken)))),
+            Err(e) => spans.push(Span::styled(e.clone(), word(Status::Broken, theme))),
             Ok(d) => {
                 let k = d.counts;
-                spans.push(Span::styled(tn!("bom.change.risk", k.new_risks), Style::default().fg(color(Status::Broken))));
+                spans.push(Span::styled(tn!("bom.change.risk", k.new_risks), word(Status::Broken, theme)));
                 for text in [
                     tn!("bom.change.fixed", k.fixed),
                     tn!("bom.change.added", k.added),
@@ -638,14 +662,16 @@ impl Viewer {
                     let mut left = vec![Span::raw(format!("{indent}{twist}")), Span::styled("● ", Style::default().fg(color(s)))];
                     match self.change(i) {
                         Change::Added => left.push(Span::styled("+ ", Style::default().add_modifier(Modifier::BOLD))),
-                        Change::Worsened => left.push(Span::styled("▲ ", Style::default().fg(color(Status::Broken)))),
-                        Change::Improved => left.push(Span::styled("▼ ", Style::default().fg(color(Status::Acceptable)))),
+                        Change::Worsened => left.push(Span::styled("▲ ", word(Status::Broken, theme))),
+                        Change::Improved => left.push(Span::styled("▼ ", word(Status::Acceptable, theme))),
                         Change::Unchanged => {}
                     }
                     let group = matches!(node.kind, NodeKind::Group | NodeKind::Application | NodeKind::Component);
                     left.push(Span::styled(self.labels[i as usize].clone(), if group { dirs } else { Style::default() }));
                     if view::is_crypto(node.kind) {
-                        left.push(Span::styled(format!("  {}", status_word(s)), Style::default().fg(color(s))));
+                        // on the cursor's row the word takes the cursor's colours, which a rating's may not read on
+                        let style = if row.at == self.cursor { Style::default() } else { word(s, theme) };
+                        left.push(Span::styled(format!("  {}", status_word(s)), style));
                     }
                     let place = node.occurrences.first().map(|o| {
                         let file = o.location.rsplit('/').next().unwrap_or(&o.location);
@@ -654,7 +680,7 @@ impl Viewer {
                     let used: usize = left.iter().map(|s| s.content.width()).sum();
                     if let Some(p) = place.filter(|p| used + p.width() + 2 < w) {
                         left.push(Span::raw(" ".repeat(w - used - p.width())));
-                        left.push(Span::styled(p, dim));
+                        left.push(Span::styled(p, if row.at == self.cursor { Style::default() } else { dim }));
                     }
                     let mut line = Line::from(left);
                     if faded {
@@ -707,8 +733,7 @@ impl Viewer {
         let ring_w = (r_max - r0) / rings as f64;
         let selected = self.selected();
         // Grey (unknown) would vanish on a light grey dialog, as the Norton theme's: darker there.
-        let (br, bgc, bb) = rgb(bg);
-        let light = 0.299 * br + 0.587 * bgc + 0.114 * bb > 128.0 && bg != Color::Reset;
+        let light = is_light(theme);
         let paint = |s: Status| match (s.color(), light) {
             (coxswain_core::bom::status::Color::Grey | coxswain_core::bom::status::Color::Muted, true) => Color::Rgb(0x61, 0x61, 0x61),
             _ => color(s),
@@ -832,7 +857,7 @@ impl Viewer {
             out.push(Line::from(vec![
                 Span::styled("● ", Style::default().fg(color(r.status))),
                 Span::raw(r.label.clone()),
-                Span::styled(format!("  {}", status_word(r.status)), Style::default().fg(color(r.status))),
+                Span::styled(format!("  {}", status_word(r.status)), word(r.status, theme)),
                 Span::styled(format!("  {}", r.place), dim),
             ]));
         }

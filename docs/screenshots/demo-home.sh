@@ -120,8 +120,8 @@ cp "$d/Documents/debrief.docx" "$d/Backups/old-laptop-2019/debrief.docx"
 touch -d "2019-06-01 12:00" "$d/Backups/old-laptop-2019/debrief.docx"
 
 # No "new version" notice in the pictures.
-# The terminal app in Cyber, as the desktop app.
-mkdir -p "$d/.config/coxswain" && printf 'theme = "cyber"\ncheck_updates = false\n' > "$d/.config/coxswain/config.toml"
+# No "new version" notice in the pictures.
+mkdir -p "$d/.config/coxswain" && printf 'check_updates = false\n' > "$d/.config/coxswain/config.toml"
 
 # A CBOM next to the source it was scanned from, and an older scan to compare with: CBOMkit's
 # real scan of Keycloak (Apache-2.0, from the BOM test fixtures), with a stub for every file it
