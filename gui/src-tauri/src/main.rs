@@ -1359,12 +1359,13 @@ mod tests {
     }
 
     #[test]
-<<<<<<< HEAD
     fn the_webview_stays_on_the_app() {
         let ok = |u: &str| local(&tauri::Url::parse(u).unwrap());
         assert!(ok("tauri://localhost/index.html") && ok("http://tauri.localhost/index.html") && ok("asset://localhost/%2Fhome%2Fme%2Fa.pdf") && ok("http://asset.localhost/C%3A/a.pdf") && ok("about:srcdoc"));
         assert!(!ok("https://example.com/") && !ok("http://example.com/") && !ok("file:///etc/passwd") && !ok("javascript:alert(1)"));
-=======
+    }
+
+    #[test]
     fn drives_show_removable_disks_under_run_media() {
         assert!(!hidden_mount(Path::new("/run/media/me/USB")));
         assert!(hidden_mount(Path::new("/run/user/1000")));
@@ -1387,7 +1388,6 @@ mod tests {
         std::fs::set_permissions(d.join(".hidden"), std::fs::Permissions::from_mode(0o755)).unwrap();
         assert_eq!(script_files(&d), vec![d.join("resize")]);
         std::fs::remove_dir_all(d).unwrap();
->>>>>>> origin/master
     }
 
     #[test]
