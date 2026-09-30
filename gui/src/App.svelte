@@ -23,6 +23,13 @@
   let ready = $state(false);
 
   let update = $state(null);
+  let notice = $state(null);
+  function actOn(n) {
+    if (n.settings) ui.modal = { kind: "settings", section: n.settings };
+    else if (n.url) invoke("open_path", { path: n.url });
+    dismissNotice(n);
+  }
+  const dismissNotice = (n) => invoke("dismiss_notice", { id: n.id }).then(() => (notice = null), () => {});
   init().then(
     () => {
       ready = true;
@@ -30,6 +37,14 @@
       const check = () => invoke("check_update").then((v) => (update = v), () => {});
       check();
       setInterval(check, 3600e3);
+      // What can be turned on, and the title with the version and the kinds of search on.
+      const tell = () =>
+        invoke("notices").then((n) => {
+          notice = n.notice;
+          getCurrentWindow().setTitle(n.title).catch(() => {});
+        }, () => {});
+      tell();
+      setInterval(tell, 10e3);
     },
     (e) => (ui.status = String(e)),
   );
@@ -501,6 +516,12 @@
       <input class="cmd" dir="auto" bind:this={cmdInput} bind:value={ui.cmd} spellcheck="false" autocomplete="off" placeholder={t("app.cmd_placeholder")} aria-label={t("app.cmd_line")} />
       {#if ui.status}<span class="status">{ui.status}</span>{/if}
       <button class="gear" title={`${t("settings.title")} (${ui.cfg.actions.settings?.[1] ?? ""})`} onclick={() => (ui.modal = { kind: "settings" })}>{"\u{f013}"} {t("settings.title")}</button>
+      {#if notice && !update}
+        <span class="notice">
+          <button class="update" onclick={() => actOn(notice)}>{notice.text}</button>
+          <button class="dismiss" title={t("common.close")} aria-label={t("common.close")} onclick={() => dismissNotice(notice)}>×</button>
+        </span>
+      {/if}
       {#if update}
         <!-- With a package manager, the command upgrades; the page still has the release notes. -->
         <button class="update" title={update[1] ? t("app.update_how", { how: update[1] }) : t("app.update_releases")}
@@ -658,6 +679,19 @@
   }
   .gear:hover {
     color: var(--cmdline-fg);
+  }
+  .notice {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+  }
+  .dismiss {
+    font: inherit;
+    color: var(--hidden-fg);
+    background: none;
+    border: 0;
+    cursor: pointer;
+    padding: 0 4px;
   }
   .update {
     font: inherit;

@@ -17,12 +17,17 @@ Mac OS 9; see [themes](#themes).*
   Windows 3.11 to 11 and Mac System 7 to today come with their corners, bevels and fonts.
 - **Git in every panel.** oh-my-posh style branch, ahead/behind, staged/modified/untracked
   counts and stashes, plus a glyph per file (Nerd Font, or ASCII).
-- **Search like Everything.** Every file name on the machine sits in RAM and queries run in
-  parallel: about 1.4M files index in ~0.2 s and answer in under 10 ms. Every window and the
-  terminal app share one index.
-- **Search inside your files.** Tab in Find file switches from names to the text of your
-  files, with the passage that matched under each hit: text and code, PDF, Word, spreadsheets,
-  presentations, mail, books and notebooks. It stays on your machine.
+- **Deep search: find what you have the way you remember it.** Ctrl+F searches at three
+  depths, and Tab goes deeper:
+  1. **Names**, every file on the machine, Everything-fast: 1.4M files answer in under 10 ms.
+  2. **Text** inside your files: code, PDF, Word, spreadsheets, slides, mail, books, notebooks
+     and diagrams; with tesseract installed, scans and screenshots too.
+  3. **Meaning**: files *about* what you type, whatever words they use, in any language.
+     "rocket fuel cost" finds a Danish budget. A small language model runs on your machine.
+
+  It all stays on your machine, reads in the background at half speed, pauses on battery, and
+  knows your removable disks wherever they are mounted. Both apps say when there is more to
+  turn on. See [deep search](#find-file-deep-search).
 - **See before you open.** The desktop app previews over 60 file types: code, Markdown with
   Mermaid diagrams and math, Jupyter notebooks, Word, spreadsheets, PDFs, SQLite databases,
   JSON/YAML/TOML as trees, Parquet, certificates, e-mail, calendars, EPUB books, fonts,
@@ -301,9 +306,22 @@ layout**; a change that would make the file invalid is refused rather than saved
 app reads the same file. Everything else (keys, colour themes, the user menu) is set in
 `config.toml` directly; see [Configuration](#configuration).
 
-## Find file
+## Find file: deep search
 
-**Alt+F7** or **Ctrl+F** opens it in both apps. Results update as you type.
+**Alt+F7** or **Ctrl+F** opens it in both apps. Results update as you type, and typing is never
+held up by a search. The three depths are side by side at the top; **Tab** goes to the next:
+
+| Depth | Finds | Needs | Turn on |
+|---|---|---|---|
+| **Everywhere** / **In this folder** | Files and folders by name, with [a query syntax](#query-syntax) | nothing | always on |
+| **Text in files** | Files whose text has your words, each with the passage that matched | nothing | on by default; Settings → *Search inside files* |
+| … scans and pictures | The words in screenshots, scans and scanned PDFs | `tesseract` (and `pdftoppm`) installed | by itself once installed |
+| … older Office files | `.doc`, `.ppt`, Publisher, Visio, Pages, Keynote | LibreOffice installed | by itself once installed |
+| **Meaning** (in text mode) | Files *about* your words, in any language, marked *similar to* | a one-time 471 MB download | Settings → *Search by meaning*, or `coxswain --meaning on` |
+
+The window's title shows the version and the depths that are on, e.g.
+`Coxswain 1.15.0 · search: names · text · meaning`, and both apps say once, in the status line,
+when a depth is there to be turned on.
 
 | Key | Action |
 |---|---|
@@ -389,15 +407,17 @@ model as well.
 | Books and web pages | `.epub` `.html` `.htm` `.xhtml` |
 | Notebooks and diagrams | Jupyter `.ipynb` with what the cells printed, draw.io `.drawio` `.dio` |
 
-Coxswain reads them itself: no other program is started and nothing is installed. A scanned
-page is a picture and has no text to find, and a file locked with a password is not read.
-The first start after an update reads your files again, since the documents are new to it.
+Coxswain reads these itself, starting no other program. Scanned pages and pictures have words
+only an OCR program can read: with `tesseract` installed they are read too (see the table
+above). A file locked with a password is not read.
 
 The terminal app does the same, with the passage on a second line:
 
 ![The terminal app searching the text of files](docs/screenshots/tui-text-search.png)
 
-Everything's syntax:
+### Query syntax
+
+Names are searched with Everything's syntax:
 
 | Query | Matches |
 |---|---|
