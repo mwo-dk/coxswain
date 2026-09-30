@@ -286,8 +286,9 @@ viewer is a new full-screen dialog, modelled on the scrollable `Dialog::Help`
 
 ## Steps
 
-Each step is one PR to `master`, ends with its acceptance command green, and bumps the
-version only when it is user-visible.
+All steps stay on the one branch, `feature/cbom`, as one commit or more each, and go to
+`master` as a single PR when the work is done. Each step ends with its acceptance command
+green. The version is bumped once, in that PR (**minor**).
 
 1. **Core model and ingest** (`bom::{model, ingest, tree}`, fixtures): JSON and XML, issues,
    the three tree modes. Acceptance: `cargo test -p coxswain-core bom`.
@@ -295,8 +296,7 @@ version only when it is user-visible.
    `bom::sniff`. Acceptance: `cargo test -p coxswain-core bom`.
 3. **Core diff** (`bom::diff`). Acceptance: `cargo test -p coxswain-core bom::diff`.
 4. **GUI tree, filters and details** (`bom_info`, `bom_node`, `BomView.svelte`, detection,
-   Found in, ⤢ window). This is the first user-visible step and bumps the **minor** version.
-   Acceptance: `cargo test --workspace`, `cd gui && npx svelte-check && npm run build`, and a
+   Found in, ⤢ window). This is the first user-visible step. Acceptance: `cargo test --workspace`, `cd gui && npx svelte-check && npm run build`, and a
    manual run on keycloak.
 5. **GUI sunburst.** Acceptance: as step 4, plus the 50k synthetic BOM staying smooth.
 6. **GUI compare** (`bom_diff`, compare bar, change marks). Acceptance: as step 4.
@@ -306,9 +306,7 @@ version only when it is user-visible.
 
 ## Open questions
 
-1. **One PR or several?** The steps are cut to be separate PRs. Steps 1–3 are invisible on
-   their own and could go to `master` early, or everything could stay on `feature/cbom` until
-   step 6.
+1. ~~One PR or several?~~ **Decided:** everything stays on `feature/cbom`, one PR at the end.
 2. **Catalog ownership:** is vendoring cipherscape's compiled catalog right, or should the
    catalog move to a small shared repo or crate that both projects use?
 3. **TUI sunburst:** is a half-block sunburst worth having in a terminal, or should the TUI
