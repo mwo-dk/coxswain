@@ -309,6 +309,21 @@ async function mendPptx(JSZip, buffer) {
   return changed ? zip.generateAsync({ type: "arraybuffer" }) : buffer;
 }
 
+/** An HTML file as a page to show in a sandboxed frame: no script runs (the frame allows none)
+ *  and nothing comes from the web (the page's content policy allows only the folder it is in),
+ *  so a downloaded page cannot run code or report that it was opened. Its own pictures,
+ *  styles and fonts, next to it, come through the app's file protocol. */
+export function renderHtml(src, path) {
+  const u = new URL(convertFileSrc(path));
+  const origin = `${u.protocol}//${u.host}`;
+  // The folder, one segment at a time, so the page's relative links resolve beside it.
+  const dir = path.split(/[\\/]/).slice(0, -1).filter(Boolean).map(encodeURIComponent).join("/");
+  const base = `${origin}/${dir}/`;
+  const csp = `default-src 'none'; img-src ${origin} data:; style-src ${origin} 'unsafe-inline'; font-src ${origin} data:; media-src ${origin}`;
+  // Before the page's own head: the parser puts them in the head it makes, and the page cannot undo them.
+  return `<meta http-equiv="Content-Security-Policy" content="${csp}"><base href="${base}">${src}`;
+}
+
 let drawioReady;
 /** A draw.io diagram drawn into `el` by draw.io's own viewer (gui/public/vendor/drawio), loaded on
  *  first use. It works offline: shapes from draw.io's extra libraries (AWS, Azure, …) that it

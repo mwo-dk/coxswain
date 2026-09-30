@@ -211,6 +211,7 @@ loaded from disk and kept current while Coxswain runs.
 |---|---|
 | Code, config, logs | Highlighted; logs colored by level. A changed file gets **File / Diff** |
 | Markdown, `.mmd` | Rendered, with Mermaid diagrams and math; **Rendered / Source** |
+| HTML `.html` `.htm` | The page as a browser shows it, with its own styles and pictures; no script runs and nothing is fetched from the web; **Rendered / Source** |
 | JSON, YAML, TOML | A collapsible tree; **Tree / Source** |
 | `.ipynb`, `.docx`, `.epub`, `.eml`, PDF | Notebook with outputs, Word document, first chapter, e-mail, pages |
 | Spreadsheets, CSV, JSON Lines, SQLite | Tables, a button per sheet; database tables with row counts and schema |
