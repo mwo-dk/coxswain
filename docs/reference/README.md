@@ -1,0 +1,36 @@
+[← README](../../README.md) · [Docs index](../README.md)
+
+# Reference
+
+These pages cover the parts of Coxswain that sit under the features. They say what the terminal
+app can and cannot do, list every command-line flag and every `config.toml` key with its
+default, say what can go over the network, explain the update check, and show where each file
+Coxswain writes is kept. Come here when a feature page tells you "the key is `…`" and you want
+the full list.
+
+![The terminal app: two blue panels, a git repository on the left, the F-key bar below](../screenshots/tui-panels.png)
+*The terminal app, `coxswain`, in its default theme NC. It reads the same `config.toml` as the desktop app.*
+
+| Page | What it covers |
+|---|---|
+| [The terminal app](terminal-app.md) | What `coxswain` has, what only the desktop app has and why, where the two behave differently, archives and search by meaning in the terminal, the terminal it needs |
+| [Command-line flags](command-line-flags.md) | Every flag of `coxswain` and `coxswain-gui`: folders to start in, `--paths`, `--dump-config`, `--meaning`, `--index-service`, `--settings`, `--duplicates`, `--index-helper` |
+| [Configuration: every key](configuration.md) | The `config.toml` file, every key with its type and default, which Settings item writes it, and which app reads it |
+| [Privacy](privacy.md) | What stays on your machine, every case where something can leave it, and how to stop each one |
+| [Update checks](updates.md) | The once-a-day version check, what you see in each app, the upgrade command, turning it off |
+| [Where things are kept](where-things-are-kept.md) | The config, state and cache folders on Linux, macOS and Windows, every file in them, what is safe to delete, removing everything |
+
+## Keys at a glance
+
+These pages are mostly about files and flags, not keys. The keys that reach them:
+
+| Key | Desktop app | Terminal app | Does |
+|---|---|---|---|
+| **Ctrl+,** | Opens Settings | Says *Settings is available in the desktop app (coxswain-gui)* | Settings write `config.toml` ([Configuration](configuration.md)) |
+| **F1** | Help, with the version in its title | Help | The keys in use, from your `[keys]` |
+| **F9** | The command list | The command list | Every action and its key; the terminal app leaves out what it lacks |
+| **Ctrl+O** | One pane or two | Shows the terminal with the last command's output | See [The terminal app](terminal-app.md#where-the-two-differ) |
+| **F10** | Quit | Quit | |
+
+---
+[← Previous: Glyphs and fonts](../customise/glyphs-and-fonts.md) · [Next: The terminal app →](terminal-app.md)

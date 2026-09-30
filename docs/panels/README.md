@@ -1,0 +1,54 @@
+[← README](../../README.md) · [Docs index](../README.md)
+
+# Panels and keys
+
+Coxswain shows two panels side by side, as Norton Commander did. One of them is active: the
+keys act on it, and copy and move go from it to the other one. These pages cover the screen,
+moving around, marking, sorting, tabs and views, folder sizes, git, the mouse, the command
+list, what the apps remember, and every default key of both apps.
+
+![The desktop app: two panes, the sidebar, git status in the left pane, the command line and the F-key bar](../screenshots/gui-details.png)
+*The desktop app (Cyber theme) in a git repository. The terminal app looks like Norton Commander; see [The screen](the-screen.md).*
+
+Every key here is a default. Each one can be changed in `config.toml` under `[keys]`
+([Changing keys](../customise/keys.md)), and Help (**F1**) always lists the keys you have now.
+
+| Page | What it covers |
+|---|---|
+| [The screen](the-screen.md) | The panels, the active panel, the title bar with the version and search depths, the status line, the F-key bar, starting in a folder |
+| [Moving around and going to a folder](moving.md) | Cursor keys, opening, the parent folder, the other panel, rereading, typing a path |
+| [Quick search](quick-search.md) | **Alt+letter** jumps to a name in the panel |
+| [Marking files](marking.md) | **Insert**, `+`, `-`, `*`, marking with the mouse, what works on the marks |
+| [Sorting and hidden files](sorting.md) | **Ctrl+F3** to **Ctrl+F6**, sorting by column header, **Alt+.** |
+| [Tabs, back and forward, one pane or two](tabs-and-panes.md) | Tabs, history, **Ctrl+O**, the splitter |
+| [Views: details, columns, thumbnails](views.md) | **Alt+V**, Miller columns, thumbnails, the columns menu, the age chip |
+| [Folder sizes](folder-sizes.md) | Sizes that fill in by themselves, where they come from, measuring again |
+| [Git in the panels](git.md) | The git line, glyphs per file, the diff, recent repositories |
+| [The mouse](mouse.md) | Clicks, marks, drags, the path bar, the splitters |
+| [The command list (F9) and Help (F1)](command-list.md) | Every action by name, and the key list |
+| [What the apps remember](session.md) | The desktop app's session, what the terminal app keeps, what is forgotten |
+| [Every default key](keys.md) | The full table for both apps, and the keys inside dialogs |
+
+## Keys at a glance
+
+| Key | Desktop app | Terminal app | Does |
+|---|---|---|---|
+| **Tab** | Yes | Yes | The other panel becomes active |
+| **Up**, **Down**, **PageUp**, **PageDown**, **Home**, **End** | Yes | Yes | Move the cursor |
+| **Enter** | Yes | Yes | Open a folder or archive here; open a file in its program |
+| **Backspace**, **Ctrl+PageUp** | Yes | Yes | Up to the parent folder |
+| **Alt+letter** | Yes | Yes | Quick search |
+| **Insert**, **Shift+Down** | Yes | Yes | Mark and move down |
+| `+` / `-` / `*` | Yes | Yes | Select group / unselect group / invert |
+| **Ctrl+F3** … **Ctrl+F6** | Yes | Yes | Sort by name, extension, time, size |
+| **Alt+.** | Yes | Yes | Hidden files on or off |
+| **Alt+F1** / **Alt+F2** | Types a path in the left / right pane | *Left panel* / *Right panel* dialog | Go to a folder |
+| **Ctrl+O** | One pane or two | Shows the last command's output | Panels |
+| **Ctrl+T**, **Ctrl+W**, **Ctrl+Tab** | Yes | – | New, close, next tab |
+| **Alt+Left** / **Alt+Right** | Yes | – | Back / forward |
+| **Alt+V** | Yes | – | Details, columns, thumbnails |
+| **F9** | Yes | Yes | The command list |
+| **F1** | Yes | Yes | Help |
+
+---
+[← Previous: Docs index](../README.md) · [Next: The screen →](the-screen.md)
