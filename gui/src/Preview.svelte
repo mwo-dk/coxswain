@@ -1,7 +1,7 @@
 <script>
   import { ui, tab, item } from "./app.svelte.js";
   import { renderHtml, renderPptx, renderDrawio, renderMarkdown, renderMermaid, highlight, renderDocx, readSheet, renderNotebook, loadFont, clean, parseData, jsonLines, calendar, contacts, logLines, renderGraphviz, renderAsciidoc, readParquet } from "./renderers.js";
-  import { invoke, convertFileSrc, size, date, age, ageColor, previewKind, CONVERTER } from "./lib.js";
+  import { invoke, convertFileSrc, basename, size, date, age, ageColor, previewKind, CONVERTER } from "./lib.js";
   import { t, tn, num } from "./i18n.svelte.js";
 
   /** Set by App when the command output should show here instead of the file. */
@@ -9,7 +9,8 @@
 
   const pane = $derived(tab());
   const e = $derived(item(pane));
-  const kind = $derived(output ? "output" : previewKind(e));
+  // A file inside an archive is not on disk: it has no preview until it is copied out.
+  const kind = $derived(output ? "output" : pane?.archive && e && !e.is_dir && e.name !== ".." ? "in-archive" : previewKind(e));
   let text = $state("");
   let html = $state("");
   let truncated = $state(false);
@@ -344,7 +345,9 @@
     </header>
 
     <div class="body">
-      {#if diffing}
+      {#if kind === "in-archive"}
+        <p class="more">{t("archive.preview_hint", { archive: basename(pane.archive) })}</p>
+      {:else if diffing}
         {#if html}<pre class="mono code"><code class="hljs">{@html html}</code></pre>{/if}
       {:else if tree !== undefined}
         <div class="tree">{@render node(null, tree, 0)}</div>

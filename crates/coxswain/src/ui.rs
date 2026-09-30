@@ -101,7 +101,11 @@ fn panel(f: &mut Frame, app: &mut App, side: usize, area: Rect) {
     let p = &app.panels[side];
 
     let title_style = if side == app.active { sty(&t.cursor) } else { border };
-    let dir = p.dir.to_string_lossy();
+    // Inside an archive the title says so, so a copy out is not taken for one between folders.
+    let dir = match coxswain_core::archive::split(&p.dir) {
+        Some(_) => format!("{} [{}]", p.dir.to_string_lossy(), t!("archive.badge")),
+        None => p.dir.to_string_lossy().into_owned(),
+    };
     let mut block = Block::default()
         .borders(Borders::ALL)
         .border_type(BorderType::Double)
@@ -323,11 +327,13 @@ fn dialog(f: &mut Frame, app: &mut App) {
     let t = app.theme.clone();
     let dstyle = sty(&t.dialog);
     match app.dialog.as_ref().unwrap() {
-        Dialog::Input { title, label, value, .. } => {
+        Dialog::Input { title, label, value, prompt } => {
             let inner = frame(f, app, centered(full, 70, 6), title);
             let [a, b, _, c] = Layout::vertical([Constraint::Length(1); 4]).areas(inner.inner(ratatui::layout::Margin::new(1, 0)));
             f.render_widget(Paragraph::new(label.as_str()), a);
-            input_line(f, app, b, value);
+            // A password shows as stars.
+            let shown = if matches!(prompt, crate::Prompt::Password(..)) { "*".repeat(value.chars().count()) } else { value.clone() };
+            input_line(f, app, b, &shown);
             f.render_widget(Paragraph::new(t!("tui.ok_cancel")).centered(), c);
         }
         Dialog::Confirm { title, text, .. } => {
