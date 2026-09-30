@@ -81,6 +81,11 @@
     loadIndex();
   }
 
+  // Opened at a section: `--settings=search`.
+  $effect(() => {
+    if (ui.modal?.section) document.getElementById(`settings-${ui.modal.section}`)?.scrollIntoView();
+  });
+
   const imageStatus = (im) => (im.pulling != null ? im.pulling || t("common.loading") : im.size != null ? t("settings.image_pulled", { size: size(im.size) }) : t("settings.image_not_pulled"));
 </script>
 
@@ -170,7 +175,7 @@
       </div>
     {/snippet}
 
-    <section>
+    <section id="settings-search">
       <h3>{t("settings.search")}</h3>
       <label class="check"><input type="checkbox" checked={s.search_text} onchange={(e) => setSearch("search_text", e.currentTarget.checked)} /> {t("settings.search_text")}</label>
       {#if s.search_text}

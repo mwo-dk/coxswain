@@ -28,8 +28,8 @@ pub struct Ctx {
     start: [PathBuf; 2],
     /// `--duplicates <folders>`: open the duplicate finder on these folders at start.
     duplicates: Option<Vec<PathBuf>>,
-    /// `--settings`: open the Settings window at start.
-    open_settings: bool,
+    /// `--settings[=section]`: open the Settings window at start, at that section ("" for the top).
+    open_settings: Option<String>,
     state: Mutex<AppState>,
     /// Folders shown in the panes, watched so they reread themselves.
     watched: Mutex<Vec<PathBuf>>,
@@ -87,7 +87,8 @@ struct UiConfig {
     user_menu: Vec<UserCommand>,
     start: [PathBuf; 2],
     duplicates: Option<Vec<PathBuf>>,
-    open_settings: bool,
+    /// Start with Settings open, at this section ("" for the top).
+    open_settings: Option<String>,
     /// The language in use (resolved from `language`), its texts, and whether it is written
     /// right to left.
     language: &'static str,
@@ -132,7 +133,7 @@ fn get_config(ctx: tauri::State<Ctx>) -> Res<UiConfig> {
         user_menu: cfg.user_menu.clone(),
         start: ctx.start.clone(),
         duplicates: ctx.duplicates.clone(),
-        open_settings: ctx.open_settings,
+        open_settings: ctx.open_settings.clone(),
         language: coxswain_core::i18n::language(),
         strings: coxswain_core::i18n::catalogue(coxswain_core::i18n::language()),
         rtl: coxswain_core::i18n::is_rtl(coxswain_core::i18n::language()),
@@ -995,9 +996,10 @@ fn main() {
     let home = std::env::home_dir().unwrap_or_default();
     let cwd = std::env::current_dir().ok().filter(|d| d.parent().is_some()).unwrap_or(home);
     let mut args: Vec<String> = std::env::args().skip(1).collect();
-    // `coxswain-gui --settings [folders…]`: start with the Settings window open.
-    let open_settings = args.first().map(String::as_str) == Some("--settings");
-    if open_settings {
+    // `coxswain-gui --settings[=section] [folders…]`: start with the Settings window open, at
+    // that section (`search`).
+    let open_settings = args.first().and_then(|a| a.strip_prefix("--settings")).filter(|r| r.is_empty() || r.starts_with('=')).map(|r| r.trim_start_matches('=').to_string());
+    if open_settings.is_some() {
         args.remove(0);
     }
     // `coxswain-gui --duplicates [folders…]`: the folders (default: the current one) are scanned for
