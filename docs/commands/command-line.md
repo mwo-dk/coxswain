@@ -120,9 +120,8 @@ brings the panels back. For commands whose output you always want to read, put t
 
 There is no stop button. The command runs until it ends; the app stays usable meanwhile, and
 the status line keeps saying *Running …*. Stop the program from a terminal (`kill`, or `pkill`
-with its name) if you have to. In the terminal app, **Ctrl+C** stops the command, but for now
-it also ends the terminal app itself, since both get the interrupt; stop a long command from
-another terminal if you want to keep your panels.
+with its name) if you have to. In the terminal app, **Ctrl+C** stops the command and brings the
+panels back (on Windows it ends the terminal app too, for now).
 
 #### Why does `cd -` not work?
 

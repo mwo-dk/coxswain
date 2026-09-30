@@ -123,7 +123,7 @@ These are fixed; `[keys]` does not change them.
 | **Enter** with text in the command line | Runs it; output in the preview pane ([The command line](../commands/command-line.md)) | Runs it with the panels hidden |
 | **Esc** | Clears the command line; with it empty, closes the preview pane; closes a dialog | Clears the command line; closes a dialog |
 | **Backspace** with text in the command line | Edits it | The same |
-| **Left**, **Right**, **Home**, **End**, **Delete**, **Space** with text in the command line | Edit it | **Space** is typed; the others keep their panel meaning (**Delete** asks to delete the entry under the cursor) |
+| **Left**, **Right**, **Home**, **End**, **Delete**, **Space** with text in the command line | Edit it | **Space** is typed; the others do nothing (the line edits at its end only), so **Delete** never deletes the entry under the cursor while you type |
 | **Ctrl+C**, **Ctrl+X**, **Ctrl+V** with text in the command line | Copy, cut and paste text | – |
 | **Left** / **Right** in the columns view | Up / into the folder | – |
 | Arrows in thumbnails | Move in two dimensions | – |

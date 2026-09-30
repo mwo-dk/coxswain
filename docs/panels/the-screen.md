@@ -56,7 +56,7 @@ bar and the status line tell you, and how to start the apps in the folders you w
 
 The F-key labels are Norton Commander's: *Help*, *Menu*, *View*, *Edit*, *Copy*, *RenMov*,
 *Mkdir*, *Delete*, *PullDn*, *Quit*. They follow your `[keys]`: bind another action to
-**F2** and its name shows there.
+**F2** and its name shows there (two actions on one key: the one the key runs).
 
 **Colours.** In the Norton Commander theme (the terminal app's default) folders are bold
 white, marked files bold yellow, programs green, links magenta, hidden files dim cyan, and the

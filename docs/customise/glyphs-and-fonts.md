@@ -113,7 +113,7 @@ the file marks (`staged` to `ignored`) to one character.
 The terminal app draws in the terminal's own font and size: set those in your terminal. For Nerd
 Font glyphs and file icons, the terminal's font must be a Nerd Font (for example *JetBrainsMono
 Nerd Font*), or one with a Nerd Font set as fallback. Otherwise use `glyphs = "ascii"`, which
-also drops the file icons. `glyphs` and `[glyph_set]` are read when it starts.
+replaces the file icons with `/` for folders and `@` for links (both apps). `glyphs` and `[glyph_set]` are read when it starts.
 
 ## Questions
 
@@ -148,12 +148,12 @@ app after changing it.
 *Text size* in Settings, up to 28. The rows, lists and dialogs grow with it, since the row
 height follows the size.
 
-#### I set `folder`, `file` and `symlink` in `[glyph_set]` and nothing changed.
+#### What do `folder`, `file` and `symlink` in `[glyph_set]` do?
 
-They are kept in the set for completeness but not drawn at present: folders, files and links get
-their icons from the per-type icon list (terminal app: off with `glyphs = "ascii"`), and
-symbolic links show in the `symlink` colour (and, in the terminal app, with `->` and their
-target on the info line under the panel).
+With `glyphs = "ascii"` or a `[glyph_set]` of your own, every folder gets the `folder` glyph,
+every symbolic link the `symlink` glyph and every other file the `file` glyph, in both apps,
+in place of the Nerd Font icon per kind of file. (Symbolic links also show in the `symlink`
+colour and, in the terminal app, with `->` and their target on the info line under the panel.)
 
 #### Does the terminal app use the desktop app's fonts?
 
