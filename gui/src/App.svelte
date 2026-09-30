@@ -42,7 +42,7 @@
       const tell = () =>
         invoke("notices").then((n) => {
           notice = n.notice;
-          getCurrentWindow().setTitle(n.title).catch(() => {});
+          invoke("set_title", { title: n.title }).catch(() => {});
         }, () => {});
       tell();
       setInterval(tell, 10e3);
