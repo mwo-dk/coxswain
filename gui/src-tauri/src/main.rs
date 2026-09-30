@@ -427,6 +427,30 @@ async fn index_status(ctx: tauri::State<'_, Ctx>) -> Res<IndexStatus> {
     tauri::async_runtime::spawn_blocking(move || IndexStatus { status: index.status(), path: coxswain_core::store::Store::path(), shared: index.shared(), service: coxswain_core::service::installed() }).await.map_err(|e| e.to_string())
 }
 
+/// The notice to show in the status line, if any, and the window's title: the version and
+/// the kinds of search on.
+#[derive(Serialize)]
+struct Notices {
+    notice: Option<coxswain_core::notices::Notice>,
+    title: String,
+}
+
+#[tauri::command]
+async fn notices(ctx: tauri::State<'_, Ctx>) -> Res<Notices> {
+    let (index, cfg) = (ctx.index.clone(), ctx.cfg().clone());
+    let status = tauri::async_runtime::spawn_blocking(move || index.status()).await.map_err(|e| e.to_string())?;
+    let st = ctx.state.lock().map_err(|e| e.to_string())?;
+    Ok(Notices {
+        notice: coxswain_core::notices::next(&cfg, &status, &st, false),
+        title: coxswain_core::t!("title.window", "version" => coxswain_core::update::VERSION, "search" => coxswain_core::notices::search_level(&cfg, &status)),
+    })
+}
+
+#[tauri::command]
+fn dismiss_notice(id: String, ctx: tauri::State<Ctx>) -> Res<()> {
+    ctx.edit(|st| coxswain_core::notices::dismiss(st, &id))
+}
+
 /// Search by meaning, for Settings: the model there or not, its size, a download under way
 /// (bytes done, bytes in all) or the error that stopped it.
 #[derive(Serialize)]
@@ -1094,7 +1118,14 @@ fn main() {
         start: [dir(0), dir(1)],
         duplicates,
         open_settings,
-        state: Mutex::new(AppState::load()),
+        state: Mutex::new({
+            // A first start of this version is remembered, so the next update is told of.
+            let mut st = AppState::load();
+            if coxswain_core::notices::started(&mut st) {
+                let _ = st.save();
+            }
+            st
+        }),
         cfg: std::sync::RwLock::new(cfg),
         watched: Mutex::default(),
         watcher: Mutex::default(),
@@ -1110,7 +1141,7 @@ fn main() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            get_config, index_status, index_action, index_service, meaning_status, meaning_action, list_dir, git_status, places, disks, get_state, save_session, save_favorites, set_tags, set_note, get_note,
+            get_config, notices, dismiss_notice, index_status, index_action, index_service, meaning_status, meaning_action, list_dir, git_status, places, disks, get_state, save_session, save_favorites, set_tags, set_note, get_note,
             search, resolve_path, copy, rename, delete, mkdir, dir_sizes, rename_plan, rename_apply, open_path, edit_path,
             read_text, run_command, scripts, run_script, check_update, archive_list, extract, properties, set_permissions,
             clip_set, paste, start_drag, watch_dirs, preview::git_diff, preview::sqlite_info, preview::epub_preview,

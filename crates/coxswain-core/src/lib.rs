@@ -11,6 +11,7 @@ pub mod helper;
 pub mod icons;
 pub mod index;
 pub mod machine;
+pub mod notices;
 pub mod meaning;
 pub mod rename;
 pub mod service;

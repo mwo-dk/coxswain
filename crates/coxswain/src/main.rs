@@ -195,6 +195,8 @@ pub struct App {
     search_tx: mpsc::Sender<(u64, String, u8, PathBuf)>,
     search_rx: mpsc::Receiver<(u64, Results)>,
     search_gen: u64,
+    /// When `tell` last looked.
+    told: Instant,
     /// The stop flag of each panel's measuring.
     measuring: [Arc<std::sync::atomic::AtomicBool>; 2],
     run: Option<Run>,
@@ -292,6 +294,7 @@ impl App {
             search_tx,
             search_rx,
             search_gen: 0,
+            told: Instant::now(),
             measuring: Default::default(),
             run: None,
             last_click: None,
@@ -731,6 +734,36 @@ impl App {
         }
     }
 
+    /// Every few seconds: the terminal's title (the version and the kinds of search on), and
+    /// once, a notice of what can be turned on, in the status line. The terminal app has no
+    /// dismiss button: a notice shown once counts as seen.
+    fn tell(&mut self) {
+        if self.told.elapsed() < Duration::from_secs(5) {
+            return;
+        }
+        self.told = Instant::now();
+        let now = self.index.status();
+        let title = t!("title.window", "version" => coxswain_core::update::VERSION, "search" => coxswain_core::notices::search_level(&self.cfg, &now));
+        let _ = execute!(std::io::stdout(), terminal::SetTitle(title));
+        if self.status.is_some() || self.dialog.is_some() || now.state != State::Ready {
+            return;
+        }
+        // The desktop app shares the state file: it is written only when something changed.
+        let mut st = coxswain_core::state::AppState::load();
+        let mut changed = coxswain_core::notices::started(&mut st);
+        if let Some(n) = coxswain_core::notices::next(&self.cfg, &now, &st, true) {
+            self.status = Some(match n.url {
+                Some(url) => format!("{} {url}", n.text),
+                None => n.text,
+            });
+            coxswain_core::notices::dismiss(&mut st, &n.id);
+            changed = true;
+        }
+        if changed {
+            let _ = st.save();
+        }
+    }
+
     /// Ask for the search in the dialog on the searching thread; the answer comes in `tick`.
     /// Keys are never held up by a search, and a search that a newer one replaces is dropped.
     fn search_now(&mut self) {
@@ -908,6 +941,7 @@ impl App {
 
     /// Git results and index progress, polled between events.
     fn tick(&mut self, last_state: &mut State) {
+        self.tell();
         if let Ok(v) = self.update_rx.try_recv() {
             let how = coxswain_core::update::upgrade_hint().unwrap_or(coxswain_core::update::RELEASES_URL);
             self.status = Some(t!("status.update", "version" => v, "how" => how));
