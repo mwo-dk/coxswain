@@ -35,3 +35,7 @@ toml_edit = "0.25.15"
 # `npx tauri dev -- --no-default-features`.
 default = ["custom-protocol"]
 custom-protocol = ["tauri/custom-protocol"]
+
+# The title bar GTK draws keeps its first title; it is set as well (`set_title`).
+[target.'cfg(target_os = "linux")'.dependencies]
+gtk = "0.18.2"

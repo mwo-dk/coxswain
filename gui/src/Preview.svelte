@@ -1,6 +1,6 @@
 <script>
   import { ui, tab, item } from "./app.svelte.js";
-  import { renderPptx, renderDrawio, renderMarkdown, renderMermaid, highlight, renderDocx, readSheet, renderNotebook, loadFont, clean, parseData, jsonLines, calendar, contacts, logLines, renderGraphviz, renderAsciidoc, readParquet } from "./renderers.js";
+  import { renderHtml, renderPptx, renderDrawio, renderMarkdown, renderMermaid, highlight, renderDocx, readSheet, renderNotebook, loadFont, clean, parseData, jsonLines, calendar, contacts, logLines, renderGraphviz, renderAsciidoc, readParquet } from "./renderers.js";
   import { invoke, convertFileSrc, size, date, age, ageColor, previewKind, CONVERTER } from "./lib.js";
   import { t, tn, num } from "./i18n.svelte.js";
 
@@ -31,7 +31,7 @@
   const source = $derived(ui.previewSource);
   /** For a file git has changes for: show the file, or its diff. Kept across files. */
   const showDiff = $derived(ui.previewDiff);
-  const TEXTUAL = ["text", "markdown", "mermaid", "data", "jsonl", "calendar", "contacts", "log", "graphviz", "asciidoc"];
+  const TEXTUAL = ["text", "markdown", "mermaid", "data", "jsonl", "calendar", "contacts", "log", "graphviz", "asciidoc", "html"];
   const ext = (f) => f.name.split(".").pop().toLowerCase();
   const gitKind = $derived(e && !e.is_dir ? pane.git?.files[e.name]?.kind : undefined);
   const hasDiff = $derived(gitKind && !["untracked", "ignored"].includes(gitKind));
@@ -40,6 +40,8 @@
   let tree = $state(undefined);
   let table = $state(null);
   let cards = $state(null);
+  /** An HTML file as a page for the sandboxed frame. */
+  let page = $state("");
 
   // Load text-like previews; debounced so holding an arrow key stays smooth.
   $effect(() => {
@@ -47,6 +49,7 @@
     const k = kind;
     text = "";
     html = "";
+    page = "";
     tree = undefined;
     table = null;
     cards = null;
@@ -76,6 +79,7 @@
         if (!bin && k === "calendar" && !src) return void (cards = { events: calendar(s) });
         if (!bin && k === "contacts" && !src) return void (cards = { people: contacts(s) });
         if (!bin && k === "log") return void (html = logLines(s));
+        if (!bin && k === "html" && !src) return void (page = renderHtml(s, cur.path));
         // Rendered markdown and diagrams come back sanitized from renderers.js.
         const render = { markdown: renderMarkdown, mermaid: renderMermaid, graphviz: renderGraphviz, asciidoc: renderAsciidoc }[k];
         const rendered = bin || src || !render ? "" : await render(s);
@@ -331,7 +335,7 @@
           <button class:on={showDiff} onclick={() => (ui.previewDiff = true)} title={t("preview.changes_against_head")}>{t("preview.diff")}</button>
         </div>
       {/if}
-      {#if !diffing && ["markdown", "mermaid", "data", "jsonl", "calendar", "contacts", "graphviz", "asciidoc"].includes(kind)}
+      {#if !diffing && ["markdown", "mermaid", "data", "jsonl", "calendar", "contacts", "graphviz", "asciidoc", "html"].includes(kind)}
         <div class="modes" role="group" aria-label={t("preview.show")}>
           <button class:on={!source} onclick={() => (ui.previewSource = false)}>{kind === "data" ? t("preview.tree") : kind === "jsonl" ? t("preview.table") : t("preview.rendered")}</button>
           <button class:on={source} onclick={() => (ui.previewSource = true)}>{t("preview.source")}</button>
@@ -476,6 +480,9 @@
             {/each}
           </ul>
         {/if}
+      {:else if kind === "html" && page && !source}
+        <!-- No allow-scripts, no allow-same-origin: the page runs nothing and reaches nothing. -->
+        <iframe class="page" sandbox="" srcdoc={page} title={e.name}></iframe>
       {:else if ["markdown", "mermaid", "graphviz", "asciidoc"].includes(kind) && html && !source}
         <article class="markdown">{@html html}</article>
       {:else if ["markdown", "mermaid", "graphviz", "asciidoc"].includes(kind) && html}
@@ -562,6 +569,14 @@
     white-space: pre-wrap;
     font-size: 0.85em;
     margin: 4px 0 0;
+  }
+  .page {
+    flex: 1;
+    min-height: 240px;
+    width: 100%;
+    border: 0;
+    background: #fff;
+    border-radius: var(--r);
   }
   /* Diagrams are drawn for a white page, whatever the theme. */
   .drawio {

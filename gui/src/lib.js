@@ -235,6 +235,7 @@ export function previewKind(item) {
   if (ext === "docx") return "docx";
   if (ext === "ipynb") return "notebook";
   if (ext === "mmd" || ext === "mermaid") return "mermaid";
+  if (ext === "html" || ext === "htm" || ext === "xhtml") return "html";
   const special = { db: "sqlite", sqlite: "sqlite", sqlite3: "sqlite", db3: "sqlite", epub: "epub", pem: "cert", crt: "cert", cer: "cert", der: "cert", eml: "mail", plist: "plist", ics: "calendar", vcf: "contacts", jsonl: "jsonl", ndjson: "jsonl", json: "data", geojson: "data", yaml: "data", yml: "data", toml: "data", log: "log" };
   if (special[ext]) return special[ext];
   if (CONVERTED[ext]) return CONVERTED[ext];
