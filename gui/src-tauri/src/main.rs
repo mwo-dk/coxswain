@@ -962,8 +962,10 @@ fn main() {
         if roots.is_empty() { vec![cwd.clone()] } else { roots }
     });
     let dir = |i: usize| args.get(i).map(|a| resolve(&cwd, a)).unwrap_or_else(|| cwd.clone());
+    let index = Client::start(&cfg.search);
     let ctx = Ctx {
-        index: Client::start(&cfg.search),
+        sizer: Arc::new(coxswain_core::sizes::Sizer::new(Some(index.clone()))),
+        index,
         start: [dir(0), dir(1)],
         duplicates,
         open_settings,
@@ -973,7 +975,6 @@ fn main() {
         watcher: Mutex::default(),
         clip: Mutex::default(),
         dupes: Mutex::default(),
-        sizer: Arc::default(),
         measuring: Mutex::default(),
     };
     tauri::Builder::default()

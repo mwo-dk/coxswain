@@ -232,6 +232,7 @@ impl App {
                 }
             });
         }
+        let index = Client::start(&cfg.search);
         let show_hidden = cfg.show_hidden;
         let app = App {
             keymap,
@@ -244,12 +245,12 @@ impl App {
             status: None,
             quick: None,
             show_hidden,
-            index: Client::start(&cfg.search),
+            index: index.clone(),
             areas: [Rect::default(); 2],
             git_tx,
             git_rx,
             update_rx,
-            sizer: Arc::default(),
+            sizer: Arc::new(coxswain_core::sizes::Sizer::new(Some(index.clone()))),
             sizes_tx,
             sizes_rx,
             measuring: Default::default(),

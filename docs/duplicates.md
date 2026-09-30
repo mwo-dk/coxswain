@@ -68,9 +68,11 @@ Reading every file on a large disk would take hours, so Coxswain only reads what
 3. **The whole file,** only for the files still matching. Hashing uses
    [BLAKE3](https://github.com/BLAKE3-team/BLAKE3), which uses SIMD instructions (AVX2 and
    AVX-512 on x86, NEON on ARM) and runs on all cores.
-4. **Cached.** Full hashes are kept in `~/.cache/coxswain/dupes-hashes.json` (the cache folder on
-   each platform), keyed by path, size and modification time. Scanning the same disk again
-   only reads files that changed.
+4. **Kept.** Full hashes are kept in the search store, `search.db` in Coxswain's cache folder,
+   keyed by path, size and modification time. Scanning the same disk again only reads files
+   that changed. In the background the search helper hashes the home folder's files that
+   share a size, so the first scan there reads little. Hashes of files that are gone or have
+   changed are dropped at its next pass.
 
 On a developer's home folder of 64,856 files (30 GB), the first scan read 1.9 GB and took
 1.0 s; the second took 0.5 s.

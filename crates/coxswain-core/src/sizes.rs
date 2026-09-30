@@ -1,19 +1,23 @@
-//! Folder sizes in the background, for both apps: two threads so measuring never takes the
-//! machine, a stop flag for when the folder is left, and a short memory so going back to a
-//! folder shows its sizes at once.
+//! Folder sizes in the background, for both apps. The helper's store knows the home folder's
+//! sizes, so those come at once. Other folders are measured: two threads so measuring never
+//! takes the machine, a stop flag for when the folder is left, and a short memory so going back
+//! to a folder shows its sizes at once.
 
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
-use std::time::{Duration, Instant};
+use std::sync::Arc;
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+
+use crate::helper::Client;
 
 use rayon::prelude::*;
 
 /// How long a measured size is believed.
-// ponytail: a change deep inside a folder goes unnoticed for this long; the search store
-// (sizes per file, kept current by the watcher) replaces this memory.
+// ponytail: a change deep inside a folder goes unnoticed for this long, and in the store until
+// its next walk; following the file watcher's events would make both seconds.
 const FRESH: Duration = Duration::from_secs(300);
 
 /// Bytes and number of files.
@@ -22,16 +26,25 @@ pub type Size = (u64, u64);
 pub struct Sizer {
     pool: rayon::ThreadPool,
     known: Mutex<HashMap<PathBuf, (Size, Instant)>>,
+    /// The helper, whose store knows sizes.
+    index: Option<Arc<Client>>,
+    /// Paths the app changed, and when (seconds since the Unix epoch): the store's sizes of
+    /// the folders they are in are old until its next walk.
+    changed: Mutex<Vec<(PathBuf, u64)>>,
 }
 
 impl Default for Sizer {
     fn default() -> Self {
-        let pool = rayon::ThreadPoolBuilder::new().num_threads(2).thread_name(|i| format!("coxswain-sizes-{i}")).build().expect("a thread pool");
-        Sizer { pool, known: Mutex::default() }
+        Sizer::new(None)
     }
 }
 
 impl Sizer {
+    pub fn new(index: Option<Arc<Client>>) -> Sizer {
+        let pool = rayon::ThreadPoolBuilder::new().num_threads(2).thread_name(|i| format!("coxswain-sizes-{i}")).build().expect("a thread pool");
+        Sizer { pool, known: Mutex::default(), index, changed: Mutex::default() }
+    }
+
     /// The size measured a short while ago, if any.
     pub fn known(&self, path: &Path) -> Option<Size> {
         let (size, at) = *self.known.lock().ok()?.get(path)?;
@@ -47,6 +60,9 @@ impl Sizer {
         if not_on_disk(path) {
             return None;
         }
+        if let Some(size) = self.stored(path) {
+            return Some(size);
+        }
         let size = self.pool.install(|| walk(path, stop))?;
         self.known.lock().ok()?.insert(path.to_path_buf(), (size, Instant::now()));
         Some(size)
@@ -57,6 +73,22 @@ impl Sizer {
         if let Ok(mut known) = self.known.lock() {
             known.retain(|folder, _| !changed.starts_with(folder));
         }
+        if let Ok(mut all) = self.changed.lock() {
+            let now = SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |d| d.as_secs());
+            // The last ten minutes are enough: the store walks every ten.
+            all.retain(|(_, at)| at + 900 > now);
+            all.push((changed.to_path_buf(), now));
+        }
+    }
+
+    /// The store's size of the folder, unless the app changed something in it since.
+    fn stored(&self, dir: &Path) -> Option<Size> {
+        if !fs::symlink_metadata(dir).ok()?.is_dir() {
+            return None;
+        }
+        let (size, walked) = self.index.as_ref()?.size(dir)?;
+        let changed = self.changed.lock().ok()?.iter().any(|(p, at)| p.starts_with(dir) && *at >= walked);
+        (!changed).then_some(size)
     }
 }
 
@@ -68,7 +100,7 @@ fn not_on_disk(path: &Path) -> bool {
 }
 
 /// Symlinks are counted, not followed; unreadable parts are skipped.
-fn walk(path: &Path, stop: &AtomicBool) -> Option<Size> {
+pub(crate) fn walk(path: &Path, stop: &AtomicBool) -> Option<Size> {
     if stop.load(Ordering::Relaxed) {
         return None;
     }
