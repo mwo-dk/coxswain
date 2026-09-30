@@ -369,6 +369,8 @@
  "menu.commands": "Opdrachten",
  "notice.meaning": "Nieuw: zoeken op betekenis vindt bestanden over je woorden, in elke taal. Zet het aan",
  "notice.meaning_tui": "Nieuw: zoeken op betekenis vindt bestanden over je woorden, in elke taal: coxswain --meaning on",
+ "notice.ollama": "Ollama draait hier: zoeken op betekenis kan zijn GPU gebruiken. Kies het",
+ "notice.ollama_tui": "Ollama draait hier: zoeken op betekenis kan zijn GPU gebruiken: coxswain --meaning ollama",
  "notice.tesseract": "Installeer tesseract om de woorden in scans, schermafbeeldingen en afbeeldingen te doorzoeken",
  "notice.updated": "Bijgewerkt naar {version}: bekijk wat er nieuw is",
  "pane.back": "Terug (Alt+Left)",

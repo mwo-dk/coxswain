@@ -389,6 +389,8 @@
  "menu.commands": "Ordres",
  "notice.meaning": "Nou: la cerca pel significat troba fitxers sobre les teves paraules, en qualsevol llengua. Activa-la",
  "notice.meaning_tui": "Nou: la cerca pel significat troba fitxers sobre les teves paraules, en qualsevol llengua: coxswain --meaning on",
+ "notice.ollama": "Ollama s'executa aquí: la cerca pel significat podria fer servir la seva GPU. Trieu-la",
+ "notice.ollama_tui": "Ollama s'executa aquí: la cerca pel significat podria fer servir la seva GPU: coxswain --meaning ollama",
  "notice.tesseract": "Instal·leu tesseract per cercar les paraules en escanejos, captures de pantalla i imatges",
  "notice.updated": "Actualitzat a la {version}: vegeu les novetats",
  "pane.back": "Enrere (Alt+Left)",

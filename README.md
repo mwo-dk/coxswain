@@ -23,7 +23,8 @@ Mac OS 9; see [themes](#themes).*
   2. **Text** inside your files: code, PDF, Word, spreadsheets, slides, mail, books, notebooks
      and diagrams; with tesseract installed, scans and screenshots too.
   3. **Meaning**: files *about* what you type, whatever words they use, in any language.
-     "rocket fuel cost" finds a Danish budget. A small language model runs on your machine.
+     "rocket fuel cost" finds a Danish budget. A small language model runs on your machine, or
+     your own Ollama or Lemonade server does it on its GPU.
 
   It all stays on your machine, reads in the background at half speed, pauses on battery, and
   knows your removable disks wherever they are mounted. Both apps say when there is more to

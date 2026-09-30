@@ -389,6 +389,8 @@
  "menu.commands": "Commandes",
  "notice.meaning": "Nouveau : la recherche par le sens trouve les fichiers qui parlent de vos mots, dans toutes les langues. Activer",
  "notice.meaning_tui": "Nouveau : la recherche par le sens trouve les fichiers sur vos mots, dans toutes les langues : coxswain --meaning on",
+ "notice.ollama": "Ollama tourne ici : la recherche par le sens pourrait utiliser son GPU. La choisir",
+ "notice.ollama_tui": "Ollama tourne ici : la recherche par le sens pourrait utiliser son GPU : coxswain --meaning ollama",
  "notice.tesseract": "Installez tesseract pour chercher les mots des numérisations, captures d’écran et images",
  "notice.updated": "Mis à jour en {version} : voir les nouveautés",
  "pane.back": "Précédent (Alt+Left)",

@@ -369,6 +369,8 @@
  "menu.commands": "Komennot",
  "notice.meaning": "Uutta: merkityshaku löytää tiedostot, jotka käsittelevät sanojasi, millä kielellä tahansa. Ota käyttöön",
  "notice.meaning_tui": "Uutta: merkityshaku löytää sanojasi käsittelevät tiedostot, millä kielellä tahansa: coxswain --meaning on",
+ "notice.ollama": "Ollama toimii täällä: merkityshaku voisi käyttää sen näytönohjainta. Valitse se",
+ "notice.ollama_tui": "Ollama toimii täällä: merkityshaku voisi käyttää sen näytönohjainta: coxswain --meaning ollama",
  "notice.tesseract": "Asenna tesseract, niin voit hakea skannausten, kuvakaappausten ja kuvien sanoista",
  "notice.updated": "Päivitetty versioon {version}: katso uutuudet",
  "pane.back": "Takaisin (Alt+Left)",

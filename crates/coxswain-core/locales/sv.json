@@ -369,6 +369,8 @@
  "menu.commands": "Kommandon",
  "notice.meaning": "Nytt: sökning efter betydelse hittar filer om dina ord, på alla språk. Slå på den",
  "notice.meaning_tui": "Nytt: sökning efter betydelse hittar filer om dina ord, på alla språk: coxswain --meaning on",
+ "notice.ollama": "Ollama körs här: sökning efter betydelse kan använda dess GPU. Välj den",
+ "notice.ollama_tui": "Ollama körs här: sökning efter betydelse kan använda dess GPU: coxswain --meaning ollama",
  "notice.tesseract": "Installera tesseract för att söka bland orden i skanningar, skärmbilder och bilder",
  "notice.updated": "Uppdaterad till {version}: se vad som är nytt",
  "pane.back": "Bakåt (Alt+Left)",

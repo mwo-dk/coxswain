@@ -369,6 +369,8 @@
  "menu.commands": "Befehle",
  "notice.meaning": "Neu: Die Suche nach Bedeutung findet Dateien über Ihre Wörter, in jeder Sprache. Einschalten",
  "notice.meaning_tui": "Neu: Die Suche nach Bedeutung findet Dateien über Ihre Wörter, in jeder Sprache: coxswain --meaning on",
+ "notice.ollama": "Ollama läuft hier: Die Suche nach Bedeutung könnte ihre GPU nutzen. Auswählen",
+ "notice.ollama_tui": "Ollama läuft hier: Die Suche nach Bedeutung könnte ihre GPU nutzen: coxswain --meaning ollama",
  "notice.tesseract": "Installieren Sie tesseract, um die Wörter in Scans, Bildschirmfotos und Bildern zu durchsuchen",
  "notice.updated": "Aktualisiert auf {version}: sehen, was neu ist",
  "pane.back": "Zurück (Alt+Left)",

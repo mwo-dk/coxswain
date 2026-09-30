@@ -369,6 +369,8 @@
  "menu.commands": "Käsud",
  "notice.meaning": "Uus: otsing tähenduse järgi leiab failid sinu sõnade kohta, mis tahes keeles. Lülita sisse",
  "notice.meaning_tui": "Uus: otsing tähenduse järgi leiab failid sinu sõnade kohta, mis tahes keeles: coxswain --meaning on",
+ "notice.ollama": "Ollama töötab siin: tähendusotsing võiks kasutada selle GPU-d. Vali see",
+ "notice.ollama_tui": "Ollama töötab siin: tähendusotsing võiks kasutada selle GPU-d: coxswain --meaning ollama",
  "notice.tesseract": "Paigalda tesseract, et otsida sõnu skannidest, ekraanipiltidest ja piltidest",
  "notice.updated": "Uuendatud versioonile {version}: vaata, mis on uut",
  "pane.back": "Tagasi (Alt+Left)",

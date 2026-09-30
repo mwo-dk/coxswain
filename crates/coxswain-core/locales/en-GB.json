@@ -369,6 +369,8 @@
  "menu.commands": "Commands",
  "notice.meaning": "New: search by meaning finds files about your words, in any language. Turn it on",
  "notice.meaning_tui": "New: search by meaning finds files about your words, in any language: coxswain --meaning on",
+ "notice.ollama": "Ollama runs here: search by meaning could use its GPU. Choose it",
+ "notice.ollama_tui": "Ollama runs here: search by meaning could use its GPU: coxswain --meaning ollama",
  "notice.tesseract": "Install tesseract to search the words in scans, screenshots and pictures",
  "notice.updated": "Updated to {version}: see what's new",
  "pane.back": "Back (Alt+Left)",

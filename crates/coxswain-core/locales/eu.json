@@ -369,6 +369,8 @@
  "menu.commands": "Komandoak",
  "notice.meaning": "Berria: esanahiaren araberako bilaketak zure hitzei buruzko fitxategiak aurkitzen ditu, edozein hizkuntzatan. Aktibatu",
  "notice.meaning_tui": "Berria: esanahiaren araberako bilaketak zure hitzei buruzko fitxategiak aurkitzen ditu: coxswain --meaning on",
+ "notice.ollama": "Ollama hemen dabil: esanahiaren araberako bilaketak haren GPUa erabil lezake. Aukeratu",
+ "notice.ollama_tui": "Ollama hemen dabil: esanahiaren araberako bilaketak haren GPUa erabil lezake: coxswain --meaning ollama",
  "notice.tesseract": "Instalatu tesseract eskaneatu, pantaila-argazki eta irudietako hitzetan bilatzeko",
  "notice.updated": "{version} bertsiora eguneratua: ikusi berritasunak",
  "pane.back": "Atzera (Alt+Left)",

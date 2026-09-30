@@ -389,6 +389,8 @@
  "menu.commands": "Komandos",
  "notice.meaning": "Nauja: paieška pagal prasmę randa failus apie jūsų žodžius bet kuria kalba. Įjunkite",
  "notice.meaning_tui": "Nauja: paieška pagal prasmę randa failus apie jūsų žodžius bet kuria kalba: coxswain --meaning on",
+ "notice.ollama": "Čia veikia Ollama: paieška pagal prasmę galėtų naudoti jos GPU. Pasirinkite ją",
+ "notice.ollama_tui": "Čia veikia Ollama: paieška pagal prasmę galėtų naudoti jos GPU: coxswain --meaning ollama",
  "notice.tesseract": "Įdiekite tesseract, kad galėtumėte ieškoti žodžių skenuose, ekrano kopijose ir paveikslėliuose",
  "notice.updated": "Atnaujinta iki {version}: žr., kas nauja",
  "pane.back": "Atgal (Alt+Left)",
