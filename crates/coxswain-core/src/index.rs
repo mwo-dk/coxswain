@@ -595,14 +595,16 @@ impl Query {
     }
 }
 
-/// `*` any run, `?` any one byte; anchored at both ends.
-pub fn glob(p: &[u8], s: &[u8]) -> bool {
+/// `*` any run, `?` any one item (a byte, or a character when given chars); anchored at both
+/// ends.
+pub fn glob<T: PartialEq + Copy + From<u8>>(p: &[T], s: &[T]) -> bool {
+    let (any, run) = (T::from(b'?'), T::from(b'*'));
     let (mut pi, mut si, mut star, mut mark) = (0, 0, None, 0);
     while si < s.len() {
-        if pi < p.len() && (p[pi] == b'?' || p[pi] == s[si]) {
+        if pi < p.len() && (p[pi] == any || p[pi] == s[si]) {
             pi += 1;
             si += 1;
-        } else if pi < p.len() && p[pi] == b'*' {
+        } else if pi < p.len() && p[pi] == run {
             star = Some(pi);
             mark = si;
             pi += 1;
@@ -614,7 +616,7 @@ pub fn glob(p: &[u8], s: &[u8]) -> bool {
             return false;
         }
     }
-    p[pi..].iter().all(|&c| c == b'*')
+    p[pi..].iter().all(|&c| c == run)
 }
 
 // ---------------------------------------------------------------- service
@@ -801,5 +803,9 @@ mod tests {
         assert!(glob(b"m?in*", b"main.rs"));
         assert!(!glob(b"*.rs", b"main.rsx"));
         assert!(glob(b"*a*b*", b"xxaxxbxx"));
+        // On chars, `?` is one character, whatever its length in bytes.
+        let chars = |s: &str| s.chars().collect::<Vec<_>>();
+        assert!(glob(&chars("?.txt"), &chars("é.txt")));
+        assert!(!glob(b"?.txt", "é.txt".as_bytes()));
     }
 }

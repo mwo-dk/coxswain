@@ -119,9 +119,8 @@ command from the command line, and on **Ctrl+R**.
 
 #### Which folder does a relative path start from?
 
-In the desktop app, the pane's own folder. In the terminal app, the active panel's folder,
-also when you type into the other panel's **Alt+F1**/**Alt+F2** dialog. Type a full path or
-one starting with `~` to be sure.
+The folder of the pane or panel you are typing for: the left one's after **Alt+F1**, the
+right one's after **Alt+F2**. Type a full path or one starting with `~` to be sure.
 
 #### What happens when I type a folder that does not exist?
 

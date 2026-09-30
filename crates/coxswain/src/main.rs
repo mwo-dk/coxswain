@@ -5,7 +5,7 @@ mod ui;
 
 use coxswain_core::{t, tn};
 use coxswain_core::config::{self, Action, Config, Glyphs, Key, KeyCode};
-use coxswain_core::fs::{self as bfs, Entry, SortKey};
+use coxswain_core::fs::{self as bfs, resolve, Entry, SortKey};
 use coxswain_core::git;
 use coxswain_core::helper::{self, Client};
 use coxswain_core::index::{self, Results, State};
@@ -275,16 +275,29 @@ fn searcher(index: Arc<Client>, max: usize) -> (mpsc::Sender<(u64, String, u8, P
     (ask, told)
 }
 
-fn resolve(base: &Path, s: &str) -> PathBuf {
-    let s = s.trim();
-    let p = match s.strip_prefix('~') {
-        Some(rest) if rest.is_empty() || rest.starts_with(['/', '\\']) => {
-            let home = std::env::home_dir().unwrap_or_default();
-            home.join(rest.trim_start_matches(['/', '\\']))
-        }
-        _ => PathBuf::from(s),
-    };
-    if p.is_absolute() { p } else { base.join(p) }
+/// What a key does to a command line that has text.
+#[derive(Debug, PartialEq)]
+enum LineKey {
+    Run,
+    Erase,
+    Clear,
+    Type(char),
+    /// An editing key the line cannot use (it edits at its end only): swallowed, so Delete
+    /// never deletes the entry under the cursor while typing a command.
+    Keep,
+}
+
+/// `None`: the key is the panel's after all (a chord such as Ctrl+Enter, or an action key).
+fn line_key(key: Key, plain: Option<char>) -> Option<LineKey> {
+    let bare = !key.ctrl && !key.alt;
+    Some(match (key.code, plain) {
+        (KeyCode::Enter, _) if bare => LineKey::Run,
+        (KeyCode::Backspace, _) if bare => LineKey::Erase,
+        (KeyCode::Esc, _) => LineKey::Clear,
+        (KeyCode::Delete | KeyCode::Left | KeyCode::Right | KeyCode::Home | KeyCode::End, _) if bare => LineKey::Keep,
+        (_, Some(c)) => LineKey::Type(c),
+        _ => return None,
+    })
 }
 
 fn shell() -> (String, &'static str) {
@@ -475,17 +488,14 @@ impl App {
             self.quick = Some(c.to_string());
             return self.quick_jump();
         }
-        if !self.cmdline.is_empty() {
-            match (key.code, plain_char) {
-                (KeyCode::Enter, _) => return self.run_cmdline(),
-                (KeyCode::Backspace, _) => {
-                    self.cmdline.pop();
-                    return;
-                }
-                (KeyCode::Esc, _) => return self.cmdline.clear(),
-                (_, Some(c)) => return self.cmdline.push(c),
-                _ => {}
-            }
+        if let Some(what) = (!self.cmdline.is_empty()).then(|| line_key(key, plain_char)).flatten() {
+            return match what {
+                LineKey::Run => self.run_cmdline(),
+                LineKey::Erase => drop(self.cmdline.pop()),
+                LineKey::Clear => self.cmdline.clear(),
+                LineKey::Type(c) => self.cmdline.push(c),
+                LineKey::Keep => {}
+            };
         }
         match (action, plain_char) {
             (Some(a), _) => self.act(a),
@@ -827,7 +837,7 @@ impl App {
                 }
             }
             Prompt::Goto(side) => {
-                let d = resolve(&base, &value);
+                let d = resolve(&self.panels[side].dir, &value);
                 let d = std::fs::canonicalize(&d).unwrap_or(d);
                 if d.is_dir() {
                     self.cd(side, d);
@@ -1149,7 +1159,6 @@ impl App {
 
     /// Git results and index progress, polled between events.
     fn tick(&mut self, last_state: &mut State) {
-        self.tell();
         if let Ok(v) = self.update_rx.try_recv() {
             let how = coxswain_core::update::upgrade_hint().unwrap_or(coxswain_core::update::RELEASES_URL);
             self.status = Some(t!("status.update", "version" => v, "how" => how));
@@ -1191,6 +1200,8 @@ impl App {
                 self.search_now();
             }
         }
+        // Last, so a notice it shows is not written over in the same round.
+        self.tell();
     }
 }
 
@@ -1238,14 +1249,39 @@ fn suspended(term: &mut DefaultTerminal, f: impl FnOnce()) -> std::io::Result<()
 fn run_shell(cmd: &str, dir: &Path, wait: bool) {
     let (sh, flag) = shell();
     println!("{}> {cmd}", dir.display());
-    if let Err(e) = coxswain_core::tools::command(&sh).arg(flag).arg(cmd).current_dir(dir).status() {
+    if let Err(e) = run_in(&sh, flag, cmd, dir, wait) {
         println!("coxswain: {sh}: {e}");
     }
-    if wait {
+}
+
+/// `cmd` through the shell `sh`, on the plain terminal. Ctrl+C there interrupts the whole
+/// foreground process group, Coxswain included: it is ignored here meanwhile, and the child
+/// gets it as usual.
+fn run_in(sh: &str, flag: &str, cmd: &str, dir: &Path, wait: bool) -> std::io::Result<()> {
+    let mut c = coxswain_core::tools::command(sh);
+    c.arg(flag).arg(cmd).current_dir(dir);
+    #[cfg(unix)]
+    let before = unsafe {
+        use std::os::unix::process::CommandExt;
+        c.pre_exec(|| {
+            libc::signal(libc::SIGINT, libc::SIG_DFL);
+            libc::signal(libc::SIGQUIT, libc::SIG_DFL);
+            Ok(())
+        });
+        (libc::signal(libc::SIGINT, libc::SIG_IGN), libc::signal(libc::SIGQUIT, libc::SIG_IGN))
+    };
+    let status = c.status();
+    if wait && status.is_ok() {
         print!("\n{}", t!("tui.press_enter"));
         let _ = std::io::stdout().flush();
         let _ = std::io::stdin().read_line(&mut String::new());
     }
+    #[cfg(unix)]
+    unsafe {
+        libc::signal(libc::SIGINT, before.0);
+        libc::signal(libc::SIGQUIT, before.1);
+    }
+    status.map(drop)
 }
 
 fn main_loop(term: &mut DefaultTerminal, app: &mut App) -> std::io::Result<()> {
@@ -1458,5 +1494,24 @@ mod tests {
         assert_eq!(p.current().map(|e| e.name.as_str()), Some("b.txt"));
         assert_eq!(Panel::new(d.clone(), false).dir, d);
         std::fs::remove_dir_all(d).unwrap();
+    }
+
+    #[test]
+    fn a_typed_command_line_keeps_the_editing_keys() {
+        let k = |code, ctrl, shift| Key::new(code, ctrl, false, shift);
+        assert_eq!(line_key(k(KeyCode::Delete, false, false), None), Some(LineKey::Keep));
+        assert_eq!(line_key(k(KeyCode::Delete, false, true), None), Some(LineKey::Keep));
+        assert_eq!(line_key(k(KeyCode::Enter, false, false), None), Some(LineKey::Run));
+        // Ctrl+Enter puts the path on the line; it does not run it.
+        assert_eq!(line_key(k(KeyCode::Enter, true, false), None), None);
+        assert_eq!(line_key(k(KeyCode::Char('a'), false, false), Some('a')), Some(LineKey::Type('a')));
+        assert_eq!(line_key(k(KeyCode::F(5), false, false), None), None);
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn an_interrupt_meant_for_the_command_leaves_the_app_running() {
+        // The child interrupts its parent (this process); ignored here, the test goes on.
+        run_in("sh", "-c", "kill -INT $PPID", Path::new("/"), false).unwrap();
     }
 }

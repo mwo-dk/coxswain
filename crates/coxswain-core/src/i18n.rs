@@ -104,14 +104,17 @@ pub fn resolve(pref: &str) -> &'static str {
     if !pref.is_empty() && pref != "auto" {
         return nearest(pref);
     }
-    let system: Vec<String> = sys_locale::get_locales().collect();
-    // The first system language Coxswain has itself wins over nearest-relative matches.
+    pick(&sys_locale::get_locales().collect::<Vec<_>>())
+}
+
+/// The first of the system's languages Coxswain has (any English counts: British English is
+/// also the fallback for the ones it lacks), else the nearest to the first one.
+fn pick(system: &[String]) -> &'static str {
     system
         .iter()
-        .map(|l| nearest(l))
-        .find(|&code| code != REFERENCE)
-        .or_else(|| system.first().map(|l| nearest(l)))
-        .unwrap_or(REFERENCE)
+        .find(|l| nearest(l) != REFERENCE || l.to_ascii_lowercase().starts_with("en"))
+        .or(system.first())
+        .map_or(REFERENCE, |l| nearest(l))
 }
 
 type Map = HashMap<String, serde_json::Value>;
@@ -278,6 +281,13 @@ mod tests {
             assert_eq!(nearest(tag), want, "{tag}");
         }
         assert_eq!(resolve("lt"), "lt");
+        let langs = |v: &[&str]| v.iter().map(|s| s.to_string()).collect::<Vec<_>>();
+        // British English first stays British English; an unknown first language is skipped.
+        assert_eq!(pick(&langs(&["en-GB", "da"])), "en-GB");
+        assert_eq!(pick(&langs(&["en_IE.UTF-8", "da"])), "en-GB");
+        assert_eq!(pick(&langs(&["ja", "da"])), "da");
+        assert_eq!(pick(&langs(&["ja", "ko"])), "en-GB");
+        assert_eq!(pick(&[]), "en-GB");
     }
 
     #[test]

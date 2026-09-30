@@ -68,6 +68,37 @@ fn outside(c: &mut Command, appdir: &Path, vars: impl Iterator<Item = (OsString,
     }
 }
 
+/// Start `c` detached, with no input or output, but watch it for `grace`: a program that
+/// stops at once with an error (not found, no application for the file) reports it, where a
+/// plain spawn would say nothing. One that is still running is left to itself, and reaped
+/// when it ends.
+pub fn spawn_watched(mut c: Command, grace: Duration) -> std::io::Result<()> {
+    let mut child = c.stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::piped()).spawn()?;
+    let start = Instant::now();
+    while start.elapsed() < grace {
+        if let Some(status) = child.try_wait()? {
+            if status.success() {
+                return Ok(());
+            }
+            let mut err = String::new();
+            if let Some(mut e) = child.stderr.take() {
+                let _ = e.read_to_string(&mut err);
+            }
+            let err = err.trim();
+            return Err(std::io::Error::other(if err.is_empty() { status.to_string() } else { err.to_string() }));
+        }
+        std::thread::sleep(Duration::from_millis(20));
+    }
+    // Its errors go nowhere from here (a closed pipe would stop it), and it is reaped.
+    std::thread::spawn(move || {
+        if let Some(mut e) = child.stderr.take() {
+            let _ = std::io::copy(&mut e, &mut std::io::sink());
+        }
+        let _ = child.wait();
+    });
+    Ok(())
+}
+
 /// Wait for `child`, killing it when it runs past `timeout`.
 pub fn wait(child: &mut Child, timeout: Duration) -> std::io::Result<ExitStatus> {
     let start = Instant::now();
@@ -125,6 +156,18 @@ pub fn low(program: &std::path::Path) -> Command {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    #[cfg(unix)]
+    fn tools_spawn_watched_reports_a_quick_failure() {
+        let mut c = Command::new("sh");
+        c.args(["-c", "echo nope >&2; exit 3"]);
+        let err = spawn_watched(c, Duration::from_secs(2)).unwrap_err();
+        assert_eq!(err.to_string(), "nope");
+        let mut c = Command::new("sh");
+        c.args(["-c", "sleep 2"]);
+        assert!(spawn_watched(c, Duration::from_millis(100)).is_ok());
+    }
 
     #[test]
     fn tools_run_with_a_limit() {

@@ -162,6 +162,7 @@ fn panel(f: &mut Frame, app: &mut App, side: usize, area: Rect) {
     p.offset = p.offset.min(p.entries.len().saturating_sub(rows));
     let p = &app.panels[side];
 
+    let plain = app.cfg.plain_glyphs().then_some(&app.glyphs);
     let mut lines = vec![];
     for (i, e) in p.entries.iter().enumerate().skip(p.offset).take(rows) {
         let marked = p.marked.contains(&e.path);
@@ -199,10 +200,10 @@ fn panel(f: &mut Frame, app: &mut App, side: usize, area: Rect) {
             }
             None => (String::new(), s),
         };
-        let name = if app.cfg.glyphs == "ascii" || e.is_parent() {
+        let name = if e.is_parent() {
             format!("  {}", e.name)
         } else {
-            format!("{} {}", coxswain_core::icons::icon(&e.name, e.is_dir).glyph, e.name)
+            format!("{} {}", coxswain_core::icons::entry(&e.name, e.is_dir, e.is_symlink, plain).glyph, e.name)
         };
         let name = &name;
         let sz = if e.is_parent() {
@@ -271,7 +272,7 @@ fn cmdline(f: &mut Frame, app: &App, area: Rect) {
         let prompt = format!("{}> ", fit_left(&app.panel().dir.to_string_lossy(), area.width as usize / 2));
         let x = area.x + (prompt.width() + app.cmdline.width()) as u16;
         let full = format!("{prompt}{}", app.cmdline);
-        (Line::from(Span::styled(fit_left(&full, area.width as usize), st)), Some(x.min(area.right() - 1)))
+        (Line::from(Span::styled(fit_left(&full, area.width as usize), st)), Some(x.min(area.right().saturating_sub(1))))
     };
     f.render_widget(Paragraph::new(line).style(st), area);
     if let (Some(x), None) = (cursor, &app.dialog) {
@@ -284,11 +285,8 @@ fn keybar(f: &mut Frame, app: &App, area: Rect) {
     let slot = area.width as usize / 10;
     let mut spans = vec![];
     for n in 1..=10u8 {
-        let key = Key::new(KeyCode::F(n), false, false, false);
-        let label = Action::ALL
-            .iter()
-            .find(|&&a| app.cfg.keys.get(&a).is_some_and(|ks| ks.iter().any(|k| k.parse::<Key>().ok() == Some(key))))
-            .map_or(String::new(), |a| a.label());
+        // The keymap, so the bar names the action the key runs when two share it.
+        let label = app.keymap.get(&Key::new(KeyCode::F(n), false, false, false)).map_or(String::new(), |a| a.label());
         let num = n.to_string();
         let lw = slot.saturating_sub(num.len());
         spans.push(Span::styled(num, sty(&t.keybar_num)));
@@ -359,7 +357,7 @@ fn dialog(f: &mut Frame, app: &mut App) {
             let visible: Vec<_> = items.iter().filter(|it| it.label.to_lowercase().contains(&filter.to_lowercase())).collect();
             let kw = items.iter().map(|i| i.key.width()).max().unwrap_or(0);
             let lw = items.iter().map(|i| i.label.width()).max().unwrap_or(0);
-            let h = (visible.len() as u16 + 2 + !direct as u16).min(full.height - 2);
+            let h = (visible.len() as u16 + 2 + !direct as u16).min(full.height.saturating_sub(2));
             let inner = frame(f, app, centered(full, (kw + lw + 6) as u16, h), title);
             let mut y = inner.y;
             if !direct {

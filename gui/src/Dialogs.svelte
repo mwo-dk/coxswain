@@ -240,10 +240,12 @@
       }
       case "menu": {
         const items = menuItems(m);
+        // An entry's key is one character, upper case for Shift (`Shift+A` is `A`).
+        const ch = k.replace(/^Shift\+/, "");
         if (k === "Enter" && items[m.cursor]) run(items[m.cursor]);
         else if (k === "Up") m.cursor = Math.max(0, m.cursor - 1);
         else if (k === "Down") m.cursor = Math.min(items.length - 1, m.cursor + 1);
-        else if (m.direct && [...k].length === 1 && m.items.some((it) => it.key === k)) run(m.items.find((it) => it.key === k));
+        else if (m.direct && [...ch].length === 1 && m.items.some((it) => it.key === ch)) run(m.items.find((it) => it.key === ch));
         else return false;
         return true;
       }
@@ -262,7 +264,9 @@
         return true;
       }
       case "bom":
-        // the window's own keys: Esc (above) closes it
+      case "settings":
+      case "dupes":
+        // windows with fields and buttons of their own: Esc (above) closes them, Enter is theirs
         return false;
       default:
         if (k === "Enter" || act === "help") close();

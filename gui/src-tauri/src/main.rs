@@ -5,7 +5,7 @@
 
 use coxswain_core::config::{color_to_rgb, Action, Config, Glyphs, GuiConfig, UserCommand};
 use coxswain_core::fs::{self as bfs, Entry, SortKey};
-use coxswain_core::icons::{icon, Icon};
+use coxswain_core::icons::{self, Icon};
 use coxswain_core::helper::{self, Client};
 use coxswain_core::index::{Results, State};
 use coxswain_core::rename::{self, Flags, Planned};
@@ -306,9 +306,11 @@ fn list_dir(dir: PathBuf, show_hidden: bool, sort: SortKey, reverse: bool, ctx: 
     let mut entries = bfs::list(&dir, show_hidden).map_err(|e| format!("{}: {e}", dir.display()))?;
     bfs::sort(&mut entries, sort, reverse);
     let st = ctx.state.lock().map_err(|e| e.to_string())?;
+    let cfg = ctx.cfg();
+    let plain = cfg.plain_glyphs().then(|| cfg.glyphs());
     let items = entries
         .into_iter()
-        .map(|e| Item { icon: icon(&e.name, e.is_dir), tag: st.tags.get(&e.path).cloned(), entry: e })
+        .map(|e| Item { icon: icons::entry(&e.name, e.is_dir, e.is_symlink, plain.as_ref()), tag: st.tags.get(&e.path).cloned(), entry: e })
         .collect();
     let inside = coxswain_core::archive::split(&dir);
     let locked = inside.as_ref().is_some_and(|(a, i)| coxswain_core::archive::locked_at(a, i).unwrap_or(false));
@@ -326,14 +328,21 @@ struct GitInfo {
 
 #[tauri::command]
 async fn git_status(dir: PathBuf, ctx: tauri::State<'_, Ctx>) -> Res<Option<GitInfo>> {
-    let Some(s) = git::Status::read(&dir) else { return Ok(None) };
+    // `git status` on a big repository takes a while: not on the async runtime's workers.
+    let d = dir.clone();
+    let Some(s) = tauri::async_runtime::spawn_blocking(move || git::Status::read(&d)).await.map_err(|e| e.to_string())? else { return Ok(None) };
     let files = std::fs::read_dir(&dir)
         .into_iter()
         .flatten()
         .flatten()
         .filter_map(|de| Some((de.file_name().to_string_lossy().into_owned(), s.get(&de.path())?)))
         .collect();
-    ctx.edit(|st| st.touch_repo(&s.root))?;
+    // Every listing comes through here: the state file is written only when the repo moves up.
+    let mut st = ctx.state.lock().map_err(|e| e.to_string())?;
+    if st.touch_repo(&s.root) {
+        st.save().map_err(|e| format!("saving state: {e}"))?;
+    }
+    drop(st);
     Ok(Some(GitInfo { prompt: s.prompt(&ctx.cfg().glyphs()), branch: s.summary.branch.clone(), root: s.root, files }))
 }
 
@@ -379,6 +388,12 @@ struct Disk {
     removable: bool,
 }
 
+/// System mounts that are not places to go. `/run` is one, except `/run/media`, where
+/// removable disks are mounted.
+fn hidden_mount(mount: &Path) -> bool {
+    ["/boot", "/efi", "/snap", "/var/lib", "/run", "/proc", "/sys"].iter().any(|p| mount.starts_with(p)) && !mount.starts_with("/run/media")
+}
+
 #[tauri::command]
 async fn disks() -> Vec<Disk> {
     let list = sysinfo::Disks::new_with_refreshed_list();
@@ -389,8 +404,7 @@ async fn disks() -> Vec<Disk> {
     for d in sorted {
         let name = d.name().to_string_lossy().into_owned();
         let mount = d.mount_point().to_path_buf();
-        let skip = ["/boot", "/efi", "/snap", "/var/lib", "/run", "/proc", "/sys"].iter().any(|p| mount.starts_with(p));
-        if skip || out.iter().any(|o| o.device == name) {
+        if hidden_mount(&mount) || out.iter().any(|o| o.device == name) {
             continue;
         }
         let label = if mount.parent().is_none() { coxswain_core::t!("place.system") } else { mount.file_name().map_or(name.clone(), |n| n.to_string_lossy().into_owned()) };
@@ -699,14 +713,7 @@ fn ask_stop(ctx: tauri::State<Ctx>) {
 }
 
 fn resolve(base: &Path, s: &str) -> PathBuf {
-    let s = s.trim();
-    let p = match s.strip_prefix('~') {
-        Some(rest) if rest.is_empty() || rest.starts_with(['/', '\\']) => {
-            std::env::home_dir().unwrap_or_default().join(rest.trim_start_matches(['/', '\\']))
-        }
-        _ => PathBuf::from(s),
-    };
-    let p = if p.is_absolute() { p } else { base.join(p) };
+    let p = bfs::resolve(base, s);
     std::fs::canonicalize(&p).unwrap_or(p)
 }
 
@@ -785,22 +792,19 @@ fn rename_apply(dir: PathBuf, plan: Vec<Planned>) -> Res<()> {
     rename::apply(&dir, &plan)
 }
 
+/// The opener is watched for a moment, so "no application" comes back as an error.
 #[tauri::command]
-fn open_path(path: PathBuf) -> Res<()> {
-    bfs::open_default(&path).map_err(|e| e.to_string())
+async fn open_path(path: PathBuf) -> Res<()> {
+    tauri::async_runtime::spawn_blocking(move || bfs::open_default(&path).map_err(|e| e.to_string())).await.map_err(|e| e.to_string())?
 }
 
-/// `editor` from the config, else the desktop default.
+/// `editor` from the config, else the desktop default. An editor that is not there fails at
+/// once, and the shell's word for it is the error.
 #[tauri::command]
-fn edit_path(path: PathBuf, ctx: tauri::State<Ctx>) -> Res<()> {
-    let editor = ctx.cfg().editor.clone();
-    match &editor {
-        Some(ed) => {
-            let cmd = format!("{ed} {}", coxswain_core::config::quote(&path.to_string_lossy()));
-            shell(&cmd).spawn().map(drop).map_err(|e| e.to_string())
-        }
-        None => open_path(path),
-    }
+async fn edit_path(path: PathBuf, ctx: tauri::State<'_, Ctx>) -> Res<()> {
+    let Some(ed) = ctx.cfg().editor.clone() else { return open_path(path).await };
+    let cmd = format!("{ed} {}", coxswain_core::config::quote(&path.to_string_lossy()));
+    tauri::async_runtime::spawn_blocking(move || coxswain_core::tools::spawn_watched(shell(&cmd), std::time::Duration::from_secs(1)).map_err(|e| e.to_string())).await.map_err(|e| e.to_string())?
 }
 
 /// Up to `max` bytes as text for the preview; binary files come back hex-dumped.
@@ -1153,15 +1157,34 @@ fn scripts_dir() -> Option<PathBuf> {
 fn scripts(ctx: tauri::State<Ctx>) -> Vec<Script> {
     let mut out: Vec<Script> =
         ctx.cfg().user_menu.iter().enumerate().map(|(i, u)| Script { key: u.key.clone(), label: u.label.clone(), user: Some(i), path: None }).collect();
-    if let Some(Ok(rd)) = scripts_dir().map(std::fs::read_dir) {
-        let mut files: Vec<PathBuf> = rd.flatten().map(|d| d.path()).filter(|p| p.is_file()).collect();
-        files.sort();
-        for p in files {
-            let label = p.file_stem().unwrap_or_default().to_string_lossy().into_owned();
-            out.push(Script { key: String::new(), label, user: None, path: Some(p) });
-        }
+    for p in scripts_dir().map(|d| script_files(&d)).unwrap_or_default() {
+        let label = p.file_stem().unwrap_or_default().to_string_lossy().into_owned();
+        out.push(Script { key: String::new(), label, user: None, path: Some(p) });
     }
     out
+}
+
+/// The scripts in `dir`, by name: the files that can run (executable on Unix; any file on
+/// Windows, which decides by the extension), and not hidden ones (`.DS_Store`).
+fn script_files(dir: &Path) -> Vec<PathBuf> {
+    let runs = |p: &Path| -> bool {
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::metadata(p).is_ok_and(|m| m.permissions().mode() & 0o111 != 0)
+        }
+        #[cfg(not(unix))]
+        true
+    };
+    let mut files: Vec<PathBuf> = std::fs::read_dir(dir)
+        .into_iter()
+        .flatten()
+        .flatten()
+        .map(|d| d.path())
+        .filter(|p| p.is_file() && !p.file_name().unwrap_or_default().to_string_lossy().starts_with('.') && runs(p))
+        .collect();
+    files.sort();
+    files
 }
 
 /// Run a user-menu entry (expanded) or a script file with the selection as arguments.
@@ -1194,7 +1217,8 @@ async fn check_update(ctx: tauri::State<'_, Ctx>) -> Res<Option<(String, Option<
     }
     let due = update::due(&*ctx.state.lock().map_err(|e| e.to_string())?);
     if due {
-        if let Some(latest) = update::fetch_latest() {
+        // Up to 5 s on the network: not on the async runtime's workers.
+        if let Some(latest) = tauri::async_runtime::spawn_blocking(update::fetch_latest).await.map_err(|e| e.to_string())? {
             ctx.edit(|st| update::record(st, latest))?;
         }
     }
@@ -1311,6 +1335,31 @@ mod tests {
         assert_eq!(cfg.search.names_only, [PathBuf::from("/home/me/Mail")]);
         assert_eq!(cfg.preview.images["plantuml"], "docker.io/plantuml/plantuml:latest", "other defaults stay");
         assert!(apply_settings(text, &serde_json::Map::from_iter([("nope".into(), 1.into())])).is_err());
+    }
+
+    #[test]
+    fn drives_show_removable_disks_under_run_media() {
+        assert!(!hidden_mount(Path::new("/run/media/me/USB")));
+        assert!(hidden_mount(Path::new("/run/user/1000")));
+        assert!(hidden_mount(Path::new("/boot/efi")));
+        assert!(!hidden_mount(Path::new("/mnt/data")));
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn scripts_are_the_executable_files_only() {
+        use std::os::unix::fs::PermissionsExt;
+        let d = std::env::temp_dir().join(format!("coxswain-scripts-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        std::fs::write(d.join("README.md"), "").unwrap();
+        std::fs::write(d.join(".DS_Store"), "").unwrap();
+        std::fs::write(d.join("resize"), "#!/bin/sh\n").unwrap();
+        std::fs::set_permissions(d.join("resize"), std::fs::Permissions::from_mode(0o755)).unwrap();
+        std::fs::write(d.join(".hidden"), "").unwrap();
+        std::fs::set_permissions(d.join(".hidden"), std::fs::Permissions::from_mode(0o755)).unwrap();
+        assert_eq!(script_files(&d), vec![d.join("resize")]);
+        std::fs::remove_dir_all(d).unwrap();
     }
 
     #[test]

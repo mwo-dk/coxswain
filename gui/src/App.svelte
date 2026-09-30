@@ -2,7 +2,7 @@
   import { getCurrentWindow } from "@tauri-apps/api/window";
   import { getCurrentWebview } from "@tauri-apps/api/webview";
   import { listen } from "@tauri-apps/api/event";
-  import { ui, init, tab, pane, otherTab, item, load, cd, newTab, goBack, goForward, openItem, toggleMark, targets, reloadAll, snapshot, setTheme, nextView, measureFolders, columnMenu } from "./app.svelte.js";
+  import { ui, init, tab, pane, otherTab, item, load, cd, newTab, goBack, goForward, openItem, toggleMark, targets, reloadAll, snapshot, setTheme, themeIds, themeName, nextView, measureFolders, columnMenu } from "./app.svelte.js";
   import { invoke, keyString, basename, parent, glob, quote, isArchive, LOCKED } from "./lib.js";
   import { t, tn } from "./i18n.svelte.js";
   import Sidebar from "./Sidebar.svelte";
@@ -367,7 +367,7 @@
           ...Object.entries(ui.cfg.actions)
             .filter(([n]) => !["menu", "up", "down"].includes(n))
             .map(([n, [label, key]]) => ({ key, label, run: () => actions[n]?.() })),
-          ...ui.cfg.builtin_themes.map((id) => ({ key: id === ui.theme ? t("app.current") : "", label: t("app.theme", { name: t(`theme.${id}`) }), icon: "\u{f53f}", run: () => setTheme(id, true) })),
+          ...themeIds().map((id) => ({ key: id === ui.theme ? t("app.current") : "", label: t("app.theme", { name: themeName(id) }), icon: "\u{f53f}", run: () => setTheme(id, true) })),
         ],
       }),
     help: () => (ui.modal = { kind: "help" }),
