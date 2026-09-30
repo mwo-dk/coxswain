@@ -210,10 +210,10 @@ const CONVERTED = Object.fromEntries(
  *  `verb` is a catalogue key for the button text: callers show it with t(conv.verb). */
 export const CONVERTER = {
   latex: { tool: "latex", auto: false, verb: "convert.build_pdf" },
-  office: { tool: "libreoffice", auto: false, verb: "convert.render" },
+  // LibreOffice takes a few seconds: it starts once the file has been selected a moment.
+  office: { tool: "libreoffice", auto: true, wait: 600, verb: "convert.render" },
   plantuml: { tool: "plantuml", auto: true, verb: "convert.render" },
   rst: { tool: "pandoc", auto: true, verb: "convert.render" },
-  drawio: { tool: "drawio", auto: false, verb: "convert.render" },
   duckdb: { tool: "duckdb", auto: true, verb: "convert.read_tables" },
 };
 const SHEET = ["csv", "tsv", "xlsx", "xlsm", "xls", "ods"];

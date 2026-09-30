@@ -1,4 +1,4 @@
-//! Previews made by external tools: LaTeX, LibreOffice, PlantUML, pandoc, draw.io and DuckDB.
+//! Previews made by external tools: LaTeX, LibreOffice, PlantUML, pandoc and DuckDB.
 //!
 //! Each tool runs either from a local install or from a container image (podman or docker),
 //! chosen per `[preview]` in the config and by the buttons in the preview pane. Results go to
@@ -26,7 +26,6 @@ const TOOLS: &[(&str, &[&str])] = &[
     ("libreoffice", &["soffice", "libreoffice"]),
     ("plantuml", &["plantuml"]),
     ("pandoc", &["pandoc"]),
-    ("drawio", &["drawio", "draw.io"]),
     ("duckdb", &["duckdb"]),
 ];
 
@@ -35,8 +34,6 @@ fn extra_paths(program: &str) -> Vec<PathBuf> {
     let v: &[&str] = match program {
         "soffice" if cfg!(target_os = "macos") => &["/Applications/LibreOffice.app/Contents/MacOS/soffice"],
         "soffice" if cfg!(windows) => &[r"C:\Program Files\LibreOffice\program\soffice.exe"],
-        "drawio" if cfg!(target_os = "macos") => &["/Applications/draw.io.app/Contents/MacOS/draw.io"],
-        "drawio" if cfg!(windows) => &[r"C:\Program Files\draw.io\draw.io.exe"],
         _ => &[],
     };
     v.iter().map(PathBuf::from).collect()
@@ -166,7 +163,7 @@ fn output(tool: &str, path: &Path, out: &Path) -> (&'static str, PathBuf) {
     match tool {
         "latex" => ("pdf", out.join(latex::main_file(path).with_extension("pdf").file_name().unwrap_or_default())),
         "libreoffice" => ("pdf", out.join(format!("{stem}.pdf"))),
-        "plantuml" | "drawio" => ("svg", out.join("diagram.svg")),
+        "plantuml" => ("svg", out.join("diagram.svg")),
         "pandoc" => ("html", out.join("doc.html")),
         _ => ("json", out.join("tables.json")),
     }
@@ -272,10 +269,6 @@ fn run(cfg: &PreviewConfig, tool: &str, engine: &str, path: &Path, out: &Path, f
                 c.args(["-i", image, "-f", "rst", "-t", "html5"]);
                 Some(path)
             }
-            "drawio" => {
-                c.args([image.as_str(), "-x", "-f", "svg", "-o", "/out/diagram.svg", &format!("/src/{name}")]);
-                None
-            }
             _ => {
                 c.args([image.as_str(), "-readonly", "-json", &format!("/src/{name}"), "-c", DUCKDB_SQL]);
                 return capture(c, None, timeout, file, Some((&rt_path, &container_name)));
@@ -312,9 +305,6 @@ fn run(cfg: &PreviewConfig, tool: &str, engine: &str, path: &Path, out: &Path, f
         ("pandoc", _) => {
             c.args(["-f", "rst", "-t", "html5"]);
             return capture(c, Some(path), timeout, file, None);
-        }
-        ("drawio", _) => {
-            c.args(["-x", "-f", "svg", "-o"]).arg(file).arg(path);
         }
         _ => {
             c.args(["-readonly", "-json"]).arg(path).args(["-c", DUCKDB_SQL]);
