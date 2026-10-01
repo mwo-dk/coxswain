@@ -184,6 +184,9 @@ pub enum Prompt {
     Move(Vec<PathBuf>),
     Extract(Vec<PathBuf>),
     Pack(Vec<PathBuf>),
+    /// A password for a new zip or 7z (none: empty), shown as stars; then typed again.
+    PackPassword(Vec<PathBuf>, PathBuf),
+    PackConfirm(Vec<PathBuf>, PathBuf, String),
     /// A locked archive's password, to run the copy, move or extract again with; shown as
     /// stars and kept for that run only.
     Password(Transfer, Vec<PathBuf>, PathBuf),
@@ -976,7 +979,8 @@ impl App {
         std::thread::spawn(move || {
             let pw = pw.as_deref();
             let Some(op) = op else {
-                let failed = coxswain_core::archive::create(&to, &items).err().map(|e| (to.clone(), e));
+                // A 7z's names are hidden too: what the desktop app does by default.
+                let failed = coxswain_core::archive::create_locked(&to, &items, pw, true).err().map(|e| (to.clone(), e));
                 return drop(tx.send(JobMsg::Done(failed.into_iter().collect())));
             };
             let mut failed = vec![];
@@ -1069,6 +1073,10 @@ impl App {
         }
     }
 
+    fn pack(&mut self, src: Vec<PathBuf>, to: PathBuf, password: Option<String>) {
+        self.start(None, src, to, password, None);
+    }
+
     fn submit(&mut self, prompt: Prompt, value: String) {
         let base = self.panel().dir.clone();
         match prompt {
@@ -1095,8 +1103,16 @@ impl App {
             }
             Prompt::Pack(src) => {
                 let to = resolve(&base, &value);
-                self.start(None, src, to, None, None);
+                if coxswain_core::archive::takes_password(&to) {
+                    self.input(&t!("archive.pack"), t!("archive.pack_password"), String::new(), Prompt::PackPassword(src, to));
+                } else {
+                    self.pack(src, to, None);
+                }
             }
+            Prompt::PackPassword(src, to) if value.is_empty() => self.pack(src, to, None),
+            Prompt::PackPassword(src, to) => self.input(&t!("archive.pack"), t!("archive.pack_confirm"), String::new(), Prompt::PackConfirm(src, to, value)),
+            Prompt::PackConfirm(src, to, pw) if pw == value => self.pack(src, to, Some(pw)),
+            Prompt::PackConfirm(..) => self.status = Some(t!("archive.pack_mismatch")),
             Prompt::Mkdir if value.trim().is_empty() => {}
             Prompt::Mkdir => {
                 let d = resolve(&base, &value);

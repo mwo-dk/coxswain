@@ -231,6 +231,8 @@ const SHEET = ["csv", "tsv", "xlsx", "xlsm", "xls", "ods"];
 const ARCHIVE = /\.(zip|jar|apk|nupkg|whl|vsix|tar|tgz|tar\.gz|tar\.bz2|tbz2?|tar\.xz|txz|tar\.zst|tzst|7z)$/i;
 
 export const isArchive = (name) => ARCHIVE.test(name);
+/** Whether an archive by this name can have a password: a zip or a 7z (archive::takes_password). */
+export const takesPassword = (name) => /\.(zip|jar|apk|nupkg|whl|vsix|7z)$/i.test(name);
 /** The path segment that leads into a file's or folder's git history (history::MARKER). */
 export const HISTORY = "@history";
 export const isHistory = (p) => p.split(/[\\/]/).includes(HISTORY);

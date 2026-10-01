@@ -344,7 +344,7 @@ fn dialog(f: &mut Frame, app: &mut App) {
             let [a, b, _, c] = Layout::vertical([Constraint::Length(1); 4]).areas(inner.inner(ratatui::layout::Margin::new(1, 0)));
             f.render_widget(Paragraph::new(label.as_str()), a);
             // A password shows as stars.
-            let shown = if matches!(prompt, crate::Prompt::Password(..) | crate::Prompt::Unlock(..)) { "*".repeat(value.chars().count()) } else { value.clone() };
+            let shown = if matches!(prompt, crate::Prompt::Password(..) | crate::Prompt::Unlock(..) | crate::Prompt::Peek(..) | crate::Prompt::PackPassword(..) | crate::Prompt::PackConfirm(..)) { "*".repeat(value.chars().count()) } else { value.clone() };
             input_line(f, app, b, &shown);
             f.render_widget(Paragraph::new(t!("tui.ok_cancel")).centered(), c);
         }

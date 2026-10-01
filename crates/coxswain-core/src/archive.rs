@@ -665,8 +665,9 @@ static WRITING: std::sync::Mutex<()> = std::sync::Mutex::new(());
 /// `Some(name)`: kept under that name, as it was, locked or not), then `add`. Into a new
 /// file first, which then takes the old one's place, so a failure leaves the archive whole.
 /// A 7z with locked contents is read with `password` (or the one remembered), which is then
-/// kept for this run.
-fn rewrite(archive: &Path, keep: &dyn Fn(&str) -> Option<String>, add: &[(String, New)], password: Option<&str>) -> io::Result<()> {
+/// kept for this run. A new archive (`create`) is locked with `password`, if any, and a new
+/// 7z's names too with `hide_names`.
+fn rewrite(archive: &Path, keep: &dyn Fn(&str) -> Option<String>, add: &[(String, New)], password: Option<&str>, hide_names: bool) -> io::Result<()> {
     let k = kind(archive).ok_or_else(|| not_archive(archive))?;
     let _one = WRITING.lock().unwrap_or_else(|e| e.into_inner());
     let name = archive.file_name().unwrap_or_default().to_string_lossy();
@@ -678,7 +679,8 @@ fn rewrite(archive: &Path, keep: &dyn Fn(&str) -> Option<String>, add: &[(String
             let mut w = zip::ZipWriter::new(File::create(&tmp)?);
             // New files go into a locked zip locked too, with its password; a wrong one, or
             // none, is refused, so the apps ask.
-            let mut pw = None;
+            let mut pw = if exists { None } else { password.map(String::from) };
+            used = pw.is_some();
             if exists {
                 let mut z = zip::ZipArchive::new(BufReader::new(File::open(archive)?)).map_err(io::Error::other)?;
                 let mut first_locked = None;
@@ -754,6 +756,10 @@ fn rewrite(archive: &Path, keep: &dyn Fn(&str) -> Option<String>, add: &[(String
                     return Err(err);
                 }
                 used = locked;
+            } else if let Some(pw) = password {
+                w.set_content_methods(vec![sevenz_rust2::encoder_options::AesEncoderOptions::new(sevenz_rust2::Password::from(pw)).into(), sevenz_rust2::EncoderMethod::LZMA2.into()]);
+                w.set_encrypt_header(hide_names);
+                used = true;
             }
             for (name, new) in add {
                 match new {
@@ -821,7 +827,7 @@ fn rewrite(archive: &Path, keep: &dyn Fn(&str) -> Option<String>, add: &[(String
 /// password; a locked 7z needs its `password`, or the one remembered).
 pub fn remove(archive: &Path, inner: &[String], password: Option<&str>) -> io::Result<()> {
     let gone = |name: &str| inner.iter().any(|i| name == i || name.starts_with(&format!("{i}/")));
-    rewrite(archive, &|name| (!gone(name)).then(|| name.to_string()), &[], password)
+    rewrite(archive, &|name| (!gone(name)).then(|| name.to_string()), &[], password, false)
 }
 
 /// The entries each `source` (a file, or a folder and everything in it) becomes under its name.
@@ -870,7 +876,7 @@ pub fn add(archive: &Path, into: &[(String, PathBuf)], password: Option<&str>) -
     }
     // A folder the archive has already is not written twice.
     let new: Vec<_> = new.into_iter().filter(|(name, n)| !(matches!(n, New::Dir) && have.contains(name))).collect();
-    rewrite(archive, &|name| Some(name.to_string()), &new, password)
+    rewrite(archive, &|name| Some(name.to_string()), &new, password, false)
 }
 
 /// A new, empty folder inside the archive.
@@ -878,7 +884,7 @@ pub fn mkdir(archive: &Path, inner: &str, password: Option<&str>) -> io::Result<
     if items(archive)?.iter().any(|it| it.name == inner) {
         return Err(io::Error::new(io::ErrorKind::AlreadyExists, format!("{inner} exists")));
     }
-    rewrite(archive, &|name| Some(name.to_string()), &[(inner.to_string(), New::Dir)], password)
+    rewrite(archive, &|name| Some(name.to_string()), &[(inner.to_string(), New::Dir)], password, false)
 }
 
 /// Rename or move `from` (a file, or a folder and all in it) to `to`, inside the archive.
@@ -888,17 +894,32 @@ pub fn rename_in(archive: &Path, from: &str, to: &str, password: Option<&str>) -
         return Err(io::Error::new(io::ErrorKind::AlreadyExists, format!("{to} exists")));
     }
     let prefix = format!("{from}/");
-    rewrite(archive, &|name| Some(if name == from { to.to_string() } else if let Some(rest) = name.strip_prefix(&prefix) { format!("{to}/{rest}") } else { name.to_string() }), &[], password)
+    rewrite(archive, &|name| Some(if name == from { to.to_string() } else if let Some(rest) = name.strip_prefix(&prefix) { format!("{to}/{rest}") } else { name.to_string() }), &[], password, false)
 }
 
 /// A new archive at `path` (its kind by its name: .zip, .7z, .tar, .tar.gz / .tgz, ...) with
 /// `sources`.
 pub fn create(path: &Path, sources: &[PathBuf]) -> io::Result<()> {
+    create_locked(path, sources, None, false)
+}
+
+/// Whether an archive by this name can have a password: a zip or a 7z (a tar cannot).
+pub fn takes_password(path: &Path) -> bool {
+    matches!(kind(path), Some(Kind::Zip | Kind::SevenZ))
+}
+
+/// `create`, locked with `password` (AES-256: every zip entry, a 7z's contents, and with
+/// `hide_names` a 7z's names too). The password is kept for this run, to look in without it.
+pub fn create_locked(path: &Path, sources: &[PathBuf], password: Option<&str>, hide_names: bool) -> io::Result<()> {
     if path.exists() {
         return Err(io::Error::new(io::ErrorKind::AlreadyExists, format!("{} exists", path.display())));
     }
     kind(path).ok_or_else(|| not_archive(path))?;
-    rewrite(path, &|_| None, &entries_of(&named(sources)?)?, None)
+    let password = password.filter(|p| !p.is_empty());
+    if password.is_some() && !takes_password(path) {
+        return Err(io::Error::new(io::ErrorKind::InvalidInput, "tar archives have no passwords"));
+    }
+    rewrite(path, &|_| None, &entries_of(&named(sources)?)?, password, hide_names)
 }
 
 #[cfg(test)]
@@ -1101,6 +1122,46 @@ mod tests {
         assert_eq!(read, [("fine/name.txt".to_string(), "words".to_string())]);
         // A compressed tar too large to unpack for a listing is not looked into.
         assert!(search_entries(&d.join("big.tar.xz"), SEARCH_UNPACK + 1).is_none());
+        std::fs::remove_dir_all(d).unwrap();
+    }
+
+    #[test]
+    fn archive_packed_with_a_password_opens_only_with_it() {
+        let d = std::env::temp_dir().join(format!("coxswain-test-pack-pw-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(d.join("src/deep")).unwrap();
+        std::fs::write(d.join("src/plan.txt"), "launch at noon").unwrap();
+        std::fs::write(d.join("src/deep/crew.txt"), "four").unwrap();
+        for (pack, hide) in [("pw.zip", false), ("pw.7z", true), ("open-names.7z", false)] {
+            let zp = d.join(pack);
+            create_locked(&zp, &[d.join("src/plan.txt"), d.join("src/deep")], Some("hunter2"), hide).unwrap();
+            // Kept for this run: it opens without asking.
+            let out = d.join(format!("out-{pack}"));
+            std::fs::create_dir_all(&out).unwrap();
+            assert_eq!(std::fs::read_to_string(crate::fs::copy(&zp.join("plan.txt"), &out).unwrap()).unwrap(), "launch at noon", "{pack}");
+            forget(&zp);
+            // Without it: locked, the names too only when hidden.
+            assert_eq!(list_in(&zp, "").is_err_and(|e| e.to_string() == LOCKED), hide, "{pack}");
+            assert_eq!(extract(&zp, &out).unwrap_err().to_string(), LOCKED, "{pack}");
+            assert_eq!(extract_locked(&zp, &out, Some("wrong")).unwrap_err().to_string(), LOCKED, "{pack}");
+            let x = extract_locked(&zp, &out, Some("hunter2")).unwrap();
+            assert_eq!(std::fs::read_to_string(x.join("deep/crew.txt")).unwrap(), "four", "{pack}");
+            if hide {
+                let raw = std::fs::read(&zp).unwrap();
+                assert!(!raw.windows(8).any(|w| w == b"crew.txt") && !raw.windows(16).any(|w| w == "crew.txt".encode_utf16().flat_map(u16::to_le_bytes).collect::<Vec<_>>()), "names hidden");
+            }
+        }
+        // A zip: every file AES-256.
+        let mut z = zip::ZipArchive::new(File::open(d.join("pw.zip")).unwrap()).unwrap();
+        for i in 0..z.len() {
+            let e = z.by_index_raw(i).unwrap();
+            assert!(e.is_dir() || e.encrypted(), "{}", e.name());
+        }
+        // Tar has no passwords; an empty one is none.
+        assert!(create_locked(&d.join("pw.tar.gz"), &[d.join("src/plan.txt")], Some("x"), true).is_err());
+        assert!(!d.join("pw.tar.gz").exists());
+        create_locked(&d.join("open.zip"), &[d.join("src/plan.txt")], Some(""), true).unwrap();
+        assert!(!locked_at(&d.join("open.zip"), "").unwrap());
         std::fs::remove_dir_all(d).unwrap();
     }
 
