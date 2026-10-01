@@ -114,4 +114,4 @@ No, only from reading. To leave a folder out of the name index, use `exclude` (s
 [Names everywhere](names.md#settings-and-configtoml)).
 
 ---
-[← Previous: Diagrams read as sentences](diagrams.md) · [Next: Removable disks →](removable-disks.md)
+[← Previous: Inside archives](archives.md) · [Next: Removable disks →](removable-disks.md)

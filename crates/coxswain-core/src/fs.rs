@@ -87,6 +87,13 @@ pub type InArchive = (PathBuf, bool);
 /// `list`, and when `dir` is inside an archive, which and whether anything there is locked.
 pub fn list_with_archive(dir: &Path, show_hidden: bool) -> io::Result<(Vec<Entry>, Option<InArchive>)> {
     if !dir.is_dir()
+        && let Some(at) = crate::history::split(dir)
+    {
+        let mut all = crate::history::list(dir, &at)?;
+        all.retain(|e| show_hidden || !e.hidden || e.is_parent());
+        return Ok((all, None));
+    }
+    if !dir.is_dir()
         && let Some((archive, inner)) = crate::archive::split(dir)
     {
         let (mut all, locked) = crate::archive::listing(&archive, &inner)?;
@@ -128,6 +135,8 @@ pub enum SortKey {
     Ext,
     Time,
     Size,
+    /// By the last commit (`history::sort_by_last`); by name until git has said.
+    Commit,
 }
 
 /// `..` first, then directories, then files; each group ordered by `key`.
@@ -137,7 +146,7 @@ pub fn sort(entries: &mut [Entry], key: SortKey, reverse: bool) {
         group(a).cmp(&group(b)).then_with(|| {
             let name = || natord(&a.name, &b.name);
             let ord = match key {
-                SortKey::Name => name(),
+                SortKey::Name | SortKey::Commit => name(),
                 SortKey::Ext => natord(a.ext(), b.ext()).then_with(name),
                 SortKey::Time => b.modified.cmp(&a.modified).then_with(name),
                 SortKey::Size => b.size.cmp(&a.size).then_with(name),
@@ -147,37 +156,31 @@ pub fn sort(entries: &mut [Entry], key: SortKey, reverse: bool) {
     });
 }
 
-/// Case-insensitive natural order: "file2" < "file10".
+/// Case-insensitive natural order: "file2" < "file10". No allocation: a sort of 100,000
+/// names calls this two million times.
 fn natord(a: &str, b: &str) -> std::cmp::Ordering {
-    let (mut a, mut b) = (a.chars().peekable(), b.chars().peekable());
+    let (mut a, mut b) = (a, b);
     loop {
-        match (a.peek().copied(), b.peek().copied()) {
-            (None, None) => return std::cmp::Ordering::Equal,
-            (None, _) => return std::cmp::Ordering::Less,
-            (_, None) => return std::cmp::Ordering::Greater,
-            (Some(x), Some(y)) if x.is_ascii_digit() && y.is_ascii_digit() => {
-                let num = |it: &mut std::iter::Peekable<std::str::Chars>| {
-                    let mut s = String::new();
-                    while let Some(c) = it.next_if(|c| c.is_ascii_digit()) {
-                        s.push(c);
-                    }
-                    s
-                };
-                let (na, nb) = (num(&mut a), num(&mut b));
-                let (ta, tb) = (na.trim_start_matches('0'), nb.trim_start_matches('0'));
-                let ord = ta.len().cmp(&tb.len()).then_with(|| ta.cmp(tb));
-                if ord.is_ne() {
-                    return ord;
-                }
+        let (Some(x), Some(y)) = (a.chars().next(), b.chars().next()) else {
+            return a.len().cmp(&b.len());
+        };
+        if x.is_ascii_digit() && y.is_ascii_digit() {
+            let digits = |s: &str| s.find(|c: char| !c.is_ascii_digit()).unwrap_or(s.len());
+            let (na, nb) = (&a[..digits(a)], &b[..digits(b)]);
+            let (ta, tb) = (na.trim_start_matches('0'), nb.trim_start_matches('0'));
+            let ord = ta.len().cmp(&tb.len()).then_with(|| ta.cmp(tb));
+            if ord.is_ne() {
+                return ord;
             }
-            (Some(x), Some(y)) => {
-                let ord = x.to_lowercase().cmp(y.to_lowercase());
-                if ord.is_ne() {
-                    return ord;
-                }
-                a.next();
-                b.next();
+            a = &a[na.len()..];
+            b = &b[nb.len()..];
+        } else {
+            let ord = if x.is_ascii() && y.is_ascii() { x.to_ascii_lowercase().cmp(&y.to_ascii_lowercase()) } else { x.to_lowercase().cmp(y.to_lowercase()) };
+            if ord.is_ne() {
+                return ord;
             }
+            a = &a[x.len_utf8()..];
+            b = &b[y.len_utf8()..];
         }
     }
 }
@@ -250,9 +253,24 @@ impl Drop for Scratch {
     }
 }
 
+/// A history is read-only: nothing goes into it, nothing is made or taken out there.
+fn writable(path: &Path) -> io::Result<()> {
+    match crate::history::split(path) {
+        Some(_) if !path.exists() => Err(io::Error::new(io::ErrorKind::PermissionDenied, crate::t!("history.read_only"))),
+        _ => Ok(()),
+    }
+}
+
 /// `copy`, with the password of the archive `src` is inside, when it is locked. Into an
-/// archive it is added; from one archive to another it goes through a folder of its own.
+/// archive it is added; from one archive to another it goes through a folder of its own. Out
+/// of a history it is the file or folder as it was at that commit.
 pub fn copy_locked(src: &Path, dst: &Path, password: Option<&str>) -> io::Result<PathBuf> {
+    writable(dst)?;
+    if !src.exists()
+        && let Some(at) = crate::history::split(src)
+    {
+        return crate::history::copy_out(&at, dst);
+    }
     if let Some((archive, inner)) = into_archive(dst) {
         let name = src.file_name().ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "nothing to copy"))?.to_string_lossy();
         // Into a folder of the archive under its own name, or under the name `dst` gives.
@@ -320,6 +338,8 @@ pub fn rename(src: &Path, dst: &Path) -> io::Result<PathBuf> {
 /// `rename`, with the password of the archive `src` is inside: out of an archive it is copied
 /// out, then taken out of the archive.
 pub fn rename_locked(src: &Path, dst: &Path, password: Option<&str>) -> io::Result<PathBuf> {
+    writable(src)?;
+    writable(dst)?;
     match (out_of_archive(src), into_archive(dst)) {
         // Within one archive: renamed there, the folder `dst` names, or a new name.
         (Some((a, from)), Some((b, to))) if a == b => {
@@ -367,6 +387,7 @@ pub fn delete(path: &Path) -> io::Result<()> {
 
 /// `delete`, with the password of the locked 7z `path` is inside.
 pub fn delete_locked(path: &Path, password: Option<&str>) -> io::Result<()> {
+    writable(path)?;
     if !path.exists()
         && let Some((archive, inner)) = crate::archive::split(path)
     {
@@ -387,6 +408,7 @@ pub fn trash(path: &Path) -> io::Result<()> {
 
 /// `trash`, with the password of the locked 7z `path` is inside.
 pub fn trash_locked(path: &Path, password: Option<&str>) -> io::Result<()> {
+    writable(path)?;
     if !path.exists() && crate::archive::split(path).is_some() {
         return delete_locked(path, password);
     }
@@ -411,6 +433,7 @@ pub fn mkdir(path: &Path) -> io::Result<()> {
 
 /// `mkdir`, with the password of the locked 7z `path` is inside.
 pub fn mkdir_locked(path: &Path, password: Option<&str>) -> io::Result<()> {
+    writable(path)?;
     if let Some((archive, inner)) = into_archive(path) {
         return crate::archive::mkdir(&archive, &inner, password);
     }
@@ -499,6 +522,20 @@ mod tests {
         assert_eq!(v[2].name, "a.rs");
         assert_eq!(list(&d, true).unwrap().len(), 6);
         fs::remove_dir_all(d).unwrap();
+    }
+
+    #[test]
+    fn fs_natural_order() {
+        use std::cmp::Ordering::*;
+        assert_eq!(natord("file2", "file10"), Less);
+        assert_eq!(natord("file010", "file10"), Equal);
+        assert_eq!(natord("file10", "file010a"), Less);
+        assert_eq!(natord("a", "B"), Less);
+        assert_eq!(natord("B", "a"), Greater);
+        assert_eq!(natord("abc", "ab"), Greater);
+        assert_eq!(natord("", "a"), Less);
+        assert_eq!(natord("Ærø 2", "ærø 10"), Less);
+        assert_eq!(natord("x9y", "x9z"), Less);
     }
 
     #[test]

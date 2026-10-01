@@ -1,6 +1,6 @@
 <script>
   import { untrack } from "svelte";
-  import { ui, tab, item } from "./app.svelte.js";
+  import { ui, tab, item, openHistory } from "./app.svelte.js";
   import { renderHtml, renderPptx, renderDrawio, renderMarkdown, renderMermaid, highlight, renderDocx, readSheet, renderNotebook, loadFont, clean, parseData, jsonLines, calendar, contacts, logLines, renderGraphviz, renderAsciidoc, readParquet } from "./renderers.js";
   import { invoke, convertFileSrc, basename, size, date, age, ageColor, previewKind, looksLikeBom, CONVERTER, LOCKED } from "./lib.js";
   import BomView from "./BomView.svelte";
@@ -13,7 +13,9 @@
   const raw = $derived(item(pane));
   // A file inside an archive is not on disk: it is previewed through a copy out of it, made
   // when the cursor rests on it. A locked one waits for its password.
-  const inside = $derived(!!pane?.archive && !!raw && !raw.is_dir && raw.name !== "..");
+  // So is one in a history: the copy is the file as it was at that commit.
+  const inside = $derived((!!pane?.archive || !!pane?.history) && !!raw && !raw.is_dir && raw.name !== "..");
+  const inHistory = $derived(!!pane?.history && inside);
   let peeked = $state({ from: "", to: "", error: "" });
   $effect(() => {
     const cur = raw;
@@ -68,10 +70,12 @@
   const source = $derived(ui.previewSource === true);
   /** For a file git has changes for: show the file, or its diff. Kept across files. */
   const showDiff = $derived(ui.previewDiff);
-  const TEXTUAL = ["text", "markdown", "mermaid", "data", "jsonl", "calendar", "contacts", "log", "graphviz", "asciidoc", "html", "bom"];
   const ext = (f) => f.name.split(".").pop().toLowerCase();
   const gitKind = $derived(e && !e.is_dir ? pane.git?.files[e.name]?.kind : undefined);
-  const hasDiff = $derived(gitKind && !["untracked", "ignored"].includes(gitKind));
+  // In a history the diff is what that commit changed in the file.
+  const hasDiff = $derived((gitKind && !["untracked", "ignored"].includes(gitKind)) || (inHistory && !!pane.history.commit));
+  /** The last commit of the entry, `null` when older than the walk, undefined when untracked. */
+  const last = $derived(e && e.name !== ".." ? pane.last?.[e.name] : undefined);
   const diffing = $derived(hasDiff && showDiff);
   /** Parsed forms of textual files: a data tree, a table, calendar events or contact cards. */
   let tree = $state(undefined);
@@ -98,12 +102,13 @@
     const timer = setTimeout(async () => {
       try {
         if (diff) {
-          const d = await invoke("git_diff", { path: cur.path });
-          if (item(tab())?.path === cur.path) html = d ? highlight(d, "diff") : highlight(t("preview.no_changes"), "plaintext");
+          // In a history the diff is git's, of the file there, not of the copy shown.
+          const d = await invoke("git_diff", { path: inHistory ? raw.path : cur.path });
+          if (e?.path === cur.path) html = d ? highlight(d, "diff") : highlight(t("preview.no_changes"), "plaintext");
           return;
         }
         const [s, trunc, bin] = await invoke("read_text", { path: cur.path, max: LIMIT });
-        if (item(tab())?.path !== cur.path) return;
+        if (e?.path !== cur.path) return;
         truncated = trunc;
         binary = bin;
         if (!bin && (k === "data" || k === "text") && /\.(json|xml)$/i.test(cur.name) && looksLikeBom(s)) {
@@ -126,7 +131,7 @@
         // Rendered markdown and diagrams come back sanitized from renderers.js.
         const render = { markdown: renderMarkdown, mermaid: renderMermaid, graphviz: renderGraphviz, asciidoc: renderAsciidoc }[k];
         const rendered = bin || src || !render ? "" : await render(s);
-        if (item(tab())?.path !== cur.path) return;
+        if (e?.path !== cur.path) return;
         if (rendered) {
           html = rendered;
         } else if (!bin && s.length < 200_000) {
@@ -164,7 +169,7 @@
       } catch (err) {
         r = { error: String(err?.message ?? err) };
       }
-      if (item(tab())?.path !== cur.path) return;
+      if (e?.path !== cur.path) return;
       if (r.sheet) sheetName = r.sheet.names[0] ?? "";
       rich = r;
     }, 80);
@@ -185,7 +190,7 @@
         (v) => ({ [k]: v }),
         (err) => ({ error: String(err) }),
       );
-      if (item(tab())?.path === cur.path) backend = r;
+      if (e?.path === cur.path) backend = r;
     }, 80);
     return () => clearTimeout(timer);
   });
@@ -198,7 +203,7 @@
     if (!cur || cur.is_dir) return;
     const timer = setTimeout(async () => {
       const f = await invoke("file_facts", { path: cur.path }).catch(() => []);
-      if (item(tab())?.path === cur.path) facts = f;
+      if (e?.path === cur.path) facts = f;
     }, 120);
     return () => clearTimeout(timer);
   });
@@ -215,7 +220,7 @@
     if (!spec || !cur || diffing) return;
     const timer = setTimeout(async () => {
       const engines = await invoke("preview_engines", { tool: spec.tool }).catch(() => []);
-      if (item(tab())?.path !== cur.path) return;
+      if (e?.path !== cur.path) return;
       conv = { ...spec, path: cur.path, engines, status: "idle", result: null, error: "" };
       const eng = engineOf(conv);
       if (!eng) return;
@@ -270,7 +275,7 @@
     if (kind !== "archive") return;
     const timer = setTimeout(async () => {
       const r = await invoke("archive_list", { path: cur.path }).catch((err) => ({ error: String(err) }));
-      if (item(tab())?.path === cur.path) archive = r;
+      if (e?.path === cur.path) archive = r;
     }, 80);
     return () => clearTimeout(timer);
   });
@@ -383,7 +388,7 @@
       {#if hasDiff}
         <div class="modes" role="group" aria-label={t("preview.git")}>
           <button class:on={!showDiff} onclick={() => (ui.previewDiff = false)}>{t("preview.file")}</button>
-          <button class:on={showDiff} onclick={() => (ui.previewDiff = true)} title={t("preview.changes_against_head")}>{t("preview.diff")}</button>
+          <button class:on={showDiff} onclick={() => (ui.previewDiff = true)} title={t(inHistory ? "history.diff_tip" : "preview.changes_against_head")}>{t("preview.diff")}</button>
         </div>
       {/if}
       {#if !diffing && kind === "bom"}
@@ -407,6 +412,8 @@
           <p class="more">{t("archive.preview_locked")} <button class="link" onclick={unlock}>{t("archive.preview_unlock")}</button></p>
         {:else if peeked.error}
           <p class="more">{peeked.error}</p>
+        {:else if pane.history}
+          <p class="more">{t("history.preview_opening")}</p>
         {:else}
           <p class="more">{t("archive.preview_opening", { archive: basename(pane.archive) })}</p>
         {/if}
@@ -607,6 +614,19 @@
             {#if pane.sizes[e.path] !== undefined}{size(pane.sizes[e.path])}{:else}<button class="link" onclick={calcSize}>{t("preview.calculate")}</button>{/if}
           </dd>
           {#if pane.git}<dt>{t("preview.git")}</dt><dd class="git">{pane.git.prompt}</dd>{/if}
+        </dl>
+      {/if}
+      {#if (pane.git || pane.history) && e.name !== ".."}
+        <!-- Git: the last commit that changed it, and the way into its history. -->
+        <dl class="facts extra">
+          {#if last !== undefined}
+            <dt>{t("history.last_commit")}</dt>
+            <dd title={last ? `${last.hash} · ${last.subject}` : ""}>{#if last}{date(last.time)} ({age(last.time)}) · {last.author}<br /><span class="mono">{last.hash}</span> {last.subject}{:else}{t("history.older")}{/if}</dd>
+          {/if}
+          {#if pane.git && !pane.history}
+            <dt>{t("preview.git")}</dt>
+            <dd><button class="link" onclick={() => openHistory()}>{"\u{f1da}"} {t("history.open", { name: e.name })}</button> <kbd>{ui.cfg.actions.history?.[1] ?? ""}</kbd></dd>
+          {/if}
         </dl>
       {/if}
       {#if facts.length}
@@ -956,6 +976,13 @@
     margin-top: 12px;
     padding-top: 10px;
     border-top: 1px solid var(--border-fg);
+  }
+  .facts kbd {
+    font-family: var(--mono-font);
+    font-size: 0.8em;
+    padding: 1px 6px;
+    border-radius: var(--r-sm);
+    border: 1px solid var(--border-fg);
   }
   .facts.extra {
     margin-top: 12px;

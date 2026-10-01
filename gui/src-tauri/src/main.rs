@@ -11,6 +11,7 @@ use coxswain_core::index::{Results, State};
 use coxswain_core::rename::{self, Flags, Planned};
 use coxswain_core::state::{AppState, FavoriteGroup};
 use coxswain_core::git;
+use coxswain_core::history;
 use serde::Serialize;
 use std::collections::BTreeMap;
 use std::io::Read;
@@ -64,6 +65,11 @@ impl Ctx {
 
 type Res<T> = Result<T, String>;
 
+// A command without `async` runs on the main thread, the webview's: everything that reads or
+// writes the disk, the clipboard or the config is `command(async)` and runs on the async
+// runtime instead, so a slow disk never freezes the window. What needs the main thread
+// (`set_title`, `start_drag`) and what only reads memory stays plain.
+
 #[derive(Serialize)]
 struct UiStyle {
     fg: Option<String>,
@@ -114,7 +120,7 @@ fn css(c: &str) -> Option<String> {
     color_to_rgb(c).map(|(r, g, b)| format!("#{r:02x}{g:02x}{b:02x}"))
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn get_config(ctx: tauri::State<Ctx>) -> Res<UiConfig> {
     let cfg = ctx.cfg();
     let themes = cfg
@@ -172,6 +178,8 @@ struct Settings {
     preview_timeout: u64,
     latex_image: String,
     search_text: bool,
+    /// Search inside archives: their entries by name, their files' text.
+    search_archives: bool,
     /// The folders whose text is read; the home folder when none are set.
     text_roots: Vec<PathBuf>,
     names_only: Vec<PathBuf>,
@@ -182,6 +190,8 @@ struct Settings {
     meaning_model: String,
     meaning_key_env: String,
     ask_model: String,
+    search_history: bool,
+    git_last_commit: bool,
 }
 
 impl From<&Config> for Settings {
@@ -202,6 +212,7 @@ impl From<&Config> for Settings {
             preview_timeout: c.preview.timeout,
             latex_image: c.preview.images.get("latex").cloned().unwrap_or_default(),
             search_text: c.search.text,
+            search_archives: c.search.archives,
             text_roots: c.search.text_roots.clone(),
             names_only: c.search.names_only.clone(),
             search_meaning: c.search.meaning,
@@ -211,6 +222,8 @@ impl From<&Config> for Settings {
             meaning_model: c.search.meaning_model.clone(),
             meaning_key_env: c.search.meaning_key_env.clone(),
             ask_model: c.search.ask_model.clone(),
+            search_history: c.search.history,
+            git_last_commit: c.git.last_commit,
         }
     }
 }
@@ -232,6 +245,7 @@ const SETTING_PATHS: &[(&str, &[&str])] = &[
     ("preview_timeout", &["preview", "timeout"]),
     ("latex_image", &["preview", "images", "latex"]),
     ("search_text", &["search", "text"]),
+    ("search_archives", &["search", "archives"]),
     ("text_roots", &["search", "text_roots"]),
     ("names_only", &["search", "names_only"]),
     ("search_meaning", &["search", "meaning"]),
@@ -241,6 +255,8 @@ const SETTING_PATHS: &[(&str, &[&str])] = &[
     ("meaning_model", &["search", "meaning_model"]),
     ("meaning_key_env", &["search", "meaning_key_env"]),
     ("ask_model", &["search", "ask_model"]),
+    ("search_history", &["search", "history"]),
+    ("git_last_commit", &["git", "last_commit"]),
 ];
 
 /// `text` (a config.toml) with the settings in `changes` set, comments and layout kept.
@@ -265,7 +281,7 @@ fn apply_settings(text: &str, changes: &serde_json::Map<String, serde_json::Valu
 
 /// Write the changed settings into config.toml, keeping its comments and layout, then use
 /// the new config at once. Returns the new UI config (texts in the new language and so on).
-#[tauri::command]
+#[tauri::command(async)]
 fn save_settings(changes: serde_json::Map<String, serde_json::Value>, ctx: tauri::State<Ctx>) -> Res<UiConfig> {
     let path = Config::path().ok_or_else(|| coxswain_core::t!("err.no_config_folder"))?;
     let text = std::fs::read_to_string(&path).unwrap_or_default();
@@ -299,6 +315,17 @@ struct Listing {
     /// The archive the folder is inside, and whether something in it is locked.
     archive: Option<PathBuf>,
     locked: bool,
+    /// The history the folder is in.
+    history: Option<HistoryInfo>,
+}
+
+/// A history being looked into: the file or folder it is of, and the commit looked into.
+#[derive(Serialize)]
+struct HistoryInfo {
+    target: PathBuf,
+    /// The folder on disk it leads back to: the target, or the folder holding it.
+    base: PathBuf,
+    commit: Option<history::Commit>,
 }
 
 /// Async, as a compressed tar is read in full to list a folder in it.
@@ -306,6 +333,13 @@ struct Listing {
 async fn list_dir(dir: PathBuf, show_hidden: bool, sort: SortKey, reverse: bool, ctx: tauri::State<'_, Ctx>) -> Res<Listing> {
     let (mut entries, inside) = bfs::list_with_archive(&dir, show_hidden).map_err(|e| format!("{}: {e}", dir.display()))?;
     bfs::sort(&mut entries, sort, reverse);
+    // By last commit: git's walk first, cached for the column after.
+    if sort == SortKey::Commit
+        && let Some(lasts) = history::last_changes(&dir)
+    {
+        history::sort_by_last(&mut entries, &lasts, reverse);
+    }
+    let in_history = history::split(&dir).filter(|_| !dir.is_dir()).map(|at| HistoryInfo { commit: at.commit.as_deref().and_then(|c| history::show(&at.base, c).ok()), target: at.target, base: at.base });
     let st = ctx.state.lock().map_err(|e| e.to_string())?;
     let cfg = ctx.cfg();
     let plain = cfg.plain_glyphs().then(|| cfg.glyphs());
@@ -314,7 +348,17 @@ async fn list_dir(dir: PathBuf, show_hidden: bool, sort: SortKey, reverse: bool,
         .map(|e| Item { icon: icons::entry(&e.name, e.is_dir, e.is_symlink, plain.as_ref()), tag: st.tags.get(&e.path).cloned(), entry: e })
         .collect();
     let (archive, locked) = inside.map_or((None, false), |(a, locked)| (Some(a), locked));
-    Ok(Listing { has_notes: st.notes.contains_key(&dir), dir, items, archive, locked })
+    Ok(Listing { has_notes: st.notes.contains_key(&dir), dir, items, archive, locked, history: in_history })
+}
+
+/// The last commit of each entry of `dir` (a work tree's folder or a history's), as git's one
+/// walk over the folder finds it. `None` outside a repository or when switched off.
+#[tauri::command]
+async fn git_last(dir: PathBuf, ctx: tauri::State<'_, Ctx>) -> Res<Option<std::sync::Arc<history::Lasts>>> {
+    if !ctx.cfg().git.last_commit {
+        return Ok(None);
+    }
+    tauri::async_runtime::spawn_blocking(move || history::last_changes(&dir)).await.map_err(|e| e.to_string())
 }
 
 #[derive(Serialize)]
@@ -355,7 +399,7 @@ struct Place {
     icon: &'static str,
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn places() -> Vec<Place> {
     let p = |name: &str, dir: Option<PathBuf>, icon: &'static str| dir.filter(|d| d.is_dir()).map(|path| Place { name: coxswain_core::t!(name), path, icon });
     [
@@ -413,32 +457,32 @@ async fn disks() -> Vec<Disk> {
     out
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn get_state(ctx: tauri::State<Ctx>) -> Res<AppState> {
     ctx.state.lock().map(|s| s.clone()).map_err(|e| e.to_string())
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn save_session(session: serde_json::Value, ctx: tauri::State<Ctx>) -> Res<()> {
     ctx.edit(|st| st.session = session)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn save_favorites(favorites: Vec<FavoriteGroup>, ctx: tauri::State<Ctx>) -> Res<()> {
     ctx.edit(|st| st.favorites = favorites)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn set_tags(paths: Vec<PathBuf>, color: String, ctx: tauri::State<Ctx>) -> Res<()> {
     ctx.edit(|st| paths.iter().for_each(|p| st.set_tag(p, &color)))
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn set_note(dir: PathBuf, text: String, ctx: tauri::State<Ctx>) -> Res<()> {
     ctx.edit(|st| st.set_note(&dir, &text))
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn get_note(dir: PathBuf, ctx: tauri::State<Ctx>) -> Res<String> {
     Ok(ctx.state.lock().map_err(|e| e.to_string())?.notes.get(&dir).cloned().unwrap_or_default())
 }
@@ -509,7 +553,7 @@ fn set_title(title: String, window: tauri::WebviewWindow) -> Res<()> {
     Ok(())
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn dismiss_notice(id: String, ctx: tauri::State<Ctx>) -> Res<()> {
     ctx.edit(|st| coxswain_core::notices::dismiss(st, &id))
 }
@@ -526,7 +570,7 @@ struct MeaningStatus {
     error: Option<String>,
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn meaning_status(ctx: tauri::State<Ctx>) -> Res<MeaningStatus> {
     use std::sync::atomic::Ordering;
     let m = ctx.meaning.lock().map_err(|e| e.to_string())?;
@@ -718,7 +762,7 @@ fn resolve(base: &Path, s: &str) -> PathBuf {
     std::fs::canonicalize(&p).unwrap_or(p)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn resolve_path(base: PathBuf, input: String) -> PathBuf {
     resolve(&base, &input)
 }
@@ -780,7 +824,7 @@ async fn dir_sizes(paths: Vec<PathBuf>, tab: Option<String>, ctx: tauri::State<'
         .map_err(|e| e.to_string())
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn rename_plan(dir: PathBuf, selected: Vec<String>, pattern: String, replacement: String, flags: Flags) -> Res<Vec<Planned>> {
     let existing: Vec<String> = std::fs::read_dir(&dir)
         .map_err(|e| e.to_string())?
@@ -790,7 +834,7 @@ fn rename_plan(dir: PathBuf, selected: Vec<String>, pattern: String, replacement
     rename::plan(&selected, &existing, &pattern, &replacement, flags)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn rename_apply(dir: PathBuf, plan: Vec<Planned>) -> Res<()> {
     rename::apply(&dir, &plan)
 }
@@ -861,7 +905,7 @@ async fn extract(paths: Vec<PathBuf>, base: PathBuf, dest: String, password: Opt
 }
 
 /// The password of the locked archive `path` is in (or is), kept in memory for this run.
-#[tauri::command]
+#[tauri::command(async)]
 fn archive_password(path: PathBuf, password: String) {
     if let Some((archive, _)) = coxswain_core::archive::split(&path).or_else(|| coxswain_core::archive::is_archive(&path).then(|| (path.clone(), String::new()))) {
         coxswain_core::archive::remember(&archive, &password);
@@ -871,7 +915,9 @@ fn archive_password(path: PathBuf, password: String) {
 /// A copy of a file inside an archive, to preview: see `archive::peek`.
 #[tauri::command]
 async fn archive_peek(path: PathBuf) -> Res<PathBuf> {
-    tauri::async_runtime::spawn_blocking(move || coxswain_core::archive::peek(&path)).await.map_err(|e| e.to_string())?.map_err(|e| e.to_string())
+    // A file in a history: as it was at that commit.
+    let peek = if history::is_history(&path) { history::peek } else { coxswain_core::archive::peek };
+    tauri::async_runtime::spawn_blocking(move || peek(&path)).await.map_err(|e| e.to_string())?.map_err(|e| e.to_string())
 }
 
 /// A new archive at `dest` (zip, tar or tar.gz, by its name) with `paths` in it.
@@ -936,7 +982,7 @@ async fn properties(path: PathBuf) -> Res<Props> {
 }
 
 /// Unix permission bits when `mode` is given, else the read-only flag.
-#[tauri::command]
+#[tauri::command(async)]
 fn set_permissions(path: PathBuf, mode: Option<u32>, readonly: bool) -> Res<()> {
     let mut perms = std::fs::metadata(&path).map_err(|e| e.to_string())?.permissions();
     match mode {
@@ -990,7 +1036,7 @@ fn os_clipboard() -> Option<clipboard_rs::ClipboardContext> {
 
 /// Put files on the system clipboard (other file managers can paste them); a cut is
 /// remembered here, since there is no portable way to mark one.
-#[tauri::command]
+#[tauri::command(async)]
 fn clip_set(paths: Vec<PathBuf>, cut: bool, ctx: tauri::State<Ctx>) -> Res<()> {
     use clipboard_rs::Clipboard;
     if let Some(c) = os_clipboard() {
@@ -1166,7 +1212,7 @@ fn scripts_dir() -> Option<PathBuf> {
 }
 
 /// F2: `[[user_menu]]` entries, then executables in `<config>/coxswain/scripts/`.
-#[tauri::command]
+#[tauri::command(async)]
 fn scripts(ctx: tauri::State<Ctx>) -> Vec<Script> {
     let mut out: Vec<Script> =
         ctx.cfg().user_menu.iter().enumerate().map(|(i, u)| Script { key: u.key.clone(), label: u.label.clone(), user: Some(i), path: None }).collect();
@@ -1327,7 +1373,7 @@ fn main() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            get_config, notices, dismiss_notice, set_title, index_status, index_action, index_service, meaning_status, meaning_action, meaning_models, meaning_pull, list_dir, git_status, places, disks, get_state, save_session, save_favorites, set_tags, set_note, get_note,
+            get_config, notices, dismiss_notice, set_title, index_status, index_action, index_service, meaning_status, meaning_action, meaning_models, meaning_pull, list_dir, git_status, git_last, places, disks, get_state, save_session, save_favorites, set_tags, set_note, get_note,
             search, ask, ask_stop, resolve_path, copy, rename, delete, mkdir, dir_sizes, rename_plan, rename_apply, open_path, edit_path,
             read_text, run_command, scripts, run_script, check_update, archive_list, extract, pack, archive_password, archive_peek, properties, set_permissions,
             clip_set, paste, start_drag, watch_dirs, preview::git_diff, preview::sqlite_info, preview::epub_preview,
@@ -1352,6 +1398,7 @@ mod tests {
         ch.insert("latex_image".into(), "texlive:medium".into());
         ch.insert("show_hidden".into(), false.into());
         ch.insert("names_only".into(), serde_json::json!(["/home/me/Mail"]));
+        ch.insert("search_archives".into(), false.into());
         let out = apply_settings(text, &ch).unwrap();
         for kept in ["# my config", "theme = \"nc\"  # terminal", "# big text", "quit = [\"F10\"]"] {
             assert!(out.contains(kept), "{kept} lost:\n{out}");
@@ -1360,6 +1407,7 @@ mod tests {
         assert_eq!((cfg.gui.font_size, cfg.language.as_str(), cfg.show_hidden), (17.0, "da", false));
         assert_eq!(cfg.preview.images["latex"], "texlive:medium");
         assert_eq!(cfg.search.names_only, [PathBuf::from("/home/me/Mail")]);
+        assert!(!cfg.search.archives && Config::default().search.archives, "on unless switched off");
         assert_eq!(cfg.preview.images["plantuml"], "docker.io/plantuml/plantuml:latest", "other defaults stay");
         assert!(apply_settings(text, &serde_json::Map::from_iter([("nope".into(), 1.into())])).is_err());
     }
@@ -1404,5 +1452,33 @@ mod tests {
         }
         assert_eq!(from_clip(&to_clip(&p)), p);
         assert_eq!(from_clip("file:///x/%zz"), PathBuf::from("/x/%zz"));
+    }
+}
+
+/// What the desktop app sends for a big folder, ignored by default: `cargo test --release -p
+/// coxswain-gui -- --ignored --nocapture perf_`. `COXSWAIN_BENCH_DIR` is the folder with the
+/// data `coxswain-core`'s `tests/perf.rs` makes; the JSON goes next to it for the DOM benchmark.
+#[cfg(test)]
+mod perf {
+    use super::*;
+
+    #[test]
+    #[ignore]
+    fn perf_list_dir_json_100k() {
+        let Some(bench) = std::env::var_os("COXSWAIN_BENCH_DIR").map(PathBuf::from).filter(|d| d.join("flat-100000").is_dir()) else {
+            return println!("no COXSWAIN_BENCH_DIR/flat-100000: run coxswain-core's perf_list_and_sort_100k first");
+        };
+        let dir = bench.join("flat-100000");
+        let ms = |t: std::time::Instant| t.elapsed().as_secs_f64() * 1000.0;
+        let t = std::time::Instant::now();
+        let (mut entries, _) = bfs::list_with_archive(&dir, true).unwrap();
+        bfs::sort(&mut entries, SortKey::Name, false);
+        let items: Vec<Item> = entries.into_iter().map(|e| Item { icon: icons::entry(&e.name, e.is_dir, e.is_symlink, None), tag: None, entry: e }).collect();
+        let listing = Listing { has_notes: false, dir, items, archive: None, locked: false, history: None };
+        println!("list_dir body (list, sort, icons): {:.0} ms", ms(t));
+        let t = std::time::Instant::now();
+        let json = serde_json::to_vec(&listing).unwrap();
+        println!("list_dir to JSON: {:.0} ms, {:.1} MB for {} items", ms(t), json.len() as f64 / 1e6, listing.items.len());
+        std::fs::write(bench.join("listing.json"), json).unwrap();
     }
 }

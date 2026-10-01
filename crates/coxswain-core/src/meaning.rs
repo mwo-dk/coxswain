@@ -87,10 +87,6 @@ pub fn download(p: &Progress) -> io::Result<()> {
             out.write_all(&buf[..n])?;
             got += n as u64;
             p.done.fetch_add(n as u64, Ordering::Relaxed);
-            // More than the file: not the file. Stop before it fills the disk.
-            if got > *len {
-                break;
-            }
         }
         drop(out);
         let hex: String = hash.finalize().iter().map(|b| format!("{b:02x}")).collect();
@@ -509,7 +505,9 @@ mod tests {
                 got.extend_from_slice(&buf[..n]);
             }
             let lines = "{\"message\":{\"content\":\"<think>hm</think>\"}}\n{\"message\":{\"content\":\"Rocket \"}}\n{\"message\":{\"content\":\"[1]\"},\"done\":true}\n";
-            write!(c, "HTTP/1.1 200 OK\r\nContent-Length: {}\r\n\r\n{lines}", lines.len()).unwrap();
+            write!(c, "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{lines}", lines.len()).unwrap();
+            let _ = c.shutdown(std::net::Shutdown::Write);
+            let _ = c.read_to_end(&mut Vec::new());
             String::from_utf8_lossy(&got).into_owned()
         });
         let cfg = crate::config::SearchConfig { meaning_engine: "ollama".into(), meaning_url: url, ask_model: "chat".into(), ..Default::default() };
@@ -536,7 +534,7 @@ mod tests {
         use std::io::{Read, Write};
         let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
         let url = format!("http://{}", listener.local_addr().unwrap());
-        let reply = format!("HTTP/1.1 {status}\r\nContent-Length: {}\r\n\r\n{body}", body.len());
+        let reply = format!("HTTP/1.1 {status}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}", body.len());
         let server = std::thread::spawn(move || {
             let (mut c, _) = listener.accept().unwrap();
             let mut got = Vec::new();
@@ -546,17 +544,16 @@ mod tests {
                 got.extend_from_slice(&buf[..n]);
                 let text = String::from_utf8_lossy(&got);
                 let Some((head, body)) = text.split_once("\r\n\r\n") else { continue };
-                let len = head.lines().find_map(|l| l.strip_prefix("Content-Length: ")).and_then(|n| n.parse::<usize>().ok()).unwrap_or(0);
+                let len = head.lines().find_map(|l| l.split_once(':').filter(|(k, _)| k.eq_ignore_ascii_case("content-length")).and_then(|(_, n)| n.trim().parse::<usize>().ok())).unwrap_or(0);
                 if body.len() >= len {
                     break;
                 }
             }
             write!(c, "{reply}").unwrap();
-            // Closed gently: a socket dropped with anything unread sends a reset on Windows,
-            // and the client sees "connection aborted" instead of the reply.
+            // Closed only once the client has read it all: on Windows, a socket closed with
+            // bytes left unread resets the connection, and the client sees an error.
             let _ = c.shutdown(std::net::Shutdown::Write);
-            let _ = c.set_read_timeout(Some(std::time::Duration::from_secs(1)));
-            let _ = std::io::copy(&mut c, &mut std::io::sink());
+            let _ = c.read_to_end(&mut Vec::new());
             String::from_utf8_lossy(&got).into_owned()
         });
         (url, server)

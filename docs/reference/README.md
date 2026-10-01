@@ -20,6 +20,7 @@ the full list.
 | [Update checks](updates.md) | The once-a-day version check, what you see in each app, the upgrade command, turning it off |
 | [Where things are kept](where-things-are-kept.md) | The config, state and cache folders on Linux, macOS and Windows, every file in them, what is safe to delete, removing everything |
 | [Security](security.md) | How dependencies are chosen and kept current, the advisory checks on every change and every week, licences, the bundled viewers, checking a download, reporting a problem |
+| [Performance](performance.md) | What keeps each app quick: rows on screen only, no disk work on the window's thread, background measuring, and the numbers for a folder of 100,000 files and an index of a million names |
 
 ## Keys at a glance
 

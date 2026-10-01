@@ -7,6 +7,7 @@ use coxswain_core::{t, tn};
 use coxswain_core::config::{self, Action, Config, Glyphs, Key, KeyCode};
 use coxswain_core::fs::{self as bfs, resolve, Entry, SortKey};
 use coxswain_core::git;
+use coxswain_core::history::{self, Lasts};
 use coxswain_core::helper::{self, Client};
 use coxswain_core::index::{self, Results, State};
 use ratatui::crossterm::event::{self, Event, KeyCode as CK, KeyEvent, KeyEventKind, KeyModifiers, MouseButton, MouseEvent, MouseEventKind};
@@ -27,12 +28,17 @@ pub struct Panel {
     /// Rows visible at the last draw, for paging.
     pub page: usize,
     pub marked: HashSet<PathBuf>,
+    /// Bytes of the marked entries, for the info line: kept up to date, not summed over
+    /// every entry at every frame.
+    pub marked_bytes: u64,
     pub sort: SortKey,
     pub reverse: bool,
     pub git: Option<git::Status>,
     pub error: Option<String>,
     /// Folder sizes, measured in the background.
     pub sizes: HashMap<PathBuf, u64>,
+    /// The last commit of each entry, when git has answered.
+    pub last: Option<Arc<Lasts>>,
 }
 
 impl Panel {
@@ -47,11 +53,13 @@ impl Panel {
             offset: 0,
             page: 20,
             marked: HashSet::new(),
+            marked_bytes: 0,
             sort: SortKey::Name,
             reverse: false,
             git: None,
             error: None,
             sizes: HashMap::new(),
+            last: None,
         };
         p.load(show_hidden);
         if let Some(name) = file {
@@ -90,25 +98,55 @@ impl Panel {
         }
         let names: HashSet<&Path> = self.entries.iter().map(|e| e.path.as_path()).collect();
         self.marked.retain(|p| names.contains(p.as_path()));
+        self.recount_marks();
         self.cursor = self.cursor.min(self.entries.len().saturating_sub(1));
         if let Some(n) = keep {
             self.select_name(&n);
         }
     }
 
+    /// Sort the entries as they are, keeping the cursor on the same name: no reread, which
+    /// on a big folder takes longer than the sort.
+    fn resort(&mut self) {
+        let keep = self.current().map(|e| e.name.clone());
+        bfs::sort(&mut self.entries, self.sort, self.reverse);
+        if let Some(n) = keep {
+            self.select_name(&n);
+        }
+    }
+
+    /// Mark the entry at `i`, or unmark it. `..` is never marked.
+    fn toggle_mark(&mut self, i: usize) {
+        let Some(e) = self.entries.get(i).filter(|e| !e.is_parent()) else { return };
+        if self.marked.remove(&e.path) {
+            self.marked_bytes -= e.size;
+        } else {
+            self.marked.insert(e.path.clone());
+            self.marked_bytes += e.size;
+        }
+    }
+
+    fn clear_marks(&mut self) {
+        self.marked.clear();
+        self.marked_bytes = 0;
+    }
+
+    fn recount_marks(&mut self) {
+        self.marked_bytes = self.entries.iter().filter(|e| self.marked.contains(&e.path)).map(|e| e.size).sum();
+    }
+
     fn cd(&mut self, dir: PathBuf, show_hidden: bool) {
         let from = std::mem::replace(&mut self.dir, dir);
-        self.marked.clear();
+        self.clear_marks();
         self.sizes.clear();
         self.cursor = 0;
         self.offset = 0;
         self.git = None;
+        self.last = None;
         self.load(show_hidden);
-        // Coming up out of a directory: put the cursor on it, as NC does.
-        if from.parent() == Some(self.dir.as_path()) {
-            if let Some(n) = from.file_name() {
-                self.select_name(&n.to_string_lossy());
-            }
+        // Coming up out of a directory (or a history): put the cursor on it, as NC does.
+        if let Some(n) = from.strip_prefix(&self.dir).ok().and_then(|r| r.components().next()) {
+            self.select_name(&n.as_os_str().to_string_lossy());
         }
     }
 
@@ -207,10 +245,20 @@ enum AskMsg {
     Done(Result<(), String>),
 }
 
-/// Work that needs the real terminal, done by the main loop.
+/// What git tells of a panel's folder, as it comes: the status, then each entry's last commit.
+enum Git {
+    Status(Option<git::Status>),
+    Last(Option<Arc<Lasts>>),
+}
+
+/// Work done by the main loop after a frame: what needs the real terminal, and what takes a
+/// while, so the status line says so first.
 enum Run {
     Shell { cmd: String, dir: PathBuf, wait: bool },
     ShowOutput,
+    /// Copy, move, extract, delete or mkdir; then put the cursor on `select`.
+    Transfer { op: Transfer, src: Vec<PathBuf>, dst: PathBuf, password: Option<String>, select: Option<String> },
+    Pack { src: Vec<PathBuf>, to: PathBuf },
 }
 
 pub struct App {
@@ -228,8 +276,8 @@ pub struct App {
     pub index: Arc<Client>,
     /// Panel rectangles from the last draw, for mouse hits.
     pub areas: [Rect; 2],
-    git_tx: mpsc::Sender<(PathBuf, Option<git::Status>)>,
-    git_rx: mpsc::Receiver<(PathBuf, Option<git::Status>)>,
+    git_tx: mpsc::Sender<(PathBuf, Git)>,
+    git_rx: mpsc::Receiver<(PathBuf, Git)>,
     update_rx: mpsc::Receiver<String>,
     sizer: Arc<coxswain_core::sizes::Sizer>,
     /// Folder sizes arrive here: the panel's folder, the folder measured, its bytes.
@@ -385,14 +433,19 @@ impl App {
         self.cfg.key_for(a).unwrap_or("")
     }
 
-    /// git status runs on a thread; results arrive through `git_rx`.
+    /// git status, and the last commit of each entry, run on a thread; results arrive
+    /// through `git_rx`.
     fn refresh_git(&self) {
         let dirs: HashSet<PathBuf> = self.panels.iter().map(|p| p.dir.clone()).collect();
+        let last = self.cfg.git.last_commit;
         for dir in dirs {
             let tx = self.git_tx.clone();
             std::thread::spawn(move || {
                 let st = git::Status::read(&dir);
-                let _ = tx.send((dir, st));
+                let repo = st.is_some() || history::is_history(&dir);
+                if tx.send((dir.clone(), Git::Status(st))).is_ok() && last && repo {
+                    let _ = tx.send((dir.clone(), Git::Last(history::last_changes(&dir))));
+                }
             });
         }
     }
@@ -409,7 +462,8 @@ impl App {
     /// through `sizes_rx`. The run before it in that panel stops.
     fn measure(&mut self, side: usize) {
         use std::sync::atomic::{AtomicBool, Ordering};
-        if !self.cfg.folder_sizes {
+        // A history's folders are not on disk.
+        if !self.cfg.folder_sizes || history::is_history(&self.panels[side].dir) {
             return;
         }
         let stop = Arc::new(AtomicBool::new(false));
@@ -523,7 +577,6 @@ impl App {
     }
 
     fn act(&mut self, a: Action) {
-        let h = self.show_hidden;
         match a {
             Action::Quit => self.quit = true,
             Action::Up => self.panel_mut().move_cursor(-1),
@@ -540,18 +593,17 @@ impl App {
             Action::End => self.panel_mut().move_cursor(isize::MAX / 2),
             Action::SwitchPanel => self.active ^= 1,
             Action::Open => self.open(),
+            // Where `..` leads: out of a history's commits, back to the folder on disk.
             Action::Parent => {
-                if let Some(p) = self.panel().dir.parent().map(Path::to_path_buf) {
+                let up = self.panel().entries.first().filter(|e| e.is_parent()).map(|e| e.path.clone());
+                if let Some(p) = up.or_else(|| self.panel().dir.parent().map(Path::to_path_buf)) {
                     self.cd(self.active, p);
                 }
             }
+            Action::History => self.history(),
             Action::Mark => {
                 let p = self.panel_mut();
-                if let Some(e) = p.current().filter(|e| !e.is_parent()).map(|e| e.path.clone()) {
-                    if !p.marked.remove(&e) {
-                        p.marked.insert(e);
-                    }
-                }
+                p.toggle_mark(p.cursor);
                 p.move_cursor(1);
             }
             Action::SelectGroup | Action::UnselectGroup => {
@@ -561,11 +613,8 @@ impl App {
             }
             Action::InvertSelection => {
                 let p = self.panel_mut();
-                for e in p.entries.iter().filter(|e| !e.is_dir) {
-                    if !p.marked.remove(&e.path) {
-                        p.marked.insert(e.path.clone());
-                    }
-                }
+                let files: Vec<usize> = (0..p.entries.len()).filter(|&i| !p.entries[i].is_dir).collect();
+                files.into_iter().for_each(|i| p.toggle_mark(i));
             }
             Action::Refresh => {
                 self.reload();
@@ -601,7 +650,7 @@ impl App {
                 // Picking the current key again reverses it.
                 p.reverse = p.sort == key && !p.reverse;
                 p.sort = key;
-                p.load(h);
+                p.resort();
             }
             Action::CopyPath => {
                 if let Some(e) = self.panel().current().filter(|e| !e.is_parent()) {
@@ -622,6 +671,16 @@ impl App {
                             return self.peek(e);
                         }
                         return self.status = Some(t!("archive.copy_out_hint", "archive" => archive.file_name().unwrap_or_default().to_string_lossy()));
+                    }
+                    // In a history: viewed as it was then, from a copy; never edited.
+                    if history::is_history(&e) {
+                        if a == Action::Edit {
+                            return self.status = Some(t!("history.read_only"));
+                        }
+                        return match history::peek(&e) {
+                            Ok(copy) => self.view_or_edit(a, &copy),
+                            Err(err) => self.status = Some(err.to_string()),
+                        };
                     }
                     if a == Action::View && self.cfg.bom_viewer && coxswain_core::bom::sniff(&e) {
                         match bom::Viewer::open(&e) {
@@ -741,6 +800,9 @@ impl App {
         if let Some((archive, _)) = inside {
             return self.status = Some(t!("archive.copy_out_hint", "archive" => archive.file_name().unwrap_or_default().to_string_lossy()));
         }
+        if history::is_history(&self.panel().dir) {
+            return self.status = Some(t!("history.file_hint"));
+        }
         let dir = self.panel().dir.clone();
         if e.is_exec {
             let cmd = if cfg!(windows) { config::quote(&e.name) } else { format!("./{}", config::quote(&e.name)) };
@@ -751,6 +813,22 @@ impl App {
             Ok(()) => t!("status.opened", "name" => e.name),
             Err(err) => t!("status.open_failed", "error" => err),
         });
+    }
+
+    /// Into the history of the entry under the cursor (of this folder on `..`): its commits.
+    fn history(&mut self) {
+        let p = self.panel();
+        let target = match p.current() {
+            Some(e) if !e.is_parent() => e.path.clone(),
+            _ => p.dir.clone(),
+        };
+        if history::is_history(&target) || coxswain_core::archive::split(&target).is_some() || !target.exists() {
+            return self.status = Some(t!("history.not_here"));
+        }
+        if p.git.is_none() {
+            return self.status = Some(t!("history.no_repo"));
+        }
+        self.cd(self.active, history::path(&target, None));
     }
 
     fn view_or_edit(&mut self, a: Action, file: &Path) {
@@ -785,11 +863,18 @@ impl App {
     }
 
     fn delete(&mut self, paths: Vec<PathBuf>, forever: bool) {
-        self.transfer(Transfer::Delete(forever), paths, PathBuf::new(), None);
+        self.transfer(Transfer::Delete(forever), paths, PathBuf::new(), None, None);
+    }
+
+    /// `do_transfer` after the next frame, which says what is being worked on meanwhile: a
+    /// big copy takes a while, and a screen that says nothing looks stuck.
+    fn transfer(&mut self, op: Transfer, src: Vec<PathBuf>, dst: PathBuf, password: Option<String>, select: Option<String>) {
+        self.status = Some(t!("status.busy", "what" => Self::describe(&src)));
+        self.run = Some(Run::Transfer { op, src, dst, password, select });
     }
 
     fn after_op(&mut self, ok: String, errors: Vec<String>) {
-        self.panels.iter_mut().for_each(|p| p.marked.clear());
+        self.panels.iter_mut().for_each(Panel::clear_marks);
         self.reload();
         if errors.is_empty() {
             self.status = Some(ok);
@@ -801,7 +886,7 @@ impl App {
     /// Copy, move or extract `src` to `dst`, delete `src`, or make the folder `src`. When only
     /// locked archives were in the way, it asks for the password and runs again with it, for
     /// just what was locked.
-    fn transfer(&mut self, op: Transfer, src: Vec<PathBuf>, dst: PathBuf, password: Option<String>) {
+    fn do_transfer(&mut self, op: Transfer, src: Vec<PathBuf>, dst: PathBuf, password: Option<String>) {
         if matches!(op, Transfer::Move | Transfer::Delete(_) | Transfer::Mkdir) {
             self.changed(&src);
         } else {
@@ -845,9 +930,9 @@ impl App {
         let base = self.panel().dir.clone();
         match prompt {
             Prompt::Copy(src) | Prompt::Move(src) | Prompt::Extract(src) | Prompt::Pack(src) if value.trim().is_empty() => drop(src),
-            Prompt::Copy(src) => self.transfer(Transfer::Copy, src, resolve(&base, &value), None),
-            Prompt::Extract(src) => self.transfer(Transfer::Extract, src, resolve(&base, &value), None),
-            Prompt::Password(op, src, dst) => self.transfer(op, src, dst, Some(value)),
+            Prompt::Copy(src) => self.transfer(Transfer::Copy, src, resolve(&base, &value), None, None),
+            Prompt::Extract(src) => self.transfer(Transfer::Extract, src, resolve(&base, &value), None, None),
+            Prompt::Password(op, src, dst) => self.transfer(op, src, dst, Some(value), None),
             Prompt::Peek(path) => {
                 if let Some((archive, _)) = coxswain_core::archive::split(&path) {
                     coxswain_core::archive::remember(&archive, &value);
@@ -863,24 +948,18 @@ impl App {
             Prompt::Move(src) => {
                 let dst = resolve(&base, &value);
                 let one = (src.len() == 1 && dst.parent() == Some(base.as_path())).then(|| dst.file_name().unwrap_or_default().to_string_lossy().into_owned());
-                self.transfer(Transfer::Move, src, dst, None);
-                if let Some(n) = one {
-                    self.panel_mut().select_name(&n);
-                }
+                self.transfer(Transfer::Move, src, dst, None, one);
             }
             Prompt::Pack(src) => {
                 let to = resolve(&base, &value);
-                self.changed(&[to.clone()]);
-                let errors = coxswain_core::archive::create(&to, &src).err().map(|e| vec![format!("{}: {e}", to.display())]).unwrap_or_default();
-                self.after_op(t!("archive.packed", "what" => Self::describe(&src)), errors);
+                self.status = Some(t!("status.busy", "what" => Self::describe(&src)));
+                self.run = Some(Run::Pack { src, to });
             }
             Prompt::Mkdir if value.trim().is_empty() => {}
             Prompt::Mkdir => {
                 let d = resolve(&base, &value);
-                self.transfer(Transfer::Mkdir, vec![d.clone()], PathBuf::new(), None);
-                if let Some(first) = d.strip_prefix(&base).ok().and_then(|r| r.components().next()) {
-                    self.panel_mut().select_name(&first.as_os_str().to_string_lossy());
-                }
+                let first = d.strip_prefix(&base).ok().and_then(|r| r.components().next()).map(|c| c.as_os_str().to_string_lossy().into_owned());
+                self.transfer(Transfer::Mkdir, vec![d], PathBuf::new(), None, first);
             }
             Prompt::Goto(side) => {
                 let d = resolve(&self.panels[side].dir, &value);
@@ -903,6 +982,7 @@ impl App {
                         }
                     }
                 }
+                p.recount_marks();
             }
         }
     }
@@ -924,6 +1004,12 @@ impl App {
         // The desktop app shares the state file: it is written only when something changed.
         let mut st = coxswain_core::state::AppState::load();
         let mut changed = coxswain_core::notices::started(&mut st);
+        // The repositories looked into, as the desktop app keeps them (the history notice).
+        for g in self.panels.iter().filter_map(|p| p.git.as_ref()) {
+            if !st.recent_repos.contains(&g.root) {
+                changed |= st.touch_repo(&g.root);
+            }
+        }
         if let Some(n) = coxswain_core::notices::next(&self.cfg, &now, &st, true) {
             self.status = Some(match n.url {
                 Some(url) => format!("{} {url}", n.text),
@@ -1021,6 +1107,9 @@ impl App {
                     (KeyCode::Enter, _) => {
                         if let Some(path) = source {
                             self.forget_chat();
+                            if history::is_history(&path) {
+                                return self.cd(self.active, path);
+                            }
                             if let (Some(dir), Some(name)) = (path.parent(), path.file_name()) {
                                 self.cd(self.active, dir.to_path_buf());
                                 self.panel_mut().select_name(&name.to_string_lossy());
@@ -1053,6 +1142,11 @@ impl App {
                     _ if esc => return self.forget_chat(),
                     (KeyCode::Enter, _) => {
                         self.forget_chat();
+                        // A commit: its folder as it was then.
+                        if let Some(h) = hit.as_ref().filter(|h| history::is_history(&h.path)) {
+                            self.cd(self.active, h.path.clone());
+                            return;
+                        }
                         if let Some(h) = hit {
                             let (dir, name) = match (h.path.parent(), h.path.file_name()) {
                                 (Some(d), Some(n)) => (d.to_path_buf(), n.to_string_lossy().into_owned()),
@@ -1064,7 +1158,7 @@ impl App {
                         return;
                     }
                     _ if matches!(action, Some(Action::View | Action::Edit)) => {
-                        if let Some(h) = hit.filter(|h| !h.is_dir) {
+                        if let Some(h) = hit.filter(|h| !h.is_dir && !history::is_history(&h.path)) {
                             self.view_or_edit(action.unwrap(), &h.path);
                         }
                     }
@@ -1192,12 +1286,7 @@ impl App {
             MouseEventKind::Down(MouseButton::Right) => {
                 self.active = side;
                 let i = self.panels[side].offset + m.row.saturating_sub(area.y + 2) as usize;
-                let p = &mut self.panels[side];
-                if let Some(e) = p.entries.get(i).filter(|e| !e.is_parent()).map(|e| e.path.clone()) {
-                    if !p.marked.remove(&e) {
-                        p.marked.insert(e);
-                    }
-                }
+                self.panels[side].toggle_mark(i);
             }
             _ => {}
         }
@@ -1234,9 +1323,12 @@ impl App {
                 }
             }
         }
-        while let Ok((dir, st)) = self.git_rx.try_recv() {
+        while let Ok((dir, news)) = self.git_rx.try_recv() {
             for p in self.panels.iter_mut().filter(|p| p.dir == dir) {
-                p.git = st.clone();
+                match &news {
+                    Git::Status(st) => p.git = st.clone(),
+                    Git::Last(last) => p.last = last.clone(),
+                }
             }
         }
         let state = self.index.state();
@@ -1334,17 +1426,19 @@ fn main_loop(term: &mut DefaultTerminal, app: &mut App) -> std::io::Result<()> {
     let mut state = app.index.state();
     while !app.quit {
         term.draw(|f| ui::draw(f, app))?;
-        // Quicker while a search is out, so its answer shows as soon as it comes.
-        let waiting = matches!(app.dialog, Some(Dialog::Search { .. }));
-        if event::poll(Duration::from_millis(if waiting { 30 } else { 200 }))? {
-            match event::read()? {
-                Event::Key(k) => app.on_key(k),
-                Event::Mouse(m) => app.on_mouse(m),
-                _ => {}
-            }
-        }
-        app.tick(&mut state);
+        // After the frame, so the status line it put up (`status.busy`) is on screen first.
         match app.run.take() {
+            Some(Run::Transfer { op, src, dst, password, select }) => {
+                app.do_transfer(op, src, dst, password);
+                if let Some(n) = select {
+                    app.panel_mut().select_name(&n);
+                }
+            }
+            Some(Run::Pack { src, to }) => {
+                app.changed(std::slice::from_ref(&to));
+                let errors = coxswain_core::archive::create(&to, &src).err().map(|e| vec![format!("{}: {e}", to.display())]).unwrap_or_default();
+                app.after_op(t!("archive.packed", "what" => App::describe(&src)), errors);
+            }
             Some(Run::Shell { cmd, dir, wait }) => {
                 suspended(term, || run_shell(&cmd, &dir, wait))?;
                 app.reload();
@@ -1357,6 +1451,16 @@ fn main_loop(term: &mut DefaultTerminal, app: &mut App) -> std::io::Result<()> {
             })?,
             None => {}
         }
+        // Quicker while a search is out, so its answer shows as soon as it comes.
+        let waiting = matches!(app.dialog, Some(Dialog::Search { .. }));
+        if event::poll(Duration::from_millis(if waiting { 30 } else { 200 }))? {
+            match event::read()? {
+                Event::Key(k) => app.on_key(k),
+                Event::Mouse(m) => app.on_mouse(m),
+                _ => {}
+            }
+        }
+        app.tick(&mut state);
     }
     Ok(())
 }
@@ -1562,5 +1666,86 @@ mod tests {
     fn an_interrupt_meant_for_the_command_leaves_the_app_running() {
         // The child interrupts its parent (this process); ignored here, the test goes on.
         run_in("sh", "-c", "kill -INT $PPID", Path::new("/"), false).unwrap();
+    }
+}
+
+/// Benchmarks on a big folder, ignored by default: `cargo test --release -p coxswain
+/// --bin coxswain -- --ignored --nocapture perf_`. `COXSWAIN_BENCH_DIR` is the folder with
+/// the data `coxswain-core`'s `tests/perf.rs` makes (`flat-100000` in it).
+#[cfg(test)]
+mod perf {
+    use super::*;
+    use ratatui::backend::TestBackend;
+    use ratatui::Terminal;
+
+    #[test]
+    #[ignore]
+    fn perf_terminal_app_100k() {
+        let Some(dir) = std::env::var_os("COXSWAIN_BENCH_DIR").map(|d| PathBuf::from(d).join("flat-100000")).filter(|d| d.is_dir()) else {
+            return println!("no COXSWAIN_BENCH_DIR/flat-100000: run coxswain-core's perf_list_and_sort_100k first");
+        };
+        let ms = |t: Instant| t.elapsed().as_secs_f64() * 1000.0;
+        let t = Instant::now();
+        let mut app = App::new(Config::default(), dir.clone(), dir).unwrap();
+        println!("App::new with 100k in both panels (list, sort): {:.0} ms", ms(t));
+        let mut term = Terminal::new(TestBackend::new(200, 50)).unwrap();
+        let t = Instant::now();
+        term.draw(|f| ui::draw(f, &mut app)).unwrap();
+        println!("first frame: {:.2} ms", ms(t));
+        let t = Instant::now();
+        for _ in 0..100 {
+            term.draw(|f| ui::draw(f, &mut app)).unwrap();
+        }
+        println!("frame, nothing changed: {:.2} ms", ms(t) / 100.0);
+        let t = Instant::now();
+        for _ in 0..100 {
+            app.act(Action::Down);
+            term.draw(|f| ui::draw(f, &mut app)).unwrap();
+        }
+        println!("Down + frame: {:.2} ms", ms(t) / 100.0);
+        for e in app.panels[0].entries.iter().skip(1) {
+            app.panels[0].marked.insert(e.path.clone());
+        }
+        let t = Instant::now();
+        for _ in 0..100 {
+            term.draw(|f| ui::draw(f, &mut app)).unwrap();
+        }
+        println!("frame with every entry marked: {:.2} ms", ms(t) / 100.0);
+        let t = Instant::now();
+        app.act(Action::SortSize);
+        println!("sort by size: {:.0} ms", ms(t));
+    }
+}
+
+#[cfg(test)]
+mod panel_tests {
+    use super::*;
+
+    #[test]
+    fn marks_keep_their_bytes_and_a_sort_keeps_the_cursor() {
+        let d = std::env::temp_dir().join(format!("coxswain-test-marks-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        for (f, n) in [("a.txt", 1), ("b.txt", 20), ("c.txt", 300)] {
+            std::fs::write(d.join(f), vec![0u8; n]).unwrap();
+        }
+        let mut p = Panel::new(d.clone(), false);
+        p.toggle_mark(0); // `..` is never marked
+        p.toggle_mark(2);
+        p.toggle_mark(3);
+        assert_eq!((p.marked.len(), p.marked_bytes), (2, 320));
+        p.toggle_mark(2);
+        assert_eq!((p.marked.len(), p.marked_bytes), (1, 300));
+        p.cursor = 3;
+        p.sort = SortKey::Size;
+        p.resort();
+        assert_eq!(p.current().map(|e| e.name.as_str()), Some("c.txt"));
+        assert_eq!(p.cursor, 1);
+        assert_eq!(p.marked_bytes, 300);
+        p.load(false);
+        assert_eq!(p.marked_bytes, 300, "a reread counts again");
+        p.clear_marks();
+        assert_eq!((p.marked.len(), p.marked_bytes), (0, 0));
+        std::fs::remove_dir_all(d).unwrap();
     }
 }

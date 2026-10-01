@@ -19,7 +19,8 @@ New here? Start with [The screen](panels/the-screen.md) and [Every default key](
 | [Tabs, back and forward, one pane or two](panels/tabs-and-panes.md) | Tabs, back and forward, one pane or two (Ctrl+O), the splitter |
 | [Views: details, columns, thumbnails](panels/views.md) | Details, Miller columns, thumbnails, the columns menu, the age chip |
 | [Folder sizes](panels/folder-sizes.md) | Where they come from, how fresh, measuring again, switching off |
-| [Git in the panels](panels/git.md) | The git line, file glyphs, the diff, recent repositories, user menu commands |
+| [Git in the panels](panels/git.md) | The git line, file glyphs, the last commit per file, the diff, recent repositories, user menu commands |
+| [Git history as folders](panels/git-history.md) | Ctrl+G, the commits of a file or folder, the files at a commit, preview and diff, F3, F5, read-only, limits |
 | [The mouse](panels/mouse.md) | Clicks, marks, drags, path bar, tabs, splitters, in both apps |
 | [The command list (F9) and Help (F1)](panels/command-list.md) | The command list (F9) and Help (F1) |
 | [What the apps remember](panels/session.md) | The desktop session, state.json, what is forgotten |
@@ -58,6 +59,8 @@ New here? Start with [The screen](panels/the-screen.md) and [Every default key](
 | [Documents it reads](search/documents.md) | PDF, Word, RTF, spreadsheets, slides, mail, books, notebooks, diagrams, Markdown |
 | [Scans, pictures and older Office files](search/scans.md) | Tesseract, pdftoppm, LibreOffice and how to install them |
 | [Diagrams read as sentences](search/diagrams.md) | Draw.io, Mermaid, Graphviz, PlantUML, with examples and limits |
+| [Git history in search](search/history.md) | Commit messages, authors and changed paths of your repositories, found by text and meaning, opened at the commit |
+| [Inside archives](search/archives.md) | Files in zip, 7z and tar found by name, text, meaning and Ask; which archives, changes, locked ones, limits |
 | [Choosing the folders: folders read, names only, .nosearch](search/folders.md) | Folders read, Names only, .nosearch, text_exclude |
 | [Removable disks](search/removable-disks.md) | Text kept while unplugged, found again at any mount point |
 | [Search by meaning](search/meaning.md) | The built-in multilingual model, turning it on and off, what you see, how it works |
@@ -65,7 +68,7 @@ New here? Start with [The screen](panels/the-screen.md) and [Every default key](
 | [Ask: questions answered from your files](search/ask.md) | The fourth depth of Find file: your chat model answers from the closest passages, citing them |
 | [The search helper](search/helper.md) | One process for all windows, privacy of its connection, starting with the session |
 | [Battery](search/battery.md) | Reading pauses on battery, Index now reads anyway |
-| [Notices and the window title](search/notices.md) | Version and search depths in the title, the four notices |
+| [Notices and the window title](search/notices.md) | Version and search depths in the title, the five notices |
 | [Search settings](search/settings.md) | Every item of Search inside files and Search by meaning, its config.toml key, and the terminal flags |
 
 ## [The preview pane](previews/README.md)
@@ -129,6 +132,7 @@ New here? Start with [The screen](panels/the-screen.md) and [Every default key](
 | [Update checks](reference/updates.md) | The daily update check: what it sends, what each app shows, the upgrade command, turning it off |
 | [Where things are kept](reference/where-things-are-kept.md) | Config, state and cache folders on each system, every file in them, what is safe to delete, removing everything |
 | [Security](reference/security.md) | Dependencies: how they are chosen and updated, advisory and licence checks on every change and weekly, the bundled viewers, checking a download, reporting a problem |
+| [Performance](reference/performance.md) | What keeps each app quick, the numbers for 100,000 files and a million names, and how to measure again |
 
 ## [Questions, collected](faq.md)
 

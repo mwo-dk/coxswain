@@ -119,4 +119,4 @@ the file. Shapes from draw.io's downloadable libraries show as boxes; see [Diagr
 each one is built with.
 
 ---
-[← Previous: Where things are kept](where-things-are-kept.md) · [Next: Questions, collected →](../faq.md)
+[← Previous: Where things are kept](where-things-are-kept.md) · [Next: Performance →](performance.md)

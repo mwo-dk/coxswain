@@ -4,13 +4,17 @@
   import { ui, cd, load, openItem, toggleMark } from "./app.svelte.js";
   import { invoke, parent, TAG_COLORS } from "./lib.js";
   import { t as tr, i18n } from "./i18n.svelte.js"; // `t` is the tab here
+  import Rows from "./Rows.svelte";
 
   /** @type {{ t: any, active: boolean, onfocus: Function }} */
   let { t, active, onfocus } = $props();
   let ancestors = $state([]);
   let peek = $state(null);
   let strip = $state();
-  let current = $state();
+  const rowH = $derived(Math.round(ui.cfg.gui.font_size * ui.cfg.gui.line_height));
+  /** The current folder without `..`, which a column does not show; `skip` is its index shift. */
+  const skip = $derived(t.items[0]?.name === ".." ? 1 : 0);
+  const shown = $derived(skip ? t.items.slice(1) : t.items);
 
   async function list(dir) {
     try {
@@ -48,10 +52,6 @@
     strip?.scrollTo({ left: i18n.rtl ? -strip.scrollWidth : strip.scrollWidth, behavior: "smooth" });
   });
 
-  $effect(() => {
-    current?.children[t.cursor]?.scrollIntoView({ block: "nearest" });
-  });
-
   async function jump(dir, name) {
     onfocus();
     await cd(t, dir);
@@ -72,38 +72,37 @@
 
 <div class="strip" bind:this={strip}>
   {#each ancestors as col (col.dir)}
-    <div class="col" role="listbox" aria-label={col.dir}>
-      {#each col.items as e (e.path)}
+    <Rows class="col" items={col.items} {rowH} cursor={col.items.findIndex((e) => e.path === col.open)} role="listbox" aria-label={col.dir}>
+      {#snippet row(e)}
         {@render entry(e, e.path === col.open ? "open" : "", () => jump(col.dir, e.name), () => openItem(t))}
-      {/each}
-    </div>
+      {/snippet}
+    </Rows>
   {/each}
-  <div class="col current" class:active bind:this={current} role="listbox" aria-label={t.dir}>
-    {#each t.items as e, i (e.path)}
-      {#if e.name !== ".."}
-        {@render entry(
-          e,
-          `${i === t.cursor ? "cursor" : ""} ${t.marked.has(e.path) ? "marked" : ""}`,
-          (ev) => {
-            onfocus();
-            t.cursor = i;
-            if (ev.ctrlKey || ev.metaKey) toggleMark(t, i);
-          },
-          () => openItem(t, i),
-        )}
-      {:else}
-        <div hidden></div>
-      {/if}
-    {/each}
-  </div>
+  <Rows class="col current {active ? 'active' : ''}" items={shown} {rowH} cursor={t.cursor - skip} role="listbox" aria-label={t.dir}>
+    {#snippet row(e, j)}
+      {@const i = j + skip}
+      {@render entry(
+        e,
+        `${i === t.cursor ? "cursor" : ""} ${t.marked.has(e.path) ? "marked" : ""}`,
+        (ev) => {
+          onfocus();
+          t.cursor = i;
+          if (ev.ctrlKey || ev.metaKey) toggleMark(t, i);
+        },
+        () => openItem(t, i),
+      )}
+    {/snippet}
+  </Rows>
   {#if peek}
-    <div class="col peek" role="listbox" aria-label={peek.dir}>
-      {#each peek.items as e (e.path)}
-        {@render entry(e, "", () => jump(peek.dir, e.name), () => jump(peek.dir, e.name))}
-      {:else}
-        <p class="empty">{tr("columns.empty")}</p>
-      {/each}
-    </div>
+    {#if peek.items.length}
+      <Rows class="col peek" items={peek.items} {rowH} role="listbox" aria-label={peek.dir}>
+        {#snippet row(e)}
+          {@render entry(e, "", () => jump(peek.dir, e.name), () => jump(peek.dir, e.name))}
+        {/snippet}
+      </Rows>
+    {:else}
+      <div class="col peek" role="listbox" aria-label={peek.dir}><p class="empty">{tr("columns.empty")}</p></div>
+    {/if}
   {/if}
 </div>
 
@@ -119,11 +118,12 @@
     min-height: 0;
     scrollbar-width: thin;
   }
-  .col {
+  /* The columns are Rows.svelte's elements, outside this style's scope. */
+  .strip :global(.col) {
     flex: 0 0 clamp(180px, 22%, 280px);
     overflow-y: auto;
     border-inline-end: 1px solid var(--border-fg);
-    padding: 4px;
+    padding: 0 4px 4px;
     box-sizing: border-box;
   }
   .row {
@@ -177,7 +177,7 @@
     outline: 1px solid var(--cursor-bg);
     outline-offset: -1px;
   }
-  .active .cursor {
+  :global(.active) .cursor {
     background: var(--cursor-bg);
     color: var(--cursor-fg);
     outline: none;

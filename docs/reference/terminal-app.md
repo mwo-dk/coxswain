@@ -17,6 +17,7 @@ page says what it has, what it lacks and why, and where it behaves differently.
 - [What only the desktop app has](#what-only-the-desktop-app-has)
 - [Where the two differ](#where-the-two-differ)
 - [Archives in the terminal app](#archives-in-the-terminal-app)
+- [Git history in the terminal app](#git-history-in-the-terminal-app)
 - [Search by meaning in the terminal app](#search-by-meaning-in-the-terminal-app)
 - [What you see](#what-you-see)
 - [Settings and config.toml](#settings-and-configtoml)
@@ -52,7 +53,8 @@ Every flag: [Command-line flags](command-line-flags.md#the-terminal-app-coxswain
 | Find file (**Alt+F7**, **Ctrl+F**) at all three depths: names everywhere, names here, text (with meaning) | [Find file](../search/find-file.md) |
 | Search by meaning, turned on with `coxswain --meaning on` | [Search by meaning in the terminal app](#search-by-meaning-in-the-terminal-app) |
 | Folder sizes in the Size column | [Folder sizes](../panels/folder-sizes.md) |
-| The git line and a glyph per file | [Git in the panels](../panels/git.md) |
+| The git line, a glyph per file, and the last commit of the entry under the cursor in the info line | [Git in the panels](../panels/git.md) |
+| Git history as folders (**Ctrl+G**): the commits of a file or folder, the files as they were, **F3** and **F5** on them | [Git history in the terminal app](#git-history-in-the-terminal-app) |
 | Every theme's colours, Nerd Font or ASCII glyphs, your own themes | [Themes](../customise/themes.md), [Glyphs and fonts](../customise/glyphs-and-fonts.md) |
 | All 18 languages | [Languages](../customise/languages.md) |
 | Your own keys from `[keys]` | [Changing keys](../customise/keys.md) |
@@ -98,6 +100,8 @@ action's name. The **F9** list and **F1** help leave them out.
 | Marked size | Files only: `4.2 MB in 3 selected` | Measured folders count too |
 | Find file, **F3** | Views the hit in your pager | Does nothing (**F4** edits in both) |
 | Inside an archive | The panel title ends in `[archive]` | A badge and a tint on the pane |
+| In a git history | The panel title ends in `[history]` or `[commit a1b2c3d]` | A badge (*history of main.rs*, *commit a1b2c3d*) and a tint |
+| The last commit | In the info line under the panel: `a1b2c3d 2026-09-30 14:02 Ada` | A *Last commit* column, and in the preview pane |
 | An archive's password | Asked in a *Locked archive* box, shown as stars | Asked in a dialog |
 | Notices | Shown once in the status line, then counted as seen | A button with `×` until dismissed or acted on |
 | Update notice | `Coxswain 1.21.0 is available: brew upgrade coxswain` in the status line, checked at start | A button that opens the release page, checked every hour |
@@ -131,6 +135,22 @@ archive does not ask again; one given for a copy or extract is used for that run
 [Passwords for encrypted zip and 7z](../files/archive-passwords.md).
 
 RAR is not read, in either app: see [Archives as folders](../files/archives.md#questions).
+
+## Git history in the terminal app
+
+The same as in the desktop app ([Git history as folders](../panels/git-history.md)):
+
+| To | Do |
+|---|---|
+| See a file's or folder's commits | **Ctrl+G** on it (on `..` for the folder you are in). The title becomes `…/main.rs/@history [history]`; each row is `a1b2c3d subject`, its date in *Modified* |
+| See who made a commit | Put the cursor on it: the info line shows its id, date and author |
+| Browse the files as they were | **Enter** on a commit. The title ends in `[commit a1b2c3d]` |
+| Read an old file | **F3**: your pager gets a copy of it as it was |
+| Get an old file or folder back | **F5** to the other panel |
+| Go back | **Backspace**: to the commits, then to the folder on disk |
+
+**F4**, **F6**, **F7** and **F8** do nothing there: a history is read-only, and the status line
+says so.
 
 ## Search by meaning in the terminal app
 

@@ -86,4 +86,4 @@ Drag the bar between them back to the middle. The split is kept between runs, so
 reset by itself.
 
 ---
-[← Previous: Git in the panels](git.md) · [Next: The command list (F9) and Help (F1) →](command-list.md)
+[← Previous: Git history as folders](git-history.md) · [Next: The command list (F9) and Help (F1) →](command-list.md)
