@@ -123,7 +123,9 @@
  "archive.pack": "Empaqueta",
  "archive.pack_into": "Empaqueta {what} a (.zip, .7z, .tar, .tar.gz…):",
  "archive.packed": "{what} empaquetat",
- "archive.preview_hint": "Aquest fitxer és dins de {archive}. Copieu-lo fora amb F5 per veure'l.",
+ "archive.preview_locked": "Aquest fitxer està blocat amb una contrasenya.",
+ "archive.preview_opening": "S'està obrint des de {archive}…",
+ "archive.preview_unlock": "Introduïu la contrasenya",
  "bom.advice": "Què cal fer",
  "bom.as_in_file": "Com al fitxer",
  "bom.assets": {
@@ -557,7 +559,7 @@
  "history.not_here": "L'historial és per als fitxers i carpetes d'un arbre de treball de git al disc",
  "history.older": "més antic",
  "history.open": "Historial de {name}",
- "history.preview_hint": "Llegit de git tal com era llavors; aquest tipus de fitxer no té previsualització aquí. F5 el copia a fora.",
+ "history.preview_opening": "S'està llegint el fitxer tal com era en aquell commit…",
  "history.read_only": "Un historial és de només lectura: F5 en copia un fitxer o una carpeta",
  "items": {
   "many": "{n} d'elements",

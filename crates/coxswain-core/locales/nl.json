@@ -120,7 +120,9 @@
  "archive.pack": "Verpakken",
  "archive.pack_into": "{what} verpakken in (.zip, .7z, .tar, .tar.gz …):",
  "archive.packed": "{what} verpakt",
- "archive.preview_hint": "Dit bestand zit in {archive}. Kopieer het eruit met F5 om het te zien.",
+ "archive.preview_locked": "Dit bestand is vergrendeld met een wachtwoord.",
+ "archive.preview_opening": "Wordt geopend uit {archive}…",
+ "archive.preview_unlock": "Wachtwoord invoeren",
  "bom.advice": "Wat te doen",
  "bom.as_in_file": "Zoals in het bestand",
  "bom.assets": {
@@ -527,7 +529,7 @@
  "history.not_here": "Geschiedenis is er voor bestanden en mappen van een git-werkmap op schijf",
  "history.older": "ouder",
  "history.open": "Geschiedenis van {name}",
- "history.preview_hint": "Uit git gelezen zoals het toen was; dit soort bestand heeft hier geen voorbeeld. F5 kopieert het eruit.",
+ "history.preview_opening": "Het bestand wordt gelezen zoals het bij die commit was…",
  "history.read_only": "Een geschiedenis is alleen-lezen: F5 kopieert er een bestand of map uit",
  "items": {
   "one": "{n} onderdeel",

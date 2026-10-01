@@ -123,7 +123,9 @@
  "archive.pack": "אריזה",
  "archive.pack_into": "לארוז את {what} אל (‎.zip, ‎.7z, ‎.tar, ‎.tar.gz…):",
  "archive.packed": "{what} נארז",
- "archive.preview_hint": "הקובץ נמצא בתוך {archive}. העתיקו אותו החוצה עם F5 כדי לראות אותו.",
+ "archive.preview_locked": "הקובץ הזה נעול בסיסמה.",
+ "archive.preview_opening": "נפתח מתוך {archive}…",
+ "archive.preview_unlock": "הזינו את הסיסמה",
  "bom.advice": "מה לעשות",
  "bom.as_in_file": "כמו בקובץ",
  "bom.assets": {
@@ -557,7 +559,7 @@
  "history.not_here": "היסטוריה קיימת לקבצים ולתיקיות של עץ עבודה של git בדיסק",
  "history.older": "ישן יותר",
  "history.open": "ההיסטוריה של {name}",
- "history.preview_hint": "נקרא מ-git כפי שהיה אז; לסוג קובץ זה אין כאן תצוגה מקדימה. F5 מעתיק אותו החוצה.",
+ "history.preview_opening": "קורא את הקובץ כפי שהיה ב-commit הזה…",
  "history.read_only": "היסטוריה היא לקריאה בלבד: F5 מעתיק ממנה קובץ או תיקייה",
  "items": {
   "one": "פריט אחד",

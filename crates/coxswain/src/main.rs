@@ -150,6 +150,8 @@ pub enum Prompt {
     Password(Transfer, Vec<PathBuf>, PathBuf),
     /// A locked archive's password, to look into it (in that panel) with.
     Unlock(usize, PathBuf),
+    /// A locked archive's password, to view the file inside it with (F3).
+    Peek(PathBuf),
     Mkdir,
     Goto(usize),
     Select(bool),
@@ -631,16 +633,20 @@ impl App {
             }
             Action::View | Action::Edit => {
                 if let Some(e) = self.panel().current().filter(|e| !e.is_dir).map(|e| e.path.clone()) {
-                    // Inside an archive the file is not on disk: nothing to view or edit yet.
+                    // Inside an archive the file is not on disk: F3 views a copy of it, and
+                    // editing waits until it is copied out.
                     if let Some((archive, _)) = coxswain_core::archive::split(&self.panel().dir) {
+                        if a == Action::View {
+                            return self.peek(e);
+                        }
                         return self.status = Some(t!("archive.copy_out_hint", "archive" => archive.file_name().unwrap_or_default().to_string_lossy()));
                     }
                     // In a history: viewed as it was then, from a copy; never edited.
-                    if let Some(at) = history::split(&e) {
+                    if history::is_history(&e) {
                         if a == Action::Edit {
                             return self.status = Some(t!("history.read_only"));
                         }
-                        return match self.old_version(&at, &e) {
+                        return match history::peek(&e) {
                             Ok(copy) => self.view_or_edit(a, &copy),
                             Err(err) => self.status = Some(err.to_string()),
                         };
@@ -741,6 +747,17 @@ impl App {
         }
     }
 
+    /// F3 on a file inside an archive: a copy of it in the viewer, or its password asked for.
+    fn peek(&mut self, path: PathBuf) {
+        match coxswain_core::archive::peek(&path) {
+            Ok(copy) => self.view_or_edit(Action::View, &copy),
+            Err(e) if e.to_string().contains(coxswain_core::archive::LOCKED) => {
+                self.input(&t!("archive.locked_title"), t!("archive.locked_label"), String::new(), Prompt::Peek(path));
+            }
+            Err(e) => self.status = Some(e.to_string()),
+        }
+    }
+
     fn open(&mut self) {
         let Some(e) = self.panel().current().cloned() else { return };
         // An archive opens like a folder; its files are copied out with F5. An archive inside
@@ -781,16 +798,6 @@ impl App {
             return self.status = Some(t!("history.no_repo"));
         }
         self.cd(self.active, history::path(&target, None));
-    }
-
-    /// A file of a history as it was then, written to a folder of its own for the viewer.
-    fn old_version(&self, at: &history::At, file: &Path) -> std::io::Result<PathBuf> {
-        let (bytes, _) = history::read(at, 64 << 20)?;
-        let dir = std::env::temp_dir().join(format!("coxswain-history-{}", std::process::id())).join(at.commit.as_deref().unwrap_or("x"));
-        std::fs::create_dir_all(&dir)?;
-        let to = dir.join(file.file_name().unwrap_or_default());
-        std::fs::write(&to, bytes)?;
-        Ok(to)
     }
 
     fn view_or_edit(&mut self, a: Action, file: &Path) {
@@ -888,6 +895,12 @@ impl App {
             Prompt::Copy(src) => self.transfer(Transfer::Copy, src, resolve(&base, &value), None),
             Prompt::Extract(src) => self.transfer(Transfer::Extract, src, resolve(&base, &value), None),
             Prompt::Password(op, src, dst) => self.transfer(op, src, dst, Some(value)),
+            Prompt::Peek(path) => {
+                if let Some((archive, _)) = coxswain_core::archive::split(&path) {
+                    coxswain_core::archive::remember(&archive, &value);
+                }
+                self.peek(path);
+            }
             Prompt::Unlock(side, dir) => {
                 if let Some((archive, _)) = coxswain_core::archive::split(&dir) {
                     coxswain_core::archive::remember(&archive, &value);

@@ -120,7 +120,9 @@
  "archive.pack": "Packen",
  "archive.pack_into": "{what} packen in (.zip, .7z, .tar, .tar.gz …):",
  "archive.packed": "{what} gepackt",
- "archive.preview_hint": "Diese Datei liegt in {archive}. Kopieren Sie sie mit F5 heraus, um sie zu sehen.",
+ "archive.preview_locked": "Diese Datei ist mit einem Passwort gesperrt.",
+ "archive.preview_opening": "Wird aus {archive} geöffnet…",
+ "archive.preview_unlock": "Passwort eingeben",
  "bom.advice": "Was zu tun ist",
  "bom.as_in_file": "Wie in der Datei",
  "bom.assets": {
@@ -527,7 +529,7 @@
  "history.not_here": "Einen Verlauf haben Dateien und Ordner eines Git-Arbeitsverzeichnisses auf der Platte",
  "history.older": "älter",
  "history.open": "Verlauf von {name}",
- "history.preview_hint": "Aus Git gelesen, wie sie damals war; diese Art Datei hat hier keine Vorschau. F5 kopiert sie heraus.",
+ "history.preview_opening": "Die Datei wird gelesen, wie sie bei diesem Commit war…",
  "history.read_only": "Ein Verlauf ist schreibgeschützt: F5 kopiert eine Datei oder einen Ordner daraus",
  "items": {
   "one": "{n} Objekt",

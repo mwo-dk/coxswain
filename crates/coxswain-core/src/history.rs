@@ -278,6 +278,19 @@ pub fn read(at: &At, max: usize) -> io::Result<(Vec<u8>, bool)> {
     Ok((buf, false))
 }
 
+/// A copy of a file as it was at a commit, to look at (the preview pane, F3), as
+/// `archive::peek` makes one of a file in an archive: it keeps the file's name.
+pub fn peek(path: &Path) -> io::Result<PathBuf> {
+    let at = split(path).filter(|at| at.commit.is_some() && !at.inner.is_empty()).ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "not a file in a history"))?;
+    let (bytes, more) = read(&at, 64 << 20)?;
+    if more {
+        return Err(io::Error::new(io::ErrorKind::FileTooLarge, format!("{} is too large to look at here; copy it out with F5", at.inner)));
+    }
+    let to = crate::archive::peek_folder()?.join(at.inner.rsplit('/').next().unwrap_or("file"));
+    std::fs::write(&to, bytes)?;
+    Ok(to)
+}
+
 /// What the commit changed in the file (or folder): its diff against the commit before.
 pub fn diff(at: &At) -> io::Result<String> {
     let rev = at.commit.as_deref().ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "pick a commit first"))?;

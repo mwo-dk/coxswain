@@ -34,6 +34,11 @@ These rules hold for every contributor and every Claude session in this reposito
 - **The terminal app ships as a static musl binary.** A dependency that compiles C must build
   for `x86_64-unknown-linux-musl` too; CI checks it. Prefer pure-Rust crates.
 
+- **No legacy.** Dependencies stay current: Rust crates, npm packages, GitHub Actions and bundled
+  viewers are upgraded (majors too, when the migration is contained) and every known advisory is
+  fixed; each source or security review includes this. Old code paths, compatibility shims,
+  deprecated APIs and dead options are removed, not carried along.
+
 ## Every feature
 
 - **Both apps.** A feature goes to the terminal app and the desktop app; its logic lives in

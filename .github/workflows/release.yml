@@ -205,10 +205,18 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         if: env.CARGO_REGISTRY_TOKEN != ''
       # Core first: the terminal app depends on it. Cargo waits until it is in the index.
+      # crates.io allows only so many versions a day: when it says no, the next release
+      # publishes everything since, so the release is not marked failed for it.
       - if: env.CARGO_REGISTRY_TOKEN != ''
         run: |
-          cargo publish --locked -p coxswain-core
-          cargo publish --locked -p coxswain
+          publish() {
+            if cargo publish --locked -p "$1" 2> err.txt; then return 0; fi
+            cat err.txt >&2
+            if grep -q "already exists" err.txt; then echo "::notice::$1 is on crates.io already"; return 0; fi
+            if grep -q "429" err.txt; then echo "::warning::crates.io limits versions per day; $1 waits for the next release"; return 1; fi
+            exit 1
+          }
+          publish coxswain-core && publish coxswain || true
 
   taps:
     needs: [draft, publish]

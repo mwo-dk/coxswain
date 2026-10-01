@@ -120,7 +120,9 @@
  "archive.pack": "Paketatu",
  "archive.pack_into": "Paketatu {what} hemen (.zip, .7z, .tar, .tar.gz…):",
  "archive.packed": "{what} paketatua",
- "archive.preview_hint": "Fitxategi hau {archive} barruan dago. Kopiatu kanpora F5ekin ikusteko.",
+ "archive.preview_locked": "Fitxategi hau pasahitz batekin blokeatuta dago.",
+ "archive.preview_opening": "{archive}(e)tik irekitzen…",
+ "archive.preview_unlock": "Idatzi pasahitza",
  "bom.advice": "Zer egin",
  "bom.as_in_file": "Fitxategian bezala",
  "bom.assets": {
@@ -527,7 +529,7 @@
  "history.not_here": "Historia diskoko git lan-zuhaitz bateko fitxategi eta karpetentzat da",
  "history.older": "zaharragoa",
  "history.open": "{name}(r)en historia",
- "history.preview_hint": "Gitetik irakurria, orduan zegoen bezala; fitxategi mota honek ez du aurrebistarik hemen. F5ek kanpora kopiatzen du.",
+ "history.preview_opening": "Fitxategia irakurtzen, commit horretan zegoen bezala…",
  "history.read_only": "Historia irakurtzeko soilik da: F5ek fitxategi edo karpeta bat kopiatzen du kanpora",
  "items": {
   "one": "elementu {n}",

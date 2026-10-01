@@ -1,7 +1,8 @@
 <script>
+  import { untrack } from "svelte";
   import { ui, tab, item, openHistory } from "./app.svelte.js";
   import { renderHtml, renderPptx, renderDrawio, renderMarkdown, renderMermaid, highlight, renderDocx, readSheet, renderNotebook, loadFont, clean, parseData, jsonLines, calendar, contacts, logLines, renderGraphviz, renderAsciidoc, readParquet } from "./renderers.js";
-  import { invoke, convertFileSrc, basename, size, date, age, ageColor, previewKind, looksLikeBom, CONVERTER } from "./lib.js";
+  import { invoke, convertFileSrc, basename, size, date, age, ageColor, previewKind, looksLikeBom, CONVERTER, LOCKED } from "./lib.js";
   import BomView from "./BomView.svelte";
   import { t, tn, num } from "./i18n.svelte.js";
 
@@ -9,16 +10,42 @@
   let { output = null, onclearoutput, notesFocus = 0 } = $props();
 
   const pane = $derived(tab());
-  const e = $derived(item(pane));
+  const raw = $derived(item(pane));
+  // A file inside an archive is not on disk: it is previewed through a copy out of it, made
+  // when the cursor rests on it. A locked one waits for its password.
+  // So is one in a history: the copy is the file as it was at that commit.
+  const inside = $derived((!!pane?.archive || !!pane?.history) && !!raw && !raw.is_dir && raw.name !== "..");
+  const inHistory = $derived(!!pane?.history && inside);
+  let peeked = $state({ from: "", to: "", error: "" });
+  $effect(() => {
+    const cur = raw;
+    if (!inside || untrack(() => peeked.from === cur.path && !peeked.error)) return;
+    peeked = { from: cur.path, to: "", error: "" };
+    const timer = setTimeout(() => peek(cur.path), 150);
+    return () => clearTimeout(timer);
+  });
+  function peek(path) {
+    invoke("archive_peek", { path }).then(
+      (to) => peeked.from === path && (peeked = { from: path, to, error: "" }),
+      (err) => peeked.from === path && (peeked = { from: path, to: "", error: String(err) }),
+    );
+  }
+  function unlock() {
+    const path = peeked.from;
+    ui.modal = {
+      kind: "input",
+      secret: true,
+      title: t("archive.locked_title"),
+      label: t("archive.locked_label"),
+      value: "",
+      run: (password) => invoke("archive_password", { path, password }).then(() => peek(path)),
+    };
+  }
+  const e = $derived(inside && peeked.from === raw.path && peeked.to ? { ...raw, path: peeked.to } : raw);
   /** A JSON or XML file whose first bytes turned out to be a CycloneDX BOM's. */
   let sniffedBom = $state("");
-  // A file inside an archive is not on disk: it has no preview until it is copied out. One in
-  // a history is read from git as it was then: the kinds read as text.
-  const TEXTUAL = ["text", "markdown", "mermaid", "data", "jsonl", "calendar", "contacts", "log", "graphviz", "asciidoc", "html", "bom"];
-  const inHistory = $derived(!!pane?.history && e && !e.is_dir && e.name !== "..");
-  const histKind = (k) => (k === "bom" || k === "html" ? "text" : TEXTUAL.includes(k) ? k : "in-history");
   const kind = $derived(
-    output ? "output" : pane?.archive && e && !e.is_dir && e.name !== ".." ? "in-archive" : inHistory ? histKind(previewKind(e)) : e && sniffedBom === e.path ? "bom" : previewKind(e),
+    output ? "output" : inside && e === raw ? "in-archive" : e && sniffedBom === e.path ? "bom" : previewKind(e),
   );
   let text = $state("");
   let html = $state("");
@@ -75,12 +102,13 @@
     const timer = setTimeout(async () => {
       try {
         if (diff) {
-          const d = await invoke("git_diff", { path: cur.path });
-          if (item(tab())?.path === cur.path) html = d ? highlight(d, "diff") : highlight(t("preview.no_changes"), "plaintext");
+          // In a history the diff is git's, of the file there, not of the copy shown.
+          const d = await invoke("git_diff", { path: inHistory ? raw.path : cur.path });
+          if (e?.path === cur.path) html = d ? highlight(d, "diff") : highlight(t("preview.no_changes"), "plaintext");
           return;
         }
         const [s, trunc, bin] = await invoke("read_text", { path: cur.path, max: LIMIT });
-        if (item(tab())?.path !== cur.path) return;
+        if (e?.path !== cur.path) return;
         truncated = trunc;
         binary = bin;
         if (!bin && (k === "data" || k === "text") && /\.(json|xml)$/i.test(cur.name) && looksLikeBom(s)) {
@@ -103,7 +131,7 @@
         // Rendered markdown and diagrams come back sanitized from renderers.js.
         const render = { markdown: renderMarkdown, mermaid: renderMermaid, graphviz: renderGraphviz, asciidoc: renderAsciidoc }[k];
         const rendered = bin || src || !render ? "" : await render(s);
-        if (item(tab())?.path !== cur.path) return;
+        if (e?.path !== cur.path) return;
         if (rendered) {
           html = rendered;
         } else if (!bin && s.length < 200_000) {
@@ -141,7 +169,7 @@
       } catch (err) {
         r = { error: String(err?.message ?? err) };
       }
-      if (item(tab())?.path !== cur.path) return;
+      if (e?.path !== cur.path) return;
       if (r.sheet) sheetName = r.sheet.names[0] ?? "";
       rich = r;
     }, 80);
@@ -162,7 +190,7 @@
         (v) => ({ [k]: v }),
         (err) => ({ error: String(err) }),
       );
-      if (item(tab())?.path === cur.path) backend = r;
+      if (e?.path === cur.path) backend = r;
     }, 80);
     return () => clearTimeout(timer);
   });
@@ -175,7 +203,7 @@
     if (!cur || cur.is_dir) return;
     const timer = setTimeout(async () => {
       const f = await invoke("file_facts", { path: cur.path }).catch(() => []);
-      if (item(tab())?.path === cur.path) facts = f;
+      if (e?.path === cur.path) facts = f;
     }, 120);
     return () => clearTimeout(timer);
   });
@@ -192,7 +220,7 @@
     if (!spec || !cur || diffing) return;
     const timer = setTimeout(async () => {
       const engines = await invoke("preview_engines", { tool: spec.tool }).catch(() => []);
-      if (item(tab())?.path !== cur.path) return;
+      if (e?.path !== cur.path) return;
       conv = { ...spec, path: cur.path, engines, status: "idle", result: null, error: "" };
       const eng = engineOf(conv);
       if (!eng) return;
@@ -247,7 +275,7 @@
     if (kind !== "archive") return;
     const timer = setTimeout(async () => {
       const r = await invoke("archive_list", { path: cur.path }).catch((err) => ({ error: String(err) }));
-      if (item(tab())?.path === cur.path) archive = r;
+      if (e?.path === cur.path) archive = r;
     }, 80);
     return () => clearTimeout(timer);
   });
@@ -371,9 +399,15 @@
 
     <div class="body" class:flush={kind === "bom" && !source && !diffing}>
       {#if kind === "in-archive"}
-        <p class="more">{t("archive.preview_hint", { archive: basename(pane.archive) })}</p>
-      {:else if kind === "in-history" && !diffing}
-        <p class="more">{t("history.preview_hint")}</p>
+        {#if peeked.error.includes(LOCKED)}
+          <p class="more">{t("archive.preview_locked")} <button class="link" onclick={unlock}>{t("archive.preview_unlock")}</button></p>
+        {:else if peeked.error}
+          <p class="more">{peeked.error}</p>
+        {:else if pane.history}
+          <p class="more">{t("history.preview_opening")}</p>
+        {:else}
+          <p class="more">{t("archive.preview_opening", { archive: basename(pane.archive) })}</p>
+        {/if}
       {:else if diffing}
         {#if html}<pre class="mono code"><code class="hljs">{@html html}</code></pre>{/if}
       {:else if kind === "bom" && !source}

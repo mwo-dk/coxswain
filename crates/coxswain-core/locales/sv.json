@@ -120,7 +120,9 @@
  "archive.pack": "Packa",
  "archive.pack_into": "Packa {what} i (.zip, .7z, .tar, .tar.gz …):",
  "archive.packed": "Packade {what}",
- "archive.preview_hint": "Filen finns i {archive}. Kopiera ut den med F5 för att se den.",
+ "archive.preview_locked": "Filen är låst med ett lösenord.",
+ "archive.preview_opening": "Öppnar den från {archive}…",
+ "archive.preview_unlock": "Ange lösenordet",
  "bom.advice": "Vad du kan göra",
  "bom.as_in_file": "Som i filen",
  "bom.assets": {
@@ -527,7 +529,7 @@
  "history.not_here": "Historik finns för filer och mappar i ett git-arbetsträd på disken",
  "history.older": "äldre",
  "history.open": "Historik för {name}",
- "history.preview_hint": "Läst från git som den var då; den här sortens fil har ingen förhandsvisning här. F5 kopierar ut den.",
+ "history.preview_opening": "Läser filen som den var vid den committen…",
  "history.read_only": "En historik är skrivskyddad: F5 kopierar ut en fil eller mapp",
  "items": {
   "one": "{n} objekt",

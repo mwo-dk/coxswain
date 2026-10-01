@@ -120,7 +120,9 @@
  "archive.pack": "Pak",
  "archive.pack_into": "Pak {what} i (.zip, .7z, .tar, .tar.gz …):",
  "archive.packed": "Pakkede {what}",
- "archive.preview_hint": "Filen er inde i {archive}. Kopiér den ud med F5 for at se den.",
+ "archive.preview_locked": "Filen er låst med en adgangskode.",
+ "archive.preview_opening": "Åbner den fra {archive}…",
+ "archive.preview_unlock": "Indtast adgangskoden",
  "bom.advice": "Hvad du kan gøre",
  "bom.as_in_file": "Som i filen",
  "bom.assets": {
@@ -527,7 +529,7 @@
  "history.not_here": "Historik findes for filer og mapper i et git-arbejdstræ på disken",
  "history.older": "ældre",
  "history.open": "Historik for {name}",
- "history.preview_hint": "Læst fra git, som den var dengang; denne slags fil har ingen forhåndsvisning her. F5 kopierer den ud.",
+ "history.preview_opening": "Læser filen, som den var ved det commit…",
  "history.read_only": "En historik kan kun læses: F5 kopierer en fil eller mappe ud af den",
  "items": {
   "one": "{n} emne",

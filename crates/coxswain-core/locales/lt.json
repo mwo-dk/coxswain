@@ -123,7 +123,9 @@
  "archive.pack": "Supakuoti",
  "archive.pack_into": "Supakuoti {what} į (.zip, .7z, .tar, .tar.gz …):",
  "archive.packed": "Supakuota: {what}",
- "archive.preview_hint": "Failas yra archyve {archive}. Iškopijuokite jį su F5, kad pamatytumėte.",
+ "archive.preview_locked": "Šis failas užrakintas slaptažodžiu.",
+ "archive.preview_opening": "Atveriama iš {archive}…",
+ "archive.preview_unlock": "Įveskite slaptažodį",
  "bom.advice": "Ką daryti",
  "bom.as_in_file": "Kaip faile",
  "bom.assets": {
@@ -557,7 +559,7 @@
  "history.not_here": "Istorija yra disko git darbo medžio failams ir aplankams",
  "history.older": "senesnis",
  "history.open": "{name} istorija",
- "history.preview_hint": "Perskaityta iš git tokia, kokia tada buvo; tokio failo čia peržiūrėti negalima. F5 jį nukopijuoja.",
+ "history.preview_opening": "Skaitomas failas toks, koks jis buvo tame commit…",
  "history.read_only": "Istorija tik skaitoma: F5 nukopijuoja failą ar aplanką iš jos",
  "items": {
   "few": "{n} elementai",

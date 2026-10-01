@@ -851,18 +851,11 @@ const HEX_LINES: usize = 4096;
 /// Up to `max` bytes as text for the preview; binary files come back hex-dumped.
 #[tauri::command]
 async fn read_text(path: PathBuf, max: usize) -> Res<(String, bool, bool)> {
-    let (buf, truncated) = match history::split(&path).filter(|_| !path.exists()) {
-        // In a history: the file as it was at that commit.
-        Some(at) => tauri::async_runtime::spawn_blocking(move || history::read(&at, max)).await.map_err(|e| e.to_string())?.map_err(|e| e.to_string())?,
-        None => {
-            let mut buf = vec![];
-            let f = std::fs::File::open(&path).map_err(|e| e.to_string())?;
-            let len = f.metadata().map(|m| m.len()).unwrap_or(0);
-            f.take(max as u64).read_to_end(&mut buf).map_err(|e| e.to_string())?;
-            let truncated = len > buf.len() as u64;
-            (buf, truncated)
-        }
-    };
+    let mut buf = vec![];
+    let f = std::fs::File::open(&path).map_err(|e| e.to_string())?;
+    let len = f.metadata().map(|m| m.len()).unwrap_or(0);
+    f.take(max as u64).read_to_end(&mut buf).map_err(|e| e.to_string())?;
+    let truncated = len > buf.len() as u64;
     if buf.iter().take(8192).any(|&b| b == 0) {
         // A hex dump of the first 64 KB: four thousand lines are plenty to see what a file is.
         let hex = buf
@@ -876,7 +869,7 @@ async fn read_text(path: PathBuf, max: usize) -> Res<(String, bool, bool)> {
             })
             .collect::<Vec<_>>()
             .join("\n");
-        return Ok((hex, truncated || buf.len() > HEX_LINES * 16, true));
+        return Ok((hex, len > (HEX_LINES * 16) as u64, true));
     }
     Ok((String::from_utf8_lossy(&buf).into_owned(), truncated, false))
 }
@@ -908,6 +901,14 @@ fn archive_password(path: PathBuf, password: String) {
     if let Some((archive, _)) = coxswain_core::archive::split(&path).or_else(|| coxswain_core::archive::is_archive(&path).then(|| (path.clone(), String::new()))) {
         coxswain_core::archive::remember(&archive, &password);
     }
+}
+
+/// A copy of a file inside an archive, to preview: see `archive::peek`.
+#[tauri::command]
+async fn archive_peek(path: PathBuf) -> Res<PathBuf> {
+    // A file in a history: as it was at that commit.
+    let peek = if history::is_history(&path) { history::peek } else { coxswain_core::archive::peek };
+    tauri::async_runtime::spawn_blocking(move || peek(&path)).await.map_err(|e| e.to_string())?.map_err(|e| e.to_string())
 }
 
 /// A new archive at `dest` (zip, tar or tar.gz, by its name) with `paths` in it.
@@ -1351,7 +1352,7 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             get_config, notices, dismiss_notice, set_title, index_status, index_action, index_service, meaning_status, meaning_action, meaning_models, meaning_pull, list_dir, git_status, git_last, places, disks, get_state, save_session, save_favorites, set_tags, set_note, get_note,
             search, ask, ask_stop, resolve_path, copy, rename, delete, mkdir, dir_sizes, rename_plan, rename_apply, open_path, edit_path,
-            read_text, run_command, scripts, run_script, check_update, archive_list, extract, pack, archive_password, properties, set_permissions,
+            read_text, run_command, scripts, run_script, check_update, archive_list, extract, pack, archive_password, archive_peek, properties, set_permissions,
             clip_set, paste, start_drag, watch_dirs, preview::git_diff, preview::sqlite_info, preview::epub_preview,
             preview::file_facts, preview::cert_info, bom::bom_info, bom::bom_node, bom::bom_diff, preview::mail_preview, preview::plist_xml, convert::preview_engines, convert::preview_cache, convert::clear_preview_cache,
             convert::convert, convert::images, convert::pull_image, convert::remove_image, convert::pull_progress, dupes_scan,

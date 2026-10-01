@@ -37,7 +37,8 @@ and **F5** from another panel copies into it. Copies between two archives work t
 | **F7** | Makes a folder inside the archive | |
 | **F8**, **Shift+F8** | **Takes out** of the archive, after a question: there is no trash inside an archive | |
 | **Enter** on a file | Says on the status line that it must be copied out first | |
-| **Space** | The preview pane says to copy the file out to see it | |
+| **Space** | The preview pane shows the file: a copy of it is made when the cursor rests on it | |
+| **F3** (terminal app) | Views the file: a copy of it goes to your viewer | |
 | **Ctrl+E** on an archive | [Extracts](pack-and-extract.md) it into a new folder | |
 | **Alt+F5** | [Packs](pack-and-extract.md) files on disk into a new archive | |
 
@@ -79,8 +80,10 @@ Endings are recognised in any case (`.ZIP`). A file is taken for an archive by i
   inside an archive: F5 copies out of it, F6 moves out, F8 takes out; copies into it are added*.
 - **Enter** on a file says on the status line: *website-0.3.0.tar.gz is an archive: F5 copies
   this file out of it*.
-- The preview pane for a file inside says: *This file is inside website-0.3.0.tar.gz. Copy it out
-  with F5 to see it.* On an archive itself (not opened), the preview lists what is in it; see
+- The preview pane for a file inside says *Opening it from website-0.3.0.tar.gz…* for a moment,
+  then shows the file as it would any other: a picture, a PDF, code, a spreadsheet. A locked file
+  says *This file is locked with a password.* with the link *Enter the password*; once given, the
+  preview comes, and the password is kept for the rest of the run. On an archive itself (not opened), the preview lists what is in it; see
   [Media and archives in the preview](../previews/media.md).
 - **F8** asks, in a dialog titled *Delete*: *Take "a.txt" out of tools.zip? The archive is
   written anew without it; there is no trash inside an archive.*
@@ -136,8 +139,11 @@ supports with its own pure-Rust code, the same on every system, so RAR is left o
 
 - **An archive inside an archive** is not opened: **Enter** on it says, like on any file inside,
   that **F5** copies it out. Copy it out first, then open it.
-- **Files inside cannot be opened, viewed or edited** (**F3**, **F4**, the preview): they are not
-  on disk. **F3** and **F4** say so on the status line. Copy them out first.
+- **Files inside are previewed and viewed from a copy**, not opened or edited: **Enter** and
+  **F4** say on the status line that **F5** copies the file out, since changes to a copy would be
+  lost. The copy is made in the cache folder (`coxswain/peek/`), one at a time, and removed when
+  the next is made; copies left by an app that ended go after a day. Files over 256 MB are not
+  copied just to be looked at: the preview says to copy them out.
 - **Batch rename, properties and search** do not look inside archives. A folder inside shows the
   size of the files in it, as listed; nothing is measured. Pack (**Alt+F5**) takes files on
   disk, not entries of another archive.
@@ -165,6 +171,18 @@ taking out, extracting, packing and passwords. The difference is only in what yo
 panel title says `[archive]` instead of a tint and a badge, and there is no preview pane.
 
 ## Questions
+
+#### Can I look at a file inside an archive without unpacking it?
+
+Yes. Put the cursor on it with the preview pane open (**Space** in the desktop app), or press
+**F3** in the terminal app. Coxswain copies just that file out, into its cache folder, and shows
+the copy. Nothing next to the archive is written, and the copy goes when you look at the next
+file.
+
+#### Why can I not edit a file inside an archive with F4?
+
+The editor would change a copy, and the change would be lost when the copy goes. Copy the file
+out with **F5**, edit it, then copy it back with **F5** into the archive: it is replaced there.
 
 #### How do I get one file out of a zip without unpacking all of it?
 
