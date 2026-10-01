@@ -15,6 +15,7 @@ walk through each depth, what is read and when, and every setting.
 | [Names everywhere](names.md) | Files and folders by name, on the whole machine | Nothing |
 | [Names in this folder](names.md#names-in-this-folder) | The same, in the active panel's folder and below | Nothing |
 | [Text in files](text.md) | Files whose text has your words; with [search by meaning](meaning.md), also files about them | *Search inside files* on (the default) and the [helper](helper.md) |
+| [Inside archives](archives.md) | Each of the above for the files in your zip, 7z and tar archives too | *Search inside archives* on (the default) |
 | [Ask](ask.md) | An answer to your question, written from the passages closest to it, with numbered sources | Search by meaning and a chat model on your server |
 
 | Page | What it covers |
@@ -26,6 +27,7 @@ walk through each depth, what is read and when, and every setting.
 | [Documents it reads](documents.md) | PDF, Word, spreadsheets, slides, mail, books, notebooks: the formats |
 | [Scans, pictures and older Office files](scans.md) | tesseract, pdftoppm and LibreOffice, when they are installed |
 | [Diagrams read as sentences](diagrams.md) | draw.io, Mermaid, Graphviz and PlantUML: a sentence per arrow |
+| [Inside archives](archives.md) | Files in zip, 7z and tar archives, found by name, text and meaning; changes followed |
 | [Choosing the folders](folders.md) | Folders read, names only, `.nosearch`, `text_exclude` |
 | [Removable disks](removable-disks.md) | USB and external disks: kept while unplugged, found again anywhere |
 | [Search by meaning](meaning.md) | The built-in multilingual model: turning it on, what it finds |

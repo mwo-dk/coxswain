@@ -723,6 +723,7 @@
  "settings.saved": "Gordeta: {path}",
  "settings.search": "Bilaketa fitxategien edukian",
  "settings.search_add": "Gehitu",
+ "settings.search_archives": "Bilatu artxiboen barruan: zip, 7z eta tar artxiboetako fitxategiak izenaren eta testuaren bidez aurkitzen dira",
  "settings.search_forget": "Ezabatu indizea",
  "settings.search_forget_confirm": "Egin klik berriro ezabatzeko",
  "settings.search_hint": "«Izenak soilik» karpetak izenaren bidez aurkitzen dira eta karpeten tamainan zenbatzen dira, baina ez dira inoiz irakurtzen. Karpeta batean .nosearch izeneko fitxategi batek gauza bera egiten du. Normalean fitxategiak abiadura erdian irakurtzen dira, banan-banan; «Indexatu orain» aukerak zain dagoena abiadura osoan irakurtzen du.",

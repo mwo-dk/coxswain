@@ -723,6 +723,7 @@
  "settings.saved": "Salvestatud: {path}",
  "settings.search": "Otsing failide sisust",
  "settings.search_add": "Lisa",
+ "settings.search_archives": "Otsi arhiivide seest: zip-, 7z- ja tar-arhiivide failid leitakse nime ja teksti järgi",
  "settings.search_forget": "Kustuta indeks",
  "settings.search_forget_confirm": "Kustutamiseks klõpsa uuesti",
  "settings.search_hint": "Ainult nimedega kaustad leitakse nime järgi ja arvestatakse kaustade suuruses, kuid neid ei loeta kunagi. Kaustas olev fail nimega .nosearch teeb sama. Tavaliselt loetakse faile poole kiirusega, ükshaaval; Indekseeri kohe loeb järjekorra täiskiirusel.",

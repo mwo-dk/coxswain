@@ -138,8 +138,10 @@ supports with its own pure-Rust code, the same on every system, so RAR is left o
   that **F5** copies it out. Copy it out first, then open it.
 - **Files inside cannot be opened, viewed or edited** (**F3**, **F4**, the preview): they are not
   on disk. **F3** and **F4** say so on the status line. Copy them out first.
-- **Batch rename, properties and search** do not look inside archives. A folder inside shows the
-  size of the files in it, as listed; nothing is measured. Pack (**Alt+F5**) takes files on
+- **Batch rename and properties** do not look inside archives. A folder inside shows the
+  size of the files in it, as listed; nothing is measured. **Search** does: Find file finds the
+  files in the archives of your home folder by name and by their text, and follows their changes
+  ([Inside archives](../search/archives.md)). Pack (**Alt+F5**) takes files on
   disk, not entries of another archive.
 - **Symbolic links** on disk are left out when added to an archive, since what they point at may
   be anywhere. When copying out of a tar, links and special entries are skipped; **Ctrl+E**

@@ -172,6 +172,8 @@ struct Settings {
     preview_timeout: u64,
     latex_image: String,
     search_text: bool,
+    /// Search inside archives: their entries by name, their files' text.
+    search_archives: bool,
     /// The folders whose text is read; the home folder when none are set.
     text_roots: Vec<PathBuf>,
     names_only: Vec<PathBuf>,
@@ -202,6 +204,7 @@ impl From<&Config> for Settings {
             preview_timeout: c.preview.timeout,
             latex_image: c.preview.images.get("latex").cloned().unwrap_or_default(),
             search_text: c.search.text,
+            search_archives: c.search.archives,
             text_roots: c.search.text_roots.clone(),
             names_only: c.search.names_only.clone(),
             search_meaning: c.search.meaning,
@@ -232,6 +235,7 @@ const SETTING_PATHS: &[(&str, &[&str])] = &[
     ("preview_timeout", &["preview", "timeout"]),
     ("latex_image", &["preview", "images", "latex"]),
     ("search_text", &["search", "text"]),
+    ("search_archives", &["search", "archives"]),
     ("text_roots", &["search", "text_roots"]),
     ("names_only", &["search", "names_only"]),
     ("search_meaning", &["search", "meaning"]),
@@ -1332,6 +1336,7 @@ mod tests {
         ch.insert("latex_image".into(), "texlive:medium".into());
         ch.insert("show_hidden".into(), false.into());
         ch.insert("names_only".into(), serde_json::json!(["/home/me/Mail"]));
+        ch.insert("search_archives".into(), false.into());
         let out = apply_settings(text, &ch).unwrap();
         for kept in ["# my config", "theme = \"nc\"  # terminal", "# big text", "quit = [\"F10\"]"] {
             assert!(out.contains(kept), "{kept} lost:\n{out}");
@@ -1340,6 +1345,7 @@ mod tests {
         assert_eq!((cfg.gui.font_size, cfg.language.as_str(), cfg.show_hidden), (17.0, "da", false));
         assert_eq!(cfg.preview.images["latex"], "texlive:medium");
         assert_eq!(cfg.search.names_only, [PathBuf::from("/home/me/Mail")]);
+        assert!(!cfg.search.archives && Config::default().search.archives, "on unless switched off");
         assert_eq!(cfg.preview.images["plantuml"], "docker.io/plantuml/plantuml:latest", "other defaults stay");
         assert!(apply_settings(text, &serde_json::Map::from_iter([("nope".into(), 1.into())])).is_err());
     }

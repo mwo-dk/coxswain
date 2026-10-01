@@ -47,6 +47,8 @@ The questions people ask most, with a short answer and a link to the full one. E
 - **How do I keep a folder's text out of the index?** Add it to Names only in Settings, or put an empty `.nosearch` file in it. [Answer](search/folders.md#how-do-i-make-a-folder-names-only)
 - **Is Coxswain running in the background after I close it?** The search helper stays ten minutes, or for good if started with your session. [Answer](search/helper.md#is-coxswain-running-in-the-background-after-i-close-it)
 - **I installed tesseract and nothing happened.** The helper looks for programs when it starts; let it start again. [Answer](search/scans.md#i-installed-tesseract-and-nothing-happened)
+- **Does Find file find files inside my zip files?** Yes, in the archives of the folders read (your home folder by default, not hidden ones): by name and by their text, and it follows their changes. [Answer](search/archives.md#does-find-file-find-files-inside-my-zip-files)
+- **Why is a file in my .tar.xz not found?** A compressed tar over 256 MB is found by its own name only; there are limits per archive too. [Answer](search/archives.md#why-is-a-file-in-my-tarxz-not-found)
 - **Why does a search for "browser entra" find my diagram?** Every arrow becomes a sentence such as "Browser to Entra ID: sign in.". [Answer](search/diagrams.md#why-does-a-search-for-browser-entra-find-my-diagram-when-no-box-says-both)
 
 ## The preview pane

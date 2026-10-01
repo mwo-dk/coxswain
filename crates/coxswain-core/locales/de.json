@@ -723,6 +723,7 @@
  "settings.saved": "Gespeichert in {path}",
  "settings.search": "Suche in Dateiinhalten",
  "settings.search_add": "Hinzufügen",
+ "settings.search_archives": "In Archiven suchen: Die Dateien in zip-, 7z- und tar-Archiven werden über den Namen und ihren Text gefunden",
  "settings.search_forget": "Index löschen",
  "settings.search_forget_confirm": "Zum Löschen erneut klicken",
  "settings.search_hint": "Ordner mit „nur Namen“ werden über den Namen gefunden und bei Ordnergrößen mitgezählt, aber nie gelesen. Eine Datei namens .nosearch in einem Ordner bewirkt dasselbe. Normalerweise werden Dateien mit halber Geschwindigkeit gelesen, eine nach der anderen; „Jetzt indizieren“ liest den Rückstand mit voller Geschwindigkeit.",

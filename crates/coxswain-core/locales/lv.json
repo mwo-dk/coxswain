@@ -768,6 +768,7 @@
  "settings.saved": "Saglabāts: {path}",
  "settings.search": "Meklēšana failu saturā",
  "settings.search_add": "Pievienot",
+ "settings.search_archives": "Meklēt arhīvos: zip, 7z un tar arhīvu faili tiek atrasti pēc nosaukuma un pēc to teksta",
  "settings.search_forget": "Dzēst indeksu",
  "settings.search_forget_confirm": "Noklikšķiniet vēlreiz, lai dzēstu",
  "settings.search_hint": "Mapes ar tikai nosaukumiem tiek atrastas pēc nosaukuma un ieskaitītas mapju izmēros, bet nekad netiek lasītas. Tas pats notiek, ja mapē ir fails ar nosaukumu .nosearch. Parasti faili tiek lasīti ar pusi ātruma, pa vienam; Indeksēt tagad nolasa rindu pilnā ātrumā.",

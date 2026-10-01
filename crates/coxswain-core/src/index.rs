@@ -20,6 +20,8 @@ use crate::config::SearchConfig;
 const NONE: u32 = u32::MAX;
 const DIR: u8 = 1;
 const GONE: u8 = 2;
+/// An archive whose entries are its children.
+const ARC: u8 = 4;
 const MAGIC: &[u8; 8] = b"COXSWIX1";
 
 #[derive(Clone, Copy, Debug)]
@@ -41,6 +43,23 @@ pub struct Index {
     dirs: HashMap<u64, u32>,
     root_ids: Vec<u32>,
     gone: usize,
+    /// Look inside the archives in the folders whose text is read (`store::roots`, less the
+    /// folders `store::left_out`): these settings, and those folders. `None`: never.
+    archives: Option<(SearchConfig, Vec<PathBuf>)>,
+    /// Each archive looked into: its size and modified time (nanoseconds) then.
+    stamps: HashMap<u32, Stamp>,
+}
+
+type Stamp = (u64, u64);
+
+/// Whether the node can have children: a folder, or an archive looked into.
+fn holds(flags: u8) -> bool {
+    flags & (DIR | ARC) != 0
+}
+
+fn stamp_of(path: &Path) -> Option<Stamp> {
+    let m = fs::metadata(path).ok()?;
+    Some((m.len(), m.modified().ok()?.duration_since(std::time::UNIX_EPOCH).ok()?.as_nanos() as u64))
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -85,6 +104,38 @@ struct Scanned {
     name: String,
     is_dir: bool,
     children: Vec<Scanned>,
+    /// An archive looked into, as it was then: its children are its entries, and they take
+    /// the place of what the index had of it.
+    stamp: Option<Box<Stamp>>,
+}
+
+/// Entries of an archive (`a/b/c.txt`) as a tree, with the folders only named in their paths.
+fn tree(entries: Vec<crate::archive::ArchiveEntry>) -> Vec<Scanned> {
+    // Flat first, each name once in its folder: (folder, name, is a folder).
+    let mut flat: Vec<(usize, String, bool)> = vec![(0, String::new(), true)];
+    let mut at: HashMap<(usize, String), usize> = HashMap::new();
+    for e in entries {
+        let mut parent = 0;
+        let mut parts = e.name.split('/').peekable();
+        while let Some(part) = parts.next() {
+            let dir = e.is_dir || parts.peek().is_some();
+            let id = *at.entry((parent, part.to_string())).or_insert_with(|| {
+                flat.push((parent, part.to_string(), dir));
+                flat.len() - 1
+            });
+            flat[id].2 |= dir;
+            parent = id;
+        }
+    }
+    let mut kids: Vec<Vec<usize>> = vec![vec![]; flat.len()];
+    for (i, f) in flat.iter().enumerate().skip(1) {
+        kids[f.0].push(i);
+    }
+    fn nest(i: usize, flat: &mut [(usize, String, bool)], kids: &[Vec<usize>]) -> Scanned {
+        let children = kids[i].iter().map(|&k| nest(k, flat, kids)).collect();
+        Scanned { name: std::mem::take(&mut flat[i].1), is_dir: flat[i].2, children, stamp: None }
+    }
+    kids[0].iter().map(|&k| nest(k, &mut flat, &kids)).collect()
 }
 
 /// What `Index::look` read from the disk for `Index::apply`: each dirty directory's node, its
@@ -120,22 +171,82 @@ impl Index {
         self.exclude.iter().any(|e| if e.contains(['/', '\\']) { path.starts_with(e) } else { e == name })
     }
 
-    /// Walk `roots` in parallel and index every name.
-    pub fn build(roots: &[PathBuf], exclude: &[String]) -> Index {
-        let mut ix = Index { roots: roots.to_vec(), exclude: exclude.to_vec(), ..Default::default() };
+    /// Walk `roots` in parallel and index every name, with `archives` the entries of the
+    /// archives in the folders whose text it reads too: those `before` knew as they are now are
+    /// taken from it, the rest are read.
+    pub fn build(roots: &[PathBuf], exclude: &[String], archives: Option<&SearchConfig>, before: Option<&Index>) -> Index {
+        let archives = archives.map(|cfg| (cfg.clone(), crate::store::roots(cfg)));
+        let mut ix = Index { roots: roots.to_vec(), exclude: exclude.to_vec(), archives, ..Default::default() };
         for root in roots {
-            let children = ix.scan(root);
+            let children = ix.scan(root, before, ix.looks_in(root));
             let name = root.to_string_lossy().into_owned();
-            ix.push_tree(NONE, Scanned { name, is_dir: true, children });
+            ix.push_tree(NONE, Scanned { name, is_dir: true, children, stamp: None });
         }
         ix.rehash();
         ix
     }
 
-    fn scan(&self, dir: &Path) -> Vec<Scanned> {
+    /// `dir` and below, `look` when the archives in it are looked into.
+    fn scan(&self, dir: &Path, before: Option<&Index>, look: bool) -> Vec<Scanned> {
         let mut out = self.scan_one(dir);
-        out.par_iter_mut().filter(|s| s.is_dir).for_each(|s| s.children = self.scan(&dir.join(&s.name)));
+        out.par_iter_mut().filter(|s| s.is_dir || look && crate::archive::is_archive(Path::new(&s.name))).for_each(|s| {
+            let path = dir.join(&s.name);
+            if s.is_dir {
+                let look = self.looks_below(&path, look);
+                s.children = self.scan(&path, before, look);
+            } else {
+                Index::open_up(&path, s, before);
+            }
+        });
         out
+    }
+
+    /// Whether the archives in `dir`, a folder in one where they are (`parent`) or not, are
+    /// looked into.
+    fn looks_below(&self, dir: &Path, parent: bool) -> bool {
+        let Some((cfg, read)) = &self.archives else { return false };
+        read.iter().any(|r| r == dir) || parent && !crate::store::left_out(dir, cfg)
+    }
+
+    /// Whether the archives in `dir` are looked into, from its path alone.
+    fn looks_in(&self, dir: &Path) -> bool {
+        let Some((cfg, read)) = &self.archives else { return false };
+        read.iter().any(|r| dir.starts_with(r) && !dir.ancestors().take_while(|a| a != r).any(|a| crate::store::left_out(a, cfg)))
+    }
+
+    /// An archive's entries as its children: from `before` when it knew the archive as it is,
+    /// else read from it.
+    fn open_up(path: &Path, s: &mut Scanned, before: Option<&Index>) {
+        let Some(stamp) = stamp_of(path) else { return };
+        s.stamp = Some(Box::new(stamp));
+        let known = before.and_then(|b| b.find_dir(path).filter(|(id, _)| b.stamps.get(id) == Some(&stamp)).map(|(id, _)| (b, id)));
+        s.children = match known {
+            Some((b, id)) => b.subtree(id),
+            None => crate::archive::search_entries(path, stamp.0).map(tree).unwrap_or_default(),
+        };
+    }
+
+    /// What is below `id` (an archive), as scanned: its nodes follow it, each after its parent.
+    fn subtree(&self, id: u32) -> Vec<Scanned> {
+        // A stack of the nodes on the way down to the one being read.
+        let mut stack: Vec<(u32, Scanned)> = vec![(id, Scanned { name: String::new(), is_dir: true, children: vec![], stamp: None })];
+        for i in id + 1..self.nodes.len() as u32 {
+            let n = self.nodes[i as usize];
+            if n.parent < id || n.parent >= i {
+                break;
+            }
+            while stack.last().is_some_and(|(top, _)| *top != n.parent) {
+                let (_, done) = stack.pop().unwrap();
+                stack.last_mut().unwrap().1.children.push(done);
+            }
+            let name = String::from_utf8_lossy(self.name(i)).into_owned();
+            stack.push((i, Scanned { name, is_dir: n.flags & DIR != 0, children: vec![], stamp: None }));
+        }
+        while stack.len() > 1 {
+            let (_, done) = stack.pop().unwrap();
+            stack.last_mut().unwrap().1.children.push(done);
+        }
+        stack.pop().unwrap().1.children
     }
 
     fn push(&mut self, parent: u32, name: &str, is_dir: bool) -> u32 {
@@ -151,6 +262,10 @@ impl Index {
 
     fn push_tree(&mut self, parent: u32, s: Scanned) -> u32 {
         let id = self.push(parent, &s.name, s.is_dir);
+        if let Some(stamp) = s.stamp {
+            self.nodes[id as usize].flags |= ARC;
+            self.stamps.insert(id, *stamp);
+        }
         for c in s.children {
             self.push_tree(id, c);
         }
@@ -175,7 +290,7 @@ impl Index {
             let n = self.nodes[i];
             let ph = if n.parent == NONE { 0 } else { h[n.parent as usize] };
             h[i] = self.hash_of(i as u32, ph);
-            if n.flags & (DIR | GONE) == DIR {
+            if holds(n.flags) && n.flags & GONE == 0 {
                 self.dirs.insert(h[i], i as u32);
             }
         }
@@ -223,7 +338,7 @@ impl Index {
     /// scanned. Needs no write lock, so searches go on while a moved-in tree is read.
     pub fn look(&self, dirs: &HashSet<PathBuf>) -> Looked {
         let targets: HashMap<u32, (PathBuf, u64)> =
-            dirs.iter().filter_map(|d| self.find_dir(d).map(|(id, h)| (id, (d.clone(), h)))).collect();
+            dirs.iter().filter_map(|d| self.find_dir(d).filter(|(id, _)| self.nodes[*id as usize].flags & DIR != 0).map(|(id, h)| (id, (d.clone(), h)))).collect();
         if targets.is_empty() {
             return Looked::default();
         }
@@ -244,10 +359,20 @@ impl Index {
             .map(|(id, (dir, h))| {
                 let is_dir = dir.is_dir();
                 let mut on_disk = if is_dir { self.scan_one(&dir) } else { vec![] };
+                let look = is_dir && self.looks_in(&dir);
                 let same = |s: &Scanned| known.get(&id).and_then(|k| k.get(s.name.as_bytes())).is_some_and(|&c| (self.nodes[c as usize].flags & DIR != 0) == s.is_dir);
-                for s in on_disk.iter_mut().filter(|s| s.is_dir) {
-                    if !same(s) {
-                        s.children = self.scan(&dir.join(&s.name));
+                for s in on_disk.iter_mut() {
+                    if s.is_dir && !same(s) {
+                        let path = dir.join(&s.name);
+                        let below = self.looks_below(&path, look);
+                        s.children = self.scan(&path, None, below);
+                    } else if !s.is_dir && look && crate::archive::is_archive(Path::new(&s.name)) {
+                        // An archive that is new, or changed since it was looked into, is read again.
+                        let path = dir.join(&s.name);
+                        let had = known.get(&id).and_then(|k| k.get(s.name.as_bytes())).and_then(|c| self.stamps.get(c));
+                        if had.is_none() || had.copied() != stamp_of(&path) {
+                            Index::open_up(&path, s, None);
+                        }
                     }
                 }
                 (id, h, is_dir, on_disk)
@@ -266,15 +391,15 @@ impl Index {
             for s in on_disk {
                 match known.remove(s.name.as_bytes()) {
                     // Same name, same kind: unchanged.
-                    Some(c) if (self.nodes[c as usize].flags & DIR != 0) == s.is_dir => {}
+                    Some(c) if (self.nodes[c as usize].flags & DIR != 0) == s.is_dir && s.stamp.is_none() => {}
                     old => {
                         if let Some(c) = old {
                             self.remove(c, chain(h, self.name(c)));
                         }
-                        let is_dir = s.is_dir;
+                        let holder = s.is_dir || s.stamp.is_some();
                         let start = self.nodes.len();
                         self.push_tree(id, s);
-                        if is_dir {
+                        if holder {
                             self.hash_new(start);
                         }
                     }
@@ -296,6 +421,7 @@ impl Index {
                 // d_type from readdir: no stat, and symlinks are not followed.
                 is_dir: de.file_type().is_ok_and(|t| t.is_dir()),
                 children: vec![],
+                stamp: None,
             })
             .filter(|s| !(s.is_dir && self.excluded(&dir.join(&s.name), &s.name)))
             .collect()
@@ -311,7 +437,7 @@ impl Index {
                 None => self.path(n.parent).and_then(|p| self.find_dir(&p)).map_or(0, |x| x.1),
             };
             let hi = self.hash_of(i as u32, ph);
-            if n.flags & DIR != 0 {
+            if holds(n.flags) {
                 h.insert(i as u32, hi);
                 self.dirs.insert(hi, i as u32);
             }
@@ -323,9 +449,10 @@ impl Index {
         if n.flags & GONE == 0 {
             n.flags |= GONE;
             self.gone += 1;
-            if n.flags & DIR != 0 {
+            if holds(n.flags) {
                 self.dirs.remove(&hash);
             }
+            self.stamps.remove(&id);
         }
     }
 
@@ -452,6 +579,13 @@ impl Index {
             w.write_all(&[n.flags, 0])?;
         }
         w.write_all(&self.names)?;
+        // Then the archives looked into, as they were: a rebuild takes their entries from here.
+        w.write_all(&(self.stamps.len() as u32).to_le_bytes())?;
+        for (id, (size, modified)) in &self.stamps {
+            w.write_all(&id.to_le_bytes())?;
+            w.write_all(&size.to_le_bytes())?;
+            w.write_all(&modified.to_le_bytes())?;
+        }
         w.into_inner()?.sync_all()?;
         fs::rename(tmp, path)
     }
@@ -481,6 +615,16 @@ impl Index {
             })
             .collect();
         let names = r.take(n_names)?.to_vec();
+        // An index from before archives were looked into ends here.
+        let mut stamps = HashMap::new();
+        if let Ok(n) = r.u32() {
+            for c in r.take(n as usize * 20)?.chunks_exact(20) {
+                let id = u32::from_le_bytes(c[0..4].try_into().unwrap());
+                if (id as usize) < nodes.len() {
+                    stamps.insert(id, (u64::from_le_bytes(c[4..12].try_into().unwrap()), u64::from_le_bytes(c[12..20].try_into().unwrap())));
+                }
+            }
+        }
         // A damaged file must not take the helper down at every start: every name inside the
         // buffer, every parent an earlier node (so no cycles), the names in order.
         let sound = |(i, n): (usize, &Node)| (n.off as usize + n.len as usize) < names.len() && (n.parent == NONE || (n.parent as usize) < i) && (i == 0 || n.off > nodes[i - 1].off);
@@ -499,6 +643,7 @@ impl Index {
             roots: strs.pop().unwrap().into_iter().map(PathBuf::from).collect(),
             exclude,
             gone: nodes.iter().filter(|n| n.flags & GONE != 0).count(),
+            stamps,
             names,
             lower,
             nodes,
@@ -677,11 +822,11 @@ impl Service {
     pub fn start(cfg: &SearchConfig) -> Arc<Service> {
         let roots = if cfg.roots.is_empty() { Index::default_roots() } else { cfg.roots.clone() };
         let cache = Index::cache_path();
-        let cached = cache.as_deref().and_then(|p| Index::load(p).ok()).filter(|ix| ix.roots == roots && ix.exclude == cfg.exclude);
+        let cached = cache.as_deref().and_then(|p| Index::load(p).ok()).filter(|ix| ix.roots == roots && ix.exclude == cfg.exclude).map(|ix| Index { archives: cfg.archives.then(|| (cfg.clone(), crate::store::roots(cfg))), ..ix });
         let state = if cached.is_some() { State::Stale } else { State::Building };
         let svc = Arc::new(Service { index: RwLock::new(cached.unwrap_or_default()), state: AtomicU8::new(state as u8), listeners: Mutex::default() });
-        let (s, exclude, watch) = (svc.clone(), cfg.exclude.clone(), cfg.watch);
-        std::thread::spawn(move || s.run(roots, exclude, cache, watch));
+        let (s, exclude, watch, archives) = (svc.clone(), cfg.exclude.clone(), cfg.watch, cfg.archives.then(|| cfg.clone()));
+        std::thread::spawn(move || s.run(roots, exclude, cache, watch, archives));
         svc
     }
 
@@ -712,14 +857,15 @@ impl Service {
         rx
     }
 
-    fn run(&self, roots: Vec<PathBuf>, exclude: Vec<String>, cache: Option<PathBuf>, watch: bool) {
+    fn run(&self, roots: Vec<PathBuf>, exclude: Vec<String>, cache: Option<PathBuf>, watch: bool, archives: Option<SearchConfig>) {
         use notify::{RecursiveMode, Watcher};
         let (tx, rx) = std::sync::mpsc::channel::<notify::Result<notify::Event>>();
         let mut watcher: Option<notify::RecommendedWatcher> = None;
         let mut rebuild_at = Instant::now();
         loop {
             if rebuild_at <= Instant::now() {
-                let fresh = Index::build(&roots, &exclude);
+                // Archives that have not changed since are not read again.
+                let fresh = Index::build(&roots, &exclude, archives.as_ref(), Some(&self.index.read().unwrap()));
                 *self.index.write().unwrap() = fresh;
                 self.state.store(State::Ready as u8, Ordering::Relaxed);
                 if let Some(c) = &cache {
@@ -791,7 +937,7 @@ mod tests {
     #[test]
     fn index_query_syntax() {
         let d = tree("q");
-        let ix = Index::build(&[d.clone()], &["skip".into()]);
+        let ix = Index::build(&[d.clone()], &["skip".into()], None, None);
         assert_eq!(names(&ix, "main"), ["main.rs"]);
         assert_eq!(names(&ix, "MAIN"), ["main.rs"]);
         assert_eq!(names(&ix, "case: MAIN"), Vec::<String>::new());
@@ -812,7 +958,7 @@ mod tests {
     #[test]
     fn index_refresh_and_persist() {
         let d = tree("r");
-        let mut ix = Index::build(&[d.clone()], &[]);
+        let mut ix = Index::build(&[d.clone()], &[], None, None);
         fs::remove_file(d.join("src/lib.rs")).unwrap();
         fs::remove_dir_all(d.join("docs")).unwrap();
         fs::create_dir_all(d.join("src/new/deep")).unwrap();
@@ -842,6 +988,84 @@ mod tests {
             fs::write(&file, &bad).unwrap();
             assert!(Index::load(&file).is_err());
         }
+        fs::remove_dir_all(d).unwrap();
+    }
+
+    #[test]
+    fn index_looks_inside_archives_and_follows_their_changes() {
+        let d = std::env::temp_dir().join(format!("coxswain-ix-arc-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&d);
+        let home = d.join("home");
+        for (f, text) in [("src/main.rs", "fn main() {}"), ("src/ui/App.svelte", "<p/>"), ("docs/notes.txt", "notes"), ("launch.rs", ""), ("secret-plan.txt", "x")] {
+            fs::create_dir_all(d.join(f).parent().unwrap()).unwrap();
+            fs::write(d.join(f), text).unwrap();
+        }
+        fs::create_dir_all(&home).unwrap();
+        let (tgz, zip, seven) = (home.join("website.tar.gz"), home.join("docs.zip"), home.join("locked.7z"));
+        crate::archive::create(&tgz, &[d.join("src")]).unwrap();
+        crate::archive::create(&zip, &[d.join("docs")]).unwrap();
+        // A 7z whose names are locked too. Its password, given in this run, is not used.
+        let mut w = sevenz_rust2::ArchiveWriter::create(&seven).unwrap();
+        w.set_content_methods(vec![sevenz_rust2::encoder_options::AesEncoderOptions::new(sevenz_rust2::Password::from("hunter2")).into(), sevenz_rust2::EncoderMethod::LZMA2.into()]);
+        w.push_archive_entry(sevenz_rust2::ArchiveEntry::from_path(d.join("secret-plan.txt"), "secret-plan.txt".into()), Some(fs::File::open(d.join("secret-plan.txt")).unwrap())).unwrap();
+        w.finish().unwrap();
+        crate::archive::remember(&seven, "hunter2");
+
+        let paths = |ix: &Index, q: &str, scope: Option<&Path>| {
+            let mut v: Vec<PathBuf> = ix.search(q, scope, 100).hits.into_iter().map(|h| h.path).collect();
+            v.sort();
+            v
+        };
+        // Hidden folders, like the others whose text is not read, are not looked into.
+        fs::create_dir_all(home.join(".cache")).unwrap();
+        crate::archive::create(&home.join(".cache/old.zip"), &[d.join("launch.rs")]).unwrap();
+        let cfg = SearchConfig { text_roots: vec![home.clone()], ..SearchConfig::default() };
+        let mut ix = Index::build(&[home.clone()], &[], Some(&cfg), None);
+        assert_eq!(paths(&ix, "launch", None), Vec::<PathBuf>::new());
+        assert_eq!(paths(&ix, "main.rs", None), [tgz.join("src").join("main.rs")]);
+        assert!(ix.search("ui", None, 10).hits.iter().any(|h| h.is_dir && h.path == tgz.join("src").join("ui")), "a folder only named in paths is one");
+        assert_eq!(paths(&ix, "secret", None), Vec::<PathBuf>::new(), "a locked 7z keeps its names");
+        assert_eq!(paths(&ix, "website", None), [tgz.clone()], "an archive is still a file");
+        // In this folder: the folder an archive is in, and a folder inside one.
+        assert_eq!(paths(&ix, "svelte", Some(&home)), [tgz.join("src").join("ui").join("App.svelte")]);
+        assert_eq!(paths(&ix, "svelte", Some(&tgz.join("src"))).len(), 1);
+        assert_eq!(paths(&ix, "notes", Some(&tgz)), Vec::<PathBuf>::new());
+        assert_eq!(paths(&Index::build(&[home.clone()], &[], None, None), "main", None), Vec::<PathBuf>::new(), "switched off");
+        let elsewhere = SearchConfig { text_roots: vec![d.join("src")], ..SearchConfig::default() };
+        assert_eq!(paths(&Index::build(&[home.clone()], &[], Some(&elsewhere), None), "main", None), Vec::<PathBuf>::new(), "not a folder read");
+
+        // Changed by Coxswain: a file in, a folder out, one renamed. The watcher's folder is read again.
+        crate::archive::add(&tgz, &[("src/launch.rs".into(), d.join("launch.rs"))], None).unwrap();
+        crate::archive::remove(&tgz, &["src/ui".into()], None).unwrap();
+        crate::archive::rename_in(&zip, "docs/notes.txt", "docs/minutes.txt", None).unwrap();
+        ix.refresh(&[home.clone()].into_iter().collect());
+        assert_eq!(paths(&ix, "ext:rs", None), [tgz.join("src").join("launch.rs"), tgz.join("src").join("main.rs")]);
+        assert_eq!((paths(&ix, "svelte", None), paths(&ix, "notes", None)), (vec![], vec![]));
+        assert_eq!(paths(&ix, "minutes", Some(&zip.join("docs"))), [zip.join("docs").join("minutes.txt")]);
+        // Changed by anything else: written anew.
+        fs::remove_file(&zip).unwrap();
+        crate::archive::create(&zip, &[d.join("launch.rs")]).unwrap();
+        ix.refresh(&[home.clone()].into_iter().collect());
+        assert_eq!(paths(&ix, "minutes", None), Vec::<PathBuf>::new());
+        assert_eq!(paths(&ix, "launch", Some(&zip)), [zip.join("launch.rs")]);
+
+        // Saved and loaded with what it knows of each archive: a rebuild takes the entries of an
+        // archive that has not changed from it, without reading the archive.
+        let file = d.join("ix.bin");
+        ix.save(&file).unwrap();
+        let back = Index::load(&file).unwrap();
+        assert_eq!(paths(&back, "ext:rs", None), paths(&ix, "ext:rs", None));
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            fs::set_permissions(&tgz, fs::Permissions::from_mode(0)).unwrap();
+            if fs::File::open(&tgz).is_err() {
+                assert_eq!(paths(&Index::build(&[home.clone()], &[], Some(&cfg), Some(&back)), "main", None), [tgz.join("src").join("main.rs")]);
+                assert_eq!(paths(&Index::build(&[home.clone()], &[], Some(&cfg), None), "main", None), Vec::<PathBuf>::new());
+            }
+            fs::set_permissions(&tgz, fs::Permissions::from_mode(0o644)).unwrap();
+        }
+        crate::archive::forget(&seven);
         fs::remove_dir_all(d).unwrap();
     }
 

@@ -58,6 +58,7 @@ New here? Start with [The screen](panels/the-screen.md) and [Every default key](
 | [Documents it reads](search/documents.md) | PDF, Word, RTF, spreadsheets, slides, mail, books, notebooks, diagrams, Markdown |
 | [Scans, pictures and older Office files](search/scans.md) | Tesseract, pdftoppm, LibreOffice and how to install them |
 | [Diagrams read as sentences](search/diagrams.md) | Draw.io, Mermaid, Graphviz, PlantUML, with examples and limits |
+| [Inside archives](search/archives.md) | Files in zip, 7z and tar found by name, text, meaning and Ask; which archives, changes, locked ones, limits |
 | [Choosing the folders: folders read, names only, .nosearch](search/folders.md) | Folders read, Names only, .nosearch, text_exclude |
 | [Removable disks](search/removable-disks.md) | Text kept while unplugged, found again at any mount point |
 | [Search by meaning](search/meaning.md) | The built-in multilingual model, turning it on and off, what you see, how it works |

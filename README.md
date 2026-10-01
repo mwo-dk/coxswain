@@ -15,7 +15,7 @@ Commander blue to Windows 95 and Mac OS 9.*
 ## Highlights
 
 - **Norton Commander at heart:** two panels, the F-key bar, a command line and NC's keys. [Panels and keys](docs/panels/README.md)
-- **Find by name, text or meaning:** Ctrl+F, and Tab goes deeper, from every name on the machine to what a file is about. [Search](docs/search/README.md)
+- **Find by name, text or meaning:** Ctrl+F, and Tab goes deeper, from every name on the machine to what a file is about, inside your zip, 7z and tar archives too. [Search](docs/search/README.md) · [Inside archives](docs/search/archives.md)
 - **Ask your files:** a question in your own words, answered by your own chat model from the closest passages, with numbered sources. [Ask](docs/search/ask.md)
 - **Search by meaning, in any language:** a small model on your machine, or your own Ollama, Lemonade or OpenAI-style server. [Search by meaning](docs/search/meaning.md)
 - **See before you open:** code, Markdown, PDF, Word, PowerPoint, spreadsheets, SQLite, HTML, fonts, video and more. [The preview pane](docs/previews/README.md)
@@ -107,6 +107,7 @@ Newest first. Downloads for each release are on the [releases page](https://gith
 
 | Version | Date | What's new |
 |---|---|---|
+| **1.23.0** | 2026-10-01 | Search inside archives: the files in your zip, 7z and tar archives are found by name, by their text, by meaning and by Ask, shown as a path through the archive, and Enter opens the archive there; a changed archive is read again, a locked one keeps its secrets. On by default, *Search inside archives* in Settings. [Inside archives](docs/search/archives.md) |
 | **1.22.3** | 2026-10-01 | Both apps reviewed: Ctrl+C in a command keeps the terminal app, Delete while typing a command deletes nothing, Alt+F2 paths start from the right panel, the F-key bar names the action a shared key runs; the desktop app lists your own themes under F9, runs F2 entries with an upper-case key, shows USB sticks under `/run/media`, draws ASCII or your own folder/file/link glyphs, keeps Automatic on British English, and says when an editor or opener fails. [Keys](docs/panels/keys.md) · [Glyphs](docs/customise/glyphs-and-fonts.md) |
 | **1.22.2** | 2026-10-01 | Archive review: a 7z with locked contents asks for its password when changed, F5/F6/Ctrl+V into an archive keep the name you give, F8 inside says Delete, only the locked files run again after a password, an archive is listed once while it does not change and written by one change at a time, 7z entries keep their dates, extraction reads a 7z once, an archive inside one is not opened empty, moves fall back to copying only across disks, case-only renames work where case does not count, and a batch rename that fails gives names back. [Archives](docs/files/archives.md) |
 | **1.22.1** | 2026-10-01 | Search review: folder totals twenty times faster over a big store, searches go on while the index reads a moved-in folder, a damaged index cache never crashes the helper, a server's refusal of one file no longer stops search by meaning, API keys reach the model lists, diagram sentences get vectors in long files, and honest preview notes. [Search](docs/search/README.md) |
