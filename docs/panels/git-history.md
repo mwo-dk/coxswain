@@ -41,7 +41,7 @@ the commit changed in it, view it with **F3** and copy an old version out with *
    your pager.
 5. **F5** copies the file or folder under the cursor, as it was then, to the other panel.
    **F5** on a commit in the list copies the whole folder at that commit, named
-   `src-a1b2c3d`.
+   `src-a1b2c3d`. The files copied out get the commit's date, not today's.
 6. **Backspace** (or `..`) goes up: from a commit to the list of commits, from the list back to
    the folder on disk, with the cursor on the file you started from.
 
@@ -108,7 +108,8 @@ history is there and which key opens it ([Notices](../search/notices.md)).
 Everything above works the same, keys included; the differences are in
 [The terminal app](../reference/terminal-app.md#git-history-in-the-terminal-app): the title says
 `[history]` or `[commit a1b2c3d]`, and **F3** opens a copy in your pager instead of the preview
-pane.
+pane. A long list of commits is read on a thread: the status line says *Working on …* until it
+is there, and the keys keep working meanwhile.
 
 ## Questions
 

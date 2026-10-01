@@ -24,7 +24,8 @@ numbers measured on synthetic data, so you know what to expect and can measure a
 - **Find file** searches an in-memory index of every name (a million names in about 140 MB)
   in a few milliseconds; the index is shared by every window and the terminal app through the
   helper, and loads from its cache in well under a second. See [Names everywhere](../search/names.md).
-- **git status** runs on its own thread, so a big repository never holds up the listing.
+- **git status** runs on its own thread, so a big repository never holds up the listing; the
+  statuses of a folder's entries come from git's answer alone, without reading the folder again.
 - **Anything that takes a while** says so: while files are copied, moved, deleted, extracted
   or packed, the status line reads *Working on …*; a folder that takes longer than 150 ms to
   read says *Working on <folder>…* until it arrives.
@@ -35,14 +36,20 @@ numbers measured on synthetic data, so you know what to expect and can measure a
   a screenful of rows plus a few beyond each edge in the DOM, and empty space of the right
   height for the rest. A folder of 100,000 files costs what a folder of 40 does: it lists in
   about 30 ms once the data is there, and a cursor move takes a millisecond. Every row is
-  exactly `font_size × line_height` pixels high, so the list never jumps.
+  exactly `font_size × line_height` pixels high, so the list never jumps. Thumbnails do the
+  same with rows of tiles: a folder of 100,000 files opens in thumbnails in 15 ms.
+- **A listing is sent small.** An entry's path is left out when it is the folder's path and
+  the name (the page joins them), and so are flags that are off and tags that are not set:
+  100,000 entries are 14 MB of JSON instead of 26.
 - **The window's thread does no disk work.** Every command that reads or writes a file, the
   clipboard or the config runs on the async runtime; the heavy ones (git, searches, folder
   sizes, duplicates, previews made by tools) go to blocking threads of their own.
 - **Previews wait for the cursor to settle.** Text, data and images load 80 ms after the
   cursor stops; previews made by tools (LibreOffice, LaTeX) wait longer and only start by
   themselves when the tool is quick. A preview that comes back for a file you have moved on
-  from is dropped. Highlighting stops at 200,000 characters; bigger text shows plain.
+  from is dropped. Highlighting runs on a worker, off the window's thread, and a newer
+  preview drops the one still being highlighted; it stops at 200,000 characters, bigger text
+  shows plain.
 - **Find file** shows at most 500 hits (the count still says how many there are); duplicates
   show 500 groups; the BOM tree draws the branches that are open.
 - **Folders watched** reread themselves at most four times a second while something writes
@@ -58,9 +65,11 @@ numbers measured on synthetic data, so you know what to expect and can measure a
 - **Sorting again sorts the entries it has**; it does not reread the folder.
 - **Searches, git status, folder sizes, Ask and the update check** run on threads and arrive
   between frames; the main loop polls for keys every 200 ms (30 ms while a search is out).
-- **Copy, move, delete, extract and pack** run after the frame that puts *Working on …* on
-  the status line, so a long copy shows what it is doing. The terminal app does not take keys
-  while they run.
+- **Copy, move, delete, extract and pack** run on a thread of their own; the keys keep
+  working, and the status line says *Working on …* with the item it is on (`(2/3)`). One runs
+  at a time; quitting waits for it to finish, so no half-copied file is left.
+- **A history's commits** are read by git on a thread, so a long history (or a rarely changed
+  file in a big repository, which git has to walk the whole history for) never holds up keys.
 
 ## The numbers
 
