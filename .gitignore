@@ -27,6 +27,12 @@ node_modules
 gui/dist
 gui/src-tauri/gen
 
+# Bills of materials and notices made by tools/bom/generate.sh, and the release's copy of the
+# notices for the desktop installers
+/target/bom
+/dist-bom
+gui/src-tauri/THIRD-PARTY-NOTICES.md
+
 # Release archives made by package.sh
 /coxswain-*.tar.gz
 /coxswain-*.zip

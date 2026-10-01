@@ -25,6 +25,31 @@ jobs:
         with:
           command: check advisories licenses bans sources
 
+  # The release's SBOMs, CBOM and notices (tools/bom/README.md), made on every change so that a
+  # new crypto dependency, moved code or a licence outside the list fails here, not at release.
+  bom:
+    name: bills of materials
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de # v1
+        with:
+          toolchain: stable
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          key: boms
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: gui/package-lock.json
+      - run: npm ci --no-audit --no-fund
+        working-directory: gui
+      - run: cargo install --locked cargo-cyclonedx@0.5.7 cargo-about@0.8.4
+      - run: tools/bom/generate.sh
+
   npm:
     name: npm audit
     runs-on: ubuntu-24.04

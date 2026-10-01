@@ -26,4 +26,5 @@ package() {
   install -Dm755 "coxswain-terminal-v$pkgver-x86_64-unknown-linux-musl/coxswain" "$pkgdir/usr/bin/coxswain"
   ln -s coxswain "$pkgdir/usr/bin/cox"
   install -Dm644 "coxswain-terminal-v$pkgver-x86_64-unknown-linux-musl/LICENSE" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+  install -Dm644 "coxswain-terminal-v$pkgver-x86_64-unknown-linux-musl/THIRD-PARTY-NOTICES.md" "$pkgdir/usr/share/licenses/$pkgname/THIRD-PARTY-NOTICES.md"
 }

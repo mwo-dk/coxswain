@@ -31,6 +31,9 @@ These rules hold for every contributor and every Claude session in this reposito
   for the live dev server; without that flag dev loads `dist` too.
 - **Check before pushing:** `cargo test --workspace`, and for GUI changes
   `cd gui && npx svelte-check && npm test && npm run build`.
+- **Bills of materials:** a dependency that does cryptography needs its use described in
+  `tools/bom/crypto.toml`, and an npm licence outside `deny.toml`'s list needs reading first;
+  the *bills of materials* check fails until then (`tools/bom/README.md`).
 - **The terminal app ships as a static musl binary.** A dependency that compiles C must build
   for `x86_64-unknown-linux-musl` too; CI checks it. Prefer pure-Rust crates.
 
