@@ -305,7 +305,7 @@ fn build(cfg: &PreviewConfig, tool: &str, engine: &str, path: &Path, out: &Path,
         c.arg("-w").arg(workdir.to_string_lossy().replace('\\', "/"));
         let stdin = match tool {
             "latex" => {
-                c.args([image.as_str(), "latexmk", flag.unwrap_or_else(|| latex::engine_flag(path)), "-interaction=nonstopmode", "-outdir=/out", &name]);
+                c.args([image.as_str(), "latexmk", flag.unwrap_or_else(|| latex::engine_flag(path)), "-interaction=nonstopmode", "-norc", "-outdir=/out", &name]);
                 None
             }
             "libreoffice" => {
@@ -314,11 +314,11 @@ fn build(cfg: &PreviewConfig, tool: &str, engine: &str, path: &Path, out: &Path,
             }
             // The official images' entry points are the tools themselves.
             "plantuml" => {
-                c.args(["-i", image, "-tsvg", "-pipe"]);
+                c.args(["-e", "PLANTUML_SECURITY_PROFILE=ALLOWLIST", "-e", "JAVA_TOOL_OPTIONS=-Dplantuml.allowlist.path=/src", "-i", image, "-tsvg", "-pipe"]);
                 Some(path)
             }
             "pandoc" => {
-                c.args(["-i", image, "-f", "rst", "-t", "html5"]);
+                c.args(["-i", image, "--sandbox", "-f", "rst", "-t", "html5"]);
                 Some(path)
             }
             _ => {
@@ -335,7 +335,9 @@ fn build(cfg: &PreviewConfig, tool: &str, engine: &str, path: &Path, out: &Path,
     match (tool, which_one) {
         ("latex", "latexmk") => {
             // No -halt-on-error: past a first error LaTeX usually still makes the PDF.
-            c.args([flag.unwrap_or_else(|| latex::engine_flag(path)), "-interaction=nonstopmode"]).arg(format!("-outdir={}", out.display())).arg(&name);
+            c.args([flag.unwrap_or_else(|| latex::engine_flag(path)), "-interaction=nonstopmode"]).arg(format!("-outdir={}", out.display()));
+            latex::own_rc(&mut c);
+            c.arg(&name);
         }
         ("latex", "tectonic") => {
             c.arg("--outdir").arg(out).arg(&name);
@@ -362,11 +364,15 @@ fn build(cfg: &PreviewConfig, tool: &str, engine: &str, path: &Path, out: &Path,
             return wait(c, timeout, None);
         }
         ("plantuml", _) => {
+            // A diagram may include files from its own folder, and nothing from the web.
+            let java = std::env::var("JAVA_TOOL_OPTIONS").map(|o| format!("{o} ")).unwrap_or_default();
+            c.env("PLANTUML_SECURITY_PROFILE", "ALLOWLIST").env("JAVA_TOOL_OPTIONS", format!("{java}-Dplantuml.allowlist.path=\"{}\"", dir.display()));
             c.args(["-tsvg", "-pipe"]);
             return capture(c, Some(path), timeout, file, None);
         }
         ("pandoc", _) => {
-            c.args(["-f", "rst", "-t", "html5"]);
+            // --sandbox: no includes of files and nothing from the web.
+            c.args(["--sandbox", "-f", "rst", "-t", "html5"]);
             return capture(c, Some(path), timeout, file, None);
         }
         _ => {
@@ -467,6 +473,18 @@ mod latex {
             }
         }
         newest
+    }
+
+    /// latexmk reads a `latexmkrc` in the document's folder, which is Perl: a downloaded
+    /// project could run anything while it is looked at. Only the user's own rc files count.
+    pub fn own_rc(c: &mut std::process::Command) {
+        c.arg("-norc");
+        let home = std::env::home_dir().unwrap_or_default();
+        for rc in [home.join(".latexmkrc"), home.join("latexmkrc"), home.join(".config/latexmk/latexmkrc")] {
+            if rc.is_file() {
+                c.arg("-r").arg(rc);
+            }
+        }
     }
 
     /// latexmk's flag for `% !TEX program = xelatex` and friends; without one, the engine the

@@ -23,7 +23,8 @@ pub async fn git_diff(path: PathBuf) -> Res<Option<String>> {
     let out = coxswain_core::tools::command("git")
         .arg("-C")
         .arg(dir)
-        .args(["diff", "--no-color", "--no-ext-diff", "HEAD", "--"])
+        // No external diff or textconv program from the repository's own config.
+        .args(["-c", "core.fsmonitor=false", "diff", "--no-color", "--no-ext-diff", "--no-textconv", "HEAD", "--"])
         .arg(name)
         .output()
         .map_err(|e| e.to_string())?;

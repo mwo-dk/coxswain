@@ -33,8 +33,14 @@ open it outside the pane:
   extracting an archive, and only when you press **Ctrl+E**.
 - **Change a database.** SQLite and DuckDB files are opened read-only; counting SQLite rows
   stops after about a second per table.
-- **Let a document run programs.** LaTeX runs without `-shell-escape`; containers have no
-  network.
+- **Let a document run programs.** LaTeX runs without `-shell-escape`, and latexmk without the
+  `latexmkrc` a project may carry (it is Perl); only your own `~/.latexmkrc` is read. pandoc
+  runs with `--sandbox`, PlantUML may include files from the diagram's folder only, and
+  containers have no network.
+- **Reach the web.** The webview is held to the app's own pages and your disk by a content
+  security policy: a picture at an `https://` address in a Markdown file, notebook or book
+  stays an empty box, and no preview can report that it was opened. A web link you click in a
+  rendered file opens in your browser.
 - **Download a tool by itself.** Pulling a container image, the one big download, waits for a
   click, and the engine button says what will be pulled beforehand.
 
@@ -43,11 +49,10 @@ open it outside the pane:
 | What | When |
 |---|---|
 | Pulling a container image | After your click on the engine or **Pull** |
-| A picture in a Markdown file or notebook given by an `https://` address | When the file is shown; the webview loads it, as a browser would |
 | tectonic's package bundle | When tectonic builds a document; tectonic's own design |
 
 Nothing else: every library (Mermaid, KaTeX, SheetJS, draw.io's viewer, Graphviz, …) ships inside
-the app, and HTML pages are blocked from the web entirely.
+the app, and previews of every kind are blocked from the web.
 
 ## Speed
 
@@ -94,11 +99,12 @@ A preview never runs a file's scripts, writes next to files, or starts a program
 except the tools on [Previews made by tools](tools.md), which read it and write only to the
 cache. What a file *is* still matters when you press **Enter**: that opens it in its program.
 
-#### Why do pictures from the web show in Markdown but not in an HTML page?
+#### Why are pictures from the web missing in a Markdown preview?
 
-A Markdown file is shown in the app itself, where the webview loads `https://` pictures as a
-browser would. An HTML page is shown in a sandbox whose policy blocks everything from the web,
-because pages use web pictures to report that they were opened.
+Because files use web pictures to report that they were opened. The app's content security
+policy lets the webview load only the app itself and files on your disk, so an `https://`
+picture in a Markdown file, notebook or book stays an empty box. Press **Enter** to open the
+file in a program that fetches it.
 
 #### Why does the preview only show the start of a big file?
 

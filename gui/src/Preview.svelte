@@ -323,6 +323,14 @@
     if (tb.dir === noteDir) tb.hasNotes = !!note.trim();
   }
 
+  /** A link in a rendered file: the webview never leaves the app; web links open in the browser. */
+  function linkClick(ev) {
+    const a = ev.target?.closest?.("a[href]");
+    if (!a) return;
+    ev.preventDefault();
+    if (/^(https?|mailto):/i.test(a.href)) invoke("open_path", { path: a.href });
+  }
+
   async function calcSize() {
     const r = (await invoke("dir_sizes", { paths: [e.path] }))[e.path];
     if (r) pane.sizes[e.path] = r[0];
@@ -397,7 +405,8 @@
       {/if}
     </header>
 
-    <div class="body" class:flush={kind === "bom" && !source && !diffing}>
+    <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+    <div class="body" class:flush={kind === "bom" && !source && !diffing} onclick={linkClick}>
       {#if kind === "in-archive"}
         {#if peeked.error.includes(LOCKED)}
           <p class="more">{t("archive.preview_locked")} <button class="link" onclick={unlock}>{t("archive.preview_unlock")}</button></p>

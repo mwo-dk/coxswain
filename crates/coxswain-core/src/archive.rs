@@ -676,10 +676,17 @@ fn rewrite(archive: &Path, keep: &dyn Fn(&str) -> Option<String>, add: &[(String
     let written = (|| -> io::Result<()> {
         if k == Kind::Zip {
             let mut w = zip::ZipWriter::new(File::create(&tmp)?);
+            // New files go into a locked zip locked too, with its password; a wrong one, or
+            // none, is refused, so the apps ask.
+            let mut pw = None;
             if exists {
                 let mut z = zip::ZipArchive::new(BufReader::new(File::open(archive)?)).map_err(io::Error::other)?;
+                let mut first_locked = None;
                 for i in 0..z.len() {
                     let e = z.by_index_raw(i).map_err(io::Error::other)?;
+                    if e.encrypted() && !e.is_dir() {
+                        first_locked.get_or_insert(i);
+                    }
                     let old = e.name().trim_end_matches('/').to_string();
                     let slash = e.name().ends_with('/');
                     match keep(&old) {
@@ -689,6 +696,11 @@ fn rewrite(archive: &Path, keep: &dyn Fn(&str) -> Option<String>, add: &[(String
                     }
                     .map_err(io::Error::other)?;
                 }
+                if let (Some(i), true) = (first_locked, add.iter().any(|(_, n)| matches!(n, New::File(_)))) {
+                    let given = password_for(archive, password).ok_or_else(locked)?;
+                    z.by_index_decrypt(i, given.as_bytes()).map_err(|e| if matches!(e, zip::result::ZipError::InvalidPassword) { locked() } else { io::Error::other(e) })?;
+                    pw = Some(given);
+                }
             }
             let opts = zip::write::SimpleFileOptions::default().compression_method(zip::CompressionMethod::Deflated);
             for (name, new) in add {
@@ -696,6 +708,10 @@ fn rewrite(archive: &Path, keep: &dyn Fn(&str) -> Option<String>, add: &[(String
                     New::Dir => w.add_directory(format!("{name}/"), opts).map_err(io::Error::other)?,
                     New::File(path) => {
                         let opts = opts.last_modified_time(zip_time(modified(path)));
+                        let opts = match &pw {
+                            Some(pw) => opts.with_aes_encryption(zip::AesMode::Aes256, pw),
+                            None => opts,
+                        };
                         #[cfg(unix)]
                         let opts = opts.unix_permissions(std::os::unix::fs::PermissionsExt::mode(&std::fs::metadata(path)?.permissions()));
                         w.start_file(name.as_str(), opts).map_err(io::Error::other)?;
@@ -709,8 +725,16 @@ fn rewrite(archive: &Path, keep: &dyn Fn(&str) -> Option<String>, add: &[(String
             // its way from the old file to the new, as it was but for its name.
             let mut w = sevenz_rust2::ArchiveWriter::create(&tmp).map_err(io::Error::other)?;
             if exists {
+                // Names that were locked (the header encrypted) stay locked; open ones stay open.
+                let names_locked = seven(archive, None).is_err_and(|e| e.to_string() == LOCKED);
                 let mut r = seven(archive, password_for(archive, password).as_deref())?;
                 let locked = seven_locked(r.archive());
+                // A locked archive stays locked, with the password that opened it.
+                if locked {
+                    let pw = password_for(archive, password).unwrap_or_default();
+                    w.set_content_methods(vec![sevenz_rust2::encoder_options::AesEncoderOptions::new(sevenz_rust2::Password::from(pw.as_str())).into(), sevenz_rust2::EncoderMethod::LZMA2.into()]);
+                    w.set_encrypt_header(names_locked);
+                }
                 let mut failed = None;
                 r.for_each_entries(|e, from| {
                     let old = e.name.replace('\\', "/").trim_end_matches('/').to_string();
@@ -975,6 +999,17 @@ mod tests {
         std::fs::remove_file(d.join("out/old.pem")).unwrap();
         forget(&zp);
         assert_eq!(crate::fs::copy(&zp.join("keys/old.pem"), &d.join("out")).unwrap_err().to_string(), LOCKED);
+        // A new file goes into a locked zip locked too, with the archive's password: without
+        // one, or with a wrong one, it is refused.
+        std::fs::write(d.join("out/note.txt"), "new secret").unwrap();
+        assert_eq!(crate::fs::copy(&d.join("out/note.txt"), &zp.join("keys")).unwrap_err().to_string(), LOCKED);
+        assert_eq!(crate::fs::copy_locked(&d.join("out/note.txt"), &zp.join("keys"), Some("wrong")).unwrap_err().to_string(), LOCKED);
+        crate::fs::copy_locked(&d.join("out/note.txt"), &zp.join("keys"), Some("hunter2")).unwrap();
+        forget(&zp);
+        assert!(locked_at(&zp, "keys/note.txt").unwrap(), "the new file is locked");
+        assert_eq!(crate::fs::copy(&zp.join("keys/note.txt"), &d).unwrap_err().to_string(), LOCKED);
+        assert_eq!(std::fs::read_to_string(crate::fs::copy_locked(&zp.join("keys/note.txt"), &d, Some("hunter2")).unwrap()).unwrap(), "new secret");
+        forget(&zp);
         // Moved out: copied, then gone from the archive.
         std::fs::remove_file(d.join("out/readme.txt")).unwrap();
         crate::fs::rename(&zp.join("readme.txt"), &d.join("out")).unwrap();
@@ -1088,6 +1123,14 @@ mod tests {
         remember(&zp, "hunter2");
         assert_eq!(list_in(&zp, "").unwrap().len(), 2);
         assert_eq!(std::fs::read_to_string(crate::fs::copy(&zp.join("plan.txt"), &d.join("out")).unwrap()).unwrap(), "launch at noon");
+        // Changed, it is written anew: still locked, with the same password.
+        crate::fs::mkdir(&zp.join("docs")).unwrap();
+        crate::fs::rename(&zp.join("plan.txt"), &zp.join("docs")).unwrap();
+        forget(&zp);
+        assert_eq!(list_in(&zp, "").unwrap_err().to_string(), LOCKED, "a changed archive is as locked as before");
+        remember(&zp, "hunter2");
+        std::fs::create_dir_all(d.join("again")).unwrap();
+        assert_eq!(std::fs::read_to_string(crate::fs::copy(&zp.join("docs/plan.txt"), &d.join("again")).unwrap()).unwrap(), "launch at noon");
         forget(&zp);
         assert!(list_in(&zp, "").is_err());
         std::fs::remove_dir_all(d).unwrap();
@@ -1121,8 +1164,11 @@ mod tests {
         let names = |p: &Path| crate::fs::list(p, true).unwrap().into_iter().skip(1).map(|e| e.name).collect::<Vec<_>>();
         assert_eq!(names(&zp), ["docs"]);
         assert_eq!(names(&zp.join("docs")), ["crew.txt", "plan.txt"]);
-        // Extraction reads it once, with the password.
+        // Extraction reads it once, with the password; without one, the changed archive is as
+        // locked as it was.
         forget(&zp);
+        assert_eq!(extract(&zp, &d.join("out")).unwrap_err().to_string(), LOCKED);
+        assert_eq!(list_in(&zp, "").unwrap().len(), 2, "the names stay open, as they were");
         let out = extract_locked(&zp, &d.join("out"), Some("hunter2")).unwrap();
         assert_eq!(std::fs::read_to_string(out.join("docs/plan.txt")).unwrap(), "launch at noon");
         assert_eq!(std::fs::read_to_string(out.join("docs/crew.txt")).unwrap(), "four");

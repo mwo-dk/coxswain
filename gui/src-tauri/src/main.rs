@@ -1285,6 +1285,17 @@ async fn check_update(ctx: tauri::State<'_, Ctx>) -> Res<Option<(String, Option<
     Ok(v.map(|v| (v, update::upgrade_hint())))
 }
 
+/// Whether the webview may go to `url`: the app's own pages and files, never the web. A link
+/// in a preview is opened outside instead (`open_path`); a page in the sandboxed frame that
+/// tries to load another stays where it is.
+fn local(url: &tauri::Url) -> bool {
+    match url.scheme() {
+        "tauri" | "asset" | "about" | "blob" | "data" => true,
+        "http" | "https" => matches!(url.host_str(), Some("tauri.localhost" | "asset.localhost" | "ipc.localhost")) || (cfg!(debug_assertions) && url.host_str() == Some("localhost")),
+        _ => false,
+    }
+}
+
 fn main() {
     // Started by an app, not by hand: hold the file name index for all of them. No window.
     if std::env::args().nth(1).as_deref() == Some(helper::ARG) {
@@ -1356,6 +1367,9 @@ fn main() {
         .manage(ctx)
         .setup(|app| {
             *app.state::<Ctx>().watcher.lock().expect("fresh lock") = start_watcher(app.handle());
+            // The window from the config, made here so that it gets its navigation guard.
+            let window = app.config().app.windows.first().cloned().ok_or("no window in the config")?;
+            tauri::WebviewWindowBuilder::from_config(app.handle(), &window)?.on_navigation(local).build()?;
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -1396,6 +1410,13 @@ mod tests {
         assert!(!cfg.search.archives && Config::default().search.archives, "on unless switched off");
         assert_eq!(cfg.preview.images["plantuml"], "docker.io/plantuml/plantuml:latest", "other defaults stay");
         assert!(apply_settings(text, &serde_json::Map::from_iter([("nope".into(), 1.into())])).is_err());
+    }
+
+    #[test]
+    fn the_webview_stays_on_the_app() {
+        let ok = |u: &str| local(&tauri::Url::parse(u).unwrap());
+        assert!(ok("tauri://localhost/index.html") && ok("http://tauri.localhost/index.html") && ok("asset://localhost/%2Fhome%2Fme%2Fa.pdf") && ok("http://asset.localhost/C%3A/a.pdf") && ok("about:srcdoc"));
+        assert!(!ok("https://example.com/") && !ok("http://example.com/") && !ok("file:///etc/passwd") && !ok("javascript:alert(1)"));
     }
 
     #[test]
