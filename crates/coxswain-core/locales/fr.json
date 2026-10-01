@@ -837,6 +837,7 @@
  "sidebar.repos": "Dépôts git",
  "state.favourites": "Favoris",
  "status.busy": "Traitement de {what}…",
+ "status.busy_of": "Traitement de {what}… ({n}/{all})",
  "status.copied": "{what} copié",
  "status.created": "{what} créé",
  "status.deleted": "{what} supprimé",

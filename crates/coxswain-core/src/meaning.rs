@@ -443,7 +443,8 @@ pub fn ollama_pull(url: &str, model: &str, p: &Progress) -> io::Result<()> {
 
 /// The passages of a text that get a vector: about `WORDS` words each, `PASSAGES` at most.
 pub fn passages(text: &str) -> Vec<String> {
-    let words: Vec<&str> = text.split_whitespace().collect();
+    // Only the words that can be used: a long text is not split to its end.
+    let words: Vec<&str> = text.split_whitespace().take(WORDS * PASSAGES).collect();
     words.chunks(WORDS).take(PASSAGES).map(|c| c.join(" ")).filter(|p| p.chars().filter(|c| c.is_alphabetic()).count() >= 20).collect()
 }
 

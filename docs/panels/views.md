@@ -100,7 +100,8 @@ terminal, so **Alt+V** says *Details/columns/thumbnails is available in the desk
 
 Thumbnails are the pictures themselves, decoded at full size by the webview; there is no
 thumbnail cache. A folder of large photos takes a moment, and tiles load as they scroll into
-sight.
+sight. Only the rows of tiles on screen are in the page, so a folder of 100,000 files opens in
+thumbnails as quickly as in details.
 
 #### Why do I not see git glyphs in the columns or thumbnails view?
 

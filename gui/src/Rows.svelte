@@ -9,7 +9,9 @@
   let height = $state(0);
   /** Rows rendered beyond the edges, so a scroll never shows a gap before the next render. */
   const OVER = 8;
-  const first = $derived(Math.max(0, Math.floor(top / rowH) - OVER));
+  // Held to the list: when it gets shorter while scrolled far down, the rows at its end show
+  // (and the browser, its content shorter, scrolls up and tells `top`).
+  const first = $derived(Math.max(0, Math.min(items.length, Math.floor(top / rowH)) - OVER));
   const last = $derived(Math.min(items.length, Math.ceil((top + height) / rowH) + OVER));
 
   $effect(() => {
@@ -22,6 +24,7 @@
 
   $effect(() => {
     if (!el || !height || cursor < 0) return;
+    items; // a new list (another folder or tab) brings its cursor into view too
     const y = cursor * rowH;
     if (y < el.scrollTop) el.scrollTop = y;
     else if (y + rowH > el.scrollTop + height) el.scrollTop = y + rowH - height;

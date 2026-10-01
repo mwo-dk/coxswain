@@ -96,7 +96,7 @@
   </div>
   <Rows class="rows" items={t.items} {rowH} cursor={t.cursor} role="listbox" tabindex="-1" aria-label={t.dir}>
     {#snippet row(e, i)}
-      {@const st = t.git?.files[e.name]}
+      {@const st = e.name === ".." ? undefined : (t.git?.files[e.name] ?? t.git?.all)}
       {@const marked = t.marked.has(e.path)}
       <!-- Keyboard handling is global (App.svelte); rows are pointer targets. -->
       <!-- svelte-ignore a11y_click_events_have_key_events -->

@@ -837,6 +837,7 @@
  "sidebar.repos": "Git saugyklos",
  "state.favourites": "Parankiniai",
  "status.busy": "Apdorojama: {what}…",
+ "status.busy_of": "Apdorojama: {what}… ({n}/{all})",
  "status.copied": "Nukopijuota: {what}",
  "status.created": "Sukurta: {what}",
  "status.deleted": "Pašalinta: {what}",

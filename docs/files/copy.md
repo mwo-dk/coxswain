@@ -34,8 +34,14 @@ An empty target cancels too. **F5** is also *Copy* in the F9 command list
 
 ## What you see
 
-- While it runs, nothing changes; when it is done, the status line says `Copied "report.pdf"`
-  or `Copied 3 items`, the marks are cleared and both panels are read again.
+- While it runs, the status line says *Working on …* (the terminal app adds the item it is on
+  and how many there are: `Working on "b.txt"… (2/3)`); you can keep moving about meanwhile,
+  in both apps.
+  When it is done, the status line says `Copied "report.pdf"` or `Copied 3 items`, the marks
+  are cleared and both panels are read again.
+- In the terminal app one file operation runs at a time: another asked for meanwhile is not
+  started (the status line says what is still running), and quitting waits for the copy to
+  finish, so no half-copied file is left behind.
 - Folders are copied with everything in them. Symbolic links are copied as links, not as what
   they point at.
 - **Nothing is ever written over.** A file that already exists at the target is an error
@@ -95,8 +101,9 @@ the target. The files are added; a name that is already there is refused. See
 
 #### Why does the copy seem to do nothing for a while?
 
-Copies run to the end before the panels are read again, and there is no progress bar. A large
-copy on a slow disk takes as long as the disk needs; the status line changes when it is done.
+Copies run to the end before the panels are read again, and there is no progress bar, only
+the item it is on. A large copy on a slow disk takes as long as the disk needs; the status
+line changes when it is done.
 
 ---
 [← Previous: Files](README.md) · [Next: Move and rename (F6) →](move-and-rename.md)

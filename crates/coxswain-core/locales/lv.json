@@ -837,6 +837,7 @@
  "sidebar.repos": "Git repozitoriji",
  "state.favourites": "Izlase",
  "status.busy": "Apstrādā: {what}…",
+ "status.busy_of": "Apstrādā: {what}… ({n}/{all})",
  "status.copied": "Nokopēts: {what}",
  "status.created": "Izveidots: {what}",
  "status.deleted": "Izdzēsts: {what}",

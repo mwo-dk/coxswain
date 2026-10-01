@@ -792,6 +792,7 @@
  "sidebar.repos": "Git-förråd",
  "state.favourites": "Favoriter",
  "status.busy": "Arbetar med {what}…",
+ "status.busy_of": "Arbetar med {what}… ({n}/{all})",
  "status.copied": "Kopierade {what}",
  "status.created": "Skapade {what}",
  "status.deleted": "Raderade {what}",

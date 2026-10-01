@@ -311,12 +311,16 @@ struct Item {
     #[serde(flatten)]
     entry: Entry,
     icon: Icon,
+    #[serde(skip_serializing_if = "Option::is_none")]
     tag: Option<String>,
 }
 
 #[derive(Serialize)]
 struct Listing {
     dir: PathBuf,
+    /// What an entry's path starts with when it is the folder's path and its name: those
+    /// entries come without a path (the page joins it), a third less JSON for a big folder.
+    prefix: String,
     items: Vec<Item>,
     has_notes: bool,
     /// The archive the folder is inside, and whether something in it is locked.
@@ -338,24 +342,47 @@ struct HistoryInfo {
 /// Async, as a compressed tar is read in full to list a folder in it.
 #[tauri::command]
 async fn list_dir(dir: PathBuf, show_hidden: bool, sort: SortKey, reverse: bool, ctx: tauri::State<'_, Ctx>) -> Res<Listing> {
-    let (mut entries, inside) = bfs::list_with_archive(&dir, show_hidden).map_err(|e| format!("{}: {e}", dir.display()))?;
-    bfs::sort(&mut entries, sort, reverse);
-    // By last commit: git's walk first, cached for the column after.
-    if sort == SortKey::Commit
-        && let Some(lasts) = history::last_changes(&dir)
-    {
-        history::sort_by_last(&mut entries, &lasts, reverse);
-    }
-    let in_history = history::split(&dir).filter(|_| !dir.is_dir()).map(|at| HistoryInfo { commit: at.commit.as_deref().and_then(|c| history::show(&at.base, c).ok()), target: at.target, base: at.base });
+    // Reading the folder (an archive's, a history's: git) blocks: not on the runtime's workers.
+    let d = dir.clone();
+    let (entries, inside, in_history) = tauri::async_runtime::spawn_blocking(move || {
+        let dir = d;
+        let (mut entries, inside) = bfs::list_with_archive(&dir, show_hidden).map_err(|e| format!("{}: {e}", dir.display()))?;
+        bfs::sort(&mut entries, sort, reverse);
+        // By last commit: git's walk first, cached for the column after.
+        if sort == SortKey::Commit
+            && let Some(lasts) = history::last_changes(&dir)
+        {
+            history::sort_by_last(&mut entries, &lasts, reverse);
+        }
+        let in_history = history::split(&dir).filter(|_| !dir.is_dir()).map(|at| HistoryInfo { commit: at.commit.as_deref().and_then(|c| history::show(&at.base, c).ok()), target: at.target, base: at.base });
+        Ok::<_, String>((entries, inside, in_history))
+    })
+    .await
+    .map_err(|e| e.to_string())??;
     let st = ctx.state.lock().map_err(|e| e.to_string())?;
     let cfg = ctx.cfg();
     let plain = cfg.plain_glyphs().then(|| cfg.glyphs());
+    let (prefix, items) = to_page(&dir, entries, |p| st.tags.get(p).cloned(), plain.as_ref());
+    let (archive, locked) = inside.map_or((None, false), |(a, locked)| (Some(a), locked));
+    Ok(Listing { has_notes: st.notes.contains_key(&dir), dir, prefix, items, archive, locked, history: in_history })
+}
+
+/// The entries as the page gets them: with their icon and tag, and without the path when it
+/// is `prefix` and the name (see `Listing::prefix`).
+fn to_page(dir: &Path, entries: Vec<Entry>, tag: impl Fn(&Path) -> Option<String>, plain: Option<&Glyphs>) -> (String, Vec<Item>) {
+    let joined = dir.join("x").to_string_lossy().into_owned();
+    let prefix = joined.strip_suffix('x').unwrap_or_default().to_string();
     let items = entries
         .into_iter()
-        .map(|e| Item { icon: icons::entry(&e.name, e.is_dir, e.is_symlink, plain.as_ref()), tag: st.tags.get(&e.path).cloned(), entry: e })
+        .map(|mut e| {
+            let tag = tag(&e.path);
+            if e.path.to_str().and_then(|p| p.strip_prefix(prefix.as_str())) == Some(e.name.as_str()) {
+                e.path = PathBuf::new();
+            }
+            Item { icon: icons::entry(&e.name, e.is_dir, e.is_symlink, plain), tag, entry: e }
+        })
         .collect();
-    let (archive, locked) = inside.map_or((None, false), |(a, locked)| (Some(a), locked));
-    Ok(Listing { has_notes: st.notes.contains_key(&dir), dir, items, archive, locked, history: in_history })
+    (prefix, items)
 }
 
 /// The last commit of each entry of `dir` (a work tree's folder or a history's), as git's one
@@ -375,6 +402,9 @@ struct GitInfo {
     branch: String,
     /// File name (direct children of the directory) -> status.
     files: BTreeMap<String, git::FileStatus>,
+    /// The status of every entry not in `files`: the folder's own, when it is untracked or
+    /// ignored (then so is everything in it).
+    all: Option<git::FileStatus>,
 }
 
 #[tauri::command]
@@ -382,19 +412,21 @@ async fn git_status(dir: PathBuf, ctx: tauri::State<'_, Ctx>) -> Res<Option<GitI
     // `git status` on a big repository takes a while: not on the async runtime's workers.
     let d = dir.clone();
     let Some(s) = tauri::async_runtime::spawn_blocking(move || git::Status::read(&d)).await.map_err(|e| e.to_string())? else { return Ok(None) };
-    let files = std::fs::read_dir(&dir)
-        .into_iter()
-        .flatten()
-        .flatten()
-        .filter_map(|de| Some((de.file_name().to_string_lossy().into_owned(), s.get(&de.path())?)))
-        .collect();
+    let (files, all) = children(&s, &dir);
     // Every listing comes through here: the state file is written only when the repo moves up.
     let mut st = ctx.state.lock().map_err(|e| e.to_string())?;
     if st.touch_repo(&s.root) {
         st.save().map_err(|e| format!("saving state: {e}"))?;
     }
     drop(st);
-    Ok(Some(GitInfo { prompt: s.prompt(&ctx.cfg().glyphs()), branch: s.summary.branch.clone(), root: s.root, files }))
+    Ok(Some(GitInfo { prompt: s.prompt(&ctx.cfg().glyphs()), branch: s.summary.branch.clone(), root: s.root, files, all }))
+}
+
+/// The statuses of `dir`'s entries, from git's alone: the folder is not read again.
+fn children(s: &git::Status, dir: &Path) -> (BTreeMap<String, git::FileStatus>, Option<git::FileStatus>) {
+    let files = s.files.iter().filter(|(p, _)| p.parent() == Some(dir)).filter_map(|(p, st)| Some((p.file_name()?.to_string_lossy().into_owned(), *st))).collect();
+    let all = s.get(dir).filter(|st| matches!(st.kind, git::Kind::Untracked | git::Kind::Ignored));
+    (files, all)
 }
 
 // ---------------------------------------------------------------- sidebar
@@ -754,6 +786,10 @@ async fn ask(question: String, earlier: Vec<(String, String)>, on_event: tauri::
             return Err(coxswain_core::t!("search.ask_nothing"));
         }
         let _ = on_event.send(AskEvent::Sources { paths: sources.iter().map(|(p, _)| p.clone()).collect() });
+        // Stopped while searching: the model is not asked (a request it would work on alone).
+        if asking.load(Ordering::SeqCst) != me {
+            return Ok(());
+        }
         coxswain_core::meaning::ask(&cfg, &earlier, &question, &sources, |text| asking.load(Ordering::SeqCst) == me && (text.is_empty() || on_event.send(AskEvent::Piece { text: text.to_string() }).is_ok()))
     })
     .await
@@ -776,10 +812,19 @@ fn resolve_path(base: PathBuf, input: String) -> PathBuf {
     resolve(&base, &input)
 }
 
-/// Run `op` on every source; collect failures into one message.
-fn each(paths: &[PathBuf], op: impl Fn(&Path) -> std::io::Result<()>) -> Res<()> {
-    let errors: Vec<String> = paths.iter().filter_map(|p| op(p).err().map(|e| format!("{}: {e}", p.display()))).collect();
-    if errors.is_empty() { Ok(()) } else { Err(errors.join("\n")) }
+/// Run `op` on every source, on a blocking thread (a big copy must not hold one of the async
+/// runtime's few workers); collect failures into one message.
+async fn each(paths: Vec<PathBuf>, op: impl Fn(&Path) -> std::io::Result<()> + Send + 'static) -> Res<()> {
+    blocking(move || {
+        let errors: Vec<String> = paths.iter().filter_map(|p| op(p).err().map(|e| format!("{}: {e}", p.display()))).collect();
+        if errors.is_empty() { Ok(()) } else { Err(errors.join("\n")) }
+    })
+    .await
+}
+
+/// `f` on a blocking thread, its answer back here.
+async fn blocking<T: Send + 'static>(f: impl FnOnce() -> Res<T> + Send + 'static) -> Res<T> {
+    tauri::async_runtime::spawn_blocking(f).await.map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
@@ -787,30 +832,32 @@ async fn copy(paths: Vec<PathBuf>, base: PathBuf, dest: String, password: Option
     let dst = resolve(&base, &dest);
     ctx.sizer.forget(&dst.join("new"));
     // The password of a locked archive, held for this copy only.
-    each(&paths, |p| bfs::copy_locked(p, &dst, password.as_deref()).map(drop))
+    each(paths, move |p| bfs::copy_locked(p, &dst, password.as_deref()).map(drop)).await
 }
 
 #[tauri::command]
 async fn rename(paths: Vec<PathBuf>, base: PathBuf, dest: String, password: Option<String>, ctx: tauri::State<'_, Ctx>) -> Res<()> {
     let dst = resolve(&base, &dest);
     paths.iter().chain([&dst.join("new")]).for_each(|p| ctx.sizer.forget(p));
-    each(&paths, |p| bfs::rename_locked(p, &dst, password.as_deref()).map(drop))
+    each(paths, move |p| bfs::rename_locked(p, &dst, password.as_deref()).map(drop)).await
 }
 
 /// To the trash, or gone for good with `forever`. Inside a locked 7z, `password` opens it.
 #[tauri::command]
 async fn delete(paths: Vec<PathBuf>, forever: bool, password: Option<String>, ctx: tauri::State<'_, Ctx>) -> Res<()> {
     paths.iter().for_each(|p| ctx.sizer.forget(p));
-    let pw = password.as_deref();
-    each(&paths, |p| if forever { bfs::delete_locked(p, pw) } else { bfs::trash_locked(p, pw) })
+    each(paths, move |p| {
+        let pw = password.as_deref();
+        if forever { bfs::delete_locked(p, pw) } else { bfs::trash_locked(p, pw) }
+    })
+    .await
 }
 
 /// Async, as inside an archive the archive is written anew.
 #[tauri::command]
 async fn mkdir(base: PathBuf, name: String, password: Option<String>) -> Res<PathBuf> {
     let d = resolve(&base, &name);
-    bfs::mkdir_locked(&d, password.as_deref()).map_err(|e| format!("{}: {e}", d.display()))?;
-    Ok(d)
+    blocking(move || bfs::mkdir_locked(&d, password.as_deref()).map(|_| d.clone()).map_err(|e| format!("{}: {e}", d.display()))).await
 }
 
 /// Bytes and file count of each folder. With `tab` it is that tab's background measuring: the
@@ -902,7 +949,7 @@ struct ArchiveListing {
 
 #[tauri::command]
 async fn archive_list(path: PathBuf) -> Res<ArchiveListing> {
-    let (entries, more) = coxswain_core::archive::list(&path, 2000).map_err(|e| e.to_string())?;
+    let (entries, more) = blocking(move || coxswain_core::archive::list(&path, 2000).map_err(|e| e.to_string())).await?;
     Ok(ArchiveListing { entries, more })
 }
 
@@ -910,7 +957,7 @@ async fn archive_list(path: PathBuf) -> Res<ArchiveListing> {
 async fn extract(paths: Vec<PathBuf>, base: PathBuf, dest: String, password: Option<String>, ctx: tauri::State<'_, Ctx>) -> Res<()> {
     let dst = resolve(&base, &dest);
     ctx.sizer.forget(&dst.join("new"));
-    each(&paths, |p| coxswain_core::archive::extract_locked(p, &dst, password.as_deref()).map(drop))
+    each(paths, move |p| coxswain_core::archive::extract_locked(p, &dst, password.as_deref()).map(drop)).await
 }
 
 /// The password of the locked archive `path` is in (or is), kept in memory for this run.
@@ -1068,31 +1115,35 @@ fn clip_set(paths: Vec<PathBuf>, cut: bool, ctx: tauri::State<Ctx>) -> Res<()> {
 async fn paste(dir: PathBuf, ctx: tauri::State<'_, Ctx>) -> Res<(usize, bool)> {
     use clipboard_rs::Clipboard;
     let os: Vec<PathBuf> = os_clipboard().and_then(|c| c.get_files().ok()).unwrap_or_default().iter().map(|s| from_clip(s)).collect();
-    let mut clip = ctx.clip.lock().map_err(|e| e.to_string())?;
-    let cut = clip.1 && (os.is_empty() || os == clip.0);
-    let paths = if os.is_empty() { clip.0.clone() } else { os };
-    if paths.is_empty() {
-        return Err(coxswain_core::t!("err.clipboard_no_files"));
-    }
-    if cut {
-        // A cut pastes once.
-        *clip = (vec![], false);
-    }
-    drop(clip);
+    let (paths, cut) = {
+        let mut clip = ctx.clip.lock().map_err(|e| e.to_string())?;
+        let cut = clip.1 && (os.is_empty() || os == clip.0);
+        let paths = if os.is_empty() { clip.0.clone() } else { os };
+        if paths.is_empty() {
+            return Err(coxswain_core::t!("err.clipboard_no_files"));
+        }
+        if cut {
+            // A cut pastes once.
+            *clip = (vec![], false);
+        }
+        (paths, cut)
+    };
     // ponytail: text copied elsewhere after a Coxswain copy still pastes Coxswain's files on
     // clipboards that report "no files" as empty; track the clipboard owner if that confuses.
-    each(&paths, |p| {
+    let (n, sizer) = (paths.len(), ctx.sizer.clone());
+    each(paths, move |p| {
         if cut && p.parent() == Some(dir.as_path()) {
             return Ok(()); // cut and pasted in place
         }
         let to = bfs::free_name(&dir, &p.file_name().unwrap_or_default().to_string_lossy());
-        ctx.sizer.forget(&to);
+        sizer.forget(&to);
         if cut {
-            ctx.sizer.forget(p);
+            sizer.forget(p);
         }
         if cut { bfs::rename(p, &to).map(drop) } else { bfs::copy(p, &to).map(drop) }
-    })?;
-    Ok((paths.len(), cut))
+    })
+    .await?;
+    Ok((n, cut))
 }
 
 // ---------------------------------------------------------------- drag out, watching
@@ -1405,6 +1456,35 @@ mod tests {
     use super::*;
 
     #[test]
+    fn a_listing_sends_a_path_only_where_the_page_cannot_join_it() {
+        let e = |name: &str, path: PathBuf| Entry { name: name.into(), path, is_dir: false, is_symlink: false, is_exec: false, hidden: false, size: 0, modified: 0, created: 0 };
+        let dir = Path::new("/srv/box");
+        let (prefix, items) = to_page(dir, vec![e("..", "/srv".into()), e("a.txt", dir.join("a.txt")), e("x", dir.join("x")), e("b", Path::new("/elsewhere").join("b"))], |_| None, None);
+        assert_eq!(prefix, format!("/srv/box{}", std::path::MAIN_SEPARATOR));
+        let left: Vec<_> = items.iter().map(|i| i.entry.path.as_os_str().is_empty()).collect();
+        assert_eq!(left, [false, true, true, false], "`..` and one elsewhere keep their paths");
+        // A folder whose name ends in the letter the prefix is found with.
+        assert_eq!(to_page(Path::new("/tmp/xx"), vec![], |_| None, None).0, format!("/tmp/xx{}", std::path::MAIN_SEPARATOR));
+        let json = serde_json::to_string(&items[1]).unwrap();
+        assert!(!json.contains("\"path\""), "{json}");
+    }
+
+    #[test]
+    fn git_statuses_of_a_folder_come_from_git_alone() {
+        let root = Path::new("/r");
+        let out = "1 .M N... 100644 100644 100644 0 0 src/a.rs\0? new.txt\0! target/\0";
+        let s = git::Status::parse(root, out);
+        let (files, all) = children(&s, root);
+        let mut names: Vec<_> = files.keys().cloned().collect();
+        names.sort();
+        assert_eq!(names, ["new.txt", "src", "target"], "files and folders right in it, a changed one by its folder");
+        assert!(all.is_none());
+        let (files, all) = children(&s, &root.join("target/debug"));
+        assert!(files.is_empty());
+        assert_eq!(all.map(|s| s.kind), Some(git::Kind::Ignored), "in an ignored folder, everything is");
+    }
+
+    #[test]
     fn settings_keep_comments_and_other_keys() {
         let text = "# my config\ntheme = \"nc\"  # terminal\n\n[gui]\n# big text\nfont_size = 15\n\n[keys]\nquit = [\"F10\"]\n";
         let mut ch = serde_json::Map::new();
@@ -1488,8 +1568,8 @@ mod perf {
         let t = std::time::Instant::now();
         let (mut entries, _) = bfs::list_with_archive(&dir, true).unwrap();
         bfs::sort(&mut entries, SortKey::Name, false);
-        let items: Vec<Item> = entries.into_iter().map(|e| Item { icon: icons::entry(&e.name, e.is_dir, e.is_symlink, None), tag: None, entry: e }).collect();
-        let listing = Listing { has_notes: false, dir, items, archive: None, locked: false, history: None };
+        let (prefix, items) = to_page(&dir, entries, |_| None, None);
+        let listing = Listing { has_notes: false, dir, prefix, items, archive: None, locked: false, history: None };
         println!("list_dir body (list, sort, icons): {:.0} ms", ms(t));
         let t = std::time::Instant::now();
         let json = serde_json::to_vec(&listing).unwrap();

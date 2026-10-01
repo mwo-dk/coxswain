@@ -4,7 +4,7 @@
 
 import { marked } from "marked";
 import DOMPurify from "dompurify";
-import hljs from "highlight.js/lib/common";
+import { highlight } from "./hl.js";
 import { convertFileSrc } from "./lib.js";
 import { t } from "./i18n.svelte.js";
 
@@ -99,8 +99,31 @@ export async function renderMarkdown(src) {
   return clean(doc.body.innerHTML);
 }
 
-export const highlight = (src, lang) =>
-  hljs.getLanguage(lang ?? "") ? hljs.highlight(src, { language: lang }).value : hljs.highlightAuto(src).value;
+export { highlight };
+
+/** Highlighting on a worker, for a file's text or diff: a big one takes the page's thread for
+ *  hundreds of milliseconds. A newer call drops the one still running (it resolves to null),
+ *  so moving on from a big file costs nothing. Null too when the worker fails. */
+let hlWorker = null;
+let hlPending = null;
+export function highlightOff(src, lang) {
+  if (hlPending) {
+    hlWorker.terminate();
+    hlWorker = null;
+    hlPending(null);
+  }
+  hlWorker ??= new Worker(new URL("./hl.worker.js", import.meta.url), { type: "module" });
+  return new Promise((resolve) => {
+    const done = (v) => {
+      hlPending = null;
+      resolve(v);
+    };
+    hlPending = resolve;
+    hlWorker.onmessage = (ev) => done(ev.data);
+    hlWorker.onerror = () => done(null);
+    hlWorker.postMessage([src, lang]);
+  });
+}
 
 // ------------------------------------------------------------ documents
 
