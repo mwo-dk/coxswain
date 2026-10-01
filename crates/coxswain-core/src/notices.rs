@@ -36,6 +36,13 @@ pub fn next(cfg: &Config, status: &Status, state: &AppState, terminal: bool) -> 
     let version = crate::update::VERSION;
     let seen = |id: &str| state.notices_dismissed.iter().any(|d| d == id);
     let mut all = vec![];
+    // Search has stalled: why, before anything else. Dismissed, it comes back with another why.
+    if let Some(why) = &status.error {
+        all.push(Notice { id: format!("error:{why}"), text: t!("notice.search_error", "why" => why), settings: Some("search"), url: None });
+    }
+    if let Some(why) = status.meaning_error.as_ref().filter(|_| status.meaning) {
+        all.push(Notice { id: format!("error:{why}"), text: t!("notice.meaning_error", "why" => why), settings: Some("meaning"), url: None });
+    }
     // After an update: where to read what it brought. Not on a first start.
     if !state.seen_version.is_empty() && state.seen_version != version {
         all.push(Notice { id: format!("new-{version}"), text: t!("notice.updated", "version" => version), settings: None, url: Some(crate::update::RELEASES_URL) });
@@ -87,7 +94,7 @@ mod tests {
     #[test]
     fn notices_come_one_at_a_time_and_stay_away_once_dismissed() {
         let cfg = Config::default();
-        let mut status = Status { state: crate::index::State::Ready, len: 1, texts: 10, pending: 0, bytes: 0, paused: false, roots: vec![], tools: vec![("tesseract".into(), false)], meaning: false, meaning_pending: 0, meaning_done: 0, meaning_engine: String::new(), meaning_error: None };
+        let mut status = Status { state: crate::index::State::Ready, len: 1, texts: 10, pending: 0, bytes: 0, paused: false, roots: vec![], tools: vec![("tesseract".into(), false)], meaning: false, meaning_pending: 0, meaning_done: 0, meaning_engine: String::new(), meaning_error: None, error: None };
         let mut state = AppState::default();
         assert!(started(&mut state), "a first start is told of nothing new");
         assert!(!started(&mut state));
@@ -111,7 +118,17 @@ mod tests {
         dismiss(&mut state, "history");
         assert_eq!(ids(&state, &status), None);
 
+        // Search stalled: said at once, and again when the reason changes.
+        status.meaning_error = Some("http://localhost:11434: Connection refused".into());
+        assert_eq!(ids(&state, &status), None, "not while meaning is off");
         status.meaning = true;
+        let n = next(&cfg, &status, &state, true).unwrap();
+        assert!(n.text.contains("Connection refused"), "{}", n.text);
+        dismiss(&mut state, &n.id);
+        status.meaning_error = None;
+        status.error = Some("constraint failed".into());
+        assert!(next(&cfg, &status, &state, true).unwrap().text.contains("constraint failed"));
+        status.error = None;
         assert!(search_level(&cfg, &status).split(" · ").count() == 3);
     }
 }

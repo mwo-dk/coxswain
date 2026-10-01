@@ -39,6 +39,8 @@ One notice at a time, in this order:
 
 | Notice | When | Desktop app opens |
 |---|---|---|
+| *Search inside files has stopped: …* | A scan of the files failed; nothing further is read, and no vectors come, until one works. Dismissed, it comes back with another reason | *Settings → Search inside files* |
+| *Search by meaning gets no vectors: …* | The server did not answer, or refused (a model that is not pulled) | *Settings → Search by meaning* ([servers](servers.md)) |
 | *Updated to 1.16.0: see what's new* | The first start after an update (not the first start ever) | The release notes on GitHub |
 | *New: Ctrl+G on a file or folder in a git repository shows its history, commit by commit* | A folder of a git repository has been opened (the key is yours from `[keys]`) | Nothing: it only tells ([Git history](../panels/git-history.md)) |
 | *New: search by meaning finds files about your words, in any language. Turn it on* | Text search is on and has files, and search by meaning is off. Terminal app: *…in any language: coxswain --meaning on* | *Settings → Search by meaning* |
