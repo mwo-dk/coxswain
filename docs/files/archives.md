@@ -56,13 +56,13 @@ program is needed.
 
 | Format | Endings | Browse, copy out, extract | Copy in, rename, new folder, take out, pack | Passwords |
 |---|---|---|---|---|
-| Zip | `.zip`, and zips by another name: `.jar` `.apk` `.whl` `.nupkg` `.vsix` | yes | yes (new files Deflate-compressed) | ZipCrypto and AES, to read |
+| Zip | `.zip`, and zips by another name: `.jar` `.apk` `.whl` `.nupkg` `.vsix` | yes | yes (new files Deflate-compressed) | ZipCrypto and AES to read, AES-256 when packing |
 | Tar | `.tar` | yes | yes | none in the format |
 | Tar with gzip | `.tar.gz`, `.tgz` | yes | yes | none |
 | Tar with bzip2 | `.tar.bz2`, `.tbz2`, `.tbz` | yes | yes | none |
 | Tar with xz | `.tar.xz`, `.txz` | yes | yes | none |
 | Tar with zstd | `.tar.zst`, `.tzst` | yes | yes | none |
-| 7z | `.7z` | yes | yes (LZMA2) | AES, to read; also locked file names |
+| 7z | `.7z` | yes | yes (LZMA2) | AES to read and when packing; also locked file names |
 | RAR | `.rar` | no | no | ([why](#why-not-rar)) |
 | A lone `.gz`, `.bz2`, `.xz`, `.zst` | | no: it holds one file, not a folder | no | |
 
