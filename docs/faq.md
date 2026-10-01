@@ -100,4 +100,4 @@ The questions people ask most, with a short answer and a link to the full one. E
 - **The cache folder is large. What takes the room?** Mostly search.db and the 488 MB model, then previews/. [Answer](reference/where-things-are-kept.md#the-cache-folder-is-large-what-takes-the-room)
 
 ---
-[← Previous: Where things are kept](reference/where-things-are-kept.md) · [Next: Docs index →](README.md)
+[← Previous: Security](reference/security.md) · [Next: Docs index →](README.md)

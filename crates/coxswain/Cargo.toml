@@ -21,7 +21,7 @@ path = "src/main.rs"
 
 [dependencies]
 coxswain-core.workspace = true
-ratatui = "0.30"
+ratatui = { version = "0.30", default-features = false, features = ["crossterm", "layout-cache", "underline-color"] }
 chrono = { version = "0.4", default-features = false, features = ["clock"] }
 unicode-width = "0.2"
 
