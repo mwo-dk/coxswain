@@ -1849,7 +1849,8 @@ mod tests {
         assert!(a.join("one.txt").exists(), "the delete asked for meanwhile did not run");
         assert_eq!(app.status, Some(t!("status.copied", "what" => tn!("items", 2))));
         assert!(app.panels[1].entries.iter().any(|e| e.name == "one.txt"), "the panels are read again");
-        std::fs::remove_dir_all(d).unwrap();
+        // The app's threads (sizes, git) may still hold the folder open on Windows.
+        let _ = std::fs::remove_dir_all(d);
     }
 
     #[test]
@@ -1868,7 +1869,8 @@ mod tests {
         }
         assert_eq!(app.panels[0].dir, d.join("sub"), "not a repository: back to the folder");
         assert!(app.status.is_some(), "and says why");
-        std::fs::remove_dir_all(d).unwrap();
+        // The app's threads (sizes, git) may still hold the folder open on Windows.
+        let _ = std::fs::remove_dir_all(d);
     }
 
     #[test]
