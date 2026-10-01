@@ -482,6 +482,7 @@
  "err.cancelled": "Annullato",
  "err.clipboard_no_files": "Negli appunti non ci sono file",
  "err.epub_no_rootfile": "Questo libro EPUB non ha un file radice",
+ "err.no_application": "Nessuna applicazione apre questo tipo di file",
  "err.no_cache_folder": "Nessuna cartella della cache",
  "err.no_certificate": "Nessun certificato in questo file PEM",
  "err.no_config_folder": "Nessuna cartella di configurazione",

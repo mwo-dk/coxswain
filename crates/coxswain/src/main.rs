@@ -1067,7 +1067,7 @@ impl App {
                 Err(t!("search.ask_nothing"))
             } else {
                 let _ = tx.send(AskMsg::Sources(sources.iter().map(|(p, _)| p.clone()).collect()));
-                coxswain_core::meaning::ask(&cfg, &earlier, &question, &sources, |text| !stop.load(Ordering::SeqCst) && tx.send(AskMsg::Piece(text.to_string())).is_ok())
+                coxswain_core::meaning::ask(&cfg, &earlier, &question, &sources, |text| !stop.load(Ordering::SeqCst) && (text.is_empty() || tx.send(AskMsg::Piece(text.to_string())).is_ok()))
             };
             let _ = tx.send(AskMsg::Done(done));
         });

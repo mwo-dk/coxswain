@@ -300,7 +300,7 @@ say so plainly and do not guess. Answer in the language of the question, briefly
 
 /// Ask: `question` answered by the chat model on the user's server, from `sources` (numbered
 /// in their order) and the turns before. Each piece of the answer goes to `piece` as it
-/// comes; `piece` returns false to stop. Nothing is kept.
+/// comes, with empty ones between; `piece` returns false to stop. Nothing is kept.
 pub fn ask(cfg: &crate::config::SearchConfig, earlier: &[Turn], question: &str, sources: &[(std::path::PathBuf, String)], mut piece: impl FnMut(&str) -> bool) -> Result<(), String> {
     if cfg.ask_model.is_empty() {
         return Err("no chat model is set for Ask".into());
@@ -319,8 +319,9 @@ pub fn ask(cfg: &crate::config::SearchConfig, earlier: &[Turn], question: &str, 
     let agent: ureq::Agent = ureq::Agent::config_builder().tls_config(tls())
         .timeout_connect(Some(Duration::from_secs(10)))
         .timeout_recv_response(Some(Duration::from_secs(300)))
+        // A server that stalls mid-answer does not hold the thread for ever.
+        .timeout_recv_body(Some(Duration::from_secs(900)))
         .http_status_as_error(false)
-        
         .build()
         .into();
     let mut req = agent.post(&format!("{}{path}", s.url)).header("Content-Type", "application/json");
@@ -335,7 +336,8 @@ pub fn ask(cfg: &crate::config::SearchConfig, earlier: &[Turn], question: &str, 
         return Err(format!("{} {}: {why}", s.url, res.status()));
     }
     let mut thinking = false;
-    for line in io::BufRead::lines(io::BufReader::new(res.into_body().into_reader())) {
+    // An answer is text: 8 MB is far more than any, and a line without end stops there.
+    for line in io::BufRead::lines(io::BufReader::new(res.into_body().into_with_config().limit(8 << 20).reader())) {
         let line = line.map_err(|e| e.to_string())?;
         // OpenAI servers send `data: {…}` lines and `data: [DONE]`; Ollama one JSON per line.
         let data = if s.openai { line.strip_prefix("data:").unwrap_or("").trim() } else { line.trim() };
@@ -350,10 +352,11 @@ pub fn ask(cfg: &crate::config::SearchConfig, earlier: &[Turn], question: &str, 
             return Err(e.to_string());
         }
         let text = if s.openai { v["choices"][0]["delta"]["content"].as_str() } else { v["message"]["content"].as_str() };
-        if let Some(text) = text.map(|t| unthink(t, &mut thinking)).filter(|t| !t.is_empty()) {
-            if !piece(&text) {
-                break;
-            }
+        // Every line asks whether to go on, so Stop works while the model thinks aloud too:
+        // an empty piece is only that question.
+        let text = text.map(|t| unthink(t, &mut thinking)).unwrap_or_default();
+        if !piece(&text) {
+            break;
         }
         if v["done"].as_bool() == Some(true) {
             break;
@@ -527,6 +530,22 @@ mod tests {
 
         let off = crate::config::SearchConfig::default();
         assert!(ask(&off, &[], "q", &sources, |_| true).is_err(), "no chat model, no Ask");
+    }
+
+    /// Stop is heard while the model still thinks aloud, before any of the answer comes.
+    #[test]
+    fn ask_stops_while_the_model_thinks() {
+        let think = "{\"message\":{\"content\":\"<think>hm\"}}\n".repeat(50);
+        let (url, server) = one_answer("200 OK", &format!("{think}{{\"message\":{{\"content\":\"</think>Rocket\"}},\"done\":true}}\n"));
+        let cfg = crate::config::SearchConfig { meaning_engine: "ollama".into(), meaning_url: url, ask_model: "chat".into(), ..Default::default() };
+        let mut heard = vec![];
+        ask(&cfg, &[], "q", &[("/p/a.md".into(), "a".into())], |p| {
+            heard.push(p.to_string());
+            false
+        })
+        .unwrap();
+        assert_eq!(heard, [""], "asked once, while thinking");
+        let _ = server.join();
     }
 
     /// A server that answers once, with what it was sent.

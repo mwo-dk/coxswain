@@ -234,6 +234,8 @@ impl Scratch {
     fn new() -> io::Result<Scratch> {
         static N: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
         let dir = std::env::temp_dir().join(format!("coxswain-archive-{}-{}", std::process::id(), N.fetch_add(1, std::sync::atomic::Ordering::Relaxed)));
+        // Made here, never one that is there: the temp folder is everyone's.
+        fs::create_dir(&dir)?;
         private_dir(&dir)?;
         Ok(Scratch(dir))
     }
@@ -265,6 +267,11 @@ fn writable(path: &Path) -> io::Result<()> {
 /// archive it is added; from one archive to another it goes through a folder of its own. Out
 /// of a history it is the file or folder as it was at that commit.
 pub fn copy_locked(src: &Path, dst: &Path, password: Option<&str>) -> io::Result<PathBuf> {
+    copy_out_or_in(src, dst, password, false)
+}
+
+/// `copy_locked`; `whole`: out of an archive everything comes, or nothing (for a move).
+fn copy_out_or_in(src: &Path, dst: &Path, password: Option<&str>, whole: bool) -> io::Result<PathBuf> {
     writable(dst)?;
     if !src.exists()
         && let Some(at) = crate::history::split(src)
@@ -283,7 +290,7 @@ pub fn copy_locked(src: &Path, dst: &Path, password: Option<&str>) -> io::Result
         let from = match out_of_archive(src) {
             Some((a, i)) => {
                 scratch = Scratch::new()?;
-                crate::archive::copy_out(&a, &i, &scratch.0, password)?
+                crate::archive::copy_out(&a, &i, &scratch.0, password, whole)?
             }
             None => src.to_path_buf(),
         };
@@ -291,7 +298,7 @@ pub fn copy_locked(src: &Path, dst: &Path, password: Option<&str>) -> io::Result
         return Ok(to);
     }
     if let Some((archive, inner)) = out_of_archive(src) {
-        return crate::archive::copy_out(&archive, &inner, dst, password);
+        return crate::archive::copy_out(&archive, &inner, dst, password, whole);
     }
     let to = target(src, dst);
     if to.starts_with(src) && src.is_dir() {
@@ -349,7 +356,8 @@ pub fn rename_locked(src: &Path, dst: &Path, password: Option<&str>) -> io::Resu
             Ok(a.join(to))
         }
         (Some((a, from)), _) => {
-            let to = copy_locked(src, dst, password)?;
+            // Taken out of the archive only when all of it came out.
+            let to = copy_out_or_in(src, dst, password, true)?;
             crate::archive::remove(&a, &[from], password)?;
             Ok(to)
         }
@@ -461,18 +469,46 @@ pub fn dir_size(path: &Path) -> (u64, u64) {
 
 /// Open with the desktop's default application, detached.
 pub fn open_default(path: &Path) -> io::Result<()> {
-    let opener: &[&str] = if cfg!(target_os = "macos") {
-        &["open"]
-    } else if cfg!(windows) {
-        &["cmd", "/C", "start", ""]
-    } else {
-        &["xdg-open"]
+    #[cfg(windows)]
+    {
+        windows_open(path)
+    }
+    #[cfg(not(windows))]
+    {
+        let opener = if cfg!(target_os = "macos") { "open" } else { "xdg-open" };
+        let mut c = crate::tools::command(opener);
+        c.arg(path);
+        // An opener that finds no application says so and stops at once: that is an error, not
+        // "opened".
+        crate::tools::spawn_watched(c, std::time::Duration::from_secs(1))
+    }
+}
+
+/// The shell's own "open", called directly: no `cmd /C start`, which would expand `%NAME%` in
+/// the file's name and act on `&`.
+#[cfg(windows)]
+fn windows_open(path: &Path) -> io::Result<()> {
+    use std::os::windows::ffi::OsStrExt;
+    use windows_sys::Win32::System::Com::{COINIT_APARTMENTTHREADED, COINIT_DISABLE_OLE1DDE, CoInitializeEx, CoUninitialize};
+    use windows_sys::Win32::UI::{Shell::ShellExecuteW, WindowsAndMessaging::SW_SHOWNORMAL};
+    let wide = |s: &std::ffi::OsStr| s.encode_wide().chain([0]).collect::<Vec<u16>>();
+    let (verb, file) = (wide("open".as_ref()), wide(path.as_os_str()));
+    // SAFETY: both strings end in a NUL and outlive the call; COM is released only when this
+    // call initialised it.
+    let code = unsafe {
+        let com = CoInitializeEx(std::ptr::null(), (COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE) as u32);
+        let r = ShellExecuteW(std::ptr::null_mut(), verb.as_ptr(), file.as_ptr(), std::ptr::null(), std::ptr::null(), SW_SHOWNORMAL);
+        if com >= 0 {
+            CoUninitialize();
+        }
+        r as isize
     };
-    let mut c = crate::tools::command(opener[0]);
-    c.args(&opener[1..]).arg(path);
-    // An opener that finds no application says so and stops at once: that is an error, not
-    // "opened".
-    crate::tools::spawn_watched(c, std::time::Duration::from_secs(1))
+    // Above 32 is success; 31 is "no association"; else the code is a Win32 error number.
+    match code {
+        33.. => Ok(()),
+        31 => Err(io::Error::other(crate::t!("err.no_application"))),
+        _ => Err(io::Error::from_raw_os_error(code as i32)),
+    }
 }
 
 /// `s` as a path: `~` is the home folder, and a relative path starts from `base`.

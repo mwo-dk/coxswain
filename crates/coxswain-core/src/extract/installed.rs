@@ -140,12 +140,43 @@ pub fn office(path: &Path, max: u64) -> Option<String> {
     let soffice = program("soffice")?;
     let scratch = Scratch::new()?;
     // A profile of its own, so neither a running LibreOffice nor a preview being made holds it.
-    let profile = dirs::cache_dir()?.join("coxswain").join("libreoffice-index-profile");
-    let url = format!("-env:UserInstallation=file:///{}", profile.to_string_lossy().trim_start_matches('/').replace('\\', "/"));
+    let url = format!("-env:UserInstallation={}", libreoffice_profile("libreoffice-index-profile")?);
     let args = [OsStr::new(&url), OsStr::new("--headless"), OsStr::new("--norestore"), OsStr::new("--convert-to"), OsStr::new("pdf"), OsStr::new("--outdir"), scratch.0.as_os_str(), path.as_os_str()];
     tools::output(&soffice, &args, TIMEOUT, 64 * 1024)?;
     let pdf = std::fs::read_dir(&scratch.0).ok()?.flatten().map(|e| e.path()).find(|p| p.extension().is_some_and(|e| e == "pdf"))?;
     super::pdf::text(&pdf, max.max(std::fs::metadata(&pdf).ok()?.len()))
+}
+
+/// What LibreOffice must never do with a document it only converts: run its macros (all macro
+/// execution off, and security level 3, "very high", behind it), or fetch what it links (Writer
+/// links: 0 is never; Calc links: 1 is never). One item per line, as LibreOffice writes them.
+const LIBREOFFICE_SETTINGS: [&str; 5] = [
+    r#"<item oor:path="/org.openoffice.Office.Common/Security/Scripting"><prop oor:name="DisableMacrosExecution" oor:op="fuse"><value>true</value></prop></item>"#,
+    r#"<item oor:path="/org.openoffice.Office.Common/Security/Scripting"><prop oor:name="MacroSecurityLevel" oor:op="fuse"><value>3</value></prop></item>"#,
+    r#"<item oor:path="/org.openoffice.Office.Common/Security/Scripting"><prop oor:name="SecureURL" oor:op="fuse"><value></value></prop></item>"#,
+    r#"<item oor:path="/org.openoffice.Office.Writer/Content/Update"><prop oor:name="Link" oor:op="fuse"><value>0</value></prop></item>"#,
+    r#"<item oor:path="/org.openoffice.Office.Calc/Content/Update"><prop oor:name="Link" oor:op="fuse"><value>1</value></prop></item>"#,
+];
+
+/// A LibreOffice profile folder named `name` in the cache, as the `file:` URL its
+/// `-env:UserInstallation` wants, with `LIBREOFFICE_SETTINGS` in place.
+pub fn libreoffice_profile(name: &str) -> Option<String> {
+    let profile = dirs::cache_dir()?.join("coxswain").join(name);
+    lock_profile(&profile)?;
+    Some(format!("file:///{}", profile.to_string_lossy().trim_start_matches('/').replace('\\', "/")))
+}
+
+/// Puts `LIBREOFFICE_SETTINGS` into the profile at `profile`. LibreOffice rewrites the file as
+/// it ends, keeping what is there, so it is written again only when one of them is missing.
+fn lock_profile(profile: &Path) -> Option<()> {
+    let settings = profile.join("user").join("registrymodifications.xcu");
+    if std::fs::read_to_string(&settings).is_ok_and(|s| LIBREOFFICE_SETTINGS.iter().all(|i| s.contains(i))) {
+        return Some(());
+    }
+    std::fs::create_dir_all(settings.parent()?).ok()?;
+    let head = r#"<?xml version="1.0" encoding="UTF-8"?>
+<oor:items xmlns:oor="http://openoffice.org/2001/registry" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">"#;
+    std::fs::write(&settings, format!("{head}\n{}\n</oor:items>\n", LIBREOFFICE_SETTINGS.join("\n"))).ok()
 }
 
 /// A JPEG whose EXIF names the camera that took it.
@@ -176,6 +207,21 @@ fn has_make(tiff: &[u8]) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A converting LibreOffice runs no macro and fetches no link, also once a profile it
+    /// rewrote lost the settings, or with a setting turned back on.
+    #[test]
+    fn libreoffice_profile_turns_macros_and_links_off() {
+        let d = std::env::temp_dir().join(format!("coxswain-lo-profile-{}", std::process::id()));
+        let file = d.join("user").join("registrymodifications.xcu");
+        let all = |s: &str| LIBREOFFICE_SETTINGS.iter().all(|i| s.contains(i));
+        lock_profile(&d).unwrap();
+        assert!(all(&std::fs::read_to_string(&file).unwrap()));
+        std::fs::write(&file, std::fs::read_to_string(&file).unwrap().replace("<value>true</value>", "<value>false</value>")).unwrap();
+        lock_profile(&d).unwrap();
+        assert!(all(&std::fs::read_to_string(&file).unwrap()));
+        std::fs::remove_dir_all(d).unwrap();
+    }
 
     /// A JPEG start with an EXIF block whose first directory has these tags.
     fn jpeg(tags: &[u16], big: bool) -> Vec<u8> {
