@@ -74,9 +74,12 @@ With *Build LaTeX documents by themselves when they are shown and have changed* 
 default, `latex_auto = true`):
 
 - A document is built when it is shown and there is no PDF yet for its sources as they are now.
-  A document you have seen before, unchanged, shows its PDF at once from the cache.
-- While the file is in the pane and you save it (or anything in the folder the panel shows),
-  the panel rereads the folder, the preview looks again, and a new build starts.
+  A document you have seen before, unchanged, shows its PDF at once from the cache (about a fifth
+  of a second), without the wait before a build.
+- While the file is in the pane and you save it (or a file the build reads: `.tex`, `.sty`,
+  `.cls`, `.bib`, pictures, `.csv` and `.dat` for plots), the preview looks again, and a new
+  build starts. Other files in the folder (a database, an editor's backup) change nothing.
+- A `.tex` file inside an archive keeps its date in the copy that is built, so it is built once.
 - A change in a subfolder (a chapter in `chapters/` while the cursor is on `main.tex`) is found
   the next time the file is shown: move off it and back.
 - It never starts by itself while the container's image still has to be pulled: the button

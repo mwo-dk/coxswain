@@ -583,6 +583,12 @@ pub fn peek(path: &Path) -> io::Result<PathBuf> {
     let to = peek_folder()?.join(inner.rsplit('/').next().unwrap_or("file"));
     // What comes out is counted too: a size the archive claims may be a lie.
     copy_out_with(&archive, &inner, &to, password_for(&archive, None).as_deref(), Copy { limit: PEEK_MAX, ..Copy::default() })?;
+    // The copy has the date of the file in the archive (else the archive's), so what is made
+    // from it and kept by its date (a LaTeX or LibreOffice preview) is found again next time.
+    let when = if it.modified > 0 { Some(std::time::UNIX_EPOCH + std::time::Duration::from_secs(it.modified)) } else { std::fs::metadata(&archive).and_then(|m| m.modified()).ok() };
+    if let Some(when) = when {
+        let _ = File::options().write(true).open(&to).and_then(|f| f.set_modified(when));
+    }
     Ok(to)
 }
 
@@ -1222,6 +1228,10 @@ mod tests {
         assert_eq!((seen.file_name().unwrap().to_str(), std::fs::read_to_string(&seen).unwrap().as_str()), (Some("a.txt"), "hello"));
         let next = peek(&tp.join("x/a.txt")).unwrap();
         assert!(next.exists() && (next == seen || !seen.exists()), "one copy at a time");
+        let date = |p: &Path| std::fs::metadata(p).unwrap().modified().unwrap();
+        let first = date(&next);
+        std::thread::sleep(std::time::Duration::from_millis(1100));
+        assert_eq!(date(&peek(&tp.join("x/a.txt")).unwrap()), first, "a copy has the file's date, not the time it was made");
         assert!(peek(&zp.join("sub")).is_err(), "a folder is not looked at");
         assert!(peek(&zp.join("nothing.txt")).is_err());
         std::fs::remove_dir_all(d).unwrap();

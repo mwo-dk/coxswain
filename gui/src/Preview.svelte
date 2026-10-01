@@ -81,6 +81,8 @@
   let tree = $state(undefined);
   let table = $state(null);
   let cards = $state(null);
+  /** Kinds whose text is read here; the rest are drawn by a renderer or by the Rust side. */
+  const TEXTUAL = ["text", "markdown", "mermaid", "data", "jsonl", "calendar", "contacts", "log", "graphviz", "asciidoc", "html", "bom"];
   /** An HTML file as a page for the sandboxed frame. */
   let page = $state("");
 
@@ -221,6 +223,7 @@
     const spec = CONVERTER[kind];
     conv = null;
     if (!spec || !cur || diffing) return;
+    let later;
     const timer = setTimeout(async () => {
       const engines = await invoke("preview_engines", { tool: spec.tool }).catch(() => []);
       if (e?.path !== cur.path) return;
@@ -230,10 +233,11 @@
       const cached = await invoke("convert", { path: cur.path, tool: spec.tool, engine: eng.id, cachedOnly: true }).catch(() => null);
       if (conv?.path !== cur.path) return;
       if (cached) Object.assign(conv, { status: "done", result: cached });
-      // Quick tools run by themselves, unless a container image still has to be pulled.
-      else if ((typeof spec.auto === "string" ? ui.cfg.settings[spec.auto] : spec.auto) && !eng.needs_pull) renderConv();
-    }, spec.wait ?? 150);
-    return () => clearTimeout(timer);
+      // Quick tools run by themselves, unless a container image still has to be pulled; slow
+      // ones once the file has stayed selected a moment. What was made before shows at once.
+      else if ((typeof spec.auto === "string" ? ui.cfg.settings[spec.auto] : spec.auto) && !eng.needs_pull) later = setTimeout(() => conv?.path === cur.path && renderConv(), Math.max(0, (spec.wait ?? 150) - 150));
+    }, 150);
+    return () => (clearTimeout(timer), clearTimeout(later));
   });
 
   // While a container run pulls its image, show the runtime's progress line.
