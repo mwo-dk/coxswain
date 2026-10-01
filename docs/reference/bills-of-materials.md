@@ -56,6 +56,7 @@ Nothing is under GPL or LGPL. The cases that needed a closer look, and what was 
 | r-efi | MIT, Apache-2.0 or LGPL-2.1-or-later | The same: MIT |
 | libdbus-sys (Linux desktop app) | MIT; carries D-Bus's source, AFL-2.1 or GPL-2.0-or-later | The source is never built: without its `vendored` feature the crate links the system's libdbus, so none of it ships |
 | Oniguruma, SQLite, ring's C code | BSD-2-Clause, public domain, ISC and Apache-2.0 | Compiled in from bundled sources; their texts are in the notices, beside the crates' own |
+| The BOM viewer's rating catalogue and the code ported from cipherscape | MIT | cipherscape is Jimmy Tønners's own project, and he contributes this material under Coxswain's MIT licence; see `crates/coxswain-core/src/bom/README.md` |
 | duck, khroma | BSD-2-Clause, MIT | Their `package.json` says "BSD" or nothing; the licence files say what is recorded in `tools/bom/licenses.toml` |
 
 ## The cryptography
