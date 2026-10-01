@@ -132,6 +132,7 @@ New here? Start with [The screen](panels/the-screen.md) and [Every default key](
 | [Update checks](reference/updates.md) | The daily update check: what it sends, what each app shows, the upgrade command, turning it off |
 | [Where things are kept](reference/where-things-are-kept.md) | Config, state and cache folders on each system, every file in them, what is safe to delete, removing everything |
 | [Security](reference/security.md) | Dependencies: how they are chosen and updated, advisory and licence checks on every change and weekly, the bundled viewers, checking a download, reporting a problem |
+| [Performance](reference/performance.md) | What keeps each app quick, the numbers for 100,000 files and a million names, and how to measure again |
 
 ## [Questions, collected](faq.md)
 

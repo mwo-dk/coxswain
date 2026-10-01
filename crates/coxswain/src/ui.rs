@@ -245,8 +245,7 @@ fn panel(f: &mut Frame, app: &mut App, side: usize, area: Rect) {
     let info = if let Some(err) = &p.error {
         Line::from(Span::styled(fit(err, w), sty(&t.git_conflict)))
     } else if !p.marked.is_empty() {
-        let bytes: u64 = p.entries.iter().filter(|e| p.marked.contains(&e.path)).map(|e| e.size).sum();
-        Line::from(Span::styled(format!("{:^w$}", tn!("tui.selected", p.marked.len(), "size" => size(bytes))), sty(&t.marked))).centered()
+        Line::from(Span::styled(format!("{:^w$}", tn!("tui.selected", p.marked.len(), "size" => size(p.marked_bytes))), sty(&t.marked))).centered()
     } else if let Some(e) = p.current() {
         let mut right = if e.is_dir { String::new() } else { format!(" {}", size(e.size)) };
         // The last commit that changed it, when git has said.

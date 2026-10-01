@@ -785,6 +785,7 @@
  "sidebar.rename_group": "Naam van groep wijzigen",
  "sidebar.repos": "Git-repository's",
  "state.favourites": "Favorieten",
+ "status.busy": "Bezig met {what}…",
  "status.copied": "{what} gekopieerd",
  "status.created": "{what} gemaakt",
  "status.deleted": "{what} verwijderd",

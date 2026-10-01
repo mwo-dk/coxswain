@@ -830,6 +830,7 @@
  "sidebar.rename_group": "Pārdēvēt grupu",
  "sidebar.repos": "Git repozitoriji",
  "state.favourites": "Izlase",
+ "status.busy": "Apstrādā: {what}…",
  "status.copied": "Nokopēts: {what}",
  "status.created": "Izveidots: {what}",
  "status.deleted": "Izdzēsts: {what}",

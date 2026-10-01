@@ -830,6 +830,7 @@
  "sidebar.rename_group": "Rinomina gruppo",
  "sidebar.repos": "Repository git",
  "state.favourites": "Preferiti",
+ "status.busy": "Elaborazione di {what}…",
  "status.copied": "{what} copiato",
  "status.created": "{what} creato",
  "status.deleted": "{what} eliminato",
