@@ -180,6 +180,9 @@ pub enum Prompt {
     Move(Vec<PathBuf>),
     Extract(Vec<PathBuf>),
     Pack(Vec<PathBuf>),
+    /// A password for a new zip or 7z (none: empty), shown as stars; then typed again.
+    PackPassword(Vec<PathBuf>, PathBuf),
+    PackConfirm(Vec<PathBuf>, PathBuf, String),
     /// A locked archive's password, to run the copy, move or extract again with; shown as
     /// stars and kept for that run only.
     Password(Transfer, Vec<PathBuf>, PathBuf),
@@ -258,7 +261,7 @@ enum Run {
     ShowOutput,
     /// Copy, move, extract, delete or mkdir; then put the cursor on `select`.
     Transfer { op: Transfer, src: Vec<PathBuf>, dst: PathBuf, password: Option<String>, select: Option<String> },
-    Pack { src: Vec<PathBuf>, to: PathBuf },
+    Pack { src: Vec<PathBuf>, to: PathBuf, password: Option<String> },
 }
 
 pub struct App {
@@ -926,6 +929,11 @@ impl App {
         self.after_op(ok, errors);
     }
 
+    fn pack(&mut self, src: Vec<PathBuf>, to: PathBuf, password: Option<String>) {
+        self.status = Some(t!("status.busy", "what" => Self::describe(&src)));
+        self.run = Some(Run::Pack { src, to, password });
+    }
+
     fn submit(&mut self, prompt: Prompt, value: String) {
         let base = self.panel().dir.clone();
         match prompt {
@@ -952,9 +960,16 @@ impl App {
             }
             Prompt::Pack(src) => {
                 let to = resolve(&base, &value);
-                self.status = Some(t!("status.busy", "what" => Self::describe(&src)));
-                self.run = Some(Run::Pack { src, to });
+                if coxswain_core::archive::takes_password(&to) {
+                    self.input(&t!("archive.pack"), t!("archive.pack_password"), String::new(), Prompt::PackPassword(src, to));
+                } else {
+                    self.pack(src, to, None);
+                }
             }
+            Prompt::PackPassword(src, to) if value.is_empty() => self.pack(src, to, None),
+            Prompt::PackPassword(src, to) => self.input(&t!("archive.pack"), t!("archive.pack_confirm"), String::new(), Prompt::PackConfirm(src, to, value)),
+            Prompt::PackConfirm(src, to, pw) if pw == value => self.pack(src, to, Some(pw)),
+            Prompt::PackConfirm(..) => self.status = Some(t!("archive.pack_mismatch")),
             Prompt::Mkdir if value.trim().is_empty() => {}
             Prompt::Mkdir => {
                 let d = resolve(&base, &value);
@@ -1434,9 +1449,10 @@ fn main_loop(term: &mut DefaultTerminal, app: &mut App) -> std::io::Result<()> {
                     app.panel_mut().select_name(&n);
                 }
             }
-            Some(Run::Pack { src, to }) => {
+            Some(Run::Pack { src, to, password }) => {
                 app.changed(std::slice::from_ref(&to));
-                let errors = coxswain_core::archive::create(&to, &src).err().map(|e| vec![format!("{}: {e}", to.display())]).unwrap_or_default();
+                // A 7z's names are hidden too: what the desktop app does by default.
+                let errors = coxswain_core::archive::create_locked(&to, &src, password.as_deref(), true).err().map(|e| vec![format!("{}: {e}", to.display())]).unwrap_or_default();
                 app.after_op(t!("archive.packed", "what" => App::describe(&src)), errors);
             }
             Some(Run::Shell { cmd, dir, wait }) => {

@@ -920,12 +920,18 @@ async fn archive_peek(path: PathBuf) -> Res<PathBuf> {
     tauri::async_runtime::spawn_blocking(move || peek(&path)).await.map_err(|e| e.to_string())?.map_err(|e| e.to_string())
 }
 
-/// A new archive at `dest` (zip, tar or tar.gz, by its name) with `paths` in it.
+/// A new archive at `dest` (.zip, .7z, .tar, .tar.gz, ..., by its name) with `paths` in it,
+/// locked with `password` if one is given (a 7z's names too with `hide_names`). The password
+/// is kept in memory for this run only.
 #[tauri::command]
-async fn pack(paths: Vec<PathBuf>, base: PathBuf, dest: String, ctx: tauri::State<'_, Ctx>) -> Res<PathBuf> {
+async fn pack(paths: Vec<PathBuf>, base: PathBuf, dest: String, password: Option<String>, hide_names: bool, ctx: tauri::State<'_, Ctx>) -> Res<PathBuf> {
     let to = resolve(&base, &dest);
     ctx.sizer.forget(&to);
-    coxswain_core::archive::create(&to, &paths).map_err(|e| format!("{}: {e}", to.display()))?;
+    let at = to.clone();
+    tauri::async_runtime::spawn_blocking(move || coxswain_core::archive::create_locked(&at, &paths, password.as_deref(), hide_names))
+        .await
+        .map_err(|e| e.to_string())?
+        .map_err(|e| format!("{}: {e}", to.display()))?;
     Ok(to)
 }
 

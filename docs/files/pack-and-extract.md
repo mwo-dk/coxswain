@@ -22,7 +22,13 @@ after it. Both apps have both keys.
    - one item: its name without its extension, `photos.zip` for a folder `photos`, `report.zip`
      for `report.pdf`;
    - several items: the name of the folder you are in, `rocket.zip`.
-3. Change the name or its ending to choose the format, then press **Enter** (or *OK*).
+3. Change the name or its ending to choose the format.
+4. For a zip or a 7z, type a password if you want one, and the same again below it; leave both
+   empty for none. A 7z also has *Hide the file names too*, on by default. For a tar the fields
+   are not there, and the dialog says *tar archives have no passwords: pack into .zip or .7z for
+   one*. More in [Passwords](archive-passwords.md#locking-a-new-archive).
+5. Press **Enter** (or *OK*). While the two passwords differ, *OK* is greyed out and the dialog
+   says *The passwords do not match*.
 
 | You type | You get |
 |---|---|
@@ -58,6 +64,8 @@ To take out only some files, open the archive with **Enter** and copy them with 
 
 ## What you see
 
+- The password fields show dots. After packing with a password, the new archive opens without
+  asking until you close the app; its badge says *archive, locked*.
 - After packing, the status line says `Packed "photos"` or `Packed 3 items`, and the new archive
   shows in the other panel.
 - After extracting, it says `Extracted "photos.zip"`.
@@ -73,8 +81,8 @@ To take out only some files, open the archive with **Enter** and copy them with 
 **Packing** takes folders with everything in them, hidden files and empty folders included.
 Symbolic links are left out, since what they point at may be anywhere. Files keep their
 modification dates. The archive is written to a `.coxswain-tmp` file first and gets its name only
-when it is complete, so a failure leaves no half archive. Packing never makes a locked archive:
-there is no password to set.
+when it is complete, so a failure leaves no half archive. With a password, a zip's files are each
+locked with AES-256, and a 7z's contents too (and its names, with *Hide the file names too*).
 
 **Extracting** never writes over anything: if the folder named after the archive is already
 there, it stops with `… exists`. Entries that would land outside the new folder (`../`, absolute
@@ -86,7 +94,11 @@ None. The keys are `pack` and `extract` in `[keys]` ([Changing keys](../customis
 
 ## In the terminal app
 
-The same keys, dialogs, formats and texts. **Ctrl+U** clears the field. There is no preview pane,
+The same keys, formats and texts. **Ctrl+U** clears the field. For a zip or 7z target, the
+target prompt is followed by a password prompt (stars; **Enter** alone packs without one) and,
+when you typed one, a prompt to type it again; if the two differ, the status line says *The
+passwords do not match* and nothing is packed. A 7z packed from the terminal app always hides its
+file names too. There is no preview pane,
 so the list of contents before extracting is seen by opening the archive with **Enter**.
 
 ## Questions
@@ -113,8 +125,8 @@ Yes. The label is older than the other formats; every format in the table above 
 
 #### Can I pack files into an archive with a password?
 
-No. Coxswain reads locked zips and 7z but does not make them. Use `7z a -p` or `zip -e` on the
-[command line](../commands/command-line.md), or a [user menu](../commands/user-menu.md) entry.
+Yes, into a zip or a 7z: type it in the Pack dialog's password fields. See
+[Locking a new archive](archive-passwords.md#locking-a-new-archive).
 
 #### Why was a symbolic link not packed?
 

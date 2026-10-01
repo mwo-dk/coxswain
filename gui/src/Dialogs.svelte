@@ -4,7 +4,7 @@
   import { tick } from "svelte";
   import { ui, tab, cd, load } from "./app.svelte.js";
   import { Channel } from "@tauri-apps/api/core";
-  import { invoke, basename, parent, size, date, TAGS, TAG_COLORS, tagName, isHistory, historyOf } from "./lib.js";
+  import { invoke, takesPassword, basename, parent, size, date, TAGS, TAG_COLORS, tagName, isHistory, historyOf } from "./lib.js";
   import { t, tn, num } from "./i18n.svelte.js";
 
   let input = $state();
@@ -14,7 +14,7 @@
   $effect(() => {
     if (ui.modal) tick().then(() => {
       input?.focus();
-      if (ui.modal?.kind === "input") input?.select?.();
+      if (["input", "pack"].includes(ui.modal?.kind)) input?.select?.();
     });
   });
 
@@ -192,6 +192,15 @@
   // Screen-reader name for modals that have no title of their own.
   const KIND_LABEL = { help: "help.title", search: "search.title", rename: "action.batch_rename", props: "action.properties", tag: "action.tag" };
 
+  // ------------------------------------------------------------ pack
+
+  /** Pack, with the password if the target takes one and both fields say the same. */
+  function packNow(m) {
+    const locks = takesPassword(m.value);
+    if (locks && m.password !== m.again) return;
+    confirm(m, m.value, locks && m.password ? m.password : null, /\.7z$/i.test(m.value) && m.hide);
+  }
+
   // ------------------------------------------------------------ menus
 
   const menuItems = (m) => m.items.filter((it) => it.label.toLowerCase().includes(m.filter.toLowerCase()));
@@ -210,6 +219,10 @@
       case "input":
         if (k !== "Enter") return false;
         confirm(m, m.value);
+        return true;
+      case "pack":
+        if (k !== "Enter") return false;
+        packNow(m);
         return true;
       case "confirm":
         if (k === "Enter" || k === "y" || k === "Shift+Y") confirm(m);
@@ -286,6 +299,24 @@
         <label>{m.label}{#if m.secret}<input bind:this={input} bind:value={m.value} type="password" autocomplete="off" />{:else}<input bind:this={input} bind:value={m.value} spellcheck="false" />{/if}</label>
         <div class="buttons">
           <button class="primary" onclick={() => confirm(m, m.value)}>{t("common.ok")}</button>
+          <button onclick={close}>{t("common.cancel")}</button>
+        </div>
+      {:else if m.kind === "pack"}
+        {@const locks = takesPassword(m.value)}
+        <h2>{m.title}</h2>
+        <label>{m.label}<input bind:this={input} bind:value={m.value} spellcheck="false" /></label>
+        {#if locks}
+          <div class="grid2">
+            <label>{t("archive.pack_password")}<input bind:value={m.password} type="password" autocomplete="new-password" /></label>
+            <label>{t("archive.pack_confirm")}<input bind:value={m.again} type="password" autocomplete="new-password" /></label>
+          </div>
+          {#if /\.7z$/i.test(m.value)}<label class="check"><input type="checkbox" bind:checked={m.hide} disabled={!m.password} /> {t("archive.pack_hide_names")}</label>{/if}
+          {#if m.password !== m.again && m.again}<p class="err">{t("archive.pack_mismatch")}</p>{/if}
+        {:else}
+          <p class="meta">{t("archive.pack_no_password")}</p>
+        {/if}
+        <div class="buttons">
+          <button class="primary" disabled={locks && m.password !== m.again} onclick={() => packNow(m)}>{t("common.ok")}</button>
           <button onclick={close}>{t("common.cancel")}</button>
         </div>
       {:else if m.kind === "confirm"}
