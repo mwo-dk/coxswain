@@ -93,8 +93,13 @@ export async function setTheme(name, save = false) {
 /** Re-read a tab, keeping the cursor on `focus` (default: the current name). */
 export async function load(t, dir = t.dir, focus) {
   const keep = focus ?? item(t)?.name;
+  // A slow disk: after a moment the status line says what is being read.
+  const slow = setTimeout(() => (ui.status = tr("status.busy", { what: basename(dir) || dir })), 150);
   try {
-    const r = await invoke("list_dir", { dir, showHidden: ui.showHidden, sort: t.sort, reverse: t.reverse });
+    const r = await invoke("list_dir", { dir, showHidden: ui.showHidden, sort: t.sort, reverse: t.reverse }).finally(() => {
+      clearTimeout(slow);
+      if (ui.status === tr("status.busy", { what: basename(dir) || dir })) ui.status = "";
+    });
     if (r.dir !== t.dir) {
       t.marked.clear();
       t.git = null;

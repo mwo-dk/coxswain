@@ -64,6 +64,11 @@ impl Ctx {
 
 type Res<T> = Result<T, String>;
 
+// A command without `async` runs on the main thread, the webview's: everything that reads or
+// writes the disk, the clipboard or the config is `command(async)` and runs on the async
+// runtime instead, so a slow disk never freezes the window. What needs the main thread
+// (`set_title`, `start_drag`) and what only reads memory stays plain.
+
 #[derive(Serialize)]
 struct UiStyle {
     fg: Option<String>,
@@ -114,7 +119,7 @@ fn css(c: &str) -> Option<String> {
     color_to_rgb(c).map(|(r, g, b)| format!("#{r:02x}{g:02x}{b:02x}"))
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn get_config(ctx: tauri::State<Ctx>) -> Res<UiConfig> {
     let cfg = ctx.cfg();
     let themes = cfg
@@ -265,7 +270,7 @@ fn apply_settings(text: &str, changes: &serde_json::Map<String, serde_json::Valu
 
 /// Write the changed settings into config.toml, keeping its comments and layout, then use
 /// the new config at once. Returns the new UI config (texts in the new language and so on).
-#[tauri::command]
+#[tauri::command(async)]
 fn save_settings(changes: serde_json::Map<String, serde_json::Value>, ctx: tauri::State<Ctx>) -> Res<UiConfig> {
     let path = Config::path().ok_or_else(|| coxswain_core::t!("err.no_config_folder"))?;
     let text = std::fs::read_to_string(&path).unwrap_or_default();
@@ -355,7 +360,7 @@ struct Place {
     icon: &'static str,
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn places() -> Vec<Place> {
     let p = |name: &str, dir: Option<PathBuf>, icon: &'static str| dir.filter(|d| d.is_dir()).map(|path| Place { name: coxswain_core::t!(name), path, icon });
     [
@@ -413,32 +418,32 @@ async fn disks() -> Vec<Disk> {
     out
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn get_state(ctx: tauri::State<Ctx>) -> Res<AppState> {
     ctx.state.lock().map(|s| s.clone()).map_err(|e| e.to_string())
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn save_session(session: serde_json::Value, ctx: tauri::State<Ctx>) -> Res<()> {
     ctx.edit(|st| st.session = session)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn save_favorites(favorites: Vec<FavoriteGroup>, ctx: tauri::State<Ctx>) -> Res<()> {
     ctx.edit(|st| st.favorites = favorites)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn set_tags(paths: Vec<PathBuf>, color: String, ctx: tauri::State<Ctx>) -> Res<()> {
     ctx.edit(|st| paths.iter().for_each(|p| st.set_tag(p, &color)))
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn set_note(dir: PathBuf, text: String, ctx: tauri::State<Ctx>) -> Res<()> {
     ctx.edit(|st| st.set_note(&dir, &text))
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn get_note(dir: PathBuf, ctx: tauri::State<Ctx>) -> Res<String> {
     Ok(ctx.state.lock().map_err(|e| e.to_string())?.notes.get(&dir).cloned().unwrap_or_default())
 }
@@ -509,7 +514,7 @@ fn set_title(title: String, window: tauri::WebviewWindow) -> Res<()> {
     Ok(())
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn dismiss_notice(id: String, ctx: tauri::State<Ctx>) -> Res<()> {
     ctx.edit(|st| coxswain_core::notices::dismiss(st, &id))
 }
@@ -526,7 +531,7 @@ struct MeaningStatus {
     error: Option<String>,
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn meaning_status(ctx: tauri::State<Ctx>) -> Res<MeaningStatus> {
     use std::sync::atomic::Ordering;
     let m = ctx.meaning.lock().map_err(|e| e.to_string())?;
@@ -718,7 +723,7 @@ fn resolve(base: &Path, s: &str) -> PathBuf {
     std::fs::canonicalize(&p).unwrap_or(p)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn resolve_path(base: PathBuf, input: String) -> PathBuf {
     resolve(&base, &input)
 }
@@ -780,7 +785,7 @@ async fn dir_sizes(paths: Vec<PathBuf>, tab: Option<String>, ctx: tauri::State<'
         .map_err(|e| e.to_string())
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn rename_plan(dir: PathBuf, selected: Vec<String>, pattern: String, replacement: String, flags: Flags) -> Res<Vec<Planned>> {
     let existing: Vec<String> = std::fs::read_dir(&dir)
         .map_err(|e| e.to_string())?
@@ -790,7 +795,7 @@ fn rename_plan(dir: PathBuf, selected: Vec<String>, pattern: String, replacement
     rename::plan(&selected, &existing, &pattern, &replacement, flags)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn rename_apply(dir: PathBuf, plan: Vec<Planned>) -> Res<()> {
     rename::apply(&dir, &plan)
 }
@@ -861,7 +866,7 @@ async fn extract(paths: Vec<PathBuf>, base: PathBuf, dest: String, password: Opt
 }
 
 /// The password of the locked archive `path` is in (or is), kept in memory for this run.
-#[tauri::command]
+#[tauri::command(async)]
 fn archive_password(path: PathBuf, password: String) {
     if let Some((archive, _)) = coxswain_core::archive::split(&path).or_else(|| coxswain_core::archive::is_archive(&path).then(|| (path.clone(), String::new()))) {
         coxswain_core::archive::remember(&archive, &password);
@@ -930,7 +935,7 @@ async fn properties(path: PathBuf) -> Res<Props> {
 }
 
 /// Unix permission bits when `mode` is given, else the read-only flag.
-#[tauri::command]
+#[tauri::command(async)]
 fn set_permissions(path: PathBuf, mode: Option<u32>, readonly: bool) -> Res<()> {
     let mut perms = std::fs::metadata(&path).map_err(|e| e.to_string())?.permissions();
     match mode {
@@ -984,7 +989,7 @@ fn os_clipboard() -> Option<clipboard_rs::ClipboardContext> {
 
 /// Put files on the system clipboard (other file managers can paste them); a cut is
 /// remembered here, since there is no portable way to mark one.
-#[tauri::command]
+#[tauri::command(async)]
 fn clip_set(paths: Vec<PathBuf>, cut: bool, ctx: tauri::State<Ctx>) -> Res<()> {
     use clipboard_rs::Clipboard;
     if let Some(c) = os_clipboard() {
@@ -1160,7 +1165,7 @@ fn scripts_dir() -> Option<PathBuf> {
 }
 
 /// F2: `[[user_menu]]` entries, then executables in `<config>/coxswain/scripts/`.
-#[tauri::command]
+#[tauri::command(async)]
 fn scripts(ctx: tauri::State<Ctx>) -> Vec<Script> {
     let mut out: Vec<Script> =
         ctx.cfg().user_menu.iter().enumerate().map(|(i, u)| Script { key: u.key.clone(), label: u.label.clone(), user: Some(i), path: None }).collect();
@@ -1377,5 +1382,33 @@ mod tests {
         }
         assert_eq!(from_clip(&to_clip(&p)), p);
         assert_eq!(from_clip("file:///x/%zz"), PathBuf::from("/x/%zz"));
+    }
+}
+
+/// What the desktop app sends for a big folder, ignored by default: `cargo test --release -p
+/// coxswain-gui -- --ignored --nocapture perf_`. `COXSWAIN_BENCH_DIR` is the folder with the
+/// data `coxswain-core`'s `tests/perf.rs` makes; the JSON goes next to it for the DOM benchmark.
+#[cfg(test)]
+mod perf {
+    use super::*;
+
+    #[test]
+    #[ignore]
+    fn perf_list_dir_json_100k() {
+        let Some(bench) = std::env::var_os("COXSWAIN_BENCH_DIR").map(PathBuf::from).filter(|d| d.join("flat-100000").is_dir()) else {
+            return println!("no COXSWAIN_BENCH_DIR/flat-100000: run coxswain-core's perf_list_and_sort_100k first");
+        };
+        let dir = bench.join("flat-100000");
+        let ms = |t: std::time::Instant| t.elapsed().as_secs_f64() * 1000.0;
+        let t = std::time::Instant::now();
+        let (mut entries, _) = bfs::list_with_archive(&dir, true).unwrap();
+        bfs::sort(&mut entries, SortKey::Name, false);
+        let items: Vec<Item> = entries.into_iter().map(|e| Item { icon: icons::entry(&e.name, e.is_dir, e.is_symlink, None), tag: None, entry: e }).collect();
+        let listing = Listing { has_notes: false, dir, items, archive: None, locked: false };
+        println!("list_dir body (list, sort, icons): {:.0} ms", ms(t));
+        let t = std::time::Instant::now();
+        let json = serde_json::to_vec(&listing).unwrap();
+        println!("list_dir to JSON: {:.0} ms, {:.1} MB for {} items", ms(t), json.len() as f64 / 1e6, listing.items.len());
+        std::fs::write(bench.join("listing.json"), json).unwrap();
     }
 }

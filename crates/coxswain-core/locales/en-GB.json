@@ -760,6 +760,7 @@
  "sidebar.rename_group": "Rename group",
  "sidebar.repos": "Git repositories",
  "state.favourites": "Favourites",
+ "status.busy": "Working on {what}…",
  "status.copied": "Copied {what}",
  "status.created": "Created {what}",
  "status.deleted": "Deleted {what}",

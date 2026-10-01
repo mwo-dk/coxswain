@@ -805,6 +805,7 @@
  "sidebar.rename_group": "שינוי שם הקבוצה",
  "sidebar.repos": "מאגרי Git",
  "state.favourites": "מועדפים",
+ "status.busy": "מעבד את {what}…",
  "status.copied": "{what} הועתק",
  "status.created": "{what} נוצר",
  "status.deleted": "{what} נמחק",

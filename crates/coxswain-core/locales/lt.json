@@ -805,6 +805,7 @@
  "sidebar.rename_group": "Pervardyti grupę",
  "sidebar.repos": "Git saugyklos",
  "state.favourites": "Parankiniai",
+ "status.busy": "Apdorojama: {what}…",
  "status.copied": "Nukopijuota: {what}",
  "status.created": "Sukurta: {what}",
  "status.deleted": "Pašalinta: {what}",

@@ -2,10 +2,10 @@
   import { ui, load, openItem, toggleMark, dragOut, columnMenu } from "./app.svelte.js";
   import { size, date, age, ageColor, TAG_COLORS, tagName } from "./lib.js";
   import { t as tr, num } from "./i18n.svelte.js"; // `t` is the tab here
+  import Rows from "./Rows.svelte";
 
   /** @type {{ t: any, active: boolean, onfocus: Function }} */
   let { t, active, onfocus } = $props();
-  let list = $state();
   let root = $state();
   let width = $state(1000);
 
@@ -31,9 +31,8 @@
     ["minmax(0, 1fr)", ...COLS.filter((c) => shown.has(c.id)).map((c) => (c.narrow && width < 620 ? c.narrow : c.w))].join(" "),
   );
 
-  $effect(() => {
-    list?.children[t.cursor]?.scrollIntoView({ block: "nearest" });
-  });
+  /** Every row is this high (`--row`, set by applyTheme from the same two settings). */
+  const rowH = $derived(Math.round(ui.cfg.gui.font_size * ui.cfg.gui.line_height));
 
   const g = $derived(ui.cfg.glyphs);
   const gitGlyph = (kind) =>
@@ -91,8 +90,8 @@
     {#if shown.has("modified")}<button onclick={() => sortBy("time")}>{tr("details.col.modified")} <i>{arrow("time")}</i></button>{/if}
     {#if shown.has("created")}<span>{tr("details.col.created")}</span>{/if}
   </div>
-  <div class="rows" bind:this={list} role="listbox" tabindex="-1" aria-label={t.dir}>
-    {#each t.items as e, i (e.path)}
+  <Rows class="rows" items={t.items} {rowH} cursor={t.cursor} role="listbox" tabindex="-1" aria-label={t.dir}>
+    {#snippet row(e, i)}
       {@const st = t.git?.files[e.name]}
       {@const marked = t.marked.has(e.path)}
       <!-- Keyboard handling is global (App.svelte); rows are pointer targets. -->
@@ -142,8 +141,8 @@
         {/if}
         {#if shown.has("created")}<span class="time">{date(e.created).replace(/ \d\d:\d\d/, "")}</span>{/if}
       </div>
-    {/each}
-  </div>
+    {/snippet}
+  </Rows>
 </div>
 
 <style>
@@ -201,15 +200,14 @@
   .size {
     text-align: end;
   }
-  .rows {
+  /* The list itself is Rows.svelte's element, outside this style's scope. */
+  .details :global(.rows) {
     flex: 1;
     overflow-y: auto;
     outline: none;
-    padding: 2px 4px 8px;
+    padding: 0 4px 8px;
   }
   .row {
-    content-visibility: auto;
-    contain-intrinsic-size: auto var(--row);
     cursor: default;
     user-select: none;
     border-radius: var(--r-sm);

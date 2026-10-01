@@ -760,6 +760,7 @@
  "sidebar.rename_group": "Aldatu taldearen izena",
  "sidebar.repos": "Git biltegiak",
  "state.favourites": "Gogokoak",
+ "status.busy": "Prozesatzen: {what}…",
  "status.copied": "Kopiatua: {what}",
  "status.created": "Sortua: {what}",
  "status.deleted": "Ezabatua: {what}",

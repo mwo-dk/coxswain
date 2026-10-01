@@ -760,6 +760,7 @@
  "sidebar.rename_group": "Byt namn på grupp",
  "sidebar.repos": "Git-förråd",
  "state.favourites": "Favoriter",
+ "status.busy": "Arbetar med {what}…",
  "status.copied": "Kopierade {what}",
  "status.created": "Skapade {what}",
  "status.deleted": "Raderade {what}",

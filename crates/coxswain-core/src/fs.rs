@@ -147,37 +147,31 @@ pub fn sort(entries: &mut [Entry], key: SortKey, reverse: bool) {
     });
 }
 
-/// Case-insensitive natural order: "file2" < "file10".
+/// Case-insensitive natural order: "file2" < "file10". No allocation: a sort of 100,000
+/// names calls this two million times.
 fn natord(a: &str, b: &str) -> std::cmp::Ordering {
-    let (mut a, mut b) = (a.chars().peekable(), b.chars().peekable());
+    let (mut a, mut b) = (a, b);
     loop {
-        match (a.peek().copied(), b.peek().copied()) {
-            (None, None) => return std::cmp::Ordering::Equal,
-            (None, _) => return std::cmp::Ordering::Less,
-            (_, None) => return std::cmp::Ordering::Greater,
-            (Some(x), Some(y)) if x.is_ascii_digit() && y.is_ascii_digit() => {
-                let num = |it: &mut std::iter::Peekable<std::str::Chars>| {
-                    let mut s = String::new();
-                    while let Some(c) = it.next_if(|c| c.is_ascii_digit()) {
-                        s.push(c);
-                    }
-                    s
-                };
-                let (na, nb) = (num(&mut a), num(&mut b));
-                let (ta, tb) = (na.trim_start_matches('0'), nb.trim_start_matches('0'));
-                let ord = ta.len().cmp(&tb.len()).then_with(|| ta.cmp(tb));
-                if ord.is_ne() {
-                    return ord;
-                }
+        let (Some(x), Some(y)) = (a.chars().next(), b.chars().next()) else {
+            return a.len().cmp(&b.len());
+        };
+        if x.is_ascii_digit() && y.is_ascii_digit() {
+            let digits = |s: &str| s.find(|c: char| !c.is_ascii_digit()).unwrap_or(s.len());
+            let (na, nb) = (&a[..digits(a)], &b[..digits(b)]);
+            let (ta, tb) = (na.trim_start_matches('0'), nb.trim_start_matches('0'));
+            let ord = ta.len().cmp(&tb.len()).then_with(|| ta.cmp(tb));
+            if ord.is_ne() {
+                return ord;
             }
-            (Some(x), Some(y)) => {
-                let ord = x.to_lowercase().cmp(y.to_lowercase());
-                if ord.is_ne() {
-                    return ord;
-                }
-                a.next();
-                b.next();
+            a = &a[na.len()..];
+            b = &b[nb.len()..];
+        } else {
+            let ord = if x.is_ascii() && y.is_ascii() { x.to_ascii_lowercase().cmp(&y.to_ascii_lowercase()) } else { x.to_lowercase().cmp(y.to_lowercase()) };
+            if ord.is_ne() {
+                return ord;
             }
+            a = &a[x.len_utf8()..];
+            b = &b[y.len_utf8()..];
         }
     }
 }
@@ -491,6 +485,20 @@ mod tests {
         assert_eq!(v[2].name, "a.rs");
         assert_eq!(list(&d, true).unwrap().len(), 6);
         fs::remove_dir_all(d).unwrap();
+    }
+
+    #[test]
+    fn fs_natural_order() {
+        use std::cmp::Ordering::*;
+        assert_eq!(natord("file2", "file10"), Less);
+        assert_eq!(natord("file010", "file10"), Equal);
+        assert_eq!(natord("file10", "file010a"), Less);
+        assert_eq!(natord("a", "B"), Less);
+        assert_eq!(natord("B", "a"), Greater);
+        assert_eq!(natord("abc", "ab"), Greater);
+        assert_eq!(natord("", "a"), Less);
+        assert_eq!(natord("Ærø 2", "ærø 10"), Less);
+        assert_eq!(natord("x9y", "x9z"), Less);
     }
 
     #[test]

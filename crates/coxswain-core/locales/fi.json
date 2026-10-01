@@ -760,6 +760,7 @@
  "sidebar.rename_group": "Nimeä ryhmä uudelleen",
  "sidebar.repos": "Git-säilöt",
  "state.favourites": "Suosikit",
+ "status.busy": "Käsitellään: {what}…",
  "status.copied": "Kopioitu: {what}",
  "status.created": "Luotu: {what}",
  "status.deleted": "Poistettu: {what}",

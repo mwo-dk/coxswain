@@ -760,6 +760,7 @@
  "sidebar.rename_group": "Nimeta rühm ümber",
  "sidebar.repos": "Git-hoidlad",
  "state.favourites": "Lemmikud",
+ "status.busy": "Töötlemine: {what}…",
  "status.copied": "Kopeeritud: {what}",
  "status.created": "Loodud: {what}",
  "status.deleted": "Kustutatud: {what}",
