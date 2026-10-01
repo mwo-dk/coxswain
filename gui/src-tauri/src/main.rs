@@ -183,6 +183,8 @@ struct Settings {
     /// The folders whose text is read; the home folder when none are set.
     text_roots: Vec<PathBuf>,
     names_only: Vec<PathBuf>,
+    /// Folder names and file patterns left out of reading, wherever they are.
+    text_exclude: Vec<String>,
     search_meaning: bool,
     latex_auto: bool,
     meaning_engine: String,
@@ -215,6 +217,7 @@ impl From<&Config> for Settings {
             search_archives: c.search.archives,
             text_roots: c.search.text_roots.clone(),
             names_only: c.search.names_only.clone(),
+            text_exclude: c.search.text_exclude.clone(),
             search_meaning: c.search.meaning,
             latex_auto: c.preview.latex_auto,
             meaning_engine: c.search.meaning_engine.clone(),
@@ -248,6 +251,7 @@ const SETTING_PATHS: &[(&str, &[&str])] = &[
     ("search_archives", &["search", "archives"]),
     ("text_roots", &["search", "text_roots"]),
     ("names_only", &["search", "names_only"]),
+    ("text_exclude", &["search", "text_exclude"]),
     ("search_meaning", &["search", "meaning"]),
     ("latex_auto", &["preview", "latex_auto"]),
     ("meaning_engine", &["search", "meaning_engine"]),

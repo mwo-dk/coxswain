@@ -20,7 +20,7 @@ certificates as the facts that matter, with expiry coloured.
 
 | Key | Desktop app | Terminal app |
 |---|---|---|
-| **Space** / **F3** | Shows or hides the pane | **F3** opens the file in your pager |
+| **Space** / **F3** | Shows or hides the pane | **F3** opens the file in your pager; a database or Parquet file as its tables and first rows |
 | **Enter** | Opens the file in its program | The same |
 
 ## Formats
@@ -41,6 +41,7 @@ certificates as the facts that matter, with expiry coloured.
 - **Trees:** keys in one colour, values in the colour of their type.
 - **Tables:** a header row, then the rows; *Showing the first 200 rows* when there are more.
 - **SQLite:** a *Table* / *Rows* table; *–* where a count took too long or the row is a view.
+  Coxswain's own `search.db` is shown the same way.
 - **Certificates:** *Expires* says *in 20 days* or *expired 3 days ago*; yellow within 30
   days, red once expired.
 - **DuckDB:** the **Read tables** button when it cannot run by itself (an image to pull), the
@@ -55,8 +56,12 @@ container, as DuckDB has no official image) and the rest of [`[preview]`](tools.
 ## In the terminal app
 
 No preview pane (tables and trees are drawn by the desktop app's webview). **F3** shows the text
-of JSON, YAML, TOML, CSV and PEM files in your pager; for databases, the command line does the
-job: `sqlite3 launches.db .tables`, `duckdb file.duckdb -c "SHOW TABLES"`.
+of JSON, YAML, TOML, CSV and PEM files in your pager. On a SQLite database (`.db`, `.sqlite`,
+`.sqlite3`, `.db3`) it pages its tables instead: each with its row count, its `CREATE` statement
+and its first 20 rows as aligned columns. On a Parquet file: its row count, its columns with their
+types, and its first 20 rows; a file compressed with zstd shows its columns and count, and says
+*Its rows are compressed with zstd, which only the desktop app's preview reads.* For DuckDB the
+command line does the job: `duckdb file.duckdb -c "SHOW TABLES"`.
 
 ## Questions
 
@@ -87,7 +92,8 @@ certificate in it, the server's first.
 
 #### Which compressions can Parquet files use?
 
-Snappy, Gzip, Zstd, Brotli and LZ4 are all read in the app; nothing to install.
+Snappy, Gzip, Zstd, Brotli and LZ4 are all read in the desktop app; nothing to install. The
+terminal app's **F3** reads all but Zstd, whose files show their columns and row count.
 
 #### Can I edit a cell in the table?
 
