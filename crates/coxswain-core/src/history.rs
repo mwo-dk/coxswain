@@ -342,6 +342,9 @@ fn write_tree(at: &At, rev: &str, to: &Path) -> io::Result<()> {
     if files.is_empty() {
         return Err(io::Error::new(io::ErrorKind::NotFound, format!("{} is not in commit {rev}", if at.inner.is_empty() { "." } else { &at.inner })));
     }
+    // The files get the commit's time, as they were then; not the time they were copied out.
+    // ponytail: folders keep the copying time (setting it needs a handle to each folder).
+    let when = std::time::UNIX_EPOCH + std::time::Duration::from_secs(show(&at.base, rev)?.time);
     // One git for every file: the ids in, the contents out.
     let mut c = git(&at.base);
     c.args(["cat-file", "--batch"]);
@@ -367,7 +370,9 @@ fn write_tree(at: &At, rev: &str, to: &Path) -> io::Result<()> {
                 #[cfg(not(unix))]
                 std::fs::write(dst, &target)?;
             } else {
-                io::copy(&mut body, &mut std::fs::File::create_new(dst)?)?;
+                let mut f = std::fs::File::create_new(dst)?;
+                io::copy(&mut body, &mut f)?;
+                let _ = f.set_modified(when); // a file system without times still gets the file
                 #[cfg(unix)]
                 if *kind == "exec" {
                     use std::os::unix::fs::PermissionsExt;
@@ -652,6 +657,8 @@ pub(crate) mod tests {
         std::fs::create_dir_all(&out).unwrap();
         assert_eq!(crate::fs::copy(&at_first.join("main.rs"), &out).unwrap(), out.join("main.rs"));
         assert_eq!(std::fs::read_to_string(out.join("main.rs")).unwrap(), "one\n");
+        let mtime = std::fs::metadata(out.join("main.rs")).unwrap().modified().unwrap();
+        assert_eq!(mtime, std::time::UNIX_EPOCH + std::time::Duration::from_secs(1_700_000_000), "the commit's time, not now");
         assert!(crate::fs::copy(&at_first.join("main.rs"), &out).is_err(), "it is there now");
         crate::fs::copy(&at_first.join("deep"), &out).unwrap();
         assert_eq!(std::fs::read_to_string(out.join("deep/a b.txt")).unwrap(), "deep\n");

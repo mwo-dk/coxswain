@@ -786,6 +786,7 @@
  "sidebar.repos": "Git-Repositorys",
  "state.favourites": "Favoriten",
  "status.busy": "{what} wird bearbeitet …",
+ "status.busy_of": "{what} wird bearbeitet … ({n}/{all})",
  "status.copied": "{what} kopiert",
  "status.created": "{what} erstellt",
  "status.deleted": "{what} gelöscht",

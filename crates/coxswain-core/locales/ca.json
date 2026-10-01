@@ -831,6 +831,7 @@
  "sidebar.repos": "Repositoris git",
  "state.favourites": "Preferits",
  "status.busy": "S'està processant {what}…",
+ "status.busy_of": "S'està processant {what}… ({n}/{all})",
  "status.copied": "S'ha copiat {what}",
  "status.created": "S'ha creat {what}",
  "status.deleted": "S'ha suprimit {what}",

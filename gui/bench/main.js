@@ -1,19 +1,23 @@
-// Mounts the real DetailsView with a synthetic 100k listing and measures, synchronously.
+// Mounts the real DetailsView (or GridView with ?view=grid) with a synthetic 100k listing
+// and measures, synchronously.
 import { mount, flushSync, unmount } from "svelte";
 import { ui, newTab } from "../src/app.svelte.js";
 import DetailsView from "../src/DetailsView.svelte";
+import GridView from "../src/GridView.svelte";
 
-const n = Number(new URLSearchParams(location.search).get("n") ?? 100000);
-ui.cfg = { glyphs: {}, gui: { font_size: 13, line_height: 1.9 }, looks: {}, strings: {} };
+const q = new URLSearchParams(location.search);
+const n = Number(q.get("n") ?? 100000);
+const View = q.get("view") === "grid" ? GridView : DetailsView;
+ui.cfg = { glyphs: {}, gui: { font_size: 13, line_height: 1.9 }, looks: {}, strings: {}, settings: {} };
 document.documentElement.style.setProperty("--row", "25px");
 ui.panes = [{ active: 0, tabs: [newTab("/bench")] }];
 const t = ui.panes[0].tabs[0];
 const items = [];
 for (let i = 0; i < n; i++) items.push({ name: `file_${i}.txt`, path: `/bench/file_${i}.txt`, is_dir: i % 50 === 0, is_symlink: false, is_exec: false, hidden: false, size: i * 7, modified: 1700000000 + i, created: 0, icon: { glyph: "", color: "" }, tag: null });
-const res = { n };
+const res = { n, view: q.get("view") ?? "details" };
 const time = (k, f) => { const t0 = performance.now(); f(); flushSync(); document.getElementById("app").offsetHeight; res[k] = +(performance.now() - t0).toFixed(1); document.getElementById("out").textContent = JSON.stringify(res); };
 window.onerror = (e) => (document.getElementById("out").textContent += " ERR " + e);
-const app = mount(DetailsView, { target: document.getElementById("app"), props: { t, active: true, onfocus() {} } });
+const app = mount(View, { target: document.getElementById("app"), props: { t, active: true, onfocus() {} } });
 time("mount_empty_ms", () => {});
 time("set_items_ms", () => (t.items = items));
 res.rows_in_dom = document.querySelectorAll('[role="option"]').length;

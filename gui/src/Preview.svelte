@@ -1,7 +1,7 @@
 <script>
   import { untrack } from "svelte";
   import { ui, tab, item, openHistory } from "./app.svelte.js";
-  import { renderHtml, renderPptx, renderDrawio, renderMarkdown, renderMermaid, highlight, renderDocx, readSheet, renderNotebook, loadFont, clean, parseData, jsonLines, calendar, contacts, logLines, renderGraphviz, renderAsciidoc, readParquet } from "./renderers.js";
+  import { renderHtml, renderPptx, renderDrawio, renderMarkdown, renderMermaid, highlight, highlightOff, renderDocx, readSheet, renderNotebook, loadFont, clean, parseData, jsonLines, calendar, contacts, logLines, renderGraphviz, renderAsciidoc, readParquet } from "./renderers.js";
   import { invoke, convertFileSrc, basename, size, date, age, ageColor, previewKind, looksLikeBom, CONVERTER, LOCKED } from "./lib.js";
   import BomView from "./BomView.svelte";
   import { t, tn, num } from "./i18n.svelte.js";
@@ -71,7 +71,7 @@
   /** For a file git has changes for: show the file, or its diff. Kept across files. */
   const showDiff = $derived(ui.previewDiff);
   const ext = (f) => f.name.split(".").pop().toLowerCase();
-  const gitKind = $derived(e && !e.is_dir ? pane.git?.files[e.name]?.kind : undefined);
+  const gitKind = $derived(e && !e.is_dir ? (pane.git?.files[e.name] ?? pane.git?.all)?.kind : undefined);
   // In a history the diff is what that commit changed in the file.
   const hasDiff = $derived((gitKind && !["untracked", "ignored"].includes(gitKind)) || (inHistory && !!pane.history.commit));
   /** The last commit of the entry, `null` when older than the walk, undefined when untracked. */
@@ -104,7 +104,8 @@
         if (diff) {
           // In a history the diff is git's, of the file there, not of the copy shown.
           const d = await invoke("git_diff", { path: inHistory ? raw.path : cur.path });
-          if (e?.path === cur.path) html = d ? highlight(d, "diff") : highlight(t("preview.no_changes"), "plaintext");
+          const h = d ? await highlightOff(d, "diff") : highlight(t("preview.no_changes"), "plaintext");
+          if (e?.path === cur.path) h == null ? (text = d) : (html = h);
           return;
         }
         const [s, trunc, bin] = await invoke("read_text", { path: cur.path, max: LIMIT });
@@ -136,7 +137,9 @@
           html = rendered;
         } else if (!bin && s.length < 200_000) {
           const lang = { markdown: "markdown", mermaid: "plaintext", jsonl: "json", calendar: "plaintext", contacts: "plaintext", graphviz: "plaintext", asciidoc: "asciidoc" }[k];
-          html = highlight(s, lang ?? ext(cur));
+          const h = await highlightOff(s, lang ?? ext(cur));
+          if (e?.path !== cur.path) return;
+          h == null ? (text = s) : (html = h);
         } else {
           text = s;
         }

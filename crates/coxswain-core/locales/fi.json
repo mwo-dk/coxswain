@@ -786,6 +786,7 @@
  "sidebar.repos": "Git-säilöt",
  "state.favourites": "Suosikit",
  "status.busy": "Käsitellään: {what}…",
+ "status.busy_of": "Käsitellään: {what}… ({n}/{all})",
  "status.copied": "Kopioitu: {what}",
  "status.created": "Luotu: {what}",
  "status.deleted": "Poistettu: {what}",

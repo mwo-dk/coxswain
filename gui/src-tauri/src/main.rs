@@ -304,12 +304,16 @@ struct Item {
     #[serde(flatten)]
     entry: Entry,
     icon: Icon,
+    #[serde(skip_serializing_if = "Option::is_none")]
     tag: Option<String>,
 }
 
 #[derive(Serialize)]
 struct Listing {
     dir: PathBuf,
+    /// What an entry's path starts with when it is the folder's path and its name: those
+    /// entries come without a path (the page joins it), a third less JSON for a big folder.
+    prefix: String,
     items: Vec<Item>,
     has_notes: bool,
     /// The archive the folder is inside, and whether something in it is locked.
@@ -343,12 +347,27 @@ async fn list_dir(dir: PathBuf, show_hidden: bool, sort: SortKey, reverse: bool,
     let st = ctx.state.lock().map_err(|e| e.to_string())?;
     let cfg = ctx.cfg();
     let plain = cfg.plain_glyphs().then(|| cfg.glyphs());
+    let (prefix, items) = to_page(&dir, entries, |p| st.tags.get(p).cloned(), plain.as_ref());
+    let (archive, locked) = inside.map_or((None, false), |(a, locked)| (Some(a), locked));
+    Ok(Listing { has_notes: st.notes.contains_key(&dir), dir, prefix, items, archive, locked, history: in_history })
+}
+
+/// The entries as the page gets them: with their icon and tag, and without the path when it
+/// is `prefix` and the name (see `Listing::prefix`).
+fn to_page(dir: &Path, entries: Vec<Entry>, tag: impl Fn(&Path) -> Option<String>, plain: Option<&Glyphs>) -> (String, Vec<Item>) {
+    let joined = dir.join("x").to_string_lossy().into_owned();
+    let prefix = joined.strip_suffix('x').unwrap_or_default().to_string();
     let items = entries
         .into_iter()
-        .map(|e| Item { icon: icons::entry(&e.name, e.is_dir, e.is_symlink, plain.as_ref()), tag: st.tags.get(&e.path).cloned(), entry: e })
+        .map(|mut e| {
+            let tag = tag(&e.path);
+            if e.path.to_str().and_then(|p| p.strip_prefix(prefix.as_str())) == Some(e.name.as_str()) {
+                e.path = PathBuf::new();
+            }
+            Item { icon: icons::entry(&e.name, e.is_dir, e.is_symlink, plain), tag, entry: e }
+        })
         .collect();
-    let (archive, locked) = inside.map_or((None, false), |(a, locked)| (Some(a), locked));
-    Ok(Listing { has_notes: st.notes.contains_key(&dir), dir, items, archive, locked, history: in_history })
+    (prefix, items)
 }
 
 /// The last commit of each entry of `dir` (a work tree's folder or a history's), as git's one
@@ -368,6 +387,9 @@ struct GitInfo {
     branch: String,
     /// File name (direct children of the directory) -> status.
     files: BTreeMap<String, git::FileStatus>,
+    /// The status of every entry not in `files`: the folder's own, when it is untracked or
+    /// ignored (then so is everything in it).
+    all: Option<git::FileStatus>,
 }
 
 #[tauri::command]
@@ -375,19 +397,21 @@ async fn git_status(dir: PathBuf, ctx: tauri::State<'_, Ctx>) -> Res<Option<GitI
     // `git status` on a big repository takes a while: not on the async runtime's workers.
     let d = dir.clone();
     let Some(s) = tauri::async_runtime::spawn_blocking(move || git::Status::read(&d)).await.map_err(|e| e.to_string())? else { return Ok(None) };
-    let files = std::fs::read_dir(&dir)
-        .into_iter()
-        .flatten()
-        .flatten()
-        .filter_map(|de| Some((de.file_name().to_string_lossy().into_owned(), s.get(&de.path())?)))
-        .collect();
+    let (files, all) = children(&s, &dir);
     // Every listing comes through here: the state file is written only when the repo moves up.
     let mut st = ctx.state.lock().map_err(|e| e.to_string())?;
     if st.touch_repo(&s.root) {
         st.save().map_err(|e| format!("saving state: {e}"))?;
     }
     drop(st);
-    Ok(Some(GitInfo { prompt: s.prompt(&ctx.cfg().glyphs()), branch: s.summary.branch.clone(), root: s.root, files }))
+    Ok(Some(GitInfo { prompt: s.prompt(&ctx.cfg().glyphs()), branch: s.summary.branch.clone(), root: s.root, files, all }))
+}
+
+/// The statuses of `dir`'s entries, from git's alone: the folder is not read again.
+fn children(s: &git::Status, dir: &Path) -> (BTreeMap<String, git::FileStatus>, Option<git::FileStatus>) {
+    let files = s.files.iter().filter(|(p, _)| p.parent() == Some(dir)).filter_map(|(p, st)| Some((p.file_name()?.to_string_lossy().into_owned(), *st))).collect();
+    let all = s.get(dir).filter(|st| matches!(st.kind, git::Kind::Untracked | git::Kind::Ignored));
+    (files, all)
 }
 
 // ---------------------------------------------------------------- sidebar
@@ -1390,6 +1414,37 @@ mod tests {
     use super::*;
 
     #[test]
+    fn a_listing_sends_a_path_only_where_the_page_cannot_join_it() {
+        let e = |name: &str, path: &str| Entry { name: name.into(), path: path.into(), is_dir: false, is_symlink: false, is_exec: false, hidden: false, size: 0, modified: 0, created: 0 };
+        let dir = Path::new("/srv/box");
+        let (prefix, items) = to_page(dir, vec![e("..", "/srv"), e("a.txt", "/srv/box/a.txt"), e("x", "/srv/box/x"), e("b", "/elsewhere/b")], |_| None, None);
+        assert_eq!(prefix, format!("/srv/box{}", std::path::MAIN_SEPARATOR));
+        let paths: Vec<_> = items.iter().map(|i| i.entry.path.to_string_lossy().into_owned()).collect();
+        if cfg!(unix) {
+            assert_eq!(paths, ["/srv", "", "", "/elsewhere/b"]);
+        }
+        // A folder whose name ends in the letter the prefix is found with.
+        assert_eq!(to_page(Path::new("/tmp/xx"), vec![], |_| None, None).0, format!("/tmp/xx{}", std::path::MAIN_SEPARATOR));
+        let json = serde_json::to_string(&items[1]).unwrap();
+        assert!(!json.contains("\"path\""), "{json}");
+    }
+
+    #[test]
+    fn git_statuses_of_a_folder_come_from_git_alone() {
+        let root = Path::new("/r");
+        let out = "1 .M N... 100644 100644 100644 0 0 src/a.rs\0? new.txt\0! target/\0";
+        let s = git::Status::parse(root, out);
+        let (files, all) = children(&s, root);
+        let mut names: Vec<_> = files.keys().cloned().collect();
+        names.sort();
+        assert_eq!(names, ["new.txt", "src", "target"], "files and folders right in it, a changed one by its folder");
+        assert!(all.is_none());
+        let (files, all) = children(&s, &root.join("target/debug"));
+        assert!(files.is_empty());
+        assert_eq!(all.map(|s| s.kind), Some(git::Kind::Ignored), "in an ignored folder, everything is");
+    }
+
+    #[test]
     fn settings_keep_comments_and_other_keys() {
         let text = "# my config\ntheme = \"nc\"  # terminal\n\n[gui]\n# big text\nfont_size = 15\n\n[keys]\nquit = [\"F10\"]\n";
         let mut ch = serde_json::Map::new();
@@ -1473,8 +1528,8 @@ mod perf {
         let t = std::time::Instant::now();
         let (mut entries, _) = bfs::list_with_archive(&dir, true).unwrap();
         bfs::sort(&mut entries, SortKey::Name, false);
-        let items: Vec<Item> = entries.into_iter().map(|e| Item { icon: icons::entry(&e.name, e.is_dir, e.is_symlink, None), tag: None, entry: e }).collect();
-        let listing = Listing { has_notes: false, dir, items, archive: None, locked: false, history: None };
+        let (prefix, items) = to_page(&dir, entries, |_| None, None);
+        let listing = Listing { has_notes: false, dir, prefix, items, archive: None, locked: false, history: None };
         println!("list_dir body (list, sort, icons): {:.0} ms", ms(t));
         let t = std::time::Instant::now();
         let json = serde_json::to_vec(&listing).unwrap();

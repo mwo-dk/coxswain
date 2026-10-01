@@ -4,6 +4,14 @@ import { t, num } from "./i18n.svelte.js";
 
 export { invoke, convertFileSrc };
 
+/** A folder's listing. An entry whose path is the folder's and its name comes as the name
+ *  only (a third less JSON for a big folder); here it gets its path again. */
+export async function listDir(args) {
+  const r = await invoke("list_dir", args);
+  for (const e of r.items) e.path ??= r.prefix + e.name;
+  return r;
+}
+
 const NAMED = {
   Enter: "Enter",
   Escape: "Esc",

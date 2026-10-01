@@ -9,16 +9,27 @@ use std::time::UNIX_EPOCH;
 #[derive(Clone, Debug, Serialize)]
 pub struct Entry {
     pub name: String,
+    /// Left out when empty: the desktop app's listing sends a path only where the page cannot
+    /// join it from the folder and the name.
+    #[serde(skip_serializing_if = "crate::fs::no_path")]
     pub path: PathBuf,
     pub is_dir: bool,
+    // Left out when false: most entries are none of these, and a big folder's JSON is smaller.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
     pub is_symlink: bool,
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
     pub is_exec: bool,
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
     pub hidden: bool,
     pub size: u64,
     /// Seconds since the Unix epoch.
     pub modified: u64,
     /// Seconds since the Unix epoch; 0 where the file system does not record it.
     pub created: u64,
+}
+
+fn no_path(p: &Path) -> bool {
+    p.as_os_str().is_empty()
 }
 
 impl Entry {

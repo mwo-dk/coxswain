@@ -786,6 +786,7 @@
  "sidebar.repos": "Git-hoidlad",
  "state.favourites": "Lemmikud",
  "status.busy": "Töötlemine: {what}…",
+ "status.busy_of": "Töötlemine: {what}… ({n}/{all})",
  "status.copied": "Kopeeritud: {what}",
  "status.created": "Loodud: {what}",
  "status.deleted": "Kustutatud: {what}",

@@ -1,24 +1,55 @@
 <script>
   // Thumbnails: images show themselves, everything else its icon. Arrow keys move in 2D
   // (handled in App, which reads the column count from `data-cols`).
+  import { untrack } from "svelte";
   import { openItem, toggleMark, dragOut } from "./app.svelte.js";
   import { convertFileSrc, previewKind, TAG_COLORS } from "./lib.js";
 
   /** @type {{ t: any, active: boolean, onfocus: Function }} */
   let { t, active, onfocus } = $props();
   let grid = $state();
+  let tiles = $state();
   let cols = $state(1);
+  // Only the rows of tiles in view are in the DOM (a folder of 10,000 photos costs what a
+  // screenful does); the rest is padding of the right height, on an inner box (padding on
+  // the scrolling one would make it that tall). Tiles are all one height, measured from the
+  // first one, since it follows the pane's width.
+  let top = $state(0);
+  let height = $state(0);
+  let tileH = $state(120);
+  /** The tiles' gap and padding, as in the style below; rows rendered beyond the edges. */
+  const GAP = 6, PAD = 8, OVER = 2;
+  const step = $derived(tileH + GAP);
+  const rows = $derived(Math.ceil(t.items.length / cols));
+  const first = $derived(Math.max(0, Math.floor((top - PAD) / step) - OVER));
+  const last = $derived(Math.min(rows, Math.ceil((top + height) / step) + OVER));
 
-  $effect(() => {
-    grid?.children[t.cursor]?.scrollIntoView({ block: "nearest" });
-  });
+  function measure() {
+    cols = getComputedStyle(tiles).gridTemplateColumns.split(" ").length;
+    height = grid.clientHeight;
+    tileH = tiles.firstElementChild?.offsetHeight || untrack(() => tileH);
+  }
 
   // ponytail: the webview decodes full-size images; a thumbnail cache if big photo folders get slow.
   $effect(() => {
-    if (!grid) return;
-    const ro = new ResizeObserver(() => (cols = getComputedStyle(grid).gridTemplateColumns.split(" ").length));
+    if (!grid || !tiles) return;
+    untrack(measure);
+    const ro = new ResizeObserver(measure);
     ro.observe(grid);
     return () => ro.disconnect();
+  });
+  // The first tiles of a folder are the ones to measure (an empty folder had none).
+  $effect(() => {
+    if (tiles && t.items.length) untrack(measure);
+  });
+
+  // The cursor kept in view, as scrollIntoView would.
+  $effect(() => {
+    if (!grid || !height || t.cursor < 0) return;
+    const y = PAD + Math.floor(t.cursor / cols) * step;
+    if (y < grid.scrollTop) grid.scrollTop = y - PAD;
+    else if (y + tileH > grid.scrollTop + height) grid.scrollTop = y + tileH + PAD - height;
+    top = grid.scrollTop;
   });
 
   function click(ev, i) {
@@ -28,45 +59,56 @@
   }
 </script>
 
-<div class="grid" bind:this={grid} data-cols={cols} role="listbox" tabindex="-1" aria-label={t.dir}>
-  {#each t.items as e, i (e.path)}
-    <!-- svelte-ignore a11y_click_events_have_key_events -->
-    <div
-      role="option"
-      tabindex="-1"
-      aria-selected={i === t.cursor}
-      class="tile"
-      class:hidden={e.hidden}
-      class:marked={t.marked.has(e.path)}
-      class:cursor={i === t.cursor}
-      class:focused={active}
-      draggable={e.name !== ".."}
-      ondragstart={(ev) => {
-        ev.preventDefault();
-        dragOut(t, i);
-      }}
-      onclick={(ev) => click(ev, i)}
-      ondblclick={() => openItem(t, i)}
-      oncontextmenu={(ev) => {
-        ev.preventDefault();
-        onfocus();
-        t.cursor = i;
-        toggleMark(t, i);
-      }}
-      title={e.name}
-    >
-      <div class="thumb">
-        {#if previewKind(e) === "image"}
-          <img src={convertFileSrc(e.path)} alt="" loading="lazy" decoding="async" draggable="false" />
-        {:else}
-          <span class="icon" class:dir={e.is_dir} style:color={e.icon.color || null}>{e.name === ".." ? "\u{f062}" : e.icon.glyph}</span>
-        {/if}
+<div
+  class="grid"
+  bind:this={grid}
+  data-cols={cols}
+  role="listbox"
+  tabindex="-1"
+  aria-label={t.dir}
+  onscroll={(ev) => (top = ev.currentTarget.scrollTop)}
+>
+  <div class="tiles" bind:this={tiles} style:padding-top="{PAD + first * step}px" style:padding-bottom="{PAD + (rows - last) * step}px">
+    {#each t.items.slice(first * cols, last * cols) as e, j (e.path)}
+      {@const i = first * cols + j}
+      <!-- svelte-ignore a11y_click_events_have_key_events -->
+      <div
+        role="option"
+        tabindex="-1"
+        aria-selected={i === t.cursor}
+        class="tile"
+        class:hidden={e.hidden}
+        class:marked={t.marked.has(e.path)}
+        class:cursor={i === t.cursor}
+        class:focused={active}
+        draggable={e.name !== ".."}
+        ondragstart={(ev) => {
+          ev.preventDefault();
+          dragOut(t, i);
+        }}
+        onclick={(ev) => click(ev, i)}
+        ondblclick={() => openItem(t, i)}
+        oncontextmenu={(ev) => {
+          ev.preventDefault();
+          onfocus();
+          t.cursor = i;
+          toggleMark(t, i);
+        }}
+        title={e.name}
+      >
+        <div class="thumb">
+          {#if previewKind(e) === "image"}
+            <img src={convertFileSrc(e.path)} alt="" loading="lazy" decoding="async" draggable="false" />
+          {:else}
+            <span class="icon" class:dir={e.is_dir} style:color={e.icon.color || null}>{e.name === ".." ? "\u{f062}" : e.icon.glyph}</span>
+          {/if}
+        </div>
+        <span class="label">
+          {#if e.tag}<span class="tag" style:background={TAG_COLORS[e.tag]}></span>{/if}{e.name}
+        </span>
       </div>
-      <span class="label">
-        {#if e.tag}<span class="tag" style:background={TAG_COLORS[e.tag]}></span>{/if}{e.name}
-      </span>
-    </div>
-  {/each}
+    {/each}
+  </div>
 </div>
 
 <style>
@@ -74,12 +116,14 @@
     flex: 1;
     min-height: 0;
     overflow-y: auto;
+    outline: none;
+  }
+  .tiles {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
     grid-auto-rows: max-content;
     gap: 6px;
     padding: 8px;
-    outline: none;
   }
   .tile {
     display: flex;

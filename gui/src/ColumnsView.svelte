@@ -2,7 +2,7 @@
   // Miller columns: two ancestor levels, the current folder, and a peek into the folder
   // under the cursor. Left/Right walk the hierarchy (handled in App).
   import { ui, cd, load, openItem, toggleMark } from "./app.svelte.js";
-  import { invoke, parent, TAG_COLORS } from "./lib.js";
+  import { listDir, parent, TAG_COLORS } from "./lib.js";
   import { t as tr, i18n } from "./i18n.svelte.js"; // `t` is the tab here
   import Rows from "./Rows.svelte";
 
@@ -18,7 +18,7 @@
 
   async function list(dir) {
     try {
-      return (await invoke("list_dir", { dir, showHidden: ui.showHidden, sort: t.sort, reverse: t.reverse })).items.filter((e) => e.name !== "..");
+      return (await listDir({ dir, showHidden: ui.showHidden, sort: t.sort, reverse: t.reverse })).items.filter((e) => e.name !== "..");
     } catch {
       return [];
     }

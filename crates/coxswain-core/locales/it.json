@@ -831,6 +831,7 @@
  "sidebar.repos": "Repository git",
  "state.favourites": "Preferiti",
  "status.busy": "Elaborazione di {what}…",
+ "status.busy_of": "Elaborazione di {what}… ({n}/{all})",
  "status.copied": "{what} copiato",
  "status.created": "{what} creato",
  "status.deleted": "{what} eliminato",

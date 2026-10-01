@@ -1,7 +1,7 @@
 // Shared app state and navigation. Components read `ui` and call these functions.
 
 import { SvelteSet } from "svelte/reactivity";
-import { invoke, basename, parent, applyTheme, isArchive, HISTORY, LOCKED } from "./lib.js";
+import { invoke, listDir, basename, parent, applyTheme, isArchive, HISTORY, LOCKED } from "./lib.js";
 import { setLanguage, t } from "./i18n.svelte.js";
 /** The texts, for functions whose tab is called `t`. */
 const tr = t;
@@ -96,7 +96,7 @@ export async function load(t, dir = t.dir, focus) {
   // A slow disk: after a moment the status line says what is being read.
   const slow = setTimeout(() => (ui.status = tr("status.busy", { what: basename(dir) || dir })), 150);
   try {
-    const r = await invoke("list_dir", { dir, showHidden: ui.showHidden, sort: t.sort, reverse: t.reverse }).finally(() => {
+    const r = await listDir({ dir, showHidden: ui.showHidden, sort: t.sort, reverse: t.reverse }).finally(() => {
       clearTimeout(slow);
       if (ui.status === tr("status.busy", { what: basename(dir) || dir })) ui.status = "";
     });

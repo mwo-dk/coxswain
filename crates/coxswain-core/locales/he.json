@@ -831,6 +831,7 @@
  "sidebar.repos": "מאגרי Git",
  "state.favourites": "מועדפים",
  "status.busy": "מעבד את {what}…",
+ "status.busy_of": "מעבד את {what}… ({n}/{all})",
  "status.copied": "{what} הועתק",
  "status.created": "{what} נוצר",
  "status.deleted": "{what} נמחק",

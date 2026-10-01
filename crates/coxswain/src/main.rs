@@ -91,6 +91,11 @@ impl Panel {
                 }
             }
         }
+        self.fill(keep);
+    }
+
+    /// Sort what was just listed, keep the marks still there and put the cursor on `keep`.
+    fn fill(&mut self, keep: Option<String>) {
         bfs::sort(&mut self.entries, self.sort, self.reverse);
         // Inside an archive a folder's size comes with the listing; there is nothing to measure.
         if coxswain_core::archive::split(&self.dir).is_some() {
@@ -135,19 +140,18 @@ impl Panel {
         self.marked_bytes = self.entries.iter().filter(|e| self.marked.contains(&e.path)).map(|e| e.size).sum();
     }
 
-    fn cd(&mut self, dir: PathBuf, show_hidden: bool) {
+    /// Show `dir`, not listed yet: returns the name to put the cursor on once it is.
+    fn enter(&mut self, dir: PathBuf) -> Option<String> {
         let from = std::mem::replace(&mut self.dir, dir);
         self.clear_marks();
         self.sizes.clear();
+        self.entries.clear();
         self.cursor = 0;
         self.offset = 0;
         self.git = None;
         self.last = None;
-        self.load(show_hidden);
-        // Coming up out of a directory (or a history): put the cursor on it, as NC does.
-        if let Some(n) = from.strip_prefix(&self.dir).ok().and_then(|r| r.components().next()) {
-            self.select_name(&n.as_os_str().to_string_lossy());
-        }
+        // Coming up out of a directory (or a history): the cursor on it, as NC does.
+        from.strip_prefix(&self.dir).ok().and_then(|r| r.components().next()).map(|n| n.as_os_str().to_string_lossy().into_owned())
     }
 
     fn select_name(&mut self, name: &str) {
@@ -256,9 +260,6 @@ enum Git {
 enum Run {
     Shell { cmd: String, dir: PathBuf, wait: bool },
     ShowOutput,
-    /// Copy, move, extract, delete or mkdir; then put the cursor on `select`.
-    Transfer { op: Transfer, src: Vec<PathBuf>, dst: PathBuf, password: Option<String>, select: Option<String> },
-    Pack { src: Vec<PathBuf>, to: PathBuf },
 }
 
 pub struct App {
@@ -297,8 +298,32 @@ pub struct App {
     /// The stop flag of each panel's measuring.
     measuring: [Arc<std::sync::atomic::AtomicBool>; 2],
     run: Option<Run>,
+    /// The copy, move, delete, extract or pack running on its thread; one at a time.
+    job: Option<Job>,
+    /// A history's commits, listed on a thread (git can take seconds): the folder, the name
+    /// to put the cursor on, the listing.
+    list_tx: mpsc::Sender<(PathBuf, Option<String>, std::io::Result<Vec<Entry>>)>,
+    list_rx: mpsc::Receiver<(PathBuf, Option<String>, std::io::Result<Vec<Entry>>)>,
     last_click: Option<(Instant, u16, u16)>,
     quit: bool,
+}
+
+/// A file operation on its thread. It says how far it is (the item it is on), then what failed.
+struct Job {
+    op: Option<Transfer>,
+    src: Vec<PathBuf>,
+    dst: PathBuf,
+    password: Option<String>,
+    /// The panel and the name to put its cursor on when done.
+    select: Option<(usize, String)>,
+    /// What the status line says meanwhile.
+    line: String,
+    rx: mpsc::Receiver<JobMsg>,
+}
+
+enum JobMsg {
+    At(usize),
+    Done(Vec<(PathBuf, std::io::Error)>),
 }
 
 /// The searching thread: it runs the newest search asked for, after a pause for more typing,
@@ -368,11 +393,16 @@ fn shell() -> (String, &'static str) {
 
 impl App {
     fn new(cfg: Config, left: PathBuf, right: PathBuf) -> Result<App, String> {
+        let index = Client::start(&cfg.search);
+        App::with_index(cfg, left, right, index)
+    }
+
+    fn with_index(cfg: Config, left: PathBuf, right: PathBuf, index: Arc<Client>) -> Result<App, String> {
         let keymap = cfg.keymap()?;
         let (git_tx, git_rx) = mpsc::channel();
         let (update_tx, update_rx) = mpsc::channel();
         let (sizes_tx, sizes_rx) = mpsc::channel();
-        let index = Client::start(&cfg.search);
+        let (list_tx, list_rx) = mpsc::channel();
         let (search_tx, search_rx) = searcher(index.clone(), cfg.search.max_results);
         if cfg.check_updates {
             std::thread::spawn(move || {
@@ -410,6 +440,9 @@ impl App {
             told: Instant::now(),
             measuring: Default::default(),
             run: None,
+            job: None,
+            list_tx,
+            list_rx,
             last_click: None,
             quit: false,
             cfg,
@@ -482,21 +515,73 @@ impl App {
     }
 
     fn reload(&mut self) {
-        let h = self.show_hidden;
-        self.panels.iter_mut().for_each(|p| p.load(h));
+        self.load(0, None);
+        self.load(1, None);
         self.refresh_git();
         self.measure(0);
         self.measure(1);
     }
 
     fn cd(&mut self, side: usize, dir: PathBuf) {
-        let h = self.show_hidden;
-        self.panels[side].cd(dir.clone(), h);
+        let came = self.panels[side].enter(dir.clone());
+        self.load(side, came);
         self.refresh_git();
         self.measure(side);
         // A locked archive, looked into: its password, kept for this run, then again.
         if self.panels[side].error.as_deref().is_some_and(|e| e.contains(coxswain_core::archive::LOCKED)) {
             self.input(&t!("archive.locked_title"), t!("archive.locked_label"), String::new(), Prompt::Unlock(side, dir));
+        }
+    }
+
+    /// List a panel's folder again, the cursor on `select` (or where it is). A history's
+    /// commits come from git, which can take seconds on a big repository: on a thread, the
+    /// status line saying so meanwhile.
+    fn load(&mut self, side: usize, select: Option<String>) {
+        let h = self.show_hidden;
+        let p = &mut self.panels[side];
+        if !history::is_history(&p.dir) {
+            p.load(h);
+            if let Some(n) = select {
+                p.select_name(&n);
+            }
+            return;
+        }
+        let keep = select.or_else(|| p.current().map(|e| e.name.clone()));
+        let (dir, tx) = (p.dir.clone(), self.list_tx.clone());
+        self.status = Some(t!("status.busy", "what" => Self::describe(std::slice::from_ref(&dir))));
+        std::thread::spawn(move || {
+            let r = bfs::list(&dir, h);
+            let _ = tx.send((dir, keep, r));
+        });
+    }
+
+    /// A listing from the thread, for the panels still showing its folder. One that failed
+    /// walks up, as `Panel::load` does, and the status line says why.
+    fn listed(&mut self, dir: PathBuf, keep: Option<String>, r: std::io::Result<Vec<Entry>>) {
+        let busy = t!("status.busy", "what" => Self::describe(std::slice::from_ref(&dir)));
+        if self.status.as_deref() == Some(busy.as_str()) {
+            self.status = None;
+        }
+        for side in 0..2 {
+            let p = &mut self.panels[side];
+            if p.dir != dir {
+                continue;
+            }
+            match &r {
+                Ok(v) => {
+                    p.entries = v.clone();
+                    p.error = None;
+                    p.fill(keep.clone());
+                }
+                Err(e) => {
+                    p.error = Some(e.to_string());
+                    self.status = p.error.clone();
+                    if let Some(up) = p.dir.parent() {
+                        p.dir = up.to_path_buf();
+                        self.load(side, None);
+                    }
+                }
+            }
         }
     }
 
@@ -866,11 +951,112 @@ impl App {
         self.transfer(Transfer::Delete(forever), paths, PathBuf::new(), None, None);
     }
 
-    /// `do_transfer` after the next frame, which says what is being worked on meanwhile: a
-    /// big copy takes a while, and a screen that says nothing looks stuck.
+    /// Copy, move or extract `src` to `dst`, delete `src`, or make the folder `src`, on a
+    /// thread: keys keep working, and the status line says which item it is on. Then the
+    /// cursor goes on `select`.
     fn transfer(&mut self, op: Transfer, src: Vec<PathBuf>, dst: PathBuf, password: Option<String>, select: Option<String>) {
-        self.status = Some(t!("status.busy", "what" => Self::describe(&src)));
-        self.run = Some(Run::Transfer { op, src, dst, password, select });
+        self.start(Some(op), src, dst, password, select);
+    }
+
+    /// Run a file operation (`None`: pack `src` into `dst`) on its thread. One at a time: while
+    /// one runs, another is not started and the status line says why.
+    fn start(&mut self, op: Option<Transfer>, src: Vec<PathBuf>, dst: PathBuf, password: Option<String>, select: Option<String>) {
+        if let Some(j) = &self.job {
+            return self.status = Some(j.line.clone());
+        }
+        if matches!(op, Some(Transfer::Move | Transfer::Delete(_) | Transfer::Mkdir)) {
+            self.changed(&src);
+        } else if op.is_none() {
+            self.changed(std::slice::from_ref(&dst));
+        } else {
+            self.changed(&[dst.join("new")]);
+        }
+        let (tx, rx) = mpsc::channel();
+        let (items, to, pw) = (src.clone(), dst.clone(), password.clone());
+        std::thread::spawn(move || {
+            let pw = pw.as_deref();
+            let Some(op) = op else {
+                let failed = coxswain_core::archive::create(&to, &items).err().map(|e| (to.clone(), e));
+                return drop(tx.send(JobMsg::Done(failed.into_iter().collect())));
+            };
+            let mut failed = vec![];
+            for (i, p) in items.iter().enumerate() {
+                let _ = tx.send(JobMsg::At(i));
+                let r = match op {
+                    Transfer::Copy => bfs::copy_locked(p, &to, pw).map(drop),
+                    Transfer::Move => bfs::rename_locked(p, &to, pw).map(drop),
+                    Transfer::Extract => coxswain_core::archive::extract_locked(p, &to, pw).map(drop),
+                    Transfer::Delete(true) => bfs::delete_locked(p, pw),
+                    Transfer::Delete(false) => bfs::trash_locked(p, pw),
+                    Transfer::Mkdir => bfs::mkdir_locked(p, pw),
+                };
+                if let Err(e) = r {
+                    failed.push((p.clone(), e));
+                }
+            }
+            let _ = tx.send(JobMsg::Done(failed));
+        });
+        let line = t!("status.busy", "what" => Self::describe(&src));
+        self.status = Some(line.clone());
+        let select = select.map(|n| (self.active, n));
+        self.job = Some(Job { op, src, dst, password, select, line, rx });
+    }
+
+    /// How far the job is; when it is done, what came of it.
+    fn poll_job(&mut self) {
+        let Some(job) = &mut self.job else { return };
+        let mut done = None;
+        while let Ok(msg) = job.rx.try_recv() {
+            match msg {
+                JobMsg::At(i) if job.src.len() > 1 => {
+                    let what = Self::describe(std::slice::from_ref(&job.src[i]));
+                    let line = t!("status.busy_of", "what" => what, "n" => i + 1, "all" => job.src.len());
+                    if self.status.as_ref() == Some(&job.line) || self.status.is_none() {
+                        self.status = Some(line.clone());
+                    }
+                    job.line = line;
+                }
+                JobMsg::At(_) => {}
+                JobMsg::Done(failed) => done = Some(failed),
+            }
+        }
+        // A key clears the status line; while the job runs, it comes back.
+        if self.status.is_none() {
+            self.status = Some(job.line.clone());
+        }
+        let Some(failed) = done else { return };
+        let job = self.job.take().expect("a job");
+        self.status = None;
+        self.finish(job, failed);
+    }
+
+    /// When only locked archives were in the way, ask for the password and run again with it,
+    /// for just what was locked.
+    fn finish(&mut self, job: Job, failed: Vec<(PathBuf, std::io::Error)>) {
+        let Job { op, src, dst, password, select, .. } = job;
+        let what = Self::describe(&src);
+        let Some(op) = op else {
+            let errors = failed.iter().map(|(p, e)| format!("{}: {e}", p.display())).collect();
+            return self.after_op(t!("archive.packed", "what" => what), errors);
+        };
+        if !failed.is_empty() && failed.iter().all(|(_, e)| e.to_string().contains(coxswain_core::archive::LOCKED)) {
+            let label = t!(if password.is_none() { "archive.locked_label" } else { "archive.locked_again" });
+            let again = failed.into_iter().map(|(p, _)| p).collect();
+            return self.input(&t!("archive.locked_title"), label, String::new(), Prompt::Password(op, again, dst));
+        }
+        let errors = failed.iter().map(|(p, e)| format!("{}: {e}", p.display())).collect();
+        let ok = match op {
+            Transfer::Copy => t!("status.copied", "what" => what),
+            Transfer::Move => t!("status.moved", "what" => what),
+            Transfer::Extract => t!("app.extracted", "what" => what),
+            Transfer::Delete(true) => t!("status.deleted", "what" => what),
+            Transfer::Delete(false) => t!("status.trashed", "what" => what),
+            Transfer::Mkdir => t!("status.created", "what" => src.first().map(|p| p.display().to_string()).unwrap_or_default()),
+        };
+        self.after_op(ok, errors);
+        if let Some((side, n)) = select {
+            self.panels[side].select_name(&n);
+        }
     }
 
     fn after_op(&mut self, ok: String, errors: Vec<String>) {
@@ -881,49 +1067,6 @@ impl App {
         } else {
             self.dialog = Some(Dialog::Message { title: t!("dialog.error"), text: errors.join("\n") });
         }
-    }
-
-    /// Copy, move or extract `src` to `dst`, delete `src`, or make the folder `src`. When only
-    /// locked archives were in the way, it asks for the password and runs again with it, for
-    /// just what was locked.
-    fn do_transfer(&mut self, op: Transfer, src: Vec<PathBuf>, dst: PathBuf, password: Option<String>) {
-        if matches!(op, Transfer::Move | Transfer::Delete(_) | Transfer::Mkdir) {
-            self.changed(&src);
-        } else {
-            self.changed(&[dst.join("new")]);
-        }
-        let pw = password.as_deref();
-        let failed: Vec<(&PathBuf, std::io::Error)> = src
-            .iter()
-            .filter_map(|p| {
-                match op {
-                    Transfer::Copy => bfs::copy_locked(p, &dst, pw).map(drop),
-                    Transfer::Move => bfs::rename_locked(p, &dst, pw).map(drop),
-                    Transfer::Extract => coxswain_core::archive::extract_locked(p, &dst, pw).map(drop),
-                    Transfer::Delete(true) => bfs::delete_locked(p, pw),
-                    Transfer::Delete(false) => bfs::trash_locked(p, pw),
-                    Transfer::Mkdir => bfs::mkdir_locked(p, pw),
-                }
-                .err()
-                .map(|e| (p, e))
-            })
-            .collect();
-        if !failed.is_empty() && failed.iter().all(|(_, e)| e.to_string().contains(coxswain_core::archive::LOCKED)) {
-            let label = t!(if password.is_none() { "archive.locked_label" } else { "archive.locked_again" });
-            let again = failed.into_iter().map(|(p, _)| p.clone()).collect();
-            return self.input(&t!("archive.locked_title"), label, String::new(), Prompt::Password(op, again, dst));
-        }
-        let errors = failed.iter().map(|(p, e)| format!("{}: {e}", p.display())).collect();
-        let what = Self::describe(&src);
-        let ok = match op {
-            Transfer::Copy => t!("status.copied", "what" => what),
-            Transfer::Move => t!("status.moved", "what" => what),
-            Transfer::Extract => t!("app.extracted", "what" => what),
-            Transfer::Delete(true) => t!("status.deleted", "what" => what),
-            Transfer::Delete(false) => t!("status.trashed", "what" => what),
-            Transfer::Mkdir => t!("status.created", "what" => src.first().map(|p| p.display().to_string()).unwrap_or_default()),
-        };
-        self.after_op(ok, errors);
     }
 
     fn submit(&mut self, prompt: Prompt, value: String) {
@@ -952,8 +1095,7 @@ impl App {
             }
             Prompt::Pack(src) => {
                 let to = resolve(&base, &value);
-                self.status = Some(t!("status.busy", "what" => Self::describe(&src)));
-                self.run = Some(Run::Pack { src, to });
+                self.start(None, src, to, None, None);
             }
             Prompt::Mkdir if value.trim().is_empty() => {}
             Prompt::Mkdir => {
@@ -1323,6 +1465,10 @@ impl App {
                 }
             }
         }
+        while let Ok((dir, keep, r)) = self.list_rx.try_recv() {
+            self.listed(dir, keep, r);
+        }
+        self.poll_job();
         while let Ok((dir, news)) = self.git_rx.try_recv() {
             for p in self.panels.iter_mut().filter(|p| p.dir == dir) {
                 match &news {
@@ -1424,21 +1570,11 @@ fn run_in(sh: &str, flag: &str, cmd: &str, dir: &Path, wait: bool) -> std::io::R
 
 fn main_loop(term: &mut DefaultTerminal, app: &mut App) -> std::io::Result<()> {
     let mut state = app.index.state();
-    while !app.quit {
+    // A file operation still running when asked to quit finishes first: cut short, it
+    // would leave half a file behind.
+    while !app.quit || app.job.is_some() {
         term.draw(|f| ui::draw(f, app))?;
-        // After the frame, so the status line it put up (`status.busy`) is on screen first.
         match app.run.take() {
-            Some(Run::Transfer { op, src, dst, password, select }) => {
-                app.do_transfer(op, src, dst, password);
-                if let Some(n) = select {
-                    app.panel_mut().select_name(&n);
-                }
-            }
-            Some(Run::Pack { src, to }) => {
-                app.changed(std::slice::from_ref(&to));
-                let errors = coxswain_core::archive::create(&to, &src).err().map(|e| vec![format!("{}: {e}", to.display())]).unwrap_or_default();
-                app.after_op(t!("archive.packed", "what" => App::describe(&src)), errors);
-            }
             Some(Run::Shell { cmd, dir, wait }) => {
                 suspended(term, || run_shell(&cmd, &dir, wait))?;
                 app.reload();
@@ -1659,6 +1795,61 @@ mod tests {
         assert_eq!(line_key(k(KeyCode::Enter, true, false), None), None);
         assert_eq!(line_key(k(KeyCode::Char('a'), false, false), Some('a')), Some(LineKey::Type('a')));
         assert_eq!(line_key(k(KeyCode::F(5), false, false), None), None);
+    }
+
+    /// An app on two folders, with its own index (no helper) and no update check.
+    fn app(left: PathBuf, right: PathBuf) -> App {
+        let cfg = Config { check_updates: false, ..Config::default() };
+        let index = Client::with(None, &cfg.search, || {});
+        App::with_index(cfg, left, right, index).unwrap()
+    }
+
+    #[test]
+    fn a_copy_runs_on_its_thread_one_at_a_time() {
+        let d = std::env::temp_dir().join(format!("coxswain-test-job-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        let (a, b) = (d.join("a"), d.join("b"));
+        std::fs::create_dir_all(&a).unwrap();
+        std::fs::create_dir_all(&b).unwrap();
+        for f in ["one.txt", "two.txt"] {
+            std::fs::write(a.join(f), f).unwrap();
+        }
+        let mut app = app(a.clone(), b.clone());
+        app.transfer(Transfer::Copy, vec![a.join("one.txt"), a.join("two.txt")], b.clone(), None, None);
+        assert!(app.job.is_some(), "it runs on its own; keys are taken meanwhile");
+        // Another while it runs is not started, and the status line says what is going on.
+        app.transfer(Transfer::Delete(true), vec![a.join("one.txt")], PathBuf::new(), None, None);
+        assert!(app.status.as_deref().is_some_and(|s| s.contains('2')), "{:?}", app.status);
+        let t = Instant::now();
+        while app.job.is_some() && t.elapsed() < Duration::from_secs(10) {
+            std::thread::sleep(Duration::from_millis(5));
+            app.poll_job();
+        }
+        assert!(app.job.is_none());
+        assert_eq!(std::fs::read_to_string(b.join("two.txt")).unwrap(), "two.txt");
+        assert!(a.join("one.txt").exists(), "the delete asked for meanwhile did not run");
+        assert_eq!(app.status, Some(t!("status.copied", "what" => tn!("items", 2))));
+        assert!(app.panels[1].entries.iter().any(|e| e.name == "one.txt"), "the panels are read again");
+        std::fs::remove_dir_all(d).unwrap();
+    }
+
+    #[test]
+    fn a_history_is_listed_on_a_thread_and_walks_up_when_there_is_none() {
+        let d = std::env::temp_dir().join(format!("coxswain-test-hist-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(d.join("sub")).unwrap();
+        let mut app = app(d.clone(), d.clone());
+        let h = history::path(&d.join("sub"), None);
+        app.cd(0, h.clone());
+        assert_eq!((app.panels[0].dir.as_path(), app.panels[0].entries.len()), (h.as_path(), 0), "not listed yet");
+        assert!(app.status.is_some(), "the status line says it is being read");
+        while app.panels[0].dir == h {
+            let (dir, keep, r) = app.list_rx.recv_timeout(Duration::from_secs(10)).unwrap();
+            app.listed(dir, keep, r);
+        }
+        assert_eq!(app.panels[0].dir, d.join("sub"), "not a repository: back to the folder");
+        assert!(app.status.is_some(), "and says why");
+        std::fs::remove_dir_all(d).unwrap();
     }
 
     #[test]
