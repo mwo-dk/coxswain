@@ -216,8 +216,9 @@ leave them out.
 
 #### How do I open a file inside a zip in the terminal app?
 
-Copy it out first: **Enter** on the zip to look inside, the cursor on the file, **F5** to the
-other panel's folder, then **F3** or **F4** there. **Enter** on the file only says
+To look at it: **Enter** on the zip to go inside, the cursor on the file, **F3**. A copy goes to
+your viewer; a locked file asks for its password first. To edit it or open it in another
+program, copy it out with **F5** first: **Enter** and **F4** on a file inside only say
 *tools.zip is an archive: F5 copies this file out of it*.
 
 #### It asks for an archive's password every time I start it.

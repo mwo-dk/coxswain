@@ -1,7 +1,8 @@
 <script>
+  import { untrack } from "svelte";
   import { ui, tab, item } from "./app.svelte.js";
   import { renderHtml, renderPptx, renderDrawio, renderMarkdown, renderMermaid, highlight, renderDocx, readSheet, renderNotebook, loadFont, clean, parseData, jsonLines, calendar, contacts, logLines, renderGraphviz, renderAsciidoc, readParquet } from "./renderers.js";
-  import { invoke, convertFileSrc, basename, size, date, age, ageColor, previewKind, looksLikeBom, CONVERTER } from "./lib.js";
+  import { invoke, convertFileSrc, basename, size, date, age, ageColor, previewKind, looksLikeBom, CONVERTER, LOCKED } from "./lib.js";
   import BomView from "./BomView.svelte";
   import { t, tn, num } from "./i18n.svelte.js";
 
@@ -9,12 +10,40 @@
   let { output = null, onclearoutput, notesFocus = 0 } = $props();
 
   const pane = $derived(tab());
-  const e = $derived(item(pane));
+  const raw = $derived(item(pane));
+  // A file inside an archive is not on disk: it is previewed through a copy out of it, made
+  // when the cursor rests on it. A locked one waits for its password.
+  const inside = $derived(!!pane?.archive && !!raw && !raw.is_dir && raw.name !== "..");
+  let peeked = $state({ from: "", to: "", error: "" });
+  $effect(() => {
+    const cur = raw;
+    if (!inside || untrack(() => peeked.from === cur.path && !peeked.error)) return;
+    peeked = { from: cur.path, to: "", error: "" };
+    const timer = setTimeout(() => peek(cur.path), 150);
+    return () => clearTimeout(timer);
+  });
+  function peek(path) {
+    invoke("archive_peek", { path }).then(
+      (to) => peeked.from === path && (peeked = { from: path, to, error: "" }),
+      (err) => peeked.from === path && (peeked = { from: path, to: "", error: String(err) }),
+    );
+  }
+  function unlock() {
+    const path = peeked.from;
+    ui.modal = {
+      kind: "input",
+      secret: true,
+      title: t("archive.locked_title"),
+      label: t("archive.locked_label"),
+      value: "",
+      run: (password) => invoke("archive_password", { path, password }).then(() => peek(path)),
+    };
+  }
+  const e = $derived(inside && peeked.from === raw.path && peeked.to ? { ...raw, path: peeked.to } : raw);
   /** A JSON or XML file whose first bytes turned out to be a CycloneDX BOM's. */
   let sniffedBom = $state("");
-  // A file inside an archive is not on disk: it has no preview until it is copied out.
   const kind = $derived(
-    output ? "output" : pane?.archive && e && !e.is_dir && e.name !== ".." ? "in-archive" : e && sniffedBom === e.path ? "bom" : previewKind(e),
+    output ? "output" : inside && e === raw ? "in-archive" : e && sniffedBom === e.path ? "bom" : previewKind(e),
   );
   let text = $state("");
   let html = $state("");
@@ -374,7 +403,13 @@
     <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
     <div class="body" class:flush={kind === "bom" && !source && !diffing} onclick={linkClick}>
       {#if kind === "in-archive"}
-        <p class="more">{t("archive.preview_hint", { archive: basename(pane.archive) })}</p>
+        {#if peeked.error.includes(LOCKED)}
+          <p class="more">{t("archive.preview_locked")} <button class="link" onclick={unlock}>{t("archive.preview_unlock")}</button></p>
+        {:else if peeked.error}
+          <p class="more">{peeked.error}</p>
+        {:else}
+          <p class="more">{t("archive.preview_opening", { archive: basename(pane.archive) })}</p>
+        {/if}
       {:else if diffing}
         {#if html}<pre class="mono code"><code class="hljs">{@html html}</code></pre>{/if}
       {:else if kind === "bom" && !source}

@@ -118,7 +118,9 @@
  "archive.pack": "Paki",
  "archive.pack_into": "Paki {what} faili (.zip, .7z, .tar, .tar.gz …):",
  "archive.packed": "Pakitud {what}",
- "archive.preview_hint": "Fail on arhiivis {archive}. Kopeeri see F5-ga välja, et seda näha.",
+ "archive.preview_locked": "Fail on lukustatud parooliga.",
+ "archive.preview_opening": "Avan arhiivist {archive}…",
+ "archive.preview_unlock": "Sisesta parool",
  "bom.advice": "Mida teha",
  "bom.as_in_file": "Nagu failis",
  "bom.assets": {

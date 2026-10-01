@@ -118,7 +118,9 @@
  "archive.pack": "Packen",
  "archive.pack_into": "{what} packen in (.zip, .7z, .tar, .tar.gz …):",
  "archive.packed": "{what} gepackt",
- "archive.preview_hint": "Diese Datei liegt in {archive}. Kopieren Sie sie mit F5 heraus, um sie zu sehen.",
+ "archive.preview_locked": "Diese Datei ist mit einem Passwort gesperrt.",
+ "archive.preview_opening": "Wird aus {archive} geöffnet…",
+ "archive.preview_unlock": "Passwort eingeben",
  "bom.advice": "Was zu tun ist",
  "bom.as_in_file": "Wie in der Datei",
  "bom.assets": {
