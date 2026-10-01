@@ -114,8 +114,13 @@ so no preview of any kind can reach out.
 
 #### Can other users on the same machine see my index?
 
-No. The cache folder is yours, `search.db` is readable by you alone, and the helper answers only
-to a connection that knows its token, which is in a file only you can read.
+No. At every start both apps (and the search helper) make the cache folder (`index.bin`,
+`search.db`, previews, archive copies, the model) and the state folder (`state.json`: notes,
+tags, favourites, recent folders) readable by you alone: the folders `700`, the files `600`.
+Installs from before 1.26.4, whose files could be readable by others, are corrected at their first
+start after the update. The helper answers only to a connection that knows its token, which is in
+a file only you can read. (On Windows these folders are inside your own profile, which only you
+can open.)
 
 #### What does a remote embedding server get exactly?
 
