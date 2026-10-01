@@ -94,6 +94,9 @@ pub struct Status {
     pub meaning_engine: String,
     #[serde(default)]
     pub meaning_error: Option<String>,
+    /// Why reading the files' text failed last time; nothing further on is read until it works.
+    #[serde(default)]
+    pub error: Option<String>,
     /// Reading waits until the machine is off its battery.
     #[serde(default)]
     pub paused: bool,
@@ -277,6 +280,7 @@ fn answer(stream: TcpStream, index: &Service, store: Option<&Store>, token: &str
                 meaning_done: counts.1,
                 meaning_engine: store.and_then(Store::engine_id).unwrap_or_default(),
                 meaning_error: store.and_then(|s| s.meaning_error.lock().unwrap().clone()),
+                error: store.and_then(|s| s.error.lock().unwrap().clone()),
                 paused: store.is_some_and(|s| s.paused.load(Ordering::Relaxed)),
                 roots: store.map(Store::root_sizes).unwrap_or_default(),
                 tools: crate::extract::installed::found().iter().map(|(n, p)| (n.to_string(), p.is_some())).collect(),
@@ -414,7 +418,7 @@ impl Client {
         }
         let now = match self.ask(&Request::Status) {
             Some(Reply::Status(s)) => s,
-            _ => Status { state: self.own().state(), len: self.own().len(), texts: 0, pending: 0, bytes: 0, paused: false, roots: vec![], tools: vec![], meaning: false, meaning_pending: 0, meaning_done: 0, meaning_engine: String::new(), meaning_error: None },
+            _ => Status { state: self.own().state(), len: self.own().len(), texts: 0, pending: 0, bytes: 0, paused: false, roots: vec![], tools: vec![], meaning: false, meaning_pending: 0, meaning_done: 0, meaning_engine: String::new(), meaning_error: None, error: None },
         };
         *status = Some((Instant::now(), now.clone()));
         now

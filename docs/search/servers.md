@@ -44,7 +44,8 @@ themselves. The *Server* field is the base URL: Coxswain adds `/api/embed` for O
 
 - **Another model makes them all again.** Vectors of two models cannot be compared, so switching
   model or server replaces every vector, in the background; search by words goes on meanwhile.
-- **A server that does not answer** pauses search by meaning: Settings shows the error, the files
+- **A server that does not answer** pauses search by meaning: Settings, the terminal app's Find
+  file and a [notice](notices.md) show the error (*No vectors: …*), the files
   wait, and they are done at the next pass once it answers. A search asks the server for the
   question's vector too, so while it is down, meaning hits are missing; word hits are not.
 - **Prefixes.** Models whose name has `e5` get `query: ` and `passage: ` in front, and
