@@ -11,6 +11,7 @@ use coxswain_core::index::{Results, State};
 use coxswain_core::rename::{self, Flags, Planned};
 use coxswain_core::state::{AppState, FavoriteGroup};
 use coxswain_core::git;
+use coxswain_core::history;
 use serde::Serialize;
 use std::collections::BTreeMap;
 use std::io::Read;
@@ -182,6 +183,8 @@ struct Settings {
     meaning_model: String,
     meaning_key_env: String,
     ask_model: String,
+    search_history: bool,
+    git_last_commit: bool,
 }
 
 impl From<&Config> for Settings {
@@ -211,6 +214,8 @@ impl From<&Config> for Settings {
             meaning_model: c.search.meaning_model.clone(),
             meaning_key_env: c.search.meaning_key_env.clone(),
             ask_model: c.search.ask_model.clone(),
+            search_history: c.search.history,
+            git_last_commit: c.git.last_commit,
         }
     }
 }
@@ -241,6 +246,8 @@ const SETTING_PATHS: &[(&str, &[&str])] = &[
     ("meaning_model", &["search", "meaning_model"]),
     ("meaning_key_env", &["search", "meaning_key_env"]),
     ("ask_model", &["search", "ask_model"]),
+    ("search_history", &["search", "history"]),
+    ("git_last_commit", &["git", "last_commit"]),
 ];
 
 /// `text` (a config.toml) with the settings in `changes` set, comments and layout kept.
@@ -299,6 +306,17 @@ struct Listing {
     /// The archive the folder is inside, and whether something in it is locked.
     archive: Option<PathBuf>,
     locked: bool,
+    /// The history the folder is in.
+    history: Option<HistoryInfo>,
+}
+
+/// A history being looked into: the file or folder it is of, and the commit looked into.
+#[derive(Serialize)]
+struct HistoryInfo {
+    target: PathBuf,
+    /// The folder on disk it leads back to: the target, or the folder holding it.
+    base: PathBuf,
+    commit: Option<history::Commit>,
 }
 
 /// Async, as a compressed tar is read in full to list a folder in it.
@@ -306,6 +324,13 @@ struct Listing {
 async fn list_dir(dir: PathBuf, show_hidden: bool, sort: SortKey, reverse: bool, ctx: tauri::State<'_, Ctx>) -> Res<Listing> {
     let (mut entries, inside) = bfs::list_with_archive(&dir, show_hidden).map_err(|e| format!("{}: {e}", dir.display()))?;
     bfs::sort(&mut entries, sort, reverse);
+    // By last commit: git's walk first, cached for the column after.
+    if sort == SortKey::Commit
+        && let Some(lasts) = history::last_changes(&dir)
+    {
+        history::sort_by_last(&mut entries, &lasts, reverse);
+    }
+    let in_history = history::split(&dir).filter(|_| !dir.is_dir()).map(|at| HistoryInfo { commit: at.commit.as_deref().and_then(|c| history::show(&at.base, c).ok()), target: at.target, base: at.base });
     let st = ctx.state.lock().map_err(|e| e.to_string())?;
     let cfg = ctx.cfg();
     let plain = cfg.plain_glyphs().then(|| cfg.glyphs());
@@ -314,7 +339,17 @@ async fn list_dir(dir: PathBuf, show_hidden: bool, sort: SortKey, reverse: bool,
         .map(|e| Item { icon: icons::entry(&e.name, e.is_dir, e.is_symlink, plain.as_ref()), tag: st.tags.get(&e.path).cloned(), entry: e })
         .collect();
     let (archive, locked) = inside.map_or((None, false), |(a, locked)| (Some(a), locked));
-    Ok(Listing { has_notes: st.notes.contains_key(&dir), dir, items, archive, locked })
+    Ok(Listing { has_notes: st.notes.contains_key(&dir), dir, items, archive, locked, history: in_history })
+}
+
+/// The last commit of each entry of `dir` (a work tree's folder or a history's), as git's one
+/// walk over the folder finds it. `None` outside a repository or when switched off.
+#[tauri::command]
+async fn git_last(dir: PathBuf, ctx: tauri::State<'_, Ctx>) -> Res<Option<std::sync::Arc<history::Lasts>>> {
+    if !ctx.cfg().git.last_commit {
+        return Ok(None);
+    }
+    tauri::async_runtime::spawn_blocking(move || history::last_changes(&dir)).await.map_err(|e| e.to_string())
 }
 
 #[derive(Serialize)]
@@ -816,11 +851,18 @@ const HEX_LINES: usize = 4096;
 /// Up to `max` bytes as text for the preview; binary files come back hex-dumped.
 #[tauri::command]
 async fn read_text(path: PathBuf, max: usize) -> Res<(String, bool, bool)> {
-    let mut buf = vec![];
-    let f = std::fs::File::open(&path).map_err(|e| e.to_string())?;
-    let len = f.metadata().map(|m| m.len()).unwrap_or(0);
-    f.take(max as u64).read_to_end(&mut buf).map_err(|e| e.to_string())?;
-    let truncated = len > buf.len() as u64;
+    let (buf, truncated) = match history::split(&path).filter(|_| !path.exists()) {
+        // In a history: the file as it was at that commit.
+        Some(at) => tauri::async_runtime::spawn_blocking(move || history::read(&at, max)).await.map_err(|e| e.to_string())?.map_err(|e| e.to_string())?,
+        None => {
+            let mut buf = vec![];
+            let f = std::fs::File::open(&path).map_err(|e| e.to_string())?;
+            let len = f.metadata().map(|m| m.len()).unwrap_or(0);
+            f.take(max as u64).read_to_end(&mut buf).map_err(|e| e.to_string())?;
+            let truncated = len > buf.len() as u64;
+            (buf, truncated)
+        }
+    };
     if buf.iter().take(8192).any(|&b| b == 0) {
         // A hex dump of the first 64 KB: four thousand lines are plenty to see what a file is.
         let hex = buf
@@ -834,7 +876,7 @@ async fn read_text(path: PathBuf, max: usize) -> Res<(String, bool, bool)> {
             })
             .collect::<Vec<_>>()
             .join("\n");
-        return Ok((hex, len > (HEX_LINES * 16) as u64, true));
+        return Ok((hex, truncated || buf.len() > HEX_LINES * 16, true));
     }
     Ok((String::from_utf8_lossy(&buf).into_owned(), truncated, false))
 }
@@ -1307,7 +1349,7 @@ fn main() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            get_config, notices, dismiss_notice, set_title, index_status, index_action, index_service, meaning_status, meaning_action, meaning_models, meaning_pull, list_dir, git_status, places, disks, get_state, save_session, save_favorites, set_tags, set_note, get_note,
+            get_config, notices, dismiss_notice, set_title, index_status, index_action, index_service, meaning_status, meaning_action, meaning_models, meaning_pull, list_dir, git_status, git_last, places, disks, get_state, save_session, save_favorites, set_tags, set_note, get_note,
             search, ask, ask_stop, resolve_path, copy, rename, delete, mkdir, dir_sizes, rename_plan, rename_apply, open_path, edit_path,
             read_text, run_command, scripts, run_script, check_update, archive_list, extract, pack, archive_password, properties, set_permissions,
             clip_set, paste, start_drag, watch_dirs, preview::git_diff, preview::sqlite_info, preview::epub_preview,

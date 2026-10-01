@@ -1,7 +1,7 @@
 <script>
   import { tick } from "svelte";
-  import { ui, newTab, load, cd, goBack, goForward, focusPane, nextView } from "./app.svelte.js";
-  import { invoke, basename, parent, crumbs, size } from "./lib.js";
+  import { ui, newTab, load, cd, up, goBack, goForward, focusPane, nextView } from "./app.svelte.js";
+  import { invoke, basename, crumbs, size, HISTORY, date } from "./lib.js";
   import { t as tr, tn } from "./i18n.svelte.js"; // `t` is the tab here
   import DetailsView from "./DetailsView.svelte";
   import ColumnsView from "./ColumnsView.svelte";
@@ -49,7 +49,7 @@
 <section
   class="pane"
   class:active
-  class:in-archive={!!t.archive}
+  class:in-archive={!!t.archive || !!t.history}
   class:drag-over={ui.dropPane === index}
   data-pane={index}
   aria-label={tr("pane.label", { n: index + 1 })}
@@ -72,7 +72,7 @@
   <div class="bar">
     <button class="nav flip" title={tr("pane.back")} disabled={!t.back.length} onclick={() => goBack(t)}>{"\u{f060}"}</button>
     <button class="nav flip" title={tr("pane.forward")} disabled={!t.fwd.length} onclick={() => goForward(t)}>{"\u{f061}"}</button>
-    <button class="nav" title={tr("pane.up")} disabled={!parent(t.dir)} onclick={() => cd(t, parent(t.dir))}>{"\u{f062}"}</button>
+    <button class="nav" title={tr("pane.up")} disabled={!up(t)} onclick={() => cd(t, up(t))}>{"\u{f062}"}</button>
     {#if editing}
       <input
         class="path-edit"
@@ -92,11 +92,18 @@
       <div class="crumbs" role="navigation" onclick={(e) => e.target === e.currentTarget && editPath()} title={tr("pane.path_tip")}>
         {#each crumbs(t.dir, ui.cfg.home) as c, i (c.path)}
           {#if i > 0}<span class="sep flip">{"\u{f054}"}</span>{/if}
-          <button class="crumb" class:archive-crumb={c.path === t.archive} onclick={() => cd(t, c.path)}>{c.name}</button>
+          <button class="crumb" class:archive-crumb={c.path === t.archive || (t.history && c.name === HISTORY)} onclick={() => cd(t, c.path === t.history?.target ? t.history.base : c.path)}>{c.name}</button>
         {/each}
         {#if t.archive}
           <!-- Inside an archive: said, so a copy out is not taken for a copy between folders. -->
           <span class="archive-badge" title={tr("archive.inside_tip")}>{"\u{f410}"} {tr(t.locked ? "archive.badge_locked" : "archive.badge")}</span>
+        {/if}
+        {#if t.history}
+          <!-- In a history: which file or folder, and which commit, so an old file is not taken for today's. -->
+          {@const c = t.history.commit}
+          <span class="archive-badge" title={c ? `${c.hash}\n${c.author} · ${date(c.time)}\n${c.subject}` : tr("history.inside_tip")}>
+            {"\u{f1da}"} {c ? tr("history.badge_at", { commit: c.hash.slice(0, 7) }) : tr("history.badge_of", { name: basename(t.history.target) })}
+          </span>
         {/if}
       </div>
     {/if}

@@ -4,7 +4,7 @@
   import { tick } from "svelte";
   import { ui, tab, cd, load } from "./app.svelte.js";
   import { Channel } from "@tauri-apps/api/core";
-  import { invoke, basename, parent, size, date, TAGS, TAG_COLORS, tagName } from "./lib.js";
+  import { invoke, basename, parent, size, date, TAGS, TAG_COLORS, tagName, isHistory, historyOf } from "./lib.js";
   import { t, tn, num } from "./i18n.svelte.js";
 
   let input = $state();
@@ -114,6 +114,8 @@
   async function goToHit(h) {
     close();
     const tb = tab();
+    // A commit: its folder as it was then.
+    if (isHistory(h.path)) return cd(tb, h.path);
     await cd(tb, parent(h.path));
     const i = tb.items.findIndex((e) => e.path === h.path);
     if (i >= 0) tb.cursor = i;
@@ -385,9 +387,16 @@
             {#each m.res?.hits ?? [] as h, i (h.path)}
               <li>
                 <button class:cursor={i === m.cursor} onclick={() => (m.cursor = i)} ondblclick={() => goToHit(h)}>
-                  <span class="glyph" class:dir={h.is_dir}>{h.is_dir ? "\u{f07b}" : "\u{f15b}"}</span>
-                  <b>{basename(h.path)}</b>
-                  <span class="where"><bdi>{parent(h.path)}</bdi></span>
+                  {#if isHistory(h.path)}
+                    <!-- A commit: the repository it is in; the snippet says which commit. -->
+                    <span class="glyph">{"\u{f417}"}</span>
+                    <b>{basename(historyOf(h.path))}</b>
+                    <span class="where"><bdi>{t("history.commit_in", { repo: historyOf(h.path) })}</bdi></span>
+                  {:else}
+                    <span class="glyph" class:dir={h.is_dir}>{h.is_dir ? "\u{f07b}" : "\u{f15b}"}</span>
+                    <b>{basename(h.path)}</b>
+                    <span class="where"><bdi>{parent(h.path)}</bdi></span>
+                  {/if}
                   {#if h.similar != null}<span class="snippet" dir="auto"><em>{t("search.similar_to")}</em> {h.snippet}</span>
                   {:else if h.snippet}<span class="snippet" dir="auto">{@html marked(h.snippet)}</span>{/if}
                 </button>

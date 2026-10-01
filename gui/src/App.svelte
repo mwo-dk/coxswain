@@ -2,7 +2,7 @@
   import { getCurrentWindow } from "@tauri-apps/api/window";
   import { getCurrentWebview } from "@tauri-apps/api/webview";
   import { listen } from "@tauri-apps/api/event";
-  import { ui, init, tab, pane, otherTab, item, load, cd, newTab, goBack, goForward, openItem, toggleMark, targets, reloadAll, snapshot, setTheme, themeIds, themeName, nextView, measureFolders, columnMenu } from "./app.svelte.js";
+  import { ui, init, tab, pane, otherTab, item, load, cd, up, openHistory, newTab, goBack, goForward, openItem, toggleMark, targets, reloadAll, snapshot, setTheme, themeIds, themeName, nextView, measureFolders, columnMenu } from "./app.svelte.js";
   import { invoke, keyString, basename, parent, glob, quote, isArchive, LOCKED } from "./lib.js";
   import { t, tn } from "./i18n.svelte.js";
   import Sidebar from "./Sidebar.svelte";
@@ -250,7 +250,8 @@
     home: () => (tab().cursor = 0),
     end: () => (tab().cursor = tab().items.length - 1),
     open: () => openItem(tab()),
-    parent: () => parent(tab().dir) && cd(tab(), parent(tab().dir)),
+    parent: () => up(tab()) && cd(tab(), up(tab())),
+    history: () => openHistory(),
     switch_panel: () => ui.dual && (ui.activePane ^= 1),
     mark: () => {
       toggleMark(tab(), tab().cursor);
@@ -301,6 +302,7 @@
       if (!e || e.is_dir) return;
       // Inside an archive the file is not on disk: nothing to edit yet.
       if (tab().archive) return void (ui.status = t("archive.copy_out_hint", { archive: basename(tab().archive) }));
+      if (tab().history) return void (ui.status = t("history.read_only"));
       invoke("edit_path", { path: e.path }).catch((err) => (ui.status = String(err)));
     },
     copy: () => transfer(false),

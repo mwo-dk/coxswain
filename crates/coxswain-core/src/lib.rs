@@ -9,6 +9,7 @@ pub mod extract;
 pub mod fs;
 pub mod git;
 pub mod helper;
+pub mod history;
 pub mod icons;
 pub mod index;
 pub mod machine;

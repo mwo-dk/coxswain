@@ -1,5 +1,5 @@
 <script>
-  import { ui, tab, item } from "./app.svelte.js";
+  import { ui, tab, item, openHistory } from "./app.svelte.js";
   import { renderHtml, renderPptx, renderDrawio, renderMarkdown, renderMermaid, highlight, renderDocx, readSheet, renderNotebook, loadFont, clean, parseData, jsonLines, calendar, contacts, logLines, renderGraphviz, renderAsciidoc, readParquet } from "./renderers.js";
   import { invoke, convertFileSrc, basename, size, date, age, ageColor, previewKind, looksLikeBom, CONVERTER } from "./lib.js";
   import BomView from "./BomView.svelte";
@@ -12,9 +12,13 @@
   const e = $derived(item(pane));
   /** A JSON or XML file whose first bytes turned out to be a CycloneDX BOM's. */
   let sniffedBom = $state("");
-  // A file inside an archive is not on disk: it has no preview until it is copied out.
+  // A file inside an archive is not on disk: it has no preview until it is copied out. One in
+  // a history is read from git as it was then: the kinds read as text.
+  const TEXTUAL = ["text", "markdown", "mermaid", "data", "jsonl", "calendar", "contacts", "log", "graphviz", "asciidoc", "html", "bom"];
+  const inHistory = $derived(!!pane?.history && e && !e.is_dir && e.name !== "..");
+  const histKind = (k) => (k === "bom" || k === "html" ? "text" : TEXTUAL.includes(k) ? k : "in-history");
   const kind = $derived(
-    output ? "output" : pane?.archive && e && !e.is_dir && e.name !== ".." ? "in-archive" : e && sniffedBom === e.path ? "bom" : previewKind(e),
+    output ? "output" : pane?.archive && e && !e.is_dir && e.name !== ".." ? "in-archive" : inHistory ? histKind(previewKind(e)) : e && sniffedBom === e.path ? "bom" : previewKind(e),
   );
   let text = $state("");
   let html = $state("");
@@ -39,10 +43,12 @@
   const source = $derived(ui.previewSource === true);
   /** For a file git has changes for: show the file, or its diff. Kept across files. */
   const showDiff = $derived(ui.previewDiff);
-  const TEXTUAL = ["text", "markdown", "mermaid", "data", "jsonl", "calendar", "contacts", "log", "graphviz", "asciidoc", "html", "bom"];
   const ext = (f) => f.name.split(".").pop().toLowerCase();
   const gitKind = $derived(e && !e.is_dir ? pane.git?.files[e.name]?.kind : undefined);
-  const hasDiff = $derived(gitKind && !["untracked", "ignored"].includes(gitKind));
+  // In a history the diff is what that commit changed in the file.
+  const hasDiff = $derived((gitKind && !["untracked", "ignored"].includes(gitKind)) || (inHistory && !!pane.history.commit));
+  /** The last commit of the entry, `null` when older than the walk, undefined when untracked. */
+  const last = $derived(e && e.name !== ".." ? pane.last?.[e.name] : undefined);
   const diffing = $derived(hasDiff && showDiff);
   /** Parsed forms of textual files: a data tree, a table, calendar events or contact cards. */
   let tree = $state(undefined);
@@ -346,7 +352,7 @@
       {#if hasDiff}
         <div class="modes" role="group" aria-label={t("preview.git")}>
           <button class:on={!showDiff} onclick={() => (ui.previewDiff = false)}>{t("preview.file")}</button>
-          <button class:on={showDiff} onclick={() => (ui.previewDiff = true)} title={t("preview.changes_against_head")}>{t("preview.diff")}</button>
+          <button class:on={showDiff} onclick={() => (ui.previewDiff = true)} title={t(inHistory ? "history.diff_tip" : "preview.changes_against_head")}>{t("preview.diff")}</button>
         </div>
       {/if}
       {#if !diffing && kind === "bom"}
@@ -366,6 +372,8 @@
     <div class="body" class:flush={kind === "bom" && !source && !diffing}>
       {#if kind === "in-archive"}
         <p class="more">{t("archive.preview_hint", { archive: basename(pane.archive) })}</p>
+      {:else if kind === "in-history" && !diffing}
+        <p class="more">{t("history.preview_hint")}</p>
       {:else if diffing}
         {#if html}<pre class="mono code"><code class="hljs">{@html html}</code></pre>{/if}
       {:else if kind === "bom" && !source}
@@ -563,6 +571,19 @@
             {#if pane.sizes[e.path] !== undefined}{size(pane.sizes[e.path])}{:else}<button class="link" onclick={calcSize}>{t("preview.calculate")}</button>{/if}
           </dd>
           {#if pane.git}<dt>{t("preview.git")}</dt><dd class="git">{pane.git.prompt}</dd>{/if}
+        </dl>
+      {/if}
+      {#if (pane.git || pane.history) && e.name !== ".."}
+        <!-- Git: the last commit that changed it, and the way into its history. -->
+        <dl class="facts extra">
+          {#if last !== undefined}
+            <dt>{t("history.last_commit")}</dt>
+            <dd title={last ? `${last.hash} · ${last.subject}` : ""}>{#if last}{date(last.time)} ({age(last.time)}) · {last.author}<br /><span class="mono">{last.hash}</span> {last.subject}{:else}{t("history.older")}{/if}</dd>
+          {/if}
+          {#if pane.git && !pane.history}
+            <dt>{t("preview.git")}</dt>
+            <dd><button class="link" onclick={() => openHistory()}>{"\u{f1da}"} {t("history.open", { name: e.name })}</button> <kbd>{ui.cfg.actions.history?.[1] ?? ""}</kbd></dd>
+          {/if}
         </dl>
       {/if}
       {#if facts.length}
@@ -912,6 +933,13 @@
     margin-top: 12px;
     padding-top: 10px;
     border-top: 1px solid var(--border-fg);
+  }
+  .facts kbd {
+    font-family: var(--mono-font);
+    font-size: 0.8em;
+    padding: 1px 6px;
+    border-radius: var(--r-sm);
+    border: 1px solid var(--border-fg);
   }
   .facts.extra {
     margin-top: 12px;
