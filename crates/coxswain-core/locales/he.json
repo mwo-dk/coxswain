@@ -477,6 +477,7 @@
  "err.cancelled": "בוטל",
  "err.clipboard_no_files": "אין קבצים בלוח",
  "err.epub_no_rootfile": "לספר EPUB זה אין קובץ שורש",
+ "err.no_application": "אין יישום שפותח קבצים מסוג זה",
  "err.no_cache_folder": "אין תיקיית מטמון",
  "err.no_certificate": "אין אישור בקובץ PEM זה",
  "err.no_config_folder": "אין תיקיית תצורה",

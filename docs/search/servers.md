@@ -104,7 +104,9 @@ questions. Use a server you trust, or one on `localhost`.
 #### My server wants an API key. Where does it go?
 In an environment variable; name that variable under *API key from the variable*
 (`meaning_key_env`). The variable must be set where the search helper starts: in your session, or in
-the systemd unit or LaunchAgent when the helper [starts with your session](helper.md).
+the systemd unit or LaunchAgent when the helper [starts with your session](helper.md). The key
+goes only to the saved *Server*. Over `http://` it travels unencrypted, as do your passages:
+use `https://` for a server on another machine.
 
 #### Why does switching the model start over?
 Vectors of two models cannot be compared. The store remembers which model made them, and when that

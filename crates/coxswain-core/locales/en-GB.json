@@ -448,6 +448,7 @@
  "err.cancelled": "Cancelled",
  "err.clipboard_no_files": "The clipboard holds no files",
  "err.epub_no_rootfile": "This EPUB book has no root file",
+ "err.no_application": "No application opens this kind of file",
  "err.no_cache_folder": "No cache folder",
  "err.no_certificate": "No certificate in this PEM file",
  "err.no_config_folder": "No config folder",

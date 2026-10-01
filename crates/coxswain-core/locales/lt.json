@@ -477,6 +477,7 @@
  "err.cancelled": "Atšaukta",
  "err.clipboard_no_files": "Mainų srityje nėra failų",
  "err.epub_no_rootfile": "Šioje EPUB knygoje nėra šakninio failo",
+ "err.no_application": "Jokia programa neatidaro tokio tipo failo",
  "err.no_cache_folder": "Nėra podėlio aplanko",
  "err.no_certificate": "Šiame PEM faile nėra sertifikato",
  "err.no_config_folder": "Nėra konfigūracijos aplanko",

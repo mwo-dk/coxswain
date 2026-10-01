@@ -100,8 +100,8 @@ again.
 
 Yes. Taking out (**F8**) writes the zip anew with the other entries copied as they are, locked or
 not; nothing needs to be unlocked. A 7z has to be unpacked and packed again, so it asks for the
-password unless it is known from opening it or from a copy out, and it is then written back without one
-([Limits](archives.md#limits)).
+password unless it is known from opening it or from a copy out, and it is then written back locked
+with it ([Limits](archives.md#limits)).
 
 #### How do I make Coxswain forget a password?
 

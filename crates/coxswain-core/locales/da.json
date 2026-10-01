@@ -448,6 +448,7 @@
  "err.cancelled": "Annulleret",
  "err.clipboard_no_files": "Udklipsholderen indeholder ingen filer",
  "err.epub_no_rootfile": "Denne EPUB-bog har ingen rodfil",
+ "err.no_application": "Intet program åbner denne slags fil",
  "err.no_cache_folder": "Ingen cachemappe",
  "err.no_certificate": "Intet certifikat i denne PEM-fil",
  "err.no_config_folder": "Ingen konfigurationsmappe",

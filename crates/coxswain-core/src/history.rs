@@ -25,9 +25,9 @@ const BUDGET: Duration = Duration::from_secs(4);
 const ID: usize = 12;
 
 fn git(dir: &Path) -> Command {
-    let mut c = crate::tools::command("git");
-    // No locks taken, and paths are names, never patterns.
-    c.arg("-C").arg(dir).env("GIT_OPTIONAL_LOCKS", "0").env("GIT_LITERAL_PATHSPECS", "1").stdin(Stdio::null());
+    let mut c = crate::git::command(dir);
+    // Paths are names, never patterns.
+    c.env("GIT_LITERAL_PATHSPECS", "1");
     c
 }
 
@@ -328,8 +328,10 @@ fn write_tree(at: &At, rev: &str, to: &Path) -> io::Result<()> {
     for rec in listed.split(|&b| b == 0) {
         let Some((p, kind, _, oid)) = tree_line(rec) else { continue };
         let rel = if at.inner.is_empty() { p.as_str() } else if p == at.inner { "" } else { match p.strip_prefix(&format!("{}/", at.inner)) { Some(r) => r, None => continue } };
-        // git never stores `..`; refuse it anyway, so nothing lands outside `to`.
-        if rel.split('/').any(|s| s == ".." || s == ".") {
+        // git never stores `..` or `.git`; refuse them anyway (and a `\\` or `C:` that Windows
+        // reads as a path), so nothing lands outside `to` or makes a repository there.
+        let normal = Path::new(rel).components().all(|c| matches!(c, Component::Normal(_)));
+        if !normal || rel.split('/').any(|s| matches!(s, "." | "..") || s.eq_ignore_ascii_case(".git")) {
             continue;
         }
         let dst = if rel.is_empty() { to.to_path_buf() } else { to.join(rel) };
@@ -350,6 +352,8 @@ fn write_tree(at: &At, rev: &str, to: &Path) -> io::Result<()> {
     let ids: String = files.iter().map(|(oid, ..)| format!("{oid}\n")).collect();
     let feed = std::thread::spawn(move || input.write_all(ids.as_bytes()));
     let mut out = BufReader::new(child.stdout.take().ok_or_else(|| io::Error::other("no output"))?);
+    // Links are made last: a file listed after a link must not be written through it.
+    let mut links = vec![];
     let r = (|| -> io::Result<()> {
         for (_, kind, dst) in &files {
             let mut head = String::new();
@@ -362,10 +366,7 @@ fn write_tree(at: &At, rev: &str, to: &Path) -> io::Result<()> {
             if *kind == "link" {
                 let mut target = String::new();
                 body.read_to_string(&mut target)?;
-                #[cfg(unix)]
-                std::os::unix::fs::symlink(&target, dst)?;
-                #[cfg(not(unix))]
-                std::fs::write(dst, &target)?;
+                links.push((target, dst));
             } else {
                 io::copy(&mut body, &mut std::fs::File::create_new(dst)?)?;
                 #[cfg(unix)]
@@ -375,6 +376,12 @@ fn write_tree(at: &At, rev: &str, to: &Path) -> io::Result<()> {
                 }
             }
             out.read_exact(&mut [0u8; 1])?;
+        }
+        for (target, dst) in links {
+            #[cfg(unix)]
+            std::os::unix::fs::symlink(&target, dst)?;
+            #[cfg(not(unix))]
+            std::fs::write(dst, &target)?;
         }
         Ok(())
     })();
@@ -728,6 +735,57 @@ pub(crate) mod tests {
         assert!(for_search(&d, Some(&two), 10).unwrap().is_empty());
         std::fs::remove_dir_all(d).unwrap();
     }
+
+    /// A repository's config names a "gpg" to run on every commit shown: it never runs.
+    #[cfg(unix)]
+    #[test]
+    fn history_never_runs_programs_from_the_repository_config() {
+        let Some(d) = repo("config") else { return };
+        std::fs::write(d.join("a.txt"), "a\n").unwrap();
+        add(&d);
+        commit_as(&d, "Ada", 1_700_000_000, "one");
+        let (fake, mark) = (d.join("fake-gpg"), d.join("ran"));
+        std::fs::write(&fake, format!("#!/bin/sh\ntouch '{}'\nexit 0\n", mark.display())).unwrap();
+        std::fs::set_permissions(&fake, std::os::unix::fs::PermissionsExt::from_mode(0o755)).unwrap();
+        std::fs::write(d.join(".git/config"), format!("[log]\n\tshowSignature = true\n[gpg]\n\tprogram = {}\n[core]\n\tfsmonitor = {}\n", fake.display(), fake.display())).unwrap();
+        let at = split(&path(&d.join("a.txt"), None)).unwrap();
+        assert_eq!(list(&path(&d.join("a.txt"), None), &at).unwrap().len(), 2);
+        let commit = log(&d, "HEAD", ".", 10).unwrap().0.remove(0);
+        assert!(show(&d, &commit.hash).is_ok() && diff(&split(&path(&d.join("a.txt"), Some(&commit.hash)).join("a.txt")).unwrap()).is_ok());
+        assert!(last_changes(&d).is_some() && for_search(&d, None, 10).is_ok());
+        assert!(!mark.exists(), "the repository's gpg.program ran");
+        std::fs::remove_dir_all(d).unwrap();
+    }
+
+    /// A made-up tree with a link `a` to a folder outside and a folder `a` of the same name,
+    /// and a `.git` folder: copied out, nothing is written through the link, and no `.git`.
+    #[cfg(unix)]
+    #[test]
+    fn history_copy_out_never_writes_through_a_link() {
+        let Some(d) = repo("link") else { return };
+        let outside = d.join("outside");
+        std::fs::create_dir(&outside).unwrap();
+        let git_in = |args: &[&str], input: &str| {
+            let mut c = crate::tools::command("git");
+            c.arg("-C").arg(&d).args(args).stdin(Stdio::piped()).stdout(Stdio::piped());
+            let mut child = c.spawn().unwrap();
+            child.stdin.take().unwrap().write_all(input.as_bytes()).unwrap();
+            String::from_utf8(child.wait_with_output().unwrap().stdout).unwrap().trim().to_string()
+        };
+        let blob = git_in(&["hash-object", "-w", "--stdin"], "evil\n");
+        let link = git_in(&["hash-object", "-w", "--stdin"], &outside.to_string_lossy());
+        let sub = git_in(&["mktree"], &format!("100644 blob {blob}\tevil\n"));
+        let tree = git_in(&["mktree"], &format!("120000 blob {link}\ta\n040000 tree {sub}\ta\n040000 tree {sub}\t.git\n100644 blob {blob}\tok\n"));
+        let commit = git_in(&["-c", "user.name=t", "-c", "user.email=t@t", "commit-tree", &tree, "-m", "x"], "");
+        let dest = d.join("dest");
+        std::fs::create_dir(&dest).unwrap();
+        let at = At { target: d.clone(), base: d.clone(), commit: Some(commit), inner: String::new() };
+        let _ = copy_out(&at, &dest);
+        assert!(!outside.join("evil").exists(), "written through the link");
+        assert!(std::fs::read_dir(&dest).unwrap().flatten().all(|e| !e.path().join(".git").exists()));
+        std::fs::remove_dir_all(d).unwrap();
+    }
+
 }
 
 /// Timings on a big repository: `COXSWAIN_BIG_REPO=<path> cargo test -p coxswain-core --release history_timings -- --ignored --nocapture`.

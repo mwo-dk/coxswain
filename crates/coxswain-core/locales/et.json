@@ -448,6 +448,7 @@
  "err.cancelled": "Katkestatud",
  "err.clipboard_no_files": "Lõikelaual pole faile",
  "err.epub_no_rootfile": "Selles EPUB-raamatus pole juurfaili",
+ "err.no_application": "Ükski rakendus ei ava seda tüüpi faili",
  "err.no_cache_folder": "Vahemälu kausta pole",
  "err.no_certificate": "Selles PEM-failis pole sertifikaati",
  "err.no_config_folder": "Konfiguratsioonikausta pole",

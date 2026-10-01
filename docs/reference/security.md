@@ -13,6 +13,7 @@ how to report a problem in Coxswain itself. What Coxswain sends over the network
 - [How dependencies are chosen](#how-dependencies-are-chosen)
 - [How updates arrive](#how-updates-arrive)
 - [The bundled viewers](#the-bundled-viewers)
+- [The release pipeline](#the-release-pipeline)
 - [Checking a download](#checking-a-download)
 - [Reporting a problem](#reporting-a-problem)
 - [Questions](#questions)
@@ -74,6 +75,19 @@ Two renderers are not npm packages but files kept in the repository:
 | SheetJS Community Edition | `gui/vendor/xlsx-0.20.3.tgz` | 0.20.3 | The last version on npm is 0.18, so the package is kept as a file and installed from it. |
 
 Both are updated by hand; the README next to each says the tag it came from.
+
+## The release pipeline
+
+- A release is made only after CI passed for a **push to this repository's `master`** (or by hand
+  from `master`). A pull request, also one from a fork whose branch is named `master`, never
+  starts one.
+- Every workflow's token reads only; the four release jobs that create the release and upload to
+  it may write, nothing else. No checkout keeps the token in `.git/config`, so a build script or a
+  package being installed cannot pick it up.
+- The version is read from `Cargo.toml` and must be `X.Y.Z`; values from the run go into scripts
+  as environment variables, never pasted into the script's text.
+- The release build of the desktop app has no web inspector (Tauri's `devtools` is off), so no
+  page a file rendered can be opened in one.
 
 ## Checking a download
 

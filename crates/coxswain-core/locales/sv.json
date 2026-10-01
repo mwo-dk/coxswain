@@ -448,6 +448,7 @@
  "err.cancelled": "Avbrutet",
  "err.clipboard_no_files": "Urklipp innehåller inga filer",
  "err.epub_no_rootfile": "Den här EPUB-boken saknar rotfil",
+ "err.no_application": "Inget program öppnar den här typen av fil",
  "err.no_cache_folder": "Ingen cachemapp",
  "err.no_certificate": "Inget certifikat i den här PEM-filen",
  "err.no_config_folder": "Ingen konfigurationsmapp",

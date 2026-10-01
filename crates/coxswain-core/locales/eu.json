@@ -448,6 +448,7 @@
  "err.cancelled": "Bertan behera utzita",
  "err.clipboard_no_files": "Arbelean ez dago fitxategirik",
  "err.epub_no_rootfile": "EPUB liburu honek ez du erro-fitxategirik",
+ "err.no_application": "Ez dago fitxategi mota hau irekitzen duen aplikaziorik",
  "err.no_cache_folder": "Ez dago cache-karpetarik",
  "err.no_certificate": "PEM fitxategi honetan ez dago ziurtagiririk",
  "err.no_config_folder": "Ez dago konfigurazio-karpetarik",

@@ -3,8 +3,53 @@
 use serde::Serialize;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+use std::process::{Command, Stdio};
 
 use crate::config::Glyphs;
+
+/// git in `dir`, kept from running what a repository's own config names, since a folder may be
+/// a repository someone else made (a download, an unpacked archive): no file system monitor, no
+/// signature checker, no fetch of missing objects (and so no ssh command), and none of its
+/// filter drivers, which `status` and `diff` would run on every file they look at. No locks
+/// taken. Config from the system and the user (git-lfs, say) still holds.
+pub fn command(dir: &Path) -> Command {
+    let mut c = crate::tools::command("git");
+    c.args(["-c", "core.fsmonitor=false", "-c", "log.showSignature=false", "-c", "protocol.allow=never", "-C"])
+        .arg(dir)
+        .env("GIT_OPTIONAL_LOCKS", "0")
+        .env("GIT_NO_LAZY_FETCH", "1")
+        .stdin(Stdio::null());
+    // As environment, not `-c`: a driver's name may hold `=`, which `-c` would split at.
+    let keys = repo_filters(dir);
+    c.env("GIT_CONFIG_COUNT", keys.len().to_string());
+    for (i, (key, value)) in keys.iter().enumerate() {
+        c.env(format!("GIT_CONFIG_KEY_{i}"), key).env(format!("GIT_CONFIG_VALUE_{i}"), value);
+    }
+    c
+}
+
+/// Settings that turn off every filter driver the repository at `dir` defines itself.
+fn repo_filters(dir: &Path) -> Vec<(String, &'static str)> {
+    let out = crate::tools::command("git")
+        .arg("-C")
+        .arg(dir)
+        .args(["config", "--show-scope", "--name-only", "--get-regexp", r"^filter\."])
+        .env("GIT_CONFIG_COUNT", "0")
+        .stdin(Stdio::null())
+        .output();
+    let Ok(out) = out else { return vec![] };
+    let mut drivers: Vec<String> = String::from_utf8_lossy(&out.stdout)
+        .lines()
+        .filter_map(|l| {
+            let (scope, key) = l.split_once('\t')?;
+            let driver = key.strip_prefix("filter.")?.rsplit_once('.')?.0;
+            (!matches!(scope, "system" | "global" | "command")).then(|| driver.to_string())
+        })
+        .collect();
+    drivers.sort();
+    drivers.dedup();
+    drivers.iter().flat_map(|d| [("clean", ""), ("smudge", ""), ("process", ""), ("required", "false")].map(|(k, v)| (format!("filter.{d}.{k}"), v))).collect()
+}
 
 /// Ordered by how loudly it should show; a directory takes the loudest of its contents.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize)]
@@ -54,12 +99,8 @@ impl Status {
     /// Run git in `dir`. `None` when `dir` is not inside a work tree or git is missing.
     pub fn read(dir: &Path) -> Option<Status> {
         let git = |args: &[&str]| {
-            // A repository's own config may name a file system monitor to run: not from here.
-            crate::tools::command("git")
-                .args(["-c", "core.fsmonitor=false", "-C"])
-                .arg(dir)
+            command(dir)
                 .args(args)
-                .env("GIT_OPTIONAL_LOCKS", "0")
                 .output()
                 .ok()
                 .filter(|o| o.status.success())
@@ -67,7 +108,7 @@ impl Status {
         };
         let root = git(&["rev-parse", "--show-toplevel"])?;
         let root = PathBuf::from(String::from_utf8_lossy(&root).trim_end());
-        let out = git(&["status", "--porcelain=v2", "--branch", "--show-stash", "-z", "-unormal", "--ignored=matching"])?;
+        let out = git(&["status", "--porcelain=v2", "--branch", "--show-stash", "-z", "-unormal", "--ignored=matching", "--ignore-submodules=dirty"])?;
         Some(Status::parse(&root, &String::from_utf8_lossy(&out)))
     }
 
@@ -202,6 +243,27 @@ impl Kind {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A repository someone else made names a filter to run on every file `status` looks at:
+    /// it never runs, and the status is still read.
+    #[cfg(unix)]
+    #[test]
+    fn git_status_never_runs_the_repository_filters() {
+        let Some(d) = crate::history::tests::repo("filter") else { return };
+        std::fs::write(d.join("a.txt"), "a\n").unwrap();
+        std::fs::write(d.join(".gitattributes"), "* filter=ev\n").unwrap();
+        crate::history::tests::add(&d);
+        crate::history::tests::commit_as(&d, "Ada", 1_700_000_000, "one");
+        let mark = d.join("ran");
+        let run = format!("sh -c 'touch {}; cat'", mark.display());
+        std::fs::write(d.join(".git/config"), format!("[filter \"ev\"]\n\tclean = {run}\n\tsmudge = {run}\n\trequired = true\n[core]\n\tfsmonitor = {run}\n")).unwrap();
+        // Touched after the index was written: status must look at the file again.
+        std::fs::write(d.join("a.txt"), "b\n").unwrap();
+        let st = Status::read(&d).expect("status");
+        assert!(!mark.exists(), "the repository's filter ran");
+        assert_eq!(st.files.get(&st.root.join("a.txt")).map(|f| f.kind), Some(Kind::Modified));
+        std::fs::remove_dir_all(d).unwrap();
+    }
 
     const OUT: &str = concat!(
         "# branch.oid 0123456789abcdef\0",

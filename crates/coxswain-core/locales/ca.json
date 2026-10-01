@@ -477,6 +477,7 @@
  "err.cancelled": "S'ha cancel·lat",
  "err.clipboard_no_files": "El porta-retalls no conté cap fitxer",
  "err.epub_no_rootfile": "Aquest llibre EPUB no té fitxer arrel",
+ "err.no_application": "Cap aplicació obre aquest tipus de fitxer",
  "err.no_cache_folder": "No hi ha carpeta de memòria cau",
  "err.no_certificate": "No hi ha cap certificat en aquest fitxer PEM",
  "err.no_config_folder": "No hi ha carpeta de configuració",

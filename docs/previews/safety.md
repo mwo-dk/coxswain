@@ -36,7 +36,15 @@ open it outside the pane:
 - **Let a document run programs.** LaTeX runs without `-shell-escape`, and latexmk without the
   `latexmkrc` a project may carry (it is Perl); only your own `~/.latexmkrc` is read. pandoc
   runs with `--sandbox`, PlantUML may include files from the diagram's folder only, and
-  containers have no network.
+  containers have no network. LibreOffice converts a document in a profile of its own with all
+  macros off (macro security "very high" behind that) and links never updated, so a document
+  neither runs its macros nor fetches what it links.
+- **Run what a repository names.** A folder may be a repository someone else made (a
+  download, an unpacked archive), and its `.git/config` can name programs. The git line, the
+  diff and [Git history](../panels/git-history.md) run git without any of them: no file system
+  monitor, none of the repository's filter drivers (git would run them on every file it looks
+  at), no signature checker, no external diff or textconv, and no fetch of missing objects.
+  Your own git config (git-lfs, say) still holds.
 - **Reach the web.** The webview is held to the app's own pages and your disk by a content
   security policy: a picture at an `https://` address in a Markdown file, notebook or book
   stays an empty box, and no preview can report that it was opened. A web link you click in a
@@ -97,7 +105,9 @@ shows its text as it is.
 
 A preview never runs a file's scripts, writes next to files, or starts a program with the file
 except the tools on [Previews made by tools](tools.md), which read it and write only to the
-cache. What a file *is* still matters when you press **Enter**: that opens it in its program.
+cache. A repository among the downloads cannot make git run its programs either. What a file
+*is* still matters when you press **Enter**: that opens it in its program (on Windows through
+the shell itself, so nothing in its name is read as a command).
 
 #### Why are pictures from the web missing in a Markdown preview?
 
