@@ -331,7 +331,8 @@ let drawioReady;
 export async function renderDrawio(el, xml) {
   drawioReady ??= new Promise((ok, fail) => {
     const local = "vendor/drawio/none";
-    Object.assign(window, { STENCIL_PATH: local, SHAPES_PATH: local, STYLE_PATH: local, GRAPH_IMAGE_PATH: local, mxLoadResources: false, mxLoadStylesheets: false });
+    // Every path the viewer would otherwise take from diagrams.net: nothing is fetched from there.
+    Object.assign(window, { STENCIL_PATH: local, SHAPES_PATH: local, STYLE_PATH: local, GRAPH_IMAGE_PATH: local, PROXY_URL: local, DRAW_MATH_URL: local, mxImageBasePath: local, mxBasePath: local, mxLoadResources: false, mxLoadStylesheets: false });
     const s = document.createElement("script");
     s.src = "vendor/drawio/viewer-static.min.js";
     s.onload = ok;
