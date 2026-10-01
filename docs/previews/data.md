@@ -15,7 +15,7 @@ certificates as the facts that matter, with expiry coloured.
 2. In a tree, click a ▶ to open a level; the first two levels open by themselves.
 3. **Tree / Source** (JSON, YAML, TOML) and **Table / Source** (JSON Lines) switch to the text.
 4. A workbook with several sheets gets a button per sheet above the table.
-5. In a SQLite database, click a table's name for its schema (`CREATE TABLE …`); a Parquet
+5. In a SQLite database, click a table's name for its schema (`CREATE TABLE …`) and its first rows; a Parquet
    file has **Schema** under its rows.
 
 | Key | Desktop app | Terminal app |
@@ -30,7 +30,7 @@ certificates as the facts that matter, with expiry coloured.
 | `.json`, `.geojson`, `.yaml`, `.yml`, `.toml` | A tree with counts per level (`{12}` keys, `[3]` items); strings, numbers, booleans and `null` coloured; at most 500 entries per level, then *… 120 more* | Built in, [yaml](https://eemeli.org/yaml/), [smol-toml](https://github.com/squirrelchat/smol-toml) |
 | `.jsonl`, `.ndjson` | The first 200 lines as a table, one column per key; a line that is not JSON shows under *(not JSON)* | Built in |
 | `.csv`, `.tsv`, `.xlsx`, `.xlsm`, `.xls`, `.ods` | The first 200 rows as a table, a button per sheet | [SheetJS](https://sheetjs.com/) |
-| `.db`, `.sqlite`, `.sqlite3`, `.db3` | Every table and view (*name (view)*) with its row count; click a name for its schema | [SQLite](https://sqlite.org/), opened read-only |
+| `.db`, `.sqlite`, `.sqlite3`, `.db3` | Every table and view (*name (view)*) with its row count; click a name for its schema and first rows (open already when there are three tables or fewer) | [SQLite](https://sqlite.org/), opened read-only |
 | `.parquet`, `.pq` | Row and column counts, the first 200 rows, and **Schema** (column, type, repetition) | [hyparquet](https://github.com/hyparam/hyparquet), with Snappy, Gzip, Zstd, Brotli and LZ4 |
 | `.duckdb`, `.ddb` | Schema, table, estimated rows and column count per table | DuckDB, installed or in a container ([Previews made by tools](tools.md)) |
 | `.pem`, `.crt`, `.cer`, `.der` | Each certificate in the file (a chain shows all): *Subject*, *Issuer* (*(CA)* for an authority), *Valid*, *Expires*, *Names*, *Serial* | Read in Rust |
