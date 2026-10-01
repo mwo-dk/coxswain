@@ -81,7 +81,7 @@ Every terminal build on the [releases page](https://github.com/mwo-dk/coxswain/r
 with a `.sha256` file:
 
 ```sh
-sha256sum -c coxswain-terminal-v1.22.4-x86_64-unknown-linux-musl.tar.gz.sha256
+sha256sum -c coxswain-terminal-v1.23.1-x86_64-unknown-linux-musl.tar.gz.sha256
 ```
 
 The desktop builds come from `tauri-action` in the same pipeline; the AUR, crates.io and

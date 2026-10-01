@@ -118,7 +118,9 @@
  "archive.pack": "Verpakken",
  "archive.pack_into": "{what} verpakken in (.zip, .7z, .tar, .tar.gz …):",
  "archive.packed": "{what} verpakt",
- "archive.preview_hint": "Dit bestand zit in {archive}. Kopieer het eruit met F5 om het te zien.",
+ "archive.preview_locked": "Dit bestand is vergrendeld met een wachtwoord.",
+ "archive.preview_opening": "Wordt geopend uit {archive}…",
+ "archive.preview_unlock": "Wachtwoord invoeren",
  "bom.advice": "Wat te doen",
  "bom.as_in_file": "Zoals in het bestand",
  "bom.assets": {

@@ -48,9 +48,10 @@ inside, the first 2,000, with their sizes: *5 entries · Ctrl+E extracts to the 
 (*2000+ entries* when there are more).
 
 Since archives open as folders ([Archives as folders](../files/archives.md)), **Enter** takes you
-inside. There the panel shows the archive's files, but the preview has none to show: a file in
-an archive is not on disk. The pane says *This file is inside website-0.3.0.tar.gz. Copy it out
-with F5 to see it.* Copy it out with **F5**, and the copy previews as usual.
+inside. There the panel shows the archive's files, and the preview shows the one under the cursor:
+when the cursor rests on it, Coxswain copies that one file out into its cache folder (*Opening it
+from website-0.3.0.tar.gz…*) and previews the copy as usual. A locked file asks for its password
+first, with the link *Enter the password*.
 
 ### Facts
 
@@ -91,10 +92,12 @@ opens the file in its program (image viewer, media player). Archives work as in 
 The webview lacks the codec. On Linux, install the GStreamer plugins for it (for example
 `gst-plugins-good`, `gst-plugins-bad`, `gst-libav`). **Enter** plays it in your media player.
 
-#### Why does a file inside an archive have no preview?
+#### How is a file inside an archive previewed?
 
-It is not on disk: it would have to be unpacked first, and a preview never writes anything.
-Copy it out with **F5** (to the other panel) and put the cursor on the copy.
+It is not on disk, so Coxswain copies that one file out into its cache folder
+(`coxswain/peek/`, see [Where things are kept](../reference/where-things-are-kept.md)) and
+previews the copy. There is one copy at a time; the next look replaces it. Files over 256 MB are
+not copied just for a look.
 
 #### Where do the GPS numbers come from, and are they sent anywhere?
 
