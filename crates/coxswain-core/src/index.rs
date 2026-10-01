@@ -1020,19 +1020,19 @@ mod tests {
         fs::create_dir_all(home.join(".cache")).unwrap();
         crate::archive::create(&home.join(".cache/old.zip"), &[d.join("launch.rs")]).unwrap();
         let cfg = SearchConfig { text_roots: vec![home.clone()], ..SearchConfig::default() };
-        let mut ix = Index::build(&[home.clone()], &[], Some(&cfg), None);
+        let mut ix = Index::build(std::slice::from_ref(&home), &[], Some(&cfg), None);
         assert_eq!(paths(&ix, "launch", None), Vec::<PathBuf>::new());
         assert_eq!(paths(&ix, "main.rs", None), [tgz.join("src").join("main.rs")]);
         assert!(ix.search("ui", None, 10).hits.iter().any(|h| h.is_dir && h.path == tgz.join("src").join("ui")), "a folder only named in paths is one");
         assert_eq!(paths(&ix, "secret", None), Vec::<PathBuf>::new(), "a locked 7z keeps its names");
-        assert_eq!(paths(&ix, "website", None), [tgz.clone()], "an archive is still a file");
+        assert_eq!(paths(&ix, "website", None), std::slice::from_ref(&tgz), "an archive is still a file");
         // In this folder: the folder an archive is in, and a folder inside one.
         assert_eq!(paths(&ix, "svelte", Some(&home)), [tgz.join("src").join("ui").join("App.svelte")]);
         assert_eq!(paths(&ix, "svelte", Some(&tgz.join("src"))).len(), 1);
         assert_eq!(paths(&ix, "notes", Some(&tgz)), Vec::<PathBuf>::new());
-        assert_eq!(paths(&Index::build(&[home.clone()], &[], None, None), "main", None), Vec::<PathBuf>::new(), "switched off");
+        assert_eq!(paths(&Index::build(std::slice::from_ref(&home), &[], None, None), "main", None), Vec::<PathBuf>::new(), "switched off");
         let elsewhere = SearchConfig { text_roots: vec![d.join("src")], ..SearchConfig::default() };
-        assert_eq!(paths(&Index::build(&[home.clone()], &[], Some(&elsewhere), None), "main", None), Vec::<PathBuf>::new(), "not a folder read");
+        assert_eq!(paths(&Index::build(std::slice::from_ref(&home), &[], Some(&elsewhere), None), "main", None), Vec::<PathBuf>::new(), "not a folder read");
 
         // Changed by Coxswain: a file in, a folder out, one renamed. The watcher's folder is read again.
         crate::archive::add(&tgz, &[("src/launch.rs".into(), d.join("launch.rs"))], None).unwrap();
@@ -1058,10 +1058,10 @@ mod tests {
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
-            fs::set_permissions(&tgz, fs::Permissions::from_mode(0)).unwrap();
+            fs::set_permissions(&tgz, fs::Permissions::from_mode(0o000)).unwrap();
             if fs::File::open(&tgz).is_err() {
-                assert_eq!(paths(&Index::build(&[home.clone()], &[], Some(&cfg), Some(&back)), "main", None), [tgz.join("src").join("main.rs")]);
-                assert_eq!(paths(&Index::build(&[home.clone()], &[], Some(&cfg), None), "main", None), Vec::<PathBuf>::new());
+                assert_eq!(paths(&Index::build(std::slice::from_ref(&home), &[], Some(&cfg), Some(&back)), "main", None), [tgz.join("src").join("main.rs")]);
+                assert_eq!(paths(&Index::build(std::slice::from_ref(&home), &[], Some(&cfg), None), "main", None), Vec::<PathBuf>::new());
             }
             fs::set_permissions(&tgz, fs::Permissions::from_mode(0o644)).unwrap();
         }
