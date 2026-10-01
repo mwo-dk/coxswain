@@ -770,6 +770,14 @@ impl App {
                             Err(err) => self.status = Some(err.to_string()),
                         };
                     }
+                    // A database or a Parquet file: its tables and first rows, as text.
+                    if a == Action::View && coxswain_core::tables::is_tables(&e) {
+                        match coxswain_core::tables::text_copy(&e) {
+                            Ok(text) => return self.view_or_edit(a, &text),
+                            // Not a database after all: the pager shows it as it is.
+                            Err(err) => self.status = Some(err),
+                        }
+                    }
                     if a == Action::View && self.cfg.bom_viewer && coxswain_core::bom::sniff(&e) {
                         match bom::Viewer::open(&e) {
                             Ok(v) => return self.dialog = Some(Dialog::Bom(Box::new(v))),

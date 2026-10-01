@@ -49,6 +49,8 @@ The questions people ask most, with a short answer and a link to the full one. E
 - **What does Ask send, and where?** [Answer](search/ask.md#what-is-sent-and-where)
 - **Can Ollama or Lemonade make the vectors instead?** Yes: pick it under Vectors made by, or `coxswain --meaning ollama` / `--meaning server URL MODEL`. [Answer](search/servers.md#which-model-should-i-pick-on-a-server)
 - **How do I keep a folder's text out of the index?** Add it to Names only in Settings, or put an empty `.nosearch` file in it. [Answer](search/folders.md#how-do-i-make-a-folder-names-only)
+- **How do I leave out files like `*.log`?** Add the pattern under Settings → Search inside files → Left out, or to `text_exclude`. [Answer](search/folders.md#how-do-i-leave-out-files-like-log-or-one-file)
+- **Where is search.db, and can I look inside?** In the cache folder; Settings → Show in panel opens it, and the preview or F3 shows its tables. It never indexes itself. [Answer](search/folders.md#where-is-searchdb-and-can-i-look-inside)
 - **Is Coxswain running in the background after I close it?** The search helper stays ten minutes, or for good if started with your session. [Answer](search/helper.md#is-coxswain-running-in-the-background-after-i-close-it)
 - **I installed tesseract and nothing happened.** The helper looks for programs when it starts; let it start again. [Answer](search/scans.md#i-installed-tesseract-and-nothing-happened)
 - **Does Find file find files inside my zip files?** Yes, in the archives of the folders read (your home folder by default, not hidden ones): by name and by their text, and it follows their changes. [Answer](search/archives.md#does-find-file-find-files-inside-my-zip-files)

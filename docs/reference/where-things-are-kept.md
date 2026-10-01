@@ -75,7 +75,12 @@ On macOS and Windows the config and state share one folder.
 - `coxswain --paths` prints seven lines, the name left-aligned in 13 characters, then the path.
   A line with no path means the system has no such folder (rare: a user without a home folder).
 - Settings → *Search inside files*: *Searchable: 31 files · still to read: 0 · 76.0 KB on disk*,
-  then the path of `search.db`.
+  then the path of `search.db` with **Show in panel**: the active panel opens the cache folder
+  with the cursor on `search.db`, and the preview (or **F3** in either app) shows its tables and
+  first rows. *Search by meaning* has the same button for the built-in model's folder.
+- The cache folder is never read into text search or search by meaning (it is left out like a
+  hidden folder, also on macOS and Windows where it is not hidden), so the index never holds
+  itself, its previews or the copies looked at. Its files are still found by name.
 - Settings → *Previews made by tools*: *Previews made so far*: *12.4 MB in the cache; made again
   when a source changes*, with *Clear*.
 

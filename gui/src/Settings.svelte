@@ -1,8 +1,8 @@
 <script>
   // Settings: every choice is written to config.toml at once (comments and layout kept, see
   // save_settings in main.rs) and applied without a restart.
-  import { ui, setTheme, themeIds, themeName, tab } from "./app.svelte.js";
-  import { invoke, size } from "./lib.js";
+  import { ui, setTheme, themeIds, themeName, tab, cd } from "./app.svelte.js";
+  import { invoke, size, parent } from "./lib.js";
   import { t, setLanguage } from "./i18n.svelte.js";
 
   const flags = import.meta.glob("../node_modules/flag-icons/flags/4x3/{gb,au,ca,nz,dk,se,fi,ee,lv,lt,de,fr,it,nl,ar,es-ct,es-pv,il}.svg", {
@@ -33,6 +33,14 @@
 
   const themes = $derived(themeIds());
   const close = () => (ui.modal = null);
+  /** Settings closes and the active panel shows `path`: a folder opened, a file with the cursor on it. */
+  async function showInPanel(path, isFile = true) {
+    close();
+    const tb = tab();
+    await cd(tb, isFile ? parent(path) : path);
+    const i = tb.items.findIndex((e) => e.path === path);
+    if (i >= 0) tb.cursor = i;
+  }
 
   // Container images: which the runtime has, with Pull (also updates) and Remove.
   let images = $state(null);
@@ -64,7 +72,7 @@
     if (!error) await invoke("index_action", { what: "restart" }).catch((e) => (error = String(e)));
     loadIndex();
   }
-  const adding = $state({ text_roots: "", names_only: "" });
+  const adding = $state({ text_roots: "", names_only: "", text_exclude: "" });
   /** What the store has of a folder read: its bytes and files, and whether its disk is away. */
   const rootInfo = (dir) => {
     const r = index?.roots?.find(([p]) => p === dir);
@@ -266,7 +274,7 @@
             {t("settings.search_status", { texts: index.texts, pending: index.pending, size: size(index.bytes) })}
             {#if index.paused}<br /><strong>{t("settings.search_paused")}</strong>{/if}
           {/if}
-          {#if index?.path}<br /><span class="mono">{index.path}</span>{/if}
+          {#if index?.path}<br /><span class="mono">{index.path}</span> <button class="link" onclick={() => showInPanel(index.path)}>{t("settings.show_in_panel")}</button>{/if}
         </p>
         <label class="check"><input type="checkbox" checked={index?.service} disabled={!index} onchange={(e) => serviceSet(e.currentTarget.checked)} /> {t("settings.search_service")}</label>
         <div class="buttons">
@@ -278,6 +286,26 @@
           {@render folders("text_roots", t("settings.search_roots_home"))}
           <span class="top">{t("settings.search_names_only")}</span>
           {@render folders("names_only", t("settings.search_names_only_none"))}
+          <span class="top">{t("settings.search_left_out")}</span>
+          <div class="folders">
+            <div class="chips">
+              {#each s.text_exclude as name (name)}
+                <span class="chip mono">{name}<button title={t("common.remove")} aria-label={t("common.remove")} onclick={() => setSearch("text_exclude", s.text_exclude.filter((x) => x !== name))}>×</button></span>
+              {:else}
+                <span class="hint">{t("settings.search_names_only_none")}</span>
+              {/each}
+            </div>
+            <form class="folder" onsubmit={(e) => {
+              e.preventDefault();
+              const name = adding.text_exclude.trim();
+              adding.text_exclude = "";
+              if (name && !s.text_exclude.includes(name)) setSearch("text_exclude", [...s.text_exclude, name]);
+            }}>
+              <input bind:value={adding.text_exclude} spellcheck="false" placeholder="*.log" aria-label={t("settings.search_left_out")} />
+              <button type="submit">{t("settings.search_add")}</button>
+            </form>
+            <span class="hint">{t("settings.search_left_out_hint")}</span>
+          </div>
           {#if index?.tools?.length}
             <span class="top">{t("settings.search_tools")}</span>
             <ul class="tools">
@@ -332,7 +360,7 @@
         <p class="hint">
           {t("settings.meaning_status", { done: index?.meaning_done ?? 0, pending: index?.meaning_pending ?? 0 })}
           {#if index?.meaning_engine}<br /><span class="mono">{index.meaning_engine}</span>{/if}
-          {#if !server && meaning?.folder}<br /><span class="mono">{meaning.folder}</span>{/if}
+          {#if !server && meaning?.folder}<br /><span class="mono">{meaning.folder}</span> <button class="link" onclick={() => showInPanel(meaning.folder, false)}>{t("settings.show_in_panel")}</button>{/if}
           {#if index?.meaning_error}<br /><span class="err">{index.meaning_error}</span>{/if}
           {#if index?.paused}<br /><strong>{t("settings.search_paused")}</strong>{/if}
         </p>
@@ -622,6 +650,34 @@
   .folder small {
     display: block;
     margin: 2px 0 0;
+  }
+  .link {
+    font: inherit;
+    color: var(--accent-bg);
+    background: none;
+    border: 0;
+    padding: 0;
+    cursor: pointer;
+    text-decoration: underline;
+  }
+  .chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    padding: 0 0 0 6px;
+    border: 1px solid var(--border-fg);
+    border-radius: 4px;
+  }
+  .chip button {
+    border: 0;
+    background: none;
+    padding: 0 6px;
+    min-width: 0;
   }
   .tools {
     margin: 0;

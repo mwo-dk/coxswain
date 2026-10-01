@@ -405,6 +405,32 @@ impl Store {
         Ok(())
     }
 
+    /// `text_exclude` changed: files a new pattern leaves out lose their text and vectors, and
+    /// files a pattern no longer leaves out are read again. Folders follow from the walk.
+    fn exclude_changed(&self, now: &[String]) -> rusqlite::Result<()> {
+        let mut db = self.db.lock().unwrap();
+        let before: String = db.query_row("SELECT value FROM meta WHERE key = 'exclude'", [], |r| r.get(0)).unwrap_or_default();
+        let joined = now.join("\n");
+        if before == joined {
+            return Ok(());
+        }
+        let tx = db.transaction()?;
+        // SQLite's GLOB knows `*` and `?` as `text_exclude` does; brackets mean the same too.
+        let named = "(path GLOB '*/' || ?1 OR path GLOB '*\\' || ?1)";
+        for gone in before.split('\n').filter(|p| for_files(p) && !now.iter().any(|n| n == p)) {
+            tx.execute(&format!("UPDATE files SET has_text = NULL WHERE has_text = 0 AND {named}"), [gone])?;
+        }
+        for new in now.iter().filter(|n| for_files(n) && !before.split('\n').any(|p| p == n.as_str())) {
+            tx.execute(&format!("DELETE FROM text WHERE rowid IN (SELECT id FROM files WHERE has_text = 1 AND {named})"), [new])?;
+            tx.execute(&format!("DELETE FROM chunks WHERE file IN (SELECT id FROM files WHERE {named})"), [new])?;
+            tx.execute(&format!("UPDATE files SET has_text = 0, embedded = NULL WHERE has_text = 1 AND {named}"), [new])?;
+        }
+        tx.execute("INSERT OR REPLACE INTO meta(key, value) VALUES ('exclude', ?1)", [joined])?;
+        tx.commit()?;
+        *self.signs.lock().unwrap() = None;
+        Ok(())
+    }
+
     /// Files read, in one transaction. `text` is `None` for a file without text.
     fn read(&self, files: &[(i64, Option<String>)]) -> rusqlite::Result<()> {
         let mut db = self.db.lock().unwrap();
@@ -665,7 +691,26 @@ fn now() -> u64 {
 /// folders holding `.nosearch`.
 pub(crate) fn left_out(dir: &Path, cfg: &SearchConfig) -> bool {
     let name = dir.file_name().map(|n| n.to_string_lossy()).unwrap_or_default();
-    name.starts_with('.') || cfg.text_exclude.iter().any(|x| *x == name) || cfg.names_only.iter().any(|p| p == dir) || dir.join(".nosearch").exists()
+    name.starts_with('.') || excluded(&name, cfg) || cfg.names_only.iter().any(|p| p == dir) || dir.join(".nosearch").exists()
+}
+
+/// Whether a folder or file of this name is left out by `text_exclude`: a name (`node_modules`)
+/// or a pattern with `*` and `?` (`*.log`, `secret*`).
+pub(crate) fn excluded(name: &str, cfg: &SearchConfig) -> bool {
+    let name: Vec<char> = name.chars().collect();
+    cfg.text_exclude.iter().any(|x| crate::index::glob(&x.chars().collect::<Vec<_>>(), &name))
+}
+
+/// Whether a `text_exclude` entry is about files too: one with `*`, `?` or a dot (`*.log`,
+/// `notes.txt`). A plain name (`build`) leaves out folders only.
+fn for_files(entry: &str) -> bool {
+    entry.contains(['*', '?', '.'])
+}
+
+/// A file whose name `text_exclude` leaves out: found by name and counted, never read.
+fn left_out_file(path: &str, cfg: &SearchConfig) -> bool {
+    let name: Vec<char> = path.rsplit(['/', '\\']).next().unwrap_or(path).chars().collect();
+    cfg.text_exclude.iter().filter(|x| for_files(x)).any(|x| crate::index::glob(&x.chars().collect::<Vec<_>>(), &name))
 }
 
 /// What a walk of some folders found.
@@ -724,6 +769,7 @@ pub fn scan(store: &Store, cfg: &SearchConfig, stop: &AtomicBool) -> rusqlite::R
     // Diagrams got a sentence per arrow.
     store.readers_changed("diagrams-2", &["drawio", "dio", "mmd", "mermaid", "dot", "gv", "puml", "plantuml", "pu", "iuml", "wsd", "md", "markdown", "mdx"])?;
     store.archives_changed(cfg.archives)?;
+    store.exclude_changed(&cfg.text_exclude)?;
     let known = store.known()?;
     let Some(found) = walk(roots.clone(), cfg, &known, stop) else { return Ok(()) };
     // Rows of a disk that is not plugged in stay.
@@ -854,7 +900,7 @@ fn read(store: &Store, cfg: &SearchConfig, stop: &AtomicBool) -> rusqlite::Resul
     };
     for batch in unread.chunks(200) {
         let start = Instant::now();
-        let rows: Vec<_> = batch.iter().map(|(id, path, size, _)| (*id, crate::extract::text_of(Path::new(path), *size, cfg.text_max_size))).collect();
+        let rows: Vec<_> = batch.iter().map(|(id, path, size, _)| (*id, if left_out_file(path, cfg) { None } else { crate::extract::text_of(Path::new(path), *size, cfg.text_max_size) })).collect();
         store.read(&rows)?;
         if done(batch.len()) {
             return Ok(true);
@@ -864,7 +910,7 @@ fn read(store: &Store, cfg: &SearchConfig, stop: &AtomicBool) -> rusqlite::Resul
     let mut archives: HashMap<PathBuf, Vec<(i64, String)>> = HashMap::new();
     let mut lost = vec![];
     for (id, path, ..) in inside {
-        match crate::archive::split(Path::new(&path)) {
+        match crate::archive::split(Path::new(&path)).filter(|_| !left_out_file(&path, cfg)) {
             Some((archive, inner)) => archives.entry(archive).or_default().push((id, inner)),
             None => lost.push((id, None)),
         }
@@ -1344,6 +1390,33 @@ mod tests {
         store.tools_changed(&["png", "jpg"]).unwrap();
         drop(store);
         std::fs::remove_dir_all(d).unwrap();
+    }
+
+    /// `text_exclude` leaves out folders by name and files by pattern, and follows its changes:
+    /// a file a new pattern covers loses its text, one no pattern covers any more is read again.
+    #[test]
+    fn store_leaves_out_what_text_exclude_names() {
+        let d = std::env::temp_dir().join(format!("coxswain-store-exclude-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(d.join("home/drafts")).unwrap();
+        for (name, text) in [("app.log", "fuel log"), ("notes.txt", "fuel notes"), ("drafts/a.txt", "fuel draft"), ("build", "fuel script")] {
+            std::fs::write(d.join("home").join(name), text).unwrap();
+        }
+        let mut cfg = SearchConfig { text_roots: vec![d.join("home")], text_exclude: vec!["*.log".into(), "drafts".into(), "build".into()], ..SearchConfig::default() };
+        let (store, go) = (Store::open(&d.join("search.db")).unwrap(), AtomicBool::new(false));
+        let found = |store: &Store| {
+            let mut v: Vec<String> = store.search("fuel", 10).hits.iter().map(|h| h.path.file_name().unwrap().to_string_lossy().into_owned()).collect();
+            v.sort();
+            v
+        };
+        scan(&store, &cfg, &go).unwrap();
+        assert_eq!(found(&store), ["build", "notes.txt"], "a plain name leaves out folders only, a pattern files");
+        assert_eq!(store.size(&d.join("home")).map(|s| s.0 .1), Some(4), "left out files still count in sizes");
+        cfg.text_exclude = vec!["notes.*".into()];
+        scan(&store, &cfg, &go).unwrap();
+        assert_eq!(found(&store), ["a.txt", "app.log", "build"]);
+        drop(store);
+        let _ = std::fs::remove_dir_all(d);
     }
 
     /// With the model downloaded: files are found by what they are about, in any language,

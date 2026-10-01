@@ -32,38 +32,11 @@ pub async fn git_diff(path: PathBuf) -> Res<Option<String>> {
 
 // ---------------------------------------------------------------- SQLite
 
-#[derive(Serialize)]
-pub struct DbTable {
-    name: String,
-    kind: String,
-    /// `None` for views, or when counting took too long.
-    rows: Option<u64>,
-    sql: String,
-}
-
-/// Tables and views with their row counts and schema. Opened read-only; counting stops after
-/// about a second per table on huge databases.
+/// Tables and views with their row counts, schema and first rows (`tables::sqlite`), off the
+/// window's thread.
 #[tauri::command]
-pub async fn sqlite_info(path: PathBuf) -> Res<Vec<DbTable>> {
-    use rusqlite::{Connection, OpenFlags};
-    let db = Connection::open_with_flags(&path, OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX)
-        .map_err(|e| e.to_string())?;
-    let mut stmt = db
-        .prepare("SELECT name, type, coalesce(sql, '') FROM sqlite_master WHERE type IN ('table', 'view') AND name NOT LIKE 'sqlite_%' ORDER BY type, name")
-        .map_err(|e| e.to_string())?;
-    let mut tables: Vec<DbTable> = stmt
-        .query_map([], |r| Ok(DbTable { name: r.get(0)?, kind: r.get(1)?, rows: None, sql: r.get(2)? }))
-        .map_err(|e| e.to_string())?
-        .collect::<Result<_, _>>()
-        .map_err(|e| e.to_string())?;
-    for t in tables.iter_mut().filter(|t| t.kind == "table") {
-        let start = std::time::Instant::now();
-        // Without the hook, counting simply has no time limit.
-        let _ = db.progress_handler(10_000, Some(move || start.elapsed().as_millis() > 1000));
-        let q = format!("SELECT count(*) FROM \"{}\"", t.name.replace('"', "\"\""));
-        t.rows = db.query_row(&q, [], |r| r.get::<_, i64>(0)).ok().map(|n| n as u64);
-    }
-    Ok(tables)
+pub async fn sqlite_info(path: PathBuf) -> Res<Vec<coxswain_core::tables::Table>> {
+    tauri::async_runtime::spawn_blocking(move || coxswain_core::tables::sqlite(&path, 5)).await.map_err(|e| e.to_string())?
 }
 
 // ---------------------------------------------------------------- EPUB
@@ -470,6 +443,7 @@ mod tests {
         let t = tauri::async_runtime::block_on(sqlite_info(p.clone())).unwrap();
         assert_eq!((t[0].name.as_str(), t[0].rows), ("launch", Some(2)));
         assert_eq!((t[1].kind.as_str(), t[1].rows), ("view", None));
+        assert_eq!(t[0].sample, [vec!["id", "name"], vec!["1", "a"], vec!["2", "b"]]);
         std::fs::remove_file(p).unwrap();
     }
 }

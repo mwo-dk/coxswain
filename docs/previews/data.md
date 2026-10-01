@@ -20,7 +20,7 @@ certificates as the facts that matter, with expiry coloured.
 
 | Key | Desktop app | Terminal app |
 |---|---|---|
-| **Space** / **F3** | Shows or hides the pane | **F3** opens the file in your pager |
+| **Space** / **F3** | Shows or hides the pane | **F3** opens the file in your pager; a database or Parquet file as its tables and first rows |
 | **Enter** | Opens the file in its program | The same |
 
 ## Formats
@@ -30,7 +30,7 @@ certificates as the facts that matter, with expiry coloured.
 | `.json`, `.geojson`, `.yaml`, `.yml`, `.toml` | A tree with counts per level (`{12}` keys, `[3]` items); strings, numbers, booleans and `null` coloured; at most 500 entries per level, then *… 120 more* | Built in, [yaml](https://eemeli.org/yaml/), [smol-toml](https://github.com/squirrelchat/smol-toml) |
 | `.jsonl`, `.ndjson` | The first 200 lines as a table, one column per key; a line that is not JSON shows under *(not JSON)* | Built in |
 | `.csv`, `.tsv`, `.xlsx`, `.xlsm`, `.xls`, `.ods` | The first 200 rows as a table, a button per sheet | [SheetJS](https://sheetjs.com/) |
-| `.db`, `.sqlite`, `.sqlite3`, `.db3` | Every table and view (*name (view)*) with its row count; click a name for its schema | [SQLite](https://sqlite.org/), opened read-only |
+| `.db`, `.sqlite`, `.sqlite3`, `.db3` | Every table and view (*name (view)*) with its row count; under its name its schema and first 5 rows (open at once for up to three tables, a click otherwise) | [SQLite](https://sqlite.org/), opened read-only |
 | `.parquet`, `.pq` | Row and column counts, the first 200 rows, and **Schema** (column, type, repetition) | [hyparquet](https://github.com/hyparam/hyparquet), with Snappy, Gzip, Zstd, Brotli and LZ4 |
 | `.duckdb`, `.ddb` | Schema, table, estimated rows and column count per table | DuckDB, installed or in a container ([Previews made by tools](tools.md)) |
 | `.pem`, `.crt`, `.cer`, `.der` | Each certificate in the file (a chain shows all): *Subject*, *Issuer* (*(CA)* for an authority), *Valid*, *Expires*, *Names*, *Serial* | Read in Rust |
@@ -41,6 +41,8 @@ certificates as the facts that matter, with expiry coloured.
 - **Trees:** keys in one colour, values in the colour of their type.
 - **Tables:** a header row, then the rows; *Showing the first 200 rows* when there are more.
 - **SQLite:** a *Table* / *Rows* table; *–* where a count took too long or the row is a view.
+  Under each name, its `CREATE` statement and its first rows; a value over 60 characters ends in
+  *…*, and binary data says *<1028 bytes>*. Coxswain's own `search.db` is shown the same way.
 - **Certificates:** *Expires* says *in 20 days* or *expired 3 days ago*; yellow within 30
   days, red once expired.
 - **DuckDB:** the **Read tables** button when it cannot run by itself (an image to pull), the
@@ -55,8 +57,12 @@ container, as DuckDB has no official image) and the rest of [`[preview]`](tools.
 ## In the terminal app
 
 No preview pane (tables and trees are drawn by the desktop app's webview). **F3** shows the text
-of JSON, YAML, TOML, CSV and PEM files in your pager; for databases, the command line does the
-job: `sqlite3 launches.db .tables`, `duckdb file.duckdb -c "SHOW TABLES"`.
+of JSON, YAML, TOML, CSV and PEM files in your pager. On a SQLite database (`.db`, `.sqlite`,
+`.sqlite3`, `.db3`) it pages its tables instead: each with its row count, its `CREATE` statement
+and its first 20 rows as aligned columns. On a Parquet file: its row count, its columns with their
+types, and its first 20 rows; a file compressed with zstd shows its columns and count, and says
+*Its rows are compressed with zstd, which only the desktop app's preview reads.* For DuckDB the
+command line does the job: `duckdb file.duckdb -c "SHOW TABLES"`.
 
 ## Questions
 
@@ -87,7 +93,8 @@ certificate in it, the server's first.
 
 #### Which compressions can Parquet files use?
 
-Snappy, Gzip, Zstd, Brotli and LZ4 are all read in the app; nothing to install.
+Snappy, Gzip, Zstd, Brotli and LZ4 are all read in the desktop app; nothing to install. The
+terminal app's **F3** reads all but Zstd, whose files show their columns and row count.
 
 #### Can I edit a cell in the table?
 

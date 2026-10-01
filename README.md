@@ -15,10 +15,10 @@ Commander blue to Windows 95 and Mac OS 9.*
 ## Highlights
 
 - **Norton Commander at heart:** two panels, the F-key bar, a command line and NC's keys. [Panels and keys](docs/panels/README.md)
-- **Find by name, text or meaning:** Ctrl+F, and Tab goes deeper, from every name on the machine to what a file is about, inside your zip, 7z and tar archives too. [Search](docs/search/README.md) · [Inside archives](docs/search/archives.md)
+- **Find by name, text or meaning:** Ctrl+F, and Tab goes deeper, from every name on the machine to what a file is about, inside your zip, 7z and tar archives too; you choose what is read and what is left out (`*.log`, a folder). [Search](docs/search/README.md) · [Inside archives](docs/search/archives.md) · [Choosing the folders](docs/search/folders.md)
 - **Ask your files:** a question in your own words, answered by your own chat model from the closest passages, with numbered sources. [Ask](docs/search/ask.md)
 - **Search by meaning, in any language:** a small model on your machine, or your own Ollama, Lemonade or OpenAI-style server. [Search by meaning](docs/search/meaning.md)
-- **See before you open:** code, Markdown, PDF, Word, PowerPoint, spreadsheets, SQLite, HTML, fonts, video and more. [The preview pane](docs/previews/README.md)
+- **See before you open:** code, Markdown, PDF, Word, PowerPoint, spreadsheets, SQLite and Parquet (tables and first rows, F3 in the terminal too), HTML, fonts, video and more. [The preview pane](docs/previews/README.md) · [Data](docs/previews/data.md)
 - **Builds what needs building:** LaTeX, Office, PlantUML and Graphviz previews, with your tools or a sealed container. [LaTeX](docs/previews/latex.md) · [Tools](docs/previews/tools.md)
 - **Reads cryptography bills of materials:** a CycloneDX CBOM as a rated tree or sunburst, compared with last month's scan, in both apps. [CBOMs](docs/previews/bom.md)
 - **Archives are folders:** zip, 7z and tar (gz, bz2, xz, zst): go in, preview, copy, move, rename, pack, with passwords to open them and to lock new zips and 7z (AES-256). [Archives](docs/files/archives.md)
