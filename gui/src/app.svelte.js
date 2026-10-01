@@ -1,7 +1,7 @@
 // Shared app state and navigation. Components read `ui` and call these functions.
 
 import { SvelteSet } from "svelte/reactivity";
-import { invoke, basename, parent, applyTheme, isArchive, LOCKED } from "./lib.js";
+import { invoke, basename, parent, applyTheme, isArchive, HISTORY, LOCKED } from "./lib.js";
 import { setLanguage, t } from "./i18n.svelte.js";
 /** The texts, for functions whose tab is called `t`. */
 const tr = t;
@@ -25,7 +25,7 @@ export const ui = $state({
   /** Pane under a file being dragged in, for the highlight. */
   dropPane: null,
   /** Optional columns in the details view. */
-  columns: { type: true, size: true, files: false, modified: true, created: false },
+  columns: { type: true, size: true, files: false, modified: true, commit: true, created: false },
   /** Measure every folder's size as a folder opens. */
   // Folder sizes measured in the background. `sizes` in the session: the older `autoSizes`
   // was off unless switched on, and is not read any more.
@@ -103,6 +103,7 @@ export async function load(t, dir = t.dir, focus) {
     if (r.dir !== t.dir) {
       t.marked.clear();
       t.git = null;
+      t.last = null;
       t.sizes = {};
       t.counts = {};
     }
@@ -112,11 +113,12 @@ export async function load(t, dir = t.dir, focus) {
     t.items = r.items;
     t.archive = r.archive;
     t.locked = r.locked;
+    t.history = r.history;
     t.hasNotes = r.has_notes;
     t.error = null;
     // Inside an archive a folder's size comes with the listing; there is nothing to measure.
     if (r.archive) for (const e of r.items) if (e.is_dir && e.name !== "..") t.sizes[e.path] = e.size;
-    const at = keep ? r.items.findIndex((e) => e.name === keep) : -1;
+    const at = keep ? r.items.findIndex((e) => e.name === keep || e.path === keep) : -1;
     t.cursor = at >= 0 ? at : Math.max(0, Math.min(t.cursor, r.items.length - 1));
   } catch (e) {
     // A locked archive, looked into: its password, kept by the app for this run, then again.
@@ -139,7 +141,24 @@ export async function load(t, dir = t.dir, focus) {
     if (t.dir === dir) t.git = g;
     if (g && !ui.recent.includes(g.root)) ui.recent = [g.root, ...ui.recent].slice(0, 12);
   }, () => {});
+  // The last commit of each entry: one git walk for the folder, cached until HEAD moves.
+  if (ui.cfg.settings.git_last_commit)
+    invoke("git_last", { dir: t.dir }).then((l) => {
+      if (t.dir === dir) t.last = l;
+    }, () => {});
   return true;
+}
+
+/** Where `..` leads: the listing says (out of a history, back to the folder on disk). */
+export const up = (t) => (t.items[0]?.name === ".." ? t.items[0].path : parent(t.dir));
+
+/** Into the git history of the entry under the cursor (of the folder itself on `..`). */
+export function openHistory(tb = tab()) {
+  const e = item(tb);
+  if (tb.archive || tb.history) return void (ui.status = tr("history.not_here"));
+  if (!tb.git) return void (ui.status = tr("history.no_repo"));
+  const target = e && e.name !== ".." ? e.path : tb.dir;
+  return cd(tb, `${target.replace(/[\\/]$/, "")}${ui.cfg.sep}${HISTORY}`);
 }
 
 export async function cd(t, dir, history = true) {
@@ -147,7 +166,10 @@ export async function cd(t, dir, history = true) {
   const from = t.dir;
   const prevCursor = t.cursor;
   t.cursor = 0;
-  const ok = await load(t, dir, parent(from) === dir ? basename(from) : undefined);
+  // Coming up: the cursor on the folder (or the file whose history it was) it came from.
+  const pre = dir.endsWith(ui.cfg.sep) ? dir : dir + ui.cfg.sep;
+  const came = from.startsWith(pre) ? pre + from.slice(pre.length).split(/[\\/]/)[0] : undefined;
+  const ok = await load(t, dir, came);
   if (!ok) {
     t.cursor = prevCursor;
     ui.status = t.error;
@@ -288,6 +310,7 @@ export function openItem(tb, i = tb.cursor) {
   // a file like the others.
   if (e.is_dir || (isArchive(e.name) && !tb.archive)) return cd(tb, e.path);
   if (tb.archive) return void (ui.status = t("archive.copy_out_hint", { archive: basename(tb.archive) }));
+  if (tb.history) return void (ui.status = t("history.file_hint"));
   invoke("open_path", { path: e.path }).then(
     () => (ui.status = t("status.opened", { name: e.name })),
     (err) => (ui.status = String(err)),
@@ -311,7 +334,7 @@ export function dragOut(t, i) {
 
 /** The details view's column choices and automatic folder sizes, as a menu. */
 export function columnMenu() {
-  const names = { type: t("app.col.type"), size: t("app.col.size"), files: t("app.col.files"), modified: t("app.col.modified"), created: t("app.col.created") };
+  const names = { type: t("app.col.type"), size: t("app.col.size"), files: t("app.col.files"), modified: t("app.col.modified"), ...(ui.cfg.settings.git_last_commit ? { commit: t("app.col.commit") } : {}), created: t("app.col.created") };
   const box = (on) => (on ? "\u{f0132}" : "\u{f0131}");
   ui.modal = {
     kind: "menu",

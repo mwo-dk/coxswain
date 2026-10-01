@@ -406,6 +406,14 @@ pub fn peek(path: &Path) -> io::Result<PathBuf> {
     if it.size > PEEK_MAX {
         return Err(io::Error::new(io::ErrorKind::FileTooLarge, format!("{inner} is too large to look at inside the archive; copy it out with F5")));
     }
+    let to = peek_folder()?.join(inner.rsplit('/').next().unwrap_or("file"));
+    copy_out_with(&archive, &inner, &to, password_for(&archive, None).as_deref())?;
+    Ok(to)
+}
+
+/// A fresh folder for this run's copy to look at (also a history's, `history::peek`): the copy
+/// before it goes, and copies left by earlier runs go after a day.
+pub(crate) fn peek_folder() -> io::Result<PathBuf> {
     let base = dirs::cache_dir().ok_or_else(|| io::Error::other("no cache folder"))?.join("coxswain").join("peek");
     let day = std::time::Duration::from_secs(24 * 3600);
     for old in std::fs::read_dir(&base).into_iter().flatten().flatten() {
@@ -416,9 +424,7 @@ pub fn peek(path: &Path) -> io::Result<PathBuf> {
     let run = base.join(std::process::id().to_string());
     let _ = std::fs::remove_dir_all(&run);
     std::fs::create_dir_all(&run)?;
-    let to = run.join(inner.rsplit('/').next().unwrap_or("file"));
-    copy_out_with(&archive, &inner, &to, password_for(&archive, None).as_deref())?;
-    Ok(to)
+    Ok(run)
 }
 
 /// `inner` (everything with "") out of `archive` to `to`, which is where it lands: the file, or

@@ -40,7 +40,7 @@ Every other key (**Enter**, **Backspace**, **Insert**, **F5**, …) works as in 
 
 | View | Shows |
 |---|---|
-| Details | One row per entry: icon, name, colour tag, git glyph, then Type, Size and Modified with its age chip; Files and Created on request ([The columns menu](#the-columns-menu)) |
+| Details | One row per entry: icon, name, colour tag, git glyph, then Type, Size, Modified with its age chip and, in a git repository, Last commit; Files and Created on request ([The columns menu](#the-columns-menu)) |
 | Columns | Up to two parent folders, the current folder, and a peek into the folder under the cursor (*Empty folder* when there is nothing in it). The folder you are in is highlighted in its parent's column; folders end in a `›` |
 | Thumbnails | A grid of tiles, at least 112 pixels wide: pictures show themselves, other files and folders their icon; the colour tag is a dot before the name |
 
@@ -53,7 +53,7 @@ the hue sliding in between. In themes with the CRT look (Cyber) it goes from cya
 to dim green. Its text is the age: `3m`, `5h`, `2d`, `3w`, `4mo`, `1y`. Hover it for the
 exact date.
 
-**Narrow panes drop columns**: below about 620 pixels Type, Files and Created go and
+**Narrow panes drop columns**: below about 620 pixels Type, Files, Last commit and Created go and
 Modified shrinks to its age chip; below 340 pixels Size goes too. Widen the pane (drag the
 bar between the panes, or **Ctrl+O** for one pane) to bring them back.
 
@@ -69,6 +69,7 @@ opens; **Enter** or a click ticks one, and the menu stays open for the next. **E
 | Size | The file's size; a folder's once measured | On |
 | Files (in folders) | For folders: how many files are inside, all levels down | Off |
 | Modified | The age chip and the date and time | On |
+| Last commit | In a git repository: the date and author of the last commit that changed it, *older* beyond the newest 5000 commits; click its header to sort by it ([Last commit per file](git.md#last-commit-per-file)) | On (listed when `[git] last_commit` is on) |
 | Created | The date the file was created, where the file system records it | Off |
 | Measure folder sizes automatically | Not a column: the switch for [folder sizes](folder-sizes.md) | On |
 
@@ -81,7 +82,8 @@ The name column is always there. The choices apply to every tab.
 | What | Where | Default |
 |---|---|---|
 | The view of each tab | The session only | Details |
-| The columns | The session only (the columns menu) | Type, Size, Modified |
+| The columns | The session only (the columns menu) | Type, Size, Modified, Last commit |
+| Last commit at all | `[git] last_commit`, *Settings → Behaviour* | `true` |
 | Measure folder sizes automatically | `folder_sizes` (bool) to start with, then the session | `true` |
 | Keys | `toggle_view` = `Alt+V`; `columns` has no key | – |
 

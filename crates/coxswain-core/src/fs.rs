@@ -87,6 +87,13 @@ pub type InArchive = (PathBuf, bool);
 /// `list`, and when `dir` is inside an archive, which and whether anything there is locked.
 pub fn list_with_archive(dir: &Path, show_hidden: bool) -> io::Result<(Vec<Entry>, Option<InArchive>)> {
     if !dir.is_dir()
+        && let Some(at) = crate::history::split(dir)
+    {
+        let mut all = crate::history::list(dir, &at)?;
+        all.retain(|e| show_hidden || !e.hidden || e.is_parent());
+        return Ok((all, None));
+    }
+    if !dir.is_dir()
         && let Some((archive, inner)) = crate::archive::split(dir)
     {
         let (mut all, locked) = crate::archive::listing(&archive, &inner)?;
@@ -128,6 +135,8 @@ pub enum SortKey {
     Ext,
     Time,
     Size,
+    /// By the last commit (`history::sort_by_last`); by name until git has said.
+    Commit,
 }
 
 /// `..` first, then directories, then files; each group ordered by `key`.
@@ -137,7 +146,7 @@ pub fn sort(entries: &mut [Entry], key: SortKey, reverse: bool) {
         group(a).cmp(&group(b)).then_with(|| {
             let name = || natord(&a.name, &b.name);
             let ord = match key {
-                SortKey::Name => name(),
+                SortKey::Name | SortKey::Commit => name(),
                 SortKey::Ext => natord(a.ext(), b.ext()).then_with(name),
                 SortKey::Time => b.modified.cmp(&a.modified).then_with(name),
                 SortKey::Size => b.size.cmp(&a.size).then_with(name),
@@ -236,9 +245,24 @@ impl Drop for Scratch {
     }
 }
 
+/// A history is read-only: nothing goes into it, nothing is made or taken out there.
+fn writable(path: &Path) -> io::Result<()> {
+    match crate::history::split(path) {
+        Some(_) if !path.exists() => Err(io::Error::new(io::ErrorKind::PermissionDenied, crate::t!("history.read_only"))),
+        _ => Ok(()),
+    }
+}
+
 /// `copy`, with the password of the archive `src` is inside, when it is locked. Into an
-/// archive it is added; from one archive to another it goes through a folder of its own.
+/// archive it is added; from one archive to another it goes through a folder of its own. Out
+/// of a history it is the file or folder as it was at that commit.
 pub fn copy_locked(src: &Path, dst: &Path, password: Option<&str>) -> io::Result<PathBuf> {
+    writable(dst)?;
+    if !src.exists()
+        && let Some(at) = crate::history::split(src)
+    {
+        return crate::history::copy_out(&at, dst);
+    }
     if let Some((archive, inner)) = into_archive(dst) {
         let name = src.file_name().ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "nothing to copy"))?.to_string_lossy();
         // Into a folder of the archive under its own name, or under the name `dst` gives.
@@ -306,6 +330,8 @@ pub fn rename(src: &Path, dst: &Path) -> io::Result<PathBuf> {
 /// `rename`, with the password of the archive `src` is inside: out of an archive it is copied
 /// out, then taken out of the archive.
 pub fn rename_locked(src: &Path, dst: &Path, password: Option<&str>) -> io::Result<PathBuf> {
+    writable(src)?;
+    writable(dst)?;
     match (out_of_archive(src), into_archive(dst)) {
         // Within one archive: renamed there, the folder `dst` names, or a new name.
         (Some((a, from)), Some((b, to))) if a == b => {
@@ -353,6 +379,7 @@ pub fn delete(path: &Path) -> io::Result<()> {
 
 /// `delete`, with the password of the locked 7z `path` is inside.
 pub fn delete_locked(path: &Path, password: Option<&str>) -> io::Result<()> {
+    writable(path)?;
     if !path.exists()
         && let Some((archive, inner)) = crate::archive::split(path)
     {
@@ -373,6 +400,7 @@ pub fn trash(path: &Path) -> io::Result<()> {
 
 /// `trash`, with the password of the locked 7z `path` is inside.
 pub fn trash_locked(path: &Path, password: Option<&str>) -> io::Result<()> {
+    writable(path)?;
     if !path.exists() && crate::archive::split(path).is_some() {
         return delete_locked(path, password);
     }
@@ -397,6 +425,7 @@ pub fn mkdir(path: &Path) -> io::Result<()> {
 
 /// `mkdir`, with the password of the locked 7z `path` is inside.
 pub fn mkdir_locked(path: &Path, password: Option<&str>) -> io::Result<()> {
+    writable(path)?;
     if let Some((archive, inner)) = into_archive(path) {
         return crate::archive::mkdir(&archive, &inner, password);
     }

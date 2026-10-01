@@ -11,6 +11,7 @@ use coxswain_core::index::{Results, State};
 use coxswain_core::rename::{self, Flags, Planned};
 use coxswain_core::state::{AppState, FavoriteGroup};
 use coxswain_core::git;
+use coxswain_core::history;
 use serde::Serialize;
 use std::collections::BTreeMap;
 use std::io::Read;
@@ -187,6 +188,8 @@ struct Settings {
     meaning_model: String,
     meaning_key_env: String,
     ask_model: String,
+    search_history: bool,
+    git_last_commit: bool,
 }
 
 impl From<&Config> for Settings {
@@ -216,6 +219,8 @@ impl From<&Config> for Settings {
             meaning_model: c.search.meaning_model.clone(),
             meaning_key_env: c.search.meaning_key_env.clone(),
             ask_model: c.search.ask_model.clone(),
+            search_history: c.search.history,
+            git_last_commit: c.git.last_commit,
         }
     }
 }
@@ -246,6 +251,8 @@ const SETTING_PATHS: &[(&str, &[&str])] = &[
     ("meaning_model", &["search", "meaning_model"]),
     ("meaning_key_env", &["search", "meaning_key_env"]),
     ("ask_model", &["search", "ask_model"]),
+    ("search_history", &["search", "history"]),
+    ("git_last_commit", &["git", "last_commit"]),
 ];
 
 /// `text` (a config.toml) with the settings in `changes` set, comments and layout kept.
@@ -304,6 +311,17 @@ struct Listing {
     /// The archive the folder is inside, and whether something in it is locked.
     archive: Option<PathBuf>,
     locked: bool,
+    /// The history the folder is in.
+    history: Option<HistoryInfo>,
+}
+
+/// A history being looked into: the file or folder it is of, and the commit looked into.
+#[derive(Serialize)]
+struct HistoryInfo {
+    target: PathBuf,
+    /// The folder on disk it leads back to: the target, or the folder holding it.
+    base: PathBuf,
+    commit: Option<history::Commit>,
 }
 
 /// Async, as a compressed tar is read in full to list a folder in it.
@@ -311,6 +329,13 @@ struct Listing {
 async fn list_dir(dir: PathBuf, show_hidden: bool, sort: SortKey, reverse: bool, ctx: tauri::State<'_, Ctx>) -> Res<Listing> {
     let (mut entries, inside) = bfs::list_with_archive(&dir, show_hidden).map_err(|e| format!("{}: {e}", dir.display()))?;
     bfs::sort(&mut entries, sort, reverse);
+    // By last commit: git's walk first, cached for the column after.
+    if sort == SortKey::Commit
+        && let Some(lasts) = history::last_changes(&dir)
+    {
+        history::sort_by_last(&mut entries, &lasts, reverse);
+    }
+    let in_history = history::split(&dir).filter(|_| !dir.is_dir()).map(|at| HistoryInfo { commit: at.commit.as_deref().and_then(|c| history::show(&at.base, c).ok()), target: at.target, base: at.base });
     let st = ctx.state.lock().map_err(|e| e.to_string())?;
     let cfg = ctx.cfg();
     let plain = cfg.plain_glyphs().then(|| cfg.glyphs());
@@ -319,7 +344,17 @@ async fn list_dir(dir: PathBuf, show_hidden: bool, sort: SortKey, reverse: bool,
         .map(|e| Item { icon: icons::entry(&e.name, e.is_dir, e.is_symlink, plain.as_ref()), tag: st.tags.get(&e.path).cloned(), entry: e })
         .collect();
     let (archive, locked) = inside.map_or((None, false), |(a, locked)| (Some(a), locked));
-    Ok(Listing { has_notes: st.notes.contains_key(&dir), dir, items, archive, locked })
+    Ok(Listing { has_notes: st.notes.contains_key(&dir), dir, items, archive, locked, history: in_history })
+}
+
+/// The last commit of each entry of `dir` (a work tree's folder or a history's), as git's one
+/// walk over the folder finds it. `None` outside a repository or when switched off.
+#[tauri::command]
+async fn git_last(dir: PathBuf, ctx: tauri::State<'_, Ctx>) -> Res<Option<std::sync::Arc<history::Lasts>>> {
+    if !ctx.cfg().git.last_commit {
+        return Ok(None);
+    }
+    tauri::async_runtime::spawn_blocking(move || history::last_changes(&dir)).await.map_err(|e| e.to_string())
 }
 
 #[derive(Serialize)]
@@ -876,7 +911,9 @@ fn archive_password(path: PathBuf, password: String) {
 /// A copy of a file inside an archive, to preview: see `archive::peek`.
 #[tauri::command]
 async fn archive_peek(path: PathBuf) -> Res<PathBuf> {
-    tauri::async_runtime::spawn_blocking(move || coxswain_core::archive::peek(&path)).await.map_err(|e| e.to_string())?.map_err(|e| e.to_string())
+    // A file in a history: as it was at that commit.
+    let peek = if history::is_history(&path) { history::peek } else { coxswain_core::archive::peek };
+    tauri::async_runtime::spawn_blocking(move || peek(&path)).await.map_err(|e| e.to_string())?.map_err(|e| e.to_string())
 }
 
 /// A new archive at `dest` (zip, tar or tar.gz, by its name) with `paths` in it.
@@ -1318,7 +1355,7 @@ fn main() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            get_config, notices, dismiss_notice, set_title, index_status, index_action, index_service, meaning_status, meaning_action, meaning_models, meaning_pull, list_dir, git_status, places, disks, get_state, save_session, save_favorites, set_tags, set_note, get_note,
+            get_config, notices, dismiss_notice, set_title, index_status, index_action, index_service, meaning_status, meaning_action, meaning_models, meaning_pull, list_dir, git_status, git_last, places, disks, get_state, save_session, save_favorites, set_tags, set_note, get_note,
             search, ask, ask_stop, resolve_path, copy, rename, delete, mkdir, dir_sizes, rename_plan, rename_apply, open_path, edit_path,
             read_text, run_command, scripts, run_script, check_update, archive_list, extract, pack, archive_password, archive_peek, properties, set_permissions,
             clip_set, paste, start_drag, watch_dirs, preview::git_diff, preview::sqlite_info, preview::epub_preview,
@@ -1410,7 +1447,7 @@ mod perf {
         let (mut entries, _) = bfs::list_with_archive(&dir, true).unwrap();
         bfs::sort(&mut entries, SortKey::Name, false);
         let items: Vec<Item> = entries.into_iter().map(|e| Item { icon: icons::entry(&e.name, e.is_dir, e.is_symlink, None), tag: None, entry: e }).collect();
-        let listing = Listing { has_notes: false, dir, items, archive: None, locked: false };
+        let listing = Listing { has_notes: false, dir, items, archive: None, locked: false, history: None };
         println!("list_dir body (list, sort, icons): {:.0} ms", ms(t));
         let t = std::time::Instant::now();
         let json = serde_json::to_vec(&listing).unwrap();

@@ -234,6 +234,7 @@
       <label class="check"><input type="checkbox" checked={s.show_hidden} onchange={(e) => set("show_hidden", e.currentTarget.checked)} /> {t("settings.show_hidden")}</label>
       <label class="check"><input type="checkbox" checked={s.confirm_delete} onchange={(e) => set("confirm_delete", e.currentTarget.checked)} /> {t("settings.confirm_delete")}</label>
       <label class="check"><input type="checkbox" checked={s.check_updates} onchange={(e) => set("check_updates", e.currentTarget.checked)} /> {t("settings.check_updates")}</label>
+      <label class="check"><input type="checkbox" checked={s.git_last_commit} onchange={(e) => set("git_last_commit", e.currentTarget.checked)} /> {t("settings.git_last_commit")}</label>
     </section>
 
     {#snippet folders(name, none)}
@@ -285,6 +286,7 @@
             </ul>
           {/if}
         </div>
+        <label class="check"><input type="checkbox" checked={s.search_history} onchange={(e) => setSearch("search_history", e.currentTarget.checked)} /> {t("settings.search_history")}</label>
         <p class="hint">{t("settings.search_hint")}</p>
       {/if}
     </section>

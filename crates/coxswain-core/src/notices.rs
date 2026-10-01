@@ -40,6 +40,11 @@ pub fn next(cfg: &Config, status: &Status, state: &AppState, terminal: bool) -> 
     if !state.seen_version.is_empty() && state.seen_version != version {
         all.push(Notice { id: format!("new-{version}"), text: t!("notice.updated", "version" => version), settings: None, url: Some(crate::update::RELEASES_URL) });
     }
+    // A repository was opened: its history is a key away.
+    if !state.recent_repos.is_empty() {
+        let key = cfg.key_for(crate::config::Action::History).unwrap_or("F9");
+        all.push(Notice { id: "history".into(), text: t!("notice.history", "key" => key), settings: None, url: None });
+    }
     if cfg.search.text && !cfg.search.meaning && status.texts > 0 {
         let text = if terminal { t!("notice.meaning_tui") } else { t!("notice.meaning") };
         all.push(Notice { id: "meaning".into(), text, settings: Some("meaning"), url: None });
@@ -98,6 +103,13 @@ mod tests {
         assert_eq!(ids(&state, &status), Some(format!("new-{}", crate::update::VERSION)), "an update is told of");
         dismiss(&mut state, &format!("new-{}", crate::update::VERSION));
         assert_eq!((ids(&state, &status), state.seen_version.as_str()), (None, crate::update::VERSION));
+
+        // In a repository for the first time: told of the history, once.
+        state.touch_repo(std::path::Path::new("/r"));
+        assert_eq!(ids(&state, &status).as_deref(), Some("history"));
+        assert!(next(&cfg, &status, &state, true).unwrap().text.contains("Ctrl+G"));
+        dismiss(&mut state, "history");
+        assert_eq!(ids(&state, &status), None);
 
         status.meaning = true;
         assert!(search_level(&cfg, &status).split(" · ").count() == 3);

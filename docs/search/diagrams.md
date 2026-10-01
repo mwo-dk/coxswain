@@ -155,4 +155,4 @@ No. The [preview](../previews/diagrams.md) draws the diagram; this reads it for 
 apart.
 
 ---
-[← Previous: Scans, pictures and older Office files](scans.md) · [Next: Choosing the folders →](folders.md)
+[← Previous: Scans, pictures and older Office files](scans.md) · [Next: Git history in search →](history.md)
