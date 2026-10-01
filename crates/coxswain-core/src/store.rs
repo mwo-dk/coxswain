@@ -69,6 +69,9 @@ pub struct Store {
     engine: Mutex<Option<Arc<crate::meaning::Engine>>>,
     /// Why the last vectors could not be had (a server that did not answer), for Settings.
     pub meaning_error: Mutex<Option<String>>,
+    /// Why the last scan failed, for Settings and the terminal app: until one succeeds, no
+    /// file further on is read and none gets its vectors.
+    pub error: Mutex<Option<String>>,
     /// The signs of every passage's vector, (file, passage, signs), read from `chunks` for the
     /// first search by meaning and kept up to date after.
     signs: Mutex<Option<Signs>>,
@@ -122,7 +125,7 @@ impl Store {
             db.execute_batch("ALTER TABLE files ADD COLUMN inside INTEGER; DROP INDEX IF EXISTS files_path_size;")?;
         }
         db.execute_batch("CREATE INDEX IF NOT EXISTS files_path_size ON files(path, size, inside) WHERE inside IS NULL")?;
-        Ok(Store { db: Mutex::new(db), pending: AtomicUsize::new(0), hurry: AtomicBool::new(false), cleared: AtomicBool::new(false), walked: Mutex::default(), offline: Mutex::default(), paused: AtomicBool::new(false), configured: Mutex::default(), meaning: AtomicBool::new(false), engine: Mutex::default(), meaning_error: Mutex::default(), signs: Mutex::default() })
+        Ok(Store { db: Mutex::new(db), pending: AtomicUsize::new(0), hurry: AtomicBool::new(false), cleared: AtomicBool::new(false), walked: Mutex::default(), offline: Mutex::default(), paused: AtomicBool::new(false), configured: Mutex::default(), meaning: AtomicBool::new(false), engine: Mutex::default(), meaning_error: Mutex::default(), error: Mutex::default(), signs: Mutex::default() })
     }
 
     /// Bytes and files below `dir`, and when the walk they come from began. `None` until a
@@ -437,6 +440,9 @@ impl Store {
         let tx = db.transaction()?;
         for (id, text) in files {
             tx.execute("UPDATE files SET has_text = ?2 WHERE id = ?1", params![id, text.is_some()])?;
+            // A file read again may still have its text from before (a reader that learnt more
+            // keeps it until now): the new one takes its place, or the insert fails the scan.
+            tx.execute("DELETE FROM text WHERE rowid = ?1", [id])?;
             if let Some(text) = text {
                 tx.execute("INSERT INTO text(rowid, body) VALUES (?1, ?2)", params![id, text])?;
             }
@@ -691,7 +697,11 @@ fn now() -> u64 {
 /// folders holding `.nosearch`.
 pub(crate) fn left_out(dir: &Path, cfg: &SearchConfig) -> bool {
     let name = dir.file_name().map(|n| n.to_string_lossy()).unwrap_or_default();
-    name.starts_with('.') || excluded(&name, cfg) || cfg.names_only.iter().any(|p| p == dir) || dir.join(".nosearch").exists()
+    // Coxswain's own cache (the store, previews, files unpacked to be read) is never read: on
+    // macOS and Windows it is not a hidden folder.
+    static OWN: std::sync::OnceLock<Option<PathBuf>> = std::sync::OnceLock::new();
+    OWN.get_or_init(crate::helper::folder).as_deref() == Some(dir)
+        || name.starts_with('.') || excluded(&name, cfg) || cfg.names_only.iter().any(|p| p == dir) || dir.join(".nosearch").exists()
 }
 
 /// Whether a folder or file of this name is left out by `text_exclude`: a name (`node_modules`)
@@ -1092,11 +1102,16 @@ pub fn keep_current(store: &Store, cfg: &SearchConfig, stop: &AtomicBool, change
     let report = |r: rusqlite::Result<()>| {
         if let Err(e) = r {
             eprintln!("coxswain: search store: {e}");
+            *store.error.lock().unwrap() = Some(e.to_string());
         }
     };
     while !stop.load(Ordering::Relaxed) {
         store.cleared.store(false, Ordering::SeqCst);
-        report(scan(store, cfg, stop));
+        let scanned = scan(store, cfg, stop);
+        if scanned.is_ok() {
+            *store.error.lock().unwrap() = None;
+        }
+        report(scanned);
         let (rest, mut refreshed, mut measured) = (Instant::now(), Instant::now(), Instant::now());
         let (mut now, mut later) = (HashSet::new(), HashSet::new());
         let again = || rest.elapsed() > Duration::from_secs(600) || store.hurry.load(Ordering::Relaxed) || store.cleared.load(Ordering::Relaxed);
@@ -1388,6 +1403,16 @@ mod tests {
         store.tools_changed(&["png", "jpg"]).unwrap();
         assert_eq!(store.unread().unwrap().iter().map(|r| r.1.as_str()).collect::<Vec<_>>(), ["/h/scan.PNG"], "tesseract came");
         store.tools_changed(&["png", "jpg"]).unwrap();
+
+        // A reader that learnt more: its files are read again over the text they had. Before
+        // 1.26.4 the old text made every scan fail there, and no file got its vectors after.
+        let id = store.unread().unwrap()[0].0;
+        store.read(&[(id, Some("old words".into()))]).unwrap();
+        store.readers_changed("test-2", &["png"]).unwrap();
+        assert_eq!(store.unread().unwrap().len(), 1);
+        store.read(&[(id, Some("new words".into()))]).unwrap();
+        assert_eq!(store.search("new", 10).total, 1);
+        assert_eq!(store.search("old", 10).total, 0);
         drop(store);
         std::fs::remove_dir_all(d).unwrap();
     }
@@ -1417,6 +1442,15 @@ mod tests {
         assert_eq!(found(&store), ["a.txt", "app.log", "build"]);
         drop(store);
         let _ = std::fs::remove_dir_all(d);
+    }
+
+    /// Coxswain's own cache (the store itself, previews) is never read, wherever it is.
+    #[test]
+    fn store_never_reads_its_own_cache() {
+        let cfg = SearchConfig::default();
+        let own = crate::helper::folder().unwrap();
+        assert!(left_out(&own, &cfg));
+        assert!(!left_out(own.parent().unwrap(), &cfg) || own.parent().unwrap().file_name().unwrap().to_string_lossy().starts_with('.'));
     }
 
     /// With the model downloaded: files are found by what they are about, in any language,

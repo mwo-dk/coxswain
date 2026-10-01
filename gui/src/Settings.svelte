@@ -273,6 +273,7 @@
           {:else}
             {t("settings.search_status", { texts: index.texts, pending: index.pending, size: size(index.bytes) })}
             {#if index.paused}<br /><strong>{t("settings.search_paused")}</strong>{/if}
+            {#if index.error}<br /><span class="err">{t("settings.search_error", { why: index.error })}</span>{/if}
           {/if}
           {#if index?.path}<br /><span class="mono">{index.path}</span> <button class="link" onclick={() => showInPanel(index.path)}>{t("settings.show_in_panel")}</button>{/if}
         </p>
@@ -361,7 +362,8 @@
           {t("settings.meaning_status", { done: index?.meaning_done ?? 0, pending: index?.meaning_pending ?? 0 })}
           {#if index?.meaning_engine}<br /><span class="mono">{index.meaning_engine}</span>{/if}
           {#if !server && meaning?.folder}<br /><span class="mono">{meaning.folder}</span> <button class="link" onclick={() => showInPanel(meaning.folder, false)}>{t("settings.show_in_panel")}</button>{/if}
-          {#if index?.meaning_error}<br /><span class="err">{index.meaning_error}</span>{/if}
+          {#if index?.meaning_error}<br /><span class="err">{t("settings.meaning_error", { why: index.meaning_error })}</span>{/if}
+          {#if index?.error}<br /><span class="err">{t("settings.search_error", { why: index.error })}</span>{/if}
           {#if index?.paused}<br /><strong>{t("settings.search_paused")}</strong>{/if}
         </p>
         <div class="buttons">

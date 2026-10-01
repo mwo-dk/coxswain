@@ -97,6 +97,8 @@ The same search: hits by meaning come after word hits, with *similar to:* in fro
 passage. Turn it on, off or delete it with `coxswain --meaning on|off|delete`. There is no status
 of *still to go*; the desktop app's Settings shows it, or wait for hits. Find file's text depth
 says *Also find files about your words, in any language: coxswain --meaning on* while it is off.
+When vectors stop coming, its status line says why: *No vectors: http://localhost:11434: Connection
+refused*, or *Reading stopped: …* when reading itself failed.
 
 ## Questions
 
@@ -108,6 +110,19 @@ choose whether that is worth it: turn it on in Settings or with `coxswain --mean
 The vectors are made in the background, a few files at a time: Settings shows *still to go*. On a
 laptop's CPU that takes hours for a large home folder, and it waits while on battery. A
 [server with a GPU](servers.md) is much faster.
+
+#### Vectors stopped coming. Why?
+Both apps say why, in red: Settings under *Search by meaning* (desktop) and the status line of
+Find file's text depth (terminal), and a [notice](notices.md) in the status line of both. *No
+vectors: …* is the server or the model: Ollama not running (`systemctl start ollama`), or the
+model not pulled (`ollama pull bge-m3`, or *Pull* in Settings). *Reading stopped: …* means a scan
+failed before the vectors' turn; vectors come only after the text is read. Before 1.26.4 a store
+whose Markdown files were read again after an update failed every scan that way, silently, and
+vectors stopped after the first few hundred files: 1.26.4 mends such a store by itself.
+
+#### Why is it so slow with Ollama?
+Look at `ollama ps`: *100% CPU* means Ollama runs without your graphics card. Install the build of
+Ollama for your GPU (on Arch and CachyOS `ollama-cuda` or `ollama-rocm`) and restart it.
 
 #### Why is a document not found by what its last chapter is about?
 Only the start of each file gets vectors: eight passages of about 120 words. Search by words still

@@ -422,7 +422,14 @@ fn search(f: &mut Frame, app: &mut App, full: Rect) {
         State::Ready => String::new(),
     };
     let (indexed, st) = if text {
-        (tn!("search.texts", now.texts), if now.pending > 0 { t!("search.reading", "n" => now.pending) } else { String::new() })
+        let mut st = if now.pending > 0 { t!("search.reading", "n" => now.pending) } else { String::new() };
+        // Search that stalled says why, here where it is missed.
+        if let Some(why) = &now.error {
+            st += &format!(" · {}", t!("settings.search_error", "why" => why));
+        } else if let Some(why) = now.meaning_error.as_ref().filter(|_| now.meaning) {
+            st += &format!(" · {}", t!("settings.meaning_error", "why" => why));
+        }
+        (tn!("search.texts", now.texts), st)
     } else {
         (tn!("search.indexed", count), st)
     };
