@@ -107,8 +107,9 @@ to `text_exclude`.
 #### Where is `search.db`, and can I look inside?
 In Coxswain's cache folder: `~/.cache/coxswain/search.db` on Linux, `~/Library/Caches/coxswain` on
 macOS, `%LOCALAPPDATA%\coxswain` on Windows (`coxswain --paths` prints it). *Settings → Search
-inside files → Show in panel* opens it in the active panel; the preview and **F3** show its tables,
-their rows and the first rows of each, read-only, also while the helper writes to it. The cache
+inside files → Show in panel* opens it in the active panel; the preview shows its tables and their
+row counts, and **F3** in the terminal app their first rows too, read-only, also while the helper
+writes to it. The cache
 folder itself is never read into the index, so the store does not index itself.
 
 #### I added a folder outside my home folder, and now my home folder is not read.

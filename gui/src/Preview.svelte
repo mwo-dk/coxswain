@@ -459,7 +459,7 @@
             <tr><th>{t("preview.db_table")}</th><th>{t("preview.db_rows")}</th></tr>
             {#each backend.sqlite as tb (tb.name)}
               <tr>
-                <td><details open={backend.sqlite.length <= 3}><summary>{tb.kind === "view" ? t("preview.view", { name: tb.name }) : tb.name}</summary><pre class="mono">{tb.sql}</pre>{#if tb.sample.length > 1}{@render grid(tb.sample)}{/if}</details></td>
+                <td><details><summary>{tb.kind === "view" ? t("preview.view", { name: tb.name }) : tb.name}</summary><pre class="mono">{tb.sql}</pre></details></td>
                 <td class="num">{tb.rows != null ? num(tb.rows) : "–"}</td>
               </tr>
             {/each}

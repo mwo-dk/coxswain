@@ -152,11 +152,12 @@ pub fn serve() -> io::Result<()> {
     crate::fs::lock_down();
     let dir = folder().ok_or_else(|| io::Error::other("no cache folder"))?;
     let search = Config::load().map(|c| c.search).unwrap_or_default();
-    let store = if search.text { Store::open(&dir.join("search.db")).ok().map(Arc::new) } else { None };
+    // First, or the store cannot be made on a machine that has no cache folder yet.
+    std::fs::create_dir_all(&dir)?;
+    let store = if search.text { Store::open(&dir.join("search.db")).inspect_err(|e| eprintln!("coxswain: search store: {e}")).ok().map(Arc::new) } else { None };
     if let Some(s) = &store {
         s.set_engine(if search.meaning { crate::meaning::Engine::from_config(&search) } else { None });
     }
-    std::fs::create_dir_all(&dir)?;
     let cfg = search.clone();
     // Registered to start with the session: it stays when the apps have gone.
     let linger = if std::env::args().any(|a| a == crate::service::STAY) { Duration::MAX } else { LINGER };
