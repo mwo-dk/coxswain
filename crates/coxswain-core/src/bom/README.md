@@ -9,3 +9,9 @@ cipherscape owns it: change it there, then run `./sync-catalog.sh`, which copies
 cipherscape commit they came from.
 
 The catalog is an unreviewed seed (`lastReviewed` is null). A rating is a hint, not an audit.
+
+## Licence
+
+cipherscape is Jimmy Tønners's project. He contributes `catalog.json`, `golden.json` and the code
+of this module ported from cipherscape (reading, the tree, ratings, compare) to Coxswain under
+Coxswain's MIT licence.
