@@ -1,0 +1,25 @@
+# Weekly update proposals for the Cargo workspace, the frontend and the actions CI runs.
+# Minor and patch updates arrive as one pull request per ecosystem; majors come one by one.
+version: 2
+updates:
+  - package-ecosystem: cargo
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      cargo-minor-patch:
+        update-types: [minor, patch]
+  - package-ecosystem: npm
+    directory: /gui
+    schedule:
+      interval: weekly
+    groups:
+      npm-minor-patch:
+        update-types: [minor, patch]
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        update-types: [minor, patch]
