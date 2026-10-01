@@ -559,8 +559,8 @@ impl Index {
     // ------------------------------------------------------------ persistence
 
     pub fn save(&self, path: &Path) -> io::Result<()> {
-        fs::create_dir_all(path.parent().unwrap_or(Path::new(".")))?;
         let tmp = path.with_extension("tmp");
+        crate::fs::private(path.parent().unwrap_or(Path::new(".")), None)?;
         let mut w = io::BufWriter::new(fs::File::create(&tmp)?);
         w.write_all(MAGIC)?;
         let roots = self.roots.iter().map(|r| r.to_string_lossy()).collect::<Vec<_>>().join("\0");
@@ -587,6 +587,7 @@ impl Index {
             w.write_all(&modified.to_le_bytes())?;
         }
         w.into_inner()?.sync_all()?;
+        crate::fs::private(path.parent().unwrap_or(Path::new(".")), Some(&tmp))?;
         fs::rename(tmp, path)
     }
 

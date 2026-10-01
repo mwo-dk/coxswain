@@ -146,6 +146,7 @@ fn write_private(path: &Path, text: &str) -> io::Result<()> {
 /// Be the helper: serve until no app has asked for `LINGER`. Returns at once when another
 /// helper already runs.
 pub fn serve() -> io::Result<()> {
+    crate::fs::lock_down();
     let dir = folder().ok_or_else(|| io::Error::other("no cache folder"))?;
     let search = Config::load().map(|c| c.search).unwrap_or_default();
     let store = if search.text { Store::open(&dir.join("search.db")).ok().map(Arc::new) } else { None };
