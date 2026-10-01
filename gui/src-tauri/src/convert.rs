@@ -449,7 +449,13 @@ mod latex {
         dir.ancestors().take(depth + 1).take_while(|d| d.parent().is_some() && Some(*d) != home.as_deref()).last().unwrap_or(dir).to_path_buf()
     }
 
-    /// When anything in the document's folder last changed.
+    /// What a build reads: sources, styles, bibliographies, pictures and data for plots.
+    // ponytail: by extension; a document that inputs another kind is rebuilt with Build.
+    const READ: &[&str] = &["tex", "ltx", "sty", "cls", "clo", "def", "cfg", "dtx", "bib", "bst", "bbx", "cbx", "png", "jpg", "jpeg", "pdf", "eps", "svg", "tikz", "pgf", "csv", "dat"];
+
+    /// When anything a build reads in the document's folder last changed. Other files there
+    /// (a database a preview opened, an editor's backup) are not part of it: with them, the
+    /// preview was made again every time.
     pub fn newest(main: &Path) -> Option<std::time::SystemTime> {
         // ponytail: the document's folder and below, 5000 files at most; pictures in `../figures`
         // are not watched, press Build again after changing the opened file for those.
@@ -467,7 +473,7 @@ mod latex {
                 }
                 if m.is_dir() {
                     stack.push(p);
-                } else {
+                } else if p.extension().is_some_and(|x| READ.iter().any(|r| x.eq_ignore_ascii_case(r))) {
                     newest = newest.max(m.modified().ok());
                 }
             }
@@ -568,6 +574,9 @@ mod latex {
             let later = before + std::time::Duration::from_secs(60);
             std::fs::File::options().write(true).open(d.join("paper/chapters/intro.tex")).unwrap().set_modified(later).unwrap();
             assert_eq!(newest(&main), Some(later), "a chapter changed");
+            std::fs::write(d.join("paper/data.db-shm"), "").unwrap();
+            std::fs::File::options().write(true).open(d.join("paper/data.db-shm")).unwrap().set_modified(later + std::time::Duration::from_secs(60)).unwrap();
+            assert_eq!(newest(&main), Some(later), "a file the build does not read changes nothing");
 
             std::fs::create_dir_all(d.join(".git")).unwrap();
             assert_eq!(project(&d.join("paper/chapters/intro.tex")), d, "the repository");
