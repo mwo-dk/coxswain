@@ -32,6 +32,50 @@ fn no_path(p: &Path) -> bool {
     p.as_os_str().is_empty()
 }
 
+/// At every start: the cache folder (name index, search store, previews, archive copies) and
+/// the state folder (notes, tags, favourites) made readable by the user alone, with what is in
+/// them, so installs from before this keep nothing open to other users either.
+pub fn lock_down() {
+    let state = crate::state::AppState::path().and_then(|p| p.parent().map(Path::to_path_buf));
+    for dir in [crate::helper::folder(), state].into_iter().flatten() {
+        let _ = lock_down_in(&dir);
+    }
+}
+
+/// `lock_down` for one folder: it and the folders in it 0700, the files in it 0600.
+fn lock_down_in(dir: &Path) -> io::Result<()> {
+    if !dir.is_dir() {
+        return Ok(());
+    }
+    private(dir, None)?;
+    for e in fs::read_dir(dir)?.flatten() {
+        let Ok(t) = e.file_type() else { continue };
+        if t.is_dir() {
+            private(&e.path(), None)?;
+        } else if t.is_file() {
+            private(dir, Some(&e.path()))?;
+        }
+    }
+    Ok(())
+}
+
+/// Make `dir` (created if missing) readable by the user alone, and `file` in it too: what
+/// Coxswain keeps about your files (names, notes, tags, text) is yours.
+pub fn private(dir: &Path, file: Option<&Path>) -> io::Result<()> {
+    fs::create_dir_all(dir)?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        fs::set_permissions(dir, fs::Permissions::from_mode(0o700))?;
+        if let Some(f) = file.filter(|f| f.exists()) {
+            fs::set_permissions(f, fs::Permissions::from_mode(0o600))?;
+        }
+    }
+    #[cfg(not(unix))]
+    let _ = file;
+    Ok(())
+}
+
 impl Entry {
     pub fn is_parent(&self) -> bool {
         self.name == ".."
@@ -617,6 +661,24 @@ mod tests {
         assert!(!kept.exists());
         delete(&d.join("moved")).unwrap();
         assert!(!d.join("moved").exists());
+        fs::remove_dir_all(d).unwrap();
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn fs_lock_down_makes_old_installs_private() {
+        use std::os::unix::fs::PermissionsExt;
+        let d = std::env::temp_dir().join(format!("coxswain-lockdown-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&d);
+        fs::create_dir_all(d.join("previews")).unwrap();
+        fs::write(d.join("index.bin"), b"names").unwrap();
+        for p in [&d, &d.join("previews")] {
+            fs::set_permissions(p, fs::Permissions::from_mode(0o755)).unwrap();
+        }
+        fs::set_permissions(d.join("index.bin"), fs::Permissions::from_mode(0o644)).unwrap();
+        lock_down_in(&d).unwrap();
+        let mode = |p: &Path| fs::metadata(p).unwrap().permissions().mode() & 0o777;
+        assert_eq!((mode(&d), mode(&d.join("previews")), mode(&d.join("index.bin"))), (0o700, 0o700, 0o600));
         fs::remove_dir_all(d).unwrap();
     }
 }
