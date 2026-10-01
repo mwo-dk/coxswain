@@ -791,6 +791,7 @@
  "settings.saved": "Įrašyta: {path}",
  "settings.search": "Paieška failų turinyje",
  "settings.search_add": "Pridėti",
+ "settings.search_archives": "Ieškoti archyvų viduje: zip, 7z ir tar archyvų failai randami pagal pavadinimą ir tekstą",
  "settings.search_forget": "Ištrinti indeksą",
  "settings.search_forget_confirm": "Spustelėkite dar kartą, kad ištrintumėte",
  "settings.search_hint": "Aplankai „tik pavadinimai“ randami pagal pavadinimą ir įskaičiuojami į aplankų dydžius, bet niekada neskaitomi. Taip pat veikia aplanke esantis failas .nosearch. Paprastai failai skaitomi puse greičio, po vieną; „Indeksuoti dabar“ perskaito eilę visu greičiu.",

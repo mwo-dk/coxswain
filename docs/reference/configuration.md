@@ -201,6 +201,7 @@ flags start a new one.
 | `text_exclude` | list of strings | `["node_modules", "target", "build", "dist", "out", "vendor", "__pycache__", "Trash"]` | Folder names left out of reading, wherever they are. Hidden folders and folders with a `.nosearch` file always are |
 | `names_only` | list of paths | `[]` | Folders found by name and counted in sizes, never read |
 | `text_max_size` | number (bytes) | `20971520` (20 MB) | Larger files are not read |
+| `archives` | bool | `true` | Look inside the zip, 7z and tar archives in the folders read: their files are found by name and by their text ([Inside archives](../search/archives.md)) |
 | `meaning` | bool | `false` | Search by meaning ([Search by meaning](../search/meaning.md)) |
 | `meaning_engine` | string | `"builtin"` | `"builtin"` (the downloaded model, on this CPU), `"ollama"` (an Ollama server's `/api/embed`) or `"openai"` (any `/v1/embeddings`: Lemonade, LM Studio, llama.cpp, vLLM) ([on a server](../search/servers.md)) |
 | `meaning_url` | string | `""` | The server. Empty for Ollama on this machine (`http://localhost:11434`); for `"openai"` the base URL, for example `http://localhost:8000/api/v1` |
@@ -285,6 +286,7 @@ Each Settings item and the key it writes:
 | | *Check for a new version once a day* | `check_updates` |
 | | *Show when each file and folder was last committed, and by whom* | `[git] last_commit` |
 | *Search inside files* | *Keep the text of files, so Find file can search in it (Tab)* | `[search] text` |
+| | *Search inside archives…* | `[search] archives` |
 | | *Folders read* | `[search] text_roots` |
 | | *Names only* | `[search] names_only` |
 | | *Search the history of git repositories too…* | `[search] history` |

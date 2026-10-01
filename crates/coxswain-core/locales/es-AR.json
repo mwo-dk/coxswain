@@ -791,6 +791,7 @@
  "settings.saved": "Se guardó en {path}",
  "settings.search": "Búsqueda en el contenido de los archivos",
  "settings.search_add": "Agregar",
+ "settings.search_archives": "Buscar dentro de archivos comprimidos: los archivos de los zip, 7z y tar se encuentran por nombre y por su texto",
  "settings.search_forget": "Borrar el índice",
  "settings.search_forget_confirm": "Hacé clic de nuevo para borrar",
  "settings.search_hint": "Las carpetas de «solo nombres» se encuentran por nombre y cuentan en el tamaño de las carpetas, pero nunca se leen. Un archivo llamado .nosearch en una carpeta hace lo mismo. Normalmente los archivos se leen a media velocidad, de a uno; «Indexar ahora» lee lo pendiente a toda velocidad.",

@@ -791,6 +791,7 @@
  "settings.saved": "Enregistré dans {path}",
  "settings.search": "Recherche dans le contenu des fichiers",
  "settings.search_add": "Ajouter",
+ "settings.search_archives": "Chercher dans les archives : les fichiers des archives zip, 7z et tar sont trouvés par leur nom et par leur texte",
  "settings.search_forget": "Supprimer l’index",
  "settings.search_forget_confirm": "Cliquez à nouveau pour supprimer",
  "settings.search_hint": "Les dossiers « noms seulement » sont trouvés par leur nom et comptés dans la taille des dossiers, mais jamais lus. Un fichier nommé .nosearch dans un dossier fait de même. Normalement les fichiers sont lus à mi-vitesse, un à la fois ; « Indexer maintenant » lit le retard à pleine vitesse.",

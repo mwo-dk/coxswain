@@ -793,6 +793,8 @@ pub struct SearchConfig {
     pub ask_model: String,
     /// Larger files are left out. Bytes.
     pub text_max_size: u64,
+    /// Search inside archives too: their entries by name, and the text of their files.
+    pub archives: bool,
     /// Keep the history of the git repositories in the text roots too: commit messages,
     /// authors and changed paths (the newest 2000 commits of each), found like text.
     pub history: bool,
@@ -816,6 +818,7 @@ impl Default for SearchConfig {
             meaning_key_env: String::new(),
             ask_model: String::new(),
             text_max_size: 20 * 1024 * 1024,
+            archives: true,
             history: true,
         }
     }

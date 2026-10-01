@@ -791,6 +791,7 @@
  "settings.saved": "S'ha desat a {path}",
  "settings.search": "Cerca dins dels fitxers",
  "settings.search_add": "Afegeix",
+ "settings.search_archives": "Cerca dins dels arxius: els fitxers dels arxius zip, 7z i tar es troben pel nom i pel seu text",
  "settings.search_forget": "Suprimeix l'índex",
  "settings.search_forget_confirm": "Torneu a fer clic per suprimir",
  "settings.search_hint": "Les carpetes de «només noms» es troben pel nom i compten en la mida de les carpetes, però no es llegeixen mai. Un fitxer anomenat .nosearch en una carpeta fa el mateix. Normalment els fitxers es llegeixen a mitja velocitat, d'un en un; «Indexa ara» llegeix el que queda a tota velocitat.",

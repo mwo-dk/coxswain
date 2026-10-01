@@ -15,7 +15,7 @@ Commander blue to Windows 95 and Mac OS 9.*
 ## Highlights
 
 - **Norton Commander at heart:** two panels, the F-key bar, a command line and NC's keys. [Panels and keys](docs/panels/README.md)
-- **Find by name, text or meaning:** Ctrl+F, and Tab goes deeper, from every name on the machine to what a file is about. [Search](docs/search/README.md)
+- **Find by name, text or meaning:** Ctrl+F, and Tab goes deeper, from every name on the machine to what a file is about, inside your zip, 7z and tar archives too. [Search](docs/search/README.md) · [Inside archives](docs/search/archives.md)
 - **Ask your files:** a question in your own words, answered by your own chat model from the closest passages, with numbered sources. [Ask](docs/search/ask.md)
 - **Search by meaning, in any language:** a small model on your machine, or your own Ollama, Lemonade or OpenAI-style server. [Search by meaning](docs/search/meaning.md)
 - **See before you open:** code, Markdown, PDF, Word, PowerPoint, spreadsheets, SQLite, HTML, fonts, video and more. [The preview pane](docs/previews/README.md)
@@ -108,6 +108,7 @@ Newest first. Downloads for each release are on the [releases page](https://gith
 
 | Version | Date | What's new |
 |---|---|---|
+| **1.25.0** | 2026-10-01 | Search inside archives: the files in your zip, 7z and tar archives are found by name, by their text, by meaning and by Ask, shown as a path through the archive, and Enter opens the archive there; a changed archive is read again, a locked one keeps its secrets. On by default, *Search inside archives* in Settings. [Inside archives](docs/search/archives.md) |
 | **1.24.0** | 2026-10-01 | Git history as folders: Ctrl+G on a file or folder lists the commits that touched it, Enter on one browses the files as they were, with a preview, the commit's diff, F3 and F5; a *Last commit* column (date and author) in both apps; commit messages, authors and changed paths in Find file, by text and by meaning. Text previews of files inside archives show again. [Git history](docs/panels/git-history.md) · [History in search](docs/search/history.md) |
 | **1.23.1** | 2026-10-01 | Dependencies reviewed: every crate and npm package at its latest version, the one known vulnerability (lodash in the Mermaid renderer) fixed, the terminal app without widgets it never draws, draw.io diagrams drawn without a word to diagrams.net, and from now on a weekly check of every dependency for advisories, with Dependabot proposing updates. [Security](docs/reference/security.md) |
 | **1.23.0** | 2026-10-01 | Files inside archives show in the preview pane, and F3 views them in the terminal app, from a copy of just that file; locked ones ask for their password. [Archives](docs/files/archives.md) |

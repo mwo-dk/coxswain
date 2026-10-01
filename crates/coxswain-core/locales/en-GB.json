@@ -746,6 +746,7 @@
  "settings.saved": "Saved to {path}",
  "settings.search": "Search inside files",
  "settings.search_add": "Add",
+ "settings.search_archives": "Search inside archives: the files in zip, 7z and tar archives are found by name and by their text",
  "settings.search_forget": "Delete the index",
  "settings.search_forget_confirm": "Click again to delete",
  "settings.search_hint": "Names-only folders are found by name and counted in folder sizes, but never read. A file named .nosearch in a folder does the same. Normally files are read at half speed, one at a time; Index now reads the backlog at full speed.",
