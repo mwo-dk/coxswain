@@ -354,9 +354,19 @@
       if (!paths.length) return;
       const what = describe(paths);
       const name = paths.length === 1 ? basename(paths[0]).replace(/\.[^.]*$/, "") || basename(paths[0]) : basename(tab().dir) || "archive";
-      prompt(t("archive.pack"), t("archive.pack_into", { what }), `${otherTab().dir}${ui.cfg.sep}${name}.zip`, (d) => {
-        if (d.trim()) op(invoke("pack", { paths, base: tab().dir, dest: d }), t("archive.packed", { what }), what);
-      });
+      // The password lives only in the dialog and this call; the core keeps it for this run.
+      ui.modal = {
+        kind: "pack",
+        title: t("archive.pack"),
+        label: t("archive.pack_into", { what }),
+        value: `${otherTab().dir}${ui.cfg.sep}${name}.zip`,
+        password: "",
+        again: "",
+        hide: true,
+        run: (d, password, hideNames) => {
+          if (d.trim()) op(invoke("pack", { paths, base: tab().dir, dest: d, password, hideNames }), t("archive.packed", { what }), what);
+        },
+      };
     },
     user_menu: async () => {
       const list = await invoke("scripts");

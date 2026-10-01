@@ -21,7 +21,7 @@ Commander blue to Windows 95 and Mac OS 9.*
 - **See before you open:** code, Markdown, PDF, Word, PowerPoint, spreadsheets, SQLite, HTML, fonts, video and more. [The preview pane](docs/previews/README.md)
 - **Builds what needs building:** LaTeX, Office, PlantUML and Graphviz previews, with your tools or a sealed container. [LaTeX](docs/previews/latex.md) · [Tools](docs/previews/tools.md)
 - **Reads cryptography bills of materials:** a CycloneDX CBOM as a rated tree or sunburst, compared with last month's scan, in both apps. [CBOMs](docs/previews/bom.md)
-- **Archives are folders:** zip, 7z and tar (gz, bz2, xz, zst): go in, preview, copy, move, rename, pack, with passwords. [Archives](docs/files/archives.md)
+- **Archives are folders:** zip, 7z and tar (gz, bz2, xz, zst): go in, preview, copy, move, rename, pack, with passwords to open them and to lock new zips and 7z (AES-256). [Archives](docs/files/archives.md)
 - **Git in every panel:** branch, ahead and behind, counts, a glyph per file, and who last committed it and when. [Git](docs/panels/git.md)
 - **History as folders:** **Ctrl+G** on a file or folder lists its commits; Enter on one browses the files as they were, F5 copies an old version out, and Find file finds commit messages. [Git history](docs/panels/git-history.md) · [History in search](docs/search/history.md)
 - **Folder sizes without asking,** instant in your home folder. [Folder sizes](docs/panels/folder-sizes.md)
@@ -108,6 +108,7 @@ Newest first. Downloads for each release are on the [releases page](https://gith
 
 | Version | Date | What's new |
 |---|---|---|
+| **1.26.0** | 2026-10-01 | Pack with a password: Alt+F5 into a zip or 7z takes a password (typed twice), every file locked with AES-256, and a 7z's file names hidden too if you like; the new archive opens without asking again while the app runs. Both apps. [Passwords](docs/files/archive-passwords.md#locking-a-new-archive) |
 | **1.25.2** | 2026-10-01 | Nothing leaves the machine from a preview: the webview is held to the app and your disk, HTML pages see their own folder only, a project's `latexmkrc` no longer runs, and a locked 7z stays locked when changed. [Safety](docs/previews/safety.md) · [Privacy](docs/reference/privacy.md) |
 | **1.25.1** | 2026-10-01 | Performance review: the desktop app keeps only the rows on screen in the page, so a folder of 100,000 files lists in 30 ms and the cursor moves in one; nothing that touches the disk runs on the window's thread; both apps say *Working on …* during a copy, move, delete, extract or pack and while a slow folder is read; the terminal app sorts without rereading and draws a frame in half a millisecond however much is marked. [Performance](docs/reference/performance.md) |
 | **1.25.0** | 2026-10-01 | Search inside archives: the files in your zip, 7z and tar archives are found by name, by their text, by meaning and by Ask, shown as a path through the archive, and Enter opens the archive there; a changed archive is read again, a locked one keeps its secrets. On by default, *Search inside archives* in Settings. [Inside archives](docs/search/archives.md) |

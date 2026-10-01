@@ -4,7 +4,8 @@
 
 A locked zip (ZipCrypto or AES) or 7z (AES) asks for its password when Coxswain needs to read
 what is locked. The password is kept in the app's memory until you close it, so you are asked
-once per archive, and it is never written anywhere.
+once per archive, and it is never written anywhere. Packing (**Alt+F5**) can lock a new zip or
+7z with a password of your own.
 
 <!-- screenshot: files-archive-password.png: desktop app, Cyber theme: the Locked archive dialog over a pane inside secret.zip (tinted, badge 'archive, locked'), the label 'Its password (kept only for this, never saved):' and a password field showing dots, OK and Cancel -->
 
@@ -30,6 +31,31 @@ once per archive, and it is never written anywhere.
 | Zip with locked files | You copy, move or extract a locked file. Its names are not locked, so it opens and lists without a password; the badge says *archive, locked* |
 | 7z with locked contents | You copy, move or extract a file, or change the archive (add, rename, make a folder, take out): it is unpacked and packed again for that. The badge says *archive, locked* |
 | 7z with locked contents and names | Already when you open it with **Enter**: without the password even the list of names cannot be read |
+
+### Locking a new archive
+
+1. Mark what to pack and press **Alt+F5** ([Pack](pack-and-extract.md)).
+2. Give the target a `.zip` or `.7z` ending (`.jar` and the other zip endings too).
+3. Type the password in *Password (empty: none; kept in memory while the app runs, never saved):*
+   and again in *The password again:*.
+4. For a 7z, leave *Hide the file names too* on to lock the list of names as well, or turn it
+   off to let anyone see the names (but not the contents).
+5. Press **Enter**. Leave both fields empty to pack without a password.
+
+| Format | What is locked | Method |
+|---|---|---|
+| Zip | Every file's contents; names, sizes and dates stay readable | AES-256 (WinZip AE-2) |
+| 7z | All contents; with *Hide the file names too*, the names as well | AES-256 with SHA-256 key derivation |
+| Tar (all kinds) | Nothing: the format has no passwords | — |
+
+The new archive's password is kept for the rest of the app run, so you can open it straight away
+without typing it again.
+
+| | Desktop app | Terminal app |
+|---|---|---|
+| Password | A password field and a second one to confirm it, both dots | A prompt with stars, then a second one to confirm; **Enter** alone means none |
+| Hide the names (7z) | The checkbox, on by default | Always on |
+| Different passwords | *OK* greyed out, *The passwords do not match* | *The passwords do not match* on the status line; nothing is packed |
 
 ## What you see
 
@@ -61,7 +87,8 @@ The dialog's text *kept only for this, never saved* is older than keeping it for
 
 ## Settings and config.toml
 
-None. There is no setting to store passwords, on purpose.
+None. There is no setting to store passwords, on purpose, and the password you pack with is not
+remembered in the Pack dialog either.
 
 ## In the terminal app
 
@@ -102,6 +129,33 @@ Yes. Taking out (**F8**) writes the zip anew with the other entries copied as th
 not; nothing needs to be unlocked. A 7z has to be unpacked and packed again, so it asks for the
 password unless it is known from opening it or from a copy out, and it is then written back without one
 ([Limits](archives.md#limits)).
+
+#### Which encryption is used?
+
+AES-256 for both formats. A zip gets WinZip's AES encryption (AE-2), which 7-Zip, WinZip, macOS
+Archive Utility (recent versions), `unzip` builds with AES and most other tools read; the old
+ZipCrypto is never written, as it is easily broken. A 7z gets 7-Zip's own AES-256 with a key made
+from the password with SHA-256, as `7z a -p` does.
+
+#### Can I add files to a password-protected archive later?
+
+Yes: copy them in with **F5** (or move them with **F6**). They get the same password as the files
+already in it; you are asked for it unless Coxswain still knows it from this run.
+
+#### Can others open the zip I locked?
+
+Yes, with the password, in any program that reads AES zips (7-Zip, WinZip, Keka, The Unarchiver,
+`7z x`). Windows Explorer's built-in zip support has long not read AES zips; use 7-Zip there if it refuses.
+
+#### Why are the names in my locked zip visible?
+
+The zip format locks only the contents of each file. To hide the names too, pack into a 7z with
+*Hide the file names too*.
+
+#### Why can a tar not have a password?
+
+The tar format has no encryption. Pack into a zip or 7z instead, or encrypt the tar with a tool
+such as `gpg` or `age` on the [command line](../commands/command-line.md).
 
 #### How do I make Coxswain forget a password?
 
