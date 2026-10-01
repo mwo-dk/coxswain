@@ -1770,6 +1770,7 @@ fn main() {
         Some("--meaning") => return meaning(args.get(1).map(String::as_str), &args[2.min(args.len())..]),
         _ => {}
     }
+    coxswain_core::fs::lock_down();
     let cfg = Config::load().unwrap_or_else(|e| {
         eprintln!("coxswain: {e}");
         std::process::exit(2)

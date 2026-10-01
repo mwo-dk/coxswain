@@ -1371,6 +1371,7 @@ fn main() {
     if std::env::args().nth(1).as_deref() == Some(helper::ARG) {
         return drop(helper::serve());
     }
+    coxswain_core::fs::lock_down();
     let cfg = Config::load().unwrap_or_else(|e| {
         eprintln!("coxswain: {e}; using defaults");
         Config::default()

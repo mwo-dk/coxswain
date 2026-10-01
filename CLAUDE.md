@@ -30,7 +30,9 @@ These rules hold for every contributor and every Claude session in this reposito
   embeds `gui/dist` (default feature `custom-protocol`). `npx tauri dev -- --no-default-features`
   for the live dev server; without that flag dev loads `dist` too.
 - **Check before pushing:** `cargo test --workspace`, and for GUI changes
-  `cd gui && npx svelte-check && npm test && npm run build`.
+  `cd gui && npx svelte-check && npm test && npm run build`. For preview changes, build the
+  release and run `uv run tools/preview-check.py` (Linux, needs `broadwayd`): it opens a file of
+  each kind in the real app, on a display of its own, and fails when one shows nothing.
 - **Bills of materials:** a dependency that does cryptography needs its use described in
   `tools/bom/crypto.toml`, and an npm licence outside `deny.toml`'s list needs reading first;
   the *bills of materials* check fails until then (`tools/bom/README.md`).

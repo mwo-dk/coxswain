@@ -60,6 +60,10 @@ model's folder.
 
 Archive passwords are not in any file: they live in the app's memory until it quits.
 
+The cache folder and the state folder, with everything directly in them, are readable by you
+alone: each start sets the folders to `700` and the files to `600`, so an install from before
+1.26.4 is corrected the first time it starts after the update.
+
 ## On each system
 
 | Folder | Linux | macOS | Windows |
