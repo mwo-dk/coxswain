@@ -1,0 +1,375 @@
+# Every cryptographic algorithm and protocol Coxswain uses, for its CBOM (tools/bom/README.md).
+#
+# Kept by hand: no scanner reads Rust well enough yet. generate.sh checks it against the build:
+# every crate in `watch` that Cargo.lock has must be a [[library]] here, every library must be
+# in Cargo.lock, and every `found` pattern must still match its file. So a new crypto
+# dependency, or code that moved, fails the build of the CBOM instead of going unnoticed.
+
+# Crates that do cryptography. Add one when a new dependency brings some in.
+watch = [
+  "aes", "aes-gcm", "argon2", "aws-lc-rs", "blake2", "blake3", "cbc", "chacha20", "chacha20poly1305",
+  "ctr", "ed25519-dalek", "hmac", "md-5", "md5", "native-tls", "openssl", "p256", "p384", "pbkdf2",
+  "ring", "rsa", "rustls", "scrypt", "sevenz-rust2", "sha1", "sha2", "sha3", "x25519-dalek", "zip",
+]
+
+# ---------------------------------------------------------------------------- libraries
+# A crate that provides algorithms. `provides` names assets below; `apps` is where it ships.
+
+[[library]]
+crate = "sha2"
+provides = ["sha-256"]
+apps = ["terminal", "desktop"]
+
+[[library]]
+crate = "blake3"
+provides = ["blake3"]
+apps = ["terminal", "desktop"]
+
+[[library]]
+crate = "sevenz-rust2"
+provides = ["aes-256-cbc", "kdf-7z"]
+apps = ["terminal", "desktop"]
+
+[[library]]
+crate = "zip"
+provides = ["aes-256-ctr", "aes-128-ctr", "hmac-sha1", "pbkdf2-hmac-sha1", "zipcrypto"]
+apps = ["terminal", "desktop"]
+
+# zip's AES (WinZip AE-2) is built from these.
+[[library]]
+crate = "aes"
+provides = []
+apps = ["terminal", "desktop"]
+
+[[library]]
+crate = "hmac"
+provides = []
+apps = ["terminal", "desktop"]
+
+[[library]]
+crate = "pbkdf2"
+provides = []
+apps = ["terminal", "desktop"]
+
+[[library]]
+crate = "sha1"
+provides = []
+apps = ["terminal", "desktop"]
+
+[[library]]
+crate = "cbc"
+provides = []
+apps = ["terminal", "desktop"]
+
+[[library]]
+crate = "lopdf"
+provides = ["rc4", "aes-128-cbc", "aes-256-cbc", "md5"]
+apps = ["terminal", "desktop"]
+
+[[library]]
+crate = "md-5"
+provides = []
+apps = ["terminal", "desktop"]
+
+[[library]]
+crate = "rustls"
+provides = ["tls-1.3", "tls-1.2"]
+apps = ["terminal", "desktop"]
+
+[[library]]
+crate = "ring"
+provides = ["aes-128-gcm", "aes-256-gcm", "chacha20-poly1305", "sha-384", "x25519", "ecdh-p256", "ecdh-p384", "ecdsa-p256", "ecdsa-p384", "ed25519", "rsa-pss", "rsa-pkcs1"]
+apps = ["terminal", "desktop"]
+
+# rand's generator, for lopdf, which needs it to write encrypted PDFs. Coxswain only reads
+# them, so nothing it does uses this.
+[[library]]
+crate = "chacha20"
+provides = []
+apps = ["terminal", "desktop"]
+
+# ---------------------------------------------------------------------------- assets
+# CycloneDX cryptoProperties, plus `purpose` (why Coxswain uses it, a property in the CBOM) and
+# `found`: where our code uses it, as a file and a pattern on one of its lines.
+
+[[asset]]
+ref = "sha-256"
+name = "SHA-256"
+type = "algorithm"
+primitive = "hash"
+oid = "2.16.840.1.101.3.4.2.1"
+param_set = "256"
+functions = ["digest"]
+purpose = "Checks that a downloaded model for search by meaning is the file expected"
+found = [{ file = "crates/coxswain-core/src/meaning.rs", pattern = "Sha256::new()" }]
+
+[[asset]]
+ref = "blake3"
+name = "BLAKE3"
+type = "algorithm"
+primitive = "hash"
+param_set = "256"
+functions = ["digest"]
+purpose = "Finds duplicate files by content; not used for security"
+found = [{ file = "crates/coxswain-core/src/dupes.rs", pattern = "blake3::Hasher::new()" }]
+
+[[asset]]
+ref = "aes-256-cbc"
+name = "AES-256-CBC"
+type = "algorithm"
+primitive = "block-cipher"
+oid = "2.16.840.1.101.3.4.1.42"
+param_set = "256"
+mode = "cbc"
+functions = ["encrypt", "decrypt"]
+purpose = "Packs and opens 7z archives with a password; also opens PDFs encrypted with AES-256"
+found = [
+  { file = "crates/coxswain-core/src/archive.rs", pattern = "AesEncoderOptions::new" },
+  { file = "crates/coxswain-core/src/archive.rs", pattern = "ArchiveReader::open(path, pw)" },
+]
+
+[[asset]]
+ref = "kdf-7z"
+name = "7z key derivation (SHA-256, 2^19 rounds)"
+type = "algorithm"
+primitive = "kdf"
+functions = ["keyderive"]
+purpose = "Turns a 7z archive's password into its AES key"
+found = [{ file = "crates/coxswain-core/src/archive.rs", pattern = "num_cycles_power = 19" }]
+
+[[asset]]
+ref = "aes-256-ctr"
+name = "AES-256-CTR"
+type = "algorithm"
+primitive = "block-cipher"
+param_set = "256"
+mode = "ctr"
+functions = ["encrypt", "decrypt"]
+purpose = "Packs and opens ZIP archives with a password (WinZip AE-2)"
+found = [
+  { file = "crates/coxswain-core/src/archive.rs", pattern = "with_aes_encryption(zip::AesMode::Aes256" },
+  { file = "crates/coxswain-core/src/archive.rs", pattern = "by_index_decrypt(i, pw" },
+]
+
+[[asset]]
+ref = "aes-128-ctr"
+name = "AES-128-CTR"
+type = "algorithm"
+primitive = "block-cipher"
+param_set = "128"
+mode = "ctr"
+functions = ["decrypt"]
+purpose = "Opens ZIP archives that others locked with 128-bit AES"
+found = [{ file = "crates/coxswain-core/src/archive.rs", pattern = "by_index_decrypt(i, pw" }]
+
+[[asset]]
+ref = "hmac-sha1"
+name = "HMAC-SHA1"
+type = "algorithm"
+primitive = "mac"
+param_set = "160"
+functions = ["tag", "verify"]
+purpose = "Checks the integrity of each entry of a password-protected ZIP (WinZip AE-2)"
+found = [{ file = "crates/coxswain-core/src/archive.rs", pattern = "with_aes_encryption(zip::AesMode::Aes256" }]
+
+[[asset]]
+ref = "pbkdf2-hmac-sha1"
+name = "PBKDF2-HMAC-SHA1"
+type = "algorithm"
+primitive = "kdf"
+functions = ["keyderive"]
+purpose = "Turns a ZIP archive's password into its AES key (WinZip AE-2, 1000 iterations)"
+found = [{ file = "crates/coxswain-core/src/archive.rs", pattern = "with_aes_encryption(zip::AesMode::Aes256" }]
+
+[[asset]]
+ref = "zipcrypto"
+name = "ZipCrypto"
+type = "algorithm"
+primitive = "stream-cipher"
+functions = ["decrypt"]
+purpose = "Opens old ZIP archives locked with the legacy PKWARE cipher; never used to lock one"
+found = [{ file = "crates/coxswain-core/src/archive.rs", pattern = "by_index_decrypt(i, given" }]
+
+[[asset]]
+ref = "rc4"
+name = "RC4"
+type = "algorithm"
+primitive = "stream-cipher"
+functions = ["decrypt"]
+purpose = "Reads the text of old encrypted PDFs, for search inside files; never used to encrypt"
+found = [{ file = "crates/coxswain-core/src/extract/pdf.rs", pattern = "decrypt_object(&state" }]
+
+[[asset]]
+ref = "aes-128-cbc"
+name = "AES-128-CBC"
+type = "algorithm"
+primitive = "block-cipher"
+oid = "2.16.840.1.101.3.4.1.2"
+param_set = "128"
+mode = "cbc"
+functions = ["decrypt"]
+purpose = "Reads the text of PDFs encrypted with AES-128, for search inside files"
+found = [{ file = "crates/coxswain-core/src/extract/pdf.rs", pattern = "decrypt_object(&state" }]
+
+[[asset]]
+ref = "md5"
+name = "MD5"
+type = "algorithm"
+primitive = "hash"
+oid = "1.2.840.113549.2.5"
+functions = ["digest"]
+purpose = "Derives the key of an old encrypted PDF (PDF standard security handler); not used for integrity"
+found = [{ file = "crates/coxswain-core/src/extract/pdf.rs", pattern = "decrypt_object(&state" }]
+
+# TLS, for the update check, downloading a model for search by meaning and talking to a
+# model server. rustls with ring; certificates are checked against the system's trust store.
+
+[[asset]]
+ref = "tls-1.3"
+name = "TLSv1.3"
+type = "protocol"
+protocol = "tls"
+version = "1.3"
+cipher_suites = [
+  { name = "TLS_AES_256_GCM_SHA384", algorithms = ["aes-256-gcm", "sha-384"] },
+  { name = "TLS_AES_128_GCM_SHA256", algorithms = ["aes-128-gcm", "sha-256"] },
+  { name = "TLS_CHACHA20_POLY1305_SHA256", algorithms = ["chacha20-poly1305", "sha-256"] },
+]
+uses = ["x25519", "ecdh-p256", "ecdh-p384", "ecdsa-p256", "ecdsa-p384", "ed25519", "rsa-pss", "rsa-pkcs1"]
+purpose = "The update check, model downloads and model servers over HTTPS"
+found = [
+  { file = "crates/coxswain-core/src/update.rs", pattern = "RootCerts::PlatformVerifier" },
+  { file = "crates/coxswain-core/src/meaning.rs", pattern = "RootCerts::PlatformVerifier" },
+]
+
+[[asset]]
+ref = "tls-1.2"
+name = "TLSv1.2"
+type = "protocol"
+protocol = "tls"
+version = "1.2"
+# In TLS 1.2 a suite names the kind of key exchange (ECDHE) and signature, not the curve: the
+# curves are the protocol's, under `uses`.
+cipher_suites = [
+  { name = "TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384", algorithms = ["ecdsa-p256", "ecdsa-p384", "aes-256-gcm", "sha-384"] },
+  { name = "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256", algorithms = ["ecdsa-p256", "ecdsa-p384", "aes-128-gcm", "sha-256"] },
+  { name = "TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256", algorithms = ["ecdsa-p256", "ecdsa-p384", "chacha20-poly1305", "sha-256"] },
+  { name = "TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384", algorithms = ["rsa-pkcs1", "aes-256-gcm", "sha-384"] },
+  { name = "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256", algorithms = ["rsa-pkcs1", "aes-128-gcm", "sha-256"] },
+  { name = "TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256", algorithms = ["rsa-pkcs1", "chacha20-poly1305", "sha-256"] },
+]
+uses = ["x25519", "ecdh-p256", "ecdh-p384"]
+purpose = "The same connections, with servers that do not offer TLS 1.3"
+found = [{ file = "crates/coxswain-core/src/update.rs", pattern = "RootCerts::PlatformVerifier" }]
+
+[[asset]]
+ref = "aes-128-gcm"
+name = "AES-128-GCM"
+type = "algorithm"
+primitive = "ae"
+oid = "2.16.840.1.101.3.4.1.6"
+param_set = "128"
+mode = "gcm"
+functions = ["encrypt", "decrypt"]
+purpose = "TLS record encryption"
+
+[[asset]]
+ref = "aes-256-gcm"
+name = "AES-256-GCM"
+type = "algorithm"
+primitive = "ae"
+oid = "2.16.840.1.101.3.4.1.46"
+param_set = "256"
+mode = "gcm"
+functions = ["encrypt", "decrypt"]
+purpose = "TLS record encryption"
+
+[[asset]]
+ref = "chacha20-poly1305"
+name = "ChaCha20-Poly1305"
+type = "algorithm"
+primitive = "ae"
+functions = ["encrypt", "decrypt"]
+purpose = "TLS record encryption"
+
+[[asset]]
+ref = "sha-384"
+name = "SHA-384"
+type = "algorithm"
+primitive = "hash"
+oid = "2.16.840.1.101.3.4.2.2"
+param_set = "384"
+functions = ["digest"]
+purpose = "TLS handshake transcript and key schedule"
+
+[[asset]]
+ref = "x25519"
+name = "X25519"
+type = "algorithm"
+primitive = "key-agree"
+curve = "curve25519"
+functions = ["keygen", "keyderive"]
+purpose = "TLS key exchange (preferred)"
+
+[[asset]]
+ref = "ecdh-p256"
+name = "ECDH-secp256r1"
+type = "algorithm"
+primitive = "key-agree"
+curve = "secp256r1"
+functions = ["keygen", "keyderive"]
+purpose = "TLS key exchange"
+
+[[asset]]
+ref = "ecdh-p384"
+name = "ECDH-secp384r1"
+type = "algorithm"
+primitive = "key-agree"
+curve = "secp384r1"
+functions = ["keygen", "keyderive"]
+purpose = "TLS key exchange"
+
+[[asset]]
+ref = "ecdsa-p256"
+name = "ECDSA-secp256r1"
+type = "algorithm"
+primitive = "signature"
+curve = "secp256r1"
+functions = ["verify"]
+purpose = "Checking servers' certificates and handshake signatures"
+
+[[asset]]
+ref = "ecdsa-p384"
+name = "ECDSA-secp384r1"
+type = "algorithm"
+primitive = "signature"
+curve = "secp384r1"
+functions = ["verify"]
+purpose = "Checking servers' certificates and handshake signatures"
+
+[[asset]]
+ref = "ed25519"
+name = "Ed25519"
+type = "algorithm"
+primitive = "signature"
+curve = "ed25519"
+functions = ["verify"]
+purpose = "Checking servers' certificates and handshake signatures"
+
+[[asset]]
+ref = "rsa-pss"
+name = "RSASSA-PSS"
+type = "algorithm"
+primitive = "signature"
+oid = "1.2.840.113549.1.1.10"
+functions = ["verify"]
+purpose = "Checking servers' certificates and handshake signatures; the key size is the server's"
+
+[[asset]]
+ref = "rsa-pkcs1"
+name = "RSASSA-PKCS1-v1_5"
+type = "algorithm"
+primitive = "signature"
+oid = "1.2.840.113549.1.1.1"
+functions = ["verify"]
+purpose = "Checking servers' certificates and handshake signatures; the key size is the server's"

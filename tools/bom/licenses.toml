@@ -1,0 +1,58 @@
+# Licence policy beyond deny.toml (tools/bom/README.md).
+#
+# Rust crates: deny.toml's [licenses] allow list, checked by `cargo deny` in CI.
+# npm packages that ship in the desktop app: the same list plus `also_allow`, checked by
+# `bom.py licenses` against their SBOM.
+
+[npm]
+# Weak copyleft, file by file. Allowed for packages used unmodified, whose source stays where it
+# is published: the obligations are the notice and pointing to that source, which
+# THIRD-PARTY-NOTICES.md does.
+also_allow = [
+  "EPL-2.0", # elkjs, mermaid's graph layout: https://github.com/kieler/elkjs
+]
+
+# Packages whose package.json does not say their licence correctly. Each was read in its
+# package's licence file. Keyed by name and version: a new version is checked anew.
+[npm.overrides]
+"duck@0.1.12" = "BSD-2-Clause" # package.json says "BSD"; LICENSE has the two-clause text
+"khroma@2.1.0" = "MIT"         # package.json has no licence; its `license` file is MIT
+
+# Components that come with Coxswain without a package manager listing them, and C code that a
+# crate compiles in under a licence of its own (cargo-about reports only the crate's). `file` is
+# in this repository; `crate_files` are in the named crate's package.
+[[bundled]]
+name = "draw.io viewer"
+what = "gui/public/vendor/drawio/viewer-static.min.js, from jgraph/drawio v31.5.3, unmodified."
+license = "Apache-2.0"
+source = "https://github.com/jgraph/drawio"
+file = "gui/public/vendor/drawio/LICENSE"
+
+[[bundled]]
+name = "Graphviz"
+what = "Compiled to WebAssembly inside the npm package @viz-js/viz (itself MIT), unmodified."
+license = "EPL-1.0"
+source = "https://gitlab.com/graphviz/graphviz"
+file = "tools/bom/licenses/EPL-1.0.txt"
+
+[[bundled]]
+name = "Oniguruma"
+what = "The C regular expression library, compiled into both apps by the crate onig_sys, for tokenizers (search by meaning)."
+license = "BSD-2-Clause"
+source = "https://github.com/kkos/oniguruma"
+crate = "onig_sys"
+crate_files = ["oniguruma/COPYING"]
+
+[[bundled]]
+name = "ring's C and assembly code"
+what = "Compiled into both apps by the crate ring (TLS): code of its own, from BoringSSL, once_cell and fiat-crypto."
+license = "ISC AND Apache-2.0 AND (MIT OR Apache-2.0)"
+source = "https://github.com/briansmith/ring"
+crate = "ring"
+crate_files = ["LICENSE", "LICENSE-other-bits", "LICENSE-BoringSSL", "third_party/fiat/LICENSE"]
+
+[[bundled]]
+name = "SQLite"
+what = "Compiled into both apps by the Rust crate libsqlite3-sys (feature \"bundled\")."
+license = "public domain"
+source = "https://sqlite.org/copyright.html"

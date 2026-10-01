@@ -187,4 +187,4 @@ characters would take longer than reading the file; the text shows at once inste
 notification and wakes at most four times a second while files change.
 
 ---
-[← Previous: Security](security.md) · [Next: Questions, collected →](../faq.md)
+[← Previous: Licences and bills of materials](bills-of-materials.md) · [Next: Questions, collected →](../faq.md)

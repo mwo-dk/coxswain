@@ -97,7 +97,9 @@ gui/src-tauri          Tauri backend (binary: coxswain-gui)
 
 ## Licence
 
-MIT
+MIT. Every release carries the licences of what it is built from (`THIRD-PARTY-NOTICES.md`, also
+inside the apps), an SBOM for each app and a CBOM of the cryptography they use; see
+[Licences and bills of materials](docs/reference/bills-of-materials.md).
 
 Norton Commander is a trademark of Gen Digital Inc. Coxswain is an independent project, not
 affiliated with or endorsed by Gen Digital.

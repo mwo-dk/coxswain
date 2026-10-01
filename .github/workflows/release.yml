@@ -66,8 +66,43 @@ jobs:
           gh release create "$TAG" --draft --target "$SHA" --title "Coxswain $TAG" --notes-file .github/release-notes.md
           echo "id=$(gh release view "$TAG" --json databaseId -q .databaseId)" >> "$GITHUB_OUTPUT"
 
-  desktop:
+  # The SBOMs, the CBOM and the third-party notices (tools/bom/README.md), uploaded to the draft.
+  # The terminal archives and the desktop installers take the notices from there.
+  boms:
     needs: draft
+    if: needs.draft.outputs.id != ''
+    permissions:
+      contents: write
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: ${{ needs.draft.outputs.sha }}
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de # v1
+        with:
+          toolchain: stable
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          key: boms
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: gui/package-lock.json
+      - run: npm ci --no-audit --no-fund
+        working-directory: gui
+      # The versions generate.sh expects; rust-cache keeps them between runs.
+      - run: cargo install --locked cargo-cyclonedx@0.5.7 cargo-about@0.8.4
+      - run: tools/bom/generate.sh dist-bom
+      - name: Upload
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.draft.outputs.tag }}
+        run: gh release upload "$TAG" dist-bom/*
+
+  desktop:
+    needs: [draft, boms]
     if: needs.draft.outputs.id != ''
     permissions:
       contents: write
@@ -106,16 +141,24 @@ jobs:
           cache-dependency-path: gui/package-lock.json
       - run: npm ci --no-audit --no-fund
         working-directory: gui
+      # The licences of everything inside, installed with the app. Only release builds bundle it,
+      # through --config below, so other builds need no such file.
+      - name: Third-party notices
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.draft.outputs.tag }}
+        run: gh release download "$TAG" --repo "$GITHUB_REPOSITORY" -p THIRD-PARTY-NOTICES.md -D gui/src-tauri
       - uses: tauri-apps/tauri-action@1deb371b0cd8bd54025b384f1cd735e725c4060f # v1.0.0
         env:
           GITHUB_TOKEN: ${{ github.token }}
         with:
           projectPath: gui
           releaseId: ${{ needs.draft.outputs.id }}
-          args: ${{ matrix.args }}
+          args: ${{ matrix.args }} --config '{"bundle":{"resources":["THIRD-PARTY-NOTICES.md"]}}'
 
   terminal:
-    needs: draft
+    needs: [draft, boms]
     if: needs.draft.outputs.id != ''
     permissions:
       contents: write
@@ -160,6 +203,7 @@ jobs:
           name="coxswain-terminal-$TAG-$TARGET"
           mkdir "$name"
           cp LICENSE README.md "$name/"
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" -p THIRD-PARTY-NOTICES.md -D "$name"
           if [ "$RUNNER_OS" = Windows ]; then
             cp target/$TARGET/release/coxswain.exe target/$TARGET/release/cox.exe "$name/"
             7z a -bso0 "$name.zip" "$name"
@@ -173,7 +217,7 @@ jobs:
           gh release upload "$TAG" "$file" "$file.sha256"
 
   publish:
-    needs: [draft, desktop, terminal]
+    needs: [draft, boms, desktop, terminal]
     runs-on: ubuntu-24.04
     permissions:
       contents: write

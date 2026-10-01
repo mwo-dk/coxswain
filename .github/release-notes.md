@@ -15,6 +15,10 @@ Every file comes from this release's **Assets** list below.
 
 The terminal app is a single file named `coxswain` (`coxswain.exe` on Windows). Put it anywhere on your `PATH`.
 
+## What it is made of
+
+`coxswain-terminal-…sbom.cdx.json` and `coxswain-desktop-…sbom.cdx.json` list every component of each app (CycloneDX SBOMs), `coxswain-….cbom.cdx.json` the cryptography both use (a CBOM, which either app shows as a rated tree), and `THIRD-PARTY-NOTICES.md` every component's licence; it also ships inside the apps. See [Licences and bills of materials](https://github.com/mwo-dk/coxswain/blob/master/docs/reference/bills-of-materials.md).
+
 ## The apps are not code-signed
 
 Coxswain is free, and the builds are not signed with a paid certificate, so your system warns you the first time:

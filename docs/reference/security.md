@@ -14,6 +14,7 @@ how to report a problem in Coxswain itself. What Coxswain sends over the network
 - [How updates arrive](#how-updates-arrive)
 - [The bundled viewers](#the-bundled-viewers)
 - [The release pipeline](#the-release-pipeline)
+- [What each release says it is made of](#what-each-release-says-it-is-made-of)
 - [Checking a download](#checking-a-download)
 - [Reporting a problem](#reporting-a-problem)
 - [Questions](#questions)
@@ -89,6 +90,11 @@ Both are updated by hand; the README next to each says the tag it came from.
 - The release build of the desktop app has no web inspector (Tauri's `devtools` is off), so no
   page a file rendered can be opened in one.
 
+## What each release says it is made of
+
+Every release carries an SBOM for each app, a CBOM of the cryptography they use, and the
+licence text of every component; see [Licences and bills of materials](bills-of-materials.md).
+
 ## Checking a download
 
 Every terminal build on the [releases page](https://github.com/mwo-dk/coxswain/releases) comes
@@ -133,4 +139,4 @@ the file. Shapes from draw.io's downloadable libraries show as boxes; see [Diagr
 each one is built with.
 
 ---
-[← Previous: Where things are kept](where-things-are-kept.md) · [Next: Performance →](performance.md)
+[← Previous: Where things are kept](where-things-are-kept.md) · [Next: Licences and bills of materials →](bills-of-materials.md)

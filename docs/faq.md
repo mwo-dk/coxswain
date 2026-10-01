@@ -101,7 +101,9 @@ The questions people ask most, with a short answer and a link to the full one. E
 - **I misspelt a key and Coxswain said nothing.** Only unreadable files are refused; an unknown setting name is ignored and the default stays. [Answer](reference/configuration.md#i-misspelt-a-key-and-coxswain-said-nothing)
 - **Does anything leave my machine?** Only the daily update check, a model download, a remote meaning server, image pulls and web pictures in previews you open. [Answer](reference/privacy.md#does-anything-leave-my-machine)
 - **Does Coxswain update itself?** No; it tells you once a day, with the command for your package manager. [Answer](reference/updates.md#does-coxswain-update-itself)
+- **Where are the licences of what Coxswain is built from?** In `THIRD-PARTY-NOTICES.md`: next to `LICENSE` in the terminal archive, in the desktop app's install folder, and on every release's Assets list, with an SBOM per app and a CBOM. [Answer](reference/bills-of-materials.md#where-are-the-licences-of-the-apps-i-installed)
+- **Why does Coxswain's CBOM list RC4 and MD5, rated broken?** It uses them only to read old encrypted PDFs for search inside files, never to protect anything; the CBOM says so with each one. [Answer](reference/bills-of-materials.md#why-are-rc4-and-md5-in-the-cbom-rated-broken)
 - **The cache folder is large. What takes the room?** Mostly search.db and the 488 MB model, then previews/. [Answer](reference/where-things-are-kept.md#the-cache-folder-is-large-what-takes-the-room)
 
 ---
-[← Previous: Security](reference/security.md) · [Next: Docs index →](README.md)
+[← Previous: Performance](reference/performance.md) · [Next: Docs index →](README.md)
