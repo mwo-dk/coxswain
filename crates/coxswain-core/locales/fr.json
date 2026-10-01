@@ -482,6 +482,7 @@
  "err.cancelled": "Annulé",
  "err.clipboard_no_files": "Le presse-papiers ne contient aucun fichier",
  "err.epub_no_rootfile": "Ce livre EPUB n’a pas de fichier racine",
+ "err.no_application": "Aucune application n’ouvre ce type de fichier",
  "err.no_cache_folder": "Aucun dossier de cache",
  "err.no_certificate": "Aucun certificat dans ce fichier PEM",
  "err.no_config_folder": "Aucun dossier de configuration",

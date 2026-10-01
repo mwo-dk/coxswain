@@ -82,9 +82,64 @@ fn tar_reader(path: &Path, k: Kind) -> io::Result<tar::Archive<Box<dyn Read>>> {
     Ok(tar::Archive::new(r))
 }
 
+/// The most bytes of a tar's long name or PAX record: the tar crate reads those whole into
+/// memory, however large a crafted header says they are.
+const TAR_META: u64 = 64 * 1024;
+
+/// Each entry of `entries` with its whole name and link target (GNU long names and PAX paths,
+/// read here with `TAR_META` at most), until `f` says enough. Those records are not entries.
+fn tar_named<'a, R: Read>(entries: tar::Entries<'a, R>, mut f: impl FnMut(String, Option<String>, &mut tar::Entry<'a, R>) -> io::Result<bool>) -> io::Result<()> {
+    let text = |b: &[u8]| String::from_utf8_lossy(b.strip_suffix(&[0]).unwrap_or(b)).into_owned();
+    let (mut long, mut link): (Option<String>, Option<String>) = (None, None);
+    for e in entries.raw(true) {
+        let mut e = e?;
+        let t = e.header().entry_type();
+        if t.is_gnu_longname() || t.is_gnu_longlink() || t.is_pax_local_extensions() || t.is_pax_global_extensions() {
+            if e.size() > TAR_META {
+                return Err(io::Error::new(io::ErrorKind::InvalidData, "a name in this tar is too long"));
+            }
+            let mut buf = vec![];
+            e.read_to_end(&mut buf)?;
+            if t.is_gnu_longname() {
+                long = Some(text(&buf));
+            } else if t.is_gnu_longlink() {
+                link = Some(text(&buf));
+            } else if t.is_pax_local_extensions() {
+                for x in tar::PaxExtensions::new(&buf).filter_map(Result::ok) {
+                    match x.key_bytes() {
+                        b"path" => long = Some(text(x.value_bytes())),
+                        b"linkpath" => link = Some(text(x.value_bytes())),
+                        _ => {}
+                    }
+                }
+            }
+            continue;
+        }
+        let name = match long.take() {
+            Some(n) => n,
+            None => e.path()?.to_string_lossy().into_owned(),
+        };
+        let link = match link.take() {
+            Some(l) => Some(l),
+            None => e.link_name()?.map(|l| l.to_string_lossy().into_owned()),
+        };
+        if !f(name.trim_start_matches("./").trim_end_matches('/').to_string(), link, &mut e)? {
+            break;
+        }
+    }
+    Ok(())
+}
+
+/// A new file at `path` for an archive being written, never one that is there: a link put
+/// in its place (by someone else, in a shared folder) is removed, not written through.
+fn create_fresh(path: &Path) -> io::Result<File> {
+    let _ = std::fs::remove_file(path);
+    std::fs::OpenOptions::new().write(true).create_new(true).open(path)
+}
+
 /// A tar written plain at `tar`, compressed into `to` as `pack` says.
 fn compress(tar: &Path, to: &Path, pack: Pack) -> io::Result<()> {
-    let (mut from, out) = (BufReader::new(File::open(tar)?), File::create(to)?);
+    let (mut from, out) = (BufReader::new(File::open(tar)?), create_fresh(to)?);
     match pack {
         Pack::None => io::copy(&mut from, &mut io::BufWriter::new(out)).map(drop),
         Pack::Gz => {
@@ -219,11 +274,10 @@ pub fn extract_locked(path: &Path, dest_dir: &Path, password: Option<&str>) -> i
         return Err(io::Error::new(io::ErrorKind::AlreadyExists, format!("{} exists", to.display())));
     }
     std::fs::create_dir_all(&to)?;
-    // A 7z or a locked zip is read once, with the password; the rest as the crates unpack it.
-    let r = if k == Kind::SevenZ || (k == Kind::Zip && locked_at(path, "")?) {
-        copy_out_with(path, "", &to, password_for(path, password).as_deref()).map(drop)
-    } else if k == Kind::Zip {
-        zip::ZipArchive::new(BufReader::new(File::open(path)?)).and_then(|mut z| z.extract(&to)).map_err(io::Error::other)
+    // A 7z or a zip is read once (a locked one with the password): no links made, nothing
+    // sized by what the archive claims. A tar as the crate unpacks it, which keeps it inside.
+    let r = if k == Kind::SevenZ || k == Kind::Zip {
+        copy_out_with(path, "", &to, password_for(path, password).as_deref(), Copy::default()).map(drop)
     } else {
         tar_reader(path, k)?.unpack(&to)
     };
@@ -303,8 +357,16 @@ fn read_items(archive: &Path) -> io::Result<Vec<Item>> {
     read_items_with(archive, password_for(archive, None).as_deref(), usize::MAX)
 }
 
-/// The first `max` entries, a locked 7z's names read with `password`.
+/// The first `max` entries, a locked 7z's names read with `password`; those whose names
+/// could not be a path through it (`..`, an empty part, on Windows a drive or `\\`) left out,
+/// so nothing that acts on an entry is led outside the archive.
 fn read_items_with(archive: &Path, password: Option<&str>, max: usize) -> io::Result<Vec<Item>> {
+    let mut out = read_raw_items(archive, password, max)?;
+    out.retain(|it| sound(&it.name));
+    Ok(out)
+}
+
+fn read_raw_items(archive: &Path, password: Option<&str>, max: usize) -> io::Result<Vec<Item>> {
     let k = kind(archive).ok_or_else(|| not_archive(archive))?;
     let mut out = vec![];
     if k == Kind::Zip {
@@ -319,24 +381,21 @@ fn read_items_with(archive: &Path, password: Option<&str>, max: usize) -> io::Re
         let r = seven(archive, password)?;
         let locked = seven_locked(r.archive());
         for f in r.archive().files.iter().take(max) {
-            let modified = std::time::SystemTime::from(f.last_modified_date).duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_secs());
+            // Counted here: a time past what the system's clock holds must not panic.
+            let modified = (u64::from(f.last_modified_date) / 10_000_000).saturating_sub(11_644_473_600);
             out.push(Item { name: f.name.replace('\\', "/").trim_end_matches('/').to_string(), size: f.size, dir: f.is_directory, modified, locked: locked && f.has_stream });
         }
         return Ok(out);
     }
-    fn item<R: Read>(e: tar::Entry<'_, R>) -> io::Result<Item> {
-        let name = e.path()?.to_string_lossy().trim_start_matches("./").trim_end_matches('/').to_string();
-        Ok(Item { name, size: e.size(), dir: e.header().entry_type().is_dir(), modified: e.header().mtime().unwrap_or(0), locked: false })
-    }
+    let mut item = |name: String, h: &tar::Header, size: u64| {
+        out.push(Item { name, size, dir: h.entry_type().is_dir(), modified: h.mtime().unwrap_or(0), locked: false });
+        Ok(out.len() < max)
+    };
     if k == Kind::Tar(Pack::None) {
         // A plain tar's headers are read by seeking past what lies between them.
-        for e in tar::Archive::new(BufReader::new(File::open(archive)?)).entries_with_seek()?.take(max) {
-            out.push(item(e?)?);
-        }
+        tar_named(tar::Archive::new(BufReader::new(File::open(archive)?)).entries_with_seek()?, |n, _, e| item(n, e.header(), e.size()))?;
     } else {
-        for e in tar_reader(archive, k)?.entries()?.take(max) {
-            out.push(item(e?)?);
-        }
+        tar_named(tar_reader(archive, k)?.entries()?, |n, _, e| item(n, e.header(), e.size()))?;
     }
     Ok(out)
 }
@@ -373,7 +432,7 @@ pub(crate) fn search_entries(archive: &Path, size: u64) -> Option<Vec<ArchiveEnt
     }
     // Never a password given in this run: what search knows is what anyone sees.
     let items = read_items_with(archive, None, SEARCH_ENTRIES).ok()?;
-    Some(items.into_iter().filter(|it| sound(&it.name)).map(|it| ArchiveEntry { name: it.name, size: it.size, is_dir: it.dir }).collect())
+    Some(items.into_iter().map(|it| ArchiveEntry { name: it.name, size: it.size, is_dir: it.dir }).collect())
 }
 
 /// Read the files of `archive` (`size` bytes) that `wanted` picks by name and size, in the
@@ -418,13 +477,11 @@ pub(crate) fn search_read(archive: &Path, size: u64, wanted: &dyn Fn(&str, u64) 
             .map_err(seven_error)?;
         }
         Kind::Tar(_) => {
-            for e in tar_reader(archive, k)?.entries()?.take(SEARCH_ENTRIES) {
-                let mut e = e?;
-                let name = e.path()?.to_string_lossy().trim_start_matches("./").trim_end_matches('/').to_string();
-                if e.header().entry_type().is_file() && sound(&name) && wanted(&name, e.size()) && !read(&name, &mut e) {
-                    break;
-                }
-            }
+            let mut seen = 0;
+            tar_named(tar_reader(archive, k)?.entries()?, |name, _, e| {
+                seen += 1;
+                Ok(seen <= SEARCH_ENTRIES && !(e.header().entry_type().is_file() && sound(&name) && wanted(&name, e.size()) && !read(&name, e)))
+            })?;
         }
     }
     Ok(())
@@ -492,14 +549,15 @@ pub fn locked_at(archive: &Path, inner: &str) -> io::Result<bool> {
 
 /// Copy `inner` (a file, or a folder and everything in it) out of `archive` into `dest`, as
 /// `fs::copy` would: into it when it is a folder. Returns where it landed. A locked file needs
-/// `password`; without it, or with a wrong one, the error is `LOCKED`.
-pub fn copy_out(archive: &Path, inner: &str, dest: &Path, password: Option<&str>) -> io::Result<PathBuf> {
+/// `password`; without it, or with a wrong one, the error is `LOCKED`. `whole`: every entry
+/// below `inner` comes out, or none does (a move takes them out of the archive after).
+pub fn copy_out(archive: &Path, inner: &str, dest: &Path, password: Option<&str>, whole: bool) -> io::Result<PathBuf> {
     let name = inner.rsplit('/').next().filter(|n| !n.is_empty()).ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "nothing to copy"))?;
     let to = if dest.is_dir() { dest.join(name) } else { dest.to_path_buf() };
     if std::fs::symlink_metadata(&to).is_ok() {
         return Err(io::Error::new(io::ErrorKind::AlreadyExists, format!("{} exists", to.display())));
     }
-    copy_out_with(archive, inner, &to, password_for(archive, password).as_deref()).map(|_| to)
+    copy_out_with(archive, inner, &to, password_for(archive, password).as_deref(), Copy { whole, ..Copy::default() }).map(|_| to)
 }
 
 /// Files larger than this inside an archive are not copied out just to be looked at.
@@ -523,7 +581,8 @@ pub fn peek(path: &Path) -> io::Result<PathBuf> {
     static ONE: std::sync::Mutex<()> = std::sync::Mutex::new(());
     let _one = ONE.lock().unwrap_or_else(|e| e.into_inner());
     let to = peek_folder()?.join(inner.rsplit('/').next().unwrap_or("file"));
-    copy_out_with(&archive, &inner, &to, password_for(&archive, None).as_deref())?;
+    // What comes out is counted too: a size the archive claims may be a lie.
+    copy_out_with(&archive, &inner, &to, password_for(&archive, None).as_deref(), Copy { limit: PEEK_MAX, ..Copy::default() })?;
     Ok(to)
 }
 
@@ -539,16 +598,17 @@ pub(crate) fn peek_folder() -> io::Result<PathBuf> {
     }
     let run = base.join(std::process::id().to_string());
     let _ = std::fs::remove_dir_all(&run);
-    std::fs::create_dir_all(&run)?;
+    // The copy may be of a locked file: for this user's eyes only.
+    crate::fs::private_dir(&run)?;
     Ok(run)
 }
 
 /// `inner` (everything with "") out of `archive` to `to`, which is where it lands: the file, or
 /// the folder it is unpacked into. Whatever was written is removed when it fails. A password
 /// that opened a locked file is kept for the rest of this run.
-fn copy_out_with(archive: &Path, inner: &str, to: &Path, password: Option<&str>) -> io::Result<()> {
+fn copy_out_with(archive: &Path, inner: &str, to: &Path, password: Option<&str>, how: Copy) -> io::Result<()> {
     let (mut any, mut used) = (false, false);
-    let r = copy_entries(archive, inner, to, password, &mut any, &mut used);
+    let r = copy_entries(archive, inner, to, password, how, &mut any, &mut used);
     if r.is_err() && !inner.is_empty() {
         let _ = if to.is_dir() { std::fs::remove_dir_all(to) } else { std::fs::remove_file(to) };
     }
@@ -562,35 +622,67 @@ fn copy_out_with(archive: &Path, inner: &str, to: &Path, password: Option<&str>)
     Ok(())
 }
 
-fn copy_entries(archive: &Path, inner: &str, to: &Path, password: Option<&str>, any: &mut bool, used: &mut bool) -> io::Result<()> {
+/// How `copy_out_with` copies: `whole`, an entry below it that cannot come out is an error, not
+/// left behind; `limit`, the most bytes it writes in all.
+#[derive(Clone, Copy)]
+struct Copy {
+    whole: bool,
+    limit: u64,
+}
+
+impl Default for Copy {
+    fn default() -> Copy {
+        Copy { whole: false, limit: u64::MAX }
+    }
+}
+
+fn copy_entries(archive: &Path, inner: &str, to: &Path, password: Option<&str>, how: Copy, any: &mut bool, used: &mut bool) -> io::Result<()> {
     let prefix = format!("{inner}/");
-    // Where an entry lands, never outside `to`: `..` and absolute parts are refused.
+    let below = |name: &str| inner.is_empty() || name == inner || name.starts_with(&prefix);
+    // Where an entry lands, never outside `to`: `..` and absolute parts are refused (on Windows
+    // also a drive or a `\\`, which are only characters elsewhere).
     let place = |name: &str| -> Option<PathBuf> {
         let rest = if inner.is_empty() { name } else if name == inner { "" } else { name.strip_prefix(&prefix)? };
         let mut p = to.to_path_buf();
         for part in rest.split('/').filter(|p| !p.is_empty()) {
-            if part == ".." || part.contains(['\\', ':']) {
+            if part == ".." || (cfg!(windows) && part.contains(['\\', ':'])) {
                 return None;
             }
             p.push(part);
         }
         Some(p)
     };
+    // An entry below `inner` that is not copied: left out, or for `whole` the copy fails.
+    let skip = |name: &str| -> io::Result<()> {
+        if how.whole && below(name) {
+            return Err(io::Error::new(io::ErrorKind::InvalidData, format!("{name} cannot come out of the archive here, so nothing was moved")));
+        }
+        Ok(())
+    };
+    let left = std::cell::Cell::new(how.limit);
     let write = |path: &Path, from: &mut dyn Read| -> io::Result<()> {
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent)?;
         }
-        io::copy(from, &mut File::create(path)?).map(drop)
+        let n = io::copy(&mut from.take(left.get().saturating_add(1)), &mut File::create(path)?)?;
+        if n > left.get() {
+            return Err(io::Error::new(io::ErrorKind::FileTooLarge, format!("{} is too large to look at inside the archive; copy it out with F5", path.display())));
+        }
+        left.set(left.get() - n);
+        Ok(())
     };
     let k = kind(archive).ok_or_else(|| not_archive(archive))?;
     if k == Kind::Zip {
         let mut z = zip::ZipArchive::new(BufReader::new(File::open(archive)?)).map_err(io::Error::other)?;
         for i in 0..z.len() {
-            let (name, dir, encrypted) = {
+            let (name, dir, encrypted, mode) = {
                 let e = z.by_index_raw(i).map_err(io::Error::other)?;
-                (e.name().trim_end_matches('/').to_string(), e.is_dir(), e.encrypted())
+                (e.name().trim_end_matches('/').to_string(), e.is_dir(), e.encrypted(), e.unix_mode())
             };
-            let Some(path) = place(&name) else { continue };
+            let Some(path) = place(&name) else {
+                skip(&name)?;
+                continue;
+            };
             *any = true;
             if dir {
                 std::fs::create_dir_all(&path)?;
@@ -606,8 +698,15 @@ fn copy_entries(archive: &Path, inner: &str, to: &Path, password: Option<&str>, 
             };
             // A wrong ZipCrypto password is only seen in what comes out: the check fails.
             if let Err(err) = write(&path, &mut e) {
-                return Err(if encrypted { locked() } else { err });
+                return Err(if encrypted && err.kind() != io::ErrorKind::FileTooLarge { locked() } else { err });
             }
+            // A script stays one; nothing but the permission bits is taken.
+            #[cfg(unix)]
+            if let Some(m) = mode.filter(|m| m & 0o111 != 0) {
+                std::fs::set_permissions(&path, std::os::unix::fs::PermissionsExt::from_mode(m & 0o777))?;
+            }
+            #[cfg(not(unix))]
+            let _ = mode;
             *used |= encrypted;
             if name == inner {
                 break;
@@ -620,7 +719,13 @@ fn copy_entries(archive: &Path, inner: &str, to: &Path, password: Option<&str>, 
         r.for_each_entries(|e, from| {
             let name = e.name.replace('\\', "/").trim_end_matches('/').to_string();
             // Read past, not skipped: in a solid 7z the next entry comes from the same stream.
-            let Some(path) = place(&name) else { return io::copy(from, &mut io::sink()).map(|_| true).map_err(Into::into) };
+            let Some(path) = place(&name) else {
+                if let Err(err) = skip(&name) {
+                    failed = Some(err);
+                    return Ok(false);
+                }
+                return io::copy(from, &mut io::sink()).map(|_| true).map_err(Into::into);
+            };
             *any = true;
             let mut from = Noting { from, failed: false };
             let done = if e.is_directory { std::fs::create_dir_all(&path) } else { write(&path, &mut from) };
@@ -637,20 +742,27 @@ fn copy_entries(archive: &Path, inner: &str, to: &Path, password: Option<&str>, 
         }
         *used |= locked;
     } else {
-        for e in tar_reader(archive, k)?.entries()? {
-            let mut e = e?;
-            let name = e.path()?.to_string_lossy().trim_start_matches("./").trim_end_matches('/').to_string();
-            let Some(path) = place(&name) else { continue };
+        tar_named(tar_reader(archive, k)?.entries()?, |name, _, e| {
+            let Some(path) = place(&name) else {
+                skip(&name)?;
+                return Ok(true);
+            };
             *any = true;
-            if e.header().entry_type().is_dir() {
+            let t = e.header().entry_type();
+            if t.is_dir() {
                 std::fs::create_dir_all(&path)?;
-            } else if e.header().entry_type().is_file() {
-                write(&path, &mut e)?;
+            } else if t.is_file() {
+                write(&path, e)?;
+                // The one file asked for is out: nothing after it is unpacked.
                 if name == inner {
-                    break;
+                    return Ok(false);
                 }
+            } else {
+                // A link or a device: not made here.
+                skip(&name)?;
             }
-        }
+            Ok(true)
+        })?;
     }
     Ok(())
 }
@@ -681,6 +793,14 @@ fn modified(path: &Path) -> u64 {
     std::fs::metadata(path).ok().and_then(|m| m.modified().ok()).and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok()).map_or(0, |d| d.as_secs())
 }
 
+/// How a 7z is locked with `pw`: AES-256, its key made with 2^19 rounds as 7-Zip makes it (the
+/// crate's own 2^8 makes guessing the password two thousand times cheaper), then LZMA2.
+pub(crate) fn seven_locking(pw: &str) -> Vec<sevenz_rust2::EncoderConfiguration> {
+    let mut aes = sevenz_rust2::encoder_options::AesEncoderOptions::new(sevenz_rust2::Password::from(pw));
+    aes.num_cycles_power = 19;
+    vec![aes.into(), sevenz_rust2::EncoderMethod::LZMA2.into()]
+}
+
 /// One archive is written at a time: two changes to one archive at once would each write it
 /// anew from the same old one, and the change done last would drop the other.
 // ponytail: one lock for all archives; a lock per archive if two panes ever wait on each other.
@@ -701,7 +821,7 @@ fn rewrite(archive: &Path, keep: &dyn Fn(&str) -> Option<String>, add: &[(String
     let mut used = false;
     let written = (|| -> io::Result<()> {
         if k == Kind::Zip {
-            let mut w = zip::ZipWriter::new(File::create(&tmp)?);
+            let mut w = zip::ZipWriter::new(create_fresh(&tmp)?);
             // New files go into a locked zip locked too, with its password; a wrong one, or
             // none, is refused, so the apps ask.
             let mut pw = if exists { None } else { password.map(String::from) };
@@ -750,7 +870,7 @@ fn rewrite(archive: &Path, keep: &dyn Fn(&str) -> Option<String>, add: &[(String
         } else if k == Kind::SevenZ {
             // 7z has no copying of entries as they are: each is unpacked and packed again on
             // its way from the old file to the new, as it was but for its name.
-            let mut w = sevenz_rust2::ArchiveWriter::create(&tmp).map_err(io::Error::other)?;
+            let mut w = sevenz_rust2::ArchiveWriter::new(create_fresh(&tmp)?).map_err(io::Error::other)?;
             if exists {
                 // Names that were locked (the header encrypted) stay locked; open ones stay open.
                 let names_locked = seven(archive, None).is_err_and(|e| e.to_string() == LOCKED);
@@ -759,7 +879,7 @@ fn rewrite(archive: &Path, keep: &dyn Fn(&str) -> Option<String>, add: &[(String
                 // A locked archive stays locked, with the password that opened it.
                 if locked {
                     let pw = password_for(archive, password).unwrap_or_default();
-                    w.set_content_methods(vec![sevenz_rust2::encoder_options::AesEncoderOptions::new(sevenz_rust2::Password::from(pw.as_str())).into(), sevenz_rust2::EncoderMethod::LZMA2.into()]);
+                    w.set_content_methods(seven_locking(&pw));
                     w.set_encrypt_header(names_locked);
                 }
                 let mut failed = None;
@@ -783,7 +903,7 @@ fn rewrite(archive: &Path, keep: &dyn Fn(&str) -> Option<String>, add: &[(String
                 }
                 used = locked;
             } else if let Some(pw) = password {
-                w.set_content_methods(vec![sevenz_rust2::encoder_options::AesEncoderOptions::new(sevenz_rust2::Password::from(pw)).into(), sevenz_rust2::EncoderMethod::LZMA2.into()]);
+                w.set_content_methods(seven_locking(pw));
                 w.set_encrypt_header(hide_names);
                 used = true;
             }
@@ -799,20 +919,20 @@ fn rewrite(archive: &Path, keep: &dyn Fn(&str) -> Option<String>, add: &[(String
             let Kind::Tar(pack) = k else { unreachable!() };
             // Written plain first, then compressed: every compression the same way.
             let plain = tmp.with_extension("coxswain-tar");
-            let mut b = tar::Builder::new(io::BufWriter::new(File::create(&plain)?));
+            let mut b = tar::Builder::new(io::BufWriter::new(create_fresh(&plain)?));
             if exists {
-                for e in tar_reader(archive, k)?.entries()? {
-                    let mut e = e?;
-                    let old = e.path()?.to_string_lossy().trim_start_matches("./").trim_end_matches('/').to_string();
-                    if let Some(new) = keep(&old) {
-                        let mut header = e.header().clone();
-                        if new != old {
-                            header.set_path(&new)?;
-                            header.set_cksum();
-                        }
-                        b.append(&header, &mut e)?;
+                // Names and link targets written whole: past 100 bytes they take a GNU long
+                // name of their own, which `append` with the old header would drop.
+                tar_named(tar_reader(archive, k)?.entries()?, |old, link, e| {
+                    let Some(new) = keep(&old) else { return Ok(true) };
+                    let mut header = e.header().clone();
+                    let t = header.entry_type();
+                    match link {
+                        Some(target) if t.is_symlink() || t.is_hard_link() => b.append_link(&mut header, &new, target)?,
+                        _ => b.append_data(&mut header, &new, e)?,
                     }
-                }
+                    Ok(true)
+                })?;
             }
             for (name, new) in add {
                 match new {
@@ -835,7 +955,8 @@ fn rewrite(archive: &Path, keep: &dyn Fn(&str) -> Option<String>, add: &[(String
         Ok(())
     })();
     let done = match written {
-        Ok(()) => std::fs::rename(&tmp, archive),
+        // As private as the archive was.
+        Ok(()) => std::fs::metadata(archive).and_then(|m| std::fs::set_permissions(&tmp, m.permissions())).or_else(|e| if exists { Err(e) } else { Ok(()) }).and_then(|_| std::fs::rename(&tmp, archive)),
         Err(e) => {
             let _ = std::fs::remove_file(&tmp);
             Err(e)
@@ -951,6 +1072,118 @@ pub fn create_locked(path: &Path, sources: &[PathBuf], password: Option<&str>, h
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A 7z locked here has its key made as 7-Zip makes it: 2^19 rounds, not the crate's 2^8.
+    #[test]
+    fn archive_7z_key_is_made_as_7zip_makes_it() {
+        let d = std::env::temp_dir().join(format!("coxswain-test-7zkey-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        std::fs::write(d.join("a.txt"), "secret").unwrap();
+        let p = d.join("locked.7z");
+        create_locked(&p, &[d.join("a.txt")], Some("hunter2"), false).unwrap();
+        let r = seven(&p, Some("hunter2")).unwrap();
+        let aes = r.archive().blocks.iter().flat_map(|b| &b.coders).find(|c| c.encoder_method_id() == sevenz_rust2::EncoderMethod::ID_AES256_SHA256).expect("an AES coder");
+        assert_eq!(aes.properties()[0] & 0x3F, 19);
+        std::fs::remove_dir_all(d).unwrap();
+    }
+
+    /// Archives made to hurt: what they hold is never lost on a move, never written past a
+    /// limit, never leads outside, and a huge long-name record is refused, not read into memory.
+    #[test]
+    fn archive_crafted_entries_are_harmless() {
+        use zip::write::SimpleFileOptions;
+        let d = std::env::temp_dir().join(format!("coxswain-test-crafted-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(d.join("out")).unwrap();
+        let tar_of = |path: &Path, f: &dyn Fn(&mut tar::Builder<File>)| {
+            let mut t = tar::Builder::new(File::create(path).unwrap());
+            f(&mut t);
+            t.into_inner().unwrap();
+        };
+        let file = |t: &mut tar::Builder<File>, name: &str, text: &[u8]| {
+            let mut h = tar::Header::new_gnu();
+            h.set_size(text.len() as u64);
+            h.set_mode(0o644);
+            t.append_data(&mut h, name, text).unwrap();
+        };
+
+        // A name with `:` is a name on Linux and macOS: moved out with the rest.
+        if !cfg!(windows) {
+            let tp = d.join("logs.tar");
+            tar_of(&tp, &|t| {
+                file(t, "logs/10:30.log", b"at half past");
+                file(t, "logs/a.log", b"a");
+            });
+            crate::fs::rename(&tp.join("logs"), &d.join("out")).unwrap();
+            assert_eq!(std::fs::read_to_string(d.join("out/logs/10:30.log")).unwrap(), "at half past");
+        }
+        // A link inside cannot come out: the move is refused, and the archive keeps it all.
+        let tp = d.join("links.tar");
+        tar_of(&tp, &|t| {
+            file(t, "dir/a.txt", b"a");
+            let mut h = tar::Header::new_gnu();
+            h.set_entry_type(tar::EntryType::Symlink);
+            h.set_size(0);
+            t.append_link(&mut h, "dir/link", "a.txt").unwrap();
+        });
+        assert!(crate::fs::rename(&tp.join("dir"), &d.join("out")).is_err());
+        assert!(!d.join("out/dir").exists(), "nothing half moved");
+        assert_eq!(list(&tp, 10).unwrap().0.len(), 2, "the archive kept both");
+
+        // A long name stays whole when the tar is written anew.
+        let long = format!("deep/{}/file.txt", "x".repeat(150));
+        let tp = d.join("long.tar");
+        tar_of(&tp, &|t| {
+            file(t, &long, b"long");
+            file(t, "gone.txt", b"g");
+        });
+        remove(&tp, &["gone.txt".into()], None).unwrap();
+        assert_eq!(list(&tp, 10).unwrap().0.iter().map(|e| e.name.clone()).collect::<Vec<_>>(), [long.clone()]);
+
+        // A long-name record far past any name is refused before it is read.
+        let tp = d.join("bomb.tar");
+        tar_of(&tp, &|t| {
+            let mut h = tar::Header::new_gnu();
+            h.set_entry_type(tar::EntryType::GNULongName);
+            h.set_size(TAR_META + 1);
+            t.append_data(&mut h, "././@LongLink", &vec![b'a'; TAR_META as usize + 1][..]).unwrap();
+            file(t, "x", b"x");
+        });
+        assert!(list(&tp, 10).is_err());
+
+        // Names that lead outside are not in the listing; a link in a zip comes out as a file.
+        let zp = d.join("odd.zip");
+        let mut w = zip::ZipWriter::new(File::create(&zp).unwrap());
+        w.start_file("../evil.txt", SimpleFileOptions::default()).unwrap();
+        w.start_file("ok.txt", SimpleFileOptions::default()).unwrap();
+        io::Write::write_all(&mut w, b"fine").unwrap();
+        w.start_file("run.sh", SimpleFileOptions::default().unix_permissions(0o755)).unwrap();
+        w.add_symlink("link", "/etc/passwd", SimpleFileOptions::default()).unwrap();
+        w.finish().unwrap();
+        let names: Vec<String> = list_in(&zp, "").unwrap().into_iter().map(|e| e.name).collect();
+        assert_eq!(names, ["..", "link", "ok.txt", "run.sh"]);
+        let out = extract(&zp, &d.join("out")).unwrap();
+        assert!(!std::fs::symlink_metadata(out.join("link")).unwrap().file_type().is_symlink(), "no link made");
+        assert!(!d.join("evil.txt").exists() && !d.join("out/evil.txt").exists());
+        #[cfg(unix)]
+        assert_eq!(std::os::unix::fs::PermissionsExt::mode(&std::fs::metadata(out.join("run.sh")).unwrap().permissions()) & 0o777, 0o755);
+
+        // What comes out is counted: past the limit it stops.
+        let err = copy_out_with(&zp, "ok.txt", &d.join("out/ok.txt"), None, Copy { limit: 3, ..Copy::default() }).unwrap_err();
+        assert_eq!(err.kind(), io::ErrorKind::FileTooLarge);
+        assert!(!d.join("out/ok.txt").exists());
+
+        // Written anew, an archive stays as private as it was.
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(&zp, std::fs::Permissions::from_mode(0o600)).unwrap();
+            remove(&zp, &["ok.txt".into()], None).unwrap();
+            assert_eq!(std::fs::metadata(&zp).unwrap().permissions().mode() & 0o777, 0o600);
+        }
+        std::fs::remove_dir_all(d).unwrap();
+    }
 
     #[test]
     fn archive_zip_and_tar_roundtrip() {

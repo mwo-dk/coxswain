@@ -356,9 +356,9 @@ fn build(cfg: &PreviewConfig, tool: &str, engine: &str, path: &Path, out: &Path,
             c.args(["-interaction=nonstopmode", "-halt-on-error"]).arg(format!("-output-directory={}", out.display())).arg(&name);
         }
         ("libreoffice", _) => {
-            // Its own profile, so a running LibreOffice does not swallow the conversion.
-            let profile = dirs::cache_dir().ok_or_else(|| t!("err.no_cache_folder"))?.join("coxswain").join("libreoffice-profile");
-            let url = format!("file:///{}", profile.to_string_lossy().trim_start_matches('/').replace('\\', "/"));
+            // Its own profile, so a running LibreOffice does not swallow the conversion, with
+            // macros and link updates off.
+            let url = coxswain_core::extract::installed::libreoffice_profile("libreoffice-profile").ok_or_else(|| t!("err.no_cache_folder"))?;
             c.arg(format!("-env:UserInstallation={url}")).args(["--headless", "--convert-to", "pdf", "--outdir"]).arg(out).arg(path);
             let _one = LIBREOFFICE.lock().map_err(|e| e.to_string())?;
             return wait(c, timeout, None);

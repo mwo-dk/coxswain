@@ -124,7 +124,7 @@ folder (`coxswain-archive-…`), which is removed afterwards.
 Free space needed: room for the new archive next to the old one, and for a tar also the
 unpacked tar.
 
-The new archive is a new file: it gets your default permissions, and hard links to the old one
+The new archive is a new file with the old one's permissions, and hard links to the old one
 keep pointing at the old contents. Files added to a zip keep their Unix permissions (the
 executable bit).
 
@@ -141,9 +141,13 @@ supports with its own pure-Rust code, the same on every system, so RAR is left o
   that **F5** copies it out. Copy it out first, then open it.
 - **Files inside are previewed and viewed from a copy**, not opened or edited: **Enter** and
   **F4** say on the status line that **F5** copies the file out, since changes to a copy would be
-  lost. The copy is made in the cache folder (`coxswain/peek/`), one at a time, and removed when
-  the next is made; copies left by an app that ended go after a day. Files over 256 MB are not
-  copied just to be looked at: the preview says to copy them out.
+  lost. The copy is made in the cache folder (`coxswain/peek/`, readable by you alone), one at
+  a time, and removed when the next is made; copies left by an app that ended go after a day.
+  Files over 256 MB are not copied just to be looked at, counted as they come out, not by the
+  size the archive claims: the preview says to copy them out.
+- **Names that lead outside** (`../…`, an absolute path, on Windows a drive or a `\`) are not
+  listed, so nothing you do in the archive acts outside it. They stay in the archive when it is
+  written anew. A tar whose long-name record is over 64 KB is not opened.
 - **Batch rename and properties** do not look inside archives. A folder inside shows the
   size of the files in it, as listed; nothing is measured. **Search** does: Find file finds the
   files in the archives of your home folder by name and by their text, and follows their changes
@@ -151,10 +155,12 @@ supports with its own pure-Rust code, the same on every system, so RAR is left o
   disk, not entries of another archive.
 - **Symbolic links** on disk are left out when added to an archive, since what they point at may
   be anywhere. When copying out of a tar, links and special entries are skipped; **Ctrl+E**
-  extracts them.
-- **Changing a locked archive:** in a zip, locked files stay locked, but files you add are not
-  locked. A locked 7z that you change is written anew **without** a password. Copy what you need
-  out of a locked 7z rather than changing it.
+  extracts them. A move (**F6**) out of an archive with such an entry is refused before
+  anything is taken out, so nothing is lost. Links in a zip come out as small files that hold
+  the target, never as links.
+- **Changing a locked archive:** in a zip, locked files stay locked, and files you add are
+  locked with its password (AES-256). A locked 7z that you change is written anew locked with
+  the same password (its names too, when they were), the key made as 7-Zip makes it.
 - **Large compressed tars** are read from the start when opened, as the format has no index.
   The listing is kept while the archive does not change, so moving between its folders is
   quick after that. A multi-gigabyte `.tar.xz` is still slow to open; extract it instead.

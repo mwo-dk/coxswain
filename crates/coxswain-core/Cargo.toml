@@ -48,4 +48,4 @@ ruzstd = "0.9.0"
 sevenz-rust2 = { version = "0.23.0", features = ["aes256"] }
 
 [target.'cfg(windows)'.dependencies]
-windows-sys = { version = "0.61.2", features = ["Win32_System_Power", "Win32_Storage_FileSystem"] }
+windows-sys = { version = "0.61.2", features = ["Win32_System_Power", "Win32_Storage_FileSystem", "Win32_System_Com", "Win32_UI_Shell", "Win32_UI_WindowsAndMessaging"] }

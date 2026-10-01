@@ -94,7 +94,7 @@ Every preview library ships inside the app, and draw.io's viewer runs offline.
 | *Behaviour* → *Check for a new version once a day* | `check_updates` | `true` | On: once a day, to GitHub |
 | *Search by meaning* → *Vectors made by* | `[search] meaning_engine` | `"builtin"` | `"ollama"` or `"openai"` with a remote `meaning_url` |
 | *Search by meaning* → *Server* | `[search] meaning_url` | `""` | Not `localhost` |
-| *Search by meaning* → *API key from the variable* | `[search] meaning_key_env` | `""` | The key is sent to that server only, and never stored in `config.toml` |
+| *Search by meaning* → *API key from the variable* | `[search] meaning_key_env` | `""` | The key is sent to the saved server only (unencrypted over `http://`), and never stored in `config.toml` |
 | *Previews made by tools* → *Container runtime* | `[preview] container` | `"auto"` | Pulling an image, when you ask |
 
 ## In the terminal app

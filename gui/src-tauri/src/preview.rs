@@ -20,11 +20,9 @@ pub async fn git_diff(path: PathBuf) -> Res<Option<String>> {
         return Ok((!text.trim().is_empty()).then_some(text));
     }
     let (Some(dir), Some(name)) = (path.parent(), path.file_name()) else { return Ok(None) };
-    let out = coxswain_core::tools::command("git")
-        .arg("-C")
-        .arg(dir)
+    let out = coxswain_core::git::command(dir)
         // No external diff or textconv program from the repository's own config.
-        .args(["-c", "core.fsmonitor=false", "diff", "--no-color", "--no-ext-diff", "--no-textconv", "HEAD", "--"])
+        .args(["diff", "--no-color", "--no-ext-diff", "--no-textconv", "--ignore-submodules=dirty", "HEAD", "--"])
         .arg(name)
         .output()
         .map_err(|e| e.to_string())?;

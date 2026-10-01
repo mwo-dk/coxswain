@@ -453,6 +453,7 @@
  "err.cancelled": "Geannuleerd",
  "err.clipboard_no_files": "Het klembord bevat geen bestanden",
  "err.epub_no_rootfile": "Dit EPUB-boek heeft geen rootbestand",
+ "err.no_application": "Geen programma opent dit soort bestand",
  "err.no_cache_folder": "Geen cachemap",
  "err.no_certificate": "Geen certificaat in dit PEM-bestand",
  "err.no_config_folder": "Geen configuratiemap",
