@@ -74,7 +74,8 @@ numbers measured on synthetic data, so you know what to expect and can measure a
 ## The numbers
 
 Measured on 2026-10-01 on a 22-core Linux machine, tmpfs, release builds, headless Chromium
-for the page. "Before" is version 1.23.1. A folder of 100,000 files and 1,000 subfolders;
+for the page. "Before" is version 1.23.1, and 1.26.0 for the rows about JSON size,
+thumbnails, highlighting, the terminal app's copies and histories, and archives. A folder of 100,000 files and 1,000 subfolders;
 an index of a million names in a thousand folders.
 
 ### Listing and sorting (coxswain-core)
@@ -103,8 +104,8 @@ an index of a million names in a thousand folders.
 
 | What | Before | After |
 |---|---|---|
-| `list_dir` body for 100,000 entries (list, sort, icons) | 200 ms | 200 ms |
-| Its JSON (sent to the page) | 33 MB, 32 ms to write, 70 ms to parse | the same |
+| `list_dir` body for 100,000 entries (list, sort, icons) | 200 ms | 200 ms, on a blocking thread |
+| Its JSON (sent to the page) | 26 MB, 29 ms to write, 64 ms to parse | 14 MB, 15 ms to write, 50 ms to parse, 1 ms to join the paths |
 | Page: show 1,000 rows | 222 ms | 37 ms |
 | Page: show 20,000 rows | 4.0 s, 576 MB heap | 33 ms, 15 MB |
 | Page: show 100,000 rows | not done after 10 minutes | 32 ms, 37 MB |
@@ -112,6 +113,11 @@ an index of a million names in a thousand folders.
 | Page: cursor to the end / home (100,000 rows) | – | 15 ms / 11 ms |
 | Page: reread the same folder (20,000 rows) | 1.25 s | 4 ms |
 | Page: the folder sorted the other way (20,000 rows) | 18.9 s | 12 ms |
+| Page: thumbnails, show 1,000 / 20,000 / 100,000 files | 115 ms / 2.9 s, 716 MB / – | 6 ms / 17 ms, 13 MB / 14 ms, 36 MB |
+| Page: thumbnails, folder sorted the other way (20,000) | 16.1 s | 7 ms |
+| Page: thumbnails, cursor one tile (20,000) | 50 ms | 0.5 ms |
+| Page: a short folder after scrolling far down a long one | blank (no rows drawn) | its rows |
+| Page: highlighting a 170 KB source file | 30 ms (by its type), 180 ms (guessed), on the window's thread | on a worker; 0.4 ms on the window's thread |
 | Page: a disk-touching command (save session, tags, notes, rename plan, clipboard) | on the window's thread | on the async runtime |
 | Start-up pieces: default config and keymap, texts, state file | 0.1 ms, 3 ms, 0.2 ms | the same |
 
@@ -124,6 +130,22 @@ an index of a million names in a thousand folders.
 | Down + a frame | 0.56 ms | 0.54 ms |
 | A frame with every entry marked | 16.6 ms | 0.54 ms |
 | Sort by size | 286 ms (a reread) | 6 ms |
+| Copy, move, delete, extract, pack | on the main loop: no keys until done | on a thread: keys at once, `(2/3)` progress |
+| A history's list of commits (git log) | on the main loop | on a thread |
+
+### Archives and git history (both apps)
+
+A zip, a tar.gz and a solid 7z (as 7-Zip makes them) of 10,000 files.
+
+| What | Before | After |
+|---|---|---|
+| Preview of a file in a solid 7z, any but the first | failed (`ChecksumVerificationFailed`) | 29 ms |
+| F5, F6, F8 of files in a solid 7z; search reading its text | failed after the first file skipped | works |
+| Preview of the first file in a tar.gz | 31 ms (unpacked to the end) | 0.3 ms |
+| Preview of the first file in a zip | 14 ms | 9 ms |
+| Archives whose listing is kept | 1 (the preview of another pushed it out) | 4 |
+| A history's commits and its *Last commit* column | `git log` twice (three times sorted by commit) | once, kept until HEAD moves |
+| A last-commit walk git was stopped in (4 s) | kept as if whole until HEAD moved | looked at again |
 
 ## Measuring again
 
@@ -137,8 +159,8 @@ cargo test --release -p coxswain --bin coxswain -- --ignored --nocapture perf_ #
 cargo test --release -p coxswain-gui -- --ignored --nocapture perf_            # list_dir JSON
 ```
 
-The page is measured with the real details view mounted in a browser: `cd gui && npx vite
---port 1421`, then open `http://localhost:1421/bench/index.html?n=100000` (or headless:
+The page is measured with the real details view (or thumbnails, with `&view=grid`) mounted
+in a browser: `cd gui && npx vite --port 1421`, then open `http://localhost:1421/bench/index.html?n=100000` (or headless:
 `chromium --headless=new --dump-dom <that url>` and read the `<pre id="out">`).
 
 ## Questions
@@ -152,9 +174,10 @@ says *Working on <folder>…* so you know it is coming.
 exist in the page; a cursor move changes two of them and scrolls. The preview waits 80 ms
 after the last move before it reads anything.
 
-**Why is the terminal app frozen while it copies?** The copy runs on its main loop, after the
-frame that says *Working on …*. Keys are taken again when it is done. The desktop app keeps
-taking keys during a copy.
+**Can I keep working while the terminal app copies?** Yes: the copy runs on a thread, the
+status line says which item it is on, and the keys work meanwhile. A second copy waits until
+the first is done (the status line says so), and quitting waits for it too, so nothing is left
+half-copied.
 
 **Why does F3 show plain text for a big file?** Syntax highlighting of more than 200,000
 characters would take longer than reading the file; the text shows at once instead, cut at

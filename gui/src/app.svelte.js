@@ -102,8 +102,11 @@ export async function load(t, dir = t.dir, focus) {
     });
     if (r.dir !== t.dir) {
       t.marked.clear();
+      // In the same repository the last-commit column stays (empty) until git answers, so
+      // the columns do not jump at every step.
+      const same = t.git && r.dir.startsWith(t.git.root);
       t.git = null;
-      t.last = null;
+      t.last = same && t.last ? {} : null;
       t.sizes = {};
       t.counts = {};
     }

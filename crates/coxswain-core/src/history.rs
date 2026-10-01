@@ -215,7 +215,7 @@ fn inner_spec(inner: &str) -> String {
 pub fn list(dir: &Path, at: &At) -> io::Result<Vec<Entry>> {
     let up = |path: PathBuf| Entry { name: "..".into(), path, is_dir: true, is_symlink: false, is_exec: false, hidden: false, size: 0, modified: 0, created: 0 };
     let Some(rev) = &at.commit else {
-        let (commits, _) = log(&at.base, "HEAD", &spec(at), MAX_COMMITS)?;
+        let commits = commits_of(at)?;
         let mut out = vec![up(at.base.clone())];
         out.extend(commits.iter().map(|c| Entry {
             name: entry_name(c),
@@ -421,34 +421,71 @@ static CACHE: Mutex<Option<Cache>> = Mutex::new(None);
 pub fn last_changes(dir: &Path) -> Option<Arc<Lasts>> {
     let (base, rev, inner) = match split(dir) {
         Some(at) if at.commit.is_none() => {
-            let (commits, _) = log(&at.base, "HEAD", &spec(&at), MAX_COMMITS).ok()?;
+            let commits = commits_of(&at).ok()?;
             return Some(Arc::new(commits.iter().map(|c| (entry_name(c), Some(Last::from(c)))).collect()));
         }
         Some(at) => (at.base, at.commit.unwrap_or_default(), at.inner),
         None => (dir.to_path_buf(), "HEAD".to_string(), String::new()),
     };
-    let oid = String::from_utf8(run({
-        let mut c = git(&base);
-        c.args(["rev-parse", "--verify", "-q", &format!("{rev}^{{commit}}")]);
-        c
-    }).ok()?).ok()?.trim().to_string();
+    let oid = rev_oid(&base, &rev)?;
     let key = (base.clone(), oid.clone(), inner.clone());
     if let Some(hit) = CACHE.lock().unwrap().as_ref().and_then(|c| c.get(&key)) {
         return Some(hit.clone());
     }
-    let lasts = Arc::new(walk(&base, &oid, &inner).ok()?);
-    let mut cache = CACHE.lock().unwrap();
+    let (lasts, whole) = walk(&base, &oid, &inner).ok()?;
+    let lasts = Arc::new(lasts);
+    // A walk git was stopped in (it took too long) is not kept: the next look goes further.
+    if whole {
+        remember(&CACHE, key, lasts.clone());
+    }
+    Some(lasts)
+}
+
+/// The commit `rev` names.
+fn rev_oid(base: &Path, rev: &str) -> Option<String> {
+    let out = run({
+        let mut c = git(base);
+        c.args(["rev-parse", "--verify", "-q", &format!("{rev}^{{commit}}")]);
+        c
+    })
+    .ok()?;
+    Some(String::from_utf8(out).ok()?.trim().to_string())
+}
+
+/// A cache by (folder, commit, path below it).
+type Keyed<T> = Mutex<Option<HashMap<(PathBuf, String, String), T>>>;
+
+fn remember<T>(cache: &Keyed<T>, key: (PathBuf, String, String), v: T) {
+    let mut cache = cache.lock().unwrap();
     let cache = cache.get_or_insert_with(HashMap::new);
     if cache.len() >= 64 {
         cache.clear();
     }
-    cache.insert(key, lasts.clone());
-    Some(lasts)
+    cache.insert(key, v);
+}
+
+static COMMITS: Keyed<Arc<Vec<Commit>>> = Mutex::new(None);
+
+/// The commits of a history (its list), cached by HEAD: the list and its *Last commit*
+/// column ask for the same, and for a file seldom changed git walks the whole history.
+fn commits_of(at: &At) -> io::Result<Arc<Vec<Commit>>> {
+    let spec = spec(at);
+    let key = rev_oid(&at.base, "HEAD").map(|oid| (at.base.clone(), oid, spec.clone()));
+    if let Some(hit) = key.as_ref().and_then(|k| COMMITS.lock().unwrap().as_ref()?.get(k).cloned()) {
+        return Ok(hit);
+    }
+    let (commits, more) = log(&at.base, "HEAD", &spec, MAX_COMMITS)?;
+    let commits = Arc::new(commits);
+    // `more` is also a walk stopped for time; a list cut at MAX_COMMITS stays cut, so it is kept.
+    if let Some(k) = key.filter(|_| !more || commits.len() >= MAX_COMMITS) {
+        remember(&COMMITS, k, commits.clone());
+    }
+    Ok(commits)
 }
 
 /// The walk: the names `rev` has in the folder, then the commits from `rev` back, each name
 /// taking the first that changed something at or below it, until every name has one.
-fn walk(base: &Path, rev: &str, inner: &str) -> io::Result<Lasts> {
+fn walk(base: &Path, rev: &str, inner: &str) -> io::Result<(Lasts, bool)> {
     let spec = inner_spec(inner);
     let prefix = if inner.is_empty() { String::new() } else { format!("{inner}/") };
     let mut c = git(base);
@@ -461,12 +498,12 @@ fn walk(base: &Path, rev: &str, inner: &str) -> io::Result<Lasts> {
     let mut found: Lasts = wanted.iter().map(|n| (n.clone(), None)).collect();
     let mut left = wanted.len();
     if left == 0 {
-        return Ok(found);
+        return Ok((found, true));
     }
     let mut c = git(base);
     c.args(["log", "-z", "--name-only", "--relative", "--no-renames", "--format=%x1e%H%x1f%at%x1f%an%x1f%s", "-n", &LAST_WALK.to_string(), rev, "--", &spec]);
     let mut now: Option<Last> = None;
-    records(c, 0, |rec| {
+    let cut = records(c, 0, |rec| {
         if rec.first() == Some(&0x1e) {
             now = commit(rec).as_ref().map(Last::from);
             return true;
@@ -480,7 +517,8 @@ fn walk(base: &Path, rev: &str, inner: &str) -> io::Result<Lasts> {
         }
         left > 0
     })?;
-    Ok(found)
+    // Cut short with names still to find: git ran out of time, not of history.
+    Ok((found, !(cut && left > 0)))
 }
 
 /// Sort entries by their last commit, newest first (`..` first, folders before files, as

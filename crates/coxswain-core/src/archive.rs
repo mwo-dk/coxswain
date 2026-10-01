@@ -134,9 +134,11 @@ fn password_for(archive: &Path, given: Option<&str>) -> Option<String> {
     PASSWORDS.lock().unwrap().iter().find(|(a, _)| a == archive).map(|(_, p)| p.clone()).or_else(|| given.map(String::from))
 }
 
-/// The entries of the archive last looked into, with its size and modified time: browsing an
-/// archive lists it once per folder, and a compressed tar is read in full each time.
-static LAST: std::sync::Mutex<Option<(PathBuf, Stamp, Vec<Item>)>> = std::sync::Mutex::new(None);
+/// The entries of the archives last looked into, newest last, with their size and modified
+/// time: browsing an archive lists it once per folder, and a compressed tar is read in full
+/// each time. A few, so the preview of another archive does not push out the one browsed.
+static LAST: std::sync::Mutex<Vec<(PathBuf, Stamp, Vec<Item>)>> = std::sync::Mutex::new(Vec::new());
+const LAST_KEPT: usize = 4;
 
 type Stamp = (u64, Option<std::time::SystemTime>);
 
@@ -146,10 +148,7 @@ fn stamp(path: &Path) -> io::Result<Stamp> {
 }
 
 fn uncache(archive: &Path) {
-    let mut last = LAST.lock().unwrap();
-    if last.as_ref().is_some_and(|(p, ..)| p == archive) {
-        *last = None;
-    }
+    LAST.lock().unwrap().retain(|(p, ..)| p != archive);
 }
 
 /// Whether a 7z's contents are locked: any of its blocks is AES-encrypted.
@@ -193,7 +192,13 @@ fn seven_error(e: sevenz_rust2::Error) -> io::Error {
 
 /// The first `max` entries, and whether there were more.
 pub fn list(path: &Path, max: usize) -> io::Result<(Vec<ArchiveEntry>, bool)> {
-    let all = items(path)?;
+    // Not looked into yet: only as far as is shown (a big compressed tar is not unpacked to
+    // its end for a preview's first rows).
+    let cached = stamp(path).ok().and_then(|st| LAST.lock().unwrap().iter().find(|(p, s, _)| p == path && *s == st).map(|(.., items)| items.clone()));
+    let all = match cached {
+        Some(all) => all,
+        None => read_items_with(path, password_for(path, None).as_deref(), max.saturating_add(1))?,
+    };
     let more = all.len() > max;
     Ok((all.into_iter().take(max).map(|it| ArchiveEntry { name: it.name, size: it.size, is_dir: it.dir }).collect(), more))
 }
@@ -281,14 +286,16 @@ struct Item {
 /// The archive's entries, from the last look at it when it has not changed since.
 fn items(archive: &Path) -> io::Result<Vec<Item>> {
     let stamp = stamp(archive)?;
-    if let Some((p, s, items)) = LAST.lock().unwrap().as_ref()
-        && p == archive
-        && *s == stamp
-    {
+    if let Some((_, _, items)) = LAST.lock().unwrap().iter().find(|(p, s, _)| p == archive && *s == stamp) {
         return Ok(items.clone());
     }
     let out = read_items(archive)?;
-    *LAST.lock().unwrap() = Some((archive.to_path_buf(), stamp, out.clone()));
+    let mut last = LAST.lock().unwrap();
+    last.retain(|(p, ..)| p != archive);
+    if last.len() >= LAST_KEPT {
+        last.remove(0);
+    }
+    last.push((archive.to_path_buf(), stamp, out.clone()));
     Ok(out)
 }
 
@@ -398,9 +405,15 @@ pub(crate) fn search_read(archive: &Path, size: u64, wanted: &dyn Fn(&str, u64) 
             if seven_locked(r.archive()) {
                 return Ok(());
             }
+            // An entry not read to its end must still be read past: in a solid 7z the next one
+            // comes from the same stream.
             r.for_each_entries(|e, from| {
                 let name = e.name.replace('\\', "/").trim_end_matches('/').to_string();
-                Ok(e.is_directory || !e.has_stream || !sound(&name) || !wanted(&name, e.size) || read(&name, from))
+                let go = e.is_directory || !e.has_stream || !sound(&name) || !wanted(&name, e.size) || read(&name, from);
+                if go {
+                    io::copy(from, &mut io::sink())?;
+                }
+                Ok(go)
             })
             .map_err(seven_error)?;
         }
@@ -505,6 +518,10 @@ pub fn peek(path: &Path) -> io::Result<PathBuf> {
     if it.size > PEEK_MAX {
         return Err(io::Error::new(io::ErrorKind::FileTooLarge, format!("{inner} is too large to look at inside the archive; copy it out with F5")));
     }
+    // One at a time: each starts in a fresh folder, which would take away the copy of one
+    // still being looked at, and peeks piling up while the cursor moves each unpack.
+    static ONE: std::sync::Mutex<()> = std::sync::Mutex::new(());
+    let _one = ONE.lock().unwrap_or_else(|e| e.into_inner());
     let to = peek_folder()?.join(inner.rsplit('/').next().unwrap_or("file"));
     copy_out_with(&archive, &inner, &to, password_for(&archive, None).as_deref())?;
     Ok(to)
@@ -592,6 +609,9 @@ fn copy_entries(archive: &Path, inner: &str, to: &Path, password: Option<&str>, 
                 return Err(if encrypted { locked() } else { err });
             }
             *used |= encrypted;
+            if name == inner {
+                break;
+            }
         }
     } else if k == Kind::SevenZ {
         let mut r = seven(archive, password)?;
@@ -599,7 +619,8 @@ fn copy_entries(archive: &Path, inner: &str, to: &Path, password: Option<&str>, 
         let mut failed = None;
         r.for_each_entries(|e, from| {
             let name = e.name.replace('\\', "/").trim_end_matches('/').to_string();
-            let Some(path) = place(&name) else { return Ok(true) };
+            // Read past, not skipped: in a solid 7z the next entry comes from the same stream.
+            let Some(path) = place(&name) else { return io::copy(from, &mut io::sink()).map(|_| true).map_err(Into::into) };
             *any = true;
             let mut from = Noting { from, failed: false };
             let done = if e.is_directory { std::fs::create_dir_all(&path) } else { write(&path, &mut from) };
@@ -607,7 +628,8 @@ fn copy_entries(archive: &Path, inner: &str, to: &Path, password: Option<&str>, 
                 failed = Some(seven_copy_error(err, &from, locked));
                 return Ok(false);
             }
-            Ok(true)
+            // The one file asked for is out: nothing after it is unpacked.
+            Ok(e.is_directory || name != inner)
         })
         .map_err(seven_error)?;
         if let Some(err) = failed {
@@ -624,6 +646,9 @@ fn copy_entries(archive: &Path, inner: &str, to: &Path, password: Option<&str>, 
                 std::fs::create_dir_all(&path)?;
             } else if e.header().entry_type().is_file() {
                 write(&path, &mut e)?;
+                if name == inner {
+                    break;
+                }
             }
         }
     }
@@ -740,7 +765,8 @@ fn rewrite(archive: &Path, keep: &dyn Fn(&str) -> Option<String>, add: &[(String
                 let mut failed = None;
                 r.for_each_entries(|e, from| {
                     let old = e.name.replace('\\', "/").trim_end_matches('/').to_string();
-                    let Some(new) = keep(&old) else { return Ok(true) };
+                    // Read past, not skipped: in a solid 7z the next entry is in the same stream.
+                    let Some(new) = keep(&old) else { return io::copy(from, &mut io::sink()).map(|_| true).map_err(Into::into) };
                     let mut entry = e.clone();
                     entry.name = new;
                     let mut from = Noting { from, failed: false };
@@ -1162,6 +1188,39 @@ mod tests {
         assert!(!d.join("pw.tar.gz").exists());
         create_locked(&d.join("open.zip"), &[d.join("src/plan.txt")], Some(""), true).unwrap();
         assert!(!locked_at(&d.join("open.zip"), "").unwrap());
+        std::fs::remove_dir_all(d).unwrap();
+    }
+
+    #[test]
+    fn archive_solid_7z_reads_every_entry() {
+        // A solid 7z (as 7-Zip makes them): every entry is a window on one stream, so one not
+        // read to its end must be read past, or the next fails its check.
+        let d = std::env::temp_dir().join(format!("coxswain-test-solid-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(d.join("out")).unwrap();
+        let names = ["a.txt", "b.txt", "c.txt"];
+        let zp = d.join("solid.7z");
+        let mut w = sevenz_rust2::ArchiveWriter::create(&zp).unwrap();
+        let entries = names.iter().map(|n| {
+            let mut e = sevenz_rust2::ArchiveEntry::new_file(n);
+            e.size = 4000;
+            e
+        });
+        let readers = names.iter().map(|n| sevenz_rust2::SourceReader::new(std::io::Cursor::new(n.repeat(1000)))).collect();
+        w.push_archive_entries(entries.collect(), readers).unwrap();
+        w.finish().unwrap();
+        assert_eq!(std::fs::read_to_string(peek(&zp.join("c.txt")).unwrap()).unwrap(), "c.txt".repeat(1000), "the last, past two not wanted");
+        let mut seen = vec![];
+        search_read(&zp, 1, &|n, _| n != "a.txt", &mut |n, from| {
+            let mut head = [0u8; 5];
+            from.read_exact(&mut head).unwrap();
+            seen.push((n.to_string(), head));
+            true
+        })
+        .unwrap();
+        assert_eq!(seen, [("b.txt".to_string(), *b"b.txt"), ("c.txt".to_string(), *b"c.txt")], "read in part, then the next");
+        remove(&zp, &["a.txt".to_string()], None).unwrap();
+        assert_eq!(list_in(&zp, "").unwrap().iter().filter(|e| !e.is_parent()).map(|e| e.name.as_str()).collect::<Vec<_>>(), ["b.txt", "c.txt"]);
         std::fs::remove_dir_all(d).unwrap();
     }
 

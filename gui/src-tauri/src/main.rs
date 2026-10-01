@@ -335,15 +335,23 @@ struct HistoryInfo {
 /// Async, as a compressed tar is read in full to list a folder in it.
 #[tauri::command]
 async fn list_dir(dir: PathBuf, show_hidden: bool, sort: SortKey, reverse: bool, ctx: tauri::State<'_, Ctx>) -> Res<Listing> {
-    let (mut entries, inside) = bfs::list_with_archive(&dir, show_hidden).map_err(|e| format!("{}: {e}", dir.display()))?;
-    bfs::sort(&mut entries, sort, reverse);
-    // By last commit: git's walk first, cached for the column after.
-    if sort == SortKey::Commit
-        && let Some(lasts) = history::last_changes(&dir)
-    {
-        history::sort_by_last(&mut entries, &lasts, reverse);
-    }
-    let in_history = history::split(&dir).filter(|_| !dir.is_dir()).map(|at| HistoryInfo { commit: at.commit.as_deref().and_then(|c| history::show(&at.base, c).ok()), target: at.target, base: at.base });
+    // Reading the folder (an archive's, a history's: git) blocks: not on the runtime's workers.
+    let d = dir.clone();
+    let (entries, inside, in_history) = tauri::async_runtime::spawn_blocking(move || {
+        let dir = d;
+        let (mut entries, inside) = bfs::list_with_archive(&dir, show_hidden).map_err(|e| format!("{}: {e}", dir.display()))?;
+        bfs::sort(&mut entries, sort, reverse);
+        // By last commit: git's walk first, cached for the column after.
+        if sort == SortKey::Commit
+            && let Some(lasts) = history::last_changes(&dir)
+        {
+            history::sort_by_last(&mut entries, &lasts, reverse);
+        }
+        let in_history = history::split(&dir).filter(|_| !dir.is_dir()).map(|at| HistoryInfo { commit: at.commit.as_deref().and_then(|c| history::show(&at.base, c).ok()), target: at.target, base: at.base });
+        Ok::<_, String>((entries, inside, in_history))
+    })
+    .await
+    .map_err(|e| e.to_string())??;
     let st = ctx.state.lock().map_err(|e| e.to_string())?;
     let cfg = ctx.cfg();
     let plain = cfg.plain_glyphs().then(|| cfg.glyphs());
@@ -795,10 +803,19 @@ fn resolve_path(base: PathBuf, input: String) -> PathBuf {
     resolve(&base, &input)
 }
 
-/// Run `op` on every source; collect failures into one message.
-fn each(paths: &[PathBuf], op: impl Fn(&Path) -> std::io::Result<()>) -> Res<()> {
-    let errors: Vec<String> = paths.iter().filter_map(|p| op(p).err().map(|e| format!("{}: {e}", p.display()))).collect();
-    if errors.is_empty() { Ok(()) } else { Err(errors.join("\n")) }
+/// Run `op` on every source, on a blocking thread (a big copy must not hold one of the async
+/// runtime's few workers); collect failures into one message.
+async fn each(paths: Vec<PathBuf>, op: impl Fn(&Path) -> std::io::Result<()> + Send + 'static) -> Res<()> {
+    blocking(move || {
+        let errors: Vec<String> = paths.iter().filter_map(|p| op(p).err().map(|e| format!("{}: {e}", p.display()))).collect();
+        if errors.is_empty() { Ok(()) } else { Err(errors.join("\n")) }
+    })
+    .await
+}
+
+/// `f` on a blocking thread, its answer back here.
+async fn blocking<T: Send + 'static>(f: impl FnOnce() -> Res<T> + Send + 'static) -> Res<T> {
+    tauri::async_runtime::spawn_blocking(f).await.map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
@@ -806,30 +823,32 @@ async fn copy(paths: Vec<PathBuf>, base: PathBuf, dest: String, password: Option
     let dst = resolve(&base, &dest);
     ctx.sizer.forget(&dst.join("new"));
     // The password of a locked archive, held for this copy only.
-    each(&paths, |p| bfs::copy_locked(p, &dst, password.as_deref()).map(drop))
+    each(paths, move |p| bfs::copy_locked(p, &dst, password.as_deref()).map(drop)).await
 }
 
 #[tauri::command]
 async fn rename(paths: Vec<PathBuf>, base: PathBuf, dest: String, password: Option<String>, ctx: tauri::State<'_, Ctx>) -> Res<()> {
     let dst = resolve(&base, &dest);
     paths.iter().chain([&dst.join("new")]).for_each(|p| ctx.sizer.forget(p));
-    each(&paths, |p| bfs::rename_locked(p, &dst, password.as_deref()).map(drop))
+    each(paths, move |p| bfs::rename_locked(p, &dst, password.as_deref()).map(drop)).await
 }
 
 /// To the trash, or gone for good with `forever`. Inside a locked 7z, `password` opens it.
 #[tauri::command]
 async fn delete(paths: Vec<PathBuf>, forever: bool, password: Option<String>, ctx: tauri::State<'_, Ctx>) -> Res<()> {
     paths.iter().for_each(|p| ctx.sizer.forget(p));
-    let pw = password.as_deref();
-    each(&paths, |p| if forever { bfs::delete_locked(p, pw) } else { bfs::trash_locked(p, pw) })
+    each(paths, move |p| {
+        let pw = password.as_deref();
+        if forever { bfs::delete_locked(p, pw) } else { bfs::trash_locked(p, pw) }
+    })
+    .await
 }
 
 /// Async, as inside an archive the archive is written anew.
 #[tauri::command]
 async fn mkdir(base: PathBuf, name: String, password: Option<String>) -> Res<PathBuf> {
     let d = resolve(&base, &name);
-    bfs::mkdir_locked(&d, password.as_deref()).map_err(|e| format!("{}: {e}", d.display()))?;
-    Ok(d)
+    blocking(move || bfs::mkdir_locked(&d, password.as_deref()).map(|_| d.clone()).map_err(|e| format!("{}: {e}", d.display()))).await
 }
 
 /// Bytes and file count of each folder. With `tab` it is that tab's background measuring: the
@@ -921,7 +940,7 @@ struct ArchiveListing {
 
 #[tauri::command]
 async fn archive_list(path: PathBuf) -> Res<ArchiveListing> {
-    let (entries, more) = coxswain_core::archive::list(&path, 2000).map_err(|e| e.to_string())?;
+    let (entries, more) = blocking(move || coxswain_core::archive::list(&path, 2000).map_err(|e| e.to_string())).await?;
     Ok(ArchiveListing { entries, more })
 }
 
@@ -929,7 +948,7 @@ async fn archive_list(path: PathBuf) -> Res<ArchiveListing> {
 async fn extract(paths: Vec<PathBuf>, base: PathBuf, dest: String, password: Option<String>, ctx: tauri::State<'_, Ctx>) -> Res<()> {
     let dst = resolve(&base, &dest);
     ctx.sizer.forget(&dst.join("new"));
-    each(&paths, |p| coxswain_core::archive::extract_locked(p, &dst, password.as_deref()).map(drop))
+    each(paths, move |p| coxswain_core::archive::extract_locked(p, &dst, password.as_deref()).map(drop)).await
 }
 
 /// The password of the locked archive `path` is in (or is), kept in memory for this run.
@@ -1087,31 +1106,35 @@ fn clip_set(paths: Vec<PathBuf>, cut: bool, ctx: tauri::State<Ctx>) -> Res<()> {
 async fn paste(dir: PathBuf, ctx: tauri::State<'_, Ctx>) -> Res<(usize, bool)> {
     use clipboard_rs::Clipboard;
     let os: Vec<PathBuf> = os_clipboard().and_then(|c| c.get_files().ok()).unwrap_or_default().iter().map(|s| from_clip(s)).collect();
-    let mut clip = ctx.clip.lock().map_err(|e| e.to_string())?;
-    let cut = clip.1 && (os.is_empty() || os == clip.0);
-    let paths = if os.is_empty() { clip.0.clone() } else { os };
-    if paths.is_empty() {
-        return Err(coxswain_core::t!("err.clipboard_no_files"));
-    }
-    if cut {
-        // A cut pastes once.
-        *clip = (vec![], false);
-    }
-    drop(clip);
+    let (paths, cut) = {
+        let mut clip = ctx.clip.lock().map_err(|e| e.to_string())?;
+        let cut = clip.1 && (os.is_empty() || os == clip.0);
+        let paths = if os.is_empty() { clip.0.clone() } else { os };
+        if paths.is_empty() {
+            return Err(coxswain_core::t!("err.clipboard_no_files"));
+        }
+        if cut {
+            // A cut pastes once.
+            *clip = (vec![], false);
+        }
+        (paths, cut)
+    };
     // ponytail: text copied elsewhere after a Coxswain copy still pastes Coxswain's files on
     // clipboards that report "no files" as empty; track the clipboard owner if that confuses.
-    each(&paths, |p| {
+    let (n, sizer) = (paths.len(), ctx.sizer.clone());
+    each(paths, move |p| {
         if cut && p.parent() == Some(dir.as_path()) {
             return Ok(()); // cut and pasted in place
         }
         let to = bfs::free_name(&dir, &p.file_name().unwrap_or_default().to_string_lossy());
-        ctx.sizer.forget(&to);
+        sizer.forget(&to);
         if cut {
-            ctx.sizer.forget(p);
+            sizer.forget(p);
         }
         if cut { bfs::rename(p, &to).map(drop) } else { bfs::copy(p, &to).map(drop) }
-    })?;
-    Ok((paths.len(), cut))
+    })
+    .await?;
+    Ok((n, cut))
 }
 
 // ---------------------------------------------------------------- drag out, watching
