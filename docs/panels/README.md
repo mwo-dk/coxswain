@@ -23,7 +23,8 @@ Every key here is a default. Each one can be changed in `config.toml` under `[ke
 | [Tabs, back and forward, one pane or two](tabs-and-panes.md) | Tabs, history, **Ctrl+O**, the splitter |
 | [Views: details, columns, thumbnails](views.md) | **Alt+V**, Miller columns, thumbnails, the columns menu, the age chip |
 | [Folder sizes](folder-sizes.md) | Sizes that fill in by themselves, where they come from, measuring again |
-| [Git in the panels](git.md) | The git line, glyphs per file, the diff, recent repositories |
+| [Git in the panels](git.md) | The git line, glyphs per file, the last commit per file, the diff, recent repositories |
+| [Git history as folders](git-history.md) | **Ctrl+G**: a file's or folder's commits, the files as they were, their diff, copying an old version out |
 | [The mouse](mouse.md) | Clicks, marks, drags, the path bar, the splitters |
 | [The command list (F9) and Help (F1)](command-list.md) | Every action by name, and the key list |
 | [What the apps remember](session.md) | The desktop app's session, what the terminal app keeps, what is forgotten |
@@ -47,6 +48,7 @@ Every key here is a default. Each one can be changed in `config.toml` under `[ke
 | **Ctrl+T**, **Ctrl+W**, **Ctrl+Tab** | Yes | – | New, close, next tab |
 | **Alt+Left** / **Alt+Right** | Yes | – | Back / forward |
 | **Alt+V** | Yes | – | Details, columns, thumbnails |
+| **Ctrl+G** | Yes | Yes | The git history of the file or folder under the cursor |
 | **F9** | Yes | Yes | The command list |
 | **F1** | Yes | Yes | Help |
 

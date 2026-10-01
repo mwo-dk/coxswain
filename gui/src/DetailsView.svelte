@@ -24,9 +24,12 @@
     { id: "size", w: "6.5rem", min: 340 },
     { id: "files", w: "5rem", min: 620 },
     { id: "modified", w: "13rem", narrow: "3.2rem" },
+    // The last commit: in a repository (or a history), when switched on in Settings.
+    { id: "commit", w: "12rem", min: 620 },
     { id: "created", w: "6.5rem", min: 620 },
   ];
-  const shown = $derived(new Set(COLS.filter((c) => ui.columns[c.id] && width >= (c.min ?? 0)).map((c) => c.id)));
+  const has = (id) => id !== "commit" || (ui.cfg.settings.git_last_commit && !!t.last);
+  const shown = $derived(new Set(COLS.filter((c) => ui.columns[c.id] && width >= (c.min ?? 0) && has(c.id)).map((c) => c.id)));
   const template = $derived(
     ["minmax(0, 1fr)", ...COLS.filter((c) => shown.has(c.id)).map((c) => (c.narrow && width < 620 ? c.narrow : c.w))].join(" "),
   );
@@ -89,6 +92,7 @@
     {#if shown.has("size")}<button class="r" onclick={() => sortBy("size")}>{tr("details.col.size")} <i>{arrow("size")}</i></button>{/if}
     {#if shown.has("files")}<span class="r" title={tr("details.files_tip")}>{tr("details.col.files")}</span>{/if}
     {#if shown.has("modified")}<button onclick={() => sortBy("time")}>{tr("details.col.modified")} <i>{arrow("time")}</i></button>{/if}
+    {#if shown.has("commit")}<button onclick={() => sortBy("commit")} title={tr("details.commit_tip")}>{tr("details.col.commit")} <i>{arrow("commit")}</i></button>{/if}
     {#if shown.has("created")}<span>{tr("details.col.created")}</span>{/if}
   </div>
   <div class="rows" bind:this={list} role="listbox" tabindex="-1" aria-label={t.dir}>
@@ -138,6 +142,12 @@
             {#if e.name !== ".."}
               <span class="age" style:background={ageColor(e.modified, ui.cfg.looks[ui.theme])} title={date(e.modified)}>{age(e.modified)}</span><span class="d">{date(e.modified)}</span>
             {/if}
+          </span>
+        {/if}
+        {#if shown.has("commit")}
+          {@const l = t.last?.[e.name]}
+          <span class="time commit" title={l ? `${l.hash} · ${l.subject}\n${l.author} · ${date(l.time)}` : ""}>
+            {#if l}<span>{date(l.time).replace(/ \d\d:\d\d/, "")}</span><span class="who">{l.author}</span>{:else if l === null}{tr("history.older")}{/if}
           </span>
         {/if}
         {#if shown.has("created")}<span class="time">{date(e.created).replace(/ \d\d:\d\d/, "")}</span>{/if}
@@ -264,6 +274,10 @@
     align-items: center;
     gap: 8px;
     font-variant-numeric: tabular-nums;
+  }
+  .who {
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   .age {
     display: inline-block;

@@ -93,6 +93,7 @@ Windows and Mac themes bring their own font; these fonts apply to the others.* S
 | *Show hidden files when Coxswain starts* | Whether hidden files show at start. **Alt+.** still switches them at any time; the desktop app then keeps your last choice in its session ([Sorting and hidden files](../panels/sorting.md)) | `show_hidden` |
 | *Ask before deleting* | Unticked, **F8** and **Shift+F8** act at once, without the *Delete* dialog ([Delete](../files/delete.md)) | `confirm_delete` |
 | *Check for a new version once a day* | Looks for a newer release on GitHub ([Update checks](../reference/updates.md)) | `check_updates` |
+| *Show when each file and folder was last committed, and by whom* | The *Last commit* column and the preview pane's *Last commit* in git repositories ([Last commit per file](../panels/git.md#last-commit-per-file)) | `[git] last_commit` |
 
 ## Search inside files
 
@@ -109,6 +110,7 @@ session" box and the list of programs that read more.*
 | **Delete the index** | Asks *Click again to delete*, then empties the store | |
 | *Folders read* | The folders whose files are read; *Your home folder* when none. Each shows its size in the index, or that its disk is away. **Add** takes a path typed in the field (empty: the current folder); **Remove** takes one off | `[search] text_roots` |
 | *Names only* | Folders found by name and counted in sizes, never read; *None* when none | `[search] names_only` |
+| *Search the history of git repositories too: commit messages, authors and changed paths* | Commits found by Text in files and by meaning ([Git history in search](../search/history.md)) | `[search] history` |
 | *Programs that read more* | ✓ or ✗ for tesseract, pdftoppm and LibreOffice, with *not installed* ([Scans, pictures and older Office files](../search/scans.md)) | |
 
 Details: [Text in files](../search/text.md) and [Choosing the folders](../search/folders.md).
@@ -155,8 +157,10 @@ Details: [Previews made by tools](../previews/tools.md) and [Containers](../prev
 | Show hidden files when Coxswain starts | `show_hidden` | true/false, `true` | Both apps |
 | Ask before deleting | `confirm_delete` | true/false, `true` | Both apps |
 | Check for a new version once a day | `check_updates` | true/false, `true` | Both apps |
+| Show when each file and folder was last committed | `[git] last_commit` | true/false, `true` | Both apps |
 | Keep the text of files | `[search] text` | true/false, `true` | The search helper, for both apps |
 | Folders read, Names only | `[search] text_roots`, `names_only` | lists of paths, `[]` | The search helper |
+| Search the history of git repositories too | `[search] history` | true/false, `true` | The search helper |
 | Search by meaning | `[search] meaning` | true/false, `false` | The search helper |
 | Vectors made by, Server, Embedding model, API key from the variable | `[search] meaning_engine`, `meaning_url`, `meaning_model`, `meaning_key_env` | text; `"builtin"`, `""`, `""`, `""` | The search helper |
 | Use, Container runtime | `[preview] prefer`, `container` | text, `"auto"`, `"auto"` | Desktop app |
