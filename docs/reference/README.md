@@ -5,7 +5,7 @@
 These pages cover the parts of Coxswain that sit under the features. They say what the terminal
 app can and cannot do, list every command-line flag and every `config.toml` key with its
 default, say what can go over the network, explain the update check, and show where each file
-Coxswain writes is kept. Come here when a feature page tells you "the key is `…`" and you want
+Coxswain writes is kept, and how its dependencies are kept safe. Come here when a feature page tells you "the key is `…`" and you want
 the full list.
 
 ![The terminal app: two blue panels, a git repository on the left, the F-key bar below](../screenshots/tui-panels.png)
@@ -19,6 +19,8 @@ the full list.
 | [Privacy](privacy.md) | What stays on your machine, every case where something can leave it, and how to stop each one |
 | [Update checks](updates.md) | The once-a-day version check, what you see in each app, the upgrade command, turning it off |
 | [Where things are kept](where-things-are-kept.md) | The config, state and cache folders on Linux, macOS and Windows, every file in them, what is safe to delete, removing everything |
+| [Security](security.md) | How dependencies are chosen and kept current, the advisory checks on every change and every week, licences, the bundled viewers, checking a download, reporting a problem |
+| [Performance](performance.md) | What keeps each app quick: rows on screen only, no disk work on the window's thread, background measuring, and the numbers for a folder of 100,000 files and an index of a million names |
 
 ## Keys at a glance
 

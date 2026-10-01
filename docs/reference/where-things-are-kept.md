@@ -32,6 +32,7 @@ name index    /home/me/.cache/coxswain/index.bin
 search store  /home/me/.cache/coxswain/search.db
 model         /home/me/.cache/coxswain/models/multilingual-e5-small-614241f6
 previews      /home/me/.cache/coxswain/previews
+archive looks /home/me/.cache/coxswain/peek
 ```
 
 In the desktop app, the bottom of Settings (**Ctrl+,**) says *Settings are stored in …* with the
@@ -48,6 +49,7 @@ model's folder.
 | `index.bin` | `~/.cache/coxswain/index.bin` | The name index, saved so it loads at once | Yes: it is built again |
 | `search.db` (with `-wal`, `-shm`) | `~/.cache/coxswain/search.db` | The text of your files, every file's size and date, folder totals, duplicate hashes, meaning vectors | Yes, with no Coxswain running: it fills again. Or *Delete the index* in Settings |
 | `models/` | `~/.cache/coxswain/models/multilingual-e5-small-614241f6/` | The built-in model for search by meaning, about 488 MB | Yes: *Delete the model* in Settings or `coxswain --meaning delete` does it for you |
+| `peek/` | `~/.cache/coxswain/peek/<run>/` | The one file inside an archive being previewed or viewed, copied out for the look; replaced by the next, and left-overs of earlier runs go after a day | Yes, any time |
 | `previews/` | `~/.cache/coxswain/previews/` | PDFs, SVGs and pages made by tools (LaTeX, LibreOffice, PlantUML, pandoc), one folder per file and engine | Yes: Settings → *Previews made by tools* → *Previews made so far* → *Clear* does it |
 | `index.addr`, `index.lock` | `~/.cache/coxswain/` | The helper's port and token (readable by you alone), and its lock | Only while no helper runs |
 | `libreoffice-profile/`, `libreoffice-index-profile/` | `~/.cache/coxswain/` | LibreOffice's own profiles for previews and for reading old Office files, so your open LibreOffice is left alone | Yes |
@@ -131,4 +133,4 @@ A `state.json` that could not be read when an app started, moved aside so a new 
 saved. Your tags and notes are in it; mend it by hand or delete it.
 
 ---
-[← Previous: Update checks](updates.md) · [Next: Questions, collected →](../faq.md)
+[← Previous: Update checks](updates.md) · [Next: Security →](security.md)

@@ -118,7 +118,9 @@
  "archive.pack": "Pakkaa",
  "archive.pack_into": "Pakkaa {what} tiedostoon (.zip, .7z, .tar, .tar.gz …):",
  "archive.packed": "Pakattu {what}",
- "archive.preview_hint": "Tiedosto on arkistossa {archive}. Kopioi se ulos F5:llä nähdäksesi sen.",
+ "archive.preview_locked": "Tiedosto on lukittu salasanalla.",
+ "archive.preview_opening": "Avataan arkistosta {archive}…",
+ "archive.preview_unlock": "Anna salasana",
  "bom.advice": "Mitä tehdä",
  "bom.as_in_file": "Kuten tiedostossa",
  "bom.assets": {

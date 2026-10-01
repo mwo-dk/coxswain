@@ -121,7 +121,9 @@
  "archive.pack": "אריזה",
  "archive.pack_into": "לארוז את {what} אל (‎.zip, ‎.7z, ‎.tar, ‎.tar.gz…):",
  "archive.packed": "{what} נארז",
- "archive.preview_hint": "הקובץ נמצא בתוך {archive}. העתיקו אותו החוצה עם F5 כדי לראות אותו.",
+ "archive.preview_locked": "הקובץ הזה נעול בסיסמה.",
+ "archive.preview_opening": "נפתח מתוך {archive}…",
+ "archive.preview_unlock": "הזינו את הסיסמה",
  "bom.advice": "מה לעשות",
  "bom.as_in_file": "כמו בקובץ",
  "bom.assets": {

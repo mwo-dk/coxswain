@@ -121,7 +121,9 @@
  "archive.pack": "Compresser",
  "archive.pack_into": "Compresser {what} dans (.zip, .7z, .tar, .tar.gz…) :",
  "archive.packed": "{what} compressé",
- "archive.preview_hint": "Ce fichier est dans {archive}. Copiez-le avec F5 pour le voir.",
+ "archive.preview_locked": "Ce fichier est verrouillé par un mot de passe.",
+ "archive.preview_opening": "Ouverture depuis {archive}…",
+ "archive.preview_unlock": "Saisir le mot de passe",
  "bom.advice": "Que faire",
  "bom.as_in_file": "Comme dans le fichier",
  "bom.assets": {
