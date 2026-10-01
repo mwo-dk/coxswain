@@ -118,7 +118,9 @@
  "archive.pack": "Paketatu",
  "archive.pack_into": "Paketatu {what} hemen (.zip, .7z, .tar, .tar.gz…):",
  "archive.packed": "{what} paketatua",
- "archive.preview_hint": "Fitxategi hau {archive} barruan dago. Kopiatu kanpora F5ekin ikusteko.",
+ "archive.preview_locked": "Fitxategi hau pasahitz batekin blokeatuta dago.",
+ "archive.preview_opening": "{archive}(e)tik irekitzen…",
+ "archive.preview_unlock": "Idatzi pasahitza",
  "bom.advice": "Zer egin",
  "bom.as_in_file": "Fitxategian bezala",
  "bom.assets": {

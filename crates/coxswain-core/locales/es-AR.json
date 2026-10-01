@@ -121,7 +121,9 @@
  "archive.pack": "Empaquetar",
  "archive.pack_into": "Empaquetar {what} en (.zip, .7z, .tar, .tar.gz…):",
  "archive.packed": "{what} empaquetado",
- "archive.preview_hint": "Este archivo está dentro de {archive}. Copialo afuera con F5 para verlo.",
+ "archive.preview_locked": "Este archivo está bloqueado con contraseña.",
+ "archive.preview_opening": "Abriendo desde {archive}…",
+ "archive.preview_unlock": "Ingresá la contraseña",
  "bom.advice": "Qué hacer",
  "bom.as_in_file": "Como en el archivo",
  "bom.assets": {

@@ -489,6 +489,37 @@ pub fn copy_out(archive: &Path, inner: &str, dest: &Path, password: Option<&str>
     copy_out_with(archive, inner, &to, password_for(archive, password).as_deref()).map(|_| to)
 }
 
+/// Files larger than this inside an archive are not copied out just to be looked at.
+pub const PEEK_MAX: u64 = 256 * 1024 * 1024;
+
+/// A copy of the file at `path` (a path through an archive), to look at: the
+/// preview pane, F3. It keeps the file's name, so it is previewed by its kind. The copy before
+/// it goes, and copies left by earlier runs go after a day. A locked file needs its password
+/// remembered: `LOCKED` without it.
+pub fn peek(path: &Path) -> io::Result<PathBuf> {
+    let (archive, inner) = split(path).filter(|(_, i)| !i.is_empty()).ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "not inside an archive"))?;
+    let it = items(&archive)?.into_iter().find(|it| it.name == inner).ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, format!("{inner} is not in the archive")))?;
+    if it.dir {
+        return Err(io::Error::new(io::ErrorKind::InvalidInput, format!("{inner} is a folder")));
+    }
+    if it.size > PEEK_MAX {
+        return Err(io::Error::new(io::ErrorKind::FileTooLarge, format!("{inner} is too large to look at inside the archive; copy it out with F5")));
+    }
+    let base = dirs::cache_dir().ok_or_else(|| io::Error::other("no cache folder"))?.join("coxswain").join("peek");
+    let day = std::time::Duration::from_secs(24 * 3600);
+    for old in std::fs::read_dir(&base).into_iter().flatten().flatten() {
+        if old.metadata().and_then(|m| m.modified()).is_ok_and(|t| t.elapsed().unwrap_or_default() > day) {
+            let _ = std::fs::remove_dir_all(old.path());
+        }
+    }
+    let run = base.join(std::process::id().to_string());
+    let _ = std::fs::remove_dir_all(&run);
+    std::fs::create_dir_all(&run)?;
+    let to = run.join(inner.rsplit('/').next().unwrap_or("file"));
+    copy_out_with(&archive, &inner, &to, password_for(&archive, None).as_deref())?;
+    Ok(to)
+}
+
 /// `inner` (everything with "") out of `archive` to `to`, which is where it lands: the file, or
 /// the folder it is unpacked into. Whatever was written is removed when it fails. A password
 /// that opened a locked file is kept for the rest of this run.
@@ -875,6 +906,14 @@ mod tests {
         assert_eq!(std::fs::read_to_string(extract(&tp, &d).unwrap().join("x/a.txt")).unwrap(), "hello");
 
         assert!(list(&d.join("pack/sub/a.txt"), 10).is_err());
+
+        // A look at a file inside: a copy by its own name; the next look replaces it.
+        let seen = peek(&zp.join("sub/a.txt")).unwrap();
+        assert_eq!((seen.file_name().unwrap().to_str(), std::fs::read_to_string(&seen).unwrap().as_str()), (Some("a.txt"), "hello"));
+        let next = peek(&tp.join("x/a.txt")).unwrap();
+        assert!(next.exists() && (next == seen || !seen.exists()), "one copy at a time");
+        assert!(peek(&zp.join("sub")).is_err(), "a folder is not looked at");
+        assert!(peek(&zp.join("nothing.txt")).is_err());
         std::fs::remove_dir_all(d).unwrap();
     }
 

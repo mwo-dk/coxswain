@@ -118,7 +118,9 @@
  "archive.pack": "Pak",
  "archive.pack_into": "Pak {what} i (.zip, .7z, .tar, .tar.gz …):",
  "archive.packed": "Pakkede {what}",
- "archive.preview_hint": "Filen er inde i {archive}. Kopiér den ud med F5 for at se den.",
+ "archive.preview_locked": "Filen er låst med en adgangskode.",
+ "archive.preview_opening": "Åbner den fra {archive}…",
+ "archive.preview_unlock": "Indtast adgangskoden",
  "bom.advice": "Hvad du kan gøre",
  "bom.as_in_file": "Som i filen",
  "bom.assets": {

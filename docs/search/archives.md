@@ -188,7 +188,9 @@ is removed from the store at its next walk.
 
 #### Can I open a file that was found inside an archive?
 **Enter** goes to it: the panel opens the archive's folder, cursor on the file. From there it is a
-file inside an archive like any other: **F5** copies it out ([Archives as folders](../files/archives.md)).
+file inside an archive like any other: the desktop app's preview pane shows it and **F3** in the
+terminal app views it, from a copy of just that file, and **F5** copies it out to change it
+([Archives as folders](../files/archives.md)).
 
 ---
 [← Previous: Diagrams read as sentences](diagrams.md) · [Next: Choosing the folders →](folders.md)
