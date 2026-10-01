@@ -1457,14 +1457,12 @@ mod tests {
 
     #[test]
     fn a_listing_sends_a_path_only_where_the_page_cannot_join_it() {
-        let e = |name: &str, path: &str| Entry { name: name.into(), path: path.into(), is_dir: false, is_symlink: false, is_exec: false, hidden: false, size: 0, modified: 0, created: 0 };
+        let e = |name: &str, path: PathBuf| Entry { name: name.into(), path, is_dir: false, is_symlink: false, is_exec: false, hidden: false, size: 0, modified: 0, created: 0 };
         let dir = Path::new("/srv/box");
-        let (prefix, items) = to_page(dir, vec![e("..", "/srv"), e("a.txt", "/srv/box/a.txt"), e("x", "/srv/box/x"), e("b", "/elsewhere/b")], |_| None, None);
+        let (prefix, items) = to_page(dir, vec![e("..", "/srv".into()), e("a.txt", dir.join("a.txt")), e("x", dir.join("x")), e("b", Path::new("/elsewhere").join("b"))], |_| None, None);
         assert_eq!(prefix, format!("/srv/box{}", std::path::MAIN_SEPARATOR));
-        let paths: Vec<_> = items.iter().map(|i| i.entry.path.to_string_lossy().into_owned()).collect();
-        if cfg!(unix) {
-            assert_eq!(paths, ["/srv", "", "", "/elsewhere/b"]);
-        }
+        let left: Vec<_> = items.iter().map(|i| i.entry.path.as_os_str().is_empty()).collect();
+        assert_eq!(left, [false, true, true, false], "`..` and one elsewhere keep their paths");
         // A folder whose name ends in the letter the prefix is found with.
         assert_eq!(to_page(Path::new("/tmp/xx"), vec![], |_| None, None).0, format!("/tmp/xx{}", std::path::MAIN_SEPARATOR));
         let json = serde_json::to_string(&items[1]).unwrap();
