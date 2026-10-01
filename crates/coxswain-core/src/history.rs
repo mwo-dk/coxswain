@@ -295,7 +295,7 @@ pub fn peek(path: &Path) -> io::Result<PathBuf> {
 pub fn diff(at: &At) -> io::Result<String> {
     let rev = at.commit.as_deref().ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "pick a commit first"))?;
     let mut c = git(&at.base);
-    c.args(["show", "--format=", "--no-color", "--no-ext-diff", rev, "--", inner_spec(&at.inner).trim_end_matches('/')]);
+    c.args(["show", "--format=", "--no-color", "--no-ext-diff", "--no-textconv", rev, "--", inner_spec(&at.inner).trim_end_matches('/')]);
     Ok(String::from_utf8_lossy(&run(c)?).chars().take(512 * 1024).collect())
 }
 
@@ -641,6 +641,9 @@ pub(crate) mod tests {
         let at = split(&at_first.join("main.rs")).unwrap();
         assert_eq!(read(&at, 100).unwrap(), (b"one\n".to_vec(), false));
         assert_eq!(read(&at, 2).unwrap(), (b"on".to_vec(), true));
+        let copy = peek(&at_first.join("main.rs")).unwrap();
+        assert_eq!((copy.file_name().unwrap().to_str(), std::fs::read_to_string(&copy).unwrap().as_str()), (Some("main.rs"), "one\n"));
+        assert!(peek(&at_first).is_err(), "a folder has no copy to look at");
         let second = split(&list[1].path.join("main.rs")).unwrap();
         assert!(diff(&second).unwrap().contains("-one\n+two"));
 

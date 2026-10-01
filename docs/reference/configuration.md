@@ -20,6 +20,7 @@ app reads it and which Settings item writes it.
 - [`[search]`](#search)
 - [`[preview]`](#preview)
 - [`[gui]`](#gui)
+- [`[git]`](#git)
 - [What has no key](#what-has-no-key)
 - [Settings and config.toml](#settings-and-configtoml)
 - [In the terminal app](#in-the-terminal-app)
@@ -206,6 +207,7 @@ flags start a new one.
 | `meaning_model` | string | `""` | The server's embedding model, for example `bge-m3` (the Ollama suggestion) |
 | `meaning_key_env` | string | `""` | The name of the environment variable that holds the server's API key. The key itself is never in this file |
 | `ask_model` | string | `""` | The chat model that answers in [Ask](../search/ask.md), on the server above (Ollama on this machine with the built-in model), e.g. `qwen3:8b`. Empty: Ask is not set up |
+| `history` | bool | `true` | Keep the history of the git repositories in the folders read: commit messages, authors and changed paths of the newest 2000 commits of each, found by Text in files and by meaning ([History in search](../search/history.md)) |
 
 Changing `meaning_engine` or `meaning_model` makes the helper work out the vectors again,
 since vectors of two models cannot be compared.
@@ -244,6 +246,17 @@ The desktop app's own settings.
 | `font_size` | number | `13` | Text size in pixels (Settings allows 9 to 28) |
 | `line_height` | number | `1.9` | Row height, as a multiple of the font size. No Settings item |
 
+## `[git]`
+
+Read by both apps when they start; the desktop app also after a change in Settings.
+
+| Key | Type | Default | Does |
+|---|---|---|---|
+| `last_commit` | bool | `true` | Show when each file and folder was last committed, and by whom: the *Last commit* column and the preview pane in the desktop app, the info line in the terminal app ([Git in the panels](../panels/git.md#last-commit-per-file)) |
+
+The [git history](../panels/git-history.md) itself has no switch: it is there when you press
+**Ctrl+G** (`history` in `[keys]`).
+
 ## What has no key
 
 Some choices are not in `config.toml`, and that is on purpose:
@@ -270,9 +283,11 @@ Each Settings item and the key it writes:
 | *Behaviour* | *Show hidden files when Coxswain starts* | `show_hidden` |
 | | *Ask before deleting* | `confirm_delete` |
 | | *Check for a new version once a day* | `check_updates` |
+| | *Show when each file and folder was last committed, and by whom* | `[git] last_commit` |
 | *Search inside files* | *Keep the text of files, so Find file can search in it (Tab)* | `[search] text` |
 | | *Folders read* | `[search] text_roots` |
 | | *Names only* | `[search] names_only` |
+| | *Search the history of git repositories too…* | `[search] history` |
 | | *Start the search helper with my session…* | none: the session registration |
 | *Search by meaning* | *Turn on*, *Turn off*, *Download the model and turn on* | `[search] meaning` |
 | | *Vectors made by* | `[search] meaning_engine` |
@@ -290,8 +305,8 @@ Every other key (`theme`, `viewer`, `editor`, `folder_sizes`, `glyph_set`, `[key
 ## In the terminal app
 
 The terminal app reads the same file, once, when it starts. It uses the top-level keys,
-`glyph_set`, `[keys]`, `[themes.*]` (colours only, not `look`), `[[user_menu]]` and, through the
-helper, `[search]`. It ignores `[preview]` and `[gui]`. It has no Settings window: edit the file,
+`glyph_set`, `[keys]`, `[themes.*]` (colours only, not `look`), `[[user_menu]]`, `[git]` and,
+through the helper, `[search]`. It ignores `[preview]` and `[gui]`. It has no Settings window: edit the file,
 or use `coxswain --meaning …` for search by meaning ([Command-line flags](command-line-flags.md#--meaning)).
 
 ## An example

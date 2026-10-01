@@ -50,6 +50,7 @@ On a Mac the shortcuts are the same, with **Ctrl**, not Cmd.
 | **F10** | Quit | `quit` | Close the window | Quit |
 | **Alt+F5** | Pack into an archive | `pack` | Pack the marked files ([Pack and extract](../files/pack-and-extract.md)) | The same |
 | **Ctrl+E** | Extract archive | `extract` | Extract into the other pane | The same |
+| **Ctrl+G** | Git history | `history` | The commits of the file or folder under the cursor, as folders ([Git history](git-history.md)) | The same |
 | **Ctrl+Enter**, **Ctrl+J** | Path to command line | `copy_path` | The name under the cursor to the command line | The same |
 
 ### Moving

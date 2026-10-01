@@ -11,6 +11,10 @@ The questions people ask most, with a short answer and a link to the full one. E
 - **Why did `+` not mark any folders?** Groups mark files only, as in NC; mark folders with Insert. [Answer](panels/marking.md#why-did--not-mark-any-folders)
 - **Why is a folder's size not shown?** It is still being measured, you left the folder, measuring is off, or it is /proc, /sys, /dev or /run. [Answer](panels/folder-sizes.md#why-is-a-folders-size-not-shown)
 - **I committed in a terminal and the git line did not change.** A commit only changes `.git`, so nothing tells Coxswain; press Ctrl+R. [Answer](panels/git.md#i-committed-in-a-terminal-and-the-git-line-did-not-change)
+- **How do I see who changed a file, and when?** The Last commit column (desktop app) or the line under the panel (terminal app); Ctrl+G lists every commit. [Answer](panels/git-history.md#how-do-i-see-who-changed-a-file-and-when)
+- **How do I get back an old version of a file?** Ctrl+G on it, Enter on the commit, F5 on the file. [Answer](panels/git-history.md#how-do-i-get-back-an-old-version-of-a-file)
+- **Why does a file say "older" in Last commit?** It has not changed in the newest 5000 commits of its folder, where the walk stops; Ctrl+G shows when. [Answer](panels/git.md#why-does-a-file-say-older-in-last-commit)
+- **Why does a file's history stop at a rename?** The history follows the path, as `git log -- <path>` does. [Answer](panels/git-history.md#why-does-a-files-history-stop-at-a-rename)
 - **Why is there a new tab in the left pane every time I start the desktop app?** The folder it started in is not open in any left-pane tab, so it is added; keep a tab on it (home, for menu starts). [Answer](panels/the-screen.md#why-is-there-a-new-tab-in-the-left-pane-every-time-i-start-the-desktop-app)
 - **What does "search: names · text" in the title mean?** The kinds of search Find file can do now: names always, text when file text is kept, meaning when search by meaning runs. [Answer](panels/the-screen.md#what-does-search-names--text-in-the-title-mean)
 - **I bound a key and now the desktop app ignores my whole config. Why?** An unreadable key name makes the config invalid: the desktop app falls back to defaults, the terminal app refuses to start. [Answer](panels/keys.md#i-bound-a-key-and-now-the-desktop-app-ignores-my-whole-config-why)
@@ -47,6 +51,8 @@ The questions people ask most, with a short answer and a link to the full one. E
 - **How do I keep a folder's text out of the index?** Add it to Names only in Settings, or put an empty `.nosearch` file in it. [Answer](search/folders.md#how-do-i-make-a-folder-names-only)
 - **Is Coxswain running in the background after I close it?** The search helper stays ten minutes, or for good if started with your session. [Answer](search/helper.md#is-coxswain-running-in-the-background-after-i-close-it)
 - **I installed tesseract and nothing happened.** The helper looks for programs when it starts; let it start again. [Answer](search/scans.md#i-installed-tesseract-and-nothing-happened)
+- **Can Find file search commit messages?** Yes: commits of the repositories in the folders read are found in Text in files, and Enter opens the commit. [Answer](search/history.md)
+- **Why does Find file not find my latest commit?** Repositories are read at the helper's scans, at most ten minutes apart. [Answer](search/history.md#why-does-find-file-not-find-my-latest-commit)
 - **Why does a search for "browser entra" find my diagram?** Every arrow becomes a sentence such as "Browser to Entra ID: sign in.". [Answer](search/diagrams.md#why-does-a-search-for-browser-entra-find-my-diagram-when-no-box-says-both)
 
 ## The preview pane
