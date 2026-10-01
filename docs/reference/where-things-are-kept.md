@@ -32,6 +32,7 @@ name index    /home/me/.cache/coxswain/index.bin
 search store  /home/me/.cache/coxswain/search.db
 model         /home/me/.cache/coxswain/models/multilingual-e5-small-614241f6
 previews      /home/me/.cache/coxswain/previews
+archive looks /home/me/.cache/coxswain/peek
 ```
 
 In the desktop app, the bottom of Settings (**Ctrl+,**) says *Settings are stored in …* with the
