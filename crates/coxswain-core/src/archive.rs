@@ -876,7 +876,7 @@ fn rewrite(archive: &Path, keep: &dyn Fn(&str) -> Option<String>, add: &[(String
                 }
                 used = locked;
             } else if let Some(pw) = password {
-                w.set_content_methods(vec![sevenz_rust2::encoder_options::AesEncoderOptions::new(sevenz_rust2::Password::from(pw)).into(), sevenz_rust2::EncoderMethod::LZMA2.into()]);
+                w.set_content_methods(seven_locking(pw));
                 w.set_encrypt_header(hide_names);
                 used = true;
             }
@@ -1045,6 +1045,21 @@ pub fn create_locked(path: &Path, sources: &[PathBuf], password: Option<&str>, h
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A 7z locked here has its key made as 7-Zip makes it: 2^19 rounds, not the crate's 2^8.
+    #[test]
+    fn archive_7z_key_is_made_as_7zip_makes_it() {
+        let d = std::env::temp_dir().join(format!("coxswain-test-7zkey-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        std::fs::write(d.join("a.txt"), "secret").unwrap();
+        let p = d.join("locked.7z");
+        create_locked(&p, &[d.join("a.txt")], Some("hunter2"), false).unwrap();
+        let r = seven(&p, Some("hunter2")).unwrap();
+        let aes = r.archive().blocks.iter().flat_map(|b| &b.coders).find(|c| c.encoder_method_id() == sevenz_rust2::EncoderMethod::ID_AES256_SHA256).expect("an AES coder");
+        assert_eq!(aes.properties()[0] & 0x3F, 19);
+        std::fs::remove_dir_all(d).unwrap();
+    }
 
     /// Archives made to hurt: what they hold is never lost on a move, never written past a
     /// limit, never leads outside, and a huge long-name record is refused, not read into memory.
