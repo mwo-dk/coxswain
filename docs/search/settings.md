@@ -25,6 +25,7 @@ A change in either section is saved at once and starts a new [helper](helper.md)
 | Item | Key | Type, default | Does |
 |---|---|---|---|
 | *Keep the text of files, so Find file can search in it (Tab)* | `text` | bool, `true` | Off: no [text search](text.md), no search by meaning, and folder sizes and duplicates lose the store's help. The rest of the section is hidden |
+| *Search inside archives: the files in zip, 7z and tar archives are found by name and by their text* | `archives` | bool, `true` | See [Inside archives](archives.md). Off: an archive is found by its own name only |
 | Status | | | *Searchable: 31,208 files · still to read: 412 · 1.1 GB on disk*, where `search.db` is, and on battery *Paused while the machine runs on its battery. Index now reads anyway.* Without a helper: *The search helper is not running, so text cannot be searched now.* |
 | *Start the search helper with my session, so it reads while no window is open* | Not in `config.toml` | off | See [The search helper](helper.md) |
 | **Index now** | | | Reads the backlog at full speed, on battery too. Greyed out when nothing is left to read |
@@ -74,6 +75,7 @@ text_roots = []            # empty = your home folder
 text_exclude = ["node_modules", "target", "build", "dist", "out", "vendor", "__pycache__", "Trash"]
 names_only = []
 text_max_size = 20971520
+archives = true            # look inside zip, 7z and tar archives
 meaning = false
 meaning_engine = "builtin" # or "ollama", "openai"
 meaning_url = ""

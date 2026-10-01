@@ -105,4 +105,4 @@ Put an empty `.nosearch` file in the repository, or add it to *Names only*: then
 nor its commits are read.
 
 ---
-[← Previous: Diagrams read as sentences](diagrams.md) · [Next: Choosing the folders →](folders.md)
+[← Previous: Diagrams read as sentences](diagrams.md) · [Next: Inside archives →](archives.md)

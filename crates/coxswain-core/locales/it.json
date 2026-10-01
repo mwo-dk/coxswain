@@ -791,6 +791,7 @@
  "settings.saved": "Salvato in {path}",
  "settings.search": "Ricerca nel contenuto dei file",
  "settings.search_add": "Aggiungi",
+ "settings.search_archives": "Cerca dentro gli archivi: i file degli archivi zip, 7z e tar si trovano per nome e per il loro testo",
  "settings.search_forget": "Elimina l’indice",
  "settings.search_forget_confirm": "Fai di nuovo clic per eliminare",
  "settings.search_hint": "Le cartelle «solo nomi» si trovano per nome e contano nelle dimensioni delle cartelle, ma non vengono mai lette. Un file chiamato .nosearch in una cartella fa lo stesso. Di norma i file si leggono a metà velocità, uno alla volta; «Indicizza ora» legge l’arretrato a piena velocità.",

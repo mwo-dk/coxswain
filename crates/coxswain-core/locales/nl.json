@@ -746,6 +746,7 @@
  "settings.saved": "Opgeslagen in {path}",
  "settings.search": "Zoeken in de inhoud van bestanden",
  "settings.search_add": "Toevoegen",
+ "settings.search_archives": "In archieven zoeken: de bestanden in zip-, 7z- en tar-archieven worden op naam en op hun tekst gevonden",
  "settings.search_forget": "Index verwijderen",
  "settings.search_forget_confirm": "Klik nogmaals om te verwijderen",
  "settings.search_hint": "Mappen met ‘alleen namen’ worden op naam gevonden en tellen mee in mapgroottes, maar worden nooit gelezen. Een bestand met de naam .nosearch in een map doet hetzelfde. Normaal worden bestanden op halve snelheid gelezen, één tegelijk; Nu indexeren leest de achterstand op volle snelheid.",

@@ -746,6 +746,7 @@
  "settings.saved": "Tallennettu: {path}",
  "settings.search": "Haku tiedostojen sisällöstä",
  "settings.search_add": "Lisää",
+ "settings.search_archives": "Hae arkistojen sisältä: zip-, 7z- ja tar-arkistojen tiedostot löytyvät nimellä ja tekstinsä perusteella",
  "settings.search_forget": "Poista hakemisto",
  "settings.search_forget_confirm": "Poista napsauttamalla uudelleen",
  "settings.search_hint": "Vain nimet -kansiot löytyvät nimellä ja lasketaan kansioiden kokoihin, mutta niitä ei koskaan lueta. Kansiossa oleva .nosearch-niminen tiedosto tekee saman. Tavallisesti tiedostot luetaan puolella nopeudella yksi kerrallaan; Indeksoi nyt lukee jonon täydellä nopeudella.",

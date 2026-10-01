@@ -96,7 +96,7 @@ fn perf_find_file_1m() {
     let d = tree(1000, 1000);
     let before = rss_mb();
     let t = Instant::now();
-    let ix = Index::build(&[d.clone()], &[]);
+    let ix = Index::build(&[d.clone()], &[], None, None);
     println!("index build 1M names: {:.0} ms ({} names, +{:.0} MB)", ms(t), ix.len(), rss_mb() - before);
     for q in ["mod_500_7", "*.rs", "mod 12 3", "src99/ toml", "!mod", "ext:csv", "zzz"] {
         let t = Instant::now();

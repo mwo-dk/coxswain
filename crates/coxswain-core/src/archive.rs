@@ -55,8 +55,9 @@ const ENDINGS: &[(&str, Kind)] = &[
 ];
 
 fn kind(path: &Path) -> Option<Kind> {
-    let n = path.file_name()?.to_string_lossy().to_lowercase();
-    ENDINGS.iter().find(|(e, _)| n.ends_with(e)).map(|(_, k)| *k)
+    // Asked of every file the name index walks: no allocation.
+    let n = path.file_name()?.as_encoded_bytes();
+    ENDINGS.iter().find(|(e, _)| n.len() >= e.len() && n[n.len() - e.len()..].eq_ignore_ascii_case(e.as_bytes())).map(|(_, k)| *k)
 }
 
 pub fn is_archive(path: &Path) -> bool {
@@ -292,31 +293,128 @@ fn items(archive: &Path) -> io::Result<Vec<Item>> {
 }
 
 fn read_items(archive: &Path) -> io::Result<Vec<Item>> {
+    read_items_with(archive, password_for(archive, None).as_deref(), usize::MAX)
+}
+
+/// The first `max` entries, a locked 7z's names read with `password`.
+fn read_items_with(archive: &Path, password: Option<&str>, max: usize) -> io::Result<Vec<Item>> {
     let k = kind(archive).ok_or_else(|| not_archive(archive))?;
     let mut out = vec![];
     if k == Kind::Zip {
         let mut z = zip::ZipArchive::new(BufReader::new(File::open(archive)?)).map_err(io::Error::other)?;
-        for i in 0..z.len() {
+        for i in 0..z.len().min(max) {
             let e = z.by_index_raw(i).map_err(io::Error::other)?;
             out.push(Item { name: e.name().trim_end_matches('/').to_string(), size: e.size(), dir: e.is_dir(), modified: e.last_modified().map_or(0, unix), locked: e.encrypted() });
         }
         return Ok(out);
     }
     if k == Kind::SevenZ {
-        let r = seven(archive, password_for(archive, None).as_deref())?;
+        let r = seven(archive, password)?;
         let locked = seven_locked(r.archive());
-        for f in &r.archive().files {
+        for f in r.archive().files.iter().take(max) {
             let modified = std::time::SystemTime::from(f.last_modified_date).duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_secs());
             out.push(Item { name: f.name.replace('\\', "/").trim_end_matches('/').to_string(), size: f.size, dir: f.is_directory, modified, locked: locked && f.has_stream });
         }
         return Ok(out);
     }
-    for e in tar_reader(archive, k)?.entries()? {
-        let e = e?;
+    fn item<R: Read>(e: tar::Entry<'_, R>) -> io::Result<Item> {
         let name = e.path()?.to_string_lossy().trim_start_matches("./").trim_end_matches('/').to_string();
-        out.push(Item { name, size: e.size(), dir: e.header().entry_type().is_dir(), modified: e.header().mtime().unwrap_or(0), locked: false });
+        Ok(Item { name, size: e.size(), dir: e.header().entry_type().is_dir(), modified: e.header().mtime().unwrap_or(0), locked: false })
+    }
+    if k == Kind::Tar(Pack::None) {
+        // A plain tar's headers are read by seeking past what lies between them.
+        for e in tar::Archive::new(BufReader::new(File::open(archive)?)).entries_with_seek()?.take(max) {
+            out.push(item(e?)?);
+        }
+    } else {
+        for e in tar_reader(archive, k)?.entries()?.take(max) {
+            out.push(item(e?)?);
+        }
     }
     Ok(out)
+}
+
+// ---------------------------------------------------------------- for search
+
+/// The most entries of one archive that search knows.
+pub(crate) const SEARCH_ENTRIES: usize = 50_000;
+/// A compressed tar or a 7z is unpacked from its start to be read, a compressed tar even to be
+/// listed: larger ones are found by their own name only.
+pub(crate) const SEARCH_UNPACK: u64 = 256 << 20;
+/// The most bytes read out of one archive for its files' text.
+pub(crate) const SEARCH_READ: u64 = 128 << 20;
+
+/// Whether getting at `archive`'s entries means unpacking all before them.
+fn streamed(archive: &Path) -> bool {
+    matches!(kind(archive), Some(Kind::Tar(p)) if p != Pack::None) || kind(archive) == Some(Kind::SevenZ)
+}
+
+/// A name inside an archive that can be a path through it: no `..`, nothing empty, and no
+/// deeper than 64 folders (search builds its tree of them by recursion).
+fn sound(name: &str) -> bool {
+    name.split('/').count() <= 64 && name.split('/').all(|p| !p.is_empty() && p != "." && p != ".." && !(cfg!(windows) && p.contains([':', '\\'])))
+}
+
+/// What search may know of `archive` (`size` bytes) by name: its first `SEARCH_ENTRIES`
+/// entries, as far as they are seen without a password, those whose names could not be a path
+/// through it left out. `None` for one it does not look into: not an archive, too large to be
+/// unpacked for a listing, or unreadable.
+pub(crate) fn search_entries(archive: &Path, size: u64) -> Option<Vec<ArchiveEntry>> {
+    let k = kind(archive)?;
+    if matches!(k, Kind::Tar(p) if p != Pack::None) && size > SEARCH_UNPACK {
+        return None;
+    }
+    // Never a password given in this run: what search knows is what anyone sees.
+    let items = read_items_with(archive, None, SEARCH_ENTRIES).ok()?;
+    Some(items.into_iter().filter(|it| sound(&it.name)).map(|it| ArchiveEntry { name: it.name, size: it.size, is_dir: it.dir }).collect())
+}
+
+/// Read the files of `archive` (`size` bytes) that `wanted` picks by name and size, in the
+/// order they are in it: `read` gets each with its name, and says whether to go on. Locked
+/// files are never read, and no password is ever used. Archives that would be unpacked past
+/// `SEARCH_UNPACK` are not read.
+pub(crate) fn search_read(archive: &Path, size: u64, wanted: &dyn Fn(&str, u64) -> bool, read: &mut dyn FnMut(&str, &mut dyn Read) -> bool) -> io::Result<()> {
+    let k = kind(archive).ok_or_else(|| not_archive(archive))?;
+    if streamed(archive) && size > SEARCH_UNPACK {
+        return Ok(());
+    }
+    match k {
+        Kind::Zip => {
+            let mut z = zip::ZipArchive::new(BufReader::new(File::open(archive)?)).map_err(io::Error::other)?;
+            for i in 0..z.len().min(SEARCH_ENTRIES) {
+                let (name, ok) = {
+                    let e = z.by_index_raw(i).map_err(io::Error::other)?;
+                    let name = e.name().trim_end_matches('/').to_string();
+                    let ok = e.is_file() && !e.encrypted() && sound(&name) && wanted(&name, e.size());
+                    (name, ok)
+                };
+                if ok && !read(&name, &mut z.by_index(i).map_err(io::Error::other)?) {
+                    break;
+                }
+            }
+        }
+        Kind::SevenZ => {
+            let mut r = seven(archive, None)?;
+            if seven_locked(r.archive()) {
+                return Ok(());
+            }
+            r.for_each_entries(|e, from| {
+                let name = e.name.replace('\\', "/").trim_end_matches('/').to_string();
+                Ok(e.is_directory || !e.has_stream || !sound(&name) || !wanted(&name, e.size) || read(&name, from))
+            })
+            .map_err(seven_error)?;
+        }
+        Kind::Tar(_) => {
+            for e in tar_reader(archive, k)?.entries()?.take(SEARCH_ENTRIES) {
+                let mut e = e?;
+                let name = e.path()?.to_string_lossy().trim_start_matches("./").trim_end_matches('/').to_string();
+                if e.header().entry_type().is_file() && sound(&name) && wanted(&name, e.size()) && !read(&name, &mut e) {
+                    break;
+                }
+            }
+        }
+    }
+    Ok(())
 }
 
 /// What is inside `archive` at `inner`, as a folder listing: its files, and the folders in it,
@@ -328,7 +426,8 @@ pub fn list_in(archive: &Path, inner: &str) -> io::Result<Vec<crate::fs::Entry>>
 /// `list_in`, and whether anything in that folder or below it is locked. A folder's size is
 /// that of the files in it.
 pub fn listing(archive: &Path, inner: &str) -> io::Result<(Vec<crate::fs::Entry>, bool)> {
-    let at = if inner.is_empty() { archive.to_path_buf() } else { archive.join(inner) };
+    // Part by part, so the paths have the system's separator throughout, as the search's do.
+    let at = inner.split('/').filter(|p| !p.is_empty()).fold(archive.to_path_buf(), |p, part| p.join(part));
     let prefix = if inner.is_empty() { String::new() } else { format!("{inner}/") };
     let mut seen = std::collections::BTreeMap::new();
     let mut locked = false;
@@ -935,6 +1034,38 @@ mod tests {
             assert_eq!(std::fs::read_to_string(crate::fs::copy(&other.join("renamed/b.txt"), &d).unwrap()).unwrap(), "two");
             std::fs::remove_file(d.join("b.txt")).unwrap();
         }
+        std::fs::remove_dir_all(d).unwrap();
+    }
+
+    #[test]
+    fn archive_search_sees_only_names_that_are_paths_and_never_locked_text() {
+        let d = std::env::temp_dir().join(format!("coxswain-test-archive-search-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        let zp = d.join("odd.zip");
+        let mut w = zip::ZipWriter::new(File::create(&zp).unwrap());
+        let deep = vec!["a"; 65].join("/");
+        for name in ["../evil.txt", "/abs.txt", "ok/./x.txt", "fine/name.txt", deep.as_str()] {
+            w.start_file(name, zip::write::SimpleFileOptions::default()).unwrap();
+            io::Write::write_all(&mut w, b"words").unwrap();
+        }
+        w.start_file("locked.txt", zip::write::SimpleFileOptions::default().with_aes_encryption(zip::AesMode::Aes256, "pw")).unwrap();
+        io::Write::write_all(&mut w, b"secret").unwrap();
+        w.finish().unwrap();
+        let size = std::fs::metadata(&zp).unwrap().len();
+        let names: Vec<String> = search_entries(&zp, size).unwrap().into_iter().map(|e| e.name).collect();
+        assert_eq!(names, ["fine/name.txt", "locked.txt"]);
+        let mut read = vec![];
+        search_read(&zp, size, &|_, _| true, &mut |name, from| {
+            let mut text = String::new();
+            from.read_to_string(&mut text).unwrap();
+            read.push((name.to_string(), text));
+            true
+        })
+        .unwrap();
+        assert_eq!(read, [("fine/name.txt".to_string(), "words".to_string())]);
+        // A compressed tar too large to unpack for a listing is not looked into.
+        assert!(search_entries(&d.join("big.tar.xz"), SEARCH_UNPACK + 1).is_none());
         std::fs::remove_dir_all(d).unwrap();
     }
 

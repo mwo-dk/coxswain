@@ -746,6 +746,7 @@
  "settings.saved": "Gemt i {path}",
  "settings.search": "Søg i filernes indhold",
  "settings.search_add": "Tilføj",
+ "settings.search_archives": "Søg inde i arkiver: filerne i zip-, 7z- og tar-arkiver findes på navn og på deres tekst",
  "settings.search_forget": "Slet indekset",
  "settings.search_forget_confirm": "Klik igen for at slette",
  "settings.search_hint": "Mapper med kun navne findes på navn og tælles med i mappestørrelser, men læses aldrig. En fil med navnet .nosearch i en mappe gør det samme. Normalt læses filerne i halv fart, én ad gangen; Indeksér nu læser efterslæbet i fuld fart.",

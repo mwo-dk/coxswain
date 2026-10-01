@@ -746,6 +746,7 @@
  "settings.saved": "Sparat i {path}",
  "settings.search": "Sök i filernas innehåll",
  "settings.search_add": "Lägg till",
+ "settings.search_archives": "Sök inuti arkiv: filerna i zip-, 7z- och tar-arkiv hittas på namn och på sin text",
  "settings.search_forget": "Radera indexet",
  "settings.search_forget_confirm": "Klicka igen för att radera",
  "settings.search_hint": "Mappar med bara namn hittas på namn och räknas med i mappstorlekar, men läses aldrig. En fil med namnet .nosearch i en mapp gör detsamma. Normalt läses filerna i halv fart, en i taget; Indexera nu läser eftersläpningen i full fart.",

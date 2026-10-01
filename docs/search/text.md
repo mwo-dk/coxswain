@@ -60,8 +60,8 @@ cannot be searched now.*
 | | |
 |---|---|
 | **Which folders** | Your home folder, unless you choose others ([Choosing the folders](folders.md)) |
-| **Which files** | Anything that is plain text (code, Markdown, logs, configuration …), the [documents](documents.md) Coxswain reads, [diagrams](diagrams.md) as sentences, and with installed programs, [scans and older Office files](scans.md). Up to 20 MB each (`text_max_size`), and at most 4 MB of text from one file |
-| **Left out** | Hidden folders (names starting with a dot); folders named `node_modules`, `target`, `build`, `dist`, `out`, `vendor`, `__pycache__` or `Trash` (`text_exclude`); folders marked *Names only*; any folder holding a file named `.nosearch`; pictures, video, archives and other files without text; symbolic links; files locked with a password |
+| **Which files** | Anything that is plain text (code, Markdown, logs, configuration …), the [documents](documents.md) Coxswain reads, [diagrams](diagrams.md) as sentences, the files [inside archives](archives.md), and with installed programs, [scans and older Office files](scans.md). Up to 20 MB each (`text_max_size`), and at most 4 MB of text from one file |
+| **Left out** | Hidden folders (names starting with a dot); folders named `node_modules`, `target`, `build`, `dist`, `out`, `vendor`, `__pycache__` or `Trash` (`text_exclude`); folders marked *Names only*; any folder holding a file named `.nosearch`; pictures, video and other files without text; symbolic links; files locked with a password, inside archives too |
 | **When** | In the background, by the [search helper](helper.md): a batch of files, then a rest as long as the work took (at most two seconds), so it runs at about half speed. Not while a laptop is on its [battery](battery.md). Changes are read within seconds |
 | **Also kept** | Every file's size and date, and the total of each folder left out, so [folder sizes](../panels/folder-sizes.md) are sums; the hashes of files that share a size, for [Duplicates](../files/duplicates.md) |
 | **Where** | `search.db` in Coxswain's cache folder, readable by you alone ([Where things are kept](../reference/where-things-are-kept.md)) |
@@ -87,6 +87,7 @@ within a minute. A walk every ten minutes catches anything the watcher missed.
 | `text_exclude` | list of strings | `["node_modules", "target", "build", "dist", "out", "vendor", "__pycache__", "Trash"]` | Folder names left out, wherever they are |
 | `names_only` | list of paths | `[]` | *Names only* |
 | `text_max_size` | bytes | `20971520` (20 MB) | Larger files are not read |
+| `archives` | bool | `true` | *Search inside archives*: the files in zip, 7z and tar archives are read too ([Inside archives](archives.md)) |
 
 ## In the terminal app
 
