@@ -28,6 +28,11 @@ fn key(path: &Path) -> Option<String> {
     Some(path.components().collect::<PathBuf>().to_str()?.to_string())
 }
 
+/// A row's path as the apps go to it: a commit's is the history folder of that commit.
+fn shown(path: String) -> PathBuf {
+    crate::history::from_key(&path).unwrap_or_else(|| PathBuf::from(path))
+}
+
 /// The range of paths below `dir`: every path that starts with it and a separator.
 fn below(dir: &str) -> (String, String) {
     let sep = std::path::MAIN_SEPARATOR;
@@ -413,6 +418,26 @@ impl Store {
         tx.commit()
     }
 
+    /// Commits of the repository at `root`, (id, time, text), as rows whose text is searched;
+    /// then only its newest `max` stay.
+    fn put_commits(&self, root: &Path, commits: &[(String, u64, String)], max: usize) -> rusqlite::Result<()> {
+        let mut db = self.db.lock().unwrap();
+        let tx = db.transaction()?;
+        for (hash, time, text) in commits {
+            let path = crate::history::key(root, hash);
+            if tx.execute("INSERT OR IGNORE INTO files(path, size, modified, has_text) VALUES (?1, 0, ?2, 1)", params![path, *time as i64])? == 1 {
+                tx.execute("INSERT INTO text(rowid, body) VALUES (?1, ?2)", params![tx.last_insert_rowid(), text])?;
+            }
+        }
+        tx.commit()?;
+        let (from, to) = below(crate::history::key(root, "").trim_end_matches(std::path::MAIN_SEPARATOR));
+        let mut q = db.prepare("SELECT path FROM files WHERE path > ?1 AND path < ?2 ORDER BY modified DESC LIMIT -1 OFFSET ?3")?;
+        let old: Vec<String> = q.query_map(params![from, to, max as i64], |r| r.get(0))?.collect::<rusqlite::Result<_>>()?;
+        drop(q);
+        drop(db);
+        if old.is_empty() { Ok(()) } else { self.apply(&old, &[], &[], false, false) }
+    }
+
     /// Files that share their size with another and have no current hash: (path, size, modified).
     fn unhashed(&self) -> rusqlite::Result<Vec<(PathBuf, u64, u64)>> {
         let db = self.db.lock().unwrap();
@@ -584,7 +609,7 @@ impl Store {
                     (!offline.iter().any(|(from, to)| path > *from && path < *to)).then(|| (path, crate::meaning::passages(&body)))
                 });
                 let (path, passages) = found.as_ref()?;
-                Some((PathBuf::from(path), s, passages.get(n as usize)?.clone()))
+                Some((shown(path.clone()), s, passages.get(n as usize)?.clone()))
             })
             .collect()
     }
@@ -606,13 +631,17 @@ impl Store {
         let found = || -> rusqlite::Result<(Vec<Hit>, usize)> {
             let total = db.query_row(&format!("SELECT count(*) FROM text JOIN files f ON f.id = text.rowid WHERE text MATCH ?1{hidden}"), rusqlite::params_from_iter(&args), |r| r.get::<_, i64>(0))? as usize;
             let mut q = db.prepare(&format!(
-                "SELECT f.path, snippet(text, 0, char(1), char(2), '…', 18) FROM text JOIN files f ON f.id = text.rowid
+                "SELECT f.path, snippet(text, 0, char(1), char(2), '…', 18), CASE WHEN f.path LIKE 'git:%' THEN substr(text.body, 1, instr(text.body, char(10)) - 1) END FROM text JOIN files f ON f.id = text.rowid
                  WHERE text MATCH ?1{hidden} ORDER BY rank LIMIT ?{}",
                 2 + 2 * offline.len()
             ))?;
             let hits = q.query_map(rusqlite::params_from_iter(args.iter().cloned().chain([(max as i64).into()])), |r| {
-                let snippet: String = r.get(1)?;
-                Ok(Hit { path: PathBuf::from(r.get::<_, String>(0)?), is_dir: false, snippet: Some(snippet.split_whitespace().collect::<Vec<_>>().join(" ")), similar: None })
+                let mut snippet = r.get::<_, String>(1)?.split_whitespace().collect::<Vec<_>>().join(" ");
+                // A commit says which it is ("commit a1b2c3d · author · date") before what matched.
+                if let Some(head) = r.get::<_, Option<String>>(2)?.filter(|h| !snippet.replace([MARK.0, MARK.1], "").contains(h.as_str())) {
+                    snippet = format!("{head} · {snippet}");
+                }
+                Ok(Hit { path: shown(r.get(0)?), is_dir: false, snippet: Some(snippet), similar: None })
             })?;
             Ok((hits.collect::<rusqlite::Result<_>>()?, total))
         };
@@ -648,6 +677,8 @@ struct Walk {
     skipped: Vec<(String, Size)>,
     /// Every file.
     seen: HashSet<String>,
+    /// Folders that are git work trees (they hold a `.git`).
+    repos: Vec<PathBuf>,
 }
 
 /// Walk `dirs` and everything below them. `None` when `stop` was set meanwhile.
@@ -662,6 +693,9 @@ fn walk(dirs: Vec<PathBuf>, cfg: &SearchConfig, known: &Known, stop: &AtomicBool
         }
         for entry in std::fs::read_dir(&dir).into_iter().flatten().flatten() {
             let (Ok(kind), path) = (entry.file_type(), entry.path()) else { continue };
+            if entry.file_name() == ".git" {
+                found.repos.push(dir.clone());
+            }
             if kind.is_dir() {
                 if !left_out(&path, cfg) {
                     stack.push(path);
@@ -694,11 +728,16 @@ pub fn scan(store: &Store, cfg: &SearchConfig, stop: &AtomicBool) -> rusqlite::R
     let Some(found) = walk(roots.clone(), cfg, &known, stop) else { return Ok(()) };
     // Rows of a disk that is not plugged in stay.
     let kept: Vec<(String, String)> = offline.iter().map(|at| below(at)).collect();
-    let gone: Vec<String> = known.into_keys().filter(|path| !found.seen.contains(path) && !kept.iter().any(|(from, to)| path > from && path < to)).collect();
+    // Commits are not files on disk: `history` keeps them.
+    let gone: Vec<String> = known.into_keys().filter(|path| !path.starts_with("git:") && !found.seen.contains(path) && !kept.iter().any(|(from, to)| path > from && path < to)).collect();
     *store.offline.lock().unwrap() = offline;
     store.apply(&gone, &found.changed, &found.skipped, true, cfg.archives)?;
     *store.walked.lock().unwrap() = Some((roots, began));
     if read(store, cfg, stop)? {
+        return Ok(());
+    }
+    let repos = if cfg.history { found.repos } else { vec![] };
+    if history(store, &repos, &kept, stop)? {
         return Ok(());
     }
 
@@ -872,6 +911,58 @@ fn read_inside(archive: &Path, files: Vec<(i64, String)>, max: u64) -> Vec<(i64,
         let _ = std::fs::remove_dir(dir);
     }
     texts.into_iter().collect()
+}
+
+/// Commits a repository keeps in the store at most, newest first.
+const HISTORY_MAX: usize = 2000;
+
+/// The history of the repositories in `repos`: commit messages, authors and changed paths,
+/// searched like the files' text. A repository whose HEAD moved on gets the new commits only;
+/// one whose history was rewritten is read again; one that is gone (and not on a disk that is
+/// not plugged in, `kept`) loses its commits. `true` when stopped.
+fn history(store: &Store, repos: &[PathBuf], kept: &[(String, String)], stop: &AtomicBool) -> rusqlite::Result<bool> {
+    let meta = |k: &str| -> Option<String> { store.db.lock().unwrap().query_row("SELECT value FROM meta WHERE key = ?1", [k], |r| r.get(0)).ok() };
+    let set = |k: &str, v: Option<&str>| -> rusqlite::Result<()> {
+        let db = store.db.lock().unwrap();
+        match v {
+            Some(v) => db.execute("INSERT OR REPLACE INTO meta(key, value) VALUES (?1, ?2)", [k, v]),
+            None => db.execute("DELETE FROM meta WHERE key = ?1", [k]),
+        }
+        .map(drop)
+    };
+    // Where each repository's commits are: below this key.
+    let rows = |root: &Path| crate::history::key(root, "").trim_end_matches(std::path::MAIN_SEPARATOR).to_string();
+    let had: Vec<String> = {
+        let db = store.db.lock().unwrap();
+        let mut q = db.prepare("SELECT substr(key, 9) FROM meta WHERE key LIKE 'history:%'")?;
+        q.query_map([], |r| r.get(0))?.collect::<rusqlite::Result<_>>()?
+    };
+    let now: HashSet<String> = repos.iter().filter_map(|r| key(r)).collect();
+    for root in had.iter().filter(|r| !now.contains(*r) && !kept.iter().any(|(from, to)| *r > from && *r < to)) {
+        store.apply(&[rows(Path::new(root))], &[], &[], false, false)?;
+        set(&format!("history:{root}"), None)?;
+    }
+    for repo in repos {
+        if stop.load(Ordering::Relaxed) || store.cleared.load(Ordering::Relaxed) {
+            return Ok(true);
+        }
+        let Some(root) = key(repo) else { continue };
+        let old = meta(&format!("history:{root}"));
+        let Some((head, grew)) = crate::history::head(repo, old.as_deref()) else { continue };
+        if old.as_deref() == Some(head.as_str()) {
+            continue;
+        }
+        let start = Instant::now();
+        // Rewritten (or new): read from the start.
+        if !grew {
+            store.apply(&[rows(repo)], &[], &[], false, false)?;
+        }
+        let Ok(commits) = crate::history::for_search(repo, old.as_deref().filter(|_| grew), HISTORY_MAX) else { continue };
+        store.put_commits(repo, &commits, HISTORY_MAX)?;
+        set(&format!("history:{root}"), Some(&head))?;
+        store.rest(start, stop);
+    }
+    Ok(false)
 }
 
 /// The store's sizes are as of now.
@@ -1052,6 +1143,48 @@ mod tests {
         Connection::open(d.join("search.db")).unwrap().pragma_update(None, "user_version", VERSION + 1).unwrap();
         assert_eq!(Store::open(&d.join("search.db")).unwrap().texts(), 0);
         std::fs::remove_dir_all(d).unwrap();
+    }
+
+    #[test]
+    fn store_keeps_the_history_of_repositories() {
+        use crate::history::tests::{add, commit_as, repo};
+        let Some(home) = repo("store") else { return };
+        std::fs::write(home.join("engine.rs"), "fn main() {}\n").unwrap();
+        add(&home);
+        commit_as(&home, "Ada", 1_700_000_000, "Tune the rocket engine");
+        let cfg = SearchConfig { text_roots: vec![home.clone()], ..SearchConfig::default() };
+        let db = home.with_extension("db");
+        let (store, go) = (Store::open(&db).unwrap(), AtomicBool::new(false));
+        scan(&store, &cfg, &go).unwrap();
+        let hits = |q: &str| store.search(q, 10).hits;
+        let found = hits("rocket");
+        assert_eq!(found.len(), 1);
+        let at = crate::history::split(&found[0].path).expect("a commit's history folder");
+        assert_eq!((at.target.as_path(), at.commit.as_ref().map(String::len)), (home.as_path(), Some(12)));
+        assert!(found[0].snippet.as_deref().unwrap().starts_with("commit "), "{:?}", found[0].snippet);
+        assert!(found[0].snippet.as_deref().unwrap().contains("· Ada ·"));
+        assert_eq!(hits("Ada").len(), 1, "by its author");
+        assert_eq!(hits("engine.rs").len(), 1, "by a path it changed");
+        assert_eq!(store.size(&home).map(|s| s.0), Some(crate::fs::dir_size(&home)), "commits are no files in sizes");
+
+        // HEAD moves on: only the new commit is added, the old one stays.
+        std::fs::write(home.join("engine.rs"), "fn main() { valve(); }\n").unwrap();
+        commit_as(&home, "Bob", 1_700_100_000, "Fix the fuel valve");
+        scan(&store, &cfg, &go).unwrap();
+        assert_eq!((hits("fuel").len(), hits("rocket").len()), (1, 1));
+        let rows = || store.db.lock().unwrap().query_row("SELECT count(*) FROM files WHERE path LIKE 'git:%'", [], |r| r.get::<_, i64>(0)).unwrap();
+        assert_eq!(rows(), 2);
+        scan(&store, &cfg, &go).unwrap();
+        assert_eq!(rows(), 2, "nothing new: nothing read again");
+
+        // Turned off, its commits go.
+        scan(&store, &SearchConfig { history: false, ..cfg.clone() }, &go).unwrap();
+        assert_eq!((rows(), hits("fuel").len()), (0, 0));
+        drop(store);
+        std::fs::remove_dir_all(home).unwrap();
+        for end in ["db", "db-wal", "db-shm"] {
+            let _ = std::fs::remove_file(db.with_extension(end));
+        }
     }
 
     #[test]

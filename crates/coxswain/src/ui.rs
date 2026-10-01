@@ -105,9 +105,14 @@ fn panel(f: &mut Frame, app: &mut App, side: usize, area: Rect) {
 
     let title_style = if side == app.active { sty(&t.cursor) } else { border };
     // Inside an archive the title says so, so a copy out is not taken for one between folders.
-    let dir = match coxswain_core::archive::split(&p.dir) {
-        Some(_) => format!("{} [{}]", p.dir.to_string_lossy(), t!("archive.badge")),
-        None => p.dir.to_string_lossy().into_owned(),
+    // So is a history, with the commit looked into.
+    let dir = match (coxswain_core::archive::split(&p.dir), coxswain_core::history::split(&p.dir)) {
+        (Some(_), _) => format!("{} [{}]", p.dir.to_string_lossy(), t!("archive.badge")),
+        (_, Some(at)) => match at.commit {
+            Some(c) => format!("{} [{}]", p.dir.to_string_lossy(), t!("history.badge_at", "commit" => &c[..c.len().min(7)])),
+            None => format!("{} [{}]", p.dir.to_string_lossy(), t!("history.badge")),
+        },
+        _ => p.dir.to_string_lossy().into_owned(),
     };
     let mut block = Block::default()
         .borders(Borders::ALL)
@@ -124,6 +129,7 @@ fn panel(f: &mut Frame, app: &mut App, side: usize, area: Rect) {
         coxswain_core::fs::SortKey::Ext => "x",
         coxswain_core::fs::SortKey::Time => "t",
         coxswain_core::fs::SortKey::Size => "s",
+        coxswain_core::fs::SortKey::Commit => "c",
     };
     let sort = if p.reverse { sort.to_uppercase() } else { sort.to_string() };
     block = block.title_bottom(Line::from(Span::styled(format!(" {sort} "), border)).right_aligned());
@@ -242,7 +248,13 @@ fn panel(f: &mut Frame, app: &mut App, side: usize, area: Rect) {
         let bytes: u64 = p.entries.iter().filter(|e| p.marked.contains(&e.path)).map(|e| e.size).sum();
         Line::from(Span::styled(format!("{:^w$}", tn!("tui.selected", p.marked.len(), "size" => size(bytes))), sty(&t.marked))).centered()
     } else if let Some(e) = p.current() {
-        let right = if e.is_dir { String::new() } else { format!(" {}", size(e.size)) };
+        let mut right = if e.is_dir { String::new() } else { format!(" {}", size(e.size)) };
+        // The last commit that changed it, when git has said.
+        match p.last.as_ref().and_then(|l| l.get(&e.name)) {
+            Some(Some(c)) => right = format!(" {} {} {}{right}", c.hash, date(c.time), c.author),
+            Some(None) => right = format!(" {}{right}", t!("history.older")),
+            None => {}
+        }
         let mut name = e.name.clone();
         if e.is_symlink {
             if let Ok(target) = std::fs::read_link(&e.path) {
@@ -534,8 +546,8 @@ fn help_text(app: &App) -> Vec<Line<'static>> {
         v.push(Line::from(format!("  {:<22} {keys}", a.label())));
     }
     v.push(Line::from(""));
-    for k in ["help.also1", "help.also2", "help.also3", "help.bom"] {
-        v.push(Line::from(t!(k)));
+    for k in ["help.also1", "help.also2", "help.also3", "help.bom", "help.history"] {
+        v.push(Line::from(t!(k, "key" => app.key_label(Action::History))));
     }
     v.push(Line::from(""));
     v.push(Line::from(t!("help.syntax")));

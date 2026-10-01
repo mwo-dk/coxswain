@@ -32,6 +32,7 @@ A change in either section is saved at once and starts a new [helper](helper.md)
 | **Delete the index** | | | Empties the store: text, sizes, hashes, vectors. A second click confirms (*Click again to delete*). It fills again from the start |
 | *Folders read* | `text_roots` | list, `[]` = *Your home folder* | See [Choosing the folders](folders.md) |
 | *Names only* | `names_only` | list, `[]` = *None* | See [Choosing the folders](folders.md) |
+| *Search the history of git repositories too: commit messages, authors and changed paths* | `history` | bool, `true` | The newest 2000 commits of each repository in the folders read; see [Git history in search](history.md) |
 | *Programs that read more* | | | tesseract, pdftoppm and LibreOffice, each ✓ or ✗ *not installed*: see [Scans](scans.md) |
 
 Keys with no item: `text_exclude` (folder names left out), `text_max_size` (20 MB), and for the

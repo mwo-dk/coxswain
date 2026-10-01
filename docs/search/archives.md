@@ -193,4 +193,4 @@ terminal app views it, from a copy of just that file, and **F5** copies it out t
 ([Archives as folders](../files/archives.md)).
 
 ---
-[← Previous: Diagrams read as sentences](diagrams.md) · [Next: Choosing the folders →](folders.md)
+[← Previous: Git history in search](history.md) · [Next: Choosing the folders →](folders.md)

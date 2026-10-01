@@ -223,6 +223,11 @@ const SHEET = ["csv", "tsv", "xlsx", "xlsm", "xls", "ods"];
 const ARCHIVE = /\.(zip|jar|apk|nupkg|whl|vsix|tar|tgz|tar\.gz|tar\.bz2|tbz2?|tar\.xz|txz|tar\.zst|tzst|7z)$/i;
 
 export const isArchive = (name) => ARCHIVE.test(name);
+/** The path segment that leads into a file's or folder's git history (history::MARKER). */
+export const HISTORY = "@history";
+export const isHistory = (p) => p.split(/[\\/]/).includes(HISTORY);
+/** What a history path is of: the part before the marker. */
+export const historyOf = (p) => p.slice(0, p.search(/[\\/]@history([\\/]|$)/));
 /** What the core says when an archive is locked and wants its password (archive::LOCKED). */
 export const LOCKED = "locked: a password is needed";
 

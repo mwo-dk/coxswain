@@ -7,6 +7,7 @@ use coxswain_core::{t, tn};
 use coxswain_core::config::{self, Action, Config, Glyphs, Key, KeyCode};
 use coxswain_core::fs::{self as bfs, resolve, Entry, SortKey};
 use coxswain_core::git;
+use coxswain_core::history::{self, Lasts};
 use coxswain_core::helper::{self, Client};
 use coxswain_core::index::{self, Results, State};
 use ratatui::crossterm::event::{self, Event, KeyCode as CK, KeyEvent, KeyEventKind, KeyModifiers, MouseButton, MouseEvent, MouseEventKind};
@@ -33,6 +34,8 @@ pub struct Panel {
     pub error: Option<String>,
     /// Folder sizes, measured in the background.
     pub sizes: HashMap<PathBuf, u64>,
+    /// The last commit of each entry, when git has answered.
+    pub last: Option<Arc<Lasts>>,
 }
 
 impl Panel {
@@ -52,6 +55,7 @@ impl Panel {
             git: None,
             error: None,
             sizes: HashMap::new(),
+            last: None,
         };
         p.load(show_hidden);
         if let Some(name) = file {
@@ -103,12 +107,11 @@ impl Panel {
         self.cursor = 0;
         self.offset = 0;
         self.git = None;
+        self.last = None;
         self.load(show_hidden);
-        // Coming up out of a directory: put the cursor on it, as NC does.
-        if from.parent() == Some(self.dir.as_path()) {
-            if let Some(n) = from.file_name() {
-                self.select_name(&n.to_string_lossy());
-            }
+        // Coming up out of a directory (or a history): put the cursor on it, as NC does.
+        if let Some(n) = from.strip_prefix(&self.dir).ok().and_then(|r| r.components().next()) {
+            self.select_name(&n.as_os_str().to_string_lossy());
         }
     }
 
@@ -207,6 +210,12 @@ enum AskMsg {
     Done(Result<(), String>),
 }
 
+/// What git tells of a panel's folder, as it comes: the status, then each entry's last commit.
+enum Git {
+    Status(Option<git::Status>),
+    Last(Option<Arc<Lasts>>),
+}
+
 /// Work that needs the real terminal, done by the main loop.
 enum Run {
     Shell { cmd: String, dir: PathBuf, wait: bool },
@@ -228,8 +237,8 @@ pub struct App {
     pub index: Arc<Client>,
     /// Panel rectangles from the last draw, for mouse hits.
     pub areas: [Rect; 2],
-    git_tx: mpsc::Sender<(PathBuf, Option<git::Status>)>,
-    git_rx: mpsc::Receiver<(PathBuf, Option<git::Status>)>,
+    git_tx: mpsc::Sender<(PathBuf, Git)>,
+    git_rx: mpsc::Receiver<(PathBuf, Git)>,
     update_rx: mpsc::Receiver<String>,
     sizer: Arc<coxswain_core::sizes::Sizer>,
     /// Folder sizes arrive here: the panel's folder, the folder measured, its bytes.
@@ -385,14 +394,19 @@ impl App {
         self.cfg.key_for(a).unwrap_or("")
     }
 
-    /// git status runs on a thread; results arrive through `git_rx`.
+    /// git status, and the last commit of each entry, run on a thread; results arrive
+    /// through `git_rx`.
     fn refresh_git(&self) {
         let dirs: HashSet<PathBuf> = self.panels.iter().map(|p| p.dir.clone()).collect();
+        let last = self.cfg.git.last_commit;
         for dir in dirs {
             let tx = self.git_tx.clone();
             std::thread::spawn(move || {
                 let st = git::Status::read(&dir);
-                let _ = tx.send((dir, st));
+                let repo = st.is_some() || history::is_history(&dir);
+                if tx.send((dir.clone(), Git::Status(st))).is_ok() && last && repo {
+                    let _ = tx.send((dir.clone(), Git::Last(history::last_changes(&dir))));
+                }
             });
         }
     }
@@ -409,7 +423,8 @@ impl App {
     /// through `sizes_rx`. The run before it in that panel stops.
     fn measure(&mut self, side: usize) {
         use std::sync::atomic::{AtomicBool, Ordering};
-        if !self.cfg.folder_sizes {
+        // A history's folders are not on disk.
+        if !self.cfg.folder_sizes || history::is_history(&self.panels[side].dir) {
             return;
         }
         let stop = Arc::new(AtomicBool::new(false));
@@ -540,11 +555,14 @@ impl App {
             Action::End => self.panel_mut().move_cursor(isize::MAX / 2),
             Action::SwitchPanel => self.active ^= 1,
             Action::Open => self.open(),
+            // Where `..` leads: out of a history's commits, back to the folder on disk.
             Action::Parent => {
-                if let Some(p) = self.panel().dir.parent().map(Path::to_path_buf) {
+                let up = self.panel().entries.first().filter(|e| e.is_parent()).map(|e| e.path.clone());
+                if let Some(p) = up.or_else(|| self.panel().dir.parent().map(Path::to_path_buf)) {
                     self.cd(self.active, p);
                 }
             }
+            Action::History => self.history(),
             Action::Mark => {
                 let p = self.panel_mut();
                 if let Some(e) = p.current().filter(|e| !e.is_parent()).map(|e| e.path.clone()) {
@@ -622,6 +640,16 @@ impl App {
                             return self.peek(e);
                         }
                         return self.status = Some(t!("archive.copy_out_hint", "archive" => archive.file_name().unwrap_or_default().to_string_lossy()));
+                    }
+                    // In a history: viewed as it was then, from a copy; never edited.
+                    if history::is_history(&e) {
+                        if a == Action::Edit {
+                            return self.status = Some(t!("history.read_only"));
+                        }
+                        return match history::peek(&e) {
+                            Ok(copy) => self.view_or_edit(a, &copy),
+                            Err(err) => self.status = Some(err.to_string()),
+                        };
                     }
                     if a == Action::View && self.cfg.bom_viewer && coxswain_core::bom::sniff(&e) {
                         match bom::Viewer::open(&e) {
@@ -741,6 +769,9 @@ impl App {
         if let Some((archive, _)) = inside {
             return self.status = Some(t!("archive.copy_out_hint", "archive" => archive.file_name().unwrap_or_default().to_string_lossy()));
         }
+        if history::is_history(&self.panel().dir) {
+            return self.status = Some(t!("history.file_hint"));
+        }
         let dir = self.panel().dir.clone();
         if e.is_exec {
             let cmd = if cfg!(windows) { config::quote(&e.name) } else { format!("./{}", config::quote(&e.name)) };
@@ -751,6 +782,22 @@ impl App {
             Ok(()) => t!("status.opened", "name" => e.name),
             Err(err) => t!("status.open_failed", "error" => err),
         });
+    }
+
+    /// Into the history of the entry under the cursor (of this folder on `..`): its commits.
+    fn history(&mut self) {
+        let p = self.panel();
+        let target = match p.current() {
+            Some(e) if !e.is_parent() => e.path.clone(),
+            _ => p.dir.clone(),
+        };
+        if history::is_history(&target) || coxswain_core::archive::split(&target).is_some() || !target.exists() {
+            return self.status = Some(t!("history.not_here"));
+        }
+        if p.git.is_none() {
+            return self.status = Some(t!("history.no_repo"));
+        }
+        self.cd(self.active, history::path(&target, None));
     }
 
     fn view_or_edit(&mut self, a: Action, file: &Path) {
@@ -924,6 +971,12 @@ impl App {
         // The desktop app shares the state file: it is written only when something changed.
         let mut st = coxswain_core::state::AppState::load();
         let mut changed = coxswain_core::notices::started(&mut st);
+        // The repositories looked into, as the desktop app keeps them (the history notice).
+        for g in self.panels.iter().filter_map(|p| p.git.as_ref()) {
+            if !st.recent_repos.contains(&g.root) {
+                changed |= st.touch_repo(&g.root);
+            }
+        }
         if let Some(n) = coxswain_core::notices::next(&self.cfg, &now, &st, true) {
             self.status = Some(match n.url {
                 Some(url) => format!("{} {url}", n.text),
@@ -1021,6 +1074,9 @@ impl App {
                     (KeyCode::Enter, _) => {
                         if let Some(path) = source {
                             self.forget_chat();
+                            if history::is_history(&path) {
+                                return self.cd(self.active, path);
+                            }
                             if let (Some(dir), Some(name)) = (path.parent(), path.file_name()) {
                                 self.cd(self.active, dir.to_path_buf());
                                 self.panel_mut().select_name(&name.to_string_lossy());
@@ -1053,6 +1109,11 @@ impl App {
                     _ if esc => return self.forget_chat(),
                     (KeyCode::Enter, _) => {
                         self.forget_chat();
+                        // A commit: its folder as it was then.
+                        if let Some(h) = hit.as_ref().filter(|h| history::is_history(&h.path)) {
+                            self.cd(self.active, h.path.clone());
+                            return;
+                        }
                         if let Some(h) = hit {
                             let (dir, name) = match (h.path.parent(), h.path.file_name()) {
                                 (Some(d), Some(n)) => (d.to_path_buf(), n.to_string_lossy().into_owned()),
@@ -1064,7 +1125,7 @@ impl App {
                         return;
                     }
                     _ if matches!(action, Some(Action::View | Action::Edit)) => {
-                        if let Some(h) = hit.filter(|h| !h.is_dir) {
+                        if let Some(h) = hit.filter(|h| !h.is_dir && !history::is_history(&h.path)) {
                             self.view_or_edit(action.unwrap(), &h.path);
                         }
                     }
@@ -1234,9 +1295,12 @@ impl App {
                 }
             }
         }
-        while let Ok((dir, st)) = self.git_rx.try_recv() {
+        while let Ok((dir, news)) = self.git_rx.try_recv() {
             for p in self.panels.iter_mut().filter(|p| p.dir == dir) {
-                p.git = st.clone();
+                match &news {
+                    Git::Status(st) => p.git = st.clone(),
+                    Git::Last(last) => p.last = last.clone(),
+                }
             }
         }
         let state = self.index.state();

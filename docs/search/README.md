@@ -27,6 +27,7 @@ walk through each depth, what is read and when, and every setting.
 | [Documents it reads](documents.md) | PDF, Word, spreadsheets, slides, mail, books, notebooks: the formats |
 | [Scans, pictures and older Office files](scans.md) | tesseract, pdftoppm and LibreOffice, when they are installed |
 | [Diagrams read as sentences](diagrams.md) | draw.io, Mermaid, Graphviz and PlantUML: a sentence per arrow |
+| [Git history in search](history.md) | Commit messages, authors and changed paths, found like text; Enter opens the commit |
 | [Inside archives](archives.md) | Files in zip, 7z and tar archives, found by name, text and meaning; changes followed |
 | [Choosing the folders](folders.md) | Folders read, names only, `.nosearch`, `text_exclude` |
 | [Removable disks](removable-disks.md) | USB and external disks: kept while unplugged, found again anywhere |

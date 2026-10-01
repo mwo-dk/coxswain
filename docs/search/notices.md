@@ -3,8 +3,8 @@
 # Notices and the window title
 
 The window's title says which version runs and which kinds of search are on. And once, in the
-status line, both apps tell you of search you could turn on, and after an update where to read
-what it brought. Nothing is shown twice.
+status line, both apps tell you of search you could turn on, of the git history once you are in
+a repository, and after an update where to read what it brought. Nothing is shown twice.
 
 <!-- screenshot: search-notice.png: desktop app, Cyber theme, the command line row at the bottom with the notice button "New: search by meaning finds files about your words, in any language. Turn it on" and its ×, and the window title "Coxswain 1.16.0 · search: names · text" in the title bar -->
 
@@ -40,6 +40,7 @@ One notice at a time, in this order:
 | Notice | When | Desktop app opens |
 |---|---|---|
 | *Updated to 1.16.0: see what's new* | The first start after an update (not the first start ever) | The release notes on GitHub |
+| *New: Ctrl+G on a file or folder in a git repository shows its history, commit by commit* | A folder of a git repository has been opened (the key is yours from `[keys]`) | Nothing: it only tells ([Git history](../panels/git-history.md)) |
 | *New: search by meaning finds files about your words, in any language. Turn it on* | Text search is on and has files, and search by meaning is off. Terminal app: *…in any language: coxswain --meaning on* | *Settings → Search by meaning* |
 | *Ollama runs here: search by meaning could use its GPU. Choose it* | The built-in model is in use and Ollama answers on this machine. Terminal app: *…could use its GPU: coxswain --meaning ollama* | *Settings → Search by meaning* ([servers](servers.md)) |
 | *Install tesseract to search the words in scans, screenshots and pictures* | Text search is on and the helper found no tesseract | *Settings → Search inside files* ([Scans](scans.md)) |

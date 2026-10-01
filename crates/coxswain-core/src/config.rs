@@ -214,6 +214,7 @@ actions! {
     Columns = "columns", "Columns and folder sizes", [];
     Duplicates = "duplicates", "Find duplicates", ["Ctrl+D"];
     Settings = "settings", "Settings", ["Ctrl+,"];
+    History = "history", "Git history", ["Ctrl+G"];
 }
 
 impl Action {
@@ -794,6 +795,9 @@ pub struct SearchConfig {
     pub text_max_size: u64,
     /// Search inside archives too: their entries by name, and the text of their files.
     pub archives: bool,
+    /// Keep the history of the git repositories in the text roots too: commit messages,
+    /// authors and changed paths (the newest 2000 commits of each), found like text.
+    pub history: bool,
 }
 
 impl Default for SearchConfig {
@@ -815,6 +819,7 @@ impl Default for SearchConfig {
             ask_model: String::new(),
             text_max_size: 20 * 1024 * 1024,
             archives: true,
+            history: true,
         }
     }
 }
@@ -880,6 +885,21 @@ pub struct Config {
     pub search: SearchConfig,
     pub preview: PreviewConfig,
     pub gui: GuiConfig,
+    pub git: GitConfig,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(default)]
+pub struct GitConfig {
+    /// Show when each file and folder was last committed, and by whom: a column in the desktop
+    /// app's details view and the preview, the info line in the terminal app.
+    pub last_commit: bool,
+}
+
+impl Default for GitConfig {
+    fn default() -> Self {
+        GitConfig { last_commit: true }
+    }
 }
 
 impl Default for Config {
@@ -907,6 +927,7 @@ impl Default for Config {
             search: SearchConfig::default(),
             preview: PreviewConfig::default(),
             gui: GuiConfig::default(),
+            git: GitConfig::default(),
         };
         c.fill_defaults();
         c
