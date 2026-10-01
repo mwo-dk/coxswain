@@ -131,4 +131,4 @@ A `state.json` that could not be read when an app started, moved aside so a new 
 saved. Your tags and notes are in it; mend it by hand or delete it.
 
 ---
-[← Previous: Update checks](updates.md) · [Next: Questions, collected →](../faq.md)
+[← Previous: Update checks](updates.md) · [Next: Security →](security.md)

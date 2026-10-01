@@ -60,9 +60,7 @@ pub fn download(p: &Progress) -> io::Result<()> {
     std::fs::create_dir_all(&dir)?;
     p.total.store(size(), Ordering::Relaxed);
     p.done.store(0, Ordering::Relaxed);
-    // The system's certificate store, as for the update check: a proxy that inspects TLS is trusted.
-    let tls = ureq::tls::TlsConfig::builder().root_certs(ureq::tls::RootCerts::PlatformVerifier).build();
-    let agent: ureq::Agent = ureq::Agent::config_builder().timeout_connect(Some(Duration::from_secs(20))).tls_config(tls).build().into();
+    let agent: ureq::Agent = ureq::Agent::config_builder().tls_config(tls()).timeout_connect(Some(Duration::from_secs(20))).build().into();
     for (name, sha, len) in FILES {
         let file = dir.join(name);
         if std::fs::metadata(&file).is_ok_and(|m| m.len() == *len) {
@@ -247,8 +245,7 @@ impl Server {
         let url = if cfg.meaning_url.is_empty() && !openai { OLLAMA.to_string() } else { cfg.meaning_url.trim_end_matches('/').to_string() };
         let model = if cfg.meaning_model.is_empty() && !openai { "bge-m3".to_string() } else { cfg.meaning_model.clone() };
         let key = key_of(cfg);
-        let tls = ureq::tls::TlsConfig::builder().root_certs(ureq::tls::RootCerts::PlatformVerifier).build();
-        let agent = ureq::Agent::config_builder().timeout_global(Some(Duration::from_secs(120))).http_status_as_error(false).tls_config(tls).build().into();
+        let agent = ureq::Agent::config_builder().tls_config(tls()).timeout_global(Some(Duration::from_secs(120))).http_status_as_error(false).build().into();
         Server { openai, url, model, key, agent }
     }
 
@@ -319,12 +316,11 @@ pub fn ask(cfg: &crate::config::SearchConfig, earlier: &[Turn], question: &str, 
     let path = if s.openai { "/chat/completions" } else { "/api/chat" };
     let body = serde_json::json!({ "model": cfg.ask_model, "messages": messages, "stream": true });
     // A model that is not loaded yet takes a while to answer at all; after that, pieces come.
-    let tls = ureq::tls::TlsConfig::builder().root_certs(ureq::tls::RootCerts::PlatformVerifier).build();
-    let agent: ureq::Agent = ureq::Agent::config_builder()
+    let agent: ureq::Agent = ureq::Agent::config_builder().tls_config(tls())
         .timeout_connect(Some(Duration::from_secs(10)))
         .timeout_recv_response(Some(Duration::from_secs(300)))
         .http_status_as_error(false)
-        .tls_config(tls)
+        
         .build()
         .into();
     let mut req = agent.post(&format!("{}{path}", s.url)).header("Content-Type", "application/json");
@@ -392,11 +388,17 @@ fn unthink(piece: &str, thinking: &mut bool) -> String {
     }
 }
 
+/// TLS that trusts the system's certificate store, as the update check does, so a proxy that
+/// inspects TLS or a server with a company certificate works.
+fn tls() -> ureq::tls::TlsConfig {
+    ureq::tls::TlsConfig::builder().root_certs(ureq::tls::RootCerts::PlatformVerifier).build()
+}
+
 /// The embedding models a server has: Ollama's pulled models, or an OpenAI server's list,
 /// with the API `key` a server may want.
 pub fn server_models(openai: bool, url: &str, key: Option<&str>) -> Result<Vec<String>, String> {
     let url = if url.is_empty() { OLLAMA } else { url.trim_end_matches('/') };
-    let agent: ureq::Agent = ureq::Agent::config_builder().timeout_global(Some(Duration::from_secs(5))).build().into();
+    let agent: ureq::Agent = ureq::Agent::config_builder().tls_config(tls()).timeout_global(Some(Duration::from_secs(5))).build().into();
     let path = if openai { "/models" } else { "/api/tags" };
     let mut req = agent.get(&format!("{url}{path}"));
     if let Some(key) = key {
@@ -410,14 +412,14 @@ pub fn server_models(openai: bool, url: &str, key: Option<&str>) -> Result<Vec<S
 
 /// Whether Ollama answers on this machine, asked quickly.
 pub fn ollama_here() -> bool {
-    let agent: ureq::Agent = ureq::Agent::config_builder().timeout_global(Some(Duration::from_millis(400))).build().into();
+    let agent: ureq::Agent = ureq::Agent::config_builder().tls_config(tls()).timeout_global(Some(Duration::from_millis(400))).build().into();
     agent.get(&format!("{OLLAMA}/api/version")).call().is_ok()
 }
 
 /// Ask Ollama to pull a model, with its progress in `p`.
 pub fn ollama_pull(url: &str, model: &str, p: &Progress) -> io::Result<()> {
     let url = if url.is_empty() { OLLAMA } else { url.trim_end_matches('/') };
-    let agent: ureq::Agent = ureq::Agent::config_builder().timeout_connect(Some(Duration::from_secs(10))).build().into();
+    let agent: ureq::Agent = ureq::Agent::config_builder().tls_config(tls()).timeout_connect(Some(Duration::from_secs(10))).build().into();
     let mut body = agent.post(&format!("{url}/api/pull")).send(serde_json::json!({ "model": model, "stream": true }).to_string()).map_err(io::Error::other)?.into_body();
     // One JSON line per step: {"status", "total", "completed"} while layers come, {"error"} if not.
     for line in io::BufRead::lines(io::BufReader::new(body.as_reader())) {
