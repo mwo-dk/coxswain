@@ -550,6 +550,11 @@ mod tests {
                 }
             }
             write!(c, "{reply}").unwrap();
+            // Closed gently: a socket dropped with anything unread sends a reset on Windows,
+            // and the client sees "connection aborted" instead of the reply.
+            let _ = c.shutdown(std::net::Shutdown::Write);
+            let _ = c.set_read_timeout(Some(std::time::Duration::from_secs(1)));
+            let _ = std::io::copy(&mut c, &mut std::io::sink());
             String::from_utf8_lossy(&got).into_owned()
         });
         (url, server)
