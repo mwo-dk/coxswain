@@ -769,6 +769,10 @@ async fn ask(question: String, earlier: Vec<(String, String)>, on_event: tauri::
             return Err(coxswain_core::t!("search.ask_nothing"));
         }
         let _ = on_event.send(AskEvent::Sources { paths: sources.iter().map(|(p, _)| p.clone()).collect() });
+        // Stopped while searching: the model is not asked (a request it would work on alone).
+        if asking.load(Ordering::SeqCst) != me {
+            return Ok(());
+        }
         coxswain_core::meaning::ask(&cfg, &earlier, &question, &sources, |text| asking.load(Ordering::SeqCst) == me && on_event.send(AskEvent::Piece { text: text.to_string() }).is_ok())
     })
     .await

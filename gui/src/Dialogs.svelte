@@ -97,7 +97,9 @@
       if (ui.modal !== m) return void invoke("ask_stop");
       if (e.k === "sources") turn.sources = e.paths;
       else turn.a += e.text;
-      tick().then(() => listEl?.lastElementChild?.scrollIntoView({ block: "end" }));
+      // Follows the answer down, unless you scrolled up to read something.
+      const end = !listEl || listEl.scrollHeight - listEl.scrollTop - listEl.clientHeight < 40;
+      if (end) tick().then(() => listEl?.lastElementChild?.scrollIntoView({ block: "end" }));
     };
     try {
       await invoke("ask", { question, earlier, onEvent: events });

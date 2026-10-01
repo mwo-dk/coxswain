@@ -1208,6 +1208,9 @@ impl App {
             let sources = index.passages(&lookup, 10);
             let done = if sources.is_empty() {
                 Err(t!("search.ask_nothing"))
+            } else if stop.load(Ordering::SeqCst) {
+                // Stopped while searching: the model is not asked.
+                Ok(())
             } else {
                 let _ = tx.send(AskMsg::Sources(sources.iter().map(|(p, _)| p.clone()).collect()));
                 coxswain_core::meaning::ask(&cfg, &earlier, &question, &sources, |text| !stop.load(Ordering::SeqCst) && tx.send(AskMsg::Piece(text.to_string())).is_ok())

@@ -21,7 +21,7 @@
   const GAP = 6, PAD = 8, OVER = 2;
   const step = $derived(tileH + GAP);
   const rows = $derived(Math.ceil(t.items.length / cols));
-  const first = $derived(Math.max(0, Math.floor((top - PAD) / step) - OVER));
+  const first = $derived(Math.max(0, Math.min(rows, Math.floor((top - PAD) / step)) - OVER));
   const last = $derived(Math.min(rows, Math.ceil((top + height) / step) + OVER));
 
   function measure() {
@@ -46,6 +46,7 @@
   // The cursor kept in view, as scrollIntoView would.
   $effect(() => {
     if (!grid || !height || t.cursor < 0) return;
+    t.items; // a new list brings its cursor into view too
     const y = PAD + Math.floor(t.cursor / cols) * step;
     if (y < grid.scrollTop) grid.scrollTop = y - PAD;
     else if (y + tileH > grid.scrollTop + height) grid.scrollTop = y + tileH + PAD - height;

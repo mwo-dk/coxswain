@@ -28,6 +28,16 @@ time("cursor_home_ms", () => (t.cursor = 0));
 time("mark_one_ms", () => t.marked.add(items[0].path));
 time("relist_same_ms", () => (t.items = items.map((e) => ({ ...e }))));
 time("relist_reversed_ms", () => (t.items = [...items].reverse()));
+// Scrolled far down, then a short list with the same cursor: its rows show (they did not).
+const box = document.querySelector('[role="listbox"]');
+box.scrollTop = box.scrollHeight;
+box.dispatchEvent(new Event("scroll"));
+flushSync();
+// (the cursor stays where it was, at the top)
+time("shrink_ms", () => (t.items = items.slice(0, 30)));
+await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+flushSync();
+res.shrunk_rows_in_dom = document.querySelectorAll('[role="option"]').length;
 time("clear_ms", () => (t.items = []));
 res.heap_mb = performance.memory ? +(performance.memory.usedJSHeapSize / 1e6).toFixed(0) : null;
 unmount(app);
