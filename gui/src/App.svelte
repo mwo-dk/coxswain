@@ -2,7 +2,7 @@
   import { getCurrentWindow } from "@tauri-apps/api/window";
   import { getCurrentWebview } from "@tauri-apps/api/webview";
   import { listen } from "@tauri-apps/api/event";
-  import { ui, init, tab, pane, otherTab, item, load, cd, up, openHistory, newTab, goBack, goForward, openItem, toggleMark, targets, reloadAll, snapshot, setTheme, themeIds, themeName, nextView, measureFolders, columnMenu } from "./app.svelte.js";
+  import { ui, init, tab, pane, otherTab, item, load, cd, up, openHistory, newTab, goBack, goForward, openItem, toggleMark, targets, reloadAll, refreshDisks, snapshot, setTheme, themeIds, themeName, nextView, measureFolders, columnMenu } from "./app.svelte.js";
   import { invoke, keyString, basename, parent, glob, quote, isArchive, LOCKED } from "./lib.js";
   import { t, tn } from "./i18n.svelte.js";
   import Sidebar from "./Sidebar.svelte";
@@ -46,6 +46,10 @@
         }, () => {});
       tell();
       setInterval(tell, 10e3);
+      // Free space changes and disks come and go: read the drives again while the window is
+      // in view, and when it comes back to the front.
+      setInterval(() => document.hidden || refreshDisks(), 30e3);
+      window.addEventListener("focus", () => refreshDisks());
     },
     (e) => (ui.status = String(e)),
   );
