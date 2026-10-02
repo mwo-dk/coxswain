@@ -34,7 +34,7 @@ path*) and **Alt+F1** / **Alt+F2** take you to any folder by typing its path; se
 | Section | Holds |
 |---|---|
 | *Places* | *Home*, *Desktop*, *Documents*, *Downloads*, *Pictures*, *Music* and *Videos*: those your system names and that exist, each folder once |
-| *Drives* | Every mounted disk: its name, its free space (*339 GB free*) and a thin bar of the space used, which turns red past 90%. The root disk is called *System*; the others are named after their mount point. Removable disks (USB sticks, SD cards) get their own icon. Hover a drive for its device and mount point, such as `/dev/nvme0n1p2 · /` |
+| *Drives* | Every mounted disk: its name, its free space (*339 GB free*) and a thin bar of the space used, which turns red past 90%. The root disk is called *System*; the others are named after their mount point. Removable disks (USB sticks, SD cards) get their own icon. Hover a drive for its device and mount point, such as `/dev/nvme0n1p2 · /`. The list and the free space are read again every 30 seconds while the window is in view, and whenever the window comes back to the front |
 | Your favourite groups | One section per group, see [Favourites](favourites.md), then *+ New group* |
 | *Git repositories* | The twelve git repositories you visited most recently, newest first, with a git icon. Only there once you have been in a repository |
 
@@ -43,7 +43,7 @@ path*) and **Alt+F1** / **Alt+F2** take you to any folder by typing its path; se
 - Hover any entry for its full path.
 - Section headers are small capitals, with an arrow that turns when the section is folded.
 - Left out of *Drives*: boot, EFI, snap and system mounts (`/boot`, `/efi`, `/snap`, `/var/lib`,
-  `/run`, `/proc`, `/sys`), and disks of size zero. A disk mounted more than once (btrfs
+  `/run` except `/run/media`, `/proc`, `/sys`), and disks of size zero. A disk mounted more than once (btrfs
   subvolumes, bind mounts) is listed once, at its shortest mount point.
 
 ## Settings and config.toml
@@ -65,12 +65,21 @@ list is filled only by the desktop app.
 
 #### I plugged in a USB stick and it is not in the sidebar.
 
-Two reasons. Places and drives are read once, when the window opens, so a stick plugged in
-later shows only after you close the window and open it again. And on Linux, most desktops
-mount sticks under `/run/media/<you>/` or `/media/`; mounts under `/run` are left out of
-*Drives* with the system mounts, so a stick there does not show at all. Go to it with
-**Ctrl+L** (for example `/run/media/you/STICK`) and add it to a [favourites group](favourites.md).
-[Removable disks](../search/removable-disks.md) explains what search does with them.
+*Drives* is read again every 30 seconds while the window is in view, and as soon as you switch
+back to the window, so a stick shows within half a minute of being mounted, and goes when it is
+unmounted. If it still does not show, it is mounted somewhere left out with the system mounts
+(see *What you see*); sticks under `/run/media/<you>/` and `/media/` do show. Go to it with
+**Ctrl+L** and add it to a [favourites group](favourites.md).
+[Removable disks](../search/removable-disks.md) explains what search does with them. *Places*
+is still read once, when the window opens.
+
+#### Is the free space up to date?
+
+Within 30 seconds. While the window is in view, Coxswain asks the system for every disk's free
+space every 30 seconds, and again when the window comes back to the front; the text (*482 GB
+free*) and the bar change in place. A minimised or hidden window does not ask. A disk that is
+slow to answer, such as a network mount, is asked once at a time, so it cannot hold up the
+window.
 
 #### Why is my Desktop (or Music, or Videos) not under Places?
 

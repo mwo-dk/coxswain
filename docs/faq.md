@@ -26,7 +26,7 @@ The questions people ask most, with a short answer and a link to the full one. E
 - **Is my folder note saved while I type?** It is saved when you leave the field (Esc or a click elsewhere), so press Esc before closing. [Answer](organise/notes.md#is-my-note-saved-while-i-type)
 - **I clicked + on a favourites group and nothing was added.** The + adds the folder you are in, not the one under the cursor, and never twice. [Answer](organise/favourites.md#i-clicked--and-nothing-was-added)
 - **Deleting a favourites group asks nothing. Can I undo it?** No; the folders are untouched, add them to a new group. [Answer](organise/favourites.md#deleting-a-group-asks-nothing-can-i-undo-it)
-- **I plugged in a USB stick and it is not in the sidebar.** Drives are read when the window opens, and mounts under /run are left out; go there with Ctrl+L. [Answer](organise/sidebar.md#i-plugged-in-a-usb-stick-and-it-is-not-in-the-sidebar)
+- **I plugged in a USB stick and it is not in the sidebar.** Drives are read again every 30 seconds and when the window comes back to the front; mounts under /run (except /run/media) are left out, go there with Ctrl+L. [Answer](organise/sidebar.md#i-plugged-in-a-usb-stick-and-it-is-not-in-the-sidebar)
 - **Why is my Desktop not under Places?** Only folders your system names (user-dirs.dirs on Linux) and that exist are listed, each once. [Answer](organise/sidebar.md#why-is-my-desktop-or-music-or-videos-not-under-places)
 
 ## Commands, the user menu and scripts

@@ -302,7 +302,20 @@ export async function init() {
   // `--settings` too, the scan (which has work to do) wins, since there is one window at a time.
   if (ui.cfg.duplicates) ui.modal = { kind: "dupes", roots: Object.fromEntries(ui.cfg.duplicates.map((p) => [p, true])), autostart: true };
   else if (ui.cfg.open_settings != null) ui.modal = { kind: "settings", section: ui.cfg.open_settings };
-  invoke("disks").then((d) => (ui.disks = d));
+  refreshDisks();
+}
+
+let disksBusy = false;
+/** Read the drives and their free space again. One read at a time, so a slow network mount
+ * cannot pile up calls; a failed read keeps the list shown, and an unchanged one is left alone. */
+export function refreshDisks() {
+  if (disksBusy) return;
+  disksBusy = true;
+  invoke("disks")
+    .then((d) => {
+      if (JSON.stringify(d) !== JSON.stringify($state.snapshot(ui.disks))) ui.disks = d;
+    }, () => {})
+    .finally(() => (disksBusy = false));
 }
 
 /** Enter / double-click: folders open in place, files in their default application. */

@@ -481,8 +481,14 @@ fn hidden_mount(mount: &Path) -> bool {
     ["/boot", "/efi", "/snap", "/var/lib", "/run", "/proc", "/sys"].iter().any(|p| mount.starts_with(p)) && !mount.starts_with("/run/media")
 }
 
+/// The mounted disks and their free space. The window asks again every so often, so the
+/// work runs on a blocking thread: a slow network mount must not hold up other commands.
 #[tauri::command]
-async fn disks() -> Vec<Disk> {
+async fn disks() -> Res<Vec<Disk>> {
+    tauri::async_runtime::spawn_blocking(read_disks).await.map_err(|e| e.to_string())
+}
+
+fn read_disks() -> Vec<Disk> {
     let list = sysinfo::Disks::new_with_refreshed_list();
     let mut out: Vec<Disk> = vec![];
     // Subvolumes and bind mounts repeat the same device; keep its shortest mount point.
