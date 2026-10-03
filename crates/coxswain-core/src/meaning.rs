@@ -328,7 +328,19 @@ pub fn ask(cfg: &crate::config::SearchConfig, earlier: &[Turn], question: &str, 
     if let Some(key) = &s.key {
         req = req.header("Authorization", &format!("Bearer {key}"));
     }
-    let mut res = req.send(body.to_string()).map_err(|e| format!("{}: {e}", s.url))?;
+    // The wait for the first byte (a model loading) is on a thread of its own, so Stop is
+    // heard meanwhile: `piece` is asked every 100 ms whether to go on.
+    let (sent, answer) = std::sync::mpsc::channel();
+    let (url, body) = (s.url.clone(), body.to_string());
+    std::thread::spawn(move || sent.send(req.send(body).map_err(|e| format!("{url}: {e}"))));
+    let mut res = loop {
+        match answer.recv_timeout(Duration::from_millis(100)) {
+            Ok(res) => break res?,
+            Err(std::sync::mpsc::RecvTimeoutError::Timeout) if piece("") => {}
+            Err(std::sync::mpsc::RecvTimeoutError::Timeout) => return Ok(()),
+            Err(_) => return Err(format!("{}: no answer", s.url)),
+        }
+    };
     if res.status().as_u16() >= 400 {
         let text = res.body_mut().read_to_string().unwrap_or_default();
         let v: serde_json::Value = serde_json::from_str(&text).unwrap_or_default();
@@ -363,6 +375,21 @@ pub fn ask(cfg: &crate::config::SearchConfig, earlier: &[Turn], question: &str, 
         }
     }
     Ok(())
+}
+
+/// Have Ollama load the chat model now, on a thread, so that it is ready by the time the
+/// sources are found: a model not loaded takes seconds to answer at all. Only for Ollama
+/// (its own API loads a model on an empty request); other servers load as they see fit.
+pub fn warm(cfg: &crate::config::SearchConfig) {
+    if cfg.meaning_engine == "openai" || cfg.ask_model.is_empty() {
+        return;
+    }
+    let s = Server::new(cfg);
+    let body = serde_json::json!({ "model": cfg.ask_model }).to_string();
+    std::thread::spawn(move || {
+        let agent: ureq::Agent = ureq::Agent::config_builder().tls_config(tls()).timeout_global(Some(Duration::from_secs(300))).http_status_as_error(false).build().into();
+        let _ = agent.post(&format!("{}/api/generate", s.url)).header("Content-Type", "application/json").send(body);
+    });
 }
 
 /// A piece of an answer without what a reasoning model thinks aloud between `<think>` and
@@ -531,6 +558,43 @@ mod tests {
 
         let off = crate::config::SearchConfig::default();
         assert!(ask(&off, &[], "q", &sources, |_| true).is_err(), "no chat model, no Ask");
+    }
+
+    /// Stop is heard while the server has not said anything yet (a model loading), and Ollama
+    /// is asked to load the chat model ahead of the question.
+    #[test]
+    fn ask_stops_before_the_first_byte_and_warms_the_model() {
+        use std::io::Read;
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let url = format!("http://{}", listener.local_addr().unwrap());
+        let server = std::thread::spawn(move || {
+            let (mut heads, mut open) = (vec![], vec![]);
+            for _ in 0..2 {
+                let (mut c, _) = listener.accept().unwrap();
+                let mut buf = [0; 4096];
+                let n = c.read(&mut buf).unwrap_or(0);
+                heads.push(String::from_utf8_lossy(&buf[..n]).lines().next().unwrap_or("").to_string());
+                open.push(c);
+            }
+            // Not a byte in answer: the client gives up first.
+            std::thread::sleep(Duration::from_secs(1));
+            heads
+        });
+        let cfg = crate::config::SearchConfig { meaning_engine: "ollama".into(), meaning_url: url, ask_model: "chat".into(), ..Default::default() };
+        warm(&cfg);
+        let start = std::time::Instant::now();
+        let mut asked = 0;
+        ask(&cfg, &[], "q", &[("/p/a.md".into(), "a".into())], |p| {
+            asked += 1;
+            assert_eq!(p, "");
+            asked < 3
+        })
+        .unwrap();
+        assert!(start.elapsed() < Duration::from_secs(2), "stopped while waiting, not after the timeout");
+        assert_eq!(asked, 3);
+        let mut heads = server.join().unwrap();
+        heads.sort();
+        assert_eq!(heads, ["POST /api/chat HTTP/1.1", "POST /api/generate HTTP/1.1"]);
     }
 
     /// Stop is heard while the model still thinks aloud, before any of the answer comes.

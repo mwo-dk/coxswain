@@ -27,6 +27,8 @@ tar = "0.4.46"
 flate2 = "1.1.10"
 blake3 = "1.8.7"
 sys-locale = "0.3.2"
+# Zip entries carry local time without a zone: the system's zone turns it into a moment and back.
+chrono = { version = "0.4", default-features = false, features = ["clock"] }
 rusqlite = { version = "0.40.2", features = ["bundled", "hooks"] }
 quick-xml = "0.42.0"
 mail-parser = "0.11.9"

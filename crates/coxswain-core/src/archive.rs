@@ -14,6 +14,8 @@ pub struct ArchiveEntry {
     pub name: String,
     pub size: u64,
     pub is_dir: bool,
+    /// Seconds since the Unix epoch; 0 when the archive does not say.
+    pub modified: u64,
 }
 
 #[derive(Clone, Copy, PartialEq, Debug)]
@@ -255,7 +257,7 @@ pub fn list(path: &Path, max: usize) -> io::Result<(Vec<ArchiveEntry>, bool)> {
         None => read_items_with(path, password_for(path, None).as_deref(), max.saturating_add(1))?,
     };
     let more = all.len() > max;
-    Ok((all.into_iter().take(max).map(|it| ArchiveEntry { name: it.name, size: it.size, is_dir: it.dir }).collect(), more))
+    Ok((all.into_iter().take(max).map(|it| ArchiveEntry { name: it.name, size: it.size, is_dir: it.dir, modified: it.modified }).collect(), more))
 }
 
 /// Extract into a new folder named after the archive inside `dest_dir`. Returns that folder.
@@ -316,15 +318,12 @@ pub fn split(path: &Path) -> Option<(PathBuf, String)> {
     None
 }
 
-/// Seconds since the Unix epoch of a zip's date and time (which have no time zone).
+/// Seconds since the Unix epoch of a zip's date and time, which is local time without a zone
+/// (as zip tools write it); a time that does not exist (a clock change) takes the one after.
 fn unix(t: zip::DateTime) -> u64 {
-    // Days from the civil date, as in Howard Hinnant's algorithm.
-    let (y, m, d) = (t.year() as i64 - if t.month() <= 2 { 1 } else { 0 }, t.month() as i64, t.day() as i64);
-    let era = y.div_euclid(400);
-    let yoe = y - era * 400;
-    let doy = (153 * (m + if m > 2 { -3 } else { 9 }) + 2) / 5 + d - 1;
-    let days = era * 146_097 + yoe * 365 + yoe / 4 - yoe / 100 + doy - 719_468;
-    (days * 86_400 + t.hour() as i64 * 3600 + t.minute() as i64 * 60 + t.second() as i64).max(0) as u64
+    use chrono::TimeZone;
+    let local = chrono::NaiveDate::from_ymd_opt(t.year() as i32, t.month() as u32, t.day() as u32).and_then(|d| d.and_hms_opt(t.hour() as u32, t.minute() as u32, t.second() as u32));
+    local.and_then(|l| chrono::Local.from_local_datetime(&l).earliest()).map_or(0, |d| d.timestamp().max(0) as u64)
 }
 
 /// An entry of an archive: its path inside, size, whether a folder, modified (seconds), locked.
@@ -432,7 +431,7 @@ pub(crate) fn search_entries(archive: &Path, size: u64) -> Option<Vec<ArchiveEnt
     }
     // Never a password given in this run: what search knows is what anyone sees.
     let items = read_items_with(archive, None, SEARCH_ENTRIES).ok()?;
-    Some(items.into_iter().map(|it| ArchiveEntry { name: it.name, size: it.size, is_dir: it.dir }).collect())
+    Some(items.into_iter().map(|it| ArchiveEntry { name: it.name, size: it.size, is_dir: it.dir, modified: it.modified }).collect())
 }
 
 /// Read the files of `archive` (`size` bytes) that `wanted` picks by name and size, in the
@@ -779,20 +778,11 @@ enum New {
     Dir,
 }
 
-/// A zip's date and time from seconds since the Unix epoch.
+/// A zip's date and time (local, without a zone) from seconds since the Unix epoch.
 fn zip_time(secs: u64) -> zip::DateTime {
-    // The civil date from days, as in Howard Hinnant's algorithm.
-    let days = (secs / 86_400) as i64;
-    let z = days + 719_468;
-    let era = z.div_euclid(146_097);
-    let doe = z - era * 146_097;
-    let yoe = (doe - doe / 1460 + doe / 36_524 - doe / 146_096) / 365;
-    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
-    let mp = (5 * doy + 2) / 153;
-    let (d, m) = ((doy - (153 * mp + 2) / 5 + 1) as u8, if mp < 10 { mp + 3 } else { mp - 9 } as u8);
-    let y = (yoe + era * 400 + if m <= 2 { 1 } else { 0 }) as u16;
-    let s = secs % 86_400;
-    zip::DateTime::from_date_and_time(y, m, d, (s / 3600) as u8, (s % 3600 / 60) as u8, (s % 60) as u8).unwrap_or_default()
+    use chrono::{Datelike, TimeZone, Timelike};
+    let Some(l) = chrono::Local.timestamp_opt(secs as i64, 0).single() else { return zip::DateTime::default() };
+    zip::DateTime::from_date_and_time(l.year() as u16, l.month() as u8, l.day() as u8, l.hour() as u8, l.minute() as u8, l.second() as u8).unwrap_or_default()
 }
 
 fn modified(path: &Path) -> u64 {
@@ -1096,6 +1086,20 @@ mod tests {
 
     /// Archives made to hurt: what they hold is never lost on a move, never written past a
     /// limit, never leads outside, and a huge long-name record is refused, not read into memory.
+    /// A zip's time is local time without a zone, as every zip tool writes it: Coxswain reads
+    /// and writes it in the system's zone, so a zip made elsewhere shows the time its maker
+    /// saw, and one Coxswain makes shows the right time in other tools.
+    #[test]
+    fn archive_zip_times_are_local() {
+        use chrono::{Datelike, TimeZone, Timelike};
+        // A zip's time has two-second steps.
+        let now = modified(Path::new(env!("CARGO_MANIFEST_DIR"))) & !1;
+        let local = chrono::Local.timestamp_opt(now as i64, 0).unwrap();
+        let t = zip_time(now);
+        assert_eq!((t.year() as i32, t.month() as u32, t.day() as u32, t.hour() as u32), (local.year(), local.month(), local.day(), local.hour()));
+        assert_eq!(unix(t), now, "and back");
+    }
+
     #[test]
     fn archive_crafted_entries_are_harmless() {
         use zip::write::SimpleFileOptions;
@@ -1205,7 +1209,7 @@ mod tests {
         w.finish().unwrap();
         let (entries, more) = list(&zp, 10).unwrap();
         assert!(!more);
-        assert_eq!(entries[1], ArchiveEntry { name: "sub/a.txt".into(), size: 5, is_dir: false });
+        assert_eq!(entries[1], ArchiveEntry { name: "sub/a.txt".into(), size: 5, is_dir: false, modified: entries[1].modified });
         assert!(entries[0].is_dir);
         assert_eq!(list(&zp, 1).unwrap(), (vec![entries[0].clone()], true));
         let out = extract(&zp, &d).unwrap();
@@ -1218,7 +1222,9 @@ mod tests {
         let mut t = tar::Builder::new(gz);
         t.append_path_with_name(d.join("pack/sub/a.txt"), "x/a.txt").unwrap();
         t.into_inner().unwrap().finish().unwrap();
-        assert_eq!(list(&tp, 10).unwrap().0, [ArchiveEntry { name: "x/a.txt".into(), size: 5, is_dir: false }]);
+        let listed = list(&tp, 10).unwrap().0;
+        assert_eq!(listed, [ArchiveEntry { name: "x/a.txt".into(), size: 5, is_dir: false, modified: listed[0].modified }]);
+        assert!(listed[0].modified > 0, "a tar's time comes along");
         assert_eq!(std::fs::read_to_string(extract(&tp, &d).unwrap().join("x/a.txt")).unwrap(), "hello");
 
         assert!(list(&d.join("pack/sub/a.txt"), 10).is_err());

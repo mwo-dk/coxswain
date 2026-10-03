@@ -1211,6 +1211,8 @@ impl App {
         self.ask_rx = Some(rx);
         let (index, cfg) = (self.index.clone(), self.cfg.search.clone());
         std::thread::spawn(move || {
+            // The chat model loads while the sources are looked up.
+            coxswain_core::meaning::warm(&cfg);
             // A follow-up is looked up with the question before it, which it often leans on.
             let lookup = earlier.last().map_or(question.clone(), |(q, _)| format!("{q} {question}"));
             let sources = index.passages(&lookup, 10);

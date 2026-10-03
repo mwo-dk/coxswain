@@ -853,6 +853,7 @@ dependencies = [
  "candle-core",
  "candle-nn",
  "candle-transformers",
+ "chrono",
  "dirs",
  "encoding_rs",
  "flate2",

@@ -1,11 +1,12 @@
 <script>
+  import { untrack } from "svelte";
   // A scrolling list that keeps only the rows in view in the DOM, so a folder of 100,000
   // files costs what a screenful does: the rest is empty space of the right height. Every
   // row is exactly `rowH` pixels high. `cursor` is kept in view, as scrollIntoView would.
-  /** @type {{ items: any[], rowH: number, cursor?: number, row: import("svelte").Snippet<[any, number]>, [k: string]: any }} */
-  let { items, rowH, cursor = -1, row, ...rest } = $props();
+  /** @type {{ items: any[], rowH: number, cursor?: number, top?: number, row: import("svelte").Snippet<[any, number]>, [k: string]: any }} */
+  // `top` (how far it is scrolled) can be bound, so a tab keeps its place while another shows.
+  let { items, rowH, cursor = -1, top = $bindable(0), row, ...rest } = $props();
   let el = $state();
-  let top = $state(0);
   let height = $state(0);
   /** Rows rendered beyond the edges, so a scroll never shows a gap before the next render. */
   const OVER = 8;
@@ -25,6 +26,9 @@
   $effect(() => {
     if (!el || !height || cursor < 0) return;
     items; // a new list (another folder or tab) brings its cursor into view too
+    // Another tab's list comes with where it was scrolled.
+    const was = untrack(() => top);
+    if (el.scrollTop !== was) el.scrollTop = was;
     const y = cursor * rowH;
     if (y < el.scrollTop) el.scrollTop = y;
     else if (y + rowH > el.scrollTop + height) el.scrollTop = y + rowH - height;

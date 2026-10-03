@@ -352,9 +352,10 @@ async fn list_dir(dir: PathBuf, show_hidden: bool, sort: SortKey, reverse: bool,
         let dir = d;
         let (mut entries, inside) = bfs::list_with_archive(&dir, show_hidden).map_err(|e| format!("{}: {e}", dir.display()))?;
         bfs::sort(&mut entries, sort, reverse);
-        // By last commit: git's walk first, cached for the column after.
+        // By last commit: as the walk git did is known; else by name now, and the page sorts
+        // again when `git_last` answers.
         if sort == SortKey::Commit
-            && let Some(lasts) = history::last_changes(&dir)
+            && let Some(lasts) = history::last_changes_cached(&dir)
         {
             history::sort_by_last(&mut entries, &lasts, reverse);
         }
@@ -389,14 +390,22 @@ fn to_page(dir: &Path, entries: Vec<Entry>, tag: impl Fn(&Path) -> Option<String
     (prefix, items)
 }
 
+#[derive(Serialize)]
+struct GitLast {
+    /// The commit the map is for: HEAD, or the commit looked into.
+    head: String,
+    /// `None` when `head` is what the page said it had: the map it has holds.
+    lasts: Option<std::sync::Arc<history::Lasts>>,
+}
+
 /// The last commit of each entry of `dir` (a work tree's folder or a history's), as git's one
 /// walk over the folder finds it. `None` outside a repository or when switched off.
 #[tauri::command]
-async fn git_last(dir: PathBuf, ctx: tauri::State<'_, Ctx>) -> Res<Option<std::sync::Arc<history::Lasts>>> {
+async fn git_last(dir: PathBuf, have: Option<String>, ctx: tauri::State<'_, Ctx>) -> Res<Option<GitLast>> {
     if !ctx.cfg().git.last_commit {
         return Ok(None);
     }
-    tauri::async_runtime::spawn_blocking(move || history::last_changes(&dir)).await.map_err(|e| e.to_string())
+    tauri::async_runtime::spawn_blocking(move || history::last_changes_since(&dir, have.as_deref(), false).map(|(head, lasts)| GitLast { head, lasts })).await.map_err(|e| e.to_string())
 }
 
 #[derive(Serialize)]
@@ -789,6 +798,8 @@ async fn ask(question: String, earlier: Vec<(String, String)>, on_event: tauri::
     let (index, cfg, asking) = (ctx.index.clone(), ctx.cfg().search.clone(), ctx.asking.clone());
     let me = asking.fetch_add(1, Ordering::SeqCst) + 1;
     tauri::async_runtime::spawn_blocking(move || {
+        // The chat model loads while the sources are looked up.
+        coxswain_core::meaning::warm(&cfg);
         // A follow-up is looked up with the question before it, which it often leans on.
         let lookup = earlier.last().map_or(question.clone(), |(q, _)| format!("{q} {question}"));
         let sources = index.passages(&lookup, ASK_PASSAGES);
@@ -923,11 +934,16 @@ async fn edit_path(path: PathBuf, ctx: tauri::State<'_, Ctx>) -> Res<()> {
 /// Lines of a hex dump, 16 bytes each: 64 KB. The UI says as much.
 const HEX_LINES: usize = 4096;
 
-/// Up to `max` bytes as text for the preview; binary files come back hex-dumped.
+/// Up to `max` bytes as text for the preview; binary files come back hex-dumped. On a
+/// blocking thread: a slow share must not hold one of the runtime's workers.
 #[tauri::command]
 async fn read_text(path: PathBuf, max: usize) -> Res<(String, bool, bool)> {
+    blocking(move || read_text_of(&path, max)).await
+}
+
+fn read_text_of(path: &Path, max: usize) -> Res<(String, bool, bool)> {
     let mut buf = vec![];
-    let f = std::fs::File::open(&path).map_err(|e| e.to_string())?;
+    let f = std::fs::File::open(path).map_err(|e| e.to_string())?;
     let len = f.metadata().map(|m| m.len()).unwrap_or(0);
     f.take(max as u64).read_to_end(&mut buf).map_err(|e| e.to_string())?;
     let truncated = len > buf.len() as u64;
@@ -1025,8 +1041,13 @@ fn secs(t: std::io::Result<std::time::SystemTime>) -> Option<u64> {
     Some(t.ok()?.duration_since(std::time::UNIX_EPOCH).ok()?.as_secs())
 }
 
+/// On a blocking thread: a folder's size is a walk of it.
 #[tauri::command]
 async fn properties(path: PathBuf) -> Res<Props> {
+    blocking(move || properties_of(path)).await
+}
+
+fn properties_of(path: PathBuf) -> Res<Props> {
     let lmeta = std::fs::symlink_metadata(&path).map_err(|e| format!("{}: {e}", path.display()))?;
     let meta = std::fs::metadata(&path).unwrap_or_else(|_| lmeta.clone());
     let (size, files) = bfs::dir_size(&path);

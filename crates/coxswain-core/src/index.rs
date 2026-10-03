@@ -409,7 +409,13 @@ impl Index {
                 self.remove(c, chain(h, &name));
             }
         }
-        // ponytail: tombstones are never compacted in place; a periodic rebuild reclaims them.
+        // ponytail: tombstones are never compacted in place; a rebuild reclaims them (`stale`).
+    }
+
+    /// Whether a quarter of the nodes are gone: every search still walks them, so a rebuild
+    /// is due before the hourly one.
+    pub fn stale(&self) -> bool {
+        self.gone * 4 > self.nodes.len()
     }
 
     /// One directory level, without excluded directories.
@@ -905,6 +911,10 @@ impl Service {
                 let looked = self.index.read().unwrap().look(&dirty);
                 self.index.write().unwrap().apply(looked);
                 self.listeners.lock().unwrap().retain(|l| l.send(paths.clone()).is_ok());
+                // Archives edited over and over leave their old entries behind: compacted.
+                if self.index.read().unwrap().stale() {
+                    rebuild_at = Instant::now();
+                }
             }
         }
     }
@@ -967,6 +977,16 @@ mod tests {
         ix.refresh(&[d.join("src"), d.clone()].into_iter().collect());
         assert_eq!(names(&ix, "ext:rs"), ["fresh.rs", "main.rs", "secret.rs"]);
         assert_eq!(names(&ix, "readme"), Vec::<String>::new());
+        assert!(!ix.stale());
+        // Written again and again (an archive edited): the entries left behind add up.
+        for _ in 0..3 {
+            fs::write(d.join("src/new/deep/fresh.rs"), "").unwrap();
+            fs::remove_file(d.join("src/new/deep/fresh.rs")).unwrap();
+            ix.refresh(&[d.join("src/new/deep")].into_iter().collect());
+            fs::write(d.join("src/new/deep/fresh.rs"), "").unwrap();
+            ix.refresh(&[d.join("src/new/deep")].into_iter().collect());
+        }
+        assert!(ix.stale(), "{} of {} gone", ix.gone, ix.nodes.len());
         // The new directory is findable for later events.
         fs::write(d.join("src/new/deep/later.rs"), "").unwrap();
         ix.refresh(&[d.join("src/new/deep")].into_iter().collect());

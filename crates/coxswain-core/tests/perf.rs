@@ -132,3 +132,129 @@ fn perf_startup_pieces() {
     println!("theme slots: {:.2} ms", ms(t));
     let _ = Path::new(".");
 }
+
+/// A home folder holding a zip of `n` small text files, for the search store.
+fn home_with_zip(n: usize) -> (PathBuf, PathBuf) {
+    let d = bench_dir().join(format!("home-zip-{n}"));
+    let zip = d.join("docs.zip");
+    if d.join(".done").exists() {
+        return (d, zip);
+    }
+    let _ = std::fs::remove_dir_all(&d);
+    let src = d.join("src");
+    std::fs::create_dir_all(&src).unwrap();
+    for i in 0..n {
+        std::fs::write(src.join(format!("note-{i}.txt")), format!("note {i}: the rocket's fuel budget, flight {}\n", i % 97)).unwrap();
+    }
+    coxswain_core::archive::create(&zip, &[src.clone()]).unwrap();
+    std::fs::remove_dir_all(&src).unwrap();
+    std::fs::write(d.join(".done"), b"").unwrap();
+    (d, zip)
+}
+
+/// One member of a zip of 10,000 changes: how long the store takes to follow it.
+#[test]
+#[ignore]
+fn perf_store_archive_member_change() {
+    use coxswain_core::store::{self, Store};
+    use std::sync::atomic::AtomicBool;
+    let (home, zip) = home_with_zip(10_000);
+    let db = bench_dir().join("archive-store.db");
+    let _ = std::fs::remove_file(&db);
+    let cfg = coxswain_core::config::SearchConfig { text_roots: vec![home.clone()], archives: true, ..Default::default() };
+    let store = Store::open(&db).unwrap();
+    store.hurry.store(true, std::sync::atomic::Ordering::Relaxed);
+    let go = AtomicBool::new(false);
+    let t = Instant::now();
+    store::scan(&store, &cfg, &go).unwrap();
+    println!("scan a zip of 10k members: {:.0} ms, {} texts", ms(t), store.texts());
+    let extra = home.join("extra.txt");
+    std::fs::write(&extra, "a new note about the launch\n").unwrap();
+    coxswain_core::archive::add(&zip, &[("src/extra.txt".into(), extra.clone())], None).unwrap();
+    std::fs::remove_file(&extra).unwrap();
+    // The watcher sees the change a few seconds after the archive was written.
+    std::thread::sleep(std::time::Duration::from_millis(3100));
+    let t = Instant::now();
+    store::refresh(&store, &cfg, &mut [zip.clone()].into_iter().collect(), &mut Default::default(), &go).unwrap();
+    println!("refresh after one member added: {:.0} ms, {} texts", ms(t), store.texts());
+    assert_eq!(store.search("launch", 5).hits.len(), 1);
+}
+
+/// An embedding server that answers like Ollama, with a vector of letter counts per text:
+/// what the store does with the vectors is measured, not the model.
+fn fake_embed_server() -> String {
+    use std::io::{Read, Write};
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let url = format!("http://{}", listener.local_addr().unwrap());
+    std::thread::spawn(move || {
+        for mut c in listener.incoming().flatten() {
+            let mut got = Vec::new();
+            let mut buf = [0u8; 65536];
+            loop {
+                let n = c.read(&mut buf).unwrap_or(0);
+                if n == 0 {
+                    break;
+                }
+                got.extend_from_slice(&buf[..n]);
+                let text = String::from_utf8_lossy(&got);
+                if let Some(h) = text.find("\r\n\r\n") {
+                    let len: usize = text[..h].lines().find_map(|l| l.to_ascii_lowercase().strip_prefix("content-length:")?.trim().parse().ok()).unwrap_or(0);
+                    if got.len() >= h + 4 + len {
+                        break;
+                    }
+                }
+            }
+            let text = String::from_utf8_lossy(&got);
+            let body = text.split_once("\r\n\r\n").map(|x| x.1).unwrap_or("");
+            let v: serde_json::Value = serde_json::from_str(body).unwrap_or_default();
+            let vectors: Vec<Vec<f32>> = v["input"].as_array().map(|a| a.iter().map(|t| {
+                let mut v = vec![0.0f32; 26];
+                for b in t.as_str().unwrap_or("").bytes().filter(u8::is_ascii_alphabetic) {
+                    v[(b.to_ascii_lowercase() - b'a') as usize] += 1.0;
+                }
+                v
+            }).collect()).unwrap_or_default();
+            let reply = serde_json::json!({ "embeddings": vectors }).to_string();
+            let _ = write!(c, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{reply}", reply.len());
+        }
+    });
+    url
+}
+
+/// Search by meaning over 400 files of 100 KB: what `similar` and `passages` cost once the
+/// vectors are in, which is reading the passages of the closest files.
+#[test]
+#[ignore]
+fn perf_meaning_closest() {
+    use coxswain_core::store::{self, Store};
+    use std::sync::atomic::AtomicBool;
+    let d = bench_dir().join("home-meaning-400");
+    if !d.join(".done").exists() {
+        std::fs::create_dir_all(&d).unwrap();
+        for i in 0..400 {
+            let word = ["rocket", "budget", "zebra", "quartz", "launch", "orbit"][i % 6];
+            let text: String = (0..12_000).map(|j| format!("{word} {} ", j % 50)).collect();
+            std::fs::write(d.join(format!("doc-{i}.txt")), text).unwrap();
+        }
+        std::fs::write(d.join(".done"), b"").unwrap();
+    }
+    let db = bench_dir().join("meaning-store.db");
+    let _ = std::fs::remove_file(&db);
+    let url = fake_embed_server();
+    let cfg = coxswain_core::config::SearchConfig { text_roots: vec![d.clone()], meaning: true, meaning_engine: "ollama".into(), meaning_url: url, meaning_model: "fake".into(), ..Default::default() };
+    let store = Store::open(&db).unwrap();
+    store.set_engine(coxswain_core::meaning::Engine::from_config(&cfg));
+    store.hurry.store(true, std::sync::atomic::Ordering::Relaxed);
+    let go = AtomicBool::new(false);
+    let t = Instant::now();
+    store::scan(&store, &cfg, &go).unwrap();
+    println!("scan + vectors of 400 files: {:.0} ms, {:?} {:?}", ms(t), store.meaning_counts(), store.meaning_error.lock().unwrap());
+    for q in ["zebra quartz", "rocket budget"] {
+        let t = Instant::now();
+        let hits = store.similar(q, 10);
+        println!("similar {q:?}: {:.1} ms, {} hits", ms(t), hits.len());
+        let t = Instant::now();
+        let p = store.passages(q, 10);
+        println!("passages {q:?}: {:.1} ms, {} passages", ms(t), p.len());
+    }
+}
