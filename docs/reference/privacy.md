@@ -55,6 +55,10 @@ temporary folder that is removed afterwards. Containers for previews run with `-
 Files copied out of an archive on the way to another archive pass through a temporary folder of
 their own, removed afterwards.
 
+**Files only in the cloud** (OneDrive, Dropbox, Google Drive, Proton Drive, iCloud, cloud mounts
+on Linux) are never read unless you open one: reading them would make the cloud app download
+them. They are found by name only ([Cloud files](../search/cloud-files.md)).
+
 **HTML files** are shown as pages in a sandbox: the page runs no scripts and may load only
 pictures, styles, fonts and media from your own disk (beside the file). A page that links a
 script or a picture on the web gets nothing from the web ([HTML pages](../previews/html.md)).

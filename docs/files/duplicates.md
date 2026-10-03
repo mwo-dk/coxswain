@@ -121,6 +121,11 @@ Reading every file on a large disk would take hours, so Coxswain only reads what
    knows, not even the first 16 KB. Hashes of files that are gone or have changed are dropped at
    its next pass.
 
+**Files only in the cloud are never read.** A file that OneDrive, Dropbox, Google Drive, Proton
+Drive or iCloud keeps online only would be downloaded by hashing it, so a scan leaves it out: it is
+not counted and never a duplicate. Files the cloud app keeps on your disk are compared as usual
+([Cloud files](../search/cloud-files.md)).
+
 On a developer's home folder of 64,856 files (30 GB), the first scan read 1.9 GB and took
 1.0 s; the second took 0.5 s.
 

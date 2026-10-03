@@ -43,6 +43,7 @@ choose the interface font, the monospaced font, the icon font and the text size.
 | `ignored` | U+F070 | `.` | Next to an ignored file or folder |
 | `stash` | U+EB4B | `$` | The git line: stashes |
 | `clean` | U+F00C | `=` | The git line, when nothing is changed |
+| `cloud` | U+F0C2 | `*` | After the name of a file only in the cloud, not downloaded ([Cloud files](../search/cloud-files.md)) |
 | `folder`, `file`, `symlink` | U+F07B, U+F15B, U+F0C1 | `/`, ` `, `@` | Kept in the set, but not used at present (see the questions) |
 
 Each git state has its own colour from the theme's `git_…` [slots](own-theme.md#the-colour-slots).
@@ -90,6 +91,7 @@ clean = "="
 folder = "/"
 file = " "
 symlink = "@"
+cloud = "*"
 ```
 
 A glyph can be any text, also an emoji or a word. The git line takes any length, but the mark

@@ -268,13 +268,13 @@ impl Server {
         if let Some(key) = &self.key {
             req = req.header("Authorization", &format!("Bearer {key}"));
         }
-        let mut res = req.send(body.to_string()).map_err(|e| NoVectors::Down(format!("{}: {e}", self.url)))?;
+        let mut res = req.send(body.to_string()).map_err(|e| NoVectors::Down(format!("{}: {e}", shown(&self.url))))?;
         let status = res.status();
         let text = res.body_mut().read_to_string().map_err(|e| NoVectors::Down(e.to_string()))?;
         let v: serde_json::Value = serde_json::from_str(&text).unwrap_or_default();
         let said = || v["error"].as_str().or_else(|| v["error"]["message"].as_str()).map(String::from);
         if status.as_u16() >= 400 {
-            return Err(NoVectors::Refused(format!("{} {}: {}", self.url, status, said().unwrap_or(text))));
+            return Err(NoVectors::Refused(format!("{} {}: {}", shown(&self.url), status, said().unwrap_or(text))));
         }
         let rows: Vec<&serde_json::Value> = if self.openai { v["data"].as_array().map(|d| d.iter().map(|x| &x["embedding"]).collect()).unwrap_or_default() } else { v["embeddings"].as_array().map(|d| d.iter().collect()).unwrap_or_default() };
         if rows.len() != texts.len() {
@@ -332,20 +332,20 @@ pub fn ask(cfg: &crate::config::SearchConfig, earlier: &[Turn], question: &str, 
     // heard meanwhile: `piece` is asked every 100 ms whether to go on.
     let (sent, answer) = std::sync::mpsc::channel();
     let (url, body) = (s.url.clone(), body.to_string());
-    std::thread::spawn(move || sent.send(req.send(body).map_err(|e| format!("{url}: {e}"))));
+    std::thread::spawn(move || sent.send(req.send(body).map_err(|e| format!("{}: {e}", shown(&url)))));
     let mut res = loop {
         match answer.recv_timeout(Duration::from_millis(100)) {
             Ok(res) => break res?,
             Err(std::sync::mpsc::RecvTimeoutError::Timeout) if piece("") => {}
             Err(std::sync::mpsc::RecvTimeoutError::Timeout) => return Ok(()),
-            Err(_) => return Err(format!("{}: no answer", s.url)),
+            Err(_) => return Err(format!("{}: no answer", shown(&s.url))),
         }
     };
     if res.status().as_u16() >= 400 {
         let text = res.body_mut().read_to_string().unwrap_or_default();
         let v: serde_json::Value = serde_json::from_str(&text).unwrap_or_default();
         let why = v["error"].as_str().or_else(|| v["error"]["message"].as_str()).map(String::from).unwrap_or(text);
-        return Err(format!("{} {}: {why}", s.url, res.status()));
+        return Err(format!("{} {}: {why}", shown(&s.url), res.status()));
     }
     let mut thinking = false;
     // An answer is text: 8 MB is far more than any, and a line without end stops there.
@@ -418,6 +418,15 @@ fn unthink(piece: &str, thinking: &mut bool) -> String {
     }
 }
 
+/// A server's URL as an error names it: without the `user:password@` a URL may carry, which
+/// would otherwise show in the status line and in Settings.
+fn shown(url: &str) -> String {
+    match url.split_once("://") {
+        Some((scheme, rest)) if rest.split(['/', '?', '#']).next().is_some_and(|host| host.contains('@')) => format!("{scheme}://{}", &rest[rest.find('@').unwrap() + 1..]),
+        _ => url.to_string(),
+    }
+}
+
 /// TLS that trusts the system's certificate store, as the update check does, so a proxy that
 /// inspects TLS or a server with a company certificate works.
 fn tls() -> ureq::tls::TlsConfig {
@@ -434,7 +443,7 @@ pub fn server_models(openai: bool, url: &str, key: Option<&str>) -> Result<Vec<S
     if let Some(key) = key {
         req = req.header("Authorization", &format!("Bearer {key}"));
     }
-    let text = req.call().map_err(|e| format!("{url}: {e}"))?.body_mut().read_to_string().map_err(|e| e.to_string())?;
+    let text = req.call().map_err(|e| format!("{}: {e}", shown(url)))?.body_mut().read_to_string().map_err(|e| e.to_string())?;
     let v: serde_json::Value = serde_json::from_str(&text).map_err(|e| e.to_string())?;
     let names = if openai { v["data"].as_array().map(|d| d.iter().filter_map(|m| m["id"].as_str().map(String::from)).collect()) } else { v["models"].as_array().map(|d| d.iter().filter_map(|m| m["name"].as_str().map(String::from)).collect()) };
     Ok(names.unwrap_or_default())
@@ -595,6 +604,22 @@ mod tests {
         let mut heads = server.join().unwrap();
         heads.sort();
         assert_eq!(heads, ["POST /api/chat HTTP/1.1", "POST /api/generate HTTP/1.1"]);
+    }
+
+    /// A server named with `user:password@` in Settings: its errors do not repeat the password.
+    #[test]
+    fn ask_errors_never_show_the_password_in_the_url() {
+        assert_eq!(shown("http://me:hunter2@host:11434/v1"), "http://host:11434/v1");
+        assert_eq!(shown("http://host/x?u=a@b"), "http://host/x?u=a@b");
+        assert_eq!(shown("not a url"), "not a url");
+        let (url, server) = one_answer("401 Unauthorized", "{\"error\":\"who?\"}");
+        let url = url.replace("http://", "http://me:hunter2@");
+        let cfg = crate::config::SearchConfig { meaning_engine: "ollama".into(), meaning_url: url, ask_model: "chat".into(), ..Default::default() };
+        let err = ask(&cfg, &[], "q", &[("/p/a.md".into(), "a".into())], |_| true).unwrap_err();
+        assert!(err.contains("401") && !err.contains("hunter2"), "{err}");
+        let _ = server.join();
+        let err = server_models(false, "http://me:hunter2@127.0.0.1:9", None).unwrap_err();
+        assert!(!err.contains("hunter2"), "{err}");
     }
 
     /// Stop is heard while the model still thinks aloud, before any of the answer comes.

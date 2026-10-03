@@ -42,10 +42,14 @@
     };
   }
   const e = $derived(inside && peeked.from === raw.path && peeked.to ? { ...raw, path: peeked.to } : raw);
+  /** Files only in the cloud the user asked to download here. Until then nothing reads one:
+   *  every preview, fact and diff would download it. */
+  let fetched = $state([]);
+  const online = $derived(!!raw?.online && !raw.is_dir && !fetched.includes(raw.path));
   /** A JSON or XML file whose first bytes turned out to be a CycloneDX BOM's. */
   let sniffedBom = $state("");
   const kind = $derived(
-    output ? "output" : inside && e === raw ? "in-archive" : e && sniffedBom === e.path ? "bom" : previewKind(e),
+    output ? "output" : online ? "online" : inside && e === raw ? "in-archive" : e && sniffedBom === e.path ? "bom" : previewKind(e),
   );
   let text = $state("");
   let html = $state("");
@@ -76,7 +80,7 @@
   const hasDiff = $derived((gitKind && !["untracked", "ignored"].includes(gitKind)) || (inHistory && !!pane.history.commit));
   /** The last commit of the entry, `null` when older than the walk, undefined when untracked. */
   const last = $derived(e && e.name !== ".." ? pane.last?.[e.name] : undefined);
-  const diffing = $derived(hasDiff && showDiff);
+  const diffing = $derived(hasDiff && showDiff && !online);
   /** Parsed forms of textual files: a data tree, a table, calendar events or contact cards. */
   let tree = $state(undefined);
   let table = $state(null);
@@ -205,7 +209,7 @@
   $effect(() => {
     const cur = e;
     facts = [];
-    if (!cur || cur.is_dir) return;
+    if (!cur || cur.is_dir || online) return;
     const timer = setTimeout(async () => {
       const f = await invoke("file_facts", { path: cur.path }).catch(() => []);
       if (e?.path === cur.path) facts = f;
@@ -414,7 +418,10 @@
 
     <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
     <div class="body" class:flush={kind === "bom" && !source && !diffing} onclick={linkClick}>
-      {#if kind === "in-archive"}
+      {#if kind === "online"}
+        <p class="more">{"\u{f0c2}"} <b>{t("preview.online")}</b> {t("preview.online_hint", { key: ui.cfg.actions.open?.[1] ?? "Enter" })}</p>
+        <button class="render" onclick={() => { const path = raw.path; invoke("cloud_fetch", { path }).then(() => fetched.push(path)); }}>{t("preview.online_download")}</button>
+      {:else if kind === "in-archive"}
         {#if peeked.error.includes(LOCKED)}
           <p class="more">{t("archive.preview_locked")} <button class="link" onclick={unlock}>{t("archive.preview_unlock")}</button></p>
         {:else if peeked.error}

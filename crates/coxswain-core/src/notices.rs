@@ -43,6 +43,14 @@ pub fn next(cfg: &Config, status: &Status, state: &AppState, terminal: bool) -> 
     if let Some(why) = status.meaning_error.as_ref().filter(|_| status.meaning) {
         all.push(Notice { id: format!("error:{why}"), text: t!("notice.meaning_error", "why" => why), settings: Some("meaning"), url: None });
     }
+    // Clouds found: their files that are only online are found by name, never downloaded.
+    if cfg.search.cloud != "all" && !status.clouds.is_empty() {
+        let mut names: Vec<&str> = status.clouds.iter().map(|(n, _)| n.as_str()).collect();
+        names.dedup();
+        let names = names.join(", ");
+        let text = if terminal { t!("notice.cloud_tui", "names" => names) } else { t!("notice.cloud", "names" => names) };
+        all.push(Notice { id: "cloud".into(), text, settings: Some("search"), url: None });
+    }
     // After an update: where to read what it brought. Not on a first start.
     if !state.seen_version.is_empty() && state.seen_version != version {
         all.push(Notice { id: format!("new-{version}"), text: t!("notice.updated", "version" => version), settings: None, url: Some(crate::update::RELEASES_URL) });
@@ -94,7 +102,7 @@ mod tests {
     #[test]
     fn notices_come_one_at_a_time_and_stay_away_once_dismissed() {
         let cfg = Config::default();
-        let mut status = Status { state: crate::index::State::Ready, len: 1, texts: 10, pending: 0, bytes: 0, paused: false, roots: vec![], tools: vec![("tesseract".into(), false)], meaning: false, meaning_pending: 0, meaning_done: 0, meaning_engine: String::new(), meaning_error: None, error: None };
+        let mut status = Status { state: crate::index::State::Ready, len: 1, texts: 10, pending: 0, bytes: 0, paused: false, roots: vec![], tools: vec![("tesseract".into(), false)], meaning: false, meaning_pending: 0, meaning_done: 0, meaning_engine: String::new(), meaning_error: None, error: None, clouds: vec![] };
         let mut state = AppState::default();
         assert!(started(&mut state), "a first start is told of nothing new");
         assert!(!started(&mut state));
@@ -130,5 +138,13 @@ mod tests {
         assert!(next(&cfg, &status, &state, true).unwrap().text.contains("constraint failed"));
         status.error = None;
         assert!(search_level(&cfg, &status).split(" · ").count() == 3);
+
+        // Clouds found: told once that their online files stay there.
+        status.clouds = vec![("OneDrive".into(), "/c/OneDrive".into()), ("Dropbox".into(), "/c/Dropbox".into())];
+        let n = next(&cfg, &status, &state, false).unwrap();
+        assert_eq!(n.id, "cloud");
+        assert!(n.text.contains("OneDrive, Dropbox"), "{}", n.text);
+        dismiss(&mut state, "cloud");
+        assert_eq!(ids(&state, &status), None);
     }
 }

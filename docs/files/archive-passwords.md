@@ -142,6 +142,10 @@ from the password with SHA-256, as `7z a -p` does.
 Yes: copy them in with **F5** (or move them with **F6**). They get the same password as the files
 already in it; you are asked for it unless Coxswain still knows it from this run.
 
+A zip locked the old way (ZipCrypto, as `zip -e` and older tools make them) asks for its password
+for any change, also taking out or renaming: its locked files are written anew, locked with
+AES-256 and the same password, since the old lock cannot be carried over as it is.
+
 #### Can others open the zip I locked?
 
 Yes, with the password, in any program that reads AES zips (7-Zip, WinZip, Keka, The Unarchiver,

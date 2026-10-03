@@ -72,7 +72,7 @@
     if (!error) await invoke("index_action", { what: "restart" }).catch((e) => (error = String(e)));
     loadIndex();
   }
-  const adding = $state({ text_roots: "", names_only: "", text_exclude: "" });
+  const adding = $state({ text_roots: "", names_only: "", text_exclude: "", cloud_read: "" });
   /** What the store has of a folder read: its bytes and files, and whether its disk is away. */
   const rootInfo = (dir) => {
     const r = index?.roots?.find(([p]) => p === dir);
@@ -317,6 +317,23 @@
           {/if}
         </div>
         <label class="check"><input type="checkbox" checked={s.search_history} onchange={(e) => setSearch("search_history", e.currentTarget.checked)} /> {t("settings.search_history")}</label>
+        <!-- Files only in the cloud: found by name, never downloaded, unless asked. -->
+        <label class="check" id="settings-cloud"><input type="checkbox" checked={s.search_cloud === "all"} onchange={(e) => setSearch("search_cloud", e.currentTarget.checked ? "all" : "local-only")} /> {"\u{f0c2}"} {t("settings.search_cloud")}</label>
+        {#if s.search_cloud !== "all"}
+          <div class="grid">
+            <span class="top">{t("settings.search_cloud_read")}</span>
+            <div class="folders">
+              {#each (index?.clouds ?? []).filter(([, dir]) => !s.cloud_read.includes(dir)) as [name, dir] (dir)}
+                <div class="folder">
+                  <span class="mono">{name}<small class="hint">{dir}</small></span>
+                  <button onclick={() => setSearch("cloud_read", [...s.cloud_read, dir])}>{t("settings.search_cloud_read_one")}</button>
+                </div>
+              {/each}
+              {@render folders("cloud_read", t("settings.search_names_only_none"))}
+            </div>
+          </div>
+        {/if}
+        <p class="hint">{t("settings.search_cloud_hint")}</p>
         <p class="hint">{t("settings.search_hint")}</p>
       {/if}
     </section>

@@ -96,8 +96,12 @@ pub struct Status {
 }
 
 impl Status {
-    /// Run git in `dir`. `None` when `dir` is not inside a work tree or git is missing.
+    /// Run git in `dir`. `None` when `dir` is not inside a work tree or git is missing, or in a
+    /// repository only in the cloud, which git would download.
     pub fn read(dir: &Path) -> Option<Status> {
+        if crate::cloud::git_kept_out(dir) {
+            return None;
+        }
         let git = |args: &[&str]| {
             command(dir)
                 .args(args)

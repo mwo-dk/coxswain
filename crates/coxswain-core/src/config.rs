@@ -606,6 +606,8 @@ pub struct Glyphs {
     pub folder: String,
     pub file: String,
     pub symlink: String,
+    /// A file only in the cloud (OneDrive, Dropbox, iCloud …), not downloaded.
+    pub cloud: String,
 }
 
 impl Default for Glyphs {
@@ -634,6 +636,7 @@ impl Glyphs {
             folder: s("\u{f07b}"),
             file: s("\u{f15b}"),
             symlink: s("\u{f0c1}"),
+            cloud: s("\u{f0c2}"),
         }
     }
 
@@ -655,6 +658,7 @@ impl Glyphs {
             folder: s("/"),
             file: s(" "),
             symlink: s("@"),
+            cloud: s("*"),
         }
     }
 }
@@ -798,6 +802,12 @@ pub struct SearchConfig {
     /// Keep the history of the git repositories in the text roots too: commit messages,
     /// authors and changed paths (the newest 2000 commits of each), found like text.
     pub history: bool,
+    /// Files that are only in the cloud (OneDrive, Dropbox, Google Drive, Proton Drive, iCloud,
+    /// cloud mounts on Linux): "local-only" finds them by name and never reads them, as reading
+    /// one downloads it; "all" reads them like the rest.
+    pub cloud: String,
+    /// Folders in the cloud whose files are read even so: a cloud mount on Linux, say.
+    pub cloud_read: Vec<PathBuf>,
 }
 
 impl Default for SearchConfig {
@@ -820,6 +830,8 @@ impl Default for SearchConfig {
             text_max_size: 20 * 1024 * 1024,
             archives: true,
             history: true,
+            cloud: "local-only".into(),
+            cloud_read: vec![],
         }
     }
 }
@@ -1007,6 +1019,7 @@ impl Config {
         let mut c: Config = toml::from_str(text).map_err(|e| format!("config: {e}"))?;
         c.fill_defaults();
         c.keymap()?;
+        crate::cloud::follow(&c.search);
         Ok(c)
     }
 

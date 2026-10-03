@@ -48,6 +48,8 @@ The questions people ask most, with a short answer and a link to the full one. E
 - **Can I ask my files a question?** Yes: Tab to *Ask* in Find file, with search by meaning on and a chat model on your server. [Answer](search/ask.md)
 - **What does Ask send, and where?** [Answer](search/ask.md#what-is-sent-and-where)
 - **Can Ollama or Lemonade make the vectors instead?** Yes: pick it under Vectors made by, or `coxswain --meaning ollama` / `--meaning server URL MODEL`. [Answer](search/servers.md#which-model-should-i-pick-on-a-server)
+- **Will Coxswain download my OneDrive?** No: files only in OneDrive, Dropbox, Google Drive, Proton Drive or iCloud are found by name and left in the cloud until you open one. [Answer](search/cloud-files.md#will-coxswain-download-my-onedrive)
+- **How do I search inside my Dropbox files?** Make the folder available offline in Dropbox, or read it anyway in Settings. [Answer](search/cloud-files.md#how-do-i-search-inside-my-dropbox-files)
 - **How do I keep a folder's text out of the index?** Add it to Names only in Settings, or put an empty `.nosearch` file in it. [Answer](search/folders.md#how-do-i-make-a-folder-names-only)
 - **How do I leave out files like `*.log`?** Add the pattern under Settings → Search inside files → Left out, or to `text_exclude`. [Answer](search/folders.md#how-do-i-leave-out-files-like-log-or-one-file)
 - **Where is search.db, and can I look inside?** In the cache folder; Settings → Show in panel opens it, and the preview or F3 shows its tables. It never indexes itself. [Answer](search/folders.md#where-is-searchdb-and-can-i-look-inside)

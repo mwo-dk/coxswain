@@ -218,7 +218,7 @@ fn inner_spec(inner: &str) -> String {
 /// A folder of the listing, as `fs::list` gives it: the commits of a history, or the folder at
 /// a commit. `..` leads up: from the commits, back to the folder on disk.
 pub fn list(dir: &Path, at: &At) -> io::Result<Vec<Entry>> {
-    let up = |path: PathBuf| Entry { name: "..".into(), path, is_dir: true, is_symlink: false, is_exec: false, hidden: false, size: 0, modified: 0, created: 0 };
+    let up = |path: PathBuf| Entry { name: "..".into(), path, is_dir: true, is_symlink: false, is_exec: false, hidden: false, size: 0, modified: 0, created: 0, online: false };
     let Some(rev) = &at.commit else {
         let commits = commits_of(at)?;
         let mut out = vec![up(at.base.clone())];
@@ -232,6 +232,7 @@ pub fn list(dir: &Path, at: &At) -> io::Result<Vec<Entry>> {
             size: 0,
             modified: c.time,
             created: c.time,
+            online: false,
         }));
         return Ok(out);
     };
@@ -253,6 +254,7 @@ pub fn list(dir: &Path, at: &At) -> io::Result<Vec<Entry>> {
             size,
             modified: when,
             created: when,
+            online: false,
         });
     }
     if out.len() == 1 && !at.inner.is_empty() {
@@ -334,9 +336,11 @@ fn write_tree(at: &At, rev: &str, to: &Path) -> io::Result<()> {
         let Some((p, kind, _, oid)) = tree_line(rec) else { continue };
         let rel = if at.inner.is_empty() { p.as_str() } else if p == at.inner { "" } else { match p.strip_prefix(&format!("{}/", at.inner)) { Some(r) => r, None => continue } };
         // git never stores `..` or `.git`; refuse them anyway (and a `\\` or `C:` that Windows
-        // reads as a path), so nothing lands outside `to` or makes a repository there.
+        // reads as a path), so nothing lands outside `to` or makes a repository there. Also
+        // what Windows reads as `.git`: `.GIT.` (trailing dots and spaces dropped), `GIT~1`.
         let normal = Path::new(rel).components().all(|c| matches!(c, Component::Normal(_)));
-        if !normal || rel.split('/').any(|s| matches!(s, "." | "..") || s.eq_ignore_ascii_case(".git")) {
+        let dot_git = |s: &str| s.trim_end_matches(['.', ' ']).eq_ignore_ascii_case(".git") || s.eq_ignore_ascii_case("git~1");
+        if !normal || rel.split('/').any(|s| matches!(s, "." | "..") || dot_git(s)) {
             continue;
         }
         let dst = if rel.is_empty() { to.to_path_buf() } else { to.join(rel) };
@@ -438,7 +442,7 @@ static CACHE: Mutex<Option<Cache>> = Mutex::new(None);
 
 /// The last commit of each entry in `dir`: a folder of a work tree (up to HEAD), a folder at a
 /// commit in a history, or a history's list of commits (each its own). One `git log` for the
-/// whole folder, cached by commit. `None` outside a repository.
+/// whole folder, cached by commit. `None` outside a repository, and in one only in the cloud.
 pub fn last_changes(dir: &Path) -> Option<Arc<Lasts>> {
     last_changes_since(dir, None, false)?.1
 }
@@ -463,6 +467,8 @@ pub fn last_changes_since(dir: &Path, have: Option<&str>, cached: bool) -> Optio
             return Some((oid, Some(Arc::new(commits.iter().map(|c| (entry_name(c), Some(Last::from(c)))).collect()))));
         }
         Some(at) => (at.base, at.commit.unwrap_or_default(), at.inner),
+        // A repository only in the cloud: git would download it.
+        None if crate::cloud::git_kept_out(dir) => return None,
         None => (dir.to_path_buf(), "HEAD".to_string(), String::new()),
     };
     let oid = rev_oid(&base, &rev)?;
@@ -856,7 +862,8 @@ pub(crate) mod tests {
     }
 
     /// A made-up tree with a link `a` to a folder outside and a folder `a` of the same name,
-    /// and a `.git` folder: copied out, nothing is written through the link, and no `.git`.
+    /// and `.git` folders (also spelt as Windows reads them): copied out, nothing is written
+    /// through the link, and no `.git`.
     #[cfg(unix)]
     #[test]
     fn history_copy_out_never_writes_through_a_link() {
@@ -881,6 +888,14 @@ pub(crate) mod tests {
         let _ = copy_out(&at, &dest);
         assert!(!outside.join("evil").exists(), "written through the link");
         assert!(std::fs::read_dir(&dest).unwrap().flatten().all(|e| !e.path().join(".git").exists()));
+        // `.git` as Windows would read other spellings of it: left out, the rest comes.
+        let tree = git_in(&["mktree"], &format!("040000 tree {sub}\t.GIT.\n040000 tree {sub}\tgit~1\n040000 tree {sub}\tsub\n100644 blob {blob}\tok\n"));
+        let commit = git_in(&["-c", "user.name=t", "-c", "user.email=t@t", "commit-tree", &tree, "-m", "y"], "");
+        let out = copy_out(&At { commit: Some(commit), ..at }, &dest).unwrap();
+        assert!(out.join("ok").is_file() && out.join("sub/evil").is_file());
+        for git in [".GIT.", "git~1"] {
+            assert!(!out.join(git).exists(), "{git} was made");
+        }
         std::fs::remove_dir_all(d).unwrap();
     }
 

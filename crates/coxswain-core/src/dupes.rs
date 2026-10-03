@@ -125,6 +125,10 @@ fn walk(dir: &Path, opts: &Options, p: &Progress, out: &mut Vec<Found>) {
             subdirs.push(de.path());
         } else if ft.is_file() {
             let Ok(m) = de.metadata() else { continue };
+            // Only in the cloud: hashing it would download it.
+            if crate::cloud::keep_out_meta(&m, &de.path()) {
+                continue;
+            }
             p.files.fetch_add(1, Ordering::Relaxed);
             out.push(Found {
                 size: m.len(),
@@ -145,8 +149,12 @@ fn walk(dir: &Path, opts: &Options, p: &Progress, out: &mut Vec<Found>) {
     out.extend(nested.into_iter().flatten());
 }
 
-/// BLAKE3 of the file, or of its first `limit` bytes. `read` counts the bytes as they go.
+/// BLAKE3 of the file, or of its first `limit` bytes. `read` counts the bytes as they go. A file
+/// only in the cloud is not read, unless the settings read those: it would be downloaded.
 pub(crate) fn hash_file(path: &Path, limit: Option<usize>, cancel: &AtomicBool, read: Option<&AtomicU64>) -> io::Result<blake3::Hash> {
+    if crate::cloud::keep_out(path) {
+        return Err(crate::cloud::not_here(path));
+    }
     let mut f = fs::File::open(path)?;
     let mut h = blake3::Hasher::new();
     let mut buf = vec![0u8; 1 << 20];
@@ -386,6 +394,13 @@ mod tests {
         let r = scan(&Options { roots: vec![d.clone()], folders: false, ..Default::default() }, &Progress::default());
         assert_eq!(r.groups.len(), 2);
         assert_eq!(r.groups[0].size, 100_000, "sorted by wasted space");
+
+        // A copy only in the cloud is never read: not hashed, not a duplicate.
+        crate::cloud::pretend(&d.join("other/copy.txt"), true);
+        let r = scan(&Options { roots: vec![d.clone()], folders: false, ..Default::default() }, &Progress::default());
+        assert_eq!(r.groups.iter().find(|g| g.size == 20).map(|g| g.files.len()), Some(2));
+        assert!(hash_file(&d.join("other/copy.txt"), None, &AtomicBool::new(false), None).is_err());
+        crate::cloud::pretend(&d.join("other/copy.txt"), false);
         fs::remove_dir_all(d).unwrap();
     }
 }

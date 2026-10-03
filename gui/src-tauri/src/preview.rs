@@ -15,6 +15,7 @@ type Res<T> = Result<T, String>;
 /// history: what that commit changed in it.
 #[tauri::command]
 pub async fn git_diff(path: PathBuf) -> Res<Option<String>> {
+    crate::here(&path)?;
     if let Some(at) = coxswain_core::history::split(&path).filter(|_| !path.exists()) {
         let text = tauri::async_runtime::spawn_blocking(move || coxswain_core::history::diff(&at)).await.map_err(|e| e.to_string())?.map_err(|e| e.to_string())?;
         return Ok((!text.trim().is_empty()).then_some(text));
@@ -36,6 +37,7 @@ pub async fn git_diff(path: PathBuf) -> Res<Option<String>> {
 /// window's thread.
 #[tauri::command]
 pub async fn sqlite_info(path: PathBuf) -> Res<Vec<coxswain_core::tables::Table>> {
+    crate::here(&path)?;
     tauri::async_runtime::spawn_blocking(move || coxswain_core::tables::sqlite(&path, 5)).await.map_err(|e| e.to_string())?
 }
 
@@ -50,6 +52,7 @@ pub struct Book {
 
 #[tauri::command]
 pub async fn epub_preview(path: PathBuf) -> Res<Book> {
+    crate::here(&path)?;
     let mut z = zip::ZipArchive::new(BufReader::new(File::open(&path).map_err(|e| e.to_string())?)).map_err(|e| e.to_string())?;
     let mut read = |name: &str| -> Res<String> {
         let mut s = String::new();
@@ -103,6 +106,7 @@ pub struct Cert {
 /// Every certificate in a PEM file (a chain has several), or the one in a DER file.
 #[tauri::command]
 pub async fn cert_info(path: PathBuf) -> Res<Vec<Cert>> {
+    crate::here(&path)?;
     use x509_parser::prelude::*;
     let data = std::fs::read(&path).map_err(|e| e.to_string())?;
     let now = ASN1Time::now().timestamp();
@@ -164,6 +168,7 @@ pub struct Mail {
 
 #[tauri::command]
 pub async fn mail_preview(path: PathBuf) -> Res<Mail> {
+    crate::here(&path)?;
     use mail_parser::{Address, MessageParser, MimeHeaders};
     let data = std::fs::read(&path).map_err(|e| e.to_string())?;
     let m = MessageParser::default().parse(&data[..]).ok_or_else(|| t!("err.not_email"))?;
@@ -196,6 +201,7 @@ pub async fn mail_preview(path: PathBuf) -> Res<Mail> {
 /// A macOS property list (binary or XML) as XML text.
 #[tauri::command]
 pub async fn plist_xml(path: PathBuf) -> Res<String> {
+    crate::here(&path)?;
     let v = plist::Value::from_file(&path).map_err(|e| e.to_string())?;
     let mut out = vec![];
     v.to_writer_xml(&mut out).map_err(|e| e.to_string())?;
@@ -205,9 +211,13 @@ pub async fn plist_xml(path: PathBuf) -> Res<String> {
 // ---------------------------------------------------------------- facts
 
 /// Label and value pairs for the preview pane: EXIF for photos, tags and format for audio,
-/// target and kind for executables. Empty for anything else.
+/// target and kind for executables. Empty for anything else, and for a file only in the cloud:
+/// reading it would download it.
 #[tauri::command]
 pub async fn file_facts(path: PathBuf) -> Vec<(String, String)> {
+    if coxswain_core::cloud::unasked(&path) {
+        return vec![];
+    }
     let ext = path.extension().map(|e| e.to_string_lossy().to_lowercase()).unwrap_or_default();
     match ext.as_str() {
         "jpg" | "jpeg" | "tif" | "tiff" | "heic" | "heif" | "png" | "webp" | "avif" | "dng" => exif_facts(&path),

@@ -2,6 +2,7 @@
 
 pub mod archive;
 pub mod bom;
+pub mod cloud;
 pub mod config;
 pub mod i18n;
 pub mod dupes;
