@@ -69,7 +69,8 @@ def files(d):
     wb.active.append([1, "Tern"])
     wb.save(d / "g.xlsx")
     png(d / "h.png")
-    (d / "i.html").write_text('<!doctype html><title>Rocket</title><h1>Rocket page</h1><img src="h.png">')
+    (d / "i.mmd").write_text("flowchart LR\n  A[Fuel] --> B[Lift-off]\n")
+    (d / "j.html").write_text('<!doctype html><title>Rocket</title><h1>Rocket page</h1><img src="h.png">')
     return {
         "md": ("a.md", "article h1", "Rocket", 10),
         "parquet": ("b.parquet", "table td", "Aalborg", 10),
@@ -80,7 +81,8 @@ def files(d):
         "docx": ("f.docx", "article p", "Rocket report", 10),
         "xlsx": ("g.xlsx", "table td", "Tern", 10),
         "png": ("h.png", "img", "", 10),
-        "html": ("i.html", "iframe.page", "", 10),
+        "mmd": ("i.mmd", "svg", "Lift-off", 20),
+        "html": ("j.html", "iframe.page", "", 10),
     }
 
 
@@ -190,6 +192,13 @@ def main():
     finally:
         os.killpg(app.pid, 15)
         broadway.terminate()
+        # The search helper leaves the app's session to outlive it: find it by its home folder.
+        for p in Path("/proc").glob("[0-9]*"):
+            try:
+                if f"\0HOME={home}\0".encode() in b"\0" + (p / "environ").read_bytes():
+                    os.kill(int(p.name), 15)
+            except OSError:
+                pass
         shutil.rmtree(home, ignore_errors=True)
     sys.exit(1 if failed else 0)
 

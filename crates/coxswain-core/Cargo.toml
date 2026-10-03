@@ -40,7 +40,7 @@ candle-transformers = "0.11.0"
 tokenizers = { version = "0.22", default-features = false }
 sha2 = "0.11.0"
 # The helper's token, from the system's random source.
-getrandom = "0.3"
+getrandom = "0.4"
 # More archive formats, all pure Rust: bzip2 (its default backend), xz, zstd, 7z with AES.
 bzip2 = "0.6.1"
 lzma-rust2 = "0.21.0"
