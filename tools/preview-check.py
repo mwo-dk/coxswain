@@ -69,6 +69,7 @@ def files(d):
     wb.active.append([1, "Tern"])
     wb.save(d / "g.xlsx")
     png(d / "h.png")
+    (d / "i.html").write_text('<!doctype html><title>Rocket</title><h1>Rocket page</h1><img src="h.png">')
     return {
         "md": ("a.md", "article h1", "Rocket", 10),
         "parquet": ("b.parquet", "table td", "Aalborg", 10),
@@ -79,6 +80,7 @@ def files(d):
         "docx": ("f.docx", "article p", "Rocket report", 10),
         "xlsx": ("g.xlsx", "table td", "Tern", 10),
         "png": ("h.png", "img", "", 10),
+        "html": ("i.html", "iframe.page", "", 10),
     }
 
 

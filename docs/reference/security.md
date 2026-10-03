@@ -104,6 +104,14 @@ with a `.sha256` file:
 sha256sum -c coxswain-terminal-v1.23.1-x86_64-unknown-linux-musl.tar.gz.sha256
 ```
 
+Since 1.27.3 every release also carries one `SHA256SUMS` over all its downloads, the desktop
+installers included (`sha256sum -c --ignore-missing SHA256SUMS`), and a signed build
+provenance from GitHub, which says which commit and workflow built each file:
+
+```sh
+gh attestation verify Coxswain_1.27.3_amd64.AppImage --repo mwo-dk/coxswain
+```
+
 The desktop builds come from `tauri-action` in the same pipeline; the AUR, crates.io and
 Homebrew packages are generated from the same tag by the same workflow, see
 [Install](../../install/INSTALL.md).
