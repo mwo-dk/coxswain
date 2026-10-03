@@ -685,8 +685,10 @@
     font-size: 0.85em;
     margin: 4px 0 0;
   }
+  /* The page fills the pane (the body is not a flex box, so flex alone did not). */
   .page {
     flex: 1;
+    height: 100%;
     min-height: 240px;
     width: 100%;
     border: 0;
@@ -729,8 +731,12 @@
     font-family: var(--icon-font);
     font-size: 1.4em;
   }
+  /* A box of its own: some icons (an open folder) are drawn wider than they advance. */
   .icon.big {
     font-size: 2.2em;
+    flex: none;
+    min-width: 1.25em;
+    text-align: center;
   }
   .title {
     display: flex;
@@ -773,10 +779,10 @@
     overflow: hidden;
     padding: 0;
   }
+  /* As high as the picture: what is under it (a photo's camera and place) stays in sight. */
   .media {
     display: grid;
     place-items: center;
-    min-height: 100%;
   }
   .media img,
   .media video {
@@ -1065,10 +1071,11 @@
     white-space: pre;
     tab-size: 4;
   }
-  /* Code, diffs and text keep their own direction under a right-to-left language: each line
-     goes the way its first letter does, so code stays left to right and Hebrew right to left. */
+  /* Code, diffs, text and a document's paragraphs keep their own direction under a right-to-left
+     language: each goes the way its first letter does, so English stays left to right. */
   .mono,
-  .body :global(pre) {
+  .body :global(pre),
+  .body :global(article > *) {
     direction: ltr;
     unicode-bidi: plaintext;
     text-align: start;

@@ -618,8 +618,10 @@
     width: 50%;
     border-radius: var(--r-sm);
   }
+  /* Across both columns, without widening the first: its own width does not count. */
   .grid .span {
     grid-column: 1 / -1;
+    contain: inline-size;
   }
   .grid {
     display: grid;

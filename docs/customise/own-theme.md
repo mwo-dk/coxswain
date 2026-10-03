@@ -35,8 +35,8 @@ into both apps.
    bg = "#101820"
 
    [themes.harbour.cursor]
-   fg = "#101820"
-   bg = "#7fdbca"
+   fg = "#ffffff"
+   bg = "#2a5d67"                  # not the folders' colour: a folder's name keeps it on the cursor row
 
    [themes.harbour.directory]
    fg = "#7fdbca"
