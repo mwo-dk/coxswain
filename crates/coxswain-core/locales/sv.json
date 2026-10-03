@@ -739,6 +739,7 @@
  "settings.meaning_engine": "Vektorer görs av",
  "settings.meaning_error": "Inga vektorer: {why}",
  "settings.meaning_hint": "Hittar filer om det du skriver, inte bara filer med dina ord, på alla språk: “rocket fuel cost” hittar en dansk budget. En liten språkmodell (multilingual-e5-small) körs på den här datorn, långsamt och aldrig på batteri; inget lämnar den. I Hitta fil, Tabb till text: sådana filer visas som “liknar”.",
+ "settings.meaning_hint_server": "Hittar filer om det du skriver, inte bara filer med dina ord, på alla språk: “rocket fuel cost” hittar en dansk budget. Modellen på servern nedan gör vektorerna. I Hitta fil, Tabb till text: sådana filer visas som “liknar”.",
  "settings.meaning_key_env": "API-nyckel från variabeln",
  "settings.meaning_model": "Inbäddningsmodell",
  "settings.meaning_off": "Stäng av",

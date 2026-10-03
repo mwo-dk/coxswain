@@ -128,7 +128,7 @@ archives open as folders, as in the desktop app ([Archives as folders](../files/
 *tools.zip is an archive: F5 copies this file out of it*.
 
 **Passwords.** When an encrypted zip or 7z is opened, copied from or extracted, a box titled
-*Locked archive* asks *Its password (kept only for this, never saved):*. The password is typed
+*Locked archive* asks *Its password (kept in memory while the app runs, never saved):*. The password is typed
 as stars. A wrong one asks again: *That password did not open it. Try again:*. **Esc** gives up.
 A password given to look inside is kept in memory until the app quits, so moving around in the
 archive does not ask again; one given for a copy or extract is used for that run only. See

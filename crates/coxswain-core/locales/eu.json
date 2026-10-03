@@ -739,6 +739,7 @@
  "settings.meaning_engine": "Bektoreak egiten ditu",
  "settings.meaning_error": "Bektorerik ez: {why}",
  "settings.meaning_hint": "Idazten duzunari buruzko fitxategiak aurkitzen ditu, ez soilik zure hitzak dituztenak, edozein hizkuntzatan: «rocket fuel cost» bilaketak daniar aurrekontu bat aurkitzen du. Hizkuntza-eredu txiki bat (multilingual-e5-small) makina honetan dabil, poliki eta inoiz ez bateriarekin; ezer ez da ateratzen. Bilatu fitxategia aukeran, Tab testura: halako fitxategiak «antzekoa» gisa agertzen dira.",
+ "settings.meaning_hint_server": "Idazten duzunari buruzko fitxategiak aurkitzen ditu, ez soilik zure hitzak dituztenak, edozein hizkuntzatan: «rocket fuel cost» bilaketak daniar aurrekontu bat aurkitzen du. Beheko zerbitzariko ereduak egiten ditu bektoreak. Bilatu fitxategia aukeran, Tab testura: halako fitxategiak «antzekoa» gisa agertzen dira.",
  "settings.meaning_key_env": "API gakoa aldagaitik",
  "settings.meaning_model": "Txertatze-eredua",
  "settings.meaning_off": "Desaktibatu",

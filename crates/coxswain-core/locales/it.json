@@ -784,6 +784,7 @@
  "settings.meaning_engine": "Vettori creati da",
  "settings.meaning_error": "Nessun vettore: {why}",
  "settings.meaning_hint": "Trova i file che parlano di ciò che scrivi, non solo quelli con le stesse parole, in ogni lingua: «rocket fuel cost» trova un budget in danese. Un piccolo modello linguistico (multilingual-e5-small) gira su questo computer, lentamente e mai a batteria; nulla esce da qui. In Trova file, Tab fino al testo: questi file compaiono come «simile a».",
+ "settings.meaning_hint_server": "Trova i file che parlano di ciò che scrivi, non solo quelli con le stesse parole, in ogni lingua: «rocket fuel cost» trova un budget in danese. Il modello sul server qui sotto calcola i vettori. In Trova file, Tab fino al testo: questi file compaiono come «simile a».",
  "settings.meaning_key_env": "Chiave API dalla variabile",
  "settings.meaning_model": "Modello di embedding",
  "settings.meaning_off": "Disattiva",

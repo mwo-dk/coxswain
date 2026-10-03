@@ -122,8 +122,9 @@ export async function load(t, dir = t.dir, focus) {
     t.history = r.history;
     t.hasNotes = r.has_notes;
     t.error = null;
-    // Inside an archive a folder's size comes with the listing; there is nothing to measure.
-    if (r.archive) for (const e of r.items) if (e.is_dir && e.name !== "..") t.sizes[e.path] = e.size;
+    // Inside an archive a folder's size comes with the listing; there is nothing to measure. A
+    // history's folders have none (git keeps no size for a tree): left empty, not "0 B".
+    if (r.archive && !r.history) for (const e of r.items) if (e.is_dir && e.name !== "..") t.sizes[e.path] = e.size;
     const at = keep ? r.items.findIndex((e) => e.name === keep || e.path === keep) : -1;
     t.cursor = at >= 0 ? at : Math.max(0, Math.min(t.cursor, r.items.length - 1));
   } catch (e) {
@@ -232,6 +233,8 @@ let tabCount = 0;
 const tabId = (t) => tabIds.get(t) ?? (tabIds.set(t, String(++tabCount)), tabIds.get(t));
 export async function measureFolders(t, paths) {
   const dir = t.dir;
+  // In an archive the listing has the sizes; in a history there are none to measure.
+  if (t.archive || t.history) return;
   // A reload while the automatic run is going (the watcher does that) must not start a second one.
   if (!paths && measuring.get(t) === dir) return;
   if (!paths) measuring.set(t, dir);

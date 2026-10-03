@@ -784,6 +784,7 @@
  "settings.meaning_engine": "הווקטורים נוצרים על ידי",
  "settings.meaning_error": "אין וקטורים: {why}",
  "settings.meaning_hint": "מוצא קבצים שעוסקים במה שהקלדת, לא רק קבצים עם אותן מילים, בכל שפה: „rocket fuel cost” מוצא תקציב בדנית. מודל שפה קטן (multilingual-e5-small) רץ על המחשב הזה, לאט ולעולם לא על סוללה; שום דבר לא יוצא ממנו. בחיפוש קובץ, Tab עד טקסט: קבצים כאלה מופיעים כ„דומה ל”.",
+ "settings.meaning_hint_server": "מוצא קבצים שעוסקים במה שהקלדת, לא רק קבצים עם אותן מילים, בכל שפה: „rocket fuel cost” מוצא תקציב בדנית. המודל בשרת שלמטה מחשב את הווקטורים. בחיפוש קובץ, Tab עד טקסט: קבצים כאלה מופיעים כ„דומה ל”.",
  "settings.meaning_key_env": "מפתח API מהמשתנה",
  "settings.meaning_model": "מודל הטמעה",
  "settings.meaning_off": "כיבוי",

@@ -19,6 +19,7 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use tauri::{Emitter, Manager};
 
+mod asset;
 mod bom;
 mod convert;
 mod preview;
@@ -363,7 +364,7 @@ async fn list_dir(dir: PathBuf, show_hidden: bool, sort: SortKey, reverse: bool,
         if let Some((archive, _)) = &inside {
             coxswain_core::cloud::ask_for(archive);
         }
-        bfs::sort(&mut entries, sort, reverse);
+        bfs::sort_in(&dir, &mut entries, sort, reverse);
         // By last commit: as the walk git did is known; else by name now, and the page sorts
         // again when `git_last` answers.
         if sort == SortKey::Commit
@@ -1490,6 +1491,10 @@ fn main() {
     };
     tauri::Builder::default()
         .manage(ctx)
+        // Files for the page come through our own `asset:`, which keeps cloud files in the cloud.
+        .register_asynchronous_uri_scheme_protocol("asset", |_, req, responder| {
+            tauri::async_runtime::spawn_blocking(move || responder.respond(asset::respond(&req, coxswain_core::cloud::unasked)));
+        })
         .setup(|app| {
             *app.state::<Ctx>().watcher.lock().expect("fresh lock") = start_watcher(app.handle());
             // The window from the config, made here so that it gets its navigation guard.

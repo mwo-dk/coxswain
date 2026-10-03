@@ -71,15 +71,18 @@ impl Panel {
     /// Re-read the directory, keeping the cursor on the same name.
     fn load(&mut self, show_hidden: bool) {
         let keep = self.current().map(|e| e.name.clone());
-        // Walk up until something is listable (the directory may have been deleted).
+        // Walk up until something is listable (the directory may have been deleted). Why the
+        // folder asked for was not is kept: a locked 7z asks for its password by it.
+        let mut why = None;
         loop {
             match bfs::list(&self.dir, show_hidden) {
                 Ok(v) => {
                     self.entries = v;
-                    self.error = None;
+                    self.error = why;
                     break;
                 }
                 Err(e) => {
+                    why.get_or_insert_with(|| e.to_string());
                     self.error = Some(e.to_string());
                     match self.dir.parent() {
                         Some(p) => self.dir = p.to_path_buf(),
@@ -96,7 +99,7 @@ impl Panel {
 
     /// Sort what was just listed, keep the marks still there and put the cursor on `keep`.
     fn fill(&mut self, keep: Option<String>) {
-        bfs::sort(&mut self.entries, self.sort, self.reverse);
+        bfs::sort_in(&self.dir, &mut self.entries, self.sort, self.reverse);
         // Inside an archive a folder's size comes with the listing; there is nothing to measure.
         if coxswain_core::archive::split(&self.dir).is_some() {
             self.sizes.extend(self.entries.iter().filter(|e| e.is_dir && !e.is_parent()).map(|e| (e.path.clone(), e.size)));
@@ -114,7 +117,7 @@ impl Panel {
     /// on a big folder takes longer than the sort.
     fn resort(&mut self) {
         let keep = self.current().map(|e| e.name.clone());
-        bfs::sort(&mut self.entries, self.sort, self.reverse);
+        bfs::sort_in(&self.dir, &mut self.entries, self.sort, self.reverse);
         if let Some(n) = keep {
             self.select_name(&n);
         }
@@ -1881,6 +1884,23 @@ mod tests {
         assert_eq!(app.panels[0].dir, d.join("sub"), "not a repository: back to the folder");
         assert!(app.status.is_some(), "and says why");
         // The app's threads (sizes, git) may still hold the folder open on Windows.
+        let _ = std::fs::remove_dir_all(d);
+    }
+
+    #[test]
+    fn a_7z_with_locked_names_asks_for_its_password() {
+        let d = std::env::temp_dir().join(format!("coxswain-test-locked-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        std::fs::write(d.join("plan.txt"), "fuel").unwrap();
+        coxswain_core::archive::create_locked(&d.join("made.7z"), &[d.join("plan.txt")], Some("rocket"), true).unwrap();
+        // Under another name: the password the app packed it with is kept for that path only.
+        let z = d.join("secret.7z");
+        std::fs::rename(d.join("made.7z"), &z).unwrap();
+        let mut app = app(d.clone(), d.clone());
+        app.cd(0, z.clone());
+        assert_eq!(app.panels[0].dir, d, "nothing to list without it: back in its folder");
+        assert!(matches!(&app.dialog, Some(Dialog::Input { prompt: Prompt::Unlock(0, dir), .. }) if *dir == z), "asked for the password");
         let _ = std::fs::remove_dir_all(d);
     }
 

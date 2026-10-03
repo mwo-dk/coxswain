@@ -104,10 +104,10 @@ not copied just for a look.
 They are the photo's own EXIF data, read on your machine. Nothing is sent; copy the numbers into
 a map yourself if you want to see the place.
 
-#### Why does a 7z archive show "locked: a password is needed"?
+#### Why does a 7z archive say "This file is locked with a password."?
 
-Its file names are encrypted, so it cannot be listed without the password. Press **Enter** to
-open it: Coxswain asks for the password (*Locked archive*) and keeps it in memory for this run.
+Its file names are encrypted, so it cannot be listed without the password. Click *Enter the
+password* under it to list it, or press **Enter** to open it: Coxswain asks for the password (*Locked archive*) and keeps it in memory for this run.
 See [Passwords](../files/archive-passwords.md).
 
 #### Why does a zip with a password list its files?
