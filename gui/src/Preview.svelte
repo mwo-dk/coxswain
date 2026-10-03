@@ -654,10 +654,13 @@
       {/if}
     </div>
 
+    <!-- Notes belong to folders on disk: none inside an archive or a history. -->
+    {#if !pane.archive && !pane.history}
     <section class="notes">
       <label for="notes">{"\u{f249}"} {notesDir === pane.dir ? t("preview.notes_here") : t("preview.notes_for", { name: e.name })}</label>
       <textarea id="notes" dir="auto" bind:this={noteArea} bind:value={note} onblur={saveNote} placeholder={t("preview.notes_placeholder")}></textarea>
     </section>
+    {/if}
   {/if}
 </aside>
 
