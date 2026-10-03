@@ -6,7 +6,7 @@ You choose which folders have their text read for [Text in files](text.md), and 
 by name only. By default it is your home folder, less hidden folders and build output. Use this
 to add a data disk, or to keep a mail store or other people's papers out of the index.
 
-![Settings, Search inside files: the box "Keep the text of files", Searchable: 31 files · still to read: 0 · 76.0 KB on disk, the path of search.db, Index now and Delete the index, Folders read "Your home folder" and Names only "None", each with a field and Add](../screenshots/gui-settings-search.png)
+![Settings, Search inside files: the box "Keep the text of files", Searchable: 107 files · still to read: 0 · 284 KB on disk, the path of search.db, Index now and Delete the index, Folders read "Your home folder" and Names only "None", each with a field and Add](../screenshots/gui-settings-search.png)
 *Settings → Search inside files, with the lists of folders.*
 
 ## How to use it

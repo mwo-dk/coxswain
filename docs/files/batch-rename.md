@@ -5,7 +5,7 @@
 In the desktop app, **Ctrl+M** renames many files at once with a regular expression and a
 counter. Every new name is shown before anything changes, and conflicts are caught first.
 
-<!-- screenshot: files-batch-rename.png: desktop app, Cyber theme: Batch rename 12 items with Find IMG_(\d+) and Replace with Holiday-$1, the live list of old → new names, and one conflict marked red with 'name already taken' -->
+![Batch rename 12 items with Find (regex) IMG_(\d+) and Replace with Holiday-$1: the list of old and new names, Holiday-0004.jpg marked as a conflict with name already taken, and Rename greyed out](../screenshots/files-batch-rename.png)
 
 ## How to use it
 

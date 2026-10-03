@@ -6,7 +6,7 @@ An `.html`, `.htm` or `.xhtml` file is shown as a browser shows it, with its own
 pictures and fonts, but inside a sandbox: no script runs and nothing is fetched from the web.
 A page you downloaded cannot run code or tell anyone that you opened it.
 
-<!-- screenshot: previews-html.png: desktop app, Cyber theme: an index.html from the demo website folder under the cursor; the preview pane shows the page with its own CSS and a local picture on a white background, with Rendered / Source at the top right -->
+![The desktop app with index.html from ~/projects/website under the cursor: the preview shows the page with its own stylesheet (the green heading Rocket), Rendered and Source at the top right](../screenshots/previews-html.png)
 
 ## How to use it
 

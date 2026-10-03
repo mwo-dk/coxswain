@@ -6,7 +6,7 @@ Some files have words only an installed program can get: screenshots, scans, sca
 older Office files such as `.doc` and `.ppt`. When the program is there, Coxswain uses it by itself,
 and a search finds those words too.
 
-<!-- screenshot: search-scans-tools.png: desktop app, Cyber theme, Settings → Search inside files scrolled to "Programs that read more", with ✓ tesseract and ✓ pdftoppm and ✗ LibreOffice "· not installed" -->
+![Settings, Search inside files, Programs that read more: ✗ tesseract · not installed, ✓ pdftoppm and ✓ LibreOffice](../screenshots/search-scans-tools.png)
 
 ## How to use it
 

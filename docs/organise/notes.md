@@ -8,7 +8,7 @@ builds it. It shows at the bottom of the preview pane whenever you look at that 
 ![The desktop app with the preview pane showing launch-report.pdf; under the PDF page, the notes field labelled Notes for this folder, still empty, with its grey hint To-dos, reminders… saved when you leave the field (Esc)](../screenshots/gui-pdf.png)
 *The notes field at the bottom of the preview pane, empty. The cursor is on a file, so the note is for the folder, Documents.*
 
-<!-- screenshot: organise-notes.png: desktop app, Cyber theme, in /home/demo/projects/rocket: the preview pane open on the right with the folder src under the cursor, the notes field at its bottom labelled "Notes for src" and filled with two lines of to-dos; the left pane's footer shows the note icon next to "7 items" -->
+![The desktop app in ~/projects/rocket with the folder src under the cursor: the preview pane's notes field at its bottom, labelled Notes for src, holds two lines of to-dos](../screenshots/organise-notes.png)
 
 ## How to use it
 

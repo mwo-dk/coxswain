@@ -9,7 +9,7 @@ it was at that commit. With [search by meaning](meaning.md) on, commits about yo
 found too, and [Ask](ask.md) may answer from commit messages. Both apps have it, through the
 [search helper](helper.md).
 
-<!-- screenshot: search-history.png: desktop app, Cyber theme, Find file on Text in files with "fuel valve" typed: the first hit with the commit glyph, "rocket" in bold and "commit in /home/demo/projects/rocket", its passage "commit a1b2c3d · Ada · 2026-09-30 · Fix the fuel valve" with "fuel" and "valve" highlighted; below it file hits -->
+![The desktop app's Find file in Text in files with fuel valve typed: among the hits the commit 6ba7e53 · Ada · 2026-10-03 Fix the fuel valve in /home/demo/projects/rocket, marked as a commit, beside files on disk and one inside a zip](../screenshots/search-history.png)
 
 ## Contents
 

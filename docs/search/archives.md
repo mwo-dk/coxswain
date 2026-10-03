@@ -8,7 +8,7 @@ file on disk. A hit is shown as a path through the archive, `…/website.tar.gz/
 **Enter** opens the archive's folder in the panel with the cursor on the file. When an archive
 changes, by Coxswain or by anything else, what search knows of it changes with it.
 
-<!-- screenshot: gui-search-archives.png: desktop app, Cyber theme, Find file at "everywhere:" with "main.rs" typed: hits on disk and one inside /home/demo/projects/website.tar.gz/src, the folder column showing the path through the archive -->
+![The desktop app's Find file at Everywhere with main.rs typed: one hit on disk in /home/demo/projects/rocket/src and one inside /home/demo/Downloads/rocket-src.zip/rocket/src, the folder showing the path through the archive](../screenshots/gui-search-archives.png)
 
 ## Contents
 

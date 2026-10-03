@@ -7,7 +7,7 @@ what is locked. The password is kept in the app's memory until you close it, so 
 once per archive, and it is never written anywhere. Packing (**Alt+F5**) can lock a new zip or
 7z with a password of your own.
 
-<!-- screenshot: files-archive-password.png: desktop app, Cyber theme: the Locked archive dialog over a pane inside secret.zip (tinted, badge 'archive, locked'), the label 'Its password (kept only for this, never saved):' and a password field showing dots, OK and Cancel -->
+![The Locked archive dialog over a pane inside secret.zip (tinted, badge archive, locked): Its password (kept in memory while the app runs, never saved): and a password field showing dots, OK and Cancel](../screenshots/files-archive-password.png)
 
 ## How to use it
 

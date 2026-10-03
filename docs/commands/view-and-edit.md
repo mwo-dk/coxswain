@@ -10,7 +10,7 @@ starts your editor or the file's default application.
 ![The desktop app with the preview pane open at the right: the cursor is on launch-report.pdf in Documents and the pane shows its first page, Launch report, with the PDF toolbar above it and the empty notes field under it](../screenshots/gui-pdf.png)
 *In the desktop app **F3** shows and hides the preview pane, here on a PDF.*
 
-<!-- screenshot: commands-view-tui.png: terminal app, Classic blue (NC) theme, after F3 on README.md in /home/demo/projects/rocket: the panels gone and less showing README.md full screen, "README.md" in less's bottom line -->
+![The terminal app after F3 on README.md in ~/projects/rocket: the panels gone and less showing README.md, with /home/demo/projects/rocket/README.md (END) on less's bottom line](../screenshots/commands-view-tui.png)
 
 ## How to use it
 

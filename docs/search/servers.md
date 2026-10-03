@@ -7,7 +7,7 @@ The built-in model needs nothing but is slow on a laptop's CPU. If you run
 LM Studio, llama.cpp, vLLM, LocalAI, OpenAI itself), it can make the vectors for
 [search by meaning](meaning.md) instead, on its GPU or NPU, with a bigger model.
 
-<!-- screenshot: search-meaning-server.png: desktop app, Cyber theme, Settings → Search by meaning with Vectors made by "Ollama", Server "http://evo:11434", Embedding model "bge-m3", the line "The server answers." and in bold "The text of your files is sent to evo to get its vectors.", and the status "Understood: … files · still to go: …" -->
+![Settings, Search by meaning, with Vectors made by Ollama, Server empty (http://localhost:11434), Embedding model bge-m3, the line The server answers. and Understood: 107 files · still to go: 0, ollama:bge-m3 and Turn off](../screenshots/search-meaning-server.png)
 
 ## How to use it
 

@@ -6,7 +6,7 @@ In the desktop app each pane has tabs, each with its own folder, view, sort orde
 history, so you can keep several places open and step back through where you have been.
 **Ctrl+O** shows one pane or two; in the terminal app it shows the output of the last command.
 
-<!-- screenshot: panels-tabs.png: desktop app, Cyber theme, the left pane with three tabs (rocket with the git icon, src, Documents), the Back arrow enabled, the One pane / Two panes and view buttons at the right of the path bar -->
+![The desktop app's left pane with three tabs, rocket, src and Documents (the current one), the Back arrow enabled and the One pane / Two panes and view buttons at the right of the path bar](../screenshots/panels-tabs.png)
 
 ## How to use it
 

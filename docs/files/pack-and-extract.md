@@ -10,7 +10,7 @@ after it. Both apps have both keys.
 *An archive under the cursor. The preview pane (Space) lists what is in it and reminds you that
 **Ctrl+E** extracts it to the other pane.*
 
-<!-- screenshot: files-pack.png: desktop app, Cyber theme: the Pack dialog with 'Pack 3 items into (.zip, .tar or .tar.gz):' and the field '/home/demo/Documents/rocket.tar.zst' -->
+![The desktop app's Pack dialog: Pack 3 items into (.zip, .7z, .tar, .tar.gz, …): with /home/demo/Documents/flight7.zip, the password typed twice as dots, OK and Cancel](../screenshots/files-pack.png)
 
 ## How to use it
 

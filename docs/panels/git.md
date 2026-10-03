@@ -119,7 +119,7 @@ reread (**Ctrl+R**). In a big repository it fills in a moment after the folder s
 takes longer than four seconds stops, and what it did not reach says *older*. In a
 [history](git-history.md), the column shows the last commit as of the commit you are looking at.
 
-<!-- screenshot: panels-last-commit.png: desktop app, Cyber theme, details view of ~/projects/rocket with the Last commit column showing dates and authors, LICENSE saying "older" -->
+![The desktop app's details view of ~/projects/rocket and its src folder with the Last commit column: each file's last commit date and author, Ada or Demo User, and nothing for files git does not track](../screenshots/panels-last-commit.png)
 
 ## When it updates
 

@@ -6,7 +6,7 @@ The sidebar is the column at the left of the desktop app's window (at the right 
 Arabic). It holds your usual folders, your disks with their free space, your
 [favourites](favourites.md) and the git repositories you opened last, each one click away.
 
-![The sidebar of the desktop app: PLACES with Home; DRIVES with System, 339 GB free and a green bar of the space used; a favourites group WORK with rocket, website and Documents; + New group; GIT REPOSITORIES with rocket and website. rocket is highlighted in both lists](../screenshots/gui-details.png)
+![The sidebar of the desktop app: PLACES with Home; DRIVES with System, 250 GB free and a green bar of the space used; a favourites group WORK with rocket, website and Documents; + New group; GIT REPOSITORIES with rocket and website. rocket is highlighted in both lists](../screenshots/gui-details.png)
 *The sidebar in the Cyber theme. The entries for the folder you are in are highlighted.*
 
 ![The same window in Hebrew: the sidebar is at the right, its headers and entries right-aligned](../screenshots/gui-lang-he.png)

@@ -10,7 +10,7 @@ kept in a cache, so each file is made once.
 ![Three previews: a PlantUML sequence diagram under the engine buttons "plantuml" (chosen) and "container" (greyed), a Graphviz graph and an AsciiDoc guide](../screenshots/gui-previews-tools.png)
 *The engine buttons at the top of a tool preview: here the installed `plantuml` is used; the container is greyed, as there is no podman or docker to run it.*
 
-<!-- screenshot: previews-tools-settings.png: desktop app, Cyber theme: Settings, section Previews made by tools: Use, Container runtime, LaTeX image, the "Build LaTeX documents by themselves…" box, Timeout (seconds), Previews made so far with its size and Clear, and Container images with Pulled / Not pulled, Pull and Remove -->
+![Settings, Previews made by tools: Use, Container runtime, LaTeX image, the box to build LaTeX documents by themselves, Timeout (seconds), Previews made so far with its size and Clear, and Container images, each Not pulled with Pull and Remove](../screenshots/previews-tools-settings.png)
 
 ## Contents
 

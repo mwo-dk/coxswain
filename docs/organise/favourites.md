@@ -8,7 +8,7 @@ click takes the active tab there. Make a group per project, per client or per ha
 ![The sidebar of the desktop app with a favourites group named WORK holding rocket, website and Documents, each with a star; rocket is highlighted because it is the folder shown. Under the group, "+ New group"](../screenshots/gui-details.png)
 *A favourites group named WORK. The highlighted entry is the folder the active tab is in.*
 
-<!-- screenshot: organise-favourites-menu.png: desktop app, Cyber theme, sidebar shown: the menu that opens on a right-click on a favourites group header, titled with the group's name, with the entries Add current folder, Rename group, Delete group -->
+![The desktop app's menu from a right-click on the Favourites header in the sidebar, titled Favourites, with Add current folder, Rename group and Delete group](../screenshots/organise-favourites-menu.png)
 
 ## How to use it
 

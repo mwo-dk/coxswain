@@ -8,7 +8,7 @@ places, drives and recent git repositories. None of them change your files. They
 Coxswain's own state file, `state.json` ([Where things are kept](../reference/where-things-are-kept.md)).
 The terminal app has none of them: their keys there say which app has them.
 
-![The desktop app with the sidebar at the left: Places with Home, Drives with System and 339 GB free, a favourites group named WORK with rocket, website and Documents, and Git repositories with rocket and website. In the panels, a grey tag dot after src, a red one after TODO.txt, a yellow one after budget.xlsx and a red one after launch-report.pdf](../screenshots/gui-details.png)
+![The desktop app with the sidebar at the left: Places with Home, Drives with System and 250 GB free, a favourites group named WORK with rocket, website and Documents, and Git repositories with rocket and website. In the panels, a grey tag dot after src, a red one after TODO.txt, a yellow one after budget.xlsx and a red one after launch-report.pdf](../screenshots/gui-details.png)
 *The sidebar, a favourites group and colour tags in the details view (Cyber theme).*
 
 | Page | What it covers |

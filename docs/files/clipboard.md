@@ -6,7 +6,7 @@ In the desktop app, **Ctrl+C** and **Ctrl+X** put files on the system clipboard 
 pastes them into the active tab's folder. The clipboard is the system's, so it works both ways
 with your other file manager.
 
-<!-- screenshot: files-clipboard.png: desktop app, Cyber theme: three files marked in the left pane and the status line 'Cut 3 items to the clipboard' -->
+![The desktop app with three files marked in ~/Documents and the status line Cut 3 items to the clipboard](../screenshots/files-clipboard.png)
 
 ## How to use it
 

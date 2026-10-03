@@ -6,7 +6,7 @@ Text in files finds the files whose text has your words: code, notes, PDFs, Word
 spreadsheets, slides, mail and books. Use it when you remember what a file says but not what it
 is called.
 
-![The desktop app's Find file in Text in files: "engine" typed, seven matches in 0.4 ms in the text of 27 files, each with the passage and "engine" highlighted](../screenshots/gui-text-search.png)
+![The desktop app's Find file in Text in files: "engine" typed, 18 matches in 1.3 ms in the text of 107 files, each with the passage and "engine" highlighted](../screenshots/gui-text-search.png)
 *Seven files with "engine" in them: code, a PlantUML diagram, YAML, a log, a mail and a LaTeX paper.*
 
 ## Contents
