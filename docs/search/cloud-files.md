@@ -75,13 +75,23 @@ pass. Reading stays as gentle as for any file: one at a time, with rests, never 
 ## How it is told
 
 Only from the file's metadata, the same that a folder listing gives: Coxswain never opens a file
-to find out, and never reads a link's target to find out.
+to find out, and never reads a link's target to find out. On Windows the attributes come from the
+folder's listing (or `GetFileAttributesW`), never from opening the file, since opening one marked
+`RECALL_ON_OPEN` would download it.
+
+In the desktop app the guard is in two places: the page shows no preview of an online-only file,
+and the app's own readers (text, archives, databases, books, mail, certificates, bills of
+materials, previews made by tools, file facts, git diff) refuse one until you press **Download and
+preview** or go into it yourself (an archive you open, say).
 
 | System | Clouds | Online-only when |
 |---|---|---|
 | **Windows** | OneDrive, Dropbox, Google Drive for desktop, Proton Drive, iCloud for Windows, Nextcloud: every app on the Cloud Files API | The file's attributes have `RECALL_ON_DATA_ACCESS` (0x400000), `RECALL_ON_OPEN` (0x40000) or `OFFLINE` (0x1000). *Always keep on this device* (`PINNED`) with the data on disk is read |
 | **macOS** | iCloud Drive, and OneDrive, Dropbox, Google Drive and others under `~/Library/CloudStorage` (File Provider) | The file's flags have `SF_DATALESS` |
-| **Linux** | Cloud mounts: rclone, google-drive-ocamlfuse, onedriver, GNOME's Google Drive (gvfs), and other FUSE file systems that are not local (`/proc/self/mountinfo`) | Every file on such a mount, as the mount itself fetches what is read. Local FUSE file systems (the document portal, AppImages, mergerfs, gocryptfs, ntfs-3g and the like) are ordinary disks |
+| **Linux** | Cloud mounts: rclone, google-drive-ocamlfuse, onedriver, GNOME's Google Drive (gvfs), WebDAV through davfs2, sshfs, and other FUSE file systems that are not local, FUSE without a subtype included (`/proc/self/mountinfo`) | Every file on such a mount, as the mount itself fetches what is read. Local FUSE file systems (the document portal, AppImages, mergerfs, gocryptfs, ntfs-3g and the like) are ordinary disks |
+
+NFS and SMB shares are not cloud mounts: reading their files downloads nothing to keep, so they
+are read like a disk (slowly; leave one out with *Names only* if it bites).
 
 On Linux, the Dropbox, Insync, Proton and other clients that sync a normal folder keep every file
 on disk: those folders are read like any other. A cloud mount whose files are not read is not

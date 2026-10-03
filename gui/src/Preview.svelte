@@ -420,7 +420,7 @@
     <div class="body" class:flush={kind === "bom" && !source && !diffing} onclick={linkClick}>
       {#if kind === "online"}
         <p class="more">{"\u{f0c2}"} <b>{t("preview.online")}</b> {t("preview.online_hint", { key: ui.cfg.actions.open?.[1] ?? "Enter" })}</p>
-        <button class="render" onclick={() => fetched.push(raw.path)}>{t("preview.online_download")}</button>
+        <button class="render" onclick={() => { const path = raw.path; invoke("cloud_fetch", { path }).then(() => fetched.push(path)); }}>{t("preview.online_download")}</button>
       {:else if kind === "in-archive"}
         {#if peeked.error.includes(LOCKED)}
           <p class="more">{t("archive.preview_locked")} <button class="link" onclick={unlock}>{t("archive.preview_unlock")}</button></p>

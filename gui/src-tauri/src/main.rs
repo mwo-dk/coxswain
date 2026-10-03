@@ -359,6 +359,10 @@ async fn list_dir(dir: PathBuf, show_hidden: bool, sort: SortKey, reverse: bool,
     let (entries, inside, in_history) = tauri::async_runtime::spawn_blocking(move || {
         let dir = d;
         let (mut entries, inside) = bfs::list_with_archive(&dir, show_hidden).map_err(|e| format!("{}: {e}", dir.display()))?;
+        // Gone into an archive: the user asked for it, so its files may be previewed.
+        if let Some((archive, _)) = &inside {
+            coxswain_core::cloud::ask_for(archive);
+        }
         bfs::sort(&mut entries, sort, reverse);
         // By last commit: git's walk first, cached for the column after.
         if sort == SortKey::Commit
@@ -934,6 +938,7 @@ const HEX_LINES: usize = 4096;
 /// Up to `max` bytes as text for the preview; binary files come back hex-dumped.
 #[tauri::command]
 async fn read_text(path: PathBuf, max: usize) -> Res<(String, bool, bool)> {
+    crate::here(&path)?;
     let mut buf = vec![];
     let f = std::fs::File::open(&path).map_err(|e| e.to_string())?;
     let len = f.metadata().map(|m| m.len()).unwrap_or(0);
@@ -965,8 +970,21 @@ struct ArchiveListing {
     more: bool,
 }
 
+/// A preview reads only what is on the disk, or a file the user asked to download: never a file
+/// only in the cloud by itself, whatever the page asks.
+pub(crate) fn here(path: &Path) -> Res<()> {
+    if coxswain_core::cloud::unasked(path) { Err(format!("{}: {}", path.display(), coxswain_core::t!("cloud.online_only"))) } else { Ok(()) }
+}
+
+/// The user pressed *Download and preview*: the previews may read (and download) this file.
+#[tauri::command]
+fn cloud_fetch(path: PathBuf) {
+    coxswain_core::cloud::ask_for(&path);
+}
+
 #[tauri::command]
 async fn archive_list(path: PathBuf) -> Res<ArchiveListing> {
+    crate::here(&path)?;
     let (entries, more) = blocking(move || coxswain_core::archive::list(&path, 2000).map_err(|e| e.to_string())).await?;
     Ok(ArchiveListing { entries, more })
 }
@@ -989,6 +1007,7 @@ fn archive_password(path: PathBuf, password: String) {
 /// A copy of a file inside an archive, to preview: see `archive::peek`.
 #[tauri::command]
 async fn archive_peek(path: PathBuf) -> Res<PathBuf> {
+    crate::here(&path)?;
     // A file in a history: as it was at that commit.
     let peek = if history::is_history(&path) { history::peek } else { coxswain_core::archive::peek };
     tauri::async_runtime::spawn_blocking(move || peek(&path)).await.map_err(|e| e.to_string())?.map_err(|e| e.to_string())
@@ -1460,7 +1479,7 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             get_config, notices, dismiss_notice, set_title, index_status, index_action, index_service, meaning_status, meaning_action, meaning_models, meaning_pull, list_dir, git_status, git_last, places, disks, get_state, save_session, save_favorites, set_tags, set_note, get_note,
             search, ask, ask_stop, resolve_path, copy, rename, delete, mkdir, dir_sizes, rename_plan, rename_apply, open_path, edit_path,
-            read_text, run_command, scripts, run_script, check_update, archive_list, extract, pack, archive_password, archive_peek, properties, set_permissions,
+            read_text, run_command, scripts, run_script, check_update, archive_list, extract, pack, archive_password, archive_peek, cloud_fetch, properties, set_permissions,
             clip_set, paste, start_drag, watch_dirs, preview::git_diff, preview::sqlite_info, preview::epub_preview,
             preview::file_facts, preview::cert_info, bom::bom_info, bom::bom_node, bom::bom_diff, preview::mail_preview, preview::plist_xml, convert::preview_engines, convert::preview_cache, convert::clear_preview_cache,
             convert::convert, convert::images, convert::pull_image, convert::remove_image, convert::pull_progress, dupes_scan,

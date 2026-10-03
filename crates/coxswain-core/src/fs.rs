@@ -91,8 +91,10 @@ impl Entry {
         }
     }
 
-    fn from_path(path: PathBuf, name: String) -> io::Result<Entry> {
-        let lmeta = fs::symlink_metadata(&path)?;
+    /// `lmeta`: the entry's own metadata, from the folder's listing (on Windows that opens
+    /// nothing, so a file only in the cloud is not downloaded by looking at it).
+    fn from_path(path: PathBuf, name: String, lmeta: io::Result<fs::Metadata>) -> io::Result<Entry> {
+        let lmeta = lmeta?;
         let is_symlink = lmeta.file_type().is_symlink();
         // Follow links for type and size; a dangling link stays a plain entry.
         let meta = if is_symlink { fs::metadata(&path).unwrap_or(lmeta) } else { lmeta };
@@ -178,7 +180,7 @@ pub fn list_with_archive(dir: &Path, show_hidden: bool) -> io::Result<(Vec<Entry
         let de = de?;
         let name = de.file_name().to_string_lossy().into_owned();
         // Entries can vanish between readdir and stat; skip them.
-        if let Ok(e) = Entry::from_path(de.path(), name)
+        if let Ok(e) = Entry::from_path(de.path(), name, de.metadata())
             && (show_hidden || !e.hidden)
         {
             out.push(e);

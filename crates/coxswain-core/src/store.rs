@@ -521,7 +521,7 @@ impl Store {
         // So do those of files gone back to the cloud, which are not read again.
         let stale: Vec<String> = rows
             .into_iter()
-            .filter(|(path, size, modified)| std::fs::metadata(path).map_or(true, |m| (m.len(), secs(&m) as u64) != (*size, *modified) || crate::cloud::keep_out_meta(&m, Path::new(path))))
+            .filter(|(path, size, modified)| crate::cloud::keep_out(Path::new(path)) || std::fs::metadata(path).map_or(true, |m| (m.len(), secs(&m) as u64) != (*size, *modified)))
             .map(|r| r.0)
             .collect();
         let mut db = self.db.lock().unwrap();
