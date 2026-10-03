@@ -131,6 +131,8 @@
       const lines = String(e).split("\n");
       if (typeof start === "function" && lines.every((l) => l.endsWith(LOCKED))) {
         const locked = lines.map((l) => l.slice(0, -(LOCKED.length + 2)));
+        // Nothing is being worked on while the password is asked for (and after Esc).
+        ui.status = "";
         ui.modal = {
           kind: "input",
           secret: true,
