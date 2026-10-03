@@ -213,7 +213,7 @@ fn inner_spec(inner: &str) -> String {
 /// A folder of the listing, as `fs::list` gives it: the commits of a history, or the folder at
 /// a commit. `..` leads up: from the commits, back to the folder on disk.
 pub fn list(dir: &Path, at: &At) -> io::Result<Vec<Entry>> {
-    let up = |path: PathBuf| Entry { name: "..".into(), path, is_dir: true, is_symlink: false, is_exec: false, hidden: false, size: 0, modified: 0, created: 0 };
+    let up = |path: PathBuf| Entry { name: "..".into(), path, is_dir: true, is_symlink: false, is_exec: false, hidden: false, size: 0, modified: 0, created: 0, online: false };
     let Some(rev) = &at.commit else {
         let commits = commits_of(at)?;
         let mut out = vec![up(at.base.clone())];
@@ -227,6 +227,7 @@ pub fn list(dir: &Path, at: &At) -> io::Result<Vec<Entry>> {
             size: 0,
             modified: c.time,
             created: c.time,
+            online: false,
         }));
         return Ok(out);
     };
@@ -248,6 +249,7 @@ pub fn list(dir: &Path, at: &At) -> io::Result<Vec<Entry>> {
             size,
             modified: when,
             created: when,
+            online: false,
         });
     }
     if out.len() == 1 && !at.inner.is_empty() {
@@ -424,7 +426,7 @@ static CACHE: Mutex<Option<Cache>> = Mutex::new(None);
 
 /// The last commit of each entry in `dir`: a folder of a work tree (up to HEAD), a folder at a
 /// commit in a history, or a history's list of commits (each its own). One `git log` for the
-/// whole folder, cached by commit. `None` outside a repository.
+/// whole folder, cached by commit. `None` outside a repository, and in one only in the cloud.
 pub fn last_changes(dir: &Path) -> Option<Arc<Lasts>> {
     let (base, rev, inner) = match split(dir) {
         Some(at) if at.commit.is_none() => {
@@ -432,6 +434,8 @@ pub fn last_changes(dir: &Path) -> Option<Arc<Lasts>> {
             return Some(Arc::new(commits.iter().map(|c| (entry_name(c), Some(Last::from(c)))).collect()));
         }
         Some(at) => (at.base, at.commit.unwrap_or_default(), at.inner),
+        // A repository only in the cloud: git would download it.
+        None if crate::cloud::git_kept_out(dir) => return None,
         None => (dir.to_path_buf(), "HEAD".to_string(), String::new()),
     };
     let oid = rev_oid(&base, &rev)?;

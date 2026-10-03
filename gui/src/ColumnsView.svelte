@@ -66,6 +66,7 @@
     <span class="icon" style:color={e.icon.color || null}>{e.icon.glyph}</span>
     <span class="label">{e.name}</span>
     {#if e.tag}<span class="tag" style:background={TAG_COLORS[e.tag]}></span>{/if}
+    {#if e.online}<span class="cloud" title={tr("details.online")}>{ui.cfg.glyphs.cloud}</span>{/if}
     {#if e.is_dir}<span class="chev flip">{"\u{f054}"}</span>{/if}
   </div>
 {/snippet}
@@ -141,6 +142,7 @@
     background: color-mix(in srgb, var(--cursor-bg) 40%, transparent);
   }
   .icon,
+  .cloud,
   .chev {
     font-family: var(--icon-font);
     flex: none;

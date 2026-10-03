@@ -26,6 +26,9 @@ pub struct Entry {
     pub modified: u64,
     /// Seconds since the Unix epoch; 0 where the file system does not record it.
     pub created: u64,
+    /// Only in the cloud (OneDrive, Dropbox, iCloud …): reading it would download it.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub online: bool,
 }
 
 fn no_path(p: &Path) -> bool {
@@ -101,6 +104,7 @@ impl Entry {
             size: if meta.is_dir() { 0 } else { meta.len() },
             modified: meta.modified().ok().and_then(|t| t.duration_since(UNIX_EPOCH).ok()).map_or(0, |d| d.as_secs()),
             created: meta.created().ok().and_then(|t| t.duration_since(UNIX_EPOCH).ok()).map_or(0, |d| d.as_secs()),
+            online: !meta.is_dir() && crate::cloud::online_meta(&meta, &path),
             name,
             path,
         })
@@ -167,6 +171,7 @@ pub fn list_with_archive(dir: &Path, show_hidden: bool) -> io::Result<(Vec<Entry
             size: 0,
             modified: 0,
             created: 0,
+            online: false,
         });
     }
     for de in fs::read_dir(dir)? {

@@ -204,6 +204,8 @@ fn panel(f: &mut Frame, app: &mut App, side: usize, area: Rect) {
                 };
                 (st.kind.glyph(&app.glyphs).to_string(), sty(gs).bg(row_bg))
             }
+            // Only in the cloud: the glyph says so, and nothing reads it unasked.
+            None if e.online => (app.glyphs.cloud.clone(), s),
             None => (String::new(), s),
         };
         let name = if e.is_parent() {
@@ -253,6 +255,9 @@ fn panel(f: &mut Frame, app: &mut App, side: usize, area: Rect) {
             Some(Some(c)) => right = format!(" {} {} {}{right}", c.hash, date(c.time), c.author),
             Some(None) => right = format!(" {}{right}", t!("history.older")),
             None => {}
+        }
+        if e.online {
+            right = format!(" {}{right}", t!("tui.online", "key" => app.key_label(coxswain_core::config::Action::View)));
         }
         let mut name = e.name.clone();
         if e.is_symlink {

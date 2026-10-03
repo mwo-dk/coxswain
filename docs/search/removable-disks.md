@@ -71,4 +71,4 @@ is kept out of sight like a disk's, but it is not found at another path.
 **Remove** next to it under *Folders read*, or take it out of `text_roots`.
 
 ---
-[← Previous: Choosing the folders](folders.md) · [Next: Search by meaning →](meaning.md)
+[← Previous: Cloud files](cloud-files.md) · [Next: Search by meaning →](meaning.md)

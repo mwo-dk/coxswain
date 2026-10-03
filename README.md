@@ -12,10 +12,16 @@ folders, shows git in every panel, and keeps everything on your machine.
 *The desktop app in **Cyber**, its default. Seventeen more themes are one F9 away, from Norton
 Commander blue to Windows 95 and Mac OS 9.*
 
+> **Cloud folders are safe.** Coxswain never downloads OneDrive, Dropbox, Google Drive, Proton
+> Drive or iCloud files that are only online: it finds them by name and leaves them in the cloud
+> until you open one. Earlier versions could download them while indexing; update to 1.28.0.
+> [Cloud files](docs/search/cloud-files.md)
+
 ## Highlights
 
 - **Norton Commander at heart:** two panels, the F-key bar, a command line and NC's keys. [Panels and keys](docs/panels/README.md)
 - **Find by name, text or meaning:** Ctrl+F, and Tab goes deeper, from every name on the machine to what a file is about, inside your zip, 7z and tar archives too; you choose what is read and what is left out (`*.log`, a folder). [Search](docs/search/README.md) · [Inside archives](docs/search/archives.md) · [Choosing the folders](docs/search/folders.md)
+- **Gentle with your cloud:** OneDrive, Dropbox, Google Drive, Proton Drive and iCloud files that are only online are found by name, marked with a cloud, and never downloaded unless you open one. [Cloud files](docs/search/cloud-files.md)
 - **Ask your files:** a question in your own words, answered by your own chat model from the closest passages, with numbered sources. [Ask](docs/search/ask.md)
 - **Search by meaning, in any language:** a small model on your machine, or your own Ollama, Lemonade or OpenAI-style server. [Search by meaning](docs/search/meaning.md)
 - **See before you open:** code, Markdown, PDF, Word, PowerPoint, spreadsheets, SQLite and Parquet (in the terminal app F3 too), HTML, fonts, video and more. [The preview pane](docs/previews/README.md) · [Data](docs/previews/data.md)
@@ -110,6 +116,7 @@ Newest first. Downloads for each release are on the [releases page](https://gith
 
 | Version | Date | What's new |
 |---|---|---|
+| **1.28.0** | 2026-10-03 | Coxswain no longer downloads your cloud. Earlier versions read every file in the folders they searched, and a file that OneDrive, Dropbox, Google Drive, Proton Drive or iCloud kept only online was downloaded by that read, so indexing could fill the disk and take the machine. Now such a file is told from its metadata alone (Windows' Cloud Files attributes, macOS's dataless flag, cloud mounts on Linux), found by name and never read: no text, no hash, no thumbnail, no preview, no git, until you open it. A cloud glyph marks it in both apps, the preview offers **Download and preview**, a notice says which clouds were found, and *Settings → Search inside files* reads them anyway if you want (`cloud`, `cloud_read`). A file that goes back to the cloud loses its text at the next pass. [Cloud files](docs/search/cloud-files.md) |
 | **1.27.2** | 2026-10-02 | The sidebar's drives and their free space stay current: read again every 30 seconds while the window is in view and when it comes back to the front, so a USB stick appears without reopening the window. [The sidebar](docs/organise/sidebar.md) |
 | **1.27.1** | 2026-10-01 | A SQLite database in the desktop preview shows each table's first rows under its schema, open at once for small databases. [Data files](docs/previews/data.md) |
 | **1.27.0** | 2026-10-01 | You choose what search leaves out: *Settings → Search inside files → Left out* lists folder names and now file patterns too (`*.log`, `secret*`), with Add and ×, and says how `.nosearch` leaves out one folder. *Show in panel* next to `search.db` (and the built-in model) opens its folder with the cursor on it. **F3** in the terminal app shows a SQLite database or a Parquet file as its tables, row counts and first rows. On a machine without Coxswain's cache folder, the first search helper now keeps the files' text (it could not make its store before). [Choosing the folders](docs/search/folders.md) · [Data](docs/previews/data.md) |

@@ -205,9 +205,13 @@ pub async fn plist_xml(path: PathBuf) -> Res<String> {
 // ---------------------------------------------------------------- facts
 
 /// Label and value pairs for the preview pane: EXIF for photos, tags and format for audio,
-/// target and kind for executables. Empty for anything else.
+/// target and kind for executables. Empty for anything else, and for a file only in the cloud:
+/// reading it would download it.
 #[tauri::command]
 pub async fn file_facts(path: PathBuf) -> Vec<(String, String)> {
+    if coxswain_core::cloud::online(&path) {
+        return vec![];
+    }
     let ext = path.extension().map(|e| e.to_string_lossy().to_lowercase()).unwrap_or_default();
     match ext.as_str() {
         "jpg" | "jpeg" | "tif" | "tiff" | "heic" | "heif" | "png" | "webp" | "avif" | "dng" => exif_facts(&path),

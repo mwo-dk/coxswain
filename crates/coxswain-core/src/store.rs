@@ -75,9 +75,14 @@ pub struct Store {
     /// The signs of every passage's vector, (file, passage, signs), read from `chunks` for the
     /// first search by meaning and kept up to date after.
     signs: Mutex<Option<Signs>>,
+    /// The clouds the walks came upon (files only in the cloud): (name, folder).
+    clouds: Mutex<Vec<(String, PathBuf)>>,
 }
 
-type Known = HashMap<String, (u64, i64)>;
+/// A file as the store knows it: size, date, and whether it was left in the cloud.
+type Known = HashMap<String, (u64, i64, bool)>;
+/// A file that changed: path, size, date, left in the cloud.
+type Changed = (String, u64, i64, bool);
 /// (file, passage, the signs of its vector).
 type Signs = Vec<(i64, u8, Box<[u64]>)>;
 
@@ -125,7 +130,12 @@ impl Store {
             db.execute_batch("ALTER TABLE files ADD COLUMN inside INTEGER; DROP INDEX IF EXISTS files_path_size;")?;
         }
         db.execute_batch("CREATE INDEX IF NOT EXISTS files_path_size ON files(path, size, inside) WHERE inside IS NULL")?;
-        Ok(Store { db: Mutex::new(db), pending: AtomicUsize::new(0), hurry: AtomicBool::new(false), cleared: AtomicBool::new(false), walked: Mutex::default(), offline: Mutex::default(), paused: AtomicBool::new(false), configured: Mutex::default(), meaning: AtomicBool::new(false), engine: Mutex::default(), meaning_error: Mutex::default(), error: Mutex::default(), signs: Mutex::default() })
+        // Files left in the cloud came later still: `cloud` is 1 for a file only in the cloud
+        // that the settings do not read. It has no text, vectors or hash.
+        if db.prepare("SELECT cloud FROM files LIMIT 0").is_err() {
+            db.execute_batch("ALTER TABLE files ADD COLUMN cloud INTEGER")?;
+        }
+        Ok(Store { db: Mutex::new(db), pending: AtomicUsize::new(0), hurry: AtomicBool::new(false), cleared: AtomicBool::new(false), walked: Mutex::default(), offline: Mutex::default(), paused: AtomicBool::new(false), configured: Mutex::default(), meaning: AtomicBool::new(false), engine: Mutex::default(), meaning_error: Mutex::default(), error: Mutex::default(), signs: Mutex::default(), clouds: Mutex::default() })
     }
 
     /// Bytes and files below `dir`, and when the walk they come from began. `None` until a
@@ -281,24 +291,37 @@ impl Store {
         self.db.lock().unwrap().query_row("SELECT count(*) FROM files WHERE has_text", [], |r| r.get::<_, i64>(0)).unwrap_or(0) as usize
     }
 
-    /// Every file the store knows: path -> (size, modified).
+    /// Every file the store knows: path -> (size, modified, left in the cloud).
     fn known(&self) -> rusqlite::Result<Known> {
         let db = self.db.lock().unwrap();
-        let mut q = db.prepare("SELECT path, size, modified FROM files WHERE inside IS NULL")?;
-        let rows = q.query_map([], |r| Ok((r.get(0)?, (r.get::<_, i64>(1)? as u64, r.get(2)?))))?;
+        let mut q = db.prepare("SELECT path, size, modified, cloud IS NOT NULL FROM files WHERE inside IS NULL")?;
+        let rows = q.query_map([], |r| Ok((r.get(0)?, (r.get::<_, i64>(1)? as u64, r.get(2)?, r.get(3)?))))?;
         rows.collect()
+    }
+
+    /// The clouds the walks came upon: (name, folder).
+    pub fn clouds(&self) -> Vec<(String, PathBuf)> {
+        self.clouds.lock().unwrap().clone()
+    }
+
+    /// A file only in the cloud was seen at `path`: its cloud is remembered, for Settings.
+    fn saw_cloud(&self, path: &Path) {
+        let mut all = self.clouds.lock().unwrap();
+        if all.len() < 20 && !all.iter().any(|(_, root)| path.starts_with(root)) {
+            all.push(crate::cloud::place(path));
+        }
     }
 
     /// What a walk found, in one transaction: rows at and below each of `gone` go, with their
     /// text and hashes; new or changed files wait to be read again, and with `archives` the
     /// files inside a changed archive are those it has now; the folders left out get their
     /// totals. `all` is a walk of every root, which knows every folder left out.
-    fn apply(&self, gone: &[String], changed: &[(String, u64, i64)], skipped: &[(String, Size)], all: bool, archives: bool) -> rusqlite::Result<()> {
+    fn apply(&self, gone: &[String], changed: &[Changed], skipped: &[(String, Size)], all: bool, archives: bool) -> rusqlite::Result<()> {
         // Archives are listed before the store is locked: searches go on meanwhile.
         let inside: Vec<(&str, Vec<(String, u64)>)> = changed
             .iter()
             .filter(|(path, ..)| crate::archive::is_archive(Path::new(path)))
-            .map(|(path, size, _)| {
+            .map(|(path, size, ..)| {
                 let entries = if archives { crate::archive::search_entries(Path::new(path), *size).unwrap_or_default() } else { vec![] };
                 (path.as_str(), entries.into_iter().filter(|e| !e.is_dir).filter_map(|e| Some((key(&Path::new(path).join(&e.name))?, e.size))).collect())
             })
@@ -322,14 +345,18 @@ impl Store {
                 tx.execute(&format!("DELETE FROM {table} WHERE {at}"), [path, &from, &to])?;
             }
         }
-        for (path, size, modified) in changed {
+        for (path, size, modified, cloud) in changed {
             tx.execute("DELETE FROM text WHERE rowid = (SELECT id FROM files WHERE path = ?1)", [path])?;
             stale.extend(tx.query_row("SELECT id FROM files WHERE path = ?1", [path], |r| r.get::<_, i64>(0)).ok());
             tx.execute("DELETE FROM chunks WHERE file = (SELECT id FROM files WHERE path = ?1)", [path])?;
+            // Gone back to the cloud: its hash goes with its text.
+            if *cloud {
+                tx.execute("DELETE FROM hashes WHERE path = ?1", [path])?;
+            }
             tx.execute(
-                "INSERT INTO files(path, size, modified, has_text) VALUES (?1, ?2, ?3, NULL)
-                 ON CONFLICT(path) DO UPDATE SET size = excluded.size, modified = excluded.modified, has_text = NULL, embedded = NULL",
-                params![path, *size as i64, modified],
+                "INSERT INTO files(path, size, modified, has_text, cloud) VALUES (?1, ?2, ?3, NULL, ?4)
+                 ON CONFLICT(path) DO UPDATE SET size = excluded.size, modified = excluded.modified, has_text = NULL, embedded = NULL, cloud = excluded.cloud",
+                params![path, *size as i64, modified, cloud.then_some(1)],
             )?;
         }
         for (archive, entries) in &inside {
@@ -359,9 +386,9 @@ impl Store {
         Ok(())
     }
 
-    /// The size and date the store has for this file.
-    fn row(&self, path: &str) -> Option<(u64, i64)> {
-        self.db.lock().unwrap().query_row("SELECT size, modified FROM files WHERE path = ?1", [path], |r| Ok((r.get::<_, i64>(0)? as u64, r.get(1)?))).ok()
+    /// The size and date the store has for this file, and whether it was left in the cloud.
+    fn row(&self, path: &str) -> Option<(u64, i64, bool)> {
+        self.db.lock().unwrap().query_row("SELECT size, modified, cloud IS NOT NULL FROM files WHERE path = ?1", [path], |r| Ok((r.get::<_, i64>(0)? as u64, r.get(1)?, r.get(2)?))).ok()
     }
 
     /// Whether the store has anything below this folder, or has it as a folder left out.
@@ -471,11 +498,12 @@ impl Store {
     }
 
     /// Files that share their size with another and have no current hash: (path, size, modified).
+    /// Files left in the cloud are neither.
     fn unhashed(&self) -> rusqlite::Result<Vec<(PathBuf, u64, u64)>> {
         let db = self.db.lock().unwrap();
         let mut q = db.prepare(
             "SELECT f.path, f.size, f.modified FROM files f
-             WHERE f.inside IS NULL AND f.size > 0 AND f.size IN (SELECT size FROM files WHERE inside IS NULL GROUP BY size HAVING count(*) > 1)
+             WHERE f.inside IS NULL AND f.cloud IS NULL AND f.size > 0 AND f.size IN (SELECT size FROM files WHERE inside IS NULL AND cloud IS NULL GROUP BY size HAVING count(*) > 1)
              AND NOT EXISTS (SELECT 1 FROM hashes h WHERE h.path = f.path AND h.size = f.size AND h.modified = f.modified)",
         )?;
         let rows = q.query_map([], |r| Ok((PathBuf::from(r.get::<_, String>(0)?), r.get::<_, i64>(1)? as u64, r.get::<_, i64>(2)? as u64)))?;
@@ -490,7 +518,12 @@ impl Store {
             let rows = q.query_map([], |r| Ok((r.get(0)?, r.get::<_, i64>(1)? as u64, r.get::<_, i64>(2)? as u64)))?;
             rows.collect::<rusqlite::Result<_>>()?
         };
-        let stale: Vec<String> = rows.into_iter().filter(|(path, size, modified)| std::fs::metadata(path).map_or(true, |m| (m.len(), secs(&m) as u64) != (*size, *modified))).map(|r| r.0).collect();
+        // So do those of files gone back to the cloud, which are not read again.
+        let stale: Vec<String> = rows
+            .into_iter()
+            .filter(|(path, size, modified)| std::fs::metadata(path).map_or(true, |m| (m.len(), secs(&m) as u64) != (*size, *modified) || crate::cloud::keep_out_meta(&m, Path::new(path))))
+            .map(|r| r.0)
+            .collect();
         let mut db = self.db.lock().unwrap();
         let tx = db.transaction()?;
         for path in stale {
@@ -727,7 +760,7 @@ fn left_out_file(path: &str, cfg: &SearchConfig) -> bool {
 #[derive(Default)]
 struct Walk {
     /// Files that differ from what the store knew.
-    changed: Vec<(String, u64, i64)>,
+    changed: Vec<Changed>,
     /// Folders left out, with their totals.
     skipped: Vec<(String, Size)>,
     /// Every file.
@@ -736,8 +769,18 @@ struct Walk {
     repos: Vec<PathBuf>,
 }
 
+/// Whether the file `meta` describes is only in the cloud and the settings leave it there: it is
+/// found by name, never read. Its cloud is remembered either way.
+fn left_in_cloud(store: &Store, meta: &std::fs::Metadata, path: &Path) -> bool {
+    if !crate::cloud::online_meta(meta, path) {
+        return false;
+    }
+    store.saw_cloud(path);
+    crate::cloud::keep_out_meta(meta, path)
+}
+
 /// Walk `dirs` and everything below them. `None` when `stop` was set meanwhile.
-fn walk(dirs: Vec<PathBuf>, cfg: &SearchConfig, known: &Known, stop: &AtomicBool) -> Option<Walk> {
+fn walk(store: &Store, dirs: Vec<PathBuf>, cfg: &SearchConfig, known: &Known, stop: &AtomicBool) -> Option<Walk> {
     let mut found = Walk::default();
     // Folders left out are only measured, one thread, like the rest of the scan.
     let slow = rayon::ThreadPoolBuilder::new().num_threads(1).build().expect("a thread");
@@ -752,7 +795,11 @@ fn walk(dirs: Vec<PathBuf>, cfg: &SearchConfig, known: &Known, stop: &AtomicBool
                 found.repos.push(dir.clone());
             }
             if kind.is_dir() {
-                if !left_out(&path, cfg) {
+                // A cloud mount whose files are not read is not walked either: listing it may
+                // be the network's work. Its names are the name index's.
+                if crate::cloud::unread_mount(&path) {
+                    store.saw_cloud(&path);
+                } else if !left_out(&path, cfg) {
                     stack.push(path);
                 } else if let (Some(text), Some(size)) = (path.to_str(), slow.install(|| crate::sizes::walk(&path, stop))) {
                     found.skipped.push((text.to_string(), size));
@@ -761,8 +808,9 @@ fn walk(dirs: Vec<PathBuf>, cfg: &SearchConfig, known: &Known, stop: &AtomicBool
             }
             let (true, Some(text), Ok(meta)) = (kind.is_file(), path.to_str(), entry.metadata()) else { continue };
             let modified = secs(&meta);
-            if known.get(text).is_none_or(|k| *k != (meta.len(), modified)) {
-                found.changed.push((text.to_string(), meta.len(), modified));
+            let cloud = left_in_cloud(store, &meta, &path);
+            if known.get(text).is_none_or(|k| *k != (meta.len(), modified, cloud)) {
+                found.changed.push((text.to_string(), meta.len(), modified, cloud));
             }
             found.seen.insert(text.to_string());
         }
@@ -781,7 +829,7 @@ pub fn scan(store: &Store, cfg: &SearchConfig, stop: &AtomicBool) -> rusqlite::R
     store.archives_changed(cfg.archives)?;
     store.exclude_changed(&cfg.text_exclude)?;
     let known = store.known()?;
-    let Some(found) = walk(roots.clone(), cfg, &known, stop) else { return Ok(()) };
+    let Some(found) = walk(store, roots.clone(), cfg, &known, stop) else { return Ok(()) };
     // Rows of a disk that is not plugged in stay.
     let kept: Vec<(String, String)> = offline.iter().map(|at| below(at)).collect();
     // Commits are not files on disk: `history` keeps them.
@@ -792,7 +840,8 @@ pub fn scan(store: &Store, cfg: &SearchConfig, stop: &AtomicBool) -> rusqlite::R
     if read(store, cfg, stop)? {
         return Ok(());
     }
-    let repos = if cfg.history { found.repos } else { vec![] };
+    // Git in a repository left in the cloud would download it.
+    let repos = if cfg.history { found.repos.into_iter().filter(|r| !crate::cloud::git_kept_out(r)).collect() } else { vec![] };
     if history(store, &repos, &kept, stop)? {
         return Ok(());
     }
@@ -1054,9 +1103,9 @@ pub fn refresh(store: &Store, cfg: &SearchConfig, paths: &HashSet<PathBuf>, late
         match std::fs::symlink_metadata(&path) {
             Err(_) => gone.push(text),
             Ok(meta) if meta.is_file() => {
-                let now = (meta.len(), secs(&meta));
+                let now = (meta.len(), secs(&meta), left_in_cloud(store, &meta, &path));
                 if store.row(&text) != Some(now) {
-                    changed.push((text, now.0, now.1));
+                    changed.push((text, now.0, now.1, now.2));
                 }
             }
             // A folder that came, or was moved in: its files have not been seen.
@@ -1064,7 +1113,7 @@ pub fn refresh(store: &Store, cfg: &SearchConfig, paths: &HashSet<PathBuf>, late
             Ok(_) => {}
         }
     }
-    let Some(found) = walk(new, cfg, &Known::default(), stop) else { return Ok(()) };
+    let Some(found) = walk(store, new, cfg, &Known::default(), stop) else { return Ok(()) };
     changed.extend(found.changed);
     store.apply(&gone, &changed, &found.skipped, false, cfg.archives)?;
     walked_now(store, began);
@@ -1088,7 +1137,7 @@ pub fn measure(store: &Store, cfg: &SearchConfig, later: &mut HashSet<PathBuf>, 
             skipped.push((text, size));
         }
     }
-    let Some(found) = walk(again, cfg, &Known::default(), stop) else { return Ok(()) };
+    let Some(found) = walk(store, again, cfg, &Known::default(), stop) else { return Ok(()) };
     skipped.extend(found.skipped);
     store.apply(&gone, &found.changed, &skipped, false, cfg.archives)?;
     walked_now(store, began);
@@ -1203,6 +1252,47 @@ mod tests {
         drop(store);
         Connection::open(d.join("search.db")).unwrap().pragma_update(None, "user_version", VERSION + 1).unwrap();
         assert_eq!(Store::open(&d.join("search.db")).unwrap().texts(), 0);
+        std::fs::remove_dir_all(d).unwrap();
+    }
+
+    #[test]
+    fn store_leaves_files_only_in_the_cloud_there() {
+        let d = std::env::temp_dir().join(format!("coxswain-store-cloud-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        let home = d.join("home");
+        std::fs::create_dir_all(home.join("OneDrive")).unwrap();
+        let (plan, copy) = (home.join("OneDrive/plan.txt"), home.join("OneDrive/copy.txt"));
+        std::fs::write(&plan, "Orbit at dawn, land by noon.\n").unwrap();
+        std::fs::write(&copy, "Orbit at dawn, land by noon.\n").unwrap();
+        let cfg = SearchConfig { text_roots: vec![home.clone()], ..SearchConfig::default() };
+        let (store, go) = (Store::open(&d.join("search.db")).unwrap(), AtomicBool::new(false));
+        let found = |q: &str| store.search(q, 10).total;
+        let hashes = || store.db.lock().unwrap().query_row("SELECT count(*) FROM hashes", [], |r| r.get::<_, i64>(0)).unwrap();
+        let id = || store.db.lock().unwrap().query_row("SELECT id FROM files WHERE path = ?1", [key(&plan).unwrap()], |r| r.get::<_, i64>(0)).unwrap();
+        let vectors = || store.db.lock().unwrap().query_row("SELECT count(*) FROM chunks", [], |r| r.get::<_, i64>(0)).unwrap();
+
+        // Kept on the device: read, hashed, given vectors like any file.
+        scan(&store, &cfg, &go).unwrap();
+        assert_eq!((found("orbit"), hashes()), (2, 2));
+        store.put_vectors(id(), &[vec![0u8; 8]]).unwrap();
+        assert_eq!(vectors(), 1);
+
+        // "Free up space": both go back to the cloud. Their text, vectors and hashes go; their
+        // names and sizes stay.
+        crate::cloud::pretend(&plan, true);
+        crate::cloud::pretend(&copy, true);
+        scan(&store, &cfg, &go).unwrap();
+        assert_eq!((found("orbit"), hashes(), vectors()), (0, 0, 0));
+        assert_eq!(store.size(&home).map(|s| s.0), Some(crate::fs::dir_size(&home)));
+        assert_eq!(store.clouds(), [("OneDrive".to_string(), home.join("OneDrive"))]);
+        assert!(crate::extract::text_of(&plan, 30, 1 << 20).is_none(), "never read");
+        assert!(store.unhashed().unwrap().is_empty(), "never hashed");
+
+        // Downloaded again (opened, or kept on this device): read at the next scan.
+        crate::cloud::pretend(&plan, false);
+        scan(&store, &cfg, &go).unwrap();
+        assert_eq!(found("orbit"), 1);
+        crate::cloud::pretend(&copy, false);
         std::fs::remove_dir_all(d).unwrap();
     }
 
@@ -1395,7 +1485,7 @@ mod tests {
         let d = std::env::temp_dir().join(format!("coxswain-store-tools-{}", std::process::id()));
         std::fs::create_dir_all(&d).unwrap();
         let store = Store::open(&d.join("search.db")).unwrap();
-        store.apply(&[], &[("/h/scan.PNG".into(), 1, 1), ("/h/a.txt".into(), 1, 1)], &[], false, false).unwrap();
+        store.apply(&[], &[("/h/scan.PNG".into(), 1, 1, false), ("/h/a.txt".into(), 1, 1, false)], &[], false, false).unwrap();
         store.read(&store.unread().unwrap().iter().map(|(id, ..)| (*id, None)).collect::<Vec<_>>()).unwrap();
         assert!(store.unread().unwrap().is_empty());
         store.tools_changed(&[]).unwrap();

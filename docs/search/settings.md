@@ -33,6 +33,8 @@ A change in either section is saved at once and starts a new [helper](helper.md)
 | *Folders read* | `text_roots` | list, `[]` = *Your home folder* | See [Choosing the folders](folders.md) |
 | *Names only* | `names_only` | list, `[]` = *None* | See [Choosing the folders](folders.md) |
 | *Search the history of git repositories too: commit messages, authors and changed paths* | `history` | bool, `true` | The newest 2000 commits of each repository in the folders read; see [Git history in search](history.md) |
+| *Cloud files: read files that are only online (downloads them)* | `cloud` | `"local-only"` or `"all"`, `"local-only"` | Off: files only in OneDrive, Dropbox, Google Drive, Proton Drive or iCloud are found by name, never read or downloaded. See [Cloud files](cloud-files.md) |
+| *Read anyway* | `cloud_read` | list, `[]` | Clouds found, each with **Read its files**, and folders added: their online-only files are read (downloaded). See [Cloud files](cloud-files.md) |
 | *Programs that read more* | | | tesseract, pdftoppm and LibreOffice, each ✓ or ✗ *not installed*: see [Scans](scans.md) |
 
 Keys with no item: `text_exclude` (folder names left out), `text_max_size` (20 MB), and for the
@@ -76,6 +78,8 @@ text_exclude = ["node_modules", "target", "build", "dist", "out", "vendor", "__p
 names_only = []
 text_max_size = 20971520
 archives = true            # look inside zip, 7z and tar archives
+cloud = "local-only"       # "all": read files only in the cloud too (downloads them)
+cloud_read = []            # cloud folders read anyway
 meaning = false
 meaning_engine = "builtin" # or "ollama", "openai"
 meaning_url = ""

@@ -4,6 +4,8 @@
   import { untrack } from "svelte";
   import { openItem, toggleMark, dragOut } from "./app.svelte.js";
   import { convertFileSrc, previewKind, TAG_COLORS } from "./lib.js";
+  import { ui } from "./app.svelte.js";
+  import { t as tr } from "./i18n.svelte.js";
 
   /** @type {{ t: any, active: boolean, onfocus: Function }} */
   let { t, active, onfocus } = $props();
@@ -98,14 +100,15 @@
         title={e.name}
       >
         <div class="thumb">
-          {#if previewKind(e) === "image"}
+          <!-- A picture only in the cloud is not drawn: that would download it. -->
+          {#if previewKind(e) === "image" && !e.online}
             <img src={convertFileSrc(e.path)} alt="" loading="lazy" decoding="async" draggable="false" />
           {:else}
             <span class="icon" class:dir={e.is_dir} style:color={e.icon.color || null}>{e.name === ".." ? "\u{f062}" : e.icon.glyph}</span>
           {/if}
         </div>
         <span class="label">
-          {#if e.tag}<span class="tag" style:background={TAG_COLORS[e.tag]}></span>{/if}{e.name}
+          {#if e.tag}<span class="tag" style:background={TAG_COLORS[e.tag]}></span>{/if}{#if e.online}<span class="cloud" title={tr("details.online")}>{ui.cfg.glyphs.cloud}</span> {/if}{e.name}
         </span>
       </div>
     {/each}
@@ -156,6 +159,9 @@
   .icon {
     font-family: var(--icon-font);
     font-size: 3em;
+  }
+  .cloud {
+    font-family: var(--icon-font);
   }
   .icon.dir {
     color: var(--directory-fg);

@@ -200,6 +200,8 @@ flags start a new one.
 | `text_roots` | list of paths | `[]` | The folders whose files are read. Empty: your home folder ([Choosing the folders](../search/folders.md)) |
 | `text_exclude` | list of strings | `["node_modules", "target", "build", "dist", "out", "vendor", "__pycache__", "Trash"]` | Folder names left out of reading, wherever they are. Hidden folders and folders with a `.nosearch` file always are |
 | `names_only` | list of paths | `[]` | Folders found by name and counted in sizes, never read |
+| `cloud` | string | `"local-only"` | Files only in OneDrive, Dropbox, Google Drive, Proton Drive, iCloud or a cloud mount: `"local-only"` finds them by name and never reads (downloads) them; `"all"` reads them ([Cloud files](../search/cloud-files.md)) |
+| `cloud_read` | list of paths | `[]` | Cloud folders whose online-only files are read anyway |
 | `text_max_size` | number (bytes) | `20971520` (20 MB) | Larger files are not read |
 | `archives` | bool | `true` | Look inside the zip, 7z and tar archives in the folders read: their files are found by name and by their text ([Inside archives](../search/archives.md)) |
 | `meaning` | bool | `false` | Search by meaning ([Search by meaning](../search/meaning.md)) |
@@ -289,6 +291,8 @@ Each Settings item and the key it writes:
 | | *Search inside archives…* | `[search] archives` |
 | | *Folders read* | `[search] text_roots` |
 | | *Names only* | `[search] names_only` |
+| | *Cloud files: read files that are only online…* | `[search] cloud` |
+| | *Read anyway* | `[search] cloud_read` |
 | | *Search the history of git repositories too…* | `[search] history` |
 | | *Start the search helper with my session…* | none: the session registration |
 | *Search by meaning* | *Turn on*, *Turn off*, *Download the model and turn on* | `[search] meaning` |
