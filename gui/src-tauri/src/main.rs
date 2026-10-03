@@ -193,6 +193,10 @@ struct Settings {
     meaning_key_env: String,
     ask_model: String,
     search_history: bool,
+    /// Files only in the cloud: "local-only" (found by name, never read) or "all".
+    search_cloud: String,
+    /// Folders in the cloud whose files are read even so.
+    cloud_read: Vec<PathBuf>,
     git_last_commit: bool,
 }
 
@@ -226,6 +230,8 @@ impl From<&Config> for Settings {
             meaning_key_env: c.search.meaning_key_env.clone(),
             ask_model: c.search.ask_model.clone(),
             search_history: c.search.history,
+            search_cloud: c.search.cloud.clone(),
+            cloud_read: c.search.cloud_read.clone(),
             git_last_commit: c.git.last_commit,
         }
     }
@@ -260,6 +266,8 @@ const SETTING_PATHS: &[(&str, &[&str])] = &[
     ("meaning_key_env", &["search", "meaning_key_env"]),
     ("ask_model", &["search", "ask_model"]),
     ("search_history", &["search", "history"]),
+    ("search_cloud", &["search", "cloud"]),
+    ("cloud_read", &["search", "cloud_read"]),
     ("git_last_commit", &["git", "last_commit"]),
 ];
 
@@ -1468,7 +1476,7 @@ mod tests {
 
     #[test]
     fn a_listing_sends_a_path_only_where_the_page_cannot_join_it() {
-        let e = |name: &str, path: PathBuf| Entry { name: name.into(), path, is_dir: false, is_symlink: false, is_exec: false, hidden: false, size: 0, modified: 0, created: 0 };
+        let e = |name: &str, path: PathBuf| Entry { name: name.into(), path, is_dir: false, is_symlink: false, is_exec: false, hidden: false, size: 0, modified: 0, created: 0, online: false };
         let dir = Path::new("/srv/box");
         let (prefix, items) = to_page(dir, vec![e("..", "/srv".into()), e("a.txt", dir.join("a.txt")), e("x", dir.join("x")), e("b", Path::new("/elsewhere").join("b"))], |_| None, None);
         assert_eq!(prefix, format!("/srv/box{}", std::path::MAIN_SEPARATOR));
@@ -1505,6 +1513,7 @@ mod tests {
         ch.insert("show_hidden".into(), false.into());
         ch.insert("names_only".into(), serde_json::json!(["/home/me/Mail"]));
         ch.insert("search_archives".into(), false.into());
+        ch.insert("cloud_read".into(), serde_json::json!(["/home/me/gdrive"]));
         let out = apply_settings(text, &ch).unwrap();
         for kept in ["# my config", "theme = \"nc\"  # terminal", "# big text", "quit = [\"F10\"]"] {
             assert!(out.contains(kept), "{kept} lost:\n{out}");
@@ -1513,6 +1522,7 @@ mod tests {
         assert_eq!((cfg.gui.font_size, cfg.language.as_str(), cfg.show_hidden), (17.0, "da", false));
         assert_eq!(cfg.preview.images["latex"], "texlive:medium");
         assert_eq!(cfg.search.names_only, [PathBuf::from("/home/me/Mail")]);
+        assert_eq!((cfg.search.cloud_read, cfg.search.cloud.as_str()), (vec![PathBuf::from("/home/me/gdrive")], "local-only"), "online files stay there unless asked");
         assert!(!cfg.search.archives && Config::default().search.archives, "on unless switched off");
         assert_eq!(cfg.preview.images["plantuml"], "docker.io/plantuml/plantuml:latest", "other defaults stay");
         assert!(apply_settings(text, &serde_json::Map::from_iter([("nope".into(), 1.into())])).is_err());

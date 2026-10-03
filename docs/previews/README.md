@@ -39,6 +39,11 @@ this kind of file. Under that, the preview; under the preview, for some files, a
 (camera and lens, audio tags, what a program is built for). At the very bottom, the
 [folder notes](../organise/notes.md). With nothing under the cursor it says *Nothing selected*.
 
+**A file only in the cloud** (OneDrive, Dropbox, Google Drive, Proton Drive, iCloud) is not
+previewed by itself, as reading it would download it: the pane says *Online only: not downloaded.
+Press Enter to download and open it, or:* with **Download and preview**, which downloads it and
+shows it. No thumbnail and no facts either until then ([Cloud files](../search/cloud-files.md)).
+
 ### Switches
 
 Where a file can be shown in more than one way, buttons at the top right choose. The choice

@@ -107,6 +107,9 @@ pub struct Status {
     /// The installed programs that read more (OCR, LibreOffice), and whether each is there.
     #[serde(default)]
     pub tools: Vec<(String, bool)>,
+    /// The clouds whose files the walk found only in the cloud: (name, folder).
+    #[serde(default)]
+    pub clouds: Vec<(String, PathBuf)>,
 }
 
 /// Where the helper's address and lock live: the cache folder, which is the user's own.
@@ -285,6 +288,7 @@ fn answer(stream: TcpStream, index: &Service, store: Option<&Store>, token: &str
                 paused: store.is_some_and(|s| s.paused.load(Ordering::Relaxed)),
                 roots: store.map(Store::root_sizes).unwrap_or_default(),
                 tools: crate::extract::installed::found().iter().map(|(n, p)| (n.to_string(), p.is_some())).collect(),
+                clouds: store.map(Store::clouds).unwrap_or_default(),
                 }
             }),
         };
@@ -419,7 +423,7 @@ impl Client {
         }
         let now = match self.ask(&Request::Status) {
             Some(Reply::Status(s)) => s,
-            _ => Status { state: self.own().state(), len: self.own().len(), texts: 0, pending: 0, bytes: 0, paused: false, roots: vec![], tools: vec![], meaning: false, meaning_pending: 0, meaning_done: 0, meaning_engine: String::new(), meaning_error: None, error: None },
+            _ => Status { state: self.own().state(), len: self.own().len(), texts: 0, pending: 0, bytes: 0, paused: false, roots: vec![], tools: vec![], meaning: false, meaning_pending: 0, meaning_done: 0, meaning_engine: String::new(), meaning_error: None, error: None, clouds: vec![] },
         };
         *status = Some((Instant::now(), now.clone()));
         now

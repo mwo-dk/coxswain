@@ -61,9 +61,10 @@ fn reader(path: &Path) -> Option<Reader> {
 }
 
 /// The text of the file at `path`, `size` bytes long, if it has any and is no larger than
-/// `max`. Runs of blank space become one space or one line break.
+/// `max`. Runs of blank space become one space or one line break. None for a file only in the
+/// cloud, unless the settings read those: reading it would download it.
 pub fn text_of(path: &Path, size: u64, max: u64) -> Option<String> {
-    if size == 0 || size > max {
+    if size == 0 || size > max || crate::cloud::keep_out(path) {
         return None;
     }
     let text = match reader(path) {

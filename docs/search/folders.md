@@ -37,6 +37,10 @@ Delete the file and the folder is read again.
 | `.nosearch` | a file | The same as *Names only*, set from the folder itself |
 | **Left out** | `text_exclude` | Folder names and file patterns left out wherever they are. A plain name (`build`) leaves out folders of that name; an entry with `*`, `?` or a dot (`*.log`, `notes.txt`) leaves out files too. `*` stands for any run of characters, `?` for one; the case counts |
 
+Files that are only online in OneDrive, Dropbox, Google Drive, Proton Drive or iCloud are never
+read either, wherever they are: they are found by name and left in the cloud, unless you say
+otherwise. See [Cloud files](cloud-files.md).
+
 Hidden folders (their names start with a dot) are always left out of reading, and so is
 Coxswain's own cache folder (`search.db`, previews, copies looked at) on every system. All of them
 are still in the [name index](names.md), and a file left out still counts in folder sizes.
@@ -135,9 +139,13 @@ No. Hidden folders are always left out of reading. Their files are still found b
 Yes: press its **×** under *Left out*, or set `text_exclude` without that name. In `config.toml`
 the list replaces the default one, so list the others you still want left out.
 
+#### Will adding my OneDrive folder download it?
+No. Its files that are only online are found by name and never read, so nothing is downloaded;
+the files OneDrive keeps on your disk are read. See [Cloud files](cloud-files.md).
+
 #### Does `.nosearch` hide a folder from name search too?
 No, only from reading. To leave a folder out of the name index, use `exclude` (see
 [Names everywhere](names.md#settings-and-configtoml)).
 
 ---
-[← Previous: Inside archives](archives.md) · [Next: Removable disks →](removable-disks.md)
+[← Previous: Inside archives](archives.md) · [Next: Cloud files →](cloud-files.md)

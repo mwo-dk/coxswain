@@ -128,6 +128,7 @@
           <span class="label">{e.name}</span>
           {#if e.tag}<span class="tag" style:background={TAG_COLORS[e.tag]} title={tagName(e.tag)}></span>{/if}
           {#if st}<span class="git git-{st.kind}" title={gitTip(st)}>{gitGlyph(st.kind)}</span>{/if}
+          {#if e.online}<span class="cloud" title={tr("details.online")}>{g.cloud}</span>{/if}
         </span>
         {#if shown.has("type")}<span class="ext">{e.is_dir ? (e.name === ".." ? "" : tr("details.folder")) : ext(e)}</span>{/if}
         {#if shown.has("size")}
@@ -293,9 +294,13 @@
     height: 8px;
     border-radius: 50%;
   }
-  .git {
+  .git,
+  .cloud {
     font-family: var(--icon-font);
     flex: none;
+  }
+  .cloud {
+    opacity: 0.7;
   }
   .git-modified { color: var(--git-modified-fg); }
   .git-added { color: var(--git-added-fg); }

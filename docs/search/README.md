@@ -30,6 +30,7 @@ walk through each depth, what is read and when, and every setting.
 | [Git history in search](history.md) | Commit messages, authors and changed paths, found like text; Enter opens the commit |
 | [Inside archives](archives.md) | Files in zip, 7z and tar archives, found by name, text and meaning; changes followed |
 | [Choosing the folders](folders.md) | Folders read, names only, `.nosearch`, `text_exclude` |
+| [Cloud files](cloud-files.md) | OneDrive, Dropbox, Google Drive, Proton Drive, iCloud: files only online are found by name, never downloaded |
 | [Removable disks](removable-disks.md) | USB and external disks: kept while unplugged, found again anywhere |
 | [Search by meaning](meaning.md) | The built-in multilingual model: turning it on, what it finds |
 | [Search by meaning on a server](servers.md) | Ollama, Lemonade, LM Studio or any server with the OpenAI API |

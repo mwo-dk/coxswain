@@ -426,9 +426,12 @@ fn sound(name: &str) -> bool {
 /// What search may know of `archive` (`size` bytes) by name: its first `SEARCH_ENTRIES`
 /// entries, as far as they are seen without a password, those whose names could not be a path
 /// through it left out. `None` for one it does not look into: not an archive, too large to be
-/// unpacked for a listing, or unreadable.
+/// unpacked for a listing, unreadable, or only in the cloud (reading it would download it).
 pub(crate) fn search_entries(archive: &Path, size: u64) -> Option<Vec<ArchiveEntry>> {
     let k = kind(archive)?;
+    if crate::cloud::keep_out(archive) {
+        return None;
+    }
     if matches!(k, Kind::Tar(p) if p != Pack::None) && size > SEARCH_UNPACK {
         return None;
     }
@@ -440,9 +443,12 @@ pub(crate) fn search_entries(archive: &Path, size: u64) -> Option<Vec<ArchiveEnt
 /// Read the files of `archive` (`size` bytes) that `wanted` picks by name and size, in the
 /// order they are in it: `read` gets each with its name, and says whether to go on. Locked
 /// files are never read, and no password is ever used. Archives that would be unpacked past
-/// `SEARCH_UNPACK` are not read.
+/// `SEARCH_UNPACK` are not read, nor archives only in the cloud.
 pub(crate) fn search_read(archive: &Path, size: u64, wanted: &dyn Fn(&str, u64) -> bool, read: &mut dyn FnMut(&str, &mut dyn Read) -> bool) -> io::Result<()> {
     let k = kind(archive).ok_or_else(|| not_archive(archive))?;
+    if crate::cloud::keep_out(archive) {
+        return Err(crate::cloud::not_here(archive));
+    }
     if streamed(archive) && size > SEARCH_UNPACK {
         return Ok(());
     }
@@ -520,6 +526,7 @@ pub fn listing(archive: &Path, inner: &str) -> io::Result<(Vec<crate::fs::Entry>
             size: 0,
             modified: it.modified,
             created: 0,
+            online: false,
         });
         if deeper {
             e.is_dir = true;
@@ -531,7 +538,7 @@ pub fn listing(archive: &Path, inner: &str) -> io::Result<(Vec<crate::fs::Entry>
         }
     }
     let up = at.parent().unwrap_or(archive).to_path_buf();
-    let mut out = vec![crate::fs::Entry { name: "..".into(), path: up, is_dir: true, is_symlink: false, is_exec: false, hidden: false, size: 0, modified: 0, created: 0 }];
+    let mut out = vec![crate::fs::Entry { name: "..".into(), path: up, is_dir: true, is_symlink: false, is_exec: false, hidden: false, size: 0, modified: 0, created: 0, online: false }];
     out.extend(seen.into_values());
     Ok((out, locked))
 }

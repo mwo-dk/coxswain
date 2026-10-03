@@ -62,6 +62,7 @@ New here? Start with [The screen](panels/the-screen.md) and [Every default key](
 | [Git history in search](search/history.md) | Commit messages, authors and changed paths of your repositories, found by text and meaning, opened at the commit |
 | [Inside archives](search/archives.md) | Files in zip, 7z and tar found by name, text, meaning and Ask; which archives, changes, locked ones, limits |
 | [Choosing the folders: folders read, names only, .nosearch](search/folders.md) | Folders read, Names only, .nosearch, text_exclude |
+| [Cloud files: OneDrive, Dropbox, Google Drive, Proton Drive, iCloud](search/cloud-files.md) | Online-only files found by name and never downloaded, the cloud glyph, Download and preview, `cloud` and `cloud_read`, per system |
 | [Removable disks](search/removable-disks.md) | Text kept while unplugged, found again at any mount point |
 | [Search by meaning](search/meaning.md) | The built-in multilingual model, turning it on and off, what you see, how it works |
 | [Search by meaning on a server: Ollama, Lemonade, LM Studio](search/servers.md) | Ollama, Lemonade, LM Studio, any OpenAI-compatible server, API keys, privacy |

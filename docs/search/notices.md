@@ -45,6 +45,7 @@ One notice at a time, in this order:
 | *New: Ctrl+G on a file or folder in a git repository shows its history, commit by commit* | A folder of a git repository has been opened (the key is yours from `[keys]`) | Nothing: it only tells ([Git history](../panels/git-history.md)) |
 | *New: search by meaning finds files about your words, in any language. Turn it on* | Text search is on and has files, and search by meaning is off. Terminal app: *…in any language: coxswain --meaning on* | *Settings → Search by meaning* |
 | *Ollama runs here: search by meaning could use its GPU. Choose it* | The built-in model is in use and Ollama answers on this machine. Terminal app: *…could use its GPU: coxswain --meaning ollama* | *Settings → Search by meaning* ([servers](servers.md)) |
+| *Found OneDrive, Dropbox: files that are only online are found by name only, so nothing is downloaded. Change in Settings* | The helper found files only in the cloud, and `cloud` is not `"all"`. Terminal app: *… cloud = "all" in config.toml reads them* | *Settings → Search inside files* ([Cloud files](cloud-files.md)) |
 | *Install tesseract to search the words in scans, screenshots and pictures* | Text search is on and the helper found no tesseract | *Settings → Search inside files* ([Scans](scans.md)) |
 
 **Desktop app:** a button at the right of the command line row, after *Settings*, with **×**
