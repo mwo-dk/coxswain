@@ -54,7 +54,8 @@ Ask never uses a service on the internet unless you point the server address at 
    goes to that file: the active panel opens its folder with the cursor on it. In the desktop
    app a click on a source or on a **[n]** in the answer does the same. **F4** edits the source,
    and **F3** views it in the terminal app.
-6. **Esc** closes Find file and forgets the questions. An answer still being written stops.
+6. **Esc** closes Find file and forgets the questions. An answer still being written stops,
+   also while the server is still loading the model and has not said a word.
 
 | Key | Desktop app | Terminal app |
 |---|---|---|
@@ -144,8 +145,10 @@ multilingual model answers questions in other languages; Ask tells it to answer 
 question's language.
 
 #### The first answer takes long. Why?
-The server loads the model into memory on the first question; that can take half a minute. Ask
-waits up to five minutes for it to start answering. After that the words come as they are made.
+The server loads the model into memory on the first question; that can take half a minute. On
+Ollama, Ask has the model loaded while it looks the sources up, so the wait starts before the
+question is sent. Ask waits up to five minutes for the answer to start, and **Esc** stops the
+wait at any moment. After that the words come as they are made.
 
 #### Why does a follow-up sometimes find other sources?
 Each question looks up its own passages, together with the question before it. The numbers

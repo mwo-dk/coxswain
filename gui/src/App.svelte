@@ -62,14 +62,16 @@
     return () => clearTimeout(timer);
   });
 
-  // Folders open in any tab reread themselves when something changes in them.
+  // Folders open in any tab reread themselves when something changes in them; so does a
+  // repository's `.git` (a commit, a checkout), so the status and the last-commit column follow.
   const allTabs = () => ui.panes.flatMap((p) => p.tabs);
+  const gitDir = (t) => t.git && `${t.git.root}${ui.cfg.sep}.git`;
   $effect(() => {
     if (!ready) return;
-    invoke("watch_dirs", { dirs: [...new Set(allTabs().map((t) => t.dir))] });
+    invoke("watch_dirs", { dirs: [...new Set(allTabs().flatMap((t) => [t.dir, gitDir(t)]).filter(Boolean))] });
   });
   listen("dir-changed", (ev) => {
-    for (const t of allTabs()) if (ev.payload.includes(t.dir)) load(t);
+    for (const t of allTabs()) if (ev.payload.includes(t.dir) || ev.payload.includes(gitDir(t))) load(t);
   });
 
   // Files dragged in from other applications, or from a pane (the drag is native, see dragOut).

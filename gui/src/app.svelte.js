@@ -52,6 +52,8 @@ export function newTab(dir, view = "details") {
     dir,
     items: [],
     cursor: 0,
+    /** How far the list is scrolled, kept per tab. */
+    top: 0,
     marked: new SvelteSet(),
     sort: "name",
     reverse: false,
@@ -107,6 +109,7 @@ export async function load(t, dir = t.dir, focus) {
       const same = t.git && r.dir.startsWith(t.git.root);
       t.git = null;
       t.last = same && t.last ? {} : null;
+      t.lastHead = null;
       t.sizes = {};
       t.counts = {};
     }
@@ -144,12 +147,32 @@ export async function load(t, dir = t.dir, focus) {
     if (t.dir === dir) t.git = g;
     if (g && !ui.recent.includes(g.root)) ui.recent = [g.root, ...ui.recent].slice(0, 12);
   }, () => {});
-  // The last commit of each entry: one git walk for the folder, cached until HEAD moves.
+  // The last commit of each entry: one git walk for the folder, cached until HEAD moves, and
+  // not sent again while HEAD stays. A listing sorted by commit before the walk was done
+  // (it came sorted by name) is sorted now.
   if (ui.cfg.settings.git_last_commit)
-    invoke("git_last", { dir: t.dir }).then((l) => {
-      if (t.dir === dir) t.last = l;
+    invoke("git_last", { dir: t.dir, have: t.lastHead }).then((r) => {
+      if (t.dir !== dir) return;
+      if (!r) return void (t.last = null);
+      t.lastHead = r.head;
+      if (!r.lasts) return;
+      t.last = r.lasts;
+      if (t.sort === "commit") {
+        const at = t.items[t.cursor]?.path;
+        t.items = byLast(t.items, r.lasts, t.reverse);
+        t.cursor = Math.max(0, t.items.findIndex((e) => e.path === at));
+      }
     }, () => {});
   return true;
+}
+
+/** `items` by their last commit, newest first (`..` first, folders before files), as the
+ * backend sorts them; entries without one last. */
+export function byLast(items, last, reverse) {
+  const group = (e) => (e.name === ".." ? 0 : e.is_dir ? 1 : 2);
+  const when = (e) => last[e.name]?.time ?? 0;
+  const name = (a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0);
+  return [...items].sort((a, b) => group(a) - group(b) || (reverse ? -1 : 1) * (when(b) - when(a) || name(a, b)));
 }
 
 /** Where `..` leads: the listing says (out of a history, back to the folder on disk). */

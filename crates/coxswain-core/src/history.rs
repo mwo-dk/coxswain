@@ -157,7 +157,12 @@ fn spec(at: &At) -> String {
 /// whether there were more (or the walk took too long to see).
 pub fn log(base: &Path, rev: &str, spec: &str, max: usize) -> io::Result<(Vec<Commit>, bool)> {
     let mut c = git(base);
-    c.args(["log", "-z", FORMAT, "-n", &(max + 1).to_string(), rev, "--", spec]);
+    c.args(["log", "-z", FORMAT, "-n", &(max + 1).to_string()]);
+    // A file's history goes on past its renames (git follows one path at a time).
+    if spec != "." {
+        c.arg("--follow");
+    }
+    c.args([rev, "--", spec]);
     let mut out = vec![];
     let cut = records(c, 0, |rec| {
         out.extend(commit(rec));
@@ -348,8 +353,8 @@ fn write_tree(at: &At, rev: &str, to: &Path) -> io::Result<()> {
     if files.is_empty() {
         return Err(io::Error::new(io::ErrorKind::NotFound, format!("{} is not in commit {rev}", if at.inner.is_empty() { "." } else { &at.inner })));
     }
-    // The files get the commit's time, as they were then; not the time they were copied out.
-    // ponytail: folders keep the copying time (setting it needs a handle to each folder).
+    // The files and folders get the commit's time, as they were then; not the time they were
+    // copied out.
     let when = std::time::UNIX_EPOCH + std::time::Duration::from_secs(show(&at.base, rev)?.time);
     // One git for every file: the ids in, the contents out.
     let mut c = git(&at.base);
@@ -392,6 +397,15 @@ fn write_tree(at: &At, rev: &str, to: &Path) -> io::Result<()> {
             #[cfg(not(unix))]
             std::fs::write(dst, &target)?;
         }
+        // Folders last: writing into one sets its time to now.
+        let dirs: HashSet<&Path> = files.iter().flat_map(|(_, _, dst)| dst.ancestors().skip(1).take_while(|d| d.starts_with(to))).collect();
+        for dir in dirs {
+            let mut o = std::fs::OpenOptions::new();
+            o.read(true);
+            #[cfg(windows)]
+            std::os::windows::fs::OpenOptionsExt::custom_flags(o.write(true), 0x0200_0000); // FILE_FLAG_BACKUP_SEMANTICS: a folder
+            let _ = o.open(dir).and_then(|f| f.set_modified(when));
+        }
         Ok(())
     })();
     let _ = feed.join();
@@ -430,10 +444,27 @@ static CACHE: Mutex<Option<Cache>> = Mutex::new(None);
 /// commit in a history, or a history's list of commits (each its own). One `git log` for the
 /// whole folder, cached by commit. `None` outside a repository, and in one only in the cloud.
 pub fn last_changes(dir: &Path) -> Option<Arc<Lasts>> {
+    last_changes_since(dir, None, false)?.1
+}
+
+/// `last_changes` as it is already known: from the cache, without git's walk (a listing sorted
+/// by commit shows at once, and is sorted again when the walk is done).
+pub fn last_changes_cached(dir: &Path) -> Option<Arc<Lasts>> {
+    last_changes_since(dir, None, true)?.1
+}
+
+/// `last_changes`, with the commit it is for (HEAD, or the commit looked into): the map is
+/// `None` when that is `have` again, as the asker has it already. With `cached`, no walk is
+/// done: `None` for the map when none is kept.
+pub fn last_changes_since(dir: &Path, have: Option<&str>, cached: bool) -> Option<(String, Option<Arc<Lasts>>)> {
     let (base, rev, inner) = match split(dir) {
         Some(at) if at.commit.is_none() => {
+            let oid = rev_oid(&at.base, "HEAD")?;
+            if have == Some(oid.as_str()) {
+                return Some((oid, None));
+            }
             let commits = commits_of(&at).ok()?;
-            return Some(Arc::new(commits.iter().map(|c| (entry_name(c), Some(Last::from(c)))).collect()));
+            return Some((oid, Some(Arc::new(commits.iter().map(|c| (entry_name(c), Some(Last::from(c)))).collect()))));
         }
         Some(at) => (at.base, at.commit.unwrap_or_default(), at.inner),
         // A repository only in the cloud: git would download it.
@@ -441,9 +472,15 @@ pub fn last_changes(dir: &Path) -> Option<Arc<Lasts>> {
         None => (dir.to_path_buf(), "HEAD".to_string(), String::new()),
     };
     let oid = rev_oid(&base, &rev)?;
+    if have == Some(oid.as_str()) {
+        return Some((oid, None));
+    }
     let key = (base.clone(), oid.clone(), inner.clone());
     if let Some(hit) = CACHE.lock().unwrap().as_ref().and_then(|c| c.get(&key)) {
-        return Some(hit.clone());
+        return Some((oid, Some(hit.clone())));
+    }
+    if cached {
+        return Some((oid, None));
     }
     let (lasts, whole) = walk(&base, &oid, &inner).ok()?;
     let lasts = Arc::new(lasts);
@@ -451,7 +488,7 @@ pub fn last_changes(dir: &Path) -> Option<Arc<Lasts>> {
     if whole {
         remember(&CACHE, key, lasts.clone());
     }
-    Some(lasts)
+    Some((oid, Some(lasts)))
 }
 
 /// The commit `rev` names.
@@ -715,6 +752,8 @@ pub(crate) mod tests {
         assert_eq!(std::fs::read_to_string(out.join("deep/a b.txt")).unwrap(), "deep\n");
         let whole = crate::fs::copy(&at_first, &out).unwrap();
         assert!(whole.join("deep/a b.txt").is_file() && whole.join("main.rs").is_file());
+        let when = |p: &Path| std::fs::metadata(p).unwrap().modified().unwrap();
+        assert_eq!((when(&whole), when(&whole.join("deep"))), (mtime, mtime), "folders have the commit's time too");
 
         // Read-only: nothing goes in, nothing is made or taken out there.
         assert!(crate::fs::copy(&d.join("README"), &at_first).is_err());
@@ -722,6 +761,14 @@ pub(crate) mod tests {
         assert!(crate::fs::delete(&at_first.join("main.rs")).is_err());
         assert!(crate::fs::rename(&at_first.join("main.rs"), &out.join("x")).is_err());
         assert!(!d.join("src/main.rs/@history").exists() && !d.join("src/@history").exists());
+
+        // Renamed: the file's history goes on past the rename.
+        std::fs::rename(d.join("src/main.rs"), d.join("src/app.rs")).unwrap();
+        add(&d);
+        commit_as(&d, "Dee", 1_700_300_000, "Renamed");
+        let list = crate::fs::list(&path(&d.join("src/app.rs"), None), true).unwrap();
+        let names: Vec<_> = list.iter().map(|e| e.name.split_once(' ').map_or(e.name.as_str(), |n| n.1)).collect();
+        assert_eq!(names, ["..", "Renamed", "Second∕with a slash", "First: the start"]);
         std::fs::remove_dir_all(d).unwrap();
     }
 
@@ -754,9 +801,15 @@ pub(crate) mod tests {
         let own = last_changes(&path(&d, None)).unwrap();
         assert_eq!(own[&commits[1].name].as_ref().unwrap().author, "Bob");
 
-        // HEAD moves: walked again.
+        // HEAD moves: walked again. The asker that has the map for a commit is not sent it again.
+        let (head, _) = last_changes_since(&d, None, false).unwrap();
+        assert_eq!(last_changes_since(&d, Some(&head), false).unwrap(), (head.clone(), None));
+        assert!(last_changes_cached(&d).is_some(), "walked before: kept");
         std::fs::write(d.join("README"), "rr").unwrap();
         commit_as(&d, "Cy", 1_700_200_000, "readme");
+        assert!(last_changes_cached(&d).is_none(), "a new HEAD: not walked yet");
+        let (moved, l) = last_changes_since(&d, Some(&head), false).unwrap();
+        assert!(moved != head && l.is_some());
         assert_eq!(last_changes(&d).unwrap()["README"].as_ref().unwrap().author, "Cy");
 
         let mut entries = crate::fs::list(&d, true).unwrap();

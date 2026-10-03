@@ -94,7 +94,7 @@
     {#if shown.has("commit")}<button onclick={() => sortBy("commit")} title={tr("details.commit_tip")}>{tr("details.col.commit")} <i>{arrow("commit")}</i></button>{/if}
     {#if shown.has("created")}<span>{tr("details.col.created")}</span>{/if}
   </div>
-  <Rows class="rows" items={t.items} {rowH} cursor={t.cursor} role="listbox" tabindex="-1" aria-label={t.dir}>
+  <Rows class="rows" items={t.items} {rowH} cursor={t.cursor} bind:top={t.top} role="listbox" tabindex="-1" aria-label={t.dir}>
     {#snippet row(e, i)}
       {@const st = e.name === ".." ? undefined : (t.git?.files[e.name] ?? t.git?.all)}
       {@const marked = t.marked.has(e.path)}

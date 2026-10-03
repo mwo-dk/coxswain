@@ -41,7 +41,7 @@ the commit changed in it, view it with **F3** and copy an old version out with *
    your pager.
 5. **F5** copies the file or folder under the cursor, as it was then, to the other panel.
    **F5** on a commit in the list copies the whole folder at that commit, named
-   `src-a1b2c3d`. The files copied out get the commit's date, not today's.
+   `src-a1b2c3d`. The files and folders copied out get the commit's date, not today's.
 6. **Backspace** (or `..`) goes up: from a commit to the list of commits, from the list back to
    the folder on disk, with the cursor on the file you started from.
 
@@ -84,7 +84,8 @@ folder.
   (`..` at its top) is the longest one; a single file's is usually short.
 - **Four seconds** at most for git to answer a list, so a huge repository stays usable; a file
   that changed rarely in a very long history may then show fewer commits than it has.
-- **Renames are not followed:** a file's history starts where it got its current name.
+- **Renames are followed** for a file: its history goes on past the commits that renamed it
+  (`git log --follow`). A folder's history is the folder's path as it is.
 - **Merge commits** are listed only when the merge itself changed it, as `git log` does.
 - **Submodules** show as empty entries; their own history is in their own folder.
 - **Read-only:** nothing is ever written to the repository. It runs `git log`, `git ls-tree`,
@@ -134,10 +135,11 @@ menu's *git log* (**F2**, `l`) or a command such as `git show a1b2c3d`.
 
 Press **Ctrl+G** on `..` at the top of the repository, then **Enter** on a commit.
 
-#### Why does a file's history stop at a rename?
+#### Does a file's history go past a rename?
 
-Coxswain follows the path, as `git log -- <path>` does without `--follow`. Look in the history of
-the folder it was in, or of the repository, for the commit that renamed it.
+Yes: a file's history is `git log --follow`, so the commits from before it got its name are
+listed too. A folder's history follows the folder's path as it is; the commit that renamed a
+file is in the history of the folder it was in.
 
 #### Why do I not see all commits?
 

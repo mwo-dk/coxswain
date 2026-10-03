@@ -81,6 +81,11 @@ once, run it in several terminal tabs.
 To the folder of the pane you see: the dialog offers that folder, and you type another one
 there. With two panes they offer the other pane's folder.
 
+#### Does a tab keep its place when I switch away and back?
+
+Yes: each tab keeps its cursor and, in the desktop app's details view, how far it is scrolled.
+The terminal app has one panel per side and keeps the cursor.
+
 #### Is the back history kept after a restart?
 
 No. The tabs and their folders come back, but each tab starts with an empty history.
