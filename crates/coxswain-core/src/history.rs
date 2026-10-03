@@ -329,9 +329,11 @@ fn write_tree(at: &At, rev: &str, to: &Path) -> io::Result<()> {
         let Some((p, kind, _, oid)) = tree_line(rec) else { continue };
         let rel = if at.inner.is_empty() { p.as_str() } else if p == at.inner { "" } else { match p.strip_prefix(&format!("{}/", at.inner)) { Some(r) => r, None => continue } };
         // git never stores `..` or `.git`; refuse them anyway (and a `\\` or `C:` that Windows
-        // reads as a path), so nothing lands outside `to` or makes a repository there.
+        // reads as a path), so nothing lands outside `to` or makes a repository there. Also
+        // what Windows reads as `.git`: `.GIT.` (trailing dots and spaces dropped), `GIT~1`.
         let normal = Path::new(rel).components().all(|c| matches!(c, Component::Normal(_)));
-        if !normal || rel.split('/').any(|s| matches!(s, "." | "..") || s.eq_ignore_ascii_case(".git")) {
+        let dot_git = |s: &str| s.trim_end_matches(['.', ' ']).eq_ignore_ascii_case(".git") || s.eq_ignore_ascii_case("git~1");
+        if !normal || rel.split('/').any(|s| matches!(s, "." | "..") || dot_git(s)) {
             continue;
         }
         let dst = if rel.is_empty() { to.to_path_buf() } else { to.join(rel) };
@@ -803,7 +805,8 @@ pub(crate) mod tests {
     }
 
     /// A made-up tree with a link `a` to a folder outside and a folder `a` of the same name,
-    /// and a `.git` folder: copied out, nothing is written through the link, and no `.git`.
+    /// and `.git` folders (also spelt as Windows reads them): copied out, nothing is written
+    /// through the link, and no `.git`.
     #[cfg(unix)]
     #[test]
     fn history_copy_out_never_writes_through_a_link() {
@@ -828,6 +831,14 @@ pub(crate) mod tests {
         let _ = copy_out(&at, &dest);
         assert!(!outside.join("evil").exists(), "written through the link");
         assert!(std::fs::read_dir(&dest).unwrap().flatten().all(|e| !e.path().join(".git").exists()));
+        // `.git` as Windows would read other spellings of it: left out, the rest comes.
+        let tree = git_in(&["mktree"], &format!("040000 tree {sub}\t.GIT.\n040000 tree {sub}\tgit~1\n040000 tree {sub}\tsub\n100644 blob {blob}\tok\n"));
+        let commit = git_in(&["-c", "user.name=t", "-c", "user.email=t@t", "commit-tree", &tree, "-m", "y"], "");
+        let out = copy_out(&At { commit: Some(commit), ..at }, &dest).unwrap();
+        assert!(out.join("ok").is_file() && out.join("sub/evil").is_file());
+        for git in [".GIT.", "git~1"] {
+            assert!(!out.join(git).exists(), "{git} was made");
+        }
         std::fs::remove_dir_all(d).unwrap();
     }
 

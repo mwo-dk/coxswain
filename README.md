@@ -110,6 +110,7 @@ Newest first. Downloads for each release are on the [releases page](https://gith
 
 | Version | Date | What's new |
 |---|---|---|
+| **1.27.4** | 2026-10-03 | Security review: an HTML preview may load pictures, styles and fonts from the page's own folder only, not from anywhere on the disk; extracting a crafted tar cannot fill the memory; changing a zip locked the old way (ZipCrypto) no longer scrambles its locked files: they are locked anew with AES-256, with the password, and a wrong password the check byte lets through is noticed; a history copied out on Windows never makes a `.git` by another spelling; Ask's errors never repeat a password in the server's URL; releases carry a `SHA256SUMS` and build provenance. [Security](docs/reference/security.md) |
 | **1.27.3** | 2026-10-03 | Dependencies brought up to date: getrandom 0.4 for the search helper's token, Mermaid 12.1 for diagrams, Vite 8.3.2, and the latest patch releases of tokio, uuid, libc and others. No advisories open. [Install](install/INSTALL.md) |
 | **1.27.2** | 2026-10-02 | The sidebar's drives and their free space stay current: read again every 30 seconds while the window is in view and when it comes back to the front, so a USB stick appears without reopening the window. [The sidebar](docs/organise/sidebar.md) |
 | **1.27.1** | 2026-10-01 | A SQLite database in the desktop preview shows each table's first rows under its schema, open at once for small databases. [Data files](docs/previews/data.md) |

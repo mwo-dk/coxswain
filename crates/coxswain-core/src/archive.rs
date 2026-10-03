@@ -275,11 +275,13 @@ pub fn extract_locked(path: &Path, dest_dir: &Path, password: Option<&str>) -> i
     }
     std::fs::create_dir_all(&to)?;
     // A 7z or a zip is read once (a locked one with the password): no links made, nothing
-    // sized by what the archive claims. A tar as the crate unpacks it, which keeps it inside.
+    // sized by what the archive claims. A tar as the crate unpacks it, which keeps it inside;
+    // its names are read first (from the last look, when it was browsed), since the crate
+    // would read a crafted long-name record whole, however large: `TAR_META` at most.
     let r = if k == Kind::SevenZ || k == Kind::Zip {
         copy_out_with(path, "", &to, password_for(path, password).as_deref(), Copy::default()).map(drop)
     } else {
-        tar_reader(path, k)?.unpack(&to)
+        items(path).and_then(|_| tar_reader(path, k)?.unpack(&to))
     };
     if r.is_err() {
         let _ = std::fs::remove_dir_all(&to);
@@ -842,16 +844,38 @@ fn rewrite(archive: &Path, keep: &dyn Fn(&str) -> Option<String>, add: &[(String
                     }
                     let old = e.name().trim_end_matches('/').to_string();
                     let slash = e.name().ends_with('/');
+                    // Locked the old way (ZipCrypto): the crate's raw copy drops that lock and
+                    // leaves the bytes scrambled, so the file is read with the password and
+                    // locked anew with AES-256 (as new files are). Without one: ask.
+                    let old_lock = e.encrypted() && !e.is_dir() && zip::read::HasZipMetadata::get_metadata(&e).aes_mode.is_none();
                     match keep(&old) {
-                        Some(new) if new == old => w.raw_copy_file(e),
-                        Some(new) => w.raw_copy_file_rename(e, if slash { format!("{new}/") } else { new }),
+                        Some(new) if old_lock => {
+                            drop(e);
+                            let given = password_for(archive, password).ok_or_else(locked)?;
+                            let mut from = z.by_index_decrypt(i, given.as_bytes()).map_err(|e| if matches!(e, zip::result::ZipError::InvalidPassword) { locked() } else { io::Error::other(e) })?;
+                            let opts = zip::write::SimpleFileOptions::default().compression_method(zip::CompressionMethod::Deflated).last_modified_time(from.last_modified().unwrap_or_default()).with_aes_encryption(zip::AesMode::Aes256, &given);
+                            #[cfg(unix)]
+                            let opts = match from.unix_mode() {
+                                Some(m) => opts.unix_permissions(m),
+                                None => opts,
+                            };
+                            w.start_file(new, opts).map_err(io::Error::other)?;
+                            // A wrong password the check byte let through fails the checksum here.
+                            io::copy(&mut from, &mut w).map_err(|_| locked())?;
+                            used = true;
+                            Ok(())
+                        }
+                        Some(new) if new == old => w.raw_copy_file(e).map_err(io::Error::other),
+                        Some(new) => w.raw_copy_file_rename(e, if slash { format!("{new}/") } else { new }).map_err(io::Error::other),
                         None => Ok(()),
-                    }
-                    .map_err(io::Error::other)?;
+                    }?;
                 }
                 if let (Some(i), true) = (first_locked, add.iter().any(|(_, n)| matches!(n, New::File(_)))) {
                     let given = password_for(archive, password).ok_or_else(locked)?;
-                    z.by_index_decrypt(i, given.as_bytes()).map_err(|e| if matches!(e, zip::result::ZipError::InvalidPassword) { locked() } else { io::Error::other(e) })?;
+                    let mut e = z.by_index_decrypt(i, given.as_bytes()).map_err(|e| if matches!(e, zip::result::ZipError::InvalidPassword) { locked() } else { io::Error::other(e) })?;
+                    // ZipCrypto's own check lets about one wrong password in 256 through: the
+                    // file is read to its end, where its checksum tells.
+                    io::copy(&mut e, &mut io::sink()).map_err(|_| locked())?;
                     pw = Some(given);
                 }
             }
@@ -976,8 +1000,9 @@ fn rewrite(archive: &Path, keep: &dyn Fn(&str) -> Option<String>, add: &[(String
 }
 
 /// Take `inner` (files, or folders and everything in them) out of the archive: it is written
-/// anew without them, the rest as it was (a locked zip file stays locked, and needs no
-/// password; a locked 7z needs its `password`, or the one remembered).
+/// anew without them, the rest as it was (a zip file locked with AES stays locked and needs
+/// no password; one locked the old way, or a locked 7z, needs its `password`, or the one
+/// remembered).
 pub fn remove(archive: &Path, inner: &[String], password: Option<&str>) -> io::Result<()> {
     let gone = |name: &str| inner.iter().any(|i| name == i || name.starts_with(&format!("{i}/")));
     rewrite(archive, &|name| (!gone(name)).then(|| name.to_string()), &[], password, false)
@@ -1157,6 +1182,7 @@ mod tests {
             file(t, "x", b"x");
         });
         assert!(list(&tp, 10).is_err());
+        assert!(extract(&tp, &d.join("out")).is_err() && !d.join("out/bomb").exists(), "extracted neither");
 
         // Names that lead outside are not in the listing; a link in a zip comes out as a file.
         let zp = d.join("odd.zip");
@@ -1431,6 +1457,47 @@ mod tests {
         assert!(!d.join("pw.tar.gz").exists());
         create_locked(&d.join("open.zip"), &[d.join("src/plan.txt")], Some(""), true).unwrap();
         assert!(!locked_at(&d.join("open.zip"), "").unwrap());
+        std::fs::remove_dir_all(d).unwrap();
+    }
+
+    /// A zip locked the old way (ZipCrypto, as 7-Zip's `-mem=ZipCrypto` makes it): its check
+    /// byte lets about one wrong password in 256 through, so adding to it with such a password
+    /// would lock the new file with the wrong one. The whole first file tells.
+    #[test]
+    fn archive_zipcrypto_add_refuses_a_wrong_password_the_check_byte_lets_through() {
+        let d = std::env::temp_dir().join(format!("coxswain-test-zipcrypto-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        // `a.txt` holding "secret one", password "hunter2".
+        let hex = "504b030414000100000032aa435d67dce7bc160000000a00000005000000612e747874a44b0bfe5b507702f57a5e41c4a571f7c3bbf68088e4504b01023f0314000100000032aa435d67dce7bc160000000a000000050024000000000000002080a48100000000612e7478740a00200000000000010018004e6675d86b53dd0100000000000000000000000000000000504b0506000000000100010057000000390000000000";
+        let bytes: Vec<u8> = (0..hex.len()).step_by(2).map(|i| u8::from_str_radix(&hex[i..i + 2], 16).unwrap()).collect();
+        let zp = d.join("old.zip");
+        std::fs::write(&zp, bytes).unwrap();
+        std::fs::write(d.join("b.txt"), "new").unwrap();
+        let mut z = zip::ZipArchive::new(File::open(&zp).unwrap()).unwrap();
+        let wrong = (0..100_000).map(|i| format!("w{i}")).find(|pw| z.by_index_decrypt(0, pw.as_bytes()).is_ok()).expect("a wrong password the check byte lets through");
+        drop(z);
+        std::fs::create_dir_all(d.join("out")).unwrap();
+        assert_eq!(crate::fs::copy_locked(&zp.join("a.txt"), &d.join("out"), Some(&wrong)).unwrap_err().to_string(), LOCKED, "a copy out notices by the checksum");
+        assert!(!d.join("out/a.txt").exists());
+        assert_eq!(add(&zp, &[("b.txt".into(), d.join("b.txt"))], Some(&wrong)).unwrap_err().to_string(), LOCKED);
+        assert_eq!(list(&zp, 10).unwrap().0.len(), 1, "unchanged");
+        // Any change to it needs the password: the crate's raw copy would leave the old lock's
+        // bytes scrambled, so the file is locked anew with AES-256 and still reads.
+        assert_eq!(crate::fs::mkdir(&zp.join("docs")).unwrap_err().to_string(), LOCKED);
+        add(&zp, &[("b.txt".into(), d.join("b.txt"))], Some("hunter2")).unwrap();
+        crate::fs::mkdir(&zp.join("docs")).unwrap();
+        forget(&zp);
+        let mut z = zip::ZipArchive::new(File::open(&zp).unwrap()).unwrap();
+        let a = z.by_index_raw(0).unwrap();
+        assert!(a.encrypted() && zip::read::HasZipMetadata::get_metadata(&a).aes_mode.is_some(), "locked anew with AES");
+        drop(a);
+        drop(z);
+        for (name, text) in [("a.txt", "secret one"), ("b.txt", "new")] {
+            assert_eq!(crate::fs::copy_locked(&zp.join(name), &d.join("out"), Some("wrong")).unwrap_err().to_string(), LOCKED);
+            assert_eq!(std::fs::read_to_string(crate::fs::copy_locked(&zp.join(name), &d.join("out"), Some("hunter2")).unwrap()).unwrap(), text);
+            forget(&zp);
+        }
         std::fs::remove_dir_all(d).unwrap();
     }
 
