@@ -154,10 +154,13 @@
     font-size: 0.7em;
     color: var(--hidden-fg);
   }
+  /* A name goes the way its first letter does, aligned as the column is. */
   .label {
     flex: 1;
     overflow: hidden;
     text-overflow: ellipsis;
+    unicode-bidi: plaintext;
+    text-align: match-parent;
   }
   .hidden {
     opacity: 0.6;

@@ -739,6 +739,7 @@
  "settings.meaning_engine": "Vektorer laves af",
  "settings.meaning_error": "Ingen vektorer: {why}",
  "settings.meaning_hint": "Finder filer om det, du skriver, ikke kun filer med dine ord, på alle sprog: “rocket fuel cost” finder et dansk budget. En lille sprogmodel (multilingual-e5-small) kører på denne maskine, langsomt og aldrig på batteri; intet forlader den. I Find fil, Tab til tekst: sådanne filer vises som “ligner”.",
+ "settings.meaning_hint_server": "Finder filer om det, du skriver, ikke kun filer med dine ord, på alle sprog: “rocket fuel cost” finder et dansk budget. Modellen på serveren nedenfor laver vektorerne. I Find fil, Tab til tekst: sådanne filer vises som “ligner”.",
  "settings.meaning_key_env": "API-nøgle fra variablen",
  "settings.meaning_model": "Embedding-model",
  "settings.meaning_off": "Slå fra",

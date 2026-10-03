@@ -784,6 +784,7 @@
  "settings.meaning_engine": "Vectores hechos por",
  "settings.meaning_error": "Sin vectores: {why}",
  "settings.meaning_hint": "Encuentra archivos sobre lo que escribís, no solo los que tienen tus palabras, en cualquier idioma: «rocket fuel cost» encuentra un presupuesto en danés. Un modelo de lenguaje chico (multilingual-e5-small) corre en esta máquina, despacio y nunca con batería; nada sale de acá. En Buscar archivo, Tab hasta texto: esos archivos aparecen como «parecido a».",
+ "settings.meaning_hint_server": "Encuentra archivos sobre lo que escribís, no solo los que tienen tus palabras, en cualquier idioma: «rocket fuel cost» encuentra un presupuesto en danés. El modelo del servidor de abajo hace los vectores. En Buscar archivo, Tab hasta texto: esos archivos aparecen como «parecido a».",
  "settings.meaning_key_env": "Clave de API de la variable",
  "settings.meaning_model": "Modelo de embeddings",
  "settings.meaning_off": "Desactivar",

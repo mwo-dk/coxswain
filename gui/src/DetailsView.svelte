@@ -233,9 +233,11 @@
     gap: 8px;
     min-width: 0;
   }
+  /* A name goes the way its first letter does: ".git" stays ".git" under a right-to-left language. */
   .label {
     overflow: hidden;
     text-overflow: ellipsis;
+    unicode-bidi: plaintext;
   }
   .icon {
     font-family: var(--icon-font);

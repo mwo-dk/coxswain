@@ -65,8 +65,10 @@ without typing it again.
 - In the desktop app the pane inside a zip with locked files, or a 7z with locked contents,
   shows the badge *archive, locked*.
 - While the password dialog is up, the pane says *Locked archive*.
-- If you press **Esc** when opening a locked 7z, the pane shows the error
-  `locked: a password is needed` and stays empty; open it again to be asked again.
+- If you press **Esc** when opening a locked 7z, the pane stays in the folder that holds it
+  (the terminal app's info line says `locked: a password is needed`); open it again to be
+  asked again. With the cursor on such a 7z, the desktop app's preview says *This file is
+  locked with a password.*, with the link *Enter the password* that lists it once given.
 - If you press **Esc** during a copy, nothing is copied from the locked part.
 
 ## How long the password is kept, and where
@@ -81,9 +83,6 @@ without typing it again.
 - **Per path.** A moved or renamed archive is a new path and asks again.
 - It is held as ordinary text in the app's memory, not wiped. A program that can read the app's
   memory as your user (a debugger) could read it; nothing else can.
-
-The dialog's text *kept only for this, never saved* is older than keeping it for the app run;
-*never saved* is still exactly true.
 
 ## Settings and config.toml
 

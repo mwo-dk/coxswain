@@ -784,6 +784,7 @@
  "settings.meaning_engine": "Vectors fets per",
  "settings.meaning_error": "Sense vectors: {why}",
  "settings.meaning_hint": "Troba fitxers sobre el que escriviu, no només els que tenen les vostres paraules, en qualsevol llengua: «rocket fuel cost» troba un pressupost en danès. Un model de llengua petit (multilingual-e5-small) s'executa en aquest ordinador, a poc a poc i mai amb bateria; no en surt res. A Cerca fitxers, Tab fins a text: aquests fitxers surten com a «semblant a».",
+ "settings.meaning_hint_server": "Troba fitxers sobre el que escriviu, no només els que tenen les vostres paraules, en qualsevol llengua: «rocket fuel cost» troba un pressupost en danès. El model del servidor de sota en fa els vectors. A Cerca fitxers, Tab fins a text: aquests fitxers surten com a «semblant a».",
  "settings.meaning_key_env": "Clau d'API de la variable",
  "settings.meaning_model": "Model d'incrustació",
  "settings.meaning_off": "Desactiva",

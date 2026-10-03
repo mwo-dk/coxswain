@@ -739,6 +739,7 @@
  "settings.meaning_engine": "Vectoren gemaakt door",
  "settings.meaning_error": "Geen vectoren: {why}",
  "settings.meaning_hint": "Vindt bestanden over wat je typt, niet alleen bestanden met je woorden, in elke taal: ‘rocket fuel cost’ vindt een Deense begroting. Een klein taalmodel (multilingual-e5-small) draait op deze computer, langzaam en nooit op de accu; er gaat niets naar buiten. In Bestand zoeken met Tab naar tekst: zulke bestanden staan er als ‘lijkt op’.",
+ "settings.meaning_hint_server": "Vindt bestanden over wat je typt, niet alleen bestanden met je woorden, in elke taal: ‘rocket fuel cost’ vindt een Deense begroting. Het model op de server hieronder maakt de vectoren. In Bestand zoeken met Tab naar tekst: zulke bestanden staan er als ‘lijkt op’.",
  "settings.meaning_key_env": "API-sleutel uit de variabele",
  "settings.meaning_model": "Embeddingmodel",
  "settings.meaning_off": "Uitzetten",

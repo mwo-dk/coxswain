@@ -739,6 +739,7 @@
  "settings.meaning_engine": "Vektorit tekee",
  "settings.meaning_error": "Ei vektoreita: {why}",
  "settings.meaning_hint": "Löytää tiedostot, jotka käsittelevät kirjoittamaasi, eivät vain samoja sanoja sisältäviä, millä kielellä tahansa: “rocket fuel cost” löytää tanskankielisen budjetin. Pieni kielimalli (multilingual-e5-small) toimii tällä koneella, hitaasti eikä koskaan akulla; mitään ei lähetetä. Etsi tiedosto -ikkunassa Tab tekstiin: tällaiset tiedostot näkyvät “muistuttaa”-merkinnällä.",
+ "settings.meaning_hint_server": "Löytää tiedostot, jotka käsittelevät kirjoittamaasi, eivät vain samoja sanoja sisältäviä, millä kielellä tahansa: “rocket fuel cost” löytää tanskankielisen budjetin. Alla olevan palvelimen malli tekee vektorit. Etsi tiedosto -ikkunassa Tab tekstiin: tällaiset tiedostot näkyvät “muistuttaa”-merkinnällä.",
  "settings.meaning_key_env": "API-avain muuttujasta",
  "settings.meaning_model": "Upotusmalli",
  "settings.meaning_off": "Poista käytöstä",

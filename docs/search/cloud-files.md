@@ -82,7 +82,10 @@ folder's listing (or `GetFileAttributesW`), never from opening the file, since o
 In the desktop app the guard is in two places: the page shows no preview of an online-only file,
 and the app's own readers (text, archives, databases, books, mail, certificates, bills of
 materials, previews made by tools, file facts, git diff) refuse one until you press **Download and
-preview** or go into it yourself (an archive you open, say).
+preview** or go into it yourself (an archive you open, say). That includes what the page loads
+straight from the disk, pictures, thumbnails, PDFs, fonts, video, Office files and a page's own
+stylesheet: they come through the app's own file protocol, which answers *forbidden* for an
+online-only file that was not asked for.
 
 | System | Clouds | Online-only when |
 |---|---|---|

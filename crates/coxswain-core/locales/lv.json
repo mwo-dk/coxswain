@@ -784,6 +784,7 @@
  "settings.meaning_engine": "Vektorus veido",
  "settings.meaning_error": "Nav vektoru: {why}",
  "settings.meaning_hint": "Atrod failus par to, ko ierakstāt, ne tikai failus ar tiem pašiem vārdiem, jebkurā valodā: “rocket fuel cost” atrod dāņu budžetu. Neliels valodas modelis (multilingual-e5-small) darbojas šajā datorā, lēni un nekad no akumulatora; nekas netiek sūtīts prom. Logā Meklēt failu, Tab līdz tekstam: šādi faili parādās kā “līdzīgs”.",
+ "settings.meaning_hint_server": "Atrod failus par to, ko ierakstāt, ne tikai failus ar tiem pašiem vārdiem, jebkurā valodā: “rocket fuel cost” atrod dāņu budžetu. Vektorus veido zemāk norādītā servera modelis. Logā Meklēt failu, Tab līdz tekstam: šādi faili parādās kā “līdzīgs”.",
  "settings.meaning_key_env": "API atslēga no mainīgā",
  "settings.meaning_model": "Iegulšanas modelis",
  "settings.meaning_off": "Izslēgt",
