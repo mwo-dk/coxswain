@@ -739,6 +739,7 @@
  "settings.meaning_engine": "Vektoren erstellt",
  "settings.meaning_error": "Keine Vektoren: {why}",
  "settings.meaning_hint": "Findet Dateien über das, was Sie eingeben, nicht nur Dateien mit Ihren Wörtern, in jeder Sprache: „rocket fuel cost“ findet ein dänisches Budget. Ein kleines Sprachmodell (multilingual-e5-small) läuft auf diesem Rechner, langsam und nie im Akkubetrieb; nichts verlässt ihn. In „Datei suchen“ mit Tab zum Text: solche Dateien erscheinen als „ähnlich“.",
+ "settings.meaning_hint_server": "Findet Dateien über das, was Sie eingeben, nicht nur Dateien mit Ihren Wörtern, in jeder Sprache: „rocket fuel cost“ findet ein dänisches Budget. Das Modell auf dem Server unten erzeugt die Vektoren. In „Datei suchen“ mit Tab zum Text: solche Dateien erscheinen als „ähnlich“.",
  "settings.meaning_key_env": "API-Schlüssel aus der Variablen",
  "settings.meaning_model": "Embedding-Modell",
  "settings.meaning_off": "Ausschalten",

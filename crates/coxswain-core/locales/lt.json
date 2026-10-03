@@ -784,6 +784,7 @@
  "settings.meaning_engine": "Vektorius kuria",
  "settings.meaning_error": "Nėra vektorių: {why}",
  "settings.meaning_hint": "Randa failus apie tai, ką įvedate, ne tik failus su tais pačiais žodžiais, bet kuria kalba: “rocket fuel cost” randa danišką biudžetą. Nedidelis kalbos modelis (multilingual-e5-small) veikia šiame kompiuteryje, lėtai ir niekada iš baterijos; niekas neišsiunčiama. Lange „Ieškoti failo“ Tab iki teksto: tokie failai rodomi kaip „panašu“.",
+ "settings.meaning_hint_server": "Randa failus apie tai, ką įvedate, ne tik failus su tais pačiais žodžiais, bet kuria kalba: “rocket fuel cost” randa danišką biudžetą. Vektorius sukuria toliau nurodyto serverio modelis. Lange „Ieškoti failo“ Tab iki teksto: tokie failai rodomi kaip „panašu“.",
  "settings.meaning_key_env": "API raktas iš kintamojo",
  "settings.meaning_model": "Įterpimo modelis",
  "settings.meaning_off": "Išjungti",

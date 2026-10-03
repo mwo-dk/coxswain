@@ -30,15 +30,15 @@
       (err) => peeked.from === path && (peeked = { from: path, to: "", error: String(err) }),
     );
   }
-  function unlock() {
-    const path = peeked.from;
+  /** Asks for the password of the archive at `path`, then does `then` again. */
+  function unlock(path = peeked.from, then = () => peek(path)) {
     ui.modal = {
       kind: "input",
       secret: true,
       title: t("archive.locked_title"),
       label: t("archive.locked_label"),
       value: "",
-      run: (password) => invoke("archive_password", { path, password }).then(() => peek(path)),
+      run: (password) => invoke("archive_password", { path, password }).then(then),
     };
   }
   const e = $derived(inside && peeked.from === raw.path && peeked.to ? { ...raw, path: peeked.to } : raw);
@@ -280,14 +280,15 @@
 
   // Archive: what is inside.
   let archive = $state(null);
+  async function listArchive(cur) {
+    const r = await invoke("archive_list", { path: cur.path }).catch((err) => ({ error: String(err) }));
+    if (e?.path === cur.path) archive = r;
+  }
   $effect(() => {
     const cur = e;
     archive = null;
     if (kind !== "archive") return;
-    const timer = setTimeout(async () => {
-      const r = await invoke("archive_list", { path: cur.path }).catch((err) => ({ error: String(err) }));
-      if (e?.path === cur.path) archive = r;
-    }, 80);
+    const timer = setTimeout(() => listArchive(cur), 80);
     return () => clearTimeout(timer);
   });
 
@@ -393,7 +394,7 @@
         <small>
           {#if e.is_dir}{pane.sizes[e.path] !== undefined ? size(pane.sizes[e.path]) : t("preview.folder")}{:else}{size(e.size)}{/if}
           · <span class="age" style:background={ageColor(e.modified, ui.cfg.looks[ui.theme])}>{age(e.modified)}</span>
-          {date(e.modified)}
+          <span class="when">{date(e.modified)}</span>
         </small>
       </div>
       {#if hasDiff}
@@ -423,7 +424,7 @@
         <button class="render" onclick={() => { const path = raw.path; invoke("cloud_fetch", { path }).then(() => fetched.push(path)); }}>{t("preview.online_download")}</button>
       {:else if kind === "in-archive"}
         {#if peeked.error.includes(LOCKED)}
-          <p class="more">{t("archive.preview_locked")} <button class="link" onclick={unlock}>{t("archive.preview_unlock")}</button></p>
+          <p class="more">{t("archive.preview_locked")} <button class="link" onclick={() => unlock()}>{t("archive.preview_unlock")}</button></p>
         {:else if peeked.error}
           <p class="more">{peeked.error}</p>
         {:else if pane.history}
@@ -564,7 +565,10 @@
       {:else if kind === "pdf"}
         <iframe class="pdf" src={convertFileSrc(e.path) + "#zoom=page-width"} title={e.name}></iframe>
       {:else if kind === "archive"}
-        {#if archive?.error}
+        {#if archive?.error?.includes(LOCKED)}
+          <!-- A 7z with its names locked too: nothing to list without the password. -->
+          <p class="more">{t("archive.preview_locked")} <button class="link" onclick={() => { const cur = e; unlock(cur.path, () => listArchive(cur)); }}>{t("archive.preview_unlock")}</button></p>
+        {:else if archive?.error}
           <p class="more">{archive.error}</p>
         {:else if archive}
           <p class="more">{tn(archive.more ? "preview.archive_more" : "preview.archive", archive.entries.length)}</p>
@@ -706,6 +710,10 @@
     border: 1px solid var(--border-fg);
     overflow: hidden;
     box-sizing: border-box;
+  }
+  /* A date and its time are not split over two lines. */
+  .when {
+    white-space: nowrap;
   }
   header {
     display: flex;
@@ -1053,6 +1061,14 @@
     margin: 0;
     white-space: pre;
     tab-size: 4;
+  }
+  /* Code, diffs and text keep their own direction under a right-to-left language: each line
+     goes the way its first letter does, so code stays left to right and Hebrew right to left. */
+  .mono,
+  .body :global(pre) {
+    direction: ltr;
+    unicode-bidi: plaintext;
+    text-align: start;
   }
   .hex {
     font-size: 0.8em;

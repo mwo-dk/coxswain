@@ -202,6 +202,20 @@ pub enum SortKey {
 }
 
 /// `..` first, then directories, then files; each group ordered by `key`.
+/// `sort` for the listing of `dir`. A history's list of commits is always by date, newest
+/// first, and in git's order where two have the same time: its names start with commit ids,
+/// which would put it in a random order.
+pub fn sort_in(dir: &Path, entries: &mut [Entry], key: SortKey, reverse: bool) {
+    if dir.file_name().is_some_and(|n| n == crate::history::MARKER) {
+        entries.sort_by(|a, b| {
+            let ord = b.modified.cmp(&a.modified);
+            (!a.is_parent()).cmp(&!b.is_parent()).then(if reverse { ord.reverse() } else { ord })
+        });
+    } else {
+        sort(entries, key, reverse);
+    }
+}
+
 pub fn sort(entries: &mut [Entry], key: SortKey, reverse: bool) {
     entries.sort_by(|a, b| {
         let group = |e: &Entry| (!e.is_parent(), !e.is_dir);
@@ -620,6 +634,26 @@ mod tests {
         assert_eq!(v[2].name, "a.rs");
         assert_eq!(list(&d, true).unwrap().len(), 6);
         fs::remove_dir_all(d).unwrap();
+    }
+
+    #[test]
+    fn a_list_of_commits_stays_newest_first() {
+        let e = |name: &str, modified: u64| Entry { name: name.into(), path: PathBuf::from(name), is_dir: true, is_symlink: false, is_exec: false, hidden: false, size: 0, modified, created: modified, online: false };
+        // As git lists them: newest first; two made in the same second.
+        let git = [e("..", 0), e("f00d123 Third", 30), e("a11c0de Second", 20), e("beef000 First, again", 10), e("0ddba11 First", 10)];
+        let order = |v: &[Entry]| v.iter().map(|e| e.name[..2].to_string()).collect::<Vec<_>>();
+        for key in [SortKey::Name, SortKey::Ext, SortKey::Size, SortKey::Time, SortKey::Commit] {
+            let mut v = git.to_vec();
+            sort_in(Path::new("/r/src/main.rs/@history"), &mut v, key, false);
+            assert_eq!(order(&v), ["..", "f0", "a1", "be", "0d"], "{key:?}");
+        }
+        let mut v = git.to_vec();
+        sort_in(Path::new("/r/src/main.rs/@history"), &mut v, SortKey::Name, true);
+        assert_eq!(order(&v), ["..", "be", "0d", "a1", "f0"]);
+        // Anywhere else, as asked.
+        let mut v = git.to_vec();
+        sort_in(Path::new("/r/src"), &mut v, SortKey::Name, false);
+        assert_eq!(order(&v), ["..", "0d", "a1", "be", "f0"]);
     }
 
     #[test]

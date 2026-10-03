@@ -10,6 +10,14 @@
   /** @type {{ index: number }} */
   let { index } = $props();
 
+  /** A tab's name: its folder's, but a history's list and a commit's top are named after the
+   *  file or folder the history is of, not "@history" or a commit id. */
+  const tabName = (tb) => {
+    const name = basename(tb.dir) || tb.dir;
+    const top = tb.history && (name === HISTORY || tb.dir.endsWith(`${HISTORY}/${name}`) || tb.dir.endsWith(`${HISTORY}\\${name}`));
+    return top ? basename(tb.history.target) : name;
+  };
+
   const p = $derived(ui.panes[index]);
   const t = $derived(p.tabs[p.active]);
   const active = $derived(ui.activePane === index && !ui.modal);
@@ -60,7 +68,7 @@
       <div class="tab" class:current={i === p.active} role="tab" tabindex="-1" aria-selected={i === p.active}
         onclick={() => focusPane(index, i)} onauxclick={(e) => e.button === 1 && closeTab(i)} onkeydown={() => {}} title={tb.dir}>
         <span class="ticon">{tb.git ? "\u{e702}" : "\u{f07b}"}</span>
-        <span class="tname">{basename(tb.dir) || tb.dir}</span>
+        <span class="tname">{tabName(tb)}</span>
         {#if p.tabs.length > 1}
           <button class="x" title={tr("pane.close_tab")} onclick={(e) => { e.stopPropagation(); closeTab(i); }}>×</button>
         {/if}
@@ -256,9 +264,13 @@
     border: 1px solid var(--border-fg);
     box-sizing: border-box;
   }
+  /* A path too long for the bar loses its start, not its end: the folder you are in and the
+     badge stay in sight. While it fits, the auto margin (the badge's, or the spacer's) keeps it
+     at the start. */
   .crumbs {
     display: flex;
     align-items: center;
+    justify-content: flex-end;
     overflow: hidden;
     padding: 0 4px;
     cursor: text;
@@ -271,6 +283,10 @@
   .archive-crumb {
     color: var(--accent-fg);
     background: color-mix(in srgb, var(--accent-bg) 60%, transparent);
+  }
+  .crumbs:not(:has(.archive-badge))::after {
+    content: "";
+    margin-inline-start: auto;
   }
   .archive-badge {
     margin-inline-start: auto;

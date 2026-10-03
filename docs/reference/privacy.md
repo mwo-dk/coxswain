@@ -134,7 +134,7 @@ paths.
 
 #### Is my archive password stored anywhere?
 
-No. The box says so: *Its password (kept only for this, never saved):*. It is kept in memory
+No. The box says so: *Its password (kept in memory while the app runs, never saved):*. It is kept in memory
 while the app runs, so you are not asked again inside the same archive, and forgotten when the
 app quits.
 

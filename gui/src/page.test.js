@@ -13,9 +13,12 @@ const { pageHead } = await import("data:text/javascript," + encodeURIComponent(b
 test("an HTML page may load from its own folder only", () => {
   const head = pageHead("http://asset.localhost/%2Fhome%2Fme%2Fsite%20v2%2Findex.html", "/home/me/site v2/index.html");
   const csp = head.match(/content="([^"]*)"/)[1];
-  assert.equal(head.match(/<base href="([^"]*)"/)[1], "http://asset.localhost/home/me/site%20v2/");
+  const base = head.match(/<base href="([^"]*)"/)[1];
+  assert.equal(base, "http://asset.localhost/%2Fhome/me/site%20v2/");
+  // A stylesheet beside it is asked for by its absolute path (the protocol drops the first `/`).
+  assert.equal(decodeURIComponent(new URL("style.css", base).pathname.slice(1)), "/home/me/site v2/style.css");
   for (const what of ["img-src", "style-src", "font-src", "media-src"]) {
-    assert.match(csp, new RegExp(`${what} http://asset.localhost/home/me/site%20v2/( |$)`), what);
+    assert.match(csp, new RegExp(`${what} http://asset.localhost/%2Fhome/me/site%20v2/( |$)`), what);
   }
   assert.doesNotMatch(csp, /asset\.localhost[ ;]/, "never the whole file protocol");
   assert.match(csp, /default-src 'none'/);

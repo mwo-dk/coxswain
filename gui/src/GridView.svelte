@@ -169,6 +169,7 @@
   .label {
     width: 100%;
     text-align: center;
+    unicode-bidi: plaintext;
     font-size: 0.9em;
     overflow: hidden;
     text-overflow: ellipsis;

@@ -12,7 +12,7 @@ tauri-build = { version = "2", features = [] }
 [dependencies]
 coxswain-core.workspace = true
 # No `devtools` feature: a release build has no inspector to open on a page a file rendered.
-tauri = { version = "2", features = ["protocol-asset"] }
+tauri = { version = "2", features = [] }
 sysinfo = { version = "0.39", default-features = false, features = ["disk"] }
 dirs = "7"
 serde_json = "1"

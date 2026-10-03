@@ -347,8 +347,11 @@ export function renderHtml(src, path) {
 export function pageHead(fileUrl, path) {
   const u = new URL(fileUrl);
   const origin = `${u.protocol}//${u.host}`;
-  // The folder, one segment at a time, so the page's relative links resolve beside it.
-  const dir = path.split(/[\\/]/).slice(0, -1).filter(Boolean).map(encodeURIComponent).join("/");
+  // The folder, one segment at a time, so the page's relative links resolve beside it. A leading
+  // `/` is kept, encoded: the protocol takes the path after the host's `/`, and without it a
+  // stylesheet's path would be relative.
+  const lead = path.startsWith("/") ? "%2F" : "";
+  const dir = lead + path.split(/[\\/]/).slice(0, -1).filter(Boolean).map(encodeURIComponent).join("/");
   const base = `${origin}/${dir}/`;
   const csp = `default-src 'none'; img-src ${base} data:; style-src ${base} 'unsafe-inline'; font-src ${base} data:; media-src ${base}`;
   // Before the page's own head: the parser puts them in the head it makes, and the page cannot undo them.

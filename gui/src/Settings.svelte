@@ -253,7 +253,7 @@
             <button onclick={() => setSearch(name, s[name].filter((d) => d !== dir))}>{t("common.remove")}</button>
           </div>
         {:else}
-          <span class="hint">{none}{#if name === "text_roots" && index?.roots?.[0]} · {rootInfo(index.roots[0][0])}{/if}</span>
+          <span class="hint">{none}{#if name === "text_roots" && index?.roots?.[0]}{" · "}{rootInfo(index.roots[0][0])}{/if}</span>
         {/each}
         <form class="folder" onsubmit={(e) => (e.preventDefault(), addFolder(name, adding[name]))}>
           <input bind:value={adding[name]} spellcheck="false" placeholder={tab()?.dir} aria-label={t("settings.search_add")} />
@@ -311,16 +311,15 @@
             <span class="top">{t("settings.search_tools")}</span>
             <ul class="tools">
               {#each index.tools as [name, there] (name)}
-                <li class:missing={!there}>{there ? "✓" : "✗"} {t(`settings.search_tool_${name}`)}{#if !there}<small class="hint"> · {t("settings.search_tool_missing")}</small>{/if}</li>
+                <li class:missing={!there}>{there ? "✓" : "✗"} {t(`settings.search_tool_${name}`)}{#if !there}<small class="hint">{" · "}{t("settings.search_tool_missing")}</small>{/if}</li>
               {/each}
             </ul>
           {/if}
-        </div>
-        <label class="check"><input type="checkbox" checked={s.search_history} onchange={(e) => setSearch("search_history", e.currentTarget.checked)} /> {t("settings.search_history")}</label>
+        <!-- One grid with the cloud's folders below, so their column lines up with these. -->
+        <label class="check span"><input type="checkbox" checked={s.search_history} onchange={(e) => setSearch("search_history", e.currentTarget.checked)} /> {t("settings.search_history")}</label>
         <!-- Files only in the cloud: found by name, never downloaded, unless asked. -->
-        <label class="check" id="settings-cloud"><input type="checkbox" checked={s.search_cloud === "all"} onchange={(e) => setSearch("search_cloud", e.currentTarget.checked ? "all" : "local-only")} /> {"\u{f0c2}"} {t("settings.search_cloud")}</label>
+        <label class="check span" id="settings-cloud"><input type="checkbox" checked={s.search_cloud === "all"} onchange={(e) => setSearch("search_cloud", e.currentTarget.checked ? "all" : "local-only")} /> {"\u{f0c2}"} {t("settings.search_cloud")}</label>
         {#if s.search_cloud !== "all"}
-          <div class="grid">
             <span class="top">{t("settings.search_cloud_read")}</span>
             <div class="folders">
               {#each (index?.clouds ?? []).filter(([, dir]) => !s.cloud_read.includes(dir)) as [name, dir] (dir)}
@@ -331,8 +330,8 @@
               {/each}
               {@render folders("cloud_read", t("settings.search_names_only_none"))}
             </div>
-          </div>
         {/if}
+        </div>
         <p class="hint">{t("settings.search_cloud_hint")}</p>
         <p class="hint">{t("settings.search_hint")}</p>
       {/if}
@@ -340,7 +339,7 @@
 
     <section id="settings-meaning">
       <h3>{t("settings.meaning")}</h3>
-      <p class="hint">{t("settings.meaning_hint")}</p>
+      <p class="hint">{t(server ? "settings.meaning_hint_server" : "settings.meaning_hint")}</p>
       <div class="grid">
         <label for="mengine">{t("settings.meaning_engine")}</label>
         <select id="mengine" value={s.meaning_engine} onchange={(e) => setSearch("meaning_engine", e.currentTarget.value)}>
@@ -618,6 +617,9 @@
     height: 4px;
     width: 50%;
     border-radius: var(--r-sm);
+  }
+  .grid .span {
+    grid-column: 1 / -1;
   }
   .grid {
     display: grid;

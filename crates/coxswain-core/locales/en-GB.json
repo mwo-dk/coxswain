@@ -739,6 +739,7 @@
  "settings.meaning_engine": "Vectors made by",
  "settings.meaning_error": "No vectors: {why}",
  "settings.meaning_hint": "Finds files about what you type, not only files with its words, in any language: “rocket fuel cost” finds a Danish budget. A small language model (multilingual-e5-small) runs on this machine, slowly and never on battery; nothing leaves it. In Find file, Tab to text: such files show as “similar to”.",
+ "settings.meaning_hint_server": "Finds files about what you type, not only files with its words, in any language: “rocket fuel cost” finds a Danish budget. The model on the server below makes the vectors. In Find file, Tab to text: such files show as “similar to”.",
  "settings.meaning_key_env": "API key from the variable",
  "settings.meaning_model": "Embedding model",
  "settings.meaning_off": "Turn off",
