@@ -337,9 +337,10 @@
         <div class="help" bind:this={input} tabindex="-1">
           <table>
             <tbody>
-              {#each Object.entries(ui.cfg.actions) as [name, [label]] (name)}
-                {@const keys = Object.entries(ui.cfg.keymap).filter(([, a]) => a === name).map(([k]) => k)}
-                <tr><td>{label}</td><td>{#each keys as k (k)}<kbd>{k}</kbd>{/each}</td></tr>
+              <!-- By name, and a letter key written as on the keyboard: Ctrl+G, not Ctrl+g. -->
+              {#each Object.entries(ui.cfg.actions).sort(([, [a]], [, [b]]) => a.localeCompare(b)) as [name, [label]] (name)}
+                {@const keys = Object.entries(ui.cfg.keymap).filter(([, a]) => a === name).map(([k]) => k.replace(/\+([a-z])$/, (_, c) => "+" + c.toUpperCase()))}
+                <tr><td>{label}</td><td>{#each keys as k, i (i)}<kbd>{k}</kbd>{/each}</td></tr>
               {/each}
             </tbody>
           </table>
@@ -780,8 +781,13 @@
     gap: 6px;
     color: var(--dialog-fg);
   }
+  /* One grid for all rows, so a conflict's reason does not push its row out of line. */
   .plan {
     flex: 1;
+    display: grid;
+    grid-template-columns: 1fr auto 1fr auto;
+    align-content: start;
+    column-gap: 10px;
     font-family: var(--mono-font);
     font-size: 0.9em;
     border: 1px solid var(--border-fg);
@@ -790,8 +796,8 @@
   }
   .plan li {
     display: grid;
-    grid-template-columns: 1fr auto 1fr auto;
-    gap: 10px;
+    grid-column: 1 / -1;
+    grid-template-columns: subgrid;
     padding: 2px 0;
     color: var(--hidden-fg);
     white-space: nowrap;

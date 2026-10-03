@@ -30,7 +30,7 @@ table, so a key you change works the same in the terminal app and the desktop ap
    quit = ["F10", "Ctrl+Q"]    # listing an action replaces its default keys
    search = ["Ctrl+P"]         # Find file on Ctrl+P only; Alt+F7 and Ctrl+F are free now
    tag = []                    # [] unbinds it
-   dir_sizes = ["Ctrl+G"]      # an action without a default key gets one
+   dir_sizes = ["Ctrl+K"]      # an action without a default key gets one
    ```
 
 3. Start the app again: the terminal app, and the desktop app, read `[keys]` when they start.
@@ -189,7 +189,7 @@ Ctrl.
 
 #### How do I give Folder sizes or the Columns menu a key?
 
-They have none by default (`dir_sizes`, `columns`): add one, `dir_sizes = ["Ctrl+G"]`. On a Mac,
+They have none by default (`dir_sizes`, `columns`): add one, `dir_sizes = ["Ctrl+K"]`. On a Mac,
 Ctrl+Space belongs to the system, which is why `dir_sizes` has no default.
 
 #### Can I change the keys inside dialogs, such as Tab in Find file?

@@ -1057,6 +1057,8 @@ impl App {
         if !failed.is_empty() && failed.iter().all(|(_, e)| e.to_string().contains(coxswain_core::archive::LOCKED)) {
             let label = t!(if password.is_none() { "archive.locked_label" } else { "archive.locked_again" });
             let again = failed.into_iter().map(|(p, _)| p).collect();
+            // Nothing is being worked on while the password is asked for (and after Esc).
+            self.status = None;
             return self.input(&t!("archive.locked_title"), label, String::new(), Prompt::Password(op, again, dst));
         }
         let errors = failed.iter().map(|(p, e)| format!("{}: {e}", p.display())).collect();
