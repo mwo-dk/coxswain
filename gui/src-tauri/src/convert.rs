@@ -158,6 +158,7 @@ fn output(tool: &str, path: &Path, out: &Path) -> (&'static str, PathBuf) {
 /// returns the earlier result if there is one and does nothing otherwise.
 #[tauri::command]
 pub async fn convert(path: PathBuf, tool: String, engine: String, cached_only: bool, ctx: tauri::State<'_, crate::Ctx>) -> Res<Option<Converted>> {
+    crate::here(&path)?;
     let cfg = ctx.cfg().preview.clone();
     tauri::async_runtime::spawn_blocking(move || {
         let out = cache_dir(&path, &tool, &engine)?;

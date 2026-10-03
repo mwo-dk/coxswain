@@ -62,15 +62,57 @@ pub fn online_meta(meta: &Metadata, path: &Path) -> bool {
     }
 }
 
-/// The metadata of `path` without opening it: of the link itself unless it is one.
+/// The metadata of `path`: of the link itself unless it is one.
+#[cfg(not(windows))]
 fn meta(path: &Path) -> Option<Metadata> {
     let m = std::fs::symlink_metadata(path).ok()?;
     if m.file_type().is_symlink() { std::fs::metadata(path).ok() } else { Some(m) }
 }
 
-/// Whether `path` is only in the cloud.
+/// Whether `path` is only in the cloud. On Windows the attributes come from the folder's
+/// listing (`GetFileAttributesW`), never from opening the file: opening one marked
+/// `RECALL_ON_OPEN` downloads it.
 pub fn online(path: &Path) -> bool {
-    meta(path).is_some_and(|m| online_meta(&m, path))
+    #[cfg(windows)]
+    {
+        #[cfg(test)]
+        if PRETEND.lock().unwrap().iter().any(|p| p == path) {
+            return true;
+        }
+        attributes(path).is_some_and(online_attributes)
+    }
+    #[cfg(not(windows))]
+    {
+        meta(path).is_some_and(|m| online_meta(&m, path))
+    }
+}
+
+/// The attributes of `path`, as the folder's listing has them, without opening it.
+#[cfg(windows)]
+fn attributes(path: &Path) -> Option<u32> {
+    use std::os::windows::ffi::OsStrExt;
+    let wide: Vec<u16> = path.as_os_str().encode_wide().chain([0]).collect();
+    // SAFETY: a NUL-terminated string that outlives the call.
+    let a = unsafe { windows_sys::Win32::Storage::FileSystem::GetFileAttributesW(wide.as_ptr()) };
+    (a != windows_sys::Win32::Storage::FileSystem::INVALID_FILE_ATTRIBUTES).then_some(a)
+}
+
+/// Files the user asked to download and show in this run: the desktop app's previews read them.
+static ASKED: Mutex<Vec<PathBuf>> = Mutex::new(Vec::new());
+
+/// The user asked for this file: it may be read (and downloaded) from now on.
+pub fn ask_for(path: &Path) {
+    let mut all = ASKED.lock().unwrap();
+    if !all.iter().any(|p| p == path) {
+        all.push(path.to_path_buf());
+    }
+}
+
+/// Whether reading `path` for a preview would download a file the user has not asked for. A
+/// path inside an archive or a history counts as the file that holds it.
+pub fn unasked(path: &Path) -> bool {
+    let Some(file) = path.ancestors().find(|p| std::fs::symlink_metadata(p).is_ok()) else { return false };
+    online(file) && !ASKED.lock().unwrap().iter().any(|p| p == file)
 }
 
 /// `cloud = "all"`: files only in the cloud are read (downloaded) like the rest.
@@ -92,7 +134,7 @@ fn wanted(path: &Path) -> bool {
 /// Whether reading `path` unasked (to index it, hash it, look into it) would download it, and
 /// the settings do not want that. What is on the disk, pinned or downloaded earlier, is read.
 pub fn keep_out(path: &Path) -> bool {
-    meta(path).is_some_and(|m| keep_out_meta(&m, path))
+    online(path) && !wanted(path)
 }
 
 /// `keep_out` with the metadata in hand.
@@ -148,11 +190,16 @@ fn provider(name: &str) -> Option<&'static str> {
 // ---------------------------------------------------------------- Linux: cloud mounts
 
 /// FUSE file systems that keep their files here: everything else on FUSE is taken for a cloud
-/// or a server (rclone, google-drive-ocamlfuse, onedriver, gvfs, sshfs).
+/// or a server (rclone, google-drive-ocamlfuse, onedriver, gvfs, sshfs, davfs2's WebDAV).
 const LOCAL_FUSE: [&str; 13] = ["portal", "doc", "lxcfs", "squashfuse", "snapfuse", "fuse-overlayfs", "mergerfs", "bindfs", "gocryptfs", "encfs", "cryfs", "ntfs-3g", "vmhgfs-fuse"];
 
 /// Whether a file system of this type (`fuse.rclone`) holds files that are elsewhere.
 pub fn cloud_fs(fstype: &str) -> bool {
+    // FUSE with no subtype (davfs2, some sshfs) and the kernel's own WebDAV are remote too;
+    // `fuseblk` is a disk (ntfs-3g, exfat).
+    if matches!(fstype, "fuse" | "davfs") {
+        return true;
+    }
     let Some(kind) = fstype.strip_prefix("fuse.") else { return false };
     // An AppImage is mounted under its own name.
     !LOCAL_FUSE.contains(&kind) && !kind.to_lowercase().contains("appimage")
@@ -258,6 +305,7 @@ mod tests {
             [("/home/me/Google Drive", "fuse.rclone"), ("/home/me/OneDrive", "fuse.onedriver"), ("/run/user/1000/gvfs", "fuse.gvfsd-fuse")].map(|(p, t)| (PathBuf::from(p), t.to_string()))
         );
         assert!(cloud_fs("fuse.google-drive-ocamlfuse") && cloud_fs("fuse.sshfs"));
+        assert!(cloud_fs("fuse") && cloud_fs("davfs"), "davfs2 and other FUSE without a subtype are remote");
         assert!(!cloud_fs("fuse.portal") && !cloud_fs("fuseblk") && !cloud_fs("ext4") && !cloud_fs("fuse.mergerfs"));
     }
 
@@ -281,6 +329,9 @@ mod tests {
         pretend(&f, true);
         assert!(online(&f) && keep_out(&f));
         assert!(!keep_out(&d.join("missing")), "a file that is not there is nobody's business here");
+        assert!(unasked(&f) && unasked(&f.join("inside.txt")), "a path inside it counts as the file");
+        ask_for(&f);
+        assert!(!unasked(&f) && keep_out(&f), "asked for in the app; indexing still leaves it");
         pretend(&f, false);
         assert!(!keep_out(&f));
         std::fs::remove_dir_all(d).unwrap();

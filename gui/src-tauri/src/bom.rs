@@ -152,6 +152,7 @@ fn short_place(o: &bom::Occurrence) -> String {
 /// A BOM as a rated tree. `mode` is the grouping: dependencies, files or flat (default: the best).
 #[tauri::command]
 pub async fn bom_info(path: PathBuf, mode: Option<String>) -> Res<BomView> {
+    crate::here(&path)?;
     tauri::async_runtime::spawn_blocking(move || {
         let l = loaded(&path, mode.as_deref())?;
         let (bom, tree) = (&l.bom, &l.tree);
@@ -268,6 +269,8 @@ pub struct BomDiff {
 /// Compares `old` (the file in the other pane) with `path` (the BOM in view), in `mode`.
 #[tauri::command]
 pub async fn bom_diff(old: PathBuf, path: PathBuf, mode: Option<String>) -> Res<BomDiff> {
+    crate::here(&path)?;
+    crate::here(&old)?;
     tauri::async_runtime::spawn_blocking(move || {
         let before = loaded(&old, mode.as_deref())?;
         let after = loaded(&path, mode.as_deref())?;
@@ -288,6 +291,7 @@ const RAW_LIMIT: usize = 64 * 1024;
 /// The details of tree node `index`: why it has its status, where it is found, and its JSON.
 #[tauri::command]
 pub async fn bom_node(path: PathBuf, mode: Option<String>, index: u32) -> Res<NodeDetails> {
+    crate::here(&path)?;
     tauri::async_runtime::spawn_blocking(move || {
         let l = loaded(&path, mode.as_deref())?;
         let (bom, tree) = (&l.bom, &l.tree);
