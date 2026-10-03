@@ -70,6 +70,7 @@ def files(d):
     wb.save(d / "g.xlsx")
     png(d / "h.png")
     (d / "i.mmd").write_text("flowchart LR\n  A[Fuel] --> B[Lift-off]\n")
+    (d / "j.html").write_text('<!doctype html><title>Rocket</title><h1>Rocket page</h1><img src="h.png">')
     return {
         "md": ("a.md", "article h1", "Rocket", 10),
         "parquet": ("b.parquet", "table td", "Aalborg", 10),
@@ -81,6 +82,7 @@ def files(d):
         "xlsx": ("g.xlsx", "table td", "Tern", 10),
         "png": ("h.png", "img", "", 10),
         "mmd": ("i.mmd", "svg", "Lift-off", 20),
+        "html": ("j.html", "iframe.page", "", 10),
     }
 
 

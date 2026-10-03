@@ -56,7 +56,7 @@ program is needed.
 
 | Format | Endings | Browse, copy out, extract | Copy in, rename, new folder, take out, pack | Passwords |
 |---|---|---|---|---|
-| Zip | `.zip`, and zips by another name: `.jar` `.apk` `.whl` `.nupkg` `.vsix` | yes | yes (new files Deflate-compressed) | ZipCrypto and AES to read, AES-256 when packing |
+| Zip | `.zip`, and zips by another name: `.jar` `.apk` `.whl` `.nupkg` `.vsix` | yes | yes (new files Deflate-compressed) | ZipCrypto and AES to read, AES-256 when packing; a changed ZipCrypto zip is locked anew with AES-256 |
 | Tar | `.tar` | yes | yes | none in the format |
 | Tar with gzip | `.tar.gz`, `.tgz` | yes | yes | none |
 | Tar with bzip2 | `.tar.bz2`, `.tbz2`, `.tbz` | yes | yes | none |

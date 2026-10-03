@@ -337,14 +337,22 @@ async function mendPptx(JSZip, buffer) {
  *  so a downloaded page cannot run code or report that it was opened. Its own pictures,
  *  styles and fonts, next to it, come through the app's file protocol. */
 export function renderHtml(src, path) {
-  const u = new URL(convertFileSrc(path));
+  return pageHead(convertFileSrc(path), path) + src;
+}
+
+/** What goes before an HTML file's own text in the frame: its content security policy and
+ *  its base. `fileUrl` is the file through the app's file protocol, `path` the file on disk.
+ *  The policy names the page's folder (and what is below it), not the whole file protocol,
+ *  so `../private/photo.jpg` or `/home/me/keys.png` is not shown. */
+export function pageHead(fileUrl, path) {
+  const u = new URL(fileUrl);
   const origin = `${u.protocol}//${u.host}`;
   // The folder, one segment at a time, so the page's relative links resolve beside it.
   const dir = path.split(/[\\/]/).slice(0, -1).filter(Boolean).map(encodeURIComponent).join("/");
   const base = `${origin}/${dir}/`;
-  const csp = `default-src 'none'; img-src ${origin} data:; style-src ${origin} 'unsafe-inline'; font-src ${origin} data:; media-src ${origin}`;
+  const csp = `default-src 'none'; img-src ${base} data:; style-src ${base} 'unsafe-inline'; font-src ${base} data:; media-src ${base}`;
   // Before the page's own head: the parser puts them in the head it makes, and the page cannot undo them.
-  return `<meta http-equiv="Content-Security-Policy" content="${csp}"><base href="${base}">${src}`;
+  return `<meta http-equiv="Content-Security-Policy" content="${csp}"><base href="${base}">`;
 }
 
 let drawioReady;
