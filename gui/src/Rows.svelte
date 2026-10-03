@@ -23,12 +23,16 @@
     return () => ro.disconnect();
   });
 
+  let shown;
   $effect(() => {
     if (!el || !height || cursor < 0) return;
-    items; // a new list (another folder or tab) brings its cursor into view too
-    // Another tab's list comes with where it was scrolled.
-    const was = untrack(() => top);
-    if (el.scrollTop !== was) el.scrollTop = was;
+    // A new list (another folder or tab) comes with where it was scrolled, and brings its
+    // cursor into view too.
+    if (items !== shown) {
+      shown = items;
+      const was = untrack(() => top);
+      if (el.scrollTop !== was) el.scrollTop = was;
+    }
     const y = cursor * rowH;
     if (y < el.scrollTop) el.scrollTop = y;
     else if (y + rowH > el.scrollTop + height) el.scrollTop = y + rowH - height;

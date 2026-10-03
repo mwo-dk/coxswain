@@ -98,7 +98,8 @@ The marking is there so that a copy out of an archive is never taken for a copy 
 folders.
 
 Folders inside an archive have no size in the size column, and dates are the ones stored in the
-archive. Hidden entries (names starting with a dot) follow **Alt+.** as elsewhere.
+archive (a zip's, which has no time zone, in yours: the time its maker saw, and the time other
+tools show for a zip Coxswain made). Hidden entries (names starting with a dot) follow **Alt+.** as elsewhere.
 
 ## What changes, and how safely
 

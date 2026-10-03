@@ -103,7 +103,7 @@ Every file and folder git tracks gets the date and author of the last commit tha
 | | Desktop app | Terminal app |
 |---|---|---|
 | Where | The *Last commit* column of the details view (`2026-09-30 Ada`; hover it for the commit id, its subject and the time), and *Last commit* in the preview pane with the subject | The line under the panel, for the entry under the cursor: `main.rs  a1b2c3d 2026-09-30 14:02 Ada 412` |
-| Sorting | Click the *Last commit* header: newest first, again for oldest first | – |
+| Sorting | Click the *Last commit* header: newest first, again for oldest first. The folder shows at once, by name, and sorts itself when git's walk is done; from then on it comes sorted | – |
 | Turning the column off | Untick *Last commit* in the columns menu (right-click a header) | – |
 
 **What you see in it:**
@@ -125,7 +125,7 @@ takes longer than four seconds stops, and what it did not reach says *older*. In
 
 | | Terminal app | Desktop app |
 |---|---|---|
-| Read | When the panel changes folder, after an operation or a command, and on **Ctrl+R** | Every time the folder is loaded: opening it, a change the watcher sees in it, **Ctrl+R**, and after operations |
+| Read | When the panel changes folder, after an operation or a command, and on **Ctrl+R** | Every time the folder is loaded: opening it, a change the watcher sees in it, **Ctrl+R**, and after operations. The repository's `.git` is watched too: a commit, a checkout or a `git add` from the command line brings the status, the branch and the *Last commit* column up to date within a moment |
 | Runs | In the background; the line appears when git answers | The same |
 
 ## The diff of a file (desktop app)

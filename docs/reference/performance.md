@@ -26,6 +26,18 @@ numbers measured on synthetic data, so you know what to expect and can measure a
   helper, and loads from its cache in well under a second. See [Names everywhere](../search/names.md).
 - **git status** runs on its own thread, so a big repository never holds up the listing; the
   statuses of a folder's entries come from git's answer alone, without reading the folder again.
+- **Search follows a changed archive member by member:** a member that kept its size and date
+  in the archive keeps its text and vectors; only the changed ones are read again. An archive
+  written in the last three seconds (a download) waits until it has settled.
+- **Search by meaning reads only what it shows:** the few hundred closest passages are ranked
+  by their vectors alone, and the text of a file is read only when one of its passages is
+  among the hits.
+- **Git's walk never holds a listing:** a folder sorted by commit lists by name at once when
+  the walk is not done yet, and is sorted again when it is; the map of last commits is sent to
+  the page only when HEAD moved; the repository's `.git` is watched, so a commit brings the
+  status and the column up to date without a reread by hand (desktop app).
+- **Ask** has Ollama load the chat model while the sources are looked up, and **Esc** stops
+  the wait for the first word at any moment.
 - **Anything that takes a while** says so: while files are copied, moved, deleted, extracted
   or packed, the status line reads *Working on …*; a folder that takes longer than 150 ms to
   read says *Working on <folder>…* until it arrives.
@@ -43,7 +55,9 @@ numbers measured on synthetic data, so you know what to expect and can measure a
   100,000 entries are 14 MB of JSON instead of 26.
 - **The window's thread does no disk work.** Every command that reads or writes a file, the
   clipboard or the config runs on the async runtime; the heavy ones (git, searches, folder
-  sizes, duplicates, previews made by tools) go to blocking threads of their own.
+  sizes, duplicates, previews made by tools, the text of a preview, a folder's properties) go
+  to blocking threads of their own, so a slow share holds none of the runtime's few workers.
+- **Each tab keeps its scroll position**; switching tabs brings the list back where it was.
 - **Previews wait for the cursor to settle.** Text, data and images load 80 ms after the
   cursor stops; previews made by tools (LibreOffice, LaTeX) wait longer and only start by
   themselves when the tool is quick. A preview that comes back for a file you have moved on
@@ -75,8 +89,9 @@ numbers measured on synthetic data, so you know what to expect and can measure a
 
 Measured on 2026-10-01 on a 22-core Linux machine, tmpfs, release builds, headless Chromium
 for the page. "Before" is version 1.23.1, and 1.26.0 for the rows about JSON size,
-thumbnails, highlighting, the terminal app's copies and histories, and archives. A folder of 100,000 files and 1,000 subfolders;
-an index of a million names in a thousand folders.
+thumbnails, highlighting, the terminal app's copies and histories, and archives, and 1.27.3
+for the rows about the search store and git (measured on 2026-10-03). A folder of 100,000
+files and 1,000 subfolders; an index of a million names in a thousand folders.
 
 ### Listing and sorting (coxswain-core)
 
@@ -147,6 +162,24 @@ A zip, a tar.gz and a solid 7z (as 7-Zip makes them) of 10,000 files.
 | A history's commits and its *Last commit* column | `git log` twice (three times sorted by commit) | once, kept until HEAD moves |
 | A last-commit walk git was stopped in (4 s) | kept as if whole until HEAD moved | looked at again |
 
+### The search store and git (both apps)
+
+A zip of 10,000 small text files under the home folder; 400 files of 100 KB with their
+vectors from an embedding server that answers at once (so the store's own work is measured).
+
+| What | Before | After |
+|---|---|---|
+| The store follows one member added to the zip (`refresh`) | 1,490 ms (every member read again) | 105 ms (one member read) |
+| A member that did not change | a new row, read and embedded again | keeps its row, text and vectors |
+| An archive still being downloaded | unpacked again at every change | waits until three seconds after its last write |
+| Search by meaning, `similar` / `passages` over 400 files × 100 KB | 21 ms (the text of every candidate read) | 2–3 ms (the text of the ten files shown) |
+| A folder sorted by commit | listed after git's walk (seconds in a big repository) | listed at once by name, sorted when the walk answers; from the cache after |
+| The map of last commits on a reread of the folder | sent to the page every time | sent when HEAD moved |
+| The status and the *Last commit* column after a commit from the command line | stale until a reread by hand | current within a moment (`.git` is watched) |
+| A file's history past a rename | stopped at the rename | goes on (`git log --follow`) |
+| Ask: Esc while the model loads | waited for the first word, up to five minutes | stops within 100 ms; Ollama loads the model while the sources are looked up |
+| Name index after many archive edits | the entries left behind stayed until the hourly rebuild | rebuilt when a quarter of the nodes are gone |
+
 ## Measuring again
 
 The benchmarks are tests that are ignored unless asked for. They make their data under
@@ -154,7 +187,7 @@ The benchmarks are tests that are ignored unless asked for. They make their data
 
 ```sh
 export COXSWAIN_BENCH_DIR=/tmp/coxswain-bench
-cargo test --release -p coxswain-core --test perf -- --ignored --nocapture   # list, sort, index
+cargo test --release -p coxswain-core --test perf -- --ignored --nocapture   # list, sort, index, store, meaning
 cargo test --release -p coxswain --bin coxswain -- --ignored --nocapture perf_ # terminal frames
 cargo test --release -p coxswain-gui -- --ignored --nocapture perf_            # list_dir JSON
 ```

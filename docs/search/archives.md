@@ -79,8 +79,11 @@ To have the archives on another disk looked into, add that folder to *Folders re
 ## When an archive changes
 
 The name index and the text store both note each archive's size and date. When either
-changes, the archive is read again: entries that are gone leave the index and the store, new
-and changed ones come in. It makes no difference who changed it:
+changes, the archive is listed again: entries that are gone leave the index and the store, new
+ones come in, and the store reads the text of the members that changed (their size or their
+date in the archive), while the rest keep their text and their vectors. An archive written in
+the last three seconds (a download under way) waits until it has settled, so it is not unpacked
+at every step of the download. It makes no difference who changed it:
 
 - **Coxswain's own changes** (copying into an archive with **F5**, moving in or renaming inside
   with **F6**, taking out with **F8**, a new folder with **F7**): the archive is
@@ -155,8 +158,8 @@ zip elsewhere is found by its own name only; see [Which archives](#which-archive
 
 #### I added a file to a zip. When can I find it?
 Within a second or two by name, and a few seconds later by its text, whether Coxswain or another
-program changed the zip. Without the file watcher, at the next hourly rebuild (names) or within
-ten minutes (text).
+program changed the zip; only the new file is read, the other members keep their text. Without
+the file watcher, at the next hourly rebuild (names) or within ten minutes (text).
 
 #### Why is a file in my .tar.xz not found?
 One of these: the archive is larger than 256 MB (a compressed tar is listed by unpacking it,

@@ -110,6 +110,7 @@ Newest first. Downloads for each release are on the [releases page](https://gith
 
 | Version | Date | What's new |
 |---|---|---|
+| **1.27.4** | 2026-10-03 | Quicker where it was slow: a changed archive has only its changed members read again (105 ms instead of 1.5 s for a zip of 10,000), an archive still downloading waits until it has settled, search by meaning reads only the files it shows, a folder sorted by commit shows at once, the git status and the *Last commit* column follow a commit on their own (desktop app), a file's history goes on past its renames, Ask can be stopped while the model loads and loads it ahead, each tab keeps its scroll position, folders copied out of a history get the commit's date, and zip times are read and written in your time zone. [Performance](docs/reference/performance.md) |
 | **1.27.3** | 2026-10-03 | Dependencies brought up to date: getrandom 0.4 for the search helper's token, Mermaid 12.1 for diagrams, Vite 8.3.2, and the latest patch releases of tokio, uuid, libc and others. No advisories open. [Install](install/INSTALL.md) |
 | **1.27.2** | 2026-10-02 | The sidebar's drives and their free space stay current: read again every 30 seconds while the window is in view and when it comes back to the front, so a USB stick appears without reopening the window. [The sidebar](docs/organise/sidebar.md) |
 | **1.27.1** | 2026-10-01 | A SQLite database in the desktop preview shows each table's first rows under its schema, open at once for small databases. [Data files](docs/previews/data.md) |
