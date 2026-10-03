@@ -1293,6 +1293,8 @@ mod tests {
         scan(&store, &cfg, &go).unwrap();
         assert_eq!(found("orbit"), 1);
         crate::cloud::pretend(&copy, false);
+        // Windows lets nobody delete a database that is open.
+        drop(store);
         std::fs::remove_dir_all(d).unwrap();
     }
 
