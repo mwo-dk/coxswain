@@ -7,7 +7,7 @@ folder icon, a pencil for a modified file, a branch symbol before the branch nam
 empty boxes, so you can switch to plain characters or set your own. In the desktop app you also
 choose the interface font, the monospaced font, the icon font and the text size.
 
-<!-- screenshot: customise-glyphs.png: the terminal app in Classic blue (NC) with glyphs = "ascii", in a git repository: no file icons, git marks as ~ ? + in the left column, and the git line reading "git: master ^1 ~1 ?1" -->
+![The terminal app in Classic blue (NC) with glyphs = "ascii" in ~/projects/rocket: no file icons, folders marked with /, git marks ~ ? and . in the left column, and the git line reading git: master ^1 +1 ~1 ?2 $1](../screenshots/customise-glyphs.png)
 
 ## How to use it
 

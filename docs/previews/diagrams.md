@@ -10,7 +10,7 @@ sentences](../search/diagrams.md).)
 ![Three previews: a PlantUML sequence diagram with the engine buttons "plantuml" and "container" above it, a Graphviz pipeline graph with Rendered / Source, and an AsciiDoc guide](../screenshots/gui-previews-tools.png)
 *sequence.puml rendered by the installed `plantuml`, and pipeline.dot drawn by Graphviz in the app.*
 
-<!-- screenshot: previews-drawio.png: desktop app, Cyber theme: a .drawio file with two pages under the cursor; the preview pane shows the diagram on white, with draw.io's toolbar (page switcher, zoom, layers) at the top -->
+![The desktop app with launch-pad.drawio under the cursor: the preview shows the diagram Fuel tank, Valve and Engine on white, with draw.io's page switcher (1 / 2) and zoom buttons above it](../screenshots/previews-drawio.png)
 
 ## How to use it
 

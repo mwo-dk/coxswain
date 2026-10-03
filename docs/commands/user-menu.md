@@ -6,8 +6,8 @@
 keystroke runs `git status`, `cargo test` or a zip of the marked files, in the active panel's
 folder. Placeholders put the file under the cursor or the marked files into the command.
 
-<!-- screenshot: commands-user-menu.png: desktop app, Cyber theme, in /home/demo/projects/rocket: the F2 menu open, titled "Scripts", listing git status, git log, git diff (file) and git blame (file), each with a terminal icon and its key (s, l, d, b) at the right, the cursor on git status; under them one script file entry with a script icon and no key -->
-<!-- screenshot: commands-user-menu-tui.png: terminal app, Classic blue (NC) theme: the "User menu" dialog over the panels with the four git entries and their keys -->
+![The desktop app's F2 menu titled Scripts in ~/projects/rocket: git status, git log, git diff (file) and git blame (file) with their keys s, l, d and b, then the scripts Make thumbnails and Upload with a script icon and no key](../screenshots/commands-user-menu.png)
+![The terminal app in Classic blue (NC): the User menu box over the panels with git status, git log, git diff (file) and git blame (file) and their keys s, l, d and b](../screenshots/commands-user-menu-tui.png)
 
 ## How to use it
 

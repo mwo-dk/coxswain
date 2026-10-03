@@ -6,7 +6,7 @@ In the desktop app, **Alt+Enter** shows what a file or folder is: its size, date
 permissions. On Linux and macOS you can change the permission bits there; on Windows the
 read-only flag.
 
-<!-- screenshot: files-properties.png: desktop app, Cyber theme: the Properties dialog of a script deploy.sh, Location, Type File, Size, dates, Owner uid 1000, gid 1000, the permissions field at 755 with rwxr-xr-x next to it, Apply and Close -->
+![The Properties dialog of deploy.sh: Location /home/demo/projects/rocket, Type File, Size 69 B, Created, Modified and Accessed, Owner uid 1000, gid 1000, Permissions 755 with rwxr-xr-x next to it, Apply and Close](../screenshots/files-properties.png)
 
 ## How to use it
 

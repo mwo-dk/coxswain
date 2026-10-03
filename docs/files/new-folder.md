@@ -5,7 +5,7 @@
 **F7** makes a new folder in the active panel's folder, or a whole path of folders at once. It
 also makes folders inside an archive.
 
-<!-- screenshot: files-new-folder.png: desktop app, Cyber theme: the New folder dialog with 'Name:' and '2026/09/receipts' typed in -->
+![The desktop app's New folder dialog with Name: 2026/09/receipts typed in](../screenshots/files-new-folder.png)
 
 ## How to use it
 

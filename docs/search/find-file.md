@@ -5,9 +5,9 @@
 Find file is one window for four kinds of search: names on the whole machine, names in
 this folder, the text inside your files, and [Ask](ask.md), questions answered from them. Open it, type, and go to the file with **Enter**.
 
-![The desktop app's Find file over the panels: "engine" typed in Text in files, seven matches in 0.4 ms in the text of 27 files, each name in bold with its folder and the passage with "engine" highlighted](../screenshots/gui-text-search.png)
+![The desktop app's Find file over the panels: "engine" typed in Text in files, 18 matches in 1.3 ms in the text of 107 files, each name in bold with its folder and the passage with "engine" highlighted](../screenshots/gui-text-search.png)
 *The desktop app searching the text of files. Each hit has its folder and the passage that matched.*
-<!-- screenshot: search-find-file-scopes.png: desktop app, Cyber theme, Find file opened with nothing typed, the three buttons Everywhere / In rocket / Text in files side by side with Everywhere highlighted, and the hint "Type to search every file name on this machine. Tab: only this folder, or the words inside your files." -->
+![The desktop app's Find file opened with nothing typed: the buttons Everywhere, In rocket, Text in files and Ask, Everywhere highlighted, and the hint Type to search every file name on this machine. Tab: only this folder, or the words inside your files.](../screenshots/search-find-file-scopes.png)
 
 ## How to use it
 

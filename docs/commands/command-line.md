@@ -12,7 +12,7 @@ there; **Enter** runs it with the shell in the active panel's folder. Use it for
 ![The desktop app: at the bottom of the window, left of Settings, the command line reads /home/demo/projects/rocket ❯ followed by the grey placeholder Type a command…](../screenshots/gui-details.png)
 *The desktop app's command line, above the F-key bar.*
 
-<!-- screenshot: commands-output.png: desktop app, Cyber theme, in /home/demo/projects/rocket after typing "git log --oneline" and Enter: the preview pane at the right headed with a terminal icon, "git log --oneline" in bold and "Command output" under it, the × button at the right of the header, and the log lines below in a monospace font -->
+![The desktop app in ~/projects/rocket after typing git log --oneline and Enter: the preview pane, headed by a terminal icon, "git log --oneline" and "Command output" with a × at the right, lists the eight commits in a monospace font](../screenshots/commands-output.png)
 
 ## Contents
 

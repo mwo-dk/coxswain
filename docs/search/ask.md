@@ -12,7 +12,7 @@ as **[1]**, **[2]**. The sources are listed under the answer, numbered the same 
 Nothing is kept. The questions and answers exist only while Find file is open; **Esc** forgets
 them.
 
-<!-- screenshot: search-ask.png: desktop app, Cyber theme, Find file on the fourth button "Ask", the question "what does the rocket's fuel cost?" in bold, under it an answer of three lines with [1] and [2] underlined, and the numbered sources budget.txt and budget-da.txt with their folders; the second source has the cursor -->
+![The desktop app's Find file on Ask: the question what does the rocket fuel cost? in bold, the answer The rocket fuel costs 2,105 kEUR in April and 2,655 kEUR in June [1]., and the numbered sources budget.txt and budget-da.txt, the second under the cursor](../screenshots/search-ask.png)
 
 ## Contents
 

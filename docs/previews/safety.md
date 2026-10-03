@@ -7,7 +7,7 @@ So no preview runs a script from a file, writes next to it, or reaches the netwo
 And the pane stays quick: heavy libraries load only when a file needs them, and large files are
 shown in part.
 
-<!-- screenshot: previews-safety.png: desktop app, Cyber theme: a downloaded .html page in Downloads under the cursor; the preview shows the page with its web pictures missing (empty boxes) and its local stylesheet applied, Rendered / Source at the top right -->
+![The desktop app with launch-news.html, a page saved from the web, under the cursor in ~/Downloads: the preview shows it with its own stylesheet beside it and empty boxes where its pictures on the web would be](../screenshots/previews-safety.png)
 
 ## How to use it
 

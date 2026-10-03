@@ -7,7 +7,7 @@ machine, the words inside your files, what your files are about, and answers to 
 and they share one index, kept by a [search helper](helper.md) in the background. These pages
 walk through each depth, what is read and when, and every setting.
 
-![The terminal app's Find file: "*.rs|*.toml src/" typed after the prompt "everywhere:", with six matches in 3.48 ms out of 452,393 files indexed](../screenshots/tui-search.png)
+![The terminal app's Find file: "*.rs|*.toml src/" typed after the prompt "everywhere:", with eight matches in 10.88 ms out of 454,561 files indexed, two of them inside a zip](../screenshots/tui-search.png)
 *Names everywhere in the terminal app: six hits among 452,393 names in 3.5 ms.*
 
 | Depth | Finds | Needs |

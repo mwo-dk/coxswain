@@ -6,7 +6,7 @@ The cursor keys move in the active panel, **Enter** opens, **Backspace** goes up
 goes to the other panel. To jump somewhere far away, type the path: **Alt+F1** and **Alt+F2**
 in both apps, **Ctrl+L** in the desktop app, or `cd` on the command line.
 
-<!-- screenshot: panels-goto.png: desktop app, Cyber theme, the left pane's path bar in edit mode after Ctrl+L, "~/projects/rocket/src" typed and selected, the right pane showing ~/Documents -->
+![The desktop app's left pane with its path bar in edit mode after Ctrl+L, ~/projects/rocket/src typed and selected; the right pane shows ~/Documents](../screenshots/panels-goto.png)
 
 ## How to use it
 

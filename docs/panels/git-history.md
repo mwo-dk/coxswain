@@ -8,11 +8,11 @@ shows the files as they were then, as read-only folders: move around, preview a 
 the commit changed in it, view it with **F3** and copy an old version out with **F5**.
 **Backspace** leads back up to the commits, then to the folder on disk. Both apps do this.
 
-<!-- screenshot: git-history-commits.png: desktop app, Cyber theme: the left pane showing ~/projects/rocket/src/main.rs/@history, tinted, the badge "history of main.rs" at the end of the path bar, rows "a1b2c3d Fly the rocket", "d15e851 Start the rocket" with Modified and Last commit (author) columns; the right pane ordinary -->
+![The desktop app's left pane in ~/projects/rocket/src/engine.rs/@history, tinted, with the badge history of engine.rs at the end of the path bar: the commits 6ba7e53 Fix the fuel valve and 6ec9366 Add the engine, each with its date and, under Last commit, its author (Ada, Demo User)](../screenshots/git-history-commits.png)
 
-<!-- screenshot: git-history-file.png: desktop app, Cyber theme: inside a commit (badge "commit a1b2c3d"), main.rs under the cursor, the preview pane showing its Diff of that commit -->
+![Inside commit 6ba7e53 (the badge commit 6ba7e53 at the end of the path bar): engine.rs under the cursor and the preview pane on Diff, showing the line that commit changed in it, and its last commit by Ada](../screenshots/git-history-file.png)
 
-<!-- screenshot: tui-git-history.png: terminal app, NC theme: the left panel titled '/home/demo/projects/rocket/src/main.rs/@history [history]' with two commits, the info line showing 'a1b2c3d 2026-09-30 14:02 Ada' -->
+![The terminal app in Classic blue (NC): the left panel titled /home/demo/projects/rocket/src/engine.rs/@history [history] with the commits 6ba7e53 Fix the fuel valve and 6ec9366 Add the engine, and the info line 6ba7e53 2026-10-03 01:54 Ada](../screenshots/tui-git-history.png)
 
 ## Contents
 

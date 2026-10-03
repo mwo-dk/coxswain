@@ -5,7 +5,7 @@
 **F5** copies the marked files, or the one under the cursor, to the other panel's folder or to
 any path you type. It never writes over anything, and one failure does not stop the rest.
 
-<!-- screenshot: files-copy.png: desktop app, Cyber theme: the Copy dialog over both panes, label 'Copy 3 items to:', the field filled with the other pane's folder, OK and Cancel -->
+![The desktop app's Copy dialog: Copy 3 items to:, the field filled with the other pane's folder, OK and Cancel](../screenshots/files-copy.png)
 
 ## How to use it
 

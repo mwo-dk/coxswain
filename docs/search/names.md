@@ -5,7 +5,7 @@
 Every file and folder on the machine is in the name index, so Find file finds any of them by name
 in milliseconds: 1.4 million files in under 10 ms on a laptop. It needs nothing to be turned on.
 
-![The terminal app's Find file at "everywhere:", with "*.rs|*.toml src/" typed and six hits, each a name and its folder](../screenshots/tui-search.png)
+![The terminal app's Find file at "everywhere:", with "*.rs|*.toml src/" typed and eight hits, each a name and its folder, two of them inside a zip](../screenshots/tui-search.png)
 *Names everywhere: `*.rs|*.toml src/` finds Rust and TOML files in any `src` folder.*
 
 ## How to use it

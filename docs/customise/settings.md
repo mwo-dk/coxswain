@@ -104,7 +104,7 @@ session" box and the list of programs that read more.*
 | Item | Does | Key |
 |---|---|---|
 | *Keep the text of files, so Find file can search in it (Tab)* | Turns reading files on or off. Unticked, the rest of the section hides | `[search] text` |
-| The status line | *Searchable: 31 files · still to read: 0 · 76.0 KB on disk*, the store's path; *The search helper is not running, so text cannot be searched now.* when it is not; *Paused while the machine runs on its battery. Index now reads anyway.* | |
+| The status line | *Searchable: 107 files · still to read: 0 · 284 KB on disk*, the store's path; *The search helper is not running, so text cannot be searched now.* when it is not; *Paused while the machine runs on its battery. Index now reads anyway.* | |
 | *Start the search helper with my session, so it reads while no window is open* | Registers the helper with your session ([The search helper](../search/helper.md)) | none (a system entry) |
 | **Index now** | Reads the backlog at full speed ([Battery](../search/battery.md)) | |
 | **Delete the index** | Asks *Click again to delete*, then empties the store | |

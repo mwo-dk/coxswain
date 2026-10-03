@@ -10,7 +10,7 @@ program is built for.
 ![The desktop app with website-0.3.0.tar.gz under the cursor in Downloads: the preview pane lists the five entries inside with their sizes, under the line "5 entries · Ctrl+E extracts to the other pane"](../screenshots/gui-archive.png)
 *An archive in the preview: what is inside, and how to unpack it.*
 
-<!-- screenshot: previews-photo.png: desktop app, Cyber theme: wallpaper.jpg (a photo with EXIF) under the cursor; the preview pane shows the picture on the checkerboard and, under it, Camera, Lens, Taken, Exposure, Aperture, ISO, Focal length and Location -->
+![The desktop app with wallpaper.jpg, a photo with EXIF, under the cursor: the picture and, under it, Camera Fujifilm X-T5, Lens, Taken, Exposure 1/250 s, Aperture f/5.6, ISO 200, Focal length 23 mm and Location](../screenshots/previews-photo.png)
 
 ## How to use it
 

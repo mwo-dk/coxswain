@@ -6,9 +6,9 @@ A zip, tar or 7z archive opens like a folder, in both apps. Inside it the usual 
 **F5** copies out, **F6** moves out or renames, **F7** makes a folder, **F8** takes things out,
 and **F5** from another panel copies into it. Copies between two archives work too.
 
-<!-- screenshot: files-inside-archive.png: desktop app, Cyber theme: the right pane inside ~/Downloads/website-0.3.0.tar.gz/website, tinted, the path showing 'website-0.3.0.tar.gz' marked in the accent colour and the 'archive' badge at the right end of the path bar; the left pane shows an ordinary folder -->
+![The desktop app's right pane inside ~/Downloads/website-0.3.0.tar.gz/website, tinted, the archive's name marked in the path bar and the archive badge at its right end; the left pane shows an ordinary folder](../screenshots/files-inside-archive.png)
 
-<!-- screenshot: tui-archive.png: terminal app, Classic blue (NC) theme: the left panel inside /home/demo/Downloads/website-0.3.0.tar.gz with the title '/home/demo/Downloads/website-0.3.0.tar.gz [archive]', the right panel an ordinary folder -->
+![The terminal app in Classic blue (NC): the left panel inside the archive, titled /home/demo/Downloads/website-0.3.0.tar.gz [archive], the right panel an ordinary folder](../screenshots/tui-archive.png)
 
 ## Contents
 

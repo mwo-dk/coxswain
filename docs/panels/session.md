@@ -6,7 +6,7 @@ The desktop app comes back the way you left it: its tabs, folders, views and pan
 terminal app starts fresh where you start it, as NC did. This page lists what is kept, where,
 and what is forgotten on purpose.
 
-<!-- screenshot: panels-session.png: desktop app, Cyber theme, just after a restart: the left pane with three tabs, the columns view in one of them, the preview pane open at its saved width -->
+![The desktop app just after a restart: the left pane with its three tabs back, the src tab in the columns view, and the preview pane open at its saved width](../screenshots/panels-session.png)
 
 ## How to use it
 

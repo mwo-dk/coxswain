@@ -75,7 +75,7 @@ opens; **Enter** or a click ticks one, and the menu stays open for the next. **E
 
 The name column is always there. The choices apply to every tab.
 
-<!-- screenshot: panels-columns-menu.png: desktop app, Cyber theme, the "Columns and folder sizes" menu opened by a right-click on the column header, with Files (in folders) and Created ticked -->
+![The desktop app's Columns and folder sizes menu, opened by a right-click on the column header in ~/projects, with Type, Size, Files (in folders), Modified, Last commit, Created and Measure folder sizes automatically all ticked](../screenshots/panels-columns-menu.png)
 
 ## Settings and config.toml
 

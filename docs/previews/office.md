@@ -7,7 +7,7 @@ installed (or a LibreOffice container image is set), its exact rendering follows
 quick view's place. Older and other Office formats (`.doc`, `.odt`, `.rtf`, `.ppt`, `.vsdx`, …)
 are shown as the PDF LibreOffice makes of them.
 
-<!-- screenshot: previews-office.png: desktop app, Cyber theme: a .pptx deck under the cursor; the preview pane shows the engine button "soffice" above the line "Shown at once; the exact rendering with soffice is on its way…" and the slides drawn in the app under it -->
+![The desktop app with flight7-review.pptx under the cursor: the engine buttons soffice and container, and the slides as soffice drew them, Flight 7 review, Findings and Next steps, in a PDF viewer](../screenshots/previews-office.png)
 
 ## How to use it
 

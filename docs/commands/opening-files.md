@@ -6,7 +6,7 @@
 the panel, and a file opens in the application your desktop uses for it, as `xdg-open`, `open`
 or `start` would. The terminal app runs a program instead of opening it.
 
-<!-- screenshot: commands-opened.png: desktop app, Cyber theme, in /home/demo/Documents with the cursor on budget.xlsx after Enter: the status line at the bottom reads "Opened budget.xlsx" -->
+![The desktop app in ~/Documents with the cursor on budget.xlsx after Enter: the status line at the bottom reads Opened budget.xlsx](../screenshots/commands-opened.png)
 
 ## How to use it
 

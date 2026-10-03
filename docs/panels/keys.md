@@ -6,7 +6,7 @@ Every key both apps have out of the box, with the action's name in the **F9** li
 config name that `[keys]` uses. Use it as a reference, or as the list to start from when you
 [change keys](../customise/keys.md).
 
-<!-- screenshot: panels-keys.png: desktop app, Cyber theme, the F1 help window "Coxswain 1.20.0 · keyboard shortcuts" listing actions with their keys -->
+![The desktop app's F1 window Coxswain 1.28.3 · keyboard shortcuts: actions by name with their keys, Back Alt+Left, Batch rename Ctrl+M, Close tab Ctrl+W and on](../screenshots/panels-keys.png)
 
 ## Contents
 

@@ -6,7 +6,7 @@ Every command of the panels has a name, an *action*, and the keys that run it. T
 table in `config.toml` gives an action other keys, more keys, or none. Both apps read the same
 table, so a key you change works the same in the terminal app and the desktop app.
 
-<!-- screenshot: customise-keys.png: the desktop app in Cyber with Help (F1) open, listing actions with their keys, where Quit shows F10 and Ctrl+Q and Find file shows Ctrl+P after the [keys] example on this page; the F-key bar at the bottom -->
+![The desktop app's Help (F1) after the [keys] example on this page: Find file shows Ctrl+P and Folder sizes Ctrl+K, among the other actions with their keys; the F-key bar at the bottom](../screenshots/customise-keys.png)
 
 ## Contents
 

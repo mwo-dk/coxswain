@@ -8,7 +8,7 @@ listed). A script gets the marked files as arguments, so a longer job (resize th
 pictures, convert these documents, upload these files) is one file you drop in a folder, with
 no quoting to get right in `config.toml`.
 
-<!-- screenshot: commands-scripts.png: desktop app, Cyber theme, in /home/demo/Pictures with three pictures marked: the F2 menu titled "Scripts" with the four git entries at the top and, under them, the entries "Make thumbnails" and "Upload" with the script icon and no key; the cursor on "Make thumbnails" -->
+![The desktop app in ~/Pictures with three pictures marked: the F2 menu titled Scripts with the four git entries and, under them, Make thumbnails (under the cursor) and Upload with the script icon and no key](../screenshots/commands-scripts.png)
 
 ## How to use it
 

@@ -7,7 +7,7 @@ search tool: words, `!`, `|`, wildcards, `ext:`, `file:`, `folder:`, `case:` and
 case-insensitive unless you ask. It applies to [names everywhere](names.md) and
 [names in this folder](names.md#names-in-this-folder), not to [text in files](text.md).
 
-![The terminal app's Find file with "*.rs|*.toml src/" typed: Rust files in src folders, six hits](../screenshots/tui-search.png)
+![The terminal app's Find file with "*.rs|*.toml src/" typed: Rust files in src folders, eight hits](../screenshots/tui-search.png)
 *`*.rs|*.toml src/`: names ending in `.rs` or `.toml`, under a folder named `src`.*
 
 ## How to use it

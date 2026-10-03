@@ -8,7 +8,7 @@ settings that do more than set a value (search by meaning, the search helper) wi
 Settings window. For the command line *inside* Coxswain, where you type shell commands, see
 [The command line and its output](../commands/command-line.md).
 
-<!-- screenshot: reference-paths.png: a terminal (alacritty, default colours) in the sandbox showing the output of `coxswain --paths` and `coxswain --version`, seven aligned lines from config to previews -->
+![A terminal in the demo sandbox after coxswain --version (coxswain 1.28.3) and coxswain --paths: config, state, cache, name index, search store, model, previews and archive looks, each with its path under /home/demo](../screenshots/reference-paths.png)
 
 ## Contents
 

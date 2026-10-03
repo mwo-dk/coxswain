@@ -6,7 +6,7 @@ Two sections of the desktop app's Settings hold everything about search: *Search
 and *Search by meaning*. Every item is also a key under `[search]` in `config.toml`, which is how
 the terminal app sets them.
 
-![Settings, Search inside files: Keep the text of files ticked, Searchable: 31 files · still to read: 0 · 76.0 KB on disk, the path /home/demo/.cache/coxswain/search.db, Index now, Delete the index, Folders read and Names only](../screenshots/gui-settings-search.png)
+![Settings, Search inside files: Keep the text of files ticked, Searchable: 107 files · still to read: 0 · 284 KB on disk, the path /home/demo/.cache/coxswain/search.db, Index now, Delete the index, Folders read and Names only](../screenshots/gui-settings-search.png)
 *Settings → Search inside files.*
 <!-- screenshot: search-settings-meaning.png: desktop app, Cyber theme, Settings → Search by meaning with the built-in model on: the hint, Vectors made by "Built-in model, on this CPU (465 MB once)", "Understood: … files · still to go: …", builtin:multilingual-e5-small@614241f6, the model's folder, Turn off and Delete the model -->
 

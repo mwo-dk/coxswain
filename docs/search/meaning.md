@@ -7,7 +7,7 @@ what you type, whatever words they use and in whichever language: "what the rock
 finds `Brændstofbudget.docx`. A small multilingual model does it on your own machine; it is off
 until you turn it on.
 
-<!-- screenshot: search-meaning-hits.png: desktop app, Cyber theme, Find file in Text in files with "rocket fuel cost" typed: word hits first, then hits whose passage starts with "similar to:", one of them a Danish document -->
+![The desktop app's Find file in Text in files with rocket fuel cost typed: budget.txt with the words, then budget-da.txt, a Danish document, whose passage starts with similar to:](../screenshots/search-meaning-hits.png)
 
 ## Contents
 

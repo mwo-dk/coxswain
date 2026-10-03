@@ -5,7 +5,7 @@
 Hold **Alt** and type the start of a name: the cursor jumps to the first entry in the active
 panel that starts with it. It is the fastest way to a file you can see, without the mouse.
 
-<!-- screenshot: panels-quick-search.png: terminal app, Classic blue (NC) theme, the command line row reading "Quick search: bud" and the cursor on budget.xlsx in the right panel -->
+![The terminal app in Classic blue (NC): the command line row reads Quick search: bud and the cursor is on budget-da.txt, the first name starting with bud, in the right panel](../screenshots/panels-quick-search.png)
 
 ## How to use it
 

@@ -6,8 +6,8 @@
 to remember a key. **F1** shows the keys as your config has them, with the search syntax and
 where the config file is.
 
-<!-- screenshot: panels-command-list.png: desktop app, Cyber theme, the F9 "Commands" list filtered by "theme", showing "Theme: …" entries with one marked "current" -->
-<!-- screenshot: panels-help.png: terminal app, Classic blue (NC) theme, the F1 Help window with "Keys (from your config):" and the start of the Find file syntax -->
+![The desktop app's F9 Commands list filtered by theme: Theme: Cyber marked current, then Dark, Light, Nord and the other themes](../screenshots/panels-command-list.png)
+![The terminal app's F1 Help window in Classic blue (NC): Coxswain 1.28.3, Keys (from your config): and each action with its keys, Help F1, Menu F2 and on](../screenshots/panels-help.png)
 
 ## How to use it
 
