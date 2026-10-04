@@ -2,7 +2,7 @@ name: Release
 
 # Hands-off: when CI passes on master and the version in Cargo.toml has no release yet, build
 # every platform, publish the GitHub Release (which creates the tag) and update the AUR,
-# crates.io and Homebrew.
+# crates.io, Homebrew and WinGet.
 # To release, bump `version` in Cargo.toml. Nothing else.
 on:
   workflow_run:
@@ -341,3 +341,39 @@ jobs:
             git -C homebrew-coxswain commit -qm "Coxswain ${TAG#v}"
             git -C homebrew-coxswain push -q
           fi
+
+  # WinGet: each release is added to mwo-dk.Coxswain and mwo-dk.Coxswain.Terminal as a pull
+  # request to microsoft/winget-pkgs, by Komac (pinned, checked by its SHA-256). Only updates: the
+  # first version of each package is submitted by hand, and until Microsoft has listed it the job
+  # says so and stops. Needs WINGET_TOKEN: a classic token with public_repo, from the account whose
+  # fork of winget-pkgs the pull requests come from (packaging/README.md).
+  winget:
+    needs: [draft, publish]
+    runs-on: ubuntu-24.04
+    env:
+      WINGET_TOKEN: ${{ secrets.WINGET_TOKEN }}
+    steps:
+      - if: env.WINGET_TOKEN == ''
+        run: echo "::notice::WINGET_TOKEN is not set, so WinGet is not updated. See packaging/README.md."
+      - name: Open winget-pkgs pull requests
+        if: env.WINGET_TOKEN != ''
+        env:
+          TAG: ${{ needs.draft.outputs.tag }}
+          REPO: ${{ github.repository }}
+        run: |
+          curl -fsSL -o komac.tar.gz https://github.com/russellbanks/Komac/releases/download/v2.16.0/komac-2.16.0-x86_64-unknown-linux-gnu.tar.gz
+          echo "7d2707fa6210f2789a3702de49fbd150b736dbf426ee0b9bc8e098736f9fd82d  komac.tar.gz" | sha256sum -c -
+          tar xzf komac.tar.gz komac
+          v="${TAG#v}"
+          base="https://github.com/$REPO/releases/download/$TAG"
+          notes="https://github.com/$REPO/releases/tag/$TAG"
+          update() {
+            # A package Microsoft has not listed yet waits for its first, hand-made submission.
+            if ! ./komac list "$1" --token "$WINGET_TOKEN" >/dev/null 2>&1; then
+              echo "::notice::$1 is not on WinGet yet; its first version waits for Microsoft's review."
+              return 0
+            fi
+            ./komac update "$1" --version "$v" --urls "$2" --release-notes-url "$notes" --submit --token "$WINGET_TOKEN"
+          }
+          update mwo-dk.Coxswain "$base/Coxswain_${v}_x64-setup.exe"
+          update mwo-dk.Coxswain.Terminal "$base/coxswain-terminal-$TAG-x86_64-pc-windows-msvc.zip"
