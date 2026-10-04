@@ -88,6 +88,8 @@ On a Mac the shortcuts are the same, with **Ctrl**, not Cmd.
 | Key | Action (F9 name) | Config name | Desktop app | Terminal app |
 |---|---|---|---|---|
 | **Alt+F7**, **Ctrl+F** | Find file | `search` | Find file ([Find file](../search/find-file.md)) | The same |
+| **Shift+F7**, **Ctrl+Shift+F** | Search inside files | `search_text` | Find file at *Text in files* ([Text in files](../search/text.md)) | The same; many terminals send Ctrl+Shift+F as Ctrl+F, so use Shift+F7 |
+| **Ctrl+F7** | Ask your files | `ask` | Find file at *Ask* ([Ask](../search/ask.md)) | The same |
 | **Ctrl+O** | Panels on/off | `toggle_panels` | One pane or two ([Tabs and panes](tabs-and-panes.md)) | The output of the last command |
 | – | Folder sizes | `dir_sizes` | Measure the marked folders, or all, again ([Folder sizes](folder-sizes.md)) | Measure the panel's folders again |
 

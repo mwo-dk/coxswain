@@ -59,6 +59,8 @@ In the terminal app, open `config.toml` (`coxswain --config-path` prints where),
 
 This is the order Settings shows them in. In Cyber, file icons take the text colour instead of
 their own, so everything is one phosphor, and the age chips go from cyan (new) to dim green.
+Lit buttons and badges glow as a green outline on the dark rather than being filled
+([Looks](looks.md#what-you-see)).
 
 ![The desktop app in Cyber: two panels of green text on black, cyan folders, green age chips, the sidebar on the left](../screenshots/gui-details.png)
 *Cyber, the desktop app's default.*

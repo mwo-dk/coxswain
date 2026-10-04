@@ -46,8 +46,9 @@ Nothing to do: it is on from the start, in both apps, on Windows, macOS and Linu
   no file facts (EXIF, tags), no git diff, until you press **Download and preview**.
 - **A notice, once**, the first time the helper finds online-only files: *Found OneDrive, Dropbox:
   files that are only online are found by name only, so nothing is downloaded. Change in
-  Settings*. Clicking it opens *Settings → Search inside files*. The terminal app's says
-  *… cloud = "all" in config.toml reads them*.
+  Settings*, listed under *Settings → What's new* (the count on **⚙ Settings** includes it).
+  **Show me** opens *Settings → Search inside files*. The terminal app's says
+  *… cloud = "all" in config.toml reads them*, once in its status line.
 - **Settings → Search inside files** has the box *Cloud files: read files that are only online
   (downloads them)*, off; under *Read anyway*, each cloud found (*OneDrive*,
   `C:\Users\me\OneDrive`) with **Read its files**, and the folders you added.

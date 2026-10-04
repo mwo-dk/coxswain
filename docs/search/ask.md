@@ -44,8 +44,10 @@ Ask never uses a service on the internet unless you point the server address at 
 1. **Set the chat model** once. Desktop app: **Ctrl+,** → *Search by meaning* → *Ask* →
    *Chat model* (the list offers what the server has). Terminal app:
    `coxswain --meaning ask qwen3:8b`. On Ollama a missing model is pulled first.
-2. Press **Ctrl+F** (or **Alt+F7**) for Find file, and **Tab** three times, to *Ask* (desktop
-   app: the fourth button, or click it; terminal app: the prompt `ask: `).
+2. Press **Ctrl+F7** (the F9 command list calls it *Ask your files*): Find file opens at *Ask*
+   (desktop app: the fourth button lit; terminal app: the prompt `ask: `). Already in Find file,
+   **Ctrl+F7** goes there too, as do **Shift+Tab** from *Everywhere* and a click on the *Ask*
+   button.
 3. Type the question and press **Enter**. The sources come first, then the answer, word by word.
 4. Ask a **follow-up** the same way: *and in Danish?*, *who wrote that?*. The questions and
    answers before it go along, and the passages are looked up with the question before it too,
@@ -59,7 +61,9 @@ Ask never uses a service on the internet unless you point the server address at 
 
 | Key | Desktop app | Terminal app |
 |---|---|---|
-| **Tab** | To Ask, and on to *Everywhere* | The same |
+| **Ctrl+F7** | Open Find file at Ask, or go to Ask from another depth | The same |
+| **Tab** / **Shift+Tab** | From Ask, on to *Everywhere* / back to *Text in files*; what you typed stays | The same |
+| **Shift+F7**, **Alt+F7** | From Ask, straight to *Text in files* / names everywhere | The same |
 | **Enter** with a question typed | Ask it | The same |
 | **Enter** with the field empty | Go to the source under the cursor | The same |
 | **Up** / **Down** | Move through the last answer's sources | The same |
@@ -85,8 +89,8 @@ Ask never uses a service on the internet unless you point the server address at 
   cursor marks the one **Enter** goes to.
 - **Errors** show in red under the question: the server's own message, such as *model "qwen3:8b"
   not found*, or *Nothing in your files is close to the question.*
-- **The footer**: *Enter ask, or go to the source · ↑↓ sources · F4 edit · Tab names · Esc
-  close and forget* (the terminal app adds *F3 view*).
+- **The footer**: *Enter ask, or go to the source · ↑↓ sources · F4 edit · Tab names · Shift+F7
+  text · Esc close and forget* (the terminal app adds *F3 view*).
 
 ## Settings and config.toml
 
@@ -94,6 +98,7 @@ Ask never uses a service on the internet unless you point the server address at 
 |---|---|---|---|
 | *Chat model* | `[search] ask_model` | string, `""` | The model that writes the answers. Empty: Ask is not set up |
 | *Vectors made by*, *Server*, *API key from the variable* | `meaning_engine`, `meaning_url`, `meaning_key_env` | | The server Ask talks to, as above |
+| (none) | `[keys] ask` | list of keys, `["Ctrl+F7"]` | The keys that open Find file at Ask ([Changing keys](../customise/keys.md)) |
 
 ```toml
 [search]
@@ -103,7 +108,7 @@ ask_model = "qwen3:8b"
 
 ## In the terminal app
 
-Ask is the same: **Tab** to `ask: `, type, **Enter**. The answer wraps in the window and scrolls
+Ask is the same: **Ctrl+F7** for `ask: `, type, **Enter**. The answer wraps in the window and scrolls
 so its end stays in sight. Set it up with:
 
 ```sh

@@ -52,7 +52,7 @@ New here? Start with [The screen](panels/the-screen.md) and [Every default key](
 | Page | What it covers |
 |---|---|
 | [Search](search/README.md) | The three depths, all pages, keys at a glance |
-| [Find file](search/find-file.md) | Opening it, the three depth buttons, keys, count line, hints and the meaning tip |
+| [Find file](search/find-file.md) | Opening it at names, text (Shift+F7) or Ask (Ctrl+F7), the four depth buttons, Tab and Shift+Tab, keys, count line, hints and the meaning tip |
 | [Names everywhere](search/names.md) | The name index, how it stays current and fast, names in this folder, exclude/roots/watch |
 | [Name syntax](search/name-syntax.md) | Everything's words, !, |, wildcards, ext:, file:, folder:, case:, paths, quotes |
 | [Text in files](search/text.md) | How words match, the passages, what is read and when, search.db |
@@ -67,9 +67,9 @@ New here? Start with [The screen](panels/the-screen.md) and [Every default key](
 | [Search by meaning](search/meaning.md) | The built-in multilingual model, turning it on and off, what you see, how it works |
 | [Search by meaning on a server: Ollama, Lemonade, LM Studio](search/servers.md) | Ollama, Lemonade, LM Studio, any OpenAI-compatible server, API keys, privacy |
 | [Ask: questions answered from your files](search/ask.md) | The fourth depth of Find file: your chat model answers from the closest passages, citing them |
-| [The search helper](search/helper.md) | One process for all windows, privacy of its connection, starting with the session |
+| [The search helper](search/helper.md) | One process for all windows, privacy of its connection, starting with the session, taken over after an upgrade moves the program |
 | [Battery](search/battery.md) | Reading pauses on battery, Index now reads anyway |
-| [Notices and the window title](search/notices.md) | Version and search depths in the title, the five notices |
+| [Notices and what's new](search/notices.md) | Version and search depths in the title, the tips, the count on Settings, *What's new* and `coxswain --whats-new` |
 | [Search settings](search/settings.md) | Every item of Search inside files and Search by meaning, its config.toml key, and the terminal flags |
 
 ## [The preview pane](previews/README.md)

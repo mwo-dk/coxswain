@@ -145,14 +145,14 @@ changing them: [Changing keys](../customise/keys.md)):
 | `unselect_group` | `-` | `clip_copy` | `Ctrl+C` |
 | `invert_selection` | `*` | `clip_cut` | `Ctrl+X` |
 | `search` | `Alt+F7`, `Ctrl+F` | `paste` | `Ctrl+V` |
-| `refresh` | `Ctrl+R` | `properties` | `Alt+Enter` |
-| `swap_panels` | `Ctrl+U` | `extract` | `Ctrl+E` |
-| `toggle_panels` | `Ctrl+O` | `pack` | `Alt+F5` |
-| `toggle_hidden` | `Alt+.` | `columns` | none |
-| | | `duplicates` | `Ctrl+D` |
-| | | `settings` | `Ctrl+,` |
+| `search_text` | `Shift+F7`, `Ctrl+Shift+F` | `properties` | `Alt+Enter` |
+| `ask` | `Ctrl+F7` | `extract` | `Ctrl+E` |
+| `refresh` | `Ctrl+R` | `pack` | `Alt+F5` |
+| `swap_panels` | `Ctrl+U` | `columns` | none |
+| `toggle_panels` | `Ctrl+O` | `duplicates` | `Ctrl+D` |
+| `toggle_hidden` | `Alt+.` | `settings` | `Ctrl+,` |
 
-Keys inside dialogs (Enter, Esc, Tab in Find file, the digits in *Colour tag*) are fixed.
+Keys inside dialogs (Enter, Esc, Tab and Shift+Tab in Find file, the digits in *Colour tag*) are fixed.
 
 ## `[themes.<name>]`
 
@@ -287,7 +287,7 @@ Each Settings item and the key it writes:
 | | *Ask before deleting* | `confirm_delete` |
 | | *Check for a new version once a day* | `check_updates` |
 | | *Show when each file and folder was last committed, and by whom* | `[git] last_commit` |
-| *Search inside files* | *Keep the text of files, so Find file can search in it (Tab)* | `[search] text` |
+| *Search inside files* | *Keep the text of files, so Find file can search in it (Shift+F7)* | `[search] text` |
 | | *Search inside archives…* | `[search] archives` |
 | | *Folders read* | `[search] text_roots` |
 | | *Names only* | `[search] names_only` |

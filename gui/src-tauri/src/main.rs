@@ -579,11 +579,13 @@ async fn index_status(ctx: tauri::State<'_, Ctx>) -> Res<IndexStatus> {
     tauri::async_runtime::spawn_blocking(move || IndexStatus { status: index.status(), path: coxswain_core::store::Store::path(), shared: index.shared(), service: coxswain_core::service::installed() }).await.map_err(|e| e.to_string())
 }
 
-/// The notice to show in the status line, if any, and the window's title: the version and
-/// the kinds of search on.
+/// What Settings → What's new lists: the notices not dismissed and the versions not read (their
+/// count is on the Settings button), and the window's title: the version and the kinds of
+/// search on.
 #[derive(Serialize)]
 struct Notices {
-    notice: Option<coxswain_core::notices::Notice>,
+    notices: Vec<coxswain_core::notices::Notice>,
+    unread: Vec<String>,
     title: String,
 }
 
@@ -593,9 +595,22 @@ async fn notices(ctx: tauri::State<'_, Ctx>) -> Res<Notices> {
     let status = tauri::async_runtime::spawn_blocking(move || index.status()).await.map_err(|e| e.to_string())?;
     let st = ctx.state.lock().map_err(|e| e.to_string())?;
     Ok(Notices {
-        notice: coxswain_core::notices::next(&cfg, &status, &st, false),
+        notices: coxswain_core::notices::all(&cfg, &status, &st, false),
+        unread: coxswain_core::notices::unread(&st).into_iter().map(|c| c.version).collect(),
         title: coxswain_core::t!("title.window", "version" => coxswain_core::update::VERSION, "search" => coxswain_core::notices::search_level(&cfg, &status)),
     })
+}
+
+/// Every version's changes, newest first, for Settings → What's new.
+#[tauri::command]
+fn changes() -> Vec<coxswain_core::notices::Change> {
+    coxswain_core::notices::changes()
+}
+
+/// What's new has been looked at: the versions up to this one are read.
+#[tauri::command(async)]
+fn read_changes(ctx: tauri::State<Ctx>) -> Res<()> {
+    ctx.edit(coxswain_core::notices::read)
 }
 
 /// The window's title. On Linux the title bar that GTK draws keeps the title it was made
@@ -1503,7 +1518,7 @@ fn main() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            get_config, notices, dismiss_notice, set_title, index_status, index_action, index_service, meaning_status, meaning_action, meaning_models, meaning_pull, list_dir, git_status, git_last, places, disks, get_state, save_session, save_favorites, set_tags, set_note, get_note,
+            get_config, notices, dismiss_notice, changes, read_changes, set_title, index_status, index_action, index_service, meaning_status, meaning_action, meaning_models, meaning_pull, list_dir, git_status, git_last, places, disks, get_state, save_session, save_favorites, set_tags, set_note, get_note,
             search, ask, ask_stop, resolve_path, copy, rename, delete, mkdir, dir_sizes, rename_plan, rename_apply, open_path, edit_path,
             read_text, run_command, scripts, run_script, check_update, archive_list, extract, pack, archive_password, archive_peek, cloud_fetch, properties, set_permissions,
             clip_set, paste, start_drag, watch_dirs, preview::git_diff, preview::sqlite_info, preview::epub_preview,

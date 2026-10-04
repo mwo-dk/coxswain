@@ -14,7 +14,7 @@ and a search finds those words too.
 2. Wait for the [search helper](helper.md)'s next scan, within ten minutes, or click **Index
    now** under *Settings → Search inside files*: the helper looks for the programs at every scan.
 3. The files of that kind are then read again, by themselves. Search them as any
-   [text](text.md): **Alt+F7**, **Tab**, **Tab**, your words.
+   [text](text.md): **Shift+F7**, your words.
 
 | Program | Reads | Notes |
 |---|---|---|
@@ -42,7 +42,8 @@ For other languages than English and yours, install tesseract's language data to
 
 A missing one adds *· not installed*. While tesseract is missing and text search is on, both apps
 show the [notice](notices.md) *Install tesseract to search the words in scans, screenshots and
-pictures* once, in the status line.
+pictures*: the desktop app under *Settings → What's new* until dismissed, the terminal app once in
+its status line.
 
 A hit from a picture shows the words tesseract read, as any text hit does. OCR is not perfect:
 a word may be read wrong, and then it is found only as it was read.

@@ -38,7 +38,8 @@ themselves. The *Server* field is the base URL: Coxswain adds `/api/embed` for O
   in red the error of a server that does not answer.
 - While search by meaning runs on the built-in model and Ollama answers on this machine, a
   [notice](notices.md) says *Ollama runs here: search by meaning could use its GPU. Choose it*
-  (terminal app: `… : coxswain --meaning ollama`).
+  under *Settings → What's new* (terminal app: `… : coxswain --meaning ollama`, once in the
+  status line).
 
 ## What to know
 

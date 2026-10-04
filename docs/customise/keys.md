@@ -101,12 +101,12 @@ not modifiers Coxswain reads; use **Ctrl** or **Alt**.
 | `unselect_group` | **-** | `clip_copy` ¹ | **Ctrl+C** |
 | `invert_selection` | **\*** | `clip_cut` ¹ | **Ctrl+X** |
 | `search` | **Alt+F7**, **Ctrl+F** | `paste` ¹ | **Ctrl+V** |
-| `refresh` | **Ctrl+R** | `properties` ¹ | **Alt+Enter** |
-| `swap_panels` | **Ctrl+U** | `extract` | **Ctrl+E** |
-| `toggle_panels` | **Ctrl+O** | `pack` | **Alt+F5** |
-| `toggle_hidden` | **Alt+.** | `columns` ¹ | none |
-| | | `duplicates` ¹ | **Ctrl+D** |
-| | | `settings` ¹ | **Ctrl+,** |
+| `search_text` | **Shift+F7**, **Ctrl+Shift+F** | `properties` ¹ | **Alt+Enter** |
+| `ask` | **Ctrl+F7** | `extract` | **Ctrl+E** |
+| `refresh` | **Ctrl+R** | `pack` | **Alt+F5** |
+| `swap_panels` | **Ctrl+U** | `columns` ¹ | none |
+| `toggle_panels` | **Ctrl+O** | `duplicates` ¹ | **Ctrl+D** |
+| `toggle_hidden` | **Alt+.** | `settings` ¹ | **Ctrl+,** |
 
 ¹ The desktop app only. In the terminal app the key still belongs to the action, and pressing it
 says *… is available in the desktop app (coxswain-gui)* on the command line.
@@ -122,7 +122,7 @@ These belong to where they are, not to an action:
 |---|---|---|---|
 | Every dialog | **Esc** closes, **Enter** confirms | Yes | Yes; the `quit` key (**F10**) closes a dialog too |
 | A *Delete* or other question | **Y** / **N** as well as Enter / Esc | Yes | Yes |
-| Find file | **Tab** changes the depth, **Up**/**Down**/**PageUp**/**PageDown** move in the hits | Yes | Yes |
+| Find file | **Tab** / **Shift+Tab** go to the next / previous depth, **Up**/**Down**/**PageUp**/**PageDown** move in the hits (the `search`, `search_text` and `ask` keys, which you can change, jump to their depth) | Yes | Yes |
 | *Colour tag* | The digits pick a colour | Yes | (not there) |
 | Quick search | **Alt+letter** starts it, letters extend it, **Backspace** shortens, **Esc** ends | Yes | Yes |
 | The command line, with text in it | **Enter** runs, **Esc** clears, **Backspace**, and in the desktop app **Left**/**Right**/**Home**/**End**/**Delete** edit | Yes | **Enter**, **Esc**, **Backspace** |
@@ -154,7 +154,8 @@ The same `[keys]` table, read at start. Two differences come from the terminal:
 - **Some keys never reach it.** Many terminals keep **Ctrl+Tab**, **Ctrl+Enter**,
   **Ctrl+PageUp**, **Shift+Down** or **Ctrl+,** for themselves, or send them as something else.
   This is why several actions have a second default (**Ctrl+J** for `copy_path`, **Backspace**
-  for `parent`, **Insert** for `mark`). If a key does nothing, bind the action to one the
+  for `parent`, **Insert** for `mark`, **Shift+F7** for `search_text`: many terminals send
+  **Ctrl+Shift+F** as **Ctrl+F**, which opens Find file at names). If a key does nothing, bind the action to one the
   terminal passes on.
 - **Desktop-only actions** (marked ¹ above) are in neither its help nor its command list.
 
@@ -196,6 +197,8 @@ Ctrl+Space belongs to the system, which is why `dir_sizes` has no default.
 
 No: keys inside dialogs, quick search and the command line are fixed (see
 [Keys you cannot change](#keys-you-cannot-change)). Only the actions in `[keys]` can be moved.
+Inside Find file, the keys of `search`, `search_text` and `ask` also jump to their depth, so
+moving those moves the jump too.
 
 #### How do I go back to the default keys?
 

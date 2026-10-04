@@ -177,6 +177,8 @@ actions! {
     UnselectGroup = "unselect_group", "Unselect group", ["-"];
     InvertSelection = "invert_selection", "Invert selection", ["*"];
     Search = "search", "Find file", ["Alt+F7", "Ctrl+F"];
+    SearchText = "search_text", "Search inside files", ["Shift+F7", "Ctrl+Shift+F"];
+    Ask = "ask", "Ask your files", ["Ctrl+F7"];
     Refresh = "refresh", "Reread", ["Ctrl+R"];
     SwapPanels = "swap_panels", "Swap panels", ["Ctrl+U"];
     TogglePanels = "toggle_panels", "Panels on/off", ["Ctrl+O"];

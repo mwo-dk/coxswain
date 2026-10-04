@@ -24,7 +24,7 @@ A change in either section is saved at once and starts a new [helper](helper.md)
 
 | Item | Key | Type, default | Does |
 |---|---|---|---|
-| *Keep the text of files, so Find file can search in it (Tab)* | `text` | bool, `true` | Off: no [text search](text.md), no search by meaning, and folder sizes and duplicates lose the store's help. The rest of the section is hidden |
+| *Keep the text of files, so Find file can search in it (Shift+F7)* | `text` | bool, `true` | Off: no [text search](text.md), no search by meaning, and folder sizes and duplicates lose the store's help. The rest of the section is hidden |
 | *Search inside archives: the files in zip, 7z and tar archives are found by name and by their text* | `archives` | bool, `true` | See [Inside archives](archives.md). Off: an archive is found by its own name only |
 | Status | | | *Searchable: 31,208 files · still to read: 412 · 1.1 GB on disk*, where `search.db` is, and on battery *Paused while the machine runs on its battery. Index now reads anyway.* Without a helper: *The search helper is not running, so text cannot be searched now.* |
 | *Start the search helper with my session, so it reads while no window is open* | Not in `config.toml` | off | See [The search helper](helper.md) |
@@ -131,4 +131,4 @@ link open *Search by meaning*.
 No. The search settings are for the machine: one helper serves every window.
 
 ---
-[← Previous: Notices and the window title](notices.md) · [Next: The preview pane →](../previews/README.md)
+[← Previous: Notices and what's new](notices.md) · [Next: The preview pane →](../previews/README.md)

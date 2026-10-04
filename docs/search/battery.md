@@ -69,4 +69,4 @@ back.
 Asking costs a little each time, and a pause that starts half a minute late costs nothing.
 
 ---
-[← Previous: The search helper](helper.md) · [Next: Notices and the window title →](notices.md)
+[← Previous: The search helper](helper.md) · [Next: Notices and what's new →](notices.md)

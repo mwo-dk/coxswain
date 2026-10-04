@@ -51,6 +51,13 @@ Nothing of its own while it works. Signs of it:
   random token are in a file only you can read (`index.addr` in the cache folder); a connection
   without the token is dropped.
 - **Versions.** A helper of another version steps down for the new one after an update.
+- **Upgrades that move the program.** The session registration names the program it starts. An
+  upgrade can remove that program: a Homebrew cask keeps the version in its path, and an AppImage
+  can be moved or replaced by one with another name. When an app finds no helper answering and
+  the registration names another program than itself, it registers itself instead (it rewrites
+  the systemd unit, the LaunchAgent or the *Run* entry) and starts it. You see nothing but search
+  working; *Start with my session* stays ticked. Before 1.29.0 the system kept trying the removed
+  program, and both apps searched names only, without a word.
 - **Without it.** If the helper cannot be reached, each app indexes names by itself; text search
   and meaning then wait for the helper.
 - **Settings.** A change under *Search inside files* or *Search by meaning* starts a new helper
@@ -92,6 +99,15 @@ No. Both use the one helper: one scan, one store, one index in memory.
 #### After an update, the index was built again. Why?
 The helper of the old version stepped down for the new one, which loaded the saved index and
 refreshed it. The text in `search.db` stays.
+
+#### Search inside files and meaning stopped after an upgrade. Why?
+Before 1.29.0: *Start with my session* was on, and the upgrade removed the program the
+registration started (a Homebrew path with the old version in it, a moved AppImage). The helper
+could not start, so Find file found names only: *Text in files* and *Ask* found nothing, and
+*Settings → Search inside files* said *The search helper is not running, so text cannot be
+searched now.* From 1.29.0 the first app you open registers itself and starts the helper. On an
+older version, untick and tick *Start with my session* again, or run `coxswain --index-service off`
+then `on`.
 
 #### I changed `[search]` by hand. How do I make the helper take it?
 Make any change in Settings, or close every window and wait ten minutes; with the session helper,

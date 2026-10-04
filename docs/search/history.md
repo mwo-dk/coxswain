@@ -22,8 +22,8 @@ found too, and [Ask](ask.md) may answer from commit messages. Both apps have it,
 
 ## How to use it
 
-1. Open [Find file](find-file.md) (**Ctrl+F** or **Alt+F7**) and press **Tab** twice, to *Text in
-   files*.
+1. Press **Shift+F7** (or **Ctrl+Shift+F** in the desktop app): [Find file](find-file.md) opens
+   at *Text in files*.
 2. Type words from a commit message, an author's name, or a path a commit changed:
    `valve`, `Ada`, `engine.rs`.
 3. Commits show among the files. **Enter** on one: the active panel shows the repository's top

@@ -50,7 +50,7 @@ Every flag: [Command-line flags](command-line-flags.md#the-terminal-app-coxswain
 | A viewer for CycloneDX cryptography BOMs (**F3** on one): the rated tree, a half-block sunburst, filters and compare | [Cryptography bills of materials](../previews/bom.md) |
 | Copy (**F5**), move and rename (**F6**), new folder (**F7**), delete to the trash (**F8**) or for good (**Shift+F8**) | [Files](../files/README.md) |
 | Archives as folders: look inside, copy and move in and out, take out, extract (**Ctrl+E**), pack (**Alt+F5**), passwords | [Archives in the terminal app](#archives-in-the-terminal-app) |
-| Find file (**Alt+F7**, **Ctrl+F**) at all three depths: names everywhere, names here, text (with meaning) | [Find file](../search/find-file.md) |
+| Find file (**Alt+F7**, **Ctrl+F**; **Shift+F7** for text, **Ctrl+F7** for Ask) at all four depths: names everywhere, names here, text (with meaning), Ask | [Find file](../search/find-file.md) |
 | Search by meaning, turned on with `coxswain --meaning on` | [Search by meaning in the terminal app](#search-by-meaning-in-the-terminal-app) |
 | Folder sizes in the Size column | [Folder sizes](../panels/folder-sizes.md) |
 | The git line, a glyph per file, and the last commit of the entry under the cursor in the info line | [Git in the panels](../panels/git.md) |
@@ -103,7 +103,8 @@ action's name. The **F9** list and **F1** help leave them out.
 | In a git history | The panel title ends in `[history]` or `[commit a1b2c3d]` | A badge (*history of main.rs*, *commit a1b2c3d*) and a tint |
 | The last commit | In the info line under the panel: `a1b2c3d 2026-09-30 14:02 Ada` | A *Last commit* column, and in the preview pane |
 | An archive's password | Asked in a *Locked archive* box, shown as stars | Asked in a dialog |
-| Notices | Shown once in the status line, then counted as seen | A button with `×` until dismissed or acted on |
+| Notices | Shown once in the status line, then counted as seen | Counted on **⚙ Settings** and listed under *Settings → What's new* until dismissed or acted on; a problem with search is also a button with `×` in the status line |
+| What a version brought | `coxswain --whats-new`, pointed to once after an upgrade | *Settings → What's new* |
 | Update notice | `Coxswain 1.21.0 is available: brew upgrade coxswain` in the status line, checked at start | A button that opens the release page, checked every hour |
 | Window title | Sets the terminal's title: `Coxswain 1.20.0 · search: names · text` | The window's title |
 | Hebrew | Letters reversed in terminals without bidi support | Mirrored layout |
@@ -161,7 +162,7 @@ depth shows its hits. What differs is how you turn it on.
    *Downloading the model for search by meaning: 42%*, sets `[search] meaning = true` and starts
    a new helper. Or `coxswain --meaning ollama` or `coxswain --meaning server URL MODEL` for a
    server ([Command-line flags](command-line-flags.md#--meaning)).
-2. Start `coxswain`, press **Alt+F7**, then **Tab** twice for `text: `.
+2. Start `coxswain` and press **Shift+F7** for Find file at `text: `.
 3. Type what you look for. Hits found by meaning have a second line that starts with
    `similar to:`, then the passage that was close. Words that match exactly are marked in the
    theme's search-hit colour.
@@ -253,7 +254,7 @@ desktop app set are kept in `state.json`, which the terminal app does not show.
 
 #### How do I turn on search by meaning without the desktop app?
 
-`coxswain --meaning on`, then Find file's text depth (**Alt+F7**, **Tab**, **Tab**). See
+`coxswain --meaning on`, then Find file's text depth (**Shift+F7**). See
 [Search by meaning in the terminal app](#search-by-meaning-in-the-terminal-app).
 
 ---

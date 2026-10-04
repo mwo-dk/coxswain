@@ -24,13 +24,14 @@
   let ready = $state(false);
 
   let update = $state(null);
-  let notice = $state(null);
+  // A problem with search is said in the status line; the rest waits under What's new.
+  const problem = $derived(ui.news.notices.find((n) => n.id.startsWith("error:")));
+  const newsCount = $derived(ui.news.notices.length + ui.news.unread.length);
   function actOn(n) {
     if (n.settings) ui.modal = { kind: "settings", section: n.settings };
-    else if (n.url) invoke("open_path", { path: n.url });
     dismissNotice(n);
   }
-  const dismissNotice = (n) => invoke("dismiss_notice", { id: n.id }).then(() => (notice = null), () => {});
+  const dismissNotice = (n) => invoke("dismiss_notice", { id: n.id }).then(() => (ui.news.notices = ui.news.notices.filter((x) => x.id !== n.id)), () => {});
   init().then(
     () => {
       ready = true;
@@ -41,7 +42,7 @@
       // What can be turned on, and the title with the version and the kinds of search on.
       const tell = () =>
         invoke("notices").then((n) => {
-          notice = n.notice;
+          ui.news = { notices: n.notices, unread: n.unread };
           invoke("set_title", { title: n.title }).catch(() => {});
         }, () => {});
       tell();
@@ -275,6 +276,8 @@
     },
     // mode: 0 names everywhere, 1 names in this folder, 2 the text of files.
     search: () => (ui.modal = { kind: "search", query: "", mode: 0, res: null, cursor: 0 }),
+    search_text: () => (ui.modal = { kind: "search", query: "", mode: 2, res: null, cursor: 0 }),
+    ask: () => (ui.modal = { kind: "search", query: "", mode: 3, res: null, cursor: 0 }),
     refresh: async () => {
       await reloadAll();
       ui.status = t("status.reread");
@@ -574,13 +577,16 @@
       <span class="prompt">{#if ui.quick !== null}{t("quick_search", { query: ui.quick })}{:else}<bdi dir="ltr">{tab().dir}</bdi> ❯{/if}</span>
       <input class="cmd" dir="auto" bind:this={cmdInput} bind:value={ui.cmd} spellcheck="false" autocomplete="off" placeholder={t("app.cmd_placeholder")} aria-label={t("app.cmd_line")} />
       {#if ui.status}<span class="status">{ui.status}</span>{/if}
-      <button class="gear" title={`${t("settings.title")} (${ui.cfg.actions.settings?.[1] ?? ""})`} onclick={() => (ui.modal = { kind: "settings" })}>{"\u{f013}"} {t("settings.title")}</button>
-      {#if notice && !update}
+      {#if problem && !update}
         <span class="notice">
-          <button class="update" onclick={() => actOn(notice)}>{notice.text}</button>
-          <button class="dismiss" title={t("common.close")} aria-label={t("common.close")} onclick={() => dismissNotice(notice)}>×</button>
+          <button class="update" onclick={() => actOn(problem)}>{problem.text}</button>
+          <button class="dismiss" title={t("common.close")} aria-label={t("common.close")} onclick={() => dismissNotice(problem)}>×</button>
         </span>
       {/if}
+      <!-- Something new or to turn on: counted here, listed under Settings → What's new. -->
+      <button class="gear" title={newsCount ? t("news.badge_title", { n: newsCount }) : `${t("settings.title")} (${ui.cfg.actions.settings?.[1] ?? ""})`}
+        onclick={() => (ui.modal = { kind: "settings", section: newsCount ? "news" : undefined })}
+        >{"\u{f013}"} {t("settings.title")}{#if newsCount}<span class="badge">{newsCount}</span>{/if}</button>
       {#if update}
         <!-- With a package manager, the command upgrades; the page still has the release notes. -->
         <button class="update" title={update[1] ? t("app.update_how", { how: update[1] }) : t("app.update_releases")}
@@ -739,6 +745,14 @@
   }
   .gear:hover {
     color: var(--cmdline-fg);
+  }
+  .badge {
+    margin-inline-start: 6px;
+    padding: 0 6px;
+    border-radius: var(--r-pill);
+    font-size: 0.85em;
+    color: var(--accent-fg);
+    background: var(--accent-bg);
   }
   .notice {
     display: inline-flex;

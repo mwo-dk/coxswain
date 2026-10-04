@@ -38,6 +38,8 @@ export const ui = $state({
   previewEngine: {},
   /** One modal at a time: { kind, ... } */
   modal: null,
+  /** Settings → What's new: the notices not dismissed, and the versions not read. */
+  news: { notices: [], unread: [] },
   favorites: [],
   recent: [],
   places: [],
