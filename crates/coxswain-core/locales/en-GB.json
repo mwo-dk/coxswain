@@ -25,6 +25,7 @@
  "action.home": "First",
  "action.invert_selection": "Invert selection",
  "action.mark": "Mark",
+ "action.mark_all": "Mark all",
  "action.menu": "PullDn",
  "action.mkdir": "Mkdir",
  "action.move": "RenMov",

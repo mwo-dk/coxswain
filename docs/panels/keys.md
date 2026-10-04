@@ -77,6 +77,7 @@ On a Mac the shortcuts are the same, with **Ctrl**, not Cmd.
 | `+` | Select group | `select_group` | Mark files by pattern | The same |
 | `-` | Unselect group | `unselect_group` | Unmark files by pattern | The same |
 | `*` | Invert selection | `invert_selection` | Invert the marks of files | The same |
+| **Ctrl+A** | Mark all | `mark_all` | Mark everything in the folder, files and folders (not `..`). In the command line, while it has text, it selects that text instead (desktop app) | The same |
 | **Ctrl+F3** | Sort by name | `sort_name` | By name; again reverses ([Sorting](sorting.md)) | The same |
 | **Ctrl+F4** | Sort by extension | `sort_ext` | By extension | The same |
 | **Ctrl+F5** | Sort by time | `sort_time` | By time, newest first | The same |

@@ -25,6 +25,7 @@
  "action.home": "Första",
  "action.invert_selection": "Invertera markering",
  "action.mark": "Markera",
+ "action.mark_all": "Markera alla",
  "action.menu": "Menyrad",
  "action.mkdir": "Ny mapp",
  "action.move": "Flytta",

@@ -270,6 +270,11 @@
     },
     select_group: () => selectGroup(true),
     unselect_group: () => selectGroup(false),
+    // As in a file explorer: everything in the folder, files and folders, but `..`.
+    mark_all: () => {
+      const t = tab();
+      for (const e of t.items) if (e.name !== "..") t.marked.add(e.path);
+    },
     invert_selection: () => {
       const t = tab();
       for (const e of t.items) if (!e.is_dir) t.marked.has(e.path) ? t.marked.delete(e.path) : t.marked.add(e.path);
@@ -469,8 +474,8 @@
     const field = e.target.closest?.("textarea, input:not(.cmd)");
     // The BOM tree has keys of its own; what it leaves (function keys, Tab) still works here.
     if (e.target.closest?.(".bom-keys") && !/^F\d+$/.test(k)) return;
-    // Copy/cut/paste of text in the command line stays native.
-    if (["clip_copy", "clip_cut", "paste"].includes(ui.cfg.keymap[k]) && e.target.closest?.(".cmd") && ui.cmd) return;
+    // Copy/cut/paste and select-all of text in the command line stay native.
+    if (["clip_copy", "clip_cut", "paste", "mark_all"].includes(ui.cfg.keymap[k]) && e.target.closest?.(".cmd") && ui.cmd) return;
     if (field && k === "Esc") return field.blur();
     if (field && !/^F\d+$/.test(k)) return;
     ui.status = "";
