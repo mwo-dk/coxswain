@@ -15,6 +15,7 @@ all of them at once. With nothing marked, those actions work on the entry under 
 | `+` | *Select group*: a dialog asks for patterns (`*` to start with); files that match are marked |
 | `-` | *Unselect group*: the same, unmarking |
 | `*` | Invert the marks of all files (folders keep theirs) |
+| **Ctrl+A** | Mark everything in the folder, files and folders, as a file explorer does (`..` never) |
 
 Marking a group:
 
@@ -59,6 +60,7 @@ Marks go when you leave the folder, and after a copy, move, delete, pack or extr
 | Select group | `select_group` | `+` |
 | Unselect group | `unselect_group` | `-` |
 | Invert selection | `invert_selection` | `*` |
+| Mark all | `mark_all` | **Ctrl+A** |
 
 `+`, `-` and `*` only fire while the command line is empty, as in NC; otherwise they are typed
 into it. The marked colour is the `marked` slot of the theme ([Your own theme](../customise/own-theme.md)).
@@ -81,7 +83,7 @@ The command line has text, and plain characters go to it. Press **Esc** to clear
 
 #### How do I mark every file?
 
-With nothing marked, press `*`: every file is inverted, so all files are marked. Or `+` and
+Press **Ctrl+A**: every file and folder is marked, as in a file explorer. For files only, press `*` with nothing marked: every file is inverted, so all files are marked. Or `+` and
 **Enter** with the `*` it offers.
 
 #### How do I mark files and folders together?

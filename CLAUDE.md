@@ -39,6 +39,9 @@ These rules hold for every contributor and every Claude session in this reposito
 - **The terminal app ships as a static musl binary.** A dependency that compiles C must build
   for `x86_64-unknown-linux-musl` too; CI checks it. Prefer pure-Rust crates.
 
+- **Dependabot PRs are not merged as they are**: their commits would make dependabot[bot] a
+  contributor. Apply the update in a PR of our own (with the checks below), then close the
+  Dependabot PR with a comment naming ours.
 - **No legacy.** Dependencies stay current: Rust crates, npm packages, GitHub Actions and bundled
   viewers are upgraded (majors too, when the migration is contained) and every known advisory is
   fixed; each source or security review includes this. Old code paths, compatibility shims,

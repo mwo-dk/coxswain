@@ -176,6 +176,7 @@ actions! {
     SelectGroup = "select_group", "Select group", ["+"];
     UnselectGroup = "unselect_group", "Unselect group", ["-"];
     InvertSelection = "invert_selection", "Invert selection", ["*"];
+    MarkAll = "mark_all", "Mark all", ["Ctrl+A"];
     Search = "search", "Find file", ["Alt+F7", "Ctrl+F"];
     SearchText = "search_text", "Search inside files", ["Shift+F7", "Ctrl+Shift+F"];
     Ask = "ask", "Ask your files", ["Ctrl+F7"];
