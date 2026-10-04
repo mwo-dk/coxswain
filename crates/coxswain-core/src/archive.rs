@@ -5,7 +5,7 @@
 
 use serde::Serialize;
 use std::fs::File;
-use std::io::{self, BufReader, Read, Write};
+use std::io::{self, BufReader, Read, Seek, Write};
 use std::path::{Path, PathBuf};
 
 #[derive(Clone, Debug, Serialize, PartialEq)]
@@ -236,7 +236,116 @@ fn seven_copy_error(err: io::Error, noting: &Noting, locked: bool) -> io::Error 
 /// A 7z, opened with `password` (none: an empty one).
 fn seven(path: &Path, password: Option<&str>) -> io::Result<sevenz_rust2::ArchiveReader<File>> {
     let pw = password.map_or_else(sevenz_rust2::Password::empty, sevenz_rust2::Password::from);
-    sevenz_rust2::ArchiveReader::open(path, pw).map_err(seven_error)
+    let mut file = File::open(path)?;
+    let size = seven_header_size(&mut file)?;
+    if size > SEVEN_HEADER_MAX {
+        return Err(io::Error::other(crate::t!("archive.header_too_big", "mb" => size >> 20, "max" => SEVEN_HEADER_MAX >> 20)));
+    }
+    file.seek(io::SeekFrom::Start(0))?;
+    sevenz_rust2::ArchiveReader::new(file, pw).map_err(seven_error)
+}
+
+/// The most a 7z's packed list of contents may unpack to: it is unpacked whole, into memory,
+/// before anything is read, so a few bytes that unpack to gigabytes would take as much.
+const SEVEN_HEADER_MAX: u64 = 64 << 20;
+
+/// What a 7z's packed list of contents (its encoded header) says it unpacks to, the largest of
+/// its streams; 0 when it is not packed. Read from the archive's own bytes, before opening it.
+fn seven_header_size(file: &mut File) -> io::Result<u64> {
+    let bad = || io::Error::new(io::ErrorKind::InvalidData, "a broken 7z header");
+    let mut start = [0u8; 32];
+    if file.read(&mut start)? < 32 || start[..6] != *b"7z\xBC\xAF\x27\x1C" {
+        return Ok(0);
+    }
+    let at = u64::from_le_bytes(start[12..20].try_into().unwrap());
+    let len = u64::from_le_bytes(start[20..28].try_into().unwrap());
+    file.seek(io::SeekFrom::Start(32u64.saturating_add(at)))?;
+    // The streams of a packed header take a few dozen bytes.
+    let mut head = vec![];
+    file.take(len.min(1 << 16)).read_to_end(&mut head)?;
+    let r = &mut head.as_slice();
+    fn byte(r: &mut &[u8]) -> io::Result<u8> {
+        let (&b, rest) = r.split_first().ok_or(io::ErrorKind::UnexpectedEof)?;
+        *r = rest;
+        Ok(b)
+    }
+    fn skip(r: &mut &[u8], n: u64) -> io::Result<()> {
+        *r = r.get(usize::try_from(n).map_err(|_| io::ErrorKind::UnexpectedEof)?..).ok_or(io::ErrorKind::UnexpectedEof)?;
+        Ok(())
+    }
+    // 7-Zip's numbers: the first byte's leading ones say how many bytes follow.
+    fn number(r: &mut &[u8]) -> io::Result<u64> {
+        let first = byte(r)? as u64;
+        let mut value = 0;
+        for i in 0..8 {
+            let mask = 0x80 >> i;
+            if first & mask == 0 {
+                return Ok(value | (first & (mask - 1)) << (8 * i));
+            }
+            value |= (byte(r)? as u64) << (8 * i);
+        }
+        Ok(value)
+    }
+    // Every count below is of things that take a byte or more, so a false one ends at the
+    // header's end.
+    if byte(r)? != 0x17 {
+        return Ok(0);
+    }
+    let mut id = byte(r)?;
+    if id == 0x06 {
+        // Where the packed streams are, their sizes and checksums.
+        number(r)?;
+        let n = number(r)?;
+        loop {
+            match byte(r)? {
+                0x00 => break,
+                0x09 => (0..n).try_for_each(|_| number(r).map(drop))?,
+                0x0A => {
+                    let defined = if byte(r)? != 0 { n } else {
+                        let bits = &r[..r.len().min(n.div_ceil(8) as usize)];
+                        skip(r, n.div_ceil(8))?;
+                        bits.iter().map(|b| b.count_ones() as u64).sum()
+                    };
+                    skip(r, defined.saturating_mul(4))?;
+                }
+                _ => return Err(bad()),
+            }
+        }
+        id = byte(r)?;
+    }
+    // The blocks, the coders of each and how they are chained, then the size of each stream.
+    if id != 0x07 || byte(r)? != 0x0B {
+        return Err(bad());
+    }
+    let blocks = number(r)?;
+    if byte(r)? != 0 {
+        return Err(bad());
+    }
+    let mut outs = 0u64;
+    for _ in 0..blocks {
+        let (mut ins, mut out) = (0u64, 0u64);
+        for _ in 0..number(r)? {
+            let bits = byte(r)?;
+            skip(r, (bits & 0xF) as u64)?;
+            let (i, o) = if bits & 0x10 != 0 { (number(r)?, number(r)?) } else { (1, 1) };
+            (ins, out) = (ins.saturating_add(i), out.saturating_add(o));
+            if bits & 0x20 != 0 {
+                let props = number(r)?;
+                skip(r, props)?;
+            }
+        }
+        let binds = out.saturating_sub(1);
+        (0..binds.saturating_mul(2)).try_for_each(|_| number(r).map(drop))?;
+        let packed = ins.saturating_sub(binds);
+        if packed > 1 {
+            (0..packed).try_for_each(|_| number(r).map(drop))?;
+        }
+        outs = outs.saturating_add(out);
+    }
+    if byte(r)? != 0x0C {
+        return Err(bad());
+    }
+    (0..outs).try_fold(0, |most, _| Ok(number(r)?.max(most)))
 }
 
 /// A 7z's error, a missing or wrong password said as `LOCKED`.
@@ -1559,6 +1668,41 @@ mod tests {
         }
         let (names, _) = list(&zip, 100).unwrap();
         assert_eq!(names.len(), 1 + 3 * 6, "{:?}", names.iter().map(|e| &e.name).collect::<Vec<_>>());
+        std::fs::remove_dir_all(d).unwrap();
+    }
+
+    #[test]
+    fn archive_7z_header_that_unpacks_too_big_is_refused() {
+        let d = std::env::temp_dir().join(format!("coxswain-test-7zbomb-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        // A packed header of 10 bytes that says it unpacks to 2 GB (LZMA, one block).
+        let head = [0x17, 0x06, 0x00, 0x01, 0x09, 0x0A, 0x00, 0x07, 0x0B, 0x01, 0x00, 0x01, 0x03, 0x03, 0x01, 0x01, 0x0C, 0xF0, 0, 0, 0, 0x80, 0x00, 0x00];
+        let mut bomb = b"7z\xBC\xAF\x27\x1C\x00\x04".to_vec();
+        bomb.extend([0; 4]);
+        bomb.extend(10u64.to_le_bytes());
+        bomb.extend((head.len() as u64).to_le_bytes());
+        bomb.extend([0; 4]);
+        bomb.extend([0x5D; 10]);
+        bomb.extend(head);
+        let p = d.join("bomb.7z");
+        std::fs::write(&p, &bomb).unwrap();
+        assert_eq!(seven_header_size(&mut File::open(&p).unwrap()).unwrap(), 1 << 31);
+        let err = list(&p, 10).unwrap_err().to_string();
+        assert!(err.contains("2048") && err.contains("64"), "{err}");
+        assert!(peek(&p.join("a.txt")).is_err() && search_entries(&p, bomb.len() as u64).is_none());
+        // Real ones, their headers packed, and locked with their names: read as before.
+        for i in 0..200 {
+            std::fs::write(d.join(format!("file-with-a-long-name-{i}.txt")), "x").unwrap();
+        }
+        let files: Vec<PathBuf> = (0..200).map(|i| d.join(format!("file-with-a-long-name-{i}.txt"))).collect();
+        for (name, pw) in [("plain.7z", None), ("hidden.7z", Some("hunter2"))] {
+            let p = d.join(name);
+            create_locked(&p, &files, pw, pw.is_some()).unwrap();
+            let size = seven_header_size(&mut File::open(&p).unwrap()).unwrap();
+            assert!(size > 0 && size < 1 << 20, "{name}: {size}");
+            assert_eq!(seven(&p, pw).unwrap().archive().files.len(), 200, "{name}");
+        }
         std::fs::remove_dir_all(d).unwrap();
     }
 

@@ -92,26 +92,26 @@ details for maintainers.
 
 ## Questions
 
-**Why are RC4 and MD5 in the CBOM, rated broken?**
+#### Why are RC4 and MD5 in the CBOM, rated broken?
 Because Coxswain uses them, to read the text of old encrypted PDFs for search inside files. That
 is decryption of what someone else encrypted long ago, never protection of anything new. The
 CBOM records the purpose with each algorithm, so a reader can tell the two apart.
 
-**Why are BLAKE3 and ZipCrypto rated unknown?**
+#### Why are BLAKE3 and ZipCrypto rated unknown?
 The rating catalogue does not list them. BLAKE3 is a fast, modern hash that Coxswain uses only to
 find duplicate files; ZipCrypto is the old ZIP cipher, which Coxswain only opens and never writes.
 
-**Why are there two SBOMs and not one?**
+#### Why are there two SBOMs and not one?
 Because there are two products. The terminal app has no web frontend, and the desktop app has
 crates the terminal app does not, such as Tauri. An SBOM per download says exactly what that
 download holds.
 
-**Where are the licences of the apps I installed?**
+#### Where are the licences of the apps I installed?
 In `THIRD-PARTY-NOTICES.md`, next to `LICENSE`: in the terminal app's archive, in the desktop
 app's install folder, or in `/usr/share/licenses/` from the AUR. Every release also has it on its
 Assets list.
 
-**A new dependency fails the "bills of materials" check. What now?**
+#### A new dependency fails the "bills of materials" check. What now?
 Read the message. A crypto crate needs a `[[library]]` in `tools/bom/crypto.toml`; an npm
 licence outside the list needs reading, then an entry in `tools/bom/licenses.toml` with the
 reason, or a different package.
