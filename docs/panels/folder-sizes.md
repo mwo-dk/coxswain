@@ -54,8 +54,8 @@ a Mac). Give it one: `[keys] dir_sizes = ["Ctrl+Q"]`.
 
 **How fresh they are.** A measured size is believed for five minutes, so going back to a
 folder shows its sizes at once. Copying, moving, deleting, pasting, packing or extracting with
-Coxswain forgets the sizes of the folders involved, and they are measured again. In the
-desktop app, a change the file watcher sees in a folder on screen does the same. The helper's
+Coxswain forgets the sizes of the folders involved, and they are measured again. In both apps,
+a change the file watcher sees in a folder on screen does the same. The helper's
 sizes follow its own watcher, and its walk every ten minutes.
 
 **What is counted:** the bytes of every file below the folder, as the file system reports its

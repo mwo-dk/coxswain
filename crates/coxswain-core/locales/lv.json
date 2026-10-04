@@ -333,6 +333,7 @@
  "dialogs.ask_setup": "Jautāt vajag tērzēšanas modeli jūsu serverī (Ollama, Lemonade, LM Studio):",
  "dialogs.ask_setup_meaning": "Jautāt atbild uz jautājumiem, balstoties uz jūsu failiem. Tam vajag meklēšanu pēc nozīmes un tērzēšanas modeli jūsu serverī:",
  "dialogs.ask_setup_open": "iestatīt",
+ "dialogs.ask_waiting": "Gaida atbildi no {model}: modelis, kas vēl nav ielādēts, aizņem kādu laiku…",
  "dialogs.attributes": "Atribūti",
  "dialogs.bytes": {
   "one": "({n} baits)",

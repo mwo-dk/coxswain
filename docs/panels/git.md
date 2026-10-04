@@ -125,7 +125,7 @@ takes longer than four seconds stops, and what it did not reach says *older*. In
 
 | | Terminal app | Desktop app |
 |---|---|---|
-| Read | When the panel changes folder, after an operation or a command, and on **Ctrl+R** | Every time the folder is loaded: opening it, a change the watcher sees in it, **Ctrl+R**, and after operations. The repository's `.git` is watched too: a commit, a checkout or a `git add` from the command line brings the status, the branch and the *Last commit* column up to date within a moment |
+| Read | When the panel changes folder, after an operation or a command, on **Ctrl+R**, and when the watcher sees a change in the panel's folder or the repository's `.git` (a commit, a checkout, a `git add`) | Every time the folder is loaded: opening it, a change the watcher sees in it, **Ctrl+R**, and after operations. The repository's `.git` is watched too: a commit, a checkout or a `git add` from the command line brings the status, the branch and the *Last commit* column up to date within a moment |
 | Runs | In the background; the line appears when git answers | The same |
 
 ## The diff of a file (desktop app)
@@ -200,8 +200,9 @@ Nerd Font Mono*), or set *Settings → Appearance → Icons and git glyphs* to *
 
 #### I committed in a terminal and the git line did not change.
 
-A commit changes files inside `.git`, not the folder on screen, so nothing tells Coxswain.
-Press **Ctrl+R**.
+Both apps watch the repository's `.git`, so the line follows a commit within a moment. Where
+the file system sends no change events (some network shares, some mounts in WSL), nothing tells
+Coxswain: press **Ctrl+R**.
 
 #### Is it slow in a huge repository?
 

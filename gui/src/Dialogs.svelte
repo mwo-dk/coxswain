@@ -403,6 +403,7 @@
               <p class="answer" dir="auto">
                 {#each cited(c.a) as { part, n }, pi (pi)}{#if n && c.sources[n - 1]}<button class="cite" title={c.sources[n - 1]} onclick={() => goToHit({ path: c.sources[n - 1] })}>{part}</button>{:else}{part}{/if}{/each}{#if m.asking && ci === m.chat.length - 1}<span class="typing">▍</span>{/if}
               </p>
+              {#if m.asking && ci === m.chat.length - 1 && !c.a && c.sources.length}<p class="meta">{t("dialogs.ask_waiting", { model: ui.cfg.settings.ask_model })}</p>{/if}
               {#if c.error}<p class="err">{c.error}</p>{/if}
               {#if c.sources.length}
                 <ol class="sources">

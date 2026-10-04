@@ -319,6 +319,7 @@
  "dialogs.ask_setup": "Fragen braucht ein Chatmodell auf Ihrem Server (Ollama, Lemonade, LM Studio):",
  "dialogs.ask_setup_meaning": "Fragen beantwortet Fragen aus Ihren Dateien. Dafür braucht es die Suche nach Bedeutung und ein Chatmodell auf Ihrem Server:",
  "dialogs.ask_setup_open": "einrichten",
+ "dialogs.ask_waiting": "Warte auf die Antwort von {model}: Ein Modell, das noch nicht geladen ist, braucht eine Weile…",
  "dialogs.attributes": "Attribute",
  "dialogs.bytes": {
   "one": "({n} Byte)",

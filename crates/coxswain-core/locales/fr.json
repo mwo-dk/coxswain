@@ -333,6 +333,7 @@
  "dialogs.ask_setup": "Demander a besoin d’un modèle de conversation sur votre serveur (Ollama, Lemonade, LM Studio) :",
  "dialogs.ask_setup_meaning": "Demander répond aux questions à partir de vos fichiers. Il faut la recherche par le sens et un modèle de conversation sur votre serveur :",
  "dialogs.ask_setup_open": "le configurer",
+ "dialogs.ask_waiting": "En attente de la réponse de {model} : un modèle pas encore chargé prend un moment…",
  "dialogs.attributes": "Attributs",
  "dialogs.bytes": {
   "many": "({n} octets)",

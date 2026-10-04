@@ -210,6 +210,13 @@ The archive is written anew into a `.coxswain-tmp` file next to it and only then
 old one. Until that rename the old archive is untouched; if something fails, the new file is
 removed. After a crash a leftover `….coxswain-tmp` (or `….coxswain-tar`) file can be deleted.
 
+#### Can I change one archive from the desktop app and the terminal app at once?
+
+Yes. Coxswain writes one archive at a time, across all its windows and both apps: a change waits
+while another is being written (a lock on `archive-writing.lock` in Coxswain's cache folder), then
+starts from the archive as the other left it, so neither change is lost. Another program writing
+the same archive at the same moment is not held back by it.
+
 #### Why does adding one small file to a big .tar.xz take so long?
 
 A compressed tar cannot be changed in place: Coxswain reads it all, writes it again and

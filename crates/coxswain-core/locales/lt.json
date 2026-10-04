@@ -333,6 +333,7 @@
  "dialogs.ask_setup": "Klausti reikia pokalbių modelio jūsų serveryje (Ollama, Lemonade, LM Studio):",
  "dialogs.ask_setup_meaning": "Klausti atsako į klausimus pagal jūsų failus. Tam reikia paieškos pagal prasmę ir pokalbių modelio jūsų serveryje:",
  "dialogs.ask_setup_open": "nustatyti",
+ "dialogs.ask_waiting": "Laukiama {model} atsakymo: dar neįkeltas modelis užtrunka…",
  "dialogs.attributes": "Atributai",
  "dialogs.bytes": {
   "few": "({n} baitai)",

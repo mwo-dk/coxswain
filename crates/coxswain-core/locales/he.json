@@ -333,6 +333,7 @@
  "dialogs.ask_setup": "שאלה צריכה מודל צ'אט בשרת שלכם (Ollama,‏ Lemonade,‏ LM Studio):",
  "dialogs.ask_setup_meaning": "שאלה עונה על שאלות מתוך הקבצים שלכם. היא דורשת חיפוש לפי משמעות ומודל צ'אט בשרת שלכם:",
  "dialogs.ask_setup_open": "להגדרה",
+ "dialogs.ask_waiting": "ממתין לתשובה מ־{model}: מודל שעדיין לא נטען לוקח זמן…",
  "dialogs.attributes": "תכונות",
  "dialogs.bytes": {
   "one": "(בית אחד)",

@@ -72,7 +72,7 @@ Other ways:
   `cd: no such folder: x`); the desktop app stays where it is and puts the error in the status
   line.
 - Rereading: the cursor stays on the same name, marks on files that are still there stay.
-- The desktop app rereads a folder by itself when something in it changes (see the questions).
+- Both apps reread a folder by themselves when something in it changes (see the questions).
 
 ## Settings and config.toml
 
@@ -113,9 +113,11 @@ already walk the tree.
 
 #### Do the panels follow changes on disk?
 
-The desktop app's do: every folder open in a tab is watched, and it rereads itself within a
-quarter of a second of a change. The terminal app rereads after its own operations, after a
-command from the command line, and on **Ctrl+R**.
+Yes. The desktop app watches every folder open in a tab and rereads it within a quarter of a
+second of a change. The terminal app watches the folders of its two panels and their
+repository's `.git`, and rereads a panel once the changes have settled (a quarter of a second
+without another, or every two seconds while they keep coming); the git line follows. Both also
+reread after their own operations and on **Ctrl+R**.
 
 #### Which folder does a relative path start from?
 

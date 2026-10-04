@@ -811,6 +811,17 @@ pub(crate) fn seven_locking(pw: &str) -> Vec<sevenz_rust2::EncoderConfiguration>
 // ponytail: one lock for all archives; a lock per archive if two panes ever wait on each other.
 static WRITING: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
+/// The same across processes (the desktop app and the terminal app, two windows): a lock on a
+/// file in Coxswain's cache folder, held while the returned file is open. `None` when there is
+/// no cache folder to hold it.
+fn writing_lock() -> io::Result<Option<File>> {
+    let Some(dir) = crate::helper::folder() else { return Ok(None) };
+    crate::fs::private_dir(&dir)?;
+    let f = std::fs::OpenOptions::new().create(true).truncate(false).write(true).open(dir.join("archive-writing.lock"))?;
+    f.lock()?;
+    Ok(Some(f))
+}
+
 /// Write `archive` anew: each old entry by what `keep` says of its name (`None`: left out,
 /// `Some(name)`: kept under that name, as it was, locked or not), then `add`. Into a new
 /// file first, which then takes the old one's place, so a failure leaves the archive whole.
@@ -820,6 +831,7 @@ static WRITING: std::sync::Mutex<()> = std::sync::Mutex::new(());
 fn rewrite(archive: &Path, keep: &dyn Fn(&str) -> Option<String>, add: &[(String, New)], password: Option<&str>, hide_names: bool) -> io::Result<()> {
     let k = kind(archive).ok_or_else(|| not_archive(archive))?;
     let _one = WRITING.lock().unwrap_or_else(|e| e.into_inner());
+    let _all = writing_lock()?;
     let name = archive.file_name().unwrap_or_default().to_string_lossy();
     let tmp = archive.with_file_name(format!("{name}.{}.coxswain-tmp", std::process::id()));
     let exists = archive.exists();
@@ -1511,6 +1523,42 @@ mod tests {
             assert_eq!(std::fs::read_to_string(crate::fs::copy_locked(&zp.join(name), &d.join("out"), Some("hunter2")).unwrap()).unwrap(), text);
             forget(&zp);
         }
+        std::fs::remove_dir_all(d).unwrap();
+    }
+
+    /// Three processes (the desktop app, the terminal app, another window) adding to one
+    /// archive at once: each waits for the others, so every change is in it.
+    #[test]
+    fn archive_writes_wait_for_other_processes() {
+        if let Ok(job) = std::env::var("COXSWAIN_TEST_ADD") {
+            let [zip, file, tag] = job.split('|').collect::<Vec<_>>()[..] else { panic!("{job}") };
+            for i in 0..6 {
+                add(Path::new(zip), &[(format!("{tag}-{i}.txt"), PathBuf::from(file))], None).unwrap();
+            }
+            return;
+        }
+        let d = std::env::temp_dir().join(format!("coxswain-test-xlock-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        std::fs::write(d.join("x.txt"), "x".repeat(100_000)).unwrap();
+        let zip = d.join("shared.zip");
+        create(&zip, &[d.join("x.txt")]).unwrap();
+        let kids: Vec<_> = ["a", "b", "c"]
+            .iter()
+            .map(|tag| {
+                std::process::Command::new(std::env::current_exe().unwrap())
+                    .args(["archive::tests::archive_writes_wait_for_other_processes", "--exact", "--test-threads=1"])
+                    .env("COXSWAIN_TEST_ADD", format!("{}|{}|{tag}", zip.display(), d.join("x.txt").display()))
+                    .stdout(std::process::Stdio::null())
+                    .spawn()
+                    .unwrap()
+            })
+            .collect();
+        for mut k in kids {
+            assert!(k.wait().unwrap().success());
+        }
+        let (names, _) = list(&zip, 100).unwrap();
+        assert_eq!(names.len(), 1 + 3 * 6, "{:?}", names.iter().map(|e| &e.name).collect::<Vec<_>>());
         std::fs::remove_dir_all(d).unwrap();
     }
 

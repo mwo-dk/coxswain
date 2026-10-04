@@ -311,6 +311,9 @@ pub struct App {
     list_tx: mpsc::Sender<(PathBuf, Option<String>, std::io::Result<Vec<Entry>>)>,
     list_rx: mpsc::Receiver<(PathBuf, Option<String>, std::io::Result<Vec<Entry>>)>,
     last_click: Option<(Instant, u16, u16)>,
+    /// The panels' folders and their repositories' `.git`, watched: what changes on disk is
+    /// read again.
+    watch: coxswain_core::fs::Watch,
     quit: bool,
 }
 
@@ -450,6 +453,7 @@ impl App {
             list_tx,
             list_rx,
             last_click: None,
+            watch: Default::default(),
             quit: false,
             cfg,
         };
@@ -1467,6 +1471,31 @@ impl App {
         }
     }
 
+    /// What changed on disk, once it has settled: a panel whose folder changed is read again
+    /// (the cursor stays on its name), and git's line when anything did, its `.git` too.
+    fn follow_disk(&mut self) {
+        let mut want: Vec<PathBuf> = self.panels.iter().map(|p| p.dir.clone()).collect();
+        want.extend(self.panels.iter().filter_map(|p| p.git.as_ref()).map(|g| g.root.join(".git")).filter(|g| g.is_dir()));
+        want.dedup();
+        self.watch.set(want);
+        let paths = self.watch.changed();
+        if paths.is_empty() {
+            return;
+        }
+        self.changed(&paths);
+        for side in 0..2 {
+            // macOS names what changed by its real path (`/private/var` for `/var`).
+            let dir = &self.panels[side].dir;
+            let real = std::fs::canonicalize(dir).ok();
+            let here = |p: &Path| p == dir || real.as_deref() == Some(p);
+            if paths.iter().any(|p| here(p) || p.parent().is_some_and(here)) {
+                self.load(side, None);
+                self.measure(side);
+            }
+        }
+        self.refresh_git();
+    }
+
     /// Git results and index progress, polled between events.
     fn tick(&mut self, last_state: &mut State) {
         if let Ok(v) = self.update_rx.try_recv() {
@@ -1502,6 +1531,7 @@ impl App {
             self.listed(dir, keep, r);
         }
         self.poll_job();
+        self.follow_disk();
         while let Ok((dir, news)) = self.git_rx.try_recv() {
             for p in self.panels.iter_mut().filter(|p| p.dir == dir) {
                 match &news {
@@ -1897,6 +1927,26 @@ mod tests {
         assert_eq!(app.status, Some(t!("status.copied", "what" => tn!("items", 2))));
         assert!(app.panels[1].entries.iter().any(|e| e.name == "one.txt"), "the panels are read again");
         // The app's threads (sizes, git) may still hold the folder open on Windows.
+        let _ = std::fs::remove_dir_all(d);
+    }
+
+    #[test]
+    fn a_panel_follows_its_folder_on_disk() {
+        let d = std::env::temp_dir().join(format!("coxswain-test-follow-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(d.join("other")).unwrap();
+        std::fs::write(d.join("a.txt"), "").unwrap();
+        let mut app = app(d.clone(), d.join("other"));
+        app.panels[0].select_name("a.txt");
+        app.follow_disk();
+        std::fs::write(d.join("b.txt"), "").unwrap();
+        let end = Instant::now() + Duration::from_secs(10);
+        while !app.panels[0].entries.iter().any(|e| e.name == "b.txt") && Instant::now() < end {
+            std::thread::sleep(Duration::from_millis(50));
+            app.follow_disk();
+        }
+        assert!(app.panels[0].entries.iter().any(|e| e.name == "b.txt"), "read again");
+        assert_eq!(app.panel().current().map(|e| e.name.as_str()), Some("a.txt"), "the cursor stays");
         let _ = std::fs::remove_dir_all(d);
     }
 
