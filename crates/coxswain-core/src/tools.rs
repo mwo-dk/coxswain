@@ -29,6 +29,40 @@ pub fn which(program: &str) -> Option<PathBuf> {
         .find(|p| p.is_file())
 }
 
+/// Video and sound in the desktop app's preview, on Linux: WebKit plays them with GStreamer,
+/// and without the `autodetect` plugin (gst-plugins-good) the page's process aborts as soon as
+/// a `<video>` or `<audio>` is shown. `None` when the plugins it needs are where GStreamer
+/// looks; else the reason, said in the preview instead of playing.
+pub fn media_missing() -> Option<String> {
+    if !cfg!(target_os = "linux") {
+        return None;
+    }
+    let vars = |names: &[&str]| -> Option<Vec<PathBuf>> {
+        let v: Vec<PathBuf> = names.iter().filter_map(std::env::var_os).flat_map(|v| std::env::split_paths(&v).collect::<Vec<_>>()).collect();
+        (!v.is_empty()).then_some(v)
+    };
+    let appimage = std::env::var_os("APPDIR").is_some();
+    // The system folder, unless the environment names it: an AppImage brings a GStreamer built
+    // on Ubuntu, which looks only where Ubuntu keeps the plugins.
+    // ponytail: the usual folders of the distributions, not the one compiled into libgstreamer;
+    // asking GStreamer itself means linking it.
+    let ubuntu = PathBuf::from(format!("/usr/lib/{}-linux-gnu/gstreamer-1.0", std::env::consts::ARCH));
+    let system = vars(&["GST_PLUGIN_SYSTEM_PATH_1_0", "GST_PLUGIN_SYSTEM_PATH"]).unwrap_or_else(|| {
+        if appimage {
+            vec![ubuntu.clone()]
+        } else {
+            ["/usr/lib/gstreamer-1.0", "/usr/lib64/gstreamer-1.0", "/usr/local/lib/gstreamer-1.0", "/home/linuxbrew/.linuxbrew/lib/gstreamer-1.0"].into_iter().map(PathBuf::from).chain([ubuntu.clone()]).collect()
+        }
+    });
+    let local = dirs::data_dir().map(|d| d.join("gstreamer-1.0/plugins"));
+    let dirs: Vec<PathBuf> = vars(&["GST_PLUGIN_PATH_1_0", "GST_PLUGIN_PATH"]).unwrap_or_default().into_iter().chain(system).chain(local).collect();
+    let has = |plugin: &str| dirs.iter().any(|d| d.join(format!("libgst{plugin}.so")).is_file());
+    if has("autodetect") && has("playback") {
+        return None;
+    }
+    Some(if appimage { crate::t!("preview.media_appimage") } else { crate::t!("preview.media_missing") })
+}
+
 /// This app's program: the AppImage file when it runs from one (the binary itself is inside a
 /// mount that goes when the app closes), else the running binary.
 pub fn this_app() -> std::io::Result<PathBuf> {

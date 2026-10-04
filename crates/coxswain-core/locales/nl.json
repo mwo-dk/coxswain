@@ -645,6 +645,9 @@
  "preview.from": "Van",
  "preview.git": "Git",
  "preview.issuer": "Uitgever",
+ "preview.media_appimage": "Deze AppImage speelt video en geluid alleen af met GStreamer-plugins op de plek waar Debian en Ubuntu ze hebben, en daar staan er geen. Installeer Coxswain via je pakketbeheerder, of open het bestand in zijn programma.",
+ "preview.media_missing": "Video en geluid hebben de goede plugins van GStreamer nodig om hier te spelen (gst-plugins-good; gstreamer1.0-plugins-good op Debian en Ubuntu). Installeer ze en open Coxswain opnieuw.",
+ "preview.media_open": "Openen in zijn programma",
  "preview.more": {
   "one": "… nog {n}",
   "other": "… nog {n}"

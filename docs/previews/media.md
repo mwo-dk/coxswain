@@ -40,6 +40,16 @@ program is built for.
 Whether video and audio play depends on the codecs of your system's webview: WebKitGTK with
 GStreamer on Linux, WebKit on macOS, WebView2 on Windows.
 
+On Linux the player needs GStreamer's `autodetect` and `playback` plugins (from
+`gst-plugins-good` and `gst-plugins-base`). Without them WebKit stops the whole page as soon as a
+player is shown, so Coxswain looks for them first. When they are missing, the preview shows no
+player but *Video and sound need GStreamer's good plugins to play here (gst-plugins-good;
+gstreamer1.0-plugins-good on Debian and Ubuntu). Install them, then open Coxswain again.* with
+the link *Open in its app*, and *Settings → What's new* says the same once. The AppImage carries
+a GStreamer built on Ubuntu, which looks for plugins only where Debian and Ubuntu keep them
+(`/usr/lib/x86_64-linux-gnu/gstreamer-1.0`); on other distributions it says so and suggests
+installing Coxswain from your package manager.
+
 ### Archives
 
 `.zip`, `.jar`, `.apk`, `.nupkg`, `.whl`, `.vsix`, `.7z`, `.tar`, `.tar.gz` / `.tgz`,
@@ -91,6 +101,16 @@ opens the file in its program (image viewer, media player). Archives work as in 
 
 The webview lacks the codec. On Linux, install the GStreamer plugins for it (for example
 `gst-plugins-good`, `gst-plugins-bad`, `gst-libav`). **Enter** plays it in your media player.
+
+#### Previewing a video made the window go blank or stop. Why?
+
+Before 1.29.1, on Linux without GStreamer's good plugins (`gst-plugins-good`): WebKit could not
+find an audio output (`autoaudiosink`) and ended the page's process, which left the window empty
+and deaf to keys. From 1.29.1 the preview checks for the plugins first and says what to install
+instead of showing a player. With the AppImage on a distribution other than Debian or Ubuntu,
+installing them does not help, since its GStreamer does not look where your distribution keeps
+them: install Coxswain from your package manager (the AUR, Homebrew's formula) or press
+**Enter** to play the file in its app.
 
 #### How is a file inside an archive previewed?
 

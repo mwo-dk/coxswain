@@ -555,6 +555,9 @@
         <div class="drawio" use:drawioView={rich.drawio}></div>
       {:else if kind === "image"}
         <div class="media checker"><img src={convertFileSrc(e.path)} alt={e.name} /></div>
+      {:else if (kind === "video" || kind === "audio") && ui.cfg.media_missing}
+        <!-- Showing a player without GStreamer's plugins would take the whole page down. -->
+        <p class="more">{ui.cfg.media_missing} <button class="link" onclick={() => invoke("open_path", { path: e.path })}>{t("preview.media_open")}</button></p>
       {:else if kind === "video"}
         <div class="media">
           <!-- svelte-ignore a11y_media_has_caption -->

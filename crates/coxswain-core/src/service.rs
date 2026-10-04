@@ -77,7 +77,7 @@ pub fn installed() -> bool {
 }
 
 /// The program the registration starts, as written in it.
-pub fn registered() -> Option<PathBuf> {
+fn registered() -> Option<PathBuf> {
     let text = if cfg!(windows) {
         String::from_utf8(crate::tools::command("reg").args(["query", RUN_KEY, "/v", NAME]).output().ok()?.stdout).ok()?
     } else {
@@ -104,8 +104,27 @@ const RUN_KEY: &str = r"HKCU\Software\Microsoft\Windows\CurrentVersion\Run";
 #[cfg(not(windows))]
 const RUN_KEY: &str = "";
 
+/// The name on PATH that leads to `exe`, if there is one: a package manager's link (Homebrew's
+/// `bin/coxswain-gui`) stays when an upgrade replaces the versioned file it points to, so the
+/// registration starts the new version.
+fn stable(exe: &Path) -> PathBuf {
+    let real = std::fs::canonicalize(exe).ok();
+    std::env::var_os("PATH")
+        .into_iter()
+        .flat_map(|p| std::env::split_paths(&p).collect::<Vec<_>>())
+        .flat_map(|dir| ["coxswain-gui", "coxswain"].map(|n| dir.join(n)))
+        .find(|p| p.as_path() != exe && real.is_some() && std::fs::canonicalize(p).ok() == real)
+        .unwrap_or_else(|| exe.to_path_buf())
+}
+
+/// Whether the registration starts `exe`, by that name or by a link to it.
+pub fn starts(exe: &Path) -> bool {
+    registered().is_some_and(|r| r == exe || std::fs::canonicalize(&r).ok().is_some_and(|r| Some(r) == std::fs::canonicalize(exe).ok()))
+}
+
 /// Register `exe` (this app) as the helper and start it.
 pub fn install(exe: &Path) -> io::Result<()> {
+    let exe = &stable(exe);
     if cfg!(windows) {
         let line = format!("\"{}\" {} {STAY}", exe.display(), crate::helper::ARG);
         run(crate::tools::command("reg").args(["add", RUN_KEY, "/v", NAME, "/t", "REG_SZ", "/d", &line, "/f"]))?;

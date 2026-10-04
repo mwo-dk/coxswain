@@ -74,6 +74,7 @@ The questions people ask most, with a short answer and a link to the full one. E
 - **Why does LaTeX build with XeLaTeX here?** A `% !TEX program` line, a XeTeX package such as fontspec, or pdfLaTeX stopping asked for it. [Answer](previews/latex.md#why-does-latex-build-with-xelatex-here)
 - **The LaTeX container never starts by itself.** Its 5 GB image is not pulled yet, and a pull waits for a click on Build PDF or Pull. [Answer](previews/containers.md#the-latex-container-never-starts-by-itself)
 - **Can I preview a file inside an archive?** Yes: the cursor on it, with the preview pane open, or F3 in the terminal app; a copy is made in the cache folder. [Answer](previews/media.md#how-is-a-file-inside-an-archive-previewed)
+- **Previewing a video made the window go blank or stop. Why?** GStreamer's good plugins are missing; from 1.29.1 the preview says so instead. [Answer](previews/media.md#previewing-a-video-made-the-window-go-blank-or-stop-why)
 - **Why does a video not play?** The webview lacks the codec; on Linux install the GStreamer plugins. [Answer](previews/media.md#why-does-a-video-not-play)
 - **How do I get the old F3 back for a BOM in the terminal app?** Press F3 (or `s`) again in the viewer, or set `bom_viewer = false`. [Answer](previews/bom.md#how-do-i-get-the-old-f3-back-in-the-terminal-app)
 

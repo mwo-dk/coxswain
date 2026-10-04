@@ -685,6 +685,9 @@
  "preview.from": "Nuo",
  "preview.git": "Git",
  "preview.issuer": "Išdavėjas",
+ "preview.media_appimage": "Šis AppImage groja vaizdą ir garsą tik su GStreamer papildiniais ten, kur juos laiko Debian ir Ubuntu, o ten jų nėra. Įdiekite Coxswain per paketų tvarkytuvę arba atverkite failą jo programoje.",
+ "preview.media_missing": "Vaizdo ir garso įrašams čia groti reikia geriausių GStreamer papildinių (gst-plugins-good; Debian ir Ubuntu – gstreamer1.0-plugins-good). Įdiekite juos ir vėl atverkite Coxswain.",
+ "preview.media_open": "Atverti jo programoje",
  "preview.more": {
   "few": "… ir dar {n}",
   "one": "… ir dar {n}",

@@ -685,6 +685,9 @@
  "preview.from": "De",
  "preview.git": "Git",
  "preview.issuer": "Emissor",
+ "preview.media_appimage": "Aquesta AppImage només reprodueix vídeo i so amb connectors de GStreamer on els tenen Debian i Ubuntu, i no n'hi ha cap. Instal·leu Coxswain amb el gestor de paquets, o obriu el fitxer amb la seva aplicació.",
+ "preview.media_missing": "El vídeo i el so necessiten els connectors good de GStreamer per reproduir-se aquí (gst-plugins-good; gstreamer1.0-plugins-good a Debian i Ubuntu). Instal·leu-los i torneu a obrir Coxswain.",
+ "preview.media_open": "Obre amb la seva aplicació",
  "preview.more": {
   "many": "… {n} més",
   "one": "… {n} més",
