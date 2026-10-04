@@ -102,7 +102,7 @@ const DOCS_URL: &str = "https://github.com/mwo-dk/coxswain/blob/master/";
 
 /// Every version's changes, newest first.
 pub fn changes() -> Vec<Change> {
-    changelog(include_str!("../../../README.md"))
+    changelog(include_str!(env!("COXSWAIN_README")))
 }
 
 fn changelog(readme: &str) -> Vec<Change> {

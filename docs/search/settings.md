@@ -26,6 +26,7 @@ A change in either section is saved at once and starts a new [helper](helper.md)
 |---|---|---|---|
 | *Keep the text of files, so Find file can search in it (Shift+F7)* | `text` | bool, `true` | Off: no [text search](text.md), no search by meaning, and folder sizes and duplicates lose the store's help. The rest of the section is hidden |
 | *Search inside archives: the files in zip, 7z and tar archives are found by name and by their text* | `archives` | bool, `true` | See [Inside archives](archives.md). Off: an archive is found by its own name only |
+| *Look inside archives everywhere the names are indexed* (under the one above, while it is on) | `archives_everywhere` | bool, `false` | On: the entries of every archive on the machine are found by name, caches included; their text is still read only in the folders read. See [Which archives](archives.md#which-archives) |
 | Status | | | *Searchable: 31,208 files · still to read: 412 · 1.1 GB on disk*, where `search.db` is, and on battery *Paused while the machine runs on its battery. Index now reads anyway.* Without a helper: *The search helper is not running, so text cannot be searched now.* |
 | *Start the search helper with my session, so it reads while no window is open* | Not in `config.toml` | off | See [The search helper](helper.md) |
 | **Index now** | | | Reads the backlog at full speed, on battery too. Greyed out when nothing is left to read |
@@ -78,6 +79,7 @@ text_exclude = ["node_modules", "target", "build", "dist", "out", "vendor", "__p
 names_only = []
 text_max_size = 20971520
 archives = true            # look inside zip, 7z and tar archives
+archives_everywhere = false # true: every archive on the machine, caches too (names only)
 cloud = "local-only"       # "all": read files only in the cloud too (downloads them)
 cloud_read = []            # cloud folders read anyway
 meaning = false
