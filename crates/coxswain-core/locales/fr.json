@@ -25,6 +25,7 @@
  "action.home": "Premier",
  "action.invert_selection": "Inverser la sélection",
  "action.mark": "Marquer",
+ "action.mark_all": "Tout marquer",
  "action.menu": "Menus",
  "action.mkdir": "NvDossier",
  "action.move": "Déplacer",

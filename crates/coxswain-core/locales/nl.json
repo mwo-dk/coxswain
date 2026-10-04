@@ -25,6 +25,7 @@
  "action.home": "Eerste",
  "action.invert_selection": "Selectie omkeren",
  "action.mark": "Markeren",
+ "action.mark_all": "Alles markeren",
  "action.menu": "Pulldown",
  "action.mkdir": "Nieuwemap",
  "action.move": "Verplaats",

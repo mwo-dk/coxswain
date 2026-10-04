@@ -134,6 +134,15 @@ impl Panel {
         }
     }
 
+    /// Mark every entry but `..`, as a file explorer's select all does.
+    fn mark_all(&mut self) {
+        for i in 0..self.entries.len() {
+            if !self.marked.contains(&self.entries[i].path) {
+                self.toggle_mark(i);
+            }
+        }
+    }
+
     fn clear_marks(&mut self) {
         self.marked.clear();
         self.marked_bytes = 0;
@@ -706,6 +715,8 @@ impl App {
                 let title = if sel { t!("tui.select") } else { t!("tui.unselect") };
                 self.input(&title, t!("tui.files_matching"), "*".into(), Prompt::Select(sel));
             }
+            // As in a file explorer: everything in the folder, files and folders, but `..`.
+            Action::MarkAll => self.panel_mut().mark_all(),
             Action::InvertSelection => {
                 let p = self.panel_mut();
                 let files: Vec<usize> = (0..p.entries.len()).filter(|&i| !p.entries[i].is_dir).collect();
@@ -2072,6 +2083,12 @@ mod panel_tests {
         assert_eq!(p.marked_bytes, 300, "a reread counts again");
         p.clear_marks();
         assert_eq!((p.marked.len(), p.marked_bytes), (0, 0));
+        std::fs::create_dir(d.join("sub")).unwrap();
+        p.load(false);
+        p.toggle_mark(1);
+        p.mark_all();
+        assert_eq!(p.marked.len(), 4, "files and the folder, never `..`");
+        assert!(!p.marked.iter().any(|m| m.ends_with("..")));
         std::fs::remove_dir_all(d).unwrap();
     }
 }

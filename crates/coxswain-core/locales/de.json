@@ -25,6 +25,7 @@
  "action.home": "Erster",
  "action.invert_selection": "Auswahl umkehren",
  "action.mark": "Markieren",
+ "action.mark_all": "Alles markieren",
  "action.menu": "Pulldown",
  "action.mkdir": "NeuOrdner",
  "action.move": "Verschieb",
