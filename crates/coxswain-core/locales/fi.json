@@ -645,6 +645,9 @@
  "preview.from": "Lähettäjä",
  "preview.git": "Git",
  "preview.issuer": "Myöntäjä",
+ "preview.media_appimage": "Tämä AppImage toistaa videota ja ääntä vain GStreamer-liitännäisillä, jotka ovat siellä missä Debian ja Ubuntu ne pitävät, eikä niitä ole. Asenna Coxswain paketinhallinnalla tai avaa tiedosto sen omassa ohjelmassa.",
+ "preview.media_missing": "Video ja ääni tarvitsevat GStreamerin good-liitännäiset toistuakseen tässä (gst-plugins-good; Debianissa ja Ubuntussa gstreamer1.0-plugins-good). Asenna ne ja avaa Coxswain uudelleen.",
+ "preview.media_open": "Avaa sen ohjelmassa",
  "preview.more": {
   "one": "… {n} lisää",
   "other": "… {n} lisää"

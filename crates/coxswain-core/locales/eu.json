@@ -645,6 +645,9 @@
  "preview.from": "Nork",
  "preview.git": "Git",
  "preview.issuer": "Jaulkitzailea",
+ "preview.media_appimage": "AppImage honek bideoa eta soinua Debian eta Ubuntuk gordetzen dituzten lekuko GStreamer pluginekin soilik erreproduzitzen ditu, eta ez dago bat ere. Instalatu Coxswain pakete-kudeatzailetik, edo ireki fitxategia bere aplikazioan.",
+ "preview.media_missing": "Bideoak eta soinuak GStreamer-en plugin onak behar dituzte hemen erreproduzitzeko (gst-plugins-good; gstreamer1.0-plugins-good Debian eta Ubuntun). Instalatu itzazu eta ireki Coxswain berriro.",
+ "preview.media_open": "Ireki bere aplikazioan",
  "preview.more": {
   "one": "… {n} gehiago",
   "other": "… {n} gehiago"

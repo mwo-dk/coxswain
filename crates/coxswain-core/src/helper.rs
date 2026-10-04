@@ -322,7 +322,7 @@ impl Client {
             // has removed) is taken over by this app.
             let registered = crate::service::installed();
             let Ok(exe) = crate::tools::this_app() else { return };
-            if registered && crate::service::registered().as_deref() != Some(exe.as_path()) && crate::service::install(&exe).is_ok() {
+            if registered && !crate::service::starts(&exe) && crate::service::install(&exe).is_ok() {
                 return;
             }
             // A registered helper is started again by systemd or launchd; on Windows nothing

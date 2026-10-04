@@ -58,6 +58,10 @@ Nothing of its own while it works. Signs of it:
   the systemd unit, the LaunchAgent or the *Run* entry) and starts it. You see nothing but search
   working; *Start with my session* stays ticked. Before 1.29.0 the system kept trying the removed
   program, and both apps searched names only, without a word.
+- **A name that stays.** From 1.29.1 the registration names the program by a link on your `PATH`
+  when there is one (`coxswain-gui` or `coxswain`, as Homebrew puts in its `bin` folder), not by
+  the versioned file it points to. After `brew upgrade` the link leads to the new version, so the
+  helper that starts with your next login is already the new one, before you open the app.
 - **Without it.** If the helper cannot be reached, each app indexes names by itself; text search
   and meaning then wait for the helper.
 - **Settings.** A change under *Search inside files* or *Search by meaning* starts a new helper

@@ -115,6 +115,8 @@ struct UiConfig {
     home: PathBuf,
     sep: char,
     version: &'static str,
+    /// Why video and sound cannot play in the preview here, if they cannot.
+    media_missing: Option<String>,
 }
 
 fn css(c: &str) -> Option<String> {
@@ -156,6 +158,7 @@ fn get_config(ctx: tauri::State<Ctx>) -> Res<UiConfig> {
         home: std::env::home_dir().unwrap_or_default(),
         sep: std::path::MAIN_SEPARATOR,
         version: coxswain_core::update::VERSION,
+        media_missing: coxswain_core::tools::media_missing(),
     })
 }
 

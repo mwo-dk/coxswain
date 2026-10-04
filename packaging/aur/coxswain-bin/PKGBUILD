@@ -11,6 +11,7 @@ license=('MIT')
 depends=('webkit2gtk-4.1' 'gtk3' 'gcc-libs' 'glibc')
 optdepends=('git: git status in the panels'
             'ttf-nerd-fonts-symbols-mono: file icons and git glyphs'
+            'gst-plugins-good: video and sound in the preview'
             'xdg-utils: open files with their default application')
 provides=('coxswain')
 conflicts=('coxswain')

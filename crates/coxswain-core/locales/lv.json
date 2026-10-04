@@ -685,6 +685,9 @@
  "preview.from": "No",
  "preview.git": "Git",
  "preview.issuer": "Izdevējs",
+ "preview.media_appimage": "Šis AppImage atskaņo video un skaņu tikai ar GStreamer spraudņiem tur, kur tos glabā Debian un Ubuntu, un tur to nav. Instalējiet Coxswain ar pakotņu pārvaldnieku vai atveriet failu tā lietotnē.",
+ "preview.media_missing": "Video un skaņai šeit atskaņošanai vajag GStreamer labos spraudņus (gst-plugins-good; Debian un Ubuntu – gstreamer1.0-plugins-good). Instalējiet tos un atveriet Coxswain vēlreiz.",
+ "preview.media_open": "Atvērt tā lietotnē",
  "preview.more": {
   "one": "… vēl {n}",
   "other": "… vēl {n}",

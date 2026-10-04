@@ -685,6 +685,9 @@
  "preview.from": "De",
  "preview.git": "Git",
  "preview.issuer": "Emisor",
+ "preview.media_appimage": "Esta AppImage reproduce video y sonido solo con plugins de GStreamer donde los tienen Debian y Ubuntu, y no hay ninguno. Instalá Coxswain con tu gestor de paquetes, o abrí el archivo en su app.",
+ "preview.media_missing": "El video y el sonido necesitan los plugins good de GStreamer para reproducirse acá (gst-plugins-good; gstreamer1.0-plugins-good en Debian y Ubuntu). Instalalos y volvé a abrir Coxswain.",
+ "preview.media_open": "Abrir en su app",
  "preview.more": {
   "many": "… {n} más",
   "one": "… {n} más",

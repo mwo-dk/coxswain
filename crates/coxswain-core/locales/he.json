@@ -685,6 +685,9 @@
  "preview.from": "מאת",
  "preview.git": "Git",
  "preview.issuer": "מנפיק",
+ "preview.media_appimage": "ה-AppImage הזה מנגן וידאו וקול רק עם תוספי GStreamer במקום שבו Debian ו-Ubuntu שומרות אותם, ואין שם אף אחד. אפשר להתקין את Coxswain ממנהל החבילות, או לפתוח את הקובץ ביישום שלו.",
+ "preview.media_missing": "כדי לנגן כאן וידאו וקול צריך את התוספים הטובים של GStreamer ‏(gst-plugins-good; ב-Debian וב-Ubuntu ‏gstreamer1.0-plugins-good). יש להתקין אותם ולפתוח את Coxswain מחדש.",
+ "preview.media_open": "פתיחה ביישום שלו",
  "preview.more": {
   "one": "… ועוד {n}",
   "two": "… ועוד {n}",

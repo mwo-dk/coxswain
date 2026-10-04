@@ -75,6 +75,12 @@ pub fn all(cfg: &Config, status: &Status, state: &AppState, terminal: bool) -> V
         let text = if terminal { t!("notice.ollama_tui") } else { t!("notice.ollama") };
         all.push(Notice { id: "ollama".into(), text, settings: Some("meaning") });
     }
+    // The desktop app's preview cannot play video and sound here: what to install.
+    if !terminal {
+        if let Some(why) = crate::tools::media_missing() {
+            all.push(Notice { id: "media".into(), text: why, settings: None });
+        }
+    }
     // The helper found no tesseract: pictures and scans have no words to search.
     if cfg.search.text && status.tools.iter().any(|(name, there)| name == "tesseract" && !there) {
         all.push(Notice { id: "tesseract".into(), text: t!("notice.tesseract"), settings: Some("search") });
@@ -173,6 +179,8 @@ mod tests {
         let cfg = Config::default();
         let mut status = Status { state: crate::index::State::Ready, len: 1, texts: 10, pending: 0, bytes: 0, paused: false, roots: vec![], tools: vec![("tesseract".into(), false)], meaning: false, meaning_pending: 0, meaning_done: 0, meaning_engine: String::new(), meaning_error: None, error: None, clouds: vec![] };
         let mut state = AppState::default();
+        // Whether this machine's GStreamer can play video is not what is tested here.
+        dismiss(&mut state, "media");
         assert!(started(&mut state), "a first start is told of nothing new");
         assert!(!started(&mut state));
 
