@@ -77,7 +77,6 @@ Every flag: [Command-line flags](command-line-flags.md#the-terminal-app-coxswain
 | [The Settings window](../customise/settings.md) (**Ctrl+,**) | Every setting is a `config.toml` key; the few that do more than set a value have [flags](#settings-and-configtoml) |
 | [Scripts](../commands/scripts.md) in **F2** | The terminal app's **F2** is `[[user_menu]]` only |
 | [Restoring the last session](../panels/session.md) | It starts where you start it, as a shell command does |
-| Panels that reread themselves when a folder changes | The desktop app watches the folders it shows; the terminal app rereads after its own operations and on **Ctrl+R** |
 
 Their keys are bound in the terminal app too (both apps share one keymap). Pressed there, the
 status line says *Colour tag is available in the desktop app (coxswain-gui)*, with the
@@ -176,6 +175,10 @@ title shows `meaning` among the search depths once the helper has it running. Fu
 
 - **The panels:** double blue frames, the folder path in the title (with `[archive]` inside an
   archive), columns Name, Size and Modified; `UP--DIR` and `SUB-DIR` in the Size column.
+- **Changes on disk** show by themselves: a file another program writes, copies in or deletes
+  appears or goes in the panel within a second, the cursor staying on its name, and the git line
+  follows commits and checkouts (the panels' folders and their repository's `.git` are
+  watched). A folder inside an archive or a history is read again when you go back to it.
 - **The status line** under the panels: the result of the last operation (`Copied 3 files`), a
   notice, an update, or the size of what is marked.
 - **The command line** with the panel's folder as the prompt, and the F-key bar below it.
@@ -213,6 +216,14 @@ Each `--meaning` and `--index-service` flag starts a new helper with the new set
 - **Right-to-left text** only for Hebrew: Konsole, or GNOME Terminal with bidi on.
 
 ## Questions
+
+#### Do I have to press anything when another program changes a folder?
+
+No. The terminal app watches the folders in its two panels, not their subfolders, and their
+repository's `.git`: a change is read once it has settled (a quarter of a second without
+another, or every two seconds while a build writes on), and only the panel showing it is read
+again, the cursor on the same name. **Ctrl+R** still reads both panels again at once. The
+desktop app watches its panes' folders the same way.
 
 #### Can I use the terminal app over SSH?
 

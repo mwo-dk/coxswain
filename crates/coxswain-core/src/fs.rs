@@ -597,9 +597,126 @@ pub fn resolve(base: &Path, s: &str) -> PathBuf {
     if p.is_absolute() { p } else { base.join(p) }
 }
 
+/// Folders watched for changes (not their subfolders), for an app that reads them again when
+/// something in them changes. The changes are gathered until they settle (`Settle`).
+pub struct Watch {
+    watcher: Option<notify::RecommendedWatcher>,
+    rx: std::sync::mpsc::Receiver<notify::Result<notify::Event>>,
+    watched: Vec<PathBuf>,
+    settle: Settle,
+}
+
+impl Default for Watch {
+    fn default() -> Self {
+        let (tx, rx) = std::sync::mpsc::channel();
+        Watch { watcher: notify::Watcher::new(tx, notify::Config::default()).ok(), rx, watched: vec![], settle: Settle::default() }
+    }
+}
+
+impl Watch {
+    /// Watch these folders and no others. A folder that cannot be watched (gone, inside an
+    /// archive or a history) is left out.
+    pub fn set(&mut self, dirs: Vec<PathBuf>) {
+        use notify::Watcher;
+        if dirs == self.watched {
+            return;
+        }
+        let Some(w) = self.watcher.as_mut() else { return };
+        for d in self.watched.iter().filter(|d| !dirs.contains(d)) {
+            let _ = w.unwatch(d);
+        }
+        for d in dirs.iter().filter(|d| !self.watched.contains(d)) {
+            let _ = w.watch(d, notify::RecursiveMode::NonRecursive);
+        }
+        self.watched = dirs;
+    }
+
+    /// The paths changed since the last time, once they have settled; empty until then.
+    pub fn changed(&mut self) -> Vec<PathBuf> {
+        let now = std::time::Instant::now();
+        let paths: Vec<PathBuf> = self.rx.try_iter().flatten().filter(|e| !e.kind.is_access()).flat_map(|e| e.paths).collect();
+        self.settle.add(paths, now);
+        self.settle.take(now)
+    }
+}
+
+/// Changes gathered until none has come for `QUIET`, or for `MOST` at most while they keep
+/// coming: a build or a copy writes many files, and they are read again once.
+#[derive(Default)]
+pub struct Settle {
+    paths: std::collections::HashSet<PathBuf>,
+    first: Option<std::time::Instant>,
+    last: Option<std::time::Instant>,
+}
+
+impl Settle {
+    const QUIET: std::time::Duration = std::time::Duration::from_millis(250);
+    const MOST: std::time::Duration = std::time::Duration::from_secs(2);
+
+    pub fn add(&mut self, paths: Vec<PathBuf>, now: std::time::Instant) {
+        if !paths.is_empty() {
+            self.first.get_or_insert(now);
+            self.last = Some(now);
+            self.paths.extend(paths);
+        }
+    }
+
+    pub fn take(&mut self, now: std::time::Instant) -> Vec<PathBuf> {
+        match (self.first, self.last) {
+            (Some(first), Some(last)) if now - last >= Self::QUIET || now - first >= Self::MOST => {
+                (self.first, self.last) = (None, None);
+                self.paths.drain().collect()
+            }
+            _ => vec![],
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn watch_settles_changes_before_giving_them_out() {
+        use std::time::{Duration, Instant};
+        let (t0, ms) = (Instant::now(), |n| Duration::from_millis(n));
+        let mut s = Settle::default();
+        assert!(s.take(t0).is_empty(), "nothing yet");
+        s.add(vec![PathBuf::from("/d/a")], t0);
+        s.add(vec![PathBuf::from("/d/a"), PathBuf::from("/d/b")], t0 + ms(100));
+        s.add(vec![], t0 + ms(300));
+        assert!(s.take(t0 + ms(300)).is_empty(), "still coming 200 ms ago");
+        let mut got = s.take(t0 + ms(350));
+        got.sort();
+        assert_eq!(got, [PathBuf::from("/d/a"), PathBuf::from("/d/b")], "once, together");
+        assert!(s.take(t0 + ms(5000)).is_empty(), "and not again");
+        // Changes that never stop are given out every two seconds all the same.
+        let mut out = 0;
+        for i in 0..50 {
+            let now = t0 + ms(10_000 + i * 100);
+            s.add(vec![PathBuf::from(format!("/d/log{i}"))], now);
+            out += usize::from(!s.take(now).is_empty());
+        }
+        assert_eq!(out, 2, "in five seconds of changes");
+    }
+
+    #[test]
+    fn watch_hears_a_folder_change() {
+        let d = std::env::temp_dir().join(format!("coxswain-test-watch-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        let mut w = Watch::default();
+        w.set(vec![d.clone()]);
+        std::fs::write(d.join("new.txt"), "x").unwrap();
+        let end = std::time::Instant::now() + std::time::Duration::from_secs(10);
+        let mut got = vec![];
+        while got.is_empty() && std::time::Instant::now() < end {
+            std::thread::sleep(std::time::Duration::from_millis(50));
+            got = w.changed();
+        }
+        assert!(got.iter().any(|p| p.file_name().is_some_and(|n| n == "new.txt")), "{got:?}");
+        std::fs::remove_dir_all(d).unwrap();
+    }
 
     #[test]
     fn fs_resolve_paths() {

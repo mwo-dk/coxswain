@@ -321,6 +321,7 @@
  "dialogs.ask_setup": "Küsi vajab vestlusmudelit sinu serveris (Ollama, Lemonade, LM Studio):",
  "dialogs.ask_setup_meaning": "Küsi vastab küsimustele sinu failide põhjal. Selleks on vaja tähenduse järgi otsingut ja vestlusmudelit sinu serveris:",
  "dialogs.ask_setup_open": "seadista",
+ "dialogs.ask_waiting": "Ootan vastust mudelilt {model}: mudel, mis pole veel laaditud, võtab aega…",
  "dialogs.attributes": "Atribuudid",
  "dialogs.bytes": {
   "one": "({n} bait)",

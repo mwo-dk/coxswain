@@ -606,6 +606,18 @@ mod tests {
         assert_eq!(heads, ["POST /api/chat HTTP/1.1", "POST /api/generate HTTP/1.1"]);
     }
 
+    /// Servers with the OpenAI API (Lemonade, LM Studio, llama.cpp) load a model when asked:
+    /// nothing is sent to them ahead of the question.
+    #[test]
+    fn warm_sends_nothing_to_an_openai_server() {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        listener.set_nonblocking(true).unwrap();
+        let url = format!("http://{}/v1", listener.local_addr().unwrap());
+        warm(&crate::config::SearchConfig { meaning_engine: "openai".into(), meaning_url: url, ask_model: "chat".into(), ..Default::default() });
+        std::thread::sleep(Duration::from_millis(300));
+        assert_eq!(listener.accept().map(drop).unwrap_err().kind(), std::io::ErrorKind::WouldBlock);
+    }
+
     /// A server named with `user:password@` in Settings: its errors do not repeat the password.
     #[test]
     fn ask_errors_never_show_the_password_in_the_url() {

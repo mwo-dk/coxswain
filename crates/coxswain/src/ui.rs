@@ -419,7 +419,7 @@ fn search(f: &mut Frame, app: &mut App, full: Rect) {
 
     if *mode == 3 {
         let cursor = *cursor;
-        return ask(f, &app.chat, &app.cfg.search, &t, cursor, info, list, help);
+        return ask(f, &app.chat, app.ask_rx.is_some(), &app.cfg.search, &t, cursor, info, list, help);
     }
     let st = match state {
         State::Stale => t!("search.refreshing"),
@@ -505,7 +505,7 @@ fn search(f: &mut Frame, app: &mut App, full: Rect) {
 /// Ask in Find file: each question, its answer as it comes, and its numbered sources; the
 /// newest at the bottom, in sight.
 #[allow(clippy::too_many_arguments)]
-fn ask(f: &mut Frame, chat: &[crate::Turn], search: &coxswain_core::config::SearchConfig, t: &config::Theme, cursor: usize, info: Rect, list: Rect, help: Rect) {
+fn ask(f: &mut Frame, chat: &[crate::Turn], asking: bool, search: &coxswain_core::config::SearchConfig, t: &config::Theme, cursor: usize, info: Rect, list: Rect, help: Rect) {
     let dim = dstyle(t).add_modifier(Modifier::DIM);
     let ready = search.meaning && !search.ask_model.is_empty();
     let msg = if !search.meaning {
@@ -522,6 +522,10 @@ fn ask(f: &mut Frame, chat: &[crate::Turn], search: &coxswain_core::config::Sear
         lines.push(Line::from(Span::styled(format!("› {}", turn.question), dstyle(t).patch(hit))));
         for text in turn.answer.lines() {
             lines.push(Line::from(text.to_string()));
+        }
+        // The sources are found; the model has not said a word yet (it may be loading).
+        if asking && i + 1 == chat.len() && turn.answer.is_empty() && !turn.sources.is_empty() {
+            lines.push(Line::from(Span::styled(t!("dialogs.ask_waiting", "model" => search.ask_model.as_str()), dim)));
         }
         if let Some(e) = &turn.error {
             lines.push(Line::from(Span::styled(e.clone(), dstyle(t).fg(Color::Red))));

@@ -321,6 +321,7 @@
  "dialogs.ask_setup": "Galdetuk txat-eredu bat behar du zure zerbitzarian (Ollama, Lemonade, LM Studio):",
  "dialogs.ask_setup_meaning": "Galdetuk zure fitxategietatik erantzuten ditu galderak. Esanahiaren araberako bilaketa eta zure zerbitzarian txat-eredu bat behar ditu:",
  "dialogs.ask_setup_open": "konfiguratu",
+ "dialogs.ask_waiting": "{model}-(r)en erantzunaren zain: oraindik kargatu gabe dagoen eredu batek denbora behar du…",
  "dialogs.attributes": "Atributuak",
  "dialogs.bytes": {
   "one": "(byte {n})",

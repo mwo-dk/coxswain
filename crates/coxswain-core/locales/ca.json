@@ -335,6 +335,7 @@
  "dialogs.ask_setup": "Pregunta necessita un model de xat al vostre servidor (Ollama, Lemonade, LM Studio):",
  "dialogs.ask_setup_meaning": "Pregunta respon preguntes a partir dels vostres fitxers. Cal la cerca per significat i un model de xat al vostre servidor:",
  "dialogs.ask_setup_open": "configura-ho",
+ "dialogs.ask_waiting": "Esperant la resposta de {model}: un model que encara no s'ha carregat triga una estona…",
  "dialogs.attributes": "Atributs",
  "dialogs.bytes": {
   "many": "({n} de bytes)",

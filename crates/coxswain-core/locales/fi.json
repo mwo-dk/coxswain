@@ -321,6 +321,7 @@
  "dialogs.ask_setup": "Kysy tarvitsee keskustelumallin palvelimellasi (Ollama, Lemonade, LM Studio):",
  "dialogs.ask_setup_meaning": "Kysy vastaa kysymyksiin tiedostojesi pohjalta. Se tarvitsee merkityshaun ja keskustelumallin palvelimellasi:",
  "dialogs.ask_setup_open": "ota käyttöön",
+ "dialogs.ask_waiting": "Odotetaan vastausta mallilta {model}: mallin lataaminen voi kestää hetken…",
  "dialogs.attributes": "Määritteet",
  "dialogs.bytes": {
   "one": "({n} tavu)",

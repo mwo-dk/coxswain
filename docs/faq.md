@@ -10,7 +10,7 @@ The questions people ask most, with a short answer and a link to the full one. E
 - **Why does Alt+T not jump to names with a "t"?** Alt+T is bound to Colour tag, and a bound key does its action; unbind it with `tag = []` or start with another letter. [Answer](panels/quick-search.md#why-does-altt-not-jump-to-names-with-a-t)
 - **Why did `+` not mark any folders?** Groups mark files only, as in NC; mark folders with Insert. [Answer](panels/marking.md#why-did--not-mark-any-folders)
 - **Why is a folder's size not shown?** It is still being measured, you left the folder, measuring is off, or it is /proc, /sys, /dev or /run. [Answer](panels/folder-sizes.md#why-is-a-folders-size-not-shown)
-- **I committed in a terminal and the git line did not change.** A commit only changes `.git`, so nothing tells Coxswain; press Ctrl+R. [Answer](panels/git.md#i-committed-in-a-terminal-and-the-git-line-did-not-change)
+- **I committed in a terminal and the git line did not change.** Both apps watch `.git` and follow a commit within a moment; where the file system sends no change events, press Ctrl+R. [Answer](panels/git.md#i-committed-in-a-terminal-and-the-git-line-did-not-change)
 - **How do I see who changed a file, and when?** The Last commit column (desktop app) or the line under the panel (terminal app); Ctrl+G lists every commit. [Answer](panels/git-history.md#how-do-i-see-who-changed-a-file-and-when)
 - **How do I get back an old version of a file?** Ctrl+G on it, Enter on the commit, F5 on the file. [Answer](panels/git-history.md#how-do-i-get-back-an-old-version-of-a-file)
 - **Why does a file say "older" in Last commit?** It has not changed in the newest 5000 commits of its folder, where the walk stops; Ctrl+G shows when. [Answer](panels/git.md#why-does-a-file-say-older-in-last-commit)
@@ -48,6 +48,7 @@ The questions people ask most, with a short answer and a link to the full one. E
 - **How do I go straight to searching inside files, or to Ask?** Shift+F7 (or Ctrl+Shift+F in the desktop app) opens Find file at the text of your files, Ctrl+F7 at Ask. [Answer](search/find-file.md#how-do-i-go-straight-to-searching-inside-files-or-to-ask)
 - **How do I go back a depth in Find file?** Shift+Tab; Tab goes forward. [Answer](search/find-file.md#how-do-i-go-back-a-depth)
 - **Can I ask my files a question?** Yes: Ctrl+F7 opens Find file at *Ask*, with search by meaning on and a chat model on your server. [Answer](search/ask.md)
+- **The first answer takes long. Why?** The server loads the model on the first question; *Waiting for … to answer* shows until the first word. [Answer](search/ask.md#the-first-answer-takes-long-why)
 - **What does Ask send, and where?** [Answer](search/ask.md#what-is-sent-and-where)
 - **Can Ollama or Lemonade make the vectors instead?** Yes: pick it under Vectors made by, or `coxswain --meaning ollama` / `--meaning server URL MODEL`. [Answer](search/servers.md#which-model-should-i-pick-on-a-server)
 - **Will Coxswain download my OneDrive?** No: files only in OneDrive, Dropbox, Google Drive, Proton Drive or iCloud are found by name and left in the cloud until you open one. [Answer](search/cloud-files.md#will-coxswain-download-my-onedrive)
@@ -81,6 +82,7 @@ The questions people ask most, with a short answer and a link to the full one. E
 
 ## Files
 - **How do I get one file out of a zip without unpacking all of it?** Press Enter on the zip, go to the file and press F5: only that file is copied out. [Answer](files/archives.md#how-do-i-get-one-file-out-of-a-zip-without-unpacking-all-of-it)
+- **Can the desktop app and the terminal app change one archive at once?** Yes: one waits for the other, so neither change is lost. [Answer](files/archives.md#can-i-change-one-archive-from-the-desktop-app-and-the-terminal-app-at-once)
 - **Is it safe to change an archive?** Yes: it is written anew into a `.coxswain-tmp` file next to it and only then renamed over the old one; a failure leaves it as it was. [Answer](files/archives.md#is-it-safe-to-change-an-archive-what-if-the-power-goes-off)
 - **Can I pack into a zip or 7z with a password?** Yes: Alt+F5, then type it twice; AES-256, and a 7z can hide its file names too. [Answer](files/archive-passwords.md#locking-a-new-archive)
 - **Which encryption is used when packing with a password?** AES-256 for zip (AE-2) and 7z; ZipCrypto is never written. [Answer](files/archive-passwords.md#which-encryption-is-used)

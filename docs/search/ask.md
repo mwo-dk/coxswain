@@ -49,6 +49,8 @@ Ask never uses a service on the internet unless you point the server address at 
    **Ctrl+F7** goes there too, as do **Shift+Tab** from *Everywhere* and a click on the *Ask*
    button.
 3. Type the question and press **Enter**. The sources come first, then the answer, word by word.
+   Until the first word comes, the answer says *Waiting for qwen3:8b to answer: a model that is
+   not loaded yet takes a while…*, with whatever server it is on.
 4. Ask a **follow-up** the same way: *and in Danish?*, *who wrote that?*. The questions and
    answers before it go along, and the passages are looked up with the question before it too,
    so short follow-ups work.
@@ -152,7 +154,9 @@ question's language.
 #### The first answer takes long. Why?
 The server loads the model into memory on the first question; that can take half a minute. On
 Ollama, Ask has the model loaded while it looks the sources up, so the wait starts before the
-question is sent. Ask waits up to five minutes for the answer to start, and **Esc** stops the
+question is sent. A server with the OpenAI API (Lemonade, LM Studio, llama.cpp) is sent nothing
+before the question: it loads the model when the question comes. Either way *Waiting for … to
+answer* shows under the question until the first word. Ask waits up to five minutes for the answer to start, and **Esc** stops the
 wait at any moment. After that the words come as they are made.
 
 #### Why does a follow-up sometimes find other sources?
