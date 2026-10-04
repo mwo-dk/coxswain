@@ -67,8 +67,19 @@ extension: a PDF in a zip is read as a PDF ([Documents it reads](documents.md)).
 Search looks inside the archives in the **folders whose text is read**: your home folder unless
 you chose others ([Choosing the folders](folders.md)), less the folders left out there: hidden
 folders, folders named `node_modules`, `target`, `build` … (`text_exclude`), folders marked
-*Names only*, and folders holding a `.nosearch` file. Elsewhere on the machine an archive is
-found by its own name only.
+*Names only*, and folders holding a `.nosearch` file.
+
+**Caches and programs' folders are left out too**, even when they are not hidden and even when
+you add one to *Folders read*:
+
+| Left out | Where |
+|---|---|
+| By name, wherever it is | `.cache`, `.cargo`, `.npm`, `.m2`, `.gradle`, `.rustup`, `.pnpm-store`, `node_modules`, `target` |
+| Linux | `~/.cache`, `~/.local/share`, `/var/cache` (pacman, apt), `/var/lib` |
+| macOS | `~/Library/Caches`, `~/Library/Application Support` |
+| Windows | `AppData\Local` (with the temp folder in it), `AppData\Roaming` |
+
+Elsewhere on the machine an archive is found by its own name only.
 
 This keeps the name index small and quick: a whole machine holds thousands of archives that are
 nobody's documents, such as a package cache or the jars of an installed program. On one Linux
@@ -76,6 +87,14 @@ machine with 10,800 cached packages (46 GB), looking into every archive took the
 build from under a second to a minute, and its memory from 0.8 to 2.6 GB.
 
 To have the archives on another disk looked into, add that folder to *Folders read*.
+
+### Everywhere
+
+*Look inside archives everywhere the names are indexed* (`archives_everywhere = true`) looks
+inside every archive the name index sees: the whole machine, caches, package stores and
+programs' folders included. Their entries are found **by name**; their text is still read only
+in the folders read, less caches. Expect a larger name index that takes longer to build: see
+[Does looking inside archives make search slower or bigger?](#does-looking-inside-archives-make-search-slower-or-bigger).
 
 ## When an archive changes
 
@@ -119,6 +138,7 @@ sends one anywhere: what it knows of a locked archive is what anyone can see.
 | One file inside | 20 MB (`text_max_size`) | Its name is found, its text is not read |
 | Read out of one archive | 128 MB | The files after that are found by name only |
 | How deep | 64 folders | Deeper entries, and entries named with `..`, are left out |
+| A 7z's packed list of contents | 64 MB, unpacked | The 7z is not opened, here or as a folder: *This 7z's list of contents unpacks to … MB, more than the 64 MB Coxswain opens*. The list is unpacked into memory before anything else, so a crafted 7z could otherwise fill it |
 
 - **An archive inside an archive** is not looked into: the inner one is found by its name.
 - **Folder sizes and Duplicates** see an archive as the one file it is on disk; its contents are
@@ -135,10 +155,12 @@ are found by name and by their text* (desktop app); `archives` under `[search]` 
 | Key | Type | Default | Does |
 |---|---|---|---|
 | `archives` | bool | `true` | Look inside archives, for names and for text. `false`: archives are found by their own names only, and what the store had read inside them is removed |
+| `archives_everywhere` | bool | `false` | Look inside every archive the name index sees, caches too, for their names ([Everywhere](#everywhere)). *Settings → Search inside files → Look inside archives everywhere the names are indexed*, shown while the switch above is on |
 
 ```toml
 [search]
-archives = false
+archives = true
+archives_everywhere = true
 ```
 
 The folders looked into follow `text_roots`, `text_exclude` and `names_only`
@@ -147,14 +169,14 @@ The folders looked into follow `text_roots`, `text_exclude` and `names_only`
 ## In the terminal app
 
 The same: the same index and store, kept by the same [helper](helper.md), the same hits and the
-same **Enter**. There is no Settings window: set `archives` in `config.toml`; the helper takes
-it at its next start.
+same **Enter**. There is no Settings window: set `archives` and `archives_everywhere` in
+`config.toml`; the helper takes them at its next start.
 
 ## Questions
 
 #### Does Find file find files inside my zip files?
 Yes, when the zip is in a folder that is read (your home folder by default, not inside a hidden
-folder): by name at *everywhere* and *in this folder*, and by their words at *Text in files*. A
+folder or a cache): by name at *everywhere* and *in this folder*, and by their words at *Text in files*. A
 zip elsewhere is found by its own name only; see [Which archives](#which-archives).
 
 #### I added a file to a zip. When can I find it?
@@ -169,9 +191,17 @@ entries; the archive is not in a folder that is read, or is in a hidden one; or,
 the file is larger than 20 MB or comes after the first 128 MB read out of the archive.
 
 #### Why are the jars in ~/.m2, or the archives in ~/.cache, not looked into?
-They are in hidden folders, which search leaves out, as it does for their text. Those are a
-program's archives, not yours, and would fill the results. Add the folder to *Folders read* if
-you want them.
+They are a program's archives, not yours, and would fill the results and the name index: caches,
+package stores, build output and programs' data folders are left out, hidden or not
+([Which archives](#which-archives)). Tick *Look inside archives everywhere the names are
+indexed* in *Settings → Search inside files* (or `archives_everywhere = true`) to have their
+entries found by name.
+
+#### Why does a 7z say its list of contents is too big?
+Its list of contents is packed, and says it unpacks to more than 64 MB. A 7z unpacks that list
+into memory before anything else, and a real one takes a few hundred kilobytes even for tens of
+thousands of files, so Coxswain does not open it: not as a folder, not in a preview, not in
+search. Open it with 7-Zip if you trust where it came from.
 
 #### Can search find files in a locked archive?
 Their names, when the archive shows its names without a password: every zip does, a 7z with
@@ -184,6 +214,16 @@ A little, and only for the archives in the folders read. On a test tree of 200,0
 when its archives had not changed) and its cache 8.1 MB instead of 4.6 MB; a search took the
 same time. On a whole Linux machine with 3.4 million names, a home folder with few archives
 made no difference to see.
+
+Caches are where most of a machine's archives are. On a test home laid out as on macOS, with
+10,000 files and 20 zips in projects and 400 zips in `Library/Caches` and
+`Library/Application Support` (500 entries each), the name index took:
+
+| Archives | Names | Build | Memory |
+|---|---|---|---|
+| Off | 10,600 | 2 ms | 5 MB |
+| Looked into, caches left out (the default since 1.30.0) | 20,600 | 15 ms | 15 MB |
+| Everywhere (and the default before 1.30.0, where caches are not hidden) | 221,000 | 90 ms | 52 MB |
 
 #### How do I turn it off?
 Untick *Search inside archives* in *Settings → Search inside files*, or set `archives = false`

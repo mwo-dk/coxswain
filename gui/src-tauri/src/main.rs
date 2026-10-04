@@ -184,6 +184,8 @@ struct Settings {
     search_text: bool,
     /// Search inside archives: their entries by name, their files' text.
     search_archives: bool,
+    /// Look inside archives everywhere the names are indexed, caches too.
+    search_archives_everywhere: bool,
     /// The folders whose text is read; the home folder when none are set.
     text_roots: Vec<PathBuf>,
     names_only: Vec<PathBuf>,
@@ -223,6 +225,7 @@ impl From<&Config> for Settings {
             latex_image: c.preview.images.get("latex").cloned().unwrap_or_default(),
             search_text: c.search.text,
             search_archives: c.search.archives,
+            search_archives_everywhere: c.search.archives_everywhere,
             text_roots: c.search.text_roots.clone(),
             names_only: c.search.names_only.clone(),
             text_exclude: c.search.text_exclude.clone(),
@@ -259,6 +262,7 @@ const SETTING_PATHS: &[(&str, &[&str])] = &[
     ("latex_image", &["preview", "images", "latex"]),
     ("search_text", &["search", "text"]),
     ("search_archives", &["search", "archives"]),
+    ("search_archives_everywhere", &["search", "archives_everywhere"]),
     ("text_roots", &["search", "text_roots"]),
     ("names_only", &["search", "names_only"]),
     ("text_exclude", &["search", "text_exclude"]),
