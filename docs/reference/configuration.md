@@ -203,7 +203,8 @@ flags start a new one.
 | `cloud` | string | `"local-only"` | Files only in OneDrive, Dropbox, Google Drive, Proton Drive, iCloud or a cloud mount: `"local-only"` finds them by name and never reads (downloads) them; `"all"` reads them ([Cloud files](../search/cloud-files.md)) |
 | `cloud_read` | list of paths | `[]` | Cloud folders whose online-only files are read anyway |
 | `text_max_size` | number (bytes) | `20971520` (20 MB) | Larger files are not read |
-| `archives` | bool | `true` | Look inside the zip, 7z and tar archives in the folders read: their files are found by name and by their text ([Inside archives](../search/archives.md)) |
+| `archives` | bool | `true` | Look inside the zip, 7z and tar archives in the folders read, less caches and build output: their files are found by name and by their text ([Inside archives](../search/archives.md)) |
+| `archives_everywhere` | bool | `false` | Look inside every archive the name index sees, caches and programs' folders too, for their names ([Which archives](../search/archives.md#which-archives)) |
 | `meaning` | bool | `false` | Search by meaning ([Search by meaning](../search/meaning.md)) |
 | `meaning_engine` | string | `"builtin"` | `"builtin"` (the downloaded model, on this CPU), `"ollama"` (an Ollama server's `/api/embed`) or `"openai"` (any `/v1/embeddings`: Lemonade, LM Studio, llama.cpp, vLLM) ([on a server](../search/servers.md)) |
 | `meaning_url` | string | `""` | The server. Empty for Ollama on this machine (`http://localhost:11434`); for `"openai"` the base URL, for example `http://localhost:8000/api/v1` |
@@ -289,6 +290,7 @@ Each Settings item and the key it writes:
 | | *Show when each file and folder was last committed, and by whom* | `[git] last_commit` |
 | *Search inside files* | *Keep the text of files, so Find file can search in it (Shift+F7)* | `[search] text` |
 | | *Search inside archives…* | `[search] archives` |
+| | *Look inside archives everywhere the names are indexed…* | `[search] archives_everywhere` |
 | | *Folders read* | `[search] text_roots` |
 | | *Names only* | `[search] names_only` |
 | | *Cloud files: read files that are only online…* | `[search] cloud` |

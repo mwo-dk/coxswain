@@ -318,17 +318,18 @@ impl Store {
     }
 
     /// What a walk found, in one transaction: rows at and below each of `gone` go, with their
-    /// text and hashes; new or changed files wait to be read again, and with `archives` the
-    /// files inside a changed archive are those it has now, the members that kept their size
-    /// and time keeping their text and vectors; the folders left out get their totals. `all`
-    /// is a walk of every root, which knows every folder left out.
-    fn apply(&self, gone: &[String], changed: &[Changed], skipped: &[(String, Size)], all: bool, archives: bool) -> rusqlite::Result<()> {
+    /// text and hashes; new or changed files wait to be read again, and with `archives` (the
+    /// folders read, when archives are looked into) the files inside a changed archive out of
+    /// caches are those it has now, the members that kept their size and time keeping their
+    /// text and vectors; the folders left out get their totals. `all` is a walk of every root,
+    /// which knows every folder left out.
+    fn apply(&self, gone: &[String], changed: &[Changed], skipped: &[(String, Size)], all: bool, archives: Option<&[PathBuf]>) -> rusqlite::Result<()> {
         // Archives are listed before the store is locked: searches go on meanwhile.
         let inside: Vec<(&str, Vec<Member>)> = changed
             .iter()
             .filter(|(path, ..)| crate::archive::is_archive(Path::new(path)))
             .map(|(path, size, ..)| {
-                let entries = if archives { crate::archive::search_entries(Path::new(path), *size).unwrap_or_default() } else { vec![] };
+                let entries = if archives.is_some_and(|roots| !in_cache(Path::new(path), roots)) { crate::archive::search_entries(Path::new(path), *size).unwrap_or_default() } else { vec![] };
                 (path.as_str(), entries.into_iter().filter(|e| !e.is_dir).filter_map(|e| Some((key(&Path::new(path).join(&e.name))?, e.size, e.modified))).collect())
             })
             .collect();
@@ -429,11 +430,12 @@ impl Store {
         rows.collect()
     }
 
-    /// Search inside archives was turned on or off: the files inside go, and when it is on,
-    /// every archive is listed again.
+    /// Search inside archives was turned on or off, or which archives changed: the files
+    /// inside go, and when it is on, every archive is listed again.
     fn archives_changed(&self, on: bool) -> rusqlite::Result<()> {
         let mut db = self.db.lock().unwrap();
-        let now = if on { "1" } else { "0" };
+        // "2": archives in caches are left out.
+        let now = if on { "2" } else { "0" };
         let before: String = db.query_row("SELECT value FROM meta WHERE key = 'archives'", [], |r| r.get(0)).unwrap_or_default();
         if before == now {
             return Ok(());
@@ -516,7 +518,7 @@ impl Store {
         let old: Vec<String> = q.query_map(params![from, to, max as i64], |r| r.get(0))?.collect::<rusqlite::Result<_>>()?;
         drop(q);
         drop(db);
-        if old.is_empty() { Ok(()) } else { self.apply(&old, &[], &[], false, false) }
+        if old.is_empty() { Ok(()) } else { self.apply(&old, &[], &[], false, None) }
     }
 
     /// Files that share their size with another and have no current hash: (path, size, modified).
@@ -765,6 +767,27 @@ pub(crate) fn left_out(dir: &Path, cfg: &SearchConfig) -> bool {
         || name.starts_with('.') || excluded(&name, cfg) || cfg.names_only.iter().any(|p| p == dir) || dir.join(".nosearch").exists()
 }
 
+/// Folders of caches, package stores, build output and programs' data: the archives in them
+/// are a program's, not the user's, and are not looked into (unless `archives_everywhere`, for
+/// their names), wherever the folders read are.
+pub(crate) fn cache_folder(dir: &Path) -> bool {
+    const NAMES: &[&str] = &[".cache", ".cargo", ".npm", ".m2", ".gradle", ".rustup", ".pnpm-store", "node_modules", "target"];
+    static AT: std::sync::OnceLock<Vec<PathBuf>> = std::sync::OnceLock::new();
+    let at = AT.get_or_init(|| {
+        let home = std::env::home_dir().unwrap_or_default();
+        let mut v: Vec<PathBuf> = [dirs::cache_dir(), dirs::data_dir(), dirs::data_local_dir()].into_iter().flatten().collect();
+        v.extend([".local/share", "Library/Caches", "AppData/Local"].map(|p| home.join(p)));
+        v.extend(["/var/cache", "/var/lib"].map(PathBuf::from));
+        v
+    });
+    dir.file_name().is_some_and(|n| NAMES.iter().any(|x| n == *x)) || at.iter().any(|p| p == dir)
+}
+
+/// Whether the archive at `path` is in a cache folder at or below one of `roots`.
+pub(crate) fn in_cache(path: &Path, roots: &[PathBuf]) -> bool {
+    path.ancestors().skip(1).take_while(|a| roots.iter().any(|r| a.starts_with(r))).any(cache_folder)
+}
+
 /// Whether a folder or file of this name is left out by `text_exclude`: a name (`node_modules`)
 /// or a pattern with `*` and `?` (`*.log`, `secret*`).
 pub(crate) fn excluded(name: &str, cfg: &SearchConfig) -> bool {
@@ -863,7 +886,7 @@ pub fn scan(store: &Store, cfg: &SearchConfig, stop: &AtomicBool) -> rusqlite::R
     // Commits are not files on disk: `history` keeps them.
     let gone: Vec<String> = known.into_keys().filter(|path| !path.starts_with("git:") && !found.seen.contains(path) && !kept.iter().any(|(from, to)| path > from && path < to)).collect();
     *store.offline.lock().unwrap() = offline;
-    store.apply(&gone, &found.changed, &found.skipped, true, cfg.archives)?;
+    store.apply(&gone, &found.changed, &found.skipped, true, cfg.archives.then_some(&roots[..]))?;
     *store.walked.lock().unwrap() = Some((roots, began));
     if read(store, cfg, stop)? {
         return Ok(());
@@ -1080,7 +1103,7 @@ fn history(store: &Store, repos: &[PathBuf], kept: &[(String, String)], stop: &A
     };
     let now: HashSet<String> = repos.iter().filter_map(|r| key(r)).collect();
     for root in had.iter().filter(|r| !now.contains(*r) && !kept.iter().any(|(from, to)| *r > from && *r < to)) {
-        store.apply(&[rows(Path::new(root))], &[], &[], false, false)?;
+        store.apply(&[rows(Path::new(root))], &[], &[], false, None)?;
         set(&format!("history:{root}"), None)?;
     }
     for repo in repos {
@@ -1096,7 +1119,7 @@ fn history(store: &Store, repos: &[PathBuf], kept: &[(String, String)], stop: &A
         let start = Instant::now();
         // Rewritten (or new): read from the start.
         if !grew {
-            store.apply(&[rows(repo)], &[], &[], false, false)?;
+            store.apply(&[rows(repo)], &[], &[], false, None)?;
         }
         let Ok(commits) = crate::history::for_search(repo, old.as_deref().filter(|_| grew), HISTORY_MAX) else { continue };
         store.put_commits(repo, &commits, HISTORY_MAX)?;
@@ -1162,7 +1185,7 @@ pub fn refresh(store: &Store, cfg: &SearchConfig, paths: &mut HashSet<PathBuf>, 
     *paths = again;
     let Some(found) = walk(store, new, cfg, &Known::default(), stop) else { return Ok(()) };
     changed.extend(found.changed);
-    store.apply(&gone, &changed, &found.skipped, false, cfg.archives)?;
+    store.apply(&gone, &changed, &found.skipped, false, cfg.archives.then_some(&roots[..]))?;
     walked_now(store, began);
     read(store, cfg, stop).map(|_| ())
 }
@@ -1186,7 +1209,7 @@ pub fn measure(store: &Store, cfg: &SearchConfig, later: &mut HashSet<PathBuf>, 
     }
     let Some(found) = walk(store, again, cfg, &Known::default(), stop) else { return Ok(()) };
     skipped.extend(found.skipped);
-    store.apply(&gone, &found.changed, &skipped, false, cfg.archives)?;
+    store.apply(&gone, &found.changed, &skipped, false, cfg.archives.then(|| roots(cfg)).as_deref())?;
     walked_now(store, began);
     read(store, cfg, stop).map(|_| ())
 }
@@ -1437,6 +1460,16 @@ mod tests {
     }
 
     #[test]
+    fn store_leaves_out_archives_in_caches() {
+        let roots = [PathBuf::from("/h"), PathBuf::from("/w/target/keep")];
+        for (path, cached) in [("/h/p/a.zip", false), ("/h/p/node_modules/x/a.zip", true), ("/h/.cargo/registry/a.tar.gz", true), ("/h/target.zip", false), ("/w/target/keep/a.zip", false), ("/elsewhere/target/a.zip", false)] {
+            assert_eq!(in_cache(Path::new(path), &roots), cached, "{path}");
+        }
+        let cache = dirs::cache_dir().unwrap();
+        assert!(in_cache(&cache.join("a.zip"), std::slice::from_ref(&cache)), "a folder read that is one");
+    }
+
+    #[test]
     fn store_reads_inside_archives_and_follows_their_changes() {
         let d = std::env::temp_dir().join(format!("coxswain-store-arc-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&d);
@@ -1543,7 +1576,7 @@ mod tests {
         let d = std::env::temp_dir().join(format!("coxswain-store-tools-{}", std::process::id()));
         std::fs::create_dir_all(&d).unwrap();
         let store = Store::open(&d.join("search.db")).unwrap();
-        store.apply(&[], &[("/h/scan.PNG".into(), 1, 1, false), ("/h/a.txt".into(), 1, 1, false)], &[], false, false).unwrap();
+        store.apply(&[], &[("/h/scan.PNG".into(), 1, 1, false), ("/h/a.txt".into(), 1, 1, false)], &[], false, None).unwrap();
         store.read(&store.unread().unwrap().iter().map(|(id, ..)| (*id, None)).collect::<Vec<_>>()).unwrap();
         assert!(store.unread().unwrap().is_empty());
         store.tools_changed(&[]).unwrap();

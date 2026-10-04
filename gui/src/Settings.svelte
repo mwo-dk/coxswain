@@ -321,6 +321,9 @@
       <h3>{t("settings.search")}</h3>
       <label class="check"><input type="checkbox" checked={s.search_text} onchange={(e) => setSearch("search_text", e.currentTarget.checked)} /> {t("settings.search_text")}</label>
       <label class="check"><input type="checkbox" checked={s.search_archives} onchange={(e) => setSearch("search_archives", e.currentTarget.checked)} /> {t("settings.search_archives")}</label>
+      {#if s.search_archives}
+        <label class="check sub"><input type="checkbox" checked={s.search_archives_everywhere} onchange={(e) => setSearch("search_archives_everywhere", e.currentTarget.checked)} /> {t("settings.search_archives_everywhere")}</label>
+      {/if}
       {#if s.search_text}
         <p class="hint">
           {#if !index?.shared}
@@ -788,6 +791,9 @@
     gap: 8px;
     color: var(--dialog-fg);
     margin-bottom: 6px;
+  }
+  .check.sub {
+    margin-inline-start: 24px;
   }
   input:not([type="checkbox"]),
   select {

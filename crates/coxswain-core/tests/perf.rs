@@ -258,3 +258,65 @@ fn perf_meaning_closest() {
         println!("passages {q:?}: {:.1} ms, {} passages", ms(t), p.len());
     }
 }
+
+/// A home folder laid out as on macOS, where the caches are not hidden: 10,000 files and 20
+/// zips of 500 entries in projects, and 400 zips of 500 entries in `Library/Caches` and
+/// `Library/Application Support`.
+fn home_with_caches() -> PathBuf {
+    let d = bench_dir().join("home-caches");
+    if d.join(".done").exists() {
+        return d;
+    }
+    let _ = std::fs::remove_dir_all(&d);
+    let src = d.join("member-src");
+    std::fs::create_dir_all(&src).unwrap();
+    for i in 0..500 {
+        std::fs::write(src.join(format!("member-{i}.txt")), b"x").unwrap();
+    }
+    for i in 0..200 {
+        let sub = d.join("home/projects").join(format!("p{i}"));
+        std::fs::create_dir_all(&sub).unwrap();
+        for j in 0..50 {
+            std::fs::write(sub.join(format!("mod_{i}_{j}.{}", EXTS[j % 9])), b"").unwrap();
+        }
+    }
+    let first = d.join("home/projects/a0.zip");
+    coxswain_core::archive::create(&first, &[src.clone()]).unwrap();
+    let places = (0..20).map(|i| format!("projects/a{i}.zip")).chain((0..300).map(|i| format!("Library/Caches/pkgs/c{i}.zip"))).chain((0..100).map(|i| format!("Library/Application Support/app/s{i}.zip")));
+    for p in places {
+        let to = d.join("home").join(p);
+        std::fs::create_dir_all(to.parent().unwrap()).unwrap();
+        if to != first {
+            std::fs::copy(&first, &to).unwrap();
+        }
+    }
+    std::fs::write(d.join(".done"), b"").unwrap();
+    d
+}
+
+/// The name index of `home_with_caches`, built as `COXSWAIN_BENCH_ARCHIVES` says: `off`,
+/// `default` or `everywhere`. One per process, for its memory.
+#[test]
+#[ignore]
+fn perf_index_archive_scope() {
+    let home = home_with_caches().join("home");
+    let how = std::env::var("COXSWAIN_BENCH_ARCHIVES").unwrap_or_else(|_| "default".into());
+    // macOS's places, under this home.
+    unsafe {
+        std::env::set_var("XDG_CACHE_HOME", home.join("Library/Caches"));
+        std::env::set_var("XDG_DATA_HOME", home.join("Library/Application Support"));
+    }
+    let cfg = coxswain_core::config::SearchConfig { text_roots: vec![home.clone()], archives_everywhere: how == "everywhere", ..Default::default() };
+    let archives = (how != "off").then_some(&cfg);
+    let before = rss_mb();
+    let mut times = vec![];
+    let mut ix = Index::default();
+    for _ in 0..3 {
+        drop(ix);
+        let t = Instant::now();
+        ix = Index::build(std::slice::from_ref(&home), &[], archives, None);
+        times.push(ms(t));
+    }
+    times.sort_by(f64::total_cmp);
+    println!("archives {how}: build {:.0} ms (median of 3), {} names, memory +{:.0} MB", times[1], ix.len(), rss_mb() - before);
+}

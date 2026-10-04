@@ -44,7 +44,8 @@ pub struct Index {
     root_ids: Vec<u32>,
     gone: usize,
     /// Look inside the archives in the folders whose text is read (`store::roots`, less the
-    /// folders `store::left_out`): these settings, and those folders. `None`: never.
+    /// folders `store::left_out` and caches), or everywhere: these settings, and those
+    /// folders. `None`: never.
     archives: Option<(SearchConfig, Vec<PathBuf>)>,
     /// Each archive looked into: its size and modified time (nanoseconds) then.
     stamps: HashMap<u32, Stamp>,
@@ -205,13 +206,14 @@ impl Index {
     /// looked into.
     fn looks_below(&self, dir: &Path, parent: bool) -> bool {
         let Some((cfg, read)) = &self.archives else { return false };
-        read.iter().any(|r| r == dir) || parent && !crate::store::left_out(dir, cfg)
+        cfg.archives_everywhere || (read.iter().any(|r| r == dir) || parent && !crate::store::left_out(dir, cfg)) && !crate::store::cache_folder(dir)
     }
 
     /// Whether the archives in `dir` are looked into, from its path alone.
     fn looks_in(&self, dir: &Path) -> bool {
         let Some((cfg, read)) = &self.archives else { return false };
-        read.iter().any(|r| dir.starts_with(r) && !dir.ancestors().take_while(|a| a != r).any(|a| crate::store::left_out(a, cfg)))
+        let skipped = |a: &Path, r: &Path| a != r && crate::store::left_out(a, cfg) || crate::store::cache_folder(a);
+        cfg.archives_everywhere || read.iter().any(|r| dir.starts_with(r) && !dir.ancestors().take_while(|a| a.starts_with(r)).any(|a| skipped(a, r)))
     }
 
     /// An archive's entries as its children: from `before` when it knew the archive as it is,
@@ -1086,6 +1088,25 @@ mod tests {
             }
             fs::set_permissions(&tgz, fs::Permissions::from_mode(0o644)).unwrap();
         }
+        // Caches and build output are not looked into, even with `text_exclude` emptied, nor
+        // a folder read that is one; everywhere, every archive is.
+        fs::write(d.join("cached.rs"), "").unwrap();
+        for dir in [".cache", "app/target", "app/node_modules/x"] {
+            fs::create_dir_all(home.join(dir)).unwrap();
+            crate::archive::create(&home.join(dir).join("a.zip"), &[d.join("cached.rs")]).unwrap();
+        }
+        let bare = SearchConfig { text_exclude: vec![], ..cfg.clone() };
+        assert_eq!(paths(&Index::build(std::slice::from_ref(&home), &[], Some(&bare), None), "cached", None), Vec::<PathBuf>::new());
+        let cache_read = SearchConfig { text_roots: vec![home.join("app/target")], ..bare.clone() };
+        assert_eq!(paths(&Index::build(std::slice::from_ref(&home), &[], Some(&cache_read), None), "cached", None), Vec::<PathBuf>::new());
+        let everywhere = SearchConfig { archives_everywhere: true, text_roots: vec![d.join("src")], ..cfg.clone() };
+        let mut all = Index::build(std::slice::from_ref(&home), &[], Some(&everywhere), None);
+        let want: Vec<PathBuf> = [".cache", "app/node_modules/x", "app/target"].iter().map(|dir| home.join(dir).join("a.zip").join("cached.rs")).collect();
+        assert_eq!(paths(&all, "cached", None), want);
+        fs::create_dir_all(home.join(".m2")).unwrap();
+        crate::archive::create(&home.join(".m2/b.zip"), &[d.join("cached.rs")]).unwrap();
+        all.refresh(&[home.clone()].into_iter().collect());
+        assert_eq!(paths(&all, "cached", Some(&home.join(".m2"))), [home.join(".m2/b.zip/cached.rs")], "and follows their changes");
         crate::archive::forget(&seven);
         fs::remove_dir_all(d).unwrap();
     }
