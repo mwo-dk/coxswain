@@ -76,6 +76,29 @@ pub fn installed() -> bool {
     }
 }
 
+/// The program the registration starts, as written in it.
+pub fn registered() -> Option<PathBuf> {
+    let text = if cfg!(windows) {
+        String::from_utf8(crate::tools::command("reg").args(["query", RUN_KEY, "/v", NAME]).output().ok()?.stdout).ok()?
+    } else {
+        std::fs::read_to_string(file()?).ok()?
+    };
+    exe_in(&text)
+}
+
+/// The program in a registration's text: the systemd unit's `ExecStart`, the first of the
+/// LaunchAgent's arguments, the quoted start of the Run entry.
+fn exe_in(text: &str) -> Option<PathBuf> {
+    let (open, close) = if cfg!(target_os = "macos") {
+        ("<array><string>", "</string>")
+    } else if cfg!(windows) {
+        ("\"", "\"")
+    } else {
+        ("ExecStart=\"", "\"")
+    };
+    Some(PathBuf::from(text.split_once(open)?.1.split_once(close)?.0))
+}
+
 #[cfg(windows)]
 const RUN_KEY: &str = r"HKCU\Software\Microsoft\Windows\CurrentVersion\Run";
 #[cfg(not(windows))]
@@ -130,6 +153,9 @@ mod tests {
         if cfg!(target_os = "linux") {
             assert!(text.contains("ExecStart=\"/opt/Cox Swain/coxswain-gui\" --index-helper --stay"));
             assert!(file().unwrap().ends_with("systemd/user/coxswain-index.service"));
+        }
+        if !cfg!(windows) {
+            assert_eq!(exe_in(&text).as_deref(), Some(Path::new("/opt/Cox Swain/coxswain-gui")));
         }
     }
 }

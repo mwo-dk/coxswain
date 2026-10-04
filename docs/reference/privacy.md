@@ -73,7 +73,7 @@ script or a picture on the web gets nothing from the web ([HTML pages](../previe
 | **Ask** | The question, the questions and answers before it in this Find file, and the ten closest passages with their paths, to the chat model on the server (Ollama on this machine with the built-in model). Nothing is stored | You: pressing **Enter** at Find file's Ask depth ([Ask](../search/ask.md)) | Leave *Chat model* empty, or use a server on `localhost` |
 | **Ollama pull** | Ollama downloads the model from its registry | You: *Pull bge-m3 with Ollama* or `coxswain --meaning ollama` | Do not pull |
 | **Container images** | podman or docker downloads the image from its registry (`docker.io`) | You: the first build or render with a container, or *Pull* in Settings. Never by itself | `[preview] container = "off"` |
-| **Links you click** | The release notes, a notice's page, a web link in a rendered Markdown or AsciiDoc file: each opens in your browser | You | – |
+| **Links you click** | The release notes, a docs page under *Settings → What's new* (on GitHub), a web link in a rendered Markdown or AsciiDoc file: each opens in your browser. *What's new* itself is built into the app | You | – |
 
 On a machine with search by meaning on the built-in model, Coxswain also asks
 `http://localhost:11434`, now and then, whether Ollama runs there, to suggest it. That request

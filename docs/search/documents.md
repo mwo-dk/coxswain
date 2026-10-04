@@ -13,7 +13,7 @@ code.
 ## How to use it
 
 Nothing to do: every file of these kinds inside a [folder read](folders.md) is read by the
-[search helper](helper.md). Search it with **Alt+F7** (or **Ctrl+F**), **Tab**, **Tab**, and your words.
+[search helper](helper.md). Search it with **Shift+F7** (or **Ctrl+Shift+F** in the desktop app) and your words.
 
 ## Formats
 

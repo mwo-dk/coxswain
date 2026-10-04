@@ -23,7 +23,10 @@ with the command that upgrades your copy. Nothing is downloaded or installed by 
 2. When a newer version exists, a button appears at the right of the command line (desktop app)
    or a line in the status line (terminal app).
 3. Run the command it names in a shell, or click the button for the release page.
-4. The first start of the new version shows the notice *Updated to 1.21.0: see what's new* once.
+4. After the upgrade, the desktop app's **⚙ Settings** button shows a count: click it for
+   *Settings → What's new*, with the new version's changes marked *new*. The terminal app says
+   once `Coxswain 1.21.0 is installed: coxswain --whats-new says what it brought`
+   ([Notices and what's new](../search/notices.md)).
 
 To turn it off: Settings (**Ctrl+,**) → *Behaviour* → untick *Check for a new version once a
 day*, or `check_updates = false` in `config.toml`.
@@ -50,9 +53,10 @@ day*, or `check_updates = false` in `config.toml`.
 | Newer version, installed from a download | *Coxswain 1.21.0 is available*, tooltip *Open the releases page* | `Coxswain 1.21.0 is available: https://github.com/mwo-dk/coxswain/releases/latest` |
 | Click | Opens the release page in your browser | – |
 | How long | Until you update; it has no `×` | Until the status line shows something else |
-| After updating | The notice *Updated to 1.21.0: see what's new*, once, which opens the release notes | The same notice, once, in the status line with the address |
+| After updating | A count on **⚙ Settings**; a click opens *Settings → What's new*, where the new version's changes are marked *new* | Once, in the status line: `Coxswain 1.21.0 is installed: coxswain --whats-new says what it brought` |
 
-While the update button shows, the desktop app holds back other [notices](../search/notices.md).
+While the update button shows, the desktop app holds back a problem with search in the status
+line ([Notices and what's new](../search/notices.md)).
 
 ## The upgrade command
 

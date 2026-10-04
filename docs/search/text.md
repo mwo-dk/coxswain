@@ -21,9 +21,10 @@ is called.
 
 ## How to use it
 
-1. Open [Find file](find-file.md): **Alt+F7** or **Ctrl+F**.
-2. Press **Tab** twice. The prompt is `text: ` (terminal app); the *Text in files* button is
-   highlighted (desktop app). Or click *Text in files*.
+1. Press **Shift+F7** (or **Ctrl+Shift+F** in the desktop app): [Find file](find-file.md) opens
+   at text. The prompt is `text: ` (terminal app); the *Text in files* button is highlighted
+   (desktop app). Already in Find file, **Shift+F7** goes there too, or **Tab** twice from
+   *Everywhere*, or a click on *Text in files*. The F9 command list calls it *Search inside files*.
 3. Type words: `rocket budget`. Best matches come first.
 4. **Enter** goes to the file, **F4** edits it, **F3** views it (terminal app).
 
@@ -82,7 +83,7 @@ within a minute. A walk every ten minutes catches anything the watcher missed.
 
 | Key | Type | Default | Does |
 |---|---|---|---|
-| `text` | bool | `true` | *Keep the text of files, so Find file can search in it (Tab)* |
+| `text` | bool | `true` | *Keep the text of files, so Find file can search in it (Shift+F7)* |
 | `text_roots` | list of paths | `[]` (your home folder) | *Folders read* |
 | `text_exclude` | list of strings | `["node_modules", "target", "build", "dist", "out", "vendor", "__pycache__", "Trash"]` | Folder names left out, wherever they are |
 | `names_only` | list of paths | `[]` | *Names only* |

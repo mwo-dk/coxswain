@@ -41,12 +41,20 @@
   // fast typing never queues a scan per keystroke.
   let busy = false;
   let again = false;
-  /** Tab in Find file: names everywhere, names in this folder, the text of files, Ask. */
-  function nextMode(m) {
-    m.mode = (m.mode + 1) % 4;
+  /** Find file's depths: names everywhere, names in this folder, the text of files, Ask. */
+  function setMode(m, mode) {
+    m.mode = mode;
     m.res = null;
+    m.cursor = 0;
     runSearch();
   }
+  /** The depth each action opens Find file at; Tab and Shift+Tab go to the next and the previous. */
+  const depths = { search: 0, search_text: 2, ask: 3 };
+  /** A depth button's tooltip: its own key, if it has one, and Tab. */
+  const depthKey = (i) => {
+    const act = Object.keys(depths).find((a) => depths[a] === i);
+    return [act && ui.cfg.actions[act]?.[1], "Tab / Shift+Tab"].filter(Boolean).join(" · ");
+  };
   /** A snippet with the words it found marked; everything else is text, never markup. */
   const marked = (s) =>
     s
@@ -231,11 +239,14 @@
         else if (k === "n" || k === "Shift+N") close();
         return true;
       case "search": {
+        if (k === "Tab" || k === "Shift+Tab" || act in depths) {
+          setMode(m, depths[act] ?? (m.mode + (k === "Tab" ? 1 : 3)) % 4);
+          return true;
+        }
         if (m.mode === 3) {
           const src = lastSources(m);
           if (k === "Enter" && m.query.trim()) askNow(m);
           else if (k === "Enter" && src[m.cursor]) goToHit({ path: src[m.cursor] });
-          else if (k === "Tab") nextMode(m);
           else if (k === "Up") m.cursor = Math.max(0, m.cursor - 1);
           else if (k === "Down") m.cursor = Math.min(src.length - 1, m.cursor + 1);
           else if (act === "edit" && src[m.cursor]) invoke("edit_path", { path: src[m.cursor] });
@@ -245,9 +256,7 @@
         const hits = m.res?.hits ?? [];
         const h = hits[m.cursor];
         if (k === "Enter" && h) goToHit(h);
-        else if (k === "Tab") {
-          nextMode(m);
-        } else if (k === "Up") m.cursor = Math.max(0, m.cursor - 1);
+        else if (k === "Up") m.cursor = Math.max(0, m.cursor - 1);
         else if (k === "Down") m.cursor = Math.min(hits.length - 1, m.cursor + 1);
         else if (k === "PageUp") m.cursor = Math.max(0, m.cursor - 15);
         else if (k === "PageDown") m.cursor = Math.min(hits.length - 1, m.cursor + 15);
@@ -373,9 +382,9 @@
           <span class="glyph">{"\u{f002}"}</span>
           <input bind:this={input} bind:value={m.query} oninput={runSearch} placeholder={t(m.mode === 3 ? "dialogs.ask_placeholder" : m.mode === 2 ? "dialogs.text_placeholder" : "dialogs.search_placeholder")} spellcheck="false" />
           <!-- The four ways to look, all in sight; Tab goes to the next. -->
-          <div class="scopes" role="radiogroup" aria-label={t("search.title")} title="Tab">
+          <div class="scopes" role="radiogroup" aria-label={t("search.title")}>
             {#each [t("dialogs.scope_everywhere"), t("dialogs.scope_in", { folder: basename(tab().dir) }), t("dialogs.scope_text"), t("dialogs.scope_ask")] as label, i (i)}
-              <button class="scope" class:on={m.mode === i} role="radio" aria-checked={m.mode === i} onclick={() => { m.mode = i; m.res = null; runSearch(); input.focus(); }}>{label}</button>
+              <button class="scope" class:on={m.mode === i} role="radio" aria-checked={m.mode === i} title={depthKey(i)} onclick={() => { setMode(m, i); input.focus(); }}>{label}</button>
             {/each}
           </div>
         </div>

@@ -83,7 +83,7 @@ Coxswain 1.20.0 · search: names · text · meaning
 | Word | Shown when |
 |---|---|
 | `names` | Always: Find file finds names everywhere ([Names everywhere](../search/names.md)) |
-| `text` | *Settings → Search inside files → Keep the text of files, so Find file can search in it (Tab)* is on (`[search] text`, on by default) ([Text in files](../search/text.md)) |
+| `text` | *Settings → Search inside files → Keep the text of files, so Find file can search in it (Shift+F7)* is on (`[search] text`, on by default) ([Text in files](../search/text.md)) |
 | `meaning` | Search by meaning is on and the search helper runs it ([Search by meaning](../search/meaning.md)) |
 
 The desktop app sets it at start and looks again every ten seconds, so turning a kind of
@@ -91,7 +91,7 @@ search on or off shows within a few seconds. On Linux the title bar that GTK dra
 well, so it shows the same text as the task bar. The terminal app sets the terminal's title
 every five seconds, starting five seconds after it starts; terminals that show titles show it
 in their title bar or tab. More on the notices that come with it:
-[Notices and the window title](../search/notices.md).
+[Notices and what's new](../search/notices.md).
 
 ## The status line
 
@@ -103,11 +103,13 @@ Two kinds of message come by themselves:
 - **Updates:** `Coxswain 1.21.0 is available: <how>` when a newer release is out
   ([Update checks](../reference/updates.md)). In the desktop app it is a button that opens
   the release page.
-- **Notices** of what search can do that you have not turned on, one at a time
-  (*Install tesseract to search the words in scans, screenshots and pictures*). The desktop
-  app shows a button that opens the Settings section, with a `×` to dismiss it; the terminal
-  app shows it once in the status line, with the command that turns it on, and counts it as
-  seen. See [Notices and the window title](../search/notices.md).
+- **Tips** of what search can do that you have not turned on (*Install tesseract to search the
+  words in scans, screenshots and pictures*), and after an upgrade what it brought. The desktop
+  app counts them on its **⚙ Settings** button and lists them under *Settings → What's new*; only
+  a problem with search (*Search inside files has stopped: …*) is a button in the status line,
+  with a `×`. The terminal app shows one tip at a time once in the status line, with the command
+  that turns it on, and counts it as seen; after an upgrade it points to `coxswain --whats-new`.
+  See [Notices and what's new](../search/notices.md).
 
 ## Starting in a folder
 

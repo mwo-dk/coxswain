@@ -26,11 +26,11 @@ until you turn it on.
 |---|---|
 | Desktop app | *Settings → Search by meaning → Download the model (465 MB) and turn on*. A bar shows *Downloading the model: 120 MB of 465 MB*; **Cancel** stops it |
 | Terminal app | `coxswain --meaning on`: prints *Downloading the model for search by meaning: 42%*, then turns it on (with a [server](servers.md) as the engine, nothing is downloaded) |
-| A link | *turn on search by meaning* under Find file's text depth, and the [notice](notices.md) *New: search by meaning finds files about your words, in any language. Turn it on* |
+| A link | *turn on search by meaning* under Find file's text depth, and the [notice](notices.md) *New: search by meaning finds files about your words, in any language. Turn it on*: in the desktop app under *Settings → What's new* (**Show me**), in the terminal app once in the status line |
 
 It needs *Search inside files* on: the button is greyed out otherwise. Then:
 
-1. **Alt+F7** or **Ctrl+F**, and **Tab** twice for *Text in files*.
+1. **Shift+F7** (or **Ctrl+Shift+F** in the desktop app) for Find file at *Text in files*.
 2. Type a question or a few words, in any language.
 3. Files with your words come first; files found by meaning follow.
 
@@ -61,7 +61,7 @@ words and its meaning is shown once, as a word hit.
   **Download the model (465 MB) and turn on**.
 
 **In the title**: `Coxswain 1.16.0 · search: names · text · meaning` once it runs
-([Notices and the window title](notices.md)).
+([Notices and what's new](notices.md)).
 
 ## How it works
 
@@ -113,7 +113,7 @@ laptop's CPU that takes hours for a large home folder, and it waits while on bat
 
 #### Vectors stopped coming. Why?
 Both apps say why, in red: Settings under *Search by meaning* (desktop) and the status line of
-Find file's text depth (terminal), and a [notice](notices.md) in the status line of both. *No
+Find file's text depth (terminal), and a [notice](notices.md) in the status line of both (in the desktop app also under *Settings → What's new*). *No
 vectors: …* is the server or the model: Ollama not running (`systemctl start ollama`), or the
 model not pulled (`ollama pull bge-m3`, or *Pull* in Settings). *Reading stopped: …* means a scan
 failed before the vectors' turn; vectors come only after the text is read. Before 1.26.4 a store

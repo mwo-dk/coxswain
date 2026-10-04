@@ -34,7 +34,7 @@ There are no keys of its own: looks are chosen through themes, in Settings or wi
 | Look | Themes | Shapes | Font it asks for |
 |---|---|---|---|
 | `modern` | Dark, Light, Nord, Tokyo Night | Rounded corners, soft shadows | Your *Font* setting |
-| `crt` | Cyber | Square; glowing text, faint scanlines, rings instead of shadows, one text colour for file icons | Your *Monospaced font*, for everything |
+| `crt` | Cyber | Square; glowing text, faint scanlines, rings instead of shadows, one text colour for file icons, lit buttons outlined rather than filled | Your *Monospaced font*, for everything |
 | `dos` | Classic blue (NC) | Square; double borders round each pane, a hard drop shadow under dialogs | Your *Monospaced font*, for everything |
 | `win31` | Windows 3.11 | Square; black one-pixel frames, grey buttons, navy title bars | MS Sans Serif, else Microsoft Sans Serif, Arial |
 | `win95` | Windows 95 | Square; raised and sunken 3D bevels, navy title bars, grey scroll bars | MS Sans Serif, else Microsoft Sans Serif, Tahoma, Arial |
@@ -52,6 +52,11 @@ frames, title bars and buttons, the F-key bar's buttons, the tabs and the scroll
 that chrome has fixed colours of its own: Windows 3.11 and 95 draw their bevels and button faces
 in the classic greys and their title bars in navy (95 with the gradient to light blue), and
 System 7 lays its grey dotted desktop behind the window, whatever the theme's slots say.
+
+In Cyber, lit buttons are not filled with green: a dialog's main button (*OK*, *Scan*), the
+chosen depth in Find file, the update button in the status line, the count on *⚙ Settings*, the
+*new* marks under *What's new* and the archive and history badges are dark, with a bright green outline and bold green text. Dark letters on bright green were
+smeared by the scanlines and the glow, and could hardly be read.
 
 The fonts are not bundled: each look uses the first one in its list that your system has, and
 falls back to a plain sans-serif. Windows 95 looks most like itself on Windows, Aqua on a Mac.
@@ -105,6 +110,12 @@ the monospaced font everywhere. Add `look = "modern"` (or any other look) to its
 It is made to be cheap: the scanlines are one small tiled image, and panes and dialogs have
 rings instead of blurred shadows, which were redrawn on every repaint. If it still feels slow on
 an old machine, pick Dark or Classic blue (NC), which have neither.
+
+#### Why are Cyber's buttons outlined rather than green?
+
+Since 1.29.0 a lit button in Cyber is dark with a green outline and bold green text. Before, it
+was dark text on bright green, and the scanlines and glow made those letters hard to read. The
+other looks still fill lit buttons with the accent colour.
 
 #### Do the looks follow my system's own theme or accent colour?
 

@@ -3,7 +3,7 @@
 # Search
 
 Find file finds what you have the way you remember it, at four depths: every file name on the
-machine, the words inside your files, what your files are about, and answers to questions about them. Both apps have all three,
+machine, the words inside your files, what your files are about, and answers to questions about them. Both apps have all of them,
 and they share one index, kept by a [search helper](helper.md) in the background. These pages
 walk through each depth, what is read and when, and every setting.
 
@@ -20,7 +20,7 @@ walk through each depth, what is read and when, and every setting.
 
 | Page | What it covers |
 |---|---|
-| [Find file](find-file.md) | Opening it, the window, the keys, the three depths with Tab, where it can look |
+| [Find file](find-file.md) | Opening it, the window, the keys, the four depths with Tab, Shift+Tab and their own keys, where it can look |
 | [Names everywhere](names.md) | The name index, how it stays current and fast, names in this folder |
 | [Name syntax](name-syntax.md) | Everything's syntax: `!`, `\|`, `*`, `ext:`, `file:`, `folder:`, `case:`, paths |
 | [Text in files](text.md) | Searching the words inside files, what is read and when |
@@ -35,9 +35,9 @@ walk through each depth, what is read and when, and every setting.
 | [Search by meaning](meaning.md) | The built-in multilingual model: turning it on, what it finds |
 | [Search by meaning on a server](servers.md) | Ollama, Lemonade, LM Studio or any server with the OpenAI API |
 | [Ask](ask.md) | Questions answered from your files by your own chat model, with numbered sources |
-| [The search helper](helper.md) | The background process, and starting it with your session |
+| [The search helper](helper.md) | The background process, starting it with your session, and how an app takes the registration over after an upgrade |
 | [Battery](battery.md) | Why reading waits while a laptop runs on its battery |
-| [Notices and the window title](notices.md) | What the status line tells you once, and the version and depths in the title |
+| [Notices and what's new](notices.md) | Tips of what to turn on, what each version brought (*Settings → What's new*, `coxswain --whats-new`), and the version and depths in the title |
 | [Search settings](settings.md) | Every item of *Settings → Search inside files* and *Search by meaning*, with its `config.toml` key |
 
 ## Keys at a glance
@@ -45,7 +45,9 @@ walk through each depth, what is read and when, and every setting.
 | Key | Desktop app | Terminal app | Does |
 |---|---|---|---|
 | **Alt+F7**, **Ctrl+F** | yes | yes | Open Find file, at names everywhere |
-| **Tab** | yes | yes | The next depth: everywhere → this folder → text in files → Ask |
+| **Shift+F7**, **Ctrl+Shift+F** | yes | yes (many terminals send Ctrl+Shift+F as Ctrl+F) | Open Find file at text in files, or go there from another depth |
+| **Ctrl+F7** | yes | yes | Open Find file at Ask, or go there from another depth |
+| **Tab** / **Shift+Tab** | yes | yes | The next / previous depth: everywhere → this folder → text in files → Ask, round in a circle |
 | **Up** / **Down** | yes | yes | Move through the results |
 | **PageUp** / **PageDown** | 15 at a time | 10 at a time | Move a page |
 | **Enter** | yes | yes | Go to the file: the active panel opens its folder, cursor on it |

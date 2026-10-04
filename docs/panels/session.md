@@ -61,8 +61,8 @@ or run `coxswain --paths`.
 It remembers no session: every start opens the folders you name, or the current folder in
 both panels, with name order and `show_hidden` from the config. A terminal app is started
 from a shell in a folder, so that folder is the natural place to begin. It does read and
-write `state.json` for the notices, so a notice shown in one app is not shown again in the
-other.
+write `state.json` for the notices and the versions read, so a notice shown in one app is not
+shown again in the other, and `coxswain --whats-new` counts as reading them in both.
 
 ## Questions
 

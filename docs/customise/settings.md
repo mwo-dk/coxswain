@@ -19,6 +19,7 @@ made by tools. Every change applies at once and is written to the file.
 - [Search inside files](#search-inside-files)
 - [Search by meaning](#search-by-meaning)
 - [Previews made by tools](#previews-made-by-tools)
+- [What's new](#whats-new)
 - [Settings and config.toml](#settings-and-configtoml)
 - [What Settings does not cover](#what-settings-does-not-cover)
 - [In the terminal app](#in-the-terminal-app)
@@ -32,11 +33,13 @@ made by tools. Every change applies at once and is written to the file.
    |---|---|
    | **Ctrl+,** | Anywhere in the window (the `settings` action; see [Changing keys](keys.md)) |
    | **F9** → *Settings* | The [command list](../panels/command-list.md) |
-   | The **Settings** button with a gear | At the right end of the command line row |
-   | A notice's link | *Turn it on* and *Choose it* open *Search by meaning*; the tesseract notice opens *Search inside files* ([Notices](../search/notices.md)) |
+   | The **Settings** button with a gear | At the right end of the command line row. With a number after it, it opens the *What's new* page instead ([Notices and what's new](../search/notices.md)) |
+   | **Show me** under *What's new* | The meaning and Ollama tips open *Search by meaning*; the tesseract and cloud tips open *Search inside files* |
+   | A problem in the status line | *Search inside files has stopped: …* and *Search by meaning gets no vectors: …* open their section |
    | *turn on search by meaning* | The tip in [Find file](../search/find-file.md) |
    | `coxswain-gui --settings` | Starts the app with Settings open |
    | `coxswain-gui --settings=search`, `--settings=meaning` | The same, scrolled to *Search inside files* or *Search by meaning* |
+   | `coxswain-gui --settings=news` | The same, at the *What's new* page |
 
 2. Click, tick or type. A text field (a font, a server) is saved when you leave it or press
    **Enter**; everything else is saved on the click.
@@ -45,8 +48,8 @@ made by tools. Every change applies at once and is written to the file.
 ## What you see
 
 A window over the panels, titled *Settings* with a gear. Its sections, top to bottom:
-**Language**, **Appearance**, **Behaviour**, **Search inside files**, **Search by meaning** and
-**Previews made by tools**. The body scrolls; the footer stays.
+**Language**, **Appearance**, **Behaviour**, **Search inside files**, **Search by meaning**,
+**Previews made by tools** and **What's new**. The body scrolls; the footer stays.
 
 The footer says *Settings are stored in /home/me/.config/coxswain/config.toml* until you change
 something, then *Saved to /home/me/.config/coxswain/config.toml*. When a change is refused, the
@@ -103,7 +106,7 @@ session" box and the list of programs that read more.*
 
 | Item | Does | Key |
 |---|---|---|
-| *Keep the text of files, so Find file can search in it (Tab)* | Turns reading files on or off. Unticked, the rest of the section hides | `[search] text` |
+| *Keep the text of files, so Find file can search in it (Shift+F7)* | Turns reading files on or off. Unticked, the rest of the section hides | `[search] text` |
 | The status line | *Searchable: 107 files · still to read: 0 · 284 KB on disk*, the store's path; *The search helper is not running, so text cannot be searched now.* when it is not; *Paused while the machine runs on its battery. Index now reads anyway.* | |
 | *Start the search helper with my session, so it reads while no window is open* | Registers the helper with your session ([The search helper](../search/helper.md)) | none (a system entry) |
 | **Index now** | Reads the backlog at full speed ([Battery](../search/battery.md)) | |
@@ -144,6 +147,14 @@ Details: [Search by meaning](../search/meaning.md) and [on a server](../search/s
 | *Container images* | Each image with *Pulled, 5.1 GB* or *Not pulled*, **Pull** (which also updates it; its progress shows in place) and **Remove** | none |
 
 Details: [Previews made by tools](../previews/tools.md) and [Containers](../previews/containers.md).
+
+## What's new
+
+One button, *What's new*, with the count of tips and unread versions after it when there are
+any. It opens the *What's new* page in the same window: **← Settings** at its top, then *For
+you* (the tips, each with **Show me** and **Dismiss**), the versions you have not read, and
+*Earlier versions: N*. Nothing in it is kept in `config.toml`. See
+[Notices and what's new](../search/notices.md).
 
 ## Settings and config.toml
 
@@ -229,8 +240,8 @@ by themselves. Only changes you make to `config.toml` by hand need a restart of 
 #### How do I open Settings straight at search by meaning?
 
 Start the app with `coxswain-gui --settings=meaning` (or `--settings=search` for *Search inside
-files*). In a running app, the notice *New: search by meaning … Turn it on* and the tip in Find
-file open that section too.
+files*). In a running app, **Show me** on the tip *New: search by meaning … Turn it on* under
+*Settings → What's new*, and the link in Find file's text depth, open that section too.
 
 #### Where is the Settings key if Ctrl+, does nothing?
 
@@ -240,7 +251,7 @@ button's tooltip shows the key it has now. **F9** → *Settings* and the gear bu
 #### Why can I not tick "Turn on" for search by meaning?
 
 Search by meaning works on the text Coxswain keeps, so it needs *Keep the text of files, so Find
-file can search in it (Tab)* ticked first. Tick that in *Search inside files*, then turn search by
+file can search in it (Shift+F7)* ticked first. Tick that in *Search inside files*, then turn search by
 meaning on.
 
 #### What does Clear under "Previews made so far" remove?

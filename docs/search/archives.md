@@ -38,7 +38,8 @@ Nothing to do: *Search inside archives* is on from the start.
 | Key | Desktop app | Terminal app | Does |
 |---|---|---|---|
 | **Alt+F7**, **Ctrl+F** | yes | yes | Open Find file |
-| **Tab** | yes | yes | *everywhere* → *in this folder* → *Text in files* → *Ask* |
+| **Shift+F7** | yes | yes | Open Find file at *Text in files* |
+| **Tab** / **Shift+Tab** | yes | yes | *everywhere* → *in this folder* → *Text in files* → *Ask*, and back |
 | **Enter** | yes | yes | The active panel opens the folder inside the archive, cursor on the file |
 | **F3** / **F4** | F4 | yes | As for any file inside an archive ([Archives as folders](../files/archives.md)) |
 

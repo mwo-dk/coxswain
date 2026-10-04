@@ -25,7 +25,7 @@ and a search by words for `browser entra` finds it too.
 Nothing to turn on. Every diagram in a [folder read](folders.md) is read with its sentences, and
 the diagrams read before this came in are read again once, by themselves.
 
-1. **Alt+F7** or **Ctrl+F**, then **Tab** twice for *Text in files*.
+1. **Shift+F7** (or **Ctrl+Shift+F** in the desktop app) for Find file at *Text in files*.
 2. Type who talks to whom: `browser entra`, or with search by meaning on, a question such as
    `how does the app sign in`.
 

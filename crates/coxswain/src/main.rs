@@ -838,8 +838,8 @@ impl App {
                     self.delete(paths, forever);
                 }
             }
-            Action::Search => {
-                self.dialog = Some(Dialog::Search { query: String::new(), mode: 0, results: Results::default(), cursor: 0, offset: 0 });
+            Action::Search | Action::SearchText | Action::Ask => {
+                self.dialog = Some(Dialog::Search { query: String::new(), mode: search_mode(Some(a)).unwrap_or(0), results: Results::default(), cursor: 0, offset: 0 });
             }
             Action::UserMenu => {
                 let items = self
@@ -1182,10 +1182,7 @@ impl App {
             }
         }
         if let Some(n) = coxswain_core::notices::next(&self.cfg, &now, &st, true) {
-            self.status = Some(match n.url {
-                Some(url) => format!("{} {url}", n.text),
-                None => n.text,
-            });
+            self.status = Some(n.text);
             coxswain_core::notices::dismiss(&mut st, &n.id);
             changed = true;
         }
@@ -1298,8 +1295,9 @@ impl App {
                             self.view_or_edit(action.unwrap(), &path);
                         }
                     }
-                    (KeyCode::Tab, _) => {
-                        self.dialog = Some(Dialog::Search { query, mode: 0, results: Results::default(), cursor: 0, offset: 0 });
+                    _ if key.code == KeyCode::Tab || search_mode(action).is_some_and(|m| m != 3) => {
+                        let mode = search_mode(action).unwrap_or(if key.shift { 2 } else { 0 });
+                        self.dialog = Some(Dialog::Search { query, mode, results: Results::default(), cursor: 0, offset: 0 });
                         return self.search_now();
                     }
                     (KeyCode::Up, _) => cursor = cursor.saturating_sub(1),
@@ -1338,8 +1336,9 @@ impl App {
                             self.view_or_edit(action.unwrap(), &h.path);
                         }
                     }
-                    (KeyCode::Tab, _) => {
-                        mode += 1;
+                    // Tab and Shift+Tab: the next and the previous depth; a depth's own key, that one.
+                    _ if key.code == KeyCode::Tab || search_mode(action).is_some() => {
+                        mode = search_mode(action).unwrap_or(if key.shift { (mode + 3) % 4 } else { mode + 1 });
                         requery = mode < 3;
                     }
                     (KeyCode::Up, _) => cursor = cursor.saturating_sub(1),
@@ -1647,8 +1646,29 @@ const USAGE: &str = "coxswain [LEFT] [RIGHT]      a folder, or a file to open it
   --meaning builtin        back to the built-in model
   --meaning ask MODEL|off  Ask in Find file: the chat model on that server (Ollama here with the
                            built-in model) that answers questions from your files
+  --whats-new [all]        what the versions since you last looked brought (all: every version)
   --version
   --help";
+
+/// `--whats-new [all]`: the changelog, from the versions not read yet (or this one), then read.
+fn whats_new(all: bool) {
+    use coxswain_core::notices;
+    let mut st = coxswain_core::state::AppState::load();
+    let unread = notices::unread(&st);
+    let shown = if all {
+        notices::changes()
+    } else if unread.is_empty() {
+        notices::changes().into_iter().take(1).collect()
+    } else {
+        unread
+    };
+    for c in shown {
+        let text: String = c.parts.iter().map(|(t, url)| url.as_ref().map_or_else(|| t.clone(), |u| format!("{t} <{u}>"))).collect();
+        println!("{}  {}\n  {text}\n", c.version, c.date);
+    }
+    notices::read(&mut st);
+    let _ = st.save();
+}
 
 /// `--index-service on|off`: register the search helper with the system, or unregister it; the
 /// helper running now makes way for the right one.
@@ -1758,6 +1778,16 @@ fn meaning(what: Option<&str>, rest: &[String]) {
     Client::start(&Config::load().map(|c| c.search).unwrap_or_default()).restart();
 }
 
+/// The depth of Find file an action opens: names everywhere, text in files, Ask.
+fn search_mode(action: Option<Action>) -> Option<u8> {
+    match action? {
+        Action::Search => Some(0),
+        Action::SearchText => Some(2),
+        Action::Ask => Some(3),
+        _ => None,
+    }
+}
+
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
     match args.first().map(String::as_str) {
@@ -1773,6 +1803,7 @@ fn main() {
             }
             return;
         }
+        Some("--whats-new") => return whats_new(args.get(1).map(String::as_str) == Some("all")),
         Some("--index-service") => return index_service(args.get(1).map(String::as_str)),
         Some("--meaning") => return meaning(args.get(1).map(String::as_str), &args[2.min(args.len())..]),
         _ => {}

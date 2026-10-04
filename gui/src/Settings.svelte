@@ -172,6 +172,32 @@
     else el.value = s[name];
   }
 
+  // What's new: every version's changes. Those not read yet are marked, and count as read once
+  // the section has been in sight.
+  let changes = $state([]);
+  invoke("changes").then((v) => (changes = v), () => {});
+  const fresh = new Set(ui.news.unread);
+  const shownOpen = $derived(changes.filter((c, i) => fresh.has(c.version) || (!fresh.size && i === 0)));
+  const earlier = $derived(changes.slice(shownOpen.length));
+  function seen(el) {
+    const o = new IntersectionObserver(([e]) => {
+      if (!e.isIntersecting || !ui.news.unread.length) return;
+      ui.news.unread = [];
+      invoke("read_changes").catch(() => {});
+    });
+    o.observe(el);
+    return { destroy: () => o.disconnect() };
+  }
+  function actOnNotice(n) {
+    invoke("dismiss_notice", { id: n.id }).catch(() => {});
+    ui.news.notices = ui.news.notices.filter((x) => x.id !== n.id);
+    if (n.settings) ui.modal = { kind: "settings", section: n.settings };
+  }
+  /** What's new is a page of its own: opened from the count on the Settings button, or from
+   *  its entry at the end of Settings. */
+  const newsPage = $derived(ui.modal?.section === "news");
+  const showNews = () => (ui.modal = { kind: "settings", section: "news" });
+
   const imageStatus = (im) => (im.pulling != null ? im.pulling || t("common.loading") : im.size != null ? t("settings.image_pulled", { size: size(im.size) }) : t("settings.image_not_pulled"));
 </script>
 
@@ -182,6 +208,35 @@
   </header>
 
   <div class="body">
+    {#if newsPage}
+    <button class="back" onclick={() => (ui.modal = { kind: "settings" })}>← {t("settings.title")}</button>
+    {#snippet change(c)}
+      <div class="change">
+        <p class="label">{c.version} <small class="hint">{c.date}</small>{#if fresh.has(c.version)} <span class="new">{t("news.new")}</span>{/if}</p>
+        <p class="what">{#each c.parts as [text, url], i (i)}{#if url}<button class="link" onclick={() => invoke("open_path", { path: url })}>{text}</button>{:else}{text}{/if}{/each}</p>
+      </div>
+    {/snippet}
+    <section id="settings-news" use:seen>
+      <h3>{t("news.title")}</h3>
+      {#if ui.news.notices.length}
+        <p class="label">{t("news.for_you")}</p>
+        {#each ui.news.notices as n (n.id)}
+          <div class="tip">
+            <span>{n.text}</span>
+            {#if n.settings}<button onclick={() => actOnNotice(n)}>{t("news.show_me")}</button>{/if}
+            <button title={t("news.dismiss_hint")} onclick={() => actOnNotice({ ...n, settings: null })}>{t("news.dismiss")}</button>
+          </div>
+        {/each}
+      {/if}
+      {#each shownOpen as c (c.version)}{@render change(c)}{/each}
+      {#if earlier.length}
+        <details>
+          <summary>{t("news.earlier", { n: earlier.length })}</summary>
+          {#each earlier as c (c.version)}{@render change(c)}{/each}
+        </details>
+      {/if}
+    </section>
+    {:else}
     <section>
       <h3>{t("settings.language")}</h3>
       <div class="langs" role="radiogroup" aria-label={t("settings.language")}>
@@ -450,6 +505,12 @@
         </div>
       </div>
     </section>
+
+    <section>
+      <h3>{t("news.title")}</h3>
+      <button onclick={showNews}>{t("news.title")}{#if ui.news.notices.length + ui.news.unread.length} <span class="new">{ui.news.notices.length + ui.news.unread.length}</span>{/if}</button>
+    </section>
+    {/if}
   </div>
 
   <footer>
@@ -745,5 +806,42 @@
   }
   .err {
     color: var(--git-deleted-fg);
+  }
+  .back {
+    align-self: flex-start;
+  }
+  .tip {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0 0 6px;
+  }
+  .tip span {
+    flex: 1;
+  }
+  .change {
+    margin: 10px 0 0;
+  }
+  .change .label {
+    margin: 0;
+    color: inherit;
+    font-weight: bold;
+  }
+  .what {
+    margin: 2px 0 0;
+    max-width: 100ch;
+    line-height: 1.45;
+  }
+  .new {
+    margin-inline-start: 6px;
+    padding: 0 6px;
+    border-radius: var(--r-pill);
+    font-size: 0.8em;
+    color: var(--accent-fg);
+    background: var(--accent-bg);
+  }
+  summary {
+    margin: 10px 0 0;
+    cursor: pointer;
   }
 </style>
