@@ -63,3 +63,9 @@ jobs:
           sudo apt-get install -y musl-tools
           rustup target add x86_64-unknown-linux-musl
           cargo build -p coxswain --target x86_64-unknown-linux-musl --locked
+
+      # crates.io builds the core from its packaged files alone: anything it reads from
+      # outside the crate (the README's changelog) has to come along, before a release finds out.
+      - name: Core crate, packaged
+        if: runner.os == 'Linux'
+        run: cargo package -p coxswain-core --locked
