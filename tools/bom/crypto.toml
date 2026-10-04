@@ -125,7 +125,7 @@ functions = ["encrypt", "decrypt"]
 purpose = "Packs and opens 7z archives with a password; also opens PDFs encrypted with AES-256"
 found = [
   { file = "crates/coxswain-core/src/archive.rs", pattern = "AesEncoderOptions::new" },
-  { file = "crates/coxswain-core/src/archive.rs", pattern = "ArchiveReader::open(path, pw)" },
+  { file = "crates/coxswain-core/src/archive.rs", pattern = "ArchiveReader::new(file, pw)" },
 ]
 
 [[asset]]
