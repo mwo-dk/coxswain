@@ -1,6 +1,7 @@
 //! Coxswain TUI: two panels, a command line and a function-key bar, Norton Commander style.
 
 mod bom;
+mod settings;
 mod setup;
 mod ui;
 
@@ -254,6 +255,8 @@ pub enum Dialog {
     Message { title: String, text: String },
     /// A CycloneDX BOM, full screen (F3 on one).
     Bom(Box<bom::Viewer>),
+    /// Settings, full screen (F9 → Settings, `--settings`).
+    Settings(Box<settings::Settings>),
 }
 
 /// What Find shows under its field.
@@ -919,6 +922,7 @@ impl App {
                 self.dialog = Some(Dialog::Menu { title: t!("menu.commands"), filter: String::new(), items, cursor: 0, direct: false });
             }
             Action::Help => self.dialog = Some(Dialog::Help { scroll: 0 }),
+            Action::Settings => self.dialog = Some(Dialog::Settings(Box::new(settings::Settings::open(self, "")))),
             // Asked for: measure afresh, whatever is remembered and whether or not sizes are on.
             Action::DirSizes => {
                 if coxswain_core::archive::split(&self.panel().dir).is_some() {
@@ -1369,8 +1373,7 @@ impl App {
             _ => {
                 self.forget_chat();
                 self.dialog = None;
-                let exe = coxswain_core::tools::this_app().map(|p| p.display().to_string()).unwrap_or_else(|_| "coxswain".into());
-                self.run = Some(Run::Shell { cmd: format!("{} --setup-search", config::quote(&exe)), dir: self.panel().dir.clone(), wait: true });
+                self.setup_guide();
             }
         }
     }
@@ -1621,6 +1624,7 @@ impl App {
                 _ => {}
             },
             Dialog::Message { .. } => {}
+            Dialog::Settings(s) => self.settings_key(s, key, action),
             Dialog::Bom(mut v) => match v.key(key, action == Some(Action::Quit)) {
                 bom::Outcome::Stay => self.dialog = Some(Dialog::Bom(v)),
                 bom::Outcome::Close => {}
@@ -1758,6 +1762,9 @@ impl App {
                     self.ask_rx = None;
                 }
             }
+        }
+        if let Some(Dialog::Settings(s)) = &mut self.dialog {
+            s.poll();
         }
         while let Ok((dir, keep, r)) = self.list_rx.try_recv() {
             self.listed(dir, keep, r);
@@ -1901,6 +1908,8 @@ fn main_loop(term: &mut DefaultTerminal, app: &mut App) -> std::io::Result<()> {
 }
 
 const USAGE: &str = "coxswain [LEFT] [RIGHT]      a folder, or a file to open its folder with the cursor on it
+  --settings[=AREA|OPTION]  start with Settings open (also F9 → Settings): search, previews,
+                  looks, behaviour, keys, privacy, or an option such as show_hidden
   --dump-config   print the full default config (redirect it to the config file to customise)
   --config-path   print where the config file is read from
   --paths         print where everything is kept: config, state, index, search store, model
@@ -2099,7 +2108,12 @@ fn meaning(what: Option<&str>, rest: &[String]) {
 }
 
 fn main() {
-    let args: Vec<String> = std::env::args().skip(1).collect();
+    let mut args: Vec<String> = std::env::args().skip(1).collect();
+    // `--settings[=area|option] [LEFT] [RIGHT]`: start with Settings open, there.
+    let open_settings = args.first().and_then(|a| a.strip_prefix("--settings")).filter(|r| r.is_empty() || r.starts_with('=')).map(|r| r.trim_start_matches('=').to_string());
+    if open_settings.is_some() {
+        args.remove(0);
+    }
     match args.first().map(String::as_str) {
         // Started by an app, not by hand: hold the file name index for all of them.
         Some(helper::ARG) => return drop(helper::serve()),
@@ -2138,6 +2152,9 @@ fn main() {
         eprintln!("coxswain: {e}");
         std::process::exit(2)
     });
+    if let Some(section) = open_settings {
+        app.dialog = Some(Dialog::Settings(Box::new(settings::Settings::open(&app, &section))));
+    }
     let mut term = ratatui::init();
     let _ = execute!(std::io::stdout(), ratatui::crossterm::event::EnableMouseCapture);
     let res = main_loop(&mut term, &mut app);
@@ -2528,6 +2545,14 @@ mod wide_letters {
             let top = (1..24).find(|&y| s[y].iter().any(|c| c == "╔")).unwrap();
             let bottom = (top..24).find(|&y| s[y].iter().any(|c| c == "╚")).unwrap();
             same_columns(&s, "║", top + 1..bottom);
+            // Settings: the areas' bar and the frame run straight down, in every area.
+            app.dialog = Some(Dialog::Settings(Box::new(settings::Settings::open(&app, "search"))));
+            for _ in 0..settings::AREAS.len() {
+                let s = draw(&mut app);
+                same_columns(&s, "║", 1..23);
+                same_columns(&s, "│", 1..19);
+                app.dialog_key(Key::new(KeyCode::Right, false, false, false));
+            }
         }
         coxswain_core::i18n::set_language("en-GB");
         // On Windows a git the apps started in the folder (the status, on its thread) may still

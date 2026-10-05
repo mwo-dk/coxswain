@@ -1187,6 +1187,10 @@
   "one": "{size} in {n} selected",
   "other": "{size} in {n} selected"
  },
+ "tui.settings.keys": "↑↓ move · Space choose · Enter change · ←→ areas · / find · Esc close",
+ "tui.settings.list_keys": "Enter add · Delete remove · ↑↓ move · Esc done",
+ "tui.settings.pick_keys": "↑↓ move · Enter choose · Esc back",
+ "tui.settings.range": "{name}: a number from {min} to {max}",
  "tui.subdir": "SUB-DIR",
  "tui.unselect": "Unselect",
  "tui.updir": "UP--DIR",

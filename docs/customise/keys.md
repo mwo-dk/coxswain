@@ -106,13 +106,16 @@ not modifiers Coxswain reads; use **Ctrl** or **Alt**.
 | `refresh` | **Ctrl+R** | `pack` | **Alt+F5** |
 | `swap_panels` | **Ctrl+U** | `columns` ¹ | none |
 | `toggle_panels` | **Ctrl+O** | `duplicates` ¹ | **Ctrl+D** |
-| `toggle_hidden` | **Alt+.** | `settings` ¹ | **Ctrl+,** |
+| `toggle_hidden` | **Alt+.** | `settings` ² | **Ctrl+,** |
 | `history` | **Ctrl+G** | `branches` | **Alt+B** |
 | `worktrees` | **Alt+W** | `switch_branch` | **Alt+S** |
 | `new_branch` | none | | |
 
 ¹ The desktop app only. In the terminal app the key still belongs to the action, and pressing it
 says *… is available in the desktop app (coxswain-gui)* on the command line.
+
+² Both apps, but most terminals never pass **Ctrl+,** on: in the terminal app use **F9** →
+*Settings*, or bind it to a key the terminal sends, such as `settings = ["Alt+,"]`.
 
 "Further down" for two actions on one key means: first the left column from top to bottom, then
 the right column.

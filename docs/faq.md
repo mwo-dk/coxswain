@@ -108,7 +108,8 @@ The questions people ask most, with a short answer and a link to the full one. E
 
 ## Customising
 
-- **I changed the theme and the terminal app did not change.** The two apps have a theme each: in Settings → Looks, switch *For* to *Terminal app* (or set the top-level `theme`), then restart the terminal app. [Answer](customise/settings.md#i-changed-the-theme-and-the-terminal-app-did-not-change)
+- **I changed the theme and the terminal app did not change.** The two apps have a theme each: in Settings → Looks, switch *For* to *Terminal app* (or set the top-level `theme`), then restart the terminal app; its own Settings (**F9** → *Settings* → *Looks*) changes it at once. [Answer](customise/settings.md#i-changed-the-theme-and-the-terminal-app-did-not-change)
+- **Does the terminal app have Settings?** Yes: **F9** → *Settings*, or `coxswain --settings`. The same areas and options as the desktop app, full screen; Space flips, Enter types, saved at once. [Answer](customise/settings.md#how-do-i-change-a-setting-in-the-terminal-app)
 - **Will Settings mess up my hand-written config?** No: it changes the one value in place and keeps every comment and other key. [Answer](customise/settings.md#will-settings-mess-up-my-hand-written-config)
 - **The icons are empty boxes.** No Nerd Font is installed (desktop *Icon font*) or set in the terminal; install one or choose *Plain characters (ASCII)*. [Answer](customise/glyphs-and-fonts.md#the-icons-are-empty-boxes)
 - **Why is the font I picked not used?** The Windows, Mac, Cyber and NC themes bring their own font; *Font* applies to the modern themes. [Answer](customise/glyphs-and-fonts.md#why-is-the-font-i-picked-not-used)
@@ -120,7 +121,7 @@ The questions people ask most, with a short answer and a link to the full one. E
 
 ## Reference
 
-- **What can the terminal app not do, and why?** No preview pane, tabs, sidebar, tags, clipboard, batch rename, duplicates or Settings: a terminal cannot draw them or has no room; their keys say "is available in the desktop app". [Answer](reference/terminal-app.md#what-only-the-desktop-app-has)
+- **What can the terminal app not do, and why?** No preview pane, tabs, sidebar, tags, clipboard, batch rename or duplicates: a terminal cannot draw them or has no room; their keys say "is available in the desktop app". [Answer](reference/terminal-app.md#what-only-the-desktop-app-has)
 - **How do I turn on search by meaning without the desktop app?** `coxswain --meaning on` or `coxswain --setup-search`, then Find file: files found by meaning are under *About this*. [Answer](reference/terminal-app.md#how-do-i-turn-on-search-by-meaning-without-the-desktop-app)
 - **How do I find out which version I have?** `coxswain --version`, or the title of Help (F1) and the window title in the desktop app. [Answer](reference/command-line-flags.md#how-do-i-find-out-which-version-i-have)
 - **I edited config.toml and nothing changed.** Both apps read it at start (the desktop app also after Settings); restart, and `[search]` needs a new helper. [Answer](reference/configuration.md#i-edited-configtoml-and-nothing-changed)

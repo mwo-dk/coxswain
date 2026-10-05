@@ -2,10 +2,10 @@
 
 # Search settings
 
-Everything about search sits in one area of the desktop app's Settings: **Finding files**. At
+Everything about search sits in one area of Settings, in both apps: **Finding files**. At
 its top, how each part of search stands and its next step; then how far Find looks, in four
 levels; then **Details**, with every switch on its own. Every option is also a key under
-`[search]` in `config.toml`, which is how the terminal app sets them.
+`[search]` in `config.toml`.
 
 ![Settings at Finding files: the status block with Names, Words, Meaning and Ask, then How far should Find look? with its four levels](../screenshots/gui-settings-search.png)
 <!-- screenshot: gui-settings-search.png: desktop app, Cyber, Settings → Finding files with Details unfolded: the status block, the levels, What is read (Words inside files ticked, Look inside archives, Git history, Read files that are only online, Programs that read more) -->
@@ -26,10 +26,10 @@ levels; then **Details**, with every switch on its own. Every option is also a k
 
 | To open | Desktop app | Terminal app |
 |---|---|---|
-| Settings at Finding files | **Ctrl+,** (or the *Settings* button, or *Settings* in **F9**), then *Finding files* on the left; or `coxswain-gui --settings=search`; or **Show me** on the tesseract or cloud tip | No Settings window: edit `config.toml` (`coxswain --config-path` prints where), or use the flags below |
-| …at *Meaning* | `coxswain-gui --settings=meaning`, or **Show me** on the meaning or Ollama tip | `coxswain --meaning …` |
-| …at *Ask* | `coxswain-gui --settings=ask` | `coxswain --setup-search` |
-| The setup guide | **Set up…** in Finding files or Overview, or *Set up* in Find | `coxswain --setup-search` |
+| Settings at Finding files | **Ctrl+,** (or the *Settings* button, or *Settings* in **F9**), then *Finding files* on the left; or `coxswain-gui --settings=search`; or **Show me** on the tesseract or cloud tip | **F9** → *Settings*, then **→** to *Finding files*; or `coxswain --settings=search` |
+| …at *Meaning* | `coxswain-gui --settings=meaning`, or **Show me** on the meaning or Ollama tip | `coxswain --settings=meaning` |
+| …at *Ask* | `coxswain-gui --settings=ask` | `coxswain --settings=ask` |
+| The setup guide | **Set up…** in Finding files or Overview, or *Set up* in Find | *Set up…* in Settings (**Space**), *Set up* in Find, or `coxswain --setup-search` |
 
 A change is saved at once; a change to what the [helper](helper.md) reads starts a new helper
 with it. *Find a setting…* above the areas finds any option by its name, its explanation or its
@@ -130,7 +130,11 @@ See also [Configuration](../reference/configuration.md).
 
 ## In the terminal app
 
-No Settings window yet. The flags do what the buttons do:
+Settings → *Finding files* holds the same status block, levels and options, one per row
+([Settings in the terminal app](../customise/settings.md#in-the-terminal-app)). A line's next
+step is in brackets at its end (`[Read now]`, `[Set up…]`, `[Try it]`): **Space** or **Enter**
+on the line takes it. **Space** on a level chooses it, or starts the setup guide when it needs a
+model. The flags still do what the buttons do, for scripts:
 
 | Flag | Does |
 |---|---|
@@ -143,7 +147,7 @@ No Settings window yet. The flags do what the buttons do:
 | `coxswain --index-service on` / `off` | The helper with your session, or not |
 | `coxswain --paths` | Where the config, state, index, search store and model are |
 
-There is no *Read now* or *Delete what was read* flag: delete `search.db` while no Coxswain
+There is no *Delete what was read* in the terminal app: delete `search.db` while no Coxswain
 runs to start afresh. More in [Command-line flags](../reference/command-line-flags.md).
 
 ## Questions

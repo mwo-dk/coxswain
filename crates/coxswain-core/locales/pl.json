@@ -1264,6 +1264,10 @@
   "one": "{size} w {n} zaznaczonym",
   "other": "{size} w {n} zaznaczonych"
  },
+ "tui.settings.keys": "↑↓ ruch · Spacja wybierz · Enter zmień · ←→ obszary · / szukaj · Esc zamknij",
+ "tui.settings.list_keys": "Enter dodaj · Delete usuń · ↑↓ ruch · Esc gotowe",
+ "tui.settings.pick_keys": "↑↓ ruch · Enter wybierz · Esc wstecz",
+ "tui.settings.range": "{name}: liczba od {min} do {max}",
  "tui.subdir": "SUB-DIR",
  "tui.unselect": "Odznacz",
  "tui.updir": "UP--DIR",

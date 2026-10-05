@@ -1176,6 +1176,10 @@
   "one": "{size} σε {n} επιλεγμένο",
   "other": "{size} σε {n} επιλεγμένα"
  },
+ "tui.settings.keys": "↑↓ μετακίνηση · Διάστημα επιλογή · Enter αλλαγή · ←→ περιοχές · / εύρεση · Esc κλείσιμο",
+ "tui.settings.list_keys": "Enter προσθήκη · Delete αφαίρεση · ↑↓ μετακίνηση · Esc τέλος",
+ "tui.settings.pick_keys": "↑↓ μετακίνηση · Enter επιλογή · Esc πίσω",
+ "tui.settings.range": "{name}: ένας αριθμός από {min} έως {max}",
  "tui.subdir": "Φάκελος",
  "tui.unselect": "Αποεπιλογή",
  "tui.updir": "Επάνω",

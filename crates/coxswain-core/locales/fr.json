@@ -1220,6 +1220,10 @@
   "one": "{size} dans {n} sélectionné",
   "other": "{size} dans {n} sélectionnés"
  },
+ "tui.settings.keys": "↑↓ se déplacer · Espace choisir · Entrée modifier · ←→ rubriques · / chercher · Échap fermer",
+ "tui.settings.list_keys": "Entrée ajouter · Suppr retirer · ↑↓ se déplacer · Échap terminé",
+ "tui.settings.pick_keys": "↑↓ se déplacer · Entrée choisir · Échap retour",
+ "tui.settings.range": "{name} : un nombre de {min} à {max}",
  "tui.subdir": "SUB-DIR",
  "tui.unselect": "Désélectionner",
  "tui.updir": "UP--DIR",

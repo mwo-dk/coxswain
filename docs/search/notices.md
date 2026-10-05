@@ -121,9 +121,11 @@ app, once in the terminal app. The title cannot be changed. *Settings → Overvi
 
 ## In the terminal app
 
-The same tips and title. Differences: there is no count and no *What's new* list; tips come one at
-a time in the status line, once, and name the command instead of a Settings area; after an
-upgrade a tip points to `coxswain --whats-new`, which prints the versions in the shell. The title
+The same tips and title. Differences: there is no count; tips come one at a time in the status
+line, once, and name the command instead of a Settings area; after an upgrade a tip points to
+`coxswain --whats-new`, which prints the versions in the shell. *Settings → Overview* (**F9** →
+*Settings*) lists the tips not shown yet, where **Enter** opens the area that does it, and what
+the versions you have not read brought. The title
 is the terminal's (a terminal that does not show titles shows nothing).
 
 ## Questions

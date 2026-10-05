@@ -4,8 +4,8 @@
 
 Every flag of both programs, `coxswain` (the terminal app) and `coxswain-gui` (the desktop app).
 Use them to start in certain folders, to find where Coxswain keeps its files, and to change the
-settings that do more than set a value (search by meaning, the search helper) without the
-Settings window. For the command line *inside* Coxswain, where you type shell commands, see
+settings that do more than set a value (search by meaning, the search helper) from a script.
+Both apps also open their Settings from the command line (`--settings`). For the command line *inside* Coxswain, where you type shell commands, see
 [The command line and its output](../commands/command-line.md).
 
 ![A terminal in the demo sandbox after coxswain --version (coxswain 1.28.3) and coxswain --paths: config, state, cache, name index, search store, model, previews and archive looks, each with its path under /home/demo](../screenshots/reference-paths.png)
@@ -35,7 +35,8 @@ Settings window. For the command line *inside* Coxswain, where you type shell co
 | Start in two folders | `coxswain ~/src ~/Downloads` | `coxswain-gui ~/src ~/Downloads` |
 | Start on a file | `coxswain notes.md` | `coxswain-gui notes.md` |
 | The version | `coxswain --version` | The title of *Help* (**F1**), or the window title |
-| Where things are kept | `coxswain --paths` | `coxswain-gui --settings=privacy`: *Where things are kept* |
+| Settings, at an area or an option | `coxswain --settings=search` | `coxswain-gui --settings=search` |
+| Where things are kept | `coxswain --paths`, or `coxswain --settings=privacy` | `coxswain-gui --settings=privacy`: *Where things are kept* |
 | Every default | `coxswain --dump-config` | – |
 | Which languages there are | `coxswain --languages` | `coxswain-gui --settings=language` |
 | What the new version brought | `coxswain --whats-new` | `coxswain-gui --settings=news`, or click the count on *⚙ Settings* |
@@ -48,6 +49,8 @@ Settings window. For the command line *inside* Coxswain, where you type shell co
 
 ```
 coxswain [LEFT] [RIGHT]      a folder, or a file to open its folder with the cursor on it
+  --settings[=AREA|OPTION]  start with Settings open (also F9 → Settings): search, previews,
+                  looks, behaviour, keys, privacy, or an option such as show_hidden
   --dump-config   print the full default config (redirect it to the config file to customise)
   --config-path   print where the config file is read from
   --paths         print where everything is kept: config, state, index, search store, model
@@ -72,6 +75,7 @@ coxswain [LEFT] [RIGHT]      a folder, or a file to open its folder with the cur
 | Flag | Does |
 |---|---|
 | `LEFT`, `RIGHT` | The folders of the left and right panel. A relative path is from the current folder, `~` is home. A file opens its folder with the cursor on it. Without them: the current folder in both |
+| `--settings[=AREA\|OPTION] [LEFT] [RIGHT]` | Starts the app with [Settings](../customise/settings.md#in-the-terminal-app) open: at Overview, at an area (`search`, `previews`, `looks`, `behaviour`, `keys`, `privacy`), at a group (`meaning`, `ask`, `language`, `news`) or with the cursor on an option (`show_hidden`, `max_results` …). **Esc** closes it to the panels, which show `LEFT` and `RIGHT` as without the flag. A name it does not know opens Overview |
 | `--help`, `-h` | Prints the text above |
 | `--version`, `-V` | Prints `coxswain 1.20.0` |
 | `--dump-config` | Prints every option with its default, as TOML, including every built-in theme and the full `[keys]` table. `coxswain --dump-config > ~/.config/coxswain/config.toml` gives you the full list to edit |

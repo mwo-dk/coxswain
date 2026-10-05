@@ -336,8 +336,10 @@ Settings item: edit the file.
 
 The terminal app reads the same file, once, when it starts. It uses the top-level keys,
 `glyph_set`, `[keys]`, `[themes.*]` (colours only, not `look`), `[[user_menu]]`, `[git]` and,
-through the helper, `[search]`. It ignores `[preview]` and `[gui]`. It has no Settings window: edit the file,
-or use `coxswain --meaning …` for search by meaning ([Command-line flags](command-line-flags.md#--meaning)).
+through the helper, `[search]`. It ignores `[preview]` and `[gui]`. Its Settings (**F9** → *Settings*,
+[In the terminal app](../customise/settings.md#in-the-terminal-app)) write the file the way the
+desktop app's do; or edit it, or use `coxswain --meaning …` for search by meaning
+([Command-line flags](command-line-flags.md#--meaning)).
 
 ## An example
 

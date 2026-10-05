@@ -259,7 +259,7 @@ impl Action {
         matches!(
             self,
             NewTab | CloseTab | NextTab | PrevTab | TogglePreview | ToggleView | ToggleSidebar | EditPath | BatchRename | Tag | Notes | Back | Forward
-                | ClipCopy | ClipCut | Paste | Properties | Columns | Duplicates | Settings
+                | ClipCopy | ClipCut | Paste | Properties | Columns | Duplicates
         )
     }
 }

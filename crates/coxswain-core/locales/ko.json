@@ -1132,6 +1132,10 @@
  "tui.selected": {
   "other": "{n}개 선택, {size}"
  },
+ "tui.settings.keys": "↑↓ 이동 · Space 선택 · Enter 변경 · ←→ 영역 · / 찾기 · Esc 닫기",
+ "tui.settings.list_keys": "Enter 추가 · Delete 제거 · ↑↓ 이동 · Esc 완료",
+ "tui.settings.pick_keys": "↑↓ 이동 · Enter 선택 · Esc 뒤로",
+ "tui.settings.range": "{name}: {min}부터 {max}까지의 숫자",
  "tui.subdir": "SUB-DIR",
  "tui.unselect": "선택 해제",
  "tui.updir": "UP--DIR",

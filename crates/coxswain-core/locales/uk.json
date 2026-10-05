@@ -1264,6 +1264,10 @@
   "one": "{size} у {n} виділеному",
   "other": "{size} у {n} виділеного"
  },
+ "tui.settings.keys": "↑↓ рух · Пробіл вибрати · Enter змінити · ←→ розділи · / пошук · Esc закрити",
+ "tui.settings.list_keys": "Enter додати · Delete вилучити · ↑↓ рух · Esc готово",
+ "tui.settings.pick_keys": "↑↓ рух · Enter вибрати · Esc назад",
+ "tui.settings.range": "{name}: число від {min} до {max}",
  "tui.subdir": "SUB-DIR",
  "tui.unselect": "Зняти виділення",
  "tui.updir": "UP--DIR",

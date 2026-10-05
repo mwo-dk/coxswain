@@ -1176,6 +1176,10 @@
   "one": "{size} · {n} hautatuta",
   "other": "{size} · {n} hautatuta"
  },
+ "tui.settings.keys": "↑↓ mugitu · Zuriunea aukeratu · Sartu aldatu · ←→ arloak · / bilatu · Esc itxi",
+ "tui.settings.list_keys": "Sartu gehitu · Ezabatu kendu · ↑↓ mugitu · Esc eginda",
+ "tui.settings.pick_keys": "↑↓ mugitu · Sartu aukeratu · Esc atzera",
+ "tui.settings.range": "{name}: {min} eta {max} arteko zenbaki bat",
  "tui.subdir": "SUB-DIR",
  "tui.unselect": "Desautatu",
  "tui.updir": "UP--DIR",

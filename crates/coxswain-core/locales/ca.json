@@ -1220,6 +1220,10 @@
   "one": "{size} en {n} seleccionat",
   "other": "{size} en {n} seleccionats"
  },
+ "tui.settings.keys": "↑↓ mou · Espai tria · Retorn canvia · ←→ àrees · / cerca · Esc tanca",
+ "tui.settings.list_keys": "Retorn afegeix · Supr treu · ↑↓ mou · Esc fet",
+ "tui.settings.pick_keys": "↑↓ mou · Retorn tria · Esc enrere",
+ "tui.settings.range": "{name}: un nombre de {min} a {max}",
  "tui.subdir": "SUB-DIR",
  "tui.unselect": "Desselecciona",
  "tui.updir": "UP--DIR",

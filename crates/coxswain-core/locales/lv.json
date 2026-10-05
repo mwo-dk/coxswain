@@ -1220,6 +1220,10 @@
   "other": "{size} {n} atlasītajos",
   "zero": "{size} {n} atlasītajos"
  },
+ "tui.settings.keys": "↑↓ pārvietot · Atstarpe izvēlēties · Enter mainīt · ←→ jomas · / meklēt · Esc aizvērt",
+ "tui.settings.list_keys": "Enter pievienot · Delete noņemt · ↑↓ pārvietot · Esc gatavs",
+ "tui.settings.pick_keys": "↑↓ pārvietot · Enter izvēlēties · Esc atpakaļ",
+ "tui.settings.range": "{name}: skaitlis no {min} līdz {max}",
  "tui.subdir": "SUB-DIR",
  "tui.unselect": "Noņemt atlasi",
  "tui.updir": "UP--DIR",

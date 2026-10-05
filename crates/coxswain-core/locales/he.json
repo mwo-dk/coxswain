@@ -1220,6 +1220,10 @@
   "other": "{size} ב־{n} נבחרים",
   "two": "{size} ב־{n} נבחרים"
  },
+ "tui.settings.keys": "↑↓ תזוזה · רווח בחירה · Enter שינוי · ←→ אזורים · / חיפוש · Esc סגירה",
+ "tui.settings.list_keys": "Enter הוספה · Delete הסרה · ↑↓ תזוזה · Esc סיום",
+ "tui.settings.pick_keys": "↑↓ תזוזה · Enter בחירה · Esc חזרה",
+ "tui.settings.range": "{name}: מספר בין {min} ל־{max}",
  "tui.subdir": "SUB-DIR",
  "tui.unselect": "ביטול בחירה",
  "tui.updir": "UP--DIR",

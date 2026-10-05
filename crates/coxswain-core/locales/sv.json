@@ -1176,6 +1176,10 @@
   "one": "{size} i {n} markerad",
   "other": "{size} i {n} markerade"
  },
+ "tui.settings.keys": "↑↓ flytta · Mellanslag välj · Enter ändra · ←→ områden · / sök · Esc stäng",
+ "tui.settings.list_keys": "Enter lägg till · Delete ta bort · ↑↓ flytta · Esc klar",
+ "tui.settings.pick_keys": "↑↓ flytta · Enter välj · Esc tillbaka",
+ "tui.settings.range": "{name}: ett tal från {min} till {max}",
  "tui.subdir": "SUB-DIR",
  "tui.unselect": "Avmarkera",
  "tui.updir": "UP--DIR",

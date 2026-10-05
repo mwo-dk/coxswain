@@ -1220,6 +1220,10 @@
   "one": "{size}, pažymėta: {n}",
   "other": "{size}, pažymėta: {n}"
  },
+ "tui.settings.keys": "↑↓ judėti · Tarpas pasirinkti · Enter keisti · ←→ sritys · / ieškoti · Esc uždaryti",
+ "tui.settings.list_keys": "Enter pridėti · Delete pašalinti · ↑↓ judėti · Esc baigta",
+ "tui.settings.pick_keys": "↑↓ judėti · Enter pasirinkti · Esc atgal",
+ "tui.settings.range": "{name}: skaičius nuo {min} iki {max}",
  "tui.subdir": "SUB-DIR",
  "tui.unselect": "Nežymėti",
  "tui.updir": "UP--DIR",

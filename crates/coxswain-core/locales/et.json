@@ -1176,6 +1176,10 @@
   "one": "{size}, valitud {n}",
   "other": "{size}, valitud {n}"
  },
+ "tui.settings.keys": "↑↓ liigu · Tühik vali · Enter muuda · ←→ alad · / otsi · Esc sulge",
+ "tui.settings.list_keys": "Enter lisa · Delete eemalda · ↑↓ liigu · Esc valmis",
+ "tui.settings.pick_keys": "↑↓ liigu · Enter vali · Esc tagasi",
+ "tui.settings.range": "{name}: arv vahemikus {min} kuni {max}",
  "tui.subdir": "SUB-DIR",
  "tui.unselect": "Tühista valik",
  "tui.updir": "UP--DIR",
