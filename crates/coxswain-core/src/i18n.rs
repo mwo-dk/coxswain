@@ -3,7 +3,8 @@
 //! Each language is a flat JSON catalogue in `locales/` (`"key": "text"`), compiled into the
 //! binary. British English (`en-GB`) is the reference: every key exists there, and any key a
 //! language lacks falls back to it. The other English variants hold only the words that
-//! differ. Texts take `{name}` placeholders; a text that depends on a count is an object with
+//! differ; so do the German ones, which fall back to German first. Swiss German is German with
+//! every ß written ss, made when the catalogues load, plus its own file. Texts take `{name}` placeholders; a text that depends on a count is an object with
 //! one entry per plural category of its language (`one`, `few`, `many`, `zero`, `other`).
 
 use std::collections::HashMap;
@@ -37,6 +38,8 @@ pub const LANGUAGES: &[Language] = &[
     lang("sv", "Svenska", "se", "language.group.nordic", false),
     lang("ca", "Català", "es-ct", "language.group.western", false),
     lang("de", "Deutsch", "de", "language.group.western", false),
+    lang("de-AT", "Deutsch (Österreich)", "at", "language.group.western", false),
+    lang("de-CH", "Deutsch (Schweiz)", "ch", "language.group.western", false),
     lang("en-GB", "English (United Kingdom)", "gb", "language.group.western", false),
     lang("eu", "Euskara", "es-pv", "language.group.western", false),
     lang("fr", "Français", "fr", "language.group.western", false),
@@ -81,6 +84,8 @@ fn source(code: &str) -> &'static str {
         "lv" => include_str!("../locales/lv.json"),
         "lt" => include_str!("../locales/lt.json"),
         "de" => include_str!("../locales/de.json"),
+        "de-AT" => include_str!("../locales/de-AT.json"),
+        "de-CH" => include_str!("../locales/de-CH.json"),
         "fr" => include_str!("../locales/fr.json"),
         "it" => include_str!("../locales/it.json"),
         "nl" => include_str!("../locales/nl.json"),
@@ -121,7 +126,14 @@ pub fn nearest(tag: &str) -> &'static str {
         "et" => "et",
         "lv" => "lv",
         "lt" => "lt",
-        "de" | "gsw" | "lb" => "de",
+        // Liechtenstein writes Swiss Standard German, as does Swiss German (gsw).
+        "de" => match region {
+            "at" => "de-AT",
+            "ch" | "li" => "de-CH",
+            _ => "de",
+        },
+        "gsw" => "de-CH",
+        "lb" => "de",
         "fr" => "fr",
         "it" => "it",
         "nl" | "fy" | "af" => "nl",
@@ -157,21 +169,48 @@ fn pick(system: &[String]) -> &'static str {
 
 type Map = HashMap<String, serde_json::Value>;
 
-fn catalogues() -> &'static HashMap<&'static str, Map> {
-    static C: OnceLock<HashMap<&'static str, Map>> = OnceLock::new();
-    C.get_or_init(|| LANGUAGES.iter().map(|l| (l.code, serde_json::from_str(source(l.code)).unwrap_or_default())).collect())
+/// Swiss Standard German from German: ss for ß, and «guillemets» for „quotes“ (keys are
+/// ASCII, so only texts change).
+fn swiss(de: &str) -> String {
+    de.replace('ß', "ss").replace('ẞ', "SS").replace('„', "«").replace('“', "»")
 }
 
-/// The fallback chain for a language: itself, then (for English variants) British English.
-fn chain(code: &str) -> [&str; 2] {
-    [code, REFERENCE]
+fn catalogues() -> &'static HashMap<&'static str, Map> {
+    static C: OnceLock<HashMap<&'static str, Map>> = OnceLock::new();
+    C.get_or_init(|| {
+        let parse = |s: &str| -> Map { serde_json::from_str(s).unwrap_or_default() };
+        LANGUAGES
+            .iter()
+            .map(|l| {
+                let mut own = parse(source(l.code));
+                if l.code == "de-CH" {
+                    let mut all = parse(&swiss(source("de")));
+                    all.extend(own);
+                    own = all;
+                }
+                (l.code, own)
+            })
+            .collect()
+    })
+}
+
+/// The fallback chain for a language: itself, its base language for a regional variant that
+/// has one (`de-AT` → `de`), then British English.
+fn chain(code: &str) -> Vec<&str> {
+    let base = code.split('-').next().unwrap_or(code);
+    let mut v = vec![code];
+    if base != code && catalogues().contains_key(base) {
+        v.push(base);
+    }
+    v.push(REFERENCE);
+    v
 }
 
 /// The whole catalogue for `code`, with fallbacks filled in, for the desktop app.
 pub fn catalogue(code: &str) -> Map {
-    let mut out = catalogues().get(REFERENCE).cloned().unwrap_or_default();
-    if code != REFERENCE {
-        if let Some(own) = catalogues().get(code) {
+    let mut out = Map::new();
+    for c in chain(code).into_iter().rev() {
+        if let Some(own) = catalogues().get(c) {
             out.extend(own.iter().map(|(k, v)| (k.clone(), v.clone())));
         }
     }
@@ -322,8 +361,16 @@ mod tests {
             ("en_AU", "en-AU"),
             ("en-IE", "en-GB"),
             ("nb-NO", "da"),
-            ("de-CH", "de"),
-            ("gsw", "de"),
+            ("de-CH", "de-CH"),
+            ("de_CH.UTF-8", "de-CH"),
+            ("de-LI", "de-CH"),
+            ("de_AT.UTF-8", "de-AT"),
+            ("de-AT", "de-AT"),
+            ("de-DE", "de"),
+            ("de-LU", "de"),
+            ("de", "de"),
+            ("gsw", "de-CH"),
+            ("lb", "de"),
             ("fr-CA", "fr"),
             ("es-ES", "es-AR"),
             ("es-MX", "es-AR"),
@@ -366,6 +413,32 @@ mod tests {
             assert_ne!(source(l.code), "{}", "{} has no catalogue", l.code);
             assert_eq!(nearest(l.code), l.code);
         }
+    }
+
+    #[test]
+    fn i18n_german_variants_fall_back_to_german() {
+        let de = catalogue("de");
+        let (at, ch) = (catalogue("de-AT"), catalogue("de-CH"));
+        // Every key, and German where the variant says nothing of its own.
+        assert_eq!(at.len(), catalogue(REFERENCE).len());
+        assert_eq!(ch.len(), at.len());
+        assert_eq!(at["common.close"], de["common.close"]);
+        assert_eq!(chain("de-AT"), ["de-AT", "de", REFERENCE]);
+        assert_eq!(chain("en-AU"), ["en-AU", REFERENCE]);
+        assert_eq!(chain("de"), ["de", REFERENCE]);
+        assert_eq!(ch["common.close"], "Schliessen");
+    }
+
+    #[test]
+    fn i18n_swiss_german_has_no_sharp_s() {
+        let own: Map = serde_json::from_str(source("de-CH")).unwrap();
+        for (key, v) in catalogue("de-CH") {
+            // Only a text of its own may keep ß, such as the font sample that shows the letter.
+            if !own.contains_key(&key) {
+                assert!(!v.to_string().contains(['ß', 'ẞ', '„', '“']), "de-CH: {key}: {v}");
+            }
+        }
+        assert!(catalogue("de")["common.close"].as_str().unwrap().contains('ß'));
     }
 
     #[test]
