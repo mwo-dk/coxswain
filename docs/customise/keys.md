@@ -107,6 +107,9 @@ not modifiers Coxswain reads; use **Ctrl** or **Alt**.
 | `swap_panels` | **Ctrl+U** | `columns` ¹ | none |
 | `toggle_panels` | **Ctrl+O** | `duplicates` ¹ | **Ctrl+D** |
 | `toggle_hidden` | **Alt+.** | `settings` ¹ | **Ctrl+,** |
+| `history` | **Ctrl+G** | `branches` | **Alt+B** |
+| `worktrees` | **Alt+W** | `switch_branch` | **Alt+S** |
+| `new_branch` | none | | |
 
 ¹ The desktop app only. In the terminal app the key still belongs to the action, and pressing it
 says *… is available in the desktop app (coxswain-gui)* on the command line.

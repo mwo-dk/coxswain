@@ -2,7 +2,7 @@
   import { getCurrentWindow } from "@tauri-apps/api/window";
   import { getCurrentWebview } from "@tauri-apps/api/webview";
   import { listen } from "@tauri-apps/api/event";
-  import { ui, init, tab, pane, otherTab, item, load, cd, up, openHistory, newTab, goBack, goForward, openItem, toggleMark, targets, reloadAll, refreshDisks, snapshot, setTheme, themeIds, themeName, nextView, measureFolders, columnMenu } from "./app.svelte.js";
+  import { ui, init, tab, pane, otherTab, item, load, cd, up, openHistory, openGitView, switchBranch, newBranch, newTab, goBack, goForward, openItem, toggleMark, targets, reloadAll, refreshDisks, snapshot, setTheme, themeIds, themeName, nextView, measureFolders, columnMenu } from "./app.svelte.js";
   import { invoke, keyString, basename, parent, glob, quote, isArchive, packFormat, LOCKED } from "./lib.js";
   import { t, tn } from "./i18n.svelte.js";
   import Sidebar from "./Sidebar.svelte";
@@ -264,6 +264,10 @@
     open: () => openItem(tab()),
     parent: () => up(tab()) && cd(tab(), up(tab())),
     history: () => openHistory(),
+    branches: () => openGitView(),
+    worktrees: () => openGitView(true),
+    switch_branch: () => switchBranch(),
+    new_branch: () => newBranch(),
     switch_panel: () => ui.dual && (ui.activePane ^= 1),
     mark: () => {
       toggleMark(tab(), tab().cursor);

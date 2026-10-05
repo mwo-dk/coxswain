@@ -234,6 +234,10 @@ actions! {
     Duplicates = "duplicates", "Find duplicates", Search, ["Ctrl+D"];
     // Git, the most used first.
     History = "history", "Git history", Git, ["Ctrl+G"];
+    Branches = "branches", "Git branches", Git, ["Alt+B"];
+    SwitchBranch = "switch_branch", "Switch to branch", Git, ["Alt+S"];
+    Worktrees = "worktrees", "Git worktrees", Git, ["Alt+W"];
+    NewBranch = "new_branch", "New branch here", Git, [];
     // Viewing and editing, the most used first.
     View = "view", "View", Viewing, ["F3"];
     Edit = "edit", "Edit", Viewing, ["F4"];

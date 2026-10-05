@@ -149,8 +149,14 @@ for the full history.
 
 #### Can I change files in a history, or check out a commit?
 
-No: a history is read-only, and Coxswain never changes the repository. Copy what you need out
-with **F5**; for a checkout use `git switch` or `git checkout` on the command line.
+No: a history is read-only. Copy what you need out with **F5**; to switch to a branch use
+**Alt+B** and **Alt+S** ([Git branches and worktrees](git-branches.md)), and to check out a
+commit `git checkout` on the command line.
+
+#### How do I see another branch's files?
+
+**Alt+B** lists the branches; **Enter** on one shows its files as they are at its last commit,
+the same way a commit of a history does ([Git branches and worktrees](git-branches.md)).
 
 #### How do I know I am looking at an old version and not the file on disk?
 
@@ -158,4 +164,4 @@ The desktop app tints the pane and shows *commit a1b2c3d* at the end of the path
 app ends the title in `[commit a1b2c3d]`. The path holds `@history`.
 
 ---
-[← Previous: Git in the panels](git.md) · [Next: The mouse →](mouse.md)
+[← Previous: Git in the panels](git.md) · [Next: Git branches and worktrees →](git-branches.md)
