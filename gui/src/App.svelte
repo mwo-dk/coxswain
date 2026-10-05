@@ -542,7 +542,9 @@
   function quickJump(e) {
     e.preventDefault();
     const t = tab();
-    const i = t.items.findIndex((x) => x.name.toLowerCase().startsWith(ui.quick.toLowerCase()));
+    // NFC on both sides: macOS keeps names decomposed (Hangul syllables, が as か + ゙), typing composes.
+    const q = ui.quick.normalize("NFC").toLowerCase();
+    const i = t.items.findIndex((x) => x.name.normalize("NFC").toLowerCase().startsWith(q));
     if (i >= 0) t.cursor = i;
   }
 
@@ -627,7 +629,7 @@
     overflow: hidden;
     background: var(--sidebar-bg, #18191b);
     color: var(--panel-fg, #ddd);
-    font-family: var(--font, system-ui, sans-serif);
+    font-family: var(--font, system-ui, sans-serif), var(--cjk);
     font-size: var(--font-size, 13px);
     -webkit-font-smoothing: antialiased;
   }
@@ -683,7 +685,7 @@
     border-radius: var(--r);
     background: var(--cmdline-bg);
     color: var(--cmdline-fg);
-    font-family: var(--mono-font);
+    font-family: var(--mono-font), var(--cjk);
     font-size: 0.95em;
   }
   .prompt {
@@ -706,7 +708,7 @@
     opacity: 0.6;
   }
   .status {
-    font-family: var(--font);
+    font-family: var(--font), var(--cjk);
     color: var(--marked-fg);
     white-space: nowrap;
   }
@@ -739,13 +741,13 @@
     cursor: default;
   }
   .keybar kbd {
-    font-family: var(--mono-font);
+    font-family: var(--mono-font), var(--cjk);
     font-size: 0.85em;
     color: var(--keybar-num-fg);
   }
   .gear {
     font: inherit;
-    font-family: var(--icon-font), var(--font);
+    font-family: var(--icon-font), var(--font), var(--cjk);
     color: var(--hidden-fg);
     background: none;
     border: 0;
@@ -779,7 +781,7 @@
   }
   .update {
     font: inherit;
-    font-family: var(--font);
+    font-family: var(--font), var(--cjk);
     color: var(--accent-fg);
     background: var(--accent-bg);
     border: 0;

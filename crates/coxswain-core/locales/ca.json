@@ -611,6 +611,7 @@
  "news.new": "nou",
  "news.show_me": "Mostra-m'ho",
  "news.title": "Novetats",
+ "notice.cjk_font": "No hi ha cap tipus de lletra japonès ni coreà instal·lat, així que els caràcters es poden veure com a quadrets. Instal·la’n un, per exemple noto-fonts-cjk (Arch), fonts-noto-cjk (Debian, Ubuntu) o google-noto-sans-cjk-fonts (Fedora).",
  "notice.cloud": "S'ha trobat {names}: els fitxers que només són en línia es troben només pel nom, així que no es baixa res. Canvia-ho a la Configuració",
  "notice.cloud_tui": "S'ha trobat {names}: els fitxers que només són en línia es troben només pel nom, així que no es baixa res. cloud = \"all\" a config.toml els llegeix",
  "notice.history": "Novetat: {key} sobre un fitxer o una carpeta d'un repositori git en mostra l'historial, commit a commit",

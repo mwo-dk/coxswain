@@ -580,6 +580,7 @@
  "news.new": "ny",
  "news.show_me": "Visa mig",
  "news.title": "Nyheter",
+ "notice.cjk_font": "Inget japanskt eller koreanskt typsnitt är installerat, så tecknen kan visas som rutor. Installera ett, till exempel noto-fonts-cjk (Arch), fonts-noto-cjk (Debian, Ubuntu) eller google-noto-sans-cjk-fonts (Fedora).",
  "notice.cloud": "Hittade {names}: filer som bara finns online hittas bara på namn, så inget hämtas. Ändra i Inställningar",
  "notice.cloud_tui": "Hittade {names}: filer som bara finns online hittas bara på namn, så inget hämtas. cloud = \"all\" i config.toml läser dem",
  "notice.history": "Nytt: {key} på en fil eller mapp i ett git-repo visar dess historik, commit för commit",
