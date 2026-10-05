@@ -580,6 +580,7 @@
  "news.new": "ny",
  "news.show_me": "Vis mig",
  "news.title": "Nyt",
+ "notice.cjk_font": "Der er ingen japansk eller koreansk skrifttype installeret, så bogstaverne kan blive vist som firkanter. Installér en, for eksempel noto-fonts-cjk (Arch), fonts-noto-cjk (Debian, Ubuntu) eller google-noto-sans-cjk-fonts (Fedora).",
  "notice.cloud": "Fandt {names}: filer, der kun er online, findes kun på navn, så intet hentes. Ændr det i Indstillinger",
  "notice.cloud_tui": "Fandt {names}: filer, der kun er online, findes kun på navn, så intet hentes. cloud = \"all\" i config.toml læser dem",
  "notice.history": "Nyt: {key} på en fil eller mappe i et git-repository viser dens historik, commit for commit",

@@ -611,6 +611,7 @@
  "news.new": "nouveau",
  "news.show_me": "Me montrer",
  "news.title": "Nouveautés",
+ "notice.cjk_font": "Aucune police japonaise ou coréenne n’est installée : les caractères peuvent s’afficher comme des carrés. Installez-en une, par exemple noto-fonts-cjk (Arch), fonts-noto-cjk (Debian, Ubuntu) ou google-noto-sans-cjk-fonts (Fedora).",
  "notice.cloud": "{names} trouvé : les fichiers uniquement en ligne sont trouvés par leur nom seulement, rien n'est donc téléchargé. Modifiable dans les Paramètres",
  "notice.cloud_tui": "{names} trouvé : les fichiers uniquement en ligne sont trouvés par leur nom seulement, rien n'est donc téléchargé. cloud = \"all\" dans config.toml les lit",
  "notice.history": "Nouveau : {key} sur un fichier ou un dossier d'un dépôt git montre son historique, commit par commit",

@@ -48,6 +48,17 @@ pub(crate) fn fit(s: &str, w: usize) -> String {
     format!("{out}{}", " ".repeat(w.saturating_sub(used + 1)))
 }
 
+/// `s` centred in `w` columns, by display width: a CJK letter takes two, which `{:^w$}` miscounts.
+fn center(s: &str, w: usize) -> String {
+    let gap = w.saturating_sub(s.width());
+    format!("{}{s}{}", " ".repeat(gap / 2), " ".repeat(gap - gap / 2))
+}
+
+/// `s` against the right edge of `w` columns, cut to fit.
+fn right(s: &str, w: usize) -> String {
+    fit(&format!("{}{s}", " ".repeat(w.saturating_sub(s.width()))), w)
+}
+
 /// Keep the tail of a path, which is the informative part.
 fn fit_left(s: &str, w: usize) -> String {
     if s.width() <= w {
@@ -148,10 +159,10 @@ fn panel(f: &mut Frame, app: &mut App, side: usize, area: Rect) {
 
     let header = {
         let hs = sty(&t.header).bg(base.bg.unwrap_or(Color::Reset));
-        let mut v = vec![Span::styled(" ".repeat(gw), hs), Span::styled(fit(&format!("{:^nw$}", t!("tui.col.name")), nw), hs), bar.clone(), Span::styled(fit(&format!("{:^sw$}", t!("tui.col.size")), sw), hs)];
+        let mut v = vec![Span::styled(" ".repeat(gw), hs), Span::styled(fit(&center(&t!("tui.col.name"), nw), nw), hs), bar.clone(), Span::styled(fit(&center(&t!("tui.col.size"), sw), sw), hs)];
         if show_date {
             v.push(bar.clone());
-            v.push(Span::styled(fit(&format!("{:^dw$}", t!("tui.col.modified")), dw), hs));
+            v.push(Span::styled(fit(&center(&t!("tui.col.modified"), dw), dw), hs));
         }
         Line::from(v)
     };
@@ -224,7 +235,7 @@ fn panel(f: &mut Frame, app: &mut App, side: usize, area: Rect) {
             size(e.size)
         };
         let bar = Span::styled("│", border.bg(row_bg).fg(border.fg.unwrap_or(Color::Reset)));
-        let mut v = vec![Span::styled(fit(&glyph, gw), gstyle), Span::styled(fit(name, nw), s), bar.clone(), Span::styled(format!("{sz:>sw$}"), s)];
+        let mut v = vec![Span::styled(fit(&glyph, gw), gstyle), Span::styled(fit(name, nw), s), bar.clone(), Span::styled(right(&sz, sw), s)];
         if show_date {
             v.push(bar);
             v.push(Span::styled(fit(&if e.is_parent() { String::new() } else { date(e.modified) }, dw), s));
@@ -247,7 +258,7 @@ fn panel(f: &mut Frame, app: &mut App, side: usize, area: Rect) {
     let info = if let Some(err) = &p.error {
         Line::from(Span::styled(fit(err, w), sty(&t.git_conflict)))
     } else if !p.marked.is_empty() {
-        Line::from(Span::styled(format!("{:^w$}", tn!("tui.selected", p.marked.len(), "size" => size(p.marked_bytes))), sty(&t.marked))).centered()
+        Line::from(Span::styled(fit(&center(&tn!("tui.selected", p.marked.len(), "size" => size(p.marked_bytes)), w), w), sty(&t.marked)))
     } else if let Some(e) = p.current() {
         let mut right = if e.is_dir { String::new() } else { format!(" {}", size(e.size)) };
         // The last commit that changed it, when git has said.

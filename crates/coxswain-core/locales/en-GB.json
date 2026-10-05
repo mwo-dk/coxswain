@@ -580,6 +580,7 @@
  "news.new": "new",
  "news.show_me": "Show me",
  "news.title": "What's new",
+ "notice.cjk_font": "No Japanese or Korean font is installed, so their letters may show as boxes. Install one, for example noto-fonts-cjk (Arch), fonts-noto-cjk (Debian, Ubuntu) or google-noto-sans-cjk-fonts (Fedora).",
  "notice.cloud": "Found {names}: files that are only online are found by name only, so nothing is downloaded. Change in Settings",
  "notice.cloud_tui": "Found {names}: files that are only online are found by name only, so nothing is downloaded. cloud = \"all\" in config.toml reads them",
  "notice.history": "New: {key} on a file or folder in a git repository shows its history, commit by commit",
