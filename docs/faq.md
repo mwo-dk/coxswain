@@ -45,7 +45,7 @@ The questions people ask most, with a short answer and a link to the full one. E
 - **Why doesn't a file I just saved show up in text search?** It is read within seconds, unless it is outside the folders read, too large, the laptop is on battery, or the helper still has a backlog. [Answer](search/text.md#why-doesnt-a-file-i-just-saved-show-up-in-text-search)
 - **How do I search only this folder?** Press Tab once in Find file: "In <folder>" searches names in the active panel's folder and below. [Answer](search/find-file.md#how-do-i-search-only-this-folder)
 - **Why is search by meaning off?** It needs a 465 MB model and CPU time, so you choose: Settings → Search by meaning, or `coxswain --meaning on`. [Answer](search/meaning.md#why-is-search-by-meaning-off)
-- **Why is search by meaning re-reading everything?** Once after the update to 1.34.0: whole documents get vectors now, not only their first 960 words, so the helper makes them anew in the background; the text is not read again. [Answer](search/meaning.md#why-is-search-by-meaning-re-reading-everything)
+- **Why is search by meaning re-reading everything?** Once after the update to 1.36.0: whole documents get vectors now, not only their first 960 words, so the helper makes them anew in the background; the text is not read again. [Answer](search/meaning.md#why-is-search-by-meaning-re-reading-everything)
 - **How do I go straight to searching inside files, or to Ask?** Shift+F7 (or Ctrl+Shift+F in the desktop app) opens Find file at the text of your files, Ctrl+F7 at Ask. [Answer](search/find-file.md#how-do-i-go-straight-to-searching-inside-files-or-to-ask)
 - **How do I go back a depth in Find file?** Shift+Tab; Tab goes forward. [Answer](search/find-file.md#how-do-i-go-back-a-depth)
 - **Can I ask my files a question?** Yes: Ctrl+F7 opens Find file at *Ask*, with search by meaning on and a chat model on your server. [Answer](search/ask.md)
@@ -105,6 +105,7 @@ The questions people ask most, with a short answer and a link to the full one. E
 - **I set `[themes.cyber.panel]` to tweak Cyber, and everything else turned blue.** Your table replaces the built-in Cyber and unset slots take NC's colours; copy the whole theme from `coxswain --dump-config`. [Answer](customise/own-theme.md#i-set-themescyberpanel-to-tweak-cyber-and-everything-else-turned-blue)
 - **How do I keep the default key and add my own?** List both in `[keys]`: listing an action replaces all its defaults. [Answer](customise/keys.md#how-do-i-keep-the-default-key-and-add-my-own)
 - **My system is in US English. Why does Coxswain say "colour" but "trash"?** US English gets Canadian English: British spelling, North American words. [Answer](customise/languages.md#my-system-is-in-us-english-why-does-coxswain-say-colour-but-trash)
+- **A word in Polish, Czech, Ukrainian or Greek reads wrong. Where do I say so?** These four are new; a GitHub issue or a pull request on `crates/coxswain-core/locales/<code>.json` is welcome. [Answer](customise/languages.md#improving-a-translation)
 - **The colours in my terminal look washed out, or wrong.** The themes use exact RGB and need a true-colour terminal; enable it in tmux. [Answer](customise/themes.md#the-colours-in-my-terminal-look-washed-out-or-wrong)
 
 ## Reference

@@ -680,9 +680,13 @@ impl App {
     }
 
     fn quick_jump(&mut self) {
-        let q = self.quick.clone().unwrap_or_default().to_lowercase();
+        use unicode_normalization::UnicodeNormalization;
+        // NFC on both sides: macOS keeps names decomposed (Hangul syllables, が as か + ゙),
+        // typing composes.
+        let nfc = |s: &str| s.nfc().collect::<String>().to_lowercase();
+        let q = nfc(self.quick.as_deref().unwrap_or_default());
         let p = self.panel_mut();
-        if let Some(i) = p.entries.iter().position(|e| e.name.to_lowercase().starts_with(&q)) {
+        if let Some(i) = p.entries.iter().position(|e| nfc(&e.name).starts_with(&q)) {
             p.cursor = i;
         }
     }
@@ -1724,9 +1728,29 @@ const USAGE: &str = "coxswain [LEFT] [RIGHT]      a folder, or a file to open it
   --meaning builtin        back to the built-in model
   --meaning ask MODEL|off  Ask in Find file: the chat model on that server (Ollama here with the
                            built-in model) that answers questions from your files
+  --languages              the languages, by region, and how to help improve a new translation
   --whats-new [all]        what the versions since you last looked brought (all: every version)
   --version
   --help";
+
+/// `--languages`: every language by region, the one in use and the new ones marked.
+fn languages() {
+    use coxswain_core::i18n::{self, LANGUAGES};
+    let cfg = Config::load().unwrap_or_default();
+    i18n::set_language(i18n::resolve(&cfg.language));
+    let mut group = "";
+    for l in LANGUAGES {
+        if l.group != group {
+            group = l.group;
+            println!("{}", t!(group));
+        }
+        let current = if l.code == i18n::language() { format!("  ({})", t!("app.current")) } else { String::new() };
+        let new = if l.new { format!("  {}", t!("news.new")) } else { String::new() };
+        println!("  {:<6} {}{new}{current}", l.code, l.name);
+    }
+    println!("\nlanguage = \"…\" in {}", Config::path().map(|p| p.display().to_string()).unwrap_or_else(|| "config.toml".into()));
+    println!("{}\n{}", t!("settings.language_improve"), i18n::IMPROVE_URL);
+}
 
 /// `--whats-new [all]`: the changelog, from the versions not read yet (or this one), then read.
 fn whats_new(all: bool) {
@@ -1902,6 +1926,7 @@ fn main() {
             }
             return;
         }
+        Some("--languages") => return languages(),
         Some("--whats-new") => return whats_new(args.get(1).map(String::as_str) == Some("all")),
         Some("--index-service") => return index_service(args.get(1).map(String::as_str)),
         Some("--meaning") => return meaning(args.get(1).map(String::as_str), &args[2.min(args.len())..]),
@@ -1967,6 +1992,24 @@ mod tests {
         let cfg = Config { check_updates: false, ..Config::default() };
         let index = Client::with(None, &cfg.search, || {});
         App::with_index(cfg, left, right, index).unwrap()
+    }
+
+    #[test]
+    fn quick_search_finds_a_decomposed_name() {
+        use unicode_normalization::UnicodeNormalization;
+        let d = std::env::temp_dir().join(format!("coxswain-test-quick-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        // As macOS keeps it: syllables taken apart into their letters.
+        let name: String = "한국어.txt".nfd().collect();
+        for f in ["a.txt", &name, "z.txt"] {
+            std::fs::write(d.join(f), "").unwrap();
+        }
+        let mut app = app(d.clone(), d.clone());
+        app.quick = Some("한국".into());
+        app.quick_jump();
+        assert_eq!(app.panel().current().map(|e| e.name.as_str()), Some(name.as_str()));
+        std::fs::remove_dir_all(d).unwrap();
     }
 
     #[test]
@@ -2164,6 +2207,91 @@ mod panel_tests {
         p.mark_all();
         assert_eq!(p.marked.len(), 4, "files and the folder, never `..`");
         assert!(!p.marked.iter().any(|m| m.ends_with("..")));
+        std::fs::remove_dir_all(d).unwrap();
+    }
+}
+
+/// Japanese and Korean letters take two columns: panels, the key bar, Find and a dialog must
+/// still line up.
+#[cfg(test)]
+mod wide_letters {
+    use super::*;
+    use ratatui::backend::TestBackend;
+    use ratatui::Terminal;
+
+    /// The screen as cells: a wide letter's second cell is empty.
+    fn draw(app: &mut App) -> Vec<Vec<String>> {
+        let mut term = Terminal::new(TestBackend::new(80, 24)).unwrap();
+        term.draw(|f| ui::draw(f, app)).unwrap();
+        let buf = term.backend().buffer();
+        (0..buf.area.height).map(|y| (0..buf.area.width).map(|x| buf[(x, y)].symbol().to_string()).collect()).collect()
+    }
+
+    /// The columns where `c` stands in `row`.
+    fn at(row: &[String], c: &str) -> Vec<usize> {
+        row.iter().enumerate().filter(|(_, s)| *s == c).map(|(x, _)| x).collect()
+    }
+
+    /// The rows from `top` to `bottom` all have `c` in the same columns (and somewhere).
+    fn same_columns(screen: &[Vec<String>], c: &str, rows: std::ops::Range<usize>) {
+        let want = at(&screen[rows.start], c);
+        assert!(!want.is_empty(), "no {c} in row {}", rows.start);
+        for y in rows {
+            assert_eq!(at(&screen[y], c), want, "row {y}: {}", screen[y].concat());
+        }
+    }
+
+    #[test]
+    fn japanese_and_korean_line_up() {
+        // The language is the whole process's: the check runs in a process of its own, so
+        // no other test reads Japanese.
+        if std::env::var_os("COXSWAIN_WIDE_TEST").is_none() {
+            let out = std::process::Command::new(std::env::current_exe().unwrap())
+                .args(["wide_letters::", "--test-threads=1"])
+                .env("COXSWAIN_WIDE_TEST", "1")
+                .output()
+                .unwrap();
+            assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stdout));
+            return;
+        }
+        let d = std::env::temp_dir().join(format!("coxswain-test-wide-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(d.join("한국어 폴더")).unwrap();
+        for f in ["日本語のとても長いファイルの名前です.txt", "보고서.txt", "a.txt"] {
+            std::fs::write(d.join(f), "x").unwrap();
+        }
+        for lang in ["ja", "ko"] {
+            coxswain_core::i18n::set_language(lang);
+            let cfg = Config { check_updates: false, ..Config::default() };
+            let index = Client::with(None, &cfg.search, || {});
+            let mut app = App::with_index(cfg, d.clone(), d.clone(), index).unwrap();
+            app.panels[0].toggle_mark(1);
+            let s = draw(&mut app);
+            // Panels: the column bars run straight down, the headings are not cut, the marked
+            // line is centred.
+            same_columns(&s, "│", 2..18);
+            assert!(!s[1].concat().contains('…'), "{lang}: {}", s[1].concat());
+            let info = &s[20][1..39];
+            let text: Vec<usize> = (0..info.len()).filter(|&x| info[x] != " ").collect();
+            let (l, r) = (text[0], info.len() - 1 - text[text.len() - 1]);
+            assert!(l.abs_diff(r) <= 2, "{lang}: not centred: {}", info.concat());
+            // The key bar: each key number in its own slot.
+            let bar = &s[23];
+            for n in 1..=9 {
+                assert_eq!(bar[(n - 1) * 8], n.to_string(), "{lang}: {}", bar.concat());
+            }
+            // Find, with a Japanese query, and a dialog with a long Korean text.
+            app.dialog = Some(Dialog::Search { query: "日本語 보고서".into(), mode: 0, results: Results::default(), cursor: 0, offset: 0 });
+            let s = draw(&mut app);
+            same_columns(&s, "║", 3..20);
+            app.dialog = Some(Dialog::Confirm { title: t!("dialog.delete"), text: "한국어 폴더와 日本語のファイルを完全に削除しますか".repeat(2), paths: vec![], forever: false });
+            let s = draw(&mut app);
+            // Its frame: from the corner that is not the panels' (row 0) to the bottom one.
+            let top = (1..24).find(|&y| s[y].iter().any(|c| c == "╔")).unwrap();
+            let bottom = (top..24).find(|&y| s[y].iter().any(|c| c == "╚")).unwrap();
+            same_columns(&s, "║", top + 1..bottom);
+        }
+        coxswain_core::i18n::set_language("en-GB");
         std::fs::remove_dir_all(d).unwrap();
     }
 }

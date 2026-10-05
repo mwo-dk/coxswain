@@ -93,7 +93,7 @@ hit.
   1,000 closest passages; their full vectors are then scored. A file counts with its best
   passage, and a little more (0.005) for each further passage that is close too, up to four, so
   a document that keeps coming back to your question goes ahead of one that mentions it once.
-- **A new way of cutting passages** (as in 1.34.0, which covers whole documents where earlier
+- **A new way of cutting passages** (as in 1.36.0, which covers whole documents where earlier
   versions took the first 960 words) is noticed when the helper opens `search.db`: it keeps the
   number of the way its vectors were made (`passages` in its table of facts). When that differs,
   the vectors go, the text stays, and every file gets new ones in the background, the last
@@ -146,12 +146,12 @@ Look at `ollama ps`: *100% CPU* means Ollama runs without your graphics card. In
 Ollama for your GPU (on Arch and CachyOS `ollama-cuda` or `ollama-rocm`) and restart it.
 
 #### Is a document found by what its last chapter is about?
-Yes, since 1.34.0: the whole text gets vectors, up to 256 passages (about 25,000 words). A longer
+Yes, since 1.36.0: the whole text gets vectors, up to 256 passages (about 25,000 words). A longer
 file has its start, its end, the start of each section and passages evenly between; search by
-words still finds every word. Before 1.34.0 only the first 960 words counted.
+words still finds every word. Before 1.36.0 only the first 960 words counted.
 
 #### Why is search by meaning re-reading everything?
-Once, after the update to 1.34.0: earlier versions gave vectors to the first 960 words of each
+Once, after the update to 1.36.0: earlier versions gave vectors to the first 960 words of each
 file only, and those vectors cannot be mixed with the new ones. The helper notices it when it
 opens the store, drops the old vectors and makes new ones in the background, the most recently
 changed files first. The text is not read again, and search by words works all the while. Both

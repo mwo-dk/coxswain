@@ -2,7 +2,7 @@
 
 # Languages
 
-Both apps, the terminal app and the desktop app, speak 20 languages. They share one set of
+Both apps, the terminal app and the desktop app, speak 26 languages. They share one set of
 translations and one setting, so they always agree. By default Coxswain follows your system's
 language.
 
@@ -15,6 +15,8 @@ language.
 - [How to use it](#how-to-use-it)
 - [Which language Automatic picks](#which-language-automatic-picks)
 - [What you see](#what-you-see)
+- [Capitals in Greek](#capitals-in-greek)
+- [Japanese and Korean](#japanese-and-korean)
 - [Right to left](#right-to-left)
 - [Settings and config.toml](#settings-and-configtoml)
 - [In the terminal app](#in-the-terminal-app)
@@ -23,18 +25,45 @@ language.
 
 ## The languages
 
-| | Language | Code | | Language | Code |
-|---|---|---|---|---|---|
-| <img src="../flags/gb.svg" width="24" alt=""> | English (United Kingdom) | `en-GB` | <img src="../flags/de.svg" width="24" alt=""> | Deutsch | `de` |
-| <img src="../flags/au.svg" width="24" alt=""> | English (Australia) | `en-AU` | <img src="../flags/at.svg" width="24" alt=""> | Deutsch (Österreich) | `de-AT` |
-| <img src="../flags/ca.svg" width="24" alt=""> | English (Canada) | `en-CA` | <img src="../flags/ch.svg" width="24" alt=""> | Deutsch (Schweiz) | `de-CH` |
-| <img src="../flags/nz.svg" width="24" alt=""> | English (New Zealand) | `en-NZ` | <img src="../flags/fr.svg" width="24" alt=""> | Français | `fr` |
-| <img src="../flags/dk.svg" width="24" alt=""> | Dansk | `da` | <img src="../flags/it.svg" width="24" alt=""> | Italiano | `it` |
-| <img src="../flags/se.svg" width="24" alt=""> | Svenska | `sv` | <img src="../flags/nl.svg" width="24" alt=""> | Nederlands | `nl` |
-| <img src="../flags/fi.svg" width="24" alt=""> | Suomi | `fi` | <img src="../flags/ar.svg" width="24" alt=""> | Español (Argentina) | `es-AR` |
-| <img src="../flags/ee.svg" width="24" alt=""> | Eesti | `et` | <img src="../flags/es-ct.svg" width="24" alt=""> | Català | `ca` |
-| <img src="../flags/lv.svg" width="24" alt=""> | Latviešu | `lv` | <img src="../flags/es-pv.svg" width="24" alt=""> | Euskara | `eu` |
-| <img src="../flags/lt.svg" width="24" alt=""> | Lietuvių | `lt` | <img src="../flags/il.svg" width="24" alt=""> | עברית (Hebrew) | `he` |
+Both apps list them by region, and by their own name within a region:
+
+| | Language | Code |
+|---|---|---|
+| | **Nordic and Baltic** | |
+| <img src="../flags/dk.svg" width="24" alt=""> | Dansk | `da` |
+| <img src="../flags/ee.svg" width="24" alt=""> | Eesti | `et` |
+| <img src="../flags/lv.svg" width="24" alt=""> | Latviešu | `lv` |
+| <img src="../flags/lt.svg" width="24" alt=""> | Lietuvių | `lt` |
+| <img src="../flags/fi.svg" width="24" alt=""> | Suomi | `fi` |
+| <img src="../flags/se.svg" width="24" alt=""> | Svenska | `sv` |
+| | **Western Europe** | |
+| <img src="../flags/es-ct.svg" width="24" alt=""> | Català | `ca` |
+| <img src="../flags/de.svg" width="24" alt=""> | Deutsch | `de` |
+| <img src="../flags/at.svg" width="24" alt=""> | Deutsch (Österreich) | `de-AT` |
+| <img src="../flags/ch.svg" width="24" alt=""> | Deutsch (Schweiz) | `de-CH` |
+| <img src="../flags/gb.svg" width="24" alt=""> | English (United Kingdom) | `en-GB` |
+| <img src="../flags/es-pv.svg" width="24" alt=""> | Euskara | `eu` |
+| <img src="../flags/fr.svg" width="24" alt=""> | Français | `fr` |
+| <img src="../flags/it.svg" width="24" alt=""> | Italiano | `it` |
+| <img src="../flags/nl.svg" width="24" alt=""> | Nederlands | `nl` |
+| | **Central and Eastern Europe** | |
+| <img src="../flags/cz.svg" width="24" alt=""> | Čeština (Czech) *(new)* | `cs` |
+| <img src="../flags/pl.svg" width="24" alt=""> | Polski (Polish) *(new)* | `pl` |
+| <img src="../flags/ua.svg" width="24" alt=""> | Українська (Ukrainian) *(new)* | `uk` |
+| | **Eastern Mediterranean** | |
+| <img src="../flags/gr.svg" width="24" alt=""> | Ελληνικά (Greek) *(new)* | `el` |
+| <img src="../flags/il.svg" width="24" alt=""> | עברית (Hebrew) | `he` |
+| | **The Americas** | |
+| <img src="../flags/ca.svg" width="24" alt=""> | English (Canada) | `en-CA` |
+| <img src="../flags/ar.svg" width="24" alt=""> | Español (Argentina) | `es-AR` |
+| | **Asia and the Pacific** | |
+| <img src="../flags/au.svg" width="24" alt=""> | English (Australia) | `en-AU` |
+| <img src="../flags/nz.svg" width="24" alt=""> | English (New Zealand) | `en-NZ` |
+| <img src="../flags/jp.svg" width="24" alt=""> | 日本語 (Japanese) *(new)* | `ja` |
+| <img src="../flags/kr.svg" width="24" alt=""> | 한국어 (Korean) *(new)* | `ko` |
+
+The ones marked *new* are fresh translations that no native speaker has checked yet: Settings
+marks them *new*, and [Improving a translation](#improving-a-translation) says how to help.
 
 British English is the reference: every text is written in it first. Australian and New Zealand
 English use British spelling and say "bin"; Canadian English keeps British spelling but says
@@ -51,10 +80,14 @@ written 1'234.5. Coxswain writes dates as numbers (2026-01-05), so Austrian Germ
 **Desktop app:**
 
 1. Open Settings: **Ctrl+,**, or **F9** → *Settings*, or start it with `coxswain-gui --settings`.
-2. Under *Language*, click a language. Every language is listed by its own name, with its flag.
+2. Under *Language*, click a language. The one in use is shown at the top, with its flag. Below
+   it the languages are listed under their regions (*Nordic and Baltic*, *Western Europe*, …),
+   each by its own name and flag; a fresh translation has a *new* badge.
 3. The window redraws in the new language at once, and the choice is saved to `config.toml`.
 
 *Automatic* goes back to following the system; below it, small, is the language that picks now.
+Under the list, *Translations marked new are fresh…* opens [Improving a translation](#improving-a-translation)
+in the browser.
 
 **Terminal app, or by hand:**
 
@@ -85,6 +118,9 @@ English counts); otherwise the nearest relative of the first one:
 | Frisian, Afrikaans | Dutch |
 | Luxembourgish | German |
 | Occitan | Catalan |
+| Polish, Czech, Ukrainian, Greek (`pl_PL`, `cs_CZ`, `uk_UA`, `el_GR`, `el_CY`, …) | That language |
+| Slovak | Czech, which Slovak readers read |
+| Japanese, Korean (`ja_JP`, `ko_KR`, …) | That language |
 | Hebrew (also the old code `iw`) | Hebrew |
 | Anything else | British English |
 
@@ -104,6 +140,43 @@ Not translated:
 - file and folder names, and the names of your favourite groups;
 - error texts that come from the operating system, which are in the system's own language;
 - the names of programs and formats (Ollama, LibreOffice, PDF).
+
+## Capitals in Greek
+
+Some headings are written in capitals (Settings' section titles, the sidebar's headings, the
+Cyber theme's dialog titles). Greek drops its accents in capitals and keeps a diaeresis:
+*Ρυθμίσεις* becomes ΡΥΘΜΙΣΕΙΣ, not ΡΥΘΜΊΣΕΙΣ, and *τσάι* becomes ΤΣΑΪ. The desktop app tells
+its web view that the page is Greek, which uppercases it so (WebKitGTK on Linux, WebKit on
+macOS and WebView2 on Windows all do). The terminal app writes no translated text in capitals.
+
+## Japanese and Korean
+
+Both are written in letters that take two columns in a terminal and need a font that has them.
+
+- **Fonts in the desktop app:** after every font list (*Font*, *Monospaced font*, the era fonts
+  of the themes) come Hiragino Sans, Yu Gothic, Meiryo and Noto Sans CJK JP, then Apple SD
+  Gothic Neo, Malgun Gothic and Noto Sans CJK KR (Korean first when Coxswain speaks Korean, as
+  the same Han letter is drawn differently in each). The first installed one draws them: on
+  macOS and Windows one always is. This holds for file names in any language too.
+- **No font on Linux:** when Coxswain speaks Japanese or Korean and `fc-list` knows no font
+  for it, *Settings → What's new* says once *No Japanese or Korean font is installed…* and
+  names the package: `noto-fonts-cjk` (Arch), `fonts-noto-cjk` (Debian, Ubuntu),
+  `google-noto-sans-cjk-fonts` (Fedora). Until then the letters show as boxes.
+- **Typing with an input method** (IME: Mozc, Kotoeri, the Microsoft IME, a Hangul keyboard):
+  works in every text field of the desktop app (Find file, the path bar, rename, notes, the
+  dialogs). While a word is being composed, Enter, Esc and the arrows belong to the input
+  method: Enter takes the word and does not run the dialog, Esc drops the word and does not
+  close it.
+- **Quick search** (**Alt+letter**, then letters) jumps to a name that starts with what you
+  type; a name kept decomposed (as macOS does with Hangul, or か + ゙ for が) is found by the
+  composed letters. An input method composes only in a text field, so in the desktop app quick
+  search takes the letters typed straight from the keyboard; for a Japanese or Korean name use
+  *Find file* (**Alt+F7**), where the input method works. In the terminal app, letters an input
+  method commits go to quick search once it is started.
+- **The terminal app** measures every text by the columns it takes, not by its letters: the
+  column titles, sizes and the marked line are centred and cut to their columns, the F-key bar
+  keeps ten slots, and Find and the dialogs keep their frames. Your terminal needs a font with
+  these letters (most terminals fall back to one by themselves).
 
 ## Right to left
 
@@ -129,8 +202,10 @@ One key for both apps.
 
 ## In the terminal app
 
-The same 20 languages and the same translations, chosen by the same `language` key. It is read
-when the app starts; there is no picker. Right to left depends on the terminal (see
+The same 26 languages and the same translations, chosen by the same `language` key. It is read
+when the app starts; there is no picker, but `coxswain --languages` prints the list by region,
+the one in use and the new ones marked, and where to suggest a better word. Right to left
+depends on the terminal (see
 [Right to left](#right-to-left)). The help (**F1**), the command list (**F9**), dialogs, the
 F-key bar and status texts are all translated.
 
@@ -163,6 +238,25 @@ Swiss Standard German has no *ß*: a system locale `de_CH` (or `de_LI`, or Swiss
 picks *Deutsch (Schweiz)*, which writes *ss* and «guillemets». For *ß* and „quotes“ pick
 *Deutsch* in Settings → *Language*, or set `language = "de"`.
 
+#### Polish, Czech, Ukrainian or Greek reads oddly in places. Why?
+
+These are new, marked *new* in Settings (and so are Japanese and Korean), and have not been read by a native speaker yet.
+Coxswain shows the notice "*Polski is a new translation…*" once (in the desktop app under
+Settings → *What's new*, in the terminal app in the status line) to say so. A better word is
+very welcome: see [Improving a translation](#improving-a-translation).
+
+#### Japanese or Korean shows as boxes. What is missing?
+
+A font with those letters. On Linux install `noto-fonts-cjk` (Arch), `fonts-noto-cjk` (Debian,
+Ubuntu) or `google-noto-sans-cjk-fonts` (Fedora) and start the desktop app again; the desktop
+app says so once under *Settings → What's new*. In the terminal app, it is the terminal's font
+that needs them. See [Japanese and Korean](#japanese-and-korean).
+
+#### I type Japanese and press Enter, and the dialog does nothing. Why?
+
+The first Enter takes the word your input method was composing; it is not a key for Coxswain
+yet. Press Enter once more to run the dialog. Esc likewise drops the composed word first.
+
 #### Why are key names in English?
 
 Keys are written the same everywhere (Ctrl, Alt, F5), so a key in `config.toml` means the same
@@ -183,7 +277,12 @@ Labels on the F-key bar must fit about nine characters, so some are abbreviated 
 ## Improving a translation
 
 The translations were written with care but have not all been checked by native speakers yet.
-Basque, Latvian and Lithuanian need a native reader most. Corrections are very welcome:
+The ones marked *new* (Polish, Czech, Ukrainian, Greek, Japanese, Korean) need a native reader most, then Basque,
+Latvian and Lithuanian. Corrections are very welcome, in either of two ways:
+
+- **Tell us:** open an [issue on GitHub](https://github.com/mwo-dk/coxswain/issues/new) with the
+  language, the text as it is (or where it shows) and what it should say. No setup needed.
+- **Change it yourself,** in a pull request:
 
 1. Each language is one file in [`crates/coxswain-core/locales/`](../../crates/coxswain-core/locales/),
    for example `da.json`. It maps a key to its text:
@@ -194,12 +293,14 @@ Basque, Latvian and Lithuanian need a native reader most. Corrections are very w
 2. Change the text, keeping every `{placeholder}` (you may move it). Texts with a count have one
    entry per plural form your language uses: `one`/`other` for most, `one`/`few`/`other` for
    Lithuanian, `zero`/`one`/`other` for Latvian, `one`/`two`/`other` for Hebrew, and
-   `one`/`many`/`other` for French, Italian, Spanish and Catalan.
+   `one`/`many`/`other` for French, Italian, Spanish and Catalan, `one`/`few`/`many`/`other`
+   for Polish and Ukrainian, `one`/`few`/`other` for Czech, and only `other` for Japanese and
+   Korean, which do not change a word for a count.
 3. Run `cargo test -p coxswain-core i18n`: it checks that every file parses, has no unknown
    keys, keeps the placeholders and has an `other` form.
 4. Open a pull request.
 
-**Adding a language:** add its code, name and flag to `LANGUAGES` and `source()` in
+**Adding a language:** add its code, name, flag and region to `LANGUAGES` and `source()` in
 [`crates/coxswain-core/src/i18n.rs`](../../crates/coxswain-core/src/i18n.rs), map its system codes
 in `nearest()`, give it plural rules in `plural()` if it needs other than one/other, copy
 `en-GB.json` to the new file and translate it, and add the flag (from

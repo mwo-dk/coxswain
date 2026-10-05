@@ -51,7 +51,7 @@ An unknown top-level or table key (a typo such as `show_hiden = false`) is ignor
 
 | Key | Type | Default | Does | Read by |
 |---|---|---|---|---|
-| `language` | string | `"auto"` | `"auto"` follows the system; or a code: `en-GB`, `en-AU`, `en-CA`, `en-NZ`, `da`, `sv`, `fi`, `et`, `lv`, `lt`, `de`, `de-AT`, `de-CH`, `fr`, `it`, `nl`, `es-AR`, `ca`, `eu`, `he` ([Languages](../customise/languages.md)) | Both |
+| `language` | string | `"auto"` | `"auto"` follows the system; or a code: `en-GB`, `en-AU`, `en-CA`, `en-NZ`, `da`, `sv`, `fi`, `et`, `lv`, `lt`, `de`, `de-AT`, `de-CH`, `fr`, `it`, `nl`, `es-AR`, `ca`, `eu`, `he`, `pl`, `cs`, `uk`, `el`, `ja`, `ko` ([Languages](../customise/languages.md)) | Both |
 | `theme` | string | `"nc"` | The terminal app's theme: a built-in name or one of your `[themes.<name>]` ([Themes](../customise/themes.md)). The desktop app's is `[gui] theme` | Terminal |
 | `glyphs` | string | `"nerd"` | `"nerd"` for Nerd Font glyphs, `"ascii"` for plain characters | Both |
 | `glyph_set` | table | none | Your own glyphs; see [Glyphs](#glyphs). When set, it wins over `glyphs` | Both |
