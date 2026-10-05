@@ -579,6 +579,7 @@
  "notice.history": "Uus: {key} giti hoidla faili või kausta peal näitab selle ajalugu commiti kaupa",
  "notice.meaning": "Uus: otsing tähenduse järgi leiab failid sinu sõnade kohta, mis tahes keeles. Lülita sisse",
  "notice.meaning_error": "Tähenduse järgi otsing ei saa vektoreid: {why}",
+ "notice.meaning_renew": "Tähendusotsingut uuendatakse, et see kataks terveid dokumente: {n} faili, umbes {time} selles masinas",
  "notice.meaning_tui": "Uus: otsing tähenduse järgi leiab failid sinu sõnade kohta, mis tahes keeles: coxswain --meaning on",
  "notice.ollama": "Ollama töötab siin: tähendusotsing võiks kasutada selle GPU-d. Vali see",
  "notice.ollama_tui": "Ollama töötab siin: tähendusotsing võiks kasutada selle GPU-d: coxswain --meaning ollama",
@@ -730,6 +731,7 @@
   "one": "{n} vaste ({ms} ms)",
   "other": "{n} vastet ({ms} ms)"
  },
+ "search.meaning_renewing": "Tähendusotsingut uuendatakse tervetele dokumentidele: {n} faili jäänud, umbes {time}",
  "search.reading": " · {n} veel lugemata",
  "search.refreshing": " · indeksi värskendamine",
  "search.similar_to": "sarnane:",

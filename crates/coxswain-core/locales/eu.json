@@ -579,6 +579,7 @@
  "notice.history": "Berria: {key} git biltegi bateko fitxategi edo karpeta batean haren historia erakusten du, commitez commit",
  "notice.meaning": "Berria: esanahiaren araberako bilaketak zure hitzei buruzko fitxategiak aurkitzen ditu, edozein hizkuntzatan. Aktibatu",
  "notice.meaning_error": "Esanahiaren araberako bilaketak ez du bektorerik jasotzen: {why}",
+ "notice.meaning_renew": "Esanahiaren araberako bilaketa berritzen ari da dokumentu osoak hartzeko: {n} fitxategi, {time} inguru makina honetan",
  "notice.meaning_tui": "Berria: esanahiaren araberako bilaketak zure hitzei buruzko fitxategiak aurkitzen ditu: coxswain --meaning on",
  "notice.ollama": "Ollama hemen dabil: esanahiaren araberako bilaketak haren GPUa erabil lezake. Aukeratu",
  "notice.ollama_tui": "Ollama hemen dabil: esanahiaren araberako bilaketak haren GPUa erabil lezake: coxswain --meaning ollama",
@@ -730,6 +731,7 @@
   "one": "bat etortze {n} · {ms} ms",
   "other": "{n} bat etortze · {ms} ms"
  },
+ "search.meaning_renewing": "Esanahiaren araberako bilaketa dokumentu osoetarako berritzen: {n} fitxategi falta dira, {time} inguru",
  "search.reading": " · {n} irakurtzeko",
  "search.refreshing": " · indizea freskatzen",
  "search.similar_to": "antzekoa:",

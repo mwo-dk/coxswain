@@ -610,6 +610,7 @@
  "notice.history": "חדש: {key} על קובץ או תיקייה במאגר git מציג את ההיסטוריה שלהם, commit אחר commit",
  "notice.meaning": "חדש: חיפוש לפי משמעות מוצא קבצים שעוסקים במילים שלכם, בכל שפה. הפעלה",
  "notice.meaning_error": "החיפוש לפי משמעות לא מקבל וקטורים: {why}",
+ "notice.meaning_renew": "‏החיפוש לפי משמעות מתחדש כדי לכסות מסמכים שלמים: {n} קבצים, בערך {time} במחשב הזה",
  "notice.meaning_tui": "חדש: חיפוש לפי משמעות מוצא קבצים על המילים שלכם, בכל שפה: coxswain --meaning on",
  "notice.ollama": "‏Ollama פועל כאן: חיפוש לפי משמעות יכול להשתמש ב-GPU שלו. בחירה",
  "notice.ollama_tui": "‏Ollama פועל כאן: חיפוש לפי משמעות יכול להשתמש ב-GPU שלו: coxswain --meaning ollama",
@@ -774,6 +775,7 @@
   "two": "{n} התאמות ב־{ms} אלפ׳ שנ׳",
   "other": "{n} התאמות ב־{ms} אלפ׳ שנ׳"
  },
+ "search.meaning_renewing": "‏חידוש החיפוש לפי משמעות למסמכים שלמים: נותרו {n} קבצים, בערך {time}",
  "search.reading": " · נותרו {n} לקריאה",
  "search.refreshing": " · מרענן אינדקס",
  "search.similar_to": "דומה ל:",

@@ -610,6 +610,7 @@
  "notice.history": "Jaunums: {key} uz faila vai mapes git repozitorijā parāda tā vēsturi, commit pa commit",
  "notice.meaning": "Jaunums: meklēšana pēc nozīmes atrod failus par jūsu vārdiem jebkurā valodā. Ieslēdziet to",
  "notice.meaning_error": "Meklēšana pēc nozīmes nesaņem vektorus: {why}",
+ "notice.meaning_renew": "Meklēšana pēc nozīmes tiek atjaunota, lai aptvertu veselus dokumentus: {n} faili, apmēram {time} šajā datorā",
  "notice.meaning_tui": "Jaunums: meklēšana pēc nozīmes atrod failus par jūsu vārdiem jebkurā valodā: coxswain --meaning on",
  "notice.ollama": "Šeit darbojas Ollama: meklēšana pēc nozīmes varētu izmantot tās GPU. Izvēlieties to",
  "notice.ollama_tui": "Šeit darbojas Ollama: meklēšana pēc nozīmes varētu izmantot tās GPU: coxswain --meaning ollama",
@@ -774,6 +775,7 @@
   "other": "{n} atbilstības {ms} ms laikā",
   "zero": "{n} atbilstības {ms} ms laikā"
  },
+ "search.meaning_renewing": "Meklēšana pēc nozīmes tiek atjaunota veseliem dokumentiem: atlikuši {n} faili, apmēram {time}",
  "search.reading": " · vēl jālasa {n}",
  "search.refreshing": " · atsvaidzina indeksu",
  "search.similar_to": "līdzīgs:",

@@ -579,6 +579,7 @@
  "notice.history": "Nieuw: {key} op een bestand of map in een git-repository toont de geschiedenis, commit voor commit",
  "notice.meaning": "Nieuw: zoeken op betekenis vindt bestanden over je woorden, in elke taal. Zet het aan",
  "notice.meaning_error": "Zoeken op betekenis krijgt geen vectoren: {why}",
+ "notice.meaning_renew": "Zoeken op betekenis wordt vernieuwd om hele documenten te dekken: {n} bestanden, ongeveer {time} op deze computer",
  "notice.meaning_tui": "Nieuw: zoeken op betekenis vindt bestanden over je woorden, in elke taal: coxswain --meaning on",
  "notice.ollama": "Ollama draait hier: zoeken op betekenis kan zijn GPU gebruiken. Kies het",
  "notice.ollama_tui": "Ollama draait hier: zoeken op betekenis kan zijn GPU gebruiken: coxswain --meaning ollama",
@@ -730,6 +731,7 @@
   "one": "{n} resultaat in {ms} ms",
   "other": "{n} resultaten in {ms} ms"
  },
+ "search.meaning_renewing": "Zoeken op betekenis wordt vernieuwd voor hele documenten: nog {n} bestanden, ongeveer {time}",
  "search.reading": " · nog {n} te lezen",
  "search.refreshing": " · index vernieuwen",
  "search.similar_to": "lijkt op:",

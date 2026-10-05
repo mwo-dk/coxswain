@@ -579,6 +579,7 @@
  "notice.history": "Uutta: {key} git-repositorion tiedoston tai kansion kohdalla näyttää sen historian commit kerrallaan",
  "notice.meaning": "Uutta: merkityshaku löytää tiedostot, jotka käsittelevät sanojasi, millä kielellä tahansa. Ota käyttöön",
  "notice.meaning_error": "Merkityshaku ei saa vektoreita: {why}",
+ "notice.meaning_renew": "Merkityshakua uudistetaan kattamaan kokonaiset asiakirjat: {n} tiedostoa, noin {time} tällä koneella",
  "notice.meaning_tui": "Uutta: merkityshaku löytää sanojasi käsittelevät tiedostot, millä kielellä tahansa: coxswain --meaning on",
  "notice.ollama": "Ollama toimii täällä: merkityshaku voisi käyttää sen näytönohjainta. Valitse se",
  "notice.ollama_tui": "Ollama toimii täällä: merkityshaku voisi käyttää sen näytönohjainta: coxswain --meaning ollama",
@@ -730,6 +731,7 @@
   "one": "{n} osuma ({ms} ms)",
   "other": "{n} osumaa ({ms} ms)"
  },
+ "search.meaning_renewing": "Merkityshakua uudistetaan kokonaisille asiakirjoille: {n} tiedostoa jäljellä, noin {time}",
  "search.reading": " · {n} lukematta",
  "search.refreshing": " · päivitetään hakemistoa",
  "search.similar_to": "muistuttaa:",

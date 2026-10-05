@@ -610,6 +610,7 @@
  "notice.history": "Nouveau : {key} sur un fichier ou un dossier d'un dépôt git montre son historique, commit par commit",
  "notice.meaning": "Nouveau : la recherche par le sens trouve les fichiers qui parlent de vos mots, dans toutes les langues. Activer",
  "notice.meaning_error": "La recherche par le sens n'obtient aucun vecteur : {why}",
+ "notice.meaning_renew": "La recherche par le sens est renouvelée pour couvrir les documents entiers : {n} fichiers, environ {time} sur cette machine",
  "notice.meaning_tui": "Nouveau : la recherche par le sens trouve les fichiers sur vos mots, dans toutes les langues : coxswain --meaning on",
  "notice.ollama": "Ollama tourne ici : la recherche par le sens pourrait utiliser son GPU. La choisir",
  "notice.ollama_tui": "Ollama tourne ici : la recherche par le sens pourrait utiliser son GPU : coxswain --meaning ollama",
@@ -774,6 +775,7 @@
   "one": "{n} résultat en {ms} ms",
   "other": "{n} résultats en {ms} ms"
  },
+ "search.meaning_renewing": "Renouvellement de la recherche par le sens pour les documents entiers : encore {n} fichiers, environ {time}",
  "search.reading": " · {n} restent à lire",
  "search.refreshing": " · actualisation de l’index",
  "search.similar_to": "semblable à :",

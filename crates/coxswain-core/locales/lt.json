@@ -610,6 +610,7 @@
  "notice.history": "Nauja: {key} ant failo ar aplanko git saugykloje parodo jo istoriją, commit po commit",
  "notice.meaning": "Nauja: paieška pagal prasmę randa failus apie jūsų žodžius bet kuria kalba. Įjunkite",
  "notice.meaning_error": "Paieška pagal prasmę negauna vektorių: {why}",
+ "notice.meaning_renew": "Paieška pagal prasmę atnaujinama, kad apimtų visus dokumentus: {n} failai, apie {time} šiame kompiuteryje",
  "notice.meaning_tui": "Nauja: paieška pagal prasmę randa failus apie jūsų žodžius bet kuria kalba: coxswain --meaning on",
  "notice.ollama": "Čia veikia Ollama: paieška pagal prasmę galėtų naudoti jos GPU. Pasirinkite ją",
  "notice.ollama_tui": "Čia veikia Ollama: paieška pagal prasmę galėtų naudoti jos GPU: coxswain --meaning ollama",
@@ -774,6 +775,7 @@
   "one": "{n} atitikmuo per {ms} ms",
   "other": "{n} atitikmenų per {ms} ms"
  },
+ "search.meaning_renewing": "Paieška pagal prasmę atnaujinama visiems dokumentams: liko {n} failų, apie {time}",
  "search.reading": " · dar reikia perskaityti {n}",
  "search.refreshing": " · atnaujinamas indeksas",
  "search.similar_to": "panašu:",

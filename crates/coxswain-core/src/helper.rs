@@ -89,6 +89,12 @@ pub struct Status {
     pub meaning_pending: usize,
     #[serde(default)]
     pub meaning_done: usize,
+    /// Files whose vectors are being made again for a new way of cutting passages (0 when
+    /// none), and how long one takes here, in milliseconds (0 until measured).
+    #[serde(default)]
+    pub meaning_renewing: usize,
+    #[serde(default)]
+    pub meaning_ms_per_file: usize,
     /// Which model makes the vectors (`builtin:…`, `ollama:bge-m3`), and why it could not.
     #[serde(default)]
     pub meaning_engine: String,
@@ -282,6 +288,8 @@ fn answer(stream: TcpStream, index: &Service, store: Option<&Store>, token: &str
                 meaning: store.is_some_and(|s| s.meaning.load(Ordering::Relaxed)),
                 meaning_pending: counts.0,
                 meaning_done: counts.1,
+                meaning_renewing: store.map_or(0, |s| s.renewing.load(Ordering::Relaxed)),
+                meaning_ms_per_file: store.map_or(0, |s| s.ms_per_file.load(Ordering::Relaxed)),
                 meaning_engine: store.and_then(Store::engine_id).unwrap_or_default(),
                 meaning_error: store.and_then(|s| s.meaning_error.lock().unwrap().clone()),
                 error: store.and_then(|s| s.error.lock().unwrap().clone()),
@@ -427,7 +435,7 @@ impl Client {
         }
         let now = match self.ask(&Request::Status) {
             Some(Reply::Status(s)) => s,
-            _ => Status { state: self.own().state(), len: self.own().len(), texts: 0, pending: 0, bytes: 0, paused: false, roots: vec![], tools: vec![], meaning: false, meaning_pending: 0, meaning_done: 0, meaning_engine: String::new(), meaning_error: None, error: None, clouds: vec![] },
+            _ => Status { state: self.own().state(), len: self.own().len(), texts: 0, pending: 0, bytes: 0, paused: false, roots: vec![], tools: vec![], meaning: false, meaning_pending: 0, meaning_done: 0, meaning_renewing: 0, meaning_ms_per_file: 0, meaning_engine: String::new(), meaning_error: None, error: None, clouds: vec![] },
         };
         *status = Some((Instant::now(), now.clone()));
         now

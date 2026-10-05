@@ -610,6 +610,7 @@
  "notice.history": "Novetat: {key} sobre un fitxer o una carpeta d'un repositori git en mostra l'historial, commit a commit",
  "notice.meaning": "Nou: la cerca pel significat troba fitxers sobre les teves paraules, en qualsevol llengua. Activa-la",
  "notice.meaning_error": "La cerca per significat no rep vectors: {why}",
+ "notice.meaning_renew": "La cerca pel significat s'està renovant per cobrir documents sencers: {n} fitxers, uns {time} en aquest ordinador",
  "notice.meaning_tui": "Nou: la cerca pel significat troba fitxers sobre les teves paraules, en qualsevol llengua: coxswain --meaning on",
  "notice.ollama": "Ollama s'executa aquí: la cerca pel significat podria fer servir la seva GPU. Trieu-la",
  "notice.ollama_tui": "Ollama s'executa aquí: la cerca pel significat podria fer servir la seva GPU: coxswain --meaning ollama",
@@ -774,6 +775,7 @@
   "one": "{n} coincidència en {ms} ms",
   "other": "{n} coincidències en {ms} ms"
  },
+ "search.meaning_renewing": "Renovant la cerca pel significat per a documents sencers: queden {n} fitxers, uns {time}",
  "search.reading": " · en falten {n} per llegir",
  "search.refreshing": " · s'està actualitzant l'índex",
  "search.similar_to": "semblant a:",

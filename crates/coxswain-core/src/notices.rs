@@ -31,6 +31,13 @@ pub fn search_level(cfg: &Config, status: &Status) -> String {
     kinds.join(" · ")
 }
 
+/// About how long the files still to get their vectors take here, as the helper measured
+/// them: "40m", "3h".
+pub fn time_left(status: &Status) -> String {
+    let mins = (status.meaning_pending as u64 * status.meaning_ms_per_file as u64).div_ceil(60_000).max(1);
+    if mins < 90 { t!("age.minutes", "n" => mins) } else { t!("age.hours", "n" => mins.div_ceil(60)) }
+}
+
 /// The notice to show now, if any. `terminal`: the notice names the command instead of Settings.
 pub fn next(cfg: &Config, status: &Status, state: &AppState, terminal: bool) -> Option<Notice> {
     all(cfg, status, state, terminal).into_iter().next()
@@ -47,6 +54,11 @@ pub fn all(cfg: &Config, status: &Status, state: &AppState, terminal: bool) -> V
     }
     if let Some(why) = status.meaning_error.as_ref().filter(|_| status.meaning) {
         all.push(Notice { id: format!("error:{why}"), text: t!("notice.meaning_error", "why" => why), settings: Some("meaning") });
+    }
+    // The vectors are made again to cover whole documents: once the time one takes is known.
+    if status.meaning && status.meaning_renewing > 0 && status.meaning_ms_per_file > 0 {
+        let text = t!("notice.meaning_renew", "n" => status.meaning_renewing, "time" => time_left(status));
+        all.push(Notice { id: format!("renew-passages-{}", crate::meaning::SCHEME), text, settings: Some("meaning") });
     }
     // Clouds found: their files that are only online are found by name, never downloaded.
     if cfg.search.cloud != "all" && !status.clouds.is_empty() {
@@ -177,7 +189,7 @@ mod tests {
     #[test]
     fn notices_come_one_at_a_time_and_stay_away_once_dismissed() {
         let cfg = Config::default();
-        let mut status = Status { state: crate::index::State::Ready, len: 1, texts: 10, pending: 0, bytes: 0, paused: false, roots: vec![], tools: vec![("tesseract".into(), false)], meaning: false, meaning_pending: 0, meaning_done: 0, meaning_engine: String::new(), meaning_error: None, error: None, clouds: vec![] };
+        let mut status = Status { state: crate::index::State::Ready, len: 1, texts: 10, pending: 0, bytes: 0, paused: false, roots: vec![], tools: vec![("tesseract".into(), false)], meaning: false, meaning_pending: 0, meaning_done: 0, meaning_renewing: 0, meaning_ms_per_file: 0, meaning_engine: String::new(), meaning_error: None, error: None, clouds: vec![] };
         let mut state = AppState::default();
         // Whether this machine's GStreamer can play video is not what is tested here.
         dismiss(&mut state, "media");
@@ -227,6 +239,15 @@ mod tests {
         assert_eq!(n.id, "cloud");
         assert!(n.text.contains("OneDrive, Dropbox"), "{}", n.text);
         dismiss(&mut state, "cloud");
+        assert_eq!(ids(&state, &status), None);
+
+        // Vectors made again to cover whole documents: told once, with the time it takes here.
+        status.meaning_renewing = 3437;
+        assert_eq!(ids(&state, &status), None, "not before the time a file takes is known");
+        (status.meaning_pending, status.meaning_ms_per_file) = (3437, 1200);
+        let n = next(&cfg, &status, &state, true).unwrap();
+        assert!(n.text.contains("3437") && n.text.contains("69m"), "{}", n.text);
+        dismiss(&mut state, &n.id);
         assert_eq!(ids(&state, &status), None);
     }
 

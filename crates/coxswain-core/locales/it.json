@@ -610,6 +610,7 @@
  "notice.history": "Novità: {key} su un file o una cartella di un repository git ne mostra la cronologia, commit per commit",
  "notice.meaning": "Novità: la ricerca per significato trova i file che parlano delle tue parole, in ogni lingua. Attivala",
  "notice.meaning_error": "La ricerca per significato non riceve vettori: {why}",
+ "notice.meaning_renew": "La ricerca per significato viene rinnovata per coprire i documenti interi: {n} file, circa {time} su questo computer",
  "notice.meaning_tui": "Novità: la ricerca per significato trova i file sulle tue parole, in ogni lingua: coxswain --meaning on",
  "notice.ollama": "Ollama è in esecuzione qui: la ricerca per significato potrebbe usarne la GPU. Sceglila",
  "notice.ollama_tui": "Ollama è in esecuzione qui: la ricerca per significato potrebbe usarne la GPU: coxswain --meaning ollama",
@@ -774,6 +775,7 @@
   "one": "{n} risultato in {ms} ms",
   "other": "{n} risultati in {ms} ms"
  },
+ "search.meaning_renewing": "Rinnovo della ricerca per significato per i documenti interi: ancora {n} file, circa {time}",
  "search.reading": " · {n} ancora da leggere",
  "search.refreshing": " · aggiornamento dell’indice",
  "search.similar_to": "simile a:",

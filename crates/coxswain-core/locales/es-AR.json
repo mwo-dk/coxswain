@@ -610,6 +610,7 @@
  "notice.history": "Nuevo: {key} sobre un archivo o carpeta de un repositorio git muestra su historial, commit por commit",
  "notice.meaning": "Nuevo: la búsqueda por significado encuentra archivos sobre tus palabras, en cualquier idioma. Activala",
  "notice.meaning_error": "La búsqueda por significado no recibe vectores: {why}",
+ "notice.meaning_renew": "La búsqueda por significado se está renovando para abarcar documentos enteros: {n} archivos, unos {time} en esta máquina",
  "notice.meaning_tui": "Nuevo: la búsqueda por significado encuentra archivos sobre tus palabras, en cualquier idioma: coxswain --meaning on",
  "notice.ollama": "Ollama corre acá: la búsqueda por significado podría usar su GPU. Elegila",
  "notice.ollama_tui": "Ollama corre acá: la búsqueda por significado podría usar su GPU: coxswain --meaning ollama",
@@ -774,6 +775,7 @@
   "one": "{n} coincidencia en {ms} ms",
   "other": "{n} coincidencias en {ms} ms"
  },
+ "search.meaning_renewing": "Renovando la búsqueda por significado para documentos enteros: faltan {n} archivos, unos {time}",
  "search.reading": " · faltan leer {n}",
  "search.refreshing": " · actualizando el índice",
  "search.similar_to": "parecido a:",

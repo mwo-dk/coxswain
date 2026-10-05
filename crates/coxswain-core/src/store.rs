@@ -72,9 +72,13 @@ pub struct Store {
     /// Why the last scan failed, for Settings and the terminal app: until one succeeds, no
     /// file further on is read and none gets its vectors.
     pub error: Mutex<Option<String>>,
-    /// The signs of every passage's vector, (file, passage, signs), read from `chunks` for the
-    /// first search by meaning and kept up to date after.
+    /// The signs of every passage's vector, read from `chunks` for the first search by meaning
+    /// and kept up to date after.
     signs: Mutex<Option<Signs>>,
+    /// Files whose vectors were dropped for a new way of making passages, while they get new
+    /// ones; and how long a file took, in milliseconds, as measured, for the time left.
+    pub renewing: AtomicUsize,
+    pub ms_per_file: AtomicUsize,
     /// The clouds the walks came upon (files only in the cloud): (name, folder).
     clouds: Mutex<Vec<(String, PathBuf)>>,
 }
@@ -88,8 +92,82 @@ type Member = (String, u64, u64);
 /// How many files' text a search by meaning read, for the tests.
 #[cfg(test)]
 static BODIES_READ: AtomicUsize = AtomicUsize::new(0);
-/// (file, passage, the signs of its vector).
-type Signs = Vec<(i64, u8, Box<[u64]>)>;
+/// The signs of passages' vectors, one after the other, `width` words each, with the file and
+/// number of each: 9 bytes and the signs (48 bytes for 384 numbers, 128 for 1024) a passage.
+#[derive(Default)]
+struct Signs {
+    files: Vec<i64>,
+    ns: Vec<u8>,
+    bits: Vec<u64>,
+    width: usize,
+}
+
+impl Signs {
+    /// A passage's packed vector; one of another length (a broken row) is left out.
+    fn push(&mut self, file: i64, n: u8, packed: &[u8]) {
+        let s = crate::meaning::signs(packed);
+        if self.width == 0 {
+            self.width = s.len();
+        }
+        if s.len() == self.width && self.width > 0 {
+            self.files.push(file);
+            self.ns.push(n);
+            self.bits.extend_from_slice(&s);
+        }
+    }
+
+    /// Keep the passages of the files `keep` takes, in place.
+    fn retain(&mut self, keep: impl Fn(i64) -> bool) {
+        let mut to = 0;
+        for i in 0..self.files.len() {
+            if keep(self.files[i]) {
+                self.files[to] = self.files[i];
+                self.ns[to] = self.ns[i];
+                self.bits.copy_within(i * self.width..(i + 1) * self.width, to * self.width);
+                to += 1;
+            }
+        }
+        self.files.truncate(to);
+        self.ns.truncate(to);
+        self.bits.truncate(to * self.width);
+    }
+
+    /// The `keep` passages whose signs are most like `wanted`'s: (file, number). Parts of
+    /// 65,536 passages each are gone through on all cores, each keeping its best.
+    fn closest(&self, wanted: &[u64], keep: usize) -> Vec<(i64, u8)> {
+        use rayon::prelude::*;
+        use std::cmp::Reverse;
+        use std::collections::BinaryHeap;
+        const PART: usize = 1 << 16;
+        if self.width == 0 || wanted.len() != self.width || keep == 0 {
+            return vec![];
+        }
+        let mut best: Vec<(u32, usize)> = self
+            .bits
+            .par_chunks(PART * self.width)
+            .enumerate()
+            .flat_map_iter(|(p, part)| {
+                // The least of the best so far on top: most passages are not let in at all.
+                let mut best: BinaryHeap<Reverse<(u32, usize)>> = BinaryHeap::with_capacity(keep + 1);
+                for (i, s) in part.chunks_exact(self.width).enumerate() {
+                    let a = crate::meaning::alike(wanted, s);
+                    if best.len() < keep {
+                        best.push(Reverse((a, p * PART + i)));
+                    } else if best.peek().is_some_and(|Reverse((low, _))| a > *low) {
+                        best.pop();
+                        best.push(Reverse((a, p * PART + i)));
+                    }
+                }
+                best.into_iter().map(|Reverse(x)| x)
+            })
+            .collect();
+        if best.len() > keep {
+            best.select_nth_unstable_by(keep, |a, b| b.0.cmp(&a.0));
+            best.truncate(keep);
+        }
+        best.into_iter().map(|(_, i)| (self.files[i], self.ns[i])).collect()
+    }
+}
 
 impl Store {
     pub fn path() -> Option<PathBuf> {
@@ -140,7 +218,8 @@ impl Store {
         if db.prepare("SELECT cloud FROM files LIMIT 0").is_err() {
             db.execute_batch("ALTER TABLE files ADD COLUMN cloud INTEGER")?;
         }
-        Ok(Store { db: Mutex::new(db), pending: AtomicUsize::new(0), hurry: AtomicBool::new(false), cleared: AtomicBool::new(false), walked: Mutex::default(), offline: Mutex::default(), paused: AtomicBool::new(false), configured: Mutex::default(), meaning: AtomicBool::new(false), engine: Mutex::default(), meaning_error: Mutex::default(), error: Mutex::default(), signs: Mutex::default(), clouds: Mutex::default() })
+        let renewing = passages_are(&db, crate::meaning::SCHEME)?;
+        Ok(Store { db: Mutex::new(db), pending: AtomicUsize::new(0), hurry: AtomicBool::new(false), cleared: AtomicBool::new(false), walked: Mutex::default(), offline: Mutex::default(), paused: AtomicBool::new(false), configured: Mutex::default(), meaning: AtomicBool::new(false), engine: Mutex::default(), meaning_error: Mutex::default(), error: Mutex::default(), signs: Mutex::default(), renewing: AtomicUsize::new(renewing), ms_per_file: AtomicUsize::new(0), clouds: Mutex::default() })
     }
 
     /// Bytes and files below `dir`, and when the walk they come from began. `None` until a
@@ -404,7 +483,7 @@ impl Store {
         }
         tx.commit()?;
         if let Some(signs) = self.signs.lock().unwrap().as_mut().filter(|_| !stale.is_empty()) {
-            signs.retain(|(file, ..)| !stale.contains(file));
+            signs.retain(|file| !stale.contains(&file));
         }
         Ok(())
     }
@@ -592,11 +671,11 @@ impl Store {
         (count("SELECT count(*) FROM files WHERE has_text = 1 AND embedded IS NULL"), count("SELECT count(*) FROM files WHERE embedded = 1"))
     }
 
-    /// Up to `n` files still to get their vectors: (id, text).
-    fn unembedded(&self, n: usize) -> rusqlite::Result<Vec<(i64, String)>> {
+    /// Up to `n` files still to get their vectors, the last changed first: (id, path, text).
+    fn unembedded(&self, n: usize) -> rusqlite::Result<Vec<(i64, String, String)>> {
         let db = self.db.lock().unwrap();
-        let mut q = db.prepare("SELECT f.id, t.body FROM files f JOIN text t ON t.rowid = f.id WHERE f.has_text = 1 AND f.embedded IS NULL LIMIT ?1")?;
-        let rows = q.query_map([n as i64], |r| Ok((r.get(0)?, r.get(1)?)))?;
+        let mut q = db.prepare("SELECT f.id, f.path, t.body FROM files f JOIN text t ON t.rowid = f.id WHERE f.has_text = 1 AND f.embedded IS NULL ORDER BY f.modified DESC LIMIT ?1")?;
+        let rows = q.query_map([n as i64], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?;
         rows.collect()
     }
 
@@ -604,24 +683,29 @@ impl Store {
     fn put_vectors(&self, file: i64, vectors: &[Vec<u8>]) -> rusqlite::Result<()> {
         let mut db = self.db.lock().unwrap();
         let tx = db.transaction()?;
-        tx.execute("DELETE FROM chunks WHERE file = ?1", [file])?;
+        let had = tx.execute("DELETE FROM chunks WHERE file = ?1", [file])? > 0;
         for (n, v) in vectors.iter().enumerate() {
             tx.execute("INSERT INTO chunks(file, n, vector) VALUES (?1, ?2, ?3)", params![file, n as i64, v])?;
         }
         tx.execute("UPDATE files SET embedded = 1 WHERE id = ?1", [file])?;
         tx.commit()?;
         if let Some(signs) = self.signs.lock().unwrap().as_mut() {
-            signs.retain(|(f, ..)| *f != file);
-            signs.extend(vectors.iter().enumerate().map(|(n, v)| (file, n as u8, crate::meaning::signs(v))));
+            // A file that changed lost its passages already: no pass over them all for it.
+            if had {
+                signs.retain(|f| f != file);
+            }
+            for (n, v) in vectors.iter().enumerate() {
+                signs.push(file, n as u8, v);
+            }
         }
         Ok(())
     }
 
     /// Files whose passages mean what `query` asks, closest first, each with the start of
-    /// the passage that was closest. Nothing while search by meaning is off.
+    /// the passage that was closest. A file's score is its best passage's, and a little more
+    /// for each further passage that matches, up to four. Nothing while search by meaning is off.
     pub fn similar(&self, query: &str, max: usize) -> Vec<Hit> {
-        let mut seen = HashSet::new();
-        self.closest(query, 400, max, |path| seen.insert(path.to_path_buf()))
+        self.closest(query, max, true, |_| true)
             .into_iter()
             .map(|(path, s, passage)| {
                 let words: Vec<&str> = passage.split_whitespace().collect();
@@ -636,7 +720,7 @@ impl Store {
     /// one long document does not crowd out the rest.
     pub fn passages(&self, question: &str, max: usize) -> Vec<(PathBuf, String)> {
         let mut per_file: HashMap<PathBuf, usize> = HashMap::new();
-        self.closest(question, 400, max, |path| {
+        self.closest(question, max, false, |path| {
             let n = per_file.entry(path.to_path_buf()).or_default();
             *n += 1;
             *n <= 3
@@ -648,9 +732,10 @@ impl Store {
 
     /// Up to `want` passages near what `query` means, closest first, with their file and
     /// score: those near the best one, above what unrelated text scores, and of files `accept`
-    /// takes. Only the files that give a passage have their text read.
-    fn closest(&self, query: &str, keep: usize, want: usize, mut accept: impl FnMut(&Path) -> bool) -> Vec<(PathBuf, f32, String)> {
-        use crate::meaning::{alike, pack, score, signs};
+    /// takes; with `by_file`, the best passage of each file, ranked by the file's score. Only
+    /// the files that give a passage have their text read.
+    fn closest(&self, query: &str, want: usize, by_file: bool, mut accept: impl FnMut(&Path) -> bool) -> Vec<(PathBuf, f32, String)> {
+        use crate::meaning::{pack, score, signs};
         let Some(engine) = self.engine() else { return vec![] };
         let q = match engine.query(query) {
             Ok(q) => q,
@@ -663,47 +748,53 @@ impl Store {
         let db = self.db.lock().unwrap();
         let mut known = self.signs.lock().unwrap();
         if known.is_none() {
-            let read = || -> rusqlite::Result<Vec<_>> {
+            let read = || -> rusqlite::Result<Signs> {
                 let mut q = db.prepare("SELECT file, n, vector FROM chunks")?;
-                let rows = q.query_map([], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, i64>(1)? as u8, signs(&r.get::<_, Vec<u8>>(2)?))))?;
-                rows.collect()
+                let mut rows = q.query([])?;
+                let mut out = Signs::default();
+                while let Some(r) = rows.next()? {
+                    out.push(r.get(0)?, r.get::<_, i64>(1)? as u8, r.get_ref(2)?.as_blob()?);
+                }
+                Ok(out)
             };
             *known = Some(read().unwrap_or_default());
         }
-        // The signs sieve out all but the few hundred closest; their vectors say how close.
-        let mut close: Vec<(u32, i64, u8)> = known.as_ref().unwrap().iter().map(|(f, n, s)| (alike(&wanted, s), *f, *n)).collect();
+        // The signs sieve out all but the thousand closest; their vectors say how close.
+        let close = known.as_ref().unwrap().closest(&wanted, 1000);
         drop(known);
-        let keep = close.len().min(keep);
-        if keep < close.len() {
-            close.select_nth_unstable_by(keep, |a, b| b.0.cmp(&a.0));
-            close.truncate(keep);
-        }
-        let Ok(mut vec) = db.prepare("SELECT vector FROM chunks WHERE file = ?1 AND n = ?2") else { return vec![] };
-        let mut ranked: Vec<(i64, f32, u8)> = close.into_iter().filter_map(|(_, file, n)| vec.query_row(params![file, n as i64], |r| r.get::<_, Vec<u8>>(0)).ok().map(|v| (file, score(&v, &q), n))).collect();
+        let Ok(mut vec) = db.prepare_cached("SELECT vector FROM chunks WHERE file = ?1 AND n = ?2") else { return vec![] };
+        let mut ranked: Vec<(i64, f32, u8)> = close.into_iter().filter_map(|(file, n)| vec.query_row(params![file, n as i64], |r| Ok(score(r.get_ref(0)?.as_blob()?, &q))).ok().map(|s| (file, s, n))).collect();
         drop(vec);
         ranked.sort_by(|a, b| b.1.total_cmp(&a.1));
         // e5's scores sit close together: near the best one, and above what unrelated text scores.
         let top = ranked.first().map_or(0.0, |r| r.1);
+        let floor = engine.floor().max(top - 0.10);
+        ranked.retain(|r| r.1 >= floor);
+        if by_file {
+            ranked = by_files(ranked);
+        }
         let offline: Vec<(String, String)> = self.offline.lock().unwrap().iter().map(|at| below(at)).collect();
-        let mut paths: HashMap<i64, Option<PathBuf>> = HashMap::new();
-        let mut texts: HashMap<i64, Vec<String>> = HashMap::new();
+        // A file's path as shown, and whether it is Markdown (its headings cut its passages).
+        let mut paths: HashMap<i64, Option<(PathBuf, bool)>> = HashMap::new();
+        let mut texts: HashMap<i64, Vec<crate::meaning::Passage>> = HashMap::new();
         let mut out = vec![];
-        for (file, s, n) in ranked.into_iter().take_while(|r| r.1 >= engine.floor().max(top - 0.10)) {
+        for (file, s, n) in ranked {
             if out.len() >= want {
                 break;
             }
             let path = paths.entry(file).or_insert_with(|| {
                 let path: String = db.query_row("SELECT path FROM files WHERE id = ?1", [file], |r| r.get(0)).ok()?;
-                (!offline.iter().any(|(from, to)| path > *from && path < *to)).then(|| shown(path))
+                let markdown = crate::meaning::is_markdown(&path);
+                (!offline.iter().any(|(from, to)| path > *from && path < *to)).then(|| (shown(path), markdown))
             });
-            let Some(path) = path.clone().filter(|p| accept(p)) else { continue };
+            let Some((path, markdown)) = path.clone().filter(|(p, _)| accept(p)) else { continue };
             let passages = texts.entry(file).or_insert_with(|| {
                 #[cfg(test)]
                 BODIES_READ.fetch_add(1, Ordering::Relaxed);
-                db.query_row("SELECT body FROM text WHERE rowid = ?1", [file], |r| r.get::<_, String>(0)).map(|b| crate::meaning::passages(&b)).unwrap_or_default()
+                db.query_row("SELECT body FROM text WHERE rowid = ?1", [file], |r| r.get::<_, String>(0)).map(|b| crate::meaning::passages(&b, markdown)).unwrap_or_default()
             });
             if let Some(p) = passages.get(n as usize) {
-                out.push((path, s, p.clone()));
+                out.push((path, s, p.text.clone()));
             }
         }
         out
@@ -869,6 +960,35 @@ fn walk(store: &Store, dirs: Vec<PathBuf>, cfg: &SearchConfig, known: &Known, st
     Some(found)
 }
 
+/// Passages ranked one per file: the file's best, its score raised by 0.005 for each further
+/// passage of it that matches, four at most, so a document that keeps coming back to a
+/// question goes ahead of one that mentions it once.
+fn by_files(ranked: Vec<(i64, f32, u8)>) -> Vec<(i64, f32, u8)> {
+    let mut files: HashMap<i64, (f32, u8, usize)> = HashMap::new();
+    for (file, s, n) in ranked {
+        // Ranked best first: the first passage of a file is its best.
+        files.entry(file).or_insert((s, n, 0)).2 += 1;
+    }
+    let mut out: Vec<(i64, f32, u8)> = files.into_iter().map(|(file, (s, n, count))| (file, s + 0.005 * (count - 1).min(4) as f32, n)).collect();
+    out.sort_by(|a, b| b.1.total_cmp(&a.1).then(a.0.cmp(&b.0)));
+    out
+}
+
+/// Vectors of passages made another way than `scheme` go, the text stays, and the files get
+/// new ones in the background: how many files had them. Checked when the store is opened.
+fn passages_are(db: &Connection, scheme: &str) -> rusqlite::Result<usize> {
+    let before: String = db.query_row("SELECT value FROM meta WHERE key = 'passages'", [], |r| r.get(0)).unwrap_or_default();
+    if before == scheme {
+        return Ok(0);
+    }
+    let tx = db.unchecked_transaction()?;
+    let had = tx.execute("UPDATE files SET embedded = NULL WHERE embedded IS NOT NULL", [])?;
+    tx.execute("DELETE FROM chunks", [])?;
+    tx.execute("INSERT OR REPLACE INTO meta(key, value) VALUES ('passages', ?1)", [scheme])?;
+    tx.commit()?;
+    Ok(had)
+}
+
 /// Bring the store up to date with the disk, once. Reads and hashes at half speed, one file
 /// at a time, so the machine stays the user's. Stops early when `stop` is set.
 pub fn scan(store: &Store, cfg: &SearchConfig, stop: &AtomicBool) -> rusqlite::Result<()> {
@@ -934,12 +1054,14 @@ fn embed(store: &Store, stop: &AtomicBool) -> rusqlite::Result<()> {
     loop {
         let files = store.unembedded(8)?;
         if files.is_empty() {
+            store.renewing.store(0, Ordering::Relaxed);
             return Ok(());
         }
-        let start = Instant::now();
-        for (id, body) in files {
+        let (start, count) = (Instant::now(), files.len());
+        for (id, path, body) in files {
+            let texts: Vec<String> = crate::meaning::passages(&body, crate::meaning::is_markdown(&path)).iter().map(|p| crate::meaning::shown_to_model(&path, p)).collect();
             // A server that does not answer: the file waits for the next scan, word search goes on.
-            let vectors = match engine.passages(&crate::meaning::passages(&body)) {
+            let vectors = match engine.passages(&texts) {
                 Ok(v) => v,
                 Err(NoVectors::Down(e)) => {
                     *store.meaning_error.lock().unwrap() = Some(e);
@@ -957,7 +1079,13 @@ fn embed(store: &Store, stop: &AtomicBool) -> rusqlite::Result<()> {
                 return Ok(());
             }
         }
+        // A file's time with the rest after it (not a wait for the mains), for the time the
+        // files still to go take.
+        let work = start.elapsed();
+        let ms = (work + work.min(Duration::from_secs(2))).as_millis() as usize / count;
         store.rest(start, stop);
+        let before = store.ms_per_file.load(Ordering::Relaxed);
+        store.ms_per_file.store(if before == 0 { ms } else { (before * 7 + ms) / 8 }, Ordering::Relaxed);
     }
 }
 
@@ -1667,7 +1795,9 @@ mod tests {
         std::thread::sleep(Duration::from_millis(1100));
         write("cake.txt", "Minutes of the board meeting: the budget was approved and the fuel supplier was changed.");
         scan(&store, &cfg, &go).unwrap();
-        assert!(names("apple cake recipe").first().is_none_or(|n| n != "cake.txt"));
+        // Its name still says cake, which the model is shown too: the passage is the new one.
+        let hits = store.similar("apple cake recipe", 10);
+        assert!(hits.iter().filter(|h| h.path.ends_with("cake.txt")).all(|h| h.snippet.as_ref().is_some_and(|s| s.contains("board meeting"))), "{hits:?}");
         drop(store);
         std::fs::remove_dir_all(d).unwrap();
     }
@@ -1733,6 +1863,130 @@ mod tests {
         assert!(BODIES_READ.load(Ordering::Relaxed) <= 6, "no more files than passages");
         drop(store);
         std::fs::remove_dir_all(d).unwrap();
+    }
+
+    /// Vectors of passages cut the old way (scheme 1: the first 960 words) are dropped when the
+    /// store is opened, the text stays, and the files get new ones, the last changed first;
+    /// vectors of this scheme stay, whatever model tag the store names.
+    #[test]
+    fn store_renews_vectors_of_an_older_passage_scheme() {
+        let d = std::env::temp_dir().join(format!("coxswain-store-renew-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(d.join("home")).unwrap();
+        for i in 0..3 {
+            std::fs::write(d.join("home").join(format!("doc-{i}.txt")), format!("zebra quartz {i} ").repeat(600)).unwrap();
+        }
+        let cfg = SearchConfig { text_roots: vec![d.join("home")], meaning: true, meaning_engine: "ollama".into(), meaning_url: fake_embed_server(), meaning_model: "fake".into(), ..SearchConfig::default() };
+        let go = AtomicBool::new(false);
+        let open = || {
+            let store = Store::open(&d.join("search.db")).unwrap();
+            store.set_engine(crate::meaning::Engine::from_config(&cfg));
+            store.hurry.store(true, Ordering::Relaxed);
+            store
+        };
+        let store = open();
+        assert_eq!(store.renewing.load(Ordering::Relaxed), 0, "a new store has nothing to renew");
+        scan(&store, &cfg, &go).unwrap();
+        assert_eq!(store.meaning_counts(), (0, 3));
+        let chunks = |s: &Store| s.db.lock().unwrap().query_row("SELECT count(*) FROM chunks", [], |r| r.get::<_, i64>(0)).unwrap();
+        assert!(chunks(&store) > 3 * 8, "the whole of each file, not its first eight passages");
+        // Scheme 1, as a store from before had it (no `passages` in its meta).
+        store.db.lock().unwrap().execute_batch("DELETE FROM meta WHERE key = 'passages'; UPDATE files SET modified = 5 WHERE path LIKE '%doc-1.txt'").unwrap();
+        drop(store);
+
+        let store = open();
+        assert_eq!(store.renewing.load(Ordering::Relaxed), 3);
+        assert_eq!((store.meaning_counts(), chunks(&store)), ((3, 0), 0), "the vectors went");
+        assert_eq!(store.search("zebra", 10).total, 3, "the text stayed");
+        let first = store.unembedded(3).unwrap().into_iter().map(|(_, path, _)| path).collect::<Vec<_>>();
+        assert!(first[2].ends_with("doc-1.txt"), "the last changed first: {first:?}");
+        scan(&store, &cfg, &go).unwrap();
+        assert_eq!(store.meaning_counts(), (0, 3));
+        assert_eq!(store.renewing.load(Ordering::Relaxed), 0, "renewed");
+        let had = chunks(&store);
+        drop(store);
+
+        // This scheme: left alone, also when the model's id gains a tag (that is the model's
+        // check, not this one).
+        let store = open();
+        store.db.lock().unwrap().execute("INSERT OR REPLACE INTO meta(key, value) VALUES ('meaning_model', 'ollama:fake:latest')", []).unwrap();
+        drop(store);
+        let store = open();
+        assert_eq!((store.renewing.load(Ordering::Relaxed), store.meaning_counts(), chunks(&store)), (0, (0, 3), had));
+        drop(store);
+        std::fs::remove_dir_all(d).unwrap();
+    }
+
+    /// A large store: 20,000 files of 100 passages, 1,024 numbers each (bge-m3's), made once in
+    /// `COXSWAIN_BENCH_DIR` (the temp folder by default). What the signs take in memory, and
+    /// what a search costs: `cargo test --release -p coxswain-core --lib perf_meaning_large --
+    /// --ignored --nocapture`. The numbers are in docs/reference/performance.md.
+    #[test]
+    #[ignore]
+    fn perf_meaning_large_store() {
+        const FILES: i64 = 20_000;
+        const PER: i64 = 100;
+        const DIMS: usize = 1024;
+        let dir = std::env::var_os("COXSWAIN_BENCH_DIR").map_or_else(std::env::temp_dir, PathBuf::from);
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("meaning-large.db");
+        let mut seed = 0x2545_f491_4f6c_dd1du64;
+        let mut unit = || {
+            let v: Vec<f32> = (0..DIMS)
+                .map(|_| {
+                    seed ^= seed << 13;
+                    seed ^= seed >> 7;
+                    seed ^= seed << 17;
+                    (seed >> 40) as f32 / (1u64 << 24) as f32 - 0.5
+                })
+                .collect();
+            let n = v.iter().map(|x| x * x).sum::<f32>().sqrt();
+            v.into_iter().map(|x| x / n).collect::<Vec<f32>>()
+        };
+        let store = Store::open(&path).unwrap();
+        if store.meaning_counts().1 < FILES as usize {
+            let t = Instant::now();
+            let mut db = store.db.lock().unwrap();
+            let tx = db.transaction().unwrap();
+            let words = "the launch plan and the fuel budget for the flight, written out in plain words ".repeat(8);
+            for f in 1..=FILES {
+                tx.execute("INSERT INTO files(id, path, size, modified, has_text, embedded) VALUES (?1, ?2, 1, 1, 1, 1)", params![f, format!("/home/u/docs/doc-{f}.txt")]).unwrap();
+                tx.execute("INSERT INTO text(rowid, body) VALUES (?1, ?2)", params![f, (0..PER).map(|_| words.as_str()).collect::<Vec<_>>().join("\n\n")]).unwrap();
+                for n in 0..PER {
+                    tx.execute("INSERT INTO chunks(file, n, vector) VALUES (?1, ?2, ?3)", params![f, n, crate::meaning::pack(&unit())]).unwrap();
+                }
+            }
+            tx.commit().unwrap();
+            println!("made in {:.0} s", t.elapsed().as_secs_f64());
+        }
+        println!("store: {} MB", store.bytes() >> 20);
+        let q = unit();
+        let t = Instant::now();
+        let db = store.db.lock().unwrap();
+        let mut signs = Signs::default();
+        let mut rows = db.prepare("SELECT file, n, vector FROM chunks").unwrap();
+        let mut rows = rows.query([]).unwrap();
+        while let Some(r) = rows.next().unwrap() {
+            signs.push(r.get(0).unwrap(), r.get::<_, i64>(1).unwrap() as u8, r.get_ref(2).unwrap().as_blob().unwrap());
+        }
+        let bytes = signs.bits.capacity() * 8 + signs.files.capacity() * 8 + signs.ns.capacity();
+        println!("signs of {} passages: {} MB, read in {:.0} ms", signs.files.len(), bytes >> 20, t.elapsed().as_secs_f64() * 1000.0);
+        let wanted = crate::meaning::signs(&crate::meaning::pack(&q));
+        for _ in 0..3 {
+            let t = Instant::now();
+            let close = signs.closest(&wanted, 1000);
+            let sieve = t.elapsed().as_secs_f64() * 1000.0;
+            let t = Instant::now();
+            let mut vec = db.prepare_cached("SELECT vector FROM chunks WHERE file = ?1 AND n = ?2").unwrap();
+            let scored: Vec<f32> = close.iter().filter_map(|(f, n)| vec.query_row(params![f, *n as i64], |r| Ok(crate::meaning::score(r.get_ref(0)?.as_blob()?, &q))).ok()).collect();
+            println!("sieve {sieve:.1} ms, {} vectors scored in {:.1} ms", scored.len(), t.elapsed().as_secs_f64() * 1000.0);
+        }
+        let long = "the launch plan and the fuel budget for the flight, written out in plain words ".repeat(2000);
+        for _ in 0..3 {
+            let t = Instant::now();
+            let n = crate::meaning::passages(&long, false).len();
+            println!("passages of a 30,000-word text: {n} in {:.1} ms", t.elapsed().as_secs_f64() * 1000.0);
+        }
     }
 
     /// With Ollama running and a small embedding model pulled (`ollama pull all-minilm`): the

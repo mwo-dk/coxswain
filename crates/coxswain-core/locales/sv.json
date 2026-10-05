@@ -579,6 +579,7 @@
  "notice.history": "Nytt: {key} på en fil eller mapp i ett git-repo visar dess historik, commit för commit",
  "notice.meaning": "Nytt: sökning efter betydelse hittar filer om dina ord, på alla språk. Slå på den",
  "notice.meaning_error": "Sökning efter betydelse får inga vektorer: {why}",
+ "notice.meaning_renew": "Sökning efter betydelse förnyas för att täcka hela dokument: {n} filer, ungefär {time} på den här datorn",
  "notice.meaning_tui": "Nytt: sökning efter betydelse hittar filer om dina ord, på alla språk: coxswain --meaning on",
  "notice.ollama": "Ollama körs här: sökning efter betydelse kan använda dess GPU. Välj den",
  "notice.ollama_tui": "Ollama körs här: sökning efter betydelse kan använda dess GPU: coxswain --meaning ollama",
@@ -730,6 +731,7 @@
   "one": "{n} träff på {ms} ms",
   "other": "{n} träffar på {ms} ms"
  },
+ "search.meaning_renewing": "Sökning efter betydelse förnyas för hela dokument: {n} filer kvar, ungefär {time}",
  "search.reading": " · {n} kvar att läsa",
  "search.refreshing": " · uppdaterar index",
  "search.similar_to": "liknar:",
