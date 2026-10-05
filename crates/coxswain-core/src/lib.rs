@@ -18,6 +18,7 @@ pub mod notices;
 pub mod meaning;
 pub mod rename;
 pub mod service;
+pub mod setup;
 pub mod sizes;
 pub mod state;
 pub mod store;

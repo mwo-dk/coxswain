@@ -697,9 +697,13 @@ async fn meaning_models(engine: String, url: String, chat: Option<bool>, ctx: ta
 /// What changing the vectors' engine or model to `value` costs, said before it is saved: the
 /// files whose meaning is read again and about how long that takes, or None when the vectors stay.
 #[tauri::command]
-async fn meaning_change(name: String, value: String, ctx: tauri::State<'_, Ctx>) -> Res<Option<String>> {
+async fn meaning_change(name: String, value: String, engine: Option<String>, url: Option<String>, ctx: tauri::State<'_, Ctx>) -> Res<Option<String>> {
     let (old, index) = (ctx.cfg().search.clone(), ctx.index.clone());
     let mut new = old.clone();
+    // The setup changes the server along with the model.
+    if let (Some(engine), Some(url)) = (engine, url) {
+        (new.meaning_engine, new.meaning_url) = (engine, url);
+    }
     match name.as_str() {
         "meaning_engine" => new.meaning_engine = value,
         "meaning_model" => new.meaning_model = value,
@@ -718,21 +722,73 @@ async fn ask_check(try_it: bool, ctx: tauri::State<'_, Ctx>) -> Res<Option<Strin
 
 /// Ask Ollama to pull `model`; the progress is the download's, in `meaning_status`.
 #[tauri::command]
-fn meaning_pull(model: String, url: String, app: tauri::AppHandle, ctx: tauri::State<Ctx>) -> Res<()> {
+fn meaning_pull(model: String, url: String, kind: Option<coxswain_core::setup::Kind>, app: tauri::AppHandle, ctx: tauri::State<Ctx>) -> Res<()> {
+    use coxswain_core::setup;
     let p = Arc::new(coxswain_core::meaning::Progress::default());
     *ctx.meaning.lock().map_err(|e| e.to_string())? = Some((p.clone(), None));
     let index = ctx.index.clone();
+    // Ollama unless the setup names another server (Lemonade pulls too).
+    let server = setup::Found { kind: kind.unwrap_or(setup::Kind::Ollama), url, engine: String::new(), models: vec![] };
     std::thread::spawn(move || {
-        let done = coxswain_core::meaning::ollama_pull(&url, &model, &p);
+        let done = setup::pull(&server, &model, &p);
         if let Ok(mut m) = app.state::<Ctx>().meaning.lock() {
             *m = match done {
-                Err(e) if !p.cancel.load(std::sync::atomic::Ordering::Relaxed) => Some((p, Some(e.to_string()))),
+                Err(e) if !p.cancel.load(std::sync::atomic::Ordering::Relaxed) => Some((p, Some(e))),
                 _ => None,
             };
         }
         index.restart();
     });
     Ok(())
+}
+
+/// What the guided setup of search by meaning shows first: the model servers on this machine
+/// and what their models can do, the machine, and what suits it.
+#[derive(Serialize)]
+struct SetupLook {
+    found: Vec<coxswain_core::setup::Found>,
+    machine: coxswain_core::setup::Machine,
+    advice: coxswain_core::setup::Advice,
+    /// The index in `found` of the server recommended.
+    best: Option<usize>,
+}
+
+#[tauri::command]
+async fn setup_probe() -> Res<SetupLook> {
+    use coxswain_core::setup;
+    blocking(|| {
+        let found = setup::probe();
+        let machine = setup::machine(&found);
+        let advice = setup::advise(&machine);
+        let best = setup::best(&found, &advice).and_then(|b| found.iter().position(|f| f.url == b.url));
+        Ok(SetupLook { found, machine, advice, best })
+    })
+    .await
+}
+
+/// A server on another machine, named in the setup: what answers there.
+#[tauri::command]
+async fn setup_probe_url(url: String, ctx: tauri::State<'_, Ctx>) -> Res<Option<coxswain_core::setup::Found>> {
+    let key = coxswain_core::meaning::key_of(&ctx.cfg().search);
+    blocking(move || Ok(coxswain_core::setup::probe_url(&url, key.as_deref()))).await
+}
+
+/// The test question to Ask's chat model: milliseconds to its first word.
+#[tauri::command]
+async fn setup_try(ctx: tauri::State<'_, Ctx>) -> Res<u64> {
+    let cfg = ctx.cfg().search.clone();
+    blocking(move || coxswain_core::setup::try_ask(&cfg).map(|d| d.as_millis() as u64)).await
+}
+
+/// Whether `server` runs the chat model on the processor while a graphics card is there.
+#[tauri::command]
+async fn setup_speed(server: coxswain_core::setup::Found, ctx: tauri::State<'_, Ctx>) -> Res<Option<String>> {
+    let model = ctx.cfg().search.ask_model.clone();
+    blocking(move || {
+        let machine = coxswain_core::setup::machine(std::slice::from_ref(&server));
+        Ok(coxswain_core::setup::speed_problem(&server, &machine, &model))
+    })
+    .await
 }
 
 /// "download": fetch the model, then turn search by meaning on; "cancel" the download;
@@ -1560,7 +1616,7 @@ fn main() {
         })
         .invoke_handler(tauri::generate_handler![
             get_config, notices, dismiss_notice, changes, read_changes, set_title, index_status, index_action, index_service, meaning_status, meaning_action, meaning_models, meaning_pull, list_dir, git_status, git_last, places, disks, get_state, save_session, save_favorites, set_tags, set_note, get_note,
-            search, ask, ask_stop, ask_check, meaning_change, resolve_path, copy, rename, delete, mkdir, dir_sizes, rename_plan, rename_apply, open_path, edit_path,
+            search, ask, ask_stop, ask_check, meaning_change, setup_probe, setup_probe_url, setup_try, setup_speed, resolve_path, copy, rename, delete, mkdir, dir_sizes, rename_plan, rename_apply, open_path, edit_path,
             read_text, run_command, scripts, run_script, check_update, archive_list, extract, pack, archive_password, archive_peek, cloud_fetch, properties, set_permissions,
             clip_set, paste, start_drag, watch_dirs, preview::git_diff, preview::sqlite_info, preview::epub_preview,
             preview::file_facts, preview::cert_info, bom::bom_info, bom::bom_node, bom::bom_diff, preview::mail_preview, preview::plist_xml, convert::preview_engines, convert::preview_cache, convert::clear_preview_cache,

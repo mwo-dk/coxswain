@@ -52,6 +52,7 @@ New here? Start with [The screen](panels/the-screen.md) and [Every default key](
 | Page | What it covers |
 |---|---|
 | [Search](search/README.md) | The three depths, all pages, keys at a glance |
+| [Smart search in a few minutes](search/setup.md) | The guided setup (Settings → Set up…, `coxswain --setup-search`): parts, hardware table, Ollama, Lemonade, LM Studio, llama.cpp, the GPU check, start with my session |
 | [Find file](search/find-file.md) | Opening it at names, text (Shift+F7) or Ask (Ctrl+F7), the four depth buttons, Tab and Shift+Tab, keys, count line, hints and the meaning tip |
 | [Names everywhere](search/names.md) | The name index, how it stays current and fast, names in this folder, exclude/roots/watch |
 | [Name syntax](search/name-syntax.md) | Everything's words, !, |, wildcards, ext:, file:, folder:, case:, paths, quotes |

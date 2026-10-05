@@ -22,8 +22,8 @@ Commander blue to Windows 95 and Mac OS 9.*
 - **Norton Commander at heart:** two panels, the F-key bar, a command line and NC's keys. [Panels and keys](docs/panels/README.md)
 - **Find by name, text or meaning:** Ctrl+F, and Tab goes deeper, from every name on the machine to what a file is about, inside your zip, 7z and tar archives too; you choose what is read and what is left out (`*.log`, a folder). [Search](docs/search/README.md) · [Inside archives](docs/search/archives.md) · [Choosing the folders](docs/search/folders.md)
 - **Gentle with your cloud:** OneDrive, Dropbox, Google Drive, Proton Drive and iCloud files that are only online are found by name, marked with a cloud, and never downloaded unless you open one. [Cloud files](docs/search/cloud-files.md)
-- **Ask your files:** a question in your own words, answered by your own chat model from the closest passages, with numbered sources. [Ask](docs/search/ask.md)
-- **Search by meaning, in any language:** a small model on your machine, or your own Ollama, Lemonade or OpenAI-style server. [Search by meaning](docs/search/meaning.md)
+- **Ask your files:** a question in your own words, answered by your own chat model from the closest passages, with numbered sources. [Ask](docs/search/ask.md) · [Set it up](docs/search/setup.md)
+- **Search by meaning, in any language:** a small model on your machine, or your own Ollama, Lemonade or OpenAI-style server. [Search by meaning](docs/search/meaning.md) · [Set it up](docs/search/setup.md)
 - **See before you open:** code, Markdown, PDF, Word, PowerPoint, spreadsheets, SQLite and Parquet (in the terminal app F3 too), HTML, fonts, video and more. [The preview pane](docs/previews/README.md) · [Data](docs/previews/data.md)
 - **Builds what needs building:** LaTeX, Office, PlantUML and Graphviz previews, with your tools or a sealed container. [LaTeX](docs/previews/latex.md) · [Tools](docs/previews/tools.md)
 - **Reads cryptography bills of materials:** a CycloneDX CBOM as a rated tree or sunburst, compared with last month's scan, in both apps. [CBOMs](docs/previews/bom.md)
@@ -41,6 +41,21 @@ Commander blue to Windows 95 and Mac OS 9.*
 | [The terminal app](docs/reference/terminal-app.md) | [Find file, inside files](docs/search/text.md) |
 | ![The preview pane: Markdown with a Mermaid diagram and math, a notebook, a spreadsheet, a Word document and a font](docs/screenshots/gui-previews.png) | ![A tar.gz archive open like a folder](docs/screenshots/gui-archive.png) |
 | [The preview pane](docs/previews/README.md) | [Archives as folders](docs/files/archives.md) |
+
+## Smart search: names, words, meaning and answers
+
+Find file finds every file by **name** in a blink, by the **words** inside it, by what it is
+**about** in any language, and **Ask** answers a question from your files with numbered sources.
+It all runs on your own machine, or on your own server (Ollama, Lemonade, LM Studio, llama.cpp
+…); nothing leaves it unless you choose a server elsewhere. Three steps:
+
+1. **Settings → Search by meaning → Set up…** (terminal app: `coxswain --setup-search`). The guide
+   finds the model servers on your machine and says what suits it.
+2. **Use the graphics card or NPU** if you have one: the guide checks that the server does.
+3. **Let it read in the background:** *Start with my session* keeps the index current between
+   launches (a systemd user service, a launchd agent or a Run entry; no administrator rights).
+
+The whole walk-through: [Smart search in a few minutes](docs/search/setup.md).
 
 ## Install
 
@@ -69,6 +84,8 @@ from source: [install/INSTALL.md](install/INSTALL.md). Git glyphs want a
 3. **Mark** with **Insert**, then **F5** copies or **F6** moves to the other panel. **F8** moves
    to the trash, **F7** makes a folder.
 4. **Find** anything with **Ctrl+F**; **Tab** looks deeper.
+   **Turn on smart search** (meaning and Ask): *Settings → Search by meaning → Set up…*, or
+   `coxswain --setup-search` ([the guide](docs/search/setup.md)).
 5. **Type** a command and press **Enter**: it runs in the panel's folder.
 6. In the desktop app, **Space** shows the preview pane and **Ctrl+,** opens Settings.
 7. Forgot a key? **F9** lists every command, and **F1** shows your keys.
@@ -85,7 +102,7 @@ what you see, the settings, and the questions people ask.
 | [Panels and keys](docs/panels/README.md) | The screen, moving, quick search, marking, sorting, tabs, views, folder sizes, git, git history, the mouse, every key |
 | [Tags, notes, favourites and the sidebar](docs/organise/README.md) | Colour tags, folder notes, favourite groups, places and drives |
 | [Commands, the user menu and scripts](docs/commands/README.md) | The command line, F2 menu, scripts, F3 and F4, opening files |
-| [Search](docs/search/README.md) | Names, text, scans, diagrams, git history, meaning, servers, the helper, disks, battery, notices |
+| [Search](docs/search/README.md) | The guided setup, names, text, scans, diagrams, git history, meaning, servers, the helper, disks, battery, notices |
 | [The preview pane](docs/previews/README.md) | Every format, HTML, Office, diagrams, LaTeX, tools and containers |
 | [Files](docs/files/README.md) | Copy, move, delete, clipboard, drag and drop, batch rename, archives, properties, duplicates |
 | [Customising](docs/customise/README.md) | Settings, themes, looks, your own theme, languages, keys, glyphs |
@@ -116,6 +133,7 @@ Newest first. Downloads for each release are on the [releases page](https://gith
 
 | Version | Date | What's new |
 |---|---|---|
+| **1.33.0** | 2026-10-05 | Smart search is set up with a guide, in both apps: *Settings → Search by meaning → Set up…* or `coxswain --setup-search`. It finds the model servers on your machine (Ollama, Lemonade, LM Studio, llama.cpp, Jan, LocalAI, or one you name elsewhere), lists only the models that make vectors for meaning and only those that answer for Ask, recommends a server and models for your graphics card, NPU or processor, downloads with a click (Ollama, Lemonade), asks a test question with the time to its first word, says when a model runs on the processor although there is a GPU and how to fix it, and offers *Start with my session*. Find file's "set it up" links open it. [Smart search in a few minutes](docs/search/setup.md) |
 | **1.32.1** | 2026-10-05 | Ask offers only chat models: on Ollama, models that only make vectors (such as `bge-m3`) are left out of *Chat model*, and one already set is named plainly in Find file and Settings (*bge-m3 makes vectors and cannot answer: choose a chat model, e.g. qwen3:8b*) instead of being tried. A model on a server with the OpenAI API is tried with a one-word question when saved. `coxswain --meaning ask` refuses an embedding model. Picking `bge-m3:latest` for `bge-m3` no longer throws all vectors away, and a real change of the embedding model says first how many files it reads again and about how long, and asks. [Ask](docs/search/ask.md#it-says-my-model-makes-vectors-and-cannot-answer-why) · [Servers](docs/search/servers.md#why-does-switching-the-model-start-over) |
 | **1.32.0** | 2026-10-05 | **F1** lists the keys by what they do, under headings (Moving, Panels and tabs, Marking, Files, Archives, Search, Git, Viewing and editing, App), the most used first in each, in both apps; the terminal app puts them in two columns when it is wide enough. The desktop app's **F9** shows the same headings until you type. [The command list and Help](docs/panels/command-list.md) · [Every default key](docs/panels/keys.md) |
 | **1.31.0** | 2026-10-05 | Pack (Alt+F5) shows its formats: the desktop app has a *Format* list next to the name (Zip, 7z, tar, tar.gz, tar.bz2, tar.xz, tar.zst) with a line on what each is good for, and in the terminal app Tab and Shift+Tab swap the name's ending. The format you packed into last is suggested next time, in both apps. [Pack and extract](docs/files/pack-and-extract.md#formats) |

@@ -41,6 +41,9 @@ Ask never uses a service on the internet unless you point the server address at 
 
 ## How to use it
 
+The guided setup does all of it, with a test question: [Smart search in a few minutes](setup.md)
+(**Set up…** at the top of *Settings → Search by meaning*, or `coxswain --setup-search`). By hand:
+
 1. **Set the chat model** once. Desktop app: **Ctrl+,** → *Search by meaning* → *Ask* →
    *Chat model* (the list offers the models on the server that can answer: on Ollama, models
    that only make vectors, such as `bge-m3`, are left out). Terminal app:

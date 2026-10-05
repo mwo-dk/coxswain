@@ -423,11 +423,11 @@
           {#if !askReady()}
             <p class="meta tip">
               {t(ui.cfg.settings.search_meaning ? "dialogs.ask_setup" : "dialogs.ask_setup_meaning")}
-              <button class="link" onclick={() => (ui.modal = { kind: "settings", section: ui.cfg.settings.search_meaning ? "ask" : "meaning" })}>{t("dialogs.ask_setup_open")}</button>
+              <button class="link" onclick={() => (ui.modal = { kind: "setup" })}>{t("dialogs.ask_setup_open")}</button>
             </p>
           {:else if askProblem}
             <p class="err tip">{askProblem}
-              <button class="link" onclick={() => (ui.modal = { kind: "settings", section: "ask" })}>{t("dialogs.ask_setup_open")}</button>
+              <button class="link" onclick={() => (ui.modal = { kind: "setup" })}>{t("dialogs.ask_setup_open")}</button>
             </p>
           {:else if !m.chat?.length}
             <p class="meta">{t("dialogs.ask_hint", { model: ui.cfg.settings.ask_model })}</p>
@@ -459,7 +459,7 @@
           {#if m.mode === 2 && m.res && !m.res.meaning}
             <p class="meta tip">
               {t("dialogs.meaning_tip")}
-              <button class="link" onclick={() => (ui.modal = { kind: "settings", section: "meaning" })}>{t("dialogs.meaning_tip_open")}</button>
+              <button class="link" onclick={() => (ui.modal = { kind: "setup" })}>{t("dialogs.meaning_tip_open")}</button>
             </p>
           {/if}
           <ul class="list hits" bind:this={listEl}>

@@ -158,4 +158,4 @@ found by meaning come after them.
 [opens it](../commands/opening-files.md) with its program.
 
 ---
-[← Previous: Search](README.md) · [Next: Names everywhere →](names.md)
+[← Previous: Smart search in a few minutes](setup.md) · [Next: Names everywhere →](names.md)

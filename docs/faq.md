@@ -47,6 +47,8 @@ The questions people ask most, with a short answer and a link to the full one. E
 - **Why is search by meaning off?** It needs a 465 MB model and CPU time, so you choose: Settings → Search by meaning, or `coxswain --meaning on`. [Answer](search/meaning.md#why-is-search-by-meaning-off)
 - **How do I go straight to searching inside files, or to Ask?** Shift+F7 (or Ctrl+Shift+F in the desktop app) opens Find file at the text of your files, Ctrl+F7 at Ask. [Answer](search/find-file.md#how-do-i-go-straight-to-searching-inside-files-or-to-ask)
 - **How do I go back a depth in Find file?** Shift+Tab; Tab goes forward. [Answer](search/find-file.md#how-do-i-go-back-a-depth)
+- **How do I set up search by meaning and Ask?** The guided setup: Settings → Search by meaning → Set up… (terminal: `coxswain --setup-search`). It finds your model servers and says what suits your machine. [Answer](search/setup.md)
+- **It says the model runs on the processor. What do I do?** Install your server's GPU build (Arch: `ollama-cuda` or `ollama-rocm`), or choose a Hybrid/NPU model in Lemonade. [Answer](search/setup.md#it-says-the-model-runs-on-the-processor-what-do-i-do)
 - **Can I ask my files a question?** Yes: Ctrl+F7 opens Find file at *Ask*, with search by meaning on and a chat model on your server. [Answer](search/ask.md)
 - **The first answer takes long. Why?** The server loads the model on the first question; *Waiting for … to answer* shows until the first word. [Answer](search/ask.md#the-first-answer-takes-long-why)
 - **Ask says my model makes vectors and cannot answer.** The chat model is an embedding model such as `bge-m3`; choose a chat model such as `qwen3:8b`. [Answer](search/ask.md#it-says-my-model-makes-vectors-and-cannot-answer-why)

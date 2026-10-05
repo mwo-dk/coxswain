@@ -45,6 +45,7 @@ name index `roots`, `exclude`, `watch`, `max_results`.
 
 | Item | Key | Type, default | Does |
 |---|---|---|---|
+| **Set up…** | | | Opens the guided setup, [Smart search in a few minutes](setup.md), which sets the items below for you |
 | *Vectors made by* | `meaning_engine` | `"builtin"` / `"ollama"` / `"openai"`, `"builtin"` | *Built-in model, on this CPU (465 MB once)*, *Ollama*, or *A server with the OpenAI API (Lemonade, LM Studio, llama.cpp …)* |
 | *Server* | `meaning_url` | string, `""` | The server's base URL; empty is Ollama on this machine |
 | *Embedding model* | `meaning_model` | string, `""` | The server's model; empty is `bge-m3` for Ollama |
