@@ -1,0 +1,33 @@
+# question	expected file(s), comma-separated	a phrase of the passage that answers it	kind
+how do I get my money back for a taxi I paid myself	work/handbook/employee-handbook.md	expense app	late
+how many weeks of paid leave does the other parent get when we have a baby	work/handbook/employee-handbook.md	sixteen weeks	late
+why did the tomatoes get dark patches on the bottom	work/projects/greenhouse/final-report.md	blossom end rot	late
+what did the gardeners think of the new system	work/projects/greenhouse/final-report.md	interviewed the four gardeners	late
+hvad koster det nye tag og hvordan betales det	forening/referat-generalforsamling-2025.md	2,3 millioner	late
+how much will the monthly fee go up because of the roof	forening/referat-generalforsamling-2025.md	85 kroner	late
+how much water did the greenhouse save	work/projects/greenhouse/final-report.md	thirty-one percent	meaning
+can I work from home	work/handbook/employee-handbook.md	three days a week	meaning
+what to do if I clicked a suspicious link in an email	work/handbook/employee-handbook.md	phishing	meaning
+a dessert with apples and breadcrumbs	home/recipes/apple-cake.md	rye bread crumbs	meaning
+how do I bake bread with a starter	home/recipes/sourdough.md	starter	meaning
+something warm and vegetarian to cook with lentils	home/recipes/lentil-soup.txt	lentils	meaning
+meatballs recipe	home/recipes/frikadeller.md	steg dem	cross
+what did the electrician charge for the outdoor sockets	invoices/2025/invoice-2025-03-electrician.txt	6,415	words
+invoices from 2025	invoices/2025/invoice-2025-03-electrician.txt,invoices/2025/invoice-2025-06-plumber.txt	INVOICE	name
+my cv	cv/curriculum-vitae.md	Data engineer	name
+when was the timing belt changed on the car	home/car/service-history.txt	timing belt	words
+what does my car insurance cover abroad	home/car/insurance.md	roadside assistance	meaning
+what should I bring for hiking in the mountains	home/travel/packing-list.txt	rain jacket	meaning
+when does the flight to Portugal leave	home/travel/lisbon-itinerary.md	07:10	meaning
+why were the forecasts missing in August	work/projects/forecast/incident-2025-08-21.md	ran out of memory	meaning
+what did the customer ask for at the demo	work/meetings/2025-10-02-customer-demo.md	export to Excel	meaning
+how does a change get to production	diagrams/deploy-pipeline.mmd	Deploy to production	diagram
+where is the photo backup in the home network	diagrams/home-network.drawio	NAS with photo backup	diagram
+hvornår må jeg bore i væggen	forening/husorden.md	Boremaskiner	meaning
+må man have hund i foreningen	forening/referat-generalforsamling-2025.md	forkastet	meaning
+what to remember when moving to another city	notes/noter-flytning.md	flytning	cross
+christmas rice pudding with almonds	notes/opskrift-risalamande.md	mandel	cross
+hvordan får jeg refunderet mine udlæg	work/handbook/employee-handbook.md	expense app	cross
+hvad skete der med tomaterne i drivhuset	work/projects/greenhouse/final-report.md	blossom end rot	cross
+the greenhouse report	work/projects/greenhouse/final-report.md	Summary	name
+training plan for the half marathon	notes/running-plan.md	interval	words
