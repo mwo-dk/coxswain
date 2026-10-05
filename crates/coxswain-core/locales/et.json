@@ -735,7 +735,7 @@
  "search.meaning_change": "Manustusmudeli vahetus loeb {n} faili tähenduse uuesti (umbes {time} selles masinas).",
  "search.meaning_change_hours": "{n} tundi",
  "search.meaning_change_minutes": "{n} minutit",
- "search.meaning_change_moment": "alla minuti",
+ "search.meaning_change_moment": "minuti",
  "search.meaning_change_untimed": "Manustusmudeli vahetus loeb {n} faili tähenduse uuesti.",
  "search.meaning_renewing": "Tähendusotsingut uuendatakse tervetele dokumentidele: {n} faili jäänud, umbes {time}",
  "search.reading": " · {n} veel lugemata",

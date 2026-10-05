@@ -779,7 +779,7 @@
  "search.meaning_change": "Iegulšanas modeļa maiņa no jauna nolasa {n} failu nozīmi (aptuveni {time} šajā datorā).",
  "search.meaning_change_hours": "{n} stundas",
  "search.meaning_change_minutes": "{n} minūtes",
- "search.meaning_change_moment": "mazāk par minūti",
+ "search.meaning_change_moment": "minūti",
  "search.meaning_change_untimed": "Iegulšanas modeļa maiņa no jauna nolasa {n} failu nozīmi.",
  "search.meaning_renewing": "Meklēšana pēc nozīmes tiek atjaunota veseliem dokumentiem: atlikuši {n} faili, apmēram {time}",
  "search.reading": " · vēl jālasa {n}",

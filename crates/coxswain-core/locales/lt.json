@@ -779,7 +779,7 @@
  "search.meaning_change": "Pakeitus įterpimo modelį, {n} failų prasmė perskaitoma iš naujo (apie {time} šiame kompiuteryje).",
  "search.meaning_change_hours": "{n} val.",
  "search.meaning_change_minutes": "{n} min.",
- "search.meaning_change_moment": "mažiau nei minutę",
+ "search.meaning_change_moment": "minutę",
  "search.meaning_change_untimed": "Pakeitus įterpimo modelį, {n} failų prasmė perskaitoma iš naujo.",
  "search.meaning_renewing": "Paieška pagal prasmę atnaujinama visiems dokumentams: liko {n} failų, apie {time}",
  "search.reading": " · dar reikia perskaityti {n}",

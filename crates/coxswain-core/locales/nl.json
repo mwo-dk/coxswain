@@ -735,7 +735,7 @@
  "search.meaning_change": "Een ander embeddingmodel leest de betekenis van {n} bestanden opnieuw (ongeveer {time} op deze computer).",
  "search.meaning_change_hours": "{n} uur",
  "search.meaning_change_minutes": "{n} minuten",
- "search.meaning_change_moment": "minder dan een minuut",
+ "search.meaning_change_moment": "een minuut",
  "search.meaning_change_untimed": "Een ander embeddingmodel leest de betekenis van {n} bestanden opnieuw.",
  "search.meaning_renewing": "Zoeken op betekenis wordt vernieuwd voor hele documenten: nog {n} bestanden, ongeveer {time}",
  "search.reading": " · nog {n} te lezen",

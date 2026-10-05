@@ -779,7 +779,7 @@
  "search.meaning_change": "Canviar el model d’embeddings torna a llegir el significat de {n} fitxers (uns {time} en aquest ordinador).",
  "search.meaning_change_hours": "{n} hores",
  "search.meaning_change_minutes": "{n} minuts",
- "search.meaning_change_moment": "menys d’un minut",
+ "search.meaning_change_moment": "un minut",
  "search.meaning_change_untimed": "Canviar el model d’embeddings torna a llegir el significat de {n} fitxers.",
  "search.meaning_renewing": "Renovant la cerca pel significat per a documents sencers: queden {n} fitxers, uns {time}",
  "search.reading": " · en falten {n} per llegir",

@@ -735,7 +735,7 @@
  "search.meaning_change": "Upotusmallin vaihto lukee {n} tiedoston merkityksen uudelleen (noin {time} tällä koneella).",
  "search.meaning_change_hours": "{n} tuntia",
  "search.meaning_change_minutes": "{n} minuuttia",
- "search.meaning_change_moment": "alle minuutin",
+ "search.meaning_change_moment": "minuutin",
  "search.meaning_change_untimed": "Upotusmallin vaihto lukee {n} tiedoston merkityksen uudelleen.",
  "search.meaning_renewing": "Merkityshakua uudistetaan kokonaisille asiakirjoille: {n} tiedostoa jäljellä, noin {time}",
  "search.reading": " · {n} lukematta",

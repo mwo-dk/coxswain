@@ -735,7 +735,7 @@
  "search.meaning_change": "Changing the embedding model re-reads the meaning of {n} files (about {time} on this machine).",
  "search.meaning_change_hours": "{n} hours",
  "search.meaning_change_minutes": "{n} minutes",
- "search.meaning_change_moment": "under a minute",
+ "search.meaning_change_moment": "a minute",
  "search.meaning_change_untimed": "Changing the embedding model re-reads the meaning of {n} files.",
  "search.meaning_renewing": "Renewing search by meaning for whole documents: {n} files to go, about {time}",
  "search.reading": " · {n} still to read",

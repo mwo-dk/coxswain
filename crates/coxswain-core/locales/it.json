@@ -779,7 +779,7 @@
  "search.meaning_change": "Cambiare il modello di embedding rilegge il significato di {n} file (circa {time} su questo computer).",
  "search.meaning_change_hours": "{n} ore",
  "search.meaning_change_minutes": "{n} minuti",
- "search.meaning_change_moment": "meno di un minuto",
+ "search.meaning_change_moment": "un minuto",
  "search.meaning_change_untimed": "Cambiare il modello di embedding rilegge il significato di {n} file.",
  "search.meaning_renewing": "Rinnovo della ricerca per significato per i documenti interi: ancora {n} file, circa {time}",
  "search.reading": " · {n} ancora da leggere",

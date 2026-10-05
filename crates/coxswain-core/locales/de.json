@@ -735,7 +735,7 @@
  "search.meaning_change": "Ein anderes Embedding-Modell liest die Bedeutung von {n} Dateien neu (etwa {time} auf diesem Rechner).",
  "search.meaning_change_hours": "{n} Stunden",
  "search.meaning_change_minutes": "{n} Minuten",
- "search.meaning_change_moment": "unter einer Minute",
+ "search.meaning_change_moment": "eine Minute",
  "search.meaning_change_untimed": "Ein anderes Embedding-Modell liest die Bedeutung von {n} Dateien neu.",
  "search.meaning_renewing": "Suche nach Bedeutung wird für ganze Dokumente erneuert: noch {n} Dateien, etwa {time}",
  "search.reading": " · {n} noch zu lesen",

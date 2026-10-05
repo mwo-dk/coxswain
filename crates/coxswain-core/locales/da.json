@@ -735,7 +735,7 @@
  "search.meaning_change": "Skift af indlejringsmodel læser betydningen af {n} filer igen (cirka {time} på denne maskine).",
  "search.meaning_change_hours": "{n} timer",
  "search.meaning_change_minutes": "{n} minutter",
- "search.meaning_change_moment": "under et minut",
+ "search.meaning_change_moment": "et minut",
  "search.meaning_change_untimed": "Skift af indlejringsmodel læser betydningen af {n} filer igen.",
  "search.meaning_renewing": "Søgning efter betydning fornyes til hele dokumenter: {n} filer tilbage, cirka {time}",
  "search.reading": " · {n} mangler at blive læst",

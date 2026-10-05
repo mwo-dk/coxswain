@@ -735,7 +735,7 @@
  "search.meaning_change": "Embedding-eredua aldatzeak {n} fitxategiren esanahia berriro irakurtzen du (gutxi gorabehera {time} makina honetan).",
  "search.meaning_change_hours": "{n} ordu",
  "search.meaning_change_minutes": "{n} minutu",
- "search.meaning_change_moment": "minutu bat baino gutxiago",
+ "search.meaning_change_moment": "minutu bat",
  "search.meaning_change_untimed": "Embedding-eredua aldatzeak {n} fitxategiren esanahia berriro irakurtzen du.",
  "search.meaning_renewing": "Esanahiaren araberako bilaketa dokumentu osoetarako berritzen: {n} fitxategi falta dira, {time} inguru",
  "search.reading": " · {n} irakurtzeko",

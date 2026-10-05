@@ -261,7 +261,7 @@ impl Engine {
     }
 }
 
-/// A time to wait, in words: "under a minute", "40 minutes", "3 hours".
+/// A time to wait, in words: "a minute", "40 minutes", "3 hours".
 pub fn about(secs: f64) -> String {
     if secs < 60.0 {
         crate::t!("search.meaning_change_moment")

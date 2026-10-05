@@ -779,7 +779,7 @@
  "search.meaning_change": "החלפת מודל ההטמעה קוראת מחדש את המשמעות של {n} קבצים (בערך {time} במחשב הזה).",
  "search.meaning_change_hours": "{n} שעות",
  "search.meaning_change_minutes": "{n} דקות",
- "search.meaning_change_moment": "פחות מדקה",
+ "search.meaning_change_moment": "דקה",
  "search.meaning_change_untimed": "החלפת מודל ההטמעה קוראת מחדש את המשמעות של {n} קבצים.",
  "search.meaning_renewing": "‏חידוש החיפוש לפי משמעות למסמכים שלמים: נותרו {n} קבצים, בערך {time}",
  "search.reading": " · נותרו {n} לקריאה",
