@@ -47,8 +47,9 @@ where it runs: `Built-in model · on the GPU (Metal)`.
 
 **In Find file**, a hit found by meaning shows the start of the passage that was closest (up to 24
 words), marked *similar to:*, wherever in the document that passage is. Only files close to the
-best match are shown (within a tenth of its score, and above what unrelated text scores), so
-unrelated files stay out. A file found by both its words and its meaning is shown once, as a word
+best match are shown (within 0.10 of its score with the built-in model, 0.15 with bge-m3 and
+other server models, and above what unrelated text scores: 0.77 and 0.45), so unrelated files
+stay out. A file found by both its words and its meaning is shown once, as a word
 hit.
 
 **In Settings → Search by meaning**, from top to bottom:

@@ -452,13 +452,22 @@ impl Engine {
     }
 
     /// The least score of a passage worth showing, by what this model's scores look like:
-    /// e5 puts unrelated text near 0.75, most others near 0.3.
-    // ponytail: two numbers from trying e5 and bge-m3; a model with odd scores wants its own.
+    /// e5 puts unrelated text at 0.76–0.82 and an answer at 0.81–0.91; bge-m3 unrelated text
+    /// at 0.30–0.55 and an answer at 0.48–0.72 (`tests/search_quality.rs`).
+    // ponytail: measured for e5 and bge-m3; a model with odd scores wants its own.
     pub fn floor(&self) -> f32 {
+        if self.is_e5() { 0.77 } else { 0.45 }
+    }
+
+    /// How far below the best passage another is still shown: e5's scores sit close together.
+    pub fn window(&self) -> f32 {
+        if self.is_e5() { 0.10 } else { 0.15 }
+    }
+
+    fn is_e5(&self) -> bool {
         match self {
-            Engine::Builtin(_) => 0.77,
-            Engine::Server(s) if s.model.contains("e5") => 0.77,
-            Engine::Server(_) => 0.5,
+            Engine::Builtin(_) => true,
+            Engine::Server(s) => s.model.contains("e5"),
         }
     }
 }

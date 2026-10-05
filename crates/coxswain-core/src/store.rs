@@ -796,9 +796,9 @@ impl Store {
         let mut ranked: Vec<(i64, f32, u8)> = close.into_iter().filter_map(|(file, n)| vec.query_row(params![file, n as i64], |r| Ok(score(r.get_ref(0)?.as_blob()?, &q))).ok().map(|s| (file, s, n))).collect();
         drop(vec);
         ranked.sort_by(|a, b| b.1.total_cmp(&a.1));
-        // e5's scores sit close together: near the best one, and above what unrelated text scores.
+        // Near the best one, and above what unrelated text scores, by the model's scale.
         let top = ranked.first().map_or(0.0, |r| r.1);
-        let floor = engine.floor().max(top - 0.10);
+        let floor = engine.floor().max(top - engine.window());
         ranked.retain(|r| r.1 >= floor);
         if by_file {
             ranked = by_files(ranked);
@@ -2073,7 +2073,7 @@ mod tests {
         assert_eq!(store.meaning_counts(), (0, 2));
         let first = |q: &str| store.similar(q, 10).first().map(|h| h.path.file_name().unwrap().to_string_lossy().into_owned());
         assert_eq!(first("how much does fuelling the rocket cost").as_deref(), Some("budget.txt"));
-        assert_eq!(first("an apple cake recipe").as_deref(), Some("cake.txt"));
+        assert_eq!(first("a recipe for baking").as_deref(), Some("cake.txt"));
 
         // The same model through the OpenAI API (Ollama speaks it too, as Lemonade does).
         cfg.meaning_engine = "openai".into();
@@ -2081,7 +2081,7 @@ mod tests {
         store.set_engine(crate::meaning::Engine::from_config(&cfg));
         scan(&store, &cfg, &go).unwrap();
         assert_eq!(store.meaning_counts(), (0, 2));
-        assert_eq!(first("an apple cake recipe").as_deref(), Some("cake.txt"));
+        assert_eq!(first("a recipe for baking").as_deref(), Some("cake.txt"));
 
         // Nobody answers there: the files wait, and Settings is told why.
         cfg.meaning_url = "http://127.0.0.1:9".into();

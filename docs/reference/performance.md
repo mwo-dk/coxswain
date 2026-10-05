@@ -301,18 +301,24 @@ for 23 of 32.
 | words | 1.00 | 1.00 | 3 of 3 |
 | diagram | 1.00 | 1.00 | 2 of 2 |
 
-**After 1.39.0** (whole documents, the name line, the bonus for several close passages), the
-same corpus and questions:
+**After 1.39.0** (whole documents, the name line, the bonus for several close passages, and
+for bge-m3 and other models that are not e5 a cut-off measured on this corpus: at least 0.45
+and within 0.15 of the best, where it was 0.5 and 0.10), the same corpus and questions:
 
 | List | Built-in recall@1 / @5 / MRR | bge-m3 recall@1 / @5 / MRR |
 |---|---|---|
-| Meaning alone | 0.78 / 0.94 / 0.84 (was 0.69 / 0.91 / 0.78) | 0.97 / 0.97 / 0.97 (was 0.75 / 0.81 / 0.78) |
-| Combined list | 0.78 / 0.94 / 0.84 (was 0.69 / 0.91 / 0.78) | 0.97 / 0.97 / 0.97 (was 0.78 / 0.84 / 0.81) |
-| Ask: the passage that answers | 29 of 32 (was 24) | 30 of 32 (was 23) |
+| Meaning alone | 0.78 / 0.94 / 0.84 (was 0.69 / 0.91 / 0.78) | 0.97 / 1.00 / 0.98 (was 0.75 / 0.81 / 0.78) |
+| Combined list | 0.78 / 0.94 / 0.84 (was 0.69 / 0.91 / 0.78) | 0.97 / 1.00 / 0.98 (was 0.78 / 0.84 / 0.81) |
+| Ask: the right file among the 10 passages | 30 of 32 (was 31) | 32 of 32 (was 26) |
+| Ask: the passage that answers | 29 of 32 (was 24) | 31 of 32 (was 23) |
 | Ask, *late* questions | 5 of 6 (was 0) | 6 of 6 (was 0) |
+| Files shown by meaning, on average | 10.8 | 2.3 (no question without one; was 1 for 19 questions and 0 for 6) |
 
-With bge-m3, one diagram question (*how does a change get to production*) is now missed. The
-weaknesses below are as measured before 1.39.0; the first and the fourth are what it mends.
+The scores behind the cut-off: e5 gives unrelated text 0.76–0.82 and the answer 0.81–0.91;
+bge-m3 unrelated text 0.30–0.55 and the answer 0.48–0.72. At 0.5, bge-m3 dropped the diagram
+answer (0.48); within 0.10 or 0.20 of the best made no other difference on this corpus. The
+weaknesses below are as measured before 1.39.0; the first, the fourth and the fifth are what it
+mends.
 
 **What is weak, by these numbers:**
 
@@ -329,7 +335,7 @@ weaknesses below are as measured before 1.39.0; the first and the fourth are wha
   would push a better meaning hit down.
 - **bge-m3 shows too few meaning hits**: one file for 19 of 32 questions and none for 6. The
   cut-off (scores at least 0.5, and within 0.10 of the best) was set from e5's and bge-m3's
-  scores on a few examples; on this corpus it drops right answers. The built-in model, with
+  scores on a few examples; on this corpus it drops right answers (1.39.0: 0.45 and 0.15). The built-in model, with
   its own cut-off, shows 3–20 files.
 - **File names and folders are not in the passages**: *my cv* and *invoices from 2025* are
   found because the text says *Data engineer* and *INVOICE*, not because of
