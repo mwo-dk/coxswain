@@ -70,8 +70,17 @@ pub fn all(cfg: &Config, status: &Status, state: &AppState, terminal: bool) -> V
         let text = if terminal { t!("notice.meaning_tui") } else { t!("notice.meaning") };
         all.push(Notice { id: "meaning".into(), text, settings: Some("meaning") });
     }
+    // The built-in model on a Mac's GPU, or on its CPU when the GPU could not be used: said once.
+    let runs = status.meaning_runs.as_ref().filter(|_| status.meaning);
+    if let Some(runs) = runs {
+        if runs.metal {
+            all.push(Notice { id: "meaning-metal".into(), text: t!("notice.meaning_metal", "n" => format!("{:.0}", runs.faster.max(1.0))), settings: Some("meaning") });
+        } else if let Some(why) = runs.cpu_why.as_ref().filter(|w| **w != crate::meaning::Fallback::Chosen) {
+            all.push(Notice { id: "meaning-cpu".into(), text: t!("notice.meaning_cpu", "why" => why.text()), settings: Some("meaning") });
+        }
+    }
     // Meaning by the built-in model on the CPU, while Ollama answers here: it could use the GPU.
-    if status.meaning && status.meaning_engine.starts_with("builtin") && cfg.search.meaning_engine == "builtin" && !seen("ollama") && crate::meaning::ollama_here() {
+    if status.meaning && status.meaning_engine.starts_with("builtin") && !runs.is_some_and(|r| r.metal) && cfg.search.meaning_engine == "builtin" && !seen("ollama") && crate::meaning::ollama_here() {
         let text = if terminal { t!("notice.ollama_tui") } else { t!("notice.ollama") };
         all.push(Notice { id: "ollama".into(), text, settings: Some("meaning") });
     }
@@ -177,7 +186,7 @@ mod tests {
     #[test]
     fn notices_come_one_at_a_time_and_stay_away_once_dismissed() {
         let cfg = Config::default();
-        let mut status = Status { state: crate::index::State::Ready, len: 1, texts: 10, pending: 0, bytes: 0, paused: false, roots: vec![], tools: vec![("tesseract".into(), false)], meaning: false, meaning_pending: 0, meaning_done: 0, meaning_engine: String::new(), meaning_error: None, error: None, clouds: vec![] };
+        let mut status = Status { state: crate::index::State::Ready, len: 1, texts: 10, pending: 0, bytes: 0, paused: false, roots: vec![], tools: vec![("tesseract".into(), false)], meaning: false, meaning_pending: 0, meaning_done: 0, meaning_engine: String::new(), meaning_error: None, meaning_runs: None, error: None, clouds: vec![] };
         let mut state = AppState::default();
         // Whether this machine's GStreamer can play video is not what is tested here.
         dismiss(&mut state, "media");
@@ -227,6 +236,20 @@ mod tests {
         assert_eq!(n.id, "cloud");
         assert!(n.text.contains("OneDrive, Dropbox"), "{}", n.text);
         dismiss(&mut state, "cloud");
+        assert_eq!(ids(&state, &status), None);
+
+        // The built-in model on a Mac: on its GPU, or on its CPU and why; once each.
+        use crate::meaning::{Fallback, Runs};
+        status.meaning_runs = Some(Runs { metal: true, faster: 6.4, cpu_why: None });
+        let n = next(&cfg, &status, &state, false).unwrap();
+        assert!(n.id == "meaning-metal" && n.text.contains('6'), "{}", n.text);
+        dismiss(&mut state, &n.id);
+        status.meaning_runs = Some(Runs { metal: false, faster: 0.0, cpu_why: Some(Fallback::Chosen) });
+        assert_eq!(ids(&state, &status), None, "the CPU the user chose is no news");
+        status.meaning_runs = Some(Runs { metal: false, faster: 0.0, cpu_why: Some(Fallback::Load("no memory".into())) });
+        let n = next(&cfg, &status, &state, true).unwrap();
+        assert!(n.id == "meaning-cpu" && n.text.contains("no memory"), "{}", n.text);
+        dismiss(&mut state, &n.id);
         assert_eq!(ids(&state, &status), None);
     }
 

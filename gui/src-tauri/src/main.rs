@@ -200,6 +200,8 @@ struct Settings {
     meaning_url: String,
     meaning_model: String,
     meaning_key_env: String,
+    /// Where the built-in model runs: "auto" (a Mac's GPU when it can) or "cpu".
+    meaning_device: String,
     ask_model: String,
     search_history: bool,
     /// Files only in the cloud: "local-only" (found by name, never read) or "all".
@@ -238,6 +240,7 @@ impl From<&Config> for Settings {
             meaning_url: c.search.meaning_url.clone(),
             meaning_model: c.search.meaning_model.clone(),
             meaning_key_env: c.search.meaning_key_env.clone(),
+            meaning_device: c.search.meaning_device.clone(),
             ask_model: c.search.ask_model.clone(),
             search_history: c.search.history,
             search_cloud: c.search.cloud.clone(),
@@ -275,6 +278,7 @@ const SETTING_PATHS: &[(&str, &[&str])] = &[
     ("meaning_url", &["search", "meaning_url"]),
     ("meaning_model", &["search", "meaning_model"]),
     ("meaning_key_env", &["search", "meaning_key_env"]),
+    ("meaning_device", &["search", "meaning_device"]),
     ("ask_model", &["search", "ask_model"]),
     ("search_history", &["search", "history"]),
     ("search_cloud", &["search", "cloud"]),
@@ -581,12 +585,20 @@ struct IndexStatus {
     shared: bool,
     /// Whether the helper starts with the session.
     service: bool,
+    /// "Built-in model · on the GPU (Metal)", or on the CPU and why.
+    meaning_runs_text: Option<String>,
 }
 
 #[tauri::command]
 async fn index_status(ctx: tauri::State<'_, Ctx>) -> Res<IndexStatus> {
     let index = ctx.index.clone();
-    tauri::async_runtime::spawn_blocking(move || IndexStatus { status: index.status(), path: coxswain_core::store::Store::path(), shared: index.shared(), service: coxswain_core::service::installed() }).await.map_err(|e| e.to_string())
+    tauri::async_runtime::spawn_blocking(move || {
+        let status = index.status();
+        let meaning_runs_text = status.meaning_runs.as_ref().map(|r| coxswain_core::t!("settings.meaning_runs", "where" => r.text()));
+        IndexStatus { status, path: coxswain_core::store::Store::path(), shared: index.shared(), service: coxswain_core::service::installed(), meaning_runs_text }
+    })
+    .await
+    .map_err(|e| e.to_string())
 }
 
 /// What Settings → What's new lists: the notices not dismissed and the versions not read (their

@@ -434,12 +434,17 @@
       {:else if s.search_meaning && (server || meaning?.installed)}
         <p class="hint">
           {t("settings.meaning_status", { done: index?.meaning_done ?? 0, pending: index?.meaning_pending ?? 0 })}
+          {#if index?.meaning_runs_text}<br /><strong>{index.meaning_runs_text}</strong>{/if}
           {#if index?.meaning_engine}<br /><span class="mono">{index.meaning_engine}</span>{/if}
           {#if !server && meaning?.folder}<br /><span class="mono">{meaning.folder}</span> <button class="link" onclick={() => showInPanel(meaning.folder, false)}>{t("settings.show_in_panel")}</button>{/if}
           {#if index?.meaning_error}<br /><span class="err">{t("settings.meaning_error", { why: index.meaning_error })}</span>{/if}
           {#if index?.error}<br /><span class="err">{t("settings.search_error", { why: index.error })}</span>{/if}
           {#if index?.paused}<br /><strong>{t("settings.search_paused")}</strong>{/if}
         </p>
+        <!-- Only on a Mac, where the built-in model can run on the GPU. -->
+        {#if !server && (index?.meaning_runs?.metal || index?.meaning_runs?.cpu_why)}
+          <label class="check"><input type="checkbox" checked={s.meaning_device === "cpu"} onchange={(e) => setSearch("meaning_device", e.currentTarget.checked ? "cpu" : "auto")} /> {t("settings.meaning_cpu_only")}</label>
+        {/if}
         <div class="buttons">
           <button onclick={() => meaningAction("off")}>{t("settings.meaning_off")}</button>
           {#if !server}<button onclick={() => meaningAction("remove")}>{t("settings.meaning_remove")}</button>{/if}

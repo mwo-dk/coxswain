@@ -29,6 +29,8 @@ numbers measured on synthetic data, so you know what to expect and can measure a
 - **Search follows a changed archive member by member:** a member that kept its size and date
   in the archive keeps its text and vectors; only the changed ones are read again. An archive
   written in the last three seconds (a download) waits until it has settled.
+- **Search by meaning on a Mac** runs the built-in model on the GPU through Metal, in batches of
+  up to 32 passages, when its results match the CPU's. See [On a Mac's GPU](../search/meaning.md#on-a-macs-gpu).
 - **Search by meaning reads only what it shows:** the few hundred closest passages are ranked
   by their vectors alone, and the text of a file is read only when one of its passages is
   among the hits.
@@ -191,6 +193,19 @@ cargo test --release -p coxswain-core --test perf -- --ignored --nocapture   # l
 cargo test --release -p coxswain --bin coxswain -- --ignored --nocapture perf_ # terminal frames
 cargo test --release -p coxswain-gui -- --ignored --nocapture perf_            # list_dir JSON
 ```
+
+**Search by meaning on the CPU and on a Mac's GPU:** with the model downloaded (`coxswain
+--meaning on`), from a checkout of the repository:
+
+```sh
+cargo test --release -p coxswain-core --test perf perf_meaning_cpu_and_gpu -- --ignored --nocapture
+```
+
+It turns 256 passages of about 120 words into vectors twice, on the CPU only and where `auto`
+puts the model, and prints passages per second for each, with where it ran and, on the GPU, how
+many times as fast the probe was: `cpu : 4 passages/s` and `auto: … passages/s (Runs { metal:
+true, faster: …, … })`. The CPU line is from a busy Linux machine with two threads; on Linux and
+Windows both lines are the CPU.
 
 The page is measured with the real details view (or thumbnails, with `&view=grid`) mounted
 in a browser: `cd gui && npx vite --port 1421`, then open `http://localhost:1421/bench/index.html?n=100000` (or headless:
