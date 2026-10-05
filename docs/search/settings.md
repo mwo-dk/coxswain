@@ -53,6 +53,7 @@ name index `roots`, `exclude`, `watch`, `max_results`.
 | *API key from the variable* | `meaning_key_env` | string, `""` | OpenAI API only: the environment variable holding the key |
 | *Use the CPU only* | `meaning_device` | `"auto"` / `"cpu"`, `"auto"` | On a Mac only: keeps the built-in model off the GPU ([on a Mac's GPU](meaning.md#on-a-macs-gpu)) |
 | *Ask → Chat model* | `ask_model` | string, `""` | The chat model that writes [Ask](ask.md)'s answers, on the same server (Ollama here with the built-in model). Empty: Ask is not set up |
+| *Ask → Let the model think before it answers* | `ask_think` | bool, `false` | Off: a model that thinks first (Qwen3 …) is asked not to, so the answer starts at once ([Thinking](ask.md#thinking)) |
 | **Download the model (465 MB) and turn on** | `meaning` | bool, `false` | Downloads the built-in model, then sets `meaning = true`. **Cancel** stops the download |
 | **Turn on** / **Turn off** | `meaning` | | On or off, keeping the model |
 | **Delete the model** | | | Turns it off and deletes the built-in model |

@@ -631,9 +631,12 @@ pub fn ask(cfg: &crate::config::SearchConfig, earlier: &[Turn], question: &str, 
     messages.push(serde_json::json!({ "role": "user", "content": if quiet { format!("{question} /no_think") } else { question.to_string() } }));
     let path = if s.openai { "/chat/completions" } else { "/api/chat" };
     let mut body = serde_json::json!({ "model": cfg.ask_model, "messages": messages, "stream": true });
-    // Ollama refuses only `think: true` to a model that cannot think; one before 0.9 ignores it.
-    if !cfg.ask_think && !s.openai {
-        body["think"] = false.into();
+    if !s.openai {
+        // Ollama refuses only `think: true` to a model that cannot think; one before 0.9 ignores it.
+        if !cfg.ask_think {
+            body["think"] = false.into();
+        }
+        body["options"] = serde_json::json!({ "num_ctx": ASK_CONTEXT });
     }
     // A model that is not loaded yet takes a while to answer at all; after that, pieces come.
     let agent: ureq::Agent = ureq::Agent::config_builder().tls_config(tls())
@@ -695,6 +698,14 @@ pub fn ask(cfg: &crate::config::SearchConfig, earlier: &[Turn], question: &str, 
     Ok(())
 }
 
+/// The context Ollama gives the chat model, in tokens: ten passages, the rules and a few turns
+/// before fit with room to spare. Its own default is larger on recent versions (32,768), and
+/// the cache for that pushes the model partly off an 8 GB card and the embedding model out:
+/// each question then loaded both again, 7 seconds before the first word. Smaller on old
+/// versions (2,048), which cut the sources short.
+// ponytail: fixed; a long conversation of follow-ups loses its first turns past it.
+const ASK_CONTEXT: u32 = 8192;
+
 /// Whether a chat model turns its thinking off when the question ends in `/no_think`: Qwen3's
 /// hybrid models, not its coder and instruct ones, which do not think at all.
 fn no_think_by_word(model: &str) -> bool {
@@ -710,7 +721,8 @@ pub fn warm(cfg: &crate::config::SearchConfig) {
         return;
     }
     let s = Server::new(cfg);
-    let body = serde_json::json!({ "model": cfg.ask_model }).to_string();
+    // With the context Ask asks for, or Ollama loads the model a second time for the question.
+    let body = serde_json::json!({ "model": cfg.ask_model, "options": { "num_ctx": ASK_CONTEXT } }).to_string();
     std::thread::spawn(move || {
         let agent: ureq::Agent = ureq::Agent::config_builder().tls_config(tls()).timeout_global(Some(Duration::from_secs(300))).http_status_as_error(false).build().into();
         let _ = agent.post(&format!("{}/api/generate", s.url)).header("Content-Type", "application/json").send(body);
@@ -1034,6 +1046,7 @@ mod tests {
         assert!(sent.contains("\"model\":\"chat\""));
         assert!(sent.contains("A rocket [1]."), "the turns before go along");
         assert!(sent.contains("\"think\":false"), "asked not to think first: {sent}");
+        assert!(sent.contains("\"num_ctx\":8192"), "the context the model was warmed with: {sent}");
 
         let off = crate::config::SearchConfig::default();
         assert!(ask(&off, &[], "q", &sources, |_| true).is_err(), "no chat model, no Ask");

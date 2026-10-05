@@ -5,30 +5,33 @@
 Every file and folder on the machine is in the name index, so Find file finds any of them by name
 in milliseconds: 1.4 million files in under 10 ms on a laptop. It needs nothing to be turned on.
 
-![The terminal app's Find file at "everywhere:", with "*.rs|*.toml src/" typed and eight hits, each a name and its folder, two of them inside a zip](../screenshots/tui-search.png)
+<!-- screenshot: tui-search.png: the terminal app (Classic blue), Find with "*.rs|*.toml src/" typed: NAMES only, eight hits, two inside a zip -->
 *Names everywhere: `*.rs|*.toml src/` finds Rust and TOML files in any `src` folder.*
 
 ## How to use it
 
-1. **Alt+F7** or **Ctrl+F** opens [Find file](find-file.md) at names everywhere.
-2. Type part of a name, or use the [name syntax](name-syntax.md): `ext:pdf invoice !draft`.
+1. **Alt+F7** or **Ctrl+F** opens [Find file](find-file.md). Names are its *Names* group, first
+   for a word or two, after *In files* and *About this* for three words or a question.
+2. Type part of a name, or use the [name syntax](name-syntax.md): `ext:pdf invoice !draft`. A
+   query with name syntax shows names only; **Tab** to the *Names* kind shows names alone for any
+   query, all of them.
 3. **Enter** goes to the hit; **F4** edits it; **F3** views it (terminal app).
 
-For names in this folder only, press **Tab** once (below).
+For names in this folder only, switch the scope with **Ctrl+F** inside Find (below).
 
 ## What you see
 
-The prompt `everywhere: ` (terminal app) or the highlighted *Everywhere* button (desktop app).
-Above the hits: `128 matches in 3.1 ms · 1,402,311 files indexed`. Each hit is a name and its
-folder. While the first index is built, ` · building index…` is added and hits come in as the walk
-goes; while a fresh index replaces the saved one after a start, ` · refreshing index`.
+The *Names* group: its heading counts them (*5 of 128*; in *All* the first five show, *123 more:
+Enter shows them all* follows). Each hit is a name and its folder. Under the list: *1,402,311
+files indexed*. While the first index is built, ` · building index…` is added and hits come in as
+the walk goes.
 
 ## How it stays current
 
 | When | What happens |
 |---|---|
 | At start | The index saved in Coxswain's cache folder (`index.bin`) loads, in about 90 ms, so searching works at once |
-| Right after | A fresh index is built in the background (` · refreshing index` meanwhile) |
+| Right after | A fresh index is built in the background; the saved one answers meanwhile |
 | All the time | The file watcher (inotify on Linux, FSEvents on macOS, ReadDirectoryChangesW on Windows) adds and removes names: a new file can be found within a second |
 | Every hour | The whole index is built again, which catches anything the watcher missed |
 
@@ -42,9 +45,10 @@ If the helper cannot be reached, each app builds a name index of its own.
 
 ## Names in this folder
 
-**Tab** once. The same name search, limited to the active panel's folder and everything below
-it. The prompt names the folder (`in ~/projects: `); the desktop app's button reads *In
-projects*. The same index answers it, so it is as fast, and the syntax is the same.
+Press **Ctrl+F** (or **Alt+F7**) inside Find: the scope at the right of the field switches from
+*Everywhere* to *In projects* (the active panel's folder; `[in projects]` in the terminal app),
+and names, like every other group, come from that folder and everything below it. The same index
+answers it, so it is as fast, and the syntax is the same. Press it again for everywhere.
 
 ## How names stay fast
 
@@ -71,7 +75,7 @@ Under `[search]`. None of these is in the Settings window; edit `config.toml`.
 
 ## In the terminal app
 
-The same index, depths and syntax. **F1** lists the syntax. The terminal app shows up to
+The same index, groups, scope and syntax. **F1** in Find lists the syntax. The terminal app shows up to
 `max_results` hits, as many as fit; the desktop app lists the first 500.
 
 ## Questions
@@ -96,10 +100,10 @@ disk. From the second start on, the saved index answers at once.
 Yes: `roots = ["/home/me", "/mnt/data"]` under `[search]`. Empty means the whole machine.
 
 #### Does the name index read my files?
-No. It holds names and folders only. Reading the text is a separate, optional depth:
-[Text in files](text.md).
+No. It holds names and folders only. Reading the text is separate and optional: Find's *In
+files* group ([Text in files](text.md)).
 
-#### Why does "In projects" miss a file I can see in the panel?
+#### Why does Find "In projects" miss a file I can see in the panel?
 It searches the index, which leaves out `exclude`d folders. If the file is in one of them, open the
 folder and use [Quick search](../panels/quick-search.md), or narrow `exclude`.
 

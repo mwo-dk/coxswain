@@ -2,7 +2,7 @@
   import { getCurrentWindow } from "@tauri-apps/api/window";
   import { getCurrentWebview } from "@tauri-apps/api/webview";
   import { listen } from "@tauri-apps/api/event";
-  import { ui, init, tab, pane, otherTab, item, load, cd, up, openHistory, openGitView, switchBranch, newBranch, newTab, goBack, goForward, openItem, toggleMark, targets, reloadAll, refreshDisks, snapshot, setTheme, themeIds, themeName, nextView, measureFolders, columnMenu } from "./app.svelte.js";
+  import { ui, openFind, init, tab, pane, otherTab, item, load, cd, up, openHistory, openGitView, switchBranch, newBranch, newTab, goBack, goForward, openItem, toggleMark, targets, reloadAll, refreshDisks, snapshot, setTheme, themeIds, themeName, nextView, measureFolders, columnMenu } from "./app.svelte.js";
   import { invoke, keyString, basename, parent, glob, quote, isArchive, packFormat, LOCKED } from "./lib.js";
   import { t, tn } from "./i18n.svelte.js";
   import Sidebar from "./Sidebar.svelte";
@@ -284,10 +284,9 @@
       const t = tab();
       for (const e of t.items) if (!e.is_dir) t.marked.has(e.path) ? t.marked.delete(e.path) : t.marked.add(e.path);
     },
-    // mode: 0 names everywhere, 1 names in this folder, 2 the text of files.
-    search: () => (ui.modal = { kind: "search", query: "", mode: 0, res: null, cursor: 0 }),
-    search_text: () => (ui.modal = { kind: "search", query: "", mode: 2, res: null, cursor: 0 }),
-    ask: () => (ui.modal = { kind: "search", query: "", mode: 3, res: null, cursor: 0 }),
+    search: () => openFind("all"),
+    search_text: () => openFind("in_files"),
+    ask: () => openFind("ask"),
     refresh: async () => {
       await reloadAll();
       ui.status = t("status.reread");

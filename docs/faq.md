@@ -19,7 +19,7 @@ The questions people ask most, with a short answer and a link to the full one. E
 - **What does "merging" on the git line mean?** git is in the middle of a merge (or rebase, cherry-pick, revert, bisect); finish or abort it. [Answer](panels/git.md#what-does-merging-or-rebasing-on-the-git-line-mean)
 - **Does a file's history go past a rename?** Yes: it follows the file under its earlier names. [Answer](panels/git-history.md#does-a-files-history-go-past-a-rename)
 - **Why is there a new tab in the left pane every time I start the desktop app?** The folder it started in is not open in any left-pane tab, so it is added; keep a tab on it (home, for menu starts). [Answer](panels/the-screen.md#why-is-there-a-new-tab-in-the-left-pane-every-time-i-start-the-desktop-app)
-- **What does "search: names · text" in the title mean?** The kinds of search Find file can do now: names always, text when file text is kept, meaning when search by meaning runs. [Answer](panels/the-screen.md#what-does-search-names--text-in-the-title-mean)
+- **Where did "search: names · text" in the title go?** To Find file's footer: *563 files indexed · text of 112 files · meaning for 112*. [Answer](panels/the-screen.md#where-did-search-names--text-in-the-title-go)
 - **I bound a key and now the desktop app ignores my whole config. Why?** An unreadable key name makes the config invalid: the desktop app falls back to defaults, the terminal app refuses to start. [Answer](panels/keys.md#i-bound-a-key-and-now-the-desktop-app-ignores-my-whole-config-why)
 
 ## Tags, notes, favourites and the sidebar
@@ -46,14 +46,18 @@ The questions people ask most, with a short answer and a link to the full one. E
 ## Search
 
 - **Why doesn't a file I just saved show up in text search?** It is read within seconds, unless it is outside the folders read, too large, the laptop is on battery, or the helper still has a backlog. [Answer](search/text.md#why-doesnt-a-file-i-just-saved-show-up-in-text-search)
-- **How do I search only this folder?** Press Tab once in Find file: "In <folder>" searches names in the active panel's folder and below. [Answer](search/find-file.md#how-do-i-search-only-this-folder)
+- **How do I search only this folder?** Press Ctrl+F (or Alt+F7) inside Find file: the scope switches to "In <folder>", for names, words, meaning and Ask. [Answer](search/find-file.md#how-do-i-search-only-this-folder)
+- **How do I search names only?** Tab once in Find file, to the *Names* kind; a query with name syntax (`*.pdf`, `ext:md`) shows names only by itself. [Answer](search/find-file.md#how-do-i-search-names-only)
+- **Why did my file show under About this?** It is close in meaning but lacks your words: another language, other words, a scan. [Answer](search/find-file.md#why-did-my-file-show-under-about-this)
+- **Why does the order of the groups change in Find file?** It follows what you typed: a word or two puts Names first, three words or a question puts In files and About this first. [Answer](search/find-file.md#why-does-the-order-of-the-groups-change)
 - **Why is search by meaning off?** It needs a 465 MB model and CPU time, so you choose: Settings → Search by meaning, or `coxswain --meaning on`. [Answer](search/meaning.md#why-is-search-by-meaning-off)
 - **Why is search by meaning re-reading everything?** Once after the update to 1.39.0: whole documents get vectors now, not only their first 960 words, so the helper makes them anew in the background; the text is not read again. [Answer](search/meaning.md#why-is-search-by-meaning-re-reading-everything)
-- **How do I go straight to searching inside files, or to Ask?** Shift+F7 (or Ctrl+Shift+F in the desktop app) opens Find file at the text of your files, Ctrl+F7 at Ask. [Answer](search/find-file.md#how-do-i-go-straight-to-searching-inside-files-or-to-ask)
-- **How do I go back a depth in Find file?** Shift+Tab; Tab goes forward. [Answer](search/find-file.md#how-do-i-go-back-a-depth)
+- **How do I search inside files, or ask?** Just type in Find file (Ctrl+F): words in files are a group of their own, and Ctrl+Enter (terminal: Alt+Enter) asks. Shift+F7 opens Find at *In files* alone, Ctrl+F7 at *Ask*. [Answer](search/find-file.md#keys)
+- **Why is there no Ask row for one word?** One word is almost always a name; type a second word, end with `?`, or press Ctrl+Enter. [Answer](search/find-file.md#why-is-there-no-ask-row-for-one-word)
 - **How do I set up search by meaning and Ask?** The guided setup: Settings → Search by meaning → Set up… (terminal: `coxswain --setup-search`). It finds your model servers and says what suits your machine. [Answer](search/setup.md)
 - **It says the model runs on the processor. What do I do?** Install your server's GPU build (Arch: `ollama-cuda` or `ollama-rocm`), or choose a Hybrid/NPU model in Lemonade. [Answer](search/setup.md#it-says-the-model-runs-on-the-processor-what-do-i-do)
-- **Can I ask my files a question?** Yes: Ctrl+F7 opens Find file at *Ask*, with search by meaning on and a chat model on your server. [Answer](search/ask.md)
+- **Can I ask my files a question?** Yes: type it in Find file and press Ctrl+Enter (terminal: Alt+Enter), with search by meaning on and a chat model on your server. [Answer](search/ask.md)
+- **Why does Ask take long before the first word?** Mostly the model loading; a model that thinks first (Qwen3) is asked not to, so with the model loaded the first word comes in under a second. [Answer](search/ask.md#thinking)
 - **The first answer takes long. Why?** The server loads the model on the first question; *Waiting for … to answer* shows until the first word. [Answer](search/ask.md#the-first-answer-takes-long-why)
 - **Ask says my model makes vectors and cannot answer.** The chat model is an embedding model such as `bge-m3`; choose a chat model such as `qwen3:8b`. [Answer](search/ask.md#it-says-my-model-makes-vectors-and-cannot-answer-why)
 - **What does Ask send, and where?** [Answer](search/ask.md#what-is-sent-and-where)
@@ -71,7 +75,7 @@ The questions people ask most, with a short answer and a link to the full one. E
 - **Does Find file find files inside my zip files?** Yes, in the archives of the folders read (your home folder by default, not hidden folders or caches): by name and by their text, and it follows their changes. [Answer](search/archives.md#does-find-file-find-files-inside-my-zip-files)
 - **Why are the archives in ~/.m2 or ~/.cache not looked into?** They are programs' archives; tick *Look inside archives everywhere the names are indexed* to find their entries by name. [Answer](search/archives.md#why-are-the-jars-in-m2-or-the-archives-in-cache-not-looked-into)
 - **Why is a file in my .tar.xz not found?** A compressed tar over 256 MB is found by its own name only; there are limits per archive too. [Answer](search/archives.md#why-is-a-file-in-my-tarxz-not-found)
-- **Can Find file search commit messages?** Yes: commits of the repositories in the folders read are found in Text in files, and Enter opens the commit. [Answer](search/history.md)
+- **Can Find file search commit messages?** Yes: commits of the repositories in the folders read are found under *History* in Find file, and Enter opens the commit. [Answer](search/history.md)
 - **Why does Find file not find my latest commit?** Repositories are read at the helper's scans, at most ten minutes apart. [Answer](search/history.md#why-does-find-file-not-find-my-latest-commit)
 - **Why does a search for "browser entra" find my diagram?** Every arrow becomes a sentence such as "Browser to Entra ID: sign in.". [Answer](search/diagrams.md#why-does-a-search-for-browser-entra-find-my-diagram-when-no-box-says-both)
 
@@ -117,7 +121,7 @@ The questions people ask most, with a short answer and a link to the full one. E
 ## Reference
 
 - **What can the terminal app not do, and why?** No preview pane, tabs, sidebar, tags, clipboard, batch rename, duplicates or Settings: a terminal cannot draw them or has no room; their keys say "is available in the desktop app". [Answer](reference/terminal-app.md#what-only-the-desktop-app-has)
-- **How do I turn on search by meaning without the desktop app?** `coxswain --meaning on`, then Find file's text depth (Shift+F7). [Answer](reference/terminal-app.md#how-do-i-turn-on-search-by-meaning-without-the-desktop-app)
+- **How do I turn on search by meaning without the desktop app?** `coxswain --meaning on` or `coxswain --setup-search`, then Find file: files found by meaning are under *About this*. [Answer](reference/terminal-app.md#how-do-i-turn-on-search-by-meaning-without-the-desktop-app)
 - **How do I find out which version I have?** `coxswain --version`, or the title of Help (F1) and the window title in the desktop app. [Answer](reference/command-line-flags.md#how-do-i-find-out-which-version-i-have)
 - **I edited config.toml and nothing changed.** Both apps read it at start (the desktop app also after Settings); restart, and `[search]` needs a new helper. [Answer](reference/configuration.md#i-edited-configtoml-and-nothing-changed)
 - **I misspelt a key and Coxswain said nothing.** Only unreadable files are refused; an unknown setting name is ignored and the default stays. [Answer](reference/configuration.md#i-misspelt-a-key-and-coxswain-said-nothing)

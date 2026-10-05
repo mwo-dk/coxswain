@@ -201,7 +201,7 @@ Every other flag changes nothing. See [Configuration: every key](configuration.m
 #### How do I find out which version I have?
 
 `coxswain --version` prints `coxswain 1.20.0`. In the desktop app, the title of *Help* (**F1**)
-and the window title show it: `Coxswain 1.20.0 · search: names · text`.
+and the window title show it: `Coxswain 1.20.0`.
 
 #### `coxswain-gui --help` opened a window.
 

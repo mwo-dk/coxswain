@@ -125,7 +125,7 @@ These belong to where they are, not to an action:
 |---|---|---|---|
 | Every dialog | **Esc** closes, **Enter** confirms | Yes | Yes; the `quit` key (**F10**) closes a dialog too |
 | A *Delete* or other question | **Y** / **N** as well as Enter / Esc | Yes | Yes |
-| Find file | **Tab** / **Shift+Tab** go to the next / previous depth, **Up**/**Down**/**PageUp**/**PageDown** move in the hits (the `search`, `search_text` and `ask` keys, which you can change, jump to their depth) | Yes | Yes |
+| Find file | **Tab** / **Shift+Tab** go to the next / previous kind, **Up**/**Down**/**PageUp**/**PageDown** move over the rows, **Ctrl+Enter** (desktop) / **Alt+Enter** (terminal) asks, **F1** shows the syntax, **Delete** sends a tip away (the `search`, `search_text` and `ask` keys, which you can change, switch the scope, *In files* and ask) | Yes | Yes |
 | *Colour tag* | The digits pick a colour | Yes | (not there) |
 | Quick search | **Alt+letter** starts it, letters extend it, **Backspace** shortens, **Esc** ends | Yes | Yes |
 | The command line, with text in it | **Enter** runs, **Esc** clears, **Backspace**, and in the desktop app **Left**/**Right**/**Home**/**End**/**Delete** edit | Yes | **Enter**, **Esc**, **Backspace** |
@@ -200,8 +200,9 @@ Ctrl+Space belongs to the system, which is why `dir_sizes` has no default.
 
 No: keys inside dialogs, quick search and the command line are fixed (see
 [Keys you cannot change](#keys-you-cannot-change)). Only the actions in `[keys]` can be moved.
-Inside Find file, the keys of `search`, `search_text` and `ask` also jump to their depth, so
-moving those moves the jump too.
+Inside Find file the keys of `search`, `search_text` and `ask` act too: `search` switches the
+scope, `search_text` switches to *In files* and back, `ask` asks. Moving those keys moves that
+too.
 
 #### How do I go back to the default keys?
 

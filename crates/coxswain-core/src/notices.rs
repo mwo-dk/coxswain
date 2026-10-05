@@ -19,18 +19,6 @@ pub struct Notice {
     pub settings: Option<&'static str>,
 }
 
-/// The kinds of search on, for the apps' titles: "names · text · meaning".
-pub fn search_level(cfg: &Config, status: &Status) -> String {
-    let mut kinds = vec![t!("title.names")];
-    if cfg.search.text {
-        kinds.push(t!("title.text"));
-    }
-    if status.meaning {
-        kinds.push(t!("title.meaning"));
-    }
-    kinds.join(" · ")
-}
-
 /// About how long the files still to get their vectors take here, as the helper measured
 /// them: "40 minutes", "3 hours".
 pub fn time_left(status: &Status) -> String {
@@ -248,7 +236,6 @@ mod tests {
         status.error = Some("constraint failed".into());
         assert!(next(&cfg, &status, &state, true).unwrap().text.contains("constraint failed"));
         status.error = None;
-        assert!(search_level(&cfg, &status).split(" · ").count() == 3);
 
         // Clouds found: told once that their online files stay there.
         status.clouds = vec![("OneDrive".into(), "/c/OneDrive".into()), ("Dropbox".into(), "/c/Dropbox".into())];

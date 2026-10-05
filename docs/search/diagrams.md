@@ -7,7 +7,7 @@ sentence, "Browser to Entra ID: sign in.", with the names the boxes show rather 
 a [search by meaning](meaning.md) for "entra auth flow" finds the sequence diagram of your login,
 and a search by words for `browser entra` finds it too.
 
-![Find file in Text in files: sequence.puml among the hits for "engine", its passage "…go for launch Rocket -> Engine: ignite Engine --> Rocket: thrust nominal…"](../screenshots/gui-text-search.png)
+<!-- screenshot: search-find-groups.png: the desktop app (Cyber), Find with "engine" typed: In files with main.rs, sequence.puml, launch-pad.drawio and their passages, "engine" highlighted, then History -->
 *A PlantUML file found by its words. The sentences made from its arrows are searched the same way.*
 
 ## Contents
@@ -25,7 +25,7 @@ and a search by words for `browser entra` finds it too.
 Nothing to turn on. Every diagram in a [folder read](folders.md) is read with its sentences, and
 the diagrams read before this came in are read again once, by themselves.
 
-1. **Shift+F7** (or **Ctrl+Shift+F** in the desktop app) for Find file at *Text in files*.
+1. **Ctrl+F** for [Find file](find-file.md) (or **Shift+F7** for its *In files* kind).
 2. Type who talks to whom: `browser entra`, or with search by meaning on, a question such as
    `how does the app sign in`.
 
@@ -101,8 +101,8 @@ on it: `Browser to Entra ID: sign in.`, `Entra ID to API: token.` HTML in labels
 ## What you see
 
 A hit in a diagram shows the passage that matched, as any [text hit](text.md#what-you-see): it may
-be the diagram's own text or one of its sentences. A hit by meaning shows *similar to:* and the
-start of the passage. To see the diagram itself, **Enter** to go to it and **Space** for the
+be the diagram's own text or one of its sentences. A file found by meaning alone is under *About this*, with the
+start of the passage in italics. To see the diagram itself, **Enter** to go to it and **Space** for the
 [preview](../previews/diagrams.md).
 
 ## Limits

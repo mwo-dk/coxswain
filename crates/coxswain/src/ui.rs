@@ -4,7 +4,6 @@ use crate::{App, Dialog};
 use coxswain_core::{t, tn};
 use coxswain_core::config::{self, Action, Key, KeyCode};
 use coxswain_core::git::Kind;
-use coxswain_core::index::State;
 use chrono::{Local, TimeZone};
 use ratatui::layout::{Constraint, Layout, Position, Rect};
 use ratatui::style::{Color, Modifier, Style, Stylize};
@@ -409,136 +408,161 @@ fn dialog(f: &mut Frame, app: &mut App) {
 }
 
 fn search(f: &mut Frame, app: &mut App, full: Rect) {
+    use coxswain_core::find::{self, Kind, Row};
     let t = app.theme.clone();
     let area = centered(full, full.width.saturating_sub(8).max(40), full.height.saturating_sub(4));
     let inner = frame(f, app, area, &t!("search.title"));
-    let dir = app.panel().dir.to_string_lossy().into_owned();
+    let dir = app.panel().dir.clone();
     let now = app.index.status();
-    let (state, count) = (now.state, now.len);
-    let Some(Dialog::Search { query, mode, results, cursor, offset }) = &mut app.dialog else { return };
-    let text = *mode == 2;
-    let [q, info, list, help] = Layout::vertical([Constraint::Length(1), Constraint::Length(1), Constraint::Min(0), Constraint::Length(1)]).areas(inner);
-    let prompt = match *mode {
-        3 => t!("search.ask"),
-        2 => t!("search.text"),
-        1 => t!("search.in", "dir" => fit_left(&dir, 30)),
-        _ => t!("search.everywhere"),
-    };
+    let Some(Dialog::Search { query, chip, here, found, cursor, show, .. }) = &app.dialog else { return };
+    let (query, chip, here, show) = (query.clone(), *chip, *here, *show);
+    let rows = app.find_rows(&query, chip, found);
+    let (prefix, question) = find::parse(&query);
+    let kind = prefix.unwrap_or(chip);
+    let answer = show == crate::Show::Answer || kind == Kind::Ask;
+    let [q, chips, list, foot, keys] = Layout::vertical([Constraint::Length(1), Constraint::Length(1), Constraint::Min(0), Constraint::Length(1), Constraint::Length(1)]).areas(inner);
+    let dim = dstyle(&t).add_modifier(Modifier::DIM);
+    let hit_style = sty(&t.search_hit);
+    let folder = dir.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_else(|| dir.display().to_string());
+
+    // The field, and the scope at the right.
+    let prompt = if answer { t!("search.ask") } else { t!("find.prompt") };
+    let scope = format!(" [{}]", if here { t!("dialogs.scope_in", "folder" => fit_left(&folder, 30)) } else { t!("dialogs.scope_everywhere") }.to_lowercase());
     f.render_widget(Paragraph::new(prompt.as_str()), q);
-    let qa = Rect { x: q.x + prompt.width() as u16, width: q.width.saturating_sub(prompt.width() as u16), ..q };
-    let w = qa.width as usize;
-    let shown = fit_left(query, w.saturating_sub(1));
+    let w = (q.width as usize).saturating_sub(prompt.width() + scope.width());
+    let qa = Rect { x: q.x + prompt.width() as u16, width: w as u16, ..q };
+    let shown = fit_left(&query, w.saturating_sub(1));
     f.render_widget(Paragraph::new(fit(&shown, w)).style(sty(&t.dialog_input)), qa);
+    f.render_widget(Paragraph::new(scope).style(dstyle(&t).patch(hit_style)), Rect { x: qa.x + w as u16, width: q.width.saturating_sub(prompt.width() as u16 + w as u16), ..q });
     f.set_cursor_position(Position::new(qa.x + shown.width() as u16, qa.y));
 
-    if *mode == 3 {
-        let cursor = *cursor;
-        return ask(f, &app.chat, app.ask_rx.is_some(), app.ask_problem.as_deref(), &app.cfg.search, &t, cursor, info, list, help);
+    // The kinds, the current one marked.
+    let mut spans = vec![];
+    for k in Kind::EVERY {
+        let label = format!(" {} ", k.label());
+        spans.push(if k == if answer { Kind::Ask } else { kind } { Span::styled(label, sty(&t.dialog_input)) } else { Span::styled(label, dstyle(&t)) });
+        spans.push(Span::raw(" "));
     }
-    let st = match state {
-        State::Stale => t!("search.refreshing"),
-        State::Building => t!("search.building"),
-        State::Ready => String::new(),
-    };
-    let (indexed, st) = if text {
-        let mut st = if now.pending > 0 { t!("search.reading", "n" => now.pending) } else { String::new() };
-        if now.meaning && now.meaning_renewing > 0 && now.meaning_pending > 0 && now.meaning_ms_per_file > 0 {
-            st += &format!(" · {}", t!("search.meaning_renewing", "n" => now.meaning_pending, "time" => coxswain_core::notices::time_left(&now)));
-        }
-        // Search that stalled says why, here where it is missed.
-        if let Some(why) = &now.error {
-            st += &format!(" · {}", t!("settings.search_error", "why" => why));
-        } else if let Some(why) = now.meaning_error.as_ref().filter(|_| now.meaning) {
-            st += &format!(" · {}", t!("settings.meaning_error", "why" => why));
-        }
-        (tn!("search.texts", now.texts), st)
-    } else {
-        (tn!("search.indexed", count), st)
-    };
-    let msg = if query.is_empty() && text {
-        format!("{indexed}{st} · {}", t!("dialogs.text_hint"))
-    } else if query.is_empty() {
-        format!("{indexed}{st} · {}", t!("dialogs.search_tab_hint"))
-    } else {
-        let ms = format!("{:.2}", results.micros as f64 / 1000.0);
-        format!("{} · {indexed}{st}", tn!("search.matches", results.total, "ms" => ms))
-    };
-    f.render_widget(Paragraph::new(msg), info);
-    // Search by meaning is off: say it is there, and how it is turned on.
-    let list = if text && !now.meaning && results.hits.is_empty() {
-        let [tip, rest] = Layout::vertical([Constraint::Length(1), Constraint::Min(0)]).areas(list);
-        f.render_widget(Paragraph::new(t!("tui.meaning_tip")).style(dstyle(&t).add_modifier(Modifier::DIM)), tip);
-        rest
-    } else {
-        list
-    };
+    f.render_widget(Paragraph::new(Line::from(spans)), chips);
+    f.render_widget(Paragraph::new(fit(&find::footer(&now), foot.width as usize)).style(dim), foot);
+    let scope_key = app.key_label(Action::Search).to_string();
+    let keys_text = if answer { t!("find.keys_answer_tui") } else { t!("find.keys_tui", "scope" => scope_key) };
+    f.render_widget(Paragraph::new(fit(&keys_text, keys.width as usize)).centered(), keys);
 
-    // A hit in the text takes two lines: the file, and the passage that matched.
-    let rows = list.height as usize / if text { 2 } else { 1 };
-    if *cursor < *offset {
-        *offset = *cursor;
-    } else if *cursor >= *offset + rows {
-        *offset = *cursor + 1 - rows;
+    if show == crate::Show::Syntax {
+        return f.render_widget(Paragraph::new(syntax_lines()).wrap(Wrap { trim: false }), list);
     }
-    let hit_style = sty(&t.search_hit);
-    let lines: Vec<Line> = results
-        .hits
+    if answer {
+        let (cursor, off) = (*cursor, app.ask_state().err());
+        return ask(f, &app.chat, app.ask_rx.is_some(), off.as_ref(), &app.cfg.search, &t, cursor, list);
+    }
+    let width = list.width as usize;
+    if question.trim().is_empty() {
+        let lines = vec![Line::from(t!("find.empty"))];
+        return f.render_widget(Paragraph::new(lines).wrap(Wrap { trim: true }), list);
+    }
+    if rows.is_empty() {
+        let q = question.trim();
+        let mut lines = vec![Line::from(if here { t!("find.nothing_in", "query" => q, "folder" => folder) } else { t!("find.nothing", "query" => q) })];
+        if here {
+            lines.push(Line::from(Span::styled(t!("find.try_everywhere", "key" => app.key_label(Action::Search)), dim)));
+        }
+        if find::asks(q) && app.ask_state().is_ok() {
+            lines.push(Line::from(Span::styled(t!("find.try_ask", "key" => "Alt+Enter"), dim)));
+        }
+        return f.render_widget(Paragraph::new(lines).wrap(Wrap { trim: true }), list);
+    }
+
+    // Each row as lines; a hit with a passage takes two.
+    let step_hint = |off: &find::Off| {
+        let mut s = format!(" · Enter: {}", off.step());
+        if off.dismiss_id().is_some() {
+            s += &format!(" · {}", t!("find.dismiss"));
+        }
+        s
+    };
+    let header_fg = sty(&t.header).fg.unwrap_or(Color::Reset);
+    let block: Vec<Vec<Line>> = rows
         .iter()
         .enumerate()
-        .skip(*offset)
-        .take(rows)
-        .flat_map(|(i, h)| {
+        .map(|(i, row)| {
             let base = if i == *cursor { sty(&t.dialog_input) } else { dstyle(&t) };
-            let p = h.path.to_string_lossy();
-            let (parent, name) = p.rsplit_once(std::path::MAIN_SEPARATOR).unwrap_or(("", &p));
-            let name = if h.is_dir { format!("{name}{}", std::path::MAIN_SEPARATOR) } else { name.to_string() };
-            let pw = (list.width as usize).saturating_sub(name.width() + 2);
-            let file = Line::from(vec![
-                Span::styled(format!(" {name} "), base.patch(hit_style).bg(base.bg.unwrap_or(Color::Reset))),
-                Span::styled(fit(&fit_left(parent, pw), pw), base),
-            ]);
-            let Some(snippet) = h.snippet.as_deref().filter(|_| text) else { return vec![file] };
-            // The words found stand out; the rest is dim.
-            let dim = dstyle(&t).add_modifier(Modifier::DIM);
-            let mut passage = vec![Span::styled("   ", dim)];
-            // Found by meaning: the passage that was close, after what it is.
-            let label = h.similar.map(|_| format!("{} ", t!("search.similar_to"))).unwrap_or_default();
-            if !label.is_empty() {
-                passage.push(Span::styled(label.clone(), dstyle(&t).patch(hit_style)));
+            match row {
+                Row::Ask { off: None } => vec![Line::from(Span::styled(fit(&format!(" ? {}", t!("find.ask_row", "query" => question.trim())), width), base.patch(hit_style).bg(base.bg.unwrap_or(Color::Reset))))],
+                Row::Ask { off: Some(off) } => vec![Line::from(Span::styled(fit(&format!(" ? {}{}", off.text(), step_hint(off)), width), if i == *cursor { base } else { dim }))],
+                Row::Head { group, shown, total } => {
+                    let label = group.label().to_uppercase();
+                    let count = if *total > 0 { t!("find.of", "shown" => shown, "total" => total) } else { String::new() };
+                    let gap = width.saturating_sub(label.width() + count.width() + 1);
+                    vec![Line::from(Span::styled(format!("{label}{}{count} ", " ".repeat(gap)), dstyle(&t).fg(header_fg).add_modifier(Modifier::BOLD)))]
+                }
+                Row::More { n, .. } => vec![Line::from(Span::styled(fit(&format!("   {}", t!("find.more", "n" => n)), width), if i == *cursor { base } else { dim }))],
+                Row::Off { off, .. } => vec![Line::from(Span::styled(fit(&format!("   {}{}", off.text(), step_hint(off)), width), if i == *cursor { base } else { dim }))],
+                Row::Hit { hit: h, .. } => {
+                    let p = h.path.to_string_lossy();
+                    let (parent, name) = p.rsplit_once(std::path::MAIN_SEPARATOR).unwrap_or(("", &p));
+                    let name = if h.is_dir { format!("{name}{}", std::path::MAIN_SEPARATOR) } else { name.to_string() };
+                    let pw = width.saturating_sub(name.width() + 2);
+                    let file = Line::from(vec![Span::styled(format!(" {name} "), base.patch(hit_style).bg(base.bg.unwrap_or(Color::Reset))), Span::styled(fit(&fit_left(parent, pw), pw), base)]);
+                    let Some(snippet) = h.snippet.as_deref() else { return vec![file] };
+                    // The words found stand out; a passage close in meaning is in italics.
+                    let mut passage = vec![Span::styled("   ", dim)];
+                    let rest = if h.similar.is_some() { dim.add_modifier(Modifier::ITALIC) } else { dim };
+                    for (n, part) in fit(snippet, width.saturating_sub(3)).split([coxswain_core::store::MARK.0, coxswain_core::store::MARK.1]).enumerate() {
+                        passage.push(Span::styled(part.to_string(), if n % 2 == 1 { dstyle(&t).patch(hit_style) } else { rest }));
+                    }
+                    vec![file, Line::from(passage)]
+                }
             }
-            for (n, part) in fit(snippet, (list.width as usize).saturating_sub(3 + label.width())).split([coxswain_core::store::MARK.0, coxswain_core::store::MARK.1]).enumerate() {
-                passage.push(Span::styled(part.to_string(), if n % 2 == 1 { dstyle(&t).patch(hit_style) } else { dim }));
-            }
-            vec![file, Line::from(passage)]
         })
         .collect();
+    // The cursor's row in sight.
+    let height = list.height as usize;
+    let Some(Dialog::Search { cursor, offset, .. }) = &mut app.dialog else { return };
+    *offset = (*offset).min(*cursor);
+    while *offset < *cursor && block[*offset..=*cursor].iter().map(Vec::len).sum::<usize>() > height {
+        *offset += 1;
+    }
+    let lines: Vec<Line> = block.into_iter().skip(*offset).flatten().take(height).collect();
     f.render_widget(Paragraph::new(lines), list);
-    f.render_widget(
-        Paragraph::new(t!("tui.search_footer")).centered(),
-        help,
-    );
+}
+
+/// Find file's name syntax and prefixes (F1 in Find, and in Help).
+fn syntax_lines() -> Vec<Line<'static>> {
+    let mut v = vec![Line::from(t!("help.syntax"))];
+    // One query per line, so translations of any length line up.
+    for (q, k) in [
+        ("foo bar", "both"),
+        ("foo|bar", "either"),
+        ("!foo", "not"),
+        ("*.rs  a?c", "wildcards"),
+        ("ext:rs;toml", "ext"),
+        ("file: folder:", "kind"),
+        ("src/ foo", "path"),
+        ("case:", "case"),
+        ("\"a b\"", "phrase"),
+    ] {
+        v.push(Line::from(format!("  {q:<14} {}", t!(&format!("syntax.{k}")))));
+    }
+    v.push(Line::from(""));
+    v.push(Line::from(t!("find.help_prefixes")));
+    v
 }
 
 /// Ask in Find file: each question, its answer as it comes, and its numbered sources; the
-/// newest at the bottom, in sight.
+/// newest at the bottom, in sight. `off`: why Ask cannot be asked yet.
 #[allow(clippy::too_many_arguments)]
-fn ask(f: &mut Frame, chat: &[crate::Turn], asking: bool, problem: Option<&str>, search: &coxswain_core::config::SearchConfig, t: &config::Theme, cursor: usize, info: Rect, list: Rect, help: Rect) {
+fn ask(f: &mut Frame, chat: &[crate::Turn], asking: bool, off: Option<&coxswain_core::find::Off>, search: &coxswain_core::config::SearchConfig, t: &config::Theme, cursor: usize, list: Rect) {
     let dim = dstyle(t).add_modifier(Modifier::DIM);
-    let ready = search.meaning && !search.ask_model.is_empty();
-    let msg = if !search.meaning {
-        t!("tui.ask_setup_meaning")
-    } else if !ready {
-        t!("tui.ask_setup")
-    } else {
-        t!("dialogs.ask_hint", "model" => search.ask_model.as_str())
-    };
-    // A chat model that cannot answer is named as such, and Enter does not try it.
-    match problem.filter(|_| ready) {
-        Some(why) => f.render_widget(Paragraph::new(why.to_string()).style(dstyle(t).fg(Color::Red)).wrap(Wrap { trim: true }), info),
-        None => f.render_widget(Paragraph::new(msg).style(if ready { dstyle(t) } else { dim }), info),
-    }
     let hit = sty(&t.search_hit);
     let mut lines: Vec<Line> = vec![];
+    // Not set up, or a chat model that cannot answer: what is missing and the step, in place of the hint.
+    match off {
+        Some(off @ coxswain_core::find::Off::AskModel(_)) => lines.push(Line::from(Span::styled(off.text(), dstyle(t).fg(Color::Red)))),
+        Some(off) => lines.push(Line::from(Span::styled(format!("{} · coxswain --setup-search", off.text()), dim))),
+        None if chat.is_empty() => lines.push(Line::from(Span::styled(t!("dialogs.ask_hint", "model" => search.ask_model.as_str()), dim))),
+        None => {}
+    }
     for (i, turn) in chat.iter().enumerate() {
         lines.push(Line::from(Span::styled(format!("› {}", turn.question), dstyle(t).patch(hit))));
         for text in turn.answer.lines() {
@@ -564,7 +588,6 @@ fn ask(f: &mut Frame, chat: &[crate::Turn], asking: bool, problem: Option<&str>,
     let rows = lines.iter().map(|l| l.width().div_ceil(width).max(1) + usize::from(l.width() > width)).sum::<usize>() as u16;
     let para = Paragraph::new(lines).wrap(ratatui::widgets::Wrap { trim: false });
     f.render_widget(para.scroll((rows.saturating_sub(list.height), 0)), list);
-    f.render_widget(Paragraph::new(t!("tui.ask_footer")).centered(), help);
 }
 
 /// Group blocks (a bold heading, then `label  keys` rows, a blank line between groups), laid
@@ -631,21 +654,7 @@ fn help_text(app: &App, width: usize) -> Vec<Line<'static>> {
     let key = |a| app.key_label(a).to_string();
     v.push(Line::from(t!("help.branches", "key" => key(Action::Branches), "switch" => key(Action::SwitchBranch), "worktrees" => key(Action::Worktrees))));
     v.push(Line::from(""));
-    v.push(Line::from(t!("help.syntax")));
-    // One query per line, so translations of any length line up.
-    for (q, k) in [
-        ("foo bar", "both"),
-        ("foo|bar", "either"),
-        ("!foo", "not"),
-        ("*.rs  a?c", "wildcards"),
-        ("ext:rs;toml", "ext"),
-        ("file: folder:", "kind"),
-        ("src/ foo", "path"),
-        ("case:", "case"),
-        ("\"a b\"", "phrase"),
-    ] {
-        v.push(Line::from(format!("  {q:<14} {}", t!(&format!("syntax.{k}")))));
-    }
+    v.extend(syntax_lines());
     v.push(Line::from(""));
     v.push(Line::from(t!("help.config", "path" => config::Config::path().map(|p| p.display().to_string()).unwrap_or_default())));
     v.push(Line::from(t!("help.dump")));

@@ -199,7 +199,7 @@ flags start a new one.
 | `exclude` | list of strings | `["/proc", "/sys", "/dev", "/run", "/tmp/.X11-unix"]` | Left out of the name index: a path skips that tree, a bare name skips every folder of that name |
 | `max_results` | number | `10000` | Most name hits per search (the desktop app shows 500 at most) |
 | `watch` | bool | `true` | Follow changes live with the file watcher; `false`: only the hourly rebuild |
-| `text` | bool | `true` | Keep the text of files, for Find file's text depth ([Text in files](../search/text.md)) |
+| `text` | bool | `true` | Keep the text of files, for Find file's *In files* group ([Text in files](../search/text.md)) |
 | `text_roots` | list of paths | `[]` | The folders whose files are read. Empty: your home folder ([Choosing the folders](../search/folders.md)) |
 | `text_exclude` | list of strings | `["node_modules", "target", "build", "dist", "out", "vendor", "__pycache__", "Trash"]` | Folder names left out of reading, wherever they are. Hidden folders and folders with a `.nosearch` file always are |
 | `names_only` | list of paths | `[]` | Folders found by name and counted in sizes, never read |
@@ -216,7 +216,7 @@ flags start a new one.
 | `meaning_device` | string | `"auto"` | Where the built-in model runs: `"auto"` (a Mac's GPU through Metal when it has one whose results match the CPU's, the CPU elsewhere) or `"cpu"` (the CPU only). Only Macs have a choice ([Search by meaning](../search/meaning.md#on-a-macs-gpu)) |
 | `ask_model` | string | `""` | The chat model that answers in [Ask](../search/ask.md), on the server above (Ollama on this machine with the built-in model), e.g. `qwen3:8b`. Empty: Ask is not set up |
 | `ask_think` | bool | `false` | Let Ask's chat model think before it answers (Qwen3, DeepSeek-R1 …). Off: it is asked not to, so the first word comes at once ([Thinking](../search/ask.md#thinking)) |
-| `history` | bool | `true` | Keep the history of the git repositories in the folders read: commit messages, authors and changed paths of the newest 2000 commits of each, found by Text in files and by meaning ([History in search](../search/history.md)) |
+| `history` | bool | `true` | Keep the history of the git repositories in the folders read: commit messages, authors and changed paths of the newest 2000 commits of each, found by Find's words in files and by meaning ([History in search](../search/history.md)) |
 
 Changing `meaning_engine` or `meaning_model` makes the helper work out the vectors again,
 since vectors of two models cannot be compared.

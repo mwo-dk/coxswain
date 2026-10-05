@@ -11,7 +11,7 @@ New here? Start with [The screen](panels/the-screen.md) and [Every default key](
 | Page | What it covers |
 |---|---|
 | [Panels and keys](panels/README.md) | The area's pages and the main keys of both apps |
-| [The screen](panels/the-screen.md) | Panels, active panel, title bar with version and search depths, status line and notices, F-key bar, archives shown in the pane, starting in a folder |
+| [The screen](panels/the-screen.md) | Panels, active panel, title bar with the version, status line and notices, F-key bar, archives shown in the pane, starting in a folder |
 | [Moving around and going to a folder](panels/moving.md) | Cursor keys, Enter, parent, other panel, reread, Alt+F1/Alt+F2, Ctrl+L, cd |
 | [Quick search](panels/quick-search.md) | Alt+letter to jump to a name |
 | [Marking files](panels/marking.md) | Insert, + - *, patterns, marking with the mouse, what uses the marks |
@@ -52,12 +52,12 @@ New here? Start with [The screen](panels/the-screen.md) and [Every default key](
 
 | Page | What it covers |
 |---|---|
-| [Search](search/README.md) | The three depths, all pages, keys at a glance |
+| [Search](search/README.md) | The groups of Find file, all pages, keys at a glance |
 | [Smart search in a few minutes](search/setup.md) | The guided setup (Settings → Set up…, `coxswain --setup-search`): parts, hardware table, Ollama, Lemonade, LM Studio, llama.cpp, the GPU check, start with my session |
-| [Find file](search/find-file.md) | Opening it at names, text (Shift+F7) or Ask (Ctrl+F7), the four depth buttons, Tab and Shift+Tab, keys, count line, hints and the meaning tip |
-| [Names everywhere](search/names.md) | The name index, how it stays current and fast, names in this folder, exclude/roots/watch |
+| [Find file](search/find-file.md) | One field for names, words, meaning and Ask: the groups and their order, the kinds (Tab) and prefixes, the scope (Ctrl+F inside Find), the Ask row and the answer in place, every key and state |
+| [Names everywhere](search/names.md) | The name index, how it stays current and fast, the scope chip for this folder, exclude/roots/watch |
 | [Name syntax](search/name-syntax.md) | Everything's words, !, |, wildcards, ext:, file:, folder:, case:, paths, quotes |
-| [Text in files](search/text.md) | How words match, the passages, what is read and when, search.db |
+| [Text in files](search/text.md) | The *In files* group: how words match (every word, then any of them), the passages, the scope, what is read and when, search.db |
 | [Documents it reads](search/documents.md) | PDF, Word, RTF, spreadsheets, slides, mail, books, notebooks, diagrams, Markdown |
 | [Scans, pictures and older Office files](search/scans.md) | Tesseract, pdftoppm, LibreOffice and how to install them |
 | [Diagrams read as sentences](search/diagrams.md) | Draw.io, Mermaid, Graphviz, PlantUML, with examples and limits |
@@ -68,10 +68,10 @@ New here? Start with [The screen](panels/the-screen.md) and [Every default key](
 | [Removable disks](search/removable-disks.md) | Text kept while unplugged, found again at any mount point |
 | [Search by meaning](search/meaning.md) | The built-in multilingual model, turning it on and off, what you see, how it works |
 | [Search by meaning on a server: Ollama, Lemonade, LM Studio](search/servers.md) | Ollama, Lemonade, LM Studio, any OpenAI-compatible server, API keys, privacy |
-| [Ask: questions answered from your files](search/ask.md) | The fourth depth of Find file: your chat model answers from the closest passages, citing them |
+| [Ask: questions answered from your files](search/ask.md) | The Ask row of Find file (Ctrl+Enter): your chat model answers from the closest passages, citing them, in place of the list |
 | [The search helper](search/helper.md) | One process for all windows, privacy of its connection, starting with the session, taken over after an upgrade moves the program |
 | [Battery](search/battery.md) | Reading pauses on battery, Index now reads anyway |
-| [Notices and what's new](search/notices.md) | Version and search depths in the title, the tips, the count on Settings, *What's new* and `coxswain --whats-new` |
+| [Notices and what's new](search/notices.md) | The version in the title, the tips, the count on Settings, *What's new* and `coxswain --whats-new` |
 | [Search settings](search/settings.md) | Every item of Search inside files and Search by meaning, its config.toml key, and the terminal flags |
 
 ## [The preview pane](previews/README.md)

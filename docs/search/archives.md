@@ -3,7 +3,7 @@
 # Inside archives
 
 Find file looks inside your zip, 7z and tar archives. A file in `website.tar.gz` is found by its
-name, `main.rs`, and by its words in *Text in files*, by its meaning, and by Ask, just like a
+name, `main.rs`, and by its words (*In files*), by its meaning (*About this*), and by Ask, just like a
 file on disk. A hit is shown as a path through the archive, `…/website.tar.gz/src/main.rs`, and
 **Enter** opens the archive's folder in the panel with the cursor on the file. When an archive
 changes, by Coxswain or by anything else, what search knows of it changes with it.
@@ -26,20 +26,19 @@ changes, by Coxswain or by anything else, what search knows of it changes with i
 
 Nothing to do: *Search inside archives* is on from the start.
 
-1. **Alt+F7** or **Ctrl+F** opens Find file at *everywhere*.
+1. **Alt+F7** or **Ctrl+F** opens Find file, searching *Everywhere*.
 2. Type a name, as for any file: `main.rs`, `ext:md report`, `website src/`. Entries inside
-   archives are among the hits.
-3. **Tab** once for *in this folder*: the folder in the panel and below it, archives in it
-   included. When the panel is inside an archive, it searches that folder of the archive.
-4. **Tab** again for *Text in files*: the words of files inside archives are found too, with
+   archives are among the *Names*. Words: files inside archives are under *In files* too, with
    their passage under the name.
-5. **Enter** on a hit goes to it.
+3. **Ctrl+F** inside Find limits it to the panel's folder and below, archives in it included.
+   When the panel is inside an archive, it searches that folder of the archive.
+4. **Enter** on a hit goes to it.
 
 | Key | Desktop app | Terminal app | Does |
 |---|---|---|---|
-| **Alt+F7**, **Ctrl+F** | yes | yes | Open Find file |
-| **Shift+F7** | yes | yes | Open Find file at *Text in files* |
-| **Tab** / **Shift+Tab** | yes | yes | *everywhere* → *in this folder* → *Text in files* → *Ask*, and back |
+| **Alt+F7**, **Ctrl+F** | yes | yes | Open Find file; inside it, *Everywhere* ⇄ the panel's folder |
+| **Shift+F7** | yes | yes | Open Find file at *In files* |
+| **Tab** / **Shift+Tab** | yes | yes | The next / previous kind: All → Names → In files → About → Ask |
 | **Enter** | yes | yes | The active panel opens the folder inside the archive, cursor on the file |
 | **F3** / **F4** | F4 | yes | As for any file inside an archive ([Archives as folders](../files/archives.md)) |
 
@@ -176,7 +175,7 @@ same **Enter**. There is no Settings window: set `archives` and `archives_everyw
 
 #### Does Find file find files inside my zip files?
 Yes, when the zip is in a folder that is read (your home folder by default, not inside a hidden
-folder or a cache): by name at *everywhere* and *in this folder*, and by their words at *Text in files*. A
+folder or a cache): by name (*Names*, everywhere or in one folder), and by their words (*In files*). A
 zip elsewhere is found by its own name only; see [Which archives](#which-archives).
 
 #### I added a file to a zip. When can I find it?

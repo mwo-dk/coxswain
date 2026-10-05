@@ -3,13 +3,13 @@
 # Git history in search
 
 Find file searches the history of your git repositories as well as your files: the message of
-every commit, who wrote it, and the paths it changed. Type `fuel valve` in *Text in files* and
-the commit *Fix the fuel valve* is found, marked as a commit; **Enter** opens the repository as
+every commit, who wrote it, and the paths it changed. Type `fuel valve` in Find and
+the commit *Fix the fuel valve* is found under *History*, marked as a commit; **Enter** opens the repository as
 it was at that commit. With [search by meaning](meaning.md) on, commits about your words are
 found too, and [Ask](ask.md) may answer from commit messages. Both apps have it, through the
 [search helper](helper.md).
 
-![The desktop app's Find file in Text in files with fuel valve typed: among the hits the commit 6ba7e53 · Ada · 2026-10-03 Fix the fuel valve in /home/demo/projects/rocket, marked as a commit, beside files on disk and one inside a zip](../screenshots/search-history.png)
+<!-- screenshot: search-history.png: the desktop app (Cyber), Find with "fuel valve" typed: the History group with the commit 6ba7e53 · Ada · Fix the fuel valve in /home/demo/projects/rocket, marked as a commit, under In files with files on disk and one inside a zip -->
 
 ## Contents
 
@@ -22,11 +22,11 @@ found too, and [Ask](ask.md) may answer from commit messages. Both apps have it,
 
 ## How to use it
 
-1. Press **Shift+F7** (or **Ctrl+Shift+F** in the desktop app): [Find file](find-file.md) opens
-   at *Text in files*.
+1. Press **Ctrl+F** for [Find file](find-file.md), or **Shift+F7** (**Ctrl+Shift+F** in the
+   desktop app) for its *In files* kind, which shows *In files* and *History* alone.
 2. Type words from a commit message, an author's name, or a path a commit changed:
    `valve`, `Ada`, `engine.rs`.
-3. Commits show among the files. **Enter** on one: the active panel shows the repository's top
+3. Commits show in the **History** group, after the files. **Enter** on one: the active panel shows the repository's top
    folder as it was at that commit ([Git history as folders](../panels/git-history.md)).
    **Backspace** goes to the list of commits, and again to the repository on disk.
 
@@ -40,11 +40,11 @@ rocket   commit in /home/me/projects/rocket
    commit a1b2c3d · Ada · 2026-09-30 · Fix the fuel valve
 ```
 
-Your words are highlighted, as in any text hit. Found by meaning, the passage follows
-*similar to:*. In Ask, a commit is a numbered source like a file; **Enter** on it opens the
+Your words are highlighted, as in any text hit; a commit found by meaning alone is under
+*History* too, its passage in italics. In Ask, a commit is a numbered source like a file; **Enter** on it opens the
 commit.
 
-The count line's *text of 31,208 files* counts the commits kept as well.
+Find's footer, *text of 31,208 files*, counts the commits kept as well.
 
 ## What is kept, and when
 

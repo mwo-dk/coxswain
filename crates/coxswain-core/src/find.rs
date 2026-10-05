@@ -127,7 +127,7 @@ impl Off {
             Off::TextOff => t!("find.off_text"),
             Off::NotRead(dir) => t!("find.off_not_read", "folder" => dir.display().to_string()),
             Off::MeaningOff => t!("find.off_meaning"),
-            Off::MeaningError(why) => why.clone(),
+            Off::MeaningError(why) => t!("settings.meaning_error", "why" => why),
             Off::AskNeedsMeaning => t!("find.off_ask_meaning"),
             Off::AskNoModel => t!("find.off_ask_model"),
             Off::AskModel(why) => why.clone(),
@@ -459,6 +459,13 @@ pub fn footer(status: &crate::helper::Status) -> String {
     }
     if status.paused {
         s += &format!(" · {}", t!("find.paused"));
+    }
+    if status.meaning && status.meaning_renewing > 0 && status.meaning_pending > 0 && status.meaning_ms_per_file > 0 {
+        s += &format!(" · {}", t!("search.meaning_renewing", "n" => status.meaning_pending, "time" => crate::notices::time_left(status)));
+    }
+    // Reading that stalled says why, here where it is missed.
+    if let Some(why) = &status.error {
+        s += &format!(" · {}", t!("settings.search_error", "why" => why));
     }
     s
 }

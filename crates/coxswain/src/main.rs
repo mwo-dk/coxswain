@@ -10,7 +10,8 @@ use coxswain_core::fs::{self as bfs, resolve, Entry, SortKey};
 use coxswain_core::git;
 use coxswain_core::history::{self, Lasts};
 use coxswain_core::helper::{self, Client};
-use coxswain_core::index::{self, Results, State};
+use coxswain_core::find::{self, Found, Kind, Off, Row};
+use coxswain_core::index::{self, State};
 use ratatui::crossterm::event::{self, Event, KeyCode as CK, KeyEvent, KeyEventKind, KeyModifiers, MouseButton, MouseEvent, MouseEventKind};
 use ratatui::crossterm::{cursor, execute, terminal};
 use ratatui::layout::Rect;
@@ -243,15 +244,26 @@ pub enum Dialog {
     Confirm { title: String, text: String, paths: Vec<PathBuf>, forever: bool },
     /// Switch to the branch `entry` of the list of branches `dir`.
     Switch { title: String, text: String, dir: PathBuf, entry: String },
-    /// `mode`: 0 names everywhere, 1 names in this folder, 2 the text of files, 3 Ask (its
-    /// questions and answers are in `App::chat`).
-    Search { query: String, mode: u8, results: Results, cursor: usize, offset: usize },
+    /// Find: the query, the kind chip, whether it is limited to the panel's folder (`here`),
+    /// what was found, the cursor (on a row of `find::rows`, or on a source of the answer), the
+    /// first row in sight, and what shows. Ask's questions and answers are in `App::chat`.
+    Search { query: String, chip: Kind, here: bool, found: Found, cursor: usize, offset: usize, show: Show },
     /// `direct`: a typed key runs the item with that key (F2); otherwise it filters (F9).
     Menu { title: String, filter: String, items: Vec<MenuItem>, cursor: usize, direct: bool },
     Help { scroll: u16 },
     Message { title: String, text: String },
     /// A CycloneDX BOM, full screen (F3 on one).
     Bom(Box<bom::Viewer>),
+}
+
+/// What Find shows under its field.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Show {
+    List,
+    /// The questions asked and their answers.
+    Answer,
+    /// The name syntax and the prefixes (F1).
+    Syntax,
 }
 
 /// A question asked in Find file, the sources it was answered from, and the answer so far.
@@ -305,9 +317,9 @@ pub struct App {
     /// Folder sizes arrive here: the panel's folder, the folder measured, its bytes.
     sizes_tx: mpsc::Sender<(PathBuf, PathBuf, u64)>,
     sizes_rx: mpsc::Receiver<(PathBuf, PathBuf, u64)>,
-    /// Searches to run, (generation, query, mode, folder), and their answers by generation.
-    search_tx: mpsc::Sender<(u64, String, u8, PathBuf)>,
-    search_rx: mpsc::Receiver<(u64, Results)>,
+    /// Searches to run, and their answers by generation.
+    search_tx: mpsc::Sender<FindJob>,
+    search_rx: mpsc::Receiver<(u64, Found)>,
     search_gen: u64,
     /// Ask in Find file: the turns so far, the answer on its way, and its stop flag. Closing
     /// Find file forgets them.
@@ -318,6 +330,8 @@ pub struct App {
     ask_checked: Option<String>,
     ask_check_rx: Option<mpsc::Receiver<Option<String>>>,
     pub ask_problem: Option<String>,
+    /// The Find tips sent away for good (Delete), read when Find opens.
+    pub find_dismissed: Vec<String>,
     /// When `tell` last looked.
     told: Instant,
     /// The stop flag of each panel's measuring.
@@ -354,11 +368,14 @@ enum JobMsg {
     Done(Vec<(PathBuf, std::io::Error)>),
 }
 
+/// A search for Find: its generation, the query, the kind chip, the folder it is limited to,
+/// and how many hits a group shows.
+type FindJob = (u64, String, Kind, Option<PathBuf>, usize);
+
 /// The searching thread: it runs the newest search asked for, after a pause for more typing,
 /// and skips the ones typed over meanwhile.
-#[allow(clippy::type_complexity)]
-fn searcher(index: Arc<Client>, max: usize) -> (mpsc::Sender<(u64, String, u8, PathBuf)>, mpsc::Receiver<(u64, Results)>) {
-    let (ask, asked) = mpsc::channel::<(u64, String, u8, PathBuf)>();
+fn searcher(index: Arc<Client>) -> (mpsc::Sender<FindJob>, mpsc::Receiver<(u64, Found)>) {
+    let (ask, asked) = mpsc::channel::<FindJob>();
     let (tell, told) = mpsc::channel();
     std::thread::spawn(move || {
         while let Ok(mut job) = asked.recv() {
@@ -373,11 +390,8 @@ fn searcher(index: Arc<Client>, max: usize) -> (mpsc::Sender<(u64, String, u8, P
                     Err(_) => break,
                 }
             }
-            let (generation, query, mode, dir) = job;
-            let found = match mode {
-                2 => index.search_text(&query, max),
-                _ => index.search(&query, (mode == 1).then_some(dir.as_path()), max),
-            };
+            let (generation, query, kind, scope, rows) = job;
+            let found = index.find(&query, scope.as_deref(), kind, rows);
             if tell.send((generation, found)).is_err() {
                 return;
             }
@@ -431,7 +445,7 @@ impl App {
         let (update_tx, update_rx) = mpsc::channel();
         let (sizes_tx, sizes_rx) = mpsc::channel();
         let (list_tx, list_rx) = mpsc::channel();
-        let (search_tx, search_rx) = searcher(index.clone(), cfg.search.max_results);
+        let (search_tx, search_rx) = searcher(index.clone());
         if cfg.check_updates {
             std::thread::spawn(move || {
                 if let Some(v) = coxswain_core::update::check() {
@@ -468,6 +482,7 @@ impl App {
             ask_checked: None,
             ask_check_rx: None,
             ask_problem: None,
+            find_dismissed: vec![],
             told: Instant::now(),
             measuring: Default::default(),
             run: None,
@@ -876,7 +891,14 @@ impl App {
                 }
             }
             Action::Search | Action::SearchText | Action::Ask => {
-                self.dialog = Some(Dialog::Search { query: String::new(), mode: search_mode(Some(a)).unwrap_or(0), results: Results::default(), cursor: 0, offset: 0 });
+                let chip = match a {
+                    Action::SearchText => Kind::InFiles,
+                    Action::Ask => Kind::Ask,
+                    _ => Kind::All,
+                };
+                self.find_dismissed = coxswain_core::state::AppState::load().notices_dismissed;
+                let show = if chip == Kind::Ask { Show::Answer } else { Show::List };
+                self.dialog = Some(Dialog::Search { query: String::new(), chip, here: false, found: Found::default(), cursor: 0, offset: 0, show });
             }
             Action::UserMenu => {
                 let items = self
@@ -1260,7 +1282,7 @@ impl App {
         }
     }
 
-    /// Every few seconds: the terminal's title (the version and the kinds of search on), and
+    /// Every few seconds: the terminal's title (the version), and
     /// once, a notice of what can be turned on, in the status line. The terminal app has no
     /// dismiss button: a notice shown once counts as seen.
     fn tell(&mut self) {
@@ -1269,7 +1291,7 @@ impl App {
         }
         self.told = Instant::now();
         let now = self.index.status();
-        let title = t!("title.window", "version" => coxswain_core::update::VERSION, "search" => coxswain_core::notices::search_level(&self.cfg, &now));
+        let title = t!("title.window", "version" => coxswain_core::update::VERSION);
         let _ = execute!(std::io::stdout(), terminal::SetTitle(title));
         if self.status.is_some() || self.dialog.is_some() || now.state != State::Ready {
             return;
@@ -1296,14 +1318,65 @@ impl App {
     /// Ask for the search in the dialog on the searching thread; the answer comes in `tick`.
     /// Keys are never held up by a search, and a search that a newer one replaces is dropped.
     fn search_now(&mut self) {
-        if let Some(Dialog::Search { query, mode, .. }) = &self.dialog {
+        if let Some(Dialog::Search { query, chip, here, .. }) = &self.dialog {
             self.search_gen += 1;
-            let _ = self.search_tx.send((self.search_gen, query.clone(), *mode, self.panel().dir.clone()));
+            let kind = find::parse(query).0.unwrap_or(*chip);
+            let rows = if kind == Kind::All { find::ALL_ROWS } else { self.cfg.search.max_results };
+            let _ = self.search_tx.send((self.search_gen, query.clone(), *chip, here.then(|| self.panel().dir.clone()), rows));
+        }
+    }
+
+    /// Whether Ask can be asked: set up, and its chat model can answer.
+    pub fn ask_state(&self) -> Result<(), Off> {
+        find::ask_ready(&self.cfg.search)?;
+        self.ask_problem.clone().map_or(Ok(()), |p| Err(Off::AskModel(p)))
+    }
+
+    /// Find's rows for what it shows now.
+    pub fn find_rows(&self, query: &str, chip: Kind, found: &Found) -> Vec<Row> {
+        find::rows(query, chip, found, self.ask_state(), |id| self.find_dismissed.iter().any(|d| d == id))
+    }
+
+    /// A hit or a source of Find: its folder, with the cursor on it; a commit's folder as it was.
+    fn go_to_hit(&mut self, path: &Path) {
+        self.forget_chat();
+        if history::is_history(path) {
+            return self.cd(self.active, path.to_path_buf());
+        }
+        if let (Some(dir), Some(name)) = (path.parent(), path.file_name()) {
+            self.cd(self.active, dir.to_path_buf());
+            self.panel_mut().select_name(&name.to_string_lossy());
+        }
+    }
+
+    /// The step of a row that says what is missing: start the helper, read the folder too, or
+    /// run the setup guide (which needs the terminal: Find closes).
+    fn find_step(&mut self, off: Off) {
+        match off {
+            Off::NoHelper => {
+                self.index.restart();
+                self.search_now();
+            }
+            Off::NotRead(dir) => match find::save_read_too(&self.cfg.search, &dir) {
+                Ok(cfg) => {
+                    self.cfg.search = cfg.search;
+                    self.index.restart();
+                    self.status = Some(t!("find.reading_too", "folder" => dir.display()));
+                    self.search_now();
+                }
+                Err(e) => self.status = Some(e),
+            },
+            _ => {
+                self.forget_chat();
+                self.dialog = None;
+                let exe = coxswain_core::tools::this_app().map(|p| p.display().to_string()).unwrap_or_else(|_| "coxswain".into());
+                self.run = Some(Run::Shell { cmd: format!("{} --setup-search", config::quote(&exe)), dir: self.panel().dir.clone(), wait: true });
+            }
         }
     }
 
     /// Ask the question in Find file on a thread of its own; the answer comes in `tick`.
-    fn ask(&mut self, question: String) {
+    fn ask(&mut self, question: String, scope: Option<PathBuf>) {
         use std::sync::atomic::Ordering;
         // The one before stops writing; its turn stays as far as it came.
         self.ask_stop.store(true, Ordering::SeqCst);
@@ -1319,9 +1392,12 @@ impl App {
             coxswain_core::meaning::warm(&cfg);
             // A follow-up is looked up with the question before it, which it often leans on.
             let lookup = earlier.last().map_or(question.clone(), |(q, _)| format!("{q} {question}"));
-            let sources = index.passages(&lookup, None, 10);
+            let sources = index.passages(&lookup, scope.as_deref(), 10);
             let done = if sources.is_empty() {
-                Err(t!("search.ask_nothing"))
+                Err(match &scope {
+                    Some(dir) => t!("find.ask_nothing_in", "folder" => dir.file_name().unwrap_or_default().to_string_lossy()),
+                    None => t!("search.ask_nothing"),
+                })
             } else if stop.load(Ordering::SeqCst) {
                 // Stopped while searching: the model is not asked.
                 Ok(())
@@ -1385,92 +1461,120 @@ impl App {
                 _ if esc || matches!(ch, Some('n' | 'N')) => {}
                 _ => self.dialog = Some(Dialog::Switch { title, text, dir, entry }),
             },
-            Dialog::Search { mut query, mode: 3, results, mut cursor, offset } => {
+            Dialog::Search { mut query, mut chip, mut here, found, mut cursor, mut offset, mut show } => {
+                let rows = self.find_rows(&query, chip, &found);
                 let sources = self.chat.last().map(|t| t.sources.clone()).unwrap_or_default();
-                let source = sources.get(cursor).cloned();
+                let (prefix, question) = find::parse(&query);
+                let question = question.trim().to_string();
+                let answer = show == Show::Answer || prefix == Some(Kind::Ask);
+                let scope = here.then(|| self.panel().dir.clone());
+                let mut requery = false;
+                let mut asked = false;
                 match (key.code, ch) {
-                    _ if esc => return self.forget_chat(),
-                    (KeyCode::Enter, _) if !query.trim().is_empty() && self.cfg.search.meaning && !self.cfg.search.ask_model.is_empty() && self.ask_problem.is_none() => {
-                        self.ask(std::mem::take(&mut query).trim().to_string());
-                        cursor = 0;
+                    _ if esc && show == Show::List => return self.forget_chat(),
+                    _ if esc => {
+                        show = Show::List;
+                        if chip == Kind::Ask {
+                            chip = Kind::All;
+                        }
+                        requery = true;
                     }
-                    (KeyCode::Enter, _) => {
-                        if let Some(path) = source {
-                            self.forget_chat();
-                            if history::is_history(&path) {
-                                return self.cd(self.active, path);
-                            }
-                            if let (Some(dir), Some(name)) = (path.parent(), path.file_name()) {
-                                self.cd(self.active, dir.to_path_buf());
-                                self.panel_mut().select_name(&name.to_string_lossy());
-                            }
-                            return;
+                    (KeyCode::F(1), _) => show = if show == Show::Syntax { Show::List } else { Show::Syntax },
+                    // The scope: everywhere, or the panel's folder.
+                    _ if action == Some(Action::Search) => {
+                        here = !here;
+                        requery = true;
+                    }
+                    _ if action == Some(Action::SearchText) => {
+                        chip = if chip == Kind::InFiles { Kind::All } else { Kind::InFiles };
+                        show = Show::List;
+                        requery = true;
+                    }
+                    // Ask the text typed, from any row: Alt+Enter (Ctrl+Enter where the terminal tells it).
+                    _ if action == Some(Action::Ask) || key.code == KeyCode::Enter && (key.alt || key.ctrl) => {
+                        if question.is_empty() {
+                            chip = Kind::Ask;
+                            show = Show::Answer;
+                        } else {
+                            asked = true;
+                        }
+                    }
+                    (KeyCode::Tab, _) => {
+                        chip = chip.next(key.shift);
+                        query = find::parse(&query).1.to_string();
+                        show = if chip == Kind::Ask { Show::Answer } else { Show::List };
+                        requery = true;
+                    }
+                    (KeyCode::Enter, _) if answer => {
+                        if !question.is_empty() {
+                            asked = true;
+                        } else if let Some(path) = sources.get(cursor) {
+                            return self.go_to_hit(&path.clone());
+                        }
+                    }
+                    (KeyCode::Enter, _) => match rows.get(cursor) {
+                        Some(Row::Ask { off: None }) => asked = true,
+                        Some(Row::Ask { off: Some(off) } | Row::Off { off, .. }) => {
+                            let off = off.clone();
+                            self.dialog = Some(Dialog::Search { query, chip, here, found, cursor, offset, show });
+                            return self.find_step(off);
+                        }
+                        Some(Row::Hit { hit, .. }) => return self.go_to_hit(&hit.path.clone()),
+                        Some(Row::More { group, .. }) => {
+                            chip = group.kind();
+                            requery = true;
+                        }
+                        _ => {}
+                    },
+                    (KeyCode::Delete, _) => {
+                        if let Some(id) = rows.get(cursor).and_then(|r| match r {
+                            Row::Ask { off: Some(off) } | Row::Off { off, .. } => off.dismiss_id(),
+                            _ => None,
+                        }) {
+                            let mut st = coxswain_core::state::AppState::load();
+                            coxswain_core::notices::dismiss(&mut st, id);
+                            let _ = st.save();
+                            self.find_dismissed.push(id.to_string());
                         }
                     }
                     _ if matches!(action, Some(Action::View | Action::Edit)) => {
-                        if let Some(path) = source {
+                        let path = if answer {
+                            sources.get(cursor).cloned()
+                        } else {
+                            match rows.get(cursor) {
+                                Some(Row::Hit { hit, .. }) if !hit.is_dir && !history::is_history(&hit.path) => Some(hit.path.clone()),
+                                _ => None,
+                            }
+                        };
+                        if let Some(path) = path {
                             self.view_or_edit(action.unwrap(), &path);
                         }
                     }
-                    _ if key.code == KeyCode::Tab || search_mode(action).is_some_and(|m| m != 3) => {
-                        let mode = search_mode(action).unwrap_or(if key.shift { 2 } else { 0 });
-                        self.dialog = Some(Dialog::Search { query, mode, results: Results::default(), cursor: 0, offset: 0 });
-                        return self.search_now();
-                    }
-                    (KeyCode::Up, _) => cursor = cursor.saturating_sub(1),
-                    (KeyCode::Down, _) => cursor = (cursor + 1).min(sources.len().saturating_sub(1)),
-                    (KeyCode::Backspace, _) => drop(query.pop()),
-                    (_, Some(c)) => query.push(c),
-                    _ => {}
-                }
-                self.dialog = Some(Dialog::Search { query, mode: 3, results, cursor, offset });
-            }
-            Dialog::Search { mut query, mut mode, results, mut cursor, offset } => {
-                let hit = results.hits.get(cursor).cloned();
-                let page = 10isize;
-                let mut requery = false;
-                match (key.code, ch) {
-                    _ if esc => return self.forget_chat(),
-                    (KeyCode::Enter, _) => {
-                        self.forget_chat();
-                        // A commit: its folder as it was then.
-                        if let Some(h) = hit.as_ref().filter(|h| history::is_history(&h.path)) {
-                            self.cd(self.active, h.path.clone());
-                            return;
-                        }
-                        if let Some(h) = hit {
-                            let (dir, name) = match (h.path.parent(), h.path.file_name()) {
-                                (Some(d), Some(n)) => (d.to_path_buf(), n.to_string_lossy().into_owned()),
-                                _ => return,
-                            };
-                            self.cd(self.active, dir);
-                            self.panel_mut().select_name(&name);
-                        }
-                        return;
-                    }
-                    _ if matches!(action, Some(Action::View | Action::Edit)) => {
-                        if let Some(h) = hit.filter(|h| !h.is_dir && !history::is_history(&h.path)) {
-                            self.view_or_edit(action.unwrap(), &h.path);
-                        }
-                    }
-                    // Tab and Shift+Tab: the next and the previous depth; a depth's own key, that one.
-                    _ if key.code == KeyCode::Tab || search_mode(action).is_some() => {
-                        mode = search_mode(action).unwrap_or(if key.shift { (mode + 3) % 4 } else { mode + 1 });
-                        requery = mode < 3;
-                    }
-                    (KeyCode::Up, _) => cursor = cursor.saturating_sub(1),
-                    (KeyCode::Down, _) => cursor += 1,
-                    (KeyCode::PageUp, _) => cursor = (cursor as isize - page).max(0) as usize,
-                    (KeyCode::PageDown, _) => cursor += page as usize,
-                    (KeyCode::Backspace, _) => requery = query.pop().is_some(),
+                    (KeyCode::Up, _) if answer => cursor = cursor.saturating_sub(1),
+                    (KeyCode::Down, _) if answer => cursor = (cursor + 1).min(sources.len().saturating_sub(1)),
+                    (KeyCode::Up, _) => cursor = find::step(&rows, cursor, -1),
+                    (KeyCode::Down, _) => cursor = find::step(&rows, cursor, 1),
+                    (KeyCode::PageUp, _) => cursor = find::step(&rows, cursor, -10),
+                    (KeyCode::PageDown, _) => cursor = find::step(&rows, cursor, 10),
+                    (KeyCode::Backspace, _) => requery = query.pop().is_some() && !answer,
                     (_, Some(c)) => {
                         query.push(c);
-                        requery = true;
+                        requery = show != Show::Answer;
                     }
                     _ => {}
                 }
-                cursor = cursor.min(results.hits.len().saturating_sub(1));
-                self.dialog = Some(Dialog::Search { query, mode, results, cursor, offset });
+                // Ask not set up: the answer's place says what it needs.
+                if asked {
+                    if self.ask_state().is_ok() {
+                        self.ask(question, scope);
+                        query.clear();
+                    }
+                    (show, cursor) = (Show::Answer, 0);
+                }
+                if requery {
+                    (cursor, offset) = (0, 0);
+                }
+                self.dialog = Some(Dialog::Search { query, chip, here, found, cursor, offset, show });
                 if requery {
                     self.search_now();
                 }
@@ -1620,18 +1724,19 @@ impl App {
                 p.sizes.insert(folder.clone(), bytes);
             }
         }
-        while let Ok((generation, found)) = self.search_rx.try_recv() {
-            if let Some(Dialog::Search { results, cursor, offset, .. }) = &mut self.dialog {
-                if generation == self.search_gen {
-                    *results = found;
-                    *cursor = 0;
-                    *offset = 0;
-                }
+        while let Ok((generation, now)) = self.search_rx.try_recv() {
+            if generation != self.search_gen {
+                continue;
+            }
+            let Some(Dialog::Search { query, chip, .. }) = &self.dialog else { continue };
+            let start = find::start(query, &self.find_rows(query, *chip, &now));
+            if let Some(Dialog::Search { found, cursor, offset, .. }) = &mut self.dialog {
+                (*found, *cursor, *offset) = (now, start, 0);
             }
         }
-        // Ask's depth in sight: the chat model is asked whether it can answer, once per opening.
+        // Find open: the chat model is asked whether it can answer, once per opening.
         let model = &self.cfg.search.ask_model;
-        if matches!(self.dialog, Some(Dialog::Search { mode: 3, .. })) && self.cfg.search.meaning && !model.is_empty() && self.ask_checked.as_ref() != Some(model) {
+        if matches!(self.dialog, Some(Dialog::Search { .. })) && find::ask_ready(&self.cfg.search).is_ok() && self.ask_checked.as_ref() != Some(model) {
             self.ask_checked = Some(model.clone());
             self.ask_problem = None;
             let (tx, rx) = mpsc::channel();
@@ -1767,6 +1872,10 @@ fn main_loop(term: &mut DefaultTerminal, app: &mut App) -> std::io::Result<()> {
         match app.run.take() {
             Some(Run::Shell { cmd, dir, wait }) => {
                 suspended(term, || run_shell(&cmd, &dir, wait))?;
+                // The setup guide, run from Find, changes the search settings.
+                if let Ok(cfg) = Config::load() {
+                    app.cfg.search = cfg.search;
+                }
                 app.reload();
             }
             Some(Run::ShowOutput) => suspended(term, || {
@@ -1989,16 +2098,6 @@ fn meaning(what: Option<&str>, rest: &[String]) {
     Client::start(&Config::load().map(|c| c.search).unwrap_or_default()).restart();
 }
 
-/// The depth of Find file an action opens: names everywhere, text in files, Ask.
-fn search_mode(action: Option<Action>) -> Option<u8> {
-    match action? {
-        Action::Search => Some(0),
-        Action::SearchText => Some(2),
-        Action::Ask => Some(3),
-        _ => None,
-    }
-}
-
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
     match args.first().map(String::as_str) {
@@ -2172,6 +2271,53 @@ mod tests {
         assert!(app.status.is_some(), "and says why");
         // The app's threads (sizes, git) may still hold the folder open on Windows.
         let _ = std::fs::remove_dir_all(d);
+    }
+
+    #[test]
+    fn find_keys_switch_kind_scope_and_view() {
+        let d = std::env::temp_dir();
+        let mut app = app(d.clone(), d);
+        let k = |c: KeyCode, ctrl: bool, alt: bool, shift: bool| Key::new(c, ctrl, alt, shift);
+        let state = |app: &App| match &app.dialog {
+            Some(Dialog::Search { chip, here, show, query, .. }) => Some((*chip, *here, *show, query.clone())),
+            _ => None,
+        };
+        app.act(Action::SearchText);
+        assert_eq!(state(&app), Some((Kind::InFiles, false, Show::List, String::new())), "Shift+F7 opens at In files");
+        app.dialog_key(k(KeyCode::F(7), false, false, true));
+        assert_eq!(state(&app).unwrap().0, Kind::All, "pressed again: All");
+        app.dialog_key(k(KeyCode::Char('f'), true, false, false));
+        assert!(state(&app).unwrap().1, "Ctrl+F: the panel's folder");
+        app.dialog_key(k(KeyCode::F(7), false, true, false));
+        assert!(!state(&app).unwrap().1, "Alt+F7: everywhere again");
+        for want in [Kind::Names, Kind::InFiles, Kind::About, Kind::Ask, Kind::All] {
+            app.dialog_key(k(KeyCode::Tab, false, false, false));
+            assert_eq!(state(&app).unwrap().0, want);
+        }
+        app.dialog_key(k(KeyCode::Tab, false, false, true));
+        assert_eq!(state(&app).unwrap().0, Kind::Ask, "Shift+Tab goes back");
+        app.dialog_key(k(KeyCode::Tab, false, false, false));
+        // A prefix goes with Tab.
+        for c in "text: fuel".chars() {
+            app.dialog_key(k(KeyCode::Char(c), false, false, false));
+        }
+        app.dialog_key(k(KeyCode::Tab, false, false, false));
+        assert_eq!(state(&app).unwrap(), (Kind::Names, false, Show::List, "fuel".into()));
+        // Ctrl+F7 with nothing typed: the Ask chip and the answer; Esc back to the list, then closed.
+        app.dialog_key(k(KeyCode::Char('u'), true, false, false));
+        while state(&app).is_some_and(|s| !s.3.is_empty()) {
+            app.dialog_key(k(KeyCode::Backspace, false, false, false));
+        }
+        app.dialog_key(k(KeyCode::F(7), true, false, false));
+        assert_eq!(state(&app).unwrap().0, Kind::Ask);
+        assert_eq!(state(&app).unwrap().2, Show::Answer);
+        app.dialog_key(k(KeyCode::F(1), false, false, false));
+        assert_eq!(state(&app).unwrap().2, Show::Syntax, "F1: the syntax");
+        app.dialog_key(k(KeyCode::Esc, false, false, false));
+        assert_eq!(state(&app).unwrap().2, Show::List);
+        assert_eq!(state(&app).unwrap().0, Kind::All);
+        app.dialog_key(k(KeyCode::Esc, false, false, false));
+        assert!(app.dialog.is_none(), "Esc in the list closes Find");
     }
 
     #[test]
@@ -2373,7 +2519,7 @@ mod wide_letters {
                 assert_eq!(bar[(n - 1) * 8], n.to_string(), "{lang}: {}", bar.concat());
             }
             // Find, with a Japanese query, and a dialog with a long Korean text.
-            app.dialog = Some(Dialog::Search { query: "日本語 보고서".into(), mode: 0, results: Results::default(), cursor: 0, offset: 0 });
+            app.dialog = Some(Dialog::Search { query: "日本語 보고서".into(), chip: Kind::All, here: false, found: Found::default(), cursor: 0, offset: 0, show: Show::List });
             let s = draw(&mut app);
             same_columns(&s, "║", 3..20);
             app.dialog = Some(Dialog::Confirm { title: t!("dialog.delete"), text: "한국어 폴더와 日本語のファイルを完全に削除しますか".repeat(2), paths: vec![], forever: false });

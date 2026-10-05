@@ -2,29 +2,32 @@
 
 # Search
 
-Find file finds what you have the way you remember it, at four depths: every file name on the
-machine, the words inside your files, what your files are about, and answers to questions about them. Both apps have all of them,
-and they share one index, kept by a [search helper](helper.md) in the background. These pages
-walk through each depth, what is read and when, and every setting.
+Find file finds what you have the way you remember it, in one field: every file name on the
+machine, the words inside your files, what your files are about, and answers to questions about
+them. Type, and the hits come in groups; both apps have all of it, and they share one index, kept
+by a [search helper](helper.md) in the background. These pages walk through each group, what is
+read and when, and every setting.
 
-![The terminal app's Find file: "*.rs|*.toml src/" typed after the prompt "everywhere:", with eight matches in 10.88 ms out of 454,561 files indexed, two of them inside a zip](../screenshots/tui-search.png)
-*Names everywhere in the terminal app: six hits among 452,393 names in 3.5 ms.*
+<!-- screenshot: search-find.png: the desktop app (Cyber) with Find open over the panels, "rocket fuel cost" typed, the Ask row on top, then In files with budget.txt and its passage, About this with budget-da.txt, and the footer -->
 
-| Depth | Finds | Needs |
+| Group of Find | Finds | Needs |
 |---|---|---|
-| [Names everywhere](names.md) | Files and folders by name, on the whole machine | Nothing |
-| [Names in this folder](names.md#names-in-this-folder) | The same, in the active panel's folder and below | Nothing |
-| [Text in files](text.md) | Files whose text has your words; with [search by meaning](meaning.md), also files about them | *Search inside files* on (the default) and the [helper](helper.md) |
-| [Inside archives](archives.md) | Each of the above for the files in your zip, 7z and tar archives too | *Search inside archives* on (the default) |
-| [Ask](ask.md) | An answer to your question, written from the passages closest to it, with numbered sources | Search by meaning and a chat model on your server |
+| [Names](names.md) | Files and folders by name, on the whole machine or in the scope | Nothing |
+| [In files](text.md) | Files whose text has your words, ranked by words and meaning together | *Search inside files* on (the default) and the [helper](helper.md) |
+| [About this](meaning.md) | Files about your words that lack them, in any language | [Search by meaning](meaning.md) |
+| [History](history.md) | Commits whose message, author or paths match | *Search the history of git repositories too* (on by default) |
+| [The Ask row](ask.md) | An answer to your question, written from the passages closest to it, with numbered sources | Search by meaning and a chat model on your server |
+
+Every group finds files [inside archives](archives.md) too. The **scope** (*Everywhere* or the
+active panel's folder, **Ctrl+F** inside Find) limits every group and Ask.
 
 | Page | What it covers |
 |---|---|
 | [Smart search in a few minutes](setup.md) | The guided setup in both apps: what each part does, what suits your hardware, every server, the graphics card, starting with your session |
-| [Find file](find-file.md) | Opening it, the window, the keys, the four depths with Tab, Shift+Tab and their own keys, where it can look |
-| [Names everywhere](names.md) | The name index, how it stays current and fast, names in this folder |
+| [Find file](find-file.md) | One field: the groups and their order, the kinds (Tab) and prefixes, the scope, the Ask row, every key and state |
+| [Names everywhere](names.md) | The name index, how it stays current and fast, names in one folder |
 | [Name syntax](name-syntax.md) | Everything's syntax: `!`, `\|`, `*`, `ext:`, `file:`, `folder:`, `case:`, paths |
-| [Text in files](text.md) | Searching the words inside files, what is read and when |
+| [Text in files](text.md) | The *In files* group: how words match, what is read and when |
 | [Documents it reads](documents.md) | PDF, Word, spreadsheets, slides, mail, books, notebooks: the formats |
 | [Scans, pictures and older Office files](scans.md) | tesseract, pdftoppm and LibreOffice, when they are installed |
 | [Diagrams read as sentences](diagrams.md) | draw.io, Mermaid, Graphviz and PlantUML: a sentence per arrow |
@@ -38,23 +41,25 @@ walk through each depth, what is read and when, and every setting.
 | [Ask](ask.md) | Questions answered from your files by your own chat model, with numbered sources |
 | [The search helper](helper.md) | The background process, starting it with your session, and how an app takes the registration over after an upgrade |
 | [Battery](battery.md) | Why reading waits while a laptop runs on its battery |
-| [Notices and what's new](notices.md) | Tips of what to turn on, what each version brought (*Settings → What's new*, `coxswain --whats-new`), and the version and depths in the title |
+| [Notices and what's new](notices.md) | Tips of what to turn on, what each version brought (*Settings → What's new*, `coxswain --whats-new`), and the version in the title |
 | [Search settings](settings.md) | Every item of *Settings → Search inside files* and *Search by meaning*, with its `config.toml` key |
 
 ## Keys at a glance
 
 | Key | Desktop app | Terminal app | Does |
 |---|---|---|---|
-| **Alt+F7**, **Ctrl+F** | yes | yes | Open Find file, at names everywhere |
-| **Shift+F7**, **Ctrl+Shift+F** | yes | yes (many terminals send Ctrl+Shift+F as Ctrl+F) | Open Find file at text in files, or go there from another depth |
-| **Ctrl+F7** | yes | yes | Open Find file at Ask, or go there from another depth |
-| **Tab** / **Shift+Tab** | yes | yes | The next / previous depth: everywhere → this folder → text in files → Ask, round in a circle |
-| **Up** / **Down** | yes | yes | Move through the results |
+| **Alt+F7**, **Ctrl+F** | yes | yes | Open Find file (*All*, *Everywhere*); inside it, switch the scope to the panel's folder and back |
+| **Shift+F7**, **Ctrl+Shift+F** | yes | yes (many terminals send Ctrl+Shift+F as Ctrl+F) | Open Find file at *In files*; inside it, *In files* ⇄ *All* |
+| **Ctrl+F7** | yes | yes | Open Find file at *Ask*; inside it, ask what is typed |
+| **Ctrl+Enter** / **Alt+Enter** | Ctrl+Enter | Alt+Enter | Ask what is typed, from any row |
+| **Tab** / **Shift+Tab** | yes | yes | The next / previous kind: All → Names → In files → About → Ask, round |
+| **Up** / **Down** | yes | yes | Move through the rows; headings are skipped |
 | **PageUp** / **PageDown** | 15 at a time | 10 at a time | Move a page |
-| **Enter** | yes | yes | Go to the file: the active panel opens its folder, cursor on it |
+| **Enter** | yes | yes | Go to the file: the active panel opens its folder, cursor on it; on the Ask row, ask |
+| **F1** | yes | yes | The name syntax and the prefixes, in Find |
 | **F3** | no (the preview pane is behind) | yes | View the file, then come back to the results |
 | **F4** | yes | yes | Edit the file, without leaving Find file |
-| **Esc** | yes | yes | Close Find file |
+| **Esc** | yes | yes | In an answer: back to the list; in the list: close Find file |
 | **Ctrl+,** | yes | no Settings window | Settings, with *Search inside files* and *Search by meaning* |
 
 New to it? [Smart search in a few minutes](setup.md) walks through it: **Set up…** in Settings, or

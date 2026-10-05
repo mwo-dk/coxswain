@@ -2,7 +2,7 @@
 
 # Notices and what's new
 
-The window's title says which version runs and which kinds of search are on. Tips tell you of
+The window's title says which version runs. Tips tell you of
 search you could turn on and of the git history once you are in a repository, and after an
 upgrade you can read what the new version brought. The desktop app counts all of this on its
 *Settings* button and lists it under *Settings → What's new*; the terminal app says one thing at
@@ -16,25 +16,15 @@ a time in its status line and has `coxswain --whats-new`. Nothing is shown twice
 - [In the terminal app](#in-the-terminal-app)
 - [Questions](#questions)
 
-<!-- screenshot: settings-badge.png: desktop app, Cyber theme, the command line row at the bottom with the button "⚙ Settings" carrying the count badge "3", and the window title "Coxswain 1.29.0 · search: names · text" in the title bar -->
+<!-- screenshot: settings-badge.png: desktop app, Cyber theme, the command line row at the bottom with the button "⚙ Settings" carrying the count badge "3", and the window title "Coxswain 1.41.0" in the title bar -->
 
 ## How to use it
 
-**The title** needs nothing. It reads, for example:
-
-```text
-Coxswain 1.29.0 · search: names · text · meaning
-```
-
-| Part | Shown when |
-|---|---|
-| `names` | Always: the [name index](names.md) needs nothing |
-| `text` | *Search inside files* is on (`search.text`) |
-| `meaning` | [Search by meaning](meaning.md) is running in the helper |
-
-The desktop app sets it on its window, and on Linux on the title bar GTK draws too (which
-otherwise kept the title it was made with). The terminal app sets it as the terminal's title. Both
-refresh it every few seconds, so turning a depth on or off shows there soon after.
+**The title** needs nothing: it reads `Coxswain 1.41.0`, the version. The desktop app sets it
+on its window, and on Linux on the title bar GTK draws too (which otherwise kept the title it
+was made with). The terminal app sets it as the terminal's title. What can be searched, which
+the title also said before 1.41.0, is now the first footer line of [Find
+file](find-file.md#what-you-see): *563 files indexed · text of 112 files · meaning for 112*.
 
 **What's new, in the desktop app:**
 
@@ -172,22 +162,19 @@ No. Both read and write the same state file, so a tip seen in one is seen in the
 goes for versions: after `coxswain --whats-new`, or the terminal app's upgrade tip, the desktop
 app no longer counts that version.
 
-#### Why does the title say "search: names" only?
-*Search inside files* is off, or the helper cannot be reached. Turn it on in
-*Settings → Search inside files*. `meaning` joins once [search by meaning](meaning.md) runs.
+#### Where did "search: names · text" in the title go?
+To Find file's footer, where it is used: *563 files indexed · text of 112 files · meaning for
+112*. *text of* is missing while *Search inside files* is off or the helper cannot be reached;
+*meaning for* joins once [search by meaning](meaning.md) runs.
 
 #### The title on Linux used to say just "Coxswain". Why the change?
 GTK's title bar kept the title the window was made with. The desktop app now sets that bar's title
-too, so the version and depths show on Linux as on macOS and Windows.
+too, so the version shows on Linux as on macOS and Windows.
 
 #### Why did the Ollama tip appear?
 Search by meaning runs on the built-in model on your CPU, and Ollama answered on
 `http://localhost:11434`. It could make the vectors on its GPU, much faster: see
 [servers](servers.md).
-
-#### Does the title show the search depth I am in?
-No. It shows which depths are on, not which one Find file is at. Find file's own prompt or
-highlighted button shows that.
 
 ---
 [← Previous: Battery](battery.md) · [Next: Search settings →](settings.md)

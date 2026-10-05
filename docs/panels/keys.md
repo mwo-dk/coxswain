@@ -111,9 +111,9 @@ On a Mac the shortcuts are the same, with **Ctrl**, not Cmd.
 
 | Key | Action (F9 name) | Config name | Desktop app | Terminal app |
 |---|---|---|---|---|
-| **Alt+F7**, **Ctrl+F** | Find file | `search` | Find file ([Find file](../search/find-file.md)) | The same |
-| **Shift+F7**, **Ctrl+Shift+F** | Search inside files | `search_text` | Find file at *Text in files* ([Text in files](../search/text.md)) | The same; many terminals send Ctrl+Shift+F as Ctrl+F, so use Shift+F7 |
-| **Ctrl+F7** | Ask your files | `ask` | Find file at *Ask* ([Ask](../search/ask.md)) | The same |
+| **Alt+F7**, **Ctrl+F** | Find file | `search` | Find file; inside it, the scope: everywhere or this folder ([Find file](../search/find-file.md)) | The same |
+| **Shift+F7**, **Ctrl+Shift+F** | Search inside files | `search_text` | Find file at *In files*; inside it, *In files* ⇄ *All* ([Text in files](../search/text.md)) | The same; many terminals send Ctrl+Shift+F as Ctrl+F, so use Shift+F7 |
+| **Ctrl+F7** | Ask your files | `ask` | Find file at *Ask*; inside it, ask what is typed ([Ask](../search/ask.md)) | The same |
 | **Ctrl+D** | Find duplicates | `duplicates` | The duplicate finder ([Finding duplicates](../files/duplicates.md)) | – |
 
 ### Git
@@ -169,7 +169,7 @@ These are fixed; `[keys]` does not change them.
 | Any prompt (copy, move, new folder, go to, select group, password) | **Enter** OK, **Esc** cancel. Terminal app: **Backspace** deletes, **Ctrl+U** clears the line, **F10** cancels too |
 | Pack (**Alt+F5**) | Desktop app: the *Format* list next to the name swaps its ending. Terminal app: **Tab** the next format's ending, **Shift+Tab** the previous one ([Pack and extract](../files/pack-and-extract.md#formats)) |
 | Delete confirmation | **Enter** or **Y** deletes, **Esc** or **N** cancels |
-| Find file | Type to search, **Tab** the next depth, **Up** / **Down** / **PageUp** / **PageDown** move, **Enter** goes to the hit, **F4** edits it, **Esc** closes; terminal app also **F3** views it ([Find file](../search/find-file.md)) |
+| Find file | Type to search, **Tab** the next kind, **Up** / **Down** / **PageUp** / **PageDown** move, **Enter** goes to the hit, **Ctrl+Enter** asks (terminal: **Alt+Enter**), **F1** the syntax, **F4** edits, **Esc** back or close; terminal app also **F3** views it ([Find file](../search/find-file.md)) |
 | Command list (**F9**), columns menu | Type to filter, **Up** / **Down**, **Enter** runs, **Esc** closes |
 | User menu (**F2**) | An entry's own key runs it at once; **Up** / **Down** and **Enter** too; **Esc** closes |
 | Colour tag (**Alt+T**, desktop app) | **1** to **7** a colour, **0** removes the tag, **Esc** closes |

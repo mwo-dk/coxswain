@@ -50,7 +50,7 @@ Every flag: [Command-line flags](command-line-flags.md#the-terminal-app-coxswain
 | A viewer for CycloneDX cryptography BOMs (**F3** on one): the rated tree, a half-block sunburst, filters and compare | [Cryptography bills of materials](../previews/bom.md) |
 | Copy (**F5**), move and rename (**F6**), new folder (**F7**), delete to the trash (**F8**) or for good (**Shift+F8**) | [Files](../files/README.md) |
 | Archives as folders: look inside, copy and move in and out, take out, extract (**Ctrl+E**), pack (**Alt+F5**), passwords | [Archives in the terminal app](#archives-in-the-terminal-app) |
-| Find file (**Alt+F7**, **Ctrl+F**; **Shift+F7** for text, **Ctrl+F7** for Ask) at all four depths: names everywhere, names here, text (with meaning), Ask | [Find file](../search/find-file.md) |
+| Find file (**Alt+F7**, **Ctrl+F**; **Shift+F7** for *In files*, **Ctrl+F7** for Ask): names, words in files, meaning and history in groups, the scope chip, the Ask row (**Alt+Enter**) and the answer in place | [Find file](../search/find-file.md) |
 | Search by meaning, turned on with `coxswain --meaning on` | [Search by meaning in the terminal app](#search-by-meaning-in-the-terminal-app) |
 | Folder sizes in the Size column | [Folder sizes](../panels/folder-sizes.md) |
 | The git line, a glyph per file, and the last commit of the entry under the cursor in the info line | [Git in the panels](../panels/git.md) |
@@ -61,7 +61,7 @@ Every flag: [Command-line flags](command-line-flags.md#the-terminal-app-coxswain
 | Your own keys from `[keys]` | [Changing keys](../customise/keys.md) |
 | The command list (**F9**) and help (**F1**) | [The command list](../panels/command-list.md) |
 | The mouse: click, double-click, right-click marks, wheel | [The mouse](../panels/mouse.md) |
-| Update checks and notices, in the status line; the version and search depths in the terminal's title | [Update checks](updates.md), [Notices](../search/notices.md) |
+| Update checks and notices, in the status line; the version in the terminal's title | [Update checks](updates.md), [Notices](../search/notices.md) |
 
 ## What only the desktop app has
 
@@ -106,7 +106,7 @@ action's name. The **F9** list and **F1** help leave them out.
 | Notices | Shown once in the status line, then counted as seen | Counted on **⚙ Settings** and listed under *Settings → What's new* until dismissed or acted on; a problem with search is also a button with `×` in the status line |
 | What a version brought | `coxswain --whats-new`, pointed to once after an upgrade | *Settings → What's new* |
 | Update notice | `Coxswain 1.21.0 is available: brew upgrade coxswain` in the status line, checked at start | A button that opens the release page, checked every hour |
-| Window title | Sets the terminal's title: `Coxswain 1.20.0 · search: names · text` | The window's title |
+| Window title | Sets the terminal's title: `Coxswain 1.41.0` | The window's title |
 | Hebrew | Letters reversed in terminals without bidi support | Mirrored layout |
 
 ## Archives in the terminal app
@@ -155,21 +155,21 @@ says so.
 
 ## Search by meaning in the terminal app
 
-Search by meaning works the same in both apps: the search helper does it, and Find file's text
-depth shows its hits. What differs is how you turn it on.
+Search by meaning works the same in both apps: the search helper does it, and Find file's
+*About this* group shows its hits. What differs is how you turn it on.
 
 1. Run `coxswain --meaning on`. It downloads the built-in model (about 488 MB), showing
    *Downloading the model for search by meaning: 42%*, sets `[search] meaning = true` and starts
    a new helper. Or `coxswain --meaning ollama` or `coxswain --meaning server URL MODEL` for a
    server ([Command-line flags](command-line-flags.md#--meaning)).
-2. Start `coxswain` and press **Shift+F7** for Find file at `text: `.
-3. Type what you look for. Hits found by meaning have a second line that starts with
-   `similar to:`, then the passage that was close. Words that match exactly are marked in the
-   theme's search-hit colour.
+2. Start `coxswain` and press **Ctrl+F** for Find file.
+3. Type what you look for. Files found by meaning alone are under *ABOUT THIS*, with a second
+   line, dim and in italics, holding the passage that was close. Files with your words are under
+   *IN FILES*, those close in meaning first, the words marked in the theme's search-hit colour.
 
-While it is off and a text search finds nothing, Find file says in a dim line
-*Also find files about your words, in any language: coxswain --meaning on*. The terminal's
-title shows `meaning` among the search depths once the helper has it running. Full details:
+While it is off, *ABOUT THIS* says *Find files about your words too, in any language, even
+without the words. · Enter: Set up · Del: not again*; **Enter** runs `coxswain --setup-search`.
+Find's footer says *meaning for 3,437* once the helper has it running. Full details:
 [Search by meaning](../search/meaning.md), [on a server](../search/servers.md).
 
 ## What you see
@@ -186,8 +186,8 @@ title shows `meaning` among the search depths once the helper has it running. Fu
 - **Dialogs** are grey boxes in the middle, with `Enter = OK   Esc = Cancel` or
   `[ Yes: Enter/Y ]   [ No: Esc/N ]` at the bottom.
 
-![Find file in the terminal app at the text depth: the word engine found in seven files, each with a line of its passage](../screenshots/tui-text-search.png)
-*Find file at the text depth in the terminal app: each hit takes two lines, the file and the passage.*
+<!-- screenshot: tui-text-search.png: the terminal app (Classic blue), Find at In files with "engine" typed: each hit a name and folder, the passage on the next line, "engine" highlighted -->
+*Find in the terminal app: a hit in a file takes two lines, the file and the passage.*
 
 ## Settings and config.toml
 
@@ -266,7 +266,7 @@ desktop app set are kept in `state.json`, which the terminal app does not show.
 
 #### How do I turn on search by meaning without the desktop app?
 
-`coxswain --meaning on`, then Find file's text depth (**Shift+F7**). See
+`coxswain --meaning on` (or `coxswain --setup-search`), then Find file (**Ctrl+F**): files found by meaning are under *ABOUT THIS*. See
 [Search by meaning in the terminal app](#search-by-meaning-in-the-terminal-app).
 
 ---

@@ -12,13 +12,13 @@ bar and the status line tell you, and how to start the apps in the folders you w
 ![The terminal app: two blue panels with double borders, git status bottom left, the command line and the F-key bar](../screenshots/tui-panels.png)
 *The terminal app in the Norton Commander theme: the left panel is active (its path is drawn black on cyan).*
 
-![The desktop app's window with the title Coxswain 1.28.3 · search: names · text in its title bar, the panes below](../screenshots/panels-title.png)
+<!-- screenshot: panels-title.png: the desktop app's window (Cyber) with the title Coxswain 1.41.0 in its title bar, the panes below -->
 
 ## Contents
 
 - [How to use it](#how-to-use-it)
 - [What you see](#what-you-see)
-- [The title bar: version and search depths](#the-title-bar-version-and-search-depths)
+- [The title bar: the version](#the-title-bar-the-version)
 - [The status line](#the-status-line)
 - [Starting in a folder](#starting-in-a-folder)
 - [Settings and config.toml](#settings-and-configtoml)
@@ -52,7 +52,7 @@ bar and the status line tell you, and how to start the apps in the folders you w
 | Status | In the command line row, until the next key | Right of the command line, until the next key |
 | Settings | – | *Settings* with a cog, at the right of the command line row |
 | F-key bar | The bottom row: the number and label of **F1** to **F10** | The bottom row of buttons; a key with no action is greyed |
-| Window title | The terminal's title: `Coxswain 1.20.0 · search: names · text` | The window's title, the same text |
+| Window title | The terminal's title: `Coxswain 1.41.0` | The window's title, the same text |
 
 The F-key labels are Norton Commander's: *Help*, *Menu*, *View*, *Edit*, *Copy*, *RenMov*,
 *Mkdir*, *Delete*, *PullDn*, *Quit*. They follow your `[keys]`: bind another action to
@@ -72,26 +72,20 @@ shows an *archive* badge (*archive, locked* for one with a password); the termin
 to the nearest folder it can list. The terminal app shows the error in red on the info line;
 the desktop app shows it above the list or in the status line.
 
-## The title bar: version and search depths
+## The title bar: the version
 
-Both apps put the version and the kinds of search that are on in their title:
+Both apps put the version in their title:
 
 ```
-Coxswain 1.20.0 · search: names · text · meaning
+Coxswain 1.41.0
 ```
 
-| Word | Shown when |
-|---|---|
-| `names` | Always: Find file finds names everywhere ([Names everywhere](../search/names.md)) |
-| `text` | *Settings → Search inside files → Keep the text of files, so Find file can search in it (Shift+F7)* is on (`[search] text`, on by default) ([Text in files](../search/text.md)) |
-| `meaning` | Search by meaning is on and the search helper runs it ([Search by meaning](../search/meaning.md)) |
-
-The desktop app sets it at start and looks again every ten seconds, so turning a kind of
-search on or off shows within a few seconds. On Linux the title bar that GTK draws is told as
-well, so it shows the same text as the task bar. The terminal app sets the terminal's title
-every five seconds, starting five seconds after it starts; terminals that show titles show it
-in their title bar or tab. More on the notices that come with it:
-[Notices and what's new](../search/notices.md).
+Before 1.41.0 the title also listed the kinds of search that were on (`search: names · text ·
+meaning`); that now shows where it is used, on the first footer line of [Find
+file](../search/find-file.md#what-you-see): *563 files indexed · text of 112 files · meaning for
+112*. On Linux the title bar that GTK draws is told as well, so it shows the same text as the
+task bar. The terminal app sets the terminal's title every five seconds, starting five seconds
+after it starts; terminals that show titles show it in their title bar or tab.
 
 ## The status line
 
@@ -167,12 +161,12 @@ coloured frame. **Tab** switches, and a click in a panel makes it active.
 The panel is narrower than 44 columns inside its border, so only Name and Size fit. Make the
 terminal wider. Below 12 columns or 4 rows the panel shows its border only.
 
-#### What does "search: names · text" in the title mean?
+#### Where did "search: names · text" in the title go?
 
-The kinds of search Find file (**Alt+F7**) can do now: `names` always, `text` when the text of
-files is kept, `meaning` when search by meaning runs. When `meaning` is missing though you
-turned it on, the helper has not started it yet or its model is not there; see
-[Search by meaning](../search/meaning.md#questions).
+To Find file, where it is used: its first footer line says what can be searched, *563 files
+indexed · text of 112 files · meaning for 112*, and what is still under way. When *meaning for*
+is missing though you turned it on, the helper has not started it yet or its model is not
+there; see [Search by meaning](../search/meaning.md#questions).
 
 #### The title of my terminal does not change. Why?
 

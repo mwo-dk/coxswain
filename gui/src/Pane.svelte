@@ -1,6 +1,6 @@
 <script>
   import { tick } from "svelte";
-  import { ui, newTab, load, cd, up, goBack, goForward, focusPane, nextView, openGitView } from "./app.svelte.js";
+  import { ui, newTab, load, cd, up, goBack, goForward, focusPane, openFind, nextView, openGitView } from "./app.svelte.js";
   import { invoke, basename, crumbs, size, MARKERS, date, composing } from "./lib.js";
   import { t as tr, tn } from "./i18n.svelte.js"; // `t` is the tab here
   import DetailsView from "./DetailsView.svelte";
@@ -118,6 +118,8 @@
         {/if}
       </div>
     {/if}
+    <!-- Find: names, words in files, meaning and Ask, from here (Ctrl+F). -->
+    <button class="nav" title={`${tr("search.title")} · ${ui.cfg.actions.search?.[1] ?? ""}`} aria-label={tr("search.title")} onclick={() => { focusPane(index, p.active); openFind("all"); }}>{"\u{f002}"}</button>
     <button class="nav" title={ui.dual ? tr("pane.one_pane") : tr("pane.two_panes")} onclick={() => (ui.dual = !ui.dual)}>
       {ui.dual ? "\u{f2d0}" : "\u{eb56}"}
     </button>
