@@ -420,7 +420,7 @@ fn search(f: &mut Frame, app: &mut App, full: Rect) {
 
     if *mode == 3 {
         let cursor = *cursor;
-        return ask(f, &app.chat, app.ask_rx.is_some(), &app.cfg.search, &t, cursor, info, list, help);
+        return ask(f, &app.chat, app.ask_rx.is_some(), app.ask_problem.as_deref(), &app.cfg.search, &t, cursor, info, list, help);
     }
     let st = match state {
         State::Stale => t!("search.refreshing"),
@@ -506,7 +506,7 @@ fn search(f: &mut Frame, app: &mut App, full: Rect) {
 /// Ask in Find file: each question, its answer as it comes, and its numbered sources; the
 /// newest at the bottom, in sight.
 #[allow(clippy::too_many_arguments)]
-fn ask(f: &mut Frame, chat: &[crate::Turn], asking: bool, search: &coxswain_core::config::SearchConfig, t: &config::Theme, cursor: usize, info: Rect, list: Rect, help: Rect) {
+fn ask(f: &mut Frame, chat: &[crate::Turn], asking: bool, problem: Option<&str>, search: &coxswain_core::config::SearchConfig, t: &config::Theme, cursor: usize, info: Rect, list: Rect, help: Rect) {
     let dim = dstyle(t).add_modifier(Modifier::DIM);
     let ready = search.meaning && !search.ask_model.is_empty();
     let msg = if !search.meaning {
@@ -516,7 +516,11 @@ fn ask(f: &mut Frame, chat: &[crate::Turn], asking: bool, search: &coxswain_core
     } else {
         t!("dialogs.ask_hint", "model" => search.ask_model.as_str())
     };
-    f.render_widget(Paragraph::new(msg).style(if ready { dstyle(t) } else { dim }), info);
+    // A chat model that cannot answer is named as such, and Enter does not try it.
+    match problem.filter(|_| ready) {
+        Some(why) => f.render_widget(Paragraph::new(why.to_string()).style(dstyle(t).fg(Color::Red)).wrap(Wrap { trim: true }), info),
+        None => f.render_widget(Paragraph::new(msg).style(if ready { dstyle(t) } else { dim }), info),
+    }
     let hit = sty(&t.search_hit);
     let mut lines: Vec<Line> = vec![];
     for (i, turn) in chat.iter().enumerate() {
