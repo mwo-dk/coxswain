@@ -59,7 +59,7 @@ fn right(s: &str, w: usize) -> String {
 }
 
 /// Keep the tail of a path, which is the informative part.
-fn fit_left(s: &str, w: usize) -> String {
+pub(crate) fn fit_left(s: &str, w: usize) -> String {
     if s.width() <= w {
         return s.to_string();
     }
@@ -102,6 +102,8 @@ pub fn draw(f: &mut Frame, app: &mut App) {
     let theme = app.theme.clone();
     match &mut app.dialog {
         Some(Dialog::Bom(v)) => v.draw(f, &theme),
+        Some(Dialog::Settings(_)) => crate::settings::draw(f, app),
+        Some(Dialog::Guide(_)) => crate::guide::draw(f, app),
         Some(_) => dialog(f, app),
         None => {}
     }
@@ -314,7 +316,11 @@ fn keybar(f: &mut Frame, app: &App, area: Rect) {
     let mut spans = vec![];
     for n in 1..=10u8 {
         // The keymap, so the bar names the action the key runs when two share it.
-        let label = app.keymap.get(&Key::new(KeyCode::F(n), false, false, false)).map_or(String::new(), |a| a.label());
+        // Norton Commander's short words where the plain ones do not fit: RenMov, Mkdir, PullDn.
+        let label = app.keymap.get(&Key::new(KeyCode::F(n), false, false, false)).map_or(String::new(), |a| match a {
+            Action::Move | Action::NewFolder | Action::Menu => t!(&format!("tui.keybar.{}", a.name())),
+            a => a.label(),
+        });
         let num = n.to_string();
         let lw = slot.saturating_sub(num.len());
         spans.push(Span::styled(num, sty(&t.keybar_num)));
@@ -329,7 +335,7 @@ fn centered(area: Rect, w: u16, h: u16) -> Rect {
     Rect { x: area.x + (area.width - w) / 2, y: area.y + (area.height - h) / 2, width: w, height: h }
 }
 
-fn frame(f: &mut Frame, app: &App, area: Rect, title: &str) -> Rect {
+pub(crate) fn frame(f: &mut Frame, app: &App, area: Rect, title: &str) -> Rect {
     let t = &app.theme;
     let bg = sty(&t.dialog);
     let block = Block::default()
@@ -363,18 +369,25 @@ fn dialog(f: &mut Frame, app: &mut App) {
             // A password shows as stars.
             let shown = if matches!(prompt, crate::Prompt::Password(..) | crate::Prompt::Unlock(..) | crate::Prompt::Peek(..) | crate::Prompt::PackPassword(..) | crate::Prompt::PackConfirm(..)) { "*".repeat(value.chars().count()) } else { value.clone() };
             input_line(f, app, b, &shown);
-            f.render_widget(Paragraph::new(t!("tui.ok_cancel")).centered(), c);
+            f.render_widget(Paragraph::new(keys(&prompt.verb())).centered(), c);
         }
         Dialog::Confirm { title, text, .. } | Dialog::Switch { title, text, .. } => {
+            let verb = match app.dialog.as_ref() {
+                Some(Dialog::Confirm { forever: false, .. }) => t!("app.move_to_trash"),
+                Some(Dialog::Confirm { .. }) => t!("common.delete"),
+                _ => t!("verb.switch"),
+            };
             let inner = frame(f, app, centered(full, 60, 6), title);
             let [a, _, b] = Layout::vertical([Constraint::Length(2), Constraint::Length(1), Constraint::Length(1)]).areas(inner);
             f.render_widget(Paragraph::new(text.as_str()).centered().wrap(Wrap { trim: true }), a);
-            f.render_widget(Paragraph::new(t!("tui.yes_no")).centered(), b);
+            f.render_widget(Paragraph::new(keys(&verb)).centered(), b);
         }
         Dialog::Message { title, text } => {
-            let h = (text.lines().count() as u16 + 4).min(full.height);
+            let h = (text.lines().count() as u16 + 5).min(full.height);
             let inner = frame(f, app, centered(full, 76, h), title);
-            f.render_widget(Paragraph::new(text.as_str()).wrap(Wrap { trim: false }), inner);
+            let [body, key] = Layout::vertical([Constraint::Min(0), Constraint::Length(1)]).areas(inner);
+            f.render_widget(Paragraph::new(text.as_str()).wrap(Wrap { trim: false }), body);
+            f.render_widget(Paragraph::new(t!("dialog.keys_one", "verb" => t!("common.close"))).centered(), key);
         }
         Dialog::Help { scroll } => {
             let area = centered(full, 120, full.height.saturating_sub(4));
@@ -403,7 +416,7 @@ fn dialog(f: &mut Frame, app: &mut App) {
             }
         }
         Dialog::Search { .. } => search(f, app, full),
-        Dialog::Bom(_) => {}
+        Dialog::Bom(_) | Dialog::Settings(_) | Dialog::Guide(_) => {}
     }
 }
 
@@ -622,7 +635,12 @@ fn key_columns(groups: &[(String, Vec<(String, String)>)], width: usize) -> Vec<
         .collect()
 }
 
-fn dstyle(t: &config::Theme) -> Style {
+/// A dialog's keys, the line both apps show: "Enter Copy · Esc Cancel".
+pub(crate) fn keys(verb: &str) -> String {
+    t!("dialog.keys", "verb" => verb, "cancel" => t!("common.cancel"))
+}
+
+pub(crate) fn dstyle(t: &config::Theme) -> Style {
     sty(&t.dialog)
 }
 
@@ -658,6 +676,8 @@ fn help_text(app: &App, width: usize) -> Vec<Line<'static>> {
     v.push(Line::from(""));
     v.push(Line::from(t!("help.config", "path" => config::Config::path().map(|p| p.display().to_string()).unwrap_or_default())));
     v.push(Line::from(t!("help.dump")));
+    v.push(Line::from(""));
+    v.push(Line::from(t!("help.guide")).bold());
     v
 }
 

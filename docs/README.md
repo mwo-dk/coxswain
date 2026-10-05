@@ -4,15 +4,16 @@
 
 Every feature of both apps, the terminal app (`coxswain`) and the desktop app (`coxswain-gui`), has its own page: what it does, how to use it with the exact keys in both apps, what you see on screen, its settings and `config.toml` keys, how the terminal app differs, and the questions people ask. Each area has an index of its own. Pages end with *Previous* and *Next* links in the order below, so the docs can be read from start to end.
 
-New here? Start with [The screen](panels/the-screen.md) and [Every default key](panels/keys.md). Puzzled? See [Questions, collected](faq.md).
+New here? Start with [The first-run guide](panels/first-run.md), [The screen](panels/the-screen.md) and [Every default key](panels/keys.md). Coming from 1.x? Read [What's new in 2.0](whats-new-2.md). Puzzled? See [Questions, collected](faq.md).
 
 ## [Panels and keys](panels/README.md)
 
 | Page | What it covers |
 |---|---|
 | [Panels and keys](panels/README.md) | The area's pages and the main keys of both apps |
+| [The first-run guide](panels/first-run.md) | The four steps shown on the first start (panels and keys, how far Find looks, looks with the Nerd Font check, privacy), skipping, opening it again (F1, Settings → Overview) |
 | [The screen](panels/the-screen.md) | Panels, active panel, title bar with the version, status line and notices, F-key bar, archives shown in the pane, starting in a folder |
-| [Moving around and going to a folder](panels/moving.md) | Cursor keys, Enter, parent, other panel, reread, Alt+F1/Alt+F2, Ctrl+L, cd |
+| [Moving around and going to a folder](panels/moving.md) | Cursor keys, Enter, parent, other panel, refresh, Alt+F1/Alt+F2, Ctrl+L, cd |
 | [Quick search](panels/quick-search.md) | Alt+letter to jump to a name |
 | [Marking files](panels/marking.md) | Insert, + - *, patterns, marking with the mouse, what uses the marks |
 | [Sorting and hidden files](panels/sorting.md) | Ctrl+F3 to Ctrl+F6, headers, the rules, Alt+. and show_hidden |
@@ -52,9 +53,9 @@ New here? Start with [The screen](panels/the-screen.md) and [Every default key](
 
 | Page | What it covers |
 |---|---|
-| [Search](search/README.md) | The groups of Find file, all pages, keys at a glance |
+| [Search](search/README.md) | The groups of Find, all pages, keys at a glance |
 | [Smart search in a few minutes](search/setup.md) | The guided setup (Settings → Set up…, `coxswain --setup-search`): parts, hardware table, Ollama, Lemonade, LM Studio, llama.cpp, the GPU check, start with my session |
-| [Find file](search/find-file.md) | One field for names, words, meaning and Ask: the groups and their order, the kinds (Tab) and prefixes, the scope (Ctrl+F inside Find), the Ask row and the answer in place, every key and state |
+| [Find](search/find-file.md) | One field for names, words, meaning and Ask: the groups and their order, the kinds (Tab) and prefixes, the scope (Ctrl+F inside Find), the Ask row and the answer in place, every key and state |
 | [Names everywhere](search/names.md) | The name index, how it stays current and fast, the scope chip for this folder, exclude/roots/watch |
 | [Name syntax](search/name-syntax.md) | Everything's words, !, |, wildcards, ext:, file:, folder:, case:, paths, quotes |
 | [Text in files](search/text.md) | The *In files* group: how words match (every word, then any of them), the passages, the scope, what is read and when, search.db |
@@ -68,7 +69,7 @@ New here? Start with [The screen](panels/the-screen.md) and [Every default key](
 | [Removable disks](search/removable-disks.md) | Text kept while unplugged, found again at any mount point |
 | [Search by meaning](search/meaning.md) | The built-in multilingual model, turning it on and off, what you see, how it works |
 | [Search by meaning on a server: Ollama, Lemonade, LM Studio](search/servers.md) | Ollama, Lemonade, LM Studio, any OpenAI-compatible server, API keys, privacy |
-| [Ask: questions answered from your files](search/ask.md) | The Ask row of Find file (Ctrl+Enter): your chat model answers from the closest passages, citing them, in place of the list |
+| [Ask: questions answered from your files](search/ask.md) | The Ask row of Find (Ctrl+Enter): your chat model answers from the closest passages, citing them, in place of the list |
 | [The search helper](search/helper.md) | One process for all windows, privacy of its connection, starting with the session, taken over after an upgrade moves the program |
 | [Battery](search/battery.md) | Reading pauses on battery, Read now reads anyway |
 | [Notices and what's new](search/notices.md) | The version in the title, the tips, the count on Settings, *What's new* and `coxswain --whats-new` |
@@ -97,7 +98,7 @@ New here? Start with [The screen](panels/the-screen.md) and [Every default key](
 | Page | What it covers |
 |---|---|
 | [Files](files/README.md) | The area, every page, the file keys in both apps |
-| [Copy (F5), and when something goes wrong](files/copy.md) | Copy (F5): targets, never overwriting, merged folders, the "Something went wrong" list |
+| [Copy (F5), and when something goes wrong](files/copy.md) | Copy (F5): targets, never overwriting, merged folders, what a failure says |
 | [Move and rename (F6)](files/move-and-rename.md) | Moving, renaming in place, across disks, into archives |
 | [New folder (F7)](files/new-folder.md) | One folder or a whole path, also inside archives |
 | [Delete: trash (F8) or for good (Shift+F8)](files/delete.md) | Trash (F8), for good (Shift+F8), taking out of an archive, turning the question off |
@@ -115,7 +116,7 @@ New here? Start with [The screen](panels/the-screen.md) and [Every default key](
 | Page | What it covers |
 |---|---|
 | [Customising](customise/README.md) | The Settings window, themes, looks, languages, keys, glyphs and fonts, with the main keys |
-| [The Settings window](customise/settings.md) | Opening it (Ctrl+, F9, --settings=search|meaning), its areas from Overview to Privacy and updates, Find a setting, every item with its config.toml key, how saving keeps comments, terminal-app flags |
+| [The Settings window](customise/settings.md) | Opening it (Ctrl+, F9, --settings=search|search_meaning), its areas from Overview to Privacy and updates, Find a setting, every item with its config.toml key, how saving keeps comments, the terminal app's Settings (F9, --settings) and flags |
 | [Themes](customise/themes.md) | The 18 built-in themes, picking one in each app (Settings, F9 "Theme: …", `theme` / `[gui] theme`), what the terminal app takes |
 | [Looks](customise/looks.md) | The desktop app's corners, bevels, title bars and era fonts per theme, `look =` in your own theme |
 | [Your own theme and the colour slots](customise/own-theme.md) | Your own theme: `[themes.<name>]`, starting from --dump-config, colour names vs #rrggbb, every colour slot and where each app uses it |

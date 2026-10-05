@@ -32,8 +32,10 @@ The same actions are in the F9 command list as *Copy to clipboard*, *Cut to clip
   nothing.
 - **A name that is taken becomes `name (2).ext`**, `name (3).ext` and so on: paste never
   overwrites, unlike [F5](copy.md), which refuses.
-- With nothing to paste, a dialog titled *Paste* says *The clipboard holds no files*. Other
-  failures (a file that cannot be read, a full disk) show in the same dialog.
+- With nothing to paste, a dialog titled *Could not paste* says *The clipboard holds no files*.
+  Other failures (a file that cannot be read, a full disk) show in the same dialog: the cause in
+  one line, the full text under *Details*
+  ([When something goes wrong](copy.md#when-something-goes-wrong)).
 
 ## Settings and config.toml
 

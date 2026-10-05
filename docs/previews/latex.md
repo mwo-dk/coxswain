@@ -164,7 +164,7 @@ Previews made so far → Clear*.
 
 #### I saved a chapter and the preview did not rebuild.
 
-The panel only rereads the folder it shows. If the chapter is in a subfolder of the document's
+The panel only reads again the folder it shows. If the chapter is in a subfolder of the document's
 folder, the change is found the next time the document is shown: move the cursor off it and
 back, and it builds.
 

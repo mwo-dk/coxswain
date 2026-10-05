@@ -4,6 +4,16 @@
 
 The questions people ask most, with a short answer and a link to the full one. Every feature page has its own *Questions* section with more.
 
+## Coxswain 2.0
+
+- **Coxswain 2.0 changed my config.toml: what happened?** On its first start it renamed seven keys to the words the apps use (`mkdir` → `new_folder`, `select_group` → `mark_group`, `[search] exclude` → `name_exclude` …), once, keeping your values, comments and order; a notice lists what it changed. [Answer](reference/configuration.md#renamed-in-20)
+- **My `[keys] mkdir` stopped working.** It is `new_folder` since 2.0; an old name typed in after the first start is an unknown action. [Answer](customise/keys.md#my-keys-mkdir-stopped-working-in-20-why)
+- **How do I see the first-run guide again?** Settings → Overview → *Show the guide again*, in both apps; or from Help: F1 → *Show the guide again* (desktop app), F1 then G (terminal app). [Answer](customise/settings.md#how-do-i-see-the-first-run-guide-again)
+- **A notice says to install tesseract: how?** The notice ends with the command for your system (`sudo apt install tesseract-ocr`, `brew install tesseract`, `pkg install tesseract` …); click **Copy** (desktop app), or press Space on the row in Settings → Finding files (terminal app), and run it in a shell. Coxswain never runs it. [Answer](search/scans.md#a-notice-says-to-install-tesseract-how)
+- **Why does `--settings=meaning` open the Overview now?** 2.0 takes only an area or an option's name: use `--settings=search_meaning` (and `ask_model`, `overview`, `search_cloud` for 1.x's `ask`, `news`, `cloud`). [Answer](customise/settings.md#why-does---settingsmeaning-open-the-overview-now)
+- **Where did "Something went wrong" go?** Errors now say what failed (*Could not copy "report.pdf"*), the cause in one line, and every file with its reason under *Details*. [Answer](files/copy.md#where-did-something-went-wrong-go)
+- **Why does the desktop F-key bar say Move, New folder and Commands?** 2.0 uses plain names in both apps; only the terminal app's bar keeps NC's *RenMov*, *Mkdir* and *PullDn*. [Answer](panels/the-screen.md#why-does-the-f-key-bar-say-move-in-one-app-and-renmov-in-the-other)
+
 ## Panels and keys
 
 - **Why do Left and Right page instead of moving into folders?** That is Norton Commander's way; rebind `parent` and `open` in `[keys]`, and the desktop app's columns view already walks the tree. [Answer](panels/moving.md#why-do-left-and-right-page-instead-of-moving-into-folders)
@@ -19,7 +29,7 @@ The questions people ask most, with a short answer and a link to the full one. E
 - **What does "merging" on the git line mean?** git is in the middle of a merge (or rebase, cherry-pick, revert, bisect); finish or abort it. [Answer](panels/git.md#what-does-merging-or-rebasing-on-the-git-line-mean)
 - **Does a file's history go past a rename?** Yes: it follows the file under its earlier names. [Answer](panels/git-history.md#does-a-files-history-go-past-a-rename)
 - **Why is there a new tab in the left pane every time I start the desktop app?** The folder it started in is not open in any left-pane tab, so it is added; keep a tab on it (home, for menu starts). [Answer](panels/the-screen.md#why-is-there-a-new-tab-in-the-left-pane-every-time-i-start-the-desktop-app)
-- **Where did "search: names · text" in the title go?** To Find file's footer: *563 files indexed · text of 112 files · meaning for 112*. [Answer](panels/the-screen.md#where-did-search-names--text-in-the-title-go)
+- **Where did "search: names · text" in the title go?** To Find's footer: *563 files indexed · text of 112 files · meaning for 112*. [Answer](panels/the-screen.md#where-did-search-names--text-in-the-title-go)
 - **I bound a key and now the desktop app ignores my whole config. Why?** An unreadable key name makes the config invalid: the desktop app falls back to defaults, the terminal app refuses to start. [Answer](panels/keys.md#i-bound-a-key-and-now-the-desktop-app-ignores-my-whole-config-why)
 
 ## Tags, notes, favourites and the sidebar
@@ -46,20 +56,20 @@ The questions people ask most, with a short answer and a link to the full one. E
 ## Search
 
 - **Why doesn't a file I just saved show up in text search?** It is read within seconds, unless it is outside the folders read, too large, the laptop is on battery, or the helper still has a backlog. [Answer](search/text.md#why-doesnt-a-file-i-just-saved-show-up-in-text-search)
-- **How do I search only this folder?** Press Ctrl+F (or Alt+F7) inside Find file: the scope switches to "In <folder>", for names, words, meaning and Ask. [Answer](search/find-file.md#how-do-i-search-only-this-folder)
-- **How do I search names only?** Tab once in Find file, to the *Names* kind; a query with name syntax (`*.pdf`, `ext:md`) shows names only by itself. [Answer](search/find-file.md#how-do-i-search-names-only)
+- **How do I search only this folder?** Press Ctrl+F (or Alt+F7) inside Find: the scope switches to "In <folder>", for names, words, meaning and Ask. [Answer](search/find-file.md#how-do-i-search-only-this-folder)
+- **How do I search names only?** Tab once in Find, to the *Names* kind; a query with name syntax (`*.pdf`, `ext:md`) shows names only by itself. [Answer](search/find-file.md#how-do-i-search-names-only)
 - **Why did my file show under About this?** It is close in meaning but lacks your words: another language, other words, a scan. [Answer](search/find-file.md#why-did-my-file-show-under-about-this)
-- **Why does the order of the groups change in Find file?** It follows what you typed: a word or two puts Names first, three words or a question puts In files and About this first. [Answer](search/find-file.md#why-does-the-order-of-the-groups-change)
+- **Why does the order of the groups change in Find?** It follows what you typed: a word or two puts Names first, three words or a question puts In files and About this first. [Answer](search/find-file.md#why-does-the-order-of-the-groups-change)
 - **Why is search by meaning off?** It needs a 465 MB model and CPU time, so you choose: Settings → Finding files → the level *Names, text and meaning*, or `coxswain --meaning on`. [Answer](search/meaning.md#why-is-search-by-meaning-off)
 - **Why is search by meaning re-reading everything?** Once after the update to 1.39.0: whole documents get vectors now, not only their first 960 words, so the helper makes them anew in the background; the text is not read again. [Answer](search/meaning.md#why-is-search-by-meaning-re-reading-everything)
-- **How do I search inside files, or ask?** Just type in Find file (Ctrl+F): words in files are a group of their own, and Ctrl+Enter (terminal: Alt+Enter) asks. Shift+F7 opens Find at *In files* alone, Ctrl+F7 at *Ask*. [Answer](search/find-file.md#keys)
+- **How do I search inside files, or ask?** Just type in Find (Ctrl+F): words in files are a group of their own, and Ctrl+Enter (terminal: Alt+Enter) asks. Shift+F7 opens Find at *In files* alone, Ctrl+F7 at *Ask*. [Answer](search/find-file.md#keys)
 - **Why is there no Ask row for one word?** One word is almost always a name; type a second word, end with `?`, or press Ctrl+Enter. [Answer](search/find-file.md#why-is-there-no-ask-row-for-one-word)
 - **How do I set up search by meaning and Ask?** The guided setup: **Set up…** in Settings → Overview or Finding files (terminal: `coxswain --setup-search`). It finds your model servers and says what suits your machine. [Answer](search/setup.md)
 - **It says the model runs on the processor. What do I do?** Install your server's GPU build (Arch: `ollama-cuda` or `ollama-rocm`), or choose a Hybrid/NPU model in Lemonade. [Answer](search/setup.md#it-says-the-model-runs-on-the-processor-what-do-i-do)
-- **Can I ask my files a question?** Yes: type it in Find file and press Ctrl+Enter (terminal: Alt+Enter), with search by meaning on and a chat model on your server. [Answer](search/ask.md)
+- **Can I ask my files a question?** Yes: type it in Find and press Ctrl+Enter (terminal: Alt+Enter), with search by meaning on and a chat model on your server. [Answer](search/ask.md)
 - **Why does Ask take long before the first word?** Mostly the model loading; a model that thinks first (Qwen3) is asked not to, so with the model loaded the first word comes in under a second. [Answer](search/ask.md#thinking)
 - **The first answer takes long. Why?** The server loads the model on the first question; *Waiting for … to answer* shows until the first word. [Answer](search/ask.md#the-first-answer-takes-long-why)
-- **Ask says my model makes vectors and cannot answer.** The chat model is an embedding model such as `bge-m3`; choose a chat model such as `qwen3:8b`. [Answer](search/ask.md#it-says-my-model-makes-vectors-and-cannot-answer-why)
+- **Ask says my model only reads meaning and cannot answer.** The chat model is an embedding model such as `bge-m3`; choose a chat model such as `qwen3:8b`. [Answer](search/ask.md#it-says-my-model-only-reads-meaning-and-cannot-answer-why)
 - **What does Ask send, and where?** [Answer](search/ask.md#what-is-sent-and-where)
 - **Does the built-in model use my Mac's GPU?** On Apple Silicon, yes: through Metal, several times faster; Intel Macs stay on the CPU. Settings → Finding files → Details → Meaning and `coxswain --meaning` say which; *Use the CPU only* or `coxswain --meaning cpu` keeps it off the GPU. [Answer](search/meaning.md#does-the-built-in-model-use-my-macs-gpu)
 - **Can Ollama or Lemonade make the vectors instead?** Yes: pick it under Settings → Finding files → Details → Meaning → *Made by*, or `coxswain --meaning ollama` / `--meaning server URL MODEL`. [Answer](search/servers.md#which-model-should-i-pick-on-a-server)
@@ -72,11 +82,11 @@ The questions people ask most, with a short answer and a link to the full one. E
 - **Search inside files and meaning stopped after an upgrade.** The helper registered with your session pointed at the removed program; from 1.29.0 the first app you open registers itself instead. [Answer](search/helper.md#search-inside-files-and-meaning-stopped-after-an-upgrade-why)
 - **What does the number on the Settings button count?** Tips not dismissed and versions whose changes you have not read; a click opens Settings → Overview → What's new. [Answer](search/notices.md#what-does-the-number-on-the-settings-button-count)
 - **I installed tesseract and nothing happened.** The helper looks for programs when it starts; let it start again. [Answer](search/scans.md#i-installed-tesseract-and-nothing-happened)
-- **Does Find file find files inside my zip files?** Yes, in the archives of the folders read (your home folder by default, not hidden folders or caches): by name and by their text, and it follows their changes. [Answer](search/archives.md#does-find-file-find-files-inside-my-zip-files)
+- **Does Find look inside my zip files?** Yes, in the archives of the folders read (your home folder by default, not hidden folders or caches): by name and by their text, and it follows their changes. [Answer](search/archives.md#does-find-look-inside-my-zip-files)
 - **Why are the archives in ~/.m2 or ~/.cache not looked into?** They are programs' archives; tick *Archives everywhere* to find their entries by name. [Answer](search/archives.md#why-are-the-jars-in-m2-or-the-archives-in-cache-not-looked-into)
 - **Why is a file in my .tar.xz not found?** A compressed tar over 256 MB is found by its own name only; there are limits per archive too. [Answer](search/archives.md#why-is-a-file-in-my-tarxz-not-found)
-- **Can Find file search commit messages?** Yes: commits of the repositories in the folders read are found under *History* in Find file, and Enter opens the commit. [Answer](search/history.md)
-- **Why does Find file not find my latest commit?** Repositories are read at the helper's scans, at most ten minutes apart. [Answer](search/history.md#why-does-find-file-not-find-my-latest-commit)
+- **Can Find search commit messages?** Yes: commits of the repositories in the folders read are found under *History* in Find, and Enter opens the commit. [Answer](search/history.md)
+- **Why does Find miss my latest commit?** Repositories are read at the helper's scans, at most ten minutes apart. [Answer](search/history.md#why-does-find-miss-my-latest-commit)
 - **Why does a search for "browser entra" find my diagram?** Every arrow becomes a sentence such as "Browser to Entra ID: sign in.". [Answer](search/diagrams.md#why-does-a-search-for-browser-entra-find-my-diagram-when-no-box-says-both)
 
 ## The preview pane
@@ -108,7 +118,8 @@ The questions people ask most, with a short answer and a link to the full one. E
 
 ## Customising
 
-- **I changed the theme and the terminal app did not change.** The two apps have a theme each: in Settings → Looks, switch *For* to *Terminal app* (or set the top-level `theme`), then restart the terminal app. [Answer](customise/settings.md#i-changed-the-theme-and-the-terminal-app-did-not-change)
+- **I changed the theme and the terminal app did not change.** The two apps have a theme each: in Settings → Looks, switch *For* to *Terminal app* (or set the top-level `theme`), then restart the terminal app; its own Settings (**F9** → *Settings* → *Looks*) changes it at once. [Answer](customise/settings.md#i-changed-the-theme-and-the-terminal-app-did-not-change)
+- **Does the terminal app have Settings?** Yes: **F9** → *Settings*, or `coxswain --settings`. The same areas and options as the desktop app, full screen; Space flips, Enter types, saved at once. [Answer](customise/settings.md#how-do-i-change-a-setting-in-the-terminal-app)
 - **Will Settings mess up my hand-written config?** No: it changes the one value in place and keeps every comment and other key. [Answer](customise/settings.md#will-settings-mess-up-my-hand-written-config)
 - **The icons are empty boxes.** No Nerd Font is installed (desktop *Icon font*) or set in the terminal; install one or choose *Plain characters (ASCII)*. [Answer](customise/glyphs-and-fonts.md#the-icons-are-empty-boxes)
 - **Why is the font I picked not used?** The Windows, Mac, Cyber and NC themes bring their own font; *Font* applies to the modern themes. [Answer](customise/glyphs-and-fonts.md#why-is-the-font-i-picked-not-used)
@@ -120,8 +131,8 @@ The questions people ask most, with a short answer and a link to the full one. E
 
 ## Reference
 
-- **What can the terminal app not do, and why?** No preview pane, tabs, sidebar, tags, clipboard, batch rename, duplicates or Settings: a terminal cannot draw them or has no room; their keys say "is available in the desktop app". [Answer](reference/terminal-app.md#what-only-the-desktop-app-has)
-- **How do I turn on search by meaning without the desktop app?** `coxswain --meaning on` or `coxswain --setup-search`, then Find file: files found by meaning are under *About this*. [Answer](reference/terminal-app.md#how-do-i-turn-on-search-by-meaning-without-the-desktop-app)
+- **What can the terminal app not do, and why?** No preview pane, tabs, sidebar, tags, clipboard, batch rename or duplicates: a terminal cannot draw them or has no room; their keys say "is available in the desktop app". [Answer](reference/terminal-app.md#what-only-the-desktop-app-has)
+- **How do I turn on search by meaning without the desktop app?** `coxswain --meaning on` or `coxswain --setup-search`, then Find: files found by meaning are under *About this*. [Answer](reference/terminal-app.md#how-do-i-turn-on-search-by-meaning-without-the-desktop-app)
 - **How do I find out which version I have?** `coxswain --version`, or the title of Help (F1) and the window title in the desktop app. [Answer](reference/command-line-flags.md#how-do-i-find-out-which-version-i-have)
 - **I edited config.toml and nothing changed.** Both apps read it at start (the desktop app also after Settings); restart, and `[search]` needs a new helper. [Answer](reference/configuration.md#i-edited-configtoml-and-nothing-changed)
 - **I misspelt a key and Coxswain said nothing.** Only unreadable files are refused; an unknown setting name is ignored and the default stays. [Answer](reference/configuration.md#i-misspelt-a-key-and-coxswain-said-nothing)

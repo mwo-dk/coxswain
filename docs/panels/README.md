@@ -3,9 +3,9 @@
 # Panels and keys
 
 Coxswain shows two panels side by side, as Norton Commander did. One of them is active: the
-keys act on it, and copy and move go from it to the other one. These pages cover the screen,
-moving around, marking, sorting, tabs and views, folder sizes, git, the mouse, the command
-list, what the apps remember, and every default key of both apps.
+keys act on it, and copy and move go from it to the other one. These pages cover the first-run
+guide, the screen, moving around, marking, sorting, tabs and views, folder sizes, git, the
+mouse, the command list, what the apps remember, and every default key of both apps.
 
 ![The desktop app: two panes, the sidebar, git status in the left pane, the command line and the F-key bar](../screenshots/gui-details.png)
 *The desktop app (Cyber theme) in a git repository. The terminal app looks like Norton Commander; see [The screen](the-screen.md).*
@@ -15,8 +15,9 @@ Every key here is a default. Each one can be changed in `config.toml` under `[ke
 
 | Page | What it covers |
 |---|---|
+| [The first-run guide](first-run.md) | The four steps shown on the first start: the panels and their keys, how far Find looks, looks and icons, privacy; skipping it, opening it again (**F1**, Settings → *Overview*) |
 | [The screen](the-screen.md) | The panels, the active panel, the title bar with the version, the status line, the F-key bar, starting in a folder |
-| [Moving around and going to a folder](moving.md) | Cursor keys, opening, the parent folder, the other panel, rereading, typing a path |
+| [Moving around and going to a folder](moving.md) | Cursor keys, opening, the parent folder, the other panel, refreshing, typing a path |
 | [Quick search](quick-search.md) | **Alt+letter** jumps to a name in the panel |
 | [Marking files](marking.md) | **Insert**, `+`, `-`, `*`, marking with the mouse, what works on the marks |
 | [Sorting and hidden files](sorting.md) | **Ctrl+F3** to **Ctrl+F6**, sorting by column header, **Alt+.** |
@@ -41,7 +42,7 @@ Every key here is a default. Each one can be changed in `config.toml` under `[ke
 | **Backspace**, **Ctrl+PageUp** | Yes | Yes | Up to the parent folder |
 | **Alt+letter** | Yes | Yes | Quick search |
 | **Insert**, **Shift+Down** | Yes | Yes | Mark and move down |
-| `+` / `-` / `*` | Yes | Yes | Select group / unselect group / invert |
+| `+` / `-` / `*` | Yes | Yes | Mark group / unmark group / invert marks |
 | **Ctrl+F3** … **Ctrl+F6** | Yes | Yes | Sort by name, extension, time, size |
 | **Alt+.** | Yes | Yes | Hidden files on or off |
 | **Alt+F1** / **Alt+F2** | Types a path in the left / right pane | *Left panel* / *Right panel* dialog | Go to a folder |
@@ -52,7 +53,7 @@ Every key here is a default. Each one can be changed in `config.toml` under `[ke
 | **Ctrl+G** | Yes | Yes | The git history of the file or folder under the cursor |
 | **Alt+B** / **Alt+W** | Yes | Yes | The repository's branches / worktrees |
 | **F9** | Yes | Yes | The command list |
-| **F1** | Yes | Yes | Help |
+| **F1** | Yes | Yes | Help; from there the [first-run guide](first-run.md) again (*Show the guide again* in the desktop app, **G** in the terminal app) |
 
 ---
-[← Previous: Docs index](../README.md) · [Next: The screen →](the-screen.md)
+[← Previous: Docs index](../README.md) · [Next: The first-run guide →](first-run.md)

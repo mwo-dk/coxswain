@@ -7,7 +7,7 @@ config name that `[keys]` uses. Use it as a reference, or as the list to start f
 [change keys](../customise/keys.md).
 
 ![The desktop app's F1 window Coxswain 1.28.3 · keyboard shortcuts: actions by name with their keys, Back Alt+Left, Batch rename Ctrl+M, Close tab Ctrl+W and on](../screenshots/panels-keys.png)
-<!-- screenshot: panels-keys.png: retake: the desktop app's F1 window with the group headings, Moving first (Open Enter, Up, Down, Parent dir Ctrl+PageUp Backspace …) -->
+<!-- screenshot: panels-keys.png: retake: the desktop app's F1 window with the group headings, Moving first (Open Enter, Up, Down, Parent folder Ctrl+PageUp Backspace …), the F-key bar with Move, New folder and Commands -->
 
 ## Contents
 
@@ -45,7 +45,7 @@ On a Mac the shortcuts are the same, with **Ctrl**, not Cmd.
 |---|---|---|---|---|
 | **Enter** | Open | `open` | Open a folder or archive here, a file in its program | The same; a program runs in the panel's folder |
 | **Up** / **Down** | Up / Down | `up` / `down` | The cursor ([Moving around](moving.md)) | The same |
-| **Ctrl+PageUp**, **Backspace** | Parent dir | `parent` | Up to the parent folder | The same |
+| **Ctrl+PageUp**, **Backspace** | Parent folder | `parent` | Up to the parent folder | The same |
 | **PageUp**, **Left** | Page up | `page_up` | A page up (columns view: **Left** goes up; thumbnails: one tile left) | A page up |
 | **PageDown**, **Right** | Page down | `page_down` | A page down (columns view: **Right** opens the folder; thumbnails: one tile right) | A page down |
 | **Home** / **End** | First / Last | `home` / `end` | First / last entry | The same |
@@ -59,7 +59,7 @@ On a Mac the shortcuts are the same, with **Ctrl**, not Cmd.
 |---|---|---|---|---|
 | **Tab** | Other panel | `switch_panel` | The other pane | The other panel |
 | **Alt+.** | Hidden files | `toggle_hidden` | Show or hide hidden files | The same |
-| **Ctrl+R** | Reread | `refresh` | Reread the panes | Reread the panels |
+| **Ctrl+R** | Refresh | `refresh` | Read the panes' folders again; the status line says *Refreshed* | The same, for the panels |
 | **Alt+O** | Other panel here | `same_dir` | The active pane's folder in the other pane | The same |
 | **Ctrl+U** | Swap panels | `swap_panels` | Swap the panes | Swap the panels |
 | **Ctrl+O** | Panels on/off | `toggle_panels` | One pane or two ([Tabs and panes](tabs-and-panes.md)) | The output of the last command |
@@ -73,7 +73,7 @@ On a Mac the shortcuts are the same, with **Ctrl**, not Cmd.
 | **Ctrl+F4** | Sort by extension | `sort_ext` | By extension | The same |
 | **Ctrl+F5** | Sort by time | `sort_time` | By time, newest first | The same |
 | **Ctrl+F6** | Sort by size | `sort_size` | By size, largest first | The same |
-| – | Folder sizes | `dir_sizes` | Measure the marked folders, or all, again ([Folder sizes](folder-sizes.md)) | Measure the panel's folders again |
+| – | Folder sizes | `folder_sizes` | Measure the marked folders, or all, again ([Folder sizes](folder-sizes.md)) | Measure the panel's folders again |
 | – | Columns and folder sizes | `columns` | The columns menu ([Views](views.md#the-columns-menu)); also a right-click on a column header | – |
 
 ### Marking
@@ -82,18 +82,18 @@ On a Mac the shortcuts are the same, with **Ctrl**, not Cmd.
 |---|---|---|---|---|
 | **Insert**, **Shift+Down** | Mark | `mark` | Mark and move down ([Marking files](marking.md)) | The same |
 | **Ctrl+A** | Mark all | `mark_all` | Mark everything in the folder, files and folders (not `..`). In the command line, while it has text, it selects that text instead (desktop app) | The same |
-| `+` | Select group | `select_group` | Mark files by pattern | The same |
-| `-` | Unselect group | `unselect_group` | Unmark files by pattern | The same |
-| `*` | Invert selection | `invert_selection` | Invert the marks of files | The same |
+| `+` | Mark group | `mark_group` | Mark files by pattern: the *Mark files* dialog | The same |
+| `-` | Unmark group | `unmark_group` | Unmark files by pattern: the *Unmark files* dialog | The same |
+| `*` | Invert marks | `invert_marks` | Invert the marks of files | The same |
 
 ### Files
 
 | Key | Action (F9 name) | Config name | Desktop app | Terminal app |
 |---|---|---|---|---|
 | **F5** | Copy | `copy` | Copy to the other pane ([Copy](../files/copy.md)) | The same |
-| **F6** | RenMov | `move` | Move or rename ([Move and rename](../files/move-and-rename.md)) | The same |
+| **F6** | Move | `move` | Move or rename ([Move and rename](../files/move-and-rename.md)) | The same |
 | **F8**, **Delete** | Delete | `delete` | To the trash ([Delete](../files/delete.md)) | The same |
-| **F7** | Mkdir | `mkdir` | New folder ([New folder](../files/new-folder.md)) | The same |
+| **F7** | New folder | `new_folder` | New folder ([New folder](../files/new-folder.md)) | The same |
 | **Ctrl+C** / **Ctrl+X** / **Ctrl+V** | Copy to clipboard / Cut to clipboard / Paste | `clip_copy` / `clip_cut` / `paste` | Files through the system clipboard ([Clipboard](../files/clipboard.md)) | – |
 | **Shift+F8**, **Shift+Delete** | Delete permanently | `delete_forever` | Delete for good | The same |
 | **Alt+Enter** | Properties | `properties` | Size, dates, permissions ([Properties](../files/properties.md)) | – |
@@ -111,9 +111,9 @@ On a Mac the shortcuts are the same, with **Ctrl**, not Cmd.
 
 | Key | Action (F9 name) | Config name | Desktop app | Terminal app |
 |---|---|---|---|---|
-| **Alt+F7**, **Ctrl+F** | Find file | `search` | Find file; inside it, the scope: everywhere or this folder ([Find file](../search/find-file.md)) | The same |
-| **Shift+F7**, **Ctrl+Shift+F** | Search inside files | `search_text` | Find file at *In files*; inside it, *In files* ⇄ *All* ([Text in files](../search/text.md)) | The same; many terminals send Ctrl+Shift+F as Ctrl+F, so use Shift+F7 |
-| **Ctrl+F7** | Ask your files | `ask` | Find file at *Ask*; inside it, ask what is typed ([Ask](../search/ask.md)) | The same |
+| **Alt+F7**, **Ctrl+F** | Find | `search` | Find; inside it, the scope: everywhere or this folder ([Find](../search/find-file.md)) | The same |
+| **Shift+F7**, **Ctrl+Shift+F** | Find in files | `search_text` | Find at *In files*; inside it, *In files* ⇄ *All* ([Text in files](../search/text.md)) | The same; many terminals send Ctrl+Shift+F as Ctrl+F, so use Shift+F7 |
+| **Ctrl+F7** | Ask your files | `ask` | Find at *Ask*; inside it, ask what is typed ([Ask](../search/ask.md)) | The same |
 | **Ctrl+D** | Find duplicates | `duplicates` | The duplicate finder ([Finding duplicates](../files/duplicates.md)) | – |
 
 ### Git
@@ -141,8 +141,8 @@ On a Mac the shortcuts are the same, with **Ctrl**, not Cmd.
 
 | Key | Action (F9 name) | Config name | Desktop app | Terminal app |
 |---|---|---|---|---|
-| **F1** | Help | `help` | The help window | The help screen ([Help](command-list.md)) |
-| **F9** | PullDn | `menu` | The command list | The same |
+| **F1** | Help | `help` | The help window; its *Show the guide again* button opens the [first-run guide](first-run.md) | The help screen ([Help](command-list.md)); **G** there opens the first-run guide |
+| **F9** | Commands | `menu` | The command list | The same (the F-key bar still says *PullDn*) |
 | **Ctrl+,** | Settings | `settings` | The Settings window ([Settings](../customise/settings.md)) | – |
 | **F10** | Quit | `quit` | Close the window | Quit |
 
@@ -166,15 +166,16 @@ These are fixed; `[keys]` does not change them.
 
 | Dialog | Keys |
 |---|---|
-| Any prompt (copy, move, new folder, go to, select group, password) | **Enter** OK, **Esc** cancel. Terminal app: **Backspace** deletes, **Ctrl+U** clears the line, **F10** cancels too |
+| Any prompt (copy, move, new folder, go to, mark group, password) | **Enter** does what the button says (*Copy*, *Move*, *Create*, *Go*, *Mark*, *Unlock* …), **Esc** cancels; the line under the buttons says so: *Enter Copy · Esc Cancel*. Terminal app: **Backspace** deletes, **Ctrl+U** clears the line, **F10** cancels too |
 | Pack (**Alt+F5**) | Desktop app: the *Format* list next to the name swaps its ending. Terminal app: **Tab** the next format's ending, **Shift+Tab** the previous one ([Pack and extract](../files/pack-and-extract.md#formats)) |
-| Delete confirmation | **Enter** or **Y** deletes, **Esc** or **N** cancels |
-| Find file | Type to search, **Tab** the next kind, **Up** / **Down** / **PageUp** / **PageDown** move, **Enter** goes to the hit, **Ctrl+Enter** asks (terminal: **Alt+Enter**), **F1** the syntax, **F4** edits, **Esc** back or close; terminal app also **F3** views it ([Find file](../search/find-file.md)) |
+| Delete confirmation | **Enter** or **Y** deletes, **Esc** or **N** cancels; the line under it says *Enter Delete · Esc Cancel* (*Enter Move to bin* when it goes to the bin) |
+| Find | Type to search, **Tab** the next kind, **Up** / **Down** / **PageUp** / **PageDown** move, **Enter** goes to the hit, **Ctrl+Enter** asks (terminal: **Alt+Enter**), **F1** the syntax, **F4** edits, **Esc** back or close; terminal app also **F3** views it ([Find](../search/find-file.md)) |
+| First-run guide | Desktop app: **Enter** next, **Esc** skips, *Back* / *Next* / *Done*. Terminal app: **Up** / **Down** choose, **Space** or **Left** / **Right** change, **Enter** next, **Backspace** back, **Esc** skips ([First-run guide](first-run.md)) |
 | Command list (**F9**), columns menu | Type to filter, **Up** / **Down**, **Enter** runs, **Esc** closes |
 | User menu (**F2**) | An entry's own key runs it at once; **Up** / **Down** and **Enter** too; **Esc** closes |
 | Colour tag (**Alt+T**, desktop app) | **1** to **7** a colour, **0** removes the tag, **Esc** closes |
-| Help (**F1**) | Desktop app: **Esc**, **Enter** or **F1** closes. Terminal app: **Up** / **Down** / **PageUp** / **PageDown** scroll, any other key closes |
-| Error message | Desktop app: **Enter** or **Esc**. Terminal app: any key |
+| Help (**F1**) | Desktop app: **Esc**, **Enter** or **F1** closes; *Show the guide again* opens the first-run guide. Terminal app: **Up** / **Down** / **PageUp** / **PageDown** scroll, **G** opens the first-run guide, any other key closes |
+| Error message | Titled with what failed (*Could not copy budget.txt*), the cause in one line, the raw text under *Details*; the line under it says *Enter Close*. Desktop app: **Enter** or **Esc**. Terminal app: any key |
 | After a program or a waiting command (terminal app) | **Enter** at `-- press Enter --` |
 | **Ctrl+O** output (terminal app) | Any key back to the panels |
 
@@ -186,7 +187,7 @@ Every action above is a key under `[keys]` in `config.toml`, with a list of keys
 [keys]
 search = ["Ctrl+P"]        # replaces Alt+F7 and Ctrl+F
 tag = []                   # unbinds Alt+T, freeing it for quick search
-dir_sizes = ["Ctrl+Q"]     # gives Folder sizes a key
+folder_sizes = ["Ctrl+Q"]  # gives Folder sizes a key
 ```
 
 Listing an action replaces its default keys; `[]` unbinds it. Key names are written as in the
@@ -209,6 +210,21 @@ for themselves.
 
 In `config.toml`, under `[keys]`: `search = ["Ctrl+P"]`. Listing an action replaces its
 default keys; `[]` unbinds it. See [Changing keys](../customise/keys.md).
+
+#### My `[keys]` line `mkdir = ["F7"]` stopped working. Why?
+
+2.0 gave five actions the words the apps use: `mkdir` is `new_folder`, `dir_sizes` is
+`folder_sizes`, `select_group` / `unselect_group` / `invert_selection` are `mark_group` /
+`unmark_group` / `invert_marks`. On its first start 2.0 renames them in `config.toml` for you,
+comments kept, and a notice lists what it changed. An old name typed in afterwards is an
+unknown action: the terminal app does not start and names it, the desktop app starts with the
+defaults. See [Renamed in 2.0](../reference/configuration.md#renamed-in-20).
+
+#### Why does the F-key bar say *Move* in the desktop app and *RenMov* in the terminal app?
+
+The desktop app's bar uses the action names of **F9** and **F1**: *Move*, *New folder*,
+*Commands*. The terminal app keeps Norton Commander's short labels on its bar, *RenMov*,
+*Mkdir* and *PullDn*, but its **F9** list and **F1** use the same names as the desktop app.
 
 #### I bound a key and now the desktop app ignores my whole config. Why?
 

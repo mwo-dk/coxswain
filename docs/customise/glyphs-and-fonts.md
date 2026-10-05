@@ -15,7 +15,8 @@ choose the interface font, the monospaced font, the icon font and the text size.
 
 | | Desktop app | Terminal app |
 |---|---|---|
-| Choose | Settings (**Ctrl+,**) → *Looks* → *Icons and git glyphs*: *Nerd Font* or *Plain characters (ASCII)* | `glyphs = "ascii"` in `config.toml`, then start it again |
+| Choose | Settings (**Ctrl+,**) → *Looks* → *Icons and git glyphs*: *Nerd Font* or *Plain characters (ASCII)* | **F9** → *Settings* → *Looks* → *Icons and git glyphs*, or `glyphs = "ascii"` in `config.toml` |
+| On the first start | The [first-run guide](../panels/first-run.md)'s *Looks* step looks for a Nerd Font. Found: *A Nerd Font is installed: files and folders show their icons.* Not found: *No Nerd Font found: the icons would show as boxes.*, then *Install one:* with the line for this system and **Copy**, or *Use plain characters* | The same step shows a folder and a file glyph: *A folder and a file? If you see boxes or question marks, use plain characters.* **Space** switches; the install line, where there is one, is a row of its own that **Space** copies |
 | Needs for Nerd Font | A Nerd Font installed and named in *Icon font* | A Nerd Font as the terminal's own font |
 
 **Fonts and size (desktop app):**
@@ -129,6 +130,11 @@ replaces the file icons with `/` for folders and `@` for links (both apps). `gly
 No font in *Icon font* is installed (desktop app), or the terminal's font is not a Nerd Font
 (terminal app). Install one, for example *Symbols Nerd Font Mono*, and list it first in *Icon
 font*, or set the terminal to a Nerd Font. Or choose *Plain characters (ASCII)*.
+
+The lines that install a Nerd Font, as the first-run guide offers them: `pkg install nerd-fonts`
+(FreeBSD), `sudo pacman -S ttf-nerd-fonts-symbols` (Arch), `brew install --cask
+font-symbols-only-nerd-font` (macOS). Elsewhere get one from nerdfonts.com (*Symbols Nerd Font*
+is enough).
 
 #### I chose Plain characters (ASCII) and the desktop app still shows file icons.
 

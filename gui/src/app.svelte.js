@@ -3,6 +3,7 @@
 import { SvelteSet } from "svelte/reactivity";
 import { invoke, listDir, basename, parent, applyTheme, isArchive, HISTORY, BRANCHES, WORKTREES, LOCKED } from "./lib.js";
 import { setLanguage, t } from "./i18n.svelte.js";
+import { failure } from "./errors.js";
 /** The texts, for functions whose tab is called `t`. */
 const tr = t;
 
@@ -38,6 +39,8 @@ export const ui = $state({
   previewEngine: {},
   /** One modal at a time: { kind, ... } */
   modal: null,
+  /** The modal to go back to when the search setup guide closes (the first-run guide). */
+  resume: null,
   /** Settings → What's new: the notices not dismissed, and the versions not read. */
   news: { notices: [], unread: [] },
   favorites: [],
@@ -144,6 +147,7 @@ export async function load(t, dir = t.dir, focus) {
         title: tr("archive.locked_title"),
         label: tr("archive.locked_label"),
         value: "",
+        ok: tr("verb.unlock"),
         run: (password) => invoke("archive_password", { path: dir, password }).then(() => load(t, dir, focus)),
       };
     }
@@ -209,12 +213,13 @@ const inBranches = (tb) => tb.history?.view === "branches" && !tb.history.commit
 /** The branch an entry of the list is called: its name, up to the first space. */
 const branchOf = (e) => e.name.replace(/^\* /, "").split(" ")[0].replaceAll("∕", "/");
 
-/** What git said: on the status line, or, when it refused, in a message (it can be long). */
+/** What git said: on the status line, or, when it refused, in a message under `title` (what
+ *  could not be done), the cause first and git's words under Details. */
 async function gitSaid(title, call) {
   try {
     ui.status = (await call).split("\n")[0];
   } catch (err) {
-    ui.modal = { kind: "message", title, text: String(err) };
+    ui.modal = failure(title, err);
   }
   reloadAll();
 }
@@ -230,8 +235,8 @@ export function switchBranch(tb = tab()) {
     kind: "confirm",
     title,
     text: tr("branches.switch_text", { branch: branchOf(e), repo: basename(tb.history.base) }),
-    ok: title,
-    run: () => gitSaid(title, invoke("git_switch", { dir, entry: e.name })),
+    ok: tr("verb.switch"),
+    run: () => gitSaid(tr("error.switch", { branch: branchOf(e) }), invoke("git_switch", { dir, entry: e.name })),
   };
 }
 
@@ -248,7 +253,8 @@ export function newBranch(tb = tab()) {
     title,
     label: from ? tr("branches.new_from", { branch: branchOf(e) }) : tr("branches.new_here"),
     value: "",
-    run: (name) => name.trim() && gitSaid(title, invoke("git_new_branch", { dir, name, from })),
+    ok: tr("verb.create"),
+    run: (name) => name.trim() && gitSaid(tr("error.new_branch", { name }), invoke("git_new_branch", { dir, name, from })),
   };
 }
 
@@ -393,6 +399,8 @@ export async function init() {
   // `--settings` too, the scan (which has work to do) wins, since there is one window at a time.
   if (ui.cfg.duplicates) ui.modal = { kind: "dupes", roots: Object.fromEntries(ui.cfg.duplicates.map((p) => [p, true])), autostart: true };
   else if (ui.cfg.open_settings != null) ui.modal = { kind: "settings", section: ui.cfg.open_settings };
+  // The very first start: the first-run guide.
+  else if (ui.cfg.guide) ui.modal = { kind: "guide", step: 0 };
   refreshDisks();
 }
 

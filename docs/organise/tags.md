@@ -26,7 +26,7 @@ whatever you like. Use it to find things again at a glance in a busy folder.
 | **0** | none: removes the tag |
 | **Esc** | Closes the dialog and changes nothing |
 
-The dialog closes at once and the panel rereads. Marked files all get the same colour; when
+The dialog closes at once and the panel is read again. Marked files all get the same colour; when
 nothing is marked, the file under the cursor gets it. The `..` entry cannot be tagged.
 
 To change a tag, tag the file again with the other colour: a file has one tag at most.
@@ -80,7 +80,7 @@ Yes. Mark them (**Insert**, **Shift+Down**, or **+** for a pattern), then press
 
 #### Can I search for tagged files, or sort by tag?
 
-No. [Find file](../search/find-file.md) does not search tags, and the panels do not sort by
+No. [Find](../search/find-file.md) does not search tags, and the panels do not sort by
 them. Tags are for the eye, in the folder you are in.
 
 #### Are these the tags of macOS Finder or of my Linux file manager?

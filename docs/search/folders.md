@@ -142,7 +142,7 @@ No. Its files that are only online are found by name and never read, so nothing 
 the files OneDrive keeps on your disk are read. See [Cloud files](cloud-files.md).
 
 #### Does `.nosearch` hide a folder from name search too?
-No, only from reading. To leave a folder out of the name index, use `exclude` (see
+No, only from reading. To leave a folder out of the name index, use `name_exclude` (see
 [Names everywhere](names.md#settings-and-configtoml)).
 
 ---

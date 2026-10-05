@@ -65,7 +65,7 @@ the commit changed in it, view it with **F3** and copy an old version out with *
 | **F5** | Copies out, as it was then. Never over an existing file |
 | **F4**, **F6**, **F7**, **F8** | Refused: *A history is read-only: F5 copies a file or folder out of it* |
 | **Ctrl+G** | The status line says history is for files and folders on disk: you are in one already |
-| Find file | Works as anywhere; *In this folder* searches names on disk, not in the history |
+| Find | Works as anywhere; *In this folder* searches names on disk, not in the history |
 
 The preview pane reads a copy of the file, made when the cursor rests on it (up to 64 MB), so
 every kind of file previews as it would on disk: pictures, PDFs, Markdown, code.
@@ -99,7 +99,7 @@ folder.
 |---|---|---|
 | The key | `history` in `[keys]` | `["Ctrl+G"]` |
 | The *Last commit* column and line | `[git] last_commit` | `true` |
-| Commits in Find file | `[search] history` ([History in search](../search/history.md)) | `true` |
+| Commits in Find | `[search] history` ([History in search](../search/history.md)) | `true` |
 
 The first time you open a folder of a repository, you are told that the history is there and
 which key opens it: under *Settings → Overview → What's new* in the desktop app, once in the status line in

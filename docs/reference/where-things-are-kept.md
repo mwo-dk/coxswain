@@ -137,7 +137,7 @@ Yes: one `config.toml` for both, and one search helper and cache.
 Copy `state.json` while no Coxswain runs. Tags and notes are kept by full path, so they show only
 where the same paths exist.
 
-#### I deleted `search.db` and Find file finds no text.
+#### I deleted `search.db` and Find finds no words in files.
 
 It fills again from the start: the helper reads your files anew, at half speed. **Read now** in
 Settings → *Finding files* reads at full speed.

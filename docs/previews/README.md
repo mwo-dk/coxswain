@@ -37,7 +37,7 @@ At the top: the file's icon, name, size (or *Folder*, or the folder's size once
 [measured](../panels/folder-sizes.md)), its age chip and date, and at the right the switches for
 this kind of file. Under that, the preview; under the preview, for some files, a list of facts
 (camera and lens, audio tags, what a program is built for). At the very bottom, the
-[folder notes](../organise/notes.md). With nothing under the cursor it says *Nothing selected*.
+[folder notes](../organise/notes.md). With nothing under the cursor it says *Nothing under the cursor*.
 
 **A file only in the cloud** (OneDrive, Dropbox, Google Drive, Proton Drive, iCloud) is not
 previewed by itself, as reading it would download it: the pane says *Online only: not downloaded.

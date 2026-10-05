@@ -2,7 +2,7 @@
 //! config.toml, the area of Settings it sits in, and what it costs (disk, processor, network, data
 //! that leaves the machine); its label and one-line explanation are the `setting.<name>` and
 //! `setting.<name>.hint` texts. The desktop app's Settings window is built from this, and so is
-//! the terminal app's. Here too: reading and writing the values, where `--settings=<section>`
+//! the terminal app's. Here too: reading and writing the values, where `--settings=<name>`
 //! opens, the search level, the status lines of search, and what can leave the machine.
 
 use serde::Serialize;
@@ -128,8 +128,8 @@ pub const OPTIONS: &[Opt] = &[
     opt("text_roots", &["search", "text_roots"], Search, &[]),
     opt("names_only", &["search", "names_only"], Search, &[]),
     opt("text_exclude", &["search", "text_exclude"], Search, &[]),
-    opt("name_roots", &["search", "roots"], Search, &[]),
-    opt("name_exclude", &["search", "exclude"], Search, &[]),
+    opt("name_roots", &["search", "name_roots"], Search, &[]),
+    opt("name_exclude", &["search", "name_exclude"], Search, &[]),
     opt("watch", &["search", "watch"], Search, &[Cpu]),
     opt("meaning_engine", &["search", "meaning_engine"], Search, &[]),
     opt("meaning_url", &["search", "meaning_url"], Search, &[Leaves]),
@@ -207,16 +207,38 @@ pub fn apply(text: &str, changes: &serde_json::Map<String, Value>) -> Result<Str
     Ok(text)
 }
 
-/// Where Settings opens for `--settings=<section>` and a notice's *Show me*: the area, and the
-/// option or part to show in it. An area's own name, a section name from before the areas
-/// (`meaning`, `ask`, `news`, `language`, `cloud`) or an option's name; anything else, the
-/// Overview.
+/// Write `changes` into the user's config.toml (comments and layout kept) and use the new
+/// language at once. Only what parses is written, and through a file beside it, so a broken or
+/// half-written config never replaces a working one. The caller restarts the helper when an
+/// option says so (`Opt::restarts_helper`).
+pub fn save(changes: &serde_json::Map<String, Value>) -> Result<Config, String> {
+    save_to(&Config::path().ok_or_else(|| t!("err.no_config_folder"))?, changes)
+}
+
+/// `save`, to the config.toml at `path`.
+pub fn save_to(path: &std::path::Path, changes: &serde_json::Map<String, Value>) -> Result<Config, String> {
+    // One save at a time: two read-change-write rounds at once would lose one's change.
+    static SAVING: std::sync::Mutex<()> = std::sync::Mutex::new(());
+    let _one = SAVING.lock().unwrap_or_else(|e| e.into_inner());
+    // Through a link (a config kept with dotfiles) to the file itself.
+    let path = std::fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
+    let text = std::fs::read_to_string(&path).unwrap_or_default();
+    let new_text = apply(&text, changes)?;
+    let cfg = Config::parse(&new_text)?;
+    if let Some(dir) = path.parent() {
+        std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
+    }
+    let tmp = path.with_extension("toml.tmp");
+    std::fs::write(&tmp, new_text).and_then(|_| std::fs::rename(&tmp, &path)).map_err(|e| format!("{}: {e}", path.display()))?;
+    crate::i18n::set_language(crate::i18n::resolve(&cfg.language));
+    Ok(cfg)
+}
+
+/// Where Settings opens for `--settings=<name>` and a notice's *Show me*: the area, and the
+/// option to show in it. An area's name or an option's; anything else, the Overview.
 pub fn open_at(section: &str) -> (Area, Option<&'static str>) {
     if let Some(a) = Area::ALL.into_iter().find(|a| a.id() == section) {
         return (a, None);
-    }
-    if let Some((_, a, at)) = SECTIONS.iter().find(|(s, ..)| *s == section) {
-        return (*a, Some(at));
     }
     match find(section) {
         Some(o) => (o.area, Some(o.name)),
@@ -224,19 +246,10 @@ pub fn open_at(section: &str) -> (Area, Option<&'static str>) {
     }
 }
 
-/// The section names of before the areas, and where they are now.
-const SECTIONS: &[(&str, Area, &str)] = &[
-    ("meaning", Search, "meaning"),
-    ("ask", Search, "ask"),
-    ("news", Overview, "news"),
-    ("language", Looks, "language"),
-    ("cloud", Search, "search_cloud"),
-];
-
 /// Every name `open_at` knows, with where it opens: for the desktop app, which opens Settings
 /// at sections given by notices too.
 pub fn sections() -> Vec<(&'static str, Area, Option<&'static str>)> {
-    let names = Area::ALL.iter().map(|a| a.id()).chain(SECTIONS.iter().map(|s| s.0)).chain(OPTIONS.iter().map(|o| o.name));
+    let names = Area::ALL.iter().map(|a| a.id()).chain(OPTIONS.iter().map(|o| o.name));
     names.map(|n| (n, open_at(n).0, open_at(n).1)).collect()
 }
 
@@ -642,20 +655,27 @@ mod tests {
     }
 
     #[test]
-    fn settings_open_where_the_sections_were() {
+    fn settings_open_at_an_area_or_an_option() {
         assert_eq!(open_at(""), (Overview, None));
         assert_eq!(open_at("search"), (Search, None));
-        assert_eq!(open_at("meaning"), (Search, Some("meaning")));
-        assert_eq!(open_at("ask"), (Search, Some("ask")));
-        assert_eq!(open_at("news"), (Overview, Some("news")));
+        assert_eq!(open_at("search_meaning"), (Search, Some("search_meaning")));
+        assert_eq!(open_at("ask_model"), (Search, Some("ask_model")));
         assert_eq!(open_at("language"), (Looks, Some("language")));
         assert_eq!(open_at("previews"), (Previews, None));
         assert_eq!(open_at("check_updates"), (Privacy, Some("check_updates")));
-        assert_eq!(open_at("no-such"), (Overview, None));
+        // The section names of 1.x are gone with 2.0.
+        for old in ["meaning", "ask", "news", "cloud", "no-such"] {
+            assert_eq!(open_at(old), (Overview, None), "{old}");
+        }
         // Every section a notice opens is one of them.
         let known = sections();
-        for s in ["search", "meaning", "language"] {
-            assert!(known.iter().any(|k| k.0 == s), "{s}");
+        let status = Status { state: crate::index::State::Ready, len: 1, texts: 10, pending: 0, bytes: 0, paused: false, roots: vec![], tools: vec![("tesseract".into(), false)], meaning: true, meaning_pending: 0, meaning_done: 0, meaning_passages: 0, meaning_renewing: 0, meaning_ms_per_file: 0, meaning_engine: String::new(), meaning_error: Some("down".into()), meaning_runs: None, error: Some("stalled".into()), clouds: vec![("OneDrive".into(), "/c".into())] };
+        let mut state = crate::state::AppState::default();
+        state.migrated = vec!["[keys] mkdir → new_folder".into()];
+        for n in crate::notices::all(&Config::default(), &status, &state, false) {
+            if let Some(s) = n.settings {
+                assert!(known.iter().any(|k| k.0 == s), "{}: {s}", n.id);
+            }
         }
     }
 

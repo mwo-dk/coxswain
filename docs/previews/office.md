@@ -46,8 +46,11 @@ other by absolute paths) are mended before they are drawn, so they show too.
 - **Exact view:** the PDF in the webview's viewer, fitted to the width.
 - **If LibreOffice fails:** its first error line above the quick view, which stays.
 - **Formats with no quick view, without LibreOffice:** *soffice is not installed. No image for
-  libreoffice: set [preview.images] libreoffice in the config. See the [preview] section in
-  the config.*
+  libreoffice: set [preview.images] libreoffice in the config. Install the program, or let a
+  container make this preview.* Under it, *Install it:* with the line for this system
+  (`sudo apt install libreoffice`, `brew install --cask libreoffice`, `winget install --id
+  TheDocumentFoundation.LibreOffice -e` …) and **Copy**, and a **Settings → Previews** button
+  ([Installing what is missing](tools.md#installing-what-is-missing)).
 - **While another format renders:** *Rendering with soffice…*; on an error, the message with
   **Try again**.
 
@@ -84,8 +87,9 @@ needed for `.ppt`, `.odp` and the other formats without a quick view.
 
 #### Why is a Word `.doc` file not shown?
 
-`.doc` needs LibreOffice: install it (so `soffice` is found), or set an image for it under
-`[preview.images] libreoffice`. `.docx` needs nothing.
+`.doc` needs LibreOffice: install it (so `soffice` is found; the pane shows the line for your
+system with **Copy**), or set an image for it under `[preview.images] libreoffice`. `.docx` needs
+nothing.
 
 #### Does it disturb a LibreOffice I have open?
 

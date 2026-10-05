@@ -8,10 +8,14 @@ Tauri and Svelte 5), both on one shared Rust core and one config file. It finds 
 its name, its text or what it is about, previews over 60 kinds of file, opens archives like
 folders, shows git in every panel, and keeps everything on your machine.
 
-> **Runs on FreeBSD:** the terminal app and the desktop app, installed with one line:
-> `fetch -qo - https://raw.githubusercontent.com/mwo-dk/coxswain/master/install/install-freebsd.sh | sh`
-> The terminal app is a first-class build; the desktop app is experimental there.
-> [FreeBSD](docs/reference/freebsd.md)
+> **What's new in 2.0**
+> - **Coxswain runs on FreeBSD:** the terminal app and the desktop app, with one line:
+>   `fetch -qo - https://raw.githubusercontent.com/mwo-dk/coxswain/master/install/install-freebsd.sh | sh`
+>   ([FreeBSD](docs/reference/freebsd.md); the desktop app is experimental there).
+> - **One Find** for names, words, meaning and answers; **Settings by task** in both apps; a **guided setup** for search by meaning and Ask.
+> - Meaning reads **whole documents**, on the **Mac's GPU** too; **git branches and worktrees** as folders; **26 languages**; **cloud files** stay in the cloud.
+> - A **first-run guide**, install lines for what is missing, and dialogs that say what they do. Your `config.toml` is updated once for 2.0's names.
+> [What's new in 2.0](docs/whats-new-2.md)
 
 ![The desktop app in Cyber, its default theme: a green phosphor terminal with two panes, git status, colour tags and the F-key bar](docs/screenshots/gui-details.png)
 *The desktop app in **Cyber**, its default. Seventeen more themes are one F9 away, from Norton
@@ -35,7 +39,7 @@ Commander blue to Windows 95 and Mac OS 9.*
 - **Reads cryptography bills of materials:** a CycloneDX CBOM as a rated tree or sunburst, compared with last month's scan, in both apps. [CBOMs](docs/previews/bom.md)
 - **Archives are folders:** zip, 7z and tar (gz, bz2, xz, zst): go in, preview, copy, move, rename, pack, with passwords to open them and to lock new zips and 7z (AES-256). [Archives](docs/files/archives.md)
 - **Git in every panel:** branch, ahead and behind, counts, a glyph per file, and who last committed it and when. [Git](docs/panels/git.md)
-- **History as folders:** **Ctrl+G** on a file or folder lists its commits; Enter on one browses the files as they were, F5 copies an old version out, and Find file finds commit messages. [Git history](docs/panels/git-history.md) · [History in search](docs/search/history.md)
+- **History as folders:** **Ctrl+G** on a file or folder lists its commits; Enter on one browses the files as they were, F5 copies an old version out, and Find finds commit messages. [Git history](docs/panels/git-history.md) · [History in search](docs/search/history.md)
 - **Branches and worktrees too:** **Alt+B** lists the branches, Enter browses one's files, **Alt+S** switches to it (git refuses to lose your changes); **Alt+W** lists the worktrees. The git line names a worktree, a detached HEAD and a merge or rebase under way. [Git branches](docs/panels/git-branches.md)
 - **Folder sizes without asking,** instant in your home folder. [Folder sizes](docs/panels/folder-sizes.md)
 - **Finds duplicates** by content across folders and disks, and marks the extra copies by rule. [Duplicates](docs/files/duplicates.md)
@@ -45,7 +49,7 @@ Commander blue to Windows 95 and Mac OS 9.*
 | | |
 |---|---|
 | ![The terminal app: two blue panels, git status on the left](docs/screenshots/tui-panels.png) | <!-- screenshot: search-find-groups.png: the desktop app (Cyber), Find with "engine" typed: In files with main.rs, sequence.puml, launch-pad.drawio and their passages, "engine" highlighted, then History --> |
-| [The terminal app](docs/reference/terminal-app.md) | [Find file](docs/search/find-file.md) |
+| [The terminal app](docs/reference/terminal-app.md) | [Find](docs/search/find-file.md) |
 | ![The preview pane: Markdown with a Mermaid diagram and math, a notebook, a spreadsheet, a Word document and a font](docs/screenshots/gui-previews.png) | ![A tar.gz archive open like a folder](docs/screenshots/gui-archive.png) |
 | [The preview pane](docs/previews/README.md) | [Archives as folders](docs/files/archives.md) |
 
@@ -97,8 +101,9 @@ from source: [install/INSTALL.md](install/INSTALL.md). Git glyphs want a
    **Turn on smart search** (meaning and Ask): *Settings → Finding files → Set up…*, or
    `coxswain --setup-search` ([the guide](docs/search/setup.md)).
 5. **Type** a command and press **Enter**: it runs in the panel's folder.
-6. In the desktop app, **Space** shows the preview pane and **Ctrl+,** opens Settings, sorted by
-   task: Finding files, Previews, Looks, Behaviour, Keys, Privacy and updates.
+6. **Settings**, sorted by task (Finding files, Previews, Looks, Behaviour, Keys, Privacy and
+   updates): **Ctrl+,** in the desktop app, **F9** → *Settings* or `coxswain --settings` in the
+   terminal app. In the desktop app, **Space** shows the preview pane.
 7. Forgot a key? **F9** lists every command, and **F1** shows your keys.
 
 More in [Panels and keys](docs/panels/README.md) and [Every default key](docs/panels/keys.md).
@@ -144,6 +149,8 @@ Newest first. Downloads for each release are on the [releases page](https://gith
 
 | Version | Date | What's new |
 |---|---|---|
+| **2.0.0** | 2026-10-06 | Coxswain 2.0. A **first-run guide** in both apps, shown once and skippable on every step: the two panels and their keys, how far Find looks (meaning and Ask start the setup guide), theme, language and icons with a Nerd Font check, and what can leave the machine; **F1** (then *Show the guide again*, or **G** in the terminal app) and Settings → *Overview* open it again. When tesseract, pdftoppm, LibreOffice, LaTeX, PlantUML or pandoc is missing, the hint gives the exact install line for your system (`pkg`, `pacman`, `apt`, `dnf`, `zypper`, `brew`, `winget`) with a **Copy** button; Coxswain never runs it. Dialogs name their action and count (*Copy 3 items*), their button is the verb, one key line reads the same in both apps (*Enter Copy · Esc Cancel*), and an error says what failed, its cause in one line and the rest under *Details*. One word per thing: *mark*, *folder*, *Find*, *Refresh*; the desktop key bar says *Move*, *New folder*, *Commands*. **Changed:** `config.toml` is rewritten once on start, your comments kept, and a notice lists it: `[keys]` `select_group`, `unselect_group`, `invert_selection`, `mkdir`, `dir_sizes` become `mark_group`, `unmark_group`, `invert_marks`, `new_folder`, `folder_sizes`; `[search]` `roots` and `exclude` become `name_roots` and `name_exclude`; `--settings` takes an area or an option only (`meaning`, `ask`, `news`, `cloud` are gone). [What's new in 2.0](docs/whats-new-2.md) · [The first-run guide](docs/panels/first-run.md) |
+| **1.44.0** | 2026-10-06 | Settings in the terminal app: **F9** → *Settings*, or `coxswain --settings[=area or option]`, opens it full screen with the desktop app's areas and options. **←** **→** pick the area, **↑** **↓** the option, **Space** flips a switch or takes the next value, **Enter** types a text or number in place or opens a list to add and remove folders, **/** finds a setting; each option is explained at the bottom with what it costs, and saved to `config.toml` at once, your comments kept. *Finding files* has the status lines with their next step and the four levels (one that needs a model starts the setup guide); *Overview* lists the tips and what's new; *Keys* lists every key; *Privacy and updates* says what can leave the machine. The theme changes at once. It fits 80×24, Japanese and Korean lined up. [Settings in the terminal app](docs/customise/settings.md#in-the-terminal-app) |
 | **1.43.0** | 2026-10-05 | **Coxswain runs on FreeBSD.** Both apps for FreeBSD 14 and 15 (amd64) on every release, installed with one line: `fetch -qo - https://raw.githubusercontent.com/mwo-dk/coxswain/master/install/install-freebsd.sh \| sh`. The script checks the SHA-256 sums, installs into `/usr/local` or `~/.local`, shows the `pkg install` line for what the desktop app needs before it runs it, and adds a manual page (`man coxswain`), a menu entry and an rc.d script for the search helper. The terminal app needs nothing beyond the base system; the desktop app is experimental. *Start with my session* writes an XDG autostart entry there; the helper watches folders, not every file, so kqueue stays light; battery and memory are read with `sysctl`; the update notice names the install line. [FreeBSD](docs/reference/freebsd.md) |
 | **1.42.0** | 2026-10-05 | Settings by task, in the desktop app: an *Overview* of how everything stands with *What's new*, then *Finding files*, *Previews*, *Looks*, *Behaviour*, *Keys* and *Privacy and updates*, and *Find a setting…* above them. Every option says in one line what it does and carries badges for what it costs (disk space, processor time, downloads, can leave this machine). *Finding files* opens with a status line for names, words, meaning and Ask, each with its next step (*Read now*, *Start it*, *Set up…*, *Try it*), then *How far should Find look?* in four levels that turn on what they need or open the setup guide; *Details* holds every switch. New in Settings: the terminal app's theme, row height, folder sizes, editor, viewer, the name index's folders, what is never indexed, the largest file read; *Keys* lists every key; *Privacy and updates* lists what can leave the machine and where things are kept. The *Font* field is greyed out under a theme that brings its own font. `--settings=search`, `meaning`, `ask`, `news` and `language` still open where they did. [The Settings window](docs/customise/settings.md) |
 | **1.41.0** | 2026-10-05 | One Find, in both apps: one field for names, words in files, meaning and Ask, the hits in groups (*Names*, *In files*, *About this*, *History*) ordered by what you typed; **Tab** picks a kind (or type `text:`, `about:`, `?`), **Ctrl+F** inside Find limits everything, Ask too, to this folder, **Ctrl+Enter** (terminal: **Alt+Enter**) asks and the answer opens in place; every missing piece says what it needs, with one step; a ⌕ button on each path bar. Ask's first word comes without reloading the models on an 8 GB card; the title shows the version only. [Find file](docs/search/find-file.md) |

@@ -97,9 +97,11 @@ the desktop app's; the terminal app's panels always have NC's double borders, an
 the terminal's. Slots only the desktop app has (`accent`, `sidebar`, `tab`, `tab_active`,
 `preview`) are not used there.
 
-It has no theme picker of its own: there is no Settings window, and the *Theme: …* entries are not
-in its command list. Pick its theme in the desktop app's Settings → *Looks* with *For* on
-*Terminal app*, or set `theme` in `config.toml`, and start it again.
+Pick its theme in its own Settings: **F9** → *Settings* → *Looks* → *Theme of the terminal app*,
+**Enter**, then **↑** **↓** and **Enter** (or **Space** for the next one). It changes at once and
+is saved as `theme`. The desktop app's Settings → *Looks* with *For* on *Terminal app* sets the
+same key, which the terminal app takes when it starts again; so does `theme` in `config.toml`.
+The *Theme: …* entries of the desktop app's command list are not in the terminal app's.
 
 ## Questions
 

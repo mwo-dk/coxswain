@@ -32,7 +32,7 @@ there; **Enter** runs it with the shell in the active panel's folder. Use it for
    command line*). The name is quoted for the shell when it needs it (`'My Files'`) and a space
    is added after it, so you can add several in a row.
 3. Press **Enter**. The line runs in the active panel's folder.
-4. Afterwards both panels reread, so files the command made or removed show at once.
+4. Afterwards both panels are read again, so files the command made or removed show at once.
 
 | Key | Desktop app | Terminal app |
 |---|---|---|
@@ -44,9 +44,9 @@ there; **Enter** runs it with the shell in the active panel's folder. Use it for
 | **Ctrl+Enter**, **Ctrl+J** | Add the name under the cursor | Same |
 | **Up**, **Down**, function keys | Act on the panel as usual | Same |
 
-**The first character.** Some plain keys are bound while the line is empty: **+** (*Select
-group*), **-** (*Unselect group*), **\*** (*Invert selection*), **Space** (*Preview* in the desktop
-app) and **Backspace** (*Parent dir*). Once the line has text, they type into it. So a command
+**The first character.** Some plain keys are bound while the line is empty: **+** (*Mark
+group*), **-** (*Unmark group*), **\*** (*Invert marks*), **Space** (*Preview* in the desktop
+app) and **Backspace** (*Parent folder*). Once the line has text, they type into it. So a command
 cannot start with one of them; start with another character, or press **Ctrl+Enter** first.
 
 ## cd is built in

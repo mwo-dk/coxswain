@@ -7,6 +7,7 @@
   import { ui, setTheme, themeIds, themeName, tab, cd } from "./app.svelte.js";
   import { invoke, size, parent } from "./lib.js";
   import { t, setLanguage } from "./i18n.svelte.js";
+  import CopyLine from "./CopyLine.svelte";
 
   const flags = import.meta.glob("../node_modules/flag-icons/flags/4x3/{gb,au,ca,nz,dk,se,fi,ee,lv,lt,de,at,ch,fr,it,nl,ar,es-ct,es-pv,il,pl,cz,ua,gr,jp,kr}.svg", {
     query: "?url",
@@ -48,7 +49,7 @@
   let area = $state("overview");
   let query = $state("");
   let flash = $state("");
-  /** Opens `section` (an area, an old section name or an option, see settings::open_at): its
+  /** Opens `section` (an area or an option, see settings::open_at): its
    *  area, scrolled to the option with the details around it open. */
   async function go(section) {
     const hit = ui.cfg.sections.find(([n]) => n === (section ?? ""));
@@ -298,6 +299,7 @@
     o.observe(el);
     return { destroy: () => o.disconnect() };
   }
+  let flashCopied = $state("");
   function actOnNotice(n) {
     invoke("dismiss_notice", { id: n.id }).catch(() => {});
     ui.news.notices = ui.news.notices.filter((x) => x.id !== n.id);
@@ -427,6 +429,7 @@
           <span></span>
         </div>
         <div class="buttons"><button class="primary" onclick={openSetup}>{t("setup.open")}</button> <span class="hint">{t("setup.open_hint")}</span></div>
+        <div class="buttons"><button onclick={() => (ui.modal = { kind: "guide", step: 0 })}>{t("guide.show_again")}</button> <span class="hint">{t("guide.show_again_hint")}</span></div>
 
         <section id="opt-news" use:seen>
           <h3>{t("news.title")}</h3>
@@ -435,6 +438,7 @@
             {#each ui.news.notices as n (n.id)}
               <div class="tip">
                 <span>{n.text}</span>
+                {#if n.copy}<button title={n.copy} onclick={() => invoke("copy_text", { text: n.copy }).then(() => (flashCopied = n.id), (e) => (error = String(e)))}>{flashCopied === n.id ? t("common.copied") : t("common.copy")}</button>{/if}
                 {#if n.settings}<button onclick={() => actOnNotice(n)}>{t("news.show_me")}</button>{/if}
                 <button title={t("news.dismiss_hint")} onclick={() => actOnNotice({ ...n, settings: null })}>{t("news.dismiss")}</button>
               </div>
@@ -481,6 +485,7 @@
           {#if !ui.cfg.level}<p class="hint err">{t("settings.level.custom")}</p>{/if}
         </fieldset>
         <div class="buttons"><button class="primary" onclick={openSetup}>{t("setup.open")}</button> <span class="hint">{t("setup.open_hint")}</span></div>
+        <div class="buttons"><button onclick={() => (ui.modal = { kind: "guide", step: 0 })}>{t("guide.show_again")}</button> <span class="hint">{t("guide.show_again_hint")}</span></div>
 
         <details class="details">
           <summary>{t("settings.details")}</summary>
@@ -507,7 +512,8 @@
                 <span class="lab">{t("settings.search_tools")}</span>
                 <ul class="tools">
                   {#each index.tools as [name, there] (name)}
-                    <li class:missing={!there}>{there ? "✓" : "✗"} {t(`settings.search_tool_${name}`)}{#if !there}<small class="hint">{" · "}{t("settings.search_tool_missing")}</small>{/if}</li>
+                    <li class:missing={!there}>{there ? "✓" : "✗"} {t(`settings.search_tool_${name}`)}{#if !there}<small class="hint">{" · "}{t("settings.search_tool_missing")}</small>
+                      <br /><small>{#if ui.cfg.installs[name]}{t("install.with")} <CopyLine line={ui.cfg.installs[name]} />{:else}{t("install.get", { program: name })}{/if}</small>{/if}</li>
                   {/each}
                 </ul>
               </div>

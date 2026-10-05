@@ -80,6 +80,95 @@ pub fn cjk_font_missing() -> bool {
     out.is_ok_and(|o| o.status.success() && o.stdout.trim_ascii().is_empty())
 }
 
+/// The package managers whose install line Coxswain can write, as this system has them.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Manager {
+    Pkg,
+    Pacman,
+    Apt,
+    Dnf,
+    Zypper,
+    Brew,
+    Winget,
+}
+
+impl Manager {
+    /// This system's: pkg on FreeBSD, Homebrew on a Mac, winget on Windows, on Linux the first
+    /// of pacman, apt, dnf and zypper that is installed.
+    pub fn here() -> Option<Manager> {
+        if cfg!(target_os = "freebsd") {
+            Some(Manager::Pkg)
+        } else if cfg!(target_os = "macos") {
+            Some(Manager::Brew)
+        } else if cfg!(windows) {
+            Some(Manager::Winget)
+        } else {
+            [("pacman", Manager::Pacman), ("apt", Manager::Apt), ("dnf", Manager::Dnf), ("zypper", Manager::Zypper)].into_iter().find(|(p, _)| which(p).is_some()).map(|(_, m)| m)
+        }
+    }
+}
+
+/// The line that installs `program` with `manager`, for the user to copy and run: Coxswain never
+/// runs it. `program` is what Coxswain looks for: `tesseract`, `pdftoppm`, `soffice`, `latex`,
+/// `plantuml`, `pandoc`, or `nerd-font` (a font with the icons). `None` when that manager has no
+/// package for it; the hint then says where to get it.
+pub fn install_line(program: &str, manager: Manager) -> Option<String> {
+    use Manager::*;
+    // (pkg, pacman, apt, dnf, zypper, brew, winget); empty: none.
+    let row: [&str; 7] = match program {
+        "tesseract" => ["tesseract", "tesseract tesseract-data-eng", "tesseract-ocr", "tesseract", "tesseract-ocr", "tesseract", "UB-Mannheim.TesseractOCR"],
+        "pdftoppm" => ["poppler-utils", "poppler", "poppler-utils", "poppler-utils", "poppler-tools", "poppler", ""],
+        "soffice" => ["libreoffice", "libreoffice-fresh", "libreoffice", "libreoffice", "libreoffice", "--cask libreoffice", "TheDocumentFoundation.LibreOffice"],
+        "latex" => ["texlive-full", "texlive-basic texlive-latexextra texlive-binextra", "texlive-latex-extra latexmk", "texlive-scheme-medium latexmk", "texlive-latexmk texlive-collection-latexextra", "--cask mactex-no-gui", "MiKTeX.MiKTeX"],
+        "plantuml" => ["plantuml", "plantuml", "plantuml", "plantuml", "plantuml", "plantuml", ""],
+        "pandoc" => ["hs-pandoc", "pandoc-cli", "pandoc", "pandoc", "pandoc", "pandoc", "JohnMacFarlane.Pandoc"],
+        "nerd-font" => ["nerd-fonts", "ttf-nerd-fonts-symbols", "", "", "", "--cask font-symbols-only-nerd-font", ""],
+        _ => return None,
+    };
+    let package = row[match manager {
+        Pkg => 0,
+        Pacman => 1,
+        Apt => 2,
+        Dnf => 3,
+        Zypper => 4,
+        Brew => 5,
+        Winget => 6,
+    }];
+    if package.is_empty() {
+        return None;
+    }
+    Some(match manager {
+        Pkg => format!("pkg install {package}"),
+        Pacman => format!("sudo pacman -S {package}"),
+        Apt => format!("sudo apt install {package}"),
+        Dnf => format!("sudo dnf install {package}"),
+        Zypper => format!("sudo zypper install {package}"),
+        Brew => format!("brew install {package}"),
+        Winget => format!("winget install --id {package} -e"),
+    })
+}
+
+/// The line that installs `program` here, if Coxswain knows one.
+pub fn install(program: &str) -> Option<String> {
+    install_line(program, Manager::here()?)
+}
+
+/// Whether a Nerd Font is installed, where that can be told: fontconfig on Linux and the BSDs,
+/// the font folders on a Mac and on Windows. `None`: it cannot be told.
+pub fn nerd_font() -> Option<bool> {
+    let named = |name: &str| name.to_lowercase().contains("nerd");
+    if cfg!(any(windows, target_os = "macos")) {
+        let dirs: Vec<PathBuf> = if cfg!(windows) {
+            [std::env::var_os("WINDIR").map(|w| PathBuf::from(w).join("Fonts")), dirs::data_local_dir().map(|d| d.join("Microsoft/Windows/Fonts"))].into_iter().flatten().collect()
+        } else {
+            [Some(PathBuf::from("/Library/Fonts")), dirs::home_dir().map(|h| h.join("Library/Fonts"))].into_iter().flatten().collect()
+        };
+        return Some(dirs.iter().filter_map(|d| std::fs::read_dir(d).ok()).flatten().flatten().any(|e| named(&e.file_name().to_string_lossy())));
+    }
+    let out = std::process::Command::new("fc-list").args([":", "family"]).output().ok().filter(|o| o.status.success())?;
+    Some(named(&String::from_utf8_lossy(&out.stdout)))
+}
+
 /// This app's program: the AppImage file when it runs from one (the binary itself is inside a
 /// mount that goes when the app closes), else the running binary.
 pub fn this_app() -> std::io::Result<PathBuf> {
@@ -218,6 +307,20 @@ mod tests {
         let mut c = Command::new("sh");
         c.args(["-c", "sleep 2"]);
         assert!(spawn_watched(c, Duration::from_millis(100)).is_ok());
+    }
+
+    #[test]
+    fn tools_say_how_to_install_what_is_missing() {
+        assert_eq!(install_line("tesseract", Manager::Pkg).as_deref(), Some("pkg install tesseract"));
+        assert_eq!(install_line("pdftoppm", Manager::Apt).as_deref(), Some("sudo apt install poppler-utils"));
+        assert_eq!(install_line("soffice", Manager::Brew).as_deref(), Some("brew install --cask libreoffice"));
+        assert_eq!(install_line("latex", Manager::Winget).as_deref(), Some("winget install --id MiKTeX.MiKTeX -e"));
+        assert_eq!(install_line("plantuml", Manager::Dnf).as_deref(), Some("sudo dnf install plantuml"));
+        assert_eq!(install_line("pdftoppm", Manager::Winget), None, "no package: the hint says where to get it");
+        assert_eq!(install_line("nope", Manager::Pacman), None);
+        if cfg!(target_os = "freebsd") {
+            assert_eq!(Manager::here(), Some(Manager::Pkg));
+        }
     }
 
     #[test]

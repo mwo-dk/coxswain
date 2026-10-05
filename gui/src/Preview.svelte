@@ -4,7 +4,8 @@
   import { renderHtml, renderPptx, renderDrawio, renderMarkdown, renderMermaid, highlight, highlightOff, renderDocx, readSheet, renderNotebook, loadFont, clean, parseData, jsonLines, calendar, contacts, logLines, renderGraphviz, renderAsciidoc, readParquet } from "./renderers.js";
   import { invoke, convertFileSrc, basename, size, date, age, ageColor, previewKind, looksLikeBom, CONVERTER, LOCKED } from "./lib.js";
   import BomView from "./BomView.svelte";
-  import { t, tn, num } from "./i18n.svelte.js";
+  import CopyLine from "./CopyLine.svelte";
+    import { t, tn, num } from "./i18n.svelte.js";
 
   /** Set by App when the command output should show here instead of the file. */
   let { output = null, onclearoutput, notesFocus = 0 } = $props();
@@ -38,6 +39,7 @@
       title: t("archive.locked_title"),
       label: t("archive.locked_label"),
       value: "",
+      ok: t("verb.unlock"),
       run: (password) => invoke("archive_password", { path, password }).then(then),
     };
   }
@@ -519,7 +521,11 @@
             {#each rich.slides as s, i (i)}<div class="slide">{@html s}</div>{/each}
           </div>
         {:else if !conv.engines.some((x) => x.available)}
+          <!-- What is missing · why · the line that installs it, or the place to choose a container. -->
+          {@const install = ui.cfg.installs[{ libreoffice: "soffice" }[conv.tool] ?? conv.tool]}
           <p class="more">{t("preview.no_engine", { notes: conv.engines.map((x) => x.note).filter(Boolean).join(". ") })}</p>
+          <p class="more">{#if install}{t("install.with")} <CopyLine line={install} />{:else}{t("install.get", { program: conv.engines[0]?.label ?? conv.tool })}{/if}
+            <button class="render" onclick={() => (ui.modal = { kind: "settings", section: "previews" })}>{t("preview.settings")}</button></p>
         {:else if conv.status === "idle"}
           <button class="render" onclick={() => renderConv()}>{t(conv.verb)}</button>
           <p class="more">{engineOf(conv)?.note}</p>

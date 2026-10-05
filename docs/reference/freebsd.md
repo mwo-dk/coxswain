@@ -126,6 +126,12 @@ The terminal app needs no packages: it links only against the base system's libr
 | `git` | Git status, history and branches in the panels | Optional; most machines have it |
 | `ollama` | A model server for search by meaning and Ask | Optional ([below](#search-by-meaning-and-ask)) |
 
+Where one of the optional programs is missing, both apps show the line that installs it with
+`pkg` (`pkg install tesseract`, `pkg install texlive-full` for LaTeX previews, `pkg install
+hs-pandoc` …), with **Copy** in the desktop app and **Space** to copy in the terminal app's
+Settings. Coxswain never runs it; run it as root, or with `doas` in front
+([Installing what is missing](../search/scans.md#installing-what-is-missing)).
+
 The session D-Bus is not needed. A desktop session that runs `dbus` (as KDE Plasma, Xfce, GNOME
 and MATE do) is fine too.
 
@@ -140,7 +146,7 @@ and MATE do) is fine too.
 
 ## The search helper
 
-Find file reads names, words and meaning from an index that the search helper keeps current. By
+Find reads names, words and meaning from an index that the search helper keeps current. By
 default the helper starts with the first Coxswain app and leaves ten minutes after the last
 ([The search helper](../search/helper.md)). To have it read while no app is open, start it with
 your session, from boot, or from your login shell. Only one helper runs per user at a time, so
@@ -308,8 +314,9 @@ that use.
 ## Troubleshooting
 
 **The icons are empty boxes.** No Nerd Font is installed. `doas pkg install nerd-fonts`, then
-restart the app; or choose plain characters: Settings (**Ctrl+,**) → *Appearance* → *Icons and git
-glyphs* → *Plain characters (ASCII)*, or `glyphs = "ascii"`
+restart the app; or choose plain characters: the [first-run guide](../panels/first-run.md)'s
+*Looks* step offers both (*Use plain characters*), or Settings (**Ctrl+,**) → *Looks* → *Icons
+and git glyphs* → *Plain characters (ASCII)*, or `glyphs = "ascii"`
 in `config.toml` ([Glyphs and fonts](../customise/glyphs-and-fonts.md)).
 
 **`coxswain-gui` says it cannot find `libwebkit2gtk-4.1.so.0`.** WebKitGTK is not installed:
@@ -332,7 +339,7 @@ xdg-utils`), or no program is set for that kind of file: `xdg-mime default <app>
 **A new file deep in a large tree shows in Find only after an hour.** Its folder is past the
 20,000 the helper watches ([above](#how-freebsd-differs-from-linux-here)). Leave large trees you
 never search out of the index (`/usr/ports`, `/usr/src`, build folders): *Settings → Finding
-files → Details → Folders → Never indexed*, or `exclude` in `[search]` ([Choosing the folders](../search/folders.md)).
+files → Details → Folders → Never indexed*, or `name_exclude` in `[search]` ([Choosing the folders](../search/folders.md)).
 
 ## Other BSDs
 

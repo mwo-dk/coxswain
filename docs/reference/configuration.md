@@ -13,6 +13,7 @@ app reads it and which Settings item writes it.
 ## Contents
 
 - [The file](#the-file)
+- [Renamed in 2.0](#renamed-in-20)
 - [Top-level keys](#top-level-keys)
 - [Glyphs](#glyphs)
 - [`[keys]`](#keys)
@@ -47,6 +48,36 @@ an unknown action in `[keys]` or a key name that does not exist (`"Ctlr+P"`) is 
 - Settings never write a file that would be refused: a change that would break it is not saved.
 
 An unknown top-level or table key (a typo such as `show_hiden = false`) is ignored without a word.
+
+## Renamed in 2.0
+
+Coxswain 2.0 gave a few keys the words the apps use: *mark*, not select; *folder*, not
+directory; and the name index's folders the names Settings shows.
+
+| Table | 1.x | 2.0 |
+|---|---|---|
+| `[keys]` | `select_group` | `mark_group` |
+| `[keys]` | `unselect_group` | `unmark_group` |
+| `[keys]` | `invert_selection` | `invert_marks` |
+| `[keys]` | `mkdir` | `new_folder` |
+| `[keys]` | `dir_sizes` | `folder_sizes` |
+| `[search]` | `roots` | `name_roots` |
+| `[search]` | `exclude` | `name_exclude` |
+
+**What happens on the first start of 2.0.** Both apps rewrite `config.toml` once, before they
+read it: each old key gets its new name in the same place, with its value and its comments.
+Where the new name is there already, it wins and the old line goes. A notice then lists what
+changed: *Coxswain 2.0 renamed keys in config.toml, your comments kept: [keys] mkdir →
+new_folder, [search] exclude → name_exclude.* The desktop app shows it under *Settings →
+Overview* (**Show me** opens *Keys*), the terminal app once in the status line. A file kept as a link (with your dotfiles)
+is rewritten where the link points.
+
+**When the file cannot be written** (read-only, owned by another user), nothing is changed and
+the app prints on the terminal it was started from which keys to rename by hand:
+`coxswain: config.toml could not be updated for 2.0 (…/config.toml: Permission denied (os error 13)). Rename these keys
+yourself: [keys] mkdir → new_folder.` The old names are not read any more: an old action name in
+`[keys]` is an unknown action, so the terminal app does not start and the desktop app starts with
+the defaults; an old `roots` or `exclude` in `[search]` is ignored, like any unknown key.
 
 ## Top-level keys
 
@@ -127,7 +158,7 @@ changing them: [Changing keys](../customise/keys.md)):
 | `edit` | `F4` | `sort_name` | `Ctrl+F3` |
 | `copy` | `F5` | `sort_ext` | `Ctrl+F4` |
 | `move` | `F6` | `sort_time` | `Ctrl+F5` |
-| `mkdir` | `F7` | `sort_size` | `Ctrl+F6` |
+| `new_folder` | `F7` | `sort_size` | `Ctrl+F6` |
 | `delete` | `F8`, `Delete` | `copy_path` | `Ctrl+Enter`, `Ctrl+J` |
 | `delete_forever` | `Shift+F8`, `Shift+Delete` | `new_tab` | `Ctrl+T` |
 | `menu` | `F9` | `close_tab` | `Ctrl+W` |
@@ -137,14 +168,14 @@ changing them: [Changing keys](../customise/keys.md)):
 | `page_up` | `PageUp`, `Left` | `toggle_view` | `Alt+V` |
 | `page_down` | `PageDown`, `Right` | `toggle_sidebar` | `Ctrl+B` |
 | `home` | `Home` | `edit_path` | `Ctrl+L` |
-| `end` | `End` | `dir_sizes` | none |
+| `end` | `End` | `folder_sizes` | none |
 | `open` | `Enter` | `batch_rename` | `Ctrl+M` |
 | `parent` | `Ctrl+PageUp`, `Backspace` | `tag` | `Alt+T` |
 | `switch_panel` | `Tab` | `notes` | `Alt+N` |
 | `mark` | `Insert`, `Shift+Down` | `back` | `Alt+Left` |
-| `select_group` | `+` | `forward` | `Alt+Right` |
-| `unselect_group` | `-` | `clip_copy` | `Ctrl+C` |
-| `invert_selection` | `*` | `clip_cut` | `Ctrl+X` |
+| `mark_group` | `+` | `forward` | `Alt+Right` |
+| `unmark_group` | `-` | `clip_copy` | `Ctrl+C` |
+| `invert_marks` | `*` | `clip_cut` | `Ctrl+X` |
 | `search` | `Alt+F7`, `Ctrl+F` | `paste` | `Ctrl+V` |
 | `search_text` | `Shift+F7`, `Ctrl+Shift+F` | `properties` | `Alt+Enter` |
 | `ask` | `Ctrl+F7` | `extract` | `Ctrl+E` |
@@ -156,7 +187,7 @@ changing them: [Changing keys](../customise/keys.md)):
 | `worktrees` | `Alt+W` | `switch_branch` | `Alt+S` |
 | `new_branch` | none | | |
 
-Keys inside dialogs (Enter, Esc, Tab and Shift+Tab in Find file, the digits in *Colour tag*) are fixed.
+Keys inside dialogs (Enter, Esc, Tab and Shift+Tab in Find, the digits in *Colour tag*) are fixed.
 
 ## `[themes.<name>]`
 
@@ -196,11 +227,11 @@ flags start a new one.
 
 | Key | Type | Default | Does |
 |---|---|---|---|
-| `roots` | list of paths | `[]` | The folders in the name index. Empty: `/` on Linux and macOS, every drive on Windows |
-| `exclude` | list of strings | `["/proc", "/sys", "/dev", "/run", "/tmp/.X11-unix"]` | Left out of the name index: a path skips that tree, a bare name skips every folder of that name |
+| `name_roots` | list of paths | `[]` | The folders in the name index (1.x: `roots`). Empty: `/` on Linux and macOS, every drive on Windows |
+| `name_exclude` | list of strings | `["/proc", "/sys", "/dev", "/run", "/tmp/.X11-unix"]` | Left out of the name index: a path skips that tree, a bare name skips every folder of that name (1.x: `exclude`) |
 | `max_results` | number | `10000` | Most name hits per search (the desktop app shows 500 at most) |
 | `watch` | bool | `true` | Follow changes live with the file watcher; `false`: only the hourly rebuild |
-| `text` | bool | `true` | Keep the text of files, for Find file's *In files* group ([Text in files](../search/text.md)) |
+| `text` | bool | `true` | Keep the text of files, for Find's *In files* group ([Text in files](../search/text.md)) |
 | `text_roots` | list of paths | `[]` | The folders whose files are read. Empty: your home folder ([Choosing the folders](../search/folders.md)) |
 | `text_exclude` | list of strings | `["node_modules", "target", "build", "dist", "out", "vendor", "__pycache__", "Trash"]` | Folder names left out of reading, wherever they are. Hidden folders and folders with a `.nosearch` file always are |
 | `names_only` | list of paths | `[]` | Folders found by name and counted in sizes, never read |
@@ -294,11 +325,12 @@ Each Settings item and the key it writes, area by area ([The Settings window](..
 | | *Cloud folders read anyway* | `[search] cloud_read` |
 | | *Largest file read (MB)* | `[search] text_max_size` |
 | | *Most hits* | `[search] max_results` |
+| | *Programs that read more* | none: each missing program with the line that installs it and **Copy** ([Scans and pictures](../search/scans.md#installing-what-is-missing)) |
 | *Finding files → Details → Folders* | *Folders read* | `[search] text_roots` |
 | | *Names only* | `[search] names_only` |
 | | *Left out everywhere* | `[search] text_exclude` |
-| | *Where names are found* | `[search] roots` |
-| | *Never indexed* | `[search] exclude` |
+| | *Where names are found* | `[search] name_roots` |
+| | *Never indexed* | `[search] name_exclude` |
 | | *Follow changes as they happen* | `[search] watch` |
 | *Finding files → Details → Meaning* | *Turn on*, *Turn off*, *Download the model and turn on* | `[search] meaning` |
 | | *Made by* | `[search] meaning_engine` |
@@ -336,8 +368,10 @@ Settings item: edit the file.
 
 The terminal app reads the same file, once, when it starts. It uses the top-level keys,
 `glyph_set`, `[keys]`, `[themes.*]` (colours only, not `look`), `[[user_menu]]`, `[git]` and,
-through the helper, `[search]`. It ignores `[preview]` and `[gui]`. It has no Settings window: edit the file,
-or use `coxswain --meaning …` for search by meaning ([Command-line flags](command-line-flags.md#--meaning)).
+through the helper, `[search]`. It ignores `[preview]` and `[gui]`. Its Settings (**F9** → *Settings*,
+[In the terminal app](../customise/settings.md#in-the-terminal-app)) write the file the way the
+desktop app's do; or edit it, or use `coxswain --meaning …` for search by meaning
+([Command-line flags](command-line-flags.md#--meaning)).
 
 ## An example
 
@@ -356,14 +390,14 @@ search = ["Ctrl+P"]
 fg = "#e0e0e0"
 bg = "#101820"
 
-[[user_menu]]               # F2; %f file, %d dir, %s selection (shell-quoted)
+[[user_menu]]               # F2; %f file, %d folder, %s the marked files (shell-quoted)
 key = "t"
 label = "cargo test"
 command = "cargo test"
 wait = true
 
 [search]
-exclude = ["/proc", "/sys", "/dev", "/run", "node_modules"]
+name_exclude = ["/proc", "/sys", "/dev", "/run", "node_modules"]
 names_only = ["/home/me/Mail"]
 meaning = true
 meaning_engine = "openai"
@@ -381,6 +415,18 @@ font_size = 15
 ```
 
 ## Questions
+
+#### Coxswain 2.0 changed my `config.toml`. What happened?
+
+It renamed seven keys to the words the apps use (`mkdir` → `new_folder`, `[search] exclude` →
+`name_exclude` …), once, keeping your values, comments and order. The notice lists them. See
+[Renamed in 2.0](#renamed-in-20).
+
+#### I keep my config in git for 1.x and 2.0 machines. What now?
+
+2.0 does not read the old names, and 1.x does not know the new ones: a 1.x app ignores
+`name_roots`, and stops (terminal) or uses the defaults (desktop) on `new_folder`. Update every
+machine to 2.0, or keep the `[keys]` you change on the 1.x machines out of the shared file.
 
 #### I edited `config.toml` and nothing changed.
 
