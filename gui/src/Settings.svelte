@@ -5,7 +5,7 @@
   import { invoke, size, parent } from "./lib.js";
   import { t, setLanguage } from "./i18n.svelte.js";
 
-  const flags = import.meta.glob("../node_modules/flag-icons/flags/4x3/{gb,au,ca,nz,dk,se,fi,ee,lv,lt,de,fr,it,nl,ar,es-ct,es-pv,il}.svg", {
+  const flags = import.meta.glob("../node_modules/flag-icons/flags/4x3/{gb,au,ca,nz,dk,se,fi,ee,lv,lt,de,at,ch,fr,it,nl,ar,es-ct,es-pv,il,pl,cz,ua,gr}.svg", {
     query: "?url",
     import: "default",
     eager: true,
@@ -13,6 +13,15 @@
   const flag = (name) => flags[`../node_modules/flag-icons/flags/4x3/${name}.svg`];
 
   const s = $derived(ui.cfg.settings);
+  const current = $derived(ui.cfg.languages.find((l) => l.code === ui.cfg.language));
+  /** The languages under their regions: [group key, languages], in the order core lists them. */
+  const langGroups = $derived(
+    ui.cfg.languages.reduce((g, l) => {
+      if (g.at(-1)?.[0] !== l.group) g.push([l.group, []]);
+      g.at(-1)[1].push(l);
+      return g;
+    }, []),
+  );
   let error = $state("");
   let saved = $state(false);
 
@@ -254,21 +263,32 @@
       {/if}
     </section>
     {:else}
-    <section>
+    <section id="settings-language">
       <h3>{t("settings.language")}</h3>
+      <!-- The language in use stays in sight above the long list. -->
+      <p class="lang current">
+        {#if current}<img src={flag(current.flag)} alt="" />{/if}
+        <span>{current?.name}{#if s.language === "auto"}<small>{t("settings.language_auto")}</small>{/if}</span>
+        {#if current?.new}<span class="new">{t("news.new")}</span>{/if}
+      </p>
       <div class="langs" role="radiogroup" aria-label={t("settings.language")}>
         <button class="lang" class:on={s.language === "auto"} role="radio" aria-checked={s.language === "auto"} onclick={() => set("language", "auto")}>
           <span class="auto">{"\u{f0ac}"}</span>
-          <span>{t("settings.language_auto")}<small>{ui.cfg.languages.find((l) => l[0] === ui.cfg.language)?.[1]}</small></span>
+          <span>{t("settings.language_auto")}<small>{current?.name}</small></span>
         </button>
-        {#each ui.cfg.languages as [code, name, fl] (code)}
-          <button class="lang" class:on={s.language === code} role="radio" aria-checked={s.language === code} lang={code} onclick={() => set("language", code)}>
-            <img src={flag(fl)} alt="" />
-            <span>{name}</span>
-          </button>
+        {#each langGroups as [group, langs] (group)}
+          <p class="label region">{t(group)}</p>
+          {#each langs as l (l.code)}
+            <button class="lang" class:on={s.language === l.code} role="radio" aria-checked={s.language === l.code} lang={l.code} onclick={() => set("language", l.code)}>
+              <img src={flag(l.flag)} alt="" />
+              <span>{l.name}</span>
+              {#if l.new}<span class="new">{t("news.new")}</span>{/if}
+            </button>
+          {/each}
         {/each}
       </div>
       <p class="hint">{t("settings.language_hint")}</p>
+      <p class="hint"><button class="link" onclick={() => invoke("open_path", { path: ui.cfg.improve_url })}>{t("settings.language_improve")}</button></p>
     </section>
 
     <section>
@@ -631,6 +651,17 @@
     gap: 10px;
     text-align: start;
     padding: 6px 10px;
+  }
+  .lang.current {
+    margin: 0 0 8px;
+    padding: 0;
+  }
+  .lang .new {
+    margin-inline-start: auto;
+  }
+  .region {
+    grid-column: 1 / -1;
+    margin: 6px 0 0;
   }
   .lang.on {
     border-color: var(--accent-bg);

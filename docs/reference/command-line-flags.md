@@ -36,6 +36,7 @@ Settings window. For the command line *inside* Coxswain, where you type shell co
 | The version | `coxswain --version` | The title of *Help* (**F1**), or the window title |
 | Where things are kept | `coxswain --paths` | Settings shows the search store and model paths |
 | Every default | `coxswain --dump-config` | – |
+| Which languages there are | `coxswain --languages` | `coxswain-gui --settings=language` |
 | What the new version brought | `coxswain --whats-new` | `coxswain-gui --settings=news`, or click the count on *⚙ Settings* |
 | Search by meaning on | `coxswain --meaning on` | `coxswain-gui --settings=meaning`, then *Download the model and turn on* |
 | Find duplicates in a folder | – | `coxswain-gui --duplicates ~/Pictures` |
@@ -59,6 +60,7 @@ coxswain [LEFT] [RIGHT]      a folder, or a file to open its folder with the cur
                            when it has one (auto, the default)
   --meaning ask MODEL|off  Ask in Find file: the chat model on that server (Ollama here with the
                            built-in model) that answers questions from your files
+  --languages              the languages, by region, and how to help improve a new translation
   --whats-new [all]        what the versions since you last looked brought (all: every version)
   --version
   --help
@@ -75,6 +77,7 @@ coxswain [LEFT] [RIGHT]      a folder, or a file to open its folder with the cur
 | `--index-service [on\|off]` | The search helper with your session: see [below](#--index-service) |
 | `--meaning [on\|off\|delete\|ollama\|server\|builtin\|cpu\|auto]` | Search by meaning: see [below](#--meaning) |
 | `--index-helper` | Runs as the search helper instead of the app: see [below](#the-helper---index-helper) |
+| `--languages` | Prints every language under its region, one line each: code, own name, *new* for a fresh translation and *(current)* for the one in use, then where `language` is set and where to suggest a better word. In your language. See [Languages](../customise/languages.md) |
 | `--whats-new` | Prints the changes of the versions you have not read yet, newest first, or of the version you run when you have read them all, then counts them as read (in both apps). Each version is a line `1.29.0  2026-10-04`, then its changes, with each docs link as `Find file <https://github.com/mwo-dk/coxswain/blob/master/docs/search/find-file.md>`. See [Notices and what's new](../search/notices.md) |
 | `--whats-new all` | Prints every version's changes, newest first |
 
@@ -134,6 +137,7 @@ coxswain-gui [--settings[=SECTION]] [--duplicates [FOLDER …] | [LEFT] [RIGHT]]
 | `--settings` | Opens with the Settings window open, at the top |
 | `--settings=search` | …scrolled to *Search inside files* |
 | `--settings=meaning` | …scrolled to *Search by meaning* |
+| `--settings=language` | …scrolled to *Language* ([Languages](../customise/languages.md)) |
 | `--settings=news` | …at the *What's new* page ([Notices and what's new](../search/notices.md)) |
 | `--duplicates [FOLDER …]` | Opens *Find duplicates* and scans these folders at once; without folders, the current one. The panes open as usual behind it |
 | `--index-helper` | Runs as the search helper, with no window: see [below](#the-helper---index-helper) |

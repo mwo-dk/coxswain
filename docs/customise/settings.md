@@ -40,6 +40,7 @@ made by tools. Every change applies at once and is written to the file.
    | `coxswain-gui --settings` | Starts the app with Settings open |
    | `coxswain-gui --settings=search`, `--settings=meaning` | The same, scrolled to *Search inside files* or *Search by meaning* |
    | `coxswain-gui --settings=news` | The same, at the *What's new* page |
+   | `coxswain-gui --settings=language` | The same, scrolled to *Language* |
 
 2. Click, tick or type. A text field (a font, a server) is saved when you leave it or press
    **Enter**; everything else is saved on the click.

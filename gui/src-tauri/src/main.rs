@@ -108,8 +108,9 @@ struct UiConfig {
     language: &'static str,
     strings: std::collections::HashMap<String, serde_json::Value>,
     rtl: bool,
-    /// Every language Coxswain has: (code, own name, flag).
-    languages: &'static [(&'static str, &'static str, &'static str)],
+    /// Every language Coxswain has, by region; where to help improve a new translation.
+    languages: &'static [coxswain_core::i18n::Language],
+    improve_url: &'static str,
     /// The config file's raw values, for the Settings window.
     settings: Settings,
     config_path: Option<PathBuf>,
@@ -157,6 +158,7 @@ fn get_config(ctx: tauri::State<Ctx>) -> Res<UiConfig> {
         strings: coxswain_core::i18n::catalogue(coxswain_core::i18n::language()),
         rtl: coxswain_core::i18n::is_rtl(coxswain_core::i18n::language()),
         languages: coxswain_core::i18n::LANGUAGES,
+        improve_url: coxswain_core::i18n::IMPROVE_URL,
         settings: Settings::from(&*cfg),
         config_path: Config::path(),
         gui: cfg.gui.clone(),

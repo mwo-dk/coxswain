@@ -53,8 +53,9 @@ These rules hold for every contributor and every Claude session in this reposito
   `coxswain-core`. Desktop-only needs a reason (a picture, a web view) and a word in the docs.
 - **Keys:** never take over an existing default key for a new action; pick a free one.
 - **Texts in every language.** User-facing strings go through `t!` / `t()` with keys in
-  `crates/coxswain-core/locales/*.json`, translated into all of them (`en-AU`, `en-CA`, `en-NZ`
-  only differ where they must); the i18n test fails on a missing key.
+  `crates/coxswain-core/locales/*.json`, translated into all of them (`en-AU`, `en-CA`, `en-NZ`,
+  `de-AT` and `de-CH` only differ where they must; `de-CH` gets `de` with ss for ß by itself);
+  the i18n test fails on a missing key.
 - **Found without reading the docs:** a new capability has a visible entry point (a button, a
   Settings section, a hint where it applies) and, when it is off or needs something installed,
   a notice (`coxswain_core::notices`) that says so once.
