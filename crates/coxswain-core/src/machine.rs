@@ -36,6 +36,13 @@ fn battery_now() -> bool {
     crate::tools::command("pmset").args(["-g", "batt"]).output().is_ok_and(|o| String::from_utf8_lossy(&o.stdout).contains("'Battery Power'"))
 }
 
+/// `hw.acpi.acline` is 1 on mains power and 0 on the battery; machines without ACPI power
+/// reporting (desktops, most virtual machines) have no such variable.
+#[cfg(target_os = "freebsd")]
+fn battery_now() -> bool {
+    crate::tools::command("sysctl").args(["-n", "hw.acpi.acline"]).output().is_ok_and(|o| o.status.success() && o.stdout.trim_ascii() == b"0")
+}
+
 #[cfg(windows)]
 fn battery_now() -> bool {
     use windows_sys::Win32::System::Power::{GetSystemPowerStatus, SYSTEM_POWER_STATUS};
@@ -44,7 +51,7 @@ fn battery_now() -> bool {
     unsafe { GetSystemPowerStatus(&mut s) != 0 && s.ACLineStatus == 0 }
 }
 
-#[cfg(not(any(target_os = "linux", target_os = "macos", windows)))]
+#[cfg(not(any(target_os = "linux", target_os = "macos", target_os = "freebsd", windows)))]
 fn battery_now() -> bool {
     false
 }
@@ -64,6 +71,7 @@ pub fn locate(id: &str, inside: &Path) -> Option<PathBuf> {
 }
 
 /// `inside`, found below `top` (the part of the file system mounted) at `point`.
+#[cfg_attr(not(any(target_os = "linux", target_os = "macos", windows)), allow(dead_code))]
 fn under(point: &Path, top: &Path, inside: &Path) -> Option<PathBuf> {
     let rest = inside.strip_prefix(top).ok()?;
     Some(if rest.as_os_str().is_empty() { point.to_path_buf() } else { point.join(rest) })

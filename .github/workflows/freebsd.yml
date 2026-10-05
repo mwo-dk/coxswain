@@ -1,0 +1,62 @@
+name: FreeBSD
+
+# Both apps on FreeBSD, in a virtual machine: the core's and the terminal app's tests, and the
+# desktop app built and its tests run. Only when Rust code, the lock file or this file change.
+on:
+  push:
+    branches: [master]
+    paths: ["crates/**", "gui/src-tauri/**", "Cargo.toml", "Cargo.lock", ".github/workflows/freebsd.yml"]
+  pull_request:
+    paths: ["crates/**", "gui/src-tauri/**", "Cargo.toml", "Cargo.lock", ".github/workflows/freebsd.yml"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: freebsd-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: FreeBSD 14.5
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # The desktop app embeds gui/dist; the frontend builds here, not in the VM.
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: gui/package-lock.json
+      - name: Frontend
+        working-directory: gui
+        run: |
+          npm ci --no-audit --no-fund
+          npm run build
+          rm -rf node_modules
+
+      # Cargo's downloads, kept between runs: the VM's CARGO_HOME is inside the checkout, and
+      # copied back from the VM after the run.
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .cargo-freebsd
+          key: freebsd-cargo-${{ hashFiles('Cargo.lock') }}
+          restore-keys: freebsd-cargo-
+
+      - uses: vmactions/freebsd-vm@c46abacb49f09938ca4e1702d15d836285d694cc # v1.5.9
+        with:
+          release: "14.5"
+          usesh: true
+          prepare: pkg install -y rust pkgconf webkit2-gtk_41 gtk3 libsoup3 librsvg2-rust
+          run: |
+            set -e
+            export CARGO_HOME="$PWD/.cargo-freebsd"
+            freebsd-version
+            rustc -V
+            cargo test -p coxswain-core -p coxswain -p coxswain-gui --locked
+            # Only the cache goes back to the runner, not the build.
+            rm -rf target

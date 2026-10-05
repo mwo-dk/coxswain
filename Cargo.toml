@@ -3,7 +3,7 @@ resolver = "3"
 members = ["crates/coxswain-core", "crates/coxswain", "gui/src-tauri"]
 
 [workspace.package]
-version = "1.43.0"
+version = "1.44.0"
 edition = "2024"
 license = "MIT"
 repository = "https://github.com/mwo-dk/coxswain"
@@ -19,3 +19,11 @@ coxswain-core = { path = "crates/coxswain-core", version = "1" }
 [profile.release]
 lto = "thin"
 codegen-units = 1
+
+# FreeBSD (and the other BSDs) for the desktop app, until these fixes are released upstream:
+# tao's hit testing on BSD (tauri-apps/tao#1356, merged after 0.37.1) and drag's GTK backend on
+# BSD (our fork, offered upstream). Both only widen `cfg(target_os = "linux")` to the BSDs, so
+# Linux, macOS and Windows build the same code as from crates.io. docs/reference/freebsd.md.
+[patch.crates-io]
+tao = { git = "https://github.com/tauri-apps/tao", rev = "d19f4c12a0d881260a436d9ccf3e8f349c58e2a4" }
+drag = { git = "https://github.com/mwo-dk/drag-rs", rev = "5781ababde2b6df0ad0e6e555863d73587f16f65" }

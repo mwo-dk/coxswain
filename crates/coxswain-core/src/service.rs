@@ -1,6 +1,7 @@
 //! "Start with my session": the search helper registered with the system, so it runs from
 //! login instead of from the first app, and the backlog is read before an app is opened. A
-//! systemd user unit on Linux, a LaunchAgent on macOS, a Run entry in the registry on Windows.
+//! systemd user unit on Linux, a LaunchAgent on macOS, a Run entry in the registry on Windows,
+//! and an XDG autostart entry on FreeBSD and the other BSDs (the desktop session starts it).
 //! Registered helpers run with `STAY`: they do not leave when the last app has gone.
 
 use std::io;
@@ -11,6 +12,14 @@ use std::process::Command;
 pub const STAY: &str = "--stay";
 
 const NAME: &str = "coxswain-index";
+
+/// Started by the desktop session from an XDG autostart entry, which nothing restarts: the
+/// BSDs, which have no per-user service manager.
+const AUTOSTART: bool = cfg!(not(any(windows, target_os = "linux", target_os = "macos")));
+
+/// Whether a service manager (systemd, launchd) keeps the registered helper running, so an app
+/// need not start one.
+pub const SUPERVISED: bool = cfg!(any(target_os = "linux", target_os = "macos"));
 
 /// Run `c`; an error with its output when it fails.
 fn run(c: &mut Command) -> io::Result<()> {
@@ -28,6 +37,8 @@ fn file() -> Option<PathBuf> {
         Some(std::env::home_dir()?.join("Library/LaunchAgents/dk.mwo.coxswain.index.plist"))
     } else if cfg!(windows) {
         None
+    } else if AUTOSTART {
+        Some(dirs::config_dir()?.join("autostart").join(format!("{NAME}.desktop")))
     } else {
         Some(dirs::config_dir()?.join("systemd/user").join(format!("{NAME}.service")))
     }
@@ -56,9 +67,15 @@ fn unit(exe: &Path) -> String {
 "#,
             crate::helper::ARG
         )
+    } else if AUTOSTART {
+        format!(
+            "# Written by Coxswain (Settings → Finding files → Background reading → Start with my session).\n\
+             [Desktop Entry]\nType=Application\nName=Coxswain file index\nExec=\"{exe}\" {} {STAY}\nNoDisplay=true\nTerminal=false\n",
+            crate::helper::ARG
+        )
     } else {
         format!(
-            "# Written by Coxswain (Settings → Search inside files → Start with my session).\n\
+            "# Written by Coxswain (Settings → Finding files → Background reading → Start with my session).\n\
              [Unit]\nDescription=Coxswain's file index\nStartLimitIntervalSec=0\n\n\
              [Service]\nExecStart=\"{exe}\" {} {STAY}\nRestart=always\nRestartSec=1\nNice=10\nIOSchedulingClass=idle\n\n\
              [Install]\nWantedBy=default.target\n",
@@ -87,12 +104,14 @@ fn registered() -> Option<PathBuf> {
 }
 
 /// The program in a registration's text: the systemd unit's `ExecStart`, the first of the
-/// LaunchAgent's arguments, the quoted start of the Run entry.
+/// LaunchAgent's arguments, the quoted start of the Run entry or of the autostart `Exec`.
 fn exe_in(text: &str) -> Option<PathBuf> {
     let (open, close) = if cfg!(target_os = "macos") {
         ("<array><string>", "</string>")
     } else if cfg!(windows) {
         ("\"", "\"")
+    } else if AUTOSTART {
+        ("Exec=\"", "\"")
     } else {
         ("ExecStart=\"", "\"")
     };
@@ -134,7 +153,10 @@ pub fn install(exe: &Path) -> io::Result<()> {
     let file = file().ok_or_else(|| io::Error::other("no home folder"))?;
     std::fs::create_dir_all(file.parent().unwrap_or(Path::new(".")))?;
     std::fs::write(&file, unit(exe))?;
-    if cfg!(target_os = "macos") {
+    if AUTOSTART {
+        // The session starts it from the next login; now, this app does.
+        crate::helper::detached(exe).arg(STAY).spawn().map(drop)
+    } else if cfg!(target_os = "macos") {
         run(crate::tools::command("launchctl").arg("load").arg("-w").arg(&file))
     } else {
         run(crate::tools::command("systemctl").args(["--user", "daemon-reload"]))?;
@@ -148,13 +170,14 @@ pub fn uninstall() -> io::Result<()> {
         return run(crate::tools::command("reg").args(["delete", RUN_KEY, "/v", NAME, "/f"]));
     }
     let Some(file) = file().filter(|f| f.exists()) else { return Ok(()) };
+    // An autostart entry has nothing to stop through: the helper running now stays until logout.
     if cfg!(target_os = "macos") {
         let _ = run(crate::tools::command("launchctl").arg("unload").arg("-w").arg(&file));
-    } else {
+    } else if cfg!(target_os = "linux") {
         let _ = run(crate::tools::command("systemctl").args(["--user", "disable", "--now", NAME]));
     }
     std::fs::remove_file(&file)?;
-    if !cfg!(target_os = "macos") {
+    if cfg!(target_os = "linux") {
         let _ = run(crate::tools::command("systemctl").args(["--user", "daemon-reload"]));
     }
     Ok(())
@@ -172,6 +195,10 @@ mod tests {
         if cfg!(target_os = "linux") {
             assert!(text.contains("ExecStart=\"/opt/Cox Swain/coxswain-gui\" --index-helper --stay"));
             assert!(file().unwrap().ends_with("systemd/user/coxswain-index.service"));
+        }
+        if cfg!(target_os = "freebsd") {
+            assert!(text.contains("Exec=\"/opt/Cox Swain/coxswain-gui\" --index-helper --stay"));
+            assert!(file().unwrap().ends_with("autostart/coxswain-index.desktop"));
         }
         if !cfg!(windows) {
             assert_eq!(exe_in(&text).as_deref(), Some(Path::new("/opt/Cox Swain/coxswain-gui")));

@@ -29,12 +29,12 @@ pub fn which(program: &str) -> Option<PathBuf> {
         .find(|p| p.is_file())
 }
 
-/// Video and sound in the desktop app's preview, on Linux: WebKit plays them with GStreamer,
+/// Video and sound in the desktop app's preview, on Linux and the BSDs: WebKit plays them with GStreamer,
 /// and without the `autodetect` plugin (gst-plugins-good) the page's process aborts as soon as
 /// a `<video>` or `<audio>` is shown. `None` when the plugins it needs are where GStreamer
 /// looks; else the reason, said in the preview instead of playing.
 pub fn media_missing() -> Option<String> {
-    if !cfg!(target_os = "linux") {
+    if cfg!(any(windows, target_os = "macos")) {
         return None;
     }
     let vars = |names: &[&str]| -> Option<Vec<PathBuf>> {
@@ -60,14 +60,20 @@ pub fn media_missing() -> Option<String> {
     if has("autodetect") && has("playback") {
         return None;
     }
-    Some(if appimage { crate::t!("preview.media_appimage") } else { crate::t!("preview.media_missing") })
+    Some(if appimage {
+        crate::t!("preview.media_appimage")
+    } else if cfg!(target_os = "freebsd") {
+        crate::t!("preview.media_missing_freebsd")
+    } else {
+        crate::t!("preview.media_missing")
+    })
 }
 
-/// Japanese or Korean in use on Linux, and fontconfig has no font for it: the desktop app would
+/// Japanese or Korean in use on Linux or a BSD, and fontconfig has no font for it: the desktop app would
 /// show its letters as boxes. False elsewhere, or when `fc-list` cannot be asked.
 pub fn cjk_font_missing() -> bool {
     let lang = crate::i18n::language();
-    if !cfg!(target_os = "linux") || !matches!(lang, "ja" | "ko") {
+    if cfg!(any(windows, target_os = "macos")) || !matches!(lang, "ja" | "ko") {
         return false;
     }
     let out = std::process::Command::new("fc-list").args([format!(":lang={lang}"), "family".into()]).output();

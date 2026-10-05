@@ -35,6 +35,7 @@ Whether the machine is on battery is asked at most every thirty seconds:
 |---|---|
 | Linux | `/sys/class/power_supply`: a supply of type `Battery`, and no mains supply `online`; without a mains entry, a battery that is `Discharging` |
 | macOS | `pmset` |
+| FreeBSD | `sysctl hw.acpi.acline`: `0` is on battery; without ACPI power reporting, never |
 | Windows | The system's power status |
 
 ## Settings and config.toml
