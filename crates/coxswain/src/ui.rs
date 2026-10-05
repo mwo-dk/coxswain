@@ -119,9 +119,11 @@ fn panel(f: &mut Frame, app: &mut App, side: usize, area: Rect) {
     // So is a history, with the commit looked into.
     let dir = match (coxswain_core::archive::split(&p.dir), coxswain_core::history::split(&p.dir)) {
         (Some(_), _) => format!("{} [{}]", p.dir.to_string_lossy(), t!("archive.badge")),
-        (_, Some(at)) => match at.commit {
-            Some(c) => format!("{} [{}]", p.dir.to_string_lossy(), t!("history.badge_at", "commit" => &c[..c.len().min(7)])),
-            None => format!("{} [{}]", p.dir.to_string_lossy(), t!("history.badge")),
+        (_, Some(at)) => match (at.commit, at.view) {
+            (Some(c), _) => format!("{} [{}]", p.dir.to_string_lossy(), t!("history.badge_at", "commit" => &c[..c.len().min(7)])),
+            (None, coxswain_core::history::View::History) => format!("{} [{}]", p.dir.to_string_lossy(), t!("history.badge")),
+            (None, coxswain_core::history::View::Branches) => format!("{} [{}]", p.dir.to_string_lossy(), t!("branches.badge")),
+            (None, coxswain_core::history::View::Worktrees) => format!("{} [{}]", p.dir.to_string_lossy(), t!("worktrees.badge")),
         },
         _ => p.dir.to_string_lossy().into_owned(),
     };
@@ -364,7 +366,7 @@ fn dialog(f: &mut Frame, app: &mut App) {
             input_line(f, app, b, &shown);
             f.render_widget(Paragraph::new(t!("tui.ok_cancel")).centered(), c);
         }
-        Dialog::Confirm { title, text, .. } => {
+        Dialog::Confirm { title, text, .. } | Dialog::Switch { title, text, .. } => {
             let inner = frame(f, app, centered(full, 60, 6), title);
             let [a, _, b] = Layout::vertical([Constraint::Length(2), Constraint::Length(1), Constraint::Length(1)]).areas(inner);
             f.render_widget(Paragraph::new(text.as_str()).centered().wrap(Wrap { trim: true }), a);
@@ -626,6 +628,8 @@ fn help_text(app: &App, width: usize) -> Vec<Line<'static>> {
     for k in ["help.also1", "help.also2", "help.also3", "help.bom", "help.history"] {
         v.push(Line::from(t!(k, "key" => app.key_label(Action::History))));
     }
+    let key = |a| app.key_label(a).to_string();
+    v.push(Line::from(t!("help.branches", "key" => key(Action::Branches), "switch" => key(Action::SwitchBranch), "worktrees" => key(Action::Worktrees))));
     v.push(Line::from(""));
     v.push(Line::from(t!("help.syntax")));
     // One query per line, so translations of any length line up.

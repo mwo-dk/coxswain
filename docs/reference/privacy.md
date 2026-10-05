@@ -131,7 +131,7 @@ can open.)
 The passages of each file with text in the folders read (the whole text, up to 256 passages of
 about 120 words), each with a first line naming the file, the two folders it is in and, in
 Markdown, the heading above it (`budget.md · rocket/notes · Fuel`); and each question you type
-at Find file's text depth while search by meaning is on. Not the full path. Before 1.36.0 it got
+at Find file's text depth while search by meaning is on. Not the full path. Before 1.38.0 it got
 the first eight passages, without the line.
 
 #### Is my archive password stored anywhere?

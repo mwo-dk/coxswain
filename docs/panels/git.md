@@ -7,7 +7,8 @@ commits ahead of and behind the upstream, and counts of what changed. Each file 
 gets a glyph for its own state, and the date and author of the last commit that changed it.
 Both apps do this; the desktop app adds a diff in the preview pane and a list of the
 repositories you visited. **Ctrl+G** opens a file's or folder's history:
-[Git history as folders](git-history.md).
+[Git history as folders](git-history.md); **Alt+B** the branches and **Alt+W** the worktrees:
+[Git branches and worktrees](git-branches.md).
 
 ![The desktop app in a repository: the git line in the pane's footer, glyphs next to changed files](../screenshots/gui-details.png)
 *`src` carries the pencil of a modified file inside it, `target` the crossed-out eye of an ignored folder, `TODO.txt` the question mark of an untracked file. The footer reads `master ↑1` and the counts.*
@@ -36,19 +37,22 @@ repositories you visited. **Ctrl+G** opens a file's or folder's history:
 4. Look at the *Last commit* column (desktop app) or the line under the panel (terminal app):
    who last changed the entry under the cursor, and when.
 5. Press **Ctrl+G** for the history of the file or folder under the cursor
-   ([Git history as folders](git-history.md)).
+   ([Git history as folders](git-history.md)), **Alt+B** for the branches and **Alt+W** for the
+   worktrees ([Git branches and worktrees](git-branches.md)).
 6. Press **F2** for the user menu's git commands (see below).
 
-It needs `git` on your `PATH`. Coxswain only reads: it runs `git status` (with
+It needs `git` on your `PATH`. Coxswain reads: it runs `git status` (with
 `GIT_OPTIONAL_LOCKS=0`, so it never takes a lock that could get in the way of your own git
 commands), for the diff `git diff`, and for the last commits and the history `git log`,
-`git ls-tree` and `git cat-file`. It never commits, stages or changes anything.
+`git ls-tree` and `git cat-file`. The only things it changes are the ones you ask for in the
+list of branches: a switch to a branch and a new branch (`git switch`). It never commits or
+stages. The repository's own hooks, file system monitor and filter drivers never run.
 
 ## The git line
 
 In the terminal app it is at the bottom left of the panel's border; in the desktop app at the
-right of the pane's footer (hover it for the repository's folder). A folder's preview in the
-desktop app shows it too, as *Git*.
+right of the pane's footer (hover it for the repository's folder; click it for the
+[branches](git-branches.md)). A folder's preview in the desktop app shows it too, as *Git*.
 
 With plain characters (`glyphs = "ascii"`) a line reads:
 
@@ -58,7 +62,7 @@ git: master ^1 v2 +3 ~1 -2 ?4 !1 $1
 
 | Part | Nerd Font glyph | ASCII | Means |
 |---|---|---|---|
-| Branch | branch (U+E0A0) | `git:` | The branch, or the short commit id when HEAD is detached |
+| Branch | branch (U+E0A0) | `git:` | The branch, or *detached at a1b2c3d* when HEAD is on no branch |
 | Ahead | `↑` | `^` | Commits not yet pushed to the upstream |
 | Behind | `↓` | `v` | Commits on the upstream not yet pulled |
 | Staged | ticked box (U+F046) | `+` | Files with changes in the index |
@@ -69,7 +73,20 @@ git: master ^1 v2 +3 ~1 -2 ?4 !1 $1
 | Stash | box (U+EB4B) | `$` | Entries in the stash |
 | Clean | tick (U+F00C) | `=` | Shown when nothing is staged, changed, deleted, untracked or in conflict |
 
-A count of zero is left out. The line is drawn in the theme's `git_branch` colour (bold
+A count of zero is left out. After the counts, the line says what else is going on:
+
+| Part | Shown when |
+|---|---|
+| `· worktree: rocket-feature` | The folder is in a linked worktree (not the main one); the name is the worktree's folder ([Worktrees](git-branches.md#worktrees)) |
+| `· merging`, `· rebasing`, `· cherry-picking`, `· reverting`, `· bisecting` | git is in the middle of one: a merge or rebase that stopped on a conflict, a bisect not yet reset |
+
+```
+git: feature ~1 !1 · worktree: rocket-feature · merging
+```
+
+These come from the files git keeps in the repository's git folder while it works
+(`MERGE_HEAD`, `rebase-merge`, `CHERRY_PICK_HEAD`, `REVERT_HEAD`, `BISECT_LOG`), read with the
+status; no extra git runs for them. The line is drawn in the theme's `git_branch` colour (bold
 magenta in NC).
 
 ## File and folder glyphs
@@ -163,6 +180,7 @@ and *git blame (file)* (`b`, through `less`).
 | *Settings → Behaviour → Show when each file and folder was last committed, and by whom* | `[git] last_commit` | `true` |
 | The *Last commit* column | the columns menu (the session) | on |
 | The history's key | `history` in `[keys]` | `Ctrl+G` |
+| The branches', the worktrees' and the switch's keys | `branches`, `worktrees`, `switch_branch` in `[keys]` | `Alt+B`, `Alt+W`, `Alt+S` |
 
 See [Glyphs and fonts](../customise/glyphs-and-fonts.md) and [Your own theme](../customise/own-theme.md).
 
@@ -233,8 +251,20 @@ Settings (`[git] last_commit`).
 
 #### Can Coxswain commit or stage?
 
-No, it only reads. Put the commands you want in the [user menu](../commands/user-menu.md)
-(**F2**) or a [script](../commands/scripts.md).
+No. It switches branches and makes new ones when you ask ([Git branches and
+worktrees](git-branches.md)), and otherwise only reads. Put the commands you want in the
+[user menu](../commands/user-menu.md) (**F2**) or a [script](../commands/scripts.md).
+
+#### What does "merging" (or "rebasing") on the git line mean?
+
+git is in the middle of that operation: a merge or rebase stopped on a conflict, or a bisect was
+not reset. Finish it or abort it with git (`git merge --abort`, `git rebase --continue`,
+`git bisect reset`), and the word goes.
+
+#### The git line says "detached at a1b2c3d". What is that?
+
+HEAD is on a commit, not on a branch: after `git checkout <commit>`, during a rebase or a
+bisect. **Alt+B** and **Alt+S** switch back to a branch.
 
 ---
 [← Previous: Folder sizes](folder-sizes.md) · [Next: Git history as folders →](git-history.md)

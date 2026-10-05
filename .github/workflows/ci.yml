@@ -64,6 +64,14 @@ jobs:
           rustup target add x86_64-unknown-linux-musl
           cargo build -p coxswain --target x86_64-unknown-linux-musl --locked
 
+      # Intel Macs: releases build for x86_64-apple-darwin too, with candle's Metal on, so this
+      # target has to build before a release finds out.
+      - name: Intel Mac build
+        if: runner.os == 'macOS'
+        run: |
+          rustup target add x86_64-apple-darwin
+          cargo build -p coxswain --target x86_64-apple-darwin --locked
+
       # crates.io builds the core from its packaged files alone: anything it reads from
       # outside the crate (the README's changelog) has to come along, before a release finds out.
       - name: Core crate, packaged

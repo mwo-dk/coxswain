@@ -100,6 +100,9 @@ pub struct Status {
     pub meaning_engine: String,
     #[serde(default)]
     pub meaning_error: Option<String>,
+    /// Where the built-in model runs: the GPU or the CPU, and why the CPU on a Mac.
+    #[serde(default)]
+    pub meaning_runs: Option<crate::meaning::Runs>,
     /// Why reading the files' text failed last time; nothing further on is read until it works.
     #[serde(default)]
     pub error: Option<String>,
@@ -292,6 +295,7 @@ fn answer(stream: TcpStream, index: &Service, store: Option<&Store>, token: &str
                 meaning_ms_per_file: store.map_or(0, |s| s.ms_per_file.load(Ordering::Relaxed)),
                 meaning_engine: store.and_then(Store::engine_id).unwrap_or_default(),
                 meaning_error: store.and_then(|s| s.meaning_error.lock().unwrap().clone()),
+                meaning_runs: store.and_then(Store::engine_runs),
                 error: store.and_then(|s| s.error.lock().unwrap().clone()),
                 paused: store.is_some_and(|s| s.paused.load(Ordering::Relaxed)),
                 roots: store.map(Store::root_sizes).unwrap_or_default(),
@@ -435,7 +439,7 @@ impl Client {
         }
         let now = match self.ask(&Request::Status) {
             Some(Reply::Status(s)) => s,
-            _ => Status { state: self.own().state(), len: self.own().len(), texts: 0, pending: 0, bytes: 0, paused: false, roots: vec![], tools: vec![], meaning: false, meaning_pending: 0, meaning_done: 0, meaning_renewing: 0, meaning_ms_per_file: 0, meaning_engine: String::new(), meaning_error: None, error: None, clouds: vec![] },
+            _ => Status { state: self.own().state(), len: self.own().len(), texts: 0, pending: 0, bytes: 0, paused: false, roots: vec![], tools: vec![], meaning: false, meaning_pending: 0, meaning_done: 0, meaning_renewing: 0, meaning_ms_per_file: 0, meaning_engine: String::new(), meaning_error: None, meaning_runs: None, error: None, clouds: vec![] },
         };
         *status = Some((Instant::now(), now.clone()));
         now

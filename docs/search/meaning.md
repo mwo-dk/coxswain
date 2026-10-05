@@ -14,6 +14,7 @@ until you turn it on.
 - [How to use it](#how-to-use-it)
 - [What you see](#what-you-see)
 - [How it works](#how-it-works)
+- [On a Mac's GPU](#on-a-macs-gpu)
 - [Settings and config.toml](#settings-and-configtoml)
 - [In the terminal app](#in-the-terminal-app)
 - [Questions](#questions)
@@ -36,7 +37,8 @@ It needs *Search inside files* on: the button is greyed out otherwise. Then:
 
 **Turn it off:** *Turn off* in Settings (or `coxswain --meaning off`) stops it and keeps the model.
 **Delete the model** (or `coxswain --meaning delete`) turns it off and deletes the model.
-`coxswain --meaning` alone prints `on` or `off`.
+`coxswain --meaning` alone prints `on` or `off`, and with the built-in model a second line with
+where it runs: `Built-in model · on the GPU (Metal)`.
 
 ## What you see
 
@@ -52,14 +54,16 @@ hit.
   “rocket fuel cost” finds a Danish budget. A small language model (multilingual-e5-small) runs on
   this machine, slowly and never on battery; nothing leaves it. In Find file, Tab to text: such
   files show as “similar to”.*
-- *Vectors made by*: *Built-in model, on this CPU (465 MB once)*, *Ollama*, or *A server with the
+- *Vectors made by*: *Built-in model, on this machine (465 MB once)*, *Ollama*, or *A server with the
   OpenAI API (Lemonade, LM Studio, llama.cpp …)*. The last two are on [their own page](servers.md).
-- While on: *Understood: 8,120 files · still to go: 23,088*; while the vectors are being
+- While on: *Understood: 8,120 files · still to go: 23,088*, where the built-in model runs in
+  bold (*Built-in model · on the GPU (Metal)*, *Built-in model · on the CPU*, or on a Mac that could
+  not use its GPU *Built-in model · on the CPU (this Mac has no Metal GPU to use)*); while the vectors are being
   [renewed](#why-is-search-by-meaning-re-reading-everything), also *Renewing search by meaning
   for whole documents: 23,088 files to go, about 3 hours*; the model in use
   (`builtin:multilingual-e5-small@614241f6`), the model's folder, any error in red, and on battery
-  *Paused while the machine runs on its battery. Index now reads anyway.* Buttons **Turn off** and
-  **Delete the model**.
+  *Paused while the machine runs on its battery. Index now reads anyway.* On a Mac, the switch
+  *Use the CPU only*. Buttons **Turn off** and **Delete the model**.
 - While off, with the model there: **Turn on** and **Delete the model**. Without it:
   **Download the model (465 MB) and turn on**.
 
@@ -73,7 +77,8 @@ hit.
   against its SHA-256 before it is used. It is kept in Coxswain's cache folder under
   `models/multilingual-e5-small-614241f6`.
 - **It runs on the CPU**, with [candle](https://github.com/huggingface/candle) in pure Rust, on two
-  threads, so the machine stays yours. No GPU is needed; for one, see [servers](servers.md).
+  threads, so the machine stays yours, on Linux and Windows. **On a Mac with Apple Silicon it runs
+  on the GPU** through Metal ([below](#on-a-macs-gpu)). For a GPU elsewhere, see [servers](servers.md).
 - **What gets vectors:** the whole text of each file, in passages of up to 120 words. A passage
   ends at a paragraph's end once it has 60 words; a paragraph longer than that is cut, and the
   next passage starts with the last 20 words of the cut one, so nothing said across a cut is
@@ -93,12 +98,46 @@ hit.
   1,000 closest passages; their full vectors are then scored. A file counts with its best
   passage, and a little more (0.005) for each further passage that is close too, up to four, so
   a document that keeps coming back to your question goes ahead of one that mentions it once.
-- **A new way of cutting passages** (as in 1.36.0, which covers whole documents where earlier
+- **A new way of cutting passages** (as in 1.38.0, which covers whole documents where earlier
   versions took the first 960 words) is noticed when the helper opens `search.db`: it keeps the
   number of the way its vectors were made (`passages` in its table of facts). When that differs,
   the vectors go, the text stays, and every file gets new ones in the background, the last
   changed first. Nothing else is read again. This happens once per store, on whichever machine
   the store is: a copied or synced cache folder is renewed where it is opened.
+
+## On a Mac's GPU
+
+On a Mac the built-in model tries Apple's GPU first, through Metal, and makes the vectors there
+in batches of up to 32 passages: several times faster than on the CPU (the notice says how much
+the probe measured). Nothing changes in what it finds.
+
+**How it decides**, each time the [helper](helper.md) starts:
+
+1. It looks for a Metal GPU. Apple Silicon (M1 and later) has one; most Intel Macs and virtual
+   machines do not, and stay on the CPU.
+2. It loads the model there and turns a probe sentence into a vector on both the GPU and the CPU.
+   The two must point the same way (cosine at least 0.999), and the GPU must be the faster;
+   otherwise the CPU does the work.
+3. If the GPU fails later while it works, the CPU takes over for the rest of the helper's run.
+
+**How to see which:**
+
+| Where | What it says |
+|---|---|
+| Desktop app | *Settings → Search by meaning*, in bold under the counts: *Built-in model · on the GPU (Metal)*, or *Built-in model · on the CPU (why)* |
+| Terminal app | `coxswain --meaning` prints `on`, then `Built-in model · on the GPU (Metal)` |
+| A notice, once | *Search by meaning now uses your Mac's GPU (Metal): about 6× faster*, or on a Mac that could not use it *Search by meaning runs on the CPU: …* with the reason. In the desktop app under *Settings → What's new*, in the terminal app in the status line |
+
+The reasons for the CPU: *chosen in Settings*, *this Mac has no Metal GPU to use*, *the GPU could not
+load the model: …*, *the GPU's results differed from the CPU's (0.9871)*, *the GPU was slower than
+the CPU*, *the GPU failed: …*.
+
+**To keep it on the CPU:** tick *Use the CPU only* in Settings (shown on a Mac only), or run
+`coxswain --meaning cpu`; `coxswain --meaning auto` goes back. Both set `meaning_device` and
+start the helper again. The vectors stay: the GPU and the CPU make the same ones.
+
+On Linux and Windows the built-in model always runs on the CPU; the setting changes nothing there.
+For a GPU on those, use [Ollama or another server](servers.md).
 
 ## Settings and config.toml
 
@@ -107,13 +146,16 @@ hit.
 | *Turn on* / *Turn off* | `meaning` | bool | `false` |
 | *Vectors made by* | `meaning_engine` | `"builtin"`, `"ollama"` or `"openai"` | `"builtin"` |
 | *Server*, *Embedding model*, *API key from the variable* | `meaning_url`, `meaning_model`, `meaning_key_env` | strings | `""` |
+| *Use the CPU only* (on a Mac) | `meaning_device` | `"auto"` or `"cpu"` | `"auto"` |
 
 The last three are for [servers](servers.md). Search by meaning also needs `text = true`.
 
 ## In the terminal app
 
 The same search: hits by meaning come after word hits, with *similar to:* in front of the
-passage. Turn it on, off or delete it with `coxswain --meaning on|off|delete`. There is no status
+passage. Turn it on, off or delete it with `coxswain --meaning on|off|delete`; on a Mac,
+`coxswain --meaning cpu|auto` keeps the built-in model on the CPU or lets it use the GPU, and
+`coxswain --meaning` says where it runs. There is no status
 of *still to go*; the desktop app's Settings shows it, or wait for hits. While the vectors are
 renewed, the status line of Find file's text depth adds *Renewing search by meaning for whole
 documents: 23,088 files to go, about 3 hours*, and the notice says it once. Find file's text depth
@@ -124,7 +166,7 @@ refused*, or *Reading stopped: …* when reading itself failed.
 ## Questions
 
 #### Why is search by meaning off?
-It needs a 465 MB model that Coxswain does not ship, and CPU time to read your files with it. You
+It needs a 465 MB model that Coxswain does not ship, and CPU (or, on a Mac, GPU) time to read your files with it. You
 choose whether that is worth it: turn it on in Settings or with `coxswain --meaning on`.
 
 #### Why does it find nothing yet?
@@ -141,17 +183,34 @@ failed before the vectors' turn; vectors come only after the text is read. Befor
 whose Markdown files were read again after an update failed every scan that way, silently, and
 vectors stopped after the first few hundred files: 1.26.4 mends such a store by itself.
 
+#### Does the built-in model use my Mac's GPU?
+On Apple Silicon, yes: through Metal, in batches, several times faster than the CPU. *Settings →
+Search by meaning* says *Built-in model · on the GPU (Metal)*, and `coxswain --meaning` prints the
+same line. An Intel Mac usually has no Metal GPU the model can use and stays on the CPU, which
+Settings says with the reason. See [On a Mac's GPU](#on-a-macs-gpu).
+
+#### Why does my Mac say "on the CPU"?
+Settings gives the reason in brackets. *this Mac has no Metal GPU to use*: an Intel Mac or a
+virtual machine. *the GPU's results differed from the CPU's*: the GPU's vectors were not the same,
+so they are not used. *the GPU failed*: it broke while working; the next start of the helper
+tries again (*Turn off*, then *Turn on*, or `coxswain --meaning on`). *chosen in Settings*: *Use
+the CPU only* is ticked.
+
+#### How do I keep it off the GPU?
+Tick *Use the CPU only* under *Settings → Search by meaning*, or `coxswain --meaning cpu`. The
+vectors already made stay.
+
 #### Why is it so slow with Ollama?
 Look at `ollama ps`: *100% CPU* means Ollama runs without your graphics card. Install the build of
 Ollama for your GPU (on Arch and CachyOS `ollama-cuda` or `ollama-rocm`) and restart it.
 
 #### Is a document found by what its last chapter is about?
-Yes, since 1.36.0: the whole text gets vectors, up to 256 passages (about 25,000 words). A longer
+Yes, since 1.38.0: the whole text gets vectors, up to 256 passages (about 25,000 words). A longer
 file has its start, its end, the start of each section and passages evenly between; search by
-words still finds every word. Before 1.36.0 only the first 960 words counted.
+words still finds every word. Before 1.38.0 only the first 960 words counted.
 
 #### Why is search by meaning re-reading everything?
-Once, after the update to 1.36.0: earlier versions gave vectors to the first 960 words of each
+Once, after the update to 1.38.0: earlier versions gave vectors to the first 960 words of each
 file only, and those vectors cannot be mixed with the new ones. The helper notices it when it
 opens the store, drops the old vectors and makes new ones in the background, the most recently
 changed files first. The text is not read again, and search by words works all the while. Both
@@ -186,7 +245,7 @@ Yes. The model is multilingual: a question and a passage about the same thing ge
 whatever their languages.
 
 #### Does it slow my machine down?
-It works on two threads, in batches with rests, and not on battery. Searching is quick; making the
+It works on two threads (or the GPU on a Mac), in batches with rests, and not on battery. Searching is quick; making the
 vectors the first time is the slow part.
 
 #### Why is the button greyed out?

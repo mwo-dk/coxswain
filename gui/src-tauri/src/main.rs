@@ -205,6 +205,8 @@ struct Settings {
     meaning_url: String,
     meaning_model: String,
     meaning_key_env: String,
+    /// Where the built-in model runs: "auto" (a Mac's GPU when it can) or "cpu".
+    meaning_device: String,
     ask_model: String,
     search_history: bool,
     /// Files only in the cloud: "local-only" (found by name, never read) or "all".
@@ -243,6 +245,7 @@ impl From<&Config> for Settings {
             meaning_url: c.search.meaning_url.clone(),
             meaning_model: c.search.meaning_model.clone(),
             meaning_key_env: c.search.meaning_key_env.clone(),
+            meaning_device: c.search.meaning_device.clone(),
             ask_model: c.search.ask_model.clone(),
             search_history: c.search.history,
             search_cloud: c.search.cloud.clone(),
@@ -280,6 +283,7 @@ const SETTING_PATHS: &[(&str, &[&str])] = &[
     ("meaning_url", &["search", "meaning_url"]),
     ("meaning_model", &["search", "meaning_model"]),
     ("meaning_key_env", &["search", "meaning_key_env"]),
+    ("meaning_device", &["search", "meaning_device"]),
     ("ask_model", &["search", "ask_model"]),
     ("search_history", &["search", "history"]),
     ("search_cloud", &["search", "cloud"]),
@@ -365,6 +369,8 @@ struct HistoryInfo {
     /// The folder on disk it leads back to: the target, or the folder holding it.
     base: PathBuf,
     commit: Option<history::Commit>,
+    /// A history's commits, the branches or the worktrees (what the list above a commit is).
+    view: history::View,
 }
 
 /// Async, as a compressed tar is read in full to list a folder in it.
@@ -387,7 +393,7 @@ async fn list_dir(dir: PathBuf, show_hidden: bool, sort: SortKey, reverse: bool,
         {
             history::sort_by_last(&mut entries, &lasts, reverse);
         }
-        let in_history = history::split(&dir).filter(|_| !dir.is_dir()).map(|at| HistoryInfo { commit: at.commit.as_deref().and_then(|c| history::show(&at.base, c).ok()), target: at.target, base: at.base });
+        let in_history = history::split(&dir).filter(|_| !dir.is_dir()).map(|at| HistoryInfo { commit: at.commit.as_deref().and_then(|c| history::show(&at.base, c).ok()), target: at.target, base: at.base, view: at.view });
         Ok::<_, String>((entries, inside, in_history))
     })
     .await
@@ -461,6 +467,19 @@ async fn git_status(dir: PathBuf, ctx: tauri::State<'_, Ctx>) -> Res<Option<GitI
     }
     drop(st);
     Ok(Some(GitInfo { prompt: s.prompt(&ctx.cfg().glyphs()), branch: s.summary.branch.clone(), root: s.root, files, all }))
+}
+
+/// Switch to the branch `entry` of the list of branches `dir`: git's message, or why it refused.
+#[tauri::command]
+async fn git_switch(dir: PathBuf, entry: String) -> Res<String> {
+    blocking(move || coxswain_core::branches::switch(&dir, &entry).map_err(|e| e.to_string())).await
+}
+
+/// A new branch `name`, switched to: from the branch `from` of the list of branches `dir`, or
+/// from the current commit of the repository `dir` is in.
+#[tauri::command]
+async fn git_new_branch(dir: PathBuf, name: String, from: Option<String>) -> Res<String> {
+    blocking(move || coxswain_core::branches::create(&dir, &name, from.as_deref()).map_err(|e| e.to_string())).await
 }
 
 /// The statuses of `dir`'s entries, from git's alone: the folder is not read again.
@@ -586,12 +605,20 @@ struct IndexStatus {
     shared: bool,
     /// Whether the helper starts with the session.
     service: bool,
+    /// "Built-in model · on the GPU (Metal)", or on the CPU and why.
+    meaning_runs_text: Option<String>,
 }
 
 #[tauri::command]
 async fn index_status(ctx: tauri::State<'_, Ctx>) -> Res<IndexStatus> {
     let index = ctx.index.clone();
-    tauri::async_runtime::spawn_blocking(move || IndexStatus { status: index.status(), path: coxswain_core::store::Store::path(), shared: index.shared(), service: coxswain_core::service::installed() }).await.map_err(|e| e.to_string())
+    tauri::async_runtime::spawn_blocking(move || {
+        let status = index.status();
+        let meaning_runs_text = status.meaning_runs.as_ref().map(|r| coxswain_core::t!("settings.meaning_runs", "where" => r.text()));
+        IndexStatus { status, path: coxswain_core::store::Store::path(), shared: index.shared(), service: coxswain_core::service::installed(), meaning_runs_text }
+    })
+    .await
+    .map_err(|e| e.to_string())
 }
 
 /// What Settings → What's new lists: the notices not dismissed and the versions not read (their
@@ -1561,7 +1588,7 @@ fn main() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            get_config, notices, dismiss_notice, changes, read_changes, set_title, index_status, index_action, index_service, meaning_status, meaning_action, meaning_models, meaning_pull, list_dir, git_status, git_last, places, disks, get_state, save_session, save_favorites, set_tags, set_note, get_note,
+            get_config, notices, dismiss_notice, changes, read_changes, set_title, index_status, index_action, index_service, meaning_status, meaning_action, meaning_models, meaning_pull, list_dir, git_status, git_last, git_switch, git_new_branch, places, disks, get_state, save_session, save_favorites, set_tags, set_note, get_note,
             search, ask, ask_stop, ask_check, meaning_change, resolve_path, copy, rename, delete, mkdir, dir_sizes, rename_plan, rename_apply, open_path, edit_path,
             read_text, run_command, scripts, run_script, check_update, archive_list, extract, pack, archive_password, archive_peek, cloud_fetch, properties, set_permissions,
             clip_set, paste, start_drag, watch_dirs, preview::git_diff, preview::sqlite_info, preview::epub_preview,

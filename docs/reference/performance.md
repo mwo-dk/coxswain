@@ -30,6 +30,8 @@ numbers measured on synthetic data, so you know what to expect and can measure a
 - **Search follows a changed archive member by member:** a member that kept its size and date
   in the archive keeps its text and vectors; only the changed ones are read again. An archive
   written in the last three seconds (a download) waits until it has settled.
+- **Search by meaning on a Mac** runs the built-in model on the GPU through Metal, in batches of
+  up to 32 passages, when its results match the CPU's. See [On a Mac's GPU](../search/meaning.md#on-a-macs-gpu).
 - **Search by meaning reads only what it shows:** the thousand closest passages are ranked
   by their vectors alone, and the text of a file is read only when one of its passages is
   among the hits.
@@ -183,7 +185,7 @@ vectors from an embedding server that answers at once (so the store's own work i
 
 ### Search by meaning: whole documents
 
-Since 1.36.0 every passage of a file gets a vector (up to 256 a file), where before only the
+Since 1.38.0 every passage of a file gets a vector (up to 256 a file), where before only the
 first 8 did. That is more vectors to keep, sieve and make; measured on a laptop with 22 cores
 and an RTX 4070 Laptop GPU.
 
@@ -297,7 +299,7 @@ for 23 of 32.
 | words | 1.00 | 1.00 | 3 of 3 |
 | diagram | 1.00 | 1.00 | 2 of 2 |
 
-**After 1.36.0** (whole documents, the name line, the bonus for several close passages), the
+**After 1.38.0** (whole documents, the name line, the bonus for several close passages), the
 same corpus and questions:
 
 | List | Built-in recall@1 / @5 / MRR | bge-m3 recall@1 / @5 / MRR |
@@ -308,7 +310,7 @@ same corpus and questions:
 | Ask, *late* questions | 5 of 6 (was 0) | 6 of 6 (was 0) |
 
 With bge-m3, one diagram question (*how does a change get to production*) is now missed. The
-weaknesses below are as measured before 1.36.0; the first and the fourth are what it mends.
+weaknesses below are as measured before 1.38.0; the first and the fourth are what it mends.
 
 **What is weak, by these numbers:**
 
@@ -355,6 +357,19 @@ cargo test --release -p coxswain-core --test perf -- --ignored --nocapture   # l
 cargo test --release -p coxswain --bin coxswain -- --ignored --nocapture perf_ # terminal frames
 cargo test --release -p coxswain-gui -- --ignored --nocapture perf_            # list_dir JSON
 ```
+
+**Search by meaning on the CPU and on a Mac's GPU:** with the model downloaded (`coxswain
+--meaning on`), from a checkout of the repository:
+
+```sh
+cargo test --release -p coxswain-core --test perf perf_meaning_cpu_and_gpu -- --ignored --nocapture
+```
+
+It turns 256 passages of about 120 words into vectors twice, on the CPU only and where `auto`
+puts the model, and prints passages per second for each, with where it ran and, on the GPU, how
+many times as fast the probe was: `cpu : 4 passages/s` and `auto: … passages/s (Runs { metal:
+true, faster: …, … })`. The CPU line is from a busy Linux machine with two threads; on Linux and
+Windows both lines are the CPU.
 
 The page is measured with the real details view (or thumbnails, with `&view=grid`) mounted
 in a browser: `cd gui && npx vite --port 1421`, then open `http://localhost:1421/bench/index.html?n=100000` (or headless:

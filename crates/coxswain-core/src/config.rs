@@ -234,6 +234,10 @@ actions! {
     Duplicates = "duplicates", "Find duplicates", Search, ["Ctrl+D"];
     // Git, the most used first.
     History = "history", "Git history", Git, ["Ctrl+G"];
+    Branches = "branches", "Git branches", Git, ["Alt+B"];
+    SwitchBranch = "switch_branch", "Switch to branch", Git, ["Alt+S"];
+    Worktrees = "worktrees", "Git worktrees", Git, ["Alt+W"];
+    NewBranch = "new_branch", "New branch here", Git, [];
     // Viewing and editing, the most used first.
     View = "view", "View", Viewing, ["F3"];
     Edit = "edit", "Edit", Viewing, ["F4"];
@@ -810,7 +814,7 @@ pub struct SearchConfig {
     pub names_only: Vec<PathBuf>,
     /// Search by meaning too (a language model, downloaded when this is turned on).
     pub meaning: bool,
-    /// Which model makes the vectors: "builtin" (downloaded, runs on the CPU here), "ollama"
+    /// Which model makes the vectors: "builtin" (downloaded, runs here), "ollama"
     /// (an Ollama server's `/api/embed`) or "openai" (any `/v1/embeddings`: LM Studio,
     /// Lemonade, llama.cpp, vLLM, OpenAI itself).
     pub meaning_engine: String,
@@ -822,6 +826,9 @@ pub struct SearchConfig {
     /// The environment variable that holds the server's API key, if it wants one; the key
     /// itself is never written into this file.
     pub meaning_key_env: String,
+    /// Where the built-in model runs: "auto" (Apple's GPU through Metal on a Mac that has one,
+    /// the CPU elsewhere) or "cpu".
+    pub meaning_device: String,
     /// Ask: the chat model that answers questions from the closest passages, on the server
     /// above (Ollama on this machine when the vectors are the built-in model's), e.g.
     /// `qwen3:8b`. Empty: Ask is not set up.
@@ -861,6 +868,7 @@ impl Default for SearchConfig {
             meaning_url: String::new(),
             meaning_model: String::new(),
             meaning_key_env: String::new(),
+            meaning_device: "auto".into(),
             ask_model: String::new(),
             text_max_size: 20 * 1024 * 1024,
             archives: true,
