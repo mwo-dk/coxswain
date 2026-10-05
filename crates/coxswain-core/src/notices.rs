@@ -90,6 +90,11 @@ pub fn all(cfg: &Config, status: &Status, state: &AppState, terminal: bool) -> V
         let text = if terminal { t!("notice.language_new_tui", "language" => l.name) } else { t!("notice.language_new", "language" => l.name) };
         all.push(Notice { id: format!("language-{}", l.code), text, settings: Some("language") });
     }
+    // A new translation in use: where to suggest a better word.
+    if let Some(l) = crate::i18n::find(crate::i18n::language()).filter(|l| l.new) {
+        let text = if terminal { t!("notice.language_new_tui", "language" => l.name) } else { t!("notice.language_new", "language" => l.name) };
+        all.push(Notice { id: format!("language-{}", l.code), text, settings: Some("language") });
+    }
     // The helper found no tesseract: pictures and scans have no words to search.
     if cfg.search.text && status.tools.iter().any(|(name, there)| name == "tesseract" && !there) {
         all.push(Notice { id: "tesseract".into(), text: t!("notice.tesseract"), settings: Some("search") });
