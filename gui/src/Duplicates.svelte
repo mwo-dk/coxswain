@@ -2,7 +2,7 @@
   // Find duplicate files and folders (the engine is coxswain-core's dupes.rs): pick where to look,
   // scan, review the groups, mark the copies to remove, move them to the trash.
   import { ui, tab, otherTab, cd } from "./app.svelte.js";
-  import { invoke, convertFileSrc, size, date, basename, parent, previewKind } from "./lib.js";
+  import { invoke, convertFileSrc, size, date, basename, parent, previewKind, composing } from "./lib.js";
   import { t, tn, num } from "./i18n.svelte.js";
 
   const d = ui.modal;
@@ -152,7 +152,7 @@
           {p === home ? "~" : p.startsWith(home + "/") ? "~/" + p.slice(home.length + 1) : p}
         </label>
       {/each}
-      <input class="add" bind:value={extra} placeholder={t("dupes.add_folder")} spellcheck="false" onkeydown={(e) => e.key === "Enter" && (e.stopPropagation(), addRoot())} />
+      <input class="add" bind:value={extra} placeholder={t("dupes.add_folder")} spellcheck="false" onkeydown={(e) => e.key === "Enter" && !composing(e) && (e.stopPropagation(), addRoot())} />
     </div>
     <div class="opts">
       <label>{t("dupes.min_size")}
@@ -255,7 +255,7 @@
     margin: 0;
     flex: 1;
     font-size: 1.05em;
-    font-family: var(--icon-font), var(--font);
+    font-family: var(--icon-font), var(--font), var(--cjk);
   }
   button {
     font: inherit;

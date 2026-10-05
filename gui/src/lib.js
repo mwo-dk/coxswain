@@ -34,8 +34,13 @@ const NAMED = {
 // physical key for these.
 const CODES = { Period: ".", Comma: ",", Minus: "-", Equal: "=", Slash: "/", Semicolon: ";", Space: "Space" };
 
-/** The canonical key string, exactly as coxswain-core's `Key` displays it. */
+/** A key pressed while an input method (Japanese, Korean, Chinese …) is still composing: it
+ *  belongs to the composition, not to Coxswain. WebKit marks some of them only by keyCode 229. */
+export const composing = (e) => e.isComposing || e.keyCode === 229;
+
+/** The canonical key string, exactly as coxswain-core's `Key` displays it; "" while composing. */
 export function keyString(e) {
+  if (composing(e)) return "";
   let k = e.key;
   let shift = e.shiftKey;
   if (/^F\d{1,2}$/.test(k)) {

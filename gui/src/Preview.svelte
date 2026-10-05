@@ -875,7 +875,7 @@
     margin: 8px 0;
   }
   .notebook :global(.prompt) {
-    font-family: var(--mono-font);
+    font-family: var(--mono-font), var(--cjk);
     font-size: 0.8em;
     color: var(--hidden-fg);
   }
@@ -885,7 +885,7 @@
   .notebook :global(.out) {
     margin: 4px 0 10px;
     max-width: 100%;
-    font-family: var(--mono-font);
+    font-family: var(--mono-font), var(--cjk);
     font-size: 0.9em;
   }
   .docx :global(img) {
@@ -919,7 +919,7 @@
     font-weight: 600;
   }
   .tree {
-    font-family: var(--mono-font);
+    font-family: var(--mono-font), var(--cjk);
     font-size: 0.9em;
     line-height: 1.5;
   }
@@ -1012,13 +1012,13 @@
   }
   .mail {
     white-space: pre-wrap;
-    font-family: var(--font);
+    font-family: var(--font), var(--cjk);
     margin-top: 12px;
     padding-top: 10px;
     border-top: 1px solid var(--border-fg);
   }
   .facts kbd {
-    font-family: var(--mono-font);
+    font-family: var(--mono-font), var(--cjk);
     font-size: 0.8em;
     padding: 1px 6px;
     border-radius: var(--r-sm);
@@ -1074,7 +1074,7 @@
     border-radius: var(--r);
   }
   .mono {
-    font-family: var(--mono-font);
+    font-family: var(--mono-font), var(--cjk);
     font-size: 0.9em;
     margin: 0;
     white-space: pre;
@@ -1101,7 +1101,7 @@
   }
   .markdown :global(pre),
   .markdown :global(code) {
-    font-family: var(--mono-font);
+    font-family: var(--mono-font), var(--cjk);
     background: var(--dialog-input-bg);
     border-radius: var(--r-sm);
   }
@@ -1136,7 +1136,7 @@
     margin: 0;
   }
   .git {
-    font-family: var(--icon-font), var(--font);
+    font-family: var(--icon-font), var(--font), var(--cjk);
     color: var(--git-branch-fg);
   }
   .link {
@@ -1158,7 +1158,7 @@
   .notes label {
     font-size: 0.85em;
     color: var(--hidden-fg);
-    font-family: var(--icon-font), var(--font);
+    font-family: var(--icon-font), var(--font), var(--cjk);
   }
   textarea {
     font: inherit;

@@ -1,7 +1,7 @@
 <script>
   import { tick } from "svelte";
   import { ui, newTab, load, cd, up, goBack, goForward, focusPane, nextView, openGitView } from "./app.svelte.js";
-  import { invoke, basename, crumbs, size, MARKERS, date } from "./lib.js";
+  import { invoke, basename, crumbs, size, MARKERS, date, composing } from "./lib.js";
   import { t as tr, tn } from "./i18n.svelte.js"; // `t` is the tab here
   import DetailsView from "./DetailsView.svelte";
   import ColumnsView from "./ColumnsView.svelte";
@@ -90,6 +90,7 @@
         bind:value={pathValue}
         spellcheck="false"
         onkeydown={(e) => {
+          if (composing(e)) return;
           if (e.key === "Enter") submitPath();
           if (e.key === "Escape") editing = false;
           e.stopPropagation();
@@ -354,7 +355,7 @@
     font-size: inherit;
     cursor: pointer;
     white-space: nowrap;
-    font-family: var(--icon-font), var(--font);
+    font-family: var(--icon-font), var(--font), var(--cjk);
     color: var(--git-branch-fg);
     overflow: hidden;
     text-overflow: ellipsis;

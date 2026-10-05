@@ -605,6 +605,7 @@
  "news.new": "uus",
  "news.show_me": "Näita",
  "news.title": "Mis on uut",
+ "notice.cjk_font": "Jaapani ega korea fonti pole paigaldatud, seega võivad tähed paista kastikestena. Paigalda mõni, näiteks noto-fonts-cjk (Arch), fonts-noto-cjk (Debian, Ubuntu) või google-noto-sans-cjk-fonts (Fedora).",
  "notice.cloud": "Leiti {names}: ainult võrgus olevad failid leitakse ainult nime järgi, nii et midagi ei laadita alla. Muuda seadetes",
  "notice.cloud_tui": "Leiti {names}: ainult võrgus olevad failid leitakse ainult nime järgi, nii et midagi ei laadita alla. cloud = \"all\" failis config.toml loeb need",
  "notice.history": "Uus: {key} giti hoidla faili või kausta peal näitab selle ajalugu commiti kaupa",

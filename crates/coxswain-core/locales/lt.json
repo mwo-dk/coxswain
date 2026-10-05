@@ -636,6 +636,7 @@
  "news.new": "nauja",
  "news.show_me": "Parodyti",
  "news.title": "Kas naujo",
+ "notice.cjk_font": "Neįdiegtas joks japonų ar korėjiečių šriftas, todėl raidės gali būti rodomos kaip kvadratėliai. Įdiekite kurį nors, pavyzdžiui, noto-fonts-cjk (Arch), fonts-noto-cjk (Debian, Ubuntu) arba google-noto-sans-cjk-fonts (Fedora).",
  "notice.cloud": "Rasta {names}: failai, kurie yra tik internete, randami tik pagal pavadinimą, todėl niekas neatsisiunčiama. Pakeiskite nustatymuose",
  "notice.cloud_tui": "Rasta {names}: failai, kurie yra tik internete, randami tik pagal pavadinimą, todėl niekas neatsisiunčiama. cloud = \"all\" faile config.toml juos skaito",
  "notice.history": "Nauja: {key} ant failo ar aplanko git saugykloje parodo jo istoriją, commit po commit",

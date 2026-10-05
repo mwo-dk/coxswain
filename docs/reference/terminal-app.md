@@ -57,7 +57,7 @@ Every flag: [Command-line flags](command-line-flags.md#the-terminal-app-coxswain
 | Git history as folders (**Ctrl+G**): the commits of a file or folder, the files as they were, **F3** and **F5** on them | [Git history in the terminal app](#git-history-in-the-terminal-app) |
 | Git branches (**Alt+B**) and worktrees (**Alt+W**): a branch's files, switching (**Alt+S**), new branches | [Git branches and worktrees](../panels/git-branches.md#in-the-terminal-app) |
 | Every theme's colours, Nerd Font or ASCII glyphs, your own themes | [Themes](../customise/themes.md), [Glyphs and fonts](../customise/glyphs-and-fonts.md) |
-| All 24 languages (`coxswain --languages` lists them) | [Languages](../customise/languages.md) |
+| All 26 languages (`coxswain --languages` lists them) | [Languages](../customise/languages.md) |
 | Your own keys from `[keys]` | [Changing keys](../customise/keys.md) |
 | The command list (**F9**) and help (**F1**) | [The command list](../panels/command-list.md) |
 | The mouse: click, double-click, right-click marks, wheel | [The mouse](../panels/mouse.md) |

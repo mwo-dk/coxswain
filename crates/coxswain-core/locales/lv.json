@@ -636,6 +636,7 @@
  "news.new": "jauns",
  "news.show_me": "Parādīt",
  "news.title": "Jaunumi",
+ "notice.cjk_font": "Nav instalēts neviens japāņu vai korejiešu fonts, tāpēc burti var izskatīties kā kvadrātiņi. Instalē kādu, piemēram, noto-fonts-cjk (Arch), fonts-noto-cjk (Debian, Ubuntu) vai google-noto-sans-cjk-fonts (Fedora).",
  "notice.cloud": "Atrasts {names}: faili, kas ir tikai tiešsaistē, tiek atrasti tikai pēc nosaukuma, tāpēc nekas netiek lejupielādēts. Mainiet iestatījumos",
  "notice.cloud_tui": "Atrasts {names}: faili, kas ir tikai tiešsaistē, tiek atrasti tikai pēc nosaukuma, tāpēc nekas netiek lejupielādēts. cloud = \"all\" failā config.toml tos lasa",
  "notice.history": "Jaunums: {key} uz faila vai mapes git repozitorijā parāda tā vēsturi, commit pa commit",

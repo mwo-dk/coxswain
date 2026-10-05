@@ -605,6 +605,7 @@
  "news.new": "uusi",
  "news.show_me": "Näytä",
  "news.title": "Uutta",
+ "notice.cjk_font": "Japanin- tai koreankielistä fonttia ei ole asennettu, joten merkit voivat näkyä laatikkoina. Asenna jokin, esimerkiksi noto-fonts-cjk (Arch), fonts-noto-cjk (Debian, Ubuntu) tai google-noto-sans-cjk-fonts (Fedora).",
  "notice.cloud": "Löytyi {names}: vain verkossa olevat tiedostot löytyvät vain nimellä, joten mitään ei ladata. Muuta asetuksista",
  "notice.cloud_tui": "Löytyi {names}: vain verkossa olevat tiedostot löytyvät vain nimellä, joten mitään ei ladata. cloud = \"all\" tiedostossa config.toml lukee ne",
  "notice.history": "Uutta: {key} git-repositorion tiedoston tai kansion kohdalla näyttää sen historian commit kerrallaan",
