@@ -72,7 +72,7 @@
   onscroll={(ev) => (top = ev.currentTarget.scrollTop)}
 >
   <div class="tiles" bind:this={tiles} style:padding-top="{PAD + first * step}px" style:padding-bottom="{PAD + (rows - last) * step}px">
-    {#each t.items.slice(first * cols, last * cols) as e, j (e.path)}
+    {#each t.items.slice(first * cols, last * cols) as e, j (e.name === ".." ? "\0.." : e.path)}
       {@const i = first * cols + j}
       <!-- svelte-ignore a11y_click_events_have_key_events -->
       <div

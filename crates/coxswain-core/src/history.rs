@@ -15,6 +15,24 @@ use crate::fs::Entry;
 
 /// The path segment after a file or folder that leads into its history.
 pub const MARKER: &str = "@history";
+/// The path segment after a repository's folder that leads to its branches (`branches`).
+pub const BRANCHES: &str = "@branches";
+/// The path segment after a repository's folder that leads to its worktrees (`branches`).
+pub const WORKTREES: &str = "@worktrees";
+
+/// What a marker leads to: a history's commits, the branches, or the worktrees. Below a
+/// commit or a branch, it is all the same: the folder at that commit.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum View {
+    History,
+    Branches,
+    Worktrees,
+}
+
+fn view_of(name: &std::ffi::OsStr) -> Option<View> {
+    [(MARKER, View::History), (BRANCHES, View::Branches), (WORKTREES, View::Worktrees)].into_iter().find(|(m, _)| name == *m).map(|(_, v)| v)
+}
 /// Commits a history lists at most.
 pub const MAX_COMMITS: usize = 2000;
 /// Commits the last-change walk reads at most: an entry not changed in them is "older".
@@ -24,7 +42,7 @@ const BUDGET: Duration = Duration::from_secs(4);
 /// Characters of a commit id in paths: unique in any repository there is.
 const ID: usize = 12;
 
-fn git(dir: &Path) -> Command {
+pub(crate) fn git(dir: &Path) -> Command {
     let mut c = crate::git::command(dir);
     // Paths are names, never patterns.
     c.env("GIT_LITERAL_PATHSPECS", "1");
@@ -32,7 +50,7 @@ fn git(dir: &Path) -> Command {
 }
 
 /// What `c` prints, or its complaint as the error.
-fn run(mut c: Command) -> io::Result<Vec<u8>> {
+pub(crate) fn run(mut c: Command) -> io::Result<Vec<u8>> {
     let o = c.output()?;
     if !o.status.success() {
         let why = String::from_utf8_lossy(&o.stderr).trim().to_string();
@@ -80,11 +98,13 @@ pub struct At {
     pub base: PathBuf,
     pub commit: Option<String>,
     pub inner: String,
+    pub view: View,
 }
 
-/// Whether `path` has the history marker in it, without looking at the disk.
+/// Whether `path` has a history's (or the branches', or the worktrees') marker in it, without
+/// looking at the disk.
 pub fn is_history(path: &Path) -> bool {
-    path.components().any(|c| c.as_os_str() == MARKER)
+    path.components().any(|c| view_of(c.as_os_str()).is_some())
 }
 
 /// The path of `target`'s history, or of the folder it is in at `commit`.
@@ -100,10 +120,10 @@ pub fn path(target: &Path, commit: Option<&str>) -> PathBuf {
 /// on disk (and is not itself a real entry named so).
 pub fn split(path: &Path) -> Option<At> {
     let comps: Vec<Component> = path.components().collect();
-    let i = comps.iter().position(|c| c.as_os_str() == MARKER)?;
+    let (i, view) = comps.iter().enumerate().find_map(|(i, c)| Some((i, view_of(c.as_os_str())?)))?;
     let target: PathBuf = comps[..i].iter().collect();
     let meta = std::fs::metadata(&target).ok()?;
-    if std::fs::symlink_metadata(target.join(MARKER)).is_ok() {
+    if std::fs::symlink_metadata(path_of(&target, view)).is_ok() || (view != View::History && !meta.is_dir()) {
         return None;
     }
     let base = if meta.is_dir() { target.clone() } else { target.parent()?.to_path_buf() };
@@ -113,13 +133,24 @@ pub fn split(path: &Path) -> Option<At> {
         rest.push(s.to_str()?.to_string());
     }
     let commit = match rest.first() {
+        // The worktrees are folders on disk: nothing below the list.
+        Some(_) if view == View::Worktrees => return None,
         Some(c) if (4..=40).contains(&c.len()) && c.bytes().all(|b| b.is_ascii_hexdigit()) => Some(c.clone()),
         Some(_) => return None,
         None => None,
     };
     let inner = rest.get(1..).unwrap_or_default().join("/");
     // A file's history at a commit starts in its folder.
-    Some(At { target, base, commit, inner })
+    Some(At { target, base, commit, inner, view })
+}
+
+/// The path of a folder's list of branches or worktrees, or of its history.
+pub fn path_of(dir: &Path, view: View) -> PathBuf {
+    dir.join(match view {
+        View::History => MARKER,
+        View::Branches => BRANCHES,
+        View::Worktrees => WORKTREES,
+    })
 }
 
 /// A commit: its id, time (seconds), author and subject.
@@ -220,6 +251,11 @@ fn inner_spec(inner: &str) -> String {
 pub fn list(dir: &Path, at: &At) -> io::Result<Vec<Entry>> {
     let up = |path: PathBuf| Entry { name: "..".into(), path, is_dir: true, is_symlink: false, is_exec: false, hidden: false, size: 0, modified: 0, created: 0, online: false };
     let Some(rev) = &at.commit else {
+        match at.view {
+            View::Branches => return Ok(std::iter::once(up(at.base.clone())).chain(crate::branches::entries(&at.base)?).collect()),
+            View::Worktrees => return Ok(std::iter::once(up(at.base.clone())).chain(crate::branches::worktree_entries(&at.base)?).collect()),
+            View::History => {}
+        }
         let commits = commits_of(at)?;
         let mut out = vec![up(at.base.clone())];
         out.extend(commits.iter().map(|c| Entry {
@@ -458,6 +494,20 @@ pub fn last_changes_cached(dir: &Path) -> Option<Arc<Lasts>> {
 /// done: `None` for the map when none is kept.
 pub fn last_changes_since(dir: &Path, have: Option<&str>, cached: bool) -> Option<(String, Option<Arc<Lasts>>)> {
     let (base, rev, inner) = match split(dir) {
+        Some(at) if at.commit.is_none() && at.view == View::Worktrees => return None,
+        Some(at) if at.commit.is_none() && at.view == View::Branches => {
+            let lasts = crate::branches::lasts(&at.base).ok()?;
+            // Branches move without HEAD moving: what the map holds says whether it is new.
+            let key = format!("{:x}", {
+                use std::hash::{Hash, Hasher};
+                let mut h = std::collections::hash_map::DefaultHasher::new();
+                let mut all: Vec<_> = lasts.iter().map(|(k, v)| (k, v.as_ref().map(|l| &l.hash))).collect();
+                all.sort();
+                all.hash(&mut h);
+                h.finish()
+            });
+            return Some((key.clone(), (have != Some(key.as_str())).then(|| Arc::new(lasts))));
+        }
         Some(at) if at.commit.is_none() => {
             let oid = rev_oid(&at.base, "HEAD")?;
             if have == Some(oid.as_str()) {
@@ -884,7 +934,7 @@ pub(crate) mod tests {
         let commit = git_in(&["-c", "user.name=t", "-c", "user.email=t@t", "commit-tree", &tree, "-m", "x"], "");
         let dest = d.join("dest");
         std::fs::create_dir(&dest).unwrap();
-        let at = At { target: d.clone(), base: d.clone(), commit: Some(commit), inner: String::new() };
+        let at = At { target: d.clone(), base: d.clone(), commit: Some(commit), inner: String::new(), view: View::History };
         let _ = copy_out(&at, &dest);
         assert!(!outside.join("evil").exists(), "written through the link");
         assert!(std::fs::read_dir(&dest).unwrap().flatten().all(|e| !e.path().join(".git").exists()));

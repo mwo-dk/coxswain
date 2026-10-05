@@ -10,11 +10,13 @@ use crate::config::Glyphs;
 /// git in `dir`, kept from running what a repository's own config names, since a folder may be
 /// a repository someone else made (a download, an unpacked archive): no file system monitor, no
 /// signature checker, no fetch of missing objects (and so no ssh command), and none of its
-/// filter drivers, which `status` and `diff` would run on every file they look at. No locks
-/// taken. Config from the system and the user (git-lfs, say) still holds.
+/// filter drivers, which `status` and `diff` would run on every file they look at, and no hooks
+/// (a switch of branches would run its post-checkout). No locks taken. Config from the system
+/// and the user (git-lfs, say) still holds.
 pub fn command(dir: &Path) -> Command {
     let mut c = crate::tools::command("git");
-    c.args(["-c", "core.fsmonitor=false", "-c", "log.showSignature=false", "-c", "protocol.allow=never", "-C"])
+    let no_hooks = if cfg!(windows) { "core.hooksPath=NUL" } else { "core.hooksPath=/dev/null" };
+    c.args(["-c", "core.fsmonitor=false", "-c", "log.showSignature=false", "-c", "protocol.allow=never", "-c", no_hooks, "-C"])
         .arg(dir)
         .env("GIT_OPTIONAL_LOCKS", "0")
         .env("GIT_NO_LAZY_FETCH", "1")
@@ -29,7 +31,7 @@ pub fn command(dir: &Path) -> Command {
 }
 
 /// Settings that turn off every filter driver the repository at `dir` defines itself.
-fn repo_filters(dir: &Path) -> Vec<(String, &'static str)> {
+pub(crate) fn repo_filters(dir: &Path) -> Vec<(String, &'static str)> {
     let out = crate::tools::command("git")
         .arg("-C")
         .arg(dir)
@@ -85,6 +87,21 @@ pub struct Summary {
     pub untracked: u32,
     pub conflicts: u32,
     pub stash: u32,
+    /// The folder name of a linked worktree (none in the main one).
+    pub worktree: Option<String>,
+    /// What is under way, from git's state files: `merge`, `rebase`, `cherry_pick`, `revert`
+    /// or `bisect`.
+    pub operation: Option<&'static str>,
+}
+
+/// What `git_dir` says is under way, by the files git keeps while it is.
+pub fn operation(git_dir: &Path) -> Option<&'static str> {
+    let has = |f: &str| git_dir.join(f).exists();
+    // `git am` keeps its state where a rebase does: not a rebase.
+    if has("rebase-merge") || (has("rebase-apply") && !has("rebase-apply/applying")) {
+        return Some("rebase");
+    }
+    [("MERGE_HEAD", "merge"), ("CHERRY_PICK_HEAD", "cherry_pick"), ("REVERT_HEAD", "revert"), ("BISECT_LOG", "bisect")].into_iter().find(|(f, _)| has(f)).map(|(_, op)| op)
 }
 
 #[derive(Clone, Debug, Default, Serialize)]
@@ -110,10 +127,19 @@ impl Status {
                 .filter(|o| o.status.success())
                 .map(|o| o.stdout)
         };
-        let root = git(&["rev-parse", "--show-toplevel"])?;
-        let root = PathBuf::from(String::from_utf8_lossy(&root).trim_end());
+        let dirs = git(&["rev-parse", "--show-toplevel", "--absolute-git-dir", "--git-common-dir"])?;
+        let dirs = String::from_utf8_lossy(&dirs);
+        let mut dirs = dirs.lines().map(PathBuf::from);
+        let (root, git_dir, common) = (dirs.next()?, dirs.next()?, dir.join(dirs.next()?));
         let out = git(&["status", "--porcelain=v2", "--branch", "--show-stash", "-z", "-unormal", "--ignored=matching", "--ignore-submodules=dirty"])?;
-        Some(Status::parse(&root, &String::from_utf8_lossy(&out)))
+        let mut st = Status::parse(&root, &String::from_utf8_lossy(&out));
+        // A linked worktree's git folder is its own, under the common one's `worktrees`.
+        let same = |a: &Path, b: &Path| a.canonicalize().ok() == b.canonicalize().ok();
+        if !same(&git_dir, &common) {
+            st.summary.worktree = root.file_name().map(|n| n.to_string_lossy().into_owned());
+        }
+        st.summary.operation = operation(&git_dir);
+        Some(st)
     }
 
     pub fn parse(root: &Path, out: &str) -> Status {
@@ -205,7 +231,7 @@ impl Status {
     pub fn prompt(&self, g: &Glyphs) -> String {
         let s = &self.summary;
         let head = match (&s.detached, s.branch.as_str()) {
-            (Some(oid), "(detached)") => oid.clone(),
+            (Some(oid), "(detached)") => crate::t!("git.detached", "commit" => oid),
             _ => s.branch.clone(),
         };
         let mut out = format!("{} {head}", g.branch);
@@ -225,6 +251,12 @@ impl Status {
         }
         if s.staged + s.modified + s.deleted + s.untracked + s.conflicts == 0 {
             out += &format!(" {}", g.clean);
+        }
+        if let Some(w) = &s.worktree {
+            out += &format!(" · {}", crate::t!("git.worktree", "name" => w));
+        }
+        if let Some(op) = s.operation {
+            out += &format!(" · {}", crate::t!(&format!("git.op_{op}")));
         }
         out
     }

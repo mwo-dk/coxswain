@@ -167,7 +167,8 @@ impl Panel {
     }
 
     fn select_name(&mut self, name: &str) {
-        if let Some(i) = self.entries.iter().position(|e| e.name == name) {
+        // A commit's or a branch's folder is named by its commit id, listed by its subject.
+        if let Some(i) = self.entries.iter().position(|e| e.name == name).or_else(|| self.entries.iter().position(|e| e.path.file_name().is_some_and(|n| n == name))) {
             self.cursor = i;
         }
     }
@@ -207,6 +208,8 @@ pub enum Prompt {
     /// A locked archive's password, to view the file inside it with (F3).
     Peek(PathBuf),
     Mkdir,
+    /// A new branch's name: in this folder (or list of branches), from this branch of the list.
+    NewBranch(PathBuf, Option<String>),
     Goto(usize),
     Select(bool),
 }
@@ -237,6 +240,8 @@ pub enum Dialog {
     Input { title: String, label: String, value: String, prompt: Prompt },
     /// Delete `paths`; `forever` skips the trash.
     Confirm { title: String, text: String, paths: Vec<PathBuf>, forever: bool },
+    /// Switch to the branch `entry` of the list of branches `dir`.
+    Switch { title: String, text: String, dir: PathBuf, entry: String },
     /// `mode`: 0 names everywhere, 1 names in this folder, 2 the text of files, 3 Ask (its
     /// questions and answers are in `App::chat`).
     Search { query: String, mode: u8, results: Results, cursor: usize, offset: usize },
@@ -266,7 +271,7 @@ enum AskMsg {
 
 /// What git tells of a panel's folder, as it comes: the status, then each entry's last commit.
 enum Git {
-    Status(Option<git::Status>),
+    Status(Option<Box<git::Status>>),
     Last(Option<Arc<Lasts>>),
 }
 
@@ -502,7 +507,7 @@ impl App {
             std::thread::spawn(move || {
                 let st = git::Status::read(&dir);
                 let repo = st.is_some() || history::is_history(&dir);
-                if tx.send((dir.clone(), Git::Status(st))).is_ok() && last && repo {
+                if tx.send((dir.clone(), Git::Status(st.map(Box::new)))).is_ok() && last && repo {
                     let _ = tx.send((dir.clone(), Git::Last(history::last_changes(&dir))));
                 }
             });
@@ -716,6 +721,10 @@ impl App {
                 }
             }
             Action::History => self.history(),
+            Action::Branches => self.git_view(history::View::Branches),
+            Action::Worktrees => self.git_view(history::View::Worktrees),
+            Action::SwitchBranch => self.switch_branch(),
+            Action::NewBranch => self.new_branch(),
             Action::Mark => {
                 let p = self.panel_mut();
                 p.toggle_mark(p.cursor);
@@ -957,6 +966,57 @@ impl App {
         self.cd(self.active, history::path(&target, None));
     }
 
+    /// To the branches or the worktrees of the repository this folder is in.
+    fn git_view(&mut self, view: history::View) {
+        let p = self.panel();
+        // From the branches to the worktrees (and back), and inside a branch.
+        let listed = history::split(&p.dir).filter(|at| at.view != history::View::History).map(|at| at.base);
+        if listed.is_none() && (history::is_history(&p.dir) || coxswain_core::archive::split(&p.dir).is_some()) {
+            return self.status = Some(t!("branches.not_here"));
+        }
+        let Some(root) = listed.or_else(|| p.git.as_ref().map(|g| g.root.clone())) else { return self.status = Some(t!("branches.no_repo")) };
+        self.cd(self.active, history::path_of(&root, view));
+    }
+
+    /// The branch under the cursor in the list of branches: asked first, then `git switch`.
+    fn switch_branch(&mut self) {
+        let p = self.panel();
+        let in_list = history::split(&p.dir).is_some_and(|at| at.view == history::View::Branches && at.commit.is_none());
+        let Some(e) = p.current().filter(|e| in_list && !e.is_parent()) else {
+            return self.status = Some(t!("branches.switch_where", "key" => self.key_label(Action::Branches)));
+        };
+        let branch = e.name.trim_start_matches("* ").split(' ').next().unwrap_or_default().replace('∕', "/");
+        let repo = p.dir.parent().and_then(Path::file_name).unwrap_or_default().to_string_lossy().into_owned();
+        let text = t!("branches.switch_text", "branch" => branch, "repo" => repo);
+        self.dialog = Some(Dialog::Switch { title: t!("action.switch_branch"), text, dir: p.dir.clone(), entry: e.name.clone() });
+    }
+
+    /// A name for a new branch: from the branch under the cursor in the list of branches, or
+    /// from the current commit.
+    fn new_branch(&mut self) {
+        let p = self.panel();
+        let in_list = history::split(&p.dir).is_some_and(|at| at.view == history::View::Branches && at.commit.is_none());
+        if !in_list && (p.git.is_none() || history::is_history(&p.dir)) {
+            return self.status = Some(t!("branches.no_repo"));
+        }
+        let from = p.current().filter(|e| in_list && !e.is_parent()).map(|e| e.name.clone());
+        let label = match &from {
+            Some(e) => t!("branches.new_from", "branch" => e.trim_start_matches("* ").split(' ').next().unwrap_or_default().replace('∕', "/")),
+            None => t!("branches.new_here"),
+        };
+        self.input(&t!("action.new_branch"), label, String::new(), Prompt::NewBranch(p.dir.clone(), from));
+    }
+
+    /// What git said, on the status line; when it refused, in a dialog, as it can be long.
+    fn git_said(&mut self, title: String, r: std::io::Result<String>) {
+        // Listed again first: a list of branches says it is busy meanwhile, which would hide this.
+        self.reload();
+        match r {
+            Ok(said) => self.status = Some(said.lines().next().unwrap_or_default().to_string()),
+            Err(e) => self.dialog = Some(Dialog::Message { title, text: e.to_string() }),
+        }
+    }
+
     fn view_or_edit(&mut self, a: Action, file: &Path) {
         let env = |v: &str| std::env::var(v).ok().filter(|s| !s.is_empty());
         let prog = if a == Action::View {
@@ -1161,6 +1221,12 @@ impl App {
             Prompt::PackPassword(src, to) => self.input(&t!("archive.pack"), t!("archive.pack_confirm"), String::new(), Prompt::PackConfirm(src, to, value)),
             Prompt::PackConfirm(src, to, pw) if pw == value => self.pack(src, to, Some(pw)),
             Prompt::PackConfirm(..) => self.status = Some(t!("archive.pack_mismatch")),
+            Prompt::NewBranch(..) if value.trim().is_empty() => {}
+            // ponytail: git runs on the UI thread; a switch in a huge work tree holds the keys meanwhile.
+            Prompt::NewBranch(dir, from) => {
+                let r = coxswain_core::branches::create(&dir, &value, from.as_deref());
+                self.git_said(t!("action.new_branch"), r);
+            }
             Prompt::Mkdir if value.trim().is_empty() => {}
             Prompt::Mkdir => {
                 let d = resolve(&base, &value);
@@ -1309,6 +1375,14 @@ impl App {
                 (KeyCode::Enter, _) | (_, Some('y' | 'Y')) => self.delete(paths, forever),
                 _ if esc || matches!(ch, Some('n' | 'N')) => {}
                 _ => self.dialog = Some(Dialog::Confirm { title, text, paths, forever }),
+            },
+            Dialog::Switch { title, text, dir, entry } => match (key.code, ch) {
+                (KeyCode::Enter, _) | (_, Some('y' | 'Y')) => {
+                    let r = coxswain_core::branches::switch(&dir, &entry);
+                    self.git_said(title, r);
+                }
+                _ if esc || matches!(ch, Some('n' | 'N')) => {}
+                _ => self.dialog = Some(Dialog::Switch { title, text, dir, entry }),
             },
             Dialog::Search { mut query, mode: 3, results, mut cursor, offset } => {
                 let sources = self.chat.last().map(|t| t.sources.clone()).unwrap_or_default();
@@ -1587,7 +1661,7 @@ impl App {
         while let Ok((dir, news)) = self.git_rx.try_recv() {
             for p in self.panels.iter_mut().filter(|p| p.dir == dir) {
                 match &news {
-                    Git::Status(st) => p.git = st.clone(),
+                    Git::Status(st) => p.git = st.as_deref().cloned(),
                     Git::Last(last) => p.last = last.clone(),
                 }
             }
@@ -2292,6 +2366,13 @@ mod wide_letters {
             same_columns(&s, "║", top + 1..bottom);
         }
         coxswain_core::i18n::set_language("en-GB");
-        std::fs::remove_dir_all(d).unwrap();
+        // On Windows a git the apps started in the folder (the status, on its thread) may still
+        // be running there for a moment, and a process's folder cannot be removed.
+        for _ in 0..50 {
+            if std::fs::remove_dir_all(&d).is_ok() || !d.exists() {
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(100));
+        }
     }
 }

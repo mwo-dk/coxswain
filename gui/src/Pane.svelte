@@ -1,7 +1,7 @@
 <script>
   import { tick } from "svelte";
-  import { ui, newTab, load, cd, up, goBack, goForward, focusPane, nextView } from "./app.svelte.js";
-  import { invoke, basename, crumbs, size, HISTORY, date, composing } from "./lib.js";
+  import { ui, newTab, load, cd, up, goBack, goForward, focusPane, nextView, openGitView } from "./app.svelte.js";
+  import { invoke, basename, crumbs, size, MARKERS, date, composing } from "./lib.js";
   import { t as tr, tn } from "./i18n.svelte.js"; // `t` is the tab here
   import DetailsView from "./DetailsView.svelte";
   import ColumnsView from "./ColumnsView.svelte";
@@ -10,13 +10,15 @@
   /** @type {{ index: number }} */
   let { index } = $props();
 
-  /** A tab's name: its folder's, but a history's list and a commit's top are named after the
-   *  file or folder the history is of, not "@history" or a commit id. */
+  /** A tab's name: its folder's, but a history's list and a commit's top (and the branches',
+   *  the worktrees') are named after what they are of, not "@history" or a commit id. */
   const tabName = (tb) => {
     const name = basename(tb.dir) || tb.dir;
-    const top = tb.history && (name === HISTORY || tb.dir.endsWith(`${HISTORY}/${name}`) || tb.dir.endsWith(`${HISTORY}\\${name}`));
+    const top = tb.history && MARKERS.some((m) => name === m || tb.dir.endsWith(`${m}/${name}`) || tb.dir.endsWith(`${m}\\${name}`));
     return top ? basename(tb.history.target) : name;
   };
+  /** The badge of a list of commits, branches or worktrees. */
+  const badgeOf = (h) => tr(`${h.view}.badge_of`, { name: basename(h.target) });
 
   const p = $derived(ui.panes[index]);
   const t = $derived(p.tabs[p.active]);
@@ -101,7 +103,7 @@
       <div class="crumbs" role="navigation" onclick={(e) => e.target === e.currentTarget && editPath()} title={tr("pane.path_tip")}>
         {#each crumbs(t.dir, ui.cfg.home) as c, i (c.path)}
           {#if i > 0}<span class="sep flip">{"\u{f054}"}</span>{/if}
-          <button class="crumb" class:archive-crumb={c.path === t.archive || (t.history && c.name === HISTORY)} onclick={() => cd(t, c.path === t.history?.target ? t.history.base : c.path)}>{c.name}</button>
+          <button class="crumb" class:archive-crumb={c.path === t.archive || (t.history && MARKERS.includes(c.name))} onclick={() => cd(t, c.path === t.history?.target ? t.history.base : c.path)}>{c.name}</button>
         {/each}
         {#if t.archive}
           <!-- Inside an archive: said, so a copy out is not taken for a copy between folders. -->
@@ -110,8 +112,8 @@
         {#if t.history}
           <!-- In a history: which file or folder, and which commit, so an old file is not taken for today's. -->
           {@const c = t.history.commit}
-          <span class="archive-badge" title={c ? `${c.hash}\n${c.author} · ${date(c.time)}\n${c.subject}` : tr("history.inside_tip")}>
-            {"\u{f1da}"} {c ? tr("history.badge_at", { commit: c.hash.slice(0, 7) }) : tr("history.badge_of", { name: basename(t.history.target) })}
+          <span class="archive-badge" title={c ? `${c.hash}\n${c.author} · ${date(c.time)}\n${c.subject}` : tr(`${t.history.view}.inside_tip`)}>
+            {t.history.view === "history" ? "\u{f1da}" : "\u{e725}"} {c ? tr("history.badge_at", { commit: c.hash.slice(0, 7) }) : badgeOf(t.history)}
           </span>
         {/if}
       </div>
@@ -137,7 +139,8 @@
   <footer class="foot">
     <span>{tn("items", count)}{#if t.marked.size}&nbsp;· <b>{tn("pane.selected", t.marked.size, { size: size(selBytes) })}</b>{/if}</span>
     {#if t.hasNotes}<span class="note" title={tr("pane.has_notes")}>{"\u{f249}"}</span>{/if}
-    <span class="git-prompt" title={t.git?.root ?? ""}>{t.git?.prompt ?? ""}</span>
+    <!-- The git line: a click shows the branches. -->
+    {#if t.git}<button class="git-prompt" title={`${t.git.root}\n${tr("branches.line_tip")}`} onclick={() => openGitView(false, t)}>{t.git.prompt}</button>{/if}
   </footer>
 </section>
 
@@ -346,6 +349,12 @@
   }
   .git-prompt {
     margin-inline-start: auto;
+    background: none;
+    border: 0;
+    padding: 0;
+    font-size: inherit;
+    cursor: pointer;
+    white-space: nowrap;
     font-family: var(--icon-font), var(--font), var(--cjk);
     color: var(--git-branch-fg);
     overflow: hidden;
