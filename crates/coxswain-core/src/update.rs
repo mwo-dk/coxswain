@@ -89,6 +89,10 @@ fn hint_for(exe: &str, mac_cask: bool) -> Option<&'static str> {
         "brew upgrade coxswain"
     } else if p.contains("/.cargo/bin/") {
         "cargo install coxswain"
+    } else if p.contains("/microsoft/winget/packages/mwo-dk.coxswain.terminal_") {
+        // WinGet unpacks the terminal app's zip under its Packages folder. The desktop installer
+        // lands where a download would, so it gets the releases page.
+        "winget upgrade mwo-dk.Coxswain.Terminal"
     } else {
         return None;
     })
@@ -121,7 +125,8 @@ mod tests {
         assert_eq!(h("/Applications/Coxswain.app/Contents/MacOS/coxswain-gui"), None);
         assert_eq!(h("/home/me/.cargo/bin/coxswain"), Some("cargo install coxswain"));
         assert_eq!(h(r"C:\Users\me\scoop\apps\coxswain\1.2.0\coxswain.exe"), None);
-        assert_eq!(h(r"C:\Users\me\AppData\Local\Microsoft\WinGet\Packages\mwo-dk.Coxswain.Terminal_x\coxswain.exe"), None);
+        assert_eq!(h(r"C:\Users\me\AppData\Local\Microsoft\WinGet\Packages\mwo-dk.Coxswain.Terminal_Microsoft.Winget.Source_8wekyb3d8bbwe\coxswain-terminal-v1.31.0-x86_64-pc-windows-msvc\coxswain.exe"), Some("winget upgrade mwo-dk.Coxswain.Terminal"));
+        assert_eq!(h(r"C:\Users\me\AppData\Local\Coxswain\coxswain-gui.exe"), None);
         assert_eq!(h(r"C:\Program Files\Coxswain\coxswain-gui.exe"), None);
         assert_eq!(h("/home/me/.local/bin/coxswain"), None);
         assert_eq!(h("/home/me/Downloads/Coxswain_1.2.0_amd64.AppImage"), None);
