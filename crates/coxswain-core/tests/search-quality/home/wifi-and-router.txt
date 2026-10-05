@@ -1,0 +1,1 @@
+Home network notes: the router is in the hall cupboard. The guest network is called Visitors and has its own password on the fridge. If the internet stops working, unplug the fibre box for thirty seconds first, then the router. The provider's support number is on the sticker under the fibre box.

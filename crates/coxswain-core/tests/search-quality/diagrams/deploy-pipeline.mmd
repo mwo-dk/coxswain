@@ -1,0 +1,7 @@
+flowchart LR
+  commit[Push to main] --> build[Build and unit tests]
+  build --> image[Container image]
+  image --> staging[Deploy to staging]
+  staging --> smoke[Smoke tests]
+  smoke -->|approved| prod[Deploy to production]
+  smoke -->|failed| rollback[Roll back staging]
