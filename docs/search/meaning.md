@@ -14,6 +14,7 @@ until you turn it on.
 - [How to use it](#how-to-use-it)
 - [What you see](#what-you-see)
 - [How it works](#how-it-works)
+- [On a Mac's GPU](#on-a-macs-gpu)
 - [Settings and config.toml](#settings-and-configtoml)
 - [In the terminal app](#in-the-terminal-app)
 - [Questions](#questions)
@@ -39,7 +40,8 @@ It needs *Search inside files* on: the button is greyed out otherwise. Then:
 
 **Turn it off:** *Turn off* in Settings (or `coxswain --meaning off`) stops it and keeps the model.
 **Delete the model** (or `coxswain --meaning delete`) turns it off and deletes the model.
-`coxswain --meaning` alone prints `on` or `off`.
+`coxswain --meaning` alone prints `on` or `off`, and with the built-in model a second line with
+where it runs: `Built-in model · on the GPU (Metal)`.
 
 ## What you see
 
@@ -54,12 +56,14 @@ words and its meaning is shown once, as a word hit.
   “rocket fuel cost” finds a Danish budget. A small language model (multilingual-e5-small) runs on
   this machine, slowly and never on battery; nothing leaves it. In Find file, Tab to text: such
   files show as “similar to”.*
-- *Vectors made by*: *Built-in model, on this CPU (465 MB once)*, *Ollama*, or *A server with the
+- *Vectors made by*: *Built-in model, on this machine (465 MB once)*, *Ollama*, or *A server with the
   OpenAI API (Lemonade, LM Studio, llama.cpp …)*. The last two are on [their own page](servers.md).
-- While on: *Understood: 8,120 files · still to go: 23,088*, the model in use
+- While on: *Understood: 8,120 files · still to go: 23,088*, where the built-in model runs in
+  bold (*Built-in model · on the GPU (Metal)*, *Built-in model · on the CPU*, or on a Mac that could
+  not use its GPU *Built-in model · on the CPU (this Mac has no Metal GPU to use)*), the model in use
   (`builtin:multilingual-e5-small@614241f6`), the model's folder, any error in red, and on battery
-  *Paused while the machine runs on its battery. Index now reads anyway.* Buttons **Turn off** and
-  **Delete the model**.
+  *Paused while the machine runs on its battery. Index now reads anyway.* On a Mac, the switch
+  *Use the CPU only*. Buttons **Turn off** and **Delete the model**.
 - While off, with the model there: **Turn on** and **Delete the model**. Without it:
   **Download the model (465 MB) and turn on**.
 
@@ -73,7 +77,8 @@ words and its meaning is shown once, as a word hit.
   against its SHA-256 before it is used. It is kept in Coxswain's cache folder under
   `models/multilingual-e5-small-614241f6`.
 - **It runs on the CPU**, with [candle](https://github.com/huggingface/candle) in pure Rust, on two
-  threads, so the machine stays yours. No GPU is needed; for one, see [servers](servers.md).
+  threads, so the machine stays yours, on Linux and Windows. **On a Mac with Apple Silicon it runs
+  on the GPU** through Metal ([below](#on-a-macs-gpu)). For a GPU elsewhere, see [servers](servers.md).
 - **What gets vectors:** the first eight passages of about 120 words of each file with text (the
   start of a document says what it is about). A passage with fewer than 20 letters is skipped.
   Each vector (384 numbers) is packed into bytes and kept in `search.db`.
@@ -84,6 +89,40 @@ words and its meaning is shown once, as a word hit.
   400 closest passages; their full vectors are then scored, and the best passage of each file
   counts.
 
+## On a Mac's GPU
+
+On a Mac the built-in model tries Apple's GPU first, through Metal, and makes the vectors there
+in batches of up to 32 passages: several times faster than on the CPU (the notice says how much
+the probe measured). Nothing changes in what it finds.
+
+**How it decides**, each time the [helper](helper.md) starts:
+
+1. It looks for a Metal GPU. Apple Silicon (M1 and later) has one; most Intel Macs and virtual
+   machines do not, and stay on the CPU.
+2. It loads the model there and turns a probe sentence into a vector on both the GPU and the CPU.
+   The two must point the same way (cosine at least 0.999), and the GPU must be the faster;
+   otherwise the CPU does the work.
+3. If the GPU fails later while it works, the CPU takes over for the rest of the helper's run.
+
+**How to see which:**
+
+| Where | What it says |
+|---|---|
+| Desktop app | *Settings → Search by meaning*, in bold under the counts: *Built-in model · on the GPU (Metal)*, or *Built-in model · on the CPU (why)* |
+| Terminal app | `coxswain --meaning` prints `on`, then `Built-in model · on the GPU (Metal)` |
+| A notice, once | *Search by meaning now uses your Mac's GPU (Metal): about 6× faster*, or on a Mac that could not use it *Search by meaning runs on the CPU: …* with the reason. In the desktop app under *Settings → What's new*, in the terminal app in the status line |
+
+The reasons for the CPU: *chosen in Settings*, *this Mac has no Metal GPU to use*, *the GPU could not
+load the model: …*, *the GPU's results differed from the CPU's (0.9871)*, *the GPU was slower than
+the CPU*, *the GPU failed: …*.
+
+**To keep it on the CPU:** tick *Use the CPU only* in Settings (shown on a Mac only), or run
+`coxswain --meaning cpu`; `coxswain --meaning auto` goes back. Both set `meaning_device` and
+start the helper again. The vectors stay: the GPU and the CPU make the same ones.
+
+On Linux and Windows the built-in model always runs on the CPU; the setting changes nothing there.
+For a GPU on those, use [Ollama or another server](servers.md).
+
 ## Settings and config.toml
 
 | Settings item | Key under `[search]` | Type | Default |
@@ -91,13 +130,16 @@ words and its meaning is shown once, as a word hit.
 | *Turn on* / *Turn off* | `meaning` | bool | `false` |
 | *Vectors made by* | `meaning_engine` | `"builtin"`, `"ollama"` or `"openai"` | `"builtin"` |
 | *Server*, *Embedding model*, *API key from the variable* | `meaning_url`, `meaning_model`, `meaning_key_env` | strings | `""` |
+| *Use the CPU only* (on a Mac) | `meaning_device` | `"auto"` or `"cpu"` | `"auto"` |
 
 The last three are for [servers](servers.md). Search by meaning also needs `text = true`.
 
 ## In the terminal app
 
 The same search: hits by meaning come after word hits, with *similar to:* in front of the
-passage. Turn it on, off or delete it with `coxswain --meaning on|off|delete`. There is no status
+passage. Turn it on, off or delete it with `coxswain --meaning on|off|delete`; on a Mac,
+`coxswain --meaning cpu|auto` keeps the built-in model on the CPU or lets it use the GPU, and
+`coxswain --meaning` says where it runs. There is no status
 of *still to go*; the desktop app's Settings shows it, or wait for hits. Find file's text depth
 says *Also find files about your words, in any language: coxswain --meaning on* while it is off.
 When vectors stop coming, its status line says why: *No vectors: http://localhost:11434: Connection
@@ -106,7 +148,7 @@ refused*, or *Reading stopped: …* when reading itself failed.
 ## Questions
 
 #### Why is search by meaning off?
-It needs a 465 MB model that Coxswain does not ship, and CPU time to read your files with it. You
+It needs a 465 MB model that Coxswain does not ship, and CPU (or, on a Mac, GPU) time to read your files with it. You
 choose whether that is worth it: turn it on in Settings or with `coxswain --meaning on`.
 
 #### Why does it find nothing yet?
@@ -122,6 +164,23 @@ model not pulled (`ollama pull bge-m3`, or *Pull* in Settings). *Reading stopped
 failed before the vectors' turn; vectors come only after the text is read. Before 1.26.4 a store
 whose Markdown files were read again after an update failed every scan that way, silently, and
 vectors stopped after the first few hundred files: 1.26.4 mends such a store by itself.
+
+#### Does the built-in model use my Mac's GPU?
+On Apple Silicon, yes: through Metal, in batches, several times faster than the CPU. *Settings →
+Search by meaning* says *Built-in model · on the GPU (Metal)*, and `coxswain --meaning` prints the
+same line. An Intel Mac usually has no Metal GPU the model can use and stays on the CPU, which
+Settings says with the reason. See [On a Mac's GPU](#on-a-macs-gpu).
+
+#### Why does my Mac say "on the CPU"?
+Settings gives the reason in brackets. *this Mac has no Metal GPU to use*: an Intel Mac or a
+virtual machine. *the GPU's results differed from the CPU's*: the GPU's vectors were not the same,
+so they are not used. *the GPU failed*: it broke while working; the next start of the helper
+tries again (*Turn off*, then *Turn on*, or `coxswain --meaning on`). *chosen in Settings*: *Use
+the CPU only* is ticked.
+
+#### How do I keep it off the GPU?
+Tick *Use the CPU only* under *Settings → Search by meaning*, or `coxswain --meaning cpu`. The
+vectors already made stay.
 
 #### Why is it so slow with Ollama?
 Look at `ollama ps`: *100% CPU* means Ollama runs without your graphics card. Install the build of
@@ -148,7 +207,7 @@ Yes. The model is multilingual: a question and a passage about the same thing ge
 whatever their languages.
 
 #### Does it slow my machine down?
-It works on two threads, in batches with rests, and not on battery. Searching is quick; making the
+It works on two threads (or the GPU on a Mac), in batches with rests, and not on battery. Searching is quick; making the
 vectors the first time is the slow part.
 
 #### Why is the button greyed out?

@@ -59,6 +59,8 @@ coxswain [LEFT] [RIGHT]      a folder, or a file to open its folder with the cur
   --meaning ollama [MODEL] the vectors from Ollama here (bge-m3 unless named; pulled if missing)
   --meaning server URL MODEL  the vectors from a server with the OpenAI API (Lemonade, LM Studio)
   --meaning builtin        back to the built-in model
+  --meaning cpu|auto       the built-in model on the CPU only, or on the Mac's GPU (Metal)
+                           when it has one (auto, the default)
   --meaning ask MODEL|off  Ask in Find file: the chat model on that server (Ollama here with the
                            built-in model) that answers questions from your files
   --languages              the languages, by region, and how to help improve a new translation
@@ -77,7 +79,7 @@ coxswain [LEFT] [RIGHT]      a folder, or a file to open its folder with the cur
 | `--paths` | Prints where everything is kept, one line each: `config`, `state`, `cache`, `name index`, `search store`, `model`, `previews`. See [Where things are kept](where-things-are-kept.md) |
 | `--setup-search` | The guided setup of search inside files, by meaning and Ask: see [below](#--setup-search) |
 | `--index-service [on\|off]` | The search helper with your session: see [below](#--index-service) |
-| `--meaning [on\|off\|delete\|ollama\|server\|builtin]` | Search by meaning: see [below](#--meaning) |
+| `--meaning [on\|off\|delete\|ollama\|server\|builtin\|cpu\|auto]` | Search by meaning: see [below](#--meaning) |
 | `--index-helper` | Runs as the search helper instead of the app: see [below](#the-helper---index-helper) |
 | `--languages` | Prints every language under its region, one line each: code, own name, *new* for a fresh translation and *(current)* for the one in use, then where `language` is set and where to suggest a better word. In your language. See [Languages](../customise/languages.md) |
 | `--whats-new` | Prints the changes of the versions you have not read yet, newest first, or of the version you run when you have read them all, then counts them as read (in both apps). Each version is a line `1.29.0  2026-10-04`, then its changes, with each docs link as `Find file <https://github.com/mwo-dk/coxswain/blob/master/docs/search/find-file.md>`. See [Notices and what's new](../search/notices.md) |
@@ -93,7 +95,9 @@ new search helper with the new settings. See [Search by meaning](../search/meani
 
 | Flag | Does |
 |---|---|
-| `--meaning` | Prints `on` when `[search] meaning` is on **and** the built-in model is downloaded, else `off`. With a server and no built-in model it prints `off` even though the search is on |
+| `--meaning` | Prints `on` when `[search] meaning` is on and its engine is ready (the built-in model downloaded, or a server set), else `off`. With the built-in model on, a second line says where it runs: `Built-in model · on the GPU (Metal)`, `Built-in model · on the CPU`, or on a Mac that could not use its GPU `Built-in model · on the CPU (this Mac has no Metal GPU to use)` |
+| `--meaning cpu` | The built-in model on the CPU only, on a Mac too: sets `meaning_device = "cpu"` |
+| `--meaning auto` | The built-in model on the Mac's GPU (Metal) when it can, the CPU elsewhere: sets `meaning_device = "auto"`, the default |
 | `--meaning on` | Downloads the built-in model (multilingual-e5-small, about 488 MB) if it is not there, showing `Downloading the model for search by meaning: 42%`, then sets `meaning = true`. It does not change `meaning_engine` |
 | `--meaning off` | Sets `meaning = false`. The model stays on disk |
 | `--meaning delete` | Sets `meaning = false` and deletes the model folder |

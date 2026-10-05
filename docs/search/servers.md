@@ -20,7 +20,7 @@ Settings, or `coxswain --setup-search`). It has a section per server, with the m
 | Ollama on this machine | *Ollama*. The model `bge-m3` (multilingual, 1.2 GB) is suggested; when the server lacks it, **Pull bge-m3 with Ollama** fetches it, with a progress bar | `coxswain --meaning ollama [MODEL]`: `bge-m3` unless named, pulled when missing (*Pulling bge-m3 with Ollama…*) |
 | Ollama elsewhere | *Ollama*, *Server* `http://evo:11434` | `meaning_url = "http://evo:11434"` in `config.toml`, with `meaning_engine = "ollama"` |
 | Lemonade, LM Studio, … | *A server with the OpenAI API (Lemonade, LM Studio, llama.cpp …)*, *Server* `http://localhost:8000/api/v1` (Lemonade's), then its *Embedding model* from the list | `coxswain --meaning server URL MODEL`, e.g. `coxswain --meaning server http://localhost:8000/api/v1 nomic-embed-text-v1-GGUF` |
-| Back to the built-in model | *Built-in model, on this CPU (465 MB once)* | `coxswain --meaning builtin` (downloads the model if it is not there) |
+| Back to the built-in model | *Built-in model, on this machine (465 MB once)* | `coxswain --meaning builtin` (downloads the model if it is not there) |
 
 Then turn it on, if it is not: **Turn on** in Settings. The terminal commands turn it on
 themselves. The *Server* field is the base URL: Coxswain adds `/api/embed` for Ollama and

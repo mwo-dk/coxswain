@@ -1803,6 +1803,8 @@ const USAGE: &str = "coxswain [LEFT] [RIGHT]      a folder, or a file to open it
   --meaning ollama [MODEL] the vectors from Ollama here (bge-m3 unless named; pulled if missing)
   --meaning server URL MODEL  the vectors from a server with the OpenAI API (Lemonade, LM Studio)
   --meaning builtin        back to the built-in model
+  --meaning cpu|auto       the built-in model on the CPU only, or on the Mac's GPU (Metal)
+                           when it has one (auto, the default)
   --meaning ask MODEL|off  Ask in Find file: the chat model on that server (Ollama here with the
                            built-in model) that answers questions from your files
   --languages              the languages, by region, and how to help improve a new translation
@@ -1913,6 +1915,8 @@ fn meaning(what: Option<&str>, rest: &[String]) {
             save("meaning_model", model);
             Config::save_value(&["search", "meaning"], true.into()).unwrap_or_else(|e| fail(e));
         }
+        // Where the built-in model runs: the Mac's GPU when it can (auto), or the CPU only.
+        Some(device @ ("cpu" | "auto")) => save("meaning_device", device),
         Some("builtin") => {
             confirm(&|c| c.meaning_engine = "builtin".into());
             save("meaning_engine", "builtin");
@@ -1971,8 +1975,14 @@ fn meaning(what: Option<&str>, rest: &[String]) {
             return save("ask_model", model);
         }
         _ => {
-            let on = Config::load().is_ok_and(|c| c.search.meaning && (c.search.meaning_engine != "builtin" || meaning::installed()));
-            return println!("{}", if on { "on" } else { "off" });
+            let search = Config::load().map(|c| c.search).unwrap_or_default();
+            let on = search.meaning && (search.meaning_engine != "builtin" || meaning::installed());
+            println!("{}", if on { "on" } else { "off" });
+            // The built-in model: on the GPU (Metal) or on the CPU, and why.
+            if let Some(runs) = Client::start(&search).status().meaning_runs.filter(|_| on) {
+                println!("{}", t!("settings.meaning_runs", "where" => runs.text()));
+            }
+            return;
         }
     }
     Client::start(&Config::load().map(|c| c.search).unwrap_or_default()).restart();

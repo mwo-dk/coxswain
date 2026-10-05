@@ -8,7 +8,7 @@ the terminal app sets them.
 
 ![Settings, Search inside files: Keep the text of files ticked, Searchable: 107 files · still to read: 0 · 284 KB on disk, the path /home/demo/.cache/coxswain/search.db, Index now, Delete the index, Folders read and Names only](../screenshots/gui-settings-search.png)
 *Settings → Search inside files.*
-<!-- screenshot: search-settings-meaning.png: desktop app, Cyber theme, Settings → Search by meaning with the built-in model on: the hint, Vectors made by "Built-in model, on this CPU (465 MB once)", "Understood: … files · still to go: …", builtin:multilingual-e5-small@614241f6, the model's folder, Turn off and Delete the model -->
+<!-- screenshot: search-settings-meaning.png: desktop app, Cyber theme, Settings → Search by meaning with the built-in model on: the hint, Vectors made by "Built-in model, on this machine (465 MB once)", "Understood: … files · still to go: …", builtin:multilingual-e5-small@614241f6, the model's folder, Turn off and Delete the model -->
 
 ## How to use it
 
@@ -46,16 +46,17 @@ name index `roots`, `exclude`, `watch`, `max_results`.
 | Item | Key | Type, default | Does |
 |---|---|---|---|
 | **Set up…** | | | Opens the guided setup, [Smart search in a few minutes](setup.md), which sets the items below for you |
-| *Vectors made by* | `meaning_engine` | `"builtin"` / `"ollama"` / `"openai"`, `"builtin"` | *Built-in model, on this CPU (465 MB once)*, *Ollama*, or *A server with the OpenAI API (Lemonade, LM Studio, llama.cpp …)* |
+| *Vectors made by* | `meaning_engine` | `"builtin"` / `"ollama"` / `"openai"`, `"builtin"` | *Built-in model, on this machine (465 MB once)*, *Ollama*, or *A server with the OpenAI API (Lemonade, LM Studio, llama.cpp …)* |
 | *Server* | `meaning_url` | string, `""` | The server's base URL; empty is Ollama on this machine |
 | *Embedding model* | `meaning_model` | string, `""` | The server's model; empty is `bge-m3` for Ollama |
 | **Pull bge-m3 with Ollama** | | | Shown when Ollama lacks the model; fetches it with a progress bar |
 | *API key from the variable* | `meaning_key_env` | string, `""` | OpenAI API only: the environment variable holding the key |
+| *Use the CPU only* | `meaning_device` | `"auto"` / `"cpu"`, `"auto"` | On a Mac only: keeps the built-in model off the GPU ([on a Mac's GPU](meaning.md#on-a-macs-gpu)) |
 | *Ask → Chat model* | `ask_model` | string, `""` | The chat model that writes [Ask](ask.md)'s answers, on the same server (Ollama here with the built-in model). Empty: Ask is not set up |
 | **Download the model (465 MB) and turn on** | `meaning` | bool, `false` | Downloads the built-in model, then sets `meaning = true`. **Cancel** stops the download |
 | **Turn on** / **Turn off** | `meaning` | | On or off, keeping the model |
 | **Delete the model** | | | Turns it off and deletes the built-in model |
-| Status | | | *Understood: 8,120 files · still to go: 23,088*, the model in use, the model's folder, an error, the battery line |
+| Status | | | *Understood: 8,120 files · still to go: 23,088*, where the built-in model runs (*Built-in model · on the GPU (Metal)*), the model in use, the model's folder, an error, the battery line |
 
 Details on [Search by meaning](meaning.md) and [servers](servers.md).
 

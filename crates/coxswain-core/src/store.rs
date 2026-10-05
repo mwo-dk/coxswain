@@ -567,6 +567,11 @@ impl Store {
         self.engine().map(|e| e.id())
     }
 
+    /// Where the built-in model runs, when it makes the vectors.
+    pub fn engine_runs(&self) -> Option<crate::meaning::Runs> {
+        self.engine()?.runs()
+    }
+
     /// The engine, when search by meaning is on.
     fn engine(&self) -> Option<Arc<crate::meaning::Engine>> {
         self.engine.lock().unwrap().clone().filter(|_| self.meaning.load(Ordering::Relaxed))
