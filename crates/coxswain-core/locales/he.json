@@ -611,6 +611,7 @@
  "news.new": "חדש",
  "news.show_me": "הצגה",
  "news.title": "מה חדש",
+ "notice.cjk_font": "לא מותקן גופן יפני או קוריאני, ולכן האותיות עלולות להופיע כריבועים. התקינו גופן, למשל noto-fonts-cjk (Arch), fonts-noto-cjk (Debian, Ubuntu) או google-noto-sans-cjk-fonts (Fedora).",
  "notice.cloud": "נמצא {names}: קבצים שנמצאים רק בענן נמצאים לפי שם בלבד, כך ששום דבר לא מורד. ניתן לשנות בהגדרות",
  "notice.cloud_tui": "נמצא {names}: קבצים שנמצאים רק בענן נמצאים לפי שם בלבד, כך ששום דבר לא מורד. cloud = \"all\" ב-config.toml קורא אותם",
  "notice.history": "חדש: {key} על קובץ או תיקייה במאגר git מציג את ההיסטוריה שלהם, commit אחר commit",

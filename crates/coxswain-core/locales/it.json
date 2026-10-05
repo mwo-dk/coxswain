@@ -611,6 +611,7 @@
  "news.new": "nuovo",
  "news.show_me": "Mostrami",
  "news.title": "Novità",
+ "notice.cjk_font": "Non è installato nessun font giapponese o coreano, quindi i caratteri possono apparire come quadratini. Installane uno, per esempio noto-fonts-cjk (Arch), fonts-noto-cjk (Debian, Ubuntu) o google-noto-sans-cjk-fonts (Fedora).",
  "notice.cloud": "Trovato {names}: i file solo online vengono trovati solo per nome, quindi nulla viene scaricato. Modificabile nelle Impostazioni",
  "notice.cloud_tui": "Trovato {names}: i file solo online vengono trovati solo per nome, quindi nulla viene scaricato. cloud = \"all\" in config.toml li legge",
  "notice.history": "Novità: {key} su un file o una cartella di un repository git ne mostra la cronologia, commit per commit",

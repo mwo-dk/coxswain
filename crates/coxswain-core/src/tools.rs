@@ -63,6 +63,17 @@ pub fn media_missing() -> Option<String> {
     Some(if appimage { crate::t!("preview.media_appimage") } else { crate::t!("preview.media_missing") })
 }
 
+/// Japanese or Korean in use on Linux, and fontconfig has no font for it: the desktop app would
+/// show its letters as boxes. False elsewhere, or when `fc-list` cannot be asked.
+pub fn cjk_font_missing() -> bool {
+    let lang = crate::i18n::language();
+    if !cfg!(target_os = "linux") || !matches!(lang, "ja" | "ko") {
+        return false;
+    }
+    let out = std::process::Command::new("fc-list").args([format!(":lang={lang}"), "family".into()]).output();
+    out.is_ok_and(|o| o.status.success() && o.stdout.trim_ascii().is_empty())
+}
+
 /// This app's program: the AppImage file when it runs from one (the binary itself is inside a
 /// mount that goes when the app closes), else the running binary.
 pub fn this_app() -> std::io::Result<PathBuf> {

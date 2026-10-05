@@ -841,6 +841,7 @@ dependencies = [
  "libc",
  "ratatui",
  "serde_json",
+ "unicode-normalization",
  "unicode-width",
 ]
 

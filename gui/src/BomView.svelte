@@ -3,7 +3,7 @@
   // In the preview pane, and full-window (`full`) from its ⤢ button. The Rust side (bom.rs)
   // parses and rates; bom.js filters. Every string from the file is shown as text, never HTML.
   import { ui, tab, otherTab, item, cd, focusPane } from "./app.svelte.js";
-  import { invoke, basename, parent, previewKind } from "./lib.js";
+  import { invoke, basename, parent, previewKind, composing } from "./lib.js";
   import { t, tn, num } from "./i18n.svelte.js";
   import { STATUSES, KINDS, FAMILIES, COLOR, isCrypto, childrenOf, filtering, mask, visibleRows, PAGE, leafCounts, sunburstArcs, arcPath, pathTo } from "./bom.js";
 
@@ -330,7 +330,7 @@
       </div>
       <div class="row">
         <input class="search" bind:this={searchEl} bind:value={filters.query} placeholder={t("bom.search")} spellcheck="false"
-          onkeydown={(e) => (e.key === "Enter" || e.key === "ArrowDown") && (e.preventDefault(), treeEl?.focus())} />
+          onkeydown={(e) => (e.key === "Enter" || e.key === "ArrowDown") && !composing(e) && (e.preventDefault(), treeEl?.focus())} />
         <div class="modes" role="group">
           <button class:on={!filters.hide} title={t("bom.dim_title")} onclick={() => (filters.hide = false)}>{t("bom.dim")}</button>
           <button class:on={filters.hide} title={t("bom.hide_title")} onclick={() => (filters.hide = true)}>{t("bom.hide")}</button>
@@ -519,7 +519,7 @@
     margin: 0;
     flex: 1;
     font-size: 1.05em;
-    font-family: var(--icon-font), var(--font);
+    font-family: var(--icon-font), var(--font), var(--cjk);
   }
   button {
     font: inherit;
@@ -803,7 +803,7 @@
     font-size: 0.85em;
   }
   .mono {
-    font-family: var(--mono-font);
+    font-family: var(--mono-font), var(--cjk);
     font-size: 0.9em;
   }
   .more-row {
@@ -811,7 +811,7 @@
   }
   .plain {
     font-size: 0.82em;
-    font-family: var(--icon-font), var(--font);
+    font-family: var(--icon-font), var(--font), var(--cjk);
     padding: 2px 8px;
     border: 1px solid var(--border-fg);
     border-radius: var(--r);

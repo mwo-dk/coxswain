@@ -80,6 +80,10 @@ pub fn all(cfg: &Config, status: &Status, state: &AppState, terminal: bool) -> V
         if let Some(why) = crate::tools::media_missing() {
             all.push(Notice { id: "media".into(), text: why, settings: None });
         }
+        // Japanese or Korean without a font for it: what to install.
+        if crate::tools::cjk_font_missing() {
+            all.push(Notice { id: "cjk-font".into(), text: t!("notice.cjk_font"), settings: None });
+        }
     }
     // A new translation in use: where to suggest a better word.
     if let Some(l) = crate::i18n::find(crate::i18n::language()).filter(|l| l.new) {

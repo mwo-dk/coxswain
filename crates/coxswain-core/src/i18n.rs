@@ -51,6 +51,8 @@ pub const LANGUAGES: &[Language] = &[
     lang("es-AR", "Español (Argentina)", "ar", "language.group.americas", false),
     lang("en-AU", "English (Australia)", "au", "language.group.asia", false),
     lang("en-NZ", "English (New Zealand)", "nz", "language.group.asia", false),
+    lang("ja", "日本語", "jp", "language.group.asia", true),
+    lang("ko", "한국어", "kr", "language.group.asia", true),
 ];
 
 /// The language `code` (one of `LANGUAGES`).
@@ -92,6 +94,8 @@ fn source(code: &str) -> &'static str {
         "cs" => include_str!("../locales/cs.json"),
         "uk" => include_str!("../locales/uk.json"),
         "el" => include_str!("../locales/el.json"),
+        "ja" => include_str!("../locales/ja.json"),
+        "ko" => include_str!("../locales/ko.json"),
         _ => "{}",
     }
 }
@@ -133,6 +137,8 @@ pub fn nearest(tag: &str) -> &'static str {
         "cs" | "sk" => "cs", // Slovak readers read Czech
         "uk" => "uk",
         "el" => "el",
+        "ja" => "ja",
+        "ko" => "ko",
         _ => REFERENCE,
     }
 }
@@ -337,6 +343,8 @@ mod tests {
             ("uk_UA.UTF-8", "uk"),
             ("el_GR", "el"),
             ("el-CY", "el"),
+            ("ja_JP.UTF-8", "ja"),
+            ("ko_KR", "ko"),
             ("ru-RU", "en-GB"),
             ("", "en-GB"),
         ] {
@@ -347,8 +355,8 @@ mod tests {
         // British English first stays British English; an unknown first language is skipped.
         assert_eq!(pick(&langs(&["en-GB", "da"])), "en-GB");
         assert_eq!(pick(&langs(&["en_IE.UTF-8", "da"])), "en-GB");
-        assert_eq!(pick(&langs(&["ja", "da"])), "da");
-        assert_eq!(pick(&langs(&["ja", "ko"])), "en-GB");
+        assert_eq!(pick(&langs(&["ru", "da"])), "da");
+        assert_eq!(pick(&langs(&["ru", "zh"])), "en-GB");
         assert_eq!(pick(&[]), "en-GB");
     }
 
@@ -388,6 +396,7 @@ mod tests {
         assert_eq!([0, 1, 2, 4, 5, 22].map(|n| plural("cs", n)), ["other", "one", "few", "few", "other", "other"]);
         assert_eq!([0, 1, 2].map(|n| plural("el", n)), ["other", "one", "other"]);
         assert_eq!([0, 1, 2].map(|n| plural("ja", n)), ["other", "other", "other"]);
+        assert_eq!([0, 1, 2].map(|n| plural("ko", n)), ["other", "other", "other"]);
     }
 
     #[test]
