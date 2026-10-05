@@ -148,7 +148,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ needs.draft.outputs.tag }}
-        run: gh release download "$TAG" --repo "$GITHUB_REPOSITORY" -p THIRD-PARTY-NOTICES.md -D gui/src-tauri
+        # GitHub's API answers a 500 now and then: try again before failing the release.
+        run: for i in 1 2 3 4 5; do gh release download "$TAG" --repo "$GITHUB_REPOSITORY" -p THIRD-PARTY-NOTICES.md -D gui/src-tauri --clobber && exit 0; sleep $((i * 10)); done; exit 1
       - uses: tauri-apps/tauri-action@1deb371b0cd8bd54025b384f1cd735e725c4060f # v1.0.0
         env:
           GITHUB_TOKEN: ${{ github.token }}
@@ -203,7 +204,7 @@ jobs:
           name="coxswain-terminal-$TAG-$TARGET"
           mkdir "$name"
           cp LICENSE README.md "$name/"
-          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" -p THIRD-PARTY-NOTICES.md -D "$name"
+          for i in 1 2 3 4 5; do gh release download "$TAG" --repo "$GITHUB_REPOSITORY" -p THIRD-PARTY-NOTICES.md -D "$name" --clobber && break; [ "$i" = 5 ] && exit 1; sleep $((i * 10)); done
           if [ "$RUNNER_OS" = Windows ]; then
             cp target/$TARGET/release/coxswain.exe target/$TARGET/release/cox.exe "$name/"
             7z a -bso0 "$name.zip" "$name"
@@ -232,7 +233,7 @@ jobs:
       # be checked against what this run uploaded.
       - name: Checksums
         run: |
-          gh release download "$TAG" --repo "$REPO" -D assets
+          for i in 1 2 3 4 5; do gh release download "$TAG" --repo "$REPO" -D assets --clobber && break; [ "$i" = 5 ] && exit 1; sleep $((i * 10)); done
           (cd assets && sha256sum * > ../SHA256SUMS)
           cat SHA256SUMS
           gh release upload "$TAG" --repo "$REPO" SHA256SUMS
