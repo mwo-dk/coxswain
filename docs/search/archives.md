@@ -2,13 +2,13 @@
 
 # Inside archives
 
-Find file looks inside your zip, 7z and tar archives. A file in `website.tar.gz` is found by its
+Find looks inside your zip, 7z and tar archives. A file in `website.tar.gz` is found by its
 name, `main.rs`, and by its words (*In files*), by its meaning (*About this*), and by Ask, just like a
 file on disk. A hit is shown as a path through the archive, `…/website.tar.gz/src/main.rs`, and
 **Enter** opens the archive's folder in the panel with the cursor on the file. When an archive
 changes, by Coxswain or by anything else, what search knows of it changes with it.
 
-![The desktop app's Find file at Everywhere with main.rs typed: one hit on disk in /home/demo/projects/rocket/src and one inside /home/demo/Downloads/rocket-src.zip/rocket/src, the folder showing the path through the archive](../screenshots/gui-search-archives.png)
+![The desktop app's Find at Everywhere with main.rs typed: one hit on disk in /home/demo/projects/rocket/src and one inside /home/demo/Downloads/rocket-src.zip/rocket/src, the folder showing the path through the archive](../screenshots/gui-search-archives.png)
 
 ## Contents
 
@@ -26,7 +26,7 @@ changes, by Coxswain or by anything else, what search knows of it changes with i
 
 Nothing to do: *Look inside archives* is on from the start.
 
-1. **Alt+F7** or **Ctrl+F** opens Find file, searching *Everywhere*.
+1. **Alt+F7** or **Ctrl+F** opens Find, searching *Everywhere*.
 2. Type a name, as for any file: `main.rs`, `ext:md report`, `website src/`. Entries inside
    archives are among the *Names*. Words: files inside archives are under *In files* too, with
    their passage under the name.
@@ -36,8 +36,8 @@ Nothing to do: *Look inside archives* is on from the start.
 
 | Key | Desktop app | Terminal app | Does |
 |---|---|---|---|
-| **Alt+F7**, **Ctrl+F** | yes | yes | Open Find file; inside it, *Everywhere* ⇄ the panel's folder |
-| **Shift+F7** | yes | yes | Open Find file at *In files* |
+| **Alt+F7**, **Ctrl+F** | yes | yes | Open Find; inside it, *Everywhere* ⇄ the panel's folder |
+| **Shift+F7** | yes | yes | Open Find at *In files* |
 | **Tab** / **Shift+Tab** | yes | yes | The next / previous kind: All → Names → In files → About → Ask |
 | **Enter** | yes | yes | The active panel opens the folder inside the archive, cursor on the file |
 | **F3** / **F4** | F4 | yes | As for any file inside an archive ([Archives as folders](../files/archives.md)) |
@@ -106,7 +106,7 @@ at every step of the download. It makes no difference who changed it:
 
 - **Coxswain's own changes** (copying into an archive with **F5**, moving in or renaming inside
   with **F6**, taking out with **F8**, a new folder with **F7**): the archive is
-  written anew and put in place of the old one, the file watcher sees it, and Find file has the
+  written anew and put in place of the old one, the file watcher sees it, and Find has the
   new names within a second or two, the new text a few seconds later.
 - **Anything else** (a build that writes a new `.tar.gz`, a download, a zip tool): the same,
   through the file watcher.
@@ -172,7 +172,7 @@ same **Enter**. There is no Settings window: set `archives` and `archives_everyw
 
 ## Questions
 
-#### Does Find file find files inside my zip files?
+#### Does Find look inside my zip files?
 Yes, when the zip is in a folder that is read (your home folder by default, not inside a hidden
 folder or a cache): by name (*Names*, everywhere or in one folder), and by their words (*In files*). A
 zip elsewhere is found by its own name only; see [Which archives](#which-archives).

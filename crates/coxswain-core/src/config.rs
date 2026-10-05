@@ -175,7 +175,7 @@ actions! {
     Open = "open", "Open", Moving, ["Enter"];
     Up = "up", "Up", Moving, ["Up"];
     Down = "down", "Down", Moving, ["Down"];
-    Parent = "parent", "Parent dir", Moving, ["Ctrl+PageUp", "Backspace"];
+    Parent = "parent", "Parent folder", Moving, ["Ctrl+PageUp", "Backspace"];
     PageUp = "page_up", "Page up", Moving, ["PageUp", "Left"];
     PageDown = "page_down", "Page down", Moving, ["PageDown", "Right"];
     Home = "home", "First", Moving, ["Home"];
@@ -188,7 +188,7 @@ actions! {
     // Panels and tabs, the most used first.
     SwitchPanel = "switch_panel", "Other panel", Panels, ["Tab"];
     ToggleHidden = "toggle_hidden", "Hidden files", Panels, ["Alt+."];
-    Refresh = "refresh", "Reread", Panels, ["Ctrl+R"];
+    Refresh = "refresh", "Refresh", Panels, ["Ctrl+R"];
     SameDir = "same_dir", "Other panel here", Panels, ["Alt+O"];
     SwapPanels = "swap_panels", "Swap panels", Panels, ["Ctrl+U"];
     TogglePanels = "toggle_panels", "Panels on/off", Panels, ["Ctrl+O"];
@@ -204,19 +204,19 @@ actions! {
     SortSize = "sort_size", "Sort by size", Panels, ["Ctrl+F6"];
     // No key of its own: sizes appear by themselves (`folder_sizes`), and Ctrl+Space belongs
     // to the system on a Mac.
-    DirSizes = "dir_sizes", "Folder sizes", Panels, [];
+    FolderSizes = "folder_sizes", "Folder sizes", Panels, [];
     Columns = "columns", "Columns and folder sizes", Panels, [];
     // Marking, the most used first.
     Mark = "mark", "Mark", Marking, ["Insert", "Shift+Down"];
     MarkAll = "mark_all", "Mark all", Marking, ["Ctrl+A"];
-    SelectGroup = "select_group", "Select group", Marking, ["+"];
-    UnselectGroup = "unselect_group", "Unselect group", Marking, ["-"];
-    InvertSelection = "invert_selection", "Invert selection", Marking, ["*"];
+    MarkGroup = "mark_group", "Mark group", Marking, ["+"];
+    UnmarkGroup = "unmark_group", "Unmark group", Marking, ["-"];
+    InvertMarks = "invert_marks", "Invert marks", Marking, ["*"];
     // Files, the most used first.
     Copy = "copy", "Copy", Files, ["F5"];
-    Move = "move", "RenMov", Files, ["F6"];
+    Move = "move", "Move or rename", Files, ["F6"];
     Delete = "delete", "Delete", Files, ["F8", "Delete"];
-    Mkdir = "mkdir", "Mkdir", Files, ["F7"];
+    NewFolder = "new_folder", "New folder", Files, ["F7"];
     ClipCopy = "clip_copy", "Copy to clipboard", Files, ["Ctrl+C"];
     ClipCut = "clip_cut", "Cut to clipboard", Files, ["Ctrl+X"];
     Paste = "paste", "Paste", Files, ["Ctrl+V"];
@@ -228,7 +228,7 @@ actions! {
     Extract = "extract", "Extract archive", Archives, ["Ctrl+E"];
     Pack = "pack", "Pack into an archive", Archives, ["Alt+F5"];
     // Search, the most used first.
-    Search = "search", "Find file", Search, ["Alt+F7", "Ctrl+F"];
+    Search = "search", "Find", Search, ["Alt+F7", "Ctrl+F"];
     SearchText = "search_text", "Search inside files", Search, ["Shift+F7", "Ctrl+Shift+F"];
     Ask = "ask", "Ask your files", Search, ["Ctrl+F7"];
     Duplicates = "duplicates", "Find duplicates", Search, ["Ctrl+D"];
@@ -247,7 +247,7 @@ actions! {
     Notes = "notes", "Folder notes", Viewing, ["Alt+N"];
     // App, the most used first.
     Help = "help", "Help", App, ["F1"];
-    Menu = "menu", "PullDn", App, ["F9"];
+    Menu = "menu", "Commands", App, ["F9"];
     Settings = "settings", "Settings", App, ["Ctrl+,"];
     Quit = "quit", "Quit", App, ["F10"];
 }
@@ -795,10 +795,12 @@ impl Default for PreviewConfig {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(default)]
 pub struct SearchConfig {
-    /// Roots to index. Empty = `/` (Unix) or every fixed drive (Windows).
+    /// Where file names are found (`name_roots`). Empty = `/` (Unix) or every fixed drive (Windows).
+    #[serde(rename = "name_roots")]
     pub roots: Vec<PathBuf>,
-    /// Skipped while indexing: a path (`/proc`) skips that tree, a bare name (`node_modules`)
-    /// skips every directory with that name.
+    /// Left out of the names (`name_exclude`): a path (`/proc`) leaves out that tree, a bare name
+    /// (`node_modules`) every folder with that name.
+    #[serde(rename = "name_exclude")]
     pub exclude: Vec<String>,
     pub max_results: usize,
     /// Follow changes live (inotify / FSEvents / ReadDirectoryChanges). Off = hourly rebuild only.

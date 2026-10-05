@@ -32,7 +32,8 @@ measure again, and how to switch it off.
    folder sizes*); in the terminal app set `folder_sizes = false`.
 
 **Folder sizes** has no key by default (the natural one, Ctrl+Space, belongs to the system on
-a Mac). Give it one: `[keys] dir_sizes = ["Ctrl+Q"]`.
+a Mac). Give it one: `[keys] folder_sizes = ["Ctrl+Q"]` (`dir_sizes` before 2.0, renamed on the
+first start; see [Renamed in 2.0](../reference/configuration.md#renamed-in-20)).
 
 ## What you see
 
@@ -41,7 +42,7 @@ a Mac). Give it one: `[keys] dir_sizes = ["Ctrl+Q"]`.
 | Before it is measured | `SUB-DIR` in the Size column | An empty Size cell |
 | Measured | The size in the Size column | The size in the Size column; with the *Files* column on, the number of files inside, all levels down |
 | While measuring on request | – | Status line: `Measuring 12 folders…` |
-| Marked folders | Not counted in `… in 3 selected` | Counted in `3 selected (…)` once measured |
+| Marked folders | Not counted in `… in 3 marked` | Counted in `3 marked (…)` once measured |
 
 ## Where the sizes come from
 
@@ -79,7 +80,7 @@ bytes and the number of files in it; see [Properties and permissions](../files/p
 | *Measure folder sizes automatically* (columns menu, desktop app) | – (session) | on |
 | Settings → *Behaviour* → *Measure folder sizes* | `folder_sizes` | bool, `true` |
 | *Files (in folders)* column | – (session) | off |
-| Folder sizes command | `[keys] dir_sizes` | no key |
+| Folder sizes command | `[keys] folder_sizes` | no key |
 
 `folder_sizes` is where the desktop app starts; after that the columns menu switch is kept in
 its session. The terminal app reads `folder_sizes` at every start.
@@ -131,6 +132,12 @@ walk takes long; switch measuring off while you work there.
 
 No. **Ctrl+F6** sorts files by size; folders keep name order among themselves
 ([Sorting](sorting.md#why-are-folders-not-sorted-by-their-size)).
+
+#### My `dir_sizes` key stopped working in 2.0. Why?
+
+The action is called `folder_sizes` since 2.0, the same word as the `folder_sizes` switch. The
+first start of 2.0 renames it in `config.toml` and lists it in a notice; an old name typed in
+afterwards makes the config invalid. See [Renamed in 2.0](../reference/configuration.md#renamed-in-20).
 
 #### Why do folders inside an archive show 0 B?
 

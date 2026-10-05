@@ -60,7 +60,7 @@ another letter of the name, or unbind the key (`[keys] tag = []`). Once a quick 
 #### Can it find a name that contains the letters in the middle?
 
 No, only the start of names. For "names in this folder" anywhere in the name, open
-[Find file](../search/find-file.md) (**Alt+F7**) and press **Tab** once: it searches this
+[Find](../search/find-file.md) (**Alt+F7**) and press **Tab** once: it searches this
 folder, with the full [name syntax](../search/name-syntax.md).
 
 #### Why does Backspace not move the cursor back?

@@ -6,7 +6,7 @@ Every command of the panels has a name, an *action*, and the keys that run it. T
 table in `config.toml` gives an action other keys, more keys, or none. Both apps read the same
 table, so a key you change works the same in the terminal app and the desktop app.
 
-![The desktop app's Help (F1) after the [keys] example on this page: Find file shows Ctrl+P and Folder sizes Ctrl+K, among the other actions with their keys; the F-key bar at the bottom](../screenshots/customise-keys.png)
+![The desktop app's Help (F1) after the [keys] example on this page: Find shows Ctrl+P and Folder sizes Ctrl+K, among the other actions with their keys; the F-key bar at the bottom](../screenshots/customise-keys.png)
 
 ## Contents
 
@@ -28,9 +28,9 @@ table, so a key you change works the same in the terminal app and the desktop ap
    ```toml
    [keys]
    quit = ["F10", "Ctrl+Q"]    # listing an action replaces its default keys
-   search = ["Ctrl+P"]         # Find file on Ctrl+P only; Alt+F7 and Ctrl+F are free now
+   search = ["Ctrl+P"]         # Find on Ctrl+P only; Alt+F7 and Ctrl+F are free now
    tag = []                    # [] unbinds it
-   dir_sizes = ["Ctrl+K"]      # an action without a default key gets one
+   folder_sizes = ["Ctrl+K"]   # an action without a default key gets one
    ```
 
 3. Start the app again: the terminal app, and the desktop app, read `[keys]` when they start.
@@ -70,7 +70,9 @@ not modifiers Coxswain reads; use **Ctrl** or **Alt**.
 - **An unknown key name is refused.** The terminal app does not start and says
   `coxswain: unknown key 'Ctlr+P'`; the desktop app starts with every default and prints
   `coxswain: unknown key 'Ctlr+P'; using defaults` on the terminal it was started from. An
-  unknown *action* name is refused the same way, as a config error.
+  unknown *action* name is refused the same way, as a config error; that includes the names
+  2.0 renamed (`mkdir`, `dir_sizes`, `select_group` …), see
+  [Renamed in 2.0](../reference/configuration.md#renamed-in-20).
 
 ## The actions
 
@@ -82,7 +84,7 @@ not modifiers Coxswain reads; use **Ctrl** or **Alt**.
 | `edit` | **F4** | `sort_name` | **Ctrl+F3** |
 | `copy` | **F5** | `sort_ext` | **Ctrl+F4** |
 | `move` | **F6** | `sort_time` | **Ctrl+F5** |
-| `mkdir` | **F7** | `sort_size` | **Ctrl+F6** |
+| `new_folder` | **F7** | `sort_size` | **Ctrl+F6** |
 | `delete` | **F8**, **Delete** | `copy_path` | **Ctrl+Enter**, **Ctrl+J** |
 | `delete_forever` | **Shift+F8**, **Shift+Delete** | `new_tab` ¹ | **Ctrl+T** |
 | `menu` | **F9** | `close_tab` ¹ | **Ctrl+W** |
@@ -92,14 +94,14 @@ not modifiers Coxswain reads; use **Ctrl** or **Alt**.
 | `page_up` | **PageUp**, **Left** | `toggle_view` ¹ | **Alt+V** |
 | `page_down` | **PageDown**, **Right** | `toggle_sidebar` ¹ | **Ctrl+B** |
 | `home` | **Home** | `edit_path` ¹ | **Ctrl+L** |
-| `end` | **End** | `dir_sizes` | none |
+| `end` | **End** | `folder_sizes` | none |
 | `open` | **Enter** | `batch_rename` ¹ | **Ctrl+M** |
 | `parent` | **Ctrl+PageUp**, **Backspace** | `tag` ¹ | **Alt+T** |
 | `switch_panel` | **Tab** | `notes` ¹ | **Alt+N** |
 | `mark` | **Insert**, **Shift+Down** | `back` ¹ | **Alt+Left** |
-| `select_group` | **+** | `forward` ¹ | **Alt+Right** |
-| `unselect_group` | **-** | `clip_copy` ¹ | **Ctrl+C** |
-| `invert_selection` | **\*** | `clip_cut` ¹ | **Ctrl+X** |
+| `mark_group` | **+** | `forward` ¹ | **Alt+Right** |
+| `unmark_group` | **-** | `clip_copy` ¹ | **Ctrl+C** |
+| `invert_marks` | **\*** | `clip_cut` ¹ | **Ctrl+X** |
 | `search` | **Alt+F7**, **Ctrl+F** | `paste` ¹ | **Ctrl+V** |
 | `search_text` | **Shift+F7**, **Ctrl+Shift+F** | `properties` ¹ | **Alt+Enter** |
 | `ask` | **Ctrl+F7** | `extract` | **Ctrl+E** |
@@ -128,7 +130,7 @@ These belong to where they are, not to an action:
 |---|---|---|---|
 | Every dialog | **Esc** closes, **Enter** confirms | Yes | Yes; the `quit` key (**F10**) closes a dialog too |
 | A *Delete* or other question | **Y** / **N** as well as Enter / Esc | Yes | Yes |
-| Find file | **Tab** / **Shift+Tab** go to the next / previous kind, **Up**/**Down**/**PageUp**/**PageDown** move over the rows, **Ctrl+Enter** (desktop) / **Alt+Enter** (terminal) asks, **F1** shows the syntax, **Delete** sends a tip away (the `search`, `search_text` and `ask` keys, which you can change, switch the scope, *In files* and ask) | Yes | Yes |
+| Find | **Tab** / **Shift+Tab** go to the next / previous kind, **Up**/**Down**/**PageUp**/**PageDown** move over the rows, **Ctrl+Enter** (desktop) / **Alt+Enter** (terminal) asks, **F1** shows the syntax, **Delete** sends a tip away (the `search`, `search_text` and `ask` keys, which you can change, switch the scope, *In files* and ask) | Yes | Yes |
 | *Colour tag* | The digits pick a colour | Yes | (not there) |
 | Quick search | **Alt+letter** starts it, letters extend it, **Backspace** shortens, **Esc** ends | Yes | Yes |
 | The command line, with text in it | **Enter** runs, **Esc** clears, **Backspace**, and in the desktop app **Left**/**Right**/**Home**/**End**/**Delete** edit | Yes | **Enter**, **Esc**, **Backspace** |
@@ -141,6 +143,9 @@ These belong to where they are, not to an action:
 
 The **F-key bar** at the bottom shows, for **F1** to **F10**, the action you bound to each, with
 its name in your language: bind `F2` to `pack` and the bar says *Pack into an archive* there.
+The desktop app's bar says *Move* (**F6**), *New folder* (**F7**) and *Commands* (**F9**); the
+terminal app's bar keeps Norton Commander's *RenMov*, *Mkdir* and *PullDn* for those three
+actions, wherever you bind them.
 **F1** (help) lists every action with all the keys bound to it; **F9** (the command list) shows
 each action with its first key. An action without a key has an empty key column. In the desktop app the Settings button's tooltip
 shows the `settings` key.
@@ -163,7 +168,7 @@ The same `[keys]` table, read at start. Two differences come from the terminal:
   **Ctrl+PageUp**, **Shift+Down** or **Ctrl+,** for themselves, or send them as something else.
   This is why several actions have a second default (**Ctrl+J** for `copy_path`, **Backspace**
   for `parent`, **Insert** for `mark`, **Shift+F7** for `search_text`: many terminals send
-  **Ctrl+Shift+F** as **Ctrl+F**, which opens Find file at names). If a key does nothing, bind the action to one the
+  **Ctrl+Shift+F** as **Ctrl+F**, which opens Find at names). If a key does nothing, bind the action to one the
   terminal passes on.
 - **Desktop-only actions** (marked ¹ above) are in neither its help nor its command list.
 
@@ -179,6 +184,21 @@ defaults, so a list with only `"Ctrl+P"` takes Alt+F7 and Ctrl+F away.
 A key name it does not know, such as `"Ctlr+P"` or `"Hyper+Q"`. The terminal app stops with
 `coxswain: unknown key 'Ctlr+P'`; the desktop app starts with the defaults and prints the reason
 on its terminal. Check the spelling against [Key names](#key-names).
+
+#### My `[keys] mkdir` stopped working in 2.0. Why?
+
+2.0 renamed it `new_folder`; `dir_sizes` is `folder_sizes`, and `select_group`,
+`unselect_group`, `invert_selection` are `mark_group`, `unmark_group`, `invert_marks`. The
+first start of 2.0 renames them in `config.toml` itself and says so in a notice (*Coxswain 2.0
+renamed keys in config.toml, your comments kept: [keys] mkdir → new_folder*). If you typed the
+old name in after that, or copied an old config over, the terminal app refuses to start and
+the desktop app uses the defaults: write the new name. The table is in
+[Renamed in 2.0](../reference/configuration.md#renamed-in-20).
+
+#### I had both `mkdir` and `new_folder`. Which one stayed?
+
+`new_folder`. When the new name is there already, it wins and the old line is removed; the
+notice says *[keys] mkdir (new_folder kept)*.
 
 #### Can I use Cmd on a Mac?
 
@@ -198,14 +218,14 @@ Ctrl.
 
 #### How do I give Folder sizes or the Columns menu a key?
 
-They have none by default (`dir_sizes`, `columns`): add one, `dir_sizes = ["Ctrl+K"]`. On a Mac,
-Ctrl+Space belongs to the system, which is why `dir_sizes` has no default.
+They have none by default (`folder_sizes`, `columns`): add one, `folder_sizes = ["Ctrl+K"]`. On a
+Mac, Ctrl+Space belongs to the system, which is why `folder_sizes` has no default.
 
-#### Can I change the keys inside dialogs, such as Tab in Find file?
+#### Can I change the keys inside dialogs, such as Tab in Find?
 
 No: keys inside dialogs, quick search and the command line are fixed (see
 [Keys you cannot change](#keys-you-cannot-change)). Only the actions in `[keys]` can be moved.
-Inside Find file the keys of `search`, `search_text` and `ask` act too: `search` switches the
+Inside Find the keys of `search`, `search_text` and `ask` act too: `search` switches the
 scope, `search_text` switches to *In files* and back, `ask` asks. Moving those keys moves that
 too.
 

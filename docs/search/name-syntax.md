@@ -12,7 +12,7 @@ not to the words of [In files](text.md). A query with this syntax shows names on
 
 ## How to use it
 
-1. Open [Find file](find-file.md) with **Alt+F7** or **Ctrl+F**; **Ctrl+F** again inside Find
+1. Open [Find](find-file.md) with **Alt+F7** or **Ctrl+F**; **Ctrl+F** again inside Find
    limits it to the active panel's folder.
 2. Type terms separated by spaces. Every term must match.
 3. **F1** inside Find shows the syntax and the prefixes in place of the list, in both apps
@@ -36,7 +36,7 @@ system, so `src/ui` works on Windows too.
 
 ## What you see
 
-The hits and the count line of [Find file](find-file.md#what-you-see): `6 matches in 3.48 ms ·
+The hits and the count line of [Find](find-file.md#what-you-see): `6 matches in 3.48 ms ·
 452393 files indexed`. Nothing marks which term matched; with a path term the folder shown under
 each hit is where to look.
 
@@ -63,7 +63,7 @@ path contains `projects/`. Or open the folder and press **Ctrl+F** inside Find f
 
 #### How do I leave out a whole folder, like `node_modules`?
 `!node_modules/` drops every hit whose path runs through one. To leave it out of the index for
-good, see `exclude` in [Names everywhere](names.md#settings-and-configtoml).
+good, see `name_exclude` in [Names everywhere](names.md#settings-and-configtoml).
 
 #### Does the syntax work for the words in files?
 No. A query with name syntax shows names only. The words of *In files* are words: every word must

@@ -20,6 +20,7 @@ kept in a cache, so each file is made once.
 - [How it works](#how-it-works)
 - [The preview cache](#the-preview-cache)
 - [What you see](#what-you-see)
+- [Installing what is missing](#installing-what-is-missing)
 - [Settings and config.toml](#settings-and-configtoml)
 - [In the terminal app](#in-the-terminal-app)
 - [Questions](#questions)
@@ -98,9 +99,37 @@ things are kept](../reference/where-things-are-kept.md).
 | *First run pulls docker.io/texlive/texlive:latest (about 5 GB)* | The first click downloads the image |
 | *Rendering with soffice…* | Running |
 | *Pulling docker.io/texlive/texlive:latest…* and a progress line | Downloading the image |
-| *soffice is not installed. No image for libreoffice: set [preview.images] libreoffice in the config. See the [preview] section in the config.* | No engine can run |
+| *soffice is not installed. No image for libreoffice: set [preview.images] libreoffice in the config. Install the program, or let a container make this preview.*, then *Install it:* with the line for this system and **Copy**, and a **Settings → Previews** button | No engine can run: neither an installed program nor a container ([below](#installing-what-is-missing)) |
 | *Stopped after 120 s (the timeout in [preview])* | Too slow |
 | **Try again** | After an error |
+
+## Installing what is missing
+
+When neither an installed program nor a container can make a preview, the pane says what is
+missing, then *Install the program, or let a container make this preview.* Under it is the
+command that installs the program on this system, with **Copy**, and a **Settings → Previews**
+button that opens *Settings → Previews* to choose a container runtime or an image. Coxswain never
+runs the command: paste it into a shell, then show the file again.
+
+<!-- screenshot: previews-install-line.png: desktop app, Cyber theme, the preview pane on a .puml file with no plantuml and no container runtime: "plantuml is not installed. Neither podman nor docker is installed. Install the program, or let a container make this preview.", "Install it: sudo pacman -S plantuml" with Copy, and the Settings → Previews button -->
+
+The package manager is the system's own: `pkg` on FreeBSD, Homebrew on a Mac, `winget` on
+Windows, and on Linux the first of `pacman`, `apt`, `dnf` and `zypper` that is installed.
+
+| System | LibreOffice | LaTeX | PlantUML | pandoc |
+|---|---|---|---|---|
+| FreeBSD | `pkg install libreoffice` | `pkg install texlive-full` | `pkg install plantuml` | `pkg install hs-pandoc` |
+| Arch (`pacman`) | `sudo pacman -S libreoffice-fresh` | `sudo pacman -S texlive-basic texlive-latexextra texlive-binextra` | `sudo pacman -S plantuml` | `sudo pacman -S pandoc-cli` |
+| Debian, Ubuntu (`apt`) | `sudo apt install libreoffice` | `sudo apt install texlive-latex-extra latexmk` | `sudo apt install plantuml` | `sudo apt install pandoc` |
+| Fedora (`dnf`) | `sudo dnf install libreoffice` | `sudo dnf install texlive-scheme-medium latexmk` | `sudo dnf install plantuml` | `sudo dnf install pandoc` |
+| openSUSE (`zypper`) | `sudo zypper install libreoffice` | `sudo zypper install texlive-latexmk texlive-collection-latexextra` | `sudo zypper install plantuml` | `sudo zypper install pandoc` |
+| macOS (Homebrew) | `brew install --cask libreoffice` | `brew install --cask mactex-no-gui` | `brew install plantuml` | `brew install pandoc` |
+| Windows (`winget`) | `winget install --id TheDocumentFoundation.LibreOffice -e` | `winget install --id MiKTeX.MiKTeX -e` | none | `winget install --id JohnMacFarlane.Pandoc -e` |
+
+Where the table says *none*, and for DuckDB everywhere, the pane says instead: *plantuml has no
+package here: get it from its website and put it on PATH.* The programs Coxswain reads with (for
+search: tesseract, pdftoppm, LibreOffice) have their own table in
+[Scans, pictures and older Office files](../search/scans.md#installing-what-is-missing).
 
 ## Settings and config.toml
 
@@ -149,6 +178,12 @@ tool yourself on the command line (`latexmk -pdf`, `soffice --headless --convert
 Either the tool waits for a click (LaTeX with `latex_auto` off), or the only engine is a
 container whose image is not pulled yet. Coxswain never starts a download of gigabytes by
 itself. The note under the button says which.
+
+#### The preview says to install a program. Does Coxswain install it?
+
+No. It shows the line for your system (`sudo apt install plantuml`) with **Copy**, and never runs
+it. Paste it into a terminal, or click **Settings → Previews** to let a container make the
+preview instead. The lines: [Installing what is missing](#installing-what-is-missing).
 
 #### How do I stop using containers?
 

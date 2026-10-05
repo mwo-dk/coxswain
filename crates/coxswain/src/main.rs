@@ -1,6 +1,7 @@
 //! Coxswain TUI: two panels, a command line and a function-key bar, Norton Commander style.
 
 mod bom;
+mod guide;
 mod settings;
 mod setup;
 mod ui;
@@ -214,7 +215,24 @@ pub enum Prompt {
     /// A new branch's name: in this folder (or list of branches), from this branch of the list.
     NewBranch(PathBuf, Option<String>),
     Goto(usize),
-    Select(bool),
+    Mark(bool),
+}
+
+impl Prompt {
+    /// What Enter does, as its button would say: Copy, Create, Unlock …
+    pub fn verb(&self) -> String {
+        t!(match self {
+            Prompt::Copy(_) => "verb.copy",
+            Prompt::Move(_) => "verb.move",
+            Prompt::Extract(_) => "verb.extract",
+            Prompt::Pack(_) | Prompt::PackPassword(..) | Prompt::PackConfirm(..) => "verb.pack",
+            Prompt::Password(..) | Prompt::Unlock(..) | Prompt::Peek(_) => "verb.unlock",
+            Prompt::Mkdir | Prompt::NewBranch(..) => "verb.create",
+            Prompt::Goto(_) => "verb.go",
+            Prompt::Mark(true) => "verb.mark",
+            Prompt::Mark(false) => "verb.unmark",
+        })
+    }
 }
 
 #[derive(Clone, Copy, PartialEq)]
@@ -257,6 +275,16 @@ pub enum Dialog {
     Bom(Box<bom::Viewer>),
     /// Settings, full screen (F9 → Settings, `--settings`).
     Settings(Box<settings::Settings>),
+    /// The first-run guide, full screen (the first start, F1 → G, Settings → Overview).
+    Guide(Box<guide::Guide>),
+}
+
+/// An error under `title` (what could not be done): its cause in one line, the raw text under
+/// Details when it says more.
+fn failure(title: String, raw: &str) -> Dialog {
+    let cause = coxswain_core::fs::cause(raw);
+    let text = if cause == raw.trim() { cause } else { format!("{cause}\n\n{}:\n{}", t!("dialog.details"), raw.trim()) };
+    Dialog::Message { title, text }
 }
 
 /// What Find shows under its field.
@@ -636,6 +664,7 @@ impl App {
     }
 
     fn input(&mut self, title: &str, label: String, value: String, prompt: Prompt) {
+        self.status = None;
         self.dialog = Some(Dialog::Input { title: title.into(), label, value, prompt });
     }
 
@@ -749,21 +778,21 @@ impl App {
                 p.toggle_mark(p.cursor);
                 p.move_cursor(1);
             }
-            Action::SelectGroup | Action::UnselectGroup => {
-                let sel = a == Action::SelectGroup;
-                let title = if sel { t!("tui.select") } else { t!("tui.unselect") };
-                self.input(&title, t!("tui.files_matching"), "*".into(), Prompt::Select(sel));
+            Action::MarkGroup | Action::UnmarkGroup => {
+                let sel = a == Action::MarkGroup;
+                let title = if sel { t!("app.mark_files") } else { t!("app.unmark_files") };
+                self.input(&title, t!("tui.files_matching"), "*".into(), Prompt::Mark(sel));
             }
             // As in a file explorer: everything in the folder, files and folders, but `..`.
             Action::MarkAll => self.panel_mut().mark_all(),
-            Action::InvertSelection => {
+            Action::InvertMarks => {
                 let p = self.panel_mut();
                 let files: Vec<usize> = (0..p.entries.len()).filter(|&i| !p.entries[i].is_dir).collect();
                 files.into_iter().for_each(|i| p.toggle_mark(i));
             }
             Action::Refresh => {
                 self.reload();
-                self.status = Some(t!("status.reread"));
+                self.status = Some(t!("status.refreshed"));
             }
             Action::SwapPanels => {
                 self.panels.swap(0, 1);
@@ -851,10 +880,9 @@ impl App {
                     return;
                 }
                 let dst = self.panels[self.active ^ 1].dir.to_string_lossy().into_owned();
-                let (title, label) = if a == Action::Copy { ("dialog.copy", "dialog.copy_to") } else { ("dialog.move", "dialog.move_to") };
-                let label = t!(label, "what" => Self::describe(&src));
+                let title = t!(if a == Action::Copy { "dialog.copy" } else { "dialog.move" }, "what" => Self::describe(&src));
                 let prompt = if a == Action::Copy { Prompt::Copy(src) } else { Prompt::Move(src) };
-                self.input(&t!(title), label, dst, prompt);
+                self.input(&title, t!("dialog.to"), dst, prompt);
             }
             Action::Extract => {
                 let src: Vec<PathBuf> = self.panel().targets().into_iter().filter(|p| coxswain_core::archive::is_archive(p)).collect();
@@ -862,8 +890,8 @@ impl App {
                     return self.status = Some(t!("app.not_archive"));
                 }
                 let dst = self.panels[1 - self.active].dir.display().to_string();
-                let label = t!("app.extract_into", "what" => Self::describe(&src));
-                self.input(&t!("app.extract"), label, dst, Prompt::Extract(src));
+                let title = t!("app.extract", "what" => Self::describe(&src));
+                self.input(&title, t!("dialog.to"), dst, Prompt::Extract(src));
             }
             Action::Pack => {
                 let src = self.panel().targets();
@@ -871,10 +899,10 @@ impl App {
                 let name = if src.len() == 1 { first.file_stem().unwrap_or_default().to_string_lossy().into_owned() } else { self.panel().dir.file_name().map_or("archive".into(), |n| n.to_string_lossy().into_owned()) };
                 let ending = coxswain_core::state::AppState::load().pack_ending().to_string();
                 let dst = self.panels[1 - self.active].dir.join(format!("{name}{ending}")).display().to_string();
-                let label = t!("tui.pack_into", "what" => Self::describe(&src));
-                self.input(&t!("archive.pack"), label, dst, Prompt::Pack(src));
+                let title = t!("archive.pack_title", "what" => Self::describe(&src));
+                self.input(&title, t!("tui.pack_into"), dst, Prompt::Pack(src));
             }
-            Action::Mkdir => self.input(&t!("dialog.new_folder"), t!("tui.mkdir_label"), String::new(), Prompt::Mkdir),
+            Action::NewFolder => self.input(&t!("dialog.new_folder"), t!("tui.mkdir_label"), String::new(), Prompt::Mkdir),
             Action::Delete | Action::DeleteForever => {
                 let paths = self.panel().targets();
                 if paths.is_empty() {
@@ -924,7 +952,7 @@ impl App {
             Action::Help => self.dialog = Some(Dialog::Help { scroll: 0 }),
             Action::Settings => self.dialog = Some(Dialog::Settings(Box::new(settings::Settings::open(self, "")))),
             // Asked for: measure afresh, whatever is remembered and whether or not sizes are on.
-            Action::DirSizes => {
+            Action::FolderSizes => {
                 if coxswain_core::archive::split(&self.panel().dir).is_some() {
                     return;
                 }
@@ -1034,13 +1062,14 @@ impl App {
         self.input(&t!("action.new_branch"), label, String::new(), Prompt::NewBranch(p.dir.clone(), from));
     }
 
-    /// What git said, on the status line; when it refused, in a dialog, as it can be long.
+    /// What git said, on the status line; when it refused, in a dialog under `title` (what could
+    /// not be done), as it can be long.
     fn git_said(&mut self, title: String, r: std::io::Result<String>) {
         // Listed again first: a list of branches says it is busy meanwhile, which would hide this.
         self.reload();
         match r {
             Ok(said) => self.status = Some(said.lines().next().unwrap_or_default().to_string()),
-            Err(e) => self.dialog = Some(Dialog::Message { title, text: e.to_string() }),
+            Err(e) => self.dialog = Some(failure(title, &e.to_string())),
         }
     }
 
@@ -1166,7 +1195,7 @@ impl App {
         let what = Self::describe(&src);
         let Some(op) = op else {
             let errors = failed.iter().map(|(p, e)| format!("{}: {e}", p.display())).collect();
-            return self.after_op(t!("archive.packed", "what" => what), errors);
+            return self.after_op(t!("archive.packed", "what" => what), t!("error.pack", "what" => what), errors);
         };
         if !failed.is_empty() && failed.iter().all(|(_, e)| e.to_string().contains(coxswain_core::archive::LOCKED)) {
             let label = t!(if password.is_none() { "archive.locked_label" } else { "archive.locked_again" });
@@ -1184,19 +1213,28 @@ impl App {
             Transfer::Delete(false) => t!("status.trashed", "what" => what),
             Transfer::Mkdir => t!("status.created", "what" => src.first().map(|p| p.display().to_string()).unwrap_or_default()),
         };
-        self.after_op(ok, errors);
+        let fail = match op {
+            Transfer::Copy => t!("error.copy", "what" => what),
+            Transfer::Move => t!("error.move", "what" => what),
+            Transfer::Extract => t!("error.extract", "what" => what),
+            Transfer::Delete(true) => t!("error.delete", "what" => what),
+            Transfer::Delete(false) => t!("error.trash", "what" => what),
+            Transfer::Mkdir => t!("error.create", "what" => src.first().and_then(|p| p.file_name()).map(|n| n.to_string_lossy().into_owned()).unwrap_or_default()),
+        };
+        self.after_op(ok, fail, errors);
         if let Some((side, n)) = select {
             self.panels[side].select_name(&n);
         }
     }
 
-    fn after_op(&mut self, ok: String, errors: Vec<String>) {
+    /// Done: `ok` on the status line, or the errors under `fail` (what could not be done).
+    fn after_op(&mut self, ok: String, fail: String, errors: Vec<String>) {
         self.panels.iter_mut().for_each(Panel::clear_marks);
         self.reload();
         if errors.is_empty() {
             self.status = Some(ok);
         } else {
-            self.dialog = Some(Dialog::Message { title: t!("dialog.error"), text: errors.join("\n") });
+            self.dialog = Some(failure(fail, &errors.join("\n")));
         }
     }
 
@@ -1239,20 +1277,20 @@ impl App {
                     }
                 }
                 if coxswain_core::archive::takes_password(&to) {
-                    self.input(&t!("archive.pack"), t!("archive.pack_password"), String::new(), Prompt::PackPassword(src, to));
+                    self.input(&t!("archive.pack_title", "what" => Self::describe(&src)), t!("archive.pack_password"), String::new(), Prompt::PackPassword(src, to));
                 } else {
                     self.pack(src, to, None);
                 }
             }
             Prompt::PackPassword(src, to) if value.is_empty() => self.pack(src, to, None),
-            Prompt::PackPassword(src, to) => self.input(&t!("archive.pack"), t!("archive.pack_confirm"), String::new(), Prompt::PackConfirm(src, to, value)),
+            Prompt::PackPassword(src, to) => self.input(&t!("archive.pack_title", "what" => Self::describe(&src)), t!("archive.pack_confirm"), String::new(), Prompt::PackConfirm(src, to, value)),
             Prompt::PackConfirm(src, to, pw) if pw == value => self.pack(src, to, Some(pw)),
             Prompt::PackConfirm(..) => self.status = Some(t!("archive.pack_mismatch")),
             Prompt::NewBranch(..) if value.trim().is_empty() => {}
             // ponytail: git runs on the UI thread; a switch in a huge work tree holds the keys meanwhile.
             Prompt::NewBranch(dir, from) => {
                 let r = coxswain_core::branches::create(&dir, &value, from.as_deref());
-                self.git_said(t!("action.new_branch"), r);
+                self.git_said(t!("error.new_branch", "name" => value.trim()), r);
             }
             Prompt::Mkdir if value.trim().is_empty() => {}
             Prompt::Mkdir => {
@@ -1269,7 +1307,7 @@ impl App {
                     self.status = Some(t!("status.not_dir", "dir" => d.display()));
                 }
             }
-            Prompt::Select(sel) => {
+            Prompt::Mark(sel) => {
                 let pats: Vec<Vec<u8>> = value.split([' ', ';', ',']).filter(|s| !s.is_empty()).map(|s| s.to_lowercase().into_bytes()).collect();
                 let p = self.panel_mut();
                 for e in p.entries.iter().filter(|e| !e.is_dir) {
@@ -1459,7 +1497,8 @@ impl App {
             Dialog::Switch { title, text, dir, entry } => match (key.code, ch) {
                 (KeyCode::Enter, _) | (_, Some('y' | 'Y')) => {
                     let r = coxswain_core::branches::switch(&dir, &entry);
-                    self.git_said(title, r);
+                    let branch = entry.trim_start_matches("* ").split(' ').next().unwrap_or_default().replace('∕', "/");
+                    self.git_said(t!("error.switch", "branch" => branch), r);
                 }
                 _ if esc || matches!(ch, Some('n' | 'N')) => {}
                 _ => self.dialog = Some(Dialog::Switch { title, text, dir, entry }),
@@ -1616,6 +1655,7 @@ impl App {
                     None => self.dialog = Some(Dialog::Menu { title, filter, items, cursor, direct }),
                 }
             }
+            Dialog::Help { .. } if matches!(ch, Some('g' | 'G')) => self.dialog = Some(Dialog::Guide(Box::default())),
             Dialog::Help { scroll } => match key.code {
                 KeyCode::Up => self.dialog = Some(Dialog::Help { scroll: scroll.saturating_sub(1) }),
                 KeyCode::Down => self.dialog = Some(Dialog::Help { scroll: scroll + 1 }),
@@ -1625,6 +1665,7 @@ impl App {
             },
             Dialog::Message { .. } => {}
             Dialog::Settings(s) => self.settings_key(s, key, action),
+            Dialog::Guide(g) => self.guide_key(g, key, esc),
             Dialog::Bom(mut v) => match v.key(key, action == Some(Action::Quit)) {
                 bom::Outcome::Stay => self.dialog = Some(Dialog::Bom(v)),
                 bom::Outcome::Close => {}
@@ -1918,12 +1959,12 @@ const USAGE: &str = "coxswain [LEFT] [RIGHT]      a folder, or a file to open it
   --index-service on|off   start the search helper with your session, or stop doing so
   --meaning on|off|delete  search by meaning: download the model and turn it on, turn it off,
                            or turn it off and delete the model
-  --meaning ollama [MODEL] the vectors from Ollama here (bge-m3 unless named; pulled if missing)
-  --meaning server URL MODEL  the vectors from a server with the OpenAI API (Lemonade, LM Studio)
+  --meaning ollama [MODEL] meaning read by Ollama here (bge-m3 unless named; pulled if missing)
+  --meaning server URL MODEL  meaning read by a server with the OpenAI API (Lemonade, LM Studio)
   --meaning builtin        back to the built-in model
   --meaning cpu|auto       the built-in model on the CPU only, or on the Mac's GPU (Metal)
                            when it has one (auto, the default)
-  --meaning ask MODEL|off  Ask in Find file: the chat model on that server (Ollama here with the
+  --meaning ask MODEL|off  Ask in Find: the chat model on that server (Ollama here with the
                            built-in model) that answers questions from your files
   --languages              the languages, by region, and how to help improve a new translation
   --whats-new [all]        what the versions since you last looked brought (all: every version)
@@ -2138,6 +2179,10 @@ fn main() {
         _ => {}
     }
     coxswain_core::fs::lock_down();
+    // A config.toml of 1.x gets the names of 2.0, once.
+    if let Err(e) = coxswain_core::migrate::on_start() {
+        eprintln!("coxswain: {e}");
+    }
     let cfg = Config::load().unwrap_or_else(|e| {
         eprintln!("coxswain: {e}");
         std::process::exit(2)
@@ -2154,6 +2199,8 @@ fn main() {
     });
     if let Some(section) = open_settings {
         app.dialog = Some(Dialog::Settings(Box::new(settings::Settings::open(&app, &section))));
+    } else if coxswain_core::state::AppState::load().guide_due() {
+        app.dialog = Some(Dialog::Guide(Box::default()));
     }
     let mut term = ratatui::init();
     let _ = execute!(std::io::stdout(), ratatui::crossterm::event::EnableMouseCapture);

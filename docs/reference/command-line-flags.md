@@ -26,7 +26,7 @@ Both apps also open their Settings from the command line (`--settings`). For the
 ## How to use it
 
 1. Open a shell. Both programs are on your `PATH` after an install ([README → Install](../../README.md#install)).
-2. Type the program, then the flag: `coxswain --paths`, `coxswain-gui --settings=meaning`.
+2. Type the program, then the flag: `coxswain --paths`, `coxswain-gui --settings=search_meaning`.
 3. A flag is read only as the **first** argument, and one at a time. `coxswain --paths --version`
    prints the paths and ignores `--version`.
 
@@ -39,7 +39,7 @@ Both apps also open their Settings from the command line (`--settings`). For the
 | Where things are kept | `coxswain --paths`, or `coxswain --settings=privacy` | `coxswain-gui --settings=privacy`: *Where things are kept* |
 | Every default | `coxswain --dump-config` | – |
 | Which languages there are | `coxswain --languages` | `coxswain-gui --settings=language` |
-| What the new version brought | `coxswain --whats-new` | `coxswain-gui --settings=news`, or click the count on *⚙ Settings* |
+| What the new version brought | `coxswain --whats-new` | `coxswain-gui --settings=overview`, or click *⚙ Settings*: *What's new* is in the Overview |
 | Search by meaning on | `coxswain --meaning on` | `coxswain-gui --settings=search`, then the level *Names, text and meaning* |
 | Find duplicates in a folder | – | `coxswain-gui --duplicates ~/Pictures` |
 
@@ -59,12 +59,12 @@ coxswain [LEFT] [RIGHT]      a folder, or a file to open its folder with the cur
   --index-service on|off   start the search helper with your session, or stop doing so
   --meaning on|off|delete  search by meaning: download the model and turn it on, turn it off,
                            or turn it off and delete the model
-  --meaning ollama [MODEL] the vectors from Ollama here (bge-m3 unless named; pulled if missing)
-  --meaning server URL MODEL  the vectors from a server with the OpenAI API (Lemonade, LM Studio)
+  --meaning ollama [MODEL] meaning read by Ollama here (bge-m3 unless named; pulled if missing)
+  --meaning server URL MODEL  meaning read by a server with the OpenAI API (Lemonade, LM Studio)
   --meaning builtin        back to the built-in model
   --meaning cpu|auto       the built-in model on the CPU only, or on the Mac's GPU (Metal)
                            when it has one (auto, the default)
-  --meaning ask MODEL|off  Ask in Find file: the chat model on that server (Ollama here with the
+  --meaning ask MODEL|off  Ask in Find: the chat model on that server (Ollama here with the
                            built-in model) that answers questions from your files
   --languages              the languages, by region, and how to help improve a new translation
   --whats-new [all]        what the versions since you last looked brought (all: every version)
@@ -75,7 +75,7 @@ coxswain [LEFT] [RIGHT]      a folder, or a file to open its folder with the cur
 | Flag | Does |
 |---|---|
 | `LEFT`, `RIGHT` | The folders of the left and right panel. A relative path is from the current folder, `~` is home. A file opens its folder with the cursor on it. Without them: the current folder in both |
-| `--settings[=AREA\|OPTION] [LEFT] [RIGHT]` | Starts the app with [Settings](../customise/settings.md#in-the-terminal-app) open: at Overview, at an area (`search`, `previews`, `looks`, `behaviour`, `keys`, `privacy`), at a group (`meaning`, `ask`, `language`, `news`) or with the cursor on an option (`show_hidden`, `max_results` …). **Esc** closes it to the panels, which show `LEFT` and `RIGHT` as without the flag. A name it does not know opens Overview |
+| `--settings[=AREA\|OPTION] [LEFT] [RIGHT]` | Starts the app with [Settings](../customise/settings.md#in-the-terminal-app) open: at Overview, at an area (`overview`, `search`, `previews`, `looks`, `behaviour`, `keys`, `privacy`) or with the cursor on an option (`show_hidden`, `search_meaning`, `ask_model`, `language`, `max_results` …). **Esc** closes it to the panels, which show `LEFT` and `RIGHT` as without the flag. A name it does not know, such as 1.x's `meaning`, `ask`, `news` or `cloud`, opens Overview |
 | `--help`, `-h` | Prints the text above |
 | `--version`, `-V` | Prints `coxswain 1.20.0` |
 | `--dump-config` | Prints every option with its default, as TOML, including every built-in theme and the full `[keys]` table. `coxswain --dump-config > ~/.config/coxswain/config.toml` gives you the full list to edit |
@@ -86,7 +86,7 @@ coxswain [LEFT] [RIGHT]      a folder, or a file to open its folder with the cur
 | `--meaning [on\|off\|delete\|ollama\|server\|builtin\|cpu\|auto]` | Search by meaning: see [below](#--meaning) |
 | `--index-helper` | Runs as the search helper instead of the app: see [below](#the-helper---index-helper) |
 | `--languages` | Prints every language under its region, one line each: code, own name, *new* for a fresh translation and *(current)* for the one in use, then where `language` is set and where to suggest a better word. In your language. See [Languages](../customise/languages.md) |
-| `--whats-new` | Prints the changes of the versions you have not read yet, newest first, or of the version you run when you have read them all, then counts them as read (in both apps). Each version is a line `1.29.0  2026-10-04`, then its changes, with each docs link as `Find file <https://github.com/mwo-dk/coxswain/blob/master/docs/search/find-file.md>`. See [Notices and what's new](../search/notices.md) |
+| `--whats-new` | Prints the changes of the versions you have not read yet, newest first, or of the version you run when you have read them all, then counts them as read (in both apps). Each version is a line `1.29.0  2026-10-04`, then its changes, with each docs link as `Find <https://github.com/mwo-dk/coxswain/blob/master/docs/search/find-file.md>`. See [Notices and what's new](../search/notices.md) |
 | `--whats-new all` | Prints every version's changes, newest first |
 
 Anything else that starts with `-` is taken as a folder name, like any other argument.
@@ -145,7 +145,7 @@ See [The search helper](../search/helper.md).
 ## The desktop app: `coxswain-gui`
 
 ```
-coxswain-gui [--settings[=SECTION]] [--duplicates [FOLDER …] | [LEFT] [RIGHT]]
+coxswain-gui [--settings[=AREA|OPTION]] [--duplicates [FOLDER …] | [LEFT] [RIGHT]]
 ```
 
 | Flag | Does |
@@ -153,10 +153,10 @@ coxswain-gui [--settings[=SECTION]] [--duplicates [FOLDER …] | [LEFT] [RIGHT]]
 | `LEFT`, `RIGHT` | As in the terminal app. The last session is restored, and `LEFT` is added to the left pane as a new tab when no tab there shows it. `RIGHT` is used only when there is no saved session. Started from a desktop menu, where the current folder is `/`, it takes your home folder |
 | `--settings` | Opens with the Settings window open, at *Overview* |
 | `--settings=search` | …at *Finding files* |
-| `--settings=meaning` | …at *Finding files*, with *Details → Meaning* open and scrolled to |
-| `--settings=ask` | …at *Finding files*, with *Details → Ask* open and scrolled to |
+| `--settings=search_meaning` | …at *Finding files*, with *Details → Meaning* open and scrolled to |
+| `--settings=ask_model` | …at *Finding files*, with *Details → Ask* open and scrolled to |
 | `--settings=language` | …at *Looks*, scrolled to *Language* ([Languages](../customise/languages.md)) |
-| `--settings=news` | …at *Overview*, scrolled to *What's new* ([Notices and what's new](../search/notices.md)) |
+| `--settings=overview` | …at *Overview*, where *What's new* is ([Notices and what's new](../search/notices.md)) |
 | `--settings=AREA` | …at that area: `overview`, `search`, `previews`, `looks`, `behaviour`, `keys`, `privacy` |
 | `--settings=OPTION` | …at the area of that option, with its group open, scrolled to it and lit up for a moment: an option's name, such as `check_updates` or `folder_sizes` |
 | `--duplicates [FOLDER …]` | Opens *Find duplicates* and scans these folders at once; without folders, the current one. The panes open as usual behind it |
@@ -164,7 +164,8 @@ coxswain-gui [--settings[=SECTION]] [--duplicates [FOLDER …] | [LEFT] [RIGHT]]
 
 `--settings` must come first, then `--duplicates`; everything else is taken as folders. Given
 both, *Find duplicates* opens (there is one window at a time); Settings is a **Ctrl+,** away.
-Any other word after `--settings=` opens it at *Overview*.
+Any other word after `--settings=` opens it at *Overview*; so do the section names of 1.x
+(`meaning`, `ask`, `news`, `cloud`), which 2.0 no longer knows.
 
 The desktop app has no `--help`, `--version`, `--paths` or `--meaning`: use the terminal app's
 flags, which work on the same `config.toml`, the same cache and the same helper. A
@@ -233,9 +234,17 @@ With a saved session, the desktop app restores it and only adds `LEFT` as a tab 
 
 #### How do I open Settings straight at search by meaning?
 
-`coxswain-gui --settings=meaning`: *Finding files*, with *Details → Meaning* open.
-`--settings=search` opens *Finding files* at the top, `--settings=ask` at *Details → Ask*. A
-desktop menu entry or a script can use these.
+`coxswain-gui --settings=search_meaning`: *Finding files*, with *Details → Meaning* open.
+`--settings=search` opens *Finding files* at the top, `--settings=ask_model` at *Details → Ask*.
+`coxswain --settings=search_meaning` does the same in the terminal app. A desktop menu entry or
+a script can use these.
+
+#### Why does `--settings=meaning` open the Overview now?
+
+2.0 dropped the section names of 1.x: `--settings=` takes an area or an option's name only, and
+anything else opens the Overview. Use `search_meaning` for `meaning`, `ask_model` for `ask`,
+`overview` for `news` and `search_cloud` for `cloud`; `language` still works, as an option's name.
+The names are listed in [Settings and config.toml](../customise/settings.md#settings-and-configtoml).
 
 #### Does `--dump-config` change my config?
 

@@ -58,8 +58,9 @@ themselves. The *Server* field is the base URL: Coxswain adds `/api/embed` for O
   same and asks *Go on? [y/N]*. The time comes from the new model making the vectors of one long
   file. The same model written another way (`bge-m3` and `bge-m3:latest`), or the same weights
   under another name on Ollama, is no change: the vectors stay.
-- **A server that does not answer** pauses search by meaning: Settings, the terminal app's Find
-  file and a [notice](notices.md) show the error (*No vectors: …*), the files
+- **A server that does not answer** pauses search by meaning: Settings (*Meaning has stopped: …*), the terminal app's
+  Find and a [notice](notices.md) (*Search by meaning cannot read what files are about: …*) show
+  the error, the files
   wait, and they are done at the next pass once it answers. A search asks the server for the
   question's vector too, so while it is down, meaning hits are missing; word hits are not.
 - **Prefixes.** Models whose name has `e5` get `query: ` and `passage: ` in front, and

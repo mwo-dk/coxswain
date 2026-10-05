@@ -56,7 +56,7 @@ elsewhere is followed and then refused with *Not a Coxswain script*.
   as *resize*), with a script icon and no key.
 - **While it runs:** the status line says *Running Make thumbnails…*.
 - **Afterwards:** the [preview pane](../previews/README.md) shows the output, headed with the
-  script's label and *Command output*, and both panels reread. The `×` (*Back to preview*) goes
+  script's label and *Command output*, and both panels are read again. The `×` (*Back to preview*) goes
   back to the file preview.
 - **When it cannot start:** the status line shows why, for example *Permission denied (os error
   13)* when it is not executable, or *Exec format error (os error 8)* when the `#!` line is missing.

@@ -12,7 +12,7 @@ after it. Both apps have both keys.
 **Ctrl+E** extracts it to the other pane.*
 
 ![The desktop app's Pack dialog: Pack 3 items into (.zip, .7z, .tar, .tar.gz, …): with /home/demo/Documents/flight7.zip, the password typed twice as dots, OK and Cancel](../screenshots/files-pack.png)
-<!-- screenshot: files-pack.png: the Pack dialog with the Format list (7z chosen) next to the name, the hint "7z: smallest, a password can hide the names too" under it, and the two password fields -->
+<!-- screenshot: files-pack.png: retake for 2.0: the Pack dialog titled Pack 3 items, the label To:, the Format list (7z chosen) next to the name, the Pack and Cancel buttons with the line Enter Pack · Esc Cancel, the hint "7z: smallest, a password can hide the names too" under it, and the two password fields -->
 
 ## Contents
 
@@ -29,9 +29,10 @@ after it. Both apps have both keys.
 ### Pack
 
 1. Mark the files and folders to pack, or put the cursor on one.
-2. Press **Alt+F5** (or *Pack into an archive* in the F9 command list). The dialog *Pack* opens
-   with *Pack "photos" into:*, a name in the other panel's folder, and the *Format* list next to
-   it:
+2. Press **Alt+F5** (or *Pack into an archive* in the F9 command list). A dialog titled
+   *Pack "photos"* (or *Pack 3 items*) opens, its field *To:* filled with a name in the other
+   panel's folder, and the *Format* list next to it (in the terminal app the label is
+   *To (Tab: .zip, .7z, .tar.gz, …):*):
    - one item: its name without its extension, `photos.zip` for a folder `photos`, `report.zip`
      for `report.pdf`;
    - several items: the name of the folder you are in, `rocket.zip`.
@@ -46,8 +47,9 @@ after it. Both apps have both keys.
    empty for none. A 7z also has *Hide the file names too*, on by default. For a tar the fields
    are not there, and the dialog says *tar archives have no passwords: pack into .zip or .7z for
    one*. More in [Passwords](archive-passwords.md#locking-a-new-archive).
-5. Press **Enter** (or *OK*). While the two passwords differ, *OK* is greyed out and the dialog
-   says *The passwords do not match*.
+5. Press **Enter** (or click *Pack*; the line under the buttons says *Enter Pack · Esc Cancel*).
+   While the two passwords differ, *Pack* is greyed out and the dialog says *The passwords do not
+   match*.
 
 | You type | You get |
 |---|---|
@@ -67,9 +69,10 @@ still packed by its ending.
 ### Extract
 
 1. Put the cursor on an archive, or mark several.
-2. Press **Ctrl+E** (or *Extract archive* in the F9 command list). The dialog *Extract* asks
-   *Extract "photos.zip" into a new folder in:*, filled in with the other panel's folder.
-3. Press **Enter**. Coxswain makes a folder named after the archive there (`photos` for
+2. Press **Ctrl+E** (or *Extract archive* in the F9 command list). A dialog titled *Extract
+   "photos.zip"* (or *Extract 3 items*) opens, its field *To:* filled in with the other panel's
+   folder.
+3. Press **Enter** (or click *Extract*). Coxswain makes a folder named after the archive there (`photos` for
    `photos.zip`, `backup` for `backup.tar.gz`, `site` for `site.7z`) and unpacks into it. Several
    archives each get their own folder.
 
@@ -77,7 +80,7 @@ still packed by its ending.
 |---|---|---|
 | Pack | **Alt+F5** | **Alt+F5** |
 | Extract | **Ctrl+E** | **Ctrl+E** |
-| Confirm / cancel | **Enter** or *OK* / **Esc** or *Cancel* | **Enter** / **Esc** |
+| Confirm / cancel | **Enter** or *Pack* / *Extract*, **Esc** or *Cancel* | **Enter** / **Esc** |
 
 To take out only some files, open the archive with **Enter** and copy them with **F5**
 ([Archives as folders](archives.md)).
@@ -116,8 +119,10 @@ with no archive ending gets one added (`my.notes` becomes `my.notes.zip`).
 - After extracting, it says `Extracted "photos.zip"`.
 - **Ctrl+E** on something that is not an archive says `Not a zip, 7z or tar archive` on the
   status line.
-- Errors show in *Something went wrong*: an archive or folder that already exists (`… exists`),
-  an ending Coxswain cannot write.
+- Errors open a dialog titled *Could not pack "photos"* or *Could not extract "photos.zip"*,
+  with the cause in one line and the full text under *Details*: an archive or folder that
+  already exists (`… exists`), an ending Coxswain cannot write
+  ([When something goes wrong](copy.md#when-something-goes-wrong)).
 - A locked zip or 7z asks for its password before extracting
   ([Passwords](archive-passwords.md)).
 

@@ -3,6 +3,7 @@
   import { getCurrentWebview } from "@tauri-apps/api/webview";
   import { listen } from "@tauri-apps/api/event";
   import { ui, openFind, init, tab, pane, otherTab, item, load, cd, up, openHistory, openGitView, switchBranch, newBranch, newTab, goBack, goForward, openItem, toggleMark, targets, reloadAll, refreshDisks, snapshot, setTheme, themeIds, themeName, nextView, measureFolders, columnMenu } from "./app.svelte.js";
+  import { failure } from "./errors.js";
   import { invoke, keyString, basename, parent, glob, quote, isArchive, packFormat, LOCKED } from "./lib.js";
   import { t, tn } from "./i18n.svelte.js";
   import Sidebar from "./Sidebar.svelte";
@@ -14,6 +15,7 @@
   import BomView from "./BomView.svelte";
   import Settings from "./Settings.svelte";
   import SetupSearch from "./SetupSearch.svelte";
+  import Guide from "./Guide.svelte";
 
   let dialogs = $state();
   let panes = $state([]);
@@ -90,7 +92,7 @@
     const dest = tab(at).dir;
     if (p.paths.every((x) => parent(x) === dest)) return; // dropped where it came from
     const n = describe(p.paths);
-    const go = (isMove) => op((password, only) => invoke(isMove ? "rename" : "copy", { paths: only ?? p.paths, base: dest, dest, password }), t(isMove ? "status.moved" : "status.copied", { what: n }), n);
+    const go = (isMove) => op((password, only) => invoke(isMove ? "rename" : "copy", { paths: only ?? p.paths, base: dest, dest, password }), t(isMove ? "status.moved" : "status.copied", { what: n }), n, t(isMove ? "error.move" : "error.copy", { what: n }));
     ui.modal = {
       kind: "menu",
       title: t("app.drop_title", { what: n, folder: basename(dest) || dest }),
@@ -115,15 +117,17 @@
     return row ? Math.max(1, Math.floor(rows.clientHeight / row.offsetHeight) - 1) : 20;
   };
 
-  function prompt(title, label, value, run) {
-    ui.modal = { kind: "input", title, label, value, run };
+  /** A field to fill in, its button named by what it does (`ok`: Copy, Create …). */
+  function prompt(title, label, value, ok, run) {
+    ui.modal = { kind: "input", title, label, value, ok, run };
   }
 
 
   /** Run `start(password, only)`, saying meanwhile that `what` is being worked on; when only
    *  locked archives were in the way (every failure says so), ask for the password and run it
-   *  again with that, for just the paths that failed. The password lives only in this call. */
-  async function op(start, ok, what, password = null, only = null) {
+   *  again with that, for just the paths that failed. The password lives only in this call.
+   *  A failure is shown under `fail`, which says what could not be done. */
+  async function op(start, ok, what, fail, password = null, only = null) {
     ui.status = t("status.busy", { what });
     try {
       await (typeof start === "function" ? start(password, only) : start);
@@ -141,12 +145,13 @@
           title: t("archive.locked_title"),
           label: t(password === null ? "archive.locked_label" : "archive.locked_again"),
           value: "",
-          run: (pw) => op(start, ok, what, pw, locked),
+          ok: t("verb.unlock"),
+          run: (pw) => op(start, ok, what, fail, pw, locked),
         };
         return;
       }
       ui.status = "";
-      ui.modal = { kind: "message", title: t("dialog.error"), text: String(e) };
+      ui.modal = failure(fail, e);
     }
     for (const p of ui.panes) for (const t of p.tabs) t.marked.clear();
     await reloadAll();
@@ -156,8 +161,8 @@
     const paths = targets();
     if (!paths.length) return;
     const what = describe(paths);
-    prompt(t(isMove ? "dialog.move" : "dialog.copy"), t(isMove ? "dialog.move_to" : "dialog.copy_to", { what }), dest, (d) => {
-      if (d.trim()) op((password, only) => invoke(isMove ? "rename" : "copy", { paths: only ?? paths, base: tab().dir, dest: d, password }), t(isMove ? "status.moved" : "status.copied", { what }), what);
+    prompt(t(isMove ? "dialog.move" : "dialog.copy", { what }), t("dialog.to"), dest, t(isMove ? "verb.move" : "verb.copy"), (d) => {
+      if (d.trim()) op((password, only) => invoke(isMove ? "rename" : "copy", { paths: only ?? paths, base: tab().dir, dest: d, password }), t(isMove ? "status.moved" : "status.copied", { what }), what, t(isMove ? "error.move" : "error.copy", { what }));
     });
   }
 
@@ -168,7 +173,7 @@
     // Inside an archive there is no trash: it is taken out of the archive, which is written anew.
     const inside = tab().archive;
     const gone = forever || !!inside;
-    const run = () => op((password, only) => invoke("delete", { paths: only ?? paths, forever, password }), t(gone ? "status.deleted" : "status.trashed", { what }), what);
+    const run = () => op((password, only) => invoke("delete", { paths: only ?? paths, forever, password }), t(gone ? "status.deleted" : "status.trashed", { what }), what, t(gone ? "error.delete" : "error.trash", { what }));
     const text = inside ? t("confirm.archive_remove", { what, archive: basename(inside) }) : t(forever ? "confirm.delete_forever" : "confirm.trash", { what });
     if (ui.cfg.confirm_delete) ui.modal = { kind: "confirm", title: t("dialog.delete"), text, ok: t(gone ? "common.delete" : "app.move_to_trash"), run };
     else run();
@@ -210,8 +215,8 @@
     runShell(c, tab().dir);
   }
 
-  function selectGroup(sel) {
-    prompt(t(sel ? "app.select_files" : "app.unselect_files"), t("app.matching"), "*", (v) => {
+  function markGroup(sel) {
+    prompt(t(sel ? "app.mark_files" : "app.unmark_files"), t("app.matching"), "*", t(sel ? "verb.mark" : "verb.unmark"), (v) => {
       const pats = v.split(/[\s;,]+/).filter(Boolean);
       const t = tab();
       for (const e of t.items) if (!e.is_dir && pats.some((g) => glob(g, e.name))) sel ? t.marked.add(e.path) : t.marked.delete(e.path);
@@ -273,14 +278,14 @@
       toggleMark(tab(), tab().cursor);
       move(1);
     },
-    select_group: () => selectGroup(true),
-    unselect_group: () => selectGroup(false),
+    mark_group: () => markGroup(true),
+    unmark_group: () => markGroup(false),
     // As in a file explorer: everything in the folder, files and folders, but `..`.
     mark_all: () => {
       const t = tab();
       for (const e of t.items) if (e.name !== "..") t.marked.add(e.path);
     },
-    invert_selection: () => {
+    invert_marks: () => {
       const t = tab();
       for (const e of t.items) if (!e.is_dir) t.marked.has(e.path) ? t.marked.delete(e.path) : t.marked.add(e.path);
     },
@@ -289,7 +294,7 @@
     ask: () => openFind("ask"),
     refresh: async () => {
       await reloadAll();
-      ui.status = t("status.reread");
+      ui.status = t("status.refreshed");
     },
     swap_panels: () => {
       ui.panes = [ui.panes[1], ui.panes[0]];
@@ -329,10 +334,10 @@
     },
     copy: () => transfer(false),
     move: () => transfer(true),
-    mkdir: () =>
-      prompt(t("dialog.new_folder"), t("app.name_label"), "", async (name) => {
+    new_folder: () =>
+      prompt(t("dialog.new_folder"), t("app.name_label"), "", t("verb.create"), async (name) => {
         if (!name.trim()) return;
-        await op((password) => invoke("mkdir", { base: tab().dir, name, password }), t("status.created", { what: name }), name);
+        await op((password) => invoke("mkdir", { base: tab().dir, name, password }), t("status.created", { what: name }), name, t("error.create", { what: name }));
         await load(tab(), tab().dir, name.split(/[\\/]/)[0]);
       }),
     delete: () => remove(false),
@@ -345,7 +350,7 @@
         const [n, moved] = await invoke("paste", { dir });
         ui.status = tn(moved ? "app.moved_items" : "app.pasted_items", n);
       } catch (e) {
-        ui.modal = { kind: "message", title: t("action.paste"), text: String(e) };
+        ui.modal = failure(t("error.paste"), e);
       }
       reloadAll();
     },
@@ -357,7 +362,7 @@
         const p = await invoke("properties", { path: e.path });
         ui.modal = { kind: "props", props: p, mode: p.mode?.toString(8).padStart(3, "0") ?? "", readonly: p.readonly };
       } catch (err) {
-        ui.modal = { kind: "message", title: t("action.properties"), text: String(err) };
+        ui.modal = failure(t("error.properties", { what: e.name }), err);
       }
       ui.status = "";
     },
@@ -365,8 +370,8 @@
       const paths = targets().filter((p) => isArchive(basename(p)));
       if (!paths.length) return void (ui.status = t("app.not_archive"));
       const what = describe(paths);
-      prompt(t("app.extract"), t("app.extract_into", { what }), otherTab().dir, (d) => {
-        if (d.trim()) op((password) => invoke("extract", { paths, base: tab().dir, dest: d, password }), t("app.extracted", { what }), what);
+      prompt(t("app.extract", { what }), t("dialog.to"), otherTab().dir, t("verb.extract"), (d) => {
+        if (d.trim()) op((password) => invoke("extract", { paths, base: tab().dir, dest: d, password }), t("app.extracted", { what }), what, t("error.extract", { what }));
       });
     },
     pack: () => {
@@ -377,8 +382,8 @@
       // The password lives only in the dialog and this call; the core keeps it for this run.
       ui.modal = {
         kind: "pack",
-        title: t("archive.pack"),
-        label: t("archive.pack_into", { what }),
+        title: t("archive.pack_title", { what }),
+        label: t("dialog.to"),
         value: `${otherTab().dir}${ui.cfg.sep}${name}${ui.packEnding}`,
         password: "",
         again: "",
@@ -386,7 +391,7 @@
         run: (d, password, hideNames) => {
           const f = packFormat(ui.cfg.pack_formats, d);
           if (f) ui.packEnding = f.endings[0];
-          if (d.trim()) op(invoke("pack", { paths, base: tab().dir, dest: d, password, hideNames }), t("archive.packed", { what }), what);
+          if (d.trim()) op(invoke("pack", { paths, base: tab().dir, dest: d, password, hideNames }), t("archive.packed", { what }), what, t("error.pack", { what }));
         },
       };
     },
@@ -436,7 +441,7 @@
     toggle_view: () => (tab().view = nextView(tab().view)),
     toggle_sidebar: () => (ui.showSidebar = !ui.showSidebar),
     edit_path: () => panes[ui.dual ? ui.activePane : 0]?.editPath(),
-    dir_sizes: async () => {
+    folder_sizes: async () => {
       const tb = tab();
       const dirs = tb.marked.size ? targets(tb) : tb.items.filter((e) => e.is_dir && e.name !== "..").map((e) => e.path);
       // Inside an archive the sizes come with the listing.
@@ -600,8 +605,8 @@
         </span>
       {/if}
       <!-- Something new or to turn on: counted here, listed under Settings → What's new. -->
-      <button class="gear" title={newsCount ? t("news.badge_title", { n: newsCount }) : `${t("settings.title")} (${ui.cfg.actions.settings?.[1] ?? ""})`}
-        onclick={() => (ui.modal = { kind: "settings", section: newsCount ? "news" : undefined })}
+      <button class="gear" title={[t("settings.title"), ui.cfg.actions.settings?.[1], newsCount && t("news.badge_title", { n: newsCount })].filter(Boolean).join(" · ")}
+        onclick={() => (ui.modal = { kind: "settings" })}
         >{"\u{f013}"} {t("settings.title")}{#if newsCount}<span class="badge">{newsCount}</span>{/if}</button>
       {#if update}
         <!-- With a package manager, the command upgrades; the page still has the release notes. -->
@@ -626,6 +631,7 @@
 {#if ui.modal?.kind === "bom"}<BomView path={ui.modal.path} full />{/if}
 {#if ui.modal?.kind === "settings"}<Settings />{/if}
 {#if ui.modal?.kind === "setup"}<SetupSearch />{/if}
+{#if ui.modal?.kind === "guide"}<Guide />{/if}
 
 <style>
   :global(html, body) {

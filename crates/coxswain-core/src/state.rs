@@ -34,6 +34,10 @@ pub struct AppState {
     pub seen_version: String,
     /// The ending of the last archive packed (".7z"), suggested next time; empty: ".zip".
     pub pack_ending: String,
+    /// The first-run guide was gone through or skipped.
+    pub guide_seen: bool,
+    /// What the start of 2.0 renamed in config.toml (`migrate`), for its notice.
+    pub migrated: Vec<String>,
 }
 
 impl Default for AppState {
@@ -50,6 +54,8 @@ impl Default for AppState {
             notices_dismissed: vec![],
             seen_version: String::new(),
             pack_ending: String::new(),
+            guide_seen: false,
+            migrated: vec![],
         }
     }
 }
@@ -89,6 +95,12 @@ impl AppState {
             Some(p) => self.save_to(&p),
             None => Err(io::Error::new(io::ErrorKind::NotFound, "no data directory")),
         }
+    }
+
+    /// Whether the first-run guide is due: on the very first start (no version was started
+    /// before; one updated from 1.x has, and is told what is new instead), until it is closed.
+    pub fn guide_due(&self) -> bool {
+        !self.guide_seen && self.seen_version.is_empty()
     }
 
     /// The ending Pack suggests: the last one used, else ".zip".

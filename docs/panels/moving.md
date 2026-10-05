@@ -22,7 +22,7 @@ in both apps, **Ctrl+L** in the desktop app, or `cd` on the command line.
 | **Tab** | The other panel becomes active |
 | **Ctrl+U** | Swap the two panels |
 | **Alt+O** | Show the active panel's folder in the other panel too |
-| **Ctrl+R** | Reread both panels (their folders, git and sizes); the status line says *Reread* |
+| **Ctrl+R** | *Refresh*: read both panels again (their folders, git and sizes); the status line says *Refreshed* |
 
 In the desktop app's **Miller columns** view, **Left** goes up and **Right** opens the folder
 under the cursor; in **thumbnails** the four arrows move in two dimensions
@@ -62,7 +62,7 @@ Other ways:
   The buttons left of it are **Back**, **Forward** and **Up** ([Tabs, back and forward](tabs-and-panes.md)).
 - Desktop app: the [sidebar](../organise/sidebar.md) (**Ctrl+B**) has places, drives,
   favourites and recent git repositories.
-- [Find file](../search/find-file.md) (**Alt+F7**, **Ctrl+F**): **Enter** on a hit opens its
+- [Find](../search/find-file.md) (**Alt+F7**, **Ctrl+F**): **Enter** on a hit opens its
   folder with the cursor on it.
 
 ## What you see
@@ -71,8 +71,8 @@ Other ways:
 - A path that is not a folder: the terminal app says `Not a folder: /tmp/x` (from `cd`:
   `cd: no such folder: x`); the desktop app stays where it is and puts the error in the status
   line.
-- Rereading: the cursor stays on the same name, marks on files that are still there stay.
-- Both apps reread a folder by themselves when something in it changes (see the questions).
+- Refreshing: the cursor stays on the same name, marks on files that are still there stay.
+- Both apps read a folder again by themselves when something in it changes (see the questions).
 
 ## Settings and config.toml
 
@@ -84,11 +84,11 @@ None of their own. Every key above is an action in `[keys]`:
 | Page up / Page down | `page_up` / `page_down` | `PageUp`, `Left` / `PageDown`, `Right` |
 | First / Last | `home` / `end` | `Home` / `End` |
 | Open | `open` | `Enter` |
-| Parent dir | `parent` | `Ctrl+PageUp`, `Backspace` |
+| Parent folder | `parent` | `Ctrl+PageUp`, `Backspace` |
 | Other panel | `switch_panel` | `Tab` |
 | Swap panels | `swap_panels` | `Ctrl+U` |
 | Other panel here | `same_dir` | `Alt+O` |
-| Reread | `refresh` | `Ctrl+R` |
+| Refresh | `refresh` | `Ctrl+R` |
 | Left: go to / Right: go to | `goto_left` / `goto_right` | `Alt+F1` / `Alt+F2` |
 | Edit path | `edit_path` | `Ctrl+L` (desktop app) |
 
@@ -99,7 +99,7 @@ See [Changing keys](../customise/keys.md).
 The same keys, with three differences: **Enter** runs programs itself; **Alt+F1** and
 **Alt+F2** open a small dialog instead of a path bar; and there is no **Ctrl+L**, no path bar
 to click, no history (**Alt+Left**) and no sidebar, because the terminal app has one folder
-per panel and no tabs. It rereads after its own operations, after a command, and on
+per panel and no tabs. It reads its panels again after its own operations, after a command, and on
 **Ctrl+R**, not when something outside changes a folder.
 
 ## Questions
@@ -113,11 +113,11 @@ already walk the tree.
 
 #### Do the panels follow changes on disk?
 
-Yes. The desktop app watches every folder open in a tab and rereads it within a quarter of a
-second of a change. The terminal app watches the folders of its two panels and their
-repository's `.git`, and rereads a panel once the changes have settled (a quarter of a second
+Yes. The desktop app watches every folder open in a tab and reads it again within a quarter of
+a second of a change. The terminal app watches the folders of its two panels and their
+repository's `.git`, and reads a panel again once the changes have settled (a quarter of a second
 without another, or every two seconds while they keep coming); the git line follows. Both also
-reread after their own operations and on **Ctrl+R**.
+read again after their own operations and on **Ctrl+R** (*Refresh*).
 
 #### Which folder does a relative path start from?
 

@@ -45,8 +45,8 @@ wait = true               # terminal app: wait for Enter afterwards
 
 [[user_menu]]
 key = "z"
-label = "Zip the selection"
-command = "zip -r selection.zip %s"
+label = "Zip the marked files"
+command = "zip -r marked.zip %s"
 
 [[user_menu]]
 key = "o"
@@ -79,7 +79,7 @@ names with spaces or quotes are safe; do not put your own quotes around a placeh
   terminal app the panels step aside, the terminal shows `folder> command` and its output, and
   with `wait = true` it ends with `-- press Enter --`. In the desktop app the status line says
   *Running git status…* and the preview pane then shows the output under the label and *Command output*.
-- Afterwards both panels reread.
+- Afterwards both panels are read again.
 
 ## Settings and config.toml
 

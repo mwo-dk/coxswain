@@ -150,7 +150,7 @@ supports with its own pure-Rust code, the same on every system, so RAR is left o
   listed, so nothing you do in the archive acts outside it. They stay in the archive when it is
   written anew. A tar whose long-name record is over 64 KB is not opened.
 - **Batch rename and properties** do not look inside archives. A folder inside shows the
-  size of the files in it, as listed; nothing is measured. **Search** does: Find file finds the
+  size of the files in it, as listed; nothing is measured. **Search** does: Find gets the
   files in the archives of your home folder by name and by their text, and follows their changes
   ([Inside archives](../search/archives.md)). Pack (**Alt+F5**) takes files on
   disk, not entries of another archive.
@@ -170,7 +170,7 @@ supports with its own pure-Rust code, the same on every system, so RAR is left o
 
 ## Settings and config.toml
 
-None. The keys are the usual file keys (`copy`, `move`, `mkdir`, `delete`, `delete_forever`,
+None. The keys are the usual file keys (`copy`, `move`, `new_folder`, `delete`, `delete_forever`,
 `open`, `parent`) and `extract` and `pack` in `[keys]` ([Changing keys](../customise/keys.md)).
 
 ## In the terminal app

@@ -8,6 +8,7 @@ once per archive, and it is never written anywhere. Packing (**Alt+F5**) can loc
 7z with a password of your own.
 
 ![The Locked archive dialog over a pane inside secret.zip (tinted, badge archive, locked): Its password (kept in memory while the app runs, never saved): and a password field showing dots, OK and Cancel](../screenshots/files-archive-password.png)
+<!-- screenshot: files-archive-password.png: retake for 2.0: the Locked archive dialog with the password field as dots, the buttons Unlock and Cancel, and the line Enter Unlock · Esc Cancel -->
 
 ## How to use it
 
@@ -15,13 +16,14 @@ once per archive, and it is never written anywhere. Packing (**Alt+F5**) can loc
    (**F6**), or extract it (**Ctrl+E**).
 2. When a locked part is needed, the dialog *Locked archive* opens with *Its password (kept only
    for this, never saved):*.
-3. Type the password and press **Enter**. The operation runs again with it.
+3. Type the password and press **Enter** (or click *Unlock*). The operation runs again with it.
 4. A wrong password asks again, with *That password did not open it. Try again:*. **Esc** gives up.
 
 | | Desktop app | Terminal app |
 |---|---|---|
 | The field | A password field: dots | Stars, one per character |
-| Confirm / cancel | **Enter** or *OK* / **Esc** or *Cancel* | **Enter** / **Esc** (`Enter = OK   Esc = Cancel`) |
+| Confirm / cancel | **Enter** or *Unlock* / **Esc** or *Cancel* | **Enter** / **Esc** |
+| The key line under it | *Enter Unlock · Esc Cancel* | The same |
 | Clear the field | select and type | **Ctrl+U** |
 
 **When you are asked:**
@@ -55,7 +57,7 @@ without typing it again.
 |---|---|---|
 | Password | A password field and a second one to confirm it, both dots | A prompt with stars, then a second one to confirm; **Enter** alone means none |
 | Hide the names (7z) | The checkbox, on by default | Always on |
-| Different passwords | *OK* greyed out, *The passwords do not match* | *The passwords do not match* on the status line; nothing is packed |
+| Different passwords | *Pack* greyed out, *The passwords do not match* | *The passwords do not match* on the status line; nothing is packed |
 
 ## What you see
 

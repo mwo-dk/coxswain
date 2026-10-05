@@ -33,7 +33,7 @@ The default application is the one your desktop picks: `xdg-open` on Linux, `ope
   and the error; in the desktop app it shows the error alone.
 - **A program, terminal app:** the panels step aside, the terminal shows
   `/home/demo/bin> ./build.sh` and the program's output, then `-- press Enter --`. **Enter** brings
-  the panels back, reread.
+  the panels back, read again.
 - **Double-click** works in the details, columns and thumbnails views of the desktop app and in the
   terminal app's panels (two clicks within 400 ms on the same spot).
 

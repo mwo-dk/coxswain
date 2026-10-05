@@ -2,7 +2,7 @@
 
 # Text in files
 
-Text in files is the *In files* group of [Find file](find-file.md): the files whose text has your
+Text in files is the *In files* group of [Find](find-file.md): the files whose text has your
 words, from code, notes, PDFs, Word documents, spreadsheets, slides, mail and books. Use it when
 you remember what a file says but not what it is called.
 
@@ -21,10 +21,10 @@ you remember what a file says but not what it is called.
 
 ## How to use it
 
-1. Press **Ctrl+F** for [Find file](find-file.md): words are searched along with names, and
+1. Press **Ctrl+F** for [Find](find-file.md): words are searched along with names, and
    *In files* is one of its groups (first for three words or more). For the words alone, press
    **Shift+F7** (or **Ctrl+Shift+F** in the desktop app): Find opens at the *In files* kind. The
-   F9 command list calls it *Search inside files*. Inside Find, **Shift+F7** switches to *In
+   F9 command list calls it *Find in files*. Inside Find, **Shift+F7** switches to *In
    files* and back, and the prefix `text:` does the same.
 2. To search one folder only, switch the scope with **Ctrl+F** inside Find (*In rocket*).
 3. Type words: `rocket budget`. Best matches come first.

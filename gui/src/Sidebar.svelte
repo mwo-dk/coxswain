@@ -31,6 +31,7 @@
       title: t("sidebar.new_group_title"),
       label: t("sidebar.name"),
       value: "",
+      ok: t("verb.create"),
       run: (name) => {
         if (!name.trim()) return;
         ui.favorites.push({ name: name.trim(), paths: [] });
@@ -58,6 +59,7 @@
               title: t("sidebar.rename_group"),
               label: t("sidebar.name"),
               value: g.name,
+              ok: t("common.rename"),
               run: (n) => {
                 if (n.trim()) g.name = n.trim();
                 saveFavorites();

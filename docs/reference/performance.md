@@ -22,7 +22,7 @@ numbers measured on synthetic data, so you know what to expect and can measure a
 - **Folder sizes** are measured in the background by two threads, the first folders on screen
   first, and stop when you leave the folder. Sizes under your home folder come from the search
   helper's store at once. See [Folder sizes](../panels/folder-sizes.md).
-- **Find file** searches an in-memory index of every name (a million names in about 140 MB)
+- **Find** searches an in-memory index of every name (a million names in about 140 MB)
   in a few milliseconds; the index is shared by every window and the terminal app through the
   helper, and loads from its cache in well under a second. See [Names everywhere](../search/names.md).
 - **git status** runs on its own thread, so a big repository never holds up the listing; the
@@ -71,7 +71,7 @@ numbers measured on synthetic data, so you know what to expect and can measure a
   from is dropped. Highlighting runs on a worker, off the window's thread, and a newer
   preview drops the one still being highlighted; it stops at 200,000 characters, bigger text
   shows plain.
-- **Find file** shows at most 500 hits (the count still says how many there are); duplicates
+- **Find** shows at most 500 hits (the count still says how many there are); duplicates
   show 500 groups; the BOM tree draws the branches that are open.
 - **Folders watched** reread themselves at most four times a second while something writes
   into them.
@@ -110,7 +110,7 @@ files and 1,000 subfolders; an index of a million names in a thousand folders.
 | Sort by time / size | 25 ms / 8 ms | 20 ms / 6 ms |
 | Measure the folder's size (dir_size) | 30 ms | 30 ms |
 
-### Find file (a million names)
+### Find (a million names)
 
 | What | Time |
 |---|---|

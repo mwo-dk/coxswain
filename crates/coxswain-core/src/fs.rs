@@ -381,7 +381,7 @@ fn copy_out_or_in(src: &Path, dst: &Path, password: Option<&str>, whole: bool) -
     }
     let to = target(src, dst);
     if to.starts_with(src) && src.is_dir() {
-        return Err(io::Error::new(io::ErrorKind::InvalidInput, "cannot copy a directory into itself"));
+        return Err(io::Error::new(io::ErrorKind::InvalidInput, "cannot copy a folder into itself"));
     }
     copy_tree(src, &to)?;
     Ok(to)
@@ -675,9 +675,31 @@ impl Settle {
     }
 }
 
+/// An error's cause in one line, as a dialog says it under a title that names what failed: the
+/// first line, without the path before it and the OS error number. The raw text goes under
+/// Details. (The desktop app's `errors.js` does the same.)
+pub fn cause(err: &str) -> String {
+    let first = err.lines().next().unwrap_or_default().trim();
+    let first = first.rsplit_once(" (os error ").filter(|(_, n)| n.ends_with(')')).map_or(first, |(t, _)| t).trim();
+    match first.rsplit_once(": ").map(|(_, tail)| tail.trim()).filter(|t| !t.is_empty()) {
+        Some(tail) => {
+            let mut c = tail.chars();
+            c.next().map(|f| f.to_uppercase().chain(c).collect()).unwrap_or_default()
+        }
+        None => first.to_string(),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn an_error_is_said_in_one_line() {
+        assert_eq!(cause("/home/me/budget.txt: Permission denied (os error 13)"), "Permission denied");
+        assert_eq!(cause("Neither podman nor docker is installed"), "Neither podman nor docker is installed");
+        assert_eq!(cause("a.txt: locked: wrong password\nb.txt: No space left on device (os error 28)"), "Wrong password");
+    }
 
     #[test]
     fn watch_settles_changes_before_giving_them_out() {
