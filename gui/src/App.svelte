@@ -403,10 +403,13 @@
         filter: "",
         cursor: 0,
         items: [
-          ...Object.entries(ui.cfg.actions)
-            .filter(([n]) => !["menu", "up", "down"].includes(n))
-            .map(([n, [label, key]]) => ({ key, label, run: () => actions[n]?.() })),
-          ...themeIds().map((id) => ({ key: id === ui.theme ? t("app.current") : "", label: t("app.theme", { name: themeName(id) }), icon: "\u{f53f}", run: () => setTheme(id, true) })),
+          // Under the group headings of F1; the themes close the last group (App).
+          ...ui.cfg.groups.flatMap(([group, names]) =>
+            names
+              .filter((n) => !["menu", "up", "down"].includes(n))
+              .map((n) => ({ key: ui.cfg.actions[n][1], label: ui.cfg.actions[n][0], group, run: () => actions[n]?.() })),
+          ),
+          ...themeIds().map((id) => ({ key: id === ui.theme ? t("app.current") : "", label: t("app.theme", { name: themeName(id) }), group: ui.cfg.groups.at(-1)?.[0], icon: "\u{f53f}", run: () => setTheme(id, true) })),
         ],
       }),
     help: () => (ui.modal = { kind: "help" }),

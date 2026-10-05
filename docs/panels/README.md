@@ -26,7 +26,7 @@ Every key here is a default. Each one can be changed in `config.toml` under `[ke
 | [Git in the panels](git.md) | The git line, glyphs per file, the last commit per file, the diff, recent repositories |
 | [Git history as folders](git-history.md) | **Ctrl+G**: a file's or folder's commits, the files as they were, their diff, copying an old version out |
 | [The mouse](mouse.md) | Clicks, marks, drags, the path bar, the splitters |
-| [The command list (F9) and Help (F1)](command-list.md) | Every action by name, and the key list |
+| [The command list (F9) and Help (F1)](command-list.md) | Every action by name, and the keys by group |
 | [What the apps remember](session.md) | The desktop app's session, what the terminal app keeps, what is forgotten |
 | [Every default key](keys.md) | The full table for both apps, and the keys inside dialogs |
 

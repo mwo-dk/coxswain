@@ -346,10 +346,19 @@
         <div class="help" bind:this={input} tabindex="-1">
           <table>
             <tbody>
-              <!-- By name, and a letter key written as on the keyboard: Ctrl+G, not Ctrl+g. -->
-              {#each Object.entries(ui.cfg.actions).sort(([, [a]], [, [b]]) => a.localeCompare(b)) as [name, [label]] (name)}
-                {@const keys = Object.entries(ui.cfg.keymap).filter(([, a]) => a === name).map(([k]) => k.replace(/\+([a-z])$/, (_, c) => "+" + c.toUpperCase()))}
-                <tr><td>{label}</td><td>{#each keys as k, i (i)}<kbd>{k}</kbd>{/each}</td></tr>
+              <!-- Under group headings, the most used first; the first configured key first, and a
+                   letter key written as on the keyboard: Ctrl+G, not Ctrl+g. -->
+              {#each ui.cfg.groups as [group, names] (group)}
+                <tr class="head"><th colspan="2">{group}</th></tr>
+                {#each names as name (name)}
+                  {@const [label, first] = ui.cfg.actions[name]}
+                  {@const keys = Object.entries(ui.cfg.keymap)
+                    .filter(([, a]) => a === name)
+                    .map(([k]) => k)
+                    .sort((a, b) => (b === first) - (a === first))
+                    .map((k) => k.replace(/\+([a-z])$/, (_, c) => "+" + c.toUpperCase()))}
+                  <tr><td>{label}</td><td>{#each keys as k, i (i)}<kbd>{k}</kbd>{/each}</td></tr>
+                {/each}
               {/each}
             </tbody>
           </table>
@@ -366,6 +375,8 @@
         {/if}
         <ul class="list" bind:this={listEl}>
           {#each menuItems(m) as it, i (it.label + i)}
+            <!-- Unfiltered, the list is m.items: a heading where the group changes. -->
+            {#if !m.filter && it.group && it.group !== m.items[i - 1]?.group}<li class="head">{it.group}</li>{/if}
             <li>
               <button class:cursor={i === m.cursor} onclick={() => run(it)} onmouseenter={() => (m.cursor = i)}>
                 {#if it.icon}<span class="glyph">{it.icon}</span>{/if}
@@ -892,6 +903,16 @@
   .help td {
     padding: 3px 6px;
     border-bottom: 1px solid color-mix(in srgb, var(--border-fg) 50%, transparent);
+  }
+  .help th,
+  .list li.head {
+    padding: 12px 6px 4px;
+    text-align: start;
+    font-weight: 600;
+    color: var(--directory-fg);
+  }
+  .list li.head {
+    padding-inline: 10px;
   }
   .help p {
     margin-top: 10px;
