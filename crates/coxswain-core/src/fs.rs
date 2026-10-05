@@ -205,8 +205,11 @@ pub enum SortKey {
 /// `sort` for the listing of `dir`. A history's list of commits is always by date, newest
 /// first, and in git's order where two have the same time: its names start with commit ids,
 /// which would put it in a random order.
+/// The branches and the worktrees keep git's order: local branches before remote ones.
 pub fn sort_in(dir: &Path, entries: &mut [Entry], key: SortKey, reverse: bool) {
-    if dir.file_name().is_some_and(|n| n == crate::history::MARKER) {
+    if crate::history::split(dir).is_some_and(|at| at.commit.is_none() && at.view != crate::history::View::History) {
+        entries.sort_by_key(|e| !e.is_parent());
+    } else if dir.file_name().is_some_and(|n| n == crate::history::MARKER) {
         entries.sort_by(|a, b| {
             let ord = b.modified.cmp(&a.modified);
             (!a.is_parent()).cmp(&!b.is_parent()).then(if reverse { ord.reverse() } else { ord })

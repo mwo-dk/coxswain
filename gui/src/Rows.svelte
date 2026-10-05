@@ -42,6 +42,6 @@
 
 <div bind:this={el} {...rest} onscroll={(ev) => (top = ev.currentTarget.scrollTop)}>
   <div style:height="{first * rowH}px"></div>
-  {#each items.slice(first, last) as e, j (e.path)}{@render row(e, first + j)}{/each}
+  {#each items.slice(first, last) as e, j (e.name === ".." ? "\0.." : e.path)}{@render row(e, first + j)}{/each}
   <div style:height="{(items.length - last) * rowH}px"></div>
 </div>

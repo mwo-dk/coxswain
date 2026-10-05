@@ -19,8 +19,9 @@ New here? Start with [The screen](panels/the-screen.md) and [Every default key](
 | [Tabs, back and forward, one pane or two](panels/tabs-and-panes.md) | Tabs, back and forward, one pane or two (Ctrl+O), the splitter |
 | [Views: details, columns, thumbnails](panels/views.md) | Details, Miller columns, thumbnails, the columns menu, the age chip |
 | [Folder sizes](panels/folder-sizes.md) | Where they come from, how fresh, measuring again, switching off |
-| [Git in the panels](panels/git.md) | The git line, file glyphs, the last commit per file, the diff, recent repositories, user menu commands |
+| [Git in the panels](panels/git.md) | The git line (worktree, detached HEAD, merge or rebase under way), file glyphs, the last commit per file, the diff, recent repositories, user menu commands |
 | [Git history as folders](panels/git-history.md) | Ctrl+G, the commits of a file or folder, the files at a commit, preview and diff, F3, F5, read-only, limits |
+| [Git branches and worktrees](panels/git-branches.md) | Alt+B, the branches, a branch's files, switching (Alt+S) and new branches, Alt+W, the worktrees, limits |
 | [The mouse](panels/mouse.md) | Clicks, marks, drags, path bar, tabs, splitters, in both apps |
 | [The command list (F9) and Help (F1)](panels/command-list.md) | The command list (F9) and Help (F1) |
 | [What the apps remember](panels/session.md) | The desktop session, state.json, what is forgotten |

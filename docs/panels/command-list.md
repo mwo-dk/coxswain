@@ -50,7 +50,7 @@ them, and in each group the most used action first:
 | Files | Copy, RenMov, Delete, Mkdir, the clipboard, Delete permanently, Properties, Batch rename, Colour tag |
 | Archives | Extract archive, Pack into an archive |
 | Search | Find file, Search inside files, Ask your files, Find duplicates |
-| Git | Git history |
+| Git | Git history, Git branches, Switch to branch, Git worktrees, New branch here |
 | Viewing and editing | View, Edit, Preview, Path to command line, Menu (the user menu), Folder notes |
 | App | Help, PullDn (this list), Settings, Quit |
 
