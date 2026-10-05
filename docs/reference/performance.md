@@ -224,8 +224,10 @@ rests):
 | Built-in model, CPU (two threads) | 40 min | 60 min | 16 MB | 21 MB |
 | Ollama bge-m3, RTX 4070 Laptop GPU | 1.9 min | 3.9 min | 23 MB | 40 MB |
 
-Without *Index now*, the helper rests as long as it worked, so the first pass takes about twice
-as long. Short files cost what they did: a file of up to 960 words has the same passages as
+On the CPU the built-in model takes a file's passages 8 at a time (on a Mac's GPU 32): 15
+passages of 100 words a second on its two threads, where one by one gave 12
+(`perf_meaning_cpu_and_gpu`). Without *Index now*, the helper rests as long as it worked, so
+the first pass takes about twice as long. Short files cost what they did: a file of up to 960 words has the same passages as
 before, plus the line with its name.
 
 ## Search quality

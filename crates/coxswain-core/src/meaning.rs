@@ -117,8 +117,10 @@ pub fn remove() -> io::Result<()> {
     }
 }
 
-/// Passages per pass on the GPU: one pass over many is what makes it quick there.
+/// Passages per pass on the GPU: one pass over many is what makes it quick there. On the CPU
+/// fewer: a long file's passages still go faster than one by one, with little padding.
 const BATCH: usize = 32;
+const CPU_BATCH: usize = 8;
 /// A sentence both devices turn into a vector when the model loads: the GPU's must be the CPU's.
 const PROBE: &str = "passage: The fuel budget for flight seven is the largest cost of the launch, \
     more than the rocket itself, the crew, the launch pad and the weather station together. The team \
@@ -311,22 +313,23 @@ impl Embedder {
         self.embed(&texts).into_iter().map(|v| if v.is_empty() { vec![0.0; DIMS] } else { v }).collect()
     }
 
-    /// The vectors of `texts`, empty where there is none: on the GPU in batches, on the CPU
-    /// one by one. A GPU that fails moves the model to the CPU for the rest of the run.
+    /// The vectors of `texts`, empty where there is none, in batches. A GPU that fails moves
+    /// the model to the CPU for the rest of the run.
     fn embed(&self, texts: &[&str]) -> Vec<Vec<f32>> {
         self.pool.install(|| {
             let bert = self.bert.read().unwrap().clone();
-            if !bert.device.is_metal() {
-                return texts.iter().map(|t| bert.vectors(&self.tokenizer, self.pad, &[t]).ok().and_then(|mut v| v.pop()).unwrap_or_default()).collect();
-            }
+            let size = if bert.device.is_metal() { BATCH } else { CPU_BATCH };
             let mut out = Vec::with_capacity(texts.len());
-            for batch in texts.chunks(BATCH) {
+            for batch in texts.chunks(size) {
                 match bert.vectors(&self.tokenizer, self.pad, batch) {
                     Ok(v) => out.extend(v),
                     Err(e) if self.to_cpu(e.to_string()) => {
                         out.extend(self.embed(&texts[out.len()..]));
                         break;
                     }
+                    // On the CPU a batch that fails goes one by one: a passage the model cannot
+                    // take costs only itself.
+                    Err(_) if !bert.device.is_metal() => out.extend(batch.iter().map(|t| bert.vectors(&self.tokenizer, self.pad, &[t]).ok().and_then(|mut v| v.pop()).unwrap_or_default())),
                     Err(_) => {
                         out.resize(texts.len(), vec![]);
                         break;
