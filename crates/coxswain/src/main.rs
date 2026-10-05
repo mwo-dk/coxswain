@@ -1724,9 +1724,29 @@ const USAGE: &str = "coxswain [LEFT] [RIGHT]      a folder, or a file to open it
   --meaning builtin        back to the built-in model
   --meaning ask MODEL|off  Ask in Find file: the chat model on that server (Ollama here with the
                            built-in model) that answers questions from your files
+  --languages              the languages, by region, and how to help improve a new translation
   --whats-new [all]        what the versions since you last looked brought (all: every version)
   --version
   --help";
+
+/// `--languages`: every language by region, the one in use and the new ones marked.
+fn languages() {
+    use coxswain_core::i18n::{self, LANGUAGES};
+    let cfg = Config::load().unwrap_or_default();
+    i18n::set_language(i18n::resolve(&cfg.language));
+    let mut group = "";
+    for l in LANGUAGES {
+        if l.group != group {
+            group = l.group;
+            println!("{}", t!(group));
+        }
+        let current = if l.code == i18n::language() { format!("  ({})", t!("app.current")) } else { String::new() };
+        let new = if l.new { format!("  {}", t!("news.new")) } else { String::new() };
+        println!("  {:<6} {}{new}{current}", l.code, l.name);
+    }
+    println!("\nlanguage = \"…\" in {}", Config::path().map(|p| p.display().to_string()).unwrap_or_else(|| "config.toml".into()));
+    println!("{}\n{}", t!("settings.language_improve"), i18n::IMPROVE_URL);
+}
 
 /// `--whats-new [all]`: the changelog, from the versions not read yet (or this one), then read.
 fn whats_new(all: bool) {
@@ -1902,6 +1922,7 @@ fn main() {
             }
             return;
         }
+        Some("--languages") => return languages(),
         Some("--whats-new") => return whats_new(args.get(1).map(String::as_str) == Some("all")),
         Some("--index-service") => return index_service(args.get(1).map(String::as_str)),
         Some("--meaning") => return meaning(args.get(1).map(String::as_str), &args[2.min(args.len())..]),
