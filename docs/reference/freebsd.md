@@ -365,8 +365,9 @@ nothing FreeBSD-specific beyond what its tests cover. The desktop app depends on
 does not support FreeBSD officially and needs two patched crates
 ([above](#the-desktop-app-what-experimental-means)).
 
-**Is there a port or a package?** Not yet in the ports tree; a `sysutils/coxswain` port is being
-prepared. Until then the script, the archives or `cargo install --locked coxswain`.
+**Is there a port or a package?** Not yet in the ports tree. A `sysutils/coxswain` port of the
+terminal app is ready in [packaging/freebsd](../../packaging/freebsd/README.md) and waits for
+review; until it is in, the script, the archives or `cargo install --locked coxswain`.
 
 **Does it need Linux binary compatibility (`linux64`)?** No. Both apps are native FreeBSD
 binaries.
