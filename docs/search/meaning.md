@@ -56,7 +56,7 @@ hit.
   OpenAI API (Lemonade, LM Studio, llama.cpp …)*. The last two are on [their own page](servers.md).
 - While on: *Understood: 8,120 files · still to go: 23,088*; while the vectors are being
   [renewed](#why-is-search-by-meaning-re-reading-everything), also *Renewing search by meaning
-  for whole documents: 23,088 files to go, about 3h*; the model in use
+  for whole documents: 23,088 files to go, about 3 hours*; the model in use
   (`builtin:multilingual-e5-small@614241f6`), the model's folder, any error in red, and on battery
   *Paused while the machine runs on its battery. Index now reads anyway.* Buttons **Turn off** and
   **Delete the model**.
@@ -116,7 +116,7 @@ The same search: hits by meaning come after word hits, with *similar to:* in fro
 passage. Turn it on, off or delete it with `coxswain --meaning on|off|delete`. There is no status
 of *still to go*; the desktop app's Settings shows it, or wait for hits. While the vectors are
 renewed, the status line of Find file's text depth adds *Renewing search by meaning for whole
-documents: 23,088 files to go, about 3h*, and the notice says it once. Find file's text depth
+documents: 23,088 files to go, about 3 hours*, and the notice says it once. Find file's text depth
 says *Also find files about your words, in any language: coxswain --meaning on* while it is off.
 When vectors stop coming, its status line says why: *No vectors: http://localhost:11434: Connection
 refused*, or *Reading stopped: …* when reading itself failed.
@@ -156,16 +156,18 @@ file only, and those vectors cannot be mixed with the new ones. The helper notic
 opens the store, drops the old vectors and makes new ones in the background, the most recently
 changed files first. The text is not read again, and search by words works all the while. Both
 apps say it once: *Search by meaning is being renewed to cover whole documents: 23,088 files,
-about 3h on this machine* (the time is measured on the first files). Settings (desktop) and Find
+about 3 hours on this machine* (the time is measured on the first files). Settings (desktop) and Find
 file's text depth (terminal) show the files to go. Until a file has its new vectors, it is found
 by its words only. A store copied to another machine is renewed there the same way.
 
 #### How long does the renewal take?
-About as long as turning search by meaning on for the first time took, or twice that: long files
-now get up to 256 vectors where they had 8. Measured on this documentation (93 pages): bge-m3 on
-an RTX 4070 laptop GPU about 4 minutes per 1,000 files, the built-in model on the CPU see
-[Performance](../reference/performance.md#search-by-meaning-whole-documents). It rests between
-files and waits on battery, as always; *Index now* skips the rests.
+Somewhat longer than turning search by meaning on took the first time: a long file now gets up
+to 256 vectors where it had 8, a short one the same as before. Measured on this documentation
+(93 pages, many of them long), per 1,000 files: about an hour with the built-in model on the CPU
+(40 minutes before), 4 minutes with bge-m3 on a laptop's GPU (2 before), twice that with the
+rests between files ([Performance](../reference/performance.md#search-by-meaning-whole-documents)).
+It waits on battery, as always; *Index now* skips the rests. The notice says how long it is
+likely to take on your machine, from the first files.
 
 #### Why does it show files that have nothing to do with my question?
 It shows the files closest to your question, above a floor. When nothing in your files is about

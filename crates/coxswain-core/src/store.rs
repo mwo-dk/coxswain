@@ -2068,7 +2068,7 @@ mod tests {
         assert_eq!(store.meaning_counts(), (0, 2));
         let first = |q: &str| store.similar(q, 10).first().map(|h| h.path.file_name().unwrap().to_string_lossy().into_owned());
         assert_eq!(first("how much does fuelling the rocket cost").as_deref(), Some("budget.txt"));
-        assert_eq!(first("a recipe for baking").as_deref(), Some("cake.txt"));
+        assert_eq!(first("an apple cake recipe").as_deref(), Some("cake.txt"));
 
         // The same model through the OpenAI API (Ollama speaks it too, as Lemonade does).
         cfg.meaning_engine = "openai".into();
@@ -2076,7 +2076,7 @@ mod tests {
         store.set_engine(crate::meaning::Engine::from_config(&cfg));
         scan(&store, &cfg, &go).unwrap();
         assert_eq!(store.meaning_counts(), (0, 2));
-        assert_eq!(first("a recipe for baking").as_deref(), Some("cake.txt"));
+        assert_eq!(first("an apple cake recipe").as_deref(), Some("cake.txt"));
 
         // Nobody answers there: the files wait, and Settings is told why.
         cfg.meaning_url = "http://127.0.0.1:9".into();

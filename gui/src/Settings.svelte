@@ -61,10 +61,13 @@
   // Search inside files: the helper's store, its folders, and what it is doing.
   let index = $state(null);
   const loadIndex = () => invoke("index_status").then((v) => (index = v), () => (index = null));
-  // About how long the files still to get vectors take, as the helper measured: "40m", "3h".
+  // About how long the files still to get vectors take, as the helper measured (as
+  // meaning::about words it): "40 minutes", "3 hours".
   function timeLeft(i) {
-    const m = Math.max(1, Math.ceil((i.meaning_pending * i.meaning_ms_per_file) / 60000));
-    return m < 90 ? t("age.minutes", { n: m }) : t("age.hours", { n: Math.ceil(m / 60) });
+    const secs = (i.meaning_pending * i.meaning_ms_per_file) / 1000;
+    if (secs < 60) return t("search.meaning_change_moment");
+    if (secs < 5400) return t("search.meaning_change_minutes", { n: Math.ceil(secs / 60) });
+    return t("search.meaning_change_hours", { n: Math.ceil(secs / 3600) });
   }
   loadIndex();
   $effect(() => {

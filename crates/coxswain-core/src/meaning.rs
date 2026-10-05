@@ -261,6 +261,17 @@ impl Engine {
     }
 }
 
+/// A time to wait, in words: "under a minute", "40 minutes", "3 hours".
+pub fn about(secs: f64) -> String {
+    if secs < 60.0 {
+        crate::t!("search.meaning_change_moment")
+    } else if secs < 5400.0 {
+        crate::t!("search.meaning_change_minutes", "n" => (secs / 60.0).ceil() as u64)
+    } else {
+        crate::t!("search.meaning_change_hours", "n" => (secs / 3600.0).ceil() as u64)
+    }
+}
+
 fn builtin_id() -> String {
     format!("builtin:{MODEL}@{}", &REVISION[..8])
 }
@@ -309,14 +320,14 @@ pub fn change_notice(old: &crate::config::SearchConfig, new: &crate::config::Sea
     if matches!((digest(old), digest(new)), (Some(a), Some(b)) if a == b) {
         return None;
     }
-    let sample: Vec<String> = (0..PASSAGES).map(|i| format!("Passage {i} of a long file: the budget, the launch plan and the notes from the meeting, written out in plain words. ").repeat(WORDS / 20)).collect();
+    let sample: Vec<String> = (0..8).map(|i| format!("Passage {i} of a long file: the budget, the launch plan and the notes from the meeting, written out in plain words. ").repeat(WORDS / 20)).collect();
     let start = std::time::Instant::now();
     match Engine::from_config(new).map(|e| e.passages(&sample)) {
         Some(Ok(_)) => {
-            // ponytail: one long file timed; most files are shorter, so this errs on the long side.
+            // ponytail: a file of eight passages timed; long files have up to 256, so a store of
+            // long documents takes longer than said.
             let secs = start.elapsed().as_secs_f64() * done as f64;
-            let time = if secs < 60.0 { crate::t!("search.meaning_change_moment") } else if secs < 5400.0 { crate::t!("search.meaning_change_minutes", "n" => (secs / 60.0).ceil() as u64) } else { crate::t!("search.meaning_change_hours", "n" => (secs / 3600.0).ceil() as u64) };
-            Some(crate::t!("search.meaning_change", "n" => done, "time" => time))
+            Some(crate::t!("search.meaning_change", "n" => done, "time" => about(secs)))
         }
         _ => Some(crate::t!("search.meaning_change_untimed", "n" => done)),
     }
@@ -967,7 +978,7 @@ mod tests {
         let old = crate::config::SearchConfig { meaning_engine: "ollama".into(), meaning_url: "http://127.0.0.1:9".into(), meaning_model: "bge-m3".into(), ..Default::default() };
         let tagged = crate::config::SearchConfig { meaning_model: "bge-m3:latest".into(), ..old.clone() };
         assert_eq!(change_notice(&old, &tagged, 3437), None);
-        let vectors = format!("{{\"data\":[{}]}}", vec!["{\"embedding\":[0.6,0.8]}"; PASSAGES].join(","));
+        let vectors = format!("{{\"data\":[{}]}}", ["{\"embedding\":[0.6,0.8]}"; 8].join(","));
         let (url, server) = one_answer("200 OK", &vectors);
         let other = crate::config::SearchConfig { meaning_engine: "openai".into(), meaning_url: url, meaning_model: "nomic".into(), ..old.clone() };
         assert_eq!(change_notice(&old, &other, 0), None, "no vectors, nothing to lose");

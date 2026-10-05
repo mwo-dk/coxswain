@@ -32,10 +32,9 @@ pub fn search_level(cfg: &Config, status: &Status) -> String {
 }
 
 /// About how long the files still to get their vectors take here, as the helper measured
-/// them: "40m", "3h".
+/// them: "40 minutes", "3 hours".
 pub fn time_left(status: &Status) -> String {
-    let mins = (status.meaning_pending as u64 * status.meaning_ms_per_file as u64).div_ceil(60_000).max(1);
-    if mins < 90 { t!("age.minutes", "n" => mins) } else { t!("age.hours", "n" => mins.div_ceil(60)) }
+    crate::meaning::about(status.meaning_pending as f64 * status.meaning_ms_per_file as f64 / 1000.0)
 }
 
 /// The notice to show now, if any. `terminal`: the notice names the command instead of Settings.
@@ -246,7 +245,7 @@ mod tests {
         assert_eq!(ids(&state, &status), None, "not before the time a file takes is known");
         (status.meaning_pending, status.meaning_ms_per_file) = (3437, 1200);
         let n = next(&cfg, &status, &state, true).unwrap();
-        assert!(n.text.contains("3437") && n.text.contains("69m"), "{}", n.text);
+        assert!(n.text.contains("3437") && n.text.contains("69 minutes"), "{}", n.text);
         dismiss(&mut state, &n.id);
         assert_eq!(ids(&state, &status), None);
     }
