@@ -14,7 +14,6 @@
     error = "";
     try {
       ui.cfg = await invoke("save_settings", { changes });
-      await invoke("index_action", { what: "restart" });
     } catch (e) {
       error = String(e);
     }
