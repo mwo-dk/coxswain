@@ -3,7 +3,7 @@
   import { getCurrentWebview } from "@tauri-apps/api/webview";
   import { listen } from "@tauri-apps/api/event";
   import { ui, init, tab, pane, otherTab, item, load, cd, up, openHistory, newTab, goBack, goForward, openItem, toggleMark, targets, reloadAll, refreshDisks, snapshot, setTheme, themeIds, themeName, nextView, measureFolders, columnMenu } from "./app.svelte.js";
-  import { invoke, keyString, basename, parent, glob, quote, isArchive, LOCKED } from "./lib.js";
+  import { invoke, keyString, basename, parent, glob, quote, isArchive, packFormat, LOCKED } from "./lib.js";
   import { t, tn } from "./i18n.svelte.js";
   import Sidebar from "./Sidebar.svelte";
   import Pane from "./Pane.svelte";
@@ -375,11 +375,13 @@
         kind: "pack",
         title: t("archive.pack"),
         label: t("archive.pack_into", { what }),
-        value: `${otherTab().dir}${ui.cfg.sep}${name}.zip`,
+        value: `${otherTab().dir}${ui.cfg.sep}${name}${ui.packEnding}`,
         password: "",
         again: "",
         hide: true,
         run: (d, password, hideNames) => {
+          const f = packFormat(ui.cfg.pack_formats, d);
+          if (f) ui.packEnding = f.endings[0];
           if (d.trim()) op(invoke("pack", { paths, base: tab().dir, dest: d, password, hideNames }), t("archive.packed", { what }), what);
         },
       };

@@ -163,6 +163,7 @@ These are fixed; `[keys]` does not change them.
 | Dialog | Keys |
 |---|---|
 | Any prompt (copy, move, new folder, go to, select group, password) | **Enter** OK, **Esc** cancel. Terminal app: **Backspace** deletes, **Ctrl+U** clears the line, **F10** cancels too |
+| Pack (**Alt+F5**) | Desktop app: the *Format* list next to the name swaps its ending. Terminal app: **Tab** the next format's ending, **Shift+Tab** the previous one ([Pack and extract](../files/pack-and-extract.md#formats)) |
 | Delete confirmation | **Enter** or **Y** deletes, **Esc** or **N** cancels |
 | Find file | Type to search, **Tab** the next depth, **Up** / **Down** / **PageUp** / **PageDown** move, **Enter** goes to the hit, **F4** edits it, **Esc** closes; terminal app also **F3** views it ([Find file](../search/find-file.md)) |
 | Command list (**F9**), columns menu | Type to filter, **Up** / **Down**, **Enter** runs, **Esc** closes |
