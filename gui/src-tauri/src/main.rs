@@ -86,6 +86,8 @@ struct UiConfig {
     keymap: BTreeMap<String, &'static str>,
     /// Action name -> (label, first key).
     actions: BTreeMap<&'static str, (String, String)>,
+    /// Group headings with their actions, in the order F1 and F9 list them.
+    groups: Vec<(String, Vec<&'static str>)>,
     /// Every theme, by name, so the GUI can switch live.
     themes: BTreeMap<String, UiTheme>,
     /// Each theme's look (shapes and chrome, see `Theme::look`), by name.
@@ -139,6 +141,7 @@ fn get_config(ctx: tauri::State<Ctx>) -> Res<UiConfig> {
     Ok(UiConfig {
         keymap: cfg.keymap()?.into_iter().map(|(k, a)| (k.to_string(), a.name())).collect(),
         actions: Action::ALL.iter().map(|&a| (a.name(), (a.label(), cfg.key_for(a).unwrap_or("").to_string()))).collect(),
+        groups: coxswain_core::config::Group::ALL.iter().map(|g| (g.label(), g.actions().map(Action::name).collect())).collect(),
         themes,
         looks: cfg.themes.iter().map(|(name, t)| (name.clone(), t.look.clone())).collect(),
         builtin_themes: coxswain_core::config::Theme::builtin().into_iter().map(|(name, _)| name).collect(),

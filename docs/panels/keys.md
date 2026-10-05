@@ -7,15 +7,20 @@ config name that `[keys]` uses. Use it as a reference, or as the list to start f
 [change keys](../customise/keys.md).
 
 ![The desktop app's F1 window Coxswain 1.28.3 · keyboard shortcuts: actions by name with their keys, Back Alt+Left, Batch rename Ctrl+M, Close tab Ctrl+W and on](../screenshots/panels-keys.png)
+<!-- screenshot: panels-keys.png: retake: the desktop app's F1 window with the group headings, Moving first (Open Enter, Up, Down, Parent dir Ctrl+PageUp Backspace …) -->
 
 ## Contents
 
 - [How to use it](#how-to-use-it)
-- [Files and panels](#files-and-panels)
 - [Moving](#moving)
-- [Marking and sorting](#marking-and-sorting)
-- [Search, views and panes](#search-views-and-panes)
-- [Desktop app only](#desktop-app-only)
+- [Panels and tabs](#panels-and-tabs)
+- [Marking](#marking)
+- [Files](#files)
+- [Archives](#archives)
+- [Search](#search)
+- [Git](#git)
+- [Viewing and editing](#viewing-and-editing)
+- [App](#app)
 - [Keys that are not actions](#keys-that-are-not-actions)
 - [Keys inside dialogs](#keys-inside-dialogs)
 - [Settings and config.toml](#settings-and-configtoml)
@@ -24,7 +29,8 @@ config name that `[keys]` uses. Use it as a reference, or as the list to start f
 
 ## How to use it
 
-Find the key in the tables below. *Both* means the key does the same in each app; where they
+The tables follow the groups of **F1** and **F9**, in the same order: moving first, the app
+last, and in each group the most used action first. Find the key in the tables below. *Both* means the key does the same in each app; where they
 differ, the columns say how. An action marked *–* in the terminal column answers there with
 the status *… is available in the desktop app (coxswain-gui)*. **F1** shows the keys you have
 now, and **F9** finds any action by name.
@@ -33,88 +39,108 @@ On a Mac the shortcuts are the same, with **Ctrl**, not Cmd.
 
 ## What you see
 
-### Files and panels
-
-| Key | Action (F9 name) | Config name | Desktop app | Terminal app |
-|---|---|---|---|---|
-| **F1** | Help | `help` | The help window | The help screen ([Help](command-list.md)) |
-| **F2** | Menu | `user_menu` | Scripts and the user menu | The user menu ([The user menu](../commands/user-menu.md)) |
-| **F3** | View | `view` | The preview pane on or off | The file in your viewer (`less`) ([View and edit](../commands/view-and-edit.md)) |
-| **F4** | Edit | `edit` | The file in your editor | The same |
-| **F5** | Copy | `copy` | Copy to the other pane ([Copy](../files/copy.md)) | The same |
-| **F6** | RenMov | `move` | Move or rename ([Move and rename](../files/move-and-rename.md)) | The same |
-| **F7** | Mkdir | `mkdir` | New folder ([New folder](../files/new-folder.md)) | The same |
-| **F8**, **Delete** | Delete | `delete` | To the trash ([Delete](../files/delete.md)) | The same |
-| **Shift+F8**, **Shift+Delete** | Delete permanently | `delete_forever` | Delete for good | The same |
-| **F9** | PullDn | `menu` | The command list | The same |
-| **F10** | Quit | `quit` | Close the window | Quit |
-| **Alt+F5** | Pack into an archive | `pack` | Pack the marked files ([Pack and extract](../files/pack-and-extract.md)) | The same |
-| **Ctrl+E** | Extract archive | `extract` | Extract into the other pane | The same |
-| **Ctrl+G** | Git history | `history` | The commits of the file or folder under the cursor, as folders ([Git history](git-history.md)) | The same |
-| **Ctrl+Enter**, **Ctrl+J** | Path to command line | `copy_path` | The name under the cursor to the command line | The same |
-
 ### Moving
 
 | Key | Action (F9 name) | Config name | Desktop app | Terminal app |
 |---|---|---|---|---|
+| **Enter** | Open | `open` | Open a folder or archive here, a file in its program | The same; a program runs in the panel's folder |
 | **Up** / **Down** | Up / Down | `up` / `down` | The cursor ([Moving around](moving.md)) | The same |
+| **Ctrl+PageUp**, **Backspace** | Parent dir | `parent` | Up to the parent folder | The same |
 | **PageUp**, **Left** | Page up | `page_up` | A page up (columns view: **Left** goes up; thumbnails: one tile left) | A page up |
 | **PageDown**, **Right** | Page down | `page_down` | A page down (columns view: **Right** opens the folder; thumbnails: one tile right) | A page down |
 | **Home** / **End** | First / Last | `home` / `end` | First / last entry | The same |
-| **Enter** | Open | `open` | Open a folder or archive here, a file in its program | The same; a program runs in the panel's folder |
-| **Ctrl+PageUp**, **Backspace** | Parent dir | `parent` | Up to the parent folder | The same |
-| **Tab** | Other panel | `switch_panel` | The other pane | The other panel |
-| **Ctrl+U** | Swap panels | `swap_panels` | Swap the panes | Swap the panels |
-| **Alt+O** | Other panel here | `same_dir` | The active pane's folder in the other pane | The same |
+| **Alt+Left** / **Alt+Right** | Back / Forward | `back` / `forward` | The tab's history | – |
 | **Alt+F1** / **Alt+F2** | Left: go to / Right: go to | `goto_left` / `goto_right` | Type a path in the left / right pane's path bar | *Left panel* / *Right panel* dialog |
-| **Ctrl+R** | Reread | `refresh` | Reread the panes | Reread the panels |
+| **Ctrl+L** | Edit path | `edit_path` | Type a path in the active pane | – |
 
-### Marking and sorting
+### Panels and tabs
 
 | Key | Action (F9 name) | Config name | Desktop app | Terminal app |
 |---|---|---|---|---|
-| **Insert**, **Shift+Down** | Mark | `mark` | Mark and move down ([Marking files](marking.md)) | The same |
-| `+` | Select group | `select_group` | Mark files by pattern | The same |
-| `-` | Unselect group | `unselect_group` | Unmark files by pattern | The same |
-| `*` | Invert selection | `invert_selection` | Invert the marks of files | The same |
-| **Ctrl+A** | Mark all | `mark_all` | Mark everything in the folder, files and folders (not `..`). In the command line, while it has text, it selects that text instead (desktop app) | The same |
+| **Tab** | Other panel | `switch_panel` | The other pane | The other panel |
+| **Alt+.** | Hidden files | `toggle_hidden` | Show or hide hidden files | The same |
+| **Ctrl+R** | Reread | `refresh` | Reread the panes | Reread the panels |
+| **Alt+O** | Other panel here | `same_dir` | The active pane's folder in the other pane | The same |
+| **Ctrl+U** | Swap panels | `swap_panels` | Swap the panes | Swap the panels |
+| **Ctrl+O** | Panels on/off | `toggle_panels` | One pane or two ([Tabs and panes](tabs-and-panes.md)) | The output of the last command |
+| **Ctrl+T** | New tab | `new_tab` | A new tab in the same folder and view | – |
+| **Ctrl+W** | Close tab | `close_tab` | Close the tab (the last one stays) | – |
+| **Ctrl+Tab** | Next tab | `next_tab` | The next tab of the pane | – |
+| **Ctrl+Shift+Tab** | Previous tab | `prev_tab` | The previous tab | – |
+| **Alt+V** | Details/columns/thumbnails | `toggle_view` | The next view ([Views](views.md)) | – |
+| **Ctrl+B** | Sidebar | `toggle_sidebar` | The sidebar on or off ([The sidebar](../organise/sidebar.md)) | – |
 | **Ctrl+F3** | Sort by name | `sort_name` | By name; again reverses ([Sorting](sorting.md)) | The same |
 | **Ctrl+F4** | Sort by extension | `sort_ext` | By extension | The same |
 | **Ctrl+F5** | Sort by time | `sort_time` | By time, newest first | The same |
 | **Ctrl+F6** | Sort by size | `sort_size` | By size, largest first | The same |
-| **Alt+.** | Hidden files | `toggle_hidden` | Show or hide hidden files | The same |
+| – | Folder sizes | `dir_sizes` | Measure the marked folders, or all, again ([Folder sizes](folder-sizes.md)) | Measure the panel's folders again |
+| – | Columns and folder sizes | `columns` | The columns menu ([Views](views.md#the-columns-menu)); also a right-click on a column header | – |
 
-### Search, views and panes
+### Marking
+
+| Key | Action (F9 name) | Config name | Desktop app | Terminal app |
+|---|---|---|---|---|
+| **Insert**, **Shift+Down** | Mark | `mark` | Mark and move down ([Marking files](marking.md)) | The same |
+| **Ctrl+A** | Mark all | `mark_all` | Mark everything in the folder, files and folders (not `..`). In the command line, while it has text, it selects that text instead (desktop app) | The same |
+| `+` | Select group | `select_group` | Mark files by pattern | The same |
+| `-` | Unselect group | `unselect_group` | Unmark files by pattern | The same |
+| `*` | Invert selection | `invert_selection` | Invert the marks of files | The same |
+
+### Files
+
+| Key | Action (F9 name) | Config name | Desktop app | Terminal app |
+|---|---|---|---|---|
+| **F5** | Copy | `copy` | Copy to the other pane ([Copy](../files/copy.md)) | The same |
+| **F6** | RenMov | `move` | Move or rename ([Move and rename](../files/move-and-rename.md)) | The same |
+| **F8**, **Delete** | Delete | `delete` | To the trash ([Delete](../files/delete.md)) | The same |
+| **F7** | Mkdir | `mkdir` | New folder ([New folder](../files/new-folder.md)) | The same |
+| **Ctrl+C** / **Ctrl+X** / **Ctrl+V** | Copy to clipboard / Cut to clipboard / Paste | `clip_copy` / `clip_cut` / `paste` | Files through the system clipboard ([Clipboard](../files/clipboard.md)) | – |
+| **Shift+F8**, **Shift+Delete** | Delete permanently | `delete_forever` | Delete for good | The same |
+| **Alt+Enter** | Properties | `properties` | Size, dates, permissions ([Properties](../files/properties.md)) | – |
+| **Ctrl+M** | Batch rename | `batch_rename` | Rename the marked files by pattern ([Batch rename](../files/batch-rename.md)) | – |
+| **Alt+T** | Colour tag | `tag` | Tag the marked files ([Colour tags](../organise/tags.md)) | – |
+
+### Archives
+
+| Key | Action (F9 name) | Config name | Desktop app | Terminal app |
+|---|---|---|---|---|
+| **Ctrl+E** | Extract archive | `extract` | Extract into the other pane | The same |
+| **Alt+F5** | Pack into an archive | `pack` | Pack the marked files ([Pack and extract](../files/pack-and-extract.md)) | The same |
+
+### Search
 
 | Key | Action (F9 name) | Config name | Desktop app | Terminal app |
 |---|---|---|---|---|
 | **Alt+F7**, **Ctrl+F** | Find file | `search` | Find file ([Find file](../search/find-file.md)) | The same |
 | **Shift+F7**, **Ctrl+Shift+F** | Search inside files | `search_text` | Find file at *Text in files* ([Text in files](../search/text.md)) | The same; many terminals send Ctrl+Shift+F as Ctrl+F, so use Shift+F7 |
 | **Ctrl+F7** | Ask your files | `ask` | Find file at *Ask* ([Ask](../search/ask.md)) | The same |
-| **Ctrl+O** | Panels on/off | `toggle_panels` | One pane or two ([Tabs and panes](tabs-and-panes.md)) | The output of the last command |
-| – | Folder sizes | `dir_sizes` | Measure the marked folders, or all, again ([Folder sizes](folder-sizes.md)) | Measure the panel's folders again |
+| **Ctrl+D** | Find duplicates | `duplicates` | The duplicate finder ([Finding duplicates](../files/duplicates.md)) | – |
 
-### Desktop app only
+### Git
 
-| Key | Action (F9 name) | Config name | Does |
-|---|---|---|---|
-| **Ctrl+T** | New tab | `new_tab` | A new tab in the same folder and view |
-| **Ctrl+W** | Close tab | `close_tab` | Close the tab (the last one stays) |
-| **Ctrl+Tab** | Next tab | `next_tab` | The next tab of the pane |
-| **Ctrl+Shift+Tab** | Previous tab | `prev_tab` | The previous tab |
-| **Alt+Left** / **Alt+Right** | Back / Forward | `back` / `forward` | The tab's history |
-| **Space** | Preview | `toggle_preview` | The preview pane on or off ([The preview pane](../previews/README.md)) |
-| **Alt+V** | Details/columns/thumbnails | `toggle_view` | The next view ([Views](views.md)) |
-| **Ctrl+B** | Sidebar | `toggle_sidebar` | The sidebar on or off ([The sidebar](../organise/sidebar.md)) |
-| **Ctrl+L** | Edit path | `edit_path` | Type a path in the active pane |
-| **Ctrl+M** | Batch rename | `batch_rename` | Rename the marked files by pattern ([Batch rename](../files/batch-rename.md)) |
-| **Alt+T** | Colour tag | `tag` | Tag the marked files ([Colour tags](../organise/tags.md)) |
-| **Alt+N** | Folder notes | `notes` | The folder's notes in the preview pane ([Folder notes](../organise/notes.md)) |
-| **Ctrl+C** / **Ctrl+X** / **Ctrl+V** | Copy to clipboard / Cut to clipboard / Paste | `clip_copy` / `clip_cut` / `paste` | Files through the system clipboard ([Clipboard](../files/clipboard.md)) |
-| **Alt+Enter** | Properties | `properties` | Size, dates, permissions ([Properties](../files/properties.md)) |
-| **Ctrl+D** | Find duplicates | `duplicates` | The duplicate finder ([Finding duplicates](../files/duplicates.md)) |
-| **Ctrl+,** | Settings | `settings` | The Settings window ([Settings](../customise/settings.md)) |
-| – | Columns and folder sizes | `columns` | The columns menu ([Views](views.md#the-columns-menu)); also a right-click on a column header |
+| Key | Action (F9 name) | Config name | Desktop app | Terminal app |
+|---|---|---|---|---|
+| **Ctrl+G** | Git history | `history` | The commits of the file or folder under the cursor, as folders ([Git history](git-history.md)) | The same |
+
+### Viewing and editing
+
+| Key | Action (F9 name) | Config name | Desktop app | Terminal app |
+|---|---|---|---|---|
+| **F3** | View | `view` | The preview pane on or off | The file in your viewer (`less`) ([View and edit](../commands/view-and-edit.md)) |
+| **F4** | Edit | `edit` | The file in your editor | The same |
+| **Space** | Preview | `toggle_preview` | The preview pane on or off ([The preview pane](../previews/README.md)) | – |
+| **Ctrl+Enter**, **Ctrl+J** | Path to command line | `copy_path` | The name under the cursor to the command line | The same |
+| **F2** | Menu | `user_menu` | Scripts and the user menu | The user menu ([The user menu](../commands/user-menu.md)) |
+| **Alt+N** | Folder notes | `notes` | The folder's notes in the preview pane ([Folder notes](../organise/notes.md)) | – |
+
+### App
+
+| Key | Action (F9 name) | Config name | Desktop app | Terminal app |
+|---|---|---|---|---|
+| **F1** | Help | `help` | The help window | The help screen ([Help](command-list.md)) |
+| **F9** | PullDn | `menu` | The command list | The same |
+| **Ctrl+,** | Settings | `settings` | The Settings window ([Settings](../customise/settings.md)) | – |
+| **F10** | Quit | `quit` | Close the window | Quit |
 
 ### Keys that are not actions
 
@@ -166,7 +192,7 @@ action with its default keys. The rules and names: [Changing keys](../customise/
 
 ## In the terminal app
 
-It has every action in the first four tables. The desktop-only ones answer with *… is
+It has every action whose *Terminal app* column is not *–*. The desktop-only ones answer with *… is
 available in the desktop app (coxswain-gui)* in the status line, because they need what a
 terminal lacks: tabs, a preview pane, a sidebar, pictures, the system clipboard. Keys the
 terminal itself takes do not reach it: many terminals send **Ctrl+Enter** as plain **Enter**,
