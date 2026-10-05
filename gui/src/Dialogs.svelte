@@ -4,7 +4,7 @@
   import { tick } from "svelte";
   import { ui, tab, cd, load } from "./app.svelte.js";
   import { Channel } from "@tauri-apps/api/core";
-  import { invoke, takesPassword, basename, parent, size, date, TAGS, TAG_COLORS, tagName, isHistory, historyOf } from "./lib.js";
+  import { invoke, takesPassword, withEnding, packFormat, basename, parent, size, date, TAGS, TAG_COLORS, tagName, isHistory, historyOf } from "./lib.js";
   import { t, tn, num } from "./i18n.svelte.js";
 
   let input = $state();
@@ -315,7 +315,15 @@
       {:else if m.kind === "pack"}
         {@const locks = takesPassword(m.value)}
         <h2>{m.title}</h2>
-        <label>{m.label}<input bind:this={input} bind:value={m.value} spellcheck="false" /></label>
+        {@const fmt = packFormat(ui.cfg.pack_formats, m.value)}
+        <div class="packname">
+          <label>{m.label}<input bind:this={input} bind:value={m.value} spellcheck="false" /></label>
+          <label>{t("archive.format")}<select value={fmt?.id ?? ""} onchange={(e) => (m.value = withEnding(m.value, ui.cfg.pack_formats.find((f) => f.id === e.currentTarget.value).endings[0]))}>
+            {#if !fmt}<option value="" disabled>—</option>{/if}
+            {#each ui.cfg.pack_formats as f (f.id)}<option value={f.id}>{f.label}</option>{/each}
+          </select></label>
+        </div>
+        {#if fmt}<p class="meta">{t(`archive.format_${fmt.id}`)}</p>{/if}
         {#if locks}
           <div class="grid2">
             <label>{t("archive.pack_password")}<input bind:value={m.password} type="password" autocomplete="new-password" /></label>
@@ -775,6 +783,12 @@
     text-align: left;
     color: var(--hidden-fg);
     font-size: 0.9em;
+  }
+  .packname {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: end;
+    gap: 10px;
   }
   .grid2 {
     display: grid;

@@ -117,6 +117,8 @@ struct UiConfig {
     version: &'static str,
     /// Why video and sound cannot play in the preview here, if they cannot.
     media_missing: Option<String>,
+    /// The formats Pack offers.
+    pack_formats: &'static [coxswain_core::archive::PackFormat],
 }
 
 fn css(c: &str) -> Option<String> {
@@ -159,6 +161,7 @@ fn get_config(ctx: tauri::State<Ctx>) -> Res<UiConfig> {
         sep: std::path::MAIN_SEPARATOR,
         version: coxswain_core::update::VERSION,
         media_missing: coxswain_core::tools::media_missing(),
+        pack_formats: coxswain_core::archive::PACK_FORMATS,
     })
 }
 
@@ -1064,6 +1067,10 @@ async fn pack(paths: Vec<PathBuf>, base: PathBuf, dest: String, password: Option
         .await
         .map_err(|e| e.to_string())?
         .map_err(|e| format!("{}: {e}", to.display()))?;
+    // The format is suggested next time, in both apps.
+    if let Some(f) = coxswain_core::archive::pack_format(&dest) {
+        ctx.edit(|st| st.pack_ending = f.endings[0].into())?;
+    }
     Ok(to)
 }
 
