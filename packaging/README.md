@@ -11,6 +11,9 @@ job just leaves a notice.
 
 The AUR packages in `aur/` are kept, but not published while AUR registration is closed.
 
+The FreeBSD port in `freebsd/sysutils/coxswain` is submitted by hand for now; see
+[freebsd/README.md](freebsd/README.md).
+
 `taps/generate.sh` writes the Homebrew formula and cask from a release's `.sha256` assets.
 
 **crates.io:** make a token at <https://crates.io/settings/tokens> with the
