@@ -32,7 +32,7 @@ Commander blue to Windows 95 and Mac OS 9.*
 - **History as folders:** **Ctrl+G** on a file or folder lists its commits; Enter on one browses the files as they were, F5 copies an old version out, and Find file finds commit messages. [Git history](docs/panels/git-history.md) · [History in search](docs/search/history.md)
 - **Folder sizes without asking,** instant in your home folder. [Folder sizes](docs/panels/folder-sizes.md)
 - **Finds duplicates** by content across folders and disks, and marks the extra copies by rule. [Duplicates](docs/files/duplicates.md)
-- **Eighteen themes with the looks of their era,** and 18 languages, Hebrew right to left. [Themes](docs/customise/themes.md) · [Languages](docs/customise/languages.md)
+- **Eighteen themes with the looks of their era,** and 20 languages, Hebrew right to left. [Themes](docs/customise/themes.md) · [Languages](docs/customise/languages.md)
 - **Nothing leaves your machine** unless you ask for it. [Privacy](docs/reference/privacy.md)
 
 | | |
@@ -116,6 +116,7 @@ Newest first. Downloads for each release are on the [releases page](https://gith
 
 | Version | Date | What's new |
 |---|---|---|
+| **1.33.0** | 2026-10-05 | Two more languages, 20 in all: *Deutsch (Österreich)* and *Deutsch (Schweiz)*, with their flags in Settings. Swiss German writes ss for ß and «guillemets»; a system set to `de_AT`, `de_CH` or `de_LI` picks them by itself. [Languages](docs/customise/languages.md) |
 | **1.32.1** | 2026-10-05 | Ask offers only chat models: on Ollama, models that only make vectors (such as `bge-m3`) are left out of *Chat model*, and one already set is named plainly in Find file and Settings (*bge-m3 makes vectors and cannot answer: choose a chat model, e.g. qwen3:8b*) instead of being tried. A model on a server with the OpenAI API is tried with a one-word question when saved. `coxswain --meaning ask` refuses an embedding model. Picking `bge-m3:latest` for `bge-m3` no longer throws all vectors away, and a real change of the embedding model says first how many files it reads again and about how long, and asks. [Ask](docs/search/ask.md#it-says-my-model-makes-vectors-and-cannot-answer-why) · [Servers](docs/search/servers.md#why-does-switching-the-model-start-over) |
 | **1.32.0** | 2026-10-05 | **F1** lists the keys by what they do, under headings (Moving, Panels and tabs, Marking, Files, Archives, Search, Git, Viewing and editing, App), the most used first in each, in both apps; the terminal app puts them in two columns when it is wide enough. The desktop app's **F9** shows the same headings until you type. [The command list and Help](docs/panels/command-list.md) · [Every default key](docs/panels/keys.md) |
 | **1.31.0** | 2026-10-05 | Pack (Alt+F5) shows its formats: the desktop app has a *Format* list next to the name (Zip, 7z, tar, tar.gz, tar.bz2, tar.xz, tar.zst) with a line on what each is good for, and in the terminal app Tab and Shift+Tab swap the name's ending. The format you packed into last is suggested next time, in both apps. [Pack and extract](docs/files/pack-and-extract.md#formats) |
