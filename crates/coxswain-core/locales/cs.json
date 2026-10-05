@@ -1218,6 +1218,10 @@
   "one": "{size} v {n} označené",
   "other": "{size} v {n} označených"
  },
+ "tui.settings.keys": "↑↓ pohyb · Mezerník vybrat · Enter změnit · ←→ oblasti · / hledat · Esc zavřít",
+ "tui.settings.list_keys": "Enter přidat · Delete odebrat · ↑↓ pohyb · Esc hotovo",
+ "tui.settings.pick_keys": "↑↓ pohyb · Enter vybrat · Esc zpět",
+ "tui.settings.range": "{name}: číslo od {min} do {max}",
  "tui.subdir": "SUB-DIR",
  "tui.unselect": "Odznačit",
  "tui.updir": "UP--DIR",

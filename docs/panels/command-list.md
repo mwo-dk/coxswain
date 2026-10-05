@@ -91,7 +91,8 @@ The actions in the list are all the `[keys]` names; see [Every default key](keys
 
 The same list and help, drawn as dialogs. It lists only the actions the terminal app has;
 the desktop-only ones are left out rather than shown and refused. It has no theme entries:
-the terminal app's theme is `theme` in `config.toml` ([Themes](../customise/themes.md)).
+*Settings* in the list opens [its Settings](../customise/settings.md#in-the-terminal-app), where
+*Looks* chooses the theme.
 
 ## Questions
 

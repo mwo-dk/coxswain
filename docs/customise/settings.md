@@ -48,6 +48,8 @@ once and is written to the file, your comments kept.
    | `coxswain-gui --settings=<area>` | That area: `overview`, `search`, `previews`, `looks`, `behaviour`, `keys`, `privacy` |
    | `coxswain-gui --settings=<option>` | The option's area, scrolled to it and lit up for a moment: `check_updates`, `line_height`, `ask_model` … (the names in [Settings and config.toml](#settings-and-configtoml)) |
 
+   The terminal app opens its own Settings the same ways: [In the terminal app](#in-the-terminal-app).
+
 2. Click an area on the left, or type in *Find a setting…* above them.
 3. Click, tick or type. A text or number field is saved when you leave it or press **Enter**;
    everything else is saved on the click.
@@ -297,7 +299,7 @@ Every option, the name `--settings=` takes, its key, and who reads it:
 | Check for a new version (Privacy and updates) | `check_updates` | `check_updates` | true/false, `true` | Both apps |
 
 The labels, explanations, areas and costs come from one description in `coxswain-core`
-(`settings.rs`), which the terminal app's Settings will use too.
+(`settings.rs`), which [the terminal app's Settings](#in-the-terminal-app) uses too.
 
 ## What Settings does not cover
 
@@ -311,25 +313,104 @@ Set these in `config.toml` (every key: [Configuration](../reference/configuratio
 
 ## In the terminal app
 
-The terminal app has no Settings window yet. It reads the same `config.toml` when it starts, so
-a change made in the desktop app's Settings to a shared key (`language`, `theme`, `glyphs`,
-`show_hidden`, `confirm_delete`, `folder_sizes`, `editor`, `viewer`, `bom_viewer`,
-`check_updates`, `[git]`, `[search]`) reaches it at its next start.
+The terminal app has Settings too, full screen, with the same areas, options, labels,
+explanations and costs: both apps read them from one description in `coxswain-core`
+(`settings.rs`), so they cannot drift apart. It writes the same `config.toml`, the same way.
 
-What Settings does for search, the terminal app does with [flags](../reference/command-line-flags.md):
+```
+╔══════════════════════════════════ Settings ══════════════════════════════════╗
+║ Overview            │  Names     Files on this machine: 3                    ║
+║ Finding files       │  Words     Files read: 1 · waiting: 0 · 80.0 KB on disk║
+║ Previews            │  Meaning   Off                                [Set up…]║
+║ Looks               │  Ask       Off                                [Set up…]║
+║ Behaviour           │                                                        ║
+║ Keys                │ How far should Find look?                              ║
+║ Privacy and updates │  ( ) Names only                                        ║
+║                     │  (•) Names and text                                    ║
+║                     │  ( ) Names, text and meaning                           ║
+║                     │  ( ) Names, text, meaning and Ask                      ║
+║                     │  [ Set up… ]                                           ║
+║                     │                                                        ║
+║                     │ What is read                                           ║
+║                     │  [x] Words inside files                                ║
+║                     │  [x] Look inside archives                              ║
+║                     │  [ ] Archives everywhere                               ║
+║                     │  [x] Git history                                       ║
+║                     │  [ ] Read files that are only online                   ║
+║─────────────────────┴────────────────────────────────────────────────────────║
+║ Also the words inside your files. [disk space] [processor time]              ║
+║                                                                              ║
+║ ↑↓ move · Space choose · Enter change · ←→ areas · / find · Esc close        ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+```
+*Settings at Finding files, `coxswain --settings=search` at 80×24, the cursor on* Names and text.
 
-| Settings | Terminal app |
+<!-- screenshot: tui-settings.png: the terminal app, Classic blue (NC), Settings at Finding files (coxswain --settings=search) at 80×24: the areas on the left, the status block, the four levels with Names and text chosen, the explanation and its badges at the bottom -->
+
+### Opening it
+
+| Way | Opens at |
+|---|---|
+| **F9** → *Settings* in the [command list](../panels/command-list.md) | Overview |
+| **Ctrl+,** (the `settings` action), in terminals that pass it on | Overview |
+| `coxswain --settings` | Overview, with both panels in the current folder |
+| `coxswain --settings=<area>` | That area: `overview`, `search`, `previews`, `looks`, `behaviour`, `keys`, `privacy` |
+| `coxswain --settings=meaning`, `--settings=ask`, `--settings=language`, `--settings=news` | Finding files at the *Meaning* or *Ask* group, Looks at *Language*, Overview at *What's new* |
+| `coxswain --settings=<option>` | The option's area, the cursor on it: `show_hidden`, `max_results`, `check_updates` … (the names in [Settings and config.toml](#settings-and-configtoml)) |
+| **Enter** on a tip under *What's new* in Overview | The tip's area, as *Show me* in the desktop app; the tip is not shown again |
+
+Folders after the flag open in the panels, as without it: `coxswain --settings=search ~/src`.
+
+### The keys
+
+| Key | Does |
+|---|---|
+| **↑** **↓**, **PageUp** **PageDown**, **Home** **End** | Move over the rows; headings are skipped |
+| **←** **→**, **Tab** / **Shift+Tab** | The area before or after (round the end) |
+| **Space** | A switch (`[x]` / `[ ]`) flips; a choice takes its next value; a level, a step or a button is taken |
+| **Enter** | A text or number field opens in place for typing, then **Enter** saves and **Esc** keeps the old value (**Ctrl+U** empties it). A choice opens its values under it: **↑** **↓** and **Enter** take one. A list opens its items: **Delete** removes the one under the cursor, typing goes into the *+ Add* field under them and **Enter** adds it, **Esc** closes the list. On anything else, as **Space** |
+| **/** | *Find a setting*: type, and the options whose label, explanation or config key hold the words are listed with their area; **Enter** goes there, **Esc** comes back |
+| **Esc**, **F10** | Close Settings (a field, list or search open: close that first) |
+
+Every change is saved at once: the bottom line says *Saved to …/config.toml*, or in red why the
+file was not written. The bottom also shows the selected row's one-line explanation, its costs
+as text in brackets (`[disk space]`, `[can leave this machine]` in red) and its key in
+`config.toml`.
+
+### What each area holds
+
+| Area | In the terminal app |
+|---|---|
+| Overview | One line each for Finding files (the level and the Words, Meaning and Ask lines), Previews, Looks (the terminal app's theme and the language) and Privacy (where things can go); **Enter** opens that area. *Set up…*, the tips not dismissed yet, and what the versions you have not read brought |
+| Finding files | The status block (*Names*, *Words*, *Meaning*, *Ask*), each with its next step in brackets: **Space** or **Enter** runs it (*Read now*, *Start it*, *Turn on*, *Set up…*, *Try it*, whose answer shows at the bottom). The four levels and *Set up…*. Then every option under *What is read*, *Folders*, *Meaning*, *Ask*, and *Start with my session* under *Background reading* |
+| Previews, Looks, Behaviour | Their options. The desktop app's own (fonts, text size, row height, its theme, previews) are there too, since both apps share `config.toml` |
+| Keys | Every action the terminal app has, under its group, with its keys; read-only, as in the desktop app |
+| Privacy and updates | *Check for a new version*, what can leave the machine with your settings as they are and where to, where things are kept, the version |
+
+A level that needs a model starts the [setup guide](../search/setup.md) (`coxswain
+--setup-search`) on the plain terminal, as **Set up…** does; Settings is back when it ends,
+with what the guide chose. Changing the model that makes the vectors asks first, at the bottom:
+**Enter** changes it and reads every file's meaning again, **Esc** keeps the current one.
+
+Changes are used at once: the theme (`tui_theme`), glyphs and language show straight away, a
+`[search]` change starts a new search helper, and the rest applies where it is next used.
+*Show hidden files when Coxswain starts* is what the next start does; **Alt+.** switches it now.
+
+### What it does not do
+
+The desktop app's buttons that are more than a value have no row: downloading or deleting the
+built-in model (a level or *Set up…* downloads it through the guide; `coxswain --meaning delete`
+deletes it), pulling container images, clearing the preview cache, *Delete what was read*, and
+*Show in panel*. The flags still do what they did, for scripts:
+
+| Settings | Flag |
 |---|---|
 | **Set up…** | `coxswain --setup-search` |
 | *Start with my session* | `coxswain --index-service on` / `off` |
-| **Download the model … and turn on**, **Turn off**, **Delete the model** | `coxswain --meaning on`, `off`, `delete` |
-| *Made by* Ollama | `coxswain --meaning ollama [MODEL]` |
-| *Made by* a server with the OpenAI API | `coxswain --meaning server URL MODEL` |
-| Back to the built-in model | `coxswain --meaning builtin` |
+| Meaning on, off, model deleted | `coxswain --meaning on`, `off`, `delete` |
+| *Made by* Ollama, a server with the OpenAI API, the built-in model | `coxswain --meaning ollama [MODEL]`, `--meaning server URL MODEL`, `--meaning builtin` |
+| *Chat model* | `coxswain --meaning ask MODEL` (checks that it can answer first) |
 | *Where things are kept* | `coxswain --paths` |
-
-These write the same keys, keeping your comments, and restart the search helper. Previews made
-by tools exist only in the desktop app, so their settings have no terminal counterpart.
 
 ## Questions
 
@@ -364,7 +445,23 @@ and Classic blue do use.
 #### I changed the theme and the terminal app did not change.
 
 The swatches chose the desktop app's theme. Click *Terminal app* next to *For* above them, then a
-theme; the terminal app takes it when it starts again. See [Themes](themes.md).
+theme; the terminal app takes it when it starts again. In the terminal app's own Settings
+(**F9** → *Settings* → *Looks* → *Theme of the terminal app*) it changes at once. See
+[Themes](themes.md).
+
+#### How do I change a setting in the terminal app?
+
+**F9**, type `set`, **Enter**: Settings opens full screen. **←** **→** pick the area, **↑**
+**↓** the option, **Space** flips a switch or takes the next value, **Enter** types a text or a
+number or opens a list. It is saved at once; **Esc** closes. `coxswain --settings=show_hidden`
+opens with the cursor on that option. See [In the terminal app](#in-the-terminal-app).
+
+#### How do I add a folder to a list in the terminal app?
+
+The cursor on the list (*Names only*, *Folders read* …), **Enter**: its items open under it, the
+cursor in the *+ Add* field. Type the folder (relative to the active panel's folder, or empty for
+that folder itself) and **Enter**. **↑** to an item and **Delete** removes it. For *Left out
+everywhere* and *Never indexed* you type a name or a pattern (`*.log`) instead.
 
 #### Will Settings mess up my hand-written config?
 
@@ -397,7 +494,9 @@ updates* lists what can leave with your settings as they are, and where to.
 
 `Ctrl+,` is the default of the `settings` action; if you rebound it in `[keys]`, the gear
 button's tooltip shows the key it has now, and so does *Keys* in Settings. **F9** → *Settings*
-and the gear button always work.
+and the gear button always work. Most terminals send **Ctrl+,** as a plain comma or not at all,
+so in the terminal app use **F9** → *Settings* or `coxswain --settings`, or give the action a key
+the terminal passes on, such as `settings = ["Alt+,"]` under `[keys]` ([Changing keys](keys.md)).
 
 #### What does Clear under "Previews made so far" remove?
 

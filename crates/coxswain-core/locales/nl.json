@@ -1174,6 +1174,10 @@
   "one": "{size} in {n} geselecteerd",
   "other": "{size} in {n} geselecteerd"
  },
+ "tui.settings.keys": "↑↓ bewegen · Spatie kiezen · Enter wijzigen · ←→ onderdelen · / zoeken · Esc sluiten",
+ "tui.settings.list_keys": "Enter toevoegen · Delete verwijderen · ↑↓ bewegen · Esc klaar",
+ "tui.settings.pick_keys": "↑↓ bewegen · Enter kiezen · Esc terug",
+ "tui.settings.range": "{name}: een getal van {min} tot {max}",
  "tui.subdir": "SUB-DIR",
  "tui.unselect": "Deselecteren",
  "tui.updir": "UP--DIR",

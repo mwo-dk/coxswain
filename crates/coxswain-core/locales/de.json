@@ -1174,6 +1174,10 @@
   "one": "{size} in {n} ausgewählten",
   "other": "{size} in {n} ausgewählten"
  },
+ "tui.settings.keys": "↑↓ bewegen · Leertaste wählen · Enter ändern · ←→ Bereiche · / suchen · Esc schließen",
+ "tui.settings.list_keys": "Enter hinzufügen · Entf entfernen · ↑↓ bewegen · Esc fertig",
+ "tui.settings.pick_keys": "↑↓ bewegen · Enter wählen · Esc zurück",
+ "tui.settings.range": "{name}: eine Zahl von {min} bis {max}",
  "tui.subdir": "SUB-DIR",
  "tui.unselect": "Abwählen",
  "tui.updir": "UP--DIR",

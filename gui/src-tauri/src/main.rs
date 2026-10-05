@@ -191,23 +191,7 @@ fn get_config(ctx: tauri::State<Ctx>) -> Res<UiConfig> {
 /// the new config at once. Returns the new UI config (texts in the new language and so on).
 #[tauri::command(async)]
 fn save_settings(changes: serde_json::Map<String, serde_json::Value>, ctx: tauri::State<Ctx>) -> Res<UiConfig> {
-    // One save at a time: two read-change-write rounds at once would lose one's change.
-    static SAVING: std::sync::Mutex<()> = std::sync::Mutex::new(());
-    let _one = SAVING.lock().unwrap_or_else(|e| e.into_inner());
-    let path = Config::path().ok_or_else(|| coxswain_core::t!("err.no_config_folder"))?;
-    // Through a link (a config kept with dotfiles) to the file itself.
-    let path = std::fs::canonicalize(&path).unwrap_or(path);
-    let text = std::fs::read_to_string(&path).unwrap_or_default();
-    let new_text = coxswain_core::settings::apply(&text, &changes)?;
-    // Only write what parses: a broken config must never replace a working one.
-    let cfg = Config::parse(&new_text)?;
-    if let Some(dir) = path.parent() {
-        std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
-    }
-    // Written beside it and moved over it: a crash mid-write never leaves half a config.
-    let tmp = path.with_extension("toml.tmp");
-    std::fs::write(&tmp, new_text).and_then(|_| std::fs::rename(&tmp, &path)).map_err(|e| format!("{}: {e}", path.display()))?;
-    coxswain_core::i18n::set_language(coxswain_core::i18n::resolve(&cfg.language));
+    let cfg = coxswain_core::settings::save(&changes)?;
     *ctx.cfg.write().map_err(|e| e.to_string())? = cfg;
     // The helper reads its options when it starts: a helper with the new ones takes over.
     if changes.keys().any(|k| coxswain_core::settings::find(k).is_some_and(|o| o.restarts_helper())) {

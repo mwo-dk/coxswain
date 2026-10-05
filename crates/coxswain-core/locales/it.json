@@ -1218,6 +1218,10 @@
   "one": "{size} in {n} selezionato",
   "other": "{size} in {n} selezionati"
  },
+ "tui.settings.keys": "↑↓ sposta · Spazio scegli · Invio cambia · ←→ aree · / cerca · Esc chiudi",
+ "tui.settings.list_keys": "Invio aggiungi · Canc togli · ↑↓ sposta · Esc fatto",
+ "tui.settings.pick_keys": "↑↓ sposta · Invio scegli · Esc indietro",
+ "tui.settings.range": "{name}: un numero da {min} a {max}",
  "tui.subdir": "SUB-DIR",
  "tui.unselect": "Deseleziona",
  "tui.updir": "UP--DIR",

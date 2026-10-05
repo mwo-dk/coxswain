@@ -51,7 +51,7 @@ Every flag: [Command-line flags](command-line-flags.md#the-terminal-app-coxswain
 | Copy (**F5**), move and rename (**F6**), new folder (**F7**), delete to the trash (**F8**) or for good (**Shift+F8**) | [Files](../files/README.md) |
 | Archives as folders: look inside, copy and move in and out, take out, extract (**Ctrl+E**), pack (**Alt+F5**), passwords | [Archives in the terminal app](#archives-in-the-terminal-app) |
 | Find file (**Alt+F7**, **Ctrl+F**; **Shift+F7** for *In files*, **Ctrl+F7** for Ask): names, words in files, meaning and history in groups, the scope chip, the Ask row (**Alt+Enter**) and the answer in place | [Find file](../search/find-file.md) |
-| Search by meaning, turned on with `coxswain --meaning on` | [Search by meaning in the terminal app](#search-by-meaning-in-the-terminal-app) |
+| Search by meaning, turned on in Settings → Finding files or with `coxswain --meaning on` | [Search by meaning in the terminal app](#search-by-meaning-in-the-terminal-app) |
 | Folder sizes in the Size column | [Folder sizes](../panels/folder-sizes.md) |
 | The git line, a glyph per file, and the last commit of the entry under the cursor in the info line | [Git in the panels](../panels/git.md) |
 | Git history as folders (**Ctrl+G**): the commits of a file or folder, the files as they were, **F3** and **F5** on them | [Git history in the terminal app](#git-history-in-the-terminal-app) |
@@ -60,6 +60,7 @@ Every flag: [Command-line flags](command-line-flags.md#the-terminal-app-coxswain
 | All 26 languages (`coxswain --languages` lists them) | [Languages](../customise/languages.md) |
 | Your own keys from `[keys]` | [Changing keys](../customise/keys.md) |
 | The command list (**F9**) and help (**F1**) | [The command list](../panels/command-list.md) |
+| Settings (**F9** → *Settings*, `coxswain --settings`): the desktop app's areas and options, full screen, saved at once | [Settings in the terminal app](../customise/settings.md#in-the-terminal-app) |
 | The mouse: click, double-click, right-click marks, wheel | [The mouse](../panels/mouse.md) |
 | Update checks and notices, in the status line; the version in the terminal's title | [Update checks](updates.md), [Notices](../search/notices.md) |
 
@@ -75,7 +76,6 @@ Every flag: [Command-line flags](command-line-flags.md#the-terminal-app-coxswain
 | [Batch rename](../files/batch-rename.md) (**Ctrl+M**) | It needs a live preview table of old and new names |
 | [Properties and permissions](../files/properties.md) (**Alt+Enter**) | A dialog of many fields; `ls -l`, `chmod` on the command line do the same |
 | [Finding duplicates](../files/duplicates.md) (**Ctrl+D**) | A long-running scan with groups to tick; use `coxswain-gui --duplicates FOLDER` |
-| [The Settings window](../customise/settings.md) (**Ctrl+,**) | Every setting is a `config.toml` key; the few that do more than set a value have [flags](#settings-and-configtoml) |
 | [Scripts](../commands/scripts.md) in **F2** | The terminal app's **F2** is `[[user_menu]]` only |
 | [Restoring the last session](../panels/session.md) | It starts where you start it, as a shell command does |
 
@@ -103,8 +103,8 @@ action's name. The **F9** list and **F1** help leave them out.
 | In a git history | The panel title ends in `[history]` or `[commit a1b2c3d]` | A badge (*history of main.rs*, *commit a1b2c3d*) and a tint |
 | The last commit | In the info line under the panel: `a1b2c3d 2026-09-30 14:02 Ada` | A *Last commit* column, and in the preview pane |
 | An archive's password | Asked in a *Locked archive* box, shown as stars | Asked in a dialog |
-| Notices | Shown once in the status line, then counted as seen | Counted on **⚙ Settings** and listed under *Settings → Overview → What's new* until dismissed or acted on; a problem with search is also a button with `×` in the status line |
-| What a version brought | `coxswain --whats-new`, pointed to once after an upgrade | *Settings → Overview → What's new* |
+| Notices | Shown once in the status line, then counted as seen; the ones not shown yet are listed in *Settings → Overview*, where **Enter** opens the area that does it | Counted on **⚙ Settings** and listed under *Settings → Overview → What's new* until dismissed or acted on; a problem with search is also a button with `×` in the status line |
+| What a version brought | `coxswain --whats-new`, pointed to once after an upgrade, and *Settings → Overview* | *Settings → Overview → What's new* |
 | Update notice | `Coxswain 1.21.0 is available: brew upgrade coxswain` in the status line, checked at start | A button that opens the release page, checked every hour |
 | Window title | Sets the terminal's title: `Coxswain 1.41.0` | The window's title |
 | Hebrew | Letters reversed in terminals without bidi support | Mirrored layout |
@@ -191,14 +191,20 @@ Find's footer says *meaning for 3,437* once the helper has it running. Full deta
 
 ## Settings and config.toml
 
-The terminal app has no Settings window. Everything the desktop app's Settings change is a key in
-`config.toml` ([Configuration: every key](configuration.md)); edit it, then start the app
-again. The keys only the terminal app reads are `theme`, `viewer` and `bom_viewer`; the desktop
-app's Settings set them too (*Looks* with *For* on *Terminal app*, and *Behaviour*), when it is
-installed. Things that do more than set a value have flags:
+**F9** → *Settings* (or `coxswain --settings`) opens Settings full screen: the same areas and
+options as the desktop app's, read from the same description in `coxswain-core`, and written to
+the same `config.toml` at once, your comments kept. **←** **→** pick the area, **↑** **↓** the
+option, **Space** flips or chooses, **Enter** types a value or opens a list, **/** finds a
+setting, **Esc** closes. The whole walk-through: [Settings in the terminal
+app](../customise/settings.md#in-the-terminal-app).
+
+The keys only the terminal app reads are `theme`, `viewer` and `bom_viewer` (*Looks* and
+*Behaviour*). A change made by hand in `config.toml` needs the app started again. Things that do
+more than set a value also have flags, for scripts:
 
 | To | Run |
 |---|---|
+| Set up search by meaning and Ask, step by step | `coxswain --setup-search` |
 | Turn search by meaning on (downloads the model) | `coxswain --meaning on` |
 | Use Ollama on this machine, or another server | `coxswain --meaning ollama [MODEL]`, `coxswain --meaning server URL MODEL` |
 | Back to the built-in model | `coxswain --meaning builtin` |
@@ -206,7 +212,8 @@ installed. Things that do more than set a value have flags:
 | Start the search helper with your session | `coxswain --index-service on` (`off` to stop) |
 | See every default | `coxswain --dump-config` |
 
-Each `--meaning` and `--index-service` flag starts a new helper with the new settings.
+Each `--meaning` and `--index-service` flag, and each `[search]` change in Settings, starts a new
+helper with the new settings.
 
 ## The terminal it needs
 
@@ -226,6 +233,12 @@ repository's `.git`: a change is read once it has settled (a quarter of a second
 another, or every two seconds while a build writes on), and only the panel showing it is read
 again, the cursor on the same name. **Ctrl+R** still reads both panels again at once. The
 desktop app watches its panes' folders the same way.
+
+#### How do I change a setting without editing config.toml?
+
+**F9**, type `set`, **Enter**. Settings opens full screen at Overview; **→** goes to the next
+area. On a switch such as *Ask before deleting*, **Space** flips it and the bottom line says
+*Saved to …/config.toml*. `coxswain --settings=confirm_delete` opens with the cursor on it.
 
 #### Can I use the terminal app over SSH?
 

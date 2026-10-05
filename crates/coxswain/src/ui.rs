@@ -59,7 +59,7 @@ fn right(s: &str, w: usize) -> String {
 }
 
 /// Keep the tail of a path, which is the informative part.
-fn fit_left(s: &str, w: usize) -> String {
+pub(crate) fn fit_left(s: &str, w: usize) -> String {
     if s.width() <= w {
         return s.to_string();
     }
@@ -102,6 +102,7 @@ pub fn draw(f: &mut Frame, app: &mut App) {
     let theme = app.theme.clone();
     match &mut app.dialog {
         Some(Dialog::Bom(v)) => v.draw(f, &theme),
+        Some(Dialog::Settings(_)) => crate::settings::draw(f, app),
         Some(_) => dialog(f, app),
         None => {}
     }
@@ -329,7 +330,7 @@ fn centered(area: Rect, w: u16, h: u16) -> Rect {
     Rect { x: area.x + (area.width - w) / 2, y: area.y + (area.height - h) / 2, width: w, height: h }
 }
 
-fn frame(f: &mut Frame, app: &App, area: Rect, title: &str) -> Rect {
+pub(crate) fn frame(f: &mut Frame, app: &App, area: Rect, title: &str) -> Rect {
     let t = &app.theme;
     let bg = sty(&t.dialog);
     let block = Block::default()
@@ -403,7 +404,7 @@ fn dialog(f: &mut Frame, app: &mut App) {
             }
         }
         Dialog::Search { .. } => search(f, app, full),
-        Dialog::Bom(_) => {}
+        Dialog::Bom(_) | Dialog::Settings(_) => {}
     }
 }
 
@@ -622,7 +623,7 @@ fn key_columns(groups: &[(String, Vec<(String, String)>)], width: usize) -> Vec<
         .collect()
 }
 
-fn dstyle(t: &config::Theme) -> Style {
+pub(crate) fn dstyle(t: &config::Theme) -> Style {
     sty(&t.dialog)
 }
 

@@ -1130,6 +1130,10 @@
  "tui.selected": {
   "other": "{n} 個を選択、{size}"
  },
+ "tui.settings.keys": "↑↓ 移動 · Space 選択 · Enter 変更 · ←→ 項目 · / 検索 · Esc 閉じる",
+ "tui.settings.list_keys": "Enter 追加 · Delete 削除 · ↑↓ 移動 · Esc 完了",
+ "tui.settings.pick_keys": "↑↓ 移動 · Enter 選択 · Esc 戻る",
+ "tui.settings.range": "{name}: {min} から {max} までの数",
  "tui.subdir": "SUB-DIR",
  "tui.unselect": "選択解除",
  "tui.updir": "UP--DIR",

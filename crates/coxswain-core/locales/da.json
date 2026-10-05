@@ -1174,6 +1174,10 @@
   "one": "{size} i {n} markeret",
   "other": "{size} i {n} markerede"
  },
+ "tui.settings.keys": "↑↓ flyt · Mellemrum vælg · Enter ændr · ←→ områder · / find · Esc luk",
+ "tui.settings.list_keys": "Enter tilføj · Delete fjern · ↑↓ flyt · Esc færdig",
+ "tui.settings.pick_keys": "↑↓ flyt · Enter vælg · Esc tilbage",
+ "tui.settings.range": "{name}: et tal fra {min} til {max}",
  "tui.subdir": "SUB-DIR",
  "tui.unselect": "Fjern markering",
  "tui.updir": "UP--DIR",
