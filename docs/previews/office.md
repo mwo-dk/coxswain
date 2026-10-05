@@ -53,9 +53,9 @@ other by absolute paths) are mended before they are drawn, so they show too.
 
 ## Settings and config.toml
 
-| Settings → Previews made by tools | config.toml | Type, default |
+| Settings → Previews | config.toml | Type, default |
 |---|---|---|
-| *Use* | `[preview] prefer` | `"auto"`: an installed program, else a container |
+| *How previews are made* | `[preview] prefer` | `"auto"`: an installed program, else a container |
 | – | `[preview.prefer_tool] libreoffice` | Overrides `prefer` for LibreOffice |
 | – | `[preview.images] libreoffice` | String, `""`: no container (there is no official image) |
 | *Timeout (seconds)* | `[preview] timeout` | 120 |
@@ -107,7 +107,7 @@ only engine is a container whose image is not pulled yet: that never starts by i
 #### Why did LibreOffice stop with "Stopped after 120 s"?
 
 A conversion is stopped after the timeout. Large decks can take longer: raise *Timeout
-(seconds)* (10 to 3600) in *Settings → Previews made by tools*.
+(seconds)* (10 to 3600) in *Settings → Previews*.
 
 ---
 [← Previous: HTML pages, sandboxed](html.md) · [Next: Data →](data.md)

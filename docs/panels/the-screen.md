@@ -99,7 +99,7 @@ Two kinds of message come by themselves:
   the release page.
 - **Tips** of what search can do that you have not turned on (*Install tesseract to search the
   words in scans, screenshots and pictures*), and after an upgrade what it brought. The desktop
-  app counts them on its **⚙ Settings** button and lists them under *Settings → What's new*; only
+  app counts them on its **⚙ Settings** button and lists them under *Settings → Overview → What's new*; only
   a problem with search (*Search inside files has stopped: …*) is a button in the status line,
   with a `×`. The terminal app shows one tip at a time once in the status line, with the command
   that turns it on, and counts it as seen; after an upgrade it points to `coxswain --whats-new`.
@@ -130,9 +130,9 @@ The screen itself has no settings of its own. What changes it:
 
 | Setting | config.toml | Default |
 |---|---|---|
-| *Settings → Appearance*, theme | `theme` (terminal app), `[gui] theme` (desktop app) | `"nc"`, `"cyber"` |
-| *Settings → Appearance → Icons and git glyphs* | `glyphs` (`"nerd"` or `"ascii"`) | `"nerd"` |
-| *Settings → Search inside files* | `[search] text` (the `text` in the title) | `true` |
+| *Settings → Looks*, theme | `theme` (terminal app), `[gui] theme` (desktop app) | `"nc"`, `"cyber"` |
+| *Settings → Looks → Icons and git glyphs* | `glyphs` (`"nerd"` or `"ascii"`) | `"nerd"` |
+| *Settings → Finding files → Details → What is read → Words inside files* | `[search] text` (the `text` in the title) | `true` |
 | – | `check_updates` (the update message) | `true` |
 
 See [Configuration](../reference/configuration.md) for every key.

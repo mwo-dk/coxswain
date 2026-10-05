@@ -38,7 +38,9 @@ A variable that is set but empty counts as unset.
 
 ## Settings and config.toml
 
-No Settings item; both are top-level keys in `config.toml` ([Configuration](../reference/configuration.md)).
+Both are top-level keys in `config.toml` ([Configuration](../reference/configuration.md)), and both are
+in the desktop app's Settings → *Behaviour*: *Editor* and *Viewer (terminal app)*
+([Behaviour](../customise/settings.md#behaviour)).
 
 | Key | Type | Default | Used by |
 |---|---|---|---|

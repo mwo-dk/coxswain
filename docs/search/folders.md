@@ -6,20 +6,21 @@ You choose which folders have their text read for [Text in files](text.md), and 
 by name only. By default it is your home folder, less hidden folders and build output. Use this
 to add a data disk, or to keep a mail store or other people's papers out of the index.
 
-![Settings, Search inside files: the box "Keep the text of files", Searchable: 107 files · still to read: 0 · 284 KB on disk, the path of search.db, Index now and Delete the index, Folders read "Your home folder" and Names only "None", each with a field and Add](../screenshots/gui-settings-search.png)
-*Settings → Search inside files, with the lists of folders.*
+![Settings, Search inside files: the box "Keep the text of files", Searchable: 107 files · still to read: 0 · 284 KB on disk, the path of search.db, Read now and Delete what was read, Folders read "Your home folder" and Names only "None", each with a field and Add](../screenshots/gui-settings-search.png)
+*Settings → Finding files, with the lists of folders.*
+<!-- screenshot: gui-settings-search.png: desktop app, Cyber theme, Settings at Finding files with Details open at Folders: Folders read "Your home folder · … in the index", Names only "None", Left out everywhere with node_modules, target … each with ×, Where names are found and Never indexed, each with a field and Add -->
 
 ## How to use it
 
 **Desktop app.** Open Settings (**Ctrl+,**, or start with `coxswain-gui --settings=search`) and go
-to *Search inside files*. It has three lists, each with a field and **Add**:
+to *Finding files → Details → Folders*. It has these lists, each with a field and **Add**:
 
 1. Type or paste a folder in the field under *Folders read* or *Names only*. A relative path is
    taken from the active panel's folder; an empty field adds the active panel's folder itself
    (it is shown as the placeholder).
 2. Press **Add** (or **Enter** in the field).
 3. **Remove** next to a folder takes it off the list.
-4. Under *Left out*, type a folder name (`Mail`) or a file pattern (`*.log`, `secret*`,
+4. Under *Left out everywhere*, type a folder name (`Mail`) or a file pattern (`*.log`, `secret*`,
    `notes.txt`) and press **Add**: it is never read, wherever it is. The **×** on an entry takes it
    off. The list starts with `node_modules`, `target`, `build`, `dist`, `out`, `vendor`,
    `__pycache__` and `Trash`.
@@ -35,7 +36,7 @@ Delete the file and the folder is read again.
 | **Folders read** | `text_roots` | The folders whose files are read. None listed means your home folder. |
 | **Names only** | `names_only` | Folders whose files are found by name and counted in folder sizes, but never read: mail stores, archives of other people's documents, anything whose text you do not want in the index |
 | `.nosearch` | a file | The same as *Names only*, set from the folder itself |
-| **Left out** | `text_exclude` | Folder names and file patterns left out wherever they are. A plain name (`build`) leaves out folders of that name; an entry with `*`, `?` or a dot (`*.log`, `notes.txt`) leaves out files too. `*` stands for any run of characters, `?` for one; the case counts |
+| **Left out everywhere** | `text_exclude` | Folder names and file patterns left out wherever they are. A plain name (`build`) leaves out folders of that name; an entry with `*`, `?` or a dot (`*.log`, `notes.txt`) leaves out files too. `*` stands for any run of characters, `?` for one; the case counts |
 
 Files that are only online in OneDrive, Dropbox, Google Drive, Proton Drive or iCloud are never
 read either, wherever they are: they are found by name and left in the cloud, unless you say
@@ -53,30 +54,27 @@ plugged in says *412 MB in the index, kept while its disk is not plugged in. Rem
 (see [Removable disks](removable-disks.md)). *Names only* says *None* while it is empty.
 
 Changing a list starts a new [helper](helper.md) with the new settings: files newly left out go
-from the index, files newly included are read, and *still to read* counts them.
+from the index, files newly included are read, and *waiting* on the *Words* line counts them.
 
-Under *Left out*: *Folder names (node_modules) and file patterns (*.log, secret*) never read,
-wherever they are; they are still found by name. To leave out one folder, add it under Names only,
-or put an empty file named .nosearch in it.*
+Under *Left out everywhere*: *Folder names (node_modules) and file patterns (*.log, secret*) never
+read, wherever they are. They are still found by name.* Under *Names only*: *Found by name and
+counted in folder sizes, but never opened. An empty file named .nosearch in a folder does the same.*
 
-Above the lists, the path of the store, `search.db`, with **Show in panel**: Settings closes and
-the active panel opens its folder with the cursor on it, so the preview (or **F3**) shows its
-tables. With the built-in model for search by meaning, its folder has a **Show in panel** too.
-
-The hint under the lists: *Names-only folders are found by name and counted in folder sizes, but
-never read. A file named .nosearch in a folder does the same. Normally files are read at half
-speed, one at a time; Index now reads the backlog at full speed.*
+Under *Details → Background reading*, the path of the store, `search.db`, with **Show in panel**:
+Settings closes and the active panel opens its folder with the cursor on it, so the preview (or
+**F3**) shows its tables. With the built-in model for search by meaning, its folder has a **Show in
+panel** too, under *Details → Meaning*.
 
 ## Settings and config.toml
 
 Under `[search]`:
 
-| Key | Type | Default | Settings item |
+| Key | Type | Default | Settings item (*Finding files → Details*) |
 |---|---|---|---|
-| `text_roots` | list of paths | `[]` (your home folder) | *Folders read* |
-| `names_only` | list of paths | `[]` | *Names only* |
-| `text_exclude` | list of strings | `["node_modules", "target", "build", "dist", "out", "vendor", "__pycache__", "Trash"]` | *Left out* |
-| `text_max_size` | bytes | `20971520` | None |
+| `text_roots` | list of paths | `[]` (your home folder) | *Folders → Folders read* |
+| `names_only` | list of paths | `[]` | *Folders → Names only* |
+| `text_exclude` | list of strings | `["node_modules", "target", "build", "dist", "out", "vendor", "__pycache__", "Trash"]` | *Folders → Left out everywhere* |
+| `text_max_size` | bytes | `20971520` | *What is read → Largest file read (MB)* |
 
 `text_exclude` replaces the default list, so repeat what you want to keep:
 
@@ -97,21 +95,21 @@ questions). `.nosearch` works the same from any app.
 ## Questions
 
 #### How do I make a folder names-only?
-Desktop app: *Settings → Search inside files → Names only*, type or paste the folder and press
+Desktop app: *Settings → Finding files → Details → Folders → Names only*, type or paste the folder and press
 **Add** (or open the folder in the active panel and press **Add** with the field empty). From
 anywhere: put an empty file named `.nosearch` in it. In `config.toml`:
 `names_only = ["/home/me/Mail"]` under `[search]`.
 
 #### How do I leave out files like `*.log`, or one file?
-Add the pattern under *Settings → Search inside files → Left out* (`*.log`, `*.csv`, `secret*`), or
+Add the pattern under *Settings → Finding files → Details → Folders → Left out everywhere* (`*.log`, `*.csv`, `secret*`), or
 the file's name (`passwords.txt`): every file that matches, anywhere, loses its text from the
 index at the next scan and is never read again. It is still found by name. In `config.toml`, add it
 to `text_exclude`.
 
 #### Where is `search.db`, and can I look inside?
 In Coxswain's cache folder: `~/.cache/coxswain/search.db` on Linux, `~/Library/Caches/coxswain` on
-macOS, `%LOCALAPPDATA%\coxswain` on Windows (`coxswain --paths` prints it). *Settings → Search
-inside files → Show in panel* opens it in the active panel; the preview shows its tables and their
+macOS, `%LOCALAPPDATA%\coxswain` on Windows (`coxswain --paths` prints it). *Settings → Finding
+files → Details → Background reading → Show in panel* opens it in the active panel; the preview shows its tables and their
 row counts, and **F3** in the terminal app their first rows too, read-only, also while the helper
 writes to it. The cache
 folder itself is never read into the index, so the store does not index itself.
@@ -121,7 +119,7 @@ Listing folders replaces the default. Add your home folder to *Folders read* too
 
 #### I changed `[search]` in `config.toml` by hand and nothing happened.
 The helper reads the config when it starts. Changes made in Settings restart it; a change made by
-hand takes effect when it next starts. Make any change under *Settings → Search inside files*, or
+hand takes effect when it next starts. Make any change under *Settings → Finding files*, or
 close every Coxswain window and wait ten minutes. With the helper started with your session, run
 `coxswain --index-service off` and then `on`.
 
@@ -136,7 +134,7 @@ It goes from the index when the new helper walks the folders read.
 No. Hidden folders are always left out of reading. Their files are still found by name.
 
 #### Can I read `node_modules` or `build` after all?
-Yes: press its **×** under *Left out*, or set `text_exclude` without that name. In `config.toml`
+Yes: press its **×** under *Left out everywhere*, or set `text_exclude` without that name. In `config.toml`
 the list replaces the default one, so list the others you still want left out.
 
 #### Will adding my OneDrive folder download it?

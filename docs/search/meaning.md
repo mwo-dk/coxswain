@@ -23,17 +23,17 @@ until you turn it on.
 ## How to use it
 
 **Turn it on** (once). The quickest way is the guided setup, [Smart search in a few
-minutes](setup.md): **Set up…** at the top of *Settings → Search by meaning*, or
+minutes](setup.md): **Set up…** in *Settings → Finding files* (or *Overview*), or
 `coxswain --setup-search`. It finds a model server on your machine and says whether the built-in
 model or a server suits it. By hand:
 
 | Where | How |
 |---|---|
-| Desktop app | *Settings → Search by meaning → Download the model (465 MB) and turn on*. A bar shows *Downloading the model: 120 MB of 465 MB*; **Cancel** stops it |
+| Desktop app | *Settings → Finding files* → the level *Names, text and meaning*, or *Details → Meaning → Download the model (465 MB) and turn on*. A bar shows *Downloading the model: 120 MB of 465 MB*; **Cancel** stops it |
 | Terminal app | `coxswain --meaning on`: prints *Downloading the model for search by meaning: 42%*, then turns it on (with a [server](servers.md) as the engine, nothing is downloaded) |
-| A row in Find | *Find files about your words too, in any language, even without the words.* under *About this*, with *Set up* (it opens the guided setup; in the terminal app it runs `coxswain --setup-search`); **Delete** sends it away. Also and the [notice](notices.md) *New: search by meaning finds files about your words, in any language. Turn it on*: in the desktop app under *Settings → What's new* (**Show me**), in the terminal app once in the status line |
+| A row in Find | *Find files about your words too, in any language, even without the words.* under *About this*, with *Set up* (it opens the guided setup; in the terminal app it runs `coxswain --setup-search`); **Delete** sends it away. Also and the [notice](notices.md) *New: search by meaning finds files about your words, in any language. Turn it on*: in the desktop app under *Settings → Overview → What's new* (**Show me**), in the terminal app once in the status line |
 
-It needs *Search inside files* on: the button is greyed out otherwise. Then:
+It needs *Words inside files*: choosing the level or the button turns them on too. Then:
 
 1. **Ctrl+F** for [Find file](find-file.md).
 2. Type a question or a few words, in any language.
@@ -55,24 +55,22 @@ other server models, and above what unrelated text scores: 0.77 and 0.45), so un
 stay out. A file found by both its words and its meaning is shown once, under *In
 files*, raised by its meaning. The footer counts the files with vectors: *meaning for 8,120*.
 
-**In Settings → Search by meaning**, from top to bottom:
+**In Settings → Finding files**, the *Meaning* line of the status: *8,120 of 31,208 files · the
+built-in model on the GPU (Metal)* (or *on the CPU*, or on a Mac that could not use its GPU *on the
+CPU (this Mac has no Metal GPU to use)*; with a server, *bge-m3 at localhost*), and while files are
+still to go, *About 3 hours until every file is done.* Any error is in red, with **Set up…**. While
+off: *Off*, *Files about your words are not found.*, and **Set up…**.
 
-- The hint: *Finds files about what you type, not only files with its words, in any language:
-  “rocket fuel cost” finds a Danish budget. A small language model (multilingual-e5-small) runs on
-  this machine, slowly and never on battery; nothing leaves it. In Find file such files show
-  under About this.*
-- *Vectors made by*: *Built-in model, on this machine (465 MB once)*, *Ollama*, or *A server with the
+**In Settings → Finding files → Details → Meaning**, from top to bottom:
+
+- *Meaning*, with the hint *Finds files about your words, not only files with them, in any
+  language: “rocket fuel cost” finds a Danish budget.* Under it the buttons: while on, **Turn off**
+  and **Delete the model**; while off, with the model there, **Turn on** and **Delete the model**;
+  without it, **Download the model (465 MB) and turn on**. With the built-in model, the model's
+  folder with **Show in panel**.
+- *Made by*: *Built-in model, on this machine (465 MB once)*, *Ollama*, or *A server with the
   OpenAI API (Lemonade, LM Studio, llama.cpp …)*. The last two are on [their own page](servers.md).
-- While on: *Understood: 8,120 files · still to go: 23,088*, where the built-in model runs in
-  bold (*Built-in model · on the GPU (Metal)*, *Built-in model · on the CPU*, or on a Mac that could
-  not use its GPU *Built-in model · on the CPU (this Mac has no Metal GPU to use)*); while the vectors are being
-  [renewed](#why-is-search-by-meaning-re-reading-everything), also *Renewing search by meaning
-  for whole documents: 23,088 files to go, about 3 hours*; the model in use
-  (`builtin:multilingual-e5-small@614241f6`), the model's folder, any error in red, and on battery
-  *Paused while the machine runs on its battery. Index now reads anyway.* On a Mac, the switch
-  *Use the CPU only*. Buttons **Turn off** and **Delete the model**.
-- While off, with the model there: **Turn on** and **Delete the model**. Without it:
-  **Download the model (465 MB) and turn on**.
+- On a Mac, the switch *Use the CPU only*.
 
 **In Find's footer**: *meaning for 8,120* once it runs.
 
@@ -98,7 +96,7 @@ files*, raised by its meaning. The footer counts the files with vectors: *meanin
   the rest get vectors; search by words still finds every word. Each vector (384 numbers) is
   packed into a byte a number and kept in `search.db`.
 - **When:** the [helper](helper.md) makes them a few files at a time, resting as long as the work
-  took, and not on [battery](battery.md) unless you press *Index now*. New and changed files get
+  took, and not on [battery](battery.md) unless you press *Read now*. New and changed files get
   theirs at the helper's next pass, within ten minutes; their words are searchable at once.
 - **A search:** your question gets a vector too. A first sieve over one bit per number keeps the
   1,000 closest passages; their full vectors are then scored. A file counts with its best
@@ -148,9 +146,9 @@ the probe measured). Nothing changes in what it finds.
 
 | Where | What it says |
 |---|---|
-| Desktop app | *Settings → Search by meaning*, in bold under the counts: *Built-in model · on the GPU (Metal)*, or *Built-in model · on the CPU (why)* |
+| Desktop app | *Settings → Finding files*, the *Meaning* line of the status: *… files · the built-in model on the GPU (Metal)*, or *… on the CPU (why)* |
 | Terminal app | `coxswain --meaning` prints `on`, then `Built-in model · on the GPU (Metal)` |
-| A notice, once | *Search by meaning now uses your Mac's GPU (Metal): about 6× faster*, or on a Mac that could not use it *Search by meaning runs on the CPU: …* with the reason. In the desktop app under *Settings → What's new*, in the terminal app in the status line |
+| A notice, once | *Search by meaning now uses your Mac's GPU (Metal): about 6× faster*, or on a Mac that could not use it *Search by meaning runs on the CPU: …* with the reason. In the desktop app under *Settings → Overview → What's new*, in the terminal app in the status line |
 
 The reasons for the CPU: *chosen in Settings*, *this Mac has no Metal GPU to use*, *the GPU could not
 load the model: …*, *the GPU's results differed from the CPU's (0.9871)*, *the GPU was slower than
@@ -168,8 +166,8 @@ For a GPU on those, use [Ollama or another server](servers.md).
 | Settings item | Key under `[search]` | Type | Default |
 |---|---|---|---|
 | *Turn on* / *Turn off* | `meaning` | bool | `false` |
-| *Vectors made by* | `meaning_engine` | `"builtin"`, `"ollama"` or `"openai"` | `"builtin"` |
-| *Server*, *Embedding model*, *API key from the variable* | `meaning_url`, `meaning_model`, `meaning_key_env` | strings | `""` |
+| *Made by* | `meaning_engine` | `"builtin"`, `"ollama"` or `"openai"` | `"builtin"` |
+| *Server*, *Model*, *API key from the environment variable* | `meaning_url`, `meaning_model`, `meaning_key_env` | strings | `""` |
 | *Use the CPU only* (on a Mac) | `meaning_device` | `"auto"` or `"cpu"` | `"auto"` |
 
 The last three are for [servers](servers.md). Search by meaning also needs `text = true`.
@@ -179,7 +177,7 @@ The last three are for [servers](servers.md). Search by meaning also needs `text
 The same search and the same *About this* group, its passages dimmed in italics. Turn it on, off or delete it with `coxswain --meaning on|off|delete`; on a Mac,
 `coxswain --meaning cpu|auto` keeps the built-in model on the CPU or lets it use the GPU, and
 `coxswain --meaning` says where it runs. There is no status
-of *still to go*; the desktop app's Settings shows it, or wait for hits. While the vectors are
+of the files to go; the desktop app's Settings shows it, or wait for hits. While the vectors are
 renewed, Find's footer adds *Renewing search by meaning for whole documents: 23,088 files to go,
 about 3 hours*, and the notice says it once. While it is off, *About this* says *Find files about
 your words too, in any language, even without the words.* with *Set up*. When vectors stop
@@ -190,16 +188,17 @@ refused*, or *Reading stopped: …* when reading itself failed.
 
 #### Why is search by meaning off?
 It needs a 465 MB model that Coxswain does not ship, and CPU (or, on a Mac, GPU) time to read your files with it. You
-choose whether that is worth it: turn it on in Settings or with `coxswain --meaning on`.
+choose whether that is worth it: turn it on in Settings (the level *Names, text and meaning* under *Finding files*) or with
+`coxswain --meaning on`.
 
 #### Why does it find nothing yet?
-The vectors are made in the background, a few files at a time: Settings shows *still to go*. On a
+The vectors are made in the background, a few files at a time: Settings shows how many are done (*8,120 of 31,208 files*). On a
 laptop's CPU that takes hours for a large home folder, and it waits while on battery. A
 [server with a GPU](servers.md) is much faster.
 
 #### Vectors stopped coming. Why?
-Both apps say why, in red: Settings under *Search by meaning* (desktop) and the status line of
-Find's *About this* group (both apps), and a [notice](notices.md) in the status line of both (in the desktop app also under *Settings → What's new*). *No
+Both apps say why, in red: Settings on the *Meaning* line of *Finding files* (desktop) and the status line of
+Find's *About this* group (both apps), and a [notice](notices.md) in the status line of both (in the desktop app also under *Settings → Overview → What's new*). *No
 vectors: …* is the server or the model: Ollama not running (`systemctl start ollama`), or the
 model not pulled (`ollama pull bge-m3`, or *Pull* in Settings). *Reading stopped: …* means a scan
 failed before the vectors' turn; vectors come only after the text is read. Before 1.26.4 a store
@@ -208,7 +207,7 @@ vectors stopped after the first few hundred files: 1.26.4 mends such a store by 
 
 #### Does the built-in model use my Mac's GPU?
 On Apple Silicon, yes: through Metal, in batches, several times faster than the CPU. *Settings →
-Search by meaning* says *Built-in model · on the GPU (Metal)*, and `coxswain --meaning` prints the
+Finding files* says *… the built-in model on the GPU (Metal)* on the *Meaning* line, and `coxswain --meaning` prints the
 same line. An Intel Mac usually has no Metal GPU the model can use and stays on the CPU, which
 Settings says with the reason. See [On a Mac's GPU](#on-a-macs-gpu).
 
@@ -220,7 +219,7 @@ tries again (*Turn off*, then *Turn on*, or `coxswain --meaning on`). *chosen in
 the CPU only* is ticked.
 
 #### How do I keep it off the GPU?
-Tick *Use the CPU only* under *Settings → Search by meaning*, or `coxswain --meaning cpu`. The
+Tick *Use the CPU only* under *Settings → Finding files → Details → Meaning*, or `coxswain --meaning cpu`. The
 vectors already made stay.
 
 #### Why is it so slow with Ollama?
@@ -248,7 +247,7 @@ to 256 vectors where it had 8, a short one the same as before. Measured on this 
 (93 pages, many of them long), per 1,000 files: about an hour with the built-in model on the CPU
 (40 minutes before), 4 minutes with bge-m3 on a laptop's GPU (2 before), twice that with the
 rests between files ([Performance](../reference/performance.md#search-by-meaning-whole-documents)).
-It waits on battery, as always; *Index now* skips the rests. The notice says how long it is
+It waits on battery, as always; *Read now* skips the rests. The notice says how long it is
 likely to take on your machine, from the first files.
 
 #### Why does it show files that have nothing to do with my question?
@@ -258,7 +257,8 @@ more specific words.
 
 #### Where is the model kept and how do I delete it?
 In Coxswain's cache folder under `models/` (`coxswain --paths` prints it as `model`; Settings shows
-it under the status). **Delete the model** in Settings, or `coxswain --meaning delete`.
+it under *Finding files → Details → Meaning*, and under *Privacy and updates → Where things are
+kept*). **Delete the model** there, or `coxswain --meaning delete`.
 
 #### Does the model send anything anywhere?
 No. The download is the only network use; after it, the model runs on your machine and nothing you
@@ -272,9 +272,9 @@ whatever their languages.
 It works on two threads (or the GPU on a Mac), in batches with rests, and not on battery. Searching is quick; making the
 vectors the first time is the slow part.
 
-#### Why is the button greyed out?
-*Search inside files* is off. Search by meaning works on the text the helper keeps, so turn that
-on first.
+#### Why did turning it on turn on *Words inside files* too?
+Search by meaning works on the text the helper keeps, so it needs *Words inside files*. The level
+*Names, text and meaning* and the button *Download the model … and turn on* turn them on with it.
 
 ---
 [← Previous: Removable disks](removable-disks.md) · [Next: Search by meaning on a server →](servers.md)

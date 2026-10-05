@@ -48,7 +48,7 @@ a Mac). Give it one: `[keys] dir_sizes = ["Ctrl+Q"]`.
 - **Inside the folders search reads** (your home folder unless you chose others; see
   [Choosing the folders](../search/folders.md)): at once. The
   [search helper](../search/helper.md) already knows every file's size from its last walk, so
-  a folder's size is a sum it has at hand. This needs *Search inside files* on.
+  a folder's size is a sum it has at hand. This needs *Words inside files* on (Settings → *Finding files*).
 - **Everywhere else:** measured by walking the folder, on two threads at most, so the machine
   stays yours. Leaving the folder stops the walk.
 
@@ -76,7 +76,8 @@ bytes and the number of files in it; see [Properties and permissions](../files/p
 
 | Setting | config.toml | Type, default |
 |---|---|---|
-| *Measure folder sizes automatically* (columns menu, desktop app) | `folder_sizes` | bool, `true` |
+| *Measure folder sizes automatically* (columns menu, desktop app) | – (session) | on |
+| Settings → *Behaviour* → *Measure folder sizes* | `folder_sizes` | bool, `true` |
 | *Files (in folders)* column | – (session) | off |
 | Folder sizes command | `[keys] dir_sizes` | no key |
 
@@ -96,8 +97,8 @@ that, or with **Folder sizes** in the **F9** list.
 
 - It is still being measured: large folders take a while, and they are done one at a time.
 - You left the folder: the walk stops, and starts again when you come back.
-- Measuring is off: `folder_sizes = false` (terminal app) or the columns menu switch (desktop
-  app).
+- Measuring is off: *Measure folder sizes* in Settings → *Behaviour* or `folder_sizes = false`
+  (both apps), or the columns menu switch (desktop app).
 - It is `/proc`, `/sys`, `/dev` or `/run`, which are never measured.
 - Desktop app: the Size column is hidden, or the pane is too narrow for it
   ([Views](views.md#what-you-see)).
@@ -105,8 +106,8 @@ that, or with **Folder sizes** in the **F9** list.
 #### Why are sizes in my home folder instant, and slow elsewhere?
 
 The search helper keeps every file's size for the folders it reads (your home folder by
-default), so those are sums. Other folders are walked. Add a folder under *Settings → Search
-inside files → Folders read* to have its sizes at once too, or to *Names only*, which keeps
+default), so those are sums. Other folders are walked. Add a folder under *Settings → Finding
+files → Details → Folders → Folders read* to have its sizes at once too, or to *Names only*, which keeps
 its sizes without reading its files.
 
 #### A size is out of date. Why?

@@ -173,11 +173,11 @@ and *git blame (file)* (`b`, through `less`).
 
 | Setting | config.toml | Default |
 |---|---|---|
-| *Settings → Appearance → Icons and git glyphs*: *Nerd Font* or *Plain characters (ASCII)* | `glyphs` (`"nerd"` / `"ascii"`) | `"nerd"` |
+| *Settings → Looks → Icons and git glyphs*: *Nerd Font* or *Plain characters (ASCII)* | `glyphs` (`"nerd"` / `"ascii"`) | `"nerd"` |
 | Each glyph yourself | `[glyph_set]` table | – |
 | The colours | theme slots `git_branch`, `git_modified`, `git_added`, `git_untracked`, `git_deleted`, `git_renamed`, `git_conflict`, `git_ignored` | per theme |
 | The user menu's git commands | `[[user_menu]]` | four entries |
-| *Settings → Behaviour → Show when each file and folder was last committed, and by whom* | `[git] last_commit` | `true` |
+| *Settings → Behaviour → Last commit of each file* | `[git] last_commit` | `true` |
 | The *Last commit* column | the columns menu (the session) | on |
 | The history's key | `history` in `[keys]` | `Ctrl+G` |
 | The branches', the worktrees' and the switch's keys | `branches`, `worktrees`, `switch_branch` in `[keys]` | `Alt+B`, `Alt+W`, `Alt+S` |
@@ -213,7 +213,7 @@ build output from sources.
 
 The font has no Nerd Font glyphs. In the terminal, use a Nerd Font as the terminal's font. In
 the desktop app, install one of the fonts listed in `[gui] icon_font` (for example *Symbols
-Nerd Font Mono*), or set *Settings → Appearance → Icons and git glyphs* to *Plain characters
+Nerd Font Mono*), or set *Settings → Looks → Icons and git glyphs* to *Plain characters
 (ASCII)*. The config key is `glyphs = "ascii"`, for both apps.
 
 #### I committed in a terminal and the git line did not change.
@@ -246,8 +246,8 @@ files has none either.
 #### Why is there no Last commit column?
 
 It shows in a repository, in the details view of a pane at least 620 pixels wide, when it is
-ticked in the columns menu and *Show when each file and folder was last committed* is on in
-Settings (`[git] last_commit`).
+ticked in the columns menu and *Last commit of each file* is on in
+Settings → *Behaviour* (`[git] last_commit`).
 
 #### Can Coxswain commit or stage?
 

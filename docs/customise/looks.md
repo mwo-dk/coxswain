@@ -16,7 +16,7 @@ drawn in the era's own colours, as the real thing was.
 A look comes with its theme: pick the theme and you get its look.
 
 1. Press **Ctrl+,** (or **F9** → *Settings*).
-2. Under *Appearance* → *Theme*, click a theme. The table below shows which look each brings.
+2. Choose *Looks*, leave *For* on *Desktop app* and click a theme. The table below shows which look each brings.
 
 To give your own theme a look, name it in the theme's table (see
 [Your own theme](own-theme.md)):
@@ -55,13 +55,13 @@ System 7 lays its grey dotted desktop behind the window, whatever the theme's sl
 
 In Cyber, lit buttons are not filled with green: a dialog's main button (*OK*, *Scan*), the
 chosen kind and the scope in Find file, the update button in the status line, the count on *⚙ Settings*, the
-*new* marks under *What's new* and the archive and history badges are dark, with a bright green outline and bold green text. Dark letters on bright green were
+*new* marks under *Overview → What's new* and the archive and history badges are dark, with a bright green outline and bold green text. Dark letters on bright green were
 smeared by the scanlines and the glow, and could hardly be read.
 
 The fonts are not bundled: each look uses the first one in its list that your system has, and
 falls back to a plain sans-serif. Windows 95 looks most like itself on Windows, Aqua on a Mac.
-Under any look but `modern`, Settings shows the hint *Cyber and the Windows and Mac themes bring
-their own font; these fonts apply to the others.*
+Under any look but `modern`, Settings greys out *Font* and says, for example, *Cyber draws its
+text in a font of its own: the font above applies to the other themes.*
 
 ## Settings and config.toml
 

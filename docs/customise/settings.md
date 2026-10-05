@@ -2,24 +2,29 @@
 
 # The Settings window
 
-The desktop app's Settings window changes the most used parts of `config.toml` without opening
-the file: language, theme, fonts, behaviour, search inside files, search by meaning and previews
-made by tools. Every change applies at once and is written to the file.
+The desktop app's Settings window changes `config.toml` without opening the file. It is sorted
+by what you come for: an **Overview** of how everything stands, **Finding files**, **Previews**,
+**Looks**, **Behaviour**, **Keys**, and **Privacy and updates**. Each option has a label in plain
+words, one line under it on what it does, and badges for what it costs. Every change applies at
+once and is written to the file, your comments kept.
 
-![The Settings window in Cyber: the Language section with a flag per language, then the Appearance section with the theme swatches, Icons and git glyphs, Text size and Font](../screenshots/gui-settings.png)
-*Settings, opened with **Ctrl+,**: Language at the top, Appearance below it.*
+![The Settings window in Cyber, at Finding files: the areas on the left under a Find a setting field; on the right the status block with Names, Words, Meaning and Ask and their next steps, then How far should Find look? with its four levels](../screenshots/gui-settings.png)
+<!-- screenshot: gui-settings.png: desktop app, Cyber, Settings at Finding files (coxswain-gui --settings=search): the area list with Overview's count, the status block (Names, Words, Meaning, Ask, each with a button), the four levels with Names and text chosen, Set up… -->
+*Settings at Finding files, opened with `coxswain-gui --settings=search`.*
 
 ## Contents
 
 - [How to use it](#how-to-use-it)
+- [What you see](#what-you-see)
+- [Find a setting](#find-a-setting)
 - [How changes are saved](#how-changes-are-saved)
-- [Language](#language)
-- [Appearance](#appearance)
+- [Overview](#overview)
+- [Finding files](#finding-files)
+- [Previews](#previews)
+- [Looks](#looks)
 - [Behaviour](#behaviour)
-- [Search inside files](#search-inside-files)
-- [Search by meaning](#search-by-meaning)
-- [Previews made by tools](#previews-made-by-tools)
-- [What's new](#whats-new)
+- [Keys](#keys)
+- [Privacy and updates](#privacy-and-updates)
 - [Settings and config.toml](#settings-and-configtoml)
 - [What Settings does not cover](#what-settings-does-not-cover)
 - [In the terminal app](#in-the-terminal-app)
@@ -29,32 +34,55 @@ made by tools. Every change applies at once and is written to the file.
 
 1. Open Settings in any of these ways:
 
-   | Way | Where |
+   | Way | Opens at |
    |---|---|
-   | **Ctrl+,** | Anywhere in the window (the `settings` action; see [Changing keys](keys.md)) |
-   | **F9** → *Settings* | The [command list](../panels/command-list.md) |
-   | The **Settings** button with a gear | At the right end of the command line row. With a number after it, it opens the *What's new* page instead ([Notices and what's new](../search/notices.md)) |
-   | **Show me** under *What's new* | The meaning and Ollama tips open *Search by meaning*; the tesseract and cloud tips open *Search inside files* |
-   | A problem in the status line | *Search inside files has stopped: …* and *Search by meaning gets no vectors: …* open their section |
-   | *turn on search by meaning* | The tip in [Find file](../search/find-file.md) |
-   | `coxswain-gui --settings` | Starts the app with Settings open |
-   | `coxswain-gui --settings=search`, `--settings=meaning` | The same, scrolled to *Search inside files* or *Search by meaning* |
-   | `coxswain-gui --settings=news` | The same, at the *What's new* page |
-   | `coxswain-gui --settings=language` | The same, scrolled to *Language* |
+   | **Ctrl+,** anywhere in the window (the `settings` action; see [Changing keys](keys.md)) | Overview |
+   | **F9** → *Settings* in the [command list](../panels/command-list.md) | Overview |
+   | The **Settings** button with a gear, at the right end of the command line row | Overview; with a number after it, Overview scrolled to *What's new* ([Notices and what's new](../search/notices.md)) |
+   | **Show me** on a tip under *What's new* | The tip's area: the meaning and Ollama tips open *Finding files* at *Meaning*, the tesseract and cloud tips *Finding files*, a new language *Looks* at *Language* |
+   | `coxswain-gui --settings` | Overview |
+   | `coxswain-gui --settings=search` | Finding files |
+   | `coxswain-gui --settings=meaning`, `--settings=ask` | Finding files, with *Details* and that group unfolded and in sight |
+   | `coxswain-gui --settings=news` | Overview at *What's new* |
+   | `coxswain-gui --settings=language` | Looks at *Language* |
+   | `coxswain-gui --settings=<area>` | That area: `overview`, `search`, `previews`, `looks`, `behaviour`, `keys`, `privacy` |
+   | `coxswain-gui --settings=<option>` | The option's area, scrolled to it and lit up for a moment: `check_updates`, `line_height`, `ask_model` … (the names in [Settings and config.toml](#settings-and-configtoml)) |
 
-2. Click, tick or type. A text field (a font, a server) is saved when you leave it or press
-   **Enter**; everything else is saved on the click.
-3. Close it with the **×** at the top, **Close** at the bottom, or **Esc**.
+2. Click an area on the left, or type in *Find a setting…* above them.
+3. Click, tick or type. A text or number field is saved when you leave it or press **Enter**;
+   everything else is saved on the click.
+4. Close it with the **×** at the top, **Close** at the bottom, or **Esc**. In *Find a
+   setting…* with text in it, the first **Esc** empties the field.
 
 ## What you see
 
-A window over the panels, titled *Settings* with a gear. Its sections, top to bottom:
-**Language**, **Appearance**, **Behaviour**, **Search inside files**, **Search by meaning**,
-**Previews made by tools** and **What's new**. The body scrolls; the footer stays.
+A window over the panels, titled *Settings* with a gear:
 
-The footer says *Settings are stored in /home/me/.config/coxswain/config.toml* until you change
-something, then *Saved to /home/me/.config/coxswain/config.toml*. When a change is refused, the
-reason shows there in red instead.
+- **On the left**: *Find a setting…*, then the seven areas. The open one is outlined in the
+  accent colour. *Overview* carries a count when tips or versions are waiting to be read.
+- **On the right**: the area. Each option is its label, its cost badges, the control, and a line
+  in smaller grey text on what it does. Hovering an option shows its key in `config.toml` as a
+  tooltip, such as `[search] text`.
+- **At the bottom**: *Settings are stored in /home/me/.config/coxswain/config.toml* until you
+  change something, then *Saved to /home/me/.config/coxswain/config.toml*. When a change is
+  refused, the reason shows there in red instead.
+
+The badges say what an option costs:
+
+| Badge | Means |
+|---|---|
+| *disk space* | It keeps something on this machine: the text of your files, the model, an image |
+| *processor time* | It works in the background: reading, measuring, building |
+| *downloads* | It fetches something: a model, a container image, files kept only online |
+| *can leave this machine* | Something of yours goes to a server: the text of your files to a model server, your questions to a chat model. To a server on this machine nothing leaves after all; [Privacy and updates](#privacy-and-updates) says where each one goes |
+
+## Find a setting
+
+Type in *Find a setting…*: the right side lists every option whose label, explanation or
+`config.toml` key holds what you typed, each with its area and key. Click one: its area opens,
+the groups around it unfold, and the option lights up for a moment. *No setting matches.* when
+none does. Typing `cloud` finds *Read files that are only online* and *Cloud folders read
+anyway*; typing `line_height` finds *Row height*.
 
 ## How changes are saved
 
@@ -62,158 +90,281 @@ Each change is written to `config.toml` as you make it, **keeping your comments 
 only that one value changes, in place, or it is added under its table. If the file does not
 exist yet, it is created with only what you changed. A change that would make the file invalid
 is refused rather than saved: the file on disk is never replaced by one that does not parse.
+Emptying *Editor* or *Viewer* takes the key out of the file, so `$EDITOR` or `$PAGER` applies
+again.
 
 The desktop app uses the new value at once: a new language redraws every text, a new theme
-repaints the window, a new font or size re-lays the rows. A change to *Search inside files* or
-*Search by meaning* also restarts the [search helper](../search/helper.md) with the new settings.
-The terminal app reads the shared keys the next time it starts.
+repaints the window, a new font, size or row height re-lays the rows. A change to anything the
+[search helper](../search/helper.md) reads restarts it with the new settings. The terminal app
+reads the shared keys the next time it starts.
 
-## Language
+## Overview
 
-*Automatic*, which shows below it which language it picks, then every language by its own name
-with its flag. Click one. The hint says: *Automatic follows your system's language, or the
-nearest one Coxswain has. Both apps use the same choice.* Writes `language`. Details:
-[Languages](languages.md).
+<!-- screenshot: settings-overview.png: desktop app, Cyber, Settings → Overview: the lines for Finding files, Previews, Looks and Privacy and updates, Set up…, What's new with For you tips and the newest version -->
 
-## Appearance
-
-| Item | Does | Key |
+| Part | Shows | Does |
 |---|---|---|
-| **Theme** | Every built-in theme as a small swatch in its own colours (a sidebar, a folder row, the cursor row, a file row), then your own `[themes.<name>]` under their own names. Click one. See [Themes](themes.md) | `[gui] theme` |
-| **Icons and git glyphs** | *Nerd Font*, or *Plain characters (ASCII)*. See [Glyphs and fonts](glyphs-and-fonts.md) | `glyphs` |
-| **Text size** | A number, 9 to 28 pixels; the rows grow with it | `[gui] font_size` |
-| **Font** | The interface font, as a CSS font list | `[gui] font` |
-| **Monospaced font** | The command line, code in the preview, and everything in Cyber and NC | `[gui] mono_font` |
-| **Icon font** | The Nerd Font for file icons and git glyphs, as a CSS font list | `[gui] icon_font` |
+| *Finding files* | The search level (*Names and text* …), then one line each for words, meaning and Ask, with what needs saying (*Paused while the machine runs on its battery.*) | Clicking the name opens the area |
+| *Previews* | How previews are made: *An installed program, else a container* … | Opens Previews |
+| *Looks* | The theme and the language: *Cyber · English (United Kingdom)* | Opens Looks |
+| *Privacy and updates* | What can leave this machine and where to, one line each (*The update check, once a day → api.github.com*), or *Nothing leaves this machine.* | Opens Privacy and updates |
+| **Set up…** | | Opens the [setup guide](../search/setup.md) for words, meaning and Ask |
+| *What's new* | *For you*: the tips, each with **Show me** and **Dismiss**; then the versions you have not read, and *Earlier versions: N* folded | **Show me** opens the tip's area. Once *What's new* is in sight, the versions count as read and the count on the gear goes |
 
-Under a theme whose look is not *modern*, a hint below *Monospaced font* says: *Cyber and the
-Windows and Mac themes bring their own font; these fonts apply to the others.* See
-[Looks](looks.md).
+Nothing in Overview is kept in `config.toml`. See [Notices and what's new](../search/notices.md).
+
+## Finding files
+
+Everything about Find: [names](../search/names.md), [words inside files](../search/text.md),
+[meaning](../search/meaning.md) and [Ask](../search/ask.md). From the top:
+
+### The status block
+
+One line for each part of search, with the one step it needs:
+
+| Line | Shows | Its button |
+|---|---|---|
+| *Names* | *Files on this machine: 912 330*, or *Still counting the files on this machine: 412 000 so far* | |
+| *Words* | *Files read: 3 875 · waiting: 438 · 284 KB on disk*; *Paused while the machine runs on its battery.*; *Reading stopped: …* in red. *Off* with *Find looks at names only.* when words inside files are off; *Not running* with *Background reading is not running, so the words in files cannot be searched now.* | **Read now** when files wait (full speed, on battery too); **Turn on** when off (the level *Names and text*); **Start it** when not running |
+| *Meaning* | *3 343 of 3 343 files · bge-m3 at localhost:11434*, or *· the built-in model on the CPU*; *About 40 minutes until every file is done.*; a server that does not answer as *The server at localhost:11434 does not answer. Is it running?* in red. *Off* with *Files about your words are not found.* | **Set up…** when off or failing |
+| *Ask* | *qwen3:8b at localhost:11434*. *Off* with *Ask needs meaning first.* or *No chat model chosen yet.* | **Try it** asks the chat model a test question and shows *It answered: the first word came after 0.4 s.*, or why it could not; **Set up…** when off |
+
+The lines refresh every two seconds while Settings is open.
+
+### How far should Find look?
+
+Four levels, one chosen. Each says what it adds and what it costs:
+
+| Level | Adds | Badges | Choosing it |
+|---|---|---|---|
+| *Names only* | Files by name, on the whole machine. Nothing is opened | | Turns words inside files and meaning off. The model and the chat model stay |
+| *Names and text* | The words inside your files | *disk space*, *processor time* | Turns words on, meaning off |
+| *Names, text and meaning* | Files about your words, in any language | *disk space*, *processor time*, *downloads* | Turns words and meaning on, and forgets Ask's chat model. While the built-in model is not downloaded and no server is chosen, the setup guide opens instead |
+| *Names, text, meaning and Ask* | Questions answered from your files by a chat model | *can leave this machine* | Turns words and meaning on. Without a chat model chosen, or without a model for meaning, the setup guide opens instead |
+
+When meaning is on but words inside files are off (set by hand), no level is chosen and a red
+line says so: meaning needs the words. **Set up…** under the levels opens the
+[setup guide](../search/setup.md): it finds the model servers on this machine, chooses the
+models, tests them and checks the GPU; what it sets shows in the status block.
+
+### Details
+
+**Details** unfolds every switch on its own, in five groups. *What is read* is open at first.
+
+**What is read**
+
+| Option | Does | Key |
+|---|---|---|
+| *Words inside files* | Reads the text of your files in the background and keeps it on this machine. Off: no [words](../search/text.md), no meaning, and folder sizes and duplicates lose the store's help | `[search] text` |
+| *Look inside archives* | Zip, 7z and tar: their files found by name and by text ([Inside archives](../search/archives.md)) | `[search] archives` |
+| *Archives everywhere* (under it, while it is on) | Also archives in caches and programs' folders, by name ([Which archives](../search/archives.md#which-archives)) | `[search] archives_everywhere` |
+| *Git history* | Commit messages, authors and changed paths ([Git history in search](../search/history.md)) | `[search] history` |
+| *Read files that are only online* | Ticked: files only in OneDrive, Dropbox, Google Drive, Proton Drive or iCloud are read, which downloads them ([Cloud files](../search/cloud-files.md)) | `[search] cloud`: `"local-only"` or `"all"` |
+| *Cloud folders read anyway* (while the one above is off) | The clouds found, each with **Read its files**, and folders you add | `[search] cloud_read` |
+| *Programs that read more* | ✓ or ✗ for tesseract, pdftoppm and LibreOffice, with *not installed* ([Scans](../search/scans.md)) | |
+| *Largest file read (MB)* | Larger files are found by name only | `[search] text_max_size` (bytes in the file) |
+| *Most hits* | The most rows Find lists for one kind of hit (the desktop app shows at most 500) | `[search] max_results` |
+
+**Folders**
+
+| Option | Does | Key |
+|---|---|---|
+| *Folders read* | Each folder with its size in the store, or that it is kept while its disk is not plugged in; *Your home folder* when none. **Add** takes the path typed (empty: the current folder), **Remove** takes one off ([Choosing the folders](../search/folders.md)) | `[search] text_roots` |
+| *Names only* | Found by name and counted in folder sizes, never opened. A `.nosearch` file in a folder does the same | `[search] names_only` |
+| *Left out everywhere* | Folder names (`node_modules`) and patterns (`*.log`) never read, as chips with **×** | `[search] text_exclude` |
+| *Where names are found* | The folders the name index covers; *None* is the whole machine | `[search] roots` |
+| *Never indexed* | Paths (`/proc`) and folder names the name index skips: not found even by name | `[search] exclude` |
+| *Follow changes as they happen* | Off: the names are gathered again once an hour | `[search] watch` |
+
+**Meaning** (`--settings=meaning` opens here)
+
+| Option | Does | Key |
+|---|---|---|
+| *Meaning* | **Download the model (465 MB) and turn on** for the built-in model (*Downloading the model: … of …*, a bar, **Cancel**); **Turn on** once the model is there or with a server (it turns words on too); **Turn off**; **Delete the model**, and the model's folder with **Show in panel** | `[search] meaning` |
+| *Made by* | *Built-in model, on this machine (465 MB once)*, *Ollama*, or *A server with the OpenAI API (Lemonade, LM Studio, llama.cpp …)*. A change that makes every file's meaning again asks first: **Change and re-read** or **Keep the current model** | `[search] meaning_engine` |
+| *Server* (a server only) | Empty: Ollama on this machine. Under it, *The server answers.* or the error, and in bold when it is another machine: *The text of your files, with their names and folders, is sent to evo:13305 to get its vectors.* | `[search] meaning_url` |
+| *Model* (a server only) | The server's models to pick from; **Pull bge-m3 with Ollama** when Ollama lacks it | `[search] meaning_model` |
+| *API key from the environment variable* (OpenAI API only) | The variable's name, such as `OPENAI_API_KEY`; the key is never written to the file | `[search] meaning_key_env` |
+| *Use the CPU only* (a Mac only) | Keeps the built-in model off the GPU ([on a Mac's GPU](../search/meaning.md#on-a-macs-gpu)) | `[search] meaning_device`: `"auto"`, `"cpu"` |
+
+**Ask** (`--settings=ask` opens here)
+
+| Option | Does | Key |
+|---|---|---|
+| *Chat model* | The chat models of the server (Ollama here with the built-in model); models that only make vectors are left out. **Try it** asks a test question. Once saved, the model is tried at once: one that cannot answer says why in red. In bold, when the server is another machine: *Your questions and the passages closest to them are sent to …* | `[search] ask_model` |
+| *Let the model think first* | Better reasoning with models that can think, many seconds before the first word ([Thinking](../search/ask.md#thinking)) | `[search] ask_think` |
+
+**Background reading**
+
+| Option | Does | Key |
+|---|---|---|
+| *Start with my session* | The helper starts at login, so the store follows your files between launches ([The search helper](../search/helper.md)) | none: a systemd user unit, a LaunchAgent or a *Run* entry |
+| **Read now** | Reads what waits at full speed, on battery too. Greyed out when nothing waits | |
+| The store's path | With **Show in panel** | |
+| **Delete what was read (284 KB)** | In red, below a dashed line. Asks *Click again to delete*, then empties the store: text, sizes, hashes, meaning. Your files are not touched; they are read again from the start | |
+
+## Previews
+
+<!-- screenshot: previews-tools-settings.png: desktop app, Cyber, Settings → Previews (not in the sandbox, where containers must not run): How previews are made, Container runtime, LaTeX image, Build LaTeX by itself, Timeout, Previews made so far, Container images -->
+
+For the previews that [tools](../previews/tools.md) make: LaTeX, PlantUML, Word and the like.
+Opening this area asks the container runtime which images it has.
+
+| Option | Does | Key |
+|---|---|---|
+| A red line at the top | When neither podman nor docker answers | |
+| *How previews are made* | *An installed program, else a container* (`"auto"`), *Installed programs only* (`"local"`), *Containers, even when a program is installed* (`"container"`) | `[preview] prefer` |
+| *Container runtime* | *podman, else docker* (`"auto"`), *podman*, *docker*, *No containers* (`"off"`) | `[preview] container` |
+| *LaTeX image* | `docker.io/texlive/texlive:latest` by default; `:latest-medium` is about 2 GB instead of 5 | `[preview] images.latex` |
+| *Build LaTeX by itself* | Off: LaTeX waits for **Build PDF** ([LaTeX projects](../previews/latex.md)) | `[preview] latex_auto` |
+| *Timeout (seconds)* | 10 to 3600; pulling an image is not counted | `[preview] timeout` |
+| *Previews made so far* | *… in the cache; made again when a source changes*, and **Clear** | |
+| *Container images* | Each image with *Pulled, 5.1 GB* or *Not pulled*, **Pull** (also updates; its progress shows in place) and **Remove** ([Containers](../previews/containers.md)) | |
+
+## Looks
+
+<!-- screenshot: settings-looks.png: desktop app, Cyber, Settings → Looks: the language list with its filter, the For: Desktop app / Terminal app switch over the theme swatches, the Font field greyed out with its line -->
+
+| Option | Does | Key |
+|---|---|---|
+| *Language* | The language in use with its flag, a filter, then *Automatic* and every language by region, by its own name ([Languages](languages.md)) | `language` |
+| *For: Desktop app / Terminal app* | Which app's theme the swatches below choose. The terminal app takes a new one when it starts again ([Themes](themes.md)) | |
+| *Theme of the desktop app* / *Theme of the terminal app* | Every built-in theme as a swatch in its own colours, then your own `[themes.<name>]` | `[gui] theme` / `theme` |
+| *Icons and git glyphs* | *Nerd Font* or *Plain characters (ASCII)* ([Glyphs and fonts](glyphs-and-fonts.md)) | `glyphs` |
+| *Font* | The interface font, as a CSS font list. Greyed out under a theme that brings its own font (every theme but Dark, Light, Nord and Tokyo Night), with the line *Cyber draws its text in a font of its own: the font above applies to the other themes.* ([Looks](looks.md)) | `[gui] font` |
+| *Monospaced font* | File contents, paths and code; under Cyber and Classic blue (NC), everything | `[gui] mono_font` |
+| *Icon font* | The Nerd Font for file icons and git glyphs | `[gui] icon_font` |
+| *Text size* | 9 to 28 pixels | `[gui] font_size` |
+| *Row height* | 1.2 to 3 times the text size: 1.9 is roomy, 1.4 fits more rows | `[gui] line_height` |
 
 ## Behaviour
 
-| Item | Does | Key |
+| Option | Does | Key |
 |---|---|---|
-| *Show hidden files when Coxswain starts* | Whether hidden files show at start. **Alt+.** still switches them at any time; the desktop app then keeps your last choice in its session ([Sorting and hidden files](../panels/sorting.md)) | `show_hidden` |
-| *Ask before deleting* | Unticked, **F8** and **Shift+F8** act at once, without the *Delete* dialog ([Delete](../files/delete.md)) | `confirm_delete` |
-| *Check for a new version once a day* | Looks for a newer release on GitHub ([Update checks](../reference/updates.md)) | `check_updates` |
-| *Show when each file and folder was last committed, and by whom* | The *Last commit* column and the preview pane's *Last commit* in git repositories ([Last commit per file](../panels/git.md#last-commit-per-file)) | `[git] last_commit` |
+| *Show hidden files when Coxswain starts* | **Alt+.** still switches them at any time ([Sorting and hidden files](../panels/sorting.md)) | `show_hidden` |
+| *Ask before deleting* | Off: **F8** and **Delete** act at once ([Delete](../files/delete.md)) | `confirm_delete` |
+| *Measure folder sizes* | Folders show their whole size, measured in the background. The desktop app's columns menu switches it too ([Folder sizes](../panels/folder-sizes.md)) | `folder_sizes` |
+| *Last commit of each file* | The *Last commit* column and the preview's *Last commit* ([Last commit per file](../panels/git.md#last-commit-per-file)) | `[git] last_commit` |
+| *Editor* | The program **F4** opens a file in. Empty: the system's choice in the desktop app, `$VISUAL` or `$EDITOR` in the terminal app ([View and edit](../commands/view-and-edit.md)) | `editor` |
+| *Viewer (terminal app)* | The program **F3** shows a file in, in the terminal app. Empty: `$PAGER`, else `less` | `viewer` |
+| *CBOM viewer on F3 (terminal app)* | **F3** on a CycloneDX bill of materials opens the CBOM viewer ([CBOM viewer](../previews/bom.md)) | `bom_viewer` |
 
-## Search inside files
+## Keys
 
-![Settings, Search inside files: the ticked box to keep the text of files, the count of searchable files, Index now, Delete the index, Folders read and Names only with their Add fields](../screenshots/gui-settings-search.png)
-*The Search inside files section. This picture predates the "Start the search helper with my
-session" box and the list of programs that read more.*
+Every action and its keys, under the same headings as **F1** and **F9**, with a filter that
+matches the action's name or a key: typing `F5` shows *Copy*. The list is read-only: keys are
+changed in `config.toml` under `[keys]` ([Changing keys](keys.md)), which **Open config.toml**
+opens with the program your system opens `.toml` files with. Both apps read them when they start.
 
-| Item | Does | Key |
+## Privacy and updates
+
+<!-- screenshot: settings-privacy.png: desktop app, Cyber, Settings → Privacy and updates: Check for a new version, What can leave this machine with the update check → api.github.com, Where things are kept with Show in panel, Open config.toml and the version -->
+
+| Part | Does | Key |
 |---|---|---|
-| *Keep the text of files, so Find file can search in it (Shift+F7)* | Turns reading files on or off. Unticked, the rest of the section hides | `[search] text` |
-| The status line | *Searchable: 107 files · still to read: 0 · 284 KB on disk*, the store's path; *The search helper is not running, so text cannot be searched now.* when it is not; *Paused while the machine runs on its battery. Index now reads anyway.* | |
-| *Start the search helper with my session, so it reads while no window is open* | Registers the helper with your session ([The search helper](../search/helper.md)) | none (a system entry) |
-| **Index now** | Reads the backlog at full speed ([Battery](../search/battery.md)) | |
-| **Delete the index** | Asks *Click again to delete*, then empties the store | |
-| *Folders read* | The folders whose files are read; *Your home folder* when none. Each shows its size in the index, or that its disk is away. **Add** takes a path typed in the field (empty: the current folder); **Remove** takes one off | `[search] text_roots` |
-| *Names only* | Folders found by name and counted in sizes, never read; *None* when none | `[search] names_only` |
-| *Search the history of git repositories too: commit messages, authors and changed paths* | Commits found in Find by their words and by meaning (*History*) ([Git history in search](../search/history.md)) | `[search] history` |
-| *Programs that read more* | ✓ or ✗ for tesseract, pdftoppm and LibreOffice, with *not installed* ([Scans, pictures and older Office files](../search/scans.md)) | |
+| *Check for a new version* | Once a day Coxswain asks GitHub for the newest version number ([Update checks](../reference/updates.md)) | `check_updates` |
+| *What can leave this machine* | Built from your settings as they are: the update check → `api.github.com`; the built-in model while it is not downloaded → `huggingface.co`; the text of your files → the model server; your questions → the chat model's server; files only online → your cloud services; container images → their registries. A server on this machine says *(this machine)* | |
+| *Where things are kept* | Settings, state, cache, name index, what was read, the built-in model, previews and looks inside archives, each path with **Show in panel** (the list `coxswain --paths` prints; [Where things are kept](../reference/where-things-are-kept.md)) | |
+| **Open config.toml**, and the version | *Coxswain 1.42.0* | |
 
-Details: [Text in files](../search/text.md) and [Choosing the folders](../search/folders.md).
-
-## Search by meaning
-
-| Item | Does | Key |
-|---|---|---|
-| *Vectors made by* | *Built-in model, on this machine (… once)*, *Ollama*, or *A server with the OpenAI API (Lemonade, LM Studio, llama.cpp …)* | `[search] meaning_engine`: `"builtin"`, `"ollama"`, `"openai"` |
-| *Server* | Only for a server. Empty means `http://localhost:11434` for Ollama; for the OpenAI API, the base URL such as `http://localhost:8000/api/v1` | `[search] meaning_url` |
-| *Embedding model* | Only for a server, with the server's models to pick from; `bge-m3` is Ollama's suggestion. **Pull bge-m3 with Ollama** shows when Ollama does not have it | `[search] meaning_model` |
-| *API key from the variable* | Only for the OpenAI API: the name of an environment variable, such as `OPENAI_API_KEY`. The key itself is never written to the file | `[search] meaning_key_env` |
-| *Use the CPU only* | On a Mac only: keeps the built-in model off the GPU (Metal). The status above says where it runs: *Built-in model · on the GPU (Metal)* or *on the CPU (why)* ([on a Mac's GPU](../search/meaning.md#on-a-macs-gpu)) | `[search] meaning_device`: `"auto"`, `"cpu"` |
-| The server line | *The server answers.*, or the error; and when the server is not this machine, in bold, *The text of your files, with their names and folders, is sent to … to get its vectors.* | |
-| **Download the model (…) and turn on** | For the built-in model, before it is downloaded; *Downloading the model: … of …* with a bar and **Cancel** | `[search] meaning` |
-| **Turn on** / **Turn off** | Once the model is there, or with a server. Greyed out while *Keep the text of files* is unticked | `[search] meaning` |
-| **Delete the model** | Built-in model only | |
-| The status line | *Understood: … files · still to go: …*, the engine, the model's folder, an error in red, and the battery pause | |
-
-Details: [Search by meaning](../search/meaning.md) and [on a server](../search/servers.md).
-
-## Previews made by tools
-
-| Item | Does | Key |
-|---|---|---|
-| *Use* | *An installed program, else a container* (`"auto"`), *Installed programs only* (`"local"`), *Containers, even when a program is installed* (`"container"`) | `[preview] prefer` |
-| *Container runtime* | *podman, else docker* (`"auto"`), *podman*, *docker*, or *No containers* (`"off"`) | `[preview] container` |
-| *LaTeX image* | The TeX Live image; `docker.io/texlive/texlive:latest` by default, `:latest-medium` is about 2 GB instead of 5 | `[preview] images.latex` |
-| *Build LaTeX documents by themselves when they are shown and have changed* | Unticked, LaTeX waits for **Build PDF** ([LaTeX projects](../previews/latex.md)) | `[preview] latex_auto` |
-| *Timeout (seconds)* | 10 to 3600; pulling an image is not counted | `[preview] timeout` |
-| *Previews made so far* | *… in the cache; made again when a source changes*, and **Clear**, which empties it (greyed out when it is empty) | none |
-| *Container images* | Each image with *Pulled, 5.1 GB* or *Not pulled*, **Pull** (which also updates it; its progress shows in place) and **Remove** | none |
-
-Details: [Previews made by tools](../previews/tools.md) and [Containers](../previews/containers.md).
-
-## What's new
-
-One button, *What's new*, with the count of tips and unread versions after it when there are
-any. It opens the *What's new* page in the same window: **← Settings** at its top, then *For
-you* (the tips, each with **Show me** and **Dismiss**), the versions you have not read, and
-*Earlier versions: N*. Nothing in it is kept in `config.toml`. See
-[Notices and what's new](../search/notices.md).
+See [Privacy](../reference/privacy.md).
 
 ## Settings and config.toml
 
-| Settings item | Key in `config.toml` | Type, default | Used by |
-|---|---|---|---|
-| Language | `language` | text, `"auto"` | Both apps |
-| Theme | `[gui] theme` | text, `"cyber"` | Desktop app; the terminal app has the top-level `theme` |
-| Icons and git glyphs | `glyphs` | `"nerd"` or `"ascii"`, `"nerd"` | Both apps |
-| Text size | `[gui] font_size` | number, `13` | Desktop app |
-| Font, Monospaced font, Icon font | `[gui] font`, `mono_font`, `icon_font` | CSS font lists | Desktop app |
-| Show hidden files when Coxswain starts | `show_hidden` | true/false, `true` | Both apps |
-| Ask before deleting | `confirm_delete` | true/false, `true` | Both apps |
-| Check for a new version once a day | `check_updates` | true/false, `true` | Both apps |
-| Show when each file and folder was last committed | `[git] last_commit` | true/false, `true` | Both apps |
-| Keep the text of files | `[search] text` | true/false, `true` | The search helper, for both apps |
-| Folders read, Names only | `[search] text_roots`, `names_only` | lists of paths, `[]` | The search helper |
-| Search the history of git repositories too | `[search] history` | true/false, `true` | The search helper |
-| Search by meaning | `[search] meaning` | true/false, `false` | The search helper |
-| Vectors made by, Server, Embedding model, API key from the variable | `[search] meaning_engine`, `meaning_url`, `meaning_model`, `meaning_key_env` | text; `"builtin"`, `""`, `""`, `""` | The search helper |
-| Use, Container runtime | `[preview] prefer`, `container` | text, `"auto"`, `"auto"` | Desktop app |
-| LaTeX image | `[preview] images.latex` | text, `"docker.io/texlive/texlive:latest"` | Desktop app |
-| Build LaTeX documents by themselves… | `[preview] latex_auto` | true/false, `true` | Desktop app |
-| Timeout (seconds) | `[preview] timeout` | whole number, `120` | Desktop app |
+Every option, the name `--settings=` takes, its key, and who reads it:
+
+| Option (area) | Name | Key | Type, default | Used by |
+|---|---|---|---|---|
+| Words inside files (Finding files) | `search_text` | `[search] text` | true/false, `true` | The search helper, for both apps |
+| Meaning | `search_meaning` | `[search] meaning` | true/false, `false` | The helper |
+| Look inside archives, Archives everywhere | `search_archives`, `search_archives_everywhere` | `[search] archives`, `archives_everywhere` | true/false, `true`, `false` | The helper |
+| Git history | `search_history` | `[search] history` | true/false, `true` | The helper |
+| Read files that are only online, Cloud folders read anyway | `search_cloud`, `cloud_read` | `[search] cloud`, `cloud_read` | `"local-only"`/`"all"`; list of paths | The helper |
+| Largest file read, Most hits | `text_max_size`, `max_results` | `[search] text_max_size`, `max_results` | bytes, 20 MB; `10000` | The helper; Find in both apps |
+| Folders read, Names only, Left out everywhere | `text_roots`, `names_only`, `text_exclude` | `[search] text_roots`, `names_only`, `text_exclude` | lists | The helper |
+| Where names are found, Never indexed, Follow changes as they happen | `name_roots`, `name_exclude`, `watch` | `[search] roots`, `exclude`, `watch` | lists; true/false, `true` | The name index |
+| Made by, Server, Model, API key from the environment variable, Use the CPU only | `meaning_engine`, `meaning_url`, `meaning_model`, `meaning_key_env`, `meaning_device` | `[search] meaning_engine` … `meaning_device` | text; `"builtin"`, `""`, `""`, `""`, `"auto"` | The helper |
+| Chat model, Let the model think first | `ask_model`, `ask_think` | `[search] ask_model`, `ask_think` | text, `""`; true/false, `false` | Ask in both apps |
+| How previews are made, Container runtime (Previews) | `preview_prefer`, `preview_container` | `[preview] prefer`, `container` | text, `"auto"`, `"auto"` | Desktop app |
+| LaTeX image, Build LaTeX by itself, Timeout | `latex_image`, `latex_auto`, `preview_timeout` | `[preview] images.latex`, `latex_auto`, `timeout` | text; true/false, `true`; `120` | Desktop app |
+| Language (Looks) | `language` | `language` | text, `"auto"` | Both apps |
+| Theme of the desktop app, of the terminal app | `theme`, `tui_theme` | `[gui] theme`, `theme` | text, `"cyber"`, `"nc"` | Each its own app |
+| Icons and git glyphs | `glyphs` | `glyphs` | `"nerd"`/`"ascii"`, `"nerd"` | Both apps |
+| Font, Monospaced font, Icon font, Text size, Row height | `font`, `mono_font`, `icon_font`, `font_size`, `line_height` | `[gui] font` … `line_height` | CSS font lists; `13`; `1.9` | Desktop app |
+| Show hidden files…, Ask before deleting (Behaviour) | `show_hidden`, `confirm_delete` | `show_hidden`, `confirm_delete` | true/false | Both apps |
+| Measure folder sizes, Last commit of each file | `folder_sizes`, `git_last_commit` | `folder_sizes`, `[git] last_commit` | true/false | Both apps |
+| Editor, Viewer, CBOM viewer on F3 | `editor`, `viewer`, `bom_viewer` | `editor`, `viewer`, `bom_viewer` | text (absent: the environment); true/false, `true` | Editor: both apps; the others: the terminal app |
+| Check for a new version (Privacy and updates) | `check_updates` | `check_updates` | true/false, `true` | Both apps |
+
+The labels, explanations, areas and costs come from one description in `coxswain-core`
+(`settings.rs`), which the terminal app's Settings will use too.
 
 ## What Settings does not cover
 
 Set these in `config.toml` (every key: [Configuration](../reference/configuration.md)):
 
-- [keys](keys.md), [your own themes](own-theme.md), the terminal app's `theme`, a
-  [`[glyph_set]`](glyphs-and-fonts.md) and the row height `[gui] line_height`;
-- the [user menu](../commands/user-menu.md), `editor` and `viewer`
-  ([View and edit](../commands/view-and-edit.md));
-- `folder_sizes` (the desktop app has its own switch in the [columns menu](../panels/views.md));
-- the name index's `[search] roots`, `exclude`, `watch`, `max_results`, and `text_exclude`,
-  `text_max_size` ([Choosing the folders](../search/folders.md));
+- the keys themselves, under `[keys]` ([Changing keys](keys.md)); the *Keys* area lists them;
+- [your own themes](own-theme.md) (`[themes.<name>]`; once there, they show among the swatches)
+  and a [`[glyph_set]`](glyphs-and-fonts.md);
+- the [user menu](../commands/user-menu.md);
 - the other container images and `prefer_tool` ([Previews made by tools](../previews/tools.md)).
 
 ## In the terminal app
 
-The terminal app has no Settings window. It reads the same `config.toml` when it starts, so a
-change made in Settings to a shared key (`language`, `glyphs`, `show_hidden`, `confirm_delete`,
-`check_updates`, `[search]`) reaches it at its next start. Its own theme is the top-level `theme`.
+The terminal app has no Settings window yet. It reads the same `config.toml` when it starts, so
+a change made in the desktop app's Settings to a shared key (`language`, `theme`, `glyphs`,
+`show_hidden`, `confirm_delete`, `folder_sizes`, `editor`, `viewer`, `bom_viewer`,
+`check_updates`, `[git]`, `[search]`) reaches it at its next start.
 
 What Settings does for search, the terminal app does with [flags](../reference/command-line-flags.md):
 
 | Settings | Terminal app |
 |---|---|
-| *Start the search helper with my session…* | `coxswain --index-service on` / `off` |
+| **Set up…** | `coxswain --setup-search` |
+| *Start with my session* | `coxswain --index-service on` / `off` |
 | **Download the model … and turn on**, **Turn off**, **Delete the model** | `coxswain --meaning on`, `off`, `delete` |
-| *Vectors made by* Ollama | `coxswain --meaning ollama [MODEL]` |
-| *Vectors made by* a server with the OpenAI API | `coxswain --meaning server URL MODEL` |
+| *Made by* Ollama | `coxswain --meaning ollama [MODEL]` |
+| *Made by* a server with the OpenAI API | `coxswain --meaning server URL MODEL` |
 | Back to the built-in model | `coxswain --meaning builtin` |
+| *Where things are kept* | `coxswain --paths` |
 
 These write the same keys, keeping your comments, and restart the search helper. Previews made
 by tools exist only in the desktop app, so their settings have no terminal counterpart.
 
 ## Questions
+
+#### Where did Search inside files and Search by meaning go?
+
+Both are in *Finding files*. The four levels under *How far should Find look?* turn words,
+meaning and Ask on and off in one click; **Details** holds every switch on its own: *What is
+read*, *Folders*, *Meaning*, *Ask* and *Background reading*. `coxswain-gui --settings=search`
+and `--settings=meaning` still open there, and *Find a setting…* finds any of them by name.
+
+#### I chose "Names, text and meaning" and a guide opened instead. Why?
+
+Meaning needs a model, and none is ready: the built-in model is not downloaded and no server is
+chosen. The [setup guide](../search/setup.md) finds the model servers on this machine, or
+downloads the built-in model (465 MB) when you say so. Once a model is there, the level turns on
+in one click. *Names, text, meaning and Ask* opens the guide the same way while no chat model is
+chosen.
+
+#### Why is no level chosen, with a red line under them?
+
+Meaning is on but *Words inside files* is off, which `config.toml` allows and meaning cannot use:
+it works on the text Coxswain keeps. Click a level, or tick *Words inside files* under
+**Details** → *What is read*.
+
+#### Why is the Font field greyed out?
+
+The theme brings its own font: Cyber and Classic blue (NC) draw everything in the monospaced
+font, the Windows and Mac themes in their era's font. The line under the field says so. Choose
+Dark, Light, Nord or Tokyo Night to use your own font, or change *Monospaced font*, which Cyber
+and Classic blue do use.
+
+#### I changed the theme and the terminal app did not change.
+
+The swatches chose the desktop app's theme. Click *Terminal app* next to *For* above them, then a
+theme; the terminal app takes it when it starts again. See [Themes](themes.md).
 
 #### Will Settings mess up my hand-written config?
 
@@ -228,33 +379,25 @@ error you made by hand (for example an unknown key name in `[keys]`, *unknown ke
 or a table such as `[search]` was written as a plain value. Fix the line the message names in
 `config.toml`; until then the file stays as it was.
 
-#### I changed the theme in Settings and the terminal app did not change.
-
-The desktop app's theme is `[gui] theme`; the terminal app's is the top-level `theme`, so the two
-can differ. Put `theme = "cyber"` (or any other name) at the top of `config.toml`, above the
-first `[table]`, and start the terminal app again. See [Themes](themes.md).
-
 #### Do I have to restart the desktop app after a change in Settings?
 
-No. Language, theme, fonts and size apply at once, and search changes restart the search helper
-by themselves. Only changes you make to `config.toml` by hand need a restart of the desktop app.
+No. Language, theme, fonts, size and row height apply at once, and search changes restart the
+search helper by themselves. *Show hidden files when Coxswain starts* and *Measure folder sizes*
+are what the app starts with (**Alt+.** and the columns menu switch them now). Changes you make
+to `config.toml` by hand need a restart of the desktop app.
 
-#### How do I open Settings straight at search by meaning?
+#### What does "can leave this machine" on an option mean?
 
-Start the app with `coxswain-gui --settings=meaning` (or `--settings=search` for *Search inside
-files*). In a running app, **Show me** on the tip *New: search by meaning … Turn it on* under
-*Settings → What's new*, opens that section too; *Set up* in Find's *About this* group opens the setup guide.
+That turning it on sends something of yours to a server: the text of your files to the model
+server that finds their meaning, or your questions and passages to Ask's chat model. When the
+server is on this machine (Ollama at `localhost`), nothing leaves after all. *Privacy and
+updates* lists what can leave with your settings as they are, and where to.
 
 #### Where is the Settings key if Ctrl+, does nothing?
 
 `Ctrl+,` is the default of the `settings` action; if you rebound it in `[keys]`, the gear
-button's tooltip shows the key it has now. **F9** → *Settings* and the gear button always work.
-
-#### Why can I not tick "Turn on" for search by meaning?
-
-Search by meaning works on the text Coxswain keeps, so it needs *Keep the text of files, so Find
-file can search in it (Shift+F7)* ticked first. Tick that in *Search inside files*, then turn search by
-meaning on.
+button's tooltip shows the key it has now, and so does *Keys* in Settings. **F9** → *Settings*
+and the gear button always work.
 
 #### What does Clear under "Previews made so far" remove?
 

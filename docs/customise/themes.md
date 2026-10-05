@@ -15,14 +15,14 @@ two can differ, and you can [make your own](own-theme.md).
 | | Desktop app | Terminal app |
 |---|---|---|
 | Key in `config.toml` | `[gui] theme`, default `"cyber"` | `theme` (top level), default `"nc"` |
-| Pick it | Settings (**Ctrl+,**) → *Appearance* → *Theme*: click a swatch | Set `theme = "win95"` in `config.toml` |
+| Pick it | Settings (**Ctrl+,**) → *Looks*, *For*: *Desktop app*, then click a swatch | The desktop app's Settings → *Looks*, *For*: *Terminal app*, then a swatch; or set `theme = "win95"` in `config.toml` |
 | Or | **F9**, type `theme`, pick *Theme: Windows 95* | |
 | Takes effect | At once, and saved | At the next start |
 
 In the desktop app:
 
-1. Press **Ctrl+,**. Under *Appearance*, *Theme* shows every built-in theme as a small window in
-   its own colours, then your own themes.
+1. Press **Ctrl+,** and choose *Looks*. With *For* on *Desktop app*, the theme list shows every
+   built-in theme as a small window in its own colours, then your own themes.
 2. Click one. The whole window repaints; the choice is written to `[gui] theme`.
 
 Or, without Settings:
@@ -75,8 +75,8 @@ background), so native parts such as scroll bars and the pickers in forms follow
 
 | Setting | Key | Type, default |
 |---|---|---|
-| Settings → *Appearance* → *Theme* | `[gui] theme` | text, `"cyber"` |
-| none (the terminal app) | `theme` | text, `"nc"` |
+| Settings → *Looks*, *For*: *Desktop app* | `[gui] theme` | text, `"cyber"` |
+| Settings → *Looks*, *For*: *Terminal app* | `theme` | text, `"nc"` |
 | Your own themes | `[themes.<name>]` | tables; see [Your own theme](own-theme.md) |
 
 ```toml
@@ -97,8 +97,9 @@ the desktop app's; the terminal app's panels always have NC's double borders, an
 the terminal's. Slots only the desktop app has (`accent`, `sidebar`, `tab`, `tab_active`,
 `preview`) are not used there.
 
-It has no theme picker: there is no Settings window, and the *Theme: …* entries are not in its
-command list. Set `theme` in `config.toml` and start it again.
+It has no theme picker of its own: there is no Settings window, and the *Theme: …* entries are not
+in its command list. Pick its theme in the desktop app's Settings → *Looks* with *For* on
+*Terminal app*, or set `theme` in `config.toml`, and start it again.
 
 ## Questions
 

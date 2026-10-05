@@ -81,7 +81,7 @@ colours. **Source** shows the text, and **Enter** opens it in your Mermaid edito
 #### PlantUML never draws; the button says Render.
 
 `plantuml` is not installed and the container image is not pulled yet. A pull never starts by
-itself: click **Render** once, or **Pull** the image in *Settings → Previews made by tools*.
+itself: click **Render** once, or **Pull** the image in *Settings → Previews*.
 
 #### How large can a draw.io file be?
 

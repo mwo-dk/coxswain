@@ -29,7 +29,7 @@ anything.
 | Part | What you get | What it needs |
 |---|---|---|
 | Names | Every file and folder on the machine by name, in milliseconds | Nothing; always on |
-| [Text in files](text.md) | Files whose text has your words: PDFs, Word, mail, notes, code | *Search inside files* (on by default). Coxswain reads your files in the background and keeps the text in a store on this machine |
+| [Text in files](text.md) | Files whose text has your words: PDFs, Word, mail, notes, code | *Words inside files* (on by default). Coxswain reads your files in the background and keeps the text in a store on this machine |
 | [Meaning](meaning.md) | Files *about* what you type, whatever words they use, in any language. *a dessert with apples* finds `apple-cake.md`, and a Danish question finds an English report | A model that turns every passage into a **vector** (numbers for what it means): the built-in one, or a [model server](servers.md) |
 | [Ask](ask.md) | An answer to a question, written from the closest passages of your files, with numbered sources | Meaning, and a **chat model** on a model server |
 
@@ -61,7 +61,7 @@ it finds is listed and you can pick any of them.
 
 | App | How |
 |---|---|
-| Desktop app | **Ctrl+,** → *Search by meaning* → **Set up…** at the top of the section. Or the *set it up* link that Find file shows when Ask or meaning is not set up (**Ctrl+F7** opens Find file at Ask) |
+| Desktop app | **Ctrl+,** → **Set up…** in *Overview* or *Finding files*; or in *Finding files* a level that needs a model, or the **Set up…** button on the *Meaning* or *Ask* line of the status. Or the *set it up* link that Find file shows when Ask or meaning is not set up (**Ctrl+F7** opens Find file at Ask) |
 | Terminal app | `coxswain --setup-search` in a terminal. It asks step by step: a number chooses, **Enter** takes the default (marked `*`), **s** skips, and a yes/no question wants **y** |
 
 Find file's hints say where to start. In the desktop app: *Ask answers questions from your files.
@@ -181,8 +181,8 @@ open. It uses a little processor time when files change and pauses on battery
 | macOS | A LaunchAgent, `~/Library/LaunchAgents/dk.mwo.coxswain.index.plist` | `launchctl list \| grep coxswain` | The same |
 | Windows | A *Run* entry for your user in the registry | Task Manager → *Startup apps* lists Coxswain | The same, or disable it in Task Manager |
 
-Desktop app: the guide's step 6, or *Settings → Search inside files → Start the search helper
-with my session*. Terminal app: the guide, or `coxswain --index-service on|off`.
+Desktop app: the guide's step 6, or *Settings → Finding files → Details → Background
+reading → Start with my session*. Terminal app: the guide, or `coxswain --index-service on|off`.
 
 ## Where your data goes
 

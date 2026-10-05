@@ -48,10 +48,11 @@ Ask never uses a service on the internet unless you point the server address at 
 ## How to use it
 
 The guided setup does all of it, with a test question: [Smart search in a few minutes](setup.md)
-(**Set up…** at the top of *Settings → Search by meaning*, or `coxswain --setup-search`). By hand:
+(**Set up…** in *Settings → Finding files* or *Overview*, or the level *Names, text, meaning
+and Ask* there; or `coxswain --setup-search`). By hand:
 
-1. **Set the chat model** once. Desktop app: **Ctrl+,** → *Search by meaning* → *Ask* →
-   *Chat model* (the list offers the models on the server that can answer: on Ollama, models
+1. **Set the chat model** once. Desktop app: **Ctrl+,** → *Finding files* → *Details* →
+   *Ask* → *Chat model* (the list offers the models on the server that can answer: on Ollama, models
    that only make vectors, such as `bge-m3`, are left out). Terminal app:
    `coxswain --meaning ask qwen3:8b`. On Ollama a missing model is pulled first. A model that
    cannot answer is refused with the reason (below), in both apps.
@@ -118,11 +119,11 @@ The guided setup does all of it, with a test question: [Smart search in a few mi
 
 ## Settings and config.toml
 
-| Item | Key | Type, default | Does |
+| Item (*Settings → Finding files → Details*) | Key | Type, default | Does |
 |---|---|---|---|
 | *Chat model* | `[search] ask_model` | string, `""` | The model that writes the answers. Empty: Ask is not set up |
-| *Let the model think before it answers* | `[search] ask_think` | bool, `false` | Off: a model that thinks first (Qwen3, DeepSeek-R1, …) is asked not to. On: it thinks, many seconds before the first word ([Thinking](#thinking)) |
-| *Vectors made by*, *Server*, *API key from the variable* | `meaning_engine`, `meaning_url`, `meaning_key_env` | | The server Ask talks to, as above |
+| *Let the model think first* | `[search] ask_think` | bool, `false` | Off: a model that thinks first (Qwen3, DeepSeek-R1, …) is asked not to. On: it thinks, many seconds before the first word ([Thinking](#thinking)) |
+| *Meaning* → *Made by*, *Server*, *API key from the environment variable* | `meaning_engine`, `meaning_url`, `meaning_key_env` | | The server Ask talks to, as above |
 | (none) | `[keys] ask` | list of keys, `["Ctrl+F7"]` | The keys that open Find file at Ask ([Changing keys](../customise/keys.md)) |
 
 ```toml
@@ -164,14 +165,14 @@ word of a follow-up came after 0.06–0.3 seconds. The chat model is loaded with
 while the sources are looked up, so it is not loaded twice. A model that always
 thinks (DeepSeek-R1, Qwen3's *thinking* models) cannot be stopped; *Waiting for … to answer*
 stays until it has. To let the model think, for harder questions: tick *Let the model think
-before it answers* under *Settings → Ask* in the desktop app, or set `ask_think = true` under
+first* under *Settings → Finding files → Details → Ask* in the desktop app, or set `ask_think = true` under
 `[search]` in `config.toml` (both apps).
 
 ## Questions
 
 #### What is sent, and where?
 The question, the questions and answers before it in this Find file, and the ten passages with
-their file paths, to the chat model on the server in *Search by meaning* (Ollama on this machine
+their file paths, to the chat model on the server set under *Settings → Finding files → Details → Meaning* (Ollama on this machine
 with the built-in model). Nothing else, and nothing to anyone else. With a server on another
 machine, Settings says so in bold, as for the vectors. See [Privacy](../reference/privacy.md).
 

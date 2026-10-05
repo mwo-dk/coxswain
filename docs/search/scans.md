@@ -7,12 +7,13 @@ older Office files such as `.doc` and `.ppt`. When the program is there, Coxswai
 and a search finds those words too.
 
 ![Settings, Search inside files, Programs that read more: ✗ tesseract · not installed, ✓ pdftoppm and ✓ LibreOffice](../screenshots/search-scans-tools.png)
+<!-- screenshot: search-scans-tools.png: desktop app, Cyber theme, Settings at Finding files with Details → What is read open: Programs that read more: ✗ tesseract · not installed, ✓ pdftoppm and ✓ LibreOffice -->
 
 ## How to use it
 
 1. Install the program (table below).
-2. Wait for the [search helper](helper.md)'s next scan, within ten minutes, or click **Index
-   now** under *Settings → Search inside files*: the helper looks for the programs at every scan.
+2. Wait for the [search helper](helper.md)'s next scan, within ten minutes, or click **Read
+   now** under *Settings → Finding files*: the helper looks for the programs at every scan.
 3. The files of that kind are then read again, by themselves. Search them as any
    [text](text.md): **Shift+F7**, your words.
 
@@ -34,7 +35,7 @@ For other languages than English and yours, install tesseract's language data to
 
 ## What you see
 
-*Settings → Search inside files → Programs that read more* lists the three, each with ✓ or ✗:
+*Settings → Finding files → Details → What is read → Programs that read more* lists the three, each with ✓ or ✗:
 
 - *tesseract: words in screenshots, scans and pictures (not camera photos)*
 - *pdftoppm: scanned PDFs, with tesseract*
@@ -42,7 +43,7 @@ For other languages than English and yours, install tesseract's language data to
 
 A missing one adds *· not installed*. While tesseract is missing and text search is on, both apps
 show the [notice](notices.md) *Install tesseract to search the words in scans, screenshots and
-pictures*: the desktop app under *Settings → What's new* until dismissed, the terminal app once in
+pictures*: the desktop app under *Settings → Overview → What's new* until dismissed, the terminal app once in
 its status line.
 
 A hit from a picture shows the words tesseract read, as any text hit does. OCR is not perfect:
@@ -63,12 +64,12 @@ the tesseract notice shows in its status line the same way.
 
 #### How do I get the words in my screenshots found?
 Install tesseract and, for scanned PDFs, poppler's `pdftoppm`. When the helper next starts it finds
-them and reads the pictures again. **Index now** in Settings reads the backlog at full speed.
+them and reads the pictures again. **Read now** in Settings reads the backlog at full speed.
 
 #### I installed tesseract and nothing happened.
 The helper looks for the programs once, when it starts. Close every Coxswain window and wait ten
-minutes, or make any change under *Settings → Search inside files*. With the helper started with
-your session, untick and tick *Start the search helper with my session* (or run
+minutes, or make any change under *Settings → Finding files*. With the helper started with
+your session, untick and tick *Start with my session* under *Details → Background reading* (or run
 `coxswain --index-service off` and `on`). The ✓ in Settings shows it was found.
 
 #### Why are my holiday photos not read?
@@ -82,7 +83,7 @@ with no text of its own is handled so.
 #### Will reading pictures slow my machine?
 The programs run at the lowest priority, one file at a time, with rests between batches, and not
 on [battery](battery.md). The first pass over many pictures takes a while; Settings counts
-*still to read*.
+them as *waiting* on the *Words* line.
 
 #### Does LibreOffice need to be closed?
 No. It runs with a profile of its own, so the LibreOffice you have open is not touched.
