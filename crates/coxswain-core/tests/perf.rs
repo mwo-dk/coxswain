@@ -320,3 +320,20 @@ fn perf_index_archive_scope() {
     times.sort_by(f64::total_cmp);
     println!("archives {how}: build {:.0} ms (median of 3), {} names, memory +{:.0} MB", times[1], ix.len(), rss_mb() - before);
 }
+
+/// Passages per second of the built-in model, on the CPU and where `auto` puts it (the GPU
+/// through Metal on a Mac that has one). Needs the model downloaded (`coxswain --meaning on`).
+#[test]
+#[ignore]
+fn perf_meaning_cpu_and_gpu() {
+    use coxswain_core::meaning::Embedder;
+    let texts: Vec<String> = (0..256).map(|i| format!("Passage {i}: {}", "the fuel budget of flight seven is the largest cost of the launch, and ".repeat(8))).collect();
+    for cpu_only in [true, false] {
+        let Some(e) = Embedder::load(cpu_only) else { return println!("the model is not downloaded") };
+        let runs = e.runs();
+        e.passages(&texts[..8]);
+        let t = Instant::now();
+        e.passages(&texts);
+        println!("{}: {:.0} passages/s ({:?})", if cpu_only { "cpu " } else { "auto" }, texts.len() as f64 / t.elapsed().as_secs_f64(), runs);
+    }
+}

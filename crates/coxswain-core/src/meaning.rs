@@ -1,7 +1,8 @@
 //! Search by meaning: a small multilingual language model (multilingual-e5-small, 384
 //! numbers per passage) turns passages of text into vectors, and a question into one too;
 //! passages whose vectors point the same way are about the same thing, in any language and
-//! whatever the words. It runs on the CPU with candle, in pure Rust.
+//! whatever the words. It runs with candle, in pure Rust: on the CPU, or on a Mac's GPU through
+//! Metal when it has one whose results match the CPU's.
 //!
 //! The model is not shipped: it is downloaded once the user turns the search on, from Hugging
 //! Face at a pinned revision, and every file is checked against its SHA-256 before it is used.
@@ -14,7 +15,10 @@ use std::time::Duration;
 use candle_core::{DType, Device, Tensor};
 use candle_nn::VarBuilder;
 use candle_transformers::models::bert::{BertModel, Config};
+use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
+
+use crate::t;
 
 pub const MODEL: &str = "multilingual-e5-small";
 const REPO: &str = "intfloat/multilingual-e5-small";
@@ -107,48 +111,235 @@ pub fn remove() -> io::Result<()> {
     }
 }
 
-/// The model, loaded, with its tokenizer. Works on two threads, so the machine stays the user's.
-pub struct Embedder {
+/// Passages per pass on the GPU: one pass over many is what makes it quick there.
+const BATCH: usize = 32;
+/// A sentence both devices turn into a vector when the model loads: the GPU's must be the CPU's.
+const PROBE: &str = "passage: The fuel budget for flight seven is the largest cost of the launch, \
+    more than the rocket itself, the crew, the launch pad and the weather station together. The team \
+    checks every tank twice before the countdown, and the numbers go into the report for the board.";
+/// How close the GPU's vector of the probe must come to the CPU's (their cosine).
+const AGREE: f32 = 0.999;
+
+/// Why the built-in model runs on the CPU on a Mac, where it could have used the GPU.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "why", content = "detail", rename_all = "snake_case")]
+pub enum Fallback {
+    /// `meaning_device = "cpu"`.
+    Chosen,
+    /// No Metal device: an Intel Mac without one, a virtual machine.
+    NoMetal(String),
+    /// The model did not load on the GPU, or gave no vector there.
+    Load(String),
+    /// The GPU's vector of the probe was not the CPU's: their cosine.
+    Probe(f32),
+    /// The GPU was slower than the CPU: how many times as fast it was.
+    Slower(f32),
+    /// The GPU failed while it worked; the rest of the run is on the CPU.
+    Failed(String),
+}
+
+/// Where the built-in model runs: on the GPU (and how many times as fast as the CPU it was on
+/// the probe), or on the CPU, and why when a Mac could have used its GPU.
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+pub struct Runs {
+    pub metal: bool,
+    pub faster: f32,
+    pub cpu_why: Option<Fallback>,
+}
+
+impl Runs {
+    /// "on the GPU (Metal)", "on the CPU (why)".
+    pub fn text(&self) -> String {
+        match &self.cpu_why {
+            _ if self.metal => t!("meaning.on_metal"),
+            Some(why) => t!("meaning.on_cpu_why", "why" => why.text()),
+            None => t!("meaning.on_cpu"),
+        }
+    }
+}
+
+impl Fallback {
+    pub fn text(&self) -> String {
+        match self {
+            Fallback::Chosen => t!("meaning.cpu_chosen"),
+            Fallback::NoMetal(_) => t!("meaning.cpu_no_metal"),
+            Fallback::Load(why) => t!("meaning.cpu_load", "why" => why),
+            Fallback::Probe(c) => t!("meaning.cpu_probe", "score" => format!("{c:.4}")),
+            Fallback::Slower(_) => t!("meaning.cpu_slower"),
+            Fallback::Failed(why) => t!("meaning.cpu_failed", "why" => why),
+        }
+    }
+}
+
+/// The cosine of two vectors.
+fn cosine(a: &[f32], b: &[f32]) -> f32 {
+    let dot = |x: &[f32], y: &[f32]| x.iter().zip(y).map(|(p, q)| p * q).sum::<f32>();
+    dot(a, b) / (dot(a, a).sqrt() * dot(b, b).sqrt()).max(f32::MIN_POSITIVE)
+}
+
+/// Where the model runs: on the GPU when it is wanted, `gpu` loads it there, its vector of the
+/// probe is the CPU's and it is quicker; on the CPU otherwise, with why. `vectors` gives a
+/// model's vectors of some texts.
+fn choose<M>(cpu_only: bool, cpu: M, gpu: impl FnOnce() -> Result<M, Fallback>, vectors: impl Fn(&M, &[&str]) -> Result<Vec<Vec<f32>>, String>) -> (M, Runs) {
+    let on_cpu = |cpu, why| (cpu, Runs { metal: false, faster: 0.0, cpu_why: Some(why) });
+    if cpu_only {
+        return on_cpu(cpu, Fallback::Chosen);
+    }
+    let gpu = match gpu() {
+        Ok(g) => g,
+        Err(why) => return on_cpu(cpu, why),
+    };
+    let first = |m: &M, n: usize| vectors(m, &vec![PROBE; n]).and_then(|v| v.into_iter().next().ok_or_else(|| "no vector".to_string()));
+    let t = std::time::Instant::now();
+    let here = first(&cpu, 1);
+    let cpu_time = t.elapsed().as_secs_f32();
+    // The first pass on the GPU makes its kernels: the second one is timed, eight at once.
+    let there = first(&gpu, 1).and_then(|v| {
+        let t = std::time::Instant::now();
+        first(&gpu, 8)?;
+        Ok((v, t.elapsed().as_secs_f32() / 8.0))
+    });
+    match (here, there) {
+        (Ok(a), Ok((b, gpu_time))) => {
+            let (agree, faster) = (cosine(&a, &b), cpu_time / gpu_time.max(1e-6));
+            if agree < AGREE {
+                on_cpu(cpu, Fallback::Probe(agree))
+            } else if faster < 1.0 {
+                on_cpu(cpu, Fallback::Slower(faster))
+            } else {
+                (gpu, Runs { metal: true, faster, cpu_why: None })
+            }
+        }
+        (Err(e), _) | (_, Err(e)) => on_cpu(cpu, Fallback::Load(e)),
+    }
+}
+
+/// The model on one device.
+struct Bert {
     model: BertModel,
+    device: Device,
+}
+
+impl Bert {
+    fn load(dir: &std::path::Path, config: &Config, device: Device) -> Result<Bert, String> {
+        // Memory-mapped: the pages are the file's, shared, and dropped by the system when short.
+        let weights = unsafe { VarBuilder::from_mmaped_safetensors(&[dir.join("model.safetensors")], DType::F32, &device) }.map_err(|e| e.to_string())?;
+        Ok(Bert { model: BertModel::load(weights, config).map_err(|e| e.to_string())?, device })
+    }
+
+    /// The vectors of `texts` in one pass: each the mean of the model's last layer over its
+    /// words, of length one; empty for a text the model gives nothing for. The shorter texts
+    /// are padded and their padding masked, so each vector is what it would be alone.
+    fn vectors(&self, tokenizer: &tokenizers::Tokenizer, pad: u32, texts: &[&str]) -> candle_core::Result<Vec<Vec<f32>>> {
+        let enc = tokenizer.encode_batch(texts.to_vec(), true).map_err(|e| candle_core::Error::Msg(e.to_string()))?;
+        let len = enc.iter().map(|e| e.len()).max().unwrap_or(0);
+        let (mut ids, mut mask) = (Vec::with_capacity(len * enc.len()), Vec::with_capacity(len * enc.len()));
+        for e in &enc {
+            ids.extend(e.get_ids().iter().copied().chain(std::iter::repeat(pad)).take(len));
+            mask.extend(e.get_attention_mask().iter().copied().chain(std::iter::repeat(0)).take(len));
+        }
+        let ids = Tensor::from_vec(ids, (enc.len(), len), &self.device)?;
+        let mask = Tensor::from_vec(mask, (enc.len(), len), &self.device)?;
+        let out = self.model.forward(&ids, &ids.zeros_like()?, Some(&mask))?;
+        let m = mask.to_dtype(DType::F32)?.unsqueeze(2)?;
+        let rows: Vec<Vec<f32>> = out.broadcast_mul(&m)?.sum(1)?.broadcast_div(&m.sum(1)?)?.to_vec2()?;
+        Ok(rows
+            .into_iter()
+            .map(|v| {
+                let n = v.iter().map(|x| x * x).sum::<f32>().sqrt();
+                if n > 0.0 { v.iter().map(|x| x / n).collect() } else { vec![] }
+            })
+            .collect())
+    }
+}
+
+/// The model, loaded, with its tokenizer. On the CPU it works on two threads, so the machine
+/// stays the user's; on a Mac it runs on the GPU through Metal when it can.
+pub struct Embedder {
+    bert: std::sync::RwLock<std::sync::Arc<Bert>>,
+    runs: std::sync::Mutex<Runs>,
+    dir: PathBuf,
+    config: Config,
+    pad: u32,
     tokenizer: tokenizers::Tokenizer,
     pool: rayon::ThreadPool,
 }
 
 impl Embedder {
-    pub fn load() -> Option<Embedder> {
+    /// The model, on the GPU when it can be and `cpu_only` is not asked.
+    pub fn load(cpu_only: bool) -> Option<Embedder> {
         let dir = folder().filter(|_| installed())?;
         let config: Config = serde_json::from_str(&std::fs::read_to_string(dir.join("config.json")).ok()?).ok()?;
-        // Memory-mapped: the pages are the file's, shared, and dropped by the system when short.
-        let weights = unsafe { VarBuilder::from_mmaped_safetensors(&[dir.join("model.safetensors")], DType::F32, &Device::Cpu).ok()? };
-        let model = BertModel::load(weights, &config).ok()?;
         let mut tokenizer = tokenizers::Tokenizer::from_file(dir.join("tokenizer.json")).ok()?;
         tokenizer.with_truncation(Some(tokenizers::TruncationParams { max_length: 512, ..Default::default() })).ok()?;
         let pool = rayon::ThreadPoolBuilder::new().num_threads(2).thread_name(|i| format!("coxswain-meaning-{i}")).build().ok()?;
-        Some(Embedder { model, tokenizer, pool })
+        let pad = config.pad_token_id as u32;
+        let cpu = Bert::load(&dir, &config, Device::Cpu).ok()?;
+        let (bert, runs) = if cfg!(target_os = "macos") {
+            let gpu = || {
+                let device = Device::new_metal(0).map_err(|e| Fallback::NoMetal(e.to_string()))?;
+                Bert::load(&dir, &config, device).map_err(Fallback::Load)
+            };
+            pool.install(|| choose(cpu_only, cpu, gpu, |b: &Bert, t| b.vectors(&tokenizer, pad, t).map_err(|e| e.to_string())))
+        } else {
+            (cpu, Runs::default())
+        };
+        Some(Embedder { bert: std::sync::RwLock::new(std::sync::Arc::new(bert)), runs: std::sync::Mutex::new(runs), dir, config, pad, tokenizer, pool })
+    }
+
+    /// Where the model runs now.
+    pub fn runs(&self) -> Runs {
+        self.runs.lock().unwrap().clone()
     }
 
     /// The vector of a question.
     pub fn query(&self, text: &str) -> Option<Vec<f32>> {
-        self.embed(&format!("query: {text}"))
+        self.embed(&[&format!("query: {text}")]).pop().filter(|v| !v.is_empty())
     }
 
-    /// The vector of a passage of a document.
-    pub fn passage(&self, text: &str) -> Option<Vec<f32>> {
-        self.embed(&format!("passage: {text}"))
+    /// The vectors of passages of a document: zeros for one the model gives none for, which
+    /// scores nothing, so the ones after it keep their place.
+    pub fn passages(&self, texts: &[String]) -> Vec<Vec<f32>> {
+        let texts: Vec<String> = texts.iter().map(|t| format!("passage: {t}")).collect();
+        let texts: Vec<&str> = texts.iter().map(String::as_str).collect();
+        self.embed(&texts).into_iter().map(|v| if v.is_empty() { vec![0.0; DIMS] } else { v }).collect()
     }
 
-    /// The mean of the model's last layer over the words, of length one.
-    fn embed(&self, text: &str) -> Option<Vec<f32>> {
+    /// The vectors of `texts`, empty where there is none: on the GPU in batches, on the CPU
+    /// one by one. A GPU that fails moves the model to the CPU for the rest of the run.
+    fn embed(&self, texts: &[&str]) -> Vec<Vec<f32>> {
         self.pool.install(|| {
-            let enc = self.tokenizer.encode(text, true).ok()?;
-            let ids = Tensor::new(enc.get_ids(), &Device::Cpu).ok()?.unsqueeze(0).ok()?;
-            let types = ids.zeros_like().ok()?;
-            let mask = Tensor::new(enc.get_attention_mask(), &Device::Cpu).ok()?.unsqueeze(0).ok()?;
-            let out = self.model.forward(&ids, &types, Some(&mask)).ok()?;
-            let v: Vec<f32> = out.mean(1).ok()?.squeeze(0).ok()?.to_vec1().ok()?;
-            let n = v.iter().map(|x| x * x).sum::<f32>().sqrt();
-            (n > 0.0).then(|| v.iter().map(|x| x / n).collect())
+            let bert = self.bert.read().unwrap().clone();
+            if !bert.device.is_metal() {
+                return texts.iter().map(|t| bert.vectors(&self.tokenizer, self.pad, &[t]).ok().and_then(|mut v| v.pop()).unwrap_or_default()).collect();
+            }
+            let mut out = Vec::with_capacity(texts.len());
+            for batch in texts.chunks(BATCH) {
+                match bert.vectors(&self.tokenizer, self.pad, batch) {
+                    Ok(v) => out.extend(v),
+                    Err(e) if self.to_cpu(e.to_string()) => {
+                        out.extend(self.embed(&texts[out.len()..]));
+                        break;
+                    }
+                    Err(_) => {
+                        out.resize(texts.len(), vec![]);
+                        break;
+                    }
+                }
+            }
+            out
         })
+    }
+
+    /// The GPU failed with `why`: the CPU takes over, unless it cannot load the model either.
+    fn to_cpu(&self, why: String) -> bool {
+        let mut bert = self.bert.write().unwrap();
+        if bert.device.is_metal() {
+            let Ok(cpu) = Bert::load(&self.dir, &self.config, Device::Cpu) else { return false };
+            *bert = std::sync::Arc::new(cpu);
+            *self.runs.lock().unwrap() = Runs { metal: false, faster: 0.0, cpu_why: Some(Fallback::Failed(why)) };
+        }
+        true
     }
 }
 
@@ -197,7 +388,15 @@ impl Engine {
     pub fn from_config(cfg: &crate::config::SearchConfig) -> Option<Engine> {
         match cfg.meaning_engine.as_str() {
             "ollama" | "openai" => Some(Engine::Server(Server::new(cfg))),
-            _ => Embedder::load().map(Engine::Builtin),
+            _ => Embedder::load(cfg.meaning_device == "cpu").map(Engine::Builtin),
+        }
+    }
+
+    /// Where the built-in model runs; nothing for a server.
+    pub fn runs(&self) -> Option<Runs> {
+        match self {
+            Engine::Builtin(e) => Some(e.runs()),
+            Engine::Server(_) => None,
         }
     }
 
@@ -231,7 +430,7 @@ impl Engine {
     /// keep their place.
     pub fn passages(&self, texts: &[String]) -> Result<Vec<Vec<f32>>, NoVectors> {
         match self {
-            Engine::Builtin(e) => Ok(texts.iter().map(|t| e.passage(t).unwrap_or_else(|| vec![0.0; DIMS])).collect()),
+            Engine::Builtin(e) => Ok(e.passages(texts)),
             Engine::Server(s) => s.embed(&texts.iter().map(|t| format!("{}{t}", s.prefix().1)).collect::<Vec<_>>()),
         }
     }
@@ -946,10 +1145,75 @@ mod tests {
     /// With the model downloaded: a question finds the passage about it, across languages.
     #[test]
     fn meaning_finds_passages_by_meaning() {
-        let Some(e) = Embedder::load() else { return };
+        let Some(e) = Embedder::load(false) else { return };
         let q = e.query("how much fuel does the rocket need").unwrap();
-        let score = |p: &str| score(&pack(&e.passage(p).unwrap()), &q);
+        let score = |p: &str| score(&pack(&e.passages(&[p.to_string()])[0]), &q);
         let (fuel, danish, apples) = (score("The fuel budget for flight seven is the largest cost of the launch."), score("Brændstofbudgettet for flyvning syv er den største udgift ved opsendelsen."), score("Opskrift på æblekage med kanel og vaniljesauce."));
         assert!(fuel > apples && danish > apples, "{fuel} {danish} {apples}");
+    }
+
+    /// Passages of different lengths in one pass give the vectors each gives alone: the
+    /// padding of the shorter ones is masked.
+    #[test]
+    fn meaning_batches_give_the_vectors_of_one_by_one() {
+        let Some(e) = Embedder::load(true) else { return };
+        let bert = e.bert.read().unwrap().clone();
+        let texts = ["passage: short", PROBE, "passage: a little longer than the first one is"];
+        let together = bert.vectors(&e.tokenizer, e.pad, &texts).unwrap();
+        for (t, v) in texts.iter().zip(&together) {
+            let alone = bert.vectors(&e.tokenizer, e.pad, &[t]).unwrap().remove(0);
+            assert!(cosine(v, &alone) > 0.9999, "{t}: {}", cosine(v, &alone));
+        }
+    }
+
+    /// The device is chosen with stand-ins for the CPU and the GPU: each way to the CPU says why.
+    #[test]
+    fn meaning_falls_back_to_the_cpu_and_says_why() {
+        let sleep = |ms| std::thread::sleep(Duration::from_millis(ms));
+        // A device: its name, the vector it gives, the time it takes per text.
+        type Fake = (&'static str, Vec<f32>, u64);
+        let vectors = |m: &Fake, t: &[&str]| {
+            sleep(m.2 * t.len() as u64);
+            if m.1.is_empty() { Err("out of memory".to_string()) } else { Ok(vec![m.1.clone(); t.len()]) }
+        };
+        let cpu = || ("cpu", vec![1.0, 0.0], 20);
+        let gpu = |v: Vec<f32>, ms| move || Ok::<Fake, Fallback>(("gpu", v, ms));
+
+        let (m, runs) = choose(false, cpu(), gpu(vec![1.0, 0.0001], 0), vectors);
+        assert_eq!(m.0, "gpu");
+        assert!(runs.metal && runs.cpu_why.is_none() && runs.faster > 1.0, "{runs:?}");
+
+        let (m, runs) = choose(true, cpu(), gpu(vec![1.0, 0.0], 0), vectors);
+        assert_eq!((m.0, runs.cpu_why), ("cpu", Some(Fallback::Chosen)));
+        let (m, runs) = choose(false, cpu(), || Err(Fallback::NoMetal("no device".into())), vectors);
+        assert_eq!((m.0, runs.cpu_why), ("cpu", Some(Fallback::NoMetal("no device".into()))));
+        let (m, runs) = choose(false, cpu(), gpu(vec![], 0), vectors);
+        assert_eq!((m.0, runs.cpu_why), ("cpu", Some(Fallback::Load("out of memory".into()))));
+        // The probe: a vector that points elsewhere is not the CPU's.
+        let (m, runs) = choose(false, cpu(), gpu(vec![1.0, 0.1], 0), vectors);
+        assert!(m.0 == "cpu" && matches!(runs.cpu_why, Some(Fallback::Probe(c)) if c < AGREE && c > 0.99), "{runs:?}");
+        let (m, runs) = choose(false, ("cpu", vec![1.0, 0.0], 0), gpu(vec![1.0, 0.0], 20), vectors);
+        assert!(m.0 == "cpu" && matches!(runs.cpu_why, Some(Fallback::Slower(_))), "{runs:?}");
+        assert!(!runs.text().is_empty() && Runs { metal: true, ..Default::default() }.text() != Runs::default().text());
+    }
+
+    /// On a Mac with the model downloaded and a Metal GPU: the model runs there, or says why
+    /// not (GitHub's macOS machines are virtual, and their Metal may not be the real thing).
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn meaning_runs_on_metal_when_it_can() {
+        if Device::new_metal(0).is_err() {
+            return eprintln!("skipped: no Metal device");
+        }
+        let (Some(gpu), Some(cpu)) = (Embedder::load(false), Embedder::load(true)) else { return eprintln!("skipped: the model is not downloaded") };
+        let runs = gpu.runs();
+        assert!(runs.metal != runs.cpu_why.is_some(), "{runs:?}");
+        if !runs.metal {
+            return eprintln!("skipped: on the CPU: {}", runs.text());
+        }
+        let texts: Vec<String> = (0..40).map(|i| format!("Passage {i} about the fuel budget of flight {i}, {}", "and more words ".repeat(i))).collect();
+        for (a, b) in gpu.passages(&texts).iter().zip(cpu.passages(&texts)) {
+            assert!(cosine(a, &b) >= AGREE, "{}", cosine(a, &b));
+        }
     }
 }

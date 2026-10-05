@@ -209,10 +209,11 @@ flags start a new one.
 | `archives` | bool | `true` | Look inside the zip, 7z and tar archives in the folders read, less caches and build output: their files are found by name and by their text ([Inside archives](../search/archives.md)) |
 | `archives_everywhere` | bool | `false` | Look inside every archive the name index sees, caches and programs' folders too, for their names ([Which archives](../search/archives.md#which-archives)) |
 | `meaning` | bool | `false` | Search by meaning ([Search by meaning](../search/meaning.md)) |
-| `meaning_engine` | string | `"builtin"` | `"builtin"` (the downloaded model, on this CPU), `"ollama"` (an Ollama server's `/api/embed`) or `"openai"` (any `/v1/embeddings`: Lemonade, LM Studio, llama.cpp, vLLM) ([on a server](../search/servers.md)) |
+| `meaning_engine` | string | `"builtin"` | `"builtin"` (the downloaded model, on this machine: a Mac's GPU through Metal when it can, the CPU elsewhere), `"ollama"` (an Ollama server's `/api/embed`) or `"openai"` (any `/v1/embeddings`: Lemonade, LM Studio, llama.cpp, vLLM) ([on a server](../search/servers.md)) |
 | `meaning_url` | string | `""` | The server. Empty for Ollama on this machine (`http://localhost:11434`); for `"openai"` the base URL, for example `http://localhost:8000/api/v1` |
 | `meaning_model` | string | `""` | The server's embedding model, for example `bge-m3` (the Ollama suggestion) |
 | `meaning_key_env` | string | `""` | The name of the environment variable that holds the server's API key. The key itself is never in this file |
+| `meaning_device` | string | `"auto"` | Where the built-in model runs: `"auto"` (a Mac's GPU through Metal when it has one whose results match the CPU's, the CPU elsewhere) or `"cpu"` (the CPU only). Only Macs have a choice ([Search by meaning](../search/meaning.md#on-a-macs-gpu)) |
 | `ask_model` | string | `""` | The chat model that answers in [Ask](../search/ask.md), on the server above (Ollama on this machine with the built-in model), e.g. `qwen3:8b`. Empty: Ask is not set up |
 | `history` | bool | `true` | Keep the history of the git repositories in the folders read: commit messages, authors and changed paths of the newest 2000 commits of each, found by Text in files and by meaning ([History in search](../search/history.md)) |
 
@@ -303,6 +304,7 @@ Each Settings item and the key it writes:
 | *Search by meaning* | *Turn on*, *Turn off*, *Download the model and turn on* | `[search] meaning` |
 | | *Vectors made by* | `[search] meaning_engine` |
 | | *Server*, *Embedding model*, *API key from the variable* | `[search] meaning_url`, `meaning_model`, `meaning_key_env` |
+| | *Use the CPU only* (on a Mac) | `[search] meaning_device` |
 | *Previews made by tools* | *Use* | `[preview] prefer` |
 | | *Container runtime* | `[preview] container` |
 | | *LaTeX image* | `[preview] images.latex` |
