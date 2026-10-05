@@ -6,7 +6,8 @@ Coxswain keeps its settings, its memory and its caches in the usual folders of e
 this page to find a file, to see what takes room, or to remove everything.
 
 ![Settings, Search inside files: the search store's size and its path /home/demo/.cache/coxswain/search.db under the switch](../screenshots/gui-settings-search.png)
-*Settings → Search inside files shows where the search store is and how large it is; Search by meaning shows the model's folder the same way.*
+*Settings → Finding files → Details → Background reading shows where the search store is and how large it is; Meaning shows the model's folder the same way, and Privacy and updates → Where things are kept lists every path.*
+<!-- screenshot: gui-settings-search.png: desktop app, Cyber theme, Settings at Finding files with Details → Background reading open: Start with my session, Read now, the path /home/demo/.cache/coxswain/search.db with Show in panel, and Delete what was read (284 KB) -->
 
 ## Contents
 
@@ -35,9 +36,11 @@ previews      /home/me/.cache/coxswain/previews
 archive looks /home/me/.cache/coxswain/peek
 ```
 
-In the desktop app, the bottom of Settings (**Ctrl+,**) says *Settings are stored in …* with the
-path of `config.toml`; *Search inside files* shows the search store and *Search by meaning* the
-model's folder.
+In the desktop app, Settings (**Ctrl+,**) → *Privacy and updates* → *Where things are kept*
+lists the same paths, each with **Show in panel**, and the bottom of Settings says *Settings are
+stored in …* with the path of `config.toml`. *Finding files* → *Details* → *Background reading*
+shows the search store and *Meaning* the model's folder.
+(`coxswain-gui --settings=privacy` opens it there.)
 
 ## Every file and folder
 
@@ -47,11 +50,11 @@ model's folder.
 | `scripts/` | `~/.config/coxswain/scripts/` | Your scripts for the desktop app's **F2** ([Scripts](../commands/scripts.md)) | They are yours |
 | `state.json` | `~/.local/share/coxswain/state.json` | The desktop app's session (panes, tabs, views, the preview engine you picked), favourites, colour tags, folder notes, recent repositories; the last update check; notices dismissed | Only if you want to lose tags and notes. A damaged file is moved aside to `state.json.bad`, never overwritten |
 | `index.bin` | `~/.cache/coxswain/index.bin` | The name index, saved so it loads at once | Yes: it is built again |
-| `search.db` (with `-wal`, `-shm`) | `~/.cache/coxswain/search.db` | The text of your files, every file's size and date, folder totals, duplicate hashes, meaning vectors | Yes, with no Coxswain running: it fills again. Or *Delete the index* in Settings |
-| `models/` | `~/.cache/coxswain/models/multilingual-e5-small-614241f6/` | The built-in model for search by meaning, about 488 MB | Yes: *Delete the model* in Settings or `coxswain --meaning delete` does it for you |
+| `search.db` (with `-wal`, `-shm`) | `~/.cache/coxswain/search.db` | The text of your files, every file's size and date, folder totals, duplicate hashes, meaning vectors | Yes, with no Coxswain running: it fills again. Or **Delete what was read** in Settings → *Finding files* → *Details* → *Background reading* |
+| `models/` | `~/.cache/coxswain/models/multilingual-e5-small-614241f6/` | The built-in model for search by meaning, about 488 MB | Yes: *Delete the model* in Settings → *Finding files* → *Details* → *Meaning*, or `coxswain --meaning delete` does it for you |
 | `peek/` | `~/.cache/coxswain/peek/<run>/` | The one file inside an archive being previewed or viewed, copied out for the look; replaced by the next, and left-overs of earlier runs go after a day | Yes, any time |
 | `inside-<n>/` | `~/.cache/coxswain/inside-<n>/` | The search helper reading the text of a file [inside an archive](../search/archives.md): one file at a time, deleted as soon as it is read, the folder when the archive is done | Yes, when no helper runs |
-| `previews/` | `~/.cache/coxswain/previews/` | PDFs, SVGs and pages made by tools (LaTeX, LibreOffice, PlantUML, pandoc), one folder per file and engine | Yes: Settings → *Previews made by tools* → *Previews made so far* → *Clear* does it |
+| `previews/` | `~/.cache/coxswain/previews/` | PDFs, SVGs and pages made by tools (LaTeX, LibreOffice, PlantUML, pandoc), one folder per file and engine | Yes: Settings → *Previews* → *Previews made so far* → *Clear* does it |
 | `index.addr`, `index.lock` | `~/.cache/coxswain/` | The helper's port and token (readable by you alone), and its lock | Only while no helper runs |
 | `libreoffice-profile/`, `libreoffice-index-profile/` | `~/.cache/coxswain/` | LibreOffice's own profiles for previews and for reading old Office files, so your open LibreOffice is left alone | Yes |
 | Session registration | `~/.config/systemd/user/coxswain-index.service` (Linux), `~/Library/LaunchAgents/dk.mwo.coxswain.index.plist` (macOS), the `coxswain-index` value under `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` (Windows), `~/.config/autostart/coxswain-index.desktop` (FreeBSD) | Only with *Start with my session* | Use `coxswain --index-service off` instead |
@@ -79,14 +82,15 @@ folder.
 
 - `coxswain --paths` prints seven lines, the name left-aligned in 13 characters, then the path.
   A line with no path means the system has no such folder (rare: a user without a home folder).
-- Settings → *Search inside files*: *Searchable: 107 files · still to read: 0 · 284 KB on disk*,
-  then the path of `search.db` with **Show in panel**: the active panel opens the cache folder
+- Settings → *Finding files*: the *Words* line says *Files read: 107 · waiting: 0 · 284 KB on
+  disk*; under *Details* → *Background reading* is the path of `search.db` with **Show in panel**: the active panel opens the cache folder
   with the cursor on `search.db`, and the preview shows its tables (**F3** in the terminal app
-  their first rows too). *Search by meaning* has the same button for the built-in model's folder.
+  their first rows too). *Details* → *Meaning* has the same button for the built-in model's folder, and *Privacy and
+  updates* → *Where things are kept* one for every path.
 - The cache folder is never read into text search or search by meaning (it is left out like a
   hidden folder, also on macOS and Windows where it is not hidden), so the index never holds
   itself, its previews or the copies looked at. Its files are still found by name.
-- Settings → *Previews made by tools*: *Previews made so far*: *12.4 MB in the cache; made again
+- Settings → *Previews*: *Previews made so far*: *12.4 MB in the cache; made again
   when a source changes*, with *Clear*.
 
 ## Settings and config.toml
@@ -109,7 +113,7 @@ Uninstall the app the way you installed it ([README → Install](../../README.md
    leave (or end the `coxswain --index-helper` process).
 3. Delete the three folders above: config, state and cache.
 4. Container images Coxswain pulled stay in podman or docker until you remove them there (or with
-   *Remove* in Settings → *Container images* beforehand). A model pulled with Ollama goes with
+   *Remove* in Settings → *Previews* → *Container images* beforehand). A model pulled with Ollama goes with
    `ollama rm bge-m3`.
 
 ## Questions
@@ -135,8 +139,8 @@ where the same paths exist.
 
 #### I deleted `search.db` and Find file finds no text.
 
-It fills again from the start: the helper reads your files anew, at half speed. Settings →
-*Search inside files* → *Index now* reads at full speed.
+It fills again from the start: the helper reads your files anew, at half speed. **Read now** in
+Settings → *Finding files* reads at full speed.
 
 #### What is `state.json.bad`?
 

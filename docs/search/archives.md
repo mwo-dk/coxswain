@@ -24,7 +24,7 @@ changes, by Coxswain or by anything else, what search knows of it changes with i
 
 ## How to use it
 
-Nothing to do: *Search inside archives* is on from the start.
+Nothing to do: *Look inside archives* is on from the start.
 
 1. **Alt+F7** or **Ctrl+F** opens Find file, searching *Everywhere*.
 2. Type a name, as for any file: `main.rs`, `ext:md report`, `website src/`. Entries inside
@@ -58,7 +58,7 @@ extension: a PDF in a zip is read as a PDF ([Documents it reads](documents.md)).
 - **Enter:** the active panel goes into the archive at that folder, the cursor on the file. The
   desktop app tints the pane and shows the *archive* badge in the path bar; the terminal app's
   panel title says `[archive]`. **Backspace** or `..` leads back out, as in any archive.
-- **Settings → Search inside files:** the count *Searchable: … files* includes the files read
+- **Settings → Finding files:** the *Words* line, *Files read: …*, counts the files read
   inside archives.
 
 ## Which archives
@@ -89,7 +89,7 @@ To have the archives on another disk looked into, add that folder to *Folders re
 
 ### Everywhere
 
-*Look inside archives everywhere the names are indexed* (`archives_everywhere = true`) looks
+*Archives everywhere* (`archives_everywhere = true`) looks
 inside every archive the name index sees: the whole machine, caches, package stores and
 programs' folders included. Their entries are found **by name**; their text is still read only
 in the folders read, less caches. Expect a larger name index that takes longer to build: see
@@ -147,14 +147,13 @@ sends one anywhere: what it knows of a locked archive is what anyone can see.
 
 ## Settings and config.toml
 
-*Settings → Search inside files → Search inside archives: the files in zip, 7z and tar archives
-are found by name and by their text* (desktop app); `archives` under `[search]` in
+*Settings → Finding files → Details → What is read → Look inside archives* (desktop app); `archives` under `[search]` in
 `config.toml`.
 
 | Key | Type | Default | Does |
 |---|---|---|---|
 | `archives` | bool | `true` | Look inside archives, for names and for text. `false`: archives are found by their own names only, and what the store had read inside them is removed |
-| `archives_everywhere` | bool | `false` | Look inside every archive the name index sees, caches too, for their names ([Everywhere](#everywhere)). *Settings → Search inside files → Look inside archives everywhere the names are indexed*, shown while the switch above is on |
+| `archives_everywhere` | bool | `false` | Look inside every archive the name index sees, caches too, for their names ([Everywhere](#everywhere)). *Settings → Finding files → Details → What is read → Archives everywhere*, shown while the switch above is on |
 
 ```toml
 [search]
@@ -192,8 +191,8 @@ the file is larger than 20 MB or comes after the first 128 MB read out of the ar
 #### Why are the jars in ~/.m2, or the archives in ~/.cache, not looked into?
 They are a program's archives, not yours, and would fill the results and the name index: caches,
 package stores, build output and programs' data folders are left out, hidden or not
-([Which archives](#which-archives)). Tick *Look inside archives everywhere the names are
-indexed* in *Settings → Search inside files* (or `archives_everywhere = true`) to have their
+([Which archives](#which-archives)). Tick *Archives everywhere* in
+*Settings → Finding files → Details → What is read* (or `archives_everywhere = true`) to have their
 entries found by name.
 
 #### Why does a 7z say its list of contents is too big?
@@ -225,7 +224,7 @@ Caches are where most of a machine's archives are. On a test home laid out as on
 | Everywhere (and the default before 1.30.0, where caches are not hidden) | 221,000 | 90 ms | 52 MB |
 
 #### How do I turn it off?
-Untick *Search inside archives* in *Settings → Search inside files*, or set `archives = false`
+Untick *Look inside archives* in *Settings → Finding files → Details → What is read*, or set `archives = false`
 under `[search]` in `config.toml`. The helper starts again with it; what was read inside archives
 is removed from the store at its next walk.
 

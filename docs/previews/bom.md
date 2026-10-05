@@ -145,9 +145,9 @@ above it. A renewed certificate therefore counts as rated better, not as removed
 
 | Where | Key | Default | Does |
 |---|---|---|---|
-| `config.toml`, top level | `bom_viewer` | `true` | The terminal app's **F3** on a BOM opens the BOM viewer; `false` opens the pager as for any file |
+| `config.toml`, top level; the desktop app's Settings → *Behaviour* → *CBOM viewer on F3 (terminal app)* | `bom_viewer` | `true` | The terminal app's **F3** on a BOM opens the BOM viewer; `false` opens the pager as for any file |
 
-The desktop app has no setting for it: the preview pane always shows a BOM, and the
+The desktop app itself has no setting for it: the preview pane always shows a BOM, and the
 **Tree / Sunburst / Source** switch remembers your choice. See also
 [Configuration: every key](../reference/configuration.md#top-level-keys).
 

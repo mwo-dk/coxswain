@@ -70,7 +70,7 @@ source.
 
 ## Building by itself
 
-With *Build LaTeX documents by themselves when they are shown and have changed* ticked (the
+With *Build LaTeX by itself* ticked (the
 default, `latex_auto = true`):
 
 - A document is built when it is shown and there is no PDF yet for its sources as they are now.
@@ -122,13 +122,13 @@ five lines after it; for tectonic, which keeps no log, what it said without its 
 
 ## Settings and config.toml
 
-*Settings → Previews made by tools*:
+*Settings → Previews*:
 
 | Settings item | config.toml | Type, default |
 |---|---|---|
-| *Build LaTeX documents by themselves when they are shown and have changed* | `[preview] latex_auto` | Boolean, `true` |
+| *Build LaTeX by itself* | `[preview] latex_auto` | Boolean, `true` |
 | *LaTeX image* | `[preview.images] latex` | String, `"docker.io/texlive/texlive:latest"` (about 5 GB; `:latest-medium` is about 2 GB) |
-| *Use* | `[preview] prefer` (or `[preview.prefer_tool] latex`) | `"auto"`, `"local"`, `"container"`; `"auto"` |
+| *How previews are made* | `[preview] prefer` (or `[preview.prefer_tool] latex`) | `"auto"`, `"local"`, `"container"`; `"auto"` |
 | *Timeout (seconds)* | `[preview] timeout` | 10 to 3600, `120` |
 | *Previews made so far* → **Clear** | – | Empties the preview cache, so every PDF is built again |
 
@@ -159,7 +159,7 @@ folder or up to two folders above that names it.
 #### I changed a picture in `../figures` and the PDF did not change.
 
 A fresh build follows changes in the document's folder and below, not beside it. Save the
-`.tex` file (any change to it counts), or clear the cache: *Settings → Previews made by tools →
+`.tex` file (any change to it counts), or clear the cache: *Settings → Previews →
 Previews made so far → Clear*.
 
 #### I saved a chapter and the preview did not rebuild.
@@ -198,8 +198,8 @@ container for builds with no network at all.
 
 #### How do I turn automatic builds off?
 
-Untick *Build LaTeX documents by themselves when they are shown and have changed* in *Settings →
-Previews made by tools*, or set `latex_auto = false` under `[preview]`. Documents then wait for
+Untick *Build LaTeX by itself* in *Settings →
+Previews*, or set `latex_auto = false` under `[preview]`. Documents then wait for
 **Build PDF**.
 
 ---

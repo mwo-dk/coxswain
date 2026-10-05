@@ -126,7 +126,7 @@ trap 'rm -rf "$TMP"' EXIT INT TERM
 
 if [ -z "$VERSION" ] && [ -z "$FROM" ]; then
   VERSION=$(fetch -qo - "https://api.github.com/repos/$REPO/releases/latest" | sed -n 's/.*"tag_name": *"\([^"]*\)".*/\1/p' | head -n 1)
-  [ -n "$VERSION" ] || fail "Could not ask GitHub for the latest release. Is the network up? Or name one: --version v1.42.0"
+  [ -n "$VERSION" ] || fail "Could not ask GitHub for the latest release. Is the network up? Or name one: --version v1.43.0"
 fi
 if [ -z "$VERSION" ]; then
   # shellcheck disable=SC2012

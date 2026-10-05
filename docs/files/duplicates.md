@@ -150,7 +150,8 @@ cargo run --release -p coxswain-core --example dupes -- ~/Pictures /mnt/old-disk
 ## Settings and config.toml
 
 None of its own. The key is `duplicates` in `[keys]`. Hashing ahead of time by the search helper
-follows the helper's settings: *Search inside files* and the folders it reads
+follows the helper's settings: *Words inside files* and the folders it reads (Settings →
+*Finding files*)
 ([Choosing the folders](../search/folders.md)).
 
 ## In the terminal app
@@ -186,7 +187,8 @@ changed are read again.
 #### Does it need search inside files to be on?
 
 No. It uses the same store file, but works without text search. The helper hashing your home
-folder ahead of time needs *Search inside files* on.
+folder ahead of time needs *Words inside files* on (Settings → *Finding files*, any level from *Names
+and text* up).
 
 #### Can I compare my home folder with a USB backup disk?
 

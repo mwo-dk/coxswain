@@ -6,12 +6,12 @@ A folder on a USB stick or an external drive can be one of the *Folders read*. C
 by its disk, not only by its path, so its text is kept while the disk is away and found again
 wherever the disk is mounted next, without being read afresh.
 
-<!-- screenshot: search-removable-away.png: desktop app, Cyber theme, Settings → Search inside files, Folders read listing /home/demo and /media/demo/BACKUP1, the second with "412 MB in the index, kept while its disk is not plugged in. Remove forgets it." -->
+<!-- screenshot: search-removable-away.png: desktop app, Cyber theme, Settings → Finding files → Details → Folders, Folders read listing /home/demo and /media/demo/BACKUP1, the second with "412 MB in the index, kept while its disk is not plugged in. Remove forgets it." -->
 
 ## How to use it
 
 1. Plug the disk in and open a folder on it in the active panel.
-2. *Settings → Search inside files → Folders read*: press **Add** with the field empty (or type
+2. *Settings → Finding files → Details → Folders → Folders read*: press **Add** with the field empty (or type
    the path, `/media/me/BACKUP1/papers`). In the terminal app, add it to `text_roots`.
 3. Add your home folder too, if the list was empty: listing folders replaces the default.
 
@@ -54,7 +54,7 @@ The disk is not plugged in (or not mounted). Its text is kept, out of sight, and
 is mounted again, wherever. Settings shows it as away.
 
 #### I plugged the disk back in; when do its files come back?
-At the helper's next pass over the folders, within ten minutes. **Index now** in Settings starts
+At the helper's next pass over the folders, within ten minutes. **Read now** in Settings starts
 one at once.
 
 #### I replaced the disk with a new one at the same place.

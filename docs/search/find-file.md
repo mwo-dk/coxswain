@@ -175,7 +175,7 @@ guide](setup.md) in the desktop app; in the terminal app **Enter** on it runs `c
 | State | Where | Text | Step |
 |---|---|---|---|
 | The [helper](helper.md) is not running | *In files* | *Words in files cannot be searched now: background reading is not running.* | *Start it*: the helper starts again |
-| *Search inside files* is off | *In files* | *Find can also search the words inside your files.* | *Turn on*: the guide |
+| *Words inside files* is off | *In files* | *Find can also search the words inside your files.* | *Turn on*: the guide |
 | The scope is not read | *In files* | */mnt/archive is not among the folders read, so its words are not searched.* | *Read this folder too* |
 | Search by meaning is off | *About this* | *Find files about your words too, in any language, even without the words.* | *Set up* (**Delete** or **×**: not again) |
 | Search by meaning failed | *About this* | The cause, as the server or model gave it | *Fix* |
@@ -260,7 +260,7 @@ then **Space** for the [preview](../previews/README.md). **F4** edits a hit in b
 #### I sent a tip away by mistake. How do I get it back?
 Not from the app: like other [notices](notices.md#i-dismissed-a-tip-by-mistake-can-i-get-it-back),
 dismissed tips are remembered in the state file. What they lead to is still there: **Ctrl+F7**
-says what Ask needs, and *Settings → Search by meaning* or `coxswain --setup-search` set it up.
+says what Ask needs, and **Set up…** in *Settings → Finding files* or `coxswain --setup-search` set it up.
 
 #### Is there a quicker search for the panel I am in?
 [Quick search](../panels/quick-search.md): **Alt+letter** jumps to names starting with what you

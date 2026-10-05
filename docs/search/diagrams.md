@@ -118,7 +118,7 @@ start of the passage in italics. To see the diagram itself, **Enter** to go to i
 
 ## Settings and config.toml
 
-None. It follows *Search inside files* (`search.text`) and the [folders read](folders.md).
+None. It follows *Words inside files* (`search.text`) and the [folders read](folders.md).
 
 ## In the terminal app
 

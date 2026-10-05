@@ -103,8 +103,8 @@ action's name. The **F9** list and **F1** help leave them out.
 | In a git history | The panel title ends in `[history]` or `[commit a1b2c3d]` | A badge (*history of main.rs*, *commit a1b2c3d*) and a tint |
 | The last commit | In the info line under the panel: `a1b2c3d 2026-09-30 14:02 Ada` | A *Last commit* column, and in the preview pane |
 | An archive's password | Asked in a *Locked archive* box, shown as stars | Asked in a dialog |
-| Notices | Shown once in the status line, then counted as seen | Counted on **⚙ Settings** and listed under *Settings → What's new* until dismissed or acted on; a problem with search is also a button with `×` in the status line |
-| What a version brought | `coxswain --whats-new`, pointed to once after an upgrade | *Settings → What's new* |
+| Notices | Shown once in the status line, then counted as seen | Counted on **⚙ Settings** and listed under *Settings → Overview → What's new* until dismissed or acted on; a problem with search is also a button with `×` in the status line |
+| What a version brought | `coxswain --whats-new`, pointed to once after an upgrade | *Settings → Overview → What's new* |
 | Update notice | `Coxswain 1.21.0 is available: brew upgrade coxswain` in the status line, checked at start | A button that opens the release page, checked every hour |
 | Window title | Sets the terminal's title: `Coxswain 1.41.0` | The window's title |
 | Hebrew | Letters reversed in terminals without bidi support | Mirrored layout |
@@ -193,8 +193,9 @@ Find's footer says *meaning for 3,437* once the helper has it running. Full deta
 
 The terminal app has no Settings window. Everything the desktop app's Settings change is a key in
 `config.toml` ([Configuration: every key](configuration.md)); edit it, then start the app
-again. The keys only the terminal app reads are `theme` and `viewer`. Things that do more
-than set a value have flags:
+again. The keys only the terminal app reads are `theme`, `viewer` and `bom_viewer`; the desktop
+app's Settings set them too (*Looks* with *For* on *Terminal app*, and *Behaviour*), when it is
+installed. Things that do more than set a value have flags:
 
 | To | Run |
 |---|---|

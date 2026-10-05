@@ -56,7 +56,7 @@ read*; the last part shows only while the helper still has files to read.
 words, with `…` where it is cut), your words highlighted. Files found by meaning alone are under
 *About this*, their passage in italics. Commits are under *History*.
 
-**Nothing to search:** with *Search inside files* off, the *In files* group says *Find can also
+**Nothing to search:** with *Words inside files* off, the *In files* group says *Find can also
 search the words inside your files.* with *Turn on*; with the [helper](helper.md) not running,
 *Words in files cannot be searched now: background reading is not running.* with *Start it*.
 With the scope on a folder that is not read: *… is not among the folders read, so its words are
@@ -84,17 +84,17 @@ within a minute. A walk every ten minutes catches anything the watcher missed.
 
 ## Settings and config.toml
 
-*Settings → Search inside files* (desktop app); `[search]` in `config.toml`. Every item is in
+*Settings → Finding files → Details* (desktop app); `[search]` in `config.toml`. Every item is in
 [Search settings](settings.md).
 
 | Key | Type | Default | Does |
 |---|---|---|---|
-| `text` | bool | `true` | *Keep the text of files, so Find file can search in it (Shift+F7)* |
-| `text_roots` | list of paths | `[]` (your home folder) | *Folders read* |
-| `text_exclude` | list of strings | `["node_modules", "target", "build", "dist", "out", "vendor", "__pycache__", "Trash"]` | Folder names left out, wherever they are |
-| `names_only` | list of paths | `[]` | *Names only* |
-| `text_max_size` | bytes | `20971520` (20 MB) | Larger files are not read |
-| `archives` | bool | `true` | *Search inside archives*: the files in zip, 7z and tar archives are read too ([Inside archives](archives.md)) |
+| `text` | bool | `true` | *What is read → Words inside files* |
+| `text_roots` | list of paths | `[]` (your home folder) | *Folders → Folders read* |
+| `text_exclude` | list of strings | `["node_modules", "target", "build", "dist", "out", "vendor", "__pycache__", "Trash"]` | *Folders → Left out everywhere*: folder names and file patterns left out, wherever they are |
+| `names_only` | list of paths | `[]` | *Folders → Names only* |
+| `text_max_size` | bytes | `20971520` (20 MB) | *What is read → Largest file read (MB)*: larger files are not read |
+| `archives` | bool | `true` | *What is read → Look inside archives*: the files in zip, 7z and tar archives are read too ([Inside archives](archives.md)) |
 
 ## In the terminal app
 
@@ -114,15 +114,15 @@ It is read within seconds of the save, if all of these hold:
 - It is a kind with text, and no larger than 20 MB.
 - The machine is not on its [battery](battery.md): reading waits for the mains.
 - The helper is not still reading a backlog: Find's footer says ` · 412 still to read`, and the
-  new file waits its turn. *Index now* in Settings reads the backlog at full speed.
+  new file waits its turn. *Read now* in Settings reads the backlog at full speed.
 
 #### Why does `budge` not find "budgets"?
 Only the last word may be a start; the others must be whole words. Put the partial word last, or
 type it in full.
 
 #### Text search finds nothing at all.
-Check *Settings → Search inside files*: the box must be ticked, and the status must not say *The
-search helper is not running, so text cannot be searched now.* Right after the first start the
+Check *Settings → Finding files*: the *Words* line must not say *Off* (choose the level *Names and
+text*) or *Not running* (press **Start it**). Right after the first start the
 store is still being filled: ` · 31,000 still to read` counts down.
 
 #### Can I search the text in one folder only?
@@ -141,11 +141,12 @@ built-in model stays on the machine too; with a [server on another machine](serv
 sent to it. See [Privacy](../reference/privacy.md).
 
 #### How big does `search.db` get?
-About the size of the text in your files, plus a little for each file known. Settings shows it:
-*Searchable: 31,208 files · still to read: 0 · 412 MB on disk*.
+About the size of the text in your files, plus a little for each file known. Settings shows it on the
+*Words* line of *Finding files*: *Files read: 31,208 · waiting: 0 · 412 MB on disk*, and on the
+button *Delete what was read (412 MB)*.
 
 #### How do I start the index afresh?
-*Settings → Search inside files → Delete the index*, then click again (*Click again to delete*). It
+*Settings → Finding files → Details → Background reading → Delete what was read (412 MB)*, then click again (*Click again to delete*). It
 empties `search.db`, sizes, hashes and vectors included, and the helper fills it again from the
 start. Or delete `search.db` while no Coxswain runs.
 

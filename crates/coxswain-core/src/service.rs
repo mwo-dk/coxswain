@@ -69,13 +69,13 @@ fn unit(exe: &Path) -> String {
         )
     } else if AUTOSTART {
         format!(
-            "# Written by Coxswain (Settings → Search inside files → Start with my session).\n\
+            "# Written by Coxswain (Settings → Finding files → Background reading → Start with my session).\n\
              [Desktop Entry]\nType=Application\nName=Coxswain file index\nExec=\"{exe}\" {} {STAY}\nNoDisplay=true\nTerminal=false\n",
             crate::helper::ARG
         )
     } else {
         format!(
-            "# Written by Coxswain (Settings → Search inside files → Start with my session).\n\
+            "# Written by Coxswain (Settings → Finding files → Background reading → Start with my session).\n\
              [Unit]\nDescription=Coxswain's file index\nStartLimitIntervalSec=0\n\n\
              [Service]\nExecStart=\"{exe}\" {} {STAY}\nRestart=always\nRestartSec=1\nNice=10\nIOSchedulingClass=idle\n\n\
              [Install]\nWantedBy=default.target\n",

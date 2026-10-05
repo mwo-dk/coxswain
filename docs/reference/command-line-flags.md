@@ -35,11 +35,11 @@ Settings window. For the command line *inside* Coxswain, where you type shell co
 | Start in two folders | `coxswain ~/src ~/Downloads` | `coxswain-gui ~/src ~/Downloads` |
 | Start on a file | `coxswain notes.md` | `coxswain-gui notes.md` |
 | The version | `coxswain --version` | The title of *Help* (**F1**), or the window title |
-| Where things are kept | `coxswain --paths` | Settings shows the search store and model paths |
+| Where things are kept | `coxswain --paths` | `coxswain-gui --settings=privacy`: *Where things are kept* |
 | Every default | `coxswain --dump-config` | – |
 | Which languages there are | `coxswain --languages` | `coxswain-gui --settings=language` |
 | What the new version brought | `coxswain --whats-new` | `coxswain-gui --settings=news`, or click the count on *⚙ Settings* |
-| Search by meaning on | `coxswain --meaning on` | `coxswain-gui --settings=meaning`, then *Download the model and turn on* |
+| Search by meaning on | `coxswain --meaning on` | `coxswain-gui --settings=search`, then the level *Names, text and meaning* |
 | Find duplicates in a folder | – | `coxswain-gui --duplicates ~/Pictures` |
 
 ## The terminal app: `coxswain`
@@ -113,7 +113,7 @@ A server that needs an API key reads it from the environment variable named in
 
 ### `--setup-search`
 
-Asks, step by step, what the desktop app's *Settings → Search by meaning → Set up…* shows: search
+Asks, step by step, what the desktop app's **Set up…** (in *Settings → Overview* or *Finding files*) shows: search
 inside files on or off, where the vectors come from (the servers found on this machine, the
 built-in model, or a server you name), the model for the vectors, Ask's chat model with a test
 question, whether the server uses the graphics card, and *Start with my session*. A number
@@ -125,7 +125,7 @@ chooses, **Enter** takes the default (marked `*`), **s** skips; downloads ask *[
 | Flag | Does |
 |---|---|
 | `--index-service` | Prints `on` or `off`: whether the search helper starts with your session |
-| `--index-service on` | Registers the helper with the system (a systemd user unit on Linux, a LaunchAgent on macOS, a Run entry on Windows, an XDG autostart entry on FreeBSD) and starts it. The same as Settings → *Search inside files* → *Start the search helper with my session, so it reads while no window is open* |
+| `--index-service on` | Registers the helper with the system (a systemd user unit on Linux, a LaunchAgent on macOS, a Run entry on Windows, an XDG autostart entry on FreeBSD) and starts it. The same as Settings → *Finding files* → *Details* → *Background reading* → *Start with my session* |
 | `--index-service off` | Removes the registration; the running helper makes way for one that leaves with the apps |
 
 See [The search helper](../search/helper.md).
@@ -147,17 +147,20 @@ coxswain-gui [--settings[=SECTION]] [--duplicates [FOLDER …] | [LEFT] [RIGHT]]
 | Flag | Does |
 |---|---|
 | `LEFT`, `RIGHT` | As in the terminal app. The last session is restored, and `LEFT` is added to the left pane as a new tab when no tab there shows it. `RIGHT` is used only when there is no saved session. Started from a desktop menu, where the current folder is `/`, it takes your home folder |
-| `--settings` | Opens with the Settings window open, at the top |
-| `--settings=search` | …scrolled to *Search inside files* |
-| `--settings=meaning` | …scrolled to *Search by meaning* |
-| `--settings=language` | …scrolled to *Language* ([Languages](../customise/languages.md)) |
-| `--settings=news` | …at the *What's new* page ([Notices and what's new](../search/notices.md)) |
+| `--settings` | Opens with the Settings window open, at *Overview* |
+| `--settings=search` | …at *Finding files* |
+| `--settings=meaning` | …at *Finding files*, with *Details → Meaning* open and scrolled to |
+| `--settings=ask` | …at *Finding files*, with *Details → Ask* open and scrolled to |
+| `--settings=language` | …at *Looks*, scrolled to *Language* ([Languages](../customise/languages.md)) |
+| `--settings=news` | …at *Overview*, scrolled to *What's new* ([Notices and what's new](../search/notices.md)) |
+| `--settings=AREA` | …at that area: `overview`, `search`, `previews`, `looks`, `behaviour`, `keys`, `privacy` |
+| `--settings=OPTION` | …at the area of that option, with its group open, scrolled to it and lit up for a moment: an option's name, such as `check_updates` or `folder_sizes` |
 | `--duplicates [FOLDER …]` | Opens *Find duplicates* and scans these folders at once; without folders, the current one. The panes open as usual behind it |
 | `--index-helper` | Runs as the search helper, with no window: see [below](#the-helper---index-helper) |
 
 `--settings` must come first, then `--duplicates`; everything else is taken as folders. Given
 both, *Find duplicates* opens (there is one window at a time); Settings is a **Ctrl+,** away.
-Another section name after `--settings=` opens it at the top.
+Any other word after `--settings=` opens it at *Overview*.
 
 The desktop app has no `--help`, `--version`, `--paths` or `--meaning`: use the terminal app's
 flags, which work on the same `config.toml`, the same cache and the same helper. A
@@ -211,7 +214,7 @@ The desktop app takes arguments it does not know as folders. Use `coxswain --hel
 
 Ollama must be running on this machine (`ollama serve`) on its usual port 11434. The flag always
 talks to Ollama on this machine. For Ollama on another machine, set `meaning_url` in
-`config.toml` or use Settings → *Search by meaning* → *Server*.
+`config.toml` or use Settings → *Finding files* → *Details* → *Meaning* → *Server*.
 
 #### Can I set the API key for a server on the command line?
 
@@ -226,7 +229,8 @@ With a saved session, the desktop app restores it and only adds `LEFT` as a tab 
 
 #### How do I open Settings straight at search by meaning?
 
-`coxswain-gui --settings=meaning`. `--settings=search` opens it at *Search inside files*. A
+`coxswain-gui --settings=meaning`: *Finding files*, with *Details → Meaning* open.
+`--settings=search` opens *Finding files* at the top, `--settings=ask` at *Details → Ask*. A
 desktop menu entry or a script can use these.
 
 #### Does `--dump-config` change my config?

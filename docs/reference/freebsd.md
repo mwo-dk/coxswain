@@ -53,7 +53,7 @@ sh install-freebsd.sh
 |---|---|
 | `--terminal-only` | Only the terminal app; no packages are needed |
 | `--prefix DIR` | Install into `DIR`. Without it the script uses the place Coxswain is already in, or asks: `/usr/local` for every user, or `~/.local` for you alone |
-| `--version v1.42.0` | That release instead of the latest |
+| `--version v1.43.0` | That release instead of the latest |
 | `--from DIR` | Install from release archives already in `DIR`, without downloading (a machine without network) |
 | `--yes` | Answer yes to every question |
 | `--uninstall` | Remove what the script installed |
@@ -88,7 +88,7 @@ Every release on the [releases page](https://github.com/mwo-dk/coxswain/releases
 both archives with their sums:
 
 ```sh
-v=v1.42.0
+v=v1.43.0
 t=x86_64-unknown-freebsd
 fetch https://github.com/mwo-dk/coxswain/releases/download/$v/coxswain-terminal-$v-$t.tar.gz
 fetch https://github.com/mwo-dk/coxswain/releases/download/$v/coxswain-terminal-$v-$t.tar.gz.sha256
@@ -148,7 +148,7 @@ having two of these does no harm.
 
 ### With your desktop session
 
-*Settings → Search inside files → Start the search helper with my session* in the desktop app,
+*Settings → Finding files → Details → Background reading → Start with my session* in the desktop app,
 or `coxswain --index-service on` in a terminal, writes an XDG autostart entry:
 
 ```
@@ -331,8 +331,8 @@ xdg-utils`), or no program is set for that kind of file: `xdg-mime default <app>
 
 **A new file deep in a large tree shows in Find only after an hour.** Its folder is past the
 20,000 the helper watches ([above](#how-freebsd-differs-from-linux-here)). Leave large trees you
-never search out of the index (`/usr/ports`, `/usr/src`, build folders): *Settings → Search
-inside files → Folders read*, or `exclude` in `[search]` ([Choosing the folders](../search/folders.md)).
+never search out of the index (`/usr/ports`, `/usr/src`, build folders): *Settings → Finding
+files → Details → Folders → Never indexed*, or `exclude` in `[search]` ([Choosing the folders](../search/folders.md)).
 
 ## Other BSDs
 
