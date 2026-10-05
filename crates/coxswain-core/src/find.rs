@@ -330,7 +330,10 @@ pub fn run(names: impl FnOnce(&str, usize) -> Results, store: Result<&Store, Off
         hits.truncate(rows);
         Group { hits, total }
     };
-    found.in_files = group(in_files, words.total.saturating_sub(commits_found));
+    // With the fallback to any of the words, the files meaning did not agree with are not shown:
+    // the count is of those that are.
+    let with_words = if words.hits.len() > every { in_files.len() } else { words.total.saturating_sub(commits_found) };
+    found.in_files = group(in_files, with_words);
     found.about = group(about, 0);
     found.history = group(history, commits_found);
     found
