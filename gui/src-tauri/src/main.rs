@@ -357,6 +357,8 @@ struct HistoryInfo {
     /// The folder on disk it leads back to: the target, or the folder holding it.
     base: PathBuf,
     commit: Option<history::Commit>,
+    /// A history's commits, the branches or the worktrees (what the list above a commit is).
+    view: history::View,
 }
 
 /// Async, as a compressed tar is read in full to list a folder in it.
@@ -379,7 +381,7 @@ async fn list_dir(dir: PathBuf, show_hidden: bool, sort: SortKey, reverse: bool,
         {
             history::sort_by_last(&mut entries, &lasts, reverse);
         }
-        let in_history = history::split(&dir).filter(|_| !dir.is_dir()).map(|at| HistoryInfo { commit: at.commit.as_deref().and_then(|c| history::show(&at.base, c).ok()), target: at.target, base: at.base });
+        let in_history = history::split(&dir).filter(|_| !dir.is_dir()).map(|at| HistoryInfo { commit: at.commit.as_deref().and_then(|c| history::show(&at.base, c).ok()), target: at.target, base: at.base, view: at.view });
         Ok::<_, String>((entries, inside, in_history))
     })
     .await
@@ -453,6 +455,19 @@ async fn git_status(dir: PathBuf, ctx: tauri::State<'_, Ctx>) -> Res<Option<GitI
     }
     drop(st);
     Ok(Some(GitInfo { prompt: s.prompt(&ctx.cfg().glyphs()), branch: s.summary.branch.clone(), root: s.root, files, all }))
+}
+
+/// Switch to the branch `entry` of the list of branches `dir`: git's message, or why it refused.
+#[tauri::command]
+async fn git_switch(dir: PathBuf, entry: String) -> Res<String> {
+    blocking(move || coxswain_core::branches::switch(&dir, &entry).map_err(|e| e.to_string())).await
+}
+
+/// A new branch `name`, switched to: from the branch `from` of the list of branches `dir`, or
+/// from the current commit of the repository `dir` is in.
+#[tauri::command]
+async fn git_new_branch(dir: PathBuf, name: String, from: Option<String>) -> Res<String> {
+    blocking(move || coxswain_core::branches::create(&dir, &name, from.as_deref()).map_err(|e| e.to_string())).await
 }
 
 /// The statuses of `dir`'s entries, from git's alone: the folder is not read again.
@@ -1525,7 +1540,7 @@ fn main() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            get_config, notices, dismiss_notice, changes, read_changes, set_title, index_status, index_action, index_service, meaning_status, meaning_action, meaning_models, meaning_pull, list_dir, git_status, git_last, places, disks, get_state, save_session, save_favorites, set_tags, set_note, get_note,
+            get_config, notices, dismiss_notice, changes, read_changes, set_title, index_status, index_action, index_service, meaning_status, meaning_action, meaning_models, meaning_pull, list_dir, git_status, git_last, git_switch, git_new_branch, places, disks, get_state, save_session, save_favorites, set_tags, set_note, get_note,
             search, ask, ask_stop, resolve_path, copy, rename, delete, mkdir, dir_sizes, rename_plan, rename_apply, open_path, edit_path,
             read_text, run_command, scripts, run_script, check_update, archive_list, extract, pack, archive_password, archive_peek, cloud_fetch, properties, set_permissions,
             clip_set, paste, start_drag, watch_dirs, preview::git_diff, preview::sqlite_info, preview::epub_preview,

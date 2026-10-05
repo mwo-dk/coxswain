@@ -51,6 +51,10 @@ On a Mac the shortcuts are the same, with **Ctrl**, not Cmd.
 | **Alt+F5** | Pack into an archive | `pack` | Pack the marked files ([Pack and extract](../files/pack-and-extract.md)) | The same |
 | **Ctrl+E** | Extract archive | `extract` | Extract into the other pane | The same |
 | **Ctrl+G** | Git history | `history` | The commits of the file or folder under the cursor, as folders ([Git history](git-history.md)) | The same |
+| **Alt+B** | Git branches | `branches` | The repository's branches, as folders ([Git branches](git-branches.md)) | The same |
+| **Alt+W** | Git worktrees | `worktrees` | The repository's worktrees ([Worktrees](git-branches.md#worktrees)) | The same |
+| **Alt+S** | Switch to branch | `switch_branch` | In the list of branches: switch to the one under the cursor, after asking ([Switching](git-branches.md#switching-to-a-branch)) | The same |
+| – | New branch here | `new_branch` | A new branch from the one under the cursor, or from the current commit, switched to ([A new branch](git-branches.md#a-new-branch)) | The same |
 | **Ctrl+Enter**, **Ctrl+J** | Path to command line | `copy_path` | The name under the cursor to the command line | The same |
 
 ### Moving

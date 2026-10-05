@@ -235,7 +235,11 @@ export const isArchive = (name) => ARCHIVE.test(name);
 export const takesPassword = (name) => /\.(zip|jar|apk|nupkg|whl|vsix|7z)$/i.test(name);
 /** The path segment that leads into a file's or folder's git history (history::MARKER). */
 export const HISTORY = "@history";
-export const isHistory = (p) => p.split(/[\\/]/).includes(HISTORY);
+/** The segments that lead to a repository's branches and worktrees (history::BRANCHES, WORKTREES). */
+export const BRANCHES = "@branches";
+export const WORKTREES = "@worktrees";
+export const MARKERS = [HISTORY, BRANCHES, WORKTREES];
+export const isHistory = (p) => p.split(/[\\/]/).some((s) => MARKERS.includes(s));
 /** What a history path is of: the part before the marker. */
 export const historyOf = (p) => p.slice(0, p.search(/[\\/]@history([\\/]|$)/));
 /** What the core says when an archive is locked and wants its password (archive::LOCKED). */

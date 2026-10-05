@@ -1,7 +1,7 @@
 // Shared app state and navigation. Components read `ui` and call these functions.
 
 import { SvelteSet } from "svelte/reactivity";
-import { invoke, listDir, basename, parent, applyTheme, isArchive, HISTORY, LOCKED } from "./lib.js";
+import { invoke, listDir, basename, parent, applyTheme, isArchive, HISTORY, BRANCHES, WORKTREES, LOCKED } from "./lib.js";
 import { setLanguage, t } from "./i18n.svelte.js";
 /** The texts, for functions whose tab is called `t`. */
 const tr = t;
@@ -188,6 +188,63 @@ export function openHistory(tb = tab()) {
   if (!tb.git) return void (ui.status = tr("history.no_repo"));
   const target = e && e.name !== ".." ? e.path : tb.dir;
   return cd(tb, `${target.replace(/[\\/]$/, "")}${ui.cfg.sep}${HISTORY}`);
+}
+
+/** To the branches (or the worktrees) of the repository the tab's folder is in. */
+export function openGitView(worktrees = false, tb = tab()) {
+  // From the branches to the worktrees (and back), and inside a branch.
+  const listed = tb.history && tb.history.view !== "history" ? tb.history.base : null;
+  if (!listed && (tb.archive || tb.history)) return void (ui.status = tr("branches.not_here"));
+  if (!listed && !tb.git) return void (ui.status = tr("branches.no_repo"));
+  return cd(tb, `${(listed ?? tb.git.root).replace(/[\\/]$/, "")}${ui.cfg.sep}${worktrees ? WORKTREES : BRANCHES}`);
+}
+
+/** In the list of branches: the tab's folder is it. */
+const inBranches = (tb) => tb.history?.view === "branches" && !tb.history.commit;
+/** The branch an entry of the list is called: its name, up to the first space. */
+const branchOf = (e) => e.name.replace(/^\* /, "").split(" ")[0].replaceAll("∕", "/");
+
+/** What git said: on the status line, or, when it refused, in a message (it can be long). */
+async function gitSaid(title, call) {
+  try {
+    ui.status = (await call).split("\n")[0];
+  } catch (err) {
+    ui.modal = { kind: "message", title, text: String(err) };
+  }
+  reloadAll();
+}
+
+/** Switch to the branch under the cursor in the list of branches, once confirmed. */
+export function switchBranch(tb = tab()) {
+  const e = item(tb);
+  const key = ui.cfg.actions.branches?.[1] ?? "";
+  if (!inBranches(tb) || !e || e.name === "..") return void (ui.status = tr("branches.switch_where", { key }));
+  const title = tr("action.switch_branch");
+  const dir = tb.dir;
+  ui.modal = {
+    kind: "confirm",
+    title,
+    text: tr("branches.switch_text", { branch: branchOf(e), repo: basename(tb.history.base) }),
+    ok: title,
+    run: () => gitSaid(title, invoke("git_switch", { dir, entry: e.name })),
+  };
+}
+
+/** A new branch, named in a prompt: from the branch under the cursor in the list of branches,
+ * or from the current commit. */
+export function newBranch(tb = tab()) {
+  const e = item(tb);
+  const from = inBranches(tb) && e && e.name !== ".." ? e.name : null;
+  if (!from && (!tb.git || tb.history)) return void (ui.status = tr("branches.no_repo"));
+  const title = tr("action.new_branch");
+  const dir = tb.dir;
+  ui.modal = {
+    kind: "input",
+    title,
+    label: from ? tr("branches.new_from", { branch: branchOf(e) }) : tr("branches.new_here"),
+    value: "",
+    run: (name) => name.trim() && gitSaid(title, invoke("git_new_branch", { dir, name, from })),
+  };
 }
 
 export async function cd(t, dir, history = true) {

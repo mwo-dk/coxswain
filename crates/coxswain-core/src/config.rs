@@ -218,6 +218,10 @@ actions! {
     Duplicates = "duplicates", "Find duplicates", ["Ctrl+D"];
     Settings = "settings", "Settings", ["Ctrl+,"];
     History = "history", "Git history", ["Ctrl+G"];
+    Branches = "branches", "Git branches", ["Alt+B"];
+    Worktrees = "worktrees", "Git worktrees", ["Alt+W"];
+    SwitchBranch = "switch_branch", "Switch to branch", ["Alt+S"];
+    NewBranch = "new_branch", "New branch here", [];
 }
 
 impl Action {

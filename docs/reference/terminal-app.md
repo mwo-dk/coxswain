@@ -55,6 +55,7 @@ Every flag: [Command-line flags](command-line-flags.md#the-terminal-app-coxswain
 | Folder sizes in the Size column | [Folder sizes](../panels/folder-sizes.md) |
 | The git line, a glyph per file, and the last commit of the entry under the cursor in the info line | [Git in the panels](../panels/git.md) |
 | Git history as folders (**Ctrl+G**): the commits of a file or folder, the files as they were, **F3** and **F5** on them | [Git history in the terminal app](#git-history-in-the-terminal-app) |
+| Git branches (**Alt+B**) and worktrees (**Alt+W**): a branch's files, switching (**Alt+S**), new branches | [Git branches and worktrees](../panels/git-branches.md#in-the-terminal-app) |
 | Every theme's colours, Nerd Font or ASCII glyphs, your own themes | [Themes](../customise/themes.md), [Glyphs and fonts](../customise/glyphs-and-fonts.md) |
 | All 18 languages | [Languages](../customise/languages.md) |
 | Your own keys from `[keys]` | [Changing keys](../customise/keys.md) |

@@ -1,6 +1,6 @@
 <script>
   import { untrack } from "svelte";
-  import { ui, tab, item, openHistory } from "./app.svelte.js";
+  import { ui, tab, item, openHistory, openGitView, switchBranch, newBranch } from "./app.svelte.js";
   import { renderHtml, renderPptx, renderDrawio, renderMarkdown, renderMermaid, highlight, highlightOff, renderDocx, readSheet, renderNotebook, loadFont, clean, parseData, jsonLines, calendar, contacts, logLines, renderGraphviz, renderAsciidoc, readParquet } from "./renderers.js";
   import { invoke, convertFileSrc, basename, size, date, age, ageColor, previewKind, looksLikeBom, CONVERTER, LOCKED } from "./lib.js";
   import BomView from "./BomView.svelte";
@@ -647,6 +647,12 @@
           {#if pane.git && !pane.history}
             <dt>{t("preview.git")}</dt>
             <dd><button class="link" onclick={() => openHistory()}>{"\u{f1da}"} {t("history.open", { name: e.name })}</button> <kbd>{ui.cfg.actions.history?.[1] ?? ""}</kbd></dd>
+            <dd><button class="link" onclick={() => openGitView()}>{"\u{e725}"} {t("action.branches")}</button> <kbd>{ui.cfg.actions.branches?.[1] ?? ""}</kbd> · <button class="link" onclick={() => openGitView(true)}>{t("action.worktrees")}</button> <kbd>{ui.cfg.actions.worktrees?.[1] ?? ""}</kbd></dd>
+          {/if}
+          {#if pane.history?.view === "branches" && !pane.history.commit}
+            <!-- A branch of the list: switched to, or a new one from it. -->
+            <dt>{t("preview.git")}</dt>
+            <dd><button class="link" onclick={() => switchBranch()}>{t("action.switch_branch")}</button> <kbd>{ui.cfg.actions.switch_branch?.[1] ?? ""}</kbd> · <button class="link" onclick={() => newBranch()}>{t("action.new_branch")}</button></dd>
           {/if}
         </dl>
       {/if}
