@@ -403,8 +403,17 @@ impl Engine {
     /// Which model made a vector: vectors of two models cannot be compared.
     pub fn id(&self) -> String {
         match self {
-            Engine::Builtin(_) => format!("builtin:{MODEL}@{}", &REVISION[..8]),
-            Engine::Server(s) => format!("{}:{}", if s.openai { "openai" } else { "ollama" }, s.model),
+            Engine::Builtin(_) => builtin_id(),
+            Engine::Server(s) => server_id(s.openai, &s.model),
+        }
+    }
+
+    /// The digest of the model's weights, when the server says (Ollama's `/api/tags`): the same
+    /// weights under another name keep their vectors.
+    pub fn digest(&self) -> Option<String> {
+        match self {
+            Engine::Server(s) if !s.openai => s.digest(),
+            _ => None,
         }
     }
 
@@ -438,7 +447,76 @@ impl Engine {
     }
 }
 
+fn builtin_id() -> String {
+    format!("builtin:{MODEL}@{}", &REVISION[..8])
+}
+
+/// A server model's id: Ollama's `bge-m3` is `bge-m3:latest`, as its list names it, so picking it
+/// from the list does not count as another model.
+fn server_id(openai: bool, model: &str) -> String {
+    if openai {
+        format!("openai:{model}")
+    } else if model.rsplit('/').next().is_some_and(|m| m.contains(':')) {
+        format!("ollama:{model}")
+    } else {
+        format!("ollama:{model}:latest")
+    }
+}
+
+/// Whether two engine ids name the same model, ids saved before tags were added included.
+pub fn same_model(a: &str, b: &str) -> bool {
+    let norm = |id: &str| match id.strip_prefix("ollama:") {
+        Some(m) => server_id(false, m),
+        None => id.to_string(),
+    };
+    norm(a) == norm(b)
+}
+
+/// The id of the model `cfg` makes vectors with, without loading it.
+pub fn config_id(cfg: &crate::config::SearchConfig) -> String {
+    match cfg.meaning_engine.as_str() {
+        "ollama" | "openai" => {
+            let s = Server::new(cfg);
+            server_id(s.openai, &s.model)
+        }
+        _ => builtin_id(),
+    }
+}
+
+/// What a change of the vectors' model costs, for the user to confirm before it is saved:
+/// None when the vectors stay (the same model, or the same weights under another name) or
+/// there are none; else how many files are read again, and about how long that takes here,
+/// timed by having the new model make the vectors of one long file.
+pub fn change_notice(old: &crate::config::SearchConfig, new: &crate::config::SearchConfig, done: usize) -> Option<String> {
+    if done == 0 || same_model(&config_id(old), &config_id(new)) {
+        return None;
+    }
+    let digest = |cfg| Engine::from_config(cfg).and_then(|e| e.digest());
+    if matches!((digest(old), digest(new)), (Some(a), Some(b)) if a == b) {
+        return None;
+    }
+    let sample: Vec<String> = (0..PASSAGES).map(|i| format!("Passage {i} of a long file: the budget, the launch plan and the notes from the meeting, written out in plain words. ").repeat(WORDS / 20)).collect();
+    let start = std::time::Instant::now();
+    match Engine::from_config(new).map(|e| e.passages(&sample)) {
+        Some(Ok(_)) => {
+            // ponytail: one long file timed; most files are shorter, so this errs on the long side.
+            let secs = start.elapsed().as_secs_f64() * done as f64;
+            let time = if secs < 60.0 { crate::t!("search.meaning_change_moment") } else if secs < 5400.0 { crate::t!("search.meaning_change_minutes", "n" => (secs / 60.0).ceil() as u64) } else { crate::t!("search.meaning_change_hours", "n" => (secs / 3600.0).ceil() as u64) };
+            Some(crate::t!("search.meaning_change", "n" => done, "time" => time))
+        }
+        _ => Some(crate::t!("search.meaning_change_untimed", "n" => done)),
+    }
+}
+
 impl Server {
+    /// The digest Ollama's list gives the model.
+    fn digest(&self) -> Option<String> {
+        let mut res = self.agent.get(&format!("{}/api/tags", self.url)).call().ok()?;
+        let v: serde_json::Value = serde_json::from_str(&res.body_mut().read_to_string().ok()?).ok()?;
+        let id = server_id(false, &self.model);
+        v["models"].as_array()?.iter().find(|m| m["name"].as_str().is_some_and(|n| server_id(false, n) == id))?["digest"].as_str().map(String::from)
+    }
+
     fn new(cfg: &crate::config::SearchConfig) -> Server {
         let openai = cfg.meaning_engine == "openai";
         let url = if cfg.meaning_url.is_empty() && !openai { OLLAMA.to_string() } else { cfg.meaning_url.trim_end_matches('/').to_string() };
@@ -542,9 +620,7 @@ pub fn ask(cfg: &crate::config::SearchConfig, earlier: &[Turn], question: &str, 
     };
     if res.status().as_u16() >= 400 {
         let text = res.body_mut().read_to_string().unwrap_or_default();
-        let v: serde_json::Value = serde_json::from_str(&text).unwrap_or_default();
-        let why = v["error"].as_str().or_else(|| v["error"]["message"].as_str()).map(String::from).unwrap_or(text);
-        return Err(format!("{} {}: {why}", shown(&s.url), res.status()));
+        return Err(format!("{} {}: {}", shown(&s.url), res.status(), said(&text)));
     }
     let mut thinking = false;
     // An answer is text: 8 MB is far more than any, and a line without end stops there.
@@ -646,6 +722,70 @@ pub fn server_models(openai: bool, url: &str, key: Option<&str>) -> Result<Vec<S
     let v: serde_json::Value = serde_json::from_str(&text).map_err(|e| e.to_string())?;
     let names = if openai { v["data"].as_array().map(|d| d.iter().filter_map(|m| m["id"].as_str().map(String::from)).collect()) } else { v["models"].as_array().map(|d| d.iter().filter_map(|m| m["name"].as_str().map(String::from)).collect()) };
     Ok(names.unwrap_or_default())
+}
+
+/// The models on a server that can answer, for Ask: Ollama's pulled models without those that
+/// only make vectors (as its `/api/show` says), or every model an OpenAI server lists (it does
+/// not say which can chat; the chosen one is tried when saved, by `chat_problem`).
+pub fn chat_models(openai: bool, url: &str, key: Option<&str>) -> Result<Vec<String>, String> {
+    let names = server_models(openai, url, key)?;
+    if openai {
+        return Ok(names);
+    }
+    let url = if url.is_empty() { OLLAMA } else { url.trim_end_matches('/') };
+    let agent: ureq::Agent = ureq::Agent::config_builder().tls_config(tls()).timeout_global(Some(Duration::from_secs(5))).http_status_as_error(false).build().into();
+    Ok(names.into_iter().filter(|m| !matches!(ollama_can(&agent, url, m), Ok(Some(c)) if !c.iter().any(|x| x == "completion"))).collect())
+}
+
+/// What an Ollama model can do, from `/api/show`: its capabilities ("completion", "embedding",
+/// …), or None when the server does not say (an Ollama before 0.6.4).
+fn ollama_can(agent: &ureq::Agent, url: &str, model: &str) -> Result<Option<Vec<String>>, String> {
+    let body = serde_json::json!({ "model": model }).to_string();
+    let mut res = agent.post(&format!("{url}/api/show")).header("Content-Type", "application/json").send(body).map_err(|e| format!("{}: {e}", shown(url)))?;
+    let text = res.body_mut().read_to_string().map_err(|e| e.to_string())?;
+    if res.status().as_u16() >= 400 {
+        return Err(format!("{} {}: {}", shown(url), res.status(), said(&text)));
+    }
+    let v: serde_json::Value = serde_json::from_str(&text).map_err(|e| e.to_string())?;
+    Ok(v["capabilities"].as_array().map(|c| c.iter().filter_map(|x| x.as_str().map(String::from)).collect()))
+}
+
+/// The error a server's answer names (`{"error": "…"}` or `{"error": {"message": "…"}}`), or
+/// the answer itself.
+fn said(text: &str) -> String {
+    let v: serde_json::Value = serde_json::from_str(text).unwrap_or_default();
+    v["error"].as_str().or_else(|| v["error"]["message"].as_str()).map_or_else(|| text.to_string(), String::from)
+}
+
+/// Why Ask's chat model cannot answer, in words for the user; None when it can, or when that
+/// is not known without trying. Ollama is asked what the model can do; an OpenAI server is
+/// sent a one-word question only when `try_it` (Settings saving the model), as it does not say.
+pub fn chat_problem(cfg: &crate::config::SearchConfig, try_it: bool) -> Option<String> {
+    let model = cfg.ask_model.as_str();
+    if model.is_empty() {
+        return None;
+    }
+    let s = Server::new(cfg);
+    if !s.openai {
+        return match ollama_can(&s.agent, &s.url, model) {
+            Ok(Some(c)) if !c.iter().any(|x| x == "completion") => Some(crate::t!("search.ask_not_chat", "model" => model.trim_end_matches(":latest"), "example" => "qwen3:8b")),
+            Ok(_) => None,
+            Err(e) => Some(e),
+        };
+    }
+    if !try_it {
+        return None;
+    }
+    let body = serde_json::json!({ "model": model, "messages": [{ "role": "user", "content": "Hi" }], "max_tokens": 1, "stream": false });
+    let mut req = s.agent.post(&format!("{}/chat/completions", s.url)).header("Content-Type", "application/json");
+    if let Some(key) = &s.key {
+        req = req.header("Authorization", &format!("Bearer {key}"));
+    }
+    match req.send(body.to_string()) {
+        Err(e) => Some(format!("{}: {e}", shown(&s.url))),
+        Ok(mut res) if res.status().as_u16() >= 400 => Some(format!("{} {}: {}", shown(&s.url), res.status(), said(&res.body_mut().read_to_string().unwrap_or_default()))),
+        Ok(_) => None,
+    }
 }
 
 /// Whether Ollama answers on this machine, asked quickly.
@@ -857,26 +997,102 @@ mod tests {
         let reply = format!("HTTP/1.1 {status}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}", body.len());
         let server = std::thread::spawn(move || {
             let (mut c, _) = listener.accept().unwrap();
-            let mut got = Vec::new();
-            let mut buf = [0; 4096];
-            loop {
-                let n = c.read(&mut buf).unwrap();
-                got.extend_from_slice(&buf[..n]);
-                let text = String::from_utf8_lossy(&got);
-                let Some((head, body)) = text.split_once("\r\n\r\n") else { continue };
-                let len = head.lines().find_map(|l| l.split_once(':').filter(|(k, _)| k.eq_ignore_ascii_case("content-length")).and_then(|(_, n)| n.trim().parse::<usize>().ok())).unwrap_or(0);
-                if body.len() >= len {
-                    break;
-                }
-            }
+            let got = request(&mut c);
             write!(c, "{reply}").unwrap();
             // Closed only once the client has read it all: on Windows, a socket closed with
             // bytes left unread resets the connection, and the client sees an error.
             let _ = c.shutdown(std::net::Shutdown::Write);
             let _ = c.read_to_end(&mut Vec::new());
-            String::from_utf8_lossy(&got).into_owned()
+            got
         });
         (url, server)
+    }
+
+    /// One whole request, head and body, as it came.
+    fn request(c: &mut std::net::TcpStream) -> String {
+        use std::io::Read;
+        let mut got = Vec::new();
+        let mut buf = [0; 4096];
+        loop {
+            let n = c.read(&mut buf).unwrap();
+            got.extend_from_slice(&buf[..n]);
+            let text = String::from_utf8_lossy(&got);
+            let Some((head, body)) = text.split_once("\r\n\r\n") else { continue };
+            let len = head.lines().find_map(|l| l.split_once(':').filter(|(k, _)| k.eq_ignore_ascii_case("content-length")).and_then(|(_, n)| n.trim().parse::<usize>().ok())).unwrap_or(0);
+            if body.len() >= len {
+                return text.into_owned();
+            }
+        }
+    }
+
+    /// A fake Ollama with a chat model and one that only makes vectors: `/api/tags` lists
+    /// them, `/api/show` says what each can do.
+    fn fake_ollama() -> String {
+        use std::io::{Read, Write};
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let url = format!("http://{}", listener.local_addr().unwrap());
+        std::thread::spawn(move || {
+            for c in listener.incoming() {
+                let mut c = c.unwrap();
+                let got = request(&mut c);
+                let (status, body) = if got.starts_with("GET /api/tags") {
+                    ("200 OK", r#"{"models":[{"name":"qwen3:8b"},{"name":"bge-m3:latest"}]}"#)
+                } else if got.contains(r#""model":"qwen3:8b""#) {
+                    ("200 OK", r#"{"capabilities":["completion","tools"]}"#)
+                } else if got.contains(r#""model":"bge-m3:latest""#) {
+                    ("200 OK", r#"{"capabilities":["embedding"]}"#)
+                } else {
+                    ("404 Not Found", r#"{"error":"model 'nope' not found"}"#)
+                };
+                write!(c, "HTTP/1.1 {status}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}", body.len()).unwrap();
+                let _ = c.shutdown(std::net::Shutdown::Write);
+                let _ = c.read_to_end(&mut Vec::new());
+            }
+        });
+        url
+    }
+
+    /// An embedding model is not offered for Ask, and one set by hand is named as such.
+    #[test]
+    fn ask_tells_a_model_that_only_makes_vectors() {
+        let url = fake_ollama();
+        assert_eq!(chat_models(false, &url, None).unwrap(), ["qwen3:8b"]);
+        let cfg = |m: &str| crate::config::SearchConfig { meaning_engine: "ollama".into(), meaning_url: url.clone(), ask_model: m.into(), ..Default::default() };
+        assert_eq!(chat_problem(&cfg("qwen3:8b"), true), None);
+        let why = chat_problem(&cfg("bge-m3:latest"), false).unwrap();
+        assert!(why.contains("bge-m3") && !why.contains(":latest") && why.contains("qwen3:8b"), "{why}");
+        let why = chat_problem(&cfg("nope"), false).unwrap();
+        assert!(why.contains("not found"), "{why}");
+        assert_eq!(chat_problem(&cfg(""), true), None, "no model, nothing to say");
+    }
+
+    /// A change of the vectors' model is said before it is saved, with the files it reads again;
+    /// the same model with its tag is no change.
+    #[test]
+    fn a_change_of_model_says_what_it_costs() {
+        let old = crate::config::SearchConfig { meaning_engine: "ollama".into(), meaning_url: "http://127.0.0.1:9".into(), meaning_model: "bge-m3".into(), ..Default::default() };
+        let tagged = crate::config::SearchConfig { meaning_model: "bge-m3:latest".into(), ..old.clone() };
+        assert_eq!(change_notice(&old, &tagged, 3437), None);
+        let vectors = format!("{{\"data\":[{}]}}", vec!["{\"embedding\":[0.6,0.8]}"; PASSAGES].join(","));
+        let (url, server) = one_answer("200 OK", &vectors);
+        let other = crate::config::SearchConfig { meaning_engine: "openai".into(), meaning_url: url, meaning_model: "nomic".into(), ..old.clone() };
+        assert_eq!(change_notice(&old, &other, 0), None, "no vectors, nothing to lose");
+        let said = change_notice(&old, &other, 3437).unwrap();
+        assert!(said.contains("3437") && said.contains("about"), "{said}");
+        assert!(server.join().unwrap().starts_with("POST /embeddings"));
+    }
+
+    /// An OpenAI server does not say what a model can do: it is tried with a one-word
+    /// question when asked to, and not otherwise.
+    #[test]
+    fn ask_tries_an_openai_model_only_when_saved() {
+        let cfg = |url: &str| crate::config::SearchConfig { meaning_engine: "openai".into(), meaning_url: url.into(), ask_model: "embed".into(), ..Default::default() };
+        assert_eq!(chat_problem(&cfg("http://127.0.0.1:9"), false), None);
+        let (url, server) = one_answer("400 Bad Request", r#"{"error":{"message":"embed does not support chat"}}"#);
+        let why = chat_problem(&cfg(&url), true).unwrap();
+        assert!(why.contains("400") && why.contains("does not support chat"), "{why}");
+        let sent = server.join().unwrap();
+        assert!(sent.starts_with("POST /chat/completions") && sent.contains(r#""max_tokens":1"#), "{sent}");
     }
 
     #[test]

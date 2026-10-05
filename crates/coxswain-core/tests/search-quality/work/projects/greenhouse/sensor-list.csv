@@ -1,0 +1,7 @@
+id,zone,type,battery
+1,A,soil moisture,AA
+2,A,soil moisture,AA
+3,A,air temperature and humidity,AA
+17,C,soil moisture,AA
+18,C,soil moisture,AA
+41,roof,weather station,mains

@@ -49,6 +49,7 @@ The questions people ask most, with a short answer and a link to the full one. E
 - **How do I go back a depth in Find file?** Shift+Tab; Tab goes forward. [Answer](search/find-file.md#how-do-i-go-back-a-depth)
 - **Can I ask my files a question?** Yes: Ctrl+F7 opens Find file at *Ask*, with search by meaning on and a chat model on your server. [Answer](search/ask.md)
 - **The first answer takes long. Why?** The server loads the model on the first question; *Waiting for … to answer* shows until the first word. [Answer](search/ask.md#the-first-answer-takes-long-why)
+- **Ask says my model makes vectors and cannot answer.** The chat model is an embedding model such as `bge-m3`; choose a chat model such as `qwen3:8b`. [Answer](search/ask.md#it-says-my-model-makes-vectors-and-cannot-answer-why)
 - **What does Ask send, and where?** [Answer](search/ask.md#what-is-sent-and-where)
 - **Does the built-in model use my Mac's GPU?** On Apple Silicon, yes: through Metal, several times faster; Intel Macs stay on the CPU. Settings → Search by meaning and `coxswain --meaning` say which; *Use the CPU only* or `coxswain --meaning cpu` keeps it off the GPU. [Answer](search/meaning.md#does-the-built-in-model-use-my-macs-gpu)
 - **Can Ollama or Lemonade make the vectors instead?** Yes: pick it under Vectors made by, or `coxswain --meaning ollama` / `--meaning server URL MODEL`. [Answer](search/servers.md#which-model-should-i-pick-on-a-server)

@@ -221,7 +221,7 @@ pub fn serve_in(dir: &Path, linger: Duration, index: impl FnOnce() -> Arc<Servic
 }
 
 /// The files with the words, then the files about the same thing that the words missed.
-fn with_meaning(store: &Store, query: &str, max: usize) -> Results {
+pub fn with_meaning(store: &Store, query: &str, max: usize) -> Results {
     let mut found = store.search(query, max);
     let start = std::time::Instant::now();
     let similar: Vec<_> = store.similar(query, max).into_iter().filter(|h| !found.hits.iter().any(|w| w.path == h.path)).collect();

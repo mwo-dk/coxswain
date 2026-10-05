@@ -11,6 +11,7 @@ numbers measured on synthetic data, so you know what to expect and can measure a
 - [The desktop app](#the-desktop-app)
 - [The terminal app](#the-terminal-app)
 - [The numbers](#the-numbers)
+- [Search quality](#search-quality)
 - [Measuring again](#measuring-again)
 - [Questions](#questions)
 
@@ -181,6 +182,111 @@ vectors from an embedding server that answers at once (so the store's own work i
 | A file's history past a rename | stopped at the rename | goes on (`git log --follow`) |
 | Ask: Esc while the model loads | waited for the first word, up to five minutes | stops within 100 ms; Ollama loads the model while the sources are looked up |
 | Name index after many archive edits | the entries left behind stayed until the hourly rebuild | rebuilt when a quarter of the nodes are gone |
+
+## Search quality
+
+How often search by meaning and Ask find the right file, measured on 5 October 2026 (before any
+change to ranking), so later changes can be measured against it.
+
+**Method.** `crates/coxswain-core/tests/search-quality/` holds 38 documents of the kind people
+keep: Markdown and text notes, recipes, invoices in `invoices/2025/` and `invoices/2024/`, a
+CV, meeting notes, a CSV, a Mermaid and two draw.io diagrams, Danish house rules and
+recipes, and three long documents of about 1,900–2,000 words (an employee handbook, a project
+report, the Danish minutes of a housing association meeting). `questions.tsv` has 32
+questions written the way a user asks, each with the file or files that answer it and a phrase
+of the passage that holds the answer:
+
+| Kind | Questions | What it tests |
+|---|---|---|
+| meaning | 13 | Paraphrases of what a short file says, in English and Danish |
+| late | 6 | The answer is past the first 960 words of a long file |
+| cross | 5 | A Danish question for an English file, or an English one for a Danish file |
+| name | 3 | The question names the file or its folder (*my cv*, *invoices from 2025*) |
+| words | 3 | The question shares its key words with the file |
+| diagram | 2 | The answer is a box or an arrow in a diagram |
+
+The test copies the corpus to a folder of its own, scans it with a store of its own, and
+asks each question of three lists, taking the first 20 of each: words alone (`Store::search`,
+as *Text in files* without meaning), meaning alone (`Store::similar`), and the combined list
+*Text in files* shows (`helper::with_meaning`: the word hits, then the meaning hits the words
+missed). Recall@k is the share of questions with an expected file in the first k; MRR is the
+mean of 1 / the rank of the first expected file (0 when it is not there). For Ask, it takes
+the 10 passages `Store::passages` sends to the chat model and checks whether one of them comes
+from the expected file, and whether one holds the answer's phrase.
+
+**Built-in model** (multilingual-e5-small), 38 files read and embedded in 15 s:
+
+| List | Recall@1 | Recall@5 | MRR |
+|---|---|---|---|
+| Words alone (*Text in files*) | 0.09 | 0.09 | 0.09 |
+| Meaning alone | 0.69 | 0.91 | 0.78 |
+| Combined list (words, then meaning) | 0.69 | 0.91 | 0.78 |
+
+Ask: the right file among the 10 passages for 31 of 32 questions, the passage that answers
+for 24 of 32.
+
+| Kind | Meaning recall@5 | Combined recall@5 | Ask: passage that answers |
+|---|---|---|---|
+| meaning | 0.92 | 0.92 | 13 of 13 |
+| late | 0.83 | 0.83 | 0 of 6 |
+| cross | 0.80 | 0.80 | 3 of 5 |
+| name | 1.00 | 1.00 | 3 of 3 |
+| words | 1.00 | 1.00 | 3 of 3 |
+| diagram | 1.00 | 1.00 | 2 of 2 |
+
+**Ollama, bge-m3**, the same corpus:
+
+| List | Recall@1 | Recall@5 | MRR |
+|---|---|---|---|
+| Words alone (*Text in files*) | 0.09 | 0.09 | 0.09 |
+| Meaning alone | 0.75 | 0.81 | 0.78 |
+| Combined list (words, then meaning) | 0.78 | 0.84 | 0.81 |
+
+Ask: the right file among the 10 passages for 26 of 32 questions, the passage that answers
+for 23 of 32.
+
+| Kind | Meaning recall@5 | Combined recall@5 | Ask: passage that answers |
+|---|---|---|---|
+| meaning | 1.00 | 1.00 | 13 of 13 |
+| late | 0.50 | 0.67 | 0 of 6 |
+| cross | 0.60 | 0.60 | 3 of 5 |
+| name | 0.67 | 0.67 | 2 of 3 |
+| words | 1.00 | 1.00 | 3 of 3 |
+| diagram | 1.00 | 1.00 | 2 of 2 |
+
+**What is weak, by these numbers:**
+
+- **Answers past the first 960 words are never sent to Ask** (0 of 6 with either model). A
+  file gets vectors for its first 8 passages of 120 words only (`meaning::passages`), so the
+  expenses chapter of the handbook (word 1,459) or the roof decision in the minutes (word
+  1,102) has no vector. The file is still often found, by its early passages (5 of 6 with the
+  built-in model), but Ask gets the wrong part of it.
+- **Words alone find almost nothing for a question** (0.09): *Text in files* wants every word
+  of the query in the file, and a question has words the file does not (*how*, *I*, *my*).
+  The 3 hits are questions whose every word is in the file.
+- **The combined list is the meaning list with word hits put first**, not merged: with the
+  built-in model it is no better than meaning alone, and a word hit that is a poorer match
+  would push a better meaning hit down.
+- **bge-m3 shows too few meaning hits**: one file for 19 of 32 questions and none for 6. The
+  cut-off (scores at least 0.5, and within 0.10 of the best) was set from e5's and bge-m3's
+  scores on a few examples; on this corpus it drops right answers. The built-in model, with
+  its own cut-off, shows 3–20 files.
+- **File names and folders are not in the passages**: *my cv* and *invoices from 2025* are
+  found because the text says *Data engineer* and *INVOICE*, not because of
+  `cv/curriculum-vitae.md` or `invoices/2025/`. bge-m3 misses *my cv*.
+- **No reranking**: the passages are ranked by one vector each. Danish questions for English
+  files rank the right file 3rd or 4th with the built-in model and miss it with bge-m3.
+
+To measure again, with the built-in model installed or Ollama running with `bge-m3`:
+
+```sh
+cargo test --release -p coxswain-core --test search_quality -- --ignored --nocapture
+COXSWAIN_EVAL_ENGINE=ollama cargo test --release -p coxswain-core --test search_quality -- --ignored --nocapture
+```
+
+Each question's line shows its rank in the three lists (`-`: not in the first 20), `P` when the
+passage that answers went to Ask (`f`: only other passages of the file, `-`: none), and how many
+files meaning found.
 
 ## Measuring again
 

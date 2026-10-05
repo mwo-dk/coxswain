@@ -128,7 +128,7 @@ impl fmt::Display for Key {
 // ---------------------------------------------------------------- actions
 
 macro_rules! actions {
-    ($($variant:ident = $name:literal, $label:literal, [$($key:literal),*];)*) => {
+    ($($variant:ident = $name:literal, $label:literal, $group:ident, [$($key:literal),*];)*) => {
         #[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Debug, Serialize, Deserialize)]
         #[serde(rename_all = "snake_case")]
         pub enum Action { $($variant),* }
@@ -145,79 +145,107 @@ macro_rules! actions {
                 if t == key { match self { $(Action::$variant => $label.to_string()),* } } else { t }
             }
             fn default_keys(self) -> &'static [&'static str] { match self { $(Action::$variant => &[$($key),*]),* } }
+            /// Where F1 and F9 list the action.
+            pub fn group(self) -> Group { match self { $(Action::$variant => Group::$group),* } }
         }
     };
 }
 
+/// The headings F1 and F9 list actions under, in the order a new user needs them.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum Group { Moving, Panels, Marking, Files, Archives, Search, Git, Viewing, App }
+
+impl Group {
+    pub const ALL: &[Group] = &[Group::Moving, Group::Panels, Group::Marking, Group::Files, Group::Archives, Group::Search, Group::Git, Group::Viewing, Group::App];
+    /// The heading, in the current language.
+    pub fn label(self) -> String {
+        crate::i18n::tr(&format!("group.{}", format!("{self:?}").to_lowercase()), &[])
+    }
+    /// Its actions, the most used first (the order of the actions table).
+    pub fn actions(self) -> impl Iterator<Item = Action> {
+        Action::ALL.iter().copied().filter(move |a| a.group() == self)
+    }
+}
+
+// Grouped as F1 lists them, the most used first in each group.
 // Norton Commander defaults. Plain printable keys (+ - *) only fire while the command line
 // is empty, as in NC.
 actions! {
-    Help = "help", "Help", ["F1"];
-    UserMenu = "user_menu", "Menu", ["F2"];
-    View = "view", "View", ["F3"];
-    Edit = "edit", "Edit", ["F4"];
-    Copy = "copy", "Copy", ["F5"];
-    Move = "move", "RenMov", ["F6"];
-    Mkdir = "mkdir", "Mkdir", ["F7"];
-    Delete = "delete", "Delete", ["F8", "Delete"];
-    DeleteForever = "delete_forever", "Delete permanently", ["Shift+F8", "Shift+Delete"];
-    Menu = "menu", "PullDn", ["F9"];
-    Quit = "quit", "Quit", ["F10"];
-    Up = "up", "Up", ["Up"];
-    Down = "down", "Down", ["Down"];
-    PageUp = "page_up", "Page up", ["PageUp", "Left"];
-    PageDown = "page_down", "Page down", ["PageDown", "Right"];
-    Home = "home", "First", ["Home"];
-    End = "end", "Last", ["End"];
-    Open = "open", "Open", ["Enter"];
-    Parent = "parent", "Parent dir", ["Ctrl+PageUp", "Backspace"];
-    SwitchPanel = "switch_panel", "Other panel", ["Tab"];
-    Mark = "mark", "Mark", ["Insert", "Shift+Down"];
-    SelectGroup = "select_group", "Select group", ["+"];
-    UnselectGroup = "unselect_group", "Unselect group", ["-"];
-    InvertSelection = "invert_selection", "Invert selection", ["*"];
-    MarkAll = "mark_all", "Mark all", ["Ctrl+A"];
-    Search = "search", "Find file", ["Alt+F7", "Ctrl+F"];
-    SearchText = "search_text", "Search inside files", ["Shift+F7", "Ctrl+Shift+F"];
-    Ask = "ask", "Ask your files", ["Ctrl+F7"];
-    Refresh = "refresh", "Reread", ["Ctrl+R"];
-    SwapPanels = "swap_panels", "Swap panels", ["Ctrl+U"];
-    TogglePanels = "toggle_panels", "Panels on/off", ["Ctrl+O"];
-    ToggleHidden = "toggle_hidden", "Hidden files", ["Alt+."];
-    GotoLeft = "goto_left", "Left: go to", ["Alt+F1"];
-    GotoRight = "goto_right", "Right: go to", ["Alt+F2"];
-    SameDir = "same_dir", "Other panel here", ["Alt+O"];
-    SortName = "sort_name", "Sort by name", ["Ctrl+F3"];
-    SortExt = "sort_ext", "Sort by extension", ["Ctrl+F4"];
-    SortTime = "sort_time", "Sort by time", ["Ctrl+F5"];
-    SortSize = "sort_size", "Sort by size", ["Ctrl+F6"];
-    CopyPath = "copy_path", "Path to command line", ["Ctrl+Enter", "Ctrl+J"];
-    NewTab = "new_tab", "New tab", ["Ctrl+T"];
-    CloseTab = "close_tab", "Close tab", ["Ctrl+W"];
-    NextTab = "next_tab", "Next tab", ["Ctrl+Tab"];
-    PrevTab = "prev_tab", "Previous tab", ["Ctrl+Shift+Tab"];
-    TogglePreview = "toggle_preview", "Preview", ["Space"];
-    ToggleView = "toggle_view", "Details/columns/thumbnails", ["Alt+V"];
-    ToggleSidebar = "toggle_sidebar", "Sidebar", ["Ctrl+B"];
-    EditPath = "edit_path", "Edit path", ["Ctrl+L"];
+    // Moving, the most used first.
+    Open = "open", "Open", Moving, ["Enter"];
+    Up = "up", "Up", Moving, ["Up"];
+    Down = "down", "Down", Moving, ["Down"];
+    Parent = "parent", "Parent dir", Moving, ["Ctrl+PageUp", "Backspace"];
+    PageUp = "page_up", "Page up", Moving, ["PageUp", "Left"];
+    PageDown = "page_down", "Page down", Moving, ["PageDown", "Right"];
+    Home = "home", "First", Moving, ["Home"];
+    End = "end", "Last", Moving, ["End"];
+    Back = "back", "Back", Moving, ["Alt+Left"];
+    Forward = "forward", "Forward", Moving, ["Alt+Right"];
+    GotoLeft = "goto_left", "Left: go to", Moving, ["Alt+F1"];
+    GotoRight = "goto_right", "Right: go to", Moving, ["Alt+F2"];
+    EditPath = "edit_path", "Edit path", Moving, ["Ctrl+L"];
+    // Panels and tabs, the most used first.
+    SwitchPanel = "switch_panel", "Other panel", Panels, ["Tab"];
+    ToggleHidden = "toggle_hidden", "Hidden files", Panels, ["Alt+."];
+    Refresh = "refresh", "Reread", Panels, ["Ctrl+R"];
+    SameDir = "same_dir", "Other panel here", Panels, ["Alt+O"];
+    SwapPanels = "swap_panels", "Swap panels", Panels, ["Ctrl+U"];
+    TogglePanels = "toggle_panels", "Panels on/off", Panels, ["Ctrl+O"];
+    NewTab = "new_tab", "New tab", Panels, ["Ctrl+T"];
+    CloseTab = "close_tab", "Close tab", Panels, ["Ctrl+W"];
+    NextTab = "next_tab", "Next tab", Panels, ["Ctrl+Tab"];
+    PrevTab = "prev_tab", "Previous tab", Panels, ["Ctrl+Shift+Tab"];
+    ToggleView = "toggle_view", "Details/columns/thumbnails", Panels, ["Alt+V"];
+    ToggleSidebar = "toggle_sidebar", "Sidebar", Panels, ["Ctrl+B"];
+    SortName = "sort_name", "Sort by name", Panels, ["Ctrl+F3"];
+    SortExt = "sort_ext", "Sort by extension", Panels, ["Ctrl+F4"];
+    SortTime = "sort_time", "Sort by time", Panels, ["Ctrl+F5"];
+    SortSize = "sort_size", "Sort by size", Panels, ["Ctrl+F6"];
     // No key of its own: sizes appear by themselves (`folder_sizes`), and Ctrl+Space belongs
     // to the system on a Mac.
-    DirSizes = "dir_sizes", "Folder sizes", [];
-    BatchRename = "batch_rename", "Batch rename", ["Ctrl+M"];
-    Tag = "tag", "Colour tag", ["Alt+T"];
-    Notes = "notes", "Folder notes", ["Alt+N"];
-    Back = "back", "Back", ["Alt+Left"];
-    Forward = "forward", "Forward", ["Alt+Right"];
-    ClipCopy = "clip_copy", "Copy to clipboard", ["Ctrl+C"];
-    ClipCut = "clip_cut", "Cut to clipboard", ["Ctrl+X"];
-    Paste = "paste", "Paste", ["Ctrl+V"];
-    Properties = "properties", "Properties", ["Alt+Enter"];
-    Extract = "extract", "Extract archive", ["Ctrl+E"];
-    Pack = "pack", "Pack into an archive", ["Alt+F5"];
-    Columns = "columns", "Columns and folder sizes", [];
-    Duplicates = "duplicates", "Find duplicates", ["Ctrl+D"];
-    Settings = "settings", "Settings", ["Ctrl+,"];
-    History = "history", "Git history", ["Ctrl+G"];
+    DirSizes = "dir_sizes", "Folder sizes", Panels, [];
+    Columns = "columns", "Columns and folder sizes", Panels, [];
+    // Marking, the most used first.
+    Mark = "mark", "Mark", Marking, ["Insert", "Shift+Down"];
+    MarkAll = "mark_all", "Mark all", Marking, ["Ctrl+A"];
+    SelectGroup = "select_group", "Select group", Marking, ["+"];
+    UnselectGroup = "unselect_group", "Unselect group", Marking, ["-"];
+    InvertSelection = "invert_selection", "Invert selection", Marking, ["*"];
+    // Files, the most used first.
+    Copy = "copy", "Copy", Files, ["F5"];
+    Move = "move", "RenMov", Files, ["F6"];
+    Delete = "delete", "Delete", Files, ["F8", "Delete"];
+    Mkdir = "mkdir", "Mkdir", Files, ["F7"];
+    ClipCopy = "clip_copy", "Copy to clipboard", Files, ["Ctrl+C"];
+    ClipCut = "clip_cut", "Cut to clipboard", Files, ["Ctrl+X"];
+    Paste = "paste", "Paste", Files, ["Ctrl+V"];
+    DeleteForever = "delete_forever", "Delete permanently", Files, ["Shift+F8", "Shift+Delete"];
+    Properties = "properties", "Properties", Files, ["Alt+Enter"];
+    BatchRename = "batch_rename", "Batch rename", Files, ["Ctrl+M"];
+    Tag = "tag", "Colour tag", Files, ["Alt+T"];
+    // Archives, the most used first.
+    Extract = "extract", "Extract archive", Archives, ["Ctrl+E"];
+    Pack = "pack", "Pack into an archive", Archives, ["Alt+F5"];
+    // Search, the most used first.
+    Search = "search", "Find file", Search, ["Alt+F7", "Ctrl+F"];
+    SearchText = "search_text", "Search inside files", Search, ["Shift+F7", "Ctrl+Shift+F"];
+    Ask = "ask", "Ask your files", Search, ["Ctrl+F7"];
+    Duplicates = "duplicates", "Find duplicates", Search, ["Ctrl+D"];
+    // Git, the most used first.
+    History = "history", "Git history", Git, ["Ctrl+G"];
+    // Viewing and editing, the most used first.
+    View = "view", "View", Viewing, ["F3"];
+    Edit = "edit", "Edit", Viewing, ["F4"];
+    TogglePreview = "toggle_preview", "Preview", Viewing, ["Space"];
+    CopyPath = "copy_path", "Path to command line", Viewing, ["Ctrl+Enter", "Ctrl+J"];
+    UserMenu = "user_menu", "Menu", Viewing, ["F2"];
+    Notes = "notes", "Folder notes", Viewing, ["Alt+N"];
+    // App, the most used first.
+    Help = "help", "Help", App, ["F1"];
+    Menu = "menu", "PullDn", App, ["F9"];
+    Settings = "settings", "Settings", App, ["Ctrl+,"];
+    Quit = "quit", "Quit", App, ["F10"];
 }
 
 impl Action {
@@ -1093,6 +1121,16 @@ impl Config {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn every_action_is_in_a_named_group() {
+        // The table makes a group compulsory; this checks each one is used and has a heading.
+        for &g in Group::ALL {
+            assert!(g.actions().next().is_some(), "{g:?} is empty");
+            assert!(!g.label().starts_with("group."), "{g:?} has no heading");
+        }
+        assert_eq!(Group::ALL.iter().map(|g| g.actions().count()).sum::<usize>(), Action::ALL.len());
+    }
 
     #[test]
     fn preview_images_keep_defaults() {

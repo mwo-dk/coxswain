@@ -365,9 +365,10 @@ fn dialog(f: &mut Frame, app: &mut App) {
             f.render_widget(Paragraph::new(text.as_str()).wrap(Wrap { trim: false }), inner);
         }
         Dialog::Help { scroll } => {
-            let area = centered(full, 72, full.height.saturating_sub(4));
-            let inner = frame(f, app, area, &t!("help.title"));
-            f.render_widget(Paragraph::new(help_text(app)).scroll((*scroll, 0)), inner.inner(ratatui::layout::Margin::new(1, 0)));
+            let area = centered(full, 120, full.height.saturating_sub(4));
+            let inner = frame(f, app, area, &t!("help.title")).inner(ratatui::layout::Margin::new(1, 0));
+            let text = help_text(app, inner.width as usize);
+            f.render_widget(Paragraph::new(text).wrap(Wrap { trim: false }).scroll((*scroll, 0)), inner);
         }
         Dialog::Menu { title, filter, items, cursor, direct } => {
             let visible: Vec<_> = items.iter().filter(|it| it.label.to_lowercase().contains(&filter.to_lowercase())).collect();
@@ -419,7 +420,7 @@ fn search(f: &mut Frame, app: &mut App, full: Rect) {
 
     if *mode == 3 {
         let cursor = *cursor;
-        return ask(f, &app.chat, app.ask_rx.is_some(), &app.cfg.search, &t, cursor, info, list, help);
+        return ask(f, &app.chat, app.ask_rx.is_some(), app.ask_problem.as_deref(), &app.cfg.search, &t, cursor, info, list, help);
     }
     let st = match state {
         State::Stale => t!("search.refreshing"),
@@ -505,7 +506,7 @@ fn search(f: &mut Frame, app: &mut App, full: Rect) {
 /// Ask in Find file: each question, its answer as it comes, and its numbered sources; the
 /// newest at the bottom, in sight.
 #[allow(clippy::too_many_arguments)]
-fn ask(f: &mut Frame, chat: &[crate::Turn], asking: bool, search: &coxswain_core::config::SearchConfig, t: &config::Theme, cursor: usize, info: Rect, list: Rect, help: Rect) {
+fn ask(f: &mut Frame, chat: &[crate::Turn], asking: bool, problem: Option<&str>, search: &coxswain_core::config::SearchConfig, t: &config::Theme, cursor: usize, info: Rect, list: Rect, help: Rect) {
     let dim = dstyle(t).add_modifier(Modifier::DIM);
     let ready = search.meaning && !search.ask_model.is_empty();
     let msg = if !search.meaning {
@@ -515,7 +516,11 @@ fn ask(f: &mut Frame, chat: &[crate::Turn], asking: bool, search: &coxswain_core
     } else {
         t!("dialogs.ask_hint", "model" => search.ask_model.as_str())
     };
-    f.render_widget(Paragraph::new(msg).style(if ready { dstyle(t) } else { dim }), info);
+    // A chat model that cannot answer is named as such, and Enter does not try it.
+    match problem.filter(|_| ready) {
+        Some(why) => f.render_widget(Paragraph::new(why.to_string()).style(dstyle(t).fg(Color::Red)).wrap(Wrap { trim: true }), info),
+        None => f.render_widget(Paragraph::new(msg).style(if ready { dstyle(t) } else { dim }), info),
+    }
     let hit = sty(&t.search_hit);
     let mut lines: Vec<Line> = vec![];
     for (i, turn) in chat.iter().enumerate() {
@@ -546,20 +551,63 @@ fn ask(f: &mut Frame, chat: &[crate::Turn], asking: bool, search: &coxswain_core
     f.render_widget(Paragraph::new(t!("tui.ask_footer")).centered(), help);
 }
 
+/// Group blocks (a bold heading, then `label  keys` rows, a blank line between groups), laid
+/// out in two columns when both fit in `width`, else in one.
+fn key_columns(groups: &[(String, Vec<(String, String)>)], width: usize) -> Vec<Line<'static>> {
+    let lw = groups.iter().flat_map(|(_, r)| r).map(|(l, _)| l.width()).max().unwrap_or(0);
+    let block = |(head, rows): &(String, Vec<(String, String)>)| {
+        let mut b = vec![(head.clone(), true)];
+        b.extend(rows.iter().map(|(l, k)| (format!("  {l}{} {k}", " ".repeat(lw - l.width())), false)));
+        b
+    };
+    let blocks: Vec<Vec<(String, bool)>> = groups.iter().map(block).collect();
+    let join = |bs: &[Vec<(String, bool)>]| bs.join(&(String::new(), false));
+    let cw = blocks.iter().flatten().map(|(t, _)| t.width()).max().unwrap_or(0);
+    let line = |(t, head): &(String, bool)| if *head { Line::from(Span::raw(t.clone()).bold()) } else { Line::from(t.clone()) };
+    if blocks.len() < 2 || width < 2 * cw + 3 {
+        return join(&blocks).iter().map(line).collect();
+    }
+    // Split where the taller column is shortest.
+    let rows = |bs: &[Vec<(String, bool)>]| join(bs).len();
+    let k = (1..blocks.len()).min_by_key(|&k| rows(&blocks[..k]).max(rows(&blocks[k..]))).unwrap_or(1);
+    let (left, right) = (join(&blocks[..k]), join(&blocks[k..]));
+    let blank = (String::new(), false);
+    (0..left.len().max(right.len()))
+        .map(|i| {
+            let (l, r) = (left.get(i).unwrap_or(&blank), right.get(i).unwrap_or(&blank));
+            let mut spans = line(l).spans;
+            spans.push(Span::raw(" ".repeat(cw + 3 - l.0.width())));
+            spans.extend(line(r).spans);
+            Line::from(spans)
+        })
+        .collect()
+}
+
 fn dstyle(t: &config::Theme) -> Style {
     sty(&t.dialog)
 }
 
-fn help_text(app: &App) -> Vec<Line<'static>> {
+/// The help text, its keys under the group headings, in two columns when `width` allows.
+fn help_text(app: &App, width: usize) -> Vec<Line<'static>> {
     let mut v = vec![
         Line::from(t!("help.tagline", "version" => coxswain_core::update::VERSION)).bold(),
         Line::from(""),
         Line::from(t!("help.keys")).bold(),
+        Line::from(""),
     ];
-    for &a in Action::ALL.iter().filter(|a| !a.gui_only()) {
-        let keys = app.cfg.keys.get(&a).map(|k| k.join(", ")).unwrap_or_default();
-        v.push(Line::from(format!("  {:<22} {keys}", a.label())));
-    }
+    let groups: Vec<(String, Vec<(String, String)>)> = config::Group::ALL
+        .iter()
+        .map(|g| {
+            let rows = g
+                .actions()
+                .filter(|a| !a.gui_only())
+                .map(|a| (a.label(), app.cfg.keys.get(&a).map(|k| k.join(", ")).unwrap_or_default()))
+                .collect();
+            (g.label(), rows)
+        })
+        .filter(|(_, rows): &(String, Vec<_>)| !rows.is_empty())
+        .collect();
+    v.extend(key_columns(&groups, width));
     v.push(Line::from(""));
     for k in ["help.also1", "help.also2", "help.also3", "help.bom", "help.history"] {
         v.push(Line::from(t!(k, "key" => app.key_label(Action::History))));
@@ -584,4 +632,22 @@ fn help_text(app: &App) -> Vec<Line<'static>> {
     v.push(Line::from(t!("help.config", "path" => config::Config::path().map(|p| p.display().to_string()).unwrap_or_default())));
     v.push(Line::from(t!("help.dump")));
     v
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn help_keys_take_two_columns_when_wide() {
+        let g = |h: &str, n: usize| (h.to_string(), (0..n).map(|i| (format!("act{i}"), "F1".to_string())).collect::<Vec<_>>());
+        let groups = [g("A", 3), g("B", 1), g("C", 2)];
+        let text = |w| key_columns(&groups, w).iter().map(|l| l.to_string()).collect::<Vec<_>>();
+        let narrow = text(20);
+        assert_eq!(narrow.len(), 4 + 2 + 3 + 2, "one column: headings, rows and two blank lines");
+        let wide = text(80);
+        assert_eq!(wide.len(), 6, "A beside B and C");
+        assert!(wide[0].starts_with('A') && wide[0].trim_end().ends_with('B'), "{wide:?}");
+        assert!(wide.iter().all(|l| l.width() <= 80));
+    }
 }
