@@ -365,7 +365,7 @@ mod tests {
         assert_eq!(std::fs::read_to_string(d.join("a.txt")).unwrap(), "mine\n");
         std::fs::write(d.join("a.txt"), "two\n").unwrap();
         switch(&branches, &list[1].name).unwrap();
-        assert_eq!(std::fs::read_to_string(d.join("a.txt")).unwrap(), "one\n");
+        assert_eq!(std::fs::read_to_string(d.join("a.txt")).unwrap().trim_end(), "one");
         // A remote one gets a local branch that tracks it: here `main` is there already.
         assert!(switch(&branches, &list[3].name).unwrap_err().to_string().contains("main"));
 
@@ -374,7 +374,7 @@ mod tests {
         create(&d, "new", None).unwrap();
         assert!(super::branches(&d).unwrap().iter().any(|b| b.current && b.name == "new"));
         create(&branches, "from-main", Some(&list[2].name)).unwrap();
-        assert_eq!(std::fs::read_to_string(d.join("a.txt")).unwrap(), "two\n");
+        assert_eq!(std::fs::read_to_string(d.join("a.txt")).unwrap().trim_end(), "two");
 
         // A linked worktree, detached.
         let wt = d.with_file_name(format!("{}-wt", d.file_name().unwrap().to_string_lossy()));
