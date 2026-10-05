@@ -32,7 +32,7 @@ numbers measured on synthetic data, so you know what to expect and can measure a
   written in the last three seconds (a download) waits until it has settled.
 - **Search by meaning on a Mac** runs the built-in model on the GPU through Metal, in batches of
   up to 32 passages, when its results match the CPU's. See [On a Mac's GPU](../search/meaning.md#on-a-macs-gpu).
-- **Search by meaning reads only what it shows:** the few hundred closest passages are ranked
+- **Search by meaning reads only what it shows:** the thousand closest passages are ranked
   by their vectors alone, and the text of a file is read only when one of its passages is
   among the hits.
 - **Git's walk never holds a listing:** a folder sorted by commit lists by name at once when
@@ -183,6 +183,53 @@ vectors from an embedding server that answers at once (so the store's own work i
 | Ask: Esc while the model loads | waited for the first word, up to five minutes | stops within 100 ms; Ollama loads the model while the sources are looked up |
 | Name index after many archive edits | the entries left behind stayed until the hourly rebuild | rebuilt when a quarter of the nodes are gone |
 
+### Search by meaning: whole documents
+
+Since 1.39.0 every passage of a file gets a vector (up to 256 a file), where before only the
+first 8 did. That is more vectors to keep, sieve and make; measured on a laptop with 22 cores
+and an RTX 4070 Laptop GPU.
+
+**A large store**: 20,000 files of 100 passages each, 2 million vectors of 1,024 numbers
+(bge-m3's), made by `perf_meaning_large_store` in `store.rs`:
+
+| What | Number |
+|---|---|
+| `search.db` | 4.1 GB (2 GB of it the vectors, a byte a number) |
+| The signs in memory (one bit a number, plus 9 bytes a passage) | 274 MB (114 MB with the built-in model's 384 numbers) |
+| Reading the signs from the store, once per start of the helper (after its first pass, in the background) | 10 s |
+| The sieve over 2 million passages, on all cores | 5–9 ms |
+| Scoring the 1,000 kept by their full vectors | 6–8 ms |
+| Cutting a 30,000-word text into its passages (for each file shown) | 0.6 ms |
+
+A search by meaning on such a store takes about 20 ms besides the question's own vector. The
+signs are read on a connection of their own, so word search goes on meanwhile, and they are
+kept up to date as files change, without reading them again.
+
+**Finding the right file** (`meaning_eval`, ignored, in `crates/coxswain-core/tests/`): this
+documentation's 93 pages (123,000 words, 31 of them longer than 1,500 words) as the files, and
+34 questions whose answers lie past the first 960 words of their page, 9 of them in Danish and
+2 that name the page more than its words. The questions paraphrase the sections' headings, so
+they are on the easy side once the section has a vector:
+
+| Engine | Before (first 960 words) recall@1 / @5 / MRR | After (whole documents) |
+|---|---|---|
+| Built-in model, CPU | 0.47 / 0.59 / 0.54 | 0.88 / 0.97 / 0.92 |
+| Ollama bge-m3, GPU | 0.47 / 0.74 / 0.61 | 1.00 / 1.00 / 1.00 |
+
+**What it costs**, on the same 93 pages, per 1,000 files of that kind, with *Index now* (no
+rests):
+
+| Engine | First pass before | After | `search.db` before | After |
+|---|---|---|---|---|
+| Built-in model, CPU (two threads) | 40 min | 60 min | 16 MB | 21 MB |
+| Ollama bge-m3, RTX 4070 Laptop GPU | 1.9 min | 3.9 min | 23 MB | 40 MB |
+
+On the CPU the built-in model takes a file's passages 8 at a time (on a Mac's GPU 32): 15
+passages of 100 words a second on its two threads, where one by one gave 12
+(`perf_meaning_cpu_and_gpu`). Without *Index now*, the helper rests as long as it worked, so
+the first pass takes about twice as long. Short files cost what they did: a file of up to 960 words has the same passages as
+before, plus the line with its name.
+
 ## Search quality
 
 How often search by meaning and Ask find the right file, measured on 5 October 2026 (before any
@@ -254,6 +301,25 @@ for 23 of 32.
 | words | 1.00 | 1.00 | 3 of 3 |
 | diagram | 1.00 | 1.00 | 2 of 2 |
 
+**After 1.39.0** (whole documents, the name line, the bonus for several close passages, and
+for bge-m3 and other models that are not e5 a cut-off measured on this corpus: at least 0.45
+and within 0.15 of the best, where it was 0.5 and 0.10), the same corpus and questions:
+
+| List | Built-in recall@1 / @5 / MRR | bge-m3 recall@1 / @5 / MRR |
+|---|---|---|
+| Meaning alone | 0.78 / 0.94 / 0.84 (was 0.69 / 0.91 / 0.78) | 0.97 / 1.00 / 0.98 (was 0.75 / 0.81 / 0.78) |
+| Combined list | 0.78 / 0.94 / 0.84 (was 0.69 / 0.91 / 0.78) | 0.97 / 1.00 / 0.98 (was 0.78 / 0.84 / 0.81) |
+| Ask: the right file among the 10 passages | 30 of 32 (was 31) | 32 of 32 (was 26) |
+| Ask: the passage that answers | 29 of 32 (was 24) | 31 of 32 (was 23) |
+| Ask, *late* questions | 5 of 6 (was 0) | 6 of 6 (was 0) |
+| Files shown by meaning, on average | 10.8 | 2.3 (no question without one; was 1 for 19 questions and 0 for 6) |
+
+The scores behind the cut-off: e5 gives unrelated text 0.76–0.82 and the answer 0.81–0.91;
+bge-m3 unrelated text 0.30–0.55 and the answer 0.48–0.72. At 0.5, bge-m3 dropped the diagram
+answer (0.48); within 0.10 or 0.20 of the best made no other difference on this corpus. The
+weaknesses below are as measured before 1.39.0; the first, the fourth and the fifth are what it
+mends.
+
 **What is weak, by these numbers:**
 
 - **Answers past the first 960 words are never sent to Ask** (0 of 6 with either model). A
@@ -269,7 +335,7 @@ for 23 of 32.
   would push a better meaning hit down.
 - **bge-m3 shows too few meaning hits**: one file for 19 of 32 questions and none for 6. The
   cut-off (scores at least 0.5, and within 0.10 of the best) was set from e5's and bge-m3's
-  scores on a few examples; on this corpus it drops right answers. The built-in model, with
+  scores on a few examples; on this corpus it drops right answers (1.39.0: 0.45 and 0.15). The built-in model, with
   its own cut-off, shows 3–20 files.
 - **File names and folders are not in the passages**: *my cv* and *invoices from 2025* are
   found because the text says *Data engineer* and *INVOICE*, not because of

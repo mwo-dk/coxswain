@@ -191,7 +191,7 @@ mod tests {
         assert!(read.ends_with(md), "the text stays");
         // The sentences come first, so a long file's arrows still get vectors.
         let long = format!("{}\n{md}", "words ".repeat(2000));
-        assert!(crate::meaning::passages(&markdown(long)).first().is_some_and(|p| p.starts_with("App to Entra ID.")));
+        assert!(crate::meaning::passages(&markdown(long), true).first().is_some_and(|p| p.text.starts_with("App to Entra ID.")));
         assert_eq!(said(&read), ["App to Entra ID.", "Not a diagram: a --> b"].map(String::from).into_iter().filter(|s| s.ends_with('.')).collect::<Vec<_>>());
         assert_eq!(mermaid("just words, no arrows".into()), "just words, no arrows");
     }

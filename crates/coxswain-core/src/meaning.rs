@@ -31,9 +31,15 @@ const FILES: &[(&str, &str, u64)] = &[
 ];
 /// Numbers per vector of the built-in model. A server's model has its own count.
 pub const DIMS: usize = 384;
-/// Words per passage, and passages per file: the start of a long document says what it is about.
+/// Words per passage, the words two passages cut inside a paragraph share, and passages per
+/// file at most: about 25,000 words; of a longer file, the start, the end, the headings and
+/// passages evenly between.
 const WORDS: usize = 120;
-const PASSAGES: usize = 8;
+const OVERLAP: usize = 20;
+pub const PASSAGES: usize = 256;
+/// How a file is cut into passages and what the model is shown of each: vectors made another
+/// way are made again (the store keeps it in its meta as `passages`).
+pub const SCHEME: &str = "2";
 
 /// Where the model is kept: the cache folder, next to the search store.
 pub fn folder() -> Option<PathBuf> {
@@ -111,8 +117,10 @@ pub fn remove() -> io::Result<()> {
     }
 }
 
-/// Passages per pass on the GPU: one pass over many is what makes it quick there.
+/// Passages per pass on the GPU: one pass over many is what makes it quick there. On the CPU
+/// fewer: a long file's passages still go faster than one by one, with little padding.
 const BATCH: usize = 32;
+const CPU_BATCH: usize = 8;
 /// A sentence both devices turn into a vector when the model loads: the GPU's must be the CPU's.
 const PROBE: &str = "passage: The fuel budget for flight seven is the largest cost of the launch, \
     more than the rocket itself, the crew, the launch pad and the weather station together. The team \
@@ -305,22 +313,23 @@ impl Embedder {
         self.embed(&texts).into_iter().map(|v| if v.is_empty() { vec![0.0; DIMS] } else { v }).collect()
     }
 
-    /// The vectors of `texts`, empty where there is none: on the GPU in batches, on the CPU
-    /// one by one. A GPU that fails moves the model to the CPU for the rest of the run.
+    /// The vectors of `texts`, empty where there is none, in batches. A GPU that fails moves
+    /// the model to the CPU for the rest of the run.
     fn embed(&self, texts: &[&str]) -> Vec<Vec<f32>> {
         self.pool.install(|| {
             let bert = self.bert.read().unwrap().clone();
-            if !bert.device.is_metal() {
-                return texts.iter().map(|t| bert.vectors(&self.tokenizer, self.pad, &[t]).ok().and_then(|mut v| v.pop()).unwrap_or_default()).collect();
-            }
+            let size = if bert.device.is_metal() { BATCH } else { CPU_BATCH };
             let mut out = Vec::with_capacity(texts.len());
-            for batch in texts.chunks(BATCH) {
+            for batch in texts.chunks(size) {
                 match bert.vectors(&self.tokenizer, self.pad, batch) {
                     Ok(v) => out.extend(v),
                     Err(e) if self.to_cpu(e.to_string()) => {
                         out.extend(self.embed(&texts[out.len()..]));
                         break;
                     }
+                    // On the CPU a batch that fails goes one by one: a passage the model cannot
+                    // take costs only itself.
+                    Err(_) if !bert.device.is_metal() => out.extend(batch.iter().map(|t| bert.vectors(&self.tokenizer, self.pad, &[t]).ok().and_then(|mut v| v.pop()).unwrap_or_default())),
                     Err(_) => {
                         out.resize(texts.len(), vec![]);
                         break;
@@ -431,19 +440,46 @@ impl Engine {
     pub fn passages(&self, texts: &[String]) -> Result<Vec<Vec<f32>>, NoVectors> {
         match self {
             Engine::Builtin(e) => Ok(e.passages(texts)),
-            Engine::Server(s) => s.embed(&texts.iter().map(|t| format!("{}{t}", s.prefix().1)).collect::<Vec<_>>()),
+            // A long file's passages go 32 at a time: a server on a CPU answers each in time.
+            Engine::Server(s) => {
+                let mut out = Vec::with_capacity(texts.len());
+                for part in texts.chunks(32) {
+                    out.extend(s.embed(&part.iter().map(|t| format!("{}{t}", s.prefix().1)).collect::<Vec<_>>())?);
+                }
+                Ok(out)
+            }
         }
     }
 
     /// The least score of a passage worth showing, by what this model's scores look like:
-    /// e5 puts unrelated text near 0.75, most others near 0.3.
-    // ponytail: two numbers from trying e5 and bge-m3; a model with odd scores wants its own.
+    /// e5 puts unrelated text at 0.76–0.82 and an answer at 0.81–0.91; bge-m3 unrelated text
+    /// at 0.30–0.55 and an answer at 0.48–0.72 (`tests/search_quality.rs`).
+    // ponytail: measured for e5 and bge-m3; a model with odd scores wants its own.
     pub fn floor(&self) -> f32 {
+        if self.is_e5() { 0.77 } else { 0.45 }
+    }
+
+    /// How far below the best passage another is still shown: e5's scores sit close together.
+    pub fn window(&self) -> f32 {
+        if self.is_e5() { 0.10 } else { 0.15 }
+    }
+
+    fn is_e5(&self) -> bool {
         match self {
-            Engine::Builtin(_) => 0.77,
-            Engine::Server(s) if s.model.contains("e5") => 0.77,
-            Engine::Server(_) => 0.5,
+            Engine::Builtin(_) => true,
+            Engine::Server(s) => s.model.contains("e5"),
         }
+    }
+}
+
+/// A time to wait, in words: "a minute", "40 minutes", "3 hours".
+pub fn about(secs: f64) -> String {
+    if secs < 60.0 {
+        crate::t!("search.meaning_change_moment")
+    } else if secs < 5400.0 {
+        crate::t!("search.meaning_change_minutes", "n" => (secs / 60.0).ceil() as u64)
+    } else {
+        crate::t!("search.meaning_change_hours", "n" => (secs / 3600.0).ceil() as u64)
     }
 }
 
@@ -495,14 +531,14 @@ pub fn change_notice(old: &crate::config::SearchConfig, new: &crate::config::Sea
     if matches!((digest(old), digest(new)), (Some(a), Some(b)) if a == b) {
         return None;
     }
-    let sample: Vec<String> = (0..PASSAGES).map(|i| format!("Passage {i} of a long file: the budget, the launch plan and the notes from the meeting, written out in plain words. ").repeat(WORDS / 20)).collect();
+    let sample: Vec<String> = (0..8).map(|i| format!("Passage {i} of a long file: the budget, the launch plan and the notes from the meeting, written out in plain words. ").repeat(WORDS / 20)).collect();
     let start = std::time::Instant::now();
     match Engine::from_config(new).map(|e| e.passages(&sample)) {
         Some(Ok(_)) => {
-            // ponytail: one long file timed; most files are shorter, so this errs on the long side.
+            // ponytail: a file of eight passages timed; long files have up to 256, so a store of
+            // long documents takes longer than said.
             let secs = start.elapsed().as_secs_f64() * done as f64;
-            let time = if secs < 60.0 { crate::t!("search.meaning_change_moment") } else if secs < 5400.0 { crate::t!("search.meaning_change_minutes", "n" => (secs / 60.0).ceil() as u64) } else { crate::t!("search.meaning_change_hours", "n" => (secs / 3600.0).ceil() as u64) };
-            Some(crate::t!("search.meaning_change", "n" => done, "time" => time))
+            Some(crate::t!("search.meaning_change", "n" => done, "time" => about(secs)))
         }
         _ => Some(crate::t!("search.meaning_change_untimed", "n" => done)),
     }
@@ -816,11 +852,91 @@ pub fn ollama_pull(url: &str, model: &str, p: &Progress) -> io::Result<()> {
     Ok(())
 }
 
-/// The passages of a text that get a vector: about `WORDS` words each, `PASSAGES` at most.
-pub fn passages(text: &str) -> Vec<String> {
-    // Only the words that can be used: a long text is not split to its end.
-    let words: Vec<&str> = text.split_whitespace().take(WORDS * PASSAGES).collect();
-    words.chunks(WORDS).take(PASSAGES).map(|c| c.join(" ")).filter(|p| p.chars().filter(|c| c.is_alphabetic()).count() >= 20).collect()
+/// A passage of a file, and the Markdown heading it sits under ("" for none).
+#[derive(Debug, Clone, PartialEq)]
+pub struct Passage {
+    pub text: String,
+    pub heading: String,
+}
+
+/// The passages of a text that get a vector: about `WORDS` words each, cut at headings
+/// (`markdown`) and at the end of a paragraph once half full, otherwise inside it with
+/// `OVERLAP` words shared; `PASSAGES` at most. The same text always gives the same passages:
+/// a vector is found again by its number.
+pub fn passages(text: &str, markdown: bool) -> Vec<Passage> {
+    // (passage, whether it starts a section)
+    let mut all: Vec<(Passage, bool)> = vec![];
+    let (mut cur, mut fresh, mut heading, mut starts, mut code) = (Vec::<&str>::new(), 0, "", true, false);
+    let mut flush = |cur: &mut Vec<&str>, fresh: &mut usize, heading: &str, starts: &mut bool, keep: usize| {
+        if *fresh > 0 {
+            all.push((Passage { text: cur.join(" "), heading: heading.to_string() }, *starts));
+            *starts = false;
+        }
+        cur.drain(..cur.len() - keep.min(cur.len()));
+        *fresh = 0;
+    };
+    for line in text.lines() {
+        let line = line.trim();
+        let hashes = line.len() - line.trim_start_matches('#').len();
+        let mut words = line;
+        // A `# comment` in a fenced block of code is no heading.
+        code ^= markdown && (line.starts_with("```") || line.starts_with("~~~"));
+        if markdown && !code && (1..=6).contains(&hashes) && line[hashes..].starts_with(' ') {
+            flush(&mut cur, &mut fresh, heading, &mut starts, 0);
+            heading = line[hashes..].trim();
+            words = heading;
+            starts = true;
+        } else if line.is_empty() && cur.len() >= WORDS / 2 {
+            flush(&mut cur, &mut fresh, heading, &mut starts, 0);
+        }
+        for w in words.split_whitespace() {
+            cur.push(w);
+            fresh += 1;
+            if cur.len() == WORDS {
+                flush(&mut cur, &mut fresh, heading, &mut starts, OVERLAP);
+            }
+        }
+    }
+    flush(&mut cur, &mut fresh, heading, &mut starts, 0);
+    all.retain(|(p, _)| p.text.chars().filter(|c| c.is_alphabetic()).count() >= 20);
+    let n = all.len();
+    if n <= PASSAGES {
+        return all.into_iter().map(|(p, _)| p).collect();
+    }
+    // Too long: the start and the end, the first passage of each section (up to half), and
+    // passages evenly spread over the rest.
+    let mut keep = vec![false; n];
+    for i in (0..16).chain(n - 4..n) {
+        keep[i] = true;
+    }
+    let heads: Vec<usize> = (0..n).filter(|&i| all[i].1).collect();
+    let m = heads.len().min(PASSAGES / 2);
+    for k in 0..m {
+        keep[heads[k * heads.len() / m]] = true;
+    }
+    let rest: Vec<usize> = (0..n).filter(|&i| !keep[i]).collect();
+    let left = PASSAGES - (n - rest.len());
+    for k in 0..left {
+        keep[rest[k * rest.len() / left]] = true;
+    }
+    all.into_iter().zip(keep).filter(|(_, k)| *k).map(|((p, _), _)| p).collect()
+}
+
+/// Whether a file's text is Markdown, whose `#` lines are headings.
+pub fn is_markdown(path: &str) -> bool {
+    let ext = path.rsplit('.').next().unwrap_or("").to_ascii_lowercase();
+    matches!(ext.as_str(), "md" | "markdown" | "mdx")
+}
+
+/// What the model is shown of a passage: a line with the file's name, its folder and the
+/// heading, so a question that names them finds it, then the passage.
+pub fn shown_to_model(path: &str, p: &Passage) -> String {
+    let path = std::path::Path::new(path);
+    let name = path.file_name().map(|n| n.to_string_lossy()).unwrap_or_default();
+    let folder: Vec<_> = path.parent().into_iter().flat_map(|d| d.iter().rev().take(2)).map(|c| c.to_string_lossy()).collect();
+    let folder = folder.into_iter().rev().collect::<Vec<_>>().join("/");
+    let heading = if p.heading.is_empty() { String::new() } else { format!(" · {}", p.heading) };
+    format!("{name} · {folder}{heading}\n{}", p.text)
 }
 
 /// A vector in its length plus 4 bytes: its numbers as signed bytes of its largest one, then
@@ -1073,7 +1189,7 @@ mod tests {
         let old = crate::config::SearchConfig { meaning_engine: "ollama".into(), meaning_url: "http://127.0.0.1:9".into(), meaning_model: "bge-m3".into(), ..Default::default() };
         let tagged = crate::config::SearchConfig { meaning_model: "bge-m3:latest".into(), ..old.clone() };
         assert_eq!(change_notice(&old, &tagged, 3437), None);
-        let vectors = format!("{{\"data\":[{}]}}", vec!["{\"embedding\":[0.6,0.8]}"; PASSAGES].join(","));
+        let vectors = format!("{{\"data\":[{}]}}", ["{\"embedding\":[0.6,0.8]}"; 8].join(","));
         let (url, server) = one_answer("200 OK", &vectors);
         let other = crate::config::SearchConfig { meaning_engine: "openai".into(), meaning_url: url, meaning_model: "nomic".into(), ..old.clone() };
         assert_eq!(change_notice(&old, &other, 0), None, "no vectors, nothing to lose");
@@ -1136,10 +1252,42 @@ mod tests {
         assert_eq!(alike(&signs(&pack(&a)), &signs(&pack(&a))), DIMS as u32);
         assert_eq!(score(&[1, 2, 3], &a), 0.0, "a broken vector scores nothing");
 
-        let text = "word ".repeat(1000);
-        assert_eq!(passages(&text).len(), PASSAGES);
-        assert_eq!(passages("too short to mean much").len(), 0);
+        assert_eq!(passages("too short to mean much", false).len(), 0);
         assert!(size() > 400_000_000);
+    }
+
+    /// A whole document is cut into passages: every word is in one, a cut inside a paragraph
+    /// shares words with the passage before, and a Markdown heading starts a passage and is
+    /// shown to the model with it. A longer one than the cap keeps its start, end and headings.
+    #[test]
+    fn passages_cover_the_whole_document() {
+        let text: String = (0..30).map(|p| (0..90).map(|w| format!("w{p}x{w}")).collect::<Vec<_>>().join(" ") + "\n\n").collect();
+        let ps = passages(&text, false);
+        for word in text.split_whitespace() {
+            assert!(ps.iter().any(|p| p.text.split(' ').any(|w| w == word)), "{word} is in no passage");
+        }
+        assert!(ps.iter().all(|p| p.text.split(' ').count() <= WORDS));
+        // 90-word paragraphs: a passage each. One paragraph of 300 words: cut with 20 shared.
+        assert!(ps[0].text.starts_with("w0x0 ") && ps[0].text.ends_with(" w0x89") && ps[1].text.starts_with("w1x0 "));
+        let one = (0..300).map(|w| format!("x{w}")).collect::<Vec<_>>().join(" ");
+        let ps = passages(&one, false);
+        assert_eq!(ps.iter().map(|p| p.text.split(' ').next().unwrap()).collect::<Vec<_>>(), ["x0", "x100", "x200"]);
+
+        let md = format!("# Fuel\n\n{}\n\n```sh\n# not a heading\n```\n\n## Launch window\n\n{}\n", "tanks fuel budget kerosene ".repeat(20), "the window opens at dawn ".repeat(10));
+        let ps = passages(&md, true);
+        assert_eq!(ps.iter().map(|p| p.heading.as_str()).collect::<Vec<_>>(), ["Fuel", "Launch window"]);
+        assert!(ps[1].text.starts_with("Launch window the window"), "{}", ps[1].text);
+        assert_eq!(shown_to_model("/home/u/rocket/notes/plan.md", &ps[1]).lines().next(), Some("plan.md · rocket/notes · Launch window"));
+        assert!(passages(&md, false).iter().all(|p| p.heading.is_empty()), "a # in code is no heading");
+
+        // 60,000 words with a heading every 2,000: the cap, the first and the last passage, and
+        // every heading.
+        let long: String = (0..30).map(|s| format!("# Part {s}\n\n{}\n\n", (0..2000).map(|w| format!("p{s}w{w}")).collect::<Vec<_>>().join(" "))).collect();
+        let all = passages(&long, true);
+        assert_eq!(all.len(), PASSAGES);
+        assert!(all[0].text.contains("p0w0") && all.last().unwrap().text.contains("p29w1999"));
+        assert!((0..30).all(|s| all.iter().any(|p| p.text.contains(&format!("p{s}w0 ")))), "every part's start");
+        assert_eq!(passages(&long, true), all, "the same text, the same passages");
     }
 
     /// With the model downloaded: a question finds the passage about it, across languages.

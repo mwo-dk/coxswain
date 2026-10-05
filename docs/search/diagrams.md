@@ -111,10 +111,10 @@ start of the passage. To see the diagram itself, **Enter** to go to it and **Spa
   sentence; the diagram's text is always kept, so its words are still found.
 - At most 2,000 sentences per diagram: a generated graph can have thousands of arrows.
 - In draw.io, an arrow whose ends are not both shapes with labels gives no sentence.
-- Search by meaning gives vectors to the start of each file only (eight passages of about 120
-  words). The sentences come first, so a long diagram or Markdown file is still found by its
-  arrows; a generated graph with hundreds of arrows can crowd its own text out of that start
-  (its words are still found by words).
+- Search by meaning gives vectors to the whole text, up to 256 passages of about 120 words. The
+  sentences come first, so a diagram is found by its arrows even in a file longer than that; a
+  generated graph with thousands of arrows can take most of those passages itself (its words are
+  still found by words).
 
 ## Settings and config.toml
 

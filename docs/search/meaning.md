@@ -45,10 +45,12 @@ where it runs: `Built-in model · on the GPU (Metal)`.
 
 ## What you see
 
-**In Find file**, a hit found by meaning shows the start of the passage that was close (up to 24
-words), marked *similar to:*. Only files close to the best match are shown (within a tenth of its
-score, and above what unrelated text scores), so unrelated files stay out. A file found by both its
-words and its meaning is shown once, as a word hit.
+**In Find file**, a hit found by meaning shows the start of the passage that was closest (up to 24
+words), marked *similar to:*, wherever in the document that passage is. Only files close to the
+best match are shown (within 0.10 of its score with the built-in model, 0.15 with bge-m3 and
+other server models, and above what unrelated text scores: 0.77 and 0.45), so unrelated files
+stay out. A file found by both its words and its meaning is shown once, as a word
+hit.
 
 **In Settings → Search by meaning**, from top to bottom:
 
@@ -60,7 +62,9 @@ words and its meaning is shown once, as a word hit.
   OpenAI API (Lemonade, LM Studio, llama.cpp …)*. The last two are on [their own page](servers.md).
 - While on: *Understood: 8,120 files · still to go: 23,088*, where the built-in model runs in
   bold (*Built-in model · on the GPU (Metal)*, *Built-in model · on the CPU*, or on a Mac that could
-  not use its GPU *Built-in model · on the CPU (this Mac has no Metal GPU to use)*), the model in use
+  not use its GPU *Built-in model · on the CPU (this Mac has no Metal GPU to use)*); while the vectors are being
+  [renewed](#why-is-search-by-meaning-re-reading-everything), also *Renewing search by meaning
+  for whole documents: 23,088 files to go, about 3 hours*; the model in use
   (`builtin:multilingual-e5-small@614241f6`), the model's folder, any error in red, and on battery
   *Paused while the machine runs on its battery. Index now reads anyway.* On a Mac, the switch
   *Use the CPU only*. Buttons **Turn off** and **Delete the model**.
@@ -79,15 +83,31 @@ words and its meaning is shown once, as a word hit.
 - **It runs on the CPU**, with [candle](https://github.com/huggingface/candle) in pure Rust, on two
   threads, so the machine stays yours, on Linux and Windows. **On a Mac with Apple Silicon it runs
   on the GPU** through Metal ([below](#on-a-macs-gpu)). For a GPU elsewhere, see [servers](servers.md).
-- **What gets vectors:** the first eight passages of about 120 words of each file with text (the
-  start of a document says what it is about). A passage with fewer than 20 letters is skipped.
-  Each vector (384 numbers) is packed into bytes and kept in `search.db`.
+- **What gets vectors:** the whole text of each file, in passages of up to 120 words. A passage
+  ends at a paragraph's end once it has 60 words; a paragraph longer than that is cut, and the
+  next passage starts with the last 20 words of the cut one, so nothing said across a cut is
+  lost. In Markdown files (`.md`, `.markdown`, `.mdx`) each heading starts a new passage. A
+  passage with fewer than 20 letters is skipped.
+- **What the model is shown** of each passage is a first line with the file's name, its folder
+  and, in Markdown, the heading it sits under (`budget.md · rocket/notes · Fuel`), then the
+  passage. A question that names a file, a folder or a section finds it.
+- **The cap:** 256 passages a file, about 25,000 words. Of a longer file, the first 16 passages,
+  the last 4, the first passage under each heading (up to 128) and passages spread evenly over
+  the rest get vectors; search by words still finds every word. Each vector (384 numbers) is
+  packed into a byte a number and kept in `search.db`.
 - **When:** the [helper](helper.md) makes them a few files at a time, resting as long as the work
   took, and not on [battery](battery.md) unless you press *Index now*. New and changed files get
   theirs at the helper's next pass, within ten minutes; their words are searchable at once.
 - **A search:** your question gets a vector too. A first sieve over one bit per number keeps the
-  400 closest passages; their full vectors are then scored, and the best passage of each file
-  counts.
+  1,000 closest passages; their full vectors are then scored. A file counts with its best
+  passage, and a little more (0.005) for each further passage that is close too, up to four, so
+  a document that keeps coming back to your question goes ahead of one that mentions it once.
+- **A new way of cutting passages** (as in 1.39.0, which covers whole documents where earlier
+  versions took the first 960 words) is noticed when the helper opens `search.db`: it keeps the
+  number of the way its vectors were made (`passages` in its table of facts). When that differs,
+  the vectors go, the text stays, and every file gets new ones in the background, the last
+  changed first. Nothing else is read again. This happens once per store, on whichever machine
+  the store is: a copied or synced cache folder is renewed where it is opened.
 
 ## On a Mac's GPU
 
@@ -140,7 +160,9 @@ The same search: hits by meaning come after word hits, with *similar to:* in fro
 passage. Turn it on, off or delete it with `coxswain --meaning on|off|delete`; on a Mac,
 `coxswain --meaning cpu|auto` keeps the built-in model on the CPU or lets it use the GPU, and
 `coxswain --meaning` says where it runs. There is no status
-of *still to go*; the desktop app's Settings shows it, or wait for hits. Find file's text depth
+of *still to go*; the desktop app's Settings shows it, or wait for hits. While the vectors are
+renewed, the status line of Find file's text depth adds *Renewing search by meaning for whole
+documents: 23,088 files to go, about 3 hours*, and the notice says it once. Find file's text depth
 says *Also find files about your words, in any language: coxswain --meaning on* while it is off.
 When vectors stop coming, its status line says why: *No vectors: http://localhost:11434: Connection
 refused*, or *Reading stopped: …* when reading itself failed.
@@ -186,9 +208,29 @@ vectors already made stay.
 Look at `ollama ps`: *100% CPU* means Ollama runs without your graphics card. Install the build of
 Ollama for your GPU (on Arch and CachyOS `ollama-cuda` or `ollama-rocm`) and restart it.
 
-#### Why is a document not found by what its last chapter is about?
-Only the start of each file gets vectors: eight passages of about 120 words. Search by words still
-finds the whole text.
+#### Is a document found by what its last chapter is about?
+Yes, since 1.39.0: the whole text gets vectors, up to 256 passages (about 25,000 words). A longer
+file has its start, its end, the start of each section and passages evenly between; search by
+words still finds every word. Before 1.39.0 only the first 960 words counted.
+
+#### Why is search by meaning re-reading everything?
+Once, after the update to 1.39.0: earlier versions gave vectors to the first 960 words of each
+file only, and those vectors cannot be mixed with the new ones. The helper notices it when it
+opens the store, drops the old vectors and makes new ones in the background, the most recently
+changed files first. The text is not read again, and search by words works all the while. Both
+apps say it once: *Search by meaning is being renewed to cover whole documents: 23,088 files,
+about 3 hours on this machine* (the time is measured on the first files). Settings (desktop) and Find
+file's text depth (terminal) show the files to go. Until a file has its new vectors, it is found
+by its words only. A store copied to another machine is renewed there the same way.
+
+#### How long does the renewal take?
+Somewhat longer than turning search by meaning on took the first time: a long file now gets up
+to 256 vectors where it had 8, a short one the same as before. Measured on this documentation
+(93 pages, many of them long), per 1,000 files: about an hour with the built-in model on the CPU
+(40 minutes before), 4 minutes with bge-m3 on a laptop's GPU (2 before), twice that with the
+rests between files ([Performance](../reference/performance.md#search-by-meaning-whole-documents)).
+It waits on battery, as always; *Index now* skips the rests. The notice says how long it is
+likely to take on your machine, from the first files.
 
 #### Why does it show files that have nothing to do with my question?
 It shows the files closest to your question, above a floor. When nothing in your files is about

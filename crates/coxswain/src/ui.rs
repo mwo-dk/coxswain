@@ -442,6 +442,9 @@ fn search(f: &mut Frame, app: &mut App, full: Rect) {
     };
     let (indexed, st) = if text {
         let mut st = if now.pending > 0 { t!("search.reading", "n" => now.pending) } else { String::new() };
+        if now.meaning && now.meaning_renewing > 0 && now.meaning_pending > 0 && now.meaning_ms_per_file > 0 {
+            st += &format!(" · {}", t!("search.meaning_renewing", "n" => now.meaning_pending, "time" => coxswain_core::notices::time_left(&now)));
+        }
         // Search that stalled says why, here where it is missed.
         if let Some(why) = &now.error {
             st += &format!(" · {}", t!("settings.search_error", "why" => why));

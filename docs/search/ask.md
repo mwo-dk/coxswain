@@ -4,7 +4,9 @@
 
 Ask is the fourth depth of Find file. Type a question in your own words, such as *how does our
 Entra sign-in flow work?* or *what did we decide about the fuel budget?*, and press **Enter**.
-Coxswain finds the ten passages of your files closest in meaning to the question. The chat
+Coxswain finds the ten passages of your files closest in meaning to the question, from
+anywhere in a document: the whole text has vectors, not only its start
+([what is covered](meaning.md#how-it-works)). The chat
 model on your own server then writes a short answer from only those passages, and cites them
 as **[1]**, **[2]**. The sources are listed under the answer, numbered the same way, and
 **Enter** on one takes you to the file.
@@ -141,6 +143,15 @@ machine, Settings says so in bold, as for the vectors. See [Privacy](../referenc
 They are the closest to the question, at most three from one file, so a long document does not
 crowd out the rest. Ten passages of up to 120 words fit in the context of small local models and
 keep the answer quick.
+
+#### Does Ask see the whole of a long document?
+Yes, since 1.39.0: every passage of a file has a vector, up to 256 of them (about 25,000 words), so
+the passage that answers can come from the last chapter. Each passage is matched with the file's
+name, its folder and its Markdown heading in front of it, so *what does the rocket plan say about
+the launch window?* finds the section under *Launch window* in `rocket/plan.md`. A file longer
+than that has its start, end, section starts and passages evenly between. Right after the update,
+the vectors are being [renewed](meaning.md#why-is-search-by-meaning-re-reading-everything); a file
+waiting for its new ones gives no passages yet.
 
 #### Why does it say the sources do not hold the answer?
 The model is told to answer from the sources only and to say so when they do not answer the

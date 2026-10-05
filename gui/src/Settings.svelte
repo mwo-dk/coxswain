@@ -70,6 +70,14 @@
   // Search inside files: the helper's store, its folders, and what it is doing.
   let index = $state(null);
   const loadIndex = () => invoke("index_status").then((v) => (index = v), () => (index = null));
+  // About how long the files still to get vectors take, as the helper measured (as
+  // meaning::about words it): "40 minutes", "3 hours".
+  function timeLeft(i) {
+    const secs = (i.meaning_pending * i.meaning_ms_per_file) / 1000;
+    if (secs < 60) return t("search.meaning_change_moment");
+    if (secs < 5400) return t("search.meaning_change_minutes", { n: Math.ceil(secs / 60) });
+    return t("search.meaning_change_hours", { n: Math.ceil(secs / 3600) });
+  }
   loadIndex();
   $effect(() => {
     const id = setInterval(loadIndex, 2000);
@@ -479,6 +487,7 @@
       {:else if s.search_meaning && (server || meaning?.installed)}
         <p class="hint">
           {t("settings.meaning_status", { done: index?.meaning_done ?? 0, pending: index?.meaning_pending ?? 0 })}
+          {#if index?.meaning_renewing && index?.meaning_pending && index?.meaning_ms_per_file}<br /><strong>{t("search.meaning_renewing", { n: index.meaning_pending, time: timeLeft(index) })}</strong>{/if}
           {#if index?.meaning_runs_text}<br /><strong>{index.meaning_runs_text}</strong>{/if}
           {#if index?.meaning_engine}<br /><span class="mono">{index.meaning_engine}</span>{/if}
           {#if !server && meaning?.folder}<br /><span class="mono">{meaning.folder}</span> <button class="link" onclick={() => showInPanel(meaning.folder, false)}>{t("settings.show_in_panel")}</button>{/if}
