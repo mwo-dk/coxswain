@@ -1,0 +1,1 @@
+Dear hiring team, I am applying for the position as data engineer in your grid forecasting team. In my current job I build the pipelines that turn meter readings from 40,000 households into daily forecasts, and I would like to bring that experience to forecasting for the whole grid. I look forward to hearing from you. Kind regards, Mette Olsen.
