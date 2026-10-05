@@ -442,6 +442,7 @@
 
     <section id="settings-meaning">
       <h3>{t("settings.meaning")}</h3>
+      <div class="buttons"><button class="primary" onclick={() => (ui.modal = { kind: "setup" })}>{t("setup.open")}</button> <span class="hint">{t("setup.open_hint")}</span></div>
       <p class="hint">{t(server ? "settings.meaning_hint_server" : "settings.meaning_hint")}</p>
       <div class="grid">
         <label for="mengine">{t("settings.meaning_engine")}</label>

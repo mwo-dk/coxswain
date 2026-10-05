@@ -1,6 +1,7 @@
 //! Coxswain TUI: two panels, a command line and a function-key bar, Norton Commander style.
 
 mod bom;
+mod setup;
 mod ui;
 
 use coxswain_core::{t, tn};
@@ -1794,6 +1795,8 @@ const USAGE: &str = "coxswain [LEFT] [RIGHT]      a folder, or a file to open it
   --dump-config   print the full default config (redirect it to the config file to customise)
   --config-path   print where the config file is read from
   --paths         print where everything is kept: config, state, index, search store, model
+  --setup-search  set up search inside files, by meaning and Ask, step by step: finds the model
+                  servers on this machine and what suits it
   --index-service on|off   start the search helper with your session, or stop doing so
   --meaning on|off|delete  search by meaning: download the model and turn it on, turn it off,
                            or turn it off and delete the model
@@ -2013,6 +2016,10 @@ fn main() {
         Some("--languages") => return languages(),
         Some("--whats-new") => return whats_new(args.get(1).map(String::as_str) == Some("all")),
         Some("--index-service") => return index_service(args.get(1).map(String::as_str)),
+        Some("--setup-search") => {
+            coxswain_core::i18n::set_language(coxswain_core::i18n::resolve(&Config::load().map(|c| c.language).unwrap_or_default()));
+            return setup::run();
+        }
         Some("--meaning") => return meaning(args.get(1).map(String::as_str), &args[2.min(args.len())..]),
         _ => {}
     }

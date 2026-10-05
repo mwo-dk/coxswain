@@ -73,6 +73,16 @@ Nothing of its own while it works. Signs of it:
 |---|---|---|
 | *Start the search helper with my session…* | Not in `config.toml`: the systemd unit, LaunchAgent or *Run* entry itself | Off |
 
+## Check that it runs, and turn it off
+
+| System | What *Start with my session* registers | Check that it runs | Turn it off |
+|---|---|---|---|
+| Linux | A systemd user service, `coxswain-index.service` | `systemctl --user status coxswain-index` | Untick it, or `coxswain --index-service off` |
+| macOS | A LaunchAgent, `~/Library/LaunchAgents/dk.mwo.coxswain.index.plist` | `launchctl list \| grep coxswain` | The same |
+| Windows | A *Run* entry for your user in the registry | Task Manager → *Startup apps* lists Coxswain | The same, or disable it in Task Manager |
+
+The [guided setup](setup.md#keep-reading-in-the-background) offers it as its last step but one.
+
 ## In the terminal app
 
 The same helper, shared with the desktop app. `coxswain --index-service on|off` does what the

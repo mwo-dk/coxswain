@@ -185,7 +185,7 @@ vectors from an embedding server that answers at once (so the store's own work i
 
 ### Search by meaning: whole documents
 
-Since 1.38.0 every passage of a file gets a vector (up to 256 a file), where before only the
+Since 1.39.0 every passage of a file gets a vector (up to 256 a file), where before only the
 first 8 did. That is more vectors to keep, sieve and make; measured on a laptop with 22 cores
 and an RTX 4070 Laptop GPU.
 
@@ -301,7 +301,7 @@ for 23 of 32.
 | words | 1.00 | 1.00 | 3 of 3 |
 | diagram | 1.00 | 1.00 | 2 of 2 |
 
-**After 1.38.0** (whole documents, the name line, the bonus for several close passages), the
+**After 1.39.0** (whole documents, the name line, the bonus for several close passages), the
 same corpus and questions:
 
 | List | Built-in recall@1 / @5 / MRR | bge-m3 recall@1 / @5 / MRR |
@@ -312,7 +312,7 @@ same corpus and questions:
 | Ask, *late* questions | 5 of 6 (was 0) | 6 of 6 (was 0) |
 
 With bge-m3, one diagram question (*how does a change get to production*) is now missed. The
-weaknesses below are as measured before 1.38.0; the first and the fourth are what it mends.
+weaknesses below are as measured before 1.39.0; the first and the fourth are what it mends.
 
 **What is weak, by these numbers:**
 

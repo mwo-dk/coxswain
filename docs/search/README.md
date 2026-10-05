@@ -20,6 +20,7 @@ walk through each depth, what is read and when, and every setting.
 
 | Page | What it covers |
 |---|---|
+| [Smart search in a few minutes](setup.md) | The guided setup in both apps: what each part does, what suits your hardware, every server, the graphics card, starting with your session |
 | [Find file](find-file.md) | Opening it, the window, the keys, the four depths with Tab, Shift+Tab and their own keys, where it can look |
 | [Names everywhere](names.md) | The name index, how it stays current and fast, names in this folder |
 | [Name syntax](name-syntax.md) | Everything's syntax: `!`, `\|`, `*`, `ext:`, `file:`, `folder:`, `case:`, paths |
@@ -56,8 +57,11 @@ walk through each depth, what is read and when, and every setting.
 | **Esc** | yes | yes | Close Find file |
 | **Ctrl+,** | yes | no Settings window | Settings, with *Search inside files* and *Search by meaning* |
 
+New to it? [Smart search in a few minutes](setup.md) walks through it: **Set up…** in Settings, or
+`coxswain --setup-search`.
+
 The terminal app sets everything with `config.toml` and flags such as `coxswain --meaning on`
 and `coxswain --index-service on`; see [Command-line flags](../reference/command-line-flags.md).
 
 ---
-[← Previous: Opening files](../commands/opening-files.md) · [Next: Find file →](find-file.md)
+[← Previous: Opening files](../commands/opening-files.md) · [Next: Smart search in a few minutes →](setup.md)

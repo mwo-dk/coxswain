@@ -21,13 +21,16 @@ until you turn it on.
 
 ## How to use it
 
-**Turn it on** (once):
+**Turn it on** (once). The quickest way is the guided setup, [Smart search in a few
+minutes](setup.md): **Set up…** at the top of *Settings → Search by meaning*, or
+`coxswain --setup-search`. It finds a model server on your machine and says whether the built-in
+model or a server suits it. By hand:
 
 | Where | How |
 |---|---|
 | Desktop app | *Settings → Search by meaning → Download the model (465 MB) and turn on*. A bar shows *Downloading the model: 120 MB of 465 MB*; **Cancel** stops it |
 | Terminal app | `coxswain --meaning on`: prints *Downloading the model for search by meaning: 42%*, then turns it on (with a [server](servers.md) as the engine, nothing is downloaded) |
-| A link | *turn on search by meaning* under Find file's text depth, and the [notice](notices.md) *New: search by meaning finds files about your words, in any language. Turn it on*: in the desktop app under *Settings → What's new* (**Show me**), in the terminal app once in the status line |
+| A link | *set up search by meaning* under Find file's text depth (it opens the guided setup), and the [notice](notices.md) *New: search by meaning finds files about your words, in any language. Turn it on*: in the desktop app under *Settings → What's new* (**Show me**), in the terminal app once in the status line |
 
 It needs *Search inside files* on: the button is greyed out otherwise. Then:
 
@@ -98,7 +101,7 @@ hit.
   1,000 closest passages; their full vectors are then scored. A file counts with its best
   passage, and a little more (0.005) for each further passage that is close too, up to four, so
   a document that keeps coming back to your question goes ahead of one that mentions it once.
-- **A new way of cutting passages** (as in 1.38.0, which covers whole documents where earlier
+- **A new way of cutting passages** (as in 1.39.0, which covers whole documents where earlier
   versions took the first 960 words) is noticed when the helper opens `search.db`: it keeps the
   number of the way its vectors were made (`passages` in its table of facts). When that differs,
   the vectors go, the text stays, and every file gets new ones in the background, the last
@@ -205,12 +208,12 @@ Look at `ollama ps`: *100% CPU* means Ollama runs without your graphics card. In
 Ollama for your GPU (on Arch and CachyOS `ollama-cuda` or `ollama-rocm`) and restart it.
 
 #### Is a document found by what its last chapter is about?
-Yes, since 1.38.0: the whole text gets vectors, up to 256 passages (about 25,000 words). A longer
+Yes, since 1.39.0: the whole text gets vectors, up to 256 passages (about 25,000 words). A longer
 file has its start, its end, the start of each section and passages evenly between; search by
-words still finds every word. Before 1.38.0 only the first 960 words counted.
+words still finds every word. Before 1.39.0 only the first 960 words counted.
 
 #### Why is search by meaning re-reading everything?
-Once, after the update to 1.38.0: earlier versions gave vectors to the first 960 words of each
+Once, after the update to 1.39.0: earlier versions gave vectors to the first 960 words of each
 file only, and those vectors cannot be mixed with the new ones. The helper notices it when it
 opens the store, drops the old vectors and makes new ones in the background, the most recently
 changed files first. The text is not read again, and search by words works all the while. Both

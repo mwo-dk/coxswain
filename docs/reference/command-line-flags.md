@@ -14,6 +14,7 @@ Settings window. For the command line *inside* Coxswain, where you type shell co
 
 - [How to use it](#how-to-use-it)
 - [The terminal app: `coxswain`](#the-terminal-app-coxswain)
+- [`--setup-search`](#--setup-search)
 - [`--meaning`](#--meaning)
 - [`--index-service`](#--index-service)
 - [The desktop app: `coxswain-gui`](#the-desktop-app-coxswain-gui)
@@ -50,6 +51,8 @@ coxswain [LEFT] [RIGHT]      a folder, or a file to open its folder with the cur
   --dump-config   print the full default config (redirect it to the config file to customise)
   --config-path   print where the config file is read from
   --paths         print where everything is kept: config, state, index, search store, model
+  --setup-search  set up search inside files, by meaning and Ask, step by step: finds the model
+                  servers on this machine and what suits it
   --index-service on|off   start the search helper with your session, or stop doing so
   --meaning on|off|delete  search by meaning: download the model and turn it on, turn it off,
                            or turn it off and delete the model
@@ -74,6 +77,7 @@ coxswain [LEFT] [RIGHT]      a folder, or a file to open its folder with the cur
 | `--dump-config` | Prints every option with its default, as TOML, including every built-in theme and the full `[keys]` table. `coxswain --dump-config > ~/.config/coxswain/config.toml` gives you the full list to edit |
 | `--config-path` | Prints where `config.toml` is read from |
 | `--paths` | Prints where everything is kept, one line each: `config`, `state`, `cache`, `name index`, `search store`, `model`, `previews`. See [Where things are kept](where-things-are-kept.md) |
+| `--setup-search` | The guided setup of search inside files, by meaning and Ask: see [below](#--setup-search) |
 | `--index-service [on\|off]` | The search helper with your session: see [below](#--index-service) |
 | `--meaning [on\|off\|delete\|ollama\|server\|builtin\|cpu\|auto]` | Search by meaning: see [below](#--meaning) |
 | `--index-helper` | Runs as the search helper instead of the app: see [below](#the-helper---index-helper) |
@@ -106,6 +110,15 @@ new search helper with the new settings. See [Search by meaning](../search/meani
 `usage: coxswain --meaning server URL MODEL, e.g. http://localhost:8000/api/v1 nomic-embed-text-v1-GGUF`.
 A server that needs an API key reads it from the environment variable named in
 `meaning_key_env` ([Configuration](configuration.md#search)); there is no flag for it.
+
+### `--setup-search`
+
+Asks, step by step, what the desktop app's *Settings → Search by meaning → Set up…* shows: search
+inside files on or off, where the vectors come from (the servers found on this machine, the
+built-in model, or a server you name), the model for the vectors, Ask's chat model with a test
+question, whether the server uses the graphics card, and *Start with my session*. A number
+chooses, **Enter** takes the default (marked `*`), **s** skips; downloads ask *[y/N]* first. See
+[Smart search in a few minutes](../search/setup.md).
 
 ### `--index-service`
 

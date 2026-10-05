@@ -43,6 +43,9 @@ Ask never uses a service on the internet unless you point the server address at 
 
 ## How to use it
 
+The guided setup does all of it, with a test question: [Smart search in a few minutes](setup.md)
+(**Set up…** at the top of *Settings → Search by meaning*, or `coxswain --setup-search`). By hand:
+
 1. **Set the chat model** once. Desktop app: **Ctrl+,** → *Search by meaning* → *Ask* →
    *Chat model* (the list offers the models on the server that can answer: on Ollama, models
    that only make vectors, such as `bge-m3`, are left out). Terminal app:
@@ -142,7 +145,7 @@ crowd out the rest. Ten passages of up to 120 words fit in the context of small 
 keep the answer quick.
 
 #### Does Ask see the whole of a long document?
-Yes, since 1.38.0: every passage of a file has a vector, up to 256 of them (about 25,000 words), so
+Yes, since 1.39.0: every passage of a file has a vector, up to 256 of them (about 25,000 words), so
 the passage that answers can come from the last chapter. Each passage is matched with the file's
 name, its folder and its Markdown heading in front of it, so *what does the rocket plan say about
 the launch window?* finds the section under *Launch window* in `rocket/plan.md`. A file longer
