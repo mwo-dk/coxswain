@@ -63,7 +63,7 @@ fn stamp_of(path: &Path) -> Option<Stamp> {
     Some((m.len(), m.modified().ok()?.duration_since(std::time::UNIX_EPOCH).ok()?.as_nanos() as u64))
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Hit {
     pub path: PathBuf,
     pub is_dir: bool,

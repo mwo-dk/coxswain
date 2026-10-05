@@ -36,7 +36,7 @@ anything.
 A model server is a program on your machine (or one you run elsewhere) that runs AI models:
 Ollama, Lemonade, LM Studio, llama.cpp's server, Jan, LocalAI or vLLM. Coxswain treats them all
 the same. With a graphics card or an NPU, a server makes vectors many times faster than the
-built-in model, which runs on the processor.
+built-in model, which runs on the processor (or, on a Mac with Apple Silicon, on its GPU; the guide says which).
 
 ## What to use on your machine
 

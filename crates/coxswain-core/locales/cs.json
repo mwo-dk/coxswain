@@ -93,22 +93,22 @@
  "app.fkeys": "Funkční klávesy",
  "app.matching": "Odpovídá:",
  "app.measuring": {
-  "one": "Měří se {n} složka…",
   "few": "Měří se {n} složky…",
+  "one": "Měří se {n} složka…",
   "other": "Měří se {n} složek…"
  },
  "app.move_here": "Přesunout sem",
  "app.move_to_trash": "Přesunout do koše",
  "app.moved_items": {
-  "one": "Přesunuta {n} položka",
   "few": "Přesunuty {n} položky",
+  "one": "Přesunuta {n} položka",
   "other": "Přesunuto {n} položek"
  },
  "app.name_label": "Název:",
  "app.not_archive": "Není to archiv zip, 7z ani tar",
  "app.pasted_items": {
-  "one": "Vložena {n} položka",
   "few": "Vloženy {n} položky",
+  "one": "Vložena {n} položka",
   "other": "Vloženo {n} položek"
  },
  "app.reading_properties": "Načítají se vlastnosti…",
@@ -150,38 +150,38 @@
  "bom.advice": "Co dělat",
  "bom.as_in_file": "Jako v souboru",
  "bom.assets": {
-  "one": "{n} položka",
   "few": "{n} položky",
+  "one": "{n} položka",
   "other": "{n} položek"
  },
  "bom.change.added": {
-  "one": "{n} přidána",
   "few": "{n} přidány",
+  "one": "{n} přidána",
   "other": "{n} přidáno"
  },
  "bom.change.fixed": {
-  "one": "{n} opravena",
   "few": "{n} opraveny",
+  "one": "{n} opravena",
   "other": "{n} opraveno"
  },
  "bom.change.improved": {
-  "one": "{n} lepší",
   "few": "{n} lepší",
+  "one": "{n} lepší",
   "other": "{n} lepších"
  },
  "bom.change.removed": {
-  "one": "{n} odebrána",
   "few": "{n} odebrány",
+  "one": "{n} odebrána",
   "other": "{n} odebráno"
  },
  "bom.change.risk": {
-  "one": "{n} nové riziko",
   "few": "{n} nová rizika",
+  "one": "{n} nové riziko",
   "other": "{n} nových rizik"
  },
  "bom.change.worsened": {
-  "one": "{n} horší",
   "few": "{n} horší",
+  "one": "{n} horší",
   "other": "{n} horších"
  },
  "bom.clear": "Zrušit filtry",
@@ -202,8 +202,8 @@
  "bom.hide": "Skrýt",
  "bom.hide_title": "Zobrazit jen to, co odpovídá, a to, v čem se nachází",
  "bom.issues": {
-  "one": "{n} problém v tomto souboru",
   "few": "{n} problémy v tomto souboru",
+  "one": "{n} problém v tomto souboru",
   "other": "{n} problémů v tomto souboru"
  },
  "bom.key_of": "{type} pro {algorithm}",
@@ -228,8 +228,8 @@
  "bom.mode.files": "Zdrojové soubory",
  "bom.mode.flat": "Druh",
  "bom.more": {
-  "one": "{n} další",
   "few": "{n} další",
+  "one": "{n} další",
   "other": "{n} dalších"
  },
  "bom.no_crypto": "Tento BOM neuvádí žádnou kryptografii. Zobrazení pro softwarové BOM teprve přijdou.",
@@ -252,13 +252,13 @@
  "bom.sunburst": "Paprskový graf",
  "bom.why": "Proč",
  "bom.why.expired": {
-  "one": "Platnost vypršela před {n} dnem",
   "few": "Platnost vypršela před {n} dny",
+  "one": "Platnost vypršela před {n} dnem",
   "other": "Platnost vypršela před {n} dny"
  },
  "bom.why.expires": {
-  "one": "Platnost vyprší za {n} den",
   "few": "Platnost vyprší za {n} dny",
+  "one": "Platnost vyprší za {n} den",
   "other": "Platnost vyprší za {n} dní"
  },
  "bom.why.hasKey": "Jeho klíč, {name}: {status}",
@@ -363,8 +363,8 @@
  "dialogs.ask_waiting": "Čeká se na odpověď od {model}: model, který ještě není načtený, chvíli trvá…",
  "dialogs.attributes": "Atributy",
  "dialogs.bytes": {
-  "one": "({n} bajt)",
   "few": "({n} bajty)",
+  "one": "({n} bajt)",
   "other": "({n} bajtů)"
  },
  "dialogs.created": "Vytvořeno",
@@ -374,8 +374,8 @@
  "dialogs.help_syntax": "{find_file} používá syntaxi Everything:",
  "dialogs.help_title": "Coxswain {version} · klávesové zkratky",
  "dialogs.in_files": {
-  "one": "v {n} souboru",
   "few": "v {n} souborech",
+  "one": "v {n} souboru",
   "other": "v {n} souborech"
  },
  "dialogs.kind.file": "Soubor",
@@ -398,13 +398,13 @@
  "dialogs.rename_ignore_case": "Nerozlišovat velikost písmen",
  "dialogs.rename_replace": "Nahradit za",
  "dialogs.rename_title": {
-  "one": "Hromadně přejmenovat {n} položku",
   "few": "Hromadně přejmenovat {n} položky",
+  "one": "Hromadně přejmenovat {n} položku",
   "other": "Hromadně přejmenovat {n} položek"
  },
  "dialogs.renamed": {
-  "one": "Přejmenována {n} položka",
   "few": "Přejmenovány {n} položky",
+  "one": "Přejmenována {n} položka",
   "other": "Přejmenováno {n} položek"
  },
  "dialogs.scope_ask": "Dotaz",
@@ -416,8 +416,8 @@
  "dialogs.search_placeholder": "Hledat všechny soubory…  *.rs · ext:md · src/ foo · !test",
  "dialogs.search_tab_hint": "Tab: jen tato složka, nebo slova uvnitř vašich souborů (Shift+F7).",
  "dialogs.showing_first": {
-  "one": "zobrazuje se první {n}, upřesněte psaním",
   "few": "zobrazují se první {n}, upřesněte psaním",
+  "one": "zobrazuje se první {n}, upřesněte psaním",
   "other": "zobrazuje se prvních {n}, upřesněte psaním"
  },
  "dialogs.size": "Velikost",
@@ -432,34 +432,34 @@
  "dupes.close": "Zavřít (Esc)",
  "dupes.confirm_ok": "Přesunout do koše",
  "dupes.confirm_text": {
-  "one": "Přesunout {n} kopii ({size}) do koše? Od každého zůstane aspoň jedna kopie.",
   "few": "Přesunout {n} kopie ({size}) do koše? Od každého zůstane aspoň jedna kopie.",
+  "one": "Přesunout {n} kopii ({size}) do koše? Od každého zůstane aspoň jedna kopie.",
   "other": "Přesunout {n} kopií ({size}) do koše? Od každého zůstane aspoň jedna kopie."
  },
  "dupes.confirm_title": "Přesunout duplikáty do koše",
  "dupes.copies": {
-  "one": "{n} kopie",
   "few": "{n} kopie",
+  "one": "{n} kopie",
   "other": "{n} kopií"
  },
  "dupes.each": "{size} každý",
  "dupes.each_files": {
-  "one": "{size} každý, {n} soubor",
   "few": "{size} každý, {n} soubory",
+  "one": "{size} každý, {n} soubor",
   "other": "{size} každý, {n} souborů"
  },
  "dupes.extra": "{size} navíc",
  "dupes.folders": "Najít duplicitní složky",
  "dupes.freeable": "Lze uvolnit {size}",
  "dupes.groups": {
-  "one": "{n} skupina duplikátů",
   "few": "{n} skupiny duplikátů",
+  "one": "{n} skupina duplikátů",
   "other": "{n} skupin duplikátů"
  },
  "dupes.hidden": "Včetně skrytých souborů",
  "dupes.identical_folders": {
-  "one": "{n} shodná složka",
   "few": "{n} shodné složky",
+  "one": "{n} shodná složka",
   "other": "{n} shodných složek"
  },
  "dupes.keep_newest": "Označit vše kromě nejnovějšího",
@@ -469,8 +469,8 @@
  "dupes.look_in": "Hledat v",
  "dupes.mark_tip": "Označit k přesunu do koše",
  "dupes.marked": {
-  "one": "Označeno: {n} · uvolní se {size}",
   "few": "Označeno: {n} · uvolní se {size}",
+  "one": "Označeno: {n} · uvolní se {size}",
   "other": "Označeno: {n} · uvolní se {size}"
  },
  "dupes.min_size": "Ignorovat soubory pod",
@@ -480,20 +480,20 @@
  "dupes.phase.listing": "Procházejí se soubory",
  "dupes.phase.whole": "Porovnávají se celé soubory",
  "dupes.progress": {
-  "one": "{phase} · nalezen {n} soubor · přečteno {size}",
   "few": "{phase} · nalezeny {n} soubory · přečteno {size}",
+  "one": "{phase} · nalezen {n} soubor · přečteno {size}",
   "other": "{phase} · nalezeno {n} souborů · přečteno {size}"
  },
  "dupes.progress_counted": {
-  "one": "{phase} · {done} z {total} · nalezen {n} soubor · přečteno {size}",
   "few": "{phase} · {done} z {total} · nalezeny {n} soubory · přečteno {size}",
+  "one": "{phase} · {done} z {total} · nalezen {n} soubor · přečteno {size}",
   "other": "{phase} · {done} z {total} · nalezeno {n} souborů · přečteno {size}"
  },
  "dupes.scan": "Prohledat",
  "dupes.scan_again": "Prohledat znovu",
  "dupes.scanned": {
-  "one": "{n} soubor ({size}) prohledán za {s} s, přečteno {read}",
   "few": "{n} soubory ({size}) prohledány za {s} s, přečteno {read}",
+  "one": "{n} soubor ({size}) prohledán za {s} s, přečteno {read}",
   "other": "{n} souborů ({size}) prohledáno za {s} s, přečteno {read}"
  },
  "dupes.show_tip": "Zobrazit v panelu",
@@ -501,8 +501,8 @@
  "dupes.top_500": "Zobrazuje se 500 skupin, které plýtvají nejvíc místa.",
  "dupes.trash_marked": "Označené do koše",
  "dupes.trashed": {
-  "one": "Do koše přesunut {n} duplikát",
   "few": "Do koše přesunuty {n} duplikáty",
+  "one": "Do koše přesunut {n} duplikát",
   "other": "Do koše přesunuto {n} duplikátů"
  },
  "err.bom.invalid_json": "Tento soubor není platný JSON (řádek {line}): {message}",
@@ -546,8 +546,8 @@
  "facts.bitrate": "Datový tok",
  "facts.camera": "Fotoaparát",
  "facts.channels": {
-  "one": "{n} kanál",
   "few": "{n} kanály",
+  "one": "{n} kanál",
   "other": "{n} kanálů"
  },
  "facts.dos": "DOS",
@@ -574,6 +574,45 @@
  "facts.unnamed": "(bez názvu)",
  "facts.windows_pe": "Windows PE",
  "facts.year": "Rok",
+ "find.ask_nothing_in": "Nic v souborech v {folder} se otázce neblíží.",
+ "find.ask_row": "Zeptat se: „{query}“",
+ "find.dismiss": "Del: už ne",
+ "find.empty": "Napište název (*.pdf, ext:md), slova ze souboru nebo otázku zakončenou ?",
+ "find.group_about": "Na toto téma",
+ "find.group_history": "Historie",
+ "find.group_in_files": "V souborech",
+ "find.group_names": "Názvy",
+ "find.help_prefixes": "Napsáno na začátku: text: slova v souborech · about: jen význam · ? se ptá. Tlačítka dělají totéž: Tab.",
+ "find.keys_answer_gui": "Enter zeptat se, nebo přejít ke zdroji · ↑↓ zdroje · F4 upravit · Esc zpět na seznam",
+ "find.keys_answer_tui": "Enter zeptat se, nebo přejít ke zdroji · ↑↓ zdroje · F3 zobrazit · F4 upravit · Esc zpět na seznam",
+ "find.keys_gui": "Enter přejít · Ctrl+Enter zeptat se · Tab druh · {scope} rozsah · F4 upravit · F1 syntaxe · Esc zavřít",
+ "find.keys_tui": "Enter přejít · Alt+Enter zeptat se · Tab druh · {scope} rozsah · F3 zobrazit · F4 upravit · F1 syntaxe · Esc zavřít",
+ "find.kind_about": "O tom",
+ "find.kind_all": "Vše",
+ "find.kind_ask": "Dotaz",
+ "find.kind_in_files": "V souborech",
+ "find.kind_names": "Názvy",
+ "find.meaning_for": "význam pro {n}",
+ "find.more": "Další {n}: Enter ukáže všechny",
+ "find.nothing": "Pro „{query}“ nebylo nic nalezeno.",
+ "find.nothing_in": "Pro „{query}“ nebylo v {folder} nic nalezeno.",
+ "find.of": "{shown} z {total}",
+ "find.off_ask_meaning": "Položte svým souborům otázku · nejprve je potřeba hledání podle významu",
+ "find.off_ask_model": "Položte svým souborům otázku · vyberte chatovací model",
+ "find.off_meaning": "Najděte i soubory o vašich slovech, v jakémkoli jazyce, i bez těch slov.",
+ "find.off_no_helper": "Slova v souborech teď nelze hledat: čtení na pozadí neběží.",
+ "find.off_not_read": "{folder} nepatří mezi čtené složky, proto se jeho slova nehledají.",
+ "find.off_text": "Hledání umí hledat i slova uvnitř vašich souborů.",
+ "find.paused": "pozastaveno na baterii",
+ "find.placeholder": "Názvy, slova v souborech nebo otázka",
+ "find.prompt": "najít: ",
+ "find.step_fix": "Opravit",
+ "find.step_read_too": "Číst i tuto složku",
+ "find.step_set_up": "Nastavit",
+ "find.step_start": "Spustit",
+ "find.step_turn_on": "Zapnout",
+ "find.try_ask": "Raději se zeptat: {key}",
+ "find.try_everywhere": "Všude: {key}",
  "git.detached": "odpojeno na {commit}",
  "git.op_bisect": "probíhá bisect",
  "git.op_cherry_pick": "probíhá cherry-pick",
@@ -617,8 +656,8 @@
  "history.preview_opening": "Načítá se soubor, jak vypadal v tomto commitu…",
  "history.read_only": "Historie je jen pro čtení: F5 z ní zkopíruje soubor nebo složku",
  "items": {
-  "one": "{n} položka",
   "few": "{n} položky",
+  "one": "{n} položka",
   "other": "{n} položek"
  },
  "language.group.americas": "Amerika",
@@ -636,6 +675,7 @@
  "meaning.on_cpu": "na procesoru",
  "meaning.on_cpu_why": "na procesoru ({why})",
  "meaning.on_metal": "na GPU (Metal)",
+ "meaning.on_metal_if": "na GPU (Metal), když to jde",
  "menu.commands": "Příkazy",
  "news.badge_title": "Co je nového: {n} (Nastavení → Co je nového)",
  "news.dismiss": "Zavřít",
@@ -671,8 +711,8 @@
  "pane.one_pane": "Jeden panel (Ctrl+O)",
  "pane.path_tip": "Klikněte na prázdné místo nebo stiskněte Ctrl+L a napište cestu",
  "pane.selected": {
-  "one": "Označeno: {n} ({size})",
   "few": "Označeno: {n} ({size})",
+  "one": "Označeno: {n} ({size})",
   "other": "Označeno: {n} ({size})"
  },
  "pane.two_panes": "Dva panely (Ctrl+O)",
@@ -687,13 +727,13 @@
  "place.system": "Systém",
  "place.videos": "Videa",
  "preview.archive": {
-  "one": "{n} položka · Ctrl+E rozbalí do druhého panelu",
   "few": "{n} položky · Ctrl+E rozbalí do druhého panelu",
+  "one": "{n} položka · Ctrl+E rozbalí do druhého panelu",
   "other": "{n} položek · Ctrl+E rozbalí do druhého panelu"
  },
  "preview.archive_more": {
-  "one": "{n}+ položek · Ctrl+E rozbalí do druhého panelu",
   "few": "{n}+ položek · Ctrl+E rozbalí do druhého panelu",
+  "one": "{n}+ položek · Ctrl+E rozbalí do druhého panelu",
   "other": "{n}+ položek · Ctrl+E rozbalí do druhého panelu"
  },
  "preview.attachments": "Přílohy",
@@ -704,8 +744,8 @@
  "preview.changes_against_head": "Změny oproti HEAD",
  "preview.column": "Sloupec",
  "preview.columns": {
-  "one": "{n} sloupec",
   "few": "{n} sloupce",
+  "one": "{n} sloupec",
   "other": "{n} sloupců"
  },
  "preview.command_output": "Výstup příkazu",
@@ -717,32 +757,32 @@
  "preview.diff": "Rozdíly",
  "preview.exact_coming": "Zobrazeno hned; přesné vykreslení pomocí {engine} je na cestě…",
  "preview.expired_ago": {
-  "one": "platnost vypršela před {n} dnem",
   "few": "platnost vypršela před {n} dny",
+  "one": "platnost vypršela před {n} dnem",
   "other": "platnost vypršela před {n} dny"
  },
  "preview.expires": "Vyprší",
  "preview.expires_in": {
-  "one": "za {n} den",
   "few": "za {n} dny",
+  "one": "za {n} den",
   "other": "za {n} dní"
  },
  "preview.file": "Soubor",
  "preview.files": {
-  "one": "{n} soubor",
   "few": "{n} soubory",
+  "one": "{n} soubor",
   "other": "{n} souborů"
  },
  "preview.files_here": "Soubory zde",
  "preview.first_rows": {
-  "one": "Zobrazuje se první {n} řádek",
   "few": "Zobrazují se první {n} řádky",
+  "one": "Zobrazuje se první {n} řádek",
   "other": "Zobrazuje se prvních {n} řádků"
  },
  "preview.folder": "Složka",
  "preview.folders": {
-  "one": "{n} složka",
   "few": "{n} složky",
+  "one": "{n} složka",
   "other": "{n} složek"
  },
  "preview.font_sample1": "Příliš žluťoučký kůň úpěl ďábelské ódy",
@@ -755,8 +795,8 @@
  "preview.media_missing": "Pro přehrávání videa a zvuku zde jsou potřeba zásuvné moduly GStreamer good (gst-plugins-good; gstreamer1.0-plugins-good na Debianu a Ubuntu). Nainstalujte je a pak Coxswain otevřete znovu.",
  "preview.media_open": "Otevřít v jeho aplikaci",
  "preview.more": {
-  "one": "… {n} další",
   "few": "… {n} další",
+  "one": "… {n} další",
   "other": "… {n} dalších"
  },
  "preview.names": "Názvy",
@@ -781,8 +821,8 @@
  "preview.rendering_with": "Vykresluje se pomocí {engine}…",
  "preview.repetition": "Opakování",
  "preview.rows": {
-  "one": "{n} řádek",
   "few": "{n} řádky",
+  "one": "{n} řádek",
   "other": "{n} řádků"
  },
  "preview.schema": "Schéma",
@@ -812,13 +852,13 @@
  "search.everywhere": "všude: ",
  "search.in": "v {dir}: ",
  "search.indexed": {
-  "one": "{n} soubor v indexu",
   "few": "{n} soubory v indexu",
+  "one": "{n} soubor v indexu",
   "other": "{n} souborů v indexu"
  },
  "search.matches": {
-  "one": "{n} shoda za {ms} ms",
   "few": "{n} shody za {ms} ms",
+  "one": "{n} shoda za {ms} ms",
   "other": "{n} shod za {ms} ms"
  },
  "search.meaning_change": "Změna modelu pro vektory znovu načte význam {n} souborů (na tomto počítači asi {time}).",
@@ -832,8 +872,8 @@
  "search.similar_to": "podobné:",
  "search.text": "text: ",
  "search.texts": {
-  "one": "text {n} souboru",
   "few": "text {n} souborů",
+  "one": "text {n} souboru",
   "other": "text {n} souborů"
  },
  "search.title": "Najít soubor",
@@ -841,6 +881,7 @@
  "settings.ask": "Dotaz",
  "settings.ask_hint": "Dotaz, čtvrtý způsob hledání v okně Najít soubor (Ctrl+F7), odpoví na otázku z deseti úryvků, které jsou jí nejblíž, a uvede své zdroje. Odpověď píše chatovací model na {server} a tyto úryvky se mu posílají. Nic se neuchovává: zavřením okna Najít soubor se otázky zapomenou.",
  "settings.ask_model": "Chatovací model",
+ "settings.ask_think": "Nechat model před odpovědí přemýšlet (pomalejší: přemýšlení se neukazuje)",
  "settings.behaviour": "Chování",
  "settings.check_updates": "Jednou denně hledat novou verzi",
  "settings.confirm_delete": "Ptát se před odstraněním",
@@ -938,7 +979,7 @@
  "settings.title": "Nastavení",
  "setup.ask_hint": "Uvedeny jsou jen modely, které umí odpovídat. Pro tento počítač: {model}. Testovací otázka ukáže, jak rychle odpovídá.",
  "setup.ask_needs_server": "Dotaz potřebuje model chatu na serveru modelů; žádný tu neodpovídá. Nainstalujte Ollama nebo jiný server a pak zkuste znovu hledat v kroku 2.",
- "setup.builtin": "Vestavěný model ({size}, běží na procesoru)",
+ "setup.builtin": "Vestavěný model ({size}, běží {where})",
  "setup.builtin_hint": "multilingual-e5-small: 100 jazyků, běží na jakémkoli počítači. Při přechodu na něj se každý soubor znovu načte.",
  "setup.builtin_short": "vestavěný model",
  "setup.cpu_lemonade": "Lemonade běží {model} na procesoru, ale tento počítač má {gpu}. Ve správci modelů Lemonade vyberte model Hybrid nebo NPU, nebo model GGUF s backendem Vulkan nebo ROCm.",
@@ -968,7 +1009,7 @@
  "setup.pull": "Stáhnout {model}",
  "setup.pull_elsewhere": "{server} stahuje modely ve svém vlastním okně: najděte tam {model}, stáhněte jej a pak zde zkuste hledat znovu.",
  "setup.recommended": "doporučeno",
- "setup.server_hint": "Pro hledání podle významu model změní každý úsek na vektor: čísla vyjadřující jeho význam. Vestavěný model to dělá na procesoru; server modelů (Ollama, Lemonade, LM Studio, llama.cpp …) používá grafickou kartu nebo NPU a je mnohem rychlejší.",
+ "setup.server_hint": "Pro hledání podle významu model změní každý úsek na vektor: čísla vyjadřující jeho význam. Vestavěný model to dělá na tomto počítači (na procesoru nebo GPU Macu); server modelů (Ollama, Lemonade, LM Studio, llama.cpp …) používá grafickou kartu nebo NPU a je mnohem rychlejší.",
  "setup.service_hint": "Spouštět s mou relací: pomocník hledání běží od přihlášení, takže úložiště sleduje vaše soubory mezi spuštěními. Při změně souborů zabere trochu času procesoru a na baterii se pozastaví. Nejsou potřeba práva administrátora (uživatelská služba systemd na Linuxu, agent launchd na macOS, položka Run na Windows).",
  "setup.service_on": "Spouštět s mou relací",
  "setup.speed_hint": "Po testovací otázce se zde zobrazí, zda server běží model na grafické kartě.",
@@ -1085,8 +1126,8 @@
  "tui.search_footer": "Enter přejít · Tab/Shift+Tab všude/zde/text/dotaz · Shift+F7 text · Ctrl+F7 dotaz · F3 zobrazit · F4 upravit · Esc zavřít · syntaxe: F1",
  "tui.select": "Označit",
  "tui.selected": {
-  "one": "{size} v {n} označené",
   "few": "{size} v {n} označených",
+  "one": "{size} v {n} označené",
   "other": "{size} v {n} označených"
  },
  "tui.subdir": "SUB-DIR",

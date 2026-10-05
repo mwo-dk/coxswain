@@ -150,7 +150,7 @@
                 {#if isRemote(f.url)}<br /><strong>{t("settings.meaning_remote", { host: f.url })}</strong>{/if}</span></label>
           {/each}
           <label class="choice" class:on={server === null}><input type="radio" name="server" checked={server === null} onchange={() => (chosen = null)} />
-            <span>{t("setup.builtin", { size: size(meaning?.size ?? 0) })}{#if !look.machine.gpu}<span class="badge">{t("setup.recommended")}</span>{/if}</span></label>
+            <span>{t("setup.builtin", { size: size(meaning?.size ?? 0), where: look.builtin_runs })}{#if !look.machine.gpu}<span class="badge">{t("setup.recommended")}</span>{/if}</span></label>
         </div>
         {#if !look.found.length}<p class="hint">{t("setup.none_found")}</p>{/if}
         <div class="row">

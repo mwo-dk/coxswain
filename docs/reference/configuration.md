@@ -215,6 +215,7 @@ flags start a new one.
 | `meaning_key_env` | string | `""` | The name of the environment variable that holds the server's API key. The key itself is never in this file |
 | `meaning_device` | string | `"auto"` | Where the built-in model runs: `"auto"` (a Mac's GPU through Metal when it has one whose results match the CPU's, the CPU elsewhere) or `"cpu"` (the CPU only). Only Macs have a choice ([Search by meaning](../search/meaning.md#on-a-macs-gpu)) |
 | `ask_model` | string | `""` | The chat model that answers in [Ask](../search/ask.md), on the server above (Ollama on this machine with the built-in model), e.g. `qwen3:8b`. Empty: Ask is not set up |
+| `ask_think` | bool | `false` | Let Ask's chat model think before it answers (Qwen3, DeepSeek-R1 …). Off: it is asked not to, so the first word comes at once ([Thinking](../search/ask.md#thinking)) |
 | `history` | bool | `true` | Keep the history of the git repositories in the folders read: commit messages, authors and changed paths of the newest 2000 commits of each, found by Text in files and by meaning ([History in search](../search/history.md)) |
 
 Changing `meaning_engine` or `meaning_model` makes the helper work out the vectors again,

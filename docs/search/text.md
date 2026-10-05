@@ -30,13 +30,19 @@ is called.
 
 ## How words match
 
-- **Every word must be there**, anywhere in the file, in any order.
+- **Every word must be there**, anywhere in the file, in any order. When fewer than 10 files
+  have them all and you typed two words or more, the files with **any** of the words of four
+  letters or more come after them, so a question typed as a question (*what does the rocket
+  fuel cost*) still finds the file that says "fuel" and "cost".
 - **The last word may be the start of one**, so `rocket bud` finds "rocket budget" while you type.
   The other words are whole words.
 - **Case and accents do not matter**: `cafe` finds "Café".
 - **Punctuation separates words**, so `fuel_cost` is the words "fuel" and "cost".
 - The [name syntax](name-syntax.md) (`!`, `|`, `ext:`) does not apply here, and quotes are ignored.
-- With [search by meaning](meaning.md) on, files *about* your words follow the files that have them.
+- With [search by meaning](meaning.md) on, the files with the words are ordered by both: a file
+  that has the words and is also close in meaning comes first ([how the two are
+  fused](meaning.md#how-words-and-meaning-are-ranked-together)). Files *about* your words that lack
+  them follow.
 
 ## What you see
 

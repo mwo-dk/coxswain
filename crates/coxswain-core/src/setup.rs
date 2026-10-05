@@ -318,6 +318,16 @@ pub fn advise(m: &Machine) -> Advice {
     }
 }
 
+/// Where the built-in model runs, in words: where it runs now (`now`, while it makes the
+/// vectors), else where it will: a Mac's GPU when it can, the CPU elsewhere.
+pub fn builtin_runs(cfg: &crate::config::SearchConfig, now: Option<&crate::meaning::Runs>) -> String {
+    match now {
+        Some(runs) => runs.text(),
+        None if cfg!(target_os = "macos") && cfg.meaning_device != "cpu" => crate::t!("meaning.on_metal_if"),
+        None => crate::t!("meaning.on_cpu"),
+    }
+}
+
 /// The server of `found` to recommend: the one that suits the machine, else the one with the
 /// most models that can do both jobs.
 pub fn best<'a>(found: &'a [Found], advice: &Advice) -> Option<&'a Found> {

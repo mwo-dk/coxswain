@@ -1319,7 +1319,7 @@ impl App {
             coxswain_core::meaning::warm(&cfg);
             // A follow-up is looked up with the question before it, which it often leans on.
             let lookup = earlier.last().map_or(question.clone(), |(q, _)| format!("{q} {question}"));
-            let sources = index.passages(&lookup, 10);
+            let sources = index.passages(&lookup, None, 10);
             let done = if sources.is_empty() {
                 Err(t!("search.ask_nothing"))
             } else if stop.load(Ordering::SeqCst) {
@@ -1880,7 +1880,8 @@ fn meaning(what: Option<&str>, rest: &[String]) {
         let old = Config::load().map(|c| c.search).unwrap_or_default();
         let mut new = old.clone();
         change(&mut new);
-        if let Some(why) = meaning::change_notice(&old, &new, Client::start(&old).status().meaning_done) {
+        let st = Client::start(&old).status();
+        if let Some(why) = meaning::change_notice(&old, &new, st.meaning_done, st.meaning_passages) {
             eprint!("{why} {} ", t!("tui.meaning_change_ask"));
             let mut answer = String::new();
             let _ = std::io::stdin().read_line(&mut answer);

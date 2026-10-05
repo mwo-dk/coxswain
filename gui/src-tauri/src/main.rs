@@ -208,6 +208,7 @@ struct Settings {
     /// Where the built-in model runs: "auto" (a Mac's GPU when it can) or "cpu".
     meaning_device: String,
     ask_model: String,
+    ask_think: bool,
     search_history: bool,
     /// Files only in the cloud: "local-only" (found by name, never read) or "all".
     search_cloud: String,
@@ -247,6 +248,7 @@ impl From<&Config> for Settings {
             meaning_key_env: c.search.meaning_key_env.clone(),
             meaning_device: c.search.meaning_device.clone(),
             ask_model: c.search.ask_model.clone(),
+            ask_think: c.search.ask_think,
             search_history: c.search.history,
             search_cloud: c.search.cloud.clone(),
             cloud_read: c.search.cloud_read.clone(),
@@ -285,6 +287,7 @@ const SETTING_PATHS: &[(&str, &[&str])] = &[
     ("meaning_key_env", &["search", "meaning_key_env"]),
     ("meaning_device", &["search", "meaning_device"]),
     ("ask_model", &["search", "ask_model"]),
+    ("ask_think", &["search", "ask_think"]),
     ("search_history", &["search", "history"]),
     ("search_cloud", &["search", "cloud"]),
     ("cloud_read", &["search", "cloud_read"]),
@@ -738,7 +741,7 @@ async fn meaning_change(name: String, value: String, engine: Option<String>, url
         "meaning_model" => new.meaning_model = value,
         _ => return Ok(None),
     }
-    tauri::async_runtime::spawn_blocking(move || coxswain_core::meaning::change_notice(&old, &new, index.status().meaning_done)).await.map_err(|e| e.to_string())
+    tauri::async_runtime::spawn_blocking(move || { let st = index.status(); coxswain_core::meaning::change_notice(&old, &new, st.meaning_done, st.meaning_passages) }).await.map_err(|e| e.to_string())
 }
 
 /// Why Ask's chat model cannot answer (one that only makes vectors, one the server does not
@@ -780,17 +783,21 @@ struct SetupLook {
     advice: coxswain_core::setup::Advice,
     /// The index in `found` of the server recommended.
     best: Option<usize>,
+    /// Where the built-in model runs: "on the GPU (Metal)", "on the CPU".
+    builtin_runs: String,
 }
 
 #[tauri::command]
-async fn setup_probe() -> Res<SetupLook> {
+async fn setup_probe(ctx: tauri::State<'_, Ctx>) -> Res<SetupLook> {
     use coxswain_core::setup;
-    blocking(|| {
+    let (index, cfg) = (ctx.index.clone(), ctx.cfg().search.clone());
+    blocking(move || {
         let found = setup::probe();
         let machine = setup::machine(&found);
         let advice = setup::advise(&machine);
         let best = setup::best(&found, &advice).and_then(|b| found.iter().position(|f| f.url == b.url));
-        Ok(SetupLook { found, machine, advice, best })
+        let runs = index.status().meaning_runs.filter(|_| cfg.meaning && cfg.meaning_engine == "builtin");
+        Ok(SetupLook { found, machine, advice, best, builtin_runs: setup::builtin_runs(&cfg, runs.as_ref()) })
     })
     .await
 }
@@ -952,7 +959,7 @@ async fn ask(question: String, earlier: Vec<(String, String)>, on_event: tauri::
         coxswain_core::meaning::warm(&cfg);
         // A follow-up is looked up with the question before it, which it often leans on.
         let lookup = earlier.last().map_or(question.clone(), |(q, _)| format!("{q} {question}"));
-        let sources = index.passages(&lookup, ASK_PASSAGES);
+        let sources = index.passages(&lookup, None, ASK_PASSAGES);
         if sources.is_empty() {
             return Err(coxswain_core::t!("search.ask_nothing"));
         }

@@ -23,6 +23,7 @@ them.
 - [What you see](#what-you-see)
 - [Settings and config.toml](#settings-and-configtoml)
 - [In the terminal app](#in-the-terminal-app)
+- [Thinking](#thinking)
 - [Questions](#questions)
 
 ## What it needs
@@ -37,7 +38,8 @@ them.
 
    For example `qwen3:8b`, `llama3.1:8b` or `gemma3:12b` on Ollama (`ollama pull qwen3:8b`), or
    the name Lemonade or LM Studio lists. A model that reasons aloud (`<think> … </think>`) is
-   fine: only its answer is shown.
+   fine: only its answer is shown. Ask asks it not to think first, so the answer starts at once
+   (see [Thinking](#thinking)).
 
 Ask never uses a service on the internet unless you point the server address at one yourself.
 
@@ -111,6 +113,7 @@ The guided setup does all of it, with a test question: [Smart search in a few mi
 | Item | Key | Type, default | Does |
 |---|---|---|---|
 | *Chat model* | `[search] ask_model` | string, `""` | The model that writes the answers. Empty: Ask is not set up |
+| *Let the model think before it answers* | `[search] ask_think` | bool, `false` | Off: a model that thinks first (Qwen3, DeepSeek-R1, …) is asked not to. On: it thinks, many seconds before the first word ([Thinking](#thinking)) |
 | *Vectors made by*, *Server*, *API key from the variable* | `meaning_engine`, `meaning_url`, `meaning_key_env` | | The server Ask talks to, as above |
 | (none) | `[keys] ask` | list of keys, `["Ctrl+F7"]` | The keys that open Find file at Ask ([Changing keys](../customise/keys.md)) |
 
@@ -130,6 +133,23 @@ coxswain --meaning ollama            # or: --meaning on, --meaning server URL MO
 coxswain --meaning ask qwen3:8b      # pulled on Ollama when missing
 coxswain --meaning ask off           # Ask off again
 ```
+
+## Thinking
+
+Models such as Qwen3 think before they answer. Coxswain never shows the thinking, so the user
+would wait for nothing: with `qwen3:8b` on an RTX 4070 laptop GPU the first word came after
+15–28 seconds. Ask therefore asks the model not to think:
+
+| Server | How |
+|---|---|
+| Ollama (0.9 or newer) | `"think": false` with the question; a model that cannot think is not affected, an older Ollama ignores it |
+| OpenAI-style (Lemonade, LM Studio, llama.cpp, vLLM) | ` /no_think` at the end of the question, for Qwen3's hybrid models only (not its *coder* or *instruct* models, which do not think) |
+
+With it the first word comes in 0.3–0.4 seconds once the model is loaded. A model that always
+thinks (DeepSeek-R1, Qwen3's *thinking* models) cannot be stopped; *Waiting for … to answer*
+stays until it has. To let the model think, for harder questions: tick *Let the model think
+before it answers* under *Settings → Ask* in the desktop app, or set `ask_think = true` under
+`[search]` in `config.toml` (both apps).
 
 ## Questions
 
@@ -178,7 +198,8 @@ Ollama, Ask has the model loaded while it looks the sources up, so the wait star
 question is sent. A server with the OpenAI API (Lemonade, LM Studio, llama.cpp) is sent nothing
 before the question: it loads the model when the question comes. Either way *Waiting for … to
 answer* shows under the question until the first word. Ask waits up to five minutes for the answer to start, and **Esc** stops the
-wait at any moment. After that the words come as they are made.
+wait at any moment. After that the words come as they are made. A model that thinks first
+would add many seconds more; Ask asks it not to ([Thinking](#thinking)).
 
 #### It says my model makes vectors and cannot answer. Why?
 The model in *Chat model* is an embedding model, such as `bge-m3` or `nomic-embed-text`: it turns

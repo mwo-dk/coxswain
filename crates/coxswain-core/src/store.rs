@@ -686,6 +686,11 @@ impl Store {
         (count("SELECT count(*) FROM files WHERE has_text = 1 AND embedded IS NULL"), count("SELECT count(*) FROM files WHERE embedded = 1"))
     }
 
+    /// Passages that have their vectors.
+    pub fn passage_count(&self) -> usize {
+        self.db.lock().unwrap().query_row("SELECT count(*) FROM chunks", [], |r| r.get::<_, i64>(0)).unwrap_or(0) as usize
+    }
+
     /// Up to `n` files still to get their vectors, the last changed first: (id, path, text).
     fn unembedded(&self, n: usize) -> rusqlite::Result<Vec<(i64, String, String)>> {
         let db = self.db.lock().unwrap();
@@ -748,9 +753,12 @@ impl Store {
 
     /// Files whose passages mean what `query` asks, closest first, each with the start of
     /// the passage that was closest. A file's score is its best passage's, and a little more
-    /// for each further passage that matches, up to four. Nothing while search by meaning is off.
-    pub fn similar(&self, query: &str, max: usize) -> Vec<Hit> {
-        self.closest(query, max, true, |_| true)
+    /// for each further passage that matches, up to four. Only files below `scope`, when given.
+    /// Nothing while search by meaning is off.
+    // ponytail: the sieve keeps the 1000 closest passages of every folder before the scope
+    // is applied; a narrow scope can come up short. Sieve per scope if users notice.
+    pub fn similar(&self, query: &str, scope: Option<&Path>, max: usize) -> Vec<Hit> {
+        self.closest(query, max, true, |p| scope.is_none_or(|s| p.starts_with(s)))
             .into_iter()
             .map(|(path, s, passage)| {
                 let words: Vec<&str> = passage.split_whitespace().collect();
@@ -762,10 +770,13 @@ impl Store {
 
     /// The `max` passages closest to what `question` asks, whole, with their files: what Ask
     /// gives the chat model to answer from. A file may give more than one; at most three, so
-    /// one long document does not crowd out the rest.
-    pub fn passages(&self, question: &str, max: usize) -> Vec<(PathBuf, String)> {
+    /// one long document does not crowd out the rest. Only files below `scope`, when given.
+    pub fn passages(&self, question: &str, scope: Option<&Path>, max: usize) -> Vec<(PathBuf, String)> {
         let mut per_file: HashMap<PathBuf, usize> = HashMap::new();
         self.closest(question, max, false, |path| {
+            if scope.is_some_and(|s| !path.starts_with(s)) {
+                return false;
+            }
             let n = per_file.entry(path.to_path_buf()).or_default();
             *n += 1;
             *n <= 3
@@ -830,26 +841,66 @@ impl Store {
         out
     }
 
-    /// Files whose text has every word of `query`; the last word may be the start of one.
-    /// Best matches first, each with the passage that matched.
-    pub fn search(&self, query: &str, max: usize) -> Results {
+    /// Files whose text has every word of `query`; the last word may be the start of one. When
+    /// that finds fewer than `ENOUGH` files and there are two words or more, files with any of
+    /// the words of four letters or more come after them, so a question typed as a question
+    /// finds its file. Best matches first, each with the passage that matched; only files
+    /// below `scope`, when given.
+    pub fn search(&self, query: &str, scope: Option<&Path>, max: usize) -> Results {
+        self.search_words(query, scope, max).0
+    }
+
+    /// `search`, and how many of the hits, at the top, have every word.
+    pub fn search_words(&self, query: &str, scope: Option<&Path>, max: usize) -> (Results, usize) {
+        /// Fewer files than this with every word: files with any of them follow.
+        const ENOUGH: usize = 10;
         let start = Instant::now();
         let words: Vec<String> = query.split_whitespace().map(|w| w.replace('"', "")).filter(|w| !w.is_empty()).collect();
         if words.is_empty() {
-            return Results::default();
+            return (Results::default(), 0);
         }
-        let ask = words.iter().enumerate().map(|(i, w)| format!("\"{w}\"{}", if i + 1 == words.len() { "*" } else { "" })).collect::<Vec<_>>().join(" ");
+        let last = words.len() - 1;
+        let term = |i: usize, w: &String| format!("\"{w}\"{}", if i == last { "*" } else { "" });
+        let all = words.iter().enumerate().map(|(i, w)| term(i, w)).collect::<Vec<_>>().join(" ");
+        let mut found = self.matching(&all, scope, max);
+        let every = found.0.len();
+        let any: Vec<String> = words.iter().enumerate().filter(|(_, w)| w.chars().count() > 3).map(|(i, w)| term(i, w)).collect();
+        if found.0.len() < ENOUGH && words.len() > 1 && !any.is_empty() {
+            let (more, total) = self.matching(&any.join(" OR "), scope, max);
+            // Every file with all the words has some of them: the count of these holds both.
+            found.1 = found.1.max(total);
+            for hit in more {
+                if found.0.len() >= max {
+                    break;
+                }
+                if !found.0.iter().any(|h| h.path == hit.path) {
+                    found.0.push(hit);
+                }
+            }
+        }
+        (Results { hits: found.0, total: found.1, micros: start.elapsed().as_micros() as u64 }, every)
+    }
+
+    /// The files whose text matches the FTS query `ask`, best first, up to `max`, and how many
+    /// there are; only below `scope`, when given.
+    fn matching(&self, ask: &str, scope: Option<&Path>, max: usize) -> (Vec<Hit>, usize) {
         let db = self.db.lock().unwrap();
         // Disks that are not plugged in keep their rows, out of sight.
         let offline: Vec<(String, String)> = self.offline.lock().unwrap().iter().map(|at| below(at)).collect();
-        let hidden: String = (0..offline.len()).map(|i| format!(" AND NOT (f.path > ?{} AND f.path < ?{})", 2 + 2 * i, 3 + 2 * i)).collect();
-        let args: Vec<rusqlite::types::Value> = std::iter::once(&ask).chain(offline.iter().flat_map(|(from, to)| [from, to])).map(|s| s.clone().into()).collect();
+        let mut filter: String = (0..offline.len()).map(|i| format!(" AND NOT (f.path > ?{} AND f.path < ?{})", 2 + 2 * i, 3 + 2 * i)).collect();
+        let mut args: Vec<rusqlite::types::Value> = std::iter::once(ask.to_string()).chain(offline.into_iter().flat_map(|(from, to)| [from, to])).map(Into::into).collect();
+        // A scope: the files below it, and the commits of the repositories below it.
+        if let Some((from, to)) = scope.and_then(key).map(|k| below(&k)) {
+            let n = args.len();
+            filter += &format!(" AND ((f.path > ?{a} AND f.path < ?{b}) OR (f.path > ?{c} AND f.path < ?{d}))", a = n + 1, b = n + 2, c = n + 3, d = n + 4);
+            args.extend([from.clone(), to.clone(), format!("git:{from}"), format!("git:{to}")].map(Into::into));
+        }
         let found = || -> rusqlite::Result<(Vec<Hit>, usize)> {
-            let total = db.query_row(&format!("SELECT count(*) FROM text JOIN files f ON f.id = text.rowid WHERE text MATCH ?1{hidden}"), rusqlite::params_from_iter(&args), |r| r.get::<_, i64>(0))? as usize;
+            let total = db.query_row(&format!("SELECT count(*) FROM text JOIN files f ON f.id = text.rowid WHERE text MATCH ?1{filter}"), rusqlite::params_from_iter(&args), |r| r.get::<_, i64>(0))? as usize;
             let mut q = db.prepare(&format!(
                 "SELECT f.path, snippet(text, 0, char(1), char(2), '…', 18), CASE WHEN f.path LIKE 'git:%' THEN substr(text.body, 1, instr(text.body, char(10)) - 1) END FROM text JOIN files f ON f.id = text.rowid
-                 WHERE text MATCH ?1{hidden} ORDER BY rank LIMIT ?{}",
-                2 + 2 * offline.len()
+                 WHERE text MATCH ?1{filter} ORDER BY rank LIMIT ?{}",
+                args.len() + 1
             ))?;
             let hits = q.query_map(rusqlite::params_from_iter(args.iter().cloned().chain([(max as i64).into()])), |r| {
                 let mut snippet = r.get::<_, String>(1)?.split_whitespace().collect::<Vec<_>>().join(" ");
@@ -861,8 +912,7 @@ impl Store {
             })?;
             Ok((hits.collect::<rusqlite::Result<_>>()?, total))
         };
-        let (hits, total) = found().unwrap_or_default();
-        Results { hits, total, micros: start.elapsed().as_micros() as u64 }
+        found().unwrap_or_default()
     }
 }
 
@@ -1441,12 +1491,21 @@ mod tests {
         let (store, go) = (Store::open(&d.join("search.db")).unwrap(), AtomicBool::new(false));
         scan(&store, &cfg, &go).unwrap();
 
-        let names = |q: &str| store.search(q, 10).hits.iter().map(|h| h.path.file_name().unwrap().to_string_lossy().into_owned()).collect::<Vec<_>>();
+        let names = |q: &str| store.search(q, None, 10).hits.iter().map(|h| h.path.file_name().unwrap().to_string_lossy().into_owned()).collect::<Vec<_>>();
         assert_eq!(names("fuel"), ["budget.md"], "not the binary, node_modules, the hidden folder, the .nosearch one or the names-only one");
         assert_eq!(names("rocket bud"), ["budget.md"], "every word, the last one begun");
-        assert_eq!(names("ferry fuel"), [""; 0]);
+        // No file has both words: the files with either come instead.
+        let mut either = names("ferry fuel");
+        either.sort();
+        assert_eq!(either, ["budget.md", "notes.txt"]);
+        assert_eq!(names("ferry and fuel"), names("ferry fuel"), "short words are left out of either");
+        // A scope: the files below it alone.
+        let docs = d.join("home/docs");
+        assert_eq!(store.search("fuel", Some(&docs), 10).hits.len(), 1);
+        assert_eq!(store.search("fuel", Some(&d.join("home/doc")), 10).total, 0, "a folder whose name starts the same is not below");
+        assert_eq!(store.search("fuel", Some(&d.join("home/private")), 10).total, 0);
         assert_eq!(names("\"; DROP TABLE files"), [""; 0], "a query is words, never SQL");
-        let hit = &store.search("largest", 10).hits[0];
+        let hit = &store.search("largest", None, 10).hits[0];
         assert_eq!(hit.snippet.as_deref(), Some(format!("# Rocket budget Fuel is the {}largest{} cost of flight seven.", MARK.0, MARK.1).as_str()));
         assert_eq!(store.texts(), 2);
 
@@ -1500,7 +1559,7 @@ mod tests {
         std::fs::write(&copy, "Orbit at dawn, land by noon.\n").unwrap();
         let cfg = SearchConfig { text_roots: vec![home.clone()], ..SearchConfig::default() };
         let (store, go) = (Store::open(&d.join("search.db")).unwrap(), AtomicBool::new(false));
-        let found = |q: &str| store.search(q, 10).total;
+        let found = |q: &str| store.search(q, None, 10).total;
         let hashes = || store.db.lock().unwrap().query_row("SELECT count(*) FROM hashes", [], |r| r.get::<_, i64>(0)).unwrap();
         let id = || store.db.lock().unwrap().query_row("SELECT id FROM files WHERE path = ?1", [key(&plan).unwrap()], |r| r.get::<_, i64>(0)).unwrap();
         let vectors = || store.db.lock().unwrap().query_row("SELECT count(*) FROM chunks", [], |r| r.get::<_, i64>(0)).unwrap();
@@ -1543,7 +1602,7 @@ mod tests {
         let db = home.with_extension("db");
         let (store, go) = (Store::open(&db).unwrap(), AtomicBool::new(false));
         scan(&store, &cfg, &go).unwrap();
-        let hits = |q: &str| store.search(q, 10).hits;
+        let hits = |q: &str| store.search(q, None, 10).hits;
         let found = hits("rocket");
         assert_eq!(found.len(), 1);
         let at = crate::history::split(&found[0].path).expect("a commit's history folder");
@@ -1588,7 +1647,7 @@ mod tests {
         let cfg = SearchConfig { text_roots: vec![home.clone()], ..SearchConfig::default() };
         let (store, go) = (Store::open(&d.join("search.db")).unwrap(), AtomicBool::new(false));
         scan(&store, &cfg, &go).unwrap();
-        let names = |q: &str| store.search(q, 10).hits.iter().map(|h| h.path.file_name().unwrap().to_string_lossy().into_owned()).collect::<Vec<_>>();
+        let names = |q: &str| store.search(q, None, 10).hits.iter().map(|h| h.path.file_name().unwrap().to_string_lossy().into_owned()).collect::<Vec<_>>();
         let size = |p: &Path| store.size(p).map(|s| s.0);
         let mut later = HashSet::new();
         let saw = |paths: &[PathBuf], later: &mut HashSet<PathBuf>| refresh(&store, &cfg, &mut paths.iter().cloned().collect(), later, &go).unwrap();
@@ -1655,12 +1714,12 @@ mod tests {
 
         let mut cfg = SearchConfig { text_roots: vec![home.clone()], text_max_size: 30, ..SearchConfig::default() };
         let (store, go) = (Store::open(&d.join("search.db")).unwrap(), AtomicBool::new(false));
-        let paths = |q: &str| store.search(q, 10).hits.into_iter().map(|h| h.path).collect::<Vec<_>>();
+        let paths = |q: &str| store.search(q, None, 10).hits.into_iter().map(|h| h.path).collect::<Vec<_>>();
         scan(&store, &cfg, &go).unwrap();
         assert_eq!(paths("colossal"), Vec::<PathBuf>::new(), "larger than text_max_size");
         assert_eq!(store.db.lock().unwrap().query_row("SELECT count(*) FROM files WHERE inside", [], |r| r.get::<_, i64>(0)).unwrap(), 4, "but known");
         assert_eq!(paths("launch"), [zip.join("docs").join("plan.txt")]);
-        let hit = &store.search("refilled", 10).hits[0];
+        let hit = &store.search("refilled", None, 10).hits[0];
         assert_eq!((hit.path.clone(), hit.snippet.as_deref()), (zip.join("docs").join("notes.md"), Some(format!("# Fuel Tanks {}refilled{} twice.", MARK.0, MARK.1).as_str())));
         assert_eq!(paths("rendezvous"), Vec::<PathBuf>::new(), "locked");
         assert_eq!(store.size(&home).map(|s| s.0), Some(crate::fs::dir_size(&home)), "files inside are not counted twice");
@@ -1715,7 +1774,7 @@ mod tests {
         std::fs::write(d.join("disk/photos/notes.txt"), b"orbit plan\n").unwrap();
         let cfg = SearchConfig { text_roots: vec![d.join("disk")], ..SearchConfig::default() };
         let (store, go) = (Store::open(&d.join("search.db")).unwrap(), AtomicBool::new(false));
-        let found = || store.search("orbit", 10).hits.len();
+        let found = || store.search("orbit", None, 10).hits.len();
         scan(&store, &cfg, &go).unwrap();
         assert_eq!(found(), 1);
 
@@ -1756,8 +1815,8 @@ mod tests {
         store.readers_changed("test-2", &["png"]).unwrap();
         assert_eq!(store.unread().unwrap().len(), 1);
         store.read(&[(id, Some("new words".into()))]).unwrap();
-        assert_eq!(store.search("new", 10).total, 1);
-        assert_eq!(store.search("old", 10).total, 0);
+        assert_eq!(store.search("new", None, 10).total, 1);
+        assert_eq!(store.search("old", None, 10).total, 0);
         drop(store);
         std::fs::remove_dir_all(d).unwrap();
     }
@@ -1775,7 +1834,7 @@ mod tests {
         let mut cfg = SearchConfig { text_roots: vec![d.join("home")], text_exclude: vec!["*.log".into(), "drafts".into(), "build".into()], ..SearchConfig::default() };
         let (store, go) = (Store::open(&d.join("search.db")).unwrap(), AtomicBool::new(false));
         let found = |store: &Store| {
-            let mut v: Vec<String> = store.search("fuel", 10).hits.iter().map(|h| h.path.file_name().unwrap().to_string_lossy().into_owned()).collect();
+            let mut v: Vec<String> = store.search("fuel", None, 10).hits.iter().map(|h| h.path.file_name().unwrap().to_string_lossy().into_owned()).collect();
             v.sort();
             v
         };
@@ -1818,13 +1877,15 @@ mod tests {
         store.hurry.store(true, Ordering::Relaxed);
         scan(&store, &cfg, &go).unwrap();
         assert_eq!(store.meaning_counts(), (0, 3));
-        let names = |q: &str| store.similar(q, 10).iter().map(|h| h.path.file_name().unwrap().to_string_lossy().into_owned()).collect::<Vec<_>>();
+        let names = |q: &str| store.similar(q, None, 10).iter().map(|h| h.path.file_name().unwrap().to_string_lossy().into_owned()).collect::<Vec<_>>();
         let found = names("how much does it cost to fuel the rocket");
         assert!(found.contains(&"budget.txt".to_string()) && found.contains(&"budget-da.txt".to_string()), "{found:?}");
         assert!(!found.contains(&"cake.txt".to_string()), "{found:?}");
         assert_eq!(names("apple cake recipe").first().map(String::as_str), Some("cake.txt"));
+        assert!(store.similar("apple cake recipe", Some(&d.join("elsewhere")), 10).is_empty(), "a scope with none of the files");
+        assert!(store.passages("apple cake recipe", Some(&d.join("elsewhere")), 10).is_empty());
         // What Ask answers from: whole passages, closest first.
-        let passages = store.passages("what does the fuel cost", 12);
+        let passages = store.passages("what does the fuel cost", None, 12);
         assert!(passages.first().is_some_and(|(p, text)| p.ends_with("budget.txt") || p.ends_with("budget-da.txt") && text.contains("syv")), "{passages:?}");
 
         // Changed: its vectors go with its old text, and come again for the new one.
@@ -1832,7 +1893,7 @@ mod tests {
         write("cake.txt", "Minutes of the board meeting: the budget was approved and the fuel supplier was changed.");
         scan(&store, &cfg, &go).unwrap();
         // Its name still says cake, which the model is shown too: the passage is the new one.
-        let hits = store.similar("apple cake recipe", 10);
+        let hits = store.similar("apple cake recipe", None, 10);
         assert!(hits.iter().filter(|h| h.path.ends_with("cake.txt")).all(|h| h.snippet.as_ref().is_some_and(|s| s.contains("board meeting"))), "{hits:?}");
         drop(store);
         std::fs::remove_dir_all(d).unwrap();
@@ -1892,10 +1953,10 @@ mod tests {
         scan(&store, &cfg, &go).unwrap();
         assert_eq!(store.meaning_counts(), (0, 40));
         BODIES_READ.store(0, Ordering::Relaxed);
-        assert_eq!(store.similar("zebra quartz", 5).len(), 5);
+        assert_eq!(store.similar("zebra quartz", None, 5).len(), 5);
         assert_eq!(BODIES_READ.load(Ordering::Relaxed), 5, "five files shown, five read");
         BODIES_READ.store(0, Ordering::Relaxed);
-        assert_eq!(store.passages("zebra quartz", 6).len(), 6);
+        assert_eq!(store.passages("zebra quartz", None, 6).len(), 6);
         assert!(BODIES_READ.load(Ordering::Relaxed) <= 6, "no more files than passages");
         drop(store);
         std::fs::remove_dir_all(d).unwrap();
@@ -1936,7 +1997,7 @@ mod tests {
         let store = open();
         assert_eq!(store.renewing.load(Ordering::Relaxed), 3, "still renewing after a restart, or when another process opened the store first");
         assert_eq!((store.meaning_counts(), chunks(&store)), ((3, 0), 0), "the vectors went");
-        assert_eq!(store.search("zebra", 10).total, 3, "the text stayed");
+        assert_eq!(store.search("zebra", None, 10).total, 3, "the text stayed");
         let first = store.unembedded(3).unwrap().into_iter().map(|(_, path, _)| path).collect::<Vec<_>>();
         assert!(first[2].ends_with("doc-1.txt"), "the last changed first: {first:?}");
         scan(&store, &cfg, &go).unwrap();
@@ -2071,7 +2132,7 @@ mod tests {
         store.hurry.store(true, Ordering::Relaxed);
         scan(&store, &cfg, &go).unwrap();
         assert_eq!(store.meaning_counts(), (0, 2));
-        let first = |q: &str| store.similar(q, 10).first().map(|h| h.path.file_name().unwrap().to_string_lossy().into_owned());
+        let first = |q: &str| store.similar(q, None, 10).first().map(|h| h.path.file_name().unwrap().to_string_lossy().into_owned());
         assert_eq!(first("how much does fuelling the rocket cost").as_deref(), Some("budget.txt"));
         assert_eq!(first("a recipe for baking").as_deref(), Some("cake.txt"));
 
