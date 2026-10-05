@@ -26,7 +26,8 @@ From then on:
 
 The disk is told apart by the file system's UUID on Linux and macOS, and by the volume serial on
 Windows, with the folder's place inside that file system. A disk that cannot be told apart (a
-network share, tmpfs) is known by its path only.
+network share, tmpfs) is known by its path only, and so is every disk on
+[FreeBSD](../reference/freebsd.md#how-freebsd-differs-from-linux-here) for now.
 
 ## What you see
 

@@ -130,7 +130,10 @@ The questions people ask most, with a short answer and a link to the full one. E
 - **Does Coxswain update itself?** No; it tells you once a day, with the command for your package manager. [Answer](reference/updates.md#does-coxswain-update-itself)
 - **Where are the licences of what Coxswain is built from?** In `THIRD-PARTY-NOTICES.md`: next to `LICENSE` in the terminal archive, in the desktop app's install folder, and on every release's Assets list, with an SBOM per app and a CBOM. [Answer](reference/bills-of-materials.md#where-are-the-licences-of-the-apps-i-installed)
 - **Why does Coxswain's CBOM list RC4 and MD5, rated broken?** It uses them only to read old encrypted PDFs for search inside files, never to protect anything; the CBOM says so with each one. [Answer](reference/bills-of-materials.md#why-are-rc4-and-md5-in-the-cbom-rated-broken)
+- **Does Coxswain run on FreeBSD?** Yes, both apps on FreeBSD 14 and 15 (amd64), installed with one line: `fetch -qo - https://raw.githubusercontent.com/mwo-dk/coxswain/master/install/install-freebsd.sh | sh`. The desktop app is experimental there. [Answer](reference/freebsd.md)
+- **Why is the desktop app experimental on FreeBSD?** Tauri does not support FreeBSD officially; two crates are patched until their fixes are released. Your files are handled by the same tested core. [Answer](reference/freebsd.md#the-desktop-app-what-experimental-means)
+- **How do I start the search helper on FreeBSD without a desktop session?** The rc.d script: `doas sysrc coxswain_index_enable=YES coxswain_index_user=$USER` and `doas service coxswain_index start`, or one line in `~/.profile`. [Answer](reference/freebsd.md#the-search-helper)
 - **The cache folder is large. What takes the room?** Mostly search.db and the 488 MB model, then previews/. [Answer](reference/where-things-are-kept.md#the-cache-folder-is-large-what-takes-the-room)
 
 ---
-[← Previous: Performance](reference/performance.md) · [Next: Docs index →](README.md)
+[← Previous: FreeBSD](reference/freebsd.md) · [Next: Docs index →](README.md)

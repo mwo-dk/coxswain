@@ -54,7 +54,7 @@ model's folder.
 | `previews/` | `~/.cache/coxswain/previews/` | PDFs, SVGs and pages made by tools (LaTeX, LibreOffice, PlantUML, pandoc), one folder per file and engine | Yes: Settings → *Previews made by tools* → *Previews made so far* → *Clear* does it |
 | `index.addr`, `index.lock` | `~/.cache/coxswain/` | The helper's port and token (readable by you alone), and its lock | Only while no helper runs |
 | `libreoffice-profile/`, `libreoffice-index-profile/` | `~/.cache/coxswain/` | LibreOffice's own profiles for previews and for reading old Office files, so your open LibreOffice is left alone | Yes |
-| Session registration | `~/.config/systemd/user/coxswain-index.service` (Linux), `~/Library/LaunchAgents/dk.mwo.coxswain.index.plist` (macOS), the `coxswain-index` value under `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` (Windows) | Only with *Start with my session* | Use `coxswain --index-service off` instead |
+| Session registration | `~/.config/systemd/user/coxswain-index.service` (Linux), `~/Library/LaunchAgents/dk.mwo.coxswain.index.plist` (macOS), the `coxswain-index` value under `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` (Windows), `~/.config/autostart/coxswain-index.desktop` (FreeBSD) | Only with *Start with my session* | Use `coxswain --index-service off` instead |
 | `coxswain-extract-…` | The system's temporary folder | A few seconds' work of tesseract or LibreOffice while a file is read | Removed by itself |
 | `coxswain-archive-…` | The system's temporary folder | Files on their way from one archive to another | Removed by itself |
 
@@ -72,7 +72,8 @@ alone: each start sets the folders to `700` and the files to `600`, so an instal
 | State (`state.json`) | `~/.local/share/coxswain/` (or `$XDG_DATA_HOME/coxswain/`) | `~/Library/Application Support/coxswain/` | `%APPDATA%\coxswain\` |
 | Cache (index, store, model, previews) | `~/.cache/coxswain/` (or `$XDG_CACHE_HOME/coxswain/`) | `~/Library/Caches/coxswain/` | `%LOCALAPPDATA%\coxswain\` |
 
-On macOS and Windows the config and state share one folder.
+On FreeBSD the folders are those of Linux. On macOS and Windows the config and state share one
+folder.
 
 ## What you see
 

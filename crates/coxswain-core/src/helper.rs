@@ -332,9 +332,9 @@ impl Client {
             if registered && !crate::service::starts(&exe) && crate::service::install(&exe).is_ok() {
                 return;
             }
-            // A registered helper is started again by systemd or launchd; on Windows nothing
-            // does, so the app starts one that stays.
-            if registered && !cfg!(windows) {
+            // A registered helper is started again by systemd or launchd; on Windows and the
+            // BSDs nothing does, so the app starts one that stays.
+            if registered && crate::service::SUPERVISED {
                 return;
             }
             let mut c = detached(&exe);

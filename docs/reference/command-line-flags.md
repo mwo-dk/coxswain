@@ -125,7 +125,7 @@ chooses, **Enter** takes the default (marked `*`), **s** skips; downloads ask *[
 | Flag | Does |
 |---|---|
 | `--index-service` | Prints `on` or `off`: whether the search helper starts with your session |
-| `--index-service on` | Registers the helper with the system (a systemd user unit on Linux, a LaunchAgent on macOS, a Run entry on Windows) and starts it. The same as Settings → *Search inside files* → *Start the search helper with my session, so it reads while no window is open* |
+| `--index-service on` | Registers the helper with the system (a systemd user unit on Linux, a LaunchAgent on macOS, a Run entry on Windows, an XDG autostart entry on FreeBSD) and starts it. The same as Settings → *Search inside files* → *Start the search helper with my session, so it reads while no window is open* |
 | `--index-service off` | Removes the registration; the running helper makes way for one that leaves with the apps |
 
 See [The search helper](../search/helper.md).

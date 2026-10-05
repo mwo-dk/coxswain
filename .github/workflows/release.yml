@@ -217,8 +217,67 @@ jobs:
           if command -v sha256sum >/dev/null; then sha256sum "$file" > "$file.sha256"; else shasum -a 256 "$file" > "$file.sha256"; fi
           gh release upload "$TAG" "$file" "$file.sha256"
 
+  # FreeBSD: both apps, built in a FreeBSD 14.5 virtual machine. The terminal app needs nothing
+  # beyond the base system; the desktop app needs WebKitGTK from packages (install-freebsd.sh
+  # installs them). docs/reference/freebsd.md.
+  freebsd:
+    needs: [draft, boms]
+    if: needs.draft.outputs.id != ''
+    permissions:
+      contents: write
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: ${{ needs.draft.outputs.sha }}
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: gui/package-lock.json
+      - name: Frontend
+        working-directory: gui
+        run: |
+          npm ci --no-audit --no-fund
+          npm run build
+          rm -rf node_modules
+      - uses: vmactions/freebsd-vm@c46abacb49f09938ca4e1702d15d836285d694cc # v1.5.9
+        with:
+          release: "14.5"
+          usesh: true
+          prepare: pkg install -y rust pkgconf webkit2-gtk_41 gtk3 libsoup3 librsvg2-rust
+          run: |
+            set -e
+            cargo build --release --locked -p coxswain -p coxswain-gui
+            mkdir out
+            cp target/release/coxswain target/release/cox target/release/coxswain-gui out/
+            rm -rf target
+      - name: Package and upload
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.draft.outputs.tag }}
+        run: |
+          for i in 1 2 3 4 5; do gh release download "$TAG" --repo "$GITHUB_REPOSITORY" -p THIRD-PARTY-NOTICES.md --clobber && break; [ "$i" = 5 ] && exit 1; sleep $((i * 10)); done
+          target=x86_64-unknown-freebsd
+          term="coxswain-terminal-$TAG-$target"
+          desk="coxswain-desktop-$TAG-$target"
+          mkdir "$term" "$desk"
+          cp LICENSE README.md THIRD-PARTY-NOTICES.md "$term/"
+          cp LICENSE README.md THIRD-PARTY-NOTICES.md "$desk/"
+          cp out/coxswain out/cox crates/coxswain/coxswain.1 packaging/freebsd/coxswain_index "$term/"
+          cp out/coxswain-gui "$desk/"
+          cp gui/src-tauri/icons/128x128.png "$desk/coxswain.png"
+          cp packaging/freebsd/coxswain.desktop "$desk/"
+          for d in "$term" "$desk"; do
+            tar czf "$d.tar.gz" "$d"
+            sha256sum "$d.tar.gz" > "$d.tar.gz.sha256"
+          done
+          gh release upload "$TAG" "$term.tar.gz" "$term.tar.gz.sha256" "$desk.tar.gz" "$desk.tar.gz.sha256"
+
   publish:
-    needs: [draft, boms, desktop, terminal]
+    needs: [draft, boms, desktop, terminal, freebsd]
     runs-on: ubuntu-24.04
     permissions:
       contents: write

@@ -608,6 +608,7 @@
  "news.show_me": "보기",
  "news.title": "새로운 기능",
  "notice.cjk_font": "일본어나 한국어 글꼴이 설치되어 있지 않아 글자가 네모로 보일 수 있습니다. noto-fonts-cjk(Arch), fonts-noto-cjk(Debian, Ubuntu), google-noto-sans-cjk-fonts(Fedora) 등을 설치하세요.",
+ "notice.cjk_font_freebsd": "일본어 또는 한국어 글꼴이 설치되어 있지 않아 글자가 네모로 보일 수 있습니다. 다음 명령으로 설치하세요: pkg install noto-sans-jp noto-sans-kr",
  "notice.cloud": "{names}을(를) 찾았습니다: 온라인 전용 파일은 이름으로만 찾으므로 아무것도 다운로드하지 않습니다. 설정에서 바꿀 수 있습니다",
  "notice.cloud_tui": "{names}을(를) 찾았습니다: 온라인 전용 파일은 이름으로만 찾으므로 아무것도 다운로드하지 않습니다. config.toml에 cloud = \"all\"을 쓰면 읽습니다",
  "notice.history": "새 기능: git 저장소의 파일이나 폴더에서 {key}을(를) 누르면 커밋별 기록을 보여 줍니다",
@@ -697,6 +698,7 @@
  "preview.issuer": "발급자",
  "preview.media_appimage": "이 AppImage는 Debian과 Ubuntu가 두는 위치에 있는 GStreamer 플러그인으로만 동영상과 소리를 재생하는데, 그곳에 플러그인이 없습니다. 패키지 관리자로 Coxswain을 설치하거나 파일을 해당 앱에서 여세요.",
  "preview.media_missing": "여기서 동영상과 소리를 재생하려면 GStreamer good 플러그인이 필요합니다 (gst-plugins-good, Debian과 Ubuntu에서는 gstreamer1.0-plugins-good). 설치한 다음 Coxswain을 다시 여세요.",
+ "preview.media_missing_freebsd": "여기서 동영상과 소리를 재생하려면 GStreamer good 플러그인이 필요합니다. 다음 명령으로 설치하세요: pkg install gstreamer1-plugins-good. 그런 다음 Coxswain을 다시 여세요.",
  "preview.media_open": "해당 앱에서 열기",
  "preview.more": {
   "other": "… {n}개 더"
@@ -896,7 +898,7 @@
  "setup.pull_elsewhere": "{server}은(는) 자체 창에서 모델을 다운로드합니다: 거기서 {model}을(를) 찾아 다운로드한 다음, 여기서 다시 찾아보세요.",
  "setup.recommended": "추천",
  "setup.server_hint": "의미 검색에서는 모델이 모든 구절을 벡터(그 의미를 나타내는 숫자)로 바꿉니다. 내장 모델은 이를 이 컴퓨터(CPU 또는 Mac의 GPU)에서 수행하고, 모델 서버(Ollama, Lemonade, LM Studio, llama.cpp …)는 GPU나 NPU를 사용해 훨씬 빠르게 수행합니다.",
- "setup.service_hint": "세션과 함께 시작: 검색 도우미가 로그인할 때부터 실행되어, 저장 공간이 실행될 때마다 파일을 따라갑니다. 파일이 바뀔 때 약간의 CPU 시간을 쓰고, 배터리로 작동할 때는 일시 중지됩니다. 관리자 권한이 필요 없습니다 (Linux에서는 systemd 사용자 서비스, macOS에서는 launchd 에이전트, Windows에서는 시작 프로그램 항목).",
+ "setup.service_hint": "세션과 함께 시작: 검색 도우미가 로그인할 때부터 실행되어, 저장 공간이 실행될 때마다 파일을 따라갑니다. 파일이 바뀔 때 약간의 CPU 시간을 쓰고, 배터리로 작동할 때는 일시 중지됩니다. 관리자 권한이 필요 없습니다 (Linux에서는 systemd 사용자 서비스, macOS에서는 launchd 에이전트, Windows에서는 시작 프로그램 항목, FreeBSD에서는 XDG 자동 시작 항목).",
  "setup.service_on": "세션과 함께 시작",
  "setup.speed_hint": "테스트 질문 후, 서버가 모델을 GPU에서 실행하는지 알려줍니다.",
  "setup.speed_no_gpu": "GPU나 NPU를 찾지 못함: 모델이 CPU에서 실행됩니다. 작은 모델은 답하지만 느립니다.",

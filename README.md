@@ -8,6 +8,11 @@ Tauri and Svelte 5), both on one shared Rust core and one config file. It finds 
 its name, its text or what it is about, previews over 60 kinds of file, opens archives like
 folders, shows git in every panel, and keeps everything on your machine.
 
+> **Runs on FreeBSD:** the terminal app and the desktop app, installed with one line:
+> `fetch -qo - https://raw.githubusercontent.com/mwo-dk/coxswain/master/install/install-freebsd.sh | sh`
+> The terminal app is a first-class build; the desktop app is experimental there.
+> [FreeBSD](docs/reference/freebsd.md)
+
 ![The desktop app in Cyber, its default theme: a green phosphor terminal with two panes, git status, colour tags and the F-key bar](docs/screenshots/gui-details.png)
 *The desktop app in **Cyber**, its default. Seventeen more themes are one F9 away, from Norton
 Commander blue to Windows 95 and Mac OS 9.*
@@ -19,6 +24,7 @@ Commander blue to Windows 95 and Mac OS 9.*
 
 ## Highlights
 
+- **FreeBSD, Linux, macOS and Windows:** both apps on all four, FreeBSD with an install line of its own, `pkg` for what the desktop app needs, an rc.d script for the search helper and a manual page. [FreeBSD](docs/reference/freebsd.md)
 - **Norton Commander at heart:** two panels, the F-key bar, a command line and NC's keys. [Panels and keys](docs/panels/README.md)
 - **One Find for names, words, meaning and answers:** Ctrl+F and type; the hits come in groups (*Names*, *In files*, *About this*, *History*) ranked by words and meaning together, Ctrl+Enter asks, one key limits it to this folder, inside your zip, 7z and tar archives too; you choose what is read and what is left out (`*.log`, a folder). [Search](docs/search/README.md) · [Inside archives](docs/search/archives.md) · [Choosing the folders](docs/search/folders.md)
 - **Gentle with your cloud:** OneDrive, Dropbox, Google Drive, Proton Drive and iCloud files that are only online are found by name, marked with a cloud, and never downloaded unless you open one. [Cloud files](docs/search/cloud-files.md)
@@ -55,7 +61,8 @@ It all runs on your own machine, or on your own server (Ollama, Lemonade, LM Stu
    finds the model servers on your machine and says what suits it.
 2. **Use the graphics card or NPU** if you have one: the guide checks that the server does.
 3. **Let it read in the background:** *Start with my session* keeps the index current between
-   launches (a systemd user service, a launchd agent or a Run entry; no administrator rights).
+   launches (a systemd user service, a launchd agent, a Run entry or an XDG autostart entry on
+   FreeBSD; no administrator rights).
 
 The whole walk-through: [Smart search in a few minutes](docs/search/setup.md).
 
@@ -65,6 +72,7 @@ The whole walk-through: [Smart search in a few minutes](docs/search/setup.md).
 |---|---|---|
 | macOS | `brew install mwo-dk/coxswain/coxswain` | `brew install --cask mwo-dk/coxswain/coxswain-gui`, or the `.dmg` |
 | Linux | `brew install mwo-dk/coxswain/coxswain`, or the static `x86_64-unknown-linux-musl` binary | `.deb`, `.rpm`, `.AppImage`, or the Homebrew cask (x86-64) |
+| FreeBSD 14, 15 | `fetch -qo - https://raw.githubusercontent.com/mwo-dk/coxswain/master/install/install-freebsd.sh \| sh` installs both apps ([FreeBSD](docs/reference/freebsd.md)); `--terminal-only` for the terminal app alone | The same line (experimental), with the packages it needs from `pkg` |
 | Windows | `coxswain-terminal-<version>-x86_64-pc-windows-msvc.zip` | `.msi` or `-setup.exe` |
 | Any | `cargo install coxswain` | `./install/install.sh` (or `install\install.ps1`) from a clone |
 
@@ -108,7 +116,7 @@ what you see, the settings, and the questions people ask.
 | [The preview pane](docs/previews/README.md) | Every format, HTML, Office, diagrams, LaTeX, tools and containers |
 | [Files](docs/files/README.md) | Copy, move, delete, clipboard, drag and drop, batch rename, archives, properties, duplicates |
 | [Customising](docs/customise/README.md) | Settings, themes, looks, your own theme, languages, keys, glyphs |
-| [Reference](docs/reference/README.md) | The terminal app, flags, every config key, privacy, updates, where files are kept |
+| [Reference](docs/reference/README.md) | The terminal app, flags, every config key, privacy, updates, where files are kept, FreeBSD |
 | [Questions, collected](docs/faq.md) | The common questions, linked to their full answers |
 
 ## Layout
@@ -135,6 +143,7 @@ Newest first. Downloads for each release are on the [releases page](https://gith
 
 | Version | Date | What's new |
 |---|---|---|
+| **1.42.0** | 2026-10-05 | **Coxswain runs on FreeBSD.** Both apps for FreeBSD 14 and 15 (amd64) on every release, installed with one line: `fetch -qo - https://raw.githubusercontent.com/mwo-dk/coxswain/master/install/install-freebsd.sh \| sh`. The script checks the SHA-256 sums, installs into `/usr/local` or `~/.local`, shows the `pkg install` line for what the desktop app needs before it runs it, and adds a manual page (`man coxswain`), a menu entry and an rc.d script for the search helper. The terminal app needs nothing beyond the base system; the desktop app is experimental. *Start with my session* writes an XDG autostart entry there; the helper watches folders, not every file, so kqueue stays light; battery and memory are read with `sysctl`; the update notice names the install line. [FreeBSD](docs/reference/freebsd.md) |
 | **1.41.0** | 2026-10-05 | One Find, in both apps: one field for names, words in files, meaning and Ask, the hits in groups (*Names*, *In files*, *About this*, *History*) ordered by what you typed; **Tab** picks a kind (or type `text:`, `about:`, `?`), **Ctrl+F** inside Find limits everything, Ask too, to this folder, **Ctrl+Enter** (terminal: **Alt+Enter**) asks and the answer opens in place; every missing piece says what it needs, with one step; a ⌕ button on each path bar. Ask's first word comes without reloading the models on an 8 GB card; the title shows the version only. [Find file](docs/search/find-file.md) |
 | **1.40.0** | 2026-10-05 | Ask answers at once: a model that thinks first (such as `qwen3:8b`) is asked not to, so the first word comes in under a second instead of 15–28 seconds; *Let the model think before it answers* in Settings (`ask_think`) brings the thinking back. Searching the text of files ranks the files with your words by meaning too, and a question typed as a question finds the files with some of its words; the setup guide says where the built-in model really runs (a Mac's GPU), and the warning before a change of embedding model counts every passage. [Thinking](docs/search/ask.md#thinking) · [Ranking](docs/search/meaning.md#how-words-and-meaning-are-ranked-together) |
 | **1.39.0** | 2026-10-05 | Search by meaning and Ask cover whole documents: every part of a file gets vectors (up to 256 passages, about 25,000 words), not only its first 960 words, and each passage is matched with the file's name, its folder and its Markdown heading. A file counts with its best passage and a little more when several match. With bge-m3 and other server models, answers that score a little lower are no longer cut off (measured on the search-quality corpus: right file in the first five for every question). The first start after the update makes the vectors once more, in the background (the text is not read again); both apps say how many files and about how long. [Search by meaning](docs/search/meaning.md#why-is-search-by-meaning-re-reading-everything) |

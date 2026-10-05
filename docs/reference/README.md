@@ -22,6 +22,7 @@ the full list.
 | [Security](security.md) | How dependencies are chosen and kept current, the advisory checks on every change and every week, licences, the bundled viewers, checking a download, reporting a problem |
 | [Licences and bills of materials](bills-of-materials.md) | What each release carries (SBOMs, a CBOM, the third-party notices), how licences are checked, the cryptography both apps use, making the files yourself |
 | [Performance](performance.md) | What keeps each app quick: rows on screen only, no disk work on the window's thread, background measuring, and the numbers for a folder of 100,000 files and an index of a million names |
+| [FreeBSD](freebsd.md) | Both apps on FreeBSD: the one-line install, the packages and what each is for, the search helper from the session, rc.d or the login shell, search by meaning, how FreeBSD differs, updating, the desktop app's experimental status |
 
 ## Keys at a glance
 

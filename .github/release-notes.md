@@ -12,6 +12,11 @@ Every file comes from this release's **Assets** list below.
 | Linux (Debian, Ubuntu) | `Coxswain_…_amd64.deb` | `coxswain-terminal-…-x86_64-unknown-linux-musl.tar.gz` |
 | Linux (Fedora, openSUSE) | `Coxswain-…x86_64.rpm` | same as above |
 | Linux (any distro) | `Coxswain_…_amd64.AppImage` | same; `aarch64-…` for ARM |
+| FreeBSD 14, 15 (amd64) | `coxswain-desktop-…-x86_64-unknown-freebsd.tar.gz` (experimental) | `coxswain-terminal-…-x86_64-unknown-freebsd.tar.gz` |
+
+On FreeBSD one line installs both, with the packages the desktop app needs:
+`fetch -qo - https://raw.githubusercontent.com/mwo-dk/coxswain/master/install/install-freebsd.sh | sh`
+([FreeBSD](https://github.com/mwo-dk/coxswain/blob/master/docs/reference/freebsd.md)).
 
 The terminal app is a single file named `coxswain` (`coxswain.exe` on Windows). Put it anywhere on your `PATH`.
 

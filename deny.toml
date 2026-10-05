@@ -20,3 +20,6 @@ wildcards = "deny"
 [sources]
 unknown-registry = "deny"
 unknown-git = "deny"
+# FreeBSD's desktop app, until the fixes are released (Cargo.toml, [patch.crates-io]): tao's own
+# repository, and our fork of drag with its BSD fix (crabnebula-dev/drag-rs#99).
+allow-git = ["https://github.com/tauri-apps/tao", "https://github.com/mwo-dk/drag-rs"]
