@@ -67,7 +67,8 @@ It is worked out from where the program is installed:
 | Homebrew formula (the terminal app) | `brew upgrade coxswain` |
 | Homebrew cask (the desktop app) | `brew upgrade --cask coxswain-gui` |
 | Cargo | `cargo install coxswain` |
-| A download, `.deb`, `.rpm`, AppImage, installer, Scoop, WinGet, AUR, a source build | None: it points to the [releases page](https://github.com/mwo-dk/coxswain/releases/latest) |
+| WinGet, the terminal app (`mwo-dk.Coxswain.Terminal`) | `winget upgrade mwo-dk.Coxswain.Terminal` |
+| A download, `.deb`, `.rpm`, AppImage, the Windows installer (also when WinGet ran it: `winget upgrade mwo-dk.Coxswain`), AUR, a source build | None: it points to the [releases page](https://github.com/mwo-dk/coxswain/releases/latest) |
 
 The install tables in the [README](../../README.md#install) say how to update each.
 
@@ -96,8 +97,9 @@ stays in charge.
 #### Why does it show a URL instead of a command?
 
 It could not tell a package manager from where the program runs: a download, a `.deb`, an
-AppImage, Scoop or WinGet. Update it the way you installed it; the README's install tables say
-how.
+AppImage, or the Windows desktop installer, which lands in the same folder whether you ran it
+yourself or WinGet did (then `winget upgrade mwo-dk.Coxswain`). Update it the way you installed
+it; the README's install tables say how.
 
 #### I updated, but it still says a newer version is available.
 
