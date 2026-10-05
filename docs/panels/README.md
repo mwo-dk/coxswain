@@ -15,7 +15,7 @@ Every key here is a default. Each one can be changed in `config.toml` under `[ke
 
 | Page | What it covers |
 |---|---|
-| [The screen](the-screen.md) | The panels, the active panel, the title bar with the version and search depths, the status line, the F-key bar, starting in a folder |
+| [The screen](the-screen.md) | The panels, the active panel, the title bar with the version, the status line, the F-key bar, starting in a folder |
 | [Moving around and going to a folder](moving.md) | Cursor keys, opening, the parent folder, the other panel, rereading, typing a path |
 | [Quick search](quick-search.md) | **Alt+letter** jumps to a name in the panel |
 | [Marking files](marking.md) | **Insert**, `+`, `-`, `*`, marking with the mouse, what works on the marks |

@@ -20,7 +20,7 @@ Commander blue to Windows 95 and Mac OS 9.*
 ## Highlights
 
 - **Norton Commander at heart:** two panels, the F-key bar, a command line and NC's keys. [Panels and keys](docs/panels/README.md)
-- **Find by name, text or meaning:** Ctrl+F, and Tab goes deeper, from every name on the machine to what a file is about, inside your zip, 7z and tar archives too; you choose what is read and what is left out (`*.log`, a folder). [Search](docs/search/README.md) · [Inside archives](docs/search/archives.md) · [Choosing the folders](docs/search/folders.md)
+- **One Find for names, words, meaning and answers:** Ctrl+F and type; the hits come in groups (*Names*, *In files*, *About this*, *History*) ranked by words and meaning together, Ctrl+Enter asks, one key limits it to this folder, inside your zip, 7z and tar archives too; you choose what is read and what is left out (`*.log`, a folder). [Search](docs/search/README.md) · [Inside archives](docs/search/archives.md) · [Choosing the folders](docs/search/folders.md)
 - **Gentle with your cloud:** OneDrive, Dropbox, Google Drive, Proton Drive and iCloud files that are only online are found by name, marked with a cloud, and never downloaded unless you open one. [Cloud files](docs/search/cloud-files.md)
 - **Ask your files:** a question in your own words, answered by your own chat model from the closest passages, with numbered sources. [Ask](docs/search/ask.md) · [Set it up](docs/search/setup.md)
 - **Search by meaning, in any language:** a small model on your machine (on Apple Silicon it uses the GPU), or your own Ollama, Lemonade or OpenAI-style server. [Search by meaning](docs/search/meaning.md) · [Set it up](docs/search/setup.md)
@@ -38,15 +38,16 @@ Commander blue to Windows 95 and Mac OS 9.*
 
 | | |
 |---|---|
-| ![The terminal app: two blue panels, git status on the left](docs/screenshots/tui-panels.png) | ![Find file searching the text of files](docs/screenshots/gui-text-search.png) |
-| [The terminal app](docs/reference/terminal-app.md) | [Find file, inside files](docs/search/text.md) |
+| ![The terminal app: two blue panels, git status on the left](docs/screenshots/tui-panels.png) | <!-- screenshot: search-find-groups.png: the desktop app (Cyber), Find with "engine" typed: In files with main.rs, sequence.puml, launch-pad.drawio and their passages, "engine" highlighted, then History --> |
+| [The terminal app](docs/reference/terminal-app.md) | [Find file](docs/search/find-file.md) |
 | ![The preview pane: Markdown with a Mermaid diagram and math, a notebook, a spreadsheet, a Word document and a font](docs/screenshots/gui-previews.png) | ![A tar.gz archive open like a folder](docs/screenshots/gui-archive.png) |
 | [The preview pane](docs/previews/README.md) | [Archives as folders](docs/files/archives.md) |
 
 ## Smart search: names, words, meaning and answers
 
-Find file finds every file by **name** in a blink, by the **words** inside it, by what it is
-**about** in any language, and **Ask** answers a question from your files with numbered sources.
+One field finds every file by **name** in a blink, by the **words** inside it, by what it is
+**about** in any language, and **Ask** answers a question from your files with numbered sources:
+type, and the hits come in groups, the ones that fit your query first; **Ctrl+Enter** asks.
 It all runs on your own machine, or on your own server (Ollama, Lemonade, LM Studio, llama.cpp
 …); nothing leaves it unless you choose a server elsewhere. Three steps:
 
@@ -134,6 +135,7 @@ Newest first. Downloads for each release are on the [releases page](https://gith
 
 | Version | Date | What's new |
 |---|---|---|
+| **1.41.0** | 2026-10-05 | One Find, in both apps: one field for names, words in files, meaning and Ask, the hits in groups (*Names*, *In files*, *About this*, *History*) ordered by what you typed; **Tab** picks a kind (or type `text:`, `about:`, `?`), **Ctrl+F** inside Find limits everything, Ask too, to this folder, **Ctrl+Enter** (terminal: **Alt+Enter**) asks and the answer opens in place; every missing piece says what it needs, with one step; a ⌕ button on each path bar. Ask's first word comes without reloading the models on an 8 GB card; the title shows the version only. [Find file](docs/search/find-file.md) |
 | **1.40.0** | 2026-10-05 | Ask answers at once: a model that thinks first (such as `qwen3:8b`) is asked not to, so the first word comes in under a second instead of 15–28 seconds; *Let the model think before it answers* in Settings (`ask_think`) brings the thinking back. Searching the text of files ranks the files with your words by meaning too, and a question typed as a question finds the files with some of its words; the setup guide says where the built-in model really runs (a Mac's GPU), and the warning before a change of embedding model counts every passage. [Thinking](docs/search/ask.md#thinking) · [Ranking](docs/search/meaning.md#how-words-and-meaning-are-ranked-together) |
 | **1.39.0** | 2026-10-05 | Search by meaning and Ask cover whole documents: every part of a file gets vectors (up to 256 passages, about 25,000 words), not only its first 960 words, and each passage is matched with the file's name, its folder and its Markdown heading. A file counts with its best passage and a little more when several match. With bge-m3 and other server models, answers that score a little lower are no longer cut off (measured on the search-quality corpus: right file in the first five for every question). The first start after the update makes the vectors once more, in the background (the text is not read again); both apps say how many files and about how long. [Search by meaning](docs/search/meaning.md#why-is-search-by-meaning-re-reading-everything) |
 | **1.38.0** | 2026-10-05 | Smart search is set up with a guide, in both apps: *Settings → Search by meaning → Set up…* or `coxswain --setup-search`. It finds the model servers on your machine (Ollama, Lemonade, LM Studio, llama.cpp, Jan, LocalAI, or one you name elsewhere), lists only the models that make vectors for meaning and only those that answer for Ask, recommends a server and models for your graphics card, NPU or processor, downloads with a click (Ollama, Lemonade), asks a test question with the time to its first word, says when a model runs on the processor although there is a GPU and how to fix it, and offers *Start with my session*. Find file's "set it up" links open it. [Smart search in a few minutes](docs/search/setup.md) |

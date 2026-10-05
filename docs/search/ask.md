@@ -2,8 +2,10 @@
 
 # Ask: questions answered from your files
 
-Ask is the fourth depth of Find file. Type a question in your own words, such as *how does our
-Entra sign-in flow work?* or *what did we decide about the fuel budget?*, and press **Enter**.
+Ask is part of [Find file](find-file.md). Type a question in your own words, such as *how does
+our Entra sign-in flow work?* or *what did we decide about the fuel budget?*, and press
+**Ctrl+Enter** (desktop app) or **Alt+Enter** (terminal app), or **Enter** on the *Ask* row at
+the top of the list.
 Coxswain finds the ten passages of your files closest in meaning to the question, from
 anywhere in a document: the whole text has vectors, not only its start
 ([what is covered](meaning.md#how-it-works)). The chat
@@ -11,10 +13,10 @@ model on your own server then writes a short answer from only those passages, an
 as **[1]**, **[2]**. The sources are listed under the answer, numbered the same way, and
 **Enter** on one takes you to the file.
 
-Nothing is kept. The questions and answers exist only while Find file is open; **Esc** forgets
-them.
+The answer opens in place of the list; **Esc** goes back to the list. Nothing is kept: the
+questions and answers exist only while Find file is open, and closing it forgets them.
 
-![The desktop app's Find file on Ask: the question what does the rocket fuel cost? in bold, the answer The rocket fuel costs 2,105 kEUR in April and 2,655 kEUR in June [1]., and the numbered sources budget.txt and budget-da.txt, the second under the cursor](../screenshots/search-ask.png)
+<!-- screenshot: search-ask.png: the desktop app (Cyber), Find with the answer in place: the question, the answer citing [1] and [2], the numbered sources budget.txt and budget-da.txt -->
 
 ## Contents
 
@@ -29,7 +31,7 @@ them.
 ## What it needs
 
 1. [Search by meaning](meaning.md) turned on, with the built-in model or [a server](servers.md).
-   Ask looks for the passages the same way *Text in files* finds files *similar to:* your words.
+   Ask looks for the passages the same way Find finds files *About this*.
 2. A **chat model** on a server you run:
    - With the vectors from Ollama or an OpenAI-style server (Lemonade, LM Studio, llama.cpp,
      vLLM), the chat model is on **that same server**, with the same address and API key.
@@ -53,13 +55,15 @@ The guided setup does all of it, with a test question: [Smart search in a few mi
    that only make vectors, such as `bge-m3`, are left out). Terminal app:
    `coxswain --meaning ask qwen3:8b`. On Ollama a missing model is pulled first. A model that
    cannot answer is refused with the reason (below), in both apps.
-2. Press **Ctrl+F7** (the F9 command list calls it *Ask your files*): Find file opens at *Ask*
-   (desktop app: the fourth button lit; terminal app: the prompt `ask: `). Already in Find file,
-   **Ctrl+F7** goes there too, as do **Shift+Tab** from *Everywhere* and a click on the *Ask*
-   button.
-3. Type the question and press **Enter**. The sources come first, then the answer, word by word.
-   Until the first word comes, the answer says *Waiting for qwen3:8b to answer: a model that is
-   not loaded yet takes a while…*, with whatever server it is on.
+2. Open Find file (**Ctrl+F**) and type the question. The first row reads **? Ask: "your
+   question"** once there are two words or more, or a `?` at the end (a question ending in `?`
+   puts the cursor on it). Press **Enter** on it, or **Ctrl+Enter** (desktop) / **Alt+Enter**
+   (terminal) from any row. **Ctrl+F7** (the F9 command list calls it *Ask your files*) opens
+   Find straight at the *Ask* kind, where **Enter** asks; inside Find it asks what is typed. A
+   `?` typed first does the same: `? what does it cost`.
+3. The list gives way to the answer, and the *Ask* kind is lit. The sources come first, then the
+   answer, word by word. Until the first word comes, the answer says *Waiting for qwen3:8b to
+   answer: a model that is not loaded yet takes a while…*, with whatever server it is on.
 4. Ask a **follow-up** the same way: *and in Danish?*, *who wrote that?*. The questions and
    answers before it go along, and the passages are looked up with the question before it too,
    so short follow-ups work.
@@ -67,31 +71,35 @@ The guided setup does all of it, with a test question: [Smart search in a few mi
    goes to that file: the active panel opens its folder with the cursor on it. In the desktop
    app a click on a source or on a **[n]** in the answer does the same. **F4** edits the source,
    and **F3** views it in the terminal app.
-6. **Esc** closes Find file and forgets the questions. An answer still being written stops,
+6. **Esc** goes back to the list (the conversation stays until Find closes); **Esc** there closes
+   Find file and forgets the questions. An answer still being written stops when Find closes,
    also while the server is still loading the model and has not said a word.
+
+**Only one folder:** switch Find's scope to the active panel's folder with **Ctrl+F** inside Find
+(*In rocket*): Ask then takes its passages from the files in that folder and below.
 
 | Key | Desktop app | Terminal app |
 |---|---|---|
-| **Ctrl+F7** | Open Find file at Ask, or go to Ask from another depth | The same |
-| **Tab** / **Shift+Tab** | From Ask, on to *Everywhere* / back to *Text in files*; what you typed stays | The same |
-| **Shift+F7**, **Alt+F7** | From Ask, straight to *Text in files* / names everywhere | The same |
-| **Enter** with a question typed | Ask it | The same |
-| **Enter** with the field empty | Go to the source under the cursor | The same |
+| **Ctrl+Enter** / **Alt+Enter** | **Ctrl+Enter**: ask what is typed, from any row | **Alt+Enter** (**Ctrl+Enter** where the terminal reports it) |
+| **Ctrl+F7** | Open Find at *Ask*; inside Find, ask what is typed | The same |
+| **Enter** on the *Ask* row, or with a question typed in the answer | Ask it | The same |
+| **Enter** with the field empty, in the answer | Go to the source under the cursor | The same |
 | **Up** / **Down** | Move through the last answer's sources | The same |
+| **Ctrl+F** / **Alt+F7** | Switch the scope: everywhere or the panel's folder | The same |
 | **F3** | Nothing: the preview pane is under Find file | View the source |
 | **F4** | Edit the source | The same |
-| **Esc** | Close and forget; an answer being written stops | The same |
+| **Esc** | Back to the list; again: close and forget | The same |
 | Mouse | Click a source or a **[n]** to go to it | None |
 
 ## What you see
 
-- **Not set up yet**, the line under the field says what is missing. With search by meaning off:
-  *Ask answers questions from your files. It needs search by meaning, and a chat model on your
-  server:* with the link *set it up*. With no chat model: *Ask needs a chat model on your server
-  (Ollama, Lemonade, LM Studio):* with the same link. The link opens Settings at the right
-  section. The terminal app says which command to run.
-- **A model that cannot answer**: when the chat model only makes vectors, the line under the
-  field says so in red instead, for example *bge-m3 makes vectors and cannot answer: choose a
+- **Not set up yet**, the *Ask* row says what is missing: *Ask your files a question · needs
+  search by meaning first*, or *· choose a chat model*, with *Set up* (desktop app: a link that
+  opens the [setup guide](setup.md); terminal app: **Enter** runs `coxswain --setup-search`).
+  **Delete** (or **×**) sends the row away for good; **Ctrl+Enter** / **Ctrl+F7** still show what
+  Ask needs.
+- **A model that cannot answer**: when the chat model only makes vectors, the *Ask* row and the
+  answer's place say so (in red in the answer), for example *bge-m3 makes vectors and cannot answer: choose a
   chat model, e.g. qwen3:8b.*, with the link *set it up* (desktop app), and **Enter** does not
   send the question. A model the server does not have shows the server's message, such as
   *model 'qwen3' not found*. Settings shows the same line in red under *Chat model*.
@@ -105,8 +113,8 @@ The guided setup does all of it, with a test question: [Smart search in a few mi
   cursor marks the one **Enter** goes to.
 - **Errors** show in red under the question: the server's own message, such as *model "qwen3:8b"
   not found*, or *Nothing in your files is close to the question.*
-- **The footer**: *Enter ask, or go to the source · ↑↓ sources · F4 edit · Tab names · Shift+F7
-  text · Esc close and forget* (the terminal app adds *F3 view*).
+- **The footer**: *Enter ask, or go to the source · ↑↓ sources · F4 edit · Esc back to the list*
+  (the terminal app adds *F3 view*).
 
 ## Settings and config.toml
 
@@ -125,7 +133,7 @@ ask_model = "qwen3:8b"
 
 ## In the terminal app
 
-Ask is the same: **Ctrl+F7** for `ask: `, type, **Enter**. The answer wraps in the window and scrolls
+Ask is the same: type in Find and **Alt+Enter** (or **Ctrl+F7** for `ask: `, type, **Enter**). The answer wraps in the window and scrolls
 so its end stays in sight. Set it up with:
 
 ```sh
@@ -145,7 +153,15 @@ would wait for nothing: with `qwen3:8b` on an RTX 4070 laptop GPU the first word
 | Ollama (0.9 or newer) | `"think": false` with the question; a model that cannot think is not affected, an older Ollama ignores it |
 | OpenAI-style (Lemonade, LM Studio, llama.cpp, vLLM) | ` /no_think` at the end of the question, for Qwen3's hybrid models only (not its *coder* or *instruct* models, which do not think) |
 
-With it the first word comes in 0.3–0.4 seconds once the model is loaded. A model that always
+With it the first word comes in 0.3–0.4 seconds once the model is loaded.
+
+**The context.** On Ollama, Ask also asks for a context of 8,192 tokens (`num_ctx`): ten
+passages, the rules and a few turns before fit with room to spare. Recent Ollama versions give
+`qwen3:8b` 32,768 by default, and the cache for that pushed the model partly off an 8 GB graphics
+card and the embedding model (`bge-m3`) out of it, so every question loaded both again: about 7
+seconds before the first word. With 8,192 both stay loaded, and in the terminal app the first
+word of a follow-up came after 0.06–0.3 seconds. The chat model is loaded with the same context
+while the sources are looked up, so it is not loaded twice. A model that always
 thinks (DeepSeek-R1, Qwen3's *thinking* models) cannot be stopped; *Waiting for … to answer*
 stays until it has. To let the model think, for harder questions: tick *Let the model think
 before it answers* under *Settings → Ask* in the desktop app, or set `ask_think = true` under
@@ -175,12 +191,14 @@ waiting for its new ones gives no passages yet.
 
 #### Why does it say the sources do not hold the answer?
 The model is told to answer from the sources only and to say so when they do not answer the
-question. Ask with other words, or check with *Text in files* that the file is read: folders
+question. Ask with other words, or check with Find (**Shift+F7**, *In files*) that the file is read: folders
 outside *Folders read*, *Names only* folders and files still waiting for their vectors are not
 searched.
 
 #### Can it answer from one folder only?
-Not yet. Ask looks in everything *Text in files* reads.
+Yes. Switch Find's scope with **Ctrl+F** inside Find (*In rocket*, `[in rocket]` in the terminal
+app) before you ask: the passages then come from that folder and below. With nothing close
+there, it says *Nothing in the files in rocket is close to the question.*
 
 #### Are the answers kept, for next time?
 No. They live in the Find file window only. Closing it forgets them, and nothing is written to

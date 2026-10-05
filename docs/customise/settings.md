@@ -114,7 +114,7 @@ session" box and the list of programs that read more.*
 | **Delete the index** | Asks *Click again to delete*, then empties the store | |
 | *Folders read* | The folders whose files are read; *Your home folder* when none. Each shows its size in the index, or that its disk is away. **Add** takes a path typed in the field (empty: the current folder); **Remove** takes one off | `[search] text_roots` |
 | *Names only* | Folders found by name and counted in sizes, never read; *None* when none | `[search] names_only` |
-| *Search the history of git repositories too: commit messages, authors and changed paths* | Commits found by Text in files and by meaning ([Git history in search](../search/history.md)) | `[search] history` |
+| *Search the history of git repositories too: commit messages, authors and changed paths* | Commits found in Find by their words and by meaning (*History*) ([Git history in search](../search/history.md)) | `[search] history` |
 | *Programs that read more* | ✓ or ✗ for tesseract, pdftoppm and LibreOffice, with *not installed* ([Scans, pictures and older Office files](../search/scans.md)) | |
 
 Details: [Text in files](../search/text.md) and [Choosing the folders](../search/folders.md).
@@ -243,7 +243,7 @@ by themselves. Only changes you make to `config.toml` by hand need a restart of 
 
 Start the app with `coxswain-gui --settings=meaning` (or `--settings=search` for *Search inside
 files*). In a running app, **Show me** on the tip *New: search by meaning … Turn it on* under
-*Settings → What's new*, and the link in Find file's text depth, open that section too.
+*Settings → What's new*, opens that section too; *Set up* in Find's *About this* group opens the setup guide.
 
 #### Where is the Settings key if Ctrl+, does nothing?
 

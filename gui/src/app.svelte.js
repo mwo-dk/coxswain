@@ -73,6 +73,9 @@ export function newTab(dir, view = "details") {
   };
 }
 
+/** Find, at a kind: `all` (Ctrl+F), `in_files` (Shift+F7) or `ask` (Ctrl+F7). */
+export const openFind = (chip) => (ui.modal = { kind: "search", query: "", chip, here: false, show: chip === "ask" ? "answer" : "list", out: null, cursor: 0 });
+
 export const pane = (i = ui.activePane) => ui.panes[i];
 export const tab = (i = ui.activePane) => ui.panes[i]?.tabs[ui.panes[i].active];
 export const otherTab = () => tab(ui.dual ? ui.activePane ^ 1 : ui.activePane);

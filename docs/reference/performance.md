@@ -41,8 +41,10 @@ numbers measured on synthetic data, so you know what to expect and can measure a
   status and the column up to date without a reread by hand (desktop app).
 - **Ask** has Ollama load the chat model while the sources are looked up, asks a model that
   thinks first not to (the first word of `qwen3:8b` in 0.3–0.4 s instead of 15–28 s on an RTX
-  4070 laptop GPU, [Thinking](../search/ask.md#thinking)), and **Esc** stops the wait for the
-  first word at any moment.
+  4070 laptop GPU, [Thinking](../search/ask.md#thinking)), gives it a context of 8,192 tokens on
+  Ollama so the chat model and the embedding model both stay on an 8 GB card (a follow-up's
+  first word in 0.06–0.3 s instead of about 7 s), and **Esc** stops the wait for the first word
+  at any moment.
 - **Anything that takes a while** says so: while files are copied, moved, deleted, extracted
   or packed, the status line reads *Working on …*; a folder that takes longer than 150 ms to
   read says *Working on <folder>…* until it arrives.

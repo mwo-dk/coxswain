@@ -2,161 +2,269 @@
 
 # Find file
 
-Find file is one window for four kinds of search: names on the whole machine, names in
-this folder, the text inside your files, and [Ask](ask.md), questions answered from them. Open it, type, and go to the file with **Enter**.
+Find file is one field for everything you look for: a file's name, words inside files, files
+*about* something, and [Ask](ask.md), questions answered from your files. Type, and the hits
+come in groups: **Names**, **In files**, **About this** and **History**. Go to one with
+**Enter**, or ask with **Ctrl+Enter**.
 
-![The desktop app's Find file over the panels: "engine" typed in Text in files, 18 matches in 1.3 ms in the text of 107 files, each name in bold with its folder and the passage with "engine" highlighted](../screenshots/gui-text-search.png)
-*The desktop app searching the text of files. Each hit has its folder and the passage that matched.*
-![The desktop app's Find file opened with nothing typed: the buttons Everywhere, In rocket, Text in files and Ask, Everywhere highlighted, and the hint Type to search every file name on this machine. Tab: only this folder, or the words inside your files.](../screenshots/search-find-file-scopes.png)
+<!-- screenshot: search-find.png: the desktop app (Cyber) with Find open over the panels, "rocket fuel cost" typed, the Ask row on top, then In files with budget.txt and its passage, About this with budget-da.txt, and the footer -->
+
+## Contents
+
+- [How to use it](#how-to-use-it)
+- [What you see](#what-you-see)
+- [The groups, and their order](#the-groups-and-their-order)
+- [Kinds: All, Names, In files, About, Ask](#kinds-all-names-in-files-about-ask)
+- [The scope: everywhere or this folder](#the-scope-everywhere-or-this-folder)
+- [The Ask row and the answer in place](#the-ask-row-and-the-answer-in-place)
+- [Keys](#keys)
+- [When something is missing](#when-something-is-missing)
+- [Settings and config.toml](#settings-and-configtoml)
+- [In the terminal app](#in-the-terminal-app)
+- [Questions](#questions)
 
 ## How to use it
 
-1. Press **Alt+F7** or **Ctrl+F** (the F9 command list calls it *Find file*). It opens at names
-   everywhere, every time. To start further in, press **Shift+F7** (or **Ctrl+Shift+F**) for
-   *Text in files*, or **Ctrl+F7** for *Ask*.
-2. Type. Results update as you type; typing is never held up by a search, however large the
-   index, and a search that a newer one replaces is dropped.
-3. Press **Tab** to go to the next depth, **Shift+Tab** for the one before. From the last,
-   **Tab** goes back to the first; from the first, **Shift+Tab** goes to the last. Or press a
-   depth's own key: **Alt+F7** (or **Ctrl+F**) names everywhere, **Shift+F7** text, **Ctrl+F7**
-   Ask. What you typed stays in the field and is searched again at the new depth.
-4. Move to a result with **Up** / **Down** and press **Enter**: the active panel opens the
-   result's folder with the cursor on it, and Find file closes.
+1. Press **Ctrl+F** or **Alt+F7** (the F9 command list calls it *Find file*), or click the
+   **⌕** button at the right of a pane's path bar (desktop app). Find opens empty, at *All*,
+   searching *Everywhere*.
+2. Type: a name (`budget`, `*.pdf`, `ext:md`), words from inside a file (`rocket fuel cost`) or
+   a question (`what does the rocket fuel cost?`). The hits update as you type; typing is never
+   held up by a search, and a search that a newer one replaces is dropped.
+3. Move with **Up** / **Down** (the group headings are skipped) and press **Enter**: the active
+   panel opens the hit's folder with the cursor on it, and Find closes.
+4. To ask instead, press **Ctrl+Enter** (desktop app) or **Alt+Enter** (terminal app) from any
+   row, or **Enter** on the *Ask* row at the top.
 
-| Depth | Its own key | Terminal app prompt | Desktop app button | Finds |
-|---|---|---|---|---|
-| [Names everywhere](names.md) | **Alt+F7**, **Ctrl+F** | `everywhere: ` | *Everywhere* | Files and folders by name, on the whole machine |
-| [Names in this folder](names.md#names-in-this-folder) | none: **Tab** from *Everywhere* | `in ~/projects: ` | *In projects* | The same, in the active panel's folder and below |
-| [Text in files](text.md) | **Shift+F7**, **Ctrl+Shift+F** | `text: ` | *Text in files* | Files whose text has your words; with [search by meaning](meaning.md), also files about them |
-| [Ask](ask.md) | **Ctrl+F7** | `ask: ` | *Ask* | An answer to your question from the closest passages, with numbered sources |
-
-**Ctrl+Shift+F** is mostly for the desktop app: many terminals send it as **Ctrl+F**, so in the
-terminal app it opens names everywhere. **Shift+F7** works in both.
-
-| Key | Desktop app | Terminal app |
-|---|---|---|
-| **Up** / **Down** | Move through the results | The same |
-| **PageUp** / **PageDown** | Fifteen results at a time | Ten results at a time |
-| **Enter** | Go to the result | The same |
-| **F3** | Nothing: the preview pane is under Find file | View the file in your viewer, then come back to the results |
-| **F4** | Edit the file in your editor, Find file stays open | The same |
-| **Tab** / **Shift+Tab** | The next / the previous depth, round in a circle | The same |
-| **Alt+F7** or **Ctrl+F**, **Shift+F7**, **Ctrl+F7** | Straight to names everywhere, text, Ask; the query stays | The same (**Ctrl+Shift+F** often arrives as **Ctrl+F**) |
-| **Backspace** | Delete the last character | The same |
-| **Esc** | Close | The same |
-| Mouse | A click selects a result, a double-click goes to it; a click on a depth button chooses it | None |
-
-**F3** and **F4** are the *View* and *Edit* actions, and the depth keys are the `search`,
-`search_text` and `ask` actions, so if you [change their keys](../customise/keys.md) Find file
-follows. **Enter** on a folder opens the folder that holds it, with the cursor on it.
+To start at one kind: **Shift+F7** (or **Ctrl+Shift+F**) opens Find at *In files*, **Ctrl+F7**
+at *Ask*.
 
 ## What you see
 
-**Where it can look.** In the desktop app the four depths are four buttons side by side at the
-right of the search field, the current one highlighted: *Everywhere*, *In projects* (the
-active panel's folder name), *Text in files* and *Ask*. Hover over one and its tooltip names its
-keys: *Alt+F7 · Tab / Shift+Tab* on *Everywhere*, *Shift+F7 · Tab / Shift+Tab* on *Text in
-files*, *Ctrl+F7 · Tab / Shift+Tab* on *Ask*, and *Tab / Shift+Tab* on *In projects*. The
-terminal app shows the depth as the prompt.
+From the top:
 
-**Before you type**, the line under the field says what the depth does:
-
-| Depth | Desktop app | Terminal app |
+| Part | Desktop app | Terminal app |
 |---|---|---|
-| Names | *Type to search every file name on this machine. Tab: only this folder, or the words inside your files (Shift+F7).* | `452393 files indexed · Tab: only this folder, or the words inside your files (Shift+F7).` |
-| Text | *Type words to search inside your files: text, PDF, Word, spreadsheets, slides, mail and books.* | The count of files with text, then the same sentence |
+| The field | ⌕ and the field, placeholder *Names, words in files, or a question* | `find: ` and what you typed (`ask: ` in the answer) |
+| The scope | A button at the right: *Everywhere*, or *In rocket* (the active panel's folder) | `[everywhere]` or `[in rocket]` at the right of the field |
+| The kinds | Buttons *All · Names · In files · About · Ask*, the current one lit | The same words on the second line, the current one in the cursor colour |
+| The list | The *Ask* row, then the groups, each with its heading and *5 of 19* | The same; headings in capitals in the `header` colour |
+| Footer, line 1 | What can be searched: *563 files indexed · text of 112 files · meaning for 112*, with *· 412 still to read*, *· building index…* or *· paused on battery* while they apply | The same |
+| Footer, line 2 | The keys: *Enter go to · Ctrl+Enter ask · Tab kind · Alt+F7 scope · F4 edit · F1 syntax · Esc close* | The same with *Alt+Enter ask* and *F3 view* |
 
-In text, while [search by meaning](meaning.md) is off, a second line says *Also find files about
-your words, in any language:*. The desktop app follows it with the link *turn on search by
-meaning*, which opens *Settings → Search by meaning*; the terminal app follows it with the
-command, `coxswain --meaning on` (shown while there are no hits).
+**Each hit** is the name (bold in the desktop app) and its folder. A hit in *In files* adds the
+passage that matched, your words highlighted. A hit in *About this* adds the passage that was
+close in meaning, in italics. A commit in *History* names its repository and says which commit.
 
-**While you type**, the line counts: `128 matches in 3.1 ms · 1,402,311 files indexed` for names,
-`7 matches in 2.4 ms · text of 31,208 files · 412 still to read` for text. While the first index is
-built it adds ` · building index…`; while a fresh one replaces the saved one, ` · refreshing index`.
-Nothing found: *No matches*.
+**Before you type:** *Type a name (\*.pdf, ext:md), words from inside a file, or a question
+ending in ?*
 
-**Each result** is the name (bold, in the desktop app) and its folder. A text hit adds the passage
-that matched, your words highlighted: a marker in the desktop app, the `search_hit` colour on a
-second line in the terminal app. A hit found by meaning starts its passage with *similar to:*.
+**Nothing found:** *Nothing found for "rocket fual".* (*… in rocket.* when the scope is a
+folder), with what to try: *Everywhere: Alt+F7* when the scope is a folder, and *Ask instead:
+Ctrl+Enter* when Ask is set up.
 
-**How many.** The desktop app lists the first 500 and says *showing the first 500, type more to
-narrow*; the terminal app gets up to `max_results` (10,000) and draws what fits.
+## The groups, and their order
 
-**The footer** lists the keys: *Enter go to · Tab/Shift+Tab everywhere/here/text/ask · Shift+F7
-text · Ctrl+F7 ask · F4 edit · Esc close* (desktop app), `Enter go to · Tab/Shift+Tab
-everywhere/here/text/ask · Shift+F7 text · Ctrl+F7 ask · F3 view · F4 edit · Esc close · syntax: F1`
-(terminal app). At Ask the footer is Ask's own (see [Ask](ask.md#what-you-see)).
+| Group | What is in it | Searched by |
+|---|---|---|
+| **Names** | Files and folders whose name matches, on the whole machine or in the scope | The [name index](names.md), with the [name syntax](name-syntax.md) |
+| **In files** | Files whose text has your words, best first | [The text of files](text.md); the order takes meaning into account too |
+| **About this** | Files close in meaning that lack your words, in any language | [Search by meaning](meaning.md) |
+| **History** | Commits whose message, author or paths match | [History in search](history.md) |
+
+**The order follows what you typed**, decided once per query so rows do not jump while results
+arrive:
+
+| You type | Example | Groups, in order | Ask row | The cursor starts on |
+|---|---|---|---|---|
+| Name syntax: `*`, `?` inside a word, `!`, `\|`, `"`, `/`, `\`, `ext:`, `file:`, `folder:`, `case:` | `*.rs`, `ext:md`, `src/ main` | Names only (text and meaning are not searched) | no | the first name |
+| One or two plain words | `rocket`, `fuel budget` | Names, In files, About this, History | one word: no; two: yes | the first hit |
+| Three plain words or more | `rocket fuel cost` | In files, About this, Names, History | yes | the first hit |
+| A question: ends in `?` | `what does the rocket fuel cost?` | In files, About this, Names, History | yes | **the Ask row** |
+
+**How In files is ranked.** The files with every word come first; when fewer than 10 files have
+them all, files with any of the longer words (four letters or more) are added, so a question
+still finds the file that says "fuel" and "cost". With search by meaning on, a file that has the
+words *and* is close in meaning goes ahead of one that only has the words, and a file with only
+some of the words stays only when meaning finds it too ([how the two are
+fused](meaning.md#how-words-and-meaning-are-ranked-together)).
+
+**In *All***, each group shows its first 5 hits and a last row *14 more: Enter shows them all*.
+**Enter** on that row switches to the group's kind, which shows up to 500 hits (desktop app) or
+`max_results` (terminal app).
+
+## Kinds: All, Names, In files, About, Ask
+
+| Kind | Shows | Reached by | Prefix |
+|---|---|---|---|
+| **All** | Every group, five hits each, and the Ask row | Opening with **Ctrl+F** / **Alt+F7**; **Tab** round | none |
+| **Names** | Names alone, all of them; never the Ask row | **Tab** | none |
+| **In files** | *In files* and *History*, all of them | **Shift+F7** / **Ctrl+Shift+F**; **Tab** | `text:` |
+| **About** | Meaning alone: the files closest in meaning, with or without your words | **Tab** | `about:` |
+| **Ask** | The answer area: what you type goes to Ask | **Ctrl+F7**; **Tab** | `?` at the start |
+
+**Tab** goes to the next kind, **Shift+Tab** to the one before, round: All → Names → In files →
+About → Ask → All. In the desktop app a click on a kind does the same.
+
+**Prefixes** are typed at the start of the field and turn their kind on while they are there:
+`text: rocket` searches the words alone, `about: brændstof` meaning alone, `? what does it cost`
+asks. They are English in every language, like `ext:`. A `?` anywhere else is the name wildcard
+for one character, as before. **Tab** takes the prefix away and moves to the next kind.
+
+## The scope: everywhere or this folder
+
+**Everywhere** searches the whole machine for names, and every [folder read](folders.md) for text
+and meaning. **In rocket** (the active panel's folder) limits every group, and Ask, to that
+folder and everything below it.
+
+Switch it with **Ctrl+F** or **Alt+F7** inside Find (the `search` action's keys), or a click on
+the scope button (desktop app).
+
+A folder outside the folders whose text is read shows, under *In files*: */mnt/archive is not
+among the folders read, so its words are not searched.* with the step *Read this folder too*. It
+adds the folder to `text_roots` (keeping your home folder when the list was empty) and starts
+the helper again; the status line says *Reading /mnt/archive too: its words can be found once it
+has been read.* (terminal app).
+
+## The Ask row and the answer in place
+
+When the query has two words or more, or ends in `?`, the first row is **? Ask: "rocket fuel
+cost"**, with *Ctrl+Enter* at its right in the desktop app. **Enter** on it, or **Ctrl+Enter**
+(desktop) / **Alt+Enter** (terminal; **Ctrl+Enter** in terminals that report it) from any row,
+sends the query to [Ask](ask.md).
+
+The answer then **replaces the list**, and the *Ask* kind is lit: the question, the answer as it
+is written with [1], [2] pointing at its sources, and the numbered sources. The field stays and
+takes a follow-up; **Enter** asks it. **Up** / **Down** move over the sources, **Enter** with an
+empty field goes to the one under the cursor, **F4** edits it (**F3** views it in the terminal
+app). **Esc** goes back to the list; the conversation is kept until Find closes. **Esc** in the
+list closes Find and forgets the conversation.
+
+Ask keeps to the scope: *In rocket* asks from the files in that folder only. When nothing there
+is close: *Nothing in the files in rocket is close to the question.*
+
+<!-- screenshot: search-ask.png: the desktop app (Cyber), Find with the answer in place: the question, the answer citing [1] and [2], the numbered sources budget.txt and budget-da.txt, the footer "Enter ask, or go to the source · ↑↓ sources · F4 edit · Esc back to the list" -->
+
+## Keys
+
+No key was added or taken: inside Find, keys go by **action**, so your own bindings for
+`search`, `search_text` and `ask` work the same way ([Changing keys](../customise/keys.md)).
+
+| Key | Outside Find | Inside Find |
+|---|---|---|
+| **Ctrl+F**, **Alt+F7** (`search`) | Open Find: *All*, *Everywhere*, empty | Switch the scope: *Everywhere* ⇄ *In <folder>* |
+| **Shift+F7**, **Ctrl+Shift+F** (`search_text`) | Open Find at *In files* | *In files*; pressed again, back to *All* |
+| **Ctrl+F7** (`ask`) | Open Find at *Ask* | Ask the text in the field; with an empty field, the *Ask* kind |
+| **Tab** / **Shift+Tab** | — | The next / the previous kind |
+| **Enter** | — | Go to the hit; on the *Ask* row, ask; on *N more*, show the group alone; on a row that says what is missing, take its step |
+| **Ctrl+Enter** (desktop), **Alt+Enter** (terminal) | — | Ask the text in the field, from any row; when Ask is not set up, the answer's place says what it needs |
+| **Up** / **Down**, **PageUp** / **PageDown** | — | Move over the rows (15 at a time in the desktop app, 10 in the terminal app); headings are skipped |
+| **F3** | — | View the hit (terminal app; in the desktop app Find covers the preview) |
+| **F4** | — | Edit the hit or source in your editor; Find stays open |
+| **F1** | — | The name syntax and the prefixes, in place of the list; **F1** or **Esc** again for the list |
+| **Delete** | — | On a tip (*Find files about your words too…*, *Ask your files a question…*): never show it again. The desktop app also has **×** at its right |
+| **Esc** | — | In the answer or the syntax: back to the list. In the list: close and forget |
+| Mouse (desktop) | The ⌕ button opens Find | A click selects a hit, a double-click goes to it; a click on a kind or on the scope switches it |
+
+## When something is missing
+
+Each state says what is missing, why it matters, and one step. *Set up* opens [the setup
+guide](setup.md) in the desktop app; in the terminal app **Enter** on it runs `coxswain
+--setup-search` in the terminal and comes back to the panels.
+
+| State | Where | Text | Step |
+|---|---|---|---|
+| The [helper](helper.md) is not running | *In files* | *Words in files cannot be searched now: background reading is not running.* | *Start it*: the helper starts again |
+| *Search inside files* is off | *In files* | *Find can also search the words inside your files.* | *Turn on*: the guide |
+| The scope is not read | *In files* | */mnt/archive is not among the folders read, so its words are not searched.* | *Read this folder too* |
+| Search by meaning is off | *About this* | *Find files about your words too, in any language, even without the words.* | *Set up* (**Delete** or **×**: not again) |
+| Search by meaning failed | *About this* | The cause, as the server or model gave it | *Fix* |
+| Ask without meaning | the Ask row | *Ask your files a question · needs search by meaning first* | *Set up* (**Delete** or **×**: not again) |
+| Ask without a chat model | the Ask row | *Ask your files a question · choose a chat model* | *Set up* (**Delete** or **×**: not again) |
+| The chat model cannot answer | the Ask row (red in the answer) | The cause, e.g. *bge-m3 makes vectors and cannot answer…* | *Set up* |
+| Still reading | footer | *· 412 still to read*: results grow while you wait | — |
+| The names are still counted | footer | *· building index…*; the list fills itself | — |
+
+A tip sent away with **Delete** is gone in both apps (they share the state file); **Ctrl+F7**
+still opens the Ask kind, which then says what Ask needs.
 
 ## Settings and config.toml
 
 | Key | Type | Default | Does |
 |---|---|---|---|
-| `keys.search` | list of keys | `["Alt+F7", "Ctrl+F"]` | The keys that open Find file at names everywhere |
-| `keys.search_text` | list of keys | `["Shift+F7", "Ctrl+Shift+F"]` | The keys that open it at *Text in files* |
-| `keys.ask` | list of keys | `["Ctrl+F7"]` | The keys that open it at *Ask* |
-| `search.max_results` | number | `10000` | Most results of one search (the desktop app shows at most 500 of them) |
+| `keys.search` | list of keys | `["Alt+F7", "Ctrl+F"]` | Open Find; inside it, switch the scope |
+| `keys.search_text` | list of keys | `["Shift+F7", "Ctrl+Shift+F"]` | Open Find at *In files*; inside it, *In files* ⇄ *All* |
+| `keys.ask` | list of keys | `["Ctrl+F7"]` | Open Find at *Ask*; inside it, ask |
+| `search.max_results` | number | `10000` | Most hits of one group shown alone (the desktop app shows at most 500) |
 
-The rest are the depths' own: see [Search settings](settings.md).
+The rest belong to the groups: see [Search settings](settings.md).
 
 ## In the terminal app
 
-The same window, depths, keys and results, in a frame over the panels titled *Find file*. It
-differs in four things: **F3** views a result (the desktop app has the preview pane there
-instead), there is no mouse (and so no tooltips on the depths: the footer names the keys), the tip
-for search by meaning names the command rather than a link, and **Ctrl+Shift+F** often arrives as
-**Ctrl+F**, so use **Shift+F7** for text. **F1** lists the [name syntax](name-syntax.md).
+The same field, kinds, groups, rows, keys and states, drawn as text in a frame titled *Find
+file*: the field on the first line with the scope at its right (`[everywhere]`), the kinds on the
+second, group headings in capitals, a passage on a second line under its file, two footer lines.
+It differs in a few things:
+
+- **Alt+Enter** asks from any row (**Ctrl+Enter** where the terminal reports it; most do not).
+- **F3** views a hit; there is no mouse.
+- *Set up* runs `coxswain --setup-search` in the terminal, then comes back to the panels.
+- **Ctrl+Shift+F** often arrives as **Ctrl+F** (the scope key), so use **Shift+F7** for *In files*.
+
+<!-- screenshot: tui-search.png: the terminal app (Classic blue) with Find over the panels, "rocket fuel cost" typed, [everywhere] at the right, the kinds line, the Ask row, IN FILES and ABOUT THIS -->
 
 ## Questions
 
 #### How do I search only this folder?
-Press **Tab** once. *In projects* (the active panel's folder; `in ~/projects:` in the terminal app)
-searches that folder and everything below it, by name. See [Names in this folder](names.md#names-in-this-folder).
+Press **Ctrl+F** (or **Alt+F7**) inside Find: the scope at the right of the field switches from
+*Everywhere* to *In rocket* (`[in rocket]` in the terminal app), and every group, and Ask, keeps
+to the active panel's folder and below. Press it again for everywhere.
 
-#### Why does F3 do nothing in the desktop app's Find file?
-In the desktop app F3 is the preview pane, and Find file covers it. Press **Enter** to go to the
-file, then **Space** for the [preview](../previews/README.md). **F4** edits a result in both apps.
+#### How do I search names only?
+Press **Tab** once: the *Names* kind shows names alone, all of them, and never the Ask row. A
+query with name syntax (`*.pdf`, `ext:md`, `src/ foo`) shows names only by itself.
 
-#### Why does Find file start at names everywhere again?
-**Alt+F7** (and **Ctrl+F**) opens at the first depth every time, so pressing it then typing
-always searches names. Each depth with a key of its own opens at that depth every time:
-**Shift+F7** at *Text in files*, **Ctrl+F7** at *Ask*.
+#### Why did my file show under About this?
+It is close in meaning to what you typed but does not have your words: another language
+(*brændstof* for *fuel*), other words for the same thing, or a scan. Files that have your words
+are under *In files*. See [Search by meaning](meaning.md).
 
-#### How do I go straight to searching inside files, or to Ask?
-Press **Shift+F7** (or **Ctrl+Shift+F** in the desktop app) for *Text in files*: the prompt is
-`text: ` in the terminal app, the *Text in files* button is lit in the desktop app. Press
-**Ctrl+F7** for *Ask*. Both work from the panels and from inside Find file, where they keep what
-you typed. The F9 command list names them *Search inside files* and *Ask your files*.
+#### Why does the order of the groups change?
+It follows what you typed. One or two words look like a name: *Names* first. Three words or more,
+or a question, look like something said inside a file: *In files* and *About this* first. Name
+syntax shows names only. The order is fixed once per query, so rows never jump while you look.
 
-#### How do I go back a depth?
-**Shift+Tab**. It goes the other way round from **Tab**: Ask → text → this folder → everywhere,
-and from *Everywhere* to *Ask*. In the desktop app you can also click the depth's button.
-
-#### Ctrl+Shift+F opens names, not text, in my terminal. Why?
-The terminal sends **Ctrl+Shift+F** the same as **Ctrl+F**, so the terminal app sees Find file's
-key. Use **Shift+F7**, or bind `search_text` to a key your terminal passes on
-([Changing keys](../customise/keys.md)).
+#### Why is there no Ask row for one word?
+One word is almost always a name. Type a second word, end with `?`, or press **Ctrl+Enter**
+(desktop) / **Alt+Enter** (terminal), which asks whatever is in the field.
 
 #### Can I search the text of files in one folder only?
-No. *In projects* narrows names only; *Text in files* covers every [folder read](folders.md). The
-folder under each hit shows where it is.
+Yes: switch the scope with **Ctrl+F** inside Find, then type, or press **Shift+F7** first for *In
+files* alone. Only folders whose text is read have words to find; for another one, *Read this
+folder too*.
 
-#### Why does it say "showing the first 500"?
-The desktop app lists at most 500 hits, so the list stays quick to draw. Type more words, or use
-`ext:` or a path term (`src/`) to [narrow it](name-syntax.md).
+#### Why does it say "showing the first 500", and where are the rest?
+In *All* each group shows five; **Enter** on *N more* shows that group alone, up to 500 hits in
+the desktop app (so the list stays quick to draw) or `max_results` in the terminal app. The
+heading still counts them all (*500 of 1,204*). Type more, or use `ext:` or a path term (`src/`)
+to [narrow it](name-syntax.md).
+
+#### Ctrl+Shift+F opens Find at All, not In files, in my terminal. Why?
+The terminal sends **Ctrl+Shift+F** the same as **Ctrl+F**. Use **Shift+F7**, or bind
+`search_text` to a key your terminal passes on ([Changing keys](../customise/keys.md)).
+
+#### Why does F3 do nothing in the desktop app's Find?
+In the desktop app F3 is the preview pane, and Find covers it. Press **Enter** to go to the file,
+then **Space** for the [preview](../previews/README.md). **F4** edits a hit in both apps.
+
+#### I sent a tip away by mistake. How do I get it back?
+Not from the app: like other [notices](notices.md#i-dismissed-a-tip-by-mistake-can-i-get-it-back),
+dismissed tips are remembered in the state file. What they lead to is still there: **Ctrl+F7**
+says what Ask needs, and *Settings → Search by meaning* or `coxswain --setup-search` set it up.
 
 #### Is there a quicker search for the panel I am in?
 [Quick search](../panels/quick-search.md): **Alt+letter** jumps to names starting with what you
 type, in the current panel only.
-
-#### What is "similar to:" in front of a passage?
-The file was found by [meaning](meaning.md), not by your words. Files with your words come
-first, those also close in meaning ahead of the rest; files found by meaning alone come after
-them ([how they are ranked](meaning.md#how-words-and-meaning-are-ranked-together)).
-
-#### Can I open the file straight from Find file?
-**F4** opens it in your editor. **Enter** takes you to it in the panel, where **Enter** again
-[opens it](../commands/opening-files.md) with its program.
 
 ---
 [← Previous: Smart search in a few minutes](setup.md) · [Next: Names everywhere →](names.md)

@@ -117,7 +117,7 @@ refreshed it. The text in `search.db` stays.
 #### Search inside files and meaning stopped after an upgrade. Why?
 Before 1.29.0: *Start with my session* was on, and the upgrade removed the program the
 registration started (a Homebrew path with the old version in it, a moved AppImage). The helper
-could not start, so Find file found names only: *Text in files* and *Ask* found nothing, and
+could not start, so Find file found names only: words, meaning and *Ask* found nothing, and
 *Settings → Search inside files* said *The search helper is not running, so text cannot be
 searched now.* From 1.29.0 the first app you open registers itself and starts the helper. On an
 older version, untick and tick *Start with my session* again, or run `coxswain --index-service off`

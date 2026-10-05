@@ -2,11 +2,11 @@
 
 # Text in files
 
-Text in files finds the files whose text has your words: code, notes, PDFs, Word documents,
-spreadsheets, slides, mail and books. Use it when you remember what a file says but not what it
-is called.
+Text in files is the *In files* group of [Find file](find-file.md): the files whose text has your
+words, from code, notes, PDFs, Word documents, spreadsheets, slides, mail and books. Use it when
+you remember what a file says but not what it is called.
 
-![The desktop app's Find file in Text in files: "engine" typed, 18 matches in 1.3 ms in the text of 107 files, each with the passage and "engine" highlighted](../screenshots/gui-text-search.png)
+<!-- screenshot: search-find-groups.png: the desktop app (Cyber), Find with "engine" typed: In files with main.rs, sequence.puml, launch-pad.drawio and their passages, "engine" highlighted, then History -->
 *Seven files with "engine" in them: code, a PlantUML diagram, YAML, a log, a mail and a LaTeX paper.*
 
 ## Contents
@@ -21,10 +21,12 @@ is called.
 
 ## How to use it
 
-1. Press **Shift+F7** (or **Ctrl+Shift+F** in the desktop app): [Find file](find-file.md) opens
-   at text. The prompt is `text: ` (terminal app); the *Text in files* button is highlighted
-   (desktop app). Already in Find file, **Shift+F7** goes there too, or **Tab** twice from
-   *Everywhere*, or a click on *Text in files*. The F9 command list calls it *Search inside files*.
+1. Press **Ctrl+F** for [Find file](find-file.md): words are searched along with names, and
+   *In files* is one of its groups (first for three words or more). For the words alone, press
+   **Shift+F7** (or **Ctrl+Shift+F** in the desktop app): Find opens at the *In files* kind. The
+   F9 command list calls it *Search inside files*. Inside Find, **Shift+F7** switches to *In
+   files* and back, and the prefix `text:` does the same.
+2. To search one folder only, switch the scope with **Ctrl+F** inside Find (*In rocket*).
 3. Type words: `rocket budget`. Best matches come first.
 4. **Enter** goes to the file, **F4** edits it, **F3** views it (terminal app).
 
@@ -46,21 +48,19 @@ is called.
 
 ## What you see
 
-**Before you type:** *Type words to search inside your files: text, PDF, Word, spreadsheets,
-slides, mail and books.* While search by meaning is off, also *Also find files about your words,
-in any language:* with the link *turn on search by meaning* (desktop app) or `coxswain --meaning on`
-(terminal app).
-
-**The count line:** `7 matches in 2.4 ms · text of 31,208 files · 412 still to read`. The last part
-shows only while the helper still has files to read.
+The *In files* group: its heading counts the files (*5 of 19*; in *All* the first five show, and
+*14 more: Enter shows them all* follows). Under the list: *text of 31,208 files · 412 still to
+read*; the last part shows only while the helper still has files to read.
 
 **Each hit:** the name, its folder, and the passage that matched (up to 18 words around your
-words, with `…` where it is cut), your words highlighted. A hit found by meaning shows
-*similar to:* and the start of the passage that was close.
+words, with `…` where it is cut), your words highlighted. Files found by meaning alone are under
+*About this*, their passage in italics. Commits are under *History*.
 
-**Nothing to search:** with *Search inside files* off, or the [helper](helper.md) not running, text
-finds nothing; *Settings → Search inside files* says *The search helper is not running, so text
-cannot be searched now.*
+**Nothing to search:** with *Search inside files* off, the *In files* group says *Find can also
+search the words inside your files.* with *Turn on*; with the [helper](helper.md) not running,
+*Words in files cannot be searched now: background reading is not running.* with *Start it*.
+With the scope on a folder that is not read: *… is not among the folders read, so its words are
+not searched.* with *Read this folder too* ([all states](find-file.md#when-something-is-missing)).
 
 ## What is read, and when
 
@@ -102,7 +102,7 @@ The same store, the same hits, found by the same helper. The passage goes on a s
 each name, your words in the `search_hit` colour. There is no Settings window: set the keys in
 `config.toml`, and the helper takes them at its next start ([questions](folders.md#questions)).
 
-![The terminal app's Find file at "text:", with "engine" typed: seven hits, each a name and folder on one line and the passage on the next, "engine" highlighted](../screenshots/tui-text-search.png)
+<!-- screenshot: tui-text-search.png: the terminal app (Classic blue), Find at In files with "engine" typed: each hit a name and folder, the passage on the next line, "engine" highlighted -->
 
 ## Questions
 
@@ -113,7 +113,7 @@ It is read within seconds of the save, if all of these hold:
   folder left out (hidden, `node_modules`, `target` …, names only, `.nosearch`).
 - It is a kind with text, and no larger than 20 MB.
 - The machine is not on its [battery](battery.md): reading waits for the mains.
-- The helper is not still reading a backlog: the count line says ` · 412 still to read`, and the
+- The helper is not still reading a backlog: Find's footer says ` · 412 still to read`, and the
   new file waits its turn. *Index now* in Settings reads the backlog at full speed.
 
 #### Why does `budge` not find "budgets"?
@@ -126,7 +126,14 @@ search helper is not running, so text cannot be searched now.* Right after the f
 store is still being filled: ` · 31,000 still to read` counts down.
 
 #### Can I search the text in one folder only?
-No: text search covers every folder read. The folder under each hit shows where it is.
+Yes: open the folder in the active panel and press **Ctrl+F** inside Find. The scope reads *In
+rocket*, and *In files* (with every other group, and Ask) keeps to that folder and below. The
+folder must be among the [folders read](folders.md); if it is not, *Read this folder too* adds it.
+
+#### Why does a question find files with only some of its words?
+When fewer than 10 files have every word, files with any of the words of four letters or more are
+added, so *what does the rocket fuel cost* finds the budget that says "fuel" and "cost". With
+search by meaning on, such a file is shown only when meaning finds it too.
 
 #### Does anything leave my machine?
 Not for search by words: the text stays in `search.db` on your disk. Search by meaning with the

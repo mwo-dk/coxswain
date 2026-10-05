@@ -69,8 +69,8 @@ script or a picture on the web gets nothing from the web ([HTML pages](../previe
 |---|---|---|---|
 | **Update check**, once a day | A request to `api.github.com` for the latest release's version number, with `User-Agent: coxswain/1.20.0` | Both apps, by themselves | `check_updates = false`, or untick *Settings → Behaviour → Check for a new version once a day* ([Update checks](updates.md)) |
 | **Model download**, once | The three files of multilingual-e5-small (about 488 MB) from `huggingface.co` | You: *Download the model* in Settings, or `coxswain --meaning on` | Do not turn search by meaning on, or use a server |
-| **Search by meaning on another machine** | The text of your files (all of it, up to 256 passages each, with the file's name and two folders) and every question you type at Find file's text depth, to that server | You: a *Server* that is not on this machine | Use the built-in model or a server on `localhost`. Settings warns: *The text of your files, with their names and folders, is sent to evo to get its vectors.* |
-| **Ask** | The question, the questions and answers before it in this Find file, and the ten closest passages with their paths, to the chat model on the server (Ollama on this machine with the built-in model). Nothing is stored | You: pressing **Enter** at Find file's Ask depth ([Ask](../search/ask.md)) | Leave *Chat model* empty, or use a server on `localhost` |
+| **Search by meaning on another machine** | The text of your files (all of it, up to 256 passages each, with the file's name and two folders) and everything you type in Find file while search by meaning is on, to that server | You: a *Server* that is not on this machine | Use the built-in model or a server on `localhost`. Settings warns: *The text of your files, with their names and folders, is sent to evo to get its vectors.* |
+| **Ask** | The question, the questions and answers before it in this Find file, and the ten closest passages with their paths, to the chat model on the server (Ollama on this machine with the built-in model). Nothing is stored | You: asking in Find file (**Ctrl+Enter** / **Alt+Enter**, or **Enter** on the *Ask* row) ([Ask](../search/ask.md)). With Find's scope on a folder, only passages of that folder are sent | Leave *Chat model* empty, or use a server on `localhost` |
 | **Ollama pull** | Ollama downloads the model from its registry | You: *Pull bge-m3 with Ollama* or `coxswain --meaning ollama` | Do not pull |
 | **Container images** | podman or docker downloads the image from its registry (`docker.io`) | You: the first build or render with a container, or *Pull* in Settings. Never by itself | `[preview] container = "off"` |
 | **Links you click** | The release notes, a docs page under *Settings → What's new* (on GitHub), a web link in a rendered Markdown or AsciiDoc file: each opens in your browser. *What's new* itself is built into the app | You | – |
@@ -130,8 +130,8 @@ can open.)
 
 The passages of each file with text in the folders read (the whole text, up to 256 passages of
 about 120 words), each with a first line naming the file, the two folders it is in and, in
-Markdown, the heading above it (`budget.md · rocket/notes · Fuel`); and each question you type
-at Find file's text depth while search by meaning is on. Not the full path. Before 1.39.0 it got
+Markdown, the heading above it (`budget.md · rocket/notes · Fuel`); and what you type in Find file
+while search by meaning is on (from two letters on, as you type). Not the full path. Before 1.39.0 it got
 the first eight passages, without the line.
 
 #### Is my archive password stored anywhere?

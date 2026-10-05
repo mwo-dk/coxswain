@@ -7,7 +7,7 @@ what you type, whatever words they use and in whichever language: "what the rock
 finds `Brændstofbudget.docx`. A small multilingual model does it on your own machine; it is off
 until you turn it on.
 
-![The desktop app's Find file in Text in files with rocket fuel cost typed: budget.txt with the words, then budget-da.txt, a Danish document, whose passage starts with similar to:](../screenshots/search-meaning-hits.png)
+<!-- screenshot: search-meaning-hits.png: the desktop app (Cyber), Find with "rocket fuel cost": In files with budget.txt, About this with budget-da.txt (Danish) and its passage in italics -->
 
 ## Contents
 
@@ -31,13 +31,15 @@ model or a server suits it. By hand:
 |---|---|
 | Desktop app | *Settings → Search by meaning → Download the model (465 MB) and turn on*. A bar shows *Downloading the model: 120 MB of 465 MB*; **Cancel** stops it |
 | Terminal app | `coxswain --meaning on`: prints *Downloading the model for search by meaning: 42%*, then turns it on (with a [server](servers.md) as the engine, nothing is downloaded) |
-| A link | *set up search by meaning* under Find file's text depth (it opens the guided setup), and the [notice](notices.md) *New: search by meaning finds files about your words, in any language. Turn it on*: in the desktop app under *Settings → What's new* (**Show me**), in the terminal app once in the status line |
+| A row in Find | *Find files about your words too, in any language, even without the words.* under *About this*, with *Set up* (it opens the guided setup; in the terminal app it runs `coxswain --setup-search`); **Delete** sends it away. Also and the [notice](notices.md) *New: search by meaning finds files about your words, in any language. Turn it on*: in the desktop app under *Settings → What's new* (**Show me**), in the terminal app once in the status line |
 
 It needs *Search inside files* on: the button is greyed out otherwise. Then:
 
-1. **Shift+F7** (or **Ctrl+Shift+F** in the desktop app) for Find file at *Text in files*.
+1. **Ctrl+F** for [Find file](find-file.md).
 2. Type a question or a few words, in any language.
-3. Files with your words come first; files found by meaning follow.
+3. Files with your words are under *In files*, those close in meaning ahead; files found by
+   meaning alone are under **About this**. For meaning alone, **Tab** to the *About* kind or type
+   `about:` first: `about: brændstof`.
 
 **Turn it off:** *Turn off* in Settings (or `coxswain --meaning off`) stops it and keeps the model.
 **Delete the model** (or `coxswain --meaning delete`) turns it off and deletes the model.
@@ -46,19 +48,19 @@ where it runs: `Built-in model · on the GPU (Metal)`.
 
 ## What you see
 
-**In Find file**, a hit found by meaning shows the start of the passage that was closest (up to 24
-words), marked *similar to:*, wherever in the document that passage is. Only files close to the
+**In Find file**, a file found by meaning alone is under *About this*, with the start of the
+passage that was closest (up to 24 words) in italics, wherever in the document that passage is. Only files close to the
 best match are shown (within 0.10 of its score with the built-in model, 0.15 with bge-m3 and
 other server models, and above what unrelated text scores: 0.77 and 0.45), so unrelated files
-stay out. A file found by both its words and its meaning is shown once, as a word
-hit.
+stay out. A file found by both its words and its meaning is shown once, under *In
+files*, raised by its meaning. The footer counts the files with vectors: *meaning for 8,120*.
 
 **In Settings → Search by meaning**, from top to bottom:
 
 - The hint: *Finds files about what you type, not only files with its words, in any language:
   “rocket fuel cost” finds a Danish budget. A small language model (multilingual-e5-small) runs on
-  this machine, slowly and never on battery; nothing leaves it. In Find file, Tab to text: such
-  files show as “similar to”.*
+  this machine, slowly and never on battery; nothing leaves it. In Find file such files show
+  under About this.*
 - *Vectors made by*: *Built-in model, on this machine (465 MB once)*, *Ollama*, or *A server with the
   OpenAI API (Lemonade, LM Studio, llama.cpp …)*. The last two are on [their own page](servers.md).
 - While on: *Understood: 8,120 files · still to go: 23,088*, where the built-in model runs in
@@ -72,8 +74,7 @@ hit.
 - While off, with the model there: **Turn on** and **Delete the model**. Without it:
   **Download the model (465 MB) and turn on**.
 
-**In the title**: `Coxswain 1.16.0 · search: names · text · meaning` once it runs
-([Notices and what's new](notices.md)).
+**In Find's footer**: *meaning for 8,120* once it runs.
 
 ## How it works
 
@@ -175,15 +176,14 @@ The last three are for [servers](servers.md). Search by meaning also needs `text
 
 ## In the terminal app
 
-The same search: hits by meaning come after word hits, with *similar to:* in front of the
-passage. Turn it on, off or delete it with `coxswain --meaning on|off|delete`; on a Mac,
+The same search and the same *About this* group, its passages dimmed in italics. Turn it on, off or delete it with `coxswain --meaning on|off|delete`; on a Mac,
 `coxswain --meaning cpu|auto` keeps the built-in model on the CPU or lets it use the GPU, and
 `coxswain --meaning` says where it runs. There is no status
 of *still to go*; the desktop app's Settings shows it, or wait for hits. While the vectors are
-renewed, the status line of Find file's text depth adds *Renewing search by meaning for whole
-documents: 23,088 files to go, about 3 hours*, and the notice says it once. Find file's text depth
-says *Also find files about your words, in any language: coxswain --meaning on* while it is off.
-When vectors stop coming, its status line says why: *No vectors: http://localhost:11434: Connection
+renewed, Find's footer adds *Renewing search by meaning for whole documents: 23,088 files to go,
+about 3 hours*, and the notice says it once. While it is off, *About this* says *Find files about
+your words too, in any language, even without the words.* with *Set up*. When vectors stop
+coming, *About this* says why: *No vectors: http://localhost:11434: Connection
 refused*, or *Reading stopped: …* when reading itself failed.
 
 ## Questions
@@ -199,7 +199,7 @@ laptop's CPU that takes hours for a large home folder, and it waits while on bat
 
 #### Vectors stopped coming. Why?
 Both apps say why, in red: Settings under *Search by meaning* (desktop) and the status line of
-Find file's text depth (terminal), and a [notice](notices.md) in the status line of both (in the desktop app also under *Settings → What's new*). *No
+Find's *About this* group (both apps), and a [notice](notices.md) in the status line of both (in the desktop app also under *Settings → What's new*). *No
 vectors: …* is the server or the model: Ollama not running (`systemctl start ollama`), or the
 model not pulled (`ollama pull bge-m3`, or *Pull* in Settings). *Reading stopped: …* means a scan
 failed before the vectors' turn; vectors come only after the text is read. Before 1.26.4 a store
@@ -238,8 +238,8 @@ file only, and those vectors cannot be mixed with the new ones. The helper notic
 opens the store, drops the old vectors and makes new ones in the background, the most recently
 changed files first. The text is not read again, and search by words works all the while. Both
 apps say it once: *Search by meaning is being renewed to cover whole documents: 23,088 files,
-about 3 hours on this machine* (the time is measured on the first files). Settings (desktop) and Find
-file's text depth (terminal) show the files to go. Until a file has its new vectors, it is found
+about 3 hours on this machine* (the time is measured on the first files). Settings (desktop) and Find's
+footer (both apps) show the files to go. Until a file has its new vectors, it is found
 by its words only. A store copied to another machine is renewed there the same way.
 
 #### How long does the renewal take?
@@ -253,7 +253,8 @@ likely to take on your machine, from the first files.
 
 #### Why does it show files that have nothing to do with my question?
 It shows the files closest to your question, above a floor. When nothing in your files is about
-it, the closest may still pass. Word hits always come first; use more specific words.
+it, the closest may still pass. Files with your words are under *In files*, apart from them; use
+more specific words.
 
 #### Where is the model kept and how do I delete it?
 In Coxswain's cache folder under `models/` (`coxswain --paths` prints it as `model`; Settings shows

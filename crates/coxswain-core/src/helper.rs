@@ -369,14 +369,6 @@ impl Client {
         }
     }
 
-    /// Search in the files' text: the files with the words, then those about them.
-    // ponytail: the old "Text in files" list on top of Find, until both apps show Find's groups.
-    pub fn search_text(&self, query: &str, max: usize) -> Results {
-        let f = self.find(query, None, Kind::InFiles, max);
-        let hits: Vec<_> = f.in_files.hits.into_iter().chain(f.history.hits).chain(f.about.hits).take(max).collect();
-        Results { total: f.in_files.total + f.history.total + f.about.total, hits, micros: 0 }
-    }
-
     /// Ask: the `max` passages closest to `question`, with their files, below `scope` when
     /// given. Nothing without the helper, or while search by meaning is off.
     pub fn passages(&self, question: &str, scope: Option<&Path>, max: usize) -> Vec<(PathBuf, String)> {
@@ -606,9 +598,15 @@ mod tests {
         while one.status().texts < 3 && wait.elapsed() < Duration::from_secs(10) {
             std::thread::sleep(Duration::from_millis(100));
         }
-        let found = two.search_text("launch", 10);
-        assert_eq!(found.hits.iter().map(|h| h.path.file_name().unwrap().to_string_lossy().into_owned()).collect::<Vec<_>>(), ["main.rs"]);
-        assert!(found.hits[0].snippet.as_deref().unwrap().contains("launch"));
+        let found = two.find("launch", None, Kind::All, 10);
+        assert_eq!(found.in_files.hits.iter().map(|h| h.path.file_name().unwrap().to_string_lossy().into_owned()).collect::<Vec<_>>(), ["main.rs"]);
+        assert!(found.in_files.hits[0].snippet.as_deref().unwrap().contains("launch"));
+        assert!(found.off.contains(&crate::find::Off::MeaningOff));
+        // Limited to a folder: its files alone, names and text; a folder whose text is not read says so.
+        let src = two.find("main", Some(&d.join("files/src")), Kind::All, 10);
+        assert_eq!(src.names.hits.len(), 1);
+        let away = two.find("launch", Some(&d.join("cache")), Kind::InFiles, 10);
+        assert_eq!(away.off, [crate::find::Off::NotRead(d.join("cache"))]);
         // And folder sizes from its store.
         assert_eq!(two.size(&d.join("files/src")).map(|s| s.0), Some(crate::fs::dir_size(&d.join("files/src"))));
 

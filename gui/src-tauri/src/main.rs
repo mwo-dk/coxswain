@@ -7,7 +7,7 @@ use coxswain_core::config::{color_to_rgb, Action, Config, Glyphs, GuiConfig, Use
 use coxswain_core::fs::{self as bfs, Entry, SortKey};
 use coxswain_core::icons::{self, Icon};
 use coxswain_core::helper::{self, Client};
-use coxswain_core::index::{Results, State};
+use coxswain_core::index::State;
 use coxswain_core::rename::{self, Flags, Planned};
 use coxswain_core::state::{AppState, FavoriteGroup};
 use coxswain_core::git;
@@ -642,7 +642,7 @@ async fn notices(ctx: tauri::State<'_, Ctx>) -> Res<Notices> {
     Ok(Notices {
         notices: coxswain_core::notices::all(&cfg, &status, &st, false),
         unread: coxswain_core::notices::unread(&st).into_iter().map(|c| c.version).collect(),
-        title: coxswain_core::t!("title.window", "version" => coxswain_core::update::VERSION, "search" => coxswain_core::notices::search_level(&cfg, &status)),
+        title: coxswain_core::t!("title.window", "version" => coxswain_core::update::VERSION),
     })
 }
 
@@ -905,35 +905,68 @@ async fn index_action(what: String, ctx: tauri::State<'_, Ctx>) -> Res<()> {
     .map_err(|e| e.to_string())
 }
 
+/// What Find shows: its rows, where the cursor starts, what can be searched (the footer), and
+/// why Ask cannot be asked yet.
 #[derive(Serialize)]
-struct SearchOut {
-    #[serde(flatten)]
-    results: Results,
-    state: State,
-    indexed: usize,
-    /// Files whose text can be searched, and files still to be read.
-    texts: usize,
-    pending: usize,
-    /// Search by meaning is on: without it, text mode points to where it is turned on.
-    meaning: bool,
+struct FindOut {
+    /// `find::Row`s; a row that says what is missing has its `text`, its `step` and the
+    /// `dismiss` id that sends it away for good.
+    rows: Vec<serde_json::Value>,
+    start: usize,
+    footer: String,
+    ask: Option<coxswain_core::find::Off>,
+    /// The names are still being counted: Find asks again.
+    building: bool,
 }
 
 /// The GUI lists every hit it gets as a row, so it takes fewer than the TUI, which only draws
-/// what fits on screen. `total` still counts them all.
+/// what fits on screen. A group's count still counts them all.
 const GUI_MAX_HITS: usize = 500;
 
+/// Find: `query` under the kind `chip`, below `scope` when given. `ask_problem`: why the chat
+/// model cannot answer, as `ask_check` said.
 #[tauri::command]
-async fn search(query: String, scope: Option<PathBuf>, text: Option<bool>, ctx: tauri::State<'_, Ctx>) -> Res<SearchOut> {
+async fn find(query: String, scope: Option<PathBuf>, chip: coxswain_core::find::Kind, ask_problem: Option<String>, ctx: tauri::State<'_, Ctx>) -> Res<FindOut> {
+    use coxswain_core::find::{self, Kind, Off};
     // A CPU-bound scan (rayon, all cores), so off the async runtime's worker threads.
-    let index = ctx.index.clone();
-    let max = ctx.cfg().search.max_results.min(GUI_MAX_HITS);
+    let (index, cfg) = (ctx.index.clone(), ctx.cfg().search.clone());
+    let dismissed = ctx.state.lock().map_err(|e| e.to_string())?.notices_dismissed.clone();
     tauri::async_runtime::spawn_blocking(move || {
-        let results = if text == Some(true) { index.search_text(&query, max) } else { index.search(&query, scope.as_deref(), max) };
-        let now = index.status();
-        SearchOut { results, state: now.state, indexed: now.len, texts: now.texts, pending: now.pending, meaning: now.meaning }
+        let kind = find::parse(&query).0.unwrap_or(chip);
+        let rows = if kind == Kind::All { find::ALL_ROWS } else { cfg.max_results.min(GUI_MAX_HITS) };
+        let found = index.find(&query, scope.as_deref(), chip, rows);
+        let ask = find::ask_ready(&cfg).and_then(|_| ask_problem.map_or(Ok(()), |p| Err(Off::AskModel(p))));
+        let rows = find::rows(&query, chip, &found, ask.clone(), |id| dismissed.iter().any(|d| d == id));
+        let status = index.status();
+        let start = find::start(&query, &rows);
+        let rows = rows
+            .iter()
+            .map(|r| {
+                let mut v = serde_json::to_value(r).unwrap_or_default();
+                if let find::Row::Ask { off: Some(off) } | find::Row::Off { off, .. } = r {
+                    v["text"] = off.text().into();
+                    v["step"] = off.step().into();
+                    v["dismiss"] = off.dismiss_id().into();
+                }
+                v
+            })
+            .collect();
+        FindOut { start, rows, footer: find::footer(&status), ask: ask.err(), building: status.state == State::Building }
     })
     .await
     .map_err(|e| e.to_string())
+}
+
+/// "Read this folder too": `dir` added to the folders whose text is read; the helper starts again.
+#[tauri::command]
+async fn find_read_too(dir: PathBuf, ctx: tauri::State<'_, Ctx>) -> Res<UiConfig> {
+    let roots = coxswain_core::find::read_too(&ctx.cfg().search, &dir);
+    let mut changes = serde_json::Map::new();
+    changes.insert("text_roots".into(), serde_json::to_value(roots).map_err(|e| e.to_string())?);
+    let cfg = save_settings(changes, ctx.clone())?;
+    let index = ctx.index.clone();
+    tauri::async_runtime::spawn_blocking(move || index.restart()).await.map_err(|e| e.to_string())?;
+    Ok(cfg)
 }
 
 /// What an Ask sends while it runs: first the numbered sources, then the answer piece by piece.
@@ -950,7 +983,7 @@ const ASK_PASSAGES: usize = 10;
 /// Ask: `question` answered by the user's chat model from the closest passages, with the
 /// questions and answers `earlier` in this Find file. Nothing is kept.
 #[tauri::command]
-async fn ask(question: String, earlier: Vec<(String, String)>, on_event: tauri::ipc::Channel<AskEvent>, ctx: tauri::State<'_, Ctx>) -> Res<()> {
+async fn ask(question: String, earlier: Vec<(String, String)>, scope: Option<PathBuf>, on_event: tauri::ipc::Channel<AskEvent>, ctx: tauri::State<'_, Ctx>) -> Res<()> {
     use std::sync::atomic::Ordering;
     let (index, cfg, asking) = (ctx.index.clone(), ctx.cfg().search.clone(), ctx.asking.clone());
     let me = asking.fetch_add(1, Ordering::SeqCst) + 1;
@@ -959,9 +992,12 @@ async fn ask(question: String, earlier: Vec<(String, String)>, on_event: tauri::
         coxswain_core::meaning::warm(&cfg);
         // A follow-up is looked up with the question before it, which it often leans on.
         let lookup = earlier.last().map_or(question.clone(), |(q, _)| format!("{q} {question}"));
-        let sources = index.passages(&lookup, None, ASK_PASSAGES);
+        let sources = index.passages(&lookup, scope.as_deref(), ASK_PASSAGES);
         if sources.is_empty() {
-            return Err(coxswain_core::t!("search.ask_nothing"));
+            return Err(match &scope {
+                Some(dir) => coxswain_core::t!("find.ask_nothing_in", "folder" => dir.file_name().unwrap_or_default().to_string_lossy()),
+                None => coxswain_core::t!("search.ask_nothing"),
+            });
         }
         let _ = on_event.send(AskEvent::Sources { paths: sources.iter().map(|(p, _)| p.clone()).collect() });
         // Stopped while searching: the model is not asked (a request it would work on alone).
@@ -1652,7 +1688,7 @@ fn main() {
         })
         .invoke_handler(tauri::generate_handler![
             get_config, notices, dismiss_notice, changes, read_changes, set_title, index_status, index_action, index_service, meaning_status, meaning_action, meaning_models, meaning_pull, list_dir, git_status, git_last, git_switch, git_new_branch, places, disks, get_state, save_session, save_favorites, set_tags, set_note, get_note,
-            search, ask, ask_stop, ask_check, meaning_change, setup_probe, setup_probe_url, setup_try, setup_speed, resolve_path, copy, rename, delete, mkdir, dir_sizes, rename_plan, rename_apply, open_path, edit_path,
+            find, find_read_too, ask, ask_stop, ask_check, meaning_change, setup_probe, setup_probe_url, setup_try, setup_speed, resolve_path, copy, rename, delete, mkdir, dir_sizes, rename_plan, rename_apply, open_path, edit_path,
             read_text, run_command, scripts, run_script, check_update, archive_list, extract, pack, archive_password, archive_peek, cloud_fetch, properties, set_permissions,
             clip_set, paste, start_drag, watch_dirs, preview::git_diff, preview::sqlite_info, preview::epub_preview,
             preview::file_facts, preview::cert_info, bom::bom_info, bom::bom_node, bom::bom_diff, preview::mail_preview, preview::plist_xml, convert::preview_engines, convert::preview_cache, convert::clear_preview_cache,

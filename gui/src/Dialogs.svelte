@@ -1,11 +1,12 @@
 <script>
   // Every modal: prompts, confirmations, find file, menus, batch rename, tags, help.
   // App forwards keys through `handleKey`; returning true means "handled".
-  import { tick } from "svelte";
+  import { tick, untrack } from "svelte";
   import { ui, tab, cd, load } from "./app.svelte.js";
   import { Channel } from "@tauri-apps/api/core";
   import { invoke, takesPassword, withEnding, packFormat, basename, parent, size, date, TAGS, TAG_COLORS, tagName, isHistory, historyOf } from "./lib.js";
   import { t, tn, num } from "./i18n.svelte.js";
+  import { KINDS, prefix, nextKind, step } from "./find.js";
 
   let input = $state();
   let listEl = $state();
@@ -41,20 +42,6 @@
   // fast typing never queues a scan per keystroke.
   let busy = false;
   let again = false;
-  /** Find file's depths: names everywhere, names in this folder, the text of files, Ask. */
-  function setMode(m, mode) {
-    m.mode = mode;
-    m.res = null;
-    m.cursor = 0;
-    runSearch();
-  }
-  /** The depth each action opens Find file at; Tab and Shift+Tab go to the next and the previous. */
-  const depths = { search: 0, search_text: 2, ask: 3 };
-  /** A depth button's tooltip: its own key, if it has one, and Tab. */
-  const depthKey = (i) => {
-    const act = Object.keys(depths).find((a) => depths[a] === i);
-    return [act && ui.cfg.actions[act]?.[1], "Tab / Shift+Tab"].filter(Boolean).join(" · ");
-  };
   /** A snippet with the words it found marked; everything else is text, never markup. */
   const marked = (s) =>
     s
@@ -62,16 +49,23 @@
       .replaceAll("\u0001", "<mark>")
       .replaceAll("\u0002", "</mark>");
 
+  /** The kind Find shows: a prefix typed first wins over the chip. */
+  const kindOf = (m) => prefix(m.query).kind ?? m.chip;
+  /** Whether the answer shows in place of the list. */
+  const answering = (m) => m.show === "answer" || kindOf(m) === "ask";
+  /** The folder Find is limited to, if it is. */
+  const scopeOf = (m) => (m.here ? tab().dir : null);
+
   export async function runSearch() {
     const m = ui.modal;
-    if (m?.kind !== "search" || m.mode === 3) return;
+    if (m?.kind !== "search" || answering(m)) return;
     if (busy) return void (again = true);
     busy = true;
     try {
-      const res = await invoke("search", { query: m.query, scope: m.mode === 1 ? tab().dir : null, text: m.mode === 2 });
+      const out = await invoke("find", { query: m.query, scope: scopeOf(m), chip: m.chip, askProblem });
       if (ui.modal === m) {
-        m.res = res;
-        m.cursor = 0;
+        m.out = out;
+        m.cursor = out.start;
       }
     } finally {
       busy = false;
@@ -81,37 +75,49 @@
       runSearch();
     }
   }
+  /** A change of kind, scope or view: the list again from the top. */
+  function refind(m, change) {
+    Object.assign(m, change, { cursor: 0 });
+    runSearch();
+    input?.focus();
+  }
 
-  // Refresh results while the first index is still being built. A stale index (being
-  // refreshed in the background) already answers correctly, so it is not polled.
+  // Ask again while the names are still being counted.
   $effect(() => {
     if (ui.modal?.kind !== "search") return;
-    const timer = setInterval(() => ui.modal?.res?.state === "building" && runSearch(), 700);
+    // The footer (what can be searched) from the start.
+    untrack(runSearch);
+    const timer = setInterval(() => ui.modal?.out?.building && runSearch(), 700);
     return () => clearInterval(timer);
   });
 
   // Ask: a question answered by the user's chat model from the passages closest to it, with
   // the sources numbered. Follow-ups carry the turns before; closing Find file forgets them.
   const askReady = () => ui.cfg.settings.search_meaning && !!ui.cfg.settings.ask_model;
-  // Ask's depth in sight: the chat model is asked whether it can answer (one that only makes
-  // vectors cannot), once per model while Find file is open.
+  // Find open: the chat model is asked whether it can answer (one that only makes vectors
+  // cannot), once per model while Find file is open.
   let askProblem = $state(null);
   let askChecked = null;
   $effect(() => {
-    const model = ui.modal?.kind === "search" && ui.modal.mode === 3 && ui.cfg.settings.search_meaning ? ui.cfg.settings.ask_model : "";
+    const model = ui.modal?.kind === "search" && askReady() ? ui.cfg.settings.ask_model : "";
     if (ui.modal?.kind !== "search") askChecked = null;
     if (!model || model === askChecked) return;
     askChecked = model;
     askProblem = null;
-    invoke("ask_check", { tryIt: false }).then((p) => (askProblem = p), () => {});
+    invoke("ask_check", { tryIt: false }).then((p) => {
+      askProblem = p;
+      runSearch();
+    }, () => {});
   });
+  /** Why Ask cannot be asked now, as Find's rows say it; null when it can. */
+  const askOff = (m) => m.out?.ask ?? (askReady() ? (askProblem ? { off: "ask_model", detail: askProblem } : null) : { off: "ask_needs_meaning" });
   async function askNow(m) {
-    const question = m.query.trim();
-    if (!question || m.asking || !askReady() || askProblem) return;
+    const question = prefix(m.query).rest.trim();
+    if (!question || m.asking || askOff(m)) return;
     const earlier = (m.chat ?? []).filter((c) => c.a && !c.error).map((c) => [c.q, c.a]);
     m.chat = [...(m.chat ?? []), { q: question, a: "", sources: [], error: "" }];
     const turn = m.chat[m.chat.length - 1];
-    Object.assign(m, { query: "", asking: true, cursor: 0 });
+    Object.assign(m, { query: "", asking: true, cursor: 0, show: "answer" });
     const events = new Channel();
     events.onmessage = (e) => {
       if (ui.modal !== m) return void invoke("ask_stop");
@@ -122,7 +128,7 @@
       if (end) tick().then(() => listEl?.lastElementChild?.scrollIntoView({ block: "end" }));
     };
     try {
-      await invoke("ask", { question, earlier, onEvent: events });
+      await invoke("ask", { question, earlier, scope: scopeOf(m), onEvent: events });
     } catch (e) {
       turn.error = String(e);
     } finally {
@@ -132,6 +138,31 @@
   /** An answer in pieces: text, and the [n] that point at its sources. */
   const cited = (text) => text.split(/(\[\d+\])/).map((part) => ({ part, n: /^\[\d+\]$/.test(part) ? +part.slice(1, -1) : 0 }));
   const lastSources = (m) => m.chat?.at(-1)?.sources ?? [];
+
+  /** The step of a row that says what is missing. */
+  async function findStep(m, off) {
+    if (off.off === "no_helper") {
+      await invoke("index_action", { what: "restart" }).catch(() => {});
+      return runSearch();
+    }
+    if (off.off === "not_read") {
+      ui.cfg = await invoke("find_read_too", { dir: off.detail }).catch((e) => (ui.status = String(e), ui.cfg));
+      return runSearch();
+    }
+    ui.modal = { kind: "setup" };
+  }
+  /** Sends a tip away for good. */
+  function dismissRow(m, r) {
+    invoke("dismiss_notice", { id: r.dismiss }).then(runSearch, () => {});
+  }
+  /** Enter on a row: go to a hit, ask, show a group alone, or take a row's step. */
+  function enterRow(m, r) {
+    if (!r) return;
+    if (r.row === "hit") goToHit(r.hit);
+    else if (r.row === "ask" && !r.off) askNow(m);
+    else if (r.row === "more") refind(m, { chip: { names: "names", in_files: "in_files", history: "in_files", about: "about" }[r.group] });
+    else if (r.off) findStep(m, r.off);
+  }
 
   async function goToHit(h) {
     close();
@@ -232,10 +263,45 @@
     it.run();
   }
 
+  /** Keys in Find: they go by action, so a user's own keys for Find, text and Ask work too. */
+  function findKey(m, e, k, act) {
+    const rows = m.out?.rows ?? [];
+    const src = lastSources(m);
+    const answer = answering(m);
+    const question = prefix(m.query).rest.trim();
+    if (k === "Esc") {
+      if (m.show === "list") close();
+      else refind(m, { show: "list", chip: m.chip === "ask" ? "all" : m.chip });
+    } else if (k === "F1") m.show = m.show === "syntax" ? "list" : "syntax";
+    else if (act === "search") refind(m, { here: !m.here });
+    else if (act === "search_text") refind(m, { chip: m.chip === "in_files" ? "all" : "in_files", show: "list" });
+    else if (act === "ask" || k === "Ctrl+Enter") {
+      // Ask not set up: the answer's place says what it needs.
+      if (question && !askOff(m)) askNow(m);
+      else Object.assign(m, { chip: question ? m.chip : "ask", show: "answer", cursor: 0 });
+    } else if (k === "Tab" || k === "Shift+Tab") {
+      const chip = nextKind(m.chip, k === "Shift+Tab");
+      refind(m, { chip, query: prefix(m.query).rest, show: chip === "ask" ? "answer" : "list" });
+    } else if (k === "Enter" && answer) {
+      if (question) askNow(m);
+      else if (src[m.cursor]) goToHit({ path: src[m.cursor] });
+    } else if (k === "Enter") enterRow(m, rows[m.cursor]);
+    else if (answer && k === "Up") m.cursor = Math.max(0, m.cursor - 1);
+    else if (answer && k === "Down") m.cursor = Math.min(src.length - 1, m.cursor + 1);
+    else if (k === "Up" || k === "Down" || k === "PageUp" || k === "PageDown") m.cursor = step(rows, m.cursor, { Up: -1, Down: 1, PageUp: -15, PageDown: 15 }[k]);
+    else if (act === "edit") {
+      const p = answer ? src[m.cursor] : rows[m.cursor]?.row === "hit" && !rows[m.cursor].hit.is_dir ? rows[m.cursor].hit.path : null;
+      if (p && !isHistory(p)) invoke("edit_path", { path: p });
+    } else if (k === "Delete" && rows[m.cursor]?.dismiss && e.target?.selectionStart === m.query.length) dismissRow(m, rows[m.cursor]);
+    else return false;
+    return true;
+  }
+
   /** Keys while a modal is open. */
   export function handleKey(e, k) {
     const m = ui.modal;
     const act = ui.cfg.keymap[k];
+    if (m.kind === "search") return findKey(m, e, k, act);
     if (k === "Esc") return close(), true;
     switch (m.kind) {
       case "input":
@@ -250,32 +316,6 @@
         if (k === "Enter" || k === "y" || k === "Shift+Y") confirm(m);
         else if (k === "n" || k === "Shift+N") close();
         return true;
-      case "search": {
-        if (k === "Tab" || k === "Shift+Tab" || act in depths) {
-          setMode(m, depths[act] ?? (m.mode + (k === "Tab" ? 1 : 3)) % 4);
-          return true;
-        }
-        if (m.mode === 3) {
-          const src = lastSources(m);
-          if (k === "Enter" && m.query.trim()) askNow(m);
-          else if (k === "Enter" && src[m.cursor]) goToHit({ path: src[m.cursor] });
-          else if (k === "Up") m.cursor = Math.max(0, m.cursor - 1);
-          else if (k === "Down") m.cursor = Math.min(src.length - 1, m.cursor + 1);
-          else if (act === "edit" && src[m.cursor]) invoke("edit_path", { path: src[m.cursor] });
-          else return false;
-          return true;
-        }
-        const hits = m.res?.hits ?? [];
-        const h = hits[m.cursor];
-        if (k === "Enter" && h) goToHit(h);
-        else if (k === "Up") m.cursor = Math.max(0, m.cursor - 1);
-        else if (k === "Down") m.cursor = Math.min(hits.length - 1, m.cursor + 1);
-        else if (k === "PageUp") m.cursor = Math.max(0, m.cursor - 15);
-        else if (k === "PageDown") m.cursor = Math.min(hits.length - 1, m.cursor + 15);
-        else if (act === "edit" && h && !h.is_dir) invoke("edit_path", { path: h.path });
-        else return false;
-        return true;
-      }
       case "menu": {
         const items = menuItems(m);
         // An entry's key is one character, upper case for Shift (`Shift+A` is `A`).
@@ -409,25 +449,35 @@
           {/each}
         </ul>
       {:else if m.kind === "search"}
+        {@const answer = answering(m)}
+        {@const question = prefix(m.query).rest.trim()}
+        {@const off = askOff(m)}
+        {@const scopeKey = ui.cfg.actions.search?.[1] ?? ""}
         <div class="search-bar">
           <span class="glyph">{"\u{f002}"}</span>
-          <input bind:this={input} bind:value={m.query} oninput={runSearch} placeholder={t(m.mode === 3 ? "dialogs.ask_placeholder" : m.mode === 2 ? "dialogs.text_placeholder" : "dialogs.search_placeholder")} spellcheck="false" />
-          <!-- The four ways to look, all in sight; Tab goes to the next. -->
-          <div class="scopes" role="radiogroup" aria-label={t("search.title")}>
-            {#each [t("dialogs.scope_everywhere"), t("dialogs.scope_in", { folder: basename(tab().dir) }), t("dialogs.scope_text"), t("dialogs.scope_ask")] as label, i (i)}
-              <button class="scope" class:on={m.mode === i} role="radio" aria-checked={m.mode === i} title={depthKey(i)} onclick={() => { setMode(m, i); input.focus(); }}>{label}</button>
-            {/each}
-          </div>
+          <input bind:this={input} bind:value={m.query} oninput={runSearch} placeholder={t(answer ? "dialogs.ask_placeholder" : "find.placeholder")} spellcheck="false" />
+          <!-- The scope: everywhere, or the active pane's folder; Ctrl+F (the search key) flips it. -->
+          <button class="scope on" title={`${t("dialogs.scope_everywhere")} ⇄ ${t("dialogs.scope_in", { folder: basename(tab().dir) })} · ${scopeKey}`} onclick={() => refind(m, { here: !m.here })}>
+            {m.here ? t("dialogs.scope_in", { folder: basename(tab().dir) }) : t("dialogs.scope_everywhere")}
+          </button>
         </div>
-        {#if m.mode === 3}
-          {#if !askReady()}
-            <p class="meta tip">
-              {t(ui.cfg.settings.search_meaning ? "dialogs.ask_setup" : "dialogs.ask_setup_meaning")}
-              <button class="link" onclick={() => (ui.modal = { kind: "setup" })}>{t("dialogs.ask_setup_open")}</button>
-            </p>
-          {:else if askProblem}
-            <p class="err tip">{askProblem}
-              <button class="link" onclick={() => (ui.modal = { kind: "setup" })}>{t("dialogs.ask_setup_open")}</button>
+        <!-- The kinds: Tab and Shift+Tab, or a click; a prefix typed first turns its kind on. -->
+        <div class="scopes kinds" role="radiogroup" aria-label={t("search.title")}>
+          {#each KINDS as kind (kind)}
+            {@const on = (answer ? "ask" : kindOf(m)) === kind}
+            <button class="scope" class:on role="radio" aria-checked={on} title="Tab / Shift+Tab" onclick={() => refind(m, { chip: kind, query: prefix(m.query).rest, show: kind === "ask" ? "answer" : "list" })}>{t(`find.kind_${kind}`)}</button>
+          {/each}
+        </div>
+        {#if m.show === "syntax"}
+          <div class="list syntax">
+            <p>{#each parts(t("dialogs.help_syntax")) as s, i (i)}{#if i % 2}<b>{t("search.title")}</b>{:else}{s}{/if}{/each} <code>foo bar</code> · <code>foo|bar</code> · <code>!foo</code> · <code>*.rs</code> · <code>ext:rs;toml</code> · <code>file:</code> <code>folder:</code> · <code>src/ foo</code> · <code>case:</code></p>
+            <p>{t("find.help_prefixes")}</p>
+          </div>
+        {:else if answer}
+          {#if off}
+            <p class="meta tip" class:err={off.off === "ask_model"}>
+              {off.off === "ask_model" ? off.detail : t(off.off === "ask_no_model" ? "find.off_ask_model" : "find.off_ask_meaning")}
+              <button class="link" onclick={() => (ui.modal = { kind: "setup" })}>{t("find.step_set_up")}</button>
             </p>
           {:else if !m.chat?.length}
             <p class="meta">{t("dialogs.ask_hint", { model: ui.cfg.settings.ask_model })}</p>
@@ -449,41 +499,58 @@
               {/if}
             {/each}
           </div>
-          <p class="meta">{t("dialogs.ask_footer")}</p>
-        {:else}
-          <p class="meta">
-            {#if m.res}
-              {m.query ? `${tn("search.matches", m.res.total, { ms: num(m.res.micros / 1000, { minimumFractionDigits: 1, maximumFractionDigits: 1 }) })} · ` : ""}{#if m.mode === 2}{tn("search.texts", m.res.texts)}{m.res.pending ? t("search.reading", { n: num(m.res.pending) }) : ""}{:else}{tn("search.indexed", m.res.indexed)}{m.res.state === "building" ? t("search.building") : m.res.state === "stale" ? t("search.refreshing") : ""}{/if}{m.res.total > m.res.hits.length ? ` · ${tn("dialogs.showing_first", m.res.hits.length)}` : ""}
-            {:else}{m.mode === 2 ? t("dialogs.text_hint") : `${t("dialogs.search_hint")} ${t("dialogs.search_tab_hint")}`}{/if}
+        {:else if !question}
+          <p class="meta empty">{t("find.empty")}</p>
+          <div class="list hits"></div>
+        {:else if m.out && !m.out.rows.length}
+          <p class="meta empty">
+            {m.here ? t("find.nothing_in", { query: question, folder: basename(tab().dir) }) : t("find.nothing", { query: question })}
+            {#if m.here}<br />{t("find.try_everywhere", { key: scopeKey })}{/if}
+            {#if !off && question.split(/\s+/).length > 1}<br />{t("find.try_ask", { key: "Ctrl+Enter" })}{/if}
           </p>
-          {#if m.mode === 2 && m.res && !m.res.meaning}
-            <p class="meta tip">
-              {t("dialogs.meaning_tip")}
-              <button class="link" onclick={() => (ui.modal = { kind: "setup" })}>{t("dialogs.meaning_tip_open")}</button>
-            </p>
-          {/if}
+          <div class="list hits"></div>
+        {:else}
           <ul class="list hits" bind:this={listEl}>
-            {#each m.res?.hits ?? [] as h, i (h.path)}
-              <li>
-                <button class:cursor={i === m.cursor} onclick={() => (m.cursor = i)} ondblclick={() => goToHit(h)}>
-                  {#if isHistory(h.path)}
-                    <!-- A commit: the repository it is in; the snippet says which commit. -->
-                    <span class="glyph">{"\u{f417}"}</span>
-                    <b>{basename(historyOf(h.path))}</b>
-                    <span class="where"><bdi>{t("history.commit_in", { repo: historyOf(h.path) })}</bdi></span>
-                  {:else}
-                    <span class="glyph" class:dir={h.is_dir}>{h.is_dir ? "\u{f07b}" : "\u{f15b}"}</span>
-                    <b>{basename(h.path)}</b>
-                    <span class="where"><bdi>{parent(h.path)}</bdi></span>
-                  {/if}
-                  {#if h.similar != null}<span class="snippet" dir="auto"><em>{t("search.similar_to")}</em> {h.snippet}</span>
-                  {:else if h.snippet}<span class="snippet" dir="auto">{@html marked(h.snippet)}</span>{/if}
-                </button>
+            {#each m.out?.rows ?? [] as r, i (i)}
+              <li class={r.row}>
+                {#if r.row === "head"}
+                  <span class="group">{t(`find.group_${r.group}`)}</span>{#if r.total}<span class="count">{t("find.of", { shown: num(r.shown), total: num(r.total) })}</span>{/if}
+                {:else if r.row === "ask"}
+                  <button class:cursor={i === m.cursor} class:off={r.off} onclick={() => (m.cursor = i)} ondblclick={() => enterRow(m, r)}>
+                    <span class="glyph">?</span>
+                    {#if r.off}<span>{r.text}</span>{:else}<b>{t("find.ask_row", { query: question })}</b><kbd>Ctrl+Enter</kbd>{/if}
+                  </button>
+                  {#if r.off}<button class="link step" onclick={() => findStep(m, r.off)}>{r.step}</button>{/if}
+                  {#if r.dismiss}<button class="x" title={t("find.dismiss")} aria-label={t("find.dismiss")} onclick={() => dismissRow(m, r)}>×</button>{/if}
+                {:else if r.row === "more"}
+                  <button class="more" class:cursor={i === m.cursor} onclick={() => enterRow(m, r)}>{t("find.more", { n: num(r.n) })}</button>
+                {:else if r.row === "off"}
+                  <span class="offtext" class:cursor={i === m.cursor}>{r.text}</span>
+                  <button class="link step" onclick={() => findStep(m, r.off)}>{r.step}</button>
+                  {#if r.dismiss}<button class="x" title={t("find.dismiss")} aria-label={t("find.dismiss")} onclick={() => dismissRow(m, r)}>×</button>{/if}
+                {:else}
+                  {@const h = r.hit}
+                  <button class:cursor={i === m.cursor} onclick={() => (m.cursor = i)} ondblclick={() => goToHit(h)}>
+                    {#if isHistory(h.path)}
+                      <!-- A commit: the repository it is in; the snippet says which commit. -->
+                      <span class="glyph">{"\u{f417}"}</span>
+                      <b>{basename(historyOf(h.path))}</b>
+                      <span class="where"><bdi>{t("history.commit_in", { repo: historyOf(h.path) })}</bdi></span>
+                    {:else}
+                      <span class="glyph" class:dir={h.is_dir}>{h.is_dir ? "\u{f07b}" : "\u{f15b}"}</span>
+                      <b>{basename(h.path)}</b>
+                      <span class="where"><bdi>{parent(h.path)}</bdi></span>
+                    {/if}
+                    {#if h.similar != null}<span class="snippet about" dir="auto">{h.snippet}</span>
+                    {:else if h.snippet}<span class="snippet" dir="auto">{@html marked(h.snippet)}</span>{/if}
+                  </button>
+                {/if}
               </li>
             {/each}
           </ul>
-          <p class="meta">{t("dialogs.search_footer")}</p>
         {/if}
+        <p class="meta">{m.out?.footer ?? ""}</p>
+        <p class="meta">{answer ? t("find.keys_answer_gui") : t("find.keys_gui", { scope: scopeKey })}</p>
       {:else if m.kind === "rename"}
         <h2>{tn("dialogs.rename_title", m.names.length)}</h2>
         <div class="grid2">
@@ -771,6 +838,72 @@
     to {
       opacity: 0;
     }
+  }
+  .kinds {
+    padding: 0 6px 6px;
+  }
+  .hits li.head {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 8px 2px;
+    font-size: 0.8em;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--hidden-fg);
+  }
+  .hits li.ask,
+  .hits li.off {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .hits li.ask > button:first-child {
+    flex: 1;
+  }
+  .hits li.off .offtext {
+    padding: 4px 8px 4px 1.9em;
+    color: var(--hidden-fg);
+  }
+  .hits li.off .offtext.cursor {
+    outline: 1px solid currentColor;
+  }
+  .hits .link,
+  .hits .x {
+    background: none;
+    border: 0;
+    padding: 0 4px;
+    cursor: pointer;
+    font: inherit;
+  }
+  .hits .link {
+    color: var(--accent-bg);
+    text-decoration: underline;
+  }
+  .hits .x {
+    color: var(--hidden-fg);
+  }
+  .hits .more {
+    color: var(--hidden-fg);
+    padding-inline-start: 1.9em;
+    font-size: 0.9em;
+  }
+  .hits kbd {
+    margin-inline-start: auto;
+    font-size: 0.8em;
+    color: var(--hidden-fg);
+  }
+  .snippet.about {
+    font-style: italic;
+  }
+  .empty {
+    padding: 12px 8px;
+  }
+  .syntax {
+    flex: 1;
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
   }
   .hits {
     flex: 1;
