@@ -93,9 +93,21 @@
   // Ask: a question answered by the user's chat model from the passages closest to it, with
   // the sources numbered. Follow-ups carry the turns before; closing Find file forgets them.
   const askReady = () => ui.cfg.settings.search_meaning && !!ui.cfg.settings.ask_model;
+  // Ask's depth in sight: the chat model is asked whether it can answer (one that only makes
+  // vectors cannot), once per model while Find file is open.
+  let askProblem = $state(null);
+  let askChecked = null;
+  $effect(() => {
+    const model = ui.modal?.kind === "search" && ui.modal.mode === 3 && ui.cfg.settings.search_meaning ? ui.cfg.settings.ask_model : "";
+    if (ui.modal?.kind !== "search") askChecked = null;
+    if (!model || model === askChecked) return;
+    askChecked = model;
+    askProblem = null;
+    invoke("ask_check", { tryIt: false }).then((p) => (askProblem = p), () => {});
+  });
   async function askNow(m) {
     const question = m.query.trim();
-    if (!question || m.asking || !askReady()) return;
+    if (!question || m.asking || !askReady() || askProblem) return;
     const earlier = (m.chat ?? []).filter((c) => c.a && !c.error).map((c) => [c.q, c.a]);
     m.chat = [...(m.chat ?? []), { q: question, a: "", sources: [], error: "" }];
     const turn = m.chat[m.chat.length - 1];
@@ -393,6 +405,10 @@
             <p class="meta tip">
               {t(ui.cfg.settings.search_meaning ? "dialogs.ask_setup" : "dialogs.ask_setup_meaning")}
               <button class="link" onclick={() => (ui.modal = { kind: "settings", section: ui.cfg.settings.search_meaning ? "ask" : "meaning" })}>{t("dialogs.ask_setup_open")}</button>
+            </p>
+          {:else if askProblem}
+            <p class="err tip">{askProblem}
+              <button class="link" onclick={() => (ui.modal = { kind: "settings", section: "ask" })}>{t("dialogs.ask_setup_open")}</button>
             </p>
           {:else if !m.chat?.length}
             <p class="meta">{t("dialogs.ask_hint", { model: ui.cfg.settings.ask_model })}</p>

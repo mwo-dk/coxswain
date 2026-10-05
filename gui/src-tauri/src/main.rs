@@ -676,14 +676,38 @@ fn meaning_status(ctx: tauri::State<Ctx>) -> Res<MeaningStatus> {
     })
 }
 
-/// The embedding models a server offers, for Settings: Ollama's pulled ones, or an OpenAI
-/// server's list. An error when it does not answer.
+/// The models a server offers, for Settings: Ollama's pulled ones, or an OpenAI server's list;
+/// with `chat`, only those that can answer (for Ask). An error when it does not answer.
 #[tauri::command]
-async fn meaning_models(engine: String, url: String, ctx: tauri::State<'_, Ctx>) -> Res<Vec<String>> {
+async fn meaning_models(engine: String, url: String, chat: Option<bool>, ctx: tauri::State<'_, Ctx>) -> Res<Vec<String>> {
+    use coxswain_core::meaning;
     // The key goes only to the server it is saved for.
     let search = ctx.cfg().search.clone();
-    let key = coxswain_core::meaning::key_of(&search).filter(|_| url.trim_end_matches('/') == search.meaning_url.trim_end_matches('/'));
-    tauri::async_runtime::spawn_blocking(move || coxswain_core::meaning::server_models(engine == "openai", &url, key.as_deref())).await.map_err(|e| e.to_string())?
+    let key = meaning::key_of(&search).filter(|_| url.trim_end_matches('/') == search.meaning_url.trim_end_matches('/'));
+    let list = if chat == Some(true) { meaning::chat_models } else { meaning::server_models };
+    tauri::async_runtime::spawn_blocking(move || list(engine == "openai", &url, key.as_deref())).await.map_err(|e| e.to_string())?
+}
+
+/// What changing the vectors' engine or model to `value` costs, said before it is saved: the
+/// files whose meaning is read again and about how long that takes, or None when the vectors stay.
+#[tauri::command]
+async fn meaning_change(name: String, value: String, ctx: tauri::State<'_, Ctx>) -> Res<Option<String>> {
+    let (old, index) = (ctx.cfg().search.clone(), ctx.index.clone());
+    let mut new = old.clone();
+    match name.as_str() {
+        "meaning_engine" => new.meaning_engine = value,
+        "meaning_model" => new.meaning_model = value,
+        _ => return Ok(None),
+    }
+    tauri::async_runtime::spawn_blocking(move || coxswain_core::meaning::change_notice(&old, &new, index.status().meaning_done)).await.map_err(|e| e.to_string())
+}
+
+/// Why Ask's chat model cannot answer (one that only makes vectors, one the server does not
+/// have), or None. `try_it` sends an OpenAI server a one-word question, when it is saved.
+#[tauri::command]
+async fn ask_check(try_it: bool, ctx: tauri::State<'_, Ctx>) -> Res<Option<String>> {
+    let cfg = ctx.cfg().search.clone();
+    tauri::async_runtime::spawn_blocking(move || coxswain_core::meaning::chat_problem(&cfg, try_it)).await.map_err(|e| e.to_string())
 }
 
 /// Ask Ollama to pull `model`; the progress is the download's, in `meaning_status`.
@@ -1526,7 +1550,7 @@ fn main() {
         })
         .invoke_handler(tauri::generate_handler![
             get_config, notices, dismiss_notice, changes, read_changes, set_title, index_status, index_action, index_service, meaning_status, meaning_action, meaning_models, meaning_pull, list_dir, git_status, git_last, places, disks, get_state, save_session, save_favorites, set_tags, set_note, get_note,
-            search, ask, ask_stop, resolve_path, copy, rename, delete, mkdir, dir_sizes, rename_plan, rename_apply, open_path, edit_path,
+            search, ask, ask_stop, ask_check, meaning_change, resolve_path, copy, rename, delete, mkdir, dir_sizes, rename_plan, rename_apply, open_path, edit_path,
             read_text, run_command, scripts, run_script, check_update, archive_list, extract, pack, archive_password, archive_peek, cloud_fetch, properties, set_permissions,
             clip_set, paste, start_drag, watch_dirs, preview::git_diff, preview::sqlite_info, preview::epub_preview,
             preview::file_facts, preview::cert_info, bom::bom_info, bom::bom_node, bom::bom_diff, preview::mail_preview, preview::plist_xml, convert::preview_engines, convert::preview_cache, convert::clear_preview_cache,

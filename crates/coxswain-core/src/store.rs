@@ -574,13 +574,19 @@ impl Store {
 
     /// The vectors in the store were made by another model: they go, and every file gets new
     /// ones, since vectors of two models cannot be compared.
-    fn model_is(&self, id: &str) -> rusqlite::Result<()> {
+    /// The same model written another way (`bge-m3`, `bge-m3:latest`), or the same weights under
+    /// another name (by `digest`), keeps them.
+    fn model_is(&self, id: &str, digest: Option<&str>) -> rusqlite::Result<()> {
         let db = self.db.lock().unwrap();
-        let before: String = db.query_row("SELECT value FROM meta WHERE key = 'meaning_model'", [], |r| r.get(0)).unwrap_or_default();
-        if before != id {
+        let meta = |key: &str| db.query_row("SELECT value FROM meta WHERE key = ?1", [key], |r| r.get::<_, String>(0)).unwrap_or_default();
+        let (before, weights) = (meta("meaning_model"), meta("meaning_digest"));
+        if !crate::meaning::same_model(&before, id) && digest.is_none_or(|d| d != weights) {
             db.execute_batch("DELETE FROM chunks; UPDATE files SET embedded = NULL;")?;
-            db.execute("INSERT OR REPLACE INTO meta(key, value) VALUES ('meaning_model', ?1)", [id])?;
             *self.signs.lock().unwrap() = None;
+        }
+        db.execute("INSERT OR REPLACE INTO meta(key, value) VALUES ('meaning_model', ?1)", [id])?;
+        if let Some(d) = digest {
+            db.execute("INSERT OR REPLACE INTO meta(key, value) VALUES ('meaning_digest', ?1)", [d])?;
         }
         Ok(())
     }
@@ -927,7 +933,7 @@ fn hash(store: &Store, stop: &AtomicBool) -> rusqlite::Result<bool> {
 fn embed(store: &Store, stop: &AtomicBool) -> rusqlite::Result<()> {
     use crate::meaning::NoVectors;
     let Some(engine) = store.engine() else { return Ok(()) };
-    store.model_is(&engine.id())?;
+    store.model_is(&engine.id(), engine.digest().as_deref())?;
     // Files the server refused last time get one more try per scan; one it refuses for good
     // costs one quick answer every ten minutes, and never holds up the rest.
     store.db.lock().unwrap().execute("UPDATE files SET embedded = NULL WHERE embedded = 0", [])?;
@@ -1731,6 +1737,35 @@ mod tests {
         BODIES_READ.store(0, Ordering::Relaxed);
         assert_eq!(store.passages("zebra quartz", 6).len(), 6);
         assert!(BODIES_READ.load(Ordering::Relaxed) <= 6, "no more files than passages");
+        drop(store);
+        std::fs::remove_dir_all(d).unwrap();
+    }
+
+    /// `bge-m3` picked again from Ollama's list as `bge-m3:latest`, or the same weights under
+    /// another name, keep the vectors; another model does not.
+    #[test]
+    fn vectors_stay_when_only_the_way_the_model_is_written_changes() {
+        assert!(crate::meaning::same_model("ollama:bge-m3", "ollama:bge-m3:latest"));
+        assert!(!crate::meaning::same_model("ollama:bge-m3", "ollama:nomic-embed-text"));
+        assert!(!crate::meaning::same_model("openai:bge-m3", "ollama:bge-m3"));
+        let d = std::env::temp_dir().join(format!("coxswain-store-model-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        let store = Store::open(&d.join("search.db")).unwrap();
+        let vectors = || {
+            let db = store.db.lock().unwrap();
+            db.execute("INSERT OR IGNORE INTO files(id, path, size, modified, has_text) VALUES (1, '/a.txt', 1, 1, 1)", []).unwrap();
+            db.execute("INSERT OR REPLACE INTO chunks(file, n, vector) VALUES (1, 0, x'00')", []).unwrap();
+            db.execute("UPDATE files SET embedded = 1", []).unwrap();
+        };
+        store.model_is("ollama:bge-m3", None).unwrap();
+        vectors();
+        store.model_is("ollama:bge-m3:latest", Some("sha256:1")).unwrap();
+        assert_eq!(store.meaning_counts(), (0, 1), "the same model with its tag");
+        store.model_is("ollama:m3-renamed:latest", Some("sha256:1")).unwrap();
+        assert_eq!(store.meaning_counts(), (0, 1), "the same weights under another name");
+        store.model_is("ollama:nomic-embed-text:latest", Some("sha256:2")).unwrap();
+        assert_eq!(store.meaning_counts(), (1, 0), "another model: the vectors go");
         drop(store);
         std::fs::remove_dir_all(d).unwrap();
     }
