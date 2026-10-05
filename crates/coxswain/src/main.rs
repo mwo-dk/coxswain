@@ -2366,6 +2366,13 @@ mod wide_letters {
             same_columns(&s, "║", top + 1..bottom);
         }
         coxswain_core::i18n::set_language("en-GB");
-        std::fs::remove_dir_all(d).unwrap();
+        // On Windows a git the apps started in the folder (the status, on its thread) may still
+        // be running there for a moment, and a process's folder cannot be removed.
+        for _ in 0..50 {
+            if std::fs::remove_dir_all(&d).is_ok() || !d.exists() {
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(100));
+        }
     }
 }
