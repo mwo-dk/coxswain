@@ -42,6 +42,8 @@ export const ui = $state({
   news: { notices: [], unread: [] },
   favorites: [],
   recent: [],
+  /** The ending Pack suggests: the last one packed. */
+  packEnding: ".zip",
   places: [],
   disks: [],
 });
@@ -356,6 +358,7 @@ export async function init() {
   const s = st.session ?? {};
   ui.favorites = st.favorites;
   ui.recent = st.recent_repos;
+  if (ui.cfg.pack_formats.some((f) => f.endings[0] === st.pack_ending)) ui.packEnding = st.pack_ending;
   for (const k of ["dual", "showHidden", "showSidebar", "showPreview", "sidebarW", "previewW", "split", "previewSource", "previewDiff", "previewEngine"]) if (k in s) ui[k] = s[k];
   if (s.columns) ui.columns = { ...ui.columns, ...s.columns };
   if (!("showHidden" in s)) ui.showHidden = ui.cfg.show_hidden;

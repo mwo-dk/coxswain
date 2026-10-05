@@ -123,7 +123,7 @@ archives open as folders, as in the desktop app ([Archives as folders](../files/
 | Make a folder inside | **F7** |
 | Take something out | **F8**. It asks *Take … out of tools.zip? The archive is written anew without it; there is no trash inside an archive.* |
 | Extract a whole archive | **Ctrl+E**: *Extract … into a new folder in:* the other panel's folder |
-| Pack into a new archive | **Alt+F5**: *Pack … into (.zip, .tar or .tar.gz):*, proposed as `name.zip` in the other panel |
+| Pack into a new archive | **Alt+F5**: *Pack … into (Tab: .zip, .7z, .tar.gz, …):*, proposed as `name.zip` (or the format used last) in the other panel; **Tab** / **Shift+Tab** swap the ending ([Formats](../files/pack-and-extract.md#formats)) |
 
 **Enter** on a file inside an archive does not open it; the status line says
 *tools.zip is an archive: F5 copies this file out of it*.

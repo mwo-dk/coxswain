@@ -4,7 +4,7 @@
   import { tick } from "svelte";
   import { ui, tab, cd, load } from "./app.svelte.js";
   import { Channel } from "@tauri-apps/api/core";
-  import { invoke, takesPassword, basename, parent, size, date, TAGS, TAG_COLORS, tagName, isHistory, historyOf } from "./lib.js";
+  import { invoke, takesPassword, withEnding, packFormat, basename, parent, size, date, TAGS, TAG_COLORS, tagName, isHistory, historyOf } from "./lib.js";
   import { t, tn, num } from "./i18n.svelte.js";
 
   let input = $state();
@@ -93,9 +93,21 @@
   // Ask: a question answered by the user's chat model from the passages closest to it, with
   // the sources numbered. Follow-ups carry the turns before; closing Find file forgets them.
   const askReady = () => ui.cfg.settings.search_meaning && !!ui.cfg.settings.ask_model;
+  // Ask's depth in sight: the chat model is asked whether it can answer (one that only makes
+  // vectors cannot), once per model while Find file is open.
+  let askProblem = $state(null);
+  let askChecked = null;
+  $effect(() => {
+    const model = ui.modal?.kind === "search" && ui.modal.mode === 3 && ui.cfg.settings.search_meaning ? ui.cfg.settings.ask_model : "";
+    if (ui.modal?.kind !== "search") askChecked = null;
+    if (!model || model === askChecked) return;
+    askChecked = model;
+    askProblem = null;
+    invoke("ask_check", { tryIt: false }).then((p) => (askProblem = p), () => {});
+  });
   async function askNow(m) {
     const question = m.query.trim();
-    if (!question || m.asking || !askReady()) return;
+    if (!question || m.asking || !askReady() || askProblem) return;
     const earlier = (m.chat ?? []).filter((c) => c.a && !c.error).map((c) => [c.q, c.a]);
     m.chat = [...(m.chat ?? []), { q: question, a: "", sources: [], error: "" }];
     const turn = m.chat[m.chat.length - 1];
@@ -315,7 +327,15 @@
       {:else if m.kind === "pack"}
         {@const locks = takesPassword(m.value)}
         <h2>{m.title}</h2>
-        <label>{m.label}<input bind:this={input} bind:value={m.value} spellcheck="false" /></label>
+        {@const fmt = packFormat(ui.cfg.pack_formats, m.value)}
+        <div class="packname">
+          <label>{m.label}<input bind:this={input} bind:value={m.value} spellcheck="false" /></label>
+          <label>{t("archive.format")}<select value={fmt?.id ?? ""} onchange={(e) => (m.value = withEnding(m.value, ui.cfg.pack_formats.find((f) => f.id === e.currentTarget.value).endings[0]))}>
+            {#if !fmt}<option value="" disabled>—</option>{/if}
+            {#each ui.cfg.pack_formats as f (f.id)}<option value={f.id}>{f.label}</option>{/each}
+          </select></label>
+        </div>
+        {#if fmt}<p class="meta">{t(`archive.format_${fmt.id}`)}</p>{/if}
         {#if locks}
           <div class="grid2">
             <label>{t("archive.pack_password")}<input bind:value={m.password} type="password" autocomplete="new-password" /></label>
@@ -346,10 +366,19 @@
         <div class="help" bind:this={input} tabindex="-1">
           <table>
             <tbody>
-              <!-- By name, and a letter key written as on the keyboard: Ctrl+G, not Ctrl+g. -->
-              {#each Object.entries(ui.cfg.actions).sort(([, [a]], [, [b]]) => a.localeCompare(b)) as [name, [label]] (name)}
-                {@const keys = Object.entries(ui.cfg.keymap).filter(([, a]) => a === name).map(([k]) => k.replace(/\+([a-z])$/, (_, c) => "+" + c.toUpperCase()))}
-                <tr><td>{label}</td><td>{#each keys as k, i (i)}<kbd>{k}</kbd>{/each}</td></tr>
+              <!-- Under group headings, the most used first; the first configured key first, and a
+                   letter key written as on the keyboard: Ctrl+G, not Ctrl+g. -->
+              {#each ui.cfg.groups as [group, names] (group)}
+                <tr class="head"><th colspan="2">{group}</th></tr>
+                {#each names as name (name)}
+                  {@const [label, first] = ui.cfg.actions[name]}
+                  {@const keys = Object.entries(ui.cfg.keymap)
+                    .filter(([, a]) => a === name)
+                    .map(([k]) => k)
+                    .sort((a, b) => (b === first) - (a === first))
+                    .map((k) => k.replace(/\+([a-z])$/, (_, c) => "+" + c.toUpperCase()))}
+                  <tr><td>{label}</td><td>{#each keys as k, i (i)}<kbd>{k}</kbd>{/each}</td></tr>
+                {/each}
               {/each}
             </tbody>
           </table>
@@ -366,6 +395,8 @@
         {/if}
         <ul class="list" bind:this={listEl}>
           {#each menuItems(m) as it, i (it.label + i)}
+            <!-- Unfiltered, the list is m.items: a heading where the group changes. -->
+            {#if !m.filter && it.group && it.group !== m.items[i - 1]?.group}<li class="head">{it.group}</li>{/if}
             <li>
               <button class:cursor={i === m.cursor} onclick={() => run(it)} onmouseenter={() => (m.cursor = i)}>
                 {#if it.icon}<span class="glyph">{it.icon}</span>{/if}
@@ -393,6 +424,10 @@
             <p class="meta tip">
               {t(ui.cfg.settings.search_meaning ? "dialogs.ask_setup" : "dialogs.ask_setup_meaning")}
               <button class="link" onclick={() => (ui.modal = { kind: "settings", section: ui.cfg.settings.search_meaning ? "ask" : "meaning" })}>{t("dialogs.ask_setup_open")}</button>
+            </p>
+          {:else if askProblem}
+            <p class="err tip">{askProblem}
+              <button class="link" onclick={() => (ui.modal = { kind: "settings", section: "ask" })}>{t("dialogs.ask_setup_open")}</button>
             </p>
           {:else if !m.chat?.length}
             <p class="meta">{t("dialogs.ask_hint", { model: ui.cfg.settings.ask_model })}</p>
@@ -776,6 +811,12 @@
     color: var(--hidden-fg);
     font-size: 0.9em;
   }
+  .packname {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: end;
+    gap: 10px;
+  }
   .grid2 {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -892,6 +933,16 @@
   .help td {
     padding: 3px 6px;
     border-bottom: 1px solid color-mix(in srgb, var(--border-fg) 50%, transparent);
+  }
+  .help th,
+  .list li.head {
+    padding: 12px 6px 4px;
+    text-align: start;
+    font-weight: 600;
+    color: var(--directory-fg);
+  }
+  .list li.head {
+    padding-inline: 10px;
   }
   .help p {
     margin-top: 10px;
