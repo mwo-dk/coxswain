@@ -86,6 +86,8 @@ struct UiConfig {
     keymap: BTreeMap<String, &'static str>,
     /// Action name -> (label, first key).
     actions: BTreeMap<&'static str, (String, String)>,
+    /// Group headings with their actions, in the order F1 and F9 list them.
+    groups: Vec<(String, Vec<&'static str>)>,
     /// Every theme, by name, so the GUI can switch live.
     themes: BTreeMap<String, UiTheme>,
     /// Each theme's look (shapes and chrome, see `Theme::look`), by name.
@@ -117,6 +119,8 @@ struct UiConfig {
     version: &'static str,
     /// Why video and sound cannot play in the preview here, if they cannot.
     media_missing: Option<String>,
+    /// The formats Pack offers.
+    pack_formats: &'static [coxswain_core::archive::PackFormat],
 }
 
 fn css(c: &str) -> Option<String> {
@@ -137,6 +141,7 @@ fn get_config(ctx: tauri::State<Ctx>) -> Res<UiConfig> {
     Ok(UiConfig {
         keymap: cfg.keymap()?.into_iter().map(|(k, a)| (k.to_string(), a.name())).collect(),
         actions: Action::ALL.iter().map(|&a| (a.name(), (a.label(), cfg.key_for(a).unwrap_or("").to_string()))).collect(),
+        groups: coxswain_core::config::Group::ALL.iter().map(|g| (g.label(), g.actions().map(Action::name).collect())).collect(),
         themes,
         looks: cfg.themes.iter().map(|(name, t)| (name.clone(), t.look.clone())).collect(),
         builtin_themes: coxswain_core::config::Theme::builtin().into_iter().map(|(name, _)| name).collect(),
@@ -159,6 +164,7 @@ fn get_config(ctx: tauri::State<Ctx>) -> Res<UiConfig> {
         sep: std::path::MAIN_SEPARATOR,
         version: coxswain_core::update::VERSION,
         media_missing: coxswain_core::tools::media_missing(),
+        pack_formats: coxswain_core::archive::PACK_FORMATS,
     })
 }
 
@@ -1088,6 +1094,10 @@ async fn pack(paths: Vec<PathBuf>, base: PathBuf, dest: String, password: Option
         .await
         .map_err(|e| e.to_string())?
         .map_err(|e| format!("{}: {e}", to.display()))?;
+    // The format is suggested next time, in both apps.
+    if let Some(f) = coxswain_core::archive::pack_format(&dest) {
+        ctx.edit(|st| st.pack_ending = f.endings[0].into())?;
+    }
     Ok(to)
 }
 

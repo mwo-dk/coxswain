@@ -1204,6 +1204,54 @@ pub fn takes_password(path: &Path) -> bool {
     matches!(kind(path), Some(Kind::Zip | Kind::SevenZ))
 }
 
+/// A format Pack writes: its name, the endings that pick it (the one suggested first), and
+/// whether it can be locked with a password. `id` names its hint (`archive.format_<id>`).
+#[derive(Clone, Copy, Debug, Serialize, PartialEq)]
+pub struct PackFormat {
+    pub id: &'static str,
+    pub label: &'static str,
+    pub endings: &'static [&'static str],
+    pub password: bool,
+}
+
+/// What Pack can write, in the order offered.
+pub const PACK_FORMATS: &[PackFormat] = &[
+    PackFormat { id: "zip", label: "Zip", endings: &[".zip"], password: true },
+    PackFormat { id: "7z", label: "7z", endings: &[".7z"], password: true },
+    PackFormat { id: "tar", label: "tar", endings: &[".tar"], password: false },
+    PackFormat { id: "tar_gz", label: "tar.gz", endings: &[".tar.gz", ".tgz"], password: false },
+    PackFormat { id: "tar_bz2", label: "tar.bz2", endings: &[".tar.bz2", ".tbz2", ".tbz"], password: false },
+    PackFormat { id: "tar_xz", label: "tar.xz", endings: &[".tar.xz", ".txz"], password: false },
+    PackFormat { id: "tar_zst", label: "tar.zst", endings: &[".tar.zst", ".tzst"], password: false },
+];
+
+/// The pack format a name's ending picks, if any.
+pub fn pack_format(name: &str) -> Option<&'static PackFormat> {
+    let lower = name.to_ascii_lowercase();
+    PACK_FORMATS.iter().find(|f| f.endings.iter().any(|e| lower.ends_with(e)))
+}
+
+/// `name` with its archive ending (`.tar.gz` whole) swapped for `ending`, or `ending` added.
+pub fn with_ending(name: &str, ending: &str) -> String {
+    let lower = name.to_ascii_lowercase();
+    let cut = ENDINGS.iter().map(|(e, _)| *e).find(|e| lower.ends_with(e)).map_or(name.len(), |e| name.len() - e.len());
+    format!("{}{ending}", &name[..cut])
+}
+
+/// `name` with the next pack format's ending (`back`: the previous one), round the list; a
+/// name with no pack format's ending gets the first (`back`: the last).
+pub fn cycle_ending(name: &str, back: bool) -> String {
+    let n = PACK_FORMATS.len();
+    let i = pack_format(name).and_then(|f| PACK_FORMATS.iter().position(|g| g == f));
+    let next = match (i, back) {
+        (Some(i), false) => (i + 1) % n,
+        (Some(i), true) => (i + n - 1) % n,
+        (None, false) => 0,
+        (None, true) => n - 1,
+    };
+    with_ending(name, PACK_FORMATS[next].endings[0])
+}
+
 /// `create`, locked with `password` (AES-256: every zip entry, a 7z's contents, and with
 /// `hide_names` a 7z's names too). The password is kept for this run, to look in without it.
 pub fn create_locked(path: &Path, sources: &[PathBuf], password: Option<&str>, hide_names: bool) -> io::Result<()> {
@@ -1221,6 +1269,28 @@ pub fn create_locked(path: &Path, sources: &[PathBuf], password: Option<&str>, h
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn pack_endings_swap_and_cycle() {
+        assert_eq!(with_ending("/a/b.tar.gz", ".7z"), "/a/b.7z");
+        assert_eq!(with_ending("b.TGZ", ".zip"), "b.zip");
+        assert_eq!(with_ending("my.notes", ".zip"), "my.notes.zip");
+        assert_eq!(with_ending("b.zip", ".tar.zst"), "b.tar.zst");
+        assert_eq!(pack_format("X.TAR.BZ2").map(|f| f.id), Some("tar_bz2"));
+        assert_eq!(pack_format("x.jar"), None);
+        assert_eq!(cycle_ending("b.zip", false), "b.7z");
+        assert_eq!(cycle_ending("b.zip", true), "b.tar.zst");
+        assert_eq!(cycle_ending("b.tzst", false), "b.zip");
+        assert_eq!(cycle_ending("b", false), "b.zip");
+        // Every ending is one the archive code writes, the password as it allows.
+        for f in PACK_FORMATS {
+            for e in f.endings {
+                let p = Path::new("x").with_extension(&e[1..]);
+                assert!(is_archive(&p), "{e}");
+                assert_eq!(takes_password(&p), f.password, "{e}");
+            }
+        }
+    }
 
     /// A 7z locked here has its key made as 7-Zip makes it: 2^19 rounds, not the crate's 2^8.
     #[test]

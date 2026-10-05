@@ -837,8 +837,9 @@ impl App {
                 let src = self.panel().targets();
                 let Some(first) = src.first() else { return };
                 let name = if src.len() == 1 { first.file_stem().unwrap_or_default().to_string_lossy().into_owned() } else { self.panel().dir.file_name().map_or("archive".into(), |n| n.to_string_lossy().into_owned()) };
-                let dst = self.panels[1 - self.active].dir.join(format!("{name}.zip")).display().to_string();
-                let label = t!("archive.pack_into", "what" => Self::describe(&src));
+                let ending = coxswain_core::state::AppState::load().pack_ending().to_string();
+                let dst = self.panels[1 - self.active].dir.join(format!("{name}{ending}")).display().to_string();
+                let label = t!("tui.pack_into", "what" => Self::describe(&src));
                 self.input(&t!("archive.pack"), label, dst, Prompt::Pack(src));
             }
             Action::Mkdir => self.input(&t!("dialog.new_folder"), t!("tui.mkdir_label"), String::new(), Prompt::Mkdir),
@@ -1138,6 +1139,14 @@ impl App {
             }
             Prompt::Pack(src) => {
                 let to = resolve(&base, &value);
+                // The format is suggested next time, in both apps.
+                if let Some(f) = coxswain_core::archive::pack_format(&value) {
+                    let mut st = coxswain_core::state::AppState::load();
+                    if st.pack_ending != f.endings[0] {
+                        st.pack_ending = f.endings[0].into();
+                        let _ = st.save();
+                    }
+                }
                 if coxswain_core::archive::takes_password(&to) {
                     self.input(&t!("archive.pack"), t!("archive.pack_password"), String::new(), Prompt::PackPassword(src, to));
                 } else {
@@ -1273,6 +1282,12 @@ impl App {
             Dialog::Input { title, label, mut value, prompt } => match (key.code, ch) {
                 _ if esc => {}
                 (KeyCode::Enter, _) => self.submit(prompt, value),
+                // Pack: Tab and Shift+Tab put the next and the previous format's ending on the name.
+                (KeyCode::Tab, _) if matches!(prompt, Prompt::Pack(_)) => {
+                    value = coxswain_core::archive::cycle_ending(&value, key.shift);
+                    self.status = coxswain_core::archive::pack_format(&value).map(|f| t!(&format!("archive.format_{}", f.id)));
+                    self.dialog = Some(Dialog::Input { title, label, value, prompt });
+                }
                 (KeyCode::Backspace, _) => {
                     value.pop();
                     self.dialog = Some(Dialog::Input { title, label, value, prompt });
@@ -2022,6 +2037,23 @@ mod tests {
         assert!(app.status.is_some(), "and says why");
         // The app's threads (sizes, git) may still hold the folder open on Windows.
         let _ = std::fs::remove_dir_all(d);
+    }
+
+    #[test]
+    fn tab_in_the_pack_prompt_swaps_the_format() {
+        let d = std::env::temp_dir();
+        let mut app = app(d.clone(), d);
+        app.input("Pack", String::new(), "/x/rocket.zip".into(), Prompt::Pack(vec![]));
+        let value = |app: &App| match &app.dialog {
+            Some(Dialog::Input { value, .. }) => value.clone(),
+            _ => panic!("the prompt stays open"),
+        };
+        app.dialog_key(Key::new(KeyCode::Tab, false, false, false));
+        assert_eq!(value(&app), "/x/rocket.7z");
+        assert!(app.status.is_some(), "the format's hint");
+        app.dialog_key(Key::new(KeyCode::Tab, false, false, true));
+        app.dialog_key(Key::new(KeyCode::Tab, false, false, true));
+        assert_eq!(value(&app), "/x/rocket.tar.zst");
     }
 
     #[test]

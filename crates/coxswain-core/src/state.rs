@@ -32,6 +32,8 @@ pub struct AppState {
     pub notices_dismissed: Vec<String>,
     #[serde(default)]
     pub seen_version: String,
+    /// The ending of the last archive packed (".7z"), suggested next time; empty: ".zip".
+    pub pack_ending: String,
 }
 
 impl Default for AppState {
@@ -47,6 +49,7 @@ impl Default for AppState {
             latest_version: String::new(),
             notices_dismissed: vec![],
             seen_version: String::new(),
+            pack_ending: String::new(),
         }
     }
 }
@@ -86,6 +89,11 @@ impl AppState {
             Some(p) => self.save_to(&p),
             None => Err(io::Error::new(io::ErrorKind::NotFound, "no data directory")),
         }
+    }
+
+    /// The ending Pack suggests: the last one used, else ".zip".
+    pub fn pack_ending(&self) -> &str {
+        if crate::archive::pack_format(&self.pack_ending).is_some() { &self.pack_ending } else { ".zip" }
     }
 
     /// Moves `root` to the top of the recent repositories; false when it was there already.

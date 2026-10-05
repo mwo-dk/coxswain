@@ -3,7 +3,7 @@
   import { getCurrentWebview } from "@tauri-apps/api/webview";
   import { listen } from "@tauri-apps/api/event";
   import { ui, init, tab, pane, otherTab, item, load, cd, up, openHistory, newTab, goBack, goForward, openItem, toggleMark, targets, reloadAll, refreshDisks, snapshot, setTheme, themeIds, themeName, nextView, measureFolders, columnMenu } from "./app.svelte.js";
-  import { invoke, keyString, basename, parent, glob, quote, isArchive, LOCKED } from "./lib.js";
+  import { invoke, keyString, basename, parent, glob, quote, isArchive, packFormat, LOCKED } from "./lib.js";
   import { t, tn } from "./i18n.svelte.js";
   import Sidebar from "./Sidebar.svelte";
   import Pane from "./Pane.svelte";
@@ -375,11 +375,13 @@
         kind: "pack",
         title: t("archive.pack"),
         label: t("archive.pack_into", { what }),
-        value: `${otherTab().dir}${ui.cfg.sep}${name}.zip`,
+        value: `${otherTab().dir}${ui.cfg.sep}${name}${ui.packEnding}`,
         password: "",
         again: "",
         hide: true,
         run: (d, password, hideNames) => {
+          const f = packFormat(ui.cfg.pack_formats, d);
+          if (f) ui.packEnding = f.endings[0];
           if (d.trim()) op(invoke("pack", { paths, base: tab().dir, dest: d, password, hideNames }), t("archive.packed", { what }), what);
         },
       };
@@ -403,10 +405,13 @@
         filter: "",
         cursor: 0,
         items: [
-          ...Object.entries(ui.cfg.actions)
-            .filter(([n]) => !["menu", "up", "down"].includes(n))
-            .map(([n, [label, key]]) => ({ key, label, run: () => actions[n]?.() })),
-          ...themeIds().map((id) => ({ key: id === ui.theme ? t("app.current") : "", label: t("app.theme", { name: themeName(id) }), icon: "\u{f53f}", run: () => setTheme(id, true) })),
+          // Under the group headings of F1; the themes close the last group (App).
+          ...ui.cfg.groups.flatMap(([group, names]) =>
+            names
+              .filter((n) => !["menu", "up", "down"].includes(n))
+              .map((n) => ({ key: ui.cfg.actions[n][1], label: ui.cfg.actions[n][0], group, run: () => actions[n]?.() })),
+          ),
+          ...themeIds().map((id) => ({ key: id === ui.theme ? t("app.current") : "", label: t("app.theme", { name: themeName(id) }), group: ui.cfg.groups.at(-1)?.[0], icon: "\u{f53f}", run: () => setTheme(id, true) })),
         ],
       }),
     help: () => (ui.modal = { kind: "help" }),
