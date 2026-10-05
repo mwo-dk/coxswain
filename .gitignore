@@ -37,3 +37,4 @@ gui/src-tauri/THIRD-PARTY-NOTICES.md
 /coxswain-*.tar.gz
 /coxswain-*.zip
 __pycache__/
+packaging/freebsd/out/
