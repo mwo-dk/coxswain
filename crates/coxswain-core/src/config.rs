@@ -1050,6 +1050,17 @@ impl Config {
         Ok(doc.to_string())
     }
 
+    /// `text` (a config.toml) without the key at `keys`, so its default applies; the rest kept.
+    pub fn unset(text: &str, keys: &[&str]) -> Result<String, String> {
+        let mut doc: toml_edit::DocumentMut = text.parse().map_err(|e| format!("config: {e}"))?;
+        let (last, parents) = keys.split_last().ok_or("config: no key")?;
+        let table = parents.iter().try_fold(doc.as_table_mut(), |t, k| t.get_mut(k).and_then(|i| i.as_table_mut()));
+        if let Some(t) = table {
+            t.remove(last);
+        }
+        Ok(doc.to_string())
+    }
+
     /// Set one value in the user's config.toml and write it; only what still parses is written.
     pub fn save_value(keys: &[&str], value: toml_edit::Value) -> Result<Config, String> {
         let path = Config::path().ok_or_else(|| crate::t!("err.no_config_folder"))?;

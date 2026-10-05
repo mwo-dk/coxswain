@@ -105,6 +105,12 @@ fn source(code: &str) -> &'static str {
     }
 }
 
+/// A language's own texts, without what it takes from another.
+#[cfg(test)]
+pub(crate) fn own(code: &str) -> Map {
+    serde_json::from_str(source(code)).unwrap_or_default()
+}
+
 /// The language to use for a BCP 47 tag, the nearest one Coxswain has: the language itself in
 /// any region, else a close relative, else British English.
 pub fn nearest(tag: &str) -> &'static str {

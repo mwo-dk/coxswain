@@ -111,8 +111,17 @@ struct UiConfig {
     /// Every language Coxswain has, by region; where to help improve a new translation.
     languages: &'static [coxswain_core::i18n::Language],
     improve_url: &'static str,
-    /// The config file's raw values, for the Settings window.
-    settings: Settings,
+    /// The config file's raw values, for the Settings window, by option name.
+    settings: serde_json::Map<String, serde_json::Value>,
+    /// What Settings shows: every option with its area and costs, every name it can be opened
+    /// at, what can leave the machine, and where things are kept.
+    options: &'static [coxswain_core::settings::Opt],
+    sections: Vec<(&'static str, coxswain_core::settings::Area, Option<&'static str>)>,
+    outbound: Vec<coxswain_core::settings::Out>,
+    paths: Vec<(&'static str, Option<PathBuf>)>,
+    /// The search level the settings make (none for a mix), and each level's costs.
+    level: Option<coxswain_core::settings::Level>,
+    levels: Vec<(coxswain_core::settings::Level, &'static [coxswain_core::settings::Cost])>,
     config_path: Option<PathBuf>,
     gui: GuiConfig,
     home: PathBuf,
@@ -159,7 +168,13 @@ fn get_config(ctx: tauri::State<Ctx>) -> Res<UiConfig> {
         rtl: coxswain_core::i18n::is_rtl(coxswain_core::i18n::language()),
         languages: coxswain_core::i18n::LANGUAGES,
         improve_url: coxswain_core::i18n::IMPROVE_URL,
-        settings: Settings::from(&*cfg),
+        settings: coxswain_core::settings::values(&cfg),
+        options: coxswain_core::settings::OPTIONS,
+        sections: coxswain_core::settings::sections(),
+        outbound: coxswain_core::settings::outbound(&cfg),
+        paths: Config::paths(),
+        level: coxswain_core::settings::level(&cfg.search),
+        levels: coxswain_core::settings::Level::ALL.iter().map(|l| (*l, l.costs())).collect(),
         config_path: Config::path(),
         gui: cfg.gui.clone(),
         home: std::env::home_dir().unwrap_or_default(),
@@ -172,148 +187,6 @@ fn get_config(ctx: tauri::State<Ctx>) -> Res<UiConfig> {
 
 // ---------------------------------------------------------------- settings
 
-/// What the Settings window edits, as stored in config.toml.
-#[derive(Serialize)]
-struct Settings {
-    language: String,
-    theme: String,
-    glyphs: String,
-    show_hidden: bool,
-    confirm_delete: bool,
-    check_updates: bool,
-    font: String,
-    mono_font: String,
-    icon_font: String,
-    font_size: u32,
-    preview_prefer: String,
-    preview_container: String,
-    preview_timeout: u64,
-    latex_image: String,
-    search_text: bool,
-    /// Search inside archives: their entries by name, their files' text.
-    search_archives: bool,
-    /// Look inside archives everywhere the names are indexed, caches too.
-    search_archives_everywhere: bool,
-    /// The folders whose text is read; the home folder when none are set.
-    text_roots: Vec<PathBuf>,
-    names_only: Vec<PathBuf>,
-    /// Folder names and file patterns left out of reading, wherever they are.
-    text_exclude: Vec<String>,
-    search_meaning: bool,
-    latex_auto: bool,
-    meaning_engine: String,
-    meaning_url: String,
-    meaning_model: String,
-    meaning_key_env: String,
-    /// Where the built-in model runs: "auto" (a Mac's GPU when it can) or "cpu".
-    meaning_device: String,
-    ask_model: String,
-    ask_think: bool,
-    search_history: bool,
-    /// Files only in the cloud: "local-only" (found by name, never read) or "all".
-    search_cloud: String,
-    /// Folders in the cloud whose files are read even so.
-    cloud_read: Vec<PathBuf>,
-    git_last_commit: bool,
-}
-
-impl From<&Config> for Settings {
-    fn from(c: &Config) -> Self {
-        Settings {
-            language: c.language.clone(),
-            theme: c.gui.theme.clone(),
-            glyphs: c.glyphs.clone(),
-            show_hidden: c.show_hidden,
-            confirm_delete: c.confirm_delete,
-            check_updates: c.check_updates,
-            font: c.gui.font.clone(),
-            mono_font: c.gui.mono_font.clone(),
-            icon_font: c.gui.icon_font.clone(),
-            font_size: c.gui.font_size as u32,
-            preview_prefer: c.preview.prefer.clone(),
-            preview_container: c.preview.container.clone(),
-            preview_timeout: c.preview.timeout,
-            latex_image: c.preview.images.get("latex").cloned().unwrap_or_default(),
-            search_text: c.search.text,
-            search_archives: c.search.archives,
-            search_archives_everywhere: c.search.archives_everywhere,
-            text_roots: c.search.text_roots.clone(),
-            names_only: c.search.names_only.clone(),
-            text_exclude: c.search.text_exclude.clone(),
-            search_meaning: c.search.meaning,
-            latex_auto: c.preview.latex_auto,
-            meaning_engine: c.search.meaning_engine.clone(),
-            meaning_url: c.search.meaning_url.clone(),
-            meaning_model: c.search.meaning_model.clone(),
-            meaning_key_env: c.search.meaning_key_env.clone(),
-            meaning_device: c.search.meaning_device.clone(),
-            ask_model: c.search.ask_model.clone(),
-            ask_think: c.search.ask_think,
-            search_history: c.search.history,
-            search_cloud: c.search.cloud.clone(),
-            cloud_read: c.search.cloud_read.clone(),
-            git_last_commit: c.git.last_commit,
-        }
-    }
-}
-
-/// Where each setting lives in config.toml.
-const SETTING_PATHS: &[(&str, &[&str])] = &[
-    ("language", &["language"]),
-    ("theme", &["gui", "theme"]),
-    ("glyphs", &["glyphs"]),
-    ("show_hidden", &["show_hidden"]),
-    ("confirm_delete", &["confirm_delete"]),
-    ("check_updates", &["check_updates"]),
-    ("font", &["gui", "font"]),
-    ("mono_font", &["gui", "mono_font"]),
-    ("icon_font", &["gui", "icon_font"]),
-    ("font_size", &["gui", "font_size"]),
-    ("preview_prefer", &["preview", "prefer"]),
-    ("preview_container", &["preview", "container"]),
-    ("preview_timeout", &["preview", "timeout"]),
-    ("latex_image", &["preview", "images", "latex"]),
-    ("search_text", &["search", "text"]),
-    ("search_archives", &["search", "archives"]),
-    ("search_archives_everywhere", &["search", "archives_everywhere"]),
-    ("text_roots", &["search", "text_roots"]),
-    ("names_only", &["search", "names_only"]),
-    ("text_exclude", &["search", "text_exclude"]),
-    ("search_meaning", &["search", "meaning"]),
-    ("latex_auto", &["preview", "latex_auto"]),
-    ("meaning_engine", &["search", "meaning_engine"]),
-    ("meaning_url", &["search", "meaning_url"]),
-    ("meaning_model", &["search", "meaning_model"]),
-    ("meaning_key_env", &["search", "meaning_key_env"]),
-    ("meaning_device", &["search", "meaning_device"]),
-    ("ask_model", &["search", "ask_model"]),
-    ("ask_think", &["search", "ask_think"]),
-    ("search_history", &["search", "history"]),
-    ("search_cloud", &["search", "cloud"]),
-    ("cloud_read", &["search", "cloud_read"]),
-    ("git_last_commit", &["git", "last_commit"]),
-];
-
-/// `text` (a config.toml) with the settings in `changes` set, comments and layout kept.
-fn apply_settings(text: &str, changes: &serde_json::Map<String, serde_json::Value>) -> Res<String> {
-    let mut text = text.to_string();
-    for (name, v) in changes {
-        let keys = SETTING_PATHS.iter().find(|(n, _)| n == name).map(|(_, k)| *k).ok_or_else(|| coxswain_core::t!("err.unknown_setting", "name" => name))?;
-        let value: toml_edit::Value = match v {
-            serde_json::Value::Bool(b) => (*b).into(),
-            serde_json::Value::Number(n) => n.as_i64().ok_or_else(|| coxswain_core::t!("err.not_whole_number"))?.into(),
-            serde_json::Value::String(s) => s.as_str().into(),
-            serde_json::Value::Array(a) => {
-                let texts: Option<Vec<&str>> = a.iter().map(|v| v.as_str()).collect();
-                texts.ok_or_else(|| coxswain_core::t!("err.unsupported_value", "name" => name))?.into_iter().collect::<toml_edit::Array>().into()
-            }
-            _ => return Err(coxswain_core::t!("err.unsupported_value", "name" => name)),
-        };
-        text = Config::edit(&text, keys, value)?;
-    }
-    Ok(text)
-}
-
 /// Write the changed settings into config.toml, keeping its comments and layout, then use
 /// the new config at once. Returns the new UI config (texts in the new language and so on).
 #[tauri::command(async)]
@@ -325,7 +198,7 @@ fn save_settings(changes: serde_json::Map<String, serde_json::Value>, ctx: tauri
     // Through a link (a config kept with dotfiles) to the file itself.
     let path = std::fs::canonicalize(&path).unwrap_or(path);
     let text = std::fs::read_to_string(&path).unwrap_or_default();
-    let new_text = apply_settings(&text, &changes)?;
+    let new_text = coxswain_core::settings::apply(&text, &changes)?;
     // Only write what parses: a broken config must never replace a working one.
     let cfg = Config::parse(&new_text)?;
     if let Some(dir) = path.parent() {
@@ -336,7 +209,24 @@ fn save_settings(changes: serde_json::Map<String, serde_json::Value>, ctx: tauri
     std::fs::write(&tmp, new_text).and_then(|_| std::fs::rename(&tmp, &path)).map_err(|e| format!("{}: {e}", path.display()))?;
     coxswain_core::i18n::set_language(coxswain_core::i18n::resolve(&cfg.language));
     *ctx.cfg.write().map_err(|e| e.to_string())? = cfg;
+    // The helper reads its options when it starts: a helper with the new ones takes over.
+    if changes.keys().any(|k| coxswain_core::settings::find(k).is_some_and(|o| o.restarts_helper())) {
+        ctx.index.restart();
+    }
     get_config(ctx)
+}
+
+/// Settings → Finding files: one line for each part of search, with its next step.
+#[tauri::command]
+async fn search_status(ctx: tauri::State<'_, Ctx>) -> Res<Vec<coxswain_core::settings::Line>> {
+    let (index, cfg) = (ctx.index.clone(), ctx.cfg().search.clone());
+    blocking(move || Ok(coxswain_core::settings::status(&cfg, &index.status(), index.shared()))).await
+}
+
+/// What choosing a search level changes; none when the setup guide has to choose a model first.
+#[tauri::command]
+fn search_level(level: coxswain_core::settings::Level, ctx: tauri::State<Ctx>) -> Option<serde_json::Map<String, serde_json::Value>> {
+    coxswain_core::settings::level_changes(level, &ctx.cfg().search, coxswain_core::meaning::installed())
 }
 
 // ---------------------------------------------------------------- listing
@@ -1693,7 +1583,7 @@ fn main() {
             clip_set, paste, start_drag, watch_dirs, preview::git_diff, preview::sqlite_info, preview::epub_preview,
             preview::file_facts, preview::cert_info, bom::bom_info, bom::bom_node, bom::bom_diff, preview::mail_preview, preview::plist_xml, convert::preview_engines, convert::preview_cache, convert::clear_preview_cache,
             convert::convert, convert::images, convert::pull_image, convert::remove_image, convert::pull_progress, dupes_scan,
-            dupes_progress, dupes_cancel, save_settings
+            dupes_progress, dupes_cancel, save_settings, search_status, search_level
         ])
         .run(tauri::generate_context!())
         .expect("error while running Coxswain");
@@ -1730,31 +1620,6 @@ mod tests {
         let (files, all) = children(&s, &root.join("target/debug"));
         assert!(files.is_empty());
         assert_eq!(all.map(|s| s.kind), Some(git::Kind::Ignored), "in an ignored folder, everything is");
-    }
-
-    #[test]
-    fn settings_keep_comments_and_other_keys() {
-        let text = "# my config\ntheme = \"nc\"  # terminal\n\n[gui]\n# big text\nfont_size = 15\n\n[keys]\nquit = [\"F10\"]\n";
-        let mut ch = serde_json::Map::new();
-        ch.insert("font_size".into(), 17.into());
-        ch.insert("language".into(), "da".into());
-        ch.insert("latex_image".into(), "texlive:medium".into());
-        ch.insert("show_hidden".into(), false.into());
-        ch.insert("names_only".into(), serde_json::json!(["/home/me/Mail"]));
-        ch.insert("search_archives".into(), false.into());
-        ch.insert("cloud_read".into(), serde_json::json!(["/home/me/gdrive"]));
-        let out = apply_settings(text, &ch).unwrap();
-        for kept in ["# my config", "theme = \"nc\"  # terminal", "# big text", "quit = [\"F10\"]"] {
-            assert!(out.contains(kept), "{kept} lost:\n{out}");
-        }
-        let cfg = Config::parse(&out).unwrap();
-        assert_eq!((cfg.gui.font_size, cfg.language.as_str(), cfg.show_hidden), (17.0, "da", false));
-        assert_eq!(cfg.preview.images["latex"], "texlive:medium");
-        assert_eq!(cfg.search.names_only, [PathBuf::from("/home/me/Mail")]);
-        assert_eq!((cfg.search.cloud_read, cfg.search.cloud.as_str()), (vec![PathBuf::from("/home/me/gdrive")], "local-only"), "online files stay there unless asked");
-        assert!(!cfg.search.archives && Config::default().search.archives, "on unless switched off");
-        assert_eq!(cfg.preview.images["plantuml"], "docker.io/plantuml/plantuml:latest", "other defaults stay");
-        assert!(apply_settings(text, &serde_json::Map::from_iter([("nope".into(), 1.into())])).is_err());
     }
 
     #[test]
