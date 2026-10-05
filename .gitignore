@@ -36,3 +36,4 @@ gui/src-tauri/THIRD-PARTY-NOTICES.md
 # Release archives made by package.sh
 /coxswain-*.tar.gz
 /coxswain-*.zip
+__pycache__/
