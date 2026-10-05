@@ -24,12 +24,12 @@ with the command that upgrades your copy. Nothing is downloaded or installed by 
    or a line in the status line (terminal app).
 3. Run the command it names in a shell, or click the button for the release page.
 4. After the upgrade, the desktop app's **⚙ Settings** button shows a count: click it for
-   *Settings → What's new*, with the new version's changes marked *new*. The terminal app says
+   *Settings → Overview → What's new*, with the new version's changes marked *new*. The terminal app says
    once `Coxswain 1.21.0 is installed: coxswain --whats-new says what it brought`
    ([Notices and what's new](../search/notices.md)).
 
-To turn it off: Settings (**Ctrl+,**) → *Behaviour* → untick *Check for a new version once a
-day*, or `check_updates = false` in `config.toml`.
+To turn it off: Settings (**Ctrl+,**) → *Privacy and updates* → untick *Check for a new
+version*, or `check_updates = false` in `config.toml`.
 
 ## What it does
 
@@ -53,7 +53,7 @@ day*, or `check_updates = false` in `config.toml`.
 | Newer version, installed from a download | *Coxswain 1.21.0 is available*, tooltip *Open the releases page* | `Coxswain 1.21.0 is available: https://github.com/mwo-dk/coxswain/releases/latest` |
 | Click | Opens the release page in your browser | – |
 | How long | Until you update; it has no `×` | Until the status line shows something else |
-| After updating | A count on **⚙ Settings**; a click opens *Settings → What's new*, where the new version's changes are marked *new* | Once, in the status line: `Coxswain 1.21.0 is installed: coxswain --whats-new says what it brought` |
+| After updating | A count on **⚙ Settings**; a click opens *Settings → Overview → What's new*, where the new version's changes are marked *new* | Once, in the status line: `Coxswain 1.21.0 is installed: coxswain --whats-new says what it brought` |
 
 While the update button shows, the desktop app holds back a problem with search in the status
 line ([Notices and what's new](../search/notices.md)).
@@ -76,7 +76,7 @@ The install tables in the [README](../../README.md#install) say how to update ea
 
 | Settings | Key | Type | Default |
 |---|---|---|---|
-| *Behaviour* → *Check for a new version once a day* | `check_updates` | bool | `true` |
+| *Privacy and updates* → *Check for a new version* | `check_updates` | bool | `true` |
 
 The last check is kept in `state.json` as `update_checked` (a time) and `latest_version`; the
 version whose notice you saw is `seen_version`. None of these are for editing.
@@ -118,7 +118,7 @@ Only the request for the latest version, with `User-Agent: coxswain/1.20.0`. See
 
 #### How do I get rid of the update button?
 
-Update. Or turn the check off in Settings → *Behaviour*; the button then goes at the next hourly look,
+Update. Or turn the check off in Settings → *Privacy and updates*; the button then goes at the next hourly look,
 or when the app starts again.
 
 ---

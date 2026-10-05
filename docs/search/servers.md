@@ -9,41 +9,43 @@ LM Studio, llama.cpp, vLLM, LocalAI, OpenAI itself), it can make the vectors for
 
 The guided setup finds the servers on this machine and what their models can do, says which suits
 your hardware, and sets it all: [Smart search in a few minutes](setup.md) (**Set up…** in
-Settings, or `coxswain --setup-search`). It has a section per server, with the models to use.
+Settings → *Finding files* or *Overview*, or `coxswain --setup-search`). It has a section per server, with the models to use.
 
 ![Settings, Search by meaning, with Vectors made by Ollama, Server empty (http://localhost:11434), Embedding model bge-m3, the line The server answers. and Understood: 107 files · still to go: 0, ollama:bge-m3 and Turn off](../screenshots/search-meaning-server.png)
+<!-- screenshot: search-meaning-server.png: desktop app, Cyber theme, Settings at Finding files with Details → Meaning open: Meaning with Turn off, Made by Ollama, Server empty (http://localhost:11434), Model bge-m3, the line The server answers.; above, the status's Meaning line "107 of 107 files · bge-m3 at localhost" -->
 
 ## How to use it
 
-| | Desktop app: *Settings → Search by meaning → Vectors made by* | Terminal app |
+| | Desktop app: *Settings → Finding files → Details → Meaning → Made by* | Terminal app |
 |---|---|---|
 | Ollama on this machine | *Ollama*. The model `bge-m3` (multilingual, 1.2 GB) is suggested; when the server lacks it, **Pull bge-m3 with Ollama** fetches it, with a progress bar | `coxswain --meaning ollama [MODEL]`: `bge-m3` unless named, pulled when missing (*Pulling bge-m3 with Ollama…*) |
 | Ollama elsewhere | *Ollama*, *Server* `http://evo:11434` | `meaning_url = "http://evo:11434"` in `config.toml`, with `meaning_engine = "ollama"` |
-| Lemonade, LM Studio, … | *A server with the OpenAI API (Lemonade, LM Studio, llama.cpp …)*, *Server* `http://localhost:8000/api/v1` (Lemonade's), then its *Embedding model* from the list | `coxswain --meaning server URL MODEL`, e.g. `coxswain --meaning server http://localhost:8000/api/v1 nomic-embed-text-v1-GGUF` |
+| Lemonade, LM Studio, … | *A server with the OpenAI API (Lemonade, LM Studio, llama.cpp …)*, *Server* `http://localhost:8000/api/v1` (Lemonade's), then its *Model* from the list | `coxswain --meaning server URL MODEL`, e.g. `coxswain --meaning server http://localhost:8000/api/v1 nomic-embed-text-v1-GGUF` |
 | Back to the built-in model | *Built-in model, on this machine (465 MB once)* | `coxswain --meaning builtin` (downloads the model if it is not there) |
 
-Then turn it on, if it is not: **Turn on** in Settings. The terminal commands turn it on
+Then turn it on, if it is not: **Turn on** under *Meaning* in the same group, or the level *Names, text and
+meaning*. The terminal commands turn it on
 themselves. The *Server* field is the base URL: Coxswain adds `/api/embed` for Ollama and
 `/embeddings` for the OpenAI API (and `/api/tags` or `/models` to list the models).
 
 ## What you see
 
 - Settings asks the server for its models whenever you change the engine or the server, and says
-  *The server answers.*, or why not (the error). The *Embedding model* field offers the models it
+  *The server answers.*, or why not (the error). The *Model* field offers the models it
   listed.
 - **A server on another machine gets the text of your files**: the passages that get vectors,
   each with a line naming the file and the two folders it is in, and every question. Settings says
   so, in bold: *The text of your files, with their names and folders, is sent to evo to get its
   vectors.* A server on `localhost`, `127.0.0.1` or `::1` gets no such warning; nothing leaves the
   machine.
-- For the OpenAI API, *API key from the variable* names an environment variable (placeholder
+- For the OpenAI API, *API key from the environment variable* names an environment variable (placeholder
   `OPENAI_API_KEY`) whose value is sent as the key. The key itself is never written into
   `config.toml`.
 - The status line shows the model in use, `ollama:bge-m3` or `openai:nomic-embed-text-v1-GGUF`, and
   in red the error of a server that does not answer.
 - While search by meaning runs on the built-in model and Ollama answers on this machine, a
   [notice](notices.md) says *Ollama runs here: search by meaning could use its GPU. Choose it*
-  under *Settings → What's new* (terminal app: `… : coxswain --meaning ollama`, once in the
+  under *Settings → Overview → What's new* (terminal app: `… : coxswain --meaning ollama`, once in the
   status line).
 
 ## What to know
@@ -71,12 +73,12 @@ themselves. The *Server* field is the base URL: Coxswain adds `/api/embed` for O
 
 Under `[search]`:
 
-| Settings item | Key | Type | Default |
+| Settings item (*Finding files → Details → Meaning*) | Key | Type | Default |
 |---|---|---|---|
-| *Vectors made by* | `meaning_engine` | `"builtin"`, `"ollama"` or `"openai"` | `"builtin"` |
+| *Made by* | `meaning_engine` | `"builtin"`, `"ollama"` or `"openai"` | `"builtin"` |
 | *Server* | `meaning_url` | string | `""`: Ollama on this machine, `http://localhost:11434` |
-| *Embedding model* | `meaning_model` | string | `""`: `bge-m3` for Ollama; must be set for the OpenAI API |
-| *API key from the variable* (OpenAI API only) | `meaning_key_env` | string, a variable's name | `""` |
+| *Model* | `meaning_model` | string | `""`: `bge-m3` for Ollama; must be set for the OpenAI API |
+| *API key from the environment variable* (OpenAI API only) | `meaning_key_env` | string, a variable's name | `""` |
 | *Turn on* / *Turn off* | `meaning` | bool | `false` |
 
 ```toml
@@ -115,7 +117,7 @@ The *Server* is not this machine. To make vectors, the server must read the pass
 questions. Use a server you trust, or one on `localhost`.
 
 #### My server wants an API key. Where does it go?
-In an environment variable; name that variable under *API key from the variable*
+In an environment variable; name that variable under *API key from the environment variable*
 (`meaning_key_env`). The variable must be set where the search helper starts: in your session, or in
 the systemd unit or LaunchAgent when the helper [starts with your session](helper.md). The key
 goes only to the saved *Server*. Over `http://` it travels unencrypted, as do your passages:

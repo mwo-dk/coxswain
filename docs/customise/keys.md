@@ -148,7 +148,9 @@ shows the `settings` key.
 |---|---|
 | `[keys] <action>` | a list of key names; the defaults in [the actions](#the-actions) |
 
-Settings has no key editor: keys are set in `config.toml` only.
+Settings has no key editor: keys are set in `config.toml` only. Settings → *Keys*
+([Keys](settings.md#keys)) lists every action with its keys, read-only, with a filter and
+**Open config.toml**.
 
 ## In the terminal app
 

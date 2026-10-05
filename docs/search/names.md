@@ -64,7 +64,9 @@ does, would make cold starts faster.
 
 ## Settings and config.toml
 
-Under `[search]`. None of these is in the Settings window; edit `config.toml`.
+Under `[search]`. In the desktop app they are under *Settings → Finding files → Details*:
+`roots` is *Where names are found*, `exclude` *Never indexed* and `watch` *Follow changes as they
+happen* (in *Folders*), `max_results` *Most hits* (in *What is read*).
 
 | Key | Type | Default | Does |
 |---|---|---|---|

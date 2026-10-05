@@ -15,14 +15,14 @@ draw diagrams and reStructuredText. A container gets no network and sees your fi
    (**Space** or **F3**). The engine button reads **podman texlive:latest**.
 3. The first time, the image has to be downloaded. The preview says *First run pulls
    docker.io/texlive/texlive:latest (about 5 GB)* under **Build PDF**; press it. Or pull ahead
-   of time: *Settings → Previews made by tools → Container images → **Pull***.
+   of time: *Settings → Previews → Container images → **Pull***.
 4. From then on the container runs by itself like an installed program.
-5. To free the room again: *Settings → Previews made by tools → Container images → **Remove***.
+5. To free the room again: *Settings → Previews → Container images → **Remove***.
 
 | Key | Desktop app | Terminal app |
 |---|---|---|
 | **Space** / **F3** | Shows or hides the pane | – |
-| **Ctrl+,** | Settings, with *Container images* | – |
+| **Ctrl+,** | Settings → *Previews*, with *Container images* | – |
 
 ## What a container may do
 
@@ -70,10 +70,10 @@ the image is not counted.
 
 ## Settings and config.toml
 
-| Settings → Previews made by tools | config.toml | Choices, default |
+| Settings → Previews | config.toml | Choices, default |
 |---|---|---|
 | *Container runtime* | `[preview] container` | `"auto"` (podman, else docker), `"podman"`, `"docker"`, `"off"` (*No containers*) |
-| *Use* | `[preview] prefer` | `"auto"`, `"local"`, `"container"` |
+| *How previews are made* | `[preview] prefer` | `"auto"`, `"local"`, `"container"` |
 | *LaTeX image* | `[preview.images] latex` | `"docker.io/texlive/texlive:latest"` |
 | – | `[preview.images] plantuml` | `"docker.io/plantuml/plantuml:latest"` |
 | – | `[preview.images] pandoc` | `"docker.io/pandoc/core:latest"` |

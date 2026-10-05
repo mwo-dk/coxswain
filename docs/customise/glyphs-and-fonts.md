@@ -15,13 +15,14 @@ choose the interface font, the monospaced font, the icon font and the text size.
 
 | | Desktop app | Terminal app |
 |---|---|---|
-| Choose | Settings (**Ctrl+,**) → *Appearance* → *Icons and git glyphs*: *Nerd Font* or *Plain characters (ASCII)* | `glyphs = "ascii"` in `config.toml`, then start it again |
+| Choose | Settings (**Ctrl+,**) → *Looks* → *Icons and git glyphs*: *Nerd Font* or *Plain characters (ASCII)* | `glyphs = "ascii"` in `config.toml`, then start it again |
 | Needs for Nerd Font | A Nerd Font installed and named in *Icon font* | A Nerd Font as the terminal's own font |
 
 **Fonts and size (desktop app):**
 
-1. Press **Ctrl+,**. Under *Appearance*:
-2. *Text size*: a number from 9 to 28 (pixels). The rows grow with it.
+1. Press **Ctrl+,** and choose *Looks*.
+2. *Text size*: a number from 9 to 28 (pixels). The rows grow with it. *Row height*: 1.2 to 3
+   times the text size.
 3. *Font*, *Monospaced font*, *Icon font*: CSS font lists, such as
    `'JetBrains Mono', Menlo, monospace`. The first font in the list that is installed is used.
 4. Leave the field (or press **Enter**) and the window re-draws with it.
@@ -66,8 +67,8 @@ separate list by file type, always from the Nerd Font:
 | *Text size* | Everything; the row height is the size times `line_height` | `13` |
 
 The Windows and Mac themes, Cyber and NC bring their own interface font and put it over *Font*
-([Looks](looks.md)); under them Settings says *Cyber and the Windows and Mac themes bring their
-own font; these fonts apply to the others.*
+([Looks](looks.md)); under them Settings greys out *Font* and says, for example, *Cyber draws
+its text in a font of its own: the font above applies to the other themes.*
 
 After any of these fonts come Japanese and Korean fonts (Hiragino Sans, Yu Gothic, Noto Sans CJK,
 Malgun Gothic, …), so file names and texts in those letters are drawn even when the chosen font
@@ -109,7 +110,7 @@ the file marks (`staged` to `ignored`) to one character.
 | *Icons and git glyphs* | `glyphs` | `"nerd"` or `"ascii"`, `"nerd"` | Both apps |
 | none | `[glyph_set]` | a table of the glyphs above; none | Both apps |
 | *Text size* | `[gui] font_size` | number, `13` | Desktop app |
-| none | `[gui] line_height` | number, `1.9` (row height as a multiple of the size) | Desktop app |
+| *Row height* | `[gui] line_height` | number, `1.9` (row height as a multiple of the size) | Desktop app |
 | *Font* | `[gui] font` | CSS font list | Desktop app |
 | *Monospaced font* | `[gui] mono_font` | CSS font list | Desktop app |
 | *Icon font* | `[gui] icon_font` | CSS font list | Desktop app |
@@ -145,13 +146,13 @@ spaces needs quotes, `'Fira Sans', sans-serif`.
 
 #### Can I make the rows less tall?
 
-Yes: `line_height` under `[gui]`, for example `line_height = 1.5`. The row is the text size
-times this number, 13 × 1.9 = 25 pixels by default. It is not in Settings; restart the desktop
-app after changing it.
+Yes: *Row height* in Settings → *Looks* (1.2 to 3), or `line_height` under `[gui]`, for example
+`line_height = 1.5`. The row is the text size times this number, 13 × 1.9 = 25 pixels by default.
+Settings applies it at once; after changing the file by hand, restart the desktop app.
 
 #### How do I make everything bigger?
 
-*Text size* in Settings, up to 28. The rows, lists and dialogs grow with it, since the row
+*Text size* in Settings → *Looks*, up to 28. The rows, lists and dialogs grow with it, since the row
 height follows the size.
 
 #### What do `folder`, `file` and `symlink` in `[glyph_set]` do?

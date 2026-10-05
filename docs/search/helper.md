@@ -6,7 +6,7 @@ The index lives in a helper process that every window and terminal app shares: o
 memory, one scan of the disk, one `search.db`. It starts with the first app and leaves ten minutes
 after the last, or it can start with your session so it reads while no window is open.
 
-<!-- screenshot: search-helper-session.png: desktop app, Cyber theme, Settings → Search inside files showing the status line, the ticked box "Start the search helper with my session, so it reads while no window is open", and the buttons Index now and Delete the index -->
+<!-- screenshot: search-helper-session.png: desktop app, Cyber theme, Settings → Finding files with the Words line "Files read: … · waiting: …" in the status, and Details → Background reading open: the ticked box "Start with my session", Read now, the path of search.db with Show in panel, and Delete what was read (…) -->
 
 ## How to use it
 
@@ -16,7 +16,7 @@ Nothing to do: the first app starts it and the others find it. A new window sear
 
 | Where | How |
 |---|---|
-| Desktop app | Tick *Settings → Search inside files → Start the search helper with my session, so it reads while no window is open* |
+| Desktop app | Tick *Settings → Finding files → Details → Background reading → Start with my session* |
 | Terminal app | `coxswain --index-service on`; `off` removes it; `coxswain --index-service` alone prints `on` or `off` |
 
 This registers the helper with the system:
@@ -36,9 +36,11 @@ starting with the first app and leaving ten minutes after the last.
 Nothing of its own while it works. Signs of it:
 
 - Find file's count line: ` · building index…`, ` · refreshing index`, ` · 412 still to read`.
-- *Settings → Search inside files*: *Searchable: 31,208 files · still to read: 412 · 1.1 GB on disk*
-  and where `search.db` is. When it cannot be reached: *The search helper is not running, so text
-  cannot be searched now.*, and **Index now** and **Delete the index** are greyed out.
+- *Settings → Finding files*: the *Words* line, *Files read: 31,208 · waiting: 412 · 1.1 GB on
+  disk*; *Details → Background reading* shows where `search.db` is. When it cannot be reached, the
+  *Words* line says *Not running*, with **Start it** and the note *Background reading is not
+  running, so the words in files cannot be searched now.*; **Read now** and **Delete what was
+  read** are greyed out.
 - In a process list: the app itself, started as `coxswain --index-helper` (or `coxswain-gui
   --index-helper`).
 
@@ -64,14 +66,14 @@ Nothing of its own while it works. Signs of it:
   helper that starts with your next login is already the new one, before you open the app.
 - **Without it.** If the helper cannot be reached, each app indexes names by itself; text search
   and meaning then wait for the helper.
-- **Settings.** A change under *Search inside files* or *Search by meaning* starts a new helper
+- **Settings.** A change under *Finding files* starts a new helper
   with the new settings.
 
 ## Settings and config.toml
 
 | Settings item | Where it is kept | Default |
 |---|---|---|
-| *Start the search helper with my session…* | Not in `config.toml`: the systemd unit, LaunchAgent or *Run* entry itself | Off |
+| *Finding files → Details → Background reading → Start with my session* | Not in `config.toml`: the systemd unit, LaunchAgent or *Run* entry itself | Off |
 
 ## Check that it runs, and turn it off
 
@@ -118,7 +120,7 @@ refreshed it. The text in `search.db` stays.
 Before 1.29.0: *Start with my session* was on, and the upgrade removed the program the
 registration started (a Homebrew path with the old version in it, a moved AppImage). The helper
 could not start, so Find file found names only: words, meaning and *Ask* found nothing, and
-*Settings → Search inside files* said *The search helper is not running, so text cannot be
+Settings said *The search helper is not running, so text cannot be
 searched now.* From 1.29.0 the first app you open registers itself and starts the helper. On an
 older version, untick and tick *Start with my session* again, or run `coxswain --index-service off`
 then `on`.

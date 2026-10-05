@@ -8,6 +8,7 @@ app reads it and which Settings item writes it.
 
 ![The Settings window in the Cyber theme: languages with flags, the themes as small previews, and the fonts; at the bottom the path of config.toml](../screenshots/gui-settings.png)
 *The desktop app's Settings (**Ctrl+,**) write single values into `config.toml`. The path is shown at the bottom: "Settings are stored in /home/demo/.config/coxswain/config.toml".*
+<!-- screenshot: gui-settings.png: desktop app, Cyber theme, Settings open at Looks: the "Find a setting…" field and the list of areas on the left, the languages with flags, the theme swatches with the For switch and the fonts on the right, and at the bottom "Settings are stored in /home/demo/.config/coxswain/config.toml" -->
 
 ## Contents
 
@@ -253,7 +254,7 @@ The desktop app's own settings.
 | `icon_font` | string | `"'Symbols Nerd Font Mono', 'JetBrainsMono Nerd Font', 'MesloLGS Nerd Font', 'MesloLGM Nerd Font Mono', 'FiraCode Nerd Font', 'CaskaydiaCove Nerd Font', 'Hack Nerd Font', monospace"` | The Nerd Font for icons and git glyphs: the first installed one is used |
 | `mono_font` | string | `"'JetBrains Mono', 'Cascadia Code', 'MesloLGS Nerd Font', Menlo, Consolas, monospace"` | Code, the command line, and everything in Cyber and NC |
 | `font_size` | number | `13` | Text size in pixels (Settings allows 9 to 28) |
-| `line_height` | number | `1.9` | Row height, as a multiple of the font size. No Settings item |
+| `line_height` | number | `1.9` | Row height, as a multiple of the font size (Settings allows 1.2 to 3) |
 
 ## `[git]`
 
@@ -261,7 +262,7 @@ Read by both apps when they start; the desktop app also after a change in Settin
 
 | Key | Type | Default | Does |
 |---|---|---|---|
-| `last_commit` | bool | `true` | Show when each file and folder was last committed, and by whom: the *Last commit* column and the preview pane in the desktop app, the info line in the terminal app ([Git in the panels](../panels/git.md#last-commit-per-file)) |
+| `last_commit` | bool | `true` | Last commit of each file: the *Last commit* column and the preview pane in the desktop app, the info line in the terminal app ([Git in the panels](../panels/git.md#last-commit-per-file)) |
 
 The [git history](../panels/git-history.md) itself has no switch: it is there when you press
 **Ctrl+G** (`history` in `[keys]`).
@@ -280,41 +281,56 @@ Some choices are not in `config.toml`, and that is on purpose:
 
 ## Settings and config.toml
 
-Each Settings item and the key it writes:
+Each Settings item and the key it writes, area by area ([The Settings window](../customise/settings.md)):
 
-| Settings section | Item | Key |
+| Settings area | Item | Key |
 |---|---|---|
-| *Language* | the language buttons | `language` |
-| *Appearance* | *Theme* | `[gui] theme` |
-| | *Icons and git glyphs* | `glyphs` |
-| | *Text size* | `[gui] font_size` |
-| | *Font*, *Monospaced font*, *Icon font* | `[gui] font`, `[gui] mono_font`, `[gui] icon_font` |
-| *Behaviour* | *Show hidden files when Coxswain starts* | `show_hidden` |
-| | *Ask before deleting* | `confirm_delete` |
-| | *Check for a new version once a day* | `check_updates` |
-| | *Show when each file and folder was last committed, and by whom* | `[git] last_commit` |
-| *Search inside files* | *Keep the text of files, so Find file can search in it (Shift+F7)* | `[search] text` |
-| | *Search inside archives…* | `[search] archives` |
-| | *Look inside archives everywhere the names are indexed…* | `[search] archives_everywhere` |
-| | *Folders read* | `[search] text_roots` |
+| *Finding files* | *How far should Find look?*: the four levels | `[search] text`, `meaning`, `ask_model` (a level that needs a model opens the setup guide) |
+| *Finding files → Details → What is read* | *Words inside files* | `[search] text` |
+| | *Look inside archives* | `[search] archives` |
+| | *Archives everywhere* | `[search] archives_everywhere` |
+| | *Git history* | `[search] history` |
+| | *Read files that are only online* | `[search] cloud` |
+| | *Cloud folders read anyway* | `[search] cloud_read` |
+| | *Largest file read (MB)* | `[search] text_max_size` |
+| | *Most hits* | `[search] max_results` |
+| *Finding files → Details → Folders* | *Folders read* | `[search] text_roots` |
 | | *Names only* | `[search] names_only` |
-| | *Cloud files: read files that are only online…* | `[search] cloud` |
-| | *Read anyway* | `[search] cloud_read` |
-| | *Search the history of git repositories too…* | `[search] history` |
-| | *Start the search helper with my session…* | none: the session registration |
-| *Search by meaning* | *Turn on*, *Turn off*, *Download the model and turn on* | `[search] meaning` |
-| | *Vectors made by* | `[search] meaning_engine` |
-| | *Server*, *Embedding model*, *API key from the variable* | `[search] meaning_url`, `meaning_model`, `meaning_key_env` |
+| | *Left out everywhere* | `[search] text_exclude` |
+| | *Where names are found* | `[search] roots` |
+| | *Never indexed* | `[search] exclude` |
+| | *Follow changes as they happen* | `[search] watch` |
+| *Finding files → Details → Meaning* | *Turn on*, *Turn off*, *Download the model and turn on* | `[search] meaning` |
+| | *Made by* | `[search] meaning_engine` |
+| | *Server*, *Model*, *API key from the environment variable* | `[search] meaning_url`, `meaning_model`, `meaning_key_env` |
 | | *Use the CPU only* (on a Mac) | `[search] meaning_device` |
-| *Previews made by tools* | *Use* | `[preview] prefer` |
+| *Finding files → Details → Ask* | *Chat model* | `[search] ask_model` |
+| | *Let the model think first* | `[search] ask_think` |
+| *Finding files → Details → Background reading* | *Start with my session* | none: the session registration |
+| *Previews* | *How previews are made* | `[preview] prefer` |
 | | *Container runtime* | `[preview] container` |
 | | *LaTeX image* | `[preview] images.latex` |
-| | *Build LaTeX documents by themselves when they are shown and have changed* | `[preview] latex_auto` |
+| | *Build LaTeX by itself* | `[preview] latex_auto` |
 | | *Timeout (seconds)* | `[preview] timeout` |
+| *Looks* | *Language* | `language` |
+| | *Theme of the desktop app* (*For*: *Desktop app*) | `[gui] theme` |
+| | *Theme of the terminal app* (*For*: *Terminal app*) | `theme` |
+| | *Icons and git glyphs* | `glyphs` |
+| | *Font*, *Monospaced font*, *Icon font* | `[gui] font`, `[gui] mono_font`, `[gui] icon_font` |
+| | *Text size* | `[gui] font_size` |
+| | *Row height* | `[gui] line_height` |
+| *Behaviour* | *Show hidden files when Coxswain starts* | `show_hidden` |
+| | *Ask before deleting* | `confirm_delete` |
+| | *Measure folder sizes* | `folder_sizes` |
+| | *Last commit of each file* | `[git] last_commit` |
+| | *Editor* | `editor` |
+| | *Viewer (terminal app)* | `viewer` |
+| | *CBOM viewer on F3 (terminal app)* | `bom_viewer` |
+| *Privacy and updates* | *Check for a new version* | `check_updates` |
 
-Every other key (`theme`, `viewer`, `editor`, `folder_sizes`, `glyph_set`, `[keys]`,
-`[themes.*]`, `[[user_menu]]`, `roots`, `exclude`, `max_results`, `watch`, `text_exclude`,
-`text_max_size`, `prefer_tool`, the other images, `line_height`) has no Settings item: edit the file.
+*Keys* lists every action and its keys, read-only, with **Open config.toml**. Every other key
+(`[keys]`, `glyph_set`, `[themes.*]`, `[[user_menu]]`, `prefer_tool`, the other images) has no
+Settings item: edit the file.
 
 ## In the terminal app
 

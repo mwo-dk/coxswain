@@ -55,7 +55,7 @@ Find's footer, *text of 31,208 files*, counts the commits kept as well.
 | What of each | Its short id, author, date, the whole message, and up to 200 paths it changed. Never the files' contents at that commit: those are searched as files on disk |
 | When | At each scan of the helper (at its start and every ten minutes). A repository whose HEAD moved on gets only the new commits; one whose history was rewritten (rebase, reset) is read again; one that is gone loses its commits |
 | How fast | 2000 commits of a big repository take git well under a second; the helper rests after each repository as it does after reading files |
-| Where | In the [search store](text.md), `search.db`, with the text of your files. **Delete the index** in Settings empties it too |
+| Where | In the [search store](text.md), `search.db`, with the text of your files. **Delete what was read** in Settings empties it too |
 
 A new commit is found within ten minutes; a change of a search setting in the desktop app
 restarts the helper, which then reads at once.
@@ -64,10 +64,10 @@ restarts the helper, which then reads at once.
 
 | Setting | config.toml | Default |
 |---|---|---|
-| *Settings → Search inside files → Search the history of git repositories too: commit messages, authors and changed paths* | `[search] history` | `true` |
+| *Settings → Finding files → Details → What is read → Git history* | `[search] history` | `true` |
 | Which folders are read (and so which repositories) | `[search] text_roots`, `names_only`, `text_exclude` | your home folder |
 
-Turned off, the commits are taken out of the store at the next scan. It needs *Search inside
+Turned off, the commits are taken out of the store at the next scan. It needs *Words inside
 files* (`[search] text`) on.
 
 ## In the terminal app

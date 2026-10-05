@@ -79,10 +79,12 @@ written 1'234.5. Coxswain writes dates as numbers (2026-01-05), so Austrian Germ
 
 **Desktop app:**
 
-1. Open Settings: **Ctrl+,**, or **F9** → *Settings*, or start it with `coxswain-gui --settings`.
+1. Open Settings: **Ctrl+,**, or **F9** → *Settings*, and choose *Looks*; or start it with
+   `coxswain-gui --settings=language`, which opens *Looks* at *Language*.
 2. Under *Language*, click a language. The one in use is shown at the top, with its flag. Below
-   it the languages are listed under their regions (*Nordic and Baltic*, *Western Europe*, …),
-   each by its own name and flag; a fresh translation has a *new* badge.
+   it a field filters the list; the languages are listed under their regions (*Nordic and
+   Baltic*, *Western Europe*, …), each by its own name and flag; a fresh translation has a *new*
+   badge.
 3. The window redraws in the new language at once, and the choice is saved to `config.toml`.
 
 *Automatic* goes back to following the system; below it, small, is the language that picks now.
@@ -143,7 +145,7 @@ Not translated:
 
 ## Capitals in Greek
 
-Some headings are written in capitals (Settings' section titles, the sidebar's headings, the
+Some headings are written in capitals (Settings' area titles, the sidebar's headings, the
 Cyber theme's dialog titles). Greek drops its accents in capitals and keeps a diaeresis:
 *Ρυθμίσεις* becomes ΡΥΘΜΙΣΕΙΣ, not ΡΥΘΜΊΣΕΙΣ, and *τσάι* becomes ΤΣΑΪ. The desktop app tells
 its web view that the page is Greek, which uppercases it so (WebKitGTK on Linux, WebKit on
@@ -159,7 +161,7 @@ Both are written in letters that take two columns in a terminal and need a font 
   the same Han letter is drawn differently in each). The first installed one draws them: on
   macOS and Windows one always is. This holds for file names in any language too.
 - **No font on Linux:** when Coxswain speaks Japanese or Korean and `fc-list` knows no font
-  for it, *Settings → What's new* says once *No Japanese or Korean font is installed…* and
+  for it, *Settings → Overview → What's new* says once *No Japanese or Korean font is installed…* and
   names the package: `noto-fonts-cjk` (Arch), `fonts-noto-cjk` (Debian, Ubuntu),
   `google-noto-sans-cjk-fonts` (Fedora). Until then the letters show as boxes.
 - **Typing with an input method** (IME: Mozc, Kotoeri, the Microsoft IME, a Hangul keyboard):
@@ -196,7 +198,7 @@ it (for example Konsole, or GNOME Terminal with bidi on) show it correctly.
 
 | Setting | Key | Type, default |
 |---|---|---|
-| Settings → *Language* | `language` | text: `"auto"` or a code from the table; `"auto"` |
+| Settings → *Looks* → *Language* | `language` | text: `"auto"` or a code from the table; `"auto"` |
 
 One key for both apps.
 
@@ -222,7 +224,7 @@ The terminal app reads `language` when it starts. Quit it (**F10**) and start it
 
 #### How do I go back to following the system?
 
-Settings → *Language* → *Automatic*, or `language = "auto"` in `config.toml` (or delete the line).
+Settings → *Looks* → *Language* → *Automatic*, or `language = "auto"` in `config.toml` (or delete the line).
 
 #### My system lists British English first and Danish second, and Coxswain speaks Danish.
 
@@ -236,20 +238,20 @@ Settings) to keep English.
 
 Swiss Standard German has no *ß*: a system locale `de_CH` (or `de_LI`, or Swiss German `gsw`)
 picks *Deutsch (Schweiz)*, which writes *ss* and «guillemets». For *ß* and „quotes“ pick
-*Deutsch* in Settings → *Language*, or set `language = "de"`.
+*Deutsch* in Settings → *Looks* → *Language*, or set `language = "de"`.
 
 #### Polish, Czech, Ukrainian or Greek reads oddly in places. Why?
 
 These are new, marked *new* in Settings (and so are Japanese and Korean), and have not been read by a native speaker yet.
 Coxswain shows the notice "*Polski is a new translation…*" once (in the desktop app under
-Settings → *What's new*, in the terminal app in the status line) to say so. A better word is
+Settings → *Overview* → *What's new*, in the terminal app in the status line) to say so. A better word is
 very welcome: see [Improving a translation](#improving-a-translation).
 
 #### Japanese or Korean shows as boxes. What is missing?
 
 A font with those letters. On Linux install `noto-fonts-cjk` (Arch), `fonts-noto-cjk` (Debian,
 Ubuntu) or `google-noto-sans-cjk-fonts` (Fedora) and start the desktop app again; the desktop
-app says so once under *Settings → What's new*. In the terminal app, it is the terminal's font
+app says so once under *Settings → Overview → What's new*. In the terminal app, it is the terminal's font
 that needs them. See [Japanese and Korean](#japanese-and-korean).
 
 #### I type Japanese and press Enter, and the dialog does nothing. Why?

@@ -10,7 +10,8 @@ kept in a cache, so each file is made once.
 ![Three previews: a PlantUML sequence diagram under the engine buttons "plantuml" (chosen) and "container" (greyed), a Graphviz graph and an AsciiDoc guide](../screenshots/gui-previews-tools.png)
 *The engine buttons at the top of a tool preview: here the installed `plantuml` is used; the container is greyed, as there is no podman or docker to run it.*
 
-![Settings, Previews made by tools: Use, Container runtime, LaTeX image, the box to build LaTeX documents by themselves, Timeout (seconds), Previews made so far with its size and Clear, and Container images, each Not pulled with Pull and Remove](../screenshots/previews-tools-settings.png)
+![Settings, Previews: How previews are made, Container runtime, LaTeX image, Build LaTeX by itself, Timeout (seconds), Previews made so far with its size and Clear, and Container images, each Not pulled with Pull and Remove](../screenshots/previews-tools-settings.png)
+<!-- screenshot: previews-tools-settings.png: desktop app, Cyber theme, Settings open at Previews (the area list on the left with Previews chosen): How previews are made, Container runtime, LaTeX image, Build LaTeX by itself, Timeout (seconds), Previews made so far with its size and Clear, and Container images, each with Pull and Remove -->
 
 ## Contents
 
@@ -43,8 +44,8 @@ your click.
    **Read tables**. Press it.
 3. To use another engine, click its button at the top; that renders again with it, and the pick
    is remembered for the tool (in the session).
-4. To change what is preferred, or the container runtime, open *Settings → Previews made by
-   tools* (**Ctrl+,**).
+4. To change what is preferred, or the container runtime, open *Settings → Previews*
+   (**Ctrl+,**).
 
 | Key | Desktop app | Terminal app |
 |---|---|---|
@@ -83,7 +84,7 @@ change in the document's folder. So:
 - Editing it makes the next render fresh; the old result is simply no longer used.
 - Each engine has its own result, so switching back and forth costs nothing after the first run.
 
-*Settings → Previews made by tools → Previews made so far* shows how much room they take
+*Settings → Previews → Previews made so far* shows how much room they take
 (*84.2 MB in the cache; made again when a source changes*). **Clear** empties the cache (it is
 greyed when the cache is empty); every preview is then made again when next shown. See [Where
 things are kept](../reference/where-things-are-kept.md).
@@ -121,12 +122,12 @@ libreoffice = ""
 duckdb = ""
 ```
 
-| Settings → Previews made by tools | config.toml | Choices, default |
+| Settings → Previews | config.toml | Choices, default |
 |---|---|---|
-| *Use* | `prefer` | *An installed program, else a container* (`auto`, default), *Installed programs only* (`local`), *Containers, even when a program is installed* (`container`) |
+| *How previews are made* | `prefer` | *An installed program, else a container* (`auto`, default), *Installed programs only* (`local`), *Containers, even when a program is installed* (`container`) |
 | *Container runtime* | `container` | *podman, else docker* (`auto`, default), podman, docker, *No containers* (`off`) |
 | *LaTeX image* | `images.latex` | `docker.io/texlive/texlive:latest` |
-| *Build LaTeX documents by themselves when they are shown and have changed* | `latex_auto` | on |
+| *Build LaTeX by itself* | `latex_auto` | on |
 | *Timeout (seconds)* | `timeout` | 10 to 3600, `120` |
 | *Previews made so far* | – | The cache size, **Clear** |
 | *Container images* | `images.*` | Each image with **Pull** and **Remove** ([Containers](containers.md)) |
@@ -151,7 +152,7 @@ itself. The note under the button says which.
 
 #### How do I stop using containers?
 
-*Settings → Previews made by tools → Container runtime → No containers* (`container = "off"`),
+*Settings → Previews → Container runtime → No containers* (`container = "off"`),
 or *Use → Installed programs only* (`prefer = "local"`), which keeps the container as a button
 but never as the default.
 
@@ -163,7 +164,7 @@ also found in its usual install folder.
 
 #### How much room do previews take, and can I free it?
 
-*Settings → Previews made by tools → Previews made so far* shows the size; **Clear** frees it.
+*Settings → Previews → Previews made so far* shows the size; **Clear** frees it.
 Nothing is lost: previews are made again when shown.
 
 #### Can I use a tool from a container even though it is installed?

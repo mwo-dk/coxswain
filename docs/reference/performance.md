@@ -220,7 +220,7 @@ they are on the easy side once the section has a vector:
 | Built-in model, CPU | 0.47 / 0.59 / 0.54 | 0.88 / 0.97 / 0.92 |
 | Ollama bge-m3, GPU | 0.47 / 0.74 / 0.61 | 1.00 / 1.00 / 1.00 |
 
-**What it costs**, on the same 93 pages, per 1,000 files of that kind, with *Index now* (no
+**What it costs**, on the same 93 pages, per 1,000 files of that kind, with *Read now* (no
 rests):
 
 | Engine | First pass before | After | `search.db` before | After |
@@ -230,7 +230,7 @@ rests):
 
 On the CPU the built-in model takes a file's passages 8 at a time (on a Mac's GPU 32): 15
 passages of 100 words a second on its two threads, where one by one gave 12
-(`perf_meaning_cpu_and_gpu`). Without *Index now*, the helper rests as long as it worked, so
+(`perf_meaning_cpu_and_gpu`). Without *Read now*, the helper rests as long as it worked, so
 the first pass takes about twice as long. Short files cost what they did: a file of up to 960 words has the same passages as
 before, plus the line with its name.
 

@@ -70,9 +70,9 @@ New here? Start with [The screen](panels/the-screen.md) and [Every default key](
 | [Search by meaning on a server: Ollama, Lemonade, LM Studio](search/servers.md) | Ollama, Lemonade, LM Studio, any OpenAI-compatible server, API keys, privacy |
 | [Ask: questions answered from your files](search/ask.md) | The Ask row of Find file (Ctrl+Enter): your chat model answers from the closest passages, citing them, in place of the list |
 | [The search helper](search/helper.md) | One process for all windows, privacy of its connection, starting with the session, taken over after an upgrade moves the program |
-| [Battery](search/battery.md) | Reading pauses on battery, Index now reads anyway |
+| [Battery](search/battery.md) | Reading pauses on battery, Read now reads anyway |
 | [Notices and what's new](search/notices.md) | The version in the title, the tips, the count on Settings, *What's new* and `coxswain --whats-new` |
-| [Search settings](search/settings.md) | Every item of Search inside files and Search by meaning, its config.toml key, and the terminal flags |
+| [Search settings](search/settings.md) | Every item of Settings → Finding files (the status, the levels, Details), its config.toml key, and the terminal flags |
 
 ## [The preview pane](previews/README.md)
 
@@ -115,7 +115,7 @@ New here? Start with [The screen](panels/the-screen.md) and [Every default key](
 | Page | What it covers |
 |---|---|
 | [Customising](customise/README.md) | The Settings window, themes, looks, languages, keys, glyphs and fonts, with the main keys |
-| [The Settings window](customise/settings.md) | Opening it (Ctrl+, F9, --settings=search|meaning), every section and item with its config.toml key, how saving keeps comments, terminal-app flags |
+| [The Settings window](customise/settings.md) | Opening it (Ctrl+, F9, --settings=search|meaning), its areas from Overview to Privacy and updates, Find a setting, every item with its config.toml key, how saving keeps comments, terminal-app flags |
 | [Themes](customise/themes.md) | The 18 built-in themes, picking one in each app (Settings, F9 "Theme: …", `theme` / `[gui] theme`), what the terminal app takes |
 | [Looks](customise/looks.md) | The desktop app's corners, bevels, title bars and era fonts per theme, `look =` in your own theme |
 | [Your own theme and the colour slots](customise/own-theme.md) | Your own theme: `[themes.<name>]`, starting from --dump-config, colour names vs #rrggbb, every colour slot and where each app uses it |

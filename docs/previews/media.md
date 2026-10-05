@@ -45,7 +45,7 @@ On Linux the player needs GStreamer's `autodetect` and `playback` plugins (from
 player is shown, so Coxswain looks for them first. When they are missing, the preview shows no
 player but *Video and sound need GStreamer's good plugins to play here (gst-plugins-good;
 gstreamer1.0-plugins-good on Debian and Ubuntu). Install them, then open Coxswain again.* with
-the link *Open in its app*, and *Settings → What's new* says the same once. The AppImage carries
+the link *Open in its app*, and *Settings → Overview → What's new* says the same once. The AppImage carries
 a GStreamer built on Ubuntu, which looks for plugins only where Debian and Ubuntu keep them
 (`/usr/lib/x86_64-linux-gnu/gstreamer-1.0`); on other distributions it says so and suggests
 installing Coxswain from your package manager.

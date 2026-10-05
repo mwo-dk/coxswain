@@ -6,7 +6,8 @@ Coxswain has no telemetry and no account. What it learns about your files (names
 hashes, meaning vectors) stays in files on your own disk, readable by you alone. This page lists
 every time something can go over the network, and how to stop each one.
 
-![Settings, Search by meaning, with A server with the OpenAI API chosen and Server http://evo:8000/api/v1: under it the line The text of your files is sent to evo to get its vectors](../screenshots/reference-privacy-remote.png)
+![Settings, Finding files, Details, Meaning, with A server with the OpenAI API chosen and Server http://evo:8000/api/v1: under it the line The text of your files is sent to evo to get its vectors](../screenshots/reference-privacy-remote.png)
+<!-- screenshot: reference-privacy-remote.png: desktop app, Cyber theme, Settings at Finding files with Details → Meaning open: Made by "A server with the OpenAI API", Server http://evo:8000/api/v1, and under it in bold "The text of your files, with their names and folders, is sent to evo to get its vectors." -->
 
 ## Contents
 
@@ -22,8 +23,8 @@ every time something can go over the network, and how to stop each one.
 
 To keep everything on this machine:
 
-1. Turn the update check off: Settings (**Ctrl+,**) → *Behaviour* → untick *Check for a new
-   version once a day*, or `check_updates = false` in `config.toml`.
+1. Turn the update check off: Settings (**Ctrl+,**) → *Privacy and updates* → untick *Check for
+   a new version*, or `check_updates = false` in `config.toml`.
 2. For search by meaning, use the built-in model (`coxswain --meaning builtin`) or a server on
    this machine (`localhost`). Downloading the built-in model is the one request it makes, once.
 3. Leave `[preview] container = "off"` if you do not want podman or docker to pull images.
@@ -67,13 +68,13 @@ script or a picture on the web gets nothing from the web ([HTML pages](../previe
 
 | When | What goes where | Who starts it | To stop it |
 |---|---|---|---|
-| **Update check**, once a day | A request to `api.github.com` for the latest release's version number, with `User-Agent: coxswain/1.20.0` | Both apps, by themselves | `check_updates = false`, or untick *Settings → Behaviour → Check for a new version once a day* ([Update checks](updates.md)) |
+| **Update check**, once a day | A request to `api.github.com` for the latest release's version number, with `User-Agent: coxswain/1.20.0` | Both apps, by themselves | `check_updates = false`, or untick *Settings → Privacy and updates → Check for a new version* ([Update checks](updates.md)) |
 | **Model download**, once | The three files of multilingual-e5-small (about 488 MB) from `huggingface.co` | You: *Download the model* in Settings, or `coxswain --meaning on` | Do not turn search by meaning on, or use a server |
 | **Search by meaning on another machine** | The text of your files (all of it, up to 256 passages each, with the file's name and two folders) and everything you type in Find file while search by meaning is on, to that server | You: a *Server* that is not on this machine | Use the built-in model or a server on `localhost`. Settings warns: *The text of your files, with their names and folders, is sent to evo to get its vectors.* |
 | **Ask** | The question, the questions and answers before it in this Find file, and the ten closest passages with their paths, to the chat model on the server (Ollama on this machine with the built-in model). Nothing is stored | You: asking in Find file (**Ctrl+Enter** / **Alt+Enter**, or **Enter** on the *Ask* row) ([Ask](../search/ask.md)). With Find's scope on a folder, only passages of that folder are sent | Leave *Chat model* empty, or use a server on `localhost` |
 | **Ollama pull** | Ollama downloads the model from its registry | You: *Pull bge-m3 with Ollama* or `coxswain --meaning ollama` | Do not pull |
 | **Container images** | podman or docker downloads the image from its registry (`docker.io`) | You: the first build or render with a container, or *Pull* in Settings. Never by itself | `[preview] container = "off"` |
-| **Links you click** | The release notes, a docs page under *Settings → What's new* (on GitHub), a web link in a rendered Markdown or AsciiDoc file: each opens in your browser. *What's new* itself is built into the app | You | – |
+| **Links you click** | The release notes, a docs page under *Settings → Overview → What's new* (on GitHub), a web link in a rendered Markdown or AsciiDoc file: each opens in your browser. *What's new* itself is built into the app | You | – |
 
 On a machine with search by meaning on the built-in model, Coxswain also asks
 `http://localhost:11434`, now and then, whether Ollama runs there, to suggest it. That request
@@ -84,7 +85,10 @@ Every preview library ships inside the app, and draw.io's viewer runs offline.
 
 ## What you see
 
-- With a remote server chosen, Settings → *Search by meaning* shows under it
+- Settings → *Privacy and updates* → *What can leave this machine* lists every request your
+  settings allow, each with where it goes, and marks the ones that stay on this machine; the
+  *Privacy and updates* line in *Overview* names those that leave it.
+- With a remote server chosen, Settings → *Finding files* → *Details* → *Meaning* shows under it
   *The text of your files, with their names and folders, is sent to evo to get its vectors.*, with the server's host name.
 - An update found by the check shows as a button in the desktop app and a line in the terminal
   app's status line: [Update checks](updates.md#what-you-see).
@@ -95,11 +99,11 @@ Every preview library ships inside the app, and draw.io's viewer runs offline.
 
 | Settings | Key | Default | Network when |
 |---|---|---|---|
-| *Behaviour* → *Check for a new version once a day* | `check_updates` | `true` | On: once a day, to GitHub |
-| *Search by meaning* → *Vectors made by* | `[search] meaning_engine` | `"builtin"` | `"ollama"` or `"openai"` with a remote `meaning_url` |
-| *Search by meaning* → *Server* | `[search] meaning_url` | `""` | Not `localhost` |
-| *Search by meaning* → *API key from the variable* | `[search] meaning_key_env` | `""` | The key is sent to the saved server only (unencrypted over `http://`), and never stored in `config.toml` |
-| *Previews made by tools* → *Container runtime* | `[preview] container` | `"auto"` | Pulling an image, when you ask |
+| *Privacy and updates* → *Check for a new version* | `check_updates` | `true` | On: once a day, to GitHub |
+| *Finding files* → *Details* → *Meaning* → *Made by* | `[search] meaning_engine` | `"builtin"` | `"ollama"` or `"openai"` with a remote `meaning_url` |
+| *Finding files* → *Details* → *Meaning* → *Server* | `[search] meaning_url` | `""` | Not `localhost` |
+| *Finding files* → *Details* → *Meaning* → *API key from the environment variable* | `[search] meaning_key_env` | `""` | The key is sent to the saved server only (unencrypted over `http://`), and never stored in `config.toml` |
+| *Previews* → *Container runtime* | `[preview] container` | `"auto"` | Pulling an image, when you ask |
 
 ## In the terminal app
 

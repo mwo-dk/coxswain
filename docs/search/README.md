@@ -13,9 +13,9 @@ read and when, and every setting.
 | Group of Find | Finds | Needs |
 |---|---|---|
 | [Names](names.md) | Files and folders by name, on the whole machine or in the scope | Nothing |
-| [In files](text.md) | Files whose text has your words, ranked by words and meaning together | *Search inside files* on (the default) and the [helper](helper.md) |
+| [In files](text.md) | Files whose text has your words, ranked by words and meaning together | *Words inside files* on (the default) and the [helper](helper.md) |
 | [About this](meaning.md) | Files about your words that lack them, in any language | [Search by meaning](meaning.md) |
-| [History](history.md) | Commits whose message, author or paths match | *Search the history of git repositories too* (on by default) |
+| [History](history.md) | Commits whose message, author or paths match | *Git history* (on by default) |
 | [The Ask row](ask.md) | An answer to your question, written from the passages closest to it, with numbered sources | Search by meaning and a chat model on your server |
 
 Every group finds files [inside archives](archives.md) too. The **scope** (*Everywhere* or the
@@ -41,8 +41,8 @@ active panel's folder, **Ctrl+F** inside Find) limits every group and Ask.
 | [Ask](ask.md) | Questions answered from your files by your own chat model, with numbered sources |
 | [The search helper](helper.md) | The background process, starting it with your session, and how an app takes the registration over after an upgrade |
 | [Battery](battery.md) | Why reading waits while a laptop runs on its battery |
-| [Notices and what's new](notices.md) | Tips of what to turn on, what each version brought (*Settings → What's new*, `coxswain --whats-new`), and the version in the title |
-| [Search settings](settings.md) | Every item of *Settings → Search inside files* and *Search by meaning*, with its `config.toml` key |
+| [Notices and what's new](notices.md) | Tips of what to turn on, what each version brought (*Settings → Overview → What's new*, `coxswain --whats-new`), and the version in the title |
+| [Search settings](settings.md) | Every item of *Settings → Finding files*, with its `config.toml` key |
 
 ## Keys at a glance
 
@@ -60,9 +60,9 @@ active panel's folder, **Ctrl+F** inside Find) limits every group and Ask.
 | **F3** | no (the preview pane is behind) | yes | View the file, then come back to the results |
 | **F4** | yes | yes | Edit the file, without leaving Find file |
 | **Esc** | yes | yes | In an answer: back to the list; in the list: close Find file |
-| **Ctrl+,** | yes | no Settings window | Settings, with *Search inside files* and *Search by meaning* |
+| **Ctrl+,** | yes | no Settings window | Settings, at *Finding files* |
 
-New to it? [Smart search in a few minutes](setup.md) walks through it: **Set up…** in Settings, or
+New to it? [Smart search in a few minutes](setup.md) walks through it: **Set up…** in Settings (*Overview* or *Finding files*), or
 `coxswain --setup-search`.
 
 The terminal app sets everything with `config.toml` and flags such as `coxswain --meaning on`

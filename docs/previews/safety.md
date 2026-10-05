@@ -92,7 +92,7 @@ the app, and previews of every kind are blocked from the web.
 ## Settings and config.toml
 
 Only the tool timeout: `[preview] timeout` (10 to 3600 seconds, default 120), *Settings →
-Previews made by tools → Timeout (seconds)*. The limits above are fixed.
+Previews → Timeout (seconds)*. The limits above are fixed.
 
 ## In the terminal app
 
@@ -132,8 +132,8 @@ No. The pane's libraries are loaded the first time a file needs one, not when th
 
 #### Does a preview leave anything behind?
 
-Only in the cache folder: tool results and LibreOffice's profile. *Settings → Previews made by
-tools → Clear* removes the results.
+Only in the cache folder: tool results and LibreOffice's profile. *Settings → Previews →
+Previews made so far → Clear* removes the results.
 
 ---
 [← Previous: Containers](containers.md) · [Next: Files →](../files/README.md)
