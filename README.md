@@ -32,7 +32,7 @@ Commander blue to Windows 95 and Mac OS 9.*
 - **History as folders:** **Ctrl+G** on a file or folder lists its commits; Enter on one browses the files as they were, F5 copies an old version out, and Find file finds commit messages. [Git history](docs/panels/git-history.md) · [History in search](docs/search/history.md)
 - **Folder sizes without asking,** instant in your home folder. [Folder sizes](docs/panels/folder-sizes.md)
 - **Finds duplicates** by content across folders and disks, and marks the extra copies by rule. [Duplicates](docs/files/duplicates.md)
-- **Eighteen themes with the looks of their era,** and 24 languages, listed by region, Hebrew right to left, Greek capitals without accents. [Themes](docs/customise/themes.md) · [Languages](docs/customise/languages.md)
+- **Eighteen themes with the looks of their era,** and 26 languages, listed by region: Hebrew right to left, Greek capitals without accents, Japanese and Korean lined up in the terminal. [Themes](docs/customise/themes.md) · [Languages](docs/customise/languages.md)
 - **Nothing leaves your machine** unless you ask for it. [Privacy](docs/reference/privacy.md)
 
 | | |

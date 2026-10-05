@@ -69,6 +69,10 @@ The Windows and Mac themes, Cyber and NC bring their own interface font and put 
 ([Looks](looks.md)); under them Settings says *Cyber and the Windows and Mac themes bring their
 own font; these fonts apply to the others.*
 
+After any of these fonts come Japanese and Korean fonts (Hiragino Sans, Yu Gothic, Noto Sans CJK,
+Malgun Gothic, …), so file names and texts in those letters are drawn even when the chosen font
+lacks them; see [Japanese and Korean](languages.md#japanese-and-korean).
+
 ## Your own glyph set
 
 Give `[glyph_set]` the glyphs you want. It replaces `glyphs` in both apps; a glyph you leave out

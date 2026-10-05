@@ -117,7 +117,7 @@ New here? Start with [The screen](panels/the-screen.md) and [Every default key](
 | [Themes](customise/themes.md) | The 18 built-in themes, picking one in each app (Settings, F9 "Theme: …", `theme` / `[gui] theme`), what the terminal app takes |
 | [Looks](customise/looks.md) | The desktop app's corners, bevels, title bars and era fonts per theme, `look =` in your own theme |
 | [Your own theme and the colour slots](customise/own-theme.md) | Your own theme: `[themes.<name>]`, starting from --dump-config, colour names vs #rrggbb, every colour slot and where each app uses it |
-| [Languages](customise/languages.md) | The 24 languages with flags, by region, how Automatic picks one, right to left in Hebrew, what is translated, improving a translation |
+| [Languages](customise/languages.md) | The 26 languages with flags, by region, how Automatic picks one, right to left in Hebrew, what is translated, improving a translation |
 | [Changing keys](customise/keys.md) | `[keys]`, key names, rules, every action with its default, keys that cannot be changed, terminal limits |
 | [Glyphs and fonts](customise/glyphs-and-fonts.md) | Nerd Font or ASCII glyphs, `[glyph_set]`, file icons, the interface/monospaced/icon fonts, text size and line height |
 

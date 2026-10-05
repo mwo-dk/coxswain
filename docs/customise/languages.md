@@ -2,7 +2,7 @@
 
 # Languages
 
-Both apps, the terminal app and the desktop app, speak 24 languages. They share one set of
+Both apps, the terminal app and the desktop app, speak 26 languages. They share one set of
 translations and one setting, so they always agree. By default Coxswain follows your system's
 language.
 
@@ -16,6 +16,7 @@ language.
 - [Which language Automatic picks](#which-language-automatic-picks)
 - [What you see](#what-you-see)
 - [Capitals in Greek](#capitals-in-greek)
+- [Japanese and Korean](#japanese-and-korean)
 - [Right to left](#right-to-left)
 - [Settings and config.toml](#settings-and-configtoml)
 - [In the terminal app](#in-the-terminal-app)
@@ -58,6 +59,8 @@ Both apps list them by region, and by their own name within a region:
 | | **Asia and the Pacific** | |
 | <img src="../flags/au.svg" width="24" alt=""> | English (Australia) | `en-AU` |
 | <img src="../flags/nz.svg" width="24" alt=""> | English (New Zealand) | `en-NZ` |
+| <img src="../flags/jp.svg" width="24" alt=""> | 日本語 (Japanese) *(new)* | `ja` |
+| <img src="../flags/kr.svg" width="24" alt=""> | 한국어 (Korean) *(new)* | `ko` |
 
 The ones marked *new* are fresh translations that no native speaker has checked yet: Settings
 marks them *new*, and [Improving a translation](#improving-a-translation) says how to help.
@@ -117,6 +120,7 @@ English counts); otherwise the nearest relative of the first one:
 | Occitan | Catalan |
 | Polish, Czech, Ukrainian, Greek (`pl_PL`, `cs_CZ`, `uk_UA`, `el_GR`, `el_CY`, …) | That language |
 | Slovak | Czech, which Slovak readers read |
+| Japanese, Korean (`ja_JP`, `ko_KR`, …) | That language |
 | Hebrew (also the old code `iw`) | Hebrew |
 | Anything else | British English |
 
@@ -145,6 +149,35 @@ Cyber theme's dialog titles). Greek drops its accents in capitals and keeps a di
 its web view that the page is Greek, which uppercases it so (WebKitGTK on Linux, WebKit on
 macOS and WebView2 on Windows all do). The terminal app writes no translated text in capitals.
 
+## Japanese and Korean
+
+Both are written in letters that take two columns in a terminal and need a font that has them.
+
+- **Fonts in the desktop app:** after every font list (*Font*, *Monospaced font*, the era fonts
+  of the themes) come Hiragino Sans, Yu Gothic, Meiryo and Noto Sans CJK JP, then Apple SD
+  Gothic Neo, Malgun Gothic and Noto Sans CJK KR (Korean first when Coxswain speaks Korean, as
+  the same Han letter is drawn differently in each). The first installed one draws them: on
+  macOS and Windows one always is. This holds for file names in any language too.
+- **No font on Linux:** when Coxswain speaks Japanese or Korean and `fc-list` knows no font
+  for it, *Settings → What's new* says once *No Japanese or Korean font is installed…* and
+  names the package: `noto-fonts-cjk` (Arch), `fonts-noto-cjk` (Debian, Ubuntu),
+  `google-noto-sans-cjk-fonts` (Fedora). Until then the letters show as boxes.
+- **Typing with an input method** (IME: Mozc, Kotoeri, the Microsoft IME, a Hangul keyboard):
+  works in every text field of the desktop app (Find file, the path bar, rename, notes, the
+  dialogs). While a word is being composed, Enter, Esc and the arrows belong to the input
+  method: Enter takes the word and does not run the dialog, Esc drops the word and does not
+  close it.
+- **Quick search** (**Alt+letter**, then letters) jumps to a name that starts with what you
+  type; a name kept decomposed (as macOS does with Hangul, or か + ゙ for が) is found by the
+  composed letters. An input method composes only in a text field, so in the desktop app quick
+  search takes the letters typed straight from the keyboard; for a Japanese or Korean name use
+  *Find file* (**Alt+F7**), where the input method works. In the terminal app, letters an input
+  method commits go to quick search once it is started.
+- **The terminal app** measures every text by the columns it takes, not by its letters: the
+  column titles, sizes and the marked line are centred and cut to their columns, the F-key bar
+  keeps ten slots, and Find and the dialogs keep their frames. Your terminal needs a font with
+  these letters (most terminals fall back to one by themselves).
+
 ## Right to left
 
 ![The desktop app in Hebrew, mirrored: the sidebar on the right, file names aligned right with their icons on the right, the F-key bar running from F1 on the right](../screenshots/gui-lang-he.png)
@@ -169,7 +202,7 @@ One key for both apps.
 
 ## In the terminal app
 
-The same 24 languages and the same translations, chosen by the same `language` key. It is read
+The same 26 languages and the same translations, chosen by the same `language` key. It is read
 when the app starts; there is no picker, but `coxswain --languages` prints the list by region,
 the one in use and the new ones marked, and where to suggest a better word. Right to left
 depends on the terminal (see
@@ -207,10 +240,22 @@ picks *Deutsch (Schweiz)*, which writes *ss* and «guillemets». For *ß* and �
 
 #### Polish, Czech, Ukrainian or Greek reads oddly in places. Why?
 
-These four are new, marked *new* in Settings, and have not been read by a native speaker yet.
+These are new, marked *new* in Settings (and so are Japanese and Korean), and have not been read by a native speaker yet.
 Coxswain shows the notice "*Polski is a new translation…*" once (in the desktop app under
 Settings → *What's new*, in the terminal app in the status line) to say so. A better word is
 very welcome: see [Improving a translation](#improving-a-translation).
+
+#### Japanese or Korean shows as boxes. What is missing?
+
+A font with those letters. On Linux install `noto-fonts-cjk` (Arch), `fonts-noto-cjk` (Debian,
+Ubuntu) or `google-noto-sans-cjk-fonts` (Fedora) and start the desktop app again; the desktop
+app says so once under *Settings → What's new*. In the terminal app, it is the terminal's font
+that needs them. See [Japanese and Korean](#japanese-and-korean).
+
+#### I type Japanese and press Enter, and the dialog does nothing. Why?
+
+The first Enter takes the word your input method was composing; it is not a key for Coxswain
+yet. Press Enter once more to run the dialog. Esc likewise drops the composed word first.
 
 #### Why are key names in English?
 
@@ -232,7 +277,7 @@ Labels on the F-key bar must fit about nine characters, so some are abbreviated 
 ## Improving a translation
 
 The translations were written with care but have not all been checked by native speakers yet.
-The ones marked *new* (Polish, Czech, Ukrainian, Greek) need a native reader most, then Basque,
+The ones marked *new* (Polish, Czech, Ukrainian, Greek, Japanese, Korean) need a native reader most, then Basque,
 Latvian and Lithuanian. Corrections are very welcome, in either of two ways:
 
 - **Tell us:** open an [issue on GitHub](https://github.com/mwo-dk/coxswain/issues/new) with the
@@ -249,7 +294,8 @@ Latvian and Lithuanian. Corrections are very welcome, in either of two ways:
    entry per plural form your language uses: `one`/`other` for most, `one`/`few`/`other` for
    Lithuanian, `zero`/`one`/`other` for Latvian, `one`/`two`/`other` for Hebrew, and
    `one`/`many`/`other` for French, Italian, Spanish and Catalan, `one`/`few`/`many`/`other`
-   for Polish and Ukrainian, `one`/`few`/`other` for Czech.
+   for Polish and Ukrainian, `one`/`few`/`other` for Czech, and only `other` for Japanese and
+   Korean, which do not change a word for a count.
 3. Run `cargo test -p coxswain-core i18n`: it checks that every file parses, has no unknown
    keys, keeps the placeholders and has an `other` form.
 4. Open a pull request.
