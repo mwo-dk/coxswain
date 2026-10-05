@@ -258,9 +258,10 @@ fn ram_gb() -> u64 {
         let info = std::fs::read_to_string("/proc/meminfo").unwrap_or_default();
         info.lines().find_map(|l| l.strip_prefix("MemTotal:")).and_then(|v| v.trim().trim_end_matches("kB").trim().parse::<u64>().ok()).map_or(0, |kb| kb.div_ceil(1 << 20))
     }
-    #[cfg(target_os = "macos")]
+    #[cfg(any(target_os = "macos", target_os = "freebsd"))]
     {
-        crate::tools::command("sysctl").args(["-n", "hw.memsize"]).output().ok().and_then(|o| String::from_utf8_lossy(&o.stdout).trim().parse::<u64>().ok()).map_or(0, |b| b.div_ceil(1 << 30))
+        let key = if cfg!(target_os = "macos") { "hw.memsize" } else { "hw.physmem" };
+        crate::tools::command("sysctl").args(["-n", key]).output().ok().and_then(|o| String::from_utf8_lossy(&o.stdout).trim().parse::<u64>().ok()).map_or(0, |b| b.div_ceil(1 << 30))
     }
     #[cfg(windows)]
     {
@@ -269,7 +270,7 @@ fn ram_gb() -> u64 {
         s.dwLength = std::mem::size_of::<MEMORYSTATUSEX>() as u32;
         if unsafe { GlobalMemoryStatusEx(&mut s) } != 0 { s.ullTotalPhys.div_ceil(1 << 30) } else { 0 }
     }
-    #[cfg(not(any(target_os = "linux", target_os = "macos", windows)))]
+    #[cfg(not(any(target_os = "linux", target_os = "macos", target_os = "freebsd", windows)))]
     {
         0
     }

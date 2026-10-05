@@ -169,7 +169,7 @@ impl Index {
     }
 
     fn excluded(&self, path: &Path, name: &str) -> bool {
-        self.exclude.iter().any(|e| if e.contains(['/', '\\']) { path.starts_with(e) } else { e == name })
+        excluded(&self.exclude, path, name)
     }
 
     /// Walk `roots` in parallel and index every name, with `archives` the entries of the
@@ -883,6 +883,17 @@ impl Service {
                 rebuild_at = Instant::now() + Duration::from_secs(3600);
                 if watch && watcher.is_none() {
                     watcher = notify::RecommendedWatcher::new(tx.clone(), notify::Config::default().with_follow_symlinks(false)).ok();
+                    // kqueue (the BSDs) holds an open descriptor for every path it watches, and a
+                    // recursive watch opens every file: only folders are watched there, and a
+                    // changed folder is looked at again, which is all the index needs.
+                    if KQUEUE {
+                        if let Some(w) = watcher.as_mut() {
+                            for dir in folders_to_watch(&roots, &exclude, KQUEUE_FOLDERS) {
+                                let _ = w.watch(&dir, RecursiveMode::NonRecursive);
+                            }
+                        }
+                        continue;
+                    }
                     for root in &roots {
                         let Some(w) = watcher.as_mut() else { break };
                         // Watch top-level children one by one so excluded trees (/proc) are skipped.
@@ -922,9 +933,56 @@ impl Service {
     }
 }
 
+/// The file watcher is kqueue, which needs an open descriptor per watched path.
+const KQUEUE: bool = cfg!(any(target_os = "freebsd", target_os = "dragonfly", target_os = "netbsd", target_os = "openbsd"));
+/// Folders watched at most under kqueue: each holds a descriptor of the system's file table.
+// ponytail: a fixed share of kern.maxfiles; past it the deepest folders wait for the hourly rebuild.
+const KQUEUE_FOLDERS: usize = 20_000;
+
+/// Whether `exclude` leaves out `path`, named `name`: an entry with a slash is a path and leaves
+/// out its tree, a bare name leaves out every folder of that name.
+fn excluded(exclude: &[String], path: &Path, name: &str) -> bool {
+    exclude.iter().any(|e| if e.contains(['/', '\\']) { path.starts_with(e) } else { e == name })
+}
+
+/// The folders under `roots`, shallowest first, at most `max`, leaving out `exclude` and links.
+fn folders_to_watch(roots: &[PathBuf], exclude: &[String], max: usize) -> Vec<PathBuf> {
+    let mut out: Vec<PathBuf> = vec![];
+    let mut next: std::collections::VecDeque<PathBuf> = roots.iter().filter(|r| r.is_dir()).cloned().collect();
+    while let Some(dir) = next.pop_front() {
+        if out.len() >= max {
+            break;
+        }
+        if let Ok(rd) = fs::read_dir(&dir) {
+            for e in rd.flatten() {
+                let p = e.path();
+                if e.file_type().is_ok_and(|t| t.is_dir()) && !excluded(exclude, &p, &e.file_name().to_string_lossy()) {
+                    next.push_back(p);
+                }
+            }
+        }
+        out.push(dir);
+    }
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn kqueue_watches_folders_only_shallowest_first() {
+        let d = tree("kq");
+        let all = folders_to_watch(&[d.clone()], &[d.join("skip").to_string_lossy().into_owned(), "ui".into()], usize::MAX);
+        // Breadth first: the root, then docs and src in the order the disk lists them; skip by
+        // its path and ui by its name are left out.
+        assert_eq!(all.len(), 3);
+        assert_eq!(all[0], d);
+        assert!(all.contains(&d.join("docs")) && all.contains(&d.join("src")));
+        assert_eq!(folders_to_watch(&[d.clone()], &[], usize::MAX).last(), Some(&d.join("src/ui")));
+        assert_eq!(folders_to_watch(&[d.clone()], &[], 2).len(), 2);
+        fs::remove_dir_all(d).unwrap();
+    }
 
     fn name_of(p: &Path) -> String {
         p.file_name().unwrap().to_string_lossy().into_owned()

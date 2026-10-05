@@ -78,8 +78,11 @@ pub fn upgrade_hint() -> Option<&'static str> {
     let exe = std::fs::canonicalize(&exe).unwrap_or(exe);
     // A cask copies Coxswain.app into /Applications, so the path alone does not show Homebrew.
     let cask = ["/opt/homebrew", "/usr/local"].iter().any(|p| Path::new(p).join("Caskroom/coxswain-gui").is_dir());
-    hint_for(&exe.to_string_lossy(), cfg!(target_os = "macos") && cask)
+    hint_for(&exe.to_string_lossy(), cfg!(target_os = "macos") && cask).or(cfg!(target_os = "freebsd").then_some(FREEBSD_UPDATE))
 }
+
+/// On FreeBSD the install script updates both apps: it fetches the latest release again.
+pub const FREEBSD_UPDATE: &str = "fetch -qo - https://raw.githubusercontent.com/mwo-dk/coxswain/master/install/install-freebsd.sh | sh";
 
 fn hint_for(exe: &str, mac_cask: bool) -> Option<&'static str> {
     let p = exe.replace('\\', "/").to_lowercase();

@@ -38,5 +38,5 @@ default = ["custom-protocol"]
 custom-protocol = ["tauri/custom-protocol"]
 
 # The title bar GTK draws keeps its first title; it is set as well (`set_title`).
-[target.'cfg(target_os = "linux")'.dependencies]
+[target.'cfg(all(unix, not(target_os = "macos")))'.dependencies]
 gtk = "0.18.2"

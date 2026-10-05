@@ -1,0 +1,124 @@
+.Dd October 5, 2026
+.Dt COXSWAIN 1
+.Os
+.Sh NAME
+.Nm coxswain ,
+.Nm cox
+.Nd two-pane file manager for the terminal
+.Sh SYNOPSIS
+.Nm
+.Op Ar left
+.Op Ar right
+.Nm
+.Fl -setup-search
+.Nm
+.Fl -index-service Cm on | off
+.Nm
+.Fl -meaning Ar setting
+.Nm
+.Fl -dump-config | -config-path | -paths | -languages | -version | -help
+.Nm
+.Fl -whats-new
+.Op Cm all
+.Sh DESCRIPTION
+.Nm
+is a file manager in the Norton Commander tradition: two panels side by side, the function
+keys along the bottom, and git status in every panel.
+It finds files by name across the whole machine as you type, searches inside documents,
+and can search by meaning with a model that runs on the machine itself.
+.Nm cox
+is the same program under a shorter name.
+.Pp
+The panels open at
+.Ar left
+and
+.Ar right
+when they are given.
+A file opens its folder with the cursor on it.
+.Pp
+Press
+.Ic F1
+in the program for the keys, and
+.Ic F9
+for the menus.
+.Sh OPTIONS
+.Bl -tag -width Ds
+.It Fl -dump-config
+Print the full default configuration.
+Redirect it to the configuration file to customise it.
+.It Fl -config-path
+Print where the configuration file is read from.
+.It Fl -paths
+Print where everything is kept: configuration, state, file index, search store and model.
+.It Fl -setup-search
+Set up search inside files, search by meaning and Ask, step by step.
+It finds the model servers on this machine and says what suits it.
+.It Fl -index-service Cm on | off
+Start the search helper with the desktop session, or stop doing so.
+On
+.Fx
+this writes an XDG autostart entry,
+.Pa ~/.config/autostart/coxswain-index.desktop .
+.It Fl -meaning Cm on | off | delete
+Search by meaning: download the built-in model and turn it on, turn it off,
+or turn it off and delete the model.
+.It Fl -meaning Cm ollama Op Ar model
+Take the vectors from Ollama on this machine
+.Pq bge-m3 unless a model is named; it is pulled if missing .
+.It Fl -meaning Cm server Ar url model
+Take the vectors from a server with the OpenAI API.
+.It Fl -meaning Cm builtin | cpu | auto
+Back to the built-in model; on the processor only; or on a GPU where one can be used.
+.It Fl -meaning Cm ask Ar model | Cm off
+The chat model that answers questions from your files in Find file.
+.It Fl -languages
+List the languages and how to help improve a new translation.
+.It Fl -whats-new Op Cm all
+Show what the versions since you last looked brought.
+.It Fl -version
+Print the version.
+.It Fl -help
+Print a summary of the options.
+.El
+.Sh ENVIRONMENT
+.Bl -tag -width XDG_CONFIG_HOME
+.It Ev XDG_CONFIG_HOME
+Where the configuration is kept, if set.
+.It Ev XDG_CACHE_HOME
+Where the file index and the search store are kept, if set.
+.It Ev VISUAL , Ev EDITOR
+The editor
+.Ic F4
+opens, unless the configuration names one.
+.El
+.Sh FILES
+.Bl -tag -width Ds -compact
+.It Pa ~/.config/coxswain/config.toml
+The configuration.
+.It Pa ~/.cache/coxswain/
+The file index, the search store and the search helper's address.
+.It Pa ~/.local/share/Trash/
+Where deleted files go, as other desktop programs expect.
+.El
+.Sh EXIT STATUS
+.Ex -std
+.Sh EXAMPLES
+Open the current folder on the left and the home folder on the right:
+.Pp
+.Dl $ coxswain . ~
+.Pp
+Start the search helper at login from now on:
+.Pp
+.Dl $ coxswain --index-service on
+.Sh SEE ALSO
+.Xr fetch 1 ,
+.Xr rc.conf 5 ,
+.Xr pkg 8
+.Pp
+The documentation:
+.Lk https://github.com/mwo-dk/coxswain/blob/master/docs/README.md
+and on
+.Fx :
+.Lk https://github.com/mwo-dk/coxswain/blob/master/docs/reference/freebsd.md
+.Sh AUTHORS
+.An Michael W. Olesen

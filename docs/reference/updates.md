@@ -68,6 +68,7 @@ It is worked out from where the program is installed:
 | Homebrew cask (the desktop app) | `brew upgrade --cask coxswain-gui` |
 | Cargo | `cargo install coxswain` |
 | WinGet, the terminal app (`mwo-dk.Coxswain.Terminal`) | `winget upgrade mwo-dk.Coxswain.Terminal` |
+| Anything else on FreeBSD (the install script, the archives) | `fetch -qo - https://raw.githubusercontent.com/mwo-dk/coxswain/master/install/install-freebsd.sh \| sh`, which updates both apps where they are ([FreeBSD](freebsd.md#updating)) |
 | A download, `.deb`, `.rpm`, AppImage, the Windows installer (also when WinGet ran it: `winget upgrade mwo-dk.Coxswain`), AUR, a source build | None: it points to the [releases page](https://github.com/mwo-dk/coxswain/releases/latest) |
 
 The install tables in the [README](../../README.md#install) say how to update each.

@@ -553,7 +553,7 @@ fn read_changes(ctx: tauri::State<Ctx>) -> Res<()> {
 #[tauri::command]
 fn set_title(title: String, window: tauri::WebviewWindow) -> Res<()> {
     window.set_title(&title).map_err(|e| e.to_string())?;
-    #[cfg(target_os = "linux")]
+    #[cfg(all(unix, not(target_os = "macos")))]
     {
         let w = window.clone();
         window
@@ -1190,9 +1190,9 @@ fn set_permissions(path: PathBuf, mode: Option<u32>, readonly: bool) -> Res<()> 
 
 // ---------------------------------------------------------------- clipboard
 
-// Linux file managers exchange percent-encoded `file://` URIs; macOS and Windows take paths.
+// Linux and BSD file managers exchange percent-encoded `file://` URIs; macOS and Windows take paths.
 fn to_clip(p: &Path) -> String {
-    if !cfg!(target_os = "linux") {
+    if cfg!(any(windows, target_os = "macos")) {
         return p.to_string_lossy().into_owned();
     }
     let mut s = String::from("file://");
@@ -1287,9 +1287,9 @@ fn start_drag(paths: Vec<PathBuf>, window: tauri::Window) -> Res<()> {
     let app = window.app_handle().clone();
     app.run_on_main_thread(move || {
         let icon = drag::Image::Raw(include_bytes!("../icons/32x32.png").to_vec());
-        #[cfg(target_os = "linux")]
+        #[cfg(all(unix, not(target_os = "macos")))]
         let target = window.gtk_window();
-        #[cfg(not(target_os = "linux"))]
+        #[cfg(not(all(unix, not(target_os = "macos"))))]
         let target = Ok::<_, tauri::Error>(window.clone());
         if let Ok(w) = target {
             let _ = drag::start_drag(&w, drag::DragItem::Files(paths), icon, |_, _| {}, drag::Options::default());
@@ -1657,7 +1657,7 @@ mod tests {
     #[test]
     fn clipboard_uris_roundtrip() {
         let p = PathBuf::from("/tmp/a b/ø%.txt");
-        if cfg!(target_os = "linux") {
+        if !cfg!(any(windows, target_os = "macos")) {
             assert_eq!(to_clip(&p), "file:///tmp/a%20b/%C3%B8%25.txt");
         }
         assert_eq!(from_clip(&to_clip(&p)), p);

@@ -15,6 +15,9 @@ The first build takes a few minutes. After that, rebuilding is quick.
 **Rather not build?** Ready-made installers for Windows, macOS and Linux are on the
 [releases page](https://github.com/mwo-dk/coxswain/releases/latest).
 
+**On FreeBSD** there is a script of its own that installs both apps from the release, with `pkg`
+for what the desktop app needs: see [FreeBSD](../docs/reference/freebsd.md).
+
 ## Getting the code
 
 Clone it with git, or unpack an archive you were sent:

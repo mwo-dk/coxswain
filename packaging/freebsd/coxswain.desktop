@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Coxswain
+Comment=File manager: two panes, git status, instant search
+Exec=coxswain-gui %F
+Icon=coxswain
+Terminal=false
+Categories=System;FileTools;FileManager;

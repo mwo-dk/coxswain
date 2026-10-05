@@ -166,7 +166,7 @@ Settings writes only the key you change, into the same file. The helper takes th
 when it starts; make a change in Settings to start it again.
 
 #### Where is *Start with my session* kept?
-Not in `config.toml`: it is the systemd unit, LaunchAgent or *Run* entry itself. Settings shows
+Not in `config.toml`: it is the systemd unit, LaunchAgent, *Run* entry or autostart entry itself. Settings shows
 whether it is there.
 
 #### Can I set these per folder or per window?
