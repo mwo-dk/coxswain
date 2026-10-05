@@ -5,7 +5,7 @@
   import { invoke, size, parent } from "./lib.js";
   import { t, setLanguage } from "./i18n.svelte.js";
 
-  const flags = import.meta.glob("../node_modules/flag-icons/flags/4x3/{gb,au,ca,nz,dk,se,fi,ee,lv,lt,de,fr,it,nl,ar,es-ct,es-pv,il}.svg", {
+  const flags = import.meta.glob("../node_modules/flag-icons/flags/4x3/{gb,au,ca,nz,dk,se,fi,ee,lv,lt,de,at,ch,fr,it,nl,ar,es-ct,es-pv,il}.svg", {
     query: "?url",
     import: "default",
     eager: true,
@@ -77,6 +77,13 @@
     if (!error) await invoke("index_action", { what: "restart" }).catch((e) => (error = String(e)));
     loadIndex();
   }
+  // A change of the vectors' model reads every file's meaning again: said, and confirmed, first.
+  let vectorsChange = $state(null);
+  async function setVectors(el, name, value) {
+    const why = await invoke("meaning_change", { name, value }).catch(() => null);
+    if (!why) return setSearch(name, value);
+    vectorsChange = { why, go: () => setSearch(name, value), keep: () => (el.value = s[name]) };
+  }
   const adding = $state({ text_roots: "", names_only: "", text_exclude: "", cloud_read: "" });
   /** What the store has of a folder read: its bytes and files, and whether its disk is away. */
   const rootInfo = (dir) => {
@@ -123,8 +130,18 @@
   let chatModels = $state([]);
   $effect(() => {
     const [engine, url] = [server ?? "ollama", server ? s.meaning_url : ""];
-    invoke("meaning_models", { engine, url }).then((list) => (chatModels = list), () => (chatModels = []));
+    invoke("meaning_models", { engine, url, chat: true }).then((list) => (chatModels = list), () => (chatModels = []));
   });
+  // Why the chat model cannot answer: asked when Settings opens, tried when it is saved.
+  let askProblem = $state(null);
+  $effect(() => {
+    if (s.ask_model && s.search_meaning) invoke("ask_check", { tryIt: false }).then((p) => (askProblem = p), () => {});
+    else askProblem = null;
+  });
+  async function setAskModel(model) {
+    await set("ask_model", model);
+    askProblem = model ? await invoke("ask_check", { tryIt: true }).catch((e) => String(e)) : null;
+  }
   // A pull that finished brings its model into the list.
   let pulling = false;
   $effect(() => {
@@ -405,7 +422,7 @@
       <p class="hint">{t(server ? "settings.meaning_hint_server" : "settings.meaning_hint")}</p>
       <div class="grid">
         <label for="mengine">{t("settings.meaning_engine")}</label>
-        <select id="mengine" value={s.meaning_engine} onchange={(e) => setSearch("meaning_engine", e.currentTarget.value)}>
+        <select id="mengine" value={s.meaning_engine} onchange={(e) => setVectors(e.currentTarget, "meaning_engine", e.currentTarget.value)}>
           <option value="builtin">{t("settings.meaning_builtin", { size: size(meaning?.size ?? 0) })}</option>
           <option value="ollama">Ollama</option>
           <option value="openai">{t("settings.meaning_openai")}</option>
@@ -415,7 +432,7 @@
           <input id="murl" value={s.meaning_url} spellcheck="false" placeholder={server === "ollama" ? "http://localhost:11434" : "http://localhost:8000/api/v1"} onchange={(e) => setSearch("meaning_url", e.currentTarget.value.trim())} />
           <label for="mmodel">{t("settings.meaning_model")}</label>
           <div class="folder">
-            <input id="mmodel" list="mmodels" value={s.meaning_model} spellcheck="false" placeholder={server === "ollama" ? "bge-m3" : ""} onchange={(e) => setSearch("meaning_model", e.currentTarget.value.trim())} />
+            <input id="mmodel" list="mmodels" value={s.meaning_model} spellcheck="false" placeholder={server === "ollama" ? "bge-m3" : ""} onchange={(e) => setVectors(e.currentTarget, "meaning_model", e.currentTarget.value.trim())} />
             <datalist id="mmodels">{#each models.list as m (m)}<option value={m}></option>{/each}</datalist>
             {#if server === "ollama" && models.ok && !models.list.some((m) => m.split(":")[0] === wanted)}
               <button disabled={!!meaning?.downloading} onclick={() => pull(wanted)}>{t("settings.meaning_pull", { model: wanted })}</button>
@@ -432,6 +449,13 @@
           </p>
         {/if}
       </div>
+      {#if vectorsChange}
+        <p><strong>{vectorsChange.why}</strong></p>
+        <div class="buttons">
+          <button class="primary" onclick={() => { vectorsChange.go(); vectorsChange = null; }}>{t("settings.meaning_change_go")}</button>
+          <button onclick={() => { vectorsChange.keep(); vectorsChange = null; }}>{t("settings.meaning_change_keep")}</button>
+        </div>
+      {/if}
       {#if meaning?.downloading}
         <p class="hint">{t("settings.meaning_downloading", { done: size(meaning.downloading[0]), total: size(meaning.downloading[1]) })}</p>
         <progress max={meaning.downloading[1] || 1} value={meaning.downloading[0]}></progress>
@@ -465,9 +489,10 @@
       <p class="hint">{t("settings.ask_hint", { server: server ? s.meaning_url || (server === "ollama" ? "http://localhost:11434" : "") : "Ollama (http://localhost:11434)" })}</p>
       <div class="grid">
         <label for="askmodel">{t("settings.ask_model")}</label>
-        <input id="askmodel" list="askmodels" value={s.ask_model} spellcheck="false" placeholder="qwen3:8b" onchange={(e) => set("ask_model", e.currentTarget.value.trim())} />
+        <input id="askmodel" list="askmodels" value={s.ask_model} spellcheck="false" placeholder="qwen3:8b" onchange={(e) => setAskModel(e.currentTarget.value.trim())} />
         <datalist id="askmodels">{#each chatModels as m (m)}<option value={m}></option>{/each}</datalist>
       </div>
+      {#if askProblem}<p class="err">{askProblem}</p>{/if}
     </section>
 
     <section>

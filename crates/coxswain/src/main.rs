@@ -308,6 +308,10 @@ pub struct App {
     pub chat: Vec<Turn>,
     ask_rx: Option<mpsc::Receiver<AskMsg>>,
     ask_stop: Arc<std::sync::atomic::AtomicBool>,
+    /// The chat model Ask last checked, the answer on its way, and why it cannot answer.
+    ask_checked: Option<String>,
+    ask_check_rx: Option<mpsc::Receiver<Option<String>>>,
+    pub ask_problem: Option<String>,
     /// When `tell` last looked.
     told: Instant,
     /// The stop flag of each panel's measuring.
@@ -455,6 +459,9 @@ impl App {
             chat: vec![],
             ask_rx: None,
             ask_stop: Arc::default(),
+            ask_checked: None,
+            ask_check_rx: None,
+            ask_problem: None,
             told: Instant::now(),
             measuring: Default::default(),
             run: None,
@@ -1260,6 +1267,7 @@ impl App {
         self.ask_stop.store(true, std::sync::atomic::Ordering::SeqCst);
         self.ask_rx = None;
         self.chat.clear();
+        self.ask_checked = None;
     }
 
     fn dialog_key(&mut self, key: Key) {
@@ -1303,7 +1311,7 @@ impl App {
                 let source = sources.get(cursor).cloned();
                 match (key.code, ch) {
                     _ if esc => return self.forget_chat(),
-                    (KeyCode::Enter, _) if !query.trim().is_empty() && self.cfg.search.meaning && !self.cfg.search.ask_model.is_empty() => {
+                    (KeyCode::Enter, _) if !query.trim().is_empty() && self.cfg.search.meaning && !self.cfg.search.ask_model.is_empty() && self.ask_problem.is_none() => {
                         self.ask(std::mem::take(&mut query).trim().to_string());
                         cursor = 0;
                     }
@@ -1542,6 +1550,20 @@ impl App {
                 }
             }
         }
+        // Ask's depth in sight: the chat model is asked whether it can answer, once per opening.
+        let model = &self.cfg.search.ask_model;
+        if matches!(self.dialog, Some(Dialog::Search { mode: 3, .. })) && self.cfg.search.meaning && !model.is_empty() && self.ask_checked.as_ref() != Some(model) {
+            self.ask_checked = Some(model.clone());
+            self.ask_problem = None;
+            let (tx, rx) = mpsc::channel();
+            let cfg = self.cfg.search.clone();
+            std::thread::spawn(move || tx.send(coxswain_core::meaning::chat_problem(&cfg, false)));
+            self.ask_check_rx = Some(rx);
+        }
+        if let Some(problem) = self.ask_check_rx.as_ref().and_then(|rx| rx.try_recv().ok()) {
+            self.ask_problem = problem;
+            self.ask_check_rx = None;
+        }
         while let Some(msg) = self.ask_rx.as_ref().and_then(|rx| rx.try_recv().ok()) {
             let Some(turn) = self.chat.last_mut() else { break };
             match msg {
@@ -1750,10 +1772,25 @@ fn meaning(what: Option<&str>, rest: &[String]) {
         std::process::exit(1)
     };
     let save = |key: &str, value: &str| drop(Config::save_value(&["search", key], value.into()).unwrap_or_else(|e| fail(e)));
+    // Another model for the vectors reads every file's meaning again: said, and asked, first.
+    let confirm = |change: &dyn Fn(&mut coxswain_core::config::SearchConfig)| {
+        let old = Config::load().map(|c| c.search).unwrap_or_default();
+        let mut new = old.clone();
+        change(&mut new);
+        if let Some(why) = meaning::change_notice(&old, &new, Client::start(&old).status().meaning_done) {
+            eprint!("{why} {} ", t!("tui.meaning_change_ask"));
+            let mut answer = String::new();
+            let _ = std::io::stdin().read_line(&mut answer);
+            if !matches!(answer.trim(), "y" | "Y") {
+                std::process::exit(0);
+            }
+        }
+    };
     match what {
         // Ollama on this machine makes the vectors; the model is pulled when it is not there.
         Some("ollama") => {
             let model = rest.first().map_or("bge-m3", String::as_str);
+            confirm(&|c| (c.meaning_engine, c.meaning_url, c.meaning_model) = ("ollama".into(), String::new(), model.into()));
             let have = meaning::server_models(false, "", None).unwrap_or_else(|e| fail(e));
             if !have.iter().any(|m| m == model || m.split(':').next() == Some(model)) {
                 eprintln!("{}", t!("tui.meaning_pulling", "model" => model));
@@ -1767,6 +1804,7 @@ fn meaning(what: Option<&str>, rest: &[String]) {
         // Any server with the OpenAI API: `--meaning server http://evo:8000/api/v1 <model>`.
         Some("server") => {
             let (Some(url), Some(model)) = (rest.first(), rest.get(1)) else { fail(t!("tui.meaning_server_usage")) };
+            confirm(&|c| (c.meaning_engine, c.meaning_url, c.meaning_model) = ("openai".into(), url.clone(), model.clone()));
             let key = meaning::key_of(&Config::load().map(|c| c.search).unwrap_or_default());
             meaning::server_models(true, url, key.as_deref()).unwrap_or_else(|e| fail(e));
             save("meaning_engine", "openai");
@@ -1775,6 +1813,7 @@ fn meaning(what: Option<&str>, rest: &[String]) {
             Config::save_value(&["search", "meaning"], true.into()).unwrap_or_else(|e| fail(e));
         }
         Some("builtin") => {
+            confirm(&|c| c.meaning_engine = "builtin".into());
             save("meaning_engine", "builtin");
             return meaning(Some("on"), &[]);
         }
@@ -1823,6 +1862,10 @@ fn meaning(what: Option<&str>, rest: &[String]) {
                 }
                 eprintln!("{}", t!("tui.meaning_pulling", "model" => model));
                 meaning::ollama_pull(url, model, &meaning::Progress::default()).unwrap_or_else(|e| fail(e.to_string()));
+            }
+            // An embedding model, or one the server will not run, is refused before it is saved.
+            if let Some(why) = meaning::chat_problem(&coxswain_core::config::SearchConfig { ask_model: model.clone(), ..search }, true) {
+                fail(why);
             }
             return save("ask_model", model);
         }

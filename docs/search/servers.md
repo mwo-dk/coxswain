@@ -46,6 +46,12 @@ themselves. The *Server* field is the base URL: Coxswain adds `/api/embed` for O
 
 - **Another model makes them all again.** Vectors of two models cannot be compared, so switching
   model or server replaces every vector, in the background; search by words goes on meanwhile.
+  Before it is saved, Settings says what it costs, for example *Changing the embedding model
+  re-reads the meaning of 3437 files (about 2 hours on this machine).*, with **Change and
+  re-read** and **Keep the current model**; `coxswain --meaning ollama|server|builtin` prints the
+  same and asks *Go on? [y/N]*. The time comes from the new model making the vectors of one long
+  file. The same model written another way (`bge-m3` and `bge-m3:latest`), or the same weights
+  under another name on Ollama, is no change: the vectors stay.
 - **A server that does not answer** pauses search by meaning: Settings, the terminal app's Find
   file and a [notice](notices.md) show the error (*No vectors: …*), the files
   wait, and they are done at the next pass once it answers. A search asks the server for the
@@ -113,7 +119,9 @@ use `https://` for a server on another machine.
 
 #### Why does switching the model start over?
 Vectors of two models cannot be compared. The store remembers which model made them, and when that
-changes every file gets new ones.
+changes every file gets new ones. You are asked first, with the number of files and about how long it takes.
+Picking `bge-m3:latest` from the list for `bge-m3` is not a switch: Ollama's missing tag counts as
+`:latest`, and Ollama's digest of the weights is compared too.
 
 #### The server was off for a while. Do I have to do anything?
 No. Files wait while it does not answer, and are done once it does.

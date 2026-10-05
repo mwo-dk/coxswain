@@ -44,8 +44,10 @@ Ask never uses a service on the internet unless you point the server address at 
 ## How to use it
 
 1. **Set the chat model** once. Desktop app: **Ctrl+,** → *Search by meaning* → *Ask* →
-   *Chat model* (the list offers what the server has). Terminal app:
-   `coxswain --meaning ask qwen3:8b`. On Ollama a missing model is pulled first.
+   *Chat model* (the list offers the models on the server that can answer: on Ollama, models
+   that only make vectors, such as `bge-m3`, are left out). Terminal app:
+   `coxswain --meaning ask qwen3:8b`. On Ollama a missing model is pulled first. A model that
+   cannot answer is refused with the reason (below), in both apps.
 2. Press **Ctrl+F7** (the F9 command list calls it *Ask your files*): Find file opens at *Ask*
    (desktop app: the fourth button lit; terminal app: the prompt `ask: `). Already in Find file,
    **Ctrl+F7** goes there too, as do **Shift+Tab** from *Everywhere* and a click on the *Ask*
@@ -83,6 +85,11 @@ Ask never uses a service on the internet unless you point the server address at 
   server:* with the link *set it up*. With no chat model: *Ask needs a chat model on your server
   (Ollama, Lemonade, LM Studio):* with the same link. The link opens Settings at the right
   section. The terminal app says which command to run.
+- **A model that cannot answer**: when the chat model only makes vectors, the line under the
+  field says so in red instead, for example *bge-m3 makes vectors and cannot answer: choose a
+  chat model, e.g. qwen3:8b.*, with the link *set it up* (desktop app), and **Enter** does not
+  send the question. A model the server does not have shows the server's message, such as
+  *model 'qwen3' not found*. Settings shows the same line in red under *Chat model*.
 - **Ready**, before the first question: *qwen3:8b answers from the passages of your files closest
   to the question, citing them as [1], [2]. Nothing is kept.*
 - **Each question** is in bold (desktop app) or after `›` in the search colour (terminal app),
@@ -135,7 +142,7 @@ crowd out the rest. Ten passages of up to 120 words fit in the context of small 
 keep the answer quick.
 
 #### Does Ask see the whole of a long document?
-Yes, since 1.33.0: every passage of a file has a vector, up to 256 of them (about 25,000 words), so
+Yes, since 1.34.0: every passage of a file has a vector, up to 256 of them (about 25,000 words), so
 the passage that answers can come from the last chapter. Each passage is matched with the file's
 name, its folder and its Markdown heading in front of it, so *what does the rocket plan say about
 the launch window?* finds the section under *Launch window* in `rocket/plan.md`. A file longer
@@ -169,6 +176,15 @@ question is sent. A server with the OpenAI API (Lemonade, LM Studio, llama.cpp) 
 before the question: it loads the model when the question comes. Either way *Waiting for … to
 answer* shows under the question until the first word. Ask waits up to five minutes for the answer to start, and **Esc** stops the
 wait at any moment. After that the words come as they are made.
+
+#### It says my model makes vectors and cannot answer. Why?
+The model in *Chat model* is an embedding model, such as `bge-m3` or `nomic-embed-text`: it turns
+text into vectors for search by meaning and cannot write an answer. Pick a chat model instead,
+such as `qwen3:8b`. On Ollama, Coxswain asks the server what each model can do (`/api/show`)
+when Find file opens at *Ask* and when Settings opens, and the *Chat model* list leaves embedding
+models out. A server with the OpenAI API does not say: its whole list is offered, and the model
+you choose is sent a one-word question when you save it (Settings, or `coxswain --meaning ask`);
+its error, if any, shows under *Chat model*.
 
 #### Why does a follow-up sometimes find other sources?
 Each question looks up its own passages, together with the question before it. The numbers
