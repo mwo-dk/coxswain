@@ -21,13 +21,16 @@ until you turn it on.
 
 ## How to use it
 
-**Turn it on** (once):
+**Turn it on** (once). The quickest way is the guided setup, [Smart search in a few
+minutes](setup.md): **Set up…** at the top of *Settings → Search by meaning*, or
+`coxswain --setup-search`. It finds a model server on your machine and says whether the built-in
+model or a server suits it. By hand:
 
 | Where | How |
 |---|---|
 | Desktop app | *Settings → Search by meaning → Download the model (465 MB) and turn on*. A bar shows *Downloading the model: 120 MB of 465 MB*; **Cancel** stops it |
 | Terminal app | `coxswain --meaning on`: prints *Downloading the model for search by meaning: 42%*, then turns it on (with a [server](servers.md) as the engine, nothing is downloaded) |
-| A link | *turn on search by meaning* under Find file's text depth, and the [notice](notices.md) *New: search by meaning finds files about your words, in any language. Turn it on*: in the desktop app under *Settings → What's new* (**Show me**), in the terminal app once in the status line |
+| A link | *set up search by meaning* under Find file's text depth (it opens the guided setup), and the [notice](notices.md) *New: search by meaning finds files about your words, in any language. Turn it on*: in the desktop app under *Settings → What's new* (**Show me**), in the terminal app once in the status line |
 
 It needs *Search inside files* on: the button is greyed out otherwise. Then:
 

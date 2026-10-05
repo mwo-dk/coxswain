@@ -695,7 +695,7 @@ fn unthink(piece: &str, thinking: &mut bool) -> String {
 
 /// A server's URL as an error names it: without the `user:password@` a URL may carry, which
 /// would otherwise show in the status line and in Settings.
-fn shown(url: &str) -> String {
+pub(crate) fn shown(url: &str) -> String {
     match url.split_once("://") {
         Some((scheme, rest)) if rest.split(['/', '?', '#']).next().is_some_and(|host| host.contains('@')) => format!("{scheme}://{}", &rest[rest.find('@').unwrap() + 1..]),
         _ => url.to_string(),
@@ -704,7 +704,7 @@ fn shown(url: &str) -> String {
 
 /// TLS that trusts the system's certificate store, as the update check does, so a proxy that
 /// inspects TLS or a server with a company certificate works.
-fn tls() -> ureq::tls::TlsConfig {
+pub(crate) fn tls() -> ureq::tls::TlsConfig {
     ureq::tls::TlsConfig::builder().root_certs(ureq::tls::RootCerts::PlatformVerifier).build()
 }
 
@@ -739,7 +739,7 @@ pub fn chat_models(openai: bool, url: &str, key: Option<&str>) -> Result<Vec<Str
 
 /// What an Ollama model can do, from `/api/show`: its capabilities ("completion", "embedding",
 /// …), or None when the server does not say (an Ollama before 0.6.4).
-fn ollama_can(agent: &ureq::Agent, url: &str, model: &str) -> Result<Option<Vec<String>>, String> {
+pub(crate) fn ollama_can(agent: &ureq::Agent, url: &str, model: &str) -> Result<Option<Vec<String>>, String> {
     let body = serde_json::json!({ "model": model }).to_string();
     let mut res = agent.post(&format!("{url}/api/show")).header("Content-Type", "application/json").send(body).map_err(|e| format!("{}: {e}", shown(url)))?;
     let text = res.body_mut().read_to_string().map_err(|e| e.to_string())?;
@@ -752,7 +752,7 @@ fn ollama_can(agent: &ureq::Agent, url: &str, model: &str) -> Result<Option<Vec<
 
 /// The error a server's answer names (`{"error": "…"}` or `{"error": {"message": "…"}}`), or
 /// the answer itself.
-fn said(text: &str) -> String {
+pub(crate) fn said(text: &str) -> String {
     let v: serde_json::Value = serde_json::from_str(text).unwrap_or_default();
     v["error"].as_str().or_else(|| v["error"]["message"].as_str()).map_or_else(|| text.to_string(), String::from)
 }

@@ -7,6 +7,10 @@ The built-in model needs nothing but is slow on a laptop's CPU. If you run
 LM Studio, llama.cpp, vLLM, LocalAI, OpenAI itself), it can make the vectors for
 [search by meaning](meaning.md) instead, on its GPU or NPU, with a bigger model.
 
+The guided setup finds the servers on this machine and what their models can do, says which suits
+your hardware, and sets it all: [Smart search in a few minutes](setup.md) (**Set up…** in
+Settings, or `coxswain --setup-search`). It has a section per server, with the models to use.
+
 ![Settings, Search by meaning, with Vectors made by Ollama, Server empty (http://localhost:11434), Embedding model bge-m3, the line The server answers. and Understood: 107 files · still to go: 0, ollama:bge-m3 and Turn off](../screenshots/search-meaning-server.png)
 
 ## How to use it
