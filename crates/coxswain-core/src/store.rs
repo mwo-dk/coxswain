@@ -75,6 +75,8 @@ pub struct Store {
     /// The signs of every passage's vector, read from `chunks` for the first search by meaning
     /// and kept up to date after.
     signs: Mutex<Option<Signs>>,
+    /// Where the store is: the signs are read on a connection of their own.
+    path: PathBuf,
     /// Files whose vectors were dropped for a new way of making passages, while they get new
     /// ones; and how long a file took, in milliseconds, as measured, for the time left.
     pub renewing: AtomicUsize,
@@ -219,7 +221,7 @@ impl Store {
             db.execute_batch("ALTER TABLE files ADD COLUMN cloud INTEGER")?;
         }
         let renewing = passages_are(&db, crate::meaning::SCHEME)?;
-        Ok(Store { db: Mutex::new(db), pending: AtomicUsize::new(0), hurry: AtomicBool::new(false), cleared: AtomicBool::new(false), walked: Mutex::default(), offline: Mutex::default(), paused: AtomicBool::new(false), configured: Mutex::default(), meaning: AtomicBool::new(false), engine: Mutex::default(), meaning_error: Mutex::default(), error: Mutex::default(), signs: Mutex::default(), renewing: AtomicUsize::new(renewing), ms_per_file: AtomicUsize::new(0), clouds: Mutex::default() })
+        Ok(Store { db: Mutex::new(db), pending: AtomicUsize::new(0), hurry: AtomicBool::new(false), cleared: AtomicBool::new(false), walked: Mutex::default(), offline: Mutex::default(), paused: AtomicBool::new(false), configured: Mutex::default(), meaning: AtomicBool::new(false), engine: Mutex::default(), meaning_error: Mutex::default(), error: Mutex::default(), signs: Mutex::default(), path: path.to_path_buf(), renewing: AtomicUsize::new(renewing), ms_per_file: AtomicUsize::new(0), clouds: Mutex::default() })
     }
 
     /// Bytes and files below `dir`, and when the walk they come from began. `None` until a
@@ -481,8 +483,10 @@ impl Store {
         for (path, (bytes, files)) in skipped {
             tx.execute("INSERT OR REPLACE INTO skipped(path, bytes, files) VALUES (?1, ?2, ?3)", params![path, *bytes as i64, *files as i64])?;
         }
+        // Committed with the signs held, so signs being read meanwhile have all of it or none.
+        let mut signs = self.signs.lock().unwrap();
         tx.commit()?;
-        if let Some(signs) = self.signs.lock().unwrap().as_mut().filter(|_| !stale.is_empty()) {
+        if let Some(signs) = signs.as_mut().filter(|_| !stale.is_empty()) {
             signs.retain(|file| !stale.contains(&file));
         }
         Ok(())
@@ -688,8 +692,9 @@ impl Store {
             tx.execute("INSERT INTO chunks(file, n, vector) VALUES (?1, ?2, ?3)", params![file, n as i64, v])?;
         }
         tx.execute("UPDATE files SET embedded = 1 WHERE id = ?1", [file])?;
+        let mut signs = self.signs.lock().unwrap();
         tx.commit()?;
-        if let Some(signs) = self.signs.lock().unwrap().as_mut() {
+        if let Some(signs) = signs.as_mut() {
             // A file that changed lost its passages already: no pass over them all for it.
             if had {
                 signs.retain(|f| f != file);
@@ -699,6 +704,35 @@ impl Store {
             }
         }
         Ok(())
+    }
+
+    /// `f` on the signs of every passage, read first if they are not yet: on a connection of
+    /// their own, so the store goes on answering meanwhile (two million passages take seconds).
+    /// Writes that change them commit while holding them.
+    fn with_signs<T>(&self, f: impl FnOnce(&Signs) -> T) -> T {
+        let mut known = self.signs.lock().unwrap();
+        if known.is_none() {
+            let read = || -> rusqlite::Result<Signs> {
+                let db = Connection::open_with_flags(&self.path, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY)?;
+                db.busy_timeout(Duration::from_secs(10))?;
+                let mut q = db.prepare("SELECT file, n, vector FROM chunks")?;
+                let mut rows = q.query([])?;
+                let mut out = Signs::default();
+                while let Some(r) = rows.next()? {
+                    out.push(r.get(0)?, r.get::<_, i64>(1)? as u8, r.get_ref(2)?.as_blob()?);
+                }
+                Ok(out)
+            };
+            *known = Some(read().unwrap_or_default());
+        }
+        f(known.as_ref().unwrap())
+    }
+
+    /// Read the signs ahead of the first search by meaning, when it is on.
+    pub fn warm_signs(&self) {
+        if self.engine().is_some() {
+            self.with_signs(|_| ());
+        }
     }
 
     /// Files whose passages mean what `query` asks, closest first, each with the start of
@@ -744,24 +778,9 @@ impl Store {
                 return vec![];
             }
         };
-        let wanted = signs(&pack(&q));
-        let db = self.db.lock().unwrap();
-        let mut known = self.signs.lock().unwrap();
-        if known.is_none() {
-            let read = || -> rusqlite::Result<Signs> {
-                let mut q = db.prepare("SELECT file, n, vector FROM chunks")?;
-                let mut rows = q.query([])?;
-                let mut out = Signs::default();
-                while let Some(r) = rows.next()? {
-                    out.push(r.get(0)?, r.get::<_, i64>(1)? as u8, r.get_ref(2)?.as_blob()?);
-                }
-                Ok(out)
-            };
-            *known = Some(read().unwrap_or_default());
-        }
         // The signs sieve out all but the thousand closest; their vectors say how close.
-        let close = known.as_ref().unwrap().closest(&wanted, 1000);
-        drop(known);
+        let close = self.with_signs(|s| s.closest(&signs(&pack(&q)), 1000));
+        let db = self.db.lock().unwrap();
         let Ok(mut vec) = db.prepare_cached("SELECT vector FROM chunks WHERE file = ?1 AND n = ?2") else { return vec![] };
         let mut ranked: Vec<(i64, f32, u8)> = close.into_iter().filter_map(|(file, n)| vec.query_row(params![file, n as i64], |r| Ok(score(r.get_ref(0)?.as_blob()?, &q))).ok().map(|s| (file, s, n))).collect();
         drop(vec);
@@ -975,18 +994,21 @@ fn by_files(ranked: Vec<(i64, f32, u8)>) -> Vec<(i64, f32, u8)> {
 }
 
 /// Vectors of passages made another way than `scheme` go, the text stays, and the files get
-/// new ones in the background: how many files had them. Checked when the store is opened.
+/// new ones in the background. Checked when the store is opened, by whichever process opens
+/// it first: how many files are being renewed, kept in the meta (`renew`) until they are done.
 fn passages_are(db: &Connection, scheme: &str) -> rusqlite::Result<usize> {
-    let before: String = db.query_row("SELECT value FROM meta WHERE key = 'passages'", [], |r| r.get(0)).unwrap_or_default();
-    if before == scheme {
-        return Ok(0);
+    let meta = |key: &str| db.query_row("SELECT value FROM meta WHERE key = ?1", [key], |r| r.get::<_, String>(0)).unwrap_or_default();
+    if meta("passages") != scheme {
+        let tx = db.unchecked_transaction()?;
+        let had = tx.execute("UPDATE files SET embedded = NULL WHERE embedded IS NOT NULL", [])?;
+        tx.execute("DELETE FROM chunks", [])?;
+        tx.execute("INSERT OR REPLACE INTO meta(key, value) VALUES ('passages', ?1)", [scheme])?;
+        if had > 0 {
+            tx.execute("INSERT OR REPLACE INTO meta(key, value) VALUES ('renew', ?1)", [had.to_string()])?;
+        }
+        tx.commit()?;
     }
-    let tx = db.unchecked_transaction()?;
-    let had = tx.execute("UPDATE files SET embedded = NULL WHERE embedded IS NOT NULL", [])?;
-    tx.execute("DELETE FROM chunks", [])?;
-    tx.execute("INSERT OR REPLACE INTO meta(key, value) VALUES ('passages', ?1)", [scheme])?;
-    tx.commit()?;
-    Ok(had)
+    Ok(meta("renew").parse().unwrap_or(0))
 }
 
 /// Bring the store up to date with the disk, once. Reads and hashes at half speed, one file
@@ -1054,7 +1076,9 @@ fn embed(store: &Store, stop: &AtomicBool) -> rusqlite::Result<()> {
     loop {
         let files = store.unembedded(8)?;
         if files.is_empty() {
-            store.renewing.store(0, Ordering::Relaxed);
+            if store.renewing.swap(0, Ordering::Relaxed) > 0 {
+                store.db.lock().unwrap().execute("DELETE FROM meta WHERE key = 'renew'", [])?;
+            }
             return Ok(());
         }
         let (start, count) = (Instant::now(), files.len());
@@ -1358,6 +1382,7 @@ pub fn keep_current(store: &Store, cfg: &SearchConfig, stop: &AtomicBool, change
         if scanned.is_ok() {
             *store.error.lock().unwrap() = None;
         }
+        store.warm_signs();
         report(scanned);
         let (rest, mut refreshed, mut measured) = (Instant::now(), Instant::now(), Instant::now());
         let (mut now, mut later) = (HashSet::new(), HashSet::new());
@@ -1896,6 +1921,9 @@ mod tests {
 
         let store = open();
         assert_eq!(store.renewing.load(Ordering::Relaxed), 3);
+        drop(store);
+        let store = open();
+        assert_eq!(store.renewing.load(Ordering::Relaxed), 3, "still renewing after a restart, or when another process opened the store first");
         assert_eq!((store.meaning_counts(), chunks(&store)), ((3, 0), 0), "the vectors went");
         assert_eq!(store.search("zebra", 10).total, 3, "the text stayed");
         let first = store.unembedded(3).unwrap().into_iter().map(|(_, path, _)| path).collect::<Vec<_>>();
@@ -1962,19 +1990,13 @@ mod tests {
         println!("store: {} MB", store.bytes() >> 20);
         let q = unit();
         let t = Instant::now();
-        let db = store.db.lock().unwrap();
-        let mut signs = Signs::default();
-        let mut rows = db.prepare("SELECT file, n, vector FROM chunks").unwrap();
-        let mut rows = rows.query([]).unwrap();
-        while let Some(r) = rows.next().unwrap() {
-            signs.push(r.get(0).unwrap(), r.get::<_, i64>(1).unwrap() as u8, r.get_ref(2).unwrap().as_blob().unwrap());
-        }
-        let bytes = signs.bits.capacity() * 8 + signs.files.capacity() * 8 + signs.ns.capacity();
-        println!("signs of {} passages: {} MB, read in {:.0} ms", signs.files.len(), bytes >> 20, t.elapsed().as_secs_f64() * 1000.0);
+        let (count, bytes) = store.with_signs(|s| (s.files.len(), s.bits.capacity() * 8 + s.files.capacity() * 8 + s.ns.capacity()));
+        println!("signs of {count} passages: {} MB, read in {:.0} ms", bytes >> 20, t.elapsed().as_secs_f64() * 1000.0);
         let wanted = crate::meaning::signs(&crate::meaning::pack(&q));
+        let db = store.db.lock().unwrap();
         for _ in 0..3 {
             let t = Instant::now();
-            let close = signs.closest(&wanted, 1000);
+            let close = store.with_signs(|s| s.closest(&wanted, 1000));
             let sieve = t.elapsed().as_secs_f64() * 1000.0;
             let t = Instant::now();
             let mut vec = db.prepare_cached("SELECT vector FROM chunks WHERE file = ?1 AND n = ?2").unwrap();

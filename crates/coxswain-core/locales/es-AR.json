@@ -826,7 +826,7 @@
  "settings.meaning_on": "Activar",
  "settings.meaning_openai": "Un servidor con la API de OpenAI (Lemonade, LM Studio, llama.cpp …)",
  "settings.meaning_pull": "Descargar {model} con Ollama",
- "settings.meaning_remote": "El texto de tus archivos se envía a {host} para obtener sus vectores.",
+ "settings.meaning_remote": "El texto de tus archivos, con sus nombres y carpetas, se envía a {host} para obtener sus vectores.",
  "settings.meaning_remove": "Borrar el modelo",
  "settings.meaning_server_ok": "El servidor responde.",
  "settings.meaning_status": "Entendidos: {done} archivos · faltan: {pending}",

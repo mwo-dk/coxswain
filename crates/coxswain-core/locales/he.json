@@ -826,7 +826,7 @@
  "settings.meaning_on": "הפעלה",
  "settings.meaning_openai": "שרת עם ה-API של OpenAI ‏(Lemonade, LM Studio, llama.cpp …)",
  "settings.meaning_pull": "משיכת {model} עם Ollama",
- "settings.meaning_remote": "הטקסט של הקבצים שלכם נשלח אל {host} כדי לקבל את הווקטורים שלו.",
+ "settings.meaning_remote": "הטקסט של הקבצים שלכם, עם השמות והתיקיות שלהם, נשלח אל {host} כדי לקבל את הווקטורים שלו.",
  "settings.meaning_remove": "מחיקת המודל",
  "settings.meaning_server_ok": "השרת עונה.",
  "settings.meaning_status": "הובנו: {done} קבצים · נותרו: {pending}",

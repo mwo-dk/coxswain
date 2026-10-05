@@ -504,7 +504,7 @@ pub struct Passage {
 pub fn passages(text: &str, markdown: bool) -> Vec<Passage> {
     // (passage, whether it starts a section)
     let mut all: Vec<(Passage, bool)> = vec![];
-    let (mut cur, mut fresh, mut heading, mut starts) = (Vec::<&str>::new(), 0, "", true);
+    let (mut cur, mut fresh, mut heading, mut starts, mut code) = (Vec::<&str>::new(), 0, "", true, false);
     let mut flush = |cur: &mut Vec<&str>, fresh: &mut usize, heading: &str, starts: &mut bool, keep: usize| {
         if *fresh > 0 {
             all.push((Passage { text: cur.join(" "), heading: heading.to_string() }, *starts));
@@ -517,7 +517,9 @@ pub fn passages(text: &str, markdown: bool) -> Vec<Passage> {
         let line = line.trim();
         let hashes = line.len() - line.trim_start_matches('#').len();
         let mut words = line;
-        if markdown && (1..=6).contains(&hashes) && line[hashes..].starts_with(' ') {
+        // A `# comment` in a fenced block of code is no heading.
+        code ^= markdown && (line.starts_with("```") || line.starts_with("~~~"));
+        if markdown && !code && (1..=6).contains(&hashes) && line[hashes..].starts_with(' ') {
             flush(&mut cur, &mut fresh, heading, &mut starts, 0);
             heading = line[hashes..].trim();
             words = heading;
@@ -833,7 +835,7 @@ mod tests {
         let ps = passages(&one, false);
         assert_eq!(ps.iter().map(|p| p.text.split(' ').next().unwrap()).collect::<Vec<_>>(), ["x0", "x100", "x200"]);
 
-        let md = format!("# Fuel\n\n{}\n\n## Launch window\n\n{}\n", "tanks fuel budget kerosene ".repeat(20), "the window opens at dawn ".repeat(10));
+        let md = format!("# Fuel\n\n{}\n\n```sh\n# not a heading\n```\n\n## Launch window\n\n{}\n", "tanks fuel budget kerosene ".repeat(20), "the window opens at dawn ".repeat(10));
         let ps = passages(&md, true);
         assert_eq!(ps.iter().map(|p| p.heading.as_str()).collect::<Vec<_>>(), ["Fuel", "Launch window"]);
         assert!(ps[1].text.starts_with("Launch window the window"), "{}", ps[1].text);

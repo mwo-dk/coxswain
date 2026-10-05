@@ -781,7 +781,7 @@
  "settings.meaning_on": "Ota käyttöön",
  "settings.meaning_openai": "OpenAI-rajapintaa puhuva palvelin (Lemonade, LM Studio, llama.cpp …)",
  "settings.meaning_pull": "Nouda {model} Ollamalla",
- "settings.meaning_remote": "Tiedostojesi teksti lähetetään palvelimelle {host} vektoreita varten.",
+ "settings.meaning_remote": "Tiedostojesi teksti nimineen ja kansioineen lähetetään palvelimelle {host} vektoreita varten.",
  "settings.meaning_remove": "Poista malli",
  "settings.meaning_server_ok": "Palvelin vastaa.",
  "settings.meaning_status": "Ymmärretty: {done} tiedostoa · jäljellä: {pending}",

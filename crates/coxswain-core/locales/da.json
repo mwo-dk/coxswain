@@ -781,7 +781,7 @@
  "settings.meaning_on": "Slå til",
  "settings.meaning_openai": "En server med OpenAI-API (Lemonade, LM Studio, llama.cpp …)",
  "settings.meaning_pull": "Hent {model} med Ollama",
- "settings.meaning_remote": "Teksten i dine filer sendes til {host} for at få dens vektorer.",
+ "settings.meaning_remote": "Teksten i dine filer sendes med deres navne og mapper til {host} for at få dens vektorer.",
  "settings.meaning_remove": "Slet modellen",
  "settings.meaning_server_ok": "Serveren svarer.",
  "settings.meaning_status": "Forstået: {done} filer · mangler: {pending}",

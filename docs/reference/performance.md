@@ -29,7 +29,7 @@ numbers measured on synthetic data, so you know what to expect and can measure a
 - **Search follows a changed archive member by member:** a member that kept its size and date
   in the archive keeps its text and vectors; only the changed ones are read again. An archive
   written in the last three seconds (a download) waits until it has settled.
-- **Search by meaning reads only what it shows:** the few hundred closest passages are ranked
+- **Search by meaning reads only what it shows:** the thousand closest passages are ranked
   by their vectors alone, and the text of a file is read only when one of its passages is
   among the hits.
 - **Git's walk never holds a listing:** a folder sorted by commit lists by name at once when

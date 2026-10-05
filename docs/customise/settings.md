@@ -126,7 +126,7 @@ Details: [Text in files](../search/text.md) and [Choosing the folders](../search
 | *Server* | Only for a server. Empty means `http://localhost:11434` for Ollama; for the OpenAI API, the base URL such as `http://localhost:8000/api/v1` | `[search] meaning_url` |
 | *Embedding model* | Only for a server, with the server's models to pick from; `bge-m3` is Ollama's suggestion. **Pull bge-m3 with Ollama** shows when Ollama does not have it | `[search] meaning_model` |
 | *API key from the variable* | Only for the OpenAI API: the name of an environment variable, such as `OPENAI_API_KEY`. The key itself is never written to the file | `[search] meaning_key_env` |
-| The server line | *The server answers.*, or the error; and when the server is not this machine, in bold, *The text of your files is sent to … to get its vectors.* | |
+| The server line | *The server answers.*, or the error; and when the server is not this machine, in bold, *The text of your files, with their names and folders, is sent to … to get its vectors.* | |
 | **Download the model (…) and turn on** | For the built-in model, before it is downloaded; *Downloading the model: … of …* with a bar and **Cancel** | `[search] meaning` |
 | **Turn on** / **Turn off** | Once the model is there, or with a server. Greyed out while *Keep the text of files* is unticked | `[search] meaning` |
 | **Delete the model** | Built-in model only | |

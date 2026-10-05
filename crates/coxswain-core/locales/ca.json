@@ -826,7 +826,7 @@
  "settings.meaning_on": "Activa",
  "settings.meaning_openai": "Un servidor amb l'API d'OpenAI (Lemonade, LM Studio, llama.cpp …)",
  "settings.meaning_pull": "Baixa {model} amb Ollama",
- "settings.meaning_remote": "El text dels vostres fitxers s'envia a {host} per obtenir-ne els vectors.",
+ "settings.meaning_remote": "El text dels vostres fitxers, amb els seus noms i carpetes, s'envia a {host} per obtenir-ne els vectors.",
  "settings.meaning_remove": "Suprimeix el model",
  "settings.meaning_server_ok": "El servidor respon.",
  "settings.meaning_status": "Entesos: {done} fitxers · en falten: {pending}",

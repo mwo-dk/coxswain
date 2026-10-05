@@ -781,7 +781,7 @@
  "settings.meaning_on": "Aktibatu",
  "settings.meaning_openai": "OpenAI APIa duen zerbitzari bat (Lemonade, LM Studio, llama.cpp …)",
  "settings.meaning_pull": "Deskargatu {model} Ollamarekin",
- "settings.meaning_remote": "Zure fitxategien testua {host}-(e)ra bidaltzen da bektoreak lortzeko.",
+ "settings.meaning_remote": "Zure fitxategien testua, haien izen eta karpetekin, {host}-(e)ra bidaltzen da bektoreak lortzeko.",
  "settings.meaning_remove": "Ezabatu eredua",
  "settings.meaning_server_ok": "Zerbitzariak erantzuten du.",
  "settings.meaning_status": "Ulertuak: {done} fitxategi · falta: {pending}",

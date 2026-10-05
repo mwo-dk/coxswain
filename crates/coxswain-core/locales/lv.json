@@ -826,7 +826,7 @@
  "settings.meaning_on": "Ieslēgt",
  "settings.meaning_openai": "Serveris ar OpenAI API (Lemonade, LM Studio, llama.cpp …)",
  "settings.meaning_pull": "Lejupielādēt {model} ar Ollama",
- "settings.meaning_remote": "Jūsu failu teksts tiek nosūtīts uz {host}, lai iegūtu tā vektorus.",
+ "settings.meaning_remote": "Jūsu failu teksts kopā ar to nosaukumiem un mapēm tiek nosūtīts uz {host}, lai iegūtu tā vektorus.",
  "settings.meaning_remove": "Dzēst modeli",
  "settings.meaning_server_ok": "Serveris atbild.",
  "settings.meaning_status": "Saprasti: {done} faili · vēl: {pending}",

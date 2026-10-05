@@ -27,8 +27,9 @@ themselves. The *Server* field is the base URL: Coxswain adds `/api/embed` for O
 - Settings asks the server for its models whenever you change the engine or the server, and says
   *The server answers.*, or why not (the error). The *Embedding model* field offers the models it
   listed.
-- **A server on another machine gets the text of your files**: the passages that get vectors, and
-  every question. Settings says so, in bold: *The text of your files is sent to evo to get its
+- **A server on another machine gets the text of your files**: the passages that get vectors,
+  each with a line naming the file and the two folders it is in, and every question. Settings says
+  so, in bold: *The text of your files, with their names and folders, is sent to evo to get its
   vectors.* A server on `localhost`, `127.0.0.1` or `::1` gets no such warning; nothing leaves the
   machine.
 - For the OpenAI API, *API key from the variable* names an environment variable (placeholder

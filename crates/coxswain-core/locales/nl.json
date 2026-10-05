@@ -781,7 +781,7 @@
  "settings.meaning_on": "Aanzetten",
  "settings.meaning_openai": "Een server met de OpenAI-API (Lemonade, LM Studio, llama.cpp …)",
  "settings.meaning_pull": "{model} ophalen met Ollama",
- "settings.meaning_remote": "De tekst van je bestanden wordt naar {host} gestuurd voor de vectoren.",
+ "settings.meaning_remote": "De tekst van je bestanden wordt met hun namen en mappen naar {host} gestuurd voor de vectoren.",
  "settings.meaning_remove": "Model verwijderen",
  "settings.meaning_server_ok": "De server antwoordt.",
  "settings.meaning_status": "Begrepen: {done} bestanden · nog: {pending}",

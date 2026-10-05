@@ -781,7 +781,7 @@
  "settings.meaning_on": "Lülita sisse",
  "settings.meaning_openai": "OpenAI API-ga server (Lemonade, LM Studio, llama.cpp …)",
  "settings.meaning_pull": "Tõmba {model} Ollamaga",
- "settings.meaning_remote": "Sinu failide tekst saadetakse vektorite saamiseks aadressile {host}.",
+ "settings.meaning_remote": "Sinu failide tekst koos nende nimede ja kaustadega saadetakse vektorite saamiseks aadressile {host}.",
  "settings.meaning_remove": "Kustuta mudel",
  "settings.meaning_server_ok": "Server vastab.",
  "settings.meaning_status": "Mõistetud: {done} faili · veel: {pending}",

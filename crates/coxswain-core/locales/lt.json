@@ -826,7 +826,7 @@
  "settings.meaning_on": "Įjungti",
  "settings.meaning_openai": "Serveris su OpenAI API (Lemonade, LM Studio, llama.cpp …)",
  "settings.meaning_pull": "Atsisiųsti {model} per Ollama",
- "settings.meaning_remote": "Jūsų failų tekstas siunčiamas į {host}, kad būtų gauti jo vektoriai.",
+ "settings.meaning_remote": "Jūsų failų tekstas kartu su jų pavadinimais ir aplankais siunčiamas į {host}, kad būtų gauti jo vektoriai.",
  "settings.meaning_remove": "Ištrinti modelį",
  "settings.meaning_server_ok": "Serveris atsako.",
  "settings.meaning_status": "Suprasta failų: {done} · liko: {pending}",
