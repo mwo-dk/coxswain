@@ -174,7 +174,10 @@
       <p>{tn(p?.phase ? "dupes.progress_counted" : "dupes.progress", p?.files ?? 0, { phase: t(PHASES[p?.phase ?? 0]), done: num(p?.done ?? 0), total: num(p?.total ?? 0), size: size(p?.bytes ?? 0) })}</p>
       <div class="bar"><div style:width="{p?.phase && p.total ? (100 * p.done) / p.total : 0}%"></div></div>
     </section>
-  {:else if d.report}
+  {:else if !d.report}
+    <!-- Before a scan: what to do, and that nothing goes without asking. -->
+    <section class="summary"><p class="hint">{t("dupes.before_scan")}</p></section>
+  {:else}
     <section class="summary">
       <p>
         <b>{tn("dupes.groups", groups.length)}</b> · <b>{t("dupes.freeable", { size: size(d.report.wasted) })}</b> ·

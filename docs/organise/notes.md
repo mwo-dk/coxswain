@@ -82,7 +82,7 @@ plain JSON you can open in an editor.
 
 #### Can I search the text of my notes?
 
-No. [Find file](../search/find-file.md) searches file names and the text of files, not notes.
+No. [Find](../search/find-file.md) searches file names and the text of files, not notes.
 If you want a note to be found, keep it as a file in the folder, such as `NOTES.md`.
 
 #### Why does the preview pane open when I press Alt+N?

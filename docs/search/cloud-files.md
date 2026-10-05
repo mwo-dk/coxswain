@@ -171,7 +171,7 @@ same. A cloud app with its own virtual drive that does not mark files is not rec
 folder to *Names only* ([Choosing the folders](folders.md)).
 
 #### Can I see which files are online-only?
-In the panels: the cloud glyph after the name. Find file shows no glyph; the panel does once you
+In the panels: the cloud glyph after the name. Find shows no glyph; the panel does once you
 go to the file.
 
 ---

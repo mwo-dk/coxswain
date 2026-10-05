@@ -27,13 +27,13 @@ levels; then **Details**, with every switch on its own. Every option is also a k
 | To open | Desktop app | Terminal app |
 |---|---|---|
 | Settings at Finding files | **Ctrl+,** (or the *Settings* button, or *Settings* in **F9**), then *Finding files* on the left; or `coxswain-gui --settings=search`; or **Show me** on the tesseract or cloud tip | **F9** → *Settings*, then **→** to *Finding files*; or `coxswain --settings=search` |
-| …at *Meaning* | `coxswain-gui --settings=meaning`, or **Show me** on the meaning or Ollama tip | `coxswain --settings=meaning` |
-| …at *Ask* | `coxswain-gui --settings=ask` | `coxswain --settings=ask` |
+| …at *Meaning* | `coxswain-gui --settings=search_meaning`, or **Show me** on the meaning or Ollama tip | `coxswain --settings=search_meaning` |
+| …at *Ask* | `coxswain-gui --settings=ask_model` | `coxswain --settings=ask_model` |
 | The setup guide | **Set up…** in Finding files or Overview, or *Set up* in Find | *Set up…* in Settings (**Space**), *Set up* in Find, or `coxswain --setup-search` |
 
 A change is saved at once; a change to what the [helper](helper.md) reads starts a new helper
 with it. *Find a setting…* above the areas finds any option by its name, its explanation or its
-key: `exclude`, `archives`, `cloud`.
+key: `name_exclude`, `archives`, `cloud`.
 
 ## The status block
 
@@ -68,14 +68,14 @@ needs the words.
 | | *Git history* | `history` | bool, `true` | The newest 2000 commits of each repository in the folders read ([Git history in search](history.md)) |
 | | *Read files that are only online* | `cloud` | `"local-only"` or `"all"`, `"local-only"` | Off: files only in OneDrive, Dropbox, Google Drive, Proton Drive or iCloud are found by name, never read or downloaded ([Cloud files](cloud-files.md)) |
 | | *Cloud folders read anyway* | `cloud_read` | list, `[]` | The clouds found, each with **Read its files**, and folders added ([Cloud files](cloud-files.md)) |
-| | *Programs that read more* | | | tesseract, pdftoppm and LibreOffice, each ✓ or ✗ *not installed* ([Scans](scans.md)) |
+| | *Programs that read more* | | | tesseract, pdftoppm and LibreOffice, each ✓ or ✗ *not installed*; a missing one with the line that installs it and **Copy** ([Installing what is missing](scans.md#installing-what-is-missing)) |
 | | *Largest file read (MB)* | `text_max_size` | bytes, 20 MB | Larger files are found by name only |
 | | *Most hits* | `max_results` | number, `10000` | The most rows Find lists for one kind of hit |
 | Folders | *Folders read* | `text_roots` | list, `[]` = *Your home folder* | [Choosing the folders](folders.md) |
 | | *Names only* | `names_only` | list, `[]` | [Choosing the folders](folders.md) |
 | | *Left out everywhere* | `text_exclude` | list of names and patterns | Never read, wherever they are; still found by name |
-| | *Where names are found* | `roots` | list, `[]` = the whole machine | The [name index](names.md)'s folders |
-| | *Never indexed* | `exclude` | list, `/proc`, `/sys` … | Not found even by name |
+| | *Where names are found* | `name_roots` | list, `[]` = the whole machine | The [name index](names.md)'s folders |
+| | *Never indexed* | `name_exclude` | list, `/proc`, `/sys` … | Not found even by name |
 | | *Follow changes as they happen* | `watch` | bool, `true` | Off: names gathered again once an hour |
 | Meaning | *Meaning* | `meaning` | bool, `false` | **Download the model (465 MB) and turn on**, **Turn on**, **Turn off**, **Delete the model** |
 | | *Made by* | `meaning_engine` | `"builtin"` / `"ollama"` / `"openai"` | *Built-in model, on this machine (465 MB once)*, *Ollama*, or *A server with the OpenAI API (Lemonade, LM Studio, llama.cpp …)* ([servers](servers.md)) |
@@ -102,8 +102,8 @@ The whole `[search]` table with its defaults:
 
 ```toml
 [search]
-roots = []                 # the name index: empty = the whole machine
-exclude = ["/proc", "/sys", "/dev", "/run", "/tmp/.X11-unix"]
+name_roots = []            # the name index: empty = the whole machine
+name_exclude = ["/proc", "/sys", "/dev", "/run", "/tmp/.X11-unix"]
 max_results = 10000
 watch = true
 text = true
@@ -134,7 +134,9 @@ Settings → *Finding files* holds the same status block, levels and options, on
 ([Settings in the terminal app](../customise/settings.md#in-the-terminal-app)). A line's next
 step is in brackets at its end (`[Read now]`, `[Set up…]`, `[Try it]`): **Space** or **Enter**
 on the line takes it. **Space** on a level chooses it, or starts the setup guide when it needs a
-model. The flags still do what the buttons do, for scripts:
+model. Under *Programs that read more*, a missing program's row shows the line that installs it;
+**Space** on it copies the line to the terminal's clipboard. The flags still do what the buttons
+do, for scripts:
 
 | Flag | Does |
 |---|---|
@@ -154,7 +156,21 @@ runs to start afresh. More in [Command-line flags](../reference/command-line-fla
 
 #### Where are Search inside files and Search by meaning?
 Both are in *Finding files*: the levels turn them on and off, **Details** → *What is read* and
-*Meaning* hold their switches. `--settings=search` and `--settings=meaning` still open there.
+*Meaning* hold their switches. `--settings=search` opens there, `--settings=search_meaning` at
+the *Meaning* group. (1.x's `--settings=meaning` opens the Overview since 2.0.)
+
+#### Why does `--settings=meaning` open the Overview now?
+
+2.0 takes only an area or an option's name after `--settings=`; 1.x's section names `meaning`,
+`ask`, `news` and `cloud` went. Use `search_meaning`, `ask_model`, `overview` and
+`search_cloud`. See [The Settings window](../customise/settings.md#why-does---settingsmeaning-open-the-overview-now).
+
+#### I wrote `roots` and `exclude` under `[search]` and they no longer work.
+
+2.0 calls them `name_roots` and `name_exclude`, the names Settings shows for *Where names are
+found* and *Never indexed*. The first start of 2.0 renames them in `config.toml` and says so in a
+notice; an old name written in afterwards is ignored, as any unknown key is. See
+[Renamed in 2.0](../reference/configuration.md#renamed-in-20).
 
 #### Why does a level open the setup guide instead of turning on?
 It needs a model that is not there yet: the built-in model (465 MB, downloaded only when you

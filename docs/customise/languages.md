@@ -165,7 +165,7 @@ Both are written in letters that take two columns in a terminal and need a font 
   names the package: `noto-fonts-cjk` (Arch), `fonts-noto-cjk` (Debian, Ubuntu),
   `google-noto-sans-cjk-fonts` (Fedora). Until then the letters show as boxes.
 - **Typing with an input method** (IME: Mozc, Kotoeri, the Microsoft IME, a Hangul keyboard):
-  works in every text field of the desktop app (Find file, the path bar, rename, notes, the
+  works in every text field of the desktop app (Find, the path bar, rename, notes, the
   dialogs). While a word is being composed, Enter, Esc and the arrows belong to the input
   method: Enter takes the word and does not run the dialog, Esc drops the word and does not
   close it.
@@ -173,7 +173,7 @@ Both are written in letters that take two columns in a terminal and need a font 
   type; a name kept decomposed (as macOS does with Hangul, or か + ゙ for が) is found by the
   composed letters. An input method composes only in a text field, so in the desktop app quick
   search takes the letters typed straight from the keyboard; for a Japanese or Korean name use
-  *Find file* (**Alt+F7**), where the input method works. In the terminal app, letters an input
+  *Find* (**Alt+F7**), where the input method works. In the terminal app, letters an input
   method commits go to quick search once it is started.
 - **The terminal app** measures every text by the columns it takes, not by its letters: the
   column titles, sizes and the marked line are centred and cut to their columns, the F-key bar
@@ -264,7 +264,7 @@ yet. Press Enter once more to run the dialog. Esc likewise drops the composed wo
 Keys are written the same everywhere (Ctrl, Alt, F5), so a key in `config.toml` means the same
 in every language, and the names match what is printed on most keyboards.
 
-#### Does the language change what Find file reads in pictures?
+#### Does the language change what Find reads in pictures?
 
 Yes: [text recognition](../search/scans.md) reads English and your system's language, when
 tesseract has that language installed. [Search by meaning](../search/meaning.md) works across
@@ -272,8 +272,9 @@ languages whatever you pick: a query in English finds a Danish document.
 
 #### The F-key bar in my language is cut short. Is that a mistake?
 
-Labels on the F-key bar must fit about nine characters, so some are abbreviated ("Mkdir",
-"PullDn" in English). A better short word is welcome; see
+Labels on the F-key bar must fit about nine characters, so some are abbreviated. The terminal
+app keeps Norton Commander's "RenMov", "Mkdir" and "PullDn" in English on purpose; the desktop
+app says "Move", "New folder" and "Commands". A better short word is welcome; see
 [Improving a translation](#improving-a-translation).
 
 ## Improving a translation

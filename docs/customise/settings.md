@@ -38,15 +38,13 @@ once and is written to the file, your comments kept.
    |---|---|
    | **Ctrl+,** anywhere in the window (the `settings` action; see [Changing keys](keys.md)) | Overview |
    | **F9** → *Settings* in the [command list](../panels/command-list.md) | Overview |
-   | The **Settings** button with a gear, at the right end of the command line row | Overview; with a number after it, Overview scrolled to *What's new* ([Notices and what's new](../search/notices.md)) |
-   | **Show me** on a tip under *What's new* | The tip's area: the meaning and Ollama tips open *Finding files* at *Meaning*, the tesseract and cloud tips *Finding files*, a new language *Looks* at *Language* |
+   | The **Settings** button with a gear, at the right end of the command line row. Its tooltip names the key and, when tips or versions wait, how many and where: *Settings · Ctrl+, · What's new: 2, under Overview* | Overview, where *What's new* is ([Notices and what's new](../search/notices.md)) |
+   | **Show me** on a tip under *What's new* | The tip's area: the meaning and Ollama tips open *Finding files* at *Meaning*, the tesseract and cloud tips *Finding files*, a new language *Looks* at *Language*, the 2.0 renaming notice *Keys* |
    | `coxswain-gui --settings` | Overview |
    | `coxswain-gui --settings=search` | Finding files |
-   | `coxswain-gui --settings=meaning`, `--settings=ask` | Finding files, with *Details* and that group unfolded and in sight |
-   | `coxswain-gui --settings=news` | Overview at *What's new* |
-   | `coxswain-gui --settings=language` | Looks at *Language* |
    | `coxswain-gui --settings=<area>` | That area: `overview`, `search`, `previews`, `looks`, `behaviour`, `keys`, `privacy` |
-   | `coxswain-gui --settings=<option>` | The option's area, scrolled to it and lit up for a moment: `check_updates`, `line_height`, `ask_model` … (the names in [Settings and config.toml](#settings-and-configtoml)) |
+   | `coxswain-gui --settings=<option>` | The option's area, with its group unfolded, scrolled to it and lit up for a moment: `search_meaning` (the *Meaning* group), `ask_model` (*Ask*), `language`, `search_cloud`, `check_updates` … (the names in [Settings and config.toml](#settings-and-configtoml)) |
+   | Any other name, such as 1.x's `meaning`, `ask`, `news` or `cloud` | Overview |
 
    The terminal app opens its own Settings the same ways: [In the terminal app](#in-the-terminal-app).
 
@@ -111,6 +109,7 @@ reads the shared keys the next time it starts.
 | *Looks* | The theme and the language: *Cyber · English (United Kingdom)* | Opens Looks |
 | *Privacy and updates* | What can leave this machine and where to, one line each (*The update check, once a day → api.github.com*), or *Nothing leaves this machine.* | Opens Privacy and updates |
 | **Set up…** | | Opens the [setup guide](../search/setup.md) for words, meaning and Ask |
+| **Show the guide again** | *The first-run guide: the two panels, how far Find looks, looks and privacy.* | Opens the [first-run guide](../panels/first-run.md) at its first step |
 | *What's new* | *For you*: the tips, each with **Show me** and **Dismiss**; then the versions you have not read, and *Earlier versions: N* folded | **Show me** opens the tip's area. Once *What's new* is in sight, the versions count as read and the count on the gear goes |
 
 Nothing in Overview is kept in `config.toml`. See [Notices and what's new](../search/notices.md).
@@ -163,7 +162,7 @@ models, tests them and checks the GPU; what it sets shows in the status block.
 | *Git history* | Commit messages, authors and changed paths ([Git history in search](../search/history.md)) | `[search] history` |
 | *Read files that are only online* | Ticked: files only in OneDrive, Dropbox, Google Drive, Proton Drive or iCloud are read, which downloads them ([Cloud files](../search/cloud-files.md)) | `[search] cloud`: `"local-only"` or `"all"` |
 | *Cloud folders read anyway* (while the one above is off) | The clouds found, each with **Read its files**, and folders you add | `[search] cloud_read` |
-| *Programs that read more* | ✓ or ✗ for tesseract, pdftoppm and LibreOffice, with *not installed* ([Scans](../search/scans.md)) | |
+| *Programs that read more* | ✓ or ✗ for tesseract, pdftoppm and LibreOffice. A missing one says *not installed*, then *Install it:* and the line for this system (`sudo apt install tesseract-ocr`) with **Copy**; Coxswain never runs it. Without a package here: *… has no package here: get it from its website and put it on PATH.* ([Installing what is missing](../search/scans.md#installing-what-is-missing)) | |
 | *Largest file read (MB)* | Larger files are found by name only | `[search] text_max_size` (bytes in the file) |
 | *Most hits* | The most rows Find lists for one kind of hit (the desktop app shows at most 500) | `[search] max_results` |
 
@@ -174,26 +173,26 @@ models, tests them and checks the GPU; what it sets shows in the status block.
 | *Folders read* | Each folder with its size in the store, or that it is kept while its disk is not plugged in; *Your home folder* when none. **Add** takes the path typed (empty: the current folder), **Remove** takes one off ([Choosing the folders](../search/folders.md)) | `[search] text_roots` |
 | *Names only* | Found by name and counted in folder sizes, never opened. A `.nosearch` file in a folder does the same | `[search] names_only` |
 | *Left out everywhere* | Folder names (`node_modules`) and patterns (`*.log`) never read, as chips with **×** | `[search] text_exclude` |
-| *Where names are found* | The folders the name index covers; *None* is the whole machine | `[search] roots` |
-| *Never indexed* | Paths (`/proc`) and folder names the name index skips: not found even by name | `[search] exclude` |
+| *Where names are found* | The folders the name index covers; *None* is the whole machine | `[search] name_roots` |
+| *Never indexed* | Paths (`/proc`) and folder names the name index skips: not found even by name | `[search] name_exclude` |
 | *Follow changes as they happen* | Off: the names are gathered again once an hour | `[search] watch` |
 
-**Meaning** (`--settings=meaning` opens here)
+**Meaning** (`--settings=search_meaning` opens here)
 
 | Option | Does | Key |
 |---|---|---|
 | *Meaning* | **Download the model (465 MB) and turn on** for the built-in model (*Downloading the model: … of …*, a bar, **Cancel**); **Turn on** once the model is there or with a server (it turns words on too); **Turn off**; **Delete the model**, and the model's folder with **Show in panel** | `[search] meaning` |
 | *Made by* | *Built-in model, on this machine (465 MB once)*, *Ollama*, or *A server with the OpenAI API (Lemonade, LM Studio, llama.cpp …)*. A change that makes every file's meaning again asks first: **Change and re-read** or **Keep the current model** | `[search] meaning_engine` |
-| *Server* (a server only) | Empty: Ollama on this machine. Under it, *The server answers.* or the error, and in bold when it is another machine: *The text of your files, with their names and folders, is sent to evo:13305 to get its vectors.* | `[search] meaning_url` |
+| *Server* (a server only) | Empty: Ollama on this machine. Under it, *The server answers.* or the error, and in bold when it is another machine: *The text of your files, with their names and folders, is sent to evo:13305 to be read for meaning.* | `[search] meaning_url` |
 | *Model* (a server only) | The server's models to pick from; **Pull bge-m3 with Ollama** when Ollama lacks it | `[search] meaning_model` |
 | *API key from the environment variable* (OpenAI API only) | The variable's name, such as `OPENAI_API_KEY`; the key is never written to the file | `[search] meaning_key_env` |
 | *Use the CPU only* (a Mac only) | Keeps the built-in model off the GPU ([on a Mac's GPU](../search/meaning.md#on-a-macs-gpu)) | `[search] meaning_device`: `"auto"`, `"cpu"` |
 
-**Ask** (`--settings=ask` opens here)
+**Ask** (`--settings=ask_model` opens here)
 
 | Option | Does | Key |
 |---|---|---|
-| *Chat model* | The chat models of the server (Ollama here with the built-in model); models that only make vectors are left out. **Try it** asks a test question. Once saved, the model is tried at once: one that cannot answer says why in red. In bold, when the server is another machine: *Your questions and the passages closest to them are sent to …* | `[search] ask_model` |
+| *Chat model* | The chat models of the server (Ollama here with the built-in model); models that only read meaning are left out. **Try it** asks a test question. Once saved, the model is tried at once: one that cannot answer says why in red. In bold, when the server is another machine: *Your questions and the passages closest to them are sent to …* | `[search] ask_model` |
 | *Let the model think first* | Better reasoning with models that can think, many seconds before the first word ([Thinking](../search/ask.md#thinking)) | `[search] ask_think` |
 
 **Background reading**
@@ -284,7 +283,7 @@ Every option, the name `--settings=` takes, its key, and who reads it:
 | Read files that are only online, Cloud folders read anyway | `search_cloud`, `cloud_read` | `[search] cloud`, `cloud_read` | `"local-only"`/`"all"`; list of paths | The helper |
 | Largest file read, Most hits | `text_max_size`, `max_results` | `[search] text_max_size`, `max_results` | bytes, 20 MB; `10000` | The helper; Find in both apps |
 | Folders read, Names only, Left out everywhere | `text_roots`, `names_only`, `text_exclude` | `[search] text_roots`, `names_only`, `text_exclude` | lists | The helper |
-| Where names are found, Never indexed, Follow changes as they happen | `name_roots`, `name_exclude`, `watch` | `[search] roots`, `exclude`, `watch` | lists; true/false, `true` | The name index |
+| Where names are found, Never indexed, Follow changes as they happen | `name_roots`, `name_exclude`, `watch` | `[search] name_roots`, `name_exclude`, `watch` | lists; true/false, `true` | The name index |
 | Made by, Server, Model, API key from the environment variable, Use the CPU only | `meaning_engine`, `meaning_url`, `meaning_model`, `meaning_key_env`, `meaning_device` | `[search] meaning_engine` … `meaning_device` | text; `"builtin"`, `""`, `""`, `""`, `"auto"` | The helper |
 | Chat model, Let the model think first | `ask_model`, `ask_think` | `[search] ask_model`, `ask_think` | text, `""`; true/false, `false` | Ask in both apps |
 | How previews are made, Container runtime (Previews) | `preview_prefer`, `preview_container` | `[preview] prefer`, `container` | text, `"auto"`, `"auto"` | Desktop app |
@@ -355,8 +354,8 @@ explanations and costs: both apps read them from one description in `coxswain-co
 | **Ctrl+,** (the `settings` action), in terminals that pass it on | Overview |
 | `coxswain --settings` | Overview, with both panels in the current folder |
 | `coxswain --settings=<area>` | That area: `overview`, `search`, `previews`, `looks`, `behaviour`, `keys`, `privacy` |
-| `coxswain --settings=meaning`, `--settings=ask`, `--settings=language`, `--settings=news` | Finding files at the *Meaning* or *Ask* group, Looks at *Language*, Overview at *What's new* |
-| `coxswain --settings=<option>` | The option's area, the cursor on it: `show_hidden`, `max_results`, `check_updates` … (the names in [Settings and config.toml](#settings-and-configtoml)) |
+| `coxswain --settings=<option>` | The option's area, the cursor on it: `show_hidden`, `search_meaning`, `ask_model`, `language`, `check_updates` … (the names in [Settings and config.toml](#settings-and-configtoml)) |
+| Any other name, such as 1.x's `meaning`, `ask`, `news` or `cloud` | Overview |
 | **Enter** on a tip under *What's new* in Overview | The tip's area, as *Show me* in the desktop app; the tip is not shown again |
 
 Folders after the flag open in the panels, as without it: `coxswain --settings=search ~/src`.
@@ -373,7 +372,8 @@ Folders after the flag open in the panels, as without it: `coxswain --settings=s
 | **Esc**, **F10** | Close Settings (a field, list or search open: close that first) |
 
 Every change is saved at once: the bottom line says *Saved to …/config.toml*, or in red why the
-file was not written. The bottom also shows the selected row's one-line explanation, its costs
+file was not written. While a field is open for typing, the bottom says *Enter Save · Esc
+Cancel*. The bottom also shows, for the row under the cursor, its one-line explanation, its costs
 as text in brackets (`[disk space]`, `[can leave this machine]` in red) and its key in
 `config.toml`.
 
@@ -381,15 +381,15 @@ as text in brackets (`[disk space]`, `[can leave this machine]` in red) and its 
 
 | Area | In the terminal app |
 |---|---|
-| Overview | One line each for Finding files (the level and the Words, Meaning and Ask lines), Previews, Looks (the terminal app's theme and the language) and Privacy (where things can go); **Enter** opens that area. *Set up…*, the tips not dismissed yet, and what the versions you have not read brought |
-| Finding files | The status block (*Names*, *Words*, *Meaning*, *Ask*), each with its next step in brackets: **Space** or **Enter** runs it (*Read now*, *Start it*, *Turn on*, *Set up…*, *Try it*, whose answer shows at the bottom). The four levels and *Set up…*. Then every option under *What is read*, *Folders*, *Meaning*, *Ask*, and *Start with my session* under *Background reading* |
+| Overview | One line each for Finding files (the level and the Words, Meaning and Ask lines), Previews, Looks (the terminal app's theme and the language) and Privacy (where things can go); **Enter** opens that area. *Set up…*, *[ Show the guide again ]* (the [first-run guide](../panels/first-run.md)), the tips not dismissed yet, and what the versions you have not read brought |
+| Finding files | The status block (*Names*, *Words*, *Meaning*, *Ask*), each with its next step in brackets: **Space** or **Enter** runs it (*Read now*, *Start it*, *Turn on*, *Set up…*, *Try it*, whose answer shows at the bottom). The four levels and *Set up…*. Then every option under *What is read*, *Folders*, *Meaning*, *Ask*; *Programs that read more*, each `✓` or `✗` with the line that installs a missing one (**Space** copies it to the terminal's clipboard, see below); and *Start with my session* under *Background reading* |
 | Previews, Looks, Behaviour | Their options. The desktop app's own (fonts, text size, row height, its theme, previews) are there too, since both apps share `config.toml` |
 | Keys | Every action the terminal app has, under its group, with its keys; read-only, as in the desktop app |
 | Privacy and updates | *Check for a new version*, what can leave the machine with your settings as they are and where to, where things are kept, the version |
 
 A level that needs a model starts the [setup guide](../search/setup.md) (`coxswain
 --setup-search`) on the plain terminal, as **Set up…** does; Settings is back when it ends,
-with what the guide chose. Changing the model that makes the vectors asks first, at the bottom:
+with what the guide chose. Changing the model that reads meaning asks first, at the bottom:
 **Enter** changes it and reads every file's meaning again, **Esc** keeps the current one.
 
 Changes are used at once: the theme (`tui_theme`), glyphs and language show straight away, a
@@ -419,7 +419,36 @@ deletes it), pulling container images, clearing the preview cache, *Delete what 
 Both are in *Finding files*. The four levels under *How far should Find look?* turn words,
 meaning and Ask on and off in one click; **Details** holds every switch on its own: *What is
 read*, *Folders*, *Meaning*, *Ask* and *Background reading*. `coxswain-gui --settings=search`
-and `--settings=meaning` still open there, and *Find a setting…* finds any of them by name.
+opens there, `--settings=search_text` and `--settings=search_meaning` at the switch itself, and
+*Find a setting…* finds any of them by name.
+
+#### Why does `--settings=meaning` open the Overview now?
+
+Since 2.0 `--settings=` takes only an area (`overview`, `search`, `previews`, `looks`,
+`behaviour`, `keys`, `privacy`) or an option's name. The section names of 1.x went; a name it
+does not know opens the Overview. Use the option's name instead:
+
+| 1.x | 2.0 |
+|---|---|
+| `--settings=meaning` | `--settings=search_meaning` |
+| `--settings=ask` | `--settings=ask_model` |
+| `--settings=news` | `--settings=overview` (*What's new* is there) |
+| `--settings=cloud` | `--settings=search_cloud` |
+| `--settings=language` | the same: `language` is an option's name |
+
+#### How do I see the first-run guide again?
+
+*Overview* → **Show the guide again**, in both apps. Or from Help: **F1** → *Show the guide
+again* in the desktop app, **F1** then **G** in the terminal app. See
+[First-run guide](../panels/first-run.md).
+
+#### How do I copy an install line in the terminal app?
+
+In *Finding files*, put the cursor on the missing program under *Programs that read more* and
+press **Space**. The line goes to the terminal's clipboard (OSC 52, which works over ssh too) and
+the bottom says *Copied: sudo apt install tesseract-ocr*. Coxswain never runs it: paste it into a
+shell. A terminal without OSC 52 (or with it turned off) copies nothing; type the line from the
+row instead.
 
 #### I chose "Names, text and meaning" and a guide opened instead. Why?
 

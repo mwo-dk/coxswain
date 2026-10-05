@@ -35,7 +35,7 @@ model or a server suits it. By hand:
 
 It needs *Words inside files*: choosing the level or the button turns them on too. Then:
 
-1. **Ctrl+F** for [Find file](find-file.md).
+1. **Ctrl+F** for [Find](find-file.md).
 2. Type a question or a few words, in any language.
 3. Files with your words are under *In files*, those close in meaning ahead; files found by
    meaning alone are under **About this**. For meaning alone, **Tab** to the *About* kind or type
@@ -48,7 +48,7 @@ where it runs: `Built-in model · on the GPU (Metal)`.
 
 ## What you see
 
-**In Find file**, a file found by meaning alone is under *About this*, with the start of the
+**In Find**, a file found by meaning alone is under *About this*, with the start of the
 passage that was closest (up to 24 words) in italics, wherever in the document that passage is. Only files close to the
 best match are shown (within 0.10 of its score with the built-in model, 0.15 with bge-m3 and
 other server models, and above what unrelated text scores: 0.77 and 0.45), so unrelated files

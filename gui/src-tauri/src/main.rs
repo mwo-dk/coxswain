@@ -34,6 +34,8 @@ pub struct Ctx {
     /// `--settings[=section]`: open the Settings window at start, at that section ("" for the top).
     open_settings: Option<String>,
     state: Mutex<AppState>,
+    /// The first start: the first-run guide opens.
+    guide: bool,
     /// Folders shown in the panes, watched so they reread themselves.
     watched: Mutex<Vec<PathBuf>>,
     watcher: Mutex<Option<notify::RecommendedWatcher>>,
@@ -131,6 +133,12 @@ struct UiConfig {
     media_missing: Option<String>,
     /// The formats Pack offers.
     pack_formats: &'static [coxswain_core::archive::PackFormat],
+    /// Open the first-run guide at start; its keys and themes.
+    guide: bool,
+    guide_keys: Vec<(String, String)>,
+    guide_themes: [&'static str; 4],
+    /// The line that installs each program Coxswain can use, on this system, where it knows one.
+    installs: BTreeMap<&'static str, Option<String>>,
 }
 
 fn css(c: &str) -> Option<String> {
@@ -182,6 +190,10 @@ fn get_config(ctx: tauri::State<Ctx>) -> Res<UiConfig> {
         version: coxswain_core::update::VERSION,
         media_missing: coxswain_core::tools::media_missing(),
         pack_formats: coxswain_core::archive::PACK_FORMATS,
+        guide: ctx.guide,
+        guide_keys: coxswain_core::guide::keys(&cfg),
+        guide_themes: coxswain_core::guide::THEMES,
+        installs: ["tesseract", "pdftoppm", "soffice", "latex", "plantuml", "pandoc", "nerd-font"].into_iter().map(|p| (p, coxswain_core::tools::install(p))).collect(),
     })
 }
 
@@ -556,6 +568,25 @@ fn set_title(title: String, window: tauri::WebviewWindow) -> Res<()> {
             .map_err(|e| e.to_string())?;
     }
     Ok(())
+}
+
+/// The first-run guide was closed: it does not open by itself again.
+#[tauri::command(async)]
+fn guide_seen(ctx: tauri::State<Ctx>) -> Res<()> {
+    ctx.edit(coxswain_core::guide::seen)
+}
+
+/// Whether a Nerd Font is installed (None: it cannot be told), for the first-run guide.
+#[tauri::command(async)]
+fn nerd_font() -> Option<bool> {
+    coxswain_core::tools::nerd_font()
+}
+
+/// A line of text on the system clipboard: an install command.
+#[tauri::command(async)]
+fn copy_text(text: String) -> Res<()> {
+    use clipboard_rs::Clipboard;
+    os_clipboard().ok_or_else(|| coxswain_core::t!("err.no_clipboard"))?.set_text(text).map_err(|e| e.to_string())
 }
 
 #[tauri::command(async)]
@@ -1485,6 +1516,10 @@ fn main() {
         return drop(helper::serve());
     }
     coxswain_core::fs::lock_down();
+    // A config.toml of 1.x gets the names of 2.0, once.
+    if let Err(e) = coxswain_core::migrate::on_start() {
+        eprintln!("coxswain: {e}");
+    }
     let cfg = Config::load().unwrap_or_else(|e| {
         eprintln!("coxswain: {e}; using defaults");
         Config::default()
@@ -1530,6 +1565,7 @@ fn main() {
         start: [dir(0), dir(1)],
         duplicates,
         open_settings,
+        guide: AppState::load().guide_due(),
         state: Mutex::new({
             // A first start of this version is remembered, so the next update is told of.
             let mut st = AppState::load();
@@ -1567,7 +1603,7 @@ fn main() {
             clip_set, paste, start_drag, watch_dirs, preview::git_diff, preview::sqlite_info, preview::epub_preview,
             preview::file_facts, preview::cert_info, bom::bom_info, bom::bom_node, bom::bom_diff, preview::mail_preview, preview::plist_xml, convert::preview_engines, convert::preview_cache, convert::clear_preview_cache,
             convert::convert, convert::images, convert::pull_image, convert::remove_image, convert::pull_progress, dupes_scan,
-            dupes_progress, dupes_cancel, save_settings, search_status, search_level
+            dupes_progress, dupes_cancel, save_settings, search_status, search_level, guide_seen, nerd_font, copy_text
         ])
         .run(tauri::generate_context!())
         .expect("error while running Coxswain");

@@ -37,6 +37,11 @@ bar and the status line tell you, and how to start the apps in the folders you w
    ([Tabs, back and forward, one pane or two](tabs-and-panes.md)); in the terminal app it
    hides the panels and shows the output of the last command.
 
+On the very first start, before the panels, both apps show the
+[first-run guide](first-run.md): the two panels, how far Find looks, looks and privacy. **Esc**
+skips it. **F1** → *Show the guide again* (desktop app), **F1** then **G** (terminal app), or
+*Settings → Overview* brings it back.
+
 ## What you see
 
 | Part | Terminal app | Desktop app |
@@ -46,17 +51,31 @@ bar and the status line tell you, and how to start the apps in the folders you w
 | Folder path | Centred in the top border; a long path keeps its end (`…/projects/rocket`) | The path bar under the tabs, one button per part (`~ › projects › rocket`) |
 | Columns | Name, Size, Modified; Modified goes when the panel is narrower than 44 columns | Name, Type, Size, Modified by default; Files and Created can be added ([Views](views.md#the-columns-menu)) |
 | Git line | Bottom left of the border, in the `git_branch` colour | Right side of the pane's footer ([Git in the panels](git.md)) |
-| Info line | Under the list: the name under the cursor and its size (`name -> target` for a link), or `4.2 MB in 3 selected` | The footer: `17 items`, and `· 3 selected (1.2 MB)` when files are marked |
+| Info line | Under the list: the name under the cursor and its size (`name -> target` for a link), or `4.2 MB in 3 marked` | The footer: `17 items`, and `· 3 marked (1.2 MB)` when files are marked |
 | Sort order | A letter bottom right: `n` name, `x` extension, `t` time, `s` size; upper case when reversed | An arrow next to the column header that sorts ([Sorting](sorting.md)) |
 | Command line | The row under the panels: `/home/demo/projects/rocket> ` | The row under the panes: the folder, `❯`, and *Type a command…* |
 | Status | In the command line row, until the next key | Right of the command line, until the next key |
-| Settings | – | *Settings* with a cog, at the right of the command line row |
+| Settings | – (**F9** → *Settings*) | *Settings* with a cog, at the right of the command line row. Its tooltip: *Settings · Ctrl+, · What's new: 2, under Overview*; a click opens Settings at *Overview* |
 | F-key bar | The bottom row: the number and label of **F1** to **F10** | The bottom row of buttons; a key with no action is greyed |
 | Window title | The terminal's title: `Coxswain 1.41.0` | The window's title, the same text |
 
-The F-key labels are Norton Commander's: *Help*, *Menu*, *View*, *Edit*, *Copy*, *RenMov*,
-*Mkdir*, *Delete*, *PullDn*, *Quit*. They follow your `[keys]`: bind another action to
-**F2** and its name shows there (two actions on one key: the one the key runs).
+The F-key labels:
+
+| Key | Terminal app (Norton Commander's) | Desktop app |
+|---|---|---|
+| **F1** | *Help* | *Help* |
+| **F2** | *Menu* | *Menu* |
+| **F3** | *View* | *View* |
+| **F4** | *Edit* | *Edit* |
+| **F5** | *Copy* | *Copy* |
+| **F6** | *RenMov* | *Move* |
+| **F7** | *Mkdir* | *New folder* |
+| **F8** | *Delete* | *Delete* |
+| **F9** | *PullDn* | *Commands* |
+| **F10** | *Quit* | *Quit* |
+
+They follow your `[keys]`: bind another action to **F2** and its name shows there (two actions
+on one key: the one the key runs).
 
 **Colours.** In the Norton Commander theme (the terminal app's default) folders are bold
 white, marked files bold yellow, programs green, links magenta, hidden files dim cyan, and the
@@ -81,15 +100,15 @@ Coxswain 1.41.0
 ```
 
 Before 1.41.0 the title also listed the kinds of search that were on (`search: names · text ·
-meaning`); that now shows where it is used, on the first footer line of [Find
-file](../search/find-file.md#what-you-see): *563 files indexed · text of 112 files · meaning for
+meaning`); that now shows where it is used, on the first footer line of
+[Find](../search/find-file.md#what-you-see): *563 files indexed · text of 112 files · meaning for
 112*. On Linux the title bar that GTK draws is told as well, so it shows the same text as the
 task bar. The terminal app sets the terminal's title every five seconds, starting five seconds
 after it starts; terminals that show titles show it in their title bar or tab.
 
 ## The status line
 
-Messages go to the command line row and stay until the next key: *Reread*, `Copied "a.txt"`,
+Messages go to the command line row and stay until the next key: *Refreshed*, `Copied "a.txt"`,
 `Moved 3 items to the bin`, `Opened report.pdf`, `Not a folder: /tmp/x`, and errors.
 
 Two kinds of message come by themselves:
@@ -98,7 +117,8 @@ Two kinds of message come by themselves:
   ([Update checks](../reference/updates.md)). In the desktop app it is a button that opens
   the release page.
 - **Tips** of what search can do that you have not turned on (*Install tesseract to search the
-  words in scans, screenshots and pictures*), and after an upgrade what it brought. The desktop
+  words in scans, screenshots and pictures: sudo apt install tesseract-ocr*), and after an upgrade
+  what it brought; after the update to 2.0, which keys it renamed in `config.toml`. The desktop
   app counts them on its **⚙ Settings** button and lists them under *Settings → Overview → What's new*; only
   a problem with search (*Search inside files has stopped: …*) is a button in the status line,
   with a `×`. The terminal app shows one tip at a time once in the status line, with the command
@@ -156,6 +176,17 @@ In the terminal app, the one whose path at the top is drawn in the cursor colour
 shows the cursor bar; the other panel hides its cursor. In the desktop app, the pane with the
 coloured frame. **Tab** switches, and a click in a panel makes it active.
 
+#### Why does the F-key bar say *Move* in one app and *RenMov* in the other?
+
+The desktop app's bar uses the plain names of 2.0: *Move*, *New folder*, *Commands*. The terminal
+app keeps Norton Commander's *RenMov*, *Mkdir* and *PullDn* on its bar; its **F9** list and
+**F1** use the plain names too. The keys are the same.
+
+#### A guide opened on the first start. How do I get it back?
+
+That is the [first-run guide](first-run.md). **F1** → *Show the guide again* in the desktop app,
+**F1** then **G** in the terminal app, or *Settings → Overview* → *Show the guide again* in both.
+
 #### Why is the Modified column gone in the terminal app?
 
 The panel is narrower than 44 columns inside its border, so only Name and Size fit. Make the
@@ -163,7 +194,7 @@ terminal wider. Below 12 columns or 4 rows the panel shows its border only.
 
 #### Where did "search: names · text" in the title go?
 
-To Find file, where it is used: its first footer line says what can be searched, *563 files
+To Find, where it is used: its first footer line says what can be searched, *563 files
 indexed · text of 112 files · meaning for 112*, and what is still under way. When *meaning for*
 is missing though you turned it on, the helper has not started it yet or its model is not
 there; see [Search by meaning](../search/meaning.md#questions).
@@ -197,4 +228,4 @@ out, **F8** takes files out, and copies into it are added to it. See
 [Archives as folders](../files/archives.md).
 
 ---
-[← Previous: Panels and keys](README.md) · [Next: Moving around and going to a folder →](moving.md)
+[← Previous: The first-run guide](first-run.md) · [Next: Moving around and going to a folder →](moving.md)

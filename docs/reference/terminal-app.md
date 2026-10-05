@@ -44,13 +44,14 @@ Every flag: [Command-line flags](command-line-flags.md#the-terminal-app-coxswain
 
 | Feature | Page |
 |---|---|
+| The [first-run guide](../panels/first-run.md) on the very first start, full screen in the panel colours; **F1** then **G** shows it again | [The first-run guide](../panels/first-run.md) |
 | Two panels, NC's keys, marking, groups, sorting, quick search, hidden files, go to folder, swap, other panel here | [Panels and keys](../panels/README.md) |
 | The command line (with `cd`) and the user menu (**F2**) | [The command line](../commands/command-line.md), [The user menu](../commands/user-menu.md) |
 | View (**F3**) and edit (**F4**) in your own programs | [View and edit](../commands/view-and-edit.md) |
 | A viewer for CycloneDX cryptography BOMs (**F3** on one): the rated tree, a half-block sunburst, filters and compare | [Cryptography bills of materials](../previews/bom.md) |
 | Copy (**F5**), move and rename (**F6**), new folder (**F7**), delete to the trash (**F8**) or for good (**Shift+F8**) | [Files](../files/README.md) |
 | Archives as folders: look inside, copy and move in and out, take out, extract (**Ctrl+E**), pack (**Alt+F5**), passwords | [Archives in the terminal app](#archives-in-the-terminal-app) |
-| Find file (**Alt+F7**, **Ctrl+F**; **Shift+F7** for *In files*, **Ctrl+F7** for Ask): names, words in files, meaning and history in groups, the scope chip, the Ask row (**Alt+Enter**) and the answer in place | [Find file](../search/find-file.md) |
+| Find (**Alt+F7**, **Ctrl+F**; **Shift+F7** for *In files*, **Ctrl+F7** for Ask): names, words in files, meaning and history in groups, the scope chip, the Ask row (**Alt+Enter**) and the answer in place | [Find](../search/find-file.md) |
 | Search by meaning, turned on in Settings → Finding files or with `coxswain --meaning on` | [Search by meaning in the terminal app](#search-by-meaning-in-the-terminal-app) |
 | Folder sizes in the Size column | [Folder sizes](../panels/folder-sizes.md) |
 | The git line, a glyph per file, and the last commit of the entry under the cursor in the info line | [Git in the panels](../panels/git.md) |
@@ -60,7 +61,7 @@ Every flag: [Command-line flags](command-line-flags.md#the-terminal-app-coxswain
 | All 26 languages (`coxswain --languages` lists them) | [Languages](../customise/languages.md) |
 | Your own keys from `[keys]` | [Changing keys](../customise/keys.md) |
 | The command list (**F9**) and help (**F1**) | [The command list](../panels/command-list.md) |
-| Settings (**F9** → *Settings*, `coxswain --settings`): the desktop app's areas and options, full screen, saved at once | [Settings in the terminal app](../customise/settings.md#in-the-terminal-app) |
+| Settings (**F9** → *Settings*, `coxswain --settings`): the desktop app's areas and options, full screen, saved at once; the install line of a missing program, copied with **Space** | [Settings in the terminal app](../customise/settings.md#in-the-terminal-app) |
 | The mouse: click, double-click, right-click marks, wheel | [The mouse](../panels/mouse.md) |
 | Update checks and notices, in the status line; the version in the terminal's title | [Update checks](updates.md), [Notices](../search/notices.md) |
 
@@ -94,15 +95,17 @@ action's name. The **F9** list and **F1** help leave them out.
 | **Enter** on another file | Opens it in its default application | Opens it in its default application |
 | A command's output | In the terminal, the panels hidden meanwhile | In the preview pane |
 | `wait` in `[[user_menu]]` | Waits for Enter afterwards (`-- press Enter --`) | Ignored: the output is always shown |
-| Changes on disk | Reread after operations, commands and **Ctrl+R** | Folders on screen reread themselves |
+| Changes on disk | Read again after operations, commands, a change in a panel's folder and **Ctrl+R** (*Refresh*) | Folders on screen are read again by themselves |
 | Theme | `theme` (default `nc`), colours only; `look` is ignored | `[gui] theme` (default `cyber`), with its look |
 | Hidden files at start | Always from `show_hidden` | From the last session |
-| Marked size | Files only: `4.2 MB in 3 selected` | Measured folders count too |
-| Find file, **F3** | Views the hit in your pager | Does nothing (**F4** edits in both) |
+| Marked size | Files only: `4.2 MB in 3 marked` | Measured folders count too |
+| Find, **F3** | Views the hit in your pager | Does nothing (**F4** edits in both) |
 | Inside an archive | The panel title ends in `[archive]` | A badge and a tint on the pane |
 | In a git history | The panel title ends in `[history]` or `[commit a1b2c3d]` | A badge (*history of main.rs*, *commit a1b2c3d*) and a tint |
 | The last commit | In the info line under the panel: `a1b2c3d 2026-09-30 14:02 Ada` | A *Last commit* column, and in the preview pane |
 | An archive's password | Asked in a *Locked archive* box, shown as stars | Asked in a dialog |
+| The F-key bar | Norton Commander's labels: *RenMov*, *Mkdir*, *PullDn* | *Move*, *New folder*, *Commands* |
+| Copying an install line | **Space** on the row in Settings: to the terminal's clipboard with OSC 52 | A **Copy** button |
 | Notices | Shown once in the status line, then counted as seen; the ones not shown yet are listed in *Settings → Overview*, where **Enter** opens the area that does it | Counted on **⚙ Settings** and listed under *Settings → Overview → What's new* until dismissed or acted on; a problem with search is also a button with `×` in the status line |
 | What a version brought | `coxswain --whats-new`, pointed to once after an upgrade, and *Settings → Overview* | *Settings → Overview → What's new* |
 | Update notice | `Coxswain 1.21.0 is available: brew upgrade coxswain` in the status line, checked at start | A button that opens the release page, checked every hour |
@@ -155,14 +158,14 @@ says so.
 
 ## Search by meaning in the terminal app
 
-Search by meaning works the same in both apps: the search helper does it, and Find file's
+Search by meaning works the same in both apps: the search helper does it, and Find's
 *About this* group shows its hits. What differs is how you turn it on.
 
 1. Run `coxswain --meaning on`. It downloads the built-in model (about 488 MB), showing
    *Downloading the model for search by meaning: 42%*, sets `[search] meaning = true` and starts
    a new helper. Or `coxswain --meaning ollama` or `coxswain --meaning server URL MODEL` for a
    server ([Command-line flags](command-line-flags.md#--meaning)).
-2. Start `coxswain` and press **Ctrl+F** for Find file.
+2. Start `coxswain` and press **Ctrl+F** for Find.
 3. Type what you look for. Files found by meaning alone are under *ABOUT THIS*, with a second
    line, dim and in italics, holding the passage that was close. Files with your words are under
    *IN FILES*, those close in meaning first, the words marked in the theme's search-hit colour.
@@ -183,8 +186,15 @@ Find's footer says *meaning for 3,437* once the helper has it running. Full deta
 - **The status line** under the panels: the result of the last operation (`Copied 3 files`), a
   notice, an update, or the size of what is marked.
 - **The command line** with the panel's folder as the prompt, and the F-key bar below it.
-- **Dialogs** are grey boxes in the middle, with `Enter = OK   Esc = Cancel` or
-  `[ Yes: Enter/Y ]   [ No: Esc/N ]` at the bottom.
+- **Dialogs** are grey boxes in the middle. The title says what and how many (*Copy 3 items*,
+  *Move or rename "budget.txt"*), the field is labelled *To:*, and the bottom line is the same as
+  in the desktop app: *Enter Copy · Esc Cancel*, with the dialog's own verb (*Move*, *Create*,
+  *Pack*, *Extract*, *Unlock*, *Go*, *Mark*, *Move to bin* …). In a question **Y** and **N** work
+  too.
+- **Errors** are titled with what failed (*Could not copy "budget.txt"*), then the cause in one
+  line (*Permission denied*), then, when there is more, a *Details:* line and the raw text
+  below it; *Enter Close* at the bottom. See
+  [When something goes wrong](../files/copy.md#when-something-goes-wrong).
 
 <!-- screenshot: tui-text-search.png: the terminal app (Classic blue), Find at In files with "engine" typed: each hit a name and folder, the passage on the next line, "engine" highlighted -->
 *Find in the terminal app: a hit in a file takes two lines, the file and the passage.*
@@ -240,6 +250,18 @@ desktop app watches its panes' folders the same way.
 area. On a switch such as *Ask before deleting*, **Space** flips it and the bottom line says
 *Saved to …/config.toml*. `coxswain --settings=confirm_delete` opens with the cursor on it.
 
+#### Where did `Enter = OK   Esc = Cancel` go?
+
+2.0 gave both apps one key line, which names what **Enter** does: *Enter Copy · Esc Cancel*,
+*Enter Create · Esc Cancel*. The keys are the same; **Y** and **N** still answer a question.
+
+#### How do I copy an install line? There is no Copy button.
+
+In *Settings → Finding files* (**F9** → *Settings*), put the cursor on the missing program under
+*Programs that read more* and press **Space**. The terminal puts the line on its clipboard (OSC 52,
+over ssh too); the bottom says *Copied: …*. Your terminal must allow OSC 52; if it does not, type
+the line from the row.
+
 #### Can I use the terminal app over SSH?
 
 Yes. It runs on the remote machine, with that machine's files, `config.toml` and search helper.
@@ -280,7 +302,7 @@ desktop app set are kept in `state.json`, which the terminal app does not show.
 
 #### How do I turn on search by meaning without the desktop app?
 
-`coxswain --meaning on` (or `coxswain --setup-search`), then Find file (**Ctrl+F**): files found by meaning are under *ABOUT THIS*. See
+`coxswain --meaning on` (or `coxswain --setup-search`), then Find (**Ctrl+F**): files found by meaning are under *ABOUT THIS*. See
 [Search by meaning in the terminal app](#search-by-meaning-in-the-terminal-app).
 
 ---

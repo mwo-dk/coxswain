@@ -23,7 +23,7 @@ The terminal app has no Read now; plug in, or use the desktop app's Settings.
 | Where | What |
 |---|---|
 | *Settings → Finding files* | Under the *Words* line of the status: *Paused while the machine runs on its battery.*, with **Read now** beside it |
-| Find file | The count line's ` · 412 still to read` stops counting down |
+| Find | The count line's ` · 412 still to read` stops counting down |
 
 The name index, the file watcher and every search work as usual.
 

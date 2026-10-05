@@ -1,4 +1,4 @@
-.Dd October 5, 2026
+.Dd October 6, 2026
 .Dt COXSWAIN 1
 .Os
 .Sh NAME
@@ -7,6 +7,10 @@
 .Nd two-pane file manager for the terminal
 .Sh SYNOPSIS
 .Nm
+.Op Ar left
+.Op Ar right
+.Nm
+.Op Fl -settings Ns Op = Ns Ar name
 .Op Ar left
 .Op Ar right
 .Nm
@@ -40,9 +44,25 @@ Press
 .Ic F1
 in the program for the keys, and
 .Ic F9
-for the menus.
+for the commands.
+On the first start a short guide shows the panels and their keys, how far Find looks, the
+looks and what can leave the machine;
+.Ic F1
+then
+.Ic G
+shows it again.
 .Sh OPTIONS
 .Bl -tag -width Ds
+.It Fl -settings Ns Op = Ns Ar name
+Start with Settings open, full screen
+.Pq also Ic F9 No then Settings .
+.Ar name
+is an area
+.Pq Cm overview , search , previews , looks , behaviour , keys , privacy
+or an option such as
+.Cm show_hidden
+or
+.Cm search_meaning .
 .It Fl -dump-config
 Print the full default configuration.
 Redirect it to the configuration file to customise it.
@@ -63,14 +83,14 @@ this writes an XDG autostart entry,
 Search by meaning: download the built-in model and turn it on, turn it off,
 or turn it off and delete the model.
 .It Fl -meaning Cm ollama Op Ar model
-Take the vectors from Ollama on this machine
+Search by meaning with Ollama on this machine
 .Pq bge-m3 unless a model is named; it is pulled if missing .
 .It Fl -meaning Cm server Ar url model
-Take the vectors from a server with the OpenAI API.
+Search by meaning with a server that has the OpenAI API.
 .It Fl -meaning Cm builtin | cpu | auto
 Back to the built-in model; on the processor only; or on a GPU where one can be used.
 .It Fl -meaning Cm ask Ar model | Cm off
-The chat model that answers questions from your files in Find file.
+The chat model that answers questions from your files in Find.
 .It Fl -languages
 List the languages and how to help improve a new translation.
 .It Fl -whats-new Op Cm all

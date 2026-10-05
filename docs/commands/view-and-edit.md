@@ -21,15 +21,15 @@ starts your editor or the file's default application.
 |---|---|---|
 | **F3** | Opens the file in your viewer: `viewer` from the config, else `$PAGER`, else `less` (`more` on Windows). The panels step aside until it ends | Shows or hides the [preview pane](../previews/README.md). When the pane shows command output, **F3** switches it back to the file preview |
 | **F4** | Opens the file in your editor: `editor` from the config, else `$VISUAL`, else `$EDITOR`, else `vi` (`notepad` on Windows). The panels step aside until it ends | Starts `editor` from the config with the file, in the background; without `editor`, opens the file in its default application, as **Enter** does |
-| **F4** in [Find file](../search/find-file.md) | Edits the hit under the cursor; the search stays open | Same |
-| **F3** in Find file | Views the hit under the cursor | — (**Enter** goes to the hit; the preview shows it there) |
+| **F4** in [Find](../search/find-file.md) | Edits the hit under the cursor; the search stays open | Same |
+| **F3** in Find | Views the hit under the cursor | — (**Enter** goes to the hit; the preview shows it there) |
 
 A variable that is set but empty counts as unset.
 
 ## What you see
 
 - **Terminal app:** the panels disappear and the program has the whole terminal. When you quit
-  it (**q** in `less`, `:q` in `vi`), the panels come back and reread, so changes you saved show
+  it (**q** in `less`, `:q` in `vi`), the panels come back and are read again, so changes you saved show
   at once. The program runs in the file's folder.
 - **Desktop app, F3:** the preview pane opens at the right, or closes. What it shows depends on
   the file: text with syntax colours, PDF pages, pictures, tables, trees ([The preview pane](../previews/README.md)).
@@ -111,7 +111,7 @@ No: the editor would change a copy, and the change would be lost. Copy it out wi
 ([Archives as folders](../files/archives.md)). **F3** in the terminal app views it (a copy goes
 to the viewer), and the desktop app's preview pane shows it.
 
-#### F4 on a Find file hit: does the search close?
+#### F4 on a hit in Find: does the search close?
 
 No. The editor starts for the hit under the cursor and the search stays as it was, so you can
 edit several hits in a row. **Enter** goes to the hit's folder instead.

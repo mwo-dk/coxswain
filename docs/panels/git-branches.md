@@ -36,8 +36,9 @@ worktrees, and **Enter** on one opens its folder. Both apps do this.
 3. **Enter** on a branch: its files as they are at its last commit. Preview a file, see what
    that commit changed in it (**Diff** in the desktop app's preview pane), **F3** to view it and
    **F5** to copy it out, as in a [history](git-history.md#what-works-in-a-history).
-4. **Alt+S** on a branch: a dialog asks *Switch rocket to the branch feature/engine?*; **Enter**
-   (or **y**) runs `git switch`. The status line says what git said (*Switched to branch
+4. **Alt+S** on a branch: a dialog asks *Switch rocket to the branch feature/engine?*, with
+   *Enter Switch · Esc Cancel* under it; **Enter** (or **y**, or the *Switch* button) runs
+   `git switch`. The status line says what git said (*Switched to branch
    'feature/engine'*), and the git line follows.
 5. **F9** › *New branch here*: a prompt asks for the name; the new branch starts from the
    branch under the cursor, or from the current commit when you are in a folder of the
@@ -68,8 +69,8 @@ desktop app also has *Switch to branch* under *Git* in the preview pane.
   tracks it: `git switch --track origin/feature`. When a local branch of that name exists
   already, git says so and nothing changes: switch to the local one instead.
 - **Your changes are safe.** Changes that do not touch the files the switch changes come
-  along, as with git itself. When the switch would overwrite a change, git refuses, and its own
-  message opens in a dialog (*Your local changes to the following files would be overwritten by
+  along, as with git itself. When the switch would overwrite a change, git refuses, and a dialog titled *Could not switch to
+  feature/engine* gives the cause in one line, with git's own message under *Details* (*Your local changes to the following files would be overwritten by
   checkout: a.txt. Please commit your changes or stash them before you switch branches.*).
   Coxswain never forces a switch.
 - A branch that is checked out in another worktree is refused by git, with its message.
@@ -148,7 +149,8 @@ Bound to these actions, **Alt+B**, **Alt+W** and **Alt+S** no longer start a
 
 Everything above works the same, keys included. The title says `[branches]` or `[worktrees]`,
 the info line under the panel shows a branch's commit id, date and author, the switch asks
-*Switch … to the branch …?* with **y** / **n**, and git's refusal opens in a message box.
+*Switch … to the branch …?* with *Enter Switch · Esc Cancel* (**y** / **n** work too), and git's
+refusal opens in a message box, its cause first and git's words below *Details:*.
 There is no git line to click: use **Alt+B**.
 
 ## Questions

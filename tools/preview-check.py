@@ -164,7 +164,10 @@ def main():
     if tectonic.is_dir():
         (home / ".cache").mkdir()
         (home / ".cache/tectonic").symlink_to(tectonic)
-    (home / ".config/coxswain/config.toml").write_text(f'[search]\nroots = ["{home}"]\ntext = false\n')
+    (home / ".config/coxswain/config.toml").write_text(f'[search]\nname_roots = ["{home}"]\ntext = false\n')
+    # Not a first start: the first-run guide would cover the preview.
+    (home / ".local/share/coxswain").mkdir(parents=True)
+    (home / ".local/share/coxswain/state.json").write_text('{"guide_seen": true}')
     broadway = subprocess.Popen(["broadwayd", "--address", "127.0.0.1", "--port", str(PORT), DISPLAY], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     time.sleep(1)
     # Its own D-Bus too: nothing reaches the session of whoever runs this.

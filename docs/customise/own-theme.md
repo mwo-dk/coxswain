@@ -93,7 +93,7 @@ only if you copy all of it (see the [questions](#i-set-themescyberpanel-to-tweak
 | `hidden` | Hidden files; also dim text such as hints and labels | Hidden files |
 | `symlink` | Symbolic links | Symbolic links |
 | `cursor` | The cursor row | The cursor row, and the active panel's title |
-| `marked` | Marked entries | Marked entries, and the *selected* line |
+| `marked` | Marked entries | Marked entries, and the *… marked* total on the info line |
 | `marked_cursor` | A marked entry under the cursor | A marked entry under the cursor |
 | `status` | The boxes in Mermaid diagrams (background) | Not used |
 | `keybar_num` / `keybar_label` | The F-key bar's numbers and labels | The F-key bar's numbers and labels |
@@ -103,7 +103,7 @@ only if you copy all of it (see the [questions](#i-set-themescyberpanel-to-tweak
 | `dialog_input` | Input fields | Input fields |
 | `git_branch` | The git line, the sidebar's repositories | The git line |
 | `git_modified`, `git_added`, `git_untracked`, `git_deleted`, `git_renamed`, `git_conflict`, `git_ignored` | Git states of files ([Git](../panels/git.md)); `git_deleted` also colours errors | Git states of files; `git_conflict` also colours errors on the info line |
-| `search_hit` | The words found, in Find file and the preview | The words found, in Find file |
+| `search_hit` | The words found, in Find and the preview | The words found, in Find |
 | `accent` | Buttons, highlights, the active pane's ring, notices | Not used |
 | `sidebar` | The sidebar | Not used (no sidebar) |
 | `tab`, `tab_active` | Tabs | Not used (no tabs) |

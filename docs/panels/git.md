@@ -132,7 +132,7 @@ Every file and folder git tracks gets the date and author of the last commit tha
 
 It takes one `git log` for the whole folder, in the background, and the answer is kept until
 HEAD moves: a folder you come back to fills in at once, and a new commit is seen on the next
-reread (**Ctrl+R**). In a big repository it fills in a moment after the folder shows; a run that
+refresh (**Ctrl+R**). In a big repository it fills in a moment after the folder shows; a run that
 takes longer than four seconds stops, and what it did not reach says *older*. In a
 [history](git-history.md), the column shows the last commit as of the commit you are looking at.
 

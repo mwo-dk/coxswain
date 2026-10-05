@@ -302,6 +302,7 @@
     const m = ui.modal;
     const act = ui.cfg.keymap[k];
     if (m.kind === "search") return findKey(m, e, k, act);
+    if (m.kind === "guide") return m.key?.(k) ?? false;
     if (k === "Esc") return close(), true;
     switch (m.kind) {
       case "input":
@@ -353,6 +354,9 @@
   }
 </script>
 
+<!-- The keys of a dialog, in one line the terminal app shares: "Enter Copy · Esc Cancel". -->
+{#snippet keys(verb)}<p class="keys">{t("dialog.keys", { verb, cancel: t("common.cancel") })}</p>{/snippet}
+
 {#if ui.modal && !["dupes", "settings", "bom"].includes(ui.modal.kind)}
   {@const m = ui.modal}
   <div class="backdrop" role="presentation" onclick={(e) => e.target === e.currentTarget && close()}>
@@ -361,9 +365,10 @@
         <h2>{m.title}</h2>
         <label>{m.label}{#if m.secret}<input bind:this={input} bind:value={m.value} type="password" autocomplete="off" />{:else}<input bind:this={input} bind:value={m.value} spellcheck="false" />{/if}</label>
         <div class="buttons">
-          <button class="primary" onclick={() => confirm(m, m.value)}>{t("common.ok")}</button>
+          <button class="primary" onclick={() => confirm(m, m.value)}>{m.ok}</button>
           <button onclick={close}>{t("common.cancel")}</button>
         </div>
+        {@render keys(m.ok)}
       {:else if m.kind === "pack"}
         {@const locks = takesPassword(m.value)}
         <h2>{m.title}</h2>
@@ -387,22 +392,27 @@
           <p class="meta">{t("archive.pack_no_password")}</p>
         {/if}
         <div class="buttons">
-          <button class="primary" disabled={locks && m.password !== m.again} onclick={() => packNow(m)}>{t("common.ok")}</button>
+          <button class="primary" disabled={locks && m.password !== m.again} onclick={() => packNow(m)}>{t("verb.pack")}</button>
           <button onclick={close}>{t("common.cancel")}</button>
         </div>
+        {@render keys(t("verb.pack"))}
       {:else if m.kind === "confirm"}
         <h2>{m.title}</h2>
         <p>{m.text}</p>
         <div class="buttons">
-          <button class="primary danger" bind:this={input} onclick={() => confirm(m)}>{m.ok ?? t("common.delete")}</button>
+          <button class="primary danger" bind:this={input} onclick={() => confirm(m)}>{m.ok}</button>
           <button onclick={close}>{t("common.cancel")}</button>
         </div>
+        {@render keys(m.ok)}
       {:else if m.kind === "message"}
         <h2>{m.title}</h2>
-        <pre>{m.text}</pre>
-        <div class="buttons"><button class="primary" bind:this={input} onclick={close}>{t("common.ok")}</button></div>
+        <p>{m.text}</p>
+        {#if m.details}<details><summary>{t("dialog.details")}</summary><pre>{m.details}</pre></details>{/if}
+        <div class="buttons"><button class="primary" bind:this={input} onclick={close}>{t("common.close")}</button></div>
+        <p class="keys">{t("dialog.keys_one", { verb: t("common.close") })}</p>
       {:else if m.kind === "help"}
         <h2>{t("dialogs.help_title", { version: ui.cfg.version })}</h2>
+        <p><button onclick={() => (ui.modal = { kind: "guide", step: 0 })}>{t("guide.show_again")}</button></p>
         <div class="help" bind:this={input} tabindex="-1">
           <table>
             <tbody>
@@ -575,6 +585,7 @@
           <button class="primary" disabled={!m.plan.some((p) => p.from !== p.to) || m.plan.some((p) => p.conflict)} onclick={applyRename}>{t("common.rename")}</button>
           <button onclick={close}>{t("common.cancel")}</button>
         </div>
+        {@render keys(t("common.rename"))}
       {:else if m.kind === "props"}
         {@const p = m.props}
         <h2>{basename(p.path)}</h2>
@@ -598,6 +609,7 @@
           <button class="primary" onclick={savePerms}>{t("common.apply")}</button>
           <button onclick={close}>{t("common.close")}</button>
         </div>
+        <p class="keys">{t("dialog.keys", { verb: t("common.apply"), cancel: t("common.close") })}</p>
       {:else if m.kind === "tag"}
         <h2>{t("action.tag")}</h2>
         <div class="tags">
@@ -612,6 +624,12 @@
 {/if}
 
 <style>
+  .keys {
+    margin: 0;
+    text-align: end;
+    font-size: 0.85em;
+    opacity: 0.7;
+  }
   .backdrop {
     position: fixed;
     inset: 0;

@@ -2,7 +2,7 @@
 
 # Names everywhere
 
-Every file and folder on the machine is in the name index, so Find file finds any of them by name
+Every file and folder on the machine is in the name index, so Find gets any of them by name
 in milliseconds: 1.4 million files in under 10 ms on a laptop. It needs nothing to be turned on.
 
 <!-- screenshot: tui-search.png: the terminal app (Classic blue), Find with "*.rs|*.toml src/" typed: NAMES only, eight hits, two inside a zip -->
@@ -10,7 +10,7 @@ in milliseconds: 1.4 million files in under 10 ms on a laptop. It needs nothing 
 
 ## How to use it
 
-1. **Alt+F7** or **Ctrl+F** opens [Find file](find-file.md). Names are its *Names* group, first
+1. **Alt+F7** or **Ctrl+F** opens [Find](find-file.md). Names are its *Names* group, first
    for a word or two, after *In files* and *About this* for three words or a question.
 2. Type part of a name, or use the [name syntax](name-syntax.md): `ext:pdf invoice !draft`. A
    query with name syntax shows names only; **Tab** to the *Names* kind shows names alone for any
@@ -37,7 +37,7 @@ the walk goes.
 
 **What is indexed:** all of `/` on Linux and macOS, every fixed drive on Windows. Hidden files and
 folders are indexed like any other. **Left out:** `/proc`, `/sys`, `/dev`, `/run` and
-`/tmp/.X11-unix` by default. In `exclude`, a path skips that tree and a bare name (`node_modules`)
+`/tmp/.X11-unix` by default. In `name_exclude`, a path skips that tree and a bare name (`node_modules`)
 skips every folder of that name.
 
 The index is held by the [search helper](helper.md) and shared by every window and terminal app.
@@ -65,13 +65,15 @@ does, would make cold starts faster.
 ## Settings and config.toml
 
 Under `[search]`. In the desktop app they are under *Settings → Finding files → Details*:
-`roots` is *Where names are found*, `exclude` *Never indexed* and `watch` *Follow changes as they
-happen* (in *Folders*), `max_results` *Most hits* (in *What is read*).
+`name_roots` is *Where names are found*, `name_exclude` *Never indexed* and `watch` *Follow changes as they
+happen* (in *Folders*), `max_results` *Most hits* (in *What is read*). Before 2.0 the first two
+were `roots` and `exclude`; the first start of 2.0 renames them in `config.toml`
+([Renamed in 2.0](../reference/configuration.md#renamed-in-20)).
 
 | Key | Type | Default | Does |
 |---|---|---|---|
-| `roots` | list of paths | `[]` | Where the name index looks; empty is `/`, or every fixed drive on Windows |
-| `exclude` | list of strings | `["/proc", "/sys", "/dev", "/run", "/tmp/.X11-unix"]` | Paths and folder names left out of the name index. Listing it replaces the default |
+| `name_roots` | list of paths | `[]` | Where the name index looks; empty is `/`, or every fixed drive on Windows |
+| `name_exclude` | list of strings | `["/proc", "/sys", "/dev", "/run", "/tmp/.X11-unix"]` | Paths and folder names left out of the name index. Listing it replaces the default |
 | `watch` | bool | `true` | Follow changes live. Off: only the hourly rebuild updates the index |
 | `max_results` | number | `10000` | Most hits of one search |
 
@@ -91,7 +93,7 @@ the hourly rebuild. Raise the limit (`sysctl fs.inotify.max_user_watches=1048576
 #### Why do I see files from `.cache` and `node_modules`?
 Every name on the machine is indexed, hidden ones included. Leave them out of one search with
 `!.cache` or `!node_modules/`, or out of the index with
-`exclude = ["/proc", "/sys", "/dev", "/run", "node_modules", ".cache"]` (listing `exclude` replaces
+`name_exclude = ["/proc", "/sys", "/dev", "/run", "node_modules", ".cache"]` (listing `name_exclude` replaces
 the default list, so repeat what you want to keep).
 
 #### Why does the first search after installing say "building index"?
@@ -99,19 +101,25 @@ There is no saved index yet. Hits come in as the walk goes: a few seconds to a m
 disk. From the second start on, the saved index answers at once.
 
 #### Can I index only some folders?
-Yes: `roots = ["/home/me", "/mnt/data"]` under `[search]`. Empty means the whole machine.
+Yes: `name_roots = ["/home/me", "/mnt/data"]` under `[search]`. Empty means the whole machine.
+
+#### My `roots` and `exclude` under `[search]` stopped working.
+
+2.0 renamed them `name_roots` and `name_exclude`, the names Settings uses. The first start of 2.0
+renames them in `config.toml` for you and says so in a notice; an old name written in afterwards
+is ignored. See [Renamed in 2.0](../reference/configuration.md#renamed-in-20).
 
 #### Does the name index read my files?
 No. It holds names and folders only. Reading the text is separate and optional: Find's *In
 files* group ([Text in files](text.md)).
 
 #### Why does Find "In projects" miss a file I can see in the panel?
-It searches the index, which leaves out `exclude`d folders. If the file is in one of them, open the
-folder and use [Quick search](../panels/quick-search.md), or narrow `exclude`.
+It searches the index, which leaves out the folders in `name_exclude`. If the file is in one of
+them, open the folder and use [Quick search](../panels/quick-search.md), or narrow `name_exclude`.
 
 #### Does it slow the machine down?
 The saved index loads at once; the fresh build after a start and the hourly rebuild walk the disk
 in the background. A search is a single scan of memory, over in milliseconds.
 
 ---
-[← Previous: Find file](find-file.md) · [Next: Name syntax →](name-syntax.md)
+[← Previous: Find](find-file.md) · [Next: Name syntax →](name-syntax.md)

@@ -53,8 +53,8 @@ that chrome has fixed colours of its own: Windows 3.11 and 95 draw their bevels 
 in the classic greys and their title bars in navy (95 with the gradient to light blue), and
 System 7 lays its grey dotted desktop behind the window, whatever the theme's slots say.
 
-In Cyber, lit buttons are not filled with green: a dialog's main button (*OK*, *Scan*), the
-chosen kind and the scope in Find file, the update button in the status line, the count on *⚙ Settings*, the
+In Cyber, lit buttons are not filled with green: a dialog's main button (*Copy*, *Scan*), the
+chosen kind and the scope in Find, the update button in the status line, the count on *⚙ Settings*, the
 *new* marks under *Overview → What's new* and the archive and history badges are dark, with a bright green outline and bold green text. Dark letters on bright green were
 smeared by the scanlines and the glow, and could hardly be read.
 

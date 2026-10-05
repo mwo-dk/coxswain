@@ -2,7 +2,7 @@
 
 # Git history in search
 
-Find file searches the history of your git repositories as well as your files: the message of
+Find searches the history of your git repositories as well as your files: the message of
 every commit, who wrote it, and the paths it changed. Type `fuel valve` in Find and
 the commit *Fix the fuel valve* is found under *History*, marked as a commit; **Enter** opens the repository as
 it was at that commit. With [search by meaning](meaning.md) on, commits about your words are
@@ -22,7 +22,7 @@ found too, and [Ask](ask.md) may answer from commit messages. Both apps have it,
 
 ## How to use it
 
-1. Press **Ctrl+F** for [Find file](find-file.md), or **Shift+F7** (**Ctrl+Shift+F** in the
+1. Press **Ctrl+F** for [Find](find-file.md), or **Shift+F7** (**Ctrl+Shift+F** in the
    desktop app) for its *In files* kind, which shows *In files* and *History* alone.
 2. Type words from a commit message, an author's name, or a path a commit changed:
    `valve`, `Ada`, `engine.rs`.
@@ -79,7 +79,7 @@ start.
 
 ## Questions
 
-#### Why does Find file not find my latest commit?
+#### Why does Find miss my latest commit?
 
 The helper reads repositories at its scans, at most ten minutes apart, so wait a little.
 Commits in a repository outside the folders read are never kept.

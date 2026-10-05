@@ -6,23 +6,25 @@ Mark the files you want to work on, then copy, move, delete, tag, rename or run 
 all of them at once. With nothing marked, those actions work on the entry under the cursor.
 
 ![The desktop app in ~/Documents with four files marked in the marked colour, the footer reading 25 items · 4 selected (1.5 MB), and the Select files dialog with Matching: *.md *.txt](../screenshots/panels-marking.png)
+<!-- screenshot: panels-marking.png: retake for 2.0: the desktop app in ~/Documents with four files marked, the footer reading 25 items · 4 marked (1.5 MB), and the Mark files dialog with Matching: *.md *.txt, the buttons Mark and Cancel and the line Enter Mark · Esc Cancel -->
 
 ## How to use it
 
 | Key | Does |
 |---|---|
 | **Insert**, **Shift+Down** | Mark or unmark the entry under the cursor, then move down |
-| `+` | *Select group*: a dialog asks for patterns (`*` to start with); files that match are marked |
-| `-` | *Unselect group*: the same, unmarking |
-| `*` | Invert the marks of all files (folders keep theirs) |
+| `+` | *Mark group*: the dialog *Mark files* asks for patterns (`*` to start with); files that match are marked |
+| `-` | *Unmark group*: the dialog *Unmark files*, the same, unmarking |
+| `*` | *Invert marks*: inverts the marks of all files (folders keep theirs) |
 | **Ctrl+A** | Mark everything in the folder, files and folders, as a file explorer does (`..` never) |
 
 Marking a group:
 
 1. Press `+` (with the command line empty).
 2. Type one or more patterns, separated by spaces, commas or semicolons: `*.jpg *.png`.
-3. Press **Enter**. Every file whose whole name matches one of them is marked, whatever its
-   case. **Esc** cancels.
+3. Press **Enter** (or click *Mark*; the line under the buttons says *Enter Mark · Esc
+   Cancel*). Every file whose whole name matches one of them is marked, whatever its case.
+   **Esc** cancels.
 
 Patterns: `*` stands for any number of characters, `?` for one. `IMG_????.jpg` matches
 `IMG_0042.jpg`. Groups mark files only, never folders.
@@ -39,17 +41,17 @@ With the mouse ([The mouse](mouse.md)):
 
 - Marked entries are drawn in the `marked` colour: bold yellow in NC and most themes. The
   cursor on a marked entry uses `marked_cursor`.
-- The terminal app's info line, centred under the list: `4.2 MB in 3 selected`.
-- The desktop app's pane footer: `17 items · 3 selected (4.2 MB)`.
-- The dialog: *Select* / *Unselect* with *Files matching:* in the terminal app; *Select
-  files* / *Unselect files* with *Matching:* in the desktop app.
+- The terminal app's info line, centred under the list: `4.2 MB in 3 marked`.
+- The desktop app's pane footer: `17 items · 3 marked (4.2 MB)`.
+- The dialog: *Mark files* / *Unmark files* in both apps, with *Files matching:* in the terminal
+  app and *Matching:* in the desktop app; the button and the key line say *Mark* or *Unmark*.
 
 What uses the marks: **F5** copy, **F6** move, **F8** / **Shift+F8** delete, **Alt+F5**
 pack, **Ctrl+E** extract, **Ctrl+C** / **Ctrl+X** (desktop app), **Alt+T** colour tag,
 **Ctrl+M** batch rename, the *Folder sizes* command, drags of a marked entry, and `%s` in
 [scripts and the user menu](../commands/user-menu.md).
 
-Marks go when you leave the folder, and after a copy, move, delete, pack or extract. A reread
+Marks go when you leave the folder, and after a copy, move, delete, pack or extract. A refresh
 (**Ctrl+R**, or the desktop app seeing a change) keeps the marks of entries still there.
 
 ## Settings and config.toml
@@ -57,17 +59,18 @@ Marks go when you leave the folder, and after a copy, move, delete, pack or extr
 | Action | Config name | Default keys |
 |---|---|---|
 | Mark | `mark` | `Insert`, `Shift+Down` |
-| Select group | `select_group` | `+` |
-| Unselect group | `unselect_group` | `-` |
-| Invert selection | `invert_selection` | `*` |
+| Mark group | `mark_group` | `+` |
+| Unmark group | `unmark_group` | `-` |
+| Invert marks | `invert_marks` | `*` |
 | Mark all | `mark_all` | **Ctrl+A** |
 
 `+`, `-` and `*` only fire while the command line is empty, as in NC; otherwise they are typed
-into it. The marked colour is the `marked` slot of the theme ([Your own theme](../customise/own-theme.md)).
+into it. Before 2.0 the three were `select_group`, `unselect_group` and `invert_selection`; the
+first start of 2.0 renames them in `config.toml` ([Renamed in 2.0](../reference/configuration.md#renamed-in-20)). The marked colour is the `marked` slot of the theme ([Your own theme](../customise/own-theme.md)).
 
 ## In the terminal app
 
-The same keys and patterns. It has no Ctrl-click or Shift-click, and its selected total
+The same keys and patterns. It has no Ctrl-click or Shift-click, and its marked total
 counts the sizes of marked files only: a marked folder adds nothing, even when its size is
 shown. The desktop app adds a marked folder's size once it is measured.
 
@@ -91,10 +94,16 @@ Press **Ctrl+A**: every file and folder is marked, as in a file explorer. For fi
 `*` or `+` for the files, then **Insert** on each folder you want too. `..` can never be
 marked.
 
-#### The selected total in the terminal app is smaller than in the desktop app. Why?
+#### The marked total in the terminal app is smaller than in the desktop app. Why?
 
 The terminal app sums the sizes of marked files; marked folders count nothing there. The
 desktop app adds each marked folder's measured size.
+
+#### Why does it say *marked*, not *selected*?
+
+Since 2.0 both apps use one word for it: *mark*. The actions are *Mark group*, *Unmark group*
+and *Invert marks*, the dialogs *Mark files* and *Unmark files*, the footer `3 marked`. The keys
+are the same: `+`, `-`, `*`.
 
 #### Where did my marks go?
 

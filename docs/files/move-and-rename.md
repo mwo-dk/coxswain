@@ -3,19 +3,21 @@
 # Move and rename (F6)
 
 **F6** moves the marked files, or the one under the cursor, to another folder, or renames it
-when you type a new name. It is one key for both, as in Norton Commander: the F-key bar says
-*RenMov*.
+when you type a new name. It is one key for both, as in Norton Commander. The desktop app's
+F-key bar says *Move*; the terminal app's keeps Norton Commander's *RenMov*.
 
 ![The desktop app's Move or rename dialog: Move "report.pdf" to:, the field edited to report-final.pdf](../screenshots/files-move.png)
+<!-- screenshot: files-move.png: retake for 2.0: the desktop app's dialog titled Move or rename "report.pdf", the label To: over the field edited to report-final.pdf, the buttons Move and Cancel, and the line Enter Move · Esc Cancel -->
 
 ## How to use it
 
 **To move:**
 
 1. Mark the files, or put the cursor on one.
-2. Press **F6**. The dialog *Move or rename* opens with *Move "report.pdf" to:* (or
-   *Move 3 items to:*), filled in with the other panel's folder.
-3. Press **Enter** (or *OK*).
+2. Press **F6**. A dialog titled *Move or rename "report.pdf"* (or *Move or rename 3 items*)
+   opens, its field *To:* filled in with the other panel's folder, and *Enter Move · Esc Cancel*
+   under the buttons.
+3. Press **Enter** (or click *Move*).
 
 **To rename:** press **F6** on the file, replace the whole target with the new name
 (`report-final.pdf`) and press **Enter**. A bare name is taken from the active panel's folder,
@@ -31,7 +33,7 @@ so the file is renamed where it is.
 | Key | Desktop app | Terminal app |
 |---|---|---|
 | Open the dialog | **F6** | **F6** |
-| Move or rename | **Enter** or *OK* | **Enter** |
+| Move or rename | **Enter** or *Move* | **Enter** |
 | Cancel | **Esc**, *Cancel*, or an empty field | **Esc**, or an empty field |
 | Clear the field | select and type | **Ctrl+U** |
 
@@ -42,8 +44,9 @@ For many names at once, use [Batch rename (Ctrl+M)](batch-rename.md) in the desk
 - The status line says `Moved "report.pdf"` or `Moved 3 items`; marks are cleared and both
   panels are read again.
 - After renaming one file in place, the terminal app keeps the cursor on it under its new name.
-- A target that exists is an error (`… exists`) in *Something went wrong*; nothing is written
-  over ([When something goes wrong](copy.md#when-something-goes-wrong)).
+- A target that exists is an error: a dialog titled *Could not move "report.pdf"*, with the
+  cause and, under *Details*, `… exists`; nothing is written over
+  ([When something goes wrong](copy.md#when-something-goes-wrong)).
 
 ## Settings and config.toml
 
@@ -71,8 +74,9 @@ and the rename is refused only if a `notes` is really there.
 
 #### Why did my move fail with "exists"?
 
-Something of that name is already in the target folder. Coxswain never writes over it. Rename
-one of them first, or move the other one out of the way.
+Something of that name is already in the target folder. Coxswain never writes over it: the
+dialog *Could not move …* lists it under *Details* (`/home/me/b/report.pdf exists`). Rename one
+of them first, or move the other one out of the way.
 
 #### Can I move a folder into itself?
 

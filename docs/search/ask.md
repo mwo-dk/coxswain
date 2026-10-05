@@ -2,7 +2,7 @@
 
 # Ask: questions answered from your files
 
-Ask is part of [Find file](find-file.md). Type a question in your own words, such as *how does
+Ask is part of [Find](find-file.md). Type a question in your own words, such as *how does
 our Entra sign-in flow work?* or *what did we decide about the fuel budget?*, and press
 **Ctrl+Enter** (desktop app) or **Alt+Enter** (terminal app), or **Enter** on the *Ask* row at
 the top of the list.
@@ -14,7 +14,7 @@ as **[1]**, **[2]**. The sources are listed under the answer, numbered the same 
 **Enter** on one takes you to the file.
 
 The answer opens in place of the list; **Esc** goes back to the list. Nothing is kept: the
-questions and answers exist only while Find file is open, and closing it forgets them.
+questions and answers exist only while Find is open, and closing it forgets them.
 
 <!-- screenshot: search-ask.png: the desktop app (Cyber), Find with the answer in place: the question, the answer citing [1] and [2], the numbered sources budget.txt and budget-da.txt -->
 
@@ -31,7 +31,7 @@ questions and answers exist only while Find file is open, and closing it forgets
 ## What it needs
 
 1. [Search by meaning](meaning.md) turned on, with the built-in model or [a server](servers.md).
-   Ask looks for the passages the same way Find finds files *About this*.
+   Ask looks for the passages the same way Find picks the files *About this*.
 2. A **chat model** on a server you run:
    - With the vectors from Ollama or an OpenAI-style server (Lemonade, LM Studio, llama.cpp,
      vLLM), the chat model is on **that same server**, with the same address and API key.
@@ -56,7 +56,7 @@ and Ask* there; or `coxswain --setup-search`). By hand:
    that only make vectors, such as `bge-m3`, are left out). Terminal app:
    `coxswain --meaning ask qwen3:8b`. On Ollama a missing model is pulled first. A model that
    cannot answer is refused with the reason (below), in both apps.
-2. Open Find file (**Ctrl+F**) and type the question. The first row reads **? Ask: "your
+2. Open Find (**Ctrl+F**) and type the question. The first row reads **? Ask: "your
    question"** once there are two words or more, or a `?` at the end (a question ending in `?`
    puts the cursor on it). Press **Enter** on it, or **Ctrl+Enter** (desktop) / **Alt+Enter**
    (terminal) from any row. **Ctrl+F7** (the F9 command list calls it *Ask your files*) opens
@@ -73,7 +73,7 @@ and Ask* there; or `coxswain --setup-search`). By hand:
    app a click on a source or on a **[n]** in the answer does the same. **F4** edits the source,
    and **F3** views it in the terminal app.
 6. **Esc** goes back to the list (the conversation stays until Find closes); **Esc** there closes
-   Find file and forgets the questions. An answer still being written stops when Find closes,
+   Find and forgets the questions. An answer still being written stops when Find closes,
    also while the server is still loading the model and has not said a word.
 
 **Only one folder:** switch Find's scope to the active panel's folder with **Ctrl+F** inside Find
@@ -87,7 +87,7 @@ and Ask* there; or `coxswain --setup-search`). By hand:
 | **Enter** with the field empty, in the answer | Go to the source under the cursor | The same |
 | **Up** / **Down** | Move through the last answer's sources | The same |
 | **Ctrl+F** / **Alt+F7** | Switch the scope: everywhere or the panel's folder | The same |
-| **F3** | Nothing: the preview pane is under Find file | View the source |
+| **F3** | Nothing: the preview pane is under Find | View the source |
 | **F4** | Edit the source | The same |
 | **Esc** | Back to the list; again: close and forget | The same |
 | Mouse | Click a source or a **[n]** to go to it | None |
@@ -100,8 +100,8 @@ and Ask* there; or `coxswain --setup-search`). By hand:
   **Delete** (or **×**) sends the row away for good; **Ctrl+Enter** / **Ctrl+F7** still show what
   Ask needs.
 - **A model that cannot answer**: when the chat model only makes vectors, the *Ask* row and the
-  answer's place say so (in red in the answer), for example *bge-m3 makes vectors and cannot answer: choose a
-  chat model, e.g. qwen3:8b.*, with the link *set it up* (desktop app), and **Enter** does not
+  answer's place say so (in red in the answer), for example *bge-m3 only reads meaning and cannot answer: choose
+  a chat model, e.g. qwen3:8b.*, with the link *set it up* (desktop app), and **Enter** does not
   send the question. A model the server does not have shows the server's message, such as
   *model 'qwen3' not found*. Settings shows the same line in red under *Chat model*.
 - **Ready**, before the first question: *qwen3:8b answers from the passages of your files closest
@@ -124,7 +124,7 @@ and Ask* there; or `coxswain --setup-search`). By hand:
 | *Chat model* | `[search] ask_model` | string, `""` | The model that writes the answers. Empty: Ask is not set up |
 | *Let the model think first* | `[search] ask_think` | bool, `false` | Off: a model that thinks first (Qwen3, DeepSeek-R1, …) is asked not to. On: it thinks, many seconds before the first word ([Thinking](#thinking)) |
 | *Meaning* → *Made by*, *Server*, *API key from the environment variable* | `meaning_engine`, `meaning_url`, `meaning_key_env` | | The server Ask talks to, as above |
-| (none) | `[keys] ask` | list of keys, `["Ctrl+F7"]` | The keys that open Find file at Ask ([Changing keys](../customise/keys.md)) |
+| (none) | `[keys] ask` | list of keys, `["Ctrl+F7"]` | The keys that open Find at Ask ([Changing keys](../customise/keys.md)) |
 
 ```toml
 [search]
@@ -171,7 +171,7 @@ first* under *Settings → Finding files → Details → Ask* in the desktop app
 ## Questions
 
 #### What is sent, and where?
-The question, the questions and answers before it in this Find file, and the ten passages with
+The question, the questions and answers before it in this Find, and the ten passages with
 their file paths, to the chat model on the server set under *Settings → Finding files → Details → Meaning* (Ollama on this machine
 with the built-in model). Nothing else, and nothing to anyone else. With a server on another
 machine, Settings says so in bold, as for the vectors. See [Privacy](../reference/privacy.md).
@@ -202,7 +202,7 @@ app) before you ask: the passages then come from that folder and below. With not
 there, it says *Nothing in the files in rocket is close to the question.*
 
 #### Are the answers kept, for next time?
-No. They live in the Find file window only. Closing it forgets them, and nothing is written to
+No. They live in the Find window only. Closing it forgets them, and nothing is written to
 disk.
 
 #### Which chat model should I pick?
@@ -220,11 +220,13 @@ answer* shows under the question until the first word. Ask waits up to five minu
 wait at any moment. After that the words come as they are made. A model that thinks first
 would add many seconds more; Ask asks it not to ([Thinking](#thinking)).
 
-#### It says my model makes vectors and cannot answer. Why?
+<a id="it-says-my-model-makes-vectors-and-cannot-answer-why"></a>
+
+#### It says my model only reads meaning and cannot answer. Why?
 The model in *Chat model* is an embedding model, such as `bge-m3` or `nomic-embed-text`: it turns
 text into vectors for search by meaning and cannot write an answer. Pick a chat model instead,
 such as `qwen3:8b`. On Ollama, Coxswain asks the server what each model can do (`/api/show`)
-when Find file opens at *Ask* and when Settings opens, and the *Chat model* list leaves embedding
+when Find opens at *Ask* and when Settings opens, and the *Chat model* list leaves embedding
 models out. A server with the OpenAI API does not say: its whole list is offered, and the model
 you choose is sent a one-word question when you save it (Settings, or `coxswain --meaning ask`);
 its error, if any, shows under *Chat model*.

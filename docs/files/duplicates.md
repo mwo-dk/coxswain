@@ -27,7 +27,8 @@ downloaded twice, a photo in three places with thumbnails, and a document in an 
    `coxswain-gui --duplicates ~/Pictures /mnt/old-disk` starts straight in a scan of those
    folders (without folders, of the current one;
    [Command-line flags](../reference/command-line-flags.md)).
-2. **Look in:** tick the places to compare. Offered are both panes' folders, your
+2. **Look in:** tick the places to compare. Until the first scan, the window says *Pick the
+   folders to compare, then Scan. Nothing goes to the bin without asking.* Offered are both panes' folders, your
    [favourites](../organise/favourites.md) and every drive in the sidebar; the active pane's
    folder is ticked to begin with. Type any other folder into *Add a folder…* and press
    **Enter**. Comparing across disks is the point: tick your home and an old backup disk to find
@@ -70,6 +71,7 @@ The `×` at the top right (or **Esc**) closes the window; the `×` also stops a 
 
 | Where | Says |
 |---|---|
+| Before a scan | *Pick the folders to compare, then Scan. Nothing goes to the bin without asking.* where the results will be |
 | While scanning | `Comparing the first 16 KB · 1,204 of 3,310 · 64,856 files found · 1.9 GB read`, and a bar |
 | After it | `42 groups of duplicates · 3.1 GB could be freed · 64,856 files (30 GB) scanned in 1.0 s, 1.9 GB read` |
 | A folder group | A folder icon, `2 identical folders`, `1.2 GB each, 340 files`, `1.2 GB extra` |

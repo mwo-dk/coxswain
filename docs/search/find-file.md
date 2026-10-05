@@ -1,8 +1,8 @@
 [← README](../../README.md) · [Docs index](../README.md) · [Search](README.md)
 
-# Find file
+# Find
 
-Find file is one field for everything you look for: a file's name, words inside files, files
+Find is one field for everything you look for: a file's name, words inside files, files
 *about* something, and [Ask](ask.md), questions answered from your files. Type, and the hits
 come in groups: **Names**, **In files**, **About this** and **History**. Go to one with
 **Enter**, or ask with **Ctrl+Enter**.
@@ -25,7 +25,7 @@ come in groups: **Names**, **In files**, **About this** and **History**. Go to o
 
 ## How to use it
 
-1. Press **Ctrl+F** or **Alt+F7** (the F9 command list calls it *Find file*), or click the
+1. Press **Ctrl+F** or **Alt+F7** (the F9 command list calls it *Find*), or click the
    **⌕** button at the right of a pane's path bar (desktop app). Find opens empty, at *All*,
    searching *Everywhere*.
 2. Type: a name (`budget`, `*.pdf`, `ext:md`), words from inside a file (`rocket fuel cost`) or
@@ -164,7 +164,7 @@ No key was added or taken: inside Find, keys go by **action**, so your own bindi
 | **F1** | — | The name syntax and the prefixes, in place of the list; **F1** or **Esc** again for the list |
 | **Delete** | — | On a tip (*Find files about your words too…*, *Ask your files a question…*): never show it again. The desktop app also has **×** at its right |
 | **Esc** | — | In the answer or the syntax: back to the list. In the list: close and forget |
-| Mouse (desktop) | The ⌕ button opens Find | A click selects a hit, a double-click goes to it; a click on a kind or on the scope switches it |
+| Mouse (desktop) | The ⌕ button opens Find | A click puts the cursor on a hit, a double-click goes to it; a click on a kind or on the scope switches it |
 
 ## When something is missing
 
@@ -181,7 +181,7 @@ guide](setup.md) in the desktop app; in the terminal app **Enter** on it runs `c
 | Search by meaning failed | *About this* | The cause, as the server or model gave it | *Fix* |
 | Ask without meaning | the Ask row | *Ask your files a question · needs search by meaning first* | *Set up* (**Delete** or **×**: not again) |
 | Ask without a chat model | the Ask row | *Ask your files a question · choose a chat model* | *Set up* (**Delete** or **×**: not again) |
-| The chat model cannot answer | the Ask row (red in the answer) | The cause, e.g. *bge-m3 makes vectors and cannot answer…* | *Set up* |
+| The chat model cannot answer | the Ask row (red in the answer) | The cause, e.g. *bge-m3 only reads meaning and cannot answer…* | *Set up* |
 | Still reading | footer | *· 412 still to read*: results grow while you wait | — |
 | The names are still counted | footer | *· building index…*; the list fills itself | — |
 
@@ -201,8 +201,8 @@ The rest belong to the groups: see [Search settings](settings.md).
 
 ## In the terminal app
 
-The same field, kinds, groups, rows, keys and states, drawn as text in a frame titled *Find
-file*: the field on the first line with the scope at its right (`[everywhere]`), the kinds on the
+The same field, kinds, groups, rows, keys and states, drawn as text in a frame titled
+*Find*: the field on the first line with the scope at its right (`[everywhere]`), the kinds on the
 second, group headings in capitals, a passage on a second line under its file, two footer lines.
 It differs in a few things:
 

@@ -24,7 +24,7 @@ where it is, and what changed since the last scan. Both apps have it.
 
 ## Using it
 
-**Desktop app.** Select a BOM and the preview pane shows it. The switch at its top picks
+**Desktop app.** Put the cursor on a BOM and the preview pane shows it. The switch at its top picks
 **Tree**, **Sunburst** or **Source**, and the choice sticks. **⤢** opens the same view in a
 window, with the details beside the tree.
 
@@ -34,8 +34,8 @@ window, with the details beside the tree.
   single child are folded into one row. Keys a scanner named by a random ID
   (`secret-key@8ddfc05a-…`) are shown by what they are: *Secret key for HMAC-SHA256*.
 - **Keys:** ↑/↓ move, → opens or goes in, ← closes or goes to the parent, Home/End. **Enter**
-  shows the file the selected asset is found in, in the other pane, so the BOM stays in view.
-- **The details box** says why the selected row has its rating (*RSA (2048-bit key):
+  shows the file the asset under the cursor is found in, in the other pane, so the BOM stays in view.
+- **The details box** says why the row under the cursor has its rating (*RSA (2048-bit key):
   Acceptable*, with the rule's source), what the catalogue advises for anything that is not
   green, every place the asset is found (with the API call, when the scanner recorded it), and
   the entry as it is in the file. A reason that names another asset is a link to it.
@@ -161,7 +161,7 @@ often know it; a newer CBOMkit or a scan with more context may fill it in.
 
 #### Why is a whole folder red when almost everything in it is green?
 A folder, file or component shows the **worst** rating beneath it, so one DSA key turns its
-folder, its parents and the root red. Select the folder: the details box says *The worst below
+folder, its parents and the root red. Put the cursor on the folder: the details box says *The worst below
 it is DSA: Disallowed*. In the desktop app, clicking that line selects DSA. In the terminal app,
 press **2** (disallowed) and **h** (hide) to see only what is disallowed, and where it sits.
 

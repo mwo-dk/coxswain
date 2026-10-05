@@ -32,8 +32,8 @@ network share, tmpfs) is known by its path only, and so is every disk on
 ## What you see
 
 In Settings, under *Folders read*: *412 MB in the index* while the disk is there, and *412 MB in
-the index, kept while its disk is not plugged in. Remove forgets it.* while it is away. In Find
-file, hits from an away disk are left out of both text and meaning results.
+the index, kept while its disk is not plugged in. Remove forgets it.* while it is away. In Find,
+hits from an away disk are left out of both text and meaning results.
 
 ## Settings and config.toml
 

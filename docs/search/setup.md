@@ -61,10 +61,10 @@ it finds is listed and you can pick any of them.
 
 | App | How |
 |---|---|
-| Desktop app | **Ctrl+,** → **Set up…** in *Overview* or *Finding files*; or in *Finding files* a level that needs a model, or the **Set up…** button on the *Meaning* or *Ask* line of the status. Or the *set it up* link that Find file shows when Ask or meaning is not set up (**Ctrl+F7** opens Find file at Ask) |
+| Desktop app | **Ctrl+,** → **Set up…** in *Overview* or *Finding files*; or in *Finding files* a level that needs a model, or the **Set up…** button on the *Meaning* or *Ask* line of the status. Or the *set it up* link that Find shows when Ask or meaning is not set up (**Ctrl+F7** opens Find at Ask) |
 | Terminal app | `coxswain --setup-search` in a terminal. It asks step by step: a number chooses, **Enter** takes the default (marked `*`), **s** skips, and a yes/no question wants **y** |
 
-Find file's hints say where to start. In the desktop app: *Ask answers questions from your files.
+Find's hints say where to start. In the desktop app: *Ask answers questions from your files.
 It needs search by meaning, and a chat model on your server: set it up*. In the terminal app:
 *Set it up step by step: coxswain --setup-search*.
 
@@ -253,4 +253,4 @@ Yes, as often as you like. It shows what is set now, and a step you skip keeps i
 No. The guide tries 13305 and 8000. Settings takes whatever address you give it.
 
 ---
-[← Previous: Search](README.md) · [Next: Find file →](find-file.md)
+[← Previous: Search](README.md) · [Next: Find →](find-file.md)

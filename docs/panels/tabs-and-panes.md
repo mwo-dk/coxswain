@@ -27,7 +27,7 @@ history, so you can keep several places open and step back through where you hav
 | **Backspace** | The `↑` button | Up to the parent folder (this is a step in the history too) |
 
 Every change of folder in a tab is a step: **Enter**, **Backspace**, a path typed, the
-sidebar, Find file. Going back and then somewhere new drops the forward steps, as in a web
+sidebar, Find. Going back and then somewhere new drops the forward steps, as in a web
 browser.
 
 ### One pane or two

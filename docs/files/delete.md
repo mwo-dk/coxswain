@@ -7,6 +7,7 @@ you can restore them. **Shift+F8** deletes them for good. Both ask first, unless
 question off.
 
 ![The desktop app's Delete dialog: Move "old-draft.docx" to the bin?, with the Move to bin button and Cancel](../screenshots/files-delete.png)
+<!-- screenshot: files-delete.png: retake for 2.0: the Delete dialog, Move "old-draft.docx" to the bin?, the red Move to bin button and Cancel, and the line Enter Move to bin · Esc Cancel -->
 
 ## How to use it
 
@@ -28,10 +29,12 @@ question off.
 
 ## What you see
 
-The dialog is titled *Delete*. The terminal app shows the question with
-`[ Yes: Enter/Y ]   [ No: Esc/N ]` under it. Afterwards the status line says
-`Moved 3 items to the bin` or `Deleted 3 items`, the marks are cleared and the panels are read
-again. A file that could not be deleted is listed in *Something went wrong* with the reason
+The dialog is titled *Delete*. Under the question, both apps show the key line *Enter Move to
+bin · Esc Cancel* (*Enter Delete · Esc Cancel* for **Shift+F8** and inside an archive); **Y**
+and **N** work too. Afterwards the status line says `Moved 3 items to the bin` or
+`Deleted 3 items`, the marks are cleared and the panels are read again. When something could
+not be deleted, a dialog titled *Could not move 3 items to the bin* (or *Could not delete …*)
+gives the cause in one line and each file with its reason under *Details*
 ([When something goes wrong](copy.md#when-something-goes-wrong)).
 
 Inside an archive the button reads *Delete* for **F8** too, and the status line says
@@ -56,6 +59,11 @@ The same keys, questions and trash. The terminal app uses the same trash as the 
 files it moves there show in your file manager's trash.
 
 ## Questions
+
+#### Where did `[ Yes: Enter/Y ]` go in the terminal app?
+
+2.0 gave both apps one key line: *Enter Move to bin · Esc Cancel*. **Y** and **N** still
+confirm and cancel, as before.
 
 #### Moving to the trash fails on a network share or a USB stick.
 

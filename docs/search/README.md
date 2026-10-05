@@ -2,7 +2,7 @@
 
 # Search
 
-Find file finds what you have the way you remember it, in one field: every file name on the
+Find gets you what you have the way you remember it, in one field: every file name on the
 machine, the words inside your files, what your files are about, and answers to questions about
 them. Type, and the hits come in groups; both apps have all of it, and they share one index, kept
 by a [search helper](helper.md) in the background. These pages walk through each group, what is
@@ -24,7 +24,7 @@ active panel's folder, **Ctrl+F** inside Find) limits every group and Ask.
 | Page | What it covers |
 |---|---|
 | [Smart search in a few minutes](setup.md) | The guided setup in both apps: what each part does, what suits your hardware, every server, the graphics card, starting with your session |
-| [Find file](find-file.md) | One field: the groups and their order, the kinds (Tab) and prefixes, the scope, the Ask row, every key and state |
+| [Find](find-file.md) | One field: the groups and their order, the kinds (Tab) and prefixes, the scope, the Ask row, every key and state |
 | [Names everywhere](names.md) | The name index, how it stays current and fast, names in one folder |
 | [Name syntax](name-syntax.md) | Everything's syntax: `!`, `\|`, `*`, `ext:`, `file:`, `folder:`, `case:`, paths |
 | [Text in files](text.md) | The *In files* group: how words match, what is read and when |
@@ -48,9 +48,9 @@ active panel's folder, **Ctrl+F** inside Find) limits every group and Ask.
 
 | Key | Desktop app | Terminal app | Does |
 |---|---|---|---|
-| **Alt+F7**, **Ctrl+F** | yes | yes | Open Find file (*All*, *Everywhere*); inside it, switch the scope to the panel's folder and back |
-| **Shift+F7**, **Ctrl+Shift+F** | yes | yes (many terminals send Ctrl+Shift+F as Ctrl+F) | Open Find file at *In files*; inside it, *In files* ⇄ *All* |
-| **Ctrl+F7** | yes | yes | Open Find file at *Ask*; inside it, ask what is typed |
+| **Alt+F7**, **Ctrl+F** | yes | yes | Open Find (*All*, *Everywhere*); inside it, switch the scope to the panel's folder and back |
+| **Shift+F7**, **Ctrl+Shift+F** | yes | yes (many terminals send Ctrl+Shift+F as Ctrl+F) | Open Find at *In files*; inside it, *In files* ⇄ *All* |
+| **Ctrl+F7** | yes | yes | Open Find at *Ask*; inside it, ask what is typed |
 | **Ctrl+Enter** / **Alt+Enter** | Ctrl+Enter | Alt+Enter | Ask what is typed, from any row |
 | **Tab** / **Shift+Tab** | yes | yes | The next / previous kind: All → Names → In files → About → Ask, round |
 | **Up** / **Down** | yes | yes | Move through the rows; headings are skipped |
@@ -58,8 +58,8 @@ active panel's folder, **Ctrl+F** inside Find) limits every group and Ask.
 | **Enter** | yes | yes | Go to the file: the active panel opens its folder, cursor on it; on the Ask row, ask |
 | **F1** | yes | yes | The name syntax and the prefixes, in Find |
 | **F3** | no (the preview pane is behind) | yes | View the file, then come back to the results |
-| **F4** | yes | yes | Edit the file, without leaving Find file |
-| **Esc** | yes | yes | In an answer: back to the list; in the list: close Find file |
+| **F4** | yes | yes | Edit the file, without leaving Find |
+| **Esc** | yes | yes | In an answer: back to the list; in the list: close Find |
 | **Ctrl+,** | yes | no Settings window | Settings, at *Finding files* |
 
 New to it? [Smart search in a few minutes](setup.md) walks through it: **Set up…** in Settings (*Overview* or *Finding files*), or

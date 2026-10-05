@@ -37,6 +37,7 @@ To start in given folders instead, name them on the command line
 |---|---|
 | Favourites, colour tags, folder notes, recent git repositories | `state.json` (desktop app features: [Tags, notes, favourites and the sidebar](../organise/README.md)) |
 | Notices dismissed or shown, the version last started, the last update check | `state.json`, shared by both apps ([Notices](../search/notices.md)) |
+| Whether the [first-run guide](first-run.md) was gone through or skipped (`guide_seen`), and which keys 2.0 renamed in `config.toml` (`migrated`, for its notice) | `state.json`, shared by both apps |
 | The theme picked in **F9** or Settings, and every other setting | `config.toml` |
 
 ### Forgotten on purpose
@@ -81,6 +82,14 @@ and notes.
 
 The folder it was started in is not open in any tab of the left pane, so it is added; see
 [The screen](the-screen.md#why-is-there-a-new-tab-in-the-left-pane-every-time-i-start-the-desktop-app).
+
+#### How do I get the first-run guide to show by itself again?
+
+It shows on its own only on the very first start: while `guide_seen` is `false` in `state.json`
+and no version was started before. To see it, use **F1** → *Show the guide again* (desktop app),
+**F1** then **G** (terminal app), or *Settings → Overview*. Deleting `state.json` brings it back
+at the next start too, along with everything else `state.json` keeps. See
+[First-run guide](first-run.md).
 
 #### What if `state.json` is broken?
 

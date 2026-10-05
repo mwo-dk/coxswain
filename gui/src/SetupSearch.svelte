@@ -7,7 +7,11 @@
   import { t } from "./i18n.svelte.js";
 
   const s = $derived(ui.cfg.settings);
-  const close = () => (ui.modal = null);
+  // Back to where it was started from (the first-run guide), else closed.
+  const close = () => {
+    ui.modal = ui.resume;
+    ui.resume = null;
+  };
   let error = $state("");
 
   async function set(changes) {

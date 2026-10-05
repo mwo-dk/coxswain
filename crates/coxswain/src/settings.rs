@@ -57,6 +57,10 @@ pub enum Row {
     /// Overview: an area and how it stands.
     Go(Area, String),
     Notice(Notice),
+    /// The first-run guide.
+    Guide,
+    /// A program that reads more (tesseract …), whether it is there, and the line that installs it.
+    Tool(String, bool, Option<String>),
 }
 
 impl Row {
@@ -177,6 +181,7 @@ pub fn rows(app: &App, s: &Settings) -> Vec<Row> {
             let out: Vec<String> = cs::outbound(cfg).into_iter().filter(|o| !o.local).map(|o| o.to).collect();
             v.push(Row::Go(Area::Privacy, if out.is_empty() { t!("settings.privacy_nothing") } else { out.join(", ") }));
             v.push(Row::SetUp);
+            v.push(Row::Guide);
             v.push(Row::Head(t!("news.title"), "news"));
             v.extend(s.notices.iter().cloned().map(Row::Notice));
             v.extend(s.news.iter().map(|(version, text)| Row::Info(version.clone(), text.clone(), text.clone())));
@@ -189,6 +194,14 @@ pub fn rows(app: &App, s: &Settings) -> Vec<Row> {
             for (head, id, names) in GROUPS {
                 v.push(Row::Head(t!(head), id));
                 v.extend(names.iter().filter_map(|n| cs::find(n)).map(Row::Opt));
+            }
+            let tools = app.index.status().tools;
+            if !tools.is_empty() {
+                v.push(Row::Head(t!("settings.search_tools"), "tools"));
+                v.extend(tools.into_iter().map(|(name, there)| {
+                    let line = (!there).then(|| coxswain_core::tools::install(&name)).flatten();
+                    Row::Tool(name, there, line)
+                }));
             }
             v.push(Row::Head(t!("settings.group.background"), "background"));
             v.push(Row::Service);
@@ -523,6 +536,11 @@ impl App {
             }
             Some(Row::Level(l)) => return self.settings_level(s, *l),
             Some(Row::SetUp) => self.setup_guide(),
+            Some(Row::Guide) => return self.dialog = Some(Dialog::Guide(Box::default())),
+            Some(Row::Tool(_, false, Some(line))) => {
+                crate::guide::copy(line);
+                s.said = Some((t!("guide.copied", "command" => line), false));
+            }
             Some(Row::Status(line)) => match line.step {
                 Some(Step::TurnOn) => return self.settings_level(s, Level::Text),
                 Some(Step::Start) => self.index.restart(),
@@ -601,19 +619,24 @@ impl App {
             s.said = Some((t!("err.no_config_folder"), true));
             return self.dialog = Some(Dialog::Settings(s));
         };
-        match cs::save_to(&path, &changes) {
-            Ok(cfg) => {
-                self.theme = cfg.theme();
-                self.glyphs = cfg.glyphs();
-                self.cfg = cfg;
-                if changes.keys().any(|k| cs::find(k).is_some_and(|o| o.restarts_helper())) {
-                    self.index.restart();
-                }
-                s.said = Some((t!("settings.saved", "path" => path.display()), false));
-            }
-            Err(e) => s.said = Some((e, true)),
-        }
+        s.said = Some(match self.save_options(&path, &changes) {
+            Ok(()) => (t!("settings.saved", "path" => path.display()), false),
+            Err(e) => (e, true),
+        });
         self.dialog = Some(Dialog::Settings(s));
+    }
+
+    /// Options written to the config.toml at `path` (comments kept) and used at once; the search
+    /// helper restarts when it reads one of them.
+    pub fn save_options(&mut self, path: &std::path::Path, changes: &Map<String, Value>) -> Result<(), String> {
+        let cfg = cs::save_to(path, changes)?;
+        self.theme = cfg.theme();
+        self.glyphs = cfg.glyphs();
+        self.cfg = cfg;
+        if changes.keys().any(|k| cs::find(k).is_some_and(|o| o.restarts_helper())) {
+            self.index.restart();
+        }
+        Ok(())
     }
 
     /// The search setup guide, on the plain terminal.
@@ -729,6 +752,11 @@ pub fn draw(f: &mut Frame, app: &mut App) {
                     lines.push(Line::from(Span::styled(fit(&format!(" {mark} {}", t!(&format!("settings.level.{}", l.id()))), w), st)));
                 }
                 Row::SetUp => lines.push(Line::from(Span::styled(fit(&format!(" [ {} ]", t!("setup.open")), w), st))),
+                Row::Guide => lines.push(Line::from(Span::styled(fit(&format!(" [ {} ]", t!("guide.show_again")), w), st))),
+                Row::Tool(name, there, line) => {
+                    let value = if *there { String::new() } else { line.clone().unwrap_or_else(|| t!("settings.search_tool_missing")) };
+                    lines.push(pair(&format!(" {} {}", if *there { "✓" } else { "✗" }, t!(&format!("settings.search_tool_{name}"))), &value, st));
+                }
                 Row::Service => {
                     let mark = if s.service { "[x]" } else { "[ ]" };
                     lines.push(Line::from(Span::styled(fit(&format!(" {mark} {}", t!("setup.service_on")), w), st)));
@@ -849,6 +877,10 @@ pub fn draw(f: &mut Frame, app: &mut App) {
                 }
             }
             Some(Row::SetUp) => text.push(Span::raw(t!("setup.open_hint"))),
+            Some(Row::Guide) => text.push(Span::raw(t!("guide.show_again_hint"))),
+            Some(Row::Tool(_, false, Some(line))) => text.push(Span::raw(t!("install.copy_tui", "command" => line))),
+            Some(Row::Tool(name, false, None)) => text.push(Span::raw(t!("install.get", "program" => name))),
+            Some(Row::Tool(name, true, _)) => text.push(Span::raw(t!(&format!("settings.search_tool_{name}")))),
             Some(Row::Service) => text.push(Span::raw(t!("setup.service_hint"))),
             Some(Row::Info(_, _, hint)) => text.push(Span::raw(hint.clone())),
             Some(Row::Go(_, value)) => text.push(Span::raw(value.clone())),
@@ -860,7 +892,7 @@ pub fn draw(f: &mut Frame, app: &mut App) {
     let keys = Rect { x: inner.x + 1, y: y + 3, height: 1, width: inner.width - 2 };
     let (line, st) = match (&s.said, &s.mode) {
         (Some((said, bad)), _) => (said.clone(), if *bad { red } else { dim }),
-        (None, Mode::Edit(_)) => (t!("tui.ok_cancel"), dim),
+        (None, Mode::Edit(_)) => (crate::ui::keys(&t!("verb.save")), dim),
         (None, Mode::List { .. }) => (t!("tui.settings.list_keys"), dim),
         (None, Mode::Pick(_)) => (t!("tui.settings.pick_keys"), dim),
         (None, _) => (t!("tui.settings.keys"), dim),
@@ -1019,8 +1051,10 @@ mod tests {
         assert_eq!(rows.iter().filter(|r| matches!(r, Row::Status(_))).count(), 4);
         assert_eq!(rows.iter().filter(|r| matches!(r, Row::Level(_))).count(), 4);
         assert!(matches!(rows[s.cursor], Row::Status(_)), "the cursor starts on the status block");
+        let s = Settings::open(&app, "ask_model");
+        assert_eq!(rows.get(s.cursor).and_then(Row::id), Some("ask_model"), "--settings=ask_model: at it");
         let s = Settings::open(&app, "ask");
-        assert_eq!(rows.get(s.cursor).and_then(Row::id), Some("ask_model"), "--settings=ask: at Ask's first option");
+        assert_eq!(s.area, Area::Overview, "the section names of 1.x are gone");
         assert_eq!(step(&rows, 0, -1), 0);
     }
 }

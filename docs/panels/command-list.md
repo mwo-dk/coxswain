@@ -35,6 +35,7 @@ Press **F1**.
 | | Terminal app | Desktop app |
 |---|---|---|
 | Scroll | **Up**, **Down**, **PageUp**, **PageDown** | The mouse wheel |
+| The [first-run guide](first-run.md) again | **G** | The **Show the guide again** button at the top |
 | Close | Any other key | **Esc**, **Enter**, **F1**, or a click outside it |
 
 ## What you see
@@ -44,15 +45,15 @@ them, and in each group the most used action first:
 
 | Group | Holds |
 |---|---|
-| Moving | Open, Up, Down, Parent dir, Page up, Page down, First, Last, Back, Forward, Left: go to, Right: go to, Edit path |
-| Panels and tabs | Other panel, Hidden files, Reread, Other panel here, Swap panels, Panels on/off, the tabs, the views, the sidebar, sorting, folder sizes, columns |
-| Marking | Mark, Mark all, Select group, Unselect group, Invert selection |
-| Files | Copy, RenMov, Delete, Mkdir, the clipboard, Delete permanently, Properties, Batch rename, Colour tag |
+| Moving | Open, Up, Down, Parent folder, Page up, Page down, First, Last, Back, Forward, Left: go to, Right: go to, Edit path |
+| Panels and tabs | Other panel, Hidden files, Refresh, Other panel here, Swap panels, Panels on/off, the tabs, the views, the sidebar, sorting, folder sizes, columns |
+| Marking | Mark, Mark all, Mark group, Unmark group, Invert marks |
+| Files | Copy, Move, Delete, New folder, the clipboard, Delete permanently, Properties, Batch rename, Colour tag |
 | Archives | Extract archive, Pack into an archive |
-| Search | Find file, Search inside files, Ask your files, Find duplicates |
+| Search | Find, Find in files, Ask your files, Find duplicates |
 | Git | Git history, Git branches, Switch to branch, Git worktrees, New branch here |
 | Viewing and editing | View, Edit, Preview, Path to command line, Menu (the user menu), Folder notes |
-| App | Help, PullDn (this list), Settings, Quit |
+| App | Help, Commands (this list), Settings, Quit |
 
 [Every default key](keys.md) has the same tables, with each key.
 
@@ -72,8 +73,9 @@ and saves it in `config.toml`. *Up*, *Down* and the list itself are left out.
 | Title | *Help*, then `Coxswain 1.20.0 — the ship's officer who gets the work done.` | `Coxswain 1.20.0 · keyboard shortcuts` |
 | Keys | *Keys (from your config):* every action it has, with all its keys, under the group headings; in two columns when the terminal is wide enough (about 100 columns), else in one | Every action with all its keys, written as on the keyboard (`Ctrl+G`), under the group headings |
 | Also | Alt+letter quick search, typing goes to the command line, `cd`, Ctrl+O, the mouse | *Mouse: double-click opens · Ctrl-click / right-click marks · Shift-click marks a range · drag …* |
-| Search | *Find file (Everything syntax):* with one example per line | *Find file uses Everything's syntax:* with the examples |
+| Search | *Find (Everything syntax):* with one example per line | *Find uses Everything's syntax:* with the examples |
 | Config | `Config: <path>` and *Run `coxswain --dump-config` for every option with its default.* | `Config: <path> · every option: coxswain --dump-config` |
+| The guide | *G: the first-run guide again.* at the end | The **Show the guide again** button under the title |
 
 The names are in the language you chose ([Languages](../customise/languages.md)), and the
 keys are the ones in force, so a rebinding shows at once.
@@ -82,7 +84,7 @@ keys are the ones in force, so a rebinding shows at once.
 
 | Action | Config name | Default key |
 |---|---|---|
-| The command list (*PullDn*) | `menu` | `F9` |
+| The command list (*Commands*) | `menu` | `F9` |
 | Help | `help` | `F1` |
 
 The actions in the list are all the `[keys]` names; see [Every default key](keys.md).
@@ -98,8 +100,22 @@ the desktop-only ones are left out rather than shown and refused. It has no them
 
 #### Where is the pull-down menu?
 
-**F9** is labelled *PullDn* for NC's sake, but opens the searchable command list instead. It
-reaches every action that a menu would.
+**F9** opens the searchable command list, *Commands*, instead. It reaches every action that a
+menu would. The terminal app's F-key bar still labels it *PullDn*, for NC's sake; the desktop
+app's says *Commands*.
+
+#### How do I see the first-run guide again?
+
+From Help: **F1**, then **G** in the terminal app, or the **Show the guide again** button in the
+desktop app. Or *Settings → Overview → Show the guide again* in both apps. See
+[First-run guide](first-run.md).
+
+#### Where did *Reread*, *RenMov* and *Mkdir* go in the list?
+
+2.0 names each action in plain words, the same in both apps: *Refresh* (**Ctrl+R**), *Move*
+(**F6**), *New folder* (**F7**), *Commands* (**F9**), *Find* (**Alt+F7**), *Find in files*
+(**Shift+F7**), *Parent folder*, *Mark group*. Type the new word in the filter. The terminal
+app's F-key bar keeps *RenMov*, *Mkdir* and *PullDn*.
 
 #### How do I run an action that has no key?
 
