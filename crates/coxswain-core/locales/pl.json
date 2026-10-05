@@ -651,6 +651,7 @@
  "news.new": "nowe",
  "news.show_me": "Pokaż",
  "news.title": "Co nowego",
+ "notice.cjk_font": "Nie zainstalowano żadnej czcionki japońskiej ani koreańskiej, więc znaki mogą wyświetlać się jako kwadraty. Zainstaluj jakąś, na przykład noto-fonts-cjk (Arch), fonts-noto-cjk (Debian, Ubuntu) lub google-noto-sans-cjk-fonts (Fedora).",
  "notice.cloud": "Znaleziono {names}: pliki dostępne tylko online są wyszukiwane wyłącznie po nazwie, więc nic nie jest pobierane. Zmień w Ustawieniach",
  "notice.cloud_tui": "Znaleziono {names}: pliki dostępne tylko online są wyszukiwane wyłącznie po nazwie, więc nic nie jest pobierane. cloud = \"all\" w config.toml je odczytuje",
  "notice.history": "Nowość: {key} na pliku lub folderze w repozytorium git pokazuje jego historię, commit po commicie",

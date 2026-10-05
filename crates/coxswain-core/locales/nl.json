@@ -589,6 +589,7 @@
  "news.new": "nieuw",
  "news.show_me": "Laat zien",
  "news.title": "Wat is er nieuw",
+ "notice.cjk_font": "Er is geen Japans of Koreaans lettertype geïnstalleerd, dus de tekens kunnen als vakjes verschijnen. Installeer er een, bijvoorbeeld noto-fonts-cjk (Arch), fonts-noto-cjk (Debian, Ubuntu) of google-noto-sans-cjk-fonts (Fedora).",
  "notice.cloud": "{names} gevonden: bestanden die alleen online staan worden alleen op naam gevonden, dus er wordt niets gedownload. Wijzig in Instellingen",
  "notice.cloud_tui": "{names} gevonden: bestanden die alleen online staan worden alleen op naam gevonden, dus er wordt niets gedownload. cloud = \"all\" in config.toml leest ze",
  "notice.history": "Nieuw: {key} op een bestand of map in een git-repository toont de geschiedenis, commit voor commit",

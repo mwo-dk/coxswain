@@ -589,6 +589,7 @@
  "news.new": "neu",
  "news.show_me": "Zeigen",
  "news.title": "Neuigkeiten",
+ "notice.cjk_font": "Es ist keine japanische oder koreanische Schrift installiert, daher erscheinen die Zeichen womöglich als Kästchen. Installiere eine, zum Beispiel noto-fonts-cjk (Arch), fonts-noto-cjk (Debian, Ubuntu) oder google-noto-sans-cjk-fonts (Fedora).",
  "notice.cloud": "{names} gefunden: Dateien, die nur online sind, werden nur nach Namen gefunden, es wird also nichts heruntergeladen. In den Einstellungen änderbar",
  "notice.cloud_tui": "{names} gefunden: Dateien, die nur online sind, werden nur nach Namen gefunden, es wird also nichts heruntergeladen. cloud = \"all\" in config.toml liest sie",
  "notice.history": "Neu: {key} auf einer Datei oder einem Ordner in einem Git-Repository zeigt den Verlauf, Commit für Commit",

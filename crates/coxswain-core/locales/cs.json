@@ -620,6 +620,7 @@
  "news.new": "nové",
  "news.show_me": "Ukázat",
  "news.title": "Co je nového",
+ "notice.cjk_font": "Není nainstalováno žádné japonské ani korejské písmo, takže se znaky mohou zobrazovat jako čtverečky. Nainstalujte nějaké, například noto-fonts-cjk (Arch), fonts-noto-cjk (Debian, Ubuntu) nebo google-noto-sans-cjk-fonts (Fedora).",
  "notice.cloud": "Nalezeno {names}: soubory, které jsou jen online, se hledají jen podle názvu, takže se nic nestahuje. Změnit v Nastavení",
  "notice.cloud_tui": "Nalezeno {names}: soubory, které jsou jen online, se hledají jen podle názvu, takže se nic nestahuje. cloud = \"all\" v config.toml je načte",
  "notice.history": "Nové: {key} na souboru nebo složce v repozitáři gitu ukáže jejich historii, commit po commitu",
