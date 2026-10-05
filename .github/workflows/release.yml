@@ -305,6 +305,47 @@ jobs:
           subject-path: assets/*
       - run: gh release edit "$TAG" --repo "$REPO" --draft=false --latest
 
+  # FreeBSD's ports tree: sysutils/coxswain brought to this version and built in a FreeBSD VM
+  # (packaging/freebsd/update-port.sh); the result is this run's artifact. Once the port is in the
+  # tree and FREEBSD_BUGZILLA_KEY is set, the update is filed in Bugzilla with its diff and
+  # maintainer-approval (packaging/freebsd/README.md). Before that, a notice.
+  freebsd-port:
+    needs: [draft, publish]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: ${{ needs.draft.outputs.sha }}
+      - uses: vmactions/freebsd-vm@c46abacb49f09938ca4e1702d15d836285d694cc # v1.5.9
+        env:
+          TAG: ${{ needs.draft.outputs.tag }}
+        with:
+          release: "14.5"
+          usesh: true
+          envs: TAG
+          prepare: pkg install -y git rust oniguruma portlint
+          run: sh packaging/freebsd/update-port.sh "$TAG"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: freebsd-port
+          path: |
+            packaging/freebsd/sysutils/coxswain
+            packaging/freebsd/out
+      - name: File the update in Bugzilla
+        env:
+          FREEBSD_BUGZILLA_KEY: ${{ secrets.FREEBSD_BUGZILLA_KEY }}
+          VERSION: ${{ needs.draft.outputs.tag }}
+        run: |
+          if [ -z "$FREEBSD_BUGZILLA_KEY" ]; then
+            echo "::notice::FREEBSD_BUGZILLA_KEY is not set, so no Bugzilla PR is filed. The port is in this run's artifacts. See packaging/freebsd/README.md."
+          elif [ "$(cat packaging/freebsd/out/in-tree)" != yes ]; then
+            echo "::notice::sysutils/coxswain is not in the ports tree yet: submit it by hand first (packaging/freebsd/README.md). The port is in this run's artifacts."
+          else
+            python3 packaging/freebsd/file-bugzilla.py packaging/freebsd/out/port.diff
+          fi
+
   aur:
     needs: [draft, publish]
     runs-on: ubuntu-24.04
