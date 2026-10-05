@@ -2,7 +2,7 @@
 
 # Languages
 
-Both apps, the terminal app and the desktop app, speak 22 languages. They share one set of
+Both apps, the terminal app and the desktop app, speak 24 languages. They share one set of
 translations and one setting, so they always agree. By default Coxswain follows your system's
 language.
 
@@ -38,6 +38,8 @@ Both apps list them by region, and by their own name within a region:
 | | **Western Europe** | |
 | <img src="../flags/es-ct.svg" width="24" alt=""> | Català | `ca` |
 | <img src="../flags/de.svg" width="24" alt=""> | Deutsch | `de` |
+| <img src="../flags/at.svg" width="24" alt=""> | Deutsch (Österreich) | `de-AT` |
+| <img src="../flags/ch.svg" width="24" alt=""> | Deutsch (Schweiz) | `de-CH` |
 | <img src="../flags/gb.svg" width="24" alt=""> | English (United Kingdom) | `en-GB` |
 | <img src="../flags/es-pv.svg" width="24" alt=""> | Euskara | `eu` |
 | <img src="../flags/fr.svg" width="24" alt=""> | Français | `fr` |
@@ -63,6 +65,12 @@ marks them *new*, and [Improving a translation](#improving-a-translation) says h
 British English is the reference: every text is written in it first. Australian and New Zealand
 English use British spelling and say "bin"; Canadian English keeps British spelling but says
 "trash" and uses -ize where British uses -ise. Argentinian Spanish uses *vos*.
+
+Austrian and Swiss German are German with their own differences on top; any text they do not
+change is the German one. Swiss German writes *ss* for every *ß* ("Schliessen", "Grösse") and
+«guillemets» for „quotes“, as Swiss Standard German does; in the desktop app its numbers are
+written 1'234.5. Coxswain writes dates as numbers (2026-01-05), so Austrian German has no
+*Jänner* to show and, for now, no text of its own: it reads as German.
 
 ## How to use it
 
@@ -95,14 +103,17 @@ English counts); otherwise the nearest relative of the first one:
 
 | Your system | Coxswain uses |
 |---|---|
-| One of the languages above, in any region (`de-CH`, `fr-CA`, `sv-FI`, `ca-ES-valencia`, …) | That language |
+| One of the languages above, in any region (`fr-CA`, `sv-FI`, `ca-ES-valencia`, …) | That language |
+| German in Austria (`de-AT`) | Austrian German |
+| German in Switzerland or Liechtenstein (`de-CH`, `de-LI`), Swiss German (`gsw`) | Swiss German |
+| German anywhere else (`de-DE`, `de-LU`, `de-BE`, …) | German |
 | US English, or English without a region | Canadian English |
 | Australian, Canadian, New Zealand English | That English |
 | Any other English (Britain, Ireland, South Africa, India, …) | British English |
 | Any Spanish (Spain, Mexico, …), Galician and Aragonese | Argentinian Spanish |
 | Norwegian (Bokmål, Nynorsk) | Danish, the closest written language |
 | Frisian, Afrikaans | Dutch |
-| Swiss German, Luxembourgish | German |
+| Luxembourgish | German |
 | Occitan | Catalan |
 | Polish, Czech, Ukrainian, Greek (`pl_PL`, `cs_CZ`, `uk_UA`, `el_GR`, `el_CY`, …) | That language |
 | Slovak | Czech, which Slovak readers read |
@@ -158,9 +169,10 @@ One key for both apps.
 
 ## In the terminal app
 
-The same 22 languages and the same translations, chosen by the same `language` key. It is read
+The same 24 languages and the same translations, chosen by the same `language` key. It is read
 when the app starts; there is no picker, but `coxswain --languages` prints the list by region,
-the one in use and the new ones marked, and where to suggest a better word. Right to left depends on the terminal (see
+the one in use and the new ones marked, and where to suggest a better word. Right to left
+depends on the terminal (see
 [Right to left](#right-to-left)). The help (**F1**), the command list (**F9**), dialogs, the
 F-key bar and status texts are all translated.
 
@@ -186,6 +198,12 @@ to, so it passes over every system language that comes out as British English (`
 `en-IE`, `en-IN`, …) and takes the first that gives another language; only when there is none
 does it use British English. Set `language = "en-GB"` (or pick *English (United Kingdom)* in
 Settings) to keep English.
+
+#### My system is set to German (Switzerland). Why does Coxswain write "Grösse"?
+
+Swiss Standard German has no *ß*: a system locale `de_CH` (or `de_LI`, or Swiss German `gsw`)
+picks *Deutsch (Schweiz)*, which writes *ss* and «guillemets». For *ß* and „quotes“ pick
+*Deutsch* in Settings → *Language*, or set `language = "de"`.
 
 #### Polish, Czech, Ukrainian or Greek reads oddly in places. Why?
 
