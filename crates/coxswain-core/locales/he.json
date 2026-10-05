@@ -94,22 +94,22 @@
  "app.matching": "תואמים:",
  "app.measuring": {
   "one": "מודד תיקייה אחת…",
-  "two": "מודד {n} תיקיות…",
-  "other": "מודד {n} תיקיות…"
+  "other": "מודד {n} תיקיות…",
+  "two": "מודד {n} תיקיות…"
  },
  "app.move_here": "העברה לכאן",
  "app.move_to_trash": "העברה לסל המיחזור",
  "app.moved_items": {
   "one": "פריט אחד הועבר",
-  "two": "{n} פריטים הועברו",
-  "other": "{n} פריטים הועברו"
+  "other": "{n} פריטים הועברו",
+  "two": "{n} פריטים הועברו"
  },
  "app.name_label": "שם:",
  "app.not_archive": "זה לא ארכיון zip, ‎7z או tar",
  "app.pasted_items": {
   "one": "פריט אחד הודבק",
-  "two": "{n} פריטים הודבקו",
-  "other": "{n} פריטים הודבקו"
+  "other": "{n} פריטים הודבקו",
+  "two": "{n} פריטים הודבקו"
  },
  "app.reading_properties": "קריאת מאפיינים…",
  "app.running": "מריץ את {what}…",
@@ -364,8 +364,8 @@
  "dialogs.attributes": "תכונות",
  "dialogs.bytes": {
   "one": "(בית אחד)",
-  "two": "({n} בתים)",
-  "other": "({n} בתים)"
+  "other": "({n} בתים)",
+  "two": "({n} בתים)"
  },
  "dialogs.created": "נוצר",
  "dialogs.filter": "הקלדה לסינון…",
@@ -375,8 +375,8 @@
  "dialogs.help_title": "Coxswain {version} · קיצורי מקשים",
  "dialogs.in_files": {
   "one": "בקובץ אחד",
-  "two": "ב־{n} קבצים",
-  "other": "ב־{n} קבצים"
+  "other": "ב־{n} קבצים",
+  "two": "ב־{n} קבצים"
  },
  "dialogs.kind.file": "קובץ",
  "dialogs.kind.folder": "תיקייה",
@@ -399,13 +399,13 @@
  "dialogs.rename_replace": "החלפה ב־",
  "dialogs.rename_title": {
   "one": "שינוי שם קבוצתי לפריט אחד",
-  "two": "שינוי שם קבוצתי ל־{n} פריטים",
-  "other": "שינוי שם קבוצתי ל־{n} פריטים"
+  "other": "שינוי שם קבוצתי ל־{n} פריטים",
+  "two": "שינוי שם קבוצתי ל־{n} פריטים"
  },
  "dialogs.renamed": {
   "one": "שם שונה לפריט אחד",
-  "two": "שם שונה ל־{n} פריטים",
-  "other": "שם שונה ל־{n} פריטים"
+  "other": "שם שונה ל־{n} פריטים",
+  "two": "שם שונה ל־{n} פריטים"
  },
  "dialogs.scope_ask": "שאלה",
  "dialogs.scope_everywhere": "בכל מקום",
@@ -417,8 +417,8 @@
  "dialogs.search_tab_hint": "Tab: רק התיקייה הזו, או המילים שבתוך הקבצים שלך (Shift+F7).",
  "dialogs.showing_first": {
   "one": "מוצגת התוצאה הראשונה ({n}), יש להקליד עוד כדי לצמצם",
-  "two": "מוצגות {n} התוצאות הראשונות, יש להקליד עוד כדי לצמצם",
-  "other": "מוצגות {n} התוצאות הראשונות, יש להקליד עוד כדי לצמצם"
+  "other": "מוצגות {n} התוצאות הראשונות, יש להקליד עוד כדי לצמצם",
+  "two": "מוצגות {n} התוצאות הראשונות, יש להקליד עוד כדי לצמצם"
  },
  "dialogs.size": "גודל",
  "dialogs.tag_none": "ללא",
@@ -433,34 +433,34 @@
  "dupes.confirm_ok": "העברה לסל המיחזור",
  "dupes.confirm_text": {
   "one": "להעביר עותק אחד ({size}) לסל המיחזור? לפחות עותק אחד מכל קובץ יישאר.",
-  "two": "להעביר {n} עותקים ({size}) לסל המיחזור? לפחות עותק אחד מכל קובץ יישאר.",
-  "other": "להעביר {n} עותקים ({size}) לסל המיחזור? לפחות עותק אחד מכל קובץ יישאר."
+  "other": "להעביר {n} עותקים ({size}) לסל המיחזור? לפחות עותק אחד מכל קובץ יישאר.",
+  "two": "להעביר {n} עותקים ({size}) לסל המיחזור? לפחות עותק אחד מכל קובץ יישאר."
  },
  "dupes.confirm_title": "העברת כפילויות לסל המיחזור",
  "dupes.copies": {
   "one": "עותק אחד",
-  "two": "{n} עותקים",
-  "other": "{n} עותקים"
+  "other": "{n} עותקים",
+  "two": "{n} עותקים"
  },
  "dupes.each": "{size} כל אחד",
  "dupes.each_files": {
   "one": "{size} כל אחד, קובץ אחד",
-  "two": "{size} כל אחד, {n} קבצים",
-  "other": "{size} כל אחד, {n} קבצים"
+  "other": "{size} כל אחד, {n} קבצים",
+  "two": "{size} כל אחד, {n} קבצים"
  },
  "dupes.extra": "{size} מיותרים",
  "dupes.folders": "חיפוש תיקיות כפולות",
  "dupes.freeable": "אפשר לפנות {size}",
  "dupes.groups": {
   "one": "קבוצת כפילויות אחת",
-  "two": "{n} קבוצות כפילויות",
-  "other": "{n} קבוצות כפילויות"
+  "other": "{n} קבוצות כפילויות",
+  "two": "{n} קבוצות כפילויות"
  },
  "dupes.hidden": "כולל קבצים מוסתרים",
  "dupes.identical_folders": {
   "one": "תיקייה זהה אחת",
-  "two": "{n} תיקיות זהות",
-  "other": "{n} תיקיות זהות"
+  "other": "{n} תיקיות זהות",
+  "two": "{n} תיקיות זהות"
  },
  "dupes.keep_newest": "סימון הכול מלבד החדש ביותר",
  "dupes.keep_oldest": "סימון הכול מלבד הישן ביותר",
@@ -470,8 +470,8 @@
  "dupes.mark_tip": "סימון להעברה לסל המיחזור",
  "dupes.marked": {
   "one": "{n} מסומן · {size} לפינוי",
-  "two": "{n} מסומנים · {size} לפינוי",
-  "other": "{n} מסומנים · {size} לפינוי"
+  "other": "{n} מסומנים · {size} לפינוי",
+  "two": "{n} מסומנים · {size} לפינוי"
  },
  "dupes.min_size": "התעלמות מקבצים קטנים מ־",
  "dupes.none": "לא נמצאו כפילויות.",
@@ -481,20 +481,20 @@
  "dupes.phase.whole": "השוואת קבצים שלמים",
  "dupes.progress": {
   "one": "{phase} · נמצא קובץ אחד · נקראו {size}",
-  "two": "{phase} · נמצאו {n} קבצים · נקראו {size}",
-  "other": "{phase} · נמצאו {n} קבצים · נקראו {size}"
+  "other": "{phase} · נמצאו {n} קבצים · נקראו {size}",
+  "two": "{phase} · נמצאו {n} קבצים · נקראו {size}"
  },
  "dupes.progress_counted": {
   "one": "{phase} · {done} מתוך {total} · נמצא קובץ אחד · נקראו {size}",
-  "two": "{phase} · {done} מתוך {total} · נמצאו {n} קבצים · נקראו {size}",
-  "other": "{phase} · {done} מתוך {total} · נמצאו {n} קבצים · נקראו {size}"
+  "other": "{phase} · {done} מתוך {total} · נמצאו {n} קבצים · נקראו {size}",
+  "two": "{phase} · {done} מתוך {total} · נמצאו {n} קבצים · נקראו {size}"
  },
  "dupes.scan": "סריקה",
  "dupes.scan_again": "סריקה חוזרת",
  "dupes.scanned": {
   "one": "נסרק קובץ אחד ({size}) ב־{s} שנ׳, נקראו {read}",
-  "two": "נסרקו {n} קבצים ({size}) ב־{s} שנ׳, נקראו {read}",
-  "other": "נסרקו {n} קבצים ({size}) ב־{s} שנ׳, נקראו {read}"
+  "other": "נסרקו {n} קבצים ({size}) ב־{s} שנ׳, נקראו {read}",
+  "two": "נסרקו {n} קבצים ({size}) ב־{s} שנ׳, נקראו {read}"
  },
  "dupes.show_tip": "הצגה בלוח",
  "dupes.title": "כפילויות",
@@ -502,8 +502,8 @@
  "dupes.trash_marked": "העברת המסומנים לסל המיחזור",
  "dupes.trashed": {
   "one": "כפילות אחת הועברה לסל המיחזור",
-  "two": "{n} כפילויות הועברו לסל המיחזור",
-  "other": "{n} כפילויות הועברו לסל המיחזור"
+  "other": "{n} כפילויות הועברו לסל המיחזור",
+  "two": "{n} כפילויות הועברו לסל המיחזור"
  },
  "err.bom.invalid_json": "קובץ זה אינו JSON תקין (שורה {line}): {message}",
  "err.bom.invalid_xml": "קובץ זה אינו XML תקין (שורה {line}): {message}",
@@ -547,8 +547,8 @@
  "facts.camera": "מצלמה",
  "facts.channels": {
   "one": "ערוץ אחד",
-  "two": "{n} ערוצים",
-  "other": "{n} ערוצים"
+  "other": "{n} ערוצים",
+  "two": "{n} ערוצים"
  },
  "facts.dos": "DOS",
  "facts.elf": "Linux/Unix ELF {bits} סיביות",
@@ -574,6 +574,45 @@
  "facts.unnamed": "(ללא שם)",
  "facts.windows_pe": "Windows PE",
  "facts.year": "שנה",
+ "find.ask_nothing_in": "שום דבר בקבצים שב-{folder} אינו קרוב לשאלה.",
+ "find.ask_row": "שאלה: „{query}”",
+ "find.dismiss": "Del: לא עוד",
+ "find.empty": "הקלד שם (*.pdf, ext:md), מילים מתוך קובץ או שאלה שמסתיימת ב-?",
+ "find.group_about": "בנושא הזה",
+ "find.group_history": "היסטוריה",
+ "find.group_in_files": "בקבצים",
+ "find.group_names": "שמות",
+ "find.help_prefixes": "בהקלדה בהתחלה: text: מילים בקבצים · about: משמעות בלבד · ? שואל. הכפתורים עושים אותו דבר: Tab.",
+ "find.keys_answer_gui": "Enter שאלה, או מעבר למקור · ↑↓ מקורות · F4 עריכה · Esc חזרה לרשימה",
+ "find.keys_answer_tui": "Enter שאלה, או מעבר למקור · ↑↓ מקורות · F3 הצגה · F4 עריכה · Esc חזרה לרשימה",
+ "find.keys_gui": "Enter מעבר · Ctrl+Enter שאלה · Tab סוג · {scope} היקף · F4 עריכה · F1 תחביר · Esc סגירה",
+ "find.keys_tui": "Enter מעבר · Alt+Enter שאלה · Tab סוג · {scope} היקף · F3 הצגה · F4 עריכה · F1 תחביר · Esc סגירה",
+ "find.kind_about": "בנושא",
+ "find.kind_all": "הכול",
+ "find.kind_ask": "שאלה",
+ "find.kind_in_files": "בקבצים",
+ "find.kind_names": "שמות",
+ "find.meaning_for": "משמעות ל-{n}",
+ "find.more": "עוד {n}: Enter מציג את כולם",
+ "find.nothing": "לא נמצא דבר עבור „{query}”.",
+ "find.nothing_in": "לא נמצא דבר עבור „{query}” ב-{folder}.",
+ "find.of": "{shown} מתוך {total}",
+ "find.off_ask_meaning": "שאל את הקבצים שלך שאלה · דרוש קודם חיפוש לפי משמעות",
+ "find.off_ask_model": "שאל את הקבצים שלך שאלה · בחר מודל צ'אט",
+ "find.off_meaning": "מצא גם קבצים בנושא המילים שלך, בכל שפה, אפילו בלי המילים עצמן.",
+ "find.off_no_helper": "אי אפשר לחפש מילים בקבצים כעת: הקריאה ברקע לא פועלת.",
+ "find.off_not_read": "{folder} אינה בין התיקיות שנקראות, ולכן המילים שבה לא נחפשות.",
+ "find.off_text": "החיפוש יכול לחפש גם את המילים שבתוך הקבצים שלך.",
+ "find.paused": "מושהה על סוללה",
+ "find.placeholder": "שמות, מילים בקבצים או שאלה",
+ "find.prompt": "חיפוש: ",
+ "find.step_fix": "לתיקון",
+ "find.step_read_too": "לקרוא גם את התיקייה הזו",
+ "find.step_set_up": "להגדרה",
+ "find.step_start": "להפעלה",
+ "find.step_turn_on": "להפעלה",
+ "find.try_ask": "לשאול במקום: {key}",
+ "find.try_everywhere": "בכל מקום: {key}",
  "git.detached": "מנותק ב־{commit}",
  "git.op_bisect": "bisect בתהליך",
  "git.op_cherry_pick": "cherry-pick בתהליך",
@@ -618,8 +657,8 @@
  "history.read_only": "היסטוריה היא לקריאה בלבד: F5 מעתיק ממנה קובץ או תיקייה",
  "items": {
   "one": "פריט אחד",
-  "two": "{n} פריטים",
-  "other": "{n} פריטים"
+  "other": "{n} פריטים",
+  "two": "{n} פריטים"
  },
  "language.group.americas": "אמריקה",
  "language.group.asia": "אסיה והאוקיינוס השקט",
@@ -636,6 +675,7 @@
  "meaning.on_cpu": "במעבד",
  "meaning.on_cpu_why": "במעבד ({why})",
  "meaning.on_metal": "ב-GPU ‏(Metal)",
+ "meaning.on_metal_if": "ב-GPU ‏(Metal) כשאפשר",
  "menu.commands": "פקודות",
  "news.badge_title": "מה חדש: {n} (הגדרות ← מה חדש)",
  "news.dismiss": "התעלמות",
@@ -672,8 +712,8 @@
  "pane.path_tip": "לחיצה על שטח ריק או Ctrl+L להקלדת נתיב",
  "pane.selected": {
   "one": "{n} נבחר ({size})",
-  "two": "{n} נבחרו ({size})",
-  "other": "{n} נבחרו ({size})"
+  "other": "{n} נבחרו ({size})",
+  "two": "{n} נבחרו ({size})"
  },
  "pane.two_panes": "שני לוחות (Ctrl+O)",
  "pane.up": "למעלה (Backspace)",
@@ -688,13 +728,13 @@
  "place.videos": "סרטונים",
  "preview.archive": {
   "one": "רשומה אחת · Ctrl+E מחלץ ללוח השני",
-  "two": "{n} רשומות · Ctrl+E מחלץ ללוח השני",
-  "other": "{n} רשומות · Ctrl+E מחלץ ללוח השני"
+  "other": "{n} רשומות · Ctrl+E מחלץ ללוח השני",
+  "two": "{n} רשומות · Ctrl+E מחלץ ללוח השני"
  },
  "preview.archive_more": {
   "one": "{n}+ רשומות · Ctrl+E מחלץ ללוח השני",
-  "two": "{n}+ רשומות · Ctrl+E מחלץ ללוח השני",
-  "other": "{n}+ רשומות · Ctrl+E מחלץ ללוח השני"
+  "other": "{n}+ רשומות · Ctrl+E מחלץ ללוח השני",
+  "two": "{n}+ רשומות · Ctrl+E מחלץ ללוח השני"
  },
  "preview.attachments": "קבצים מצורפים",
  "preview.back": "חזרה לתצוגה המקדימה",
@@ -705,8 +745,8 @@
  "preview.column": "עמודה",
  "preview.columns": {
   "one": "עמודה אחת",
-  "two": "{n} עמודות",
-  "other": "{n} עמודות"
+  "other": "{n} עמודות",
+  "two": "{n} עמודות"
  },
  "preview.command_output": "פלט הפקודה",
  "preview.contents": "תוכן",
@@ -718,32 +758,32 @@
  "preview.exact_coming": "מוצג מיד; העיבוד המדויק עם {engine} בדרך…",
  "preview.expired_ago": {
   "one": "פג לפני יום אחד",
-  "two": "פג לפני {n} ימים",
-  "other": "פג לפני {n} ימים"
+  "other": "פג לפני {n} ימים",
+  "two": "פג לפני {n} ימים"
  },
  "preview.expires": "תפוגה",
  "preview.expires_in": {
   "one": "בעוד יום אחד",
-  "two": "בעוד {n} ימים",
-  "other": "בעוד {n} ימים"
+  "other": "בעוד {n} ימים",
+  "two": "בעוד {n} ימים"
  },
  "preview.file": "קובץ",
  "preview.files": {
   "one": "קובץ אחד",
-  "two": "{n} קבצים",
-  "other": "{n} קבצים"
+  "other": "{n} קבצים",
+  "two": "{n} קבצים"
  },
  "preview.files_here": "קבצים כאן",
  "preview.first_rows": {
   "one": "מוצגת השורה הראשונה ({n})",
-  "two": "מוצגות {n} השורות הראשונות",
-  "other": "מוצגות {n} השורות הראשונות"
+  "other": "מוצגות {n} השורות הראשונות",
+  "two": "מוצגות {n} השורות הראשונות"
  },
  "preview.folder": "תיקייה",
  "preview.folders": {
   "one": "תיקייה אחת",
-  "two": "{n} תיקיות",
-  "other": "{n} תיקיות"
+  "other": "{n} תיקיות",
+  "two": "{n} תיקיות"
  },
  "preview.font_sample1": "דג סקרן שט בים מאוכזב ולפתע מצא חברה",
  "preview.font_sample2": "עטלף אבק נס דרך מזגן שהתפוצץ כי חם",
@@ -756,8 +796,8 @@
  "preview.media_open": "פתיחה ביישום שלו",
  "preview.more": {
   "one": "… ועוד {n}",
-  "two": "… ועוד {n}",
-  "other": "… ועוד {n}"
+  "other": "… ועוד {n}",
+  "two": "… ועוד {n}"
  },
  "preview.names": "שמות",
  "preview.newest": "החדש ביותר",
@@ -782,8 +822,8 @@
  "preview.repetition": "חזרה",
  "preview.rows": {
   "one": "שורה אחת",
-  "two": "{n} שורות",
-  "other": "{n} שורות"
+  "other": "{n} שורות",
+  "two": "{n} שורות"
  },
  "preview.schema": "סכמה",
  "preview.serial": "מספר סידורי",
@@ -813,13 +853,13 @@
  "search.in": "ב־{dir}: ",
  "search.indexed": {
   "one": "קובץ אחד באינדקס",
-  "two": "{n} קבצים באינדקס",
-  "other": "{n} קבצים באינדקס"
+  "other": "{n} קבצים באינדקס",
+  "two": "{n} קבצים באינדקס"
  },
  "search.matches": {
   "one": "התאמה אחת ב־{ms} אלפ׳ שנ׳",
-  "two": "{n} התאמות ב־{ms} אלפ׳ שנ׳",
-  "other": "{n} התאמות ב־{ms} אלפ׳ שנ׳"
+  "other": "{n} התאמות ב־{ms} אלפ׳ שנ׳",
+  "two": "{n} התאמות ב־{ms} אלפ׳ שנ׳"
  },
  "search.meaning_change": "החלפת מודל ההטמעה קוראת מחדש את המשמעות של {n} קבצים (בערך {time} במחשב הזה).",
  "search.meaning_change_hours": "{n} שעות",
@@ -841,6 +881,7 @@
  "settings.ask": "שאלה",
  "settings.ask_hint": "שאלה, הדרך הרביעית לחפש בחיפוש קובץ (Ctrl+F7), עונה על שאלה מתוך עשרת הקטעים הקרובים אליה ביותר ומציינת את מקורותיה. מודל צ'אט ב-{server} כותב את התשובה, והקטעים האלה נשלחים אליו. דבר אינו נשמר: סגירת חיפוש קובץ שוכחת את השאלות.",
  "settings.ask_model": "מודל צ'אט",
+ "settings.ask_think": "לתת למודל לחשוב לפני שהוא עונה (איטי יותר: החשיבה לא מוצגת)",
  "settings.behaviour": "התנהגות",
  "settings.check_updates": "בדיקת גרסה חדשה פעם ביום",
  "settings.confirm_delete": "אישור לפני מחיקה",
@@ -938,7 +979,7 @@
  "settings.title": "הגדרות",
  "setup.ask_hint": "ברשימה מופיעים רק מודלים שיכולים לענות. למחשב הזה: {model}. שאלת בדיקה מראה כמה מהר הוא עונה.",
  "setup.ask_needs_server": "שאלה דורשת מודל צ'אט בשרת מודלים; אף אחד לא עונה כאן. התקינו Ollama או שרת אחר, וחפשו שוב בשלב 2.",
- "setup.builtin": "המודל המובנה ({size}, רץ על המעבד)",
+ "setup.builtin": "המודל המובנה ({size}, רץ {where})",
  "setup.builtin_hint": "multilingual-e5-small: 100 שפות, רץ על כל מחשב. כל קובץ נקרא מחדש כשעוברים אליו.",
  "setup.builtin_short": "המודל המובנה",
  "setup.cpu_lemonade": "‏Lemonade מריץ את {model} על המעבד, אבל במחשב הזה יש {gpu}. במנהל המודלים של Lemonade, בחרו מודל Hybrid או NPU, או מודל GGUF עם ה-backend Vulkan או ROCm.",
@@ -968,7 +1009,7 @@
  "setup.pull": "הורדת {model}",
  "setup.pull_elsewhere": "{server} מוריד מודלים בחלון שלו: מצאו שם את {model}, הורידו אותו, וחפשו שוב כאן.",
  "setup.recommended": "מומלץ",
- "setup.server_hint": "לצורך חיפוש לפי משמעות, מודל הופך כל קטע לווקטור: מספרים למשמעות שלו. המודל המובנה עושה זאת על המעבד; שרת מודלים (Ollama, Lemonade, LM Studio, llama.cpp …) משתמש ב-GPU או ב-NPU והוא מהיר בהרבה.",
+ "setup.server_hint": "לצורך חיפוש לפי משמעות, מודל הופך כל קטע לווקטור: מספרים למשמעות שלו. המודל המובנה עושה זאת על המחשב הזה (במעבד או ב-GPU של Mac); שרת מודלים (Ollama, Lemonade, LM Studio, llama.cpp …) משתמש ב-GPU או ב-NPU והוא מהיר בהרבה.",
  "setup.service_hint": "הפעלת עוזר החיפוש עם ההתחברות שלי: עוזר החיפוש רץ מההתחברות, כך שהאחסון עוקב אחרי הקבצים שלכם בין הפעלה להפעלה. הוא משתמש בקצת זמן מעבד כשקבצים משתנים ומושהה כשפועלים על סוללה. לא נדרשות הרשאות מנהל (שירות משתמש systemd בלינוקס, סוכן launchd ב-macOS, רשומה ב-Run בווינדוס).",
  "setup.service_on": "הפעלת עוזר החיפוש עם ההתחברות שלי",
  "setup.speed_hint": "אחרי שאלת הבדיקה, זה אומר אם השרת מריץ את המודל על ה-GPU.",
@@ -1086,8 +1127,8 @@
  "tui.select": "בחירה",
  "tui.selected": {
   "one": "{size} ב־{n} נבחר",
-  "two": "{size} ב־{n} נבחרים",
-  "other": "{size} ב־{n} נבחרים"
+  "other": "{size} ב־{n} נבחרים",
+  "two": "{size} ב־{n} נבחרים"
  },
  "tui.subdir": "SUB-DIR",
  "tui.unselect": "ביטול בחירה",

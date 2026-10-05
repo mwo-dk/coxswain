@@ -19,6 +19,7 @@ use std::time::{Duration, Instant};
 use serde::{Deserialize, Serialize};
 
 use crate::config::{Config, SearchConfig};
+use crate::find::{Found, Kind};
 use crate::index::{Results, Service, State};
 use crate::sizes::Size;
 use crate::store::{self, Store};
@@ -34,17 +35,13 @@ const VERSION: &str = env!("CARGO_PKG_VERSION");
 #[serde(tag = "op", rename_all = "snake_case")]
 enum Request {
     Hello { token: String, version: String },
-    /// `text`: in the files' text, not in their names.
-    Search {
-        query: String,
-        scope: Option<PathBuf>,
-        max: usize,
-        #[serde(default)]
-        text: bool,
-    },
+    /// File names alone.
+    Search { query: String, scope: Option<PathBuf>, max: usize },
+    /// Find: names, words in files and meaning, `rows` hits per group.
+    Find { query: String, scope: Option<PathBuf>, kind: Kind, rows: usize },
     Status,
-    /// Ask: the passages closest to a question, whole.
-    Passages { query: String, max: usize },
+    /// Ask: the passages closest to a question, whole, of files below `scope` when given.
+    Passages { query: String, scope: Option<PathBuf>, max: usize },
     /// Bytes and files below a folder, from the store.
     Size { path: PathBuf },
     /// Read the backlog without rests.
@@ -61,6 +58,7 @@ enum Reply {
     /// `same`: the helper is our version. Otherwise it exits, and we start ours.
     Hello { same: bool },
     Results(Results),
+    Found(Found),
     Passages { found: Vec<(PathBuf, String)> },
     Status(Status),
     /// With the time the walk they come from began.
@@ -89,6 +87,9 @@ pub struct Status {
     pub meaning_pending: usize,
     #[serde(default)]
     pub meaning_done: usize,
+    /// Passages that have their vectors: what a change of model makes again.
+    #[serde(default)]
+    pub meaning_passages: usize,
     /// Files whose vectors are being made again for a new way of cutting passages (0 when
     /// none), and how long one takes here, in milliseconds (0 until measured).
     #[serde(default)]
@@ -197,6 +198,7 @@ pub fn serve_in(dir: &Path, linger: Duration, index: impl FnOnce() -> Arc<Servic
 
     let index = index();
     let stop = Arc::new(AtomicBool::new(false));
+    let text_roots: Arc<[PathBuf]> = texts.as_ref().map(|(_, cfg)| store::roots(cfg)).unwrap_or_default().into();
     let store = texts.map(|(store, cfg)| {
         let (s, stop) = (store.clone(), stop.clone());
         let changes = index.changes();
@@ -205,13 +207,13 @@ pub fn serve_in(dir: &Path, linger: Duration, index: impl FnOnce() -> Arc<Servic
     });
     let (clients, quit, last) = (Arc::new(AtomicUsize::new(0)), Arc::new(AtomicBool::new(false)), Arc::new(Mutex::new(Instant::now())));
     {
-        let (clients, quit, last) = (clients.clone(), quit.clone(), last.clone());
+        let (clients, quit, last, text_roots) = (clients.clone(), quit.clone(), last.clone(), text_roots.clone());
         std::thread::spawn(move || {
             for stream in listener.incoming().flatten() {
-                let (index, store, token, clients, quit, last) = (index.clone(), store.clone(), token.clone(), clients.clone(), quit.clone(), last.clone());
+                let (index, store, roots, token, clients, quit, last) = (index.clone(), store.clone(), text_roots.clone(), token.clone(), clients.clone(), quit.clone(), last.clone());
                 std::thread::spawn(move || {
                     clients.fetch_add(1, Ordering::SeqCst);
-                    let _ = answer(stream, &index, store.as_deref(), &token, &quit);
+                    let _ = answer(stream, &index, store.as_deref(), &roots, &token, &quit);
                     clients.fetch_sub(1, Ordering::SeqCst);
                     *last.lock().unwrap() = Instant::now();
                 });
@@ -226,18 +228,7 @@ pub fn serve_in(dir: &Path, linger: Duration, index: impl FnOnce() -> Arc<Servic
     Ok(())
 }
 
-/// The files with the words, then the files about the same thing that the words missed.
-pub fn with_meaning(store: &Store, query: &str, max: usize) -> Results {
-    let mut found = store.search(query, max);
-    let start = std::time::Instant::now();
-    let similar: Vec<_> = store.similar(query, max).into_iter().filter(|h| !found.hits.iter().any(|w| w.path == h.path)).collect();
-    found.total += similar.len();
-    found.hits.extend(similar.into_iter().take(max.saturating_sub(found.hits.len())));
-    found.micros += start.elapsed().as_micros() as u64;
-    found
-}
-
-fn answer(stream: TcpStream, index: &Service, store: Option<&Store>, token: &str, quit: &AtomicBool) -> io::Result<()> {
+fn answer(stream: TcpStream, index: &Service, store: Option<&Store>, text_roots: &[PathBuf], token: &str, quit: &AtomicBool) -> io::Result<()> {
     stream.set_nodelay(true)?;
     stream.set_read_timeout(Some(HELLO_WAIT))?;
     let mut out = stream.try_clone()?;
@@ -264,9 +255,12 @@ fn answer(stream: TcpStream, index: &Service, store: Option<&Store>, token: &str
                 Reply::Hello { same }
             }
             _ if !said_hello => return Ok(()),
-            Request::Search { query, max, text: true, .. } => Reply::Results(store.map(|s| with_meaning(s, &query, max)).unwrap_or_default()),
-            Request::Search { query, scope, max, .. } => Reply::Results(index.search(&query, scope.as_deref(), max)),
-            Request::Passages { query, max } => Reply::Passages { found: store.map(|s| s.passages(&query, max)).unwrap_or_default() },
+            Request::Search { query, scope, max } => Reply::Results(index.search(&query, scope.as_deref(), max)),
+            Request::Find { query, scope, kind, rows } => {
+                let found = crate::find::run(|q, max| index.search(q, scope.as_deref(), max), store.ok_or(crate::find::Off::TextOff), text_roots, &query, scope.as_deref(), kind, rows);
+                Reply::Found(found)
+            }
+            Request::Passages { query, scope, max } => Reply::Passages { found: store.map(|s| s.passages(&query, scope.as_deref(), max)).unwrap_or_default() },
             Request::Size { path } => Reply::Size { size: store.and_then(|s| s.size(&path)) },
             Request::IndexNow => {
                 store.inspect(|s| s.hurry.store(true, Ordering::Relaxed));
@@ -291,6 +285,7 @@ fn answer(stream: TcpStream, index: &Service, store: Option<&Store>, token: &str
                 meaning: store.is_some_and(|s| s.meaning.load(Ordering::Relaxed)),
                 meaning_pending: counts.0,
                 meaning_done: counts.1,
+                meaning_passages: store.map_or(0, Store::passage_count),
                 meaning_renewing: store.map_or(0, |s| s.renewing.load(Ordering::Relaxed)),
                 meaning_ms_per_file: store.map_or(0, |s| s.ms_per_file.load(Ordering::Relaxed)),
                 meaning_engine: store.and_then(Store::engine_id).unwrap_or_default(),
@@ -358,24 +353,34 @@ impl Client {
     }
 
     pub fn search(&self, query: &str, scope: Option<&Path>, max: usize) -> Results {
-        match self.ask(&Request::Search { query: query.into(), scope: scope.map(Path::to_path_buf), max, text: false }) {
+        match self.ask(&Request::Search { query: query.into(), scope: scope.map(Path::to_path_buf), max }) {
             Some(Reply::Results(r)) => r,
             _ => self.own().search(query, scope, max),
         }
     }
 
-    /// Search in the files' text. Nothing without the helper: the store is its alone.
-    pub fn search_text(&self, query: &str, max: usize) -> Results {
-        match self.ask(&Request::Search { query: query.into(), scope: None, max, text: true }) {
-            Some(Reply::Results(r)) => r,
-            _ => Results::default(),
+    /// Find: names, words in files and meaning, below `scope` when given, `rows` hits per
+    /// group. Without the helper, names alone from the app's own index: the store is the
+    /// helper's alone.
+    pub fn find(&self, query: &str, scope: Option<&Path>, kind: Kind, rows: usize) -> Found {
+        match self.ask(&Request::Find { query: query.into(), scope: scope.map(Path::to_path_buf), kind, rows }) {
+            Some(Reply::Found(f)) => f,
+            _ => crate::find::run(|q, max| self.own().search(q, scope, max), Err(if self.search.text { crate::find::Off::NoHelper } else { crate::find::Off::TextOff }), &[], query, scope, kind, rows),
         }
     }
 
-    /// Ask: the `max` passages closest to `question`, with their files. Nothing without the
-    /// helper, or while search by meaning is off.
-    pub fn passages(&self, question: &str, max: usize) -> Vec<(PathBuf, String)> {
-        match self.ask(&Request::Passages { query: question.into(), max }) {
+    /// Search in the files' text: the files with the words, then those about them.
+    // ponytail: the old "Text in files" list on top of Find, until both apps show Find's groups.
+    pub fn search_text(&self, query: &str, max: usize) -> Results {
+        let f = self.find(query, None, Kind::InFiles, max);
+        let hits: Vec<_> = f.in_files.hits.into_iter().chain(f.history.hits).chain(f.about.hits).take(max).collect();
+        Results { total: f.in_files.total + f.history.total + f.about.total, hits, micros: 0 }
+    }
+
+    /// Ask: the `max` passages closest to `question`, with their files, below `scope` when
+    /// given. Nothing without the helper, or while search by meaning is off.
+    pub fn passages(&self, question: &str, scope: Option<&Path>, max: usize) -> Vec<(PathBuf, String)> {
+        match self.ask(&Request::Passages { query: question.into(), scope: scope.map(Path::to_path_buf), max }) {
             Some(Reply::Passages { found }) => found,
             _ => vec![],
         }
@@ -439,7 +444,7 @@ impl Client {
         }
         let now = match self.ask(&Request::Status) {
             Some(Reply::Status(s)) => s,
-            _ => Status { state: self.own().state(), len: self.own().len(), texts: 0, pending: 0, bytes: 0, paused: false, roots: vec![], tools: vec![], meaning: false, meaning_pending: 0, meaning_done: 0, meaning_renewing: 0, meaning_ms_per_file: 0, meaning_engine: String::new(), meaning_error: None, meaning_runs: None, error: None, clouds: vec![] },
+            _ => Status { state: self.own().state(), len: self.own().len(), texts: 0, pending: 0, bytes: 0, paused: false, roots: vec![], tools: vec![], meaning: false, meaning_pending: 0, meaning_done: 0, meaning_passages: 0, meaning_renewing: 0, meaning_ms_per_file: 0, meaning_engine: String::new(), meaning_error: None, meaning_runs: None, error: None, clouds: vec![] },
         };
         *status = Some((Instant::now(), now.clone()));
         now

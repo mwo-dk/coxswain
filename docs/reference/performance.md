@@ -39,8 +39,10 @@ numbers measured on synthetic data, so you know what to expect and can measure a
   the walk is not done yet, and is sorted again when it is; the map of last commits is sent to
   the page only when HEAD moved; the repository's `.git` is watched, so a commit brings the
   status and the column up to date without a reread by hand (desktop app).
-- **Ask** has Ollama load the chat model while the sources are looked up, and **Esc** stops
-  the wait for the first word at any moment.
+- **Ask** has Ollama load the chat model while the sources are looked up, asks a model that
+  thinks first not to (the first word of `qwen3:8b` in 0.3–0.4 s instead of 15–28 s on an RTX
+  4070 laptop GPU, [Thinking](../search/ask.md#thinking)), and **Esc** stops the wait for the
+  first word at any moment.
 - **Anything that takes a while** says so: while files are copied, moved, deleted, extracted
   or packed, the status line reads *Working on …*; a folder that takes longer than 150 ms to
   read says *Working on <folder>…* until it arrives.
@@ -327,12 +329,12 @@ mends.
   expenses chapter of the handbook (word 1,459) or the roof decision in the minutes (word
   1,102) has no vector. The file is still often found, by its early passages (5 of 6 with the
   built-in model), but Ask gets the wrong part of it.
-- **Words alone find almost nothing for a question** (0.09): *Text in files* wants every word
+- **Words alone find almost nothing for a question** (0.09; 0.62 with 1.40.0's fallback to any of the words): *Text in files* wants every word
   of the query in the file, and a question has words the file does not (*how*, *I*, *my*).
   The 3 hits are questions whose every word is in the file.
 - **The combined list is the meaning list with word hits put first**, not merged: with the
   built-in model it is no better than meaning alone, and a word hit that is a poorer match
-  would push a better meaning hit down.
+  would push a better meaning hit down (1.40.0 fuses them by rank).
 - **bge-m3 shows too few meaning hits**: one file for 19 of 32 questions and none for 6. The
   cut-off (scores at least 0.5, and within 0.10 of the best) was set from e5's and bge-m3's
   scores on a few examples; on this corpus it drops right answers (1.39.0: 0.45 and 0.15). The built-in model, with
@@ -343,6 +345,43 @@ mends.
 - **No reranking**: the passages are ranked by one vector each. Danish questions for English
   files rank the right file 3rd or 4th with the built-in model and miss it with bge-m3.
 
+**After 1.40.0: words and meaning fused.** Words now fall back to *any* of the longer words
+when fewer than 10 files have them all, and the two lists are fused by reciprocal rank
+([how](../search/meaning.md#how-words-and-meaning-are-ranked-together)), where the combined
+list used to be the word hits followed by the meaning hits. *Fused* is the one list by fused
+score; *Find as shown* is what Find shows for a question: *In files* (five rows), then *About
+this* (five rows). The same 32 questions:
+
+| List | Built-in recall@1 / @5 / MRR | bge-m3 recall@1 / @5 / MRR |
+|---|---|---|
+| Words alone | 0.62 / 0.75 / 0.68 (was 0.09 / 0.09 / 0.09) | 0.62 / 0.75 / 0.68 (was 0.09 / 0.09 / 0.09) |
+| Meaning alone | 0.78 / 0.94 / 0.84 | 0.97 / 1.00 / 0.98 |
+| Combined before (words, then meaning) | 0.78 / 0.94 / 0.84 | 0.97 / 1.00 / 0.98 |
+| Fused | 0.78 / 0.94 / 0.84 | 0.97 / 1.00 / 0.98 |
+| Find as shown | 0.78 / 0.91 / 0.83 | 0.84 / 1.00 / 0.92 |
+
+And the 34 questions of `meaning_eval` over the documentation's pages, whose answers sit past
+the first 960 words:
+
+| List | Built-in recall@1 / @5 / MRR | bge-m3 recall@1 / @5 / MRR |
+|---|---|---|
+| Words alone | 0.62 / 0.76 / 0.67 (was 0.38 / 0.44 / 0.41) | 0.62 / 0.76 / 0.67 (was 0.38 / 0.44 / 0.41) |
+| Meaning alone | 0.88 / 0.97 / 0.92 | 1.00 / 1.00 / 1.00 |
+| Combined before (words, then meaning) | 0.85 / 0.97 / 0.89 | 0.91 / 1.00 / 0.94 |
+| Fused | **0.91 / 0.97 / 0.93** | 0.97 / 1.00 / 0.99 |
+| Find as shown | 0.91 / 0.94 / 0.93 | 0.97 / 1.00 / 0.98 |
+
+With the built-in model the fused list beats both words and meaning on the documentation and
+ties meaning on the small corpus; with bge-m3 meaning alone is at or near the ceiling, and the
+fused list stays within one question of it where the old combined list lost three to six.
+
+**The weights**, tried with `COXSWAIN_EVAL_SWEEP=1` (k 10 or 60; meaning 1 or 2 against words 1;
+a file with only some of the words 0, 0.25, 0.5 or 1): k made almost no difference; meaning at 2
+gained one or two questions at recall@1 in every run; any weight for files with only some of the
+words lost questions (they are many, and push files found by meaning alone down), so they count
+by meaning alone and are shown only when meaning finds them too. Chosen: k 60, words 1, some 0,
+meaning 2 (`find::WEIGHTS`).
+
 To measure again, with the built-in model installed or Ollama running with `bge-m3`:
 
 ```sh
@@ -350,7 +389,7 @@ cargo test --release -p coxswain-core --test search_quality -- --ignored --nocap
 COXSWAIN_EVAL_ENGINE=ollama cargo test --release -p coxswain-core --test search_quality -- --ignored --nocapture
 ```
 
-Each question's line shows its rank in the three lists (`-`: not in the first 20), `P` when the
+Each question's line shows its rank in the four lists (words, meaning, fused, as shown; `-`: not in the first 20), `P` when the
 passage that answers went to Ask (`f`: only other passages of the file, `-`: none), and how many
 files meaning found.
 

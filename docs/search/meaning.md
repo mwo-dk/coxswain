@@ -14,6 +14,7 @@ until you turn it on.
 - [How to use it](#how-to-use-it)
 - [What you see](#what-you-see)
 - [How it works](#how-it-works)
+- [How words and meaning are ranked together](#how-words-and-meaning-are-ranked-together)
 - [On a Mac's GPU](#on-a-macs-gpu)
 - [Settings and config.toml](#settings-and-configtoml)
 - [In the terminal app](#in-the-terminal-app)
@@ -108,6 +109,24 @@ hit.
   the vectors go, the text stays, and every file gets new ones in the background, the last
   changed first. Nothing else is read again. This happens once per store, on whichever machine
   the store is: a copied or synced cache folder is renewed where it is opened.
+
+## How words and meaning are ranked together
+
+A search in the files' text runs two searches: by words (every word, or, when fewer than 10
+files have them all, any of the longer words) and by meaning. Their two lists are fused by
+**reciprocal rank fusion**: a file scores
+
+```
+1 / (60 + its rank among the files with every word)  +  2 / (60 + its rank by meaning)
+```
+
+(a term is 0 when the file is not in that list). The files with the words are ordered by this
+score, so a file that has the words *and* is close in meaning comes first, and one that has
+them all keeps its place among the rest. A file with only some of the words counts by meaning
+alone, and is shown only when meaning finds it too. Files found by meaning alone follow, closest
+first. The weights were chosen with the [search-quality questions](../reference/performance.md#search-quality):
+meaning weighs twice as much as words because, on those questions, it ranks the right file first
+more often.
 
 ## On a Mac's GPU
 

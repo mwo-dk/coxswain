@@ -521,9 +521,9 @@ pub fn config_id(cfg: &crate::config::SearchConfig) -> String {
 
 /// What a change of the vectors' model costs, for the user to confirm before it is saved:
 /// None when the vectors stay (the same model, or the same weights under another name) or
-/// there are none; else how many files are read again, and about how long that takes here,
-/// timed by having the new model make the vectors of one long file.
-pub fn change_notice(old: &crate::config::SearchConfig, new: &crate::config::SearchConfig, done: usize) -> Option<String> {
+/// there are none; else how many files are read again, and about how long that takes here:
+/// the time the new model takes for one passage, times the `passages` the store has.
+pub fn change_notice(old: &crate::config::SearchConfig, new: &crate::config::SearchConfig, done: usize, passages: usize) -> Option<String> {
     if done == 0 || same_model(&config_id(old), &config_id(new)) {
         return None;
     }
@@ -531,13 +531,12 @@ pub fn change_notice(old: &crate::config::SearchConfig, new: &crate::config::Sea
     if matches!((digest(old), digest(new)), (Some(a), Some(b)) if a == b) {
         return None;
     }
-    let sample: Vec<String> = (0..8).map(|i| format!("Passage {i} of a long file: the budget, the launch plan and the notes from the meeting, written out in plain words. ").repeat(WORDS / 20)).collect();
+    const SAMPLE: usize = 8;
+    let sample: Vec<String> = (0..SAMPLE).map(|i| format!("Passage {i} of a long file: the budget, the launch plan and the notes from the meeting, written out in plain words. ").repeat(WORDS / 20)).collect();
     let start = std::time::Instant::now();
     match Engine::from_config(new).map(|e| e.passages(&sample)) {
         Some(Ok(_)) => {
-            // ponytail: a file of eight passages timed; long files have up to 256, so a store of
-            // long documents takes longer than said.
-            let secs = start.elapsed().as_secs_f64() * done as f64;
+            let secs = start.elapsed().as_secs_f64() / SAMPLE as f64 * passages.max(done) as f64;
             Some(crate::t!("search.meaning_change", "n" => done, "time" => about(secs)))
         }
         _ => Some(crate::t!("search.meaning_change_untimed", "n" => done)),
@@ -625,9 +624,17 @@ pub fn ask(cfg: &crate::config::SearchConfig, earlier: &[Turn], question: &str, 
         messages.push(serde_json::json!({ "role": "user", "content": q }));
         messages.push(serde_json::json!({ "role": "assistant", "content": a }));
     }
-    messages.push(serde_json::json!({ "role": "user", "content": question }));
+    // A model that thinks before it answers keeps the user waiting for words never shown:
+    // asked not to, unless `ask_think`. Ollama has a switch for it; Qwen3 elsewhere reads a
+    // `/no_think` at the end of the question.
+    let quiet = !cfg.ask_think && s.openai && no_think_by_word(&cfg.ask_model);
+    messages.push(serde_json::json!({ "role": "user", "content": if quiet { format!("{question} /no_think") } else { question.to_string() } }));
     let path = if s.openai { "/chat/completions" } else { "/api/chat" };
-    let body = serde_json::json!({ "model": cfg.ask_model, "messages": messages, "stream": true });
+    let mut body = serde_json::json!({ "model": cfg.ask_model, "messages": messages, "stream": true });
+    // Ollama refuses only `think: true` to a model that cannot think; one before 0.9 ignores it.
+    if !cfg.ask_think && !s.openai {
+        body["think"] = false.into();
+    }
     // A model that is not loaded yet takes a while to answer at all; after that, pieces come.
     let agent: ureq::Agent = ureq::Agent::config_builder().tls_config(tls())
         .timeout_connect(Some(Duration::from_secs(10)))
@@ -686,6 +693,13 @@ pub fn ask(cfg: &crate::config::SearchConfig, earlier: &[Turn], question: &str, 
         }
     }
     Ok(())
+}
+
+/// Whether a chat model turns its thinking off when the question ends in `/no_think`: Qwen3's
+/// hybrid models, not its coder and instruct ones, which do not think at all.
+fn no_think_by_word(model: &str) -> bool {
+    let m = model.to_lowercase();
+    m.contains("qwen3") && !m.contains("coder") && !m.contains("instruct") && !m.contains("thinking")
 }
 
 /// Have Ollama load the chat model now, on a thread, so that it is ready by the time the
@@ -995,7 +1009,7 @@ mod tests {
             let (mut c, _) = listener.accept().unwrap();
             let mut got = Vec::new();
             let mut buf = [0; 4096];
-            while !String::from_utf8_lossy(&got).contains("\"stream\":true}") {
+            while !String::from_utf8_lossy(&got).contains("\"think\":false}") {
                 let n = c.read(&mut buf).unwrap();
                 got.extend_from_slice(&buf[..n]);
             }
@@ -1019,9 +1033,16 @@ mod tests {
         assert!(sent.contains("[1] /p/rocket.md\\nThe rocket is named Tern."), "{sent}");
         assert!(sent.contains("\"model\":\"chat\""));
         assert!(sent.contains("A rocket [1]."), "the turns before go along");
+        assert!(sent.contains("\"think\":false"), "asked not to think first: {sent}");
 
         let off = crate::config::SearchConfig::default();
         assert!(ask(&off, &[], "q", &sources, |_| true).is_err(), "no chat model, no Ask");
+    }
+
+    #[test]
+    fn ask_asks_qwen3_not_to_think_by_word() {
+        assert!(no_think_by_word("Qwen3-8B-GGUF") && no_think_by_word("qwen/qwen3-4b"));
+        assert!(!no_think_by_word("qwen3-coder:30b") && !no_think_by_word("Qwen3-4B-Instruct-2507") && !no_think_by_word("llama3.2"));
     }
 
     /// Stop is heard while the server has not said anything yet (a model loading), and Ollama
@@ -1188,12 +1209,12 @@ mod tests {
     fn a_change_of_model_says_what_it_costs() {
         let old = crate::config::SearchConfig { meaning_engine: "ollama".into(), meaning_url: "http://127.0.0.1:9".into(), meaning_model: "bge-m3".into(), ..Default::default() };
         let tagged = crate::config::SearchConfig { meaning_model: "bge-m3:latest".into(), ..old.clone() };
-        assert_eq!(change_notice(&old, &tagged, 3437), None);
+        assert_eq!(change_notice(&old, &tagged, 3437, 3437), None);
         let vectors = format!("{{\"data\":[{}]}}", ["{\"embedding\":[0.6,0.8]}"; 8].join(","));
         let (url, server) = one_answer("200 OK", &vectors);
         let other = crate::config::SearchConfig { meaning_engine: "openai".into(), meaning_url: url, meaning_model: "nomic".into(), ..old.clone() };
-        assert_eq!(change_notice(&old, &other, 0), None, "no vectors, nothing to lose");
-        let said = change_notice(&old, &other, 3437).unwrap();
+        assert_eq!(change_notice(&old, &other, 0, 0), None, "no vectors, nothing to lose");
+        let said = change_notice(&old, &other, 3437, 3437).unwrap();
         assert!(said.contains("3437") && said.contains("about"), "{said}");
         assert!(server.join().unwrap().starts_with("POST /embeddings"));
     }

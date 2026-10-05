@@ -110,11 +110,6 @@ pub fn all(cfg: &Config, status: &Status, state: &AppState, terminal: bool) -> V
         let text = if terminal { t!("notice.language_new_tui", "language" => l.name) } else { t!("notice.language_new", "language" => l.name) };
         all.push(Notice { id: format!("language-{}", l.code), text, settings: Some("language") });
     }
-    // A new translation in use: where to suggest a better word.
-    if let Some(l) = crate::i18n::find(crate::i18n::language()).filter(|l| l.new) {
-        let text = if terminal { t!("notice.language_new_tui", "language" => l.name) } else { t!("notice.language_new", "language" => l.name) };
-        all.push(Notice { id: format!("language-{}", l.code), text, settings: Some("language") });
-    }
     // The helper found no tesseract: pictures and scans have no words to search.
     if cfg.search.text && status.tools.iter().any(|(name, there)| name == "tesseract" && !there) {
         all.push(Notice { id: "tesseract".into(), text: t!("notice.tesseract"), settings: Some("search") });
@@ -211,7 +206,7 @@ mod tests {
     #[test]
     fn notices_come_one_at_a_time_and_stay_away_once_dismissed() {
         let cfg = Config::default();
-        let mut status = Status { state: crate::index::State::Ready, len: 1, texts: 10, pending: 0, bytes: 0, paused: false, roots: vec![], tools: vec![("tesseract".into(), false)], meaning: false, meaning_pending: 0, meaning_done: 0, meaning_renewing: 0, meaning_ms_per_file: 0, meaning_engine: String::new(), meaning_error: None, meaning_runs: None, error: None, clouds: vec![] };
+        let mut status = Status { state: crate::index::State::Ready, len: 1, texts: 10, pending: 0, bytes: 0, paused: false, roots: vec![], tools: vec![("tesseract".into(), false)], meaning: false, meaning_pending: 0, meaning_done: 0, meaning_passages: 0, meaning_renewing: 0, meaning_ms_per_file: 0, meaning_engine: String::new(), meaning_error: None, meaning_runs: None, error: None, clouds: vec![] };
         let mut state = AppState::default();
         // Whether this machine's GStreamer can play video is not what is tested here.
         dismiss(&mut state, "media");

@@ -119,7 +119,9 @@ pub fn run() {
     };
     let mut items: Vec<String> = found.iter().map(describe).collect();
     let builtin_size = meaning::size();
-    items.push(t!("setup.builtin", "size" => format!("{} MB", builtin_size >> 20)) + &if machine.gpu.is_none() { format!(" [{}]", t!("setup.recommended")) } else { String::new() });
+    let now = search();
+    let runs = Client::start(&now).status().meaning_runs.filter(|_| now.meaning && now.meaning_engine == "builtin");
+    items.push(t!("setup.builtin", "size" => format!("{} MB", builtin_size >> 20), "where" => setup::builtin_runs(&now, runs.as_ref())) + &if machine.gpu.is_none() { format!(" [{}]", t!("setup.recommended")) } else { String::new() });
     items.push(t!("setup.other"));
     let default = found.iter().position(|f| Some(&f.url) == best.as_ref()).unwrap_or(found.len());
     let mut server: Option<Found> = None;
@@ -151,7 +153,8 @@ pub fn run() {
         let old = search();
         let mut new = old.clone();
         change(&mut new);
-        match meaning::change_notice(&old, &new, Client::start(&old).status().meaning_done) {
+        let st = Client::start(&old).status();
+        match meaning::change_notice(&old, &new, st.meaning_done, st.meaning_passages) {
             Some(why) => yes(&why),
             None => true,
         }

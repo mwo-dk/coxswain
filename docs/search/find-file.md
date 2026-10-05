@@ -150,8 +150,9 @@ The desktop app lists at most 500 hits, so the list stays quick to draw. Type mo
 type, in the current panel only.
 
 #### What is "similar to:" in front of a passage?
-The file was found by [meaning](meaning.md), not by your words. Word hits come first; files
-found by meaning come after them.
+The file was found by [meaning](meaning.md), not by your words. Files with your words come
+first, those also close in meaning ahead of the rest; files found by meaning alone come after
+them ([how they are ranked](meaning.md#how-words-and-meaning-are-ranked-together)).
 
 #### Can I open the file straight from Find file?
 **F4** opens it in your editor. **Enter** takes you to it in the panel, where **Enter** again

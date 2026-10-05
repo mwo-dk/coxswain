@@ -93,25 +93,25 @@
  "app.fkeys": "Klawisze funkcyjne",
  "app.matching": "Pasujące:",
  "app.measuring": {
-  "one": "Mierzę {n} folder…",
   "few": "Mierzę {n} foldery…",
   "many": "Mierzę {n} folderów…",
+  "one": "Mierzę {n} folder…",
   "other": "Mierzę {n} folderu…"
  },
  "app.move_here": "Przenieś tutaj",
  "app.move_to_trash": "Przenieś do Kosza",
  "app.moved_items": {
-  "one": "Przeniesiono {n} element",
   "few": "Przeniesiono {n} elementy",
   "many": "Przeniesiono {n} elementów",
+  "one": "Przeniesiono {n} element",
   "other": "Przeniesiono {n} elementu"
  },
  "app.name_label": "Nazwa:",
  "app.not_archive": "To nie jest archiwum zip, 7z ani tar",
  "app.pasted_items": {
-  "one": "Wklejono {n} element",
   "few": "Wklejono {n} elementy",
   "many": "Wklejono {n} elementów",
+  "one": "Wklejono {n} element",
   "other": "Wklejono {n} elementu"
  },
  "app.reading_properties": "Odczytywanie właściwości…",
@@ -153,45 +153,45 @@
  "bom.advice": "Co zrobić",
  "bom.as_in_file": "Jak w pliku",
  "bom.assets": {
-  "one": "{n} zasób",
   "few": "{n} zasoby",
   "many": "{n} zasobów",
+  "one": "{n} zasób",
   "other": "{n} zasobu"
  },
  "bom.change.added": {
-  "one": "dodane: {n}",
   "few": "dodane: {n}",
   "many": "dodane: {n}",
+  "one": "dodane: {n}",
   "other": "dodane: {n}"
  },
  "bom.change.fixed": {
-  "one": "naprawione: {n}",
   "few": "naprawione: {n}",
   "many": "naprawione: {n}",
+  "one": "naprawione: {n}",
   "other": "naprawione: {n}"
  },
  "bom.change.improved": {
-  "one": "lepsze: {n}",
   "few": "lepsze: {n}",
   "many": "lepsze: {n}",
+  "one": "lepsze: {n}",
   "other": "lepsze: {n}"
  },
  "bom.change.removed": {
-  "one": "usunięte: {n}",
   "few": "usunięte: {n}",
   "many": "usunięte: {n}",
+  "one": "usunięte: {n}",
   "other": "usunięte: {n}"
  },
  "bom.change.risk": {
-  "one": "{n} nowe ryzyko",
   "few": "{n} nowe ryzyka",
   "many": "{n} nowych ryzyk",
+  "one": "{n} nowe ryzyko",
   "other": "{n} nowego ryzyka"
  },
  "bom.change.worsened": {
-  "one": "gorsze: {n}",
   "few": "gorsze: {n}",
   "many": "gorsze: {n}",
+  "one": "gorsze: {n}",
   "other": "gorsze: {n}"
  },
  "bom.clear": "Wyczyść filtry",
@@ -212,9 +212,9 @@
  "bom.hide": "Ukryj",
  "bom.hide_title": "Pokaż tylko to, co pasuje, i to, w czym się znajduje",
  "bom.issues": {
-  "one": "{n} problem w tym pliku",
   "few": "{n} problemy w tym pliku",
   "many": "{n} problemów w tym pliku",
+  "one": "{n} problem w tym pliku",
   "other": "{n} problemu w tym pliku"
  },
  "bom.key_of": "{type} dla {algorithm}",
@@ -239,9 +239,9 @@
  "bom.mode.files": "Pliki źródłowe",
  "bom.mode.flat": "Rodzaj",
  "bom.more": {
-  "one": "jeszcze {n}",
   "few": "jeszcze {n}",
   "many": "jeszcze {n}",
+  "one": "jeszcze {n}",
   "other": "jeszcze {n}"
  },
  "bom.no_crypto": "Ten BOM nie wymienia żadnej kryptografii. Widoki dla BOM oprogramowania pojawią się później.",
@@ -264,15 +264,15 @@
  "bom.sunburst": "Wykres pierścieniowy",
  "bom.why": "Dlaczego",
  "bom.why.expired": {
-  "one": "Wygasł {n} dzień temu",
   "few": "Wygasł {n} dni temu",
   "many": "Wygasł {n} dni temu",
+  "one": "Wygasł {n} dzień temu",
   "other": "Wygasł {n} dnia temu"
  },
  "bom.why.expires": {
-  "one": "Wygasa za {n} dzień",
   "few": "Wygasa za {n} dni",
   "many": "Wygasa za {n} dni",
+  "one": "Wygasa za {n} dzień",
   "other": "Wygasa za {n} dnia"
  },
  "bom.why.hasKey": "Jego klucz, {name}: {status}",
@@ -377,9 +377,9 @@
  "dialogs.ask_waiting": "Czekam na odpowiedź {model}: model, który nie jest jeszcze wczytany, potrzebuje chwili…",
  "dialogs.attributes": "Atrybuty",
  "dialogs.bytes": {
-  "one": "({n} bajt)",
   "few": "({n} bajty)",
   "many": "({n} bajtów)",
+  "one": "({n} bajt)",
   "other": "({n} bajtu)"
  },
  "dialogs.created": "Utworzono",
@@ -389,9 +389,9 @@
  "dialogs.help_syntax": "{find_file} używa składni Everything:",
  "dialogs.help_title": "Coxswain {version} · skróty klawiszowe",
  "dialogs.in_files": {
-  "one": "w {n} pliku",
   "few": "w {n} plikach",
   "many": "w {n} plikach",
+  "one": "w {n} pliku",
   "other": "w {n} pliku"
  },
  "dialogs.kind.file": "Plik",
@@ -414,15 +414,15 @@
  "dialogs.rename_ignore_case": "Ignoruj wielkość liter",
  "dialogs.rename_replace": "Zamień na",
  "dialogs.rename_title": {
-  "one": "Zmień nazwę {n} elementu",
   "few": "Zmień nazwy {n} elementów",
   "many": "Zmień nazwy {n} elementów",
+  "one": "Zmień nazwę {n} elementu",
   "other": "Zmień nazwy {n} elementu"
  },
  "dialogs.renamed": {
-  "one": "Zmieniono nazwę {n} elementu",
   "few": "Zmieniono nazwy {n} elementów",
   "many": "Zmieniono nazwy {n} elementów",
+  "one": "Zmieniono nazwę {n} elementu",
   "other": "Zmieniono nazwy {n} elementu"
  },
  "dialogs.scope_ask": "Zapytaj",
@@ -434,9 +434,9 @@
  "dialogs.search_placeholder": "Szukaj we wszystkich plikach…  *.rs · ext:md · src/ foo · !test",
  "dialogs.search_tab_hint": "Tab: tylko ten folder albo słowa w Twoich plikach (Shift+F7).",
  "dialogs.showing_first": {
-  "one": "pokazuję pierwszy wynik, wpisz więcej, aby zawęzić",
   "few": "pokazuję pierwsze {n}, wpisz więcej, aby zawęzić",
   "many": "pokazuję pierwszych {n}, wpisz więcej, aby zawęzić",
+  "one": "pokazuję pierwszy wynik, wpisz więcej, aby zawęzić",
   "other": "pokazuję pierwsze {n}, wpisz więcej, aby zawęzić"
  },
  "dialogs.size": "Rozmiar",
@@ -451,39 +451,39 @@
  "dupes.close": "Zamknij (Esc)",
  "dupes.confirm_ok": "Przenieś do Kosza",
  "dupes.confirm_text": {
-  "one": "Przenieść {n} kopię ({size}) do Kosza? Zostaje co najmniej jedna kopia każdego pliku.",
   "few": "Przenieść {n} kopie ({size}) do Kosza? Zostaje co najmniej jedna kopia każdego pliku.",
   "many": "Przenieść {n} kopii ({size}) do Kosza? Zostaje co najmniej jedna kopia każdego pliku.",
+  "one": "Przenieść {n} kopię ({size}) do Kosza? Zostaje co najmniej jedna kopia każdego pliku.",
   "other": "Przenieść {n} kopii ({size}) do Kosza? Zostaje co najmniej jedna kopia każdego pliku."
  },
  "dupes.confirm_title": "Przenieś duplikaty do Kosza",
  "dupes.copies": {
-  "one": "{n} kopia",
   "few": "{n} kopie",
   "many": "{n} kopii",
+  "one": "{n} kopia",
   "other": "{n} kopii"
  },
  "dupes.each": "po {size}",
  "dupes.each_files": {
-  "one": "po {size}, {n} plik",
   "few": "po {size}, {n} pliki",
   "many": "po {size}, {n} plików",
+  "one": "po {size}, {n} plik",
   "other": "po {size}, {n} pliku"
  },
  "dupes.extra": "{size} nadmiaru",
  "dupes.folders": "Znajdź zduplikowane foldery",
  "dupes.freeable": "Można zwolnić {size}",
  "dupes.groups": {
-  "one": "{n} grupa duplikatów",
   "few": "{n} grupy duplikatów",
   "many": "{n} grup duplikatów",
+  "one": "{n} grupa duplikatów",
   "other": "{n} grupy duplikatów"
  },
  "dupes.hidden": "Uwzględnij pliki ukryte",
  "dupes.identical_folders": {
-  "one": "{n} identyczny folder",
   "few": "{n} identyczne foldery",
   "many": "{n} identycznych folderów",
+  "one": "{n} identyczny folder",
   "other": "{n} identycznego folderu"
  },
  "dupes.keep_newest": "Zaznacz wszystkie poza najnowszym",
@@ -493,9 +493,9 @@
  "dupes.look_in": "Szukaj w",
  "dupes.mark_tip": "Zaznacz, aby przenieść do Kosza",
  "dupes.marked": {
-  "one": "zaznaczono: {n} · {size} do zwolnienia",
   "few": "zaznaczono: {n} · {size} do zwolnienia",
   "many": "zaznaczono: {n} · {size} do zwolnienia",
+  "one": "zaznaczono: {n} · {size} do zwolnienia",
   "other": "zaznaczono: {n} · {size} do zwolnienia"
  },
  "dupes.min_size": "Pomiń pliki mniejsze niż",
@@ -505,23 +505,23 @@
  "dupes.phase.listing": "Przeglądanie plików",
  "dupes.phase.whole": "Porównywanie całych plików",
  "dupes.progress": {
-  "one": "{phase} · znaleziono {n} plik · odczytano {size}",
   "few": "{phase} · znaleziono {n} pliki · odczytano {size}",
   "many": "{phase} · znaleziono {n} plików · odczytano {size}",
+  "one": "{phase} · znaleziono {n} plik · odczytano {size}",
   "other": "{phase} · znaleziono {n} pliku · odczytano {size}"
  },
  "dupes.progress_counted": {
-  "one": "{phase} · {done} z {total} · znaleziono {n} plik · odczytano {size}",
   "few": "{phase} · {done} z {total} · znaleziono {n} pliki · odczytano {size}",
   "many": "{phase} · {done} z {total} · znaleziono {n} plików · odczytano {size}",
+  "one": "{phase} · {done} z {total} · znaleziono {n} plik · odczytano {size}",
   "other": "{phase} · {done} z {total} · znaleziono {n} pliku · odczytano {size}"
  },
  "dupes.scan": "Skanuj",
  "dupes.scan_again": "Skanuj ponownie",
  "dupes.scanned": {
-  "one": "Przeskanowano {n} plik ({size}) w {s} s, odczytano {read}",
   "few": "Przeskanowano {n} pliki ({size}) w {s} s, odczytano {read}",
   "many": "Przeskanowano {n} plików ({size}) w {s} s, odczytano {read}",
+  "one": "Przeskanowano {n} plik ({size}) w {s} s, odczytano {read}",
   "other": "Przeskanowano {n} pliku ({size}) w {s} s, odczytano {read}"
  },
  "dupes.show_tip": "Pokaż w panelu",
@@ -529,9 +529,9 @@
  "dupes.top_500": "Pokazano 500 grup, które marnują najwięcej miejsca.",
  "dupes.trash_marked": "Przenieś zaznaczone do Kosza",
  "dupes.trashed": {
-  "one": "Przeniesiono {n} duplikat do Kosza",
   "few": "Przeniesiono {n} duplikaty do Kosza",
   "many": "Przeniesiono {n} duplikatów do Kosza",
+  "one": "Przeniesiono {n} duplikat do Kosza",
   "other": "Przeniesiono {n} duplikatu do Kosza"
  },
  "err.bom.invalid_json": "Ten plik nie jest poprawnym JSON (wiersz {line}): {message}",
@@ -575,9 +575,9 @@
  "facts.bitrate": "Przepływność",
  "facts.camera": "Aparat",
  "facts.channels": {
-  "one": "{n} kanał",
   "few": "{n} kanały",
   "many": "{n} kanałów",
+  "one": "{n} kanał",
   "other": "{n} kanału"
  },
  "facts.dos": "DOS",
@@ -604,6 +604,45 @@
  "facts.unnamed": "(bez nazwy)",
  "facts.windows_pe": "Windows PE",
  "facts.year": "Rok",
+ "find.ask_nothing_in": "Nic w plikach w {folder} nie jest bliskie pytaniu.",
+ "find.ask_row": "Zapytaj: „{query}”",
+ "find.dismiss": "Del: więcej nie",
+ "find.empty": "Wpisz nazwę (*.pdf, ext:md), słowa z wnętrza pliku albo pytanie zakończone znakiem ?",
+ "find.group_about": "Na ten temat",
+ "find.group_history": "Historia",
+ "find.group_in_files": "W plikach",
+ "find.group_names": "Nazwy",
+ "find.help_prefixes": "Wpisane na początku: text: słowa w plikach · about: samo znaczenie · ? pyta. Przyciski robią to samo: Tab.",
+ "find.keys_answer_gui": "Enter zapytaj lub przejdź do źródła · ↑↓ źródła · F4 edytuj · Esc wróć do listy",
+ "find.keys_answer_tui": "Enter zapytaj lub przejdź do źródła · ↑↓ źródła · F3 podgląd · F4 edytuj · Esc wróć do listy",
+ "find.keys_gui": "Enter przejdź · Ctrl+Enter zapytaj · Tab rodzaj · {scope} zakres · F4 edytuj · F1 składnia · Esc zamknij",
+ "find.keys_tui": "Enter przejdź · Alt+Enter zapytaj · Tab rodzaj · {scope} zakres · F3 podgląd · F4 edytuj · F1 składnia · Esc zamknij",
+ "find.kind_about": "O tym",
+ "find.kind_all": "Wszystko",
+ "find.kind_ask": "Zapytaj",
+ "find.kind_in_files": "W plikach",
+ "find.kind_names": "Nazwy",
+ "find.meaning_for": "znaczenie dla {n}",
+ "find.more": "Jeszcze {n}: Enter pokazuje wszystkie",
+ "find.nothing": "Nic nie znaleziono dla „{query}”.",
+ "find.nothing_in": "Nic nie znaleziono dla „{query}” w {folder}.",
+ "find.of": "{shown} z {total}",
+ "find.off_ask_meaning": "Zadaj pytanie swoim plikom · najpierw potrzebne jest wyszukiwanie według znaczenia",
+ "find.off_ask_model": "Zadaj pytanie swoim plikom · wybierz model czatu",
+ "find.off_meaning": "Znajduj też pliki o twoich słowach, w każdym języku, nawet bez tych słów.",
+ "find.off_no_helper": "Nie można teraz szukać słów w plikach: czytanie w tle nie działa.",
+ "find.off_not_read": "{folder} nie należy do czytanych folderów, więc jego słowa nie są przeszukiwane.",
+ "find.off_text": "Wyszukiwanie może też szukać słów wewnątrz twoich plików.",
+ "find.paused": "wstrzymane na baterii",
+ "find.placeholder": "Nazwy, słowa w plikach lub pytanie",
+ "find.prompt": "znajdź: ",
+ "find.step_fix": "Napraw",
+ "find.step_read_too": "Czytaj też ten folder",
+ "find.step_set_up": "Skonfiguruj",
+ "find.step_start": "Uruchom",
+ "find.step_turn_on": "Włącz",
+ "find.try_ask": "Zamiast tego zapytaj: {key}",
+ "find.try_everywhere": "Wszędzie: {key}",
  "git.detached": "odłączony przy {commit}",
  "git.op_bisect": "trwa bisect",
  "git.op_cherry_pick": "trwa cherry-pick",
@@ -647,9 +686,9 @@
  "history.preview_opening": "Odczytywanie pliku w stanie z tego commita…",
  "history.read_only": "Historia jest tylko do odczytu: F5 kopiuje z niej plik lub folder",
  "items": {
-  "one": "{n} element",
   "few": "{n} elementy",
   "many": "{n} elementów",
+  "one": "{n} element",
   "other": "{n} elementu"
  },
  "language.group.americas": "Ameryka",
@@ -667,6 +706,7 @@
  "meaning.on_cpu": "na procesorze",
  "meaning.on_cpu_why": "na procesorze ({why})",
  "meaning.on_metal": "na GPU (Metal)",
+ "meaning.on_metal_if": "na GPU (Metal), gdy może",
  "menu.commands": "Polecenia",
  "news.badge_title": "Co nowego: {n} (Ustawienia → Co nowego)",
  "news.dismiss": "Odrzuć",
@@ -702,9 +742,9 @@
  "pane.one_pane": "Jeden panel (Ctrl+O)",
  "pane.path_tip": "Kliknij puste miejsce lub naciśnij Ctrl+L, aby wpisać ścieżkę",
  "pane.selected": {
-  "one": "zaznaczono {n} ({size})",
   "few": "zaznaczono {n} ({size})",
   "many": "zaznaczono {n} ({size})",
+  "one": "zaznaczono {n} ({size})",
   "other": "zaznaczono {n} ({size})"
  },
  "pane.two_panes": "Dwa panele (Ctrl+O)",
@@ -719,15 +759,15 @@
  "place.system": "System",
  "place.videos": "Wideo",
  "preview.archive": {
-  "one": "{n} wpis · Ctrl+E rozpakowuje do drugiego panelu",
   "few": "{n} wpisy · Ctrl+E rozpakowuje do drugiego panelu",
   "many": "{n} wpisów · Ctrl+E rozpakowuje do drugiego panelu",
+  "one": "{n} wpis · Ctrl+E rozpakowuje do drugiego panelu",
   "other": "{n} wpisu · Ctrl+E rozpakowuje do drugiego panelu"
  },
  "preview.archive_more": {
-  "one": "{n}+ wpisów · Ctrl+E rozpakowuje do drugiego panelu",
   "few": "{n}+ wpisów · Ctrl+E rozpakowuje do drugiego panelu",
   "many": "{n}+ wpisów · Ctrl+E rozpakowuje do drugiego panelu",
+  "one": "{n}+ wpisów · Ctrl+E rozpakowuje do drugiego panelu",
   "other": "{n}+ wpisów · Ctrl+E rozpakowuje do drugiego panelu"
  },
  "preview.attachments": "Załączniki",
@@ -738,9 +778,9 @@
  "preview.changes_against_head": "Zmiany względem HEAD",
  "preview.column": "Kolumna",
  "preview.columns": {
-  "one": "{n} kolumna",
   "few": "{n} kolumny",
   "many": "{n} kolumn",
+  "one": "{n} kolumna",
   "other": "{n} kolumny"
  },
  "preview.command_output": "Wynik polecenia",
@@ -752,37 +792,37 @@
  "preview.diff": "Różnice",
  "preview.exact_coming": "Pokazano od razu; dokładne renderowanie przez {engine} jest w drodze…",
  "preview.expired_ago": {
-  "one": "wygasł {n} dzień temu",
   "few": "wygasł {n} dni temu",
   "many": "wygasł {n} dni temu",
+  "one": "wygasł {n} dzień temu",
   "other": "wygasł {n} dnia temu"
  },
  "preview.expires": "Wygasa",
  "preview.expires_in": {
-  "one": "za {n} dzień",
   "few": "za {n} dni",
   "many": "za {n} dni",
+  "one": "za {n} dzień",
   "other": "za {n} dnia"
  },
  "preview.file": "Plik",
  "preview.files": {
-  "one": "{n} plik",
   "few": "{n} pliki",
   "many": "{n} plików",
+  "one": "{n} plik",
   "other": "{n} pliku"
  },
  "preview.files_here": "Pliki tutaj",
  "preview.first_rows": {
-  "one": "Pokazano pierwszy {n} wiersz",
   "few": "Pokazano pierwsze {n} wiersze",
   "many": "Pokazano pierwszych {n} wierszy",
+  "one": "Pokazano pierwszy {n} wiersz",
   "other": "Pokazano pierwsze {n} wiersza"
  },
  "preview.folder": "Folder",
  "preview.folders": {
-  "one": "{n} folder",
   "few": "{n} foldery",
   "many": "{n} folderów",
+  "one": "{n} folder",
   "other": "{n} folderu"
  },
  "preview.font_sample1": "Pchnąć w tę łódź jeża lub ośm skrzyń fig",
@@ -795,9 +835,9 @@
  "preview.media_missing": "Aby odtwarzać tu wideo i dźwięk, potrzebne są wtyczki good GStreamera (gst-plugins-good; gstreamer1.0-plugins-good w Debianie i Ubuntu). Zainstaluj je, a potem otwórz Coxswain ponownie.",
  "preview.media_open": "Otwórz w jego aplikacji",
  "preview.more": {
-  "one": "… jeszcze {n}",
   "few": "… jeszcze {n}",
   "many": "… jeszcze {n}",
+  "one": "… jeszcze {n}",
   "other": "… jeszcze {n}"
  },
  "preview.names": "Nazwy",
@@ -822,9 +862,9 @@
  "preview.rendering_with": "Renderowanie przez {engine}…",
  "preview.repetition": "Powtarzanie",
  "preview.rows": {
-  "one": "{n} wiersz",
   "few": "{n} wiersze",
   "many": "{n} wierszy",
+  "one": "{n} wiersz",
   "other": "{n} wiersza"
  },
  "preview.schema": "Schemat",
@@ -854,15 +894,15 @@
  "search.everywhere": "wszędzie: ",
  "search.in": "w {dir}: ",
  "search.indexed": {
-  "one": "zaindeksowano {n} plik",
   "few": "zaindeksowano {n} pliki",
   "many": "zaindeksowano {n} plików",
+  "one": "zaindeksowano {n} plik",
   "other": "zaindeksowano {n} pliku"
  },
  "search.matches": {
-  "one": "{n} trafienie w {ms} ms",
   "few": "{n} trafienia w {ms} ms",
   "many": "{n} trafień w {ms} ms",
+  "one": "{n} trafienie w {ms} ms",
   "other": "{n} trafienia w {ms} ms"
  },
  "search.meaning_change": "Zmiana modelu osadzeń oznacza ponowne odczytanie znaczenia {n} plików (około {time} na tym komputerze).",
@@ -876,9 +916,9 @@
  "search.similar_to": "podobne do:",
  "search.text": "tekst: ",
  "search.texts": {
-  "one": "tekst {n} pliku",
   "few": "tekst {n} plików",
   "many": "tekst {n} plików",
+  "one": "tekst {n} pliku",
   "other": "tekst {n} pliku"
  },
  "search.title": "Znajdź plik",
@@ -886,6 +926,7 @@
  "settings.ask": "Zapytaj",
  "settings.ask_hint": "Zapytaj, czwarty sposób szukania w Znajdź plik (Ctrl+F7), odpowiada na pytanie na podstawie dziesięciu najbliższych mu fragmentów i podaje źródła. Odpowiedź pisze model czatu na {server} i to do niego trafiają te fragmenty. Nic nie jest zachowywane: zamknięcie Znajdź plik zapomina pytania.",
  "settings.ask_model": "Model czatu",
+ "settings.ask_think": "Pozwól modelowi pomyśleć przed odpowiedzią (wolniej: myślenie nie jest pokazywane)",
  "settings.behaviour": "Działanie",
  "settings.check_updates": "Sprawdzaj raz dziennie, czy jest nowa wersja",
  "settings.confirm_delete": "Pytaj przed usuwaniem",
@@ -983,7 +1024,7 @@
  "settings.title": "Ustawienia",
  "setup.ask_hint": "Wymienione są tylko modele, które umieją odpowiadać. Dla tego komputera: {model}. Pytanie testowe pokazuje, jak szybko odpowiada.",
  "setup.ask_needs_server": "Zapytaj wymaga modelu czatu na serwerze modeli; żaden tu nie odpowiada. Zainstaluj Ollama lub inny serwer, a potem poszukaj ponownie w kroku 2.",
- "setup.builtin": "Wbudowany model ({size}, działa na procesorze)",
+ "setup.builtin": "Wbudowany model ({size}, działa {where})",
  "setup.builtin_hint": "multilingual-e5-small: 100 języków, działa na każdym komputerze. Po przejściu na niego każdy plik jest odczytywany ponownie.",
  "setup.builtin_short": "wbudowany model",
  "setup.cpu_lemonade": "Lemonade uruchamia {model} na procesorze, ale ten komputer ma {gpu}. W menedżerze modeli Lemonade wybierz model Hybrid lub NPU, albo model GGUF z backendem Vulkan lub ROCm.",
@@ -1013,7 +1054,7 @@
  "setup.pull": "Pobierz {model}",
  "setup.pull_elsewhere": "{server} pobiera modele w swoim własnym oknie: znajdź tam {model}, pobierz go, a potem poszukaj ponownie tutaj.",
  "setup.recommended": "polecane",
- "setup.server_hint": "Do wyszukiwania według znaczenia model zamienia każdy fragment na wektor: liczby opisujące jego sens. Wbudowany model robi to na procesorze; serwer modeli (Ollama, Lemonade, LM Studio, llama.cpp …) używa karty graficznej lub NPU i jest dużo szybszy.",
+ "setup.server_hint": "Do wyszukiwania według znaczenia model zamienia każdy fragment na wektor: liczby opisujące jego sens. Wbudowany model robi to na tym komputerze (na procesorze lub GPU Maca); serwer modeli (Ollama, Lemonade, LM Studio, llama.cpp …) używa karty graficznej lub NPU i jest dużo szybszy.",
  "setup.service_hint": "Uruchamiaj z moją sesją: pomocnik wyszukiwania działa od zalogowania, dzięki czemu magazyn śledzi Twoje pliki między uruchomieniami. Zużywa odrobinę czasu procesora, gdy pliki się zmieniają, i pauzuje na baterii. Nie są potrzebne prawa administratora (usługa użytkownika systemd na Linuksie, agent launchd na macOS, wpis Run w Windows).",
  "setup.service_on": "Uruchamiaj z moją sesją",
  "setup.speed_hint": "Po pytaniu testowym widać, czy serwer uruchamia model na karcie graficznej.",
@@ -1130,9 +1171,9 @@
  "tui.search_footer": "Enter przejdź · Tab/Shift+Tab wszędzie/tutaj/tekst/pytaj · Shift+F7 tekst · Ctrl+F7 pytaj · F3 podgląd · F4 edycja · Esc zamknij · składnia: F1",
  "tui.select": "Zaznacz",
  "tui.selected": {
-  "one": "{size} w {n} zaznaczonym",
   "few": "{size} w {n} zaznaczonych",
   "many": "{size} w {n} zaznaczonych",
+  "one": "{size} w {n} zaznaczonym",
   "other": "{size} w {n} zaznaczonych"
  },
  "tui.subdir": "SUB-DIR",

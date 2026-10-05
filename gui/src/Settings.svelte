@@ -522,6 +522,7 @@
         <datalist id="askmodels">{#each chatModels as m (m)}<option value={m}></option>{/each}</datalist>
       </div>
       {#if askProblem}<p class="err">{askProblem}</p>{/if}
+      <label class="check"><input type="checkbox" checked={s.ask_think} onchange={(e) => set("ask_think", e.currentTarget.checked)} /> {t("settings.ask_think")}</label>
     </section>
 
     <section>

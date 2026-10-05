@@ -12,6 +12,7 @@
 //! docs/reference/performance.md under "Search quality".
 
 use coxswain_core::config::SearchConfig;
+use coxswain_core::find;
 use coxswain_core::store::{self, Store};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -74,6 +75,19 @@ impl Score {
     }
 }
 
+/// The fusion weights the sweep tries.
+fn sweep() -> Vec<find::Weights> {
+    let mut v = vec![];
+    for k in [10.0, 60.0] {
+        for meaning in [1.0, 2.0] {
+            for some in [0.0, 0.25, 0.5, 1.0] {
+                v.push(find::Weights { k, words: 1.0, some, meaning });
+            }
+        }
+    }
+    v
+}
+
 #[test]
 #[ignore]
 fn search_quality() {
@@ -100,41 +114,61 @@ fn search_quality() {
     eprintln!("engine {} · {done} files read and embedded in {:.1} s", store.engine_id().unwrap_or_default(), started.elapsed().as_secs_f64());
 
     let qs = questions(&src);
-    let (mut words, mut meaning, mut both, mut ask_file, mut ask_passage) = (Score::default(), Score::default(), Score::default(), 0, 0);
+    let (mut words, mut meaning, mut both, mut shown, mut ask_file, mut ask_passage) = (Score::default(), Score::default(), Score::default(), Score::default(), 0, 0);
     let mut by_kind: std::collections::BTreeMap<String, (Score, Score, usize)> = Default::default();
+    let mut lists = vec![];
     for q in &qs {
-        let paths = |hits: Vec<coxswain_core::index::Hit>| hits.into_iter().map(|h| h.path).collect::<Vec<_>>();
-        let w = rank(&paths(store.search(&q.text, 20).hits), &root, q);
-        let similar = paths(store.similar(&q.text, 20));
-        let m = rank(&similar, &root, q);
-        let b = rank(&paths(coxswain_core::helper::with_meaning(&store, &q.text, 20).hits), &root, q);
-        let sources = store.passages(&q.text, 10);
+        let paths = |hits: &[coxswain_core::index::Hit]| hits.iter().map(|h| h.path.clone()).collect::<Vec<_>>();
+        let (word_hits, every) = store.search_words(&q.text, None, 20);
+        let (word_hits, words_of) = (word_hits.hits, every);
+        let similar = store.similar(&q.text, None, 20);
+        let w = rank(&paths(&word_hits), &root, q);
+        let m = rank(&paths(&similar), &root, q);
+        let b = rank(&paths(&find::fused(find::Words { hits: &word_hits, every: words_of }, &similar, find::WEIGHTS)), &root, q);
+        // As Find shows it in All: In files, then About this, five each.
+        let (in_files, about, _) = find::fuse(find::Words { hits: &word_hits, every: words_of }, &similar, find::WEIGHTS);
+        let s = rank(&paths(&in_files.iter().take(5).chain(about.iter().take(5)).cloned().collect::<Vec<_>>()), &root, q);
+        let sources = store.passages(&q.text, None, 10);
         let from_file: Vec<&String> = sources.iter().filter(|(p, _)| rank(std::slice::from_ref(p), &root, q).is_some()).map(|(_, t)| t).collect();
         let passage = from_file.iter().any(|t| t.to_lowercase().contains(&q.phrase));
         words.add(w);
         meaning.add(m);
         both.add(b);
+        shown.add(s);
         ask_file += usize::from(!from_file.is_empty());
         ask_passage += usize::from(passage);
         let k = by_kind.entry(q.kind.clone()).or_default();
         k.0.add(m);
         k.1.add(b);
         k.2 += usize::from(passage);
-        // Ranks in words, meaning, combined; P: the answering passage was sent to Ask, f: only
-        // other passages of the file; then how many files meaning found at all.
+        // Ranks in words, meaning, fused, as shown; P: the answering passage was sent to Ask,
+        // f: only other passages of the file; then how many files meaning found at all.
         let r = |r: Option<usize>| r.map_or("-".into(), |r| r.to_string());
-        eprintln!("{:>2} {:>2} {:>2} {} {:>2} {:8} {}", r(w), r(m), r(b), if passage { "P" } else if from_file.is_empty() { "-" } else { "f" }, similar.len(), q.kind, q.text);
+        eprintln!("{:>2} {:>2} {:>2} {:>2} {} {:>2} {:8} {}", r(w), r(m), r(b), r(s), if passage { "P" } else if from_file.is_empty() { "-" } else { "f" }, similar.len(), q.kind, q.text);
+        lists.push((word_hits, words_of, similar, q));
     }
     let n = qs.len();
     println!("\n{n} questions, {done} files, engine {}\n", store.engine_id().unwrap_or_default());
     println!("| List | Recall@1 | Recall@5 | MRR |\n|---|---|---|---|");
-    println!("{}", words.row("Words alone (Text in files)"));
+    println!("{}", words.row("Words alone (every word, then any of them)"));
     println!("{}", meaning.row("Meaning alone"));
-    println!("{}", both.row("Combined list (words, then meaning)"));
+    println!("{}", both.row("Fused (words and meaning by rank)"));
+    println!("{}", shown.row("Find as shown (In files, then About this)"));
     println!("\nAsk: the right file among the 10 passages sent for {ask_file} of {n} questions, the passage that answers for {ask_passage} of {n}.\n");
-    println!("| Kind | Questions | Meaning recall@5 | Combined recall@5 | Ask passage |\n|---|---|---|---|---|");
+    println!("| Kind | Questions | Meaning recall@5 | Fused recall@5 | Ask passage |\n|---|---|---|---|---|");
     for (kind, (m, b, p)) in &by_kind {
         println!("| {kind} | {} | {:.2} | {:.2} | {p} of {} |", m.n, m.at5 as f64 / m.n as f64, b.at5 as f64 / b.n as f64, m.n);
+    }
+    // The weights tried: `COXSWAIN_EVAL_SWEEP=1`.
+    if std::env::var_os("COXSWAIN_EVAL_SWEEP").is_some() {
+        println!("\n| k | words | some words | meaning | Recall@1 | Recall@5 | MRR |\n|---|---|---|---|---|---|---|");
+        for w in sweep() {
+            let mut sc = Score::default();
+            for (wh, every, sim, q) in &lists {
+                sc.add(rank(&find::fused(find::Words { hits: wh, every: *every }, sim, w).iter().map(|h| h.path.clone()).collect::<Vec<_>>(), &root, q));
+            }
+            println!("{}", sc.row(&format!("{} | {} | {} | {}", w.k, w.words, w.some, w.meaning)));
+        }
     }
     drop(store);
     let _ = std::fs::remove_dir_all(d);

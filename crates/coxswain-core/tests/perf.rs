@@ -177,7 +177,7 @@ fn perf_store_archive_member_change() {
     let t = Instant::now();
     store::refresh(&store, &cfg, &mut [zip.clone()].into_iter().collect(), &mut Default::default(), &go).unwrap();
     println!("refresh after one member added: {:.0} ms, {} texts", ms(t), store.texts());
-    assert_eq!(store.search("launch", 5).hits.len(), 1);
+    assert_eq!(store.search("launch", None, 5).hits.len(), 1);
 }
 
 /// An embedding server that answers like Ollama, with a vector of letter counts per text:
@@ -251,10 +251,10 @@ fn perf_meaning_closest() {
     println!("scan + vectors of 400 files: {:.0} ms, {:?} {:?}", ms(t), store.meaning_counts(), store.meaning_error.lock().unwrap());
     for q in ["zebra quartz", "rocket budget"] {
         let t = Instant::now();
-        let hits = store.similar(q, 10);
+        let hits = store.similar(q, None, 10);
         println!("similar {q:?}: {:.1} ms, {} hits", ms(t), hits.len());
         let t = Instant::now();
-        let p = store.passages(q, 10);
+        let p = store.passages(q, None, 10);
         println!("passages {q:?}: {:.1} ms, {} passages", ms(t), p.len());
     }
 }

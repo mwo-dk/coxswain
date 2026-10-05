@@ -10,6 +10,7 @@
 //! numbers are in docs/reference/performance.md.
 
 use coxswain_core::config::SearchConfig;
+use coxswain_core::find;
 use coxswain_core::store::{self, Store};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -82,18 +83,45 @@ fn meaning_eval() {
     let per = 1000.0 / files as f64;
     println!("{engine}: {files} files, first pass {secs:.0} s ({:.0} s per 1,000 files), store {:.1} MB ({:.0} MB per 1,000 files)", secs * per, store.bytes() as f64 / 1e6, store.bytes() as f64 / 1e6 * per);
 
-    let (mut at1, mut at5, mut rr) = (0, 0, 0.0);
+    // Meaning alone, words alone, fused, as Find shows it (In files, then About this), and the
+    // fusion weights the sweep tries (`COXSWAIN_EVAL_SWEEP=1`).
+    let mut weights = vec![("meaning".to_string(), None), ("words".into(), None), ("fused".into(), Some(find::WEIGHTS)), ("shown".into(), None)];
+    if std::env::var_os("COXSWAIN_EVAL_SWEEP").is_some() {
+        for k in [10.0, 60.0] {
+            for meaning in [1.0, 2.0] {
+                for some in [0.0, 0.25, 0.5, 1.0] {
+                    weights.push((format!("k {k}, words 1, some {some}, meaning {meaning}"), Some(find::Weights { k, words: 1.0, some, meaning })));
+                }
+            }
+        }
+    }
+    let mut scores = vec![(0, 0, 0.0); weights.len()];
     for (page, q) in QUESTIONS {
-        let hits = store.similar(q, 10);
-        let rank = hits.iter().position(|h| h.path == corpus.join(page));
-        at1 += (rank == Some(0)) as usize;
-        at5 += rank.is_some_and(|r| r < 5) as usize;
-        rr += rank.map_or(0.0, |r| 1.0 / (r + 1) as f64);
-        let first = hits.first().map(|h| h.path.strip_prefix(&corpus).unwrap_or(&h.path).display().to_string()).unwrap_or_default();
-        println!("{:>4} {q}  ({first})", rank.map_or("-".into(), |r| (r + 1).to_string()));
+        let ((words, every), similar) = (store.search_words(q, None, 20), store.similar(q, None, 20));
+        let words = words.hits;
+        let ws = find::Words { hits: &words, every };
+        let (in_files, about, _) = find::fuse(ws, &similar, find::WEIGHTS);
+        for (i, (name, w)) in weights.iter().enumerate() {
+            let hits = match (name.as_str(), w) {
+                ("meaning", _) => similar.clone(),
+                ("words", _) => words.clone(),
+                ("shown", _) => in_files.iter().take(5).chain(about.iter().take(5)).cloned().collect(),
+                (_, w) => find::fused(ws, &similar, w.unwrap()),
+            };
+            let rank = hits.iter().position(|h| h.path == corpus.join(page));
+            scores[i].0 += (rank == Some(0)) as usize;
+            scores[i].1 += rank.is_some_and(|r| r < 5) as usize;
+            scores[i].2 += rank.map_or(0.0, |r| 1.0 / (r + 1) as f64);
+            if i == 0 {
+                let first = hits.first().map(|h| h.path.strip_prefix(&corpus).unwrap_or(&h.path).display().to_string()).unwrap_or_default();
+                println!("{:>4} {q}  ({first})", rank.map_or("-".into(), |r| (r + 1).to_string()));
+            }
+        }
     }
     let n = QUESTIONS.len() as f64;
-    println!("{engine}: recall@1 {:.2}, recall@5 {:.2}, MRR {:.2} over {} questions", at1 as f64 / n, at5 as f64 / n, rr / n, QUESTIONS.len());
+    for ((name, _), (at1, at5, rr)) in weights.iter().zip(scores) {
+        println!("{engine} {name}: recall@1 {:.2}, recall@5 {:.2}, MRR {:.2} over {} questions", at1 as f64 / n, at5 as f64 / n, rr / n, QUESTIONS.len());
+    }
     drop(store);
     let _ = std::fs::remove_dir_all(work);
 }
