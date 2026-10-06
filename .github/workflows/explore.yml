@@ -29,15 +29,45 @@ jobs:
           usesh: true
           prepare: |
             /usr/sbin/pkg_add pkgin || true
-            pkgin -y install rust pkgconf webkit-gtk41 gtk3+ libsoup3 librsvg || cat /var/db/pkgin/pkg_install-err.log
-            for t in tesseract poppler libreoffice pandoc plantuml nerd texlive gst-plugins1-good gstreamer1-plugins-good noto xdg-utils git ollama; do echo "## $t"; pkgin search "$t" | head -6; done
+            pkgin -y install rust pkgconf webkit-gtk41 gtk3+ libsoup3 librsvg || true
+            cat /var/db/pkgin/pkg_install-err.log || true
+            ls /usr/X11R7/lib | head -5 || true
+            for t in poppler-utils nerd-fonts-Symbols pandoc-cli tex-latexmk noto-cjk plantuml; do echo "## $t"; pkgin search "^$t" | head -4; done
           run: |
             set -e
-            uname -a; rustc -V
+            uname -a; rustc -V; ulimit -n; ulimit -Hn; sysctl kern.maxfiles
             export CARGO_PROFILE_DEV_DEBUG=line-tables-only
+            pkg-config --modversion gtk+-3.0 webkit2gtk-4.1 || true
             cargo test -p coxswain-core -p coxswain --locked --no-fail-fast || echo TESTS-FAILED
             cargo test -p coxswain-gui --locked || echo GUI-FAILED
+            cargo build -p coxswain-gui --locked || true
+            
+            if [ -x target/debug/coxswain-gui ]; then
+              (Xvfb :99 -screen 0 1280x800x24 >/dev/null 2>&1 &)
+              sleep 3
+              mkdir -p /tmp/home && HOME=/tmp/home DISPLAY=:99 WEBKIT_DISABLE_COMPOSITING_MODE=1 target/debug/coxswain-gui "$PWD" >gui.log 2>&1 &
+              pid=$!
+              sleep 40
+              kill -0 $pid && echo GUI-RUNNING || echo GUI-DIED
+              xwd -root -display :99 -silent > shot.xwd || true
+              kill $pid || true
+              cat gui.log | tail -40
+            fi
+            
             rm -rf target
+      - name: Screenshot
+        if: always()
+        run: |
+          ls -la shot* || true
+          [ -f shot.xwd ] && convert xwd:shot.xwd shot.png || true
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: shot-netbsd
+          path: |
+            shot.png
+            gui.log
+          if-no-files-found: ignore
 
   openbsd:
     runs-on: ubuntu-24.04
@@ -62,14 +92,39 @@ jobs:
           prepare: |
             pkg_add -u
             pkg_add rust webkitgtk41 librsvg
-            for t in tesseract poppler libreoffice pandoc plantuml nerd texlive gst-plugins1-good gstreamer1-plugins-good noto xdg-utils git ollama; do echo "## $t"; pkg_info -Q "$t" | head -6; done
+            for t in tesseract poppler-utils libreoffice pandoc plantuml nerd-fonts texlive_base gstreamer1-plugins-good noto-cjk xdg-utils; do echo "## $t"; pkg_info -Q "$t" | head -4; done
           run: |
             set -e
-            uname -a; rustc -V; ulimit -a
+            uname -a; rustc -V; ulimit -n; ulimit -Hn; ulimit -d; sysctl kern.maxfiles
             export CARGO_PROFILE_DEV_DEBUG=line-tables-only
-            cargo test -p coxswain-core -p coxswain --locked --no-fail-fast || echo TESTS-FAILED
-            cargo test -p coxswain-gui --locked || echo GUI-FAILED
+            cargo build -p coxswain-gui --locked
+            
+            if [ -x target/debug/coxswain-gui ]; then
+              (Xvfb :99 -screen 0 1280x800x24 >/dev/null 2>&1 &)
+              sleep 3
+              mkdir -p /tmp/home && HOME=/tmp/home DISPLAY=:99 WEBKIT_DISABLE_COMPOSITING_MODE=1 target/debug/coxswain-gui "$PWD" >gui.log 2>&1 &
+              pid=$!
+              sleep 40
+              kill -0 $pid && echo GUI-RUNNING || echo GUI-DIED
+              xwd -root -display :99 -silent > shot.xwd || true
+              kill $pid || true
+              cat gui.log | tail -40
+            fi
+            
             rm -rf target
+      - name: Screenshot
+        if: always()
+        run: |
+          ls -la shot* || true
+          [ -f shot.xwd ] && convert xwd:shot.xwd shot.png || true
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: shot-openbsd
+          path: |
+            shot.png
+            gui.log
+          if-no-files-found: ignore
 
   omnios:
     runs-on: ubuntu-24.04
@@ -94,7 +149,7 @@ jobs:
           mem: 12288
           prepare: |
             pkg install build-essential ooce/developer/rust || true
-            for t in webkit gtk3 tesseract poppler libreoffice pandoc nerd gstreamer noto git ollama; do echo "## $t"; pkg search -r -o pkg.name "*$t*" | head -6; done
+            ls -la /usr/gnu/bin/diff || true
           run: |
             set -e
             export PATH=/opt/ooce/bin:$PATH
@@ -103,3 +158,28 @@ jobs:
             cargo test -p coxswain-core -p coxswain --locked --no-fail-fast -j2 || echo TESTS-FAILED
             COXSWAIN_ZFS_E2E=1 cargo test -p coxswain-core --test zfs --locked -- --nocapture || echo ZFS-FAILED
             rm -rf target
+
+  openindiana:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+      - name: Frontend
+        working-directory: gui
+        run: |
+          npm ci --no-audit --no-fund
+          npm run build
+          rm -rf node_modules
+      - uses: vmactions/openindiana-vm@f0ed27ca85a6d1f5b11e4242eba1d6effa5aaae2 # v1.1.8
+        with:
+          release: "202604"
+          usesh: true
+          prepare: |
+            for t in webkit gtk3 libsoup rust rustc tesseract poppler libreoffice gstreamer noto; do echo "## $t"; pkg search -r -o pkg.name "*$t*" | sort -u | head -8; done
+          run: |
+            uname -a

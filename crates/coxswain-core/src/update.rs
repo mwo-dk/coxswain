@@ -78,11 +78,22 @@ pub fn upgrade_hint() -> Option<&'static str> {
     let exe = std::fs::canonicalize(&exe).unwrap_or(exe);
     // A cask copies Coxswain.app into /Applications, so the path alone does not show Homebrew.
     let cask = ["/opt/homebrew", "/usr/local"].iter().any(|p| Path::new(p).join("Caskroom/coxswain-gui").is_dir());
-    hint_for(&exe.to_string_lossy(), cfg!(target_os = "macos") && cask).or(cfg!(target_os = "freebsd").then_some(FREEBSD_UPDATE))
+    hint_for(&exe.to_string_lossy(), cfg!(target_os = "macos") && cask).or(SCRIPT_UPDATE)
 }
 
-/// On FreeBSD the install script updates both apps: it fetches the latest release again.
-pub const FREEBSD_UPDATE: &str = "fetch -qo - https://raw.githubusercontent.com/mwo-dk/coxswain/master/install/install-freebsd.sh | sh";
+/// On FreeBSD, the other BSDs and illumos the install script updates both apps: it fetches the
+/// latest release again. Each line uses the download tool the base system has.
+pub const SCRIPT_UPDATE: Option<&str> = if cfg!(target_os = "freebsd") {
+    Some("fetch -qo - https://raw.githubusercontent.com/mwo-dk/coxswain/master/install/install-freebsd.sh | sh")
+} else if cfg!(target_os = "dragonfly") {
+    Some("fetch -qo - https://raw.githubusercontent.com/mwo-dk/coxswain/master/install/install-unix.sh | sh")
+} else if cfg!(any(target_os = "netbsd", target_os = "openbsd")) {
+    Some("ftp -o - https://raw.githubusercontent.com/mwo-dk/coxswain/master/install/install-unix.sh | sh")
+} else if cfg!(any(target_os = "illumos", target_os = "solaris")) {
+    Some("curl -fsSL https://raw.githubusercontent.com/mwo-dk/coxswain/master/install/install-unix.sh | sh")
+} else {
+    None
+};
 
 fn hint_for(exe: &str, mac_cask: bool) -> Option<&'static str> {
     let p = exe.replace('\\', "/").to_lowercase();

@@ -893,7 +893,7 @@ impl Service {
                     // illumos, whose event ports watch a folder at a time.
                     if BY_FOLDER {
                         if let Some(w) = watcher.as_mut() {
-                            for dir in folders_to_watch(&roots, &exclude, WATCHED_FOLDERS) {
+                            for dir in folders_to_watch(&roots, &exclude, watched_folders()) {
                                 let _ = w.watch(&dir, RecursiveMode::NonRecursive);
                             }
                         }
@@ -945,6 +945,34 @@ const BY_FOLDER: bool = cfg!(any(target_os = "freebsd", target_os = "dragonfly",
 /// (an event port association costs kernel memory instead).
 // ponytail: a fixed share of kern.maxfiles; past it the deepest folders wait for the hourly rebuild.
 const WATCHED_FOLDERS: usize = 20_000;
+
+/// How many folders to watch here: kqueue's descriptors count against this process's limit on
+/// open files, which is raised to its hard limit first. OpenBSD allows 512 by default (1024 at
+/// most) and NetBSD about a thousand: a watch per folder would leave none for reading files, so
+/// a quarter of what is allowed stays free. Event ports need no descriptors.
+fn watched_folders() -> usize {
+    #[cfg(all(unix, not(any(target_os = "illumos", target_os = "solaris"))))]
+    {
+        // SAFETY: getrlimit and setrlimit read and write the struct they are given.
+        let mut l = libc::rlimit { rlim_cur: 0, rlim_max: 0 };
+        if unsafe { libc::getrlimit(libc::RLIMIT_NOFILE, &mut l) } == 0 {
+            if l.rlim_cur < l.rlim_max {
+                let raised = libc::rlimit { rlim_cur: l.rlim_max, rlim_max: l.rlim_max };
+                if unsafe { libc::setrlimit(libc::RLIMIT_NOFILE, &raised) } == 0 {
+                    l = raised;
+                }
+            }
+            return folder_share(l.rlim_cur as u64);
+        }
+    }
+    WATCHED_FOLDERS
+}
+
+/// Three quarters of `open_files`, less 64 for the rest of the helper, at most `WATCHED_FOLDERS`.
+#[cfg_attr(any(windows, target_os = "illumos", target_os = "solaris"), allow(dead_code))]
+fn folder_share(open_files: u64) -> usize {
+    (open_files.min(u32::MAX as u64) as usize / 4 * 3).saturating_sub(64).min(WATCHED_FOLDERS)
+}
 
 /// Whether `exclude` leaves out `path`, named `name`: an entry with a slash is a path and leaves
 /// out its tree, a bare name leaves out every folder of that name.
@@ -1188,6 +1216,16 @@ mod tests {
             let cloud = rest.components().next().is_some_and(|c| c.as_os_str() == "CloudStorage" || c.as_os_str() == "Mobile Documents");
             assert!(rest.components().count() <= 1 || cloud, "{}", rest.display());
         }
+    }
+
+    #[test]
+    fn index_leaves_descriptors_free_under_kqueue() {
+        assert_eq!(folder_share(512), 320, "OpenBSD's default: room left for reading files");
+        assert_eq!(folder_share(1024), 704);
+        assert_eq!(folder_share(64), 0);
+        assert_eq!(folder_share(1 << 20), WATCHED_FOLDERS);
+        assert_eq!(folder_share(u64::MAX), WATCHED_FOLDERS, "unlimited");
+        assert!(watched_folders() <= WATCHED_FOLDERS);
     }
 
     #[test]

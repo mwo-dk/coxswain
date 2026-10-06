@@ -225,6 +225,8 @@ mod tests {
         let mut state = AppState::default();
         // Whether this machine's GStreamer can play video is not what is tested here.
         dismiss(&mut state, "media");
+        // Nor whether the home folder is on ZFS (it is on illumos and many FreeBSD machines).
+        dismiss(&mut state, "zfs");
         // On a Mac: the folder prompts explained, once.
         let first = next(&cfg, &status, &state, false).map(|n| n.id);
         assert_eq!(first.as_deref() == Some("macos-folders"), cfg!(target_os = "macos"), "{first:?}");
