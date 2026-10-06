@@ -13,8 +13,32 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # A pull request that changes only docs, CLAUDE.md, LICENSE or a packaging SUBMIT.md needs no
+  # build: the five machines below are skipped and "CI result" passes at once. README.md is not
+  # among them (the core crate compiles its changelog in), nor docs/flags (the GUI embeds them).
+  changes:
+    runs-on: ubuntu-24.04
+    outputs:
+      code: ${{ steps.files.outputs.code }}
+    steps:
+      - id: files
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          if [ -z "$PR" ]; then echo code=true >> "$GITHUB_OUTPUT"; exit 0; fi
+          files=$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR/files" --paginate --jq '.[].filename')
+          printf '%s\n' "$files"
+          if [ -n "$files" ] && ! printf '%s\n' "$files" | grep -qvP '^(docs/(?!flags/)|CLAUDE\.md$|LICENSE$|packaging/.*/SUBMIT\.md$)'; then
+            echo code=false >> "$GITHUB_OUTPUT"
+          else
+            echo code=true >> "$GITHUB_OUTPUT"
+          fi
+
   test:
     name: ${{ matrix.os }}
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -88,3 +112,17 @@ jobs:
       - name: Core crate, packaged
         if: runner.os == 'Linux' && runner.arch == 'X64'
         run: cargo package -p coxswain-core --locked
+
+  # The one check branch protection requires: the machines above passed, or were not needed.
+  result:
+    name: CI result
+    needs: [changes, test]
+    if: always()
+    runs-on: ubuntu-24.04
+    steps:
+      - env:
+          CHANGES: ${{ needs.changes.result }}
+          TEST: ${{ needs.test.result }}
+        run: |
+          echo "changes: $CHANGES, test: $TEST"
+          [ "$CHANGES" = success ] && { [ "$TEST" = success ] || [ "$TEST" = skipped ]; }
