@@ -1,0 +1,56 @@
+name: omnios-extra
+
+# The omnios-extra recipe (packaging/omnios/coxswain) built with omnios-extra's own build
+# system in an OmniOS VM: its master branch, the release tarball the recipe names from a local
+# mirror, `build.sh -b`, then the package installed from the repository it publishes to and
+# started, and its SMF service present and disabled. Only when the recipe or this file change.
+# packaging/omnios/SUBMIT.md.
+on:
+  push:
+    branches: [master]
+    paths: ["packaging/omnios/**", ".github/workflows/omnios-extra.yml"]
+  pull_request:
+    paths: ["packaging/omnios/**", ".github/workflows/omnios-extra.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: omnios-extra-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  omnios:
+    name: OmniOS r151058, omnios-extra
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: vmactions/omnios-vm@9576f0b6d15e7696548409baa533bc0a339caf42 # v1.3.7
+        with:
+          release: "r151058"
+          usesh: true
+          mem: 8192
+          prepare: pkg install ooce/extra-build-tools ooce/developer/rust developer/versioning/git
+          run: |
+            set -e
+            export PATH="/opt/ooce/bin:$PATH"
+            ver=$(sed -n 's/^VER=//p' packaging/omnios/coxswain/build.sh)
+            git clone -q --depth 1 https://github.com/omniosorg/omnios-extra /tmp/omx
+            cp -R packaging/omnios/coxswain /tmp/omx/build/
+            mkdir -p /tmp/mirror/coxswain
+            curl -fsSL -o "/tmp/mirror/coxswain/v$ver.tar.gz" \
+              "https://github.com/mwo-dk/coxswain/archive/refs/tags/v$ver.tar.gz"
+            cd /tmp/omx/build/coxswain
+            ./build.sh -b -M /tmp/mirror -s || { tail -60 build.log; exit 1; }
+            pkg install -g file:///tmp/omx/tmp.repo ooce/application/coxswain
+            pkg contents ooce/application/coxswain
+            /opt/ooce/bin/coxswain --version
+            /opt/ooce/bin/cox --version
+            # manifest-import picks the new manifest up in the background.
+            for i in 1 2 3 4 5 6 7 8 9 10; do svcs application/coxswain-index >/dev/null 2>&1 && break; sleep 3; done
+            svcs -H -o state application/coxswain-index | grep -q disabled

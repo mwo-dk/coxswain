@@ -24,6 +24,12 @@ The Termux recipe in `termux/coxswain/build.sh` is built and started in CI (`ter
 submitted to termux-packages by hand; see [termux/SUBMIT.md](termux/SUBMIT.md). After that,
 Termux's own bot follows our releases.
 
+The recipes for illumos and pkgsrc are built in CI where that is cheap and submitted by hand:
+[omnios/](omnios/SUBMIT.md) for omnios-extra (`omnios-extra.yml` builds it with their build
+system on OmniOS), [openindiana/](openindiana/SUBMIT.md) for oi-userland (not built in CI), and
+[pkgsrc/](pkgsrc/SUBMIT.md) for pkgsrc-wip, which covers NetBSD and SmartOS (`pkgsrc.yml` builds
+it on NetBSD; `pkgsrc/update.py` moves it to a new release).
+
 `taps/generate.sh` writes the Homebrew formula and cask from a release's `.sha256` assets.
 
 **crates.io:** make a token at <https://crates.io/settings/tokens> with the
