@@ -46,8 +46,8 @@ The first submission is by hand, as a new port:
    `sysutils/Makefile` (`SUBDIR += coxswain`, sorted) in the same diff.
 2. File it at <https://bugs.freebsd.org/bugzilla/enter_bug.cgi?product=Ports%20%26%20Packages>,
    component *Individual Port(s)*, summary `[NEW PORT] sysutils/coxswain: Two-panel file manager
-   for the terminal`, with the diff attached and the text from
-   [docs/announce/freebsd/bugzilla-new-port.md](../../docs/announce/freebsd/bugzilla-new-port.md).
+   for the terminal`, with the diff attached and a short description of the port (the owner keeps the
+   prepared text locally).
 3. A committer reviews it; answer in the PR. Once it is in the tree, updates are
    `sysutils/coxswain: Update to X.Y.Z` PRs with the diff and *maintainer-approval* set to `+`.
 
