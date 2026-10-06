@@ -16,13 +16,12 @@
   glib-networking,
   libayatana-appindicator,
   gst_all_1,
-  src ? lib.cleanSource ../..,
 }:
 
 rustPlatform.buildRustPackage {
   pname = "coxswain-gui";
   version = (lib.importTOML ../../Cargo.toml).workspace.package.version;
-  inherit src;
+  src = lib.cleanSource ../..;
 
   cargoLock = {
     lockFile = ../../Cargo.lock;

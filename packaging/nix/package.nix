@@ -8,13 +8,12 @@
   oniguruma,
   git,
   writableTmpDirAsHomeHook,
-  src ? lib.cleanSource ../..,
 }:
 
 rustPlatform.buildRustPackage {
   pname = "coxswain";
   version = (lib.importTOML ../../Cargo.toml).workspace.package.version;
-  inherit src;
+  src = lib.cleanSource ../..;
 
   # The git crates of `[patch.crates-io]` (tao, drag) are fetched by their pinned revision:
   # no hashes to keep up to date in the flake.
