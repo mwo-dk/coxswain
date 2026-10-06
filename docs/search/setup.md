@@ -49,13 +49,20 @@ The guide detects the hardware and recommends one of these. It says why in one l
 | NVIDIA, 6 GB or less | Ollama with CUDA | `bge-m3` | `qwen3:4b` | A small model still fits next to the vectors |
 | **AMD Ryzen AI** (NPU, Radeon 780M/890M) or a **Radeon** card | Lemonade | its embedding model (`nomic-embed-text-v1-GGUF`) | `Qwen3-8B-GGUF`, or a Hybrid/NPU model | Lemonade runs models on AMD's NPU and Radeon graphics, which Ollama mostly does not |
 | AMD with less than 32 GB and no NPU | Lemonade | as above | `Qwen3-4B-GGUF` | The Radeon in a Ryzen shares the system's memory |
-| **Apple silicon**, 16 GB | Ollama or LM Studio | `bge-m3` | `qwen3:8b` | Both use the GPU through Metal |
-| Apple silicon, 32 GB or more | Ollama or LM Studio | `bge-m3` | `qwen3:14b` | Half the shared memory can go to the model |
+| **Apple silicon**, no server running | none | the built-in model, on the GPU through Metal (465 MB to download) | none until you install LM Studio or Ollama | Nothing to install, nothing leaves the machine; the GPU makes it quick |
+| **Apple silicon**, 16 GB, with a server | Ollama or LM Studio | `bge-m3` | `qwen3:8b` | Both use the GPU through Metal |
+| Apple silicon, 32 GB or more, with a server | Ollama or LM Studio | `bge-m3` | `qwen3:14b` | Half the shared memory can go to the model |
 | **Processor only**, or no server | none | the built-in model (465 MB to download) | `qwen3:4b` on Ollama, slowly, or none | The built-in model needs nothing installed; a chat model on a processor takes seconds per sentence |
 
 When a server is already running, the guide recommends that one if it suits the machine. If it
 does not, it recommends the running server with models for both vectors and answers. Every server
-it finds is listed and you can pick any of them.
+it finds is listed and you can pick any of them. When no server answers, *The built-in model* is
+chosen and marked **recommended**, on every machine.
+
+On a Mac with no Ollama or LM Studio, the line under the machine reads *Apple silicon with 64 GB
+of shared memory and no model server: the built-in model makes the vectors on its GPU (Metal),
+with nothing to install, and nothing leaves the machine.* One click on **Download the built-in
+model (465 MB)** is all step 3 needs.
 
 ## Starting the guide
 
@@ -79,7 +86,7 @@ app all steps are on one page; the terminal app asks them in order.
    Laptop GPU (8 GB), 63 GB of memory.*, with the recommendation's one line under it. Then every
    server that answered, for example *Ollama at http://localhost:11434: 2 models for vectors, 2
    for answers*, with **recommended** on the one that suits. *The built-in model* is listed last.
-   For a server on another machine, type its address (`http://evo:13305/api/v1`) and press
+   For a server on another machine, type its address (`http://192.168.1.20:11434`) and press
    **Look**; a server elsewhere is marked in bold: *The text of your files is sent to … to get its
    vectors.* **Look again** asks once more, after you have started a server.
 3. **The model for the vectors.** Only models that make vectors are listed. Chat models are left
@@ -88,8 +95,14 @@ app all steps are on one page; the terminal app asks them in order.
    it. When files already have vectors from another model, Coxswain first says *Changing the
    embedding model re-reads the meaning of 3437 files (about 2 hours on this machine)*, with
    **Change and re-read** and **Keep the current model**. With the built-in model:
-   **Download the built-in model (465 MB)**, or **Use the built-in model** once it is there.
-4. **Ask: the chat model.** Only models that can answer are listed. Embedding models such as
+   **Download the built-in model (465 MB)**, or **Use the built-in model** once it is there. The
+   download shows *Downloading: 42 %*; when it is done, search by meaning and search inside files
+   are turned on, the step reads *Search by meaning is on, with the built-in model…*, and step 2's
+   heading shows *the built-in model*. A download that fails says why in red under the button (no
+   network, a proxy that blocks huggingface.co, a full disk); press the button again to go on.
+4. **Ask: the chat model.** Optional. With no server it says *Optional. Ask needs a chat model on
+   a model server, and none answers here: install LM Studio or Ollama, then look again in step 2.
+   Search by meaning works without it.* and nothing blocks the steps after it. Only models that can answer are listed. Embedding models such as
    `bge-m3` are never offered. The suggestion follows the table above; **Download** fetches it.
    **Use and ask a test question** saves it and asks it about a made-up file: *It answered: the
    first word came after 2.4 s.* The first answer takes longest while the model loads.
@@ -219,6 +232,23 @@ lives in `coxswain-core`). The desktop app shows all steps on one page; the term
 them in order on the command line.
 
 ## Questions
+
+#### I have no Ollama or any server. Does search by meaning work?
+Yes. The built-in model needs nothing installed: it runs inside Coxswain's search helper, on the
+GPU through Metal on a Mac with Apple silicon and on the processor elsewhere. In step 2 leave
+*The built-in model* chosen (it is marked **recommended** when no server answers) and press
+**Download the built-in model** in step 3. Only Ask needs a server.
+
+#### I pressed the download button and nothing seemed to happen. Why?
+Before 2.1.1 the guide did not show the download's end, and hid its error, when the built-in
+model was chosen: meaning was turned on, but the page went on showing *off*. Now the percentage
+shows while it downloads, *Search by meaning is on, with the built-in model…* when it is done,
+and the error in red when it fails. The download comes from huggingface.co: a network that
+blocks it fails with that address in the error.
+
+#### Why does the address field show `http://192.168.1.20:11434`?
+It is a grey example, not a value: the field is empty until you type. Nothing is filled in from
+your machine or your network.
 
 #### The guide finds no server, but Ollama is running. Why?
 The guide asks `localhost` on the usual ports and waits less than a second for each. An Ollama

@@ -628,7 +628,7 @@ impl Store {
         // So do those of files gone back to the cloud, which are not read again.
         let stale: Vec<String> = rows
             .into_iter()
-            .filter(|(path, size, modified)| crate::cloud::keep_out(Path::new(path)) || std::fs::metadata(path).map_or(true, |m| (m.len(), secs(&m) as u64) != (*size, *modified)))
+            .filter(|(path, size, modified)| crate::cloud::keep_out(Path::new(path)) || Path::new(path).ancestors().any(crate::fs::protected) || std::fs::metadata(path).map_or(true, |m| (m.len(), secs(&m) as u64) != (*size, *modified)))
             .map(|r| r.0)
             .collect();
         let mut db = self.db.lock().unwrap();
@@ -1011,8 +1011,12 @@ fn walk(store: &Store, dirs: Vec<PathBuf>, cfg: &SearchConfig, known: &Known, st
         if stop.load(Ordering::Relaxed) {
             return None;
         }
-        for entry in std::fs::read_dir(&dir).into_iter().flatten().flatten() {
+        for entry in crate::fs::read_dir(&dir).into_iter().flatten().flatten() {
             let (Ok(kind), path) = (entry.file_type(), entry.path()) else { continue };
+            // Other apps' data on a Mac: not read, not measured, not even looked at.
+            if kind.is_dir() && crate::fs::protected(&path) {
+                continue;
+            }
             if entry.file_name() == ".git" {
                 found.repos.push(dir.clone());
             }
@@ -1368,6 +1372,9 @@ pub fn refresh(store: &Store, cfg: &SearchConfig, paths: &mut HashSet<PathBuf>, 
         // The topmost folder left out on the way down, this one included if it is a folder.
         let mut down: Vec<&Path> = path.ancestors().take_while(|a| a != root).collect();
         down.reverse();
+        if down.iter().any(|a| crate::fs::protected(a)) {
+            continue;
+        }
         let is_dir = path.is_dir();
         if let Some(out) = down.iter().find(|a| (**a != path || is_dir) && left_out(a, cfg)) {
             later.insert(out.to_path_buf());

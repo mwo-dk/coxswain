@@ -719,7 +719,7 @@ async fn setup_probe(ctx: tauri::State<'_, Ctx>) -> Res<SetupLook> {
     blocking(move || {
         let found = setup::probe();
         let machine = setup::machine(&found);
-        let advice = setup::advise(&machine);
+        let advice = setup::advise(&machine, &found);
         let best = setup::best(&found, &advice).and_then(|b| found.iter().position(|f| f.url == b.url));
         let runs = index.status().meaning_runs.filter(|_| cfg.meaning && cfg.meaning_engine == "builtin");
         Ok(SetupLook { found, machine, advice, best, builtin_runs: setup::builtin_runs(&cfg, runs.as_ref()) })
@@ -752,7 +752,8 @@ async fn setup_speed(server: coxswain_core::setup::Found, ctx: tauri::State<'_, 
     .await
 }
 
-/// "download": fetch the model, then turn search by meaning on; "cancel" the download;
+/// "download": fetch the model, then turn search by meaning on with it, and search inside files
+/// (the page hears `config-changed`); "cancel" the download;
 /// "off": turn it off; "remove": turn it off and delete the model. The helper starts again
 /// with the new setting.
 #[tauri::command]
@@ -771,8 +772,10 @@ async fn meaning_action(what: String, app: tauri::AppHandle, ctx: tauri::State<'
             std::thread::spawn(move || {
                 let ctx = app.state::<Ctx>();
                 let done = coxswain_core::meaning::download(&p).map_err(|e| e.to_string()).and_then(|()| {
-                    let cfg = Config::save_value(&["search", "meaning"], true.into())?;
+                    let on = serde_json::json!({ "meaning_engine": "builtin", "search_meaning": true, "search_text": true });
+                    let cfg = coxswain_core::settings::save(on.as_object().expect("an object"))?;
                     *ctx.cfg.write().map_err(|e| e.to_string())? = cfg;
+                    let _ = app.emit("config-changed", ());
                     Ok(())
                 });
                 if let Ok(mut m) = ctx.meaning.lock() {

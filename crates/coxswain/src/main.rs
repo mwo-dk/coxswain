@@ -2258,7 +2258,7 @@ fn meaning(what: Option<&str>, rest: &[String]) {
             save("meaning_model", model);
             Config::save_value(&["search", "meaning"], true.into()).unwrap_or_else(|e| fail(e));
         }
-        // Any server with the OpenAI API: `--meaning server http://evo:8000/api/v1 <model>`.
+        // Any server with the OpenAI API: `--meaning server http://my-server:8000/api/v1 <model>`.
         Some("server") => {
             let (Some(url), Some(model)) = (rest.first(), rest.get(1)) else { fail(t!("tui.meaning_server_usage")) };
             confirm(&|c| (c.meaning_engine, c.meaning_url, c.meaning_model) = ("openai".into(), url.clone(), model.clone()));

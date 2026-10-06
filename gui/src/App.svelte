@@ -74,6 +74,8 @@
     if (!ready) return;
     invoke("watch_dirs", { dirs: [...new Set(allTabs().flatMap((t) => [t.dir, gitDir(t)]).filter(Boolean))] });
   });
+  // Settings saved behind the page's back (the built-in model's download turned meaning on).
+  listen("config-changed", async () => (ui.cfg = await invoke("get_config")));
   listen("dir-changed", (ev) => {
     for (const t of allTabs()) if (ev.payload.includes(t.dir) || ev.payload.includes(gitDir(t))) load(t);
   });

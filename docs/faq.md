@@ -58,6 +58,7 @@ The questions people ask most, with a short answer and a link to the full one. E
 - **Why doesn't a file I just saved show up in text search?** It is read within seconds, unless it is outside the folders read, too large, the laptop is on battery, or the helper still has a backlog. [Answer](search/text.md#why-doesnt-a-file-i-just-saved-show-up-in-text-search)
 - **How do I search only this folder?** Press Ctrl+F (or Alt+F7) inside Find: the scope switches to "In <folder>", for names, words, meaning and Ask. [Answer](search/find-file.md#how-do-i-search-only-this-folder)
 - **How do I search names only?** Tab once in Find, to the *Names* kind; a query with name syntax (`*.pdf`, `ext:md`) shows names only by itself. [Answer](search/find-file.md#how-do-i-search-names-only)
+- **The setup guide's download button seemed to do nothing.** Before 2.1.1 the page hid the built-in model's progress and errors; now it shows the percentage, then *Search by meaning is on*, or the error in red. [Answer](search/setup.md#i-pressed-the-download-button-and-nothing-seemed-to-happen-why)
 - **Why did my file show under About this?** It is close in meaning but lacks your words: another language, other words, a scan. [Answer](search/find-file.md#why-did-my-file-show-under-about-this)
 - **Why does the order of the groups change in Find?** It follows what you typed: a word or two puts Names first, three words or a question puts In files and About this first. [Answer](search/find-file.md#why-does-the-order-of-the-groups-change)
 - **Why is search by meaning off?** It needs a 465 MB model and CPU time, so you choose: Settings → Finding files → the level *Names, text and meaning*, or `coxswain --meaning on`. [Answer](search/meaning.md#why-is-search-by-meaning-off)
@@ -148,7 +149,10 @@ The questions people ask most, with a short answer and a link to the full one. E
 - **Can I set chflags from Coxswain?** Your own user flags (`nodump`, `hidden`, and `uchg`, `uappnd` off ZFS) in Properties, or *F9 → File flags* in the terminal app. System flags are root's. [Answer](files/properties.md#zfs-packages-and-file-flags)
 - **Where are my boot environments and jails?** In the desktop app's sidebar, and under **Alt+F1** in the terminal app; mounted ones open as folders. [Answer](reference/freebsd.md#boot-environments-and-jails)
 - **How do I start the search helper on FreeBSD without a desktop session?** The rc.d script: `doas sysrc coxswain_index_enable=YES coxswain_index_user=$USER` and `doas service coxswain_index start`, or one line in `~/.profile`. [Answer](reference/freebsd.md#the-search-helper)
+- **On a Mac, Coxswain keeps asking to "access data from other apps".** Versions before 2.1.1 walked `~/Library`; now the walks leave it out (but iCloud Drive and the cloud folders) and never open Photos or Music libraries, so the helper does not raise that prompt. [Answer](reference/macos.md#it-kept-asking-to-access-data-from-other-apps-why-and-is-it-gone)
+- **Does Coxswain need Full Disk Access on a Mac?** No, and it never asks; Desktop, Documents and Downloads are asked for once each. [Answer](reference/macos.md#does-coxswain-need-full-disk-access)
+- **Do I need Ollama for search by meaning on a Mac?** No: the built-in model runs on the Mac's GPU (Metal); the setup guide recommends it when no server answers. [Answer](reference/macos.md#do-i-need-ollama-for-search-by-meaning-on-a-mac)
 - **The cache folder is large. What takes the room?** Mostly search.db and the 488 MB model, then previews/. [Answer](reference/where-things-are-kept.md#the-cache-folder-is-large-what-takes-the-room)
 
 ---
-[← Previous: FreeBSD](reference/freebsd.md) · [Next: Docs index →](README.md)
+[← Previous: macOS](reference/macos.md) · [Next: Docs index →](README.md)

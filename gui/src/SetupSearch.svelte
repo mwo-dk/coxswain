@@ -82,8 +82,9 @@
     const why = s.search_meaning && s.meaning_engine !== "builtin" ? await invoke("meaning_change", { name: "meaning_engine", value: "builtin" }).catch(() => null) : null;
     if (why && !vectorsChange) return (vectorsChange = { why, builtin: true });
     vectorsChange = null;
-    if (!meaning?.installed) return invoke("meaning_action", { what: "download" }).catch((e) => (error = String(e)));
-    await set({ meaning_engine: "builtin", search_meaning: true });
+    // The download turns meaning on when it is done; the page hears `config-changed`.
+    if (!meaning?.installed) return invoke("meaning_action", { what: "download" }).then(load, (e) => (error = String(e)));
+    await set({ meaning_engine: "builtin", search_meaning: true, search_text: true });
   }
   const pull = (model) => invoke("meaning_pull", { model, url: server.url, kind: server.kind }).then(() => setTimeout(probe, 1500), (e) => (error = String(e)));
   // A finished download brings its model into the lists.
@@ -153,11 +154,11 @@
                 {#if isRemote(f.url)}<br /><strong>{t("settings.meaning_remote", { host: f.url })}</strong>{/if}</span></label>
           {/each}
           <label class="choice" class:on={server === null}><input type="radio" name="server" checked={server === null} onchange={() => (chosen = null)} />
-            <span>{t("setup.builtin", { size: size(meaning?.size ?? 0), where: look.builtin_runs })}{#if !look.machine.gpu}<span class="badge">{t("setup.recommended")}</span>{/if}</span></label>
+            <span>{t("setup.builtin", { size: size(meaning?.size ?? 0), where: look.builtin_runs })}{#if look.advice.server == null || !look.found.length}<span class="badge">{t("setup.recommended")}</span>{/if}</span></label>
         </div>
         {#if !look.found.length}<p class="hint">{t("setup.none_found")}</p>{/if}
         <div class="row">
-          <input placeholder="http://evo:13305/api/v1" bind:value={remoteUrl} spellcheck="false" aria-label={t("setup.other")} />
+          <input placeholder="http://192.168.1.20:11434" bind:value={remoteUrl} spellcheck="false" aria-label={t("setup.other")} />
           <button disabled={!remoteUrl.trim()} onclick={probeRemote}>{t("setup.look")}</button>
           <button onclick={probe}>{t("setup.look_again")}</button>
         </div>
@@ -171,7 +172,9 @@
       {#if server === null}
         <p class="hint">{t("setup.builtin_hint")}</p>
         {#if meaning?.downloading}<p class="hint">{t("setup.downloading", { percent: Math.floor((meaning.downloading[0] * 100) / Math.max(1, meaning.downloading[1])) })}</p>
+        {:else if s.search_meaning && s.meaning_engine === "builtin" && meaning?.installed}<p class="ok">{t("setup.builtin_on")}</p>
         {:else}<button class="primary" onclick={useBuiltin}>{meaning?.installed ? t("setup.use_builtin") : t("setup.download_builtin", { size: size(meaning?.size ?? 0) })}</button>{/if}
+        {#if meaning?.error}<p class="err">{meaning.error}</p>{/if}
       {:else if server}
         <p class="hint">{t("setup.embed_hint", { model: suggestEmbed || "bge-m3" })}</p>
         <div class="row">

@@ -182,7 +182,7 @@ models, tests them and checks the GPU; what it sets shows in the status block.
 |---|---|---|
 | *Meaning* | **Download the model (465 MB) and turn on** for the built-in model (*Downloading the model: … of …*, a bar, **Cancel**); **Turn on** once the model is there or with a server (it turns words on too); **Turn off**; **Delete the model**, and the model's folder with **Show in panel** | `[search] meaning` |
 | *Made by* | *Built-in model, on this machine (465 MB once)*, *Ollama*, or *A server with the OpenAI API (Lemonade, LM Studio, llama.cpp …)*. A change that makes every file's meaning again asks first: **Change and re-read** or **Keep the current model** | `[search] meaning_engine` |
-| *Server* (a server only) | Empty: Ollama on this machine. Under it, *The server answers.* or the error, and in bold when it is another machine: *The text of your files, with their names and folders, is sent to evo:13305 to be read for meaning.* | `[search] meaning_url` |
+| *Server* (a server only) | Empty: Ollama on this machine. Under it, *The server answers.* or the error, and in bold when it is another machine: *The text of your files, with their names and folders, is sent to my-server:13305 to be read for meaning.* | `[search] meaning_url` |
 | *Model* (a server only) | The server's models to pick from; **Pull bge-m3 with Ollama** when Ollama lacks it | `[search] meaning_model` |
 | *API key from the environment variable* (OpenAI API only) | The variable's name, such as `OPENAI_API_KEY`; the key is never written to the file | `[search] meaning_key_env` |
 | *Use the CPU only* (a Mac only) | Keeps the built-in model off the GPU ([on a Mac's GPU](../search/meaning.md#on-a-macs-gpu)) | `[search] meaning_device`: `"auto"`, `"cpu"` |
