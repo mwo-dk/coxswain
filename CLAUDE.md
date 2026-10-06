@@ -93,7 +93,7 @@ you add or change a feature, the docs change in the same PR.
   status line text, the dialog that opens, how a hit or a state is marked.
 - **Pictures** from `docs/screenshots/` sit next to the text they show. A missing one is marked
   `<!-- screenshot: name.png: what it must show -->` and taken in the sandbox (below).
-- **Systems in this order** wherever several are listed (install tables, docs, release notes, hints): FreeBSD first, then the other BSDs and illumos, then Linux (and Android/ChromeOS), and macOS and Windows last. The owner's choice, on principle.
+- **Systems in this order** wherever several are listed (install tables, docs, release notes, hints): FreeBSD first, then the other BSDs and illumos, then Linux (and Android/ChromeOS), then "Any" (cargo, from a clone), and macOS and Windows last. The owner's choice, on principle.
 - Plain British English (README and docs: British or Canadian spelling where they differ from US: colour, licence as a noun, catalogue, grey, favourite, centre), short concrete sentences, tables for keys and options, no marketing.
 
 ## Screenshots
