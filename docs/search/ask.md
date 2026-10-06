@@ -9,7 +9,7 @@ the top of the list.
 Coxswain finds the ten passages of your files closest in meaning to the question, from
 anywhere in a document: the whole text has vectors, not only its start
 ([what is covered](meaning.md#how-it-works)). The chat
-model on your own server then writes a short answer from only those passages, and cites them
+model on your own server, or the one [built into Coxswain](ask-builtin.md), then writes a short answer from only those passages, and cites them
 as **[1]**, **[2]**. The sources are listed under the answer, numbered the same way, and
 **Enter** on one takes you to the file.
 
@@ -32,7 +32,8 @@ questions and answers exist only while Find is open, and closing it forgets them
 
 1. [Search by meaning](meaning.md) turned on, with the built-in model or [a server](servers.md).
    Ask looks for the passages the same way Find picks the files *About this*.
-2. A **chat model** on a server you run:
+2. A **chat model**: the [built-in one](ask-builtin.md) (Qwen3, downloaded once, no server; on a
+   Mac it runs on the GPU), or one on a server you run:
    - With the vectors from Ollama or an OpenAI-style server (Lemonade, LM Studio, llama.cpp,
      vLLM), the chat model is on **that same server**, with the same address and API key.
    - With the built-in model, the chat model is on **Ollama on this machine**
@@ -121,7 +122,8 @@ and Ask* there; or `coxswain --setup-search`). By hand:
 
 | Item (*Settings → Finding files → Details*) | Key | Type, default | Does |
 |---|---|---|---|
-| *Chat model* | `[search] ask_model` | string, `""` | The model that writes the answers. Empty: Ask is not set up |
+| *Chat model* | `[search] ask_model` | string, `""` | The model that writes the answers: a server's (`qwen3:8b`) or a built-in one (`builtin:qwen3-1.7b`, `builtin:qwen3-4b`, [Ask without a server](ask-builtin.md)). Empty: Ask is not set up |
+| *Built-in chat models* | none | | **Download (size) and use**, **Use**, **Delete the model** for each built-in model |
 | *Let the model think first* | `[search] ask_think` | bool, `false` | Off: a model that thinks first (Qwen3, DeepSeek-R1, …) is asked not to. On: it thinks, many seconds before the first word ([Thinking](#thinking)) |
 | *Meaning* → *Made by*, *Server*, *API key from the environment variable* | `meaning_engine`, `meaning_url`, `meaning_key_env` | | The server Ask talks to, as above |
 | (none) | `[keys] ask` | list of keys, `["Ctrl+F7"]` | The keys that open Find at Ask ([Changing keys](../customise/keys.md)) |
@@ -171,7 +173,7 @@ first* under *Settings → Finding files → Details → Ask* in the desktop app
 ## Questions
 
 #### What is sent, and where?
-The question, the questions and answers before it in this Find, and the ten passages with
+With the [built-in chat model](ask-builtin.md): nothing; it answers on this machine. With a server's: the question, the questions and answers before it in this Find, and the ten passages with
 their file paths, to the chat model on the server set under *Settings → Finding files → Details → Meaning* (Ollama on this machine
 with the built-in model). Nothing else, and nothing to anyone else. With a server on another
 machine, Settings says so in bold, as for the vectors. See [Privacy](../reference/privacy.md).
@@ -205,8 +207,13 @@ there, it says *Nothing in the files in rocket is close to the question.*
 No. They live in the Find window only. Closing it forgets them, and nothing is written to
 disk.
 
+#### Can Ask work without Ollama or any server?
+Yes: choose the [built-in chat model](ask-builtin.md) in step 4 of the guide, or under *Built-in
+chat models* in Settings, or run `coxswain --meaning ask builtin:qwen3-1.7b`. It is downloaded
+once (1.0 GB) and runs on a Mac's GPU, or slowly on the processor elsewhere.
+
 #### Which chat model should I pick?
-One that fits your GPU's memory: `qwen3:8b` or `llama3.1:8b` with 8 GB, `gemma3:12b` or
+With no server, the built-in Qwen3 1.7B, or Qwen3 4B Instruct on a Mac with 16 GB or more. On a server, one that fits your GPU's memory: `qwen3:8b` or `llama3.1:8b` with 8 GB, `gemma3:12b` or
 `qwen3:14b` with 12–16 GB. Models of 3–4 B parameters answer on a CPU too, slowly. A
 multilingual model answers questions in other languages; Ask tells it to answer in the
 question's language.
@@ -236,4 +243,4 @@ Each question looks up its own passages, together with the question before it. T
 under each answer are that answer's sources.
 
 ---
-[← Previous: Search by meaning on a server](servers.md) · [Next: The search helper →](helper.md)
+[← Previous: Search by meaning on a server](servers.md) · [Next: Ask without a server →](ask-builtin.md)

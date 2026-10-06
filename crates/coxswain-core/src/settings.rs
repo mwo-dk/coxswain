@@ -510,7 +510,10 @@ pub fn status(s: &SearchConfig, st: &Status, helper: bool) -> Vec<Line> {
             ask.step = Some(Step::SetUp);
         }
         Ok(()) => {
-            ask.text = t!("settings.status.server", "model" => s.ask_model, "host" => host(&url));
+            ask.text = match crate::chat::of(&s.ask_model) {
+                Some(_) => crate::chat::shown(&s.ask_model),
+                None => t!("settings.status.server", "model" => s.ask_model, "host" => host(&url)),
+            };
             ask.step = Some(Step::TryIt);
         }
     }
@@ -544,8 +547,11 @@ pub fn outbound(cfg: &Config) -> Vec<Out> {
     if s.meaning && s.meaning_engine != "builtin" {
         v.push(out("settings.out.meaning", host(&url), is_local(&url)));
     }
-    if crate::find::ask_ready(s).is_ok() {
-        v.push(out("settings.out.ask", host(&url), is_local(&url)));
+    match crate::chat::of(&s.ask_model) {
+        Some(m) if !m.installed() => v.push(out("settings.out.chat_model", "huggingface.co", false)),
+        Some(_) => {}
+        None if crate::find::ask_ready(s).is_ok() => v.push(out("settings.out.ask", host(&url), is_local(&url))),
+        None => {}
     }
     if s.cloud == "all" || !s.cloud_read.is_empty() {
         v.push(out("settings.out.cloud", &t!("settings.out.cloud_where"), false));

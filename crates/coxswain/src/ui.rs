@@ -590,7 +590,7 @@ fn ask(f: &mut Frame, chat: &[crate::Turn], asking: bool, off: Option<&coxswain_
     match off {
         Some(off @ coxswain_core::find::Off::AskModel(_)) => lines.push(Line::from(Span::styled(off.text(), dstyle(t).fg(Color::Red)))),
         Some(off) => lines.push(Line::from(Span::styled(format!("{} · coxswain --setup-search", off.text()), dim))),
-        None if chat.is_empty() => lines.push(Line::from(Span::styled(t!("dialogs.ask_hint", "model" => search.ask_model.as_str()), dim))),
+        None if chat.is_empty() => lines.push(Line::from(Span::styled(t!("dialogs.ask_hint", "model" => coxswain_core::chat::shown(&search.ask_model)), dim))),
         None => {}
     }
     for (i, turn) in chat.iter().enumerate() {
@@ -600,7 +600,7 @@ fn ask(f: &mut Frame, chat: &[crate::Turn], asking: bool, off: Option<&coxswain_
         }
         // The sources are found; the model has not said a word yet (it may be loading).
         if asking && i + 1 == chat.len() && turn.answer.is_empty() && !turn.sources.is_empty() {
-            lines.push(Line::from(Span::styled(t!("dialogs.ask_waiting", "model" => search.ask_model.as_str()), dim)));
+            lines.push(Line::from(Span::styled(t!("dialogs.ask_waiting", "model" => coxswain_core::chat::shown(&search.ask_model)), dim)));
         }
         if let Some(e) = &turn.error {
             lines.push(Line::from(Span::styled(e.clone(), dstyle(t).fg(Color::Red))));

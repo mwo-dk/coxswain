@@ -132,4 +132,4 @@ Make any change in Settings, or close every window and wait ten minutes; with th
 `coxswain --index-service off` then `on`.
 
 ---
-[← Previous: Ask](ask.md) · [Next: Battery →](battery.md)
+[← Previous: Ask without a server](ask-builtin.md) · [Next: Battery →](battery.md)

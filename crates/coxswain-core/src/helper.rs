@@ -50,6 +50,8 @@ enum Request {
     Forget,
     /// Go, so that a helper with the new settings comes.
     Restart,
+    /// Ask the built-in chat model, `cpu` alone or on the GPU: the answer comes in pieces.
+    Ask { model: String, cpu: bool, earlier: Vec<crate::meaning::Turn>, question: String, sources: Vec<(PathBuf, String)> },
 }
 
 #[derive(Serialize, Deserialize)]
@@ -64,6 +66,10 @@ enum Reply {
     /// With the time the walk they come from began.
     Size { size: Option<(Size, u64)> },
     Done,
+    /// A piece of an answer; empty while the model reads.
+    Piece { text: String },
+    /// The answer is complete, or why there is none.
+    Answered { error: Option<String> },
 }
 
 /// How the index is doing.
@@ -274,6 +280,21 @@ fn answer(stream: TcpStream, index: &Service, store: Option<&Store>, text_roots:
                 quit.store(true, Ordering::SeqCst);
                 Reply::Done
             }
+            // An app that stops the answer closes the line: the next piece cannot be sent.
+            Request::Ask { model, cpu, earlier, question, sources } => {
+                let mut gone = false;
+                let done = match crate::chat::of(&model) {
+                    Some(m) => crate::chat::ask(m, cpu, &earlier, &question, &sources, |text| {
+                        gone = send(&mut out, &Reply::Piece { text: text.into() }).is_err();
+                        !gone
+                    }),
+                    None => Err(format!("no built-in model {model}")),
+                };
+                if gone {
+                    return Ok(());
+                }
+                Reply::Answered { error: done.err() }
+            }
             Request::Status => Reply::Status({
                 let counts = store.map(Store::meaning_counts).unwrap_or_default();
                 Status {
@@ -299,10 +320,14 @@ fn answer(stream: TcpStream, index: &Service, store: Option<&Store>, text_roots:
                 }
             }),
         };
-        let mut text = serde_json::to_string(&reply).map_err(io::Error::other)?;
-        text.push('\n');
-        out.write_all(text.as_bytes())?;
+        send(&mut out, &reply)?;
     }
+}
+
+fn send(out: &mut TcpStream, reply: &Reply) -> io::Result<()> {
+    let mut text = serde_json::to_string(reply).map_err(io::Error::other)?;
+    text.push('\n');
+    out.write_all(text.as_bytes())
 }
 
 // ---------------------------------------------------------------- the apps' side
@@ -375,6 +400,33 @@ impl Client {
         match self.ask(&Request::Passages { query: question.into(), scope: scope.map(Path::to_path_buf), max }) {
             Some(Reply::Passages { found }) => found,
             _ => vec![],
+        }
+    }
+
+    /// Ask's answer, piece by piece to `piece` (false stops it). The built-in model answers in
+    /// the helper, on a line of its own, so that every app shares one copy of it in memory and
+    /// the app's other questions go on meanwhile; here when there is no helper. A server's
+    /// model is asked from here.
+    pub fn answer(&self, cfg: &SearchConfig, earlier: &[crate::meaning::Turn], question: &str, sources: &[(PathBuf, String)], mut piece: impl FnMut(&str) -> bool) -> Result<(), String> {
+        let line = (crate::chat::of(&cfg.ask_model).is_some() && self.own.get().is_none()).then(|| self.connect()).flatten();
+        let Some((mut from, mut to)) = line else { return crate::meaning::ask(cfg, earlier, question, sources, piece) };
+        let ask = Request::Ask { model: cfg.ask_model.clone(), cpu: cfg.meaning_device == "cpu", earlier: earlier.to_vec(), question: question.into(), sources: sources.to_vec() };
+        let mut text = serde_json::to_string(&ask).map_err(|e| e.to_string())?;
+        text.push('\n');
+        // Pieces come at least between parts of the prompt, seconds apart on a slow CPU.
+        to.set_read_timeout(Some(Duration::from_secs(600))).map_err(|e| e.to_string())?;
+        to.write_all(text.as_bytes()).map_err(|e| e.to_string())?;
+        loop {
+            let mut line = String::new();
+            if from.read_line(&mut line).map_err(|e| e.to_string())? == 0 {
+                return Err("the search helper stopped".into());
+            }
+            match serde_json::from_str(&line).map_err(|e| e.to_string())? {
+                Reply::Piece { text } if piece(&text) => {}
+                Reply::Piece { .. } => return Ok(()),
+                Reply::Answered { error } => return error.map_or(Ok(()), Err),
+                _ => return Err("the search helper answered something else".into()),
+            }
         }
     }
 
@@ -569,6 +621,44 @@ mod tests {
         assert_eq!(c.state(), State::Ready);
     }
 
+    /// Ask end to end with the built-in models (downloads 1.6 GB once): the helper reads the
+    /// files for meaning, finds the passages closest to a question, and its chat model answers
+    /// from them, piece by piece over the line.
+    #[test]
+    #[ignore]
+    fn asks_the_builtin_model_through_the_helper() {
+        let d = tree("ask");
+        std::fs::write(d.join("files/plan.md"), "# Launch plan\n\nThe rocket is called Kestrel. It launches from Andøya on 14 March, weather permitting. The crew of three trains in Tromsø all winter.").unwrap();
+        std::fs::write(d.join("files/budget.md"), "# Budget\n\nFuel costs 40,000 euros per flight, more than the crew and the launch pad together. The board meets in April.").unwrap();
+        let m = &crate::chat::MODELS[0];
+        crate::meaning::download(&Default::default()).unwrap();
+        m.download(&Default::default()).unwrap();
+        let search = SearchConfig { text: true, meaning: true, ask_model: m.key(), ..config(&d) };
+        let (dir, s) = (d.join("cache"), search.clone());
+        std::thread::spawn(move || {
+            let store = Arc::new(Store::open(&dir.join("search.db")).unwrap());
+            store.set_engine(crate::meaning::Engine::from_config(&s));
+            serve_in(&dir, Duration::from_secs(5), { let s = s.clone(); move || Service::start(&s) }, Some((store, s))).unwrap()
+        });
+        let c = Client::with(Some(d.join("cache")), &search, || {});
+        let (question, wait) = ("What does the fuel cost per flight?", Instant::now());
+        let mut sources = vec![];
+        while sources.len() < 2 && wait.elapsed() < Duration::from_secs(120) {
+            std::thread::sleep(Duration::from_millis(500));
+            sources = c.passages(question, None, 10);
+        }
+        assert!(!sources.is_empty(), "no passages");
+        let (mut answer, mut pieces, start) = (String::new(), 0, Instant::now());
+        c.answer(&search, &[], question, &sources, |t| {
+            pieces += !t.is_empty() as usize;
+            answer.push_str(t);
+            true
+        })
+        .unwrap();
+        eprintln!("{answer}\n-- {pieces} pieces in {:.1?}", start.elapsed());
+        assert!(answer.contains("40") && pieces > 3, "{answer}");
+    }
+
     #[test]
     fn helper_is_started_shared_and_leaves() {
         let d = tree("shared");
@@ -640,6 +730,10 @@ mod tests {
         assert!(exchange(&mut line, &Request::Hello { token: "guess".into(), version: VERSION.into() }).is_err());
         let (mut line, _) = dial(&d.join("cache")).unwrap();
         assert!(matches!(exchange(&mut line, &Request::Hello { token: token.clone(), version: VERSION.into() }), Ok(Reply::Hello { same: true })));
+        // Ask with a built-in model there is not: the answer is why, and the line goes on.
+        let ask = Request::Ask { model: "builtin:none".into(), cpu: true, earlier: vec![], question: "?".into(), sources: vec![] };
+        assert!(matches!(exchange(&mut line, &ask), Ok(Reply::Answered { error: Some(_) })));
+        assert!(matches!(exchange(&mut line, &Request::Status), Ok(Reply::Status(_))));
         assert_eq!(token.len(), 32);
         assert!(token.bytes().all(|b| b.is_ascii_hexdigit()) && token != super::token());
         assert!(is_token(&token, &token) && !is_token(&token[1..], &token) && !is_token(&format!("{token}0"), &token));

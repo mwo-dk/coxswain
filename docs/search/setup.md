@@ -31,7 +31,7 @@ anything.
 | Names | Every file and folder on the machine by name, in milliseconds | Nothing; always on |
 | [Text in files](text.md) | Files whose text has your words: PDFs, Word, mail, notes, code | *Words inside files* (on by default). Coxswain reads your files in the background and keeps the text in a store on this machine |
 | [Meaning](meaning.md) | Files *about* what you type, whatever words they use, in any language. *a dessert with apples* finds `apple-cake.md`, and a Danish question finds an English report | A model that turns every passage into a **vector** (numbers for what it means): the built-in one, or a [model server](servers.md) |
-| [Ask](ask.md) | An answer to a question, written from the closest passages of your files, with numbered sources | Meaning, and a **chat model** on a model server |
+| [Ask](ask.md) | An answer to a question, written from the closest passages of your files, with numbered sources | Meaning, and a **chat model**: the [built-in one](ask-builtin.md) or one on a model server |
 
 A model server is a program on your machine (or one you run elsewhere) that runs AI models:
 Ollama, Lemonade, LM Studio, llama.cpp's server, Jan, LocalAI or vLLM. Coxswain treats them all
@@ -49,10 +49,10 @@ The guide detects the hardware and recommends one of these. It says why in one l
 | NVIDIA, 6 GB or less | Ollama with CUDA | `bge-m3` | `qwen3:4b` | A small model still fits next to the vectors |
 | **AMD Ryzen AI** (NPU, Radeon 780M/890M) or a **Radeon** card | Lemonade | its embedding model (`nomic-embed-text-v1-GGUF`) | `Qwen3-8B-GGUF`, or a Hybrid/NPU model | Lemonade runs models on AMD's NPU and Radeon graphics, which Ollama mostly does not |
 | AMD with less than 32 GB and no NPU | Lemonade | as above | `Qwen3-4B-GGUF` | The Radeon in a Ryzen shares the system's memory |
-| **Apple silicon**, no server running | none | the built-in model, on the GPU through Metal (465 MB to download) | none until you install LM Studio or Ollama | Nothing to install, nothing leaves the machine; the GPU makes it quick |
+| **Apple silicon**, no server running | none | the built-in model, on the GPU through Metal (465 MB to download) | the [built-in chat model](ask-builtin.md) on the GPU: Qwen3 4B Instruct with 16 GB or more (2.3 GB), else Qwen3 1.7B (1.0 GB) | Nothing to install, nothing leaves the machine; the GPU makes it quick |
 | **Apple silicon**, 16 GB, with a server | Ollama or LM Studio | `bge-m3` | `qwen3:8b` | Both use the GPU through Metal |
 | Apple silicon, 32 GB or more, with a server | Ollama or LM Studio | `bge-m3` | `qwen3:14b` | Half the shared memory can go to the model |
-| **Processor only**, or no server | none | the built-in model (465 MB to download) | `qwen3:4b` on Ollama, slowly, or none | The built-in model needs nothing installed; a chat model on a processor takes seconds per sentence |
+| **Processor only**, or no server | none | the built-in model (465 MB to download) | the built-in Qwen3 1.7B (1.0 GB), slowly, or none | The built-in models need nothing installed; a chat model on a processor takes a minute or more before its first word |
 
 When a server is already running, the guide recommends that one if it suits the machine. If it
 does not, it recommends the running server with models for both vectors and answers. Every server
@@ -61,8 +61,9 @@ chosen and marked **recommended**, on every machine.
 
 On a Mac with no Ollama or LM Studio, the line under the machine reads *Apple silicon with 64 GB
 of shared memory and no model server: the built-in model makes the vectors on its GPU (Metal),
-with nothing to install, and nothing leaves the machine.* One click on **Download the built-in
-model (465 MB)** is all step 3 needs.
+with nothing to install, and nothing leaves the machine. Ask can use the built-in chat model on
+the GPU too, or stay off.* One click on **Download the built-in model (465 MB)** is all step 3
+needs, and one on **Download Qwen3 4B Instruct (2.3 GB) and use it** all step 4 needs.
 
 ## Starting the guide
 
@@ -71,8 +72,8 @@ model (465 MB)** is all step 3 needs.
 | Desktop app | **Ctrl+,** → **Set up…** in *Overview* or *Finding files*; or in *Finding files* a level that needs a model, or the **Set up…** button on the *Meaning* or *Ask* line of the status. Or the *set it up* link that Find shows when Ask or meaning is not set up (**Ctrl+F7** opens Find at Ask) |
 | Terminal app | `coxswain --setup-search` in a terminal. It asks step by step: a number chooses, **Enter** takes the default (marked `*`), **s** skips, and a yes/no question wants **y** |
 
-Find's hints say where to start. In the desktop app: *Ask answers questions from your files.
-It needs search by meaning, and a chat model on your server: set it up*. In the terminal app:
+Find's hints say where to start. In the desktop app: *Ask your files a question · choose a chat
+model*, with *set it up*. In the terminal app:
 *Set it up step by step: coxswain --setup-search*.
 
 ## The steps
@@ -100,13 +101,21 @@ app all steps are on one page; the terminal app asks them in order.
    are turned on, the step reads *Search by meaning is on, with the built-in model…*, and step 2's
    heading shows *the built-in model*. A download that fails says why in red under the button (no
    network, a proxy that blocks huggingface.co, a full disk); press the button again to go on.
-4. **Ask: the chat model.** Optional. With no server it says *Optional. Ask needs a chat model on
-   a model server, and none answers here: install LM Studio or Ollama, then look again in step 2.
-   Search by meaning works without it.* and nothing blocks the steps after it. Only models that can answer are listed. Embedding models such as
+4. **Ask: the chat model.** Optional; nothing blocks the steps after it. First the
+   [built-in chat models](ask-builtin.md): *Optional. A built-in chat model answers on this
+   machine, with nothing to install, and nothing leaves it…*, a list with *Qwen3 1.7B, built in
+   (1.0 GB download, on the CPU; nothing leaves the machine)* and *Qwen3 4B Instruct, built in
+   (2.3 GB …)*, the one for this machine chosen, and **recommended** when no server answers.
+   **Download Qwen3 1.7B (1.0 GB) and use it** downloads it (*Downloading: 31 %*, an error in red
+   naming huggingface.co when it fails), makes it Ask's and asks the test question; once it is
+   there the button reads **Use and ask a test question**. In the terminal app the built-in
+   models are the first numbers of the list. Then, with a server, its chat models: only models
+   that can answer are listed. Embedding models such as
    `bge-m3` are never offered. The suggestion follows the table above; **Download** fetches it.
    **Use and ask a test question** saves it and asks it about a made-up file: *It answered: the
    first word came after 2.4 s.* The first answer takes longest while the model loads.
-5. **Speed.** After the test question, Coxswain asks the server where the model runs. *The server
+5. **Speed.** With the built-in chat model: *The built-in chat model runs on the GPU (Metal) when
+   it can* (a Mac) or *… on the CPU*. With a server: after the test question, Coxswain asks the server where the model runs. *The server
    runs the model on the graphics card*, or what to do when it runs on the processor (next section).
 6. **Keep reading in the background.** *Start with my session* (below).
 7. **What is set.** One line each for search inside files, search by meaning (the model and
@@ -237,7 +246,8 @@ them in order on the command line.
 Yes. The built-in model needs nothing installed: it runs inside Coxswain's search helper, on the
 GPU through Metal on a Mac with Apple silicon and on the processor elsewhere. In step 2 leave
 *The built-in model* chosen (it is marked **recommended** when no server answers) and press
-**Download the built-in model** in step 3. Only Ask needs a server.
+**Download the built-in model** in step 3. Ask works without one too: the
+[built-in chat model](ask-builtin.md) in step 4.
 
 #### I pressed the download button and nothing seemed to happen. Why?
 Before 2.1.1 the guide did not show the download's end, and hid its error, when the built-in
