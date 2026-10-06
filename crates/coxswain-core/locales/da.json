@@ -723,6 +723,7 @@
  "notice.cjk_font_freebsd": "Der er ingen japansk eller koreansk skrifttype installeret, så bogstaverne kan blive vist som firkanter. Installér en med: pkg install noto-sans-jp noto-sans-kr",
  "notice.cloud": "Fandt {names}: filer, der kun er online, findes kun på navn, så intet hentes. Ændr det i Indstillinger",
  "notice.cloud_tui": "Fandt {names}: filer, der kun er online, findes kun på navn, så intet hentes. cloud = \"all\" i config.toml læser dem",
+ "notice.helper_outdated": "Coxswain blev opdateret til {version}: genstart den for at bruge baggrundssøgning. Indtil da søger den selv i filnavne.",
  "notice.helper_unstarted": "Start med min session er slået til, men systemd startede ikke søgehjælperen, så Coxswain startede den indtil du logger ud. Hvorfor den ikke startede: systemctl --user status coxswain-index.",
  "notice.helper_unstarted_macos": "Start med min session er slået til, men macOS startede ikke søgehjælperen, så Coxswain startede den indtil du logger ud. Lad macOS starte den ved login: Systemindstillinger → Generelt → Login-emner og udvidelser → Coxswain → Tillad i baggrunden. Hvorfor den ikke startede: helper.log i ~/Library/Caches/coxswain og launchctl print gui/$(id -u)/dk.mwo.coxswain.index.",
  "notice.history": "Nyt: {key} på en fil eller mappe i et git-repository viser dens historik, commit for commit",
