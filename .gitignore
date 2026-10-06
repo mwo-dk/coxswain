@@ -38,3 +38,5 @@ gui/src-tauri/THIRD-PARTY-NOTICES.md
 /coxswain-*.zip
 __pycache__/
 packaging/freebsd/out/
+# nix build
+/result*

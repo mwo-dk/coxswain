@@ -42,13 +42,13 @@ jobs:
       - name: Desktop app
         if: runner.os == 'Linux'
         run: |
-          nix build -L .#coxswain-gui -o gui
-          test -f gui/share/applications/coxswain.desktop
+          nix build -L .#coxswain-gui -o result-gui
+          test -f result-gui/share/applications/coxswain.desktop
           # Every library found, and the wrapped program starts: as the search helper it needs
           # no display, and runs until it is stopped.
-          ! ldd gui/bin/.coxswain-gui-wrapped | grep 'not found'
+          ! ldd result-gui/bin/.coxswain-gui-wrapped | grep 'not found'
           export HOME=$(mktemp -d)
-          timeout 5 gui/bin/coxswain-gui --index-helper || test $? = 124
+          timeout 5 result-gui/bin/coxswain-gui --index-helper || test $? = 124
 
   # The packages prepared for nixpkgs (packaging/nix/nixpkgs, see SUBMIT.md), built from the
   # release they name with the flake's nixpkgs, as nixpkgs would build them.
