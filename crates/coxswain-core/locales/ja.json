@@ -685,6 +685,8 @@
  "notice.cjk_font_freebsd": "日本語または韓国語のフォントがインストールされていないため、文字が四角で表示されることがあります。次のコマンドでインストールしてください: pkg install noto-sans-jp noto-sans-kr",
  "notice.cloud": "{names} が見つかりました。オンラインのみのファイルは名前だけで検索し、何もダウンロードしません。設定で変更できます",
  "notice.cloud_tui": "{names} が見つかりました。オンラインのみのファイルは名前だけで検索し、何もダウンロードしません。config.toml の cloud = \"all\" で読み取ります",
+ "notice.helper_unstarted": "「ログイン時に起動」がオンですが、systemd が検索ヘルパーを起動しなかったため、ログアウトまで Coxswain が起動しました。起動しなかった理由:systemctl --user status coxswain-index。",
+ "notice.helper_unstarted_macos": "「ログイン時に起動」がオンですが、macOS が検索ヘルパーを起動しなかったため、ログアウトまで Coxswain が起動しました。ログイン時に macOS が起動できるようにするには:システム設定 → 一般 → ログイン項目と機能拡張 → Coxswain → バックグラウンドでの実行を許可。起動しなかった理由:~/Library/Caches/coxswain の helper.log と launchctl print gui/$(id -u)/dk.mwo.coxswain.index。",
  "notice.history": "新機能: git リポジトリ内のファイルやフォルダーで {key} を押すと、コミットごとの履歴を表示します",
  "notice.language_new": "{language}は新しい翻訳です。おかしな言葉やぎこちない表現があれば、改善にご協力ください: 設定 → 言語。",
  "notice.language_new_tui": "{language}は新しい翻訳です。おかしな言葉やぎこちない表現があれば、coxswain --languages で改善への協力方法を表示します。",

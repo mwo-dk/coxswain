@@ -2463,7 +2463,7 @@ mod tests {
     /// An app on two folders, with its own index (no helper) and no update check.
     fn app(left: PathBuf, right: PathBuf) -> App {
         let cfg = Config { check_updates: false, ..Config::default() };
-        let index = Client::with(None, &cfg.search, || {});
+        let index = Client::with(None, &cfg.search, |_| {});
         App::with_index(cfg, left, right, index).unwrap()
     }
 
@@ -2783,7 +2783,7 @@ mod wide_letters {
         for lang in ["ja", "ko"] {
             coxswain_core::i18n::set_language(lang);
             let cfg = Config { check_updates: false, ..Config::default() };
-            let index = Client::with(None, &cfg.search, || {});
+            let index = Client::with(None, &cfg.search, |_| {});
             let mut app = App::with_index(cfg, d.clone(), d.clone(), index).unwrap();
             app.panels[0].toggle_mark(1);
             let s = draw(&mut app);

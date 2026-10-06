@@ -715,6 +715,8 @@
  "notice.cjk_font_freebsd": "No Japanese or Korean font is installed, so their letters may show as boxes. Install one with: pkg install noto-sans-jp noto-sans-kr",
  "notice.cloud": "Found {names}: files that are only online are found by name only, so nothing is downloaded. Change in Settings",
  "notice.cloud_tui": "Found {names}: files that are only online are found by name only, so nothing is downloaded. cloud = \"all\" in config.toml reads them",
+ "notice.helper_unstarted": "Start with my session is on, but systemd did not start the search helper, so Coxswain started it until you log out. Why it did not start: systemctl --user status coxswain-index.",
+ "notice.helper_unstarted_macos": "Start with my session is on, but macOS did not start the search helper, so Coxswain started it until you log out. To let macOS start it at login: System Settings → General → Login Items & Extensions → Coxswain → Allow in the Background. Why it did not start: helper.log in ~/Library/Caches/coxswain, and launchctl print gui/$(id -u)/dk.mwo.coxswain.index.",
  "notice.history": "New: {key} on a file or folder in a git repository shows its history, commit by commit",
  "notice.language_new": "{language} is a new translation. If a word reads wrong or clumsy, help improve it: Settings → Language.",
  "notice.language_new_tui": "{language} is a new translation. If a word reads wrong or clumsy, coxswain --languages says how to help improve it.",

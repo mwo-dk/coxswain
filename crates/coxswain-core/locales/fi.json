@@ -715,6 +715,8 @@
  "notice.cjk_font_freebsd": "Japanin- tai koreankielistä fonttia ei ole asennettu, joten merkit voivat näkyä laatikkoina. Asenna fontti komennolla: pkg install noto-sans-jp noto-sans-kr",
  "notice.cloud": "Löytyi {names}: vain verkossa olevat tiedostot löytyvät vain nimellä, joten mitään ei ladata. Muuta asetuksista",
  "notice.cloud_tui": "Löytyi {names}: vain verkossa olevat tiedostot löytyvät vain nimellä, joten mitään ei ladata. cloud = \"all\" tiedostossa config.toml lukee ne",
+ "notice.helper_unstarted": "Käynnistä istunnon mukana on päällä, mutta systemd ei käynnistänyt hakuapuria, joten Coxswain käynnisti sen uloskirjautumiseen asti. Miksi se ei käynnistynyt: systemctl --user status coxswain-index.",
+ "notice.helper_unstarted_macos": "Käynnistä istunnon mukana on päällä, mutta macOS ei käynnistänyt hakuapuria, joten Coxswain käynnisti sen uloskirjautumiseen asti. Salli macOS:n käynnistää se kirjautuessa: Järjestelmäasetukset → Yleiset → Kirjautumiskohteet ja laajennukset → Coxswain → Salli taustalla. Miksi se ei käynnistynyt: helper.log kansiossa ~/Library/Caches/coxswain ja launchctl print gui/$(id -u)/dk.mwo.coxswain.index.",
  "notice.history": "Uutta: {key} git-repositorion tiedoston tai kansion kohdalla näyttää sen historian commit kerrallaan",
  "notice.language_new": "{language} on uusi käännös. Jos sana kuulostaa väärältä tai kömpelöltä, auta parantamaan sitä: Asetukset → Kieli.",
  "notice.language_new_tui": "{language} on uusi käännös. Jos sana kuulostaa väärältä tai kömpelöltä, coxswain --languages kertoo, miten voit auttaa parantamaan sitä.",

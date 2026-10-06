@@ -745,6 +745,8 @@
  "notice.cjk_font_freebsd": "Není nainstalováno žádné japonské ani korejské písmo, takže se jejich znaky mohou zobrazit jako čtverečky. Nainstalujte je příkazem: pkg install noto-sans-jp noto-sans-kr",
  "notice.cloud": "Nalezeno {names}: soubory, které jsou jen online, se hledají jen podle názvu, takže se nic nestahuje. Změnit v Nastavení",
  "notice.cloud_tui": "Nalezeno {names}: soubory, které jsou jen online, se hledají jen podle názvu, takže se nic nestahuje. cloud = \"all\" v config.toml je načte",
+ "notice.helper_unstarted": "Spouštět s mou relací je zapnuté, ale systemd pomocníka hledání nespustil, takže ho Coxswain spustil do odhlášení. Proč se nespustil: systemctl --user status coxswain-index.",
+ "notice.helper_unstarted_macos": "Spouštět s mou relací je zapnuté, ale macOS pomocníka hledání nespustil, takže ho Coxswain spustil do odhlášení. Aby ho macOS spouštěl při přihlášení: Nastavení systému → Obecné → Položky po přihlášení a rozšíření → Coxswain → Povolit na pozadí. Proč se nespustil: helper.log ve složce ~/Library/Caches/coxswain a launchctl print gui/$(id -u)/dk.mwo.coxswain.index.",
  "notice.history": "Nové: {key} na souboru nebo složce v repozitáři gitu ukáže jejich historii, commit po commitu",
  "notice.language_new": "{language} je nový překlad. Pokud nějaké slovo zní špatně nebo neobratně, pomozte jej zlepšit: Nastavení → Jazyk.",
  "notice.language_new_tui": "{language} je nový překlad. Pokud nějaké slovo zní špatně nebo neobratně, coxswain --languages řekne, jak pomoci jej zlepšit.",

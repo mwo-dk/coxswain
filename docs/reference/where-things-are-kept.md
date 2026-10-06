@@ -56,6 +56,7 @@ shows the search store and *Meaning* the model's folder.
 | `inside-<n>/` | `~/.cache/coxswain/inside-<n>/` | The search helper reading the text of a file [inside an archive](../search/archives.md): one file at a time, deleted as soon as it is read, the folder when the archive is done | Yes, when no helper runs |
 | `previews/` | `~/.cache/coxswain/previews/` | PDFs, SVGs and pages made by tools (LaTeX, LibreOffice, PlantUML, pandoc), one folder per file and engine | Yes: Settings → *Previews* → *Previews made so far* → *Clear* does it |
 | `index.addr`, `index.lock` | `~/.cache/coxswain/` | The helper's port and token (readable by you alone), and its lock | Only while no helper runs |
+| `helper.log` | `~/.cache/coxswain/` | When the helper started and left, and what failed (readable by you alone) | Yes; it is emptied past 1 MB |
 | `libreoffice-profile/`, `libreoffice-index-profile/` | `~/.cache/coxswain/` | LibreOffice's own profiles for previews and for reading old Office files, so your open LibreOffice is left alone | Yes |
 | Session registration | `~/.config/systemd/user/coxswain-index.service` (Linux), `~/Library/LaunchAgents/dk.mwo.coxswain.index.plist` (macOS), the `coxswain-index` value under `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` (Windows), `~/.config/autostart/coxswain-index.desktop` (FreeBSD) | Only with *Start with my session* | Use `coxswain --index-service off` instead |
 | `coxswain-extract-…` | The system's temporary folder | A few seconds' work of tesseract or LibreOffice while a file is read | Removed by itself |

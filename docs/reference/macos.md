@@ -4,8 +4,8 @@
 
 Both apps run on macOS, on Apple silicon and on Intel. This page covers what is
 particular to a Mac: the privacy prompts macOS shows when Coxswain's search helper reads your
-folders, what Coxswain never reads there, why a new version may ask again, and search by meaning
-on the Mac's GPU without any server.
+folders, what Coxswain never reads there, why a new version may ask again, the search helper at
+login, and search by meaning on the Mac's GPU without any server.
 
 ## Contents
 
@@ -13,6 +13,7 @@ on the Mac's GPU without any server.
 - [What Coxswain leaves out on a Mac](#what-coxswain-leaves-out-on-a-mac)
 - [Full Disk Access](#full-disk-access)
 - [Why a new version may ask again](#why-a-new-version-may-ask-again)
+- [The search helper at login](#the-search-helper-at-login)
 - [Search by meaning on the Mac's GPU](#search-by-meaning-on-the-macs-gpu)
 - [Desktop app and terminal app](#desktop-app-and-terminal-app)
 - [Settings and config.toml](#settings-and-configtoml)
@@ -96,6 +97,19 @@ log.
 Because the builds are not notarised, the first start of a downloaded `.dmg` may say the app
 *is damaged*: run `xattr -cr /Applications/Coxswain.app` once (the Homebrew cask does it).
 
+## The search helper at login
+
+*Start with my session* (*Settings → Finding files → Details → Background reading*, or
+`coxswain --index-service on`) writes a LaunchAgent,
+`~/Library/LaunchAgents/dk.mwo.coxswain.index.plist`, and hands it to launchd with `launchctl
+bootstrap gui/$(id -u)`. macOS then lists Coxswain under **System Settings → General → Login Items
+& Extensions** as allowed in the background. Its errors go to `~/Library/Caches/coxswain/helper.log`.
+
+When that switch is off, or a managed Mac does not allow background items, launchd does not start
+the helper. The app asks launchd (`launchctl kickstart`) twice; if no helper answers within eight
+seconds it starts one itself, which stays until you log out, and a notice says so once and where
+to allow it. [The search helper](../search/helper.md#start-with-my-session-is-on-but-background-reading-does-not-start-why)
+
 ## Search by meaning on the Mac's GPU
 
 Search by meaning needs no server on a Mac, and neither does Ask: the
@@ -163,9 +177,16 @@ log out and back in so the search helper starts again. A folder refused once is 
 No. The built-in model runs on the Mac's GPU. See
 [Search by meaning on the Mac's GPU](#search-by-meaning-on-the-macs-gpu).
 
+#### Search inside files is on, but background reading does not start. What do I do?
+Open the app once (2.1.2 or later): it starts the helper itself when launchd does not, and says
+so. Then turn on **System Settings → General → Login Items & Extensions → Coxswain → Allow in the
+Background**, and untick and tick *Start with my session*. To see what launchd did, run
+`launchctl print gui/$(id -u)/dk.mwo.coxswain.index` (look at `state`, `runs` and `last exit
+code`) and read `~/Library/Caches/coxswain/helper.log`. See [The search helper at login](#the-search-helper-at-login).
+
 #### Can I search the files in `~/Library`?
 Not through the index: it never reads other apps' data. Open the folder in a pane and type
 the start of a name there ([quick search](../panels/quick-search.md)).
 
 ---
-[← Previous: FreeBSD](freebsd.md) · [Next: Questions, collected →](../faq.md)
+[← Previous: Termux on Android](termux.md) · [Next: Questions, collected →](../faq.md)
