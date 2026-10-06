@@ -96,6 +96,4 @@ jobs:
             cargo test --release --locked -p coxswain-core --lib -- termux update_
             cargo build --release --locked -p coxswain
             ./target/release/coxswain --version
-            curl -fsSL https://github.com/mwo-dk/coxswain/releases/download/v2.1.1/coxswain-terminal-v2.1.1-aarch64-unknown-linux-musl.tar.gz | tar xz
-            ./coxswain-terminal-v2.1.1-aarch64-unknown-linux-musl/coxswain --version
           '
