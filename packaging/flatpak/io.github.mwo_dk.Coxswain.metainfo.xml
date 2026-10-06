@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The screenshots and releases are filled in by metainfo.py at build time. -->
+<component type="desktop-application">
+  <id>io.github.mwo_dk.Coxswain</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>MIT</project_license>
+  <name>Coxswain</name>
+  <summary>Two-pane file manager with git</summary>
+  <developer id="io.github.mwo_dk">
+    <name>Michael W. Olesen</name>
+  </developer>
+  <description>
+    <p>
+      Coxswain is a two-panel file manager in the Norton Commander tradition, built for
+      developers. It finds any file by its name, its text or what it is about, previews over 60
+      kinds of file, opens archives like folders, shows git in every panel, and keeps everything
+      on your machine.
+    </p>
+    <ul>
+      <li>Two panes, driven from the keyboard: F3 to view, F5 to copy, F6 to move, F7 for a new folder, F8 to delete</li>
+      <li>Find by name in an instant, by the words inside files, or by meaning with a model that runs on your machine</li>
+      <li>Previews for Markdown, PDF, Office documents, pictures, video, code, data files, diagrams and more</li>
+      <li>Git status in every panel, the history of a file, and branches and worktrees as folders</li>
+      <li>Archives open like folders; pack and unpack ZIP, tar and 7-Zip</li>
+      <li>Eighteen themes, from Norton Commander blue to a green phosphor terminal, and 26 languages</li>
+    </ul>
+    <p>
+      Nothing leaves the machine unless you ask: the daily update check can be turned off, and a
+      model download or a remote server is your choice in Settings.
+    </p>
+  </description>
+  <launchable type="desktop-id">io.github.mwo_dk.Coxswain.desktop</launchable>
+  <url type="homepage">https://github.com/mwo-dk/coxswain</url>
+  <url type="bugtracker">https://github.com/mwo-dk/coxswain/issues</url>
+  <url type="vcs-browser">https://github.com/mwo-dk/coxswain</url>
+  <url type="help">https://github.com/mwo-dk/coxswain/blob/master/docs/README.md</url>
+  <url type="translate">https://github.com/mwo-dk/coxswain/blob/master/docs/customise/languages.md</url>
+  <content_rating type="oars-1.1"/>
+  <branding>
+    <color type="primary" scheme_preference="light">#9be7b0</color>
+    <color type="primary" scheme_preference="dark">#07180d</color>
+  </branding>
+  <supports>
+    <control>keyboard</control>
+    <control>pointing</control>
+  </supports>
+  <requires>
+    <display_length compare="ge">768</display_length>
+  </requires>
+  <provides>
+    <binary>coxswain-gui</binary>
+  </provides>
+  <keywords>
+    <keyword>file manager</keyword>
+    <keyword>norton commander</keyword>
+    <keyword>git</keyword>
+    <keyword>search</keyword>
+    <keyword>preview</keyword>
+  </keywords>
+  <screenshots/>
+  <releases/>
+</component>

@@ -397,7 +397,7 @@ impl Client {
             if n == 0 && registered && !crate::service::starts(&exe) && crate::service::install(&exe).is_ok() {
                 return;
             }
-            match step(n, registered, crate::service::SUPERVISED) {
+            match step(n, registered, crate::service::supervised()) {
                 Step::Ask => crate::service::kick(),
                 Step::Own { stay } => {
                     let mut c = detached(&exe);
