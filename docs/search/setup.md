@@ -201,6 +201,7 @@ open. It uses a little processor time when files change and pauses on battery
 |---|---|---|---|
 | Linux | A systemd user service, `coxswain-index.service` | `systemctl --user status coxswain-index` | Untick it, or `coxswain --index-service off` |
 | FreeBSD | An XDG autostart entry, `~/.config/autostart/coxswain-index.desktop` ([other ways](../reference/freebsd.md#the-search-helper)) | `pgrep -lf index-helper` | Untick it, or `coxswain --index-service off` |
+| NetBSD, OpenBSD, illumos | The same entry; rc.d, `rcctl` or SMF are the other ways ([NetBSD](../reference/netbsd.md#the-search-helper), [OpenBSD](../reference/openbsd.md#the-search-helper), [illumos](../reference/illumos.md#the-search-helper)) | `pgrep -lf index-helper` | Untick it, or `coxswain --index-service off` |
 | macOS | A LaunchAgent, `~/Library/LaunchAgents/dk.mwo.coxswain.index.plist` | `launchctl list \| grep coxswain` | The same |
 | Windows | A *Run* entry for your user in the registry | Task Manager → *Startup apps* lists Coxswain | The same, or disable it in Task Manager |
 

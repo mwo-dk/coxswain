@@ -76,7 +76,7 @@ alone: each start sets the folders to `700` and the files to `600`, so an instal
 | State (`state.json`) | `~/.local/share/coxswain/` (or `$XDG_DATA_HOME/coxswain/`) | `~/Library/Application Support/coxswain/` | `%APPDATA%\coxswain\` |
 | Cache (index, store, model, previews) | `~/.cache/coxswain/` (or `$XDG_CACHE_HOME/coxswain/`) | `~/Library/Caches/coxswain/` | `%LOCALAPPDATA%\coxswain\` |
 
-On FreeBSD the folders are those of Linux. On macOS and Windows the config and state share one
+On FreeBSD, NetBSD, OpenBSD and illumos the folders are those of Linux. On macOS and Windows the config and state share one
 folder.
 
 ## What you see

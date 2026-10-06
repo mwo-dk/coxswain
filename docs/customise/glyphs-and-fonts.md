@@ -135,7 +135,7 @@ No font in *Icon font* is installed (desktop app), or the terminal's font is not
 font*, or set the terminal to a Nerd Font. Or choose *Plain characters (ASCII)*.
 
 The lines that install a Nerd Font, as the first-run guide offers them: `pkg install nerd-fonts`
-(FreeBSD), `sudo pacman -S ttf-nerd-fonts-symbols` (Arch), `brew install --cask
+(FreeBSD), `pkgin install nerd-fonts-Symbols` (NetBSD), `pkg_add symbolsonly-nerd-fonts` (OpenBSD), `sudo pacman -S ttf-nerd-fonts-symbols` (Arch), `brew install --cask
 font-symbols-only-nerd-font` (macOS). Elsewhere get one from nerdfonts.com (*Symbols Nerd Font*
 is enough).
 

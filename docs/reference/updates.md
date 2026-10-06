@@ -70,6 +70,8 @@ It is worked out from where the program is installed:
 | WinGet, the terminal app (`mwo-dk.Coxswain.Terminal`) | `winget upgrade mwo-dk.Coxswain.Terminal` |
 | Flatpak, the desktop app (`io.github.mwo_dk.Coxswain`) | `flatpak update io.github.mwo_dk.Coxswain`; a software centre such as GNOME Software or Discover updates it too ([Flatpak](flatpak.md#updating)) |
 | Anything else on FreeBSD (the install script, the archives) | `fetch -qo - https://raw.githubusercontent.com/mwo-dk/coxswain/master/install/install-freebsd.sh \| sh`, which updates both apps where they are ([FreeBSD](freebsd.md#updating)) |
+| Anything else on NetBSD or OpenBSD | `ftp -o - https://raw.githubusercontent.com/mwo-dk/coxswain/master/install/install-unix.sh \| sh` ([NetBSD](netbsd.md#updating-and-uninstalling), [OpenBSD](openbsd.md#updating-and-uninstalling)) |
+| Anything else on illumos | `curl -fsSL https://raw.githubusercontent.com/mwo-dk/coxswain/master/install/install-unix.sh \| sh` ([illumos](illumos.md#updating-and-uninstalling)) |
 | A download, `.deb`, `.rpm`, AppImage, the Windows installer (also when WinGet ran it: `winget upgrade mwo-dk.Coxswain`), AUR, a source build | None: it points to the [releases page](https://github.com/mwo-dk/coxswain/releases/latest) |
 
 The install tables in the [README](../../README.md#install) say how to update each.

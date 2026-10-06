@@ -48,7 +48,7 @@ sh install-unix.sh
 |---|---|
 | `--terminal-only` | Only the terminal app; no packages are needed |
 | `--prefix DIR` | Install into `DIR`. Without it the script uses the place Coxswain is already in, or asks: `/usr/local` for every user, or `~/.local` for you alone |
-| `--version v2.4.0` | That release instead of the latest |
+| `--version v2.6.0` | That release instead of the latest |
 | `--from DIR` | Install from release archives already in `DIR`, without downloading |
 | `--yes` | Answer yes to every question |
 | `--uninstall` | Remove what the script installed |
@@ -78,7 +78,7 @@ Options go after `sh -s --` when the script comes through a pipe:
 ## Install by hand
 
 ```sh
-v=v2.4.0
+v=v2.6.0
 t=x86_64-unknown-openbsd
 ftp https://github.com/mwo-dk/coxswain/releases/download/$v/coxswain-terminal-$v-$t.tar.gz
 ftp https://github.com/mwo-dk/coxswain/releases/download/$v/coxswain-terminal-$v-$t.tar.gz.sha256
@@ -103,7 +103,7 @@ The terminal app needs no packages.
 | `webkitgtk41` | The desktop app's window content: WebKitGTK with the 4.1 API; brings `gtk+3` and `libsoup3` | Desktop app, required |
 | `xdg-utils` | `xdg-open`, which opens a file in its program | Desktop app; the terminal app uses it for the same |
 | `gstreamer1-plugins-good` | Video and sound in the preview pane | Desktop app; without it a notice says what to install |
-| `dejavusansmono-nerd-fonts` (or another `*-nerd-fonts`) | The file icons and git glyphs | Optional; or `glyphs = "ascii"` ([Glyphs and fonts](../customise/glyphs-and-fonts.md)) |
+| `symbolsonly-nerd-fonts` (or another `*-nerd-fonts`) | The file icons and git glyphs | Optional; or `glyphs = "ascii"` ([Glyphs and fonts](../customise/glyphs-and-fonts.md)) |
 | `noto-cjk` | Japanese and Korean letters in the desktop app | Optional |
 | `tesseract` | Search the words in scans and pictures | Optional ([Scans and pictures](../search/scans.md)) |
 | `poppler-utils` | The same for scanned PDFs | Optional, with `tesseract` |

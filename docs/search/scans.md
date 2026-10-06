@@ -32,12 +32,15 @@ For other languages than English and yours, install tesseract's language data to
 
 Where a program is missing, Coxswain shows the command that installs it on this system, with a
 **Copy** button. It never runs the command: you paste it into a shell. The package manager is
-the system's own: `pkg` on FreeBSD, Homebrew on a Mac, `winget` on Windows, and on Linux the
+the system's own: `pkg` on FreeBSD, `pkgin` on NetBSD, `pkg_add` on OpenBSD, `pkg` on illumos, Homebrew on a Mac, `winget` on Windows, and on Linux the
 first of `pacman`, `apt`, `dnf` and `zypper` that is installed.
 
 | System | tesseract | pdftoppm | LibreOffice |
 |---|---|---|---|
 | FreeBSD | `pkg install tesseract` | `pkg install poppler-utils` | `pkg install libreoffice` |
+| NetBSD (`pkgin`) | `pkgin install tesseract` | `pkgin install poppler-utils` | `pkgin install libreoffice` |
+| OpenBSD (`pkg_add`) | `pkg_add tesseract` | `pkg_add poppler-utils` | `pkg_add libreoffice` |
+| illumos (`pkg`) | none in OmniOS | none | none |
 | Arch (`pacman`) | `sudo pacman -S tesseract tesseract-data-eng` | `sudo pacman -S poppler` | `sudo pacman -S libreoffice-fresh` |
 | Debian, Ubuntu (`apt`) | `sudo apt install tesseract-ocr` | `sudo apt install poppler-utils` | `sudo apt install libreoffice` |
 | Fedora (`dnf`) | `sudo dnf install tesseract` | `sudo dnf install poppler-utils` | `sudo dnf install libreoffice` |

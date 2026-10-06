@@ -45,7 +45,7 @@ sh install-unix.sh
 |---|---|
 | `--terminal-only` | Only the terminal app (on illumos this is all there is) |
 | `--prefix DIR` | Install into `DIR`. Without it the script uses the place Coxswain is already in, or asks: `/usr/local` for every user, or `~/.local` for you alone |
-| `--version v2.4.0` | That release instead of the latest |
+| `--version v2.6.0` | That release instead of the latest |
 | `--from DIR` | Install from release archives already in `DIR`, without downloading (a zone without network) |
 | `--yes` | Answer yes to every question |
 | `--uninstall` | Remove what the script installed |
@@ -68,7 +68,7 @@ No packages are needed: the terminal app links only against the base system's li
 ## Install by hand
 
 ```sh
-v=v2.4.0
+v=v2.6.0
 t=x86_64-unknown-illumos
 curl -fsSLO https://github.com/mwo-dk/coxswain/releases/download/$v/coxswain-terminal-$v-$t.tar.gz
 curl -fsSLO https://github.com/mwo-dk/coxswain/releases/download/$v/coxswain-terminal-$v-$t.tar.gz.sha256
@@ -189,8 +189,8 @@ PATH=/opt/ooce/bin:$PATH cargo build --release --locked -p coxswain
 ```
 
 `rustup` works on illumos too. `cargo install --locked coxswain` builds the terminal app from
-crates.io. A debug build links large test programs: give the machine (or the zone) 8 GB of
-memory, or build with `CARGO_PROFILE_DEV_DEBUG=line-tables-only`.
+crates.io. Linking the tests of a debug build needs a lot of memory (illumos reserves swap for all of it):
+give the machine or the zone 8 GB or more, or build with `CARGO_PROFILE_DEV_DEBUG=line-tables-only`.
 
 ## The desktop app
 
@@ -201,13 +201,13 @@ and the terminal app over SSH does the ZFS work on the server itself.
 
 ## Questions
 
-**Does it run in a zone?** Yes: it needs nothing from the global zone. In a non-global zone,
-**Alt+Z** lists the snapshots of datasets delegated to the zone; other datasets show no ZFS line.
+**Does it run in a zone?** It needs nothing from the global zone, so a non-global zone runs it
+the same way. There, `zfs` lists only the datasets delegated to the zone, so **Alt+Z** works on
+those, and other folders show no ZFS line. (CI tests the global zone only.)
 
-**Does it run on OpenIndiana, SmartOS or Tribblix?** The binary needs only illumos's base
-libraries, and is tested on OmniOS. OpenIndiana runs it as well; SmartOS's global zone has a
-read-only `/usr`, so install it with `--prefix` into a writable place such as `/opt/local` or
-`~/.local`.
+**Does it run on OpenIndiana?** Yes: CI installs the OmniOS-built archive on OpenIndiana 2026.04
+with the same script and runs it. Other illumos distributions with the same base libraries
+should run it too; they are not tested.
 
 **Why does Diff say the file is new or gone without names in its header?** GNU diff is not
 installed; the system's `diff` has no `-N` or `-L`. `pfexec pkg install text/gnu-diffutils`.
@@ -219,8 +219,9 @@ Tesseract; without it, scans are found by name only ([Scans and pictures](../sea
 folders and reads text with the lowest priority. Leave out what you never search:
 `name_exclude` in `[search]`, or index only your own shares ([Choosing the folders](../search/folders.md)).
 
-**Search by meaning?** The built-in model works on the processor, as on Linux (`coxswain --meaning on`);
-the model (488 MB) is downloaded once after you say so.
+**Search by meaning?** The built-in model runs on the processor, the same code as on Linux
+(`coxswain --meaning on`); the model (488 MB) is downloaded once after you say so. Its tests run
+on OmniOS in CI; the model itself has not been tried on illumos yet.
 
 ---
 [← Previous: DragonFly BSD](dragonfly.md) · [Next: TrueNAS →](truenas.md)

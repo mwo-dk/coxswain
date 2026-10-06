@@ -113,12 +113,16 @@ runs the command: paste it into a shell, then show the file again.
 
 ![The preview pane on sequence.puml with no plantuml and no container runtime: plantuml is not installed. Neither podman nor docker is installed., the line Install it: sudo pacman -S plantuml with Copy, and Settings → Previews](../screenshots/previews-install-line.png)
 
-The package manager is the system's own: `pkg` on FreeBSD, Homebrew on a Mac, `winget` on
+The package manager is the system's own: `pkg` on FreeBSD, `pkgin` on NetBSD, `pkg_add` on
+OpenBSD, `pkg` on illumos, Homebrew on a Mac, `winget` on
 Windows, and on Linux the first of `pacman`, `apt`, `dnf` and `zypper` that is installed.
 
 | System | LibreOffice | LaTeX | PlantUML | pandoc |
 |---|---|---|---|---|
 | FreeBSD | `pkg install libreoffice` | `pkg install texlive-full` | `pkg install plantuml` | `pkg install hs-pandoc` |
+| NetBSD (`pkgin`) | `pkgin install libreoffice` | none | none | `pkgin install pandoc-cli` |
+| OpenBSD (`pkg_add`) | `pkg_add libreoffice` | `pkg_add texlive_texmf-full` | none | `pkg_add pandoc` |
+| illumos (`pkg`) | none | `pkg install ooce/application/texlive` | none | none |
 | Arch (`pacman`) | `sudo pacman -S libreoffice-fresh` | `sudo pacman -S texlive-basic texlive-latexextra texlive-binextra` | `sudo pacman -S plantuml` | `sudo pacman -S pandoc-cli` |
 | Debian, Ubuntu (`apt`) | `sudo apt install libreoffice` | `sudo apt install texlive-latex-extra latexmk` | `sudo apt install plantuml` | `sudo apt install pandoc` |
 | Fedora (`dnf`) | `sudo dnf install libreoffice` | `sudo dnf install texlive-scheme-medium latexmk` | `sudo dnf install plantuml` | `sudo dnf install pandoc` |

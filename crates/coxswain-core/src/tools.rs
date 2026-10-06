@@ -222,12 +222,12 @@ pub fn install_line(program: &str, manager: Manager) -> Option<String> {
         "pdftoppm" => ["poppler-utils", "poppler-utils", "poppler-utils", "", "poppler", "poppler-utils", "poppler-utils", "poppler-tools", "poppler", ""],
         "soffice" => ["libreoffice", "libreoffice", "libreoffice", "", "libreoffice-fresh", "libreoffice", "libreoffice", "libreoffice", "--cask libreoffice", "TheDocumentFoundation.LibreOffice"],
         "latex" => ["texlive-full", "", "texlive_texmf-full", "ooce/application/texlive", "texlive-basic texlive-latexextra texlive-binextra", "texlive-latex-extra latexmk", "texlive-scheme-medium latexmk", "texlive-latexmk texlive-collection-latexextra", "--cask mactex-no-gui", "MiKTeX.MiKTeX"],
-        "plantuml" => ["plantuml", "", "plantuml", "", "plantuml", "plantuml", "plantuml", "plantuml", "plantuml", ""],
+        "plantuml" => ["plantuml", "", "", "", "plantuml", "plantuml", "plantuml", "plantuml", "plantuml", ""],
         "pandoc" => ["hs-pandoc", "pandoc-cli", "pandoc", "", "pandoc-cli", "pandoc", "pandoc", "pandoc", "pandoc", "JohnMacFarlane.Pandoc"],
         // What the desktop app's preview and its letters need, where a notice names the line.
         "gst-good" => ["gstreamer1-plugins-good", "gst-plugins1-good", "gstreamer1-plugins-good", "", "", "", "", "", "", ""],
         "cjk-font" => ["noto-sans-jp noto-sans-kr", "noto-cjk-fonts", "noto-cjk", "", "", "", "", "", "", ""],
-        "nerd-font" => ["nerd-fonts", "nerd-fonts-Symbols", "nerd-fonts", "", "ttf-nerd-fonts-symbols", "", "", "", "--cask font-symbols-only-nerd-font", ""],
+        "nerd-font" => ["nerd-fonts", "nerd-fonts-Symbols", "symbolsonly-nerd-fonts", "", "ttf-nerd-fonts-symbols", "", "", "", "--cask font-symbols-only-nerd-font", ""],
         _ => return None,
     };
     let package = row[match manager {

@@ -23,6 +23,11 @@ the full list.
 | [Licences and bills of materials](bills-of-materials.md) | What each release carries (SBOMs, a CBOM, the third-party notices), how licences are checked, the cryptography both apps use, making the files yourself |
 | [Performance](performance.md) | What keeps each app quick: rows on screen only, no disk work on the window's thread, background measuring, and the numbers for a folder of 100,000 files and an index of a million names |
 | [FreeBSD](freebsd.md) | Both apps on FreeBSD: the one-line install, the packages and what each is for, the search helper from the session, rc.d or the login shell, search by meaning, how FreeBSD differs, updating, the desktop app's experimental status |
+| [NetBSD](netbsd.md) | The terminal app on NetBSD: the one-line install, pkgin for the extras, the search helper from rc.d, how NetBSD differs, why the desktop app is not shipped yet |
+| [OpenBSD](openbsd.md) | Both apps on OpenBSD (the desktop app experimental): the one-line install, the packages, the search helper with rcctl, OpenBSD's limits and what Coxswain does about them |
+| [DragonFly BSD](dragonfly.md) | What stops a build for DragonFly BSD today, what is ready, and trying it yourself |
+| [illumos](illumos.md) | The terminal app on OmniOS and OpenIndiana: the one-line install, the search helper as an SMF service, ZFS snapshots and datasets, how illumos differs |
+| [TrueNAS](truenas.md) | The terminal app on TrueNAS over SSH: which build, installing into your home, snapshots, leaving the system's datasets alone, indexing the shares |
 | [Flatpak](flatpak.md) | The desktop app from Flathub: what the sandbox lets it do and why, your editor and commands on the host, the programs previews use, the search helper, where its files are kept, updating, building it yourself |
 | [Linux on ARM](linux-arm.md) | Both apps on 64-bit ARM Linux: which file for a Raspberry Pi, Asahi or an ARM server, what they need (glibc 2.35, WebKitGTK 4.1), installing, search by meaning on ARM |
 | [Termux on Android](termux.md) | The terminal app on a phone or tablet: installing with `pkg` or `cargo`, the phone's folders (`termux-setup-storage`), F-keys on Termux's extra keys row, updating, the package recipe and how CI builds and starts it |
