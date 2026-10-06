@@ -151,8 +151,10 @@
  "archive.preview_locked": "Ten plik jest zablokowany hasłem.",
  "archive.preview_opening": "Otwieranie z {archive}…",
  "archive.preview_unlock": "Podaj hasło",
+ "ask.builtin_estimate": "Na tym procesorze: około {seconds} s do pierwszego słowa, potem {words} słowa na sekundę",
  "ask.builtin_missing": "{model} nie jest jeszcze pobrany: pobierz go w Ustawienia, w sekcji Zapytaj, albo w Skonfiguruj…",
  "ask.builtin_name": "{model}, wbudowany",
+ "ask.builtin_slow": "zbyt wolny, by go polecić; serwer modeli odpowiada szybciej",
  "bom.advice": "Co zrobić",
  "bom.as_in_file": "Jak w pliku",
  "bom.assets": {
@@ -1401,6 +1403,7 @@
  "setup.ask_builtin": "{model}, wbudowany ({size} do pobrania, {where}; nic nie opuszcza komputera)",
  "setup.ask_builtin_hint": "Opcjonalne. Wbudowany model czatu odpowiada na tym komputerze, bez instalowania czegokolwiek, i nic go nie opuszcza: szybko na GPU Maca, wolno na samym procesorze (minuta lub dłużej do pierwszego słowa). Serwer modeli odpowiada szybciej, większymi modelami.",
  "setup.ask_hint": "Wymienione są tylko modele, które umieją odpowiadać. Dla tego komputera: {model}. Pytanie testowe pokazuje, jak szybko odpowiada.",
+ "setup.ask_off": "Na razie pomiń Zapytaj",
  "setup.builtin": "Wbudowany model ({size} do pobrania, działa {where}; nic nie opuszcza komputera)",
  "setup.builtin_hint": "multilingual-e5-small: 100 języków, działa na każdym komputerze. Po przejściu na niego każdy plik jest odczytywany ponownie.",
  "setup.builtin_on": "Wyszukiwanie według znaczenia jest włączone, z wbudowanym modelem. Pomocnik wyszukiwania czyta teraz w tle znaczenie twoich plików; wyniki według znaczenia pojawiają się w wyszukiwaniach stopniowo.",

@@ -148,8 +148,10 @@
  "archive.preview_locked": "Ce fichier est verrouillé par un mot de passe.",
  "archive.preview_opening": "Ouverture depuis {archive}…",
  "archive.preview_unlock": "Saisir le mot de passe",
+ "ask.builtin_estimate": "Sur ce processeur : environ {seconds} s jusqu'au premier mot, puis {words} mots par seconde",
  "ask.builtin_missing": "{model} n’est pas encore téléchargé : téléchargez-le dans Réglages, sous Demander, ou dans Configurer…",
  "ask.builtin_name": "{model}, intégré",
+ "ask.builtin_slow": "trop lent pour être recommandé ; un serveur de modèles répond plus vite",
  "bom.advice": "Que faire",
  "bom.as_in_file": "Comme dans le fichier",
  "bom.assets": {
@@ -1347,6 +1349,7 @@
  "setup.ask_builtin": "{model}, intégré ({size} à télécharger, {where} ; rien ne quitte la machine)",
  "setup.ask_builtin_hint": "Facultatif. Un modèle de conversation intégré répond sur cette machine, sans rien installer, et rien ne la quitte : vite sur le GPU d’un Mac, lentement sur le seul processeur (une minute ou plus avant le premier mot). Un serveur de modèles répond plus vite, avec de plus grands modèles.",
  "setup.ask_hint": "Seuls les modèles capables de répondre sont listés. Pour cette machine : {model}. Une question test montre sa vitesse de réponse.",
+ "setup.ask_off": "Passer Demander pour l'instant",
  "setup.builtin": "Le modèle intégré ({size} à télécharger, tourne {where} ; rien ne quitte la machine)",
  "setup.builtin_hint": "multilingual-e5-small : 100 langues, tourne sur n’importe quelle machine. Chaque fichier est relu quand vous y passez.",
  "setup.builtin_on": "La recherche par le sens est activée, avec le modèle intégré. L’assistant de recherche lit maintenant le sens de vos fichiers en arrière-plan ; les résultats par le sens apparaissent dans les recherches au fur et à mesure.",

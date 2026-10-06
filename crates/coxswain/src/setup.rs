@@ -89,6 +89,8 @@ pub fn run() {
     println!("{}", t!("setup.intro"));
 
     // 1. Search inside files.
+    // Step 4's probe, started now, before the helper starts reading and keeps the processor busy.
+    let _ = chat::estimate(&chat::MODELS[0], search().meaning_device == "cpu", false);
     heading(t!("setup.step_text"));
     println!("{}", t!("setup.text_hint"));
     if search().text {
@@ -204,13 +206,18 @@ pub fn run() {
     let ask_server = server.clone().or_else(|| found.iter().find(|f| f.kind == Kind::Ollama).cloned());
     let mut asked = false;
     println!("{}", t!("setup.ask_builtin_hint"));
-    let builtin_chat = chat::suggest(machine.ram);
+    // On a processor only when it is quick enough here: the probe says (under a second).
+    let cpu_only = search().meaning_device == "cpu";
+    let builtin_chat = chat::suggest(machine.ram, cpu_only);
     let mut items: Vec<String> = chat::MODELS
         .iter()
         .map(|m| {
             let mut s = t!("setup.ask_builtin", "model" => m.name, "size" => coxswain_core::settings::human(m.size()), "where" => setup::builtin_runs(&search(), None));
-            if std::ptr::eq(m, builtin_chat) && ask_server.is_none() {
+            if builtin_chat.is_some_and(|b| std::ptr::eq(m, b)) && ask_server.is_none() {
                 s.push_str(&format!(" [{}]", t!("setup.recommended")));
+            }
+            if let Some(e) = chat::estimate(m, cpu_only, true) {
+                s.push_str(&format!("\n      {}", e.text()));
             }
             s
         })
@@ -230,9 +237,20 @@ pub fn run() {
         }
     }
     items.extend(models.iter().cloned());
+    // Last: skip Ask, never the default. The default: Ask's model as it is set, else the
+    // server's suggestion or first chat model, else the built-in one for this machine.
+    items.push(t!("setup.ask_off"));
     let builtins = chat::MODELS.len();
-    let default = models.iter().position(|m| !suggest.is_empty() && m.starts_with(&suggest)).map(|i| builtins + i).or((!models.is_empty()).then_some(builtins)).unwrap_or_else(|| chat::MODELS.iter().position(|m| std::ptr::eq(m, builtin_chat)).unwrap_or(0));
+    let off = items.len() - 1;
+    let now = search().ask_model;
+    let set = chat::MODELS.iter().position(|m| m.key() == now).or_else(|| models.iter().position(|m| !now.is_empty() && *m == now).map(|i| builtins + i));
+    let builtin = chat::MODELS.iter().position(|m| std::ptr::eq(m, builtin_chat.unwrap_or_else(|| chat::preselect(machine.ram, cpu_only)))).unwrap_or(0);
+    let default = set.or_else(|| models.iter().position(|m| !suggest.is_empty() && m.starts_with(&suggest)).map(|i| builtins + i)).or((!models.is_empty()).then_some(builtins)).unwrap_or(builtin);
     let chosen = match choose(&items, default) {
+        Some(i) if i == off => {
+            save("ask_model", "");
+            None
+        }
         Some(i) if i < builtins => {
             let m = &chat::MODELS[i];
             let p = std::sync::Arc::new(Progress::default());

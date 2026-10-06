@@ -145,8 +145,10 @@
  "archive.preview_locked": "Fail on lukustatud parooliga.",
  "archive.preview_opening": "Avan arhiivist {archive}…",
  "archive.preview_unlock": "Sisesta parool",
+ "ask.builtin_estimate": "Sellel protsessoril: umbes {seconds} s esimese sõnani, siis {words} sõna sekundis",
  "ask.builtin_missing": "{model} pole veel alla laaditud: laadi see alla jaotises Sätted › Küsi või Seadista…",
  "ask.builtin_name": "{model}, sisseehitatud",
+ "ask.builtin_slow": "soovitamiseks liiga aeglane; mudeliserver vastab kiiremini",
  "bom.advice": "Mida teha",
  "bom.as_in_file": "Nagu failis",
  "bom.assets": {
@@ -1293,6 +1295,7 @@
  "setup.ask_builtin": "{model}, sisseehitatud ({size} allalaadimist, {where}; midagi ei lahku masinast)",
  "setup.ask_builtin_hint": "Valikuline. Sisseehitatud vestlusmudel vastab selles arvutis, midagi pole vaja installida ja midagi ei lahku sellest: kiiresti Maci GPU-l, aeglaselt ainult protsessoril (minut või rohkem enne esimest sõna). Mudeliserver vastab kiiremini ja suuremate mudelitega.",
  "setup.ask_hint": "Loetletud on vaid mudelid, mis oskavad vastata. Selle masina jaoks: {model}. Testküsimus näitab, kui kiiresti see vastab.",
+ "setup.ask_off": "Jäta Küsi praegu vahele",
  "setup.builtin": "Sisseehitatud mudel ({size} allalaadimist, töötab {where}; midagi ei lahku masinast)",
  "setup.builtin_hint": "multilingual-e5-small: 100 keelt, töötab igas masinas. Igat faili loetakse uuesti, kui lülitud sellele.",
  "setup.builtin_on": "Tähenduse järgi otsing on sees, sisseehitatud mudeliga. Otsinguabiline loeb nüüd taustal sinu failide tähendust; tähenduse järgi tabamused ilmuvad otsingutesse jooksvalt.",

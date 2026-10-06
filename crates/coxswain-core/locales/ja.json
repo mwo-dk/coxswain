@@ -142,8 +142,10 @@
  "archive.preview_locked": "このファイルはパスワードでロックされています。",
  "archive.preview_opening": "{archive} から開いています…",
  "archive.preview_unlock": "パスワードを入力",
+ "ask.builtin_estimate": "このプロセッサーでは: 最初の語まで約 {seconds} 秒、その後毎秒 {words} 語",
  "ask.builtin_missing": "{model} はまだダウンロードされていません: 設定 の 質問、または 設定… からダウンロードしてください",
  "ask.builtin_name": "{model} (内蔵)",
+ "ask.builtin_slow": "遅すぎるため推奨しません。モデルサーバーのほうが速く答えます",
  "bom.advice": "対処方法",
  "bom.as_in_file": "ファイルの順",
  "bom.assets": {
@@ -1239,6 +1241,7 @@
  "setup.ask_builtin": "{model} (内蔵、ダウンロード {size}、{where}。何もこのマシンの外に出ません)",
  "setup.ask_builtin_hint": "任意です。内蔵のチャットモデルはこのマシンで答えます。インストールするものはなく、何も外に出ません。Mac の GPU では速く、CPU だけでは遅くなります (最初の言葉まで 1 分以上)。モデルサーバーのほうが速く、より大きなモデルで答えます。",
  "setup.ask_hint": "回答できるモデルだけを表示しています。このコンピューターには {model}。テスト用の質問で、答える速さがわかります。",
+ "setup.ask_off": "質問は今はスキップ",
  "setup.builtin": "内蔵モデル ({size} のダウンロード、{where}。何もこのマシンの外に出ません)",
  "setup.builtin_hint": "multilingual-e5-small: 100 の言語に対応し、どのコンピューターでも動きます。切り替えると、すべてのファイルを読み直します。",
  "setup.builtin_on": "意味検索がオンになりました (内蔵モデル)。検索ヘルパーがバックグラウンドでファイルの意味を読み込んでいます。意味による結果は、読み込みが進むにつれて検索に表示されます。",
