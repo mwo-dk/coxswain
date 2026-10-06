@@ -1,7 +1,7 @@
 # The desktop app as a Flatpak, built from source with no network: Cargo's and npm's downloads
 # come from cargo-sources.json and node-sources.json, which sources.sh writes from the lock
-# files. This copy builds the checkout it sits in (CI); flathub.py writes Flathub's copy, which
-# builds a release tag. docs/reference/flatpak.md.
+# files. It builds the checkout it sits in (the Flatpak workflow, or by hand). It is not
+# Flathub's manifest: see SUBMIT.md. docs/reference/flatpak.md.
 id: io.github.mwo_dk.Coxswain
 runtime: org.gnome.Platform
 # WebKitGTK 4.1 (GTK 3), which Tauri 2 uses, is in the GNOME runtime up to 51 at least.
@@ -73,7 +73,6 @@ modules:
       - python3 packaging/flatpak/metainfo.py > io.github.mwo_dk.Coxswain.metainfo.xml
       - install -Dm644 io.github.mwo_dk.Coxswain.metainfo.xml -t /app/share/metainfo
     sources:
-      # source: the checkout (flathub.py puts the release tag here)
       - type: dir
         path: ../..
         skip:
@@ -83,6 +82,5 @@ modules:
           - .flatpak-builder
           - packaging/flatpak/build
           - packaging/flatpak/repo
-      # end source
       - cargo-sources.json
       - node-sources.json

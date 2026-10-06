@@ -77,6 +77,7 @@ The whole walk-through: [Smart search in a few minutes](docs/search/setup.md).
 |---|---|---|
 | macOS | `brew install mwo-dk/coxswain/coxswain` | `brew install --cask mwo-dk/coxswain/coxswain-gui`, or the `.dmg` |
 | Linux | `brew install mwo-dk/coxswain/coxswain`, or the static `x86_64-unknown-linux-musl` binary | `.deb`, `.rpm`, `.AppImage`, or the Homebrew cask (x86-64) |
+| Linux, Flatpak | Not in it: the line above | `flatpak install flathub io.github.mwo_dk.Coxswain` once Flathub lists it; until then build it with `flatpak-builder` ([Flatpak](docs/reference/flatpak.md)) |
 | FreeBSD 14, 15 | `fetch -qo - https://raw.githubusercontent.com/mwo-dk/coxswain/master/install/install-freebsd.sh \| sh` installs both apps ([FreeBSD](docs/reference/freebsd.md)); `--terminal-only` for the terminal app alone | The same line (experimental), with the packages it needs from `pkg` |
 | Windows | `coxswain-terminal-<version>-x86_64-pc-windows-msvc.zip` | `.msi` or `-setup.exe` |
 | Any | `cargo install coxswain` | `./install/install.sh` (or `install\install.ps1`) from a clone |
@@ -123,7 +124,7 @@ what you see, the settings, and the questions people ask.
 | [The preview pane](docs/previews/README.md) | Every format, HTML, Office, diagrams, LaTeX, tools and containers |
 | [Files](docs/files/README.md) | Copy, move, delete, clipboard, drag and drop, batch rename, archives, properties, duplicates |
 | [Customising](docs/customise/README.md) | Settings, themes, looks, your own theme, languages, keys, glyphs |
-| [Reference](docs/reference/README.md) | The terminal app, flags, every config key, privacy, updates, where files are kept, FreeBSD |
+| [Reference](docs/reference/README.md) | The terminal app, flags, every config key, privacy, updates, where files are kept, FreeBSD, Flatpak |
 | [Questions, collected](docs/faq.md) | The common questions, linked to their full answers |
 
 ## Layout

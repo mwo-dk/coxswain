@@ -24,6 +24,7 @@ This registers the helper with the system:
 | System | Registration |
 |---|---|
 | Linux | A systemd user unit, `~/.config/systemd/user/coxswain-index.service`, with `Nice=10` and idle I/O |
+| Linux, the Flatpak | An XDG autostart entry, `~/.config/autostart/coxswain-index.desktop`, that runs `flatpak run --command=coxswain-gui io.github.mwo_dk.Coxswain --index-helper --stay` at login ([Flatpak](../reference/flatpak.md#the-search-helper)) |
 | macOS | A LaunchAgent, `~/Library/LaunchAgents/dk.mwo.coxswain.index.plist`, with `Nice` 10 and low-priority I/O |
 | Windows | A *Run* entry, `coxswain-index`, under `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` |
 | FreeBSD | An XDG autostart entry, `~/.config/autostart/coxswain-index.desktop`, which the desktop session starts at login; an rc.d script and a login-shell line are the other ways ([FreeBSD](../reference/freebsd.md#the-search-helper)) |
@@ -81,6 +82,7 @@ Nothing of its own while it works. Signs of it:
 | System | What *Start with my session* registers | Check that it runs | Turn it off |
 |---|---|---|---|
 | Linux | A systemd user service, `coxswain-index.service` | `systemctl --user status coxswain-index` | Untick it, or `coxswain --index-service off` |
+| Linux, the Flatpak | An XDG autostart entry, `~/.config/autostart/coxswain-index.desktop` | `flatpak ps` lists `io.github.mwo_dk.Coxswain` with no window open | Untick it; the running helper stays until you log out |
 | macOS | A LaunchAgent, `~/Library/LaunchAgents/dk.mwo.coxswain.index.plist` | `launchctl list \| grep coxswain` | The same |
 | Windows | A *Run* entry for your user in the registry | Task Manager → *Startup apps* lists Coxswain | The same, or disable it in Task Manager |
 | FreeBSD | An XDG autostart entry, `~/.config/autostart/coxswain-index.desktop` | `pgrep -lf index-helper` | The same; the running helper stays until you log out |
