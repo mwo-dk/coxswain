@@ -11,8 +11,7 @@ The guided setup finds the servers on this machine and what their models can do,
 your hardware, and sets it all: [Smart search in a few minutes](setup.md) (**Set up…** in
 Settings → *Finding files* or *Overview*, or `coxswain --setup-search`). It has a section per server, with the models to use.
 
-![Settings, Search by meaning, with Vectors made by Ollama, Server empty (http://localhost:11434), Embedding model bge-m3, the line The server answers. and Understood: 107 files · still to go: 0, ollama:bge-m3 and Turn off](../screenshots/search-meaning-server.png)
-<!-- screenshot: search-meaning-server.png: desktop app, Cyber theme, Settings at Finding files with Details → Meaning open: Meaning with Turn off, Made by Ollama, Server empty (http://localhost:11434), Model bge-m3, the line The server answers.; above, the status's Meaning line "107 of 107 files · bge-m3 at localhost" -->
+![Settings at Finding files with Details → Meaning open: Meaning with Turn off, Made by Ollama, Server http://localhost:11434, Model bge-m3:latest with its Pull button](../screenshots/search-meaning-server.png)
 
 ## How to use it
 

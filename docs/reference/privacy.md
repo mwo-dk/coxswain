@@ -6,8 +6,7 @@ Coxswain has no telemetry and no account. What it learns about your files (names
 hashes, meaning vectors) stays in files on your own disk, readable by you alone. This page lists
 every time something can go over the network, and how to stop each one.
 
-![Settings, Finding files, Details, Meaning, with A server with the OpenAI API chosen and Server http://evo:8000/api/v1: under it the line The text of your files is sent to evo to get its vectors](../screenshots/reference-privacy-remote.png)
-<!-- screenshot: reference-privacy-remote.png: desktop app, Cyber theme, Settings at Finding files with Details → Meaning open: Made by "A server with the OpenAI API", Server http://evo:8000/api/v1, and under it in bold "The text of your files, with their names and folders, is sent to evo to be read for meaning." (retake for 2.0: the old picture says "to get its vectors") -->
+![Settings with Details → Meaning open: Made by a server with the OpenAI API, Server http://192.0.2.10:8000/api/v1 marked can leave this machine, and in bold: The text of your files, with their names and folders, is sent to 192.0.2.10:8000 to be read for meaning](../screenshots/reference-privacy-remote.png)
 
 ## Contents
 

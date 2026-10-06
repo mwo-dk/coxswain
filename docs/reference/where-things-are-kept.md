@@ -5,9 +5,8 @@
 Coxswain keeps its settings, its memory and its caches in the usual folders of each system. Use
 this page to find a file, to see what takes room, or to remove everything.
 
-![Settings, Search inside files: the search store's size and its path /home/demo/.cache/coxswain/search.db under the switch](../screenshots/gui-settings-search.png)
+![Settings at Finding files with Details → Background reading open: Start with my session, Read now, the path /home/demo/.cache/coxswain/search.db with Show in panel, and Delete what was read (284 KB)](../screenshots/search-helper-session.png)
 *Settings → Finding files → Details → Background reading shows where the search store is and how large it is; Meaning shows the model's folder the same way, and Privacy and updates → Where things are kept lists every path.*
-<!-- screenshot: gui-settings-search.png: desktop app, Cyber theme, Settings at Finding files with Details → Background reading open: Start with my session, Read now, the path /home/demo/.cache/coxswain/search.db with Show in panel, and Delete what was read (284 KB) -->
 
 ## Contents
 

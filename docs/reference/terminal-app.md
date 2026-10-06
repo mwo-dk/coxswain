@@ -200,7 +200,7 @@ Find's footer says *meaning for 3,437* once the helper has it running. Full deta
   below it; *Enter Close* at the bottom. See
   [When something goes wrong](../files/copy.md#when-something-goes-wrong).
 
-<!-- screenshot: tui-text-search.png: the terminal app (Classic blue), Find at In files with "engine" typed: each hit a name and folder, the passage on the next line, "engine" highlighted -->
+![The terminal app's Find at In files with "engine" typed: each hit a name and folder, the passage on the next line, engine highlighted](../screenshots/tui-text-search.png)
 *Find in the terminal app: a hit in a file takes two lines, the file and the passage.*
 
 ## Settings and config.toml

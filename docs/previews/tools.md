@@ -111,7 +111,7 @@ command that installs the program on this system, with **Copy**, and a **Setting
 button that opens *Settings → Previews* to choose a container runtime or an image. Coxswain never
 runs the command: paste it into a shell, then show the file again.
 
-<!-- screenshot: previews-install-line.png: desktop app, Cyber theme, the preview pane on a .puml file with no plantuml and no container runtime: "plantuml is not installed. Neither podman nor docker is installed. Install the program, or let a container make this preview.", "Install it: sudo pacman -S plantuml" with Copy, and the Settings → Previews button -->
+![The preview pane on sequence.puml with no plantuml and no container runtime: plantuml is not installed. Neither podman nor docker is installed., the line Install it: sudo pacman -S plantuml with Copy, and Settings → Previews](../screenshots/previews-install-line.png)
 
 The package manager is the system's own: `pkg` on FreeBSD, Homebrew on a Mac, `winget` on
 Windows, and on Linux the first of `pacman`, `apt`, `dnf` and `zypper` that is installed.

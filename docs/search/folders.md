@@ -6,9 +6,8 @@ You choose which folders have their text read for [Text in files](text.md), and 
 by name only. By default it is your home folder, less hidden folders and build output. Use this
 to add a data disk, or to keep a mail store or other people's papers out of the index.
 
-![Settings, Search inside files: the box "Keep the text of files", Searchable: 107 files · still to read: 0 · 284 KB on disk, the path of search.db, Read now and Delete what was read, Folders read "Your home folder" and Names only "None", each with a field and Add](../screenshots/gui-settings-search.png)
+![Settings at Finding files with Details → Folders open: Folders read (your home folder, 14.3 MB in the index), Names only, Left out everywhere with node_modules, target and the rest, Where names are found, Never indexed and Follow changes as they happen](../screenshots/search-folders.png)
 *Settings → Finding files, with the lists of folders.*
-<!-- screenshot: gui-settings-search.png: desktop app, Cyber theme, Settings at Finding files with Details open at Folders: Folders read "Your home folder · … in the index", Names only "None", Left out everywhere with node_modules, target … each with ×, Where names are found and Never indexed, each with a field and Add -->
 
 ## How to use it
 

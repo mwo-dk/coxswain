@@ -5,8 +5,7 @@
 **F5** copies the marked files, or the one under the cursor, to the other panel's folder or to
 any path you type. It never writes over anything, and one failure does not stop the rest.
 
-![The desktop app's Copy dialog: Copy 3 items to:, the field filled with the other pane's folder, OK and Cancel](../screenshots/files-copy.png)
-<!-- screenshot: files-copy.png: retake for 2.0: the desktop app's dialog titled Copy 3 items, the label To: over the field filled with the other pane's folder, the buttons Copy and Cancel, and under them the line Enter Copy · Esc Cancel -->
+![The desktop app's dialog Copy 3 items: To: with the other pane's folder /home/demo/Backups, the buttons Copy and Cancel, and the line Enter Copy · Esc Cancel](../screenshots/files-copy.png)
 
 ## How to use it
 
@@ -71,7 +70,7 @@ The other file operations report the same way, under their own title: *Could not
 *Could not extract …* ([pack and extract](pack-and-extract.md)), *Could not paste*
 ([clipboard](clipboard.md)), *Could not switch to main* ([git branches](../panels/git-branches.md)).
 
-<!-- screenshot: files-copy-error.png: the desktop app's error dialog titled Could not copy 3 items, the cause "Permission denied", Details unfolded with two lines path: reason, the Close button and the line Enter Close -->
+![The error dialog Could not copy 3 items: the cause Permission denied, Details unfolded with a line per file, the Close button and the line Enter Close](../screenshots/files-copy-error.png)
 
 ## Settings and config.toml
 

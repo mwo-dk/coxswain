@@ -6,7 +6,7 @@ The index lives in a helper process that every window and terminal app shares: o
 memory, one scan of the disk, one `search.db`. It starts with the first app and leaves ten minutes
 after the last, or it can start with your session so it reads while no window is open.
 
-<!-- screenshot: search-helper-session.png: desktop app, Cyber theme, Settings → Finding files with the Words line "Files read: … · waiting: …" in the status, and Details → Background reading open: the ticked box "Start with my session", Read now, the path of search.db with Show in panel, and Delete what was read (…) -->
+![Settings at Finding files with Details → Background reading open: Start with my session, Read now, the path /home/demo/.cache/coxswain/search.db with Show in panel, and Delete what was read (284 KB)](../screenshots/search-helper-session.png)
 
 ## How to use it
 

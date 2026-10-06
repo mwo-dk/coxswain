@@ -7,9 +7,8 @@ app's Settings window (**Ctrl+,**) changes the most used parts at once; everythi
 of the terminal app, is set in one file, `config.toml`, that both apps read. These pages walk
 through each part, with the keys and the exact `config.toml` lines.
 
-![The Settings window in Cyber: every language with its flag, then the theme swatches, glyphs and fonts](../screenshots/gui-settings.png)
+![Settings at Looks: the languages under their regions, the For switch on Desktop app, and the theme swatches with Cyber chosen](../screenshots/settings-looks.png)
 *The Settings window at Looks: the language, the theme, glyphs and fonts.*
-<!-- screenshot: gui-settings.png: desktop app, Cyber theme, Settings open at Looks: on the left the "Find a setting…" field and the areas Overview, Finding files, Previews, Looks, Behaviour, Keys, Privacy and updates; on the right the languages with flags, the theme swatches with the For: Desktop app / Terminal app switch, glyphs and fonts -->
 
 | Page | What it covers |
 |---|---|

@@ -49,7 +49,7 @@ Commander blue to Windows 95 and Mac OS 9.*
 
 | | |
 |---|---|
-| ![The terminal app: two blue panels, git status on the left](docs/screenshots/tui-panels.png) | <!-- screenshot: search-find-groups.png: the desktop app (Cyber), Find with "engine" typed: In files with main.rs, sequence.puml, launch-pad.drawio and their passages, "engine" highlighted, then History --> |
+| ![The terminal app: two blue panels, git status on the left](docs/screenshots/tui-panels.png) | ![The desktop app's Find with "engine" typed: In files with main.rs, sequence.puml, launch-pad.drawio and engine.rs and their passages, engine highlighted, then About this and History](docs/screenshots/search-find-groups.png) |
 | [The terminal app](docs/reference/terminal-app.md) | [Find](docs/search/find-file.md) |
 | ![The preview pane: Markdown with a Mermaid diagram and math, a notebook, a spreadsheet, a Word document and a font](docs/screenshots/gui-previews.png) | ![A tar.gz archive open like a folder](docs/screenshots/gui-archive.png) |
 | [The preview pane](docs/previews/README.md) | [Archives as folders](docs/files/archives.md) |

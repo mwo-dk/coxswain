@@ -7,8 +7,7 @@ its top, how each part of search stands and its next step; then how far Find loo
 levels; then **Details**, with every switch on its own. Every option is also a key under
 `[search]` in `config.toml`.
 
-![Settings at Finding files: the status block with Names, Words, Meaning and Ask, then How far should Find look? with its four levels](../screenshots/gui-settings-search.png)
-<!-- screenshot: gui-settings-search.png: desktop app, Cyber, Settings → Finding files with Details unfolded: the status block, the levels, What is read (Words inside files ticked, Look inside archives, Git history, Read files that are only online, Programs that read more) -->
+![Settings at Finding files with Details → What is read open: Words inside files, Look inside archives and Git history ticked, Cloud folders read anyway, Programs that read more, Largest file read and Most hits](../screenshots/gui-settings-search.png)
 *Settings → Finding files.*
 
 ## Contents
