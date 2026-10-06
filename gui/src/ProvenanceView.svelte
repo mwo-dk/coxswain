@@ -3,7 +3,7 @@
   // disk (docs/design/provenance-viewer.md). In the preview pane, and full-window (`full`) from
   // its ⤢ button. The Rust side (provenance.rs) reads and checks; nothing is verified. Every
   // string from the file is shown as text, never HTML.
-  import { onDestroy } from "svelte";
+  import { onDestroy, untrack } from "svelte";
   import { ui, tab, otherTab, item, cd, focusPane } from "./app.svelte.js";
   import { invoke, basename, parent, previewKind, size, date } from "./lib.js";
   import { t, tn } from "./i18n.svelte.js";
@@ -56,14 +56,17 @@
     const k = at;
     const other = otherDir !== here ? otherDir : null;
     const e = entry;
-    subjects = [];
-    sources = [];
-    if (!e) return;
-    e.statement.subjects.forEach((_, i) => check(p, k, i, other, false));
-    if (e.git.some(Boolean))
-      invoke("provenance_sources", { path: p, entry: k, other })
-        .then((s) => p === path && k === at && (sources = s))
-        .catch(() => {});
+    // Only the reads above make this run again: the checks write the results they read.
+    untrack(() => {
+      subjects = [];
+      sources = [];
+      if (!e) return;
+      e.statement.subjects.forEach((_, i) => check(p, k, i, other, false));
+      if (e.git.some(Boolean))
+        invoke("provenance_sources", { path: p, entry: k, other })
+          .then((s) => p === path && k === at && (sources = s))
+          .catch(() => {});
+    });
   });
 
   function check(p, k, i, other, all) {
@@ -93,8 +96,11 @@
   $effect(() => {
     void at;
     void path;
-    sel = { col: prov ? "build" : "out", i: 0 };
-    moreInputs = false;
+    const start = prov ? "build" : "out";
+    untrack(() => {
+      sel = { col: start, i: 0 };
+      moreInputs = false;
+    });
   });
 
   const ARROW_MARK = { matches: "✓", differs: "✗", missing: "?", cannotCheck: "–", large: "↵", unreadable: "!" };

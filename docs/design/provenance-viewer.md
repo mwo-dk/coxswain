@@ -1,6 +1,6 @@
 # Design: a build provenance viewer (SLSA, in-toto)
 
-Status: **agreed**; being built. Branch `feature/provenance`.
+Status: **built** (2.2.0). The user's page is [Build provenance](../previews/provenance.md). Branch `feature/provenance`.
 
 ## What and why
 

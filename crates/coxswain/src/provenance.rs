@@ -608,7 +608,7 @@ impl Viewer {
     /// Lines into `area`, scrolled so the selected ones show, those highlighted.
     fn render(f: &mut Frame, area: Rect, lines: Vec<Line<'static>>, sel: std::ops::Range<usize>, theme: &Theme) {
         let h = area.height as usize;
-        let top = if sel.end > h { sel.end - h } else { 0 };
+        let top = sel.end.saturating_sub(h);
         for (k, line) in lines.into_iter().enumerate().skip(top).take(h) {
             let style = if sel.contains(&k) { sty(&theme.dialog_input) } else { Style::default() };
             f.render_widget(Paragraph::new(line).style(style), Rect { y: area.y + (k - top) as u16, height: 1, ..area });
