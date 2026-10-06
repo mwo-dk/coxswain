@@ -710,7 +710,7 @@
  "news.show_me": "Show me",
  "news.title": "What's new",
  "notice.cjk_font": "No Japanese or Korean font is installed, so their letters may show as boxes. Install one, for example noto-fonts-cjk (Arch), fonts-noto-cjk (Debian, Ubuntu) or google-noto-sans-cjk-fonts (Fedora).",
- "notice.cjk_font_freebsd": "No Japanese or Korean font is installed, so their letters may show as boxes. Install one with: pkg install noto-sans-jp noto-sans-kr",
+ "notice.cjk_font_cmd": "No Japanese or Korean font is installed, so their letters may show as boxes. Install one with: {cmd}",
  "notice.cloud": "Found {names}: files that are only online are found by name only, so nothing is downloaded. Change in Settings",
  "notice.cloud_tui": "Found {names}: files that are only online are found by name only, so nothing is downloaded. cloud = \"all\" in config.toml reads them",
  "notice.history": "New: {key} on a file or folder in a git repository shows its history, commit by commit",
@@ -819,7 +819,7 @@
  "preview.issuer": "Issuer",
  "preview.media_appimage": "This AppImage plays video and sound only with GStreamer plugins where Debian and Ubuntu keep them, and there are none. Install Coxswain from your package manager, or open the file in its app.",
  "preview.media_missing": "Video and sound need GStreamer's good plugins to play here (gst-plugins-good; gstreamer1.0-plugins-good on Debian and Ubuntu). Install them, then open Coxswain again.",
- "preview.media_missing_freebsd": "Video and sound need GStreamer's good plugins to play here. Install them with: pkg install gstreamer1-plugins-good. Then open Coxswain again.",
+ "preview.media_missing_cmd": "Video and sound need GStreamer's good plugins to play here. Install them with: {cmd}. Then open Coxswain again.",
  "preview.media_open": "Open in its app",
  "preview.more": {
   "one": "… {n} more",

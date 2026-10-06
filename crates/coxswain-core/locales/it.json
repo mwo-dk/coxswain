@@ -740,7 +740,7 @@
  "news.show_me": "Mostrami",
  "news.title": "Novità",
  "notice.cjk_font": "Non è installato nessun font giapponese o coreano, quindi i caratteri possono apparire come quadratini. Installane uno, per esempio noto-fonts-cjk (Arch), fonts-noto-cjk (Debian, Ubuntu) o google-noto-sans-cjk-fonts (Fedora).",
- "notice.cjk_font_freebsd": "Non è installato alcun font giapponese o coreano, quindi i loro caratteri possono apparire come quadratini. Installane uno con: pkg install noto-sans-jp noto-sans-kr",
+ "notice.cjk_font_cmd": "Non è installato alcun font giapponese o coreano, quindi i loro caratteri possono apparire come quadratini. Installane uno con: {cmd}",
  "notice.cloud": "Trovato {names}: i file solo online vengono trovati solo per nome, quindi nulla viene scaricato. Modificabile nelle Impostazioni",
  "notice.cloud_tui": "Trovato {names}: i file solo online vengono trovati solo per nome, quindi nulla viene scaricato. cloud = \"all\" in config.toml li legge",
  "notice.history": "Novità: {key} su un file o una cartella di un repository git ne mostra la cronologia, commit per commit",
@@ -858,7 +858,7 @@
  "preview.issuer": "Emittente",
  "preview.media_appimage": "Questa AppImage riproduce video e audio solo con i plugin di GStreamer dove li tengono Debian e Ubuntu, e lì non ce ne sono. Installa Coxswain dal gestore di pacchetti, o apri il file nella sua app.",
  "preview.media_missing": "Video e audio hanno bisogno dei plugin good di GStreamer per essere riprodotti qui (gst-plugins-good; gstreamer1.0-plugins-good su Debian e Ubuntu). Installali, poi riapri Coxswain.",
- "preview.media_missing_freebsd": "Video e audio richiedono i plugin good di GStreamer per essere riprodotti qui. Installali con: pkg install gstreamer1-plugins-good. Poi riapri Coxswain.",
+ "preview.media_missing_cmd": "Video e audio richiedono i plugin good di GStreamer per essere riprodotti qui. Installali con: {cmd}. Poi riapri Coxswain.",
  "preview.media_open": "Apri nella sua app",
  "preview.more": {
   "many": "… altri {n}",

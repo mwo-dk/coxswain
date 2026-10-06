@@ -740,7 +740,7 @@
  "news.show_me": "Parodyti",
  "news.title": "Kas naujo",
  "notice.cjk_font": "Neįdiegtas joks japonų ar korėjiečių šriftas, todėl raidės gali būti rodomos kaip kvadratėliai. Įdiekite kurį nors, pavyzdžiui, noto-fonts-cjk (Arch), fonts-noto-cjk (Debian, Ubuntu) arba google-noto-sans-cjk-fonts (Fedora).",
- "notice.cjk_font_freebsd": "Neįdiegtas joks japonų ar korėjiečių šriftas, todėl jų rašmenys gali būti rodomi kaip langeliai. Įdiekite jį komanda: pkg install noto-sans-jp noto-sans-kr",
+ "notice.cjk_font_cmd": "Neįdiegtas joks japonų ar korėjiečių šriftas, todėl jų rašmenys gali būti rodomi kaip langeliai. Įdiekite jį komanda: {cmd}",
  "notice.cloud": "Rasta {names}: failai, kurie yra tik internete, randami tik pagal pavadinimą, todėl niekas neatsisiunčiama. Pakeiskite nustatymuose",
  "notice.cloud_tui": "Rasta {names}: failai, kurie yra tik internete, randami tik pagal pavadinimą, todėl niekas neatsisiunčiama. cloud = \"all\" faile config.toml juos skaito",
  "notice.history": "Nauja: {key} ant failo ar aplanko git saugykloje parodo jo istoriją, commit po commit",
@@ -858,7 +858,7 @@
  "preview.issuer": "Išdavėjas",
  "preview.media_appimage": "Šis AppImage groja vaizdą ir garsą tik su GStreamer papildiniais ten, kur juos laiko Debian ir Ubuntu, o ten jų nėra. Įdiekite Coxswain per paketų tvarkytuvę arba atverkite failą jo programoje.",
  "preview.media_missing": "Vaizdo ir garso įrašams čia groti reikia geriausių GStreamer papildinių (gst-plugins-good; Debian ir Ubuntu – gstreamer1.0-plugins-good). Įdiekite juos ir vėl atverkite Coxswain.",
- "preview.media_missing_freebsd": "Vaizdo ir garso įrašams čia groti reikia GStreamer good papildinių. Įdiekite juos komanda: pkg install gstreamer1-plugins-good. Tada vėl atverkite Coxswain.",
+ "preview.media_missing_cmd": "Vaizdo ir garso įrašams čia groti reikia GStreamer good papildinių. Įdiekite juos komanda: {cmd}. Tada vėl atverkite Coxswain.",
  "preview.media_open": "Atverti jo programoje",
  "preview.more": {
   "few": "… ir dar {n}",

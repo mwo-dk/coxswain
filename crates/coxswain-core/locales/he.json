@@ -740,7 +740,7 @@
  "news.show_me": "הצגה",
  "news.title": "מה חדש",
  "notice.cjk_font": "לא מותקן גופן יפני או קוריאני, ולכן האותיות עלולות להופיע כריבועים. התקינו גופן, למשל noto-fonts-cjk (Arch), fonts-noto-cjk (Debian, Ubuntu) או google-noto-sans-cjk-fonts (Fedora).",
- "notice.cjk_font_freebsd": "לא מותקן גופן יפני או קוריאני, ולכן האותיות עלולות להופיע כריבועים. אפשר להתקין גופן עם: pkg install noto-sans-jp noto-sans-kr",
+ "notice.cjk_font_cmd": "לא מותקן גופן יפני או קוריאני, ולכן האותיות עלולות להופיע כריבועים. אפשר להתקין גופן עם: {cmd}",
  "notice.cloud": "נמצא {names}: קבצים שנמצאים רק בענן נמצאים לפי שם בלבד, כך ששום דבר לא מורד. ניתן לשנות בהגדרות",
  "notice.cloud_tui": "נמצא {names}: קבצים שנמצאים רק בענן נמצאים לפי שם בלבד, כך ששום דבר לא מורד. cloud = \"all\" ב-config.toml קורא אותם",
  "notice.history": "חדש: {key} על קובץ או תיקייה במאגר git מציג את ההיסטוריה שלהם, commit אחר commit",
@@ -858,7 +858,7 @@
  "preview.issuer": "מנפיק",
  "preview.media_appimage": "ה-AppImage הזה מנגן וידאו וקול רק עם תוספי GStreamer במקום שבו Debian ו-Ubuntu שומרות אותם, ואין שם אף אחד. אפשר להתקין את Coxswain ממנהל החבילות, או לפתוח את הקובץ ביישום שלו.",
  "preview.media_missing": "כדי לנגן כאן וידאו וקול צריך את התוספים הטובים של GStreamer ‏(gst-plugins-good; ב-Debian וב-Ubuntu ‏gstreamer1.0-plugins-good). יש להתקין אותם ולפתוח את Coxswain מחדש.",
- "preview.media_missing_freebsd": "כדי לנגן כאן וידאו וקול צריך את התוספים הטובים של GStreamer. יש להתקין אותם עם: pkg install gstreamer1-plugins-good. אחר כך לפתוח את Coxswain מחדש.",
+ "preview.media_missing_cmd": "כדי לנגן כאן וידאו וקול צריך את התוספים הטובים של GStreamer. יש להתקין אותם עם: {cmd}. אחר כך לפתוח את Coxswain מחדש.",
  "preview.media_open": "פתיחה ביישום שלו",
  "preview.more": {
   "one": "… ועוד {n}",

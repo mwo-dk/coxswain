@@ -111,7 +111,10 @@ pub fn all(cfg: &Config, status: &Status, state: &AppState, terminal: bool) -> V
         }
         // Japanese or Korean without a font for it: what to install.
         if crate::tools::cjk_font_missing() {
-            let text = if cfg!(target_os = "freebsd") { t!("notice.cjk_font_freebsd") } else { t!("notice.cjk_font") };
+            let text = match crate::tools::install("cjk-font") {
+                Some(cmd) => t!("notice.cjk_font_cmd", "cmd" => cmd),
+                None => t!("notice.cjk_font"),
+            };
             all.push(Notice::new("cjk-font", text, None));
         }
     }

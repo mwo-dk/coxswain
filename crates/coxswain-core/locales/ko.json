@@ -680,7 +680,7 @@
  "news.show_me": "보기",
  "news.title": "새로운 기능",
  "notice.cjk_font": "일본어나 한국어 글꼴이 설치되어 있지 않아 글자가 네모로 보일 수 있습니다. noto-fonts-cjk(Arch), fonts-noto-cjk(Debian, Ubuntu), google-noto-sans-cjk-fonts(Fedora) 등을 설치하세요.",
- "notice.cjk_font_freebsd": "일본어 또는 한국어 글꼴이 설치되어 있지 않아 글자가 네모로 보일 수 있습니다. 다음 명령으로 설치하세요: pkg install noto-sans-jp noto-sans-kr",
+ "notice.cjk_font_cmd": "일본어 또는 한국어 글꼴이 설치되어 있지 않아 글자가 네모로 보일 수 있습니다. 다음 명령으로 설치하세요: {cmd}",
  "notice.cloud": "{names}을(를) 찾았습니다: 온라인 전용 파일은 이름으로만 찾으므로 아무것도 다운로드하지 않습니다. 설정에서 바꿀 수 있습니다",
  "notice.cloud_tui": "{names}을(를) 찾았습니다: 온라인 전용 파일은 이름으로만 찾으므로 아무것도 다운로드하지 않습니다. config.toml에 cloud = \"all\"을 쓰면 읽습니다",
  "notice.history": "새 기능: git 저장소의 파일이나 폴더에서 {key}을(를) 누르면 커밋별 기록을 보여 줍니다",
@@ -780,7 +780,7 @@
  "preview.issuer": "발급자",
  "preview.media_appimage": "이 AppImage는 Debian과 Ubuntu가 두는 위치에 있는 GStreamer 플러그인으로만 동영상과 소리를 재생하는데, 그곳에 플러그인이 없습니다. 패키지 관리자로 Coxswain을 설치하거나 파일을 해당 앱에서 여세요.",
  "preview.media_missing": "여기서 동영상과 소리를 재생하려면 GStreamer good 플러그인이 필요합니다 (gst-plugins-good, Debian과 Ubuntu에서는 gstreamer1.0-plugins-good). 설치한 다음 Coxswain을 다시 여세요.",
- "preview.media_missing_freebsd": "여기서 동영상과 소리를 재생하려면 GStreamer good 플러그인이 필요합니다. 다음 명령으로 설치하세요: pkg install gstreamer1-plugins-good. 그런 다음 Coxswain을 다시 여세요.",
+ "preview.media_missing_cmd": "여기서 동영상과 소리를 재생하려면 GStreamer good 플러그인이 필요합니다. 다음 명령으로 설치하세요: {cmd}. 그런 다음 Coxswain을 다시 여세요.",
  "preview.media_open": "해당 앱에서 열기",
  "preview.more": {
   "other": "… {n}개 더"

@@ -770,7 +770,7 @@
  "news.show_me": "Показати",
  "news.title": "Що нового",
  "notice.cjk_font": "Не встановлено жодного японського чи корейського шрифту, тож літери можуть показуватися квадратиками. Встановіть якийсь, наприклад noto-fonts-cjk (Arch), fonts-noto-cjk (Debian, Ubuntu) або google-noto-sans-cjk-fonts (Fedora).",
- "notice.cjk_font_freebsd": "Не встановлено японського чи корейського шрифту, тому їхні літери можуть показуватися квадратиками. Встановіть його командою: pkg install noto-sans-jp noto-sans-kr",
+ "notice.cjk_font_cmd": "Не встановлено японського чи корейського шрифту, тому їхні літери можуть показуватися квадратиками. Встановіть його командою: {cmd}",
  "notice.cloud": "Знайдено {names}: файли, які є лише онлайн, знаходяться тільки за іменем, тож нічого не завантажується. Змінити в налаштуваннях",
  "notice.cloud_tui": "Знайдено {names}: файли, які є лише онлайн, знаходяться тільки за іменем, тож нічого не завантажується. cloud = \"all\" у config.toml читає їх",
  "notice.history": "Нове: {key} на файлі чи папці в репозиторії git показує їхню історію, коміт за комітом",
@@ -897,7 +897,7 @@
  "preview.issuer": "Видавець",
  "preview.media_appimage": "Цей AppImage відтворює відео і звук лише з плагінами GStreamer там, де їх тримають Debian і Ubuntu, а їх там немає. Встановіть Coxswain з менеджера пакетів або відкрийте файл у його програмі.",
  "preview.media_missing": "Щоб відтворювати тут відео і звук, потрібні плагіни GStreamer good (gst-plugins-good; gstreamer1.0-plugins-good у Debian і Ubuntu). Встановіть їх, потім відкрийте Coxswain знову.",
- "preview.media_missing_freebsd": "Для відтворення відео й звуку тут потрібні плагіни good для GStreamer. Встановіть їх командою: pkg install gstreamer1-plugins-good. Потім відкрийте Coxswain знову.",
+ "preview.media_missing_cmd": "Для відтворення відео й звуку тут потрібні плагіни good для GStreamer. Встановіть їх командою: {cmd}. Потім відкрийте Coxswain знову.",
  "preview.media_open": "Відкрити в його програмі",
  "preview.more": {
   "few": "… ще {n}",

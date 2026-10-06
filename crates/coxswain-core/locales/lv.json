@@ -740,7 +740,7 @@
  "news.show_me": "Parādīt",
  "news.title": "Jaunumi",
  "notice.cjk_font": "Nav instalēts neviens japāņu vai korejiešu fonts, tāpēc burti var izskatīties kā kvadrātiņi. Instalē kādu, piemēram, noto-fonts-cjk (Arch), fonts-noto-cjk (Debian, Ubuntu) vai google-noto-sans-cjk-fonts (Fedora).",
- "notice.cjk_font_freebsd": "Nav instalēts neviens japāņu vai korejiešu fonts, tāpēc to burti var izskatīties kā kvadrātiņi. Instalējiet to ar: pkg install noto-sans-jp noto-sans-kr",
+ "notice.cjk_font_cmd": "Nav instalēts neviens japāņu vai korejiešu fonts, tāpēc to burti var izskatīties kā kvadrātiņi. Instalējiet to ar: {cmd}",
  "notice.cloud": "Atrasts {names}: faili, kas ir tikai tiešsaistē, tiek atrasti tikai pēc nosaukuma, tāpēc nekas netiek lejupielādēts. Mainiet iestatījumos",
  "notice.cloud_tui": "Atrasts {names}: faili, kas ir tikai tiešsaistē, tiek atrasti tikai pēc nosaukuma, tāpēc nekas netiek lejupielādēts. cloud = \"all\" failā config.toml tos lasa",
  "notice.history": "Jaunums: {key} uz faila vai mapes git repozitorijā parāda tā vēsturi, commit pa commit",
@@ -858,7 +858,7 @@
  "preview.issuer": "Izdevējs",
  "preview.media_appimage": "Šis AppImage atskaņo video un skaņu tikai ar GStreamer spraudņiem tur, kur tos glabā Debian un Ubuntu, un tur to nav. Instalējiet Coxswain ar pakotņu pārvaldnieku vai atveriet failu tā lietotnē.",
  "preview.media_missing": "Video un skaņai šeit atskaņošanai vajag GStreamer labos spraudņus (gst-plugins-good; Debian un Ubuntu – gstreamer1.0-plugins-good). Instalējiet tos un atveriet Coxswain vēlreiz.",
- "preview.media_missing_freebsd": "Video un skaņai šeit atskaņošanai vajag GStreamer good spraudņus. Instalējiet tos ar: pkg install gstreamer1-plugins-good. Pēc tam atveriet Coxswain vēlreiz.",
+ "preview.media_missing_cmd": "Video un skaņai šeit atskaņošanai vajag GStreamer good spraudņus. Instalējiet tos ar: {cmd}. Pēc tam atveriet Coxswain vēlreiz.",
  "preview.media_open": "Atvērt tā lietotnē",
  "preview.more": {
   "one": "… vēl {n}",

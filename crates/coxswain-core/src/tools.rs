@@ -62,8 +62,8 @@ pub fn media_missing() -> Option<String> {
     }
     Some(if appimage {
         crate::t!("preview.media_appimage")
-    } else if cfg!(target_os = "freebsd") {
-        crate::t!("preview.media_missing_freebsd")
+    } else if install("gst-good").is_some() {
+        crate::t!("preview.media_missing_cmd", "cmd" => install("gst-good").unwrap_or_default())
     } else {
         crate::t!("preview.media_missing")
     })
@@ -84,6 +84,9 @@ pub fn cjk_font_missing() -> bool {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Manager {
     Pkg,
+    Pkgin,
+    PkgAdd,
+    Ips,
     Pacman,
     Apt,
     Dnf,
@@ -93,11 +96,18 @@ pub enum Manager {
 }
 
 impl Manager {
-    /// This system's: pkg on FreeBSD, Homebrew on a Mac, winget on Windows, on Linux the first
-    /// of pacman, apt, dnf and zypper that is installed.
+    /// This system's: pkg on FreeBSD and DragonFly, pkgin on NetBSD, pkg_add on OpenBSD, IPS's
+    /// pkg on illumos, on Linux the first of pacman, apt, dnf and zypper that is installed,
+    /// Homebrew on a Mac, winget on Windows.
     pub fn here() -> Option<Manager> {
-        if cfg!(target_os = "freebsd") {
+        if cfg!(any(target_os = "freebsd", target_os = "dragonfly")) {
             Some(Manager::Pkg)
+        } else if cfg!(target_os = "netbsd") {
+            Some(Manager::Pkgin)
+        } else if cfg!(target_os = "openbsd") {
+            Some(Manager::PkgAdd)
+        } else if cfg!(any(target_os = "illumos", target_os = "solaris")) {
+            Some(Manager::Ips)
         } else if cfg!(target_os = "macos") {
             Some(Manager::Brew)
         } else if cfg!(windows) {
@@ -110,35 +120,44 @@ impl Manager {
 
 /// The line that installs `program` with `manager`, for the user to copy and run: Coxswain never
 /// runs it. `program` is what Coxswain looks for: `tesseract`, `pdftoppm`, `soffice`, `latex`,
-/// `plantuml`, `pandoc`, or `nerd-font` (a font with the icons). `None` when that manager has no
+/// `plantuml`, `pandoc`, `nerd-font` (a font with the icons), or for the desktop app `gst-good`
+/// (video and sound) and `cjk-font` (Japanese and Korean letters). `None` when that manager has no
 /// package for it; the hint then says where to get it.
 pub fn install_line(program: &str, manager: Manager) -> Option<String> {
     use Manager::*;
-    // (pkg, pacman, apt, dnf, zypper, brew, winget); empty: none.
-    let row: [&str; 7] = match program {
-        "tesseract" => ["tesseract", "tesseract tesseract-data-eng", "tesseract-ocr", "tesseract", "tesseract-ocr", "tesseract", "UB-Mannheim.TesseractOCR"],
-        "pdftoppm" => ["poppler-utils", "poppler", "poppler-utils", "poppler-utils", "poppler-tools", "poppler", ""],
-        "soffice" => ["libreoffice", "libreoffice-fresh", "libreoffice", "libreoffice", "libreoffice", "--cask libreoffice", "TheDocumentFoundation.LibreOffice"],
-        "latex" => ["texlive-full", "texlive-basic texlive-latexextra texlive-binextra", "texlive-latex-extra latexmk", "texlive-scheme-medium latexmk", "texlive-latexmk texlive-collection-latexextra", "--cask mactex-no-gui", "MiKTeX.MiKTeX"],
-        "plantuml" => ["plantuml", "plantuml", "plantuml", "plantuml", "plantuml", "plantuml", ""],
-        "pandoc" => ["hs-pandoc", "pandoc-cli", "pandoc", "pandoc", "pandoc", "pandoc", "JohnMacFarlane.Pandoc"],
-        "nerd-font" => ["nerd-fonts", "ttf-nerd-fonts-symbols", "", "", "", "--cask font-symbols-only-nerd-font", ""],
+    // (pkg, pkgin, pkg_add, IPS, pacman, apt, dnf, zypper, brew, winget); empty: none.
+    let row: [&str; 10] = match program {
+        "tesseract" => ["tesseract", "tesseract", "tesseract", "", "tesseract tesseract-data-eng", "tesseract-ocr", "tesseract", "tesseract-ocr", "tesseract", "UB-Mannheim.TesseractOCR"],
+        "pdftoppm" => ["poppler-utils", "poppler-utils", "poppler-utils", "", "poppler", "poppler-utils", "poppler-utils", "poppler-tools", "poppler", ""],
+        "soffice" => ["libreoffice", "libreoffice", "libreoffice", "", "libreoffice-fresh", "libreoffice", "libreoffice", "libreoffice", "--cask libreoffice", "TheDocumentFoundation.LibreOffice"],
+        "latex" => ["texlive-full", "", "texlive_texmf-full", "ooce/application/texlive", "texlive-basic texlive-latexextra texlive-binextra", "texlive-latex-extra latexmk", "texlive-scheme-medium latexmk", "texlive-latexmk texlive-collection-latexextra", "--cask mactex-no-gui", "MiKTeX.MiKTeX"],
+        "plantuml" => ["plantuml", "", "plantuml", "", "plantuml", "plantuml", "plantuml", "plantuml", "plantuml", ""],
+        "pandoc" => ["hs-pandoc", "pandoc-cli", "pandoc", "", "pandoc-cli", "pandoc", "pandoc", "pandoc", "pandoc", "JohnMacFarlane.Pandoc"],
+        // What the desktop app's preview and its letters need, where a notice names the line.
+        "gst-good" => ["gstreamer1-plugins-good", "gst-plugins1-good", "gstreamer1-plugins-good", "", "", "", "", "", "", ""],
+        "cjk-font" => ["noto-sans-jp noto-sans-kr", "noto-cjk-fonts", "noto-cjk", "", "", "", "", "", "", ""],
+        "nerd-font" => ["nerd-fonts", "nerd-fonts-Symbols", "nerd-fonts", "", "ttf-nerd-fonts-symbols", "", "", "", "--cask font-symbols-only-nerd-font", ""],
         _ => return None,
     };
     let package = row[match manager {
         Pkg => 0,
-        Pacman => 1,
-        Apt => 2,
-        Dnf => 3,
-        Zypper => 4,
-        Brew => 5,
-        Winget => 6,
+        Pkgin => 1,
+        PkgAdd => 2,
+        Ips => 3,
+        Pacman => 4,
+        Apt => 5,
+        Dnf => 6,
+        Zypper => 7,
+        Brew => 8,
+        Winget => 9,
     }];
     if package.is_empty() {
         return None;
     }
     Some(match manager {
-        Pkg => format!("pkg install {package}"),
+        Pkg | Ips => format!("pkg install {package}"),
+        Pkgin => format!("pkgin install {package}"),
+        PkgAdd => format!("pkg_add {package}"),
         Pacman => format!("sudo pacman -S {package}"),
         Apt => format!("sudo apt install {package}"),
         Dnf => format!("sudo dnf install {package}"),
@@ -318,6 +337,10 @@ mod tests {
         assert_eq!(install_line("plantuml", Manager::Dnf).as_deref(), Some("sudo dnf install plantuml"));
         assert_eq!(install_line("pdftoppm", Manager::Winget), None, "no package: the hint says where to get it");
         assert_eq!(install_line("nope", Manager::Pacman), None);
+        assert_eq!(install_line("pdftoppm", Manager::Pkgin).as_deref(), Some("pkgin install poppler-utils"));
+        assert_eq!(install_line("tesseract", Manager::PkgAdd).as_deref(), Some("pkg_add tesseract"));
+        assert_eq!(install_line("gst-good", Manager::Pkg).as_deref(), Some("pkg install gstreamer1-plugins-good"));
+        assert_eq!(install_line("gst-good", Manager::Apt), None, "Linux: the notice names the packages of each distribution");
         if cfg!(target_os = "freebsd") {
             assert_eq!(Manager::here(), Some(Manager::Pkg));
         }

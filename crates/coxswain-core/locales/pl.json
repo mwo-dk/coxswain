@@ -770,7 +770,7 @@
  "news.show_me": "Pokaż",
  "news.title": "Co nowego",
  "notice.cjk_font": "Nie zainstalowano żadnej czcionki japońskiej ani koreańskiej, więc znaki mogą wyświetlać się jako kwadraty. Zainstaluj jakąś, na przykład noto-fonts-cjk (Arch), fonts-noto-cjk (Debian, Ubuntu) lub google-noto-sans-cjk-fonts (Fedora).",
- "notice.cjk_font_freebsd": "Nie zainstalowano czcionki japońskiej ani koreańskiej, więc ich znaki mogą wyglądać jak kwadraciki. Zainstaluj ją poleceniem: pkg install noto-sans-jp noto-sans-kr",
+ "notice.cjk_font_cmd": "Nie zainstalowano czcionki japońskiej ani koreańskiej, więc ich znaki mogą wyglądać jak kwadraciki. Zainstaluj ją poleceniem: {cmd}",
  "notice.cloud": "Znaleziono {names}: pliki dostępne tylko online są wyszukiwane wyłącznie po nazwie, więc nic nie jest pobierane. Zmień w Ustawieniach",
  "notice.cloud_tui": "Znaleziono {names}: pliki dostępne tylko online są wyszukiwane wyłącznie po nazwie, więc nic nie jest pobierane. cloud = \"all\" w config.toml je odczytuje",
  "notice.history": "Nowość: {key} na pliku lub folderze w repozytorium git pokazuje jego historię, commit po commicie",
@@ -897,7 +897,7 @@
  "preview.issuer": "Wystawca",
  "preview.media_appimage": "Ten AppImage odtwarza wideo i dźwięk tylko z wtyczkami GStreamer w miejscu, gdzie trzymają je Debian i Ubuntu, a tam ich nie ma. Zainstaluj Coxswain z menedżera pakietów albo otwórz plik w jego aplikacji.",
  "preview.media_missing": "Aby odtwarzać tu wideo i dźwięk, potrzebne są wtyczki good GStreamera (gst-plugins-good; gstreamer1.0-plugins-good w Debianie i Ubuntu). Zainstaluj je, a potem otwórz Coxswain ponownie.",
- "preview.media_missing_freebsd": "Do odtwarzania wideo i dźwięku potrzebne są tu wtyczki good GStreamera. Zainstaluj je poleceniem: pkg install gstreamer1-plugins-good. Potem otwórz Coxswain ponownie.",
+ "preview.media_missing_cmd": "Do odtwarzania wideo i dźwięku potrzebne są tu wtyczki good GStreamera. Zainstaluj je poleceniem: {cmd}. Potem otwórz Coxswain ponownie.",
  "preview.media_open": "Otwórz w jego aplikacji",
  "preview.more": {
   "few": "… jeszcze {n}",

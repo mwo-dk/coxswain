@@ -710,7 +710,7 @@
  "news.show_me": "Näytä",
  "news.title": "Uutta",
  "notice.cjk_font": "Japanin- tai koreankielistä fonttia ei ole asennettu, joten merkit voivat näkyä laatikkoina. Asenna jokin, esimerkiksi noto-fonts-cjk (Arch), fonts-noto-cjk (Debian, Ubuntu) tai google-noto-sans-cjk-fonts (Fedora).",
- "notice.cjk_font_freebsd": "Japanin- tai koreankielistä fonttia ei ole asennettu, joten merkit voivat näkyä laatikkoina. Asenna fontti komennolla: pkg install noto-sans-jp noto-sans-kr",
+ "notice.cjk_font_cmd": "Japanin- tai koreankielistä fonttia ei ole asennettu, joten merkit voivat näkyä laatikkoina. Asenna fontti komennolla: {cmd}",
  "notice.cloud": "Löytyi {names}: vain verkossa olevat tiedostot löytyvät vain nimellä, joten mitään ei ladata. Muuta asetuksista",
  "notice.cloud_tui": "Löytyi {names}: vain verkossa olevat tiedostot löytyvät vain nimellä, joten mitään ei ladata. cloud = \"all\" tiedostossa config.toml lukee ne",
  "notice.history": "Uutta: {key} git-repositorion tiedoston tai kansion kohdalla näyttää sen historian commit kerrallaan",
@@ -819,7 +819,7 @@
  "preview.issuer": "Myöntäjä",
  "preview.media_appimage": "Tämä AppImage toistaa videota ja ääntä vain GStreamer-liitännäisillä, jotka ovat siellä missä Debian ja Ubuntu ne pitävät, eikä niitä ole. Asenna Coxswain paketinhallinnalla tai avaa tiedosto sen omassa ohjelmassa.",
  "preview.media_missing": "Video ja ääni tarvitsevat GStreamerin good-liitännäiset toistuakseen tässä (gst-plugins-good; Debianissa ja Ubuntussa gstreamer1.0-plugins-good). Asenna ne ja avaa Coxswain uudelleen.",
- "preview.media_missing_freebsd": "Video ja ääni tarvitsevat GStreamerin good-liitännäiset toistuakseen tässä. Asenna ne komennolla: pkg install gstreamer1-plugins-good. Avaa sitten Coxswain uudelleen.",
+ "preview.media_missing_cmd": "Video ja ääni tarvitsevat GStreamerin good-liitännäiset toistuakseen tässä. Asenna ne komennolla: {cmd}. Avaa sitten Coxswain uudelleen.",
  "preview.media_open": "Avaa sen ohjelmassa",
  "preview.more": {
   "one": "… {n} lisää",

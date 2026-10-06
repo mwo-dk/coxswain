@@ -962,6 +962,7 @@ fn watched_folders() -> usize {
                     l = raised;
                 }
             }
+            #[allow(clippy::unnecessary_cast)] // rlim_t is not u64 everywhere
             return folder_share(l.rlim_cur as u64);
         }
     }
