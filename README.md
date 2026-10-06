@@ -79,6 +79,7 @@ The whole walk-through: [Smart search in a few minutes](docs/search/setup.md).
 | Linux | `brew install mwo-dk/coxswain/coxswain`, or the static `x86_64-unknown-linux-musl` binary | `.deb`, `.rpm`, `.AppImage`, or the Homebrew cask (x86-64) |
 | Linux, Flatpak | Not in it: the line above | Not on Flathub yet: build it with `flatpak-builder` ([Flatpak](docs/reference/flatpak.md)) |
 | Linux on ARM64 (Raspberry Pi OS 64-bit, Asahi, ARM servers) | The static `aarch64-unknown-linux-musl` binary, or `brew` as above | `_arm64.deb`, `.aarch64.rpm`, `_aarch64.AppImage` ([Linux on ARM](docs/reference/linux-arm.md)) |
+| Nix (Linux, macOS) | `nix run github:mwo-dk/coxswain`, or `nix profile install github:mwo-dk/coxswain` ([Nix](docs/reference/nix.md)) | `nix run github:mwo-dk/coxswain#coxswain-gui` (Linux) |
 | Android (Termux) | `pkg install coxswain` once it is in Termux's repository; until then `pkg install rust git && cargo install coxswain` ([Termux](docs/reference/termux.md)) | Not on Android |
 | ChromeOS | The Linux binary for its processor, in the Linux terminal | The `.deb` for its processor, in Linux ([ChromeOS](docs/reference/chromeos.md)) |
 | Any | `cargo install coxswain` | `./install/install.sh` (or `install\install.ps1`) from a clone |

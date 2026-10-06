@@ -18,6 +18,9 @@ The first build takes a few minutes. After that, rebuilding is quick.
 **On FreeBSD** there is a script of its own that installs both apps from the release, with `pkg`
 for what the desktop app needs: see [FreeBSD](../docs/reference/freebsd.md).
 
+**With Nix** the repository is a flake: `nix run github:mwo-dk/coxswain` builds and starts the
+terminal app, `#coxswain-gui` the desktop app on Linux. See [Nix](../docs/reference/nix.md).
+
 ## Getting the code
 
 Clone it with git, or unpack an archive you were sent:
