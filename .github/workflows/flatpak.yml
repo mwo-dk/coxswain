@@ -70,7 +70,8 @@ jobs:
             cat lint.json
             python3 - <<'EOF'
           import json
-          allowed = {"finish-args-host-filesystem-access", "finish-args-flatpak-spawn-access", "appstream-screenshots-not-mirrored-in-ostree", "appstream-missing-screenshots"}
+          # Screenshots point at GitHub (external URL, not mirrored): Flathub mirrors them when it builds.
+          allowed = {"finish-args-host-filesystem-access", "finish-args-flatpak-spawn-access", "appstream-screenshots-not-mirrored-in-ostree", "appstream-missing-screenshots", "appstream-external-screenshot-url"}
           text = open("lint.json").read().strip()
           errors = set(json.loads(text).get("errors", [])) if text else set()
           bad = errors - allowed
