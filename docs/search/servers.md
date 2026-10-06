@@ -110,7 +110,8 @@ It talks to Ollama on this machine. For another one, set `meaning_url = "http://
 
 #### Is a server faster than the built-in model?
 Usually much faster: a GPU or NPU makes vectors for thousands of passages in the time the CPU makes
-a few. The helper still rests between batches and waits on battery, as with the built-in model.
+a few. The helper rests between batches a quarter of the time the server took (with the built-in
+model, as long as it took), and waits on battery.
 
 #### Why does Settings say the text of my files is sent somewhere?
 The *Server* is not this machine. To make vectors, the server must read the passages, and your
