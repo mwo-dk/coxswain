@@ -537,19 +537,33 @@ pub fn trash_locked(path: &Path, password: Option<&str>) -> io::Result<()> {
     #[cfg(not(target_os = "android"))]
     return trash::delete(path).map_err(io::Error::other);
     #[cfg(target_os = "android")]
-    Err(io::Error::other(crate::t!("termux.no_trash")))
+    crate::xdg_trash::put(path)
+}
+
+/// Whether `trash` can take every one of `paths`. Only Termux's own trash cannot: it takes
+/// nothing from another filesystem, such as the phone's storage.
+pub fn trash_takes(paths: &[PathBuf]) -> bool {
+    #[cfg(target_os = "android")]
+    return paths.iter().all(|p| crate::xdg_trash::takes(p));
+    #[cfg(not(target_os = "android"))]
+    {
+        let _ = paths;
+        true
+    }
 }
 
 /// A free name for `name` in `dir`: `name`, else `stem (2).ext`, `stem (3).ext`, ...
 pub fn free_name(dir: &Path, name: &str) -> PathBuf {
+    name_candidates(name).map(|n| dir.join(n)).find(|p| fs::symlink_metadata(p).is_err()).expect("some name is free")
+}
+
+/// `name`, then `stem (2).ext`, `stem (3).ext`, ...
+pub(crate) fn name_candidates(name: &str) -> impl Iterator<Item = String> + '_ {
     let (stem, ext) = match name.rfind('.') {
         Some(i) if i > 0 => name.split_at(i),
         _ => (name, ""),
     };
-    std::iter::once(dir.join(name))
-        .chain((2..).map(|n| dir.join(format!("{stem} ({n}){ext}"))))
-        .find(|p| fs::symlink_metadata(p).is_err())
-        .expect("some name is free")
+    std::iter::once(name.to_string()).chain((2..).map(move |n| format!("{stem} ({n}){ext}")))
 }
 
 pub fn mkdir(path: &Path) -> io::Result<()> {

@@ -1352,7 +1352,7 @@
  "tag.red": "赤",
  "tag.yellow": "黄色",
  "termux.no_service": "Termux にはセッションサービスがありません: 検索ヘルパーは Coxswain と一緒に起動し、終了後 10 分間残ります",
- "termux.no_trash": "ここでは Android にごみ箱がありません: 完全に削除 (Shift+F8) で完全に削除します",
+ "termux.no_trash_storage": "スマートフォンのストレージにはごみ箱がありません: {what} を完全に削除しますか？",
  "termux.storage": "電話: {name}",
  "theme.dark": "ダーク",
  "theme.light": "ライト",

@@ -1406,7 +1406,7 @@
  "tag.red": "წითელი",
  "tag.yellow": "ყვითელი",
  "termux.no_service": "Termux-ს სესიის სერვისი არ აქვს: ძებნის დამხმარე Coxswain-თან ერთად ირთვება და მის შემდეგ ათი წუთი რჩება",
- "termux.no_trash": "Android-ს აქ სანაგვე არ აქვს: სამუდამოდ წაშლა (Shift+F8) მას სამუდამოდ შლის",
+ "termux.no_trash_storage": "ტელეფონის მეხსიერებაში სანაგვე არ არის: სამუდამოდ წაიშალოს {what}?",
  "termux.storage": "ტელეფონი: {name}",
  "title.window": "Coxswain {version}",
  "tui.ask_no_model": "სერვერს მოდელი {model} არ აქვს.",
