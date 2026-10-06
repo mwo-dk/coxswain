@@ -750,7 +750,7 @@
  "news.show_me": "Ukázat",
  "news.title": "Co je nového",
  "notice.cjk_font": "Není nainstalováno žádné japonské ani korejské písmo, takže se znaky mohou zobrazovat jako čtverečky. Nainstalujte nějaké, například noto-fonts-cjk (Arch), fonts-noto-cjk (Debian, Ubuntu) nebo google-noto-sans-cjk-fonts (Fedora).",
- "notice.cjk_font_freebsd": "Není nainstalováno žádné japonské ani korejské písmo, takže se jejich znaky mohou zobrazit jako čtverečky. Nainstalujte je příkazem: pkg install noto-sans-jp noto-sans-kr",
+ "notice.cjk_font_cmd": "Není nainstalováno žádné japonské ani korejské písmo, takže se jejich znaky mohou zobrazit jako čtverečky. Nainstalujte je příkazem: {cmd}",
  "notice.cloud": "Nalezeno {names}: soubory, které jsou jen online, se hledají jen podle názvu, takže se nic nestahuje. Změnit v Nastavení",
  "notice.cloud_tui": "Nalezeno {names}: soubory, které jsou jen online, se hledají jen podle názvu, takže se nic nestahuje. cloud = \"all\" v config.toml je načte",
  "notice.helper_outdated": "Coxswain byl aktualizován na {version}: restartujte ho, abyste mohli používat hledání na pozadí. Do té doby hledá názvy souborů sám.",
@@ -874,7 +874,7 @@
  "preview.issuer": "Vydavatel",
  "preview.media_appimage": "Tento AppImage přehrává video a zvuk jen se zásuvnými moduly GStreamer tam, kde je mají Debian a Ubuntu, a žádné tam nejsou. Nainstalujte Coxswain ze správce balíčků, nebo soubor otevřete v jeho aplikaci.",
  "preview.media_missing": "Pro přehrávání videa a zvuku zde jsou potřeba zásuvné moduly GStreamer good (gst-plugins-good; gstreamer1.0-plugins-good na Debianu a Ubuntu). Nainstalujte je a pak Coxswain otevřete znovu.",
- "preview.media_missing_freebsd": "Pro přehrávání videa a zvuku zde jsou potřeba zásuvné moduly GStreamer good. Nainstalujte je příkazem: pkg install gstreamer1-plugins-good. Pak Coxswain otevřete znovu.",
+ "preview.media_missing_cmd": "Pro přehrávání videa a zvuku zde jsou potřeba zásuvné moduly GStreamer good. Nainstalujte je příkazem: {cmd}. Pak Coxswain otevřete znovu.",
  "preview.media_open": "Otevřít v jeho aplikaci",
  "preview.more": {
   "few": "… {n} další",

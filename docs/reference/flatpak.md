@@ -207,4 +207,4 @@ passed in git's environment, which `flatpak-spawn` would not carry to the host; 
 gets them.
 
 ---
-[← Previous: FreeBSD](freebsd.md) · [Next: Linux on ARM →](linux-arm.md)
+[← Previous: TrueNAS](truenas.md) · [Next: Linux on ARM →](linux-arm.md)

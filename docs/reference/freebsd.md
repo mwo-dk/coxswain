@@ -280,7 +280,7 @@ port you built and installed is a package like any other.
 
 | Feature | On FreeBSD |
 |---|---|
-| File watching | kqueue. It holds an open descriptor for every path it watches, so the helper watches folders only, not files, shallowest first and at most 20,000 of them (a FreeBSD base system with a desktop has about 11,000). A file added, removed or renamed shows in Find within a second; folders past the 20,000 are read again at the hourly rebuild, and changed text is read within ten minutes |
+| File watching | kqueue. It holds an open descriptor for every path it watches, so the helper watches folders only, not files, shallowest first and at most 20,000 of them (a FreeBSD base system with a desktop has about 11,000), and never more than three quarters of its open-file limit (`ulimit -n`, raised to the hard limit first). New files and folders in a watched folder open no descriptors of their own. A file added, removed or renamed shows in Find within a second; folders past the 20,000 are read again at the hourly rebuild, and changed text is read within ten minutes |
 | Trash (F8) | `~/.local/share/Trash`, the freedesktop.org layout that KDE, Xfce and GNOME use, so their trash shows and restores what Coxswain moved there |
 | Drives in the sidebar | The mounted file systems, from the kernel's mount list; the root file system is *System* |
 | Battery | `sysctl hw.acpi.acline`: `0` means on battery, and the helper pauses ([Battery](../search/battery.md)). A machine without ACPI power reporting counts as on mains |
@@ -404,16 +404,17 @@ files → Details → Folders → Never indexed*, or `name_exclude` in `[search]
 
 ## Other BSDs
 
-The code that differs between systems is written for FreeBSD and falls back gracefully
-elsewhere, but only FreeBSD is built and tested. On NetBSD, OpenBSD and DragonFly BSD the
-terminal app may well build from source (`cargo build -p coxswain`); what is known to be missing:
+NetBSD, OpenBSD and illumos have pages of their own, with their install line, their service
+for the search helper and what differs there. DragonFly BSD is not built yet; its page says
+exactly what stops it.
 
-| What | Missing on NetBSD, OpenBSD, DragonFly |
-|---|---|
-| Release builds, CI | None yet |
-| Battery | Not read: the helper never pauses for it (OpenBSD and NetBSD report it through `apm` and `envsys`) |
-| Memory in the setup guide | Not read: the guide's advice by memory size is missing |
-| Desktop app | WebKitGTK 4.1 must be packaged (`www/webkitgtk41` on OpenBSD), and Rust's support for these systems is tier 3 on some architectures |
+| System | Terminal app | Desktop app | Page |
+|---|---|---|---|
+| NetBSD | Release builds, tested in CI | See its page | [NetBSD](netbsd.md) |
+| OpenBSD 7.9 | Release builds, tested in CI with OpenBSD's own Rust | Experimental | [OpenBSD](openbsd.md) |
+| DragonFly BSD | Not yet: an old Rust in DPorts and two crates | Not yet | [DragonFly BSD](dragonfly.md) |
+| illumos (OmniOS, OpenIndiana) | Release builds, tested in CI with ZFS | Not built | [illumos](illumos.md) |
+| TrueNAS CORE | This page's build, `--terminal-only`, into your home | Not on a NAS | [TrueNAS](truenas.md) |
 
 ## Questions
 
@@ -446,4 +447,4 @@ already.
 release build yet ([Building from source](#building-from-source)).
 
 ---
-[← Previous: Performance](performance.md) · [Next: Flatpak →](flatpak.md)
+[← Previous: Performance](performance.md) · [Next: NetBSD →](netbsd.md)

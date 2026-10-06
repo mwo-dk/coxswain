@@ -873,7 +873,7 @@ impl Service {
     fn run(&self, roots: Vec<PathBuf>, exclude: Vec<String>, cache: Option<PathBuf>, watch: bool, archives: Option<SearchConfig>) {
         use notify::{RecursiveMode, Watcher};
         let (tx, rx) = std::sync::mpsc::channel::<notify::Result<notify::Event>>();
-        let mut watcher: Option<notify::RecommendedWatcher> = None;
+        let mut watcher: Option<crate::DirWatcher> = None;
         let mut rebuild_at = Instant::now();
         loop {
             if rebuild_at <= Instant::now() {
@@ -886,15 +886,19 @@ impl Service {
                 }
                 rebuild_at = Instant::now() + Duration::from_secs(3600);
                 if watch && watcher.is_none() {
-                    watcher = notify::RecommendedWatcher::new(tx.clone(), notify::Config::default().with_follow_symlinks(false)).ok();
+                    watcher = crate::DirWatcher::new(tx.clone(), notify::Config::default().with_follow_symlinks(false)).ok();
                     // kqueue (the BSDs) holds an open descriptor for every path it watches, and a
                     // recursive watch opens every file: only folders are watched there, and a
-                    // changed folder is looked at again, which is all the index needs.
-                    if KQUEUE {
+                    // changed folder is looked at again, which is all the index needs. So on
+                    // illumos, whose event ports watch a folder at a time.
+                    if BY_FOLDER {
                         if let Some(w) = watcher.as_mut() {
-                            for dir in folders_to_watch(&roots, &exclude, KQUEUE_FOLDERS) {
-                                let _ = w.watch(&dir, RecursiveMode::NonRecursive);
+                            // One batch: kqueue hands every watch to the kernel on each `watch`.
+                            let mut batch = w.paths_mut();
+                            for dir in folders_to_watch(&roots, &exclude, claim_folders()) {
+                                let _ = batch.add(&dir, RecursiveMode::NonRecursive);
                             }
+                            let _ = batch.commit();
                         }
                         continue;
                     }
@@ -937,11 +941,50 @@ impl Service {
     }
 }
 
-/// The file watcher is kqueue, which needs an open descriptor per watched path.
-const KQUEUE: bool = cfg!(any(target_os = "freebsd", target_os = "dragonfly", target_os = "netbsd", target_os = "openbsd"));
-/// Folders watched at most under kqueue: each holds a descriptor of the system's file table.
+/// The file watcher is kqueue, which needs an open descriptor per watched path, or illumos's
+/// event ports (`ports`), which watch folders one by one.
+const BY_FOLDER: bool = cfg!(any(target_os = "freebsd", target_os = "dragonfly", target_os = "netbsd", target_os = "openbsd", target_os = "illumos", target_os = "solaris"));
+/// Folders watched at most under kqueue: each holds a descriptor of the system's file table
+/// (an event port association costs kernel memory instead).
 // ponytail: a fixed share of kern.maxfiles; past it the deepest folders wait for the hourly rebuild.
-const KQUEUE_FOLDERS: usize = 20_000;
+const WATCHED_FOLDERS: usize = 20_000;
+
+/// How many folders to watch here: kqueue's descriptors count against this process's limit on
+/// open files, which is raised to its hard limit first. OpenBSD allows 512 by default (1024 at
+/// most) and NetBSD about a thousand: a watch per folder would leave none for reading files, so
+/// a quarter of what is allowed stays free. Event ports need no descriptors.
+fn watched_folders() -> usize {
+    #[cfg(all(unix, not(any(target_os = "illumos", target_os = "solaris"))))]
+    {
+        // SAFETY: getrlimit and setrlimit read and write the struct they are given.
+        let mut l = libc::rlimit { rlim_cur: 0, rlim_max: 0 };
+        if unsafe { libc::getrlimit(libc::RLIMIT_NOFILE, &mut l) } == 0 {
+            if l.rlim_cur < l.rlim_max {
+                let raised = libc::rlimit { rlim_cur: l.rlim_max, rlim_max: l.rlim_max };
+                if unsafe { libc::setrlimit(libc::RLIMIT_NOFILE, &raised) } == 0 {
+                    l = raised;
+                }
+            }
+            #[allow(clippy::unnecessary_cast)] // rlim_t is not u64 everywhere
+            return folder_share(l.rlim_cur as u64);
+        }
+    }
+    WATCHED_FOLDERS
+}
+
+/// The folders this index may watch: the process's budget is shared, so a second index in the
+/// same process (as in tests) gets what the first left, not a budget of its own.
+fn claim_folders() -> usize {
+    use std::sync::atomic::AtomicUsize;
+    static LEFT: std::sync::OnceLock<AtomicUsize> = std::sync::OnceLock::new();
+    LEFT.get_or_init(|| AtomicUsize::new(watched_folders())).swap(0, Ordering::Relaxed)
+}
+
+/// Three quarters of `open_files`, less 64 for the rest of the helper, at most `WATCHED_FOLDERS`.
+#[cfg_attr(any(windows, target_os = "illumos", target_os = "solaris"), allow(dead_code))]
+fn folder_share(open_files: u64) -> usize {
+    (open_files.min(u32::MAX as u64) as usize / 4 * 3).saturating_sub(64).min(WATCHED_FOLDERS)
+}
 
 /// Whether `exclude` leaves out `path`, named `name`: an entry with a slash is a path and leaves
 /// out its tree, a bare name leaves out every folder of that name.
@@ -1185,6 +1228,16 @@ mod tests {
             let cloud = rest.components().next().is_some_and(|c| c.as_os_str() == "CloudStorage" || c.as_os_str() == "Mobile Documents");
             assert!(rest.components().count() <= 1 || cloud, "{}", rest.display());
         }
+    }
+
+    #[test]
+    fn index_leaves_descriptors_free_under_kqueue() {
+        assert_eq!(folder_share(512), 320, "OpenBSD's default: room left for reading files");
+        assert_eq!(folder_share(1024), 704);
+        assert_eq!(folder_share(64), 0);
+        assert_eq!(folder_share(1 << 20), WATCHED_FOLDERS);
+        assert_eq!(folder_share(u64::MAX), WATCHED_FOLDERS, "unlimited");
+        assert!(watched_folders() <= WATCHED_FOLDERS);
     }
 
     #[test]

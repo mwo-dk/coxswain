@@ -720,7 +720,7 @@
  "news.show_me": "Laat zien",
  "news.title": "Wat is er nieuw",
  "notice.cjk_font": "Er is geen Japans of Koreaans lettertype geïnstalleerd, dus de tekens kunnen als vakjes verschijnen. Installeer er een, bijvoorbeeld noto-fonts-cjk (Arch), fonts-noto-cjk (Debian, Ubuntu) of google-noto-sans-cjk-fonts (Fedora).",
- "notice.cjk_font_freebsd": "Er is geen Japans of Koreaans lettertype geïnstalleerd, dus hun tekens kunnen als vakjes verschijnen. Installeer er een met: pkg install noto-sans-jp noto-sans-kr",
+ "notice.cjk_font_cmd": "Er is geen Japans of Koreaans lettertype geïnstalleerd, dus hun tekens kunnen als vakjes verschijnen. Installeer er een met: {cmd}",
  "notice.cloud": "{names} gevonden: bestanden die alleen online staan worden alleen op naam gevonden, dus er wordt niets gedownload. Wijzig in Instellingen",
  "notice.cloud_tui": "{names} gevonden: bestanden die alleen online staan worden alleen op naam gevonden, dus er wordt niets gedownload. cloud = \"all\" in config.toml leest ze",
  "notice.helper_outdated": "Coxswain is bijgewerkt naar {version}: start het opnieuw om zoeken op de achtergrond te gebruiken. Tot dan zoekt het zelf in bestandsnamen.",
@@ -835,7 +835,7 @@
  "preview.issuer": "Uitgever",
  "preview.media_appimage": "Deze AppImage speelt video en geluid alleen af met GStreamer-plugins op de plek waar Debian en Ubuntu ze hebben, en daar staan er geen. Installeer Coxswain via je pakketbeheerder, of open het bestand in zijn programma.",
  "preview.media_missing": "Video en geluid hebben de goede plugins van GStreamer nodig om hier te spelen (gst-plugins-good; gstreamer1.0-plugins-good op Debian en Ubuntu). Installeer ze en open Coxswain opnieuw.",
- "preview.media_missing_freebsd": "Video en geluid hebben de good-plug-ins van GStreamer nodig om hier af te spelen. Installeer ze met: pkg install gstreamer1-plugins-good. Open Coxswain daarna opnieuw.",
+ "preview.media_missing_cmd": "Video en geluid hebben de good-plug-ins van GStreamer nodig om hier af te spelen. Installeer ze met: {cmd}. Open Coxswain daarna opnieuw.",
  "preview.media_open": "Openen in zijn programma",
  "preview.more": {
   "one": "… nog {n}",

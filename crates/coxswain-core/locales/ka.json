@@ -720,7 +720,7 @@
  "news.show_me": "მაჩვენეთ",
  "news.title": "რა არის ახალი",
  "notice.cjk_font": "იაპონური ან კორეული შრიფტი დაყენებული არ არის, ამიტომ მათი ასოები შეიძლება კვადრატებად გამოჩნდეს. დააყენეთ რომელიმე, მაგალითად noto-fonts-cjk (Arch), fonts-noto-cjk (Debian, Ubuntu) ან google-noto-sans-cjk-fonts (Fedora).",
- "notice.cjk_font_freebsd": "იაპონური ან კორეული შრიფტი დაყენებული არ არის, ამიტომ მათი ასოები შეიძლება კვადრატებად გამოჩნდეს. დააყენეთ ასე: pkg install noto-sans-jp noto-sans-kr",
+ "notice.cjk_font_cmd": "იაპონური ან კორეული შრიფტი დაყენებული არ არის, ამიტომ მათი ასოები შეიძლება კვადრატებად გამოჩნდეს. დააყენეთ ასე: {cmd}",
  "notice.cloud": "ნაპოვნია {names}: მხოლოდ ონლაინ არსებული ფაილები მხოლოდ სახელით მოიძებნება, ამიტომ არაფერი ჩამოიტვირთება. შეცვლა პარამეტრებში",
  "notice.cloud_tui": "ნაპოვნია {names}: მხოლოდ ონლაინ არსებული ფაილები მხოლოდ სახელით მოიძებნება, ამიტომ არაფერი ჩამოიტვირთება. cloud = \"all\" config.toml-ში მათ წაკითხვას ჩართავს",
  "notice.helper_outdated": "Coxswain განახლდა {version}-მდე: ფონური ძებნის გამოსაყენებლად გადატვირთეთ. მანამდე ის ფაილების სახელებს თავად ეძებს.",
@@ -835,7 +835,7 @@
  "preview.issuer": "გამცემი",
  "preview.media_appimage": "ეს AppImage ვიდეოსა და ხმას მხოლოდ GStreamer-ის დანამატებით უკრავს, იქ სადაც Debian და Ubuntu ინახავს, და იქ არცერთი არ არის. დააყენეთ Coxswain თქვენი პაკეტების მენეჯერიდან, ან ფაილი მის აპში გახსენით.",
  "preview.media_missing": "აქ ვიდეოსა და ხმის დასაკრავად GStreamer-ის good დანამატებია საჭირო (gst-plugins-good; Debian-სა და Ubuntu-ზე gstreamer1.0-plugins-good). დააყენეთ ისინი და Coxswain ხელახლა გახსენით.",
- "preview.media_missing_freebsd": "აქ ვიდეოსა და ხმის დასაკრავად GStreamer-ის good დანამატებია საჭირო. დააყენეთ ასე: pkg install gstreamer1-plugins-good. შემდეგ Coxswain ხელახლა გახსენით.",
+ "preview.media_missing_cmd": "აქ ვიდეოსა და ხმის დასაკრავად GStreamer-ის good დანამატებია საჭირო. დააყენეთ ასე: {cmd}. შემდეგ Coxswain ხელახლა გახსენით.",
  "preview.media_open": "მის აპში გახსნა",
  "preview.more": {
   "one": "… კიდევ {n}",

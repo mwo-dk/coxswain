@@ -1,0 +1,122 @@
+name: OpenBSD
+
+# Both apps on OpenBSD, in a virtual machine, with OpenBSD's own Rust (OpenBSD is a tier 3 Rust
+# target: no rustup). The tests of the core, the terminal app and the desktop app; the desktop
+# app started under X11 for a minute, with a picture of its window as this run's artifact; the
+# terminal app's archive packed as a release packs it, installed with install/install-unix.sh,
+# and the search helper's rc.d script started with rcctl, checked and stopped.
+# Only when Rust code, the lock file, the script or this file change. docs/reference/openbsd.md.
+on:
+  push:
+    branches: [master]
+    paths: ["crates/**", "gui/src-tauri/**", "Cargo.toml", "Cargo.lock", "install/install-unix.sh", "packaging/openbsd/**", ".github/workflows/openbsd.yml"]
+  pull_request:
+    paths: ["crates/**", "gui/src-tauri/**", "Cargo.toml", "Cargo.lock", "install/install-unix.sh", "packaging/openbsd/**", ".github/workflows/openbsd.yml"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: openbsd-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: OpenBSD 7.9
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # The desktop app embeds gui/dist; the frontend builds here, not in the VM.
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: gui/package-lock.json
+      - name: Frontend
+        working-directory: gui
+        run: |
+          npm ci --no-audit --no-fund
+          npm run build
+          rm -rf node_modules
+
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .cargo-vm
+          key: openbsd-cargo-${{ hashFiles('Cargo.lock') }}
+          restore-keys: openbsd-cargo-
+
+      - uses: vmactions/openbsd-vm@5f7b2c933b8846a138361d6843c52af4bef5d945 # v1.4.8
+        with:
+          release: "7.9"
+          usesh: true
+          custom-shell-name: vmsh
+          prepare: |
+            pkg_add -u
+            pkg_add rust webkitgtk41 librsvg symbolsonly-nerd-fonts
+          run: |
+            set -e
+            export CARGO_HOME="$PWD/.cargo-vm" CARGO_PROFILE_DEV_DEBUG=line-tables-only
+            uname -a
+            rustc -V
+            cargo test -p coxswain-core -p coxswain -p coxswain-gui --locked
+            cargo build -p coxswain -p coxswain-gui --locked
+            mkdir -p out && cp target/debug/coxswain target/debug/coxswain-gui out/
+            rm -rf target
+
+      - name: The desktop app starts and draws its window
+        shell: vmsh {0}
+        run: |
+          set -e
+          Xvfb :99 -screen 0 1280x800x24 </dev/null >/dev/null 2>&1 &
+          xpid=$!
+          sleep 3
+          mkdir -p /tmp/home
+          HOME=/tmp/home DISPLAY=:99 WEBKIT_DISABLE_COMPOSITING_MODE=1 out/coxswain-gui "$PWD" </dev/null >gui.log 2>&1 &
+          pid=$!
+          sleep 60
+          xwd -root -display :99 -silent > gui.xwd
+          alive=0; kill -0 $pid && alive=1
+          kill $pid || true
+          sleep 2
+          pkill -f WebKit || true
+          kill $xpid || true
+          tail -20 gui.log
+          [ "$alive" = 1 ] || { echo "The desktop app did not stay up" >&2; exit 1; }
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: openbsd-desktop
+          path: |
+            gui.xwd
+            gui.log
+          if-no-files-found: ignore
+
+      - name: Pack the archive as a release does
+        run: sh packaging/pack-unix.sh v0.0.0 x86_64-unknown-openbsd out dist packaging/openbsd/coxswain_index
+
+      - name: Install it as a user does, and the search helper from boot
+        shell: vmsh {0}
+        run: |
+          set -e
+          sh install/install-unix.sh --from dist --yes --terminal-only --prefix /usr/local
+          /usr/local/bin/coxswain --version
+          /usr/local/bin/cox --version
+          man -w coxswain
+          useradd -m alice
+          if rcctl -f start coxswain_index; then echo "started without a user" >&2; exit 1; fi
+          rcctl enable coxswain_index
+          rcctl set coxswain_index user alice
+          rcctl start coxswain_index
+          sleep 8
+          rcctl check coxswain_index
+          test -s /home/alice/.cache/coxswain/index.addr
+          rcctl stop coxswain_index
+          sleep 3
+          if pgrep -U alice coxswain; then echo "still running" >&2; exit 1; fi
+          sh install/install-unix.sh --uninstall --yes --prefix /usr/local
+          test ! -e /usr/local/bin/coxswain && test ! -e /etc/rc.d/coxswain_index

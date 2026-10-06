@@ -720,7 +720,7 @@
  "news.show_me": "Δείξε μου",
  "news.title": "Τι νέο υπάρχει",
  "notice.cjk_font": "Δεν είναι εγκατεστημένη καμία ιαπωνική ή κορεατική γραμματοσειρά, οπότε οι χαρακτήρες μπορεί να εμφανίζονται ως κουτάκια. Εγκαταστήστε μία, για παράδειγμα noto-fonts-cjk (Arch), fonts-noto-cjk (Debian, Ubuntu) ή google-noto-sans-cjk-fonts (Fedora).",
- "notice.cjk_font_freebsd": "Δεν είναι εγκατεστημένη ιαπωνική ή κορεατική γραμματοσειρά, οπότε οι χαρακτήρες τους μπορεί να εμφανίζονται ως κουτάκια. Εγκαταστήστε μία με: pkg install noto-sans-jp noto-sans-kr",
+ "notice.cjk_font_cmd": "Δεν είναι εγκατεστημένη ιαπωνική ή κορεατική γραμματοσειρά, οπότε οι χαρακτήρες τους μπορεί να εμφανίζονται ως κουτάκια. Εγκαταστήστε μία με: {cmd}",
  "notice.cloud": "Βρέθηκαν: {names}. Τα αρχεία που είναι μόνο online βρίσκονται μόνο με το όνομα, ώστε να μη γίνεται λήψη τίποτα. Αλλαγή στις Ρυθμίσεις",
  "notice.cloud_tui": "Βρέθηκαν: {names}. Τα αρχεία που είναι μόνο online βρίσκονται μόνο με το όνομα, ώστε να μη γίνεται λήψη τίποτα. Το cloud = \"all\" στο config.toml τα διαβάζει",
  "notice.helper_outdated": "Το Coxswain ενημερώθηκε στην {version}: επανεκκινήστε το για να χρησιμοποιήσετε την αναζήτηση στο παρασκήνιο. Μέχρι τότε αναζητά μόνο του ονόματα αρχείων.",
@@ -835,7 +835,7 @@
  "preview.issuer": "Εκδότης",
  "preview.media_appimage": "Αυτό το AppImage αναπαράγει βίντεο και ήχο μόνο με πρόσθετα GStreamer εκεί όπου τα κρατούν το Debian και το Ubuntu, και δεν υπάρχουν. Εγκαταστήστε το Coxswain από τη διαχείριση πακέτων σας ή ανοίξτε το αρχείο στην εφαρμογή του.",
  "preview.media_missing": "Για αναπαραγωγή βίντεο και ήχου εδώ χρειάζονται τα good plugins του GStreamer (gst-plugins-good· gstreamer1.0-plugins-good σε Debian και Ubuntu). Εγκαταστήστε τα και ανοίξτε ξανά το Coxswain.",
- "preview.media_missing_freebsd": "Για αναπαραγωγή βίντεο και ήχου εδώ χρειάζονται τα good plugins του GStreamer. Εγκαταστήστε τα με: pkg install gstreamer1-plugins-good. Μετά ανοίξτε ξανά το Coxswain.",
+ "preview.media_missing_cmd": "Για αναπαραγωγή βίντεο και ήχου εδώ χρειάζονται τα good plugins του GStreamer. Εγκαταστήστε τα με: {cmd}. Μετά ανοίξτε ξανά το Coxswain.",
  "preview.media_open": "Άνοιγμα στην εφαρμογή του",
  "preview.more": {
   "one": "… {n} ακόμη",

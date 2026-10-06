@@ -110,7 +110,14 @@ fn mounted(dir: &Path) -> Option<Dataset> {
     (text(&st.f_fstypename) == "zfs").then(|| Dataset { name: text(&st.f_mntfromname), mountpoint: PathBuf::from(text(&st.f_mntonname)) })
 }
 
-#[cfg(not(any(target_os = "linux", target_os = "freebsd", target_os = "macos")))]
+/// /etc/mnttab names the dataset mounted at each mount point (illumos).
+#[cfg(any(target_os = "illumos", target_os = "solaris"))]
+fn mounted(dir: &Path) -> Option<Dataset> {
+    let text = std::fs::read_to_string("/etc/mnttab").ok()?;
+    crate::machine::parse_mnttab(&text).into_iter().filter(|m| m.fstype == "zfs" && dir.starts_with(&m.mount)).max_by_key(|m| m.mount.as_os_str().len()).map(|m| Dataset { name: m.device, mountpoint: m.mount })
+}
+
+#[cfg(not(any(target_os = "linux", target_os = "freebsd", target_os = "macos", target_os = "illumos", target_os = "solaris")))]
 fn mounted(_dir: &Path) -> Option<Dataset> {
     None
 }
@@ -317,8 +324,15 @@ pub fn diff(path: &Path) -> io::Result<String> {
     let at = in_snapshot(path).ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "not in a snapshot"))?;
     let now = at.live();
     let label = |p: &Path, what: &str| format!("{} ({what})", p.display());
-    let mut c = crate::tools::command("diff");
-    c.arg("-u").arg("-N").arg("-L").arg(label(&now, &format!("@{}", at.name))).arg("-L").arg(label(&now, &crate::t!("zfs.now"))).arg(path).arg(&now);
+    // illumos's own diff has neither -N nor -L: its GNU diff does, where it is installed.
+    let gnu = Path::new("/usr/gnu/bin/diff");
+    let illumos = cfg!(any(target_os = "illumos", target_os = "solaris"));
+    let mut c = crate::tools::command(if illumos && gnu.is_file() { gnu } else { Path::new("diff") });
+    if !illumos || gnu.is_file() {
+        c.arg("-u").arg("-N").arg("-L").arg(label(&now, &format!("@{}", at.name))).arg("-L").arg(label(&now, &crate::t!("zfs.now"))).arg(path).arg(&now);
+    } else {
+        c.arg("-u").arg(path).arg(if now.exists() { now.as_path() } else { Path::new("/dev/null") });
+    }
     let o = c.output()?;
     // 0: the same; 1: differences; 2: trouble.
     if o.status.code() == Some(2) {

@@ -122,8 +122,10 @@ pub fn all(cfg: &Config, status: &Status, state: &AppState, terminal: bool) -> V
         if crate::tools::script_font_missing() {
             let lang = crate::i18n::language();
             let text = match lang {
-                "ja" | "ko" if cfg!(target_os = "freebsd") => t!("notice.cjk_font_freebsd"),
-                "ja" | "ko" => t!("notice.cjk_font"),
+                "ja" | "ko" => match crate::tools::install("cjk-font") {
+                    Some(cmd) => t!("notice.cjk_font_cmd", "cmd" => cmd),
+                    None => t!("notice.cjk_font"),
+                },
                 _ => t!("notice.script_font", "language" => crate::i18n::find(lang).map_or(lang, |l| l.name), "fonts" => crate::tools::script_fonts(lang)),
             };
             all.push(Notice::new(if matches!(lang, "ja" | "ko") { "cjk-font" } else { "script-font" }, text, None));
@@ -248,6 +250,8 @@ mod tests {
         let mut state = AppState::default();
         // Whether this machine's GStreamer can play video is not what is tested here.
         dismiss(&mut state, "media");
+        // Nor whether the home folder is on ZFS (it is on illumos and many FreeBSD machines).
+        dismiss(&mut state, "zfs");
         // On a Mac: the folder prompts explained, once.
         let first = next(&cfg, &status, &state, false).map(|n| n.id);
         assert_eq!(first.as_deref() == Some("macos-folders"), cfg!(target_os = "macos"), "{first:?}");

@@ -750,7 +750,9 @@ mod tests {
             let mail = format!("Subject: s\nContent-Type: multipart/mixed; boundary=b\n\n{part}{part}--b--\n");
             assert_eq!(read("parameters.eml", mail.as_bytes()).as_deref(), Some("s\nbody\nbody"));
         }
-        assert!(begun.elapsed() < std::time::Duration::from_secs(5), "took {:?}", begun.elapsed());
+        // Quadratic reading takes minutes; a debug build in a busy virtual machine takes up to ten seconds.
+        let limit = std::time::Duration::from_secs(if cfg!(debug_assertions) { 20 } else { 5 });
+        assert!(begun.elapsed() < limit, "took {:?}", begun.elapsed());
     }
 
     #[test]

@@ -720,7 +720,7 @@
  "news.show_me": "Zeigen",
  "news.title": "Neuigkeiten",
  "notice.cjk_font": "Es ist keine japanische oder koreanische Schrift installiert, daher erscheinen die Zeichen womöglich als Kästchen. Installiere eine, zum Beispiel noto-fonts-cjk (Arch), fonts-noto-cjk (Debian, Ubuntu) oder google-noto-sans-cjk-fonts (Fedora).",
- "notice.cjk_font_freebsd": "Es ist keine japanische oder koreanische Schrift installiert, daher erscheinen ihre Zeichen womöglich als Kästchen. Installieren Sie eine mit: pkg install noto-sans-jp noto-sans-kr",
+ "notice.cjk_font_cmd": "Es ist keine japanische oder koreanische Schrift installiert, daher erscheinen ihre Zeichen womöglich als Kästchen. Installieren Sie eine mit: {cmd}",
  "notice.cloud": "{names} gefunden: Dateien, die nur online sind, werden nur nach Namen gefunden, es wird also nichts heruntergeladen. In den Einstellungen änderbar",
  "notice.cloud_tui": "{names} gefunden: Dateien, die nur online sind, werden nur nach Namen gefunden, es wird also nichts heruntergeladen. cloud = \"all\" in config.toml liest sie",
  "notice.helper_outdated": "Coxswain wurde auf {version} aktualisiert: Starte es neu, um die Hintergrundsuche zu nutzen. Bis dahin sucht es Dateinamen selbst.",
@@ -835,7 +835,7 @@
  "preview.issuer": "Aussteller",
  "preview.media_appimage": "Dieses AppImage spielt Video und Ton nur mit GStreamer-Plugins dort, wo Debian und Ubuntu sie haben, und dort sind keine. Installieren Sie Coxswain über Ihre Paketverwaltung oder öffnen Sie die Datei in ihrem Programm.",
  "preview.media_missing": "Video und Ton brauchen die guten Plugins von GStreamer, um hier zu spielen (gst-plugins-good; gstreamer1.0-plugins-good unter Debian und Ubuntu). Installieren Sie sie und öffnen Sie Coxswain erneut.",
- "preview.media_missing_freebsd": "Video und Ton brauchen die Good-Plugins von GStreamer, um hier abgespielt zu werden. Installieren Sie sie mit: pkg install gstreamer1-plugins-good. Öffnen Sie Coxswain danach erneut.",
+ "preview.media_missing_cmd": "Video und Ton brauchen die Good-Plugins von GStreamer, um hier abgespielt zu werden. Installieren Sie sie mit: {cmd}. Öffnen Sie Coxswain danach erneut.",
  "preview.media_open": "In ihrem Programm öffnen",
  "preview.more": {
   "one": "… {n} weiterer",

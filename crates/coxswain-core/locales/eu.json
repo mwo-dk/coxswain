@@ -720,7 +720,7 @@
  "news.show_me": "Erakutsi",
  "news.title": "Berritasunak",
  "notice.cjk_font": "Ez dago japoniar edo korear letra-tiporik instalatuta, eta beraz karaktereak laukitxo gisa ager daitezke. Instalatu bat, adibidez noto-fonts-cjk (Arch), fonts-noto-cjk (Debian, Ubuntu) edo google-noto-sans-cjk-fonts (Fedora).",
- "notice.cjk_font_freebsd": "Ez dago japoniar edo korear letra-tiporik instalatuta, eta haien letrak laukitxo gisa ager daitezke. Instalatu bat honela: pkg install noto-sans-jp noto-sans-kr",
+ "notice.cjk_font_cmd": "Ez dago japoniar edo korear letra-tiporik instalatuta, eta haien letrak laukitxo gisa ager daitezke. Instalatu bat honela: {cmd}",
  "notice.cloud": "{names} aurkitu da: linean soilik dauden fitxategiak izenez soilik aurkitzen dira, beraz ez da ezer deskargatzen. Aldatu Ezarpenetan",
  "notice.cloud_tui": "{names} aurkitu da: linean soilik dauden fitxategiak izenez soilik aurkitzen dira, beraz ez da ezer deskargatzen. config.toml-eko cloud = \"all\" ezarpenak irakurtzen ditu",
  "notice.helper_outdated": "Coxswain {version} bertsiora eguneratu da: berrabiarazi atzeko planoko bilaketa erabiltzeko. Ordura arte fitxategi-izenak berak bilatzen ditu.",
@@ -835,7 +835,7 @@
  "preview.issuer": "Jaulkitzailea",
  "preview.media_appimage": "AppImage honek bideoa eta soinua Debian eta Ubuntuk gordetzen dituzten lekuko GStreamer pluginekin soilik erreproduzitzen ditu, eta ez dago bat ere. Instalatu Coxswain pakete-kudeatzailetik, edo ireki fitxategia bere aplikazioan.",
  "preview.media_missing": "Bideoak eta soinuak GStreamer-en plugin onak behar dituzte hemen erreproduzitzeko (gst-plugins-good; gstreamer1.0-plugins-good Debian eta Ubuntun). Instalatu itzazu eta ireki Coxswain berriro.",
- "preview.media_missing_freebsd": "Bideoak eta soinuak GStreamer-en good pluginak behar dituzte hemen erreproduzitzeko. Instalatu honela: pkg install gstreamer1-plugins-good. Gero ireki berriro Coxswain.",
+ "preview.media_missing_cmd": "Bideoak eta soinuak GStreamer-en good pluginak behar dituzte hemen erreproduzitzeko. Instalatu honela: {cmd}. Gero ireki berriro Coxswain.",
  "preview.media_open": "Ireki bere aplikazioan",
  "preview.more": {
   "one": "… {n} gehiago",
