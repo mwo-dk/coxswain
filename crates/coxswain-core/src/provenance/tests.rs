@@ -361,3 +361,58 @@ mod checks {
         std::fs::remove_dir_all(&d).unwrap();
     }
 }
+
+mod diffs {
+    use super::super::diff::{Area, Change, Kind, diff};
+    use super::*;
+
+    fn changed(v: &mut serde_json::Value) {
+        let p = &mut v["predicate"];
+        p["buildDefinition"]["externalParameters"]["workflow"]["ref"] = "refs/tags/v1.5.0".into();
+        p["buildDefinition"]["resolvedDependencies"][0]["uri"] = "git+https://github.com/demo/rocket@refs/tags/v1.5.0".into();
+        p["buildDefinition"]["resolvedDependencies"][0]["digest"]["gitCommit"] = "2222222222222222222222222222222222222222".into();
+        p["buildDefinition"]["resolvedDependencies"].as_array_mut().unwrap().push(serde_json::json!({"uri": "pkg:cargo/serde@1", "digest": {"sha256": "ee"}}));
+        p["runDetails"]["builder"]["version"]["runner"] = "2.329.0".into();
+        v["subject"][0]["digest"]["sha256"] = "ff".into();
+        v["subject"].as_array_mut().unwrap().remove(1);
+    }
+
+    #[test]
+    fn two_builds_compared() {
+        let text = std::fs::read_to_string(fixture("made/statement-v1.json")).unwrap();
+        let before = parse(&text).unwrap();
+        assert!(diff(&before, &before).pairs[0].changes.is_empty(), "a file against itself");
+        let mut v: serde_json::Value = serde_json::from_str(&text).unwrap();
+        changed(&mut v);
+        let after = parse(&v.to_string()).unwrap();
+        let d = diff(&before, &after);
+        assert_eq!(d.pairs.len(), 1);
+        let c = |area, key: &str| d.pairs[0].changes.iter().find(|c| c.area == area && c.key == key).cloned();
+        assert_eq!(
+            c(Area::Parameter, "external.workflow.ref"),
+            Some(Change { area: Area::Parameter, key: "external.workflow.ref".into(), kind: Kind::Changed, before: Some("refs/tags/v1.4.0".into()), after: Some("refs/tags/v1.5.0".into()) })
+        );
+        // A new ref and commit of the same repository is one change, not a removal and an addition.
+        let dep = c(Area::Dependency, "git+https://github.com/demo/rocket").unwrap();
+        assert_eq!(dep.kind, Kind::Changed);
+        assert_eq!(dep.before.as_deref(), Some("refs/tags/v1.4.0 gitCommit:1111111111111111111111111111111111111111"));
+        assert_eq!(c(Area::Dependency, "pkg:cargo/serde@1").map(|c| c.kind), Some(Kind::Added));
+        assert_eq!(c(Area::Builder, "builder.version.runner").map(|c| c.kind), Some(Kind::Changed));
+        assert_eq!(c(Area::Subject, "dist/rocket-1.4.0.tar.gz").map(|c| c.kind), Some(Kind::Changed));
+        assert_eq!(c(Area::Subject, "dist/rocket-1.4.0.zip").map(|c| c.kind), Some(Kind::Removed));
+        assert_eq!((d.count(Area::Parameter), d.count(Area::Dependency), d.count(Area::Subject), d.count(Area::Builder)), (1, 2, 2, 1));
+    }
+
+    #[test]
+    fn statements_pair_by_subject() {
+        let one = open("slsa-verifier/envelope-v0.2-multi-subject.intoto.jsonl");
+        let lenient = open("made/lenient.intoto.jsonl");
+        // lenient's first statement shares no subject with it, nor does its second.
+        let d = diff(&one, &lenient);
+        assert!(d.pairs.is_empty());
+        assert_eq!((d.only_before, d.only_after), (vec![0], vec![0, 1]));
+        // v0.2 against v1: both are in one model, so they pair and compare.
+        let d = diff(&open("slsa-verifier/bundle-v0.3-generic-v0.2.intoto.jsonl"), &open("slsa-verifier/bundle-v0.2-delegator-v1.build.slsa"));
+        assert_eq!(d.pairs.len(), 1, "one statement each: always paired");
+    }
+}

@@ -6,8 +6,10 @@
 //! - `ingest`: the file formats to the model.
 //! - `signer`: who signed, from a Sigstore certificate.
 //! - `check`: the subjects against the files here, the source commit against a checkout here.
+//! - `diff`: two provenance files compared.
 
 pub mod check;
+pub mod diff;
 pub mod ingest;
 pub mod model;
 pub mod signer;
