@@ -15,7 +15,8 @@ question off.
 
 | Key | Does | Asks |
 |---|---|---|
-| **F8**, **Delete** | Moves to the trash: the desktop's trash on Linux, the Trash on macOS, the Recycle Bin on Windows | *Move "report.pdf" to the bin?* |
+| **F8**, **Delete** | Moves to the trash: the desktop's trash on Linux, the Trash on macOS, the Recycle Bin on Windows, Coxswain's own in Termux | *Move "report.pdf" to the bin?* |
+| **F8** in Termux, on the phone's storage | Deletes for good: its trash takes only Termux's own files | *No bin on the phone's storage: delete "photo.jpg" for good?* |
 | **Shift+F8**, **Shift+Delete** | Deletes for good | *Permanently delete "report.pdf"? This cannot be undone.* |
 | either, inside an archive | Takes it out of the archive (there is no trash there) | *Take "a.txt" out of tools.zip? The archive is written anew without it; there is no trash inside an archive.* |
 
@@ -73,6 +74,12 @@ Not every file system has a trash the system can use. The error names the file. 
 
 To the freedesktop trash your desktop uses (`~/.local/share/Trash`, or a `.Trash-1000` folder at
 the top of other disks), the same one your file manager shows.
+
+#### Where do deleted files go in Termux on Android?
+
+To Coxswain's own trash, `~/.local/share/Trash` in Termux's home. From the phone's storage
+(`~/storage/…`) nothing is moved: **F8** asks to delete for good, even with the question turned
+off ([Termux](../reference/termux.md#deleting-termuxs-trash)).
 
 #### How do I stop Coxswain asking every time?
 
