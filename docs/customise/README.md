@@ -16,7 +16,7 @@ through each part, with the keys and the exact `config.toml` lines.
 | [Themes](themes.md) | The 18 built-in themes, picking one in each app, what the terminal app takes from a theme |
 | [Looks](looks.md) | The desktop app's shapes and chrome per era: corners, bevels, title bars and the fonts they ask for |
 | [Your own theme and the colour slots](own-theme.md) | `[themes.<name>]`, the 31 colour slots, colour names and `#rrggbb`, starting from a built-in theme |
-| [Languages](languages.md) | The 26 languages by region, how *Automatic* picks one, right to left in Hebrew, improving a translation |
+| [Languages](languages.md) | The 29 languages by region, how *Automatic* picks one, right to left in Hebrew and Persian, improving a translation |
 | [Changing keys](keys.md) | `[keys]`: every action, key names, rules, unbinding, and what cannot be rebound |
 | [Glyphs and fonts](glyphs-and-fonts.md) | Nerd Font or plain ASCII, your own `[glyph_set]`, the interface, monospaced and icon fonts, text size |
 

@@ -8,13 +8,15 @@
   import { invoke, size, parent } from "./lib.js";
   import { t, setLanguage } from "./i18n.svelte.js";
   import CopyLine from "./CopyLine.svelte";
+  import derafsh from "../../docs/flags/derafsh.svg?url";
 
-  const flags = import.meta.glob("../node_modules/flag-icons/flags/4x3/{gb,au,ca,nz,dk,se,fi,ee,lv,lt,de,at,ch,fr,it,nl,ar,es-ct,es-pv,il,pl,cz,ua,gr,jp,kr}.svg", {
+  const flags = import.meta.glob("../node_modules/flag-icons/flags/4x3/{gb,au,ca,nz,dk,se,fi,ee,lv,lt,de,at,ch,fr,it,nl,ar,es-ct,es-pv,il,pl,cz,ua,gr,jp,kr,am,ge}.svg", {
     query: "?url",
     import: "default",
     eager: true,
   });
-  const flag = (name) => flags[`../node_modules/flag-icons/flags/4x3/${name}.svg`];
+  // Persian's banner is ours, kept with the docs' flags.
+  const flag = (name) => (name === "derafsh" ? derafsh : flags[`../node_modules/flag-icons/flags/4x3/${name}.svg`]);
 
   const AREAS = ["overview", "search", "previews", "looks", "behaviour", "keys", "privacy"];
   const s = $derived(ui.cfg.settings);
@@ -844,7 +846,7 @@
     margin: 0;
     flex: 1;
     font-size: 1.05em;
-    font-family: var(--icon-font), var(--font), var(--cjk);
+    font-family: var(--icon-font), var(--font), var(--scripts);
   }
   h3 {
     margin: 0 0 4px;
