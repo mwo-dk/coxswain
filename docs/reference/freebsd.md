@@ -446,8 +446,4 @@ already.
 release build yet ([Building from source](#building-from-source)).
 
 ---
-<<<<<<< HEAD
-[← Previous: Performance](performance.md) · [Next: Linux on ARM →](linux-arm.md)
-=======
 [← Previous: Performance](performance.md) · [Next: Flatpak →](flatpak.md)
->>>>>>> origin/master

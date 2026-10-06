@@ -141,4 +141,4 @@ package, which almost every phone of the last years uses; the recipe builds for 
 which can be turned off ([Privacy](privacy.md)).
 
 ---
-[← Previous: Flatpak](flatpak.md) · [Next: macOS →](macos.md)
+[← Previous: Linux on ARM](linux-arm.md) · [Next: ChromeOS →](chromeos.md)

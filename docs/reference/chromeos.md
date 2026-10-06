@@ -138,4 +138,4 @@ No. The helper runs inside the container, which stops when you sign out, shut do
 *Shut down Linux*. It carries on where it was when the container starts again.
 
 ---
-[← Previous: Linux on ARM](linux-arm.md) · [Next: macOS →](macos.md)
+[← Previous: Termux on Android](termux.md) · [Next: macOS →](macos.md)
