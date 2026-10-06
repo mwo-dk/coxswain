@@ -43,14 +43,16 @@ jobs:
             cargo build -p coxswain-gui --locked || true
             
             if [ -x target/debug/coxswain-gui ]; then
-              (Xvfb :99 -screen 0 1280x800x24 >/dev/null 2>&1 &)
+              Xvfb :99 -screen 0 1280x800x24 </dev/null >/dev/null 2>&1 &
+              xpid=$!
               sleep 3
-              mkdir -p /tmp/home && HOME=/tmp/home DISPLAY=:99 WEBKIT_DISABLE_COMPOSITING_MODE=1 target/debug/coxswain-gui "$PWD" >gui.log 2>&1 &
+              mkdir -p /tmp/home && HOME=/tmp/home DISPLAY=:99 WEBKIT_DISABLE_COMPOSITING_MODE=1 target/debug/coxswain-gui "$PWD" </dev/null >gui.log 2>&1 &
               pid=$!
               sleep 40
               kill -0 $pid && echo GUI-RUNNING || echo GUI-DIED
               xwd -root -display :99 -silent > shot.xwd || true
               kill $pid || true
+              sleep 2; pkill -U $(id -u) -f WebKit || true; kill $xpid || true
               cat gui.log | tail -40
             fi
             
@@ -100,14 +102,16 @@ jobs:
             cargo build -p coxswain-gui --locked
             
             if [ -x target/debug/coxswain-gui ]; then
-              (Xvfb :99 -screen 0 1280x800x24 >/dev/null 2>&1 &)
+              Xvfb :99 -screen 0 1280x800x24 </dev/null >/dev/null 2>&1 &
+              xpid=$!
               sleep 3
-              mkdir -p /tmp/home && HOME=/tmp/home DISPLAY=:99 WEBKIT_DISABLE_COMPOSITING_MODE=1 target/debug/coxswain-gui "$PWD" >gui.log 2>&1 &
+              mkdir -p /tmp/home && HOME=/tmp/home DISPLAY=:99 WEBKIT_DISABLE_COMPOSITING_MODE=1 target/debug/coxswain-gui "$PWD" </dev/null >gui.log 2>&1 &
               pid=$!
               sleep 40
               kill -0 $pid && echo GUI-RUNNING || echo GUI-DIED
               xwd -root -display :99 -silent > shot.xwd || true
               kill $pid || true
+              sleep 2; pkill -U $(id -u) -f WebKit || true; kill $xpid || true
               cat gui.log | tail -40
             fi
             
@@ -183,3 +187,22 @@ jobs:
             for t in webkit gtk3 libsoup rust rustc tesseract poppler libreoffice gstreamer noto; do echo "## $t"; pkg search -r -o pkg.name "*$t*" | sort -u | head -8; done
           run: |
             uname -a
+
+  freebsd13:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: vmactions/freebsd-vm@c46abacb49f09938ca4e1702d15d836285d694cc # v1.5.9
+        with:
+          release: "13.5"
+          usesh: true
+          run: |
+            freebsd-version
+            fetch -q https://github.com/mwo-dk/coxswain/releases/download/v2.1.2/coxswain-terminal-v2.1.2-x86_64-unknown-freebsd.tar.gz
+            tar xzf coxswain-terminal-v2.1.2-x86_64-unknown-freebsd.tar.gz
+            ./coxswain-terminal-v2.1.2-x86_64-unknown-freebsd/coxswain --version && echo FREEBSD13-RUNS || echo FREEBSD13-FAILS
+            ./coxswain-terminal-v2.1.2-x86_64-unknown-freebsd/coxswain --help | head -5 || true
+            rm -rf coxswain-terminal-*
