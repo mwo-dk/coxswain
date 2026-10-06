@@ -21,6 +21,7 @@ pub mod machine;
 pub mod notices;
 pub mod meaning;
 pub mod migrate;
+pub mod provenance;
 pub mod rename;
 pub mod service;
 pub mod settings;
@@ -29,7 +30,10 @@ pub mod sizes;
 pub mod state;
 pub mod store;
 pub mod tables;
+pub mod termux;
 pub mod tools;
+#[cfg(any(target_os = "android", all(test, unix)))]
+mod xdg_trash;
 pub mod zfs;
 pub mod bsd;
 pub mod flags;

@@ -21,6 +21,7 @@ the scope, the sources) works the same.
 - [What you see](#what-you-see)
 - [How it runs](#how-it-runs)
 - [How quick it is](#how-quick-it-is)
+- [The estimate for this processor](#the-estimate-for-this-processor)
 - [Settings and config.toml](#settings-and-configtoml)
 - [Questions](#questions)
 
@@ -28,7 +29,7 @@ the scope, the sources) works the same.
 
 | Model | `ask_model` | Download | Memory while loaded | Suggested when |
 |---|---|---|---|---|
-| Qwen3 1.7B | `builtin:qwen3-1.7b` | 1.0 GB | about 3 GB | Every machine; on a processor always |
+| Qwen3 1.7B | `builtin:qwen3-1.7b` | 1.0 GB | about 3 GB | A Mac's GPU with less than 16 GB; a processor only when [the estimate](#the-estimate-for-this-processor) has its first word within 10 s |
 | Qwen3 4B Instruct (2507) | `builtin:qwen3-4b` | 2.3 GB | about 5 GB | A Mac with Apple silicon and 16 GB or more: better answers, on the GPU |
 
 Both are Qwen3 models by Alibaba's Qwen team, under the Apache 2.0 licence, in 4-bit GGUF form
@@ -50,9 +51,11 @@ is checked against its SHA-256 before it is used; a file that does not match is 
 
 | App | How |
 |---|---|
-| Desktop app, the guide | **Ctrl+,** → **Set up…** → step 4 *Ask: the chat model*: choose *Qwen3 1.7B, built in (1.0 GB download, on the CPU; nothing leaves the machine)* in the list and press **Download Qwen3 1.7B (1.0 GB) and use it**. When no server answers, it is marked **recommended**. When the download is done, Ask is set to it and a test question follows: *It answered: the first word came after 8.6 s.* |
-| Desktop app, Settings | **Ctrl+,** → *Finding files* → *Details* → *Ask* → *Built-in chat models*: **Download (1.0 GB) and use** next to the model; **Use** once it is there; **Delete the model** frees the disk |
-| Terminal app, the guide | `coxswain --setup-search`, step 4: the built-in models come first in the list (`1  Qwen3 1.7B, built in (…)`). Type its number, answer **y** to *Download Qwen3 1.7B (1.0 GB) and use it*; a test question follows |
+| Desktop app, the guide | **Ctrl+,** → **Set up…** → step 4 *Ask: the chat model*: choose *Qwen3 1.7B, built in (1.0 GB download, on the CPU; nothing leaves the machine)* in the list and press **Download Qwen3 1.7B (1.0 GB) and use it**. It is marked **recommended** (and its button is the main one) when no server answers and it suits the machine: on a Mac's GPU always, on a processor only when [the estimate](#the-estimate-for-this-processor) is under 10 s to the first word. Under the list: *On this processor: about 74 s to the first word, then 7.4 words a second (too slow to recommend; a model server answers more quickly)*. When the download is done, Ask is set to it and a test question follows: *It answered: the first word came after 8.6 s.* |
+| Desktop app, Settings | **Ctrl+,** → *Finding files* → *Details* → *Ask* → *Built-in chat models*: each model with the estimate for this processor under it, **Download (1.0 GB) and use** next to the model; **Use** once it is there; **Delete the model** frees the disk |
+| Terminal app, the guide | `coxswain --setup-search`, step 4: the built-in models come first in the list (`1  Qwen3 1.7B, built in (…)`), each with the estimate on the line below; the last number is *Skip Ask for now*, which turns Ask off. The default (`*`) is never the skip: Ask's model as set, else the server's suggestion, else the built-in model for this machine. Type its number, answer **y** to *Download Qwen3 1.7B (1.0 GB) and use it*; a test question follows |
+| Terminal app, Settings | **F9** → *Settings* → *Finding files* → *Ask* (or `coxswain --settings=ask`): under *Chat model*, a line per built-in model with the estimate for this processor (it shows a moment after Settings opens, the first time). **Enter** on an empty *Chat model* offers `builtin:qwen3-1.7b` (on a Mac's GPU the one for its memory) to keep with **Enter** or change |
+| Desktop app, Settings, Ask off | *Chat model* shows a server's first chat model, else the built-in one for this machine, with **Use** next to it (downloading a built-in one first) |
 | Terminal app, a flag | `coxswain --meaning ask builtin:qwen3-1.7b` downloads it (*Downloading: 42 %*) and sets it; `coxswain --meaning ask off` turns Ask off again; `coxswain --meaning ask delete` deletes the built-in chat models |
 
 The model in *Chat model* can also be typed: `builtin:qwen3-1.7b` or `builtin:qwen3-4b`.
@@ -104,17 +107,64 @@ small files:
 | Qwen3 1.7B | 9–13 s | 6–11 words (tokens) a second |
 | Qwen3 4B Instruct | about 40 s | 3–4 tokens a second |
 
+With the prompt at the processor's cap (about 1,000 tokens: the rules and five passages) and
+the model loaded, Qwen3 1.7B took 65–70 s to its first word on that machine (with other work on it), reading
+14–15 tokens a second and writing 8–10. The estimate said 74–76 s. Qwen3 4B Instruct took 271 s; the estimate said 251 s.
+
 On a processor the prompt is read at about the speed the answer is written, so a question with
 five passages of your files waits a minute or more for its first word. A Mac's GPU reads the
 prompt in one go and writes many times faster. With a graphics card, a model server is quicker
 still and can run larger models ([Smart search in a few minutes](setup.md)).
+
+## The estimate for this processor
+
+How quick the built-in model is on a processor depends on that processor far more than on a
+Mac's GPU, so Coxswain measures it before it recommends anything. The first time the guide's
+step 4 or *Settings → Ask* shows the built-in models on a machine without Metal, it runs a short
+probe: the work that takes nearly all of the model's time (a 4-bit `Q4_K` matrix of Qwen3 1.7B's
+size times a few rows of a prompt, as candle does it), for 0.2 seconds, with no download. From
+that it works out how many tokens a second the model reads and writes, and how long a question
+with a full prompt (about 1,000 tokens on a processor) waits for its first word once the model is
+loaded:
+
+*On this processor: about 74 s to the first word, then 7.4 words a second (too slow to recommend;
+a model server answers more quickly)*
+
+| Where | What you see |
+|---|---|
+| Desktop app, the guide, step 4 | The line under the list, for the model chosen in it |
+| Desktop app, *Settings → Ask → Built-in chat models* | The line under each model |
+| Terminal app, `--setup-search`, step 4 | The line under each built-in model in the list |
+| Terminal app, *Settings → Finding files → Ask* | A line per built-in model, under *Chat model* |
+
+- **Recommended only when quick.** Under 10 s to the first word, Qwen3 1.7B is marked
+  **recommended** when no server answers, as on a Mac. Otherwise it is still chosen in the list
+  when no server offers a chat model, so the choice is never empty, but without the badge and
+  with the estimate's *(too slow to recommend; a model server answers more quickly)*. **Skip Ask
+  for now** (a button in the desktop guide, the last number in the terminal app's) leaves Ask
+  off.
+- **Words, not tokens.** A token is about three quarters of an English word; the line counts
+  words.
+- **Kept.** The quickest result so far is kept in `chat-speed.txt` in the data folder
+  (`~/.local/share/coxswain/` on Linux and FreeBSD, `%APPDATA%\coxswain\` on Windows), under
+  the processor's name, its thread count and the version of Coxswain. Each start of an app
+  measures once more, the first time the estimate is shown, and a quicker result replaces the
+  kept one: a measurement taken while other programs kept the processor busy is too slow, and
+  the quickest is the processor's own. A new processor or a new version starts afresh;
+  deleting the file does too.
+- **On a Mac's GPU** there is no probe and no line: the GPU reads a prompt in one go, and the
+  guide recommends as before. With *Use the CPU only* on, a Mac is measured like any processor.
+- **How close it is.** On the Core Ultra 9 185H above it said 74–76 s where the real
+  answer took 65–70 s, and 251 s for Qwen3 4B where it took 271 s. It is an estimate: other programs busy on the processor, a laptop
+  on battery or a hot processor make the model slower than it says, and the first question waits
+  a few seconds more while the model loads.
 
 ## Settings and config.toml
 
 | Item (*Settings → Finding files → Details*) | Key | Value | Does |
 |---|---|---|---|
 | *Ask* → *Chat model* | `[search] ask_model` | `"builtin:qwen3-1.7b"`, `"builtin:qwen3-4b"` | Ask answers with that built-in model |
-| *Ask* → *Built-in chat models* | none | | **Download (size) and use**, **Use**, **Delete the model** |
+| *Ask* → *Built-in chat models* | none | | The estimate for this processor, **Download (size) and use**, **Use**, **Delete the model** |
 | *Meaning* → *Use the CPU only* | `[search] meaning_device` | `"auto"` / `"cpu"` | On a Mac, `"cpu"` keeps both built-in models off the GPU |
 
 ```toml
@@ -135,9 +185,17 @@ Only the download, once, from huggingface.co, when you press the button or answe
 questions and the passages stay on this machine. See [Privacy](../reference/privacy.md).
 
 #### Which of the two should I take?
-Qwen3 1.7B on any machine, and always on a processor. On a Mac with Apple silicon and 16 GB or
+Qwen3 1.7B on any machine, and always on a processor (if at all: see the question above). On a Mac with Apple silicon and 16 GB or
 more, Qwen3 4B Instruct answers better and is quick on the GPU; the guide picks it there, and
 Settings marks it *recommended*.
+
+#### Why is the built-in model not recommended on my PC?
+On a PC it runs on the processor, and the [estimate](#the-estimate-for-this-processor) for this
+one has the first word more than 10 s away: the line under the model in step 4 says how long,
+for example *about 74 s to the first word … (too slow to recommend; a model server answers more
+quickly)*. You can still choose it: pick it in the list (desktop) or type its number (terminal)
+and download it. For quick answers on a PC, run Ollama or Lemonade with a graphics card
+([servers](servers.md)); the guide recommends their chat model when one answers.
 
 #### Why is it so slow on my PC?
 It runs on the processor there, and the processor reads the prompt about as fast as it writes

@@ -248,6 +248,7 @@ Opening this area asks the container runtime which images it has.
 | *Editor* | The program **F4** opens a file in. Empty: the system's choice in the desktop app, `$VISUAL` or `$EDITOR` in the terminal app ([View and edit](../commands/view-and-edit.md)) | `editor` |
 | *Viewer (terminal app)* | The program **F3** shows a file in, in the terminal app. Empty: `$PAGER`, else `less` | `viewer` |
 | *CBOM viewer on F3 (terminal app)* | **F3** on a CycloneDX bill of materials opens the CBOM viewer ([CBOM viewer](../previews/bom.md)) | `bom_viewer` |
+| *Provenance viewer on F3 (terminal app)* | **F3** on build provenance (SLSA, in-toto, a Sigstore bundle) opens the provenance viewer ([Build provenance](../previews/provenance.md)) | `provenance_viewer` |
 
 ## Keys
 
@@ -293,7 +294,7 @@ Every option, the name `--settings=` takes, its key, and who reads it:
 | Font, Monospaced font, Icon font, Text size, Row height | `font`, `mono_font`, `icon_font`, `font_size`, `line_height` | `[gui] font` … `line_height` | CSS font lists; `13`; `1.9` | Desktop app |
 | Show hidden files…, Ask before deleting (Behaviour) | `show_hidden`, `confirm_delete` | `show_hidden`, `confirm_delete` | true/false | Both apps |
 | Measure folder sizes, Last commit of each file | `folder_sizes`, `git_last_commit` | `folder_sizes`, `[git] last_commit` | true/false | Both apps |
-| Editor, Viewer, CBOM viewer on F3 | `editor`, `viewer`, `bom_viewer` | `editor`, `viewer`, `bom_viewer` | text (absent: the environment); true/false, `true` | Editor: both apps; the others: the terminal app |
+| Editor, Viewer, CBOM viewer on F3, Provenance viewer on F3 | `editor`, `viewer`, `bom_viewer`, `provenance_viewer` | `editor`, `viewer`, `bom_viewer`, `provenance_viewer` | text (absent: the environment); true/false, `true` | Editor: both apps; the others: the terminal app |
 | Check for a new version (Privacy and updates) | `check_updates` | `check_updates` | true/false, `true` | Both apps |
 
 The labels, explanations, areas and costs come from one description in `coxswain-core`

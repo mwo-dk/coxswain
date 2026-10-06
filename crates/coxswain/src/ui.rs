@@ -74,6 +74,10 @@ pub(crate) fn fit_left(s: &str, w: usize) -> String {
 }
 
 pub(crate) fn size(n: u64) -> String {
+    coxswain_core::i18n::digits(size_latin(n))
+}
+
+fn size_latin(n: u64) -> String {
     if n < 100_000_000 {
         return n.to_string();
     }
@@ -87,8 +91,8 @@ pub(crate) fn size(n: u64) -> String {
     format!("{v:.0}E")
 }
 
-fn date(secs: u64) -> String {
-    Local.timestamp_opt(secs as i64, 0).single().map(|t| t.format("%Y-%m-%d %H:%M").to_string()).unwrap_or_default()
+pub(crate) fn date(secs: u64) -> String {
+    coxswain_core::i18n::digits(Local.timestamp_opt(secs as i64, 0).single().map(|t| t.format("%Y-%m-%d %H:%M").to_string()).unwrap_or_default())
 }
 
 pub fn draw(f: &mut Frame, app: &mut App) {
@@ -102,6 +106,7 @@ pub fn draw(f: &mut Frame, app: &mut App) {
     let theme = app.theme.clone();
     match &mut app.dialog {
         Some(Dialog::Bom(v)) => v.draw(f, &theme),
+        Some(Dialog::Provenance(v)) => v.draw(f, &theme),
         Some(Dialog::Settings(_)) => crate::settings::draw(f, app),
         Some(Dialog::Guide(_)) => crate::guide::draw(f, app),
         Some(_) => dialog(f, app),
@@ -433,7 +438,7 @@ fn dialog(f: &mut Frame, app: &mut App) {
             }
         }
         Dialog::Search { .. } => search(f, app, full),
-        Dialog::Bom(_) | Dialog::Settings(_) | Dialog::Guide(_) => {}
+        Dialog::Bom(_) | Dialog::Provenance(_) | Dialog::Settings(_) | Dialog::Guide(_) => {}
     }
 }
 
@@ -521,7 +526,7 @@ fn search(f: &mut Frame, app: &mut App, full: Rect) {
                 Row::Ask { off: None } => vec![Line::from(Span::styled(fit(&format!(" ? {}", t!("find.ask_row", "query" => question.trim())), width), base.patch(hit_style).bg(base.bg.unwrap_or(Color::Reset))))],
                 Row::Ask { off: Some(off) } => vec![Line::from(Span::styled(fit(&format!(" ? {}{}", off.text(), step_hint(off)), width), if i == *cursor { base } else { dim }))],
                 Row::Head { group, shown, total } => {
-                    let label = group.label().to_uppercase();
+                    let label = coxswain_core::i18n::caps(&group.label());
                     let count = if *total > 0 { t!("find.of", "shown" => shown, "total" => total) } else { String::new() };
                     let gap = width.saturating_sub(label.width() + count.width() + 1);
                     vec![Line::from(Span::styled(format!("{label}{}{count} ", " ".repeat(gap)), dstyle(&t).fg(header_fg).add_modifier(Modifier::BOLD)))]
@@ -683,7 +688,7 @@ fn help_text(app: &App, width: usize) -> Vec<Line<'static>> {
         .collect();
     v.extend(key_columns(&groups, width));
     v.push(Line::from(""));
-    for k in ["help.also1", "help.also2", "help.also3", "help.bom", "help.history"] {
+    for k in ["help.also1", "help.also2", "help.also3", "help.bom", "help.provenance", "help.history"] {
         v.push(Line::from(t!(k, "key" => app.key_label(Action::History))));
     }
     let key = |a| app.key_label(a).to_string();

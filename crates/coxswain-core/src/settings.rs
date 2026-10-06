@@ -159,6 +159,7 @@ pub const OPTIONS: &[Opt] = &[
     opt("editor", &["editor"], Behaviour, &[]),
     opt("viewer", &["viewer"], Behaviour, &[]),
     opt("bom_viewer", &["bom_viewer"], Behaviour, &[]),
+    opt("provenance_viewer", &["provenance_viewer"], Behaviour, &[]),
     opt("check_updates", &["check_updates"], Privacy, &[Network]),
 ];
 
@@ -400,11 +401,15 @@ pub fn count(n: usize) -> String {
         }
         out.push(c);
     }
-    out
+    crate::i18n::digits(out)
 }
 
 /// Bytes as the desktop app writes them: exact below 10 KB, then one decimal.
 pub fn human(n: u64) -> String {
+    crate::i18n::digits(human_latin(n))
+}
+
+fn human_latin(n: u64) -> String {
     if n < 10_240 {
         return format!("{n} {}", t!("unit.B"));
     }

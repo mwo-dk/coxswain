@@ -8,13 +8,15 @@
   import { invoke, size, parent } from "./lib.js";
   import { t, setLanguage } from "./i18n.svelte.js";
   import CopyLine from "./CopyLine.svelte";
+  import derafsh from "../../docs/flags/derafsh.svg?url";
 
-  const flags = import.meta.glob("../node_modules/flag-icons/flags/4x3/{gb,au,ca,nz,dk,se,fi,ee,lv,lt,de,at,ch,fr,it,nl,ar,es-ct,es-pv,il,pl,cz,ua,gr,jp,kr}.svg", {
+  const flags = import.meta.glob("../node_modules/flag-icons/flags/4x3/{gb,au,ca,nz,dk,se,fi,ee,lv,lt,de,at,ch,fr,it,nl,ar,es-ct,es-pv,il,pl,cz,ua,gr,jp,kr,am,ge}.svg", {
     query: "?url",
     import: "default",
     eager: true,
   });
-  const flag = (name) => flags[`../node_modules/flag-icons/flags/4x3/${name}.svg`];
+  // Persian's banner is ours, kept with the docs' flags.
+  const flag = (name) => (name === "derafsh" ? derafsh : flags[`../node_modules/flag-icons/flags/4x3/${name}.svg`]);
 
   const AREAS = ["overview", "search", "previews", "looks", "behaviour", "keys", "privacy"];
   const s = $derived(ui.cfg.settings);
@@ -191,6 +193,14 @@
   async function setAskModel(model) {
     await set("ask_model", model);
     askProblem = model ? await invoke("ask_check", { tryIt: true }).catch((e) => String(e)) : null;
+  }
+  // Ask off: the field is never empty but offers a model, a server's first, else the
+  // built-in one for this machine; Use sets it (downloading a built-in one first).
+  const askPreselected = $derived(chatModels[0] ?? chat?.preselected ?? "");
+  function useAskPreselected() {
+    const m = chat?.models.find((x) => x.key === askPreselected);
+    if (m && !m.installed) chatAction("download", m.key);
+    else setAskModel(askPreselected);
   }
   // The built-in chat models: downloaded or not, and a download under way.
   let chat = $state(null);
@@ -612,8 +622,9 @@
             <summary>{t("settings.group.ask")}</summary>
             {#snippet askModel()}
               <div class="folder">
-                <input id="in-ask_model" list="askmodels" value={s.ask_model} spellcheck="false" placeholder="qwen3:8b" onchange={(e) => setAskModel(e.currentTarget.value.trim())} />
+                <input id="in-ask_model" list="askmodels" value={s.ask_model || askPreselected} spellcheck="false" placeholder="qwen3:8b" onchange={(e) => setAskModel(e.currentTarget.value.trim())} />
                 <datalist id="askmodels">{#each chat?.models ?? [] as m (m.key)}<option value={m.key}>{m.name}</option>{/each}{#each chatModels as m (m)}<option value={m}></option>{/each}</datalist>
+                {#if !s.ask_model && askPreselected}<button class="primary" disabled={!!chat?.downloading} onclick={useAskPreselected}>{t("settings.ask_use")}</button>{/if}
                 <button disabled={!s.ask_model || !s.search_meaning || trial?.busy} onclick={tryAsk}>{t("settings.step.try_it")}</button>
               </div>
               {#if askProblem}<p class="err">{askProblem}</p>{/if}
@@ -625,6 +636,7 @@
               <span class="field">{t("settings.ask_builtin")}</span>
               {#each chat?.models ?? [] as m (m.key)}
                 <p>{t("settings.ask_builtin_model", { model: m.name, size: size(m.size), where: chat.runs })}{#if m.suggested}<span class="badge">{t("setup.recommended")}</span>{/if}</p>
+                {#if m.estimate}<p class="hint">{m.estimate}</p>{/if}
                 {#if chat.downloading?.[0] === m.key}
                   <p class="hint">{t("settings.meaning_downloading", { done: size(chat.downloading[1]), total: size(chat.downloading[2]) })}</p>
                   <progress max={chat.downloading[2] || 1} value={chat.downloading[1]}></progress>
@@ -760,6 +772,7 @@
         {@render text("editor", "$EDITOR")}
         {@render text("viewer", "$PAGER")}
         {@render check("bom_viewer")}
+        {@render check("provenance_viewer")}
       {:else if area === "keys"}
         <!-- ------------------------------------------------ Keys -->
         <h3>{t("settings.area.keys")}</h3>
@@ -844,7 +857,7 @@
     margin: 0;
     flex: 1;
     font-size: 1.05em;
-    font-family: var(--icon-font), var(--font), var(--cjk);
+    font-family: var(--icon-font), var(--font), var(--scripts);
   }
   h3 {
     margin: 0 0 4px;

@@ -49,6 +49,7 @@ Every flag: [Command-line flags](command-line-flags.md#the-terminal-app-coxswain
 | The command line (with `cd`) and the user menu (**F2**) | [The command line](../commands/command-line.md), [The user menu](../commands/user-menu.md) |
 | View (**F3**) and edit (**F4**) in your own programs | [View and edit](../commands/view-and-edit.md) |
 | A viewer for CycloneDX cryptography BOMs (**F3** on one): the rated tree, a half-block sunburst, filters and compare | [Cryptography bills of materials](../previews/bom.md) |
+| A viewer for build provenance (**F3** on one): inputs → build → outputs, the outputs checked against the files here, compare | [Build provenance](../previews/provenance.md) |
 | Copy (**F5**), move and rename (**F6**), new folder (**F7**), delete to the trash (**F8**) or for good (**Shift+F8**) | [Files](../files/README.md) |
 | Archives as folders: look inside, copy and move in and out, take out, extract (**Ctrl+E**), pack (**Alt+F5**), passwords | [Archives in the terminal app](#archives-in-the-terminal-app) |
 | Find (**Alt+F7**, **Ctrl+F**; **Shift+F7** for *In files*, **Ctrl+F7** for Ask): names, words in files, meaning and history in groups, the scope chip, the Ask row (**Alt+Enter**) and the answer in place | [Find](../search/find-file.md) |
@@ -61,7 +62,7 @@ Every flag: [Command-line flags](command-line-flags.md#the-terminal-app-coxswain
 | Properties (**Alt+Enter**) as text, with ZFS, the FreeBSD package and file flags; *F9 → File flags* and *F9 → Files of this package* | [Properties](../files/properties.md#in-the-terminal-app) |
 | FreeBSD's boot environments and jails under **Alt+F1** / **Alt+F2**, as NC's drive menu | [FreeBSD](freebsd.md#boot-environments-and-jails) |
 | Every theme's colours, Nerd Font or ASCII glyphs, your own themes | [Themes](../customise/themes.md), [Glyphs and fonts](../customise/glyphs-and-fonts.md) |
-| All 26 languages (`coxswain --languages` lists them) | [Languages](../customise/languages.md) |
+| All 29 languages (`coxswain --languages` lists them) | [Languages](../customise/languages.md) |
 | Your own keys from `[keys]` | [Changing keys](../customise/keys.md) |
 | The command list (**F9**) and help (**F1**) | [The command list](../panels/command-list.md) |
 | Settings (**F9** → *Settings*, `coxswain --settings`): the desktop app's areas and options, full screen, saved at once; the install line of a missing program, copied with **Space** | [Settings in the terminal app](../customise/settings.md#in-the-terminal-app) |
@@ -212,7 +213,7 @@ option, **Space** flips or chooses, **Enter** types a value or opens a list, **/
 setting, **Esc** closes. The whole walk-through: [Settings in the terminal
 app](../customise/settings.md#in-the-terminal-app).
 
-The keys only the terminal app reads are `theme`, `viewer` and `bom_viewer` (*Looks* and
+The keys only the terminal app reads are `theme`, `viewer`, `bom_viewer` and `provenance_viewer` (*Looks* and
 *Behaviour*). A change made by hand in `config.toml` needs the app started again. Things that do
 more than set a value also have flags, for scripts:
 

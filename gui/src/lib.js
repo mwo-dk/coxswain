@@ -1,6 +1,7 @@
 import { invoke, convertFileSrc } from "@tauri-apps/api/core";
 
-import { t, num } from "./i18n.svelte.js";
+import { t, num, i18n } from "./i18n.svelte.js";
+import { isBomName, isProvenanceName } from "./sniff.js";
 
 export { invoke, convertFileSrc };
 
@@ -102,11 +103,18 @@ export function size(n) {
   return fmt(v, 0, "EB");
 }
 
+// Two digits at least, in the language's own (Persian writes ۰۵); one formatter per language.
+let two = { lang: "", f: null };
+function pad2(n) {
+  if (two.lang !== i18n.lang) two = { lang: i18n.lang, f: new Intl.NumberFormat(i18n.lang, { minimumIntegerDigits: 2, useGrouping: false }) };
+  return two.f.format(n);
+}
+
 export function date(secs) {
   if (!secs) return "";
   const d = new Date(secs * 1000);
-  const p = (n) => String(n).padStart(2, "0");
-  return ltr(`${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`);
+  const p = (n) => pad2(n);
+  return ltr(`${p(d.getFullYear())}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`);
 }
 
 const H = 3600;
@@ -258,20 +266,14 @@ export const historyOf = (p) => p.slice(0, p.search(/[\\/]@history([\\/]|$)/));
 /** What the core says when an archive is locked and wants its password (archive::LOCKED). */
 export const LOCKED = "locked: a password is needed";
 
-/** Names that say CycloneDX BOM. Other JSON and XML files are recognised by their first bytes (looksLikeBom). */
-const BOM_NAME = /(\.(cdx|cbom)\.(json|xml)|^bom\.(json|xml))$/i;
-
-/** Whether the start of a JSON or XML file is a CycloneDX BOM's (as coxswain-core's bom::sniff_head). */
-export function looksLikeBom(text) {
-  const head = text.slice(0, 8192);
-  return (head.includes('"bomFormat"') && head.includes('"CycloneDX"')) || head.includes("http://cyclonedx.org/schema/bom/");
-}
+export { looksLikeBom, looksLikeProvenance } from "./sniff.js";
 
 /** How the preview pane should show a file. */
 export function previewKind(item) {
   if (!item) return "none";
   if (item.is_dir) return "folder";
-  if (BOM_NAME.test(item.name)) return "bom";
+  if (isProvenanceName(item.name)) return "provenance";
+  if (isBomName(item.name)) return "bom";
   if (isArchive(item.name)) return "archive";
   const ext = item.name.includes(".") ? item.name.split(".").pop().toLowerCase() : "";
   if (ext === "pdf") return "pdf";

@@ -71,6 +71,7 @@ The questions people ask most, with a short answer and a link to the full one. E
 - **Why does Ask take long before the first word?** Mostly the model loading; a model that thinks first (Qwen3) is asked not to, so with the model loaded the first word comes in under a second. [Answer](search/ask.md#thinking)
 - **The first answer takes long. Why?** The server loads the model on the first question; *Waiting for … to answer* shows until the first word. [Answer](search/ask.md#the-first-answer-takes-long-why)
 - **Can Ask work without Ollama or any server?** Yes: the built-in chat model (Qwen3), downloaded once, on a Mac's GPU or slowly on the processor. Step 4 of the guide, or `coxswain --meaning ask builtin:qwen3-1.7b`. [Answer](search/ask-builtin.md)
+- **Why is the built-in chat model not recommended on my PC?** It runs on the processor there, and a short probe found it would take more than 10 s to its first word; the line under it in step 4 says how long. You can still choose it. [Answer](search/ask-builtin.md#why-is-the-built-in-model-not-recommended-on-my-pc)
 - **Ask says my model only reads meaning and cannot answer.** The chat model is an embedding model such as `bge-m3`; choose a chat model such as `qwen3:8b`. [Answer](search/ask.md#it-says-my-model-only-reads-meaning-and-cannot-answer-why)
 - **What does Ask send, and where?** [Answer](search/ask.md#what-is-sent-and-where)
 - **Does the built-in model use my Mac's GPU?** On Apple Silicon, yes: through Metal, several times faster; Intel Macs stay on the CPU. Settings → Finding files → Details → Meaning and `coxswain --meaning` say which; *Use the CPU only* or `coxswain --meaning cpu` keeps it off the GPU. [Answer](search/meaning.md#does-the-built-in-model-use-my-macs-gpu)
@@ -104,6 +105,8 @@ The questions people ask most, with a short answer and a link to the full one. E
 - **Previewing a video made the window go blank or stop. Why?** GStreamer's good plugins are missing; from 1.29.1 the preview says so instead. [Answer](previews/media.md#previewing-a-video-made-the-window-go-blank-or-stop-why)
 - **Why does a video not play?** The webview lacks the codec; on Linux install the GStreamer plugins. [Answer](previews/media.md#why-does-a-video-not-play)
 - **How do I get the old F3 back for a BOM in the terminal app?** Press F3 (or `s`) again in the viewer, or set `bom_viewer = false`. [Answer](previews/bom.md#how-do-i-get-the-old-f3-back-in-the-terminal-app)
+- **Does a ✓ in the provenance view mean the file is safe?** No: it means the file here is the one the provenance names; the provenance itself is not verified. [Answer](previews/provenance.md#does-a--mean-the-file-is-safe)
+- **Why is the source commit "not in your checkout"?** Coxswain never fetches; run `git fetch` in your checkout. [Answer](previews/provenance.md#why-is-my-commit-not-in-your-checkout)
 
 ## Files
 - **How do I get one file out of a zip without unpacking all of it?** Press Enter on the zip, go to the file and press F5: only that file is copied out. [Answer](files/archives.md#how-do-i-get-one-file-out-of-a-zip-without-unpacking-all-of-it)
@@ -129,7 +132,8 @@ The questions people ask most, with a short answer and a link to the full one. E
 - **I set `[themes.cyber.panel]` to tweak Cyber, and everything else turned blue.** Your table replaces the built-in Cyber and unset slots take NC's colours; copy the whole theme from `coxswain --dump-config`. [Answer](customise/own-theme.md#i-set-themescyberpanel-to-tweak-cyber-and-everything-else-turned-blue)
 - **How do I keep the default key and add my own?** List both in `[keys]`: listing an action replaces all its defaults. [Answer](customise/keys.md#how-do-i-keep-the-default-key-and-add-my-own)
 - **My system is in US English. Why does Coxswain say "colour" but "trash"?** US English gets Canadian English: British spelling, North American words. [Answer](customise/languages.md#my-system-is-in-us-english-why-does-coxswain-say-colour-but-trash)
-- **A word in Polish, Czech, Ukrainian or Greek reads wrong. Where do I say so?** These four are new; a GitHub issue or a pull request on `crates/coxswain-core/locales/<code>.json` is welcome. [Answer](customise/languages.md#improving-a-translation)
+- **A word in a new translation (Polish, Czech, Ukrainian, Greek, Japanese, Korean, Persian, Armenian, Georgian) reads wrong. Where do I say so?** These are new; a GitHub issue or a pull request on `crates/coxswain-core/locales/<code>.json` is welcome. [Answer](customise/languages.md#improving-a-translation)
+- **Persian letters are separate and backwards in the terminal app. Why?** Joining and right to left are the terminal's work: Konsole and mlterm do both, Alacritty and kitty neither. [Answer](customise/languages.md#persian-letters-in-the-terminal-app-are-separate-and-backwards-can-coxswain-fix-that)
 - **The colours in my terminal look washed out, or wrong.** The themes use exact RGB and need a true-colour terminal; enable it in tmux. [Answer](customise/themes.md#the-colours-in-my-terminal-look-washed-out-or-wrong)
 
 ## Reference
@@ -150,7 +154,16 @@ The questions people ask most, with a short answer and a link to the full one. E
 - **Which package does this file belong to?** **Alt+Enter** on it shows *Package git-2.56.0* on FreeBSD; *F9 → Files of this package* lists all its files. [Answer](files/properties.md#zfs-packages-and-file-flags)
 - **Can I set chflags from Coxswain?** Your own user flags (`nodump`, `hidden`, and `uchg`, `uappnd` off ZFS) in Properties, or *F9 → File flags* in the terminal app. System flags are root's. [Answer](files/properties.md#zfs-packages-and-file-flags)
 - **Where are my boot environments and jails?** In the desktop app's sidebar, and under **Alt+F1** in the terminal app; mounted ones open as folders. [Answer](reference/freebsd.md#boot-environments-and-jails)
+- **Where are my phone's folders in Termux?** Run `termux-setup-storage` once; then **Alt+F1** lists *Phone: shared*, *Phone: downloads* and the others. [Answer](reference/termux.md#your-phones-folders)
+- **Where does F8 put my files in Termux?** In Coxswain's own trash, `~/.local/share/Trash`; on the phone's storage (`~/storage`) F8 asks to delete for good instead. Android's Files app bin is separate. [Answer](reference/termux.md#questions)
+- **Does Coxswain run on a Raspberry Pi?** Yes, with the 64-bit Raspberry Pi OS: `Coxswain_<version>_arm64.deb` and the `aarch64-unknown-linux-musl` terminal app. There is no 32-bit build. [Answer](reference/linux-arm.md#which-file-do-i-download-for-a-raspberry-pi)
+- **The ARM AppImage does not start and mentions FUSE.** `sudo apt install libfuse2` (`libfuse2t64` on Ubuntu 24.04 and newer), or use the `.deb`. [Answer](reference/linux-arm.md#the-appimage-does-not-start-and-mentions-fuse-what-now)
+- **Which `.deb` does my Chromebook need?** `dpkg --print-architecture` in its Linux terminal: `amd64` or `arm64`. [Answer](reference/chromeos.md#which-deb-does-my-chromebook-need)
+- **Why does Coxswain not see my Chromebook's Downloads?** Linux sees only *Linux files* until you right-click a folder in the Files app and choose *Share with Linux*. [Answer](reference/chromeos.md#why-does-coxswain-not-see-my-downloads-folder)
+- **Which installer do I need on a Snapdragon laptop?** `Coxswain_<version>_arm64-setup.exe`: native, no emulation. [Answer](reference/windows-arm.md#which-installer-do-i-need-on-a-snapdragon-laptop)
 - **How do I start the search helper on FreeBSD without a desktop session?** The rc.d script: `doas sysrc coxswain_index_enable=YES coxswain_index_user=$USER` and `doas service coxswain_index start`, or one line in `~/.profile`. [Answer](reference/freebsd.md#the-search-helper)
+- **Is there a Flatpak?** Yes, of the desktop app (`io.github.mwo_dk.Coxswain`); it is not on Flathub yet, so build it with `flatpak-builder` from `packaging/flatpak`. [Answer](reference/flatpak.md#building-it-yourself)
+- **In the Flatpak, F4 says *sh: hx: not found*.** The editor runs on the host: install it there, and give a terminal editor its terminal (`editor = "kitty -e hx"`). [Answer](reference/flatpak.md#questions)
 - **Does Coxswain run on an Android phone?** The terminal app does, in Termux: `pkg install coxswain` once the package is in Termux's repository, `cargo install coxswain` until then. [Answer](reference/termux.md#installing)
 - **In Termux I only see Termux's own files.** Run `termux-setup-storage` once; the phone's folders are then in `~/storage`. [Answer](reference/termux.md#your-phones-folders)
 - **On a Mac, Coxswain keeps asking to "access data from other apps".** Versions before 2.1.1 walked `~/Library`; now the walks leave it out (but iCloud Drive and the cloud folders) and never open Photos or Music libraries, so the helper does not raise that prompt. [Answer](reference/macos.md#it-kept-asking-to-access-data-from-other-apps-why-and-is-it-gone)
@@ -159,4 +172,4 @@ The questions people ask most, with a short answer and a link to the full one. E
 - **The cache folder is large. What takes the room?** Mostly search.db and the 488 MB model, then previews/. [Answer](reference/where-things-are-kept.md#the-cache-folder-is-large-what-takes-the-room)
 
 ---
-[← Previous: macOS](reference/macos.md) · [Next: Docs index →](README.md)
+[← Previous: Windows on ARM](reference/windows-arm.md) · [Next: Docs index →](README.md)
