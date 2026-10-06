@@ -7,7 +7,7 @@ what you type, whatever words they use and in whichever language: "what the rock
 finds `Brændstofbudget.docx`. A small multilingual model does it on your own machine; it is off
 until you turn it on.
 
-<!-- screenshot: search-meaning-hits.png: the desktop app (Cyber), Find with "rocket fuel cost": In files with budget.txt, About this with budget-da.txt (Danish) and its passage in italics -->
+![The desktop app's Find with "rocket fuel cost" typed: the Ask row on top, In files with budget.txt and its passage, About this with budget-da.txt, the Danish budget, in italics](../screenshots/search-find.png)
 
 ## Contents
 

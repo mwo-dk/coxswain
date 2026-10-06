@@ -7,7 +7,7 @@ search tool: words, `!`, `|`, wildcards, `ext:`, `file:`, `folder:`, `case:` and
 case-insensitive unless you ask. It applies to Find's *Names* group, everywhere or in [one folder](names.md#names-in-this-folder),
 not to the words of [In files](text.md). A query with this syntax shows names only.
 
-<!-- screenshot: tui-search.png: the terminal app (Classic blue), Find with "*.rs|*.toml src/" typed: NAMES only, eight hits, two inside a zip -->
+![The terminal app's Find with "*.rs|*.toml src/" typed: NAMES, five hits, two of them inside rocket-src.zip](../screenshots/tui-search.png)
 *`*.rs|*.toml src/`: names ending in `.rs` or `.toml`, under a folder named `src`.*
 
 ## How to use it

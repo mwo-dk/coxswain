@@ -7,8 +7,7 @@ lists, the cursor row, folders, git states, dialogs …) and, for the desktop ap
 [look](looks.md). Use it to fix one colour you do not like, or to bring your terminal's palette
 into both apps.
 
-![The desktop app in the custom theme harbour from this page, with Settings open at Looks: the harbour swatch after the built-in ones, selected; the slots it leaves out keep Classic blue's colours](../screenshots/customise-own-theme.png)
-<!-- screenshot: customise-own-theme.png: desktop app in the harbour theme, Settings open at Looks with For on Desktop app: the harbour swatch after the built-in ones, selected -->
+![The desktop app in the custom theme harbour, Settings open at Looks: the harbour swatch after the built-in ones, selected; the slots it leaves out keep Classic blue's colours](../screenshots/customise-own-theme.png)
 
 ## Contents
 

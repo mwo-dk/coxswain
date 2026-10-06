@@ -6,8 +6,7 @@
 you can restore them. **Shift+F8** deletes them for good. Both ask first, unless you turn the
 question off.
 
-![The desktop app's Delete dialog: Move "old-draft.docx" to the bin?, with the Move to bin button and Cancel](../screenshots/files-delete.png)
-<!-- screenshot: files-delete.png: retake for 2.0: the Delete dialog, Move "old-draft.docx" to the bin?, the red Move to bin button and Cancel, and the line Enter Move to bin · Esc Cancel -->
+![The Delete dialog: Move "old-draft.docx" to the bin?, the buttons Move to bin and Cancel, and the line Enter Move to bin · Esc Cancel](../screenshots/files-delete.png)
 
 ## How to use it
 

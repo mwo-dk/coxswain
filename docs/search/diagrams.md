@@ -7,7 +7,7 @@ sentence, "Browser to Entra ID: sign in.", with the names the boxes show rather 
 a [search by meaning](meaning.md) for "entra auth flow" finds the sequence diagram of your login,
 and a search by words for `browser entra` finds it too.
 
-<!-- screenshot: search-find-groups.png: the desktop app (Cyber), Find with "engine" typed: In files with main.rs, sequence.puml, launch-pad.drawio and their passages, "engine" highlighted, then History -->
+![The desktop app's Find with "engine" typed: In files with main.rs, sequence.puml, launch-pad.drawio and engine.rs and their passages, engine highlighted, then About this and History](../screenshots/search-find-groups.png)
 *A PlantUML file found by its words. The sentences made from its arrows are searched the same way.*
 
 ## Contents

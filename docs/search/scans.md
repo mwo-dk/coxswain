@@ -6,8 +6,7 @@ Some files have words only an installed program can get: screenshots, scans, sca
 older Office files such as `.doc` and `.ppt`. When the program is there, Coxswain uses it by itself,
 and a search finds those words too.
 
-![Settings, Search inside files, Programs that read more: ✗ tesseract · not installed, ✓ pdftoppm and ✓ LibreOffice](../screenshots/search-scans-tools.png)
-<!-- screenshot: search-scans-tools.png: desktop app, Cyber theme, Settings at Finding files with Details → What is read open: Programs that read more: ✗ tesseract · not installed, ✓ pdftoppm and ✓ LibreOffice -->
+![Programs that read more in Settings: ✗ tesseract, not installed, with the line Install it: sudo pacman -S tesseract tesseract-data-eng and a Copy button; ✓ pdftoppm and ✓ LibreOffice](../screenshots/search-scans-tools.png)
 
 ## How to use it
 
@@ -56,8 +55,6 @@ Where it shows:
 Without a package manager Coxswain knows (a Linux with none of the four), there is no line: the
 notice says *Install tesseract to search the words in scans, screenshots and pictures* and the
 row says *not installed*.
-
-<!-- screenshot: search-install-line.png: desktop app, Cyber theme, Settings at Finding files with Details → What is read open: Programs that read more with ✗ tesseract · not installed and under it "Install it: sudo pacman -S tesseract tesseract-data-eng" with a Copy button; ✓ pdftoppm, ✓ LibreOffice -->
 
 ## What you see
 

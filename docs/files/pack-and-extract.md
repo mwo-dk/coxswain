@@ -11,8 +11,7 @@ after it. Both apps have both keys.
 *An archive under the cursor. The preview pane (Space) lists what is in it and reminds you that
 **Ctrl+E** extracts it to the other pane.*
 
-![The desktop app's Pack dialog: Pack 3 items into (.zip, .7z, .tar, .tar.gz, …): with /home/demo/Documents/flight7.zip, the password typed twice as dots, OK and Cancel](../screenshots/files-pack.png)
-<!-- screenshot: files-pack.png: retake for 2.0: the Pack dialog titled Pack 3 items, the label To:, the Format list (7z chosen) next to the name, the Pack and Cancel buttons with the line Enter Pack · Esc Cancel, the hint "7z: smallest, a password can hide the names too" under it, and the two password fields -->
+![The dialog Pack 3 items: To: /home/demo/Backups/Documents.7z with the Format list on 7z, the hint 7z: smallest, a password can hide the names too, the password typed twice as dots, Hide the file names too, and Pack and Cancel](../screenshots/files-pack.png)
 
 ## Contents
 

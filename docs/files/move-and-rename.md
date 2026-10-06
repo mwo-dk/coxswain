@@ -6,8 +6,7 @@
 when you type a new name. It is one key for both, as in Norton Commander. The desktop app's
 F-key bar says *Move*; the terminal app's keeps Norton Commander's *RenMov*.
 
-![The desktop app's Move or rename dialog: Move "report.pdf" to:, the field edited to report-final.pdf](../screenshots/files-move.png)
-<!-- screenshot: files-move.png: retake for 2.0: the desktop app's dialog titled Move or rename "report.pdf", the label To: over the field edited to report-final.pdf, the buttons Move and Cancel, and the line Enter Move · Esc Cancel -->
+![The dialog Move or rename "report.pdf": To: edited to report-final.pdf, the buttons Move and Cancel, and the line Enter Move · Esc Cancel](../screenshots/files-move.png)
 
 ## How to use it
 

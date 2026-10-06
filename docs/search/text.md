@@ -6,7 +6,7 @@ Text in files is the *In files* group of [Find](find-file.md): the files whose t
 words, from code, notes, PDFs, Word documents, spreadsheets, slides, mail and books. Use it when
 you remember what a file says but not what it is called.
 
-<!-- screenshot: search-find-groups.png: the desktop app (Cyber), Find with "engine" typed: In files with main.rs, sequence.puml, launch-pad.drawio and their passages, "engine" highlighted, then History -->
+![The desktop app's Find with "engine" typed: In files with main.rs, sequence.puml, launch-pad.drawio and engine.rs and their passages, engine highlighted, then About this and History](../screenshots/search-find-groups.png)
 *Seven files with "engine" in them: code, a PlantUML diagram, YAML, a log, a mail and a LaTeX paper.*
 
 ## Contents
@@ -102,7 +102,7 @@ The same store, the same hits, found by the same helper. The passage goes on a s
 each name, your words in the `search_hit` colour. There is no Settings window: set the keys in
 `config.toml`, and the helper takes them at its next start ([questions](folders.md#questions)).
 
-<!-- screenshot: tui-text-search.png: the terminal app (Classic blue), Find at In files with "engine" typed: each hit a name and folder, the passage on the next line, "engine" highlighted -->
+![The terminal app's Find at In files with "engine" typed: each hit a name and folder, the passage on the next line, engine highlighted](../screenshots/tui-text-search.png)
 
 ## Questions
 

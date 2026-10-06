@@ -114,6 +114,9 @@ g init -q --bare "$d/.remotes/rocket.git"
 g remote add origin "$d/.remotes/rocket.git"
 g push -q -u origin master
 printf '\n## Build\n\n    cargo build --release\n' >> README.md && g commit -qam "Document the build"
+# A branch one commit ahead, for the branches folder (Alt+B).
+g checkout -q -b feature/engine && printf 'pub fn throttle(level: f64) -> f64 {\n    level.clamp(0.0, 1.0)\n}\n' > src/throttle.rs
+g add src/throttle.rs && g commit -qm "Add the throttle" && g checkout -q master
 
 echo "Launch window: Tuesday" >> README.md && g stash -q
 sed -i 's/30.0/45.0/' src/main.rs
@@ -148,6 +151,9 @@ cp -r "$d/Pictures" "$d/Backups/old-laptop-2019/Pictures"
 cp "$d/Documents/launch-report.pdf" "$d/Downloads/launch-report (1).pdf"
 cp "$d/Documents/debrief.docx" "$d/Backups/old-laptop-2019/debrief.docx"
 touch -d "2019-06-01 12:00" "$d/Backups/old-laptop-2019/debrief.docx"
+
+# A folder nothing can be written to, for the picture of a copy that fails.
+mkdir -p "$d/Backups/read-only" && chmod 555 "$d/Backups/read-only"
 
 # No "new version" notice in the pictures.
 mkdir -p "$d/.config/coxswain" && printf 'check_updates = false\n' > "$d/.config/coxswain/config.toml"
