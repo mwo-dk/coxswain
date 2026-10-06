@@ -140,6 +140,7 @@ New here? Start with [The first-run guide](panels/first-run.md), [The screen](pa
 | [Licences and bills of materials](reference/bills-of-materials.md) | The SBOMs, the CBOM and the third-party notices each release carries, the licence checks, the cryptography both apps use |
 | [Performance](reference/performance.md) | What keeps each app quick, the numbers for 100,000 files and a million names, and how to measure again |
 | [FreeBSD](reference/freebsd.md) | Both apps on FreeBSD: one-line install, packages, the search helper without systemd (autostart, rc.d, login shell), search by meaning, ZFS snapshots and facts, a file's package, file flags, boot environments and jails, differences, updating, the desktop app's experimental status, other BSDs |
+| [Nix](reference/nix.md) | The flake for both apps (`nix run github:mwo-dk/coxswain`), profile, NixOS and Home Manager installs, the desktop app's wrapping, updating, nixpkgs and the flake |
 | [macOS](reference/macos.md) | The folder prompts (TCC) and what to answer, what is never read on a Mac (~/Library but iCloud Drive, Photos and Music libraries), Full Disk Access, ad-hoc signing and asking again after updates, search by meaning on the GPU without a server |
 
 ## [Questions, collected](faq.md)
