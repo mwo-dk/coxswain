@@ -1,6 +1,6 @@
 # Design: a build provenance viewer (SLSA, in-toto)
 
-Status: **draft**, for review before any code. Branch `feature/provenance`.
+Status: **agreed**; being built. Branch `feature/provenance`.
 
 ## What and why
 
@@ -32,9 +32,9 @@ can find the source commit in a checkout you already have. And it can compare tw
    checkout here?
 4. **Compare:** two provenance files, to see what differs between two builds.
 
-**Not in this design's steps:** verifying signatures (see [Verification](#verification), a
-separate opt-in step after this one), SLSA level ratings, PEP 740 attestation files,
-fetching attestations from a registry or from GitHub, and a known-builders catalogue.
+**Not in this design's steps:** verifying signatures (see [Verification](#verification): not in
+this version), SLSA level ratings, PEP 740 attestation files,
+fetching attestations from a registry or from GitHub and a Verify button.
 
 ## Formats
 
@@ -63,10 +63,11 @@ The predicates:
 `completeness` and `reproducible` are kept and shown as facts. Both versions then reach the
 views as one model, and compare works across them.
 
-## Data model (Rust, `crates/coxswain-core/src/attest/`)
+## Data model (Rust, `crates/coxswain-core/src/provenance/`)
 
-We name the module **`attest`**, not `slsa`: the same reader carries every in-toto predicate,
-and provenance is one of them. The views call it *provenance* where it is one.
+We name the module, the preview kind, the dialog, the strings and the docs page
+**`provenance`**, not `slsa`: SLSA is the main predicate, but the same reader carries every
+in-toto predicate, and it is provenance people come for.
 
 ```rust
 pub struct Attestations {
@@ -179,13 +180,11 @@ So the **first iteration verifies nothing**, and says so. The header carries *No
 this is what the file claims* in every view, next to the signer. No green mark is ever given
 to the provenance as a whole, only to the on-disk checks, which are true facts about the disk.
 
-**The next step, opt-in** (not in this design's steps): a **Verify** button, `v` in the
-terminal app, which runs a verifier that is already installed (`slsa-verifier`, `cosign` or
-`gh attestation verify`). Each would be an engine button, as the LaTeX and PlantUML previews
-have, and the output would be shown as command output. These tools contact Sigstore for the
-trusted root and sometimes Rekor, so the button is off until it is turned on in Settings,
-which names where the data goes. A notice (`coxswain_core::notices`) mentions the button once,
-the first time a provenance is shown.
+There is **no Verify button in this version**, not even one that runs an installed verifier.
+A later version may add one, opt-in, as an engine button that runs `slsa-verifier`, `cosign`
+or `gh attestation verify`. Those contact Sigstore, so it would be off until turned on in
+Settings, which would name where the data goes. Until then, the docs page says how to verify
+with those tools by hand.
 
 ## Detection
 
@@ -197,25 +196,25 @@ the first time a provenance is shown.
    `application/vnd.dev.sigstore.bundle`. This catches `gh attestation download`'s
    `sha256:<hex>.jsonl`.
 
-Core offers `attest::sniff(path)`, `sniff_name` and `sniff_head`, as `bom` does. In the
+Core offers `provenance::sniff(path)`, `sniff_name` and `sniff_head`, as `bom` does. In the
 desktop app, `Preview.svelte`'s `sniffedBom` becomes `sniffed = { path, kind }`, so the text
-loader can upgrade a `data` or `jsonl` file to `bom` or to `attest`. The BOM sniff runs first:
+loader can upgrade a `data` or `jsonl` file to `bom` or to `provenance`. The BOM sniff runs first:
 a CycloneDX file is never an attestation. A `.jsonl` file whose first line is not an
 attestation stays a JSON Lines table.
 
 ## Desktop app
 
-**Backend** (`gui/src-tauri/src/attest.rs`, next to `bom.rs`):
+**Backend** (`gui/src-tauri/src/provenance.rs`, next to `bom.rs`):
 
-- `attest_info(path) -> AttestView`: entries with their subjects, the flow's columns, the
+- `provenance_info(path) -> ProvenanceView`: entries with their subjects, the flow's columns, the
   signer, log entries and issues. Parameters and the decoded statement come on demand. It runs
   on a blocking thread, and the parsed file is cached per path and mtime.
-- `attest_check(path, entry) -> Vec<SubjectCheck>`: the on-disk subject checks, streamed as
+- `provenance_check(path, entry) -> Vec<SubjectCheck>`: the on-disk subject checks, streamed as
   each hash finishes, and cancellable.
-- `attest_source(path, entry) -> Vec<SourceCheck>`: the checkout lookups.
-- `attest_diff(old, new) -> AttestDiff`.
+- `provenance_source(path, entry) -> Vec<SourceCheck>`: the checkout lookups.
+- `provenance_diff(old, new) -> ProvenanceDiff`.
 
-**Frontend:** a new `gui/src/AttestView.svelte` takes `kind === "attest"`. `Preview.svelte`
+**Frontend:** a new `gui/src/ProvenanceView.svelte` takes `kind === "provenance"`. `Preview.svelte`
 gets one `{:else if}` and the switch buttons.
 
 ```
@@ -280,10 +279,10 @@ builds of the same commit the same?*
 
 ## Terminal app
 
-The same viewer as a full-screen dialog, `Dialog::Attest`, modelled on `Dialog::Bom`.
+The same viewer as a full-screen dialog, `Dialog::Provenance`, modelled on `Dialog::Bom`.
 
 - **F3 on an attestation** opens it. **F3 again** (or `s`) shows the source in the pager.
-  `attest_viewer = false` in the config keeps the pager.
+  `provenance_viewer = false` in the config keeps the pager.
 - **Layout:** the three columns side by side at 100 columns or more, and stacked (inputs,
   build, outputs) when narrower. The details take the bottom third. Marks are characters
   (`✓ ✗ ? –`, `●` found, `○` not found) with the word next to them, so colour is never the
@@ -319,7 +318,7 @@ The same viewer as a full-screen dialog, `Dialog::Attest`, modelled on `Dialog::
 
 ## Tests and fixtures
 
-- The fixtures live in `crates/coxswain-core/src/attest/testdata/`, each with its upstream
+- The fixtures live in `crates/coxswain-core/src/provenance/testdata/`, each with its upstream
   LICENSE file:
   - slsa-verifier's testdata (Apache-2.0): slsa-github-generator generic v0.2 and v1
     `*.intoto.jsonl`, and a container provenance
@@ -339,7 +338,7 @@ The same viewer as a full-screen dialog, `Dialog::Attest`, modelled on `Dialog::
     branch, and one missing.
   - **Diff:** two v1 fixtures with a changed parameter, dependency and subject.
 - GUI: `npx svelte-check && npm test && npm run build`, and the Tauri command tests in
-  `attest.rs`.
+  `provenance.rs`.
 - **Our own provenance:** a separate CI-only PR (no version bump) adds
   `actions/attest-build-provenance` to `release.yml`. Coxswain's own releases then have
   provenance, which is a real fixture we own and a good docs example.
@@ -350,7 +349,7 @@ The same viewer as a full-screen dialog, `Dialog::Attest`, modelled on `Dialog::
 
 ## Strings and docs
 
-- New catalogue keys go under `attest.*`: the switch labels, column titles, check results,
+- New catalogue keys go under `provenance.*`: the switch labels, column titles, check results,
   the *Not verified* line, claim names, compare labels and issues, about 45 in all, in every
   locale in the same PR.
 - `docs/previews/provenance.md` is the feature page (*Build provenance and attestations*):
@@ -365,37 +364,31 @@ The same viewer as a full-screen dialog, `Dialog::Attest`, modelled on `Dialog::
 All steps stay on `feature/provenance` and go to `master` as one PR, bumped **minor**, as
 the BOM viewer was. Each step ends with its acceptance command green.
 
-1. **Core ingest** (`attest::{model, ingest, sniff}`, fixtures): every form, v1 and v0.2,
-   VSA, the generic predicate, issues. Acceptance: `cargo test -p coxswain-core attest`.
+1. **Core ingest** (`provenance::{model, ingest, sniff}`, fixtures): every form, v1 and v0.2,
+   VSA, the generic predicate, issues. Acceptance: `cargo test -p coxswain-core provenance`.
 2. **Core signer** (`x509-parser` into core, the Fulcio claims; `cert_info` moved onto it).
    Acceptance: `cargo test --workspace`, and the musl build.
-3. **Core checks** (`attest::check`: subjects, sources; `on_disk` shared with `bom`).
-   Acceptance: `cargo test -p coxswain-core attest`.
-4. **Core diff** (`attest::diff`). Acceptance: `cargo test -p coxswain-core attest::diff`.
+3. **Core checks** (`provenance::check`: subjects, sources; `on_disk` shared with `bom`).
+   Acceptance: `cargo test -p coxswain-core provenance`.
+4. **Core diff** (`provenance::diff`). Acceptance: `cargo test -p coxswain-core provenance::diff`.
 5. **GUI flow, Statement view, checks, detection, ⤢.** This is the first user-visible step.
    Acceptance: `cargo test --workspace`, `cd gui && npx svelte-check && npm test && npm run
    build`, and a manual run on each fixture.
 6. **GUI compare.** Acceptance: as step 5.
-7. **TUI viewer** (`Dialog::Attest`). Acceptance: `cargo test --workspace` and a manual run
+7. **TUI viewer** (`Dialog::Provenance`). Acceptance: `cargo test --workspace` and a manual run
    in the sandbox.
 8. **Docs, strings in every locale, screenshots, changelog row, version bump.** Acceptance:
    the i18n test, `uv run tools/preview-check.py` with an attestation added to its files, and
    every link checked.
 
-Verification (the opt-in **Verify**) follows as its own design note and PR.
+## Decisions
 
-## Open questions
-
-1. **Name:** `attest` for the module and *Build provenance and attestations* for the page, or
-   `provenance` throughout?
-2. **One F3 switch or two:** a separate `attest_viewer`, or should `bom_viewer` become one
-   `viewers = true` for both?
-3. **Known builders:** should a small table give short names (*GitHub Actions, hosted
-   runner*) to well-known builder IDs and build types, as proposed, or should the ID always be
-   shown as it is? A table that also claims SLSA levels is out of scope; a VSA is the honest
-   source of a level.
-4. **Hashing limit:** is 256 MB right for hashing without being asked, or should checking
-   always wait for Enter on a slow disk or a network share?
-5. **Verify engines:** which to support first: `gh attestation verify` (needs the gh CLI
-   and its login), `slsa-verifier` (no login; needs the expected source repository), or
-   `cosign verify-blob-attestation`?
+1. **Name:** `provenance` throughout: module, preview kind, dialog, strings and page.
+2. **F3 switch:** a separate `provenance_viewer = true`, next to `bom_viewer`. It adds a key
+   (minor) where one shared key would rename `bom_viewer` (a breaking config change), and each
+   viewer can be turned off on its own.
+3. **Known builders:** a small table gives short names to well-known builder IDs and build
+   types (*GitHub Actions, hosted runner*); the full ID is always in the details. It claims no
+   SLSA levels.
+4. **Hashing limit:** files up to 256 MB are checked unasked; larger ones on Enter.
+5. **Verify:** none in this version (see [Verification](#verification)).
