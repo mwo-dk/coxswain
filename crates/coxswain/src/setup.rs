@@ -4,6 +4,7 @@
 
 use coxswain_core::config::{Config, SearchConfig};
 use coxswain_core::helper::Client;
+use coxswain_core::chat;
 use coxswain_core::meaning::{self, Progress};
 use coxswain_core::setup::{self, Found, Kind};
 use coxswain_core::t;
@@ -67,7 +68,7 @@ fn with_progress(p: &std::sync::Arc<Progress>, work: impl FnOnce() -> Result<(),
         while !q.cancel.load(Ordering::Relaxed) {
             let (done, total) = (q.done.load(Ordering::Relaxed), q.total.load(Ordering::Relaxed));
             if let Some(percent) = (done * 100).checked_div(total) {
-                eprint!("\r{}", t!("tui.meaning_downloading", "percent" => percent));
+                eprint!("\r{}", t!("setup.downloading", "percent" => percent));
             }
             std::thread::sleep(std::time::Duration::from_millis(250));
         }
@@ -197,43 +198,69 @@ pub fn run() {
         }
     }
 
-    // 4. Ask: the chat model, on that server (Ollama here with the built-in model).
+    // 4. Ask: the built-in chat model, or one on that server (Ollama here with the built-in
+    // model for the vectors).
     heading(t!("setup.step_ask"));
     let ask_server = server.clone().or_else(|| found.iter().find(|f| f.kind == Kind::Ollama).cloned());
     let mut asked = false;
-    match &ask_server {
-        None => println!("{}", t!("setup.ask_needs_server")),
-        Some(f) => {
-            let suggest = if matches!(f.kind, Kind::Ollama | Kind::Lemonade) { advice.chat.clone() } else { String::new() };
-            println!("{}", t!("setup.ask_hint", "model" => if suggest.is_empty() { "qwen3:8b" } else { suggest.as_str() }));
-            let mut models: Vec<String> = f.models.iter().filter(|m| m.chat).map(|m| m.name.clone()).collect();
-            if !suggest.is_empty() && !models.iter().any(|m| m.starts_with(&suggest)) && yes(&t!("setup.pull", "model" => suggest.as_str())) {
-                let p = std::sync::Arc::new(Progress::default());
-                match with_progress(&p, || setup::pull(f, &suggest, &p)) {
-                    Ok(()) => models.push(suggest.clone()),
-                    Err(e) => eprintln!("coxswain: {e}"),
-                }
+    println!("{}", t!("setup.ask_builtin_hint"));
+    let builtin_chat = chat::suggest(machine.ram);
+    let mut items: Vec<String> = chat::MODELS
+        .iter()
+        .map(|m| {
+            let mut s = t!("setup.ask_builtin", "model" => m.name, "size" => coxswain_core::settings::human(m.size()), "where" => setup::builtin_runs(&search(), None));
+            if std::ptr::eq(m, builtin_chat) && ask_server.is_none() {
+                s.push_str(&format!(" [{}]", t!("setup.recommended")));
             }
-            let default = models.iter().position(|m| !suggest.is_empty() && m.starts_with(&suggest)).unwrap_or(0);
-            if let Some(i) = choose(&models, default) {
-                save("ask_model", models[i].as_str());
-                println!("{}", t!("dialogs.ask_waiting", "model" => models[i].as_str()));
-                match setup::try_ask(&search()) {
-                    Ok(d) => {
-                        println!("{}", t!("setup.try_done", "seconds" => format!("{:.1}", d.as_secs_f64())));
-                        asked = true;
-                    }
-                    Err(e) => eprintln!("coxswain: {e}"),
-                }
+            s
+        })
+        .collect();
+    let mut models: Vec<String> = vec![];
+    let mut suggest = String::new();
+    if let Some(f) = &ask_server {
+        suggest = if matches!(f.kind, Kind::Ollama | Kind::Lemonade) { advice.chat.clone() } else { String::new() };
+        println!("{}", t!("setup.ask_hint", "model" => if suggest.is_empty() { "qwen3:8b" } else { suggest.as_str() }));
+        models = f.models.iter().filter(|m| m.chat).map(|m| m.name.clone()).collect();
+        if !suggest.is_empty() && !models.iter().any(|m| m.starts_with(&suggest)) && yes(&t!("setup.pull", "model" => suggest.as_str())) {
+            let p = std::sync::Arc::new(Progress::default());
+            match with_progress(&p, || setup::pull(f, &suggest, &p)) {
+                Ok(()) => models.push(suggest.clone()),
+                Err(e) => eprintln!("coxswain: {e}"),
             }
+        }
+    }
+    items.extend(models.iter().cloned());
+    let builtins = chat::MODELS.len();
+    let default = models.iter().position(|m| !suggest.is_empty() && m.starts_with(&suggest)).map(|i| builtins + i).or((!models.is_empty()).then_some(builtins)).unwrap_or_else(|| chat::MODELS.iter().position(|m| std::ptr::eq(m, builtin_chat)).unwrap_or(0));
+    let chosen = match choose(&items, default) {
+        Some(i) if i < builtins => {
+            let m = &chat::MODELS[i];
+            let p = std::sync::Arc::new(Progress::default());
+            let ready = m.installed() || (yes(&t!("setup.download_chat", "model" => m.name, "size" => coxswain_core::settings::human(m.size()))) && with_progress(&p, || m.download(&p).map_err(|e| e.to_string())).inspect_err(|e| eprintln!("coxswain: {e}")).is_ok());
+            ready.then(|| m.key())
+        }
+        Some(i) => Some(models[i - builtins].clone()),
+        None => None,
+    };
+    if let Some(model) = chosen {
+        save("ask_model", &model);
+        println!("{}", t!("dialogs.ask_waiting", "model" => chat::shown(&model)));
+        match setup::try_ask(&search()) {
+            Ok(d) => {
+                println!("{}", t!("setup.try_done", "seconds" => format!("{:.1}", d.as_secs_f64())));
+                asked = true;
+            }
+            Err(e) => eprintln!("coxswain: {e}"),
         }
     }
 
     // 5. Speed.
     heading(t!("setup.step_speed"));
-    if machine.gpu.is_none() && !machine.npu {
+    if chat::of(&search().ask_model).is_some() {
+        println!("{}", t!("setup.speed_builtin", "where" => setup::builtin_runs(&search(), None)));
+    } else if machine.gpu.is_none() && !machine.npu {
         println!("{}", t!("setup.speed_no_gpu"));
-    } else if let (true, Some(f)) = (asked, &ask_server) {
+    } else if let (true, Some(f), None) = (asked, &ask_server, chat::of(&search().ask_model)) {
         match setup::speed_problem(f, &machine, &search().ask_model) {
             Some(why) => println!("{why}"),
             None => println!("{}", t!("setup.speed_ok")),
@@ -260,7 +287,7 @@ pub fn run() {
     let meaning_now = if !s.meaning { t!("setup.off") } else if s.meaning_engine == "builtin" { t!("setup.builtin_short") } else { format!("{} · {}", s.meaning_model, if s.meaning_url.is_empty() { meaning::OLLAMA } else { &s.meaning_url }) };
     println!("{}", t!("setup.sum_text", "state" => on(s.text)));
     println!("{}", t!("setup.sum_meaning", "state" => meaning_now));
-    println!("{}", t!("setup.sum_ask", "state" => if s.ask_model.is_empty() { t!("setup.off") } else { s.ask_model.clone() }));
+    println!("{}", t!("setup.sum_ask", "state" => if s.ask_model.is_empty() { t!("setup.off") } else { chat::shown(&s.ask_model) }));
     println!("{}", t!("setup.sum_service", "state" => on(coxswain_core::service::installed())));
     Client::start(&s).restart();
 }

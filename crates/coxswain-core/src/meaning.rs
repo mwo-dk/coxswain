@@ -66,18 +66,32 @@ pub struct Progress {
 
 /// Download what is missing of the model, each file checked against its SHA-256.
 pub fn download(p: &Progress) -> io::Result<()> {
-    let dir = folder().ok_or_else(|| io::Error::other("no cache folder"))?;
-    std::fs::create_dir_all(&dir)?;
-    p.total.store(size(), Ordering::Relaxed);
+    let files: Vec<Pinned> = FILES.iter().map(|&(name, sha, len)| Pinned { repo: REPO, revision: REVISION, name, sha, len }).collect();
+    fetch(&folder().ok_or_else(|| io::Error::other("no cache folder"))?, &files, p)
+}
+
+/// A file of a model on Hugging Face, at a pinned revision, with its SHA-256 and bytes.
+pub(crate) struct Pinned {
+    pub repo: &'static str,
+    pub revision: &'static str,
+    pub name: &'static str,
+    pub sha: &'static str,
+    pub len: u64,
+}
+
+/// Download what is missing of `files` into `dir`, each checked against its SHA-256.
+pub(crate) fn fetch(dir: &std::path::Path, files: &[Pinned], p: &Progress) -> io::Result<()> {
+    std::fs::create_dir_all(dir)?;
+    p.total.store(files.iter().map(|f| f.len).sum(), Ordering::Relaxed);
     p.done.store(0, Ordering::Relaxed);
     let agent: ureq::Agent = ureq::Agent::config_builder().tls_config(tls()).timeout_connect(Some(Duration::from_secs(20))).build().into();
-    for (name, sha, len) in FILES {
+    for &Pinned { repo, revision, name, sha, len } in files {
         let file = dir.join(name);
-        if std::fs::metadata(&file).is_ok_and(|m| m.len() == *len) {
-            p.done.fetch_add(*len, Ordering::Relaxed);
+        if std::fs::metadata(&file).is_ok_and(|m| m.len() == len) {
+            p.done.fetch_add(len, Ordering::Relaxed);
             continue;
         }
-        let url = format!("https://huggingface.co/{REPO}/resolve/{REVISION}/{name}");
+        let url = format!("https://huggingface.co/{repo}/resolve/{revision}/{name}");
         let mut body = agent.get(&url).header("User-Agent", concat!("coxswain/", env!("CARGO_PKG_VERSION"))).call().map_err(|e| io::Error::other(format!("huggingface.co: {e}")))?.into_body();
         let mut reader = body.as_reader();
         let part = file.with_extension("part");
@@ -100,7 +114,7 @@ pub fn download(p: &Progress) -> io::Result<()> {
         }
         drop(out);
         let hex: String = hash.finalize().iter().map(|b| format!("{b:02x}")).collect();
-        if got != *len || hex != *sha {
+        if got != len || hex != sha {
             let _ = std::fs::remove_file(&part);
             return Err(io::Error::other(format!("{name}: not the file expected (SHA-256 {hex})")));
         }
@@ -606,14 +620,17 @@ impl Server {
 pub type Turn = (String, String);
 
 /// What the chat model is told to do with the sources.
-const RULES: &str = "You answer questions about the user's own files. Use only the numbered sources below. \
+pub(crate) const RULES: &str = "You answer questions about the user's own files. Use only the numbered sources below. \
 After each statement, cite the sources it comes from as [1] or [2][3]. If the sources do not hold the answer, \
 say so plainly and do not guess. Answer in the language of the question, briefly.";
 
-/// Ask: `question` answered by the chat model on the user's server, from `sources` (numbered
+/// Ask: `question` answered by the chat model on the user's server or the built-in one, from `sources` (numbered
 /// in their order) and the turns before. Each piece of the answer goes to `piece` as it
 /// comes, with empty ones between; `piece` returns false to stop. Nothing is kept.
 pub fn ask(cfg: &crate::config::SearchConfig, earlier: &[Turn], question: &str, sources: &[(std::path::PathBuf, String)], mut piece: impl FnMut(&str) -> bool) -> Result<(), String> {
+    if let Some(m) = crate::chat::of(&cfg.ask_model) {
+        return crate::chat::ask(m, cfg.meaning_device == "cpu", earlier, question, sources, piece);
+    }
     if cfg.ask_model.is_empty() {
         return Err("no chat model is set for Ask".into());
     }
@@ -717,7 +734,7 @@ fn no_think_by_word(model: &str) -> bool {
 /// sources are found: a model not loaded takes seconds to answer at all. Only for Ollama
 /// (its own API loads a model on an empty request); other servers load as they see fit.
 pub fn warm(cfg: &crate::config::SearchConfig) {
-    if cfg.meaning_engine == "openai" || cfg.ask_model.is_empty() {
+    if cfg.meaning_engine == "openai" || cfg.ask_model.is_empty() || crate::chat::of(&cfg.ask_model).is_some() {
         return;
     }
     let s = Server::new(cfg);
@@ -732,7 +749,7 @@ pub fn warm(cfg: &crate::config::SearchConfig) {
 /// A piece of an answer without what a reasoning model thinks aloud between `<think>` and
 /// `</think>`; `thinking` carries over from piece to piece.
 // ponytail: tags split over two pieces are missed; servers send each tag as one token.
-fn unthink(piece: &str, thinking: &mut bool) -> String {
+pub(crate) fn unthink(piece: &str, thinking: &mut bool) -> String {
     let mut out = String::new();
     let mut rest = piece;
     loop {
@@ -832,6 +849,9 @@ pub fn chat_problem(cfg: &crate::config::SearchConfig, try_it: bool) -> Option<S
     let model = cfg.ask_model.as_str();
     if model.is_empty() {
         return None;
+    }
+    if let Some(m) = crate::chat::of(model) {
+        return (!m.installed()).then(|| crate::t!("ask.builtin_missing", "model" => m.name));
     }
     let s = Server::new(cfg);
     if !s.openai {

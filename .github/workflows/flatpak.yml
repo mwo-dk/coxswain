@@ -1,0 +1,114 @@
+name: Flatpak
+
+# The desktop app as a Flatpak (packaging/flatpak): its offline sources made from the lock files,
+# built with flatpak-builder from the checkout, linted the way Flathub lints, then installed and
+# started on a display of its own. Only when what goes into it changes.
+on:
+  push:
+    branches: [master]
+    paths: ["crates/**", "gui/**", "Cargo.toml", "Cargo.lock", "README.md", "packaging/flatpak/**", ".github/workflows/flatpak.yml"]
+  pull_request:
+    paths: ["crates/**", "gui/**", "Cargo.toml", "Cargo.lock", "README.md", "packaging/flatpak/**", ".github/workflows/flatpak.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: flatpak-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  MANIFEST: packaging/flatpak/io.github.mwo_dk.Coxswain.yml
+
+jobs:
+  sources:
+    name: Offline sources
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: sh packaging/flatpak/sources.sh
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: flatpak-sources
+          path: |
+            packaging/flatpak/cargo-sources.json
+            packaging/flatpak/node-sources.json
+
+  build:
+    name: Build and lint
+    needs: sources
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    container:
+      image: ghcr.io/flathub-infra/flatpak-github-actions:gnome-51
+      options: --privileged
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: flatpak-sources
+          path: packaging/flatpak
+      - uses: flatpak/flatpak-github-actions/flatpak-builder@79327416609af08178ad73b352877e51450790b3 # v6.8
+        with:
+          manifest-path: ${{ env.MANIFEST }}
+          bundle: coxswain.flatpak
+          artifact-name: coxswain-flatpak
+          cache-key: flatpak-builder-${{ hashFiles('Cargo.lock', 'gui/package-lock.json') }}
+      # Flathub's linter, with the two permissions that need Flathub's exception (SUBMIT.md) let
+      # through, and the screenshots: they are taken from this version's tag, which exists only
+      # once it is released (metainfo.py checks that the files are in docs/screenshots).
+      - name: Lint
+        run: |
+          set -e
+          lint() {
+            flatpak-builder-lint "$@" > lint.json || true
+            cat lint.json
+            python3 - <<'EOF'
+          import json
+          allowed = {"finish-args-host-filesystem-access", "finish-args-flatpak-spawn-access", "appstream-screenshots-not-mirrored-in-ostree", "appstream-missing-screenshots"}
+          text = open("lint.json").read().strip()
+          errors = set(json.loads(text).get("errors", [])) if text else set()
+          bad = errors - allowed
+          raise SystemExit(f"lint: {sorted(bad)}" if bad else 0)
+          EOF
+          }
+          lint manifest "$MANIFEST"
+          lint repo repo
+
+  smoke:
+    name: Install and start
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: coxswain-flatpak
+      - name: Flatpak and the GNOME runtime
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y flatpak xvfb dbus-x11
+          flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+          flatpak install --user -y --noninteractive flathub org.gnome.Platform//51
+          flatpak install --user -y --noninteractive coxswain.flatpak
+      # The window opens and stays up, and its search helper runs inside the sandbox. A crash
+      # or a missing library ends it before the time is up.
+      - name: Start
+        run: |
+          mkdir -p ~/files && echo hello > ~/files/a.txt
+          export XDG_RUNTIME_DIR=/tmp/runtime && mkdir -m 700 -p $XDG_RUNTIME_DIR
+          dbus-run-session -- xvfb-run -a sh -c '
+            flatpak run io.github.mwo_dk.Coxswain ~/files > app.log 2>&1 & app=$!
+            sleep 40
+            ps -ef | grep -v grep | grep -- "coxswain-gui --index-helper" > helper.txt || true
+            kill -0 $app && kill $app; status=$?
+            exit $status'
+          cat app.log
+          echo "helper: $(cat helper.txt)"
+          test -s helper.txt
+          ! grep -i "panicked" app.log

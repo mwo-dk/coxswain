@@ -689,7 +689,8 @@ pub fn pull_progress() -> BTreeMap<String, String> {
 }
 
 /// Run to completion within `timeout`; on timeout kill it (and its container).
-fn wait(mut c: Command, timeout: Duration, container: Option<(&Path, &str)>) -> Res<()> {
+fn wait(c: Command, timeout: Duration, container: Option<(&Path, &str)>) -> Res<()> {
+    let mut c = coxswain_core::tools::hosted(c);
     let mut child = c.stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::piped()).spawn().map_err(|e| e.to_string())?;
     let mut err = child.stderr.take();
     let reader = std::thread::spawn(move || {
@@ -705,7 +706,8 @@ fn wait(mut c: Command, timeout: Duration, container: Option<(&Path, &str)>) -> 
 }
 
 /// Run with `input` on stdin and its stdout saved as `file`.
-fn capture(mut c: Command, input: Option<&Path>, timeout: Duration, file: &Path, container: Option<(&Path, &str)>) -> Res<()> {
+fn capture(c: Command, input: Option<&Path>, timeout: Duration, file: &Path, container: Option<(&Path, &str)>) -> Res<()> {
+    let mut c = coxswain_core::tools::hosted(c);
     let mut child = c.stdin(if input.is_some() { Stdio::piped() } else { Stdio::null() }).stdout(Stdio::piped()).stderr(Stdio::piped()).spawn().map_err(|e| e.to_string())?;
     if let (Some(p), Some(mut stdin)) = (input, child.stdin.take()) {
         let data = std::fs::read(p).map_err(|e| e.to_string())?;

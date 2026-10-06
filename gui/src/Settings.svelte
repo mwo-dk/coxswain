@@ -192,6 +192,20 @@
     await set("ask_model", model);
     askProblem = model ? await invoke("ask_check", { tryIt: true }).catch((e) => String(e)) : null;
   }
+  // The built-in chat models: downloaded or not, and a download under way.
+  let chat = $state(null);
+  const loadChat = () => invoke("chat_status").then((v) => (chat = v), () => (chat = null));
+  loadChat();
+  $effect(() => {
+    const id = setInterval(loadChat, chat?.downloading ? 500 : 3000);
+    return () => clearInterval(id);
+  });
+  async function chatAction(what, model) {
+    error = "";
+    await invoke("chat_action", { what, model }).catch((e) => (error = String(e)));
+    loadChat();
+  }
+  const builtinAsk = $derived(s.ask_model.startsWith("builtin:"));
   // A change of the vectors' model reads every file's meaning again: said, and confirmed, first.
   let vectorsChange = $state(null);
   async function setVectors(el, name, value) {
@@ -599,14 +613,32 @@
             {#snippet askModel()}
               <div class="folder">
                 <input id="in-ask_model" list="askmodels" value={s.ask_model} spellcheck="false" placeholder="qwen3:8b" onchange={(e) => setAskModel(e.currentTarget.value.trim())} />
-                <datalist id="askmodels">{#each chatModels as m (m)}<option value={m}></option>{/each}</datalist>
+                <datalist id="askmodels">{#each chat?.models ?? [] as m (m.key)}<option value={m.key}>{m.name}</option>{/each}{#each chatModels as m (m)}<option value={m}></option>{/each}</datalist>
                 <button disabled={!s.ask_model || !s.search_meaning || trial?.busy} onclick={tryAsk}>{t("settings.step.try_it")}</button>
               </div>
               {#if askProblem}<p class="err">{askProblem}</p>{/if}
               {#if trial && !trial.busy}<p class="hint" class:err={trial.error}>{trial.error ?? t("setup.try_done", { seconds: (trial.ms / 1000).toFixed(1) })}</p>{/if}
-              {#if isRemote(serverUrl)}<p class="hint"><strong>{t("settings.ask_remote", { host: hostOf(serverUrl) })}</strong></p>{/if}
+              {#if !builtinAsk && isRemote(serverUrl)}<p class="hint"><strong>{t("settings.ask_remote", { host: hostOf(serverUrl) })}</strong></p>{/if}
             {/snippet}
             {@render field("ask_model", askModel)}
+            <div class="opt" id="opt-ask_builtin">
+              <span class="field">{t("settings.ask_builtin")}</span>
+              {#each chat?.models ?? [] as m (m.key)}
+                <p>{t("settings.ask_builtin_model", { model: m.name, size: size(m.size), where: chat.runs })}{#if m.suggested}<span class="badge">{t("setup.recommended")}</span>{/if}</p>
+                {#if chat.downloading?.[0] === m.key}
+                  <p class="hint">{t("settings.meaning_downloading", { done: size(chat.downloading[1]), total: size(chat.downloading[2]) })}</p>
+                  <progress max={chat.downloading[2] || 1} value={chat.downloading[1]}></progress>
+                  <div class="buttons"><button onclick={() => chatAction("cancel", m.key)}>{t("common.cancel")}</button></div>
+                {:else}
+                  <div class="buttons">
+                    {#if s.ask_model !== m.key}<button class:primary={m.suggested} disabled={!!chat.downloading} onclick={() => (m.installed ? setAskModel(m.key) : chatAction("download", m.key))}>{m.installed ? t("settings.ask_use") : t("settings.ask_download", { size: size(m.size) })}</button>{/if}
+                    {#if m.installed}<button onclick={() => chatAction("remove", m.key)}>{t("settings.meaning_remove")}</button>{/if}
+                  </div>
+                {/if}
+              {/each}
+              {#if chat?.error}<p class="err">{chat.error}</p>{/if}
+              <p class="hint">{t("settings.ask_builtin_hint")}</p>
+            </div>
             {@render check("ask_think")}
           </details>
 

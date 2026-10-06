@@ -528,6 +528,12 @@ pub fn trash_locked(path: &Path, password: Option<&str>) -> io::Result<()> {
     if !path.exists() && crate::archive::split(path).is_some() {
         return delete_locked(path, password);
     }
+    // A Flatpak's XDG_DATA_HOME is its own folder, so the trash crate would fill a trash the
+    // desktop never shows: the host's gio puts it in the desktop's.
+    if crate::tools::flatpak().is_some() {
+        let out = crate::tools::user_command("gio").arg("trash").arg(path).stdin(std::process::Stdio::null()).output()?;
+        return if out.status.success() { Ok(()) } else { Err(io::Error::other(String::from_utf8_lossy(&out.stderr).trim().to_string())) };
+    }
     #[cfg(not(target_os = "android"))]
     return trash::delete(path).map_err(io::Error::other);
     #[cfg(target_os = "android")]

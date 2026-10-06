@@ -235,7 +235,7 @@ mod tests {
     fn guide_goes_through_four_steps_and_skips() {
         let d = std::env::temp_dir();
         let cfg = Config { check_updates: false, language: "en-GB".into(), ..Config::default() };
-        let index = Client::with(None, &cfg.search, || {});
+        let index = Client::with(None, &cfg.search, |_| {});
         let mut app = App::with_index(cfg, d.clone(), d, index).unwrap();
         app.dialog = Some(Dialog::Guide(Box::default()));
         let key = |app: &mut App, code| app.dialog_key(Key::new(code, false, false, false));

@@ -3,58 +3,82 @@
 # Termux on Android
 
 The terminal app, `coxswain`, runs in [Termux](https://termux.dev), the Linux terminal for
-Android phones, tablets and Chromebooks with Android apps. It knows when it is in Termux and
-works the Android way there: the phone's folders are in the go-to list, files open in their
-Android app, copied lines go to Android's clipboard and the search helper knows when the phone
-is on its battery. The desktop app needs a desktop and does not run in Termux.
+Android. It is built for Termux from the same source as every other release, with a recipe for
+termux-packages, Termux's own package collection. The desktop app does not run on Android: it
+needs a desktop with WebKitGTK.
+
+Inside Termux it works the Android way: the phone's folders are in the go-to list, files open
+in their Android app, copied lines go to Android's clipboard and the search helper knows when
+the phone is on its battery. It tells it is in Termux from `TERMUX_VERSION`, or from `$PREFIX`
+being under `/data/data/com.termux/`; Termux sets both.
 
 ## Contents
 
 - [Installing](#installing)
-- [The phone's folders](#the-phones-folders)
+- [Your phone's folders](#your-phones-folders)
 - [Opening files](#opening-files)
 - [Clipboard and battery: Termux:API](#clipboard-and-battery-termuxapi)
 - [The search helper](#the-search-helper)
 - [Search by meaning](#search-by-meaning)
 - [How Termux differs from Linux here](#how-termux-differs-from-linux-here)
+- [Updating](#updating)
+- [Uninstalling](#uninstalling)
+- [The package recipe](#the-package-recipe)
 - [Questions](#questions)
 
 ## Installing
 
-Install Termux from [F-Droid](https://f-droid.org/packages/com.termux/) or its GitHub releases,
-not from the Play Store (that build is old). Then, in Termux:
+Once the package is in Termux's main repository:
+
+```sh
+pkg install coxswain
+```
+
+Until then, build it in Termux with Rust's package manager. It takes a few minutes on a phone:
 
 ```sh
 pkg install rust git
 cargo install coxswain
 ```
 
-This builds Coxswain on the phone, for Android itself (`aarch64-linux-android`), and takes a
-while. `coxswain` (or `cox`) then starts it.
+`cargo` puts the program in `~/.cargo/bin`; add that to your `PATH` in `~/.bashrc` if `coxswain`
+is not found:
+
+```sh
+echo 'export PATH="$HOME/.cargo/bin:$PATH"' >> ~/.bashrc
+```
+
+Start it with `coxswain`, or the shorter `cox` when it came from the package. The package also
+installs the manual page: `man coxswain` (`pkg install man` first, if `man` is missing).
+
+| Package | What it adds |
+|---|---|
+| `coxswain` | The terminal app, `cox`, `man coxswain` |
+| `git` (recommended) | The git column, branches and history ([Git](../panels/git.md)) |
+| `termux-api` (recommended) | Android's clipboard and the battery state, together with the Termux:API app from the same store as Termux ([Termux:API](#clipboard-and-battery-termuxapi)) |
+
 
 The static Linux build from the releases page
-(`coxswain-terminal-<version>-aarch64-unknown-linux-musl.tar.gz`) runs in Termux too, but it
+(`coxswain-terminal-<version>-aarch64-unknown-linux-musl.tar.gz`) starts in Termux too, but it
 cannot look up names on the network: it looks for `/etc/resolv.conf`, which Android does not
-have. Browsing and search work; the update check, the model download for search by meaning and
-model servers do not. Prefer `cargo install`.
-
-Coxswain tells it is in Termux from `TERMUX_VERSION`, or from `$PREFIX` being under
-`/data/data/com.termux/`. Termux sets both.
+have. Browsing and search work; the update check, the model download and model servers do not.
+Prefer the package or `cargo install`.
 
 Git glyphs want a Nerd Font: put one at `~/.termux/font.ttf` and run `termux-reload-settings`,
 or set `glyphs = "ascii"` ([Glyphs and fonts](../customise/glyphs-and-fonts.md)).
 
-## The phone's folders
+## Your phone's folders
 
-Termux sees only its own home until it is allowed into the phone's storage. Run once:
+Termux starts in its own home folder, `/data/data/com.termux/files/home`, which other apps
+cannot see. To reach the phone's shared storage (Downloads, DCIM, Documents), run once:
 
 ```sh
 termux-setup-storage
 ```
 
-Android asks whether Termux may use your files; say yes. Termux then makes links under
-`~/storage`: `shared` (the whole internal storage), `downloads`, `dcim`, `pictures`, `music`,
-`movies`, `documents`, and `external-1` … for a memory card.
+Android asks whether Termux may reach your files; allow it. Termux then makes links in
+`~/storage`: `shared` is the whole internal storage, `downloads`, `dcim`, `pictures`, `music`
+and `movies` lead to their folders, and `external-1` to a memory card when there is one. They are a key away:
 
 | Key | What you see |
 |---|---|
@@ -116,49 +140,106 @@ files takes long on a phone and warms it. A model server on another computer doe
 | Start with my session | A systemd user service | Not available; the helper stays ten minutes after the app |
 | Certificates for HTTPS | The system's store | Termux's own, `$PREFIX/etc/tls/cert.pem` (`pkg install ca-certificates`) |
 | The go-to list (Alt+F1) | Type a path | Type a path, and the phone's folders |
-| F8 (Delete) | To the desktop's trash | In a `cargo install` build, Android has no trash: F8 says so, and **Shift+F8** deletes for good after asking. The static Linux binary keeps a trash in `~/.local/share/Trash` |
+| F8 (Delete) | To the desktop's trash | Android has no trash: F8 says so, and **Shift+F8** deletes for good after asking. The static Linux binary keeps a trash in `~/.local/share/Trash` |
 | Update hint | By where it is installed | `cargo install coxswain` for a cargo build; `pkg upgrade coxswain` for one installed with `pkg` |
 
 Everything else, keys, config and the search index included, is the same. The config is in
 `~/.config/coxswain` inside Termux's home ([Where things are kept](where-things-are-kept.md)).
 
+## Updating
+
+With the package, Termux updates Coxswain with everything else:
+
+```sh
+pkg upgrade
+```
+
+Installed with cargo, run `cargo install coxswain` again. The once-a-day update check tells you
+when a new version is out ([Update checks](updates.md)).
+
+## Uninstalling
+
+`pkg uninstall coxswain`, or `cargo uninstall coxswain`. The config, state and cache stay in
+`~/.config/coxswain`, `~/.local/state/coxswain` and `~/.cache/coxswain`
+([Where things are kept](where-things-are-kept.md)); delete them by hand to remove everything.
+
+## The package recipe
+
+The recipe is [`packaging/termux/coxswain/build.sh`](../../packaging/termux/coxswain/build.sh).
+It builds the terminal app with Termux's Rust toolchain (`cargo build -p coxswain --locked`)
+and installs `bin/coxswain`, the `cox` link and the manual page `coxswain(1)`.
+
+Every change to the Rust code, the lock file or the recipe builds it again in CI
+(`.github/workflows/termux.yml`): termux-packages' own builder makes the `aarch64` package from
+that commit, then a Termux image on an ARM machine installs it and runs `coxswain --version`,
+`cox --version`, `coxswain --paths` and `coxswain --dump-config`. The `.deb` is kept with the
+run as *coxswain-termux-aarch64*; it installs on a phone with `dpkg -i coxswain_*.deb` (or
+`apt install ./coxswain_*.deb`) from inside Termux.
+
+To build it yourself on a Linux machine with Docker:
+
+```sh
+git clone https://github.com/termux/termux-packages
+cp -r coxswain/packaging/termux/coxswain termux-packages/packages/
+cd termux-packages
+./scripts/run-docker.sh ./build-package.sh -I -a aarch64 coxswain
+```
+
+The package lands in `output/`. `-a arm`, `-a x86_64` and `-a i686` build for the other
+architectures Termux has.
+
+How the recipe goes to Termux, and how versions are kept current after that:
+[packaging/termux/SUBMIT.md](../../packaging/termux/SUBMIT.md).
+
 ## Questions
 
-#### Why does Alt+F1 not show my phone's folders?
+**Why is the desktop app not on Android?** It draws its window with WebKitGTK on a Linux
+desktop. Android has neither; the terminal app needs only a terminal, and Termux is one.
 
-`termux-setup-storage` has not been run, or Android was told no. Run it again and allow access
-to files; then **Alt+F1** lists *Phone: shared*, *Phone: downloads* and the others.
+**`pkg install coxswain` says *Unable to locate package*.** The package is not in Termux's
+repository yet. Use `cargo install coxswain` meanwhile ([Installing](#installing)); `pkg` takes
+over later, and `cargo uninstall coxswain` then removes the cargo copy.
 
-#### Why does copying say nothing ends up on the clipboard?
+**I see only Termux's own files, not my Downloads.** Run `termux-setup-storage` once and allow
+the request; your folders are then in `~/storage`, and **Alt+F1** lists them ([Your phone's folders](#your-phones-folders)).
+If you refused, allow *Files and media* for Termux in Android's app settings and run it again.
 
-Without Termux:API, the line is sent to the terminal (OSC 52). Install both the Termux:API app
+**Which keys do I press without F-keys?** Give Termux's extra keys row the F-keys. In
+`~/.termux/termux.properties`:
+
+```
+extra-keys = [['ESC','TAB','CTRL','ALT','UP','DOWN','LEFT','RIGHT'], \
+              ['F2','F3','F4','F5','F6','F7','F8','F10']]
+```
+
+then `termux-reload-settings`. The two rows above the keyboard now carry Esc, Ctrl, Alt, the
+arrows and the F-keys the panels use (**F5** copy, **F6** move, **F8** delete, **F10** quit). A
+hardware keyboard's F-keys work as on a PC. **F9** opens the command list with every action
+and its key ([The terminal app](terminal-app.md)).
+
+**Which phones?** Termux runs on Android 7 and later. The CI builds and tests the `aarch64`
+package, which almost every phone of the last years uses; the recipe builds for `arm`, `i686` and
+`x86_64` too.
+
+**Is anything sent from the phone?** No more than on any other system: the daily update check,
+which can be turned off ([Privacy](privacy.md)).
+
+
+**Why does copying say nothing ends up on the clipboard?** Without Termux:API, the line is sent to the terminal (OSC 52). Install both the Termux:API app
 and `pkg install termux-api`; then `termux-clipboard-set` puts it on Android's clipboard.
 
-#### Why can I not turn on *Start with my session*?
-
-Android has no per-user service manager for Termux to register with. The helper starts with
+**Why can I not turn on *Start with my session*?** Android has no per-user service manager for Termux to register with. The helper starts with
 Coxswain and stays ten minutes after the last one quits. `termux-wake-lock` keeps Android from
 stopping it while the screen is off.
 
-#### Why does the update check never say anything?
-
-With the static musl binary it cannot look up `api.github.com` on Android. Built with
+**Why does the update check never say anything?** With the static musl binary it cannot look up `api.github.com` on Android. Built with
 `cargo install coxswain` it can. With either, `coxswain --version` says which version you have.
 
-#### Why does F8 say Android has no trash?
-
-A build for Android itself (`cargo install coxswain` in Termux) has no desktop trash to move
+**Why does F8 say Android has no trash?** The Termux build (the package, or `cargo install coxswain`) has no desktop trash to move
 files to. **Shift+F8** (*Delete permanently*) asks, then deletes for good.
 
-#### Does the desktop app run in Termux?
-
-No: it needs a desktop with WebKitGTK. On a Chromebook use its Linux instead
-([ChromeOS](chromeos.md)).
-
-#### Will reading files drain my battery?
-
-Not with Termux:API installed: the helper waits while the phone is unplugged. Without it,
+**Will reading files drain my battery?** Not with Termux:API installed: the helper waits while the phone is unplugged. Without it,
 Coxswain cannot tell, and reads on battery too.
 
 ---
-[← Previous: Linux on ARM](linux-arm.md) · [Next: ChromeOS →](chromeos.md)
+[← Previous: Flatpak](flatpak.md) · [Next: macOS →](macos.md)

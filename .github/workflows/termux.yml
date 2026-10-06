@@ -1,0 +1,106 @@
+name: Termux
+
+# The terminal app as a Termux package: packaging/termux/coxswain/build.sh, built from this
+# checkout with termux-packages' own builder for aarch64, then installed and started in a
+# Termux image on an ARM runner. Only when Rust code, the lock file or the recipe change.
+on:
+  push:
+    branches: [master]
+    paths: ["crates/**", "Cargo.toml", "Cargo.lock", "packaging/termux/**", ".github/workflows/termux.yml"]
+  pull_request:
+    paths: ["crates/**", "Cargo.toml", "Cargo.lock", "packaging/termux/**", ".github/workflows/termux.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: termux-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # termux-packages, pinned; move it forward now and then.
+  TERMUX_PACKAGES: decc2980bd7f3f2d1f1b51a5bb519c2f57bcfa70
+
+jobs:
+  build:
+    name: Termux package (aarch64)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          path: coxswain
+
+      - name: termux-packages
+        run: |
+          git init -q termux-packages
+          git -C termux-packages fetch -q --depth 1 https://github.com/termux/termux-packages "$TERMUX_PACKAGES"
+          git -C termux-packages checkout -q FETCH_HEAD
+
+      # The recipe as it is submitted, but with this checkout as its source: a tarball inside
+      # the builder's volume, which termux_download takes as a file:// URL.
+      - name: Recipe, on this checkout
+        run: |
+          version=$(sed -n 's/^version = "\(.*\)"/\1/p' coxswain/Cargo.toml | head -1)
+          git -C coxswain archive --prefix=coxswain/ -o "$PWD/termux-packages/coxswain-src.tar.gz" HEAD
+          cp -r coxswain/packaging/termux/coxswain termux-packages/packages/coxswain
+          sed -i -e "s|^TERMUX_PKG_VERSION=.*|TERMUX_PKG_VERSION=\"$version\"|" \
+            -e "s|^TERMUX_PKG_SRCURL=.*|TERMUX_PKG_SRCURL=file:///home/builder/termux-packages/coxswain-src.tar.gz|" \
+            -e "s|^TERMUX_PKG_SHA256=.*|TERMUX_PKG_SHA256=$(sha256sum termux-packages/coxswain-src.tar.gz | cut -d' ' -f1)|" \
+            termux-packages/packages/coxswain/build.sh
+          cat termux-packages/packages/coxswain/build.sh
+
+      - name: Build
+        working-directory: termux-packages
+        run: ./scripts/run-docker.sh ./build-package.sh -I -a aarch64 coxswain
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: coxswain-termux-aarch64
+          path: termux-packages/output/coxswain*.deb
+          if-no-files-found: error
+
+  run:
+    name: Termux package, installed and started
+    needs: build
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 20
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: coxswain-termux-aarch64
+          path: debs
+      - name: Install and start in Termux
+        run: |
+          chmod -R a+rX debs
+          docker run --rm --privileged -v "$PWD/debs:/debs:ro" termux/termux-docker:aarch64 bash -c '
+            set -e
+            dpkg -i /debs/coxswain*.deb
+            coxswain --version
+            cox --version
+            coxswain --paths
+            coxswain --dump-config >/dev/null
+            ls $PREFIX/share/man/man1/coxswain.1*'
+
+  # The way `cargo install coxswain` builds it: in Termux itself (termux-docker on ARM64, as
+  # on a phone), with the Termux parts of the core tested there.
+  cargo:
+    name: Built and tested in Termux
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Build and test in Termux
+        run: |
+          docker run --rm -v "$PWD:/src:ro" termux/termux-docker:aarch64 bash -c '
+            set -e
+            pkg install -y rust clang binutils >/dev/null
+            cp -r /src ~/src && cd ~/src
+            cargo test --release --locked -p coxswain-core --lib -- termux update_
+            cargo build --release --locked -p coxswain
+            ./target/release/coxswain --version
+          '
