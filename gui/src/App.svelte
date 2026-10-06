@@ -652,7 +652,7 @@
     overflow: hidden;
     background: var(--sidebar-bg, #18191b);
     color: var(--panel-fg, #ddd);
-    font-family: var(--font, system-ui, sans-serif), var(--cjk);
+    font-family: var(--font, system-ui, sans-serif), var(--scripts);
     font-size: var(--font-size, 13px);
     -webkit-font-smoothing: antialiased;
   }
@@ -708,7 +708,7 @@
     border-radius: var(--r);
     background: var(--cmdline-bg);
     color: var(--cmdline-fg);
-    font-family: var(--mono-font), var(--cjk);
+    font-family: var(--mono-font), var(--scripts);
     font-size: 0.95em;
   }
   .prompt {
@@ -731,7 +731,7 @@
     opacity: 0.6;
   }
   .status {
-    font-family: var(--font), var(--cjk);
+    font-family: var(--font), var(--scripts);
     color: var(--marked-fg);
     white-space: nowrap;
   }
@@ -764,13 +764,13 @@
     cursor: default;
   }
   .keybar kbd {
-    font-family: var(--mono-font), var(--cjk);
+    font-family: var(--mono-font), var(--scripts);
     font-size: 0.85em;
     color: var(--keybar-num-fg);
   }
   .gear {
     font: inherit;
-    font-family: var(--icon-font), var(--font), var(--cjk);
+    font-family: var(--icon-font), var(--font), var(--scripts);
     color: var(--hidden-fg);
     background: none;
     border: 0;
@@ -804,7 +804,7 @@
   }
   .update {
     font: inherit;
-    font-family: var(--font), var(--cjk);
+    font-family: var(--font), var(--scripts);
     color: var(--accent-fg);
     background: var(--accent-bg);
     border: 0;

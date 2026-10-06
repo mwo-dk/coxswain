@@ -5,7 +5,8 @@
 export function cause(err) {
   const first = String(err).split("\n")[0].replace(/\s*\(os error \d+\)$/, "").trim();
   const tail = first.slice(first.lastIndexOf(": ") + 2).trim();
-  return first.includes(": ") && tail ? tail[0].toUpperCase() + tail.slice(1) : first;
+  // Georgian has no capitals in running text: its first letter stays as it is.
+  return first.includes(": ") && tail ? (/[\u10D0-\u10FF]/.test(tail[0]) ? tail[0] : tail[0].toUpperCase()) + tail.slice(1) : first;
 }
 
 /** The message dialog for `err`, under `title`. */
