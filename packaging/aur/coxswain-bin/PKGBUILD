@@ -5,7 +5,7 @@ pkgname=coxswain-bin
 pkgver=1.0.0
 pkgrel=1
 pkgdesc='Two-pane file manager in the Norton Commander tradition, with git status and instant search (prebuilt)'
-arch=('x86_64')
+arch=('x86_64' 'aarch64')
 url='https://github.com/mwo-dk/coxswain'
 license=('MIT')
 depends=('webkit2gtk-4.1' 'gtk3' 'gcc-libs' 'glibc')
@@ -16,16 +16,20 @@ optdepends=('git: git status in the panels'
 provides=('coxswain')
 conflicts=('coxswain')
 _rel="$url/releases/download/v$pkgver"
-source=("coxswain-terminal-$pkgver.tar.gz::$_rel/coxswain-terminal-v$pkgver-x86_64-unknown-linux-musl.tar.gz"
-        "coxswain-desktop-$pkgver.deb::$_rel/Coxswain_${pkgver}_amd64.deb")
-noextract=("coxswain-desktop-$pkgver.deb")
-sha256sums=('SKIP' 'SKIP')
+source_x86_64=("coxswain-terminal-$pkgver-x86_64.tar.gz::$_rel/coxswain-terminal-v$pkgver-x86_64-unknown-linux-musl.tar.gz"
+               "coxswain-desktop-$pkgver-x86_64.deb::$_rel/Coxswain_${pkgver}_amd64.deb")
+source_aarch64=("coxswain-terminal-$pkgver-aarch64.tar.gz::$_rel/coxswain-terminal-v$pkgver-aarch64-unknown-linux-musl.tar.gz"
+                "coxswain-desktop-$pkgver-aarch64.deb::$_rel/Coxswain_${pkgver}_arm64.deb")
+noextract=("coxswain-desktop-$pkgver-x86_64.deb" "coxswain-desktop-$pkgver-aarch64.deb")
+sha256sums_x86_64=('SKIP' 'SKIP')
+sha256sums_aarch64=('SKIP' 'SKIP')
 
 package() {
   # The desktop app, its menu entry and icons, as the release's .deb lays them out.
-  bsdtar -xOf "coxswain-desktop-$pkgver.deb" 'data.tar.*' | bsdtar -xf - -C "$pkgdir"
-  install -Dm755 "coxswain-terminal-v$pkgver-x86_64-unknown-linux-musl/coxswain" "$pkgdir/usr/bin/coxswain"
+  local term="coxswain-terminal-v$pkgver-$CARCH-unknown-linux-musl"
+  bsdtar -xOf "coxswain-desktop-$pkgver-$CARCH.deb" 'data.tar.*' | bsdtar -xf - -C "$pkgdir"
+  install -Dm755 "$term/coxswain" "$pkgdir/usr/bin/coxswain"
   ln -s coxswain "$pkgdir/usr/bin/cox"
-  install -Dm644 "coxswain-terminal-v$pkgver-x86_64-unknown-linux-musl/LICENSE" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
-  install -Dm644 "coxswain-terminal-v$pkgver-x86_64-unknown-linux-musl/THIRD-PARTY-NOTICES.md" "$pkgdir/usr/share/licenses/$pkgname/THIRD-PARTY-NOTICES.md"
+  install -Dm644 "$term/LICENSE" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+  install -Dm644 "$term/THIRD-PARTY-NOTICES.md" "$pkgdir/usr/share/licenses/$pkgname/THIRD-PARTY-NOTICES.md"
 }

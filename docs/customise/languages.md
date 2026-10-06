@@ -2,7 +2,7 @@
 
 # Languages
 
-Both apps, the terminal app and the desktop app, speak 26 languages. They share one set of
+Both apps, the terminal app and the desktop app, speak 29 languages. They share one set of
 translations and one setting, so they always agree. By default Coxswain follows your system's
 language.
 
@@ -17,6 +17,7 @@ language.
 - [What you see](#what-you-see)
 - [Capitals in Greek](#capitals-in-greek)
 - [Japanese and Korean](#japanese-and-korean)
+- [Persian, Armenian and Georgian](#persian-armenian-and-georgian)
 - [Right to left](#right-to-left)
 - [Settings and config.toml](#settings-and-configtoml)
 - [In the terminal app](#in-the-terminal-app)
@@ -52,7 +53,12 @@ Both apps list them by region, and by their own name within a region:
 | <img src="../flags/ua.svg" width="24" alt=""> | Українська (Ukrainian) *(new)* | `uk` |
 | | **Eastern Mediterranean** | |
 | <img src="../flags/gr.svg" width="24" alt=""> | Ελληνικά (Greek) *(new)* | `el` |
+| | **The Middle East** | |
 | <img src="../flags/il.svg" width="24" alt=""> | עברית (Hebrew) | `he` |
+| <img src="../flags/derafsh.svg" width="24" alt=""> | فارسی (Persian) *(new)* | `fa` |
+| | **The Caucasus** | |
+| <img src="../flags/am.svg" width="24" alt=""> | Հայերեն (Armenian) *(new)* | `hy` |
+| <img src="../flags/ge.svg" width="24" alt=""> | ქართული (Georgian) *(new)* | `ka` |
 | | **The Americas** | |
 | <img src="../flags/ca.svg" width="24" alt=""> | English (Canada) | `en-CA` |
 | <img src="../flags/ar.svg" width="24" alt=""> | Español (Argentina) | `es-AR` |
@@ -64,6 +70,10 @@ Both apps list them by region, and by their own name within a region:
 
 The ones marked *new* are fresh translations that no native speaker has checked yet: Settings
 marks them *new*, and [Improving a translation](#improving-a-translation) says how to help.
+
+Persian has no state flag here: it is spoken in Iran, Afghanistan and Tajikistan, so it shows
+a historical banner instead, the Derafsh Shahbaz, the Achaemenid falcon (a gold falcon with
+spread wings on crimson), drawn for Coxswain.
 
 British English is the reference: every text is written in it first. Australian and New Zealand
 English use British spelling and say "bin"; Canadian English keeps British spelling but says
@@ -123,6 +133,8 @@ English counts); otherwise the nearest relative of the first one:
 | Polish, Czech, Ukrainian, Greek (`pl_PL`, `cs_CZ`, `uk_UA`, `el_GR`, `el_CY`, …) | That language |
 | Slovak | Czech, which Slovak readers read |
 | Japanese, Korean (`ja_JP`, `ko_KR`, …) | That language |
+| Persian in Iran or Afghanistan (`fa_IR`, `fa_AF`), Dari (`prs`) | Persian |
+| Armenian, Georgian (`hy_AM`, `ka_GE`) | That language |
 | Hebrew (also the old code `iw`) | Hebrew |
 | Anything else | British English |
 
@@ -134,7 +146,9 @@ and `language = "es"` Argentinian Spanish.
 Everything Coxswain itself says changes: menus, commands and the F-key bar, dialogs, the preview
 pane and its facts, the duplicate finder, Settings, status messages, errors, sizes (`KB`, or `Ko`
 in French, with the decimal comma where the language uses one) and the age chips (`5m`, `2d`).
-Numbers are written the way the language writes them (1 234,5 or 1.234,5).
+Numbers are written the way the language writes them (1 234,5 or 1.234,5). In Persian, counts,
+sizes and dates take Persian digits (۳۲٫۷ KB, ۲۰۲۶-۰۱-۰۵) in both apps; paths, keys, versions
+and `config.toml` values keep their Latin digits.
 
 Not translated:
 
@@ -149,7 +163,11 @@ Some headings are written in capitals (Settings' area titles, the sidebar's head
 Cyber theme's dialog titles). Greek drops its accents in capitals and keeps a diaeresis:
 *Ρυθμίσεις* becomes ΡΥΘΜΙΣΕΙΣ, not ΡΥΘΜΊΣΕΙΣ, and *τσάι* becomes ΤΣΑΪ. The desktop app tells
 its web view that the page is Greek, which uppercases it so (WebKitGTK on Linux, WebKit on
-macOS and WebView2 on Windows all do). The terminal app writes no translated text in capitals.
+macOS and WebView2 on Windows all do). The terminal app writes only the group headings of Find's results in capitals.
+
+Georgian has no capitals in running text, so in Georgian these headings are written as they
+are, without capitals or wide spacing, in both apps, and the first letter of an error's cause
+is left as it is. Armenian has capitals and takes them as usual.
 
 ## Japanese and Korean
 
@@ -180,19 +198,46 @@ Both are written in letters that take two columns in a terminal and need a font 
   keeps ten slots, and Find and the dialogs keep their frames. Your terminal needs a font with
   these letters (most terminals fall back to one by themselves).
 
+## Persian, Armenian and Georgian
+
+<!-- screenshot: gui-lang-fa.png: the desktop app in Persian (Cyber), mirrored like Hebrew, sizes and dates in Persian digits, the F-key bar in Persian -->
+
+- **Fonts in the desktop app:** after every font list come Vazirmatn, Noto Sans Arabic and Noto
+  Naskh Arabic (Geeza Pro on macOS; Segoe UI and Tahoma on Windows have the letters), Noto Sans
+  Armenian and Noto Sans Georgian (Sylfaen on Windows; macOS has its own), then the Japanese and
+  Korean ones. On Linux they come with `noto-fonts` (Arch), `fonts-noto-core` (Debian, Ubuntu)
+  or `google-noto-sans-arabic-fonts`, `google-noto-sans-armenian-fonts` and
+  `google-noto-sans-georgian-fonts` (Fedora); Vazirmatn, drawn for Persian, is `fonts-vazirmatn`
+  on Debian and Ubuntu. When Coxswain speaks one of these and `fc-list` knows no font for it,
+  *Settings → Overview → What's new* says once *No font for فارسی is installed…* with these
+  packages.
+- **Persian in the desktop app** is right to left, laid out as Hebrew is (see
+  [Right to left](#right-to-left)); its letters join as they should, and headings that other
+  languages write in spaced capitals are written plain, as spacing pulls joined letters apart.
+- **Persian in the terminal app:** a terminal draws a letter per cell; whether Persian letters
+  join and run right to left is up to the terminal, not Coxswain. Konsole and mlterm join them
+  and run them right to left; Windows Terminal joins them; GNOME Terminal and other VTE
+  terminals do both with bidi on. Alacritty, kitty, foot, WezTerm, xterm and the macOS Terminal
+  show them unjoined and in reversed order. Coxswain does no shaping of its own: the terminal
+  gets the letters in their logical order.
+- **Armenian and Georgian** are left to right and need nothing but a font; in the terminal app
+  most terminals fall back to one by themselves.
+
 ## Right to left
 
 ![The desktop app in Hebrew, mirrored: the sidebar on the right, file names aligned right with their icons on the right, the F-key bar running from F1 on the right](../screenshots/gui-lang-he.png)
 *Coxswain in Hebrew: the whole layout mirrors.*
 
-In Hebrew the desktop app mirrors its layout: the sidebar is on the right, text is aligned to
+In Hebrew and Persian the desktop app mirrors its layout: the sidebar is on the right, text is aligned to
 the right, the columns run from right to left, and the back arrow points right. File names,
-paths and commands stay left to right inside it, as Hebrew systems show them, and notes and the
+paths and commands stay left to right inside it, as Hebrew and Persian systems show them, and notes and the
 command line take the direction of what you type.
 
 The terminal app is limited by the terminal: most terminals, Alacritty among them, do not do
-right-to-left text, so Hebrew there shows its letters in reversed order. Terminals that support
-it (for example Konsole, or GNOME Terminal with bidi on) show it correctly.
+right-to-left text, so Hebrew and Persian there show their letters in reversed order. Terminals
+that support it (for example Konsole, mlterm, Windows Terminal, or GNOME Terminal with bidi on)
+show it correctly; for Persian see also
+[Persian, Armenian and Georgian](#persian-armenian-and-georgian).
 
 ## Settings and config.toml
 
@@ -204,7 +249,7 @@ One key for both apps.
 
 ## In the terminal app
 
-The same 26 languages and the same translations, chosen by the same `language` key. It is read
+The same 29 languages and the same translations, chosen by the same `language` key. It is read
 when the app starts; there is no picker, but `coxswain --languages` prints the list by region,
 the one in use and the new ones marked, and where to suggest a better word. Right to left
 depends on the terminal (see
@@ -247,6 +292,45 @@ Coxswain shows the notice "*Polski is a new translation…*" once (in the deskto
 Settings → *Overview* → *What's new*, in the terminal app in the status line) to say so. A better word is
 very welcome: see [Improving a translation](#improving-a-translation).
 
+#### Persian, Armenian or Georgian is new. Who checked it?
+
+No native speaker yet: all three are marked *new* in Settings, and Coxswain says once
+"*فارسی is a new translation…*" (under *Settings → Overview → What's new* in the desktop app,
+in the status line of the terminal app). A better word is very welcome; see
+[Improving a translation](#improving-a-translation).
+
+#### Why does Persian have a falcon and not a flag?
+
+Persian is the language of Iran, Afghanistan and Tajikistan; no one state flag stands for it.
+Coxswain shows the Derafsh Shahbaz, the falcon banner of the Achaemenids, drawn for Coxswain
+(MIT licence, `docs/flags/derafsh.svg`).
+
+#### Persian letters in the terminal app are separate and backwards. Can Coxswain fix that?
+
+No: joining letters and running them right to left is the terminal's work. Use a terminal that
+does it: Konsole or mlterm, or GNOME Terminal with bidi on (Windows Terminal joins them). Alacritty, kitty,
+foot, WezTerm and xterm do not. The desktop app shows Persian correctly everywhere.
+
+#### Why are sizes in Persian written ۳۲٫۷ but the path keeps 2026?
+
+Counts, sizes and dates are numbers to read, so they take Persian digits. A path, a key, a
+version or a `config.toml` value must stay as typed and as the system has it, so its digits stay
+Latin.
+
+#### Why are the Cyber theme's headings not in capitals in Georgian?
+
+Georgian has no capitals in running text. Unicode's capitals for Mkhedruli (Mtavruli) are for
+rare all-caps lettering and most fonts lack them, so they would show as boxes. Coxswain writes
+Georgian headings as they are.
+
+#### Persian, Armenian or Georgian shows as boxes. What is missing?
+
+A font with those letters. On Linux install `noto-fonts` (Arch), `fonts-noto-core` (Debian,
+Ubuntu) or `google-noto-sans-arabic-fonts`, `google-noto-sans-armenian-fonts`,
+`google-noto-sans-georgian-fonts` (Fedora), and start the desktop app again; on FreeBSD
+`pkg install noto`. The desktop app says so once under *Settings → Overview → What's new*. See
+[Persian, Armenian and Georgian](#persian-armenian-and-georgian).
+
 #### Japanese or Korean shows as boxes. What is missing?
 
 A font with those letters. On Linux install `noto-fonts-cjk` (Arch), `fonts-noto-cjk` (Debian,
@@ -280,7 +364,8 @@ app says "Move", "New folder" and "Commands". A better short word is welcome; se
 ## Improving a translation
 
 The translations were written with care but have not all been checked by native speakers yet.
-The ones marked *new* (Polish, Czech, Ukrainian, Greek, Japanese, Korean) need a native reader most, then Basque,
+The ones marked *new* (Polish, Czech, Ukrainian, Greek, Japanese, Korean, Persian, Armenian,
+Georgian) need a native reader most, then Basque,
 Latvian and Lithuanian. Corrections are very welcome, in either of two ways:
 
 - **Tell us:** open an [issue on GitHub](https://github.com/mwo-dk/coxswain/issues/new) with the
@@ -297,8 +382,9 @@ Latvian and Lithuanian. Corrections are very welcome, in either of two ways:
    entry per plural form your language uses: `one`/`other` for most, `one`/`few`/`other` for
    Lithuanian, `zero`/`one`/`other` for Latvian, `one`/`two`/`other` for Hebrew, and
    `one`/`many`/`other` for French, Italian, Spanish and Catalan, `one`/`few`/`many`/`other`
-   for Polish and Ukrainian, `one`/`few`/`other` for Czech, and only `other` for Japanese and
-   Korean, which do not change a word for a count.
+   for Polish and Ukrainian, `one`/`few`/`other` for Czech, `one`/`other` for Persian and
+   Armenian (where 0 is `one` too) and for Georgian, and only `other` for Japanese and Korean,
+   which do not change a word for a count.
 3. Run `cargo test -p coxswain-core i18n`: it checks that every file parses, has no unknown
    keys, keeps the placeholders and has an `other` form.
 4. Open a pull request.
@@ -310,7 +396,8 @@ in `nearest()`, give it plural rules in `plural()` if it needs other than one/ot
 [flag-icons](https://github.com/lipis/flag-icons)) to `docs/flags/` and to the list in
 `gui/src/Settings.svelte`.
 
-Flags: [flag-icons](https://github.com/lipis/flag-icons), MIT licence (`docs/flags/LICENSE`).
+Flags: [flag-icons](https://github.com/lipis/flag-icons), MIT licence (`docs/flags/LICENSE`);
+Persian's falcon banner (`derafsh.svg`) is drawn for Coxswain, MIT licence.
 
 ---
 [← Previous: Your own theme and the colour slots](own-theme.md) · [Next: Changing keys →](keys.md)

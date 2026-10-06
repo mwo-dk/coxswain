@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" id="flag-derafsh" viewBox="0 0 640 480">
+  <!-- Derafsh Shahbaz, the Achaemenid falcon banner, drawn for Coxswain. MIT licence. -->
+  <path fill="#a3161c" d="M0 0h640v480H0z"/>
+  <g fill="#f2b632">
+    <path id="derafsh-wing" d="M304 182C250 130 160 92 52 78L116 184 132 166 168 228 186 208 226 264 242 244 304 284z"/>
+    <use href="#derafsh-wing" transform="matrix(-1 0 0 1 640 0)"/>
+    <path d="M320 146c38 22 40 112 28 186h-56c-12-74-10-164 28-186z"/>
+    <path d="M294 318 248 420l34-12 18 20 20-18 20 18 18-20 34 12-46-102z"/>
+    <circle cx="320" cy="126" r="31"/>
+    <path d="M296 118 266 134l32 8z"/>
+  </g>
+  <circle cx="311" cy="119" r="6" fill="#a3161c"/>
+</svg>

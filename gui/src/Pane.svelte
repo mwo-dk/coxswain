@@ -384,7 +384,7 @@
     font-size: inherit;
     cursor: pointer;
     white-space: nowrap;
-    font-family: var(--icon-font), var(--font), var(--cjk);
+    font-family: var(--icon-font), var(--font), var(--scripts);
     color: var(--git-branch-fg);
     overflow: hidden;
     text-overflow: ellipsis;

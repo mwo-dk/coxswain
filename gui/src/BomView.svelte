@@ -519,7 +519,7 @@
     margin: 0;
     flex: 1;
     font-size: 1.05em;
-    font-family: var(--icon-font), var(--font), var(--cjk);
+    font-family: var(--icon-font), var(--font), var(--scripts);
   }
   button {
     font: inherit;
@@ -803,7 +803,7 @@
     font-size: 0.85em;
   }
   .mono {
-    font-family: var(--mono-font), var(--cjk);
+    font-family: var(--mono-font), var(--scripts);
     font-size: 0.9em;
   }
   .more-row {
@@ -811,7 +811,7 @@
   }
   .plain {
     font-size: 0.82em;
-    font-family: var(--icon-font), var(--font), var(--cjk);
+    font-family: var(--icon-font), var(--font), var(--scripts);
     padding: 2px 8px;
     border: 1px solid var(--border-fg);
     border-radius: var(--r);

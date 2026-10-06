@@ -3,7 +3,7 @@ resolver = "3"
 members = ["crates/coxswain-core", "crates/coxswain", "gui/src-tauri"]
 
 [workspace.package]
-version = "2.3.1"
+version = "2.5.1"
 edition = "2024"
 license = "MIT"
 repository = "https://github.com/mwo-dk/coxswain"
@@ -19,6 +19,12 @@ coxswain-core = { path = "crates/coxswain-core", version = "2" }
 [profile.release]
 lto = "thin"
 codegen-units = 1
+
+# gemm's f16 kernels on ARM64 (candle) are inline assembly that needs the CPU's fp16, which
+# only the functions that ask for it have. Unoptimised, they are compiled on their own,
+# without it, and the assembler refuses them (Rust 1.99); optimised, they are inlined.
+[profile.dev.package.gemm-f16]
+opt-level = 3
 
 # FreeBSD (and the other BSDs) for the desktop app, until these fixes are released upstream:
 # tao's hit testing on BSD (tauri-apps/tao#1356, merged after 0.37.1) and drag's GTK backend on

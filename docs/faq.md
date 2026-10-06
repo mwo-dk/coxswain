@@ -130,7 +130,8 @@ The questions people ask most, with a short answer and a link to the full one. E
 - **I set `[themes.cyber.panel]` to tweak Cyber, and everything else turned blue.** Your table replaces the built-in Cyber and unset slots take NC's colours; copy the whole theme from `coxswain --dump-config`. [Answer](customise/own-theme.md#i-set-themescyberpanel-to-tweak-cyber-and-everything-else-turned-blue)
 - **How do I keep the default key and add my own?** List both in `[keys]`: listing an action replaces all its defaults. [Answer](customise/keys.md#how-do-i-keep-the-default-key-and-add-my-own)
 - **My system is in US English. Why does Coxswain say "colour" but "trash"?** US English gets Canadian English: British spelling, North American words. [Answer](customise/languages.md#my-system-is-in-us-english-why-does-coxswain-say-colour-but-trash)
-- **A word in Polish, Czech, Ukrainian or Greek reads wrong. Where do I say so?** These four are new; a GitHub issue or a pull request on `crates/coxswain-core/locales/<code>.json` is welcome. [Answer](customise/languages.md#improving-a-translation)
+- **A word in a new translation (Polish, Czech, Ukrainian, Greek, Japanese, Korean, Persian, Armenian, Georgian) reads wrong. Where do I say so?** These are new; a GitHub issue or a pull request on `crates/coxswain-core/locales/<code>.json` is welcome. [Answer](customise/languages.md#improving-a-translation)
+- **Persian letters are separate and backwards in the terminal app. Why?** Joining and right to left are the terminal's work: Konsole and mlterm do both, Alacritty and kitty neither. [Answer](customise/languages.md#persian-letters-in-the-terminal-app-are-separate-and-backwards-can-coxswain-fix-that)
 - **The colours in my terminal look washed out, or wrong.** The themes use exact RGB and need a true-colour terminal; enable it in tmux. [Answer](customise/themes.md#the-colours-in-my-terminal-look-washed-out-or-wrong)
 
 ## Reference
@@ -151,6 +152,11 @@ The questions people ask most, with a short answer and a link to the full one. E
 - **Which package does this file belong to?** **Alt+Enter** on it shows *Package git-2.56.0* on FreeBSD; *F9 → Files of this package* lists all its files. [Answer](files/properties.md#zfs-packages-and-file-flags)
 - **Can I set chflags from Coxswain?** Your own user flags (`nodump`, `hidden`, and `uchg`, `uappnd` off ZFS) in Properties, or *F9 → File flags* in the terminal app. System flags are root's. [Answer](files/properties.md#zfs-packages-and-file-flags)
 - **Where are my boot environments and jails?** In the desktop app's sidebar, and under **Alt+F1** in the terminal app; mounted ones open as folders. [Answer](reference/freebsd.md#boot-environments-and-jails)
+- **Does Coxswain run on a Raspberry Pi?** Yes, with the 64-bit Raspberry Pi OS: `Coxswain_<version>_arm64.deb` and the `aarch64-unknown-linux-musl` terminal app. There is no 32-bit build. [Answer](reference/linux-arm.md#which-file-do-i-download-for-a-raspberry-pi)
+- **The ARM AppImage does not start and mentions FUSE.** `sudo apt install libfuse2` (`libfuse2t64` on Ubuntu 24.04 and newer), or use the `.deb`. [Answer](reference/linux-arm.md#the-appimage-does-not-start-and-mentions-fuse-what-now)
+- **Which `.deb` does my Chromebook need?** `dpkg --print-architecture` in its Linux terminal: `amd64` or `arm64`. [Answer](reference/chromeos.md#which-deb-does-my-chromebook-need)
+- **Why does Coxswain not see my Chromebook's Downloads?** Linux sees only *Linux files* until you right-click a folder in the Files app and choose *Share with Linux*. [Answer](reference/chromeos.md#why-does-coxswain-not-see-my-downloads-folder)
+- **Which installer do I need on a Snapdragon laptop?** `Coxswain_<version>_arm64-setup.exe`: native, no emulation. [Answer](reference/windows-arm.md#which-installer-do-i-need-on-a-snapdragon-laptop)
 - **How do I start the search helper on FreeBSD without a desktop session?** The rc.d script: `doas sysrc coxswain_index_enable=YES coxswain_index_user=$USER` and `doas service coxswain_index start`, or one line in `~/.profile`. [Answer](reference/freebsd.md#the-search-helper)
 - **Is there a Flatpak?** Yes, of the desktop app (`io.github.mwo_dk.Coxswain`); it is not on Flathub yet, so build it with `flatpak-builder` from `packaging/flatpak`. [Answer](reference/flatpak.md#building-it-yourself)
 - **In the Flatpak, F4 says *sh: hx: not found*.** The editor runs on the host: install it there, and give a terminal editor its terminal (`editor = "kitty -e hx"`). [Answer](reference/flatpak.md#questions)
@@ -162,4 +168,4 @@ The questions people ask most, with a short answer and a link to the full one. E
 - **The cache folder is large. What takes the room?** Mostly search.db and the 488 MB model, then previews/. [Answer](reference/where-things-are-kept.md#the-cache-folder-is-large-what-takes-the-room)
 
 ---
-[← Previous: macOS](reference/macos.md) · [Next: Docs index →](README.md)
+[← Previous: Windows on ARM](reference/windows-arm.md) · [Next: Docs index →](README.md)
