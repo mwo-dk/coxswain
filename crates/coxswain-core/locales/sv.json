@@ -145,8 +145,10 @@
  "archive.preview_locked": "Filen är låst med ett lösenord.",
  "archive.preview_opening": "Öppnar den från {archive}…",
  "archive.preview_unlock": "Ange lösenordet",
+ "ask.builtin_estimate": "På den här processorn: ungefär {seconds} s till första ordet, sedan {words} ord i sekunden",
  "ask.builtin_missing": "{model} är inte hämtad än: hämta den i Inställningar under Fråga eller i Ställ in…",
  "ask.builtin_name": "{model}, inbyggd",
+ "ask.builtin_slow": "för långsam för att rekommenderas; en modellserver svarar snabbare",
  "bom.advice": "Vad du kan göra",
  "bom.as_in_file": "Som i filen",
  "bom.assets": {
@@ -1146,6 +1148,7 @@
  "setup.ask_builtin": "{model}, inbyggd ({size} att hämta, {where}; inget lämnar datorn)",
  "setup.ask_builtin_hint": "Valfritt. En inbyggd chattmodell svarar på den här datorn, utan något att installera, och inget lämnar den: snabbt på en Macs GPU, långsamt på enbart en processor (en minut eller mer före första ordet). En modellserver svarar snabbare med större modeller.",
  "setup.ask_hint": "Bara modeller som kan svara listas. För den här datorn: {model}. En testfråga visar hur snabbt den svarar.",
+ "setup.ask_off": "Ingen för tillfället: Fråga förblir avstängd",
  "setup.builtin": "Den inbyggda modellen ({size} att hämta, körs {where}; inget lämnar datorn)",
  "setup.builtin_hint": "multilingual-e5-small: 100 språk, körs på alla datorer. Varje fil läses om när du byter till den.",
  "setup.builtin_on": "Sökning efter betydelse är på, med den inbyggda modellen. Sökhjälpen läser nu dina filer efter betydelse i bakgrunden; träffar efter betydelse dyker upp i sökningar under tiden.",

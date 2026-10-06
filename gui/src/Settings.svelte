@@ -625,6 +625,7 @@
               <span class="field">{t("settings.ask_builtin")}</span>
               {#each chat?.models ?? [] as m (m.key)}
                 <p>{t("settings.ask_builtin_model", { model: m.name, size: size(m.size), where: chat.runs })}{#if m.suggested}<span class="badge">{t("setup.recommended")}</span>{/if}</p>
+                {#if m.estimate}<p class="hint">{m.estimate}</p>{/if}
                 {#if chat.downloading?.[0] === m.key}
                   <p class="hint">{t("settings.meaning_downloading", { done: size(chat.downloading[1]), total: size(chat.downloading[2]) })}</p>
                   <progress max={chat.downloading[2] || 1} value={chat.downloading[1]}></progress>

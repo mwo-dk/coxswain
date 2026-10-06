@@ -31,6 +31,10 @@ pub struct Model {
     pub ram: u64,
     /// A hybrid model that thinks unless its answer starts with an empty `<think>` block.
     hybrid: bool,
+    /// Millions of weights each token goes through in the layers, and those the output layer
+    /// adds for each token written: what the speed estimate scales by.
+    layers: f64,
+    head: f64,
     files: &'static [Pinned],
 }
 
@@ -44,6 +48,8 @@ pub const MODELS: &[Model] = &[
         name: "Qwen3 1.7B",
         ram: 8,
         hybrid: true,
+        layers: 1409.0,
+        head: 311.0,
         files: &[Pinned { repo: "unsloth/Qwen3-1.7B-GGUF", revision: "d7f544eead698dbd1f15126ef60b45a1e1933222", name: "Qwen3-1.7B-Q4_K_M.gguf", sha: "b139949c5bd74937ad8ed8c8cf3d9ffb1e99c866c823204dc42c0d91fa181897", len: 1_107_409_472 }, TOKENIZER],
     },
     Model {
@@ -51,6 +57,8 @@ pub const MODELS: &[Model] = &[
         name: "Qwen3 4B Instruct",
         ram: 16,
         hybrid: false,
+        layers: 3633.0,
+        head: 389.0,
         files: &[Pinned { repo: "unsloth/Qwen3-4B-Instruct-2507-GGUF", revision: "a06e946bb6b655725eafa393f4a9745d460374c9", name: "Qwen3-4B-Instruct-2507-Q4_K_M.gguf", sha: "3605803b982cb64aead44f6c1b2ae36e3acdb41d8e46c8a94c6533bc4c67e597", len: 2_497_281_120 }, TOKENIZER],
     },
 ];
@@ -61,11 +69,132 @@ pub fn of(ask_model: &str) -> Option<&'static Model> {
     MODELS.iter().find(|m| m.id == id)
 }
 
-/// The model for a machine with `ram` GB: the larger one on a Mac's GPU with the memory for
-/// it; the small one on a CPU, where the larger takes three times as long.
-pub fn suggest(ram: u64) -> &'static Model {
-    let gpu = cfg!(all(target_os = "macos", target_arch = "aarch64"));
-    MODELS.iter().rev().find(|m| ram >= m.ram && (gpu || m.ram <= MODELS[0].ram)).unwrap_or(&MODELS[0])
+/// Whether a built-in model runs on a Mac's GPU, where it is quick: unless `cpu_only`.
+fn metal(cpu_only: bool) -> bool {
+    cfg!(target_os = "macos") && !cpu_only
+}
+
+/// The model to recommend for a machine with `ram` GB. On a Mac's GPU: the larger one with
+/// the memory for it on Apple silicon, else the small one. On a processor: the small one
+/// (the larger takes three times as long), and only when the estimate has its first word
+/// within `QUICK` seconds; else none, and a model server is the better choice.
+pub fn suggest(ram: u64, cpu_only: bool) -> Option<&'static Model> {
+    if metal(cpu_only) {
+        let apple = cfg!(target_arch = "aarch64");
+        return MODELS.iter().rev().find(|m| ram >= m.ram && (apple || m.ram <= MODELS[0].ram)).or(Some(&MODELS[0]));
+    }
+    estimate(&MODELS[0], cpu_only, true).filter(|e| e.first < QUICK).map(|_| &MODELS[0])
+}
+
+/// Seconds to the first word that still make a model worth recommending.
+const QUICK: f64 = 10.0;
+
+/// How quickly a built-in model answers on this machine's processor, from `probe`.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Estimate {
+    /// Tokens of the prompt read a second.
+    pub read: f64,
+    /// Tokens of the answer written a second.
+    pub write: f64,
+    /// Seconds to the first word for a prompt as long as the processor's cap, once loaded.
+    pub first: f64,
+}
+
+impl Estimate {
+    fn of(m: &Model, ns: f64) -> Estimate {
+        let read = 1e3 / (ns * m.layers * READ_COST);
+        let write = 1e3 / (ns * (m.layers + m.head) * WRITE_COST);
+        Estimate { read, write, first: (CPU_CONTEXT - ANSWER) as f64 / read + 1.0 / write }
+    }
+
+    /// "about 40 s to the first word, then 3 words a second", and why it is not recommended
+    /// when it is not: a token is about ¾ of a word.
+    pub fn text(&self) -> String {
+        let s = crate::t!("ask.builtin_estimate", "seconds" => format!("{:.0}", self.first.max(1.0)), "words" => format!("{:.1}", self.write * 0.75));
+        if self.first < QUICK { s } else { format!("{s} ({})", crate::t!("ask.builtin_slow")) }
+    }
+}
+
+/// What a model's token costs against the probe's nanoseconds a weight: attention, the Q6_K
+/// layers among the Q4_K ones, and the threads waiting for each other. Measured with
+/// `the_estimate_is_near` on a Core Ultra 9 185H: within 15 % for both models.
+const READ_COST: f64 = 1.9;
+const WRITE_COST: f64 = 2.2;
+
+/// How quickly `m` answers on this processor; None on a Mac's GPU, where it is quick. The
+/// probe (0.2 s) runs the first time it is asked for; `wait` false does not wait for it, but
+/// starts it and is None until it is done.
+pub fn estimate(m: &Model, cpu_only: bool, wait: bool) -> Option<Estimate> {
+    static SPEED: std::sync::OnceLock<Option<f64>> = std::sync::OnceLock::new();
+    static STARTED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+    if metal(cpu_only) {
+        return None;
+    }
+    let ns = match SPEED.get() {
+        Some(ns) => *ns,
+        None if wait => *SPEED.get_or_init(speed),
+        None => {
+            if !STARTED.swap(true, std::sync::atomic::Ordering::Relaxed) {
+                let _ = std::thread::Builder::new().name("coxswain-chat-probe".into()).spawn(|| SPEED.get_or_init(speed));
+            }
+            return None;
+        }
+    };
+    ns.map(|ns| Estimate::of(m, ns))
+}
+
+/// The quickest the probe has measured on this processor and version, kept in the data
+/// folder. It runs once in each process too: other work on the processor while it ran makes
+/// one measurement slow, and the quickest is the processor's own.
+fn speed() -> Option<f64> {
+    let file = dirs::data_dir().map(|d| d.join("coxswain").join("chat-speed.txt"));
+    // A debug build is far slower: its result is kept apart.
+    let key = format!("{} × {} · {}{}", cpu_name(), std::thread::available_parallelism().map_or(1, |n| n.get()), crate::update::VERSION, if cfg!(debug_assertions) { " debug" } else { "" });
+    let kept: Option<f64> = file.as_ref().and_then(|f| std::fs::read_to_string(f).ok()).and_then(|t| Some(t.split_once('\n').filter(|(k, _)| *k == key)?.1.trim().parse().ok()?));
+    let ns = match (kept, probe()) {
+        (Some(k), Some(n)) if k <= n => return Some(k),
+        (k, None) => return k,
+        (_, Some(n)) => n,
+    };
+    if let Some(f) = file {
+        let _ = std::fs::create_dir_all(f.parent().unwrap_or(&f)).and_then(|_| std::fs::write(&f, format!("{key}\n{ns}\n")));
+    }
+    Some(ns)
+}
+
+/// The processor's name, for the key the probe is kept under.
+fn cpu_name() -> String {
+    let name = if cfg!(any(target_os = "linux", target_os = "android")) {
+        std::fs::read_to_string("/proc/cpuinfo").ok().and_then(|t| t.lines().find(|l| l.starts_with("model name") || l.starts_with("Hardware")).and_then(|l| l.split_once(':')).map(|(_, v)| v.trim().to_string()))
+    } else if cfg!(windows) {
+        std::env::var("PROCESSOR_IDENTIFIER").ok()
+    } else {
+        let key = if cfg!(target_os = "macos") { "machdep.cpu.brand_string" } else { "hw.model" };
+        crate::tools::command("sysctl").args(["-n", key]).output().ok().map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+    };
+    name.unwrap_or_default()
+}
+
+/// Nanoseconds a weight of the work that dominates on a processor: a Q4_K matrix (Qwen3
+/// 1.7B's feed-forward shape) times a few rows of a prompt, as the model does it, with no
+/// download. Runs for 0.2 s; the quickest counts.
+fn probe() -> Option<f64> {
+    use candle_core::Module;
+    use candle_core::quantized::{GgmlDType, QMatMul, QStorage, QTensor};
+    const ROWS: usize = 8;
+    let (k, n) = (2048, 6144);
+    let cpu = &Device::Cpu;
+    // Zeros cost as much as real weights; made, not quantized, they take no time.
+    let w = QTensor::new(QStorage::Cpu(GgmlDType::Q4K.cpu_zeros(n * k)), (n, k)).and_then(QMatMul::from_qtensor).ok()?;
+    let x = Tensor::randn(0f32, 1.0, (ROWS, k), cpu).ok()?;
+    w.forward(&x).ok()?;
+    let (start, mut best) = (Instant::now(), f64::MAX);
+    while start.elapsed() < Duration::from_millis(200) {
+        let t = Instant::now();
+        w.forward(&x).ok()?;
+        best = best.min(t.elapsed().as_secs_f64());
+    }
+    Some(best * 1e9 / (ROWS * n * k) as f64)
 }
 
 /// How `ask_model` is shown: a built-in model by its name, a server's as it is.
@@ -327,9 +456,67 @@ mod tests {
     fn models_by_name_and_memory() {
         assert_eq!(of("builtin:qwen3-1.7b").map(|m| m.id), Some("qwen3-1.7b"));
         assert!(of("qwen3:8b").is_none() && of("builtin:other").is_none());
-        assert_eq!(suggest(8).id, "qwen3-1.7b");
-        assert_eq!(suggest(64).id, if cfg!(all(target_os = "macos", target_arch = "aarch64")) { "qwen3-4b" } else { "qwen3-1.7b" });
+        if cfg!(target_os = "macos") {
+            assert_eq!(suggest(8, false).map(|m| m.id), Some("qwen3-1.7b"));
+            assert_eq!(suggest(64, false).map(|m| m.id), Some(if cfg!(target_arch = "aarch64") { "qwen3-4b" } else { "qwen3-1.7b" }));
+        }
+        // On a processor only the small one, and only when it is quick enough.
+        let quick = estimate(&MODELS[0], true, true).is_some_and(|e| e.first < QUICK);
+        assert_eq!(suggest(64, true).map(|m| m.id), quick.then_some("qwen3-1.7b"));
         assert_eq!(of(&MODELS[1].key()).map(|m| m.id), Some("qwen3-4b"));
+    }
+
+    #[test]
+    fn the_estimate_scales_with_the_model() {
+        let (small, large) = (Estimate::of(&MODELS[0], 0.05), Estimate::of(&MODELS[1], 0.05));
+        assert!(large.read < small.read && large.write < small.write && large.first > small.first);
+        assert!(small.first > (CPU_CONTEXT - ANSWER) as f64 / small.read);
+        let twice = Estimate::of(&MODELS[0], 0.1);
+        assert!((twice.first - 2.0 * small.first).abs() < 1e-9, "twice as slow a processor, twice as long");
+    }
+
+    #[test]
+    fn the_probe_is_quick() {
+        let start = Instant::now();
+        let ns = probe().unwrap();
+        assert!(ns > 0.0 && ns.is_finite());
+        assert!(start.elapsed() < Duration::from_secs(if cfg!(debug_assertions) { 30 } else { 1 }), "{:?}", start.elapsed());
+    }
+
+    /// The estimate against the real thing: a prompt at the processor's cap, model loaded.
+    /// `COXSWAIN_CHAT_MODEL=1` for the larger model.
+    #[test]
+    #[ignore]
+    fn the_estimate_is_near() {
+        let m = &MODELS[std::env::var("COXSWAIN_CHAT_MODEL").ok().and_then(|i| i.parse().ok()).unwrap_or(0)];
+        m.download(&Progress::default()).unwrap();
+        let t = Instant::now();
+        let ns = probe().unwrap();
+        let probed = t.elapsed();
+        let e = Estimate::of(m, ns);
+        let start = Instant::now();
+        ask(m, true, &[], "Hi", &[], |_| true).unwrap();
+        eprintln!("loaded and a short question in {:.1?}", start.elapsed());
+        let passage = "The rocket Kestrel launches from Andøya. Its fuel costs 40,000 euros per flight, and the crew trains for six months before each launch. ".repeat(12);
+        let sources: Vec<_> = (0..6).map(|i| (PathBuf::from(format!("/home/demo/rocket/{i}.md")), passage.clone())).collect();
+        let (mut first, mut n, start) = (None, 0, Instant::now());
+        ask(m, true, &[], "What does the fuel cost, and what is the rocket called?", &sources, |t| {
+            if !t.is_empty() {
+                first.get_or_insert(start.elapsed());
+                n += 1;
+            }
+            true
+        })
+        .unwrap();
+        let first = first.unwrap();
+        let tokens = {
+            let slot = slot();
+            let count = |s: &str| slot.as_ref().unwrap().tokenizer.encode(s, false).unwrap().len();
+            count(&prompt(m.hybrid, &[], "What does the fuel cost, and what is the rocket called?", &sources, CPU_CONTEXT - ANSWER, count))
+        };
+        let write = n as f64 / (start.elapsed() - first).as_secs_f64();
+        eprintln!("probe {ns:.4} ns a weight in {probed:.1?}; estimate: first word {:.1} s, writes {:.1} tokens/s, reads {:.1}", e.first, e.write, e.read);
+        eprintln!("measured: first word {:.1} s, writes {write:.1} tokens/s, reads {:.1} ({tokens} tokens)", first.as_secs_f64(), tokens as f64 / first.as_secs_f64());
     }
 
     /// Downloads the small model (1.1 GB) and asks it about two files.

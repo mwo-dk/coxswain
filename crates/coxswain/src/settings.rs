@@ -194,6 +194,16 @@ pub fn rows(app: &App, s: &Settings) -> Vec<Row> {
             for (head, id, names) in GROUPS {
                 v.push(Row::Head(t!(head), id));
                 v.extend(names.iter().filter_map(|n| cs::find(n)).map(Row::Opt));
+                // How quickly the built-in chat models answer on this processor; the probe
+                // runs in the background the first time, and they show once it is done.
+                if *id == "ask" {
+                    let cpu_only = cfg.search.meaning_device == "cpu";
+                    for m in coxswain_core::chat::MODELS {
+                        if let Some(e) = coxswain_core::chat::estimate(m, cpu_only, false) {
+                            v.push(Row::Info(t!("settings.ask_builtin_model", "model" => m.name, "size" => cs::human(m.size()), "where" => coxswain_core::setup::builtin_runs(&cfg.search, None)), e.text(), t!("settings.ask_builtin_hint")));
+                        }
+                    }
+                }
             }
             let tools = app.index.status().tools;
             if !tools.is_empty() {

@@ -148,8 +148,10 @@
  "archive.preview_locked": "Aquest fitxer està blocat amb una contrasenya.",
  "archive.preview_opening": "S'està obrint des de {archive}…",
  "archive.preview_unlock": "Introduïu la contrasenya",
+ "ask.builtin_estimate": "En aquest processador: uns {seconds} s fins a la primera paraula, després {words} paraules per segon",
  "ask.builtin_missing": "{model} encara no s'ha baixat: baixeu-lo a Paràmetres, a Pregunta, o a Configura…",
  "ask.builtin_name": "{model}, integrat",
+ "ask.builtin_slow": "massa lent per recomanar-lo; un servidor de models respon més de pressa",
  "bom.advice": "Què cal fer",
  "bom.as_in_file": "Com al fitxer",
  "bom.assets": {
@@ -1189,6 +1191,7 @@
  "setup.ask_builtin": "{model}, integrat ({size} per baixar, {where}; res no surt de l'ordinador)",
  "setup.ask_builtin_hint": "Opcional. Un model de xat integrat respon en aquest ordinador, sense instal·lar res, i res no en surt: de pressa a la GPU d'un Mac, a poc a poc només amb el processador (un minut o més abans de la primera paraula). Un servidor de models respon més de pressa, amb models més grans.",
  "setup.ask_hint": "Només es llisten els models que poden respondre. Per a aquest ordinador: {model}. Una pregunta de prova mostra com de ràpid respon.",
+ "setup.ask_off": "Cap de moment: Pregunta queda desactivada",
  "setup.builtin": "El model integrat ({size} de baixada, s'executa {where}; res no surt de l'ordinador)",
  "setup.builtin_hint": "multilingual-e5-small: 100 llengües, s'executa en qualsevol ordinador. Cada fitxer es torna a llegir quan hi canvieu.",
  "setup.builtin_on": "La cerca pel significat està activada, amb el model integrat. L'ajudant de cerca ara llegeix el significat dels vostres fitxers en segon pla; els resultats pel significat apareixen a les cerques a mesura que avança.",

@@ -52,7 +52,7 @@ The guide detects the hardware and recommends one of these. It says why in one l
 | **Apple silicon**, no server running | none | the built-in model, on the GPU through Metal (465 MB to download) | the [built-in chat model](ask-builtin.md) on the GPU: Qwen3 4B Instruct with 16 GB or more (2.3 GB), else Qwen3 1.7B (1.0 GB) | Nothing to install, nothing leaves the machine; the GPU makes it quick |
 | **Apple silicon**, 16 GB, with a server | Ollama or LM Studio | `bge-m3` | `qwen3:8b` | Both use the GPU through Metal |
 | Apple silicon, 32 GB or more, with a server | Ollama or LM Studio | `bge-m3` | `qwen3:14b` | Half the shared memory can go to the model |
-| **Processor only**, or no server | none | the built-in model (465 MB to download) | the built-in Qwen3 1.7B (1.0 GB), slowly, or none | The built-in models need nothing installed; a chat model on a processor takes a minute or more before its first word |
+| **Processor only**, or no server | none | the built-in model (465 MB to download) | none; the built-in Qwen3 1.7B (1.0 GB) is offered with [an estimate](ask-builtin.md#the-estimate-for-this-processor), and recommended only when it has its first word within 10 s | The built-in models need nothing installed; a chat model on a processor usually takes half a minute or more before its first word |
 
 When a server is already running, the guide recommends that one if it suits the machine. If it
 does not, it recommends the running server with models for both vectors and answers. Every server
@@ -105,11 +105,16 @@ app all steps are on one page; the terminal app asks them in order.
    [built-in chat models](ask-builtin.md): *Optional. A built-in chat model answers on this
    machine, with nothing to install, and nothing leaves it…*, a list with *Qwen3 1.7B, built in
    (1.0 GB download, on the CPU; nothing leaves the machine)* and *Qwen3 4B Instruct, built in
-   (2.3 GB …)*, the one for this machine chosen, and **recommended** when no server answers.
+   (2.3 GB …)*, the one for this machine chosen, and **recommended** when no server answers and
+   it suits the machine: always on a Mac's GPU, on a processor only when it is quick enough.
+   Under the list, on a processor: *On this processor: about 74 s to the first word, then 7.4
+   words a second (too slow to recommend; a model server answers more quickly)*, from a short
+   probe the first time ([the estimate](ask-builtin.md#the-estimate-for-this-processor)).
    **Download Qwen3 1.7B (1.0 GB) and use it** downloads it (*Downloading: 31 %*, an error in red
    naming huggingface.co when it fails), makes it Ask's and asks the test question; once it is
    there the button reads **Use and ask a test question**. In the terminal app the built-in
-   models are the first numbers of the list. Then, with a server, its chat models: only models
+   models are the first numbers of the list, each with its estimate below it, and the last is
+   *None for now: Ask stays off*: the default when nothing suits. Then, with a server, its chat models: only models
    that can answer are listed. Embedding models such as
    `bge-m3` are never offered. The suggestion follows the table above; **Download** fetches it.
    **Use and ask a test question** saves it and asks it about a made-up file: *It answered: the

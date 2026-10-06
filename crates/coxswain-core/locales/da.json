@@ -145,8 +145,10 @@
  "archive.preview_locked": "Filen er låst med en adgangskode.",
  "archive.preview_opening": "Åbner den fra {archive}…",
  "archive.preview_unlock": "Indtast adgangskoden",
+ "ask.builtin_estimate": "På denne processor: omkring {seconds} s til første ord, derefter {words} ord i sekundet",
  "ask.builtin_missing": "{model} er ikke hentet endnu: hent den i Indstillinger under Spørg eller i Sæt op…",
  "ask.builtin_name": "{model}, indbygget",
+ "ask.builtin_slow": "for langsom til at anbefale; en modelserver svarer hurtigere",
  "bom.advice": "Hvad du kan gøre",
  "bom.as_in_file": "Som i filen",
  "bom.assets": {
@@ -1146,6 +1148,7 @@
  "setup.ask_builtin": "{model}, indbygget ({size} at hente, {where}; intet forlader maskinen)",
  "setup.ask_builtin_hint": "Valgfrit. En indbygget chatmodel svarer på denne maskine, uden noget at installere, og intet forlader den: hurtigt på en Macs GPU, langsomt på en processor alene (et minut eller mere før første ord). En modelserver svarer hurtigere med større modeller.",
  "setup.ask_hint": "Kun modeller, der kan svare, vises. Til denne maskine: {model}. Et testspørgsmål viser, hvor hurtigt den svarer.",
+ "setup.ask_off": "Ingen for nu: Spørg forbliver slået fra",
  "setup.builtin": "Den indbyggede model ({size} at hente, kører {where}; intet forlader maskinen)",
  "setup.builtin_hint": "multilingual-e5-small: 100 sprog, kører på enhver maskine. Hver fil læses igen, når du skifter til den.",
  "setup.builtin_on": "Søgning efter betydning er slået til med den indbyggede model. Søgehjælperen læser nu dine filer for betydning i baggrunden; træf efter betydning dukker op i søgninger undervejs.",
