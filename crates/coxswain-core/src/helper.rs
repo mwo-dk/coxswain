@@ -3,7 +3,8 @@
 //!
 //! The helper is the app itself, started with `--index-helper`, so packages ship nothing
 //! extra. The first app that finds no helper starts one; it lingers a while after the last
-//! app has gone, then exits. Nothing is registered with the system.
+//! app has gone, then exits. Registered with the system (`service`), it starts with the
+//! session instead. What goes wrong when it starts is in `helper.log` in the cache folder.
 //!
 //! They talk over a loopback TCP socket, one JSON line per request and per reply. The port
 //! and a token are in a file only the user can read; a connection that does not start with
@@ -50,6 +51,8 @@ enum Request {
     Forget,
     /// Go, so that a helper with the new settings comes.
     Restart,
+    /// Ask the built-in chat model, `cpu` alone or on the GPU: the answer comes in pieces.
+    Ask { model: String, cpu: bool, earlier: Vec<crate::meaning::Turn>, question: String, sources: Vec<(PathBuf, String)> },
 }
 
 #[derive(Serialize, Deserialize)]
@@ -64,6 +67,10 @@ enum Reply {
     /// With the time the walk they come from began.
     Size { size: Option<(Size, u64)> },
     Done,
+    /// A piece of an answer; empty while the model reads.
+    Piece { text: String },
+    /// The answer is complete, or why there is none.
+    Answered { error: Option<String> },
 }
 
 /// How the index is doing.
@@ -127,6 +134,20 @@ pub fn folder() -> Option<PathBuf> {
     Some(dirs::cache_dir()?.join("coxswain"))
 }
 
+/// Where a helper's errors go: `helper.log` beside its address.
+pub fn log() -> Option<PathBuf> {
+    Some(folder()?.join("helper.log"))
+}
+
+/// A line in helper.log (the helper's stderr), with the time.
+fn note(what: std::fmt::Arguments) {
+    eprintln!("{} coxswain {VERSION}: {what}", chrono::Local::now().format("%Y-%m-%d %H:%M:%S"));
+}
+
+/// The system was to start the registered helper and did not, so this app started one: a
+/// notice says where to allow it.
+pub static UNSTARTED: AtomicBool = AtomicBool::new(false);
+
 /// A request longer than this is nobody's: the connection is dropped, so a stray process on the
 /// machine cannot make the helper swallow memory.
 const LINE_MAX: u64 = 1 << 20;
@@ -162,12 +183,32 @@ fn write_private(path: &Path, text: &str) -> io::Result<()> {
 /// Be the helper: serve until no app has asked for `LINGER`. Returns at once when another
 /// helper already runs.
 pub fn serve() -> io::Result<()> {
+    // Not one that grows without end, when a helper fails again and again.
+    if let Some(log) = log().and_then(|l| std::fs::OpenOptions::new().write(true).open(l).ok())
+        && log.metadata().is_ok_and(|m| m.len() > 1 << 20)
+    {
+        let _ = log.set_len(0);
+    }
+    note(format_args!("helper starts, process {}", std::process::id()));
+    let served = serve_here();
+    if let Err(e) = &served {
+        note(format_args!("helper stops: {e}"));
+    }
+    served
+}
+
+fn serve_here() -> io::Result<()> {
     crate::fs::lock_down();
+    // Started by launchd, the helper has the bare system PATH, without the programs that read
+    // more (Homebrew's tesseract, pdftotext).
+    if cfg!(target_os = "macos") {
+        crate::tools::login_path();
+    }
     let dir = folder().ok_or_else(|| io::Error::other("no cache folder"))?;
     let search = Config::load().map(|c| c.search).unwrap_or_default();
     // First, or the store cannot be made on a machine that has no cache folder yet.
     std::fs::create_dir_all(&dir)?;
-    let store = if search.text { Store::open(&dir.join("search.db")).inspect_err(|e| eprintln!("coxswain: search store: {e}")).ok().map(Arc::new) } else { None };
+    let store = if search.text { Store::open(&dir.join("search.db")).inspect_err(|e| note(format_args!("search inside files is off: the search store: {e}"))).ok().map(Arc::new) } else { None };
     if let Some(s) = &store {
         s.set_engine(if search.meaning { crate::meaning::Engine::from_config(&search) } else { None });
     }
@@ -188,6 +229,7 @@ pub fn serve_in(dir: &Path, linger: Duration, index: impl FnOnce() -> Arc<Servic
     let wait = Instant::now();
     while lock.try_lock().is_err() {
         if wait.elapsed() > Duration::from_secs(3) {
+            note(format_args!("another helper runs: this one leaves"));
             return Ok(());
         }
         std::thread::sleep(Duration::from_millis(100));
@@ -225,6 +267,7 @@ pub fn serve_in(dir: &Path, linger: Duration, index: impl FnOnce() -> Arc<Servic
     }
     stop.store(true, Ordering::SeqCst);
     let _ = std::fs::remove_file(addr);
+    note(format_args!("helper leaves: {}", if quit.load(Ordering::SeqCst) { "an app asked it to, for new settings or its own version" } else { "no app asked for a while" }));
     Ok(())
 }
 
@@ -251,7 +294,9 @@ fn answer(stream: TcpStream, index: &Service, store: Option<&Store>, text_roots:
                 // A helper on its way out sends newcomers to the next one.
                 let same = version == VERSION && !quit.load(Ordering::SeqCst);
                 // Another version of the app: it starts its own helper once this one is gone.
-                quit.fetch_or(!same, Ordering::SeqCst);
+                if !same && !quit.fetch_or(true, Ordering::SeqCst) {
+                    note(format_args!("an app of version {version} came: leaving for its helper"));
+                }
                 Reply::Hello { same }
             }
             _ if !said_hello => return Ok(()),
@@ -273,6 +318,21 @@ fn answer(stream: TcpStream, index: &Service, store: Option<&Store>, text_roots:
             Request::Restart => {
                 quit.store(true, Ordering::SeqCst);
                 Reply::Done
+            }
+            // An app that stops the answer closes the line: the next piece cannot be sent.
+            Request::Ask { model, cpu, earlier, question, sources } => {
+                let mut gone = false;
+                let done = match crate::chat::of(&model) {
+                    Some(m) => crate::chat::ask(m, cpu, &earlier, &question, &sources, |text| {
+                        gone = send(&mut out, &Reply::Piece { text: text.into() }).is_err();
+                        !gone
+                    }),
+                    None => Err(format!("no built-in model {model}")),
+                };
+                if gone {
+                    return Ok(());
+                }
+                Reply::Answered { error: done.err() }
             }
             Request::Status => Reply::Status({
                 let counts = store.map(Store::meaning_counts).unwrap_or_default();
@@ -299,10 +359,14 @@ fn answer(stream: TcpStream, index: &Service, store: Option<&Store>, text_roots:
                 }
             }),
         };
-        let mut text = serde_json::to_string(&reply).map_err(io::Error::other)?;
-        text.push('\n');
-        out.write_all(text.as_bytes())?;
+        send(&mut out, &reply)?;
     }
+}
+
+fn send(out: &mut TcpStream, reply: &Reply) -> io::Result<()> {
+    let mut text = serde_json::to_string(reply).map_err(io::Error::other)?;
+    text.push('\n');
+    out.write_all(text.as_bytes())
 }
 
 // ---------------------------------------------------------------- the apps' side
@@ -312,8 +376,9 @@ type Line = (BufReader<TcpStream>, TcpStream);
 /// The index as an app sees it: the helper's, or its own when no helper can be had.
 pub struct Client {
     dir: Option<PathBuf>,
-    /// Starts a helper. The apps start themselves with `ARG`.
-    spawn: Box<dyn Fn() + Send + Sync>,
+    /// Starts a helper, the `n`th time no helper answers (`STEPS`). The apps start themselves
+    /// with `ARG`.
+    spawn: Box<dyn Fn(usize) + Send + Sync>,
     search: SearchConfig,
     line: Mutex<Option<Line>>,
     /// The last status and when it was asked: the terminal app asks with every frame.
@@ -324,31 +389,39 @@ pub struct Client {
 impl Client {
     /// Connects in the background, so the app starts without waiting for the helper.
     pub fn start(search: &SearchConfig) -> Arc<Client> {
-        let client = Client::with(folder(), search, || {
-            // A registration that starts another program (an older version, or one an upgrade
-            // has removed) is taken over by this app.
+        let client = Client::with(folder(), search, |n| {
             let registered = crate::service::installed();
             let Ok(exe) = crate::tools::this_app() else { return };
-            if registered && !crate::service::starts(&exe) && crate::service::install(&exe).is_ok() {
+            // A registration that starts another program (an older version, or one an upgrade
+            // has removed) is taken over by this app.
+            if n == 0 && registered && !crate::service::starts(&exe) && crate::service::install(&exe).is_ok() {
                 return;
             }
-            // A registered helper is started again by systemd or launchd; on Windows and the
-            // BSDs nothing does (nor in a Flatpak), so the app starts one that stays.
-            if registered && crate::service::supervised() {
-                return;
+            match step(n, registered, crate::service::supervised()) {
+                Step::Ask => crate::service::kick(),
+                Step::Own { stay } => {
+                    let mut c = detached(&exe);
+                    if stay {
+                        c.arg(crate::service::STAY);
+                    }
+                    let _ = c.spawn();
+                }
+                Step::Rescue => {
+                    UNSTARTED.store(true, Ordering::Relaxed);
+                    let _ = detached(&exe).arg(crate::service::STAY).spawn();
+                }
+                Step::Wait => {}
             }
-            let mut c = detached(&exe);
-            if registered {
-                c.arg(crate::service::STAY);
-            }
-            let _ = c.spawn();
         });
         let c = client.clone();
-        std::thread::spawn(move || c.status());
+        std::thread::spawn(move || {
+            crate::service::refresh();
+            c.status()
+        });
         client
     }
 
-    pub fn with(dir: Option<PathBuf>, search: &SearchConfig, spawn: impl Fn() + Send + Sync + 'static) -> Arc<Client> {
+    pub fn with(dir: Option<PathBuf>, search: &SearchConfig, spawn: impl Fn(usize) + Send + Sync + 'static) -> Arc<Client> {
         Arc::new(Client { dir, spawn: Box::new(spawn), search: search.clone(), line: Mutex::default(), status: Mutex::default(), own: OnceLock::new() })
     }
 
@@ -375,6 +448,33 @@ impl Client {
         match self.ask(&Request::Passages { query: question.into(), scope: scope.map(Path::to_path_buf), max }) {
             Some(Reply::Passages { found }) => found,
             _ => vec![],
+        }
+    }
+
+    /// Ask's answer, piece by piece to `piece` (false stops it). The built-in model answers in
+    /// the helper, on a line of its own, so that every app shares one copy of it in memory and
+    /// the app's other questions go on meanwhile; here when there is no helper. A server's
+    /// model is asked from here.
+    pub fn answer(&self, cfg: &SearchConfig, earlier: &[crate::meaning::Turn], question: &str, sources: &[(PathBuf, String)], mut piece: impl FnMut(&str) -> bool) -> Result<(), String> {
+        let line = (crate::chat::of(&cfg.ask_model).is_some() && self.own.get().is_none()).then(|| self.connect()).flatten();
+        let Some((mut from, mut to)) = line else { return crate::meaning::ask(cfg, earlier, question, sources, piece) };
+        let ask = Request::Ask { model: cfg.ask_model.clone(), cpu: cfg.meaning_device == "cpu", earlier: earlier.to_vec(), question: question.into(), sources: sources.to_vec() };
+        let mut text = serde_json::to_string(&ask).map_err(|e| e.to_string())?;
+        text.push('\n');
+        // Pieces come at least between parts of the prompt, seconds apart on a slow CPU.
+        to.set_read_timeout(Some(Duration::from_secs(600))).map_err(|e| e.to_string())?;
+        to.write_all(text.as_bytes()).map_err(|e| e.to_string())?;
+        loop {
+            let mut line = String::new();
+            if from.read_line(&mut line).map_err(|e| e.to_string())? == 0 {
+                return Err("the search helper stopped".into());
+            }
+            match serde_json::from_str(&line).map_err(|e| e.to_string())? {
+                Reply::Piece { text } if piece(&text) => {}
+                Reply::Piece { .. } => return Ok(()),
+                Reply::Answered { error } => return error.map_or(Ok(()), Err),
+                _ => return Err("the search helper answered something else".into()),
+            }
         }
     }
 
@@ -468,7 +568,7 @@ impl Client {
 
     fn connect(&self) -> Option<Line> {
         let dir = self.dir.as_deref()?;
-        let mut started = false;
+        let mut tries = 0;
         let wait = Instant::now();
         // A registered helper that was asked to go takes the system a moment to start again.
         let patience = Duration::from_secs(if crate::service::installed() { 15 } else { 5 });
@@ -479,9 +579,9 @@ impl Client {
                     // Another version, or a stale address: it goes away, then ours comes.
                     _ => {}
                 },
-                None if !started => {
-                    started = true;
-                    (self.spawn)();
+                None if STEPS.get(tries).is_some_and(|&at| wait.elapsed() >= at) => {
+                    (self.spawn)(tries);
+                    tries += 1;
                 }
                 None => {}
             }
@@ -490,6 +590,33 @@ impl Client {
             }
             std::thread::sleep(Duration::from_millis(50));
         }
+    }
+}
+
+/// When, after the first try, an app that finds no helper starts one again (see `step`).
+const STEPS: [Duration; 3] = [Duration::ZERO, Duration::from_secs(3), Duration::from_secs(8)];
+
+/// What an app does the `n`th time it finds no helper.
+#[derive(Debug, PartialEq)]
+enum Step {
+    /// Ask systemd or launchd to start the registered one.
+    Ask,
+    /// Start one, which stays when it is registered.
+    Own { stay: bool },
+    /// The service manager did not start it: start one that stays, and say so.
+    Rescue,
+    Wait,
+}
+
+/// A registered helper is the service manager's to start (twice: a helper that was just asked
+/// to go may still be leaving), then the app's own; the lock lets only one of them serve. On
+/// Windows and the BSDs nothing starts it again, so the app does at once.
+fn step(n: usize, registered: bool, supervised: bool) -> Step {
+    match (n, registered && supervised) {
+        (0 | 1, true) => Step::Ask,
+        (_, true) => Step::Rescue,
+        (0, false) => Step::Own { stay: registered },
+        _ => Step::Wait,
     }
 }
 
@@ -521,7 +648,16 @@ fn exchange((from, to): &mut Line, request: &Request) -> io::Result<Reply> {
 pub(crate) fn detached(exe: &Path) -> std::process::Command {
     use std::process::Stdio;
     let mut c = crate::tools::command(exe);
-    c.arg(ARG).stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null());
+    // Its errors to helper.log, which only this user can read.
+    let log = log().and_then(|l| {
+        crate::fs::private(l.parent()?, None).ok()?;
+        let mut o = std::fs::OpenOptions::new();
+        o.create(true).append(true);
+        #[cfg(unix)]
+        std::os::unix::fs::OpenOptionsExt::mode(&mut o, 0o600);
+        o.open(l).ok()
+    });
+    c.arg(ARG).stdin(Stdio::null()).stdout(Stdio::null()).stderr(log.map_or_else(Stdio::null, Stdio::from));
     #[cfg(unix)]
     std::os::unix::process::CommandExt::process_group(&mut c, 0);
     #[cfg(windows)]
@@ -569,19 +705,57 @@ mod tests {
         assert_eq!(c.state(), State::Ready);
     }
 
+    /// Ask end to end with the built-in models (downloads 1.6 GB once): the helper reads the
+    /// files for meaning, finds the passages closest to a question, and its chat model answers
+    /// from them, piece by piece over the line.
+    #[test]
+    #[ignore]
+    fn asks_the_builtin_model_through_the_helper() {
+        let d = tree("ask");
+        std::fs::write(d.join("files/plan.md"), "# Launch plan\n\nThe rocket is called Kestrel. It launches from Andøya on 14 March, weather permitting. The crew of three trains in Tromsø all winter.").unwrap();
+        std::fs::write(d.join("files/budget.md"), "# Budget\n\nFuel costs 40,000 euros per flight, more than the crew and the launch pad together. The board meets in April.").unwrap();
+        let m = &crate::chat::MODELS[0];
+        crate::meaning::download(&Default::default()).unwrap();
+        m.download(&Default::default()).unwrap();
+        let search = SearchConfig { text: true, meaning: true, ask_model: m.key(), ..config(&d) };
+        let (dir, s) = (d.join("cache"), search.clone());
+        std::thread::spawn(move || {
+            let store = Arc::new(Store::open(&dir.join("search.db")).unwrap());
+            store.set_engine(crate::meaning::Engine::from_config(&s));
+            serve_in(&dir, Duration::from_secs(5), { let s = s.clone(); move || Service::start(&s) }, Some((store, s))).unwrap()
+        });
+        let c = Client::with(Some(d.join("cache")), &search, |_| {});
+        let (question, wait) = ("What does the fuel cost per flight?", Instant::now());
+        let mut sources = vec![];
+        while sources.len() < 2 && wait.elapsed() < Duration::from_secs(120) {
+            std::thread::sleep(Duration::from_millis(500));
+            sources = c.passages(question, None, 10);
+        }
+        assert!(!sources.is_empty(), "no passages");
+        let (mut answer, mut pieces, start) = (String::new(), 0, Instant::now());
+        c.answer(&search, &[], question, &sources, |t| {
+            pieces += !t.is_empty() as usize;
+            answer.push_str(t);
+            true
+        })
+        .unwrap();
+        eprintln!("{answer}\n-- {pieces} pieces in {:.1?}", start.elapsed());
+        assert!(answer.contains("40") && pieces > 3, "{answer}");
+    }
+
     #[test]
     fn helper_is_started_shared_and_leaves() {
         let d = tree("shared");
         let starts = Arc::new(AtomicUsize::new(0));
         let start = {
             let (starts, helper) = (starts.clone(), helper(&d, Duration::from_millis(400)));
-            move || {
+            move |_| {
                 starts.fetch_add(1, Ordering::SeqCst);
                 helper()
             }
         };
         let start = Arc::new(start);
-        let start = move || start();
+        let start = move |n| start(n);
         let one = Client::with(Some(d.join("cache")), &config(&d), start.clone());
         let two = Client::with(Some(d.join("cache")), &config(&d), start);
         ready(&one);
@@ -627,6 +801,35 @@ mod tests {
     }
 
     #[test]
+    fn a_helper_the_system_does_not_start_is_started_by_the_app() {
+        // Registered with systemd or launchd: asked for twice, then the app's own, and a notice.
+        assert_eq!([0, 1, 2, 3].map(|n| step(n, true, true)), [Step::Ask, Step::Ask, Step::Rescue, Step::Rescue]);
+        // Windows and the BSDs: the app starts one that stays, at once.
+        assert_eq!([0, 1].map(|n| step(n, true, false)), [Step::Own { stay: true }, Step::Wait]);
+        // Not registered: one that leaves after the last app.
+        assert_eq!([0, 1, 2].map(|n| step(n, false, true)), [Step::Own { stay: false }, Step::Wait, Step::Wait]);
+
+        // The first try brings nothing (the system was asked, and did not start it); the second does.
+        let d = tree("rescue");
+        let tries = Arc::new(Mutex::new(vec![]));
+        let start = {
+            let (tries, helper) = (tries.clone(), helper(&d, Duration::from_millis(400)));
+            move |n| {
+                tries.lock().unwrap().push(n);
+                if n == 1 {
+                    helper()
+                }
+            }
+        };
+        let app = Client::with(Some(d.join("cache")), &config(&d), start);
+        ready(&app);
+        assert!(app.shared(), "the helper started on the second try answers");
+        assert_eq!(*tries.lock().unwrap(), [0, 1]);
+        drop(app);
+        let _ = std::fs::remove_dir_all(d);
+    }
+
+    #[test]
     fn helper_wants_the_token_and_the_app_manages_without_one() {
         let d = tree("token");
         helper(&d, Duration::from_secs(5))();
@@ -640,6 +843,10 @@ mod tests {
         assert!(exchange(&mut line, &Request::Hello { token: "guess".into(), version: VERSION.into() }).is_err());
         let (mut line, _) = dial(&d.join("cache")).unwrap();
         assert!(matches!(exchange(&mut line, &Request::Hello { token: token.clone(), version: VERSION.into() }), Ok(Reply::Hello { same: true })));
+        // Ask with a built-in model there is not: the answer is why, and the line goes on.
+        let ask = Request::Ask { model: "builtin:none".into(), cpu: true, earlier: vec![], question: "?".into(), sources: vec![] };
+        assert!(matches!(exchange(&mut line, &ask), Ok(Reply::Answered { error: Some(_) })));
+        assert!(matches!(exchange(&mut line, &Request::Status), Ok(Reply::Status(_))));
         assert_eq!(token.len(), 32);
         assert!(token.bytes().all(|b| b.is_ascii_hexdigit()) && token != super::token());
         assert!(is_token(&token, &token) && !is_token(&token[1..], &token) && !is_token(&format!("{token}0"), &token));
@@ -656,7 +863,7 @@ mod tests {
         }
 
         // No helper to be had: the app indexes by itself.
-        let alone = Client::with(None, &config(&d), || {});
+        let alone = Client::with(None, &config(&d), |_| {});
         ready(&alone);
         assert_eq!(alone.search("README", None, 10).total, 1);
         assert!(!alone.shared());

@@ -46,6 +46,8 @@ pub struct Ctx {
     sizer: Arc<coxswain_core::sizes::Sizer>,
     /// The model download for search by meaning, while one runs or has failed.
     meaning: Mutex<Option<(Arc<coxswain_core::meaning::Progress>, Option<String>)>>,
+    /// The download of a built-in chat model (its `ask_model`), while one runs or has failed.
+    chat: Mutex<Option<ChatDownload>>,
     /// The stop flag of each tab's background measuring.
     measuring: Mutex<std::collections::HashMap<String, Arc<std::sync::atomic::AtomicBool>>>,
     /// Which Ask may still write its answer; a new question or Stop moves it on.
@@ -139,6 +141,8 @@ struct UiConfig {
     guide_themes: [&'static str; 4],
     /// The line that installs each program Coxswain can use, on this system, where it knows one.
     installs: BTreeMap<&'static str, Option<String>>,
+    /// Ask's chat model as the user sees it: a built-in one by its name.
+    ask_name: String,
 }
 
 fn css(c: &str) -> Option<String> {
@@ -193,6 +197,7 @@ fn get_config(ctx: tauri::State<Ctx>) -> Res<UiConfig> {
         guide: ctx.guide,
         guide_keys: coxswain_core::guide::keys(&cfg),
         guide_themes: coxswain_core::guide::THEMES,
+        ask_name: coxswain_core::chat::shown(&cfg.search.ask_model),
         installs: ["tesseract", "pdftoppm", "soffice", "latex", "plantuml", "pandoc", "nerd-font"].into_iter().map(|p| (p, coxswain_core::tools::install(p))).collect(),
     })
 }
@@ -639,6 +644,87 @@ fn meaning_status(ctx: tauri::State<Ctx>) -> Res<MeaningStatus> {
     })
 }
 
+/// A chat model's download: its `ask_model`, how far it is, and the error that stopped it.
+type ChatDownload = (String, Arc<coxswain_core::meaning::Progress>, Option<String>);
+
+/// A built-in chat model, for Settings and the setup.
+#[derive(Serialize)]
+struct ChatModel {
+    /// Its `ask_model`.
+    key: String,
+    name: &'static str,
+    size: u64,
+    installed: bool,
+    /// The one for this machine.
+    suggested: bool,
+}
+
+/// The built-in chat models, a download under way (which, bytes done, bytes in all) or the
+/// error that stopped it, and where they would run.
+#[derive(Serialize)]
+struct ChatStatus {
+    models: Vec<ChatModel>,
+    downloading: Option<(String, u64, u64)>,
+    error: Option<String>,
+    runs: String,
+}
+
+#[tauri::command(async)]
+fn chat_status(ctx: tauri::State<Ctx>) -> Res<ChatStatus> {
+    use coxswain_core::chat;
+    use std::sync::atomic::Ordering;
+    let d = ctx.chat.lock().map_err(|e| e.to_string())?;
+    static RAM: std::sync::OnceLock<u64> = std::sync::OnceLock::new();
+    let suggested = chat::suggest(*RAM.get_or_init(coxswain_core::setup::ram_gb));
+    Ok(ChatStatus {
+        models: chat::MODELS.iter().map(|m| ChatModel { key: m.key(), name: m.name, size: m.size(), installed: m.installed(), suggested: std::ptr::eq(m, suggested) }).collect(),
+        downloading: d.as_ref().filter(|(_, _, err)| err.is_none()).map(|(k, p, _)| (k.clone(), p.done.load(Ordering::Relaxed), p.total.load(Ordering::Relaxed))),
+        error: d.as_ref().and_then(|(_, _, e)| e.clone()),
+        runs: coxswain_core::setup::builtin_runs(&ctx.cfg().search, None),
+    })
+}
+
+/// "download" the built-in chat model `model`, then make it Ask's (the page hears
+/// `config-changed`); "cancel" the download; "remove" it, and turn Ask off if it was Ask's.
+#[tauri::command]
+async fn chat_action(what: String, model: String, app: tauri::AppHandle, ctx: tauri::State<'_, Ctx>) -> Res<()> {
+    use std::sync::atomic::Ordering;
+    let m = coxswain_core::chat::of(&model).ok_or_else(|| format!("no built-in model {model}"))?;
+    let use_it = move |app: &tauri::AppHandle, value: &str| -> Res<()> {
+        let cfg = coxswain_core::settings::save(serde_json::json!({ "ask_model": value }).as_object().expect("an object"))?;
+        *app.state::<Ctx>().cfg.write().map_err(|e| e.to_string())? = cfg;
+        let _ = app.emit("config-changed", ());
+        Ok(())
+    };
+    match what.as_str() {
+        "download" => {
+            let p = Arc::new(coxswain_core::meaning::Progress::default());
+            *ctx.chat.lock().map_err(|e| e.to_string())? = Some((model.clone(), p.clone(), None));
+            std::thread::spawn(move || {
+                let done = m.download(&p).map_err(|e| e.to_string()).and_then(|()| use_it(&app, &model));
+                if let Ok(mut d) = app.state::<Ctx>().chat.lock() {
+                    *d = match done {
+                        Err(e) if !p.cancel.load(Ordering::Relaxed) => Some((model, p, Some(e))),
+                        _ => None,
+                    };
+                }
+            });
+        }
+        "cancel" => {
+            if let Some((_, p, _)) = ctx.chat.lock().map_err(|e| e.to_string())?.as_ref() {
+                p.cancel.store(true, Ordering::Relaxed);
+            }
+        }
+        _ => {
+            if ctx.cfg().search.ask_model == model {
+                use_it(&app, "")?;
+            }
+            blocking(move || m.remove().map_err(|e| e.to_string())).await?;
+        }
+    }
+    Ok(())
+}
+
 /// The models a server offers, for Settings: Ollama's pulled ones, or an OpenAI server's list;
 /// with `chat`, only those that can answer (for Ask). An error when it does not answer.
 #[tauri::command]
@@ -932,7 +1018,7 @@ async fn ask(question: String, earlier: Vec<(String, String)>, scope: Option<Pat
         if asking.load(Ordering::SeqCst) != me {
             return Ok(());
         }
-        coxswain_core::meaning::ask(&cfg, &earlier, &question, &sources, |text| asking.load(Ordering::SeqCst) == me && (text.is_empty() || on_event.send(AskEvent::Piece { text: text.to_string() }).is_ok()))
+        index.answer(&cfg, &earlier, &question, &sources, |text| asking.load(Ordering::SeqCst) == me && (text.is_empty() || on_event.send(AskEvent::Piece { text: text.to_string() }).is_ok()))
     })
     .await
     .map_err(|e| e.to_string())?
@@ -1512,16 +1598,9 @@ fn main() {
         eprintln!("coxswain: {e}");
     }
     // Launched from the Dock, a macOS app gets the bare system PATH, so docker, podman,
-    // pandoc and the rest of Homebrew are invisible. Ask the login shell for the real one.
+    // pandoc and the rest of Homebrew are invisible.
     if cfg!(target_os = "macos") {
-        let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/zsh".into());
-        if let Ok(out) = coxswain_core::tools::command(shell).args(["-lc", "echo $PATH"]).output() {
-            let path = String::from_utf8_lossy(&out.stdout).trim().to_string();
-            if out.status.success() && !path.is_empty() {
-                // Safety: nothing else runs yet, so no other thread reads the environment.
-                unsafe { std::env::set_var("PATH", path) };
-            }
-        }
+        coxswain_core::tools::login_path();
     }
     // Launched from a desktop menu the cwd is usually `/`; home is a better start.
     let home = std::env::home_dir().unwrap_or_default();
@@ -1562,6 +1641,7 @@ fn main() {
         clip: Mutex::default(),
         dupes: Mutex::default(),
         meaning: Mutex::default(),
+        chat: Mutex::default(),
         measuring: Mutex::default(),
         asking: Arc::default(),
     };
@@ -1579,7 +1659,7 @@ fn main() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            get_config, notices, dismiss_notice, changes, read_changes, set_title, index_status, index_action, index_service, meaning_status, meaning_action, meaning_models, meaning_pull, list_dir, zfs_facts, bsd_places, git_status, git_last, git_switch, git_new_branch, places, disks, get_state, save_session, save_favorites, set_tags, set_note, get_note,
+            get_config, notices, dismiss_notice, changes, read_changes, set_title, index_status, index_action, index_service, meaning_status, meaning_action, chat_status, chat_action, meaning_models, meaning_pull, list_dir, zfs_facts, bsd_places, git_status, git_last, git_switch, git_new_branch, places, disks, get_state, save_session, save_favorites, set_tags, set_note, get_note,
             find, find_read_too, ask, ask_stop, ask_check, meaning_change, setup_probe, setup_probe_url, setup_try, setup_speed, resolve_path, copy, rename, delete, mkdir, dir_sizes, rename_plan, rename_apply, open_path, edit_path,
             read_text, run_command, scripts, run_script, check_update, archive_list, extract, pack, archive_password, archive_peek, cloud_fetch, properties, set_flags, set_permissions,
             clip_set, paste, start_drag, watch_dirs, preview::git_diff, preview::sqlite_info, preview::epub_preview,
