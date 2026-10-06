@@ -56,7 +56,7 @@ jobs:
           custom-shell-name: vmsh
           prepare: |
             pkg_add -u
-            pkg_add rust webkitgtk41 librsvg
+            pkg_add rust webkitgtk41 librsvg symbolsonly-nerd-fonts
           run: |
             set -e
             export CARGO_HOME="$PWD/.cargo-vm" CARGO_PROFILE_DEV_DEBUG=line-tables-only

@@ -72,6 +72,9 @@ jobs:
           set -e
           sh install/install-unix.sh --from dist --yes --prefix /usr/local
           /usr/local/bin/coxswain --version
+          # The GCC runtime it links: in the base system, not only in build-essential?
+          pkg search -H -l -o pkg.name /usr/gcc/14/lib/amd64/libgcc_s.so.1 || true
+          pkg contents -r -t depend -o fmri entire 2>/dev/null | grep -i gcc || true
           /usr/local/bin/cox --version
           MANPATH=/usr/local/share/man man -l coxswain >/dev/null 2>&1 || ls /usr/local/share/man/man1/coxswain.1
           useradd -m -d /export/home/alice alice || { useradd -d /export/home/alice alice; mkdir -p /export/home/alice; chown alice /export/home/alice; }
