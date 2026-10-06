@@ -85,8 +85,9 @@ The whole walk-through: [Smart search in a few minutes](docs/search/setup.md).
 | Any | `cargo install coxswain` | `./install/install.sh` (or `install\install.ps1`) from a clone |
 
 Downloads are on the [releases page](https://github.com/mwo-dk/coxswain/releases/latest).
-**The builds are not code-signed:** on Windows click *More info* and *Run anyway*; on macOS, if
-the app "is damaged", run `xattr -cr /Applications/Coxswain.app` once (the cask does it for you). Why macOS may ask about your folders again after an update: [macOS](docs/reference/macos.md#why-a-new-version-may-ask-again).
+**The builds are not code-signed:** on macOS, if the app "is damaged", run
+`xattr -cr /Applications/Coxswain.app` once (the cask does it for you); on Windows click
+*More info* and *Run anyway*. Why macOS may ask about your folders again after an update: [macOS](docs/reference/macos.md#why-a-new-version-may-ask-again).
 Both apps check once a day for a newer release and give the exact update command
 ([Update checks](docs/reference/updates.md)). Every way to install and update, and building
 from source: [install/INSTALL.md](install/INSTALL.md). Git glyphs want a
