@@ -1468,7 +1468,8 @@ fn dupes_cancel(ctx: tauri::State<Ctx>) {
 
 fn shell(cmd: &str) -> std::process::Command {
     let (sh, flag) = if cfg!(windows) { ("cmd", "/C") } else { ("sh", "-c") };
-    let mut c = coxswain_core::tools::command(sh);
+    // In a Flatpak, on the host: the user's commands and editor are there.
+    let mut c = coxswain_core::tools::user_command(sh);
     c.arg(flag).arg(cmd);
     c
 }
@@ -1552,7 +1553,7 @@ async fn run_script(user: Option<usize>, path: Option<PathBuf>, dir: PathBuf, fi
         return Err(coxswain_core::t!("err.not_coxswain_script"));
     }
     let args = if selected.is_empty() { file.into_iter().collect() } else { selected };
-    let mut c = coxswain_core::tools::command(&real);
+    let mut c = coxswain_core::tools::user_command(&real);
     c.args(args);
     output(c, &dir)
 }
@@ -1588,6 +1589,7 @@ fn local(url: &tauri::Url) -> bool {
 }
 
 fn main() {
+    coxswain_core::tools::flatpak_tmp();
     // Started by an app, not by hand: hold the file name index for all of them. No window.
     if std::env::args().nth(1).as_deref() == Some(helper::ARG) {
         return drop(helper::serve());

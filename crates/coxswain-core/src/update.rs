@@ -73,6 +73,9 @@ pub fn check() -> Option<String> {
 /// The command that upgrades this copy, from where it is installed. `None` means it came
 /// from the releases page (or a source build), so that is where the new version is.
 pub fn upgrade_hint() -> Option<&'static str> {
+    if crate::tools::flatpak().is_some() {
+        return Some(FLATPAK_UPDATE);
+    }
     // Inside an AppImage the executable is in a temporary mount; $APPIMAGE is the file itself.
     let exe = std::env::var_os("APPIMAGE").map(PathBuf::from).or_else(|| std::env::current_exe().ok())?;
     let exe = std::fs::canonicalize(&exe).unwrap_or(exe);
@@ -80,6 +83,9 @@ pub fn upgrade_hint() -> Option<&'static str> {
     let cask = ["/opt/homebrew", "/usr/local"].iter().any(|p| Path::new(p).join("Caskroom/coxswain-gui").is_dir());
     hint_for(&exe.to_string_lossy(), cfg!(target_os = "macos") && cask).or(SCRIPT_UPDATE)
 }
+
+/// A Flatpak updates with the others; this is the one for Coxswain alone.
+pub const FLATPAK_UPDATE: &str = "flatpak update io.github.mwo_dk.Coxswain";
 
 /// On FreeBSD, the other BSDs and illumos the install script updates both apps: it fetches the
 /// latest release again. Each line uses the download tool the base system has.
