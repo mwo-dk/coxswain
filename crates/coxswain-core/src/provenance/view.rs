@@ -43,6 +43,33 @@ pub fn builder_name(id: &str) -> Option<&'static str> {
     BUILDERS.iter().find(|(k, _)| if k.starts_with("https://") { id.starts_with(k) } else { id.contains(&format!("/{k}@")) }).map(|(_, n)| *n)
 }
 
+/// A builder as one short line: its product name, else a workflow builder as
+/// `owner/repo/file@ref`, else its ID without the scheme. The full ID is in the details.
+pub fn builder_label(id: &str) -> String {
+    if let Some(n) = builder_name(id) {
+        return n.to_string();
+    }
+    let bare = id.split_once("://").map_or(id, |(_, rest)| rest);
+    if let Some((repo, file)) = bare.split_once("/.github/workflows/") {
+        let repo = repo.split_once('/').map_or(repo, |(_, r)| r);
+        let (file, r) = file.split_once('@').map_or((file, None), |(f, r)| (f, Some(r)));
+        let r = r.map(|r| r.trim_start_matches("refs/tags/").trim_start_matches("refs/heads/"));
+        return r.map_or_else(|| format!("{repo}/{file}"), |r| format!("{repo}/{file}@{r}"));
+    }
+    bare.to_string()
+}
+
+/// An input as one short line: a git source as `repo@commit` (seven digits), else its label.
+pub fn input_label(r: &Resource) -> String {
+    match check::git_source(r) {
+        Some(g) => {
+            let name = g.repo.rsplit('/').next().unwrap_or(&g.repo);
+            format!("{name}@{}", &g.commit[..g.commit.len().min(7)])
+        }
+        None => r.label().to_string(),
+    }
+}
+
 pub fn build_type_name(t: &str) -> Option<&'static str> {
     BUILD_TYPES.iter().find(|(k, _)| t.starts_with(k)).map(|(_, n)| *n)
 }

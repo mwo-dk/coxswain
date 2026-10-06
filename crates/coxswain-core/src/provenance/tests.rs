@@ -475,6 +475,12 @@ mod facts {
         assert_eq!(view::builder_name("https://github.com/actions/runner/github-hosted"), Some("GitHub Actions"));
         assert_eq!(view::builder_name("https://github.com/slsa-framework/slsa-github-generator/.github/workflows/builder_go_slsa3.yml@refs/tags/v2.1.0"), Some("SLSA GitHub builder (Go)"));
         assert_eq!(view::builder_name("https://evil.example/builder_go_slsa3.yml.txt"), None);
+        assert_eq!(view::builder_label("https://github.com/bazel-contrib/publish-to-bcr/.github/workflows/publish.yaml@refs/tags/v0.0.1"), "bazel-contrib/publish-to-bcr/publish.yaml@v0.0.1");
+        assert_eq!(view::builder_label("https://builder.example/x"), "builder.example/x");
+        assert_eq!(view::builder_label("https://github.com/actions/runner/github-hosted"), "GitHub Actions");
+        let git = Resource { uri: Some("git+https://github.com/demo/rocket@refs/tags/v1".into()), digest: [("gitCommit".to_string(), "1234567890abcdef".to_string())].into(), ..Resource::default() };
+        assert_eq!(view::input_label(&git), "rocket@1234567");
+        assert_eq!(view::input_label(&Resource { name: Some("rust".into()), ..Resource::default() }), "rust");
     }
 
     #[test]

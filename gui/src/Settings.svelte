@@ -762,6 +762,7 @@
         {@render text("editor", "$EDITOR")}
         {@render text("viewer", "$PAGER")}
         {@render check("bom_viewer")}
+        {@render check("provenance_viewer")}
       {:else if area === "keys"}
         <!-- ------------------------------------------------ Keys -->
         <h3>{t("settings.area.keys")}</h3>

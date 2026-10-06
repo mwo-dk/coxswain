@@ -406,7 +406,7 @@
             <!-- svelte-ignore a11y_click_events_have_key_events, a11y_interactive_supports_focus -->
             <div class="item" class:sel={isSel("in", k)} data-row="in-{k}" role="row" onclick={() => pick("in", k)} ondblclick={activate}>
               <span class="mark {r?.state === 'onBranch' || r?.state === 'ahead' ? 'green' : 'grey'}">{x.git ? (SOURCE_MARK[r?.state] ?? "·") : "·"}</span>
-              <span class="name">{label(x.d)}</span>
+              <span class="name" title={x.d.uri ?? label(x.d)}>{entry.inputLabels[x.i]}</span>
               {#if changed.has(depKey(x.d))}<span class="cmark" title={t("provenance.area.dependency")}>Δ</span>{/if}
               {#if x.d.configSource}<small class="tag">{t("provenance.config_source")}</small>{/if}
               {#if x.git}<small class="state">{sourceWord(r)}</small>{/if}
@@ -425,7 +425,7 @@
           <h3>{t("provenance.build")}</h3>
           <!-- svelte-ignore a11y_click_events_have_key_events, a11y_interactive_supports_focus -->
           <div class="item build" class:sel={isSel("build", 0)} data-row="build-0" role="row" onclick={() => pick("build", 0)}>
-            <b>{entry.builderName ?? fact("builder")?.value ?? prov.builder.id}</b>
+            <b title={prov.builder.id}>{entry.builderLabel}</b>
             {#each ["workflow", "trigger", "runner"] as k (k)}
               {@const f = fact(k)}
               {#if f}<small>{t(`provenance.fact.${k}`)}: {k === "workflow" ? basename(f.value.split("@")[0]) : f.value}</small>{/if}

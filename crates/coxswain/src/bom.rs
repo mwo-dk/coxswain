@@ -42,7 +42,7 @@ fn color(s: Status) -> Color {
 }
 
 /// Whether the dialog's background is light, as the Norton theme's grey.
-fn is_light(theme: &Theme) -> bool {
+pub(crate) fn is_light(theme: &Theme) -> bool {
     match sty(&theme.dialog).bg {
         Some(bg @ Color::Rgb(..)) => {
             let (r, g, b) = rgb(bg);
@@ -67,7 +67,7 @@ fn word(s: Status, theme: &Theme) -> Style {
 
 /// Secondary text: the theme's colour for hidden files, on the dialog's own background (the
 /// hidden style's background is the panel's).
-fn faint(theme: &Theme) -> Style {
+pub(crate) fn faint(theme: &Theme) -> Style {
     sty(&theme.hidden).fg.map_or_else(Style::default, |c| Style::default().fg(c))
 }
 

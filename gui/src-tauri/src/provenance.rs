@@ -70,7 +70,10 @@ pub struct EntryView {
     images: Vec<bool>,
     /// Per dependency: a git source, whose commit can be looked for in a checkout.
     git: Vec<bool>,
-    builder_name: Option<&'static str>,
+    /// Per dependency: one short line (a git source as `repo@commit`).
+    input_labels: Vec<String>,
+    /// The builder as one short line.
+    builder_label: String,
 }
 
 #[derive(Serialize)]
@@ -89,18 +92,21 @@ pub async fn provenance_info(path: PathBuf) -> Res<ProvenanceView> {
             .entries
             .iter()
             .map(|e| {
-                let (git, builder_name) = match &e.statement.predicate {
-                    provenance::Predicate::Provenance(p) => {
-                        (p.dependencies.iter().map(|d| check::git_source(d).is_some()).collect(), view::builder_name(&p.builder.id))
-                    }
-                    _ => (vec![], None),
+                let (git, input_labels, builder_label) = match &e.statement.predicate {
+                    provenance::Predicate::Provenance(p) => (
+                        p.dependencies.iter().map(|d| check::git_source(d).is_some()).collect(),
+                        p.dependencies.iter().map(view::input_label).collect(),
+                        view::builder_label(&p.builder.id),
+                    ),
+                    _ => (vec![], vec![], String::new()),
                 };
                 EntryView {
                     entry: e.clone(),
                     facts: view::facts(e),
                     images: e.statement.subjects.iter().map(check::is_image).collect(),
                     git,
-                    builder_name,
+                    input_labels,
+                    builder_label,
                 }
             })
             .collect();
