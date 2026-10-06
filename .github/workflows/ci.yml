@@ -18,7 +18,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-24.04, macos-latest, windows-latest]
+        os: [ubuntu-24.04, ubuntu-24.04-arm, macos-latest, windows-latest, windows-11-arm]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -46,6 +46,7 @@ jobs:
       # The Tauri crate embeds gui/dist at compile time, so the frontend builds first.
       - name: Frontend
         working-directory: gui
+        shell: bash # PowerShell would carry on past a failing step
         run: |
           npm ci --no-audit --no-fund
           npx svelte-check
@@ -61,8 +62,18 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get install -y musl-tools
-          rustup target add x86_64-unknown-linux-musl
-          cargo build -p coxswain --target x86_64-unknown-linux-musl --locked
+          target="$(uname -m)-unknown-linux-musl"
+          rustup target add "$target"
+          cargo build -p coxswain --target "$target" --locked
+
+      # ARM Linux and Windows on ARM: releases bundle the desktop app there too, so the bundlers
+      # have to run before a release finds out. A debug build, to reuse what the tests compiled;
+      # no .rpm, whose packing of a debug binary takes over an hour on ARM.
+      - name: Desktop installers on ARM
+        if: runner.arch == 'ARM64' && runner.os != 'macOS'
+        working-directory: gui
+        shell: bash
+        run: npx tauri build --debug --ci --bundles ${{ runner.os == 'Linux' && 'deb,appimage' || 'nsis,msi' }}
 
       # Intel Macs: releases build for x86_64-apple-darwin too, with candle's Metal on, so this
       # target has to build before a release finds out.
@@ -75,5 +86,5 @@ jobs:
       # crates.io builds the core from its packaged files alone: anything it reads from
       # outside the crate (the README's changelog) has to come along, before a release finds out.
       - name: Core crate, packaged
-        if: runner.os == 'Linux'
+        if: runner.os == 'Linux' && runner.arch == 'X64'
         run: cargo package -p coxswain-core --locked
