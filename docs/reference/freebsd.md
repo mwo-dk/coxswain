@@ -446,4 +446,4 @@ already.
 release build yet ([Building from source](#building-from-source)).
 
 ---
-[← Previous: Performance](performance.md) · [Next: macOS →](macos.md)
+[← Previous: Performance](performance.md) · [Next: Termux on Android →](termux.md)
