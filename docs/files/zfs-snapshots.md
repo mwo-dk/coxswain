@@ -7,7 +7,8 @@ On a folder in a ZFS dataset, **Alt+Z** lists the dataset's snapshots, newest fi
 **Enter** on a snapshot shows the folder as that snapshot has it: move around, preview a file,
 see how it differs from the file now, and copy an old version back with **F5**. Nothing is ever
 written into a snapshot. Both apps do this, on FreeBSD, on Linux with OpenZFS and on macOS
-with OpenZFS; no root is needed.
+with OpenZFS; the terminal app does it on illumos (OmniOS, OpenIndiana) and on
+[TrueNAS](../reference/truenas.md#snapshots) too. No root is needed.
 
 ![The desktop app on FreeBSD 14.5: the left pane in /tank/home/demo/projects/rocket/@snapshots with the badge snapshots of tank/home/demo at the end of the path bar, listing before-upgrade, daily-2026-10-05 and daily-2026-10-04 with their own space (13.0 KB, 13.0 KB, 55.0 KB); the right pane is the folder now; both footers say tank/home/demo · 1.24x · 1001 KB of 500 MB](../screenshots/zfs-snapshots-gui.png)
 *Alt+Z in `/tank/home/demo/projects/rocket`: the dataset's snapshots, newest first.*
@@ -103,7 +104,7 @@ folders runs it once.
 
 ## What it needs
 
-- ZFS, and the `zfs` command: FreeBSD has both in the base system. On Linux, OpenZFS
+- ZFS, and the `zfs` command: FreeBSD and illumos have both in the base system. On Linux, OpenZFS
   (`zfsutils-linux` on Debian and Ubuntu; the command is in `/sbin`, which Coxswain looks in
   even when it is not on your `PATH`). On macOS, OpenZFS on OS X (`/usr/local/zfs/bin`).
 - Nothing else: no root, no `zfs allow`. Listing snapshots and reading them needs only what
@@ -112,7 +113,13 @@ folders runs it once.
   shows. On Windows there is no ZFS.
 
 The dataset of a folder comes from the kernel's mount table (statfs(2) on FreeBSD and macOS,
-`/proc/self/mountinfo` on Linux), not from running `zfs`: cheap enough for every folder.
+`/proc/self/mountinfo` on Linux, `/etc/mnttab` on illumos), not from running `zfs`: cheap
+enough for every folder. On illumos, **Diff** uses GNU diff (`/usr/gnu/bin/diff`, in the base
+system) for its headers; without it, the system's `diff -u`.
+
+No walk of Coxswain's (the name index, the text store, folder sizes) goes into a dataset's
+`.zfs` folder, even with `snapdir=visible`: below it is the whole dataset again for each
+snapshot.
 
 The first time you start Coxswain with your home folder on ZFS, you are told that the snapshots
 are there and which key opens them: under *Settings → Overview → What's new* in the desktop app,
@@ -170,6 +177,12 @@ You see the files the permissions let you see, as on the live dataset.
 
 Yes. `hidden` keeps `.zfs` out of directory listings only; the path opens all the same, and
 that is the path Coxswain uses.
+
+#### With `snapdir=visible`, does the index read every snapshot too?
+
+No. Find's name index, the words it reads and the folder sizes all leave a dataset's `.zfs`
+folder out, so each file is found once, where it is now. **Alt+Z** is the way into the
+snapshots; opening `.zfs` by hand lists them as usual.
 
 #### Why is a snapshot's size so small?
 

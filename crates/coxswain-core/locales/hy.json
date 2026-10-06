@@ -720,7 +720,7 @@
  "news.show_me": "Ցույց տալ",
  "news.title": "Ինչն է նոր",
  "notice.cjk_font": "Ճապոներեն կամ կորեերեն տառատեսակ տեղադրված չէ, ուստի դրանց տառերը կարող են երևալ որպես քառակուսիներ։ Տեղադրեք որևէ մեկը, օրինակ՝ noto-fonts-cjk (Arch), fonts-noto-cjk (Debian, Ubuntu) կամ google-noto-sans-cjk-fonts (Fedora)։",
- "notice.cjk_font_freebsd": "Ճապոներեն կամ կորեերեն տառատեսակ տեղադրված չէ, ուստի դրանց տառերը կարող են երևալ որպես քառակուսիներ։ Տեղադրեք այսպես՝ pkg install noto-sans-jp noto-sans-kr",
+ "notice.cjk_font_cmd": "Ճապոներեն կամ կորեերեն տառատեսակ տեղադրված չէ, ուստի դրանց տառերը կարող են երևալ որպես քառակուսիներ։ Տեղադրեք այսպես՝ {cmd}",
  "notice.cloud": "Գտնվել է՝ {names}․ միայն առցանց ֆայլերը գտնվում են միայն անունով, ուստի ոչինչ չի ներբեռնվում։ Փոխել Կարգավորումներում",
  "notice.cloud_tui": "Գտնվել է՝ {names}․ միայն առցանց ֆայլերը գտնվում են միայն անունով, ուստի ոչինչ չի ներբեռնվում։ config.toml-ում cloud = \"all\"-ը կարդում է դրանք",
  "notice.helper_outdated": "Coxswain-ը թարմացվել է {version}-ի․ վերագործարկեք այն՝ ֆոնային որոնումն օգտագործելու համար։ Մինչ այդ այն ինքն է որոնում ֆայլերի անունները։",
@@ -835,7 +835,7 @@
  "preview.issuer": "Թողարկող",
  "preview.media_appimage": "Այս AppImage-ը տեսանյութ և ձայն նվագարկում է միայն GStreamer-ի հավելումներով այնտեղ, որտեղ Debian-ն ու Ubuntu-ն են դրանք պահում, իսկ այնտեղ դրանք չկան։ Տեղադրեք Coxswain-ը ձեր փաթեթների կառավարչից կամ բացեք ֆայլն իր ծրագրում։",
  "preview.media_missing": "Տեսանյութ և ձայն այստեղ նվագարկելու համար անհրաժեշտ են GStreamer-ի good հավելումները (gst-plugins-good, Debian-ում և Ubuntu-ում՝ gstreamer1.0-plugins-good)։ Տեղադրեք դրանք, ապա կրկին բացեք Coxswain-ը։",
- "preview.media_missing_freebsd": "Տեսանյութ և ձայն այստեղ նվագարկելու համար անհրաժեշտ են GStreamer-ի good հավելումները։ Տեղադրեք դրանք այսպես՝ pkg install gstreamer1-plugins-good։ Ապա կրկին բացեք Coxswain-ը։",
+ "preview.media_missing_cmd": "Տեսանյութ և ձայն այստեղ նվագարկելու համար անհրաժեշտ են GStreamer-ի good հավելումները։ Տեղադրեք դրանք այսպես՝ {cmd}։ Ապա կրկին բացեք Coxswain-ը։",
  "preview.media_open": "Բացել իր ծրագրում",
  "preview.more": {
   "one": "… ևս {n}",

@@ -750,7 +750,7 @@
  "news.show_me": "Me montrer",
  "news.title": "Nouveautés",
  "notice.cjk_font": "Aucune police japonaise ou coréenne n’est installée : les caractères peuvent s’afficher comme des carrés. Installez-en une, par exemple noto-fonts-cjk (Arch), fonts-noto-cjk (Debian, Ubuntu) ou google-noto-sans-cjk-fonts (Fedora).",
- "notice.cjk_font_freebsd": "Aucune police japonaise ou coréenne n'est installée : leurs caractères peuvent s'afficher sous forme de carrés. Installez-en une avec : pkg install noto-sans-jp noto-sans-kr",
+ "notice.cjk_font_cmd": "Aucune police japonaise ou coréenne n'est installée : leurs caractères peuvent s'afficher sous forme de carrés. Installez-en une avec : {cmd}",
  "notice.cloud": "{names} trouvé : les fichiers uniquement en ligne sont trouvés par leur nom seulement, rien n'est donc téléchargé. Modifiable dans les Paramètres",
  "notice.cloud_tui": "{names} trouvé : les fichiers uniquement en ligne sont trouvés par leur nom seulement, rien n'est donc téléchargé. cloud = \"all\" dans config.toml les lit",
  "notice.helper_outdated": "Coxswain a été mis à jour en {version} : redémarrez-le pour utiliser la recherche en arrière-plan. D’ici là, il cherche les noms de fichiers par lui-même.",
@@ -874,7 +874,7 @@
  "preview.issuer": "Émetteur",
  "preview.media_appimage": "Cette AppImage ne lit la vidéo et le son qu’avec des greffons GStreamer placés là où Debian et Ubuntu les mettent, et il n’y en a aucun. Installez Coxswain avec votre gestionnaire de paquets, ou ouvrez le fichier dans son application.",
  "preview.media_missing": "La vidéo et le son ont besoin des bons greffons de GStreamer pour être lus ici (gst-plugins-good ; gstreamer1.0-plugins-good sous Debian et Ubuntu). Installez-les, puis rouvrez Coxswain.",
- "preview.media_missing_freebsd": "La vidéo et le son ont besoin des greffons good de GStreamer pour être lus ici. Installez-les avec : pkg install gstreamer1-plugins-good. Puis rouvrez Coxswain.",
+ "preview.media_missing_cmd": "La vidéo et le son ont besoin des greffons good de GStreamer pour être lus ici. Installez-les avec : {cmd}. Puis rouvrez Coxswain.",
  "preview.media_open": "Ouvrir dans son application",
  "preview.more": {
   "many": "… {n} de plus",

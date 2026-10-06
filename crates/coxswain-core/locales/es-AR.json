@@ -750,7 +750,7 @@
  "news.show_me": "Mostrame",
  "news.title": "Novedades",
  "notice.cjk_font": "No hay ninguna fuente japonesa ni coreana instalada, así que los caracteres pueden verse como cuadraditos. Instalá una, por ejemplo noto-fonts-cjk (Arch), fonts-noto-cjk (Debian, Ubuntu) o google-noto-sans-cjk-fonts (Fedora).",
- "notice.cjk_font_freebsd": "No hay ninguna fuente japonesa ni coreana instalada, así que sus letras pueden verse como cuadros. Instalá una con: pkg install noto-sans-jp noto-sans-kr",
+ "notice.cjk_font_cmd": "No hay ninguna fuente japonesa ni coreana instalada, así que sus letras pueden verse como cuadros. Instalá una con: {cmd}",
  "notice.cloud": "Se encontró {names}: los archivos que están solo en línea se encuentran solo por nombre, así que no se descarga nada. Cambialo en Configuración",
  "notice.cloud_tui": "Se encontró {names}: los archivos que están solo en línea se encuentran solo por nombre, así que no se descarga nada. cloud = \"all\" en config.toml los lee",
  "notice.helper_outdated": "Coxswain se actualizó a {version}: reinicialo para usar la búsqueda en segundo plano. Mientras tanto busca nombres de archivo por su cuenta.",
@@ -874,7 +874,7 @@
  "preview.issuer": "Emisor",
  "preview.media_appimage": "Esta AppImage reproduce video y sonido solo con plugins de GStreamer donde los tienen Debian y Ubuntu, y no hay ninguno. Instalá Coxswain con tu gestor de paquetes, o abrí el archivo en su app.",
  "preview.media_missing": "El video y el sonido necesitan los plugins good de GStreamer para reproducirse acá (gst-plugins-good; gstreamer1.0-plugins-good en Debian y Ubuntu). Instalalos y volvé a abrir Coxswain.",
- "preview.media_missing_freebsd": "El video y el sonido necesitan los plugins good de GStreamer para reproducirse acá. Instalalos con: pkg install gstreamer1-plugins-good. Después volvé a abrir Coxswain.",
+ "preview.media_missing_cmd": "El video y el sonido necesitan los plugins good de GStreamer para reproducirse acá. Instalalos con: {cmd}. Después volvé a abrir Coxswain.",
  "preview.media_open": "Abrir en su app",
  "preview.more": {
   "many": "… {n} más",

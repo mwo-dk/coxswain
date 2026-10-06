@@ -720,7 +720,7 @@
  "news.show_me": "Visa mig",
  "news.title": "Nyheter",
  "notice.cjk_font": "Inget japanskt eller koreanskt typsnitt är installerat, så tecknen kan visas som rutor. Installera ett, till exempel noto-fonts-cjk (Arch), fonts-noto-cjk (Debian, Ubuntu) eller google-noto-sans-cjk-fonts (Fedora).",
- "notice.cjk_font_freebsd": "Inget japanskt eller koreanskt typsnitt är installerat, så deras tecken kan visas som rutor. Installera ett med: pkg install noto-sans-jp noto-sans-kr",
+ "notice.cjk_font_cmd": "Inget japanskt eller koreanskt typsnitt är installerat, så deras tecken kan visas som rutor. Installera ett med: {cmd}",
  "notice.cloud": "Hittade {names}: filer som bara finns online hittas bara på namn, så inget hämtas. Ändra i Inställningar",
  "notice.cloud_tui": "Hittade {names}: filer som bara finns online hittas bara på namn, så inget hämtas. cloud = \"all\" i config.toml läser dem",
  "notice.helper_outdated": "Coxswain uppdaterades till {version}: starta om den för att använda bakgrundssökning. Till dess söker den själv i filnamn.",
@@ -835,7 +835,7 @@
  "preview.issuer": "Utfärdare",
  "preview.media_appimage": "Den här AppImage spelar video och ljud bara med GStreamer-moduler där Debian och Ubuntu har dem, och där finns inga. Installera Coxswain från din pakethanterare, eller öppna filen i dess program.",
  "preview.media_missing": "Video och ljud behöver GStreamers goda insticksmoduler för att spelas här (gst-plugins-good; gstreamer1.0-plugins-good på Debian och Ubuntu). Installera dem och öppna Coxswain igen.",
- "preview.media_missing_freebsd": "Video och ljud behöver GStreamers good-insticksprogram för att spelas här. Installera dem med: pkg install gstreamer1-plugins-good. Öppna sedan Coxswain igen.",
+ "preview.media_missing_cmd": "Video och ljud behöver GStreamers good-insticksprogram för att spelas här. Installera dem med: {cmd}. Öppna sedan Coxswain igen.",
  "preview.media_open": "Öppna i dess program",
  "preview.more": {
   "one": "… {n} till",

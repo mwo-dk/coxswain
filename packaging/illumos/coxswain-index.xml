@@ -1,0 +1,46 @@
+<?xml version="1.0"?>
+<!DOCTYPE service_bundle SYSTEM "/usr/share/lib/xml/dtd/service_bundle.dtd.1">
+<!--
+  Coxswain's search helper for one user, from boot: it keeps the file name index and the search
+  store current while no Coxswain app is open. Installed disabled. Name the user, then enable it:
+
+    svccfg -s application/coxswain-index setprop start/user = astring: alice
+    svcadm refresh application/coxswain-index
+    svcadm enable application/coxswain-index
+
+  It runs as that user, with that user's home; what it says goes to the service's log,
+  `svcs -L application/coxswain-index`. SMF starts it again if it ends.
+-->
+<service_bundle type="manifest" name="coxswain-index">
+  <service name="application/coxswain-index" type="service" version="1">
+    <create_default_instance enabled="false"/>
+    <single_instance/>
+    <dependency name="filesystem" grouping="require_all" restart_on="none" type="service">
+      <service_fmri value="svc:/system/filesystem/local"/>
+    </dependency>
+    <dependency name="multi-user" grouping="require_all" restart_on="none" type="service">
+      <service_fmri value="svc:/milestone/multi-user"/>
+    </dependency>
+    <!-- Refuses to start as nobody (uid 60001): the user is named first (above). SMF runs this
+         line with /sbin/sh -c, which takes no parentheses or quotes here. -->
+    <exec_method type="method" name="start" timeout_seconds="60"
+      exec='/usr/bin/id | /usr/bin/grep uid=60001 >/dev/null &amp;&amp; { echo Name the user first: svccfg -s application/coxswain-index setprop start/user = astring: alice >&amp;2; exit 1; }; /usr/local/bin/coxswain --index-helper --stay &amp;'>
+      <method_context>
+        <method_credential user="nobody" group=":default"/>
+      </method_context>
+    </exec_method>
+    <exec_method type="method" name="stop" exec=":kill" timeout_seconds="60"/>
+    <property_group name="startd" type="framework">
+      <propval name="ignore_error" type="astring" value="core,signal"/>
+    </property_group>
+    <stability value="Unstable"/>
+    <template>
+      <common_name>
+        <loctext xml:lang="C">Coxswain search helper</loctext>
+      </common_name>
+      <documentation>
+        <doc_link name="illumos guide" uri="https://github.com/mwo-dk/coxswain/blob/master/docs/reference/illumos.md"/>
+      </documentation>
+    </template>
+  </service>
+</service_bundle>

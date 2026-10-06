@@ -28,6 +28,9 @@ This registers the helper with the system:
 | macOS | A LaunchAgent, `~/Library/LaunchAgents/dk.mwo.coxswain.index.plist`, with `Nice` 10, which macOS lists under *System Settings → General → Login Items & Extensions* |
 | Windows | A *Run* entry, `coxswain-index`, under `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` |
 | FreeBSD | An XDG autostart entry, `~/.config/autostart/coxswain-index.desktop`, which the desktop session starts at login; an rc.d script and a login-shell line are the other ways ([FreeBSD](../reference/freebsd.md#the-search-helper)) |
+| NetBSD | An XDG autostart entry, as on FreeBSD; an rc.d script is the other way ([NetBSD](../reference/netbsd.md#the-search-helper)) |
+| OpenBSD | An XDG autostart entry, as on FreeBSD; an rc.d script for `rcctl` is the other way ([OpenBSD](../reference/openbsd.md#the-search-helper)) |
+| illumos | An XDG autostart entry, as on FreeBSD; on a server, the SMF service `application/coxswain-index` ([illumos](../reference/illumos.md#the-search-helper)) |
 
 It then starts at login and stays, so the backlog is read before any window is opened. Unticking
 it (or `off`) removes the registration and stops the running one; the helper goes back to
@@ -103,6 +106,7 @@ Nothing of its own while it works. Signs of it:
 | macOS | A LaunchAgent, `~/Library/LaunchAgents/dk.mwo.coxswain.index.plist` | `launchctl print gui/$(id -u)/dk.mwo.coxswain.index` | The same |
 | Windows | A *Run* entry for your user in the registry | Task Manager → *Startup apps* lists Coxswain | The same, or disable it in Task Manager |
 | FreeBSD | An XDG autostart entry, `~/.config/autostart/coxswain-index.desktop` | `pgrep -lf index-helper` | The same; the running helper stays until you log out |
+| NetBSD, OpenBSD, illumos | The same entry | `pgrep -lf index-helper` (illumos: `pgrep -fl index-helper`) | The same |
 
 The [guided setup](setup.md#keep-reading-in-the-background) offers it as its last step but one.
 

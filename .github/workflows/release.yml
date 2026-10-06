@@ -314,8 +314,100 @@ jobs:
           done
           gh release upload "$TAG" "$term.tar.gz" "$term.tar.gz.sha256" "$desk.tar.gz" "$desk.tar.gz.sha256"
 
+  # NetBSD, OpenBSD and illumos: the terminal app (and on OpenBSD the desktop app, experimental),
+  # each built in a virtual machine of that system and packed here (packaging/pack-unix.sh).
+  # A failure of one of them leaves its archives out of the release instead of stopping it.
+  # docs/reference/netbsd.md, openbsd.md, illumos.md.
+  other-unix:
+    needs: [draft, boms]
+    if: needs.draft.outputs.id != ''
+    continue-on-error: true
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { sys: netbsd, target: x86_64-unknown-netbsd, service: packaging/netbsd/coxswain_index }
+          - { sys: openbsd, target: x86_64-unknown-openbsd, service: packaging/openbsd/coxswain_index }
+          - { sys: illumos, target: x86_64-unknown-illumos, service: packaging/illumos/coxswain-index.xml }
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: ${{ needs.draft.outputs.sha }}
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        if: matrix.sys == 'openbsd'
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: gui/package-lock.json
+      - name: Frontend
+        if: matrix.sys == 'openbsd'
+        working-directory: gui
+        run: |
+          npm ci --no-audit --no-fund
+          npm run build
+          rm -rf node_modules
+      - uses: vmactions/netbsd-vm@c8a0d7ddb84619a7a8cc4e652efa7950b3fd9f92 # v1.5.2
+        if: matrix.sys == 'netbsd'
+        with:
+          release: "10.1"
+          usesh: true
+          prepare: |
+            /usr/sbin/pkg_add pkgin || true
+            pkgin -y install rust pkgconf
+          run: |
+            set -e
+            cargo build --release --locked -p coxswain
+            mkdir out && cp target/release/coxswain out/
+            rm -rf target
+      - uses: vmactions/openbsd-vm@5f7b2c933b8846a138361d6843c52af4bef5d945 # v1.4.8
+        if: matrix.sys == 'openbsd'
+        with:
+          release: "7.9"
+          usesh: true
+          prepare: |
+            pkg_add -u
+            pkg_add rust webkitgtk41 librsvg
+          run: |
+            set -e
+            cargo build --release --locked -p coxswain -p coxswain-gui
+            mkdir out && cp target/release/coxswain target/release/coxswain-gui out/
+            rm -rf target
+      - uses: vmactions/omnios-vm@9576f0b6d15e7696548409baa533bc0a339caf42 # v1.3.7
+        if: matrix.sys == 'illumos'
+        with:
+          release: "r151058"
+          usesh: true
+          mem: 12288
+          prepare: pkg install build-essential ooce/developer/rust
+          run: |
+            set -e
+            PATH="/opt/ooce/bin:$PATH" cargo build --release --locked -p coxswain
+            mkdir out && cp target/release/coxswain out/
+            rm -rf target
+      - name: Package and upload
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.draft.outputs.tag }}
+        run: |
+          for i in 1 2 3 4 5; do gh release download "$TAG" --repo "$GITHUB_REPOSITORY" -p THIRD-PARTY-NOTICES.md --clobber && break; [ "$i" = 5 ] && exit 1; sleep $((i * 10)); done
+          sh packaging/pack-unix.sh "$TAG" "${{ matrix.target }}" out dist "${{ matrix.service }}"
+          if [ -f out/coxswain-gui ]; then
+            desk="coxswain-desktop-$TAG-${{ matrix.target }}"
+            mkdir "$desk"
+            cp LICENSE README.md THIRD-PARTY-NOTICES.md out/coxswain-gui packaging/freebsd/coxswain.desktop "$desk/"
+            cp gui/src-tauri/icons/128x128.png "$desk/coxswain.png"
+            tar czf "dist/$desk.tar.gz" "$desk"
+            (cd dist && sha256sum "$desk.tar.gz" > "$desk.tar.gz.sha256")
+          fi
+          gh release upload "$TAG" dist/*
+
   publish:
-    needs: [draft, boms, desktop, terminal, freebsd]
+    needs: [draft, boms, desktop, terminal, freebsd, other-unix]
     runs-on: ubuntu-24.04
     permissions:
       contents: write
