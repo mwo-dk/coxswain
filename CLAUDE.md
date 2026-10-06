@@ -109,3 +109,20 @@ shows (Linux, needs `bwrap`): build release, then
   the focus. Never type into other windows, and never stop Coxswain processes by name: stop the
   sandbox's own processes.
 - Cyber for the desktop app, Classic blue (NC) for the terminal app.
+
+**Pictures stay current.** A PR that changes what a screen shows retakes the pictures and GIFs
+of that screen in the same PR, or marks each one it cannot take with the placeholder above and
+says so in the PR. Before a minor or major release is merged, check
+`grep -rn "<!-- screenshot:" README.md docs` and take what can be taken.
+
+**GIFs** show what moves: Find filling its groups, Ask writing its answer, marking and copying,
+an archive opened as a folder, git branches. Record them in the same sandbox, the same way:
+`wf-recorder -g "<the sandbox window's geometry>" -f clip.mp4`, keys by `wtype` as above, then
+`ffmpeg` with `palettegen`/`paletteuse` to `docs/screenshots/<name>.gif`.
+
+- At most 8 seconds, 800 px wide, 10–12 frames a second, under 1.5 MB, looping; start and end
+  on the same calm frame.
+- Every GIF has a still of its first frame next to it (`<name>.png`) and is shown as
+  `<picture><source media="(prefers-reduced-motion: reduce)" srcset="../screenshots/<name>.png"><img src="../screenshots/<name>.gif" alt="…"></picture>`,
+  with an alt text that says what happens.
+- The README carries two at most (Find and Ask); the rest go on their feature's docs page.
