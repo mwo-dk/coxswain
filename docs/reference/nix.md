@@ -93,7 +93,7 @@ missing the preview says so and shows its install line
 
 | Package | Files |
 |---|---|
-| `coxswain` | `bin/coxswain`, `bin/cox` (a link), the manual page `coxswain(1)` |
+| `coxswain` | `bin/coxswain`, `bin/cox` (the same app, shorter), the manual page `coxswain(1)` |
 | `coxswain-gui` | `bin/coxswain-gui` (wrapped), `share/applications/coxswain.desktop`, `share/icons/hicolor/128x128/apps/coxswain.png` |
 
 The terminal app's build runs the tests of `coxswain` and `coxswain-core`, with git at hand

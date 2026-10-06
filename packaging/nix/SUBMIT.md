@@ -96,7 +96,7 @@ The facts for the description you write:
   with git status in the panels, quick and full-text search, previews; homepage
   <https://github.com/mwo-dk/coxswain>; MIT; you are the upstream author.
 - What the package builds: the `coxswain` binary only (`-p coxswain` in the Cargo workspace,
-  which also holds the desktop app), plus the `cox` link and the manual page.
+  which also holds the desktop app), plus `cox` (the same app under a short name, a second bin target) and the manual page.
 - Tests: the `coxswain` and `coxswain-core` crates' tests run in `checkPhase`, with git (for
   the history and branch tests) and a writable home; `versionCheckHook` checks `--version`.
 - `oniguruma` from nixpkgs (`RUSTONIG_SYSTEM_LIBONIG`), for the tokenizer of search by meaning.

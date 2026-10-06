@@ -34,7 +34,6 @@ rustPlatform.buildRustPackage {
   nativeCheckInputs = [ git writableTmpDirAsHomeHook ];
 
   postInstall = ''
-    ln -s coxswain $out/bin/cox
     installManPage crates/coxswain/coxswain.1
   '';
 

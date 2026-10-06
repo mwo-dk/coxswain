@@ -18,7 +18,7 @@ rustPlatform.buildRustPackage (finalAttrs: {
     owner = "mwo-dk";
     repo = "coxswain";
     tag = "v${finalAttrs.version}";
-    hash = lib.fakeHash;
+    hash = "sha256-5U9dWdFGijv8cYYWTdvq2hMhcMwO1uaftwv9Io975vE=";
   };
 
   cargoHash = lib.fakeHash;
@@ -43,7 +43,6 @@ rustPlatform.buildRustPackage (finalAttrs: {
   checkFlags = [ "--skip=archive::tests::archive_zip_times_are_local" ];
 
   postInstall = ''
-    ln -s coxswain $out/bin/cox
     installManPage crates/coxswain/coxswain.1
   '';
 
