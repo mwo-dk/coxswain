@@ -59,6 +59,10 @@ pub fn all(cfg: &Config, status: &Status, state: &AppState, terminal: bool) -> V
         let text = if cfg!(target_os = "macos") { t!("notice.helper_unstarted_macos") } else { t!("notice.helper_unstarted") };
         all.push(Notice::new("helper-unstarted", text, Some("search")));
     }
+    // A newer version's helper runs, which this app cannot talk to: a restart brings the new one.
+    if let Some(v) = &status.outdated {
+        all.push(Notice::new(format!("helper-outdated-{v}"), t!("notice.helper_outdated", "version" => v), None));
+    }
     // On a Mac: why macOS asks about folders, and what Coxswain reads.
     if cfg!(target_os = "macos") {
         all.push(Notice::new("macos-folders", t!("notice.macos_folders"), None));
@@ -240,7 +244,7 @@ mod tests {
     #[test]
     fn notices_come_one_at_a_time_and_stay_away_once_dismissed() {
         let cfg = Config::default();
-        let mut status = Status { state: crate::index::State::Ready, len: 1, texts: 10, pending: 0, bytes: 0, paused: false, roots: vec![], tools: vec![("tesseract".into(), false)], meaning: false, meaning_pending: 0, meaning_done: 0, meaning_passages: 0, meaning_renewing: 0, meaning_ms_per_file: 0, meaning_engine: String::new(), meaning_error: None, meaning_runs: None, error: None, clouds: vec![] };
+        let mut status = Status { state: crate::index::State::Ready, len: 1, texts: 10, pending: 0, bytes: 0, paused: false, roots: vec![], tools: vec![("tesseract".into(), false)], meaning: false, meaning_pending: 0, meaning_done: 0, meaning_passages: 0, meaning_renewing: 0, meaning_ms_per_file: 0, meaning_engine: String::new(), meaning_error: None, meaning_runs: None, error: None, clouds: vec![], outdated: None };
         let mut state = AppState::default();
         // Whether this machine's GStreamer can play video is not what is tested here.
         dismiss(&mut state, "media");
@@ -298,6 +302,14 @@ mod tests {
         status.error = Some("constraint failed".into());
         assert!(next(&cfg, &status, &state, true).unwrap().text.contains("constraint failed"));
         status.error = None;
+
+        // Updated while this app ran, to a version whose helper it cannot talk to: once.
+        status.outdated = Some("9.0.0".into());
+        let n = next(&cfg, &status, &state, true).unwrap();
+        assert!(n.id == "helper-outdated-9.0.0" && n.text.contains("9.0.0"), "{n:?}");
+        dismiss(&mut state, &n.id);
+        assert_eq!(ids(&state, &status), None);
+        status.outdated = None;
 
         // Clouds found: told once that their online files stay there.
         status.clouds = vec![("OneDrive".into(), "/c/OneDrive".into()), ("Dropbox".into(), "/c/Dropbox".into())];
