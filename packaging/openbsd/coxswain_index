@@ -3,8 +3,8 @@
 # Coxswain's search helper for one user, from boot: it keeps the file name index and the
 # search store current while no Coxswain app is open. Name the user, then turn it on:
 #
-#   rcctl set coxswain_index user alice
 #   rcctl enable coxswain_index
+#   rcctl set coxswain_index user alice
 #   rcctl start coxswain_index
 #
 # It runs as that user, with that user's home; what it says goes to syslog (daemon.info).

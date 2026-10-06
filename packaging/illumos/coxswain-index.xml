@@ -23,7 +23,7 @@
     </dependency>
     <!-- Refuses to start as nobody: the user is named first (above). -->
     <exec_method type="method" name="start" timeout_seconds="60"
-      exec='if [ "$(/usr/bin/id -un)" = nobody ]; then echo "Name the user: svccfg -s application/coxswain-index setprop start/user = astring: alice" >&amp;2; exit 1; fi; /usr/local/bin/coxswain --index-helper --stay &amp;'>
+      exec='case "$(/usr/bin/id)" in *"(nobody)"*) echo "Name the user: svccfg -s application/coxswain-index setprop start/user = astring: alice" >&amp;2; exit 1;; esac; /usr/local/bin/coxswain --index-helper --stay &amp;'>
       <method_context>
         <method_credential user="nobody" group=":default"/>
       </method_context>

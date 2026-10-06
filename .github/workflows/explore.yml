@@ -129,8 +129,9 @@ jobs:
             useradd -m alice
             cp packaging/openbsd/coxswain_index /etc/rc.d/ && chmod 555 /etc/rc.d/coxswain_index
             rcctl -f start coxswain_index && echo SVC-STARTED-WITHOUT-USER || echo SVC-REFUSED-OK
-            rcctl set coxswain_index user alice
             rcctl enable coxswain_index
+            rcctl set coxswain_index user alice
+            cat /etc/rc.conf.local
             rcctl start coxswain_index; sleep 8
             rcctl check coxswain_index && echo SVC-STATUS-OK
             ps -U alice -o pid,command; ls -la /home/alice/.cache/coxswain || true
@@ -179,14 +180,14 @@ jobs:
             svcs -a | grep coxswain
             svcadm enable application/coxswain-index; sleep 8
             svcs -x application/coxswain-index; svcs application/coxswain-index | grep -q maintenance && echo SVC-REFUSED-OK
+            tail -10 "$(svcs -L application/coxswain-index)" || true
             svcadm disable -s application/coxswain-index
             svccfg -s application/coxswain-index setprop start/user = astring: alice
             svcadm refresh application/coxswain-index
-            svcadm clear application/coxswain-index || true
             svcadm enable application/coxswain-index; sleep 10
-            svcs -p application/coxswain-index; svcs application/coxswain-index | grep -q online && echo SVC-ONLINE-OK
+            svcs -p application/coxswain-index; svcs application/coxswain-index | grep -q online && echo SVC-ONLINE-OK || true
             ps -fu alice; ls -la /export/home/alice/.cache/coxswain || true
-            cat "$(svcs -L application/coxswain-index)" | tail -20
+            tail -30 "$(svcs -L application/coxswain-index)" || true
             svcadm disable -s application/coxswain-index; sleep 2
             pgrep -u alice coxswain && echo SVC-STILL-RUNNING || echo SVC-STOPPED-OK
             ls -la /usr/gnu/bin/diff; pkg list -a 'text/gnu-diffutils' || true

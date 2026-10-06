@@ -568,9 +568,13 @@ pub fn mkdir_locked(path: &Path, password: Option<&str>) -> io::Result<()> {
 /// "Coxswain would like to access data from other apps", again after every update of an app
 /// that is not signed with a Developer ID. That is `~/Library` but its cloud folders, the Data
 /// volume's second view of the disk, the per-user temporary folders, the Trash, and the
-/// libraries of Photos, Music and TV. Nothing is, elsewhere. A folder the user opens is listed
-/// all the same: this is for walks.
+/// libraries of Photos, Music and TV. On every system, ZFS's control folder `.zfs` too: with
+/// `snapdir=visible` every snapshot of the dataset is below it, and a walk would read the whole
+/// dataset once for each. A folder the user opens is listed all the same: this is for walks.
 pub fn protected(path: &Path) -> bool {
+    if path.file_name().is_some_and(|n| n == ".zfs") && path.join("snapshot").is_dir() {
+        return true;
+    }
     #[cfg(target_os = "macos")]
     {
         static HOME: std::sync::OnceLock<Option<PathBuf>> = std::sync::OnceLock::new();
@@ -859,6 +863,19 @@ mod tests {
             assert!(!p(no), "{no}");
         }
         assert_eq!(protected(Path::new("/Users/me/Library/Containers")), cfg!(target_os = "macos") && std::env::home_dir().as_deref() == Some(home));
+    }
+
+    /// ZFS's `.zfs` with `snapdir=visible` holds every snapshot again: no walk goes in.
+    #[test]
+    fn walks_leave_zfs_snapshots_alone() {
+        let dir = std::env::temp_dir().join(format!("coxswain-zfsdir-{}", std::process::id()));
+        std::fs::create_dir_all(dir.join(".zfs/snapshot/daily")).unwrap();
+        std::fs::create_dir_all(dir.join("other/.zfs")).unwrap();
+        assert!(protected(&dir.join(".zfs")));
+        assert!(!protected(&dir.join(".zfs/snapshot/daily")), "opened by the user, a snapshot lists as usual");
+        assert!(!protected(&dir.join("other/.zfs")), "a folder of that name without snapshots is a folder");
+        assert!(!protected(&dir));
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 
     /// A folder refused once is not asked for again: on a Mac, each ask can be a prompt.
