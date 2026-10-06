@@ -7,13 +7,13 @@ look becomes a selectable theme. The TUI keeps its NC look.
 ## Requirements
 
 **Look.** Modern dark theme by default (`gui.theme = "dark"`), plus `light`, `nord` and `nc`.
-Every color is a theme slot in the shared config. File-type icons (Nerd Font glyphs with a
-color per type, shared with the TUI). File age as a heat color: red within the hour, through
-yellow and green, to blue within a year, gray after.
+Every colour is a theme slot in the shared config. File-type icons (Nerd Font glyphs with a
+colour per type, shared with the TUI). File age as a heat colour: red within the hour, through
+yellow and green, to blue within a year, grey after.
 
 **Layout.**
 - Left sidebar: drives with free space, home places (Home, Desktop, Documents, Downloads, …),
-  favorite groups (add the current folder, rename, remove), and recent git repositories.
+  favourite groups (add the current folder, rename, remove), and recent git repositories.
   Toggle with Ctrl+B.
 - Two panes (one or two visible). Each pane has tabs (Ctrl+T new, Ctrl+W close, Ctrl+Tab /
   Ctrl+Shift+Tab switch). Tabs, pane sizes and view modes persist across sessions.
@@ -29,7 +29,7 @@ yellow and green, to blue within a year, gray after.
 **Power tools.**
 - Folder sizes on demand (Ctrl+Space), computed in parallel.
 - Regex batch rename (Ctrl+M) with a live preview and conflict detection.
-- Color tags (Alt+T, then 1–7, or 0 to clear), shown as a dot on the row.
+- Colour tags (Alt+T, then 1–7, or 0 to clear), shown as a dot on the row.
 - Scripts: F2 lists `[[user_menu]]` entries plus executables in `<config>/coxswain/scripts/`.
   They run on the selection, and their output shows in the preview pane.
 - Per-folder notes (Alt+N), kept in Coxswain's state file, never written into the folder.
@@ -37,8 +37,8 @@ yellow and green, to blue within a year, gray after.
 ## Design
 
 - `coxswain-core::state` — a JSON file in the data dir with the session (tabs, splits, modes),
-  favorites, tags, notes and recent repos. Load it, change it, then save it atomically.
-- `coxswain-core::icons` — maps a file name to a Nerd Font glyph and a color. Used by both UIs.
+  favourites, tags, notes and recent repos. Load it, change it, then save it atomically.
+- `coxswain-core::icons` — maps a file name to a Nerd Font glyph and a colour. Used by both UIs.
 - `coxswain-core::rename` — `plan(names, pattern, replacement, flags)` returns the new name for
   each file and marks conflicts; `apply` runs the plan.
 - `coxswain-core::fs::dir_size` — a parallel recursive size that does not follow symlinks.
