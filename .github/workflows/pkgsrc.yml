@@ -35,7 +35,7 @@ jobs:
           usesh: true
           prepare: |
             /usr/sbin/pkg_add pkgin || true
-            pkgin -y install rust
+            pkgin -y install rust digest
           run: |
             set -e
             # The newest quarterly branch: the one pkgin's packages are built from.
