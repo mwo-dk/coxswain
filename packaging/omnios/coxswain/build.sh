@@ -17,7 +17,7 @@
 . ../../lib/build.sh
 
 PROG=coxswain
-VER=2.7.0
+VER=2.6.0
 PKG=ooce/application/coxswain
 SUMMARY="Two-panel file manager for the terminal"
 DESC="A Norton Commander style file manager: two panels, git status per file, "
