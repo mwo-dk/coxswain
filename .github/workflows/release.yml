@@ -99,7 +99,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ needs.draft.outputs.tag }}
-        run: gh release upload "$TAG" dist-bom/*
+        run: for i in 1 2 3 4 5; do gh release upload --clobber "$TAG" dist-bom/* && break; [ "$i" = 5 ] && exit 1; sleep $((i * 10)); done
 
   desktop:
     needs: [draft, boms]
@@ -193,6 +193,8 @@ jobs:
         with:
           projectPath: gui
           releaseId: ${{ needs.draft.outputs.id }}
+          # GitHub's upload API answers a 500 now and then (2.8.1): try an upload again.
+          retryAttempts: 3
           args: ${{ matrix.args }} --config '{"bundle":{"resources":["THIRD-PARTY-NOTICES.md"]}}'
 
   terminal:
@@ -253,7 +255,7 @@ jobs:
             file="$name.tar.gz"
           fi
           if command -v sha256sum >/dev/null; then sha256sum "$file" > "$file.sha256"; else shasum -a 256 "$file" > "$file.sha256"; fi
-          gh release upload "$TAG" "$file" "$file.sha256"
+          for i in 1 2 3 4 5; do gh release upload --clobber "$TAG" "$file" "$file.sha256" && break; [ "$i" = 5 ] && exit 1; sleep $((i * 10)); done
 
   # FreeBSD: both apps, built in a FreeBSD 14.5 virtual machine. The terminal app needs nothing
   # beyond the base system; the desktop app needs WebKitGTK from packages (install-freebsd.sh
@@ -312,7 +314,7 @@ jobs:
             tar czf "$d.tar.gz" "$d"
             sha256sum "$d.tar.gz" > "$d.tar.gz.sha256"
           done
-          gh release upload "$TAG" "$term.tar.gz" "$term.tar.gz.sha256" "$desk.tar.gz" "$desk.tar.gz.sha256"
+          for i in 1 2 3 4 5; do gh release upload --clobber "$TAG" "$term.tar.gz" "$term.tar.gz.sha256" "$desk.tar.gz" "$desk.tar.gz.sha256" && break; [ "$i" = 5 ] && exit 1; sleep $((i * 10)); done
 
   # NetBSD, OpenBSD and illumos: the terminal app (and on OpenBSD the desktop app, experimental),
   # each built in a virtual machine of that system and packed here (packaging/pack-unix.sh).
@@ -404,7 +406,7 @@ jobs:
             tar czf "dist/$desk.tar.gz" "$desk"
             (cd dist && sha256sum "$desk.tar.gz" > "$desk.tar.gz.sha256")
           fi
-          gh release upload "$TAG" dist/*
+          for i in 1 2 3 4 5; do gh release upload --clobber "$TAG" dist/* && break; [ "$i" = 5 ] && exit 1; sleep $((i * 10)); done
 
   publish:
     needs: [draft, boms, desktop, terminal, freebsd, other-unix]
@@ -425,7 +427,7 @@ jobs:
           for i in 1 2 3 4 5; do gh release download "$TAG" --repo "$REPO" -D assets --clobber && break; [ "$i" = 5 ] && exit 1; sleep $((i * 10)); done
           (cd assets && sha256sum * > ../SHA256SUMS)
           cat SHA256SUMS
-          gh release upload "$TAG" --repo "$REPO" SHA256SUMS
+          for i in 1 2 3 4 5; do gh release upload --clobber "$TAG" --repo "$REPO" SHA256SUMS && break; [ "$i" = 5 ] && exit 1; sleep $((i * 10)); done
       # Signed provenance: which commit and workflow built each download, verifiable with
       # `gh attestation verify <file> --repo mwo-dk/coxswain`. The release goes out without it
       # when the attestation service is down.
