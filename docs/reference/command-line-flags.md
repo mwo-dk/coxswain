@@ -65,7 +65,9 @@ coxswain [LEFT] [RIGHT]      a folder, or a file to open its folder with the cur
   --meaning cpu|auto       the built-in model on the CPU only, or on the Mac's GPU (Metal)
                            when it has one (auto, the default)
   --meaning ask MODEL|off  Ask in Find: the chat model on that server (Ollama here with the
-                           built-in model) that answers questions from your files
+                           built-in model) that answers questions from your files, or one
+                           built in: builtin:qwen3-1.7b, builtin:qwen3-4b (downloaded once);
+                           delete: the built-in ones deleted
   --languages              the languages, by region, and how to help improve a new translation
   --whats-new [all]        what the versions since you last looked brought (all: every version)
   --version
@@ -102,13 +104,14 @@ new search helper with the new settings. See [Search by meaning](../search/meani
 | `--meaning` | Prints `on` when `[search] meaning` is on and its engine is ready (the built-in model downloaded, or a server set), else `off`. With the built-in model on, a second line says where it runs: `Built-in model · on the GPU (Metal)`, `Built-in model · on the CPU`, or on a Mac that could not use its GPU `Built-in model · on the CPU (this Mac has no Metal GPU to use)` |
 | `--meaning cpu` | The built-in model on the CPU only, on a Mac too: sets `meaning_device = "cpu"` |
 | `--meaning auto` | The built-in model on the Mac's GPU (Metal) when it can, the CPU elsewhere: sets `meaning_device = "auto"`, the default |
-| `--meaning on` | Downloads the built-in model (multilingual-e5-small, about 488 MB) if it is not there, showing `Downloading the model for search by meaning: 42%`, then sets `meaning = true`. It does not change `meaning_engine` |
+| `--meaning on` | Downloads the built-in model (multilingual-e5-small, about 488 MB) if it is not there, showing `Downloading: 42 %`, then sets `meaning = true`. It does not change `meaning_engine` |
 | `--meaning off` | Sets `meaning = false`. The model stays on disk |
 | `--meaning delete` | Sets `meaning = false` and deletes the model folder |
 | `--meaning ollama [MODEL]` | Uses Ollama on this machine (`http://localhost:11434`) with `MODEL`, default `bge-m3`. When Ollama lacks the model it pulls it first: `Pulling bge-m3 with Ollama…`. Sets `meaning_engine = "ollama"`, `meaning_model` and `meaning = true` |
 | `--meaning server URL MODEL` | Uses a server with the OpenAI API at `URL` (for example `http://localhost:8000/api/v1` for Lemonade) with `MODEL`. It first asks the server for its models, so a wrong address fails here, not later. Sets `meaning_engine = "openai"`, `meaning_url`, `meaning_model` and `meaning = true` |
 | `--meaning builtin` | Back to the built-in model: sets `meaning_engine = "builtin"`, then does `--meaning on` |
 | `--meaning ask MODEL` | [Ask](../search/ask.md)'s chat model, on the vectors' server (Ollama here with the built-in model). On Ollama a missing model is pulled first; an OpenAI-style server must list it. Sets `ask_model`. `--meaning ask off` empties it |
+| `--meaning ask builtin:qwen3-1.7b` | [The built-in chat model](../search/ask-builtin.md) instead, with no server: downloads it from huggingface.co once (1.0 GB; `builtin:qwen3-4b` is 2.3 GB), showing `Downloading: 42 %`, then sets `ask_model`. `--meaning ask delete` deletes the built-in chat models, and empties `ask_model` when it named one |
 
 `--meaning server` without both a URL and a model prints
 `usage: coxswain --meaning server URL MODEL, e.g. http://localhost:8000/api/v1 nomic-embed-text-v1-GGUF`.

@@ -1620,7 +1620,7 @@ impl App {
                 Ok(())
             } else {
                 let _ = tx.send(AskMsg::Sources(sources.iter().map(|(p, _)| p.clone()).collect()));
-                coxswain_core::meaning::ask(&cfg, &earlier, &question, &sources, |text| !stop.load(Ordering::SeqCst) && (text.is_empty() || tx.send(AskMsg::Piece(text.to_string())).is_ok()))
+                index.answer(&cfg, &earlier, &question, &sources, |text| !stop.load(Ordering::SeqCst) && (text.is_empty() || tx.send(AskMsg::Piece(text.to_string())).is_ok()))
             };
             let _ = tx.send(AskMsg::Done(done));
         });
@@ -2159,7 +2159,9 @@ const USAGE: &str = "coxswain [LEFT] [RIGHT]      a folder, or a file to open it
   --meaning cpu|auto       the built-in model on the CPU only, or on the Mac's GPU (Metal)
                            when it has one (auto, the default)
   --meaning ask MODEL|off  Ask in Find: the chat model on that server (Ollama here with the
-                           built-in model) that answers questions from your files
+                           built-in model) that answers questions from your files, or one
+                           built in: builtin:qwen3-1.7b, builtin:qwen3-4b (downloaded once);
+                           delete: the built-in ones deleted
   --languages              the languages, by region, and how to help improve a new translation
   --whats-new [all]        what the versions since you last looked brought (all: every version)
   --version
@@ -2228,6 +2230,27 @@ fn meaning(what: Option<&str>, rest: &[String]) {
         std::process::exit(1)
     };
     let save = |key: &str, value: &str| drop(Config::save_value(&["search", key], value.into()).unwrap_or_else(|e| fail(e)));
+    // A download, with how far it is on one line.
+    let download = |get: &dyn Fn(&meaning::Progress) -> std::io::Result<()>| {
+        let p = std::sync::Arc::new(meaning::Progress::default());
+        let q = p.clone();
+        let shown = std::thread::spawn(move || {
+            use std::sync::atomic::Ordering;
+            while q.total.load(Ordering::Relaxed) == 0 || q.done.load(Ordering::Relaxed) < q.total.load(Ordering::Relaxed) {
+                let (done, total) = (q.done.load(Ordering::Relaxed), q.total.load(Ordering::Relaxed).max(1));
+                eprint!("\r{}", t!("setup.downloading", "percent" => done * 100 / total));
+                if q.cancel.load(Ordering::Relaxed) {
+                    break;
+                }
+                std::thread::sleep(std::time::Duration::from_millis(250));
+            }
+            eprintln!();
+        });
+        let done = get(&p);
+        p.cancel.store(true, std::sync::atomic::Ordering::Relaxed);
+        let _ = shown.join();
+        done
+    };
     // Another model for the vectors reads every file's meaning again: said, and asked, first.
     let confirm = |change: &dyn Fn(&mut coxswain_core::config::SearchConfig)| {
         let old = Config::load().map(|c| c.search).unwrap_or_default();
@@ -2279,24 +2302,7 @@ fn meaning(what: Option<&str>, rest: &[String]) {
         // The model is downloaded for the built-in engine; a server needs none.
         Some("on") => {
             if !meaning::installed() && Config::load().is_ok_and(|c| c.search.meaning_engine == "builtin") {
-                let p = std::sync::Arc::new(meaning::Progress::default());
-                let q = p.clone();
-                let shown = std::thread::spawn(move || {
-                    use std::sync::atomic::Ordering;
-                    while q.total.load(Ordering::Relaxed) == 0 || q.done.load(Ordering::Relaxed) < q.total.load(Ordering::Relaxed) {
-                        let (done, total) = (q.done.load(Ordering::Relaxed), q.total.load(Ordering::Relaxed).max(1));
-                        eprint!("\r{}", t!("tui.meaning_downloading", "percent" => done * 100 / total));
-                        if q.cancel.load(Ordering::Relaxed) {
-                            break;
-                        }
-                        std::thread::sleep(std::time::Duration::from_millis(250));
-                    }
-                    eprintln!();
-                });
-                let done = meaning::download(&p);
-                p.cancel.store(true, std::sync::atomic::Ordering::Relaxed);
-                let _ = shown.join();
-                done.unwrap_or_else(|e| fail(e.to_string()));
+                download(&meaning::download).unwrap_or_else(|e| fail(e.to_string()));
             }
             Config::save_value(&["search", "meaning"], true.into()).unwrap_or_else(|e| fail(e));
         }
@@ -2305,11 +2311,29 @@ fn meaning(what: Option<&str>, rest: &[String]) {
             Config::save_value(&["search", "meaning"], false.into()).unwrap_or_else(|e| fail(e));
             meaning::remove().unwrap_or_else(|e| fail(e.to_string()));
         }
-        // Ask: a chat model on the server (Ollama on this machine when the vectors are built in).
+        // Ask: a built-in chat model, or one on the server (Ollama on this machine when the
+        // vectors are built in).
         Some("ask") => {
             let Some(model) = rest.first() else { fail(t!("tui.ask_usage")) };
             if model == "off" {
                 return save("ask_model", "");
+            }
+            // The built-in chat models go from the disk, and Ask with them if it used one.
+            if model == "delete" {
+                if coxswain_core::chat::of(&Config::load().map(|c| c.search.ask_model).unwrap_or_default()).is_some() {
+                    save("ask_model", "");
+                }
+                for m in coxswain_core::chat::MODELS {
+                    m.remove().unwrap_or_else(|e| fail(e.to_string()));
+                }
+                return;
+            }
+            // A built-in one is downloaded here, once.
+            if let Some(m) = coxswain_core::chat::of(model) {
+                if !m.installed() {
+                    download(&|p| m.download(p)).unwrap_or_else(|e| fail(e.to_string()));
+                }
+                return save("ask_model", model);
             }
             let search = Config::load().map(|c| c.search).unwrap_or_default();
             let openai = search.meaning_engine == "openai";
@@ -2439,7 +2463,7 @@ mod tests {
     /// An app on two folders, with its own index (no helper) and no update check.
     fn app(left: PathBuf, right: PathBuf) -> App {
         let cfg = Config { check_updates: false, ..Config::default() };
-        let index = Client::with(None, &cfg.search, || {});
+        let index = Client::with(None, &cfg.search, |_| {});
         App::with_index(cfg, left, right, index).unwrap()
     }
 
@@ -2759,7 +2783,7 @@ mod wide_letters {
         for lang in ["ja", "ko"] {
             coxswain_core::i18n::set_language(lang);
             let cfg = Config { check_updates: false, ..Config::default() };
-            let index = Client::with(None, &cfg.search, || {});
+            let index = Client::with(None, &cfg.search, |_| {});
             let mut app = App::with_index(cfg, d.clone(), d.clone(), index).unwrap();
             app.panels[0].toggle_mark(1);
             let s = draw(&mut app);

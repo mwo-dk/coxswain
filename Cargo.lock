@@ -893,7 +893,11 @@ checksum = "7f8f80099a98041a3d1622845c271458a2d73e688351bf3cb999266764b81d48"
 
 [[package]]
 name = "coxswain"
+<<<<<<< HEAD
 version = "2.2.0"
+=======
+version = "2.3.0"
+>>>>>>> origin/master
 dependencies = [
  "chrono",
  "coxswain-core",
@@ -906,7 +910,11 @@ dependencies = [
 
 [[package]]
 name = "coxswain-core"
+<<<<<<< HEAD
 version = "2.2.0"
+=======
+version = "2.3.0"
+>>>>>>> origin/master
 dependencies = [
  "blake3",
  "bzip2",
@@ -947,7 +955,11 @@ dependencies = [
 
 [[package]]
 name = "coxswain-gui"
+<<<<<<< HEAD
 version = "2.2.0"
+=======
+version = "2.3.0"
+>>>>>>> origin/master
 dependencies = [
  "clipboard-rs",
  "coxswain-core",

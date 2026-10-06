@@ -66,14 +66,14 @@ jobs:
           rustup target add "$target"
           cargo build -p coxswain --target "$target" --locked
 
-      # ARM Linux and Windows on ARM: releases bundle the desktop app there too (.deb, .rpm,
-      # AppImage; .exe, .msi), so the bundlers have to run before a release finds out. A debug
-      # build, to reuse what the tests compiled.
+      # ARM Linux and Windows on ARM: releases bundle the desktop app there too, so the bundlers
+      # have to run before a release finds out. A debug build, to reuse what the tests compiled;
+      # no .rpm, whose packing of a debug binary takes over an hour on ARM.
       - name: Desktop installers on ARM
         if: runner.arch == 'ARM64' && runner.os != 'macOS'
         working-directory: gui
         shell: bash
-        run: npx tauri build --debug --ci --bundles ${{ runner.os == 'Linux' && 'deb,rpm,appimage' || 'nsis,msi' }}
+        run: npx tauri build --debug --ci --bundles ${{ runner.os == 'Linux' && 'deb,appimage' || 'nsis,msi' }}
 
       # Intel Macs: releases build for x86_64-apple-darwin too, with candle's Metal on, so this
       # target has to build before a release finds out.

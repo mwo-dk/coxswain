@@ -2,6 +2,7 @@
 
 pub mod archive;
 pub mod bom;
+pub mod chat;
 pub mod cloud;
 pub mod config;
 pub mod i18n;
