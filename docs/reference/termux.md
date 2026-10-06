@@ -83,7 +83,7 @@ when a new version is out ([Update checks](updates.md)).
 
 The recipe is [`packaging/termux/coxswain/build.sh`](../../packaging/termux/coxswain/build.sh).
 It builds the terminal app with Termux's Rust toolchain (`cargo build -p coxswain --locked`)
-and installs `bin/coxswain`, the `cox` link and the manual page.
+and installs `bin/coxswain`, the `cox` link and the manual page `coxswain(1)`.
 
 Every change to the Rust code, the lock file or the recipe builds it again in CI
 (`.github/workflows/termux.yml`): termux-packages' own builder makes the `aarch64` package from

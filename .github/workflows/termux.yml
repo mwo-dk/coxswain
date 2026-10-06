@@ -82,4 +82,4 @@ jobs:
             cox --version
             coxswain --paths
             coxswain --dump-config >/dev/null
-            man -w coxswain 2>/dev/null || ls $PREFIX/share/man/man1/coxswain.1'
+            ls $PREFIX/share/man/man1/coxswain.1*'

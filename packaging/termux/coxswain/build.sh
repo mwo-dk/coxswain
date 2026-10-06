@@ -35,5 +35,4 @@ termux_step_make_install() {
 	install -Dm700 -t "$TERMUX_PREFIX/bin" "target/${CARGO_TARGET_NAME}/release/coxswain"
 	ln -sf coxswain "$TERMUX_PREFIX/bin/cox"
 	install -Dm600 -t "$TERMUX_PREFIX/share/man/man1" crates/coxswain/coxswain.1
-	ln -sf coxswain.1 "$TERMUX_PREFIX/share/man/man1/cox.1"
 }
