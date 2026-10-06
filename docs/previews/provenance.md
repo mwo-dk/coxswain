@@ -11,7 +11,7 @@ claims it can check on your disk: **are these files the ones that were built, an
 commit in my checkout?** Both apps have it.
 
 ![A release folder's provenance in the preview pane: the source commit in the checkout in the other pane, the build, and the outputs, one matching the file here, one differing, one not here, an image that cannot be checked](../screenshots/gui-provenance.png)
-<!-- screenshot: tui-provenance.png: the terminal app's provenance viewer on the same file, three columns, Classic blue (NC) -->
+![The terminal app's provenance viewer on the same file: the changed archive selected, both digests in the details](../screenshots/tui-provenance.png)
 
 - [Using it](#using-it)
 - [What the marks mean](#what-the-marks-mean)
