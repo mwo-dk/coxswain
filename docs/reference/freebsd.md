@@ -280,7 +280,7 @@ port you built and installed is a package like any other.
 
 | Feature | On FreeBSD |
 |---|---|
-| File watching | kqueue. It holds an open descriptor for every path it watches, so the helper watches folders only, not files, shallowest first and at most 20,000 of them (a FreeBSD base system with a desktop has about 11,000), and never more than three quarters of its open-file limit (`ulimit -n`, raised to the hard limit first). A file added, removed or renamed shows in Find within a second; folders past the 20,000 are read again at the hourly rebuild, and changed text is read within ten minutes |
+| File watching | kqueue. It holds an open descriptor for every path it watches, so the helper watches folders only, not files, shallowest first and at most 20,000 of them (a FreeBSD base system with a desktop has about 11,000), and never more than three quarters of its open-file limit (`ulimit -n`, raised to the hard limit first). New files and folders in a watched folder open no descriptors of their own. A file added, removed or renamed shows in Find within a second; folders past the 20,000 are read again at the hourly rebuild, and changed text is read within ten minutes |
 | Trash (F8) | `~/.local/share/Trash`, the freedesktop.org layout that KDE, Xfce and GNOME use, so their trash shows and restores what Coxswain moved there |
 | Drives in the sidebar | The mounted file systems, from the kernel's mount list; the root file system is *System* |
 | Battery | `sysctl hw.acpi.acline`: `0` means on battery, and the helper pauses ([Battery](../search/battery.md)). A machine without ACPI power reporting counts as on mains |

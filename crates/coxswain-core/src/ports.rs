@@ -4,7 +4,7 @@
 //! association holds no file descriptor, so many folders cost little. Folders only: a watch is
 //! never recursive, which is all Coxswain asks of it (`index` watches folder by folder there).
 
-use notify::{Event, EventHandler, EventKind, RecursiveMode, WatcherKind};
+use notify::{EventHandler, RecursiveMode, WatcherKind};
 use std::collections::HashMap;
 use std::ffi::CString;
 use std::os::unix::ffi::OsStrExt;
@@ -78,13 +78,7 @@ impl PortWatcher {
                 w.by_path.remove(&path);
             }
             drop(w);
-            // The folder, and an entry in it so that its parent is the folder: the index reads
-            // again the folders that changed entries are in.
-            let mut e = Event::new(if again { EventKind::Modify(notify::event::ModifyKind::Any) } else { EventKind::Remove(notify::event::RemoveKind::Folder) }).add_path(path.clone());
-            if let Some(first) = std::fs::read_dir(&path).ok().and_then(|mut rd| rd.next()).and_then(Result::ok) {
-                e = e.add_path(first.path());
-            }
-            handler.handle_event(Ok(e));
+            handler.handle_event(Ok(crate::folder_event(&path, !again)));
         }
         // SAFETY: the port is this thread's to close once the watcher is dropped.
         unsafe { libc::close(port) };
