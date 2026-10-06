@@ -306,6 +306,14 @@ mod tests {
     }
 
     #[test]
+    #[cfg(any(target_os = "netbsd", target_os = "openbsd", target_os = "dragonfly", target_os = "illumos", target_os = "solaris"))]
+    fn machine_lists_the_mounted_file_systems() {
+        let all = mounted();
+        assert!(all.iter().any(|m| m.mount == Path::new("/") && m.total > 0 && m.free <= m.total), "{all:?}");
+        assert!(all.iter().all(|m| !PSEUDO.contains(&m.fstype.as_str())), "{all:?}");
+    }
+
+    #[test]
     fn machine_reads_illumos_mnttab() {
         let text = "rpool/ROOT/omnios\t/\tzfs\tdev=4010002\t1700000000\n/devices\t/devices\tdevfs\tdev=8880000\t1700000000\nrpool/export/home\t/export/home dir\tzfs\trw\t1700000001\n";
         let m = parse_mnttab(text);
