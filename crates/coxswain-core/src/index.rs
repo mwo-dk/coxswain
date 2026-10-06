@@ -895,7 +895,7 @@ impl Service {
                         if let Some(w) = watcher.as_mut() {
                             // One batch: kqueue hands every watch to the kernel on each `watch`.
                             let mut batch = w.paths_mut();
-                            for dir in folders_to_watch(&roots, &exclude, watched_folders()) {
+                            for dir in folders_to_watch(&roots, &exclude, claim_folders()) {
                                 let _ = batch.add(&dir, RecursiveMode::NonRecursive);
                             }
                             let _ = batch.commit();
@@ -970,6 +970,14 @@ fn watched_folders() -> usize {
         }
     }
     WATCHED_FOLDERS
+}
+
+/// The folders this index may watch: the process's budget is shared, so a second index in the
+/// same process (as in tests) gets what the first left, not a budget of its own.
+fn claim_folders() -> usize {
+    use std::sync::atomic::AtomicUsize;
+    static LEFT: std::sync::OnceLock<AtomicUsize> = std::sync::OnceLock::new();
+    LEFT.get_or_init(|| AtomicUsize::new(watched_folders())).swap(0, Ordering::Relaxed)
 }
 
 /// Three quarters of `open_files`, less 64 for the rest of the helper, at most `WATCHED_FOLDERS`.
