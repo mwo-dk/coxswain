@@ -31,7 +31,12 @@ rustPlatform.buildRustPackage {
 
   # npm's packages from gui/package-lock.json, without a hash to keep up to date.
   npmRoot = "gui";
-  npmDeps = importNpmLock { npmRoot = ../../gui; };
+  npmDeps = importNpmLock {
+    npmRoot = ../../gui;
+    # SheetJS comes from a tarball in gui/vendor (`file:` in the lock), which importNpmLock
+    # cannot resolve by itself.
+    packageSourceOverrides."node_modules/xlsx" = ../../gui/vendor/xlsx-0.20.3.tgz;
+  };
 
   nativeBuildInputs = [
     nodejs
