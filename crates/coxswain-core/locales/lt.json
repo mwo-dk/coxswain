@@ -751,6 +751,7 @@
  "notice.cjk_font_freebsd": "Neįdiegtas joks japonų ar korėjiečių šriftas, todėl jų rašmenys gali būti rodomi kaip langeliai. Įdiekite jį komanda: pkg install noto-sans-jp noto-sans-kr",
  "notice.cloud": "Rasta {names}: failai, kurie yra tik internete, randami tik pagal pavadinimą, todėl niekas neatsisiunčiama. Pakeiskite nustatymuose",
  "notice.cloud_tui": "Rasta {names}: failai, kurie yra tik internete, randami tik pagal pavadinimą, todėl niekas neatsisiunčiama. cloud = \"all\" faile config.toml juos skaito",
+ "notice.helper_outdated": "Coxswain atnaujinta į {version}: paleiskite ją iš naujo, kad naudotumėte foninę paiešką. Iki tol ji pati ieško failų pavadinimų.",
  "notice.helper_unstarted": "„Paleisti kartu su mano seansu“ įjungta, bet systemd nepaleido paieškos pagalbininko, todėl Coxswain jį paleido iki atsijungimo. Kodėl jis nepasileido: systemctl --user status coxswain-index.",
  "notice.helper_unstarted_macos": "„Paleisti kartu su mano seansu“ įjungta, bet macOS nepaleido paieškos pagalbininko, todėl Coxswain jį paleido iki atsijungimo. Kad macOS jį paleistų prisijungiant: Sistemos nustatymai → Bendra → Prisijungimo elementai ir plėtiniai → Coxswain → Leisti fone. Kodėl jis nepasileido: helper.log aplanke ~/Library/Caches/coxswain ir launchctl print gui/$(id -u)/dk.mwo.coxswain.index.",
  "notice.history": "Nauja: {key} ant failo ar aplanko git saugykloje parodo jo istoriją, commit po commit",

@@ -751,6 +751,7 @@
  "notice.cjk_font_freebsd": "Nav instalēts neviens japāņu vai korejiešu fonts, tāpēc to burti var izskatīties kā kvadrātiņi. Instalējiet to ar: pkg install noto-sans-jp noto-sans-kr",
  "notice.cloud": "Atrasts {names}: faili, kas ir tikai tiešsaistē, tiek atrasti tikai pēc nosaukuma, tāpēc nekas netiek lejupielādēts. Mainiet iestatījumos",
  "notice.cloud_tui": "Atrasts {names}: faili, kas ir tikai tiešsaistē, tiek atrasti tikai pēc nosaukuma, tāpēc nekas netiek lejupielādēts. cloud = \"all\" failā config.toml tos lasa",
+ "notice.helper_outdated": "Coxswain tika atjaunināts uz {version}: restartējiet to, lai izmantotu fona meklēšanu. Līdz tam tas pats meklē failu nosaukumos.",
  "notice.helper_unstarted": "“Palaist kopā ar manu sesiju” ir ieslēgts, bet systemd nepalaida meklēšanas palīgu, tāpēc Coxswain to palaida līdz izrakstīšanās brīdim. Kāpēc tas nepalaidās: systemctl --user status coxswain-index.",
  "notice.helper_unstarted_macos": "“Palaist kopā ar manu sesiju” ir ieslēgts, bet macOS nepalaida meklēšanas palīgu, tāpēc Coxswain to palaida līdz izrakstīšanās brīdim. Lai macOS to palaistu pieteikšanās laikā: Sistēmas iestatījumi → Vispārīgi → Pieteikšanās vienumi un paplašinājumi → Coxswain → Atļaut fonā. Kāpēc tas nepalaidās: helper.log mapē ~/Library/Caches/coxswain un launchctl print gui/$(id -u)/dk.mwo.coxswain.index.",
  "notice.history": "Jaunums: {key} uz faila vai mapes git repozitorijā parāda tā vēsturi, commit pa commit",

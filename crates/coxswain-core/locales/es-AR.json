@@ -751,6 +751,7 @@
  "notice.cjk_font_freebsd": "No hay ninguna fuente japonesa ni coreana instalada, así que sus letras pueden verse como cuadros. Instalá una con: pkg install noto-sans-jp noto-sans-kr",
  "notice.cloud": "Se encontró {names}: los archivos que están solo en línea se encuentran solo por nombre, así que no se descarga nada. Cambialo en Configuración",
  "notice.cloud_tui": "Se encontró {names}: los archivos que están solo en línea se encuentran solo por nombre, así que no se descarga nada. cloud = \"all\" en config.toml los lee",
+ "notice.helper_outdated": "Coxswain se actualizó a {version}: reinicialo para usar la búsqueda en segundo plano. Mientras tanto busca nombres de archivo por su cuenta.",
  "notice.helper_unstarted": "«Iniciar el asistente de búsqueda con mi sesión» está activado, pero systemd no inició el asistente de búsqueda, así que Coxswain lo inició hasta que cierres la sesión. Por qué no arrancó: systemctl --user status coxswain-index.",
  "notice.helper_unstarted_macos": "«Iniciar el asistente de búsqueda con mi sesión» está activado, pero macOS no inició el asistente de búsqueda, así que Coxswain lo inició hasta que cierres la sesión. Para que macOS lo inicie al entrar: Configuración del Sistema → General → Ítems de inicio y extensiones → Coxswain → Permitir en segundo plano. Por qué no arrancó: helper.log en ~/Library/Caches/coxswain y launchctl print gui/$(id -u)/dk.mwo.coxswain.index.",
  "notice.history": "Nuevo: {key} sobre un archivo o carpeta de un repositorio git muestra su historial, commit por commit",

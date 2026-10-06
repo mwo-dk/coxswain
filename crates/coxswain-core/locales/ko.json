@@ -691,6 +691,7 @@
  "notice.cjk_font_freebsd": "일본어 또는 한국어 글꼴이 설치되어 있지 않아 글자가 네모로 보일 수 있습니다. 다음 명령으로 설치하세요: pkg install noto-sans-jp noto-sans-kr",
  "notice.cloud": "{names}을(를) 찾았습니다: 온라인 전용 파일은 이름으로만 찾으므로 아무것도 다운로드하지 않습니다. 설정에서 바꿀 수 있습니다",
  "notice.cloud_tui": "{names}을(를) 찾았습니다: 온라인 전용 파일은 이름으로만 찾으므로 아무것도 다운로드하지 않습니다. config.toml에 cloud = \"all\"을 쓰면 읽습니다",
+ "notice.helper_outdated": "Coxswain이 {version}(으)로 업데이트되었습니다. 백그라운드 검색을 사용하려면 다시 시작하세요. 그때까지는 파일 이름을 직접 검색합니다.",
  "notice.helper_unstarted": "'세션과 함께 시작'이 켜져 있지만 systemd가 검색 도우미를 시작하지 않아 로그아웃할 때까지 Coxswain이 시작했습니다. 시작하지 않은 이유: systemctl --user status coxswain-index.",
  "notice.helper_unstarted_macos": "'세션과 함께 시작'이 켜져 있지만 macOS가 검색 도우미를 시작하지 않아 로그아웃할 때까지 Coxswain이 시작했습니다. 로그인할 때 macOS가 시작하게 하려면: 시스템 설정 → 일반 → 로그인 항목 및 확장 프로그램 → Coxswain → 백그라운드에서 허용. 시작하지 않은 이유: ~/Library/Caches/coxswain의 helper.log 및 launchctl print gui/$(id -u)/dk.mwo.coxswain.index.",
  "notice.history": "새 기능: git 저장소의 파일이나 폴더에서 {key}을(를) 누르면 커밋별 기록을 보여 줍니다",

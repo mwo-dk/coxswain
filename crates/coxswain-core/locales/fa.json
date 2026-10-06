@@ -721,6 +721,7 @@
  "notice.cjk_font_freebsd": "هیچ قلم ژاپنی یا کره‌ای نصب نیست، پس حروف آن‌ها ممکن است به شکل مربع نمایش داده شوند. با این فرمان یکی نصب کنید: pkg install noto-sans-jp noto-sans-kr",
  "notice.cloud": "{names} یافت شد: فایل‌هایی که فقط آنلاین هستند فقط با نام یافت می‌شوند، پس چیزی دانلود نمی‌شود. در تنظیمات تغییر دهید",
  "notice.cloud_tui": "{names} یافت شد: فایل‌هایی که فقط آنلاین هستند فقط با نام یافت می‌شوند، پس چیزی دانلود نمی‌شود. cloud = \"all\" در config.toml آن‌ها را می‌خواند",
+ "notice.helper_outdated": "Coxswain به {version} به‌روز شد: برای جست‌وجو در پس‌زمینه آن را دوباره آغاز کنید. تا آن زمان خودش نام پرونده‌ها را جست‌وجو می‌کند.",
  "notice.helper_unstarted": "«آغاز با نشست من» روشن است، اما systemd دستیار جست‌وجو را آغاز نکرد، پس Coxswain آن را تا خروج شما از نشست آغاز کرد. چرا آغاز نشد: systemctl --user status coxswain-index.",
  "notice.helper_unstarted_macos": "«آغاز با نشست من» روشن است، اما macOS دستیار جست‌وجو را آغاز نکرد، پس Coxswain آن را تا خروج شما از نشست آغاز کرد. برای اینکه macOS آن را هنگام ورود آغاز کند: System Settings ← General ← Login Items & Extensions ← Coxswain ← Allow in the Background. چرا آغاز نشد: helper.log در ~/Library/Caches/coxswain، و launchctl print gui/$(id -u)/dk.mwo.coxswain.index.",
  "notice.history": "تازه: {key} روی یک فایل یا پوشه در مخزن git تاریخچه‌ی آن را کامیت به کامیت نشان می‌دهد",
