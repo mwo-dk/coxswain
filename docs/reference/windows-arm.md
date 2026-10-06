@@ -37,9 +37,9 @@ PC*; click **More info**, then **Run anyway**.
 For the terminal app, unpack the zip and put the folder with `coxswain.exe` and `cox.exe` on your
 `PATH`.
 
-**WinGet:** once Coxswain's packages are listed on WinGet, each release adds its ARM installer
-beside the x64 one, and `winget install mwo-dk.Coxswain` or `winget install
-mwo-dk.Coxswain.Terminal` takes the ARM one on an ARM machine by itself.
+**WinGet:** the terminal app is listed (`winget install mwo-dk.Coxswain.Terminal`); the desktop
+app (`mwo-dk.Coxswain`) waits for Microsoft's review. Each release adds its ARM build beside the
+x64 one, and WinGet takes the ARM one on an ARM machine by itself.
 
 ## From the x64 build to the ARM one
 
