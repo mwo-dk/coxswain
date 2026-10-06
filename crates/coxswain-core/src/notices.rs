@@ -114,13 +114,17 @@ pub fn all(cfg: &Config, status: &Status, state: &AppState, terminal: bool) -> V
         if let Some(why) = crate::tools::media_missing() {
             all.push(Notice::new("media", why, None));
         }
-        // Japanese or Korean without a font for it: what to install.
-        if crate::tools::cjk_font_missing() {
-            let text = match crate::tools::install("cjk-font") {
-                Some(cmd) => t!("notice.cjk_font_cmd", "cmd" => cmd),
-                None => t!("notice.cjk_font"),
+        // Japanese, Korean, Persian, Armenian or Georgian without a font for it: what to install.
+        if crate::tools::script_font_missing() {
+            let lang = crate::i18n::language();
+            let text = match lang {
+                "ja" | "ko" => match crate::tools::install("cjk-font") {
+                    Some(cmd) => t!("notice.cjk_font_cmd", "cmd" => cmd),
+                    None => t!("notice.cjk_font"),
+                },
+                _ => t!("notice.script_font", "language" => crate::i18n::find(lang).map_or(lang, |l| l.name), "fonts" => crate::tools::script_fonts(lang)),
             };
-            all.push(Notice::new("cjk-font", text, None));
+            all.push(Notice::new(if matches!(lang, "ja" | "ko") { "cjk-font" } else { "script-font" }, text, None));
         }
     }
     // A new translation in use: where to suggest a better word.

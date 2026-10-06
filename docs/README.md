@@ -122,7 +122,7 @@ New here? Start with [The first-run guide](panels/first-run.md), [The screen](pa
 | [Themes](customise/themes.md) | The 18 built-in themes, picking one in each app (Settings, F9 "Theme: …", `theme` / `[gui] theme`), what the terminal app takes |
 | [Looks](customise/looks.md) | The desktop app's corners, bevels, title bars and era fonts per theme, `look =` in your own theme |
 | [Your own theme and the colour slots](customise/own-theme.md) | Your own theme: `[themes.<name>]`, starting from --dump-config, colour names vs #rrggbb, every colour slot and where each app uses it |
-| [Languages](customise/languages.md) | The 26 languages with flags, by region, how Automatic picks one, right to left in Hebrew, what is translated, improving a translation |
+| [Languages](customise/languages.md) | The 29 languages with flags, by region, how Automatic picks one, right to left in Hebrew and Persian, what is translated, improving a translation |
 | [Changing keys](customise/keys.md) | `[keys]`, key names, rules, every action with its default, keys that cannot be changed, terminal limits |
 | [Glyphs and fonts](customise/glyphs-and-fonts.md) | Nerd Font or ASCII glyphs, `[glyph_set]`, file icons, the interface/monospaced/icon fonts, text size and line height |
 
@@ -142,8 +142,11 @@ New here? Start with [The first-run guide](panels/first-run.md), [The screen](pa
 | [Performance](reference/performance.md) | What keeps each app quick, the numbers for 100,000 files and a million names, and how to measure again |
 | [FreeBSD](reference/freebsd.md) | Both apps on FreeBSD: one-line install, packages, the search helper without systemd (autostart, rc.d, login shell), search by meaning, ZFS snapshots and facts, a file's package, file flags, boot environments and jails, differences, updating, the desktop app's experimental status, other BSDs |
 | [Flatpak](reference/flatpak.md) | The desktop app as a Flatpak (io.github.mwo_dk.Coxswain): --filesystem=host and flatpak-spawn, the editor, commands and preview programs on the host, the search helper inside the sandbox, autostart, its own config folder, updating, building with flatpak-builder |
+| [Linux on ARM](reference/linux-arm.md) | Both apps on 64-bit ARM Linux (Raspberry Pi OS, Asahi, ARM servers): the files, what they need, installing, the Pi, Asahi, servers, search by meaning on ARM |
 | [Termux on Android](reference/termux.md) | The terminal app in Termux: `pkg install coxswain` (or `cargo install coxswain` until the package is in), the phone's folders with termux-setup-storage, F-keys on the extra keys row, updating, the package recipe and its CI build |
+| [ChromeOS](reference/chromeos.md) | Both apps in ChromeOS's Linux: which .deb, installing, sharing ChromeOS folders, the helper, no GPU for meaning search, what was checked |
 | [macOS](reference/macos.md) | The folder prompts (TCC) and what to answer, what is never read on a Mac (~/Library but iCloud Drive, Photos and Music libraries), Full Disk Access, ad-hoc signing and asking again after updates, search by meaning on the GPU without a server |
+| [Windows on ARM](reference/windows-arm.md) | Native ARM64 builds of both apps: which file, installing, WinGet, from the x64 build to the ARM one, search by meaning |
 
 ## [Questions, collected](faq.md)
 

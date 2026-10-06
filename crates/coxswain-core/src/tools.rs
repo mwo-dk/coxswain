@@ -143,15 +143,32 @@ pub fn media_missing() -> Option<String> {
     })
 }
 
-/// Japanese or Korean in use on Linux or a BSD, and fontconfig has no font for it: the desktop app would
-/// show its letters as boxes. False elsewhere, or when `fc-list` cannot be asked.
-pub fn cjk_font_missing() -> bool {
+/// Japanese, Korean, Persian, Armenian or Georgian in use on Linux or a BSD, and fontconfig has
+/// no font for it: the desktop app would show its letters as boxes. False elsewhere, or when
+/// `fc-list` cannot be asked.
+pub fn script_font_missing() -> bool {
     let lang = crate::i18n::language();
-    if cfg!(any(windows, target_os = "macos")) || !matches!(lang, "ja" | "ko") {
+    if cfg!(any(windows, target_os = "macos")) || !matches!(lang, "ja" | "ko" | "fa" | "hy" | "ka") {
         return false;
     }
     let out = std::process::Command::new("fc-list").args([format!(":lang={lang}"), "family".into()]).output();
     out.is_ok_and(|o| o.status.success() && o.stdout.trim_ascii().is_empty())
+}
+
+/// The packages with a font for `lang` (Persian, Armenian, Georgian), as the notice names them.
+pub fn script_fonts(lang: &str) -> String {
+    if cfg!(target_os = "freebsd") {
+        return "noto (pkg install noto)".into();
+    }
+    if cfg!(target_os = "openbsd") {
+        return "noto-fonts (pkg_add noto-fonts)".into();
+    }
+    let fedora = match lang {
+        "fa" => "arabic",
+        "hy" => "armenian",
+        _ => "georgian",
+    };
+    format!("noto-fonts (Arch), fonts-noto-core (Debian, Ubuntu), google-noto-sans-{fedora}-fonts (Fedora)")
 }
 
 /// The package managers whose install line Coxswain can write, as this system has them.
