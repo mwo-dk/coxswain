@@ -1,0 +1,61 @@
+{
+  lib,
+  rustPlatform,
+  fetchFromGitHub,
+  installShellFiles,
+  pkg-config,
+  oniguruma,
+  git,
+  writableTmpDirAsHomeHook,
+  versionCheckHook,
+}:
+
+rustPlatform.buildRustPackage (finalAttrs: {
+  pname = "coxswain";
+  version = "2.1.0";
+
+  src = fetchFromGitHub {
+    owner = "mwo-dk";
+    repo = "coxswain";
+    tag = "v${finalAttrs.version}";
+    hash = "sha256-5U9dWdFGijv8cYYWTdvq2hMhcMwO1uaftwv9Io975vE=";
+  };
+
+  cargoHash = "sha256-qNFPNMuhg7sUvjfqzRWNzegdYcMv/eDMBR7M+5wUpAI=";
+
+  cargoBuildFlags = [ "-p" "coxswain" ];
+  cargoTestFlags = [ "-p" "coxswain" "-p" "coxswain-core" ];
+
+  nativeBuildInputs = [
+    installShellFiles
+    pkg-config
+  ];
+  buildInputs = [ oniguruma ];
+  env.RUSTONIG_SYSTEM_LIBONIG = true;
+
+  nativeCheckInputs = [
+    git
+    writableTmpDirAsHomeHook
+  ];
+
+  # Reads the time of a source file, which Nix sets to 1970, before the first time a zip can
+  # hold; fixed upstream in the first release after 2.1.2 (the test reads the clock), drop it then.
+  checkFlags = [ "--skip=archive::tests::archive_zip_times_are_local" ];
+
+  postInstall = ''
+    installManPage crates/coxswain/coxswain.1
+  '';
+
+  nativeInstallCheckInputs = [ versionCheckHook ];
+  doInstallCheck = true;
+
+  meta = {
+    description = "Two-panel file manager for the terminal, Norton Commander style, with git status and search";
+    homepage = "https://github.com/mwo-dk/coxswain";
+    changelog = "https://github.com/mwo-dk/coxswain/releases/tag/v${finalAttrs.version}";
+    license = lib.licenses.mit;
+    maintainers = with lib.maintainers; [ ]; # [ <NIXPKGS-HANDLE> ]
+    mainProgram = "coxswain";
+    platforms = lib.platforms.unix;
+  };
+})

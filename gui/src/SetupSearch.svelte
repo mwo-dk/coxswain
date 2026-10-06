@@ -102,7 +102,8 @@
   let builtinChat = $state("");
   $effect(() => {
     const list = chatBuiltin?.models ?? [];
-    if (!list.some((m) => m.key === builtinChat)) builtinChat = (list.find((m) => m.key === s.ask_model) ?? list.find((m) => m.suggested))?.key ?? "";
+    // Never empty: Ask's model, else the recommended one, else the one for this machine.
+    if (!list.some((m) => m.key === builtinChat)) builtinChat = (list.find((m) => m.key === s.ask_model) ?? list.find((m) => m.suggested) ?? list.find((m) => m.key === chatBuiltin?.preselected) ?? list[0])?.key ?? "";
   });
   const builtinChosen = $derived(chatBuiltin?.models.find((m) => m.key === builtinChat));
   function useBuiltinChat() {
@@ -116,7 +117,8 @@
     if (fetchingChat && !now && !chatBuiltin.error && s.ask_model.startsWith("builtin:")) useChat(s.ask_model);
     fetchingChat = now;
   });
-  const askServer = $derived(server ?? servers.find((f) => f.kind === "ollama") ?? null);
+  // A server only counts for Ask when it has a model that can answer.
+  const askServer = $derived([server, servers.find((f) => f.kind === "ollama")].find((f) => f?.models.some((m) => m.chat)) ?? null);
   const chatModels = $derived(askServer ? askServer.models.filter((m) => m.chat).map((m) => m.name) : []);
   const suggestChat = $derived(askServer?.kind === "lemonade" || askServer?.kind === "ollama" || !askServer ? (look?.advice?.chat ?? "qwen3:8b") : "");
   let chat = $state("");
@@ -221,9 +223,10 @@
       {#if chatBuiltin}
         <div class="row">
           <select bind:value={builtinChat} aria-label={t("setup.step_ask")}>{#each chatBuiltin.models as m (m.key)}<option value={m.key}>{t("setup.ask_builtin", { model: m.name, size: size(m.size), where: chatBuiltin.runs })}</option>{/each}</select>
-          {#if !askServer}<span class="badge">{t("setup.recommended")}</span>{/if}
+          {#if !askServer && builtinChosen?.suggested}<span class="badge">{t("setup.recommended")}</span>{/if}
           <button class:primary={!askServer} disabled={!builtinChosen || !!chatBuiltin.downloading || trial?.busy} onclick={useBuiltinChat}>{builtinChosen?.installed ? t("setup.use_try") : t("setup.download_chat", { model: builtinChosen?.name ?? "", size: size(builtinChosen?.size ?? 0) })}</button>
         </div>
+        {#if builtinChosen?.estimate}<p class="hint">{builtinChosen.estimate}</p>{/if}
         {#if chatBuiltin.downloading}<p class="hint">{t("setup.downloading", { percent: Math.floor((chatBuiltin.downloading[1] * 100) / Math.max(1, chatBuiltin.downloading[2])) })}</p>{/if}
         {#if chatBuiltin.error}<p class="err">{chatBuiltin.error}</p>{/if}
       {/if}
@@ -235,6 +238,7 @@
           {#if suggestChat && !chatModels.some((m) => m.startsWith(suggestChat))}<button disabled={!!meaning?.downloading} onclick={() => pull(suggestChat)}>{t("setup.pull", { model: suggestChat })}</button>{/if}
         </div>
       {/if}
+      <div class="row"><button disabled={trial?.busy} onclick={() => set({ ask_model: "" })}>{t("setup.ask_off")}</button></div>
       {#if trial?.busy}<p class="hint">{t("dialogs.ask_waiting", { model: ui.cfg.ask_name })}</p>{/if}
       {#if trial?.ms != null}<p class="ok">{t("setup.try_done", { seconds: (trial.ms / 1000).toFixed(1) })}</p>{/if}
       {#if trial?.error}<p class="err">{trial.error}</p>{/if}
