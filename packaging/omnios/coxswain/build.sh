@@ -27,6 +27,10 @@ BUILD_DEPENDS_IPS=ooce/developer/rust
 
 set_arch 64
 
+# Crates that pick SIMD code at run time (candle's gemm, zstd, hashing) carry BMI
+# instructions behind CPU checks, as in atuin and zoxide here.
+BMI_EXPECTED=1
+
 XFORM_ARGS="-DPREFIX=${PREFIX#/}"
 
 post_install() {
