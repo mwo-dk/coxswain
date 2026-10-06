@@ -1151,7 +1151,7 @@
  "setup.ask_builtin": "{model}, built in ({size} download, {where}; nothing leaves the machine)",
  "setup.ask_builtin_hint": "Optional. A built-in chat model answers on this machine, with nothing to install, and nothing leaves it: quickly on a Mac's GPU, slowly on a processor alone (a minute or more before the first word). A model server answers more quickly with larger models.",
  "setup.ask_hint": "Only models that can answer are listed. For this machine: {model}. A test question shows how quickly it answers.",
- "setup.ask_off": "None for now: Ask stays off",
+ "setup.ask_off": "Skip Ask for now",
  "setup.builtin": "The built-in model ({size} download, {where}; nothing leaves the machine)",
  "setup.builtin_hint": "multilingual-e5-small: 100 languages, runs on any machine. Every file is read again when you switch to it.",
  "setup.builtin_on": "Search by meaning is on, with the built-in model. The search helper now reads your files for meaning in the background; hits by meaning show up in searches as it goes.",

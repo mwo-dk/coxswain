@@ -1194,7 +1194,7 @@
  "setup.ask_builtin": "{model}, integrat ({size} per baixar, {where}; res no surt de l'ordinador)",
  "setup.ask_builtin_hint": "Opcional. Un model de xat integrat respon en aquest ordinador, sense instal·lar res, i res no en surt: de pressa a la GPU d'un Mac, a poc a poc només amb el processador (un minut o més abans de la primera paraula). Un servidor de models respon més de pressa, amb models més grans.",
  "setup.ask_hint": "Només es llisten els models que poden respondre. Per a aquest ordinador: {model}. Una pregunta de prova mostra com de ràpid respon.",
- "setup.ask_off": "Cap de moment: Pregunta queda desactivada",
+ "setup.ask_off": "Omet Pregunta de moment",
  "setup.builtin": "El model integrat ({size} de baixada, s'executa {where}; res no surt de l'ordinador)",
  "setup.builtin_hint": "multilingual-e5-small: 100 llengües, s'executa en qualsevol ordinador. Cada fitxer es torna a llegir quan hi canvieu.",
  "setup.builtin_on": "La cerca pel significat està activada, amb el model integrat. L'ajudant de cerca ara llegeix el significat dels vostres fitxers en segon pla; els resultats pel significat apareixen a les cerques a mesura que avança.",

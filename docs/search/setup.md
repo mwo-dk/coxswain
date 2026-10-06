@@ -114,7 +114,9 @@ app all steps are on one page; the terminal app asks them in order.
    naming huggingface.co when it fails), makes it Ask's and asks the test question; once it is
    there the button reads **Use and ask a test question**. In the terminal app the built-in
    models are the first numbers of the list, each with its estimate below it, and the last is
-   *None for now: Ask stays off*: the default when nothing suits. Then, with a server, its chat models: only models
+   *Skip Ask for now*. Something is always chosen: Ask's model as set, else the server's
+   suggestion, else the built-in model for this machine; **Skip Ask for now** (a button under
+   the lists in the desktop app) turns Ask off instead. Then, with a server, its chat models: only models
    that can answer are listed. Embedding models such as
    `bge-m3` are never offered. The suggestion follows the table above; **Download** fetches it.
    **Use and ask a test question** saves it and asks it about a made-up file: *It answered: the

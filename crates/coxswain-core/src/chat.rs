@@ -86,6 +86,13 @@ pub fn suggest(ram: u64, cpu_only: bool) -> Option<&'static Model> {
     estimate(&MODELS[0], cpu_only, true).filter(|e| e.first < QUICK).map(|_| &MODELS[0])
 }
 
+/// The built-in model to preselect where nothing better is at hand, so a choice is never
+/// empty: the recommended one on a Mac's GPU, else the small one, with its estimate shown.
+/// It never waits for the probe.
+pub fn preselect(ram: u64, cpu_only: bool) -> &'static Model {
+    if metal(cpu_only) { suggest(ram, cpu_only).unwrap_or(&MODELS[0]) } else { &MODELS[0] }
+}
+
 /// Seconds to the first word that still make a model worth recommending.
 const QUICK: f64 = 10.0;
 
@@ -463,6 +470,8 @@ mod tests {
         // On a processor only the small one, and only when it is quick enough.
         let quick = estimate(&MODELS[0], true, true).is_some_and(|e| e.first < QUICK);
         assert_eq!(suggest(64, true).map(|m| m.id), quick.then_some("qwen3-1.7b"));
+        // Something is always preselected: on a processor the small one, quick or not.
+        assert_eq!(preselect(64, true).id, "qwen3-1.7b");
         assert_eq!(of(&MODELS[1].key()).map(|m| m.id), Some("qwen3-4b"));
     }
 
@@ -480,6 +489,7 @@ mod tests {
         let start = Instant::now();
         let ns = probe().unwrap();
         assert!(ns > 0.0 && ns.is_finite());
+        eprintln!("probe: {ns:.4} ns a weight");
         assert!(start.elapsed() < Duration::from_secs(if cfg!(debug_assertions) { 30 } else { 1 }), "{:?}", start.elapsed());
     }
 

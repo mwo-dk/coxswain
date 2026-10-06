@@ -1151,7 +1151,7 @@
  "setup.ask_builtin": "{model}, sisäänrakennettu ({size} ladattavaa, {where}; mikään ei lähde koneelta)",
  "setup.ask_builtin_hint": "Valinnainen. Sisäänrakennettu keskustelumalli vastaa tällä koneella, mitään ei tarvitse asentaa eikä mikään lähde koneelta: nopeasti Macin GPU:lla, hitaasti pelkällä suorittimella (minuutti tai enemmän ennen ensimmäistä sanaa). Mallipalvelin vastaa nopeammin ja suuremmilla malleilla.",
  "setup.ask_hint": "Listassa näkyvät vain mallit, jotka osaavat vastata. Tälle koneelle: {model}. Testikysymys näyttää, miten nopeasti se vastaa.",
- "setup.ask_off": "Ei mitään nyt: Kysy pysyy pois päältä",
+ "setup.ask_off": "Ohita Kysy toistaiseksi",
  "setup.builtin": "Sisäänrakennettu malli ({size} ladattavaa, toimii {where}; mikään ei lähde koneelta)",
  "setup.builtin_hint": "multilingual-e5-small: 100 kieltä, toimii millä tahansa koneella. Jokainen tiedosto luetaan uudelleen, kun vaihdat siihen.",
  "setup.builtin_on": "Merkityshaku on päällä sisäänrakennetulla mallilla. Hakuapuri lukee nyt tiedostojesi merkitystä taustalla; merkitysosumat näkyvät hauissa sitä mukaa.",

@@ -669,6 +669,8 @@ struct ChatStatus {
     downloading: Option<(String, u64, u64)>,
     error: Option<String>,
     runs: String,
+    /// The built-in model to preselect when Ask has none and no server offers one.
+    preselected: String,
 }
 
 #[tauri::command(async)]
@@ -678,7 +680,8 @@ fn chat_status(ctx: tauri::State<Ctx>) -> Res<ChatStatus> {
     static RAM: std::sync::OnceLock<u64> = std::sync::OnceLock::new();
     // The first time on a processor: the probe, under a second, then kept.
     let cpu_only = ctx.cfg().search.meaning_device == "cpu";
-    let suggested = chat::suggest(*RAM.get_or_init(coxswain_core::setup::ram_gb), cpu_only);
+    let ram = *RAM.get_or_init(coxswain_core::setup::ram_gb);
+    let suggested = chat::suggest(ram, cpu_only);
     let models = chat::MODELS
         .iter()
         .map(|m| ChatModel { key: m.key(), name: m.name, size: m.size(), installed: m.installed(), suggested: suggested.is_some_and(|s| std::ptr::eq(m, s)), estimate: chat::estimate(m, cpu_only, true).map(|e| e.text()) })
@@ -689,6 +692,7 @@ fn chat_status(ctx: tauri::State<Ctx>) -> Res<ChatStatus> {
         downloading: d.as_ref().filter(|(_, _, err)| err.is_none()).map(|(k, p, _)| (k.clone(), p.done.load(Ordering::Relaxed), p.total.load(Ordering::Relaxed))),
         error: d.as_ref().and_then(|(_, _, e)| e.clone()),
         runs: coxswain_core::setup::builtin_runs(&ctx.cfg().search, None),
+        preselected: chat::preselect(ram, cpu_only).key(),
     })
 }
 

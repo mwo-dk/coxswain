@@ -1194,7 +1194,7 @@
  "setup.ask_builtin": "{model}, incluido ({size} de descarga, {where}; nada sale de la máquina)",
  "setup.ask_builtin_hint": "Opcional. Un modelo de chat incluido responde en esta máquina, sin instalar nada, y nada sale de ella: rápido en la GPU de una Mac, despacio en el procesador solo (un minuto o más antes de la primera palabra). Un servidor de modelos responde más rápido, con modelos más grandes.",
  "setup.ask_hint": "Solo se listan los modelos que pueden responder. Para esta máquina: {model}. Una pregunta de prueba muestra qué tan rápido responde.",
- "setup.ask_off": "Ninguno por ahora: Preguntar queda apagado",
+ "setup.ask_off": "Saltear Preguntar por ahora",
  "setup.builtin": "El modelo incluido ({size} de descarga, corre {where}; nada sale de la máquina)",
  "setup.builtin_hint": "multilingual-e5-small: 100 idiomas, corre en cualquier máquina. Cada archivo se vuelve a leer cuando cambiás a este modelo.",
  "setup.builtin_on": "La búsqueda por significado está activada, con el modelo incluido. El asistente de búsqueda ahora lee el significado de tus archivos en segundo plano; los resultados por significado aparecen en las búsquedas a medida que avanza.",

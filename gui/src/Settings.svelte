@@ -194,6 +194,14 @@
     await set("ask_model", model);
     askProblem = model ? await invoke("ask_check", { tryIt: true }).catch((e) => String(e)) : null;
   }
+  // Ask off: the field is never empty but offers a model, a server's first, else the
+  // built-in one for this machine; Use sets it (downloading a built-in one first).
+  const askPreselected = $derived(chatModels[0] ?? chat?.preselected ?? "");
+  function useAskPreselected() {
+    const m = chat?.models.find((x) => x.key === askPreselected);
+    if (m && !m.installed) chatAction("download", m.key);
+    else setAskModel(askPreselected);
+  }
   // The built-in chat models: downloaded or not, and a download under way.
   let chat = $state(null);
   const loadChat = () => invoke("chat_status").then((v) => (chat = v), () => (chat = null));
@@ -614,8 +622,9 @@
             <summary>{t("settings.group.ask")}</summary>
             {#snippet askModel()}
               <div class="folder">
-                <input id="in-ask_model" list="askmodels" value={s.ask_model} spellcheck="false" placeholder="qwen3:8b" onchange={(e) => setAskModel(e.currentTarget.value.trim())} />
+                <input id="in-ask_model" list="askmodels" value={s.ask_model || askPreselected} spellcheck="false" placeholder="qwen3:8b" onchange={(e) => setAskModel(e.currentTarget.value.trim())} />
                 <datalist id="askmodels">{#each chat?.models ?? [] as m (m.key)}<option value={m.key}>{m.name}</option>{/each}{#each chatModels as m (m)}<option value={m}></option>{/each}</datalist>
+                {#if !s.ask_model && askPreselected}<button class="primary" disabled={!!chat?.downloading} onclick={useAskPreselected}>{t("settings.ask_use")}</button>{/if}
                 <button disabled={!s.ask_model || !s.search_meaning || trial?.busy} onclick={tryAsk}>{t("settings.step.try_it")}</button>
               </div>
               {#if askProblem}<p class="err">{askProblem}</p>{/if}

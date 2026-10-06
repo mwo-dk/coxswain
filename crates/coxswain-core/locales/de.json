@@ -1151,7 +1151,7 @@
  "setup.ask_builtin": "{model}, eingebaut ({size} Download, {where}; nichts verlässt den Rechner)",
  "setup.ask_builtin_hint": "Optional. Ein eingebautes Chatmodell antwortet auf diesem Rechner, ohne etwas zu installieren, und nichts verlässt ihn: schnell auf der GPU eines Macs, langsam auf dem Prozessor allein (eine Minute oder mehr bis zum ersten Wort). Ein Modellserver antwortet schneller und mit größeren Modellen.",
  "setup.ask_hint": "Nur Modelle, die antworten können, werden aufgeführt. Für diesen Rechner: {model}. Eine Testfrage zeigt, wie schnell es antwortet.",
- "setup.ask_off": "Vorerst keines: Fragen bleibt aus",
+ "setup.ask_off": "Fragen vorerst überspringen",
  "setup.builtin": "Das eingebaute Modell ({size} Download, läuft {where}; nichts verlässt den Rechner)",
  "setup.builtin_hint": "multilingual-e5-small: 100 Sprachen, läuft auf jedem Rechner. Jede Datei wird erneut gelesen, wenn Sie dazu wechseln.",
  "setup.builtin_on": "Die Suche nach Bedeutung ist an, mit dem eingebauten Modell. Der Suchhelfer liest Ihre Dateien jetzt im Hintergrund nach Bedeutung; Treffer nach Bedeutung erscheinen nach und nach in Suchen.",

@@ -1194,7 +1194,7 @@
  "setup.ask_builtin": "{model}, vestavěný ({size} ke stažení, {where}; nic neopustí počítač)",
  "setup.ask_builtin_hint": "Volitelné. Vestavěný chatovací model odpovídá na tomto počítači, nic se neinstaluje a nic ho neopustí: rychle na GPU Macu, pomalu jen na procesoru (minuta i víc před prvním slovem). Server modelů odpovídá rychleji a s většími modely.",
  "setup.ask_hint": "Uvedeny jsou jen modely, které umí odpovídat. Pro tento počítač: {model}. Testovací otázka ukáže, jak rychle odpovídá.",
- "setup.ask_off": "Zatím žádný: Dotaz zůstane vypnutý",
+ "setup.ask_off": "Dotaz zatím přeskočit",
  "setup.builtin": "Vestavěný model ({size} ke stažení, běží {where}; nic neopustí počítač)",
  "setup.builtin_hint": "multilingual-e5-small: 100 jazyků, běží na jakémkoli počítači. Při přechodu na něj se každý soubor znovu načte.",
  "setup.builtin_on": "Hledání podle významu je zapnuté, s vestavěným modelem. Pomocník hledání teď na pozadí čte význam vašich souborů; výsledky podle významu se v hledání objevují postupně.",

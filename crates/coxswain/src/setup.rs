@@ -89,6 +89,8 @@ pub fn run() {
     println!("{}", t!("setup.intro"));
 
     // 1. Search inside files.
+    // Step 4's probe, started now, before the helper starts reading and keeps the processor busy.
+    let _ = chat::estimate(&chat::MODELS[0], search().meaning_device == "cpu", false);
     heading(t!("setup.step_text"));
     println!("{}", t!("setup.text_hint"));
     if search().text {
@@ -235,12 +237,15 @@ pub fn run() {
         }
     }
     items.extend(models.iter().cloned());
-    // Last: none, the default when neither a server's model nor a built-in one suits.
+    // Last: skip Ask, never the default. The default: Ask's model as it is set, else the
+    // server's suggestion or first chat model, else the built-in one for this machine.
     items.push(t!("setup.ask_off"));
     let builtins = chat::MODELS.len();
     let off = items.len() - 1;
-    let builtin = builtin_chat.and_then(|b| chat::MODELS.iter().position(|m| std::ptr::eq(m, b)));
-    let default = models.iter().position(|m| !suggest.is_empty() && m.starts_with(&suggest)).map(|i| builtins + i).or((!models.is_empty()).then_some(builtins)).or(builtin).unwrap_or(off);
+    let now = search().ask_model;
+    let set = chat::MODELS.iter().position(|m| m.key() == now).or_else(|| models.iter().position(|m| !now.is_empty() && *m == now).map(|i| builtins + i));
+    let builtin = chat::MODELS.iter().position(|m| std::ptr::eq(m, builtin_chat.unwrap_or_else(|| chat::preselect(machine.ram, cpu_only)))).unwrap_or(0);
+    let default = set.or_else(|| models.iter().position(|m| !suggest.is_empty() && m.starts_with(&suggest)).map(|i| builtins + i)).or((!models.is_empty()).then_some(builtins)).unwrap_or(builtin);
     let chosen = match choose(&items, default) {
         Some(i) if i == off => {
             save("ask_model", "");

@@ -1151,7 +1151,7 @@
  "setup.ask_builtin": "{model}, indbygget ({size} at hente, {where}; intet forlader maskinen)",
  "setup.ask_builtin_hint": "Valgfrit. En indbygget chatmodel svarer på denne maskine, uden noget at installere, og intet forlader den: hurtigt på en Macs GPU, langsomt på en processor alene (et minut eller mere før første ord). En modelserver svarer hurtigere med større modeller.",
  "setup.ask_hint": "Kun modeller, der kan svare, vises. Til denne maskine: {model}. Et testspørgsmål viser, hvor hurtigt den svarer.",
- "setup.ask_off": "Ingen for nu: Spørg forbliver slået fra",
+ "setup.ask_off": "Spring Spørg over for nu",
  "setup.builtin": "Den indbyggede model ({size} at hente, kører {where}; intet forlader maskinen)",
  "setup.builtin_hint": "multilingual-e5-small: 100 sprog, kører på enhver maskine. Hver fil læses igen, når du skifter til den.",
  "setup.builtin_on": "Søgning efter betydning er slået til med den indbyggede model. Søgehjælperen læser nu dine filer for betydning i baggrunden; træf efter betydning dukker op i søgninger undervejs.",

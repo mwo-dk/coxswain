@@ -1151,7 +1151,7 @@
  "setup.ask_builtin": "{model}, sisseehitatud ({size} allalaadimist, {where}; midagi ei lahku masinast)",
  "setup.ask_builtin_hint": "Valikuline. Sisseehitatud vestlusmudel vastab selles arvutis, midagi pole vaja installida ja midagi ei lahku sellest: kiiresti Maci GPU-l, aeglaselt ainult protsessoril (minut või rohkem enne esimest sõna). Mudeliserver vastab kiiremini ja suuremate mudelitega.",
  "setup.ask_hint": "Loetletud on vaid mudelid, mis oskavad vastata. Selle masina jaoks: {model}. Testküsimus näitab, kui kiiresti see vastab.",
- "setup.ask_off": "Praegu mitte ühtegi: Küsi jääb välja",
+ "setup.ask_off": "Jäta Küsi praegu vahele",
  "setup.builtin": "Sisseehitatud mudel ({size} allalaadimist, töötab {where}; midagi ei lahku masinast)",
  "setup.builtin_hint": "multilingual-e5-small: 100 keelt, töötab igas masinas. Igat faili loetakse uuesti, kui lülitud sellele.",
  "setup.builtin_on": "Tähenduse järgi otsing on sees, sisseehitatud mudeliga. Otsinguabiline loeb nüüd taustal sinu failide tähendust; tähenduse järgi tabamused ilmuvad otsingutesse jooksvalt.",

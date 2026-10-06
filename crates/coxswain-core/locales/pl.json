@@ -1237,7 +1237,7 @@
  "setup.ask_builtin": "{model}, wbudowany ({size} do pobrania, {where}; nic nie opuszcza komputera)",
  "setup.ask_builtin_hint": "Opcjonalne. Wbudowany model czatu odpowiada na tym komputerze, bez instalowania czegokolwiek, i nic go nie opuszcza: szybko na GPU Maca, wolno na samym procesorze (minuta lub dłużej do pierwszego słowa). Serwer modeli odpowiada szybciej, większymi modelami.",
  "setup.ask_hint": "Wymienione są tylko modele, które umieją odpowiadać. Dla tego komputera: {model}. Pytanie testowe pokazuje, jak szybko odpowiada.",
- "setup.ask_off": "Na razie żaden: Zapytaj pozostaje wyłączone",
+ "setup.ask_off": "Na razie pomiń Zapytaj",
  "setup.builtin": "Wbudowany model ({size} do pobrania, działa {where}; nic nie opuszcza komputera)",
  "setup.builtin_hint": "multilingual-e5-small: 100 języków, działa na każdym komputerze. Po przejściu na niego każdy plik jest odczytywany ponownie.",
  "setup.builtin_on": "Wyszukiwanie według znaczenia jest włączone, z wbudowanym modelem. Pomocnik wyszukiwania czyta teraz w tle znaczenie twoich plików; wyniki według znaczenia pojawiają się w wyszukiwaniach stopniowo.",

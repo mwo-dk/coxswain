@@ -1151,7 +1151,7 @@
  "setup.ask_builtin": "{model}, ingebouwd ({size} downloaden, {where}; niets verlaat de computer)",
  "setup.ask_builtin_hint": "Optioneel. Een ingebouwd chatmodel antwoordt op deze computer, zonder iets te installeren, en niets verlaat hem: snel op de GPU van een Mac, langzaam op alleen een processor (een minuut of meer voor het eerste woord). Een modelserver antwoordt sneller, met grotere modellen.",
  "setup.ask_hint": "Alleen modellen die kunnen antwoorden staan in de lijst. Voor deze computer: {model}. Een testvraag laat zien hoe snel hij antwoordt.",
- "setup.ask_off": "Geen voor nu: Vragen blijft uit",
+ "setup.ask_off": "Vragen voorlopig overslaan",
  "setup.builtin": "Het ingebouwde model ({size} downloaden, draait {where}; niets verlaat de computer)",
  "setup.builtin_hint": "multilingual-e5-small: 100 talen, draait op elke computer. Elk bestand wordt opnieuw gelezen zodra je hiernaar overstapt.",
  "setup.builtin_on": "Zoeken op betekenis staat aan, met het ingebouwde model. De zoekhulp leest je bestanden nu op de achtergrond op betekenis; treffers op betekenis verschijnen gaandeweg in zoekopdrachten.",

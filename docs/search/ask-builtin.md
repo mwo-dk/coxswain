@@ -53,8 +53,9 @@ is checked against its SHA-256 before it is used; a file that does not match is 
 |---|---|
 | Desktop app, the guide | **Ctrl+,** → **Set up…** → step 4 *Ask: the chat model*: choose *Qwen3 1.7B, built in (1.0 GB download, on the CPU; nothing leaves the machine)* in the list and press **Download Qwen3 1.7B (1.0 GB) and use it**. It is marked **recommended** (and its button is the main one) when no server answers and it suits the machine: on a Mac's GPU always, on a processor only when [the estimate](#the-estimate-for-this-processor) is under 10 s to the first word. Under the list: *On this processor: about 74 s to the first word, then 7.4 words a second (too slow to recommend; a model server answers more quickly)*. When the download is done, Ask is set to it and a test question follows: *It answered: the first word came after 8.6 s.* |
 | Desktop app, Settings | **Ctrl+,** → *Finding files* → *Details* → *Ask* → *Built-in chat models*: each model with the estimate for this processor under it, **Download (1.0 GB) and use** next to the model; **Use** once it is there; **Delete the model** frees the disk |
-| Terminal app, the guide | `coxswain --setup-search`, step 4: the built-in models come first in the list (`1  Qwen3 1.7B, built in (…)`), each with the estimate on the line below; the last number is *None for now: Ask stays off*, the default (`*`) on a processor that is too slow when no server has a chat model. Type its number, answer **y** to *Download Qwen3 1.7B (1.0 GB) and use it*; a test question follows |
-| Terminal app, Settings | **F9** → *Settings* → *Finding files* → *Ask* (or `coxswain --settings=ask`): under *Chat model*, a line per built-in model with the estimate for this processor (it shows a moment after Settings opens, the first time) |
+| Terminal app, the guide | `coxswain --setup-search`, step 4: the built-in models come first in the list (`1  Qwen3 1.7B, built in (…)`), each with the estimate on the line below; the last number is *Skip Ask for now*, which turns Ask off. The default (`*`) is never the skip: Ask's model as set, else the server's suggestion, else the built-in model for this machine. Type its number, answer **y** to *Download Qwen3 1.7B (1.0 GB) and use it*; a test question follows |
+| Terminal app, Settings | **F9** → *Settings* → *Finding files* → *Ask* (or `coxswain --settings=ask`): under *Chat model*, a line per built-in model with the estimate for this processor (it shows a moment after Settings opens, the first time). **Enter** on an empty *Chat model* offers `builtin:qwen3-1.7b` (on a Mac's GPU the one for its memory) to keep with **Enter** or change |
+| Desktop app, Settings, Ask off | *Chat model* shows a server's first chat model, else the built-in one for this machine, with **Use** next to it (downloading a built-in one first) |
 | Terminal app, a flag | `coxswain --meaning ask builtin:qwen3-1.7b` downloads it (*Downloading: 42 %*) and sets it; `coxswain --meaning ask off` turns Ask off again; `coxswain --meaning ask delete` deletes the built-in chat models |
 
 The model in *Chat model* can also be typed: `builtin:qwen3-1.7b` or `builtin:qwen3-4b`.
@@ -137,9 +138,11 @@ a model server answers more quickly)*
 | Terminal app, *Settings → Finding files → Ask* | A line per built-in model, under *Chat model* |
 
 - **Recommended only when quick.** Under 10 s to the first word, Qwen3 1.7B is marked
-  **recommended** when no server answers, as on a Mac. Otherwise nothing is: in the desktop
-  guide no button is the main one, and in the terminal app's list *None for now: Ask stays off*
-  is the default. The built-in models stay in the list; you can still choose them.
+  **recommended** when no server answers, as on a Mac. Otherwise it is still chosen in the list
+  when no server offers a chat model, so the choice is never empty, but without the badge and
+  with the estimate's *(too slow to recommend; a model server answers more quickly)*. **Skip Ask
+  for now** (a button in the desktop guide, the last number in the terminal app's) leaves Ask
+  off.
 - **Words, not tokens.** A token is about three quarters of an English word; the line counts
   words.
 - **Kept.** The quickest result so far is kept in `chat-speed.txt` in the data folder

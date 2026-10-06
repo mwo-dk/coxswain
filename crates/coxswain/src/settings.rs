@@ -392,6 +392,8 @@ impl App {
                 (KeyCode::Enter, _) if opt.is_some() => {
                     let o = opt.unwrap();
                     s.mode = match kind(o, &self.cfg, &value) {
+                        // Ask's model is never offered empty: the built-in one for this machine.
+                        Kind::Text if o.name == "ask_model" && value.as_str().is_none_or(str::is_empty) => Mode::Edit(coxswain_core::chat::preselect(coxswain_core::setup::ram_gb(), self.cfg.search.meaning_device == "cpu").key()),
                         Kind::Text => Mode::Edit(value.as_str().unwrap_or_default().to_string()),
                         Kind::Number(_, _, scale) => Mode::Edit(number_text(value.as_f64().unwrap_or(0.0) / scale)),
                         Kind::List => Mode::List { at: 0, new: String::new() },
