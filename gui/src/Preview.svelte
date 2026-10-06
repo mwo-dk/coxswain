@@ -79,7 +79,9 @@
   const ext = (f) => f.name.split(".").pop().toLowerCase();
   const gitKind = $derived(e && !e.is_dir ? (pane.git?.files[e.name] ?? pane.git?.all)?.kind : undefined);
   // In a history the diff is what that commit changed in the file.
-  const hasDiff = $derived((gitKind && !["untracked", "ignored"].includes(gitKind)) || (inHistory && !!pane.history.commit));
+  // In a ZFS snapshot it is how the file now differs from the snapshot's.
+  const inSnapshot = $derived(!!pane.snapshot?.snapshot && !!e && !e.is_dir);
+  const hasDiff = $derived((gitKind && !["untracked", "ignored"].includes(gitKind)) || (inHistory && !!pane.history.commit) || inSnapshot);
   /** The last commit of the entry, `null` when older than the walk, undefined when untracked. */
   const last = $derived(e && e.name !== ".." ? pane.last?.[e.name] : undefined);
   const diffing = $derived(hasDiff && showDiff && !online);
@@ -402,7 +404,7 @@
       {#if hasDiff}
         <div class="modes" role="group" aria-label={t("preview.git")}>
           <button class:on={!showDiff} onclick={() => (ui.previewDiff = false)}>{t("preview.file")}</button>
-          <button class:on={showDiff} onclick={() => (ui.previewDiff = true)} title={t(inHistory ? "history.diff_tip" : "preview.changes_against_head")}>{t("preview.diff")}</button>
+          <button class:on={showDiff} onclick={() => (ui.previewDiff = true)} title={t(inSnapshot ? "zfs.diff_tip" : inHistory ? "history.diff_tip" : "preview.changes_against_head")}>{t("preview.diff")}</button>
         </div>
       {/if}
       {#if !diffing && kind === "bom"}

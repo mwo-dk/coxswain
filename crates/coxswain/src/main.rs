@@ -43,6 +43,10 @@ pub struct Panel {
     pub sizes: HashMap<PathBuf, u64>,
     /// The last commit of each entry, when git has answered.
     pub last: Option<Arc<Lasts>>,
+    /// The ZFS dataset the folder is on (or whose snapshots it lists), when `zfs` has answered.
+    pub zfs: Option<coxswain_core::zfs::Facts>,
+    /// The package whose files the folder lists.
+    pub package: Option<String>,
 }
 
 impl Panel {
@@ -64,6 +68,8 @@ impl Panel {
             error: None,
             sizes: HashMap::new(),
             last: None,
+            zfs: None,
+            package: None,
         };
         p.load(show_hidden);
         if let Some(name) = file {
@@ -105,7 +111,8 @@ impl Panel {
     fn fill(&mut self, keep: Option<String>) {
         bfs::sort_in(&self.dir, &mut self.entries, self.sort, self.reverse);
         // Inside an archive a folder's size comes with the listing; there is nothing to measure.
-        if coxswain_core::archive::split(&self.dir).is_some() {
+        // A snapshot's is its own space.
+        if coxswain_core::archive::split(&self.dir).is_some() || coxswain_core::zfs::split(&self.dir).is_some() {
             self.sizes.extend(self.entries.iter().filter(|e| e.is_dir && !e.is_parent()).map(|e| (e.path.clone(), e.size)));
         }
         let names: HashSet<&Path> = self.entries.iter().map(|e| e.path.as_path()).collect();
@@ -166,6 +173,8 @@ impl Panel {
         self.offset = 0;
         self.git = None;
         self.last = None;
+        self.zfs = None;
+        self.package = None;
         // Coming up out of a directory (or a history): the cursor on it, as NC does.
         from.strip_prefix(&self.dir).ok().and_then(|r| r.components().next()).map(|n| n.as_os_str().to_string_lossy().into_owned())
     }
@@ -216,6 +225,8 @@ pub enum Prompt {
     NewBranch(PathBuf, Option<String>),
     Goto(usize),
     Mark(bool),
+    /// The user flags to set on a file; the others are cleared.
+    Flags(PathBuf),
 }
 
 impl Prompt {
@@ -228,6 +239,7 @@ impl Prompt {
             Prompt::Pack(_) | Prompt::PackPassword(..) | Prompt::PackConfirm(..) => "verb.pack",
             Prompt::Password(..) | Prompt::Unlock(..) | Prompt::Peek(_) => "verb.unlock",
             Prompt::Mkdir | Prompt::NewBranch(..) => "verb.create",
+            Prompt::Flags(_) => "common.apply",
             Prompt::Goto(_) => "verb.go",
             Prompt::Mark(true) => "verb.mark",
             Prompt::Mark(false) => "verb.unmark",
@@ -249,6 +261,10 @@ pub enum Transfer {
 pub enum MenuRun {
     Action(Action),
     User(usize),
+    /// A panel to a folder (a boot environment, a jail); none: the line to type a path in.
+    Goto(usize, Option<PathBuf>),
+    /// Cannot be gone to: why, on the status line.
+    Say(String),
 }
 
 pub struct MenuItem {
@@ -314,9 +330,12 @@ enum AskMsg {
 }
 
 /// What git tells of a panel's folder, as it comes: the status, then each entry's last commit.
+/// Also its ZFS dataset, and the package whose files it lists.
 enum Git {
     Status(Option<Box<git::Status>>),
     Last(Option<Arc<Lasts>>),
+    Zfs(Option<Box<coxswain_core::zfs::Facts>>),
+    Package(Option<String>),
 }
 
 /// Work done by the main loop after a frame: what needs the real terminal, and what takes a
@@ -375,6 +394,8 @@ pub struct App {
     list_tx: mpsc::Sender<(PathBuf, Option<String>, std::io::Result<Vec<Entry>>)>,
     list_rx: mpsc::Receiver<(PathBuf, Option<String>, std::io::Result<Vec<Entry>>)>,
     last_click: Option<(Instant, u16, u16)>,
+    /// Properties being read on a thread.
+    props_rx: Option<mpsc::Receiver<Result<bfs::Props, String>>>,
     /// The panels' folders and their repositories' `.git`, watched: what changes on disk is
     /// read again.
     watch: coxswain_core::fs::Watch,
@@ -456,6 +477,11 @@ fn line_key(key: Key, plain: Option<char>) -> Option<LineKey> {
     })
 }
 
+/// A folder listed by a program (git, zfs, pkg), which can take a while: read on a thread.
+fn virtual_list(dir: &Path) -> bool {
+    history::is_history(dir) || coxswain_core::zfs::split(dir).is_some() || coxswain_core::bsd::split(dir).is_some()
+}
+
 fn shell() -> (String, &'static str) {
     if cfg!(windows) {
         ("cmd".into(), "/C")
@@ -521,6 +547,7 @@ impl App {
             list_tx,
             list_rx,
             last_click: None,
+            props_rx: None,
             watch: Default::default(),
             quit: false,
             cfg,
@@ -551,11 +578,21 @@ impl App {
         let last = self.cfg.git.last_commit;
         for dir in dirs {
             let tx = self.git_tx.clone();
+            let d = dir.clone();
             std::thread::spawn(move || {
+                let dir = d;
                 let st = git::Status::read(&dir);
                 let repo = st.is_some() || history::is_history(&dir);
                 if tx.send((dir.clone(), Git::Status(st.map(Box::new)))).is_ok() && last && repo {
                     let _ = tx.send((dir.clone(), Git::Last(history::last_changes(&dir))));
+                }
+            });
+            // `zfs get` and `pkg which` on a thread of their own, so git does not wait for them.
+            let tx = self.git_tx.clone();
+            std::thread::spawn(move || {
+                let _ = tx.send((dir.clone(), Git::Zfs(coxswain_core::zfs::facts(&dir).map(Box::new))));
+                if let Some(file) = coxswain_core::bsd::split(&dir) {
+                    let _ = tx.send((dir.clone(), Git::Package(coxswain_core::bsd::package_of(&file))));
                 }
             });
         }
@@ -573,8 +610,9 @@ impl App {
     /// through `sizes_rx`. The run before it in that panel stops.
     fn measure(&mut self, side: usize) {
         use std::sync::atomic::{AtomicBool, Ordering};
-        // A history's folders are not on disk.
-        if !self.cfg.folder_sizes || history::is_history(&self.panels[side].dir) {
+        // A history's folders are not on disk; a list of snapshots has their sizes, and a
+        // package's files are files.
+        if !self.cfg.folder_sizes || virtual_list(&self.panels[side].dir) {
             return;
         }
         let stop = Arc::new(AtomicBool::new(false));
@@ -617,7 +655,7 @@ impl App {
     fn load(&mut self, side: usize, select: Option<String>) {
         let h = self.show_hidden;
         let p = &mut self.panels[side];
-        if !history::is_history(&p.dir) {
+        if !virtual_list(&p.dir) {
             p.load(h);
             if let Some(n) = select {
                 p.select_name(&n);
@@ -769,6 +807,10 @@ impl App {
                 }
             }
             Action::History => self.history(),
+            Action::Snapshots => self.snapshots(),
+            Action::Package => self.package(),
+            Action::Flags => self.flags(),
+            Action::Properties => self.properties(),
             Action::Branches => self.git_view(history::View::Branches),
             Action::Worktrees => self.git_view(history::View::Worktrees),
             Action::SwitchBranch => self.switch_branch(),
@@ -805,9 +847,24 @@ impl App {
             }
             Action::GotoLeft | Action::GotoRight => {
                 let side = (a == Action::GotoRight) as usize;
-                let cur = self.panels[side].dir.to_string_lossy().into_owned();
                 let title = if side == 0 { t!("tui.left_panel") } else { t!("tui.right_panel") };
-                self.input(&title, t!("tui.goto"), cur, Prompt::Goto(side));
+                // On FreeBSD with boot environments or jails: those to pick, as NC's drive
+                // list, under the line that types a path.
+                let places = coxswain_core::bsd::places();
+                if places.is_empty() {
+                    return self.goto_prompt(side);
+                }
+                let mut items = vec![MenuItem { key: String::new(), label: t!("bsd.type_path"), run: MenuRun::Goto(side, None) }];
+                items.extend(places.into_iter().map(|p| {
+                    let what = t!(if p.kind == "boot" { "bsd.boot_env" } else { "bsd.jail" });
+                    let label = if p.note.is_empty() { format!("{what}: {}", p.name) } else { format!("{what}: {} ({})", p.name, p.note) };
+                    let run = match p.path {
+                        Some(path) => MenuRun::Goto(side, Some(path)),
+                        None => MenuRun::Say(t!(if p.kind == "boot" { "bsd.not_mounted" } else { "bsd.not_readable" }, "name" => p.name)),
+                    };
+                    MenuItem { key: String::new(), label, run }
+                }));
+                self.dialog = Some(Dialog::Menu { title, filter: String::new(), items, cursor: 0, direct: false });
             }
             Action::SameDir => {
                 let d = self.panel().dir.clone();
@@ -846,6 +903,10 @@ impl App {
                         }
                         return self.status = Some(t!("archive.copy_out_hint", "archive" => archive.file_name().unwrap_or_default().to_string_lossy()));
                     }
+                    // In a snapshot: viewed as it is there; never edited.
+                    if a == Action::Edit && coxswain_core::zfs::in_snapshot(&e).is_some() {
+                        return self.status = Some(t!("zfs.read_only"));
+                    }
                     // In a history: viewed as it was then, from a copy; never edited.
                     if history::is_history(&e) {
                         if a == Action::Edit {
@@ -873,6 +934,14 @@ impl App {
                     }
                     self.view_or_edit(a, &e);
                 }
+            }
+            // In a ZFS snapshot (or its list) nothing changes: said at once, not after a prompt.
+            Action::Move | Action::NewFolder | Action::Delete | Action::DeleteForever if coxswain_core::zfs::is_read_only(&self.panel().dir) => {
+                self.status = Some(t!("zfs.read_only"));
+            }
+            // Nor in a package's list of files: those belong to pkg.
+            Action::Move | Action::NewFolder | Action::Delete | Action::DeleteForever if coxswain_core::bsd::split(&self.panel().dir).is_some() => {
+                self.status = Some(t!("pkg.read_only"));
             }
             Action::Copy | Action::Move => {
                 let src = self.panel().targets();
@@ -993,6 +1062,22 @@ impl App {
         if history::is_history(&self.panel().dir) {
             return self.status = Some(t!("history.file_hint"));
         }
+        // A file of a package: to its folder, the cursor on it.
+        if coxswain_core::bsd::split(&self.panel().dir).is_some() {
+            if let (Some(dir), Some(name)) = (e.path.parent(), e.path.file_name()) {
+                self.cd(self.active, dir.to_path_buf());
+                self.panel_mut().select_name(&name.to_string_lossy());
+            }
+            return;
+        }
+        // A file in a snapshot: what changed in it since, in the viewer.
+        if coxswain_core::zfs::in_snapshot(&e.path).is_some() {
+            return match coxswain_core::zfs::diff_file(&e.path) {
+                Ok(Some(diff)) => self.view_or_edit(Action::View, &diff),
+                Ok(None) => self.status = Some(t!("zfs.same")),
+                Err(err) => self.status = Some(err.to_string()),
+            };
+        }
         let dir = self.panel().dir.clone();
         if e.is_exec {
             let cmd = if cfg!(windows) { config::quote(&e.name) } else { format!("./{}", config::quote(&e.name)) };
@@ -1019,6 +1104,89 @@ impl App {
             return self.status = Some(t!("history.no_repo"));
         }
         self.cd(self.active, history::path(&target, None));
+    }
+
+    /// To the snapshots of the ZFS dataset the folder under the cursor (or this one) is on.
+    /// Inside a snapshot: back to the list.
+    fn snapshots(&mut self) {
+        let p = self.panel();
+        if let Some(s) = coxswain_core::zfs::in_snapshot(&p.dir) {
+            let live = s.live();
+            let to = if live.is_dir() { live } else { s.mountpoint };
+            return self.cd(self.active, coxswain_core::zfs::path(&to));
+        }
+        if virtual_list(&p.dir) || coxswain_core::archive::split(&p.dir).is_some() {
+            return self.status = Some(t!("zfs.not_here"));
+        }
+        let target = match p.current() {
+            Some(e) if e.is_dir && !e.is_parent() => e.path.clone(),
+            _ => p.dir.clone(),
+        };
+        if coxswain_core::zfs::dataset_of(&target).is_none() {
+            return self.status = Some(t!("zfs.not_zfs", "dir" => target.display()));
+        }
+        self.cd(self.active, coxswain_core::zfs::path(&target));
+    }
+
+    /// To the files of the package the file under the cursor belongs to (FreeBSD).
+    fn package(&mut self) {
+        let Some(e) = self.panel().current().filter(|e| !e.is_dir).cloned() else { return self.status = Some(t!("pkg.not_here")) };
+        if virtual_list(&self.panel().dir) || coxswain_core::archive::split(&self.panel().dir).is_some() {
+            return self.status = Some(t!("pkg.not_here"));
+        }
+        match coxswain_core::bsd::package_of(&e.path) {
+            Some(_) => self.cd(self.active, coxswain_core::bsd::path(&e.path)),
+            None => self.status = Some(t!("pkg.none", "name" => e.name)),
+        }
+    }
+
+    /// The user flags of the entry under the cursor, to change in a prompt (FreeBSD, macOS).
+    fn flags(&mut self) {
+        let Some(e) = self.panel().current().filter(|e| !e.is_parent()).cloned() else { return };
+        let f = coxswain_core::flags::read(&e.path).filter(|f| !f.user.is_empty());
+        let Some(f) = f else { return self.status = Some(t!("flags.not_here")) };
+        if !f.can_set {
+            return self.status = Some(t!("flags.not_owner", "name" => e.name));
+        }
+        let names: Vec<&str> = f.user.iter().map(|(n, _)| *n).collect();
+        let on: Vec<&str> = f.user.iter().filter(|(_, on)| *on).map(|(n, _)| *n).collect();
+        self.input(&t!("action.flags"), t!("flags.prompt", "names" => names.join(" ")), on.join(" "), Prompt::Flags(e.path));
+    }
+
+    /// Properties of the entry under the cursor (of this folder on `..`), read on a thread: a
+    /// folder's size is a walk of it.
+    fn properties(&mut self) {
+        let p = self.panel();
+        let path = match p.current() {
+            Some(e) if !e.is_parent() => e.path.clone(),
+            _ => p.dir.clone(),
+        };
+        if virtual_list(&path) || coxswain_core::zfs::split(&p.dir).is_some() || !path.exists() {
+            return self.status = Some(t!("tui.props_not_here"));
+        }
+        let (tx, rx) = mpsc::channel();
+        self.status = Some(t!("app.reading_properties"));
+        std::thread::spawn(move || {
+            let r = bfs::properties(&path).map_err(|e| e.to_string());
+            let _ = tx.send(r);
+        });
+        self.props_rx = Some(rx);
+    }
+
+    /// The ZFS footer of a panel: dataset, compression ratio, space; none off ZFS.
+    pub fn zfs_line(f: &coxswain_core::zfs::Facts) -> String {
+        let size = ui::size;
+        if f.quota > 0 {
+            t!("zfs.footer_quota", "dataset" => f.dataset, "ratio" => f.compressratio, "used" => size(f.used), "quota" => size(f.quota))
+        } else {
+            t!("zfs.footer", "dataset" => f.dataset, "ratio" => f.compressratio, "used" => size(f.used), "free" => size(f.available))
+        }
+    }
+
+    fn goto_prompt(&mut self, side: usize) {
+        let cur = self.panels[side].dir.to_string_lossy().into_owned();
+        let title = if side == 0 { t!("tui.left_panel") } else { t!("tui.right_panel") };
+        self.input(&title, t!("tui.goto"), cur, Prompt::Goto(side));
     }
 
     /// To the branches or the worktrees of the repository this folder is in.
@@ -1306,6 +1474,14 @@ impl App {
                 } else {
                     self.status = Some(t!("status.not_dir", "dir" => d.display()));
                 }
+            }
+            Prompt::Flags(path) => {
+                let on: Vec<&str> = value.split([' ', ',']).filter(|s| !s.is_empty()).collect();
+                let name = path.file_name().unwrap_or_default().to_string_lossy().into_owned();
+                self.status = Some(match coxswain_core::flags::set_user(&path, &on) {
+                    Ok(()) => t!("flags.set", "name" => name, "flags" => if on.is_empty() { t!("props.flags_none") } else { on.join(", ") }),
+                    Err(e) => t!("flags.failed", "name" => name, "error" => e),
+                });
             }
             Prompt::Mark(sel) => {
                 let pats: Vec<Vec<u8>> = value.split([' ', ';', ',']).filter(|s| !s.is_empty()).map(|s| s.to_lowercase().into_bytes()).collect();
@@ -1652,6 +1828,9 @@ impl App {
                 match run.map(|i| &items[i].run) {
                     Some(MenuRun::Action(a)) => self.act(*a),
                     Some(MenuRun::User(i)) => self.run_user(*i),
+                    Some(MenuRun::Goto(side, None)) => self.goto_prompt(*side),
+                    Some(MenuRun::Goto(side, Some(dir))) => self.cd(*side, dir.clone()),
+                    Some(MenuRun::Say(why)) => self.status = Some(why.clone()),
                     None => self.dialog = Some(Dialog::Menu { title, filter, items, cursor, direct }),
                 }
             }
@@ -1807,6 +1986,19 @@ impl App {
         if let Some(Dialog::Settings(s)) = &mut self.dialog {
             s.poll();
         }
+        if let Some(r) = self.props_rx.as_ref().and_then(|rx| rx.try_recv().ok()) {
+            self.props_rx = None;
+            if self.status.as_deref() == Some(t!("app.reading_properties").as_str()) {
+                self.status = None;
+            }
+            match r {
+                Ok(p) => {
+                    let title = p.path.file_name().map_or_else(|| p.path.display().to_string(), |n| n.to_string_lossy().into_owned());
+                    self.dialog = Some(Dialog::Message { title, text: ui::properties(&p, self.key_label(Action::Snapshots)) });
+                }
+                Err(e) => self.dialog = Some(failure(t!("action.properties"), &e)),
+            }
+        }
         while let Ok((dir, keep, r)) = self.list_rx.try_recv() {
             self.listed(dir, keep, r);
         }
@@ -1817,6 +2009,8 @@ impl App {
                 match &news {
                     Git::Status(st) => p.git = st.as_deref().cloned(),
                     Git::Last(last) => p.last = last.clone(),
+                    Git::Zfs(f) => p.zfs = f.as_deref().cloned(),
+                    Git::Package(name) => p.package = name.clone(),
                 }
             }
         }

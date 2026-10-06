@@ -1,7 +1,7 @@
 <script>
   import { tick } from "svelte";
-  import { ui, newTab, load, cd, up, goBack, goForward, focusPane, openFind, nextView, openGitView } from "./app.svelte.js";
-  import { invoke, basename, crumbs, size, MARKERS, date, composing } from "./lib.js";
+  import { ui, newTab, load, cd, up, goBack, goForward, focusPane, openFind, nextView, openGitView, openSnapshots } from "./app.svelte.js";
+  import { invoke, basename, crumbs, size, MARKERS, SNAPSHOTS, PACKAGE, date, composing } from "./lib.js";
   import { t as tr, tn } from "./i18n.svelte.js"; // `t` is the tab here
   import DetailsView from "./DetailsView.svelte";
   import ColumnsView from "./ColumnsView.svelte";
@@ -15,6 +15,7 @@
   const tabName = (tb) => {
     const name = basename(tb.dir) || tb.dir;
     const top = tb.history && MARKERS.some((m) => name === m || tb.dir.endsWith(`${m}/${name}`) || tb.dir.endsWith(`${m}\\${name}`));
+    if (name === SNAPSHOTS || name === PACKAGE) return basename(tb.dir.slice(0, -name.length - 1)) || name;
     return top ? basename(tb.history.target) : name;
   };
   /** The badge of a list of commits, branches or worktrees. */
@@ -54,12 +55,19 @@
 
   const selBytes = $derived(t.items.filter((e) => t.marked.has(e.path)).reduce((a, e) => a + (e.is_dir ? t.sizes[e.path] ?? 0 : e.size), 0));
   const count = $derived(t.items.length - (t.items[0]?.name === ".." ? 1 : 0));
+  /** The ZFS footer: dataset, compression ratio, space (used of the quota when it has one). */
+  const zfsLine = $derived(
+    t.zfs &&
+      (t.zfs.quota
+        ? tr("zfs.footer_quota", { dataset: t.zfs.dataset, ratio: t.zfs.compressratio, used: size(t.zfs.used), quota: size(t.zfs.quota) })
+        : tr("zfs.footer", { dataset: t.zfs.dataset, ratio: t.zfs.compressratio, used: size(t.zfs.used), free: size(t.zfs.available) })),
+  );
 </script>
 
 <section
   class="pane"
   class:active
-  class:in-archive={!!t.archive || !!t.history}
+  class:in-archive={!!t.archive || !!t.history || !!t.snapshot || !!t.package}
   class:drag-over={ui.dropPane === index}
   data-pane={index}
   aria-label={tr("pane.label", { n: index + 1 })}
@@ -103,7 +111,7 @@
       <div class="crumbs" role="navigation" onclick={(e) => e.target === e.currentTarget && editPath()} title={tr("pane.path_tip")}>
         {#each crumbs(t.dir, ui.cfg.home) as c, i (c.path)}
           {#if i > 0}<span class="sep flip">{"\u{f054}"}</span>{/if}
-          <button class="crumb" class:archive-crumb={c.path === t.archive || (t.history && MARKERS.includes(c.name))} onclick={() => cd(t, c.path === t.history?.target ? t.history.base : c.path)}>{c.name}</button>
+          <button class="crumb" class:archive-crumb={c.path === t.archive || (t.history && MARKERS.includes(c.name)) || (t.snapshot && (c.name === SNAPSHOTS || c.name === t.snapshot.snapshot)) || (t.package && c.name === PACKAGE)} onclick={() => cd(t, c.path === t.history?.target ? t.history.base : c.path)}>{c.name}</button>
         {/each}
         {#if t.archive}
           <!-- Inside an archive: said, so a copy out is not taken for a copy between folders. -->
@@ -115,6 +123,15 @@
           <span class="archive-badge" title={c ? `${c.hash}\n${c.author} · ${date(c.time)}\n${c.subject}` : tr(`${t.history.view}.inside_tip`)}>
             {t.history.view === "history" ? "\u{f1da}" : "\u{e725}"} {c ? tr("history.badge_at", { commit: c.hash.slice(0, 7) }) : badgeOf(t.history)}
           </span>
+        {/if}
+        {#if t.snapshot}
+          <!-- Among a dataset's snapshots: which, so an old file is not taken for today's. -->
+          <span class="archive-badge" title={tr(t.snapshot.snapshot ? "zfs.inside_tip" : "zfs.list_tip")}>
+            {"\u{f030}"} {t.snapshot.snapshot ? tr("zfs.badge_at", { name: t.snapshot.snapshot, dataset: t.snapshot.dataset }) : tr("zfs.badge_list", { dataset: t.snapshot.dataset })}
+          </span>
+        {/if}
+        {#if t.package}
+          <span class="archive-badge" title={tr("pkg.list_tip")}>{"\u{f487}"} {tr("pkg.badge", { name: t.package })}</span>
         {/if}
       </div>
     {/if}
@@ -141,6 +158,8 @@
   <footer class="foot">
     <span>{tn("items", count)}{#if t.marked.size}&nbsp;· <b>{tn("pane.selected", t.marked.size, { size: size(selBytes) })}</b>{/if}</span>
     {#if t.hasNotes}<span class="note" title={tr("pane.has_notes")}>{"\u{f249}"}</span>{/if}
+    <!-- On ZFS: the dataset and its space; a click lists the snapshots. -->
+    {#if zfsLine}<button class="zfs-line" title={`${t.zfs.mountpoint}\n${tr("zfs.footer_tip", { key: ui.cfg.actions.snapshots?.[1] ?? "" })}`} onclick={() => openSnapshots(t)}>{zfsLine}</button>{/if}
     <!-- The git line: a click shows the branches. -->
     {#if t.git}<button class="git-prompt" title={`${t.git.root}\n${tr("branches.line_tip")}`} onclick={() => openGitView(false, t)}>{t.git.prompt}</button>{/if}
   </footer>
@@ -348,6 +367,14 @@
   .note {
     font-family: var(--icon-font);
     color: var(--marked-fg);
+  }
+  .zfs-line {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+  }
+  .zfs-line:hover {
+    color: var(--panel-fg);
   }
   .git-prompt {
     margin-inline-start: auto;

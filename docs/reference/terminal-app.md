@@ -57,6 +57,9 @@ Every flag: [Command-line flags](command-line-flags.md#the-terminal-app-coxswain
 | The git line, a glyph per file, and the last commit of the entry under the cursor in the info line | [Git in the panels](../panels/git.md) |
 | Git history as folders (**Ctrl+G**): the commits of a file or folder, the files as they were, **F3** and **F5** on them | [Git history in the terminal app](#git-history-in-the-terminal-app) |
 | Git branches (**Alt+B**) and worktrees (**Alt+W**): a branch's files, switching (**Alt+S**), new branches | [Git branches and worktrees](../panels/git-branches.md#in-the-terminal-app) |
+| ZFS snapshots as folders (**Alt+Z**), the diff of a file against now (**Enter**), copied back with **F5**; the dataset in the panel's bottom border | [ZFS snapshots as folders](../files/zfs-snapshots.md#in-the-terminal-app) |
+| Properties (**Alt+Enter**) as text, with ZFS, the FreeBSD package and file flags; *F9 → File flags* and *F9 → Files of this package* | [Properties](../files/properties.md#in-the-terminal-app) |
+| FreeBSD's boot environments and jails under **Alt+F1** / **Alt+F2**, as NC's drive menu | [FreeBSD](freebsd.md#boot-environments-and-jails) |
 | Every theme's colours, Nerd Font or ASCII glyphs, your own themes | [Themes](../customise/themes.md), [Glyphs and fonts](../customise/glyphs-and-fonts.md) |
 | All 26 languages (`coxswain --languages` lists them) | [Languages](../customise/languages.md) |
 | Your own keys from `[keys]` | [Changing keys](../customise/keys.md) |
@@ -75,7 +78,6 @@ Every flag: [Command-line flags](command-line-flags.md#the-terminal-app-coxswain
 | [The sidebar](../organise/sidebar.md), [favourites](../organise/favourites.md), [colour tags](../organise/tags.md), [folder notes](../organise/notes.md) | They need a side pane and editing widgets the panels do not have room for. They are kept in `state.json`, which both apps share, so they are there when you open the desktop app |
 | [The clipboard](../files/clipboard.md) (**Ctrl+C**, **Ctrl+X**, **Ctrl+V**) and [drag and drop](../files/drag-and-drop.md) | A terminal has no file clipboard or drag source; **Ctrl+C** belongs to the terminal |
 | [Batch rename](../files/batch-rename.md) (**Ctrl+M**) | It needs a live preview table of old and new names |
-| [Properties and permissions](../files/properties.md) (**Alt+Enter**) | A dialog of many fields; `ls -l`, `chmod` on the command line do the same |
 | [Finding duplicates](../files/duplicates.md) (**Ctrl+D**) | A long-running scan with groups to tick; use `coxswain-gui --duplicates FOLDER` |
 | [Scripts](../commands/scripts.md) in **F2** | The terminal app's **F2** is `[[user_menu]]` only |
 | [Restoring the last session](../panels/session.md) | It starts where you start it, as a shell command does |
@@ -98,6 +100,8 @@ action's name. The **F9** list and **F1** help leave them out.
 | Changes on disk | Read again after operations, commands, a change in a panel's folder and **Ctrl+R** (*Refresh*) | Folders on screen are read again by themselves |
 | Theme | `theme` (default `nc`), colours only; `look` is ignored | `[gui] theme` (default `cyber`), with its look |
 | Hidden files at start | Always from `show_hidden` | From the last session |
+| Properties (**Alt+Enter**) | The facts as text; your file flags with *F9 → File flags*, permissions with `chmod` | A dialog that also changes the permissions and your file flags |
+| Boot environments and jails | Under **Alt+F1** / **Alt+F2** | In the sidebar |
 | Marked size | Files only: `4.2 MB in 3 marked` | Measured folders count too |
 | Find, **F3** | Views the hit in your pager | Does nothing (**F4** edits in both) |
 | Inside an archive | The panel title ends in `[archive]` | A badge and a tint on the pane |

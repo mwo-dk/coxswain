@@ -635,6 +635,7 @@ pub fn listing(archive: &Path, inner: &str) -> io::Result<(Vec<crate::fs::Entry>
             modified: it.modified,
             created: 0,
             online: false,
+            referenced: 0,
         });
         if deeper {
             e.is_dir = true;
@@ -646,7 +647,7 @@ pub fn listing(archive: &Path, inner: &str) -> io::Result<(Vec<crate::fs::Entry>
         }
     }
     let up = at.parent().unwrap_or(archive).to_path_buf();
-    let mut out = vec![crate::fs::Entry { name: "..".into(), path: up, is_dir: true, is_symlink: false, is_exec: false, hidden: false, size: 0, modified: 0, created: 0, online: false }];
+    let mut out = vec![crate::fs::Entry { name: "..".into(), path: up, is_dir: true, is_symlink: false, is_exec: false, hidden: false, size: 0, modified: 0, created: 0, online: false, referenced: 0 }];
     out.extend(seen.into_values());
     Ok((out, locked))
 }

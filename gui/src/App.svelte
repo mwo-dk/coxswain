@@ -2,7 +2,7 @@
   import { getCurrentWindow } from "@tauri-apps/api/window";
   import { getCurrentWebview } from "@tauri-apps/api/webview";
   import { listen } from "@tauri-apps/api/event";
-  import { ui, openFind, init, tab, pane, otherTab, item, load, cd, up, openHistory, openGitView, switchBranch, newBranch, newTab, goBack, goForward, openItem, toggleMark, targets, reloadAll, refreshDisks, snapshot, setTheme, themeIds, themeName, nextView, measureFolders, columnMenu } from "./app.svelte.js";
+  import { ui, openFind, init, tab, pane, otherTab, item, load, cd, up, openHistory, openSnapshots, openPackage, openGitView, switchBranch, newBranch, newTab, goBack, goForward, openItem, toggleMark, targets, reloadAll, refreshDisks, snapshot, setTheme, themeIds, themeName, nextView, measureFolders, columnMenu } from "./app.svelte.js";
   import { failure } from "./errors.js";
   import { invoke, keyString, basename, parent, glob, quote, isArchive, packFormat, LOCKED } from "./lib.js";
   import { t, tn } from "./i18n.svelte.js";
@@ -258,6 +258,10 @@
     );
   }
 
+  /** In a ZFS snapshot (or its list) nothing changes, nor in a package's list of files: said at
+   *  once, not after a prompt. */
+  const readOnly = () => (tab().snapshot || tab().package ? ((ui.status = t(tab().snapshot ? "zfs.read_only" : "pkg.read_only")), true) : false);
+
   const actions = {
     quit: () => getCurrentWindow().close(),
     up: () => move(-1),
@@ -269,6 +273,10 @@
     open: () => openItem(tab()),
     parent: () => up(tab()) && cd(tab(), up(tab())),
     history: () => openHistory(),
+    snapshots: () => openSnapshots(),
+    package: () => openPackage(),
+    // The flags are set in Properties.
+    flags: () => actions.properties(),
     branches: () => openGitView(),
     worktrees: () => openGitView(true),
     switch_branch: () => switchBranch(),
@@ -330,18 +338,20 @@
       // Inside an archive the file is not on disk: nothing to edit yet.
       if (tab().archive) return void (ui.status = t("archive.copy_out_hint", { archive: basename(tab().archive) }));
       if (tab().history) return void (ui.status = t("history.read_only"));
+      if (tab().snapshot) return void (ui.status = t("zfs.read_only"));
       invoke("edit_path", { path: e.path }).catch((err) => (ui.status = String(err)));
     },
     copy: () => transfer(false),
-    move: () => transfer(true),
+    move: () => readOnly() || transfer(true),
     new_folder: () =>
+      readOnly() ||
       prompt(t("dialog.new_folder"), t("app.name_label"), "", t("verb.create"), async (name) => {
         if (!name.trim()) return;
         await op((password) => invoke("mkdir", { base: tab().dir, name, password }), t("status.created", { what: name }), name, t("error.create", { what: name }));
         await load(tab(), tab().dir, name.split(/[\\/]/)[0]);
       }),
-    delete: () => remove(false),
-    delete_forever: () => remove(true),
+    delete: () => readOnly() || remove(false),
+    delete_forever: () => readOnly() || remove(true),
     clip_copy: () => clip(false),
     clip_cut: () => clip(true),
     paste: async () => {
@@ -356,11 +366,11 @@
     },
     properties: async () => {
       const e = item();
-      if (!e || e.name === "..") return;
+      if (!e || e.name === ".." || tab().snapshot?.snapshot === null) return;
       ui.status = t("app.reading_properties");
       try {
         const p = await invoke("properties", { path: e.path });
-        ui.modal = { kind: "props", props: p, mode: p.mode?.toString(8).padStart(3, "0") ?? "", readonly: p.readonly };
+        ui.modal = { kind: "props", props: p, mode: p.mode?.toString(8).padStart(3, "0") ?? "", readonly: p.readonly, flags: Object.fromEntries(p.flags?.user ?? []) };
       } catch (err) {
         ui.modal = failure(t("error.properties", { what: e.name }), err);
       }

@@ -51,6 +51,7 @@ skips it. **F1** → *Show the guide again* (desktop app), **F1** then **G** (te
 | Folder path | Centred in the top border; a long path keeps its end (`…/projects/rocket`) | The path bar under the tabs, one button per part (`~ › projects › rocket`) |
 | Columns | Name, Size, Modified; Modified goes when the panel is narrower than 44 columns | Name, Type, Size, Modified by default; Files and Created can be added ([Views](views.md#the-columns-menu)) |
 | Git line | Bottom left of the border, in the `git_branch` colour | Right side of the pane's footer ([Git in the panels](git.md)) |
+| ZFS line | Bottom middle of the border, on ZFS: `tank/home · 1.52x · 12G used · 88G free`: dataset, compression ratio and space | In the pane's footer, after the item count; a click lists the snapshots ([ZFS snapshots](../files/zfs-snapshots.md#the-dataset-in-the-footer)) |
 | Info line | Under the list: the name under the cursor and its size (`name -> target` for a link), or `4.2 MB in 3 marked` | The footer: `17 items`, and `· 3 marked (1.2 MB)` when files are marked |
 | Sort order | A letter bottom right: `n` name, `x` extension, `t` time, `s` size; upper case when reversed | An arrow next to the column header that sorts ([Sorting](sorting.md)) |
 | Command line | The row under the panels: `/home/demo/projects/rocket> ` | The row under the panes: the folder, `❯`, and *Type a command…* |

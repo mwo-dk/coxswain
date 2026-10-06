@@ -224,6 +224,10 @@ actions! {
     Properties = "properties", "Properties", Files, ["Alt+Enter"];
     BatchRename = "batch_rename", "Batch rename", Files, ["Ctrl+M"];
     Tag = "tag", "Colour tag", Files, ["Alt+T"];
+    // ZFS and FreeBSD: a folder's snapshots, a file's flags and the files of its package.
+    Snapshots = "snapshots", "ZFS snapshots", Files, ["Alt+Z"];
+    Flags = "flags", "File flags", Files, [];
+    Package = "package", "Files of this package", Files, [];
     // Archives, the most used first.
     Extract = "extract", "Extract archive", Archives, ["Ctrl+E"];
     Pack = "pack", "Pack into an archive", Archives, ["Alt+F5"];
@@ -259,7 +263,7 @@ impl Action {
         matches!(
             self,
             NewTab | CloseTab | NextTab | PrevTab | TogglePreview | ToggleView | ToggleSidebar | EditPath | BatchRename | Tag | Notes | Back | Forward
-                | ClipCopy | ClipCut | Paste | Properties | Columns | Duplicates
+                | ClipCopy | ClipCut | Paste | Columns | Duplicates
         )
     }
 }

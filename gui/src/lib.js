@@ -248,6 +248,10 @@ export const HISTORY = "@history";
 export const BRANCHES = "@branches";
 export const WORKTREES = "@worktrees";
 export const MARKERS = [HISTORY, BRANCHES, WORKTREES];
+/** The segment after a folder that lists its ZFS dataset's snapshots (zfs::MARKER), and the one
+ *  after a file that lists its package's files (bsd::PACKAGE). */
+export const SNAPSHOTS = "@snapshots";
+export const PACKAGE = "@package";
 export const isHistory = (p) => p.split(/[\\/]/).some((s) => MARKERS.includes(s));
 /** What a history path is of: the part before the marker. */
 export const historyOf = (p) => p.slice(0, p.search(/[\\/]@history([\\/]|$)/));

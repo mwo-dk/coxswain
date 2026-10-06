@@ -34,7 +34,9 @@ path*) and **Alt+F1** / **Alt+F2** take you to any folder by typing its path; se
 | Section | Holds |
 |---|---|
 | *Places* | *Home*, *Desktop*, *Documents*, *Downloads*, *Pictures*, *Music* and *Videos*: those your system names and that exist, each folder once |
-| *Drives* | Every mounted disk: its name, its free space (*339 GB free*) and a thin bar of the space used, which turns red past 90%. The root disk is called *System*; the others are named after their mount point. Removable disks (USB sticks, SD cards) get their own icon. Hover a drive for its device and mount point, such as `/dev/nvme0n1p2 · /`. The list and the free space are read again every 30 seconds while the window is in view, and whenever the window comes back to the front |
+| *Drives* | Every mounted disk (not the snapshots ZFS mounts while you look into them): its name, its free space (*339 GB free*) and a thin bar of the space used, which turns red past 90%. The root disk is called *System*; the others are named after their mount point. Removable disks (USB sticks, SD cards) get their own icon. Hover a drive for its device and mount point, such as `/dev/nvme0n1p2 · /`. The list and the free space are read again every 30 seconds while the window is in view, and whenever the window comes back to the front |
+| *Boot environments* | FreeBSD with a ZFS root: each boot environment, with *running now*, *active on reboot* or *not mounted* after its name. A mounted one opens as a folder; one that is not mounted is greyed, and a click says how to mount it ([FreeBSD](../reference/freebsd.md#boot-environments-and-jails)) |
+| *Jails* | FreeBSD: each running jail, with its jid and host name; a click opens its root folder when you may read it |
 | Your favourite groups | One section per group, see [Favourites](favourites.md), then *+ New group* |
 | *Git repositories* | The twelve git repositories you visited most recently, newest first, with a git icon. Only there once you have been in a repository |
 
@@ -59,7 +61,8 @@ window. The recent repositories are kept in `state.json` as `recent_repos`. See
 No sidebar. **Ctrl+B** says *Sidebar is available in the desktop app (coxswain-gui)*. The
 terminal app shows the git branch and status of a repository in the panel frame
 ([Git in the panels](../panels/git.md)), but it does not keep a list of recent repositories: the
-list is filled only by the desktop app.
+list is filled only by the desktop app. FreeBSD's boot environments and jails are under
+**Alt+F1** and **Alt+F2** there ([FreeBSD](../reference/freebsd.md#boot-environments-and-jails)).
 
 ## Questions
 
