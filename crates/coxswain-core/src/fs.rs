@@ -700,7 +700,7 @@ pub fn open_default(path: &Path) -> io::Result<()> {
     }
     #[cfg(not(windows))]
     {
-        let opener = if cfg!(target_os = "macos") { "open" } else { "xdg-open" };
+        let opener = crate::termux::opener().unwrap_or_else(|| (if cfg!(target_os = "macos") { "open" } else { "xdg-open" }).into());
         let mut c = crate::tools::command(opener);
         c.arg(path);
         // An opener that finds no application says so and stops at once: that is an error, not

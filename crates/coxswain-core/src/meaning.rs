@@ -765,9 +765,15 @@ pub(crate) fn shown(url: &str) -> String {
 }
 
 /// TLS that trusts the system's certificate store, as the update check does, so a proxy that
-/// inspects TLS or a server with a company certificate works.
+/// inspects TLS or a server with a company certificate works. In Termux, Termux's store.
 pub(crate) fn tls() -> ureq::tls::TlsConfig {
-    ureq::tls::TlsConfig::builder().root_certs(ureq::tls::RootCerts::PlatformVerifier).build()
+    use ureq::tls::{PemItem, RootCerts};
+    let termux: Vec<_> = crate::termux::certificates()
+        .iter()
+        .flat_map(|pem| ureq::tls::parse_pem(pem).filter_map(|i| if let Ok(PemItem::Certificate(c)) = i { Some(c) } else { None }).collect::<Vec<_>>())
+        .collect();
+    let roots = if termux.is_empty() { RootCerts::PlatformVerifier } else { RootCerts::new_with_certs(&termux) };
+    ureq::tls::TlsConfig::builder().root_certs(roots).build()
 }
 
 /// The embedding models a server has: Ollama's pulled models, or an OpenAI server's list,

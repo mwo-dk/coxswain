@@ -14,7 +14,7 @@ pub fn on_battery() -> bool {
             return known;
         }
     }
-    let now = battery_now();
+    let now = crate::termux::on_battery().unwrap_or_else(battery_now);
     *last = Some((Instant::now(), now));
     now
 }

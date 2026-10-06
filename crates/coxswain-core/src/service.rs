@@ -143,6 +143,10 @@ pub fn starts(exe: &Path) -> bool {
 
 /// Register `exe` (this app) as the helper and start it.
 pub fn install(exe: &Path) -> io::Result<()> {
+    // Android stops what is not on screen; the helper starts with the app and stays a while.
+    if crate::termux::active() {
+        return Err(io::Error::other(crate::t!("termux.no_service")));
+    }
     let exe = &stable(exe);
     if cfg!(windows) {
         let line = format!("\"{}\" {} {STAY}", exe.display(), crate::helper::ARG);
