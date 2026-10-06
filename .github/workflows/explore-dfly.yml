@@ -23,7 +23,7 @@ jobs:
         run: |
           uname -a
           ls /usr/lib/gcc80 /usr/include/c++ | head
-          tar czf dfly-sysroot.tgz /usr/include /usr/lib /lib
+          tar czLf dfly-sysroot.tgz /usr/include /usr/lib /lib 2>&1 | tail -3
           ls -la dfly-sysroot.tgz
       - name: Cross-build on the host
         run: |
@@ -37,6 +37,8 @@ jobs:
           export CC_x86_64_unknown_dragonfly="$RUNNER_TEMP/dfly-cc" CXX_x86_64_unknown_dragonfly="$RUNNER_TEMP/dfly-c++" AR_x86_64_unknown_dragonfly=llvm-ar
           export CARGO_TARGET_X86_64_UNKNOWN_DRAGONFLY_LINKER="$RUNNER_TEMP/dfly-cc"
           export CARGO_PROFILE_DEV_DEBUG=line-tables-only
+          cargo fetch --locked
+          sed -i 's/libc::MNT_WAIT/1/' ~/.cargo/registry/src/*/trash-5.2.9/src/freedesktop.rs
           cargo +nightly test -Zbuild-std=std,panic_abort --target x86_64-unknown-dragonfly -p coxswain-core -p coxswain --locked --no-run --message-format=json \
             | jq -r 'select(.profile.test == true) | "\(.manifest_path) \(.executable)"' | sed 's|/Cargo.toml||' > dfly-tests.txt
           cat dfly-tests.txt

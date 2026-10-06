@@ -29,7 +29,7 @@ jobs:
           usesh: true
           prepare: |
             /usr/sbin/pkg_add pkgin || true
-            pkgin -y install rust pkgconf webkit-gtk41 gtk3+ libsoup3 librsvg
+            pkgin -y install rust pkgconf webkit-gtk41 gtk3+ libsoup3 librsvg || cat /var/db/pkgin/pkg_install-err.log
             for t in tesseract poppler libreoffice pandoc plantuml nerd texlive gst-plugins1-good gstreamer1-plugins-good noto xdg-utils git ollama; do echo "## $t"; pkgin search "$t" | head -6; done
           run: |
             set -e
@@ -60,7 +60,8 @@ jobs:
           release: "7.9"
           usesh: true
           prepare: |
-            pkg_add rust pkgconf webkitgtk41 librsvg
+            pkg_add -u
+            pkg_add rust webkitgtk41 librsvg
             for t in tesseract poppler libreoffice pandoc plantuml nerd texlive gst-plugins1-good gstreamer1-plugins-good noto xdg-utils git ollama; do echo "## $t"; pkg_info -Q "$t" | head -6; done
           run: |
             set -e
