@@ -23,9 +23,13 @@ there is no ready-made text to paste.
 
 | File | Goes to | Status |
 |---|---|---|
-| [`nixpkgs/coxswain/package.nix`](nixpkgs/coxswain/package.nix) | `pkgs/by-name/co/coxswain/package.nix` | Terminal app, v2.1.0. Built by the *Nix* workflow's *nixpkgs package* job |
-| [`nixpkgs/coxswain-gui/package.nix`](nixpkgs/coxswain-gui/package.nix) | `pkgs/by-name/co/coxswain-gui/package.nix` | Desktop app, Linux. Same job. Submit it in a second PR, after the first is in |
+| [`nixpkgs/coxswain/package.nix`](nixpkgs/coxswain/package.nix) | `pkgs/by-name/co/coxswain/package.nix` | Terminal app, v2.1.0. Built and tested by the *Nix* workflow's job *Nix, the nixpkgs packages* |
+| [`nixpkgs/coxswain-gui/package.nix`](nixpkgs/coxswain-gui/package.nix) | `pkgs/by-name/co/coxswain-gui/package.nix` | Desktop app, Linux. Built by the same job. Submit it in a second PR, after the first is in |
 | The maintainer entry below | `maintainers/maintainer-list.nix` | Fill in your handle |
+
+That job runs only when started by hand, after these files change:
+`gh workflow run nix.yml -R mwo-dk/coxswain` (from a branch: `--ref <branch>`). It last passed
+for v2.1.0 on 2026-10-06.
 
 The flake in this repository (`flake.nix`, `package.nix`, `gui.nix` here) builds from the
 checkout, with no hashes. The nixpkgs files fetch a tagged release instead and carry three

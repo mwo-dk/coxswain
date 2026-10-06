@@ -3,6 +3,7 @@ name: Nix
 # The flake's packages built with Nix: the terminal app on Linux and macOS with its tests, the
 # desktop app on Linux. Only when Rust code, the lock files or the Nix files change.
 on:
+  workflow_dispatch:
   push:
     branches: [master]
     paths: ["crates/**", "gui/**", "Cargo.toml", "Cargo.lock", "flake.nix", "flake.lock", "packaging/nix/**", ".github/workflows/nix.yml"]
@@ -51,9 +52,11 @@ jobs:
           timeout 5 result-gui/bin/coxswain-gui --index-helper || test $? = 124
 
   # The packages prepared for nixpkgs (packaging/nix/nixpkgs, see SUBMIT.md), built from the
-  # release they name with the flake's nixpkgs, as nixpkgs would build them.
+  # release they name with the flake's nixpkgs, as nixpkgs would build them. They change only
+  # by hand, so only by hand: `gh workflow run nix.yml` (it builds the flake as well).
   nixpkgs:
     name: Nix, the nixpkgs packages
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     steps:

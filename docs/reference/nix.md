@@ -122,7 +122,7 @@ version*); see [Update checks](updates.md).
 
 The files for nixpkgs are in
 [`packaging/nix/nixpkgs`](../../packaging/nix/nixpkgs), and how they are submitted in
-[`packaging/nix/SUBMIT.md`](../../packaging/nix/SUBMIT.md). The *Nix* workflow builds them too,
+[`packaging/nix/SUBMIT.md`](../../packaging/nix/SUBMIT.md). The *Nix* workflow builds them too, when started by hand,
 from the release they name.
 
 ## Questions
