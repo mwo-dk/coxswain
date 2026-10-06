@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=Coxswain
+GenericName=File Manager
+Comment=Two-panel file manager with git, previews and search
+Exec=coxswain-gui %F
+Icon=io.github.mwo_dk.Coxswain
+Terminal=false
+Categories=System;FileTools;FileManager;
+Keywords=files;folders;norton;commander;git;search;preview;
+MimeType=inode/directory;
+StartupWMClass=dk.mwo.coxswain

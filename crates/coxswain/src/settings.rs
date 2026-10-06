@@ -912,7 +912,7 @@ mod tests {
 
     fn app(dir: &std::path::Path) -> App {
         let cfg = Config { check_updates: false, language: "en-GB".into(), ..Config::default() };
-        let index = Client::with(None, &cfg.search, || {});
+        let index = Client::with(None, &cfg.search, |_| {});
         App::with_index(cfg, dir.to_path_buf(), dir.to_path_buf(), index).unwrap()
     }
 

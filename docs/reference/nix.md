@@ -174,4 +174,4 @@ set `inputs.coxswain.inputs.nixpkgs.follows = "nixpkgs"`; Coxswain needs a Rust 
 supports edition 2024 (Rust 1.85 or newer).
 
 ---
-[← Previous: FreeBSD](freebsd.md) · [Next: Termux on Android →](termux.md)
+[← Previous: Flatpak](flatpak.md) · [Next: Termux on Android →](termux.md)

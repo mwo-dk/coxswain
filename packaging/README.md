@@ -14,6 +14,9 @@ The AUR packages in `aur/` are kept, but not published while AUR registration is
 The FreeBSD port in `freebsd/sysutils/coxswain` is submitted by hand for now; see
 [freebsd/README.md](freebsd/README.md).
 
+The Flatpak of the desktop app in `flatpak/` is built and tested by the *Flatpak* workflow and
+not on Flathub; why, and what submitting it would take, is in [flatpak/SUBMIT.md](flatpak/SUBMIT.md).
+
 The Nix flake (`flake.nix` at the root) builds from `nix/package.nix` and `nix/gui.nix`; the
 packages for nixpkgs are in `nix/nixpkgs/`, submitted by hand: see [nix/SUBMIT.md](nix/SUBMIT.md).
 

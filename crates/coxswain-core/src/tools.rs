@@ -26,7 +26,81 @@ pub fn which(program: &str) -> Option<PathBuf> {
         .flat_map(|p| std::env::split_paths(&p).collect::<Vec<_>>())
         .flat_map(|dir| names.iter().map(move |n| dir.join(n)))
         .chain(extra_paths(program))
+        .chain(flatpak().into_iter().flat_map(|_| ["usr/bin", "usr/local/bin"]).map(|d| Path::new(HOST).join(d).join(program)))
         .find(|p| p.is_file())
+}
+
+/// The app id when Coxswain runs in a Flatpak. The host's programs are then seen under
+/// `/run/host` (`--filesystem=host`), and run there with `flatpak-spawn --host`.
+pub fn flatpak() -> Option<&'static str> {
+    static ID: std::sync::OnceLock<Option<String>> = std::sync::OnceLock::new();
+    ID.get_or_init(|| std::env::var("FLATPAK_ID").ok().filter(|_| Path::new("/.flatpak-info").is_file())).as_deref()
+}
+
+/// Where a Flatpak sees the host's `/usr`.
+const HOST: &str = "/run/host";
+
+/// In a Flatpak, a program `which` found on the host: its path there.
+fn host_path(program: &Path) -> Option<PathBuf> {
+    flatpak()?;
+    Some(Path::new("/").join(program.strip_prefix(HOST).ok()?))
+}
+
+/// `program` on the host, from inside the Flatpak. With `watch` it stops when Coxswain's side
+/// of it is stopped (a time limit), else it may outlive the app (an editor).
+fn on_host(program: &std::ffi::OsStr, watch: bool) -> Command {
+    let mut c = Command::new("flatpak-spawn");
+    c.arg("--host");
+    if watch {
+        c.arg("--watch-bus");
+    }
+    c.arg(program);
+    c
+}
+
+/// A program the user asked for (the editor, a shell command, a script): in a Flatpak it runs
+/// on the host, where the user's programs and terminal are.
+pub fn user_command(program: impl AsRef<std::ffi::OsStr>) -> Command {
+    if flatpak().is_some() { on_host(program.as_ref(), false) } else { command(program) }
+}
+
+/// `c` with its environment as flatpak-spawn's `--env` options, when it runs on the host:
+/// flatpak-spawn does not pass its own environment on (PlantUML's allowlist is set there).
+/// Anything else comes back as it is.
+pub fn hosted(c: Command) -> Command {
+    if c.get_program() != "flatpak-spawn" {
+        return c;
+    }
+    let args: Vec<&std::ffi::OsStr> = c.get_args().collect();
+    let at = args.iter().position(|a| !a.to_string_lossy().starts_with("--")).unwrap_or(args.len());
+    let mut h = Command::new("flatpak-spawn");
+    h.args(&args[..at]);
+    for (k, v) in c.get_envs() {
+        if let Some(v) = v {
+            let mut o = OsString::from("--env=");
+            o.push(k);
+            o.push("=");
+            o.push(v);
+            h.arg(o);
+        }
+    }
+    h.args(&args[at..]);
+    if let Some(d) = c.get_current_dir() {
+        h.current_dir(d);
+    }
+    h
+}
+
+/// In a Flatpak, temporary files go under the app's cache folder in the home, which the host's
+/// programs see at the same path; its `/tmp` is its own. Call first, before any thread starts.
+pub fn flatpak_tmp() {
+    if flatpak().is_none() {
+        return;
+    }
+    if let Some(d) = dirs::cache_dir().map(|d| d.join("tmp")).filter(|d| std::fs::create_dir_all(d).is_ok()) {
+        // Safety: called first thing in main, so no other thread reads the environment.
+        unsafe { std::env::set_var("TMPDIR", d) };
+    }
 }
 
 /// Video and sound in the desktop app's preview, on Linux and the BSDs: WebKit plays them with GStreamer,
@@ -178,12 +252,28 @@ pub fn this_app() -> std::io::Result<PathBuf> {
     }
 }
 
+/// Take the PATH of the user's login shell: a Mac's Dock and launchd give the bare system one.
+/// Called first thing, before other threads run, since it changes the environment.
+pub fn login_path() {
+    let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/zsh".into());
+    if let Ok(out) = command(shell).args(["-lc", "echo $PATH"]).output() {
+        let path = String::from_utf8_lossy(&out.stdout).trim().to_string();
+        if out.status.success() && !path.is_empty() {
+            // Safety: nothing else runs yet, so no other thread reads the environment.
+            unsafe { std::env::set_var("PATH", path) };
+        }
+    }
+}
+
 /// A command for a program other than Coxswain. In an AppImage, Coxswain's environment points
 /// at the libraries and GTK files packed inside it; other programs must not load those
 /// (LibreOffice stops with a symbol lookup error in the packed libcurl's companions), so every
 /// setting that names the AppImage's folder loses those entries, and what the AppImage set
 /// for its own window goes.
 pub fn command(program: impl AsRef<std::ffi::OsStr>) -> Command {
+    if let Some(host) = host_path(Path::new(program.as_ref())) {
+        return on_host(host.as_os_str(), true);
+    }
     let mut c = Command::new(program);
     if let Some(appdir) = std::env::var_os("APPDIR") {
         outside(&mut c, Path::new(&appdir), std::env::vars_os());
@@ -276,10 +366,13 @@ pub fn output(program: &std::path::Path, args: &[&std::ffi::OsStr], timeout: Dur
 
 /// `program` at the lowest priority the platform offers.
 pub fn low(program: &std::path::Path) -> Command {
-    match which("nice").filter(|_| cfg!(unix)) {
+    // A host program gets the host's nice, which can start it.
+    let host = host_path(program);
+    let nice = if host.is_some() { Some(Path::new(HOST).join("usr/bin/nice")) } else { which("nice") };
+    match nice.filter(|_| cfg!(unix)) {
         Some(nice) => {
             let mut c = command(nice);
-            c.args(["-n", "19"]).arg(program);
+            c.args(["-n", "19"]).arg(host.as_deref().unwrap_or(program));
             c
         }
         None => {
@@ -338,6 +431,20 @@ mod tests {
             assert_eq!(run("sleep 10", 200, 100), None);
             assert!(start.elapsed() < Duration::from_secs(5), "stopped at the time limit");
         }
+    }
+
+    #[test]
+    fn tools_hand_a_host_program_its_environment() {
+        let mut c = on_host("/usr/bin/plantuml".as_ref(), true);
+        c.arg("-tsvg").env("PLANTUML_SECURITY_PROFILE", "ALLOWLIST").current_dir("/home/me");
+        let h = hosted(c);
+        let args: Vec<_> = h.get_args().map(|a| a.to_string_lossy().into_owned()).collect();
+        assert_eq!(args, ["--host", "--watch-bus", "--env=PLANTUML_SECURITY_PROFILE=ALLOWLIST", "/usr/bin/plantuml", "-tsvg"]);
+        assert_eq!(h.get_current_dir(), Some(Path::new("/home/me")));
+        let mut c = Command::new("git");
+        c.env("GIT_OPTIONAL_LOCKS", "0");
+        assert_eq!(hosted(c).get_envs().count(), 1, "a program inside keeps its environment");
+        assert_eq!(host_path(Path::new("/run/host/usr/bin/tesseract")).is_some(), flatpak().is_some(), "outside a Flatpak nothing is the host's");
     }
 
     /// AppImages are Linux's, with `:` between the folders of a path list.

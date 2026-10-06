@@ -166,7 +166,7 @@ Search by meaning works the same in both apps: the search helper does it, and Fi
 *About this* group shows its hits. What differs is how you turn it on.
 
 1. Run `coxswain --meaning on`. It downloads the built-in model (about 488 MB), showing
-   *Downloading the model for search by meaning: 42%*, sets `[search] meaning = true` and starts
+   *Downloading: 42 %*, sets `[search] meaning = true` and starts
    a new helper. Or `coxswain --meaning ollama` or `coxswain --meaning server URL MODEL` for a
    server ([Command-line flags](command-line-flags.md#--meaning)).
 2. Start `coxswain` and press **Ctrl+F** for Find.
