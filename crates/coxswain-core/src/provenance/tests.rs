@@ -241,3 +241,123 @@ fn a_bad_certificate_is_an_issue() {
     assert!(a.entries[0].signer.is_none());
     assert_eq!(a.issues.iter().map(|i| i.code).collect::<Vec<_>>(), [IssueCode::BadCertificate]);
 }
+
+mod checks {
+    use super::super::check::{self, CannotCheck, GitSource, Source, Subject};
+    use super::*;
+    use std::sync::atomic::AtomicBool;
+
+    const FOO_SHA256: &str = "2c26b46b68ffc68ff99b453c1d30413413422d706483bfa0f98a5e886266e7ae";
+
+    fn res(name: &str, digest: &[(&str, &str)]) -> Resource {
+        Resource { name: Some(name.into()), digest: digest.iter().map(|(a, d)| (a.to_string(), d.to_string())).collect(), ..Resource::default() }
+    }
+
+    fn dir(name: &str) -> PathBuf {
+        let d = std::env::temp_dir().join(format!("coxswain-provenance-{name}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        d
+    }
+
+    #[test]
+    fn subjects_against_the_files_here() {
+        let d = dir("subjects");
+        let (here, other) = (d.join("rel"), d.join("other"));
+        std::fs::create_dir_all(here.join("dist")).unwrap();
+        std::fs::create_dir_all(&other).unwrap();
+        std::fs::write(here.join("dist/rocket.tar.gz"), "foo").unwrap();
+        std::fs::write(here.join("rocket.zip"), "bar").unwrap();
+        std::fs::write(other.join("elsewhere.bin"), "foo").unwrap();
+        std::fs::write(d.join("outside"), "foo").unwrap();
+        let prov = here.join("rocket.intoto.jsonl");
+        let no = AtomicBool::new(false);
+        let at = |s: &Resource| check::subject(&prov, Some(&other), s, Some(check::AUTO_LIMIT), &no);
+
+        // By its path below the provenance's folder.
+        assert_eq!(at(&res("dist/rocket.tar.gz", &[("sha256", FOO_SHA256)])), Subject::Matches { path: here.join("dist/rocket.tar.gz"), algorithm: "sha256".into() });
+        // By its last part, in upper case hex.
+        assert!(matches!(at(&res("build/out/rocket.zip", &[("sha256", &FOO_SHA256.to_uppercase())])), Subject::Differs { ref actual, .. } if actual.starts_with("fcde2b2e")));
+        // sha512 when there is no sha256.
+        let foo512 = "f7fbba6e0636f890e56fbbf3283e524c6fa3204ae298382d624741d0dc6638326e282c41be5e4254d8820772c5518a2c5a8c0c7f7eda19594a7eb539453e1ed7";
+        assert!(matches!(at(&res("dist/rocket.tar.gz", &[("sha512", foo512)])), Subject::Matches { .. }));
+        // In the other pane's folder.
+        assert!(matches!(at(&res("elsewhere.bin", &[("sha256", FOO_SHA256)])), Subject::Matches { ref path, .. } if *path == other.join("elsewhere.bin")));
+        // By a URL's last part.
+        let by_uri = Resource { uri: Some("https://example.com/dl/elsewhere.bin?x=1".into()), ..res("", &[("sha256", FOO_SHA256)]) };
+        assert!(matches!(at(&Resource { name: None, ..by_uri }), Subject::Matches { .. }));
+        // Never out of the folders.
+        assert_eq!(at(&res("../outside", &[("sha256", FOO_SHA256)])), Subject::Missing);
+        assert_eq!(at(&res("gone.tar.gz", &[("sha256", FOO_SHA256)])), Subject::Missing);
+        // What cannot be checked.
+        assert_eq!(at(&res("ghcr.io/demo/rocket", &[("sha256", "00")])), Subject::CannotCheck { why: CannotCheck::Image });
+        assert_eq!(at(&res("gone.tar.gz", &[])), Subject::CannotCheck { why: CannotCheck::NoDigest });
+        assert_eq!(at(&res("rocket.zip", &[("sha1", "aa"), ("md5", "bb")])), Subject::CannotCheck { why: CannotCheck::Algorithms(vec!["md5".into(), "sha1".into()]) });
+        // Large ones wait, and a cancelled hash says so.
+        assert_eq!(check::subject(&prov, None, &res("rocket.zip", &[("sha256", "aa")]), Some(2), &no), Subject::Large { path: here.join("rocket.zip"), size: 3 });
+        assert!(matches!(check::subject(&prov, None, &res("rocket.zip", &[("sha256", "aa")]), None, &AtomicBool::new(true)), Subject::Unreadable { .. }));
+        std::fs::remove_dir_all(&d).unwrap();
+    }
+
+    #[test]
+    fn images_are_told_from_files() {
+        for n in ["ghcr.io/demo/rocket", "docker.io/library/rust", "localhost/app", "registry:5000/app", "pkg:docker/rust@1", "oci://x/y"] {
+            assert!(check::is_image(&res(n, &[])), "{n}");
+        }
+        for n in ["dist/rocket.tar.gz", "rocket.tar.gz", "https://example.com/a.tar.gz", "../x/y", "./dist/a"] {
+            assert!(!check::is_image(&res(n, &[])), "{n}");
+        }
+    }
+
+    #[test]
+    fn git_sources_and_remotes() {
+        let r = Resource { uri: Some("git+https://github.com/Demo/Rocket.git@refs/tags/v1.4.0".into()), ..res("", &[("gitCommit", "ABC1234")]) };
+        assert_eq!(
+            check::git_source(&Resource { name: None, ..r }),
+            Some(GitSource { repo: "github.com/demo/rocket".into(), reference: Some("refs/tags/v1.4.0".into()), commit: "abc1234".into() })
+        );
+        let v02 = Resource { uri: Some("git+ssh://git@gitlab.com/g/p@main".into()), ..res("", &[("sha1", "abc1234")]) };
+        assert_eq!(check::git_source(&v02).map(|s| s.repo), Some("gitlab.com/g/p".into()));
+        assert_eq!(check::git_source(&Resource { uri: Some("pkg:docker/rust".into()), ..res("", &[("sha256", "a")]) }), None);
+        for url in ["https://github.com/demo/rocket.git", "git@github.com:demo/rocket.git", "ssh://git@github.com/demo/rocket", "https://user@GitHub.com/demo/rocket/"] {
+            assert_eq!(check::remote_key(url).as_deref(), Some("github.com/demo/rocket"), "{url}");
+        }
+    }
+
+    #[test]
+    fn the_source_commit_in_a_checkout_here() {
+        use crate::history::tests::{add, commit_as, repo};
+        let Some(d) = repo("provenance-source") else { return };
+        let g = |args: &[&str]| assert!(crate::tools::command("git").arg("-C").arg(&d).args(args).status().unwrap().success());
+        let head = || String::from_utf8(crate::tools::command("git").arg("-C").arg(&d).args(["rev-parse", "HEAD"]).output().unwrap().stdout).unwrap().trim().to_string();
+        g(&["remote", "add", "origin", "git@github.com:demo/rocket.git"]);
+        std::fs::create_dir_all(d.join("dist")).unwrap();
+        let mut commits = vec![];
+        for i in 0..3 {
+            std::fs::write(d.join("f"), i.to_string()).unwrap();
+            add(&d);
+            commit_as(&d, "t", 1_700_000_000 + i, "c");
+            commits.push(head());
+        }
+        g(&["checkout", "-q", "-b", "side", &commits[0]]);
+        std::fs::write(d.join("f"), "side").unwrap();
+        commit_as(&d, "t", 1_700_000_100, "side");
+        let side = head();
+        g(&["checkout", "-q", "main"]);
+
+        let prov = d.join("dist/rocket.intoto.jsonl");
+        let src = |c: &str| GitSource { repo: "github.com/demo/rocket".into(), reference: None, commit: c.into() };
+        let at = |c: &str| check::source(&prov, None, &src(c));
+        let top = PathBuf::from(String::from_utf8(crate::tools::command("git").arg("-C").arg(&d).args(["rev-parse", "--show-toplevel"]).output().unwrap().stdout).unwrap().trim());
+        assert_eq!(at(&commits[2]), Source::OnBranch { checkout: top.clone(), behind: 0 });
+        assert_eq!(at(&commits[0]), Source::OnBranch { checkout: top.clone(), behind: 2 });
+        assert_eq!(at(&side), Source::Elsewhere { checkout: top.clone() });
+        assert_eq!(at("0123456789abcdef0123456789abcdef01234567"), Source::Missing { checkout: top.clone() });
+        assert_eq!(at("--output=x"), Source::Missing { checkout: top.clone() }, "never an option");
+        g(&["checkout", "-q", &commits[0]]);
+        assert_eq!(at(&commits[2]), Source::Ahead { checkout: top.clone(), ahead: 2 });
+        let other = GitSource { repo: "github.com/someone/else".into(), ..src(&commits[0]) };
+        assert_eq!(check::source(&prov, None, &other), Source::NoCheckout);
+        std::fs::remove_dir_all(&d).unwrap();
+    }
+}
