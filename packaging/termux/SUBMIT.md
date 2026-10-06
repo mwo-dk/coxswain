@@ -62,6 +62,10 @@ hand, from the owner's account; nothing here opens it.
      (set `TERMUX_PKG_MAINTAINER="@<your GitHub name>"`), and open the pull request there with
      the same text; users then run `pkg install tur-repo && pkg install coxswain`.
    - *Maintainer:* new packages in the main repository use `@termux`; keep it unless they ask.
+   - *The trash patch:* the `trash` crate leaves Android out. The recipe copies it into
+     `vendor/trash`, lets Android take its freedesktop.org code and adds a `get_mount_points`
+     for Android: the same sed and the same patch file as `packages/yazi`, so F8 moves files to
+     `~/.local/share/Trash` as on Linux.
    - *Bundled C:* the build compiles SQLite and Oniguruma from their crates (`rusqlite`
      `bundled`, `onig`). If they want the system libraries, add `TERMUX_PKG_DEPENDS="oniguruma"`
      and `export RUSTONIG_SYSTEM_LIBONIG=1` in `termux_step_pre_configure`, build again, push.
@@ -84,6 +88,7 @@ hand, from the owner's account; nothing here opens it.
 > - Builds only the terminal app (`cargo build -p coxswain`); the repository also has a desktop
 >   app, which is not packaged here.
 > - Installs `bin/coxswain`, a `cox` link and the manual page `coxswain(1)`.
+> - Patches the `trash` crate for Android the way `packages/yazi` does (same sed, same patch).
 > - No runtime dependencies; recommends `git` (git column) and `termux-api` (clipboard and
 >   battery through Termux:API).
 > - `TERMUX_PKG_AUTO_UPDATE=true`: releases are tagged `vX.Y.Z` on GitHub.
