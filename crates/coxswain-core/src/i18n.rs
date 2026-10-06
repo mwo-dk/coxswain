@@ -16,7 +16,7 @@ pub struct Language {
     pub code: &'static str,
     /// Its name in itself.
     pub name: &'static str,
-    /// A `flag-icons` name.
+    /// A `flag-icons` name, or `derafsh`: Persian's banner, drawn for Coxswain (`docs/flags/`).
     pub flag: &'static str,
     /// The region it is listed under: a `language.group.*` key.
     pub group: &'static str,
@@ -49,7 +49,10 @@ pub const LANGUAGES: &[Language] = &[
     lang("pl", "Polski", "pl", "language.group.central", true),
     lang("uk", "Українська", "ua", "language.group.central", true),
     lang("el", "Ελληνικά", "gr", "language.group.mediterranean", true),
-    lang("he", "עברית", "il", "language.group.mediterranean", false),
+    lang("he", "עברית", "il", "language.group.middle_east", false),
+    lang("fa", "فارسی", "derafsh", "language.group.middle_east", true),
+    lang("hy", "Հայերեն", "am", "language.group.caucasus", true),
+    lang("ka", "ქართული", "ge", "language.group.caucasus", true),
     lang("en-CA", "English (Canada)", "ca", "language.group.americas", false),
     lang("es-AR", "Español (Argentina)", "ar", "language.group.americas", false),
     lang("en-AU", "English (Australia)", "au", "language.group.asia", false),
@@ -68,7 +71,34 @@ pub const IMPROVE_URL: &str = "https://github.com/mwo-dk/coxswain/blob/master/do
 
 /// Languages written right to left: the desktop app mirrors its layout for them.
 pub fn is_rtl(code: &str) -> bool {
-    code == "he"
+    matches!(code, "he" | "fa")
+}
+
+/// `s` with its digits in the current language's own: Persian writes ۰–۹. Only for numbers
+/// shown as numbers (counts, sizes, dates), never paths, keys or config values.
+pub fn digits(s: String) -> String {
+    digits_in(language(), s)
+}
+
+/// `s` in capitals, except Georgian: it has no capitals in running text, and its Mtavruli
+/// letters (what Unicode uppercases Mkhedruli to) are missing from most fonts.
+pub fn caps(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    for c in s.chars() {
+        if ('\u{10D0}'..='\u{10FF}').contains(&c) {
+            out.push(c);
+        } else {
+            out.extend(c.to_uppercase());
+        }
+    }
+    out
+}
+
+fn digits_in(lang: &str, s: String) -> String {
+    if lang != "fa" {
+        return s;
+    }
+    s.chars().map(|c| if c.is_ascii_digit() { char::from_u32('۰' as u32 + (c as u32 - '0' as u32)).unwrap_or(c) } else { c }).collect()
 }
 
 pub const REFERENCE: &str = "en-GB";
@@ -101,6 +131,9 @@ fn source(code: &str) -> &'static str {
         "el" => include_str!("../locales/el.json"),
         "ja" => include_str!("../locales/ja.json"),
         "ko" => include_str!("../locales/ko.json"),
+        "fa" => include_str!("../locales/fa.json"),
+        "ka" => include_str!("../locales/ka.json"),
+        "hy" => include_str!("../locales/hy.json"),
         _ => "{}",
     }
 }
@@ -157,6 +190,10 @@ pub fn nearest(tag: &str) -> &'static str {
         "el" => "el",
         "ja" => "ja",
         "ko" => "ko",
+        // Dari (Afghan Persian) has its own code; Tajik is Persian in Cyrillic, so not here.
+        "fa" | "prs" => "fa",
+        "ka" => "ka",
+        "hy" => "hy",
         _ => REFERENCE,
     }
 }
@@ -263,7 +300,7 @@ pub fn tr(key: &str, args: &[(&str, &str)]) -> String {
 /// `{n}` is available as a placeholder.
 pub fn trn(key: &str, n: u64, args: &[(&str, &str)]) -> String {
     let lang = language();
-    let count = n.to_string();
+    let count = digits(n.to_string());
     let mut all: Vec<(&str, &str)> = vec![("n", count.as_str())];
     all.extend_from_slice(args);
     match lookup(lang, key) {
@@ -327,6 +364,14 @@ pub fn plural(lang: &str, n: u64) -> &'static str {
             _ => "other",
         },
         "ja" | "ko" => "other",
+        // Persian and Armenian: 0 and 1 are singular (CLDR: i = 0 or n = 1).
+        "fa" | "hy" => {
+            if n < 2 {
+                "one"
+            } else {
+                "other"
+            }
+        }
         "he" => match n {
             1 => "one",
             2 => "two",
@@ -398,6 +443,11 @@ mod tests {
             ("el-CY", "el"),
             ("ja_JP.UTF-8", "ja"),
             ("ko_KR", "ko"),
+            ("fa_IR.UTF-8", "fa"),
+            ("fa-AF", "fa"),
+            ("prs", "fa"),
+            ("ka_GE.UTF-8", "ka"),
+            ("hy_AM", "hy"),
             ("ru-RU", "en-GB"),
             ("", "en-GB"),
         ] {
@@ -476,6 +526,17 @@ mod tests {
         assert_eq!([0, 1, 2].map(|n| plural("el", n)), ["other", "one", "other"]);
         assert_eq!([0, 1, 2].map(|n| plural("ja", n)), ["other", "other", "other"]);
         assert_eq!([0, 1, 2].map(|n| plural("ko", n)), ["other", "other", "other"]);
+        assert_eq!([0, 1, 2].map(|n| plural("fa", n)), ["one", "one", "other"]);
+        assert_eq!([0, 1, 2].map(|n| plural("hy", n)), ["one", "one", "other"]);
+        assert_eq!([0, 1, 2].map(|n| plural("ka", n)), ["other", "one", "other"]);
+    }
+
+    #[test]
+    fn i18n_persian_digits() {
+        assert_eq!(digits_in("fa", "2026-10-06 12.5 KB".into()), "۲۰۲۶-۱۰-۰۶ ۱۲.۵ KB");
+        assert_eq!(digits_in("ka", "2026".into()), "2026");
+        assert!(is_rtl("fa") && is_rtl("he") && !is_rtl("hy"));
+        assert_eq!(caps("ძებნა ab"), "ძებნა AB");
     }
 
     #[test]
