@@ -141,4 +141,4 @@ package, which almost every phone of the last years uses; the recipe builds for 
 which can be turned off ([Privacy](privacy.md)).
 
 ---
-[← Previous: FreeBSD](freebsd.md) · [Next: macOS →](macos.md)
+[← Previous: Flatpak](flatpak.md) · [Next: macOS →](macos.md)
