@@ -1245,6 +1245,7 @@
  "tag.red": "Punane",
  "tag.yellow": "Kollane",
  "termux.no_service": "Termuxil pole seansiteenust: otsinguabiline käivitub koos Coxswainiga ja jääb pärast seda kümneks minutiks",
+ "termux.no_trash": "Androidil pole siin prügikasti: Kustuta jäädavalt (Shift+F8) eemaldab selle lõplikult",
  "termux.storage": "Telefon: {name}",
  "theme.dark": "Tume",
  "theme.light": "Hele",

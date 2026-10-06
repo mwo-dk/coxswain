@@ -528,7 +528,10 @@ pub fn trash_locked(path: &Path, password: Option<&str>) -> io::Result<()> {
     if !path.exists() && crate::archive::split(path).is_some() {
         return delete_locked(path, password);
     }
-    trash::delete(path).map_err(io::Error::other)
+    #[cfg(not(target_os = "android"))]
+    return trash::delete(path).map_err(io::Error::other);
+    #[cfg(target_os = "android")]
+    Err(io::Error::other(crate::t!("termux.no_trash")))
 }
 
 /// A free name for `name` in `dir`: `name`, else `stem (2).ext`, `stem (3).ext`, ...

@@ -1245,6 +1245,7 @@
  "tag.red": "Röd",
  "tag.yellow": "Gul",
  "termux.no_service": "Termux har ingen sessionstjänst: sökhjälparen startar med Coxswain och stannar tio minuter efter",
+ "termux.no_trash": "Android har ingen papperskorg här: Radera permanent (Shift+F8) tar bort det för gott",
  "termux.storage": "Telefon: {name}",
  "theme.dark": "Mörkt",
  "theme.light": "Ljust",

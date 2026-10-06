@@ -1245,6 +1245,7 @@
  "tag.red": "Red",
  "tag.yellow": "Yellow",
  "termux.no_service": "Termux has no session service: the search helper starts with Coxswain and stays ten minutes after it",
+ "termux.no_trash": "Android has no trash here: Delete permanently (Shift+F8) removes it for good",
  "termux.storage": "Phone: {name}",
  "theme.aqua": "Mac OS X Aqua",
  "theme.cyber": "Cyber",

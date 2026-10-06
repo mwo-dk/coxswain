@@ -1288,6 +1288,7 @@
  "tag.red": "אדום",
  "tag.yellow": "צהוב",
  "termux.no_service": "ל־Termux אין שירות הפעלה: עוזר החיפוש מתחיל עם Coxswain ונשאר עשר דקות אחריו",
+ "termux.no_trash": "ל־Android אין כאן אשפה: מחיקה לצמיתות (Shift+F8) מסירה את זה לתמיד",
  "termux.storage": "טלפון: {name}",
  "theme.dark": "כהה",
  "theme.light": "בהיר",

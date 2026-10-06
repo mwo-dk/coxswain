@@ -116,6 +116,7 @@ files takes long on a phone and warms it. A model server on another computer doe
 | Start with my session | A systemd user service | Not available; the helper stays ten minutes after the app |
 | Certificates for HTTPS | The system's store | Termux's own, `$PREFIX/etc/tls/cert.pem` (`pkg install ca-certificates`) |
 | The go-to list (Alt+F1) | Type a path | Type a path, and the phone's folders |
+| F8 (Delete) | To the desktop's trash | In a `cargo install` build, Android has no trash: F8 says so, and **Shift+F8** deletes for good after asking. The static Linux binary keeps a trash in `~/.local/share/Trash` |
 | Update hint | By where it is installed | `cargo install coxswain` for a cargo build; `pkg upgrade coxswain` for one installed with `pkg` |
 
 Everything else, keys, config and the search index included, is the same. The config is in
@@ -143,6 +144,11 @@ stopping it while the screen is off.
 
 With the static musl binary it cannot look up `api.github.com` on Android. Built with
 `cargo install coxswain` it can. With either, `coxswain --version` says which version you have.
+
+#### Why does F8 say Android has no trash?
+
+A build for Android itself (`cargo install coxswain` in Termux) has no desktop trash to move
+files to. **Shift+F8** (*Delete permanently*) asks, then deletes for good.
 
 #### Does the desktop app run in Termux?
 

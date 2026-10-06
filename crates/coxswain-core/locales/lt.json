@@ -1288,6 +1288,7 @@
  "tag.red": "Raudona",
  "tag.yellow": "Geltona",
  "termux.no_service": "Termux neturi seanso paslaugos: paieškos pagalbininkas paleidžiamas su Coxswain ir lieka dešimt minučių po jo",
+ "termux.no_trash": "Android čia neturi šiukšlinės: Šalinti visam laikui (Shift+F8) pašalina negrįžtamai",
  "termux.storage": "Telefonas: {name}",
  "theme.dark": "Tamsi",
  "theme.light": "Šviesi",

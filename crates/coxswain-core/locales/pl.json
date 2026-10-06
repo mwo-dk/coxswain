@@ -1331,6 +1331,7 @@
  "tag.red": "Czerwony",
  "tag.yellow": "Żółty",
  "termux.no_service": "Termux nie ma usługi sesji: pomocnik wyszukiwania startuje z Coxswainem i zostaje dziesięć minut po nim",
+ "termux.no_trash": "Android nie ma tu kosza: Usuń trwale (Shift+F8) usuwa to na zawsze",
  "termux.storage": "Telefon: {name}",
  "theme.dark": "Ciemny",
  "theme.light": "Jasny",
