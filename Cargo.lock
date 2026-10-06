@@ -908,6 +908,7 @@ dependencies = [
 name = "coxswain-core"
 version = "2.6.0"
 dependencies = [
+ "base64 0.23.1",
  "blake3",
  "bzip2",
  "candle-core",

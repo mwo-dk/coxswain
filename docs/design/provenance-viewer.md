@@ -189,7 +189,8 @@ with those tools by hand.
 ## Detection
 
 1. **Name:** `*.intoto.jsonl`, `*.intoto.json`, `*.sigstore.json`, `*.sigstore`,
-   `*.dsse.json`, `*.provenance.json`, `provenance.json`.
+   `*.dsse.json`, `*.provenance.json`, `*.build.slsa` (slsa-github-generator's builders),
+   `provenance.json`.
 2. **Content,** for any other `.json`, `.jsonl` or `.ndjson` up to the size limit: the first
    8 KB contain `"payloadType"` with `application/vnd.in-toto+json`, or `"_type"` with
    `https://in-toto.io/Statement/`, or `"mediaType"` with
@@ -198,8 +199,9 @@ with those tools by hand.
 
 Core offers `provenance::sniff(path)`, `sniff_name` and `sniff_head`, as `bom` does. In the
 desktop app, `Preview.svelte`'s `sniffedBom` becomes `sniffed = { path, kind }`, so the text
-loader can upgrade a `data` or `jsonl` file to `bom` or to `provenance`. The BOM sniff runs first:
-a CycloneDX file is never an attestation. A `.jsonl` file whose first line is not an
+loader can upgrade a `data` or `jsonl` file to `bom` or to `provenance`. The provenance sniff
+runs first: its marks are specific, while a statement may carry a CycloneDX predicate, whose
+`bomFormat` would look like a BOM. A CycloneDX file is never taken for an attestation. A `.jsonl` file whose first line is not an
 attestation stays a JSON Lines table.
 
 ## Desktop app
