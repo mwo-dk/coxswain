@@ -96,9 +96,12 @@ The facts for the description you write:
   with git status in the panels, quick and full-text search, previews; homepage
   <https://github.com/mwo-dk/coxswain>; MIT; you are the upstream author.
 - What the package builds: the `coxswain` binary only (`-p coxswain` in the Cargo workspace,
-  which also holds the desktop app), plus `cox` (the same app under a short name, a second bin target) and the manual page.
+  which also holds the desktop app), plus `cox` (the same app under a short name, a second
+  bin target) and the manual page.
 - Tests: the `coxswain` and `coxswain-core` crates' tests run in `checkPhase`, with git (for
   the history and branch tests) and a writable home; `versionCheckHook` checks `--version`.
+  One test is skipped in 2.1.x (`archive_zip_times_are_local`: it read a source file's time,
+  1970 in Nix); the next release fixes the test, and the `checkFlags` line goes.
 - `oniguruma` from nixpkgs (`RUSTONIG_SYSTEM_LIBONIG`), for the tokenizer of search by meaning.
 - Platforms: Linux and Darwin (the upstream CI builds both).
 - The disclosure of the AI assistance, as above.

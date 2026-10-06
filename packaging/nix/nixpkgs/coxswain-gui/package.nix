@@ -33,6 +33,8 @@ rustPlatform.buildRustPackage (finalAttrs: {
   cargoBuildFlags = [ "-p" "coxswain-gui" ];
 
   npmRoot = "gui";
+  # SheetJS is a tarball in gui/vendor (`file:` in the lock): npm adds it to the cache.
+  makeCacheWritable = true;
   npmDeps = fetchNpmDeps {
     src = "${finalAttrs.src}/gui";
     hash = "sha256-nHWBfQqtT8t67vnVemZRprLOwJBOcWTJb9dW/Oz1VKQ=";
