@@ -723,6 +723,7 @@
  "notice.cjk_font_freebsd": "იაპონური ან კორეული შრიფტი დაყენებული არ არის, ამიტომ მათი ასოები შეიძლება კვადრატებად გამოჩნდეს. დააყენეთ ასე: pkg install noto-sans-jp noto-sans-kr",
  "notice.cloud": "ნაპოვნია {names}: მხოლოდ ონლაინ არსებული ფაილები მხოლოდ სახელით მოიძებნება, ამიტომ არაფერი ჩამოიტვირთება. შეცვლა პარამეტრებში",
  "notice.cloud_tui": "ნაპოვნია {names}: მხოლოდ ონლაინ არსებული ფაილები მხოლოდ სახელით მოიძებნება, ამიტომ არაფერი ჩამოიტვირთება. cloud = \"all\" config.toml-ში მათ წაკითხვას ჩართავს",
+ "notice.helper_outdated": "Coxswain განახლდა {version}-მდე: ფონური ძებნის გამოსაყენებლად გადატვირთეთ. მანამდე ის ფაილების სახელებს თავად ეძებს.",
  "notice.helper_unstarted": "„სესიასთან ერთად გაშვება“ ჩართულია, მაგრამ systemd-მ ძებნის დამხმარე არ გაუშვა, ამიტომ Coxswain-მა ის სისტემიდან გასვლამდე თავად გაუშვა. რატომ არ გაეშვა: systemctl --user status coxswain-index.",
  "notice.helper_unstarted_macos": "„სესიასთან ერთად გაშვება“ ჩართულია, მაგრამ macOS-მა ძებნის დამხმარე არ გაუშვა, ამიტომ Coxswain-მა ის სისტემიდან გასვლამდე თავად გაუშვა. რომ macOS-მა ის შესვლისას გაუშვას: System Settings → General → Login Items & Extensions → Coxswain → Allow in the Background. რატომ არ გაეშვა: helper.log ~/Library/Caches/coxswain-ში და launchctl print gui/$(id -u)/dk.mwo.coxswain.index.",
  "notice.history": "ახალი: {key} git-ის რეპოზიტორიის ფაილზე ან საქაღალდეზე აჩვენებს მის ისტორიას, კომიტ-კომიტ",

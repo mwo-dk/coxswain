@@ -753,6 +753,7 @@
  "notice.cjk_font_freebsd": "Aucune police japonaise ou coréenne n'est installée : leurs caractères peuvent s'afficher sous forme de carrés. Installez-en une avec : pkg install noto-sans-jp noto-sans-kr",
  "notice.cloud": "{names} trouvé : les fichiers uniquement en ligne sont trouvés par leur nom seulement, rien n'est donc téléchargé. Modifiable dans les Paramètres",
  "notice.cloud_tui": "{names} trouvé : les fichiers uniquement en ligne sont trouvés par leur nom seulement, rien n'est donc téléchargé. cloud = \"all\" dans config.toml les lit",
+ "notice.helper_outdated": "Coxswain a été mis à jour en {version} : redémarrez-le pour utiliser la recherche en arrière-plan. D’ici là, il cherche les noms de fichiers par lui-même.",
  "notice.helper_unstarted": "Démarrer avec ma session est activé, mais systemd n'a pas lancé l'assistant de recherche ; Coxswain l'a donc lancé jusqu'à votre déconnexion. Pourquoi il n'a pas démarré : systemctl --user status coxswain-index.",
  "notice.helper_unstarted_macos": "Démarrer avec ma session est activé, mais macOS n'a pas lancé l'assistant de recherche ; Coxswain l'a donc lancé jusqu'à votre déconnexion. Pour que macOS le lance à l'ouverture de session : Réglages Système → Général → Ouverture et extensions → Coxswain → Autoriser en arrière-plan. Pourquoi il n'a pas démarré : helper.log dans ~/Library/Caches/coxswain, et launchctl print gui/$(id -u)/dk.mwo.coxswain.index.",
  "notice.history": "Nouveau : {key} sur un fichier ou un dossier d'un dépôt git montre son historique, commit par commit",

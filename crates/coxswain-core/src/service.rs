@@ -235,14 +235,14 @@ pub fn install(exe: &Path) -> io::Result<()> {
         let line = format!("\"{}\" {} {STAY}", exe.display(), crate::helper::ARG);
         run(crate::tools::command("reg").args(["add", RUN_KEY, "/v", NAME, "/t", "REG_SZ", "/d", &line, "/f"]))?;
         // Now as well, not only from the next login.
-        return crate::helper::detached(exe).arg(STAY).spawn().map(drop);
+        return crate::helper::launch(exe, true);
     }
     let file = file().ok_or_else(|| io::Error::other("no home folder"))?;
     std::fs::create_dir_all(file.parent().unwrap_or(Path::new(".")))?;
     std::fs::write(&file, unit(exe, crate::tools::flatpak()))?;
     if autostart() {
         // The session starts it from the next login; now, this app does.
-        crate::helper::detached(exe).arg(STAY).spawn().map(drop)
+        crate::helper::launch(exe, true)
     } else if cfg!(target_os = "macos") {
         // Its errors go to helper.log, whose folder launchd does not make.
         if let Some(dir) = crate::helper::folder() {
