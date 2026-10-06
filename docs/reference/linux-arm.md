@@ -28,7 +28,7 @@ From the [releases page](https://github.com/mwo-dk/coxswain/releases/latest):
 | Raspberry Pi OS 64-bit, Debian, Ubuntu | `Coxswain_<version>_arm64.deb` | `coxswain-terminal-<version>-aarch64-unknown-linux-musl.tar.gz` |
 | Fedora, Asahi Fedora Remix, openSUSE | `Coxswain-<version>-1.aarch64.rpm` | the same |
 | Any other | `Coxswain_<version>_aarch64.AppImage` | the same |
-| Arch Linux ARM | `coxswain-bin` from the AUR (both apps) | the same |
+| Arch Linux ARM | `makepkg -si` in `packaging/aur/coxswain-bin` of a clone (both apps; not on the AUR yet) | the same |
 
 `uname -m` says `aarch64` on these machines (`dpkg --print-architecture` says `arm64`). If it
 says `armv7l` or `armhf`, the system is 32-bit: there is no build for that.
