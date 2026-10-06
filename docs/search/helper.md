@@ -24,7 +24,7 @@ This registers the helper with the system:
 | System | Registration |
 |---|---|
 | Linux | A systemd user unit, `~/.config/systemd/user/coxswain-index.service`, with `Nice=10` and idle I/O |
-| macOS | A LaunchAgent, `~/Library/LaunchAgents/dk.mwo.coxswain.index.plist`, with `Nice` 10 and low-priority I/O |
+| macOS | A LaunchAgent, `~/Library/LaunchAgents/dk.mwo.coxswain.index.plist`, with `Nice` 10, which macOS lists under *System Settings → General → Login Items & Extensions* |
 | Windows | A *Run* entry, `coxswain-index`, under `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` |
 | FreeBSD | An XDG autostart entry, `~/.config/autostart/coxswain-index.desktop`, which the desktop session starts at login; an rc.d script and a login-shell line are the other ways ([FreeBSD](../reference/freebsd.md#the-search-helper)) |
 
@@ -57,7 +57,7 @@ Nothing of its own while it works. Signs of it:
 - **Upgrades that move the program.** The session registration names the program it starts. An
   upgrade can remove that program: a Homebrew cask keeps the version in its path, and an AppImage
   can be moved or replaced by one with another name. When an app finds no helper answering and
-  the registration names another program than itself, it registers itself instead (it rewrites
+  the registration is not the one it writes (another program, or an older version's), it registers itself instead (it rewrites
   the systemd unit, the LaunchAgent or the *Run* entry) and starts it. You see nothing but search
   working; *Start with my session* stays ticked. Before 1.29.0 the system kept trying the removed
   program, and both apps searched names only, without a word.
@@ -65,6 +65,17 @@ Nothing of its own while it works. Signs of it:
   when there is one (`coxswain-gui` or `coxswain`, as Homebrew puts in its `bin` folder), not by
   the versioned file it points to. After `brew upgrade` the link leads to the new version, so the
   helper that starts with your next login is already the new one, before you open the app.
+- **When the system does not start it.** With *Start with my session* on, an app that finds no
+  helper asks systemd or launchd to start it (`systemctl --user start coxswain-index`, `launchctl
+  kickstart`), and again three seconds later. If none answers eight seconds on, the app starts one
+  that stays until you log out, and a notice says so once: *Start with my session is on, but
+  macOS did not start the search helper, so Coxswain started it until you log out*, with where to
+  allow it. Search works either way. On a Mac this happens when *Allow in the Background* is off
+  for Coxswain, or a managed Mac does not allow background items.
+- **Its log.** The helper writes when it starts, when and why it leaves, and what failed into
+  `helper.log` in the cache folder (`~/Library/Caches/coxswain/` on a Mac, `~/.cache/coxswain/`
+  on Linux), readable by you alone. It is emptied when it passes 1 MB. On Linux, systemd keeps
+  the session helper's lines in the journal instead: `journalctl --user -u coxswain-index`.
 - **Without it.** If the helper cannot be reached, each app indexes names by itself; text search
   and meaning then wait for the helper.
 - **Settings.** A change under *Finding files* starts a new helper
@@ -81,7 +92,7 @@ Nothing of its own while it works. Signs of it:
 | System | What *Start with my session* registers | Check that it runs | Turn it off |
 |---|---|---|---|
 | Linux | A systemd user service, `coxswain-index.service` | `systemctl --user status coxswain-index` | Untick it, or `coxswain --index-service off` |
-| macOS | A LaunchAgent, `~/Library/LaunchAgents/dk.mwo.coxswain.index.plist` | `launchctl list \| grep coxswain` | The same |
+| macOS | A LaunchAgent, `~/Library/LaunchAgents/dk.mwo.coxswain.index.plist` | `launchctl print gui/$(id -u)/dk.mwo.coxswain.index` | The same |
 | Windows | A *Run* entry for your user in the registry | Task Manager → *Startup apps* lists Coxswain | The same, or disable it in Task Manager |
 | FreeBSD | An XDG autostart entry, `~/.config/autostart/coxswain-index.desktop` | `pgrep -lf index-helper` | The same; the running helper stays until you log out |
 
@@ -127,9 +138,31 @@ searched now.* From 1.29.0 the first app you open registers itself and starts th
 older version, untick and tick *Start with my session* again, or run `coxswain --index-service off`
 then `on`.
 
+#### Start with my session is on, but background reading does not start. Why?
+The system did not start the helper, or started it and it left. From 2.1.2 the app then starts it
+itself (Find searches words again, and *Settings → Finding files* shows *Files read*), and a
+notice in the status line (terminal app) or under *Settings → What's new* (desktop app) says why
+and where to allow it. To see what happened:
+
+| System | Look at |
+|---|---|
+| macOS | `launchctl print gui/$(id -u)/dk.mwo.coxswain.index`: `state = running` and its `pid`, `runs` (how often it started), `last exit code`; and `~/Library/Caches/coxswain/helper.log` |
+| Linux | `systemctl --user status coxswain-index` and `journalctl --user -u coxswain-index` |
+
+On a Mac, turn on **System Settings → General → Login Items & Extensions → Coxswain → Allow in the
+Background**, then untick and tick *Start with my session* again (or `coxswain --index-service off`
+then `on`). Before 2.1.2 the LaunchAgent ran the helper as a background job, which macOS keeps on
+the efficiency cores with its disk reads throttled: it ran, but the backlog barely moved. The first
+app of 2.1.2 you open rewrites the LaunchAgent without that.
+
+#### What is in helper.log?
+One line per start (`helper starts, process 70973`), why it left (*no app asked for a while*, *an
+app asked it to*, *another helper runs*), and errors, such as a search store that could not be
+opened, each with the time. Nothing about your files.
+
 #### I changed `[search]` by hand. How do I make the helper take it?
 Make any change in Settings, or close every window and wait ten minutes; with the session helper,
 `coxswain --index-service off` then `on`.
 
 ---
-[← Previous: Ask](ask.md) · [Next: Battery →](battery.md)
+[← Previous: Ask without a server](ask-builtin.md) · [Next: Battery →](battery.md)

@@ -197,6 +197,19 @@ pub fn this_app() -> std::io::Result<PathBuf> {
     }
 }
 
+/// Take the PATH of the user's login shell: a Mac's Dock and launchd give the bare system one.
+/// Called first thing, before other threads run, since it changes the environment.
+pub fn login_path() {
+    let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/zsh".into());
+    if let Ok(out) = command(shell).args(["-lc", "echo $PATH"]).output() {
+        let path = String::from_utf8_lossy(&out.stdout).trim().to_string();
+        if out.status.success() && !path.is_empty() {
+            // Safety: nothing else runs yet, so no other thread reads the environment.
+            unsafe { std::env::set_var("PATH", path) };
+        }
+    }
+}
+
 /// A command for a program other than Coxswain. In an AppImage, Coxswain's environment points
 /// at the libraries and GTK files packed inside it; other programs must not load those
 /// (LibreOffice stops with a symbol lookup error in the packed libcurl's companions), so every

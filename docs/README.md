@@ -70,6 +70,7 @@ New here? Start with [The first-run guide](panels/first-run.md), [The screen](pa
 | [Search by meaning](search/meaning.md) | The built-in multilingual model, turning it on and off, what you see, how it works |
 | [Search by meaning on a server: Ollama, Lemonade, LM Studio](search/servers.md) | Ollama, Lemonade, LM Studio, any OpenAI-compatible server, API keys, privacy |
 | [Ask: questions answered from your files](search/ask.md) | The Ask row of Find (Ctrl+Enter): your chat model answers from the closest passages, citing them, in place of the list |
+| [Ask without a server: the built-in chat model](search/ask-builtin.md) | Qwen3 1.7B or 4B Instruct built in: the download, Metal on a Mac and the processor elsewhere, loaded in the helper and let go when idle, speed, `builtin:` in `ask_model` |
 | [The search helper](search/helper.md) | One process for all windows, privacy of its connection, starting with the session, taken over after an upgrade moves the program |
 | [Battery](search/battery.md) | Reading pauses on battery, Read now reads anyway |
 | [Notices and what's new](search/notices.md) | The version in the title, the tips, the count on Settings, *What's new* and `coxswain --whats-new` |
@@ -140,6 +141,7 @@ New here? Start with [The first-run guide](panels/first-run.md), [The screen](pa
 | [Licences and bills of materials](reference/bills-of-materials.md) | The SBOMs, the CBOM and the third-party notices each release carries, the licence checks, the cryptography both apps use |
 | [Performance](reference/performance.md) | What keeps each app quick, the numbers for 100,000 files and a million names, and how to measure again |
 | [FreeBSD](reference/freebsd.md) | Both apps on FreeBSD: one-line install, packages, the search helper without systemd (autostart, rc.d, login shell), search by meaning, ZFS snapshots and facts, a file's package, file flags, boot environments and jails, differences, updating, the desktop app's experimental status, other BSDs |
+| [Termux on Android](reference/termux.md) | The terminal app in Termux: `pkg install coxswain` (or `cargo install coxswain` until the package is in), the phone's folders with termux-setup-storage, F-keys on the extra keys row, updating, the package recipe and its CI build |
 | [macOS](reference/macos.md) | The folder prompts (TCC) and what to answer, what is never read on a Mac (~/Library but iCloud Drive, Photos and Music libraries), Full Disk Access, ad-hoc signing and asking again after updates, search by meaning on the GPU without a server |
 
 ## [Questions, collected](faq.md)

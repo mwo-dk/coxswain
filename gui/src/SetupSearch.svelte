@@ -26,13 +26,15 @@
   // What the helper and the built-in model are doing, for the statuses.
   let index = $state(null);
   let meaning = $state(null);
+  let chatBuiltin = $state(null);
   const load = () => {
     invoke("index_status").then((v) => (index = v), () => {});
     invoke("meaning_status").then((v) => (meaning = v), () => {});
+    invoke("chat_status").then((v) => (chatBuiltin = v), () => {});
   };
   load();
   $effect(() => {
-    const id = setInterval(load, meaning?.downloading ? 500 : 2000);
+    const id = setInterval(load, meaning?.downloading || chatBuiltin?.downloading ? 500 : 2000);
     return () => clearInterval(id);
   });
 
@@ -95,7 +97,25 @@
     pulling = now;
   });
 
-  // Step 4: Ask's chat model, on the same server (Ollama here with the built-in model).
+  // Step 4: Ask's chat model: a built-in one, or one on the same server (Ollama here with the
+  // built-in model for the vectors).
+  let builtinChat = $state("");
+  $effect(() => {
+    const list = chatBuiltin?.models ?? [];
+    if (!list.some((m) => m.key === builtinChat)) builtinChat = (list.find((m) => m.key === s.ask_model) ?? list.find((m) => m.suggested))?.key ?? "";
+  });
+  const builtinChosen = $derived(chatBuiltin?.models.find((m) => m.key === builtinChat));
+  function useBuiltinChat() {
+    if (builtinChosen.installed) return useChat(builtinChosen.key);
+    // The download makes it Ask's when it is done; then it is tried.
+    invoke("chat_action", { what: "download", model: builtinChosen.key }).then(load, (e) => (error = String(e)));
+  }
+  let fetchingChat = false;
+  $effect(() => {
+    const now = !!chatBuiltin?.downloading;
+    if (fetchingChat && !now && !chatBuiltin.error && s.ask_model.startsWith("builtin:")) useChat(s.ask_model);
+    fetchingChat = now;
+  });
   const askServer = $derived(server ?? servers.find((f) => f.kind === "ollama") ?? null);
   const chatModels = $derived(askServer ? askServer.models.filter((m) => m.chat).map((m) => m.name) : []);
   const suggestChat = $derived(askServer?.kind === "lemonade" || askServer?.kind === "ollama" || !askServer ? (look?.advice?.chat ?? "qwen3:8b") : "");
@@ -104,11 +124,12 @@
     if (!chatModels.includes(chat)) chat = chatModels.find((m) => m === s.ask_model) ?? chatModels.find((m) => suggestChat && m.startsWith(suggestChat)) ?? chatModels[0] ?? "";
   });
   let trial = $state(null);
-  async function useChat() {
-    await set({ ask_model: chat });
+  async function useChat(model = chat) {
+    await set({ ask_model: model });
     trial = { busy: true };
     try {
       trial = { ms: await invoke("setup_try") };
+      if (model.startsWith("builtin:")) return;
       speed = await invoke("setup_speed", { server: askServer });
       speedChecked = true;
     } catch (e) {
@@ -195,24 +216,34 @@
     </section>
 
     <section>
-      <h3>{t("setup.step_ask")} {#if s.ask_model}<span class="state ok">{s.ask_model}</span>{/if}</h3>
-      {#if !askServer}<p class="hint">{t("setup.ask_needs_server")}</p>
-      {:else}
+      <h3>{t("setup.step_ask")} {#if s.ask_model}<span class="state ok">{ui.cfg.ask_name}</span>{/if}</h3>
+      <p class="hint">{t("setup.ask_builtin_hint")}</p>
+      {#if chatBuiltin}
+        <div class="row">
+          <select bind:value={builtinChat} aria-label={t("setup.step_ask")}>{#each chatBuiltin.models as m (m.key)}<option value={m.key}>{t("setup.ask_builtin", { model: m.name, size: size(m.size), where: chatBuiltin.runs })}</option>{/each}</select>
+          {#if !askServer}<span class="badge">{t("setup.recommended")}</span>{/if}
+          <button class:primary={!askServer} disabled={!builtinChosen || !!chatBuiltin.downloading || trial?.busy} onclick={useBuiltinChat}>{builtinChosen?.installed ? t("setup.use_try") : t("setup.download_chat", { model: builtinChosen?.name ?? "", size: size(builtinChosen?.size ?? 0) })}</button>
+        </div>
+        {#if chatBuiltin.downloading}<p class="hint">{t("setup.downloading", { percent: Math.floor((chatBuiltin.downloading[1] * 100) / Math.max(1, chatBuiltin.downloading[2])) })}</p>{/if}
+        {#if chatBuiltin.error}<p class="err">{chatBuiltin.error}</p>{/if}
+      {/if}
+      {#if askServer}
         <p class="hint">{t("setup.ask_hint", { model: suggestChat || chatModels[0] || "qwen3:8b" })}</p>
         <div class="row">
           <select bind:value={chat} aria-label={t("setup.step_ask")}>{#each chatModels as m (m)}<option value={m}>{m}</option>{/each}</select>
-          <button class="primary" disabled={!chat || trial?.busy} onclick={useChat}>{t("setup.use_try")}</button>
+          <button class="primary" disabled={!chat || trial?.busy} onclick={() => useChat()}>{t("setup.use_try")}</button>
           {#if suggestChat && !chatModels.some((m) => m.startsWith(suggestChat))}<button disabled={!!meaning?.downloading} onclick={() => pull(suggestChat)}>{t("setup.pull", { model: suggestChat })}</button>{/if}
         </div>
-        {#if trial?.busy}<p class="hint">{t("dialogs.ask_waiting", { model: chat })}</p>{/if}
-        {#if trial?.ms != null}<p class="ok">{t("setup.try_done", { seconds: (trial.ms / 1000).toFixed(1) })}</p>{/if}
-        {#if trial?.error}<p class="err">{trial.error}</p>{/if}
       {/if}
+      {#if trial?.busy}<p class="hint">{t("dialogs.ask_waiting", { model: ui.cfg.ask_name })}</p>{/if}
+      {#if trial?.ms != null}<p class="ok">{t("setup.try_done", { seconds: (trial.ms / 1000).toFixed(1) })}</p>{/if}
+      {#if trial?.error}<p class="err">{trial.error}</p>{/if}
     </section>
 
     <section>
       <h3>{t("setup.step_speed")}</h3>
-      {#if !look?.machine?.gpu && !look?.machine?.npu}<p class="hint">{t("setup.speed_no_gpu")}</p>
+      {#if s.ask_model.startsWith("builtin:")}<p class="hint">{t("setup.speed_builtin", { where: chatBuiltin?.runs ?? "" })}</p>
+      {:else if !look?.machine?.gpu && !look?.machine?.npu}<p class="hint">{t("setup.speed_no_gpu")}</p>
       {:else if !speedChecked}<p class="hint">{t("setup.speed_hint")}</p>
       {:else if speed}<p><strong>{speed}</strong></p>
       {:else}<p class="ok">{t("setup.speed_ok")}</p>{/if}
@@ -229,7 +260,7 @@
       <ul>
         <li>{t("setup.sum_text", { state: s.search_text ? t("setup.on") : t("setup.off") })}</li>
         <li>{t("setup.sum_meaning", { state: meaningNow || t("setup.off") })}</li>
-        <li>{t("setup.sum_ask", { state: s.ask_model || t("setup.off") })}</li>
+        <li>{t("setup.sum_ask", { state: s.ask_model ? ui.cfg.ask_name : t("setup.off") })}</li>
         <li>{t("setup.sum_service", { state: index?.service ? t("setup.on") : t("setup.off") })}</li>
       </ul>
       <button class="primary" onclick={close}>{t("setup.done")}</button>

@@ -54,6 +54,11 @@ pub fn all(cfg: &Config, status: &Status, state: &AppState, terminal: bool) -> V
     if let Some(why) = status.meaning_error.as_ref().filter(|_| status.meaning) {
         all.push(Notice::new(format!("error:{why}"), t!("notice.meaning_error", "why" => why), Some("search_meaning")));
     }
+    // Start with my session is on, but systemd or launchd did not start the helper: this app did.
+    if crate::helper::UNSTARTED.load(std::sync::atomic::Ordering::Relaxed) {
+        let text = if cfg!(target_os = "macos") { t!("notice.helper_unstarted_macos") } else { t!("notice.helper_unstarted") };
+        all.push(Notice::new("helper-unstarted", text, Some("search")));
+    }
     // On a Mac: why macOS asks about folders, and what Coxswain reads.
     if cfg!(target_os = "macos") {
         all.push(Notice::new("macos-folders", t!("notice.macos_folders"), None));

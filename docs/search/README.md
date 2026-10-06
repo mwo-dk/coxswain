@@ -16,7 +16,7 @@ read and when, and every setting.
 | [In files](text.md) | Files whose text has your words, ranked by words and meaning together | *Words inside files* on (the default) and the [helper](helper.md) |
 | [About this](meaning.md) | Files about your words that lack them, in any language | [Search by meaning](meaning.md) |
 | [History](history.md) | Commits whose message, author or paths match | *Git history* (on by default) |
-| [The Ask row](ask.md) | An answer to your question, written from the passages closest to it, with numbered sources | Search by meaning and a chat model on your server |
+| [The Ask row](ask.md) | An answer to your question, written from the passages closest to it, with numbered sources | Search by meaning and a chat model: the [built-in one](ask-builtin.md) or one on your server |
 
 Every group finds files [inside archives](archives.md) too. The **scope** (*Everywhere* or the
 active panel's folder, **Ctrl+F** inside Find) limits every group and Ask.
@@ -39,6 +39,7 @@ active panel's folder, **Ctrl+F** inside Find) limits every group and Ask.
 | [Search by meaning](meaning.md) | The built-in multilingual model: turning it on, what it finds |
 | [Search by meaning on a server](servers.md) | Ollama, Lemonade, LM Studio or any server with the OpenAI API |
 | [Ask](ask.md) | Questions answered from your files by your own chat model, with numbered sources |
+| [Ask without a server](ask-builtin.md) | The built-in chat model (Qwen3 1.7B or 4B): downloaded once, on a Mac's GPU or the processor, nothing sent |
 | [The search helper](helper.md) | The background process, starting it with your session, and how an app takes the registration over after an upgrade |
 | [Battery](battery.md) | Why reading waits while a laptop runs on its battery |
 | [Notices and what's new](notices.md) | Tips of what to turn on, what each version brought (*Settings → Overview → What's new*, `coxswain --whats-new`), and the version in the title |

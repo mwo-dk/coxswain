@@ -252,7 +252,7 @@ fn amd_on_linux() -> Option<(Vendor, String, Option<u64>)> {
     Some((Vendor::Amd, name, vram))
 }
 
-fn ram_gb() -> u64 {
+pub fn ram_gb() -> u64 {
     #[cfg(target_os = "linux")]
     {
         let info = std::fs::read_to_string("/proc/meminfo").unwrap_or_default();
@@ -410,12 +410,19 @@ pub fn try_ask(cfg: &crate::config::SearchConfig) -> Result<Duration, String> {
     let start = Instant::now();
     let mut first = None;
     let sources = [(std::path::PathBuf::from("rocket.md"), "The rocket is named Tern and flies in May.".to_string())];
-    crate::meaning::ask(cfg, &[], "What is the rocket called?", &sources, |piece| {
+    let question = "What is the rocket called?";
+    let on = |piece: &str| {
         if !piece.trim().is_empty() {
             first = Some(start.elapsed());
         }
         first.is_none()
-    })?;
+    };
+    // The built-in model is tried where Ask runs it, in the search helper, so it stays loaded.
+    if crate::chat::of(&cfg.ask_model).is_some() {
+        crate::helper::Client::start(cfg).answer(cfg, &[], question, &sources, on)?;
+    } else {
+        crate::meaning::ask(cfg, &[], question, &sources, on)?;
+    }
     first.ok_or_else(|| crate::t!("setup.no_answer"))
 }
 
