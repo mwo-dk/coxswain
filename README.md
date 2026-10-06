@@ -75,15 +75,16 @@ The whole walk-through: [Smart search in a few minutes](docs/search/setup.md).
 
 | System | Terminal app | Desktop app |
 |---|---|---|
-| macOS | `brew install mwo-dk/coxswain/coxswain` | `brew install --cask mwo-dk/coxswain/coxswain-gui`, or the `.dmg` |
-| Linux | `brew install mwo-dk/coxswain/coxswain`, or the static `x86_64-unknown-linux-musl` binary | `.deb`, `.rpm`, `.AppImage`, or the Homebrew cask (x86-64) |
 | FreeBSD 14, 15 | `fetch -qo - https://raw.githubusercontent.com/mwo-dk/coxswain/master/install/install-freebsd.sh \| sh` installs both apps ([FreeBSD](docs/reference/freebsd.md)); `--terminal-only` for the terminal app alone | The same line (experimental), with the packages it needs from `pkg` |
+| Linux | `brew install mwo-dk/coxswain/coxswain`, or the static `x86_64-unknown-linux-musl` binary | `.deb`, `.rpm`, `.AppImage`, or the Homebrew cask (x86-64) |
+| macOS | `brew install mwo-dk/coxswain/coxswain` | `brew install --cask mwo-dk/coxswain/coxswain-gui`, or the `.dmg` |
 | Windows | `coxswain-terminal-<version>-x86_64-pc-windows-msvc.zip` | `.msi` or `-setup.exe` |
 | Any | `cargo install coxswain` | `./install/install.sh` (or `install\install.ps1`) from a clone |
 
 Downloads are on the [releases page](https://github.com/mwo-dk/coxswain/releases/latest).
-**The builds are not code-signed:** on Windows click *More info* and *Run anyway*; on macOS, if
-the app "is damaged", run `xattr -cr /Applications/Coxswain.app` once (the cask does it for you). Why macOS may ask about your folders again after an update: [macOS](docs/reference/macos.md#why-a-new-version-may-ask-again).
+**The builds are not code-signed:** on macOS, if the app "is damaged", run
+`xattr -cr /Applications/Coxswain.app` once (the cask does it for you); on Windows click
+*More info* and *Run anyway*. Why macOS may ask about your folders again after an update: [macOS](docs/reference/macos.md#why-a-new-version-may-ask-again).
 Both apps check once a day for a newer release and give the exact update command
 ([Update checks](docs/reference/updates.md)). Every way to install and update, and building
 from source: [install/INSTALL.md](install/INSTALL.md). Git glyphs want a
