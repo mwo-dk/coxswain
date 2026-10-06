@@ -743,6 +743,8 @@
  "notice.cjk_font_freebsd": "No hi ha cap tipus de lletra japonès o coreà instal·lat, i les seves lletres poden aparèixer com a quadres. Instal·leu-ne un amb: pkg install noto-sans-jp noto-sans-kr",
  "notice.cloud": "S'ha trobat {names}: els fitxers que només són en línia es troben només pel nom, així que no es baixa res. Canvia-ho a la Configuració",
  "notice.cloud_tui": "S'ha trobat {names}: els fitxers que només són en línia es troben només pel nom, així que no es baixa res. cloud = \"all\" a config.toml els llegeix",
+ "notice.helper_unstarted": "«Inicia l'assistent de cerca amb la meva sessió» està activat, però el systemd no ha iniciat l'ajudant de cerca, així que el Coxswain l'ha iniciat fins que tanquis la sessió. Per què no s'ha iniciat: systemctl --user status coxswain-index.",
+ "notice.helper_unstarted_macos": "«Inicia l'assistent de cerca amb la meva sessió» està activat, però el macOS no ha iniciat l'ajudant de cerca, així que el Coxswain l'ha iniciat fins que tanquis la sessió. Perquè el macOS l'iniciï en entrar: Configuració del Sistema → General → Elements d'inici i extensions → Coxswain → Permet en segon pla. Per què no s'ha iniciat: helper.log a ~/Library/Caches/coxswain i launchctl print gui/$(id -u)/dk.mwo.coxswain.index.",
  "notice.history": "Novetat: {key} sobre un fitxer o una carpeta d'un repositori git en mostra l'historial, commit a commit",
  "notice.language_new": "{language} és una traducció nova. Si una paraula sona malament o maldestra, ajuda a millorar-la: Paràmetres → Llengua.",
  "notice.language_new_tui": "{language} és una traducció nova. Si una paraula sona malament o maldestra, coxswain --languages explica com ajudar a millorar-la.",

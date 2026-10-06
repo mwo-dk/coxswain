@@ -713,6 +713,8 @@
  "notice.cjk_font_freebsd": "Es ist keine japanische oder koreanische Schrift installiert, daher erscheinen ihre Zeichen womöglich als Kästchen. Installieren Sie eine mit: pkg install noto-sans-jp noto-sans-kr",
  "notice.cloud": "{names} gefunden: Dateien, die nur online sind, werden nur nach Namen gefunden, es wird also nichts heruntergeladen. In den Einstellungen änderbar",
  "notice.cloud_tui": "{names} gefunden: Dateien, die nur online sind, werden nur nach Namen gefunden, es wird also nichts heruntergeladen. cloud = \"all\" in config.toml liest sie",
+ "notice.helper_unstarted": "Mit meiner Sitzung starten ist an, aber systemd hat den Suchhelfer nicht gestartet, also hat Coxswain ihn bis zum Abmelden gestartet. Warum er nicht startete: systemctl --user status coxswain-index.",
+ "notice.helper_unstarted_macos": "Mit meiner Sitzung starten ist an, aber macOS hat den Suchhelfer nicht gestartet, also hat Coxswain ihn bis zum Abmelden gestartet. Damit macOS ihn bei der Anmeldung startet: Systemeinstellungen → Allgemein → Anmeldeobjekte & Erweiterungen → Coxswain → Im Hintergrund erlauben. Warum er nicht startete: helper.log in ~/Library/Caches/coxswain und launchctl print gui/$(id -u)/dk.mwo.coxswain.index.",
  "notice.history": "Neu: {key} auf einer Datei oder einem Ordner in einem Git-Repository zeigt den Verlauf, Commit für Commit",
  "notice.language_new": "{language} ist eine neue Übersetzung. Klingt ein Wort falsch oder holprig, hilf mit, sie zu verbessern: Einstellungen → Sprache.",
  "notice.language_new_tui": "{language} ist eine neue Übersetzung. Klingt ein Wort falsch oder holprig, sagt coxswain --languages, wie du helfen kannst, sie zu verbessern.",

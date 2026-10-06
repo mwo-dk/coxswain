@@ -713,6 +713,8 @@
  "notice.cjk_font_freebsd": "Er is geen Japans of Koreaans lettertype geïnstalleerd, dus hun tekens kunnen als vakjes verschijnen. Installeer er een met: pkg install noto-sans-jp noto-sans-kr",
  "notice.cloud": "{names} gevonden: bestanden die alleen online staan worden alleen op naam gevonden, dus er wordt niets gedownload. Wijzig in Instellingen",
  "notice.cloud_tui": "{names} gevonden: bestanden die alleen online staan worden alleen op naam gevonden, dus er wordt niets gedownload. cloud = \"all\" in config.toml leest ze",
+ "notice.helper_unstarted": "De zoekhulp met mijn sessie starten staat aan, maar systemd heeft de zoekhulp niet gestart, dus Coxswain heeft hem gestart tot je uitlogt. Waarom hij niet startte: systemctl --user status coxswain-index.",
+ "notice.helper_unstarted_macos": "De zoekhulp met mijn sessie starten staat aan, maar macOS heeft de zoekhulp niet gestart, dus Coxswain heeft hem gestart tot je uitlogt. Laat macOS hem bij het inloggen starten: Systeeminstellingen → Algemeen → Inlogonderdelen en extensies → Coxswain → Sta toe op achtergrond. Waarom hij niet startte: helper.log in ~/Library/Caches/coxswain, en launchctl print gui/$(id -u)/dk.mwo.coxswain.index.",
  "notice.history": "Nieuw: {key} op een bestand of map in een git-repository toont de geschiedenis, commit voor commit",
  "notice.language_new": "{language} is een nieuwe vertaling. Klinkt een woord verkeerd of onhandig, help haar dan verbeteren: Instellingen → Taal.",
  "notice.language_new_tui": "{language} is een nieuwe vertaling. Klinkt een woord verkeerd of onhandig, dan vertelt coxswain --languages hoe je kunt helpen haar te verbeteren.",

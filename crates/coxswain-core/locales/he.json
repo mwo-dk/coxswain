@@ -743,6 +743,8 @@
  "notice.cjk_font_freebsd": "לא מותקן גופן יפני או קוריאני, ולכן האותיות עלולות להופיע כריבועים. אפשר להתקין גופן עם: pkg install noto-sans-jp noto-sans-kr",
  "notice.cloud": "נמצא {names}: קבצים שנמצאים רק בענן נמצאים לפי שם בלבד, כך ששום דבר לא מורד. ניתן לשנות בהגדרות",
  "notice.cloud_tui": "נמצא {names}: קבצים שנמצאים רק בענן נמצאים לפי שם בלבד, כך ששום דבר לא מורד. cloud = \"all\" ב-config.toml קורא אותם",
+ "notice.helper_unstarted": "״הפעלת עוזר החיפוש עם ההתחברות שלי״ מופעלת, אבל systemd לא הפעיל את עוזר החיפוש, ולכן Coxswain הפעיל אותו עד שתתנתק. למה הוא לא הופעל: systemctl --user status coxswain-index.",
+ "notice.helper_unstarted_macos": "״הפעלת עוזר החיפוש עם ההתחברות שלי״ מופעלת, אבל macOS לא הפעיל את עוזר החיפוש, ולכן Coxswain הפעיל אותו עד שתתנתק. כדי ש־macOS יפעיל אותו בהתחברות: הגדרות מערכת → כללי → פריטי התחברות והרחבות → Coxswain → לאפשר ברקע. למה הוא לא הופעל: helper.log בתיקייה ~/Library/Caches/coxswain, וגם launchctl print gui/$(id -u)/dk.mwo.coxswain.index.",
  "notice.history": "חדש: {key} על קובץ או תיקייה במאגר git מציג את ההיסטוריה שלהם, commit אחר commit",
  "notice.language_new": "{language} הוא תרגום חדש. אם מילה נשמעת שגויה או מסורבלת, עזרו לשפר אותו: הגדרות ← שפה.",
  "notice.language_new_tui": "{language} הוא תרגום חדש. אם מילה נשמעת שגויה או מסורבלת, coxswain --languages מסביר איך לעזור לשפר אותו.",

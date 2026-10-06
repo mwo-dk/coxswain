@@ -743,6 +743,8 @@
  "notice.cjk_font_freebsd": "Non è installato alcun font giapponese o coreano, quindi i loro caratteri possono apparire come quadratini. Installane uno con: pkg install noto-sans-jp noto-sans-kr",
  "notice.cloud": "Trovato {names}: i file solo online vengono trovati solo per nome, quindi nulla viene scaricato. Modificabile nelle Impostazioni",
  "notice.cloud_tui": "Trovato {names}: i file solo online vengono trovati solo per nome, quindi nulla viene scaricato. cloud = \"all\" in config.toml li legge",
+ "notice.helper_unstarted": "«Avvia l'assistente di ricerca con la mia sessione» è attivo, ma systemd non ha avviato l'assistente di ricerca, quindi l'ha avviato Coxswain fino alla disconnessione. Perché non è partito: systemctl --user status coxswain-index.",
+ "notice.helper_unstarted_macos": "«Avvia l'assistente di ricerca con la mia sessione» è attivo, ma macOS non ha avviato l'assistente di ricerca, quindi l'ha avviato Coxswain fino alla disconnessione. Perché macOS lo avvii al login: Impostazioni di Sistema → Generali → Elementi di login ed estensioni → Coxswain → Consenti in background. Perché non è partito: helper.log in ~/Library/Caches/coxswain e launchctl print gui/$(id -u)/dk.mwo.coxswain.index.",
  "notice.history": "Novità: {key} su un file o una cartella di un repository git ne mostra la cronologia, commit per commit",
  "notice.language_new": "{language} è una nuova traduzione. Se una parola suona sbagliata o goffa, aiuta a migliorarla: Impostazioni → Lingua.",
  "notice.language_new_tui": "{language} è una nuova traduzione. Se una parola suona sbagliata o goffa, coxswain --languages spiega come aiutare a migliorarla.",
