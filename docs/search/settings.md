@@ -41,7 +41,7 @@ key: `name_exclude`, `archives`, `cloud`.
 | *Names* | *Files on this machine: 912 330*, or *Still counting … so far* while the [name index](names.md) is built | |
 | *Words* | *Files read: 31 208 · waiting: 412 · 1.1 GB on disk*; on battery *Paused while the machine runs on its battery.*; an error in red (*Reading stopped: …*). Off: *Find looks at names only.* No helper: *Not running* | **Read now** (the backlog at full speed, on battery too) · **Turn on** · **Start it** |
 | *Meaning* | *8 120 of 31 208 files · the built-in model on the CPU* or *· bge-m3 at localhost:11434*; *About 3 hours until every file is done.*; a server that does not answer: *The server at localhost:11434 does not answer. Is it running?* | **Set up…** when off or failing |
-| *Ask* | *qwen3:8b at localhost:11434*, or *Ask needs meaning first.* / *No chat model chosen yet.* | **Try it**: *It answered: the first word came after 0.4 s.* · **Set up…** |
+| *Ask* | *qwen3:8b at localhost:11434* or *Qwen3 1.7B, built in*, or *Ask needs meaning first.* / *No chat model chosen yet.* | **Try it**: *It answered: the first word came after 0.4 s.* · **Set up…** |
 
 ## The levels
 
@@ -82,7 +82,8 @@ needs the words.
 | | *Model* | `meaning_model` | string, `""` | The server's model; empty is `bge-m3` for Ollama. **Pull bge-m3 with Ollama** when Ollama lacks it |
 | | *API key from the environment variable* | `meaning_key_env` | string, `""` | OpenAI API only: the variable that holds the key |
 | | *Use the CPU only* | `meaning_device` | `"auto"` / `"cpu"`, `"auto"` | On a Mac only ([on a Mac's GPU](meaning.md#on-a-macs-gpu)) |
-| Ask | *Chat model* | `ask_model` | string, `""` | Chat models only. **Try it** asks a test question ([Ask](ask.md)) |
+| Ask | *Chat model* | `ask_model` | string, `""` | Chat models only; `builtin:qwen3-1.7b` or `builtin:qwen3-4b` for a built-in one. **Try it** asks a test question ([Ask](ask.md)) |
+| | *Built-in chat models* | none | | Each with its size and where it runs: **Download (1.0 GB) and use**, **Use**, **Delete the model**, a bar while it downloads ([Ask without a server](ask-builtin.md)) |
 | | *Let the model think first* | `ask_think` | bool, `false` | Off: a model that thinks first (Qwen3 …) is asked not to ([Thinking](ask.md#thinking)) |
 | Background reading | *Start with my session* | none | off | [The search helper](helper.md) |
 | | **Read now** | | | The backlog at full speed |

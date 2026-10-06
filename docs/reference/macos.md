@@ -112,7 +112,8 @@ to allow it. [The search helper](../search/helper.md#start-with-my-session-is-on
 
 ## Search by meaning on the Mac's GPU
 
-Search by meaning needs no server on a Mac. The built-in model (multilingual-e5-small, 465 MB)
+Search by meaning needs no server on a Mac, and neither does Ask: the
+[built-in chat model](../search/ask-builtin.md) (Qwen3) answers on the GPU too. The built-in model (multilingual-e5-small, 465 MB)
 runs inside the search helper on the GPU through Metal on Apple silicon, and checks once that the
 GPU's results match the processor's. Nothing leaves the machine but the one download of the
 model from huggingface.co.
@@ -121,8 +122,10 @@ In the setup guide (**Ctrl+,** → **Set up…**, or `coxswain --setup-search`) 
 LM Studio running, step 2 says *Apple silicon with 64 GB of shared memory and no model server:
 the built-in model makes the vectors on its GPU (Metal) …*, *The built-in model* is chosen and
 marked **recommended**, and step 3's **Download the built-in model (465 MB)** fetches it, turns
-search by meaning on and says *Search by meaning is on, with the built-in model.* Ask is the
-only part that needs a server (LM Studio or Ollama), and it is optional.
+search by meaning on and says *Search by meaning is on, with the built-in model.* Step 4 offers
+the built-in chat model for Ask, *Qwen3 4B Instruct, built in (2.3 GB download, on the GPU
+(Metal) when it can; …)* with 16 GB or more (Qwen3 1.7B, 1.0 GB, below that): **Download … and
+use it** fetches it and asks a test question. Ask is optional.
 [The setup guide](../search/setup.md)
 
 <!-- screenshot: macos-setup-builtin.png: the setup guide on a Mac with no server: step 2 with The built-in model marked recommended, step 3 with Search by meaning is on, step 4 Optional -->

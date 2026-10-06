@@ -70,6 +70,7 @@ New here? Start with [The first-run guide](panels/first-run.md), [The screen](pa
 | [Search by meaning](search/meaning.md) | The built-in multilingual model, turning it on and off, what you see, how it works |
 | [Search by meaning on a server: Ollama, Lemonade, LM Studio](search/servers.md) | Ollama, Lemonade, LM Studio, any OpenAI-compatible server, API keys, privacy |
 | [Ask: questions answered from your files](search/ask.md) | The Ask row of Find (Ctrl+Enter): your chat model answers from the closest passages, citing them, in place of the list |
+| [Ask without a server: the built-in chat model](search/ask-builtin.md) | Qwen3 1.7B or 4B Instruct built in: the download, Metal on a Mac and the processor elsewhere, loaded in the helper and let go when idle, speed, `builtin:` in `ask_model` |
 | [The search helper](search/helper.md) | One process for all windows, privacy of its connection, starting with the session, taken over after an upgrade moves the program |
 | [Battery](search/battery.md) | Reading pauses on battery, Read now reads anyway |
 | [Notices and what's new](search/notices.md) | The version in the title, the tips, the count on Settings, *What's new* and `coxswain --whats-new` |
