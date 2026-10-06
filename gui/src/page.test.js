@@ -6,7 +6,8 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
 // renderers.js pulls in the app's libraries; pageHead needs none of them.
-const src = readFileSync(new URL("./renderers.js", import.meta.url), "utf8");
+// A Windows checkout may have CRLF line ends.
+const src = readFileSync(new URL("./renderers.js", import.meta.url), "utf8").replaceAll("\r\n", "\n");
 const body = src.slice(src.indexOf("export function pageHead"), src.indexOf("\n}\n", src.indexOf("export function pageHead")) + 2);
 const { pageHead } = await import("data:text/javascript," + encodeURIComponent(body));
 
