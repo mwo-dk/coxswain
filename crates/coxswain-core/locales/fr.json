@@ -1304,7 +1304,7 @@
  "tag.red": "Rouge",
  "tag.yellow": "Jaune",
  "termux.no_service": "Termux n'a pas de service de session : l'assistant de recherche démarre avec Coxswain et reste dix minutes après",
- "termux.no_trash": "Android n'a pas de corbeille ici : Supprimer définitivement (Shift+F8) l'efface pour de bon",
+ "termux.no_trash_storage": "Pas de corbeille sur le stockage du téléphone : supprimer définitivement {what} ?",
  "termux.storage": "Téléphone : {name}",
  "theme.dark": "Sombre",
  "theme.light": "Clair",

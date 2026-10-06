@@ -1261,7 +1261,7 @@
  "tag.red": "Rood",
  "tag.yellow": "Geel",
  "termux.no_service": "Termux heeft geen sessiedienst: de zoekhulp start met Coxswain en blijft daarna tien minuten",
- "termux.no_trash": "Android heeft hier geen prullenbak: Definitief verwijderen (Shift+F8) haalt het voorgoed weg",
+ "termux.no_trash_storage": "Geen prullenbak op de opslag van de telefoon: {what} definitief verwijderen?",
  "termux.storage": "Telefoon: {name}",
  "theme.dark": "Donker",
  "theme.light": "Licht",

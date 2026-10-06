@@ -55,7 +55,7 @@ parquet = { version = "60", default-features = false, features = ["snap", "flate
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
 
-# Android (Termux) has no desktop trash.
+# Android (Termux) has no desktop trash: xdg_trash.rs is its own.
 [target.'cfg(not(target_os = "android"))'.dependencies]
 trash = "5.2.9"
 

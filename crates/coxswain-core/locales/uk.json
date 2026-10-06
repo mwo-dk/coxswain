@@ -1347,7 +1347,7 @@
  "tag.red": "Червоний",
  "tag.yellow": "Жовтий",
  "termux.no_service": "Termux не має служби сеансу: помічник пошуку запускається з Coxswain і лишається ще десять хвилин після нього",
- "termux.no_trash": "Android тут не має кошика: Видалити назавжди (Shift+F8) прибирає це остаточно",
+ "termux.no_trash_storage": "Пам'ять телефона не має кошика: видалити {what} назавжди?",
  "termux.storage": "Телефон: {name}",
  "theme.dark": "Темна",
  "theme.light": "Світла",

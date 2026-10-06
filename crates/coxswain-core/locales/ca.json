@@ -1304,7 +1304,7 @@
  "tag.red": "Vermell",
  "tag.yellow": "Groc",
  "termux.no_service": "Termux no té servei de sessió: l'assistent de cerca s'inicia amb Coxswain i s'hi queda deu minuts després",
- "termux.no_trash": "Android no hi té paperera: Suprimeix permanentment (Shift+F8) l'esborra per sempre",
+ "termux.no_trash_storage": "No hi ha paperera a l'emmagatzematge del telèfon: voleu suprimir permanentment {what}?",
  "termux.storage": "Telèfon: {name}",
  "theme.dark": "Fosc",
  "theme.light": "Clar",

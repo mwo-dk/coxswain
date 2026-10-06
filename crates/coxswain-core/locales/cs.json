@@ -1304,7 +1304,7 @@
  "tag.red": "Červená",
  "tag.yellow": "Žlutá",
  "termux.no_service": "Termux nemá službu relace: pomocník hledání se spouští s Coxswainem a zůstává deset minut po něm",
- "termux.no_trash": "Android tu nemá koš: Odstranit trvale (Shift+F8) to odstraní navždy",
+ "termux.no_trash_storage": "Úložiště telefonu nemá koš: trvale odstranit {what}?",
  "termux.storage": "Telefon: {name}",
  "theme.dark": "Tmavý",
  "theme.light": "Světlý",

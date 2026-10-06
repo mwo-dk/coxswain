@@ -1304,7 +1304,7 @@
  "tag.red": "Rojo",
  "tag.yellow": "Amarillo",
  "termux.no_service": "Termux no tiene servicio de sesión: el ayudante de búsqueda arranca con Coxswain y se queda diez minutos después",
- "termux.no_trash": "Android no tiene papelera acá: Eliminar definitivamente (Shift+F8) lo borra para siempre",
+ "termux.no_trash_storage": "No hay papelera en el almacenamiento del teléfono: ¿eliminar {what} definitivamente?",
  "termux.storage": "Teléfono: {name}",
  "theme.dark": "Oscuro",
  "theme.light": "Claro",

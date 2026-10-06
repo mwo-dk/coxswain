@@ -1261,7 +1261,7 @@
  "tag.red": "Rot",
  "tag.yellow": "Gelb",
  "termux.no_service": "Termux hat keinen Sitzungsdienst: Der Suchhelfer startet mit Coxswain und bleibt zehn Minuten danach",
- "termux.no_trash": "Android hat hier keinen Papierkorb: Endgültig löschen (Shift+F8) entfernt es für immer",
+ "termux.no_trash_storage": "Kein Papierkorb im Speicher des Telefons: {what} endgültig löschen?",
  "termux.storage": "Telefon: {name}",
  "theme.dark": "Dunkel",
  "theme.light": "Hell",
