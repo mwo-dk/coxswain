@@ -29,6 +29,7 @@ pub mod sizes;
 pub mod state;
 pub mod store;
 pub mod tables;
+pub mod termux;
 pub mod tools;
 pub mod zfs;
 pub mod bsd;

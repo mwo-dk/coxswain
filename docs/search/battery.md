@@ -33,9 +33,10 @@ Whether the machine is on battery is asked at most every thirty seconds:
 
 | System | Asks |
 |---|---|
-| Linux | `/sys/class/power_supply`: a supply of type `Battery`, and no mains supply `online`; without a mains entry, a battery that is `Discharging` |
-| macOS | `pmset` |
 | FreeBSD | `sysctl hw.acpi.acline`: `0` is on battery; without ACPI power reporting, never |
+| Linux | `/sys/class/power_supply`: a supply of type `Battery`, and no mains supply `online`; without a mains entry, a battery that is `Discharging` |
+| Termux on Android | `termux-battery-status` (Termux:API), when it is installed: `UNPLUGGED` is on battery; else as on Linux ([Termux](../reference/termux.md#clipboard-and-battery-termuxapi)) |
+| macOS | `pmset` |
 | Windows | The system's power status |
 
 ## Settings and config.toml
