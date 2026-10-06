@@ -723,6 +723,7 @@
  "notice.cjk_font_cmd": "Jaapani ega korea fonti pole paigaldatud, seega võivad nende märgid paista kastidena. Paigaldage see käsuga: {cmd}",
  "notice.cloud": "Leiti {names}: ainult võrgus olevad failid leitakse ainult nime järgi, nii et midagi ei laadita alla. Muuda seadetes",
  "notice.cloud_tui": "Leiti {names}: ainult võrgus olevad failid leitakse ainult nime järgi, nii et midagi ei laadita alla. cloud = \"all\" failis config.toml loeb need",
+ "notice.helper_outdated": "Coxswain uuendati versioonile {version}: taaskäivita see, et kasutada taustaotsingut. Seni otsib see failinimesid ise.",
  "notice.helper_unstarted": "„Käivita koos minu seansiga“ on sees, kuid systemd ei käivitanud otsinguabilist, seega käivitas Coxswain selle väljalogimiseni. Miks see ei käivitunud: systemctl --user status coxswain-index.",
  "notice.helper_unstarted_macos": "„Käivita koos minu seansiga“ on sees, kuid macOS ei käivitanud otsinguabilist, seega käivitas Coxswain selle väljalogimiseni. Et macOS käivitaks selle sisselogimisel: Süsteemiseaded → Üldine → Sisselogimisüksused ja laiendused → Coxswain → Luba taustal. Miks see ei käivitunud: helper.log kaustas ~/Library/Caches/coxswain ja launchctl print gui/$(id -u)/dk.mwo.coxswain.index.",
  "notice.history": "Uus: {key} giti hoidla faili või kausta peal näitab selle ajalugu commiti kaupa",

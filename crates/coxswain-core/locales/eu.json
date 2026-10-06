@@ -723,6 +723,7 @@
  "notice.cjk_font_cmd": "Ez dago japoniar edo korear letra-tiporik instalatuta, eta haien letrak laukitxo gisa ager daitezke. Instalatu bat honela: {cmd}",
  "notice.cloud": "{names} aurkitu da: linean soilik dauden fitxategiak izenez soilik aurkitzen dira, beraz ez da ezer deskargatzen. Aldatu Ezarpenetan",
  "notice.cloud_tui": "{names} aurkitu da: linean soilik dauden fitxategiak izenez soilik aurkitzen dira, beraz ez da ezer deskargatzen. config.toml-eko cloud = \"all\" ezarpenak irakurtzen ditu",
+ "notice.helper_outdated": "Coxswain {version} bertsiora eguneratu da: berrabiarazi atzeko planoko bilaketa erabiltzeko. Ordura arte fitxategi-izenak berak bilatzen ditu.",
  "notice.helper_unstarted": "«Abiarazi bilaketa-laguntzailea nire saioarekin» aktibatuta dago, baina systemd-k ez du bilaketa-laguntzailea abiarazi; beraz, Coxswain-ek abiarazi du saioa itxi arte. Zergatik ez den abiarazi: systemctl --user status coxswain-index.",
  "notice.helper_unstarted_macos": "«Abiarazi bilaketa-laguntzailea nire saioarekin» aktibatuta dago, baina macOS-ek ez du bilaketa-laguntzailea abiarazi; beraz, Coxswain-ek abiarazi du saioa itxi arte. macOS-ek saioa hastean abiaraz dezan: Sistemaren ezarpenak → Orokorra → Saio-hasierako elementuak eta luzapenak → Coxswain → Baimendu atzeko planoan. Zergatik ez den abiarazi: helper.log ~/Library/Caches/coxswain karpetan, eta launchctl print gui/$(id -u)/dk.mwo.coxswain.index.",
  "notice.history": "Berria: {key} git biltegi bateko fitxategi edo karpeta batean haren historia erakusten du, commitez commit",

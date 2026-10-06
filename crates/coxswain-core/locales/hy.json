@@ -723,6 +723,7 @@
  "notice.cjk_font_cmd": "Ճապոներեն կամ կորեերեն տառատեսակ տեղադրված չէ, ուստի դրանց տառերը կարող են երևալ որպես քառակուսիներ։ Տեղադրեք այսպես՝ {cmd}",
  "notice.cloud": "Գտնվել է՝ {names}․ միայն առցանց ֆայլերը գտնվում են միայն անունով, ուստի ոչինչ չի ներբեռնվում։ Փոխել Կարգավորումներում",
  "notice.cloud_tui": "Գտնվել է՝ {names}․ միայն առցանց ֆայլերը գտնվում են միայն անունով, ուստի ոչինչ չի ներբեռնվում։ config.toml-ում cloud = \"all\"-ը կարդում է դրանք",
+ "notice.helper_outdated": "Coxswain-ը թարմացվել է {version}-ի․ վերագործարկեք այն՝ ֆոնային որոնումն օգտագործելու համար։ Մինչ այդ այն ինքն է որոնում ֆայլերի անունները։",
  "notice.helper_unstarted": "«Գործարկել իմ սեանսի հետ»-ը միացված է, բայց systemd-ն չգործարկեց որոնման օգնականը, ուստի Coxswain-ը գործարկեց այն մինչև ձեր դուրս գալը։ Ինչու չգործարկվեց՝ systemctl --user status coxswain-index։",
  "notice.helper_unstarted_macos": "«Գործարկել իմ սեանսի հետ»-ը միացված է, բայց macOS-ը չգործարկեց որոնման օգնականը, ուստի Coxswain-ը գործարկեց այն մինչև ձեր դուրս գալը։ Որպեսզի macOS-ը գործարկի այն մուտք գործելիս՝ System Settings → General → Login Items & Extensions → Coxswain → Allow in the Background։ Ինչու չգործարկվեց՝ helper.log-ը ~/Library/Caches/coxswain-ում և launchctl print gui/$(id -u)/dk.mwo.coxswain.index։",
  "notice.history": "Նոր է․ {key}-ը git պահոցի ֆայլի կամ թղթապանակի վրա ցույց է տալիս դրա պատմությունը՝ commit առ commit",

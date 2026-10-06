@@ -16,12 +16,12 @@ what order to build them.
 
 **First iteration**, in this order of importance:
 
-1. **Tree:** the BOM's structure, each node colored by its worst crypto.
+1. **Tree:** the BOM's structure, each node coloured by its worst crypto.
 2. **Sunburst:** the same tree as rings, which shows where the risk sits.
 3. **Filters and search:** by status, asset kind and primitive family, plus a text search.
 4. **Compare:** two versions of a BOM: new risks, fixed risks, added and removed assets.
 
-**Later, not in this design's steps:** SBOMs proper (licenses, vulnerabilities, component
+**Later, not in this design's steps:** SBOMs proper (licences, vulnerabilities, component
 graph), the relationship graph (cipherscape's Sigma view), the 3D galaxy, the Quantum
 Countdown year slider, blast radius, the action plan, PNG/PDF export, SPDX.
 
@@ -37,7 +37,7 @@ one parser and one set of ratings.
 | `core/ingest/cyclonedx.ts`, `cyclonedx-xml.ts` | 250 + ~150 | `bom::ingest` | JSON with serde_json, XML with quick-xml (both already in core) |
 | `core/model/types.ts`, `hierarchy.ts` | 220 | `bom::model`, `bom::tree` | Same node and edge kinds, same three hierarchy modes |
 | `core/model/status.ts`, `analysis/assess.ts` | | `bom::status`, `bom::assess` | Same status scale, reasons and roll-up |
-| `core/policy/{resolve,alias,evaluate}.ts` + `policy/algorithms.yaml` | 400 + catalog | `bom::policy` + vendored `catalog.json` | See [Ratings](#ratings) |
+| `core/policy/{resolve,alias,evaluate}.ts` + `policy/algorithms.yaml` | 400 + catalogue | `bom::policy` + vendored `catalog.json` | See [Ratings](#ratings) |
 | `core/analysis/filter.ts` | 140 | GUI: `bom.js`; TUI: `bom::filter` | A mask over nodes |
 | `core/analysis/diff.ts` | 170 | `bom::diff` | Identity by what and where, never by bom-ref |
 | `features/tree/TreeView.tsx` | | GUI `BomView.svelte` tree; TUI dialog | The keyboard model carries over as is |
@@ -95,9 +95,9 @@ the default, and the view offers a switch.
 
 ## Ratings
 
-The status scale is cipherscape's, in the same order and colors:
+The status scale is cipherscape's, in the same order and colours:
 
-| Status | Color | Meaning |
+| Status | Colour | Meaning |
 |---|---|---|
 | safe | green, with a quantum-safe mark | Approved, and not vulnerable to a quantum computer |
 | acceptable | green | Approved now |
@@ -112,7 +112,7 @@ roll-up). We take the lifecycle rule too: an expired certificate is disallowed, 
 expires within 90 days is deprecated. This matches the 30-day warning the certificate preview
 already shows.
 
-**The catalog.** We vendor cipherscape's compiled catalog (`catalog.gen.json`, 32 KB, built
+**The catalogue.** We vendor cipherscape's compiled catalogue (`catalog.gen.json`, 32 KB, built
 from `policy/algorithms.yaml`) as `crates/coxswain-core/src/bom/catalog.json`, loaded with
 `include_str!`. The first line of `bom/README.md` records the cipherscape commit it came from.
 This keeps one source of truth, and core needs no YAML crate. A small script,
@@ -122,7 +122,7 @@ We rate with the **NIST profile at the current year**. There is no profile picke
 slider in this iteration; the evaluator takes both as arguments, so they are cheap to add
 later.
 
-> The catalog is an **unreviewed seed** (`last_reviewed: null`). The view says so in a
+> The catalogue is an **unreviewed seed** (`last_reviewed: null`). The view says so in a
 > footnote next to the legend, and the docs page does too. A rating is a hint, not an audit.
 
 **Name resolution** is ported from `resolve.ts`. Three signals vote: OID, `algorithmFamily`
@@ -210,9 +210,9 @@ geometry live in `gui/src/bom.js`.
 
 - It is drawn as **SVG** paths, with no chart library: about 150 lines in `bom.js`. The
   preview has no D3, and the few arcs we need don't justify it. SVG gives us hit testing,
-  focus and theme colors through CSS variables for free.
+  focus and theme colours through CSS variables for free.
 - The rings follow the tree. The root is in the middle, and an arc's angle is proportional to
-  the number of leaves under it. Arcs are colored by roll-up status.
+  the number of leaves under it. Arcs are coloured by roll-up status.
 - **Clicking an arc** zooms into it, and the centre or the breadcrumbs zoom out. Hover shows
   label, status and counts. Clicking also selects the node, so the details box and the tree
   follow.
@@ -229,12 +229,12 @@ viewer is a new full-screen dialog, modelled on the scrollable `Dialog::Help`
 - **F3 on a BOM** opens `Dialog::Bom`. Inside, **F3 again** (or `s`) opens the source in the
   pager as before, so nothing is lost. A config switch, `bom_viewer = false`, keeps the old
   behaviour.
-- **Tree:** the same keys as the GUI. The status is shown as a colored `●` from the theme's
-  palette, with the status word next to it, so colors are never the only signal.
+- **Tree:** the same keys as the GUI. The status is shown as a coloured `●` from the theme's
+  palette, with the status word next to it, so colours are never the only signal.
 - **Filters:** `1`–`6` toggle the statuses, `k` cycles the kind, `/` searches, and `h`
   toggles dim or hide.
 - **Sunburst:** `Tab` switches to it. It is drawn with `▀` half-blocks: each cell holds two
-  pixels, with foreground and background color, and each pixel is mapped to an arc by angle
+  pixels, with foreground and background colour, and each pixel is mapped to an arc by angle
   and radius. It is coarse but true to shape, and it needs no font support beyond `▀`. Enter
   zooms into the arc under a movable cursor, and Backspace zooms out.
 - **Compare:** `c` compares with the file under the other panel's cursor, as in the GUI.
@@ -261,7 +261,7 @@ viewer is a new full-screen dialog, modelled on the scrollable `Dialog::Help`
     parse to the same `Bom`
   
   This departs from the repo's habit of building fixtures in a temp dir, because real files
-  are the point here. The files total about 220 KB, with their licenses.
+  are the point here. The files total about 220 KB, with their licences.
 - The tests:
   - **Ingest:** every fixture parses, with the expected node, edge and issue counts, and each
     JSON/XML pair gives the same model.
@@ -277,11 +277,11 @@ viewer is a new full-screen dialog, modelled on the scrollable `Dialog::Help`
 ## Strings and docs
 
 - New catalogue keys go under `bom.*`: the switch labels, status names, kind and family names,
-  filter labels, compare labels, the unreviewed-catalog footnote and the SBOM notice, about
+  filter labels, compare labels, the unreviewed-catalogue footnote and the SBOM notice, about
   40 in all. en-GB is required, and every full locale gets them in the same PR, as is the
   convention.
 - `docs/previews.md` gets a **CBOM** row under Data and a screenshot. `docs/bom.md` is a
-  feature page in the style of `duplicates.md`: using it, what the colors mean, where
+  feature page in the style of `duplicates.md`: using it, what the colours mean, where
   ratings come from, compare.
 
 ## Steps
@@ -292,7 +292,7 @@ green. The version is bumped once, in that PR (**minor**).
 
 1. **Core model and ingest** (`bom::{model, ingest, tree}`, fixtures): JSON and XML, issues,
    the three tree modes. Acceptance: `cargo test -p coxswain-core bom`.
-2. **Core ratings** (`bom::{policy, status, assess}`, vendored catalog, golden table), plus
+2. **Core ratings** (`bom::{policy, status, assess}`, vendored catalogue, golden table), plus
    `bom::sniff`. Acceptance: `cargo test -p coxswain-core bom`.
 3. **Core diff** (`bom::diff`). Acceptance: `cargo test -p coxswain-core bom::diff`.
 4. **GUI tree, filters and details** (`bom_info`, `bom_node`, `BomView.svelte`, detection,
@@ -307,8 +307,8 @@ green. The version is bumped once, in that PR (**minor**).
 ## Open questions
 
 1. ~~One PR or several?~~ **Decided:** everything stays on `feature/cbom`, one PR at the end.
-2. **Catalog ownership:** is vendoring cipherscape's compiled catalog right, or should the
-   catalog move to a small shared repo or crate that both projects use?
+2. **Catalogue ownership:** is vendoring cipherscape's compiled catalogue right, or should the
+   catalogue move to a small shared repo or crate that both projects use?
 3. **TUI sunburst:** is a half-block sunburst worth having in a terminal, or should the TUI
    get a per-ring summary bar instead?
 4. **F3 in the TUI:** should a BOM open the built-in viewer by default (proposed), or only on

@@ -723,6 +723,7 @@
  "notice.cjk_font_cmd": "No Japanese or Korean font is installed, so their letters may show as boxes. Install one with: {cmd}",
  "notice.cloud": "Found {names}: files that are only online are found by name only, so nothing is downloaded. Change in Settings",
  "notice.cloud_tui": "Found {names}: files that are only online are found by name only, so nothing is downloaded. cloud = \"all\" in config.toml reads them",
+ "notice.helper_outdated": "Coxswain was updated to {version}: restart it to use background search. Until then it searches file names on its own.",
  "notice.helper_unstarted": "Start with my session is on, but systemd did not start the search helper, so Coxswain started it until you log out. Why it did not start: systemctl --user status coxswain-index.",
  "notice.helper_unstarted_macos": "Start with my session is on, but macOS did not start the search helper, so Coxswain started it until you log out. To let macOS start it at login: System Settings → General → Login Items & Extensions → Coxswain → Allow in the Background. Why it did not start: helper.log in ~/Library/Caches/coxswain, and launchctl print gui/$(id -u)/dk.mwo.coxswain.index.",
  "notice.history": "New: {key} on a file or folder in a git repository shows its history, commit by commit",
