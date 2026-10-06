@@ -534,7 +534,10 @@ pub fn trash_locked(path: &Path, password: Option<&str>) -> io::Result<()> {
         let out = crate::tools::user_command("gio").arg("trash").arg(path).stdin(std::process::Stdio::null()).output()?;
         return if out.status.success() { Ok(()) } else { Err(io::Error::other(String::from_utf8_lossy(&out.stderr).trim().to_string())) };
     }
-    trash::delete(path).map_err(io::Error::other)
+    #[cfg(not(target_os = "android"))]
+    return trash::delete(path).map_err(io::Error::other);
+    #[cfg(target_os = "android")]
+    Err(io::Error::other(crate::t!("termux.no_trash")))
 }
 
 /// A free name for `name` in `dir`: `name`, else `stem (2).ext`, `stem (3).ext`, ...
@@ -710,7 +713,7 @@ pub fn open_default(path: &Path) -> io::Result<()> {
     }
     #[cfg(not(windows))]
     {
-        let opener = if cfg!(target_os = "macos") { "open" } else { "xdg-open" };
+        let opener = crate::termux::opener().unwrap_or_else(|| (if cfg!(target_os = "macos") { "open" } else { "xdg-open" }).into());
         let mut c = crate::tools::command(opener);
         c.arg(path);
         // An opener that finds no application says so and stops at once: that is an error, not

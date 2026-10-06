@@ -127,6 +127,15 @@ pub fn all(cfg: &Config, status: &Status, state: &AppState, terminal: bool) -> V
             all.push(Notice::new(if matches!(lang, "ja" | "ko") { "cjk-font" } else { "script-font" }, text, None));
         }
     }
+    // In Termux: the phone's folders wait for termux-setup-storage, the clipboard and the
+    // battery for Termux:API.
+    if crate::termux::storage_missing() {
+        let key = cfg.key_for(crate::config::Action::GotoLeft).unwrap_or("Alt+F1");
+        all.push(Notice { copy: Some("termux-setup-storage".into()), ..Notice::new("termux-storage", t!("notice.termux_storage", "key" => key), None) });
+    }
+    if crate::termux::api_missing() {
+        all.push(Notice { copy: Some("pkg install termux-api".into()), ..Notice::new("termux-api", t!("notice.termux_api"), None) });
+    }
     // A new translation in use: where to suggest a better word.
     if let Some(l) = crate::i18n::find(crate::i18n::language()).filter(|l| l.new) {
         let text = if terminal { t!("notice.language_new_tui", "language" => l.name) } else { t!("notice.language_new", "language" => l.name) };

@@ -11,20 +11,6 @@ TERMUX_PKG_AUTO_UPDATE=true
 
 termux_step_pre_configure() {
 	termux_setup_rust
-
-	# trash-rs leaves Android out; treat it as the freedesktop.org trash, as yazi does.
-	: "${CARGO_HOME:=$HOME/.cargo}"
-	export CARGO_HOME
-	cargo fetch --locked --target "$CARGO_TARGET_NAME"
-	rm -rf vendor/trash
-	mkdir -p vendor
-	cp -r "$CARGO_HOME"/registry/src/*/trash-5.*/ vendor/trash
-	find vendor/trash -type f -print0 | xargs -0 sed -i \
-		-e 's|"android"|"disabling_this_because_it_is_for_building_an_apk"|g' \
-		-e "s|/tmp|$TERMUX_PREFIX/tmp|g"
-	patch -p1 -d vendor/trash < "$TERMUX_PKG_BUILDER_DIR/trash-rs-implement-get_mount_points-android.diff"
-	# Cargo.toml ends with its [patch.crates-io] table.
-	echo 'trash = { path = "./vendor/trash" }' >> Cargo.toml
 }
 
 termux_step_make() {

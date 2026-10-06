@@ -48,7 +48,7 @@ sh install-unix.sh
 |---|---|
 | `--terminal-only` | Only the terminal app; no packages are needed |
 | `--prefix DIR` | Install into `DIR`. Without it the script uses the place Coxswain is already in, or asks: `/usr/local` for every user, or `~/.local` for you alone |
-| `--version v2.6.0` | That release instead of the latest |
+| `--version v2.7.0` | That release instead of the latest |
 | `--from DIR` | Install from release archives already in `DIR`, without downloading |
 | `--yes` | Answer yes to every question |
 | `--uninstall` | Remove what the script installed |
@@ -78,7 +78,7 @@ Options go after `sh -s --` when the script comes through a pipe:
 ## Install by hand
 
 ```sh
-v=v2.6.0
+v=v2.7.0
 t=x86_64-unknown-openbsd
 ftp https://github.com/mwo-dk/coxswain/releases/download/$v/coxswain-terminal-$v-$t.tar.gz
 ftp https://github.com/mwo-dk/coxswain/releases/download/$v/coxswain-terminal-$v-$t.tar.gz.sha256

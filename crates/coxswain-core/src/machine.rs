@@ -14,12 +14,12 @@ pub fn on_battery() -> bool {
             return known;
         }
     }
-    let now = battery_now();
+    let now = crate::termux::on_battery().unwrap_or_else(battery_now);
     *last = Some((Instant::now(), now));
     now
 }
 
-#[cfg(target_os = "linux")]
+#[cfg(any(target_os = "linux", target_os = "android"))]
 fn battery_now() -> bool {
     let read = |p: PathBuf, f: &str| std::fs::read_to_string(p.join(f)).map(|s| s.trim().to_string()).unwrap_or_default();
     let supplies: Vec<PathBuf> = std::fs::read_dir("/sys/class/power_supply").into_iter().flatten().flatten().map(|e| e.path()).collect();
@@ -82,7 +82,7 @@ fn battery_now() -> bool {
     unsafe { GetSystemPowerStatus(&mut s) != 0 && s.ACLineStatus == 0 }
 }
 
-#[cfg(not(any(target_os = "linux", target_os = "macos", target_os = "freebsd", target_os = "dragonfly", target_os = "netbsd", target_os = "openbsd", target_os = "illumos", target_os = "solaris", windows)))]
+#[cfg(not(any(target_os = "linux", target_os = "android", target_os = "macos", target_os = "freebsd", target_os = "dragonfly", target_os = "netbsd", target_os = "openbsd", target_os = "illumos", target_os = "solaris", windows)))]
 fn battery_now() -> bool {
     false
 }

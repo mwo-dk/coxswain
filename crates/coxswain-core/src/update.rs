@@ -24,8 +24,7 @@ pub fn is_newer(current: &str, latest: &str) -> bool {
 pub fn fetch_latest() -> Option<String> {
     // The system's certificate store, not a bundled one: a work machine behind a TLS-inspecting
     // proxy trusts its own CA, and the check would otherwise fail silently there.
-    let tls = ureq::tls::TlsConfig::builder().root_certs(ureq::tls::RootCerts::PlatformVerifier).build();
-    let agent: ureq::Agent = ureq::Agent::config_builder().timeout_global(Some(Duration::from_secs(5))).tls_config(tls).build().into();
+    let agent: ureq::Agent = ureq::Agent::config_builder().timeout_global(Some(Duration::from_secs(5))).tls_config(crate::meaning::tls()).build().into();
     let body = agent
         .get(API_URL)
         .header("User-Agent", concat!("coxswain/", env!("CARGO_PKG_VERSION")))
@@ -107,6 +106,8 @@ fn hint_for(exe: &str, mac_cask: bool) -> Option<&'static str> {
         "brew upgrade --cask coxswain-gui"
     } else if p.contains("/cellar/") {
         "brew upgrade coxswain"
+    } else if p.contains("/com.termux/files/usr/bin/") {
+        "pkg upgrade coxswain"
     } else if p.contains("/.cargo/bin/") {
         "cargo install coxswain"
     } else if p.contains("/microsoft/winget/packages/mwo-dk.coxswain.terminal_") {
@@ -149,6 +150,8 @@ mod tests {
         assert_eq!(h(r"C:\Users\me\AppData\Local\Coxswain\coxswain-gui.exe"), None);
         assert_eq!(h(r"C:\Program Files\Coxswain\coxswain-gui.exe"), None);
         assert_eq!(h("/home/me/.local/bin/coxswain"), None);
+        assert_eq!(h("/data/data/com.termux/files/usr/bin/coxswain"), Some("pkg upgrade coxswain"));
+        assert_eq!(h("/data/data/com.termux/files/home/.cargo/bin/coxswain"), Some("cargo install coxswain"));
         assert_eq!(h("/home/me/Downloads/Coxswain_1.2.0_amd64.AppImage"), None);
     }
 }

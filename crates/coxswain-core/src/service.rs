@@ -226,6 +226,10 @@ pub fn kick() {
 
 /// Register `exe` (this app) as the helper and start it.
 pub fn install(exe: &Path) -> io::Result<()> {
+    // Android stops what is not on screen; the helper starts with the app and stays a while.
+    if crate::termux::active() {
+        return Err(io::Error::other(crate::t!("termux.no_service")));
+    }
     let exe = &stable(exe);
     if cfg!(windows) {
         let line = format!("\"{}\" {} {STAY}", exe.display(), crate::helper::ARG);
@@ -299,12 +303,15 @@ mod tests {
             assert!(!text.contains("Background") && !text.contains("LowPriorityIO"));
             assert!(text.contains(&format!("<key>StandardErrorPath</key><string>{}</string>", crate::helper::log().unwrap().display())));
             assert!(service().starts_with("gui/") && service().ends_with("/dk.mwo.coxswain.index") && domain() != "gui/0");
-            // macOS reads it.
+            // macOS reads it. By its full path: a build with a PATH of its own (Nix) has no
+            // /usr/bin on it.
             let f = std::env::temp_dir().join(format!("coxswain-plist-{}.plist", std::process::id()));
             std::fs::write(&f, &text).unwrap();
-            let lint = std::process::Command::new("plutil").arg("-lint").arg(&f).output().unwrap();
+            let lint = std::process::Command::new("/usr/bin/plutil").arg("-lint").arg(&f).output();
             let _ = std::fs::remove_file(&f);
-            assert!(lint.status.success(), "{}", String::from_utf8_lossy(&lint.stdout));
+            if let Ok(lint) = lint {
+                assert!(lint.status.success(), "{}", String::from_utf8_lossy(&lint.stdout));
+            }
         }
     }
 

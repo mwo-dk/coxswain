@@ -222,7 +222,7 @@ purpose = "Derives the key of an old encrypted PDF (PDF standard security handle
 found = [{ file = "crates/coxswain-core/src/extract/pdf.rs", pattern = "decrypt_object(&state" }]
 
 # TLS, for the update check, downloading a model for search by meaning and talking to a
-# model server. rustls with ring; certificates are checked against the system's trust store.
+# model server. rustls with ring; certificates are checked against the system's trust store (in Termux, Termux's own, $PREFIX/etc/tls/cert.pem).
 
 [[asset]]
 ref = "tls-1.3"
@@ -238,7 +238,7 @@ cipher_suites = [
 uses = ["x25519", "ecdh-p256", "ecdh-p384", "ecdsa-p256", "ecdsa-p384", "ed25519", "rsa-pss", "rsa-pkcs1"]
 purpose = "The update check, model downloads and model servers over HTTPS"
 found = [
-  { file = "crates/coxswain-core/src/update.rs", pattern = "RootCerts::PlatformVerifier" },
+  { file = "crates/coxswain-core/src/update.rs", pattern = "crate::meaning::tls()" },
   { file = "crates/coxswain-core/src/meaning.rs", pattern = "RootCerts::PlatformVerifier" },
 ]
 
@@ -260,7 +260,7 @@ cipher_suites = [
 ]
 uses = ["x25519", "ecdh-p256", "ecdh-p384"]
 purpose = "The same connections, with servers that do not offer TLS 1.3"
-found = [{ file = "crates/coxswain-core/src/update.rs", pattern = "RootCerts::PlatformVerifier" }]
+found = [{ file = "crates/coxswain-core/src/meaning.rs", pattern = "RootCerts::PlatformVerifier" }]
 
 [[asset]]
 ref = "aes-128-gcm"

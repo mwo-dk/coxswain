@@ -25,6 +25,9 @@ SMF). See [NetBSD](../docs/reference/netbsd.md), [OpenBSD](../docs/reference/ope
 [illumos](../docs/reference/illumos.md); [DragonFly BSD](../docs/reference/dragonfly.md) is not
 built yet, and [TrueNAS](../docs/reference/truenas.md) takes the Linux or FreeBSD build.
 
+**With Nix** the repository is a flake: `nix run github:mwo-dk/coxswain` builds and starts the
+terminal app, `#coxswain-gui` the desktop app on Linux. See [Nix](../docs/reference/nix.md).
+
 ## Getting the code
 
 Clone it with git, or unpack an archive you were sent:

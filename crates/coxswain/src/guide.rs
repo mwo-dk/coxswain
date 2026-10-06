@@ -48,6 +48,10 @@ fn rows(step: usize) -> Vec<Row> {
 /// `text` on the terminal's clipboard (OSC 52): the terminal puts it there, over ssh too.
 pub fn copy(text: &str) {
     use std::io::Write;
+    // In Termux, Android's clipboard through Termux:API when it is there.
+    if coxswain_core::termux::copy(text) {
+        return;
+    }
     const B64: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
     let mut out = String::new();
     for c in text.as_bytes().chunks(3) {
