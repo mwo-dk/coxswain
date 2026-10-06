@@ -1,0 +1,135 @@
+name: Explore
+on:
+  pull_request:
+permissions:
+  contents: read
+concurrency:
+  group: explore-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  netbsd:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+      - name: Frontend
+        working-directory: gui
+        run: |
+          npm ci --no-audit --no-fund
+          npm run build
+          rm -rf node_modules
+      - uses: vmactions/netbsd-vm@c8a0d7ddb84619a7a8cc4e652efa7950b3fd9f92 # v1.5.2
+        with:
+          release: "11.0"
+          usesh: true
+          prepare: |
+            /usr/sbin/pkg_add rust pkgconf || true
+            /usr/sbin/pkg_add pkgin || true
+            pkgin -y install rust pkgconf || true
+            pkgin search webkit | head -20 || true
+            pkgin search gtk3 | head || true
+          run: |
+            uname -a
+            rustc -V; cargo -V
+            cargo test -p coxswain-core -p coxswain --locked --no-fail-fast || echo TESTS-FAILED
+            cargo build -p coxswain-gui --locked || echo GUI-FAILED
+            rm -rf target
+
+  openbsd:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+      - name: Frontend
+        working-directory: gui
+        run: |
+          npm ci --no-audit --no-fund
+          npm run build
+          rm -rf node_modules
+      - uses: vmactions/openbsd-vm@5f7b2c933b8846a138361d6843c52af4bef5d945 # v1.4.8
+        with:
+          release: "7.9"
+          usesh: true
+          prepare: |
+            pkg_add rust pkgconf
+            pkg_info -Q webkitgtk || true
+            pkg_info -Q gtk+3 || true
+          run: |
+            uname -a; ulimit -a
+            rustc -V; cargo -V
+            cargo test -p coxswain-core -p coxswain --locked --no-fail-fast || echo TESTS-FAILED
+            cargo build -p coxswain-gui --locked || echo GUI-FAILED
+            rm -rf target
+
+  dragonfly:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+      - name: Frontend
+        working-directory: gui
+        run: |
+          npm ci --no-audit --no-fund
+          npm run build
+          rm -rf node_modules
+      - uses: vmactions/dragonflybsd-vm@4ab776fa9f914fbea72f13715b451e77e7ef5c41 # v1.3.4
+        with:
+          release: "6.4.2"
+          usesh: true
+          prepare: |
+            pkg install -y rust pkgconf
+            pkg search webkit2 || true
+            pkg search librsvg2 || true
+          run: |
+            uname -a
+            rustc -V; cargo -V
+            cargo test -p coxswain-core -p coxswain --locked --no-fail-fast || echo TESTS-FAILED
+            cargo build -p coxswain-gui --locked || echo GUI-FAILED
+            rm -rf target
+
+  omnios:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+      - name: Frontend
+        working-directory: gui
+        run: |
+          npm ci --no-audit --no-fund
+          npm run build
+          rm -rf node_modules
+      - uses: vmactions/omnios-vm@9576f0b6d15e7696548409baa533bc0a339caf42 # v1.3.7
+        with:
+          release: "r151058"
+          usesh: true
+          prepare: |
+            pkg install build-essential || true
+            pkg search -r webkit || true
+            pkg search -r rust || true
+            curl -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal
+          run: |
+            uname -a; . $HOME/.cargo/env || true; export PATH=$HOME/.cargo/bin:$PATH
+            rustc -V; cargo -V
+            cargo test -p coxswain-core -p coxswain --locked --no-fail-fast || echo TESTS-FAILED
+            cargo build -p coxswain-gui --locked || echo GUI-FAILED
+            rm -rf target
