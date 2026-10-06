@@ -1,5 +1,10 @@
 # AUR packages
 
+**Not on the AUR yet:** the AUR's account registration is paused, so `AUR_SSH_PRIVATE_KEY` is
+not set and the release job only prints a notice. Until then, on Arch: clone the repository and
+run `makepkg -si` in `packaging/aur/coxswain` (from source) or `packaging/aur/coxswain-bin`
+(the release's binaries).
+
 - **`coxswain`** builds from the tagged source.
 - **`coxswain-bin`** repackages the release's prebuilt Linux binaries.
 

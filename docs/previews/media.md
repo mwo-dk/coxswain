@@ -109,7 +109,8 @@ find an audio output (`autoaudiosink`) and ended the page's process, which left 
 and deaf to keys. From 1.29.1 the preview checks for the plugins first and says what to install
 instead of showing a player. With the AppImage on a distribution other than Debian or Ubuntu,
 installing them does not help, since its GStreamer does not look where your distribution keeps
-them: install Coxswain from your package manager (the AUR, Homebrew's formula) or press
+them: install Coxswain from a package built for your distribution (`makepkg -si` in
+`packaging/aur/coxswain-bin` on Arch, Homebrew's formula) or press
 **Enter** to play the file in its app.
 
 #### How is a file inside an archive previewed?
