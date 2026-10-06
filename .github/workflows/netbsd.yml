@@ -1,0 +1,79 @@
+name: NetBSD
+
+# The terminal app on NetBSD, in a virtual machine: the core's and the terminal app's tests with
+# pkgsrc's Rust, then the archive packed as a release packs it, installed with
+# install/install-unix.sh, and the search helper's rc.d script started, checked and stopped.
+# Only when Rust code, the lock file, the script or this file change. docs/reference/netbsd.md.
+on:
+  push:
+    branches: [master]
+    paths: ["crates/**", "Cargo.toml", "Cargo.lock", "install/install-unix.sh", "packaging/netbsd/**", ".github/workflows/netbsd.yml"]
+  pull_request:
+    paths: ["crates/**", "Cargo.toml", "Cargo.lock", "install/install-unix.sh", "packaging/netbsd/**", ".github/workflows/netbsd.yml"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: netbsd-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: NetBSD 10.1
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # Cargo's downloads, kept between runs: the VM's CARGO_HOME is inside the checkout.
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .cargo-vm
+          key: netbsd-cargo-${{ hashFiles('Cargo.lock') }}
+          restore-keys: netbsd-cargo-
+
+      - uses: vmactions/netbsd-vm@c8a0d7ddb84619a7a8cc4e652efa7950b3fd9f92 # v1.5.2
+        with:
+          release: "10.1"
+          usesh: true
+          custom-shell-name: vmsh
+          prepare: |
+            /usr/sbin/pkg_add pkgin || true
+            pkgin -y install rust pkgconf
+          run: |
+            set -e
+            export CARGO_HOME="$PWD/.cargo-vm" CARGO_PROFILE_DEV_DEBUG=line-tables-only
+            uname -a
+            rustc -V
+            cargo test -p coxswain-core -p coxswain --locked
+            cargo build -p coxswain --locked
+            mkdir -p out && cp target/debug/coxswain out/
+            # Only the cache and the program go back to the runner, not the build.
+            rm -rf target
+
+      - name: Pack the archive as a release does
+        run: sh packaging/pack-unix.sh v0.0.0 x86_64-unknown-netbsd out dist packaging/netbsd/coxswain_index
+
+      - name: Install it as a user does, and the search helper from boot
+        shell: vmsh {0}
+        run: |
+          set -e
+          sh install/install-unix.sh --from dist --yes --prefix /usr/local
+          /usr/local/bin/coxswain --version
+          /usr/local/bin/cox --version
+          man -w coxswain
+          useradd -m alice
+          if /etc/rc.d/coxswain_index onestart; then echo "started without a user" >&2; exit 1; fi
+          printf 'coxswain_index=YES\ncoxswain_index_user=alice\n' >> /etc/rc.conf
+          /etc/rc.d/coxswain_index start
+          sleep 8
+          /etc/rc.d/coxswain_index status
+          test -s ~alice/.cache/coxswain/index.addr
+          /etc/rc.d/coxswain_index stop
+          sleep 3
+          if pgrep -U alice coxswain; then echo "still running" >&2; exit 1; fi
+          sh install/install-unix.sh --uninstall --yes --prefix /usr/local
+          test ! -e /usr/local/bin/coxswain && test ! -e /etc/rc.d/coxswain_index

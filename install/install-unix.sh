@@ -89,8 +89,9 @@ case "$OS" in
     SYS=netbsd NAME="NetBSD $(uname -r)" MAN=man
     PKG_INSTALL="pkgin -y install" PKG_HINT="pkgin install"
     SERVICE=coxswain_index SERVICE_AT=/etc/rc.d/coxswain_index
-    DESKTOP_PKGS="webkit-gtk41 gtk3+ libsoup3"
-    GOOD_PKGS="xdg-utils gst-plugins1-good"
+    # No desktop build for NetBSD yet: webkit-gtk41's binary packages miss dependencies.
+    DESKTOP_PKGS=""
+    GOOD_PKGS=""
     OPTIONAL="tesseract poppler-utils libreoffice"
     installed() { pkg_info -q -e "$1" 2>/dev/null; }
     ;;

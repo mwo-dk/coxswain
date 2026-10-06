@@ -1,0 +1,120 @@
+name: illumos
+
+# The terminal app on illumos, in an OmniOS virtual machine: the core's and the terminal app's
+# tests, ZFS from end to end on a pool in a file, the archive packed as a release packs it,
+# installed with install/install-unix.sh, and the search helper's SMF service imported, refused
+# without a user, started as one, checked and stopped. Then the same archive installed and run
+# on OpenIndiana. Only when Rust code, the lock file, the script or this file change.
+# docs/reference/illumos.md.
+on:
+  push:
+    branches: [master]
+    paths: ["crates/**", "Cargo.toml", "Cargo.lock", "install/install-unix.sh", "packaging/illumos/**", ".github/workflows/illumos.yml"]
+  pull_request:
+    paths: ["crates/**", "Cargo.toml", "Cargo.lock", "install/install-unix.sh", "packaging/illumos/**", ".github/workflows/illumos.yml"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: illumos-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  omnios:
+    name: OmniOS r151058
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .cargo-vm
+          key: omnios-cargo-${{ hashFiles('Cargo.lock') }}
+          restore-keys: omnios-cargo-
+
+      # Linking the tests needs more memory than the default 6 GB: illumos reserves swap for all
+      # of it.
+      - uses: vmactions/omnios-vm@9576f0b6d15e7696548409baa533bc0a339caf42 # v1.3.7
+        with:
+          release: "r151058"
+          usesh: true
+          mem: 12288
+          custom-shell-name: vmsh
+          prepare: pkg install build-essential ooce/developer/rust
+          run: |
+            set -e
+            export CARGO_HOME="$PWD/.cargo-vm" CARGO_PROFILE_DEV_DEBUG=line-tables-only PATH="/opt/ooce/bin:$PATH"
+            uname -a
+            rustc -V
+            cargo test -p coxswain-core -p coxswain --locked -j2
+            # ZFS from end to end on a pool in a file: snapshots as folders, the diff, a copy
+            # restored, the refusals. The VM runs as root.
+            COXSWAIN_ZFS_E2E=1 cargo test -p coxswain-core --test zfs --locked
+            cargo build -p coxswain --locked
+            mkdir -p out && cp target/debug/coxswain out/
+            rm -rf target
+
+      - name: Pack the archive as a release does
+        run: sh packaging/pack-unix.sh v0.0.0 x86_64-unknown-illumos out dist packaging/illumos/coxswain-index.xml
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: illumos-archive
+          path: dist
+
+      - name: Install it as a user does, and the search helper from boot
+        shell: vmsh {0}
+        run: |
+          set -e
+          sh install/install-unix.sh --from dist --yes --prefix /usr/local
+          /usr/local/bin/coxswain --version
+          /usr/local/bin/cox --version
+          MANPATH=/usr/local/share/man man -l coxswain >/dev/null 2>&1 || ls /usr/local/share/man/man1/coxswain.1
+          useradd -m -d /export/home/alice alice || { useradd -d /export/home/alice alice; mkdir -p /export/home/alice; chown alice /export/home/alice; }
+          s=application/coxswain-index
+          svcadm enable $s
+          sleep 8
+          svcs -H -o state $s | grep -q maintenance || { echo "started without a user" >&2; exit 1; }
+          svcadm disable -s $s
+          svccfg -s $s setprop start/user = astring: alice
+          svcadm refresh $s
+          svcadm enable $s
+          sleep 10
+          svcs -p $s
+          tail -5 "$(svcs -L $s)"
+          svcs -H -o state $s | grep -q online
+          test -s /export/home/alice/.cache/coxswain/index.addr
+          svcadm disable -s $s
+          sleep 2
+          if pgrep -u alice coxswain; then echo "still running" >&2; exit 1; fi
+          sh install/install-unix.sh --uninstall --yes --prefix /usr/local
+          test ! -e /usr/local/bin/coxswain && ! svcs $s 2>/dev/null
+
+  openindiana:
+    name: OpenIndiana 2026.04
+    needs: omnios
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: illumos-archive
+          path: dist
+      - uses: vmactions/openindiana-vm@f0ed27ca85a6d1f5b11e4242eba1d6effa5aaae2 # v1.1.8
+        with:
+          release: "202604"
+          usesh: true
+          run: |
+            set -e
+            uname -a
+            sh install/install-unix.sh --from dist --yes --terminal-only --prefix "$HOME/.local"
+            ldd "$HOME/.local/bin/coxswain"
+            "$HOME/.local/bin/coxswain" --version
+            "$HOME/.local/bin/coxswain" --help >/dev/null
