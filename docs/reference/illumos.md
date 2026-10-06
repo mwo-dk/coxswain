@@ -45,7 +45,7 @@ sh install-unix.sh
 |---|---|
 | `--terminal-only` | Only the terminal app (on illumos this is all there is) |
 | `--prefix DIR` | Install into `DIR`. Without it the script uses the place Coxswain is already in, or asks: `/usr/local` for every user, or `~/.local` for you alone |
-| `--version v2.7.0` | That release instead of the latest |
+| `--version v2.8.0` | That release instead of the latest |
 | `--from DIR` | Install from release archives already in `DIR`, without downloading (a zone without network) |
 | `--yes` | Answer yes to every question |
 | `--uninstall` | Remove what the script installed |
@@ -70,7 +70,7 @@ which OmniOS and OpenIndiana have installed; a minimal zone may need
 ## Install by hand
 
 ```sh
-v=v2.7.0
+v=v2.8.0
 t=x86_64-unknown-illumos
 curl -fsSLO https://github.com/mwo-dk/coxswain/releases/download/$v/coxswain-terminal-$v-$t.tar.gz
 curl -fsSLO https://github.com/mwo-dk/coxswain/releases/download/$v/coxswain-terminal-$v-$t.tar.gz.sha256

@@ -131,15 +131,7 @@ impl Loaded {
 /// A path in the BOM, relative to the scanned repository, as a file next to the BOM, when it is
 /// there. Never a path that climbs out of the BOM's folder.
 pub fn on_disk(bom_path: &Path, location: &str) -> Option<std::path::PathBuf> {
-    let base = bom_path.parent()?;
-    let rel = location.trim_start_matches(['/', '\\']);
-    if rel.is_empty() || rel.split(['/', '\\']).any(|s| s == "..") {
-        return None;
-    }
-    // One part at a time, so the path has the system's separators (a BOM's are always `/`).
-    let mut p = base.to_path_buf();
-    p.extend(rel.split(['/', '\\']).filter(|s| !s.is_empty() && *s != "."));
-    p.exists().then_some(p)
+    crate::fs::beneath(bom_path.parent()?, location)
 }
 
 pub fn is_crypto(kind: NodeKind) -> bool {
