@@ -16,5 +16,6 @@
  },
  "err.not_email": "Not an email message",
  "error.trash": "Could not move {what} to the trash",
- "status.trashed": "Moved {what} to the trash"
+ "status.trashed": "Moved {what} to the trash",
+ "termux.no_trash_storage": "No trash on the phone's storage: delete {what} for good?"
 }

@@ -993,9 +993,14 @@ impl App {
                 // Inside an archive there is no trash: it is taken out of the archive, written anew.
                 let inside = coxswain_core::archive::split(&self.panel().dir);
                 let forever = a == Action::DeleteForever || inside.is_some();
-                if self.cfg.confirm_delete {
+                // Termux's trash takes nothing from the phone's storage: it is deleted for good,
+                // and asked even when deleting is not confirmed.
+                let no_trash = !forever && !bfs::trash_takes(&paths);
+                let forever = forever || no_trash;
+                if self.cfg.confirm_delete || no_trash {
                     let text = match inside {
                         Some((archive, _)) => t!("confirm.archive_remove", "what" => Self::describe(&paths), "archive" => archive.file_name().unwrap_or_default().to_string_lossy()),
+                        None if no_trash => t!("termux.no_trash_storage", "what" => Self::describe(&paths)),
                         None => t!(if forever { "confirm.delete_forever" } else { "confirm.trash" }, "what" => Self::describe(&paths)),
                     };
                     self.dialog = Some(Dialog::Confirm { title: t!("dialog.delete"), text, paths, forever });
