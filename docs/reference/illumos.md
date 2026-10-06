@@ -63,7 +63,9 @@ Options go after `sh -s --` when the script comes through a pipe:
    disabled until you name a user and enable it ([the search helper](#the-search-helper)).
 
 No packages are needed: the terminal app links only against the base system's libraries
-(`libc`, `libsocket`, `libnsl`, `libumem`).
+(`libc`, `libsocket`, `libnsl`, `libumem` and the GCC runtime, `system/library/gcc-runtime`,
+which OmniOS and OpenIndiana have installed; a minimal zone may need
+`pkg install system/library/gcc-runtime`).
 
 ## Install by hand
 

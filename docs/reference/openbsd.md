@@ -12,6 +12,10 @@ Release builds are for **OpenBSD 7.9 on amd64**, built on 7.9. OpenBSD changes i
 major numbers between releases, so a build for 7.9 runs on 7.9 only: on another release, build
 from source ([below](#building-from-source)).
 
+![The desktop app on OpenBSD 7.9 in CI, theme Cyber: the first-run guide's Two panels page over the panes, and the sidebar's drives System, tmp, usr, var, home, obj, src, X11R6 and local, OpenBSD's own partitions read with getmntinfo(3)](../screenshots/openbsd-gui.png)
+*The desktop app on OpenBSD 7.9, as CI starts it under Xvfb: the first-run guide, and OpenBSD's
+partitions under Drives.*
+
 ## Contents
 
 - [Install with one line](#install-with-one-line)
