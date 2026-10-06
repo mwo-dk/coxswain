@@ -65,6 +65,7 @@ runs on the host instead, through `flatpak-spawn --host`, so it is your program 
 | The editor | **F4** | `editor` from `config.toml`, through `sh -c` on the host; without `editor`, the file opens in its default application |
 | A command typed in the command line | **Enter** | `sh -c` on the host, in the active panel's folder; its output shows as it does outside a Flatpak |
 | [The user menu](../commands/user-menu.md) and [scripts](../commands/scripts.md) | **F2** | On the host, in the active panel's folder, with the marked files as arguments |
+| Deleting to the trash | **F8** | `gio trash` on the host, so the files land in your desktop's trash; the Flatpak's own data folder would hold a trash nothing shows |
 | Opening a file | **Enter**, **F3** → *Open in its app* | The desktop's portal, which opens the default application or asks which one |
 | tesseract, pdftoppm, LibreOffice, pandoc, LaTeX, PlantUML, podman or docker, duckdb | Previews, Find inside files | On the host when they are installed in `/usr/bin` or `/usr/local/bin` there, at the lowest priority, and stopped with Coxswain when they run past their time limit |
 | git | The panels' status, **History**, branches | Inside the sandbox: Coxswain bundles it, so the settings that keep a repository's own config from running programs still hold |
