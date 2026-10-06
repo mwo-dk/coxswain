@@ -838,8 +838,8 @@ pub fn cause(err: &str) -> String {
     let first = first.rsplit_once(" (os error ").filter(|(_, n)| n.ends_with(')')).map_or(first, |(t, _)| t).trim();
     match first.rsplit_once(": ").map(|(_, tail)| tail.trim()).filter(|t| !t.is_empty()) {
         Some(tail) => {
-            let mut c = tail.chars();
-            c.next().map(|f| f.to_uppercase().chain(c).collect()).unwrap_or_default()
+            let first = tail.chars().next().map_or(0, char::len_utf8);
+            crate::i18n::caps(&tail[..first]) + &tail[first..]
         }
         None => first.to_string(),
     }
@@ -889,6 +889,7 @@ mod tests {
         assert_eq!(cause("/home/me/budget.txt: Permission denied (os error 13)"), "Permission denied");
         assert_eq!(cause("Neither podman nor docker is installed"), "Neither podman nor docker is installed");
         assert_eq!(cause("a.txt: locked: wrong password\nb.txt: No space left on device (os error 28)"), "Wrong password");
+        assert_eq!(cause("a.txt: ნებართვა უარყოფილია"), "ნებართვა უარყოფილია");
     }
 
     #[test]

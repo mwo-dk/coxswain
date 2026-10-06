@@ -8,16 +8,27 @@
  * A look that brings its era's font sets --font with !important, over the configured font.
  */
 
-/* Japanese and Korean, after every font list: the first of these that is installed draws them
-   when the chosen font has no such letters. Korean first for Korean, Japanese first otherwise
-   (the same Han letter is drawn differently in each). */
+/* Letters the chosen font may lack, after every font list: the first of these that is installed
+   draws them. Persian (Vazirmatn, Noto Sans Arabic; Geeza Pro on macOS, Segoe UI and Tahoma on
+   Windows), Armenian and Georgian (Noto Sans Armenian and Georgian; Sylfaen on Windows), then
+   Japanese and Korean: Korean first for Korean, Japanese first otherwise (the same Han letter is
+   drawn differently in each). */
 :root {
-  --cjk: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic UI", "Yu Gothic", Meiryo, "Noto Sans CJK JP", "Noto Sans JP",
+  --scripts: Vazirmatn, "Noto Sans Arabic", "Noto Naskh Arabic", "Geeza Pro", "Noto Sans Armenian", "Noto Sans Georgian", Sylfaen,
+    "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic UI", "Yu Gothic", Meiryo, "Noto Sans CJK JP", "Noto Sans JP",
     "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans CJK KR", "Noto Sans KR", sans-serif;
 }
 :root:lang(ko) {
-  --cjk: "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans CJK KR", "Noto Sans KR", "Hiragino Sans", "Yu Gothic UI", "Noto Sans CJK JP",
+  --scripts: Vazirmatn, "Noto Sans Arabic", "Noto Naskh Arabic", "Geeza Pro", "Noto Sans Armenian", "Noto Sans Georgian", Sylfaen,
+    "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans CJK KR", "Noto Sans KR", "Hiragino Sans", "Yu Gothic UI", "Noto Sans CJK JP",
     sans-serif;
+}
+/* Headings some looks write in spaced capitals: Georgian has no capitals in running text (the
+   Mtavruli that uppercasing gives is missing from most fonts), and spacing pulls Persian's joined
+   letters apart. */
+html:root:is(:lang(ka), :lang(fa)) * {
+  text-transform: none !important;
+  letter-spacing: normal !important;
 }
 
 :root {
