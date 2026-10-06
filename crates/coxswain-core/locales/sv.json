@@ -713,6 +713,8 @@
  "notice.cjk_font_freebsd": "Inget japanskt eller koreanskt typsnitt är installerat, så deras tecken kan visas som rutor. Installera ett med: pkg install noto-sans-jp noto-sans-kr",
  "notice.cloud": "Hittade {names}: filer som bara finns online hittas bara på namn, så inget hämtas. Ändra i Inställningar",
  "notice.cloud_tui": "Hittade {names}: filer som bara finns online hittas bara på namn, så inget hämtas. cloud = \"all\" i config.toml läser dem",
+ "notice.helper_unstarted": "Starta med min session är på, men systemd startade inte sökhjälparen, så Coxswain startade den tills du loggar ut. Varför den inte startade: systemctl --user status coxswain-index.",
+ "notice.helper_unstarted_macos": "Starta med min session är på, men macOS startade inte sökhjälparen, så Coxswain startade den tills du loggar ut. Låt macOS starta den vid inloggning: Systeminställningar → Allmänt → Inloggningsobjekt och tillägg → Coxswain → Tillåt i bakgrunden. Varför den inte startade: helper.log i ~/Library/Caches/coxswain och launchctl print gui/$(id -u)/dk.mwo.coxswain.index.",
  "notice.history": "Nytt: {key} på en fil eller mapp i ett git-repo visar dess historik, commit för commit",
  "notice.language_new": "{language} är en ny översättning. Låter ett ord fel eller klumpigt, hjälp till att förbättra den: Inställningar → Språk.",
  "notice.language_new_tui": "{language} är en ny översättning. Låter ett ord fel eller klumpigt berättar coxswain --languages hur du hjälper till att förbättra den.",

@@ -1510,16 +1510,9 @@ fn main() {
         eprintln!("coxswain: {e}");
     }
     // Launched from the Dock, a macOS app gets the bare system PATH, so docker, podman,
-    // pandoc and the rest of Homebrew are invisible. Ask the login shell for the real one.
+    // pandoc and the rest of Homebrew are invisible.
     if cfg!(target_os = "macos") {
-        let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/zsh".into());
-        if let Ok(out) = coxswain_core::tools::command(shell).args(["-lc", "echo $PATH"]).output() {
-            let path = String::from_utf8_lossy(&out.stdout).trim().to_string();
-            if out.status.success() && !path.is_empty() {
-                // Safety: nothing else runs yet, so no other thread reads the environment.
-                unsafe { std::env::set_var("PATH", path) };
-            }
-        }
+        coxswain_core::tools::login_path();
     }
     // Launched from a desktop menu the cwd is usually `/`; home is a better start.
     let home = std::env::home_dir().unwrap_or_default();
