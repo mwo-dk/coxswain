@@ -99,7 +99,8 @@ fn not_on_disk(path: &Path) -> bool {
     cfg!(unix) && ["/proc", "/sys", "/dev", "/run"].iter().any(|p| path.starts_with(p))
 }
 
-/// Symlinks are counted, not followed; unreadable parts are skipped.
+/// Symlinks are counted, not followed; unreadable parts, and other apps' data on a Mac below
+/// `path` (`crate::fs::protected`), are skipped.
 pub(crate) fn walk(path: &Path, stop: &AtomicBool) -> Option<Size> {
     if stop.load(Ordering::Relaxed) {
         return None;
@@ -108,11 +109,12 @@ pub(crate) fn walk(path: &Path, stop: &AtomicBool) -> Option<Size> {
     if !meta.is_dir() {
         return Some((meta.len(), 1));
     }
-    let Ok(rd) = fs::read_dir(path) else { return Some((0, 0)) };
+    let Ok(rd) = crate::fs::read_dir(path) else { return Some((0, 0)) };
     rd.flatten()
         .collect::<Vec<_>>()
         .par_iter()
         .map(|de| match de.file_type() {
+            Ok(t) if t.is_dir() && crate::fs::protected(&de.path()) => Some((0, 0)),
             Ok(t) if t.is_dir() => walk(&de.path(), stop),
             _ => Some((de.metadata().map_or(0, |m| m.len()), 1)),
         })

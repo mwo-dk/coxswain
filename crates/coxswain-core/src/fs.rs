@@ -556,19 +556,74 @@ pub fn mkdir_locked(path: &Path, password: Option<&str>) -> io::Result<()> {
     fs::create_dir_all(path)
 }
 
+// ---------------------------------------------------------------- macOS's protected folders
+
+/// Other apps' data on a Mac, which no walk of Coxswain's opens or stats: each touch can raise
+/// "Coxswain would like to access data from other apps", again after every update of an app
+/// that is not signed with a Developer ID. That is `~/Library` but its cloud folders, the Data
+/// volume's second view of the disk, the per-user temporary folders, the Trash, and the
+/// libraries of Photos, Music and TV. Nothing is, elsewhere. A folder the user opens is listed
+/// all the same: this is for walks.
+pub fn protected(path: &Path) -> bool {
+    #[cfg(target_os = "macos")]
+    {
+        static HOME: std::sync::OnceLock<Option<PathBuf>> = std::sync::OnceLock::new();
+        if let Some(home) = HOME.get_or_init(std::env::home_dir) {
+            return protected_in(home, path);
+        }
+    }
+    let _ = path;
+    false
+}
+
+/// `protected`, for the home folder `home`.
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+pub(crate) fn protected_in(home: &Path, path: &Path) -> bool {
+    // iCloud Drive and the cloud apps' folders: found by name as the cloud rules say.
+    const KEEP: [&str; 2] = ["CloudStorage", "Mobile Documents"];
+    const BUNDLES: [&str; 6] = ["photoslibrary", "photolibrary", "migratedphotolibrary", "aplibrary", "musiclibrary", "tvlibrary"];
+    if let Ok(rest) = path.strip_prefix(home.join("Library")) {
+        return rest.components().next().is_some_and(|c| !KEEP.iter().any(|k| c.as_os_str() == *k));
+    }
+    path.starts_with("/System/Volumes")
+        || path.starts_with("/private/var/folders")
+        || path == home.join(".Trash")
+        || path.extension().is_some_and(|e| BUNDLES.iter().any(|b| e.eq_ignore_ascii_case(b)))
+}
+
+/// `fs::read_dir` for walks. On a Mac a folder refused once (Desktop, Documents, Downloads, a
+/// removable or network volume the user did not allow) is not asked for again while this
+/// process runs: one privacy prompt per folder, not one per walk.
+pub fn read_dir(dir: &Path) -> io::Result<fs::ReadDir> {
+    static REFUSED: std::sync::LazyLock<std::sync::Mutex<std::collections::HashSet<PathBuf>>> = std::sync::LazyLock::new(Default::default);
+    if cfg!(target_os = "macos") { read_dir_once(&REFUSED, dir) } else { fs::read_dir(dir) }
+}
+
+fn read_dir_once(refused: &std::sync::Mutex<std::collections::HashSet<PathBuf>>, dir: &Path) -> io::Result<fs::ReadDir> {
+    if refused.lock().unwrap_or_else(|e| e.into_inner()).contains(dir) {
+        return Err(io::ErrorKind::PermissionDenied.into());
+    }
+    let rd = fs::read_dir(dir);
+    if rd.as_ref().is_err_and(|e| e.kind() == io::ErrorKind::PermissionDenied) {
+        refused.lock().unwrap_or_else(|e| e.into_inner()).insert(dir.to_path_buf());
+    }
+    rd
+}
+
 /// Total bytes and file count under `path`, in parallel. Symlinks are counted, not followed;
-/// unreadable parts are skipped.
+/// unreadable parts, and other apps' data on a Mac (`protected`) below it, are skipped.
 pub fn dir_size(path: &Path) -> (u64, u64) {
     use rayon::prelude::*;
     let Ok(meta) = fs::symlink_metadata(path) else { return (0, 0) };
     if !meta.is_dir() {
         return (meta.len(), 1);
     }
-    let Ok(rd) = fs::read_dir(path) else { return (0, 0) };
+    let Ok(rd) = read_dir(path) else { return (0, 0) };
     rd.flatten()
         .collect::<Vec<_>>()
         .par_iter()
         .map(|de| match de.file_type() {
+            Ok(t) if t.is_dir() && protected(&de.path()) => (0, 0),
             Ok(t) if t.is_dir() => dir_size(&de.path()),
             _ => (de.metadata().map_or(0, |m| m.len()), 1),
         })
@@ -784,6 +839,41 @@ pub fn cause(err: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// On a Mac the walks leave other apps' data alone: `~/Library` but iCloud Drive and the
+    /// cloud folders, the second view of the disk, and the photo and music libraries.
+    #[test]
+    fn other_apps_data_is_protected() {
+        let home = Path::new("/Users/me");
+        let p = |s: &str| protected_in(home, Path::new(s));
+        for yes in ["/Users/me/Library/Containers", "/Users/me/Library/Group Containers/x/a.db", "/Users/me/Library/Mail/V10", "/Users/me/Library/Messages", "/Users/me/Library/Safari", "/Users/me/Library/Application Support/Slack", "/System/Volumes/Data/Users/me/Library/Containers", "/private/var/folders/xy/T", "/Users/me/.Trash", "/Users/me/Pictures/Photos Library.photoslibrary", "/Users/me/Music/Music/Music Library.musiclibrary"] {
+            assert!(p(yes), "{yes}");
+        }
+        for no in ["/Users/me", "/Users/me/Library", "/Users/me/Library/CloudStorage/OneDrive-Personal/a.docx", "/Users/me/Library/Mobile Documents/com~apple~CloudDocs", "/Users/me/Documents", "/Users/me/Desktop/Library/notes.txt", "/Volumes/USB", "/Users/me/Pictures/holiday.jpg"] {
+            assert!(!p(no), "{no}");
+        }
+        assert_eq!(protected(Path::new("/Users/me/Library/Containers")), cfg!(target_os = "macos") && std::env::home_dir().as_deref() == Some(home));
+    }
+
+    /// A folder refused once is not asked for again: on a Mac, each ask can be a prompt.
+    #[cfg(unix)]
+    #[test]
+    fn a_refused_folder_is_asked_once() {
+        use std::os::unix::fs::PermissionsExt;
+        let d = std::env::temp_dir().join(format!("coxswain-refused-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&d);
+        fs::create_dir_all(d.join("shut")).unwrap();
+        fs::set_permissions(d.join("shut"), fs::Permissions::from_mode(0o000)).unwrap();
+        let refused = std::sync::Mutex::default();
+        let first = read_dir_once(&refused, &d.join("shut"));
+        fs::set_permissions(d.join("shut"), fs::Permissions::from_mode(0o755)).unwrap();
+        // Root reads any folder: nothing is refused then.
+        if first.is_err() {
+            assert!(read_dir_once(&refused, &d.join("shut")).is_err(), "not asked again");
+        }
+        assert!(read_dir_once(&refused, &d).is_ok());
+        fs::remove_dir_all(&d).unwrap();
+    }
 
     #[test]
     fn an_error_is_said_in_one_line() {

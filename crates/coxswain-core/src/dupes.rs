@@ -107,7 +107,7 @@ fn file_id(_: &fs::Metadata) -> Option<(u64, u64)> {
 }
 
 fn walk(dir: &Path, opts: &Options, p: &Progress, out: &mut Vec<Found>) {
-    let Ok(rd) = fs::read_dir(dir) else { return };
+    let Ok(rd) = crate::fs::read_dir(dir) else { return };
     let mut subdirs = vec![];
     for de in rd.flatten() {
         if p.cancel.load(Ordering::Relaxed) {
@@ -122,7 +122,9 @@ fn walk(dir: &Path, opts: &Options, p: &Progress, out: &mut Vec<Found>) {
             continue; // never follow links: they would count files twice
         }
         if ft.is_dir() {
-            subdirs.push(de.path());
+            if !crate::fs::protected(&de.path()) {
+                subdirs.push(de.path());
+            }
         } else if ft.is_file() {
             let Ok(m) = de.metadata() else { continue };
             // Only in the cloud: hashing it would download it.
@@ -296,6 +298,11 @@ fn folder_groups(opts: &Options, hash_of: &HashMap<PathBuf, String>) -> Vec<Fold
                 continue;
             }
             let p = de.path();
+            // Not walked for its files either (other apps' data on a Mac).
+            if ft.is_dir() && crate::fs::protected(&p) {
+                complete = false;
+                continue;
+            }
             if ft.is_dir() {
                 // Keep descending even when this folder cannot match: a subfolder still might.
                 match contents(&p, opts, hash_of, out) {

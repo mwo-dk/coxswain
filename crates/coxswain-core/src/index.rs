@@ -340,7 +340,7 @@ impl Index {
     /// scanned. Needs no write lock, so searches go on while a moved-in tree is read.
     pub fn look(&self, dirs: &HashSet<PathBuf>) -> Looked {
         let targets: HashMap<u32, (PathBuf, u64)> =
-            dirs.iter().filter_map(|d| self.find_dir(d).filter(|(id, _)| self.nodes[*id as usize].flags & DIR != 0).map(|(id, h)| (id, (d.clone(), h)))).collect();
+            dirs.iter().filter(|d| !crate::fs::protected(d)).filter_map(|d| self.find_dir(d).filter(|(id, _)| self.nodes[*id as usize].flags & DIR != 0).map(|(id, h)| (id, (d.clone(), h)))).collect();
         if targets.is_empty() {
             return Looked::default();
         }
@@ -422,7 +422,11 @@ impl Index {
 
     /// One directory level, without excluded directories.
     fn scan_one(&self, dir: &Path) -> Vec<Scanned> {
-        let Ok(rd) = fs::read_dir(dir) else { return vec![] };
+        // Other apps' data on a Mac is never opened: its folder is a name, empty.
+        if crate::fs::protected(dir) {
+            return vec![];
+        }
+        let Ok(rd) = crate::fs::read_dir(dir) else { return vec![] };
         rd.flatten()
             .map(|de| Scanned {
                 name: de.file_name().to_string_lossy().into_owned(),
@@ -900,7 +904,7 @@ impl Service {
                         // ponytail: inotify needs one watch per directory; past max_user_watches
                         // the rest go unwatched until the hourly rebuild. fanotify is the upgrade.
                         let kids = fs::read_dir(root).map(|rd| rd.flatten().map(|d| d.path()).collect::<Vec<_>>()).unwrap_or_default();
-                        for k in kids.iter().filter(|k| k.is_dir() && !k.is_symlink() && !exclude.iter().any(|e| k.starts_with(e))) {
+                        for k in kids.iter().filter(|k| k.is_dir() && !k.is_symlink() && !exclude.iter().any(|e| k.starts_with(e)) && !crate::fs::protected(k)) {
                             let _ = w.watch(k, RecursiveMode::Recursive);
                         }
                         let _ = w.watch(root, RecursiveMode::NonRecursive);
@@ -1167,6 +1171,20 @@ mod tests {
         assert_eq!(paths(&all, "cached", Some(&home.join(".m2"))), [home.join(".m2/b.zip/cached.rs")], "and follows their changes");
         crate::archive::forget(&seven);
         fs::remove_dir_all(d).unwrap();
+    }
+
+    /// On a Mac the name index lists the folders in ~/Library but opens none of other apps' data.
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn index_leaves_other_apps_data_alone() {
+        let lib = std::env::home_dir().unwrap().join("Library");
+        let ix = Index::build(std::slice::from_ref(&lib), &[], None, None);
+        assert!(ix.len() > 1, "~/Library is listed");
+        for id in 0..ix.nodes.len() as u32 {
+            let Some(rest) = ix.path(id).and_then(|p| p.strip_prefix(&lib).ok().map(Path::to_path_buf)) else { continue };
+            let cloud = rest.components().next().is_some_and(|c| c.as_os_str() == "CloudStorage" || c.as_os_str() == "Mobile Documents");
+            assert!(rest.components().count() <= 1 || cloud, "{}", rest.display());
+        }
     }
 
     #[test]

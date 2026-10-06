@@ -78,7 +78,7 @@ pub fn download(p: &Progress) -> io::Result<()> {
             continue;
         }
         let url = format!("https://huggingface.co/{REPO}/resolve/{REVISION}/{name}");
-        let mut body = agent.get(&url).header("User-Agent", concat!("coxswain/", env!("CARGO_PKG_VERSION"))).call().map_err(io::Error::other)?.into_body();
+        let mut body = agent.get(&url).header("User-Agent", concat!("coxswain/", env!("CARGO_PKG_VERSION"))).call().map_err(|e| io::Error::other(format!("huggingface.co: {e}")))?.into_body();
         let mut reader = body.as_reader();
         let part = file.with_extension("part");
         let mut out = std::fs::File::create(&part)?;

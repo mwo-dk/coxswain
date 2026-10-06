@@ -54,6 +54,10 @@ pub fn all(cfg: &Config, status: &Status, state: &AppState, terminal: bool) -> V
     if let Some(why) = status.meaning_error.as_ref().filter(|_| status.meaning) {
         all.push(Notice::new(format!("error:{why}"), t!("notice.meaning_error", "why" => why), Some("search_meaning")));
     }
+    // On a Mac: why macOS asks about folders, and what Coxswain reads.
+    if cfg!(target_os = "macos") {
+        all.push(Notice::new("macos-folders", t!("notice.macos_folders"), None));
+    }
     // The vectors are made again to cover whole documents: once the time one takes is known.
     if status.meaning && status.meaning_renewing > 0 && status.meaning_ms_per_file > 0 {
         let text = t!("notice.meaning_renew", "n" => status.meaning_renewing, "time" => time_left(status));
@@ -221,6 +225,10 @@ mod tests {
         let mut state = AppState::default();
         // Whether this machine's GStreamer can play video is not what is tested here.
         dismiss(&mut state, "media");
+        // On a Mac: the folder prompts explained, once.
+        let first = next(&cfg, &status, &state, false).map(|n| n.id);
+        assert_eq!(first.as_deref() == Some("macos-folders"), cfg!(target_os = "macos"), "{first:?}");
+        dismiss(&mut state, "macos-folders");
         assert!(started(&mut state), "a first start is told of nothing new");
         assert!(!started(&mut state));
 

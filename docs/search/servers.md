@@ -18,7 +18,7 @@ Settings → *Finding files* or *Overview*, or `coxswain --setup-search`). It ha
 | | Desktop app: *Settings → Finding files → Details → Meaning → Made by* | Terminal app |
 |---|---|---|
 | Ollama on this machine | *Ollama*. The model `bge-m3` (multilingual, 1.2 GB) is suggested; when the server lacks it, **Pull bge-m3 with Ollama** fetches it, with a progress bar | `coxswain --meaning ollama [MODEL]`: `bge-m3` unless named, pulled when missing (*Pulling bge-m3 with Ollama…*) |
-| Ollama elsewhere | *Ollama*, *Server* `http://evo:11434` | `meaning_url = "http://evo:11434"` in `config.toml`, with `meaning_engine = "ollama"` |
+| Ollama elsewhere | *Ollama*, *Server* `http://192.168.1.20:11434` | `meaning_url = "http://192.168.1.20:11434"` in `config.toml`, with `meaning_engine = "ollama"` |
 | Lemonade, LM Studio, … | *A server with the OpenAI API (Lemonade, LM Studio, llama.cpp …)*, *Server* `http://localhost:8000/api/v1` (Lemonade's), then its *Model* from the list | `coxswain --meaning server URL MODEL`, e.g. `coxswain --meaning server http://localhost:8000/api/v1 nomic-embed-text-v1-GGUF` |
 | Back to the built-in model | *Built-in model, on this machine (465 MB once)* | `coxswain --meaning builtin` (downloads the model if it is not there) |
 
@@ -34,7 +34,7 @@ themselves. The *Server* field is the base URL: Coxswain adds `/api/embed` for O
   listed.
 - **A server on another machine gets the text of your files**: the passages that get vectors,
   each with a line naming the file and the two folders it is in, and every question. Settings says
-  so, in bold: *The text of your files, with their names and folders, is sent to evo to get its
+  so, in bold: *The text of your files, with their names and folders, is sent to my-server to get its
   vectors.* A server on `localhost`, `127.0.0.1` or `::1` gets no such warning; nothing leaves the
   machine.
 - For the OpenAI API, *API key from the environment variable* names an environment variable (placeholder
@@ -85,7 +85,7 @@ Under `[search]`:
 [search]
 meaning = true
 meaning_engine = "openai"
-meaning_url = "http://evo:8000/api/v1"
+meaning_url = "http://my-server:8000/api/v1"
 meaning_model = "nomic-embed-text-v1-GGUF"
 meaning_key_env = "LEMONADE_KEY"
 ```
@@ -105,7 +105,7 @@ A multilingual embedding model, if your files are in several languages: `bge-m3`
 suggestion. Any embedding model the server offers works; chat models do not.
 
 #### Does `coxswain --meaning ollama` work with Ollama on another machine?
-It talks to Ollama on this machine. For another one, set `meaning_url = "http://evo:11434"` under
+It talks to Ollama on this machine. For another one, set `meaning_url = "http://192.168.1.20:11434"` under
 `[search]` (or use Settings).
 
 #### Is a server faster than the built-in model?

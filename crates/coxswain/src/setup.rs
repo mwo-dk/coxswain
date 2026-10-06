@@ -101,7 +101,7 @@ pub fn run() {
     println!("{}\n{}", t!("setup.server_hint"), t!("setup.looking"));
     let mut found = setup::probe();
     let machine = setup::machine(&found);
-    let advice = setup::advise(&machine);
+    let advice = setup::advise(&machine, &found);
     let gpu = machine.gpu.as_ref().map_or_else(|| t!("setup.no_gpu"), |(_, name, vram)| vram.map_or(name.clone(), |v| format!("{name} ({v} GB)")));
     println!("{}", t!("setup.machine", "what" => if machine.npu { format!("{gpu} + NPU") } else { gpu }, "ram" => machine.ram));
     println!("{}", advice.why);
@@ -121,7 +121,7 @@ pub fn run() {
     let builtin_size = meaning::size();
     let now = search();
     let runs = Client::start(&now).status().meaning_runs.filter(|_| now.meaning && now.meaning_engine == "builtin");
-    items.push(t!("setup.builtin", "size" => format!("{} MB", builtin_size >> 20), "where" => setup::builtin_runs(&now, runs.as_ref())) + &if machine.gpu.is_none() { format!(" [{}]", t!("setup.recommended")) } else { String::new() });
+    items.push(t!("setup.builtin", "size" => format!("{} MB", builtin_size >> 20), "where" => setup::builtin_runs(&now, runs.as_ref())) + &if advice.server.is_none() || found.is_empty() { format!(" [{}]", t!("setup.recommended")) } else { String::new() });
     items.push(t!("setup.other"));
     let default = found.iter().position(|f| Some(&f.url) == best.as_ref()).unwrap_or(found.len());
     let mut server: Option<Found> = None;
@@ -167,6 +167,8 @@ pub fn run() {
                 Ok(()) => {
                     save("meaning_engine", "builtin");
                     turn_on("meaning");
+                    turn_on("text");
+                    println!("{}", t!("setup.builtin_on"));
                 }
                 Err(e) => eprintln!("coxswain: {e}"),
             }

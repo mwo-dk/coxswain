@@ -150,6 +150,37 @@ jobs:
           TAG: ${{ needs.draft.outputs.tag }}
         # GitHub's API answers a 500 now and then: try again before failing the release.
         run: for i in 1 2 3 4 5; do gh release download "$TAG" --repo "$GITHUB_REPOSITORY" -p THIRD-PARTY-NOTICES.md -D gui/src-tauri --clobber && exit 0; sleep $((i * 10)); done; exit 1
+      # Developer ID signing and notarisation, when the Apple secrets are set: macOS then keeps
+      # its privacy answers (Desktop, Documents …) from one version to the next. Without them
+      # the app is ad-hoc signed (tauri.conf.json's "-"), as before. docs/reference/macos.md.
+      - name: Apple signing
+        if: runner.os == 'macOS'
+        shell: bash
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          if [ -z "$APPLE_CERTIFICATE" ] || [ -z "$APPLE_CERTIFICATE_PASSWORD" ]; then
+            echo "::notice title=macOS signing::No APPLE_CERTIFICATE secret: the app is ad-hoc signed and not notarised."
+            exit 0
+          fi
+          {
+            echo "APPLE_SIGNING_IDENTITY=Developer ID Application"
+            for name in APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD; do
+              printf '%s<<APPLE_EOF\n%s\nAPPLE_EOF\n' "$name" "${!name}"
+            done
+            if [ -n "$APPLE_ID" ] && [ -n "$APPLE_PASSWORD" ] && [ -n "$APPLE_TEAM_ID" ]; then
+              for name in APPLE_ID APPLE_PASSWORD APPLE_TEAM_ID; do
+                printf '%s<<APPLE_EOF\n%s\nAPPLE_EOF\n' "$name" "${!name}"
+              done
+            fi
+          } >> "$GITHUB_ENV"
+          if [ -z "$APPLE_ID" ] || [ -z "$APPLE_PASSWORD" ] || [ -z "$APPLE_TEAM_ID" ]; then
+            echo "::notice title=macOS signing::Signed with the Developer ID, but not notarised: APPLE_ID, APPLE_PASSWORD or APPLE_TEAM_ID is missing."
+          fi
       - uses: tauri-apps/tauri-action@1deb371b0cd8bd54025b384f1cd735e725c4060f # v1.0.0
         env:
           GITHUB_TOKEN: ${{ github.token }}

@@ -297,9 +297,14 @@ fn chat_for(gb: u64) -> &'static str {
     }
 }
 
-pub fn advise(m: &Machine) -> Advice {
+/// What suits `m`, with the servers `found` on it. A Mac with no server is told the built-in
+/// model, which runs on its GPU: nothing to install, nothing leaves the machine.
+pub fn advise(m: &Machine, found: &[Found]) -> Advice {
     let ram = m.ram.to_string();
     match &m.gpu {
+        Some((Vendor::Apple, _, _)) if found.is_empty() => {
+            Advice { server: None, embed: String::new(), chat: chat_for(m.ram / 2).into(), why: crate::t!("setup.why_apple_builtin", "ram" => ram) }
+        }
         Some((Vendor::Nvidia, name, vram)) => {
             let chat = chat_for(vram.unwrap_or(0));
             let gb = vram.map(|v| v.to_string()).unwrap_or_else(|| "?".into());
@@ -473,17 +478,37 @@ mod tests {
         assert_eq!(probe_url(&format!("{lmstudio}/v1/"), None).map(|f| f.kind), Some(Kind::LmStudio));
     }
 
+    /// With no server on the machine (nothing listens, or something listens and never answers)
+    /// the look ends within a second or two, with nothing found: the built-in model is the way.
+    #[test]
+    fn no_server_is_found_quickly() {
+        let mute = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let silent = format!("http://{}", mute.local_addr().unwrap());
+        let start = Instant::now();
+        let found = probe_at(&[(Kind::Ollama, "http://127.0.0.1:9".into()), (Kind::LmStudio, format!("{silent}/v1")), (Kind::Lemonade, format!("{silent}/api/v1"))], None);
+        assert!(found.is_empty(), "{found:?}");
+        assert!(start.elapsed() < Duration::from_secs(3), "{:?}", start.elapsed());
+        assert!(probe_url(&silent, None).is_none());
+        drop(mute);
+    }
+
     #[test]
     fn advice_follows_the_hardware() {
         let nvidia = Machine { gpu: Some((Vendor::Nvidia, "RTX 4070".into(), Some(12))), npu: false, ram: 32 };
-        let a = advise(&nvidia);
+        let some = [Found { kind: Kind::Ollama, url: "y".into(), engine: "ollama".into(), models: vec![] }];
+        let a = advise(&nvidia, &some);
         assert_eq!((a.server, a.embed.as_str(), a.chat.as_str()), (Some(Kind::Ollama), "bge-m3", "qwen3:8b"));
         assert!(a.why.contains("RTX 4070"), "{}", a.why);
         let ryzen = Machine { gpu: Some((Vendor::Amd, "Radeon 890M".into(), None)), npu: true, ram: 64 };
-        assert_eq!(advise(&ryzen).server, Some(Kind::Lemonade));
+        assert_eq!(advise(&ryzen, &some).server, Some(Kind::Lemonade));
         let mac = Machine { gpu: Some((Vendor::Apple, "Apple silicon".into(), None)), npu: false, ram: 36 };
-        assert_eq!(advise(&mac).chat, "qwen3:14b");
-        let cpu = advise(&Machine { ram: 16, ..Machine::default() });
+        assert_eq!((advise(&mac, &some).server, advise(&mac, &some).chat.as_str()), (Some(Kind::Ollama), "qwen3:14b"));
+        // A Mac with no server (no Ollama, no LM Studio): the built-in model, on its GPU.
+        let alone = advise(&mac, &[]);
+        assert_eq!((alone.server, alone.embed.as_str()), (None, ""), "the built-in model");
+        assert!(alone.why.contains("Metal") && alone.why.contains("36"), "{}", alone.why);
+        assert_eq!(best(&[], &alone).map(|f| f.kind), None);
+        let cpu = advise(&Machine { ram: 16, ..Machine::default() }, &[]);
         assert_eq!((cpu.server, cpu.embed.as_str(), cpu.chat.as_str()), (None, "", "qwen3:4b"), "the built-in model");
         let found = [Found { kind: Kind::LmStudio, url: "x".into(), engine: "openai".into(), models: vec![] }, Found { kind: Kind::Ollama, url: "y".into(), engine: "ollama".into(), models: vec![] }];
         assert_eq!(best(&found, &a).map(|f| f.kind), Some(Kind::Ollama));
@@ -508,7 +533,7 @@ mod tests {
     fn probe_this_machine() {
         let found = probe();
         let m = machine(&found);
-        println!("{m:?}\n{:?}", advise(&m));
+        println!("{m:?}\n{:?}", advise(&m, &found));
         for f in &found {
             println!("{} {} {:?}", f.kind.name(), f.url, f.models);
         }

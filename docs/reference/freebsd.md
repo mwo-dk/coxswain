@@ -446,4 +446,4 @@ already.
 release build yet ([Building from source](#building-from-source)).
 
 ---
-[← Previous: Performance](performance.md) · [Next: Questions, collected →](../faq.md)
+[← Previous: Performance](performance.md) · [Next: macOS →](macos.md)

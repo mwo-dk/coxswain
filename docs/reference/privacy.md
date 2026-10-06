@@ -59,6 +59,11 @@ their own, removed afterwards.
 on Linux) are never read unless you open one: reading them would make the cloud app download
 them. They are found by name only ([Cloud files](../search/cloud-files.md)).
 
+**Other apps' data on a Mac** (`~/Library` but iCloud Drive and the cloud folders, the Photos and
+Music libraries) is never opened by Coxswain's walks, and Coxswain needs no Full Disk Access.
+macOS may ask once about Desktop, Documents, Downloads and removable or network volumes
+([macOS](macos.md#the-folder-prompts)).
+
 **HTML files** are shown as pages in a sandbox: the page runs no scripts and may load only
 pictures, styles, fonts and media from your own disk (beside the file). A page that links a
 script or a picture on the web gets nothing from the web ([HTML pages](../previews/html.md)).
@@ -69,7 +74,7 @@ script or a picture on the web gets nothing from the web ([HTML pages](../previe
 |---|---|---|---|
 | **Update check**, once a day | A request to `api.github.com` for the latest release's version number, with `User-Agent: coxswain/1.20.0` | Both apps, by themselves | `check_updates = false`, or untick *Settings → Privacy and updates → Check for a new version* ([Update checks](updates.md)) |
 | **Model download**, once | The three files of multilingual-e5-small (about 488 MB) from `huggingface.co` | You: *Download the model* in Settings, or `coxswain --meaning on` | Do not turn search by meaning on, or use a server |
-| **Search by meaning on another machine** | The text of your files (all of it, up to 256 passages each, with the file's name and two folders) and everything you type in Find while search by meaning is on, to that server | You: a *Server* that is not on this machine | Use the built-in model or a server on `localhost`. Settings warns: *The text of your files, with their names and folders, is sent to evo to be read for meaning.* |
+| **Search by meaning on another machine** | The text of your files (all of it, up to 256 passages each, with the file's name and two folders) and everything you type in Find while search by meaning is on, to that server | You: a *Server* that is not on this machine | Use the built-in model or a server on `localhost`. Settings warns: *The text of your files, with their names and folders, is sent to my-server to be read for meaning.* |
 | **Ask** | The question, the questions and answers before it in this Find, and the ten closest passages with their paths, to the chat model on the server (Ollama on this machine with the built-in model). Nothing is stored | You: asking in Find (**Ctrl+Enter** / **Alt+Enter**, or **Enter** on the *Ask* row) ([Ask](../search/ask.md)). With Find's scope on a folder, only passages of that folder are sent | Leave *Chat model* empty, or use a server on `localhost` |
 | **Ollama pull** | Ollama downloads the model from its registry | You: *Pull bge-m3 with Ollama* or `coxswain --meaning ollama` | Do not pull |
 | **Container images** | podman or docker downloads the image from its registry (`docker.io`) | You: the first build or render with a container, or *Pull* in Settings. Never by itself | `[preview] container = "off"` |
@@ -88,7 +93,7 @@ Every preview library ships inside the app, and draw.io's viewer runs offline.
   settings allow, each with where it goes, and marks the ones that stay on this machine; the
   *Privacy and updates* line in *Overview* names those that leave it.
 - With a remote server chosen, Settings → *Finding files* → *Details* → *Meaning* shows under it
-  *The text of your files, with their names and folders, is sent to evo to be read for meaning.*, with the server's host name.
+  *The text of your files, with their names and folders, is sent to my-server to be read for meaning.*, with the server's host name.
 - An update found by the check shows as a button in the desktop app and a line in the terminal
   app's status line: [Update checks](updates.md#what-you-see).
 - Nothing shows for requests that do not happen: there is no "sending data" indicator because

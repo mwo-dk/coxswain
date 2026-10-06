@@ -726,9 +726,9 @@ mod tests {
 
     #[test]
     fn settings_say_what_leaves_and_where() {
-        assert_eq!(host("http://user@evo:13305/api/v1"), "evo:13305");
+        assert_eq!(host("http://user@my-server:13305/api/v1"), "my-server:13305");
         assert!(is_local("http://localhost:11434") && is_local("http://127.0.0.1:8000/v1") && is_local("http://[::1]:1234"));
-        assert!(!is_local("http://evo:13305/api/v1"));
+        assert!(!is_local("http://my-server:13305/api/v1"));
         assert_eq!((registry("docker.io/pandoc/core"), registry("texlive/texlive"), registry("ghcr.io/x/y:1")), ("docker.io", "docker.io", "ghcr.io"));
         let mut cfg = Config::default();
         cfg.check_updates = false;
@@ -738,9 +738,9 @@ mod tests {
         cfg.check_updates = true;
         cfg.search.meaning = true;
         cfg.search.meaning_engine = "openai".into();
-        cfg.search.meaning_url = "http://evo:13305/api/v1".into();
+        cfg.search.meaning_url = "http://my-server:13305/api/v1".into();
         cfg.search.ask_model = "qwen3:8b".into();
         let out = outbound(&cfg);
-        assert_eq!(out.iter().map(|o| (o.to.as_str(), o.local)).collect::<Vec<_>>(), [("api.github.com", false), ("evo:13305", false), ("evo:13305", false)]);
+        assert_eq!(out.iter().map(|o| (o.to.as_str(), o.local)).collect::<Vec<_>>(), [("api.github.com", false), ("my-server:13305", false), ("my-server:13305", false)]);
     }
 }
