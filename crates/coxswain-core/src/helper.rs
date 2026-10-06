@@ -724,7 +724,7 @@ mod tests {
             store.set_engine(crate::meaning::Engine::from_config(&s));
             serve_in(&dir, Duration::from_secs(5), { let s = s.clone(); move || Service::start(&s) }, Some((store, s))).unwrap()
         });
-        let c = Client::with(Some(d.join("cache")), &search, || {});
+        let c = Client::with(Some(d.join("cache")), &search, |_| {});
         let (question, wait) = ("What does the fuel cost per flight?", Instant::now());
         let mut sources = vec![];
         while sources.len() < 2 && wait.elapsed() < Duration::from_secs(120) {
