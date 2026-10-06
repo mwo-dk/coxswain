@@ -38,6 +38,10 @@ rustPlatform.buildRustPackage (finalAttrs: {
     writableTmpDirAsHomeHook
   ];
 
+  # Reads the time of a source file, which Nix sets to 1970, before the first time a zip can
+  # hold; fixed upstream after 2.1.1 (the test uses the clock), drop this then.
+  checkFlags = [ "--skip=archive::tests::archive_zip_times_are_local" ];
+
   postInstall = ''
     ln -s coxswain $out/bin/cox
     installManPage crates/coxswain/coxswain.1
