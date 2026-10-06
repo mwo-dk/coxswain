@@ -249,7 +249,7 @@ fn inner_spec(inner: &str) -> String {
 /// A folder of the listing, as `fs::list` gives it: the commits of a history, or the folder at
 /// a commit. `..` leads up: from the commits, back to the folder on disk.
 pub fn list(dir: &Path, at: &At) -> io::Result<Vec<Entry>> {
-    let up = |path: PathBuf| Entry { name: "..".into(), path, is_dir: true, is_symlink: false, is_exec: false, hidden: false, size: 0, modified: 0, created: 0, online: false };
+    let up = |path: PathBuf| Entry { name: "..".into(), path, is_dir: true, is_symlink: false, is_exec: false, hidden: false, size: 0, modified: 0, created: 0, online: false, referenced: 0 };
     let Some(rev) = &at.commit else {
         match at.view {
             View::Branches => return Ok(std::iter::once(up(at.base.clone())).chain(crate::branches::entries(&at.base)?).collect()),
@@ -269,6 +269,7 @@ pub fn list(dir: &Path, at: &At) -> io::Result<Vec<Entry>> {
             modified: c.time,
             created: c.time,
             online: false,
+            referenced: 0,
         }));
         return Ok(out);
     };
@@ -291,6 +292,7 @@ pub fn list(dir: &Path, at: &At) -> io::Result<Vec<Entry>> {
             modified: when,
             created: when,
             online: false,
+            referenced: 0,
         });
     }
     if out.len() == 1 && !at.inner.is_empty() {

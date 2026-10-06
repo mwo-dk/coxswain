@@ -12,12 +12,17 @@ type Res<T> = Result<T, String>;
 // ---------------------------------------------------------------- git diff
 
 /// The file's changes against HEAD (staged and unstaged), or `None` when there are none. In a
-/// history: what that commit changed in it.
+/// history: what that commit changed in it. In a ZFS snapshot: how it differs from the file now.
 #[tauri::command]
 pub async fn git_diff(path: PathBuf) -> Res<Option<String>> {
     crate::here(&path)?;
     if let Some(at) = coxswain_core::history::split(&path).filter(|_| !path.exists()) {
         let text = tauri::async_runtime::spawn_blocking(move || coxswain_core::history::diff(&at)).await.map_err(|e| e.to_string())?.map_err(|e| e.to_string())?;
+        return Ok((!text.trim().is_empty()).then_some(text));
+    }
+    // In a ZFS snapshot: what changed in it since, against the file now.
+    if coxswain_core::zfs::in_snapshot(&path).is_some() {
+        let text = tauri::async_runtime::spawn_blocking(move || coxswain_core::zfs::diff(&path)).await.map_err(|e| e.to_string())?.map_err(|e| e.to_string())?;
         return Ok((!text.trim().is_empty()).then_some(text));
     }
     let (Some(dir), Some(name)) = (path.parent(), path.file_name()) else { return Ok(None) };

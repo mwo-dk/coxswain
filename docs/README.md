@@ -108,8 +108,9 @@ New here? Start with [The first-run guide](panels/first-run.md), [The screen](pa
 | [Archives as folders](files/archives.md) | Zip/tar/7z opened with Enter; copy in, out, between; formats; what is rewritten; why not RAR; limits |
 | [Pack (Alt+F5) and extract (Ctrl+E)](files/pack-and-extract.md) | Pack (Alt+F5) into any archive format by its name, extract (Ctrl+E) into a new folder |
 | [Passwords for encrypted zip and 7z](files/archive-passwords.md) | Passwords for locked zip and 7z: when asked, kept in memory for the app run, never saved |
-| [Properties and permissions](files/properties.md) | Properties (Alt+Enter, desktop): size, dates, owner, permissions and read-only |
+| [Properties and permissions](files/properties.md) | Properties (Alt+Enter, both apps): size, dates, owner, permissions and read-only; ZFS dataset, FreeBSD package, file flags (chflags) |
 | [Finding duplicates](files/duplicates.md) | Files and whole folders, across disks, safe removal to the trash |
+| [ZFS snapshots as folders](files/zfs-snapshots.md) | Alt+Z: a dataset's snapshots, newest first, browsed read-only; diff against now, F5 copies back; the ZFS line in the footer |
 
 ## [Customising](customise/README.md)
 
@@ -138,7 +139,7 @@ New here? Start with [The first-run guide](panels/first-run.md), [The screen](pa
 | [Security](reference/security.md) | Dependencies: how they are chosen and updated, advisory and licence checks on every change and weekly, the bundled viewers, checking a download, reporting a problem |
 | [Licences and bills of materials](reference/bills-of-materials.md) | The SBOMs, the CBOM and the third-party notices each release carries, the licence checks, the cryptography both apps use |
 | [Performance](reference/performance.md) | What keeps each app quick, the numbers for 100,000 files and a million names, and how to measure again |
-| [FreeBSD](reference/freebsd.md) | Both apps on FreeBSD: one-line install, packages, the search helper without systemd (autostart, rc.d, login shell), search by meaning, differences, updating, the desktop app's experimental status, other BSDs |
+| [FreeBSD](reference/freebsd.md) | Both apps on FreeBSD: one-line install, packages, the search helper without systemd (autostart, rc.d, login shell), search by meaning, ZFS snapshots and facts, a file's package, file flags, boot environments and jails, differences, updating, the desktop app's experimental status, other BSDs |
 
 ## [Questions, collected](faq.md)
 

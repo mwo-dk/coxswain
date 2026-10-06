@@ -50,7 +50,7 @@ On a Mac the shortcuts are the same, with **Ctrl**, not Cmd.
 | **PageDown**, **Right** | Page down | `page_down` | A page down (columns view: **Right** opens the folder; thumbnails: one tile right) | A page down |
 | **Home** / **End** | First / Last | `home` / `end` | First / last entry | The same |
 | **Alt+Left** / **Alt+Right** | Back / Forward | `back` / `forward` | The tab's history | – |
-| **Alt+F1** / **Alt+F2** | Left: go to / Right: go to | `goto_left` / `goto_right` | Type a path in the left / right pane's path bar | *Left panel* / *Right panel* dialog |
+| **Alt+F1** / **Alt+F2** | Left: go to / Right: go to | `goto_left` / `goto_right` | Type a path in the left / right pane's path bar | *Left panel* / *Right panel* dialog; on FreeBSD with boot environments or jails, a list of those first ([FreeBSD](../reference/freebsd.md#boot-environments-and-jails)) |
 | **Ctrl+L** | Edit path | `edit_path` | Type a path in the active pane | – |
 
 ### Panels and tabs
@@ -96,9 +96,12 @@ On a Mac the shortcuts are the same, with **Ctrl**, not Cmd.
 | **F7** | New folder | `new_folder` | New folder ([New folder](../files/new-folder.md)) | The same |
 | **Ctrl+C** / **Ctrl+X** / **Ctrl+V** | Copy to clipboard / Cut to clipboard / Paste | `clip_copy` / `clip_cut` / `paste` | Files through the system clipboard ([Clipboard](../files/clipboard.md)) | – |
 | **Shift+F8**, **Shift+Delete** | Delete permanently | `delete_forever` | Delete for good | The same |
-| **Alt+Enter** | Properties | `properties` | Size, dates, permissions ([Properties](../files/properties.md)) | – |
+| **Alt+Enter** | Properties | `properties` | Size, dates, permissions, ZFS, package, flags ([Properties](../files/properties.md)) | The same facts as text |
 | **Ctrl+M** | Batch rename | `batch_rename` | Rename the marked files by pattern ([Batch rename](../files/batch-rename.md)) | – |
 | **Alt+T** | Colour tag | `tag` | Tag the marked files ([Colour tags](../organise/tags.md)) | – |
+| **Alt+Z** | ZFS snapshots | `snapshots` | The snapshots of the folder's ZFS dataset, as folders ([ZFS snapshots](../files/zfs-snapshots.md)) | The same |
+| – | File flags | `flags` | Properties, where the flags are ticked ([File flags](../files/properties.md#zfs-packages-and-file-flags)) | A line to edit your file's user flags |
+| – | Files of this package | `package` | The files of the FreeBSD package the file belongs to ([Packages](../files/properties.md#zfs-packages-and-file-flags)) | The same |
 
 ### Archives
 

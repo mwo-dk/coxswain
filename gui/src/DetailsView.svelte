@@ -130,7 +130,7 @@
           {#if st}<span class="git git-{st.kind}" title={gitTip(st)}>{gitGlyph(st.kind)}</span>{/if}
           {#if e.online}<span class="cloud" title={tr("details.online")}>{g.cloud}</span>{/if}
         </span>
-        {#if shown.has("type")}<span class="ext">{e.is_dir ? (e.name === ".." ? "" : tr("details.folder")) : ext(e)}</span>{/if}
+        {#if shown.has("type")}<span class="ext">{e.referenced ? tr("zfs.referenced", { size: size(e.referenced) }) : e.is_dir ? (e.name === ".." ? "" : tr("details.folder")) : ext(e)}</span>{/if}
         {#if shown.has("size")}
           <span class="size">
             {#if e.is_dir}{t.sizes[e.path] !== undefined ? size(t.sizes[e.path]) : ""}{:else}{size(e.size)}{/if}

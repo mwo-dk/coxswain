@@ -103,7 +103,7 @@ not modifiers Coxswain reads; use **Ctrl** or **Alt**.
 | `unmark_group` | **-** | `clip_copy` ¹ | **Ctrl+C** |
 | `invert_marks` | **\*** | `clip_cut` ¹ | **Ctrl+X** |
 | `search` | **Alt+F7**, **Ctrl+F** | `paste` ¹ | **Ctrl+V** |
-| `search_text` | **Shift+F7**, **Ctrl+Shift+F** | `properties` ¹ | **Alt+Enter** |
+| `search_text` | **Shift+F7**, **Ctrl+Shift+F** | `properties` | **Alt+Enter** |
 | `ask` | **Ctrl+F7** | `extract` | **Ctrl+E** |
 | `refresh` | **Ctrl+R** | `pack` | **Alt+F5** |
 | `swap_panels` | **Ctrl+U** | `columns` ¹ | none |
@@ -111,7 +111,8 @@ not modifiers Coxswain reads; use **Ctrl** or **Alt**.
 | `toggle_hidden` | **Alt+.** | `settings` ² | **Ctrl+,** |
 | `history` | **Ctrl+G** | `branches` | **Alt+B** |
 | `worktrees` | **Alt+W** | `switch_branch` | **Alt+S** |
-| `new_branch` | none | | |
+| `new_branch` | none | `snapshots` | **Alt+Z** |
+| `flags` | none | `package` | none |
 
 ¹ The desktop app only. In the terminal app the key still belongs to the action, and pressing it
 says *… is available in the desktop app (coxswain-gui)* on the command line.

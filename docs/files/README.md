@@ -5,7 +5,8 @@
 Copy, move, rename, make folders and delete, in both apps with the same F-keys. Archives open
 like folders, so the same keys copy files into them, out of them and between them, and
 **Alt+F5** packs files into a new one. The desktop app adds the system clipboard, drag and
-drop, batch rename with a regular expression, a properties dialog and a duplicate finder.
+drop, batch rename with a regular expression and a duplicate finder. On ZFS, **Alt+Z** browses a
+folder's snapshots.
 
 All operations work on the **marked** files, or on the file under the cursor when nothing is
 marked ([Marking files](../panels/marking.md)). `..` is never a target.
@@ -28,6 +29,7 @@ folder; **Ctrl+E** extracts it.*
 | [Passwords for encrypted zip and 7z](archive-passwords.md) | The password question, and how long Coxswain keeps a password |
 | [Properties and permissions](properties.md) | Sizes, dates, owner, and changing the permission bits |
 | [Finding duplicates](duplicates.md) | Duplicate files and whole duplicate folders, across disks, removed safely |
+| [ZFS snapshots as folders](zfs-snapshots.md) | **Alt+Z**: a dataset's snapshots browsed read-only, a file compared with now, copied back with **F5** |
 
 ## Keys at a glance
 
@@ -45,7 +47,10 @@ folder; **Ctrl+E** extracts it.*
 | **Ctrl+C**, **Ctrl+X**, **Ctrl+V** | yes | no | [Clipboard](clipboard.md) copy, cut, paste |
 | Drag with the mouse | yes | no | [Drag and drop](drag-and-drop.md) |
 | **Ctrl+M** | yes | no | [Batch rename](batch-rename.md) |
-| **Alt+Enter** | yes | no | [Properties and permissions](properties.md) |
+| **Alt+Enter** | yes | yes (shown, not changed) | [Properties and permissions](properties.md), with ZFS, package and file flags |
+| **Alt+Z** | yes | yes | [ZFS snapshots](zfs-snapshots.md) of the folder's dataset |
+| *F9 → File flags* | in Properties | yes | Your own [file flags](properties.md#zfs-packages-and-file-flags) (FreeBSD, macOS) |
+| *F9 → Files of this package* | yes | yes | The files of the [package](properties.md#zfs-packages-and-file-flags) a file belongs to (FreeBSD) |
 | **Ctrl+D** | yes | no | [Find duplicates](duplicates.md) |
 
 Every key can be changed ([Changing keys](../customise/keys.md)). In the terminal app a key that

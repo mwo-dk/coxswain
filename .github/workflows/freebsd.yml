@@ -58,5 +58,9 @@ jobs:
             freebsd-version
             rustc -V
             cargo test -p coxswain-core -p coxswain -p coxswain-gui --locked
+            # ZFS from end to end on a pool in a file: snapshots as folders, the diff, a copy
+            # restored, the refusals, file flags. The VM runs as root.
+            kldload zfs 2>/dev/null || true
+            COXSWAIN_ZFS_E2E=1 cargo test -p coxswain-core --test zfs --locked
             # Only the cache goes back to the runner, not the build.
             rm -rf target

@@ -2,7 +2,7 @@
   // Every modal: prompts, confirmations, find file, menus, batch rename, tags, help.
   // App forwards keys through `handleKey`; returning true means "handled".
   import { tick, untrack } from "svelte";
-  import { ui, tab, cd, load } from "./app.svelte.js";
+  import { ui, tab, cd, load, openPackage } from "./app.svelte.js";
   import { Channel } from "@tauri-apps/api/core";
   import { invoke, takesPassword, withEnding, packFormat, basename, parent, size, date, TAGS, TAG_COLORS, tagName, isHistory, historyOf } from "./lib.js";
   import { t, tn, num } from "./i18n.svelte.js";
@@ -225,6 +225,10 @@
     const mode = m.props.mode === null ? null : parseInt(m.mode, 8);
     if (mode !== null && !validMode(m.mode)) return void (m.error = t("dialogs.perm_invalid"));
     try {
+      // The user flags, when they changed (FreeBSD, macOS).
+      const was = (m.props.flags?.user ?? []).filter(([, on]) => on).map(([n]) => n).join(" ");
+      const on = Object.keys(m.flags).filter((n) => m.flags[n]);
+      if (m.props.flags?.can_set && on.join(" ") !== was) await invoke("set_flags", { path: m.props.path, on });
       await invoke("set_permissions", { path: m.props.path, mode, readonly: m.readonly });
       close();
       load(tab());
@@ -602,6 +606,34 @@
             <dd class="perm"><input bind:this={input} bind:value={m.mode} size="5" spellcheck="false" /> <code>{validMode(m.mode) ? rwx(parseInt(m.mode, 8)) : ""}</code></dd>
           {:else}
             <dt>{t("dialogs.attributes")}</dt><dd><label class="check"><input type="checkbox" bind:checked={m.readonly} /> {t("dialogs.readonly")}</label></dd>
+          {/if}
+          {#if p.flags}
+            <!-- chflags: the user flags to tick when you own it; the system ones only shown. -->
+            <dt>{t("props.flags")}</dt>
+            <dd>
+              {p.flags.set.length ? p.flags.set.join(", ") : t("props.flags_none")}
+              {#if p.flags.can_set && p.flags.user.length}
+                <span class="flags">{#each p.flags.user as [n] (n)}<label class="check"><input type="checkbox" bind:checked={m.flags[n]} /> <code>{n}</code></label>{/each}</span>
+              {/if}
+              {#if p.flags.system}<small class="hint">{t("props.flags_system")}</small>{/if}
+            </dd>
+          {/if}
+          {#if p.package}
+            <dt>{t("props.package")}</dt>
+            <dd>{p.package} <button class="link" onclick={() => { const path = p.path; close(); openPackage(tab(), path); }}>{t("action.package")}</button></dd>
+          {/if}
+          {#if p.zfs}
+            {@const z = p.zfs}
+            <dt>{t("props.dataset")}</dt><dd>{z.dataset}</dd>
+            <dt>{t("props.mountpoint")}</dt><dd>{z.mountpoint}</dd>
+            <dt>{t("props.compression")}</dt><dd>{t("props.compression_value", { compression: z.compression, ratio: z.compressratio })}</dd>
+            <dt>{t("props.space")}</dt><dd>{t("props.space_value", { used: size(z.used), free: size(z.available), referenced: size(z.referenced) })}</dd>
+            {#if z.quota || z.refquota}
+              <dt>{t("props.quota")}</dt><dd>{t("props.quota_value", { quota: z.quota ? size(z.quota) : t("props.none"), refquota: z.refquota ? size(z.refquota) : t("props.none") })}</dd>
+            {/if}
+            {#if p.snapshots !== null}
+              <dt>{t("props.snapshots")}</dt><dd>{t("props.snapshots_value", { n: p.snapshots, key: ui.cfg.actions.snapshots?.[1] ?? "" })}</dd>
+            {/if}
           {/if}
         </dl>
         {#if m.error}<p class="err">{m.error}</p>{/if}
@@ -1049,6 +1081,23 @@
     grid-template-columns: max-content 1fr;
     gap: 6px 16px;
     margin: 0;
+  }
+  .flags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px 12px;
+    margin-top: 2px;
+  }
+  .hint {
+    display: block;
+    opacity: 0.7;
+  }
+  .link {
+    font: inherit;
+    padding: 0 6px;
+    margin-inline-start: 6px;
+    text-decoration: underline;
+    cursor: pointer;
   }
   .props dt {
     color: var(--hidden-fg);

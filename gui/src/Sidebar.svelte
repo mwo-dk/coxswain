@@ -125,6 +125,27 @@
     </ul>
   {/if}
 
+  <!-- FreeBSD: boot environments and jails. One not mounted (or not readable) is listed, not opened. -->
+  {#each [["boot", "sidebar.boot_envs", "\u{f0a0}"], ["jail", "sidebar.jails", "\u{f023}"]] as [kind, title, icon] (kind)}
+    {@const list = ui.bsdPlaces.filter((p) => p.kind === kind)}
+    {#if list.length}
+      {@render section(kind, t(title))}
+      {#if !collapsed[kind]}
+        <ul>
+          {#each list as p (p.name)}
+            <li>
+              <button class="row" class:here={p.path === here} class:off={!p.path} title={[p.path, p.note].filter(Boolean).join("\n")}
+                onclick={() => (p.path ? go(p.path) : (ui.status = t(kind === "boot" ? "bsd.not_mounted" : "bsd.not_readable", { name: p.name })))}>
+                <span class="icon" style:color="var(--directory-fg)">{icon}</span>
+                <span class="label">{p.name}{#if p.note}<small class="note"> {p.note}</small>{/if}</span>
+              </button>
+            </li>
+          {/each}
+        </ul>
+      {/if}
+    {/if}
+  {/each}
+
   {#each ui.favorites as g, gi (gi)}
     {#snippet add()}
       <span class="add" role="button" tabindex="-1" title={t("sidebar.add_here")} onclick={(e) => { e.stopPropagation(); addHere(g); }} onkeydown={() => {}}>+</span>
@@ -160,6 +181,13 @@
 </nav>
 
 <style>
+  .row.off {
+    opacity: 0.55;
+  }
+  .note {
+    color: var(--hidden-fg);
+    margin-inline-start: 0.5em;
+  }
   .sidebar {
     height: 100%;
     overflow-y: auto;

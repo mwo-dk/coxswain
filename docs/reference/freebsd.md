@@ -24,6 +24,7 @@ architectures build from source.
 - [Starting the apps](#starting-the-apps)
 - [The search helper](#the-search-helper)
 - [Search by meaning and Ask](#search-by-meaning-and-ask)
+- [ZFS, packages, flags, boot environments and jails](#zfs-packages-flags-boot-environments-and-jails)
 - [How FreeBSD differs from Linux here](#how-freebsd-differs-from-linux-here)
 - [Updating](#updating)
 - [Uninstalling](#uninstalling)
@@ -218,6 +219,63 @@ are found on Linux from files FreeBSD does not have, so on FreeBSD the guide say
 found and advises models that suit the processor. Whether Ollama uses a card depends on how its
 package was built: after the guide's test question, `ollama ps` shows `100% GPU` or `100% CPU`.
 
+## ZFS, packages, flags, boot environments and jails
+
+What a FreeBSD machine has that others do not, Coxswain shows where you are already looking.
+Everything here only reads, except your own file flags, and needs no root.
+
+| What | Where | How |
+|---|---|---|
+| ZFS snapshots | **Alt+Z** on a folder: its dataset's snapshots, newest first, each a read-only folder as it was | [ZFS snapshots as folders](../files/zfs-snapshots.md) |
+| The dataset | The pane's footer (the panel's bottom border in the terminal app): `zroot/home/alice · 1.52x · 12.3 GB used · 88.1 GB free`, or `… of 100 GB` with a quota | `zfs get`, kept ten seconds a dataset |
+| ZFS facts | **Alt+Enter** (Properties): dataset, mountpoint, compression and ratio, used, available, referenced, quota and refquota, how many snapshots | [Properties](../files/properties.md#zfs-packages-and-file-flags) |
+| The package of a file | **Alt+Enter** on a file under `/usr/local`: *Package git-2.56.0* | `pkg which` |
+| A package's files | *F9 → Files of this package*, or the button in Properties: `<file>/@package` lists every file it installed | `pkg info -l` |
+| File flags | **Alt+Enter**: `uarch`, `nodump`, `schg` … as `ls -lo` names them; tick `nodump`, `hidden`, `uchg`, `uappnd` on your own files (on ZFS only `nodump` and `hidden`) | stat(2), chflags(2) |
+| Boot environments | The desktop app's sidebar, and **Alt+F1** / **Alt+F2** in the terminal app | `bectl list -H` |
+| Jails | The same places | `jls -h jid name path host.hostname` |
+
+### Boot environments and jails
+
+<!-- screenshot: freebsd-sidebar-be.png: the desktop app (Cyber) on FreeBSD with a ZFS root: the sidebar's Boot environments section (default running now and on reboot, 14.1-backup not mounted, greyed) and Jails (web jail 1, web.example.org) -->
+
+With a ZFS root, the desktop app's sidebar has a section *Boot environments*: each one by
+name, with *running now*, *active on reboot*, *running now and on reboot* or *not mounted*
+after it. One that is mounted (the running one at `/`, another after `bectl mount`) opens as a
+folder; a click on one that is not mounted says *The boot environment … is not mounted: bectl
+mount … mounts it, as root*, and changes nothing. Below it, *Jails*: each running jail by name,
+with its jid and host name; a click opens its root folder when you may read it.
+
+In the terminal app, **Alt+F1** (left panel) and **Alt+F2** (right panel) list the same, as
+Norton Commander's drive menu did, under a first line *Type a path…* that opens the usual
+go-to line. Type to filter, **Enter** to go. On a machine without boot environments or jails
+(and off FreeBSD) **Alt+F1** goes straight to the go-to line, as before.
+
+Coxswain never activates, mounts, destroys or starts anything: `bectl activate`, `bectl
+mount`, `service jail start` stay yours. Both lists are read when the app starts (the desktop
+app) or when **Alt+F1** is pressed (the terminal app); `bectl` needs a ZFS root, and without one
+the section is left out.
+
+### Questions about these
+
+**Does the snapshot list need root, or `zfs allow`?** No: `zfs list -t snapshot` and reading
+`.zfs/snapshot` work for every user ([more](../files/zfs-snapshots.md#do-i-need-root-or-zfs-allow)).
+
+**Why is a boot environment greyed?** It is not mounted, so there is no folder to open.
+`doas bectl mount 14.1-backup` mounts it under `/tmp`; it then opens like any other.
+
+**Why does every file show `uarch` under Flags?** ZFS sets the archive flag on files it writes;
+`ls -lo` shows it too ([more](../files/properties.md#why-does-every-file-on-zfs-show-uarch)).
+
+**Can I clear `schg` from Coxswain?** No: system flags are root's, and at securelevel 1 or higher
+not even root can clear them until the machine runs at securelevel 0. Properties says so when
+one is set.
+
+**Why is there no *Package* line?** The file belongs to no package: it is part of the base
+system (`/bin`, `/usr/bin`, `/etc`, kept by `freebsd-update`), yours, or in a tree such as
+`/usr/ports`. With pkgbase, base system files belong to `FreeBSD-*` packages and show them. A
+port you built and installed is a package like any other.
+
 ## How FreeBSD differs from Linux here
 
 | Feature | On FreeBSD |
@@ -230,6 +288,9 @@ package was built: after the guide's test question, `ollama ps` shows `100% GPU`
 | Start with my session | An XDG autostart entry, not a service ([above](#the-search-helper)) |
 | The update notice | Names the install script's one-line command ([Updating](#updating)) |
 | Cloud folders | No cloud clients are detected on FreeBSD; files under a FUSE mount are read like any other |
+| ZFS | The dataset of a folder from statfs(2) (Linux reads `/proc/self/mountinfo`); snapshots, the footer and Properties work the same with OpenZFS on Linux and macOS |
+| File flags | chflags(2), shown and set for your own files; Linux shows `lsattr`'s immutable, append-only and no-dump attributes, read-only |
+| Packages, boot environments, jails | FreeBSD only: `pkg`, `bectl`, `jls` |
 
 ## Updating
 

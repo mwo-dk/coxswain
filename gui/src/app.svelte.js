@@ -1,7 +1,7 @@
 // Shared app state and navigation. Components read `ui` and call these functions.
 
 import { SvelteSet } from "svelte/reactivity";
-import { invoke, listDir, basename, parent, applyTheme, isArchive, HISTORY, BRANCHES, WORKTREES, LOCKED } from "./lib.js";
+import { invoke, listDir, basename, parent, applyTheme, isArchive, HISTORY, BRANCHES, WORKTREES, SNAPSHOTS, PACKAGE, LOCKED } from "./lib.js";
 import { setLanguage, t } from "./i18n.svelte.js";
 import { failure } from "./errors.js";
 /** The texts, for functions whose tab is called `t`. */
@@ -48,6 +48,8 @@ export const ui = $state({
   /** The ending Pack suggests: the last one packed. */
   packEnding: ".zip",
   places: [],
+  /** FreeBSD's boot environments and jails, for the sidebar. */
+  bsdPlaces: [],
   disks: [],
 });
 
@@ -130,11 +132,15 @@ export async function load(t, dir = t.dir, focus) {
     t.archive = r.archive;
     t.locked = r.locked;
     t.history = r.history;
+    t.snapshot = r.snapshot;
+    t.package = r.package;
     t.hasNotes = r.has_notes;
     t.error = null;
     // Inside an archive a folder's size comes with the listing; there is nothing to measure. A
     // history's folders have none (git keeps no size for a tree): left empty, not "0 B".
     if (r.archive && !r.history) for (const e of r.items) if (e.is_dir && e.name !== "..") t.sizes[e.path] = e.size;
+    // A list of snapshots: each one's own space.
+    if (r.snapshot && !r.snapshot.snapshot) for (const e of r.items) if (e.name !== "..") t.sizes[e.path] = e.size;
     const at = keep ? r.items.findIndex((e) => e.name === keep || e.path === keep) : -1;
     t.cursor = at >= 0 ? at : Math.max(0, Math.min(t.cursor, r.items.length - 1));
   } catch (e) {
@@ -155,6 +161,8 @@ export async function load(t, dir = t.dir, focus) {
     return false;
   }
   if (ui.autoSizes) measureFolders(t);
+  // On ZFS: the dataset, its compression and space, for the footer.
+  invoke("zfs_facts", { dir: t.dir }).then((z) => t.dir === dir && (t.zfs = z), () => {});
   invoke("git_status", { dir: t.dir }).then((g) => {
     if (t.dir === dir) t.git = g;
     if (g && !ui.recent.includes(g.root)) ui.recent = [g.root, ...ui.recent].slice(0, 12);
@@ -197,6 +205,23 @@ export function openHistory(tb = tab()) {
   if (!tb.git) return void (ui.status = tr("history.no_repo"));
   const target = e && e.name !== ".." ? e.path : tb.dir;
   return cd(tb, `${target.replace(/[\\/]$/, "")}${ui.cfg.sep}${HISTORY}`);
+}
+
+/** To the ZFS snapshots of the folder under the cursor (of the tab's folder on `..` or a file).
+ *  Inside a snapshot: back to the list. */
+export function openSnapshots(tb = tab()) {
+  const e = item(tb);
+  if (tb.snapshot?.snapshot) return cd(tb, `${tb.snapshot.live.replace(/[\\/]$/, "")}${ui.cfg.sep}${SNAPSHOTS}`);
+  if (tb.archive || tb.history || tb.snapshot || tb.package) return void (ui.status = tr("zfs.not_here"));
+  if (!tb.zfs) return void (ui.status = tr("zfs.not_zfs", { dir: tb.dir }));
+  const target = e && e.name !== ".." && e.is_dir ? e.path : tb.dir;
+  return cd(tb, `${target.replace(/[\\/]$/, "")}${ui.cfg.sep}${SNAPSHOTS}`);
+}
+
+/** To the files of the FreeBSD package the file under the cursor belongs to. */
+export function openPackage(tb = tab(), path = item(tb)?.is_dir ? null : item(tb)?.path) {
+  if (!path || tb.archive || tb.history || tb.snapshot || tb.package) return void (ui.status = tr("pkg.not_here"));
+  return cd(tb, `${path}${ui.cfg.sep}${PACKAGE}`);
 }
 
 /** To the branches (or the worktrees) of the repository the tab's folder is in. */
@@ -303,8 +328,9 @@ let tabCount = 0;
 const tabId = (t) => tabIds.get(t) ?? (tabIds.set(t, String(++tabCount)), tabIds.get(t));
 export async function measureFolders(t, paths) {
   const dir = t.dir;
-  // In an archive the listing has the sizes; in a history there are none to measure.
-  if (t.archive || t.history) return;
+  // In an archive the listing has the sizes; in a history there are none to measure. A list of
+  // snapshots has theirs, and a package's files are files.
+  if (t.archive || t.history || (t.snapshot && !t.snapshot.snapshot) || t.package) return;
   // A reload while the automatic run is going (the watcher does that) must not start a second one.
   if (!paths && measuring.get(t) === dir) return;
   if (!paths) measuring.set(t, dir);
@@ -395,6 +421,7 @@ export async function init() {
     }),
   );
   invoke("places").then((p) => (ui.places = p));
+  invoke("bsd_places").then((p) => (ui.bsdPlaces = p), () => {});
   // `coxswain-gui --duplicates <folders>` starts straight in a scan of those folders; with
   // `--settings` too, the scan (which has work to do) wins, since there is one window at a time.
   if (ui.cfg.duplicates) ui.modal = { kind: "dupes", roots: Object.fromEntries(ui.cfg.duplicates.map((p) => [p, true])), autostart: true };
@@ -426,6 +453,9 @@ export function openItem(tb, i = tb.cursor) {
   if (e.is_dir || (isArchive(e.name) && !tb.archive)) return cd(tb, e.path);
   if (tb.archive) return void (ui.status = t("archive.copy_out_hint", { archive: basename(tb.archive) }));
   if (tb.history) return void (ui.status = t("history.file_hint"));
+  // A file of a package: to its folder, the cursor on it.
+  if (tb.package) return cd(tb, parent(e.path)).then(() => (tb.cursor = Math.max(0, tb.items.findIndex((x) => x.path === e.path || x.name === basename(e.path)))));
+  if (tb.snapshot) return void (ui.status = t("zfs.file_hint"));
   invoke("open_path", { path: e.path }).then(
     () => (ui.status = t("status.opened", { name: e.name })),
     (err) => (ui.status = String(err)),

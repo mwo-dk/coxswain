@@ -249,6 +249,10 @@ struct Listing {
     locked: bool,
     /// The history the folder is in.
     history: Option<HistoryInfo>,
+    /// The ZFS snapshot the folder is in, or the list of snapshots it is.
+    snapshot: Option<coxswain_core::zfs::At>,
+    /// The package whose files the folder lists.
+    package: Option<String>,
 }
 
 /// A history being looked into: the file or folder it is of, and the commit looked into.
@@ -267,7 +271,7 @@ struct HistoryInfo {
 async fn list_dir(dir: PathBuf, show_hidden: bool, sort: SortKey, reverse: bool, ctx: tauri::State<'_, Ctx>) -> Res<Listing> {
     // Reading the folder (an archive's, a history's: git) blocks: not on the runtime's workers.
     let d = dir.clone();
-    let (entries, inside, in_history) = tauri::async_runtime::spawn_blocking(move || {
+    let (entries, inside, in_history, snapshot, package) = tauri::async_runtime::spawn_blocking(move || {
         let dir = d;
         let (mut entries, inside) = bfs::list_with_archive(&dir, show_hidden).map_err(|e| format!("{}: {e}", dir.display()))?;
         // Gone into an archive: the user asked for it, so its files may be previewed.
@@ -283,7 +287,9 @@ async fn list_dir(dir: PathBuf, show_hidden: bool, sort: SortKey, reverse: bool,
             history::sort_by_last(&mut entries, &lasts, reverse);
         }
         let in_history = history::split(&dir).filter(|_| !dir.is_dir()).map(|at| HistoryInfo { commit: at.commit.as_deref().and_then(|c| history::show(&at.base, c).ok()), target: at.target, base: at.base, view: at.view });
-        Ok::<_, String>((entries, inside, in_history))
+        let snapshot = coxswain_core::zfs::at(&dir);
+        let package = coxswain_core::bsd::split(&dir).and_then(|f| coxswain_core::bsd::package_of(&f));
+        Ok::<_, String>((entries, inside, in_history, snapshot, package))
     })
     .await
     .map_err(|e| e.to_string())??;
@@ -292,7 +298,7 @@ async fn list_dir(dir: PathBuf, show_hidden: bool, sort: SortKey, reverse: bool,
     let plain = cfg.plain_glyphs().then(|| cfg.glyphs());
     let (prefix, items) = to_page(&dir, entries, |p| st.tags.get(p).cloned(), plain.as_ref());
     let (archive, locked) = inside.map_or((None, false), |(a, locked)| (Some(a), locked));
-    Ok(Listing { has_notes: st.notes.contains_key(&dir), dir, prefix, items, archive, locked, history: in_history })
+    Ok(Listing { has_notes: st.notes.contains_key(&dir), dir, prefix, items, archive, locked, history: in_history, snapshot, package })
 }
 
 /// The entries as the page gets them: with their icon and tag, and without the path when it
@@ -378,6 +384,20 @@ fn children(s: &git::Status, dir: &Path) -> (BTreeMap<String, git::FileStatus>, 
     (files, all)
 }
 
+// ---------------------------------------------------------------- ZFS and FreeBSD
+
+/// The ZFS dataset `dir` is on, for the footer: none off ZFS.
+#[tauri::command]
+async fn zfs_facts(dir: PathBuf) -> Res<Option<coxswain_core::zfs::Facts>> {
+    blocking(move || Ok(coxswain_core::zfs::facts(&dir))).await
+}
+
+/// The boot environments and the jails, for the sidebar (FreeBSD).
+#[tauri::command]
+async fn bsd_places() -> Res<Vec<coxswain_core::bsd::Place>> {
+    blocking(|| Ok(coxswain_core::bsd::places())).await
+}
+
 // ---------------------------------------------------------------- sidebar
 
 #[derive(Serialize)]
@@ -421,9 +441,9 @@ struct Disk {
 }
 
 /// System mounts that are not places to go. `/run` is one, except `/run/media`, where
-/// removable disks are mounted.
+/// removable disks are mounted. So is a ZFS snapshot ZFS mounted when it was looked into.
 fn hidden_mount(mount: &Path) -> bool {
-    ["/boot", "/efi", "/snap", "/var/lib", "/run", "/proc", "/sys"].iter().any(|p| mount.starts_with(p)) && !mount.starts_with("/run/media")
+    (["/boot", "/efi", "/snap", "/var/lib", "/run", "/proc", "/sys"].iter().any(|p| mount.starts_with(p)) && !mount.starts_with("/run/media")) || coxswain_core::zfs::in_snapshot(mount).is_some()
 }
 
 /// The mounted disks and their free space. The window asks again every so often, so the
@@ -1136,59 +1156,16 @@ async fn pack(paths: Vec<PathBuf>, base: PathBuf, dest: String, password: Option
 
 // ---------------------------------------------------------------- properties
 
-#[derive(Serialize)]
-struct Props {
-    path: PathBuf,
-    /// "file", "folder" or "symlink"; the UI shows it in its language.
-    kind: &'static str,
-    link_target: Option<PathBuf>,
-    size: u64,
-    files: u64,
-    created: Option<u64>,
-    modified: Option<u64>,
-    accessed: Option<u64>,
-    readonly: bool,
-    /// Unix permission bits, e.g. 0o644, and owner ids.
-    mode: Option<u32>,
-    uid: Option<u32>,
-    gid: Option<u32>,
-}
-
-fn secs(t: std::io::Result<std::time::SystemTime>) -> Option<u64> {
-    Some(t.ok()?.duration_since(std::time::UNIX_EPOCH).ok()?.as_secs())
-}
-
-/// On a blocking thread: a folder's size is a walk of it.
+/// On a blocking thread: a folder's size is a walk of it, and the facts run `zfs` and `pkg`.
 #[tauri::command]
-async fn properties(path: PathBuf) -> Res<Props> {
-    blocking(move || properties_of(path)).await
+async fn properties(path: PathBuf) -> Res<bfs::Props> {
+    blocking(move || bfs::properties(&path).map_err(|e| format!("{}: {e}", path.display()))).await
 }
 
-fn properties_of(path: PathBuf) -> Res<Props> {
-    let lmeta = std::fs::symlink_metadata(&path).map_err(|e| format!("{}: {e}", path.display()))?;
-    let meta = std::fs::metadata(&path).unwrap_or_else(|_| lmeta.clone());
-    let (size, files) = bfs::dir_size(&path);
-    #[cfg(unix)]
-    let (mode, uid, gid) = {
-        use std::os::unix::fs::MetadataExt;
-        (Some(meta.mode() & 0o7777), Some(meta.uid()), Some(meta.gid()))
-    };
-    #[cfg(not(unix))]
-    let (mode, uid, gid) = (None, None, None);
-    Ok(Props {
-        kind: if lmeta.is_symlink() { "symlink" } else if meta.is_dir() { "folder" } else { "file" },
-        link_target: std::fs::read_link(&path).ok(),
-        size,
-        files,
-        created: secs(meta.created()),
-        modified: secs(meta.modified()),
-        accessed: secs(meta.accessed()),
-        readonly: meta.permissions().readonly(),
-        mode,
-        uid,
-        gid,
-        path,
-    })
+/// The user flags named in `on` set on `path`, the others cleared (FreeBSD, macOS).
+#[tauri::command(async)]
+fn set_flags(path: PathBuf, on: Vec<String>) -> Res<()> {
+    coxswain_core::flags::set_user(&path, &on.iter().map(String::as_str).collect::<Vec<_>>()).map_err(|e| e.to_string())
 }
 
 /// Unix permission bits when `mode` is given, else the read-only flag.
@@ -1597,9 +1574,9 @@ fn main() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            get_config, notices, dismiss_notice, changes, read_changes, set_title, index_status, index_action, index_service, meaning_status, meaning_action, meaning_models, meaning_pull, list_dir, git_status, git_last, git_switch, git_new_branch, places, disks, get_state, save_session, save_favorites, set_tags, set_note, get_note,
+            get_config, notices, dismiss_notice, changes, read_changes, set_title, index_status, index_action, index_service, meaning_status, meaning_action, meaning_models, meaning_pull, list_dir, zfs_facts, bsd_places, git_status, git_last, git_switch, git_new_branch, places, disks, get_state, save_session, save_favorites, set_tags, set_note, get_note,
             find, find_read_too, ask, ask_stop, ask_check, meaning_change, setup_probe, setup_probe_url, setup_try, setup_speed, resolve_path, copy, rename, delete, mkdir, dir_sizes, rename_plan, rename_apply, open_path, edit_path,
-            read_text, run_command, scripts, run_script, check_update, archive_list, extract, pack, archive_password, archive_peek, cloud_fetch, properties, set_permissions,
+            read_text, run_command, scripts, run_script, check_update, archive_list, extract, pack, archive_password, archive_peek, cloud_fetch, properties, set_flags, set_permissions,
             clip_set, paste, start_drag, watch_dirs, preview::git_diff, preview::sqlite_info, preview::epub_preview,
             preview::file_facts, preview::cert_info, bom::bom_info, bom::bom_node, bom::bom_diff, preview::mail_preview, preview::plist_xml, convert::preview_engines, convert::preview_cache, convert::clear_preview_cache,
             convert::convert, convert::images, convert::pull_image, convert::remove_image, convert::pull_progress, dupes_scan,
@@ -1615,7 +1592,7 @@ mod tests {
 
     #[test]
     fn a_listing_sends_a_path_only_where_the_page_cannot_join_it() {
-        let e = |name: &str, path: PathBuf| Entry { name: name.into(), path, is_dir: false, is_symlink: false, is_exec: false, hidden: false, size: 0, modified: 0, created: 0, online: false };
+        let e = |name: &str, path: PathBuf| Entry { name: name.into(), path, is_dir: false, is_symlink: false, is_exec: false, hidden: false, size: 0, modified: 0, created: 0, online: false, referenced: 0 };
         let dir = Path::new("/srv/box");
         let (prefix, items) = to_page(dir, vec![e("..", "/srv".into()), e("a.txt", dir.join("a.txt")), e("x", dir.join("x")), e("b", Path::new("/elsewhere").join("b"))], |_| None, None);
         assert_eq!(prefix, format!("/srv/box{}", std::path::MAIN_SEPARATOR));
@@ -1655,6 +1632,7 @@ mod tests {
         assert!(hidden_mount(Path::new("/run/user/1000")));
         assert!(hidden_mount(Path::new("/boot/efi")));
         assert!(!hidden_mount(Path::new("/mnt/data")));
+        assert!(hidden_mount(Path::new("/tank/home/.zfs/snapshot/daily")));
     }
 
     #[test]
@@ -1704,7 +1682,7 @@ mod perf {
         let (mut entries, _) = bfs::list_with_archive(&dir, true).unwrap();
         bfs::sort(&mut entries, SortKey::Name, false);
         let (prefix, items) = to_page(&dir, entries, |_| None, None);
-        let listing = Listing { has_notes: false, dir, prefix, items, archive: None, locked: false, history: None };
+        let listing = Listing { has_notes: false, dir, prefix, items, archive: None, locked: false, history: None, snapshot: None, package: None };
         println!("list_dir body (list, sort, icons): {:.0} ms", ms(t));
         let t = std::time::Instant::now();
         let json = serde_json::to_vec(&listing).unwrap();

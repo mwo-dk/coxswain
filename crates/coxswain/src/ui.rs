@@ -73,7 +73,7 @@ pub(crate) fn fit_left(s: &str, w: usize) -> String {
     format!("…{}", chars[start..].iter().collect::<String>())
 }
 
-fn size(n: u64) -> String {
+pub(crate) fn size(n: u64) -> String {
     if n < 100_000_000 {
         return n.to_string();
     }
@@ -126,7 +126,16 @@ fn panel(f: &mut Frame, app: &mut App, side: usize, area: Rect) {
             (None, coxswain_core::history::View::Branches) => format!("{} [{}]", p.dir.to_string_lossy(), t!("branches.badge")),
             (None, coxswain_core::history::View::Worktrees) => format!("{} [{}]", p.dir.to_string_lossy(), t!("worktrees.badge")),
         },
-        _ => p.dir.to_string_lossy().into_owned(),
+        // Among a dataset's snapshots: which, of which dataset.
+        _ => match (coxswain_core::zfs::in_snapshot(&p.dir), coxswain_core::zfs::split(&p.dir), &p.package) {
+            (Some(s), ..) => {
+                let ds = p.zfs.as_ref().map_or(String::new(), |f| f.dataset.clone());
+                format!("{} [{}]", p.dir.to_string_lossy(), t!("zfs.badge_at", "name" => s.name, "dataset" => ds))
+            }
+            (_, Some(_), _) => format!("{} [{}]", p.dir.to_string_lossy(), t!("zfs.badge_list", "dataset" => p.zfs.as_ref().map_or("", |f| f.dataset.as_str()))),
+            (.., Some(pkg)) => format!("{} [{}]", p.dir.to_string_lossy(), t!("pkg.badge", "name" => pkg)),
+            _ => p.dir.to_string_lossy().into_owned(),
+        },
     };
     let mut block = Block::default()
         .borders(Borders::ALL)
@@ -146,6 +155,10 @@ fn panel(f: &mut Frame, app: &mut App, side: usize, area: Rect) {
         coxswain_core::fs::SortKey::Commit => "c",
     };
     let sort = if p.reverse { sort.to_uppercase() } else { sort.to_string() };
+    // On ZFS: the dataset, its compression ratio and its space, between the git line and the sort.
+    if let Some(z) = &p.zfs {
+        block = block.title_bottom(Line::from(Span::styled(format!(" {} ", crate::App::zfs_line(z)), border)).centered());
+    }
     block = block.title_bottom(Line::from(Span::styled(format!(" {sort} "), border)).right_aligned());
     let inner = block.inner(area);
     f.render_widget(block, area);
@@ -264,6 +277,10 @@ fn panel(f: &mut Frame, app: &mut App, side: usize, area: Rect) {
         Line::from(Span::styled(fit(&center(&tn!("tui.selected", p.marked.len(), "size" => size(p.marked_bytes)), w), w), sty(&t.marked)))
     } else if let Some(e) = p.current() {
         let mut right = if e.is_dir { String::new() } else { format!(" {}", size(e.size)) };
+        // A snapshot in the list: its own space, and the data it refers to.
+        if e.referenced > 0 {
+            right = format!(" {}", t!("zfs.used_referenced", "used" => size(e.size), "referenced" => size(e.referenced)));
+        }
         // The last commit that changed it, when git has said.
         match p.last.as_ref().and_then(|l| l.get(&e.name)) {
             Some(Some(c)) => right = format!(" {} {} {}{right}", c.hash, date(c.time), c.author),
@@ -363,7 +380,7 @@ fn dialog(f: &mut Frame, app: &mut App) {
     let dstyle = sty(&t.dialog);
     match app.dialog.as_ref().unwrap() {
         Dialog::Input { title, label, value, prompt } => {
-            let inner = frame(f, app, centered(full, 70, 6), title);
+            let inner = frame(f, app, centered(full, (label.width() as u16 + 4).clamp(70, 110), 6), title);
             let [a, b, _, c] = Layout::vertical([Constraint::Length(1); 4]).areas(inner.inner(ratatui::layout::Margin::new(1, 0)));
             f.render_widget(Paragraph::new(label.as_str()), a);
             // A password shows as stars.
@@ -697,4 +714,60 @@ mod tests {
         assert!(wide[0].starts_with('A') && wide[0].trim_end().ends_with('B'), "{wide:?}");
         assert!(wide.iter().all(|l| l.width() <= 80));
     }
+}
+
+/// Properties of a file or folder, as lines of text: the basics, then ZFS, the package and the
+/// flags where the system has them. `snapshots_key` lists the snapshots.
+pub(crate) fn properties(p: &coxswain_core::fs::Props, snapshots_key: &str) -> String {
+    let mut v: Vec<(String, String)> = vec![];
+    let mut add = |k: &str, val: String| v.push((t!(k), val));
+    add("dialogs.location", p.path.parent().map_or(String::new(), |d| d.display().to_string()));
+    let kind = t!(&format!("dialogs.kind.{}", p.kind));
+    add("dialogs.type", match &p.link_target {
+        Some(l) => format!("{kind} -> {}", l.display()),
+        None => kind,
+    });
+    let mut sz = size(p.size);
+    if p.kind == "folder" {
+        sz = format!("{sz} {}", tn!("dialogs.in_files", p.files));
+    }
+    add("dialogs.size", sz);
+    if let Some(m) = p.modified {
+        add("dialogs.modified", date(m));
+    }
+    if let (Some(mode), Some(uid), Some(gid)) = (p.mode, p.uid, p.gid) {
+        add("dialogs.owner", t!("dialogs.owner_ids", "uid" => uid, "gid" => gid));
+        add("dialogs.permissions", format!("{mode:04o}"));
+    }
+    if let Some(z) = &p.zfs {
+        add("props.dataset", z.dataset.clone());
+        add("props.mountpoint", z.mountpoint.display().to_string());
+        add("props.compression", t!("props.compression_value", "compression" => z.compression, "ratio" => z.compressratio));
+        add("props.space", t!("props.space_value", "used" => size(z.used), "free" => size(z.available), "referenced" => size(z.referenced)));
+        if z.quota > 0 || z.refquota > 0 {
+            let q = |n: u64| if n > 0 { size(n) } else { t!("props.none") };
+            add("props.quota", t!("props.quota_value", "quota" => q(z.quota), "refquota" => q(z.refquota)));
+        }
+        if let Some(n) = p.snapshots {
+            add("props.snapshots", t!("props.snapshots_value", "n" => n, "key" => snapshots_key));
+        }
+    }
+    if let Some(pkg) = &p.package {
+        add("props.package", t!("props.package_tui", "name" => pkg));
+    }
+    if let Some(f) = &p.flags {
+        add("props.flags", if f.set.is_empty() { t!("props.flags_none") } else { f.set.join(", ") });
+    }
+    let w = v.iter().map(|(k, _)| k.width()).max().unwrap_or(0);
+    let mut out: Vec<String> = v.iter().map(|(k, val)| format!("{k}{} {val}", " ".repeat(w - k.width()))).collect();
+    if let Some(f) = &p.flags {
+        if f.system {
+            out.push(String::new());
+            out.push(t!("props.flags_system"));
+        }
+        if f.can_set && !f.user.is_empty() {
+            out.push(t!("props.flags_change_tui"));
+        }
+    }
+    out.join("\n")
 }

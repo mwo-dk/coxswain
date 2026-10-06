@@ -87,7 +87,7 @@ fn find(dir: &Path, entry: &str) -> io::Result<Branch> {
 }
 
 fn dir_entry(name: String, path: PathBuf, time: u64) -> Entry {
-    Entry { hidden: false, name, path, is_dir: true, is_symlink: false, is_exec: false, size: 0, modified: time, created: time, online: false }
+    Entry { hidden: false, name, path, is_dir: true, is_symlink: false, is_exec: false, size: 0, modified: time, created: time, online: false, referenced: 0 }
 }
 
 /// The list of branches as folders: each leads to the tree at its commit. Two branches on one

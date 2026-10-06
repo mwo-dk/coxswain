@@ -6,7 +6,7 @@ use std::io;
 use std::path::{Path, PathBuf};
 use std::time::UNIX_EPOCH;
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Default, Serialize)]
 pub struct Entry {
     pub name: String,
     /// Left out when empty: the desktop app's listing sends a path only where the page cannot
@@ -29,6 +29,13 @@ pub struct Entry {
     /// Only in the cloud (OneDrive, Dropbox, iCloud …): reading it would download it.
     #[serde(skip_serializing_if = "std::ops::Not::not")]
     pub online: bool,
+    /// A ZFS snapshot in a list of snapshots: the data it refers to (its size is its own space).
+    #[serde(skip_serializing_if = "is_zero")]
+    pub referenced: u64,
+}
+
+fn is_zero(n: &u64) -> bool {
+    *n == 0
 }
 
 fn no_path(p: &Path) -> bool {
@@ -107,6 +114,7 @@ impl Entry {
             modified: meta.modified().ok().and_then(|t| t.duration_since(UNIX_EPOCH).ok()).map_or(0, |d| d.as_secs()),
             created: meta.created().ok().and_then(|t| t.duration_since(UNIX_EPOCH).ok()).map_or(0, |d| d.as_secs()),
             online: !meta.is_dir() && crate::cloud::online_meta(&meta, &path),
+            referenced: 0,
             name,
             path,
         })
@@ -154,6 +162,16 @@ pub fn list_with_archive(dir: &Path, show_hidden: bool) -> io::Result<(Vec<Entry
         all.retain(|e| show_hidden || !e.hidden || e.is_parent());
         return Ok((all, None));
     }
+    // A dataset's snapshots, and the files of a package: lists that lead to folders and files
+    // on disk.
+    if let Some(of) = crate::zfs::split(dir) {
+        return Ok((crate::zfs::list(&of)?, None));
+    }
+    if let Some(file) = crate::bsd::split(dir) {
+        let mut all = crate::bsd::list(&file)?;
+        all.retain(|e| show_hidden || !e.hidden || e.is_parent());
+        return Ok((all, None));
+    }
     if !dir.is_dir()
         && let Some((archive, inner)) = crate::archive::split(dir)
     {
@@ -162,10 +180,12 @@ pub fn list_with_archive(dir: &Path, show_hidden: bool) -> io::Result<(Vec<Entry
         return Ok((all, Some((archive, locked))));
     }
     let mut out = Vec::new();
-    if let Some(parent) = dir.parent() {
+    // At the top of a snapshot, `..` leads back to the list of snapshots.
+    let up = crate::zfs::in_snapshot(dir).filter(|s| s.rel.as_os_str().is_empty()).map(|s| crate::zfs::path(&s.mountpoint));
+    if let Some(parent) = up.or_else(|| dir.parent().map(Path::to_path_buf)) {
         out.push(Entry {
             name: "..".into(),
-            path: parent.to_path_buf(),
+            path: parent,
             is_dir: true,
             is_symlink: false,
             is_exec: false,
@@ -174,6 +194,7 @@ pub fn list_with_archive(dir: &Path, show_hidden: bool) -> io::Result<(Vec<Entry
             modified: 0,
             created: 0,
             online: false,
+            referenced: 0,
         });
     }
     for de in fs::read_dir(dir)? {
@@ -209,7 +230,7 @@ pub enum SortKey {
 pub fn sort_in(dir: &Path, entries: &mut [Entry], key: SortKey, reverse: bool) {
     if crate::history::split(dir).is_some_and(|at| at.commit.is_none() && at.view != crate::history::View::History) {
         entries.sort_by_key(|e| !e.is_parent());
-    } else if dir.file_name().is_some_and(|n| n == crate::history::MARKER) {
+    } else if dir.file_name().is_some_and(|n| n == crate::history::MARKER || n == crate::zfs::MARKER) {
         entries.sort_by(|a, b| {
             let ord = b.modified.cmp(&a.modified);
             (!a.is_parent()).cmp(&!b.is_parent()).then(if reverse { ord.reverse() } else { ord })
@@ -334,10 +355,18 @@ impl Drop for Scratch {
     }
 }
 
-/// A history is read-only: nothing goes into it, nothing is made or taken out there.
+/// A history is read-only: nothing goes into it, nothing is made or taken out there. So are a
+/// ZFS snapshot and the lists of snapshots and of a package's files.
 fn writable(path: &Path) -> io::Result<()> {
+    let denied = |key: &str| Err(io::Error::new(io::ErrorKind::PermissionDenied, crate::t!(key)));
+    if crate::zfs::is_read_only(path) {
+        return denied("zfs.read_only");
+    }
+    if path.ancestors().any(|a| crate::bsd::split(a).is_some()) {
+        return denied("pkg.read_only");
+    }
     match crate::history::split(path) {
-        Some(_) if !path.exists() => Err(io::Error::new(io::ErrorKind::PermissionDenied, crate::t!("history.read_only"))),
+        Some(_) if !path.exists() => denied("history.read_only"),
         _ => Ok(()),
     }
 }
@@ -544,6 +573,68 @@ pub fn dir_size(path: &Path) -> (u64, u64) {
             _ => (de.metadata().map_or(0, |m| m.len()), 1),
         })
         .reduce(|| (0, 0), |a, b| (a.0 + b.0, a.1 + b.1))
+}
+
+/// What Properties shows of a file or folder: the basics, and where the system has them, its
+/// ZFS dataset, its package and its flags.
+#[derive(Clone, Debug, Serialize)]
+pub struct Props {
+    pub path: PathBuf,
+    /// "file", "folder" or "symlink"; the apps show it in their language.
+    pub kind: &'static str,
+    pub link_target: Option<PathBuf>,
+    pub size: u64,
+    pub files: u64,
+    pub created: Option<u64>,
+    pub modified: Option<u64>,
+    pub accessed: Option<u64>,
+    pub readonly: bool,
+    /// Unix permission bits, e.g. 0o644, and owner ids.
+    pub mode: Option<u32>,
+    pub uid: Option<u32>,
+    pub gid: Option<u32>,
+    /// The ZFS dataset it is on, and how many snapshots that has.
+    pub zfs: Option<crate::zfs::Facts>,
+    pub snapshots: Option<usize>,
+    /// The FreeBSD package it belongs to.
+    pub package: Option<String>,
+    pub flags: Option<crate::flags::Flags>,
+}
+
+/// Properties of `path`: a folder's size is a walk of it, and the facts run `zfs` and `pkg`,
+/// so not on a thread that draws.
+pub fn properties(path: &Path) -> io::Result<Props> {
+    let secs = |t: io::Result<std::time::SystemTime>| Some(t.ok()?.duration_since(UNIX_EPOCH).ok()?.as_secs());
+    let lmeta = fs::symlink_metadata(path)?;
+    let meta = fs::metadata(path).unwrap_or_else(|_| lmeta.clone());
+    let (size, files) = dir_size(path);
+    #[cfg(unix)]
+    let (mode, uid, gid) = {
+        use std::os::unix::fs::MetadataExt;
+        (Some(meta.mode() & 0o7777), Some(meta.uid()), Some(meta.gid()))
+    };
+    #[cfg(not(unix))]
+    let (mode, uid, gid) = (None, None, None);
+    let zfs = crate::zfs::facts(path);
+    let snapshots = zfs.as_ref().and_then(|f| crate::zfs::snapshots(&f.dataset).ok()).map(|v| v.len());
+    Ok(Props {
+        kind: if lmeta.is_symlink() { "symlink" } else if meta.is_dir() { "folder" } else { "file" },
+        link_target: fs::read_link(path).ok(),
+        size,
+        files,
+        created: secs(meta.created()),
+        modified: secs(meta.modified()),
+        accessed: secs(meta.accessed()),
+        readonly: meta.permissions().readonly(),
+        mode,
+        uid,
+        gid,
+        zfs,
+        snapshots,
+        package: if lmeta.is_dir() { None } else { crate::bsd::package_of(path) },
+        flags: crate::flags::read(path),
+        path: path.to_path_buf(),
+    })
 }
 
 /// Open with the desktop's default application, detached.
@@ -780,7 +871,7 @@ mod tests {
 
     #[test]
     fn a_list_of_commits_stays_newest_first() {
-        let e = |name: &str, modified: u64| Entry { name: name.into(), path: PathBuf::from(name), is_dir: true, is_symlink: false, is_exec: false, hidden: false, size: 0, modified, created: modified, online: false };
+        let e = |name: &str, modified: u64| Entry { name: name.into(), path: PathBuf::from(name), is_dir: true, is_symlink: false, is_exec: false, hidden: false, size: 0, modified, created: modified, online: false, referenced: 0 };
         // As git lists them: newest first; two made in the same second.
         let git = [e("..", 0), e("f00d123 Third", 30), e("a11c0de Second", 20), e("beef000 First, again", 10), e("0ddba11 First", 10)];
         let order = |v: &[Entry]| v.iter().map(|e| e.name[..2].to_string()).collect::<Vec<_>>();
