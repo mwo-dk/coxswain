@@ -1,0 +1,80 @@
+{
+  "_type": "https://in-toto.io/Statement/v1",
+  "subject": [
+    {
+      "name": "dist/rocket-1.4.0.tar.gz",
+      "digest": {
+        "sha256": "2c26b46b68ffc68ff99b453c1d30413413422d706483bfa0f98a5e886266e7ae"
+      }
+    },
+    {
+      "name": "dist/rocket-1.4.0.zip",
+      "digest": {
+        "sha512": "f7fbba6e0636f890e56fbbf3283e524c6fa3204ae298382d624741d0dc6638326e282c41be5e4254d8820772c5518a2c5a8c0c7f7eda19594a7eb539453e1ed7"
+      }
+    },
+    {
+      "name": "ghcr.io/demo/rocket",
+      "digest": {
+        "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+      }
+    }
+  ],
+  "predicateType": "https://slsa.dev/provenance/v1",
+  "predicate": {
+    "buildDefinition": {
+      "buildType": "https://actions.github.io/buildtypes/workflow/v1",
+      "externalParameters": {
+        "workflow": {
+          "ref": "refs/tags/v1.4.0",
+          "repository": "https://github.com/demo/rocket",
+          "path": ".github/workflows/release.yml"
+        }
+      },
+      "internalParameters": {
+        "github": {
+          "event_name": "push",
+          "repository_id": "1",
+          "repository_owner_id": "2",
+          "runner_environment": "github-hosted"
+        }
+      },
+      "resolvedDependencies": [
+        {
+          "uri": "git+https://github.com/demo/rocket@refs/tags/v1.4.0",
+          "digest": {
+            "gitCommit": "1111111111111111111111111111111111111111"
+          }
+        },
+        {
+          "uri": "pkg:docker/rust@1.90?digest=sha256:abcd",
+          "name": "rust",
+          "digest": {
+            "sha256": "abcd"
+          }
+        }
+      ]
+    },
+    "runDetails": {
+      "builder": {
+        "id": "https://github.com/actions/runner/github-hosted",
+        "version": {
+          "runner": "2.328.0"
+        }
+      },
+      "metadata": {
+        "invocationId": "https://github.com/demo/rocket/actions/runs/7/attempts/1",
+        "startedOn": "2026-10-01T10:00:00Z",
+        "finishedOn": "2026-10-01T10:17:00Z"
+      },
+      "byproducts": [
+        {
+          "name": "build.log",
+          "digest": {
+            "sha256": "ab"
+          }
+        }
+      ]
+    }
+  }
+}

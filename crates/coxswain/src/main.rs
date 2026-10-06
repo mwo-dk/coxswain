@@ -1,6 +1,7 @@
 //! Coxswain TUI: two panels, a command line and a function-key bar, Norton Commander style.
 
 mod bom;
+mod provenance;
 mod guide;
 mod settings;
 mod setup;
@@ -289,6 +290,7 @@ pub enum Dialog {
     Message { title: String, text: String },
     /// A CycloneDX BOM, full screen (F3 on one).
     Bom(Box<bom::Viewer>),
+    Provenance(Box<provenance::Viewer>),
     /// Settings, full screen (F9 → Settings, `--settings`).
     Settings(Box<settings::Settings>),
     /// The first-run guide, full screen (the first start, F1 → G, Settings → Overview).
@@ -848,13 +850,15 @@ impl App {
             Action::GotoLeft | Action::GotoRight => {
                 let side = (a == Action::GotoRight) as usize;
                 let title = if side == 0 { t!("tui.left_panel") } else { t!("tui.right_panel") };
-                // On FreeBSD with boot environments or jails: those to pick, as NC's drive
-                // list, under the line that types a path.
+                // On FreeBSD with boot environments or jails, in Termux the phone's folders:
+                // those to pick, as NC's drive list, under the line that types a path.
                 let places = coxswain_core::bsd::places();
-                if places.is_empty() {
+                let phone = coxswain_core::termux::storage();
+                if places.is_empty() && phone.is_empty() {
                     return self.goto_prompt(side);
                 }
                 let mut items = vec![MenuItem { key: String::new(), label: t!("bsd.type_path"), run: MenuRun::Goto(side, None) }];
+                items.extend(phone.into_iter().map(|(name, path)| MenuItem { key: String::new(), label: t!("termux.storage", "name" => name), run: MenuRun::Goto(side, Some(path)) }));
                 items.extend(places.into_iter().map(|p| {
                     let what = t!(if p.kind == "boot" { "bsd.boot_env" } else { "bsd.jail" });
                     let label = if p.note.is_empty() { format!("{what}: {}", p.name) } else { format!("{what}: {} ({})", p.name, p.note) };
@@ -923,6 +927,15 @@ impl App {
                             Ok(text) => return self.view_or_edit(a, &text),
                             // Not a database after all: the pager shows it as it is.
                             Err(err) => self.status = Some(err),
+                        }
+                    }
+                    // Asked before the BOM: a statement may carry a CycloneDX predicate.
+                    if a == Action::View && self.cfg.provenance_viewer && coxswain_core::provenance::sniff(&e) {
+                        let other = Some(self.panels[self.active ^ 1].dir.clone());
+                        match provenance::Viewer::open(&e, other) {
+                            Ok(v) => return self.dialog = Some(Dialog::Provenance(Box::new(v))),
+                            // Not readable as provenance after all: the pager shows it as it is.
+                            Err(err) => self.status = Some(err.to_string()),
                         }
                     }
                     if a == Action::View && self.cfg.bom_viewer && coxswain_core::bom::sniff(&e) {
@@ -1866,6 +1879,35 @@ impl App {
                     self.dialog = Some(Dialog::Bom(v));
                 }
             },
+            Dialog::Provenance(mut v) => match v.key(key, action == Some(Action::Quit)) {
+                provenance::Outcome::Stay => self.dialog = Some(Dialog::Provenance(v)),
+                provenance::Outcome::Close => {}
+                provenance::Outcome::Source => {
+                    self.view_or_edit(Action::View, &v.path.clone());
+                    self.dialog = Some(Dialog::Provenance(v));
+                }
+                provenance::Outcome::Reveal(file) => {
+                    if let (Some(dir), Some(name)) = (file.parent(), file.file_name()) {
+                        self.cd(self.active, dir.to_path_buf());
+                        self.panel_mut().select_name(&name.to_string_lossy());
+                    }
+                }
+                provenance::Outcome::Cd(dir) => self.cd(self.active, dir),
+                provenance::Outcome::Compare => {
+                    match self.panels[self.active ^ 1].current().filter(|e| !e.is_dir && e.path != v.path) {
+                        Some(e) => v.compare(&e.path.clone()),
+                        None => v.cannot_compare(t!("tui.provenance.no_other")),
+                    }
+                    self.dialog = Some(Dialog::Provenance(v));
+                }
+                provenance::Outcome::Bom(file) => match bom::Viewer::open(&file) {
+                    Ok(b) => self.dialog = Some(Dialog::Bom(Box::new(b))),
+                    Err(err) => {
+                        self.status = Some(err.to_string());
+                        self.dialog = Some(Dialog::Provenance(v));
+                    }
+                },
+            },
         }
     }
 
@@ -1985,6 +2027,9 @@ impl App {
         }
         if let Some(Dialog::Settings(s)) = &mut self.dialog {
             s.poll();
+        }
+        if let Some(Dialog::Provenance(v)) = &mut self.dialog {
+            v.poll();
         }
         if let Some(r) = self.props_rx.as_ref().and_then(|rx| rx.try_recv().ok()) {
             self.props_rx = None;

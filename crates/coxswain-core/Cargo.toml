@@ -21,7 +21,6 @@ notify = "8"
 regex = "1"
 serde_json = "1"
 ureq = { version = "3", features = ["platform-verifier"] }
-trash = "5.2.9"
 zip = { version = "8.6.0", default-features = false, features = ["deflate-flate2-zlib-rs", "aes-crypto"] }
 tar = "0.4.46"
 flate2 = "1.1.10"
@@ -41,6 +40,10 @@ candle-transformers = "0.11.0"
 # pure-Rust `fancy-regex` backend would only be dead code next to it. 0.22 is what candle-core wants.
 tokenizers = { version = "0.22", default-features = false }
 sha2 = "0.11.0"
+# Provenance: DSSE payloads and signatures are base64.
+base64 = "0.23"
+# Provenance: who signed, from a Sigstore certificate. Parsing only: its `verify` feature stays off.
+x509-parser = "0.18.1"
 # The helper's token, from the system's random source.
 getrandom = "0.4"
 # More archive formats, all pure Rust: bzip2 (its default backend), xz, zstd, 7z with AES.
@@ -55,6 +58,10 @@ parquet = { version = "60", default-features = false, features = ["snap", "flate
 # statfs(2) for the ZFS dataset a folder is on, and chflags(2) for file flags.
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
+
+# Android (Termux) has no desktop trash.
+[target.'cfg(not(target_os = "android"))'.dependencies]
+trash = "5.2.9"
 
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.61.2", features = ["Win32_System_Power", "Win32_System_SystemInformation", "Win32_Storage_FileSystem", "Win32_System_Com", "Win32_UI_Shell", "Win32_UI_WindowsAndMessaging"] }

@@ -3,7 +3,7 @@ resolver = "3"
 members = ["crates/coxswain-core", "crates/coxswain", "gui/src-tauri"]
 
 [workspace.package]
-version = "2.5.0"
+version = "2.7.0"
 edition = "2024"
 license = "MIT"
 repository = "https://github.com/mwo-dk/coxswain"
@@ -32,4 +32,7 @@ opt-level = 3
 # Linux, macOS and Windows build the same code as from crates.io. docs/reference/freebsd.md.
 [patch.crates-io]
 tao = { git = "https://github.com/tauri-apps/tao", rev = "d19f4c12a0d881260a436d9ccf3e8f349c58e2a4" }
+# The same source as crates.io's 0.1.4, so wry and tao share one copy: Nix vendors a crate by name and
+# version, and two tao-macros 0.1.4 would collide there (packaging/nix).
+tao-macros = { git = "https://github.com/tauri-apps/tao", rev = "d19f4c12a0d881260a436d9ccf3e8f349c58e2a4" }
 drag = { git = "https://github.com/mwo-dk/drag-rs", rev = "5781ababde2b6df0ad0e6e555863d73587f16f65" }

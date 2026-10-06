@@ -104,6 +104,8 @@ The questions people ask most, with a short answer and a link to the full one. E
 - **Previewing a video made the window go blank or stop. Why?** GStreamer's good plugins are missing; from 1.29.1 the preview says so instead. [Answer](previews/media.md#previewing-a-video-made-the-window-go-blank-or-stop-why)
 - **Why does a video not play?** The webview lacks the codec; on Linux install the GStreamer plugins. [Answer](previews/media.md#why-does-a-video-not-play)
 - **How do I get the old F3 back for a BOM in the terminal app?** Press F3 (or `s`) again in the viewer, or set `bom_viewer = false`. [Answer](previews/bom.md#how-do-i-get-the-old-f3-back-in-the-terminal-app)
+- **Does a ✓ in the provenance view mean the file is safe?** No: it means the file here is the one the provenance names; the provenance itself is not verified. [Answer](previews/provenance.md#does-a--mean-the-file-is-safe)
+- **Why is the source commit "not in your checkout"?** Coxswain never fetches; run `git fetch` in your checkout. [Answer](previews/provenance.md#why-is-my-commit-not-in-your-checkout)
 
 ## Files
 - **How do I get one file out of a zip without unpacking all of it?** Press Enter on the zip, go to the file and press F5: only that file is copied out. [Answer](files/archives.md#how-do-i-get-one-file-out-of-a-zip-without-unpacking-all-of-it)
@@ -151,6 +153,8 @@ The questions people ask most, with a short answer and a link to the full one. E
 - **Which package does this file belong to?** **Alt+Enter** on it shows *Package git-2.56.0* on FreeBSD; *F9 → Files of this package* lists all its files. [Answer](files/properties.md#zfs-packages-and-file-flags)
 - **Can I set chflags from Coxswain?** Your own user flags (`nodump`, `hidden`, and `uchg`, `uappnd` off ZFS) in Properties, or *F9 → File flags* in the terminal app. System flags are root's. [Answer](files/properties.md#zfs-packages-and-file-flags)
 - **Where are my boot environments and jails?** In the desktop app's sidebar, and under **Alt+F1** in the terminal app; mounted ones open as folders. [Answer](reference/freebsd.md#boot-environments-and-jails)
+- **Where are my phone's folders in Termux?** Run `termux-setup-storage` once; then **Alt+F1** lists *Phone: shared*, *Phone: downloads* and the others. [Answer](reference/termux.md#your-phones-folders)
+- **Why does F8 say Android has no trash?** Termux has no desktop trash; **Shift+F8** deletes for good after asking. [Answer](reference/termux.md#questions)
 - **Does Coxswain run on a Raspberry Pi?** Yes, with the 64-bit Raspberry Pi OS: `Coxswain_<version>_arm64.deb` and the `aarch64-unknown-linux-musl` terminal app. There is no 32-bit build. [Answer](reference/linux-arm.md#which-file-do-i-download-for-a-raspberry-pi)
 - **The ARM AppImage does not start and mentions FUSE.** `sudo apt install libfuse2` (`libfuse2t64` on Ubuntu 24.04 and newer), or use the `.deb`. [Answer](reference/linux-arm.md#the-appimage-does-not-start-and-mentions-fuse-what-now)
 - **Which `.deb` does my Chromebook need?** `dpkg --print-architecture` in its Linux terminal: `amd64` or `arm64`. [Answer](reference/chromeos.md#which-deb-does-my-chromebook-need)

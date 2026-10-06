@@ -66,6 +66,7 @@ sticks: it applies to the next file of that kind too, and survives a restart.
 | [PowerPoint and Office](office.md) | Slides drawn in the app at once, LibreOffice's exact view after, and every other Office format |
 | [Data](data.md) | JSON, YAML and TOML trees, JSON Lines, spreadsheets and CSV, SQLite, Parquet, DuckDB, certificates, property lists |
 | [Cryptography bills of materials](bom.md) | CycloneDX CBOMs as a rated tree or sunburst, filters, Found in, comparing two scans; the terminal app's own viewer |
+| [Build provenance](provenance.md) | SLSA and in-toto provenance as inputs → build → outputs, the signer, outputs checked against the files here, the source commit in your checkout, two builds compared; the terminal app's own viewer |
 | [Media and files](media.md) | Pictures, video, audio, fonts, archives listed, folders, and the facts under a file |
 | [Diagrams](diagrams.md) | draw.io, Mermaid, Graphviz and PlantUML |
 | [LaTeX projects](latex.md) | Which file is the document, which engine, building by itself, another engine when one fails |
@@ -91,6 +92,7 @@ sticks: it applies to the next file of that kind too, and survives a restart.
 | `.db` `.sqlite`, `.parquet`, `.duckdb` | Tables, rows, schema | [Data](data.md#formats) |
 | `.pem` `.crt` `.cer` `.der`, `.plist` | Certificate facts, XML | [Data](data.md#formats) |
 | `.cdx.json` `.cdx.xml` `.cbom.json`, CycloneDX JSON/XML | Rated tree, sunburst, compare | [Cryptography bills of materials](bom.md) |
+| `.intoto.jsonl` `.sigstore.json` `.build.slsa` `provenance.json`, in-toto JSON | Inputs → build → outputs, checks, compare | [Build provenance](provenance.md) |
 | Pictures, video, audio, fonts | Image, player, sample text | [Media](media.md#formats) |
 | `.zip` `.7z` `.tar.*` and other archives | The files inside | [Media](media.md#archives) |
 | `.drawio` `.dio`, `.mmd`, `.dot` `.gv`, `.puml` | Diagrams | [Diagrams](diagrams.md) |

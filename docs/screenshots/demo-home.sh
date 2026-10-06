@@ -157,6 +157,41 @@ mkdir -p "$d/Backups/read-only" && chmod 555 "$d/Backups/read-only"
 
 # No "new version" notice in the pictures.
 mkdir -p "$d/.config/coxswain" && printf 'check_updates = false\n' > "$d/.config/coxswain/config.toml"
+# Build provenance for a release in Downloads: built from the commit before HEAD, named in a
+# GitHub remote that is never fetched (projects/rocket in the other pane finds the checkout).
+# One archive matches, one was changed after the build, one is missing, and an image.
+g -C "$d/projects/rocket" remote add github https://github.com/demo/rocket.git
+built="$(g -C "$d/projects/rocket" rev-parse HEAD~1)"
+mkdir -p "$d/Downloads/rocket-1.4.0"
+python3 - "$d/Downloads/rocket-1.4.0" "$built" <<'PY'
+import base64, hashlib, json, sys
+out, commit = sys.argv[1], sys.argv[2]
+files = {"rocket-1.4.0-x86_64-linux.tar.gz": b"rocket 1.4.0 for x86_64\n", "rocket-1.4.0-aarch64-linux.tar.gz": b"rocket 1.4.0 for aarch64\n"}
+for name, data in files.items():
+    open(f"{out}/{name}", "wb").write(data)
+subject = lambda name, data: {"name": name, "digest": {"sha256": hashlib.sha256(data).hexdigest()}}
+statement = {
+    "_type": "https://in-toto.io/Statement/v1",
+    "subject": [subject(n, d) for n, d in files.items()] + [subject("rocket-1.4.0-x86_64.msi", b"msi"), {"name": "ghcr.io/demo/rocket", "digest": {"sha256": hashlib.sha256(b"image").hexdigest()}}],
+    "predicateType": "https://slsa.dev/provenance/v1",
+    "predicate": {
+        "buildDefinition": {
+            "buildType": "https://actions.github.io/buildtypes/workflow/v1",
+            "externalParameters": {"workflow": {"ref": "refs/tags/v1.4.0", "repository": "https://github.com/demo/rocket", "path": ".github/workflows/release.yml"}},
+            "internalParameters": {"github": {"event_name": "push", "repository_id": "1", "repository_owner_id": "2", "runner_environment": "github-hosted"}},
+            "resolvedDependencies": [{"uri": "git+https://github.com/demo/rocket@refs/tags/v1.4.0", "digest": {"gitCommit": commit}}],
+        },
+        "runDetails": {
+            "builder": {"id": "https://github.com/actions/runner/github-hosted"},
+            "metadata": {"invocationId": "https://github.com/demo/rocket/actions/runs/7/attempts/1", "startedOn": "2026-10-05T09:12:00Z", "finishedOn": "2026-10-05T09:26:00Z"},
+        },
+    },
+}
+# Changed after the build: this archive no longer has the digest the provenance names.
+open(f"{out}/rocket-1.4.0-aarch64-linux.tar.gz", "ab").write(b"patched\n")
+envelope = {"payloadType": "application/vnd.in-toto+json", "payload": base64.b64encode(json.dumps(statement).encode()).decode(), "signatures": []}
+open(f"{out}/rocket-1.4.0.intoto.jsonl", "w").write(json.dumps(envelope) + "\n")
+PY
 
 # A CBOM next to the source it was scanned from, and an older scan to compare with: CBOMkit's
 # real scan of Keycloak (Apache-2.0, from the BOM test fixtures), with a stub for every file it
