@@ -25,6 +25,7 @@ pub enum Wrapping {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Entry {
     /// Its line in a JSON Lines file, from 1.
     pub line: Option<usize>,
@@ -65,7 +66,8 @@ pub struct Statement {
     pub subjects: Vec<Resource>,
     pub predicate_type: String,
     pub predicate: Predicate,
-    /// The decoded statement as it is, for the Statement view.
+    /// The decoded statement as it is, for the Statement view (asked for on its own).
+    #[serde(skip)]
     pub raw: Value,
 }
 
