@@ -29,13 +29,30 @@ use crate::store::{self, Store};
 pub const ARG: &str = "--index-helper";
 /// How long the helper stays after the last app has gone.
 const LINGER: Duration = Duration::from_secs(600);
-/// A helper of another version steps down for ours.
+/// A helper of an older version steps down for ours; one of a newer version serves us while
+/// it speaks our `PROTOCOL`.
 const VERSION: &str = env!("CARGO_PKG_VERSION");
+/// The wire format. One more when a request or a reply changes so that another version cannot
+/// read it; added fields with defaults do not count.
+const PROTOCOL: u32 = 1;
+/// A helper's or an app's version and protocol: other ones in tests.
+type Ours = (&'static str, u32);
+const OURS: Ours = (VERSION, PROTOCOL);
+
+/// Apps before the protocol was named spoke the first one.
+fn first_protocol() -> u32 {
+    1
+}
 
 #[derive(Serialize, Deserialize)]
 #[serde(tag = "op", rename_all = "snake_case")]
 enum Request {
-    Hello { token: String, version: String },
+    Hello {
+        token: String,
+        version: String,
+        #[serde(default = "first_protocol")]
+        protocol: u32,
+    },
     /// File names alone.
     Search { query: String, scope: Option<PathBuf>, max: usize },
     /// Find: names, words in files and meaning, `rows` hits per group.
@@ -58,8 +75,14 @@ enum Request {
 #[derive(Serialize, Deserialize)]
 #[serde(tag = "re", rename_all = "snake_case")]
 enum Reply {
-    /// `same`: the helper is our version. Otherwise it exits, and we start ours.
-    Hello { same: bool },
+    /// `same`: the app may use this helper. Otherwise the helper is an older one leaving for the
+    /// app's, or, with `newer` (its version), a newer one the app cannot talk to: it stays, and
+    /// the app indexes by itself.
+    Hello {
+        same: bool,
+        #[serde(default)]
+        newer: Option<String>,
+    },
     Results(Results),
     Found(Found),
     Passages { found: Vec<(PathBuf, String)> },
@@ -127,6 +150,10 @@ pub struct Status {
     /// The clouds whose files the walk found only in the cloud: (name, folder).
     #[serde(default)]
     pub clouds: Vec<(String, PathBuf)>,
+    /// The helper is this newer version, which this app cannot talk to: it indexes by itself
+    /// until it is restarted. Never sent by a helper.
+    #[serde(default)]
+    pub outdated: Option<String>,
 }
 
 /// Where the helper's address and lock live: the cache folder, which is the user's own.
@@ -215,11 +242,11 @@ fn serve_here() -> io::Result<()> {
     let cfg = search.clone();
     // Registered to start with the session: it stays when the apps have gone.
     let linger = if std::env::args().any(|a| a == crate::service::STAY) { Duration::MAX } else { LINGER };
-    serve_in(&dir, linger, move || Service::start(&search), store.map(|s| (s, cfg)))
+    serve_in(OURS, &dir, linger, move || Service::start(&search), store.map(|s| (s, cfg)))
 }
 
-/// `serve` with its folder, its patience and its index given, for tests.
-pub fn serve_in(dir: &Path, linger: Duration, index: impl FnOnce() -> Arc<Service>, texts: Option<(Arc<Store>, SearchConfig)>) -> io::Result<()> {
+/// `serve` with its version, folder, patience and index given, for tests.
+fn serve_in(ours: Ours, dir: &Path, linger: Duration, index: impl FnOnce() -> Arc<Service>, texts: Option<(Arc<Store>, SearchConfig)>) -> io::Result<()> {
     std::fs::create_dir_all(dir)?;
     #[cfg(unix)]
     std::fs::set_permissions(dir, std::os::unix::fs::PermissionsExt::from_mode(0o700))?;
@@ -255,7 +282,7 @@ pub fn serve_in(dir: &Path, linger: Duration, index: impl FnOnce() -> Arc<Servic
                 let (index, store, roots, token, clients, quit, last) = (index.clone(), store.clone(), text_roots.clone(), token.clone(), clients.clone(), quit.clone(), last.clone());
                 std::thread::spawn(move || {
                     clients.fetch_add(1, Ordering::SeqCst);
-                    let _ = answer(stream, &index, store.as_deref(), &roots, &token, &quit);
+                    let _ = answer(ours, stream, &index, store.as_deref(), &roots, &token, &quit);
                     clients.fetch_sub(1, Ordering::SeqCst);
                     *last.lock().unwrap() = Instant::now();
                 });
@@ -271,7 +298,45 @@ pub fn serve_in(dir: &Path, linger: Duration, index: impl FnOnce() -> Arc<Servic
     Ok(())
 }
 
-fn answer(stream: TcpStream, index: &Service, store: Option<&Store>, text_roots: &[PathBuf], token: &str, quit: &AtomicBool) -> io::Result<()> {
+/// What a helper of `ours` does when an app of `version`, speaking `protocol`, says hello.
+#[derive(Debug, PartialEq)]
+enum Greet {
+    /// A newer app: the helper leaves, and the app starts its own.
+    Leave,
+    /// The same or an older app that speaks its protocol.
+    Serve,
+    /// An older app that does not: the helper stays, and the app indexes by itself. An old app
+    /// does not hand over to an older helper: that one would leave again for the next newer app.
+    Refuse,
+}
+
+fn greet(ours: Ours, version: &str, protocol: u32) -> Greet {
+    if newer(version, ours.0) {
+        Greet::Leave
+    } else if protocol == ours.1 {
+        Greet::Serve
+    } else {
+        Greet::Refuse
+    }
+}
+
+/// Whether version `a` comes after `b`: 2.10.0 after 2.9.1.
+fn newer(a: &str, b: &str) -> bool {
+    let parts = |v: &str| v.split('.').map(|p| p.split(|c: char| !c.is_ascii_digit()).next().and_then(|n| n.parse().ok()).unwrap_or(0u64)).collect::<Vec<_>>();
+    parts(a) > parts(b)
+}
+
+/// `what` in helper.log the first time only: an app that cannot be served asks again and again.
+fn note_once(what: String) {
+    static TOLD: Mutex<Vec<String>> = Mutex::new(Vec::new());
+    let mut told = TOLD.lock().unwrap();
+    if !told.contains(&what) {
+        note(format_args!("{what}"));
+        told.push(what);
+    }
+}
+
+fn answer(ours: Ours, stream: TcpStream, index: &Service, store: Option<&Store>, text_roots: &[PathBuf], token: &str, quit: &AtomicBool) -> io::Result<()> {
     stream.set_nodelay(true)?;
     stream.set_read_timeout(Some(HELLO_WAIT))?;
     let mut out = stream.try_clone()?;
@@ -284,20 +349,33 @@ fn answer(stream: TcpStream, index: &Service, store: Option<&Store>, text_roots:
             return Ok(());
         }
         let reply = match serde_json::from_str(&line).map_err(io::Error::other)? {
-            Request::Hello { token: theirs, version } => {
+            Request::Hello { token: theirs, version, protocol } => {
                 if !is_token(&theirs, token) {
                     return Ok(());
                 }
                 said_hello = true;
                 // An app keeps its line open for as long as it runs.
                 out.set_read_timeout(None)?;
-                // A helper on its way out sends newcomers to the next one.
-                let same = version == VERSION && !quit.load(Ordering::SeqCst);
-                // Another version of the app: it starts its own helper once this one is gone.
-                if !same && !quit.fetch_or(true, Ordering::SeqCst) {
-                    note(format_args!("an app of version {version} came: leaving for its helper"));
+                match greet(ours, &version, protocol) {
+                    // A helper on its way out sends newcomers to the next one.
+                    _ if quit.load(Ordering::SeqCst) => Reply::Hello { same: false, newer: None },
+                    Greet::Leave => {
+                        if !quit.fetch_or(true, Ordering::SeqCst) {
+                            note(format_args!("an app of the newer version {version} came: leaving for its helper"));
+                        }
+                        Reply::Hello { same: false, newer: None }
+                    }
+                    Greet::Serve => {
+                        if version != ours.0 {
+                            note_once(format!("an app of the older version {version} came: it uses this helper, which stays"));
+                        }
+                        Reply::Hello { same: true, newer: None }
+                    }
+                    Greet::Refuse => {
+                        note_once(format!("an app of the older version {version} came, which speaks protocol {protocol} and this helper {}: it stays, and the app indexes by itself until it is restarted", ours.1));
+                        Reply::Hello { same: false, newer: Some(ours.0.into()) }
+                    }
                 }
-                Reply::Hello { same }
             }
             _ if !said_hello => return Ok(()),
             Request::Search { query, scope, max } => Reply::Results(index.search(&query, scope.as_deref(), max)),
@@ -356,6 +434,7 @@ fn answer(stream: TcpStream, index: &Service, store: Option<&Store>, text_roots:
                 roots: store.map(Store::root_sizes).unwrap_or_default(),
                 tools: crate::extract::installed::found().iter().map(|(n, p)| (n.to_string(), p.is_some())).collect(),
                 clouds: store.map(Store::clouds).unwrap_or_default(),
+                outdated: None,
                 }
             }),
         };
@@ -380,6 +459,9 @@ pub struct Client {
     /// with `ARG`.
     spawn: Box<dyn Fn(usize) + Send + Sync>,
     search: SearchConfig,
+    ours: Ours,
+    /// A newer helper this app cannot talk to answered: its version.
+    outdated: OnceLock<String>,
     line: Mutex<Option<Line>>,
     /// The last status and when it was asked: the terminal app asks with every frame.
     status: Mutex<Option<(Instant, Status)>>,
@@ -393,22 +475,18 @@ impl Client {
             let registered = crate::service::installed();
             let Ok(exe) = crate::tools::this_app() else { return };
             // A registration that starts another program (an older version, or one an upgrade
-            // has removed) is taken over by this app.
-            if n == 0 && registered && !crate::service::starts(&exe) && crate::service::install(&exe).is_ok() {
+            // has removed) is taken over by this app, unless an upgrade removed this one.
+            if n == 0 && registered && exe.exists() && !crate::service::starts(&exe) && crate::service::install(&exe).is_ok() {
                 return;
             }
             match step(n, registered, crate::service::supervised()) {
                 Step::Ask => crate::service::kick(),
                 Step::Own { stay } => {
-                    let mut c = detached(&exe);
-                    if stay {
-                        c.arg(crate::service::STAY);
-                    }
-                    let _ = c.spawn();
+                    let _ = launch(&exe, stay);
                 }
                 Step::Rescue => {
                     UNSTARTED.store(true, Ordering::Relaxed);
-                    let _ = detached(&exe).arg(crate::service::STAY).spawn();
+                    let _ = launch(&exe, true);
                 }
                 Step::Wait => {}
             }
@@ -422,7 +500,12 @@ impl Client {
     }
 
     pub fn with(dir: Option<PathBuf>, search: &SearchConfig, spawn: impl Fn(usize) + Send + Sync + 'static) -> Arc<Client> {
-        Arc::new(Client { dir, spawn: Box::new(spawn), search: search.clone(), line: Mutex::default(), status: Mutex::default(), own: OnceLock::new() })
+        Client::of(OURS, dir, search, spawn)
+    }
+
+    /// `with` for an app of another version, for tests.
+    fn of(ours: Ours, dir: Option<PathBuf>, search: &SearchConfig, spawn: impl Fn(usize) + Send + Sync + 'static) -> Arc<Client> {
+        Arc::new(Client { dir, spawn: Box::new(spawn), search: search.clone(), ours, outdated: OnceLock::new(), line: Mutex::default(), status: Mutex::default(), own: OnceLock::new() })
     }
 
     pub fn search(&self, query: &str, scope: Option<&Path>, max: usize) -> Results {
@@ -536,7 +619,7 @@ impl Client {
         }
         let now = match self.ask(&Request::Status) {
             Some(Reply::Status(s)) => s,
-            _ => Status { state: self.own().state(), len: self.own().len(), texts: 0, pending: 0, bytes: 0, paused: false, roots: vec![], tools: vec![], meaning: false, meaning_pending: 0, meaning_done: 0, meaning_passages: 0, meaning_renewing: 0, meaning_ms_per_file: 0, meaning_engine: String::new(), meaning_error: None, meaning_runs: None, error: None, clouds: vec![] },
+            _ => Status { state: self.own().state(), len: self.own().len(), texts: 0, pending: 0, bytes: 0, paused: false, roots: vec![], tools: vec![], meaning: false, meaning_pending: 0, meaning_done: 0, meaning_passages: 0, meaning_renewing: 0, meaning_ms_per_file: 0, meaning_engine: String::new(), meaning_error: None, meaning_runs: None, error: None, clouds: vec![], outdated: self.outdated.get().cloned() },
         };
         *status = Some((Instant::now(), now.clone()));
         now
@@ -574,9 +657,17 @@ impl Client {
         let patience = Duration::from_secs(if crate::service::installed() { 15 } else { 5 });
         loop {
             match dial(dir) {
-                Some((mut line, token)) => match exchange(&mut line, &Request::Hello { token, version: VERSION.into() }) {
-                    Ok(Reply::Hello { same: true }) => return Some(line),
-                    // Another version, or a stale address: it goes away, then ours comes.
+                Some((mut line, token)) => match exchange(&mut line, &Request::Hello { token, version: self.ours.0.into(), protocol: self.ours.1 }) {
+                    Ok(Reply::Hello { same: true, .. }) => return Some(line),
+                    // A newer helper that cannot serve us stays: neither asking it to go nor
+                    // starting ours, which would be that newer version again.
+                    Ok(Reply::Hello { newer: Some(v), .. }) => {
+                        if self.outdated.set(v.clone()).is_ok() {
+                            app_note(dir, format_args!("the helper is the newer version {v}, which this app of {} cannot talk to: it indexes by itself until it is restarted", self.ours.0));
+                        }
+                        return None;
+                    }
+                    // An older helper leaving for ours, or a stale address: ours comes next.
                     _ => {}
                 },
                 None if STEPS.get(tries).is_some_and(|&at| wait.elapsed() >= at) => {
@@ -644,8 +735,30 @@ fn exchange((from, to): &mut Line, request: &Request) -> io::Result<Reply> {
     serde_json::from_str(&line).map_err(io::Error::other)
 }
 
-/// `exe` as a helper that outlives the app and its terminal.
-pub(crate) fn detached(exe: &Path) -> std::process::Command {
+/// A line in helper.log from an app, which has its own stderr.
+fn app_note(dir: &Path, what: std::fmt::Arguments) {
+    let mut o = std::fs::OpenOptions::new();
+    o.create(true).append(true);
+    #[cfg(unix)]
+    std::os::unix::fs::OpenOptionsExt::mode(&mut o, 0o600);
+    if let Ok(mut f) = o.open(dir.join("helper.log")) {
+        let _ = writeln!(f, "{} coxswain {VERSION} (app, process {}): {what}", chrono::Local::now().format("%Y-%m-%d %H:%M:%S"), std::process::id());
+    }
+}
+
+/// Start `exe` as a helper that outlives the app and its terminal, staying when `stay`. Waited
+/// for in a thread, so that one which leaves before the app does not stay behind as a zombie.
+pub(crate) fn launch(exe: &Path, stay: bool) -> io::Result<()> {
+    let mut c = detached(exe);
+    if stay {
+        c.arg(crate::service::STAY);
+    }
+    let mut child = c.spawn()?;
+    std::thread::spawn(move || child.wait());
+    Ok(())
+}
+
+fn detached(exe: &Path) -> std::process::Command {
     use std::process::Stdio;
     let mut c = crate::tools::command(exe);
     // Its errors to helper.log, which only this user can read.
@@ -687,12 +800,17 @@ mod tests {
 
     /// A helper in a thread of this test, as an app would start one.
     fn helper(d: &Path, linger: Duration) -> impl Fn() + Send + Sync + Clone + 'static {
+        helper_of(OURS, d, linger)
+    }
+
+    /// The same, of another version.
+    fn helper_of(ours: Ours, d: &Path, linger: Duration) -> impl Fn() + Send + Sync + Clone + 'static {
         let (dir, search) = (d.join("cache"), config(d));
         move || {
             let (dir, search) = (dir.clone(), search.clone());
             std::thread::spawn(move || {
                 let store = Arc::new(Store::open(&dir.join("search.db")).unwrap());
-                serve_in(&dir, linger, { let s = search.clone(); move || Service::start(&s) }, Some((store, search))).unwrap()
+                serve_in(ours, &dir, linger, { let s = search.clone(); move || Service::start(&s) }, Some((store, search))).unwrap()
             });
         }
     }
@@ -722,7 +840,7 @@ mod tests {
         std::thread::spawn(move || {
             let store = Arc::new(Store::open(&dir.join("search.db")).unwrap());
             store.set_engine(crate::meaning::Engine::from_config(&s));
-            serve_in(&dir, Duration::from_secs(5), { let s = s.clone(); move || Service::start(&s) }, Some((store, s))).unwrap()
+            serve_in(OURS, &dir, Duration::from_secs(5), { let s = s.clone(); move || Service::start(&s) }, Some((store, s))).unwrap()
         });
         let c = Client::with(Some(d.join("cache")), &search, |_| {});
         let (question, wait) = ("What does the fuel cost per flight?", Instant::now());
@@ -801,6 +919,104 @@ mod tests {
     }
 
     #[test]
+    fn helpers_hand_over_to_newer_apps_alone() {
+        assert!(newer("2.10.0", "2.9.1") && newer("2.3.0", "2.2.0") && !newer("2.2.0", "2.3.0") && !newer("2.3.0", "2.3.0"));
+        let ours = ("2.3.0", 2);
+        assert_eq!(greet(ours, "2.4.0", 1), Greet::Leave, "a newer app, whatever it speaks");
+        assert_eq!([greet(ours, "2.3.0", 2), greet(ours, "2.2.0", 2)], [Greet::Serve, Greet::Serve]);
+        assert_eq!(greet(ours, "2.2.0", 1), Greet::Refuse);
+    }
+
+    /// Wait until a helper answers at `d`'s cache folder.
+    fn up(d: &Path) {
+        let wait = Instant::now();
+        while dial(&d.join("cache")).is_none() && wait.elapsed() < Duration::from_secs(5) {
+            std::thread::sleep(Duration::from_millis(20));
+        }
+    }
+
+    /// An app that counts the helpers it starts, and starts `start` with each.
+    fn counting(start: impl Fn() + Send + Sync + 'static) -> (Arc<AtomicUsize>, impl Fn(usize) + Send + Sync + 'static) {
+        let n = Arc::new(AtomicUsize::new(0));
+        let m = n.clone();
+        (n, move |_| {
+            m.fetch_add(1, Ordering::SeqCst);
+            start()
+        })
+    }
+
+    #[test]
+    fn an_old_app_uses_a_newer_helper_that_speaks_its_protocol() {
+        let d = tree("older");
+        helper_of(("9.0.0", PROTOCOL), &d, Duration::from_secs(5))();
+        up(&d);
+        // The old app's own start would be the new version again, through the link on PATH.
+        let (starts, spawn) = counting(helper_of(("9.0.0", PROTOCOL), &d, Duration::from_secs(5)));
+        let old = Client::of(("1.0.0", PROTOCOL), Some(d.join("cache")), &config(&d), spawn);
+        ready(&old);
+        assert!(old.shared(), "served by the newer helper");
+        assert_eq!(old.search("README", None, 10).total, 1);
+        // An app from before the protocol was named says no protocol: it speaks the first.
+        let (mut line, token) = dial(&d.join("cache")).unwrap();
+        line.1.write_all(format!("{{\"op\":\"hello\",\"token\":\"{token}\",\"version\":\"1.0.0\"}}\n").as_bytes()).unwrap();
+        let mut reply = String::new();
+        line.0.read_line(&mut reply).unwrap();
+        assert!(reply.contains("\"same\":true"), "{reply}");
+        // The helper stayed: the new app finds it, and nobody started another.
+        let new = Client::of(("9.0.0", PROTOCOL), Some(d.join("cache")), &config(&d), |_| panic!("the helper left"));
+        ready(&new);
+        assert!(new.shared() && old.shared());
+        assert_eq!(starts.load(Ordering::SeqCst), 0);
+        drop((old, new));
+        let _ = std::fs::remove_dir_all(d);
+    }
+
+    #[test]
+    fn an_old_app_leaves_a_newer_helper_it_cannot_talk_to_alone() {
+        let d = tree("refused");
+        helper_of(("9.0.0", PROTOCOL + 1), &d, Duration::from_secs(5))();
+        up(&d);
+        let (starts, spawn) = counting(helper_of(("9.0.0", PROTOCOL + 1), &d, Duration::from_secs(5)));
+        let old = Client::of(("1.0.0", PROTOCOL), Some(d.join("cache")), &config(&d), spawn);
+        ready(&old);
+        // Its own index, at once, and a notice to restart; the helper neither left nor came again.
+        assert!(!old.shared());
+        assert_eq!(old.search("README", None, 10).total, 1);
+        assert_eq!(old.status().outdated.as_deref(), Some("9.0.0"));
+        assert_eq!(starts.load(Ordering::SeqCst), 0);
+        let log = std::fs::read_to_string(d.join("cache/helper.log")).unwrap();
+        assert!(log.contains("the helper is the newer version 9.0.0"), "{log}");
+        let new = Client::of(("9.0.0", PROTOCOL + 1), Some(d.join("cache")), &config(&d), |_| panic!("the helper left"));
+        ready(&new);
+        assert!(new.shared());
+        drop((old, new));
+        let _ = std::fs::remove_dir_all(d);
+    }
+
+    #[test]
+    fn a_new_app_takes_over_from_an_old_helper_and_the_old_app_follows() {
+        let d = tree("newer");
+        helper_of(("1.0.0", PROTOCOL), &d, Duration::from_secs(5))();
+        up(&d);
+        let new_helper = helper_of(("9.0.0", PROTOCOL), &d, Duration::from_secs(5));
+        let (new_starts, spawn) = counting(new_helper.clone());
+        let new = Client::of(("9.0.0", PROTOCOL), Some(d.join("cache")), &config(&d), spawn);
+        ready(&new);
+        assert!(new.shared());
+        assert_eq!(new_starts.load(Ordering::SeqCst), 1, "the old helper left, and the new app started its own");
+        // The old app comes back to the new helper, which stays: no ping-pong.
+        let (old_starts, spawn) = counting(new_helper);
+        let old = Client::of(("1.0.0", PROTOCOL), Some(d.join("cache")), &config(&d), spawn);
+        ready(&old);
+        std::thread::sleep(Duration::from_millis(500));
+        assert_eq!(new.search("README", None, 10).total, 1);
+        assert!(old.shared() && new.shared());
+        assert_eq!((new_starts.load(Ordering::SeqCst), old_starts.load(Ordering::SeqCst)), (1, 0));
+        drop((old, new));
+        let _ = std::fs::remove_dir_all(d);
+    }
+
+    #[test]
     fn a_helper_the_system_does_not_start_is_started_by_the_app() {
         // Registered with systemd or launchd: asked for twice, then the app's own, and a notice.
         assert_eq!([0, 1, 2, 3].map(|n| step(n, true, true)), [Step::Ask, Step::Ask, Step::Rescue, Step::Rescue]);
@@ -840,9 +1056,9 @@ mod tests {
         let (mut line, token) = dial(&d.join("cache")).unwrap();
         assert!(exchange(&mut line, &Request::Status).is_err(), "no hello, no answer");
         let (mut line, _) = dial(&d.join("cache")).unwrap();
-        assert!(exchange(&mut line, &Request::Hello { token: "guess".into(), version: VERSION.into() }).is_err());
+        assert!(exchange(&mut line, &Request::Hello { token: "guess".into(), version: VERSION.into(), protocol: PROTOCOL }).is_err());
         let (mut line, _) = dial(&d.join("cache")).unwrap();
-        assert!(matches!(exchange(&mut line, &Request::Hello { token: token.clone(), version: VERSION.into() }), Ok(Reply::Hello { same: true })));
+        assert!(matches!(exchange(&mut line, &Request::Hello { token: token.clone(), version: VERSION.into(), protocol: PROTOCOL }), Ok(Reply::Hello { same: true, .. })));
         // Ask with a built-in model there is not: the answer is why, and the line goes on.
         let ask = Request::Ask { model: "builtin:none".into(), cpu: true, earlier: vec![], question: "?".into(), sources: vec![] };
         assert!(matches!(exchange(&mut line, &ask), Ok(Reply::Answered { error: Some(_) })));
@@ -854,7 +1070,7 @@ mod tests {
         let (mut long, _) = dial(&d.join("cache")).unwrap();
         let _ = long.1.write_all(&vec![b'a'; 2 << 20]);
         let _ = long.1.write_all(b"\n");
-        assert!(exchange(&mut long, &Request::Hello { token, version: VERSION.into() }).is_err());
+        assert!(exchange(&mut long, &Request::Hello { token, version: VERSION.into(), protocol: PROTOCOL }).is_err());
 
         #[cfg(unix)]
         {
