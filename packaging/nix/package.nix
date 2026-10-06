@@ -7,6 +7,7 @@
   pkg-config,
   oniguruma,
   git,
+  writableTmpDirAsHomeHook,
   src ? lib.cleanSource ../..,
 }:
 
@@ -31,10 +32,7 @@ rustPlatform.buildRustPackage {
   env.RUSTONIG_SYSTEM_LIBONIG = true;
 
   # The history and branch tests make small repositories with git; the config tests want a home.
-  nativeCheckInputs = [ git ];
-  preCheck = ''
-    export HOME=$(mktemp -d)
-  '';
+  nativeCheckInputs = [ git writableTmpDirAsHomeHook ];
 
   postInstall = ''
     ln -s coxswain $out/bin/cox
