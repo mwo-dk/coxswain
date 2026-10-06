@@ -10,7 +10,7 @@ bundle. Coxswain shows one as inputs → build → outputs, says who signed it, 
 claims it can check on your disk: **are these files the ones that were built, and is that
 commit in my checkout?** Both apps have it.
 
-<!-- screenshot: gui-provenance.png: the preview pane on a rocket-1.4.0.intoto.jsonl in demo/projects/rocket/dist, Flow: the source input "rocket@…" marked "in your checkout, 1 commit behind HEAD", the build box (GitHub Actions, release.yml, push), outputs with one ✓ "matches the file here" and one ✗ "differs from the file here", the ✗ row selected with both digests in the details; Cyber theme -->
+![A release folder's provenance in the preview pane: the source commit in the checkout in the other pane, the build, and the outputs, one matching the file here, one differing, one not here, an image that cannot be checked](../screenshots/gui-provenance.png)
 <!-- screenshot: tui-provenance.png: the terminal app's provenance viewer on the same file, three columns, Classic blue (NC) -->
 
 - [Using it](#using-it)

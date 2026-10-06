@@ -609,8 +609,13 @@ impl Viewer {
     fn render(f: &mut Frame, area: Rect, lines: Vec<Line<'static>>, sel: std::ops::Range<usize>, theme: &Theme) {
         let h = area.height as usize;
         let top = sel.end.saturating_sub(h);
-        for (k, line) in lines.into_iter().enumerate().skip(top).take(h) {
+        for (k, mut line) in lines.into_iter().enumerate().skip(top).take(h) {
             let style = if sel.contains(&k) { sty(&theme.dialog_input) } else { Style::default() };
+            // Selected: the cursor's colours, which a line's own (faint, a mark's) may not read on.
+            if sel.contains(&k) {
+                let spans = line.spans.into_iter().map(|s| Span::styled(s.content, Style::default().add_modifier(s.style.add_modifier)));
+                line = Line::from(spans.collect::<Vec<_>>());
+            }
             f.render_widget(Paragraph::new(line).style(style), Rect { y: area.y + (k - top) as u16, height: 1, ..area });
         }
     }
@@ -693,7 +698,10 @@ impl Viewer {
                 for f in &self.facts {
                     let value = if matches!(fact_key(f).as_str(), "started" | "finished") { when(&f.value) } else { f.value.clone() };
                     let mut spans = vec![Span::styled(format!("{}: ", t!(&format!("provenance.fact.{}", fact_key(f)))), dim), Span::raw(value)];
-                    spans.push(Span::styled(format!("  {}", t!(&format!("provenance.from.{}", from_key(f)))), dim));
+                    // Where a fact came from matters only when a certificate could have said it.
+                    if self.entry().signer.is_some() {
+                        spans.push(Span::styled(format!("  {}", t!(&format!("provenance.from.{}", from_key(f)))), dim));
+                    }
                     if let Some(c) = &f.conflict {
                         spans.push(Span::styled(format!("  ⚠ {}", t!("provenance.conflict", "value" => c)), tone(Tone::Red, theme)));
                     }

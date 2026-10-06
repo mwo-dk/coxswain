@@ -412,10 +412,12 @@
             <!-- svelte-ignore a11y_click_events_have_key_events, a11y_interactive_supports_focus -->
             <div class="item" class:sel={isSel("in", k)} data-row="in-{k}" role="row" onclick={() => pick("in", k)} ondblclick={activate}>
               <span class="mark {r?.state === 'onBranch' || r?.state === 'ahead' ? 'green' : 'grey'}">{x.git ? (SOURCE_MARK[r?.state] ?? "·") : "·"}</span>
-              <span class="name" title={x.d.uri ?? label(x.d)}>{entry.inputLabels[x.i]}</span>
-              {#if changed.has(depKey(x.d))}<span class="cmark" title={t("provenance.area.dependency")}>Δ</span>{/if}
-              {#if x.d.configSource}<small class="tag">{t("provenance.config_source")}</small>{/if}
-              {#if x.git}<small class="state">{sourceWord(r)}</small>{/if}
+              <span class="text">
+                <span class="name" title={x.d.uri ?? label(x.d)}>{entry.inputLabels[x.i]}</span>
+                {#if changed.has(depKey(x.d))}<span class="cmark" title={t("provenance.area.dependency")}>Δ</span>{/if}
+                {#if x.d.configSource}<small class="tag">{t("provenance.config_source")}</small>{/if}
+                {#if x.git}<small class="state">{sourceWord(r)}</small>{/if}
+              </span>
             </div>
           {/each}
           {#if inputs.length > shownInputs.length}
@@ -450,9 +452,11 @@
           <!-- svelte-ignore a11y_click_events_have_key_events, a11y_interactive_supports_focus -->
           <div class="item" class:sel={isSel("out", k)} class:by={o.by} data-row="out-{k}" role="row" onclick={() => pick("out", k)} ondblclick={activate}>
             <span class="mark {COLOR[state] ?? 'muted'}">{o.by ? "·" : r === "checking" ? "…" : (ARROW_MARK[state] ?? "·")}</span>
-            <span class="name">{label(o.s)}</span>
-            {#if !o.by && changed.has(label(o.s))}<span class="cmark" title={t("provenance.area.subject")}>Δ</span>{/if}
-            {#if o.by}<small class="tag">{t("provenance.byproduct")}</small>{:else}<small class="state {COLOR[state] ?? ''}">{subjectWord(r, o.s)}</small>{/if}
+            <span class="text">
+              <span class="name">{label(o.s)}</span>
+              {#if !o.by && changed.has(label(o.s))}<span class="cmark" title={t("provenance.area.subject")}>Δ</span>{/if}
+              {#if o.by}<small class="tag">{t("provenance.byproduct")}</small>{:else}<small class="state {COLOR[state] ?? ''}">{subjectWord(r, o.s)}</small>{/if}
+            </span>
           </div>
         {/each}
         {#if !outputs.length}<p class="none">{t("provenance.no_outputs")}</p>{/if}
@@ -480,7 +484,8 @@
           <div class="kv">
             <span class="k">{t(`provenance.fact.${f.key}`)}</span>
             <span>{#if f.key === "invocation" || f.key === "repository"}{@render link(f.value)}{:else if f.key === "started" || f.key === "finished"}{when(f.value)}{:else}<code>{f.value}</code>{/if}
-              <small class="from">{t(`provenance.from.${f.from}`)}</small>
+              <!-- Where a fact came from matters only when a certificate could have said it. -->
+              {#if entry.signer}<small class="from">{t(`provenance.from.${f.from}`)}</small>{/if}
               {#if f.conflict}<small class="red">⚠ {t("provenance.conflict", { value: f.conflict })}</small>{/if}</span>
           </div>
         {/each}
@@ -737,7 +742,6 @@
   }
   .item {
     display: flex;
-    flex-wrap: wrap;
     align-items: baseline;
     gap: 5px;
     padding: 2px 5px;
@@ -766,11 +770,24 @@
     border: 1px solid var(--border-fg);
     padding: 5px 7px;
   }
+  /* The mark in a column of its own; the name, and under it what the check found. */
+  .text {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0 5px;
+  }
+  .text .state {
+    flex-basis: 100%;
+  }
   .name {
     overflow-wrap: anywhere;
     min-width: 0;
   }
   .mark {
+    flex: none;
     font-weight: 700;
     width: 1em;
     text-align: center;
