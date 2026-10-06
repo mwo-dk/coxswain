@@ -79,9 +79,9 @@ The whole walk-through: [Smart search in a few minutes](docs/search/setup.md).
 | Linux | `brew install mwo-dk/coxswain/coxswain`, or the static `x86_64-unknown-linux-musl` binary | `.deb`, `.rpm`, `.AppImage`, or the Homebrew cask (x86-64) |
 | Linux, Flatpak | Not in it: the line above | Not on Flathub yet: build it with `flatpak-builder` ([Flatpak](docs/reference/flatpak.md)) |
 | Android (Termux) | `pkg install coxswain` once it is in Termux's repository; until then `pkg install rust git && cargo install coxswain` ([Termux](docs/reference/termux.md)) | Not on Android |
+| Any | `cargo install coxswain` | `./install/install.sh` (or `install\install.ps1`) from a clone |
 | macOS | `brew install mwo-dk/coxswain/coxswain` | `brew install --cask mwo-dk/coxswain/coxswain-gui`, or the `.dmg` |
 | Windows | `coxswain-terminal-<version>-x86_64-pc-windows-msvc.zip` | `.msi` or `-setup.exe` |
-| Any | `cargo install coxswain` | `./install/install.sh` (or `install\install.ps1`) from a clone |
 
 Downloads are on the [releases page](https://github.com/mwo-dk/coxswain/releases/latest).
 **The builds are not code-signed:** on macOS, if the app "is damaged", run
