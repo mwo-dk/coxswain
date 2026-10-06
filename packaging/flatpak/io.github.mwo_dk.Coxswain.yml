@@ -33,7 +33,7 @@ modules:
   - name: git
     buildsystem: simple
     build-commands:
-      - make -j"$FLATPAK_BUILDER_N_JOBS" prefix=/app NO_TCLTK=1 NO_PERL=1 NO_PYTHON=1 NO_GETTEXT=1 NO_CURL=1 NO_EXPAT=1 INSTALL_SYMLINKS=1 install
+      - make -j"$FLATPAK_BUILDER_N_JOBS" prefix=/app NO_TCLTK=1 NO_PERL=1 NO_PYTHON=1 NO_GETTEXT=1 NO_CURL=1 NO_EXPAT=1 NO_RUST=1 INSTALL_SYMLINKS=1 install
     cleanup:
       - /share/gitweb
       - /share/git-core/templates
