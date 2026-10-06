@@ -3,6 +3,7 @@
 releases (the newest rows of README.md's changelog), written to stdout. Run from the repository
 root: python3 packaging/flatpak/metainfo.py > io.github.mwo_dk.Coxswain.metainfo.xml"""
 import html
+import os
 import re
 import sys
 
@@ -39,6 +40,9 @@ def main():
         f'      <url>https://github.com/mwo-dk/coxswain/releases/tag/v{v}</url>\n    </release>'
         for v, d, t in rows[:KEEP]
     )
+    missing = [f for f, _ in SHOTS if not os.path.isfile(f"docs/screenshots/{f}")]
+    if missing:
+        sys.exit(f"metainfo.py: no {', '.join(missing)} in docs/screenshots")
     base = f"https://raw.githubusercontent.com/mwo-dk/coxswain/v{version}/docs/screenshots"
     shots = "\n".join(
         f'    <screenshot{" type=\"default\"" if i == 0 else ""}>\n      <caption>{c}</caption>\n      <image>{base}/{f}</image>\n    </screenshot>'

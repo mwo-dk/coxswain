@@ -59,8 +59,9 @@ jobs:
           bundle: coxswain.flatpak
           artifact-name: coxswain-flatpak
           cache-key: flatpak-builder-${{ hashFiles('Cargo.lock', 'gui/package-lock.json') }}
-      # Flathub's linter, with the two permissions the submission asks for (SUBMIT.md) and the
-      # screenshots, which Flathub mirrors when it builds, let through. Anything else fails.
+      # Flathub's linter, with the two permissions that need Flathub's exception (SUBMIT.md) let
+      # through, and the screenshots: they are taken from this version's tag, which exists only
+      # once it is released (metainfo.py checks that the files are in docs/screenshots).
       - name: Lint
         run: |
           set -e
@@ -69,7 +70,7 @@ jobs:
             cat lint.json
             python3 - <<'EOF'
           import json
-          allowed = {"finish-args-host-filesystem-access", "finish-args-flatpak-spawn-access", "appstream-screenshots-not-mirrored-in-ostree", "appstream-external-screenshot-url"}
+          allowed = {"finish-args-host-filesystem-access", "finish-args-flatpak-spawn-access", "appstream-screenshots-not-mirrored-in-ostree", "appstream-missing-screenshots"}
           text = open("lint.json").read().strip()
           errors = set(json.loads(text).get("errors", [])) if text else set()
           bad = errors - allowed
