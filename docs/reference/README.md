@@ -24,6 +24,7 @@ the full list.
 | [Performance](performance.md) | What keeps each app quick: rows on screen only, no disk work on the window's thread, background measuring, and the numbers for a folder of 100,000 files and an index of a million names |
 | [FreeBSD](freebsd.md) | Both apps on FreeBSD: the one-line install, the packages and what each is for, the search helper from the session, rc.d or the login shell, search by meaning, how FreeBSD differs, updating, the desktop app's experimental status |
 | [Nix](nix.md) | The flake: `nix run github:mwo-dk/coxswain`, `nix profile install`, NixOS and Home Manager, the desktop app on Linux, updating, the package prepared for nixpkgs |
+| [Termux on Android](termux.md) | The terminal app on a phone or tablet: installing with `pkg` or `cargo`, the phone's folders (`termux-setup-storage`), F-keys on Termux's extra keys row, updating, the package recipe and how CI builds and starts it |
 | [macOS](macos.md) | The folder prompts macOS shows and what to answer, what Coxswain never reads on a Mac (`~/Library`, Photos and Music libraries), Full Disk Access (not needed), why a new version may ask again, search by meaning on the GPU with no server |
 
 ## Keys at a glance

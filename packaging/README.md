@@ -17,6 +17,10 @@ The FreeBSD port in `freebsd/sysutils/coxswain` is submitted by hand for now; se
 The Nix flake (`flake.nix` at the root) builds from `nix/package.nix` and `nix/gui.nix`; the
 packages for nixpkgs are in `nix/nixpkgs/`, submitted by hand: see [nix/SUBMIT.md](nix/SUBMIT.md).
 
+The Termux recipe in `termux/coxswain/build.sh` is built and started in CI (`termux.yml`) and
+submitted to termux-packages by hand; see [termux/SUBMIT.md](termux/SUBMIT.md). After that,
+Termux's own bot follows our releases.
+
 `taps/generate.sh` writes the Homebrew formula and cask from a release's `.sha256` assets.
 
 **crates.io:** make a token at <https://crates.io/settings/tokens> with the

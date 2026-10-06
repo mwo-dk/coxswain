@@ -165,4 +165,4 @@ Not through the index: it never reads other apps' data. Open the folder in a pan
 the start of a name there ([quick search](../panels/quick-search.md)).
 
 ---
-[← Previous: Nix](nix.md) · [Next: Questions, collected →](../faq.md)
+[← Previous: Termux on Android](termux.md) · [Next: Questions, collected →](../faq.md)
