@@ -31,10 +31,6 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
 
-      - name: TEMP tools on ARM
-        if: runner.arch == 'ARM64'
-        shell: bash
-        run: command -v 7z clang cl link rustup node || true; uname -a; ldd --version 2>/dev/null | head -1 || true
       - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de # v1
         with:
           toolchain: stable
@@ -50,6 +46,7 @@ jobs:
       # The Tauri crate embeds gui/dist at compile time, so the frontend builds first.
       - name: Frontend
         working-directory: gui
+        shell: bash # PowerShell would carry on past a failing step
         run: |
           npm ci --no-audit --no-fund
           npx svelte-check
