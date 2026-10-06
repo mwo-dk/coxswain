@@ -13,6 +13,7 @@
   import Dialogs from "./Dialogs.svelte";
   import Duplicates from "./Duplicates.svelte";
   import BomView from "./BomView.svelte";
+  import ProvenanceView from "./ProvenanceView.svelte";
   import Settings from "./Settings.svelte";
   import SetupSearch from "./SetupSearch.svelte";
   import Guide from "./Guide.svelte";
@@ -641,6 +642,7 @@
 <Dialogs bind:this={dialogs} />
 {#if ui.modal?.kind === "dupes"}<Duplicates />{/if}
 {#if ui.modal?.kind === "bom"}<BomView path={ui.modal.path} full />{/if}
+{#if ui.modal?.kind === "provenance"}<ProvenanceView path={ui.modal.path} full />{/if}
 {#if ui.modal?.kind === "settings"}<Settings />{/if}
 {#if ui.modal?.kind === "setup"}<SetupSearch />{/if}
 {#if ui.modal?.kind === "guide"}<Guide />{/if}

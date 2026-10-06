@@ -2,8 +2,9 @@
   import { untrack } from "svelte";
   import { ui, tab, item, openHistory, openGitView, switchBranch, newBranch } from "./app.svelte.js";
   import { renderHtml, renderPptx, renderDrawio, renderMarkdown, renderMermaid, highlight, highlightOff, renderDocx, readSheet, renderNotebook, loadFont, clean, parseData, jsonLines, calendar, contacts, logLines, renderGraphviz, renderAsciidoc, readParquet } from "./renderers.js";
-  import { invoke, convertFileSrc, basename, size, date, age, ageColor, previewKind, looksLikeBom, CONVERTER, LOCKED } from "./lib.js";
+  import { invoke, convertFileSrc, basename, size, date, age, ageColor, previewKind, looksLikeBom, looksLikeProvenance, CONVERTER, LOCKED } from "./lib.js";
   import BomView from "./BomView.svelte";
+  import ProvenanceView from "./ProvenanceView.svelte";
   import CopyLine from "./CopyLine.svelte";
     import { t, tn, num } from "./i18n.svelte.js";
 
@@ -48,10 +49,10 @@
    *  every preview, fact and diff would download it. */
   let fetched = $state([]);
   const online = $derived(!!raw?.online && !raw.is_dir && !fetched.includes(raw.path));
-  /** A JSON or XML file whose first bytes turned out to be a CycloneDX BOM's. */
-  let sniffedBom = $state("");
+  /** A JSON (Lines) or XML file whose first bytes turned out to be a BOM's or provenance's: { path, kind }. */
+  let sniffed = $state({ path: "", kind: "" });
   const kind = $derived(
-    output ? "output" : online ? "online" : inside && e === raw ? "in-archive" : e && sniffedBom === e.path ? "bom" : previewKind(e),
+    output ? "output" : online ? "online" : inside && e === raw ? "in-archive" : e && sniffed.path === e.path ? sniffed.kind : previewKind(e),
   );
   let text = $state("");
   let html = $state("");
@@ -74,6 +75,8 @@
   }
   /** Markdown, Mermaid and data files: show the rendered result or tree, or the source. Kept across files. */
   const source = $derived(ui.previewSource === true);
+  /** Provenance's decoded statements, as a tree. */
+  const statement = $derived(ui.previewSource === "statement");
   /** For a file git has changes for: show the file, or its diff. Kept across files. */
   const showDiff = $derived(ui.previewDiff);
   const ext = (f) => f.name.split(".").pop().toLowerCase();
@@ -90,7 +93,7 @@
   let table = $state(null);
   let cards = $state(null);
   /** Kinds whose text is read here; the rest are drawn by a renderer or by the Rust side. */
-  const TEXTUAL = ["text", "markdown", "mermaid", "data", "jsonl", "calendar", "contacts", "log", "graphviz", "asciidoc", "html", "bom"];
+  const TEXTUAL = ["text", "markdown", "mermaid", "data", "jsonl", "calendar", "contacts", "log", "graphviz", "asciidoc", "html", "bom", "provenance"];
   /** An HTML file as a page for the sandboxed frame. */
   let page = $state("");
 
@@ -106,9 +109,12 @@
     cards = null;
     const src = source;
     const diff = diffing;
+    const stmt = statement;
     if (!cur || cur.is_dir || !(TEXTUAL.includes(k) || diff)) return;
-    // The BOM view reads the file itself; only its source is read here.
+    // The BOM and provenance views read the file themselves; only the source (and provenance's
+    // decoded statements) are read here.
     if (k === "bom" && !src && !diff) return;
+    if (k === "provenance" && !src && !diff && !stmt) return;
     const timer = setTimeout(async () => {
       try {
         if (diff) {
@@ -122,9 +128,17 @@
         if (e?.path !== cur.path) return;
         truncated = trunc;
         binary = bin;
-        if (!bin && (k === "data" || k === "text") && /\.(json|xml)$/i.test(cur.name) && looksLikeBom(s)) {
-          sniffedBom = cur.path;
+        if (!bin && (k === "data" || k === "text" || k === "jsonl") && /\.(json|jsonl|ndjson)$/i.test(cur.name) && looksLikeProvenance(s)) {
+          sniffed = { path: cur.path, kind: "provenance" };
           if (!src) return;
+        }
+        if (!bin && (k === "data" || k === "text") && /\.(json|xml)$/i.test(cur.name) && looksLikeBom(s)) {
+          sniffed = { path: cur.path, kind: "bom" };
+          if (!src) return;
+        }
+        if (k === "provenance" && stmt && !src) {
+          tree = await invoke("provenance_statements", { path: cur.path });
+          return;
         }
         if (!bin && !src && k === "data") {
           try {
@@ -413,6 +427,12 @@
           <button class:on={ui.previewSource === "sunburst"} onclick={() => (ui.previewSource = "sunburst")}>{t("bom.sunburst")}</button>
           <button class:on={source} onclick={() => (ui.previewSource = true)}>{t("preview.source")}</button>
         </div>
+      {:else if !diffing && kind === "provenance"}
+        <div class="modes" role="group" aria-label={t("preview.show")}>
+          <button class:on={!source && !statement} onclick={() => (ui.previewSource = false)}>{t("provenance.flow")}</button>
+          <button class:on={statement} onclick={() => (ui.previewSource = "statement")}>{t("provenance.statement")}</button>
+          <button class:on={source} onclick={() => (ui.previewSource = true)}>{t("preview.source")}</button>
+        </div>
       {:else if !diffing && ["markdown", "mermaid", "data", "jsonl", "calendar", "contacts", "graphviz", "asciidoc", "html"].includes(kind)}
         <div class="modes" role="group" aria-label={t("preview.show")}>
           <button class:on={!source} onclick={() => (ui.previewSource = false)}>{kind === "data" ? t("preview.tree") : kind === "jsonl" ? t("preview.table") : t("preview.rendered")}</button>
@@ -422,7 +442,7 @@
     </header>
 
     <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-    <div class="body" class:flush={kind === "bom" && !source && !diffing} onclick={linkClick}>
+    <div class="body" class:flush={(kind === "bom" || (kind === "provenance" && !statement)) && !source && !diffing} onclick={linkClick}>
       {#if kind === "online"}
         <p class="more">{"\u{f0c2}"} <b>{t("preview.online")}</b> {t("preview.online_hint", { key: ui.cfg.actions.open?.[1] ?? "Enter" })}</p>
         <button class="render" onclick={() => { const path = raw.path; invoke("cloud_fetch", { path }).then(() => fetched.push(path)); }}>{t("preview.online_download")}</button>
@@ -440,7 +460,11 @@
         {#if html}<pre class="mono code"><code class="hljs">{@html html}</code></pre>{/if}
       {:else if kind === "bom" && !source}
         <BomView path={e.path} />
-      {:else if kind === "bom"}
+      {:else if kind === "provenance" && !source && !statement}
+        <ProvenanceView path={e.path} />
+      {:else if kind === "provenance" && !source}
+        {#if tree !== undefined}<div class="tree">{@render node(null, tree, 0)}</div>{:else}<p class="more">{t("provenance.reading")}</p>{/if}
+      {:else if kind === "bom" || kind === "provenance"}
         {#if html}<pre class="mono code"><code class="hljs">{@html html}</code></pre>{:else}<pre class="mono">{text}</pre>{/if}
         {#if truncated}<p class="more">{t("preview.showing_first", { size: size(LIMIT) })}</p>{/if}
       {:else if tree !== undefined}

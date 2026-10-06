@@ -159,6 +159,7 @@ pub const OPTIONS: &[Opt] = &[
     opt("editor", &["editor"], Behaviour, &[]),
     opt("viewer", &["viewer"], Behaviour, &[]),
     opt("bom_viewer", &["bom_viewer"], Behaviour, &[]),
+    opt("provenance_viewer", &["provenance_viewer"], Behaviour, &[]),
     opt("check_updates", &["check_updates"], Privacy, &[Network]),
 ];
 
