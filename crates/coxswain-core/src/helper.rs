@@ -333,8 +333,8 @@ impl Client {
                 return;
             }
             // A registered helper is started again by systemd or launchd; on Windows and the
-            // BSDs nothing does, so the app starts one that stays.
-            if registered && crate::service::SUPERVISED {
+            // BSDs nothing does (nor in a Flatpak), so the app starts one that stays.
+            if registered && crate::service::supervised() {
                 return;
             }
             let mut c = detached(&exe);

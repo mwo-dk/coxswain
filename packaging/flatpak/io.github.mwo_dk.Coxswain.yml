@@ -1,0 +1,88 @@
+# The desktop app as a Flatpak, built from source with no network: Cargo's and npm's downloads
+# come from cargo-sources.json and node-sources.json, which sources.sh writes from the lock
+# files. This copy builds the checkout it sits in (CI); flathub.py writes Flathub's copy, which
+# builds a release tag. docs/reference/flatpak.md.
+id: io.github.mwo_dk.Coxswain
+runtime: org.gnome.Platform
+# WebKitGTK 4.1 (GTK 3), which Tauri 2 uses, is in the GNOME runtime up to 51 at least.
+runtime-version: '51'
+sdk: org.gnome.Sdk
+sdk-extensions:
+  - org.freedesktop.Sdk.Extension.rust-stable
+  - org.freedesktop.Sdk.Extension.node24
+command: coxswain-gui
+finish-args:
+  - --share=ipc
+  - --socket=wayland
+  - --socket=fallback-x11
+  - --device=dri
+  # Video and sound in the preview pane.
+  - --socket=pulseaudio
+  # A file manager works on the user's files, all of them: the panels, copy, move, search.
+  - --filesystem=host
+  # The update check, and, when the user turns them on, the model download and a server for
+  # search by meaning. Nothing goes out otherwise (docs/reference/privacy.md).
+  - --share=network
+  # flatpak-spawn --host: the editor (F4), shell commands, F2 scripts and the user menu run on
+  # the host, and so do the programs previews and search read with (tesseract, pdftoppm,
+  # LibreOffice, pandoc, LaTeX, PlantUML, podman or docker) when the user has them installed.
+  - --talk-name=org.freedesktop.Flatpak
+modules:
+  # git for the panels' status, history and branches, inside the sandbox: Coxswain runs it with
+  # settings that keep a repository's own config from running programs, which have to reach it.
+  - name: git
+    buildsystem: simple
+    build-commands:
+      - make -j"$FLATPAK_BUILDER_N_JOBS" prefix=/app NO_TCLTK=1 NO_PERL=1 NO_PYTHON=1 NO_GETTEXT=1 NO_CURL=1 NO_EXPAT=1 INSTALL_SYMLINKS=1 install
+    cleanup:
+      - /share/gitweb
+      - /share/git-core/templates
+      - /libexec/git-core/git-daemon
+      - /libexec/git-core/git-http-backend
+      - /libexec/git-core/git-imap-send
+      - /libexec/git-core/git-shell
+    sources:
+      - type: archive
+        url: https://www.kernel.org/pub/software/scm/git/git-2.56.0.tar.xz
+        sha256: 26c56c296b38c0695b26fa95f475f1d01704d2d38e73465ca30b0b2f5dc789d3
+        x-checker-data:
+          type: anitya
+          project-id: 5350
+          stable-only: true
+          url-template: https://www.kernel.org/pub/software/scm/git/git-$version.tar.xz
+
+  - name: coxswain
+    buildsystem: simple
+    build-options:
+      append-path: /usr/lib/sdk/rust-stable/bin:/usr/lib/sdk/node24/bin
+      env:
+        CARGO_HOME: /run/build/coxswain/cargo
+        CARGO_NET_OFFLINE: 'true'
+        npm_config_cache: /run/build/coxswain/flatpak-node/npm-cache
+        npm_config_offline: 'true'
+        XDG_CACHE_HOME: /run/build/coxswain/flatpak-node/cache
+    build-commands:
+      # The Tauri crate embeds gui/dist, so the frontend builds first.
+      - cd gui && npm ci --offline --no-audit --no-fund && npm run build
+      - cargo build --release --locked --offline -p coxswain-gui
+      - install -Dm755 target/release/coxswain-gui -t /app/bin
+      - install -Dm644 packaging/flatpak/io.github.mwo_dk.Coxswain.desktop -t /app/share/applications
+      - install -Dm644 gui/src-tauri/icons/icon.svg /app/share/icons/hicolor/scalable/apps/io.github.mwo_dk.Coxswain.svg
+      - install -Dm644 gui/src-tauri/icons/128x128.png /app/share/icons/hicolor/128x128/apps/io.github.mwo_dk.Coxswain.png
+      - install -Dm644 gui/src-tauri/icons/128x128@2x.png /app/share/icons/hicolor/256x256/apps/io.github.mwo_dk.Coxswain.png
+      - python3 packaging/flatpak/metainfo.py > io.github.mwo_dk.Coxswain.metainfo.xml
+      - install -Dm644 io.github.mwo_dk.Coxswain.metainfo.xml -t /app/share/metainfo
+    sources:
+      # source: the checkout (flathub.py puts the release tag here)
+      - type: dir
+        path: ../..
+        skip:
+          - target
+          - gui/node_modules
+          - gui/dist
+          - .flatpak-builder
+          - packaging/flatpak/build
+          - packaging/flatpak/repo
+      # end source
+      - cargo-sources.json
+      - node-sources.json
