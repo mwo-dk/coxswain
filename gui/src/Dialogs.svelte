@@ -758,7 +758,7 @@
   pre {
     margin: 0;
     white-space: pre-wrap;
-    font-family: var(--mono-font), var(--cjk);
+    font-family: var(--mono-font), var(--scripts);
     overflow: auto;
   }
   .glyph {
@@ -793,7 +793,7 @@
     flex: 1;
   }
   kbd {
-    font-family: var(--mono-font), var(--cjk);
+    font-family: var(--mono-font), var(--scripts);
     font-size: 0.8em;
     padding: 1px 6px;
     margin-inline-start: 4px;
@@ -1022,7 +1022,7 @@
     grid-template-columns: 1fr auto 1fr auto;
     align-content: start;
     column-gap: 10px;
-    font-family: var(--mono-font), var(--cjk);
+    font-family: var(--mono-font), var(--scripts);
     font-size: 0.9em;
     border: 1px solid var(--border-fg);
     border-radius: var(--r);
@@ -1049,7 +1049,7 @@
     color: var(--git-deleted-fg);
   }
   .why {
-    font-family: var(--font), var(--cjk);
+    font-family: var(--font), var(--scripts);
     font-size: 0.85em;
   }
   .tags {
@@ -1113,7 +1113,7 @@
   }
   .perm input {
     width: 5em;
-    font-family: var(--mono-font), var(--cjk);
+    font-family: var(--mono-font), var(--scripts);
     padding: 3px 8px;
   }
   .check {
@@ -1149,6 +1149,6 @@
     color: var(--hidden-fg);
   }
   code {
-    font-family: var(--mono-font), var(--cjk);
+    font-family: var(--mono-font), var(--scripts);
   }
 </style>

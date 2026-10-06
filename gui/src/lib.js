@@ -1,6 +1,6 @@
 import { invoke, convertFileSrc } from "@tauri-apps/api/core";
 
-import { t, num } from "./i18n.svelte.js";
+import { t, num, i18n } from "./i18n.svelte.js";
 
 export { invoke, convertFileSrc };
 
@@ -102,11 +102,18 @@ export function size(n) {
   return fmt(v, 0, "EB");
 }
 
+// Two digits at least, in the language's own (Persian writes ۰۵); one formatter per language.
+let two = { lang: "", f: null };
+function pad2(n) {
+  if (two.lang !== i18n.lang) two = { lang: i18n.lang, f: new Intl.NumberFormat(i18n.lang, { minimumIntegerDigits: 2, useGrouping: false }) };
+  return two.f.format(n);
+}
+
 export function date(secs) {
   if (!secs) return "";
   const d = new Date(secs * 1000);
-  const p = (n) => String(n).padStart(2, "0");
-  return ltr(`${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`);
+  const p = (n) => pad2(n);
+  return ltr(`${p(d.getFullYear())}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`);
 }
 
 const H = 3600;

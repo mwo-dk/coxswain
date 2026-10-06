@@ -114,10 +114,15 @@ pub fn all(cfg: &Config, status: &Status, state: &AppState, terminal: bool) -> V
         if let Some(why) = crate::tools::media_missing() {
             all.push(Notice::new("media", why, None));
         }
-        // Japanese or Korean without a font for it: what to install.
-        if crate::tools::cjk_font_missing() {
-            let text = if cfg!(target_os = "freebsd") { t!("notice.cjk_font_freebsd") } else { t!("notice.cjk_font") };
-            all.push(Notice::new("cjk-font", text, None));
+        // Japanese, Korean, Persian, Armenian or Georgian without a font for it: what to install.
+        if crate::tools::script_font_missing() {
+            let lang = crate::i18n::language();
+            let text = match lang {
+                "ja" | "ko" if cfg!(target_os = "freebsd") => t!("notice.cjk_font_freebsd"),
+                "ja" | "ko" => t!("notice.cjk_font"),
+                _ => t!("notice.script_font", "language" => crate::i18n::find(lang).map_or(lang, |l| l.name), "fonts" => crate::tools::script_fonts(lang)),
+            };
+            all.push(Notice::new(if matches!(lang, "ja" | "ko") { "cjk-font" } else { "script-font" }, text, None));
         }
     }
     // A new translation in use: where to suggest a better word.
