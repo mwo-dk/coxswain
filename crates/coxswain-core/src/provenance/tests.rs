@@ -41,7 +41,7 @@ fn a_bare_envelope_with_v0_2_provenance() {
     assert_eq!(e.signatures.len(), 1);
     assert_eq!(e.signatures[0].keyid, None, "an empty keyid is none");
     assert!(e.signatures[0].length > 60, "an ECDSA signature, decoded");
-    assert!(e.certificate.is_none() && e.log.is_empty());
+    assert!(e.signer.is_none() && e.log.is_empty());
     let names: Vec<_> = e.statement.subjects.iter().map(Resource::label).collect();
     assert_eq!(names, ["artifact1", "artifact2", "artifact3"]);
     let p = provenance(e);
@@ -66,7 +66,7 @@ fn bundles_with_a_certificate_or_a_chain_and_their_log_entries() {
     let a = open("slsa-verifier/bundle-v0.3-github-v1.intoto.jsonl");
     let e = &a.entries[0];
     assert_eq!(e.wrapping, Wrapping::Bundle { media_type: "application/vnd.dev.sigstore.bundle.v0.3+json".into() });
-    assert!(e.certificate.as_deref().is_some_and(|c| c.starts_with("MII")));
+
     assert_eq!(
         e.log,
         [LogEntry { index: Some(188622862), integrated_time: Some(1743032850), kind: Some("dsse".into()), has_proof: true, has_promise: true }]
@@ -81,7 +81,7 @@ fn bundles_with_a_certificate_or_a_chain_and_their_log_entries() {
     let a = open("slsa-verifier/bundle-v0.2-delegator-v1.build.slsa");
     let e = &a.entries[0];
     assert_eq!(e.wrapping, Wrapping::Bundle { media_type: "application/vnd.dev.sigstore.bundle+json;version=0.2".into() });
-    assert!(e.certificate.is_some(), "the first of x509CertificateChain");
+    assert!(e.signer.is_some(), "from the first of x509CertificateChain");
     assert_eq!(e.log[0].kind.as_deref(), Some("intoto"));
     let p = provenance(e);
     assert_eq!(p.build_type, "https://github.com/slsa-framework/slsa-github-generator/delegator-generic@v0");
@@ -207,4 +207,37 @@ fn sniffing_by_name_and_by_content() {
     std::fs::copy(bom, &plain).unwrap();
     assert!(!sniff(&plain), "a BOM is not provenance");
     std::fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
+fn the_signer_from_a_fulcio_certificate() {
+    let a = open("slsa-verifier/bundle-v0.3-github-v1.intoto.jsonl");
+    let s = a.entries[0].signer.as_ref().expect("a signer");
+    assert_eq!(s.identity, "https://github.com/bazel-contrib/publish-to-bcr/.github/workflows/publish.yaml@refs/tags/v0.0.1");
+    assert_eq!(s.ca, "O=sigstore.dev, CN=sigstore-intermediate");
+    assert_eq!((s.not_before, s.not_after), (1743032850, 1743032850 + 600), "ten minutes, from the log entry's time");
+    // DER UTF8Strings (8 and on) read as text, and they win over the raw legacy ones (1–6).
+    assert_eq!(s.get(Claim::Issuer), Some("https://token.actions.githubusercontent.com"));
+    assert_eq!(s.get(Claim::SourceRepositoryUri), Some("https://github.com/aspect-build/rules_lint"));
+    assert_eq!(s.get(Claim::SourceRepositoryDigest), Some("8f70009fde0c94ade6ce2a054b94718c819126ec"));
+    assert_eq!(s.get(Claim::SourceRepositoryRef), Some("refs/heads/publish-to-bcr"));
+    assert_eq!(s.get(Claim::BuildConfigUri), Some("https://github.com/aspect-build/rules_lint/.github/workflows/release.yml@refs/heads/publish-to-bcr"));
+    assert_eq!(s.get(Claim::BuildTrigger), Some("workflow_dispatch"));
+    assert_eq!(s.get(Claim::RunnerEnvironment), Some("github-hosted"));
+    assert_eq!(s.get(Claim::SourceRepositoryVisibility), Some("public"));
+    // Legacy only: nothing newer replaces them.
+    assert_eq!(s.get(Claim::WorkflowName), Some("Release"));
+    assert_eq!(s.get(Claim::Repository), Some("aspect-build/rules_lint"));
+    assert_eq!(s.claims.len(), 17, "one per claim, sorted");
+    assert!(s.claims.windows(2).all(|w| w[0].0 < w[1].0));
+}
+
+#[test]
+fn a_bad_certificate_is_an_issue() {
+    let good = std::fs::read_to_string(fixture("slsa-verifier/bundle-v0.3-github-v1.intoto.jsonl")).unwrap();
+    let mut v: serde_json::Value = serde_json::from_str(&good).unwrap();
+    v["verificationMaterial"]["certificate"]["rawBytes"] = "AAAA".into();
+    let a = parse(&v.to_string()).unwrap();
+    assert!(a.entries[0].signer.is_none());
+    assert_eq!(a.issues.iter().map(|i| i.code).collect::<Vec<_>>(), [IssueCode::BadCertificate]);
 }

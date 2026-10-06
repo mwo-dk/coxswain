@@ -4,9 +4,11 @@
 //!
 //! - `model`: what the views see, whatever the wrapping and the SLSA version.
 //! - `ingest`: the file formats to the model.
+//! - `signer`: who signed, from a Sigstore certificate.
 
 pub mod ingest;
 pub mod model;
+pub mod signer;
 
 use std::fmt;
 use std::io::Read;

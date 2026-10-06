@@ -78,10 +78,15 @@ pub fn entry(v: &Value, line: Option<usize>, issues: &mut Vec<Issue>) -> Option<
         let mut e = envelope(env, line, issues)?;
         e.wrapping = Wrapping::Bundle { media_type: mt.to_string() };
         let vm = v.get("verificationMaterial");
-        e.certificate = vm
+        let cert = vm
             .and_then(|m| m.pointer("/certificate/rawBytes").or_else(|| m.pointer("/x509CertificateChain/certificates/0/rawBytes")))
-            .and_then(Value::as_str)
-            .map(str::to_string);
+            .and_then(Value::as_str);
+        if let Some(cert) = cert {
+            match decode(cert).ok_or_else(|| "not base64".to_string()).and_then(|der| super::signer::read(&der)) {
+                Ok(s) => e.signer = Some(s),
+                Err(m) => issue(issues, IssueCode::BadCertificate, format!("The certificate could not be read: {m}"), line),
+            }
+        }
         e.public_key = vm.and_then(|m| m.pointer("/publicKey/hint")).and_then(Value::as_str).map(str::to_string);
         e.log = vm.and_then(|m| m.get("tlogEntries")).and_then(Value::as_array).map(|a| a.iter().map(log_entry).collect()).unwrap_or_default();
         return Some(e);
@@ -91,7 +96,7 @@ pub fn entry(v: &Value, line: Option<usize>, issues: &mut Vec<Issue>) -> Option<
     }
     if v.get("_type").is_some() {
         let statement = statement(v, line, issues);
-        return Some(Entry { line, wrapping: Wrapping::Statement, signatures: vec![], certificate: None, public_key: None, log: vec![], statement });
+        return Some(Entry { line, wrapping: Wrapping::Statement, signatures: vec![], signer: None, public_key: None, log: vec![], statement });
     }
     let m = "Not an in-toto statement, a DSSE envelope or a Sigstore bundle".to_string();
     issue(issues, IssueCode::NotAttestation, m, line);
@@ -128,7 +133,7 @@ fn envelope(v: &Value, line: Option<usize>, issues: &mut Vec<Issue>) -> Option<E
         })
         .unwrap_or_default();
     let statement = statement(&st, line, issues);
-    Some(Entry { line, wrapping: Wrapping::Envelope, signatures, certificate: None, public_key: None, log: vec![], statement })
+    Some(Entry { line, wrapping: Wrapping::Envelope, signatures, signer: None, public_key: None, log: vec![], statement })
 }
 
 /// DSSE allows standard and URL-safe base64, with or without padding.

@@ -6,6 +6,8 @@ use serde::Serialize;
 use serde_json::Value;
 use std::collections::BTreeMap;
 
+pub use super::signer::{Claim, Signer};
+
 /// What a file holds: one entry per statement, and what was wrong with it.
 #[derive(Clone, Debug, Default, PartialEq, Serialize)]
 pub struct Attestations {
@@ -29,9 +31,8 @@ pub struct Entry {
     pub wrapping: Wrapping,
     /// The envelope's signatures, as they are. Nothing here says whether one is valid.
     pub signatures: Vec<Signature>,
-    /// The first certificate of a bundle, base64 DER as in the file; read by `signer`.
-    #[serde(skip)]
-    pub certificate: Option<String>,
+    /// Who signed, from a bundle's certificate. Read, not verified.
+    pub signer: Option<Signer>,
     /// A bundle signed with a key rather than a certificate: the key's hint.
     pub public_key: Option<String>,
     pub log: Vec<LogEntry>,
@@ -170,6 +171,8 @@ pub enum IssueCode {
     BadPredicate,
     SubjectWithoutDigest,
     UnknownStatementType,
+    /// A bundle's certificate that could not be read.
+    BadCertificate,
 }
 
 /// Something wrong with the file that did not stop the rest from loading.

@@ -125,8 +125,7 @@ pub struct Signer {
 visibility (`.8` to `.22`). The legacy `.1` to `.6` are read when the newer ones are missing.
 For this, `x509-parser` moves into `coxswain-core`, so that the terminal app has it too. It is
 pure Rust, builds for musl, and only parses: its `verify` feature stays off.
-`tools/bom/crypto.toml` therefore needs no new library entry. The desktop app's `cert_info`
-can then use core's parser as well.
+`tools/bom/crypto.toml` therefore needs no new library entry.
 
 Parsing is **lenient**, as for BOMs. Only three things refuse a file: it is none of the forms
 above, it is not valid JSON, or it is over the size limit. Everything else becomes an
@@ -368,7 +367,7 @@ the BOM viewer was. Each step ends with its acceptance command green.
 
 1. **Core ingest** (`provenance::{model, ingest, sniff}`, fixtures): every form, v1 and v0.2,
    VSA, the generic predicate, issues. Acceptance: `cargo test -p coxswain-core provenance`.
-2. **Core signer** (`x509-parser` into core, the Fulcio claims; `cert_info` moved onto it).
+2. **Core signer** (`x509-parser` into core, at the desktop app's version, and the Fulcio claims).
    Acceptance: `cargo test --workspace`, and the musl build.
 3. **Core checks** (`provenance::check`: subjects, sources; `on_disk` shared with `bom`).
    Acceptance: `cargo test -p coxswain-core provenance`.

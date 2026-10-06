@@ -42,6 +42,8 @@ tokenizers = { version = "0.22", default-features = false }
 sha2 = "0.11.0"
 # Provenance: DSSE payloads and signatures are base64.
 base64 = "0.23"
+# Provenance: who signed, from a Sigstore certificate. Parsing only: its `verify` feature stays off.
+x509-parser = "0.18.1"
 # The helper's token, from the system's random source.
 getrandom = "0.4"
 # More archive formats, all pure Rust: bzip2 (its default backend), xz, zstd, 7z with AES.
