@@ -6,13 +6,18 @@ Every file comes from this release's **Assets** list below.
 
 | You have | Desktop app | Terminal app |
 |---|---|---|
-| Windows 10/11 | `Coxswain_…_x64-setup.exe` (or the `.msi`) | `coxswain-terminal-…-x86_64-pc-windows-msvc.zip` |
-| Mac with Apple Silicon (M1 or newer) | `Coxswain_…_aarch64.dmg` | `coxswain-terminal-…-aarch64-apple-darwin.tar.gz` |
-| Mac with Intel | `Coxswain_…_x64.dmg` | `coxswain-terminal-…-x86_64-apple-darwin.tar.gz` |
+| FreeBSD 14, 15 (amd64) | `coxswain-desktop-…-x86_64-unknown-freebsd.tar.gz` (experimental) | `coxswain-terminal-…-x86_64-unknown-freebsd.tar.gz` |
 | Linux (Debian, Ubuntu) | `Coxswain_…_amd64.deb` | `coxswain-terminal-…-x86_64-unknown-linux-musl.tar.gz` |
 | Linux (Fedora, openSUSE) | `Coxswain-…x86_64.rpm` | same as above |
-| Linux (any distro) | `Coxswain_…_amd64.AppImage` | same; `aarch64-…` for ARM |
-| FreeBSD 14, 15 (amd64) | `coxswain-desktop-…-x86_64-unknown-freebsd.tar.gz` (experimental) | `coxswain-terminal-…-x86_64-unknown-freebsd.tar.gz` |
+| Linux (any distro) | `Coxswain_…_amd64.AppImage` | same as above |
+| Linux on ARM64 (Raspberry Pi OS 64-bit, Debian, Ubuntu) | `Coxswain_…_arm64.deb` | `coxswain-terminal-…-aarch64-unknown-linux-musl.tar.gz` |
+| Linux on ARM64 (Fedora, Asahi) | `Coxswain-…aarch64.rpm` | same as above |
+| Linux on ARM64 (any distro) | `Coxswain_…_aarch64.AppImage` | same as above |
+| ChromeOS (its Linux) | the `.deb` for your processor | the Linux archive for your processor |
+| Mac with Apple Silicon (M1 or newer) | `Coxswain_…_aarch64.dmg` | `coxswain-terminal-…-aarch64-apple-darwin.tar.gz` |
+| Mac with Intel | `Coxswain_…_x64.dmg` | `coxswain-terminal-…-x86_64-apple-darwin.tar.gz` |
+| Windows 10/11 | `Coxswain_…_x64-setup.exe` (or the `.msi`) | `coxswain-terminal-…-x86_64-pc-windows-msvc.zip` |
+| Windows 10/11 on ARM | `Coxswain_…_arm64-setup.exe` (or the `.msi`) | `coxswain-terminal-…-aarch64-pc-windows-msvc.zip` |
 
 On FreeBSD one line installs both, with the packages the desktop app needs:
 `fetch -qo - https://raw.githubusercontent.com/mwo-dk/coxswain/master/install/install-freebsd.sh | sh`

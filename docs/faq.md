@@ -148,6 +148,11 @@ The questions people ask most, with a short answer and a link to the full one. E
 - **Which package does this file belong to?** **Alt+Enter** on it shows *Package git-2.56.0* on FreeBSD; *F9 → Files of this package* lists all its files. [Answer](files/properties.md#zfs-packages-and-file-flags)
 - **Can I set chflags from Coxswain?** Your own user flags (`nodump`, `hidden`, and `uchg`, `uappnd` off ZFS) in Properties, or *F9 → File flags* in the terminal app. System flags are root's. [Answer](files/properties.md#zfs-packages-and-file-flags)
 - **Where are my boot environments and jails?** In the desktop app's sidebar, and under **Alt+F1** in the terminal app; mounted ones open as folders. [Answer](reference/freebsd.md#boot-environments-and-jails)
+- **Does Coxswain run on a Raspberry Pi?** Yes, with the 64-bit Raspberry Pi OS: `Coxswain_<version>_arm64.deb` and the `aarch64-unknown-linux-musl` terminal app. There is no 32-bit build. [Answer](reference/linux-arm.md#which-file-do-i-download-for-a-raspberry-pi)
+- **The ARM AppImage does not start and mentions FUSE.** `sudo apt install libfuse2` (`libfuse2t64` on Ubuntu 24.04 and newer), or use the `.deb`. [Answer](reference/linux-arm.md#the-appimage-does-not-start-and-mentions-fuse-what-now)
+- **Which `.deb` does my Chromebook need?** `dpkg --print-architecture` in its Linux terminal: `amd64` or `arm64`. [Answer](reference/chromeos.md#which-deb-does-my-chromebook-need)
+- **Why does Coxswain not see my Chromebook's Downloads?** Linux sees only *Linux files* until you right-click a folder in the Files app and choose *Share with Linux*. [Answer](reference/chromeos.md#why-does-coxswain-not-see-my-downloads-folder)
+- **Which installer do I need on a Snapdragon laptop?** `Coxswain_<version>_arm64-setup.exe`: native, no emulation. [Answer](reference/windows-arm.md#which-installer-do-i-need-on-a-snapdragon-laptop)
 - **How do I start the search helper on FreeBSD without a desktop session?** The rc.d script: `doas sysrc coxswain_index_enable=YES coxswain_index_user=$USER` and `doas service coxswain_index start`, or one line in `~/.profile`. [Answer](reference/freebsd.md#the-search-helper)
 - **On a Mac, Coxswain keeps asking to "access data from other apps".** Versions before 2.1.1 walked `~/Library`; now the walks leave it out (but iCloud Drive and the cloud folders) and never open Photos or Music libraries, so the helper does not raise that prompt. [Answer](reference/macos.md#it-kept-asking-to-access-data-from-other-apps-why-and-is-it-gone)
 - **Does Coxswain need Full Disk Access on a Mac?** No, and it never asks; Desktop, Documents and Downloads are asked for once each. [Answer](reference/macos.md#does-coxswain-need-full-disk-access)
@@ -155,4 +160,4 @@ The questions people ask most, with a short answer and a link to the full one. E
 - **The cache folder is large. What takes the room?** Mostly search.db and the 488 MB model, then previews/. [Answer](reference/where-things-are-kept.md#the-cache-folder-is-large-what-takes-the-room)
 
 ---
-[← Previous: macOS](reference/macos.md) · [Next: Docs index →](README.md)
+[← Previous: Windows on ARM](reference/windows-arm.md) · [Next: Docs index →](README.md)

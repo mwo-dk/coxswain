@@ -23,7 +23,10 @@ the full list.
 | [Licences and bills of materials](bills-of-materials.md) | What each release carries (SBOMs, a CBOM, the third-party notices), how licences are checked, the cryptography both apps use, making the files yourself |
 | [Performance](performance.md) | What keeps each app quick: rows on screen only, no disk work on the window's thread, background measuring, and the numbers for a folder of 100,000 files and an index of a million names |
 | [FreeBSD](freebsd.md) | Both apps on FreeBSD: the one-line install, the packages and what each is for, the search helper from the session, rc.d or the login shell, search by meaning, how FreeBSD differs, updating, the desktop app's experimental status |
+| [Linux on ARM](linux-arm.md) | Both apps on 64-bit ARM Linux: which file for a Raspberry Pi, Asahi or an ARM server, what they need (glibc 2.35, WebKitGTK 4.1), installing, search by meaning on ARM |
+| [ChromeOS](chromeos.md) | Both apps in ChromeOS's Linux: which `.deb`, installing it, sharing ChromeOS folders with Linux, the helper, no GPU for meaning search, what the builds need |
 | [macOS](macos.md) | The folder prompts macOS shows and what to answer, what Coxswain never reads on a Mac (`~/Library`, Photos and Music libraries), Full Disk Access (not needed), why a new version may ask again, search by meaning on the GPU with no server |
+| [Windows on ARM](windows-arm.md) | Native ARM64 builds of both apps for Snapdragon laptops and ARM virtual machines: which file, installing, WinGet, changing from the x64 build, search by meaning |
 
 ## Keys at a glance
 
