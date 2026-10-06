@@ -22,6 +22,7 @@ Release builds are made on **OmniOS r151058**.
 - [Updating and uninstalling](#updating-and-uninstalling)
 - [Building from source](#building-from-source)
 - [The desktop app](#the-desktop-app)
+- [Packages on the way](#packages-on-the-way)
 - [Questions](#questions)
 
 ## Install with one line
@@ -200,6 +201,20 @@ The desktop app draws its window with WebKitGTK 4.1 and GTK 3. OmniOS packages n
 Tauri's window layer has not been ported to illumos, so there is no desktop build for illumos.
 From a desktop elsewhere, the desktop app works on an illumos file server through NFS or SMB,
 and the terminal app over SSH does the ZFS work on the server itself.
+
+## Packages on the way
+
+Recipes for the distributions' own repositories are ready in this repository but not yet
+submitted, so `pkg install` does not find Coxswain yet. Each puts the program, `cox`, the manual
+page and the `application/coxswain-index` SMF service (disabled) in place:
+
+| Distribution | Recipe | Package | Tested |
+|---|---|---|---|
+| OmniOS | [`packaging/omnios`](../../packaging/omnios/SUBMIT.md), for omnios-extra | `ooce/application/coxswain`, in `/opt/ooce` | Built, installed and started on r151058 in CI |
+| OpenIndiana | [`packaging/openindiana`](../../packaging/openindiana/SUBMIT.md), for oi-userland | `file/coxswain`, in `/usr` | Not built yet |
+| SmartOS and others with pkgsrc | [`packaging/pkgsrc`](../../packaging/pkgsrc/SUBMIT.md), for pkgsrc-wip | `coxswain`, in `/opt/local` | Built on NetBSD only |
+
+Until they are in, use [the script](#install-with-one-line).
 
 ## Questions
 

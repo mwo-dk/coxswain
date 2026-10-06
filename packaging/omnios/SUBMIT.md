@@ -61,7 +61,11 @@ take their answer: the install script still works.
    as `<mirror>/coxswain/v<VER>.tar.gz` (put it in `/tmp/m/coxswain/` and use `-M /tmp/m`).
    The package lands in `../../tmp.repo`. Install and try it:
 
+   A local build is not signed, and `extra.omnios` asks for signatures by default, so allow
+   unsigned packages on this build machine first (`verify` still checks signed ones):
+
    ```sh
+   pfexec pkg set-publisher --set-property signature-policy=verify extra.omnios
    pfexec pkg install -g ../../tmp.repo ooce/application/coxswain
    /opt/ooce/bin/coxswain --version
    svcs application/coxswain-index
@@ -99,9 +103,8 @@ their copy, apart from what they changed, so CI tests what they build.
 
 Tested in CI, on OmniOS r151058 (global zone): `build.sh -b` with omnios-extra's build system
 from its `master`, the source from a local mirror, the package installed from the repository it
-publishes to, `coxswain --version` and `cox --version`, and the SMF manifest imported with the
-service present and disabled.
+publishes to, `coxswain --version` and `cox --version`, the manual page, and the SMF service present and
+disabled, then online for a named user with the helper's address file written.
 
 Not tested: the *bloody* release, pkglint's full run as their CI does it, the aarch64 cross
-build (`set_arch 64` builds amd64 only), and running the helper from this package's service
-(the same manifest is tested end to end in the *illumos* workflow with `/usr/local`).
+build (`set_arch 64` builds amd64 only), and non-global zones.

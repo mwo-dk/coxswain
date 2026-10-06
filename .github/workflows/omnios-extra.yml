@@ -3,7 +3,7 @@ name: omnios-extra
 # The omnios-extra recipe (packaging/omnios/coxswain) built with omnios-extra's own build
 # system in an OmniOS VM: its master branch, the release tarball the recipe names from a local
 # mirror, `build.sh -b`, then the package installed from the repository it publishes to and
-# started, and its SMF service present and disabled. Only when the recipe or this file change.
+# started, and its SMF service present, disabled, then online for a named user. Only when the recipe or this file change.
 # packaging/omnios/SUBMIT.md.
 on:
   push:
@@ -47,15 +47,23 @@ jobs:
               "https://github.com/mwo-dk/coxswain/archive/refs/tags/v$ver.tar.gz"
             cd /tmp/omx/build/coxswain
             ./build.sh -b -M /tmp/mirror -s || { tail -60 build.log; exit 1; }
-            pkgrepo list -s /tmp/omx/tmp.repo
-            pkgrepo info -s /tmp/omx/tmp.repo
-            pkg publisher
-            pkg list -afv -g /tmp/omx/tmp.repo ooce/application/coxswain || true
-            pkg install -nv -g /tmp/omx/tmp.repo ooce/application/coxswain || true
+            # A local build is unsigned; extra.omnios asks for signatures by default.
+            pkg set-publisher --set-property signature-policy=verify extra.omnios
             pkg install -v -g /tmp/omx/tmp.repo ooce/application/coxswain
-            pkg contents ooce/application/coxswain
             /opt/ooce/bin/coxswain --version
             /opt/ooce/bin/cox --version
+            ls /opt/ooce/share/man/man1/coxswain.1
+            s=application/coxswain-index
             # manifest-import picks the new manifest up in the background.
-            for i in 1 2 3 4 5 6 7 8 9 10; do svcs application/coxswain-index >/dev/null 2>&1 && break; sleep 3; done
-            svcs -H -o state application/coxswain-index | grep -q disabled
+            for i in 1 2 3 4 5 6 7 8 9 10; do svcs $s >/dev/null 2>&1 && break; sleep 3; done
+            svcs -H -o state $s | grep -q disabled
+            useradd -m -d /export/home/alice alice || { useradd -d /export/home/alice alice; mkdir -p /export/home/alice; chown alice /export/home/alice; }
+            svccfg -s $s setprop start/user = astring: alice
+            svcadm refresh $s
+            svcadm enable $s
+            sleep 10
+            svcs -p $s
+            tail -5 "$(svcs -L $s)"
+            svcs -H -o state $s | grep -q online
+            test -s /export/home/alice/.cache/coxswain/index.addr
+            svcadm disable -s $s
