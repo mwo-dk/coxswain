@@ -47,7 +47,8 @@ jobs:
               "https://github.com/mwo-dk/coxswain/archive/refs/tags/v$ver.tar.gz"
             cd /tmp/omx/build/coxswain
             ./build.sh -b -M /tmp/mirror -s || { tail -60 build.log; exit 1; }
-            pkg install -g file:///tmp/omx/tmp.repo ooce/application/coxswain
+            pkg set-publisher -g file:///tmp/omx/tmp.repo extra.omnios
+            pkg install -v ooce/application/coxswain
             pkg contents ooce/application/coxswain
             /opt/ooce/bin/coxswain --version
             /opt/ooce/bin/cox --version
