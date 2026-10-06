@@ -10,6 +10,10 @@ and **F5** from another panel copies into it. Copies between two archives work t
 
 ![The terminal app in Classic blue (NC): the left panel inside the archive, titled /home/demo/Downloads/website-0.3.0.tar.gz [archive], the right panel an ordinary folder](../screenshots/tui-archive.png)
 
+<picture><source media="(prefers-reduced-motion: reduce)" srcset="../screenshots/archive.png"><img src="../screenshots/archive.gif" alt="The desktop app in ~/Downloads: End puts the cursor on website-0.3.0.tar.gz, Enter opens it like a folder with the archive badge in the path bar, Enter goes into website, the cursor moves to index.html and F3 shows it in the preview pane"></picture>
+
+*Into a tar.gz with **Enter**, and a file inside previewed with **F3**.*
+
 ## Contents
 
 - [How to use it](#how-to-use-it)

@@ -223,7 +223,7 @@ Opening this area asks the container runtime which images it has.
 
 ## Looks
 
-![Settings at Looks: the languages under their regions, the For switch on Desktop app, and the theme swatches with Cyber chosen](../screenshots/settings-looks.png)
+![Settings at Looks: the languages under their regions, among them The Middle East with עברית and فارسی and The Caucasus with Հայերեն and ქართული, then the For switch on Desktop app and the theme swatches with Cyber chosen](../screenshots/settings-looks.png)
 
 | Option | Does | Key |
 |---|---|---|

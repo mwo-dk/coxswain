@@ -7,6 +7,10 @@ all of them at once. With nothing marked, those actions work on the entry under 
 
 ![The desktop app in ~/Documents with four files marked, the footer 25 items · 4 marked, and the Mark files dialog with Matching: *.md *.txt, Mark and Cancel](../screenshots/panels-marking.png)
 
+<picture><source media="(prefers-reduced-motion: reduce)" srcset="../screenshots/copy.png"><img src="../screenshots/copy.gif" alt="The terminal app in Classic blue, ~/Documents on the left and ~/Backups on the right: Insert marks architecture.md, budget-da.txt and budget.txt, which turn yellow, the footer says 608 in 3 marked; F5 opens Copy 3 items with To: /home/demo/Backups; Enter copies them, the three files appear in the right panel and the status line says Copied 3 items"></picture>
+
+*Marking and copying in the terminal app: **Insert** three times, **F5**, **Enter**.*
+
 ## How to use it
 
 | Key | Does |

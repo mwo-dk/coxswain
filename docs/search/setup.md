@@ -8,8 +8,8 @@ other three need a little setting up. The guided setup does it with you, in both
 the model servers on your machine, says what suits your hardware, and asks before it downloads
 anything.
 
-![The desktop app's Set up smart search window in Cyber: search inside files on, This machine: NVIDIA GeForce RTX 4070 Laptop GPU (8 GB), Ollama recommended, bge-m3:latest for the vectors, qwen3:8b for Ask with It answered: the first word came after 31.7 s., and The server runs the model on the graphics card.](../screenshots/setup-guide.png)
-*The guide after a walk through it: Ollama found and chosen, both models set, the test question answered on the graphics card.*
+![The desktop app's Set up smart search window in Cyber on a machine with no model server: 1. Search inside files on, 112 files read so far; 2. This machine: no graphics card found, 63 GB of memory, The built-in model (465 MB download, on the CPU; nothing leaves the machine) chosen and marked recommended, No model server answers on this machine, the field for a server elsewhere with Look and Look again; 3. multilingual-e5-small with Download the built-in model (465 MB); 4. Ask: Qwen3 1.7B, built in, with Download Qwen3 1.7B (1.0 GB) and use it, the estimate On this processor: about 83 s to the first word, then 6.6 words a second (too slow to recommend; a model server answers more quickly), and Skip Ask for now; 5. Speed](../screenshots/setup-guide.png)
+*The guide on a machine with no model server: the built-in model is recommended, and Ask offers the built-in chat model with an estimate for this processor.*
 
 ## Contents
 

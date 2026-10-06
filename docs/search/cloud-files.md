@@ -12,7 +12,7 @@ disk, a machine that crawls. Versions before 1.28.0 could do that while indexing
 finds online-only files by name, shows them with a cloud glyph, and leaves their contents in the
 cloud. Files that are on your disk, inside a cloud folder or not, are read as before.
 
-<!-- screenshot: search-cloud-files.png: desktop app, Cyber theme, a OneDrive folder in Details view with three files marked by the cloud glyph after their names, and the preview pane on one of them saying "Online only: not downloaded. Press Enter to download and open it, or:" with the button "Download and preview" -->
+![The desktop app in ~/OneDrive (a cloud mount), Details view: Budget 2026.txt, Holiday 2025.jpg, Party ideas.txt and Quarterly report.pdf, each with a cloud glyph after its name; OneDrive in the sidebar's drives; the preview pane on Holiday 2025.jpg says Online only: not downloaded. Press Enter to download and open it, or: with the button Download and preview](../screenshots/search-cloud-files.png)
 
 ## How to use it
 

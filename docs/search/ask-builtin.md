@@ -11,7 +11,7 @@ It answers like a server's model: from the passages of your files closest to the
 citing them as **[1]**, **[2]**, word by word. Everything in [Ask](ask.md) (the keys, follow-ups,
 the scope, the sources) works the same.
 
-<!-- screenshot: settings-ask-builtin.png: Settings → Finding files → Details → Ask with "Built-in chat models": Qwen3 1.7B (recommended) with Download (1.0 GB) and use, Qwen3 4B Instruct below it -->
+![Settings → Finding files → Details → Ask: Chat model builtin:qwen3-1.7b offered with Use, then Built-in chat models: Qwen3 1.7B (1.0 GB, downloaded once from huggingface.co, runs on the CPU) with the estimate On this processor: about 83 s to the first word, then 6.6 words a second (too slow to recommend) and Download (1.0 GB) and use; Qwen3 4B Instruct below it with its own estimate and Download (2.3 GB) and use; Let the model think first](../screenshots/settings-ask-builtin.png)
 
 ## Contents
 
