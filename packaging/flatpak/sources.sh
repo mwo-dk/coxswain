@@ -15,4 +15,5 @@ git -C "$work/tools" checkout -q FETCH_HEAD
 python3 -m venv "$work/venv"
 "$work/venv/bin/pip" install -q aiohttp tomlkit PyYAML "$work/tools/node"
 "$work/venv/bin/python" "$work/tools/cargo/flatpak-cargo-generator.py" "$src/Cargo.lock" -o "$out/cargo-sources.json"
+"$work/venv/bin/python" "$here/git-vendor.py" "$out/cargo-sources.json"
 "$work/venv/bin/flatpak-node-generator" npm "$src/gui/package-lock.json" -o "$out/node-sources.json"
