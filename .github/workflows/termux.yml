@@ -85,7 +85,7 @@ jobs:
             ls $PREFIX/share/man/man1/coxswain.1*'
 
   # The way `cargo install coxswain` builds it: in Termux itself (termux-docker on ARM64, as
-  # on a phone), with the Termux parts of the core tested there.
+  # on a phone), with the Termux parts of the core (its trash too) tested there.
   cargo:
     name: Built and tested in Termux
     runs-on: ubuntu-24.04-arm
@@ -100,7 +100,7 @@ jobs:
             set -e
             pkg install -y rust clang binutils >/dev/null
             cp -r /src ~/src && cd ~/src
-            cargo test --release --locked -p coxswain-core --lib -- termux update_
+            cargo test --release --locked -p coxswain-core --lib -- termux update_ xdg_trash
             cargo build --release --locked -p coxswain
             ./target/release/coxswain --version
           '
