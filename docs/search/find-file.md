@@ -7,7 +7,7 @@ Find is one field for everything you look for: a file's name, words inside files
 come in groups: **Names**, **In files**, **About this** and **History**. Go to one with
 **Enter**, or ask with **Ctrl+Enter**.
 
-<!-- screenshot: search-find.png: the desktop app (Cyber) with Find open over the panels, "rocket fuel cost" typed, the Ask row on top, then In files with budget.txt and its passage, About this with budget-da.txt, and the footer -->
+![The desktop app's Find with "rocket fuel cost" typed: the Ask row on top, In files with budget.txt and its passage, About this with budget-da.txt, the Danish budget, in italics](../screenshots/search-find.png)
 
 ## Contents
 
@@ -143,7 +143,7 @@ list closes Find and forgets the conversation.
 Ask keeps to the scope: *In rocket* asks from the files in that folder only. When nothing there
 is close: *Nothing in the files in rocket is close to the question.*
 
-<!-- screenshot: search-ask.png: the desktop app (Cyber), Find with the answer in place: the question, the answer citing [1] and [2], the numbered sources budget.txt and budget-da.txt, the footer "Enter ask, or go to the source · ↑↓ sources · F4 edit · Esc back to the list" -->
+![Find with the answer in place: the question rocket fuel cost, the answer citing [1], the numbered sources budget.txt and budget-da.txt, and the line Enter ask, or go to the source](../screenshots/search-ask.png)
 
 ## Keys
 
@@ -211,7 +211,7 @@ It differs in a few things:
 - *Set up* runs `coxswain --setup-search` in the terminal, then comes back to the panels.
 - **Ctrl+Shift+F** often arrives as **Ctrl+F** (the scope key), so use **Shift+F7** for *In files*.
 
-<!-- screenshot: tui-search.png: the terminal app (Classic blue) with Find over the panels, "rocket fuel cost" typed, [everywhere] at the right, the kinds line, the Ask row, IN FILES and ABOUT THIS -->
+![The terminal app's Find with "rocket fuel cost" typed, [everywhere] at the right, the kinds line, the Ask row, IN FILES with budget.txt and ABOUT THIS with budget-da.txt](../screenshots/tui-find.png)
 
 ## Questions
 

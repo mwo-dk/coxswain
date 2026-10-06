@@ -12,7 +12,7 @@ bar and the status line tell you, and how to start the apps in the folders you w
 ![The terminal app: two blue panels with double borders, git status bottom left, the command line and the F-key bar](../screenshots/tui-panels.png)
 *The terminal app in the Norton Commander theme: the left panel is active (its path is drawn black on cyan).*
 
-<!-- screenshot: panels-title.png: the desktop app's window (Cyber) with the title Coxswain 1.41.0 in its title bar, the panes below -->
+![The desktop app's window in Cyber with Coxswain 2.0.0 in its title bar, two panes on the home folder, the command line with the Settings button and its count, and the F-key bar](../screenshots/panels-title.png)
 
 ## Contents
 

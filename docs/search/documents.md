@@ -7,7 +7,7 @@ spreadsheets, slides, mail, books, notebooks and diagrams. Coxswain reads all of
 in pure Rust, starting no other program, so a search finds the words in them like the words in
 code.
 
-<!-- screenshot: search-find-groups.png: the desktop app (Cyber), Find with "engine" typed: In files with main.rs, sequence.puml, launch-pad.drawio and their passages, "engine" highlighted, then History -->
+![The desktop app's Find with "engine" typed: In files with main.rs, sequence.puml, launch-pad.drawio and engine.rs and their passages, engine highlighted, then About this and History](../screenshots/search-find-groups.png)
 *One search finds the word in code, a diagram, YAML, a log, a mail and a LaTeX file.*
 
 ## How to use it

@@ -7,8 +7,9 @@ panels and their keys, ask how far Find should look, let you choose how it looks
 can leave the machine. Every step can be skipped. Each choice is written to `config.toml` at once,
 as in Settings, so closing the guide halfway keeps what you chose.
 
-<!-- screenshot: guide-panels.png: desktop app, Cyber, the first-run guide at step 1 "Two panels · 1 of 4": the two-folder picture, the keys table, Skip and Next -->
-<!-- screenshot: guide-panels-tui.png: terminal app, Classic blue (NC), the first-run guide full screen at step 1 with the keys and the key line at the bottom -->
+![The desktop app's first-run guide at step 1, Two panels · 1 of 4: a picture of two folders side by side, the keys Tab, Enter, F5, F6, Alt+F7, F9 and F1, and Skip and Next](../screenshots/guide-panels.png)
+
+![The terminal app's first-run guide, Two panels · 1 of 4, full screen in Classic blue: the keys and what they do, and the key line ↑↓ choose · Space change · Enter next · Backspace back · Esc skip](../screenshots/guide-panels-tui.png)
 
 ## Contents
 

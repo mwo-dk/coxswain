@@ -8,8 +8,7 @@ by what you come for: an **Overview** of how everything stands, **Finding files*
 words, one line under it on what it does, and badges for what it costs. Every change applies at
 once and is written to the file, your comments kept.
 
-![The Settings window in Cyber, at Finding files: the areas on the left under a Find a setting field; on the right the status block with Names, Words, Meaning and Ask and their next steps, then How far should Find look? with its four levels](../screenshots/gui-settings.png)
-<!-- screenshot: gui-settings.png: desktop app, Cyber, Settings at Finding files (coxswain-gui --settings=search): the area list with Overview's count, the status block (Names, Words, Meaning, Ask, each with a button), the four levels with Names and text chosen, Set up… -->
+![The Settings window in Cyber, at Finding files: the areas on the left under a Find a setting field; on the right the status block with Names, Words, Meaning and Ask and their Set up buttons, then How far should Find look? with Names and text chosen](../screenshots/gui-settings.png)
 *Settings at Finding files, opened with `coxswain-gui --settings=search`.*
 
 ## Contents
@@ -100,7 +99,7 @@ reads the shared keys the next time it starts.
 
 ## Overview
 
-<!-- screenshot: settings-overview.png: desktop app, Cyber, Settings → Overview: the lines for Finding files, Previews, Looks and Privacy and updates, Set up…, What's new with For you tips and the newest version -->
+![Settings at Overview: a line each for Finding files, Previews, Looks and Privacy and updates, Set up… and Show the guide again, then What's new with the For you tips](../screenshots/settings-overview.png)
 
 | Part | Shows | Does |
 |---|---|---|
@@ -224,7 +223,7 @@ Opening this area asks the container runtime which images it has.
 
 ## Looks
 
-<!-- screenshot: settings-looks.png: desktop app, Cyber, Settings → Looks: the language list with its filter, the For: Desktop app / Terminal app switch over the theme swatches, the Font field greyed out with its line -->
+![Settings at Looks: the languages under their regions, the For switch on Desktop app, and the theme swatches with Cyber chosen](../screenshots/settings-looks.png)
 
 | Option | Does | Key |
 |---|---|---|
@@ -259,7 +258,7 @@ opens with the program your system opens `.toml` files with. Both apps read them
 
 ## Privacy and updates
 
-<!-- screenshot: settings-privacy.png: desktop app, Cyber, Settings → Privacy and updates: Check for a new version, What can leave this machine with the update check → api.github.com, Where things are kept with Show in panel, Open config.toml and the version -->
+![Settings at Privacy and updates: Check for a new version, What can leave this machine, Where things are kept with a Show in panel link for each path, Open config.toml and the version](../screenshots/settings-privacy.png)
 
 | Part | Does | Key |
 |---|---|---|
@@ -344,7 +343,7 @@ explanations and costs: both apps read them from one description in `coxswain-co
 ```
 *Settings at Finding files, `coxswain --settings=search` at 80×24, the cursor on* Names and text.
 
-<!-- screenshot: tui-settings.png: the terminal app, Classic blue (NC), Settings at Finding files (coxswain --settings=search) at 80×24: the areas on the left, the status block, the four levels with Names and text chosen, the explanation and its badges at the bottom -->
+![The terminal app's Settings at Finding files, 80×24, Classic blue: the areas on the left, the status block, the four levels with the cursor on Names and text, What is read, and the explanation with its badges at the bottom](../screenshots/tui-settings.png)
 
 ### Opening it
 

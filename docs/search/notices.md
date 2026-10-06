@@ -16,7 +16,7 @@ a time in its status line and has `coxswain --whats-new`. Nothing is shown twice
 - [In the terminal app](#in-the-terminal-app)
 - [Questions](#questions)
 
-<!-- screenshot: settings-badge.png: desktop app, Cyber theme, the command line row at the bottom with the button "⚙ Settings" carrying the count badge "3", and the window title "Coxswain 1.41.0" in the title bar -->
+![The desktop app's window in Cyber with Coxswain 2.0.0 in its title bar, two panes on the home folder, the command line with the Settings button and its count, and the F-key bar](../screenshots/panels-title.png)
 
 ## How to use it
 
@@ -54,7 +54,7 @@ the title also said before 1.41.0, is now the first footer line of
 
 ## What you see
 
-<!-- screenshot: whats-new.png: desktop app, Cyber theme, Settings at Overview, scrolled to What's new, with the count on Overview in the list on the left: "For you" with the meaning tip and its Show me and Dismiss buttons, then 1.29.0 with its date and the "new" mark, and "Earlier versions: 54" folded below -->
+![Settings at Overview, scrolled to What's new: For you with the meaning tip (Show me, Dismiss) and the tesseract install line (Copy, Show me, Dismiss), then the 2.0.0 notes](../screenshots/whats-new.png)
 
 **The Settings button.** *⚙ Settings* with a small number after it, in the accent colour (in
 Cyber, a green outline around green figures). No number: nothing new.

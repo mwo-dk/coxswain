@@ -8,7 +8,7 @@ them. Type, and the hits come in groups; both apps have all of it, and they shar
 by a [search helper](helper.md) in the background. These pages walk through each group, what is
 read and when, and every setting.
 
-<!-- screenshot: search-find.png: the desktop app (Cyber) with Find open over the panels, "rocket fuel cost" typed, the Ask row on top, then In files with budget.txt and its passage, About this with budget-da.txt, and the footer -->
+![The desktop app's Find with "rocket fuel cost" typed: the Ask row on top, In files with budget.txt and its passage, About this with budget-da.txt, the Danish budget, in italics](../screenshots/search-find.png)
 
 | Group of Find | Finds | Needs |
 |---|---|---|

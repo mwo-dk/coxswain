@@ -8,9 +8,10 @@ commit, read-only, as in a [history](git-history.md). **Alt+S** switches to the 
 the cursor, after asking; *New branch here* makes one. **Alt+W** lists the repository's
 worktrees, and **Enter** on one opens its folder. Both apps do this.
 
-<!-- screenshot: git-branches.png: the desktop app's left pane in ~/projects/rocket/@branches, tinted, the badge "branches of rocket", rows "* main · Fix the fuel valve", "feature∕engine ↑1 · Add the engine", "origin∕main · Fix the fuel valve", Modified and Last commit filled in -->
+![The desktop app's left pane in ~/projects/rocket/@branches with the badge branches of rocket: feature/engine · Add the throttle, * master ↑1 · Document the build, origin/master · Rename the plan, add the wind rule](../screenshots/git-branches.png)
 
-<!-- screenshot: tui-git-branches.png: the terminal app in Classic blue (NC), the left panel titled /home/demo/projects/rocket/@branches [branches] with the branches, the info line showing the commit id, date and author -->
+![The terminal app in Classic blue, the left panel titled /home/demo/projects/rocket/@branches [branches], the cursor on * master ↑1 and the info line with its commit id, date and author](../screenshots/tui-git-branches.png)
+
 
 ## Contents
 

@@ -16,7 +16,7 @@ as **[1]**, **[2]**. The sources are listed under the answer, numbered the same 
 The answer opens in place of the list; **Esc** goes back to the list. Nothing is kept: the
 questions and answers exist only while Find is open, and closing it forgets them.
 
-<!-- screenshot: search-ask.png: the desktop app (Cyber), Find with the answer in place: the question, the answer citing [1] and [2], the numbered sources budget.txt and budget-da.txt -->
+![Find with the answer in place: the question rocket fuel cost, the answer citing [1], the numbered sources budget.txt and budget-da.txt, and the line Enter ask, or go to the source](../screenshots/search-ask.png)
 
 ## Contents
 

@@ -5,8 +5,7 @@
 Mark the files you want to work on, then copy, move, delete, tag, rename or run a script on
 all of them at once. With nothing marked, those actions work on the entry under the cursor.
 
-![The desktop app in ~/Documents with four files marked in the marked colour, the footer reading 25 items · 4 selected (1.5 MB), and the Select files dialog with Matching: *.md *.txt](../screenshots/panels-marking.png)
-<!-- screenshot: panels-marking.png: retake for 2.0: the desktop app in ~/Documents with four files marked, the footer reading 25 items · 4 marked (1.5 MB), and the Mark files dialog with Matching: *.md *.txt, the buttons Mark and Cancel and the line Enter Mark · Esc Cancel -->
+![The desktop app in ~/Documents with four files marked, the footer 25 items · 4 marked, and the Mark files dialog with Matching: *.md *.txt, Mark and Cancel](../screenshots/panels-marking.png)
 
 ## How to use it
 
