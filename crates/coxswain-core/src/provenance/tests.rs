@@ -295,7 +295,11 @@ mod checks {
         assert_eq!(at(&res("rocket.zip", &[("sha1", "aa"), ("md5", "bb")])), Subject::CannotCheck { why: CannotCheck::Algorithms(vec!["md5".into(), "sha1".into()]) });
         // Large ones wait, and a cancelled hash says so.
         assert_eq!(check::subject(&prov, None, &res("rocket.zip", &[("sha256", "aa")]), Some(2), &no), Subject::Large { path: here.join("rocket.zip"), size: 3 });
-        assert!(matches!(check::subject(&prov, None, &res("rocket.zip", &[("sha256", "aa")]), None, &AtomicBool::new(true)), Subject::Unreadable { .. }));
+        // A file not hashed before: the others are kept from the checks above.
+        std::fs::write(here.join("new.bin"), "baz").unwrap();
+        assert!(matches!(check::subject(&prov, None, &res("new.bin", &[("sha256", "aa")]), None, &AtomicBool::new(true)), Subject::Unreadable { .. }));
+        // Kept: a second check reads nothing, even when cancelled.
+        assert!(matches!(check::subject(&prov, None, &res("rocket.zip", &[("sha256", "aa")]), None, &AtomicBool::new(true)), Subject::Differs { .. }));
         std::fs::remove_dir_all(&d).unwrap();
     }
 
@@ -414,5 +418,74 @@ mod diffs {
         // v0.2 against v1: both are in one model, so they pair and compare.
         let d = diff(&open("slsa-verifier/bundle-v0.3-generic-v0.2.intoto.jsonl"), &open("slsa-verifier/bundle-v0.2-delegator-v1.build.slsa"));
         assert_eq!(d.pairs.len(), 1, "one statement each: always paired");
+    }
+}
+
+mod facts {
+    use super::super::view::{self, Fact, FactKey, From};
+    use super::*;
+
+    fn fact(f: &[Fact], k: FactKey) -> Option<(String, From, Option<String>)> {
+        f.iter().find(|f| f.key == k).map(|f| (f.value.clone(), f.from, f.conflict.clone()))
+    }
+
+    #[test]
+    fn from_the_certificate_first_and_agreeing() {
+        let a = open("slsa-verifier/bundle-v0.3-github-v1.intoto.jsonl");
+        let f = view::facts(&a.entries[0]);
+        assert_eq!(fact(&f, FactKey::BuildType), Some(("GitHub Actions workflow".into(), From::Predicate, None)));
+        assert_eq!(fact(&f, FactKey::Builder).unwrap().0, "https://github.com/bazel-contrib/publish-to-bcr/.github/workflows/publish.yaml@refs/tags/v0.0.1", "unknown: the full ID");
+        assert_eq!(fact(&f, FactKey::Repository), Some(("https://github.com/aspect-build/rules_lint".into(), From::Certificate, None)));
+        // A workflow URI and its path agree.
+        assert_eq!(fact(&f, FactKey::Workflow).unwrap().2, None);
+        assert_eq!(fact(&f, FactKey::Commit), Some(("8f70009fde0c94ade6ce2a054b94718c819126ec".into(), From::Certificate, None)));
+        assert_eq!(fact(&f, FactKey::Trigger).unwrap().0, "workflow_dispatch");
+        assert_eq!(fact(&f, FactKey::Runner).unwrap().0, "github-hosted");
+        assert!(f.iter().all(|f| f.conflict.is_none()), "{f:?}");
+    }
+
+    #[test]
+    fn a_conflict_between_certificate_and_provenance_is_kept() {
+        let mut a = open("slsa-verifier/bundle-v0.3-github-v1.intoto.jsonl");
+        let Predicate::Provenance(p) = &mut a.entries[0].statement.predicate else { panic!() };
+        p.dependencies[0].digest.insert("gitCommit".into(), "0000000000000000000000000000000000000000".into());
+        let f = view::facts(&a.entries[0]);
+        assert_eq!(fact(&f, FactKey::Commit).unwrap().2.as_deref(), Some("0000000000000000000000000000000000000000"));
+    }
+
+    #[test]
+    fn from_the_provenance_alone() {
+        let f = view::facts(&open("slsa-verifier/envelope-v0.2-multi-subject.intoto.jsonl").entries[0]);
+        assert_eq!(fact(&f, FactKey::Builder).unwrap().0, "SLSA GitHub generator (generic)");
+        assert_eq!(fact(&f, FactKey::BuildType).unwrap().0, "SLSA generator, generic");
+        assert_eq!(fact(&f, FactKey::Repository).unwrap().0, "https://github.com/slsa-framework/example-package");
+        assert_eq!(fact(&f, FactKey::Workflow).unwrap().0, ".github/workflows/e2e.generic.schedule.main.multi-subjects.slsa3.yml");
+        assert_eq!(fact(&f, FactKey::Ref).unwrap().0, "refs/heads/main");
+        assert_eq!(fact(&f, FactKey::Commit).unwrap().0, "60a179bd9181657528c7b14243f07511b4f63cf5");
+        assert_eq!(fact(&f, FactKey::Trigger).unwrap().0, "schedule");
+        assert!(f.iter().all(|f| f.from == From::Predicate));
+        // The delegator's GITHUB_* parameters.
+        let f = view::facts(&open("slsa-verifier/bundle-v0.2-delegator-v1.build.slsa").entries[0]);
+        assert_eq!(fact(&f, FactKey::Builder).unwrap().0, "https://github.com/slsa-framework/example-trw/.github/workflows/builder_high-perms_slsa3.yml@refs/tags/v2.1.0");
+        assert_eq!(fact(&f, FactKey::BuildType).unwrap().0, "SLSA delegator");
+    }
+
+    #[test]
+    fn builder_names() {
+        assert_eq!(view::builder_name("https://github.com/actions/runner/github-hosted"), Some("GitHub Actions"));
+        assert_eq!(view::builder_name("https://github.com/slsa-framework/slsa-github-generator/.github/workflows/builder_go_slsa3.yml@refs/tags/v2.1.0"), Some("SLSA GitHub builder (Go)"));
+        assert_eq!(view::builder_name("https://evil.example/builder_go_slsa3.yml.txt"), None);
+    }
+
+    #[test]
+    fn a_cyclonedx_predicate_as_a_file() {
+        let a = open("made/sbom.provenance.json");
+        let f = view::bom_file(&a.entries[0], "sbom provenance/../x").unwrap();
+        assert!(f.file_name().unwrap().to_string_lossy().ends_with(".cdx.json"));
+        assert_eq!(f.parent().unwrap().file_name().unwrap().to_string_lossy(), std::process::id().to_string(), "a name never makes a path");
+        let bom = crate::bom::load(&f).unwrap();
+        assert!(bom.nodes.iter().any(|n| n.label == "serde"));
+        std::fs::remove_file(f).unwrap();
+        assert!(view::bom_file(&open("made/statement-v1.json").entries[0], "x").is_err());
     }
 }

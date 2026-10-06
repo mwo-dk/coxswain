@@ -7,7 +7,9 @@ use sha2::Digest;
 use std::io::{self, Read};
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
+use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::time::SystemTime;
 
 /// Subjects up to this size are checked unasked; larger ones when the user asks.
 pub const AUTO_LIMIT: u64 = 256 * 1024 * 1024;
@@ -93,9 +95,30 @@ pub fn subject(provenance: &Path, other: Option<&Path>, s: &Resource, limit: Opt
     }
 }
 
+/// Digests already made, by path, size, modification time and algorithm, so moving back to a
+/// provenance does not read its files again.
+static HASHED: Mutex<Vec<(HashKey, String)>> = Mutex::new(Vec::new());
+const HASHES_KEPT: usize = 256;
+type HashKey = (PathBuf, u64, Option<SystemTime>, String);
+
 /// The hex digest of a file, read in 1 MB pieces so `cancel` is seen. A file only in the cloud
 /// is not read, unless the settings read those: it would be downloaded.
 pub fn hash(path: &Path, algorithm: &str, cancel: &AtomicBool) -> io::Result<String> {
+    let meta = std::fs::metadata(path)?;
+    let key: HashKey = (path.to_path_buf(), meta.len(), meta.modified().ok(), algorithm.to_string());
+    if let Some((_, d)) = HASHED.lock().unwrap().iter().find(|(k, _)| *k == key) {
+        return Ok(d.clone());
+    }
+    let d = hash_file(path, algorithm, cancel)?;
+    let mut kept = HASHED.lock().unwrap();
+    if kept.len() >= HASHES_KEPT {
+        kept.remove(0);
+    }
+    kept.push((key, d.clone()));
+    Ok(d)
+}
+
+fn hash_file(path: &Path, algorithm: &str, cancel: &AtomicBool) -> io::Result<String> {
     fn run<D: Digest>(f: &mut std::fs::File, cancel: &AtomicBool) -> io::Result<String> {
         let mut h = D::new();
         let mut buf = vec![0u8; 1 << 20];

@@ -7,12 +7,14 @@
 //! - `signer`: who signed, from a Sigstore certificate.
 //! - `check`: the subjects against the files here, the source commit against a checkout here.
 //! - `diff`: two provenance files compared.
+//! - `view`: the build's facts and builder names, for both apps.
 
 pub mod check;
 pub mod diff;
 pub mod ingest;
 pub mod model;
 pub mod signer;
+pub mod view;
 
 use std::fmt;
 use std::io::Read;
