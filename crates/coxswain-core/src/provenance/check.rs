@@ -181,7 +181,7 @@ pub enum Source {
 /// Where the commit of `src` is, in a checkout of its repository at or above `provenance`'s
 /// folder or `other`. Runs read-only git; never fetches.
 pub fn source(provenance: &Path, other: Option<&Path>, src: &GitSource) -> Source {
-    let Some(checkout) = checkouts(provenance.parent(), other).into_iter().find(|c| remotes(c).iter().any(|r| *r == src.repo)) else {
+    let Some(checkout) = checkouts(provenance.parent(), other).into_iter().find(|c| remotes(c).contains(&src.repo)) else {
         return Source::NoCheckout;
     };
     let git = |args: &[&str]| crate::git::command(&checkout).args(args).stdout(Stdio::piped()).stderr(Stdio::null()).output().ok();
