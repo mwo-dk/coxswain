@@ -64,8 +64,8 @@ Options go after `sh -s --` when the script comes through a pipe:
    which stays off until rc.conf turns it on ([the search helper](#the-search-helper)).
 4. Lists the optional packages that are not installed, with what each adds.
 
-`man coxswain` finds the manual when `/usr/local/man` is in `/etc/man.conf`'s `_default` line;
-add it there, or set `MANPATH`.
+`man coxswain` finds the manual: NetBSD's `/etc/man.conf` looks in `/usr/local/man`. With the
+prefix `~/.local`, set `MANPATH="$HOME/.local/man:"` (the trailing colon keeps the system's).
 
 ## Install by hand
 

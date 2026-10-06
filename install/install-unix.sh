@@ -224,10 +224,11 @@ get() {
     download "$url/$name" "$TMP/$name" || fail "Could not download $url/$name"
   fi
   want=$(awk '{print $1}' "$TMP/$name.sha256")
-  got=$(sum256 "$TMP/$name")
+  got=$(sum256 "$TMP/$name") || fail "Could not compute the SHA-256 of $name."
   [ "$want" = "$got" ] || fail "$name does not match its SHA-256 sum: it may be damaged. Nothing was installed."
   info "$name: SHA-256 checked"
-  (cd "$TMP" && gzip -dc "$name" | tar -xf -)
+  # `get` runs inside `||`, where `set -e` does not stop the script: each failure says so.
+  (cd "$TMP" && gzip -dc "$name" | tar -xf -) || fail "Could not unpack $name in $TMP: is the disk full?"
 }
 
 # ---------------------------------------------------------------- the terminal app
@@ -264,7 +265,7 @@ fi
 
 # ---------------------------------------------------------------- the desktop app
 
-missing() { for p in "$@"; do installed "$p" || printf '%s ' "$p"; done; }
+missing() { for p in "$@"; do installed "$p" || printf '%s\n' "$p"; done | tr '\n' ' ' | sed 's/ $//'; }
 
 if [ "$TERMINAL_ONLY" = 0 ] && [ -n "$DESKTOP_PKGS" ]; then
   echo
@@ -278,7 +279,7 @@ if [ "$TERMINAL_ONLY" = 0 ] && [ -n "$DESKTOP_PKGS" ]; then
     info "I would run: $PKG_INSTALL $LACK"
     if ask "May I install them now (as root)?"; then
       # shellcheck disable=SC2086
-      as_root $PKG_INSTALL $LACK
+      as_root $PKG_INSTALL $LACK || info "Not all of them could be installed."
     fi
   fi
   # shellcheck disable=SC2086
