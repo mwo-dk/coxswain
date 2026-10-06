@@ -269,7 +269,7 @@ Coxswain does not. It asks *No bin on the phone's storage: delete … for good?*
 **Enter** deletes it, **Esc** keeps it. To keep a copy, move it into Termux's home with **F6**
 first, then press **F8** there.
 
-**Why did F8 say Android has no trash?** Version 2.6.0 had no trash in Termux. Since 2.6.1 it has
+**Why did F8 say Android has no trash?** Version 2.6.0 had no trash in Termux. Since 2.7.1 it has
 one of its own ([Deleting](#deleting-termuxs-trash)).
 
 **Will reading files drain my battery?** Not with Termux:API installed: the helper waits while the phone is unplugged. Without it,
