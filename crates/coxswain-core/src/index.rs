@@ -893,9 +893,12 @@ impl Service {
                     // illumos, whose event ports watch a folder at a time.
                     if BY_FOLDER {
                         if let Some(w) = watcher.as_mut() {
+                            // One batch: kqueue hands every watch to the kernel on each `watch`.
+                            let mut batch = w.paths_mut();
                             for dir in folders_to_watch(&roots, &exclude, watched_folders()) {
-                                let _ = w.watch(&dir, RecursiveMode::NonRecursive);
+                                let _ = batch.add(&dir, RecursiveMode::NonRecursive);
                             }
+                            let _ = batch.commit();
                         }
                         continue;
                     }
