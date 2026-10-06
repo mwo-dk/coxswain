@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Point the pkgsrc recipe at a coxswain release on crates.io.
 
-    python3 packaging/pkgsrc/update.py 2.8.0
+    python3 packaging/pkgsrc/update.py 2.8.1
 
 Writes coxswain/cargo-depends.mk (what `make print-cargo-depends` prints) and
 coxswain/distinfo (what `make makesum` writes), and sets DISTNAME in the Makefile.

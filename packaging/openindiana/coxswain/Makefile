@@ -19,12 +19,12 @@ include ../../../make-rules/shared-macros.mk
 # The crates.io release: the terminal app alone, with its own Cargo.lock
 # (the GitHub tarball is a workspace with the desktop app in it).
 COMPONENT_NAME=		coxswain
-HUMAN_VERSION=		2.8.0
+HUMAN_VERSION=		2.8.1
 COMPONENT_SUMMARY=	Two-panel file manager for the terminal, Norton Commander style
 COMPONENT_PROJECT_URL=	https://github.com/mwo-dk/coxswain
 COMPONENT_FMRI=		file/coxswain
 COMPONENT_CLASSIFICATION=	Applications/System Utilities
-COMPONENT_ARCHIVE_HASH=	sha256:0000000000000000000000000000000000000000000000000000000000000000
+COMPONENT_ARCHIVE_HASH=	sha256:3aff0fd8d7db114735614144efe01ac73dec259b2b256a7ba6ffbb12969303d4
 COMPONENT_LICENSE=	MIT
 # The crate carries no LICENSE file; this is a copy of the repository's.
 COMPONENT_LICENSE_FILE=	$(COMPONENT_NAME).license

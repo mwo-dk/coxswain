@@ -1,6 +1,6 @@
 # $NetBSD$
 
-DISTNAME=	coxswain-2.3.0
+DISTNAME=	coxswain-2.8.1
 CATEGORIES=	sysutils
 EXTRACT_SUFX=	.crate
 

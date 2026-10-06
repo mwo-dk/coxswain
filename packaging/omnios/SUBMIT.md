@@ -38,7 +38,7 @@ take their answer: the install script still works.
 ## Steps
 
 1. **Pick the release.** `VER` in `build.sh` must be a released version that builds on illumos
-   (2.8.0 or later). Change it if a newer one is out.
+   (2.8.1 or later). Change it if a newer one is out.
 2. **Fork and clone** <https://github.com/omniosorg/omnios-extra> on an OmniOS machine (the
    latest *bloody* release is what they ask for; r151058 works too):
 
@@ -75,14 +75,14 @@ take their answer: the install script still works.
    say MIT. If it does not, tell the maintainers rather than editing `doc/licences`.
 4. **Add the package to their lists**, in the same branch:
    - `doc/packages.md`, in alphabetical order:
-     `| ooce/application/coxswain	| 2.8.0		| https://github.com/mwo-dk/coxswain/releases | [mwo-dk](https://github.com/mwo-dk)`
+     `| ooce/application/coxswain	| 2.8.1		| https://github.com/mwo-dk/coxswain/releases | [mwo-dk](https://github.com/mwo-dk)`
    - `doc/baseline`: the line `extra.omnios ooce/application/coxswain` in order (copy the form
      of the lines around it).
-5. **Commit and push** (their history uses short messages, e.g. `coxswain 2.8.0 (new package)`):
+5. **Commit and push** (their history uses short messages, e.g. `coxswain 2.8.1 (new package)`):
 
    ```sh
    git add build/coxswain doc/packages.md doc/baseline
-   git commit -m "coxswain 2.8.0 (new package)"
+   git commit -m "coxswain 2.8.1 (new package)"
    git push -u origin coxswain
    ```
 

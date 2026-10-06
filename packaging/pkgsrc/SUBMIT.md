@@ -18,7 +18,7 @@ Nothing is submitted for you, and the announcement drafts are kept locally by th
 ## Updating to a release
 
 ```sh
-python3 packaging/pkgsrc/update.py 2.8.0
+python3 packaging/pkgsrc/update.py 2.8.1
 ```
 
 It downloads the crate and every dependency from crates.io (checked against `Cargo.lock`),
@@ -74,7 +74,7 @@ message's last line if their rules ask for it.
    ```sh
    cd /usr/pkgsrc/wip
    git add coxswain Makefile
-   git commit -m "coxswain: add version 2.8.0
+   git commit -m "coxswain: add version 2.8.1
 
    Two-panel file manager for the terminal, Norton Commander style."
    git push

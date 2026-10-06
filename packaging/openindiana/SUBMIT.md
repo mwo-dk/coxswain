@@ -32,10 +32,10 @@ one sentence that an assistant helped draft it.
 ## Steps
 
 1. **Pick the release and its hash.** `HUMAN_VERSION` in the Makefile must be a version on
-   crates.io (2.8.0 or later; `cargo search coxswain` shows the newest). Then:
+   crates.io (2.8.1 or later; `cargo search coxswain` shows the newest). Then:
 
    ```sh
-   V=2.8.0
+   V=2.8.1
    curl -sL https://static.crates.io/crates/coxswain/coxswain-$V.crate | sha256sum
    ```
 
@@ -60,7 +60,7 @@ one sentence that an assistant helped draft it.
    components do.
 4. **Try it:** `pfexec pkg install -g <your build repo> file/coxswain`, then `coxswain --version`,
    `man coxswain` and `svcs application/coxswain-index`.
-5. **Commit** in their style, `file/coxswain: new component, 2.8.0`, push, and open the pull
+5. **Commit** in their style, `file/coxswain: new component, 2.8.1`, push, and open the pull
    request to `OpenIndiana/oi-userland` `oi/hipster` with your own text: what it is, what the
    package delivers, how you tested it, that you are upstream, and the sentence about the
    assistant.
