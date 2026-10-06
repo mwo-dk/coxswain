@@ -242,4 +242,4 @@ files to. **Shift+F8** (*Delete permanently*) asks, then deletes for good.
 Coxswain cannot tell, and reads on battery too.
 
 ---
-[← Previous: Flatpak](flatpak.md) · [Next: macOS →](macos.md)
+[← Previous: Linux on ARM](linux-arm.md) · [Next: ChromeOS →](chromeos.md)

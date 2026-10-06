@@ -153,6 +153,11 @@ The questions people ask most, with a short answer and a link to the full one. E
 - **Where are my boot environments and jails?** In the desktop app's sidebar, and under **Alt+F1** in the terminal app; mounted ones open as folders. [Answer](reference/freebsd.md#boot-environments-and-jails)
 - **Where are my phone's folders in Termux?** Run `termux-setup-storage` once; then **Alt+F1** lists *Phone: shared*, *Phone: downloads* and the others. [Answer](reference/termux.md#your-phones-folders)
 - **Why does F8 say Android has no trash?** Termux has no desktop trash; **Shift+F8** deletes for good after asking. [Answer](reference/termux.md#questions)
+- **Does Coxswain run on a Raspberry Pi?** Yes, with the 64-bit Raspberry Pi OS: `Coxswain_<version>_arm64.deb` and the `aarch64-unknown-linux-musl` terminal app. There is no 32-bit build. [Answer](reference/linux-arm.md#which-file-do-i-download-for-a-raspberry-pi)
+- **The ARM AppImage does not start and mentions FUSE.** `sudo apt install libfuse2` (`libfuse2t64` on Ubuntu 24.04 and newer), or use the `.deb`. [Answer](reference/linux-arm.md#the-appimage-does-not-start-and-mentions-fuse-what-now)
+- **Which `.deb` does my Chromebook need?** `dpkg --print-architecture` in its Linux terminal: `amd64` or `arm64`. [Answer](reference/chromeos.md#which-deb-does-my-chromebook-need)
+- **Why does Coxswain not see my Chromebook's Downloads?** Linux sees only *Linux files* until you right-click a folder in the Files app and choose *Share with Linux*. [Answer](reference/chromeos.md#why-does-coxswain-not-see-my-downloads-folder)
+- **Which installer do I need on a Snapdragon laptop?** `Coxswain_<version>_arm64-setup.exe`: native, no emulation. [Answer](reference/windows-arm.md#which-installer-do-i-need-on-a-snapdragon-laptop)
 - **How do I start the search helper on FreeBSD without a desktop session?** The rc.d script: `doas sysrc coxswain_index_enable=YES coxswain_index_user=$USER` and `doas service coxswain_index start`, or one line in `~/.profile`. [Answer](reference/freebsd.md#the-search-helper)
 - **Is there a Flatpak?** Yes, of the desktop app (`io.github.mwo_dk.Coxswain`); it is not on Flathub yet, so build it with `flatpak-builder` from `packaging/flatpak`. [Answer](reference/flatpak.md#building-it-yourself)
 - **In the Flatpak, F4 says *sh: hx: not found*.** The editor runs on the host: install it there, and give a terminal editor its terminal (`editor = "kitty -e hx"`). [Answer](reference/flatpak.md#questions)
@@ -164,4 +169,4 @@ The questions people ask most, with a short answer and a link to the full one. E
 - **The cache folder is large. What takes the room?** Mostly search.db and the 488 MB model, then previews/. [Answer](reference/where-things-are-kept.md#the-cache-folder-is-large-what-takes-the-room)
 
 ---
-[← Previous: macOS](reference/macos.md) · [Next: Docs index →](README.md)
+[← Previous: Windows on ARM](reference/windows-arm.md) · [Next: Docs index →](README.md)
