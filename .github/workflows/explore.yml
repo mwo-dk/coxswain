@@ -28,16 +28,15 @@ jobs:
           release: "11.0"
           usesh: true
           prepare: |
-            /usr/sbin/pkg_add rust pkgconf || true
             /usr/sbin/pkg_add pkgin || true
-            pkgin -y install rust pkgconf || true
-            pkgin search webkit | head -20 || true
-            pkgin search gtk3 | head || true
+            pkgin -y install rust pkgconf webkit-gtk41 gtk3+ libsoup3 librsvg
+            for t in tesseract poppler libreoffice pandoc plantuml nerd texlive gst-plugins1-good gstreamer1-plugins-good noto xdg-utils git ollama; do echo "## $t"; pkgin search "$t" | head -6; done
           run: |
-            uname -a
-            rustc -V; cargo -V
+            set -e
+            uname -a; rustc -V
+            export CARGO_PROFILE_DEV_DEBUG=line-tables-only
             cargo test -p coxswain-core -p coxswain --locked --no-fail-fast || echo TESTS-FAILED
-            cargo build -p coxswain-gui --locked || echo GUI-FAILED
+            cargo test -p coxswain-gui --locked || echo GUI-FAILED
             rm -rf target
 
   openbsd:
@@ -61,45 +60,14 @@ jobs:
           release: "7.9"
           usesh: true
           prepare: |
-            pkg_add rust pkgconf
-            pkg_info -Q webkitgtk || true
-            pkg_info -Q gtk+3 || true
+            pkg_add rust pkgconf webkitgtk41 librsvg
+            for t in tesseract poppler libreoffice pandoc plantuml nerd texlive gst-plugins1-good gstreamer1-plugins-good noto xdg-utils git ollama; do echo "## $t"; pkg_info -Q "$t" | head -6; done
           run: |
-            uname -a; ulimit -a
-            rustc -V; cargo -V
+            set -e
+            uname -a; rustc -V; ulimit -a
+            export CARGO_PROFILE_DEV_DEBUG=line-tables-only
             cargo test -p coxswain-core -p coxswain --locked --no-fail-fast || echo TESTS-FAILED
-            cargo build -p coxswain-gui --locked || echo GUI-FAILED
-            rm -rf target
-
-  dragonfly:
-    runs-on: ubuntu-24.04
-    timeout-minutes: 150
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: 22
-      - name: Frontend
-        working-directory: gui
-        run: |
-          npm ci --no-audit --no-fund
-          npm run build
-          rm -rf node_modules
-      - uses: vmactions/dragonflybsd-vm@4ab776fa9f914fbea72f13715b451e77e7ef5c41 # v1.3.4
-        with:
-          release: "6.4.2"
-          usesh: true
-          prepare: |
-            pkg install -y rust pkgconf
-            pkg search webkit2 || true
-            pkg search librsvg2 || true
-          run: |
-            uname -a
-            rustc -V; cargo -V
-            cargo test -p coxswain-core -p coxswain --locked --no-fail-fast || echo TESTS-FAILED
-            cargo build -p coxswain-gui --locked || echo GUI-FAILED
+            cargo test -p coxswain-gui --locked || echo GUI-FAILED
             rm -rf target
 
   omnios:
@@ -122,14 +90,15 @@ jobs:
         with:
           release: "r151058"
           usesh: true
+          mem: 12288
           prepare: |
-            pkg install build-essential || true
-            pkg search -r webkit || true
-            pkg search -r rust || true
-            curl -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal
+            pkg install build-essential ooce/developer/rust || true
+            for t in webkit gtk3 tesseract poppler libreoffice pandoc nerd gstreamer noto git ollama; do echo "## $t"; pkg search -r -o pkg.name "*$t*" | head -6; done
           run: |
-            uname -a; . $HOME/.cargo/env || true; export PATH=$HOME/.cargo/bin:$PATH
-            rustc -V; cargo -V
-            cargo test -p coxswain-core -p coxswain --locked --no-fail-fast || echo TESTS-FAILED
-            cargo build -p coxswain-gui --locked || echo GUI-FAILED
+            set -e
+            export PATH=/opt/ooce/bin:$PATH
+            uname -a; rustc -V
+            export CARGO_PROFILE_DEV_DEBUG=line-tables-only
+            cargo test -p coxswain-core -p coxswain --locked --no-fail-fast -j2 || echo TESTS-FAILED
+            COXSWAIN_ZFS_E2E=1 cargo test -p coxswain-core --test zfs --locked -- --nocapture || echo ZFS-FAILED
             rm -rf target

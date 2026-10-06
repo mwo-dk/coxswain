@@ -33,3 +33,12 @@ pub mod zfs;
 pub mod bsd;
 pub mod flags;
 pub mod update;
+#[cfg(any(target_os = "illumos", target_os = "solaris"))]
+mod ports;
+
+/// The watcher for folders: notify's, but event ports on illumos, where notify would poll.
+#[cfg(any(target_os = "illumos", target_os = "solaris"))]
+pub type DirWatcher = ports::PortWatcher;
+/// The watcher for folders: notify's, but event ports on illumos, where notify would poll.
+#[cfg(not(any(target_os = "illumos", target_os = "solaris")))]
+pub type DirWatcher = notify::RecommendedWatcher;

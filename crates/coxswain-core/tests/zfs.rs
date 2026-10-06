@@ -1,7 +1,7 @@
 //! ZFS from end to end, on a pool of its own in a file: a dataset, two snapshots, the list of
 //! snapshots, a file as a snapshot has it, its diff against now, a copy restored out of it, and
 //! the refusals to write there. Needs root and ZFS, so it runs only when COXSWAIN_ZFS_E2E=1
-//! (the FreeBSD job in CI sets it); otherwise it passes at once.
+//! (the FreeBSD and illumos jobs in CI set it); otherwise it passes at once.
 
 use coxswain_core::{flags, fs as cfs, zfs};
 use std::path::{Path, PathBuf};
@@ -34,7 +34,11 @@ fn zfs_snapshots_end_to_end() {
     let base = std::env::temp_dir().join(format!("coxswain-zfs-e2e-{id}"));
     std::fs::create_dir_all(&base).unwrap();
     let pool = Pool { name: format!("coxswain_e2e_{id}"), file: base.join("pool.img") };
-    run("truncate", &["-s", "128M", pool.file.to_str().unwrap()]);
+    if cfg!(any(target_os = "illumos", target_os = "solaris")) {
+        run("mkfile", &["128m", pool.file.to_str().unwrap()]);
+    } else {
+        run("truncate", &["-s", "128M", pool.file.to_str().unwrap()]);
+    }
     let root = base.join("mnt");
     run("zpool", &["create", "-m", root.to_str().unwrap(), &pool.name, pool.file.to_str().unwrap()]);
     let ds = format!("{}/home", pool.name);

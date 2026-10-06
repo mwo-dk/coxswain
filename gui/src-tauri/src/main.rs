@@ -38,7 +38,7 @@ pub struct Ctx {
     guide: bool,
     /// Folders shown in the panes, watched so they reread themselves.
     watched: Mutex<Vec<PathBuf>>,
-    watcher: Mutex<Option<notify::RecommendedWatcher>>,
+    watcher: Mutex<Option<coxswain_core::DirWatcher>>,
     /// What Coxswain last put on the clipboard, and whether it was a cut.
     clip: Mutex<(Vec<PathBuf>, bool)>,
     /// The running duplicate scan's progress, if any.
@@ -453,20 +453,31 @@ async fn disks() -> Res<Vec<Disk>> {
     tauri::async_runtime::spawn_blocking(read_disks).await.map_err(|e| e.to_string())
 }
 
-fn read_disks() -> Vec<Disk> {
+/// The mounted file systems as unlabelled disks: from sysinfo where it knows the system.
+#[cfg(any(target_os = "linux", target_os = "macos", target_os = "freebsd", windows))]
+fn mounted_disks() -> Vec<Disk> {
     let list = sysinfo::Disks::new_with_refreshed_list();
+    list.list().iter().map(|d| Disk { label: String::new(), device: d.name().to_string_lossy().into_owned(), mount: d.mount_point().to_path_buf(), total: d.total_space(), free: d.available_space(), removable: d.is_removable() }).collect()
+}
+
+/// The mounted file systems as unlabelled disks: from the core on NetBSD, OpenBSD, DragonFly
+/// and illumos, which sysinfo does not know.
+#[cfg(not(any(target_os = "linux", target_os = "macos", target_os = "freebsd", windows)))]
+fn mounted_disks() -> Vec<Disk> {
+    coxswain_core::machine::mounted().into_iter().map(|m| Disk { label: String::new(), device: m.device, mount: m.mount, total: m.total, free: m.free, removable: false }).collect()
+}
+
+fn read_disks() -> Vec<Disk> {
     let mut out: Vec<Disk> = vec![];
     // Subvolumes and bind mounts repeat the same device; keep its shortest mount point.
-    let mut sorted: Vec<_> = list.list().iter().filter(|d| d.total_space() > 0).collect();
-    sorted.sort_by_key(|d| d.mount_point().as_os_str().len());
-    for d in sorted {
-        let name = d.name().to_string_lossy().into_owned();
-        let mount = d.mount_point().to_path_buf();
-        if hidden_mount(&mount) || out.iter().any(|o| o.device == name) {
+    let mut sorted: Vec<Disk> = mounted_disks().into_iter().filter(|d| d.total > 0).collect();
+    sorted.sort_by_key(|d| d.mount.as_os_str().len());
+    for mut d in sorted {
+        if hidden_mount(&d.mount) || out.iter().any(|o| o.device == d.device) {
             continue;
         }
-        let label = if mount.parent().is_none() { coxswain_core::t!("place.system") } else { mount.file_name().map_or(name.clone(), |n| n.to_string_lossy().into_owned()) };
-        out.push(Disk { label, device: name, mount, total: d.total_space(), free: d.available_space(), removable: d.is_removable() });
+        d.label = if d.mount.parent().is_none() { coxswain_core::t!("place.system") } else { d.mount.file_name().map_or(d.device.clone(), |n| n.to_string_lossy().into_owned()) };
+        out.push(d);
     }
     out
 }
@@ -1311,10 +1322,10 @@ fn watch_dirs(dirs: Vec<PathBuf>, ctx: tauri::State<Ctx>) -> Res<()> {
 }
 
 /// Emit `dir-changed` with the watched folders that changed, at most every 250 ms.
-fn start_watcher(app: &tauri::AppHandle) -> Option<notify::RecommendedWatcher> {
+fn start_watcher(app: &tauri::AppHandle) -> Option<coxswain_core::DirWatcher> {
     use notify::Watcher;
     let (tx, rx) = std::sync::mpsc::channel::<notify::Result<notify::Event>>();
-    let watcher = notify::RecommendedWatcher::new(tx, notify::Config::default()).ok()?;
+    let watcher = coxswain_core::DirWatcher::new(tx, notify::Config::default()).ok()?;
     let app = app.clone();
     std::thread::spawn(move || {
         while let Ok(first) = rx.recv() {

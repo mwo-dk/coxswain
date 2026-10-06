@@ -873,7 +873,7 @@ impl Service {
     fn run(&self, roots: Vec<PathBuf>, exclude: Vec<String>, cache: Option<PathBuf>, watch: bool, archives: Option<SearchConfig>) {
         use notify::{RecursiveMode, Watcher};
         let (tx, rx) = std::sync::mpsc::channel::<notify::Result<notify::Event>>();
-        let mut watcher: Option<notify::RecommendedWatcher> = None;
+        let mut watcher: Option<crate::DirWatcher> = None;
         let mut rebuild_at = Instant::now();
         loop {
             if rebuild_at <= Instant::now() {
@@ -886,13 +886,14 @@ impl Service {
                 }
                 rebuild_at = Instant::now() + Duration::from_secs(3600);
                 if watch && watcher.is_none() {
-                    watcher = notify::RecommendedWatcher::new(tx.clone(), notify::Config::default().with_follow_symlinks(false)).ok();
+                    watcher = crate::DirWatcher::new(tx.clone(), notify::Config::default().with_follow_symlinks(false)).ok();
                     // kqueue (the BSDs) holds an open descriptor for every path it watches, and a
                     // recursive watch opens every file: only folders are watched there, and a
-                    // changed folder is looked at again, which is all the index needs.
-                    if KQUEUE {
+                    // changed folder is looked at again, which is all the index needs. So on
+                    // illumos, whose event ports watch a folder at a time.
+                    if BY_FOLDER {
                         if let Some(w) = watcher.as_mut() {
-                            for dir in folders_to_watch(&roots, &exclude, KQUEUE_FOLDERS) {
+                            for dir in folders_to_watch(&roots, &exclude, WATCHED_FOLDERS) {
                                 let _ = w.watch(&dir, RecursiveMode::NonRecursive);
                             }
                         }
@@ -937,11 +938,13 @@ impl Service {
     }
 }
 
-/// The file watcher is kqueue, which needs an open descriptor per watched path.
-const KQUEUE: bool = cfg!(any(target_os = "freebsd", target_os = "dragonfly", target_os = "netbsd", target_os = "openbsd"));
-/// Folders watched at most under kqueue: each holds a descriptor of the system's file table.
+/// The file watcher is kqueue, which needs an open descriptor per watched path, or illumos's
+/// event ports (`ports`), which watch folders one by one.
+const BY_FOLDER: bool = cfg!(any(target_os = "freebsd", target_os = "dragonfly", target_os = "netbsd", target_os = "openbsd", target_os = "illumos", target_os = "solaris"));
+/// Folders watched at most under kqueue: each holds a descriptor of the system's file table
+/// (an event port association costs kernel memory instead).
 // ponytail: a fixed share of kern.maxfiles; past it the deepest folders wait for the hourly rebuild.
-const KQUEUE_FOLDERS: usize = 20_000;
+const WATCHED_FOLDERS: usize = 20_000;
 
 /// Whether `exclude` leaves out `path`, named `name`: an entry with a slash is a path and leaves
 /// out its tree, a bare name leaves out every folder of that name.

@@ -332,7 +332,7 @@ mod tests {
             let args = |s: &str| [std::ffi::OsStr::new("-c"), std::ffi::OsStr::new(s)].map(|a| a.to_owned());
             let run = |s: &str, t: u64, max: u64| output(&sh, &args(s).iter().map(|a| a.as_os_str()).collect::<Vec<_>>(), Duration::from_millis(t), max);
             assert_eq!(run("echo hello", 5000, 100), Some(b"hello\n".to_vec()));
-            assert_eq!(run("yes | head -c 100000", 5000, 10).map(|v| v.len()), Some(10), "cut at the limit, the rest drained");
+            assert_eq!(run("yes | head -n 50000", 5000, 10).map(|v| v.len()), Some(10), "cut at the limit, the rest drained");
             assert_eq!(run("exit 3", 5000, 100), None);
             let start = Instant::now();
             assert_eq!(run("sleep 10", 200, 100), None);

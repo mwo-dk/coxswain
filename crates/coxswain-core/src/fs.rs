@@ -749,7 +749,7 @@ pub fn resolve(base: &Path, s: &str) -> PathBuf {
 /// Folders watched for changes (not their subfolders), for an app that reads them again when
 /// something in them changes. The changes are gathered until they settle (`Settle`).
 pub struct Watch {
-    watcher: Option<notify::RecommendedWatcher>,
+    watcher: Option<crate::DirWatcher>,
     rx: std::sync::mpsc::Receiver<notify::Result<notify::Event>>,
     watched: Vec<PathBuf>,
     settle: Settle,
