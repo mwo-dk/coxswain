@@ -1352,7 +1352,7 @@
  "tag.red": "빨강",
  "tag.yellow": "노랑",
  "termux.no_service": "Termux에는 세션 서비스가 없습니다: 검색 도우미는 Coxswain과 함께 시작해 종료 후 10분 동안 남아 있습니다",
- "termux.no_trash": "여기서는 Android에 휴지통이 없습니다: 영구 삭제(Shift+F8)로 완전히 지웁니다",
+ "termux.no_trash_storage": "휴대전화 저장공간에는 휴지통이 없습니다: {what}을(를) 영구 삭제하시겠습니까?",
  "termux.storage": "휴대폰: {name}",
  "theme.dark": "어둡게",
  "theme.light": "밝게",
