@@ -1407,7 +1407,7 @@
  "tag.red": "Rød",
  "tag.yellow": "Gul",
  "termux.no_service": "Termux har ingen sessionstjeneste: søgehjælperen starter med Coxswain og bliver ti minutter efter",
- "termux.no_trash": "Android har ingen papirkurv her: Slet permanent (Shift+F8) fjerner det for altid",
+ "termux.no_trash_storage": "Ingen papirkurv på telefonens lager: vil du slette {what} permanent?",
  "termux.storage": "Telefon: {name}",
  "theme.dark": "Mørk",
  "theme.light": "Lys",

@@ -1461,7 +1461,7 @@
  "tag.red": "Rosso",
  "tag.yellow": "Giallo",
  "termux.no_service": "Termux non ha un servizio di sessione: l'assistente di ricerca parte con Coxswain e resta dieci minuti dopo",
- "termux.no_trash": "Android qui non ha un cestino: Elimina definitivamente (Shift+F8) lo rimuove per sempre",
+ "termux.no_trash_storage": "Nessun cestino nella memoria del telefono: eliminare definitivamente {what}?",
  "termux.storage": "Telefono: {name}",
  "theme.dark": "Scuro",
  "theme.light": "Chiaro",

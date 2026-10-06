@@ -1461,7 +1461,7 @@
  "tag.red": "Sarkans",
  "tag.yellow": "Dzeltens",
  "termux.no_service": "Termux nav sesijas pakalpojuma: meklēšanas palīgs startē kopā ar Coxswain un paliek desmit minūtes pēc tā",
- "termux.no_trash": "Android šeit nav atkritnes: Dzēst neatgriezeniski (Shift+F8) to izdzēš pavisam",
+ "termux.no_trash_storage": "Tālruņa krātuvē nav atkritnes: neatgriezeniski dzēst {what}?",
  "termux.storage": "Tālrunis: {name}",
  "theme.dark": "Tumšs",
  "theme.light": "Gaišs",

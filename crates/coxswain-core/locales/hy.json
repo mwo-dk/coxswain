@@ -1407,7 +1407,7 @@
  "tag.red": "Կարմիր",
  "tag.yellow": "Դեղին",
  "termux.no_service": "Termux-ը նստաշրջանի ծառայություն չունի․ որոնման օգնականը սկսում է Coxswain-ի հետ և մնում է նրանից հետո տասը րոպե",
- "termux.no_trash": "Android-ն այստեղ աղբարկղ չունի․ Ջնջել ընդմիշտ (Shift+F8)-ը այն ընդմիշտ հեռացնում է",
+ "termux.no_trash_storage": "Հեռախոսի հիշողությունում աղբարկղ չկա․ ընդմիշտ ջնջե՞լ {what}-ը։",
  "termux.storage": "Հեռախոս՝ {name}",
  "title.window": "Coxswain {version}",
  "tui.ask_no_model": "Սերվերը {model} մոդել չունի։",

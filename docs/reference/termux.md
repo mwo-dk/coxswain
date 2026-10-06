@@ -18,6 +18,7 @@ being under `/data/data/com.termux/`; Termux sets both.
 - [Your phone's folders](#your-phones-folders)
 - [Opening files](#opening-files)
 - [Clipboard and battery: Termux:API](#clipboard-and-battery-termuxapi)
+- [Deleting: Termux's trash](#deleting-termuxs-trash)
 - [The search helper](#the-search-helper)
 - [Search by meaning](#search-by-meaning)
 - [How Termux differs from Linux here](#how-termux-differs-from-linux-here)
@@ -113,6 +114,27 @@ and the Termux:API app put copied lines on Android's clipboard and tell the sear
 the phone runs on its battery*. Without the app, the commands would wait for it for ever; Coxswain
 gives each one a few seconds and then does without.
 
+## Deleting: Termux's trash
+
+**F8** (or **Delete**) moves the marked files, or the one under the cursor, to a trash of
+Coxswain's own in Termux's home: `~/.local/share/Trash` (`$XDG_DATA_HOME/Trash` when that is
+set), laid out as the freedesktop.org trash: the file in `files/`, and next to it in `info/` a
+`.trashinfo` with where it was and when it was deleted. A second `report.pdf` becomes
+`report (2).pdf`. The dialog, the keys and the status line are those of every other system
+([Delete](../files/delete.md)).
+
+Files are only moved into the trash, never copied, so the trash takes only what is on Termux's
+own storage. The phone's storage (`~/storage/shared`, `~/storage/downloads`, a memory card, a
+USB stick) is another filesystem: there **F8** asks *No bin on the phone's storage: delete
+"photo.jpg" for good?* (*trash* in the Canadian English text), even with *Ask before
+deleting* turned off. **Enter** or **Y** deletes for good; **Esc** or **N** leaves it alone.
+**Shift+F8** deletes for good after its usual question, as everywhere.
+
+Coxswain does not show, restore or empty this trash. Look in `~/.local/share/Trash/files` and
+move a file back with **F6**; `rm -rf ~/.local/share/Trash` empties it. Android's own bin, in
+the Files or Gallery app, is a separate one: Coxswain's trash is not in it, and what you delete
+there is not in Coxswain's.
+
 ## The search helper
 
 Android has no session service, so *Start with my session* (Settings → *Finding files*) cannot
@@ -140,7 +162,7 @@ files takes long on a phone and warms it. A model server on another computer doe
 | Start with my session | A systemd user service | Not available; the helper stays ten minutes after the app |
 | Certificates for HTTPS | The system's store | Termux's own, `$PREFIX/etc/tls/cert.pem` (`pkg install ca-certificates`) |
 | The go-to list (Alt+F1) | Type a path | Type a path, and the phone's folders |
-| F8 (Delete) | To the desktop's trash | Android has no trash: F8 says so, and **Shift+F8** deletes for good after asking. The static Linux binary keeps a trash in `~/.local/share/Trash` |
+| F8 (Delete) | To the desktop's trash | To Coxswain's own trash in `~/.local/share/Trash`; on the phone's storage F8 asks to delete for good instead ([Deleting](#deleting-termuxs-trash)) |
 | Update hint | By where it is installed | `cargo install coxswain` for a cargo build; `pkg upgrade coxswain` for one installed with `pkg` |
 
 Everything else, keys, config and the search index included, is the same. The config is in
@@ -235,8 +257,20 @@ stopping it while the screen is off.
 **Why does the update check never say anything?** With the static musl binary it cannot look up `api.github.com` on Android. Built with
 `cargo install coxswain` it can. With either, `coxswain --version` says which version you have.
 
-**Why does F8 say Android has no trash?** The Termux build (the package, or `cargo install coxswain`) has no desktop trash to move
-files to. **Shift+F8** (*Delete permanently*) asks, then deletes for good.
+**Where does F8 put my files in Termux?** In `~/.local/share/Trash/files`, with a
+`.trashinfo` for each in `~/.local/share/Trash/info` that says where it came from and when.
+Android has no desktop trash, so the Termux build keeps one of its own ([Deleting](#deleting-termuxs-trash)).
+To get a file back, go there and move it with **F6**. Android's Files app does not show it.
+
+**Why does F8 ask to delete for good on the phone's storage?** `~/storage/…` leads to Android's
+shared storage, a filesystem of its own. Moving a file from there into the trash in Termux's
+home would mean copying it, which for a folder of videos takes long and may not fit, so
+Coxswain does not. It asks *No bin on the phone's storage: delete … for good?* instead:
+**Enter** deletes it, **Esc** keeps it. To keep a copy, move it into Termux's home with **F6**
+first, then press **F8** there.
+
+**Why did F8 say Android has no trash?** Version 2.6.0 had no trash in Termux. Since 2.7.2 it has
+one of its own ([Deleting](#deleting-termuxs-trash)).
 
 **Will reading files drain my battery?** Not with Termux:API installed: the helper waits while the phone is unplugged. Without it,
 Coxswain cannot tell, and reads on battery too.

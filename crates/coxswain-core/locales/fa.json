@@ -1407,7 +1407,7 @@
  "tag.red": "قرمز",
  "tag.yellow": "زرد",
  "termux.no_service": "Termux سرویس نشست ندارد: یاری‌گر جست‌وجو با Coxswain شروع می‌شود و ده دقیقه پس از آن می‌ماند",
- "termux.no_trash": "اندروید اینجا سطل زباله ندارد: حذف همیشگی (Shift+F8) آن را برای همیشه پاک می‌کند",
+ "termux.no_trash_storage": "حافظهٔ گوشی سطل زباله ندارد: {what} برای همیشه حذف شود؟",
  "termux.storage": "گوشی: {name}",
  "title.window": "Coxswain {version}",
  "tui.ask_no_model": "سرور مدل {model} را ندارد.",

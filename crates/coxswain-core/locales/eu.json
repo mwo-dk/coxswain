@@ -1407,7 +1407,7 @@
  "tag.red": "Gorria",
  "tag.yellow": "Horia",
  "termux.no_service": "Termux-ek ez du saio-zerbitzurik: bilaketa-laguntzailea Coxswain-ekin abiatzen da eta hamar minutu geratzen da ondoren",
- "termux.no_trash": "Android-ek ez du zakarrontzirik hemen: Ezabatu betiko (Shift+F8) aukerak behin betiko kentzen du",
+ "termux.no_trash_storage": "Telefonoaren biltegian ez dago zakarrontzirik: betiko ezabatu nahi duzu {what}?",
  "termux.storage": "Telefonoa: {name}",
  "theme.dark": "Iluna",
  "theme.light": "Argia",
