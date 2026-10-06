@@ -1316,8 +1316,9 @@ mod tests {
     #[test]
     fn archive_zip_times_are_local() {
         use chrono::{Datelike, TimeZone, Timelike};
-        // A zip's time has two-second steps.
-        let now = modified(Path::new(env!("CARGO_MANIFEST_DIR"))) & !1;
+        // A zip's time has two-second steps. The clock, not a file's time: a build from a
+        // package (Nix) dates its sources at 1970, before the first time a zip can hold.
+        let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs() & !1;
         let local = chrono::Local.timestamp_opt(now as i64, 0).unwrap();
         let t = zip_time(now);
         assert_eq!((t.year() as i32, t.month() as u32, t.day() as u32, t.hour() as u32), (local.year(), local.month(), local.day(), local.hour()));

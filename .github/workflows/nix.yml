@@ -1,0 +1,73 @@
+name: Nix
+
+# The flake's packages built with Nix: the terminal app on Linux and macOS with its tests, the
+# desktop app on Linux. Only when Rust code, the lock files or the Nix files change.
+on:
+  workflow_dispatch:
+  push:
+    branches: [master]
+    paths: ["crates/**", "gui/**", "Cargo.toml", "Cargo.lock", "flake.nix", "flake.lock", "packaging/nix/**", ".github/workflows/nix.yml"]
+  pull_request:
+    paths: ["crates/**", "gui/**", "Cargo.toml", "Cargo.lock", "flake.nix", "flake.lock", "packaging/nix/**", ".github/workflows/nix.yml"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nix-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Nix, ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24 # v31.11.1
+
+      - name: Terminal app
+        run: |
+          nix build -L .#default
+          ./result/bin/coxswain --version
+          ./result/bin/cox --version
+          test -f result/share/man/man1/coxswain.1.gz
+          nix run . -- --version
+
+      - name: Desktop app
+        if: runner.os == 'Linux'
+        run: |
+          nix build -L .#coxswain-gui -o result-gui
+          test -f result-gui/share/applications/coxswain.desktop
+          # Every library found, and the wrapped program starts: as the search helper it needs
+          # no display, and runs until it is stopped.
+          ! ldd result-gui/bin/.coxswain-gui-wrapped | grep 'not found'
+          export HOME=$(mktemp -d)
+          timeout 5 result-gui/bin/coxswain-gui --index-helper || test $? = 124
+
+  # The packages prepared for nixpkgs (packaging/nix/nixpkgs, see SUBMIT.md), built from the
+  # release they name with the flake's nixpkgs, as nixpkgs would build them. They change only
+  # by hand, so only by hand: `gh workflow run nix.yml` (it builds the flake as well).
+  nixpkgs:
+    name: Nix, the nixpkgs packages
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24 # v31.11.1
+      - name: Build
+        run: |
+          for p in coxswain coxswain-gui; do
+            nix build -L --impure -o $p --expr "(builtins.getFlake (toString ./.)).inputs.nixpkgs.legacyPackages.\${builtins.currentSystem}.callPackage ./packaging/nix/nixpkgs/$p/package.nix { }" || fail=1
+          done
+          test -z "$fail"
+          ./coxswain/bin/coxswain --version
