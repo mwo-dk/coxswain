@@ -220,6 +220,8 @@ impl Store {
         if db.prepare("SELECT cloud FROM files LIMIT 0").is_err() {
             db.execute_batch("ALTER TABLE files ADD COLUMN cloud INTEGER")?;
         }
+        // The files still to get their vectors, newest first, without a look at the rest.
+        db.execute_batch("CREATE INDEX IF NOT EXISTS files_unembedded ON files(modified) WHERE has_text = 1 AND embedded IS NULL")?;
         let renewing = passages_are(&db, crate::meaning::SCHEME)?;
         Ok(Store { db: Mutex::new(db), pending: AtomicUsize::new(0), hurry: AtomicBool::new(false), cleared: AtomicBool::new(false), walked: Mutex::default(), offline: Mutex::default(), paused: AtomicBool::new(false), configured: Mutex::default(), meaning: AtomicBool::new(false), engine: Mutex::default(), meaning_error: Mutex::default(), error: Mutex::default(), signs: Mutex::default(), path: path.to_path_buf(), renewing: AtomicUsize::new(renewing), ms_per_file: AtomicUsize::new(0), clouds: Mutex::default() })
     }
@@ -284,10 +286,15 @@ impl Store {
     /// Rest as long as the work since `start` took, unless in a hurry; on battery, until the
     /// mains is back.
     fn rest(&self, start: Instant, stop: &AtomicBool) {
+        self.rest_after(start.elapsed(), stop);
+    }
+
+    /// The rest after `work`, never on battery unless *Index now*.
+    fn rest_after(&self, work: Duration, stop: &AtomicBool) {
         if self.hurry.load(Ordering::Relaxed) {
             return;
         }
-        std::thread::sleep(start.elapsed().min(Duration::from_secs(2)));
+        std::thread::sleep(work.min(Duration::from_secs(2)));
         while !self.hurry.load(Ordering::Relaxed) && !stop.load(Ordering::Relaxed) && crate::machine::on_battery() {
             self.paused.store(true, Ordering::Relaxed);
             std::thread::sleep(Duration::from_secs(1));
@@ -694,7 +701,12 @@ impl Store {
     /// Up to `n` files still to get their vectors, the last changed first: (id, path, text).
     fn unembedded(&self, n: usize) -> rusqlite::Result<Vec<(i64, String, String)>> {
         let db = self.db.lock().unwrap();
-        let mut q = db.prepare("SELECT f.id, f.path, t.body FROM files f JOIN text t ON t.rowid = f.id WHERE f.has_text = 1 AND f.embedded IS NULL ORDER BY f.modified DESC LIMIT ?1")?;
+        // The files first, by `files_unembedded`, then their text: joined before the limit, the
+        // text of every file still to go was read for each few (2 s a time with 300,000).
+        let mut q = db.prepare(
+            "SELECT f.id, f.path, coalesce(t.body, '') FROM (SELECT id, path, modified FROM files WHERE has_text = 1 AND embedded IS NULL ORDER BY modified DESC LIMIT ?1) f
+             LEFT JOIN text t ON t.rowid = f.id ORDER BY f.modified DESC",
+        )?;
         let rows = q.query_map([n as i64], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?;
         rows.collect()
     }
@@ -935,7 +947,16 @@ pub(crate) fn left_out(dir: &Path, cfg: &SearchConfig) -> bool {
     // macOS and Windows it is not a hidden folder.
     static OWN: std::sync::OnceLock<Option<PathBuf>> = std::sync::OnceLock::new();
     OWN.get_or_init(crate::helper::folder).as_deref() == Some(dir)
-        || name.starts_with('.') || excluded(&name, cfg) || cfg.names_only.iter().any(|p| p == dir) || dir.join(".nosearch").exists()
+        || name.starts_with('.') || excluded(&name, cfg) || cfg.names_only.iter().any(|p| p == dir) || dir.join(".nosearch").exists() || cache_tagged(dir)
+}
+
+/// A folder a program marked as its cache, as backup tools know it (Cargo's `target`, whatever
+/// its name, and other build and cache folders): a `CACHEDIR.TAG` that starts with the
+/// signature of the Cache Directory Tagging Specification.
+fn cache_tagged(dir: &Path) -> bool {
+    const SIGNATURE: &[u8] = b"Signature: 8a477f597d28d172789f06886806bc55";
+    let mut start = [0; SIGNATURE.len()];
+    std::fs::File::open(dir.join("CACHEDIR.TAG")).and_then(|mut f| std::io::Read::read_exact(&mut f, &mut start)).is_ok_and(|_| start == SIGNATURE)
 }
 
 /// Folders of caches, package stores, build output and programs' data: the archives in them
@@ -1149,6 +1170,10 @@ fn embed(store: &Store, stop: &AtomicBool) -> rusqlite::Result<()> {
         let (start, count) = (Instant::now(), files.len());
         for (id, path, body) in files {
             let texts: Vec<String> = crate::meaning::passages(&body, crate::meaning::is_markdown(&path)).iter().map(|p| crate::meaning::shown_to_model(&path, p)).collect();
+            if texts.is_empty() {
+                store.put_vectors(id, &[])?;
+                continue;
+            }
             // A server that does not answer: the file waits for the next scan, word search goes on.
             let vectors = match engine.passages(&texts) {
                 Ok(v) => v,
@@ -1170,9 +1195,13 @@ fn embed(store: &Store, stop: &AtomicBool) -> rusqlite::Result<()> {
         }
         // A file's time with the rest after it (not a wait for the mains), for the time the
         // files still to go take.
+        // The built-in model works on this processor and rests as long as it worked; a server
+        // works on its own (most often a GPU) and the helper only waits for it, so it rests a
+        // quarter of that.
         let work = start.elapsed();
-        let ms = (work + work.min(Duration::from_secs(2))).as_millis() as usize / count;
-        store.rest(start, stop);
+        let rest = if matches!(*engine, crate::meaning::Engine::Builtin(_)) { work } else { work / 4 };
+        let ms = (work + rest.min(Duration::from_secs(2))).as_millis() as usize / count;
+        store.rest_after(rest, stop);
         let before = store.ms_per_file.load(Ordering::Relaxed);
         store.ms_per_file.store(if before == 0 { ms } else { (before * 7 + ms) / 8 }, Ordering::Relaxed);
     }
@@ -1380,8 +1409,8 @@ pub fn refresh(store: &Store, cfg: &SearchConfig, paths: &mut HashSet<PathBuf>, 
             later.insert(out.to_path_buf());
             continue;
         }
-        // A `.nosearch` that came or went changes what its folder is.
-        if path.file_name().is_some_and(|n| n == ".nosearch") {
+        // A `.nosearch` or `CACHEDIR.TAG` that came or went changes what its folder is.
+        if path.file_name().is_some_and(|n| n == ".nosearch" || n == "CACHEDIR.TAG") {
             later.extend(path.parent().map(Path::to_path_buf));
         }
         match std::fs::symlink_metadata(&path) {
@@ -1481,7 +1510,7 @@ mod tests {
     fn store_finds_text_follows_changes_and_forgets() {
         let d = std::env::temp_dir().join(format!("coxswain-store-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&d);
-        for sub in ["docs", "node_modules/pkg", ".hidden", "private", "mail"] {
+        for sub in ["docs", "node_modules/pkg", ".hidden", "private", "mail", "build-x", "not-a-cache"] {
             std::fs::create_dir_all(d.join("home").join(sub)).unwrap();
         }
         let write = |name: &str, text: &[u8]| std::fs::write(d.join("home").join(name), text).unwrap();
@@ -1492,6 +1521,10 @@ mod tests {
         write(".hidden/secret.txt", b"fuel\n");
         write("private/diary.txt", b"fuel\n");
         write("private/.nosearch", b"");
+        write("build-x/CACHEDIR.TAG", b"Signature: 8a477f597d28d172789f06886806bc55\n# Cargo's\n");
+        write("build-x/notes.md", b"fuel for the cache");
+        write("not-a-cache/CACHEDIR.TAG", b"anything else");
+        write("not-a-cache/plan.md", b"harbour schedule");
         write("mail/inbox.txt", b"fuel\n");
 
         let cfg = SearchConfig { text_roots: vec![d.join("home")], names_only: vec![d.join("home/mail")], ..SearchConfig::default() };
@@ -1499,7 +1532,8 @@ mod tests {
         scan(&store, &cfg, &go).unwrap();
 
         let names = |q: &str| store.search(q, None, 10).hits.iter().map(|h| h.path.file_name().unwrap().to_string_lossy().into_owned()).collect::<Vec<_>>();
-        assert_eq!(names("fuel"), ["budget.md"], "not the binary, node_modules, the hidden folder, the .nosearch one or the names-only one");
+        assert_eq!(names("fuel"), ["budget.md"], "not the binary, node_modules, the hidden folder, the .nosearch one, the names-only one or the cache-tagged one");
+        assert_eq!(names("harbour"), ["plan.md"], "a CACHEDIR.TAG without the signature leaves its folder in");
         assert_eq!(names("rocket bud"), ["budget.md"], "every word, the last one begun");
         // No file has both words: the files with either come instead.
         let mut either = names("ferry fuel");
@@ -1514,7 +1548,7 @@ mod tests {
         assert_eq!(names("\"; DROP TABLE files"), [""; 0], "a query is words, never SQL");
         let hit = &store.search("largest", None, 10).hits[0];
         assert_eq!(hit.snippet.as_deref(), Some(format!("# Rocket budget Fuel is the {}largest{} cost of flight seven.", MARK.0, MARK.1).as_str()));
-        assert_eq!(store.texts(), 2);
+        assert_eq!(store.texts(), 4, "budget.md, notes.txt and both files of not-a-cache");
 
         // Sizes: the files' rows and the totals of the folders left out, as a walk counts them.
         let home = d.join("home");

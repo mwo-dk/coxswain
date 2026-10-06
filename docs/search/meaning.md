@@ -95,8 +95,10 @@ off: *Off*, *Files about your words are not found.*, and **Set up…**.
   the last 4, the first passage under each heading (up to 128) and passages spread evenly over
   the rest get vectors; search by words still finds every word. Each vector (384 numbers) is
   packed into a byte a number and kept in `search.db`.
-- **When:** the [helper](helper.md) makes them a few files at a time, resting as long as the work
-  took, and not on [battery](battery.md) unless you press *Read now*. New and changed files get
+- **When:** the [helper](helper.md) makes them a few files at a time, and not on
+  [battery](battery.md) unless you press *Read now*. With the built-in model it rests as long as
+  the work took; with a [server](servers.md) it rests a quarter of that, since the work is the
+  server's. New and changed files get
   theirs at the helper's next pass, within ten minutes; their words are searchable at once.
 - **A search:** your question gets a vector too. A first sieve over one bit per number keeps the
   1,000 closest passages; their full vectors are then scored. A file counts with its best
@@ -249,6 +251,14 @@ to 256 vectors where it had 8, a short one the same as before. Measured on this 
 rests between files ([Performance](../reference/performance.md#search-by-meaning-whole-documents)).
 It waits on battery, as always; *Read now* skips the rests. The notice says how long it is
 likely to take on your machine, from the first files.
+
+#### Why did the renewal crawl on a large store?
+Before 2.8.1, choosing the next few files read the text of every file still waiting: with 300,000
+waiting, two seconds for each eight files, more than the server took to make their vectors. From
+2.8.1 an index finds them at once, and a server's work is followed by a shorter rest. Folders a
+program marked as its cache (`CACHEDIR.TAG`, as in Cargo's build folders) are no longer read
+either, see [Choosing the folders](folders.md): their text already in the store goes at the
+helper's next walk of the folders read.
 
 #### Why does it show files that have nothing to do with my question?
 It shows the files closest to your question, above a floor. When nothing in your files is about

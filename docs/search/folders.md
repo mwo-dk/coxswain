@@ -28,6 +28,13 @@ to *Finding files → Details → Folders*. It has these lists, each with a fiel
 `touch ~/Private/.nosearch`. It does the same as *Names only*, for that folder and all below it.
 Delete the file and the folder is read again.
 
+**Folders a program marked as its cache.** A folder holding a `CACHEDIR.TAG` file that starts with
+`Signature: 8a477f597d28d172789f06886806bc55` (the [Cache Directory Tagging
+Specification](https://bford.info/cachedir/), which backup tools follow too) is read as if it held
+`.nosearch`. Cargo puts one in every `target` folder, whatever it is called (`exp5_target`,
+`--target-dir`), and other build and cache tools do the same, so build output stays out of the
+text and out of search by meaning. A `CACHEDIR.TAG` without that signature changes nothing.
+
 **Terminal app.** Set the lists in `config.toml` (below).
 
 | List | Key | Does |
@@ -35,6 +42,7 @@ Delete the file and the folder is read again.
 | **Folders read** | `text_roots` | The folders whose files are read. None listed means your home folder. |
 | **Names only** | `names_only` | Folders whose files are found by name and counted in folder sizes, but never read: mail stores, archives of other people's documents, anything whose text you do not want in the index |
 | `.nosearch` | a file | The same as *Names only*, set from the folder itself |
+| `CACHEDIR.TAG` | a file, put there by a program | The same as `.nosearch` when it starts with the specification's signature |
 | **Left out everywhere** | `text_exclude` | Folder names and file patterns left out wherever they are. A plain name (`build`) leaves out folders of that name; an entry with `*`, `?` or a dot (`*.log`, `notes.txt`) leaves out files too. `*` stands for any run of characters, `?` for one; the case counts |
 
 Files that are only online in OneDrive, Dropbox, Google Drive, Proton Drive or iCloud are never
@@ -139,6 +147,12 @@ the list replaces the default one, so list the others you still want left out.
 #### Will adding my OneDrive folder download it?
 No. Its files that are only online are found by name and never read, so nothing is downloaded;
 the files OneDrive keeps on your disk are read. See [Cloud files](cloud-files.md).
+
+#### Why is a build folder with another name than `target` not read?
+Cargo marks each of its build folders with a `CACHEDIR.TAG`, whatever the folder is called, and a
+folder with that tag is read as if it held `.nosearch`: its files are found by name and counted in
+folder sizes, never read. To read one after all, delete its `CACHEDIR.TAG` (Cargo writes it again
+at its next build).
 
 #### Does `.nosearch` hide a folder from name search too?
 No, only from reading. To leave a folder out of the name index, use `name_exclude` (see
