@@ -148,8 +148,10 @@
  "archive.preview_locked": "Šis failas užrakintas slaptažodžiu.",
  "archive.preview_opening": "Atveriama iš {archive}…",
  "archive.preview_unlock": "Įveskite slaptažodį",
+ "ask.builtin_estimate": "Šiame procesoriuje: apie {seconds} s iki pirmojo žodžio, tada {words} žodžio per sekundę",
  "ask.builtin_missing": "{model} dar neatsisiųstas: atsisiųskite jį skiltyje Parametrai › Klausti arba Nustatyti…",
  "ask.builtin_name": "{model}, įtaisytas",
+ "ask.builtin_slow": "per lėtas, kad būtų rekomenduojamas; modelių serveris atsako greičiau",
  "bom.advice": "Ką daryti",
  "bom.as_in_file": "Kaip faile",
  "bom.assets": {
@@ -1347,6 +1349,7 @@
  "setup.ask_builtin": "{model}, įtaisytas ({size} atsisiuntimas, {where}; niekas nepalieka kompiuterio)",
  "setup.ask_builtin_hint": "Neprivaloma. Įtaisytas pokalbių modelis atsako šiame kompiuteryje, nieko nereikia diegti ir niekas jo nepalieka: greitai Mac GPU, lėtai vien procesoriuje (minutė ar daugiau iki pirmo žodžio). Modelių serveris atsako greičiau ir su didesniais modeliais.",
  "setup.ask_hint": "Rodomi tik modeliai, kurie gali atsakyti. Šiam kompiuteriui: {model}. Bandomasis klausimas parodo, kaip greitai jis atsako.",
+ "setup.ask_off": "Kol kas praleisti Klausti",
  "setup.builtin": "Įtaisytas modelis ({size} atsisiųsti, veikia {where}; niekas nepalieka kompiuterio)",
  "setup.builtin_hint": "multilingual-e5-small: 100 kalbų, veikia bet kuriame kompiuteryje. Kai persijungiate į jį, kiekvienas failas perskaitomas iš naujo.",
  "setup.builtin_on": "Paieška pagal prasmę įjungta, su įtaisytu modeliu. Paieškos pagalbininkas dabar fone skaito jūsų failų prasmę; radiniai pagal prasmę paieškose atsiranda palaipsniui.",
