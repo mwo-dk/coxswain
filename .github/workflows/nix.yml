@@ -31,6 +31,9 @@ jobs:
           persist-credentials: false
       - uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24 # v31.11.1
 
+      - name: Lock
+        run: nix flake lock && cat flake.lock
+
       - name: Terminal app
         run: |
           nix build -L .#default
