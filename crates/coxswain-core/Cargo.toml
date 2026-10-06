@@ -21,7 +21,6 @@ notify = "8"
 regex = "1"
 serde_json = "1"
 ureq = { version = "3", features = ["platform-verifier"] }
-trash = "5.2.9"
 zip = { version = "8.6.0", default-features = false, features = ["deflate-flate2-zlib-rs", "aes-crypto"] }
 tar = "0.4.46"
 flate2 = "1.1.10"
@@ -55,6 +54,10 @@ parquet = { version = "60", default-features = false, features = ["snap", "flate
 # statfs(2) for the ZFS dataset a folder is on, and chflags(2) for file flags.
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
+
+# Android (Termux) has no desktop trash.
+[target.'cfg(not(target_os = "android"))'.dependencies]
+trash = "5.2.9"
 
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.61.2", features = ["Win32_System_Power", "Win32_System_SystemInformation", "Win32_Storage_FileSystem", "Win32_System_Com", "Win32_UI_Shell", "Win32_UI_WindowsAndMessaging"] }
