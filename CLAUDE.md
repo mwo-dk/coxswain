@@ -102,7 +102,19 @@ Screenshots in `docs/screenshots/` are taken in a sandbox with a fake home, so n
 shows (Linux, needs `bwrap`): build release, then
 `docs/screenshots/sandbox.sh coxswain-gui /home/demo/projects/rocket` or
 `docs/screenshots/sandbox.sh alacritty -e coxswain`. `demo-home.sh` builds the demo files.
-`coxswain-gui --settings=<section>` opens Settings at a section.
+`coxswain-gui --settings=<section>` opens Settings at a section. `SANDBOX_ARGS` adds bwrap
+arguments (a fake `/etc/hosts` so no server answers, a fake `/sys/class/power_supply`, a disk
+under `/run/media`).
+
+**Taking them without the desktop:** `docs/screenshots/cap.py` runs both apps in that sandbox on
+displays of their own, so nothing shows on screen and no key can reach another window. The
+desktop app runs on GTK's Broadway inside the sandbox (its pictures go through the sandbox's
+`/dev/shm`), shown by a headless Chromium; keys and clicks go to that page over the DevTools
+protocol, and pictures and GIF frames come from it. Broadway has no screen resolution, which
+WebKitGTK turns into a negative zoom, so the app gets a small preload that says 96 dpi. The
+terminal app runs in a tmux of its own, drawn in MesloLGM Nerd Font Mono. Each run gets its own
+process namespace: stopping it stops all it started, the search helper too. See the top of
+`cap.py` for the calls.
 
 - Never run podman or docker inside the sandbox.
 - Keys may be sent (`wtype`) only to the sandbox window, and only after checking that it has
@@ -116,9 +128,9 @@ says so in the PR. Before a minor or major release is merged, check
 `grep -rn "<!-- screenshot:" README.md docs` and take what can be taken.
 
 **GIFs** show what moves: Find filling its groups, Ask writing its answer, marking and copying,
-an archive opened as a folder, git branches. Record them in the same sandbox, the same way:
-`wf-recorder -g "<the sandbox window's geometry>" -f clip.mp4`, keys by `wtype` as above, then
-`ffmpeg` with `palettegen`/`paletteuse` to `docs/screenshots/<name>.gif`.
+an archive opened as a folder, git branches. Record them in the same sandbox with `cap.py`
+(`record()` takes the frames while the keys are sent, `gif()` makes the GIF with `ffmpeg`'s
+`palettegen`/`paletteuse` and its first-frame still).
 
 - At most 8 seconds, 800 px wide, 10–12 frames a second, under 1.5 MB, looping; start and end
   on the same calm frame.

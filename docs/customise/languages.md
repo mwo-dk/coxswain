@@ -200,7 +200,7 @@ Both are written in letters that take two columns in a terminal and need a font 
 
 ## Persian, Armenian and Georgian
 
-<!-- screenshot: gui-lang-fa.png: the desktop app in Persian (Cyber), mirrored like Hebrew, sizes and dates in Persian digits, the F-key bar in Persian -->
+![The desktop app in Persian (Cyber), mirrored: the sidebar on the right with خانه and سیستم, the panes' columns running right to left, sizes and ages in Persian digits, the F-key bar from F1 راهنما on the right to F10 خروج on the left](../screenshots/gui-lang-fa.png)
 
 - **Fonts in the desktop app:** after every font list come Vazirmatn, Noto Sans Arabic and Noto
   Naskh Arabic (Geeza Pro on macOS; Segoe UI and Tahoma on Windows have the letters), Noto Sans

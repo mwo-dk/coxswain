@@ -50,7 +50,7 @@ Commander blue to Windows 95 and Mac OS 9.*
 
 | | |
 |---|---|
-| ![The terminal app: two blue panels, git status on the left](docs/screenshots/tui-panels.png) | ![The desktop app's Find with "engine" typed: In files with main.rs, sequence.puml, launch-pad.drawio and engine.rs and their passages, engine highlighted, then About this and History](docs/screenshots/search-find-groups.png) |
+| ![The terminal app: two blue panels, git status on the left](docs/screenshots/tui-panels.png) | <picture><source media="(prefers-reduced-motion: reduce)" srcset="docs/screenshots/find.png"><img src="docs/screenshots/find.gif" alt="The desktop app: Ctrl+F opens Find and engine is typed; the groups fill in as it is typed, Names with engine.rs, In files with main.rs and engine.rs and the lines that say engine, About this; Esc closes Find"></picture> |
 | [The terminal app](docs/reference/terminal-app.md) | [Find](docs/search/find-file.md) |
 | ![The preview pane: Markdown with a Mermaid diagram and math, a notebook, a spreadsheet, a Word document and a font](docs/screenshots/gui-previews.png) | ![A tar.gz archive open like a folder](docs/screenshots/gui-archive.png) |
 | [The preview pane](docs/previews/README.md) | [Archives as folders](docs/files/archives.md) |
@@ -71,6 +71,10 @@ It all runs on your own machine, or on your own server (Ollama, Lemonade, LM Stu
    FreeBSD; no administrator rights).
 
 The whole walk-through: [Smart search in a few minutes](docs/search/setup.md).
+
+<picture><source media="(prefers-reduced-motion: reduce)" srcset="docs/screenshots/ask.png"><img src="docs/screenshots/ask.gif" alt="The desktop app: Ctrl+F opens Find, rocket fuel cost is typed and Ctrl+Enter asks; the answer appears in place, Rocket fuel costs 2,105 kEUR in April and 2,655 kEUR in June [1], with the sources budget.txt and budget-da.txt numbered under it"></picture>
+
+*Ask with `qwen3:8b` on Ollama on the same machine. The wait for the first word is cut short.*
 
 ## Install
 

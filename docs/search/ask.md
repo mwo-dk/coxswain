@@ -16,7 +16,9 @@ as **[1]**, **[2]**. The sources are listed under the answer, numbered the same 
 The answer opens in place of the list; **Esc** goes back to the list. Nothing is kept: the
 questions and answers exist only while Find is open, and closing it forgets them.
 
-![Find with the answer in place: the question rocket fuel cost, the answer citing [1], the numbered sources budget.txt and budget-da.txt, and the line Enter ask, or go to the source](../screenshots/search-ask.png)
+<picture><source media="(prefers-reduced-motion: reduce)" srcset="../screenshots/ask.png"><img src="../screenshots/ask.gif" alt="Ctrl+F opens Find, rocket fuel cost is typed and Ctrl+Enter asks; after a wait the answer appears in place, Rocket fuel costs 2,105 kEUR in April and 2,655 kEUR in June [1], with the numbered sources budget.txt and budget-da.txt under it and the line Enter ask, or go to the source"></picture>
+
+*`qwen3:8b` on Ollama on the same machine; the wait for the first word is cut short.*
 
 ## Contents
 

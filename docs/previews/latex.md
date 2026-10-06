@@ -10,7 +10,7 @@ errors, and tries another engine when one cannot build the document.
 ![The desktop app with flight7.tex under the cursor in projects/paper: the preview pane shows the engine buttons "tectonic" and "container" above the built PDF, a report with a formula and a plot](../screenshots/gui-latex.png)
 *flight7.tex, built with the installed tectonic; the container is the other choice.*
 
-<!-- screenshot: previews-latex-fallback.png: desktop app, Cyber theme: a .tex document that latexmk cannot build (a missing package) but tectonic can; above the PDF the line "Built with tectonic: latexmk stopped (! LaTeX Error: …)", the engine buttons latexmk and tectonic above it -->
+![The desktop app with memo.tex under the cursor in ~/projects/memo: the preview pane shows the engine buttons latexmk, tectonic and container, the line Built with tectonic: latexmk stopped (! LaTeX Error: File `siunitx.sty' not found.), and the PDF tectonic made](../screenshots/previews-latex-fallback.png)
 
 ## Contents
 

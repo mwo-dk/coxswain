@@ -12,6 +12,10 @@ worktrees, and **Enter** on one opens its folder. Both apps do this.
 
 ![The terminal app in Classic blue, the left panel titled /home/demo/projects/rocket/@branches [branches], the cursor on * master ↑1 and the info line with its commit id, date and author](../screenshots/tui-git-branches.png)
 
+<picture><source media="(prefers-reduced-motion: reduce)" srcset="../screenshots/branches.png"><img src="../screenshots/branches.gif" alt="The terminal app in Classic blue in ~/projects/rocket: Alt+B lists feature/engine, * master and origin/master in @branches; Down puts the cursor on feature/engine and the info line shows its commit; Enter shows the branch's files, read-only, titled [commit bc213b7]; Enter on src lists engine.rs, main.rs and throttle.rs"></picture>
+
+*The branches folder in the terminal app: **Alt+B**, then **Enter** on a branch to browse its files.*
+
 
 ## Contents
 

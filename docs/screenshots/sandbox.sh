@@ -6,6 +6,7 @@
 #
 #   docs/screenshots/sandbox.sh coxswain-gui
 #   docs/screenshots/sandbox.sh alacritty -o font.normal.family="MesloLGM Nerd Font Mono" -e coxswain
+#   SANDBOX_ARGS="--unshare-net" docs/screenshots/sandbox.sh coxswain-gui    # extra bwrap arguments
 set -euo pipefail
 repo="$(cd "$(dirname "$0")/../.." && pwd)"
 demo="${DEMO_HOME:-${XDG_RUNTIME_DIR:-/tmp}/coxswain-demo-home}"
@@ -19,6 +20,7 @@ for b in $(type -ap podman docker 2>/dev/null) /usr/bin/podman /usr/bin/docker; 
   [ -e "$b" ] && no_containers+=(--ro-bind /dev/null "$(readlink -f "$b")")
 done
 
+# shellcheck disable=SC2086 # SANDBOX_ARGS is split into arguments on purpose
 exec bwrap \
   --ro-bind / / --dev /dev --proc /proc \
   "${no_containers[@]}" \
@@ -27,6 +29,7 @@ exec bwrap \
   --ro-bind "$repo/target/release" /opt/coxswain \
   --bind "$XDG_RUNTIME_DIR" "$XDG_RUNTIME_DIR" \
   --unshare-uts --hostname demo \
+  ${SANDBOX_ARGS:-} \
   --chdir /home/demo \
   --clearenv \
   --setenv HOME /home/demo --setenv USER demo --setenv LOGNAME demo \
