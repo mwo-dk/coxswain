@@ -112,11 +112,17 @@ jobs:
         include:
           - os: ubuntu-22.04 # oldest glibc still supported, so the AppImage runs on more distros
             args: ""
+          # ARM64 Linux (Raspberry Pi OS 64-bit, Asahi, ARM servers, ChromeOS): 22.04's glibc 2.35,
+          # so the .deb and AppImage run on Debian 12 / Raspberry Pi OS Bookworm (2.36) too.
+          - os: ubuntu-22.04-arm
+            args: ""
           - os: macos-latest
             args: --target aarch64-apple-darwin
           - os: macos-latest
             args: --target x86_64-apple-darwin
           - os: windows-latest
+            args: ""
+          - os: windows-11-arm # Windows on ARM, native
             args: ""
     runs-on: ${{ matrix.os }}
     steps:
@@ -203,6 +209,7 @@ jobs:
           - { os: macos-latest, target: aarch64-apple-darwin }
           - { os: macos-latest, target: x86_64-apple-darwin }
           - { os: windows-latest, target: x86_64-pc-windows-msvc }
+          - { os: windows-11-arm, target: aarch64-pc-windows-msvc }
     runs-on: ${{ matrix.os }}
     defaults:
       run:
@@ -505,7 +512,9 @@ jobs:
               echo "::notice::$1 is not on WinGet yet; its first version waits for Microsoft's review."
               return 0
             fi
-            ./komac update "$1" --version "$v" --urls "$2" --release-notes-url "$notes" --submit --token "$WINGET_TOKEN"
+            id="$1"; shift
+            ./komac update "$id" --version "$v" --urls "$@" --release-notes-url "$notes" --submit --token "$WINGET_TOKEN"
           }
-          update mwo-dk.Coxswain "$base/Coxswain_${v}_x64-setup.exe"
-          update mwo-dk.Coxswain.Terminal "$base/coxswain-terminal-$TAG-x86_64-pc-windows-msvc.zip"
+          # Komac takes each installer's architecture from the file: x64 and Windows on ARM.
+          update mwo-dk.Coxswain "$base/Coxswain_${v}_x64-setup.exe" "$base/Coxswain_${v}_arm64-setup.exe"
+          update mwo-dk.Coxswain.Terminal "$base/coxswain-terminal-$TAG-x86_64-pc-windows-msvc.zip" "$base/coxswain-terminal-$TAG-aarch64-pc-windows-msvc.zip"

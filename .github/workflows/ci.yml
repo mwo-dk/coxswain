@@ -18,7 +18,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-24.04, macos-latest, windows-latest]
+        os: [ubuntu-24.04, ubuntu-24.04-arm, macos-latest, windows-latest, windows-11-arm]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -31,6 +31,10 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
 
+      - name: TEMP tools on ARM
+        if: runner.arch == 'ARM64'
+        shell: bash
+        run: command -v 7z clang cl link rustup node || true; uname -a; ldd --version 2>/dev/null | head -1 || true
       - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de # v1
         with:
           toolchain: stable
@@ -61,8 +65,18 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get install -y musl-tools
-          rustup target add x86_64-unknown-linux-musl
-          cargo build -p coxswain --target x86_64-unknown-linux-musl --locked
+          target="$(uname -m)-unknown-linux-musl"
+          rustup target add "$target"
+          cargo build -p coxswain --target "$target" --locked
+
+      # ARM Linux and Windows on ARM: releases bundle the desktop app there too (.deb, .rpm,
+      # AppImage; .exe, .msi), so the bundlers have to run before a release finds out. A debug
+      # build, to reuse what the tests compiled.
+      - name: Desktop installers on ARM
+        if: runner.arch == 'ARM64' && runner.os != 'macOS'
+        working-directory: gui
+        shell: bash
+        run: npx tauri build --debug --ci --bundles ${{ runner.os == 'Linux' && 'deb,rpm,appimage' || 'nsis,msi' }}
 
       # Intel Macs: releases build for x86_64-apple-darwin too, with candle's Metal on, so this
       # target has to build before a release finds out.
@@ -75,5 +89,5 @@ jobs:
       # crates.io builds the core from its packaged files alone: anything it reads from
       # outside the crate (the README's changelog) has to come along, before a release finds out.
       - name: Core crate, packaged
-        if: runner.os == 'Linux'
+        if: runner.os == 'Linux' && runner.arch == 'X64'
         run: cargo package -p coxswain-core --locked
