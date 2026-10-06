@@ -129,4 +129,4 @@ The built-in model runs on the Pi's processor. Use a model server on another com
 run overnight; *Words inside files* needs no model and is quick.
 
 ---
-[← Previous: Flatpak](flatpak.md) · [Next: Termux on Android →](termux.md)
+[← Previous: Flatpak](flatpak.md) · [Next: Nix →](nix.md)
