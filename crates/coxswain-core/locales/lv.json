@@ -148,8 +148,10 @@
  "archive.preview_locked": "Šis fails ir aizslēgts ar paroli.",
  "archive.preview_opening": "Atver no {archive}…",
  "archive.preview_unlock": "Ievadiet paroli",
+ "ask.builtin_estimate": "Šajā procesorā: apmēram {seconds} s līdz pirmajam vārdam, tad {words} vārdi sekundē",
  "ask.builtin_missing": "{model} vēl nav lejupielādēts: lejupielādējiet to sadaļā Iestatījumi › Jautāt vai Iestatīt…",
  "ask.builtin_name": "{model}, iebūvēts",
+ "ask.builtin_slow": "pārāk lēns, lai ieteiktu; modeļu serveris atbild ātrāk",
  "bom.advice": "Ko darīt",
  "bom.as_in_file": "Kā failā",
  "bom.assets": {
@@ -1348,6 +1350,7 @@
  "setup.ask_builtin": "{model}, iebūvēts ({size} lejupielāde, {where}; nekas neatstāj datoru)",
  "setup.ask_builtin_hint": "Neobligāti. Iebūvēts tērzēšanas modelis atbild šajā datorā, nekas nav jāinstalē, un nekas to neatstāj: ātri Mac GPU, lēni tikai ar procesoru (minūte vai vairāk līdz pirmajam vārdam). Modeļu serveris atbild ātrāk un ar lielākiem modeļiem.",
  "setup.ask_hint": "Ir redzami tikai modeļi, kas var atbildēt. Šim datoram: {model}. Pārbaudes jautājums parāda, cik ātri tas atbild.",
+ "setup.ask_off": "Pagaidām izlaist Jautāt",
  "setup.builtin": "Iebūvētais modelis ({size} lejupielāde, darbojas {where}; nekas neatstāj datoru)",
  "setup.builtin_hint": "multilingual-e5-small: 100 valodas, darbojas jebkurā datorā. Kad pārslēdzaties uz to, katrs fails tiek nolasīts no jauna.",
  "setup.builtin_on": "Meklēšana pēc nozīmes ir ieslēgta ar iebūvēto modeli. Meklēšanas palīgs tagad fonā lasa jūsu failu nozīmi; trāpījumi pēc nozīmes parādās meklējumos pakāpeniski.",

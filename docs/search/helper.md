@@ -58,8 +58,8 @@ Nothing of its own while it works. Signs of it:
   update, uses the newer helper when both speak the same protocol (a number in the hello that
   changes only when the requests and replies do). When they do not, the old app leaves the helper
   alone, starts none, searches names by itself, and a notice says once *Coxswain was updated to
-  2.7.1: restart it to use background search*. Each of these decisions is a line in `helper.log`.
-  Before 2.7.1 a helper stepped down for any other version, so an old window and a new helper
+  2.7.2: restart it to use background search*. Each of these decisions is a line in `helper.log`.
+  Before 2.7.2 a helper stepped down for any other version, so an old window and a new helper
   took turns: the helper left for the old app, whose start brought the new version again.
 - **Upgrades that move the program.** The session registration names the program it starts. An
   upgrade can remove that program: a Homebrew cask keeps the version in its path, and an AppImage
@@ -134,21 +134,21 @@ you can read.
 No. Both use the one helper: one scan, one store, one index in memory.
 
 #### After an update, background search stopped while an old window was open. Why?
-Before 2.7.1 a helper stepped down for an app of any other version. With a window of the old
+Before 2.7.2 a helper stepped down for an app of any other version. With a window of the old
 version still open after `brew upgrade` (or a replaced AppImage), the new helper left for the old
 window, the old window's start ran the new version again through the link on your `PATH`, and that
 one left again: `helper.log` shows *an app of version 2.2.0 came: leaving for its helper* over and
-over, and the old window ended up searching names alone. From 2.7.1 the helper stays: an older
+over, and the old window ended up searching names alone. From 2.7.2 the helper stays: an older
 window uses it, or, when it cannot talk to it, searches by itself and says *Coxswain was updated
 to …: restart it to use background search* (status line in the terminal app, *Settings → What's
 new* in the desktop app). Close the old window, or restart Coxswain, and everything uses the new
-helper. The decision is the helper's, so windows of versions before 2.7.1 are served too.
+helper. The decision is the helper's, so windows of versions before 2.7.2 are served too.
 
 #### Why are there two `coxswain-gui --index-helper --stay` processes?
 From an AppImage, yes: the AppImage's own runtime stays to serve the packed files (its program is
 the `.AppImage` file), and it starts the app inside (its program is under `/tmp/.mount_…`). They
 are one helper. `<defunct>` `coxswain-gui` processes under an app were helpers that had left;
-from 2.7.1 the app waits for them, so none stays.
+from 2.7.2 the app waits for them, so none stays.
 
 #### After an update, the index was built again. Why?
 The helper of the old version stepped down for the new one, which loaded the saved index and
@@ -182,7 +182,7 @@ app of 2.1.2 you open rewrites the LaunchAgent without that.
 
 #### What is in helper.log?
 One line per start (`helper starts, process 70973`), why it left (*no app asked for a while*, *an
-app asked it to*, *another helper runs*, *an app of the newer version 2.7.1 came*), an older app it
+app asked it to*, *another helper runs*, *an app of the newer version 2.7.2 came*), an older app it
 serves or cannot serve, an app that found a newer helper it cannot talk to, and errors, such as a search store that could not be
 opened, each with the time. Nothing about your files.
 
