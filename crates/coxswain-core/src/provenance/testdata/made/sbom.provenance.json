@@ -1,0 +1,33 @@
+{
+  "_type": "https://in-toto.io/Statement/v1",
+  "subject": [
+    {
+      "name": "rocket-1.4.0.tar.gz",
+      "digest": {
+        "sha256": "2c26b46b68ffc68ff99b453c1d30413413422d706483bfa0f98a5e886266e7ae"
+      }
+    }
+  ],
+  "predicateType": "https://cyclonedx.org/bom",
+  "predicate": {
+    "bomFormat": "CycloneDX",
+    "specVersion": "1.6",
+    "metadata": {
+      "component": {
+        "type": "application",
+        "name": "rocket",
+        "version": "1.4.0",
+        "bom-ref": "rocket"
+      }
+    },
+    "components": [
+      {
+        "type": "library",
+        "name": "serde",
+        "version": "1.0.228",
+        "bom-ref": "serde",
+        "purl": "pkg:cargo/serde@1.0.228"
+      }
+    ]
+  }
+}

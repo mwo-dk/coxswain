@@ -1,6 +1,7 @@
 import { invoke, convertFileSrc } from "@tauri-apps/api/core";
 
 import { t, num, i18n } from "./i18n.svelte.js";
+import { isBomName, isProvenanceName } from "./sniff.js";
 
 export { invoke, convertFileSrc };
 
@@ -265,20 +266,14 @@ export const historyOf = (p) => p.slice(0, p.search(/[\\/]@history([\\/]|$)/));
 /** What the core says when an archive is locked and wants its password (archive::LOCKED). */
 export const LOCKED = "locked: a password is needed";
 
-/** Names that say CycloneDX BOM. Other JSON and XML files are recognised by their first bytes (looksLikeBom). */
-const BOM_NAME = /(\.(cdx|cbom)\.(json|xml)|^bom\.(json|xml))$/i;
-
-/** Whether the start of a JSON or XML file is a CycloneDX BOM's (as coxswain-core's bom::sniff_head). */
-export function looksLikeBom(text) {
-  const head = text.slice(0, 8192);
-  return (head.includes('"bomFormat"') && head.includes('"CycloneDX"')) || head.includes("http://cyclonedx.org/schema/bom/");
-}
+export { looksLikeBom, looksLikeProvenance } from "./sniff.js";
 
 /** How the preview pane should show a file. */
 export function previewKind(item) {
   if (!item) return "none";
   if (item.is_dir) return "folder";
-  if (BOM_NAME.test(item.name)) return "bom";
+  if (isProvenanceName(item.name)) return "provenance";
+  if (isBomName(item.name)) return "bom";
   if (isArchive(item.name)) return "archive";
   const ext = item.name.includes(".") ? item.name.split(".").pop().toLowerCase() : "";
   if (ext === "pdf") return "pdf";

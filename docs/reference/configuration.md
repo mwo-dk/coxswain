@@ -91,6 +91,7 @@ the defaults; an old `roots` or `exclude` in `[search]` is ignored, like any unk
 | `editor` | string | none | The program for **F4**. Terminal app: else `$VISUAL`, `$EDITOR`, `vi` (`notepad` on Windows). Desktop app: else the default application ([View and edit](../commands/view-and-edit.md)) | Both |
 | `viewer` | string | none | The terminal app's **F3**; else `$PAGER`, `less` (`more` on Windows) | Terminal |
 | `bom_viewer` | bool | `true` | **F3** on a CycloneDX BOM opens the BOM viewer; `false` opens the pager ([Cryptography bills of materials](../previews/bom.md)) | Terminal |
+| `provenance_viewer` | bool | `true` | **F3** on build provenance opens the provenance viewer; `false` opens the pager ([Build provenance](../previews/provenance.md)) | Terminal |
 | `confirm_delete` | bool | `true` | Ask before moving to the trash, deleting, or taking something out of an archive | Both |
 | `check_updates` | bool | `true` | Look for a newer release once a day ([Update checks](updates.md)) | Both |
 
@@ -358,6 +359,7 @@ Each Settings item and the key it writes, area by area ([The Settings window](..
 | | *Editor* | `editor` |
 | | *Viewer (terminal app)* | `viewer` |
 | | *CBOM viewer on F3 (terminal app)* | `bom_viewer` |
+| | *Provenance viewer on F3 (terminal app)* | `provenance_viewer` |
 | *Privacy and updates* | *Check for a new version* | `check_updates` |
 
 *Keys* lists every action and its keys, read-only, with **Open config.toml**. Every other key

@@ -71,6 +71,10 @@ def files(d):
     png(d / "h.png")
     (d / "i.mmd").write_text("flowchart LR\n  A[Fuel] --> B[Lift-off]\n")
     (d / "j.html").write_text('<!doctype html><title>Rocket</title><h1>Rocket page</h1><img src="h.png">')
+    # Provenance whose first output is a file here ("foo" has the digest it names).
+    (d / "dist").mkdir()
+    (d / "dist/rocket-1.4.0.tar.gz").write_text("foo")
+    shutil.copy(REPO / "crates/coxswain-core/src/provenance/testdata/made/statement-v1.json", d / "k.provenance.json")
     return {
         "md": ("a.md", "article h1", "Rocket", 10),
         "parquet": ("b.parquet", "table td", "Aalborg", 10),
@@ -83,6 +87,7 @@ def files(d):
         "png": ("h.png", "img", "", 10),
         "mmd": ("i.mmd", "svg", "Lift-off", 20),
         "html": ("j.html", "iframe.page", "", 10),
+        "provenance": ("k.provenance.json", ".prov .flow", "matches the file here", 10),
     }
 
 

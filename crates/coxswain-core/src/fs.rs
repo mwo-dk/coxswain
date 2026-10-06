@@ -755,6 +755,20 @@ pub fn resolve(base: &Path, s: &str) -> PathBuf {
     if p.is_absolute() { p } else { base.join(p) }
 }
 
+/// A path a file names (a BOM's source file, a provenance's subject) as an existing file or
+/// folder in `dir`, or below it. Never one that climbs out: `..` is refused, a leading `/` is
+/// dropped, and a part that would replace `dir` (a drive such as `C:`) makes it none.
+pub fn beneath(dir: &Path, rel: &str) -> Option<PathBuf> {
+    let rel = rel.trim_start_matches(['/', '\\']);
+    if rel.is_empty() || rel.split(['/', '\\']).any(|s| s == "..") {
+        return None;
+    }
+    // One part at a time, so the path has the system's separators (a file's are mostly `/`).
+    let mut p = dir.to_path_buf();
+    p.extend(rel.split(['/', '\\']).filter(|s| !s.is_empty() && *s != "."));
+    (p.starts_with(dir) && p != dir && p.exists()).then_some(p)
+}
+
 /// Folders watched for changes (not their subfolders), for an app that reads them again when
 /// something in them changes. The changes are gathered until they settle (`Settle`).
 pub struct Watch {

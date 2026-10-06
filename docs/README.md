@@ -87,6 +87,7 @@ New here? Start with [The first-run guide](panels/first-run.md), [The screen](pa
 | [PowerPoint and Office: quick view and LibreOffice's exact view](previews/office.md) | PowerPoint quick view drawn in the app, LibreOffice's exact view after it, and every other Office format |
 | [Data: trees, spreadsheets, databases and certificates](previews/data.md) | JSON/YAML/TOML trees, JSON Lines, spreadsheets and CSV, SQLite, Parquet, DuckDB, certificates, property lists |
 | [Cryptography bills of materials](previews/bom.md) | CycloneDX CBOMs as a rated tree or sunburst, with filters and a compare of two scans, in both apps |
+| [Build provenance](previews/provenance.md) | SLSA and in-toto provenance as inputs → build → outputs: who signed, do the files here match, is the commit in your checkout, two builds compared; in both apps |
 | [Media and files: pictures, video, audio, fonts, archives, folders](previews/media.md) | Pictures, video, audio, fonts, archives listed (and files inside archives), folders, facts under a file |
 | [Diagrams: draw.io, Mermaid, Graphviz and PlantUML](previews/diagrams.md) | Draw.io, Mermaid, Graphviz and PlantUML in the preview |
 | [LaTeX projects](previews/latex.md) | LaTeX: which file is the document, the project, the engine, building by itself, another engine when one fails, errors |
