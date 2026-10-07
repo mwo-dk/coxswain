@@ -95,7 +95,8 @@ move between disks does. Copy with **F5** if you want to keep them.
 
 #### Can I undo a move or rename?
 
-Coxswain has no undo. Press **F6** again and move or rename it back.
+Yes: **Ctrl+Z**, in both apps, right after it or later in the same run, while nothing has
+changed the file since. See [Undo](undo.md).
 
 ---
 [← Previous: Copy (F5)](copy.md) · [Next: New folder (F7) →](new-folder.md)

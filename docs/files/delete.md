@@ -42,7 +42,9 @@ Inside an archive the button reads *Delete* for **F8** too, and the status line 
 out first (**F5**) if you may want them back. A 7z with locked contents asks for its password
 ([Passwords](archive-passwords.md)).
 
-Things in the trash are restored with your desktop's own trash tools. Coxswain has no undo.
+**Ctrl+Z** puts back what **F8** moved to the trash, on Windows, Linux, the BSDs, illumos and
+in Termux ([Undo](undo.md)). On a Mac and in the Flatpak it cannot: the status line says so,
+and you restore from the system's trash. **Shift+F8** is never undone.
 
 ## Settings and config.toml
 
@@ -88,7 +90,8 @@ Untick *Settings → Behaviour → Ask before deleting*, or put `confirm_delete 
 
 #### Can I get back a file I deleted with Shift+F8?
 
-Not from Coxswain. It is removed as `rm` would remove it. Only backups or recovery tools can help.
+Not from Coxswain, and **Ctrl+Z** does not either. It is removed as `rm` would remove it. Only
+backups or recovery tools can help.
 
 #### Why is there no trash inside an archive?
 
@@ -101,4 +104,4 @@ question.
 No. The link itself is removed (or moved to the trash); the file or folder it points at stays.
 
 ---
-[← Previous: New folder (F7)](new-folder.md) · [Next: Clipboard →](clipboard.md)
+[← Previous: New folder (F7)](new-folder.md) · [Next: Undo (Ctrl+Z) →](undo.md)

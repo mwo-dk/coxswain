@@ -95,6 +95,7 @@ On a Mac the shortcuts are the same, with **Ctrl**, not Cmd.
 | **F7** | New folder | `new_folder` | New folder ([New folder](../files/new-folder.md)) | The same |
 | **Ctrl+C** / **Ctrl+X** / **Ctrl+V** | Copy to clipboard / Cut to clipboard / Paste | `clip_copy` / `clip_cut` / `paste` | Files through the system clipboard ([Clipboard](../files/clipboard.md)) | – |
 | **Shift+F8**, **Shift+Delete** | Delete permanently | `delete_forever` | Delete for good | The same |
+| **Ctrl+Z** | Undo | `undo` | Undo the last file operation ([Undo](../files/undo.md)) | The same |
 | **Alt+Enter** | Properties | `properties` | Size, dates, permissions, ZFS, package, flags ([Properties](../files/properties.md)) | The same facts as text |
 | **Ctrl+M** | Batch rename | `batch_rename` | Rename the marked files by pattern ([Batch rename](../files/batch-rename.md)) | – |
 | **Alt+T** | Colour tag | `tag` | Tag the marked files ([Colour tags](../organise/tags.md)) | – |

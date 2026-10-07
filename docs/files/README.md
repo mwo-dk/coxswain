@@ -21,6 +21,7 @@ folder; **Ctrl+E** extracts it.*
 | [Move and rename (F6)](move-and-rename.md) | Moving, renaming in place, moves across disks |
 | [New folder (F7)](new-folder.md) | Making a folder, or a whole path of folders at once |
 | [Delete: trash (F8) or for good (Shift+F8)](delete.md) | The trash, deleting for good, the question and how to skip it |
+| [Undo (Ctrl+Z)](undo.md) | Undoing the last copies, moves, renames, new folders, trashings, packs and extracts; what is refused and why |
 | [Clipboard: Ctrl+C, Ctrl+X, Ctrl+V](clipboard.md) | Copy and cut through the system clipboard, shared with other file managers |
 | [Drag and drop](drag-and-drop.md) | Dragging files out to other applications, between panes and in |
 | [Batch rename (Ctrl+M)](batch-rename.md) | Renaming many files with a regular expression and a counter, previewed |
@@ -40,6 +41,7 @@ folder; **Ctrl+E** extracts it.*
 | **F7** | yes | yes | [New folder](new-folder.md) |
 | **F8**, **Delete** | yes | yes | [Move to the trash](delete.md); inside an archive, take out of it |
 | **Shift+F8**, **Shift+Delete** | yes | yes | [Delete for good](delete.md) |
+| **Ctrl+Z** | yes | yes | [Undo](undo.md) the last file operation |
 | **Enter** on an archive | yes | yes | [Open it like a folder](archives.md) |
 | **Backspace** | yes | yes | Go up, also out of an archive |
 | **Ctrl+E** | yes | yes | [Extract](pack-and-extract.md) the archive into a new folder |
