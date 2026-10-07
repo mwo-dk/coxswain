@@ -1,0 +1,4 @@
+bin/cox
+@bin bin/coxswain
+@man man/man1/coxswain.1
+@rcscript ${RCDIR}/coxswain_index

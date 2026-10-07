@@ -1,0 +1,7 @@
+Coxswain is a two-panel file manager for the terminal in the Norton
+Commander tradition: two panels side by side, function keys for copy,
+move, rename and delete, git status per file, archives and disk images
+opened as folders, previews, and search by name and by text.
+
+The search helper can keep its index current from boot for one user:
+see the coxswain_index rc.d(8) script.

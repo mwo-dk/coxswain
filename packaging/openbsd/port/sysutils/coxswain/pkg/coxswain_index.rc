@@ -1,0 +1,29 @@
+#!/bin/ksh
+#
+# Coxswain's search helper for one user, from boot: it keeps the file name index and the
+# search store current while no Coxswain app is open. Name the user, then turn it on:
+#
+#   rcctl enable coxswain_index
+#   rcctl set coxswain_index user alice
+#   rcctl start coxswain_index
+#
+# It runs as that user, with that user's home; what it says goes to syslog (daemon.info).
+
+daemon="${TRUEPREFIX}/bin/coxswain"
+daemon_flags="--index-helper --stay"
+daemon_user="_coxswain_unset"
+daemon_logger="daemon.info"
+
+. /etc/rc.d/rc.subr
+
+rc_bg=YES
+rc_reload=NO
+
+rc_pre() {
+	if [ "${daemon_user}" = _coxswain_unset ]; then
+		echo "Name the user whose files are indexed: rcctl set coxswain_index user alice" >&2
+		return 1
+	fi
+}
+
+rc_cmd $1
