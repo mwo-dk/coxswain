@@ -510,7 +510,8 @@ mod tests {
         r.run(&d.join("gone.txt"), Path::new(""), None).unwrap();
         assert!(!d.join("gone.txt").exists());
         let u = r.undo(|_| {});
-        assert_eq!(u.done, 1, "{:?}", u.refused);
+        let seen: Vec<String> = trash::os_limited::list().unwrap_or_default().iter().filter(|i| i.name.to_string_lossy().contains("gone")).map(|i| format!("{:?} {:?} {} since {}", i.original_parent, i.name, i.time_deleted, r.since)).collect();
+        assert_eq!(u.done, 1, "{:?} {seen:?} want {:?}", u.refused, comparable(&d.join("gone.txt")));
         assert_eq!(fs::read_to_string(d.join("gone.txt")).unwrap(), "back");
         // Trashed again and its place taken: refused, nothing overwritten.
         let mut r = Record::new(Kind::Trash);
