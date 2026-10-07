@@ -270,7 +270,7 @@ pub fn ram_gb() -> u64 {
         s.dwLength = std::mem::size_of::<MEMORYSTATUSEX>() as u32;
         if unsafe { GlobalMemoryStatusEx(&mut s) } != 0 { s.ullTotalPhys.div_ceil(1 << 30) } else { 0 }
     }
-    // NetBSD, OpenBSD, DragonFly and illumos: pages times their size.
+    // NetBSD, OpenBSD and illumos: pages times their size.
     #[cfg(all(unix, not(any(target_os = "linux", target_os = "macos", target_os = "freebsd"))))]
     {
         // SAFETY: sysconf only reads.

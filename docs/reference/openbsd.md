@@ -264,4 +264,4 @@ than the 1.5 GB a process gets by default: `ulimit -d unlimited` in a `staff` lo
 source there.
 
 ---
-[← Previous: NetBSD](netbsd.md) · [Next: DragonFly BSD →](dragonfly.md)
+[← Previous: NetBSD](netbsd.md) · [Next: illumos →](illumos.md)
