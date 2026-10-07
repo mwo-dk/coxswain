@@ -1,7 +1,9 @@
 # Package managers
 
-`release.yml` publishes each release to these, once their secret is set. Without the secret the
-job just leaves a notice.
+`release.yml` publishes each release to these, once their secret is set, right after the GitHub
+release in the same run. Each step is tried again on a passing fault (`retry.sh`: an HTTP 5xx or
+429, a lost blob; five tries, a longer wait each time); a channel that still fails turns the run
+red with an error naming it. Without the secret the job just leaves a notice.
 
 | Where | What | Secret |
 |---|---|---|
@@ -34,14 +36,22 @@ The OpenBSD port in `openbsd/port/sysutils/coxswain`, for openbsd-wip and then p
 with the 7.9 ports tree by the *OpenBSD* workflow when started by hand
 (`gh workflow run openbsd.yml`); see [openbsd/port/SUBMIT.md](openbsd/port/SUBMIT.md).
 
-After each release, `release-check.yml` installs it the way a user does, from its published
-downloads and with the install scripts of its tag: `install-freebsd.sh` on FreeBSD 14.5 and 15.0,
-`install-unix.sh` on NetBSD 10.1, OpenBSD 7.9 and OmniOS r151058, the static musl archive and the
-`.deb` (with apt, started on a virtual display) on Linux x86-64 and ARM64, and
-`cargo install coxswain` in Termux. It checks the version each prints, the manual page and the
-service file, and every checksum against `SHA256SUMS`. It runs after every Release run that
-published a release, and by hand (*Actions → Release check → Run workflow*, a tag or `latest`).
-Nothing waits for it: a red run means a release that does not install, fixed in the next one.
+When a Release run ends, `release-check.yml` installs the release it published the way a user
+does, from its published downloads and with the install scripts of its tag: `install-freebsd.sh`
+on FreeBSD 14.5 and 15.1, `install-unix.sh` on NetBSD 10.1, OpenBSD 7.9 and OmniOS r151058, the
+static musl archive and the `.deb` (with apt, started on a virtual display) on Linux x86-64 and
+ARM64, and `cargo install coxswain` in Termux. It checks the version each prints, the manual page
+and the service file, the release's files against `release-assets.sh` and every checksum against
+`SHA256SUMS`, and every channel: both crates on crates.io, the version in the Homebrew formula and
+cask, an open or merged winget-pkgs pull request for each package WinGet lists
+(`winget-listed.sh`), and the Release run's `freebsd-port` artifact. It runs after every Release
+run, whatever its result (it finds nothing to check when the run published nothing), and by hand
+(*Actions → Release check → Run workflow*, a tag or `latest`). Nothing waits for it: a red run
+means a release that does not install or a channel without it, to be fixed at once.
+
+`release-assets.sh` lists every file a release carries, from `release.yml`'s build matrices. A new
+build target goes into both; the Release run's `verify` job refuses to publish a draft that does not
+match the list exactly.
 
 `taps/generate.sh` writes the Homebrew formula and cask from a release's `.sha256` assets.
 

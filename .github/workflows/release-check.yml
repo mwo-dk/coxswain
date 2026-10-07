@@ -1,16 +1,13 @@
 name: Release check
 
 # A published release, installed the way a user installs it: from its published downloads, with
-# the install scripts of that tag, on each system they are for, and then started. Nothing waits
-# for this workflow; a red run here means a release that does not install, to be fixed in the
-# next one. packaging/README.md.
+# the install scripts of that tag, on each system they are for, and then started; and every
+# channel checked for its version: crates.io, the Homebrew tap, WinGet, the FreeBSD port.
+# Nothing waits for this workflow; a red run here is a release to fix at once. packaging/README.md.
 #
-# The release pipeline publishes with the workflow token, which starts no `release` event, so
-# this also runs after every successful Release run and checks the release that run published
-# (none when the version had one already). `release` covers a release published by hand.
+# It runs when a Release run ends, whatever its result (a channel may have failed), and checks the
+# release that run published; none when the version had one already. And by hand.
 on:
-  release:
-    types: [published]
   workflow_run:
     workflows: [Release]
     types: [completed]
@@ -24,7 +21,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: release-check-${{ github.event.release.tag_name || inputs.tag || github.event.workflow_run.head_sha }}
+  group: release-check-${{ inputs.tag || github.event.workflow_run.head_sha }}
   cancel-in-progress: false
 
 env:
@@ -33,72 +30,131 @@ env:
 jobs:
   resolve:
     name: Which release
-    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.head_branch == 'master' &&
+       github.event.workflow_run.head_repository.full_name == github.repository)
     runs-on: ubuntu-24.04
     outputs:
       tag: ${{ steps.tag.outputs.tag }}
       version: ${{ steps.tag.outputs.version }}
+      run: ${{ github.event.workflow_run.id }}
     steps:
       - id: tag
         env:
           GH_TOKEN: ${{ github.token }}
           EVENT: ${{ github.event_name }}
-          RELEASE_TAG: ${{ github.event.release.tag_name }}
           INPUT_TAG: ${{ inputs.tag }}
           HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
           case "$EVENT" in
-            release) tag="$RELEASE_TAG" ;;
             workflow_dispatch) tag="$INPUT_TAG" ;;
-            # Only when that run published a release: the latest release is of its commit.
+            # Only when that run published a release: a release of its commit.
             workflow_run)
-              tag=$(gh api "repos/$REPO/releases/latest" -q "select(.target_commitish == \"$HEAD_SHA\") | .tag_name") ;;
+              tag=$(gh api "repos/$REPO/releases?per_page=20" -q "[.[] | select(.draft == false and .target_commitish == \"$HEAD_SHA\")][0].tag_name // empty") ;;
           esac
           [ "$tag" = latest ] && tag=$(gh api "repos/$REPO/releases/latest" -q .tag_name)
           if [ -n "$tag" ] && ! [[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             echo "::error::Not a release tag: $tag"; exit 1
           fi
           echo "Release: ${tag:-none}"
-          echo "tag=$tag" >> "$GITHUB_OUTPUT"
-          echo "version=${tag#v}" >> "$GITHUB_OUTPUT"
+          { echo "tag=$tag"; echo "version=${tag#v}"; echo "run=$RUN"; } >> "$GITHUB_OUTPUT"
 
-  # SHA256SUMS against every download, and every .sha256 against its file.
+  # Exactly the files the release should have (packaging/release-assets.sh), SHA256SUMS against
+  # every download, and every .sha256 against its file.
   sums:
-    name: Checksums
+    name: GitHub release files
     needs: resolve
     if: needs.resolve.outputs.tag != ''
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: ${{ needs.resolve.outputs.tag }}
       - env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ needs.resolve.outputs.tag }}
         run: |
-          gh release download "$TAG" --repo "$REPO" -D assets
-          cd assets
-          sha256sum -c SHA256SUMS
-          bad=0
-          listed() { awk -v f="$1" '$2 == f || $2 == "*" f { found = 1 } END { exit !found }' SHA256SUMS; }
-          for f in *; do
-            [ "$f" = SHA256SUMS ] && continue
-            if ! listed "$f"; then
-              case "$f" in
-                # A sum uploaded after SHA256SUMS was made: still checked below.
-                *.sha256) echo "::warning::$f is not in SHA256SUMS" ;;
-                *) echo "::error::$f is not in SHA256SUMS"; bad=1 ;;
-              esac
-            fi
-            case "$f" in
-              coxswain-terminal-*.tar.gz | coxswain-terminal-*.zip | coxswain-desktop-*.tar.gz)
-                [ -f "$f.sha256" ] || { echo "::error::$f has no .sha256 (the install scripts need it)"; bad=1; } ;;
-            esac
+          packaging/retry.sh gh release download "$TAG" --repo "$REPO" -D assets
+          test -f assets/SHA256SUMS || { echo "::error::$TAG has no SHA256SUMS"; exit 1; }
+          packaging/release-assets.sh "$TAG" assets
+
+  # Each channel has this version. A channel's job in release.yml may have just finished, and
+  # crates.io's and GitHub's search indexes lag a little: each check waits up to ten minutes.
+  channels:
+    name: Channels
+    needs: resolve
+    if: needs.resolve.outputs.tag != ''
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: ${{ needs.resolve.outputs.tag }}
+      VER: ${{ needs.resolve.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: crates.io
+        if: ${{ !cancelled() }}
+        run: |
+          for p in coxswain-core coxswain; do
+            for _ in $(seq 20); do
+              curl -fsS -A "coxswain release check (github.com/mwo-dk/coxswain)" "https://crates.io/api/v1/crates/$p/$VER" >/dev/null && continue 2
+              sleep 30
+            done
+            echo "::error title=crates.io::$p $VER is not on crates.io"; exit 1
           done
-          for s in *.sha256; do
-            f=${s%.sha256}
-            [ -f "$f" ] || { echo "::error::$s is the sum of $f, which is not in the release"; bad=1; continue; }
-            [ "$(awk '{print $1}' "$s")" = "$(sha256sum "$f" | awk '{print $1}')" ] || { echo "::error::$s does not match $f"; bad=1; }
+          echo "coxswain-core and coxswain $VER are on crates.io"
+      - name: Homebrew
+        if: ${{ !cancelled() }}
+        run: |
+          bad=0
+          for f in Formula/coxswain.rb Casks/coxswain-gui.rb; do
+            got=$(gh api "repos/mwo-dk/homebrew-coxswain/contents/$f" -H "Accept: application/vnd.github.raw" | sed -n 's/^ *version "\(.*\)"/\1/p' | head -1)
+            # A higher version, released meanwhile, is fine too.
+            if [ -n "$got" ] && [ "$(printf '%s\n' "$got" "$VER" | sort -V | head -1)" = "$VER" ]; then
+              echo "$f: $got"
+            else
+              echo "::error title=Homebrew::$f is at '$got', not $VER"; bad=1
+            fi
           done
           exit $bad
+      - name: WinGet
+        if: ${{ !cancelled() }}
+        run: |
+          bad=0
+          for id in mwo-dk.Coxswain.Terminal mwo-dk.Coxswain; do
+            listed=0; packaging/winget-listed.sh "$id" || listed=$?
+            case $listed in
+              1) echo "::notice title=WinGet::$id is not listed on WinGet yet: no pull request expected."; continue ;;
+              2) echo "::error title=WinGet::could not tell whether $id is listed"; bad=1; continue ;;
+            esac
+            for _ in $(seq 20); do
+              packaging/winget-listed.sh "$id" "$VER" && { echo "$id $VER: pull request open or merged"; continue 2; }
+              sleep 30
+            done
+            echo "::error title=WinGet::no open or merged winget-pkgs pull request for $id $VER"; bad=1
+          done
+          exit $bad
+      - name: FreeBSD port
+        if: ${{ !cancelled() }}
+        env:
+          RUN: ${{ needs.resolve.outputs.run }}
+        # The Release run that just ended, or (by hand) the runs of the release's commit.
+        run: |
+          if [ -z "$RUN" ]; then
+            sha=$(gh api "repos/$REPO/releases/tags/$TAG" -q .target_commitish)
+            RUN=$(gh api "repos/$REPO/actions/workflows/release.yml/runs?head_sha=$sha&per_page=20" -q '.workflow_runs[].id' | xargs)
+          fi
+          for r in $RUN; do
+            if gh api "repos/$REPO/actions/runs/$r/artifacts" -q '.artifacts[] | select(.expired == false) | .name' | grep -qx freebsd-port; then
+              echo "FreeBSD port for $TAG: the freebsd-port artifact of run $r"; exit 0
+            fi
+          done
+          echo "::error title=FreeBSD port::no freebsd-port artifact for $TAG (runs: ${RUN:-none})"; exit 1
 
   freebsd:
     name: FreeBSD ${{ matrix.release }}

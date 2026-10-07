@@ -10,11 +10,10 @@ name: OpenBSD
 # checkout, so it runs only when started by hand: `gh workflow run openbsd.yml` (--ref <branch>).
 on:
   workflow_dispatch:
-  push:
-    branches: [master]
+  workflow_call: # from release.yml, for every push to master
   pull_request:
     # Pull requests run the machine only for code with branches for this system;
-    # every push to master runs it, and Release waits for it (CLAUDE.md, Shipping).
+    # every push to master runs it as part of the Release run (CLAUDE.md, Shipping).
     paths:
       - "crates/coxswain-core/src/lib.rs"
       - "crates/coxswain-core/src/machine.rs"
@@ -43,16 +42,16 @@ on:
 permissions:
   contents: read
 
-# A newer push to a pull request cancels its older run; every master commit runs to the end,
-# since Release waits for all of them (release.yml).
+# A newer push to a pull request cancels its older run. Called from release.yml, the group is that
+# run's own (github.* is the caller's there), so nothing cancels it.
 concurrency:
-  group: openbsd-${{ github.event_name == 'push' && github.sha || github.ref }}
+  group: openbsd-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
   cancel-in-progress: true
 
 jobs:
   test:
     name: OpenBSD 7.9
-    if: github.event_name != 'workflow_dispatch'
+    if: github.event_name != 'workflow_dispatch' || github.workflow != 'OpenBSD'
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     steps:
@@ -156,7 +155,7 @@ jobs:
   # then the package installed with pkg_add and tried. What the tree makes is this run's artifact.
   port:
     name: OpenBSD 7.9, the port for openbsd-wip
-    if: github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'workflow_dispatch' && github.workflow == 'OpenBSD'
     runs-on: ubuntu-24.04
     timeout-minutes: 150
     steps:
