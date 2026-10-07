@@ -325,6 +325,7 @@
  "common.try_again": "Torna-ho a provar",
  "confirm.archive_remove": "Voleu treure {what} de {archive}? L'arxiu es reescriu sense; dins d'un arxiu no hi ha paperera.",
  "confirm.delete_forever": "Voleu suprimir permanentment {what}? No es pot desfer.",
+ "confirm.no_trash_here": "No hi ha paperera en aquest disc: voleu suprimir permanentment {what}?",
  "confirm.trash": "Voleu moure {what} a la paperera?",
  "convert.build_pdf": "Genera el PDF",
  "convert.built_instead": "Compilat amb {engine}: {failed} s'ha aturat ({why})",

@@ -297,6 +297,7 @@
  "common.try_again": "再試行",
  "confirm.archive_remove": "{what} を {archive} から取り除きますか？アーカイブはそれを除いて書き直されます。アーカイブ内にはごみ箱がありません。",
  "confirm.delete_forever": "{what} を完全に削除しますか？元に戻せません。",
+ "confirm.no_trash_here": "このディスクにはごみ箱がありません: {what} を完全に削除しますか？",
  "confirm.trash": "{what} をごみ箱に移動しますか？",
  "convert.build_pdf": "PDF を作成",
  "convert.built_instead": "{engine} で作成しました。{failed} は停止しました ({why})",

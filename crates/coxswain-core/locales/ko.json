@@ -297,6 +297,7 @@
  "common.try_again": "다시 시도",
  "confirm.archive_remove": "{what}을(를) {archive}에서 꺼내어 지우시겠습니까? 압축 파일을 그것 없이 새로 씁니다. 압축 파일 안에는 휴지통이 없습니다.",
  "confirm.delete_forever": "{what}을(를) 영구 삭제하시겠습니까? 되돌릴 수 없습니다.",
+ "confirm.no_trash_here": "이 디스크에는 휴지통이 없습니다: {what}을(를) 영구 삭제하시겠습니까?",
  "confirm.trash": "{what}을(를) 휴지통으로 이동하시겠습니까?",
  "convert.build_pdf": "PDF 만들기",
  "convert.built_instead": "{engine}(으)로 만들었습니다: {failed}이(가) 중지됨 ({why})",

@@ -311,6 +311,7 @@
  "common.try_again": "دوباره امتحان کنید",
  "confirm.archive_remove": "{what} از {archive} بیرون آورده شود؟ بایگانی بدون آن از نو نوشته می‌شود؛ درون بایگانی سطل زباله‌ای نیست.",
  "confirm.delete_forever": "{what} برای همیشه حذف شود؟ این کار برگشت‌پذیر نیست.",
+ "confirm.no_trash_here": "این دیسک سطل زباله ندارد: {what} برای همیشه حذف شود؟",
  "confirm.trash": "{what} به سطل زباله منتقل شود؟",
  "convert.build_pdf": "ساخت PDF",
  "convert.built_instead": "با {engine} ساخته شد: {failed} متوقف شد ({why})",

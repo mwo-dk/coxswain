@@ -311,6 +311,7 @@
  "common.try_again": "Try again",
  "confirm.archive_remove": "Take {what} out of {archive}? The archive is written anew without it; there is no trash inside an archive.",
  "confirm.delete_forever": "Permanently delete {what}? This cannot be undone.",
+ "confirm.no_trash_here": "No bin on this disk: delete {what} for good?",
  "confirm.trash": "Move {what} to the bin?",
  "convert.build_pdf": "Build PDF",
  "convert.built_instead": "Built with {engine}: {failed} stopped ({why})",

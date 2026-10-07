@@ -311,6 +311,7 @@
  "common.try_again": "Proovi uuesti",
  "confirm.archive_remove": "Eemaldada {what} arhiivist {archive}? Arhiiv kirjutatakse uuesti ilma selleta; arhiivis pole prügikasti.",
  "confirm.delete_forever": "Kas kustutada {what} jäädavalt? Seda ei saa tagasi võtta.",
+ "confirm.no_trash_here": "Sellel kettal pole prügikasti: kas kustutada {what} jäädavalt?",
  "confirm.trash": "Kas teisaldada {what} prügikasti?",
  "convert.build_pdf": "Loo PDF",
  "convert.built_instead": "Koostatud programmiga {engine}: {failed} peatus ({why})",

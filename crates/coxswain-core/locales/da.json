@@ -311,6 +311,7 @@
  "common.try_again": "Prøv igen",
  "confirm.archive_remove": "Tag {what} ud af {archive}? Arkivet skrives på ny uden det; der er ingen papirkurv i et arkiv.",
  "confirm.delete_forever": "Vil du slette {what} permanent? Det kan ikke fortrydes.",
+ "confirm.no_trash_here": "Ingen papirkurv på denne disk: vil du slette {what} permanent?",
  "confirm.trash": "Vil du flytte {what} til papirkurven?",
  "convert.build_pdf": "Byg PDF",
  "convert.built_instead": "Bygget med {engine}: {failed} stoppede ({why})",

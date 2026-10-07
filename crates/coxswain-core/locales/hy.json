@@ -311,6 +311,7 @@
  "common.try_again": "Կրկին փորձել",
  "confirm.archive_remove": "Հանե՞լ {what}-ը {archive} արխիվից։ Արխիվը նորից կգրվի առանց դրա․ արխիվի ներսում աղբարկղ չկա։",
  "confirm.delete_forever": "Ընդմիշտ ջնջե՞լ {what}-ը։ Սա հնարավոր չէ հետարկել։",
+ "confirm.no_trash_here": "Այս սկավառակում աղբարկղ չկա․ ընդմիշտ ջնջե՞լ {what}-ը։",
  "confirm.trash": "Տեղափոխե՞լ {what}-ը աղբարկղ։",
  "convert.build_pdf": "Կառուցել PDF",
  "convert.built_instead": "Կառուցվեց {engine}-ով․ {failed}-ը կանգ առավ ({why})",

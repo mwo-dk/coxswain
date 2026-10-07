@@ -325,6 +325,7 @@
  "common.try_again": "Zkusit znovu",
  "confirm.archive_remove": "Vyjmout {what} z {archive}? Archiv se zapíše znovu bez toho; uvnitř archivu žádný koš není.",
  "confirm.delete_forever": "Trvale odstranit {what}? Tuto akci nelze vrátit.",
+ "confirm.no_trash_here": "Tento disk nemá koš: trvale odstranit {what}?",
  "confirm.trash": "Přesunout {what} do koše?",
  "convert.build_pdf": "Sestavit PDF",
  "convert.built_instead": "Sestaveno pomocí {engine}: {failed} se zastavil ({why})",

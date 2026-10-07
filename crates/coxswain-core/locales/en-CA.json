@@ -1,5 +1,6 @@
 {
  "app.move_to_trash": "Move to trash",
+ "confirm.no_trash_here": "No trash on this disk: delete {what} for good?",
  "confirm.trash": "Move {what} to the trash?",
  "dupes.before_scan": "Pick the folders to compare, then Scan. Nothing goes to the trash without asking.",
  "dupes.confirm_ok": "Move to trash",

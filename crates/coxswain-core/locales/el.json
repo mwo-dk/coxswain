@@ -311,6 +311,7 @@
  "common.try_again": "Δοκιμάστε ξανά",
  "confirm.archive_remove": "Αφαίρεση {what} από το {archive}; Το αρχείο συμπίεσης γράφεται ξανά χωρίς αυτό· μέσα σε αρχείο συμπίεσης δεν υπάρχει Κάδος Ανακύκλωσης.",
  "confirm.delete_forever": "Οριστική διαγραφή {what}; Αυτό δεν αναιρείται.",
+ "confirm.no_trash_here": "Δεν υπάρχει κάδος σε αυτόν τον δίσκο: οριστική διαγραφή {what};",
  "confirm.trash": "Μετακίνηση {what} στον Κάδο Ανακύκλωσης;",
  "convert.build_pdf": "Δημιουργία PDF",
  "convert.built_instead": "Δημιουργήθηκε με {engine}: το {failed} σταμάτησε ({why})",

@@ -311,6 +311,7 @@
  "common.try_again": "Erneut versuchen",
  "confirm.archive_remove": "{what} aus {archive} herausnehmen? Das Archiv wird ohne es neu geschrieben; in einem Archiv gibt es keinen Papierkorb.",
  "confirm.delete_forever": "{what} endgültig löschen? Dies kann nicht rückgängig gemacht werden.",
+ "confirm.no_trash_here": "Kein Papierkorb auf diesem Datenträger: {what} endgültig löschen?",
  "confirm.trash": "{what} in den Papierkorb verschieben?",
  "convert.build_pdf": "PDF erstellen",
  "convert.built_instead": "Mit {engine} erstellt: {failed} brach ab ({why})",

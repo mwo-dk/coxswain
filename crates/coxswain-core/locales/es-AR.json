@@ -325,6 +325,7 @@
  "common.try_again": "Reintentar",
  "confirm.archive_remove": "¿Sacar {what} de {archive}? El archivo se reescribe sin eso; dentro de un archivo no hay papelera.",
  "confirm.delete_forever": "¿Eliminar {what} definitivamente? No se puede deshacer.",
+ "confirm.no_trash_here": "No hay papelera en este disco: ¿eliminar {what} definitivamente?",
  "confirm.trash": "¿Mover {what} a la papelera?",
  "convert.build_pdf": "Generar PDF",
  "convert.built_instead": "Compilado con {engine}: {failed} se detuvo ({why})",

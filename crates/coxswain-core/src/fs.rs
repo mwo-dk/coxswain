@@ -539,18 +539,19 @@ pub(crate) fn trash_named(path: &Path, password: Option<&str>) -> io::Result<Opt
         let out = crate::tools::user_command("gio").arg("trash").arg(path).stdin(std::process::Stdio::null()).output()?;
         return if out.status.success() { Ok(None) } else { Err(io::Error::other(String::from_utf8_lossy(&out.stderr).trim().to_string())) };
     }
-    #[cfg(not(target_os = "android"))]
+    #[cfg(not(any(target_os = "android", target_os = "illumos", target_os = "solaris")))]
     return trash::delete(path).map(|_| None).map_err(io::Error::other);
-    #[cfg(target_os = "android")]
+    #[cfg(any(target_os = "android", target_os = "illumos", target_os = "solaris"))]
     crate::xdg_trash::put(path).map(Some)
 }
 
-/// Whether `trash` can take every one of `paths`. Only Termux's own trash cannot: it takes
-/// nothing from another filesystem, such as the phone's storage.
+/// Whether `trash` can take every one of `paths`. Only Coxswain's own trash (Termux, illumos)
+/// cannot: it takes nothing from another filesystem, such as the phone's storage or another
+/// ZFS dataset.
 pub fn trash_takes(paths: &[PathBuf]) -> bool {
-    #[cfg(target_os = "android")]
+    #[cfg(any(target_os = "android", target_os = "illumos", target_os = "solaris"))]
     return paths.iter().all(|p| crate::xdg_trash::takes(p));
-    #[cfg(not(target_os = "android"))]
+    #[cfg(not(any(target_os = "android", target_os = "illumos", target_os = "solaris")))]
     {
         let _ = paths;
         true

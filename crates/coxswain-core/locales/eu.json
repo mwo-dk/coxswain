@@ -311,6 +311,7 @@
  "common.try_again": "Saiatu berriro",
  "confirm.archive_remove": "{what} {archive}-(e)tik atera? Artxiboa hori gabe berridazten da; artxibo baten barruan ez dago zakarrontzirik.",
  "confirm.delete_forever": "Betiko ezabatu nahi duzu {what}? Ezin da desegin.",
+ "confirm.no_trash_here": "Disko honetan ez dago zakarrontzirik: betiko ezabatu nahi duzu {what}?",
  "confirm.trash": "Zakarrontzira bota nahi duzu {what}?",
  "convert.build_pdf": "Sortu PDFa",
  "convert.built_instead": "{engine} bidez sortua: {failed} gelditu da ({why})",

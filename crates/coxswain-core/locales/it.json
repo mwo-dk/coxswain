@@ -325,6 +325,7 @@
  "common.try_again": "Riprova",
  "confirm.archive_remove": "Togliere {what} da {archive}? L’archivio viene riscritto senza; in un archivio non c’è cestino.",
  "confirm.delete_forever": "Eliminare definitivamente {what}? L’operazione non può essere annullata.",
+ "confirm.no_trash_here": "Nessun cestino su questo disco: eliminare definitivamente {what}?",
  "confirm.trash": "Spostare {what} nel cestino?",
  "convert.build_pdf": "Genera PDF",
  "convert.built_instead": "Compilato con {engine}: {failed} si è fermato ({why})",

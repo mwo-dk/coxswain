@@ -54,7 +54,7 @@ struct Item {
     /// Where it came from (for a new folder, a pack or a copy: what was made).
     from: PathBuf,
     /// What the operation left: the new place, the copy, the archive, the folder. For the trash,
-    /// its name in Termux's trash, else empty.
+    /// its name in Coxswain's own trash (Termux, illumos), else empty.
     to: PathBuf,
     stamp: Option<Stamp>,
 }
@@ -76,15 +76,15 @@ fn name(p: &Path) -> String {
     p.file_name().map_or_else(|| p.display().to_string(), |n| n.to_string_lossy().into_owned())
 }
 
-/// The trash gives back what went into it: Windows, and the freedesktop.org trash (Linux, the
-/// BSDs, illumos), and Termux's own. Not on a Mac, where the system offers no way back to an app,
+/// The trash gives back what went into it: Windows, the freedesktop.org trash (Linux, the
+/// BSDs), and Coxswain's own (Termux, illumos). Not on a Mac, where the system offers no way back to an app,
 /// nor in a Flatpak, whose trash is the host's.
 pub fn trash_restores() -> bool {
     !cfg!(any(target_os = "macos", target_os = "ios")) && crate::tools::flatpak().is_none()
 }
 
-/// Put `path` back from the trash; `name`: its name in Termux's trash.
-#[cfg(any(windows, all(unix, not(target_os = "macos"), not(target_os = "ios"), not(target_os = "android"))))]
+/// Put `path` back from the trash; `name`: its name in Coxswain's own trash (Termux, illumos).
+#[cfg(any(windows, all(unix, not(target_os = "macos"), not(target_os = "ios"), not(target_os = "android"), not(target_os = "illumos"), not(target_os = "solaris"))))]
 fn restore(path: &Path, _name: &Path, since: i64) -> io::Result<()> {
     use trash::os_limited;
     let want = comparable(path);
@@ -110,7 +110,7 @@ fn restore(path: &Path, _name: &Path, since: i64) -> io::Result<()> {
     })
 }
 
-#[cfg(target_os = "android")]
+#[cfg(any(target_os = "android", target_os = "illumos", target_os = "solaris"))]
 fn restore(path: &Path, name: &Path, _since: i64) -> io::Result<()> {
     crate::xdg_trash::restore(&name.to_string_lossy(), path)
 }
@@ -122,7 +122,7 @@ fn restore(_path: &Path, _name: &Path, _since: i64) -> io::Result<()> {
 
 /// A path as the trash records it: the folder resolved, as the trash crate does; on Windows
 /// without `\\?\` and in one case.
-#[cfg(any(windows, all(unix, not(target_os = "macos"), not(target_os = "ios"), not(target_os = "android"))))]
+#[cfg(any(windows, all(unix, not(target_os = "macos"), not(target_os = "ios"), not(target_os = "android"), not(target_os = "illumos"), not(target_os = "solaris"))))]
 fn comparable(p: &Path) -> PathBuf {
     let p = match (p.parent().and_then(|d| fs::canonicalize(d).ok()), p.file_name()) {
         (Some(d), Some(n)) => d.join(n),
@@ -480,6 +480,9 @@ mod tests {
             return;
         }
         let d = tmp("copy");
+        if !cfs::trash_takes(std::slice::from_ref(&d)) {
+            return;
+        }
         fs::create_dir_all(d.join("src/deep")).unwrap();
         fs::create_dir(d.join("out")).unwrap();
         fs::write(d.join("src/deep/f.txt"), "one").unwrap();
@@ -515,6 +518,9 @@ mod tests {
         let d = std::env::current_dir().unwrap().join(format!("target-undo-trash-{}", std::process::id()));
         let _ = fs::remove_dir_all(&d);
         fs::create_dir_all(&d).unwrap();
+        if !cfs::trash_takes(std::slice::from_ref(&d)) {
+            return fs::remove_dir_all(&d).unwrap();
+        }
         fs::write(d.join("gone.txt"), "back").unwrap();
         let mut r = Record::new(Kind::Trash);
         r.run(&d.join("gone.txt"), Path::new(""), None).unwrap();

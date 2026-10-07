@@ -15,8 +15,9 @@ question off.
 
 | Key | Does | Asks |
 |---|---|---|
-| **F8**, **Delete** | Moves to the trash: the desktop's trash on Linux, the Trash on macOS, the Recycle Bin on Windows, Coxswain's own in Termux | *Move "report.pdf" to the bin?* |
+| **F8**, **Delete** | Moves to the trash: the desktop's trash on Linux, the Trash on macOS, the Recycle Bin on Windows, Coxswain's own in Termux and on illumos | *Move "report.pdf" to the bin?* |
 | **F8** in Termux, on the phone's storage | Deletes for good: its trash takes only Termux's own files | *No bin on the phone's storage: delete "photo.jpg" for good?* |
+| **F8** on illumos, on another ZFS dataset than your home folder's | Deletes for good: Coxswain's own trash takes only files it can rename into `~/.local/share/Trash` | *No bin on this disk: delete "photo.jpg" for good?* |
 | **Shift+F8**, **Shift+Delete** | Deletes for good | *Permanently delete "report.pdf"? This cannot be undone.* |
 | either, inside an archive | Takes it out of the archive (there is no trash there) | *Take "a.txt" out of tools.zip? The archive is written anew without it; there is no trash inside an archive.* |
 

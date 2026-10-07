@@ -311,6 +311,7 @@
  "common.try_again": "ხელახლა ცდა",
  "confirm.archive_remove": "ამოიღოთ {what} არქივიდან {archive}? არქივი მის გარეშე თავიდან ჩაიწერება; არქივის შიგნით სანაგვე არ არსებობს.",
  "confirm.delete_forever": "სამუდამოდ წაიშალოს {what}? ამის გაუქმება შეუძლებელია.",
+ "confirm.no_trash_here": "ამ დისკზე სანაგვე არ არის: სამუდამოდ წაიშალოს {what}?",
  "confirm.trash": "გადავიდეს {what} სანაგვეში?",
  "convert.build_pdf": "PDF-ის აწყობა",
  "convert.built_instead": "აწყობილია {engine}-ით: {failed} შეჩერდა ({why})",

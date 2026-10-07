@@ -311,6 +311,7 @@
  "common.try_again": "Yritä uudelleen",
  "confirm.archive_remove": "Poistetaanko {what} arkistosta {archive}? Arkisto kirjoitetaan uudelleen ilman sitä; arkistossa ei ole roskakoria.",
  "confirm.delete_forever": "Poistetaanko {what} pysyvästi? Toimintoa ei voi kumota.",
+ "confirm.no_trash_here": "Tällä levyllä ei ole roskakoria: poistetaanko {what} pysyvästi?",
  "confirm.trash": "Siirretäänkö {what} roskakoriin?",
  "convert.build_pdf": "Luo PDF",
  "convert.built_instead": "Koottu ohjelmalla {engine}: {failed} pysähtyi ({why})",

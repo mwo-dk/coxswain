@@ -339,6 +339,7 @@
  "common.try_again": "Spróbuj ponownie",
  "confirm.archive_remove": "Usunąć {what} z {archive}? Archiwum zostanie zapisane od nowa bez tego; w archiwum nie ma Kosza.",
  "confirm.delete_forever": "Trwale usunąć {what}? Tego nie można cofnąć.",
+ "confirm.no_trash_here": "Ten dysk nie ma kosza: trwale usunąć {what}?",
  "confirm.trash": "Przenieść {what} do Kosza?",
  "convert.build_pdf": "Zbuduj PDF",
  "convert.built_instead": "Zbudowano przez {engine}: {failed} się zatrzymał ({why})",

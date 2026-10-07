@@ -325,6 +325,7 @@
  "common.try_again": "Réessayer",
  "confirm.archive_remove": "Retirer {what} de {archive} ? L’archive est réécrite sans ; il n’y a pas de corbeille dans une archive.",
  "confirm.delete_forever": "Supprimer définitivement {what} ? Cette action est irréversible.",
+ "confirm.no_trash_here": "Pas de corbeille sur ce disque : supprimer définitivement {what} ?",
  "confirm.trash": "Placer {what} dans la corbeille ?",
  "convert.build_pdf": "Générer le PDF",
  "convert.built_instead": "Compilé avec {engine} : {failed} s’est arrêté ({why})",

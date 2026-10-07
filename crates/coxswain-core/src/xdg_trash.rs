@@ -1,9 +1,11 @@
-//! A trash of our own for Termux, where the `trash` crate does not build: the freedesktop.org
+//! A trash of our own for Termux, where the `trash` crate does not build, and illumos, where it
+//! cannot tell the mount points: the freedesktop.org
 //! layout in `$XDG_DATA_HOME/Trash` (`~/.local/share/Trash`), `files/<name>` with its
 //! `info/<name>.trashinfo`. Files are only renamed in, never copied: one on another filesystem
-//! (the phone's storage under `~/storage`) is refused, and the caller asks to delete it for good.
+//! (the phone's storage under `~/storage`, another ZFS dataset than the home folder's on illumos)
+//! is refused, and the caller asks to delete it for good.
 
-#![cfg_attr(not(target_os = "android"), allow(dead_code))]
+#![cfg_attr(not(any(target_os = "android", target_os = "illumos", target_os = "solaris")), allow(dead_code))]
 
 use std::fs;
 use std::io::{self, Write};

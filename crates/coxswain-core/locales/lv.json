@@ -325,6 +325,7 @@
  "common.try_again": "Mēģināt vēlreiz",
  "confirm.archive_remove": "Izņemt {what} no {archive}? Arhīvs tiek pārrakstīts bez tā; arhīvā nav atkritnes.",
  "confirm.delete_forever": "Neatgriezeniski dzēst: {what}? To nevar atsaukt.",
+ "confirm.no_trash_here": "Šajā diskā nav atkritnes: neatgriezeniski dzēst {what}?",
  "confirm.trash": "Pārvietot uz atkritni: {what}?",
  "convert.build_pdf": "Veidot PDF",
  "convert.built_instead": "Izveidots ar {engine}: {failed} apstājās ({why})",

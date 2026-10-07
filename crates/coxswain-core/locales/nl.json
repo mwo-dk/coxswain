@@ -311,6 +311,7 @@
  "common.try_again": "Opnieuw proberen",
  "confirm.archive_remove": "{what} uit {archive} halen? Het archief wordt opnieuw geschreven zonder; in een archief is geen prullenbak.",
  "confirm.delete_forever": "{what} definitief verwijderen? Dit kan niet ongedaan worden gemaakt.",
+ "confirm.no_trash_here": "Geen prullenbak op deze schijf: {what} definitief verwijderen?",
  "confirm.trash": "{what} naar de prullenbak verplaatsen?",
  "convert.build_pdf": "PDF maken",
  "convert.built_instead": "Gebouwd met {engine}: {failed} stopte ({why})",

@@ -311,6 +311,7 @@
  "common.try_again": "Försök igen",
  "confirm.archive_remove": "Ta ut {what} ur {archive}? Arkivet skrivs om utan det; det finns ingen papperskorg i ett arkiv.",
  "confirm.delete_forever": "Vill du radera {what} permanent? Det går inte att ångra.",
+ "confirm.no_trash_here": "Ingen papperskorg på den här disken: vill du radera {what} permanent?",
  "confirm.trash": "Vill du flytta {what} till papperskorgen?",
  "convert.build_pdf": "Bygg PDF",
  "convert.built_instead": "Byggt med {engine}: {failed} stannade ({why})",

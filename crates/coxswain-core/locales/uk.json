@@ -339,6 +339,7 @@
  "common.try_again": "Спробувати ще раз",
  "confirm.archive_remove": "Вилучити {what} з {archive}? Архів буде записано заново без цього; в архіві немає Кошика.",
  "confirm.delete_forever": "Видалити {what} назавжди? Це не можна скасувати.",
+ "confirm.no_trash_here": "Цей диск не має кошика: видалити {what} назавжди?",
  "confirm.trash": "Перемістити {what} в Кошик?",
  "convert.build_pdf": "Зібрати PDF",
  "convert.built_instead": "Зібрано за допомогою {engine}: {failed} зупинився ({why})",
