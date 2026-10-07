@@ -64,9 +64,19 @@ These rules hold for every contributor and every Claude session in this reposito
   `crates/coxswain-core/locales/*.json`, translated into all of them (`en-AU`, `en-CA`, `en-NZ`,
   `de-AT` and `de-CH` only differ where they must; `de-CH` gets `de` with ss for ß by itself);
   the i18n test fails on a missing key.
-- **Found without reading the docs:** a new capability has a visible entry point (a button, a
-  Settings section, a hint where it applies) and, when it is off or needs something installed,
-  a notice (`coxswain_core::notices`) that says so once.
+- **Nothing hidden.** Every capability can be found without reading the docs, in both apps:
+  - it is reachable from something visible: the action menu (**Shift+F10**,
+    `coxswain_core::menu`), the F9 command list, a button or a menu, not only by a key;
+  - its key is shown where it applies (a key line, a tooltip, the menu entry) and in F1;
+  - nothing exists only as a gesture, a repeated key, a modifier+click, a typed syntax or a
+    `config.toml` setting: each of those also has a visible way, and Settings names the config
+    keys it does not cover, with a button that opens `config.toml` there;
+  - what a user would not guess gets a hint (`coxswain_core` hints: shown a few times, then
+    never again);
+  - when it is off or needs something installed, a notice (`coxswain_core::notices`) says so
+    once.
+  A PR that adds or changes a capability checks these points; a review that finds a hidden
+  feature fixes it.
 - **Nothing leaves the machine unless the user asks** for it (the update check aside, and it can
   be turned off). Anything that sends data (a model download, a remote server) is opt-in, and
   Settings names where it goes.
