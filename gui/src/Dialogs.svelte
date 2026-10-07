@@ -2,7 +2,7 @@
   // Every modal: prompts, confirmations, find file, menus, batch rename, tags, help.
   // App forwards keys through `handleKey`; returning true means "handled".
   import { tick, untrack } from "svelte";
-  import { ui, tab, cd, load, openPackage } from "./app.svelte.js";
+  import { ui, tab, cd, load, openPackage, refreshUndo, actionLabel } from "./app.svelte.js";
   import { Channel } from "@tauri-apps/api/core";
   import { invoke, takesPassword, withEnding, packFormat, basename, parent, size, date, TAGS, TAG_COLORS, tagName, isHistory, historyOf } from "./lib.js";
   import { t, tn, num } from "./i18n.svelte.js";
@@ -201,7 +201,7 @@
     if (!changed.length || m.plan.some((p) => p.conflict)) return;
     try {
       await invoke("rename_apply", { dir: m.dir, plan: $state.snapshot(m.plan) });
-      ui.status = tn("dialogs.renamed", changed.length);
+      await refreshUndo(tn("dialogs.renamed", changed.length));
       close();
       load(tab());
     } catch (e) {
@@ -425,7 +425,8 @@
               {#each ui.cfg.groups as [group, names] (group)}
                 <tr class="head"><th colspan="2">{group}</th></tr>
                 {#each names as name (name)}
-                  {@const [label, first] = ui.cfg.actions[name]}
+                  {@const [, first] = ui.cfg.actions[name]}
+                  {@const label = actionLabel(name)}
                   {@const keys = Object.entries(ui.cfg.keymap)
                     .filter(([, a]) => a === name)
                     .map(([k]) => k)

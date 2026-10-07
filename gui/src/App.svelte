@@ -3,7 +3,7 @@
   import { getCurrentWindow } from "@tauri-apps/api/window";
   import { getCurrentWebview } from "@tauri-apps/api/webview";
   import { listen } from "@tauri-apps/api/event";
-  import { ui, openFind, init, tab, pane, otherTab, item, load, cd, up, openHistory, openSnapshots, openPackage, openGitView, switchBranch, newBranch, newTab, goBack, goForward, openItem, toggleMark, targets, reloadAll, refreshDisks, snapshot, setTheme, themeIds, themeName, nextView, measureFolders, columnMenu, subject, hooks } from "./app.svelte.js";
+  import { ui, openFind, init, tab, pane, otherTab, item, load, cd, up, openHistory, openSnapshots, openPackage, openGitView, switchBranch, newBranch, newTab, goBack, goForward, openItem, toggleMark, targets, reloadAll, refreshDisks, snapshot, setTheme, themeIds, themeName, nextView, measureFolders, columnMenu, subject, hooks, refreshUndo, actionLabel } from "./app.svelte.js";
   import { failure } from "./errors.js";
   import { invoke, keyString, basename, parent, glob, quote, isArchive, packFormat, LOCKED } from "./lib.js";
   import { t, tn } from "./i18n.svelte.js";
@@ -135,8 +135,10 @@
     ui.status = t("status.busy", { what });
     try {
       await (typeof start === "function" ? start(password, only) : start);
-      ui.status = ok;
+      await refreshUndo(ok);
     } catch (e) {
+      // What went well of it can be undone.
+      refreshUndo();
       // Failures come one per line, `path: locked: …`.
       const lines = String(e).split("\n");
       if (typeof start === "function" && lines.every((l) => l.endsWith(LOCKED))) {
@@ -177,7 +179,9 @@
     // Inside an archive there is no trash: it is taken out of the archive, which is written anew.
     const inside = tab().archive;
     const gone = forever || !!inside;
-    const run = () => op((password, only) => invoke("delete", { paths: only ?? paths, forever, password }), t(gone ? "status.deleted" : "status.trashed", { what }), what, t(gone ? "error.delete" : "error.trash", { what }));
+    // Where the trash gives nothing back, the status line says so.
+    const said = gone ? t("status.deleted", { what }) : ui.cfg.trash_restores ? t("status.trashed", { what }) : `${t("status.trashed", { what })} · ${t("undo.no_restore_hint", { key: ui.cfg.actions.undo?.[1] ?? "" })}`;
+    const run = () => op((password, only) => invoke("delete", { paths: only ?? paths, forever, password }), said, what, t(gone ? "error.delete" : "error.trash", { what }));
     const text = inside ? t("confirm.archive_remove", { what, archive: basename(inside) }) : t(forever ? "confirm.delete_forever" : "confirm.trash", { what });
     if (ui.cfg.confirm_delete) ui.modal = { kind: "confirm", title: t("dialog.delete"), text, ok: t(gone ? "common.delete" : "app.move_to_trash"), run };
     else run();
@@ -367,6 +371,19 @@
         await load(tab(), tab().dir, name.split(/[\\/]/)[0]);
       }),
     delete: () => readOnly() || remove(false),
+    undo: async () => {
+      if (!ui.undo) return void (ui.status = t("undo.nothing"));
+      ui.status = t("status.busy", { what: ui.undo });
+      try {
+        const [label, refused] = await invoke("undo");
+        ui.status = refused.length ? "" : t("undo.done", { what: label });
+        if (refused.length) ui.modal = failure(t("undo.partly", { what: label }), refused.join("\n"));
+      } catch (e) {
+        ui.status = String(e);
+      }
+      await refreshUndo();
+      await reloadAll();
+    },
     delete_forever: () => readOnly() || remove(true),
     clip_copy: () => clip(false),
     clip_cut: () => clip(true),
@@ -374,8 +391,9 @@
       const dir = tab().dir;
       try {
         const [n, moved] = await invoke("paste", { dir });
-        ui.status = tn(moved ? "app.moved_items" : "app.pasted_items", n);
+        await refreshUndo(tn(moved ? "app.moved_items" : "app.pasted_items", n));
       } catch (e) {
+        refreshUndo();
         ui.modal = failure(t("error.paste"), e);
       }
       reloadAll();
@@ -444,7 +462,7 @@
           ...ui.cfg.groups.flatMap(([group, names]) =>
             names
               .filter((n) => !["menu", "up", "down"].includes(n))
-              .map((n) => ({ key: ui.cfg.actions[n][1], label: ui.cfg.actions[n][0], group, run: () => actions[n]?.() })),
+              .map((n) => ({ key: ui.cfg.actions[n][1], label: actionLabel(n), group, run: () => actions[n]?.() })),
           ),
           ...themeIds().map((id) => ({ key: id === ui.theme ? t("app.current") : "", label: t("app.theme", { name: themeName(id) }), group: ui.cfg.groups.at(-1)?.[0], icon: "\u{f53f}", run: () => setTheme(id, true) })),
         ],
@@ -550,8 +568,8 @@
     const field = e.target.closest?.("textarea, input:not(.cmd)");
     // The BOM tree has keys of its own; what it leaves (function keys, Tab) still works here.
     if (e.target.closest?.(".bom-keys") && !/^F\d+$/.test(k)) return;
-    // Copy/cut/paste and select-all of text in the command line stay native.
-    if (["clip_copy", "clip_cut", "paste", "mark_all"].includes(ui.cfg.keymap[k]) && e.target.closest?.(".cmd") && ui.cmd) return;
+    // Copy/cut/paste, select-all and undo of text in the command line stay native.
+    if (["clip_copy", "clip_cut", "paste", "mark_all", "undo"].includes(ui.cfg.keymap[k]) && e.target.closest?.(".cmd") && ui.cmd) return;
     if (field && k === "Esc") return field.blur();
     if (field && !/^F\d+$/.test(k)) return;
     ui.status = "";

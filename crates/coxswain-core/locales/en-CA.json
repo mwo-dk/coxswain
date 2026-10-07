@@ -1,5 +1,6 @@
 {
  "app.move_to_trash": "Move to trash",
+ "confirm.no_trash_here": "No trash on this disk: delete {what} for good?",
  "confirm.trash": "Move {what} to the trash?",
  "dupes.before_scan": "Pick the folders to compare, then Scan. Nothing goes to the trash without asking.",
  "dupes.confirm_ok": "Move to trash",
@@ -17,5 +18,10 @@
  "err.not_email": "Not an email message",
  "error.trash": "Could not move {what} to the trash",
  "status.trashed": "Moved {what} to the trash",
- "termux.no_trash_storage": "No trash on the phone's storage: delete {what} for good?"
+ "termux.no_trash_storage": "No trash on the phone's storage: delete {what} for good?",
+ "undo.no_restore": "the trash here gives nothing back to apps: restore it from the system's trash",
+ "undo.no_restore_hint": "{key} cannot bring it back here: restore it from the system's trash",
+ "undo.no_trash": "cannot go to the trash from here, so it is left as it is",
+ "undo.not_in_trash": "no longer in the trash",
+ "undo.what.trash": "move {what} to the trash"
 }

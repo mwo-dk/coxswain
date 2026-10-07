@@ -221,6 +221,7 @@ actions! {
     Move = "move", "Move or rename", Files, ["F6"];
     Rename = "rename", "Rename", Files, ["Shift+F6"];
     Delete = "delete", "Delete", Files, ["F8", "Delete"];
+    Undo = "undo", "Undo", Files, ["Ctrl+Z"];
     NewFolder = "new_folder", "New folder", Files, ["F7"];
     ClipCopy = "clip_copy", "Copy to clipboard", Files, ["Ctrl+C"];
     ClipCut = "clip_cut", "Cut to clipboard", Files, ["Ctrl+X"];

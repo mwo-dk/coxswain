@@ -125,6 +125,8 @@ The questions people ask most, with a short answer and a link to the full one. E
 - **Can I make a .tar.gz?** Yes: choose *tar.gz* in the Alt+F5 dialog, or press Tab in the terminal app's prompt until the name ends in `.tar.gz`. [Answer](files/pack-and-extract.md#can-i-make-a-targz)
 - **Why does opening a .rar do something else?** RAR is not supported (its format may only be read with RAR's own code, under its own licence), so Enter hands it to your system's program. [Answer](files/archives.md#why-does-opening-a-rar-do-something-else)
 - **How do I overwrite a file that exists?** Coxswain never overwrites; delete the old one first or copy under another name. [Answer](files/copy.md#how-do-i-overwrite-a-file-that-exists)
+- **Can I undo a delete?** **F8** (to the trash): yes, **Ctrl+Z** puts it back where it was, on Windows, Linux, the BSDs, illumos and in Termux; on a Mac and in the Flatpak restore it from the system's trash. [Answer](files/undo.md#can-i-undo-a-delete)
+- **Why can't I undo Shift+F8?** It deletes for good, as `rm` does: nothing is kept that could come back. The question says *This cannot be undone.* [Answer](files/undo.md#why-cant-i-undo-shiftf8)
 - **How do I stop Coxswain asking before deleting?** Untick Settings → Behaviour → Ask before deleting (`confirm_delete = false`); Shift+F8 then deletes for good at once. [Answer](files/delete.md#how-do-i-stop-coxswain-asking-every-time)
 - **I cut files in Coxswain and pasted them elsewhere; why were they copied?** There is no common way to mark a cut on the clipboard, so other programs see a copy. [Answer](files/clipboard.md#i-cut-files-in-coxswain-and-pasted-them-in-my-other-file-manager-they-were-copied)
 
