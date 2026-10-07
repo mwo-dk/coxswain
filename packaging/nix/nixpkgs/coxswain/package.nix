@@ -21,7 +21,7 @@ rustPlatform.buildRustPackage (finalAttrs: {
     hash = "sha256-4lmHzovV/FbjLSEZf2tDJozdkwDhjsZd4rnbXSSbhIw=";
   };
 
-  cargoHash = lib.fakeHash;
+  cargoHash = "sha256-jXCKlWYfgzquXhdfHqaDmGBm7TOf9P9vqcelpa1WnRI=";
 
   cargoBuildFlags = [ "-p" "coxswain" ];
   cargoTestFlags = [ "-p" "coxswain" "-p" "coxswain-core" ];
