@@ -265,10 +265,12 @@ jobs:
           echo "::error::coxswain $VER is not on crates.io"; exit 1
       - name: Install and start in Termux
         run: |
-          docker run --rm -e VER termux/termux-docker:aarch64 bash -c '
+          # termux-docker starts a login shell that drops -e variables: the version goes into
+          # the command (it is X.Y.Z, checked above).
+          docker run --rm termux/termux-docker:aarch64 bash -c "
             set -e
             pkg install -y rust clang binutils >/dev/null
-            cargo install --locked coxswain --version "$VER"
-            test "$(~/.cargo/bin/coxswain --version)" = "coxswain $VER"
-            ~/.cargo/bin/coxswain --help >/dev/null
-          '
+            cargo install --locked coxswain --version $VER
+            test \"\$(\$HOME/.cargo/bin/coxswain --version)\" = 'coxswain $VER'
+            \$HOME/.cargo/bin/coxswain --help >/dev/null
+          "
