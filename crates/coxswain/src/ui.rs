@@ -701,7 +701,7 @@ fn help_text(app: &App, width: usize) -> Vec<Line<'static>> {
             let rows = g
                 .actions()
                 .filter(|a| !a.gui_only())
-                .map(|a| (a.label(), app.cfg.keys.get(&a).map(|k| k.join(", ")).unwrap_or_default()))
+                .map(|a| (app.action_label(a), app.cfg.keys.get(&a).map(|k| k.join(", ")).unwrap_or_default()))
                 .collect();
             (g.label(), rows)
         })

@@ -3,12 +3,13 @@
 
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use coxswain_core::config::{color_to_rgb, Action, Config, Glyphs, GuiConfig, UserCommand};
+use coxswain_core::config::{color_to_rgb, Action, Config, Glyphs, GuiConfig};
 use coxswain_core::fs::{self as bfs, Entry, SortKey};
 use coxswain_core::icons::{self, Icon};
 use coxswain_core::helper::{self, Client};
 use coxswain_core::index::State;
 use coxswain_core::rename::{self, Flags, Planned};
+use coxswain_core::undo::{History, Kind as UndoKind, Record};
 use coxswain_core::state::{AppState, FavoriteGroup};
 use coxswain_core::git;
 use coxswain_core::history;
@@ -53,9 +54,18 @@ pub struct Ctx {
     measuring: Mutex<std::collections::HashMap<String, Arc<std::sync::atomic::AtomicBool>>>,
     /// Which Ask may still write its answer; a new question or Stop moves it on.
     asking: Arc<std::sync::atomic::AtomicU64>,
+    /// What Ctrl+Z undoes, the newest last; for this run.
+    undo: Mutex<History>,
 }
 
 impl Ctx {
+    /// Keep what can be undone of an operation.
+    fn remember(&self, rec: Record) {
+        if let Ok(mut h) = self.undo.lock() {
+            h.push(rec);
+        }
+    }
+
     pub fn cfg(&self) -> std::sync::RwLockReadGuard<'_, Config> {
         self.cfg.read().unwrap_or_else(|e| e.into_inner())
     }
@@ -103,7 +113,6 @@ struct UiConfig {
     show_hidden: bool,
     folder_sizes: bool,
     confirm_delete: bool,
-    user_menu: Vec<UserCommand>,
     start: [PathBuf; 2],
     duplicates: Option<Vec<PathBuf>>,
     /// Start with Settings open, at this section ("" for the top).
@@ -146,6 +155,8 @@ struct UiConfig {
     installs: BTreeMap<&'static str, Option<String>>,
     /// Ask's chat model as the user sees it: a built-in one by its name.
     ask_name: String,
+    /// The trash gives back what went into it, so Ctrl+Z undoes a move to the trash.
+    trash_restores: bool,
 }
 
 fn css(c: &str) -> Option<String> {
@@ -174,7 +185,6 @@ fn get_config(ctx: tauri::State<Ctx>) -> Res<UiConfig> {
         show_hidden: cfg.show_hidden,
         folder_sizes: cfg.folder_sizes,
         confirm_delete: cfg.confirm_delete,
-        user_menu: cfg.user_menu.clone(),
         start: ctx.start.clone(),
         duplicates: ctx.duplicates.clone(),
         open_settings: ctx.open_settings.clone(),
@@ -202,6 +212,7 @@ fn get_config(ctx: tauri::State<Ctx>) -> Res<UiConfig> {
         guide_menu: coxswain_core::guide::menu_line(&cfg),
         guide_themes: coxswain_core::guide::THEMES,
         ask_name: coxswain_core::chat::shown(&cfg.search.ask_model),
+        trash_restores: coxswain_core::undo::trash_restores(),
         installs: ["tesseract", "pdftoppm", "soffice", "latex", "plantuml", "pandoc", "nerd-font"].into_iter().map(|p| (p, coxswain_core::tools::install(p))).collect(),
     })
 }
@@ -1083,6 +1094,19 @@ async fn each(paths: Vec<PathBuf>, op: impl Fn(&Path) -> std::io::Result<()> + S
     .await
 }
 
+/// `each` as an operation that can be undone: what can be of it goes into the history.
+async fn each_undo(ctx: &Ctx, kind: UndoKind, paths: Vec<PathBuf>, op: impl Fn(&mut Record, &Path) -> std::io::Result<()> + Send + 'static) -> Res<()> {
+    let (rec, r) = tauri::async_runtime::spawn_blocking(move || {
+        let mut rec = Record::new(kind);
+        let errors: Vec<String> = paths.iter().filter_map(|p| op(&mut rec, p).err().map(|e| format!("{}: {e}", p.display()))).collect();
+        (rec, if errors.is_empty() { Ok(()) } else { Err(errors.join("\n")) })
+    })
+    .await
+    .map_err(|e| e.to_string())?;
+    ctx.remember(rec);
+    r
+}
+
 /// `f` on a blocking thread, its answer back here.
 async fn blocking<T: Send + 'static>(f: impl FnOnce() -> Res<T> + Send + 'static) -> Res<T> {
     tauri::async_runtime::spawn_blocking(f).await.map_err(|e| e.to_string())?
@@ -1093,32 +1117,33 @@ async fn copy(paths: Vec<PathBuf>, base: PathBuf, dest: String, password: Option
     let dst = resolve(&base, &dest);
     ctx.sizer.forget(&dst.join("new"));
     // The password of a locked archive, held for this copy only.
-    each(paths, move |p| bfs::copy_locked(p, &dst, password.as_deref()).map(drop)).await
+    each_undo(&ctx, UndoKind::Copy, paths, move |rec, p| rec.run(p, &dst, password.as_deref())).await
 }
 
 #[tauri::command]
 async fn rename(paths: Vec<PathBuf>, base: PathBuf, dest: String, password: Option<String>, ctx: tauri::State<'_, Ctx>) -> Res<()> {
     let dst = resolve(&base, &dest);
     paths.iter().chain([&dst.join("new")]).for_each(|p| ctx.sizer.forget(p));
-    each(paths, move |p| bfs::rename_locked(p, &dst, password.as_deref()).map(drop)).await
+    each_undo(&ctx, UndoKind::Move, paths, move |rec, p| rec.run(p, &dst, password.as_deref())).await
 }
 
 /// To the trash, or gone for good with `forever`. Inside a locked 7z, `password` opens it.
 #[tauri::command]
 async fn delete(paths: Vec<PathBuf>, forever: bool, password: Option<String>, ctx: tauri::State<'_, Ctx>) -> Res<()> {
     paths.iter().for_each(|p| ctx.sizer.forget(p));
-    each(paths, move |p| {
-        let pw = password.as_deref();
-        if forever { bfs::delete_locked(p, pw) } else { bfs::trash_locked(p, pw) }
-    })
-    .await
+    // For good is the one that cannot be undone.
+    if forever {
+        return each(paths, move |p| bfs::delete_locked(p, password.as_deref())).await;
+    }
+    each_undo(&ctx, UndoKind::Trash, paths, move |rec, p| rec.run(p, Path::new(""), password.as_deref())).await
 }
 
 /// Async, as inside an archive the archive is written anew.
 #[tauri::command]
-async fn mkdir(base: PathBuf, name: String, password: Option<String>) -> Res<PathBuf> {
+async fn mkdir(base: PathBuf, name: String, password: Option<String>, ctx: tauri::State<'_, Ctx>) -> Res<PathBuf> {
     let d = resolve(&base, &name);
-    blocking(move || bfs::mkdir_locked(&d, password.as_deref()).map(|_| d.clone()).map_err(|e| format!("{}: {e}", d.display()))).await
+    each_undo(&ctx, UndoKind::Mkdir, vec![d.clone()], move |rec, p| rec.run(p, Path::new(""), password.as_deref())).await?;
+    Ok(d)
 }
 
 /// Bytes and file count of each folder. With `tab` it is that tab's background measuring: the
@@ -1152,8 +1177,28 @@ fn rename_plan(dir: PathBuf, selected: Vec<String>, pattern: String, replacement
 }
 
 #[tauri::command(async)]
-fn rename_apply(dir: PathBuf, plan: Vec<Planned>) -> Res<()> {
-    rename::apply(&dir, &plan)
+fn rename_apply(dir: PathBuf, plan: Vec<Planned>, ctx: tauri::State<Ctx>) -> Res<()> {
+    rename::apply(&dir, &plan)?;
+    let mut rec = Record::new(UndoKind::Rename);
+    plan.iter().filter(|p| p.from != p.to).for_each(|p| rec.done(&dir.join(&p.from), &dir.join(&p.to)));
+    ctx.remember(rec);
+    Ok(())
+}
+
+/// Ctrl+Z: undo the newest operation. What it was, and a line for each item left as it is.
+#[tauri::command]
+async fn undo(ctx: tauri::State<'_, Ctx>) -> Res<(String, Vec<String>)> {
+    let rec = ctx.undo.lock().map_err(|e| e.to_string())?.pop().ok_or_else(|| coxswain_core::t!("undo.nothing"))?;
+    rec.touched().iter().for_each(|p| ctx.sizer.forget(p));
+    let u = blocking(move || Ok(rec.undo(|_| {}))).await?;
+    Ok((u.label, u.refused))
+}
+
+/// What Ctrl+Z would undo, and how many operations were kept so far (a new one: the page says
+/// how to undo it).
+#[tauri::command]
+fn undo_next(ctx: tauri::State<Ctx>) -> (u64, Option<String>) {
+    ctx.undo.lock().map(|h| (h.pushed, h.next().map(Record::label))).unwrap_or_default()
 }
 
 /// The opener is watched for a moment, so "no application" comes back as an error.
@@ -1237,7 +1282,7 @@ async fn archive_list(path: PathBuf) -> Res<ArchiveListing> {
 async fn extract(paths: Vec<PathBuf>, base: PathBuf, dest: String, password: Option<String>, ctx: tauri::State<'_, Ctx>) -> Res<()> {
     let dst = resolve(&base, &dest);
     ctx.sizer.forget(&dst.join("new"));
-    each(paths, move |p| coxswain_core::archive::extract_locked(p, &dst, password.as_deref()).map(drop)).await
+    each_undo(&ctx, UndoKind::Extract, paths, move |rec, p| rec.run(p, &dst, password.as_deref())).await
 }
 
 /// The password of the locked archive `path` is in (or is), kept in memory for this run.
@@ -1269,6 +1314,9 @@ async fn pack(paths: Vec<PathBuf>, base: PathBuf, dest: String, password: Option
         .await
         .map_err(|e| e.to_string())?
         .map_err(|e| format!("{}: {e}", to.display()))?;
+    let mut rec = Record::new(UndoKind::Pack);
+    rec.done(&to, &to);
+    ctx.remember(rec);
     // The format is suggested next time, in both apps.
     if let Some(f) = coxswain_core::archive::pack_format(&dest) {
         ctx.edit(|st| st.pack_ending = f.endings[0].into())?;
@@ -1378,7 +1426,7 @@ async fn paste(dir: PathBuf, ctx: tauri::State<'_, Ctx>) -> Res<(usize, bool)> {
     // ponytail: text copied elsewhere after a Coxswain copy still pastes Coxswain's files on
     // clipboards that report "no files" as empty; track the clipboard owner if that confuses.
     let (n, sizer) = (paths.len(), ctx.sizer.clone());
-    each(paths, move |p| {
+    each_undo(&ctx, if cut { UndoKind::Move } else { UndoKind::Copy }, paths, move |rec, p| {
         if cut && p.parent() == Some(dir.as_path()) {
             return Ok(()); // cut and pasted in place
         }
@@ -1387,7 +1435,7 @@ async fn paste(dir: PathBuf, ctx: tauri::State<'_, Ctx>) -> Res<(usize, bool)> {
         if cut {
             sizer.forget(p);
         }
-        if cut { bfs::rename(p, &to).map(drop) } else { bfs::copy(p, &to).map(drop) }
+        rec.run(p, &to, None)
     })
     .await?;
     Ok((n, cut))
@@ -1516,24 +1564,36 @@ async fn run_command(cmd: String, dir: PathBuf) -> Res<String> {
 struct Script {
     key: String,
     label: String,
-    /// Index into `user_menu`, or a script file.
+    /// Index into `user_menu::entries`, or a script file, or neither: "Add your own command".
     user: Option<usize>,
     path: Option<PathBuf>,
+    /// Show the output even when there is none.
+    wait: bool,
 }
 
 fn scripts_dir() -> Option<PathBuf> {
     Config::path().and_then(|p| Some(p.parent()?.join("scripts")))
 }
 
-/// F2: `[[user_menu]]` entries, then executables in `<config>/coxswain/scripts/`.
+/// F2 in `dir` with `file` under the cursor: the user menu's entries that fit there, then the
+/// executables in `<config>/coxswain/scripts/`, then "Add your own command".
 #[tauri::command(async)]
-fn scripts(ctx: tauri::State<Ctx>) -> Vec<Script> {
-    let mut out: Vec<Script> =
-        ctx.cfg().user_menu.iter().enumerate().map(|(i, u)| Script { key: u.key.clone(), label: u.label.clone(), user: Some(i), path: None }).collect();
+fn scripts(dir: PathBuf, file: Option<PathBuf>, ctx: tauri::State<Ctx>) -> Vec<Script> {
+    // Read again: an entry just added in the editor shows at once.
+    if let (Ok(new), Ok(mut cfg)) = (Config::load(), ctx.cfg.write()) {
+        cfg.user_menu = new.user_menu;
+    }
+    let mut out: Vec<Script> = coxswain_core::user_menu::entries(&ctx.cfg(), &dir, file.as_deref())
+        .into_iter()
+        .enumerate()
+        .map(|(i, u)| Script { key: u.key, label: u.label, user: Some(i), path: None, wait: u.wait })
+        .collect();
     for p in scripts_dir().map(|d| script_files(&d)).unwrap_or_default() {
         let label = p.file_stem().unwrap_or_default().to_string_lossy().into_owned();
-        out.push(Script { key: String::new(), label, user: None, path: Some(p) });
+        out.push(Script { key: String::new(), label, user: None, path: Some(p), wait: true });
     }
+    let key = if out.iter().any(|s| s.key == "+") { "" } else { "+" };
+    out.push(Script { key: key.into(), label: coxswain_core::t!("usermenu.add"), user: None, path: None, wait: false });
     out
 }
 
@@ -1564,7 +1624,8 @@ fn script_files(dir: &Path) -> Vec<PathBuf> {
 #[tauri::command]
 async fn run_script(user: Option<usize>, path: Option<PathBuf>, dir: PathBuf, file: Option<PathBuf>, selected: Vec<PathBuf>, ctx: tauri::State<'_, Ctx>) -> Res<String> {
     if let Some(i) = user {
-        let cmd = ctx.cfg().user_menu.get(i).ok_or_else(|| coxswain_core::t!("err.no_such_command"))?.expand(&dir, file.as_deref(), &selected);
+        let list = coxswain_core::user_menu::entries(&ctx.cfg(), &dir, file.as_deref());
+        let cmd = list.get(i).ok_or_else(|| coxswain_core::t!("err.no_such_command"))?.expand(&dir, file.as_deref(), &selected);
         return output(shell(&cmd), &dir);
     }
     let script = path.ok_or_else(|| coxswain_core::t!("err.nothing_to_run"))?;
@@ -1578,6 +1639,16 @@ async fn run_script(user: Option<usize>, path: Option<PathBuf>, dir: PathBuf, fi
     let mut c = coxswain_core::tools::user_command(&real);
     c.args(args);
     output(c, &dir)
+}
+
+/// F2's "Add your own command": config.toml in `editor` at `[[user_menu]]` (an example
+/// written there first), or with the desktop's default when no editor is set.
+#[tauri::command]
+async fn add_user_command(ctx: tauri::State<'_, Ctx>) -> Res<()> {
+    let (path, line) = blocking(coxswain_core::user_menu::prepare).await?;
+    let Some(ed) = ctx.cfg().editor.clone() else { return open_path(path).await };
+    let cmd = coxswain_core::user_menu::edit_command(&ed, &path, line);
+    tauri::async_runtime::spawn_blocking(move || coxswain_core::tools::spawn_watched(shell(&cmd), std::time::Duration::from_secs(1)).map_err(|e| e.to_string())).await.map_err(|e| e.to_string())?
 }
 
 /// A newer release, if the (daily, cached) check found one, and the command that upgrades this
@@ -1677,6 +1748,7 @@ fn main() {
         chat: Mutex::default(),
         measuring: Mutex::default(),
         asking: Arc::default(),
+        undo: Mutex::default(),
     };
     tauri::Builder::default()
         .manage(ctx)
@@ -1693,8 +1765,8 @@ fn main() {
         })
         .invoke_handler(tauri::generate_handler![
             get_config, action_menu, hint, hints_reset, notices, dismiss_notice, changes, read_changes, set_title, index_status, index_action, index_service, meaning_status, meaning_action, chat_status, chat_action, meaning_models, meaning_pull, list_dir, zfs_facts, bsd_places, git_status, git_last, git_switch, git_new_branch, places, disks, get_state, save_session, save_favorites, set_tags, set_note, get_note,
-            find, find_read_too, ask, ask_stop, ask_check, meaning_change, setup_probe, setup_probe_url, setup_try, setup_speed, resolve_path, copy, rename, delete, mkdir, dir_sizes, rename_plan, rename_apply, open_path, edit_path,
-            read_text, run_command, scripts, run_script, check_update, archive_list, extract, pack, archive_password, archive_peek, cloud_fetch, properties, set_flags, set_permissions,
+            find, find_read_too, ask, ask_stop, ask_check, meaning_change, setup_probe, setup_probe_url, setup_try, setup_speed, resolve_path, copy, rename, delete, mkdir, dir_sizes, rename_plan, rename_apply, undo, undo_next, open_path, edit_path,
+            read_text, run_command, scripts, run_script, add_user_command, check_update, archive_list, extract, pack, archive_password, archive_peek, cloud_fetch, properties, set_flags, set_permissions,
             clip_set, paste, start_drag, watch_dirs, preview::git_diff, preview::sqlite_info, preview::epub_preview,
             preview::file_facts, preview::cert_info, bom::bom_info, bom::bom_node, bom::bom_diff, provenance::provenance_info, provenance::provenance_statements, provenance::provenance_subject, provenance::provenance_cancel, provenance::provenance_sources, provenance::provenance_diff, provenance::provenance_bom, preview::mail_preview, preview::plist_xml, convert::preview_engines, convert::preview_cache, convert::clear_preview_cache,
             convert::convert, convert::images, convert::pull_image, convert::remove_image, convert::pull_progress, dupes_scan,

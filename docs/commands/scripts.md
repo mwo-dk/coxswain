@@ -8,7 +8,7 @@ listed). A script gets the marked files as arguments, so a longer job (resize th
 pictures, convert these documents, upload these files) is one file you drop in a folder, with
 no quoting to get right in `config.toml`.
 
-![The desktop app in ~/Pictures with three pictures marked: the F2 menu titled Scripts with the four git entries and, under them, Make thumbnails (under the cursor) and Upload with the script icon and no key](../screenshots/commands-scripts.png)
+![The desktop app in ~/Pictures with three pictures marked: the F2 menu titled Scripts with Open a terminal here (t) and SHA-256 of the file (h), under them Make thumbnails (under the cursor) and Upload with the script icon and no key, and Add your own command… (+) last](../screenshots/commands-scripts.png)
 
 ## How to use it
 
@@ -51,7 +51,7 @@ elsewhere is followed and then refused with *Not a Coxswain script*.
 
 ## What you see
 
-- **In the menu** (titled *Scripts*): after your [`[[user_menu]]`](user-menu.md) entries, one row
+- **In the menu** (titled *Scripts*): after the [user menu](user-menu.md)'s entries and before *Add your own command…*, one row
   per file, sorted by file name, labelled with the name without its extension (`resize.sh` shows
   as *resize*), with a script icon and no key.
 - **While it runs:** the status line says *Running Make thumbnails…*.

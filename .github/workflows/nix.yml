@@ -13,8 +13,10 @@ on:
 permissions:
   contents: read
 
+# A newer push to a pull request cancels its older run; every master commit runs to the end,
+# since Release waits for all of them (release.yml).
 concurrency:
-  group: nix-${{ github.ref }}
+  group: nix-${{ github.event_name == 'push' && github.sha || github.ref }}
   cancel-in-progress: true
 
 jobs:

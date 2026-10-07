@@ -155,7 +155,7 @@ Boot environments (`beadm`) and zones are not listed; that is FreeBSD's `bectl` 
 | Feature | On illumos |
 |---|---|
 | File watching | Event ports (`port_associate`), folder by folder: a folder fires when an entry in it is added, removed or renamed. No file descriptor is held per folder, so up to 20,000 are watched, shallowest first; folders past them are read again at the hourly rebuild |
-| Trash (F8) | `~/.local/share/Trash`, the freedesktop.org layout |
+| Trash (F8) | Coxswain's own, in `~/.local/share/Trash` (the freedesktop.org layout, so other file managers see it). Files are renamed in, never copied: from another ZFS dataset than your home folder's, **F8** asks *No bin on this disk: delete "x" for good?* instead. **Ctrl+Z** puts back what F8 moved there ([Undo](../files/undo.md)). Before 2.10.0, F8 failed on illumos with *Mount points cannot be determined on this operating system* |
 | Battery | `kstat -p acpi_drv:0:power`: a `system power` of `battery` means on battery, and the helper pauses ([Battery](../search/battery.md)). Servers have no such kstat and count as on mains. Not yet tried on a laptop |
 | Memory in the setup guide | `sysconf(_SC_PHYS_PAGES)` |
 | Removable disks | Known by their path only ([Removable disks](../search/removable-disks.md)) |

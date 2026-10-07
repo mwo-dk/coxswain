@@ -45,7 +45,7 @@ New here? Start with [The first-run guide](panels/first-run.md), [The screen](pa
 |---|---|
 | [Commands, the user menu and scripts](commands/README.md) | The area, and its keys in both apps |
 | [The command line and its output](commands/command-line.md) | The command line: typing, cd, Ctrl+Enter, the shell, output in the terminal (Ctrl+O) and in the preview pane |
-| [The user menu, F2](commands/user-menu.md) | The user menu (F2): [[user_menu]] entries, keys, %f %d %s %%, wait, the four git defaults |
+| [The user menu, F2](commands/user-menu.md) | The user menu (F2): the built-in entries per system (terminal, SHA-256, git status), Add your own command, [[user_menu]], %f %d %s %%, wait, when, entries to copy |
 | [Scripts](commands/scripts.md) | The desktop app's scripts folder, run from F2 with the marked files as arguments |
 | [View and edit, F3 and F4](commands/view-and-edit.md) | View and edit (F3, F4): viewer, editor, $PAGER, $VISUAL, $EDITOR, the preview pane in the desktop app |
 | [Opening files](commands/opening-files.md) | Enter and double-click on folders, archives, programs and files, default applications |
@@ -105,6 +105,7 @@ New here? Start with [The first-run guide](panels/first-run.md), [The screen](pa
 | [Move and rename (F6)](files/move-and-rename.md) | Moving, renaming in place, across disks, into archives |
 | [New folder (F7)](files/new-folder.md) | One folder or a whole path, also inside archives |
 | [Delete: trash (F8) or for good (Shift+F8)](files/delete.md) | Trash (F8), for good (Shift+F8), taking out of an archive, turning the question off |
+| [Undo (Ctrl+Z)](files/undo.md) | Ctrl+Z, both apps: the last 20 copies, moves, renames, new folders, trashings, packs and extracts; checked first, never overwrites; not Shift+F8 |
 | [Clipboard: Ctrl+C, Ctrl+X, Ctrl+V](files/clipboard.md) | Ctrl+C / Ctrl+X / Ctrl+V shared with other file managers, name (2) |
 | [Drag and drop](files/drag-and-drop.md) | Out to other apps, between panes, in; the copy/move menu |
 | [Batch rename (Ctrl+M)](files/batch-rename.md) | Batch rename (Ctrl+M, desktop): regex, groups, {n:3} counter, live preview, conflicts |
