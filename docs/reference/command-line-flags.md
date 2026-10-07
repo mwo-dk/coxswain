@@ -67,7 +67,8 @@ coxswain [LEFT] [RIGHT]      a folder, or a file to open its folder with the cur
                            when it has one (auto, the default)
   --meaning ask MODEL|off  Ask in Find: the chat model on that server (Ollama here with the
                            built-in model) that answers questions from your files, or one
-                           built in: builtin:qwen3-1.7b, builtin:qwen3-4b (downloaded once);
+                           built in: builtin:qwen3-1.7b, builtin:qwen3-4b or
+                           builtin:qwen3-14b (downloaded once);
                            delete: the built-in ones deleted
   --hints reset            show the hints on the command line again, each a few times
   --languages              the languages, by region, and how to help improve a new translation
@@ -114,7 +115,7 @@ new search helper with the new settings. See [Search by meaning](../search/meani
 | `--meaning server URL MODEL` | Uses a server with the OpenAI API at `URL` (for example `http://localhost:8000/api/v1` for Lemonade) with `MODEL`. It first asks the server for its models, so a wrong address fails here, not later. Sets `meaning_engine = "openai"`, `meaning_url`, `meaning_model` and `meaning = true` |
 | `--meaning builtin` | Back to the built-in model: sets `meaning_engine = "builtin"`, then does `--meaning on` |
 | `--meaning ask MODEL` | [Ask](../search/ask.md)'s chat model, on the vectors' server (Ollama here with the built-in model). On Ollama a missing model is pulled first; an OpenAI-style server must list it. Sets `ask_model`. `--meaning ask off` empties it |
-| `--meaning ask builtin:qwen3-1.7b` | [The built-in chat model](../search/ask-builtin.md) instead, with no server: downloads it from huggingface.co once (1.0 GB; `builtin:qwen3-4b` is 2.3 GB), showing `Downloading: 42 %`, then sets `ask_model`. `--meaning ask delete` deletes the built-in chat models, and empties `ask_model` when it named one |
+| `--meaning ask builtin:qwen3-1.7b` | [The built-in chat model](../search/ask-builtin.md) instead, with no server: downloads it from huggingface.co once (1.0 GB; `builtin:qwen3-4b` is 2.3 GB, `builtin:qwen3-14b` 8.4 GB), showing `Downloading: 42 %`, then sets `ask_model`. `--meaning ask delete` deletes the built-in chat models, and empties `ask_model` when it named one |
 
 `--meaning server` without both a URL and a model prints
 `usage: coxswain --meaning server URL MODEL, e.g. http://localhost:8000/api/v1 nomic-embed-text-v1-GGUF`.

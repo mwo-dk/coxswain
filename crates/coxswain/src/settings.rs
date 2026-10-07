@@ -196,14 +196,17 @@ pub fn rows(app: &App, s: &Settings) -> Vec<Row> {
             for (head, id, names) in GROUPS {
                 v.push(Row::Head(t!(head), id));
                 v.extend(names.iter().filter_map(|n| cs::find(n)).map(Row::Opt));
-                // How quickly the built-in chat models answer on this processor; the probe
-                // runs in the background the first time, and they show once it is done.
+                // The built-in chat models this machine has the memory for, and how quickly
+                // they answer on its processor: the probe runs in the background the first
+                // time, and the estimate shows once it is done.
                 if *id == "ask" {
                     let cpu_only = cfg.search.meaning_device == "cpu";
-                    for m in coxswain_core::chat::MODELS {
+                    for m in coxswain_core::chat::fitting(coxswain_core::setup::ram_gb()) {
+                        let mut value = t!("settings.ask_builtin_memory", "ram" => m.ram);
                         if let Some(e) = coxswain_core::chat::estimate(m, cpu_only, false) {
-                            v.push(Row::Info(t!("settings.ask_builtin_model", "model" => m.name, "size" => cs::human(m.size()), "where" => coxswain_core::setup::builtin_runs(&cfg.search, None)), e.text(), t!("settings.ask_builtin_hint")));
+                            value = format!("{value} · {}", e.text());
                         }
+                        v.push(Row::Info(t!("settings.ask_builtin_model", "model" => m.name, "size" => cs::human(m.size()), "where" => coxswain_core::setup::builtin_runs(&cfg.search, None)), value, t!("settings.ask_builtin_hint")));
                     }
                 }
             }

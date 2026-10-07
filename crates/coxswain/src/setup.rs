@@ -209,9 +209,10 @@ pub fn run() {
     // On a processor only when it is quick enough here: the probe says (under a second).
     let cpu_only = search().meaning_device == "cpu";
     let builtin_chat = chat::suggest(machine.ram, cpu_only);
-    let mut items: Vec<String> = chat::MODELS
+    let builtin_models: Vec<&chat::Model> = chat::fitting(machine.ram).collect();
+    let mut items: Vec<String> = builtin_models
         .iter()
-        .map(|m| {
+        .map(|&m| {
             let mut s = t!("setup.ask_builtin", "model" => m.name, "size" => coxswain_core::settings::human(m.size()), "where" => setup::builtin_runs(&search(), None));
             if builtin_chat.is_some_and(|b| std::ptr::eq(m, b)) && ask_server.is_none() {
                 s.push_str(&format!(" [{}]", t!("setup.recommended")));
@@ -240,11 +241,11 @@ pub fn run() {
     // Last: skip Ask, never the default. The default: Ask's model as it is set, else the
     // server's suggestion or first chat model, else the built-in one for this machine.
     items.push(t!("setup.ask_off"));
-    let builtins = chat::MODELS.len();
+    let builtins = builtin_models.len();
     let off = items.len() - 1;
     let now = search().ask_model;
-    let set = chat::MODELS.iter().position(|m| m.key() == now).or_else(|| models.iter().position(|m| !now.is_empty() && *m == now).map(|i| builtins + i));
-    let builtin = chat::MODELS.iter().position(|m| std::ptr::eq(m, builtin_chat.unwrap_or_else(|| chat::preselect(machine.ram, cpu_only)))).unwrap_or(0);
+    let set = builtin_models.iter().position(|m| m.key() == now).or_else(|| models.iter().position(|m| !now.is_empty() && *m == now).map(|i| builtins + i));
+    let builtin = builtin_models.iter().position(|&m| std::ptr::eq(m, builtin_chat.unwrap_or_else(|| chat::preselect(machine.ram, cpu_only)))).unwrap_or(0);
     let default = set.or_else(|| models.iter().position(|m| !suggest.is_empty() && m.starts_with(&suggest)).map(|i| builtins + i)).or((!models.is_empty()).then_some(builtins)).unwrap_or(builtin);
     let chosen = match choose(&items, default) {
         Some(i) if i == off => {
@@ -252,7 +253,7 @@ pub fn run() {
             None
         }
         Some(i) if i < builtins => {
-            let m = &chat::MODELS[i];
+            let m = builtin_models[i];
             let p = std::sync::Arc::new(Progress::default());
             let ready = m.installed() || (yes(&t!("setup.download_chat", "model" => m.name, "size" => coxswain_core::settings::human(m.size()))) && with_progress(&p, || m.download(&p).map_err(|e| e.to_string())).inspect_err(|e| eprintln!("coxswain: {e}")).is_ok());
             ready.then(|| m.key())

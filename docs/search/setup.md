@@ -49,7 +49,7 @@ The guide detects the hardware and recommends one of these. It says why in one l
 | NVIDIA, 6 GB or less | Ollama with CUDA | `bge-m3` | `qwen3:4b` | A small model still fits next to the vectors |
 | **AMD Ryzen AI** (NPU, Radeon 780M/890M) or a **Radeon** card | Lemonade | its embedding model (`nomic-embed-text-v1-GGUF`) | `Qwen3-8B-GGUF`, or a Hybrid/NPU model | Lemonade runs models on AMD's NPU and Radeon graphics, which Ollama mostly does not |
 | AMD with less than 32 GB and no NPU | Lemonade | as above | `Qwen3-4B-GGUF` | The Radeon in a Ryzen shares the system's memory |
-| **Apple silicon**, no server running | none | the built-in model, on the GPU through Metal (465 MB to download) | the [built-in chat model](ask-builtin.md) on the GPU: Qwen3 4B Instruct with 16 GB or more (2.3 GB), else Qwen3 1.7B (1.0 GB) | Nothing to install, nothing leaves the machine; the GPU makes it quick |
+| **Apple silicon**, no server running | none | the built-in model, on the GPU through Metal (465 MB to download) | the [built-in chat model](ask-builtin.md) on the GPU: Qwen3 14B with 32 GB or more (8.4 GB), Qwen3 4B Instruct with 16 GB or more (2.3 GB), else Qwen3 1.7B (1.0 GB) | Nothing to install, nothing leaves the machine; the GPU makes it quick |
 | **Apple silicon**, 16 GB, with a server | Ollama or LM Studio | `bge-m3` | `qwen3:8b` | Both use the GPU through Metal |
 | Apple silicon, 32 GB or more, with a server | Ollama or LM Studio | `bge-m3` | `qwen3:14b` | Half the shared memory can go to the model |
 | **Processor only**, or no server | none | the built-in model (465 MB to download) | none; the built-in Qwen3 1.7B (1.0 GB) is offered with [an estimate](ask-builtin.md#the-estimate-for-this-processor), and recommended only when it has its first word within 10 s | The built-in models need nothing installed; a chat model on a processor usually takes half a minute or more before its first word |
@@ -63,7 +63,8 @@ On a Mac with no Ollama or LM Studio, the line under the machine reads *Apple si
 of shared memory and no model server: the built-in model makes the vectors on its GPU (Metal),
 with nothing to install, and nothing leaves the machine. Ask can use the built-in chat model on
 the GPU too, or stay off.* One click on **Download the built-in model (465 MB)** is all step 3
-needs, and one on **Download Qwen3 4B Instruct (2.3 GB) and use it** all step 4 needs.
+needs, and one on **Download Qwen3 14B (8.4 GB) and use it** all step 4 needs (with 16 to 31 GB,
+**Download Qwen3 4B Instruct (2.3 GB) and use it**).
 
 ## Starting the guide
 
@@ -104,8 +105,9 @@ app all steps are on one page; the terminal app asks them in order.
 4. **Ask: the chat model.** Optional; nothing blocks the steps after it. First the
    [built-in chat models](ask-builtin.md): *Optional. A built-in chat model answers on this
    machine, with nothing to install, and nothing leaves it…*, a list with *Qwen3 1.7B, built in
-   (1.0 GB download, on the CPU; nothing leaves the machine)* and *Qwen3 4B Instruct, built in
-   (2.3 GB …)*, the one for this machine chosen, and **recommended** when no server answers and
+   (1.0 GB download, on the CPU; nothing leaves the machine)*, *Qwen3 4B Instruct, built in
+   (2.3 GB …)* with 16 GB of memory or more and *Qwen3 14B, built in (8.4 GB …)* with 32 GB or
+   more, the one for this machine chosen, and **recommended** when no server answers and
    it suits the machine: always on a Mac's GPU, on a processor only when it is quick enough.
    Under the list, on a processor: *On this processor: about 74 s to the first word, then 7.4
    words a second (too slow to recommend; a model server answers more quickly)*, from a short

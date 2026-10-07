@@ -31,6 +31,9 @@ pub struct Model {
     pub ram: u64,
     /// A hybrid model that thinks unless its answer starts with an empty `<think>` block.
     hybrid: bool,
+    /// Tokens it sees at most on a Mac's GPU, answer included: the larger model has the memory
+    /// for more of the user's files.
+    context: usize,
     /// Millions of weights each token goes through in the layers, and those the output layer
     /// adds for each token written: what the speed estimate scales by.
     layers: f64,
@@ -38,16 +41,19 @@ pub struct Model {
     files: &'static [Pinned],
 }
 
-/// Qwen3's tokenizer, the same for both models.
+/// Qwen3's tokenizer, the same for all of them.
 const TOKENIZER: Pinned = Pinned { repo: "Qwen/Qwen3-1.7B", revision: "70d244cc86ccca08cf5af4e1e306ecf908b1ad5e", name: "tokenizer.json", sha: "aeb13307a71acd8fe81861d94ad54ab689df773318809eed3cbe794b4492dae4", len: 11_422_654 };
 
-/// The small one for any machine, and a better one for a machine with memory to spare.
+/// The small one for any machine, a better one for 16 GB, and one that knows and reasons more
+/// for 32 GB. Qwen3 30B-A3B would be quicker than the 14B and know more, but candle runs its
+/// experts on CUDA alone.
 pub const MODELS: &[Model] = &[
     Model {
         id: "qwen3-1.7b",
         name: "Qwen3 1.7B",
         ram: 8,
         hybrid: true,
+        context: CONTEXT,
         layers: 1409.0,
         head: 311.0,
         files: &[Pinned { repo: "unsloth/Qwen3-1.7B-GGUF", revision: "d7f544eead698dbd1f15126ef60b45a1e1933222", name: "Qwen3-1.7B-Q4_K_M.gguf", sha: "b139949c5bd74937ad8ed8c8cf3d9ffb1e99c866c823204dc42c0d91fa181897", len: 1_107_409_472 }, TOKENIZER],
@@ -57,9 +63,21 @@ pub const MODELS: &[Model] = &[
         name: "Qwen3 4B Instruct",
         ram: 16,
         hybrid: false,
+        context: CONTEXT,
         layers: 3633.0,
         head: 389.0,
         files: &[Pinned { repo: "unsloth/Qwen3-4B-Instruct-2507-GGUF", revision: "a06e946bb6b655725eafa393f4a9745d460374c9", name: "Qwen3-4B-Instruct-2507-Q4_K_M.gguf", sha: "3605803b982cb64aead44f6c1b2ae36e3acdb41d8e46c8a94c6533bc4c67e597", len: 2_497_281_120 }, TOKENIZER],
+    },
+    Model {
+        id: "qwen3-14b",
+        name: "Qwen3 14B",
+        ram: 32,
+        hybrid: true,
+        // 9 GB of weights and 2.6 GB of cache, well inside what macOS gives the GPU of 32 GB.
+        context: 16_384,
+        layers: 13212.0,
+        head: 778.0,
+        files: &[Pinned { repo: "unsloth/Qwen3-14B-GGUF", revision: "a04a82c4739b3ef5fa6da7d10261db2c67dd1985", name: "Qwen3-14B-Q4_K_M.gguf", sha: "5eaa0870bd81ed3b58a630a271234cfa604e43ffb3a19cd68e54a80dd9d52a66", len: 9_001_753_984 }, TOKENIZER],
     },
 ];
 
@@ -74,7 +92,13 @@ fn metal(cpu_only: bool) -> bool {
     cfg!(target_os = "macos") && !cpu_only
 }
 
-/// The model to recommend for a machine with `ram` GB. On a Mac's GPU: the larger one with
+/// The models offered on a machine with `ram` GB: those it has the memory for, the small one
+/// always.
+pub fn fitting(ram: u64) -> impl Iterator<Item = &'static Model> {
+    MODELS.iter().filter(move |m| m.ram <= ram.max(MODELS[0].ram))
+}
+
+/// The model to recommend for a machine with `ram` GB. On a Mac's GPU: the largest one with
 /// the memory for it on Apple silicon, else the small one. On a processor: the small one
 /// (the larger takes three times as long), and only when the estimate has its first word
 /// within `QUICK` seconds; else none, and a model server is the better choice.
@@ -220,6 +244,11 @@ impl Model {
         Some(crate::helper::folder()?.join("models").join(format!("{}-{}", self.id, &self.files[0].revision[..8])))
     }
 
+    /// Tokens it sees at most, answer included: its own on a Mac's GPU, else `CPU_CONTEXT`.
+    pub(crate) fn context(&self, cpu_only: bool) -> usize {
+        if metal(cpu_only) { self.context } else { CPU_CONTEXT }
+    }
+
     /// Bytes the download takes.
     pub fn size(&self) -> u64 {
         self.files.iter().map(|f| f.len).sum()
@@ -242,20 +271,26 @@ impl Model {
     }
 }
 
-/// Tokens the model sees at most, answer included: on a GPU the rules, the sources and a few
-/// turns. Qwen3 takes 32,768, but each token holds memory. candle's CPU reads a prompt about
+/// Tokens the smaller models see at most, answer included: on a GPU the rules, the sources and
+/// a few turns. Qwen3 takes 32,768, but each token holds memory. candle's CPU reads a prompt about
 /// as fast as it writes, 10 to 40 tokens a second, so there the prompt gets about a thousand
 /// tokens: the rules and the closest three or four passages.
 // ponytail: fixed sizes; a quicker CPU prefill (a matrix kernel for many rows) would let the CPU have more.
 const CONTEXT: usize = 8192;
 const CPU_CONTEXT: usize = 2048;
-/// Tokens an answer takes at most, here and on a server.
-pub(crate) const ANSWER: usize = 1024;
+/// Tokens an answer takes at most, here and on a server; with the thinking before it, `THINK`.
+const ANSWER: usize = 1024;
+const THINK: usize = 4096;
 
-/// Tokens a built-in model sees at most, answer included: `CONTEXT` on a Mac's GPU, else
-/// `CPU_CONTEXT`.
-pub(crate) fn context(cpu_only: bool) -> usize {
-    if metal(cpu_only) { CONTEXT } else { CPU_CONTEXT }
+/// Whether Ask's model thinks first: when `ask_think` asks it to, on a server, or built in a
+/// hybrid model on a Mac's GPU (on a processor the thinking would take minutes).
+pub(crate) fn thinks(cfg: &crate::config::SearchConfig) -> bool {
+    cfg.ask_think && of(&cfg.ask_model).is_none_or(|m| m.hybrid && metal(cfg.meaning_device == "cpu"))
+}
+
+/// Tokens kept for the answer, and the thinking before it.
+pub(crate) fn answer_room(think: bool) -> usize {
+    if think { THINK } else { ANSWER }
 }
 /// Tokens the prompt goes through the model at a time: Stop is heard between them.
 const CHUNK: usize = 256;
@@ -264,8 +299,8 @@ const IDLE: Duration = Duration::from_secs(300);
 
 /// The prompt in Qwen's chat format, the system turn holding the rules and the sources, then
 /// the turns before and the question, as long as it fits `budget` tokens by `count`: the
-/// oldest turns go first, then the last sources.
-fn prompt(hybrid: bool, earlier: &[Turn], question: &str, sources: &[(PathBuf, String)], budget: usize, count: impl Fn(&str) -> usize) -> String {
+/// oldest turns go first, then the last sources. `quiet`: a hybrid model told not to think.
+fn prompt(quiet: bool, earlier: &[Turn], question: &str, sources: &[(PathBuf, String)], budget: usize, count: impl Fn(&str) -> usize) -> String {
     let build = |earlier: &[Turn], sources: &[(PathBuf, String)]| {
         let context: String = sources.iter().enumerate().map(|(i, (path, text))| format!("[{}] {}\n{text}\n\n", i + 1, path.display())).collect();
         let mut p = format!("<|im_start|>system\n{}\n\nSources:\n\n{context}<|im_end|>\n", crate::meaning::RULES);
@@ -274,7 +309,7 @@ fn prompt(hybrid: bool, earlier: &[Turn], question: &str, sources: &[(PathBuf, S
         }
         p.push_str(&format!("<|im_start|>user\n{question}<|im_end|>\n<|im_start|>assistant\n"));
         // Qwen3's own template turns thinking off this way.
-        if hybrid {
+        if quiet {
             p.push_str("<think>\n\n</think>\n\n");
         }
         p
@@ -350,8 +385,9 @@ pub fn unload() {
 
 /// Ask the built-in model `m`: `question` answered from `sources` (numbered in their order)
 /// and the turns before, each piece of the answer to `piece` as it comes, with empty ones
-/// between while the prompt is read; `piece` returns false to stop. One question at a time.
-pub fn ask(m: &'static Model, cpu_only: bool, earlier: &[Turn], question: &str, sources: &[(PathBuf, String)], mut piece: impl FnMut(&str) -> bool) -> Result<(), String> {
+/// between while the prompt is read and while it thinks (a hybrid model on the GPU, when
+/// `think`); `piece` returns false to stop. One question at a time.
+pub fn ask(m: &'static Model, cpu_only: bool, think: bool, earlier: &[Turn], question: &str, sources: &[(PathBuf, String)], mut piece: impl FnMut(&str) -> bool) -> Result<(), String> {
     let mut slot = slot();
     if slot.as_ref().is_none_or(|l| l.id != m.id) {
         let first = slot.is_none();
@@ -366,7 +402,7 @@ pub fn ask(m: &'static Model, cpu_only: bool, earlier: &[Turn], question: &str, 
     }
     let loaded = slot.as_mut().unwrap();
     let mut said = false;
-    let done = answer(loaded, m.hybrid, earlier, question, sources, &mut |t: &str| {
+    let done = answer(loaded, m, think, earlier, question, sources, &mut |t: &str| {
         said |= !t.is_empty();
         piece(t)
     });
@@ -374,7 +410,7 @@ pub fn ask(m: &'static Model, cpu_only: bool, earlier: &[Turn], question: &str, 
     let done = match done {
         Err(_) if !said && !loaded.device.is_cpu() => {
             *loaded = load(m, Device::Cpu)?;
-            answer(loaded, m.hybrid, earlier, question, sources, &mut piece)
+            answer(loaded, m, think, earlier, question, sources, &mut piece)
         }
         d => d,
     };
@@ -394,11 +430,13 @@ fn let_go() {
     }
 }
 
-fn answer(l: &mut Loaded, hybrid: bool, earlier: &[Turn], question: &str, sources: &[(PathBuf, String)], piece: &mut dyn FnMut(&str) -> bool) -> Result<(), String> {
+fn answer(l: &mut Loaded, m: &Model, think: bool, earlier: &[Turn], question: &str, sources: &[(PathBuf, String)], piece: &mut dyn FnMut(&str) -> bool) -> Result<(), String> {
     let err = |e: candle_core::Error| e.to_string();
     let tok = &l.tokenizer;
     let count = |s: &str| tok.encode(s, false).map_or(usize::MAX, |e| e.len());
-    let text = prompt(hybrid, earlier, question, sources, if l.device.is_cpu() { CPU_CONTEXT } else { CONTEXT } - ANSWER, count);
+    let think = think && m.hybrid && !l.device.is_cpu();
+    let room = answer_room(think);
+    let text = prompt(m.hybrid && !think, earlier, question, sources, m.context(l.device.is_cpu()) - room, count);
     let ids = tok.encode(text, false).map_err(|e| e.to_string())?.get_ids().to_vec();
     let ends: Vec<u32> = ["<|im_end|>", "<|endoftext|>"].iter().filter_map(|t| tok.token_to_id(t)).collect();
     l.weights.clear_kv_cache();
@@ -410,11 +448,12 @@ fn answer(l: &mut Loaded, hybrid: bool, earlier: &[Turn], question: &str, source
         let input = Tensor::new(chunk, &l.device).and_then(|t| t.unsqueeze(0)).map_err(err)?;
         logits = Some(l.weights.forward(&input, i * CHUNK).map_err(err)?);
     }
-    // Qwen's advice for answers without thinking, less random: the sources are the facts.
-    let mut sampler = LogitsProcessor::from_sampling(ids.len() as u64, Sampling::TopKThenTopP { k: 20, p: 0.8, temperature: 0.5 });
+    // Qwen's advice, less random without thinking: the sources are the facts.
+    let (p, temperature) = if think { (0.95, 0.6) } else { (0.8, 0.5) };
+    let mut sampler = LogitsProcessor::from_sampling(ids.len() as u64, Sampling::TopKThenTopP { k: 20, p, temperature });
     let (mut out, mut given, mut thinking) = (Vec::<u32>::new(), 0, false);
     let mut logits = logits.ok_or("an empty question")?;
-    for n in 0..ANSWER {
+    for n in 0..room {
         let last = logits.squeeze(0).and_then(|t| t.to_dtype(DType::F32)).map_err(err)?;
         let from = out.len().saturating_sub(64);
         let last = candle_transformers::utils::apply_repeat_penalty(&last, 1.05, &out[from..]).map_err(err)?;
@@ -471,7 +510,9 @@ mod tests {
         assert!(of("qwen3:8b").is_none() && of("builtin:other").is_none());
         if cfg!(target_os = "macos") {
             assert_eq!(suggest(8, false).map(|m| m.id), Some("qwen3-1.7b"));
-            assert_eq!(suggest(64, false).map(|m| m.id), Some(if cfg!(target_arch = "aarch64") { "qwen3-4b" } else { "qwen3-1.7b" }));
+            let apple = |id| Some(if cfg!(target_arch = "aarch64") { id } else { "qwen3-1.7b" });
+            assert_eq!(suggest(16, false).map(|m| m.id), apple("qwen3-4b"));
+            assert_eq!(suggest(64, false).map(|m| m.id), apple("qwen3-14b"));
         }
         // On a processor only the small one, and only when it is quick enough.
         let quick = estimate(&MODELS[0], true, true).is_some_and(|e| e.first < QUICK);
@@ -479,6 +520,17 @@ mod tests {
         // Something is always preselected: on a processor the small one, quick or not.
         assert_eq!(preselect(64, true).id, "qwen3-1.7b");
         assert_eq!(of(&MODELS[1].key()).map(|m| m.id), Some("qwen3-4b"));
+        // Only those the memory holds are offered, the small one always.
+        let ids = |ram| fitting(ram).map(|m| m.id).collect::<Vec<_>>();
+        assert_eq!(ids(4), ["qwen3-1.7b"]);
+        assert_eq!(ids(16), ["qwen3-1.7b", "qwen3-4b"]);
+        assert_eq!(ids(64), ["qwen3-1.7b", "qwen3-4b", "qwen3-14b"]);
+        // Thinking: on a server when asked; built in, a hybrid model on a Mac's GPU only.
+        let cfg = |model: &str, think, device: &str| crate::config::SearchConfig { ask_model: model.into(), ask_think: think, meaning_device: device.into(), ..Default::default() };
+        assert!(thinks(&cfg("qwen3:8b", true, "cpu")) && !thinks(&cfg("qwen3:8b", false, "")));
+        assert!(!thinks(&cfg("builtin:qwen3-4b", true, "")) && !thinks(&cfg("builtin:qwen3-14b", true, "cpu")));
+        assert_eq!(thinks(&cfg("builtin:qwen3-14b", true, "")), cfg!(target_os = "macos"));
+        assert_eq!(MODELS[2].context(false), if cfg!(target_os = "macos") { 16_384 } else { CPU_CONTEXT });
     }
 
     #[test]
@@ -511,12 +563,12 @@ mod tests {
         let probed = t.elapsed();
         let e = Estimate::of(m, ns);
         let start = Instant::now();
-        ask(m, true, &[], "Hi", &[], |_| true).unwrap();
+        ask(m, true, false, &[], "Hi", &[], |_| true).unwrap();
         eprintln!("loaded and a short question in {:.1?}", start.elapsed());
         let passage = "The rocket Kestrel launches from Andøya. Its fuel costs 40,000 euros per flight, and the crew trains for six months before each launch. ".repeat(12);
         let sources: Vec<_> = (0..6).map(|i| (PathBuf::from(format!("/home/demo/rocket/{i}.md")), passage.clone())).collect();
         let (mut first, mut n, start) = (None, 0, Instant::now());
-        ask(m, true, &[], "What does the fuel cost, and what is the rocket called?", &sources, |t| {
+        ask(m, true, false, &[], "What does the fuel cost, and what is the rocket called?", &sources, |t| {
             if !t.is_empty() {
                 first.get_or_insert(start.elapsed());
                 n += 1;
@@ -546,7 +598,7 @@ mod tests {
             (PathBuf::from("/home/demo/rocket/budget.md"), "# Budget\nFuel costs 40,000 euros per flight, more than the crew and the launch pad together.".to_string()),
         ];
         let (mut answer, mut first, start) = (String::new(), None, Instant::now());
-        ask(m, true, &[], "What does the fuel cost, and what is the rocket called?", &sources, |t| {
+        ask(m, true, false, &[], "What does the fuel cost, and what is the rocket called?", &sources, |t| {
             if !t.is_empty() && first.is_none() {
                 first = Some(start.elapsed());
             }

@@ -629,14 +629,14 @@ say so plainly and do not guess. Answer in the language of the question, briefly
 /// comes, with empty ones between; `piece` returns false to stop. Nothing is kept.
 pub fn ask(cfg: &crate::config::SearchConfig, earlier: &[Turn], question: &str, sources: &[(std::path::PathBuf, String)], mut piece: impl FnMut(&str) -> bool) -> Result<(), String> {
     if let Some(m) = crate::chat::of(&cfg.ask_model) {
-        return crate::chat::ask(m, cfg.meaning_device == "cpu", earlier, question, sources, piece);
+        return crate::chat::ask(m, cfg.meaning_device == "cpu", cfg.ask_think, earlier, question, sources, piece);
     }
     if cfg.ask_model.is_empty() {
         return Err("no chat model is set for Ask".into());
     }
     let s = Server::new(cfg);
     // The oldest turns go first when the context cannot hold them all with the sources.
-    let room = crate::ask::context(cfg).saturating_sub(crate::chat::ANSWER);
+    let room = crate::ask::context(cfg).saturating_sub(crate::chat::answer_room(crate::chat::thinks(cfg)));
     let size = |e: &[Turn]| crate::ask::tokens(RULES) + crate::ask::tokens(question) + sources.iter().map(|(p, t)| crate::ask::tokens(t) + p.as_os_str().len() / 3 + 4).sum::<usize>() + e.iter().map(|(q, a)| crate::ask::tokens(q) + crate::ask::tokens(a) + 8).sum::<usize>();
     let mut earlier = earlier;
     while !earlier.is_empty() && size(earlier) > room {
