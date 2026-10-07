@@ -1,13 +1,37 @@
 name: FreeBSD
 
 # Both apps on FreeBSD, in a virtual machine: the core's and the terminal app's tests, and the
-# desktop app built and its tests run. Only when Rust code, the lock file or this file change.
+# desktop app built and its tests run. Every push to master;
+# pull requests only for this system's code (paths below).
 on:
   push:
     branches: [master]
-    paths: ["crates/**", "gui/src-tauri/**", "Cargo.toml", "Cargo.lock", ".github/workflows/freebsd.yml"]
   pull_request:
-    paths: ["crates/**", "gui/src-tauri/**", "Cargo.toml", "Cargo.lock", ".github/workflows/freebsd.yml"]
+    # Pull requests run the machine only for code with branches for this system;
+    # every push to master runs it, and Release waits for it (CLAUDE.md, Shipping).
+    paths:
+      - "crates/coxswain-core/src/lib.rs"
+      - "crates/coxswain-core/src/machine.rs"
+      - "crates/coxswain-core/src/kq.rs"
+      - "crates/coxswain-core/src/ports.rs"
+      - "crates/coxswain-core/src/bsd.rs"
+      - "crates/coxswain-core/src/zfs.rs"
+      - "crates/coxswain-core/src/flags.rs"
+      - "crates/coxswain-core/src/service.rs"
+      - "crates/coxswain-core/src/fs.rs"
+      - "crates/coxswain-core/src/index.rs"
+      - "crates/coxswain-core/src/tools.rs"
+      - "crates/coxswain-core/src/update.rs"
+      - "crates/coxswain-core/src/cloud.rs"
+      - "crates/coxswain-core/src/setup.rs"
+      - "crates/coxswain-core/src/menu.rs"
+      - "crates/coxswain-core/tests/zfs.rs"
+      - "**/Cargo.toml"
+      - "Cargo.lock"
+      - "gui/src-tauri/src/main.rs"
+      - "install/**"
+      - "packaging/freebsd/**"
+      - ".github/workflows/freebsd.yml"
   # The port, built and checked by hand on each supported release (packaging/freebsd/README.md).
   workflow_dispatch:
     inputs:

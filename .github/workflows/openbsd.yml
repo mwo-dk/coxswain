@@ -5,16 +5,40 @@ name: OpenBSD
 # app started under X11 for a minute, with a picture of its window as this run's artifact; the
 # terminal app's archive packed as a release packs it, installed with install/install-unix.sh,
 # and the search helper's rc.d script started with rcctl, checked and stopped.
-# Only when Rust code, the lock file, the script or this file change. docs/reference/openbsd.md.
+# Every push to master; pull requests only for this system's code (paths below). docs/reference/openbsd.md.
 # The port for openbsd-wip (packaging/openbsd/port) builds a crates.io release, not this
 # checkout, so it runs only when started by hand: `gh workflow run openbsd.yml` (--ref <branch>).
 on:
   workflow_dispatch:
   push:
     branches: [master]
-    paths: ["crates/**", "gui/src-tauri/**", "Cargo.toml", "Cargo.lock", "install/install-unix.sh", "packaging/openbsd/**", ".github/workflows/openbsd.yml"]
   pull_request:
-    paths: ["crates/**", "gui/src-tauri/**", "Cargo.toml", "Cargo.lock", "install/install-unix.sh", "packaging/openbsd/**", ".github/workflows/openbsd.yml"]
+    # Pull requests run the machine only for code with branches for this system;
+    # every push to master runs it, and Release waits for it (CLAUDE.md, Shipping).
+    paths:
+      - "crates/coxswain-core/src/lib.rs"
+      - "crates/coxswain-core/src/machine.rs"
+      - "crates/coxswain-core/src/kq.rs"
+      - "crates/coxswain-core/src/ports.rs"
+      - "crates/coxswain-core/src/bsd.rs"
+      - "crates/coxswain-core/src/zfs.rs"
+      - "crates/coxswain-core/src/flags.rs"
+      - "crates/coxswain-core/src/service.rs"
+      - "crates/coxswain-core/src/fs.rs"
+      - "crates/coxswain-core/src/index.rs"
+      - "crates/coxswain-core/src/tools.rs"
+      - "crates/coxswain-core/src/update.rs"
+      - "crates/coxswain-core/src/cloud.rs"
+      - "crates/coxswain-core/src/setup.rs"
+      - "crates/coxswain-core/src/menu.rs"
+      - "crates/coxswain-core/tests/zfs.rs"
+      - "**/Cargo.toml"
+      - "Cargo.lock"
+      - "gui/src-tauri/src/main.rs"
+      - "install/**"
+      - "packaging/pack-unix.sh"
+      - "packaging/openbsd/**"
+      - ".github/workflows/openbsd.yml"
 
 permissions:
   contents: read

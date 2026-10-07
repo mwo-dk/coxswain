@@ -59,8 +59,9 @@ parquet = { version = "60", default-features = false, features = ["snap", "flate
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
 
-# Android (Termux) has no desktop trash: xdg_trash.rs is its own.
-[target.'cfg(not(target_os = "android"))'.dependencies]
+# Android (Termux) has no desktop trash, and on illumos the trash crate cannot find the mount
+# points: xdg_trash.rs is Coxswain's own.
+[target.'cfg(not(any(target_os = "android", target_os = "illumos", target_os = "solaris")))'.dependencies]
 trash = "5.2.9"
 
 # Folders watched with kqueue on the BSDs (`kq`); notify depends on it there already.

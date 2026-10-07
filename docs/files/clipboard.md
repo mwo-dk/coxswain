@@ -77,4 +77,4 @@ on macOS and Windows as paths. Without a system clipboard, copy and paste still 
 Coxswain.
 
 ---
-[← Previous: Delete](delete.md) · [Next: Drag and drop →](drag-and-drop.md)
+[← Previous: Undo (Ctrl+Z)](undo.md) · [Next: Drag and drop →](drag-and-drop.md)

@@ -113,6 +113,7 @@ not modifiers Coxswain reads; use **Ctrl** or **Alt**.
 | `worktrees` | **Alt+W** | `switch_branch` | **Alt+S** |
 | `new_branch` | none | `snapshots` | **Alt+Z** |
 | `flags` | none | `package` | none |
+| `undo` | **Ctrl+Z** | | |
 
 ¹ The desktop app only. In the terminal app the key still belongs to the action, and pressing it
 says *… is available in the desktop app (coxswain-gui)* on the command line.

@@ -1,9 +1,11 @@
-//! A trash of our own for Termux, where the `trash` crate does not build: the freedesktop.org
+//! A trash of our own for Termux, where the `trash` crate does not build, and illumos, where it
+//! cannot tell the mount points: the freedesktop.org
 //! layout in `$XDG_DATA_HOME/Trash` (`~/.local/share/Trash`), `files/<name>` with its
 //! `info/<name>.trashinfo`. Files are only renamed in, never copied: one on another filesystem
-//! (the phone's storage under `~/storage`) is refused, and the caller asks to delete it for good.
+//! (the phone's storage under `~/storage`, another ZFS dataset than the home folder's on illumos)
+//! is refused, and the caller asks to delete it for good.
 
-#![cfg_attr(not(target_os = "android"), allow(dead_code))]
+#![cfg_attr(not(any(target_os = "android", target_os = "illumos", target_os = "solaris")), allow(dead_code))]
 
 use std::fs;
 use std::io::{self, Write};
@@ -25,10 +27,10 @@ pub fn takes(path: &Path) -> bool {
     dir().is_some_and(|t| same_fs(&t, path))
 }
 
-/// Move `path` into the trash.
-pub fn put(path: &Path) -> io::Result<()> {
+/// Move `path` into the trash; the name it has there.
+pub fn put(path: &Path) -> io::Result<String> {
     let trash = dir().ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "no home folder"))?;
-    put_in(&trash, path, same_fs).map(|_| ())
+    put_in(&trash, path, same_fs)
 }
 
 /// The same device as `path` itself (a link is where it sits) and the trash, or the nearest
@@ -71,6 +73,30 @@ fn put_in(trash: &Path, path: &Path, same: fn(&Path, &Path) -> bool) -> io::Resu
         };
     }
     unreachable!("some name is free")
+}
+
+/// Put back what `put` moved in under `name` to `path`, where it was: renamed back, never over
+/// what is there now. The name, not the date, says which: two trashings of one path within a
+/// second have the same date.
+pub fn restore(name: &str, path: &Path) -> io::Result<()> {
+    let trash = dir().ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "no home folder"))?;
+    restore_in(&trash, name, path)
+}
+
+fn restore_in(trash: &Path, name: &str, path: &Path) -> io::Result<()> {
+    let path = std::path::absolute(path)?;
+    let info = trash.join("info").join(format!("{name}.trashinfo"));
+    let body = fs::read_to_string(&info).map_err(|_| io::Error::new(io::ErrorKind::NotFound, "not in the trash"))?;
+    // Still the one this path put there, not another under a name freed and taken since.
+    if !body.lines().any(|l| l.strip_prefix("Path=") == Some(encode(&path).as_str())) {
+        return Err(io::Error::new(io::ErrorKind::NotFound, "not in the trash"));
+    }
+    if fs::symlink_metadata(&path).is_ok() {
+        return Err(io::Error::new(io::ErrorKind::AlreadyExists, format!("{} exists", path.display())));
+    }
+    fs::rename(trash.join("files").join(name), &path)?;
+    let _ = fs::remove_file(info);
+    Ok(())
 }
 
 /// The path as the spec's URI escaping: unreserved characters and `/` stay, every other byte
@@ -120,6 +146,31 @@ mod tests {
         fs::create_dir_all(d.join("dir/sub")).unwrap();
         assert_eq!(put_in(&trash, &d.join("dir"), same_fs).unwrap(), "dir");
         assert!(trash.join("files/dir/sub").is_dir());
+    }
+
+    #[test]
+    fn restores_by_name_and_never_over_a_file() {
+        let d = tmp("restore");
+        let trash = d.join("Trash");
+        let f = d.join("a b.txt");
+        fs::write(&f, "old").unwrap();
+        let old = put_in(&trash, &f, same_fs).unwrap();
+        fs::write(&f, "new").unwrap();
+        let new = put_in(&trash, &f, same_fs).unwrap();
+        // Something is there again: left alone.
+        fs::write(&f, "other").unwrap();
+        assert_eq!(restore_in(&trash, &new, &f).unwrap_err().kind(), io::ErrorKind::AlreadyExists);
+        assert_eq!(fs::read_to_string(&f).unwrap(), "other");
+        fs::remove_file(&f).unwrap();
+        // Another path's item under that name is not this one's.
+        assert_eq!(restore_in(&trash, &new, &d.join("else.txt")).unwrap_err().kind(), io::ErrorKind::NotFound);
+        restore_in(&trash, &new, &f).unwrap();
+        assert_eq!(fs::read_to_string(&f).unwrap(), "new");
+        assert_eq!(restore_in(&trash, &new, &f).unwrap_err().kind(), io::ErrorKind::NotFound, "gone from the trash");
+        fs::remove_file(&f).unwrap();
+        restore_in(&trash, &old, &f).unwrap();
+        assert_eq!(fs::read_to_string(&f).unwrap(), "old");
+        assert_eq!(fs::read_dir(trash.join("info")).unwrap().count(), 0);
     }
 
     #[test]

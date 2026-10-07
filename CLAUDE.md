@@ -5,8 +5,15 @@ These rules hold for every contributor and every Claude session in this reposito
 ## Shipping
 
 - **Releases are automatic.** The version lives only in `Cargo.toml` (`[workspace.package]`).
-  When CI passes on `master` and that version has no GitHub release yet, `release.yml` builds
-  every platform, publishes the release (creating the `vX.Y.Z` tag) and updates the AUR.
+  When every system's workflow passes on `master` (CI, FreeBSD, NetBSD, OpenBSD, illumos, and
+  Termux, Flatpak, Nix when they ran) and that version has no GitHub release yet, `release.yml`
+  builds every platform, publishes the release (creating the `vX.Y.Z` tag) and updates the AUR.
+  A failure on any system stops the release.
+- **Pull requests run the virtual machines only for platform code** (files with BSD or illumos
+  branches, `Cargo.toml`, `Cargo.lock`, `install/`, that system's `packaging/`); every push to
+  `master` runs all of them. A new file with `cfg(target_os = …)` for those systems goes into
+  their workflows' `paths`. Branches need not be up to date with `master`: master's own runs
+  catch clashes.
 - **Bump the version in the same commit as a user-visible change:** patch for fixes, minor for
   features, major for breaking config or key changes. Then run `cargo check` so `Cargo.lock`
   follows. Do not bump for docs, CI or refactors. Two open PRs that both bump: the one merged
@@ -20,7 +27,8 @@ These rules hold for every contributor and every Claude session in this reposito
   push, and watch again. Windows is the usual one (path separators, `;` in path lists, files
   still open). A PR is done when it is merged, not when it is opened.
 - **Commits:** plain messages. No `Co-Authored-By` or other Claude attribution.
-- **Work in a git worktree** (`git worktree add -b <branch> ../coxswain-<topic> origin/master`)
+- **Work in a git worktree** (`git worktree add -b <branch> .worktrees/<topic> origin/master`, inside the repository and
+  ignored by git, so the folder above stays clean)
   when other work is under way, never by switching branches under uncommitted changes. Remove
   the worktree and its branch once its PR has merged.
 
