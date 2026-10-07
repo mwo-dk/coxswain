@@ -21,6 +21,7 @@ libraries' interfaces, so the 10.1 build runs on 11 as well.
 - [Updating and uninstalling](#updating-and-uninstalling)
 - [Building from source](#building-from-source)
 - [The desktop app](#the-desktop-app)
+- [The pkgsrc package](#the-pkgsrc-package)
 - [Questions](#questions)
 
 ## Install with one line
@@ -185,10 +186,18 @@ from source (`cd /usr/pkgsrc/www/webkit-gtk41 && make install`), the
 `(cd gui && npm ci && npm run build) && cargo build --release --locked -p coxswain-gui`; it is
 untested.
 
+## The pkgsrc package
+
+A package for pkgsrc-wip, `wip/coxswain`, is ready in
+[`packaging/pkgsrc`](../../packaging/pkgsrc/SUBMIT.md) but not yet submitted. It builds the
+terminal app from the crates.io release and installs `coxswain`, `cox`, the manual page and the
+rc.d script for the search helper (in `/usr/pkg/share/examples/rc.d`). CI builds it with
+`make package` on NetBSD 10.1, installs it with `pkg_add` and runs it.
+
 ## Questions
 
-**Why is it not in pkgsrc?** Not yet; a package is the natural next step. Until then, the script,
-the archives or `cargo install --locked coxswain`.
+**Why is it not in pkgsrc?** Not yet: the package is prepared ([above](#the-pkgsrc-package)) and
+goes to pkgsrc-wip first. Until then, the script, the archives or `cargo install --locked coxswain`.
 
 **Does it run on NetBSD 9?** It is built on 10.1 and tested on 10.1 and 11.0 only. On 9, build from
 source if pkgsrc's Rust there is 1.93 or later.

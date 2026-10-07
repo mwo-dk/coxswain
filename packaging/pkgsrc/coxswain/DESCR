@@ -1,0 +1,6 @@
+Coxswain is a two-panel file manager for the terminal in the Norton
+Commander tradition. The function keys copy, move and delete; the panels
+show git status for every file; zip, 7z and tar archives open like
+folders; ZFS snapshots are listed as read-only folders. It finds any file
+by name as you type and searches the text inside documents, with an index
+kept current by a helper that can run from boot (rc.d, or SMF on illumos).

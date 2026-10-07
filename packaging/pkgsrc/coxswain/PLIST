@@ -1,0 +1,4 @@
+@comment $NetBSD$
+bin/cox
+bin/coxswain
+man/man1/coxswain.1

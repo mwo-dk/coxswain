@@ -1,0 +1,60 @@
+name: pkgsrc
+
+# The pkgsrc package (packaging/pkgsrc/coxswain) built as pkgsrc builds it, in a NetBSD VM:
+# the tree of the newest quarterly branch, Rust from pkgin, `make package` from the crates.io
+# release the Makefile names, then the package installed with pkg_add and started. Only when
+# the package or this file change. packaging/pkgsrc/SUBMIT.md.
+on:
+  push:
+    branches: [master]
+    paths: ["packaging/pkgsrc/**", ".github/workflows/pkgsrc.yml"]
+  pull_request:
+    paths: ["packaging/pkgsrc/**", ".github/workflows/pkgsrc.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pkgsrc-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  netbsd:
+    name: NetBSD 10.1, pkgsrc
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: vmactions/netbsd-vm@c8a0d7ddb84619a7a8cc4e652efa7950b3fd9f92 # v1.5.2
+        with:
+          release: "10.1"
+          usesh: true
+          prepare: |
+            /usr/sbin/pkg_add pkgin || true
+            pkgin -y install rust digest
+          run: |
+            set -e
+            # The newest quarterly branch: the one pkgin's packages are built from.
+            y=$(date +%Y) q=$(( ($(date +%m) + 2) / 3 ))
+            for i in 1 2 3 4; do
+              b="pkgsrc-${y}Q${q}"
+              ftp -o /tmp/pkgsrc.tar.gz "https://cdn.netbsd.org/pub/pkgsrc/$b/pkgsrc.tar.gz" >/dev/null 2>&1 && break
+              q=$((q - 1)); [ $q -eq 0 ] && { q=4; y=$((y - 1)); }
+            done
+            echo "pkgsrc branch: $b"
+            tar xzf /tmp/pkgsrc.tar.gz -C /usr
+            mkdir -p /usr/pkgsrc/wip
+            cp -R packaging/pkgsrc/coxswain /usr/pkgsrc/wip/
+            cd /usr/pkgsrc/wip/coxswain
+            make MAKE_JOBS="$(sysctl -n hw.ncpu)" package
+            pkg_add /usr/pkgsrc/packages/All/coxswain-*.tgz
+            pkg_info -L coxswain
+            /usr/pkg/bin/coxswain --version
+            /usr/pkg/bin/cox --version
+            test -L /usr/pkg/bin/cox
+            man -M /usr/pkg/man -w coxswain
+            test -f /usr/pkg/share/examples/rc.d/coxswain_index

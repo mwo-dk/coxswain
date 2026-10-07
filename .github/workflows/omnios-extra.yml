@@ -1,0 +1,69 @@
+name: omnios-extra
+
+# The omnios-extra recipe (packaging/omnios/coxswain) built with omnios-extra's own build
+# system in an OmniOS VM: its master branch, the release tarball the recipe names from a local
+# mirror, `build.sh -b`, then the package installed from the repository it publishes to and
+# started, and its SMF service present, disabled, then online for a named user. Only when the recipe or this file change.
+# packaging/omnios/SUBMIT.md.
+on:
+  push:
+    branches: [master]
+    paths: ["packaging/omnios/**", ".github/workflows/omnios-extra.yml"]
+  pull_request:
+    paths: ["packaging/omnios/**", ".github/workflows/omnios-extra.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: omnios-extra-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  omnios:
+    name: OmniOS r151058, omnios-extra
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: vmactions/omnios-vm@9576f0b6d15e7696548409baa533bc0a339caf42 # v1.3.7
+        with:
+          release: "r151058"
+          usesh: true
+          mem: 8192
+          prepare: pkg install ooce/extra-build-tools ooce/developer/rust developer/versioning/git
+          run: |
+            set -e
+            export PATH="/opt/ooce/bin:$PATH"
+            ver=$(sed -n 's/^VER=//p' packaging/omnios/coxswain/build.sh)
+            git clone -q --depth 1 https://github.com/omniosorg/omnios-extra /tmp/omx
+            cp -R packaging/omnios/coxswain /tmp/omx/build/
+            mkdir -p /tmp/mirror/coxswain
+            curl -fsSL -o "/tmp/mirror/coxswain/v$ver.tar.gz" \
+              "https://github.com/mwo-dk/coxswain/archive/refs/tags/v$ver.tar.gz"
+            cd /tmp/omx/build/coxswain
+            ./build.sh -b -M /tmp/mirror -s || { tail -60 build.log; exit 1; }
+            # A local build is unsigned; extra.omnios asks for signatures by default.
+            pkg set-publisher --set-property signature-policy=verify extra.omnios
+            pkg install -v -g /tmp/omx/tmp.repo ooce/application/coxswain
+            /opt/ooce/bin/coxswain --version
+            /opt/ooce/bin/cox --version
+            ls /opt/ooce/share/man/man1/coxswain.1
+            s=application/coxswain-index
+            # manifest-import picks the new manifest up in the background.
+            for i in 1 2 3 4 5 6 7 8 9 10; do svcs $s >/dev/null 2>&1 && break; sleep 3; done
+            svcs -H -o state $s | grep -q disabled
+            useradd -m -d /export/home/alice alice || { useradd -d /export/home/alice alice; mkdir -p /export/home/alice; chown alice /export/home/alice; }
+            svccfg -s $s setprop start/user = astring: alice
+            svcadm refresh $s
+            svcadm enable $s
+            sleep 10
+            svcs -p $s
+            tail -5 "$(svcs -L $s)"
+            svcs -H -o state $s | grep -q online
+            test -s /export/home/alice/.cache/coxswain/index.addr
+            svcadm disable -s $s
