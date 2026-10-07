@@ -524,20 +524,25 @@ pub fn trash(path: &Path) -> io::Result<()> {
 
 /// `trash`, with the password of the locked 7z `path` is inside.
 pub fn trash_locked(path: &Path, password: Option<&str>) -> io::Result<()> {
+    trash_named(path, password).map(drop)
+}
+
+/// `trash_locked`; in Termux's own trash, the name it has there (for undo to put it back).
+pub(crate) fn trash_named(path: &Path, password: Option<&str>) -> io::Result<Option<String>> {
     writable(path)?;
     if !path.exists() && crate::archive::split(path).is_some() {
-        return delete_locked(path, password);
+        return delete_locked(path, password).map(|_| None);
     }
     // A Flatpak's XDG_DATA_HOME is its own folder, so the trash crate would fill a trash the
     // desktop never shows: the host's gio puts it in the desktop's.
     if crate::tools::flatpak().is_some() {
         let out = crate::tools::user_command("gio").arg("trash").arg(path).stdin(std::process::Stdio::null()).output()?;
-        return if out.status.success() { Ok(()) } else { Err(io::Error::other(String::from_utf8_lossy(&out.stderr).trim().to_string())) };
+        return if out.status.success() { Ok(None) } else { Err(io::Error::other(String::from_utf8_lossy(&out.stderr).trim().to_string())) };
     }
     #[cfg(not(target_os = "android"))]
-    return trash::delete(path).map_err(io::Error::other);
+    return trash::delete(path).map(|_| None).map_err(io::Error::other);
     #[cfg(target_os = "android")]
-    crate::xdg_trash::put(path)
+    crate::xdg_trash::put(path).map(Some)
 }
 
 /// Whether `trash` can take every one of `paths`. Only Termux's own trash cannot: it takes

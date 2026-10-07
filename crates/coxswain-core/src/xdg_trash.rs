@@ -25,10 +25,10 @@ pub fn takes(path: &Path) -> bool {
     dir().is_some_and(|t| same_fs(&t, path))
 }
 
-/// Move `path` into the trash.
-pub fn put(path: &Path) -> io::Result<()> {
+/// Move `path` into the trash; the name it has there.
+pub fn put(path: &Path) -> io::Result<String> {
     let trash = dir().ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "no home folder"))?;
-    put_in(&trash, path, same_fs).map(|_| ())
+    put_in(&trash, path, same_fs)
 }
 
 /// The same device as `path` itself (a link is where it sits) and the trash, or the nearest
@@ -73,42 +73,27 @@ fn put_in(trash: &Path, path: &Path, same: fn(&Path, &Path) -> bool) -> io::Resu
     unreachable!("some name is free")
 }
 
-/// Put back the newest `path` trashed at `since` (seconds since the epoch) or later: renamed to
-/// where it was, never over what is there now.
-pub fn restore(path: &Path, since: i64) -> io::Result<()> {
+/// Put back what `put` moved in under `name` to `path`, where it was: renamed back, never over
+/// what is there now. The name, not the date, says which: two trashings of one path within a
+/// second have the same date.
+pub fn restore(name: &str, path: &Path) -> io::Result<()> {
     let trash = dir().ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "no home folder"))?;
-    restore_in(&trash, path, since)
+    restore_in(&trash, name, path)
 }
 
-fn restore_in(trash: &Path, path: &Path, since: i64) -> io::Result<()> {
+fn restore_in(trash: &Path, name: &str, path: &Path) -> io::Result<()> {
     let path = std::path::absolute(path)?;
-    let want = encode(&path);
-    // Newest by the date, then (within one second) by when the info file was written.
-    let mut newest: Option<((i64, Option<std::time::SystemTime>), String)> = None;
-    for e in fs::read_dir(trash.join("info"))?.flatten() {
-        let file = e.file_name();
-        let Some(n) = file.to_str().and_then(|n| n.strip_suffix(".trashinfo")) else { continue };
-        let Ok(body) = fs::read_to_string(e.path()) else { continue };
-        let field = |k: &str| body.lines().find_map(|l| l.strip_prefix(k).map(str::to_string));
-        if field("Path=").as_deref() != Some(want.as_str()) {
-            continue;
-        }
-        let when = field("DeletionDate=")
-            .and_then(|d| chrono::NaiveDateTime::parse_from_str(&d, "%Y-%m-%dT%H:%M:%S").ok())
-            .and_then(|d| d.and_local_timezone(chrono::Local).earliest())
-            .map(|d| d.timestamp());
-        let Some(when) = when.filter(|&w| w >= since) else { continue };
-        let key = (when, e.metadata().and_then(|m| m.modified()).ok());
-        if newest.as_ref().is_none_or(|(b, _)| key > *b) {
-            newest = Some((key, n.to_string()));
-        }
+    let info = trash.join("info").join(format!("{name}.trashinfo"));
+    let body = fs::read_to_string(&info).map_err(|_| io::Error::new(io::ErrorKind::NotFound, "not in the trash"))?;
+    // Still the one this path put there, not another under a name freed and taken since.
+    if !body.lines().any(|l| l.strip_prefix("Path=") == Some(encode(&path).as_str())) {
+        return Err(io::Error::new(io::ErrorKind::NotFound, "not in the trash"));
     }
-    let (_, n) = newest.ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "not in the trash"))?;
     if fs::symlink_metadata(&path).is_ok() {
         return Err(io::Error::new(io::ErrorKind::AlreadyExists, format!("{} exists", path.display())));
     }
-    fs::rename(trash.join("files").join(&n), &path)?;
-    let _ = fs::remove_file(trash.join("info").join(format!("{n}.trashinfo")));
+    fs::rename(trash.join("files").join(name), &path)?;
+    let _ = fs::remove_file(info);
     Ok(())
 }
 
@@ -162,25 +147,26 @@ mod tests {
     }
 
     #[test]
-    fn restores_the_newest_and_never_over_a_file() {
+    fn restores_by_name_and_never_over_a_file() {
         let d = tmp("restore");
         let trash = d.join("Trash");
         let f = d.join("a b.txt");
         fs::write(&f, "old").unwrap();
-        put_in(&trash, &f, same_fs).unwrap();
+        let old = put_in(&trash, &f, same_fs).unwrap();
         fs::write(&f, "new").unwrap();
-        put_in(&trash, &f, same_fs).unwrap();
+        let new = put_in(&trash, &f, same_fs).unwrap();
         // Something is there again: left alone.
         fs::write(&f, "other").unwrap();
-        assert_eq!(restore_in(&trash, &f, 0).unwrap_err().kind(), io::ErrorKind::AlreadyExists);
+        assert_eq!(restore_in(&trash, &new, &f).unwrap_err().kind(), io::ErrorKind::AlreadyExists);
         assert_eq!(fs::read_to_string(&f).unwrap(), "other");
         fs::remove_file(&f).unwrap();
-        // Trashed before `since`: not this operation's.
-        assert_eq!(restore_in(&trash, &f, i64::MAX).unwrap_err().kind(), io::ErrorKind::NotFound);
-        restore_in(&trash, &f, 0).unwrap();
+        // Another path's item under that name is not this one's.
+        assert_eq!(restore_in(&trash, &new, &d.join("else.txt")).unwrap_err().kind(), io::ErrorKind::NotFound);
+        restore_in(&trash, &new, &f).unwrap();
         assert_eq!(fs::read_to_string(&f).unwrap(), "new");
+        assert_eq!(restore_in(&trash, &new, &f).unwrap_err().kind(), io::ErrorKind::NotFound, "gone from the trash");
         fs::remove_file(&f).unwrap();
-        restore_in(&trash, &f, 0).unwrap();
+        restore_in(&trash, &old, &f).unwrap();
         assert_eq!(fs::read_to_string(&f).unwrap(), "old");
         assert_eq!(fs::read_dir(trash.join("info")).unwrap().count(), 0);
     }

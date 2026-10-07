@@ -53,8 +53,8 @@ fn stamp(path: &Path, deep: bool) -> Option<Stamp> {
 struct Item {
     /// Where it came from (for a new folder, a pack or a copy: what was made).
     from: PathBuf,
-    /// What the operation left: the new place, the copy, the archive, the folder. Empty for the
-    /// trash.
+    /// What the operation left: the new place, the copy, the archive, the folder. For the trash,
+    /// its name in Termux's trash, else empty.
     to: PathBuf,
     stamp: Option<Stamp>,
 }
@@ -83,8 +83,9 @@ pub fn trash_restores() -> bool {
     !cfg!(any(target_os = "macos", target_os = "ios")) && crate::tools::flatpak().is_none()
 }
 
+/// Put `path` back from the trash; `name`: its name in Termux's trash.
 #[cfg(any(windows, all(unix, not(target_os = "macos"), not(target_os = "ios"), not(target_os = "android"))))]
-fn restore(path: &Path, since: i64) -> io::Result<()> {
+fn restore(path: &Path, _name: &Path, since: i64) -> io::Result<()> {
     use trash::os_limited;
     let want = comparable(path);
     // ponytail: two trashings of one path within a second are told apart by nothing; the newest
@@ -102,12 +103,12 @@ fn restore(path: &Path, since: i64) -> io::Result<()> {
 }
 
 #[cfg(target_os = "android")]
-fn restore(path: &Path, since: i64) -> io::Result<()> {
-    crate::xdg_trash::restore(path, since)
+fn restore(path: &Path, name: &Path, _since: i64) -> io::Result<()> {
+    crate::xdg_trash::restore(&name.to_string_lossy(), path)
 }
 
 #[cfg(any(target_os = "macos", target_os = "ios"))]
-fn restore(_path: &Path, _since: i64) -> io::Result<()> {
+fn restore(_path: &Path, _name: &Path, _since: i64) -> io::Result<()> {
     Err(io::Error::new(io::ErrorKind::Unsupported, t!("undo.no_restore")))
 }
 
@@ -180,9 +181,9 @@ impl Record {
             }
             Kind::Trash => {
                 let real = on_disk(src);
-                cfs::trash_locked(src, password)?;
+                let name = cfs::trash_named(src, password)?.unwrap_or_default();
                 if real && trash_restores() {
-                    self.done(src, Path::new(""));
+                    self.done(src, Path::new(&name));
                 }
             }
             Kind::Mkdir => {
@@ -201,7 +202,8 @@ impl Record {
 
     /// The paths it touches, to read again after it is undone.
     pub fn touched(&self) -> Vec<PathBuf> {
-        self.items.iter().flat_map(|i| [i.from.clone(), i.to.clone()]).filter(|p| !p.as_os_str().is_empty()).collect()
+        let trash = self.kind == Kind::Trash;
+        self.items.iter().flat_map(|i| [Some(i.from.clone()), (!trash).then(|| i.to.clone())]).flatten().collect()
     }
 
     /// What it was, for "Undo: …" and "Undone: …": *rename a.txt → b.txt*, *move 3 items to
@@ -294,7 +296,7 @@ impl Record {
             }
             Kind::Trash => {
                 Self::free(&item.from)?;
-                restore(&item.from, self.since).map_err(|e| err(&item.from, e))
+                restore(&item.from, &item.to, self.since).map_err(|e| err(&item.from, e))
             }
         }
     }
