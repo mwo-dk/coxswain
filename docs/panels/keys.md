@@ -89,8 +89,10 @@ On a Mac the shortcuts are the same, with **Ctrl**, not Cmd.
 
 | Key | Action (F9 name) | Config name | Desktop app | Terminal app |
 |---|---|---|---|---|
+| **Shift+F10**, **Menu** | What can I do with this? | `action_menu` | The actions that fit what is under the cursor ([The action menu](action-menu.md)) | The same (the Menu key where the terminal passes it on) |
 | **F5** | Copy | `copy` | Copy to the other pane ([Copy](../files/copy.md)) | The same |
 | **F6** | Move | `move` | Move or rename ([Move and rename](../files/move-and-rename.md)) | The same |
+| **Shift+F6** | Rename | `rename` | Rename the entry under the cursor in place ([Move and rename](../files/move-and-rename.md)) | The same |
 | **F8**, **Delete** | Delete | `delete` | To the trash ([Delete](../files/delete.md)) | The same |
 | **F7** | New folder | `new_folder` | New folder ([New folder](../files/new-folder.md)) | The same |
 | **Ctrl+C** / **Ctrl+X** / **Ctrl+V** | Copy to clipboard / Cut to clipboard / Paste | `clip_copy` / `clip_cut` / `paste` | Files through the system clipboard ([Clipboard](../files/clipboard.md)) | – |

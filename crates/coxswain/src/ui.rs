@@ -324,7 +324,13 @@ fn cmdline(f: &mut Frame, app: &App, area: Rect) {
         let prompt = format!("{}> ", fit_left(&app.panel().dir.to_string_lossy(), area.width as usize / 2));
         let x = area.x + (prompt.width() + app.cmdline.width()) as u16;
         let full = format!("{prompt}{}", app.cmdline);
-        (Line::from(Span::styled(fit_left(&full, area.width as usize), st)), Some(x.min(area.right().saturating_sub(1))))
+        let mut line = Line::from(Span::styled(fit_left(&full, area.width as usize), st));
+        // While the line is empty: a hint that fits what is under the cursor, dimmed.
+        if let (Some((_, hint)), true, None) = (&app.hint, app.cmdline.is_empty(), &app.dialog) {
+            let room = (area.width as usize).saturating_sub(prompt.width());
+            line.push_span(Span::styled(fit(hint, room), st.add_modifier(Modifier::DIM)));
+        }
+        (line, Some(x.min(area.right().saturating_sub(1))))
     };
     f.render_widget(Paragraph::new(line).style(st), area);
     if let (Some(x), None) = (cursor, &app.dialog) {
@@ -420,8 +426,17 @@ fn dialog(f: &mut Frame, app: &mut App) {
         Dialog::Menu { title, filter, items, cursor, direct } => {
             let visible: Vec<_> = items.iter().filter(|it| it.label.to_lowercase().contains(&filter.to_lowercase())).collect();
             let kw = items.iter().map(|i| i.key.width()).max().unwrap_or(0);
-            let lw = items.iter().map(|i| i.label.width()).max().unwrap_or(0);
-            let h = (visible.len() as u16 + 2 + !direct as u16).min(full.height.saturating_sub(2));
+            let lw = items.iter().map(|i| i.label.width()).max().unwrap_or(0).max(items.iter().filter_map(|i| i.group.as_ref()).map(|g| g.width()).max().unwrap_or(0));
+            // The rows: a heading where the group changes (the action menu), then the items;
+            // `Some(i)` is the i-th visible item.
+            let mut lines: Vec<(Option<usize>, &str)> = vec![];
+            for (i, it) in visible.iter().enumerate() {
+                if let Some(g) = it.group.as_deref().filter(|g| i == 0 || visible[i - 1].group.as_deref() != Some(*g)) {
+                    lines.push((None, g));
+                }
+                lines.push((Some(i), ""));
+            }
+            let h = (lines.len() as u16 + 2 + !direct as u16).min(full.height.saturating_sub(2));
             let inner = frame(f, app, centered(full, (kw + lw + 6) as u16, h), title);
             let mut y = inner.y;
             if !direct {
@@ -429,10 +444,13 @@ fn dialog(f: &mut Frame, app: &mut App) {
                 y += 1;
             }
             let rows = (inner.bottom() - y) as usize;
-            let skip = cursor.saturating_sub(rows.saturating_sub(1));
-            for (i, it) in visible.iter().enumerate().skip(skip).take(rows) {
-                let s = if i == *cursor { sty(&t.dialog_input) } else { dstyle };
-                let line = format!(" {} {}", fit(&it.label, lw), fit(&it.key, kw));
+            let at = lines.iter().position(|l| l.0 == Some(*cursor)).unwrap_or(0);
+            let skip = at.saturating_sub(rows.saturating_sub(1));
+            for (item, heading) in lines.into_iter().skip(skip).take(rows) {
+                let (line, s) = match item {
+                    Some(i) => (format!(" {} {}", fit(&visible[i].label, lw), fit(&visible[i].key, kw)), if i == *cursor { sty(&t.dialog_input) } else { dstyle }),
+                    None => (format!(" {heading}"), dstyle.add_modifier(Modifier::BOLD | Modifier::DIM)),
+                };
                 f.render_widget(Paragraph::new(fit(&line, inner.width as usize)).style(s), Rect { y, height: 1, ..inner });
                 y += 1;
             }

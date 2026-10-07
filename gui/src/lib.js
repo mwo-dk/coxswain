@@ -29,6 +29,7 @@ const NAMED = {
   ArrowLeft: "Left",
   ArrowRight: "Right",
   " ": "Space",
+  ContextMenu: "Menu",
 };
 
 // With Alt/Ctrl held, `key` can be a composed character (macOS Option), so use the

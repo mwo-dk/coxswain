@@ -163,6 +163,7 @@ pub fn draw(f: &mut Frame, app: &mut App) {
             }
             lines.push(Line::from(""));
             lines.push(Line::from(Span::styled(t!("guide.panels_more"), dim)));
+            lines.push(Line::from(Span::styled(coxswain_core::guide::menu_line(&app.cfg), dim)));
         }
         1 => {
             lines.push(para(t!("guide.find_intro", "key" => app.key_label(coxswain_core::config::Action::Search))));

@@ -93,6 +93,8 @@ the defaults; an old `roots` or `exclude` in `[search]` is ignored, like any unk
 | `bom_viewer` | bool | `true` | **F3** on a CycloneDX BOM opens the BOM viewer; `false` opens the pager ([Cryptography bills of materials](../previews/bom.md)) | Terminal |
 | `provenance_viewer` | bool | `true` | **F3** on build provenance opens the provenance viewer; `false` opens the pager ([Build provenance](../previews/provenance.md)) | Terminal |
 | `confirm_delete` | bool | `true` | Ask before moving to the trash, deleting, or taking something out of an archive | Both |
+| `right_click` | string | `"mark"` | A right-click on a row: `"mark"` marks it (Norton Commander), `"menu"` opens the [action menu](../panels/action-menu.md); Ctrl+right-click does the other in the desktop app | Both |
+| `hints` | bool | `true` | One short hint on the status line that fits what is under the cursor, each shown three times ([Hints](../panels/action-menu.md#hints-on-the-status-line)) | Both |
 | `check_updates` | bool | `true` | Look for a newer release once a day ([Update checks](updates.md)) | Both |
 
 ## Glyphs
@@ -355,6 +357,8 @@ Each Settings item and the key it writes, area by area ([The Settings window](..
 | | *Row height* | `[gui] line_height` |
 | *Behaviour* | *Show hidden files when Coxswain starts* | `show_hidden` |
 | | *Ask before deleting* | `confirm_delete` |
+| | *Right-click* | `right_click` |
+| | *Show hints*, *Show the hints again* | `hints` |
 | | *Measure folder sizes* | `folder_sizes` |
 | | *Last commit of each file* | `[git] last_commit` |
 | | *Editor* | `editor` |

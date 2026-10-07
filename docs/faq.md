@@ -16,6 +16,11 @@ The questions people ask most, with a short answer and a link to the full one. E
 
 ## Panels and keys
 
+- **How do I zip a folder?** Cursor on it, Shift+F10, *Pack into an archive* (or Alt+F5 at once); the name ends in `.zip`, Enter. [Answer](panels/action-menu.md#how-do-i-zip-a-folder)
+- **How do I rename a file?** Cursor on it, Shift+F6 (or Shift+F10, *Rename*), type the new name, Enter. [Answer](panels/action-menu.md#how-do-i-rename-a-file)
+- **Can right-click open a menu instead of marking?** Yes: Settings → Behaviour → Right-click → *Opens the action menu*; Ctrl+right-click and the ⋯ on a row open it anyway. [Answer](panels/action-menu.md#can-right-click-open-the-menu-instead-of-marking)
+- **Why did a hint on the status line disappear for good?** Each shows three times; `coxswain --hints reset` or Settings → Behaviour → *Show the hints again* brings them back. [Answer](panels/action-menu.md#why-did-a-hint-disappear-for-good)
+
 - **Why do Left and Right page instead of moving into folders?** That is Norton Commander's way; rebind `parent` and `open` in `[keys]`, and the desktop app's columns view already walks the tree. [Answer](panels/moving.md#why-do-left-and-right-page-instead-of-moving-into-folders)
 - **Why does Alt+T not jump to names with a "t"?** Alt+T is bound to Colour tag, and a bound key does its action; unbind it with `tag = []` or start with another letter. [Answer](panels/quick-search.md#why-does-altt-not-jump-to-names-with-a-t)
 - **Why did `+` not mark any folders?** Groups mark files only, as in NC; mark folders with Insert. [Answer](panels/marking.md#why-did--not-mark-any-folders)

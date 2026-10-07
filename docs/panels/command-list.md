@@ -47,7 +47,7 @@ them, and in each group the most used action first:
 | Moving | Open, Up, Down, Parent folder, Page up, Page down, First, Last, Back, Forward, Left: go to, Right: go to, Edit path |
 | Panels and tabs | Other panel, Hidden files, Refresh, Other panel here, Swap panels, Panels on/off, the tabs, the views, the sidebar, sorting, folder sizes, columns |
 | Marking | Mark, Mark all, Mark group, Unmark group, Invert marks |
-| Files | Copy, Move, Delete, New folder, the clipboard, Delete permanently, Properties, Batch rename, Colour tag, ZFS snapshots, File flags, Files of this package |
+| Files | What can I do with this? (the [action menu](action-menu.md)), Copy, Move, Rename, Delete, New folder, the clipboard, Delete permanently, Properties, Batch rename, Colour tag, ZFS snapshots, File flags, Files of this package |
 | Archives | Extract archive, Pack into an archive |
 | Search | Find, Find in files, Ask your files, Find duplicates |
 | Git | Git history, Git branches, Switch to branch, Git worktrees, New branch here |
@@ -100,7 +100,8 @@ the desktop-only ones are left out rather than shown and refused. It has no them
 #### Where is the pull-down menu?
 
 **F9** opens the searchable command list, *Commands*, instead. It reaches every action that a
-menu would. The terminal app's F-key bar still labels it *PullDn*, for NC's sake; the desktop
+menu would. For just the actions that fit the file under the cursor, press **Shift+F10**
+([The action menu](action-menu.md)). The terminal app's F-key bar still labels it *PullDn*, for NC's sake; the desktop
 app's says *Commands*.
 
 #### How do I see the first-run guide again?
@@ -147,4 +148,4 @@ Those actions have no key, by default or because you unbound them (`= []`).
 `coxswain --paths` prints where everything is kept ([Where things are kept](../reference/where-things-are-kept.md)).
 
 ---
-[← Previous: The mouse](mouse.md) · [Next: What the apps remember →](session.md)
+[← Previous: The mouse](mouse.md) · [Next: What can I do with this? →](action-menu.md)

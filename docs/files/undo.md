@@ -28,7 +28,7 @@ for good.
 | Operation | Keys | Undo does | Only when |
 |---|---|---|---|
 | Copy | **F5**, *Copy here* when dropping, **Ctrl+V** after **Ctrl+C** | Moves the copies to the trash | the copy is unchanged: same size and modification time, for a folder every file in it too |
-| Move or rename | **F6**, *Move here* when dropping, **Ctrl+V** after **Ctrl+X** | Moves each file back to where it was, under its old name | the file is unchanged, and nothing is at the old place now |
+| Move or rename | **F6**, **Shift+F6** (rename), *Move here* when dropping, **Ctrl+V** after **Ctrl+X** | Moves each file back to where it was, under its old name | the file is unchanged, and nothing is at the old place now |
 | Batch rename | **Ctrl+M** (desktop app) | Gives every file its old name back, swaps too | as for a rename |
 | New folder | **F7** | Removes the folder (each folder of a path typed as `a/b/c`) | the folder is still empty |
 | Move to the trash | **F8**, **Delete** | Takes the files out of the trash, back where they were | the trash can give them back (below), and nothing is at that place now |

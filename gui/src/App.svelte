@@ -1,8 +1,9 @@
 <script>
+  import { untrack } from "svelte";
   import { getCurrentWindow } from "@tauri-apps/api/window";
   import { getCurrentWebview } from "@tauri-apps/api/webview";
   import { listen } from "@tauri-apps/api/event";
-  import { ui, openFind, init, tab, pane, otherTab, item, load, cd, up, openHistory, openSnapshots, openPackage, openGitView, switchBranch, newBranch, newTab, goBack, goForward, openItem, toggleMark, targets, reloadAll, refreshDisks, snapshot, setTheme, themeIds, themeName, nextView, measureFolders, columnMenu, refreshUndo, actionLabel } from "./app.svelte.js";
+  import { ui, openFind, init, tab, pane, otherTab, item, load, cd, up, openHistory, openSnapshots, openPackage, openGitView, switchBranch, newBranch, newTab, goBack, goForward, openItem, toggleMark, targets, reloadAll, refreshDisks, snapshot, setTheme, themeIds, themeName, nextView, measureFolders, columnMenu, subject, hooks, refreshUndo, actionLabel } from "./app.svelte.js";
   import { failure } from "./errors.js";
   import { invoke, keyString, basename, parent, glob, quote, isArchive, packFormat, LOCKED } from "./lib.js";
   import { t, tn } from "./i18n.svelte.js";
@@ -350,6 +351,18 @@
     },
     copy: () => transfer(false),
     move: () => readOnly() || transfer(true),
+    rename: () => {
+      const tb = tab();
+      const e = item(tb);
+      if (!e || e.name === ".." || readOnly()) return;
+      const what = describe([e.path]);
+      prompt(t("dialog.rename", { what }), t("app.name_label"), e.name, t("verb.rename"), async (name) => {
+        if (!name.trim() || name === e.name) return;
+        await op((password, only) => invoke("rename", { paths: only ?? [e.path], base: tb.dir, dest: name, password }), t("status.renamed", { what }), what, t("error.rename", { what }));
+        await load(tb, tb.dir, name);
+      });
+    },
+    action_menu: () => actionMenu(),
     new_folder: () =>
       readOnly() ||
       prompt(t("dialog.new_folder"), t("app.name_label"), "", t("verb.create"), async (name) => {
@@ -504,7 +517,43 @@
     forward: () => goForward(),
   };
 
+  /** The actions that fit the marked entries (or the one under the cursor), under the
+   *  headings of F1 and F9, each with its key: Enter runs one, Esc closes. */
+  async function actionMenu() {
+    const groups = await invoke("action_menu", { subject: subject() }).catch(() => []);
+    if (!groups.length) return void (ui.status = t("menu.none"));
+    const paths = targets();
+    ui.modal = {
+      kind: "menu",
+      title: t("menu.title", { what: paths.length ? describe(paths) : t("menu.this_folder") }),
+      direct: false,
+      filter: "",
+      cursor: 0,
+      items: groups.flatMap(([group, names]) => names.map((n) => ({ key: ui.cfg.actions[n][1], label: ui.cfg.actions[n][0], group, run: () => actions[n]?.() }))),
+    };
+  }
+  hooks.actionMenu = actionMenu;
+
+  // The hint for what is under the cursor, worked out again when that changes; not while
+  // typing, in quick search, a dialog, or with something on the status line.
+  let hint = $state(null);
+  let hintFor = null;
+  $effect(() => {
+    if (!ready || !ui.cfg.settings.hints) return void (hint = null);
+    if (ui.modal || ui.status || ui.cmd || ui.quick !== null) return;
+    const s = subject();
+    if (JSON.stringify(s) === JSON.stringify(hintFor)) return;
+    const shown = untrack(() => hint?.[0]);
+    const last = hintFor && shown ? [hintFor, shown] : null;
+    hintFor = s;
+    invoke("hint", { subject: s, last }).then((h) => (hint = h), () => {});
+  });
+
   // ------------------------------------------------------------ keys
+
+  /** When the action menu was opened by a key: the context menu the web view sends after
+   *  Shift+F10 or the Menu key must not mark a row as a right-click does. */
+  let menuKeyAt = 0;
 
   function onkeydown(e) {
     if (!ready) return;
@@ -573,6 +622,7 @@
     }
     if (act) {
       e.preventDefault();
+      if (act === "action_menu") menuKeyAt = Date.now();
       actions[act]?.();
     } else if (plain) {
       cmdInput.focus(); // the character lands in the command line
@@ -599,7 +649,7 @@
   const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 </script>
 
-<svelte:window {onkeydown} />
+<svelte:window {onkeydown} oncontextmenucapture={(e) => Date.now() - menuKeyAt < 1000 && (e.preventDefault(), e.stopPropagation())} />
 
 {#if ready}
   <div class="app" bind:this={main}>
@@ -628,7 +678,7 @@
     <label class="cmdline">
       <span class="prompt">{#if ui.quick !== null}{t("quick_search", { query: ui.quick })}{:else}<bdi dir="ltr">{tab().dir}</bdi> ❯{/if}</span>
       <input class="cmd" dir="auto" bind:this={cmdInput} bind:value={ui.cmd} spellcheck="false" autocomplete="off" placeholder={t("app.cmd_placeholder")} aria-label={t("app.cmd_line")} />
-      {#if ui.status}<span class="status">{ui.status}</span>{/if}
+      {#if ui.status}<span class="status">{ui.status}</span>{:else if hint && !ui.cmd && ui.quick === null && !ui.modal}<span class="status hint">{hint[1]}</span>{/if}
       {#if problem && !update}
         <span class="notice">
           <button class="update" onclick={() => actOn(problem)}>{problem.text}</button>
@@ -754,6 +804,11 @@
     font-family: var(--font), var(--scripts);
     color: var(--marked-fg);
     white-space: nowrap;
+  }
+  .status.hint {
+    color: var(--hidden-fg);
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   .keybar {
     display: grid;

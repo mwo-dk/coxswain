@@ -38,6 +38,8 @@ pub struct AppState {
     pub guide_seen: bool,
     /// What the start of 2.0 renamed in config.toml (`migrate`), for its notice.
     pub migrated: Vec<String>,
+    /// How often each hint on the status line was shown (`menu::hint`).
+    pub hints_shown: BTreeMap<String, u32>,
 }
 
 impl Default for AppState {
@@ -56,6 +58,7 @@ impl Default for AppState {
             pack_ending: String::new(),
             guide_seen: false,
             migrated: vec![],
+            hints_shown: BTreeMap::new(),
         }
     }
 }

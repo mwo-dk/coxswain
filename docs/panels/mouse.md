@@ -15,7 +15,9 @@ and bars to resize.
 |---|---|---|
 | Click | Moves the cursor there and makes the panel active | The same |
 | Double-click | Opens (a folder or archive in the panel, a file in its program) | The same |
-| Right-click | Marks or unmarks, and makes the panel active | Marks or unmarks, in the details and thumbnails views |
+| Right-click | Marks or unmarks, and makes the panel active; with *Right-click* set to the menu, opens the [action menu](action-menu.md) | Marks or unmarks, in the details and thumbnails views; with *Right-click* set to the menu, opens the [action menu](action-menu.md) |
+| Ctrl+right-click | – | The other of the two: the action menu, or marking when right-click opens the menu |
+| **⋯** at the end of a row (the corner of a thumbnail) | – | Opens the [action menu](action-menu.md) on that row; shown on the row under the mouse and the cursor's |
 | Wheel | Moves the cursor of the panel under the mouse by three | Scrolls the list |
 | Ctrl-click (Cmd-click on a Mac) | – | Marks or unmarks, in every view |
 | Shift-click | – | Marks the range from the cursor to the click (details view) |
@@ -56,8 +58,10 @@ to select text anyway.
 
 #### Why does right-click mark instead of opening a menu?
 
-That is Norton Commander's way, and it makes marking with the mouse quick. The actions a menu
-would offer are in the command list (**F9**).
+That is Norton Commander's way, and it makes marking with the mouse quick. The menu is there
+too: **Shift+F10**, the **⋯** on the row, or **Ctrl+right-click** in the desktop app
+([The action menu](action-menu.md)). To make right-click open it, set *Settings → Behaviour →
+Right-click* to *Opens the action menu* (`right_click = "menu"`); both apps follow it.
 
 #### How do I mark a range with the mouse?
 

@@ -18,7 +18,7 @@ folder; **Ctrl+E** extracts it.*
 | Page | What it covers |
 |---|---|
 | [Copy (F5), and when something goes wrong](copy.md) | Copying files and folders, the target field, never overwriting, the error list |
-| [Move and rename (F6)](move-and-rename.md) | Moving, renaming in place, moves across disks |
+| [Move and rename (F6)](move-and-rename.md) | Moving, renaming in place (**Shift+F6**), moves across disks |
 | [New folder (F7)](new-folder.md) | Making a folder, or a whole path of folders at once |
 | [Delete: trash (F8) or for good (Shift+F8)](delete.md) | The trash, deleting for good, the question and how to skip it |
 | [Undo (Ctrl+Z)](undo.md) | Undoing the last copies, moves, renames, new folders, trashings, packs and extracts; what is refused and why |
@@ -38,6 +38,8 @@ folder; **Ctrl+E** extracts it.*
 |---|---|---|---|
 | **F5** | yes | yes | [Copy](copy.md) to the other panel (or anywhere you type) |
 | **F6** | yes | yes | [Move or rename](move-and-rename.md) |
+| **Shift+F6** | yes | yes | [Rename](move-and-rename.md) in place |
+| **Shift+F10**, **Menu** | yes | yes | [What can I do with this?](../panels/action-menu.md): the actions that fit |
 | **F7** | yes | yes | [New folder](new-folder.md) |
 | **F8**, **Delete** | yes | yes | [Move to the trash](delete.md); inside an archive, take out of it |
 | **Shift+F8**, **Shift+Delete** | yes | yes | [Delete for good](delete.md) |
