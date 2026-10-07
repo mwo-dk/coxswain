@@ -14,7 +14,7 @@ terminal app hands the terminal to the program, the desktop app collects its out
 | Page | What it covers |
 |---|---|
 | [The command line and its output](command-line.md) | Typing a command, `cd`, **Ctrl+Enter** to add a name, the shell used, and where the output shows in each app (**Ctrl+O**, the *Command output* pane) |
-| [The user menu, F2](user-menu.md) | Your own commands in `[[user_menu]]`, their keys, `%f` `%d` `%s` `%%`, `wait`, and the four git entries it comes with |
+| [The user menu, F2](user-menu.md) | A terminal here, a file's SHA-256 and `git status` per system, *Add your own command…*, `[[user_menu]]`, `%f` `%d` `%s` `%%`, `wait`, `when`, entries to copy |
 | [Scripts](scripts.md) | The desktop app's `scripts` folder: every file in it is an entry of **F2**, run with the marked files as arguments |
 | [View and edit, F3 and F4](view-and-edit.md) | The viewer and the editor: `viewer`, `editor`, `$PAGER`, `$VISUAL`, `$EDITOR`, and why **F3** is the preview in the desktop app |
 | [Opening files](opening-files.md) | **Enter** and a double-click: folders, archives, programs, and files in their default application |

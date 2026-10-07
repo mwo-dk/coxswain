@@ -721,6 +721,9 @@ pub struct UserCommand {
     /// Wait for Enter afterwards so the output can be read.
     #[serde(default)]
     pub wait: bool,
+    /// Offered only where it fits: on a `file`, or in a `git` repository.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub when: Option<crate::user_menu::When>,
 }
 
 impl UserCommand {
@@ -961,7 +964,8 @@ pub struct Config {
     /// Action -> keys. Listing an action replaces its default keys; `[]` unbinds it.
     pub keys: BTreeMap<Action, Vec<String>>,
     pub themes: BTreeMap<String, Theme>,
-    pub user_menu: Vec<UserCommand>,
+    /// F2's entries. None (no `[[user_menu]]`): the built-in ones (`user_menu::entries`).
+    pub user_menu: Option<Vec<UserCommand>>,
     pub search: SearchConfig,
     pub preview: PreviewConfig,
     pub gui: GuiConfig,
@@ -1001,12 +1005,7 @@ impl Default for Config {
             check_updates: true,
             keys: BTreeMap::new(),
             themes: BTreeMap::new(),
-            user_menu: vec![
-                UserCommand { key: "s".into(), label: "git status".into(), command: "git status".into(), wait: true },
-                UserCommand { key: "l".into(), label: "git log".into(), command: "git log --oneline --graph --decorate -50".into(), wait: true },
-                UserCommand { key: "d".into(), label: "git diff (file)".into(), command: "git diff -- %f".into(), wait: true },
-                UserCommand { key: "b".into(), label: "git blame (file)".into(), command: "git blame -- %f | less".into(), wait: false },
-            ],
+            user_menu: None,
             search: SearchConfig::default(),
             preview: PreviewConfig::default(),
             gui: GuiConfig::default(),
@@ -1230,7 +1229,7 @@ mod tests {
 
     #[test]
     fn config_user_command_expand() {
-        let u = UserCommand { key: "x".into(), label: "x".into(), command: "vim %f %s 100%%".into(), wait: false };
+        let u = UserCommand { key: "x".into(), label: "x".into(), command: "vim %f %s 100%%".into(), wait: false, when: None };
         let dir = std::path::Path::new("/a b");
         let out = u.expand(dir, Some(&dir.join("it's.txt")), &[]);
         if cfg!(unix) {

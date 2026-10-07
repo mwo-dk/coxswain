@@ -218,10 +218,12 @@ The entries of **F2**, one table each:
 | `key` | string | – | The key that picks it in the menu |
 | `label` | string | – | What the menu shows |
 | `command` | string | – | The shell command; `%f` the file, `%d` the folder, `%s` the marked files (or the file), `%%` a `%`, all shell-quoted |
-| `wait` | bool | `false` | Terminal app: wait for Enter afterwards. The desktop app always shows the output |
+| `wait` | bool | `false` | Terminal app: wait for Enter afterwards. Desktop app: show the output even when there is none |
+| `when` | `"file"` or `"git"` | – | Offer it only with the cursor on a file, or only in a git repository |
 
-Without any entries the menu has four git commands: `git status` (**s**), `git log` (**l**),
-`git diff (file)` (**d**), `git blame (file)` (**b**). Your entries replace all four. See
+Without any entries the menu has *Open a terminal here* (**t**), *SHA-256 of the file* (**h**)
+and *git status* (**s**), each with the commands of the system and only where it fits. Your
+entries replace all three; **F2**, **+** opens this section in your editor. See
 [The user menu](../commands/user-menu.md).
 
 ## `[search]`

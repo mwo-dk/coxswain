@@ -3,7 +3,7 @@
 
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use coxswain_core::config::{color_to_rgb, Action, Config, Glyphs, GuiConfig, UserCommand};
+use coxswain_core::config::{color_to_rgb, Action, Config, Glyphs, GuiConfig};
 use coxswain_core::fs::{self as bfs, Entry, SortKey};
 use coxswain_core::icons::{self, Icon};
 use coxswain_core::helper::{self, Client};
@@ -113,7 +113,6 @@ struct UiConfig {
     show_hidden: bool,
     folder_sizes: bool,
     confirm_delete: bool,
-    user_menu: Vec<UserCommand>,
     start: [PathBuf; 2],
     duplicates: Option<Vec<PathBuf>>,
     /// Start with Settings open, at this section ("" for the top).
@@ -186,7 +185,6 @@ fn get_config(ctx: tauri::State<Ctx>) -> Res<UiConfig> {
         show_hidden: cfg.show_hidden,
         folder_sizes: cfg.folder_sizes,
         confirm_delete: cfg.confirm_delete,
-        user_menu: cfg.user_menu.clone(),
         start: ctx.start.clone(),
         duplicates: ctx.duplicates.clone(),
         open_settings: ctx.open_settings.clone(),
@@ -1576,24 +1574,36 @@ async fn run_command(cmd: String, dir: PathBuf) -> Res<String> {
 struct Script {
     key: String,
     label: String,
-    /// Index into `user_menu`, or a script file.
+    /// Index into `user_menu::entries`, or a script file, or neither: "Add your own command".
     user: Option<usize>,
     path: Option<PathBuf>,
+    /// Show the output even when there is none.
+    wait: bool,
 }
 
 fn scripts_dir() -> Option<PathBuf> {
     Config::path().and_then(|p| Some(p.parent()?.join("scripts")))
 }
 
-/// F2: `[[user_menu]]` entries, then executables in `<config>/coxswain/scripts/`.
+/// F2 in `dir` with `file` under the cursor: the user menu's entries that fit there, then the
+/// executables in `<config>/coxswain/scripts/`, then "Add your own command".
 #[tauri::command(async)]
-fn scripts(ctx: tauri::State<Ctx>) -> Vec<Script> {
-    let mut out: Vec<Script> =
-        ctx.cfg().user_menu.iter().enumerate().map(|(i, u)| Script { key: u.key.clone(), label: u.label.clone(), user: Some(i), path: None }).collect();
+fn scripts(dir: PathBuf, file: Option<PathBuf>, ctx: tauri::State<Ctx>) -> Vec<Script> {
+    // Read again: an entry just added in the editor shows at once.
+    if let (Ok(new), Ok(mut cfg)) = (Config::load(), ctx.cfg.write()) {
+        cfg.user_menu = new.user_menu;
+    }
+    let mut out: Vec<Script> = coxswain_core::user_menu::entries(&ctx.cfg(), &dir, file.as_deref())
+        .into_iter()
+        .enumerate()
+        .map(|(i, u)| Script { key: u.key, label: u.label, user: Some(i), path: None, wait: u.wait })
+        .collect();
     for p in scripts_dir().map(|d| script_files(&d)).unwrap_or_default() {
         let label = p.file_stem().unwrap_or_default().to_string_lossy().into_owned();
-        out.push(Script { key: String::new(), label, user: None, path: Some(p) });
+        out.push(Script { key: String::new(), label, user: None, path: Some(p), wait: true });
     }
+    let key = if out.iter().any(|s| s.key == "+") { "" } else { "+" };
+    out.push(Script { key: key.into(), label: coxswain_core::t!("usermenu.add"), user: None, path: None, wait: false });
     out
 }
 
@@ -1624,7 +1634,8 @@ fn script_files(dir: &Path) -> Vec<PathBuf> {
 #[tauri::command]
 async fn run_script(user: Option<usize>, path: Option<PathBuf>, dir: PathBuf, file: Option<PathBuf>, selected: Vec<PathBuf>, ctx: tauri::State<'_, Ctx>) -> Res<String> {
     if let Some(i) = user {
-        let cmd = ctx.cfg().user_menu.get(i).ok_or_else(|| coxswain_core::t!("err.no_such_command"))?.expand(&dir, file.as_deref(), &selected);
+        let list = coxswain_core::user_menu::entries(&ctx.cfg(), &dir, file.as_deref());
+        let cmd = list.get(i).ok_or_else(|| coxswain_core::t!("err.no_such_command"))?.expand(&dir, file.as_deref(), &selected);
         return output(shell(&cmd), &dir);
     }
     let script = path.ok_or_else(|| coxswain_core::t!("err.nothing_to_run"))?;
@@ -1638,6 +1649,16 @@ async fn run_script(user: Option<usize>, path: Option<PathBuf>, dir: PathBuf, fi
     let mut c = coxswain_core::tools::user_command(&real);
     c.args(args);
     output(c, &dir)
+}
+
+/// F2's "Add your own command": config.toml in `editor` at `[[user_menu]]` (an example
+/// written there first), or with the desktop's default when no editor is set.
+#[tauri::command]
+async fn add_user_command(ctx: tauri::State<'_, Ctx>) -> Res<()> {
+    let (path, line) = blocking(coxswain_core::user_menu::prepare).await?;
+    let Some(ed) = ctx.cfg().editor.clone() else { return open_path(path).await };
+    let cmd = coxswain_core::user_menu::edit_command(&ed, &path, line);
+    tauri::async_runtime::spawn_blocking(move || coxswain_core::tools::spawn_watched(shell(&cmd), std::time::Duration::from_secs(1)).map_err(|e| e.to_string())).await.map_err(|e| e.to_string())?
 }
 
 /// A newer release, if the (daily, cached) check found one, and the command that upgrades this
@@ -1755,7 +1776,7 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             get_config, action_menu, hint, hints_reset, notices, dismiss_notice, changes, read_changes, set_title, index_status, index_action, index_service, meaning_status, meaning_action, chat_status, chat_action, meaning_models, meaning_pull, list_dir, zfs_facts, bsd_places, git_status, git_last, git_switch, git_new_branch, places, disks, get_state, save_session, save_favorites, set_tags, set_note, get_note,
             find, find_read_too, ask, ask_stop, ask_check, meaning_change, setup_probe, setup_probe_url, setup_try, setup_speed, resolve_path, copy, rename, delete, mkdir, dir_sizes, rename_plan, rename_apply, undo, undo_next, open_path, edit_path,
-            read_text, run_command, scripts, run_script, check_update, archive_list, extract, pack, archive_password, archive_peek, cloud_fetch, properties, set_flags, set_permissions,
+            read_text, run_command, scripts, run_script, add_user_command, check_update, archive_list, extract, pack, archive_password, archive_peek, cloud_fetch, properties, set_flags, set_permissions,
             clip_set, paste, start_drag, watch_dirs, preview::git_diff, preview::sqlite_info, preview::epub_preview,
             preview::file_facts, preview::cert_info, bom::bom_info, bom::bom_node, bom::bom_diff, provenance::provenance_info, provenance::provenance_statements, provenance::provenance_subject, provenance::provenance_cancel, provenance::provenance_sources, provenance::provenance_diff, provenance::provenance_bom, preview::mail_preview, preview::plist_xml, convert::preview_engines, convert::preview_cache, convert::clear_preview_cache,
             convert::convert, convert::images, convert::pull_image, convert::remove_image, convert::pull_progress, dupes_scan,
