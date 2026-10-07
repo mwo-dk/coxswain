@@ -79,9 +79,10 @@ Both are updated by hand; the README next to each says the tag it came from.
 
 ## The release pipeline
 
-- A release is made only after CI passed for a **push to this repository's `master`** (or by hand
-  from `master`). A pull request, also one from a fork whose branch is named `master`, never
-  starts one.
+- A release is made only after **every system's workflow passed** (CI, FreeBSD, NetBSD, OpenBSD,
+  illumos, and Termux, Flatpak and Nix when they ran) for a **push to this repository's
+  `master`**, or by hand from `master`. A pull request, also one from a fork whose branch is
+  named `master`, never starts one. A build that fails on one system stops the whole release.
 - Every workflow's token reads only; the four release jobs that create the release and upload to
   it may write, nothing else. No checkout keeps the token in `.git/config`, so a build script or a
   package being installed cannot pick it up.
