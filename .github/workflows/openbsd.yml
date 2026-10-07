@@ -6,7 +6,10 @@ name: OpenBSD
 # terminal app's archive packed as a release packs it, installed with install/install-unix.sh,
 # and the search helper's rc.d script started with rcctl, checked and stopped.
 # Only when Rust code, the lock file, the script or this file change. docs/reference/openbsd.md.
+# The port for openbsd-wip (packaging/openbsd/port) builds a crates.io release, not this
+# checkout, so it runs only when started by hand: `gh workflow run openbsd.yml` (--ref <branch>).
 on:
+  workflow_dispatch:
   push:
     branches: [master]
     paths: ["crates/**", "gui/src-tauri/**", "Cargo.toml", "Cargo.lock", "install/install-unix.sh", "packaging/openbsd/**", ".github/workflows/openbsd.yml"]
@@ -23,6 +26,7 @@ concurrency:
 jobs:
   test:
     name: OpenBSD 7.9
+    if: github.event_name != 'workflow_dispatch'
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     steps:
@@ -120,3 +124,90 @@ jobs:
           if pgrep -U alice coxswain; then echo "still running" >&2; exit 1; fi
           sh install/install-unix.sh --uninstall --yes --prefix /usr/local
           test ! -e /usr/local/bin/coxswain && test ! -e /etc/rc.d/coxswain_index
+
+  # The port as openbsd-wip and ports@ get it, built with the 7.9 ports tree: the checksums and
+  # the crate list made again and compared, `make package`, the library check, the packing list,
+  # then the package installed with pkg_add and tried. What the tree makes is this run's artifact.
+  port:
+    name: OpenBSD 7.9, the port for openbsd-wip
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: vmactions/openbsd-vm@5f7b2c933b8846a138361d6843c52af4bef5d945 # v1.4.8
+        with:
+          release: "7.9"
+          usesh: true
+          custom-shell-name: vmsh
+          prepare: |
+            pkg_add -u
+            pkg_add rust cargo-generate-vendor oniguruma sqlite3
+          run: |
+            set -e
+            ftp -o /tmp/ports.tar.gz https://cdn.openbsd.org/pub/OpenBSD/7.9/ports.tar.gz
+            tar -C /usr -xzf /tmp/ports.tar.gz
+            mkdir -p /usr/ports/openbsd-wip/sysutils
+            cp -R packaging/openbsd/port/sysutils/coxswain /usr/ports/openbsd-wip/sysutils/
+            echo 'PORTSDIR_PATH=${PORTSDIR}:${PORTSDIR}/openbsd-wip' >> /etc/mk.conf
+
+      - name: Checksums and crate list, made again
+        shell: vmsh {0}
+        run: |
+          set -e
+          mkdir -p out
+          cd /usr/ports/openbsd-wip/sysutils/coxswain
+          make makesum
+          cp distinfo "$OLDPWD/out/"
+          make modcargo-gen-crates | grep '^MODCARGO_CRATES' > "$OLDPWD/out/gen-crates"
+          make modcargo-gen-crates-licenses | grep '^MODCARGO_CRATES' > "$OLDPWD/out/crates.inc"
+          cd "$OLDPWD"
+          p=packaging/openbsd/port/sysutils/coxswain
+          diff -u $p/distinfo out/distinfo
+          sed 's/[[:space:]]*#.*//' $p/crates.inc | diff -u - out/gen-crates
+          diff -u $p/crates.inc out/crates.inc
+
+      - name: make package, the library check and the packing list
+        shell: vmsh {0}
+        run: |
+          set -e
+          cd /usr/ports/openbsd-wip/sysutils/coxswain
+          make package
+          make port-lib-depends-check 2>&1 | tee "$OLDPWD/out/lib-depends"
+          ! grep -E 'Missing|Extra|Bogus' "$OLDPWD/out/lib-depends"
+          cp pkg/PLIST /tmp/PLIST
+          make update-plist
+          cp pkg/PLIST "$OLDPWD/out/PLIST"
+          diff -u /tmp/PLIST pkg/PLIST
+          /usr/ports/infrastructure/bin/portcheck | tee "$OLDPWD/out/portcheck" || true
+          make test 2>&1 | tail -40 > "$OLDPWD/out/test.log" || echo "make test failed: out/test.log"
+
+      - name: Installed with pkg_add, and tried
+        shell: vmsh {0}
+        run: |
+          set -e
+          pkg_add -D unsigned /usr/ports/packages/amd64/all/coxswain-2.8.1.tgz
+          pkg_info -L coxswain
+          coxswain --version
+          cox --version
+          man -w coxswain
+          useradd -m alice
+          rcctl enable coxswain_index
+          rcctl set coxswain_index user alice
+          rcctl start coxswain_index
+          sleep 8
+          rcctl check coxswain_index
+          rcctl stop coxswain_index
+          rcctl disable coxswain_index
+          pkg_delete coxswain
+          test ! -e /usr/local/bin/coxswain
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: openbsd-port
+          path: out/
+          if-no-files-found: ignore

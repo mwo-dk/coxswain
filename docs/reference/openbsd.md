@@ -241,8 +241,11 @@ OpenBSD desktop yet. Please say what works and what does not in an
 
 ## Questions
 
-**Is there a port?** Not yet. Until then, the script, the archives or `cargo install --locked
-coxswain`.
+**Is there a port?** Not in the ports tree yet. A `sysutils/coxswain` port of the terminal
+app is ready in [`packaging/openbsd/port`](../../packaging/openbsd/port/SUBMIT.md), for
+openbsd-wip and then ports@; it builds with the 7.9 ports tree in CI. Built from it, `doas
+pkg_add` installs `coxswain`, `cox`, the manual page and the `coxswain_index` rc.d script.
+Until it is in the tree, the script, the archives or `cargo install --locked coxswain`.
 
 **Why does the helper miss a new file deep in my tree until later?** Its folder is past the
 watch budget ([OpenBSD's limits](#openbsds-limits-and-what-coxswain-does-about-them)). A login
@@ -264,4 +267,4 @@ than the 1.5 GB a process gets by default: `ulimit -d unlimited` in a `staff` lo
 source there.
 
 ---
-[← Previous: NetBSD](netbsd.md) · [Next: DragonFly BSD →](dragonfly.md)
+[← Previous: NetBSD](netbsd.md) · [Next: illumos →](illumos.md)

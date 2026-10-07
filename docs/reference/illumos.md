@@ -156,7 +156,7 @@ Boot environments (`beadm`) and zones are not listed; that is FreeBSD's `bectl` 
 |---|---|
 | File watching | Event ports (`port_associate`), folder by folder: a folder fires when an entry in it is added, removed or renamed. No file descriptor is held per folder, so up to 20,000 are watched, shallowest first; folders past them are read again at the hourly rebuild |
 | Trash (F8) | `~/.local/share/Trash`, the freedesktop.org layout |
-| Battery | `kstat -p acpi_drv:0:power:power`: `battery` means on battery, and the helper pauses ([Battery](../search/battery.md)). Servers have no such kstat and count as on mains. Not yet tried on a laptop |
+| Battery | `kstat -p acpi_drv:0:power`: a `system power` of `battery` means on battery, and the helper pauses ([Battery](../search/battery.md)). Servers have no such kstat and count as on mains. Not yet tried on a laptop |
 | Memory in the setup guide | `sysconf(_SC_PHYS_PAGES)` |
 | Removable disks | Known by their path only ([Removable disks](../search/removable-disks.md)) |
 | Installing tools | Hints say `pkg install …` where OmniOS has a package (`ooce/application/texlive` for LaTeX); Tesseract, Poppler and LibreOffice have none in OmniOS's repositories |
@@ -241,4 +241,4 @@ folders and reads text with the lowest priority. Leave out what you never search
 on OmniOS in CI; the model itself has not been tried on illumos yet.
 
 ---
-[← Previous: DragonFly BSD](dragonfly.md) · [Next: TrueNAS →](truenas.md)
+[← Previous: OpenBSD](openbsd.md) · [Next: TrueNAS →](truenas.md)

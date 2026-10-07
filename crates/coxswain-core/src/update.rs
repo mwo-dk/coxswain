@@ -90,8 +90,6 @@ pub const FLATPAK_UPDATE: &str = "flatpak update io.github.mwo_dk.Coxswain";
 /// latest release again. Each line uses the download tool the base system has.
 pub const SCRIPT_UPDATE: Option<&str> = if cfg!(target_os = "freebsd") {
     Some("fetch -qo - https://raw.githubusercontent.com/mwo-dk/coxswain/master/install/install-freebsd.sh | sh")
-} else if cfg!(target_os = "dragonfly") {
-    Some("fetch -qo - https://raw.githubusercontent.com/mwo-dk/coxswain/master/install/install-unix.sh | sh")
 } else if cfg!(any(target_os = "netbsd", target_os = "openbsd")) {
     Some("ftp -o - https://raw.githubusercontent.com/mwo-dk/coxswain/master/install/install-unix.sh | sh")
 } else if cfg!(any(target_os = "illumos", target_os = "solaris")) {

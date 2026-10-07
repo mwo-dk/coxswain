@@ -405,14 +405,13 @@ files → Details → Folders → Never indexed*, or `name_exclude` in `[search]
 ## Other BSDs
 
 NetBSD, OpenBSD and illumos have pages of their own, with their install line, their service
-for the search helper and what differs there. DragonFly BSD is not built yet; its page says
-exactly what stops it.
+for the search helper and what differs there. DragonFly BSD: not supported; its Rust (1.85 in DPorts) is too old for Coxswain's dependencies.
 
 | System | Terminal app | Desktop app | Page |
 |---|---|---|---|
 | NetBSD | Release builds, tested in CI | See its page | [NetBSD](netbsd.md) |
 | OpenBSD 7.9 | Release builds, tested in CI with OpenBSD's own Rust | Experimental | [OpenBSD](openbsd.md) |
-| DragonFly BSD | Not yet: an old Rust in DPorts and two crates | Not yet | [DragonFly BSD](dragonfly.md) |
+| DragonFly BSD | Not supported; its Rust (1.85 in DPorts) is too old for Coxswain's dependencies | Not supported | |
 | illumos (OmniOS, OpenIndiana) | Release builds, tested in CI with ZFS | Not built | [illumos](illumos.md) |
 | TrueNAS CORE | This page's build, `--terminal-only`, into your home | Not on a NAS | [TrueNAS](truenas.md) |
 

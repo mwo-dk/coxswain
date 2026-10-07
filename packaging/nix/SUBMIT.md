@@ -1,5 +1,7 @@
 # Submitting Coxswain to nixpkgs
 
+**Owner steps, in order:** [termux-packages](../termux/SUBMIT.md), [pkgsrc-wip](../pkgsrc/SUBMIT.md), [omnios-extra](../omnios/SUBMIT.md), [oi-userland](../openindiana/SUBMIT.md), [openbsd-wip](../openbsd/port/SUBMIT.md), **nixpkgs**. This is step 6 of 6; see [packaging/README.md](../README.md#submitting-by-hand).
+
 What is here, and what the owner does to get `coxswain` (and later `coxswain-gui`) into
 [NixOS/nixpkgs](https://github.com/NixOS/nixpkgs). Nothing has been submitted yet.
 
@@ -23,13 +25,13 @@ there is no ready-made text to paste.
 
 | File | Goes to | Status |
 |---|---|---|
-| [`nixpkgs/coxswain/package.nix`](nixpkgs/coxswain/package.nix) | `pkgs/by-name/co/coxswain/package.nix` | Terminal app, v2.1.0. Built and tested by the *Nix* workflow's job *Nix, the nixpkgs packages* |
+| [`nixpkgs/coxswain/package.nix`](nixpkgs/coxswain/package.nix) | `pkgs/by-name/co/coxswain/package.nix` | Terminal app, v2.8.1. Built and tested by the *Nix* workflow's job *Nix, the nixpkgs packages* |
 | [`nixpkgs/coxswain-gui/package.nix`](nixpkgs/coxswain-gui/package.nix) | `pkgs/by-name/co/coxswain-gui/package.nix` | Desktop app, Linux. Built by the same job. Submit it in a second PR, after the first is in |
 | The maintainer entry below | `maintainers/maintainer-list.nix` | Fill in your handle |
 
 That job runs only when started by hand, after these files change:
 `gh workflow run nix.yml -R mwo-dk/coxswain` (from a branch: `--ref <branch>`). It last passed
-for v2.1.0 on 2026-10-06.
+for v2.8.1 on 2026-10-07.
 
 The flake in this repository (`flake.nix`, `package.nix`, `gui.nix` here) builds from the
 checkout, with no hashes. The nixpkgs files fetch a tagged release instead and carry three
@@ -67,9 +69,21 @@ In both `package.nix` files, `maintainers = with lib.maintainers; [ ];` becomes
    `maintainers: add <NIXPKGS-HANDLE>`.
 4. **Commit 2, the package:** copy `nixpkgs/coxswain/package.nix` here to
    `pkgs/by-name/co/coxswain/package.nix`, put your handle in `maintainers`, and set the
-   version to the latest release. For a version other than 2.1.0 the hashes change: set
-   `hash` and `cargoHash` to `lib.fakeHash`, run the build, and copy the `got: sha256-…`
-   values from the two errors into the file, one after the other.
+   version to the latest release. The files name 2.8.1 with its three hashes. For a newer
+   release `V`, the source hash comes from one command, and the other two from a build that
+   fails on purpose:
+
+   ```sh
+   V=2.9.0   # the release, without the v
+   nix hash convert --hash-algo sha256 --to sri \
+     $(nix-prefetch-url --unpack https://github.com/mwo-dk/coxswain/archive/refs/tags/v$V.tar.gz)
+   ```
+
+   Put that in `hash`, the new version in `version`, and `lib.fakeHash` in `cargoHash` (and in
+   `npmDeps.hash` for the desktop app). `nix-build -A coxswain --keep-going` then stops with
+   `got: sha256-…` for each; copy them in and build again. Without Nix of your own, push the
+   changed files here to a branch and run `gh workflow run nix.yml --ref <branch>`: the job
+   *Nix, the nixpkgs packages* prints the same `got:` lines in its log.
 5. **Build and test:**
    ```sh
    nix-build -A coxswain
@@ -78,21 +92,21 @@ In both `package.nix` files, `maintainers = with lib.maintainers; [ ];` becomes
    man ./result/share/man/man1/coxswain.1.gz
    nix fmt pkgs/by-name/co/coxswain/package.nix   # nixfmt, as nixpkgs' CI checks
    ```
-   Commit with the title `coxswain: init at 2.1.0` (the version you package).
+   Commit with the title `coxswain: init at 2.8.1` (the version you package).
 6. **Review it as nixpkgs will:** `nix run nixpkgs#nixpkgs-review -- rev HEAD`. It builds the
    package and everything that depends on it, and opens a shell with the result to try.
-7. **Push and open the PR** against `NixOS/nixpkgs` `master`, titled `coxswain: init at 2.1.0`,
+7. **Push and open the PR** against `NixOS/nixpkgs` `master`, titled `coxswain: init at 2.8.1`,
    with the description you write (below) and the template's checklist.
 8. **Answer the review.** Reviewers often ask for small changes in style. Push fixes to the same
    branch, and squash them into the two commits when asked.
 9. **The desktop app**, once `coxswain` is merged: the same steps with
    `nixpkgs/coxswain-gui/package.nix` at `pkgs/by-name/co/coxswain-gui/package.nix`, one commit
-   `coxswain-gui: init at 2.1.0`, built with `nix-build -A coxswain-gui` and started with
+   `coxswain-gui: init at 2.8.1`, built with `nix-build -A coxswain-gui` and started with
    `./result/bin/coxswain-gui`. It has a third hash, `npmDeps.hash`, found the same way.
 
 ## The pull request
 
-Title: `coxswain: init at 2.1.0`.
+Title: `coxswain: init at 2.8.1`.
 
 The facts for the description you write:
 
@@ -104,8 +118,6 @@ The facts for the description you write:
   bin target) and the manual page.
 - Tests: the `coxswain` and `coxswain-core` crates' tests run in `checkPhase`, with git (for
   the history and branch tests) and a writable home; `versionCheckHook` checks `--version`.
-  One test is skipped in 2.1.x (`archive_zip_times_are_local`: it read a source file's time,
-  1970 in Nix); the next release fixes the test, and the `checkFlags` line goes.
 - `oniguruma` from nixpkgs (`RUSTONIG_SYSTEM_LIBONIG`), for the tokenizer of search by meaning.
 - Platforms: Linux and Darwin (the upstream CI builds both).
 - The disclosure of the AI assistance, as above.
@@ -123,7 +135,7 @@ The template's checklist, as it applies:
 
 You do not need to submit each release. **r-ryantm**, the bot of
 [nixpkgs-update](https://github.com/nix-community/nixpkgs-update), watches GitHub releases of
-packaged projects; after a new Coxswain release it opens a PR `coxswain: 2.1.0 -> 2.2.0` with
+packaged projects; after a new Coxswain release it opens a PR `coxswain: 2.8.1 -> 2.9.0` with
 the version and all hashes updated and the build checked. As maintainer you are asked to review
 it; a comment that you tested it helps it get merged. When a release needs more than new
 hashes (a new system library, a changed test), the bot's build fails and you make that PR by

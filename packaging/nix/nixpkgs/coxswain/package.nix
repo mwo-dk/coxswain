@@ -12,16 +12,16 @@
 
 rustPlatform.buildRustPackage (finalAttrs: {
   pname = "coxswain";
-  version = "2.1.0";
+  version = "2.8.1";
 
   src = fetchFromGitHub {
     owner = "mwo-dk";
     repo = "coxswain";
     tag = "v${finalAttrs.version}";
-    hash = "sha256-5U9dWdFGijv8cYYWTdvq2hMhcMwO1uaftwv9Io975vE=";
+    hash = "sha256-4lmHzovV/FbjLSEZf2tDJozdkwDhjsZd4rnbXSSbhIw=";
   };
 
-  cargoHash = "sha256-qNFPNMuhg7sUvjfqzRWNzegdYcMv/eDMBR7M+5wUpAI=";
+  cargoHash = "sha256-jXCKlWYfgzquXhdfHqaDmGBm7TOf9P9vqcelpa1WnRI=";
 
   cargoBuildFlags = [ "-p" "coxswain" ];
   cargoTestFlags = [ "-p" "coxswain" "-p" "coxswain-core" ];
@@ -37,10 +37,6 @@ rustPlatform.buildRustPackage (finalAttrs: {
     git
     writableTmpDirAsHomeHook
   ];
-
-  # Reads the time of a source file, which Nix sets to 1970, before the first time a zip can
-  # hold; fixed upstream in the first release after 2.1.2 (the test reads the clock), drop it then.
-  checkFlags = [ "--skip=archive::tests::archive_zip_times_are_local" ];
 
   postInstall = ''
     installManPage crates/coxswain/coxswain.1
