@@ -1,0 +1,13 @@
+Link the system's sqlite3 (databases/sqlite3) instead of building the bundled copy.
+
+Index: modcargo-crates/coxswain-core-2.8.1/Cargo.toml
+--- modcargo-crates/coxswain-core-2.8.1/Cargo.toml.orig
++++ modcargo-crates/coxswain-core-2.8.1/Cargo.toml
+@@ -140,7 +140,6 @@ version = "1"
+ [dependencies.rusqlite]
+ version = "0.40.2"
+ features = [
+-    "bundled",
+     "hooks",
+ ]
+ 

@@ -13,9 +13,10 @@ terminal app from the **crates.io** release (that crate is the terminal app alon
 | `crates.inc` | The crates from the release's `Cargo.lock`, with their licences (`make modcargo-gen-crates-licenses`) |
 | `distinfo` | Checksums of the crate and every dependency (`make makesum`) |
 | `pkg/DESCR`, `pkg/PLIST` | Description and the installed files |
+| `patches/patch-modcargo-crates_coxswain-core-2_8_1_Cargo_toml` | Drops rusqlite's `bundled` feature, so the system's sqlite3 is linked (the cargo module removes the bundled C sources; FTS5, which the search store needs, is in OpenBSD's sqlite3) |
 | `pkg/coxswain_index.rc` | rc.d script for the search helper; the ports tree installs `pkg/*.rc` as `/etc/rc.d/coxswain_index` |
 
-No patches are needed. Nothing here sends mail or opens pull requests: you do, and the
+Nothing here sends mail or opens pull requests: you do, and the
 announcement drafts are kept locally by the owner.
 
 ## What is tested, and what is not
@@ -61,7 +62,8 @@ helped draft the port and that you reviewed and tested it. Check both places aga
    make modcargo-gen-crates-licenses | grep '^MODCARGO' > crates.inc.new && mv crates.inc.new crates.inc
    ```
 
-   Copy `crates.inc` and `distinfo` back here and run the CI job.
+   Rename the patch to the new version (`make update-patches` writes it again), copy
+   `crates.inc`, `distinfo` and `patches/` back here, and run the CI job.
 2. **Fork** <https://github.com/jasperla/openbsd-wip> on GitHub (one click, *Fork*).
 3. **Build and check it on OpenBSD** (7.9 or -current, amd64):
 
