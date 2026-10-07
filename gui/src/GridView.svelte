@@ -2,7 +2,7 @@
   // Thumbnails: images show themselves, everything else its icon. Arrow keys move in 2D
   // (handled in App, which reads the column count from `data-cols`).
   import { untrack } from "svelte";
-  import { openItem, toggleMark, dragOut } from "./app.svelte.js";
+  import { openItem, toggleMark, dragOut, rowContext, rowMenu } from "./app.svelte.js";
   import { convertFileSrc, previewKind, TAG_COLORS } from "./lib.js";
   import { ui } from "./app.svelte.js";
   import { t as tr } from "./i18n.svelte.js";
@@ -91,12 +91,7 @@
         }}
         onclick={(ev) => click(ev, i)}
         ondblclick={() => openItem(t, i)}
-        oncontextmenu={(ev) => {
-          ev.preventDefault();
-          onfocus();
-          t.cursor = i;
-          toggleMark(t, i);
-        }}
+        oncontextmenu={(ev) => rowContext(ev, t, i, onfocus)}
         title={e.name}
       >
         <div class="thumb">
@@ -110,6 +105,7 @@
         <span class="label">
           {#if e.tag}<span class="tag" style:background={TAG_COLORS[e.tag]}></span>{/if}{#if e.online}<span class="cloud" title={tr("details.online")}>{ui.cfg.glyphs.cloud}</span> {/if}{e.name}
         </span>
+        {#if e.name !== ".."}<button class="more" tabindex="-1" title="{tr('action.action_menu')} ({ui.cfg.actions.action_menu?.[1] ?? ''})" aria-label={tr("action.action_menu")} onclick={(ev) => rowMenu(ev, t, i, onfocus)} ondblclick={(ev) => ev.stopPropagation()}>⋯</button>{/if}
       </div>
     {/each}
   </div>
@@ -130,6 +126,7 @@
     padding: 8px;
   }
   .tile {
+    position: relative;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -139,6 +136,23 @@
     cursor: default;
     user-select: none;
     min-width: 0;
+  }
+  .more {
+    position: absolute;
+    top: 4px;
+    inset-inline-end: 4px;
+    padding: 0 6px;
+    font: inherit;
+    color: var(--panel-fg);
+    background: var(--panel-bg);
+    border: 1px solid var(--border-fg);
+    border-radius: var(--r-sm);
+    cursor: pointer;
+    visibility: hidden;
+  }
+  .tile:hover .more,
+  .tile.cursor.focused .more {
+    visibility: visible;
   }
   .tile:hover {
     background: color-mix(in srgb, var(--cursor-bg) 40%, transparent);

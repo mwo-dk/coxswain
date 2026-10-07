@@ -139,6 +139,8 @@ struct UiConfig {
     /// Open the first-run guide at start; its keys and themes.
     guide: bool,
     guide_keys: Vec<(String, String)>,
+    /// Step 1's line on the action menu and right-clicks.
+    guide_menu: String,
     guide_themes: [&'static str; 4],
     /// The line that installs each program Coxswain can use, on this system, where it knows one.
     installs: BTreeMap<&'static str, Option<String>>,
@@ -197,6 +199,7 @@ fn get_config(ctx: tauri::State<Ctx>) -> Res<UiConfig> {
         pack_formats: coxswain_core::archive::PACK_FORMATS,
         guide: ctx.guide,
         guide_keys: coxswain_core::guide::keys(&cfg),
+        guide_menu: coxswain_core::guide::menu_line(&cfg),
         guide_themes: coxswain_core::guide::THEMES,
         ask_name: coxswain_core::chat::shown(&cfg.search.ask_model),
         installs: ["tesseract", "pdftoppm", "soffice", "latex", "plantuml", "pandoc", "nerd-font"].into_iter().map(|p| (p, coxswain_core::tools::install(p))).collect(),
@@ -229,6 +232,26 @@ async fn search_status(ctx: tauri::State<'_, Ctx>) -> Res<Vec<coxswain_core::set
 #[tauri::command]
 fn search_level(level: coxswain_core::settings::Level, ctx: tauri::State<Ctx>) -> Option<serde_json::Map<String, serde_json::Value>> {
     coxswain_core::settings::level_changes(level, &ctx.cfg().search, coxswain_core::meaning::installed())
+}
+
+// ---------------------------------------------------------------- action menu and hints
+
+/// The action menu for what is under the cursor: each heading with its actions' names.
+#[tauri::command]
+fn action_menu(subject: coxswain_core::menu::Subject) -> Vec<(String, Vec<&'static str>)> {
+    coxswain_core::menu::actions(&subject, true).into_iter().map(|(g, v)| (g.label(), v.into_iter().map(Action::name).collect())).collect()
+}
+
+/// The hint for what is under the cursor: its id and text. `last`: the subject the hint on show
+/// was picked for, and its id.
+#[tauri::command(async)]
+fn hint(subject: coxswain_core::menu::Subject, last: Option<(coxswain_core::menu::Subject, String)>, ctx: tauri::State<Ctx>) -> Option<(&'static str, String)> {
+    coxswain_core::menu::hint(&subject, &ctx.cfg(), last.as_ref().map(|(s, id)| (s, id.as_str())))
+}
+
+#[tauri::command(async)]
+fn hints_reset() -> Res<()> {
+    coxswain_core::menu::reset().map_err(|e| e.to_string())
 }
 
 // ---------------------------------------------------------------- listing
@@ -1683,7 +1706,7 @@ fn main() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            get_config, notices, dismiss_notice, changes, read_changes, set_title, index_status, index_action, index_service, meaning_status, meaning_action, chat_status, chat_action, meaning_models, meaning_pull, list_dir, zfs_facts, bsd_places, git_status, git_last, git_switch, git_new_branch, places, disks, get_state, save_session, save_favorites, set_tags, set_note, get_note,
+            get_config, action_menu, hint, hints_reset, notices, dismiss_notice, changes, read_changes, set_title, index_status, index_action, index_service, meaning_status, meaning_action, chat_status, chat_action, meaning_models, meaning_pull, list_dir, zfs_facts, bsd_places, git_status, git_last, git_switch, git_new_branch, places, disks, get_state, save_session, save_favorites, set_tags, set_note, get_note,
             find, find_read_too, ask, ask_stop, ask_check, meaning_change, setup_probe, setup_probe_url, setup_try, setup_speed, resolve_path, copy, rename, delete, mkdir, dir_sizes, rename_plan, rename_apply, open_path, edit_path,
             read_text, run_command, scripts, run_script, check_update, archive_list, extract, pack, archive_password, archive_peek, cloud_fetch, properties, set_flags, set_permissions,
             clip_set, paste, start_drag, watch_dirs, preview::git_diff, preview::sqlite_info, preview::epub_preview,

@@ -39,6 +39,7 @@ Both apps also open their Settings from the command line (`--settings`). For the
 | Where things are kept | `coxswain --paths`, or `coxswain --settings=privacy` | `coxswain-gui --settings=privacy`: *Where things are kept* |
 | Every default | `coxswain --dump-config` | – |
 | Which languages there are | `coxswain --languages` | `coxswain-gui --settings=language` |
+| The status-line hints again | `coxswain --hints reset` | `coxswain-gui --settings=hints`, then *Show the hints again* |
 | What the new version brought | `coxswain --whats-new` | `coxswain-gui --settings=overview`, or click *⚙ Settings*: *What's new* is in the Overview |
 | Search by meaning on | `coxswain --meaning on` | `coxswain-gui --settings=search`, then the level *Names, text and meaning* |
 | Find duplicates in a folder | – | `coxswain-gui --duplicates ~/Pictures` |
@@ -68,6 +69,7 @@ coxswain [LEFT] [RIGHT]      a folder, or a file to open its folder with the cur
                            built-in model) that answers questions from your files, or one
                            built in: builtin:qwen3-1.7b, builtin:qwen3-4b (downloaded once);
                            delete: the built-in ones deleted
+  --hints reset            show the hints on the command line again, each a few times
   --languages              the languages, by region, and how to help improve a new translation
   --whats-new [all]        what the versions since you last looked brought (all: every version)
   --version
@@ -87,6 +89,7 @@ coxswain [LEFT] [RIGHT]      a folder, or a file to open its folder with the cur
 | `--index-service [on\|off]` | The search helper with your session: see [below](#--index-service) |
 | `--meaning [on\|off\|delete\|ollama\|server\|builtin\|cpu\|auto]` | Search by meaning: see [below](#--meaning) |
 | `--index-helper` | Runs as the search helper instead of the app: see [below](#the-helper---index-helper) |
+| `--hints reset` | Every hint on the status line shows three times again, in both apps (they share `state.json`), and says so. See [The action menu and hints](../panels/action-menu.md#hints-on-the-status-line) |
 | `--languages` | Prints every language under its region, one line each: code, own name, *new* for a fresh translation and *(current)* for the one in use, then where `language` is set and where to suggest a better word. In your language. See [Languages](../customise/languages.md) |
 | `--whats-new` | Prints the changes of the versions you have not read yet, newest first, or of the version you run when you have read them all, then counts them as read (in both apps). Each version is a line `1.29.0  2026-10-04`, then its changes, with each docs link as `Find <https://github.com/mwo-dk/coxswain/blob/master/docs/search/find-file.md>`. See [Notices and what's new](../search/notices.md) |
 | `--whats-new all` | Prints every version's changes, newest first |

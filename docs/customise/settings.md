@@ -243,6 +243,8 @@ Opening this area asks the container runtime which images it has.
 |---|---|---|
 | *Show hidden files when Coxswain starts* | **Alt+.** still switches them at any time ([Sorting and hidden files](../panels/sorting.md)) | `show_hidden` |
 | *Ask before deleting* | Off: **F8** and **Delete** act at once ([Delete](../files/delete.md)) | `confirm_delete` |
+| *Right-click* | *Marks it (Norton Commander)* or *Opens the action menu (a file explorer)*; Ctrl+right-click does the other in the desktop app ([The action menu](../panels/action-menu.md)) | `right_click` |
+| *Show hints* | One short hint on the status line that fits what is under the cursor, each three times. *Show the hints again* (desktop app; `coxswain --hints reset` in a terminal) brings them back ([Hints](../panels/action-menu.md#hints-on-the-status-line)) | `hints` |
 | *Measure folder sizes* | Folders show their whole size, measured in the background. The desktop app's columns menu switches it too ([Folder sizes](../panels/folder-sizes.md)) | `folder_sizes` |
 | *Last commit of each file* | The *Last commit* column and the preview's *Last commit* ([Last commit per file](../panels/git.md#last-commit-per-file)) | `[git] last_commit` |
 | *Editor* | The program **F4** opens a file in. Empty: the system's choice in the desktop app, `$VISUAL` or `$EDITOR` in the terminal app ([View and edit](../commands/view-and-edit.md)) | `editor` |
@@ -293,6 +295,7 @@ Every option, the name `--settings=` takes, its key, and who reads it:
 | Icons and git glyphs | `glyphs` | `glyphs` | `"nerd"`/`"ascii"`, `"nerd"` | Both apps |
 | Font, Monospaced font, Icon font, Text size, Row height | `font`, `mono_font`, `icon_font`, `font_size`, `line_height` | `[gui] font` … `line_height` | CSS font lists; `13`; `1.9` | Desktop app |
 | Show hidden files…, Ask before deleting (Behaviour) | `show_hidden`, `confirm_delete` | `show_hidden`, `confirm_delete` | true/false | Both apps |
+| Right-click, Show hints (Behaviour) | `right_click`, `hints` | `right_click`, `hints` | `"mark"`/`"menu"`, `"mark"`; true/false, `true` | Both apps |
 | Measure folder sizes, Last commit of each file | `folder_sizes`, `git_last_commit` | `folder_sizes`, `[git] last_commit` | true/false | Both apps |
 | Editor, Viewer, CBOM viewer on F3, Provenance viewer on F3 | `editor`, `viewer`, `bom_viewer`, `provenance_viewer` | `editor`, `viewer`, `bom_viewer`, `provenance_viewer` | text (absent: the environment); true/false, `true` | Editor: both apps; the others: the terminal app |
 | Check for a new version (Privacy and updates) | `check_updates` | `check_updates` | true/false, `true` | Both apps |

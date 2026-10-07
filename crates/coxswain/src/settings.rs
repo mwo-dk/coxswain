@@ -293,6 +293,7 @@ fn choices(name: &str, cfg: &Config) -> Option<Vec<(String, String)>> {
         "preview_prefer" => pairs(&[("auto", "settings.prefer_auto"), ("local", "settings.prefer_local"), ("container", "settings.prefer_container")]),
         "preview_container" => pairs(&[("auto", "settings.container_auto"), ("podman", "podman"), ("docker", "docker"), ("off", "settings.container_off")]),
         "glyphs" => pairs(&[("nerd", "settings.glyphs_nerd"), ("ascii", "settings.glyphs_ascii")]),
+        "right_click" => pairs(&[("mark", "settings.right_click_mark"), ("menu", "settings.right_click_menu")]),
         "meaning_engine" => vec![
             ("builtin".into(), t!("settings.meaning_builtin", "size" => cs::human(coxswain_core::meaning::size()))),
             ("ollama".into(), "Ollama".into()),

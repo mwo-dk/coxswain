@@ -29,6 +29,7 @@ Every key here is a default. Each one can be changed in `config.toml` under `[ke
 | [Git branches and worktrees](git-branches.md) | **Alt+B**: the branches, a branch's files, switching (**Alt+S**) and new branches; **Alt+W**: the worktrees |
 | [The mouse](mouse.md) | Clicks, marks, drags, the path bar, the splitters |
 | [The command list (F9) and Help (F1)](command-list.md) | Every action by name, and the keys by group |
+| [What can I do with this? The action menu and hints](action-menu.md) | **Shift+F10** or **Menu**: the actions that fit what is under the cursor, each with its key; the hints on the status line; what right-click does |
 | [What the apps remember](session.md) | The desktop app's session, what the terminal app keeps, what is forgotten |
 | [Every default key](keys.md) | The full table for both apps, and the keys inside dialogs |
 
@@ -52,6 +53,7 @@ Every key here is a default. Each one can be changed in `config.toml` under `[ke
 | **Alt+V** | Yes | – | Details, columns, thumbnails |
 | **Ctrl+G** | Yes | Yes | The git history of the file or folder under the cursor |
 | **Alt+B** / **Alt+W** | Yes | Yes | The repository's branches / worktrees |
+| **Shift+F10**, **Menu** | Yes, also the **⋯** on a row and Ctrl+right-click | Yes | [What can I do with this?](action-menu.md): the actions that fit |
 | **F9** | Yes | Yes | The command list |
 | **F1** | Yes | Yes | Help; from there the [first-run guide](first-run.md) again (*Show the guide again* in the desktop app, **G** in the terminal app) |
 
