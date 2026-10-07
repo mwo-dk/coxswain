@@ -222,8 +222,8 @@ With it the first word comes in 0.3–0.4 seconds once the model is loaded.
 `qwen3:8b` 32,768 by default, and the cache for that pushed the model partly off an 8 GB graphics
 card and the embedding model (`bge-m3`) out of it, so every question loaded both again: about 7
 seconds before the first word. With 8,192 both stay loaded. Reading a full context takes a moment: with
-`qwen3:8b` on that card the first word came after about 2.3–2.6 seconds, where ten passages took
-1.0–2.7. The chat model is loaded with the same context
+`qwen3:8b` loaded on that card the first word came after 0.6–1.2 seconds, where ten passages took
+0.5–1.0. The chat model is loaded with the same context
 while the sources are looked up, so it is not loaded twice. A model that always
 thinks (DeepSeek-R1, Qwen3's *thinking* models) cannot be stopped; *Waiting for … to answer*
 stays until it has. To let the model think, for harder questions: tick *Let the model think

@@ -329,8 +329,8 @@ and within 0.15 of the best, where it was 0.5 and 0.10), the same corpus and que
 | The passage that answers | 30 of 32 (was 29) | 32 of 32 (was 31) |
 
 With `qwen3:8b` on Ollama (RTX 4070 laptop GPU, 8 GB), asked about this repository itself, the
-prompt grew from about 1,600 to 5,500–6,100 tokens, and the first word came after 2.3–2.6 s
-where it came after 1.0–2.7 s.
+prompt grew from about 1,600 to 5,500–6,100 tokens, and with the model loaded the first word came
+after 0.6–1.2 s where it came after 0.5–1.0 s.
 
 The scores behind the cut-off: e5 gives unrelated text 0.76–0.82 and the answer 0.81–0.91;
 bge-m3 unrelated text 0.30–0.55 and the answer 0.48–0.72. At 0.5, bge-m3 dropped the diagram
