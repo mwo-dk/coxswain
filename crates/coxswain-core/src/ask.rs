@@ -152,7 +152,7 @@ pub fn overview(dir: &Path, bytes: usize, exclude: &[String]) -> Vec<(PathBuf, S
     let mut manifests = vec![];
     walk(dir, 0, &skip, &mut tree, &mut manifests);
     let readme = entries(dir).into_iter().filter(|(_, d)| !d).map(|(p, _)| p).find(|p| p.file_stem().is_some_and(|s| s.eq_ignore_ascii_case("readme")));
-    let docs = ["docs/README.md", "docs/index.md", "doc/README.md", "doc/index.md"].iter().map(|d| dir.join(d)).find(|p| p.is_file());
+    let docs = [("docs", "README.md"), ("docs", "index.md"), ("doc", "README.md"), ("doc", "index.md")].iter().map(|(d, f)| dir.join(d).join(f)).find(|p| p.is_file());
     let mut out = vec![];
     let mut left = bytes;
     let mut put = |path: PathBuf, text: String, most: usize| {
@@ -263,7 +263,7 @@ mod tests {
         std::fs::write(d.join("crates/core/Cargo.toml"), "[package]\nname = \"core\"\ndescription = \"The core\"\n").unwrap();
         std::fs::write(d.join("docs/README.md"), "# Docs\n").unwrap();
         let o = overview(&d, 20_000, &["target".into()]);
-        let names: Vec<_> = o.iter().map(|(p, _)| p.strip_prefix(&d).unwrap().to_string_lossy().into_owned()).collect();
+        let names: Vec<_> = o.iter().map(|(p, _)| p.strip_prefix(&d).unwrap().to_string_lossy().replace('\\', "/")).collect();
         assert_eq!(names, ["README.md", "", "Cargo.toml", "crates/core/Cargo.toml", "docs/README.md"]);
         let tree = &o[1].1;
         assert!(tree.contains("  crates/\n    core/\n") && tree.contains("  docs/\n"), "{tree}");
@@ -283,7 +283,7 @@ mod tests {
         let readme = d.join("README.md");
         let found = |_: &str, _: Option<&Path>, _: usize| vec![(readme.clone(), format!("A rocket planner.{GAP}## Fuel budget")), (d.join("src/fuel.rs"), "fn fuel()".to_string())];
         let s = sources(found, &cfg, &[], "What is this project about?", None, &d).unwrap();
-        let names: Vec<_> = s.iter().map(|(p, _)| p.strip_prefix(&d).unwrap().to_string_lossy().into_owned()).collect();
+        let names: Vec<_> = s.iter().map(|(p, _)| p.strip_prefix(&d).unwrap().to_string_lossy().replace('\\', "/")).collect();
         assert_eq!(names, ["README.md", "", "src/fuel.rs"], "the README once, with what the excerpts add");
         assert!(s[0].1.ends_with(&format!("{GAP}## Fuel budget")), "{:?}", s[0].1);
         let s = sources(found, &cfg, &[], "How much fuel?", None, &d).unwrap();
