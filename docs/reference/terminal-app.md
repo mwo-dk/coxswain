@@ -97,7 +97,7 @@ action's name. The **F9** list and **F1** help leave them out.
 | **Enter** on a program | Runs it in the panel's folder and waits for Enter | Hands it to the desktop |
 | **Enter** on another file | Opens it in its default application | Opens it in its default application |
 | A command's output | In the terminal, the panels hidden meanwhile | In the preview pane |
-| `wait` in `[[user_menu]]` | Waits for Enter afterwards (`-- press Enter --`) | Ignored: the output is always shown |
+| `wait` in `[[user_menu]]` | Waits for Enter afterwards (`-- press Enter --`) | Shows the output even when there is none |
 | Changes on disk | Read again after operations, commands, a change in a panel's folder and **Ctrl+R** (*Refresh*) | Folders on screen are read again by themselves |
 | Theme | `theme` (default `nc`), colours only; `look` is ignored | `[gui] theme` (default `cyber`), with its look |
 | Hidden files at start | Always from `show_hidden` | From the last session |

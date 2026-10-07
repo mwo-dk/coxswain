@@ -298,7 +298,9 @@ pub enum Transfer {
 
 pub enum MenuRun {
     Action(Action),
-    User(usize),
+    User(config::UserCommand),
+    /// Open config.toml at `[[user_menu]]`.
+    AddUser,
     /// A panel to a folder (a boot environment, a jail); none: the line to type a path in.
     Goto(usize, Option<PathBuf>),
     /// Cannot be gone to: why, on the status line.
@@ -1070,13 +1072,14 @@ impl App {
                 self.dialog = Some(Dialog::Search { query: String::new(), chip, here: false, found: Found::default(), cursor: 0, offset: 0, show });
             }
             Action::UserMenu => {
-                let items = self
-                    .cfg
-                    .user_menu
-                    .iter()
-                    .enumerate()
-                    .map(|(i, u)| MenuItem { key: u.key.clone(), label: u.label.clone(), run: MenuRun::User(i), group: None })
+                let p = self.panel();
+                let file = p.current().filter(|e| !e.is_parent()).map(|e| e.path.as_path());
+                let mut items: Vec<MenuItem> = coxswain_core::user_menu::entries(&self.cfg, &p.dir, file)
+                    .into_iter()
+                    .map(|u| MenuItem { key: u.key.clone(), label: u.label.clone(), run: MenuRun::User(u), group: None })
                     .collect();
+                let key = if items.iter().any(|i| i.key == "+") { "" } else { "+" };
+                items.push(MenuItem { key: key.into(), label: t!("usermenu.add"), run: MenuRun::AddUser, group: None });
                 self.dialog = Some(Dialog::Menu { title: t!("tui.user_menu"), filter: String::new(), items, cursor: 0, direct: true });
             }
             Action::Menu => {
@@ -1332,13 +1335,28 @@ impl App {
         let prog = if a == Action::View {
             self.cfg.viewer.clone().or_else(|| env("PAGER")).unwrap_or_else(|| if cfg!(windows) { "more".into() } else { "less".into() })
         } else {
-            self.cfg.editor.clone().or_else(|| env("VISUAL")).or_else(|| env("EDITOR")).unwrap_or_else(|| {
-                if cfg!(windows) { "notepad".into() } else { "vi".into() }
-            })
+            self.editor()
         };
         let dir = file.parent().unwrap_or(Path::new(".")).to_path_buf();
         let cmd = format!("{prog} {}", config::quote(&file.to_string_lossy()));
         self.run = Some(Run::Shell { cmd, dir, wait: false });
+    }
+
+    fn editor(&self) -> String {
+        let env = |v: &str| std::env::var(v).ok().filter(|s| !s.is_empty());
+        self.cfg.editor.clone().or_else(|| env("VISUAL")).or_else(|| env("EDITOR")).unwrap_or_else(|| if cfg!(windows) { "notepad".into() } else { "vi".into() })
+    }
+
+    /// F2's last entry: config.toml in the editor at `[[user_menu]]`, an example there first.
+    fn add_user(&mut self) {
+        match coxswain_core::user_menu::prepare() {
+            Ok((path, line)) => {
+                let cmd = coxswain_core::user_menu::edit_command(&self.editor(), &path, line);
+                let dir = path.parent().unwrap_or(Path::new(".")).to_path_buf();
+                self.run = Some(Run::Shell { cmd, dir, wait: false });
+            }
+            Err(e) => self.status = Some(e),
+        }
     }
 
     fn run_cmdline(&mut self) {
@@ -1921,7 +1939,8 @@ impl App {
                 };
                 match run.map(|i| &items[i].run) {
                     Some(MenuRun::Action(a)) => self.act(*a),
-                    Some(MenuRun::User(i)) => self.run_user(*i),
+                    Some(MenuRun::User(u)) => self.run_user(u),
+                    Some(MenuRun::AddUser) => self.add_user(),
                     Some(MenuRun::Goto(side, None)) => self.goto_prompt(*side),
                     Some(MenuRun::Goto(side, Some(dir))) => self.cd(*side, dir.clone()),
                     Some(MenuRun::Say(why)) => self.status = Some(why.clone()),
@@ -1992,8 +2011,7 @@ impl App {
         }
     }
 
-    fn run_user(&mut self, i: usize) {
-        let u = &self.cfg.user_menu[i];
+    fn run_user(&mut self, u: &config::UserCommand) {
         let p = self.panel();
         let file = p.current().filter(|e| !e.is_parent()).map(|e| e.path.as_path());
         let marked: Vec<PathBuf> = p.entries.iter().filter(|e| p.marked.contains(&e.path)).map(|e| e.path.clone()).collect();
@@ -2270,8 +2288,10 @@ fn main_loop(term: &mut DefaultTerminal, app: &mut App) -> std::io::Result<()> {
             Some(Run::Shell { cmd, dir, wait }) => {
                 suspended(term, || run_shell(&cmd, &dir, wait))?;
                 // The setup guide, run from Find, changes the search settings.
+                // An entry added to the user menu shows at once.
                 if let Ok(cfg) = Config::load() {
                     app.cfg.search = cfg.search;
+                    app.cfg.user_menu = cfg.user_menu;
                 }
                 app.reload();
             }
