@@ -226,24 +226,25 @@ mod tests {
         assert_eq!(keys, ["t", "h", "s"]);
     }
 
-    /// The defaults of the system the tests run on: CI runs them on each one.
+    /// The defaults of the system the tests run on (CI runs them on each one), where its tool
+    /// is on PATH: a build sandbox (Nix) may have none.
     #[test]
     fn user_menu_defaults_here() {
         let here: Vec<(String, String)> = builtin().into_iter().map(|u| (u.key, u.command)).collect();
         let h = here.iter().find(|(k, _)| k == "h").map(|(_, c)| c.as_str());
-        #[cfg(windows)]
-        assert_eq!(h, Some("certutil -hashfile %f SHA256"));
-        #[cfg(target_os = "macos")]
-        assert_eq!(h, Some("shasum -a 256 -- %f"));
-        #[cfg(target_os = "macos")]
-        assert!(here.iter().any(|(_, c)| c == "open -a Terminal ."));
-        #[cfg(target_os = "freebsd")]
-        assert_eq!(h, Some("sha256 -- %f"));
-        #[cfg(target_os = "linux")]
-        if crate::tools::which("sha256sum").is_some() && !crate::termux::active() {
-            assert_eq!(h, Some("sha256sum -- %f"));
+        let want = match std::env::consts::OS {
+            "windows" => Some(("certutil", "certutil -hashfile %f SHA256")),
+            "macos" => Some(("shasum", "shasum -a 256 -- %f")),
+            "freebsd" | "openbsd" => Some(("sha256", "sha256 -- %f")),
+            "linux" if !crate::termux::active() => Some(("sha256sum", "sha256sum -- %f")),
+            _ => None,
+        };
+        if let Some((tool, command)) = want.filter(|(tool, _)| installed(tool)) {
+            assert_eq!(h, Some(command), "{tool}");
         }
-        let _ = h;
+        if cfg!(target_os = "macos") {
+            assert!(here.iter().any(|(_, c)| c == "open -a Terminal ."));
+        }
     }
 
     #[test]
