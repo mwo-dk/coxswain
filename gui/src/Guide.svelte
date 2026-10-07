@@ -82,6 +82,7 @@
       </table>
       <p class="hint">{t("guide.panels_more")}</p>
       <p class="hint">{ui.cfg.guide_menu}</p>
+      <p class="hint">{ui.cfg.guide_features}</p>
     {:else if m.step === 1}
       <p class="lead">{t("guide.find_intro", { key: keyOf("search") })}</p>
       <div class="levels" role="radiogroup">

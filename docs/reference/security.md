@@ -27,7 +27,7 @@ how to report a problem in Coxswain itself. What Coxswain sends over the network
 | Licences of every crate | `cargo deny check licenses`, allow list in `deny.toml` | Same |
 | Crates from unknown registries or git | `cargo deny check sources` | Same |
 | Known vulnerabilities in npm packages | `npm audit --audit-level=high` in `gui/` | Same |
-| Builds and tests on Linux, macOS and Windows, and the static musl build | `cargo test`, `cargo clippy`, `svelte-check`, Vite | Every pull request |
+| Builds and tests on Linux, macOS and Windows, and the static musl build | `cargo test`, `cargo clippy`, `svelte-check`, Vite | Every pull request, and every push to `master` as part of its Release run |
 
 The weekly run matters: an advisory published after the last change would otherwise go unseen
 until someone touched the code. A failing check blocks the pull request; a failing weekly run
@@ -79,18 +79,34 @@ Both are updated by hand; the README next to each says the tag it came from.
 
 ## The release pipeline
 
-- A release is made only after **every system's workflow passed** (CI, FreeBSD, NetBSD, OpenBSD,
-  illumos, and Termux, Flatpak and Nix when they ran) for a **push to this repository's
-  `master`**, or by hand from `master`. A pull request, also one from a fork whose branch is
-  named `master`, never starts one. A build that fails on one system stops the whole release.
-- Every workflow's token reads only; the four release jobs that create the release and upload to
-  it may write, nothing else. No checkout keeps the token in `.git/config`, so a build script or a
+- **Never a partial release.** One *Release* run per push to this repository's `master` (or by
+  hand from `master`) runs CI and every system's workflow (FreeBSD, NetBSD, OpenBSD, illumos,
+  Termux, Flatpak, Nix) as parts of itself. Only when all of them pass, and the version in
+  `Cargo.toml` has no release yet, does it make a draft and build every platform. A pull request,
+  also one from a fork whose branch is named `master`, never starts one; a push without a new
+  version only runs the tests.
+- **Every file, or none.** Before publishing, the `verify` job checks the draft against the full
+  list of files the build matrices make (`packaging/release-assets.sh`: every desktop installer
+  for each system and processor, every terminal archive, the FreeBSD and OpenBSD desktop
+  archives, the bills of materials and the licence notices), every archive's `.sha256` against
+  the archive, and one `SHA256SUMS` naming every file. Any gap fails the run with an error naming
+  what is missing, and the draft is deleted, so no half-made release is ever published or left
+  behind. Two commits with the same version never release it twice: the draft says which run
+  makes it, and a second run leaves it to that one.
+- **Every channel.** After publishing, crates.io, the Homebrew tap, WinGet and the FreeBSD port
+  are updated, each step tried again on a passing fault (an HTTP 5xx or 429, a lost blob), up to
+  five times with a longer wait each time. A channel that still fails turns the run red with an
+  error naming it.
+- Every workflow's token reads only; the release jobs that make the draft, upload to it, publish
+  it or delete it may write, nothing else. No checkout keeps the token in `.git/config`, so a build script or a
   package being installed cannot pick it up.
 - The version is read from `Cargo.toml` and must be `X.Y.Z`; values from the run go into scripts
   as environment variables, never pasted into the script's text.
-- After it is published, each release is installed from its own downloads on every system it has
-  an install script or package for, and its checksums are checked against `SHA256SUMS`
-  (`release-check.yml`, [packaging/README.md](../../packaging/README.md)).
+- When the Release run ends, `release-check.yml` installs the release from its own downloads on
+  every system it has an install script or package for, checks its files against the same list
+  and its checksums against `SHA256SUMS`, and checks each channel for the version: crates.io,
+  the Homebrew formula and cask, a WinGet pull request for each listed package, the FreeBSD port
+  artifact ([packaging/README.md](../../packaging/README.md)).
 - The release build of the desktop app has no web inspector (Tauri's `devtools` is off), so no
   page a file rendered can be opened in one.
 

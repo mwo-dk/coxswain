@@ -154,6 +154,7 @@ struct UiConfig {
     guide_keys: Vec<(String, String)>,
     /// Step 1's line on the action menu and right-clicks.
     guide_menu: String,
+    guide_features: String,
     guide_themes: [&'static str; 4],
     /// The line that installs each program Coxswain can use, on this system, where it knows one.
     installs: BTreeMap<&'static str, Option<String>>,
@@ -216,6 +217,7 @@ fn get_config(ctx: tauri::State<Ctx>) -> Res<UiConfig> {
         guide: ctx.guide,
         guide_keys: coxswain_core::guide::keys(&cfg),
         guide_menu: coxswain_core::guide::menu_line(&cfg),
+        guide_features: coxswain_core::guide::features_line(&cfg),
         guide_themes: coxswain_core::guide::THEMES,
         ask_name: coxswain_core::chat::shown(&cfg.search.ask_model),
         trash_restores: coxswain_core::undo::trash_restores(),
@@ -270,6 +272,22 @@ fn hint(subject: coxswain_core::menu::Subject, last: Option<(coxswain_core::menu
 #[tauri::command(async)]
 fn hint_once(id: String, ctx: tauri::State<Ctx>) -> bool {
     coxswain_core::menu::once(&id, &ctx.cfg())
+}
+
+/// F1 → Features: every feature with its keys and questions, filtered by `query`.
+#[tauri::command(async)]
+fn features(query: String, ctx: tauri::State<Ctx>) -> Vec<coxswain_core::features::Entry> {
+    coxswain_core::features::list(&ctx.cfg(), &query, true)
+}
+
+/// "Show me": the feature's docs page on GitHub, in the browser. Only on that click: nothing
+/// else in Features reaches the network.
+#[tauri::command]
+async fn open_docs(id: String) -> Res<String> {
+    let url = coxswain_core::features::find(&id).ok_or_else(|| format!("no feature {id}"))?.url();
+    let at = url.clone();
+    tauri::async_runtime::spawn_blocking(move || bfs::open_default(Path::new(&at)).map_err(|e| e.to_string())).await.map_err(|e| e.to_string())??;
+    Ok(url)
 }
 
 #[tauri::command(async)]
@@ -1809,7 +1827,7 @@ fn main() {
             clip_set, paste, start_drag, watch_dirs, preview::git_diff, preview::sqlite_info, preview::epub_preview,
             preview::file_facts, preview::cert_info, bom::bom_info, bom::bom_node, bom::bom_diff, provenance::provenance_info, provenance::provenance_statements, provenance::provenance_subject, provenance::provenance_cancel, provenance::provenance_sources, provenance::provenance_diff, provenance::provenance_bom, preview::mail_preview, preview::plist_xml, convert::preview_engines, convert::preview_cache, convert::clear_preview_cache,
             convert::convert, convert::images, convert::pull_image, convert::remove_image, convert::pull_progress, dupes_scan,
-            dupes_progress, dupes_cancel, save_settings, search_status, search_level, guide_seen, nerd_font, copy_text
+            dupes_progress, dupes_cancel, save_settings, search_status, search_level, guide_seen, nerd_font, copy_text, features, open_docs
         ])
         .run(tauri::generate_context!())
         .expect("error while running Coxswain");

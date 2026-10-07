@@ -5,11 +5,10 @@ name: NetBSD
 # install/install-unix.sh, and the search helper's rc.d script started, checked and stopped.
 # Every push to master; pull requests only for this system's code (paths below). docs/reference/netbsd.md.
 on:
-  push:
-    branches: [master]
+  workflow_call: # from release.yml, for every push to master
   pull_request:
     # Pull requests run the machine only for code with branches for this system;
-    # every push to master runs it, and Release waits for it (CLAUDE.md, Shipping).
+    # every push to master runs it as part of the Release run (CLAUDE.md, Shipping).
     paths:
       - "crates/coxswain-core/src/lib.rs"
       - "crates/coxswain-core/src/machine.rs"
@@ -37,10 +36,10 @@ on:
 permissions:
   contents: read
 
-# A newer push to a pull request cancels its older run; every master commit runs to the end,
-# since Release waits for all of them (release.yml).
+# A newer push to a pull request cancels its older run. Called from release.yml, the group is that
+# run's own (github.* is the caller's there), so nothing cancels it.
 concurrency:
-  group: netbsd-${{ github.event_name == 'push' && github.sha || github.ref }}
+  group: netbsd-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
   cancel-in-progress: true
 
 jobs:

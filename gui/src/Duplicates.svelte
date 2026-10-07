@@ -102,6 +102,7 @@
     const paths = marked;
     ui.modal = {
       kind: "confirm",
+      feature: "duplicates",
       title: t("dupes.confirm_title"),
       text: tn("dupes.confirm_text", paths.length, { size: size(freed) }),
       ok: t("dupes.confirm_ok"),

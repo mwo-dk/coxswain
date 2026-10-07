@@ -1,17 +1,16 @@
 name: CI
 
 on:
-  push:
-    branches: [master]
+  workflow_call: # from release.yml, for every push to master
   pull_request:
 
 permissions:
   contents: read
 
-# A newer push to a pull request cancels its older run; every master commit runs to the end,
-# since Release waits for all of them (release.yml).
+# A newer push to a pull request cancels its older run. Called from release.yml, the group is that
+# run's own (github.* is the caller's there), so nothing cancels it.
 concurrency:
-  group: ci-${{ github.event_name == 'push' && github.sha || github.ref }}
+  group: ci-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
   cancel-in-progress: true
 
 jobs:

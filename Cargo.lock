@@ -893,7 +893,7 @@ checksum = "7f8f80099a98041a3d1622845c271458a2d73e688351bf3cb999266764b81d48"
 
 [[package]]
 name = "coxswain"
-version = "2.13.0"
+version = "2.14.0"
 dependencies = [
  "chrono",
  "coxswain-core",
@@ -906,7 +906,7 @@ dependencies = [
 
 [[package]]
 name = "coxswain-core"
-version = "2.13.0"
+version = "2.14.0"
 dependencies = [
  "base64 0.23.1",
  "blake3",
@@ -942,6 +942,7 @@ dependencies = [
  "toml 1.1.6+spec-1.1.0",
  "toml_edit 0.25.15+spec-1.1.0",
  "trash",
+ "unicode-normalization",
  "ureq",
  "windows-sys 0.61.2",
  "x509-parser",
@@ -950,7 +951,7 @@ dependencies = [
 
 [[package]]
 name = "coxswain-gui"
-version = "2.13.0"
+version = "2.14.0"
 dependencies = [
  "clipboard-rs",
  "coxswain-core",

@@ -327,8 +327,12 @@ pub enum Dialog {
     /// first row in sight, and what shows. Ask's questions and answers are in `App::chat`.
     Search { query: String, chip: Kind, here: bool, found: Found, cursor: usize, offset: usize, show: Show },
     /// `direct`: a typed key runs the item with that key (F2); otherwise it filters (F9).
-    Menu { title: String, filter: String, items: Vec<MenuItem>, cursor: usize, direct: bool },
+    /// `feature`: what F1 in it shows (`coxswain_core::features`).
+    Menu { title: String, filter: String, items: Vec<MenuItem>, cursor: usize, direct: bool, feature: &'static str },
     Help { scroll: u16 },
+    /// F1 → Features (Tab in Help, F1 in a dialog): the filter, the features it keeps, the one
+    /// under the cursor, what Enter (Show me) said, and the dialog Esc goes back to.
+    Features { filter: String, list: Vec<coxswain_core::features::Entry>, cursor: usize, said: Option<String>, back: Option<Box<Dialog>> },
     Message { title: String, text: String },
     /// A CycloneDX BOM, full screen (F3 on one).
     Bom(Box<bom::Viewer>),
@@ -337,6 +341,32 @@ pub enum Dialog {
     Settings(Box<settings::Settings>),
     /// The first-run guide, full screen (the first start, F1 → G, Settings → Overview).
     Guide(Box<guide::Guide>),
+}
+
+/// The feature a dialog is about (`coxswain_core::features`), for F1 in it.
+fn feature_of(d: &Dialog) -> Option<&'static str> {
+    Some(match d {
+        Dialog::Input { prompt, .. } => match prompt {
+            Prompt::Copy(_) => "copy",
+            Prompt::Move(_) | Prompt::Rename(_) => "move_and_rename",
+            Prompt::Extract(_) | Prompt::Pack(_) | Prompt::PackPassword(..) | Prompt::PackConfirm(..) => "pack_and_extract",
+            Prompt::Password(..) | Prompt::Unlock(..) | Prompt::Peek(_) => "archive_passwords",
+            Prompt::Mkdir => "new_folder",
+            Prompt::NewBranch(..) => "git_branches",
+            Prompt::Goto(_) => "moving",
+            Prompt::Mark(_) => "marking",
+            Prompt::Flags(_) => "properties",
+        },
+        Dialog::Confirm { .. } => "delete",
+        Dialog::Switch { .. } => "git_branches",
+        Dialog::Menu { feature, .. } => feature,
+        Dialog::Search { .. } => "find_file",
+        Dialog::Bom(_) => "cbom",
+        Dialog::Provenance(_) => "provenance",
+        Dialog::Settings(_) => "settings_window",
+        Dialog::Guide(_) => "first_run",
+        Dialog::Help { .. } | Dialog::Features { .. } | Dialog::Message { .. } => return None,
+    })
 }
 
 /// An error under `title` (what could not be done): its cause in one line, the raw text under
@@ -934,7 +964,7 @@ impl App {
                     };
                     MenuItem { key: String::new(), label, run, group: None }
                 }));
-                self.dialog = Some(Dialog::Menu { title, filter: String::new(), items, cursor: 0, direct: false });
+                self.dialog = Some(Dialog::Menu { title, filter: String::new(), items, cursor: 0, direct: false, feature: "moving" });
             }
             Action::SameDir => {
                 let d = self.panel().dir.clone();
@@ -1101,7 +1131,7 @@ impl App {
                     .collect();
                 let key = if items.iter().any(|i| i.key == "+") { "" } else { "+" };
                 items.push(MenuItem { key: key.into(), label: t!("usermenu.add"), run: MenuRun::AddUser, group: None });
-                self.dialog = Some(Dialog::Menu { title: t!("tui.user_menu"), filter: String::new(), items, cursor: 0, direct: true });
+                self.dialog = Some(Dialog::Menu { title: t!("tui.user_menu"), filter: String::new(), items, cursor: 0, direct: true, feature: "user_menu" });
             }
             Action::Menu => {
                 let items = Action::ALL
@@ -1109,9 +1139,10 @@ impl App {
                     .filter(|&&x| !x.gui_only() && !matches!(x, Action::Menu | Action::Up | Action::Down))
                     .map(|&x| MenuItem { key: self.key_label(x).to_string(), label: self.action_label(x), run: MenuRun::Action(x), group: None })
                     .collect();
-                self.dialog = Some(Dialog::Menu { title: t!("menu.commands"), filter: String::new(), items, cursor: 0, direct: false });
+                self.dialog = Some(Dialog::Menu { title: t!("menu.commands"), filter: String::new(), items, cursor: 0, direct: false, feature: "command_list" });
             }
             Action::Help => self.dialog = Some(Dialog::Help { scroll: 0 }),
+            Action::Features => self.features(String::new(), None),
             Action::Settings => self.dialog = Some(Dialog::Settings(Box::new(settings::Settings::open(self, "")))),
             // Asked for: measure afresh, whatever is remembered and whether or not sizes are on.
             Action::FolderSizes => {
@@ -1144,7 +1175,23 @@ impl App {
         }
         let src = self.panel().targets();
         let what = if src.is_empty() { t!("menu.this_folder") } else { Self::describe(&src) };
-        self.dialog = Some(Dialog::Menu { title: t!("menu.title", "what" => what), filter: String::new(), items, cursor: 0, direct: false });
+        self.dialog = Some(Dialog::Menu { title: t!("menu.title", "what" => what), filter: String::new(), items, cursor: 0, direct: false, feature: "action_menu" });
+    }
+
+    /// F1 → Features, filtered by `filter`; Esc goes back to `back`.
+    fn features(&mut self, filter: String, back: Option<Box<Dialog>>) {
+        let list = coxswain_core::features::list(&self.cfg, &filter, false);
+        self.dialog = Some(Dialog::Features { filter, list, cursor: 0, said: None, back });
+    }
+
+    /// Show me: the feature's page on GitHub in the browser, and the address on the terminal's
+    /// clipboard for when no browser opens (over ssh); what the dialog says about it.
+    fn show_me(url: &str) -> String {
+        guide::copy(url);
+        match coxswain_core::fs::open_default(Path::new(url)) {
+            Ok(()) => t!("features.opened", "url" => url),
+            Err(_) => t!("features.copied", "url" => url),
+        }
     }
 
     /// F3 on a file inside an archive: a copy of it in the viewer, or its password asked for.
@@ -1815,6 +1862,11 @@ impl App {
         };
         let esc = key.code == KeyCode::Esc || action == Some(Action::Quit);
         let Some(dialog) = self.dialog.take() else { return };
+        // F1 in a dialog: Features, at what it is about; Esc comes back.
+        if action == Some(Action::Help) && !matches!(dialog, Dialog::Help { .. } | Dialog::Features { .. } | Dialog::Search { .. }) {
+            let filter = feature_of(&dialog).map(|id| t!(&format!("feature.{id}.title"))).unwrap_or_default();
+            return self.features(filter, Some(Box::new(dialog)));
+        }
         match dialog {
             Dialog::Input { title, label, mut value, prompt } => match (key.code, ch) {
                 _ if esc => {}
@@ -1870,7 +1922,12 @@ impl App {
                         }
                         requery = true;
                     }
-                    (KeyCode::F(1), _) => show = if show == Show::Syntax { Show::List } else { Show::Syntax },
+                    // F1: the syntax; again, the questions about Find.
+                    (KeyCode::F(1), _) if show == Show::Syntax => {
+                        let back = Dialog::Search { query, chip, here, found, cursor, offset, show };
+                        return self.features(t!("feature.find_file.title"), Some(Box::new(back)));
+                    }
+                    (KeyCode::F(1), _) => show = Show::Syntax,
                     // The scope: everywhere, or the panel's folder.
                     _ if action == Some(Action::Search) => {
                         here = !here;
@@ -1970,7 +2027,7 @@ impl App {
                     self.search_now();
                 }
             }
-            Dialog::Menu { title, mut filter, items, mut cursor, direct } => {
+            Dialog::Menu { title, mut filter, items, mut cursor, direct, feature } => {
                 let visible: Vec<usize> = (0..items.len())
                     .filter(|&i| items[i].label.to_lowercase().contains(&filter.to_lowercase()))
                     .collect();
@@ -2005,10 +2062,36 @@ impl App {
                     Some(MenuRun::Goto(side, None)) => self.goto_prompt(*side),
                     Some(MenuRun::Goto(side, Some(dir))) => self.cd(*side, dir.clone()),
                     Some(MenuRun::Say(why)) => self.status = Some(why.clone()),
-                    None => self.dialog = Some(Dialog::Menu { title, filter, items, cursor, direct }),
+                    None => self.dialog = Some(Dialog::Menu { title, filter, items, cursor, direct, feature }),
                 }
             }
             Dialog::Help { .. } if matches!(ch, Some('g' | 'G')) => self.dialog = Some(Dialog::Guide(Box::default())),
+            Dialog::Help { .. } if key.code == KeyCode::Tab => self.features(String::new(), None),
+            Dialog::Features { mut filter, mut list, mut cursor, mut said, back } => {
+                let last = list.len().saturating_sub(1);
+                let mut refilter = false;
+                match (key.code, ch) {
+                    _ if esc => return self.dialog = back.map(|b| *b),
+                    _ if action == Some(Action::Help) => return,
+                    (KeyCode::Tab, _) => return self.dialog = Some(Dialog::Help { scroll: 0 }),
+                    (KeyCode::Enter, _) => said = list.get(cursor).map(|e| Self::show_me(&e.url)),
+                    (KeyCode::Up, _) => cursor = cursor.saturating_sub(1),
+                    (KeyCode::Down, _) => cursor = (cursor + 1).min(last),
+                    (KeyCode::PageUp, _) => cursor = cursor.saturating_sub(5),
+                    (KeyCode::PageDown, _) => cursor = (cursor + 5).min(last),
+                    (KeyCode::Backspace, _) => refilter = filter.pop().is_some(),
+                    (_, Some(c)) => {
+                        filter.push(c);
+                        refilter = true;
+                    }
+                    _ => {}
+                }
+                if refilter {
+                    list = coxswain_core::features::list(&self.cfg, &filter, false);
+                    (cursor, said) = (0, None);
+                }
+                self.dialog = Some(Dialog::Features { filter, list, cursor, said, back });
+            }
             Dialog::Help { scroll } => match key.code {
                 KeyCode::Up => self.dialog = Some(Dialog::Help { scroll: scroll.saturating_sub(1) }),
                 KeyCode::Down => self.dialog = Some(Dialog::Help { scroll: scroll + 1 }),

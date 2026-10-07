@@ -25,6 +25,11 @@ pub fn menu_line(cfg: &Config) -> String {
     t!("guide.menu_line", "key" => cfg.keys.get(&Action::ActionMenu).map(|k| k.join(" / ")).unwrap_or_default())
 }
 
+/// Step 1's line on F1 → Features.
+pub fn features_line(cfg: &Config) -> String {
+    t!("guide.features_line", "key" => cfg.key_for(Action::Help).unwrap_or("—"))
+}
+
 /// Its title: "Two panels · 1 of 4".
 pub fn title(step: usize) -> String {
     let name = t!(&format!("guide.step{}", step + 1));
