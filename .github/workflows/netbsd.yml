@@ -3,13 +3,36 @@ name: NetBSD
 # The terminal app on NetBSD, in a virtual machine: the core's and the terminal app's tests with
 # pkgsrc's Rust, then the archive packed as a release packs it, installed with
 # install/install-unix.sh, and the search helper's rc.d script started, checked and stopped.
-# Only when Rust code, the lock file, the script or this file change. docs/reference/netbsd.md.
+# Every push to master; pull requests only for this system's code (paths below). docs/reference/netbsd.md.
 on:
   push:
     branches: [master]
-    paths: ["crates/**", "Cargo.toml", "Cargo.lock", "install/install-unix.sh", "packaging/netbsd/**", ".github/workflows/netbsd.yml"]
   pull_request:
-    paths: ["crates/**", "Cargo.toml", "Cargo.lock", "install/install-unix.sh", "packaging/netbsd/**", ".github/workflows/netbsd.yml"]
+    # Pull requests run the machine only for code with branches for this system;
+    # every push to master runs it, and Release waits for it (CLAUDE.md, Shipping).
+    paths:
+      - "crates/coxswain-core/src/lib.rs"
+      - "crates/coxswain-core/src/machine.rs"
+      - "crates/coxswain-core/src/kq.rs"
+      - "crates/coxswain-core/src/ports.rs"
+      - "crates/coxswain-core/src/bsd.rs"
+      - "crates/coxswain-core/src/zfs.rs"
+      - "crates/coxswain-core/src/flags.rs"
+      - "crates/coxswain-core/src/service.rs"
+      - "crates/coxswain-core/src/fs.rs"
+      - "crates/coxswain-core/src/index.rs"
+      - "crates/coxswain-core/src/tools.rs"
+      - "crates/coxswain-core/src/update.rs"
+      - "crates/coxswain-core/src/cloud.rs"
+      - "crates/coxswain-core/src/setup.rs"
+      - "crates/coxswain-core/src/menu.rs"
+      - "crates/coxswain-core/tests/zfs.rs"
+      - "**/Cargo.toml"
+      - "Cargo.lock"
+      - "install/**"
+      - "packaging/pack-unix.sh"
+      - "packaging/netbsd/**"
+      - ".github/workflows/netbsd.yml"
 
 permissions:
   contents: read

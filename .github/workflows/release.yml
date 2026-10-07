@@ -1,15 +1,22 @@
 name: Release
 
-# Hands-off: when CI passes on master and the version in Cargo.toml has no release yet, build
-# every platform, publish the GitHub Release (which creates the tag) and update the AUR,
-# crates.io, Homebrew and WinGet.
+# Hands-off: when every system's workflow passes on master and the version in Cargo.toml has no
+# release yet, build every platform, publish the GitHub Release (which creates the tag) and
+# update the AUR, crates.io, Homebrew and WinGet.
 # To release, bump `version` in Cargo.toml. Nothing else.
+# Each of the workflows below starts this one when it completes; the `draft` job goes on only
+# when all of them have passed for that commit (the gate), so the last one to finish releases.
 on:
   workflow_run:
-    workflows: [CI]
+    workflows: [CI, FreeBSD, NetBSD, OpenBSD, illumos, Termux, Flatpak, Nix]
     types: [completed]
     branches: [master]
   workflow_dispatch: # retry by hand if a runner hiccupped
+    inputs:
+      force:
+        description: Release without waiting for every system's workflow to pass
+        type: boolean
+        default: false
 
 # Read only, but for the jobs that make the release.
 permissions:
@@ -55,11 +62,36 @@ jobs:
         env:
           TAG: ${{ steps.version.outputs.tag }}
           SHA: ${{ steps.version.outputs.sha }}
+          FORCE: ${{ inputs.force }}
+          REPO: ${{ github.repository }}
+          # Run on every push to master. The others run only when their files change: no run of
+          # theirs for this commit is no objection, a run is.
+          ALWAYS: CI FreeBSD NetBSD OpenBSD illumos
+          SOMETIMES: Termux Flatpak Nix
         run: |
           state="$(gh release view "$TAG" --json isDraft -q .isDraft 2>/dev/null || echo none)"
           if [ "$state" = false ]; then
             echo "$TAG is already released; nothing to do."
             exit 0
+          fi
+          # The gate: the latest push run of each workflow for this commit, all passed.
+          if [ "$FORCE" != true ]; then
+            runs="$(gh api --paginate "repos/$REPO/actions/runs?head_sha=$SHA&event=push&per_page=100" \
+              -q '.workflow_runs[] | [.name, .id, .status, .conclusion // ""] | @tsv')"
+            for wf in $ALWAYS $SOMETIMES; do
+              run="$(awk -F'\t' -v n="$wf" '$1 == n' <<<"$runs" | sort -t$'\t' -k2,2n | tail -1)"
+              if [ -z "$run" ]; then
+                [[ " $ALWAYS " == *" $wf "* ]] || continue
+                echo "$wf has not run for $SHA yet; a later run releases."; exit 0
+              fi
+              IFS=$'\t' read -r _ id status conclusion <<<"$run"
+              if [ "$status" != completed ]; then
+                echo "$wf is still running for $SHA; the run its end starts releases."; exit 0
+              fi
+              if [ "$conclusion" != success ]; then
+                echo "::error::$wf ended '$conclusion' for $SHA (https://github.com/$REPO/actions/runs/$id): no release."; exit 1
+              fi
+            done
           fi
           # A draft left by a failed run is replaced, so a retry starts clean.
           [ "$state" = true ] && gh release delete "$TAG" --yes
@@ -318,12 +350,11 @@ jobs:
 
   # NetBSD, OpenBSD and illumos: the terminal app (and on OpenBSD the desktop app, experimental),
   # each built in a virtual machine of that system and packed here (packaging/pack-unix.sh).
-  # A failure of one of them leaves its archives out of the release instead of stopping it.
+  # A failure of one of them stops the release: every system ships, or none.
   # docs/reference/netbsd.md, openbsd.md, illumos.md.
   other-unix:
     needs: [draft, boms]
     if: needs.draft.outputs.id != ''
-    continue-on-error: true
     permissions:
       contents: write
     strategy:
