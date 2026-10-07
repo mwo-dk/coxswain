@@ -8,6 +8,12 @@ on:
     paths: ["crates/**", "gui/src-tauri/**", "Cargo.toml", "Cargo.lock", ".github/workflows/freebsd.yml"]
   pull_request:
     paths: ["crates/**", "gui/src-tauri/**", "Cargo.toml", "Cargo.lock", ".github/workflows/freebsd.yml"]
+  # The port, built and checked by hand on each supported release (packaging/freebsd/README.md).
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag the port builds, e.g. v2.8.1
+        required: true
 
 permissions:
   contents: read
@@ -18,7 +24,12 @@ concurrency:
 
 jobs:
   test:
-    name: FreeBSD 14.5
+    if: github.event_name != 'workflow_dispatch'
+    name: FreeBSD ${{ matrix.release }}
+    strategy:
+      fail-fast: false
+      matrix:
+        release: ["14.5", "15.0"]
     runs-on: ubuntu-24.04
     timeout-minutes: 90
     steps:
@@ -44,12 +55,12 @@ jobs:
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: .cargo-freebsd
-          key: freebsd-cargo-${{ hashFiles('Cargo.lock') }}
-          restore-keys: freebsd-cargo-
+          key: freebsd-${{ matrix.release }}-cargo-${{ hashFiles('Cargo.lock') }}
+          restore-keys: freebsd-${{ matrix.release }}-cargo-
 
       - uses: vmactions/freebsd-vm@c46abacb49f09938ca4e1702d15d836285d694cc # v1.5.9
         with:
-          release: "14.5"
+          release: ${{ matrix.release }}
           usesh: true
           prepare: pkg install -y rust pkgconf webkit2-gtk_41 gtk3 libsoup3 librsvg2-rust
           run: |
@@ -64,3 +75,33 @@ jobs:
             COXSWAIN_ZFS_E2E=1 cargo test -p coxswain-core --test zfs --locked
             # Only the cache goes back to the runner, not the build.
             rm -rf target
+
+  port:
+    if: github.event_name == 'workflow_dispatch'
+    name: Port on FreeBSD ${{ matrix.release }}
+    strategy:
+      fail-fast: false
+      matrix:
+        release: ["14.5", "15.0"]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: vmactions/freebsd-vm@c46abacb49f09938ca4e1702d15d836285d694cc # v1.5.9
+        env:
+          TAG: ${{ inputs.tag }}
+        with:
+          release: ${{ matrix.release }}
+          usesh: true
+          envs: TAG
+          prepare: pkg install -y git rust oniguruma portlint
+          run: |
+            set -e
+            freebsd-version
+            sh packaging/freebsd/update-port.sh "$TAG"
+            # update-port.sh cleans up after its package: install the port to try it.
+            make -C /usr/ports/sysutils/coxswain install clean BATCH=yes
+            coxswain --version
+            man -w coxswain
