@@ -58,9 +58,10 @@ runs:
                                  https://ftp.tu-chemnitz.de/pub/linux/ubuntu-ports/ https://ports.ubuntu.com/ubuntu-ports/) ;;
         esac
         list=/etc/apt/ci-mirrors.txt
+        shopt -s nullglob # 22.04 has no *.sources, 24.04 an empty sources.list
         sources=(/etc/apt/sources.list /etc/apt/sources.list.d/*.sources /etc/apt/sources.list.d/*.list)
         echo "::group::apt sources ($(dpkg --print-architecture))"
-        grep -hE '^(deb |URIs:)' "${sources[@]}" 2>/dev/null
+        grep -hE '^(deb |URIs:)' "${sources[@]}" 2>/dev/null || true
         echo "::endgroup::"
         for i in 1 2 3 4; do
           if [ "$i" -gt 1 ]; then
