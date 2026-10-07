@@ -5,7 +5,7 @@
 Once a day, each app asks GitHub whether a newer release exists, and tells you when it does,
 with the command that upgrades your copy. Nothing is downloaded or installed by itself.
 
-<!-- screenshot: reference-update.png: the desktop app (Cyber theme), the command line row at the bottom with the update button at its right reading "Coxswain 1.21.0 is available: brew upgrade coxswain" -->
+![The desktop app (Cyber): at the right end of the command line row, next to Settings, the button Coxswain 2.9.0 is available](../screenshots/reference-update.png)
 
 ## Contents
 
@@ -72,7 +72,7 @@ It is worked out from where the program is installed:
 | Anything else on FreeBSD (the install script, the archives) | `fetch -qo - https://raw.githubusercontent.com/mwo-dk/coxswain/master/install/install-freebsd.sh \| sh`, which updates both apps where they are ([FreeBSD](freebsd.md#updating)) |
 | Anything else on NetBSD or OpenBSD | `ftp -o - https://raw.githubusercontent.com/mwo-dk/coxswain/master/install/install-unix.sh \| sh` ([NetBSD](netbsd.md#updating-and-uninstalling), [OpenBSD](openbsd.md#updating-and-uninstalling)) |
 | Anything else on illumos | `curl -fsSL https://raw.githubusercontent.com/mwo-dk/coxswain/master/install/install-unix.sh \| sh` ([illumos](illumos.md#updating-and-uninstalling)) |
-| A download, `.deb`, `.rpm`, AppImage, the Windows installer (also when WinGet ran it: `winget upgrade mwo-dk.Coxswain`), AUR, a source build | None: it points to the [releases page](https://github.com/mwo-dk/coxswain/releases/latest) |
+| A download, `.deb`, `.rpm`, AppImage, the Windows installer (also when WinGet ran it: `winget upgrade mwo-dk.Coxswain`), the Arch package, a source build | None: it points to the [releases page](https://github.com/mwo-dk/coxswain/releases/latest) |
 
 The install tables in the [README](../../README.md#install) say how to update each.
 

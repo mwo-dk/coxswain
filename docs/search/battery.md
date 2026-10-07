@@ -6,7 +6,7 @@ While a laptop runs on its battery, the [search helper](helper.md) does not read
 or make vectors: it waits until the mains is back, so search does not drain the battery. Searching
 itself goes on as usual.
 
-<!-- screenshot: search-battery-paused.png: desktop app, Cyber theme, Settings → Finding files with the Words line "Files read: … · waiting: …" and under it "Paused while the machine runs on its battery.", with the button Read now -->
+![Settings at Finding files: Names, Files on this machine; Words, Files read: 360 · waiting: 130 · 668 KB on disk, under it Paused while the machine runs on its battery., and the button Read now; Meaning and Ask off with their Set up… buttons](../screenshots/search-battery-paused.png)
 
 ## How to use it
 

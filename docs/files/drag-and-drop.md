@@ -5,7 +5,7 @@
 In the desktop app you drag files out of a pane to other applications, from one pane to the
 other, and in from other applications. Dropping asks whether to copy or move.
 
-<!-- screenshot: files-drop-menu.png: desktop app, Cyber theme: files dragged onto the right pane, which is highlighted, and the 'Drop 2 items in Documents' menu with Copy here and Move here -->
+![The desktop app with ~/Downloads on the left and ~/Documents on the right: two files dropped on the right pane, and the menu Drop 2 items in Documents with Copy here (c) and Move here (m)](../screenshots/files-drop-menu.png)
 
 ## How to use it
 

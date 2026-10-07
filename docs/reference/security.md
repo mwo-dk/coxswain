@@ -112,8 +112,8 @@ provenance from GitHub, which says which commit and workflow built each file:
 gh attestation verify Coxswain_1.27.4_amd64.AppImage --repo mwo-dk/coxswain
 ```
 
-The desktop builds come from `tauri-action` in the same pipeline; the AUR, crates.io and
-Homebrew packages are generated from the same tag by the same workflow, see
+The desktop builds come from `tauri-action` in the same pipeline; the crates.io and
+Homebrew packages (and the AUR's, once they are there) are generated from the same tag by the same workflow, see
 [Install](../../install/INSTALL.md).
 
 ## Reporting a problem

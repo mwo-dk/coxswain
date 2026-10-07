@@ -6,7 +6,7 @@ A folder on a USB stick or an external drive can be one of the *Folders read*. C
 by its disk, not only by its path, so its text is kept while the disk is away and found again
 wherever the disk is mounted next, without being read afresh.
 
-<!-- screenshot: search-removable-away.png: desktop app, Cyber theme, Settings → Finding files → Details → Folders, Folders read listing /home/demo and /media/demo/BACKUP1, the second with "412 MB in the index, kept while its disk is not plugged in. Remove forgets it." -->
+![Settings → Finding files → Details → Folders: Folders read lists /home/demo (14.3 MB in the index) and /run/media/demo/BACKUP1 with 412 MB in the index, kept while its disk is not plugged in. Remove forgets it., each with Remove](../screenshots/search-removable-away.png)
 
 ## How to use it
 
