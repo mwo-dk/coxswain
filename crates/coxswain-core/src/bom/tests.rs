@@ -382,7 +382,7 @@ fn a_large_bom_builds_quickly() {
     assert_eq!(bom.nodes.len(), 20_001);
     assert_eq!(t.len(), 20_001);
     check_tree(&t, "large");
-    assert!(started.elapsed().as_secs() < 5, "took {:?}", started.elapsed());
+    assert!(started.elapsed() < crate::test_limit(std::time::Duration::from_secs(5)), "took {:?}", started.elapsed());
 }
 
 

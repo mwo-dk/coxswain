@@ -752,8 +752,7 @@ mod tests {
         }
         // Quadratic reading takes many minutes; a debug build in a busy virtual machine, beside the
         // other tests, has taken 46 seconds (NetBSD).
-        let limit = std::time::Duration::from_secs(if cfg!(debug_assertions) { 90 } else { 5 });
-        assert!(begun.elapsed() < limit, "took {:?}", begun.elapsed());
+        assert!(begun.elapsed() < crate::test_limit(std::time::Duration::from_secs(5)), "took {:?}", begun.elapsed());
     }
 
     #[test]

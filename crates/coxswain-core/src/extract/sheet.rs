@@ -1865,7 +1865,7 @@ mod tests {
         assert_eq!(xls(&compound("Workbook", &stream)).unwrap().lines().count(), MOST_SHEETS);
 
         // A debug build in a busy virtual machine, beside the other tests, has taken 40 seconds (NetBSD).
-        assert!(started.elapsed() < std::time::Duration::from_secs(90), "{:?}", started.elapsed());
+        assert!(started.elapsed() < crate::test_limit(std::time::Duration::from_secs(10)), "{:?}", started.elapsed());
         let _ = std::fs::remove_dir_all(d);
     }
 }

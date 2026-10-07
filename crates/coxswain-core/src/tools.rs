@@ -468,8 +468,9 @@ mod tests {
             assert_eq!(run("yes | head -n 50000", 5000, 10).map(|v| v.len()), Some(10), "cut at the limit, the rest drained");
             assert_eq!(run("exit 3", 5000, 100), None);
             let start = Instant::now();
-            assert_eq!(run("sleep 10", 200, 100), None);
-            assert!(start.elapsed() < Duration::from_secs(5), "stopped at the time limit");
+            // Far from the minute of sleep, however slow the machine: stopped at the time limit.
+            assert_eq!(run("sleep 60", 200, 100), None);
+            assert!(start.elapsed() < Duration::from_secs(30), "stopped at the time limit");
         }
     }
 

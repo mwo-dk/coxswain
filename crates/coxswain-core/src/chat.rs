@@ -553,7 +553,7 @@ mod tests {
         let ns = probe().unwrap();
         assert!(ns > 0.0 && ns.is_finite());
         eprintln!("probe: {ns:.4} ns a weight");
-        assert!(start.elapsed() < Duration::from_secs(if cfg!(debug_assertions) { 30 } else { 1 }), "{:?}", start.elapsed());
+        assert!(start.elapsed() < crate::test_limit(Duration::from_secs(1)), "{:?}", start.elapsed());
     }
 
     /// The estimate against the real thing: a prompt at the processor's cap, model loaded.

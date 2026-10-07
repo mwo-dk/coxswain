@@ -722,7 +722,7 @@ mod tests {
         std::fs::write(d.join("endings.docx"), ending.repeat(512 * 1024 / ending.len())).unwrap();
         let started = std::time::Instant::now();
         assert_eq!(text(&d.join("endings.docx"), u64::MAX), None);
-        assert!(started.elapsed().as_secs() < 5, "{:?}", started.elapsed());
+        assert!(started.elapsed() < crate::test_limit(std::time::Duration::from_secs(5)), "{:?}", started.elapsed());
         // What zip reads of a file is metered, whatever it looks for.
         std::fs::write(d.join("short.docx"), b"0123456789").unwrap();
         let mut metered = Metered { file: std::fs::File::open(d.join("short.docx")).unwrap(), left: 7 };

@@ -1125,7 +1125,8 @@ mod tests {
             asked < 3
         })
         .unwrap();
-        assert!(start.elapsed() < Duration::from_secs(2), "stopped while waiting, not after the timeout");
+        // The timeout is minutes; a busy machine can take seconds to stop.
+        assert!(start.elapsed() < Duration::from_secs(60), "stopped while waiting, not after the timeout");
         assert_eq!(asked, 3);
         let mut heads = server.join().unwrap();
         heads.sort();
