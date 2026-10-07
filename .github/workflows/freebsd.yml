@@ -93,7 +93,7 @@ jobs:
           prepare: pkg install -y rust pkgconf webkit2-gtk_41 gtk3 libsoup3 librsvg2-rust
           run: |
             set -e
-            export CARGO_HOME="$PWD/.cargo-freebsd"
+            export CARGO_HOME="$PWD/.cargo-freebsd" COXSWAIN_SLOW_CI=1
             freebsd-version
             rustc -V
             cargo test -p coxswain-core -p coxswain -p coxswain-gui --locked

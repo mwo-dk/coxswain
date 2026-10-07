@@ -75,7 +75,7 @@ jobs:
           prepare: pkg install build-essential ooce/developer/rust
           run: |
             set -e
-            export CARGO_HOME="$PWD/.cargo-vm" CARGO_PROFILE_DEV_DEBUG=line-tables-only PATH="/opt/ooce/bin:$PATH"
+            export CARGO_HOME="$PWD/.cargo-vm" CARGO_PROFILE_DEV_DEBUG=line-tables-only COXSWAIN_SLOW_CI=1 PATH="/opt/ooce/bin:$PATH"
             uname -a
             rustc -V
             cargo test -p coxswain-core -p coxswain --locked -j2

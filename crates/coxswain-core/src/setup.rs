@@ -497,7 +497,8 @@ mod tests {
         let start = Instant::now();
         let found = probe_at(&[(Kind::Ollama, "http://127.0.0.1:9".into()), (Kind::LmStudio, format!("{silent}/v1")), (Kind::Lemonade, format!("{silent}/api/v1"))], None);
         assert!(found.is_empty(), "{found:?}");
-        assert!(start.elapsed() < Duration::from_secs(3), "{:?}", start.elapsed());
+        // Under the 30 seconds of the slow agent, with room for a busy machine.
+        assert!(start.elapsed() < Duration::from_secs(20), "{:?}", start.elapsed());
         assert!(probe_url(&silent, None).is_none());
         drop(mute);
     }

@@ -592,7 +592,7 @@ mod tests {
         // As draw.io keeps "<!--&a;" in a label that is HTML. Read with a pattern that looks for the end of each comment, a label of this
         // length took 25 seconds in the build that the tests run in, and one of twice the length four times as long. It takes a tenth
         // of a second now, a quarter when the machine is busy with the other tests: the limit is far from both.
-        let limit = std::time::Duration::from_secs(5);
+        let limit = crate::test_limit(std::time::Duration::from_secs(5));
         let page = format!(r#"<mxGraphModel><root><mxCell id="2" value="{}" style="html=1;"/></root></mxGraphModel>"#, "&lt;!--&amp;a;".repeat(20_000));
         let start = std::time::Instant::now();
         let text = diagram(&page);

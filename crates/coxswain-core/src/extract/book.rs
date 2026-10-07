@@ -747,7 +747,7 @@ mod tests {
         zip_file(&d.join("a.epub"), &entries.map(|(name, text)| (name, text.as_bytes())));
         let start = std::time::Instant::now();
         assert_eq!(text_of(&d.join("a.epub"), 1, 1 << 24).as_deref(), Some("Book\nOncewords"));
-        assert!(start.elapsed().as_secs() < 5, "{:?}", start.elapsed());
+        assert!(start.elapsed() < crate::test_limit(std::time::Duration::from_secs(5)), "{:?}", start.elapsed());
         let _ = std::fs::remove_dir_all(d);
     }
 

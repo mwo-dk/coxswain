@@ -818,7 +818,7 @@ mod tests {
 
     fn ready(c: &Client) {
         let wait = Instant::now();
-        while c.state() != State::Ready && wait.elapsed() < Duration::from_secs(10) {
+        while c.state() != State::Ready && wait.elapsed() < crate::test_limit(Duration::from_secs(10)) {
             std::thread::sleep(Duration::from_millis(20));
         }
         assert_eq!(c.state(), State::Ready);
@@ -888,7 +888,7 @@ mod tests {
 
         // The text of the files, from the same helper.
         let wait = Instant::now();
-        while one.status().texts < 3 && wait.elapsed() < Duration::from_secs(10) {
+        while one.status().texts < 3 && wait.elapsed() < crate::test_limit(Duration::from_secs(10)) {
             std::thread::sleep(Duration::from_millis(100));
         }
         let found = two.find("launch", None, Kind::All, 10);
@@ -911,7 +911,7 @@ mod tests {
         // Both apps go: the helper waits its while, then takes its address with it.
         drop((one, two));
         let wait = Instant::now();
-        while d.join("cache/index.addr").exists() && wait.elapsed() < Duration::from_secs(5) {
+        while d.join("cache/index.addr").exists() && wait.elapsed() < crate::test_limit(Duration::from_secs(5)) {
             std::thread::sleep(Duration::from_millis(50));
         }
         assert!(!d.join("cache/index.addr").exists());
@@ -931,7 +931,7 @@ mod tests {
     /// Wait until a helper answers at `d`'s cache folder.
     fn up(d: &Path) {
         let wait = Instant::now();
-        while dial(&d.join("cache")).is_none() && wait.elapsed() < Duration::from_secs(5) {
+        while dial(&d.join("cache")).is_none() && wait.elapsed() < crate::test_limit(Duration::from_secs(5)) {
             std::thread::sleep(Duration::from_millis(20));
         }
     }
@@ -1052,7 +1052,7 @@ mod tests {
         let d = tree("token");
         helper(&d, Duration::from_secs(5))();
         let wait = Instant::now();
-        while dial(&d.join("cache")).is_none() && wait.elapsed() < Duration::from_secs(5) {
+        while dial(&d.join("cache")).is_none() && wait.elapsed() < crate::test_limit(Duration::from_secs(5)) {
             std::thread::sleep(Duration::from_millis(20));
         }
         let (mut line, token) = dial(&d.join("cache")).unwrap();

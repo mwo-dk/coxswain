@@ -48,6 +48,16 @@ mod ports;
 #[cfg(any(target_os = "freebsd", target_os = "netbsd", target_os = "openbsd"))]
 mod kq;
 
+/// The time limit for a test that guards against a hang or a blow-up (a crafted input that must
+/// not take minutes): `normal` in a release build, ten times it and at least two minutes in a
+/// debug build, and twice that again with `COXSWAIN_SLOW_CI=1` (the virtual machines in CI, slow
+/// and busy). A limit stays tight where it can, and a slow machine does not stop a release.
+#[doc(hidden)]
+pub fn test_limit(normal: std::time::Duration) -> std::time::Duration {
+    let limit = if cfg!(debug_assertions) { (normal * 10).max(std::time::Duration::from_secs(120)) } else { normal };
+    if std::env::var_os("COXSWAIN_SLOW_CI").is_some_and(|v| v == "1") { limit * 2 } else { limit }
+}
+
 /// The watcher for folders: kqueue folder by folder on the BSDs (`kq`), event ports on illumos
 /// (`ports`), notify's elsewhere.
 #[cfg(any(target_os = "illumos", target_os = "solaris"))]

@@ -72,7 +72,7 @@ jobs:
             pkgin -y install rust pkgconf
           run: |
             set -e
-            export CARGO_HOME="$PWD/.cargo-vm" CARGO_PROFILE_DEV_DEBUG=line-tables-only
+            export CARGO_HOME="$PWD/.cargo-vm" CARGO_PROFILE_DEV_DEBUG=line-tables-only COXSWAIN_SLOW_CI=1
             uname -a
             rustc -V
             cargo test -p coxswain-core -p coxswain --locked

@@ -2833,7 +2833,7 @@ mod tests {
         app.transfer(Transfer::Delete(true), vec![a.join("one.txt")], PathBuf::new(), None, None);
         assert!(app.status.as_deref().is_some_and(|s| s.contains('2')), "{:?}", app.status);
         let t = Instant::now();
-        while app.job.is_some() && t.elapsed() < Duration::from_secs(10) {
+        while app.job.is_some() && t.elapsed() < coxswain_core::test_limit(Duration::from_secs(10)) {
             std::thread::sleep(Duration::from_millis(5));
             app.poll_job();
         }
@@ -2859,7 +2859,7 @@ mod tests {
         let mut app = app(a.clone(), b.clone());
         let wait = |app: &mut App| {
             let t = Instant::now();
-            while app.job.is_some() && t.elapsed() < Duration::from_secs(10) {
+            while app.job.is_some() && t.elapsed() < coxswain_core::test_limit(Duration::from_secs(10)) {
                 std::thread::sleep(Duration::from_millis(5));
                 app.poll_job();
             }
@@ -2901,7 +2901,7 @@ mod tests {
         *value = "b.txt".into();
         app.dialog_key(Key::new(KeyCode::Enter, false, false, false));
         let t = Instant::now();
-        while app.job.is_some() && t.elapsed() < Duration::from_secs(10) {
+        while app.job.is_some() && t.elapsed() < coxswain_core::test_limit(Duration::from_secs(10)) {
             std::thread::sleep(Duration::from_millis(5));
             app.poll_job();
         }

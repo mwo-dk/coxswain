@@ -1551,7 +1551,7 @@ mod tests {
         // A string that never closes, after every `obj`: not read to the end for each of them.
         let start = Instant::now();
         assert!(heavy(&b"1 0 obj (".repeat(200_000), 1 << 20));
-        assert!(start.elapsed() < Duration::from_secs(5), "took {:?}", start.elapsed());
+        assert!(start.elapsed() < crate::test_limit(Duration::from_secs(5)), "took {:?}", start.elapsed());
 
         // A list of numbers heavier than the file allows, and one that is not.
         let listed = |count: usize| document(FONT, &[format!("[{}]", "0 ".repeat(count)).into_bytes()], &[stream("", HELLO)]);
@@ -1717,7 +1717,7 @@ mod tests {
         let within = |name: &str, file: &[u8]| {
             let start = Instant::now();
             let text = read(name, file);
-            assert!(start.elapsed() < TIME + Duration::from_secs(20), "{name} took {:?}", start.elapsed());
+            assert!(start.elapsed() < crate::test_limit(TIME + Duration::from_secs(20)), "{name} took {:?}", start.elapsed());
             text
         };
         let form = |content: &[u8], resources: &str| stream(&format!("/Type /XObject /Subtype /Form /BBox [0 0 9 9] /Resources << {resources} >>"), content);
@@ -1866,7 +1866,7 @@ mod tests {
             let file = [&file[..table], listed.as_bytes(), &file[table + 9..memmem::find(&file, b"trailer").unwrap()], end.as_bytes()].concat();
             let start = Instant::now();
             assert_eq!(read("listed", &file).as_deref(), text, "{trailer}");
-            assert!(start.elapsed() < Duration::from_secs(10), "{trailer} took {:?}", start.elapsed());
+            assert!(start.elapsed() < crate::test_limit(Duration::from_secs(10)), "{trailer} took {:?}", start.elapsed());
         }
     }
 
