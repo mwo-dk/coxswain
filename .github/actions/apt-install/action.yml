@@ -8,10 +8,12 @@
 # - x86_64: the sources say `mirror+file:/etc/apt/apt-mirrors.txt` (sources.list on 22.04,
 #   sources.list.d/ubuntu.sources on 24.04), and that file lists Azure, archive.ubuntu.com and
 #   security.ubuntu.com. A later try puts the next of them first.
-# - arm64 (ubuntu-*-arm): no mirror list; the sources name http://ports.ubuntu.com/ubuntu-ports
-#   directly. archive.ubuntu.com and Azure have no arm64, so a later try points the sources at a
-#   mirror list of ports mirrors only. apt checks every index against Ubuntu's key, whichever
-#   mirror serves it.
+# - arm64 (ubuntu-*-arm): the sources name http://ports.ubuntu.com/ubuntu-ports directly. The
+#   image has an apt-mirrors.txt too, but with the x86_64 mirrors, and nothing uses it:
+#   archive.ubuntu.com and Azure have no arm64. So the list comes from the architecture, never
+#   from that file: ports mirrors only on arm64.
+# A later try points the Ubuntu sources at a list of our own (ci-mirrors.txt) with the next
+# mirror first. apt checks every index against Ubuntu's key, whichever mirror serves it.
 #
 # Four tries fit in the `timeout-minutes: 10` the calling step gives it, with time to install.
 name: apt install
@@ -46,21 +48,19 @@ runs:
           sudo timeout 30 apt-get update "${opts[@]}" || true
           sudo timeout 90 apt-get install -y --download-only "${opts[@]}" "${pkgs[@]}"
         }
-        list=/etc/apt/apt-mirrors.txt
-        if [ -f "$list" ]; then
-          mapfile -t mirrors < <(cut -f1 "$list" | grep .)
-        else
-          case "$(dpkg --print-architecture)" in
-            amd64 | i386) host='https\?://\(azure\.archive\|archive\|security\)\.ubuntu\.com/ubuntu/\?'
-                          mirrors=(http://azure.archive.ubuntu.com/ubuntu/ https://archive.ubuntu.com/ubuntu/ https://security.ubuntu.com/ubuntu/) ;;
-            *)            host='https\?://ports\.ubuntu\.com/ubuntu-ports/\?'
-                          mirrors=(http://ports.ubuntu.com/ubuntu-ports/ https://mirrors.ocf.berkeley.edu/ubuntu-ports/
-                                   https://ftp.tu-chemnitz.de/pub/linux/ubuntu-ports/ https://ports.ubuntu.com/ubuntu-ports/) ;;
-          esac
-        fi
+        # --no-download keeps the install off the network, but apt refuses it for a local .deb.
+        [ -z "$DEBS" ] && offline=(--no-download) || offline=()
+        case "$(dpkg --print-architecture)" in
+          amd64 | i386) host='https\?://\(azure\.archive\|archive\|security\)\.ubuntu\.com/ubuntu/\?'
+                        mirrors=(http://azure.archive.ubuntu.com/ubuntu/ https://archive.ubuntu.com/ubuntu/ https://security.ubuntu.com/ubuntu/) ;;
+          *)            host='https\?://ports\.ubuntu\.com/ubuntu-ports/\?'
+                        mirrors=(http://ports.ubuntu.com/ubuntu-ports/ https://mirrors.ocf.berkeley.edu/ubuntu-ports/
+                                 https://ftp.tu-chemnitz.de/pub/linux/ubuntu-ports/ https://ports.ubuntu.com/ubuntu-ports/) ;;
+        esac
+        list=/etc/apt/ci-mirrors.txt
+        sources=(/etc/apt/sources.list /etc/apt/sources.list.d/*.sources /etc/apt/sources.list.d/*.list)
         echo "::group::apt sources ($(dpkg --print-architecture))"
-        grep -rhE '^(deb |URIs:)' /etc/apt/sources.list /etc/apt/sources.list.d/ 2>/dev/null
-        [ -f "$list" ] && cat "$list"
+        grep -hE '^(deb |URIs:)' "${sources[@]}" 2>/dev/null
         echo "::endgroup::"
         for i in 1 2 3 4; do
           if [ "$i" -gt 1 ]; then
@@ -68,14 +68,14 @@ runs:
             k=$(((i - 1) % ${#mirrors[@]}))
             echo "::warning::Fetching ${pkgs[*]} failed (try $((i - 1)) of 4); next try with ${mirrors[k]} first, in $((5 * i)) s"
             sleep $((5 * i))
-            if [ ! -f "$list" ]; then
-              sudo sed -i "s|$host|mirror+file:$list|" /etc/apt/sources.list /etc/apt/sources.list.d/*.sources /etc/apt/sources.list.d/*.list 2>/dev/null || true
-            fi
             printf '%s\n' "${mirrors[@]:k}" "${mirrors[@]:0:k}" | awk '{ print $0 "\tpriority:" NR }' | sudo tee "$list" >/dev/null
             sed 's/\t/ /' "$list"
+            for f in "${sources[@]}"; do
+              [ -f "$f" ] && sudo sed -i -e "s#mirror+file:/etc/apt/apt-mirrors.txt#mirror+file:$list#" -e "s#$host#mirror+file:$list#" "$f"
+            done
           fi
           if get; then
-            sudo apt-get install -y --no-download "${opts[@]}" "${pkgs[@]}"
+            sudo apt-get install -y "${offline[@]}" "${opts[@]}" "${pkgs[@]}"
             exit
           fi
         done
