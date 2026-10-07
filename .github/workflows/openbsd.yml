@@ -38,7 +38,7 @@ on:
       - "packaging/pack-unix.sh"
       - "packaging/openbsd/**"
       - ".github/workflows/openbsd.yml"
-      - ".github/actions/vm-host-prep/**"
+      - ".github/actions/apt-install/**"
 
 permissions:
   contents: read
@@ -79,8 +79,11 @@ jobs:
           key: openbsd-cargo-${{ hashFiles('Cargo.lock') }}
           restore-keys: openbsd-cargo-
 
-      - uses: ./.github/actions/vm-host-prep
+      - uses: ./.github/actions/apt-install
         timeout-minutes: 10
+        with:
+          packages: qemu-utils qemu-system-x86 ovmf # what each pinned vmactions action's install() asks for on x86_64
+          recommends: false
       - uses: vmactions/openbsd-vm@5f7b2c933b8846a138361d6843c52af4bef5d945 # v1.4.8
         with:
           release: "7.9"
@@ -166,8 +169,11 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: ./.github/actions/vm-host-prep
+      - uses: ./.github/actions/apt-install
         timeout-minutes: 10
+        with:
+          packages: qemu-utils qemu-system-x86 ovmf # what each pinned vmactions action's install() asks for on x86_64
+          recommends: false
       - uses: vmactions/openbsd-vm@5f7b2c933b8846a138361d6843c52af4bef5d945 # v1.4.8
         with:
           release: "7.9"

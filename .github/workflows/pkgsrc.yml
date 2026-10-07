@@ -7,9 +7,9 @@ name: pkgsrc
 on:
   push:
     branches: [master]
-    paths: ["packaging/pkgsrc/**", ".github/workflows/pkgsrc.yml", ".github/actions/vm-host-prep/**"]
+    paths: ["packaging/pkgsrc/**", ".github/workflows/pkgsrc.yml", ".github/actions/apt-install/**"]
   pull_request:
-    paths: ["packaging/pkgsrc/**", ".github/workflows/pkgsrc.yml", ".github/actions/vm-host-prep/**"]
+    paths: ["packaging/pkgsrc/**", ".github/workflows/pkgsrc.yml", ".github/actions/apt-install/**"]
   workflow_dispatch:
 
 permissions:
@@ -29,8 +29,11 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: ./.github/actions/vm-host-prep
+      - uses: ./.github/actions/apt-install
         timeout-minutes: 10
+        with:
+          packages: qemu-utils qemu-system-x86 ovmf # what each pinned vmactions action's install() asks for on x86_64
+          recommends: false
       - uses: vmactions/netbsd-vm@c8a0d7ddb84619a7a8cc4e652efa7950b3fd9f92 # v1.5.2
         with:
           release: "10.1"
