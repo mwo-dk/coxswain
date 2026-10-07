@@ -20,7 +20,8 @@ These rules hold for every contributor and every Claude session in this reposito
   push, and watch again. Windows is the usual one (path separators, `;` in path lists, files
   still open). A PR is done when it is merged, not when it is opened.
 - **Commits:** plain messages. No `Co-Authored-By` or other Claude attribution.
-- **Work in a git worktree** (`git worktree add -b <branch> ../coxswain-<topic> origin/master`)
+- **Work in a git worktree** (`git worktree add -b <branch> .worktrees/<topic> origin/master`, inside the repository and
+  ignored by git, so the folder above stays clean)
   when other work is under way, never by switching branches under uncommitted changes. Remove
   the worktree and its branch once its PR has merged.
 
