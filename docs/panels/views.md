@@ -30,11 +30,18 @@ as themselves. **Alt+V** goes from one to the next.
 
 | View | Keys that differ |
 |---|---|
-| Details | None: **Left** and **Right** page, as everywhere ([Moving around](moving.md)) |
-| Columns | **Left** goes up to the parent folder; **Right** opens the folder under the cursor |
-| Thumbnails | **Left**, **Right**, **Up** and **Down** move in two dimensions, one tile or one row |
+| View | **Left** | **Right** | **Up** / **Down** |
+|---|---|---|---|
+| Details | A page up (as **PageUp**) | A page down (as **PageDown**) | One row |
+| Columns | Out to the parent folder | Into the folder under the cursor | One row in the column |
+| Thumbnails | One tile to the left | One tile to the right | One row of tiles |
 
-Every other key (**Enter**, **Backspace**, **Insert**, **F5**, …) works as in details.
+Help (**F1**) says the same, under the mouse line: *Left and Right in each view: details, a
+page up or down · columns, out to the parent folder or into the folder under the cursor ·
+thumbnails, one to the left or right (Up and Down move a row).* In details, **Left** and
+**Right** are the `page_up` and `page_down` keys of `[keys]`; in columns and thumbnails they
+are fixed. Every other key (**Enter**, **Backspace**, **Insert**, **F5**, …) works as in
+details.
 
 ## What you see
 
@@ -95,6 +102,13 @@ terminal, so **Alt+V** says *Details/columns/thumbnails is available in the desk
 (coxswain-gui)*.
 
 ## Questions
+
+#### Why does Left jump a page instead of going to the parent folder?
+
+That is the details view: **Left** and **Right** page, as in Norton Commander. In the columns
+view (**Alt+V** once) **Left** goes out to the parent folder and **Right** into the folder under
+the cursor. **Backspace** goes to the parent folder in every view. F1 lists what Left and Right
+do in each view.
 
 #### Why is my photo folder slow in thumbnails?
 

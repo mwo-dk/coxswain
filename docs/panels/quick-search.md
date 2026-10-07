@@ -30,6 +30,19 @@ the cursor where it was.
 The command line row shows `Quick search: bud` while it lasts, in place of the folder and the
 prompt. The cursor moves in the panel; nothing is marked or filtered.
 
+## Where it is told
+
+There is no button for it, so both apps say it where you look:
+
+- **The status line**: one of the [hints](action-menu.md#hints-on-the-status-line), dimmed while
+  the command line is empty, is *Alt+letter jumps to a name: type how it starts*. It shows the
+  first times the cursor is on a file or folder (three times, then the next hint takes its
+  place).
+- **Help (F1)**: the desktop app has the paragraph *Quick search: hold Alt and type a letter,
+  then go on typing how a name starts; the cursor jumps to the first name that fits. Backspace
+  takes a letter back; Esc or any other key ends it.* under the mouse line. The terminal app's
+  F1 says *Also: Alt+letter quick search* under the keys.
+
 ## Settings and config.toml
 
 None. Quick search starts on any **Alt** key that is not bound to an action; the keys bound by
@@ -60,8 +73,9 @@ another letter of the name, or unbind the key (`[keys] tag = []`). Once a quick 
 #### Can it find a name that contains the letters in the middle?
 
 No, only the start of names. For "names in this folder" anywhere in the name, open
-[Find](../search/find-file.md) (**Alt+F7**) and press **Tab** once: it searches this
-folder, with the full [name syntax](../search/name-syntax.md).
+[Find](../search/find-file.md) (**Alt+F7** or **Ctrl+F**), press the key again to switch the
+scope to *In <folder>*, and **Tab** once for *Names*: it searches names in this folder and
+below, with the full [name syntax](../search/name-syntax.md).
 
 #### Why does Backspace not move the cursor back?
 

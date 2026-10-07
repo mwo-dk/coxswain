@@ -149,6 +149,7 @@
   {#each ui.favorites as g, gi (gi)}
     {#snippet add()}
       <span class="add" role="button" tabindex="-1" title={t("sidebar.add_here")} onclick={(e) => { e.stopPropagation(); addHere(g); }} onkeydown={() => {}}>+</span>
+      <span class="more" role="button" tabindex="-1" title={t("sidebar.group_actions")} aria-label={t("sidebar.group_actions")} onclick={(e) => { e.stopPropagation(); groupMenu(e, g, gi); }} onkeydown={() => {}}>⋯</span>
     {/snippet}
     <div oncontextmenu={(e) => groupMenu(e, g, gi)} role="group">
       {@render section(`fav${gi}`, g.name, add)}
@@ -232,6 +233,7 @@
     transform: rotate(-90deg);
   }
   .add,
+  .more,
   .remove {
     visibility: hidden;
     padding: 0 6px;
@@ -243,7 +245,12 @@
   .row:hover .remove {
     visibility: visible;
   }
+  .more {
+    visibility: visible;
+    opacity: 0.6;
+  }
   .add:hover,
+  .more:hover,
   .remove:hover {
     background: var(--cursor-bg);
   }

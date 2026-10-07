@@ -480,13 +480,31 @@ fn search(f: &mut Frame, app: &mut App, full: Rect) {
 
     // The field, and the scope at the right.
     let prompt = if answer { t!("search.ask") } else { t!("find.prompt") };
-    let scope = format!(" [{}]", if here { t!("dialogs.scope_in", "folder" => fit_left(&folder, 30)) } else { t!("dialogs.scope_everywhere") }.to_lowercase());
+    // The scope as a choice of two, the one in force inverted: [everywhere | in rocket].
+    let scope_key = app.cfg.handy_key(Action::Search).unwrap_or("").to_string();
+    let short = fit_left(&folder, 30);
+    let (all, inside) = (format!(" {} ", t!("dialogs.scope_everywhere").to_lowercase()), format!(" {} ", t!("dialogs.scope_in", "folder" => &short).to_lowercase()));
+    let on = dstyle(&t).patch(hit_style).add_modifier(Modifier::REVERSED);
+    let off = dstyle(&t).patch(hit_style);
+    let scope = Line::from(vec![
+        Span::styled(" [", off),
+        Span::styled(all, if here { off } else { on }),
+        Span::styled("|", off),
+        Span::styled(inside, if here { on } else { off }),
+        Span::styled("]", off),
+    ]);
     f.render_widget(Paragraph::new(prompt.as_str()), q);
     let w = (q.width as usize).saturating_sub(prompt.width() + scope.width());
     let qa = Rect { x: q.x + prompt.width() as u16, width: w as u16, ..q };
     let shown = fit_left(&query, w.saturating_sub(1));
-    f.render_widget(Paragraph::new(fit(&shown, w)).style(sty(&t.dialog_input)), qa);
-    f.render_widget(Paragraph::new(scope).style(dstyle(&t).patch(hit_style)), Rect { x: qa.x + w as u16, width: q.width.saturating_sub(prompt.width() as u16 + w as u16), ..q });
+    if query.is_empty() && !answer {
+        // The empty field names the scope and the key that changes it.
+        let ph = if here { t!("find.placeholder_here", "folder" => &short, "key" => &scope_key) } else { t!("find.placeholder_everywhere", "folder" => &short, "key" => &scope_key) };
+        f.render_widget(Paragraph::new(fit(&ph, w)).style(sty(&t.dialog_input).add_modifier(Modifier::DIM)), qa);
+    } else {
+        f.render_widget(Paragraph::new(fit(&shown, w)).style(sty(&t.dialog_input)), qa);
+    }
+    f.render_widget(Paragraph::new(scope), Rect { x: qa.x + w as u16, width: q.width.saturating_sub(prompt.width() as u16 + w as u16), ..q });
     f.set_cursor_position(Position::new(qa.x + shown.width() as u16, qa.y));
 
     // The kinds, the current one marked.
@@ -498,7 +516,6 @@ fn search(f: &mut Frame, app: &mut App, full: Rect) {
     }
     f.render_widget(Paragraph::new(Line::from(spans)), chips);
     f.render_widget(Paragraph::new(fit(&find::footer(&now), foot.width as usize)).style(dim), foot);
-    let scope_key = app.key_label(Action::Search).to_string();
     let keys_text = if answer { t!("find.keys_answer_tui") } else { t!("find.keys_tui", "scope" => scope_key) };
     f.render_widget(Paragraph::new(fit(&keys_text, keys.width as usize)).centered(), keys);
 
@@ -511,7 +528,10 @@ fn search(f: &mut Frame, app: &mut App, full: Rect) {
     }
     let width = list.width as usize;
     if question.trim().is_empty() {
-        let lines = vec![Line::from(t!("find.empty"))];
+        let mut lines = vec![Line::from(t!("find.empty"))];
+        if app.find_hint && !here {
+            lines.extend([Line::from(""), Line::from(Span::styled(t!("hint.find_scope", "key" => &scope_key, "folder" => &folder), dim))]);
+        }
         return f.render_widget(Paragraph::new(lines).wrap(Wrap { trim: true }), list);
     }
     if rows.is_empty() {
@@ -709,7 +729,7 @@ fn help_text(app: &App, width: usize) -> Vec<Line<'static>> {
         .collect();
     v.extend(key_columns(&groups, width));
     v.push(Line::from(""));
-    for k in ["help.also1", "help.also2", "help.also3", "help.bom", "help.provenance", "help.history"] {
+    for k in ["help.also1", "help.also2", "help.also3", "help.also4", "help.bom", "help.provenance", "help.history"] {
         v.push(Line::from(t!(k, "key" => app.key_label(Action::History))));
     }
     let key = |a| app.key_label(a).to_string();

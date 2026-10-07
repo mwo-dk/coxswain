@@ -405,6 +405,8 @@ pub struct App {
     /// worked out for.
     pub hint: Option<(&'static str, String)>,
     hint_for: Option<coxswain_core::menu::Subject>,
+    /// Find shows how to limit it to the panel's folder: the first few times it opens.
+    pub find_hint: bool,
     pub quick: Option<String>,
     pub show_hidden: bool,
     pub index: Arc<Client>,
@@ -576,6 +578,7 @@ impl App {
             status: None,
             hint: None,
             hint_for: None,
+            find_hint: false,
             quick: None,
             show_hidden,
             index: index.clone(),
@@ -1085,6 +1088,7 @@ impl App {
                     _ => Kind::All,
                 };
                 self.find_dismissed = coxswain_core::state::AppState::load().notices_dismissed;
+                self.find_hint = coxswain_core::menu::once("find_scope", &self.cfg);
                 let show = if chip == Kind::Ask { Show::Answer } else { Show::List };
                 self.dialog = Some(Dialog::Search { query: String::new(), chip, here: false, found: Found::default(), cursor: 0, offset: 0, show });
             }
@@ -1347,6 +1351,12 @@ impl App {
         }
     }
 
+    /// `file` in the editor at `line`: config.toml at `[keys]` (Settings) or `[[user_menu]]` (F2).
+    pub fn edit_at(&mut self, file: &Path, line: usize) {
+        let dir = file.parent().unwrap_or(Path::new(".")).to_path_buf();
+        self.run = Some(Run::Shell { cmd: config::edit_command(&self.editor(), file, line), dir, wait: false });
+    }
+
     fn view_or_edit(&mut self, a: Action, file: &Path) {
         let env = |v: &str| std::env::var(v).ok().filter(|s| !s.is_empty());
         let prog = if a == Action::View {
@@ -1367,11 +1377,7 @@ impl App {
     /// F2's last entry: config.toml in the editor at `[[user_menu]]`, an example there first.
     fn add_user(&mut self) {
         match coxswain_core::user_menu::prepare() {
-            Ok((path, line)) => {
-                let cmd = coxswain_core::user_menu::edit_command(&self.editor(), &path, line);
-                let dir = path.parent().unwrap_or(Path::new(".")).to_path_buf();
-                self.run = Some(Run::Shell { cmd, dir, wait: false });
-            }
+            Ok((path, line)) => self.edit_at(&path, line),
             Err(e) => self.status = Some(e),
         }
     }

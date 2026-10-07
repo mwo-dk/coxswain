@@ -394,15 +394,21 @@
   </div>
 {/snippet}
 
+<!-- Closes the preview, as Esc does. -->
+{#snippet closer()}
+  <button class="close" title={t("preview.close", { key: "Esc" })} aria-label={t("preview.close", { key: "Esc" })} onclick={() => (ui.showPreview = false)}>×</button>
+{/snippet}
+
 <aside class="preview" aria-label={t("action.toggle_preview")}>
   {#if kind === "output"}
     <header>
       <span class="icon">{"\u{f120}"}</span>
       <div class="title"><b>{output.title}</b><small>{t("preview.command_output")}</small></div>
-      <button class="close" title={t("preview.back")} onclick={onclearoutput}>×</button>
+      <button class="close" title={t("preview.close_output")} aria-label={t("preview.close_output")} onclick={onclearoutput}>×</button>
     </header>
     <pre class="body mono">{output.text || t("preview.no_output")}</pre>
   {:else if !e}
+    <header class="bare">{@render closer()}</header>
     <p class="empty">{t("preview.nothing_selected")}</p>
   {:else}
     <header>
@@ -439,6 +445,7 @@
           <button class:on={source} onclick={() => (ui.previewSource = true)}>{t("preview.source")}</button>
         </div>
       {/if}
+      {@render closer()}
     </header>
 
     <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
@@ -800,7 +807,13 @@
     color: #fff;
     font-size: 0.9em;
   }
+  header.bare {
+    justify-content: flex-end;
+    border-bottom: 0;
+    padding-bottom: 0;
+  }
   .close {
+    margin-left: auto;
     font: inherit;
     font-size: 1.3em;
     color: inherit;

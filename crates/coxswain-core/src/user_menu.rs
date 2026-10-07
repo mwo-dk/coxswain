@@ -2,7 +2,7 @@
 //! for what is installed (a terminal, a SHA-256 tool, git), each offered only where it fits.
 //! "Add your own command" opens config.toml at `[[user_menu]]`, with an example written first.
 
-use crate::config::{Config, UserCommand, quote};
+use crate::config::{Config, UserCommand};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
@@ -104,40 +104,12 @@ fn sha256(os: &str, has: &dyn Fn(&str) -> bool) -> Option<String> {
 /// Make config.toml ready for a new entry, writing the commented example at its end when it
 /// has no `[[user_menu]]` yet, and say where: the file and the line.
 pub fn prepare() -> Result<(PathBuf, usize), String> {
-    let path = Config::path().ok_or_else(|| crate::t!("err.no_config_folder"))?;
-    let text = match std::fs::read_to_string(&path) {
-        Ok(t) => t,
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => String::new(),
-        // Never written over when it cannot be read.
-        Err(e) => return Err(format!("{}: {e}", path.display())),
-    };
-    let (line, new) = with_example(&text, &example());
-    if let Some(new) = new {
-        if let Some(dir) = path.parent() {
-            std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
-        }
-        std::fs::write(&path, new).map_err(|e| format!("{}: {e}", path.display()))?;
-    }
-    Ok((path, line))
+    crate::config::prepare_at(is_menu, &example())
 }
 
-/// The line (from 1) of `text`'s user menu, commented out or not; when it has none, `example`
-/// is added at the end, the rest kept as it is, and the new text comes back too.
-fn with_example(text: &str, example: &str) -> (usize, Option<String>) {
-    let menu = |l: &str| {
-        let l = l.trim_start_matches(['#', ' ', '\t']);
-        l.starts_with("[[user_menu]]") || l.starts_with("user_menu ") || l.starts_with("user_menu=")
-    };
-    if let Some(i) = text.lines().position(menu) {
-        return (i + 1, None);
-    }
-    let mut new = text.to_string();
-    if !new.is_empty() {
-        new += if new.ends_with('\n') { "\n" } else { "\n\n" };
-    }
-    let line = new.lines().count() + 1;
-    new += example;
-    (line, Some(new))
+/// A line that starts the user menu.
+fn is_menu(l: &str) -> bool {
+    l.starts_with("[[user_menu]]") || l.starts_with("user_menu ") || l.starts_with("user_menu=")
 }
 
 /// The built-in entries of this system as `[[user_menu]]` tables, and one more to start from,
@@ -163,14 +135,6 @@ fn example() -> String {
         out.push('\n');
     }
     out
-}
-
-/// `editor` opening `file` at `line`: `+line` for the editors known to take it, else the file.
-pub fn edit_command(editor: &str, file: &Path, line: usize) -> String {
-    let name = editor.split_whitespace().next().and_then(|p| Path::new(p).file_stem()).map(|s| s.to_string_lossy().to_lowercase()).unwrap_or_default();
-    let plus = ["vi", "vim", "nvim", "gvim", "view", "nano", "pico", "emacs", "emacsclient", "micro", "mg", "joe", "jed", "ne", "kak", "mcedit"].contains(&name.as_str());
-    let at = if plus { format!(" +{line}") } else { String::new() };
-    format!("{editor}{at} {}", quote(&file.to_string_lossy()))
 }
 
 #[cfg(test)]
@@ -283,15 +247,15 @@ mod tests {
     fn user_menu_example_is_added_once_and_keeps_the_rest() {
         let ex = "# [[user_menu]]\n# key = \"z\"\n";
         let text = "# my comment\ntheme = \"nc\" # mine\n";
-        let (line, new) = with_example(text, ex);
+        let (line, new) = crate::config::at_line(text, is_menu, ex);
         let new = new.unwrap();
         assert!(new.starts_with(text), "the user's text is kept as it is");
         assert_eq!(new.lines().nth(line - 1), Some("# [[user_menu]]"));
-        assert_eq!(with_example(&new, ex), (line, None), "not added twice");
-        assert_eq!(with_example("", ex), (1, Some(ex.to_string())));
-        assert_eq!(with_example("a = 1", ex).0, 3);
-        assert_eq!(with_example("x = 1\n[[user_menu]]\nkey = \"y\"\n", ex), (2, None));
-        assert_eq!(with_example("user_menu = []\n", ex), (1, None));
+        assert_eq!(crate::config::at_line(&new, is_menu, ex), (line, None), "not added twice");
+        assert_eq!(crate::config::at_line("", is_menu, ex), (1, Some(ex.to_string())));
+        assert_eq!(crate::config::at_line("a = 1", is_menu, ex).0, 3);
+        assert_eq!(crate::config::at_line("x = 1\n[[user_menu]]\nkey = \"y\"\n", is_menu, ex), (2, None));
+        assert_eq!(crate::config::at_line("user_menu = []\n", is_menu, ex), (1, None));
     }
 
     #[test]
@@ -306,8 +270,5 @@ mod tests {
 
     #[test]
     fn user_menu_editor_at_the_line() {
-        assert_eq!(edit_command("vim", Path::new("/c/config.toml"), 7), "vim +7 /c/config.toml");
-        assert_eq!(edit_command("/usr/bin/nvim -p", Path::new("/c/config.toml"), 7), "/usr/bin/nvim -p +7 /c/config.toml");
-        assert_eq!(edit_command("code --wait", Path::new("/c/config.toml"), 7), "code --wait /c/config.toml");
     }
 }

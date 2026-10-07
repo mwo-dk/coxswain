@@ -437,7 +437,9 @@
               {/each}
             </tbody>
           </table>
-          <p>{t("dialogs.help_mouse")}</p>
+          <p>{t("dialogs.help_mouse", { where: `${t("settings.title")} → ${t("settings.area.behaviour")} → ${t("setting.right_click")}` })}</p>
+          <p>{t("dialogs.help_quick")}</p>
+          <p>{t("dialogs.help_views")}</p>
           <p>{#each parts(t("dialogs.help_syntax")) as s, i (i)}{#if i % 2}<b>{t("search.title")}</b>{:else}{s}{/if}{/each} <code>foo bar</code> · <code>foo|bar</code> · <code>!foo</code> · <code>*.rs</code> · <code>ext:rs;toml</code> · <code>file:</code> <code>folder:</code> · <code>src/ foo</code> · <code>case:</code></p>
           <p>
             {#each parts(t("dialogs.help_config")) as s, i (i)}{#if i % 2}<code>{s === "path" ? ui.cfg.config_path : "coxswain --dump-config"}</code>{:else}{s}{/if}{/each}
@@ -467,14 +469,16 @@
         {@const answer = answering(m)}
         {@const question = prefix(m.query).rest.trim()}
         {@const off = askOff(m)}
-        {@const scopeKey = ui.cfg.actions.search?.[1] ?? ""}
+        {@const scopeKey = ui.cfg.find_key}
+        {@const folder = basename(tab().dir)}
         <div class="search-bar">
           <span class="glyph">{"\u{f002}"}</span>
-          <input bind:this={input} bind:value={m.query} oninput={runSearch} placeholder={t(answer ? "dialogs.ask_placeholder" : "find.placeholder")} spellcheck="false" />
+          <input bind:this={input} bind:value={m.query} oninput={runSearch} placeholder={answer ? t("dialogs.ask_placeholder") : t(m.here ? "find.placeholder_here" : "find.placeholder_everywhere", { folder, key: scopeKey })} spellcheck="false" />
           <!-- The scope: everywhere, or the active pane's folder; Ctrl+F (the search key) flips it. -->
-          <button class="scope on" title={`${t("dialogs.scope_everywhere")} ⇄ ${t("dialogs.scope_in", { folder: basename(tab().dir) })} · ${scopeKey}`} onclick={() => refind(m, { here: !m.here })}>
-            {m.here ? t("dialogs.scope_in", { folder: basename(tab().dir) }) : t("dialogs.scope_everywhere")}
-          </button>
+          <div class="scopes" role="radiogroup" aria-label={scopeKey}>
+            <button class="scope" class:on={!m.here} role="radio" aria-checked={!m.here} title={scopeKey} onclick={() => refind(m, { here: false })}>{t("dialogs.scope_everywhere")}</button>
+            <button class="scope" class:on={m.here} role="radio" aria-checked={m.here} title={`${tab().dir} · ${scopeKey}`} onclick={() => refind(m, { here: true })}>{t("dialogs.scope_in", { folder })}</button>
+          </div>
         </div>
         <!-- The kinds: Tab and Shift+Tab, or a click; a prefix typed first turns its kind on. -->
         <div class="scopes kinds" role="radiogroup" aria-label={t("search.title")}>
@@ -516,7 +520,7 @@
             {/each}
           </div>
         {:else if !question}
-          <p class="meta empty">{t("find.empty")}</p>
+          <p class="meta empty">{t("find.empty")}{#if m.scopeHint && !m.here}<br />{t("hint.find_scope", { key: scopeKey, folder: basename(tab().dir) })}{/if}</p>
           <div class="list hits"></div>
         {:else if m.out && !m.out.rows.length}
           <p class="meta empty">
@@ -823,6 +827,12 @@
   .scopes {
     display: flex;
     gap: 4px;
+  }
+  .search-bar .scope {
+    max-width: 16em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
   .scope.on {
     color: var(--accent-fg);

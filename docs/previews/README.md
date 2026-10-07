@@ -23,13 +23,17 @@ opens it with. See [View and edit](../commands/view-and-edit.md).
 2. Press **Space** or **F3** (NC's F3 opened its viewer). The pane opens at the right of the
    window (at the left in a right-to-left language such as Hebrew).
 3. Move with the arrow keys: the pane follows the cursor.
-4. **Space**, **F3** or **Esc** closes it again.
+4. **Space**, **F3** or **Esc** closes it again, or click the `×` at the right of the pane's
+   header (its tooltip: *Close the preview (Esc)*). The `×` is there with nothing selected too,
+   above *Nothing selected*.
+
+![The desktop app in the home folder with Videos under the cursor: the preview pane at the right shows Videos, its contents and its notes, with the × at the right of the pane's header; the status line reads Alt+letter jumps to a name: type how it starts](../screenshots/previews-close.png)
 
 Drag the pane's left edge to make it wider or narrower (240 to 900 pixels, never more than 60 %
 of the window). Whether it is open, its width, and every switch you set are kept in the
 [session](../panels/session.md). When a [command](../commands/command-line.md) has run, the pane
-shows its output (titled *Command output*) until you press its `×` (*Back to preview*),
-**F3**, or move on.
+shows its output (titled *Command output*) until you press its `×` (*Close the command output
+and show the preview again*), **F3**, or move on.
 
 ## What the pane shows
 

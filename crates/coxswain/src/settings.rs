@@ -59,6 +59,8 @@ pub enum Row {
     Notice(Notice),
     /// The first-run guide.
     Guide,
+    /// config.toml in the editor at `[keys]`.
+    EditKeys,
     /// A program that reads more (tesseract …), whether it is there, and the line that installs it.
     Tool(String, bool, Option<String>),
 }
@@ -217,6 +219,7 @@ pub fn rows(app: &App, s: &Settings) -> Vec<Row> {
             v.push(Row::Service);
         }
         Area::Keys => {
+            v.push(Row::EditKeys);
             for g in Group::ALL {
                 let acts: Vec<Action> = g.actions().filter(|a| !a.gui_only()).collect();
                 if acts.is_empty() {
@@ -550,6 +553,10 @@ impl App {
             Some(Row::Level(l)) => return self.settings_level(s, *l),
             Some(Row::SetUp) => self.setup_guide(),
             Some(Row::Guide) => return self.dialog = Some(Dialog::Guide(Box::default())),
+            Some(Row::EditKeys) => match coxswain_core::config::Config::prepare_keys() {
+                Ok((path, line)) => self.edit_at(&path, line),
+                Err(e) => s.said = Some((e, true)),
+            },
             Some(Row::Tool(_, false, Some(line))) => {
                 crate::guide::copy(line);
                 s.said = Some((t!("guide.copied", "command" => line), false));
@@ -766,6 +773,7 @@ pub fn draw(f: &mut Frame, app: &mut App) {
                 }
                 Row::SetUp => lines.push(Line::from(Span::styled(fit(&format!(" [ {} ]", t!("setup.open")), w), st))),
                 Row::Guide => lines.push(Line::from(Span::styled(fit(&format!(" [ {} ]", t!("guide.show_again")), w), st))),
+                Row::EditKeys => lines.push(Line::from(Span::styled(fit(&format!(" [ {} ]", t!("settings.keys_change")), w), st))),
                 Row::Tool(name, there, line) => {
                     let value = if *there { String::new() } else { line.clone().unwrap_or_else(|| t!("settings.search_tool_missing")) };
                     lines.push(pair(&format!(" {} {}", if *there { "✓" } else { "✗" }, t!(&format!("settings.search_tool_{name}"))), &value, st));
@@ -891,6 +899,7 @@ pub fn draw(f: &mut Frame, app: &mut App) {
             }
             Some(Row::SetUp) => text.push(Span::raw(t!("setup.open_hint"))),
             Some(Row::Guide) => text.push(Span::raw(t!("guide.show_again_hint"))),
+            Some(Row::EditKeys) => text.push(Span::raw(t!("settings.keys_hint"))),
             Some(Row::Tool(_, false, Some(line))) => text.push(Span::raw(t!("install.copy_tui", "command" => line))),
             Some(Row::Tool(name, false, None)) => text.push(Span::raw(t!("install.get", "program" => name))),
             Some(Row::Tool(name, true, _)) => text.push(Span::raw(t!(&format!("settings.search_tool_{name}")))),

@@ -159,8 +159,15 @@ shows the `settings` key.
 | `[keys] <action>` | a list of key names; the defaults in [the actions](#the-actions) |
 
 Settings has no key editor: keys are set in `config.toml` only. Settings → *Keys*
-([Keys](settings.md#keys)) lists every action with its keys, read-only, with a filter and
-**Open config.toml**.
+([Keys](settings.md#keys)) lists every action with its keys, read-only, with a filter, the line
+*Keys are changed in config.toml under [keys]* and **Open config.toml**. **Open config.toml** opens `config.toml` at its `[keys]` table: in your `editor` at that line when
+the editor takes `+line` (vi, vim, nvim, nano, emacs, micro, kak, …), else with the program
+your system opens `.toml` files with. When the file has no `[keys]` yet, an empty `[keys]`
+table with a commented example is written at its end first, so there is a place to start.
+
+In the terminal app, Settings → *Keys* starts with the row *Change keys in config.toml, under
+[keys]*: **Enter** on it opens your editor (`editor`, `$VISUAL`, `$EDITOR`, else `vi` or
+Notepad) at `[keys]`, and Settings comes back when you quit the editor.
 
 ## In the terminal app
 
@@ -175,6 +182,12 @@ The same `[keys]` table, read at start. Two differences come from the terminal:
 - **Desktop-only actions** (marked ¹ above) are in neither its help nor its command list.
 
 ## Questions
+
+#### Where do I change a key?
+
+In `config.toml`, under `[keys]`. The quickest way there: Settings (**Ctrl+,**) → *Keys* →
+**Open config.toml** in the desktop app, or the row *Change keys in config.toml, under [keys]*
+and **Enter** in the terminal app. Both open the file at `[keys]`. Restart the app afterwards.
 
 #### How do I keep the default key and add my own?
 
