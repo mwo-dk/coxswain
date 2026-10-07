@@ -7,7 +7,7 @@ Find is one field for everything you look for: a file's name, words inside files
 come in groups: **Names**, **In files**, **About this** and **History**. Go to one with
 **Enter**, or ask with **Ctrl+Enter**.
 
-![The desktop app's Find with "rocket fuel cost" typed, the scope buttons Everywhere (lit) and In rocket at the right of the field: the Ask row on top, In files with budget.txt and its passage, About this with budget-da.txt, the Danish budget, in italics](../screenshots/search-find.png)
+![The desktop app's Find with "rocket fuel cost" typed, the scope buttons Everywhere (lit) and In rocket at the right of the field: the Ask row on top (search by meaning not set up yet, with Set up), In files with budget.txt, budget.xlsx, engine.rs and launch-pad.drawio and their passages, About this offering Set up, and History with the commit Fix the fuel valve; the key line ends Ctrl+F scope](../screenshots/search-find.png)
 
 ## Contents
 
@@ -220,7 +220,7 @@ It differs in a few things:
 - *Set up* runs `coxswain --setup-search` in the terminal, then comes back to the panels.
 - **Ctrl+Shift+F** often arrives as **Ctrl+F** (the scope key), so use **Shift+F7** for *In files*.
 
-![The terminal app's Find with "rocket fuel cost" typed, [ everywhere | in rocket ] at the right with everywhere inverted, the kinds line, the Ask row, IN FILES with budget.txt and ABOUT THIS with budget-da.txt](../screenshots/tui-find.png)
+![The terminal app's Find with "rocket fuel cost" typed, [ everywhere | in rocket ] at the right with everywhere inverted, the kinds line, the Ask row (needs search by meaning first), IN FILES with budget.txt, budget.xlsx, engine.rs and launch-pad.drawio, ABOUT THIS offering Set up and HISTORY with the commit; the key line ends Ctrl+F scope](../screenshots/tui-find.png)
 
 ## Questions
 

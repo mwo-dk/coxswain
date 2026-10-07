@@ -162,8 +162,8 @@ Settings has no key editor: keys are set in `config.toml` only. Settings → *Ke
 ([Keys](settings.md#keys)) lists every action with its keys, read-only, with a filter, the line
 *Keys are changed in config.toml under [keys]* and **Open config.toml**. **Open config.toml** opens `config.toml` at its `[keys]` table: in your `editor` at that line when
 the editor takes `+line` (vi, vim, nvim, nano, emacs, micro, kak, …), else with the program
-your system opens `.toml` files with. When the file has no `[keys]` yet, a commented `[keys]`
-example is written at its end first, so there is a place to start.
+your system opens `.toml` files with. When the file has no `[keys]` yet, an empty `[keys]`
+table with a commented example is written at its end first, so there is a place to start.
 
 In the terminal app, Settings → *Keys* starts with the row *Change keys in config.toml, under
 [keys]*: **Enter** on it opens your editor (`editor`, `$VISUAL`, `$EDITOR`, else `vi` or

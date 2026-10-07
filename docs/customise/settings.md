@@ -261,12 +261,14 @@ start.
 
 **Open config.toml** opens `config.toml` at its `[keys]` table: in your `editor` at that line when
 the editor takes `+line` (vi, vim, nvim, nano, emacs, micro, kak, …), else with the program
-your system opens `.toml` files with. When the file has no `[keys]` yet, a commented `[keys]`
-example is written at its end first, so there is a place to start.
+your system opens `.toml` files with. When the file has no `[keys]` yet, an empty `[keys]`
+table with a commented example is written at its end first, so there is a place to start.
 
-Under the keys, the desktop app shows *F2 scripts folder: <path>* (for example
+Above the list of keys, the desktop app shows *F2 scripts folder: <path>* (for example
 `~/.config/coxswain/scripts`) with an **Open the folder** button: it opens that folder in the
 active pane, made first when it is not there yet ([Scripts](../commands/scripts.md)).
+
+![Settings at Keys in the desktop app: the filter field and Open config.toml, the line Keys are changed in config.toml under [keys], the line F2 scripts folder: /home/demo/.config/coxswain/scripts with the link Open the folder, then Moving and Panels and tabs with their actions and keys](../screenshots/settings-keys.png)
 
 ## Privacy and updates
 

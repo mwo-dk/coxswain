@@ -40,6 +40,7 @@ pub mod zfs;
 pub mod bsd;
 pub mod flags;
 pub mod update;
+pub mod user_menu;
 #[cfg(any(target_os = "illumos", target_os = "solaris"))]
 mod ports;
 #[cfg(any(target_os = "freebsd", target_os = "netbsd", target_os = "openbsd"))]

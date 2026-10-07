@@ -259,7 +259,8 @@
     invoke("run_script", { user: s.user, path: s.path, dir: tb.dir, file, selected }).then(
       (text) => {
         ui.status = "";
-        showOutput(s.label, text);
+        // A terminal opened, say: no empty window to close.
+        if (s.wait || text.trim()) showOutput(s.label, text);
         reloadAll();
       },
       (err) => (ui.status = String(err)),
@@ -440,14 +441,20 @@
       };
     },
     user_menu: async () => {
-      const list = await invoke("scripts");
+      const tb = tab();
+      const e = item(tb);
+      const list = await invoke("scripts", { dir: tb.dir, file: e && e.name !== ".." ? e.path : null });
       ui.modal = {
         kind: "menu",
         title: t("app.scripts"),
         direct: true,
         filter: "",
         cursor: 0,
-        items: list.map((s) => ({ key: s.key, label: s.label, icon: s.path ? "\u{f489}" : "\u{f120}", run: () => runScript(s) })),
+        items: list.map((s) =>
+          s.user == null && s.path == null
+            ? { key: s.key, label: s.label, icon: "\u{f067}", run: () => invoke("add_user_command").catch((err) => (ui.status = String(err))) }
+            : { key: s.key, label: s.label, icon: s.path ? "\u{f489}" : "\u{f120}", run: () => runScript(s) },
+        ),
       };
     },
     menu: () =>

@@ -721,6 +721,9 @@ pub struct UserCommand {
     /// Wait for Enter afterwards so the output can be read.
     #[serde(default)]
     pub wait: bool,
+    /// Offered only where it fits: on a `file`, or in a `git` repository.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub when: Option<crate::user_menu::When>,
 }
 
 impl UserCommand {
@@ -961,7 +964,8 @@ pub struct Config {
     /// Action -> keys. Listing an action replaces its default keys; `[]` unbinds it.
     pub keys: BTreeMap<Action, Vec<String>>,
     pub themes: BTreeMap<String, Theme>,
-    pub user_menu: Vec<UserCommand>,
+    /// F2's entries. None (no `[[user_menu]]`): the built-in ones (`user_menu::entries`).
+    pub user_menu: Option<Vec<UserCommand>>,
     pub search: SearchConfig,
     pub preview: PreviewConfig,
     pub gui: GuiConfig,
@@ -1001,12 +1005,7 @@ impl Default for Config {
             check_updates: true,
             keys: BTreeMap::new(),
             themes: BTreeMap::new(),
-            user_menu: vec![
-                UserCommand { key: "s".into(), label: "git status".into(), command: "git status".into(), wait: true },
-                UserCommand { key: "l".into(), label: "git log".into(), command: "git log --oneline --graph --decorate -50".into(), wait: true },
-                UserCommand { key: "d".into(), label: "git diff (file)".into(), command: "git diff -- %f".into(), wait: true },
-                UserCommand { key: "b".into(), label: "git blame (file)".into(), command: "git blame -- %f | less".into(), wait: false },
-            ],
+            user_menu: None,
             search: SearchConfig::default(),
             preview: PreviewConfig::default(),
             gui: GuiConfig::default(),
@@ -1025,21 +1024,7 @@ impl Config {
     /// config.toml ready to be opened at `[keys]` (Settings → Keys): its path and the line
     /// (from 1) of the table. A file without one gets a commented example at its end first.
     pub fn prepare_keys() -> Result<(PathBuf, usize), String> {
-        let path = Config::path().ok_or_else(|| crate::t!("err.no_config_folder"))?;
-        let text = match std::fs::read_to_string(&path) {
-            Ok(t) => t,
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => String::new(),
-            // Never written over when it cannot be read.
-            Err(e) => return Err(format!("{}: {e}", path.display())),
-        };
-        let (line, new) = at_table(&text, "keys", KEYS_EXAMPLE);
-        if let Some(new) = new {
-            if let Some(dir) = path.parent() {
-                std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
-            }
-            std::fs::write(&path, new).map_err(|e| format!("{}: {e}", path.display()))?;
-        }
-        Ok((path, line))
+        prepare_at(|l| l.starts_with("[keys]"), KEYS_EXAMPLE)
     }
 
     /// Where Coxswain keeps things, (what, path), for `--paths`.
@@ -1194,18 +1179,40 @@ const KEYS_EXAMPLE: &str = "# Keys of your own: an action and its keys, in place
 # copy = [\"F5\", \"Ctrl+K\"]
 ";
 
-/// The line (from 1) of `text`'s `[table]`, commented out or not; when it has none, `example`
-/// is added at the end, the rest kept as it is, and the new text comes back too.
-fn at_table(text: &str, table: &str, example: &str) -> (usize, Option<String>) {
-    let head = format!("[{table}]");
-    if let Some(i) = text.lines().position(|l| l.trim_start_matches(['#', ' ', '\t']).starts_with(&head)) {
+/// config.toml ready to be opened where `found` says (a line, the `#` of a commented one taken
+/// off): its path and that line (from 1). When no line is found, `example` is written at the
+/// end first, the rest kept as it is.
+pub fn prepare_at(found: impl Fn(&str) -> bool, example: &str) -> Result<(PathBuf, usize), String> {
+    let path = Config::path().ok_or_else(|| crate::t!("err.no_config_folder"))?;
+    let text = match std::fs::read_to_string(&path) {
+        Ok(t) => t,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => String::new(),
+        // Never written over when it cannot be read.
+        Err(e) => return Err(format!("{}: {e}", path.display())),
+    };
+    let (line, new) = at_line(&text, found, example);
+    if let Some(new) = new {
+        if let Some(dir) = path.parent() {
+            std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
+        }
+        std::fs::write(&path, new).map_err(|e| format!("{}: {e}", path.display()))?;
+    }
+    Ok((path, line))
+}
+
+/// The line (from 1) of `text` that `found` matches, commented out or not; when there is none,
+/// `example` is added at the end and the line is where it matches there, and the new text
+/// comes back too.
+pub(crate) fn at_line(text: &str, found: impl Fn(&str) -> bool, example: &str) -> (usize, Option<String>) {
+    let at = |t: &str| t.lines().position(|l| found(l.trim_start_matches(['#', ' ', '\t'])));
+    if let Some(i) = at(text) {
         return (i + 1, None);
     }
     let mut new = text.to_string();
     if !new.is_empty() {
         new += if new.ends_with('\n') { "\n" } else { "\n\n" };
     }
-    let line = new.lines().count() + 1 + example.lines().position(|l| l == head).unwrap_or(0);
+    let line = new.lines().count() + 1 + at(example).unwrap_or(0);
     new += example;
     (line, Some(new))
 }
@@ -1224,14 +1231,16 @@ mod tests {
 
     #[test]
     fn config_opens_at_its_keys() {
-        assert_eq!(at_table("a = 1\n[keys]\ncopy = [\"F5\"]\n", "keys", KEYS_EXAMPLE), (2, None));
-        assert_eq!(at_table("# [keys]\n", "keys", KEYS_EXAMPLE), (1, None), "a commented-out table is found too");
-        let (line, new) = at_table("a = 1", "keys", KEYS_EXAMPLE);
+        let keys = |l: &str| l.starts_with("[keys]");
+        assert_eq!(at_line("a = 1\n[keys]\ncopy = [\"F5\"]\n", keys, KEYS_EXAMPLE), (2, None));
+        assert_eq!(at_line("# [keys]\n", keys, KEYS_EXAMPLE), (1, None), "a commented-out table is found too");
+        let (line, new) = at_line("a = 1", keys, KEYS_EXAMPLE);
         let new = new.unwrap();
         assert!(new.starts_with("a = 1\n\n# Keys"), "{new}");
         assert_eq!(new.lines().nth(line - 1), Some("[keys]"));
         Config::parse(&new).expect("still a config that is read");
         assert_eq!(edit_command("nvim", std::path::Path::new("/c/config.toml"), 7), "nvim +7 /c/config.toml");
+        assert_eq!(edit_command("/usr/bin/nvim -p", std::path::Path::new("/c/config.toml"), 7), "/usr/bin/nvim -p +7 /c/config.toml");
         assert_eq!(edit_command("code --wait", std::path::Path::new("/c/config.toml"), 7), "code --wait /c/config.toml");
     }
 
@@ -1301,7 +1310,7 @@ mod tests {
 
     #[test]
     fn config_user_command_expand() {
-        let u = UserCommand { key: "x".into(), label: "x".into(), command: "vim %f %s 100%%".into(), wait: false };
+        let u = UserCommand { key: "x".into(), label: "x".into(), command: "vim %f %s 100%%".into(), wait: false, when: None };
         let dir = std::path::Path::new("/a b");
         let out = u.expand(dir, Some(&dir.join("it's.txt")), &[]);
         if cfg!(unix) {

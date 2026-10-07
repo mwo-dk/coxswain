@@ -165,9 +165,9 @@ there. A tab whose folder is in a repository shows the git icon instead of the f
 
 ## Git commands from the user menu
 
-The default [user menu](../commands/user-menu.md) (**F2**) has *git status* (`s`), *git log*
-(`l`, the last 50 commits as a graph), *git diff (file)* (`d`, of the file under the cursor)
-and *git blame (file)* (`b`, through `less`).
+The default [user menu](../commands/user-menu.md) (**F2**) has *git status* (`s`), offered only
+inside a repository. The log, a file's diff and its commits are built in: **Ctrl+G** (history)
+and **Alt+B** (branches). Other git commands can be added as your own entries (**F2**, **+**).
 
 ## Settings and config.toml
 
@@ -176,7 +176,7 @@ and *git blame (file)* (`b`, through `less`).
 | *Settings → Looks → Icons and git glyphs*: *Nerd Font* or *Plain characters (ASCII)* | `glyphs` (`"nerd"` / `"ascii"`) | `"nerd"` |
 | Each glyph yourself | `[glyph_set]` table | – |
 | The colours | theme slots `git_branch`, `git_modified`, `git_added`, `git_untracked`, `git_deleted`, `git_renamed`, `git_conflict`, `git_ignored` | per theme |
-| The user menu's git commands | `[[user_menu]]` | four entries |
+| The user menu's git commands | `[[user_menu]]` | *git status* |
 | *Settings → Behaviour → Last commit of each file* | `[git] last_commit` | `true` |
 | The *Last commit* column | the columns menu (the session) | on |
 | The history's key | `history` in `[keys]` | `Ctrl+G` |
