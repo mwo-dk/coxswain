@@ -51,7 +51,23 @@ export const ui = $state({
   /** FreeBSD's boot environments and jails, for the sidebar. */
   bsdPlaces: [],
   disks: [],
+  /** What Ctrl+Z would undo ("" for nothing), and how many operations the history has kept. */
+  undo: "",
+  undoSeq: 0,
 });
+
+/** Read what Ctrl+Z would undo. After an operation that went well, `ok` is said on the status
+ *  line, with how to undo it when it can be. */
+export async function refreshUndo(ok) {
+  const [seq, label] = await invoke("undo_next").catch(() => [ui.undoSeq, ui.undo]);
+  const fresh = seq !== ui.undoSeq;
+  ui.undoSeq = seq;
+  ui.undo = label ?? "";
+  if (ok !== undefined) ui.status = fresh ? `${ok} · ${t("undo.hint", { key: ui.cfg.actions.undo?.[1] ?? "" })}` : ok;
+}
+
+/** An action's name in F1 and F9: Undo says what it would undo. */
+export const actionLabel = (name) => (name === "undo" && ui.undo ? t("undo.menu", { what: ui.undo }) : ui.cfg.actions[name][0]);
 
 let nextId = 1;
 

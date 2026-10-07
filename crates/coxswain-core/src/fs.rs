@@ -296,7 +296,7 @@ pub fn target(src: &Path, dst: &Path) -> PathBuf {
 
 /// Whether `a` and `b` are one file: the same path in another case on a file system that
 /// does not mind the case, say.
-fn same_file(a: &Path, b: &Path) -> bool {
+pub(crate) fn same_file(a: &Path, b: &Path) -> bool {
     #[cfg(unix)]
     {
         use std::os::unix::fs::MetadataExt;

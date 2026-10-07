@@ -32,6 +32,7 @@ pub mod store;
 pub mod tables;
 pub mod termux;
 pub mod tools;
+pub mod undo;
 #[cfg(any(target_os = "android", all(test, unix)))]
 mod xdg_trash;
 pub mod zfs;

@@ -15,6 +15,7 @@ use coxswain_core::history::{self, Lasts};
 use coxswain_core::helper::{self, Client};
 use coxswain_core::find::{self, Found, Kind, Off, Row};
 use coxswain_core::index::{self, State};
+use coxswain_core::undo::{Kind as UndoKind, Record};
 use ratatui::crossterm::event::{self, Event, KeyCode as CK, KeyEvent, KeyEventKind, KeyModifiers, MouseButton, MouseEvent, MouseEventKind};
 use ratatui::crossterm::{cursor, execute, terminal};
 use ratatui::layout::Rect;
@@ -391,6 +392,8 @@ pub struct App {
     run: Option<Run>,
     /// The copy, move, delete, extract or pack running on its thread; one at a time.
     job: Option<Job>,
+    /// What Ctrl+Z undoes, the newest last.
+    undo: coxswain_core::undo::History,
     /// A history's commits, listed on a thread (git can take seconds): the folder, the name
     /// to put the cursor on, the listing.
     list_tx: mpsc::Sender<(PathBuf, Option<String>, std::io::Result<Vec<Entry>>)>,
@@ -419,7 +422,9 @@ struct Job {
 
 enum JobMsg {
     At(usize),
-    Done(Vec<(PathBuf, std::io::Error)>),
+    /// What failed, and what can be undone of what did not.
+    Done(Vec<(PathBuf, std::io::Error)>, Record),
+    Undone(coxswain_core::undo::Undone),
 }
 
 /// A search for Find: its generation, the query, the kind chip, the folder it is limited to,
@@ -546,6 +551,7 @@ impl App {
             measuring: Default::default(),
             run: None,
             job: None,
+            undo: Default::default(),
             list_tx,
             list_rx,
             last_click: None,
@@ -571,6 +577,14 @@ impl App {
 
     pub fn key_label(&self, a: Action) -> &str {
         self.cfg.key_for(a).unwrap_or("")
+    }
+
+    /// The action's name in F1 and F9: Undo says what it would undo.
+    pub fn action_label(&self, a: Action) -> String {
+        match self.undo.next() {
+            Some(r) if a == Action::Undo => t!("undo.menu", "what" => r.label()),
+            _ => a.label(),
+        }
     }
 
     /// git status, and the last commit of each entry, run on a thread; results arrive
@@ -985,6 +999,7 @@ impl App {
                 self.input(&title, t!("tui.pack_into"), dst, Prompt::Pack(src));
             }
             Action::NewFolder => self.input(&t!("dialog.new_folder"), t!("tui.mkdir_label"), String::new(), Prompt::Mkdir),
+            Action::Undo => self.undo_last(),
             Action::Delete | Action::DeleteForever => {
                 let paths = self.panel().targets();
                 if paths.is_empty() {
@@ -1032,7 +1047,7 @@ impl App {
                 let items = Action::ALL
                     .iter()
                     .filter(|&&x| !x.gui_only() && !matches!(x, Action::Menu | Action::Up | Action::Down))
-                    .map(|&x| MenuItem { key: self.key_label(x).to_string(), label: x.label().to_string(), run: MenuRun::Action(x) })
+                    .map(|&x| MenuItem { key: self.key_label(x).to_string(), label: self.action_label(x), run: MenuRun::Action(x) })
                     .collect();
                 self.dialog = Some(Dialog::Menu { title: t!("menu.commands"), filter: String::new(), items, cursor: 0, direct: false });
             }
@@ -1320,25 +1335,36 @@ impl App {
             let pw = pw.as_deref();
             let Some(op) = op else {
                 // A 7z's names are hidden too: what the desktop app does by default.
-                let failed = coxswain_core::archive::create_locked(&to, &items, pw, true).err().map(|e| (to.clone(), e));
-                return drop(tx.send(JobMsg::Done(failed.into_iter().collect())));
+                let mut rec = Record::new(UndoKind::Pack);
+                let failed = match coxswain_core::archive::create_locked(&to, &items, pw, true) {
+                    Ok(()) => {
+                        rec.done(&to, &to);
+                        vec![]
+                    }
+                    Err(e) => vec![(to.clone(), e)],
+                };
+                return drop(tx.send(JobMsg::Done(failed, rec)));
             };
+            // Deleting for good is the one that cannot be undone.
+            let mut rec = Record::new(match op {
+                Transfer::Copy => UndoKind::Copy,
+                Transfer::Move => UndoKind::Move,
+                Transfer::Extract => UndoKind::Extract,
+                Transfer::Delete(_) => UndoKind::Trash,
+                Transfer::Mkdir => UndoKind::Mkdir,
+            });
             let mut failed = vec![];
             for (i, p) in items.iter().enumerate() {
                 let _ = tx.send(JobMsg::At(i));
                 let r = match op {
-                    Transfer::Copy => bfs::copy_locked(p, &to, pw).map(drop),
-                    Transfer::Move => bfs::rename_locked(p, &to, pw).map(drop),
-                    Transfer::Extract => coxswain_core::archive::extract_locked(p, &to, pw).map(drop),
                     Transfer::Delete(true) => bfs::delete_locked(p, pw),
-                    Transfer::Delete(false) => bfs::trash_locked(p, pw),
-                    Transfer::Mkdir => bfs::mkdir_locked(p, pw),
+                    _ => rec.run(p, &to, pw),
                 };
                 if let Err(e) = r {
                     failed.push((p.clone(), e));
                 }
             }
-            let _ = tx.send(JobMsg::Done(failed));
+            let _ = tx.send(JobMsg::Done(failed, rec));
         });
         let line = t!("status.busy", "what" => Self::describe(&src));
         self.status = Some(line.clone());
@@ -1349,7 +1375,7 @@ impl App {
     /// How far the job is; when it is done, what came of it.
     fn poll_job(&mut self) {
         let Some(job) = &mut self.job else { return };
-        let mut done = None;
+        let (mut done, mut undone) = (None, None);
         while let Ok(msg) = job.rx.try_recv() {
             match msg {
                 JobMsg::At(i) if job.src.len() > 1 => {
@@ -1361,27 +1387,43 @@ impl App {
                     job.line = line;
                 }
                 JobMsg::At(_) => {}
-                JobMsg::Done(failed) => done = Some(failed),
+                JobMsg::Done(failed, rec) => done = Some((failed, Some(rec))),
+                JobMsg::Undone(u) => undone = Some(u),
             }
+        }
+        if let Some(u) = undone {
+            self.job = None;
+            self.status = None;
+            return self.after_op(t!("undo.done", "what" => u.label), t!("undo.partly", "what" => u.label), u.refused);
         }
         // A key clears the status line; while the job runs, it comes back.
         if self.status.is_none() {
             self.status = Some(job.line.clone());
         }
-        let Some(failed) = done else { return };
+        let Some((failed, rec)) = done else { return };
         let job = self.job.take().expect("a job");
         self.status = None;
-        self.finish(job, failed);
+        self.finish(job, failed, rec);
     }
 
     /// When only locked archives were in the way, ask for the password and run again with it,
     /// for just what was locked.
-    fn finish(&mut self, job: Job, failed: Vec<(PathBuf, std::io::Error)>) {
+    fn finish(&mut self, job: Job, failed: Vec<(PathBuf, std::io::Error)>, rec: Option<Record>) {
         let Job { op, src, dst, password, select, .. } = job;
         let what = Self::describe(&src);
+        // What can be undone is kept, and the status line says how.
+        let key = self.key_label(Action::Undo).to_string();
+        let hint = match rec {
+            _ if op == Some(Transfer::Delete(false)) && !coxswain_core::undo::trash_restores() => format!(" · {}", t!("undo.no_restore_hint", "key" => key)),
+            Some(r) if !r.is_empty() => {
+                self.undo.push(r);
+                format!(" · {}", t!("undo.hint", "key" => key))
+            }
+            _ => String::new(),
+        };
         let Some(op) = op else {
             let errors = failed.iter().map(|(p, e)| format!("{}: {e}", p.display())).collect();
-            return self.after_op(t!("archive.packed", "what" => what), t!("error.pack", "what" => what), errors);
+            return self.after_op(t!("archive.packed", "what" => what) + &hint, t!("error.pack", "what" => what), errors);
         };
         if !failed.is_empty() && failed.iter().all(|(_, e)| e.to_string().contains(coxswain_core::archive::LOCKED)) {
             let label = t!(if password.is_none() { "archive.locked_label" } else { "archive.locked_again" });
@@ -1407,7 +1449,7 @@ impl App {
             Transfer::Delete(false) => t!("error.trash", "what" => what),
             Transfer::Mkdir => t!("error.create", "what" => src.first().and_then(|p| p.file_name()).map(|n| n.to_string_lossy().into_owned()).unwrap_or_default()),
         };
-        self.after_op(ok, fail, errors);
+        self.after_op(ok + &hint, fail, errors);
         if let Some((side, n)) = select {
             self.panels[side].select_name(&n);
         }
@@ -1422,6 +1464,23 @@ impl App {
         } else {
             self.dialog = Some(failure(fail, &errors.join("\n")));
         }
+    }
+
+    /// Ctrl+Z: undo the newest operation in the history, on the job's thread, as it ran.
+    fn undo_last(&mut self) {
+        if let Some(j) = &self.job {
+            return self.status = Some(j.line.clone());
+        }
+        let Some(rec) = self.undo.pop() else { return self.status = Some(t!("undo.nothing")) };
+        self.changed(&rec.touched());
+        let line = t!("status.busy", "what" => rec.label());
+        let (tx, rx) = mpsc::channel();
+        std::thread::spawn(move || {
+            let u = rec.undo(|i| drop(tx.send(JobMsg::At(i))));
+            let _ = tx.send(JobMsg::Undone(u));
+        });
+        self.status = Some(line.clone());
+        self.job = Some(Job { op: None, src: vec![], dst: PathBuf::new(), password: None, select: None, line, rx });
     }
 
     fn pack(&mut self, src: Vec<PathBuf>, to: PathBuf, password: Option<String>) {
@@ -2559,9 +2618,39 @@ mod tests {
         assert!(app.job.is_none());
         assert_eq!(std::fs::read_to_string(b.join("two.txt")).unwrap(), "two.txt");
         assert!(a.join("one.txt").exists(), "the delete asked for meanwhile did not run");
-        assert_eq!(app.status, Some(t!("status.copied", "what" => tn!("items", 2))));
+        let hint = t!("undo.hint", "key" => "Ctrl+Z");
+        assert_eq!(app.status, Some(format!("{} · {hint}", t!("status.copied", "what" => tn!("items", 2)))));
+        assert_eq!(app.action_label(Action::Undo), t!("undo.menu", "what" => t!("undo.what.copy", "what" => tn!("items", 2), "dir" => "b")));
         assert!(app.panels[1].entries.iter().any(|e| e.name == "one.txt"), "the panels are read again");
         // The app's threads (sizes, git) may still hold the folder open on Windows.
+        let _ = std::fs::remove_dir_all(d);
+    }
+
+    #[test]
+    fn ctrl_z_moves_back() {
+        let d = std::env::temp_dir().join(format!("coxswain-test-undo-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        let (a, b) = (d.join("a"), d.join("b"));
+        std::fs::create_dir_all(&a).unwrap();
+        std::fs::create_dir_all(&b).unwrap();
+        std::fs::write(a.join("one.txt"), "1").unwrap();
+        let mut app = app(a.clone(), b.clone());
+        let wait = |app: &mut App| {
+            let t = Instant::now();
+            while app.job.is_some() && t.elapsed() < Duration::from_secs(10) {
+                std::thread::sleep(Duration::from_millis(5));
+                app.poll_job();
+            }
+        };
+        app.transfer(Transfer::Move, vec![a.join("one.txt")], b.clone(), None, None);
+        wait(&mut app);
+        assert!(b.join("one.txt").exists());
+        app.undo_last();
+        wait(&mut app);
+        assert!(a.join("one.txt").exists() && !b.join("one.txt").exists());
+        assert_eq!(app.status, Some(t!("undo.done", "what" => t!("undo.what.move", "what" => "\"one.txt\"", "dir" => "b"))));
+        app.undo_last();
+        assert_eq!(app.status, Some(t!("undo.nothing")));
         let _ = std::fs::remove_dir_all(d);
     }
 
