@@ -466,8 +466,8 @@ fn mounted_disks() -> Vec<Disk> {
     list.list().iter().map(|d| Disk { label: String::new(), device: d.name().to_string_lossy().into_owned(), mount: d.mount_point().to_path_buf(), total: d.total_space(), free: d.available_space(), removable: d.is_removable() }).collect()
 }
 
-/// The mounted file systems as unlabelled disks: from the core on NetBSD, OpenBSD, DragonFly
-/// and illumos, which sysinfo does not know.
+/// The mounted file systems as unlabelled disks: from the core on NetBSD, OpenBSD and
+/// illumos, which sysinfo does not know.
 #[cfg(not(any(target_os = "linux", target_os = "macos", target_os = "freebsd", windows)))]
 fn mounted_disks() -> Vec<Disk> {
     coxswain_core::machine::mounted().into_iter().map(|m| Disk { label: String::new(), device: m.device, mount: m.mount, total: m.total, free: m.free, removable: false }).collect()

@@ -943,7 +943,7 @@ impl Service {
 
 /// The file watcher is kqueue, which needs an open descriptor per watched path, or illumos's
 /// event ports (`ports`), which watch folders one by one.
-const BY_FOLDER: bool = cfg!(any(target_os = "freebsd", target_os = "dragonfly", target_os = "netbsd", target_os = "openbsd", target_os = "illumos", target_os = "solaris"));
+const BY_FOLDER: bool = cfg!(any(target_os = "freebsd", target_os = "netbsd", target_os = "openbsd", target_os = "illumos", target_os = "solaris"));
 /// Folders watched at most under kqueue: each holds a descriptor of the system's file table
 /// (an event port association costs kernel memory instead).
 // ponytail: a fixed share of kern.maxfiles; past it the deepest folders wait for the hourly rebuild.

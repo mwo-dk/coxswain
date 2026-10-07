@@ -215,15 +215,24 @@ fn seven_locked(a: &sevenz_rust2::Archive) -> bool {
 
 /// A 7z entry being read out, noting whether the reading failed: with no password, or a wrong
 /// one, that is how a locked entry fails, as an error in what it reads rather than a word.
+/// An entry that ends before its `left` bytes failed too: sevenz checks the checksum only at
+/// the end, and a wrong key can make the stream end at once (LZMA2's end byte, about 1 in 256).
 struct Noting<'a> {
     from: &'a mut dyn Read,
+    left: u64,
     failed: bool,
 }
 
 impl Read for Noting<'_> {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        let r = self.from.read(buf);
-        self.failed |= r.is_err();
+        let r = match self.from.read(buf) {
+            Ok(0) if !buf.is_empty() && self.left > 0 => Err(io::Error::new(io::ErrorKind::UnexpectedEof, "the entry ends early")),
+            r => r,
+        };
+        match &r {
+            Ok(n) => self.left = self.left.saturating_sub(*n as u64),
+            Err(_) => self.failed = true,
+        }
         r
     }
 }
@@ -851,7 +860,7 @@ fn copy_entries(archive: &Path, inner: &str, to: &Path, password: Option<&str>, 
                 return io::copy(from, &mut io::sink()).map(|_| true).map_err(Into::into);
             };
             *any = true;
-            let mut from = Noting { from, failed: false };
+            let mut from = Noting { from, left: e.size, failed: false };
             let done = if e.is_directory { std::fs::create_dir_all(&path) } else { write(&path, &mut from) };
             if let Err(err) = done {
                 failed = Some(seven_copy_error(err, &from, locked));
@@ -1038,7 +1047,7 @@ fn rewrite(archive: &Path, keep: &dyn Fn(&str) -> Option<String>, add: &[(String
                     let Some(new) = keep(&old) else { return io::copy(from, &mut io::sink()).map(|_| true).map_err(Into::into) };
                     let mut entry = e.clone();
                     entry.name = new;
-                    let mut from = Noting { from, failed: false };
+                    let mut from = Noting { from, left: e.size, failed: false };
                     let pushed = if e.is_directory { w.push_archive_entry::<File>(entry, None) } else { w.push_archive_entry(entry, Some(&mut from)) };
                     if let Err(err) = pushed {
                         failed = Some(seven_copy_error(io::Error::other(err), &from, locked));
@@ -1841,6 +1850,20 @@ mod tests {
         forget(&zp);
         assert!(list_in(&zp, "").is_err());
         std::fs::remove_dir_all(d).unwrap();
+    }
+
+    /// A wrong 7z key can end an entry's stream at once, and sevenz checks the checksum only
+    /// at the end: an entry shorter than its size is a failed read (once flaky on FreeBSD CI).
+    #[test]
+    fn archive_7z_entry_that_ends_early_fails() {
+        let mut empty: &[u8] = b"";
+        let mut r = Noting { from: &mut empty, left: 14, failed: false };
+        assert_eq!(io::copy(&mut r, &mut io::sink()).unwrap_err().kind(), io::ErrorKind::UnexpectedEof);
+        assert!(r.failed);
+        let mut full: &[u8] = b"launch at noon";
+        let mut r = Noting { from: &mut full, left: 14, failed: false };
+        assert_eq!(io::copy(&mut r, &mut io::sink()).unwrap(), 14);
+        assert!(!r.failed);
     }
 
     #[test]

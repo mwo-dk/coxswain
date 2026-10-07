@@ -40,21 +40,21 @@ pub mod flags;
 pub mod update;
 #[cfg(any(target_os = "illumos", target_os = "solaris"))]
 mod ports;
-#[cfg(any(target_os = "freebsd", target_os = "dragonfly", target_os = "netbsd", target_os = "openbsd"))]
+#[cfg(any(target_os = "freebsd", target_os = "netbsd", target_os = "openbsd"))]
 mod kq;
 
 /// The watcher for folders: kqueue folder by folder on the BSDs (`kq`), event ports on illumos
 /// (`ports`), notify's elsewhere.
 #[cfg(any(target_os = "illumos", target_os = "solaris"))]
 pub type DirWatcher = ports::PortWatcher;
-#[cfg(any(target_os = "freebsd", target_os = "dragonfly", target_os = "netbsd", target_os = "openbsd"))]
+#[cfg(any(target_os = "freebsd", target_os = "netbsd", target_os = "openbsd"))]
 pub type DirWatcher = kq::KqueueWatcher;
-#[cfg(not(any(target_os = "illumos", target_os = "solaris", target_os = "freebsd", target_os = "dragonfly", target_os = "netbsd", target_os = "openbsd")))]
+#[cfg(not(any(target_os = "illumos", target_os = "solaris", target_os = "freebsd", target_os = "netbsd", target_os = "openbsd")))]
 pub type DirWatcher = notify::RecommendedWatcher;
 
 /// A watched folder changed (or is gone): the event names the folder, and an entry in it, so that
 /// the index, which reads again the folders changed entries are in, reads this one.
-#[cfg(any(target_os = "illumos", target_os = "solaris", target_os = "freebsd", target_os = "dragonfly", target_os = "netbsd", target_os = "openbsd"))]
+#[cfg(any(target_os = "illumos", target_os = "solaris", target_os = "freebsd", target_os = "netbsd", target_os = "openbsd"))]
 fn folder_event(dir: &std::path::Path, gone: bool) -> notify::Event {
     use notify::event::{EventKind, ModifyKind, RemoveKind};
     let mut e = notify::Event::new(if gone { EventKind::Remove(RemoveKind::Folder) } else { EventKind::Modify(ModifyKind::Any) }).add_path(dir.to_path_buf());

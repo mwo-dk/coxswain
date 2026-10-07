@@ -34,9 +34,9 @@ Whether the machine is on battery is asked at most every thirty seconds:
 | System | Asks |
 |---|---|
 | FreeBSD | `sysctl hw.acpi.acline`: `0` is on battery; without ACPI power reporting, never |
-| NetBSD | envstat(8): an `acpiacad` adapter whose `connected` is `FALSE`; without one, never |
+| NetBSD | envstat(8): an `acpiacad` adapter whose `connected` is `FALSE` (`OFF` from older envstat); without one, never |
 | OpenBSD | `sysctl hw.power`: `0` is on battery |
-| illumos | `kstat -p acpi_drv:0:power:power`: `battery`; without that kstat (servers), never |
+| illumos | `kstat -p acpi_drv:0:power`: `system power` is `battery`; without that kstat (servers), never |
 | Linux | `/sys/class/power_supply`: a supply of type `Battery`, and no mains supply `online`; without a mains entry, a battery that is `Discharging` |
 | Termux on Android | `termux-battery-status` (Termux:API), when it is installed: `UNPLUGGED` is on battery; else as on Linux ([Termux](../reference/termux.md#clipboard-and-battery-termuxapi)) |
 | macOS | `pmset` |
