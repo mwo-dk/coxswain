@@ -750,8 +750,9 @@ mod tests {
             let mail = format!("Subject: s\nContent-Type: multipart/mixed; boundary=b\n\n{part}{part}--b--\n");
             assert_eq!(read("parameters.eml", mail.as_bytes()).as_deref(), Some("s\nbody\nbody"));
         }
-        // Quadratic reading takes minutes; a debug build in a busy virtual machine takes up to ten seconds.
-        let limit = std::time::Duration::from_secs(if cfg!(debug_assertions) { 20 } else { 5 });
+        // Quadratic reading takes many minutes; a debug build in a busy virtual machine, beside the
+        // other tests, has taken 46 seconds (NetBSD).
+        let limit = std::time::Duration::from_secs(if cfg!(debug_assertions) { 90 } else { 5 });
         assert!(begun.elapsed() < limit, "took {:?}", begun.elapsed());
     }
 
