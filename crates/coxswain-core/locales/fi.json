@@ -151,6 +151,15 @@
  "ask.builtin_missing": "{model} ei ole vielä ladattu: lataa se kohdassa Asetukset › Kysy tai kohdassa Ota käyttöön…",
  "ask.builtin_name": "{model}, sisäänrakennettu",
  "ask.builtin_slow": "liian hidas suositeltavaksi; mallipalvelin vastaa nopeammin",
+ "ask.excerpts": {
+  "one": "{n} ote",
+  "other": "{n} otetta"
+ },
+ "ask.read": "{excerpts}, lähteenä {files}, {words}",
+ "ask.words": {
+  "one": "noin {n} sana",
+  "other": "noin {n} sanaa"
+ },
  "bom.advice": "Mitä tehdä",
  "bom.as_in_file": "Kuten tiedostossa",
  "bom.assets": {
@@ -1078,6 +1087,8 @@
   "other": "{n} tiedoston teksti"
  },
  "search.title": "Etsi",
+ "setting.ask_context": "Palvelimen mallin konteksti (tokeneina)",
+ "setting.ask_context.hint": "Kuinka paljon palvelimen keskustelumalli saa: lähteet, kysymyksen ja vastauksen yhteensä. Enemmän lukee enemmän tiedostoistasi ja vie enemmän palvelimen muistia; 8 192:lla sekä qwen3:8b että bge-m3 mahtuvat 8 Gt:n näytönohjaimelle. Ollamalta pyydetään näin paljon; OpenAI-tyylisen palvelimen on oltava asetettu vähintään yhtä suureksi.",
  "setting.ask_model": "Keskustelumalli",
  "setting.ask_model.hint": "Malli, joka vastaa kysymyksiin tiedostojesi pohjalta ja kertoo lähteensä. Vain keskustelemaan pystyviä malleja tarjotaan. builtin:qwen3-1.7b ja builtin:qwen3-4b toimivat tällä koneella.",
  "setting.ask_think": "Anna mallin miettiä ensin",

@@ -6,11 +6,15 @@ Ask is part of [Find](find-file.md). Type a question in your own words, such as 
 our Entra sign-in flow work?* or *what did we decide about the fuel budget?*, and press
 **Ctrl+Enter** (desktop app) or **Alt+Enter** (terminal app), or **Enter** on the *Ask* row at
 the top of the list.
-Coxswain finds the ten passages of your files closest in meaning to the question, from
+Coxswain finds the passages of your files closest in meaning to the question, from
 anywhere in a document: the whole text has vectors, not only its start
-([what is covered](meaning.md#how-it-works)). The chat
-model on your own server, or the one [built into Coxswain](ask-builtin.md), then writes a short answer from only those passages, and cites them
-as **[1]**, **[2]**. The sources are listed under the answer, numbered the same way, and
+([what is covered](meaning.md#how-it-works)). It gives the chat model as much as the model can
+take: each passage with the ones before and after it, so it reads as a whole, and more from the
+files that match best. A question about the folder as a whole (*what is this repository's code
+about?*) gets its README, project files and folder tree too ([How much it reads](#how-much-it-reads)).
+The chat model on your own server, or the one [built into Coxswain](ask-builtin.md), then writes
+a short answer from only those sources, and cites them as **[1]**, **[2]**. The sources are
+listed under the answer, numbered the same way, under a line that says how much was read, and
 **Enter** on one takes you to the file.
 
 The answer opens in place of the list; **Esc** goes back to the list. Nothing is kept: the
@@ -20,10 +24,13 @@ questions and answers exist only while Find is open, and closing it forgets them
 
 *`qwen3:8b` on Ollama on the same machine; the wait for the first word is cut short.*
 
+<!-- screenshot: ask.png: Ask's answer with the dim line "N excerpts from M files, about … words" over the numbered sources (and ask.gif retaken the same way) -->
+
 ## Contents
 
 - [What it needs](#what-it-needs)
 - [How to use it](#how-to-use-it)
+- [How much it reads](#how-much-it-reads)
 - [What you see](#what-you-see)
 - [Settings and config.toml](#settings-and-configtoml)
 - [In the terminal app](#in-the-terminal-app)
@@ -95,6 +102,54 @@ and Ask* there; or `coxswain --setup-search`). By hand:
 | **Esc** | Back to the list; again: close and forget | The same |
 | Mouse | Click a source or a **[n]** to go to it | None |
 
+## How much it reads
+
+Ask fills the chat model's context, not a fixed number of passages. What fits is the context
+less the rules, the questions and answers before, the question and 1,024 tokens kept for the
+answer; a token is counted as 3 bytes of text, on the safe side (English is nearer 4).
+
+| Chat model | Context | Sources, about |
+|---|---|---|
+| On a server (Ollama, Lemonade, LM Studio, llama.cpp, vLLM) | `ask_context`, 8,192 tokens by default | 20 KB: 2,500–3,000 words |
+| Built in, on a Mac's GPU | 8,192 tokens | 20 KB |
+| Built in, on the processor | 2,048 tokens | 2.5 KB: the closest three or four passages |
+
+The processor keeps the small one because candle reads a prompt at 10 to 40 tokens a second
+there: a full context would mean minutes before the first word.
+
+**Excerpts, not loose passages.** The 48 passages closest to the question (four of a file at
+most, from 16 files at most) are grouped by file, the file with the closest passage first. Each
+hit comes with the passage before it and the one after it in the same file, when they fit; the
+first file gives up to four hits, the second three, the third two, the rest one. Neighbouring
+passages are joined into one excerpt without the 20 words two passages share where a paragraph
+was cut, and a file's excerpts stay in their order, with `[…]` between them. Each file is one
+source. Text that is the same in two files (a copy) is given once.
+
+**A question about the whole folder.** When the question asks what the folder, the project, the
+repository or the code is or is about (*what is this repository's code about?*, *explain this
+project*, *give me an overview*, *hvad handler denne mappe om?*, *worum geht es in diesem
+Projekt?*), Ask first reads an overview of Find's scope or, with the scope on everywhere, of the
+active panel's folder, in up to three fifths of the room:
+
+1. the README at its top (`README.md`, `README`, `readme.txt`, …), up to half of that;
+2. the tree of its folders, up to a quarter, two levels deep, 40 entries a folder, without hidden folders, the
+   folders in *Left out everywhere* (`text_exclude`: `node_modules`, `target`, `build`, `dist`, …)
+   and the plain names in its `.gitignore`;
+3. its project files up to three levels deep, up to an eighth each: `Cargo.toml`, `package.json`, `pyproject.toml`,
+   `go.mod`, `pom.xml`, `build.gradle`, `*.csproj`, `CMakeLists.txt`, `flake.nix` and others;
+4. its docs index: `docs/README.md` or `docs/index.md`.
+
+A file that would get less than 200 bytes is left out, so a small context (the built-in model on
+a processor) gets the start of the README and the tree rather than scraps of everything.
+
+The closest excerpts fill the rest. Each of these is a source of its own and can be cited; the
+tree's source is the folder itself, and **Enter** on it opens it. When nothing in the files is
+close to the question but it names the folder or the code (*how is the code laid out?*), the
+overview alone answers.
+
+The words are recognised in the app's languages. A question they miss gets the closest excerpts
+alone, as before.
+
 ## What you see
 
 - **Not set up yet**, the *Ask* row says what is missing: *Ask your files a question · needs
@@ -113,6 +168,7 @@ and Ask* there; or `coxswain --setup-search`). By hand:
   and its answer is under it. While it is being written, a blinking **▍** ends the answer.
 - **Citations** **[1]**, **[2]** are underlined links in the desktop app; hover one for the
   file's path.
+- **How much was read**, over the sources, dim: *12 excerpts from 10 files, about 2600 words*.
 - **The sources** are a numbered list under each answer: the file's name and its folder. The
   cursor marks the one **Enter** goes to.
 - **Errors** show in red under the question: the server's own message, such as *model "qwen3:8b"
@@ -127,6 +183,7 @@ and Ask* there; or `coxswain --setup-search`). By hand:
 | *Chat model* | `[search] ask_model` | string, `""` | The model that writes the answers: a server's (`qwen3:8b`) or a built-in one (`builtin:qwen3-1.7b`, `builtin:qwen3-4b`, [Ask without a server](ask-builtin.md)). Empty: Ask is not set up |
 | *Built-in chat models* | none | | **Download (size) and use**, **Use**, **Delete the model** for each built-in model |
 | *Let the model think first* | `[search] ask_think` | bool, `false` | Off: a model that thinks first (Qwen3, DeepSeek-R1, …) is asked not to. On: it thinks, many seconds before the first word ([Thinking](#thinking)) |
+| *Context for a server's model (tokens)* | `[search] ask_context` | number, `8192` (2,048 to 131,072) | The tokens a server's chat model is given, sources, question and answer together. Ollama is asked for this context (`num_ctx`); an OpenAI-style server must be set to at least as much. Not for the built-in models ([How much it reads](#how-much-it-reads)) |
 | *Meaning* → *Made by*, *Server*, *API key from the environment variable* | `meaning_engine`, `meaning_url`, `meaning_key_env` | | The server Ask talks to, as above |
 | (none) | `[keys] ask` | list of keys, `["Ctrl+F7"]` | The keys that open Find at Ask ([Changing keys](../customise/keys.md)) |
 
@@ -160,12 +217,13 @@ would wait for nothing: with `qwen3:8b` on an RTX 4070 laptop GPU the first word
 
 With it the first word comes in 0.3–0.4 seconds once the model is loaded.
 
-**The context.** On Ollama, Ask also asks for a context of 8,192 tokens (`num_ctx`): ten
-passages, the rules and a few turns before fit with room to spare. Recent Ollama versions give
+**The context.** On Ollama, Ask also asks for a context of `ask_context` tokens (`num_ctx`,
+8,192 by default), and fills it with the sources ([How much it reads](#how-much-it-reads)). Recent Ollama versions give
 `qwen3:8b` 32,768 by default, and the cache for that pushed the model partly off an 8 GB graphics
 card and the embedding model (`bge-m3`) out of it, so every question loaded both again: about 7
-seconds before the first word. With 8,192 both stay loaded, and in the terminal app the first
-word of a follow-up came after 0.06–0.3 seconds. The chat model is loaded with the same context
+seconds before the first word. With 8,192 both stay loaded. Reading a full context takes a moment: with
+`qwen3:8b` on that card the first word came after about 2.3–2.6 seconds, where ten passages took
+1.0–2.7. The chat model is loaded with the same context
 while the sources are looked up, so it is not loaded twice. A model that always
 thinks (DeepSeek-R1, Qwen3's *thinking* models) cannot be stopped; *Waiting for … to answer*
 stays until it has. To let the model think, for harder questions: tick *Let the model think
@@ -175,15 +233,39 @@ first* under *Settings → Finding files → Details → Ask* in the desktop app
 ## Questions
 
 #### What is sent, and where?
-With the [built-in chat model](ask-builtin.md): nothing; it answers on this machine. With a server's: the question, the questions and answers before it in this Find, and the ten passages with
-their file paths, to the chat model on the server set under *Settings → Finding files → Details → Meaning* (Ollama on this machine
+With the [built-in chat model](ask-builtin.md): nothing; it answers on this machine. With a server's: the question, the questions and answers before it in this Find, and the excerpts with
+their file paths (for a question about the folder as a whole, also its README, project files,
+folder tree and docs index), as much as `ask_context` holds, to the chat model on the server set under *Settings → Finding files → Details → Meaning* (Ollama on this machine
 with the built-in model). Nothing else, and nothing to anyone else. With a server on another
 machine, Settings says so in bold, as for the vectors. See [Privacy](../reference/privacy.md).
 
-#### Why only ten passages?
-They are the closest to the question, at most three from one file, so a long document does not
-crowd out the rest. Ten passages of up to 120 words fit in the context of small local models and
-keep the answer quick.
+#### How much of my files does Ask read?
+As much as the chat model's context holds: with a server's model and the default 8,192 tokens,
+about 2,500–3,000 words, from up to about a dozen files; with the built-in model on a processor,
+the closest three or four passages. The line over the sources says what it was, for example
+*12 excerpts from 10 files, about 2600 words*. Each hit comes with the passages before and
+after it, and the files that match best give more. See [How much it reads](#how-much-it-reads).
+
+#### Why does a question about the whole project read the README?
+A broad question (*what is this repository's code about?*, *give me an overview*) has no
+passage that answers it: the closest passages are scattered fragments. Ask reads the folder's
+README, its project files (`Cargo.toml`, `package.json`, …), its folder tree and its docs index
+first, so the model sees what the project is. They are listed and numbered with the other
+sources. The folder is Find's scope (*In rocket*) or, with the scope on everywhere, the active
+panel's folder: open the project's top folder before you ask.
+
+#### Can Ask read more?
+With a model on a server, yes: raise *Context for a server's model* under *Settings → Finding
+files → Details → Ask*, or `ask_context` under `[search]` in `config.toml` (both apps; the
+terminal app's Settings has it under *Ask*). 16,384 reads about twice as much. Each token holds
+memory on the server: on an 8 GB graphics card `qwen3:8b` with more than 8,192 pushes
+`bge-m3` out, and every question loads both again. The built-in models keep their own sizes.
+
+#### My OpenAI-style server says the prompt is too long. Why?
+Coxswain can ask Ollama for a context but not Lemonade, LM Studio, llama.cpp or vLLM: they use
+the context the model was loaded with, and LM Studio's default is 4,096 tokens. Load the model
+there with a context of at least `ask_context` (8,192), or set `ask_context` to what the server
+has.
 
 #### Does Ask see the whole of a long document?
 Yes, since 1.39.0: every passage of a file has a vector, up to 256 of them (about 25,000 words), so

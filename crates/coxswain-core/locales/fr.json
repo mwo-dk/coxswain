@@ -154,6 +154,17 @@
  "ask.builtin_missing": "{model} n’est pas encore téléchargé : téléchargez-le dans Réglages, sous Demander, ou dans Configurer…",
  "ask.builtin_name": "{model}, intégré",
  "ask.builtin_slow": "trop lent pour être recommandé ; un serveur de modèles répond plus vite",
+ "ask.excerpts": {
+  "one": "{n} extrait",
+  "many": "{n} d'extraits",
+  "other": "{n} extraits"
+ },
+ "ask.read": "{excerpts} de {files}, {words}",
+ "ask.words": {
+  "one": "environ {n} mot",
+  "many": "environ {n} de mots",
+  "other": "environ {n} mots"
+ },
  "bom.advice": "Que faire",
  "bom.as_in_file": "Comme dans le fichier",
  "bom.assets": {
@@ -1132,6 +1143,8 @@
   "other": "texte de {n} fichiers"
  },
  "search.title": "Rechercher",
+ "setting.ask_context": "Contexte du modèle d'un serveur (jetons)",
+ "setting.ask_context.hint": "Ce que reçoit le modèle de conversation d'un serveur : les sources, la question et la réponse ensemble. Plus, c'est lire davantage de vos fichiers et occuper plus de mémoire sur le serveur ; à 8 192, qwen3:8b et bge-m3 tiennent tous deux sur une carte graphique de 8 Go. Ollama reçoit cette demande ; un serveur de type OpenAI doit être réglé au moins à autant.",
  "setting.ask_model": "Modèle de conversation",
  "setting.ask_model.hint": "Le modèle qui répond aux questions à partir de vos fichiers et cite ses sources. Seuls les modèles capables de converser sont proposés. builtin:qwen3-1.7b et builtin:qwen3-4b tournent sur cette machine.",
  "setting.ask_think": "Laisser le modèle réfléchir d’abord",

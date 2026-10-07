@@ -772,37 +772,89 @@ impl Store {
     pub fn similar(&self, query: &str, scope: Option<&Path>, max: usize) -> Vec<Hit> {
         self.closest(query, max, true, |p| scope.is_none_or(|s| p.starts_with(s)))
             .into_iter()
-            .map(|(path, s, passage)| {
-                let words: Vec<&str> = passage.split_whitespace().collect();
+            .map(|(path, s, n, all)| {
+                let words: Vec<&str> = all[n].text.split_whitespace().collect();
                 let snippet = if words.len() > 24 { format!("{} …", words[..24].join(" ")) } else { words.join(" ") };
                 Hit { path, is_dir: false, snippet: Some(snippet), similar: Some(s) }
             })
             .collect()
     }
 
-    /// The `max` passages closest to what `question` asks, whole, with their files: what Ask
-    /// gives the chat model to answer from. A file may give more than one; at most three, so
-    /// one long document does not crowd out the rest. Only files below `scope`, when given.
-    pub fn passages(&self, question: &str, scope: Option<&Path>, max: usize) -> Vec<(PathBuf, String)> {
+    /// What Ask gives the chat model to answer from: excerpts of the files closest to what
+    /// `question` asks, about `bytes` long in all, one source per file with its excerpts in the
+    /// file's order. Each hit comes with the passages before and after it, so it reads as a
+    /// whole, and the strongest files give more of their hits (four from the first, three from
+    /// the second, …) than weak ones, which give one. Only files below `scope`, when given.
+    // ponytail: per-file passage ranges by position only; a file cut to `PASSAGES` passages
+    // may join two that were not next to each other (`join` then keeps both whole).
+    pub fn passages(&self, question: &str, scope: Option<&Path>, bytes: usize) -> Vec<(PathBuf, String)> {
         let mut per_file: HashMap<PathBuf, usize> = HashMap::new();
-        self.closest(question, max, false, |path| {
+        let hits = self.closest(question, ASK_HITS, false, |path| {
             if scope.is_some_and(|s| !path.starts_with(s)) {
+                return false;
+            }
+            // Only the files that can give an excerpt have their text read.
+            if per_file.len() >= ASK_FILES && !per_file.contains_key(path) {
                 return false;
             }
             let n = per_file.entry(path.to_path_buf()).or_default();
             *n += 1;
-            *n <= 3
-        })
-        .into_iter()
-        .map(|(path, _, passage)| (path, passage))
-        .collect()
+            *n <= 4
+        });
+        // The files in the order of their best hit, each with its hits, best first.
+        let mut files: Vec<(PathBuf, std::rc::Rc<Vec<crate::meaning::Passage>>, Vec<usize>)> = vec![];
+        for (path, _, n, all) in hits {
+            match files.iter_mut().find(|f| f.0 == path) {
+                Some(f) => f.2.push(n),
+                None => files.push((path, all, vec![n])),
+            }
+        }
+        let mut left = bytes;
+        let mut seen = HashSet::new();
+        let mut out = vec![];
+        for (rank, (path, all, hits)) in files.into_iter().enumerate() {
+            let header = path.as_os_str().len() + 8;
+            let mut taken: Vec<usize> = vec![];
+            for &n in hits.iter().take(4usize.saturating_sub(rank).max(1)) {
+                // With its neighbours if they fit, else alone.
+                for window in [n.saturating_sub(1)..=(n + 1).min(all.len() - 1), n..=n] {
+                    let new: Vec<usize> = window.filter(|i| !taken.contains(i)).collect();
+                    let cost = new.iter().map(|&i| all[i].text.len() + 1).sum::<usize>() + if taken.is_empty() { header } else { 0 };
+                    if cost <= left {
+                        left -= cost;
+                        taken.extend(new);
+                        break;
+                    }
+                }
+            }
+            taken.sort_unstable();
+            // Runs of neighbouring passages read as one excerpt; the same text in two files
+            // (a copy, a translation left as it was) is given once.
+            let mut excerpts: Vec<String> = vec![];
+            let mut i = 0;
+            while i < taken.len() {
+                let mut text = all[taken[i]].text.clone();
+                while i + 1 < taken.len() && taken[i + 1] == taken[i] + 1 {
+                    i += 1;
+                    crate::meaning::join(&mut text, &all[taken[i]].text);
+                }
+                i += 1;
+                if seen.insert(text.clone()) {
+                    excerpts.push(text);
+                }
+            }
+            if !excerpts.is_empty() {
+                out.push((path, excerpts.join(crate::ask::GAP)));
+            }
+        }
+        out
     }
 
     /// Up to `want` passages near what `query` means, closest first, with their file and
     /// score: those near the best one, above what unrelated text scores, and of files `accept`
     /// takes; with `by_file`, the best passage of each file, ranked by the file's score. Only
     /// the files that give a passage have their text read.
-    fn closest(&self, query: &str, want: usize, by_file: bool, mut accept: impl FnMut(&Path) -> bool) -> Vec<(PathBuf, f32, String)> {
+    fn closest(&self, query: &str, want: usize, by_file: bool, mut accept: impl FnMut(&Path) -> bool) -> Vec<(PathBuf, f32, usize, std::rc::Rc<Vec<crate::meaning::Passage>>)> {
         use crate::meaning::{pack, score, signs};
         let Some(engine) = self.engine() else { return vec![] };
         let q = match engine.query(query) {
@@ -829,7 +881,7 @@ impl Store {
         let offline: Vec<(String, String)> = self.offline.lock().unwrap().iter().map(|at| below(at)).collect();
         // A file's path as shown, and whether it is Markdown (its headings cut its passages).
         let mut paths: HashMap<i64, Option<(PathBuf, bool)>> = HashMap::new();
-        let mut texts: HashMap<i64, Vec<crate::meaning::Passage>> = HashMap::new();
+        let mut texts: HashMap<i64, std::rc::Rc<Vec<crate::meaning::Passage>>> = HashMap::new();
         let mut out = vec![];
         for (file, s, n) in ranked {
             if out.len() >= want {
@@ -844,10 +896,10 @@ impl Store {
             let passages = texts.entry(file).or_insert_with(|| {
                 #[cfg(test)]
                 BODIES_READ.fetch_add(1, Ordering::Relaxed);
-                db.query_row("SELECT body FROM text WHERE rowid = ?1", [file], |r| r.get::<_, String>(0)).map(|b| crate::meaning::passages(&b, markdown)).unwrap_or_default()
+                std::rc::Rc::new(db.query_row("SELECT body FROM text WHERE rowid = ?1", [file], |r| r.get::<_, String>(0)).map(|b| crate::meaning::passages(&b, markdown)).unwrap_or_default())
             });
-            if let Some(p) = passages.get(n as usize) {
-                out.push((path, s, p.text.clone()));
+            if (n as usize) < passages.len() {
+                out.push((path, s, n as usize, passages.clone()));
             }
         }
         out
@@ -1064,6 +1116,10 @@ fn walk(store: &Store, dirs: Vec<PathBuf>, cfg: &SearchConfig, known: &Known, st
     }
     Some(found)
 }
+
+/// Hits Ask looks at, four of a file at most, of `ASK_FILES` files at most.
+const ASK_HITS: usize = 48;
+const ASK_FILES: usize = 16;
 
 /// Passages ranked one per file: the file's best, its score raised by 0.005 for each further
 /// passage of it that matches, four at most, so a document that keeps coming back to a
@@ -1924,9 +1980,9 @@ mod tests {
         assert!(!found.contains(&"cake.txt".to_string()), "{found:?}");
         assert_eq!(names("apple cake recipe").first().map(String::as_str), Some("cake.txt"));
         assert!(store.similar("apple cake recipe", Some(&d.join("elsewhere")), 10).is_empty(), "a scope with none of the files");
-        assert!(store.passages("apple cake recipe", Some(&d.join("elsewhere")), 10).is_empty());
+        assert!(store.passages("apple cake recipe", Some(&d.join("elsewhere")), 10_000).is_empty());
         // What Ask answers from: whole passages, closest first.
-        let passages = store.passages("what does the fuel cost", None, 12);
+        let passages = store.passages("what does the fuel cost", None, 10_000);
         assert!(passages.first().is_some_and(|(p, text)| p.ends_with("budget.txt") || p.ends_with("budget-da.txt") && text.contains("syv")), "{passages:?}");
 
         // Changed: its vectors go with its old text, and come again for the new one.
@@ -1997,8 +2053,37 @@ mod tests {
         assert_eq!(store.similar("zebra quartz", None, 5).len(), 5);
         assert_eq!(BODIES_READ.load(Ordering::Relaxed), 5, "five files shown, five read");
         BODIES_READ.store(0, Ordering::Relaxed);
-        assert_eq!(store.passages("zebra quartz", None, 6).len(), 6);
-        assert!(BODIES_READ.load(Ordering::Relaxed) <= 6, "no more files than passages");
+        let found = store.passages("zebra quartz", None, 6000);
+        assert!(!found.is_empty() && found.iter().map(|(p, t)| p.as_os_str().len() + 8 + t.len()).sum::<usize>() <= 6000, "{found:?}");
+        assert!(BODIES_READ.load(Ordering::Relaxed) <= ASK_FILES, "only the files that can give an excerpt are read");
+        drop(store);
+        std::fs::remove_dir_all(d).unwrap();
+    }
+
+    /// Ask's excerpts: a hit with the passages before and after it, in the file's order, the
+    /// strongest file first; the same text in a second file once; neighbours left out when
+    /// they do not fit.
+    #[test]
+    fn ask_excerpts_read_as_a_whole() {
+        let d = std::env::temp_dir().join(format!("coxswain-store-excerpts-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(d.join("home")).unwrap();
+        // Letters the question does not have, but for the hit: the fake model counts letters.
+        let text = format!("# One\n{}\n# Two\n{}\n# Three\n{}\n# Four\n{}\n", "mill kiln ".repeat(30), "zebra quartz ".repeat(30), "milk hill ".repeat(30), "lily silk ".repeat(30));
+        std::fs::write(d.join("home/a.md"), &text).unwrap();
+        std::fs::write(d.join("home/b.md"), &text).unwrap();
+        let cfg = SearchConfig { text_roots: vec![d.join("home")], meaning: true, meaning_engine: "ollama".into(), meaning_url: fake_embed_server(), meaning_model: "fake".into(), ..SearchConfig::default() };
+        let (store, go) = (Store::open(&d.join("search.db")).unwrap(), AtomicBool::new(false));
+        store.set_engine(crate::meaning::Engine::from_config(&cfg));
+        store.hurry.store(true, Ordering::Relaxed);
+        scan(&store, &cfg, &go).unwrap();
+        let found = store.passages("zebra quartz", None, 10_000);
+        assert_eq!(found.len(), 1, "the copy's text is given once: {found:?}");
+        let t = &found[0].1;
+        let (before, hit, after) = (t.find("kiln").unwrap(), t.find("zebra").unwrap(), t.find("milk").unwrap());
+        assert!(before < hit && hit < after && !t.contains("lily"), "the hit and its neighbours, in order: {t}");
+        let tight = store.passages("zebra quartz", None, 600);
+        assert!(tight[0].1.contains("zebra") && !tight[0].1.contains("kiln"), "{tight:?}");
         drop(store);
         std::fs::remove_dir_all(d).unwrap();
     }

@@ -34,7 +34,7 @@ const LINGER: Duration = Duration::from_secs(600);
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 /// The wire format. One more when a request or a reply changes so that another version cannot
 /// read it; added fields with defaults do not count.
-const PROTOCOL: u32 = 1;
+const PROTOCOL: u32 = 2;
 /// A helper's or an app's version and protocol: other ones in tests.
 type Ours = (&'static str, u32);
 const OURS: Ours = (VERSION, PROTOCOL);
@@ -58,8 +58,8 @@ enum Request {
     /// Find: names, words in files and meaning, `rows` hits per group.
     Find { query: String, scope: Option<PathBuf>, kind: Kind, rows: usize },
     Status,
-    /// Ask: the passages closest to a question, whole, of files below `scope` when given.
-    Passages { query: String, scope: Option<PathBuf>, max: usize },
+    /// Ask: excerpts of the files closest to a question, `bytes` in all, below `scope` when given.
+    Passages { query: String, scope: Option<PathBuf>, bytes: usize },
     /// Bytes and files below a folder, from the store.
     Size { path: PathBuf },
     /// Read the backlog without rests.
@@ -383,7 +383,7 @@ fn answer(ours: Ours, stream: TcpStream, index: &Service, store: Option<&Store>,
                 let found = crate::find::run(|q, max| index.search(q, scope.as_deref(), max), store.ok_or(crate::find::Off::TextOff), text_roots, &query, scope.as_deref(), kind, rows);
                 Reply::Found(found)
             }
-            Request::Passages { query, scope, max } => Reply::Passages { found: store.map(|s| s.passages(&query, scope.as_deref(), max)).unwrap_or_default() },
+            Request::Passages { query, scope, bytes } => Reply::Passages { found: store.map(|s| s.passages(&query, scope.as_deref(), bytes)).unwrap_or_default() },
             Request::Size { path } => Reply::Size { size: store.and_then(|s| s.size(&path)) },
             Request::IndexNow => {
                 store.inspect(|s| s.hurry.store(true, Ordering::Relaxed));
@@ -525,10 +525,10 @@ impl Client {
         }
     }
 
-    /// Ask: the `max` passages closest to `question`, with their files, below `scope` when
-    /// given. Nothing without the helper, or while search by meaning is off.
-    pub fn passages(&self, question: &str, scope: Option<&Path>, max: usize) -> Vec<(PathBuf, String)> {
-        match self.ask(&Request::Passages { query: question.into(), scope: scope.map(Path::to_path_buf), max }) {
+    /// Ask: excerpts of the files closest to `question`, `bytes` in all, below `scope` when
+    /// given (`Store::passages`). Nothing without the helper, or while search by meaning is off.
+    pub fn passages(&self, question: &str, scope: Option<&Path>, bytes: usize) -> Vec<(PathBuf, String)> {
+        match self.ask(&Request::Passages { query: question.into(), scope: scope.map(Path::to_path_buf), bytes }) {
             Some(Reply::Passages { found }) => found,
             _ => vec![],
         }
@@ -956,12 +956,13 @@ mod tests {
         ready(&old);
         assert!(old.shared(), "served by the newer helper");
         assert_eq!(old.search("README", None, 10).total, 1);
-        // An app from before the protocol was named says no protocol: it speaks the first.
+        // An app from before the protocol was named says no protocol: it speaks the first, which
+        // this one no longer does.
         let (mut line, token) = dial(&d.join("cache")).unwrap();
         line.1.write_all(format!("{{\"op\":\"hello\",\"token\":\"{token}\",\"version\":\"1.0.0\"}}\n").as_bytes()).unwrap();
         let mut reply = String::new();
         line.0.read_line(&mut reply).unwrap();
-        assert!(reply.contains("\"same\":true"), "{reply}");
+        assert_eq!(reply.contains("\"same\":true"), PROTOCOL == first_protocol(), "{reply}");
         // The helper stayed: the new app finds it, and nobody started another.
         let new = Client::of(("9.0.0", PROTOCOL), Some(d.join("cache")), &config(&d), |_| panic!("the helper left"));
         ready(&new);

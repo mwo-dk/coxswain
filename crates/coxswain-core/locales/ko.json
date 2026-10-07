@@ -148,6 +148,13 @@
  "ask.builtin_missing": "{model}은(는) 아직 다운로드되지 않았습니다: 설정의 질문하기에서, 또는 설정…에서 다운로드하세요",
  "ask.builtin_name": "{model} (내장)",
  "ask.builtin_slow": "너무 느려 권장하지 않음. 모델 서버가 더 빨리 답합니다",
+ "ask.excerpts": {
+  "other": "발췌 {n}개"
+ },
+ "ask.read": "{files}에서 {excerpts}, {words}",
+ "ask.words": {
+  "other": "약 {n}단어"
+ },
  "bom.advice": "해야 할 일",
  "bom.as_in_file": "파일에 적힌 대로",
  "bom.assets": {
@@ -1024,6 +1031,8 @@
   "other": "파일 {n}개의 내용"
  },
  "search.title": "찾기",
+ "setting.ask_context": "서버 모델의 컨텍스트(토큰)",
+ "setting.ask_context.hint": "서버의 채팅 모델이 받는 양: 출처, 질문, 답변을 합친 것입니다. 많을수록 파일을 더 많이 읽고 서버 메모리를 더 많이 씁니다. 8,192이면 qwen3:8b와 bge-m3가 모두 8GB 그래픽 카드에 올라갑니다. Ollama에는 이만큼을 요청하며, OpenAI 방식 서버는 최소 이만큼으로 설정해야 합니다.",
  "setting.ask_model": "채팅 모델",
  "setting.ask_model.hint": "파일에서 질문에 답하고 출처를 밝히는 모델. 채팅할 수 있는 모델만 표시합니다. builtin:qwen3-1.7b와 builtin:qwen3-4b는 이 컴퓨터에서 실행됩니다.",
  "setting.ask_think": "모델이 먼저 생각하게 하기",

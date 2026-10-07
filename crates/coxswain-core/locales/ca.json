@@ -154,6 +154,17 @@
  "ask.builtin_missing": "{model} encara no s'ha baixat: baixeu-lo a Paràmetres, a Pregunta, o a Configura…",
  "ask.builtin_name": "{model}, integrat",
  "ask.builtin_slow": "massa lent per recomanar-lo; un servidor de models respon més de pressa",
+ "ask.excerpts": {
+  "one": "{n} fragment",
+  "many": "{n} de fragments",
+  "other": "{n} fragments"
+ },
+ "ask.read": "{excerpts} de {files}, {words}",
+ "ask.words": {
+  "one": "unes {n} paraula",
+  "many": "unes {n} de paraules",
+  "other": "unes {n} paraules"
+ },
  "bom.advice": "Què cal fer",
  "bom.as_in_file": "Com al fitxer",
  "bom.assets": {
@@ -1132,6 +1143,8 @@
   "other": "text de {n} fitxers"
  },
  "search.title": "Cerca",
+ "setting.ask_context": "Context del model d'un servidor (tokens)",
+ "setting.ask_context.hint": "Quant rep el model de xat d'un servidor: les fonts, la pregunta i la resposta juntes. Més vol dir llegir més dels teus fitxers i ocupar més memòria del servidor; 8.192 manté qwen3:8b i bge-m3 alhora en una targeta gràfica de 8 GB. A Ollama se li demana aquesta quantitat; un servidor d'estil OpenAI ha de tenir-ne almenys tant.",
  "setting.ask_model": "Model de xat",
  "setting.ask_model.hint": "El model que respon preguntes a partir dels vostres fitxers i n'indica les fonts. Només s'ofereixen models que poden xatejar. builtin:qwen3-1.7b i builtin:qwen3-4b funcionen en aquest ordinador.",
  "setting.ask_think": "Deixa que el model pensi primer",

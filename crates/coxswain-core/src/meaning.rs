@@ -635,6 +635,13 @@ pub fn ask(cfg: &crate::config::SearchConfig, earlier: &[Turn], question: &str, 
         return Err("no chat model is set for Ask".into());
     }
     let s = Server::new(cfg);
+    // The oldest turns go first when the context cannot hold them all with the sources.
+    let room = crate::ask::context(cfg).saturating_sub(crate::chat::ANSWER);
+    let size = |e: &[Turn]| crate::ask::tokens(RULES) + crate::ask::tokens(question) + sources.iter().map(|(p, t)| crate::ask::tokens(t) + p.as_os_str().len() / 3 + 4).sum::<usize>() + e.iter().map(|(q, a)| crate::ask::tokens(q) + crate::ask::tokens(a) + 8).sum::<usize>();
+    let mut earlier = earlier;
+    while !earlier.is_empty() && size(earlier) > room {
+        earlier = &earlier[1..];
+    }
     let context: String = sources.iter().enumerate().map(|(i, (path, text))| format!("[{}] {}\n{text}\n\n", i + 1, path.display())).collect();
     let mut messages = vec![serde_json::json!({ "role": "system", "content": format!("{RULES}\n\nSources:\n\n{context}") })];
     for (q, a) in earlier {
@@ -653,7 +660,7 @@ pub fn ask(cfg: &crate::config::SearchConfig, earlier: &[Turn], question: &str, 
         if !cfg.ask_think {
             body["think"] = false.into();
         }
-        body["options"] = serde_json::json!({ "num_ctx": ASK_CONTEXT });
+        body["options"] = serde_json::json!({ "num_ctx": crate::ask::context(cfg) });
     }
     // A model that is not loaded yet takes a while to answer at all; after that, pieces come.
     let agent: ureq::Agent = ureq::Agent::config_builder().tls_config(tls())
@@ -715,14 +722,6 @@ pub fn ask(cfg: &crate::config::SearchConfig, earlier: &[Turn], question: &str, 
     Ok(())
 }
 
-/// The context Ollama gives the chat model, in tokens: ten passages, the rules and a few turns
-/// before fit with room to spare. Its own default is larger on recent versions (32,768), and
-/// the cache for that pushes the model partly off an 8 GB card and the embedding model out:
-/// each question then loaded both again, 7 seconds before the first word. Smaller on old
-/// versions (2,048), which cut the sources short.
-// ponytail: fixed; a long conversation of follow-ups loses its first turns past it.
-const ASK_CONTEXT: u32 = 8192;
-
 /// Whether a chat model turns its thinking off when the question ends in `/no_think`: Qwen3's
 /// hybrid models, not its coder and instruct ones, which do not think at all.
 fn no_think_by_word(model: &str) -> bool {
@@ -739,7 +738,7 @@ pub fn warm(cfg: &crate::config::SearchConfig) {
     }
     let s = Server::new(cfg);
     // With the context Ask asks for, or Ollama loads the model a second time for the question.
-    let body = serde_json::json!({ "model": cfg.ask_model, "options": { "num_ctx": ASK_CONTEXT } }).to_string();
+    let body = serde_json::json!({ "model": cfg.ask_model, "options": { "num_ctx": crate::ask::context(cfg) } }).to_string();
     std::thread::spawn(move || {
         let agent: ureq::Agent = ureq::Agent::config_builder().tls_config(tls()).timeout_global(Some(Duration::from_secs(300))).http_status_as_error(false).build().into();
         let _ = agent.post(&format!("{}/api/generate", s.url)).header("Content-Type", "application/json").send(body);
@@ -972,6 +971,18 @@ pub fn passages(text: &str, markdown: bool) -> Vec<Passage> {
         keep[rest[k * rest.len() / left]] = true;
     }
     all.into_iter().zip(keep).filter(|(_, k)| *k).map(|((p, _), _)| p).collect()
+}
+
+/// `next`, the passage after `text`, put on its end without the `OVERLAP` words they share
+/// when a paragraph was cut between them.
+pub fn join(text: &mut String, next: &str) {
+    let (a, b): (Vec<&str>, Vec<&str>) = (text.split_whitespace().collect(), next.split_whitespace().collect());
+    let shared = (1..=OVERLAP.min(a.len()).min(b.len())).rev().find(|&k| a[a.len() - k..] == b[..k]).unwrap_or(0);
+    let rest = b[shared..].join(" ");
+    if !rest.is_empty() {
+        text.push(' ');
+        text.push_str(&rest);
+    }
 }
 
 /// Whether a file's text is Markdown, whose `#` lines are headings.
@@ -1314,6 +1325,21 @@ mod tests {
 
         assert_eq!(passages("too short to mean much", false).len(), 0);
         assert!(size() > 400_000_000);
+    }
+
+    /// Neighbouring passages joined read as the text did: the words a cut shares come once.
+    #[test]
+    fn join_drops_the_words_two_passages_share() {
+        let text: String = (0..300).map(|i| format!("w{i} ")).collect();
+        let p = passages(&text, false);
+        let mut joined = p[0].text.clone();
+        join(&mut joined, &p[1].text);
+        join(&mut joined, &p[2].text);
+        let want: Vec<String> = (0..p[2].text.split_whitespace().last().unwrap()[1..].parse::<usize>().unwrap() + 1).map(|i| format!("w{i}")).collect();
+        assert_eq!(joined, want.join(" "));
+        let mut apart = "one two".to_string();
+        join(&mut apart, "three four");
+        assert_eq!(apart, "one two three four");
     }
 
     /// A whole document is cut into passages: every word is in one, a cut inside a paragraph

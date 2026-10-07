@@ -847,6 +847,12 @@ pub struct SearchConfig {
     /// Let Ask's chat model think before it answers (Qwen3, DeepSeek-R1 …): better reasoning,
     /// many seconds before the first word. Off: it is asked not to, where it can be.
     pub ask_think: bool,
+    /// Tokens a chat model on a server is given, the sources, the question and the answer
+    /// together: Ollama is asked for this context (`num_ctx`); an OpenAI-style server must have
+    /// at least as much. More reads more of the files, and holds more of the server's memory:
+    /// 8,192 keeps `qwen3:8b` and `bge-m3` both on an 8 GB card, where Ollama's own 32,768 pushed
+    /// them out of it and every question loaded both again. A built-in model has its own.
+    pub ask_context: usize,
     /// Larger files are left out. Bytes.
     pub text_max_size: u64,
     /// Search inside archives too: their entries by name, and the text of their files.
@@ -885,6 +891,7 @@ impl Default for SearchConfig {
             meaning_device: "auto".into(),
             ask_model: String::new(),
             ask_think: false,
+            ask_context: 8192,
             text_max_size: 20 * 1024 * 1024,
             archives: true,
             archives_everywhere: false,
