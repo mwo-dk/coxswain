@@ -99,6 +99,7 @@
     const go = (isMove) => op((password, only) => invoke(isMove ? "rename" : "copy", { paths: only ?? p.paths, base: dest, dest, password }), t(isMove ? "status.moved" : "status.copied", { what: n }), n, t(isMove ? "error.move" : "error.copy", { what: n }));
     ui.modal = {
       kind: "menu",
+      feature: "drag_and_drop",
       title: t("app.drop_title", { what: n, folder: basename(dest) || dest }),
       direct: true,
       filter: "",
@@ -121,9 +122,10 @@
     return row ? Math.max(1, Math.floor(rows.clientHeight / row.offsetHeight) - 1) : 20;
   };
 
-  /** A field to fill in, its button named by what it does (`ok`: Copy, Create …). */
-  function prompt(title, label, value, ok, run) {
-    ui.modal = { kind: "input", title, label, value, ok, run };
+  /** A field to fill in, its button named by what it does (`ok`: Copy, Create …); `feature`:
+   *  what F1 in it shows (`coxswain_core::features`). */
+  function prompt(title, label, value, ok, run, feature) {
+    ui.modal = { kind: "input", title, label, value, ok, run, feature };
   }
 
 
@@ -169,7 +171,7 @@
     const what = describe(paths);
     prompt(t(isMove ? "dialog.move" : "dialog.copy", { what }), t("dialog.to"), dest, t(isMove ? "verb.move" : "verb.copy"), (d) => {
       if (d.trim()) op((password, only) => invoke(isMove ? "rename" : "copy", { paths: only ?? paths, base: tab().dir, dest: d, password }), t(isMove ? "status.moved" : "status.copied", { what }), what, t(isMove ? "error.move" : "error.copy", { what }));
-    });
+    }, isMove ? "move_and_rename" : "copy");
   }
 
   function remove(forever) {
@@ -183,7 +185,7 @@
     const said = gone ? t("status.deleted", { what }) : ui.cfg.trash_restores ? t("status.trashed", { what }) : `${t("status.trashed", { what })} · ${t("undo.no_restore_hint", { key: ui.cfg.actions.undo?.[1] ?? "" })}`;
     const run = () => op((password, only) => invoke("delete", { paths: only ?? paths, forever, password }), said, what, t(gone ? "error.delete" : "error.trash", { what }));
     const text = inside ? t("confirm.archive_remove", { what, archive: basename(inside) }) : t(forever ? "confirm.delete_forever" : "confirm.trash", { what });
-    if (ui.cfg.confirm_delete) ui.modal = { kind: "confirm", title: t("dialog.delete"), text, ok: t(gone ? "common.delete" : "app.move_to_trash"), run };
+    if (ui.cfg.confirm_delete) ui.modal = { kind: "confirm", title: t("dialog.delete"), text, ok: t(gone ? "common.delete" : "app.move_to_trash"), run, feature: "delete" };
     else run();
   }
 
@@ -228,7 +230,7 @@
       const pats = v.split(/[\s;,]+/).filter(Boolean);
       const t = tab();
       for (const e of t.items) if (!e.is_dir && pats.some((g) => glob(g, e.name))) sel ? t.marked.add(e.path) : t.marked.delete(e.path);
-    });
+    }, "marking");
   }
 
   function addTab() {
@@ -361,7 +363,7 @@
         if (!name.trim() || name === e.name) return;
         await op((password, only) => invoke("rename", { paths: only ?? [e.path], base: tb.dir, dest: name, password }), t("status.renamed", { what }), what, t("error.rename", { what }));
         await load(tb, tb.dir, name);
-      });
+      }, "move_and_rename");
     },
     action_menu: () => actionMenu(),
     new_folder: () =>
@@ -370,7 +372,7 @@
         if (!name.trim()) return;
         await op((password) => invoke("mkdir", { base: tab().dir, name, password }), t("status.created", { what: name }), name, t("error.create", { what: name }));
         await load(tab(), tab().dir, name.split(/[\\/]/)[0]);
-      }),
+      }, "new_folder"),
     delete: () => readOnly() || remove(false),
     undo: async () => {
       if (!ui.undo) return void (ui.status = t("undo.nothing"));
@@ -417,7 +419,7 @@
       const what = describe(paths);
       prompt(t("app.extract", { what }), t("dialog.to"), otherTab().dir, t("verb.extract"), (d) => {
         if (d.trim()) op((password) => invoke("extract", { paths, base: tab().dir, dest: d, password }), t("app.extracted", { what }), what, t("error.extract", { what }));
-      });
+      }, "pack_and_extract");
     },
     pack: () => {
       const paths = targets();
@@ -446,6 +448,7 @@
       const list = await invoke("scripts", { dir: tb.dir, file: e && e.name !== ".." ? e.path : null });
       ui.modal = {
         kind: "menu",
+        feature: "user_menu",
         title: t("app.scripts"),
         direct: true,
         filter: "",
@@ -460,6 +463,7 @@
     menu: () =>
       (ui.modal = {
         kind: "menu",
+        feature: "command_list",
         title: t("menu.commands"),
         direct: false,
         filter: "",
@@ -475,6 +479,7 @@
         ],
       }),
     help: () => (ui.modal = { kind: "help" }),
+    features: () => (ui.modal = { kind: "help", tab: "features", filter: "" }),
     new_tab: addTab,
     close_tab: () => {
       const p = pane();
@@ -532,6 +537,7 @@
     const paths = targets();
     ui.modal = {
       kind: "menu",
+      feature: "action_menu",
       title: t("menu.title", { what: paths.length ? describe(paths) : t("menu.this_folder") }),
       direct: false,
       filter: "",

@@ -36,6 +36,7 @@
   function unlock(path = peeked.from, then = () => peek(path)) {
     ui.modal = {
       kind: "input",
+      feature: "archive_passwords",
       secret: true,
       title: t("archive.locked_title"),
       label: t("archive.locked_label"),

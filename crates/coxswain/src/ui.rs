@@ -420,10 +420,25 @@ fn dialog(f: &mut Frame, app: &mut App) {
         Dialog::Help { scroll } => {
             let area = centered(full, 120, full.height.saturating_sub(4));
             let inner = frame(f, app, area, &t!("help.title")).inner(ratatui::layout::Margin::new(1, 0));
-            let text = help_text(app, inner.width as usize);
-            f.render_widget(Paragraph::new(text).wrap(Wrap { trim: false }).scroll((*scroll, 0)), inner);
+            let [body, key] = Layout::vertical([Constraint::Min(0), Constraint::Length(1)]).areas(inner);
+            let text = help_text(app, body.width as usize);
+            f.render_widget(Paragraph::new(text).wrap(Wrap { trim: false }).scroll((*scroll, 0)), body);
+            f.render_widget(Paragraph::new(fit(&t!("help.features"), key.width as usize)).bold().centered(), key);
         }
-        Dialog::Menu { title, filter, items, cursor, direct } => {
+        Dialog::Features { filter, list, cursor, said, .. } => {
+            let area = centered(full, 120, full.height.saturating_sub(4));
+            let inner = frame(f, app, area, &t!("features.title")).inner(ratatui::layout::Margin::new(1, 0));
+            let [field, body, key] = Layout::vertical([Constraint::Length(1), Constraint::Min(0), Constraint::Length(1)]).areas(inner);
+            let (lines, at) = feature_lines(list, *cursor, filter.is_empty(), body.width as usize, &t);
+            let lines = if list.is_empty() { vec![Line::from(t!("features.none"))] } else { lines };
+            // The feature under the cursor in the upper third.
+            let skip = at.saturating_sub(body.height as usize / 3);
+            f.render_widget(Paragraph::new(lines).scroll((skip as u16, 0)), body);
+            let foot = said.clone().unwrap_or_else(|| t!("features.keys_tui"));
+            f.render_widget(Paragraph::new(fit(&foot, key.width as usize)).centered(), key);
+            input_line(f, app, field, filter);
+        }
+        Dialog::Menu { title, filter, items, cursor, direct, .. } => {
             let visible: Vec<_> = items.iter().filter(|it| it.label.to_lowercase().contains(&filter.to_lowercase())).collect();
             let kw = items.iter().map(|i| i.key.width()).max().unwrap_or(0);
             let lw = items.iter().map(|i| i.label.width()).max().unwrap_or(0).max(items.iter().filter_map(|i| i.group.as_ref()).map(|g| g.width()).max().unwrap_or(0));
@@ -520,7 +535,9 @@ fn search(f: &mut Frame, app: &mut App, full: Rect) {
     f.render_widget(Paragraph::new(fit(&keys_text, keys.width as usize)).centered(), keys);
 
     if show == crate::Show::Syntax {
-        return f.render_widget(Paragraph::new(syntax_lines()).wrap(Wrap { trim: false }), list);
+        let mut lines = syntax_lines();
+        lines.extend([Line::from(""), Line::from(t!("find.f1_features")).bold()]);
+        return f.render_widget(Paragraph::new(lines).wrap(Wrap { trim: false }), list);
     }
     if answer {
         let (cursor, off) = (*cursor, app.ask_state().err());
@@ -704,6 +721,61 @@ pub(crate) fn dstyle(t: &config::Theme) -> Style {
     sty(&t.dialog)
 }
 
+/// `s` in lines of at most `width` columns, broken at spaces, or anywhere in a word that does
+/// not fit (Japanese has no spaces).
+fn wrap(s: &str, width: usize) -> Vec<String> {
+    let width = width.max(8);
+    let (mut out, mut line, mut w) = (vec![], String::new(), 0);
+    for word in s.split_inclusive(' ') {
+        let ww = word.trim_end().width();
+        if w + ww > width && w > 0 {
+            out.push(std::mem::take(&mut line).trim_end().to_string());
+            w = 0;
+        }
+        for c in word.chars() {
+            let cw = c.width().unwrap_or(0);
+            if w + cw > width && c != ' ' {
+                out.push(std::mem::take(&mut line));
+                w = 0;
+            }
+            line.push(c);
+            w += cw;
+        }
+    }
+    if !line.trim().is_empty() {
+        out.push(line.trim_end().to_string());
+    }
+    out
+}
+
+/// F1 → Features as lines: an area heading where the area changes (unfiltered), each feature's
+/// title with its keys, its line, and its questions with their answers. Also the line of the
+/// feature under the cursor.
+fn feature_lines(list: &[coxswain_core::features::Entry], cursor: usize, headings: bool, width: usize, t: &config::Theme) -> (Vec<Line<'static>>, usize) {
+    let (mut v, mut at) = (vec![], 0);
+    for (i, e) in list.iter().enumerate() {
+        if headings && (i == 0 || list[i - 1].area != e.area) {
+            if i > 0 {
+                v.push(Line::from(""));
+            }
+            v.push(Line::from(Span::styled(e.area.clone(), dstyle(t).add_modifier(Modifier::BOLD | Modifier::DIM))));
+        }
+        if i == cursor {
+            at = v.len();
+        }
+        let keys: Vec<String> = e.keys.iter().map(|(a, k)| format!("{a} {k}")).collect();
+        let head = if keys.is_empty() { format!(" {} ", e.title) } else { format!(" {}   {} ", e.title, keys.join(" · ")) };
+        let style = if i == cursor { sty(&t.dialog_input) } else { dstyle(t).add_modifier(Modifier::BOLD) };
+        v.push(Line::from(Span::styled(fit(&head, width), style)));
+        v.extend(wrap(&e.what, width.saturating_sub(3)).into_iter().map(|l| Line::from(format!("   {l}"))));
+        for (q, a) in &e.qa {
+            v.extend(wrap(q, width.saturating_sub(3)).into_iter().map(|l| Line::from(format!("   {l}")).bold()));
+            v.extend(wrap(a, width.saturating_sub(5)).into_iter().map(|l| Line::from(format!("     {l}"))));
+        }
+    }
+    (v, at)
+}
+
 /// The help text, its keys under the group headings, in two columns when `width` allows.
 fn help_text(app: &App, width: usize) -> Vec<Line<'static>> {
     let mut v = vec![
@@ -744,6 +816,16 @@ fn help_text(app: &App, width: usize) -> Vec<Line<'static>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn features_wrap_to_the_width_and_mark_the_cursor() {
+        assert_eq!(wrap("one two three four", 9), ["one two", "three", "four"]);
+        assert!(wrap("日本語のテキストはスペースがない", 10).iter().all(|l| l.width() <= 10));
+        let list = coxswain_core::features::list(&config::Config::default(), "", false);
+        let (lines, at) = feature_lines(&list, 2, true, 60, &config::Theme::nc());
+        assert!(lines[at].to_string().contains(&list[2].title), "{}", lines[at]);
+        assert!(lines.iter().all(|l| l.width() <= 60));
+    }
 
     #[test]
     fn help_keys_take_two_columns_when_wide() {

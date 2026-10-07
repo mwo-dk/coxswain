@@ -40,6 +40,8 @@ candle-transformers = "0.11.0"
 # pure-Rust `fancy-regex` backend would only be dead code next to it. 0.22 is what candle-core wants.
 tokenizers = { version = "0.22", default-features = false }
 sha2 = "0.11.0"
+# F1 → Features: its filter ignores diacritics. Already in the tree (tokenizers, the terminal app).
+unicode-normalization = "0.1.25"
 # Provenance: DSSE payloads and signatures are base64.
 base64 = "0.23"
 # Provenance: who signed, from a Sigstore certificate. Parsing only: its `verify` feature stays off.

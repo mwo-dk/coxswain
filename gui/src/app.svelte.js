@@ -170,6 +170,7 @@ export async function load(t, dir = t.dir, focus) {
     if (locked) {
       ui.modal = {
         kind: "input",
+        feature: "archive_passwords",
         secret: true,
         title: tr("archive.locked_title"),
         label: tr("archive.locked_label"),
@@ -279,6 +280,7 @@ export function switchBranch(tb = tab()) {
   const dir = tb.dir;
   ui.modal = {
     kind: "confirm",
+    feature: "git_branches",
     title,
     text: tr("branches.switch_text", { branch: branchOf(e), repo: basename(tb.history.base) }),
     ok: tr("verb.switch"),
@@ -296,6 +298,7 @@ export function newBranch(tb = tab()) {
   const dir = tb.dir;
   ui.modal = {
     kind: "input",
+    feature: "git_branches",
     title,
     label: from ? tr("branches.new_from", { branch: branchOf(e) }) : tr("branches.new_here"),
     value: "",

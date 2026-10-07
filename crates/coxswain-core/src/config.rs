@@ -257,6 +257,8 @@ actions! {
     Notes = "notes", "Folder notes", Viewing, ["Alt+N"];
     // App, the most used first.
     Help = "help", "Help", App, ["F1"];
+    // F1's second tab, and F1 inside a dialog: no key of its own.
+    Features = "features", "Features and questions", App, [];
     Menu = "menu", "Commands", App, ["F9"];
     Settings = "settings", "Settings", App, ["Ctrl+,"];
     Quit = "quit", "Quit", App, ["F10"];

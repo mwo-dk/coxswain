@@ -8,6 +8,7 @@ pub mod config;
 pub mod i18n;
 pub mod dupes;
 pub mod extract;
+pub mod features;
 pub mod find;
 pub mod fs;
 pub mod git;

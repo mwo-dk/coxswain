@@ -27,7 +27,38 @@
     }
   });
 
-  const close = () => (ui.modal = null);
+  // F1 → Features from a dialog goes back to it on Esc.
+  const close = () => (ui.modal = ui.modal?.back ?? null);
+
+  // ------------------------------------------------------------ features (F1)
+
+  /** The feature (`coxswain_core::features`) each kind of window is about, for F1 in it; a
+   *  modal's own `feature` wins. */
+  const FEATURE_OF = { pack: "pack_and_extract", props: "properties", rename: "batch_rename", tag: "tags", settings: "settings_window", dupes: "duplicates", bom: "cbom", provenance: "provenance", guide: "first_run", setup: "search_setup", search: "find_file" };
+
+  /** F1 → Features, filtered to the feature of the window `from` (none: all of them). */
+  export function features(from) {
+    const id = from && (from.feature ?? FEATURE_OF[from.kind]);
+    const filter = id ? t(`feature.${id}.title`) : "";
+    ui.modal = { kind: "help", tab: "features", filter, back: from ?? null };
+  }
+
+  /** The other tab of Help: the keys, or every feature with its questions. */
+  function helpTab(m, tab) {
+    m.tab = tab;
+    tick().then(() => input?.focus());
+  }
+
+  // The list for what is typed, from the core, in the current language.
+  $effect(() => {
+    const m = ui.modal;
+    if (m?.kind !== "help" || m.tab !== "features") return;
+    const query = m.filter ?? "";
+    invoke("features", { query }).then((list) => ui.modal === m && m.filter === query && (m.list = list), () => {});
+  });
+
+  /** "Show me": the feature's page on GitHub, in the browser. */
+  const showMe = (f) => invoke("open_docs", { id: f.id }).then((url) => (ui.status = t("features.opening", { url })), (e) => (ui.status = String(e)));
 
   /** Close `m` and run its action, once, even if Enter and a button click both fire. */
   function confirm(m, ...args) {
@@ -276,7 +307,11 @@
     if (k === "Esc") {
       if (m.show === "list") close();
       else refind(m, { show: "list", chip: m.chip === "ask" ? "all" : m.chip });
-    } else if (k === "F1") m.show = m.show === "syntax" ? "list" : "syntax";
+    } else if (k === "F1" || act === "help") {
+      // F1 shows the syntax; again, the questions about Find.
+      if (m.show === "syntax") features(m);
+      else m.show = "syntax";
+    }
     else if (act === "search") refind(m, { here: !m.here });
     else if (act === "search_text") refind(m, { chip: m.chip === "in_files" ? "all" : "in_files", show: "list" });
     else if (act === "ask" || k === "Ctrl+Enter") {
@@ -306,6 +341,8 @@
     const m = ui.modal;
     const act = ui.cfg.keymap[k];
     if (m.kind === "search") return findKey(m, e, k, act);
+    // F1 in a dialog or window: Features, at what it is about.
+    if (act === "help" && m.kind !== "help") return features(m), true;
     if (m.kind === "guide") return m.key?.(k) ?? false;
     if (k === "Esc") return close(), true;
     switch (m.kind) {
@@ -351,6 +388,10 @@
       case "dupes":
         // windows with fields and buttons of their own: Esc (above) closes them, Enter is theirs
         return false;
+      case "help":
+        if (!(act === "help" || (k === "Enter" && m.tab !== "features"))) return false;
+        ui.modal = null;
+        return true;
       default:
         if (k === "Enter" || act === "help") close();
         return m.kind === "message";
@@ -416,7 +457,34 @@
         <p class="keys">{t("dialog.keys_one", { verb: t("common.close") })}</p>
       {:else if m.kind === "help"}
         <h2>{t("dialogs.help_title", { version: ui.cfg.version })}</h2>
-        <p><button onclick={() => (ui.modal = { kind: "guide", step: 0 })}>{t("guide.show_again")}</button></p>
+        <div class="tabs" role="tablist">
+          <button role="tab" class:on={m.tab !== "features"} aria-selected={m.tab !== "features"} onclick={() => helpTab(m, "keys")}>{t("features.tab_keys")}</button>
+          <button role="tab" class:on={m.tab === "features"} aria-selected={m.tab === "features"} onclick={() => helpTab(m, "features")}>{t("features.title")}</button>
+          <span class="grow"></span>
+          <button onclick={() => (ui.modal = { kind: "guide", step: 0 })}>{t("guide.show_again")}</button>
+        </div>
+        {#if m.tab === "features"}
+          <input bind:this={input} bind:value={m.filter} placeholder={t("features.filter")} spellcheck="false" />
+          <div class="help features">
+            {#each m.list ?? [] as f, i (f.id)}
+              {#if !m.filter && f.area !== m.list[i - 1]?.area}<h3>{f.area}</h3>{/if}
+              <section>
+                <div class="head">
+                  <b>{f.title}</b>
+                  {#each f.keys as [label, keys] (label)}<span class="key">{label} {#each keys.split(" / ") as k (k)}<kbd>{k}</kbd>{/each}</span>{/each}
+                  <span class="grow"></span>
+                  <button title={t("features.show_me_tip")} onclick={() => showMe(f)}>{t("features.show_me")}</button>
+                </div>
+                <p>{f.what}</p>
+                <dl>
+                  {#each f.qa as [q, a] (q)}<dt>{q}</dt><dd>{a}</dd>{/each}
+                </dl>
+              </section>
+            {:else}
+              {#if m.list}<p class="none">{t("features.none")}</p>{/if}
+            {/each}
+          </div>
+        {:else}
         <div class="help" bind:this={input} tabindex="-1">
           <table>
             <tbody>
@@ -445,6 +513,7 @@
             {#each parts(t("dialogs.help_config")) as s, i (i)}{#if i % 2}<code>{s === "path" ? ui.cfg.config_path : "coxswain --dump-config"}</code>{:else}{s}{/if}{/each}
           </p>
         </div>
+        {/if}
       {:else if m.kind === "menu"}
         <h2>{m.title}</h2>
         {#if !m.direct}
@@ -695,6 +764,49 @@
   .dialog.rename,
   .dialog.help {
     width: min(900px, 92vw);
+  }
+  /* Help's two tabs: the keys, and every feature with its questions. */
+  .tabs {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+  .tabs [role="tab"].on {
+    border-color: var(--accent-bg);
+    font-weight: 600;
+  }
+  .features {
+    margin-top: 8px;
+  }
+  .features h3 {
+    margin: 14px 0 4px;
+    font-size: 1em;
+    color: var(--directory-fg);
+  }
+  .features section {
+    padding: 6px 0 8px;
+    border-bottom: 1px solid color-mix(in srgb, var(--border-fg) 50%, transparent);
+  }
+  .features .head {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 12px;
+    align-items: center;
+  }
+  .features .key {
+    opacity: 0.85;
+  }
+  .features p,
+  .features dl {
+    margin: 4px 0 0;
+  }
+  .features dt {
+    font-weight: 600;
+    margin-top: 4px;
+  }
+  .features dd {
+    margin: 0 0 0 1em;
   }
   .dialog.search {
     height: 70vh;

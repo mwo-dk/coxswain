@@ -147,6 +147,7 @@ On a Mac the shortcuts are the same, with **Ctrl**, not Cmd.
 | Key | Action (F9 name) | Config name | Desktop app | Terminal app |
 |---|---|---|---|---|
 | **F1** | Help | `help` | The help window; its *Show the guide again* button opens the [first-run guide](first-run.md) | The help screen ([Help](command-list.md)); **G** there opens the first-run guide |
+| – | Features and questions | `features` | Help's *Features and questions* tab ([Features and questions](features.md)); **F1** in a dialog opens it at that dialog's feature | **Tab** in the help screen; **F1** in a dialog opens it at that dialog's feature |
 | **F9** | Commands | `menu` | The command list | The same (the F-key bar still says *PullDn*) |
 | **Ctrl+,** | Settings | `settings` | The Settings window ([Settings](../customise/settings.md)) | – |
 | **F10** | Quit | `quit` | Close the window | Quit |

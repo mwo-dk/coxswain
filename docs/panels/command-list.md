@@ -34,8 +34,12 @@ Press **F1**.
 | | Terminal app | Desktop app |
 |---|---|---|
 | Scroll | **Up**, **Down**, **PageUp**, **PageDown** | The mouse wheel |
+| [Features and questions](features.md) | **Tab** (the key line at the bottom says so) | The *Features and questions* tab at the top |
 | The [first-run guide](first-run.md) again | **G** | The **Show the guide again** button at the top |
 | Close | Any other key | **Esc**, **Enter**, **F1**, or a click outside it |
+
+Help has two parts: the keys (below), and [Features and questions](features.md), every
+feature with its keys and the questions people ask, filtered as you type.
 
 ## What you see
 
@@ -52,7 +56,7 @@ them, and in each group the most used action first:
 | Search | Find, Find in files, Ask your files, Find duplicates |
 | Git | Git history, Git branches, Switch to branch, Git worktrees, New branch here |
 | Viewing and editing | View, Edit, Preview, Path to command line, Menu (the user menu), Folder notes |
-| App | Help, Commands (this list), Settings, Quit |
+| App | Help, Features and questions, Commands (this list), Settings, Quit |
 
 [Every default key](keys.md) has the same tables, with each key.
 
@@ -85,6 +89,7 @@ keys are the ones in force, so a rebinding shows at once.
 |---|---|---|
 | The command list (*Commands*) | `menu` | `F9` |
 | Help | `help` | `F1` |
+| Features and questions | `features` | none ([Features and questions](features.md)) |
 
 The actions in the list are all the `[keys]` names; see [Every default key](keys.md).
 
@@ -154,4 +159,4 @@ with **Ctrl+A** and type.
 `coxswain --paths` prints where everything is kept ([Where things are kept](../reference/where-things-are-kept.md)).
 
 ---
-[← Previous: The mouse](mouse.md) · [Next: What can I do with this? →](action-menu.md)
+[← Previous: The mouse](mouse.md) · [Next: Features and questions →](features.md)

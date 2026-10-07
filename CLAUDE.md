@@ -77,6 +77,13 @@ These rules hold for every contributor and every Claude session in this reposito
     once.
   A PR that adds or changes a capability checks these points; a review that finds a hidden
   feature fixes it.
+- **Every feature in F1 → Features.** A PR that adds or changes a feature adds or updates its
+  entry in `coxswain_core::features::FEATURES` (id, docs page, the actions that are its keys)
+  and its texts in every language: `feature.<id>.title`, `.what` (one line), and its two or three
+  most asked questions with answers of a sentence or two (`.q1`/`.a1` …), taken from its docs
+  page's *Questions*; keys in them as `{action}` placeholders, so they follow the keymap. A test
+  fails when a docs feature page has no entry (reference pages that are no feature are listed
+  in the test).
 - **Nothing leaves the machine unless the user asks** for it (the update check aside, and it can
   be turned off). Anything that sends data (a model download, a remote server) is opt-in, and
   Settings names where it goes.
