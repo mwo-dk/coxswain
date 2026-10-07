@@ -44,8 +44,10 @@ path*) and **Alt+F1** / **Alt+F2** take you to any folder by typing its path; se
   section at once (a folder can be a favourite and a repository).
 - Hover any entry for its full path.
 - Section headers are small capitals, with an arrow that turns when the section is folded.
-- Left out of *Drives*: boot, EFI, snap and system mounts (`/boot`, `/efi`, `/snap`, `/var/lib`,
-  `/run` except `/run/media`, `/proc`, `/sys`), and disks of size zero. A disk mounted more than once (btrfs
+- Left out of *Drives*: boot, EFI, snap and system mounts (`/boot`, `/efi`, `/snap`, `/var/lib`
+  with Docker's layers, `/run` except `/run/media`, so also Flatpak's `/run/user/…/doc` and
+  gvfs, `/proc`, `/sys`), the mount a running AppImage makes for itself (`/tmp/.mount_…`), ZFS
+  snapshots, and disks of size zero. Removable disks, network shares and ZFS datasets stay. A disk mounted more than once (btrfs
   subvolumes, bind mounts) is listed once, at its shortest mount point.
 
 ## Settings and config.toml
@@ -109,8 +111,16 @@ More than 90% of it is used. The text beside the name says how much is free.
 #### Why is one of my disks missing, or shown under another name?
 
 Disks mounted under `/boot`, `/efi`, `/snap`, `/var/lib`, `/run`, `/proc` or `/sys` are left
-out; that includes USB sticks mounted under `/run/media/…`. A disk mounted twice is listed once, at its shortest mount
-point, named after that folder.
+out, except USB sticks and other disks mounted under `/run/media/…`, which are shown. A disk
+mounted twice is listed once, at its shortest mount point, named after that folder.
+
+#### Why did a `.mount_…` drive show up?
+
+That was the AppImage's own mount: an AppImage (the Homebrew cask on Linux is one) unpacks
+nothing, it mounts itself with FUSE at `/tmp/.mount_` and a few letters (such as
+`.mount_coxswaDnLNBP`) and runs from there. Up to 2.9.0 *Drives* listed it; since 2.9.1 it is
+left out, for Coxswain's AppImage and any other, and the file name index never walks into it
+either. A folder of yours that happens to start with `.mount_` on a real disk is still shown.
 
 #### Where is the sidebar in Hebrew or Arabic?
 
