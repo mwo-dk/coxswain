@@ -29,7 +29,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        release: ["14.5", "15.0"]
+        release: ["14.5", "15.1"]
     runs-on: ubuntu-24.04
     timeout-minutes: 90
     steps:
@@ -82,7 +82,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        release: ["14.5", "15.0"]
+        release: ["14.5", "15.1"]
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     steps:
