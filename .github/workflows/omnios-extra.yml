@@ -8,9 +8,9 @@ name: omnios-extra
 on:
   push:
     branches: [master]
-    paths: ["packaging/omnios/**", ".github/workflows/omnios-extra.yml"]
+    paths: ["packaging/omnios/**", ".github/workflows/omnios-extra.yml", ".github/actions/vm-host-prep/**"]
   pull_request:
-    paths: ["packaging/omnios/**", ".github/workflows/omnios-extra.yml"]
+    paths: ["packaging/omnios/**", ".github/workflows/omnios-extra.yml", ".github/actions/vm-host-prep/**"]
   workflow_dispatch:
 
 permissions:
@@ -30,6 +30,8 @@ jobs:
         with:
           persist-credentials: false
 
+      - uses: ./.github/actions/vm-host-prep
+        timeout-minutes: 10
       - uses: vmactions/omnios-vm@9576f0b6d15e7696548409baa533bc0a339caf42 # v1.3.7
         with:
           release: "r151058"

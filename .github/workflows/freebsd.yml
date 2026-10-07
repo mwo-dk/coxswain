@@ -31,6 +31,7 @@ on:
       - "install/**"
       - "packaging/freebsd/**"
       - ".github/workflows/freebsd.yml"
+      - ".github/actions/vm-host-prep/**"
   # The port, built and checked by hand on each supported release (packaging/freebsd/README.md).
   workflow_dispatch:
     inputs:
@@ -83,6 +84,8 @@ jobs:
           key: freebsd-${{ matrix.release }}-cargo-${{ hashFiles('Cargo.lock') }}
           restore-keys: freebsd-${{ matrix.release }}-cargo-
 
+      - uses: ./.github/actions/vm-host-prep
+        timeout-minutes: 10
       - uses: vmactions/freebsd-vm@c46abacb49f09938ca4e1702d15d836285d694cc # v1.5.9
         with:
           release: ${{ matrix.release }}
@@ -114,6 +117,8 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - uses: ./.github/actions/vm-host-prep
+        timeout-minutes: 10
       - uses: vmactions/freebsd-vm@c46abacb49f09938ca4e1702d15d836285d694cc # v1.5.9
         env:
           TAG: ${{ inputs.tag }}

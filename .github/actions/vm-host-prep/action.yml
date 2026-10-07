@@ -1,0 +1,53 @@
+# Installs on the Ubuntu runner the host packages a vmactions/*-vm step installs, with
+# time limits, retries and other mirrors, so the action's own apt-get finds them installed
+# and fetches nothing. Its own apt has no time limit: Release run 37662748644 hung 90 minutes
+# in the FreeBSD job when the Azure mirror and then security.ubuntu.com failed for ovmf.
+#
+# The list is what install() in each pinned action's index.js asks for on x86_64 (freebsd-vm,
+# netbsd-vm, openbsd-vm, omnios-vm, openindiana-vm: the same function). It adds rsync only for
+# a builder before 2.0, and every release we use has 2.x. Check it when a pin moves.
+#
+# Four tries fit in the `timeout-minutes: 10` the calling step gives it.
+name: VM host packages
+description: Install the QEMU host packages a vmactions VM step needs, with retries and mirror fallback.
+inputs:
+  packages:
+    description: Space-separated apt packages.
+    default: qemu-utils qemu-system-x86 ovmf
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      env:
+        PKGS: ${{ inputs.packages }}
+      run: |
+        set -u
+        read -ra pkgs <<<"$PKGS"
+        opts=(-q -o Acquire::Retries=2 -o Acquire::http::Timeout=20 -o Acquire::https::Timeout=20
+              -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold)
+        install() { sudo timeout 90 apt-get install -y --no-install-recommends "${opts[@]}" "${pkgs[@]}"; }
+        # Try 1 uses the runner's index and mirror list as they are; each later try refreshes
+        # the index and puts a different mirror first. The runner lists Azure, then
+        # archive.ubuntu.com, then security.ubuntu.com, which also failed in that run.
+        firsts=("" http://azure.archive.ubuntu.com/ubuntu/ http://archive.ubuntu.com/ubuntu/ http://azure.archive.ubuntu.com/ubuntu/)
+        list=/etc/apt/apt-mirrors.txt
+        for i in 1 2 3 4; do
+          first=${firsts[$((i - 1))]}
+          if [ -n "$first" ]; then
+            echo "::warning::apt-get install failed (try $((i - 1)) of 4); next try with $first first, in $((10 * (i - 1))) s"
+            sleep $((10 * (i - 1)))
+            if [ -f "$list" ]; then
+              { echo "$first"; grep -vF "$first" "$list" | cut -f1; } |
+                awk '{ print $0 "\tpriority:" NR }' | sudo tee "$list.new" >/dev/null
+              sudo mv "$list.new" "$list"
+              cat "$list"
+            else
+              sudo sed -i 's|https\?://security\.ubuntu\.com/ubuntu|http://azure.archive.ubuntu.com/ubuntu|' \
+                /etc/apt/sources.list /etc/apt/sources.list.d/*.sources 2>/dev/null || true
+            fi
+            sudo timeout 60 apt-get update "${opts[@]}" || true
+          fi
+          install && exit 0
+        done
+        echo "::error::Could not install ${pkgs[*]} after 4 tries"
+        exit 1

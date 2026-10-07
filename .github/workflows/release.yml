@@ -369,6 +369,8 @@ jobs:
           npm ci --no-audit --no-fund
           npm run build
           rm -rf node_modules
+      - uses: ./.github/actions/vm-host-prep
+        timeout-minutes: 10
       - uses: vmactions/freebsd-vm@c46abacb49f09938ca4e1702d15d836285d694cc # v1.5.9
         with:
           release: "14.5"
@@ -438,6 +440,8 @@ jobs:
           npm ci --no-audit --no-fund
           npm run build
           rm -rf node_modules
+      - uses: ./.github/actions/vm-host-prep
+        timeout-minutes: 10
       - uses: vmactions/netbsd-vm@c8a0d7ddb84619a7a8cc4e652efa7950b3fd9f92 # v1.5.2
         if: matrix.sys == 'netbsd'
         with:
@@ -603,6 +607,8 @@ jobs:
         with:
           persist-credentials: false
           ref: ${{ needs.draft.outputs.sha }}
+      - uses: ./.github/actions/vm-host-prep
+        timeout-minutes: 10
       - uses: vmactions/freebsd-vm@c46abacb49f09938ca4e1702d15d836285d694cc # v1.5.9
         env:
           TAG: ${{ needs.draft.outputs.tag }}
