@@ -465,12 +465,8 @@ struct Disk {
     total: u64,
     free: u64,
     removable: bool,
-}
-
-/// System mounts that are not places to go. `/run` is one, except `/run/media`, where
-/// removable disks are mounted. So is a ZFS snapshot ZFS mounted when it was looked into.
-fn hidden_mount(mount: &Path) -> bool {
-    (["/boot", "/efi", "/snap", "/var/lib", "/run", "/proc", "/sys"].iter().any(|p| mount.starts_with(p)) && !mount.starts_with("/run/media")) || coxswain_core::zfs::in_snapshot(mount).is_some()
+    #[serde(skip)]
+    fstype: String,
 }
 
 /// The mounted disks and their free space. The window asks again every so often, so the
@@ -484,14 +480,14 @@ async fn disks() -> Res<Vec<Disk>> {
 #[cfg(any(target_os = "linux", target_os = "macos", target_os = "freebsd", windows))]
 fn mounted_disks() -> Vec<Disk> {
     let list = sysinfo::Disks::new_with_refreshed_list();
-    list.list().iter().map(|d| Disk { label: String::new(), device: d.name().to_string_lossy().into_owned(), mount: d.mount_point().to_path_buf(), total: d.total_space(), free: d.available_space(), removable: d.is_removable() }).collect()
+    list.list().iter().map(|d| Disk { label: String::new(), device: d.name().to_string_lossy().into_owned(), mount: d.mount_point().to_path_buf(), total: d.total_space(), free: d.available_space(), removable: d.is_removable(), fstype: d.file_system().to_string_lossy().into_owned() }).collect()
 }
 
 /// The mounted file systems as unlabelled disks: from the core on NetBSD, OpenBSD and
 /// illumos, which sysinfo does not know.
 #[cfg(not(any(target_os = "linux", target_os = "macos", target_os = "freebsd", windows)))]
 fn mounted_disks() -> Vec<Disk> {
-    coxswain_core::machine::mounted().into_iter().map(|m| Disk { label: String::new(), device: m.device, mount: m.mount, total: m.total, free: m.free, removable: false }).collect()
+    coxswain_core::machine::mounted().into_iter().map(|m| Disk { label: String::new(), device: m.device, mount: m.mount, total: m.total, free: m.free, removable: false, fstype: m.fstype }).collect()
 }
 
 fn read_disks() -> Vec<Disk> {
@@ -500,7 +496,7 @@ fn read_disks() -> Vec<Disk> {
     let mut sorted: Vec<Disk> = mounted_disks().into_iter().filter(|d| d.total > 0).collect();
     sorted.sort_by_key(|d| d.mount.as_os_str().len());
     for mut d in sorted {
-        if hidden_mount(&d.mount) || out.iter().any(|o| o.device == d.device) {
+        if coxswain_core::machine::hidden_mount(&d.mount, &d.fstype) || out.iter().any(|o| o.device == d.device) {
             continue;
         }
         d.label = if d.mount.parent().is_none() { coxswain_core::t!("place.system") } else { d.mount.file_name().map_or(d.device.clone(), |n| n.to_string_lossy().into_owned()) };
@@ -1777,15 +1773,6 @@ mod tests {
         let ok = |u: &str| local(&tauri::Url::parse(u).unwrap());
         assert!(ok("tauri://localhost/index.html") && ok("http://tauri.localhost/index.html") && ok("asset://localhost/%2Fhome%2Fme%2Fa.pdf") && ok("http://asset.localhost/C%3A/a.pdf") && ok("about:srcdoc"));
         assert!(!ok("https://example.com/") && !ok("http://example.com/") && !ok("file:///etc/passwd") && !ok("javascript:alert(1)"));
-    }
-
-    #[test]
-    fn drives_show_removable_disks_under_run_media() {
-        assert!(!hidden_mount(Path::new("/run/media/me/USB")));
-        assert!(hidden_mount(Path::new("/run/user/1000")));
-        assert!(hidden_mount(Path::new("/boot/efi")));
-        assert!(!hidden_mount(Path::new("/mnt/data")));
-        assert!(hidden_mount(Path::new("/tank/home/.zfs/snapshot/daily")));
     }
 
     #[test]
