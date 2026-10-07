@@ -1,5 +1,7 @@
 # Submitting Coxswain to termux-packages
 
+**Owner steps, in order:** **termux-packages**, [pkgsrc-wip](../pkgsrc/SUBMIT.md), [omnios-extra](../omnios/SUBMIT.md), [oi-userland](../openindiana/SUBMIT.md), [openbsd-wip](../openbsd/port/SUBMIT.md), [nixpkgs](../nix/SUBMIT.md). This is step 1 of 6; see [packaging/README.md](../README.md#submitting-by-hand).
+
 The recipe is `coxswain/build.sh` in this folder. CI (`.github/workflows/termux.yml`) builds it
 from each commit with termux-packages' own builder for `aarch64`, then installs the `.deb` in
 Termux's Docker image on an ARM runner and starts it. The pull request to Termux is opened by
@@ -23,12 +25,14 @@ submit, and that low-quality work is closed. So:
 
 ## Before you start
 
-- The recipe must name a **released** version. `TERMUX_PKG_VERSION` and `TERMUX_PKG_SHA256`
-  are those of the latest release; when a newer one is out, update both:
+- The recipe must name a **released** version. It names **2.8.1** now, with the SHA-256 of
+  that tag's tarball. When a newer release is out, move both, from the repository's root:
 
   ```sh
-  V=2.1.0   # the release, without the v
-  curl -sL https://github.com/mwo-dk/coxswain/archive/refs/tags/v$V.tar.gz | sha256sum
+  V=2.8.1   # the release, without the v
+  sum=$(curl -sL https://github.com/mwo-dk/coxswain/archive/refs/tags/v$V.tar.gz | sha256sum | cut -d' ' -f1)
+  sed -i -e "s/^TERMUX_PKG_VERSION=.*/TERMUX_PKG_VERSION=\"$V\"/" \
+    -e "s/^TERMUX_PKG_SHA256=.*/TERMUX_PKG_SHA256=$sum/" packaging/termux/coxswain/build.sh
   ```
 
 - The last *Termux* run on `master` is green (Actions → Termux).
@@ -77,8 +81,9 @@ submit, and that low-quality work is closed. So:
      fork <https://github.com/termux-user-repository/tur>, put it in `tur/coxswain/build.sh`
      (set `TERMUX_PKG_MAINTAINER="@<your GitHub name>"`), and open the pull request there; users then run `pkg install tur-repo && pkg install coxswain`.
    - *Maintainer:* new packages in the main repository use `@termux`; keep it unless they ask.
-   - *The trash crate:* Coxswain leaves it out on Android (the crate has no Android code), so
-     the recipe needs no patch; F8 there says Android has no trash, and Shift+F8 deletes.
+   - *The trash crate:* it has no Android code, so Coxswain leaves it out there and, since
+     2.7.2, has a small trash of its own on Android (`~/.local/share/Trash`, the freedesktop.org
+     layout; on the phone's shared storage F8 asks to delete for good). Nothing to patch.
    - *Bundled C:* the build compiles SQLite and Oniguruma from their crates (`rusqlite`
      `bundled`, `onig`). If they want the system libraries, add `TERMUX_PKG_DEPENDS="oniguruma"`
      and `export RUSTONIG_SYSTEM_LIBONIG=1` in `termux_step_pre_configure`, build again, push.

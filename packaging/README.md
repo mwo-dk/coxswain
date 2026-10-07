@@ -30,6 +30,10 @@ system on OmniOS), [openindiana/](openindiana/SUBMIT.md) for oi-userland (not bu
 [pkgsrc/](pkgsrc/SUBMIT.md) for pkgsrc-wip, which covers NetBSD and SmartOS (`pkgsrc.yml` builds
 it on NetBSD; `pkgsrc/update.py` moves it to a new release).
 
+The OpenBSD port in `openbsd/port/sysutils/coxswain`, for openbsd-wip and then ports@, is built
+with the 7.9 ports tree by the *OpenBSD* workflow when started by hand
+(`gh workflow run openbsd.yml`); see [openbsd/port/SUBMIT.md](openbsd/port/SUBMIT.md).
+
 `taps/generate.sh` writes the Homebrew formula and cask from a release's `.sha256` assets.
 
 **crates.io:** make a token at <https://crates.io/settings/tokens> with the
@@ -46,3 +50,15 @@ Microsoft before it is listed, usually within a day.
 **Homebrew:** make a fine-grained token at <https://github.com/settings/personal-access-tokens>
 limited to `mwo-dk/homebrew-coxswain`, with *Contents: read and write*, then
 `gh secret set TAP_TOKEN -R mwo-dk/coxswain`.
+
+## Submitting by hand
+
+The owner submits these, from their own accounts, in this order; each SUBMIT.md has the steps
+and the copy-paste commands that move its recipe to a new release:
+
+1. termux-packages: [termux/SUBMIT.md](termux/SUBMIT.md)
+2. pkgsrc-wip: [pkgsrc/SUBMIT.md](pkgsrc/SUBMIT.md)
+3. omnios-extra: [omnios/SUBMIT.md](omnios/SUBMIT.md)
+4. oi-userland: [openindiana/SUBMIT.md](openindiana/SUBMIT.md)
+5. openbsd-wip, then ports@openbsd.org: [openbsd/port/SUBMIT.md](openbsd/port/SUBMIT.md)
+6. nixpkgs: [nix/SUBMIT.md](nix/SUBMIT.md)
