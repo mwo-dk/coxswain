@@ -1864,7 +1864,8 @@ mod tests {
         let stream = [begin(5), listed(0, 0, "Again").repeat(MOST_SHEETS), END.to_vec(), biff(0x0001, &[]).repeat(500_000)].concat();
         assert_eq!(xls(&compound("Workbook", &stream)).unwrap().lines().count(), MOST_SHEETS);
 
-        assert!(started.elapsed() < std::time::Duration::from_secs(20), "{:?}", started.elapsed());
+        // A debug build in a busy virtual machine, beside the other tests, has taken 40 seconds (NetBSD).
+        assert!(started.elapsed() < std::time::Duration::from_secs(90), "{:?}", started.elapsed());
         let _ = std::fs::remove_dir_all(d);
     }
 }
