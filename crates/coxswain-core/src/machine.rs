@@ -115,6 +115,21 @@ pub struct Mounted {
     pub free: u64,
 }
 
+/// Mounts that are not drives to go to, for the sidebar: the system's (`/boot`, the packages
+/// under `/snap`, the containers under `/var/lib`, `/run` but for `/run/media` where removable
+/// disks go, with the portal's and gvfs's mounts under `/run/user`), a ZFS snapshot mounted when
+/// it was looked into, and the FUSE mount an AppImage runs from (`/tmp/.mount_…`).
+pub fn hidden_mount(mount: &Path, fstype: &str) -> bool {
+    let system = ["/boot", "/efi", "/snap", "/var/lib", "/run", "/proc", "/sys"].iter().any(|p| mount.starts_with(p)) && !mount.starts_with("/run/media");
+    system || (fstype.starts_with("fuse") && appimage_mount(mount, false)) || crate::zfs::in_snapshot(mount).is_some()
+}
+
+/// Whether `path` is named like the mount an AppImage's runtime makes for itself, `.mount_` and
+/// a few letters, and, with `in_temp`, sits right in the temporary folder, where it makes them.
+pub fn appimage_mount(path: &Path, in_temp: bool) -> bool {
+    path.file_name().is_some_and(|n| n.as_encoded_bytes().starts_with(b".mount_")) && (!in_temp || path.parent().is_some_and(|p| p == Path::new("/tmp") || p == std::env::temp_dir()))
+}
+
 /// File systems that are the kernel's, not places to go.
 #[cfg_attr(not(any(target_os = "netbsd", target_os = "openbsd", target_os = "illumos", target_os = "solaris")), allow(dead_code))]
 const PSEUDO: &[&str] = &["proc", "procfs", "kernfs", "ptyfs", "devfs", "tmpfs", "mfs", "ctfs", "objfs", "mntfs", "fd", "sharefs", "dev", "bootfs", "lofs", "null", "nullfs", "autofs"];
@@ -304,6 +319,44 @@ fn locate_on(_: &str, _: &Path) -> Option<PathBuf> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn drives_leave_out_system_app_and_snapshot_mounts() {
+        // `/proc/self/mountinfo` as a desktop with an AppImage, a snap, Flatpak and Docker has it.
+        let info = r"29 1 259:2 / / rw,relatime - btrfs /dev/nvme0n1p2 rw
+30 29 259:1 / /boot/efi rw - vfat /dev/nvme0n1p1 rw
+31 29 259:2 /@home /home rw - btrfs /dev/nvme0n1p2 rw
+40 29 7:3 / /snap/firefox/4848 ro - squashfs /dev/loop3 ro
+41 29 0:60 / /var/lib/docker/overlay2/abc/merged rw - overlay overlay rw
+50 29 0:53 / /run/user/1000/doc rw - fuse.portal portal rw
+51 29 0:56 / /run/user/1000/gvfs rw - fuse.gvfsd-fuse gvfsd-fuse rw
+60 29 0:70 / /tmp/.mount_coxswaDnLNBP ro - fuse.coxswain-2.8.2-x86_64.AppImage /opt/homebrew/coxswain.AppImage ro
+61 29 0:71 / /home/me/.cache/.mount_Obsidi ro - fuse.Obsidian.AppImage Obsidian ro
+70 29 8:17 / /run/media/me/USB rw - vfat /dev/sdb1 rw
+71 29 0:80 / /mnt/nas rw - cifs //nas/share rw
+72 29 0:81 / /home/me/Google\040Drive rw - fuse.rclone gdrive: rw
+73 29 0:82 / /tank/home rw - zfs tank/home rw
+74 29 0:83 / /tank/home/.zfs/snapshot/daily ro - zfs tank/home@daily ro
+75 29 8:33 / /mnt/.mount_backup rw - ext4 /dev/sdc1 rw";
+        let shown: Vec<&str> = info
+            .lines()
+            .filter_map(|l| {
+                let (left, right) = l.split_once(" - ")?;
+                let point = left.split(' ').nth(4)?;
+                (!hidden_mount(Path::new(point), right.split(' ').next()?)).then_some(point)
+            })
+            .collect();
+        assert_eq!(shown, ["/", "/home", "/run/media/me/USB", "/mnt/nas", r"/home/me/Google\040Drive", "/tank/home", "/mnt/.mount_backup"]);
+    }
+
+    #[test]
+    fn appimage_mounts_are_found_in_the_temporary_folder() {
+        assert!(appimage_mount(Path::new("/tmp/.mount_coxswaDnLNBP"), true));
+        assert!(appimage_mount(&std::env::temp_dir().join(".mount_Obsidi"), true));
+        assert!(!appimage_mount(Path::new("/home/me/.mount_notes"), true));
+        assert!(appimage_mount(Path::new("/home/me/.mount_notes"), false));
+        assert!(!appimage_mount(Path::new("/tmp/mount_x"), false));
+    }
 
     #[test]
     fn machine_knows_its_disks() {

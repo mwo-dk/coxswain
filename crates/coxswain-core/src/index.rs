@@ -987,9 +987,10 @@ fn folder_share(open_files: u64) -> usize {
 }
 
 /// Whether `exclude` leaves out `path`, named `name`: an entry with a slash is a path and leaves
-/// out its tree, a bare name leaves out every folder of that name.
+/// out its tree, a bare name leaves out every folder of that name. A running AppImage's own
+/// mount in the temporary folder is always left out: it is the app, and gone when it quits.
 fn excluded(exclude: &[String], path: &Path, name: &str) -> bool {
-    exclude.iter().any(|e| if e.contains(['/', '\\']) { path.starts_with(e) } else { e == name })
+    exclude.iter().any(|e| if e.contains(['/', '\\']) { path.starts_with(e) } else { e == name }) || (name.starts_with(".mount_") && crate::machine::appimage_mount(path, true))
 }
 
 /// The folders under `roots`, shallowest first, at most `max`, leaving out `exclude` and links.
@@ -1016,6 +1017,13 @@ fn folders_to_watch(roots: &[PathBuf], exclude: &[String], max: usize) -> Vec<Pa
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn appimage_mounts_are_never_indexed() {
+        assert!(excluded(&[], Path::new("/tmp/.mount_coxswaDnLNBP"), ".mount_coxswaDnLNBP"));
+        assert!(!excluded(&[], Path::new("/home/me/.mount_notes"), ".mount_notes"), "only in the temporary folder");
+        assert!(!excluded(&[], Path::new("/tmp/build"), "build"));
+    }
 
     #[test]
     fn kqueue_watches_folders_only_shallowest_first() {
