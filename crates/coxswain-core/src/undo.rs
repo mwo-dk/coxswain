@@ -90,12 +90,20 @@ fn restore(path: &Path, _name: &Path, since: i64) -> io::Result<()> {
     let want = comparable(path);
     // ponytail: two trashings of one path within a second are told apart by nothing; the newest
     // listed wins.
-    let item = os_limited::list()
+    let file = path.file_name().unwrap_or_default();
+    // Windows lists a name as Explorer shows it, without a known ending (`report` for
+    // `report.pdf`); the ending is still on the item's place in the Recycle Bin.
+    let shown_short = |i: &trash::TrashItem| {
+        cfg!(windows) && Path::new(&i.name).file_stem().is_some() && Some(i.name.as_os_str()) == Path::new(file).file_stem() && Path::new(&i.id).extension() == Path::new(file).extension()
+    };
+    let mut item = os_limited::list()
         .map_err(io::Error::other)?
         .into_iter()
-        .filter(|i| i.time_deleted >= since && comparable(&i.original_path()) == want)
+        .filter(|i| i.time_deleted >= since && comparable(&i.original_parent.join(if shown_short(i) { file } else { i.name.as_os_str() })) == want)
         .max_by_key(|i| i.time_deleted)
         .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, t!("undo.not_in_trash")))?;
+    // Restored under its whole name, which is also what the collision check looks at.
+    item.name = file.to_os_string();
     os_limited::restore_all([item]).map_err(|e| match e {
         trash::Error::RestoreCollision { .. } => io::Error::new(io::ErrorKind::AlreadyExists, t!("undo.taken")),
         e => io::Error::other(e),
@@ -512,9 +520,8 @@ mod tests {
         r.run(&d.join("gone.txt"), Path::new(""), None).unwrap();
         assert!(!d.join("gone.txt").exists());
         let u = r.undo(|_| {});
-        let seen: Vec<String> = trash::os_limited::list().unwrap_or_default().iter().filter(|i| i.name.to_string_lossy().contains("gone")).map(|i| format!("{:?} {:?} {} since {}", i.original_parent, i.name, i.time_deleted, r.since)).collect();
-        assert_eq!(u.done, 1, "{:?} {seen:?} want {:?}", u.refused, comparable(&d.join("gone.txt")));
-        assert_eq!(fs::read_to_string(d.join("gone.txt")).unwrap(), "back");
+        assert_eq!(u.done, 1, "{:?}", u.refused);
+        assert_eq!(fs::read_to_string(d.join("gone.txt")).unwrap(), "back", "back under its whole name");
         // Trashed again and its place taken: refused, nothing overwritten.
         let mut r = Record::new(Kind::Trash);
         r.run(&d.join("gone.txt"), Path::new(""), None).unwrap();
