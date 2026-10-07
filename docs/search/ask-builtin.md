@@ -91,9 +91,11 @@ The model in *Chat model* can also be typed: `builtin:qwen3-1.7b` or `builtin:qw
   on Linux or Windows is not used: for that, run Ollama ([servers](servers.md)).
 - **No thinking.** Qwen3 1.7B can think before it answers; it is told not to, so the first word
   comes as soon as the prompt is read. *Let the model think first* does not apply.
-- **The prompt** has the rules, the closest passages and the turns before: up to 7,000 tokens
-  on a GPU (ten passages and a few follow-ups), about 1,000 on a processor (the closest four or
-  five passages). When it is too long, the oldest turns go first, then the last passages.
+- **The prompt** has the rules, the sources and the turns before: up to 7,000 tokens on a GPU
+  (about 2,500 words of excerpts and a few follow-ups), about 1,000 on a processor (the closest
+  three or four passages), so the first word does not take minutes. *Context for a server's
+  model* does not change it. When it is too long, the oldest turns go first, then the last
+  sources. See [How much it reads](ask.md#how-much-it-reads).
 - **Stop** (**Esc**, a new question, closing Find) is heard between parts of the prompt and
   between words.
 

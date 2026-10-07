@@ -1,101 +1,155 @@
 name: Release
 
-# Hands-off: when every system's workflow passes on master and the version in Cargo.toml has no
-# release yet, build every platform, publish the GitHub Release (which creates the tag) and
-# update the AUR, crates.io, Homebrew and WinGet.
-# To release, bump `version` in Cargo.toml. Nothing else.
-# Each of the workflows below starts this one when it completes; the `draft` job goes on only
-# when all of them have passed for that commit (the gate), so the last one to finish releases.
+# One run for each push to master: it tests every system and, when the version in Cargo.toml has
+# no release yet, builds every platform, checks that every file is there, publishes the GitHub
+# Release (which creates the tag) and updates crates.io, Homebrew, WinGet and the FreeBSD port.
+# To release, bump `version` in Cargo.toml. Nothing else. A push without a new version only tests.
+#
+#   version ─┬─ test-ci, test-freebsd, test-netbsd, test-openbsd, test-illumos,
+#            │  test-termux, test-flatpak, test-nix          (the systems' own workflows, in parallel)
+#            └─ draft ── boms ── desktop, terminal, freebsd, other-unix ── verify ── publish
+#                                                                                  ├─ crates, taps, winget,
+#                                                                                  │  freebsd-port, aur
+#                                                     (anything failed: discard) ──┘
+#
+# Never a partial release: every system and every file, or nothing. A failed test stops the run
+# before the draft; a missing file stops it before publishing, and the draft is deleted. A
+# channel that still fails after its retries turns the run red, named. release-check.yml then
+# installs the release and checks every channel.
 on:
-  workflow_run:
-    workflows: [CI, FreeBSD, NetBSD, OpenBSD, illumos, Termux, Flatpak, Nix]
-    types: [completed]
+  push:
     branches: [master]
-  workflow_dispatch: # retry by hand if a runner hiccupped
-    inputs:
-      force:
-        description: Release without waiting for every system's workflow to pass
-        type: boolean
-        default: false
+  workflow_dispatch: # again by hand, from master: tests everything again and releases what is missing
 
-# Read only, but for the jobs that make the release.
 permissions:
   contents: read
 
-# One release run at a time. Two overlapping runs for the same version would each treat the
-# other's draft as a leftover and delete it mid-upload. Later runs wait instead.
+# The tests of one commit run once to the end; two runs for one commit (a push and a run by
+# hand) wait for each other. Two commits with the same version: the `draft` job's group below
+# lets only one of them make the release.
 concurrency:
-  group: release
+  group: release-${{ github.sha }}
   cancel-in-progress: false
 
 jobs:
-  draft:
-    # `branches: [master]` above matches a fork's branch named master too: only a push to this
-    # repository's master releases, and a retry by hand only from master.
-    if: >-
-      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master') ||
-      (github.event.workflow_run.conclusion == 'success' &&
-       github.event.workflow_run.event == 'push' &&
-       github.event.workflow_run.head_branch == 'master' &&
-       github.event.workflow_run.head_repository.full_name == github.repository)
-    permissions:
-      contents: write
+  # Cheap, and first: whether this version still needs a release. Releases only from this
+  # repository's master.
+  version:
     runs-on: ubuntu-24.04
     outputs:
-      id: ${{ steps.create.outputs.id }}
-      tag: ${{ steps.version.outputs.tag }}
-      sha: ${{ steps.version.outputs.sha }}
+      tag: ${{ steps.v.outputs.tag }}
+      sha: ${{ steps.v.outputs.sha }}
+      release: ${{ steps.v.outputs.release }}
     env:
       GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
-      - id: version
+      - id: v
+        env:
+          REF: ${{ github.ref }}
+          REPO: ${{ github.repository }}
         run: |
           version="$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)"
-          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "bad version '$version'"; exit 1; }
-          echo "tag=v$version" >> "$GITHUB_OUTPUT"
-          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "::error::bad version '$version' in Cargo.toml"; exit 1; }
+          tag="v$version"
+          { echo "tag=$tag"; echo "sha=$(git rev-parse HEAD)"; } >> "$GITHUB_OUTPUT"
+          if [ "$REPO" != mwo-dk/coxswain ] || [ "$REF" != refs/heads/master ]; then
+            echo "Not this repository's master: only the tests run."; echo release=false >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          if draft="$(gh release view "$tag" --json isDraft -q .isDraft 2>err)"; then
+            if [ "$draft" = false ]; then
+              echo "::notice title=Tests only::$tag is released already: this run only tests."
+              echo release=false >> "$GITHUB_OUTPUT"; exit 0
+            fi
+          elif ! grep -q "release not found" err; then
+            cat err >&2; exit 1
+          fi
+          echo "::notice title=Release::$tag has no release yet: once every system passes, this run releases it."
+          echo release=true >> "$GITHUB_OUTPUT"
+
+  # Every system's own workflow, as part of this run. Pull requests run them by themselves.
+  test-ci:
+    name: CI
+    uses: ./.github/workflows/ci.yml
+  test-freebsd:
+    name: FreeBSD
+    uses: ./.github/workflows/freebsd.yml
+  test-netbsd:
+    name: NetBSD
+    uses: ./.github/workflows/netbsd.yml
+  test-openbsd:
+    name: OpenBSD
+    uses: ./.github/workflows/openbsd.yml
+  test-illumos:
+    name: illumos
+    uses: ./.github/workflows/illumos.yml
+  test-termux:
+    name: Termux
+    uses: ./.github/workflows/termux.yml
+  test-flatpak:
+    name: Flatpak
+    uses: ./.github/workflows/flatpak.yml
+  test-nix:
+    name: Nix
+    uses: ./.github/workflows/nix.yml
+
+  # The gate, then the draft. One release run for a version at a time: a second run for the same
+  # version (a later commit that did not bump it) waits here, then sees the first run's draft and
+  # leaves the release to it, or its published release and stops.
+  draft:
+    needs: [version, test-ci, test-freebsd, test-netbsd, test-openbsd, test-illumos, test-termux, test-flatpak, test-nix]
+    if: ${{ !cancelled() && needs.version.outputs.release == 'true' }}
+    concurrency:
+      group: release-${{ needs.version.outputs.tag }}
+      cancel-in-progress: false
+    permissions:
+      contents: write
+    runs-on: ubuntu-24.04
+    outputs:
+      id: ${{ steps.create.outputs.id }}
+      tag: ${{ needs.version.outputs.tag }}
+      sha: ${{ needs.version.outputs.sha }}
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: ${{ needs.version.outputs.tag }}
+      SHA: ${{ needs.version.outputs.sha }}
+    steps:
+      - name: Every system passed
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: |
+          failed=$(jq -r 'to_entries[] | select(.key != "version" and .value.result != "success") | "\(.key) (\(.value.result))"' <<<"$NEEDS")
+          if [ -n "$failed" ]; then
+            while read -r f; do echo "::error title=No release::$f did not pass: $TAG is not released."; done <<<"$failed"
+            exit 1
+          fi
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: ${{ needs.version.outputs.sha }}
       - id: create
         env:
-          TAG: ${{ steps.version.outputs.tag }}
-          SHA: ${{ steps.version.outputs.sha }}
-          FORCE: ${{ inputs.force }}
           REPO: ${{ github.repository }}
-          # Run on every push to master. The others run only when their files change: no run of
-          # theirs for this commit is no objection, a run is.
-          ALWAYS: CI FreeBSD NetBSD OpenBSD illumos
-          SOMETIMES: Termux Flatpak Nix
         run: |
-          state="$(gh release view "$TAG" --json isDraft -q .isDraft 2>/dev/null || echo none)"
-          if [ "$state" = false ]; then
-            echo "$TAG is already released; nothing to do."
-            exit 0
+          # The draft says which run makes it, in a comment of its notes.
+          if info="$(gh release view "$TAG" --json isDraft,body 2>err)"; then
+            if [ "$(jq -r .isDraft <<<"$info")" = false ]; then
+              echo "::notice::$TAG was released meanwhile by another run."; exit 0
+            fi
+            owner="$(jq -r .body <<<"$info" | sed -n 's/^<!-- release run \([0-9]*\) -->$/\1/p')"
+            if [ -n "$owner" ] && [ "$owner" != "$GITHUB_RUN_ID" ] &&
+               [ "$(gh run view "$owner" --repo "$REPO" --json status -q .status)" != completed ]; then
+              echo "::notice::Run $owner is releasing $TAG: this run leaves it to that one."; exit 0
+            fi
+            # A draft no run is working on any more: replaced, so this run starts clean.
+            packaging/retry.sh gh release delete "$TAG" --yes
+          elif ! grep -q "release not found" err; then
+            cat err >&2; exit 1
           fi
-          # The gate: the latest push run of each workflow for this commit, all passed.
-          if [ "$FORCE" != true ]; then
-            runs="$(gh api --paginate "repos/$REPO/actions/runs?head_sha=$SHA&event=push&per_page=100" \
-              -q '.workflow_runs[] | [.name, .id, .status, .conclusion // ""] | @tsv')"
-            for wf in $ALWAYS $SOMETIMES; do
-              run="$(awk -F'\t' -v n="$wf" '$1 == n' <<<"$runs" | sort -t$'\t' -k2,2n | tail -1)"
-              if [ -z "$run" ]; then
-                [[ " $ALWAYS " == *" $wf "* ]] || continue
-                echo "$wf has not run for $SHA yet; a later run releases."; exit 0
-              fi
-              IFS=$'\t' read -r _ id status conclusion <<<"$run"
-              if [ "$status" != completed ]; then
-                echo "$wf is still running for $SHA; the run its end starts releases."; exit 0
-              fi
-              if [ "$conclusion" != success ]; then
-                echo "::error::$wf ended '$conclusion' for $SHA (https://github.com/$REPO/actions/runs/$id): no release."; exit 1
-              fi
-            done
-          fi
-          # A draft left by a failed run is replaced, so a retry starts clean.
-          [ "$state" = true ] && gh release delete "$TAG" --yes
-          gh release create "$TAG" --draft --target "$SHA" --title "Coxswain $TAG" --notes-file .github/release-notes.md
+          { cat .github/release-notes.md; printf '\n<!-- release run %s -->\n' "$GITHUB_RUN_ID"; } > notes.md
+          packaging/retry.sh gh release create "$TAG" --draft --target "$SHA" --title "Coxswain $TAG" --notes-file notes.md
           echo "id=$(gh release view "$TAG" --json databaseId -q .databaseId)" >> "$GITHUB_OUTPUT"
 
   # The SBOMs, the CBOM and the third-party notices (tools/bom/README.md), uploaded to the draft.
@@ -439,7 +493,10 @@ jobs:
           fi
           for i in 1 2 3 4 5; do gh release upload --clobber "$TAG" dist/* && break; [ "$i" = 5 ] && exit 1; sleep $((i * 10)); done
 
-  publish:
+  # Every file the matrices above make (packaging/release-assets.sh), each archive's .sha256 and
+  # one SHA256SUMS over all of them, or no release: on any gap this fails, says what is missing,
+  # and `discard` deletes the draft.
+  verify:
     needs: [draft, boms, desktop, terminal, freebsd, other-unix]
     runs-on: ubuntu-24.04
     permissions:
@@ -449,16 +506,35 @@ jobs:
     env:
       GH_TOKEN: ${{ github.token }}
       TAG: ${{ needs.draft.outputs.tag }}
+      ID: ${{ needs.draft.outputs.id }}
       REPO: ${{ github.repository }}
     steps:
-      # One SHA256SUMS over every download, the desktop installers included, so a download can
-      # be checked against what this run uploaded.
-      - name: Checksums
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: ${{ needs.draft.outputs.sha }}
+      - name: Every file, uploaded completely
         run: |
-          for i in 1 2 3 4 5; do gh release download "$TAG" --repo "$REPO" -D assets --clobber && break; [ "$i" = 5 ] && exit 1; sleep $((i * 10)); done
-          (cd assets && sha256sum * > ../SHA256SUMS)
+          gh api --paginate "repos/$REPO/releases/$ID/assets" -q '.[] | [.name, .state, .size] | @tsv' | tee listed.tsv
+          bad=$(awk -F'\t' '$2 != "uploaded" || $3 == 0 { print $1 " (" $2 ", " $3 " bytes)" }' listed.tsv | xargs)
+          [ -z "$bad" ] || { echo "::error title=$TAG is not complete::not uploaded completely: $bad"; exit 1; }
+      - name: Every file, and its checksums
+        run: |
+          packaging/retry.sh gh release download "$TAG" --repo "$REPO" -D assets --clobber
+          packaging/release-assets.sh "$TAG" assets
+          # One SHA256SUMS over every download, the desktop installers included, so a download can
+          # be checked against what this run uploaded.
+          (cd assets && rm -f SHA256SUMS && sha256sum -- * > ../SHA256SUMS)
           cat SHA256SUMS
-          for i in 1 2 3 4 5; do gh release upload --clobber "$TAG" --repo "$REPO" SHA256SUMS && break; [ "$i" = 5 ] && exit 1; sleep $((i * 10)); done
+          packaging/retry.sh gh release upload --clobber "$TAG" --repo "$REPO" SHA256SUMS
+      - name: The draft, as it will be published
+        run: |
+          # Exactly the list and SHA256SUMS, and SHA256SUMS naming every one.
+          gh api --paginate "repos/$REPO/releases/$ID/assets" -q '.[].name' | LC_ALL=C sort > names
+          { packaging/release-assets.sh "$TAG"; echo SHA256SUMS; } | LC_ALL=C sort | diff -u - names ||
+            { echo "::error title=$TAG is not complete::the draft's files differ from the list (above)"; exit 1; }
+          awk '{ sub(/^\*/, "", $2); print $2 }' SHA256SUMS | LC_ALL=C sort | diff -u <(grep -vx SHA256SUMS names) - ||
+            { echo "::error title=$TAG is not complete::SHA256SUMS does not name every file (above)"; exit 1; }
       # Signed provenance: which commit and workflow built each download, verifiable with
       # `gh attestation verify <file> --repo mwo-dk/coxswain`. The release goes out without it
       # when the attestation service is down.
@@ -466,7 +542,53 @@ jobs:
         continue-on-error: true
         with:
           subject-path: assets/*
-      - run: gh release edit "$TAG" --repo "$REPO" --draft=false --latest
+
+  publish:
+    needs: [draft, verify]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: ${{ needs.draft.outputs.sha }}
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.draft.outputs.tag }}
+          REPO: ${{ github.repository }}
+        # Two versions can be on their way at once: only the higher one becomes Latest.
+        run: |
+          latest="$(gh release view --repo "$REPO" --json tagName -q .tagName 2>/dev/null || echo v0.0.0)"
+          newest="$(printf '%s\n' "$latest" "$TAG" | sort -V | tail -1)"
+          packaging/retry.sh gh release edit "$TAG" --repo "$REPO" --draft=false --latest="$([ "$newest" = "$TAG" ] && echo true || echo false)"
+
+  # Anything between the draft and publishing failed, or the run was cancelled: the draft this
+  # run made goes, so no half-made release is left behind. A run by hand starts again cleanly.
+  discard:
+    needs: [draft, boms, desktop, terminal, freebsd, other-unix, verify, publish]
+    if: always() && needs.draft.outputs.id != '' && needs.publish.result != 'success'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: ${{ needs.draft.outputs.tag }}
+      REPO: ${{ github.repository }}
+      NEEDS: ${{ toJSON(needs) }}
+    steps:
+      - run: |
+          failed=$(jq -r 'to_entries[] | select(.value.result != "success") | "\(.key) (\(.value.result))"' <<<"$NEEDS" | xargs)
+          echo "::error title=No release::$TAG is not released: $failed. Its draft is deleted."
+          info="$(gh release view "$TAG" --repo "$REPO" --json isDraft,body)" || exit 0
+          if [ "$(jq -r .isDraft <<<"$info")" = true ] &&
+             jq -r .body <<<"$info" | grep -qx "<!-- release run $GITHUB_RUN_ID -->"; then
+            gh release delete "$TAG" --repo "$REPO" --yes
+          fi
+
+  # After publishing, the channels. Each tries again on a passing fault (packaging/retry.sh); one
+  # that still fails turns this run red with an error naming it, and release-check.yml, which
+  # runs when this run ends, says which channel lacks the version.
 
   # FreeBSD's ports tree: sysutils/coxswain brought to this version and built in a FreeBSD VM
   # (packaging/freebsd/update-port.sh); the result is this run's artifact. Once the port is in the
@@ -489,7 +611,13 @@ jobs:
           usesh: true
           envs: TAG
           prepare: pkg install -y git rust oniguruma portlint
-          run: sh packaging/freebsd/update-port.sh "$TAG"
+          # Three tries: the ports tree and the distfiles come from far away. About 15 minutes each.
+          run: |
+            for i in 1 2 3; do
+              sh packaging/freebsd/update-port.sh "$TAG" && exit 0
+              echo "update-port.sh failed (try $i of 3)"; sleep 60
+            done
+            exit 1
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: freebsd-port
@@ -508,6 +636,10 @@ jobs:
           else
             python3 packaging/freebsd/file-bugzilla.py packaging/freebsd/out/port.diff
           fi
+      - if: failure()
+        env:
+          TAG: ${{ needs.draft.outputs.tag }}
+        run: echo "::error title=Channel failed::FreeBSD port, $TAG"
 
   aur:
     needs: [draft, publish]
@@ -542,6 +674,11 @@ jobs:
           commit_email: michael.w.olesen@gmail.com
           ssh_private_key: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
           commit_message: Update to ${{ needs.draft.outputs.tag }}
+      - if: failure()
+        env:
+          TAG: ${{ needs.draft.outputs.tag }}
+          PKG: ${{ matrix.pkg }}
+        run: echo "::error title=Channel failed::AUR, $PKG $TAG"
 
   crates:
     needs: [draft, publish]
@@ -560,19 +697,22 @@ jobs:
         if: env.CARGO_REGISTRY_TOKEN != ''
         with:
           toolchain: stable
-      # Core first: the terminal app depends on it. Cargo waits until it is in the index.
-      # crates.io allows only so many versions a day: when it says no, the next release
-      # publishes everything since, so the release is not marked failed for it.
+      # Core first: the terminal app depends on it. Cargo waits until it is in the index. A crate
+      # already there (a run again by hand) is skipped.
       - if: env.CARGO_REGISTRY_TOKEN != ''
+        env:
+          TAG: ${{ needs.draft.outputs.tag }}
         run: |
-          publish() {
-            if cargo publish --locked -p "$1" 2> err.txt; then return 0; fi
-            cat err.txt >&2
-            if grep -q "already exists" err.txt; then echo "::notice::$1 is on crates.io already"; return 0; fi
-            if grep -q "429" err.txt; then echo "::warning::crates.io limits versions per day; $1 waits for the next release"; return 1; fi
-            exit 1
-          }
-          publish coxswain-core && publish coxswain || true
+          for p in coxswain-core coxswain; do
+            if curl -fsS -A "coxswain release (github.com/mwo-dk/coxswain)" "https://crates.io/api/v1/crates/$p/${TAG#v}" >/dev/null; then
+              echo "$p ${TAG#v} is on crates.io already"; continue
+            fi
+            packaging/retry.sh cargo publish --locked -p "$p"
+          done
+      - if: failure()
+        env:
+          TAG: ${{ needs.draft.outputs.tag }}
+        run: echo "::error title=Channel failed::crates.io, $TAG"
 
   taps:
     needs: [draft, publish]
@@ -595,22 +735,32 @@ jobs:
         run: |
           git config --global user.name "Michael W. Olesen"
           git config --global user.email michael.w.olesen@gmail.com
-          git clone -q "https://x-access-token:$TAP_TOKEN@github.com/mwo-dk/homebrew-coxswain.git"
-          packaging/taps/generate.sh "$TAG" homebrew-coxswain
+          packaging/retry.sh git clone -q "https://x-access-token:$TAP_TOKEN@github.com/mwo-dk/homebrew-coxswain.git"
+          # A higher version released meanwhile by another run stays.
+          have="$(sed -n 's/^ *version "\(.*\)"/\1/p' homebrew-coxswain/Formula/coxswain.rb | head -1)"
+          if [ "$(printf '%s\n' "${have:-0}" "${TAG#v}" | sort -V | tail -1)" != "${TAG#v}" ]; then
+            echo "::notice::homebrew-coxswain has $have already, higher than ${TAG#v}: left as it is."; exit 0
+          fi
+          packaging/retry.sh packaging/taps/generate.sh "$TAG" homebrew-coxswain
           git -C homebrew-coxswain add -A
           # Only "no changes" is fine; a failed push must fail the job.
           if git -C homebrew-coxswain diff --cached --quiet; then
             echo "homebrew-coxswain: already up to date"
           else
             git -C homebrew-coxswain commit -qm "Coxswain ${TAG#v}"
-            git -C homebrew-coxswain push -q
+            packaging/retry.sh git -C homebrew-coxswain push -q
           fi
+      - if: failure()
+        env:
+          TAG: ${{ needs.draft.outputs.tag }}
+        run: echo "::error title=Channel failed::Homebrew tap, $TAG"
 
   # WinGet: each release is added to mwo-dk.Coxswain and mwo-dk.Coxswain.Terminal as a pull
   # request to microsoft/winget-pkgs, by Komac (pinned, checked by its SHA-256). Only updates: the
   # first version of each package is submitted by hand, and until Microsoft has listed it the job
-  # says so and stops. Needs WINGET_TOKEN: a classic token with public_repo, from the account whose
-  # fork of winget-pkgs the pull requests come from (packaging/README.md).
+  # says so and skips it. A version that has its pull request already is skipped too. Needs
+  # WINGET_TOKEN: a classic token with public_repo, from the account whose fork of winget-pkgs
+  # the pull requests come from (packaging/README.md).
   winget:
     needs: [draft, publish]
     runs-on: ubuntu-24.04
@@ -619,27 +769,43 @@ jobs:
     steps:
       - if: env.WINGET_TOKEN == ''
         run: echo "::notice::WINGET_TOKEN is not set, so WinGet is not updated. See packaging/README.md."
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: env.WINGET_TOKEN != ''
+        with:
+          persist-credentials: false
+          ref: ${{ needs.draft.outputs.sha }}
       - name: Open winget-pkgs pull requests
         if: env.WINGET_TOKEN != ''
         env:
+          GH_TOKEN: ${{ github.token }}
           TAG: ${{ needs.draft.outputs.tag }}
           REPO: ${{ github.repository }}
         run: |
-          curl -fsSL -o komac.tar.gz https://github.com/russellbanks/Komac/releases/download/v2.16.0/komac-2.16.0-x86_64-unknown-linux-gnu.tar.gz
+          packaging/retry.sh curl -fsSL -o komac.tar.gz https://github.com/russellbanks/Komac/releases/download/v2.16.0/komac-2.16.0-x86_64-unknown-linux-gnu.tar.gz
           echo "7d2707fa6210f2789a3702de49fbd150b736dbf426ee0b9bc8e098736f9fd82d  komac.tar.gz" | sha256sum -c -
           tar xzf komac.tar.gz komac
           v="${TAG#v}"
           base="https://github.com/$REPO/releases/download/$TAG"
           notes="https://github.com/$REPO/releases/tag/$TAG"
           update() {
-            # A package Microsoft has not listed yet waits for its first, hand-made submission.
-            if ! ./komac list "$1" --token "$WINGET_TOKEN" >/dev/null 2>&1; then
-              echo "::notice::$1 is not on WinGet yet; its first version waits for Microsoft's review."
-              return 0
-            fi
             id="$1"; shift
-            ./komac update "$id" --version "$v" --urls "$@" --release-notes-url "$notes" --submit --token "$WINGET_TOKEN"
+            # Listed: winget-pkgs has a manifest folder for one of its versions.
+            listed=0; packaging/winget-listed.sh "$id" || listed=$?
+            case $listed in
+              1) echo "::notice::$id is not on WinGet yet; its first version waits for Microsoft's review."; return 0 ;;
+              2) return 1 ;;
+            esac
+            has=0; packaging/winget-listed.sh "$id" "$v" || has=$?
+            case $has in
+              0) echo "$id $v has its pull request already"; return 0 ;;
+              2) return 1 ;;
+            esac
+            packaging/retry.sh ./komac update "$id" --version "$v" --urls "$@" --release-notes-url "$notes" --submit --token "$WINGET_TOKEN"
           }
           # Komac takes each installer's architecture from the file: x64 and Windows on ARM.
           update mwo-dk.Coxswain "$base/Coxswain_${v}_x64-setup.exe" "$base/Coxswain_${v}_arm64-setup.exe"
           update mwo-dk.Coxswain.Terminal "$base/coxswain-terminal-$TAG-x86_64-pc-windows-msvc.zip" "$base/coxswain-terminal-$TAG-aarch64-pc-windows-msvc.zip"
+      - if: failure()
+        env:
+          TAG: ${{ needs.draft.outputs.tag }}
+        run: echo "::error title=Channel failed::WinGet, $TAG"

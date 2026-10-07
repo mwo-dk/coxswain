@@ -153,6 +153,15 @@
  "ask.builtin_missing": "{model} is not downloaded yet: download it in Settings under Ask, or in Set up…",
  "ask.builtin_name": "{model}, built in",
  "ask.builtin_slow": "too slow to recommend; a model server answers more quickly",
+ "ask.excerpts": {
+  "one": "{n} excerpt",
+  "other": "{n} excerpts"
+ },
+ "ask.read": "{excerpts} from {files}, {words}",
+ "ask.words": {
+  "one": "about {n} word",
+  "other": "about {n} words"
+ },
  "bom.advice": "What to do",
  "bom.as_in_file": "As in the file",
  "bom.assets": {
@@ -1857,6 +1866,8 @@
   "other": "text of {n} files"
  },
  "search.title": "Find",
+ "setting.ask_context": "Context for a server's model (tokens)",
+ "setting.ask_context.hint": "How much the chat model on a server is given: the sources, the question and the answer together. More reads more of your files and holds more of the server's memory; 8,192 keeps qwen3:8b and bge-m3 both on an 8 GB graphics card. Ollama is asked for this much; an OpenAI-style server must be set to at least as much.",
  "setting.ask_model": "Chat model",
  "setting.ask_model.hint": "The model that answers questions from your files and names its sources. Only models that can chat are offered. builtin:qwen3-1.7b and builtin:qwen3-4b run on this machine.",
  "setting.ask_think": "Let the model think first",

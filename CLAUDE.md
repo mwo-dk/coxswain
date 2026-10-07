@@ -4,14 +4,24 @@ These rules hold for every contributor and every Claude session in this reposito
 
 ## Shipping
 
-- **Releases are automatic.** The version lives only in `Cargo.toml` (`[workspace.package]`).
-  When every system's workflow passes on `master` (CI, FreeBSD, NetBSD, OpenBSD, illumos, and
-  Termux, Flatpak, Nix when they ran) and that version has no GitHub release yet, `release.yml`
-  builds every platform, publishes the release (creating the `vX.Y.Z` tag) and updates the AUR.
-  A failure on any system stops the release.
+- **Never a partial release: complete on every system and every channel, or not at all.** Every
+  installer and archive, each with its `.sha256`, one `SHA256SUMS` over all of them, and every
+  channel (crates.io, Homebrew, WinGet, the FreeBSD port), or the release does not go out. No
+  `continue-on-error` on anything that makes a release file.
+- **Releases are automatic, in one run.** The version lives only in `Cargo.toml`
+  (`[workspace.package]`). Every push to `master` starts one *Release* run (`release.yml`): it
+  runs CI and every system's workflow (FreeBSD, NetBSD, OpenBSD, illumos, Termux, Flatpak, Nix)
+  as parts of that run; when all pass and the version has no GitHub release yet, it makes a draft,
+  builds every platform, checks the draft against the full list of files
+  (`packaging/release-assets.sh`; a gap deletes the draft), publishes (creating the `vX.Y.Z`
+  tag) and then updates each channel, retrying passing faults; a channel that still fails turns
+  the run red, named. A push to `master` without a new version only runs the tests. When the run
+  ends, `release-check.yml` installs the release and checks every channel. A new build target
+  goes into the matrix and into `packaging/release-assets.sh` together.
 - **Pull requests run the virtual machines only for platform code** (files with BSD or illumos
-  branches, `Cargo.toml`, `Cargo.lock`, `install/`, that system's `packaging/`); every push to
-  `master` runs all of them. A new file with `cfg(target_os = …)` for those systems goes into
+  branches, `Cargo.toml`, `Cargo.lock`, `install/`, that system's `packaging/`), and Termux,
+  Flatpak and Nix only when what goes into them changes; every push to `master` runs all of them,
+  in its Release run. A new file with `cfg(target_os = …)` for those systems goes into
   their workflows' `paths`. Branches need not be up to date with `master`: master's own runs
   catch clashes.
 - **Bump the version in the same commit as a user-visible change:** patch for fixes, minor for

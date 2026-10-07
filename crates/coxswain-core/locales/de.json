@@ -153,6 +153,15 @@
  "ask.builtin_missing": "{model} ist noch nicht heruntergeladen: Laden Sie es in den Einstellungen unter Fragen oder unter Einrichten… herunter",
  "ask.builtin_name": "{model}, eingebaut",
  "ask.builtin_slow": "zu langsam für eine Empfehlung; ein Modellserver antwortet schneller",
+ "ask.excerpts": {
+  "one": "{n} Auszug",
+  "other": "{n} Auszüge"
+ },
+ "ask.read": "{excerpts} aus {files}, {words}",
+ "ask.words": {
+  "one": "etwa {n} Wort",
+  "other": "etwa {n} Wörter"
+ },
  "bom.advice": "Was zu tun ist",
  "bom.as_in_file": "Wie in der Datei",
  "bom.assets": {
@@ -1857,6 +1866,8 @@
   "other": "Text aus {n} Dateien"
  },
  "search.title": "Suchen",
+ "setting.ask_context": "Kontext für das Modell eines Servers (Tokens)",
+ "setting.ask_context.hint": "Wie viel das Chatmodell auf einem Server bekommt: Quellen, Frage und Antwort zusammen. Mehr liest mehr von Ihren Dateien und belegt mehr Speicher auf dem Server; mit 8.192 bleiben qwen3:8b und bge-m3 beide auf einer Grafikkarte mit 8 GB. Ollama wird um so viel gebeten; ein Server im OpenAI-Stil muss mindestens so viel eingestellt haben.",
  "setting.ask_model": "Chatmodell",
  "setting.ask_model.hint": "Das Modell, das Fragen aus Ihren Dateien beantwortet und seine Quellen nennt. Nur Modelle, die chatten können, werden angeboten. builtin:qwen3-1.7b und builtin:qwen3-4b laufen auf diesem Rechner.",
  "setting.ask_think": "Das Modell erst nachdenken lassen",

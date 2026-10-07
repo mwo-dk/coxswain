@@ -153,6 +153,15 @@
  "ask.builtin_missing": "{model} ez da oraindik deskargatu: deskargatu Ezarpenak atalean, Galdetu azpian, edo Konfiguratu… atalean",
  "ask.builtin_name": "{model}, integratua",
  "ask.builtin_slow": "gomendatzeko motelegia; eredu-zerbitzari batek azkarrago erantzuten du",
+ "ask.excerpts": {
+  "one": "{n} pasarte",
+  "other": "{n} pasarte"
+ },
+ "ask.read": "{excerpts}, {files}etik, {words}",
+ "ask.words": {
+  "one": "{n} hitz inguru",
+  "other": "{n} hitz inguru"
+ },
  "bom.advice": "Zer egin",
  "bom.as_in_file": "Fitxategian bezala",
  "bom.assets": {
@@ -1857,6 +1866,8 @@
   "other": "{n} fitxategiren testua"
  },
  "search.title": "Bilatu",
+ "setting.ask_context": "Zerbitzari baten ereduaren testuingurua (tokenak)",
+ "setting.ask_context.hint": "Zerbitzari bateko txat-ereduak zenbat jasotzen duen: iturriak, galdera eta erantzuna batera. Gehiagorekin zure fitxategietatik gehiago irakurtzen da eta zerbitzariaren memoria gehiago hartzen da; 8.192rekin qwen3:8b eta bge-m3 biak sartzen dira 8 GBko txartel grafiko batean. Ollamari horrenbeste eskatzen zaio; OpenAI estiloko zerbitzari batek gutxienez horrenbeste izan behar du ezarrita.",
  "setting.ask_model": "Txat-eredua",
  "setting.ask_model.hint": "Zure fitxategietatik galderei erantzuten dien eta iturriak aipatzen dituen eredua. Txateatu dezaketen ereduak soilik eskaintzen dira. builtin:qwen3-1.7b eta builtin:qwen3-4b makina honetan dabiltza.",
  "setting.ask_think": "Utzi ereduari lehenik pentsatzen",

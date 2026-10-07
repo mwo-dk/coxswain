@@ -1071,33 +1071,23 @@ async fn find_read_too(dir: PathBuf, ctx: tauri::State<'_, Ctx>) -> Res<UiConfig
 #[derive(Clone, Serialize)]
 #[serde(tag = "k", rename_all = "snake_case")]
 enum AskEvent {
-    Sources { paths: Vec<PathBuf> },
+    Sources { paths: Vec<PathBuf>, read: String },
     Piece { text: String },
 }
 
-/// How many passages an answer is made from.
-const ASK_PASSAGES: usize = 10;
-
-/// Ask: `question` answered by the user's chat model from the closest passages, with the
+/// Ask: `question` answered by the user's chat model from the closest excerpts (an overview of
+/// the folder too, `here` without a scope, for a question about it as a whole), with the
 /// questions and answers `earlier` in this Find file. Nothing is kept.
 #[tauri::command]
-async fn ask(question: String, earlier: Vec<(String, String)>, scope: Option<PathBuf>, on_event: tauri::ipc::Channel<AskEvent>, ctx: tauri::State<'_, Ctx>) -> Res<()> {
+async fn ask(question: String, earlier: Vec<(String, String)>, scope: Option<PathBuf>, here: PathBuf, on_event: tauri::ipc::Channel<AskEvent>, ctx: tauri::State<'_, Ctx>) -> Res<()> {
     use std::sync::atomic::Ordering;
     let (index, cfg, asking) = (ctx.index.clone(), ctx.cfg().search.clone(), ctx.asking.clone());
     let me = asking.fetch_add(1, Ordering::SeqCst) + 1;
     tauri::async_runtime::spawn_blocking(move || {
         // The chat model loads while the sources are looked up.
         coxswain_core::meaning::warm(&cfg);
-        // A follow-up is looked up with the question before it, which it often leans on.
-        let lookup = earlier.last().map_or(question.clone(), |(q, _)| format!("{q} {question}"));
-        let sources = index.passages(&lookup, scope.as_deref(), ASK_PASSAGES);
-        if sources.is_empty() {
-            return Err(match &scope {
-                Some(dir) => coxswain_core::t!("find.ask_nothing_in", "folder" => dir.file_name().unwrap_or_default().to_string_lossy()),
-                None => coxswain_core::t!("search.ask_nothing"),
-            });
-        }
-        let _ = on_event.send(AskEvent::Sources { paths: sources.iter().map(|(p, _)| p.clone()).collect() });
+        let sources = coxswain_core::ask::sources(|q, s, b| index.passages(q, s, b), &cfg, &earlier, &question, scope.as_deref(), &here)?;
+        let _ = on_event.send(AskEvent::Sources { paths: sources.iter().map(|(p, _)| p.clone()).collect(), read: coxswain_core::ask::read(&sources) });
         // Stopped while searching: the model is not asked (a request it would work on alone).
         if asking.load(Ordering::SeqCst) != me {
             return Ok(());

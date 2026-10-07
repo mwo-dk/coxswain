@@ -242,15 +242,21 @@ impl Model {
     }
 }
 
-/// Tokens the model sees at most, answer included: on a GPU the rules, ten passages and a few
+/// Tokens the model sees at most, answer included: on a GPU the rules, the sources and a few
 /// turns. Qwen3 takes 32,768, but each token holds memory. candle's CPU reads a prompt about
 /// as fast as it writes, 10 to 40 tokens a second, so there the prompt gets about a thousand
-/// tokens: the rules and the closest four or five passages.
+/// tokens: the rules and the closest three or four passages.
 // ponytail: fixed sizes; a quicker CPU prefill (a matrix kernel for many rows) would let the CPU have more.
 const CONTEXT: usize = 8192;
 const CPU_CONTEXT: usize = 2048;
-/// Tokens an answer takes at most.
-const ANSWER: usize = 1024;
+/// Tokens an answer takes at most, here and on a server.
+pub(crate) const ANSWER: usize = 1024;
+
+/// Tokens a built-in model sees at most, answer included: `CONTEXT` on a Mac's GPU, else
+/// `CPU_CONTEXT`.
+pub(crate) fn context(cpu_only: bool) -> usize {
+    if metal(cpu_only) { CONTEXT } else { CPU_CONTEXT }
+}
 /// Tokens the prompt goes through the model at a time: Stop is heard between them.
 const CHUNK: usize = 256;
 /// A model not asked for this long is let go.

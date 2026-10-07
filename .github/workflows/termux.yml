@@ -2,11 +2,10 @@ name: Termux
 
 # The terminal app as a Termux package: packaging/termux/coxswain/build.sh, built from this
 # checkout with termux-packages' own builder for aarch64, then installed and started in a
-# Termux image on an ARM runner. Only when Rust code, the lock file or the recipe change.
+# Termux image on an ARM runner. Every push to master, as part of the Release run; pull
+# requests only when Rust code, the lock file or the recipe change.
 on:
-  push:
-    branches: [master]
-    paths: ["crates/**", "Cargo.toml", "Cargo.lock", "packaging/termux/**", ".github/workflows/termux.yml"]
+  workflow_call: # from release.yml, for every push to master
   pull_request:
     paths: ["crates/**", "Cargo.toml", "Cargo.lock", "packaging/termux/**", ".github/workflows/termux.yml"]
   workflow_dispatch:
@@ -14,10 +13,10 @@ on:
 permissions:
   contents: read
 
-# A newer push to a pull request cancels its older run; every master commit runs to the end,
-# since Release waits for all of them (release.yml).
+# A newer push to a pull request cancels its older run. Called from release.yml, the group is that
+# run's own (github.* is the caller's there), so nothing cancels it.
 concurrency:
-  group: termux-${{ github.event_name == 'push' && github.sha || github.ref }}
+  group: termux-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
   cancel-in-progress: true
 
 env:

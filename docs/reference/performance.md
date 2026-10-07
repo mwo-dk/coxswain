@@ -262,7 +262,7 @@ as *Text in files* without meaning), meaning alone (`Store::similar`), and the c
 *Text in files* shows (`helper::with_meaning`: the word hits, then the meaning hits the words
 missed). Recall@k is the share of questions with an expected file in the first k; MRR is the
 mean of 1 / the rank of the first expected file (0 when it is not there). For Ask, it takes
-the 10 passages `Store::passages` sends to the chat model and checks whether one of them comes
+the excerpts `Store::passages` sends to the chat model (10 passages before 2.10.0) and checks whether one of them comes
 from the expected file, and whether one holds the answer's phrase.
 
 **Built-in model** (multilingual-e5-small), 38 files read and embedded in 15 s:
@@ -317,6 +317,20 @@ and within 0.15 of the best, where it was 0.5 and 0.10), the same corpus and que
 | Ask: the passage that answers | 29 of 32 (was 24) | 31 of 32 (was 23) |
 | Ask, *late* questions | 5 of 6 (was 0) | 6 of 6 (was 0) |
 | Files shown by meaning, on average | 10.8 | 2.3 (no question without one; was 1 for 19 questions and 0 for 6) |
+
+**After 2.10.0** Ask fills the chat model's context instead of taking ten passages
+([How much it reads](../search/ask.md#how-much-it-reads)); the test gives `Store::passages` what
+`ask::budget` allows a server's model with the default `ask_context` of 8,192 tokens (about
+20 KB):
+
+| Ask | Built-in | bge-m3 |
+|---|---|---|
+| The right file among the sources | 32 of 32 (was 30 of 32 on 2.9.1) | 32 of 32 (was 32) |
+| The passage that answers | 30 of 32 (was 29) | 32 of 32 (was 31) |
+
+With `qwen3:8b` on Ollama (RTX 4070 laptop GPU, 8 GB), asked about this repository itself, the
+prompt grew from about 1,600 to 5,500–6,100 tokens, and with the model loaded the first word came
+after 0.6–1.2 s where it came after 0.5–1.0 s.
 
 The scores behind the cut-off: e5 gives unrelated text 0.76–0.82 and the answer 0.81–0.91;
 bge-m3 unrelated text 0.30–0.55 and the answer 0.48–0.72. At 0.5, bge-m3 dropped the diagram

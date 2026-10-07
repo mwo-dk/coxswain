@@ -2,11 +2,10 @@ name: Flatpak
 
 # The desktop app as a Flatpak (packaging/flatpak): its offline sources made from the lock files,
 # built with flatpak-builder from the checkout, linted the way Flathub lints, then installed and
-# started on a display of its own. Only when what goes into it changes.
+# started on a display of its own. Every push to master, as part of the Release run; pull
+# requests only when what goes into it changes.
 on:
-  push:
-    branches: [master]
-    paths: ["crates/**", "gui/**", "Cargo.toml", "Cargo.lock", "README.md", "packaging/flatpak/**", ".github/workflows/flatpak.yml"]
+  workflow_call: # from release.yml, for every push to master
   pull_request:
     paths: ["crates/**", "gui/**", "Cargo.toml", "Cargo.lock", "README.md", "packaging/flatpak/**", ".github/workflows/flatpak.yml"]
   workflow_dispatch:
@@ -14,10 +13,10 @@ on:
 permissions:
   contents: read
 
-# A newer push to a pull request cancels its older run; every master commit runs to the end,
-# since Release waits for all of them (release.yml).
+# A newer push to a pull request cancels its older run. Called from release.yml, the group is that
+# run's own (github.* is the caller's there), so nothing cancels it.
 concurrency:
-  group: flatpak-${{ github.event_name == 'push' && github.sha || github.ref }}
+  group: flatpak-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
   cancel-in-progress: true
 
 env:
