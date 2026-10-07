@@ -187,11 +187,11 @@ pub enum Manager {
 }
 
 impl Manager {
-    /// This system's: pkg on FreeBSD and DragonFly, pkgin on NetBSD, pkg_add on OpenBSD, IPS's
+    /// This system's: pkg on FreeBSD, pkgin on NetBSD, pkg_add on OpenBSD, IPS's
     /// pkg on illumos, on Linux the first of pacman, apt, dnf and zypper that is installed,
     /// Homebrew on a Mac, winget on Windows.
     pub fn here() -> Option<Manager> {
-        if cfg!(any(target_os = "freebsd", target_os = "dragonfly")) {
+        if cfg!(target_os = "freebsd") {
             Some(Manager::Pkg)
         } else if cfg!(target_os = "netbsd") {
             Some(Manager::Pkgin)

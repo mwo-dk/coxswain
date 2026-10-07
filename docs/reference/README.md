@@ -25,7 +25,7 @@ the full list.
 | [FreeBSD](freebsd.md) | Both apps on FreeBSD: the one-line install, the packages and what each is for, the search helper from the session, rc.d or the login shell, search by meaning, how FreeBSD differs, updating, the desktop app's experimental status |
 | [NetBSD](netbsd.md) | The terminal app on NetBSD: the one-line install, pkgin for the extras, the search helper from rc.d, how NetBSD differs, why the desktop app is not shipped yet |
 | [OpenBSD](openbsd.md) | Both apps on OpenBSD (the desktop app experimental): the one-line install, the packages, the search helper with rcctl, OpenBSD's limits and what Coxswain does about them |
-| [DragonFly BSD](dragonfly.md) | What stops a build for DragonFly BSD today, what is ready, and trying it yourself |
+| DragonFly BSD | Not supported; its Rust (1.85 in DPorts) is too old for Coxswain's dependencies |
 | [illumos](illumos.md) | The terminal app on OmniOS and OpenIndiana: the one-line install, the search helper as an SMF service, ZFS snapshots and datasets, how illumos differs |
 | [TrueNAS](truenas.md) | The terminal app on TrueNAS over SSH: which build, installing into your home, snapshots, leaving the system's datasets alone, indexing the shares |
 | [Flatpak](flatpak.md) | The desktop app from Flathub: what the sandbox lets it do and why, your editor and commands on the host, the programs previews use, the search helper, where its files are kept, updating, building it yourself |

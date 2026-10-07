@@ -36,11 +36,24 @@ fn battery_now() -> bool {
     crate::tools::command("pmset").args(["-g", "batt"]).output().is_ok_and(|o| String::from_utf8_lossy(&o.stdout).contains("'Battery Power'"))
 }
 
-/// `hw.acpi.acline` (FreeBSD, DragonFly) is 1 on mains power and 0 on the battery; machines without ACPI power
-/// reporting (desktops, most virtual machines) have no such variable.
-#[cfg(any(target_os = "freebsd", target_os = "dragonfly"))]
+/// `hw.acpi.acline` is 1 on mains power and 0 on the battery; machines without ACPI power
+/// reporting (desktops, most virtual machines) have no such variable, and sysctl fails.
+#[cfg(target_os = "freebsd")]
 fn battery_now() -> bool {
-    crate::tools::command("sysctl").args(["-n", "hw.acpi.acline"]).output().is_ok_and(|o| o.status.success() && o.stdout.trim_ascii() == b"0")
+    crate::tools::command("sysctl").args(["-n", "hw.acpi.acline"]).output().is_ok_and(|o| o.status.success() && sysctl_zero(&o.stdout))
+}
+
+/// `hw.power` is 1 on mains power and 0 on the battery; the kernel starts it at 1, so a
+/// machine without apm(4) counts as on mains.
+#[cfg(target_os = "openbsd")]
+fn battery_now() -> bool {
+    crate::tools::command("sysctl").args(["-n", "hw.power"]).output().is_ok_and(|o| o.status.success() && sysctl_zero(&o.stdout))
+}
+
+/// Whether `sysctl -n`'s answer is 0.
+#[cfg_attr(not(any(target_os = "freebsd", target_os = "openbsd")), allow(dead_code))]
+fn sysctl_zero(out: &[u8]) -> bool {
+    out.trim_ascii() == b"0"
 }
 
 /// envstat(8)'s AC adapter: `connected: FALSE` is on the battery. A machine without one counts
@@ -50,7 +63,8 @@ fn battery_now() -> bool {
     crate::tools::command("envstat").output().is_ok_and(|o| ac_unplugged(&String::from_utf8_lossy(&o.stdout)))
 }
 
-/// Whether envstat's text has an `acpiacad` adapter that is not connected.
+/// Whether envstat's text has an `acpiacad` adapter that is not connected: `FALSE`, or `OFF`
+/// from envstat before NetBSD 5.
 #[cfg_attr(not(target_os = "netbsd"), allow(dead_code))]
 fn ac_unplugged(envstat: &str) -> bool {
     let mut adapter = false;
@@ -58,20 +72,21 @@ fn ac_unplugged(envstat: &str) -> bool {
         if l.starts_with('[') {
             adapter = l.starts_with("[acpiacad");
         }
-        adapter && l.strip_prefix("connected:").is_some_and(|v| v.trim() == "FALSE")
+        adapter && l.strip_prefix("connected:").is_some_and(|v| matches!(v.trim(), "FALSE" | "OFF"))
     })
 }
 
-/// `hw.power` is 1 on mains power and 0 on the battery.
-#[cfg(target_os = "openbsd")]
-fn battery_now() -> bool {
-    crate::tools::command("sysctl").args(["-n", "hw.power"]).output().is_ok_and(|o| o.status.success() && o.stdout.trim_ascii() == b"0")
-}
-
-/// acpi_drv's kstat `power` says `AC` or `battery`; machines without ACPI batteries have none.
+/// acpi_drv's `power` kstat has a `system power` of `AC` or `battery`; machines without ACPI
+/// batteries have none.
 #[cfg(any(target_os = "illumos", target_os = "solaris"))]
 fn battery_now() -> bool {
-    crate::tools::command("kstat").args(["-p", "acpi_drv:0:power:power"]).output().is_ok_and(|o| String::from_utf8_lossy(&o.stdout).split_whitespace().last().is_some_and(|v| v.eq_ignore_ascii_case("battery")))
+    crate::tools::command("kstat").args(["-p", "acpi_drv:0:power"]).output().is_ok_and(|o| kstat_on_battery(&String::from_utf8_lossy(&o.stdout)))
+}
+
+/// Whether `kstat -p`'s lines say `system power` is `battery`.
+#[cfg_attr(not(any(target_os = "illumos", target_os = "solaris")), allow(dead_code))]
+fn kstat_on_battery(kstat: &str) -> bool {
+    kstat.lines().any(|l| l.split_once(":system power").is_some_and(|(_, v)| v.trim().eq_ignore_ascii_case("battery")))
 }
 
 #[cfg(windows)]
@@ -82,7 +97,7 @@ fn battery_now() -> bool {
     unsafe { GetSystemPowerStatus(&mut s) != 0 && s.ACLineStatus == 0 }
 }
 
-#[cfg(not(any(target_os = "linux", target_os = "android", target_os = "macos", target_os = "freebsd", target_os = "dragonfly", target_os = "netbsd", target_os = "openbsd", target_os = "illumos", target_os = "solaris", windows)))]
+#[cfg(not(any(target_os = "linux", target_os = "android", target_os = "macos", target_os = "freebsd", target_os = "netbsd", target_os = "openbsd", target_os = "illumos", target_os = "solaris", windows)))]
 fn battery_now() -> bool {
     false
 }
@@ -101,12 +116,12 @@ pub struct Mounted {
 }
 
 /// File systems that are the kernel's, not places to go.
-#[cfg_attr(not(any(target_os = "netbsd", target_os = "openbsd", target_os = "dragonfly", target_os = "illumos", target_os = "solaris")), allow(dead_code))]
+#[cfg_attr(not(any(target_os = "netbsd", target_os = "openbsd", target_os = "illumos", target_os = "solaris")), allow(dead_code))]
 const PSEUDO: &[&str] = &["proc", "procfs", "kernfs", "ptyfs", "devfs", "tmpfs", "mfs", "ctfs", "objfs", "mntfs", "fd", "sharefs", "dev", "bootfs", "lofs", "null", "nullfs", "autofs"];
 
 /// The mounted file systems, for the desktop app's sidebar on the systems its disk library does
-/// not know: getmntinfo(3) on NetBSD, OpenBSD and DragonFly.
-#[cfg(any(target_os = "netbsd", target_os = "openbsd", target_os = "dragonfly"))]
+/// not know: getmntinfo(3) on NetBSD and OpenBSD.
+#[cfg(any(target_os = "netbsd", target_os = "openbsd"))]
 pub fn mounted() -> Vec<Mounted> {
     use std::ffi::CStr;
     // getmntinfo hands out one buffer of its own, overwritten by the next call.
@@ -306,7 +321,7 @@ mod tests {
     }
 
     #[test]
-    #[cfg(any(target_os = "netbsd", target_os = "openbsd", target_os = "dragonfly", target_os = "illumos", target_os = "solaris"))]
+    #[cfg(any(target_os = "netbsd", target_os = "openbsd", target_os = "illumos", target_os = "solaris"))]
     fn machine_lists_the_mounted_file_systems() {
         let all = mounted();
         assert!(all.iter().any(|m| m.mount == Path::new("/") && m.total > 0 && m.free <= m.total), "{all:?}");
@@ -323,12 +338,102 @@ mod tests {
         assert!(PSEUDO.contains(&m[1].fstype.as_str()));
     }
 
+    // From the NetBSD Guide, chapter 11 (Power management), on battery:
+    // https://www.netbsd.org/docs/guide/en/chap-power.html
+    const ENVSTAT_GUIDE: &str = "                      Current  CritMax  WarnMax  WarnMin  CritMin  Unit
+[acpiacad0]
+         connected:     FALSE
+[acpibat0]
+           present:      TRUE
+    design voltage:    11.100                                         V
+           voltage:    12.270                                         V
+        design cap:    23.200                                        Wh
+     last full cap:    16.940                                        Wh
+            charge:    16.770                      5.000%   1.181%   Wh (99.00%)
+       charge rate:       N/A
+    discharge rate:       N/A
+          charging:     FALSE
+      charge state:    NORMAL
+[acpitz0]
+       temperature:    48.000  128.000
+";
+
+    // current-users, 2012-10-10, "heat problem on my laptop", on mains:
+    // https://mail-index.netbsd.org/current-users/2012/10/10/msg021237.html
+    const ENVSTAT_MAINS: &str = "[acpiacad0]
+                        connected:      TRUE
+[acpibat0]
+                          present:      TRUE
+                   design voltage:    10.800              V
+                          voltage:    12.579              V
+                       design cap:     5.100             Ah
+                    last full cap:     5.088             Ah
+                         charging:      TRUE
+                     charge state:    NORMAL
+";
+
+    // netbsd-bugs, PR port-i386/37861 (2008), two batteries, the second absent, from envstat
+    // before NetBSD 5, which said ON and OFF:
+    // https://mail-index.netbsd.org/netbsd-bugs/2008/01/24/msg000772.html
+    const ENVSTAT_TWO_BATTERIES: &str = "[acpiacad0]
+  connected:         ON
+[acpibat0]
+         present:         ON
+      design cap:      4.086 Ah
+          charge:      4.086 Ah (100.00%)
+        charging:        OFF
+    charge state:     NORMAL
+[acpibat1]
+         present:        OFF
+      design cap:      0.000 Wh
+          charge:        N/A
+        charging:        N/A
+    charge state:    UNKNOWN
+[acpitz0]
+     temperature:     50.000 degC
+";
+
     #[test]
     fn machine_reads_netbsd_envstat() {
-        let text = "                Current  CritMax  Unit\n[acpiacad0]\n    connected:     FALSE\n[acpibat0]\n    present:      TRUE\n    connected:     TRUE\n";
-        assert!(ac_unplugged(text));
-        assert!(!ac_unplugged(&text.replacen("FALSE", "TRUE", 1)));
-        assert!(!ac_unplugged("[acpibat0]\n    connected: FALSE\n"), "a battery's line is not the adapter's");
+        assert!(ac_unplugged(ENVSTAT_GUIDE));
+        assert!(!ac_unplugged(ENVSTAT_MAINS));
+        assert!(!ac_unplugged(ENVSTAT_TWO_BATTERIES), "ON is connected; acpibat1's OFF is not the adapter's");
+        assert!(ac_unplugged(&ENVSTAT_TWO_BATTERIES.replacen("ON", "OFF", 1)));
+        // A second battery after an unplugged adapter.
+        assert!(ac_unplugged(&format!("{ENVSTAT_GUIDE}[acpibat1]\n           present:      TRUE\n")));
+        // No adapter (a desktop): never on battery, though a battery says FALSE.
+        assert!(!ac_unplugged(&ENVSTAT_GUIDE.replace("[acpiacad0]\n         connected:     FALSE\n", "")));
         assert!(!ac_unplugged(""));
+    }
+
+    // `sysctl -n` prints the bare value. FreeBSD's acpi(4): "hw.acpi.acline: AC line state (1 means
+    // online, 0 means on battery power)", https://man.freebsd.org/cgi/man.cgi?query=acpi&sektion=4.
+    // OpenBSD's sysctl(2): "HW_POWER (hw.power) Machine has wall-power", https://man.openbsd.org/sysctl.2;
+    // the kernel starts it at 1 (`int hw_power = 1;`),
+    // https://github.com/openbsd/src/blob/master/sys/kern/kern_sysctl.c.
+    #[test]
+    fn machine_reads_bsd_sysctl_power() {
+        assert!(sysctl_zero(b"0\n"));
+        assert!(!sysctl_zero(b"1\n"));
+        assert!(!sysctl_zero(b""), "no such variable: on mains");
+    }
+
+    // illumos acpi_drv: kstat acpi_drv:0:power, statistic "system power" (SYSTEM_POWER), set to
+    // "AC" or "battery", next to "supported_battery_count":
+    // https://github.com/illumos/illumos-gate/blob/master/usr/src/uts/common/sys/acpi_drv.h and
+    // .../usr/src/uts/i86pc/io/acpi_drv/acpi_drv.c; `kstat -p` prints module:instance:name:statistic,
+    // a tab and the value, https://illumos.org/man/8/kstat.
+    const KSTAT_POWER: &str = "acpi_drv:0:power:class\tmisc
+acpi_drv:0:power:crtime\t52.917388634
+acpi_drv:0:power:snaptime\t4031.590476186
+acpi_drv:0:power:supported_battery_count\t1
+acpi_drv:0:power:system power\tbattery
+";
+
+    #[test]
+    fn machine_reads_illumos_kstat() {
+        assert!(kstat_on_battery(KSTAT_POWER));
+        assert!(!kstat_on_battery(&KSTAT_POWER.replace("\tbattery", "\tAC")));
+        assert!(!kstat_on_battery(""), "a server has no acpi_drv kstat");
     }
 }
