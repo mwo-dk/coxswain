@@ -22,8 +22,8 @@ for what the desktop app needs: see [FreeBSD](../docs/reference/freebsd.md).
 release: the terminal app on all three, the desktop app on OpenBSD (with `pkg_add` for
 WebKitGTK), the manual page and the system's service for the search helper (rc.d, `rcctl`,
 SMF). See [NetBSD](../docs/reference/netbsd.md), [OpenBSD](../docs/reference/openbsd.md) and
-[illumos](../docs/reference/illumos.md); [DragonFly BSD](../docs/reference/dragonfly.md) is not
-built yet, and [TrueNAS](../docs/reference/truenas.md) takes the Linux or FreeBSD build.
+[illumos](../docs/reference/illumos.md); [TrueNAS](../docs/reference/truenas.md) takes the Linux or
+FreeBSD build. DragonFly BSD: not supported; its Rust (1.85 in DPorts) is too old for Coxswain's dependencies.
 
 **With Nix** the repository is a flake: `nix run github:mwo-dk/coxswain` builds and starts the
 terminal app, `#coxswain-gui` the desktop app on Linux. See [Nix](../docs/reference/nix.md).

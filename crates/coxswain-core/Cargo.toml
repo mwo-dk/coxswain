@@ -64,7 +64,7 @@ libc = "0.2"
 trash = "5.2.9"
 
 # Folders watched with kqueue on the BSDs (`kq`); notify depends on it there already.
-[target.'cfg(any(target_os = "freebsd", target_os = "dragonfly", target_os = "netbsd", target_os = "openbsd"))'.dependencies]
+[target.'cfg(any(target_os = "freebsd", target_os = "netbsd", target_os = "openbsd"))'.dependencies]
 kqueue = "1.2.1"
 
 [target.'cfg(windows)'.dependencies]
