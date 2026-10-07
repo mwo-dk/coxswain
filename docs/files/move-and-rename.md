@@ -18,9 +18,11 @@ F-key bar says *Move*; the terminal app's keeps Norton Commander's *RenMov*.
    under the buttons.
 3. Press **Enter** (or click *Move*).
 
-**To rename:** press **F6** on the file, replace the whole target with the new name
-(`report-final.pdf`) and press **Enter**. A bare name is taken from the active panel's folder,
-so the file is renamed where it is.
+**To rename:** press **Shift+F6** on the file (or **Shift+F10**, then *Rename*, in the
+[action menu](../panels/action-menu.md)). A dialog *Rename "report.pdf"* opens with the name
+filled in; change it (`report-final.pdf`) and press **Enter** (or click *Rename*). The cursor
+follows the new name. **F6** renames too: replace the whole target with the new name. A bare
+name is taken from the active panel's folder, so the file is renamed where it is.
 
 | Target you type | Result |
 |---|---|
@@ -32,6 +34,7 @@ so the file is renamed where it is.
 | Key | Desktop app | Terminal app |
 |---|---|---|
 | Open the dialog | **F6** | **F6** |
+| Rename in place, the name filled in | **Shift+F6** | **Shift+F6** |
 | Move or rename | **Enter** or *Move* | **Enter** |
 | Cancel | **Esc**, *Cancel*, or an empty field | **Esc**, or an empty field |
 | Clear the field | select and type | **Ctrl+U** |

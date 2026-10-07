@@ -27,6 +27,8 @@ pub enum KeyCode {
     Down,
     Left,
     Right,
+    /// The context-menu key, beside the right Ctrl or Alt.
+    Menu,
 }
 
 /// A key chord. Letters are stored lowercase; Shift is explicit.
@@ -88,6 +90,7 @@ impl FromStr for Key {
             "left" => KeyCode::Left,
             "right" => KeyCode::Right,
             "space" => KeyCode::Char(' '),
+            "menu" => KeyCode::Menu,
             f if f.len() >= 2 && f.starts_with('f') && f[1..].parse::<u8>().is_ok_and(|n| (1..=24).contains(&n)) => {
                 KeyCode::F(f[1..].parse().unwrap())
             }
@@ -212,9 +215,11 @@ actions! {
     MarkGroup = "mark_group", "Mark group", Marking, ["+"];
     UnmarkGroup = "unmark_group", "Unmark group", Marking, ["-"];
     InvertMarks = "invert_marks", "Invert marks", Marking, ["*"];
-    // Files, the most used first.
+    // Files, the most used first. The action menu first: it lists the rest.
+    ActionMenu = "action_menu", "What can I do with this?", Files, ["Shift+F10", "Menu"];
     Copy = "copy", "Copy", Files, ["F5"];
     Move = "move", "Move or rename", Files, ["F6"];
+    Rename = "rename", "Rename", Files, ["Shift+F6"];
     Delete = "delete", "Delete", Files, ["F8", "Delete"];
     NewFolder = "new_folder", "New folder", Files, ["F7"];
     ClipCopy = "clip_copy", "Copy to clipboard", Files, ["Ctrl+C"];
@@ -945,6 +950,11 @@ pub struct Config {
     /// (F3 again shows the source). Off, F3 opens it in the viewer like any file.
     pub provenance_viewer: bool,
     pub confirm_delete: bool,
+    /// What a right-click on a row does: `mark` it (Norton Commander) or open the action
+    /// `menu` (a file explorer). Ctrl+right-click does the other one in the desktop app.
+    pub right_click: String,
+    /// A short hint on the status line that fits what is under the cursor, each a few times.
+    pub hints: bool,
     /// Look for a newer release on GitHub at startup (at most once a day).
     pub check_updates: bool,
     /// Action -> keys. Listing an action replaces its default keys; `[]` unbinds it.
@@ -985,6 +995,8 @@ impl Default for Config {
             bom_viewer: true,
             provenance_viewer: true,
             confirm_delete: true,
+            right_click: "mark".into(),
+            hints: true,
             check_updates: true,
             keys: BTreeMap::new(),
             themes: BTreeMap::new(),

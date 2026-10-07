@@ -20,6 +20,11 @@ pub fn keys(cfg: &Config) -> Vec<(String, String)> {
         .collect()
 }
 
+/// Step 1's line on the action menu and what a right-click does.
+pub fn menu_line(cfg: &Config) -> String {
+    t!("guide.menu_line", "key" => cfg.keys.get(&Action::ActionMenu).map(|k| k.join(" / ")).unwrap_or_default())
+}
+
 /// Its title: "Two panels · 1 of 4".
 pub fn title(step: usize) -> String {
     let name = t!(&format!("guide.step{}", step + 1));

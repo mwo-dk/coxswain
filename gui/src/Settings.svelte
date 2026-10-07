@@ -27,6 +27,8 @@
     return p.length > 1 ? `[${p.slice(0, -1).join(".")}] ${p.at(-1)}` : (p[0] ?? "");
   };
   let error = $state("");
+  /** Settings → Behaviour → Show the hints again was pressed. */
+  let hintsReset = $state(false);
   let saved = $state(false);
   const close = () => (ui.modal = null);
 
@@ -767,6 +769,9 @@
         <h3>{t("settings.area.behaviour")}</h3>
         {@render check("show_hidden")}
         {@render check("confirm_delete")}
+        {@render choice("right_click", [["mark", t("settings.right_click_mark")], ["menu", t("settings.right_click_menu")]])}
+        {@render check("hints")}
+        <div class="buttons sub"><button onclick={() => invoke("hints_reset").then(() => (hintsReset = true), (e) => (error = String(e)))}>{t("settings.hints_reset")}</button>{#if hintsReset} <span class="hint">{t("settings.hints_reset_done")}</span>{/if}</div>
         {@render check("folder_sizes")}
         {@render check("git_last_commit")}
         {@render text("editor", "$EDITOR")}

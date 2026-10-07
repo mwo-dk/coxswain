@@ -107,4 +107,4 @@ The session is one per user. The window that saves last wins, so the next start 
 the way that window was.
 
 ---
-[← Previous: The command list (F9) and Help (F1)](command-list.md) · [Next: Every default key →](keys.md)
+[← Previous: What can I do with this?](action-menu.md) · [Next: Every default key →](keys.md)

@@ -154,6 +154,8 @@ pub const OPTIONS: &[Opt] = &[
     opt("line_height", &["gui", "line_height"], Looks, &[]),
     opt("show_hidden", &["show_hidden"], Behaviour, &[]),
     opt("confirm_delete", &["confirm_delete"], Behaviour, &[]),
+    opt("right_click", &["right_click"], Behaviour, &[]),
+    opt("hints", &["hints"], Behaviour, &[]),
     opt("folder_sizes", &["folder_sizes"], Behaviour, &[Cpu]),
     opt("git_last_commit", &["git", "last_commit"], Behaviour, &[Cpu]),
     opt("editor", &["editor"], Behaviour, &[]),

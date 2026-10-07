@@ -20,6 +20,7 @@ pub mod index;
 pub mod machine;
 pub mod notices;
 pub mod meaning;
+pub mod menu;
 pub mod migrate;
 pub mod provenance;
 pub mod rename;

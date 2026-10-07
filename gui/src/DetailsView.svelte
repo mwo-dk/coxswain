@@ -1,5 +1,5 @@
 <script>
-  import { ui, load, openItem, toggleMark, dragOut, columnMenu } from "./app.svelte.js";
+  import { ui, load, openItem, toggleMark, dragOut, columnMenu, rowContext, rowMenu } from "./app.svelte.js";
   import { size, date, age, ageColor, TAG_COLORS, tagName } from "./lib.js";
   import { t as tr, num } from "./i18n.svelte.js"; // `t` is the tab here
   import Rows from "./Rows.svelte";
@@ -116,12 +116,7 @@
         }}
         onclick={(ev) => click(ev, i)}
         ondblclick={() => openItem(t, i)}
-        oncontextmenu={(ev) => {
-          ev.preventDefault();
-          onfocus();
-          t.cursor = i;
-          toggleMark(t, i);
-        }}
+        oncontextmenu={(ev) => rowContext(ev, t, i, onfocus)}
       >
         <span class="name">
           <span class="icon" style:color={e.icon.color || null}>{e.name === ".." ? "\u{f062}" : e.icon.glyph}</span>
@@ -129,6 +124,8 @@
           {#if e.tag}<span class="tag" style:background={TAG_COLORS[e.tag]} title={tagName(e.tag)}></span>{/if}
           {#if st}<span class="git git-{st.kind}" title={gitTip(st)}>{gitGlyph(st.kind)}</span>{/if}
           {#if e.online}<span class="cloud" title={tr("details.online")}>{g.cloud}</span>{/if}
+          <!-- The action menu on this row, shown on the row under the mouse and the cursor's. -->
+          {#if e.name !== ".."}<button class="more" tabindex="-1" title="{tr('action.action_menu')} ({ui.cfg.actions.action_menu?.[1] ?? ''})" aria-label={tr("action.action_menu")} onclick={(ev) => rowMenu(ev, t, i, onfocus)} ondblclick={(ev) => ev.stopPropagation()}>⋯</button>{/if}
         </span>
         {#if shown.has("type")}<span class="ext">{e.referenced ? tr("zfs.referenced", { size: size(e.referenced) }) : e.is_dir ? (e.name === ".." ? "" : tr("details.folder")) : ext(e)}</span>{/if}
         {#if shown.has("size")}
@@ -232,6 +229,26 @@
     align-items: center;
     gap: 8px;
     min-width: 0;
+  }
+  .more {
+    margin-inline-start: auto;
+    flex: none;
+    padding: 0 6px;
+    font: inherit;
+    line-height: 1.2;
+    color: inherit;
+    background: none;
+    border: 1px solid transparent;
+    border-radius: var(--r-sm);
+    cursor: pointer;
+    visibility: hidden;
+  }
+  .row:hover .more,
+  .row.cursor.focused .more {
+    visibility: visible;
+  }
+  .more:hover {
+    border-color: currentColor;
   }
   /* A name goes the way its first letter does: ".git" stays ".git" under a right-to-left language. */
   .label {

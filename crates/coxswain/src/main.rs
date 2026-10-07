@@ -191,6 +191,38 @@ impl Panel {
         self.entries.get(self.cursor)
     }
 
+    /// What the action menu and the hints are about: the marked entries (or the one under the
+    /// cursor), and where they are.
+    fn subject(&self) -> coxswain_core::menu::Subject {
+        use coxswain_core::menu::{Place, Subject};
+        let cur = self.current().filter(|e| !e.is_parent());
+        let list: Vec<&Entry> = if self.marked.is_empty() { cur.into_iter().collect() } else { self.entries.iter().filter(|e| self.marked.contains(&e.path)).collect() };
+        let at = history::split(&self.dir);
+        let place = if coxswain_core::archive::split(&self.dir).is_some() {
+            Place::Archive
+        } else if at.as_ref().is_some_and(|at| at.view == history::View::Branches && at.commit.is_none()) {
+            Place::Branches
+        } else if at.is_some() || history::is_history(&self.dir) {
+            Place::History
+        } else if coxswain_core::zfs::is_read_only(&self.dir) {
+            Place::Snapshot
+        } else if coxswain_core::bsd::split(&self.dir).is_some() {
+            Place::Package
+        } else {
+            Place::Disk
+        };
+        Subject {
+            files: list.iter().filter(|e| !e.is_dir).count(),
+            folders: list.iter().filter(|e| e.is_dir).count(),
+            archives: list.iter().filter(|e| !e.is_dir && coxswain_core::archive::is_archive(&e.path)).count(),
+            one: list.len() == 1 && cur.is_some_and(|c| c.path == list[0].path),
+            marked: self.marked.len(),
+            place,
+            git: self.git.is_some(),
+            zfs: self.zfs.is_some(),
+        }
+    }
+
     /// Marked entries, or the one under the cursor.
     fn targets(&self) -> Vec<PathBuf> {
         if self.marked.is_empty() {
@@ -209,6 +241,8 @@ impl Panel {
 pub enum Prompt {
     Copy(Vec<PathBuf>),
     Move(Vec<PathBuf>),
+    /// A new name for this entry, in its folder.
+    Rename(PathBuf),
     Extract(Vec<PathBuf>),
     Pack(Vec<PathBuf>),
     /// A password for a new zip or 7z (none: empty), shown as stars; then typed again.
@@ -236,6 +270,7 @@ impl Prompt {
         t!(match self {
             Prompt::Copy(_) => "verb.copy",
             Prompt::Move(_) => "verb.move",
+            Prompt::Rename(_) => "verb.rename",
             Prompt::Extract(_) => "verb.extract",
             Prompt::Pack(_) | Prompt::PackPassword(..) | Prompt::PackConfirm(..) => "verb.pack",
             Prompt::Password(..) | Prompt::Unlock(..) | Prompt::Peek(_) => "verb.unlock",
@@ -252,6 +287,8 @@ impl Prompt {
 pub enum Transfer {
     Copy,
     Move,
+    /// A move in place, under a new name (Shift+F6).
+    Rename,
     Extract,
     /// Delete, for good with `true` (inside an archive always: it is taken out).
     Delete(bool),
@@ -272,6 +309,8 @@ pub struct MenuItem {
     pub key: String,
     pub label: String,
     pub run: MenuRun,
+    /// The heading it is listed under, if the menu has headings.
+    pub group: Option<String>,
 }
 
 pub enum Dialog {
@@ -357,6 +396,10 @@ pub struct App {
     pub cmdline: String,
     pub dialog: Option<Dialog>,
     pub status: Option<String>,
+    /// The hint the command line shows while it is empty (`menu::hint`), and what it was
+    /// worked out for.
+    pub hint: Option<(&'static str, String)>,
+    hint_for: Option<coxswain_core::menu::Subject>,
     pub quick: Option<String>,
     pub show_hidden: bool,
     pub index: Arc<Client>,
@@ -522,6 +565,8 @@ impl App {
             cmdline: String::new(),
             dialog: None,
             status: None,
+            hint: None,
+            hint_for: None,
             quick: None,
             show_hidden,
             index: index.clone(),
@@ -857,8 +902,8 @@ impl App {
                 if places.is_empty() && phone.is_empty() {
                     return self.goto_prompt(side);
                 }
-                let mut items = vec![MenuItem { key: String::new(), label: t!("bsd.type_path"), run: MenuRun::Goto(side, None) }];
-                items.extend(phone.into_iter().map(|(name, path)| MenuItem { key: String::new(), label: t!("termux.storage", "name" => name), run: MenuRun::Goto(side, Some(path)) }));
+                let mut items = vec![MenuItem { key: String::new(), label: t!("bsd.type_path"), run: MenuRun::Goto(side, None), group: None }];
+                items.extend(phone.into_iter().map(|(name, path)| MenuItem { key: String::new(), label: t!("termux.storage", "name" => name), run: MenuRun::Goto(side, Some(path)), group: None }));
                 items.extend(places.into_iter().map(|p| {
                     let what = t!(if p.kind == "boot" { "bsd.boot_env" } else { "bsd.jail" });
                     let label = if p.note.is_empty() { format!("{what}: {}", p.name) } else { format!("{what}: {} ({})", p.name, p.note) };
@@ -866,7 +911,7 @@ impl App {
                         Some(path) => MenuRun::Goto(side, Some(path)),
                         None => MenuRun::Say(t!(if p.kind == "boot" { "bsd.not_mounted" } else { "bsd.not_readable" }, "name" => p.name)),
                     };
-                    MenuItem { key: String::new(), label, run }
+                    MenuItem { key: String::new(), label, run, group: None }
                 }));
                 self.dialog = Some(Dialog::Menu { title, filter: String::new(), items, cursor: 0, direct: false });
             }
@@ -949,11 +994,11 @@ impl App {
                 }
             }
             // In a ZFS snapshot (or its list) nothing changes: said at once, not after a prompt.
-            Action::Move | Action::NewFolder | Action::Delete | Action::DeleteForever if coxswain_core::zfs::is_read_only(&self.panel().dir) => {
+            Action::Move | Action::Rename | Action::NewFolder | Action::Delete | Action::DeleteForever if coxswain_core::zfs::is_read_only(&self.panel().dir) => {
                 self.status = Some(t!("zfs.read_only"));
             }
             // Nor in a package's list of files: those belong to pkg.
-            Action::Move | Action::NewFolder | Action::Delete | Action::DeleteForever if coxswain_core::bsd::split(&self.panel().dir).is_some() => {
+            Action::Move | Action::Rename | Action::NewFolder | Action::Delete | Action::DeleteForever if coxswain_core::bsd::split(&self.panel().dir).is_some() => {
                 self.status = Some(t!("pkg.read_only"));
             }
             Action::Copy | Action::Move => {
@@ -984,6 +1029,12 @@ impl App {
                 let title = t!("archive.pack_title", "what" => Self::describe(&src));
                 self.input(&title, t!("tui.pack_into"), dst, Prompt::Pack(src));
             }
+            Action::Rename => {
+                let Some(e) = self.panel().current().filter(|e| !e.is_parent()).cloned() else { return };
+                let title = t!("dialog.rename", "what" => Self::describe(std::slice::from_ref(&e.path)));
+                self.input(&title, t!("app.name_label"), e.name, Prompt::Rename(e.path));
+            }
+            Action::ActionMenu => self.action_menu(),
             Action::NewFolder => self.input(&t!("dialog.new_folder"), t!("tui.mkdir_label"), String::new(), Prompt::Mkdir),
             Action::Delete | Action::DeleteForever => {
                 let paths = self.panel().targets();
@@ -1024,7 +1075,7 @@ impl App {
                     .user_menu
                     .iter()
                     .enumerate()
-                    .map(|(i, u)| MenuItem { key: u.key.clone(), label: u.label.clone(), run: MenuRun::User(i) })
+                    .map(|(i, u)| MenuItem { key: u.key.clone(), label: u.label.clone(), run: MenuRun::User(i), group: None })
                     .collect();
                 self.dialog = Some(Dialog::Menu { title: t!("tui.user_menu"), filter: String::new(), items, cursor: 0, direct: true });
             }
@@ -1032,7 +1083,7 @@ impl App {
                 let items = Action::ALL
                     .iter()
                     .filter(|&&x| !x.gui_only() && !matches!(x, Action::Menu | Action::Up | Action::Down))
-                    .map(|&x| MenuItem { key: self.key_label(x).to_string(), label: x.label().to_string(), run: MenuRun::Action(x) })
+                    .map(|&x| MenuItem { key: self.key_label(x).to_string(), label: x.label().to_string(), run: MenuRun::Action(x), group: None })
                     .collect();
                 self.dialog = Some(Dialog::Menu { title: t!("menu.commands"), filter: String::new(), items, cursor: 0, direct: false });
             }
@@ -1053,6 +1104,23 @@ impl App {
             }
             a => self.status = Some(t!("tui.gui_only", "action" => a.label())),
         }
+    }
+
+    /// The actions that fit the marked entries (or the one under the cursor), under their
+    /// headings, each with its key: Enter runs one, Esc closes.
+    fn action_menu(&mut self) {
+        let s = self.panel().subject();
+        let mut items = vec![];
+        for (g, acts) in coxswain_core::menu::actions(&s, false) {
+            let group = g.label();
+            items.extend(acts.into_iter().map(|a| MenuItem { key: self.key_label(a).to_string(), label: a.label(), run: MenuRun::Action(a), group: Some(group.clone()) }));
+        }
+        if items.is_empty() {
+            return self.status = Some(t!("menu.none"));
+        }
+        let src = self.panel().targets();
+        let what = if src.is_empty() { t!("menu.this_folder") } else { Self::describe(&src) };
+        self.dialog = Some(Dialog::Menu { title: t!("menu.title", "what" => what), filter: String::new(), items, cursor: 0, direct: false });
     }
 
     /// F3 on a file inside an archive: a copy of it in the viewer, or its password asked for.
@@ -1307,7 +1375,7 @@ impl App {
         if let Some(j) = &self.job {
             return self.status = Some(j.line.clone());
         }
-        if matches!(op, Some(Transfer::Move | Transfer::Delete(_) | Transfer::Mkdir)) {
+        if matches!(op, Some(Transfer::Move | Transfer::Rename | Transfer::Delete(_) | Transfer::Mkdir)) {
             self.changed(&src);
         } else if op.is_none() {
             self.changed(std::slice::from_ref(&dst));
@@ -1328,7 +1396,7 @@ impl App {
                 let _ = tx.send(JobMsg::At(i));
                 let r = match op {
                     Transfer::Copy => bfs::copy_locked(p, &to, pw).map(drop),
-                    Transfer::Move => bfs::rename_locked(p, &to, pw).map(drop),
+                    Transfer::Move | Transfer::Rename => bfs::rename_locked(p, &to, pw).map(drop),
                     Transfer::Extract => coxswain_core::archive::extract_locked(p, &to, pw).map(drop),
                     Transfer::Delete(true) => bfs::delete_locked(p, pw),
                     Transfer::Delete(false) => bfs::trash_locked(p, pw),
@@ -1394,6 +1462,7 @@ impl App {
         let ok = match op {
             Transfer::Copy => t!("status.copied", "what" => what),
             Transfer::Move => t!("status.moved", "what" => what),
+            Transfer::Rename => t!("status.renamed", "what" => what),
             Transfer::Extract => t!("app.extracted", "what" => what),
             Transfer::Delete(true) => t!("status.deleted", "what" => what),
             Transfer::Delete(false) => t!("status.trashed", "what" => what),
@@ -1402,6 +1471,7 @@ impl App {
         let fail = match op {
             Transfer::Copy => t!("error.copy", "what" => what),
             Transfer::Move => t!("error.move", "what" => what),
+            Transfer::Rename => t!("error.rename", "what" => what),
             Transfer::Extract => t!("error.extract", "what" => what),
             Transfer::Delete(true) => t!("error.delete", "what" => what),
             Transfer::Delete(false) => t!("error.trash", "what" => what),
@@ -1446,6 +1516,12 @@ impl App {
                     coxswain_core::archive::remember(&archive, &value);
                 }
                 self.cd(side, dir);
+            }
+            Prompt::Rename(_) if value.trim().is_empty() => {}
+            Prompt::Rename(src) => {
+                let dst = resolve(&base, &value);
+                let one = (dst.parent() == Some(base.as_path())).then(|| dst.file_name().unwrap_or_default().to_string_lossy().into_owned());
+                self.transfer(Transfer::Rename, vec![src], dst, None, one);
             }
             Prompt::Move(src) => {
                 let dst = resolve(&base, &value);
@@ -1950,10 +2026,18 @@ impl App {
                     }
                 }
             }
+            // Marks the row, as in NC; or, with `right_click = "menu"`, puts the cursor on it
+            // and opens the action menu.
             MouseEventKind::Down(MouseButton::Right) => {
                 self.active = side;
                 let i = self.panels[side].offset + m.row.saturating_sub(area.y + 2) as usize;
-                self.panels[side].toggle_mark(i);
+                if self.cfg.right_click != "menu" {
+                    return self.panels[side].toggle_mark(i);
+                }
+                if m.row >= area.y + 2 && i < self.panels[side].entries.len() {
+                    self.panels[side].cursor = i;
+                    self.action_menu();
+                }
             }
             _ => {}
         }
@@ -1985,7 +2069,27 @@ impl App {
     }
 
     /// Git results and index progress, polled between events.
+    /// The hint for what is under the cursor, worked out again when that changes. Not while
+    /// typing, in quick search, a dialog, or with something on the status line: it would be
+    /// counted as shown without being seen.
+    fn follow_hint(&mut self) {
+        if !self.cfg.hints {
+            return self.hint = None;
+        }
+        if self.dialog.is_some() || self.status.is_some() || self.quick.is_some() || !self.cmdline.is_empty() {
+            return;
+        }
+        let s = self.panel().subject();
+        if self.hint_for.as_ref() == Some(&s) {
+            return;
+        }
+        let last = self.hint_for.as_ref().zip(self.hint.as_ref().map(|h| h.0));
+        self.hint = coxswain_core::menu::hint(&s, &self.cfg, last);
+        self.hint_for = Some(s);
+    }
+
     fn tick(&mut self, last_state: &mut State) {
+        self.follow_hint();
         if let Ok(v) = self.update_rx.try_recv() {
             let how = coxswain_core::update::upgrade_hint().unwrap_or(coxswain_core::update::RELEASES_URL);
             self.status = Some(t!("status.update", "version" => v, "how" => how));
@@ -2100,6 +2204,7 @@ fn to_key(ev: KeyEvent) -> Option<Key> {
         CK::Down => KeyCode::Down,
         CK::Left => KeyCode::Left,
         CK::Right => KeyCode::Right,
+        CK::Menu => KeyCode::Menu,
         _ => return None,
     };
     Some(Key::new(code, ctrl, alt, shift))
@@ -2212,6 +2317,7 @@ const USAGE: &str = "coxswain [LEFT] [RIGHT]      a folder, or a file to open it
                            built-in model) that answers questions from your files, or one
                            built in: builtin:qwen3-1.7b, builtin:qwen3-4b (downloaded once);
                            delete: the built-in ones deleted
+  --hints reset            show the hints on the command line again, each a few times
   --languages              the languages, by region, and how to help improve a new translation
   --whats-new [all]        what the versions since you last looked brought (all: every version)
   --version
@@ -2437,6 +2543,16 @@ fn main() {
             return;
         }
         Some("--languages") => return languages(),
+        Some("--hints") if args.get(1).map(String::as_str) == Some("reset") => {
+            coxswain_core::i18n::set_language(coxswain_core::i18n::resolve(&Config::load().map(|c| c.language).unwrap_or_default()));
+            return match coxswain_core::menu::reset() {
+                Ok(()) => println!("{}", t!("settings.hints_reset_done")),
+                Err(e) => {
+                    eprintln!("coxswain: {e}");
+                    std::process::exit(1)
+                }
+            };
+        }
         Some("--whats-new") => return whats_new(args.get(1).map(String::as_str) == Some("all")),
         Some("--index-service") => return index_service(args.get(1).map(String::as_str)),
         Some("--setup-search") => {
@@ -2562,6 +2678,45 @@ mod tests {
         assert_eq!(app.status, Some(t!("status.copied", "what" => tn!("items", 2))));
         assert!(app.panels[1].entries.iter().any(|e| e.name == "one.txt"), "the panels are read again");
         // The app's threads (sizes, git) may still hold the folder open on Windows.
+        let _ = std::fs::remove_dir_all(d);
+    }
+
+    #[test]
+    fn the_action_menu_renames_what_is_under_the_cursor() {
+        let d = std::env::temp_dir().join(format!("coxswain-test-menu-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(d.join("other")).unwrap();
+        std::fs::write(d.join("a.txt"), "a").unwrap();
+        let mut app = app(d.clone(), d.join("other"));
+        app.panels[0].select_name("a.txt");
+        // Shift+F10 opens it, its title naming the file, under headings.
+        app.on_key(KeyEvent::new(CK::F(10), KeyModifiers::SHIFT));
+        let Some(Dialog::Menu { title, items, .. }) = &app.dialog else { panic!("no menu") };
+        assert!(title.contains("a.txt"), "{title}");
+        let at = items.iter().position(|i| matches!(i.run, MenuRun::Action(Action::Rename))).expect("Rename is listed");
+        assert_eq!(items[at].key, "Shift+F6");
+        assert!(items.iter().all(|i| i.group.is_some()));
+        assert!(!items.iter().any(|i| matches!(i.run, MenuRun::Action(Action::Extract))), "not an archive");
+        if let Some(Dialog::Menu { cursor, .. }) = &mut app.dialog {
+            *cursor = at;
+        }
+        app.dialog_key(Key::new(KeyCode::Enter, false, false, false));
+        let Some(Dialog::Input { value, .. }) = &mut app.dialog else { panic!("no name asked") };
+        assert_eq!(value, "a.txt", "the name to change");
+        *value = "b.txt".into();
+        app.dialog_key(Key::new(KeyCode::Enter, false, false, false));
+        let t = Instant::now();
+        while app.job.is_some() && t.elapsed() < Duration::from_secs(10) {
+            std::thread::sleep(Duration::from_millis(5));
+            app.poll_job();
+        }
+        assert_eq!(std::fs::read_to_string(d.join("b.txt")).unwrap(), "a");
+        assert_eq!(app.panel().current().map(|e| e.name.as_str()), Some("b.txt"), "the cursor on the new name");
+        // The hint fits the file, and Esc closes the menu without running anything.
+        assert!(app.panel().subject().files == 1);
+        app.act(Action::ActionMenu);
+        app.dialog_key(Key::new(KeyCode::Esc, false, false, false));
+        assert!(app.dialog.is_none());
         let _ = std::fs::remove_dir_all(d);
     }
 

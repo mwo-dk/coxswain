@@ -462,6 +462,49 @@ export function openItem(tb, i = tb.cursor) {
   );
 }
 
+/** What the action menu and the hints are about: the marked entries (or the one under the
+ *  cursor, none on `..`), and where they are; `menu::Subject` in the core. */
+export function subject(tb = tab()) {
+  const e = item(tb);
+  const cur = e && e.name !== ".." ? e : null;
+  const list = tb.marked.size ? tb.items.filter((x) => tb.marked.has(x.path)) : cur ? [cur] : [];
+  const h = tb.history;
+  const place = tb.archive ? "archive" : h ? (h.view === "branches" && !h.commit ? "branches" : "history") : tb.snapshot ? "snapshot" : tb.package ? "package" : "disk";
+  const files = list.filter((x) => !x.is_dir);
+  return {
+    files: files.length,
+    folders: list.length - files.length,
+    archives: files.filter((x) => isArchive(x.name)).length,
+    one: list.length === 1 && list[0] === cur,
+    marked: tb.marked.size,
+    place,
+    git: !!tb.git,
+    zfs: !!tb.zfs,
+  };
+}
+
+/** Set by App.svelte, which runs the actions: opens the action menu. */
+export const hooks = { actionMenu: () => {} };
+
+/** A right-click on row `i`: marks it, as in Norton Commander, or, with Settings → Behaviour →
+ *  Right-click on the menu, puts the cursor on it and opens the action menu. Ctrl+right-click
+ *  does the other one. */
+export function rowContext(ev, t, i, onfocus) {
+  ev.preventDefault();
+  onfocus();
+  t.cursor = i;
+  if ((ui.cfg.settings.right_click === "menu") !== (ev.ctrlKey || ev.metaKey)) hooks.actionMenu();
+  else toggleMark(t, i);
+}
+
+/** The ⋯ button on a row: the action menu on that row. */
+export function rowMenu(ev, t, i, onfocus) {
+  ev.stopPropagation();
+  onfocus();
+  t.cursor = i;
+  hooks.actionMenu();
+}
+
 export function toggleMark(t, i) {
   const e = t.items[i];
   if (!e || e.name === "..") return;
