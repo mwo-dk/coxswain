@@ -11,7 +11,7 @@ It answers like a server's model: from the passages of your files closest to the
 citing them as **[1]**, **[2]**, word by word. Everything in [Ask](ask.md) (the keys, follow-ups,
 the scope, the sources) works the same.
 
-![Settings → Finding files → Details → Ask: Chat model builtin:qwen3-1.7b offered with Use, then Built-in chat models: Qwen3 1.7B (1.0 GB, downloaded once from huggingface.co, runs on the CPU) with the estimate On this processor: about 83 s to the first word, then 6.6 words a second (too slow to recommend) and Download (1.0 GB) and use; Qwen3 4B Instruct below it with its own estimate and Download (2.3 GB) and use; Let the model think first](../screenshots/settings-ask-builtin.png)
+![Settings → Finding files → Details → Ask on a PC with 64 GB: Chat model, then Built-in chat models: Qwen3 1.7B (1.0 GB, downloaded once from huggingface.co, runs on the CPU) with Needs 8 GB of memory · On this processor: about 88 s to the first word, then 6.2 words a second (too slow to recommend) and Download (1.0 GB) and use; Qwen3 4B Instruct with Needs 16 GB of memory and its estimate; Qwen3 14B with Needs 32 GB of memory, about 822 s to the first word, and Download (8.4 GB) and use; then Let the model think first](../screenshots/settings-ask-builtin.png)
 
 ## Contents
 
@@ -120,10 +120,13 @@ small files:
 |---|---|---|
 | Qwen3 1.7B | 9–13 s | 6–11 words (tokens) a second |
 | Qwen3 4B Instruct | about 40 s | 3–4 tokens a second |
+| Qwen3 14B | about 110 s | 1.5 tokens a second |
 
 With the prompt at the processor's cap (about 1,000 tokens: the rules and five passages) and
 the model loaded, Qwen3 1.7B took 65–70 s to its first word on that machine (with other work on it), reading
-14–15 tokens a second and writing 8–10. The estimate said 74–76 s. Qwen3 4B Instruct took 271 s; the estimate said 251 s.
+14–15 tokens a second and writing 8–10. The estimate said 74–76 s. Qwen3 4B Instruct took 271 s; the estimate said 251 s. Qwen3 14B took 561 s, reading 1.8 tokens a
+second and writing 1.4; the estimate said 578 s. On a processor Qwen3 14B proves that it works,
+not that it is worth the wait: it is meant for a Mac's GPU.
 
 On a processor the prompt is read at about the speed the answer is written, so a question with
 five passages of your files waits a minute or more for its first word. A Mac's GPU reads the
@@ -169,7 +172,7 @@ a model server answers more quickly)*
 - **On a Mac's GPU** there is no probe and no line: the GPU reads a prompt in one go, and the
   guide recommends as before. With *Use the CPU only* on, a Mac is measured like any processor.
 - **How close it is.** On the Core Ultra 9 185H above it said 74–76 s where the real
-  answer took 65–70 s, and 251 s for Qwen3 4B where it took 271 s. It is an estimate: other programs busy on the processor, a laptop
+  answer took 65–70 s, 251 s for Qwen3 4B where it took 271 s, and 578 s for Qwen3 14B where it took 561 s. It is an estimate: other programs busy on the processor, a laptop
   on battery or a hot processor make the model slower than it says, and the first question waits
   a few seconds more while the model loads.
 
@@ -246,7 +249,9 @@ processor. Ollama or Lemonade use the card.
 #### How good are its answers?
 Good for finding and quoting what your files say: *what does the fuel cost?* gets *The fuel
 costs 40,000 euros per flight [1].* A small model reasons less well than `qwen3:8b` or larger on
-a server, and with few passages on a processor it sees less of your files.
+a server, and with few passages on a processor it sees less of your files. Qwen3 14B on a Mac
+with 32 GB or more is as large as the models people run on a server with 16 GB of graphics
+memory, and reasons better still when it may think first.
 
 #### It says the model is not downloaded. Why?
 `ask_model` names a built-in model that is not on disk, set by hand or deleted with **Delete the

@@ -451,7 +451,7 @@ fn answer(l: &mut Loaded, m: &Model, think: bool, earlier: &[Turn], question: &s
     // Qwen's advice, less random without thinking: the sources are the facts.
     let (p, temperature) = if think { (0.95, 0.6) } else { (0.8, 0.5) };
     let mut sampler = LogitsProcessor::from_sampling(ids.len() as u64, Sampling::TopKThenTopP { k: 20, p, temperature });
-    let (mut out, mut given, mut thinking) = (Vec::<u32>::new(), 0, false);
+    let (mut out, mut given, mut thinking, mut begun) = (Vec::<u32>::new(), 0, false, false);
     let mut logits = logits.ok_or("an empty question")?;
     for n in 0..room {
         let last = logits.squeeze(0).and_then(|t| t.to_dtype(DType::F32)).map_err(err)?;
@@ -463,7 +463,12 @@ fn answer(l: &mut Loaded, m: &Model, think: bool, earlier: &[Turn], question: &s
         }
         out.push(next);
         let text = tok.decode(&out, true).map_err(|e| e.to_string())?;
-        let new = fresh(&text, &mut given).map(|t| crate::meaning::unthink(&t, &mut thinking)).unwrap_or_default();
+        let mut new = fresh(&text, &mut given).map(|t| crate::meaning::unthink(&t, &mut thinking)).unwrap_or_default();
+        // After its thinking the model starts a new paragraph: the answer starts with a word.
+        if !begun {
+            new = new.trim_start().to_string();
+            begun = !new.is_empty();
+        }
         if !piece(&new) {
             return Ok(());
         }
