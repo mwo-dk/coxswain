@@ -4,7 +4,7 @@
 
 **Shift+F10** (or the **Menu** key) opens a short menu of what you can do with the file or folder
 under the cursor, or with the marked ones: open, view, edit, copy, move, rename, pack, extract,
-delete, properties, git history. Only the actions that fit are listed, each with its key, so
+delete, properties, git history, Find, and on `..` the panels themselves. Only the actions that fit are listed, each with its key, so
 the menu also teaches the keys. The status line helps the same way: it shows one short hint
 that fits what is under the cursor, such as *Alt+F5 packs it into an archive · Shift+F6 renames
 it*.
@@ -49,16 +49,18 @@ asks first (unless you turned that off).
 ## What it lists
 
 The actions that fit, under the headings of the [command list](command-list.md), in this order:
-opening and looking first, then files, archives and git; in each heading the most used first.
+opening and looking first, then files, archives, search, git and the panels; in each heading
+the most used first (*Moving*, *Viewing*, *Files*, *Archives*, *Search*, *Git*, *Panels*).
 
 | Under the cursor (or marked) | The menu lists |
 |---|---|
-| A file | Open, View (**F3**), Edit (**F4**), Path to command line (**Ctrl+Enter**), Copy (**F5**), Move (**F6**), Rename (**Shift+F6**), Delete (**F8**), New folder (**F7**), Copy to clipboard (**Ctrl+C**, desktop app), Properties (**Alt+Enter**), Pack into an archive (**Alt+F5**) |
-| A folder | Open, Path to command line, Copy, Move, Rename, Delete, New folder, Copy to clipboard, Properties, Pack into an archive |
+| Anything, anywhere | Find (**Alt+F7**, **Ctrl+F**), Search inside files (**Shift+F7**), Ask your files (**Ctrl+F7**) under *Search* |
+| A file | Open, View (**F3**), Edit (**F4**), Path to command line (**Ctrl+Enter**), Folder notes (**Alt+N**, desktop app), Copy (**F5**), Move (**F6**), Rename (**Shift+F6**), Delete (**F8**), New folder (**F7**), Copy to clipboard (**Ctrl+C**, desktop app), Properties (**Alt+Enter**), Colour tag (**Alt+T**, desktop app), Pack into an archive (**Alt+F5**) |
+| A folder | Open, Path to command line, Folder notes, Copy, Move, Rename, Delete, New folder, Copy to clipboard, Properties, Colour tag, Pack into an archive, Find duplicates (**Ctrl+D**, desktop app) |
 | An archive (zip, tar, 7z …) | What a file has, and Extract archive (**Ctrl+E**); Open goes into it like a folder |
-| Several marked | Copy, Move, Delete, New folder, Copy to clipboard, Batch rename (**Ctrl+M**, desktop app), Pack into an archive; Extract archive when an archive is among them |
-| `..`, nothing marked | New folder, and the git and ZFS entries for this folder |
-| In a git repository | Also Git history (**Ctrl+G**) for the one entry or the folder, and Git branches (**Alt+B**) |
+| Several marked | Copy, Move, Delete, New folder, Copy to clipboard, Batch rename (**Ctrl+M**, desktop app), Colour tag, Pack into an archive; Extract archive when an archive is among them; Find duplicates when a folder is among them |
+| `..`, nothing marked | New folder, Folder notes, Find duplicates (in this folder), the git and ZFS entries for this folder, and under *Panels*: Other panel here (**Alt+O**), Swap panels (**Ctrl+U**), Panels on/off (**Ctrl+O**) |
+| In a git repository | Also Git history (**Ctrl+G**) for the one entry or the folder, Git branches (**Alt+B**) and Git worktrees (**Alt+W**) |
 | In the list of branches | Open, Switch to branch (**Alt+S**), New branch here |
 | On ZFS | Also ZFS snapshots (**Alt+Z**) for the folder; inside a snapshot, back to the list |
 | On FreeBSD, a file | Also Files of this package |
@@ -81,6 +83,9 @@ the cursor, in a dim colour. The first ones teach the menu itself; then they tea
 | Under the cursor | Hint |
 |---|---|
 | Anything | *Shift+F10 / Menu: what you can do with this* |
+| Anywhere | *Alt+F7 / Ctrl+F finds anything on this machine* |
+| A file or folder | *Alt+letter jumps to a name: type how it starts* ([Quick search](quick-search.md)) |
+| `..`, nothing marked | *Ctrl+U swaps the panels · Alt+O shows this folder in the other one · Ctrl+O panels on or off* |
 | Several marked | *F5 copies them to the other panel · F6 moves them* |
 | Files inside an archive | *Inside an archive: F5 copies files out to the other panel* |
 | An archive | *Enter opens it like a folder · Ctrl+E extracts it* |
@@ -103,6 +108,13 @@ The rules:
   is open, or while the status line says something else (*Copied "report.pdf"*).
 - **Your keys**: the hint names the keys in force; a hint whose action you unbound is skipped.
 
+### The hint in Find
+
+Find has one hint of its own, shown in place rather than on the status line: the first three
+times Find opens, the empty list says, dimmed under *Type a name …*, *Ctrl+F again searches only
+in rocket* (the search key in force and the active panel's folder). It goes once the scope is
+*In rocket*, and it counts and resets with the others. See [Find](../search/find-file.md#the-scope-everywhere-or-this-folder).
+
 To see them all again: *Settings → Behaviour → Show the hints again* in the desktop app, or
 `coxswain --hints reset` (the terminal app's command line; it resets them for both apps). To
 turn them off: *Settings → Behaviour → Show hints*.
@@ -123,7 +135,8 @@ turn them off: *Settings → Behaviour → Show hints*.
 ## In the terminal app
 
 The same menu and the same entries, minus what only the desktop app has (the clipboard, Batch
-rename). It is drawn as a dialog with the headings in bold; letters filter it. The hint sits
+rename, Colour tag, Folder notes, Find duplicates). *Panels on/off* (**Ctrl+O**) there hides
+the panels and shows the terminal with the last output. It is drawn as a dialog with the headings in bold; letters filter it. The hint sits
 on the command line after the prompt, dimmed, and goes as soon as you type. Right-click with
 the mouse follows the *Right-click* setting; there is no **⋯** button and no Ctrl+right-click.
 
@@ -166,6 +179,14 @@ It does not fit what is under the cursor there. Rename, Edit and Properties need
 are left out when several are marked; nothing that changes files is listed in a git history, a
 ZFS snapshot or a package's list, which are read-only; Extract only shows for archives. Every
 action is still in **F9**.
+
+#### How do I get the same folder in both panels, or swap them?
+
+Put the cursor on `..` with nothing marked and press **Shift+F10**: under *Panels* are *Other
+panel here* (**Alt+O**), which opens this folder in the other panel, and *Swap panels*
+(**Ctrl+U**), which swaps the two panels' folders. *Panels on/off* (**Ctrl+O**) switches the
+desktop app between one pane and two, and in the terminal app hides the panels to show the
+command output. See [Tabs, back and forward, one pane or two](tabs-and-panes.md).
 
 #### Why did a hint disappear for good?
 

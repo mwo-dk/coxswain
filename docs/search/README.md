@@ -19,7 +19,7 @@ read and when, and every setting.
 | [The Ask row](ask.md) | An answer to your question, written from the passages closest to it, with numbered sources | Search by meaning and a chat model: the [built-in one](ask-builtin.md) or one on your server |
 
 Every group finds files [inside archives](archives.md) too. The **scope** (*Everywhere* or the
-active panel's folder, **Ctrl+F** inside Find) limits every group and Ask.
+active panel's folder, **Ctrl+F** inside Find) limits every group and Ask; it shows at the right of the field as a choice of two, the one in force lit.
 
 | Page | What it covers |
 |---|---|

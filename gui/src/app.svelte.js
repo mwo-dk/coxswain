@@ -95,7 +95,12 @@ export function newTab(dir, view = "details") {
 }
 
 /** Find, at a kind: `all` (Ctrl+F), `in_files` (Shift+F7) or `ask` (Ctrl+F7). */
-export const openFind = (chip) => (ui.modal = { kind: "search", query: "", chip, here: false, show: chip === "ask" ? "answer" : "list", out: null, cursor: 0 });
+export function openFind(chip) {
+  ui.modal = { kind: "search", query: "", chip, here: false, show: chip === "ask" ? "answer" : "list", out: null, cursor: 0, scopeHint: false };
+  // The first few times: how to limit Find to the pane's folder.
+  const m = ui.modal;
+  invoke("hint_once", { id: "find_scope" }).then((b) => (m.scopeHint = b), () => {});
+}
 
 export const pane = (i = ui.activePane) => ui.panes[i];
 export const tab = (i = ui.activePane) => ui.panes[i]?.tabs[ui.panes[i].active];

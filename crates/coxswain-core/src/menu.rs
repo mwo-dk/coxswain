@@ -89,13 +89,21 @@ impl Action {
             NewBranch => s.place == Place::Branches,
             Snapshots => s.zfs && (disk && (n == 0 || s.folders == 1 && s.one) || s.place == Place::Snapshot),
             Package => cfg!(target_os = "freebsd") && disk && s.single() && s.files == 1,
+            Tag => n > 0 && disk,
+            Notes => disk,
+            Worktrees => s.git && disk,
+            // Find, anywhere; duplicates among the folders, or in this one.
+            Search | SearchText | Ask => true,
+            Duplicates => disk && (s.folders > 0 || n == 0),
+            // On `..` with nothing marked: the panels themselves.
+            SwapPanels | SameDir | TogglePanels => n == 0,
             _ => false,
         }
     }
 }
 
 /// The headings the action menu shows, in its order: opening and looking first.
-const GROUPS: [Group; 5] = [Group::Moving, Group::Viewing, Group::Files, Group::Archives, Group::Git];
+const GROUPS: [Group; 7] = [Group::Moving, Group::Viewing, Group::Files, Group::Archives, Group::Search, Group::Git, Group::Panels];
 
 /// The action menu for `s`: under each heading the actions that fit, the most used first.
 /// `gui`: the desktop app, which has actions the terminal app lacks.
@@ -116,6 +124,9 @@ pub const TIMES: u32 = 3;
 /// and the actions its text names, by placeholder.
 const HINTS: &[(&str, &[(&str, Action)])] = &[
     ("menu", &[("key", Action::ActionMenu)]),
+    ("find", &[("key", Action::Search)]),
+    ("quick", &[]),
+    ("panels", &[("swap", Action::SwapPanels), ("same", Action::SameDir), ("off", Action::TogglePanels)]),
     ("marked", &[("copy", Action::Copy), ("move", Action::Move)]),
     ("in_archive", &[("copy", Action::Copy)]),
     ("archive", &[("extract", Action::Extract)]),
@@ -130,6 +141,9 @@ fn fits(id: &str, s: &Subject) -> bool {
     let disk = s.place == Place::Disk;
     match id {
         "menu" => s.count() > 0,
+        "find" => true,
+        "quick" => disk && s.count() > 0,
+        "panels" => disk && s.count() == 0,
         "marked" => s.marked > 1 && s.writable(),
         "in_archive" => s.place == Place::Archive && s.files > 0,
         "archive" => disk && s.single() && s.archives == 1,
@@ -179,6 +193,22 @@ pub fn hint(s: &Subject, cfg: &Config, last: Option<(&Subject, &str)>) -> Option
     Some(h)
 }
 
+/// Whether the hint `id`, shown where it applies rather than on the status line (Find's
+/// scope), is still to be shown; counted as shown once more when it is.
+pub fn once(id: &str, cfg: &Config) -> bool {
+    if !cfg.hints {
+        return false;
+    }
+    let mut st = crate::state::AppState::load();
+    let n = st.hints_shown.entry(id.to_string()).or_default();
+    if *n >= TIMES {
+        return false;
+    }
+    *n += 1;
+    let _ = st.save();
+    true
+}
+
 /// Every hint shows again (`coxswain --hints reset`, Settings → Behaviour).
 pub fn reset() -> std::io::Result<()> {
     let mut st = crate::state::AppState::load();
@@ -224,17 +254,35 @@ mod tests {
 
         // On `..` with nothing marked: what is done to the folder itself.
         let here = Subject { git: true, ..Default::default() };
-        assert_eq!(names(&here, true), ["new_folder", "history", "branches"]);
+        let n = names(&here, true);
+        for a in ["new_folder", "notes", "search", "ask", "duplicates", "history", "worktrees", "swap_panels", "same_dir", "toggle_panels"] {
+            assert!(n.contains(&a), "{a} in {n:?}");
+        }
+        assert!(!n.contains(&"tag") && !n.contains(&"copy"), "{n:?}");
+        // Find on a file too; duplicates and the panels not.
+        let n = names(&file, true);
+        assert!(n.contains(&"search") && n.contains(&"tag") && !n.contains(&"duplicates") && !n.contains(&"swap_panels"), "{n:?}");
+        assert!(!names(&file, false).contains(&"tag"), "the terminal app has no colour tags");
     }
 
     #[test]
     fn hints_show_a_few_times_then_never() {
         let cfg = Config::default();
+        assert_eq!(cfg.handy_key(Action::Search), Some("Ctrl+F"), "Find's scope names Ctrl+F, not Alt+F7");
+        assert_eq!(cfg.handy_key(Action::Copy), Some("F5"));
         let folder = Subject { folders: 1, one: true, ..Default::default() };
         let mut shown = BTreeMap::new();
         assert_eq!(pick(&folder, &cfg, &shown).map(|h| h.0), Some("menu"));
         assert!(pick(&folder, &cfg, &shown).unwrap().1.contains("Shift+F10"));
         shown.insert("menu".to_string(), TIMES);
+        assert_eq!(pick(&folder, &cfg, &shown).map(|h| h.0), Some("find"));
+        assert!(pick(&folder, &cfg, &shown).unwrap().1.contains("Ctrl+F"));
+        shown.insert("find".to_string(), TIMES);
+        assert_eq!(pick(&folder, &cfg, &shown).map(|h| h.0), Some("quick"));
+        shown.insert("quick".to_string(), TIMES);
+        let parent = Subject::default();
+        let text = pick(&parent, &cfg, &shown).unwrap().1;
+        assert!(text.contains("Ctrl+U") && text.contains("Alt+O") && text.contains("Ctrl+O"), "on ..: the panels: {text}");
         let (id, text) = pick(&folder, &cfg, &shown).unwrap();
         assert_eq!(id, "folder");
         assert!(text.contains("Alt+F5") && text.contains("Shift+F6"), "{text}");

@@ -7,7 +7,7 @@ Find is one field for everything you look for: a file's name, words inside files
 come in groups: **Names**, **In files**, **About this** and **History**. Go to one with
 **Enter**, or ask with **Ctrl+Enter**.
 
-![The desktop app's Find with "rocket fuel cost" typed: the Ask row on top, In files with budget.txt and its passage, About this with budget-da.txt, the Danish budget, in italics](../screenshots/search-find.png)
+![The desktop app's Find with "rocket fuel cost" typed, the scope buttons Everywhere (lit) and In rocket at the right of the field: the Ask row on top (search by meaning not set up yet, with Set up), In files with budget.txt, budget.xlsx, engine.rs and launch-pad.drawio and their passages, About this offering Set up, and History with the commit Fix the fuel valve; the key line ends Ctrl+F scope](../screenshots/search-find.png)
 
 ## Contents
 
@@ -45,8 +45,8 @@ From the top:
 
 | Part | Desktop app | Terminal app |
 |---|---|---|
-| The field | ⌕ and the field, placeholder *Names, words in files, or a question* | `find: ` and what you typed (`ask: ` in the answer) |
-| The scope | A button at the right: *Everywhere*, or *In rocket* (the active panel's folder) | `[everywhere]` or `[in rocket]` at the right of the field |
+| The field | ⌕ and the field; empty, it says the scope and the key that changes it: *Find everywhere…   Ctrl+F: only in rocket*, or *Find in rocket…   Ctrl+F: everywhere* | `find: ` and what you typed (`ask: ` in the answer); empty, the same text, dimmed |
+| The scope | Two buttons at the right, *Everywhere* and *In rocket* (the active panel's folder); the one in force is lit | `[ everywhere \| in rocket ]` at the right of the field; the one in force is inverted |
 | The kinds | Buttons *All · Names · In files · About · Ask*, the current one lit | The same words on the second line, the current one in the cursor colour |
 | The list | The *Ask* row, then the groups, each with its heading and *5 of 19* | The same; headings in capitals in the `header` colour |
 | Footer, line 1 | What can be searched: *563 files indexed · text of 112 files · meaning for 112*, with *· 412 still to read*, *· building index…* or *· paused on battery* while they apply | The same |
@@ -57,7 +57,8 @@ passage that matched, your words highlighted. A hit in *About this* adds the pas
 close in meaning, in italics. A commit in *History* names its repository and says which commit.
 
 **Before you type:** *Type a name (\*.pdf, ext:md), words from inside a file, or a question
-ending in ?*
+ending in ?* The first three times Find opens, a dimmed line under it adds *Ctrl+F again
+searches only in rocket* (one of the [hints](../panels/action-menu.md#the-hint-in-find)).
 
 **Nothing found:** *Nothing found for "rocket fual".* (*… in rocket.* when the scope is a
 folder), with what to try: *Everywhere: Alt+F7* when the scope is a folder, and *Ask instead:
@@ -117,8 +118,16 @@ for one character, as before. **Tab** takes the prefix away and moves to the nex
 and meaning. **In rocket** (the active panel's folder) limits every group, and Ask, to that
 folder and everything below it.
 
-Switch it with **Ctrl+F** or **Alt+F7** inside Find (the `search` action's keys), or a click on
-the scope button (desktop app).
+The scope is always on show as a choice of two, at the right of the field:
+
+| | Desktop app | Terminal app |
+|---|---|---|
+| What you see | Two buttons, **Everywhere** and **In rocket**; the one in force is lit, the other plain. The tooltip of *In rocket* is the whole path and the key | `[ everywhere \| in rocket ]`; the one in force is inverted |
+| Switch it | **Ctrl+F** or **Alt+F7** inside Find (the `search` action's keys), or click either button | **Ctrl+F** or **Alt+F7** inside Find |
+
+The empty field says the same in words, with your key: *Find everywhere…   Ctrl+F: only in
+rocket*, and after the switch *Find in rocket…   Ctrl+F: everywhere*. A long folder name is cut
+short with … in the button.
 
 A folder outside the folders whose text is read shows, under *In files*: */mnt/archive is not
 among the folders read, so its words are not searched.* with the step *Read this folder too*. It
@@ -164,7 +173,7 @@ No key was added or taken: inside Find, keys go by **action**, so your own bindi
 | **F1** | — | The name syntax and the prefixes, in place of the list; **F1** or **Esc** again for the list |
 | **Delete** | — | On a tip (*Find files about your words too…*, *Ask your files a question…*): never show it again. The desktop app also has **×** at its right |
 | **Esc** | — | In the answer or the syntax: back to the list. In the list: close and forget |
-| Mouse (desktop) | The ⌕ button opens Find | A click puts the cursor on a hit, a double-click goes to it; a click on a kind or on the scope switches it |
+| Mouse (desktop) | The ⌕ button opens Find | A click puts the cursor on a hit, a double-click goes to it; a click on a kind switches it; a click on *Everywhere* or *In rocket* sets the scope |
 
 ## When something is missing
 
@@ -202,7 +211,7 @@ The rest belong to the groups: see [Search settings](settings.md).
 ## In the terminal app
 
 The same field, kinds, groups, rows, keys and states, drawn as text in a frame titled
-*Find*: the field on the first line with the scope at its right (`[everywhere]`), the kinds on the
+*Find*: the field on the first line with the scope at its right (`[ everywhere | in rocket ]`, the one in force inverted), the kinds on the
 second, group headings in capitals, a passage on a second line under its file, two footer lines.
 It differs in a few things:
 
@@ -211,14 +220,17 @@ It differs in a few things:
 - *Set up* runs `coxswain --setup-search` in the terminal, then comes back to the panels.
 - **Ctrl+Shift+F** often arrives as **Ctrl+F** (the scope key), so use **Shift+F7** for *In files*.
 
-![The terminal app's Find with "rocket fuel cost" typed, [everywhere] at the right, the kinds line, the Ask row, IN FILES with budget.txt and ABOUT THIS with budget-da.txt](../screenshots/tui-find.png)
+![The terminal app's Find with "rocket fuel cost" typed, [ everywhere | in rocket ] at the right with everywhere inverted, the kinds line, the Ask row (needs search by meaning first), IN FILES with budget.txt, budget.xlsx, engine.rs and launch-pad.drawio, ABOUT THIS offering Set up and HISTORY with the commit; the key line ends Ctrl+F scope](../screenshots/tui-find.png)
 
 ## Questions
 
 #### How do I search only this folder?
-Press **Ctrl+F** (or **Alt+F7**) inside Find: the scope at the right of the field switches from
-*Everywhere* to *In rocket* (`[in rocket]` in the terminal app), and every group, and Ask, keeps
-to the active panel's folder and below. Press it again for everywhere.
+Press **Ctrl+F** (or **Alt+F7**) again inside Find, or click *In rocket* at the right of the
+field (desktop app). The lit button (the inverted word in the terminal app's
+`[ everywhere | in rocket ]`) moves to *In rocket*, the empty field reads *Find in rocket…
+Ctrl+F: everywhere*, and every group, and Ask, keeps to the active panel's folder and below.
+Press the key again, or click *Everywhere*, for the whole machine. Find always opens at
+*Everywhere*.
 
 #### How do I search names only?
 Press **Tab** once: the *Names* kind shows names alone, all of them, and never the Ask row. A

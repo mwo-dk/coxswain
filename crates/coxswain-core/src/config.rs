@@ -1021,6 +1021,12 @@ impl Config {
         Some(dirs::config_dir()?.join("coxswain").join("config.toml"))
     }
 
+    /// config.toml ready to be opened at `[keys]` (Settings → Keys): its path and the line
+    /// (from 1) of the table. A file without one gets a commented example at its end first.
+    pub fn prepare_keys() -> Result<(PathBuf, usize), String> {
+        prepare_at(|l| l.starts_with("[keys]"), KEYS_EXAMPLE)
+    }
+
     /// Where Coxswain keeps things, (what, path), for `--paths`.
     pub fn paths() -> Vec<(&'static str, Option<PathBuf>)> {
         vec![
@@ -1136,6 +1142,13 @@ impl Config {
         self.keys.get(&action)?.first().map(String::as_str)
     }
 
+    /// The key a short text names for `action`: its Ctrl key when it has one (Find's Ctrl+F
+    /// over Alt+F7), else its first.
+    pub fn handy_key(&self, action: Action) -> Option<&str> {
+        let keys = self.keys.get(&action)?;
+        keys.iter().find(|k| k.starts_with("Ctrl+")).or(keys.first()).map(String::as_str)
+    }
+
     pub fn theme(&self) -> Theme {
         self.themes.get(&self.theme).cloned().unwrap_or_else(Theme::nc)
     }
@@ -1159,9 +1172,77 @@ impl Config {
     }
 }
 
+/// What `[keys]` starts with when Settings opens config.toml there and it has none.
+const KEYS_EXAMPLE: &str = "# Keys of your own: an action and its keys, in place of its default ones; [] unbinds it.
+# Every action with its keys: coxswain --dump-config. Both apps read them when they start.
+[keys]
+# copy = [\"F5\", \"Ctrl+K\"]
+";
+
+/// config.toml ready to be opened where `found` says (a line, the `#` of a commented one taken
+/// off): its path and that line (from 1). When no line is found, `example` is written at the
+/// end first, the rest kept as it is.
+pub fn prepare_at(found: impl Fn(&str) -> bool, example: &str) -> Result<(PathBuf, usize), String> {
+    let path = Config::path().ok_or_else(|| crate::t!("err.no_config_folder"))?;
+    let text = match std::fs::read_to_string(&path) {
+        Ok(t) => t,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => String::new(),
+        // Never written over when it cannot be read.
+        Err(e) => return Err(format!("{}: {e}", path.display())),
+    };
+    let (line, new) = at_line(&text, found, example);
+    if let Some(new) = new {
+        if let Some(dir) = path.parent() {
+            std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
+        }
+        std::fs::write(&path, new).map_err(|e| format!("{}: {e}", path.display()))?;
+    }
+    Ok((path, line))
+}
+
+/// The line (from 1) of `text` that `found` matches, commented out or not; when there is none,
+/// `example` is added at the end and the line is where it matches there, and the new text
+/// comes back too.
+pub(crate) fn at_line(text: &str, found: impl Fn(&str) -> bool, example: &str) -> (usize, Option<String>) {
+    let at = |t: &str| t.lines().position(|l| found(l.trim_start_matches(['#', ' ', '\t'])));
+    if let Some(i) = at(text) {
+        return (i + 1, None);
+    }
+    let mut new = text.to_string();
+    if !new.is_empty() {
+        new += if new.ends_with('\n') { "\n" } else { "\n\n" };
+    }
+    let line = new.lines().count() + 1 + at(example).unwrap_or(0);
+    new += example;
+    (line, Some(new))
+}
+
+/// `editor` opening `file` at `line`: `+line` for the editors known to take it, else the file.
+pub fn edit_command(editor: &str, file: &std::path::Path, line: usize) -> String {
+    let name = editor.split_whitespace().next().and_then(|p| std::path::Path::new(p).file_stem()).map(|s| s.to_string_lossy().to_lowercase()).unwrap_or_default();
+    let plus = ["vi", "vim", "nvim", "gvim", "view", "nano", "pico", "emacs", "emacsclient", "micro", "mg", "joe", "jed", "ne", "kak", "mcedit"].contains(&name.as_str());
+    let at = if plus { format!(" +{line}") } else { String::new() };
+    format!("{editor}{at} {}", quote(&file.to_string_lossy()))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn config_opens_at_its_keys() {
+        let keys = |l: &str| l.starts_with("[keys]");
+        assert_eq!(at_line("a = 1\n[keys]\ncopy = [\"F5\"]\n", keys, KEYS_EXAMPLE), (2, None));
+        assert_eq!(at_line("# [keys]\n", keys, KEYS_EXAMPLE), (1, None), "a commented-out table is found too");
+        let (line, new) = at_line("a = 1", keys, KEYS_EXAMPLE);
+        let new = new.unwrap();
+        assert!(new.starts_with("a = 1\n\n# Keys"), "{new}");
+        assert_eq!(new.lines().nth(line - 1), Some("[keys]"));
+        Config::parse(&new).expect("still a config that is read");
+        assert_eq!(edit_command("nvim", std::path::Path::new("/c/config.toml"), 7), "nvim +7 /c/config.toml");
+        assert_eq!(edit_command("/usr/bin/nvim -p", std::path::Path::new("/c/config.toml"), 7), "/usr/bin/nvim -p +7 /c/config.toml");
+        assert_eq!(edit_command("code --wait", std::path::Path::new("/c/config.toml"), 7), "code --wait /c/config.toml");
+    }
 
     #[test]
     fn every_action_is_in_a_named_group() {

@@ -10,7 +10,7 @@ New here? Start with [The first-run guide](panels/first-run.md), [The screen](pa
 
 | Page | What it covers |
 |---|---|
-| [Panels and keys](panels/README.md) | The area's pages and the main keys of both apps |
+| [Panels and keys](panels/README.md) | The area's pages, finding what Coxswain can do (F1, F9, Shift+F10, hints), and the main keys of both apps |
 | [The first-run guide](panels/first-run.md) | The four steps shown on the first start (panels and keys, how far Find looks, looks with the Nerd Font check, privacy), skipping, opening it again (F1, Settings → Overview) |
 | [The screen](panels/the-screen.md) | Panels, active panel, title bar with the version, status line and notices, F-key bar, archives shown in the pane, starting in a folder |
 | [Moving around and going to a folder](panels/moving.md) | Cursor keys, Enter, parent, other panel, refresh, Alt+F1/Alt+F2, Ctrl+L, cd |
@@ -25,7 +25,7 @@ New here? Start with [The first-run guide](panels/first-run.md), [The screen](pa
 | [Git branches and worktrees](panels/git-branches.md) | Alt+B, the branches, a branch's files, switching (Alt+S) and new branches, Alt+W, the worktrees, limits |
 | [The mouse](panels/mouse.md) | Clicks, marks, drags, path bar, tabs, splitters, in both apps |
 | [The command list (F9) and Help (F1)](panels/command-list.md) | The command list (F9) and Help (F1) |
-| [What can I do with this? The action menu and hints](panels/action-menu.md) | Shift+F10 / Menu / ⋯: the actions that fit what is under the cursor, with their keys; hints on the status line, three times each; right-click: mark or menu; --hints reset |
+| [What can I do with this? The action menu and hints](panels/action-menu.md) | Shift+F10 / Menu / ⋯: the actions that fit what is under the cursor, with their keys; Find, Ask and the panels in it; hints on the status line and in Find, three times each; right-click: mark or menu; --hints reset |
 | [What the apps remember](panels/session.md) | The desktop session, state.json, what is forgotten |
 | [Every default key](panels/keys.md) | Every default key of both apps, keys that are not actions, keys inside dialogs |
 

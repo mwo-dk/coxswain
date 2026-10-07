@@ -37,7 +37,7 @@ path*) and **Alt+F1** / **Alt+F2** take you to any folder by typing its path; se
 | *Drives* | Every mounted disk (not the snapshots ZFS mounts while you look into them): its name, its free space (*339 GB free*) and a thin bar of the space used, which turns red past 90%. The root disk is called *System*; the others are named after their mount point. Removable disks (USB sticks, SD cards) get their own icon. Hover a drive for its device and mount point, such as `/dev/nvme0n1p2 · /`. The list and the free space are read again every 30 seconds while the window is in view, and whenever the window comes back to the front |
 | *Boot environments* | FreeBSD with a ZFS root: each boot environment, with *running now*, *active on reboot* or *not mounted* after its name. A mounted one opens as a folder; one that is not mounted is greyed, and a click says how to mount it ([FreeBSD](../reference/freebsd.md#boot-environments-and-jails)) |
 | *Jails* | FreeBSD: each running jail, with its jid and host name; a click opens its root folder when you may read it |
-| Your favourite groups | One section per group, see [Favourites](favourites.md), then *+ New group* |
+| Your favourite groups | One section per group, its header with a **⋯** (Add current folder, Rename group, Delete group) and a `+` on hover; see [Favourites](favourites.md), then *+ New group* |
 | *Git repositories* | The twelve git repositories you visited most recently, newest first, with a git icon. Only there once you have been in a repository |
 
 - The entry for the folder the active tab is in is highlighted in the cursor colour, in every

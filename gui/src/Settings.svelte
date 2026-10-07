@@ -305,6 +305,8 @@
       })])
       .filter(([, acts]) => acts.length),
   );
+  const openKeys = () => invoke("open_keys").catch((e) => (error = String(e)));
+  const openScripts = () => invoke("scripts_folder").then((dir) => showInPanel(dir, false), (e) => (error = String(e)));
   const openConfig = () => invoke("open_path", { path: ui.cfg.config_path }).catch((e) => (error = String(e)));
 
   // ------------------------------------------------------------ what's new
@@ -783,9 +785,12 @@
         <h3>{t("settings.area.keys")}</h3>
         <div class="folder">
           <input type="search" bind:value={keyFilter} placeholder={t("settings.keys_filter")} aria-label={t("settings.keys_filter")} />
-          <button onclick={openConfig}>{t("settings.open_config")}</button>
+          <button onclick={openKeys}>{t("settings.open_config")}</button>
         </div>
         <p class="hint">{t("settings.keys_hint")}</p>
+        {#if ui.cfg.scripts_dir}
+          <p class="hint">{t("settings.scripts_folder", { path: ui.cfg.scripts_dir })} <button class="link" onclick={openScripts}>{t("settings.open_folder")}</button></p>
+        {/if}
         {#each keyGroups as [label, acts] (label)}
           <p class="label region">{label}</p>
           <div class="keys">

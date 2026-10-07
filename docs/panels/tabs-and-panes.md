@@ -18,6 +18,9 @@ history, so you can keep several places open and step back through where you hav
 | **Ctrl+W** | The `×` on a tab, or a middle click on it | Close the tab (the last one of a pane stays) |
 | **Ctrl+Tab** / **Ctrl+Shift+Tab** | A click on a tab | Next / previous tab of the active pane |
 
+Hovering a tab shows its folder and, under it, *Middle-click or Ctrl+W closes the tab* (with
+your key for `close_tab`). F1's mouse line says it too.
+
 ### Back and forward (desktop app)
 
 | Key | Mouse | Does |
@@ -92,7 +95,8 @@ No. The tabs and their folders come back, but each tab starts with an empty hist
 
 #### How do I close a tab with the mouse?
 
-Click its `×` (shown when the pane has more than one tab), or click it with the middle button.
+Click its `×` (shown when the pane has more than one tab), or click it with the middle button. The tab's tooltip says so: *Middle-click or Ctrl+W closes the tab*. The last tab of a pane
+stays.
 
 #### Can I move a tab to the other pane?
 
