@@ -123,8 +123,9 @@ LM Studio running, step 2 says *Apple silicon with 64 GB of shared memory and no
 the built-in model makes the vectors on its GPU (Metal) …*, *The built-in model* is chosen and
 marked **recommended**, and step 3's **Download the built-in model (465 MB)** fetches it, turns
 search by meaning on and says *Search by meaning is on, with the built-in model.* Step 4 offers
-the built-in chat model for Ask, *Qwen3 4B Instruct, built in (2.3 GB download, on the GPU
-(Metal) when it can; …)* with 16 GB or more (Qwen3 1.7B, 1.0 GB, below that): **Download … and
+the built-in chat model for Ask, *Qwen3 14B, built in (8.4 GB download, on the GPU (Metal) when
+it can; …)* with 32 GB or more (Qwen3 4B Instruct, 2.3 GB, with 16 GB or more; Qwen3 1.7B,
+1.0 GB, below that): **Download … and
 use it** fetches it and asks a test question. Ask is optional.
 [The setup guide](../search/setup.md)
 

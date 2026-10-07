@@ -2479,7 +2479,8 @@ const USAGE: &str = "coxswain [LEFT] [RIGHT]      a folder, or a file to open it
                            when it has one (auto, the default)
   --meaning ask MODEL|off  Ask in Find: the chat model on that server (Ollama here with the
                            built-in model) that answers questions from your files, or one
-                           built in: builtin:qwen3-1.7b, builtin:qwen3-4b (downloaded once);
+                           built in: builtin:qwen3-1.7b, builtin:qwen3-4b or
+                           builtin:qwen3-14b (downloaded once);
                            delete: the built-in ones deleted
   --hints reset            show the hints on the command line again, each a few times
   --languages              the languages, by region, and how to help improve a new translation

@@ -106,12 +106,12 @@ and Ask* there; or `coxswain --setup-search`). By hand:
 
 Ask fills the chat model's context, not a fixed number of passages. What fits is the context
 less the rules, the questions and answers before, the question and 1,024 tokens kept for the
-answer; a token is counted as 3 bytes of text, on the safe side (English is nearer 4).
+answer (4,096 when the model thinks first, [Thinking](#thinking)); a token is counted as 3 bytes of text, on the safe side (English is nearer 4).
 
 | Chat model | Context | Sources, about |
 |---|---|---|
 | On a server (Ollama, Lemonade, LM Studio, llama.cpp, vLLM) | `ask_context`, 8,192 tokens by default | 20 KB: 2,500–3,000 words |
-| Built in, on a Mac's GPU | 8,192 tokens | 20 KB |
+| Built in, on a Mac's GPU | 8,192 tokens; Qwen3 14B 16,384 | 20 KB; 45 KB with Qwen3 14B |
 | Built in, on the processor | 2,048 tokens | 2.5 KB: the closest three or four passages |
 
 The processor keeps the small one because candle reads a prompt at 10 to 40 tokens a second
@@ -180,7 +180,7 @@ alone, as before.
 
 | Item (*Settings → Finding files → Details*) | Key | Type, default | Does |
 |---|---|---|---|
-| *Chat model* | `[search] ask_model` | string, `""` | The model that writes the answers: a server's (`qwen3:8b`) or a built-in one (`builtin:qwen3-1.7b`, `builtin:qwen3-4b`, [Ask without a server](ask-builtin.md)). Empty: Ask is not set up |
+| *Chat model* | `[search] ask_model` | string, `""` | The model that writes the answers: a server's (`qwen3:8b`) or a built-in one (`builtin:qwen3-1.7b`, `builtin:qwen3-4b`, `builtin:qwen3-14b`, [Ask without a server](ask-builtin.md)). Empty: Ask is not set up |
 | *Built-in chat models* | none | | **Download (size) and use**, **Use**, **Delete the model** for each built-in model |
 | *Let the model think first* | `[search] ask_think` | bool, `false` | Off: a model that thinks first (Qwen3, DeepSeek-R1, …) is asked not to. On: it thinks, many seconds before the first word ([Thinking](#thinking)) |
 | *Context for a server's model (tokens)* | `[search] ask_context` | number, `8192` (2,048 to 131,072) | The tokens a server's chat model is given, sources, question and answer together. Ollama is asked for this context (`num_ctx`); an OpenAI-style server must be set to at least as much. Not for the built-in models ([How much it reads](#how-much-it-reads)) |
@@ -228,7 +228,8 @@ while the sources are looked up, so it is not loaded twice. A model that always
 thinks (DeepSeek-R1, Qwen3's *thinking* models) cannot be stopped; *Waiting for … to answer*
 stays until it has. To let the model think, for harder questions: tick *Let the model think
 first* under *Settings → Finding files → Details → Ask* in the desktop app, or set `ask_think = true` under
-`[search]` in `config.toml` (both apps).
+`[search]` in `config.toml` (both apps). The built-in Qwen3 1.7B and 14B think too then, on a
+Mac's GPU ([Ask without a server](ask-builtin.md#how-it-runs)).
 
 ## Questions
 

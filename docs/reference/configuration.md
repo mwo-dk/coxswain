@@ -253,7 +253,7 @@ flags start a new one.
 | `meaning_model` | string | `""` | The server's embedding model, for example `bge-m3` (the Ollama suggestion) |
 | `meaning_key_env` | string | `""` | The name of the environment variable that holds the server's API key. The key itself is never in this file |
 | `meaning_device` | string | `"auto"` | Where the built-in model runs: `"auto"` (a Mac's GPU through Metal when it has one whose results match the CPU's, the CPU elsewhere) or `"cpu"` (the CPU only). Only Macs have a choice ([Search by meaning](../search/meaning.md#on-a-macs-gpu)) |
-| `ask_model` | string | `""` | The chat model that answers in [Ask](../search/ask.md), on the server above (Ollama on this machine with the built-in model), e.g. `qwen3:8b`; or a built-in one, `builtin:qwen3-1.7b` or `builtin:qwen3-4b` ([Ask without a server](../search/ask-builtin.md)). Empty: Ask is not set up |
+| `ask_model` | string | `""` | The chat model that answers in [Ask](../search/ask.md), on the server above (Ollama on this machine with the built-in model), e.g. `qwen3:8b`; or a built-in one, `builtin:qwen3-1.7b`, `builtin:qwen3-4b` or `builtin:qwen3-14b` ([Ask without a server](../search/ask-builtin.md)). Empty: Ask is not set up |
 | `ask_think` | bool | `false` | Let Ask's chat model think before it answers (Qwen3, DeepSeek-R1 …). Off: it is asked not to, so the first word comes at once ([Thinking](../search/ask.md#thinking)) |
 | `history` | bool | `true` | Keep the history of the git repositories in the folders read: commit messages, authors and changed paths of the newest 2000 commits of each, found by Find's words in files and by meaning ([History in search](../search/history.md)) |
 

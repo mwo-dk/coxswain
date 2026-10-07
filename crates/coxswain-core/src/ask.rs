@@ -24,7 +24,7 @@ const LEAST: usize = 1500;
 /// Tokens the chat model is given, prompt and answer: a built-in model's own, or `ask_context`.
 pub fn context(cfg: &SearchConfig) -> usize {
     match crate::chat::of(&cfg.ask_model) {
-        Some(_) => crate::chat::context(cfg.meaning_device == "cpu"),
+        Some(m) => m.context(cfg.meaning_device == "cpu"),
         None => cfg.ask_context.clamp(2048, 131_072),
     }
 }
@@ -35,10 +35,10 @@ pub(crate) fn tokens(text: &str) -> usize {
 }
 
 /// Bytes of sources that fit: the context, less the rules, the turns before, the question and
-/// room for the answer.
+/// room for the answer (and the thinking before it).
 pub fn budget(cfg: &SearchConfig, earlier: &[Turn], question: &str) -> usize {
     let used = crate::meaning::RULES.len() + question.len() + earlier.iter().map(|(q, a)| q.len() + a.len() + 40).sum::<usize>();
-    (context(cfg).saturating_sub(crate::chat::ANSWER) * TOKEN).saturating_sub(used + 200).max(LEAST)
+    (context(cfg).saturating_sub(crate::chat::answer_room(crate::chat::thinks(cfg))) * TOKEN).saturating_sub(used + 200).max(LEAST)
 }
 
 /// The sources of an answer to `question`, numbered in their order: excerpts closest to it

@@ -726,6 +726,8 @@ struct ChatModel {
     key: String,
     name: &'static str,
     size: u64,
+    /// GB of memory it needs.
+    ram: u64,
     installed: bool,
     /// The one for this machine.
     suggested: bool,
@@ -754,9 +756,8 @@ fn chat_status(ctx: tauri::State<Ctx>) -> Res<ChatStatus> {
     let cpu_only = ctx.cfg().search.meaning_device == "cpu";
     let ram = *RAM.get_or_init(coxswain_core::setup::ram_gb);
     let suggested = chat::suggest(ram, cpu_only);
-    let models = chat::MODELS
-        .iter()
-        .map(|m| ChatModel { key: m.key(), name: m.name, size: m.size(), installed: m.installed(), suggested: suggested.is_some_and(|s| std::ptr::eq(m, s)), estimate: chat::estimate(m, cpu_only, true).map(|e| e.text()) })
+    let models = chat::fitting(ram)
+        .map(|m| ChatModel { key: m.key(), name: m.name, size: m.size(), ram: m.ram, installed: m.installed(), suggested: suggested.is_some_and(|s| std::ptr::eq(m, s)), estimate: chat::estimate(m, cpu_only, true).map(|e| e.text()) })
         .collect();
     let d = ctx.chat.lock().map_err(|e| e.to_string())?;
     Ok(ChatStatus {

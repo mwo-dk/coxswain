@@ -11,7 +11,7 @@ It answers like a server's model: from the passages of your files closest to the
 citing them as **[1]**, **[2]**, word by word. Everything in [Ask](ask.md) (the keys, follow-ups,
 the scope, the sources) works the same.
 
-![Settings → Finding files → Details → Ask: Chat model builtin:qwen3-1.7b offered with Use, then Built-in chat models: Qwen3 1.7B (1.0 GB, downloaded once from huggingface.co, runs on the CPU) with the estimate On this processor: about 83 s to the first word, then 6.6 words a second (too slow to recommend) and Download (1.0 GB) and use; Qwen3 4B Instruct below it with its own estimate and Download (2.3 GB) and use; Let the model think first](../screenshots/settings-ask-builtin.png)
+![Settings → Finding files → Details → Ask on a PC with 64 GB: Chat model, then Built-in chat models: Qwen3 1.7B (1.0 GB, downloaded once from huggingface.co, runs on the CPU) with Needs 8 GB of memory · On this processor: about 88 s to the first word, then 6.2 words a second (too slow to recommend) and Download (1.0 GB) and use; Qwen3 4B Instruct with Needs 16 GB of memory and its estimate; Qwen3 14B with Needs 32 GB of memory, about 822 s to the first word, and Download (8.4 GB) and use; then Let the model think first](../screenshots/settings-ask-builtin.png)
 
 ## Contents
 
@@ -30,13 +30,20 @@ the scope, the sources) works the same.
 | Model | `ask_model` | Download | Memory while loaded | Suggested when |
 |---|---|---|---|---|
 | Qwen3 1.7B | `builtin:qwen3-1.7b` | 1.0 GB | about 3 GB | A Mac's GPU with less than 16 GB; a processor only when [the estimate](#the-estimate-for-this-processor) has its first word within 10 s |
-| Qwen3 4B Instruct (2507) | `builtin:qwen3-4b` | 2.3 GB | about 5 GB | A Mac with Apple silicon and 16 GB or more: better answers, on the GPU |
+| Qwen3 4B Instruct (2507) | `builtin:qwen3-4b` | 2.3 GB | about 5 GB | A Mac with Apple silicon and 16 to 31 GB: better answers, on the GPU |
+| Qwen3 14B | `builtin:qwen3-14b` | 8.4 GB | about 12 GB | A Mac with Apple silicon and 32 GB or more: knows more, reasons better, reads twice as much of your files |
 
-Both are Qwen3 models by Alibaba's Qwen team, under the Apache 2.0 licence, in 4-bit GGUF form
+Only the models the machine has the memory for are offered (Qwen3 1.7B always): a machine with
+8 GB sees one, with 16 GB two, with 32 GB or more all three. The *Memory* column is the
+machine's memory the guide and Settings go by; *Settings → Ask → Built-in chat models* shows it
+under each model as *Needs 32 GB of memory*.
+
+All three are Qwen3 models by Alibaba's Qwen team, under the Apache 2.0 licence, in 4-bit GGUF form
 (`Q4_K_M`). They know over a hundred languages, so a Danish question about English notes is
 answered in Danish. The files come from Hugging Face at a fixed revision
 ([unsloth/Qwen3-1.7B-GGUF](https://huggingface.co/unsloth/Qwen3-1.7B-GGUF),
 [unsloth/Qwen3-4B-Instruct-2507-GGUF](https://huggingface.co/unsloth/Qwen3-4B-Instruct-2507-GGUF),
+[unsloth/Qwen3-14B-GGUF](https://huggingface.co/unsloth/Qwen3-14B-GGUF),
 and the tokenizer from [Qwen/Qwen3-1.7B](https://huggingface.co/Qwen/Qwen3-1.7B)), and each file
 is checked against its SHA-256 before it is used; a file that does not match is deleted.
 
@@ -52,13 +59,14 @@ is checked against its SHA-256 before it is used; a file that does not match is 
 | App | How |
 |---|---|
 | Desktop app, the guide | **Ctrl+,** → **Set up…** → step 4 *Ask: the chat model*: choose *Qwen3 1.7B, built in (1.0 GB download, on the CPU; nothing leaves the machine)* in the list and press **Download Qwen3 1.7B (1.0 GB) and use it**. It is marked **recommended** (and its button is the main one) when no server answers and it suits the machine: on a Mac's GPU always, on a processor only when [the estimate](#the-estimate-for-this-processor) is under 10 s to the first word. Under the list: *On this processor: about 74 s to the first word, then 7.4 words a second (too slow to recommend; a model server answers more quickly)*. When the download is done, Ask is set to it and a test question follows: *It answered: the first word came after 8.6 s.* |
-| Desktop app, Settings | **Ctrl+,** → *Finding files* → *Details* → *Ask* → *Built-in chat models*: each model with the estimate for this processor under it, **Download (1.0 GB) and use** next to the model; **Use** once it is there; **Delete the model** frees the disk |
+| Desktop app, Settings | **Ctrl+,** → *Finding files* → *Details* → *Ask* → *Built-in chat models*: each model that fits the machine, its memory under it (*Needs 16 GB of memory*) with the estimate for this processor after it, **Download (1.0 GB) and use** next to the model; **Use** once it is there; **Delete the model** frees the disk |
 | Terminal app, the guide | `coxswain --setup-search`, step 4: the built-in models come first in the list (`1  Qwen3 1.7B, built in (…)`), each with the estimate on the line below; the last number is *Skip Ask for now*, which turns Ask off. The default (`*`) is never the skip: Ask's model as set, else the server's suggestion, else the built-in model for this machine. Type its number, answer **y** to *Download Qwen3 1.7B (1.0 GB) and use it*; a test question follows |
-| Terminal app, Settings | **F9** → *Settings* → *Finding files* → *Ask* (or `coxswain --settings=ask`): under *Chat model*, a line per built-in model with the estimate for this processor (it shows a moment after Settings opens, the first time). **Enter** on an empty *Chat model* offers `builtin:qwen3-1.7b` (on a Mac's GPU the one for its memory) to keep with **Enter** or change |
+| Terminal app, Settings | **F9** → *Settings* → *Finding files* → *Ask* (or `coxswain --settings=ask`): under *Chat model*, a line per built-in model that fits the machine: its name, size and where it runs, then *Needs 16 GB of memory* and, on a processor, the estimate (it shows a moment after Settings opens, the first time). **Enter** on an empty *Chat model* offers `builtin:qwen3-1.7b` (on a Mac's GPU the one for its memory) to keep with **Enter** or change |
 | Desktop app, Settings, Ask off | *Chat model* shows a server's first chat model, else the built-in one for this machine, with **Use** next to it (downloading a built-in one first) |
 | Terminal app, a flag | `coxswain --meaning ask builtin:qwen3-1.7b` downloads it (*Downloading: 42 %*) and sets it; `coxswain --meaning ask off` turns Ask off again; `coxswain --meaning ask delete` deletes the built-in chat models |
 
-The model in *Chat model* can also be typed: `builtin:qwen3-1.7b` or `builtin:qwen3-4b`.
+The model in *Chat model* can also be typed: `builtin:qwen3-1.7b`, `builtin:qwen3-4b` or
+`builtin:qwen3-14b`.
 
 ## What you see
 
@@ -89,11 +97,15 @@ The model in *Chat model* can also be typed: `builtin:qwen3-1.7b` or `builtin:qw
   only* under *Meaning*) keeps it on the processor, as it does the embedding model.
 - **Elsewhere** it runs on the processor, with all its cores while it answers. A graphics card
   on Linux or Windows is not used: for that, run Ollama ([servers](servers.md)).
-- **No thinking.** Qwen3 1.7B can think before it answers; it is told not to, so the first word
-  comes as soon as the prompt is read. *Let the model think first* does not apply.
+- **Thinking, when asked, on a Mac's GPU.** Qwen3 1.7B and 14B can think before they answer.
+  They are told not to, so the first word comes as soon as the prompt is read, unless *Let the
+  model think first* is ticked (`ask_think = true`): then, on a Mac's GPU, they think first,
+  unseen, and up to 4,096 tokens are kept for the thinking and the answer (1,024 without). On a
+  processor they never think: it would take minutes. Qwen3 4B Instruct cannot think.
 - **The prompt** has the rules, the sources and the turns before: up to 7,000 tokens on a GPU
-  (about 2,500 words of excerpts and a few follow-ups), about 1,000 on a processor (the closest
-  three or four passages), so the first word does not take minutes. *Context for a server's
+  (about 2,500 words of excerpts and a few follow-ups), 15,000 with Qwen3 14B (twice that), about
+  1,000 on a processor (the closest three or four passages), so the first word does not take
+  minutes. Thinking takes 3,000 more of them for itself. *Context for a server's
   model* does not change it. When it is too long, the oldest turns go first, then the last
   sources. See [How much it reads](ask.md#how-much-it-reads).
 - **Stop** (**Esc**, a new question, closing Find) is heard between parts of the prompt and
@@ -108,10 +120,13 @@ small files:
 |---|---|---|
 | Qwen3 1.7B | 9–13 s | 6–11 words (tokens) a second |
 | Qwen3 4B Instruct | about 40 s | 3–4 tokens a second |
+| Qwen3 14B | about 110 s | 1.5 tokens a second |
 
 With the prompt at the processor's cap (about 1,000 tokens: the rules and five passages) and
 the model loaded, Qwen3 1.7B took 65–70 s to its first word on that machine (with other work on it), reading
-14–15 tokens a second and writing 8–10. The estimate said 74–76 s. Qwen3 4B Instruct took 271 s; the estimate said 251 s.
+14–15 tokens a second and writing 8–10. The estimate said 74–76 s. Qwen3 4B Instruct took 271 s; the estimate said 251 s. Qwen3 14B took 561 s, reading 1.8 tokens a
+second and writing 1.4; the estimate said 578 s. On a processor Qwen3 14B proves that it works,
+not that it is worth the wait: it is meant for a Mac's GPU.
 
 On a processor the prompt is read at about the speed the answer is written, so a question with
 five passages of your files waits a minute or more for its first word. A Mac's GPU reads the
@@ -157,7 +172,7 @@ a model server answers more quickly)*
 - **On a Mac's GPU** there is no probe and no line: the GPU reads a prompt in one go, and the
   guide recommends as before. With *Use the CPU only* on, a Mac is measured like any processor.
 - **How close it is.** On the Core Ultra 9 185H above it said 74–76 s where the real
-  answer took 65–70 s, and 251 s for Qwen3 4B where it took 271 s. It is an estimate: other programs busy on the processor, a laptop
+  answer took 65–70 s, 251 s for Qwen3 4B where it took 271 s, and 578 s for Qwen3 14B where it took 561 s. It is an estimate: other programs busy on the processor, a laptop
   on battery or a hot processor make the model slower than it says, and the first question waits
   a few seconds more while the model loads.
 
@@ -165,9 +180,10 @@ a model server answers more quickly)*
 
 | Item (*Settings → Finding files → Details*) | Key | Value | Does |
 |---|---|---|---|
-| *Ask* → *Chat model* | `[search] ask_model` | `"builtin:qwen3-1.7b"`, `"builtin:qwen3-4b"` | Ask answers with that built-in model |
-| *Ask* → *Built-in chat models* | none | | The estimate for this processor, **Download (size) and use**, **Use**, **Delete the model** |
-| *Meaning* → *Use the CPU only* | `[search] meaning_device` | `"auto"` / `"cpu"` | On a Mac, `"cpu"` keeps both built-in models off the GPU |
+| *Ask* → *Chat model* | `[search] ask_model` | `"builtin:qwen3-1.7b"`, `"builtin:qwen3-4b"`, `"builtin:qwen3-14b"` | Ask answers with that built-in model |
+| *Ask* → *Built-in chat models* | none | | The models that fit, the memory each needs, the estimate for this processor, **Download (size) and use**, **Use**, **Delete the model** |
+| *Ask* → *Let the model think first* | `[search] ask_think` | bool, `false` | Qwen3 1.7B and 14B think first, on a Mac's GPU |
+| *Meaning* → *Use the CPU only* | `[search] meaning_device` | `"auto"` / `"cpu"` | On a Mac, `"cpu"` keeps the built-in models off the GPU (and stops them thinking) |
 
 ```toml
 [search]
@@ -186,10 +202,31 @@ The models are kept next to the embedding model, in the cache folder's `models` 
 Only the download, once, from huggingface.co, when you press the button or answer **y**. The
 questions and the passages stay on this machine. See [Privacy](../reference/privacy.md).
 
-#### Which of the two should I take?
-Qwen3 1.7B on any machine, and always on a processor (if at all: see the question above). On a Mac with Apple silicon and 16 GB or
-more, Qwen3 4B Instruct answers better and is quick on the GPU; the guide picks it there, and
-Settings marks it *recommended*.
+#### Which one should I take?
+Qwen3 1.7B on any machine, and always on a processor (if at all: see the question below). On a
+Mac with Apple silicon and 16 GB or more, Qwen3 4B Instruct answers better and is quick on the
+GPU; with 32 GB or more, Qwen3 14B knows more, follows code and long documents better and reads
+twice as much of your files, at about a third of the 4B's speed. The guide picks the largest the
+Mac has the memory for, and Settings marks it *recommended*. You can take a smaller one there
+(**Use** or **Download (size) and use** next to it), or type its `builtin:` name in *Chat model*.
+
+#### Should I let it think?
+For a question that needs reasoning (*why does this function fail on an empty list?*), yes:
+tick *Let the model think first* under *Settings → Finding files → Details → Ask* (desktop), or
+**Space** on it in the terminal app's *Settings → Finding files → Ask*. Qwen3 14B and 1.7B then
+think first on a Mac's GPU; *Waiting for Qwen3 14B, built in to answer…* stays while they do,
+often 20 to 60 seconds, and the thinking is not shown. For finding and quoting, leave it off.
+
+#### Why not a larger model, such as Qwen3 30B-A3B?
+Qwen3 30B-A3B is a mixture of experts: it knows as much as a 30B model but works as fast as a
+3B one, and would suit a Mac with 48 GB or more. candle, the library Coxswain runs the models
+with, runs its experts on NVIDIA's CUDA only, not on a Mac's GPU or a processor, so it is not
+offered. With a model server (Ollama, LM Studio) it runs today: `qwen3:30b` ([servers](servers.md)).
+
+#### Why is Qwen3 14B not offered on my machine?
+It needs 32 GB of memory: 8.4 GB for the model, the rest for the 16,000 tokens it reads and
+for macOS and your apps. Below that, only the models that fit are listed. On a PC it is
+offered with 32 GB or more, but on a processor it is slow (see [How quick it is](#how-quick-it-is)).
 
 #### Why is the built-in model not recommended on my PC?
 On a PC it runs on the processor, and the [estimate](#the-estimate-for-this-processor) for this
@@ -212,7 +249,9 @@ processor. Ollama or Lemonade use the card.
 #### How good are its answers?
 Good for finding and quoting what your files say: *what does the fuel cost?* gets *The fuel
 costs 40,000 euros per flight [1].* A small model reasons less well than `qwen3:8b` or larger on
-a server, and with few passages on a processor it sees less of your files.
+a server, and with few passages on a processor it sees less of your files. Qwen3 14B on a Mac
+with 32 GB or more is as large as the models people run on a server with 16 GB of graphics
+memory, and reasons better still when it may think first.
 
 #### It says the model is not downloaded. Why?
 `ask_model` names a built-in model that is not on disk, set by hand or deleted with **Delete the
@@ -221,7 +260,7 @@ model**. Download it in *Settings → Finding files → Details → Ask*, or run
 
 #### How do I free the memory or the disk?
 The memory frees itself five minutes after the last answer. **Delete the model** in Settings
-frees the disk; in the terminal app `coxswain --meaning ask delete` deletes both built-in chat
+frees the disk; in the terminal app `coxswain --meaning ask delete` deletes all the built-in chat
 models. If it was Ask's model, Ask is turned off.
 
 #### Can I use it with vectors from a server?

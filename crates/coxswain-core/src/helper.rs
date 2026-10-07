@@ -68,8 +68,9 @@ enum Request {
     Forget,
     /// Go, so that a helper with the new settings comes.
     Restart,
-    /// Ask the built-in chat model, `cpu` alone or on the GPU: the answer comes in pieces.
-    Ask { model: String, cpu: bool, earlier: Vec<crate::meaning::Turn>, question: String, sources: Vec<(PathBuf, String)> },
+    /// Ask the built-in chat model, `cpu` alone or on the GPU, `think` first if it can: the
+    /// answer comes in pieces.
+    Ask { model: String, cpu: bool, think: bool, earlier: Vec<crate::meaning::Turn>, question: String, sources: Vec<(PathBuf, String)> },
 }
 
 #[derive(Serialize, Deserialize)]
@@ -398,10 +399,10 @@ fn answer(ours: Ours, stream: TcpStream, index: &Service, store: Option<&Store>,
                 Reply::Done
             }
             // An app that stops the answer closes the line: the next piece cannot be sent.
-            Request::Ask { model, cpu, earlier, question, sources } => {
+            Request::Ask { model, cpu, think, earlier, question, sources } => {
                 let mut gone = false;
                 let done = match crate::chat::of(&model) {
-                    Some(m) => crate::chat::ask(m, cpu, &earlier, &question, &sources, |text| {
+                    Some(m) => crate::chat::ask(m, cpu, think, &earlier, &question, &sources, |text| {
                         gone = send(&mut out, &Reply::Piece { text: text.into() }).is_err();
                         !gone
                     }),
@@ -541,7 +542,7 @@ impl Client {
     pub fn answer(&self, cfg: &SearchConfig, earlier: &[crate::meaning::Turn], question: &str, sources: &[(PathBuf, String)], mut piece: impl FnMut(&str) -> bool) -> Result<(), String> {
         let line = (crate::chat::of(&cfg.ask_model).is_some() && self.own.get().is_none()).then(|| self.connect()).flatten();
         let Some((mut from, mut to)) = line else { return crate::meaning::ask(cfg, earlier, question, sources, piece) };
-        let ask = Request::Ask { model: cfg.ask_model.clone(), cpu: cfg.meaning_device == "cpu", earlier: earlier.to_vec(), question: question.into(), sources: sources.to_vec() };
+        let ask = Request::Ask { model: cfg.ask_model.clone(), cpu: cfg.meaning_device == "cpu", think: cfg.ask_think, earlier: earlier.to_vec(), question: question.into(), sources: sources.to_vec() };
         let mut text = serde_json::to_string(&ask).map_err(|e| e.to_string())?;
         text.push('\n');
         // Pieces come at least between parts of the prompt, seconds apart on a slow CPU.
@@ -1061,7 +1062,7 @@ mod tests {
         let (mut line, _) = dial(&d.join("cache")).unwrap();
         assert!(matches!(exchange(&mut line, &Request::Hello { token: token.clone(), version: VERSION.into(), protocol: PROTOCOL }), Ok(Reply::Hello { same: true, .. })));
         // Ask with a built-in model there is not: the answer is why, and the line goes on.
-        let ask = Request::Ask { model: "builtin:none".into(), cpu: true, earlier: vec![], question: "?".into(), sources: vec![] };
+        let ask = Request::Ask { model: "builtin:none".into(), cpu: true, think: false, earlier: vec![], question: "?".into(), sources: vec![] };
         assert!(matches!(exchange(&mut line, &ask), Ok(Reply::Answered { error: Some(_) })));
         assert!(matches!(exchange(&mut line, &Request::Status), Ok(Reply::Status(_))));
         assert_eq!(token.len(), 32);
