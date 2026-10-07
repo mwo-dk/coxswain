@@ -37,8 +37,10 @@ on:
 permissions:
   contents: read
 
+# A newer push to a pull request cancels its older run; every master commit runs to the end,
+# since Release waits for all of them (release.yml).
 concurrency:
-  group: netbsd-${{ github.ref }}
+  group: netbsd-${{ github.event_name == 'push' && github.sha || github.ref }}
   cancel-in-progress: true
 
 jobs:
