@@ -97,13 +97,16 @@ impl Action {
             Duplicates => disk && (s.folders > 0 || n == 0),
             // On `..` with nothing marked: the panels themselves.
             SwapPanels | SameDir | TogglePanels => n == 0,
+            // What Coxswain can do, from any menu.
+            Features => true,
             _ => false,
         }
     }
 }
 
-/// The headings the action menu shows, in its order: opening and looking first.
-const GROUPS: [Group; 7] = [Group::Moving, Group::Viewing, Group::Files, Group::Archives, Group::Search, Group::Git, Group::Panels];
+/// The headings the action menu shows, in its order: opening and looking first, the app (what
+/// Coxswain can do) last.
+const GROUPS: [Group; 8] = [Group::Moving, Group::Viewing, Group::Files, Group::Archives, Group::Search, Group::Git, Group::Panels, Group::App];
 
 /// The action menu for `s`: under each heading the actions that fit, the most used first.
 /// `gui`: the desktop app, which has actions the terminal app lacks.
@@ -125,6 +128,7 @@ pub const TIMES: u32 = 3;
 const HINTS: &[(&str, &[(&str, Action)])] = &[
     ("menu", &[("key", Action::ActionMenu)]),
     ("find", &[("key", Action::Search)]),
+    ("features", &[("key", Action::Help)]),
     ("quick", &[]),
     ("panels", &[("swap", Action::SwapPanels), ("same", Action::SameDir), ("off", Action::TogglePanels)]),
     ("marked", &[("copy", Action::Copy), ("move", Action::Move)]),
@@ -141,7 +145,7 @@ fn fits(id: &str, s: &Subject) -> bool {
     let disk = s.place == Place::Disk;
     match id {
         "menu" => s.count() > 0,
-        "find" => true,
+        "find" | "features" => true,
         "quick" => disk && s.count() > 0,
         "panels" => disk && s.count() == 0,
         "marked" => s.marked > 1 && s.writable(),
@@ -278,6 +282,9 @@ mod tests {
         assert_eq!(pick(&folder, &cfg, &shown).map(|h| h.0), Some("find"));
         assert!(pick(&folder, &cfg, &shown).unwrap().1.contains("Ctrl+F"));
         shown.insert("find".to_string(), TIMES);
+        assert_eq!(pick(&folder, &cfg, &shown).map(|h| h.0), Some("features"));
+        assert!(pick(&folder, &cfg, &shown).unwrap().1.contains("F1"));
+        shown.insert("features".to_string(), TIMES);
         assert_eq!(pick(&folder, &cfg, &shown).map(|h| h.0), Some("quick"));
         shown.insert("quick".to_string(), TIMES);
         let parent = Subject::default();

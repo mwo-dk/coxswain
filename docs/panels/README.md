@@ -29,13 +29,14 @@ Every key here is a default. Each one can be changed in `config.toml` under `[ke
 | [Git branches and worktrees](git-branches.md) | **Alt+B**: the branches, a branch's files, switching (**Alt+S**) and new branches; **Alt+W**: the worktrees |
 | [The mouse](mouse.md) | Clicks, marks, drags, the path bar, the splitters |
 | [The command list (F9) and Help (F1)](command-list.md) | Every action by name, and the keys by group |
+| [Features and questions (F1)](features.md) | Help's second tab: every feature with its keys and two or three questions answered, a filter, **Show me** for its page, **F1** in a dialog |
 | [What can I do with this? The action menu and hints](action-menu.md) | **Shift+F10** or **Menu**: the actions that fit what is under the cursor, each with its key; the hints on the status line; what right-click does |
 | [What the apps remember](session.md) | The desktop app's session, what the terminal app keeps, what is forgotten |
 | [Every default key](keys.md) | The full table for both apps, and the keys inside dialogs |
 
 ## Finding what Coxswain can do
 
-You do not need to read these pages to find a feature. Four things in both apps show what
+You do not need to read these pages to find a feature. Five things in both apps show what
 there is, with the keys in force:
 
 | Where | Key | Shows |
@@ -43,6 +44,7 @@ there is, with the keys in force:
 | [What can I do with this?](action-menu.md) | **Shift+F10**, **Menu**; the **⋯** at the end of a row (desktop app) | The actions that fit what is under the cursor or marked, each with its key: on a file View, Edit, Copy, Rename …; on a folder also Find duplicates; on `..` Swap panels, Other panel here, Panels on/off; Find and Ask everywhere |
 | [The command list](command-list.md) | **F9** | Every action by name, with its first key; type to filter |
 | [Help](command-list.md#help) | **F1** | Every key under its group, the mouse, quick search, what Left and Right do in each view (desktop app), the search syntax, where `config.toml` is |
+| [Features and questions](features.md) | **F1**, then the *Features and questions* tab (desktop app) or **Tab** (terminal app); **F1** in any dialog | Every feature by area: what it does, its keys, two or three questions answered; type to filter, **Show me** opens its docs page |
 | [Hints](action-menu.md#hints-on-the-status-line) | – | One short, dimmed hint on the status line that fits what is under the cursor (*Alt+F7 / Ctrl+F finds anything on this machine*, *Alt+letter jumps to a name …*); in [Find](../search/find-file.md#the-scope-everywhere-or-this-folder) the first times, *Ctrl+F again searches only in rocket* |
 
 Each hint shows three times, then the next one takes its place. Turn them off with *Settings →

@@ -189,6 +189,7 @@ changing them: [Changing keys](../customise/keys.md)):
 | `worktrees` | `Alt+W` | `switch_branch` | `Alt+S` |
 | `new_branch` | none | `snapshots` | `Alt+Z` |
 | `flags` | none | `package` | none |
+| `features` | none | | |
 | `undo` | `Ctrl+Z` | | |
 
 Keys inside dialogs (Enter, Esc, Tab and Shift+Tab in Find, the digits in *Colour tag*) are fixed.
