@@ -78,7 +78,7 @@ were left as they are* lists each one with its reason under *Details*, and the o
 | *something else is there now, so nothing was overwritten* | a file or folder of that name is at the place it would go back to |
 | *no longer empty, so it is left as it is* | a new folder that has something in it now |
 | *no longer in the bin* | it was restored or the trash was emptied |
-| *cannot go to the bin from here, so it is left as it is* | Termux, on the phone's storage: its trash takes only Termux's own files |
+| *cannot go to the bin from here, so it is left as it is* | Termux on the phone's storage, or illumos on another ZFS dataset than your home folder's: Coxswain's own trash takes only what it can rename in |
 
 The panels are read again afterwards, and the marks are cleared.
 
