@@ -34,6 +34,15 @@ The OpenBSD port in `openbsd/port/sysutils/coxswain`, for openbsd-wip and then p
 with the 7.9 ports tree by the *OpenBSD* workflow when started by hand
 (`gh workflow run openbsd.yml`); see [openbsd/port/SUBMIT.md](openbsd/port/SUBMIT.md).
 
+After each release, `release-check.yml` installs it the way a user does, from its published
+downloads and with the install scripts of its tag: `install-freebsd.sh` on FreeBSD 14.5 and 15.0,
+`install-unix.sh` on NetBSD 10.1, OpenBSD 7.9 and OmniOS r151058, the static musl archive and the
+`.deb` (with apt, started on a virtual display) on Linux x86-64 and ARM64, and
+`cargo install coxswain` in Termux. It checks the version each prints, the manual page and the
+service file, and every checksum against `SHA256SUMS`. It runs after every Release run that
+published a release, and by hand (*Actions → Release check → Run workflow*, a tag or `latest`).
+Nothing waits for it: a red run means a release that does not install, fixed in the next one.
+
 `taps/generate.sh` writes the Homebrew formula and cask from a release's `.sha256` assets.
 
 **crates.io:** make a token at <https://crates.io/settings/tokens> with the
