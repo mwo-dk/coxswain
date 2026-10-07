@@ -365,7 +365,7 @@ Tested on FreeBSD 14.5 (amd64), on every change in CI and by hand under X11:
 | Opening a file in its program | Through `xdg-open` (package `xdg-utils`), the same code as on Linux; not tried on FreeBSD yet |
 | Video and sound in the preview | With `gstreamer1-plugins-good` |
 | Wayland sessions | Not tested yet; `GDK_BACKEND=x11` starts it under XWayland |
-| FreeBSD 15 | Built on 14.5; tests and the port run on 15.1 in CI too (15.0's packages now need 15.1's libc) |
+| FreeBSD 15 | Built on 14.5; tests and the port run on 15.1 in CI too |
 
 The app has no tray icon and sends no desktop notifications, so neither depends on FreeBSD
 support. Please report what works and what does not on your desktop in an
