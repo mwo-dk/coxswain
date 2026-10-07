@@ -20,16 +20,16 @@
 
 rustPlatform.buildRustPackage (finalAttrs: {
   pname = "coxswain-gui";
-  version = "2.1.0";
+  version = "2.8.1";
 
   src = fetchFromGitHub {
     owner = "mwo-dk";
     repo = "coxswain";
     tag = "v${finalAttrs.version}";
-    hash = "sha256-5U9dWdFGijv8cYYWTdvq2hMhcMwO1uaftwv9Io975vE=";
+    hash = "sha256-4lmHzovV/FbjLSEZf2tDJozdkwDhjsZd4rnbXSSbhIw=";
   };
 
-  cargoHash = "sha256-qNFPNMuhg7sUvjfqzRWNzegdYcMv/eDMBR7M+5wUpAI=";
+  cargoHash = lib.fakeHash;
   cargoBuildFlags = [ "-p" "coxswain-gui" ];
 
   npmRoot = "gui";
@@ -37,7 +37,7 @@ rustPlatform.buildRustPackage (finalAttrs: {
   makeCacheWritable = true;
   npmDeps = fetchNpmDeps {
     src = "${finalAttrs.src}/gui";
-    hash = "sha256-nHWBfQqtT8t67vnVemZRprLOwJBOcWTJb9dW/Oz1VKQ=";
+    hash = lib.fakeHash;
   };
 
   nativeBuildInputs = [

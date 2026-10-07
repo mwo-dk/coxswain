@@ -67,7 +67,7 @@ jobs:
       - name: Build
         run: |
           for p in coxswain coxswain-gui; do
-            nix build -L --impure -o $p --expr "(builtins.getFlake (toString ./.)).inputs.nixpkgs.legacyPackages.\${builtins.currentSystem}.callPackage ./packaging/nix/nixpkgs/$p/package.nix { }" || fail=1
+            nix build -L --keep-going --impure -o $p --expr "(builtins.getFlake (toString ./.)).inputs.nixpkgs.legacyPackages.\${builtins.currentSystem}.callPackage ./packaging/nix/nixpkgs/$p/package.nix { }" || fail=1
           done
           test -z "$fail"
           ./coxswain/bin/coxswain --version
