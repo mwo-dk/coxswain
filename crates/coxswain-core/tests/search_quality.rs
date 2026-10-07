@@ -128,7 +128,7 @@ fn search_quality() {
         // As Find shows it in All: In files, then About this, five each.
         let (in_files, about, _) = find::fuse(find::Words { hits: &word_hits, every: words_of }, &similar, find::WEIGHTS);
         let s = rank(&paths(&in_files.iter().take(5).chain(about.iter().take(5)).cloned().collect::<Vec<_>>()), &root, q);
-        let sources = store.passages(&q.text, None, 10);
+        let sources = store.passages(&q.text, None, coxswain_core::ask::budget(&cfg, &[], &q.text));
         let from_file: Vec<&String> = sources.iter().filter(|(p, _)| rank(std::slice::from_ref(p), &root, q).is_some()).map(|(_, t)| t).collect();
         let passage = from_file.iter().any(|t| t.to_lowercase().contains(&q.phrase));
         words.add(w);
@@ -154,7 +154,7 @@ fn search_quality() {
     println!("{}", meaning.row("Meaning alone"));
     println!("{}", both.row("Fused (words and meaning by rank)"));
     println!("{}", shown.row("Find as shown (In files, then About this)"));
-    println!("\nAsk: the right file among the 10 passages sent for {ask_file} of {n} questions, the passage that answers for {ask_passage} of {n}.\n");
+    println!("\nAsk: the right file among the excerpts sent (a context of {} tokens) for {ask_file} of {n} questions, the passage that answers for {ask_passage} of {n}.\n", cfg.ask_context);
     println!("| Kind | Questions | Meaning recall@5 | Fused recall@5 | Ask passage |\n|---|---|---|---|---|");
     for (kind, (m, b, p)) in &by_kind {
         println!("| {kind} | {} | {:.2} | {:.2} | {p} of {} |", m.n, m.at5 as f64 / m.n as f64, b.at5 as f64 / b.n as f64, m.n);

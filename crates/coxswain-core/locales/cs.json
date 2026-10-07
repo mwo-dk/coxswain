@@ -155,6 +155,17 @@
  "ask.builtin_missing": "{model} ještě není stažený: stáhněte ho v Nastavení pod Dotaz, nebo v Nastavit…",
  "ask.builtin_name": "{model}, vestavěný",
  "ask.builtin_slow": "příliš pomalý na doporučení; server modelů odpoví rychleji",
+ "ask.excerpts": {
+  "one": "{n} úryvek",
+  "few": "{n} úryvky",
+  "other": "{n} úryvků"
+ },
+ "ask.read": "{excerpts} z: {files}, {words}",
+ "ask.words": {
+  "one": "asi {n} slovo",
+  "few": "asi {n} slova",
+  "other": "asi {n} slov"
+ },
  "bom.advice": "Co dělat",
  "bom.as_in_file": "Jako v souboru",
  "bom.assets": {
@@ -1144,6 +1155,8 @@
   "other": "text {n} souborů"
  },
  "search.title": "Najít",
+ "setting.ask_context": "Kontext modelu na serveru (tokeny)",
+ "setting.ask_context.hint": "Kolik dostane chatovací model na serveru: zdroje, otázku a odpověď dohromady. Víc znamená přečíst víc z vašich souborů a zabrat víc paměti serveru; 8 192 udrží qwen3:8b i bge-m3 zároveň na grafické kartě s 8 GB. Ollama je o tolik požádána; server ve stylu OpenAI musí mít nastaveno aspoň tolik.",
  "setting.ask_model": "Chatovací model",
  "setting.ask_model.hint": "Model, který odpovídá na otázky z vašich souborů a uvádí své zdroje. Nabízejí se jen modely, které umí chatovat. builtin:qwen3-1.7b a builtin:qwen3-4b běží na tomto počítači.",
  "setting.ask_think": "Nechat model nejdřív přemýšlet",

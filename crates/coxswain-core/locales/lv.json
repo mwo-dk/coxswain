@@ -155,6 +155,17 @@
  "ask.builtin_missing": "{model} vēl nav lejupielādēts: lejupielādējiet to sadaļā Iestatījumi › Jautāt vai Iestatīt…",
  "ask.builtin_name": "{model}, iebūvēts",
  "ask.builtin_slow": "pārāk lēns, lai ieteiktu; modeļu serveris atbild ātrāk",
+ "ask.excerpts": {
+  "zero": "{n} fragmentu",
+  "one": "{n} fragments",
+  "other": "{n} fragmenti"
+ },
+ "ask.read": "{excerpts} no: {files}, {words}",
+ "ask.words": {
+  "zero": "ap {n} vārdu",
+  "one": "ap {n} vārds",
+  "other": "ap {n} vārdi"
+ },
  "bom.advice": "Ko darīt",
  "bom.as_in_file": "Kā failā",
  "bom.assets": {
@@ -1144,6 +1155,8 @@
   "zero": "{n} failu teksts"
  },
  "search.title": "Meklēt",
+ "setting.ask_context": "Servera modeļa konteksts (marķieri)",
+ "setting.ask_context.hint": "Cik daudz saņem servera tērzēšanas modelis: avotus, jautājumu un atbildi kopā. Vairāk nozīmē vairāk izlasītu jūsu failu un vairāk aizņemtas servera atmiņas; ar 8192 gan qwen3:8b, gan bge-m3 paliek 8 GB grafiskajā kartē. Ollama tiek lūgta tik daudz; OpenAI stila serverim jābūt iestatītam vismaz tik daudz.",
  "setting.ask_model": "Tērzēšanas modelis",
  "setting.ask_model.hint": "Modelis, kas atbild uz jautājumiem no jūsu failiem un nosauc avotus. Tiek piedāvāti tikai modeļi, kas prot tērzēt. builtin:qwen3-1.7b un builtin:qwen3-4b darbojas šajā datorā.",
  "setting.ask_think": "Ļaut modelim vispirms padomāt",

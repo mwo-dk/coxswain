@@ -121,14 +121,14 @@
     const events = new Channel();
     events.onmessage = (e) => {
       if (ui.modal !== m) return void invoke("ask_stop");
-      if (e.k === "sources") turn.sources = e.paths;
+      if (e.k === "sources") Object.assign(turn, { sources: e.paths, read: e.read });
       else turn.a += e.text;
       // Follows the answer down, unless you scrolled up to read something.
       const end = !listEl || listEl.scrollHeight - listEl.scrollTop - listEl.clientHeight < 40;
       if (end) tick().then(() => listEl?.lastElementChild?.scrollIntoView({ block: "end" }));
     };
     try {
-      await invoke("ask", { question, earlier, scope: scopeOf(m), onEvent: events });
+      await invoke("ask", { question, earlier, scope: scopeOf(m), here: tab().dir, onEvent: events });
     } catch (e) {
       turn.error = String(e);
     } finally {
@@ -510,6 +510,7 @@
               {#if m.asking && ci === m.chat.length - 1 && !c.a && c.sources.length}<p class="meta">{t("dialogs.ask_waiting", { model: ui.cfg.ask_name })}</p>{/if}
               {#if c.error}<p class="err">{c.error}</p>{/if}
               {#if c.sources.length}
+                {#if c.read}<p class="meta">{c.read}</p>{/if}
                 <ol class="sources">
                   {#each c.sources as src, i (i)}
                     <li><button class:cursor={ci === m.chat.length - 1 && i === m.cursor} onclick={() => goToHit({ path: src })}><b>{basename(src)}</b> <span class="where"><bdi>{parent(src)}</bdi></span></button></li>

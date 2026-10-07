@@ -149,6 +149,13 @@
  "ask.builtin_missing": "{model} はまだダウンロードされていません: 設定 の 質問、または 設定… からダウンロードしてください",
  "ask.builtin_name": "{model} (内蔵)",
  "ask.builtin_slow": "遅すぎるため推奨しません。モデルサーバーのほうが速く答えます",
+ "ask.excerpts": {
+  "other": "{n} 個の抜粋"
+ },
+ "ask.read": "{files}から{excerpts}、{words}",
+ "ask.words": {
+  "other": "約 {n} 語"
+ },
  "bom.advice": "対処方法",
  "bom.as_in_file": "ファイルの順",
  "bom.assets": {
@@ -1036,6 +1043,8 @@
   "other": "{n} 個のファイルのテキスト"
  },
  "search.title": "検索",
+ "setting.ask_context": "サーバーのモデルのコンテキスト（トークン）",
+ "setting.ask_context.hint": "サーバー上のチャットモデルに渡す量：ソース、質問、回答の合計です。多いほどファイルを多く読み、サーバーのメモリも多く使います。8,192 なら qwen3:8b と bge-m3 の両方が 8 GB のグラフィックカードに収まります。Ollama にはこの量を求めます。OpenAI 形式のサーバーは少なくともこの量に設定してください。",
  "setting.ask_model": "チャットモデル",
  "setting.ask_model.hint": "ファイルから質問に答え、出典を示すモデル。チャットできるモデルだけを表示します。 builtin:qwen3-1.7b と builtin:qwen3-4b はこのマシンで動きます。",
  "setting.ask_think": "先にモデルに考えさせる",

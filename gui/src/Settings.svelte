@@ -656,6 +656,7 @@
               <p class="hint">{t("settings.ask_builtin_hint")}</p>
             </div>
             {@render check("ask_think")}
+            {@render num("ask_context", 2048, 131072)}
           </details>
 
           <details class="group">

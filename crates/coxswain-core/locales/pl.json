@@ -158,6 +158,19 @@
  "ask.builtin_missing": "{model} nie jest jeszcze pobrany: pobierz go w Ustawienia, w sekcji Zapytaj, albo w Skonfiguruj…",
  "ask.builtin_name": "{model}, wbudowany",
  "ask.builtin_slow": "zbyt wolny, by go polecić; serwer modeli odpowiada szybciej",
+ "ask.excerpts": {
+  "one": "{n} fragment",
+  "few": "{n} fragmenty",
+  "many": "{n} fragmentów",
+  "other": "{n} fragmentu"
+ },
+ "ask.read": "{excerpts} z: {files}, {words}",
+ "ask.words": {
+  "one": "około {n} słowo",
+  "few": "około {n} słowa",
+  "many": "około {n} słów",
+  "other": "około {n} słowa"
+ },
  "bom.advice": "Co zrobić",
  "bom.as_in_file": "Jak w pliku",
  "bom.assets": {
@@ -1198,6 +1211,8 @@
   "other": "tekst {n} pliku"
  },
  "search.title": "Znajdź",
+ "setting.ask_context": "Kontekst modelu na serwerze (tokeny)",
+ "setting.ask_context.hint": "Ile dostaje model czatu na serwerze: źródła, pytanie i odpowiedź razem. Więcej to więcej przeczytanych plików i więcej zajętej pamięci serwera; przy 8192 qwen3:8b i bge-m3 mieszczą się razem na karcie graficznej 8 GB. Ollama jest proszona o tyle; serwer w stylu OpenAI musi mieć ustawione co najmniej tyle.",
  "setting.ask_model": "Model czatu",
  "setting.ask_model.hint": "Model, który odpowiada na pytania na podstawie Twoich plików i podaje swoje źródła. Proponowane są tylko modele, które umieją czatować. builtin:qwen3-1.7b i builtin:qwen3-4b działają na tym komputerze.",
  "setting.ask_think": "Pozwól modelowi najpierw pomyśleć",

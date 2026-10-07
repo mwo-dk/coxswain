@@ -362,13 +362,15 @@ pub enum Show {
 pub struct Turn {
     pub question: String,
     pub sources: Vec<PathBuf>,
+    /// How much was read: "12 excerpts from 7 files, about 6000 words".
+    pub read: String,
     pub answer: String,
     pub error: Option<String>,
 }
 
 /// What an Ask sends back while it runs.
 enum AskMsg {
-    Sources(Vec<PathBuf>),
+    Sources(Vec<PathBuf>, String),
     Piece(String),
     Done(Result<(), String>),
 }
@@ -1780,24 +1782,18 @@ impl App {
         self.chat.push(Turn { question: question.clone(), ..Turn::default() });
         let (tx, rx) = mpsc::channel();
         self.ask_rx = Some(rx);
-        let (index, cfg) = (self.index.clone(), self.cfg.search.clone());
+        let (index, cfg, here) = (self.index.clone(), self.cfg.search.clone(), self.panel().dir.clone());
         std::thread::spawn(move || {
             // The chat model loads while the sources are looked up.
             coxswain_core::meaning::warm(&cfg);
-            // A follow-up is looked up with the question before it, which it often leans on.
-            let lookup = earlier.last().map_or(question.clone(), |(q, _)| format!("{q} {question}"));
-            let sources = index.passages(&lookup, scope.as_deref(), 10);
-            let done = if sources.is_empty() {
-                Err(match &scope {
-                    Some(dir) => t!("find.ask_nothing_in", "folder" => dir.file_name().unwrap_or_default().to_string_lossy()),
-                    None => t!("search.ask_nothing"),
-                })
-            } else if stop.load(Ordering::SeqCst) {
+            let done = match coxswain_core::ask::sources(|q, s, b| index.passages(q, s, b), &cfg, &earlier, &question, scope.as_deref(), &here) {
+                Err(e) => Err(e),
                 // Stopped while searching: the model is not asked.
-                Ok(())
-            } else {
-                let _ = tx.send(AskMsg::Sources(sources.iter().map(|(p, _)| p.clone()).collect()));
-                index.answer(&cfg, &earlier, &question, &sources, |text| !stop.load(Ordering::SeqCst) && (text.is_empty() || tx.send(AskMsg::Piece(text.to_string())).is_ok()))
+                Ok(_) if stop.load(Ordering::SeqCst) => Ok(()),
+                Ok(sources) => {
+                    let _ = tx.send(AskMsg::Sources(sources.iter().map(|(p, _)| p.clone()).collect(), coxswain_core::ask::read(&sources)));
+                    index.answer(&cfg, &earlier, &question, &sources, |text| !stop.load(Ordering::SeqCst) && (text.is_empty() || tx.send(AskMsg::Piece(text.to_string())).is_ok()))
+                }
             };
             let _ = tx.send(AskMsg::Done(done));
         });
@@ -2209,7 +2205,7 @@ impl App {
         while let Some(msg) = self.ask_rx.as_ref().and_then(|rx| rx.try_recv().ok()) {
             let Some(turn) = self.chat.last_mut() else { break };
             match msg {
-                AskMsg::Sources(paths) => turn.sources = paths,
+                AskMsg::Sources(paths, read) => (turn.sources, turn.read) = (paths, read),
                 AskMsg::Piece(text) => turn.answer.push_str(&text),
                 AskMsg::Done(done) => {
                     turn.error = done.err();

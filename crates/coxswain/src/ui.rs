@@ -648,6 +648,9 @@ fn ask(f: &mut Frame, chat: &[crate::Turn], asking: bool, off: Option<&coxswain_
         if let Some(e) = &turn.error {
             lines.push(Line::from(Span::styled(e.clone(), dstyle(t).fg(Color::Red))));
         }
+        if !turn.sources.is_empty() {
+            lines.push(Line::from(Span::styled(format!("  {}", turn.read), dim)));
+        }
         for (n, src) in turn.sources.iter().enumerate() {
             let last = i + 1 == chat.len();
             let style = if last && n == cursor { sty(&t.dialog_input) } else { dim };

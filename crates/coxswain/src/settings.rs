@@ -28,14 +28,14 @@ const GROUPS: &[(&str, &str, &[&str])] = &[
     ("settings.group.reads", "reads", &["search_text", "search_archives", "search_archives_everywhere", "search_history", "search_cloud", "cloud_read", "text_max_size", "max_results"]),
     ("settings.group.folders", "folders", &["text_roots", "names_only", "text_exclude", "name_roots", "name_exclude", "watch"]),
     ("settings.group.meaning", "meaning", &["search_meaning", "meaning_engine", "meaning_url", "meaning_model", "meaning_key_env", "meaning_device"]),
-    ("settings.group.ask", "ask", &["ask_model", "ask_think"]),
+    ("settings.group.ask", "ask", &["ask_model", "ask_think", "ask_context"]),
 ];
 
 /// Text options that are a switch: (name, value when on, value when off).
 const SWITCHES: &[(&str, &str, &str)] = &[("search_cloud", "all", "local-only"), ("meaning_device", "cpu", "auto")];
 
 /// Number options: (name, least, most, scale): `text_max_size` is kept in bytes, typed in MB.
-const NUMBERS: &[(&str, f64, f64, f64)] = &[("text_max_size", 1.0, 4096.0, 1_048_576.0), ("max_results", 10.0, 1_000_000.0, 1.0), ("preview_timeout", 10.0, 3600.0, 1.0), ("font_size", 9.0, 28.0, 1.0), ("line_height", 1.2, 3.0, 1.0)];
+const NUMBERS: &[(&str, f64, f64, f64)] = &[("text_max_size", 1.0, 4096.0, 1_048_576.0), ("max_results", 10.0, 1_000_000.0, 1.0), ("ask_context", 2048.0, 131_072.0, 1.0), ("preview_timeout", 10.0, 3600.0, 1.0), ("font_size", 9.0, 28.0, 1.0), ("line_height", 1.2, 3.0, 1.0)];
 
 /// Lists of names and patterns, not of folders.
 const WORDS: &[&str] = &["text_exclude", "name_exclude"];

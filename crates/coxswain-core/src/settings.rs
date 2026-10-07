@@ -138,6 +138,7 @@ pub const OPTIONS: &[Opt] = &[
     opt("meaning_device", &["search", "meaning_device"], Search, &[]),
     opt("ask_model", &["search", "ask_model"], Search, &[Leaves]),
     opt("ask_think", &["search", "ask_think"], Search, &[]),
+    opt("ask_context", &["search", "ask_context"], Search, &[]),
     opt("preview_prefer", &["preview", "prefer"], Previews, &[]),
     opt("preview_container", &["preview", "container"], Previews, &[]),
     opt("latex_image", &["preview", "images", "latex"], Previews, &[Disk, Network]),
