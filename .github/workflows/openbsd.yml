@@ -38,6 +38,7 @@ on:
       - "packaging/pack-unix.sh"
       - "packaging/openbsd/**"
       - ".github/workflows/openbsd.yml"
+      - ".github/actions/vm-host-prep/**"
 
 permissions:
   contents: read
@@ -78,6 +79,8 @@ jobs:
           key: openbsd-cargo-${{ hashFiles('Cargo.lock') }}
           restore-keys: openbsd-cargo-
 
+      - uses: ./.github/actions/vm-host-prep
+        timeout-minutes: 10
       - uses: vmactions/openbsd-vm@5f7b2c933b8846a138361d6843c52af4bef5d945 # v1.4.8
         with:
           release: "7.9"
@@ -163,6 +166,8 @@ jobs:
         with:
           persist-credentials: false
 
+      - uses: ./.github/actions/vm-host-prep
+        timeout-minutes: 10
       - uses: vmactions/openbsd-vm@5f7b2c933b8846a138361d6843c52af4bef5d945 # v1.4.8
         with:
           release: "7.9"

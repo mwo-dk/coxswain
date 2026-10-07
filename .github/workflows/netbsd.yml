@@ -32,6 +32,7 @@ on:
       - "packaging/pack-unix.sh"
       - "packaging/netbsd/**"
       - ".github/workflows/netbsd.yml"
+      - ".github/actions/vm-host-prep/**"
 
 permissions:
   contents: read
@@ -59,6 +60,8 @@ jobs:
           key: netbsd-cargo-${{ hashFiles('Cargo.lock') }}
           restore-keys: netbsd-cargo-
 
+      - uses: ./.github/actions/vm-host-prep
+        timeout-minutes: 10
       - uses: vmactions/netbsd-vm@c8a0d7ddb84619a7a8cc4e652efa7950b3fd9f92 # v1.5.2
         with:
           release: "10.1"
