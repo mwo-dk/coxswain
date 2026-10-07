@@ -40,3 +40,6 @@ __pycache__/
 packaging/freebsd/out/
 # nix build
 /result*
+
+# git worktrees (CLAUDE.md)
+/.worktrees/
