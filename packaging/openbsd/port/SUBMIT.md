@@ -29,8 +29,11 @@ unchanged, `portcheck` (its output is in the run's artifact), the package instal
 `pkg_add`, `coxswain --version`, `cox --version`, `man -w coxswain`, and the rc.d script started
 for a named user, checked and stopped.
 
-Not tested: architectures other than amd64, -current, and `make test` (it runs, but its result
-is only logged).
+Not tested: architectures other than amd64 and -current. `make test` runs, but its result is
+only logged: in 2.8.1 five tests of the program (`bom::tests::*`, `provenance::tests::*`) fail
+there, because they read test files from `../coxswain-core/src/…/testdata` in the repository,
+which the crates.io crate does not carry. Reviewers will ask about it; the answer is that it is
+a packaging bug of the tests, not of the program, to be fixed in a later release.
 
 ## AI-written work
 
