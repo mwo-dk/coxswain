@@ -401,6 +401,8 @@ pub struct App {
     /// worked out for.
     pub hint: Option<(&'static str, String)>,
     hint_for: Option<coxswain_core::menu::Subject>,
+    /// Find shows how to limit it to the panel's folder: the first few times it opens.
+    pub find_hint: bool,
     pub quick: Option<String>,
     pub show_hidden: bool,
     pub index: Arc<Client>,
@@ -572,6 +574,7 @@ impl App {
             status: None,
             hint: None,
             hint_for: None,
+            find_hint: false,
             quick: None,
             show_hidden,
             index: index.clone(),
@@ -1081,6 +1084,7 @@ impl App {
                     _ => Kind::All,
                 };
                 self.find_dismissed = coxswain_core::state::AppState::load().notices_dismissed;
+                self.find_hint = coxswain_core::menu::once("find_scope", &self.cfg);
                 let show = if chip == Kind::Ask { Show::Answer } else { Show::List };
                 self.dialog = Some(Dialog::Search { query: String::new(), chip, here: false, found: Found::default(), cursor: 0, offset: 0, show });
             }
@@ -1340,6 +1344,14 @@ impl App {
             Ok(said) => self.status = Some(said.lines().next().unwrap_or_default().to_string()),
             Err(e) => self.dialog = Some(failure(title, &e.to_string())),
         }
+    }
+
+    /// `file` in the editor at `line` (Settings → Keys: config.toml at `[keys]`).
+    pub fn edit_at(&mut self, file: &Path, line: usize) {
+        let env = |v: &str| std::env::var(v).ok().filter(|s| !s.is_empty());
+        let ed = self.cfg.editor.clone().or_else(|| env("VISUAL")).or_else(|| env("EDITOR")).unwrap_or_else(|| if cfg!(windows) { "notepad".into() } else { "vi".into() });
+        let dir = file.parent().unwrap_or(Path::new(".")).to_path_buf();
+        self.run = Some(Run::Shell { cmd: config::edit_command(&ed, file, line), dir, wait: false });
     }
 
     fn view_or_edit(&mut self, a: Action, file: &Path) {

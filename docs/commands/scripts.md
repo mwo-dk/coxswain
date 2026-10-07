@@ -12,8 +12,10 @@ no quoting to get right in `config.toml`.
 
 ## How to use it
 
-1. Find the folder: `coxswain --config-path` prints where `config.toml` is; the scripts go in a
-   folder named `scripts` next to it.
+1. Find the folder: Settings (**Ctrl+,**) → *Keys* shows *F2 scripts folder: <path>*, and its
+   **Open the folder** button opens it in the active pane (made first when it is missing). Or
+   `coxswain --config-path` prints where `config.toml` is; the scripts go in a folder named
+   `scripts` next to it.
 
    | System | Folder |
    |---|---|
@@ -56,8 +58,8 @@ elsewhere is followed and then refused with *Not a Coxswain script*.
   as *resize*), with a script icon and no key.
 - **While it runs:** the status line says *Running Make thumbnails…*.
 - **Afterwards:** the [preview pane](../previews/README.md) shows the output, headed with the
-  script's label and *Command output*, and both panels are read again. The `×` (*Back to preview*) goes
-  back to the file preview.
+  script's label and *Command output*, and both panels are read again. The `×` (*Close the command output
+  and show the preview again*) goes back to the file preview.
 - **When it cannot start:** the status line shows why, for example *Permission denied (os error
   13)* when it is not executable, or *Exec format error (os error 8)* when the `#!` line is missing.
 
@@ -83,6 +85,12 @@ Note that `%s` gives the name under the cursor when nothing is marked, where a s
 desktop app gets the full path.
 
 ## Questions
+
+#### Where is the scripts folder?
+
+Settings (**Ctrl+,**) → *Keys*: the line *F2 scripts folder: <path>* names it, and **Open the
+folder** opens it in the active pane, made first when it is not there. The table under
+[How to use it](#how-to-use-it) has the path per system.
 
 #### My script is in the menu but nothing happens.
 

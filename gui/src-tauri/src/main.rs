@@ -101,6 +101,10 @@ struct UiConfig {
     keymap: BTreeMap<String, &'static str>,
     /// Action name -> (label, first key).
     actions: BTreeMap<&'static str, (String, String)>,
+    /// The key Find names for its scope (`Config::handy_key`).
+    find_key: String,
+    /// F2's scripts folder (`<config>/scripts`), there or not.
+    scripts_dir: Option<PathBuf>,
     /// Group headings with their actions, in the order F1 and F9 list them.
     groups: Vec<(String, Vec<&'static str>)>,
     /// Every theme, by name, so the GUI can switch live.
@@ -177,6 +181,8 @@ fn get_config(ctx: tauri::State<Ctx>) -> Res<UiConfig> {
         .collect();
     Ok(UiConfig {
         keymap: cfg.keymap()?.into_iter().map(|(k, a)| (k.to_string(), a.name())).collect(),
+        scripts_dir: scripts_dir(),
+        find_key: cfg.handy_key(Action::Search).unwrap_or("").to_string(),
         actions: Action::ALL.iter().map(|&a| (a.name(), (a.label(), cfg.key_for(a).unwrap_or("").to_string()))).collect(),
         groups: coxswain_core::config::Group::ALL.iter().map(|g| (g.label(), g.actions().map(Action::name).collect())).collect(),
         themes,
@@ -260,6 +266,12 @@ fn action_menu(subject: coxswain_core::menu::Subject) -> Vec<(String, Vec<&'stat
 #[tauri::command(async)]
 fn hint(subject: coxswain_core::menu::Subject, last: Option<(coxswain_core::menu::Subject, String)>, ctx: tauri::State<Ctx>) -> Option<(&'static str, String)> {
     coxswain_core::menu::hint(&subject, &ctx.cfg(), last.as_ref().map(|(s, id)| (s, id.as_str())))
+}
+
+/// Whether the hint `id` that shows in place (Find's scope) is still to be shown; counted.
+#[tauri::command(async)]
+fn hint_once(id: String, ctx: tauri::State<Ctx>) -> bool {
+    coxswain_core::menu::once(&id, &ctx.cfg())
 }
 
 #[tauri::command(async)]
@@ -1640,6 +1652,24 @@ async fn run_script(user: Option<usize>, path: Option<PathBuf>, dir: PathBuf, fi
     output(c, &dir)
 }
 
+/// Settings → Keys: config.toml at `[keys]` (an example written there first when it has none),
+/// in `editor` at that line, or with the desktop's default when no editor is set.
+#[tauri::command]
+async fn open_keys(ctx: tauri::State<'_, Ctx>) -> Res<()> {
+    let (path, line) = blocking(Config::prepare_keys).await?;
+    let Some(ed) = ctx.cfg().editor.clone() else { return open_path(path).await };
+    let cmd = coxswain_core::config::edit_command(&ed, &path, line);
+    tauri::async_runtime::spawn_blocking(move || coxswain_core::tools::spawn_watched(shell(&cmd), std::time::Duration::from_secs(1)).map_err(|e| e.to_string())).await.map_err(|e| e.to_string())?
+}
+
+/// F2's scripts folder, made when it is not there yet, for Settings → Keys to open.
+#[tauri::command(async)]
+fn scripts_folder() -> Res<PathBuf> {
+    let dir = scripts_dir().ok_or_else(|| coxswain_core::t!("err.no_config_folder"))?;
+    std::fs::create_dir_all(&dir).map_err(|e| format!("{}: {e}", dir.display()))?;
+    Ok(dir)
+}
+
 /// A newer release, if the (daily, cached) check found one, and the command that upgrades this
 /// copy. The network call runs outside the state lock so other commands are not held up.
 #[tauri::command]
@@ -1753,8 +1783,8 @@ fn main() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            get_config, action_menu, hint, hints_reset, notices, dismiss_notice, changes, read_changes, set_title, index_status, index_action, index_service, meaning_status, meaning_action, chat_status, chat_action, meaning_models, meaning_pull, list_dir, zfs_facts, bsd_places, git_status, git_last, git_switch, git_new_branch, places, disks, get_state, save_session, save_favorites, set_tags, set_note, get_note,
-            find, find_read_too, ask, ask_stop, ask_check, meaning_change, setup_probe, setup_probe_url, setup_try, setup_speed, resolve_path, copy, rename, delete, mkdir, dir_sizes, rename_plan, rename_apply, undo, undo_next, open_path, edit_path,
+            get_config, action_menu, hint, hint_once, hints_reset, notices, dismiss_notice, changes, read_changes, set_title, index_status, index_action, index_service, meaning_status, meaning_action, chat_status, chat_action, meaning_models, meaning_pull, list_dir, zfs_facts, bsd_places, git_status, git_last, git_switch, git_new_branch, places, disks, get_state, save_session, save_favorites, set_tags, set_note, get_note,
+            find, find_read_too, ask, ask_stop, ask_check, meaning_change, setup_probe, setup_probe_url, setup_try, setup_speed, resolve_path, copy, rename, delete, mkdir, dir_sizes, rename_plan, rename_apply, undo, undo_next, open_path, edit_path, open_keys, scripts_folder,
             read_text, run_command, scripts, run_script, check_update, archive_list, extract, pack, archive_password, archive_peek, cloud_fetch, properties, set_flags, set_permissions,
             clip_set, paste, start_drag, watch_dirs, preview::git_diff, preview::sqlite_info, preview::epub_preview,
             preview::file_facts, preview::cert_info, bom::bom_info, bom::bom_node, bom::bom_diff, provenance::provenance_info, provenance::provenance_statements, provenance::provenance_subject, provenance::provenance_cancel, provenance::provenance_sources, provenance::provenance_diff, provenance::provenance_bom, preview::mail_preview, preview::plist_xml, convert::preview_engines, convert::preview_cache, convert::clear_preview_cache,

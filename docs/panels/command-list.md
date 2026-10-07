@@ -71,7 +71,7 @@ and saves it in `config.toml`. *Up*, *Down* and the list itself are left out.
 |---|---|---|
 | Title | *Help*, then `Coxswain 1.20.0 — the ship's officer who gets the work done.` | `Coxswain 1.20.0 · keyboard shortcuts` |
 | Keys | *Keys (from your config):* every action it has, with all its keys, under the group headings; in two columns when the terminal is wide enough (about 100 columns), else in one | Every action with all its keys, written as on the keyboard (`Ctrl+G`), under the group headings |
-| Also | Alt+letter quick search, typing goes to the command line, `cd`, Ctrl+O, the mouse | *Mouse: double-click opens · Ctrl-click / right-click marks · Shift-click marks a range · drag …* |
+| Also | Alt+letter quick search, typing goes to the command line, `cd`, Ctrl+O, the mouse, and *In a prompt Ctrl+U clears the text.* | Three paragraphs: the mouse (*Mouse: double-click opens · Ctrl-click marks · right-click marks or opens the action menu (Settings → Behaviour → Right-click), Ctrl+right-click does the other · Shift-click marks a range · middle-click on a tab closes it · drag …*), [quick search](quick-search.md) (*Quick search: hold Alt and type a letter …*), and what **Left** and **Right** do in each [view](views.md) (*details, a page up or down · columns, out to the parent folder or into the folder under the cursor · thumbnails, one to the left or right*) |
 | Search | *Find (Everything syntax):* with one example per line | *Find uses Everything's syntax:* with the examples |
 | Config | `Config: <path>` and *Run `coxswain --dump-config` for every option with its default.* | `Config: <path> · every option: coxswain --dump-config` |
 | The guide | *G: the first-run guide again.* at the end | The **Show the guide again** button under the title |
@@ -141,6 +141,12 @@ of it in **F9**: the filter searches every group.
 #### Why is the list's key column empty for some entries?
 
 Those actions have no key, by default or because you unbound them (`= []`).
+
+#### How do I clear what I typed in a prompt?
+
+In the terminal app, **Ctrl+U** clears the field of a prompt (*Rename*, *New folder*, *Copy*'s
+target …), as in a shell; F1 says so. In the desktop app the prompt is a text field: select all
+with **Ctrl+A** and type.
 
 #### How do I find the config file?
 

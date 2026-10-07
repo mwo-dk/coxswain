@@ -76,7 +76,7 @@
   <div class="tabs" role="tablist">
     {#each p.tabs as tb, i (tb.id)}
       <div class="tab" class:current={i === p.active} role="tab" tabindex="-1" aria-selected={i === p.active}
-        onclick={() => focusPane(index, i)} onauxclick={(e) => e.button === 1 && closeTab(i)} onkeydown={() => {}} title={tb.dir}>
+        onclick={() => focusPane(index, i)} onauxclick={(e) => e.button === 1 && closeTab(i)} onkeydown={() => {}} title={`${tb.dir}\n${tr("pane.tab_tip", { key: ui.cfg.actions.close_tab?.[1] ?? "" })}`}>
         <span class="ticon">{tb.git ? "\u{e702}" : "\u{f07b}"}</span>
         <span class="tname">{tabName(tb)}</span>
         {#if p.tabs.length > 1}

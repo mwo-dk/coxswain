@@ -256,8 +256,17 @@ Opening this area asks the container runtime which images it has.
 
 Every action and its keys, under the same headings as **F1** and **F9**, with a filter that
 matches the action's name or a key: typing `F5` shows *Copy*. The list is read-only: keys are
-changed in `config.toml` under `[keys]` ([Changing keys](keys.md)), which **Open config.toml**
-opens with the program your system opens `.toml` files with. Both apps read them when they start.
+changed in `config.toml` under `[keys]` ([Changing keys](keys.md)). Both apps read them when they
+start.
+
+**Open config.toml** opens `config.toml` at its `[keys]` table: in your `editor` at that line when
+the editor takes `+line` (vi, vim, nvim, nano, emacs, micro, kak, …), else with the program
+your system opens `.toml` files with. When the file has no `[keys]` yet, a commented `[keys]`
+example is written at its end first, so there is a place to start.
+
+Under the keys, the desktop app shows *F2 scripts folder: <path>* (for example
+`~/.config/coxswain/scripts`) with an **Open the folder** button: it opens that folder in the
+active pane, made first when it is not there yet ([Scripts](../commands/scripts.md)).
 
 ## Privacy and updates
 
@@ -387,7 +396,7 @@ as text in brackets (`[disk space]`, `[can leave this machine]` in red) and its 
 | Overview | One line each for Finding files (the level and the Words, Meaning and Ask lines), Previews, Looks (the terminal app's theme and the language) and Privacy (where things can go); **Enter** opens that area. *Set up…*, *[ Show the guide again ]* (the [first-run guide](../panels/first-run.md)), the tips not dismissed yet, and what the versions you have not read brought |
 | Finding files | The status block (*Names*, *Words*, *Meaning*, *Ask*), each with its next step in brackets: **Space** or **Enter** runs it (*Read now*, *Start it*, *Turn on*, *Set up…*, *Try it*, whose answer shows at the bottom). The four levels and *Set up…*. Then every option under *What is read*, *Folders*, *Meaning*, *Ask*; *Programs that read more*, each `✓` or `✗` with the line that installs a missing one (**Space** copies it to the terminal's clipboard, see below); and *Start with my session* under *Background reading* |
 | Previews, Looks, Behaviour | Their options. The desktop app's own (fonts, text size, row height, its theme, previews) are there too, since both apps share `config.toml` |
-| Keys | Every action the terminal app has, under its group, with its keys; read-only, as in the desktop app |
+| Keys | First the row *Change keys in config.toml, under [keys]*: **Enter** opens your editor there. Then every action the terminal app has, under its group, with its keys; read-only, as in the desktop app. No scripts folder: scripts are the desktop app's |
 | Privacy and updates | *Check for a new version*, what can leave the machine with your settings as they are and where to, where things are kept, the version |
 
 A level that needs a model starts the [setup guide](../search/setup.md) (`coxswain

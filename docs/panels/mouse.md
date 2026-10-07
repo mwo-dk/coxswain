@@ -24,7 +24,9 @@ and bars to resize.
 | Drag | – | Copies or moves to the other pane or to another application; see [Drag and drop](../files/drag-and-drop.md) |
 | Column header | – | Sorts; a second click reverses. Right-click opens the [columns menu](views.md#the-columns-menu) |
 | Path bar | – | A part goes to that folder; empty space turns it into a text field. The `←`, `→` and `↑` buttons go back, forward and up |
-| Tabs | – | A click shows the tab, a middle click or the `×` closes it, the `+` opens a new one |
+| Tabs | – | A click shows the tab, a middle click or the `×` closes it, the `+` opens a new one. The tab's tooltip is its folder and *Middle-click or Ctrl+W closes the tab* |
+| Sidebar group header | – | A click folds it; the **⋯** opens *Add current folder*, *Rename group*, *Delete group* ([Favourites](../organise/favourites.md)); right-click does the same |
+| Preview pane `×` | – | Closes the preview, as **Esc** does ([Previews](../previews/README.md)) |
 | View and pane buttons (right of the path bar) | – | Details / columns / thumbnails; one pane or two |
 | F-key bar | – | Runs that key's action |
 | *Settings* (cog, right of the command line) | – | Opens Settings |
@@ -32,6 +34,13 @@ and bars to resize.
 
 In the desktop app's columns view, a click in a parent column or in the peek column goes to
 that folder with the cursor on the entry you clicked ([Views](views.md)).
+
+Help (**F1**) in the desktop app has the mouse in one line: *Mouse: double-click opens ·
+Ctrl-click marks · right-click marks or opens the action menu (Settings → Behaviour →
+Right-click), Ctrl+right-click does the other · Shift-click marks a range · middle-click on a
+tab closes it · drag to a pane or another app to copy or move · click the path bar to type a
+path.* The terminal app's F1 has *mouse: click, double-click, right-click marks, wheel
+scrolls.*
 
 ## What you see
 
@@ -83,6 +92,11 @@ it on, hold **Shift** to select text.
 
 Click an empty part of the path bar (desktop app): it becomes a text field with the path
 selected. **Enter** goes there, **Esc** or a click elsewhere leaves it.
+
+#### How do I close a tab with the mouse?
+
+Middle-click it, or click the `×` on it (shown when there is more than one tab). Hover a tab to
+be told: its tooltip ends *Middle-click or Ctrl+W closes the tab*. The terminal app has no tabs.
 
 #### How do I make the panes the same width again?
 

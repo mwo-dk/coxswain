@@ -19,6 +19,8 @@ The questions people ask most, with a short answer and a link to the full one. E
 - **How do I zip a folder?** Cursor on it, Shift+F10, *Pack into an archive* (or Alt+F5 at once); the name ends in `.zip`, Enter. [Answer](panels/action-menu.md#how-do-i-zip-a-folder)
 - **How do I rename a file?** Cursor on it, Shift+F6 (or Shift+F10, *Rename*), type the new name, Enter. [Answer](panels/action-menu.md#how-do-i-rename-a-file)
 - **Can right-click open a menu instead of marking?** Yes: Settings → Behaviour → Right-click → *Opens the action menu*; Ctrl+right-click and the ⋯ on a row open it anyway. [Answer](panels/action-menu.md#can-right-click-open-the-menu-instead-of-marking)
+- **What can I do with the file under the cursor?** Shift+F10 (or Menu, or the row's ⋯): the actions that fit, each with its key; F9 lists every action, F1 every key. [Answer](panels/README.md#finding-what-coxswain-can-do)
+- **How do I swap the panels, or show this folder in the other one?** On `..`, Shift+F10 → *Panels*: Swap panels (Ctrl+U), Other panel here (Alt+O). [Answer](panels/action-menu.md#how-do-i-get-the-same-folder-in-both-panels-or-swap-them)
 - **Why did a hint on the status line disappear for good?** Each shows three times; `coxswain --hints reset` or Settings → Behaviour → *Show the hints again* brings them back. [Answer](panels/action-menu.md#why-did-a-hint-disappear-for-good)
 
 - **Why do Left and Right page instead of moving into folders?** That is Norton Commander's way; rebind `parent` and `open` in `[keys]`, and the desktop app's columns view already walks the tree. [Answer](panels/moving.md#why-do-left-and-right-page-instead-of-moving-into-folders)
@@ -43,6 +45,7 @@ The questions people ask most, with a short answer and a link to the full one. E
 - **Does the terminal app have tags, notes, favourites or the sidebar?** No; Alt+T, Alt+N and Ctrl+B there say the feature is in the desktop app. [Answer](organise/tags.md#in-the-terminal-app)
 - **Is my folder note saved while I type?** It is saved when you leave the field (Esc or a click elsewhere), so press Esc before closing. [Answer](organise/notes.md#is-my-note-saved-while-i-type)
 - **I clicked + on a favourites group and nothing was added.** The + adds the folder you are in, not the one under the cursor, and never twice. [Answer](organise/favourites.md#i-clicked--and-nothing-was-added)
+- **How do I rename or delete a favourites group?** Click the ⋯ at the right of its header in the sidebar (or right-click the header): *Rename group*, *Delete group*. [Answer](organise/favourites.md#how-do-i-rename-or-delete-a-group)
 - **Deleting a favourites group asks nothing. Can I undo it?** No; the folders are untouched, add them to a new group. [Answer](organise/favourites.md#deleting-a-group-asks-nothing-can-i-undo-it)
 - **I plugged in a USB stick and it is not in the sidebar.** Drives are read again every 30 seconds and when the window comes back to the front; mounts under /run (except /run/media) are left out, go there with Ctrl+L. [Answer](organise/sidebar.md#i-plugged-in-a-usb-stick-and-it-is-not-in-the-sidebar)
 - **Why is my Desktop not under Places?** Only folders your system names (user-dirs.dirs on Linux) and that exist are listed, each once. [Answer](organise/sidebar.md#why-is-my-desktop-or-music-or-videos-not-under-places)
@@ -61,7 +64,7 @@ The questions people ask most, with a short answer and a link to the full one. E
 ## Search
 
 - **Why doesn't a file I just saved show up in text search?** It is read within seconds, unless it is outside the folders read, too large, the laptop is on battery, or the helper still has a backlog. [Answer](search/text.md#why-doesnt-a-file-i-just-saved-show-up-in-text-search)
-- **How do I search only this folder?** Press Ctrl+F (or Alt+F7) inside Find: the scope switches to "In <folder>", for names, words, meaning and Ask. [Answer](search/find-file.md#how-do-i-search-only-this-folder)
+- **How do I search only this folder?** Press Ctrl+F (or Alt+F7) again inside Find, or click *In <folder>* beside the field (desktop app): the lit button (`[ everywhere | in rocket ]` in the terminal app) moves, for names, words, meaning and Ask. [Answer](search/find-file.md#how-do-i-search-only-this-folder)
 - **How do I search names only?** Tab once in Find, to the *Names* kind; a query with name syntax (`*.pdf`, `ext:md`) shows names only by itself. [Answer](search/find-file.md#how-do-i-search-names-only)
 - **The setup guide's download button seemed to do nothing.** Before 2.1.1 the page hid the built-in model's progress and errors; now it shows the percentage, then *Search by meaning is on*, or the error in red. [Answer](search/setup.md#i-pressed-the-download-button-and-nothing-seemed-to-happen-why)
 - **Why did my file show under About this?** It is close in meaning but lacks your words: another language, other words, a scan. [Answer](search/find-file.md#why-did-my-file-show-under-about-this)
@@ -101,6 +104,7 @@ The questions people ask most, with a short answer and a link to the full one. E
 
 ## The preview pane
 
+- **How do I close the preview with the mouse?** Click the × at the right of the preview's header (*Close the preview (Esc)*); Esc, Space and F3 close it too. [Answer](previews/README.md#opening-and-closing-it)
 - **Space types a space instead of opening the preview.** The command line has text, so Space belongs to it; press Esc to clear it, or use F3. [Answer](previews/text-and-code.md#space-types-a-space-in-the-command-line-instead-of-opening-the-preview)
 - **Why does an HTML page look broken or empty in the preview?** No script runs and nothing comes from the web, on purpose; Enter opens it in your browser. [Answer](previews/html.md#why-does-the-page-look-broken-or-empty)
 - **Do I need LibreOffice to see a PowerPoint deck?** No, the slides are drawn in the app at once; LibreOffice only adds the exact view. [Answer](previews/office.md#do-i-need-libreoffice-to-see-a-powerpoint-deck)
@@ -132,6 +136,7 @@ The questions people ask most, with a short answer and a link to the full one. E
 
 ## Customising
 
+- **Where do I change a key?** In `config.toml` under `[keys]`; Settings → Keys → **Open config.toml** (desktop app), or the row *Change keys in config.toml, under [keys]* and Enter (terminal app), opens it there. [Answer](customise/keys.md#where-do-i-change-a-key)
 - **I changed the theme and the terminal app did not change.** The two apps have a theme each: in Settings → Looks, switch *For* to *Terminal app* (or set the top-level `theme`), then restart the terminal app; its own Settings (**F9** → *Settings* → *Looks*) changes it at once. [Answer](customise/settings.md#i-changed-the-theme-and-the-terminal-app-did-not-change)
 - **Does the terminal app have Settings?** Yes: **F9** → *Settings*, or `coxswain --settings`. The same areas and options as the desktop app, full screen; Space flips, Enter types, saved at once. [Answer](customise/settings.md#how-do-i-change-a-setting-in-the-terminal-app)
 - **Will Settings mess up my hand-written config?** No: it changes the one value in place and keeps every comment and other key. [Answer](customise/settings.md#will-settings-mess-up-my-hand-written-config)
