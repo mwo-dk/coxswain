@@ -8,9 +8,9 @@ name: omnios-extra
 on:
   push:
     branches: [master]
-    paths: ["packaging/omnios/**", ".github/workflows/omnios-extra.yml", ".github/actions/vm-host-prep/**"]
+    paths: ["packaging/omnios/**", ".github/workflows/omnios-extra.yml", ".github/actions/apt-install/**"]
   pull_request:
-    paths: ["packaging/omnios/**", ".github/workflows/omnios-extra.yml", ".github/actions/vm-host-prep/**"]
+    paths: ["packaging/omnios/**", ".github/workflows/omnios-extra.yml", ".github/actions/apt-install/**"]
   workflow_dispatch:
 
 permissions:
@@ -30,8 +30,11 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: ./.github/actions/vm-host-prep
+      - uses: ./.github/actions/apt-install
         timeout-minutes: 10
+        with:
+          packages: qemu-utils qemu-system-x86 ovmf # what each pinned vmactions action's install() asks for on x86_64
+          recommends: false
       - uses: vmactions/omnios-vm@9576f0b6d15e7696548409baa533bc0a339caf42 # v1.3.7
         with:
           release: "r151058"

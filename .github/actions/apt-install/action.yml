@@ -1,0 +1,83 @@
+# Every apt-get on a GitHub Ubuntu runner goes through here: a fresh index, time limits,
+# retries and other mirrors. A plain apt-get has no time limit and keeps to one mirror: Release
+# run 37662748644 hung 90 minutes in the FreeBSD job, and a Flatpak "Install and start" ran out
+# of its 30 minutes in `apt-get update` against Ubuntu's Azure mirror. The runner image's own
+# index goes stale too (ovmf 2024.02-2ubuntu0.9 was gone from every mirror, a 404).
+#
+# Mirrors, as the runner images have them (checked on the 22.04 and 24.04 images, both kinds):
+# - x86_64: the sources say `mirror+file:/etc/apt/apt-mirrors.txt` (sources.list on 22.04,
+#   sources.list.d/ubuntu.sources on 24.04), and that file lists Azure, archive.ubuntu.com and
+#   security.ubuntu.com. A later try puts the next of them first.
+# - arm64 (ubuntu-*-arm): no mirror list; the sources name http://ports.ubuntu.com/ubuntu-ports
+#   directly. archive.ubuntu.com and Azure have no arm64, so a later try points the sources at a
+#   mirror list of ports mirrors only. apt checks every index against Ubuntu's key, whichever
+#   mirror serves it.
+#
+# Four tries fit in the `timeout-minutes: 10` the calling step gives it, with time to install.
+name: apt install
+description: Install apt packages (and local .debs) with a fresh index, time limits, retries and mirror fallback.
+inputs:
+  packages:
+    description: Space-separated apt packages.
+    required: true
+  debs:
+    description: Space-separated local .deb files (with a slash, as ./x.deb), installed together with the packages; apt resolves what they depend on.
+    default: ""
+  recommends:
+    description: "false: --no-install-recommends."
+    default: "true"
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      env:
+        PKGS: ${{ inputs.packages }}
+        DEBS: ${{ inputs.debs }}
+        RECOMMENDS: ${{ inputs.recommends }}
+      run: |
+        set -u
+        read -ra pkgs <<<"$PKGS $DEBS"
+        opts=(-q -o Acquire::Retries=2 -o Acquire::http::Timeout=20 -o Acquire::https::Timeout=20
+              -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold)
+        [ "$RECOMMENDS" = false ] && opts+=(--no-install-recommends)
+        # Only the network part has a time limit: killing apt-get while dpkg unpacks leaves
+        # dpkg broken for every later try. The .debs are fetched first, then installed from disk.
+        get() {
+          sudo timeout 30 apt-get update "${opts[@]}" || true
+          sudo timeout 90 apt-get install -y --download-only "${opts[@]}" "${pkgs[@]}"
+        }
+        list=/etc/apt/apt-mirrors.txt
+        if [ -f "$list" ]; then
+          mapfile -t mirrors < <(cut -f1 "$list" | grep .)
+        else
+          case "$(dpkg --print-architecture)" in
+            amd64 | i386) host='https\?://\(azure\.archive\|archive\|security\)\.ubuntu\.com/ubuntu/\?'
+                          mirrors=(http://azure.archive.ubuntu.com/ubuntu/ https://archive.ubuntu.com/ubuntu/ https://security.ubuntu.com/ubuntu/) ;;
+            *)            host='https\?://ports\.ubuntu\.com/ubuntu-ports/\?'
+                          mirrors=(http://ports.ubuntu.com/ubuntu-ports/ https://mirrors.ocf.berkeley.edu/ubuntu-ports/
+                                   https://ftp.tu-chemnitz.de/pub/linux/ubuntu-ports/ https://ports.ubuntu.com/ubuntu-ports/) ;;
+          esac
+        fi
+        echo "::group::apt sources ($(dpkg --print-architecture))"
+        grep -rhE '^(deb |URIs:)' /etc/apt/sources.list /etc/apt/sources.list.d/ 2>/dev/null
+        [ -f "$list" ] && cat "$list"
+        echo "::endgroup::"
+        for i in 1 2 3 4; do
+          if [ "$i" -gt 1 ]; then
+            # The next mirror first, the rest after it, all in one list.
+            k=$(((i - 1) % ${#mirrors[@]}))
+            echo "::warning::Fetching ${pkgs[*]} failed (try $((i - 1)) of 4); next try with ${mirrors[k]} first, in $((5 * i)) s"
+            sleep $((5 * i))
+            if [ ! -f "$list" ]; then
+              sudo sed -i "s|$host|mirror+file:$list|" /etc/apt/sources.list /etc/apt/sources.list.d/*.sources /etc/apt/sources.list.d/*.list 2>/dev/null || true
+            fi
+            printf '%s\n' "${mirrors[@]:k}" "${mirrors[@]:0:k}" | awk '{ print $0 "\tpriority:" NR }' | sudo tee "$list" >/dev/null
+            sed 's/\t/ /' "$list"
+          fi
+          if get; then
+            sudo apt-get install -y --no-download "${opts[@]}" "${pkgs[@]}"
+            exit
+          fi
+        done
+        echo "::error::Could not fetch ${pkgs[*]} after 4 tries"
+        exit 1

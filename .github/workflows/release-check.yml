@@ -171,8 +171,11 @@ jobs:
         with:
           persist-credentials: false
           sparse-checkout: .github/actions
-      - uses: ./.github/actions/vm-host-prep
+      - uses: ./.github/actions/apt-install
         timeout-minutes: 10
+        with:
+          packages: qemu-utils qemu-system-x86 ovmf # what each pinned vmactions action's install() asks for on x86_64
+          recommends: false
       - uses: vmactions/freebsd-vm@c46abacb49f09938ca4e1702d15d836285d694cc # v1.5.9
         env:
           TAG: ${{ needs.resolve.outputs.tag }}
@@ -210,8 +213,11 @@ jobs:
         with:
           persist-credentials: false
           sparse-checkout: .github/actions
-      - uses: ./.github/actions/vm-host-prep
+      - uses: ./.github/actions/apt-install
         timeout-minutes: 10
+        with:
+          packages: qemu-utils qemu-system-x86 ovmf # what each pinned vmactions action's install() asks for on x86_64
+          recommends: false
       - uses: vmactions/netbsd-vm@c8a0d7ddb84619a7a8cc4e652efa7950b3fd9f92 # v1.5.2
         if: matrix.sys == 'netbsd'
         with:
@@ -275,6 +281,10 @@ jobs:
       TAG: ${{ needs.resolve.outputs.tag }}
       VER: ${{ needs.resolve.outputs.version }}
     steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: .github/actions
       - name: Download
         run: |
           term="coxswain-terminal-$TAG-${{ matrix.arch }}-unknown-linux-musl.tar.gz"
@@ -294,10 +304,14 @@ jobs:
           test "$("$bin" --version)" = "coxswain $VER"
           "${TERM_ARCHIVE%.tar.gz}/cox" --version
           "$bin" --help >/dev/null
+      - name: The .deb and xvfb, with apt
+        uses: ./.github/actions/apt-install
+        timeout-minutes: 10
+        with:
+          packages: xvfb
+          debs: ./${{ env.DEB }}
       - name: The desktop app, from the .deb with apt
         run: |
-          sudo apt-get update -q
-          sudo apt-get install -y -q "./$DEB" xvfb
           dpkg -L coxswain
           test "$(dpkg-query -W -f '${Version}' coxswain)" = "$VER"
           if ldd /usr/bin/coxswain-gui | grep 'not found'; then exit 1; fi

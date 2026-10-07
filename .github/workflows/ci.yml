@@ -52,9 +52,10 @@ jobs:
 
       - name: Linux libraries for the desktop app
         if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
+        uses: ./.github/actions/apt-install
+        timeout-minutes: 10
+        with:
+          packages: libwebkit2gtk-4.1-dev libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
 
       - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de # v1
         with:
@@ -83,10 +84,15 @@ jobs:
 
       # The terminal app ships as a static musl binary (Homebrew, releases): whatever the
       # dependencies compile from C has to build for musl too, before a release finds out.
+      - name: musl toolchain
+        if: runner.os == 'Linux'
+        uses: ./.github/actions/apt-install
+        timeout-minutes: 10
+        with:
+          packages: musl-tools
       - name: Terminal app, static musl build
         if: runner.os == 'Linux'
         run: |
-          sudo apt-get install -y musl-tools
           target="$(uname -m)-unknown-linux-musl"
           rustup target add "$target"
           cargo build -p coxswain --target "$target" --locked

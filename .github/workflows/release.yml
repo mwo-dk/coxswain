@@ -218,9 +218,10 @@ jobs:
           ref: ${{ needs.draft.outputs.sha }}
       - name: Linux libraries
         if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
+        uses: ./.github/actions/apt-install
+        timeout-minutes: 10
+        with:
+          packages: libwebkit2gtk-4.1-dev libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
       - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de # v1
         with:
           toolchain: stable
@@ -309,7 +310,10 @@ jobs:
           ref: ${{ needs.draft.outputs.sha }}
       - name: musl toolchain
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y musl-tools
+        uses: ./.github/actions/apt-install
+        timeout-minutes: 10
+        with:
+          packages: musl-tools
       - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de # v1
         with:
           toolchain: stable
@@ -369,8 +373,11 @@ jobs:
           npm ci --no-audit --no-fund
           npm run build
           rm -rf node_modules
-      - uses: ./.github/actions/vm-host-prep
+      - uses: ./.github/actions/apt-install
         timeout-minutes: 10
+        with:
+          packages: qemu-utils qemu-system-x86 ovmf # what each pinned vmactions action's install() asks for on x86_64
+          recommends: false
       - uses: vmactions/freebsd-vm@c46abacb49f09938ca4e1702d15d836285d694cc # v1.5.9
         with:
           release: "14.5"
@@ -440,8 +447,11 @@ jobs:
           npm ci --no-audit --no-fund
           npm run build
           rm -rf node_modules
-      - uses: ./.github/actions/vm-host-prep
+      - uses: ./.github/actions/apt-install
         timeout-minutes: 10
+        with:
+          packages: qemu-utils qemu-system-x86 ovmf # what each pinned vmactions action's install() asks for on x86_64
+          recommends: false
       - uses: vmactions/netbsd-vm@c8a0d7ddb84619a7a8cc4e652efa7950b3fd9f92 # v1.5.2
         if: matrix.sys == 'netbsd'
         with:
@@ -607,8 +617,11 @@ jobs:
         with:
           persist-credentials: false
           ref: ${{ needs.draft.outputs.sha }}
-      - uses: ./.github/actions/vm-host-prep
+      - uses: ./.github/actions/apt-install
         timeout-minutes: 10
+        with:
+          packages: qemu-utils qemu-system-x86 ovmf # what each pinned vmactions action's install() asks for on x86_64
+          recommends: false
       - uses: vmactions/freebsd-vm@c46abacb49f09938ca4e1702d15d836285d694cc # v1.5.9
         env:
           TAG: ${{ needs.draft.outputs.tag }}

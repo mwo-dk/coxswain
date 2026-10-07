@@ -35,7 +35,7 @@ on:
       - "packaging/illumos/**"
       - "packaging/openindiana/**"
       - ".github/workflows/illumos.yml"
-      - ".github/actions/vm-host-prep/**"
+      - ".github/actions/apt-install/**"
 
 permissions:
   contents: read
@@ -64,8 +64,11 @@ jobs:
 
       # Linking the tests needs more memory than the default 6 GB: illumos reserves swap for all
       # of it.
-      - uses: ./.github/actions/vm-host-prep
+      - uses: ./.github/actions/apt-install
         timeout-minutes: 10
+        with:
+          packages: qemu-utils qemu-system-x86 ovmf # what each pinned vmactions action's install() asks for on x86_64
+          recommends: false
       - uses: vmactions/omnios-vm@9576f0b6d15e7696548409baa533bc0a339caf42 # v1.3.7
         with:
           release: "r151058"
@@ -138,8 +141,11 @@ jobs:
         with:
           name: illumos-archive
           path: dist
-      - uses: ./.github/actions/vm-host-prep
+      - uses: ./.github/actions/apt-install
         timeout-minutes: 10
+        with:
+          packages: qemu-utils qemu-system-x86 ovmf # what each pinned vmactions action's install() asks for on x86_64
+          recommends: false
       - uses: vmactions/openindiana-vm@f0ed27ca85a6d1f5b11e4242eba1d6effa5aaae2 # v1.1.8
         with:
           release: "202604"
