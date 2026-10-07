@@ -14,8 +14,6 @@ on:
   workflow_run:
     workflows: [Release]
     types: [completed]
-  push:
-    branches: [release-smoke]
   workflow_dispatch:
     inputs:
       tag:
@@ -52,7 +50,6 @@ jobs:
           case "$EVENT" in
             release) tag="$RELEASE_TAG" ;;
             workflow_dispatch) tag="$INPUT_TAG" ;;
-            push) tag=v2.8.1 ;;
             # Only when that run published a release: the latest release is of its commit.
             workflow_run)
               tag=$(gh api "repos/$REPO/releases/latest" -q "select(.target_commitish == \"$HEAD_SHA\") | .tag_name") ;;
