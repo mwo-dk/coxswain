@@ -1,22 +1,21 @@
 name: Nix
 
 # The flake's packages built with Nix: the terminal app on Linux and macOS with its tests, the
-# desktop app on Linux. Only when Rust code, the lock files or the Nix files change.
+# desktop app on Linux. Every push to master, as part of the Release run; pull requests only
+# when Rust code, the lock files or the Nix files change.
 on:
   workflow_dispatch:
-  push:
-    branches: [master]
-    paths: ["crates/**", "gui/**", "Cargo.toml", "Cargo.lock", "flake.nix", "flake.lock", "packaging/nix/**", ".github/workflows/nix.yml"]
+  workflow_call: # from release.yml, for every push to master
   pull_request:
     paths: ["crates/**", "gui/**", "Cargo.toml", "Cargo.lock", "flake.nix", "flake.lock", "packaging/nix/**", ".github/workflows/nix.yml"]
 
 permissions:
   contents: read
 
-# A newer push to a pull request cancels its older run; every master commit runs to the end,
-# since Release waits for all of them (release.yml).
+# A newer push to a pull request cancels its older run. Called from release.yml, the group is that
+# run's own (github.* is the caller's there), so nothing cancels it.
 concurrency:
-  group: nix-${{ github.event_name == 'push' && github.sha || github.ref }}
+  group: nix-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
   cancel-in-progress: true
 
 jobs:
@@ -58,7 +57,7 @@ jobs:
   # by hand, so only by hand: `gh workflow run nix.yml` (it builds the flake as well).
   nixpkgs:
     name: Nix, the nixpkgs packages
-    if: github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'workflow_dispatch' && github.workflow == 'Nix'
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     steps:
