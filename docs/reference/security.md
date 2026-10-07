@@ -87,6 +87,9 @@ Both are updated by hand; the README next to each says the tag it came from.
   package being installed cannot pick it up.
 - The version is read from `Cargo.toml` and must be `X.Y.Z`; values from the run go into scripts
   as environment variables, never pasted into the script's text.
+- After it is published, each release is installed from its own downloads on every system it has
+  an install script or package for, and its checksums are checked against `SHA256SUMS`
+  (`release-check.yml`, [packaging/README.md](../../packaging/README.md)).
 - The release build of the desktop app has no web inspector (Tauri's `devtools` is off), so no
   page a file rendered can be opened in one.
 
