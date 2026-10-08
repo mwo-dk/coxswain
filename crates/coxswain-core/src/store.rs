@@ -83,6 +83,10 @@ pub struct Store {
     pub ms_per_file: AtomicUsize,
     /// The clouds the walks came upon (files only in the cloud): (name, folder).
     clouds: Mutex<Vec<(String, PathBuf)>>,
+    /// How many files' text a search by meaning read, for the tests: per store, so tests that
+    /// run at the same time do not count each other's.
+    #[cfg(test)]
+    bodies_read: AtomicUsize,
 }
 
 /// A file as the store knows it: size, date, and whether it was left in the cloud.
@@ -91,9 +95,6 @@ type Known = HashMap<String, (u64, i64, bool)>;
 type Changed = (String, u64, i64, bool);
 /// A file inside an archive: its path as a key, size, modified.
 type Member = (String, u64, u64);
-/// How many files' text a search by meaning read, for the tests.
-#[cfg(test)]
-static BODIES_READ: AtomicUsize = AtomicUsize::new(0);
 /// The signs of passages' vectors, one after the other, `width` words each, with the file and
 /// number of each: 9 bytes and the signs (48 bytes for 384 numbers, 128 for 1024) a passage.
 #[derive(Default)]
@@ -224,7 +225,7 @@ impl Store {
         // The files still to get their vectors, newest first, without a look at the rest.
         db.execute_batch("CREATE INDEX IF NOT EXISTS files_unembedded ON files(modified) WHERE has_text = 1 AND embedded IS NULL")?;
         let renewing = passages_are(&db, crate::meaning::SCHEME)?;
-        Ok(Store { db: Mutex::new(db), pending: AtomicUsize::new(0), hurry: AtomicBool::new(false), cleared: AtomicBool::new(false), walked: Mutex::default(), offline: Mutex::default(), paused: AtomicBool::new(false), configured: Mutex::default(), meaning: AtomicBool::new(false), engine: Mutex::default(), meaning_error: Mutex::default(), error: Mutex::default(), signs: Mutex::default(), path: path.to_path_buf(), renewing: AtomicUsize::new(renewing), ms_per_file: AtomicUsize::new(0), clouds: Mutex::default() })
+        Ok(Store { db: Mutex::new(db), pending: AtomicUsize::new(0), hurry: AtomicBool::new(false), cleared: AtomicBool::new(false), walked: Mutex::default(), offline: Mutex::default(), paused: AtomicBool::new(false), configured: Mutex::default(), meaning: AtomicBool::new(false), engine: Mutex::default(), meaning_error: Mutex::default(), error: Mutex::default(), signs: Mutex::default(), path: path.to_path_buf(), renewing: AtomicUsize::new(renewing), ms_per_file: AtomicUsize::new(0), clouds: Mutex::default(), #[cfg(test)] bodies_read: AtomicUsize::new(0) })
     }
 
     /// Bytes and files below `dir`, and when the walk they come from began. `None` until a
@@ -912,7 +913,7 @@ impl Store {
             let Some((path, markdown)) = path.clone().filter(|(p, _)| accept(p)) else { continue };
             let passages = texts.entry(file).or_insert_with(|| {
                 #[cfg(test)]
-                BODIES_READ.fetch_add(1, Ordering::Relaxed);
+                self.bodies_read.fetch_add(1, Ordering::Relaxed);
                 std::rc::Rc::new(db.query_row("SELECT body FROM text WHERE rowid = ?1", [file], |r| r.get::<_, String>(0)).map(|b| crate::meaning::passages(&b, markdown)).unwrap_or_default())
             });
             if (n as usize) < passages.len() {
@@ -2115,7 +2116,8 @@ mod tests {
         std::fs::remove_dir_all(d).unwrap();
     }
 
-    /// An embedding server that answers like Ollama with a vector of letter counts per text.
+    /// An embedding server that answers like Ollama (`/api/embed`), or like the OpenAI API
+    /// (`/v1/embeddings`), with a vector of letter counts per text.
     fn fake_embed_server() -> String {
         use std::io::{Read, Write};
         let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
@@ -2146,7 +2148,8 @@ mod tests {
                         })
                         .collect()
                 });
-                let reply = serde_json::json!({ "embeddings": vectors }).to_string();
+                let openai = text.lines().next().is_some_and(|l| l.contains("/embeddings "));
+                let reply = if openai { serde_json::json!({ "data": vectors.iter().map(|v| serde_json::json!({ "embedding": v })).collect::<Vec<_>>() }) } else { serde_json::json!({ "embeddings": vectors }) }.to_string();
                 let _ = write!(c, "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{reply}", reply.len());
             }
         });
@@ -2168,13 +2171,13 @@ mod tests {
         store.hurry.store(true, Ordering::Relaxed);
         scan(&store, &cfg, &go).unwrap();
         assert_eq!(store.meaning_counts(), (0, 40));
-        BODIES_READ.store(0, Ordering::Relaxed);
+        store.bodies_read.store(0, Ordering::Relaxed);
         assert_eq!(store.similar("zebra quartz", None, 5).len(), 5);
-        assert_eq!(BODIES_READ.load(Ordering::Relaxed), 5, "five files shown, five read");
-        BODIES_READ.store(0, Ordering::Relaxed);
+        assert_eq!(store.bodies_read.load(Ordering::Relaxed), 5, "five files shown, five read");
+        store.bodies_read.store(0, Ordering::Relaxed);
         let found = store.passages("zebra quartz", None, 6000);
         assert!(!found.is_empty() && found.iter().map(|(p, t)| p.as_os_str().len() + 8 + t.len()).sum::<usize>() <= 6000, "{found:?}");
-        assert!(BODIES_READ.load(Ordering::Relaxed) <= ASK_FILES, "only the files that can give an excerpt are read");
+        assert!(store.bodies_read.load(Ordering::Relaxed) <= ASK_FILES, "only the files that can give an excerpt are read");
         drop(store);
         std::fs::remove_dir_all(d).unwrap();
     }
@@ -2357,21 +2360,30 @@ mod tests {
         }
     }
 
-    /// With Ollama running and a small embedding model pulled (`ollama pull all-minilm`): the
-    /// vectors come from the server, a switch of model redoes them, and a server that does not
-    /// answer leaves the files to wait.
+    /// The vectors come from a server (a fake one, so the test does not depend on what runs on
+    /// the machine), through Ollama's API and the OpenAI one; a switch of model redoes them, and
+    /// a server that does not answer leaves the files to wait.
     #[test]
     fn store_takes_its_vectors_from_a_server() {
-        let models = crate::meaning::server_models(false, "", None).unwrap_or_default();
-        if !models.iter().any(|m| m.starts_with("all-minilm")) {
-            return;
-        }
-        let d = std::env::temp_dir().join(format!("coxswain-store-server-{}", std::process::id()));
+        takes_vectors_from(&fake_embed_server(), "fake", "fake");
+    }
+
+    /// The same against the Ollama on this machine, with a small embedding model pulled
+    /// (`ollama pull all-minilm`): `cargo test -p coxswain-core -- --ignored real_ollama`.
+    /// Ignored, as it depends on what runs on the machine.
+    #[test]
+    #[ignore = "needs Ollama on localhost:11434 with all-minilm pulled"]
+    fn store_takes_its_vectors_from_a_real_ollama() {
+        takes_vectors_from(crate::meaning::OLLAMA, "all-minilm", "real");
+    }
+
+    fn takes_vectors_from(server: &str, model: &str, name: &str) {
+        let d = std::env::temp_dir().join(format!("coxswain-store-server-{name}-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&d);
         std::fs::create_dir_all(d.join("home")).unwrap();
         std::fs::write(d.join("home/budget.txt"), "The fuel budget for flight seven is the largest cost of the launch, and the tanks are refilled twice before lift-off.").unwrap();
         std::fs::write(d.join("home/cake.txt"), "An apple cake: butter, sugar, flour, apples and cinnamon. Bake it for an hour and serve it with whipped cream.").unwrap();
-        let mut cfg = SearchConfig { text_roots: vec![d.join("home")], meaning: true, meaning_engine: "ollama".into(), meaning_model: "all-minilm".into(), ..SearchConfig::default() };
+        let mut cfg = SearchConfig { text_roots: vec![d.join("home")], meaning: true, meaning_engine: "ollama".into(), meaning_url: server.into(), meaning_model: model.into(), ..SearchConfig::default() };
         let (store, go) = (Store::open(&d.join("search.db")).unwrap(), AtomicBool::new(false));
         store.set_engine(crate::meaning::Engine::from_config(&cfg));
         store.hurry.store(true, Ordering::Relaxed);
@@ -2383,7 +2395,7 @@ mod tests {
 
         // The same model through the OpenAI API (Ollama speaks it too, as Lemonade does).
         cfg.meaning_engine = "openai".into();
-        cfg.meaning_url = format!("{}/v1", crate::meaning::OLLAMA);
+        cfg.meaning_url = format!("{server}/v1");
         store.set_engine(crate::meaning::Engine::from_config(&cfg));
         scan(&store, &cfg, &go).unwrap();
         assert_eq!(store.meaning_counts(), (0, 2));
