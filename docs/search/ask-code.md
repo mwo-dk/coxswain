@@ -147,7 +147,7 @@ the vectors, the same 40 questions): 20 of them were taken for questions about c
 | Back to `qwen3:8b` for the next other question | | 18 s to its first word, 10 s of it loading |
 
 `qwen3-coder:30b` is a mixture of experts (3 billion weights work on each word), so once loaded
-it writes about twice as fast (16 words a second against 8 here), but at about 19 GB it does not
+it writes about twice as fast (16 tokens a second against 8 here), but at about 19 GB it does not
 fit an 8 GB card: Ollama keeps part of it on the processor and loads it again for each question.
 The answers were hardly better. So on this machine Settings marks it *slow here* and keeps
 *Same as Ask*; on a card with 24 GB it is recommended.
