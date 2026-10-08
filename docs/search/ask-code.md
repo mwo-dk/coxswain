@@ -135,7 +135,22 @@ the graphics card's name and memory and the server:
 A model chosen that is slow here gets a red line under Ask in Settings and in Find's Ask row,
 like a poor choice of Ask's model, with **Use Same as Ask**.
 
-<!-- code model numbers -->
+**Measured on an 8 GB card** (RTX 4070 Laptop GPU, Ollama, `qwen3:8b` for Ask, `bge-m3` for
+the vectors, the same 40 questions): 20 of them were taken for questions about code and went to
+`qwen3-coder:30b`.
+
+| On the 20 questions about code | `qwen3:8b` (Same as Ask) | `qwen3-coder:30b` |
+|---|---|---|
+| Facts in the answer | 0.81 | 0.85 |
+| First word | 6 s | 17 s |
+| Loading it (Ollama's `load_duration`) | 0 s, it stays loaded | 15 to 19 s, every time: it does not stay on the card |
+| Back to `qwen3:8b` for the next other question | | 18 s to its first word, 10 s of it loading |
+
+`qwen3-coder:30b` is a mixture of experts (3 billion weights work on each word), so once loaded
+it writes about twice as fast (16 words a second against 8 here), but at about 19 GB it does not
+fit an 8 GB card: Ollama keeps part of it on the processor and loads it again for each question.
+The answers were hardly better. So on this machine Settings marks it *slow here* and keeps
+*Same as Ask*; on a card with 24 GB it is recommended.
 
 ## How well it does
 
