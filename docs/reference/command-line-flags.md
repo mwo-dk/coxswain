@@ -73,6 +73,10 @@ coxswain [LEFT] [RIGHT]      a folder, or a file to open its folder with the cur
   --models                 the built-in models on the disk: what each is for, its size and
                            folder, whether it is in use and loaded, when it was last used
   --models delete NAME|unused  delete one (by the name --models shows), or all not in use
+  --disk                   every place Coxswain keeps things: its size, where it is, what
+                           clearing it costs; what it caused outside its folder too
+  --disk clear NAME|rebuildable  clear one (by the name --disk shows: store, index, previews,
+                           a model, tectonic, images), or everything that is built again
   --hints reset            show the hints on the command line again, each a few times
   --languages              the languages, by region, and how to help improve a new translation
   --whats-new [all]        what the versions since you last looked brought (all: every version)
@@ -95,6 +99,9 @@ coxswain [LEFT] [RIGHT]      a folder, or a file to open its folder with the cur
 | `--models` | Lists the [built-in models](../search/models.md) on the disk, leftovers too: for each its folder's name, its name, *for Ask · 8.4 GB · in use · loaded on the CPU, about 8.4 GB of memory · last used 2026-10-08*, and its folder; then *Delete all not in use (…): coxswain --models delete unused* when there is something to free |
 | `--models delete NAME` | Deletes one, named by its folder's name, its id (`qwen3-14b`) or its name; the one in use asks *[y/N]* first and says what comes instead (*Ask now uses qwen3:8b.*). No such model: exit status 1 |
 | `--models delete unused` | Deletes every model not in use, unfinished downloads and older versions included: *Deleted 2 not in use: 9.4 GB freed.* |
+| `--disk` | Every place Coxswain keeps things ([Disk use](disk-use.md)): under *In Coxswain's cache folder*, *Built-in models* and *Outside Coxswain's folder, caused by it*, each with the name to clear it by, its size, its file name, path, what it holds and what clearing costs; then *Built again on their own: 12.9 MB, coxswain --disk clear rebuildable* |
+| `--disk clear NAME` | Clears one: `store` (through the search helper while it runs), `index`, `previews`, `peek`, `inside`, `libreoffice`, `log`, a model by its folder's name (as `--models delete`), `tectonic`, `images` or one image by its name. What is outside Coxswain's folder is listed first and asks *[y/N]*. Prints *previews/ cleared: 12.4 MB freed.* An unknown name: the names it takes, exit status 2 |
+| `--disk clear rebuildable` | Clears every row that is built again on its own (not the log, the models or what is outside): *Cleared: 12.9 MB freed.* |
 | `--index-helper` | Runs as the search helper instead of the app: see [below](#the-helper---index-helper) |
 | `--hints reset` | Every hint on the status line shows three times again, in both apps (they share `state.json`), and says so. See [The action menu and hints](../panels/action-menu.md#hints-on-the-status-line) |
 | `--languages` | Prints every language under its region, one line each: code, own name, *new* for a fresh translation and *(current)* for the one in use, then where `language` is set and where to suggest a better word. In your language. See [Languages](../customise/languages.md) |

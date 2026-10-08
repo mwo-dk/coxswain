@@ -167,6 +167,12 @@ pub fn folder() -> Option<PathBuf> {
     Some(dirs::cache_dir()?.join("coxswain"))
 }
 
+/// Whether a helper runs now: it holds `index.lock` for as long as it does.
+pub fn runs() -> bool {
+    let Some(lock) = folder().and_then(|d| std::fs::File::open(d.join("index.lock")).ok()) else { return false };
+    matches!(lock.try_lock(), Err(std::fs::TryLockError::WouldBlock))
+}
+
 /// Where a helper's errors go: `helper.log` beside its address.
 pub fn log() -> Option<PathBuf> {
     Some(folder()?.join("helper.log"))

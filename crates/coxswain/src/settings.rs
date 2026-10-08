@@ -69,6 +69,13 @@ pub enum Row {
     Model(coxswain_core::models::Entry),
     /// Delete every built-in model not in use, and the bytes that frees.
     DeleteUnused(u64),
+    /// Disk use: a place Coxswain keeps things. Enter shows it in the panel, Delete clears it.
+    Disk(coxswain_core::disk::Item),
+    /// Also clear the built-in models not in use (`false`), or what Coxswain caused outside its
+    /// folder (`true`), with *Clear everything that can be built again*; the bytes they hold.
+    Tick(bool, u64),
+    /// Clear everything that can be built again, and the bytes that frees.
+    ClearAll(u64),
 }
 
 impl Row {
@@ -90,6 +97,9 @@ impl Row {
             Row::Poor(p) => format!("poor:{}", p.ask),
             Row::Model(e) => format!("model:{}", e.id),
             Row::DeleteUnused(_) => "unused".into(),
+            Row::Disk(i) => format!("disk:{}", i.id),
+            Row::Tick(outside, _) => format!("tick:{outside}"),
+            Row::ClearAll(_) => "clear_all".into(),
         }
     }
 
@@ -122,7 +132,13 @@ pub enum Mode {
     Confirm(String, Map<String, Value>),
     /// A built-in model in use is to be deleted: its folder's name, waiting for a yes.
     ConfirmDelete(String),
+    /// A row of Disk use is to be cleared (its id; `CLEAR_ALL` for everything that can be built
+    /// again), waiting for a yes.
+    ConfirmClear(String),
 }
+
+/// `Mode::ConfirmClear` of *Clear everything that can be built again*.
+const CLEAR_ALL: &str = "\u{1}all";
 
 pub struct Settings {
     pub area: Area,
@@ -144,6 +160,12 @@ pub struct Settings {
     /// The cursor's row when last drawn, by index and by `Row::key`: rows that come later (a
     /// poor choice found in the background) do not move the cursor off its row.
     anchor: (usize, String),
+    /// Disk use, read when Privacy opens and after each clear; the container images come a
+    /// moment later, from a thread.
+    disk: Vec<coxswain_core::disk::Item>,
+    disk_rx: Option<mpsc::Receiver<Vec<coxswain_core::disk::Item>>>,
+    /// Also the models not in use, also what is outside: ticked for *Clear everything*.
+    ticks: (bool, bool),
 }
 
 impl Settings {
@@ -163,6 +185,9 @@ impl Settings {
             notices: coxswain_core::notices::all(&app.cfg, &app.index.status(), &st, true),
             news: news(&st),
             anchor: (0, String::new()),
+            disk: vec![],
+            disk_rx: None,
+            ticks: (false, false),
         };
         s.go(app, section);
         s
@@ -173,13 +198,29 @@ impl Settings {
         let (area, at) = cs::open_at(section);
         self.area = area;
         self.offset = 0;
+        if area == Area::Privacy {
+            self.load_disk(app);
+        }
         let rows = rows(app, self);
         let start = at.and_then(|at| rows.iter().position(|r| r.id() == Some(at))).unwrap_or(0);
         self.cursor = (start..rows.len()).find(|&i| rows[i].selectable()).unwrap_or(0);
     }
 
+    /// Disk use now: at once without the container images, which a thread asks for.
+    fn load_disk(&mut self, app: &App) {
+        let (cfg, loaded) = (app.cfg.clone(), app.index.loaded());
+        self.disk = coxswain_core::disk::items(&cfg, &loaded, false);
+        let (tx, rx) = mpsc::channel();
+        std::thread::spawn(move || tx.send(coxswain_core::disk::items(&cfg, &loaded, true)));
+        self.disk_rx = Some(rx);
+    }
+
     /// The answer to Ask's test question, when it has come.
     pub fn poll(&mut self) {
+        if let Some(items) = self.disk_rx.as_ref().and_then(|rx| rx.try_recv().ok()) {
+            self.disk_rx = None;
+            self.disk = items;
+        }
         if let Some(r) = self.trial_rx.as_ref().and_then(|rx| rx.try_recv().ok()) {
             self.trial_rx = None;
             self.trial = Some(match r {
@@ -281,6 +322,24 @@ pub fn rows(app: &App, s: &Settings) -> Vec<Row> {
             for o in out {
                 let to = if o.local { format!("{} ({})", o.to, t!("settings.privacy_local")) } else { o.to };
                 v.push(Row::Info(o.what.clone(), to, o.what));
+            }
+            // Disk use: Coxswain's own folder, the built-in models, then what it caused outside.
+            use coxswain_core::disk::{self, Kind};
+            v.push(Row::Head(t!("disk.title"), "disk"));
+            v.extend(s.disk.iter().filter(|i| i.kind != Kind::Outside).cloned().map(Row::Disk));
+            let models = disk::clearable_bytes(&s.disk, true, false) - disk::clearable_bytes(&s.disk, false, false);
+            let out = disk::clearable_bytes(&s.disk, false, true) - disk::clearable_bytes(&s.disk, false, false);
+            v.push(Row::ClearAll(disk::clearable_bytes(&s.disk, s.ticks.0, s.ticks.1)));
+            if models > 0 {
+                v.push(Row::Tick(false, models));
+            }
+            if out > 0 {
+                v.push(Row::Tick(true, out));
+            }
+            let outside: Vec<&disk::Item> = s.disk.iter().filter(|i| i.kind == Kind::Outside).collect();
+            if !outside.is_empty() {
+                v.push(Row::Head(t!("disk.head.outside"), "disk_outside"));
+                v.extend(outside.into_iter().cloned().map(Row::Disk));
             }
             v.push(Row::Head(t!("settings.paths"), "paths"));
             for (what, p) in Config::paths() {
@@ -469,6 +528,7 @@ impl App {
                 (KeyCode::Delete, _) => match rows.get(s.cursor) {
                     Some(Row::Model(e)) if e.in_use => s.mode = Mode::ConfirmDelete(e.id.clone()),
                     Some(Row::Model(e)) => return self.model_delete(s, &e.id.clone()),
+                    Some(Row::Disk(i)) if i.bytes > 0 => s.mode = Mode::ConfirmClear(i.id.clone()),
                     _ => {}
                 },
                 (_, Some('u' | 'U')) => {
@@ -637,6 +697,11 @@ impl App {
                 _ if esc => {}
                 _ => s.mode = Mode::ConfirmDelete(id),
             },
+            Mode::ConfirmClear(id) => match key.code {
+                KeyCode::Enter => return self.disk_clear(s, &id),
+                _ if esc => {}
+                _ => s.mode = Mode::ConfirmClear(id),
+            },
         }
         self.dialog = Some(Dialog::Settings(s));
     }
@@ -708,6 +773,23 @@ impl App {
                 let dir = e.folder.clone();
                 return self.cd(self.active, dir);
             }
+            // The file or folder in the active panel, the cursor on it; Settings closes.
+            Some(Row::Disk(i)) => {
+                let Some(p) = i.paths.iter().find(|p| p.exists()).or(i.paths.first()).cloned() else { return self.dialog = Some(Dialog::Settings(s)) };
+                let dir = if p.is_dir() { p.clone() } else { p.parent().map(PathBuf::from).unwrap_or_default() };
+                self.cd(self.active, dir);
+                if !p.is_dir()
+                    && let Some(n) = p.file_name()
+                {
+                    self.panel_mut().select_name(&n.to_string_lossy());
+                }
+                return;
+            }
+            Some(Row::Tick(outside, _)) => {
+                let t = if *outside { &mut s.ticks.1 } else { &mut s.ticks.0 };
+                *t = !*t;
+            }
+            Some(Row::ClearAll(n)) if *n > 0 => s.mode = Mode::ConfirmClear(CLEAR_ALL.into()),
             Some(Row::DeleteUnused(_)) => {
                 let models = coxswain_core::models::list(&self.cfg.search, &self.index.loaded());
                 let gone: Vec<_> = models.iter().filter(|e| !e.in_use).collect();
@@ -758,6 +840,33 @@ impl App {
             }
             Err(err) => (format!("{}: {err}", e.folder.display()), true),
         });
+        self.dialog = Some(Dialog::Settings(s));
+    }
+
+    /// Clear a row of Disk use (a model the settings use gives way first, as in Built-in
+    /// models), or everything that can be built again with what is ticked; the line says what
+    /// it freed.
+    fn disk_clear(&mut self, mut s: Box<Settings>, id: &str) {
+        use coxswain_core::disk;
+        if id == CLEAR_ALL {
+            let (freed, failed) = disk::clear_all(&s.disk, s.ticks.0, s.ticks.1, &self.cfg, &self.index);
+            s.said = Some(match failed.is_empty() {
+                true => (t!("disk.cleared_all", "size" => cs::human(freed)), false),
+                false => (failed.join(" · "), true),
+            });
+        } else if let Some(i) = s.disk.iter().find(|i| i.id == id).cloned() {
+            if i.kind == disk::Kind::Model {
+                self.model_delete(s, id);
+                let Some(Dialog::Settings(mut s)) = self.dialog.take() else { return };
+                s.load_disk(self);
+                return self.dialog = Some(Dialog::Settings(s));
+            }
+            s.said = Some(match disk::clear(&i, &self.cfg, &self.index) {
+                Ok(n) => (disk::cleared(&i.name, n), false),
+                Err(e) => (e, true),
+            });
+        }
+        s.load_disk(self);
         self.dialog = Some(Dialog::Settings(s));
     }
 
@@ -971,6 +1080,18 @@ pub fn draw(f: &mut Frame, app: &mut App) {
                 }
                 Row::Model(e) => lines.push(pair(&format!(" {}", e.name), &e.line(), st)),
                 Row::DeleteUnused(n) => lines.push(Line::from(Span::styled(fit(&format!(" [ {} ]", t!("models.delete_unused", "size" => cs::human(*n))), w), st))),
+                // The name, its size, what clearing costs: the cost is what tells the rows apart.
+                Row::Disk(i) => {
+                    let use_ = if i.in_use { format!(" · {}", t!("models.in_use")) } else { String::new() };
+                    let head = format!(" {} {:>9}  ", fit(&i.name, 28.min(w / 3)), cs::human(i.bytes));
+                    lines.push(Line::from(Span::styled(fit(&format!("{head}{}{use_}", i.cost), w), st)));
+                }
+                Row::Tick(outside, n) => {
+                    let on = if *outside { s.ticks.1 } else { s.ticks.0 };
+                    let label = t!(if *outside { "disk.also_outside" } else { "disk.also_models" }, "size" => cs::human(*n));
+                    lines.push(Line::from(Span::styled(fit(&format!(" {} {label}", if on { "[x]" } else { "[ ]" }), w), st)));
+                }
+                Row::ClearAll(n) => lines.push(Line::from(Span::styled(fit(&format!(" [ {} ]", t!("disk.clear_all", "size" => cs::human(*n))), w), st))),
                 Row::Opt(o) => {
                     let value = &values[o.name];
                     let label = match on(o, cfg, value) {
@@ -1059,6 +1180,15 @@ pub fn draw(f: &mut Frame, app: &mut App) {
             });
             text.push(Span::styled(format!("{} {}", t!("models.confirm", "model" => name.unwrap_or_default()), t!("models.confirm_tui")), red));
         }
+        // What goes, exactly, before it goes.
+        Mode::ConfirmClear(id) => {
+            let goes: Vec<String> = if id == CLEAR_ALL {
+                s.disk.iter().filter(|i| coxswain_core::disk::clearable_bytes(std::slice::from_ref(*i), s.ticks.0, s.ticks.1) > 0).map(|i| i.name.clone()).collect()
+            } else {
+                s.disk.iter().filter(|i| i.id == *id).map(|i| format!("{} ({}) · {}", i.paths.first().map(|p| p.display().to_string()).unwrap_or_else(|| i.name.clone()), cs::human(i.bytes), i.cost)).collect()
+            };
+            text.push(Span::styled(format!("{} {}. {}", t!("disk.confirm"), goes.join(", "), t!("disk.confirm_tui")), red));
+        }
         Mode::Find { query, at } => {
             if let Some(o) = find(query).get(*at) {
                 text.push(Span::raw(o.hint()));
@@ -1109,6 +1239,14 @@ pub fn draw(f: &mut Frame, app: &mut App) {
                 text.push(Span::styled(format!("  {}", t!("models.keys_tui")), dim));
             }
             Some(Row::DeleteUnused(_)) => text.push(Span::raw(t!("models.hint"))),
+            Some(Row::Disk(i)) => {
+                let at = i.paths.first().map(|p| format!(" · {}", p.display())).unwrap_or_default();
+                text.push(Span::raw(format!("{} {}: {}", i.what, t!("disk.cost_label"), i.cost)));
+                text.push(Span::styled(at, dim));
+            }
+            Some(Row::Tick(true, _)) => text.push(Span::raw(t!("disk.outside_hint"))),
+            Some(Row::Tick(false, _)) => text.push(Span::raw(t!("models.hint"))),
+            Some(Row::ClearAll(_)) => text.push(Span::raw(t!("disk.clear_all_hint"))),
             _ => {}
         },
     }
@@ -1119,6 +1257,7 @@ pub fn draw(f: &mut Frame, app: &mut App) {
         (None, Mode::Edit(_)) => (crate::ui::keys(&t!("verb.save")), dim),
         (None, Mode::List { .. }) => (t!("tui.settings.list_keys"), dim),
         (None, Mode::Pick(_)) => (t!("tui.settings.pick_keys"), dim),
+        (None, _) if matches!(rows.get(s.cursor), Some(Row::Disk(_))) => (t!("disk.keys_tui"), dim),
         (None, _) => (t!("tui.settings.keys"), dim),
     };
     f.render_widget(Paragraph::new(fit(&line, keys.width as usize)).style(st), keys);

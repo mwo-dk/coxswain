@@ -127,6 +127,7 @@ pub const FEATURES: &[Feature] = &[
     f("privacy", "reference/privacy.md", &[Settings]),
     f("updates", "reference/updates.md", &[Settings]),
     f("where_things_are_kept", "reference/where-things-are-kept.md", &[Settings]),
+    f("disk_use", "reference/disk-use.md", &[DiskUse, Settings, Menu]),
     f("bills_of_materials", "reference/bills-of-materials.md", &[]),
     f("linux_arm", "reference/linux-arm.md", &[]),
     f("chromeos", "reference/chromeos.md", &[]),

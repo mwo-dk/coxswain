@@ -43,6 +43,7 @@ once and is written to the file, your comments kept.
    | `coxswain-gui --settings=search` | Finding files |
    | `coxswain-gui --settings=<area>` | That area: `overview`, `search`, `previews`, `looks`, `behaviour`, `keys`, `privacy` |
    | `coxswain-gui --settings=<option>` | The option's area, with its group unfolded, scrolled to it and lit up for a moment: `search_meaning` (the *Meaning* group), `ask_model` (*Ask*), `language`, `search_cloud`, `check_updates` … (the names in [Settings and config.toml](#settings-and-configtoml)) |
+   | `coxswain-gui --settings=models`, `--settings=disk` | *Built-in models* under Finding files, *Disk use* under Privacy and updates, unfolded |
    | Any other name, such as 1.x's `meaning`, `ask`, `news` or `cloud` | Overview |
 
    The terminal app opens its own Settings the same ways: [In the terminal app](#in-the-terminal-app).
@@ -279,12 +280,13 @@ active pane, made first when it is not there yet ([Scripts](../commands/scripts.
 
 ## Privacy and updates
 
-![Settings at Privacy and updates: Check for a new version, What can leave this machine, Where things are kept with a Show in panel link for each path, Open config.toml and the version](../screenshots/settings-privacy.png)
+![Settings at Privacy and updates: Check for a new version, What can leave this machine, the closed heading Disk use 6.2 MB, Where things are kept with a Show in panel link for each path, Open config.toml and the version](../screenshots/settings-privacy.png)
 
 | Part | Does | Key |
 |---|---|---|
 | *Check for a new version* | Once a day Coxswain asks GitHub for the newest version number ([Update checks](../reference/updates.md)) | `check_updates` |
 | *What can leave this machine* | Built from your settings as they are: the update check → `api.github.com`; the built-in model while it is not downloaded → `huggingface.co`; the text of your files → the model server; your questions → the chat model's server; files only online → your cloud services; container images → their registries. A server on this machine says *(this machine)* | |
+| *Disk use* | Every place Coxswain keeps things, with its size, what clearing costs, **Show in panel** and **Clear**, the built-in models, what Coxswain caused outside its folder, and *Clear everything that can be built again*; click the heading (with the total beside it) to open it, or `--settings=disk` ([Disk use](../reference/disk-use.md)) | |
 | *Where things are kept* | Settings, state, cache, name index, what was read, the built-in model, previews and looks inside archives, each path with **Show in panel** (the list `coxswain --paths` prints; [Where things are kept](../reference/where-things-are-kept.md)) | |
 | **Open config.toml**, and the version | *Coxswain 1.42.0* | |
 

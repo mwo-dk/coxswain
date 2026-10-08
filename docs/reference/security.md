@@ -167,4 +167,4 @@ the file. Shapes from draw.io's downloadable libraries show as boxes; see [Diagr
 each one is built with.
 
 ---
-[← Previous: Where things are kept](where-things-are-kept.md) · [Next: Licences and bills of materials →](bills-of-materials.md)
+[← Previous: Disk use](disk-use.md) · [Next: Licences and bills of materials →](bills-of-materials.md)

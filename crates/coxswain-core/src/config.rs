@@ -261,6 +261,8 @@ actions! {
     Features = "features", "Features and questions", App, [];
     Menu = "menu", "Commands", App, ["F9"];
     Settings = "settings", "Settings", App, ["Ctrl+,"];
+    // Settings at Disk use: from F9 and the action menu, no key of its own.
+    DiskUse = "disk_use", "Disk use", App, [];
     Quit = "quit", "Quit", App, ["F10"];
 }
 

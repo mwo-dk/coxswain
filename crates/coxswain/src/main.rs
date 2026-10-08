@@ -1017,6 +1017,15 @@ impl App {
                             Err(err) => self.status = Some(err.to_string()),
                         };
                     }
+                    // Coxswain's own name index or search store, here or a copy: what it holds.
+                    if a == Action::View
+                        && let Some(r) = coxswain_core::disk::describe(&e)
+                    {
+                        match coxswain_core::disk::text_copy(&e, &r) {
+                            Ok(text) => return self.view_or_edit(a, &text),
+                            Err(err) => self.status = Some(err),
+                        }
+                    }
                     // A database or a Parquet file: its tables and first rows, as text.
                     if a == Action::View && coxswain_core::tables::is_tables(&e) {
                         match coxswain_core::tables::text_copy(&e) {
@@ -1144,6 +1153,7 @@ impl App {
             Action::Help => self.dialog = Some(Dialog::Help { scroll: 0 }),
             Action::Features => self.features(String::new(), None),
             Action::Settings => self.dialog = Some(Dialog::Settings(Box::new(settings::Settings::open(self, "")))),
+            Action::DiskUse => self.dialog = Some(Dialog::Settings(Box::new(settings::Settings::open(self, "disk")))),
             // Asked for: measure afresh, whatever is remembered and whether or not sizes are on.
             Action::FolderSizes => {
                 if coxswain_core::archive::split(&self.panel().dir).is_some() {
@@ -2507,6 +2517,10 @@ const USAGE: &str = "coxswain [LEFT] [RIGHT]      a folder, or a file to open it
   --models                 the built-in models on the disk: what each is for, its size and
                            folder, whether it is in use and loaded, when it was last used
   --models delete NAME|unused  delete one (by the name --models shows), or all not in use
+  --disk                   every place Coxswain keeps things: its size, where it is, what
+                           clearing it costs; what it caused outside its folder too
+  --disk clear NAME|rebuildable  clear one (by the name --disk shows: store, index, previews,
+                           a model, tectonic, images), or everything that is built again
   --hints reset            show the hints on the command line again, each a few times
   --languages              the languages, by region, and how to help improve a new translation
   --whats-new [all]        what the versions since you last looked brought (all: every version)
@@ -2728,6 +2742,7 @@ const OPTIONS: &[(&str, &[&str])] = &[
     ("--setup-search", &[]),
     ("--meaning", &["on", "off", "delete", "ollama", "server", "builtin", "cpu", "auto", "ask"]),
     ("--models", &["delete"]),
+    ("--disk", &["clear"]),
     ("--settings", &[]),
 ];
 
@@ -2847,6 +2862,61 @@ fn models(rest: &[String]) {
     }
 }
 
+/// `--disk [clear NAME|rebuildable]`: every place Coxswain keeps things, or one cleared (what is
+/// outside its folder is listed and asked about first; a model goes as `--models delete` has
+/// it), or everything that is built again by itself.
+fn disk(rest: &[String]) {
+    use coxswain_core::disk::{self, Kind};
+    let fail = |e: String, code: i32| -> ! {
+        eprintln!("coxswain: {e}");
+        std::process::exit(code)
+    };
+    let cfg = Config::load().unwrap_or_else(|e| fail(e, 2));
+    let client = Client::start(&cfg.search);
+    let items = disk::items(&cfg, &client.loaded(), true);
+    let name = match (rest.first().map(String::as_str), rest.get(1)) {
+        (None, _) => return print!("{}", disk::table(&items)),
+        (Some("clear"), Some(name)) if rest.len() == 2 => name,
+        _ => fail(t!("cli.unknown_value", "value" => rest.join(" "), "option" => "--disk", "values" => "clear NAME, clear rebuildable"), 2),
+    };
+    if name == disk::REBUILDABLE {
+        let (freed, failed) = disk::clear_all(&items, false, false, &cfg, &client);
+        println!("{}", t!("disk.cleared_all", "size" => coxswain_core::settings::human(freed)));
+        if !failed.is_empty() {
+            fail(failed.join("\n"), 1);
+        }
+        return;
+    }
+    let found = disk::find(&items, name);
+    if found.is_empty() {
+        let names: Vec<&str> = items.iter().map(|i| i.id.trim_start_matches("image:")).chain([disk::ALL_IMAGES, disk::REBUILDABLE]).collect();
+        fail(t!("cli.unknown_value", "value" => name.as_str(), "option" => "--disk clear", "values" => names.join(", ")), 2);
+    }
+    if found[0].kind == Kind::Model {
+        return models(&["delete".to_string(), found[0].id.clone()]);
+    }
+    // Outside its folder: the exact list first, and a yes.
+    if found.iter().any(|i| i.kind == Kind::Outside) {
+        println!("{}", t!("disk.confirm"));
+        for i in &found {
+            println!("  {}  {}", i.paths.first().map(|p| p.display().to_string()).unwrap_or_else(|| i.name.clone()), coxswain_core::settings::human(i.bytes));
+        }
+        print!("[y/N] ");
+        let _ = std::io::stdout().flush();
+        let mut answer = String::new();
+        let _ = std::io::stdin().read_line(&mut answer);
+        if !matches!(answer.trim(), "y" | "Y" | "j" | "J") {
+            return;
+        }
+    }
+    for i in found {
+        match disk::clear(i, &cfg, &client) {
+            Ok(n) => println!("{}", disk::cleared(&i.name, n)),
+            Err(e) => fail(format!("{}: {e}", i.name), 1),
+        }
+    }
+}
+
 fn main() {
     let mut args: Vec<String> = std::env::args().skip(1).collect();
     // `--settings[=area|option] [LEFT] [RIGHT]`: start with Settings open, there.
@@ -2894,6 +2964,7 @@ fn main() {
         }
         Some("--meaning") => return meaning(args.get(1).map(String::as_str), &args[2.min(args.len())..]),
         Some("--models") => return models(&args[1..]),
+        Some("--disk") => return disk(&args[1..]),
         _ => {}
     }
     coxswain_core::fs::lock_down();
@@ -2946,6 +3017,7 @@ mod tests {
         assert!(check(&["--hints"]).is_err() && check(&["--hints", "reset"]).is_ok());
         assert!(check(&["--meaning", "server", "http://x:8000/v1", "m"]).is_ok() && check(&["--meaning"]).is_ok());
         assert!(check(&["--models"]).is_ok() && check(&["--models", "delete", "unused"]).is_ok() && check(&["--models", "x"]).is_err());
+        assert!(check(&["--disk"]).is_ok() && check(&["--disk", "clear", "index"]).is_ok() && check(&["--disk", "clean"]).unwrap_err().contains("--disk clear"));
         assert!(check(&["no-such-folder-here"]).unwrap_err().contains("no-such-folder-here"));
         assert!(check(&[".", "--paths"]).is_err(), "an option after a folder is not taken for one");
         assert!(check(&[".", "."]).is_ok() && check(&[]).is_ok() && check(&[helper::ARG]).is_ok());

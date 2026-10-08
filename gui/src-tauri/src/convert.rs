@@ -29,18 +29,7 @@ const TOOLS: &[(&str, &[&str])] = &[
     ("duckdb", &["duckdb"]),
 ];
 
-use coxswain_core::tools::which;
-
-/// podman or docker, as the config allows.
-fn runtime(cfg: &PreviewConfig) -> Option<(&'static str, PathBuf)> {
-    let order: &[&'static str] = match cfg.container.as_str() {
-        "off" => &[],
-        "podman" => &["podman"],
-        "docker" => &["docker"],
-        _ => &["podman", "docker"],
-    };
-    order.iter().find_map(|&r| which(r).map(|p| (r, p)))
-}
+use coxswain_core::tools::{container_runtime as runtime, image_size, which};
 
 #[derive(Serialize, Clone)]
 pub struct Engine {
@@ -340,8 +329,13 @@ fn build(cfg: &PreviewConfig, tool: &str, engine: &str, path: &Path, out: &Path,
             latex::own_rc(&mut c);
             c.arg(&name);
         }
+        // Its cache, when this run makes it, is Coxswain's doing: Disk use lists it.
         ("latex", "tectonic") => {
             c.arg("--outdir").arg(out).arg(&name);
+            let absent = coxswain_core::disk::tectonic_absent();
+            let done = wait(c, timeout, None);
+            coxswain_core::disk::note_made(&absent);
+            return done;
         }
         ("latex", _) => {
             // A document that asks for XeLaTeX or LuaLaTeX gets it when TeX Live has it.
@@ -586,11 +580,6 @@ mod latex {
     }
 }
 
-/// The size of `image` in bytes, if the runtime has it.
-fn image_size(rt: &Path, image: &str) -> Option<u64> {
-    let out = coxswain_core::tools::command(rt).args(["image", "inspect", "--format", "{{.Size}}", image]).stdin(Stdio::null()).output().ok()?;
-    out.status.success().then(|| String::from_utf8_lossy(&out.stdout).trim().parse().ok()).flatten()
-}
 
 /// The last progress line of every pull under way, by image, for the GUI to show.
 static PULLING: Mutex<BTreeMap<String, String>> = Mutex::new(BTreeMap::new());

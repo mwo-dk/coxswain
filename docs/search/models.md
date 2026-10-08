@@ -48,6 +48,7 @@ question it reads. A chat model is let go by itself five minutes after its last 
 |---|---|
 | Desktop app | **Ctrl+,** → *Finding files* → *Details* → *Built-in models* (or `coxswain-gui --settings=models`). Each model has its line, its folder with **Show in panel**, **Unload now** (a chat model that is loaded) and **Delete**; **Delete all not in use (8.4 GB)** under the list |
 | Terminal app | **F9** → *Settings* → *Finding files*, the *Built-in models* heading near the end (or `coxswain --settings=models`). One row per model: its name, then its line. The bottom line names the folder and the keys: *Enter: show its folder · Delete: delete it · U: unload it*. The last row is **[ Delete all not in use (8.4 GB) ]** |
+| Both apps | The same models are rows of [Disk use](../reference/disk-use.md) (Settings → *Privacy and updates*), beside everything else Coxswain keeps on the disk, with the same **Delete** (*Clear* there) |
 | Command line | `coxswain --models` ([below](#on-the-command-line)) |
 
 ## Unload, delete, delete all not in use

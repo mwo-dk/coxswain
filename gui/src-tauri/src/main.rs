@@ -780,6 +780,40 @@ async fn models_list(ctx: tauri::State<'_, Ctx>) -> Res<Vec<coxswain_core::model
     blocking(move || Ok(coxswain_core::models::list(&cfg, &index.loaded()))).await
 }
 
+/// Settings → Privacy and updates → Disk use: every place Coxswain keeps things; with `images`
+/// also the container images (which asks podman or docker).
+#[tauri::command]
+async fn disk_list(images: bool, ctx: tauri::State<'_, Ctx>) -> Res<Vec<coxswain_core::disk::Item>> {
+    let (index, cfg) = (ctx.index.clone(), ctx.cfg().clone());
+    blocking(move || Ok(coxswain_core::disk::items(&cfg, &index.loaded(), images))).await
+}
+
+/// Clear the row `id` of Disk use (a model goes through `models_action`), or with `id` empty
+/// everything that can be built again, the models not in use and what is outside as ticked.
+/// What was done, in words.
+#[tauri::command]
+async fn disk_clear(id: String, models: bool, outside: bool, ctx: tauri::State<'_, Ctx>) -> Res<String> {
+    use coxswain_core::disk;
+    let (index, cfg) = (ctx.index.clone(), ctx.cfg().clone());
+    blocking(move || {
+        let items = disk::items(&cfg, &index.loaded(), outside || id.starts_with("image:"));
+        if id.is_empty() {
+            let (freed, failed) = disk::clear_all(&items, models, outside, &cfg, &index);
+            return if failed.is_empty() { Ok(coxswain_core::t!("disk.cleared_all", "size" => coxswain_core::settings::human(freed))) } else { Err(failed.join(" · ")) };
+        }
+        let i = items.iter().find(|i| i.id == id).ok_or_else(|| coxswain_core::t!("models.no_such", "name" => id.as_str()))?;
+        disk::clear(i, &cfg, &index).map(|n| disk::cleared(&i.name, n))
+    })
+    .await
+}
+
+/// The preview of Coxswain's own `index.bin` or `search.db`, here or a copy; `None` for any
+/// other file.
+#[tauri::command]
+async fn own_store(path: PathBuf) -> Res<Option<coxswain_core::disk::Report>> {
+    blocking(move || Ok(coxswain_core::disk::describe(&path))).await
+}
+
 /// "unload" the built-in chat model; "delete" the model `id` (the one in use gives way to the
 /// recommended choice, saved: the page hears `config-changed`); "unused": delete all not in
 /// use. What was done, in words.
@@ -1889,7 +1923,7 @@ fn main() {
             clip_set, paste, start_drag, watch_dirs, preview::git_diff, preview::sqlite_info, preview::epub_preview,
             preview::file_facts, preview::cert_info, bom::bom_info, bom::bom_node, bom::bom_diff, provenance::provenance_info, provenance::provenance_statements, provenance::provenance_subject, provenance::provenance_cancel, provenance::provenance_sources, provenance::provenance_diff, provenance::provenance_bom, preview::mail_preview, preview::plist_xml, convert::preview_engines, convert::preview_cache, convert::clear_preview_cache,
             convert::convert, convert::images, convert::pull_image, convert::remove_image, convert::pull_progress, dupes_scan,
-            dupes_progress, dupes_cancel, save_settings, search_status, search_level, guide_seen, nerd_font, copy_text, features, open_docs, models_list, models_action
+            dupes_progress, dupes_cancel, save_settings, search_status, search_level, guide_seen, nerd_font, copy_text, features, open_docs, models_list, models_action, disk_list, disk_clear, own_store
         ])
         .run(tauri::generate_context!())
         .expect("error while running Coxswain");
