@@ -1,0 +1,8 @@
+cmake_minimum_required(VERSION 3.20)
+project(tinykv C)
+set(CMAKE_C_STANDARD 11)
+find_package(Threads REQUIRED)
+find_package(ZLIB REQUIRED)
+add_executable(tinykv src/main.c src/hash.c src/table.c src/net.c src/snapshot.c)
+target_include_directories(tinykv PRIVATE include)
+target_link_libraries(tinykv PRIVATE Threads::Threads ZLIB::ZLIB)

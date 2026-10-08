@@ -126,8 +126,18 @@ fn has(q: &str, words: &[&str]) -> bool {
 // ponytail: word lists, not a model; a question they miss gets the closest excerpts alone.
 pub fn broad(question: &str) -> bool {
     let q = question.to_lowercase();
-    has(&q, WHAT) && has(&q, HERE) || has(&q, &["overview", "überblick", "overblik", "översikt", "overzicht", "aperçu", "panoramica", "概要", "개요"])
+    has(&q, WHAT) && has(&q, HERE) || has(&q, &["overview", "überblick", "overblik", "översikt", "overzicht", "aperçu", "panoramica", "概要", "개요"]) || has(&q, BUILT_WITH)
 }
+
+/// Words that ask how a project is built and with what: its architecture, frameworks,
+/// libraries and dependencies, which the map of a project answers.
+const BUILT_WITH: &[&str] = &[
+    "architect", "framework", "technolog", "dependenc", "librar", "crates", "tech stack", "written in", "programming language", "architektur", "abhängigkeit", "bibliothek", "technologie", "arkitektur",
+    "afhængighed", "bibliotek", "teknologi", "beroende", "riippuvuu", "kirjasto", "arkkitehtuuri", "afhankelijk", "bibliothe", "dépendance", "librairie", "arquitectura", "dependencia", "biblioteca", "tecnolog",
+    "architettura", "dipendenz", "zależnoś", "bibliotek", "architektura", "závislost", "knihovn", "архітектур", "залежн", "бібліотек", "αρχιτεκτονικ", "εξαρτήσ", "βιβλιοθήκ", "アーキテクチャ", "ライブラリ",
+    "依存", "아키텍처", "라이브러리", "의존", "ארכיטקטור", "معماری", "کتابخانه", "arhitektuur", "teek", "arhitektūr", "bibliotēk", "architektūr", "bibliotek", "arkitektura", "liburutegi",
+    "ճարտարապետ", "գրադարան", "არქიტექტურ", "ბიბლიოთეკ",
+];
 
 /// Files that say what a project is, by name.
 const MANIFESTS: &[&str] = &[
@@ -140,8 +150,10 @@ fn is_manifest(name: &str) -> bool {
 }
 
 /// An overview of `dir`, about `bytes` long: its README, the tree of its folders two deep
-/// (hidden ones, `exclude`d ones and the names its `.gitignore` gives left out), its project
-/// files to three deep, and its docs' index. Each is a source of its own; the tree's is `dir`.
+/// (hidden ones, `exclude`d ones and the names its `.gitignore` gives left out) and, for a
+/// project, its map (`code::map`: what each project file says it uses, each file of code
+/// with what it says it is and its public items), its project files to three deep, and its
+/// docs' index. Each is a source of its own; the tree's and the map's is `dir`.
 pub fn overview(dir: &Path, bytes: usize, exclude: &[String]) -> Vec<(PathBuf, String)> {
     let mut skip: Vec<String> = exclude.to_vec();
     // ponytail: plain names from the top .gitignore only; patterns and nested ones are not read.
@@ -167,12 +179,17 @@ pub fn overview(dir: &Path, bytes: usize, exclude: &[String]) -> Vec<(PathBuf, S
         left -= text.len().min(left);
         out.push((path, text));
     };
+    // A project's map says more of it than its README's later parts and its project files
+    // in full: it gets half, and they less.
+    let map = crate::code::map(dir, bytes / 2, &skip);
+    let share = if map.is_empty() { [2, 4, 8] } else { [4, 8, 16] };
     if let Some(p) = readme {
-        put(p.clone(), head(&p, bytes), (bytes / 2).max(200));
+        put(p.clone(), head(&p, bytes), (bytes / share[0]).max(200));
     }
-    put(dir.to_path_buf(), tree, (bytes / 4).max(200));
+    let tree = if map.is_empty() { tree } else { format!("{}\n{map}", cut(&tree, bytes / share[1])) };
+    put(dir.to_path_buf(), tree, (bytes / share[1] + map.len()).max(200));
     for p in manifests.into_iter().chain(docs) {
-        put(p.clone(), head(&p, bytes), (bytes / 8).max(200));
+        put(p.clone(), head(&p, bytes), (bytes / share[2]).max(200));
     }
     out
 }
