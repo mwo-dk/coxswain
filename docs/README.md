@@ -4,7 +4,7 @@
 
 Every feature of both apps, the terminal app (`coxswain`) and the desktop app (`coxswain-gui`), has its own page: what it does, how to use it with the exact keys in both apps, what you see on screen, its settings and `config.toml` keys, how the terminal app differs, and the questions people ask. Each area has an index of its own. Pages end with *Previous* and *Next* links in the order below, so the docs can be read from start to end.
 
-New here? Start with [The first-run guide](panels/first-run.md), [The screen](panels/the-screen.md) and [Every default key](panels/keys.md). Coming from 1.x? Read [What's new in 2.0](whats-new-2.md). Puzzled? See [Questions, collected](faq.md).
+New here? Start with [The first-run guide](panels/first-run.md), [The screen](panels/the-screen.md) and [Every default key](panels/keys.md). Coming from 1.x? Read [What's new in 2.0](whats-new-2.md). Puzzled? See [Questions, collected](faq.md). Every version: [the changelog](changelog.md).
 
 ## [Panels and keys](panels/README.md)
 

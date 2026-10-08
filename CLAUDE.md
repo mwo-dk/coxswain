@@ -123,9 +123,10 @@ you add or change a feature, the docs change in the same PR.
   of contents when it is long, and ends with previous / next links in `docs/README.md`'s order.
   Screenshots are linked as `../screenshots/<name>.png`. Check every relative link and anchor
   before pushing.
-- **Changelog:** every PR that bumps the version adds its row to the changelog table at the
-  bottom of `README.md` (version, date, what a user gets in plain words, link to the docs
-  page), newest first.
+- **Changelog:** every PR that bumps the version adds its row (version, date, what a user gets in
+  plain words, link to the docs page), newest first, to the full table in `docs/changelog.md`
+  **and** to the table at the bottom of `README.md`, which keeps only the last ten rows (drop the
+  oldest there).
 - **Each feature section** says what it does, how to reach it (keys, menu, Settings, command
   line), what it needs, how the terminal app and the desktop app differ, and its `config.toml`
   keys.
