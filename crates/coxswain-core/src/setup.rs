@@ -1054,9 +1054,12 @@ mod tests {
         let a = code_advice_at(&cfg, &small, false);
         assert_eq!((a.recommended.as_deref(), a.slow.as_slice()), (None, &["qwen3-coder:30b".to_string()][..]));
         assert!(a.why.contains("qwen3-coder:30b") && a.why.contains("19 GB") && a.why.contains("RTX 4070") && a.why.contains("8 GB"), "{}", a.why);
-        let choices = code_choices(&cfg, Some(&small));
-        let coder = choices.iter().flat_map(|g| &g.models).find(|m| m.value == "qwen3-coder:30b").unwrap();
-        assert!(coder.slow && !coder.recommended, "never preselected");
+        // The list asks whether this machine has Metal: on a Mac the Mac's memory counts.
+        if !crate::chat::metal(false) {
+            let choices = code_choices(&cfg, Some(&small));
+            let coder = choices.iter().flat_map(|g| &g.models).find(|m| m.value == "qwen3-coder:30b").unwrap();
+            assert!(coder.slow && !coder.recommended, "never preselected");
+        }
         let chosen = crate::config::SearchConfig { ask_code_model: "qwen3-coder:30b".into(), ..cfg.clone() };
         let poor = poor_at(&chosen, &small, false);
         let p = poor.iter().find(|p| p.changes.contains_key("ask_code_model")).expect("a poor choice");
