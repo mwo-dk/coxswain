@@ -7,7 +7,7 @@
 #   packaging/retry.sh gh release upload --clobber v2.11.0 SHA256SUMS
 set -uo pipefail
 log=$(mktemp)
-transient='HTTP 5[0-9][0-9]|HTTP 429|status (code )?5[0-9][0-9]|50[0234] (Internal|Bad|Service|Gateway)|Internal Server Error|Bad Gateway|Service Unavailable|Gateway Time-?out|Too Many Requests|BlobNotFound|connection reset|connection refused|timed out|timeout awaiting|TLS handshake|unexpected EOF|Could not resolve host|temporary failure'
+transient='HTTP 5[0-9][0-9]|HTTP 429|status (code )?5[0-9][0-9]|50[0234] (Internal|Bad|Service|Gateway)|Internal Server Error|Bad Gateway|Service Unavailable|Gateway Time-?out|Too Many Requests|BlobNotFound|connection reset|connection refused|timed out|timeout awaiting|TLS handshake|unexpected EOF|Could not resolve host|temporary failure|Something went wrong while executing your query|failed to create branch'
 for i in 1 2 3 4 5; do
   "$@" 2>&1 | tee "$log"
   status=${PIPESTATUS[0]}
