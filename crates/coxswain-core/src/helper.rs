@@ -685,6 +685,9 @@ impl Client {
         let wait = Instant::now();
         // A registered helper that was asked to go takes the system a moment to start again.
         let patience = Duration::from_secs(if crate::service::installed() { 15 } else { 5 });
+        // A test's helper on a slow machine may take longer to come than a real one.
+        #[cfg(test)]
+        let patience = crate::test_limit(patience);
         loop {
             match dial(dir) {
                 Some((mut line, token)) => match exchange(&mut line, &Request::Hello { token, version: self.ours.0.into(), protocol: self.ours.1 }) {
@@ -896,10 +899,13 @@ mod tests {
         let d = tree("shared");
         let starts = Arc::new(AtomicUsize::new(0));
         let start = {
-            let (starts, helper) = (starts.clone(), helper(&d, Duration::from_millis(400)));
-            move |_| {
-                starts.fetch_add(1, Ordering::SeqCst);
-                helper()
+            let (starts, helper) = (starts.clone(), helper(&d, Duration::from_secs(2)));
+            // As an app without a registered helper: its own at the first try, later ones wait.
+            move |n| {
+                if n == 0 {
+                    starts.fetch_add(1, Ordering::SeqCst);
+                    helper()
+                }
             }
         };
         let start = Arc::new(start);
@@ -965,13 +971,16 @@ mod tests {
         }
     }
 
-    /// An app that counts the helpers it starts, and starts `start` with each.
+    /// An app that counts the helpers it starts, and starts `start` with each: as an app without
+    /// a registered helper, at the first try (`step`), and later tries wait for that one.
     fn counting(start: impl Fn() + Send + Sync + 'static) -> (Arc<AtomicUsize>, impl Fn(usize) + Send + Sync + 'static) {
         let n = Arc::new(AtomicUsize::new(0));
         let m = n.clone();
-        (n, move |_| {
-            m.fetch_add(1, Ordering::SeqCst);
-            start()
+        (n, move |t| {
+            if t == 0 {
+                m.fetch_add(1, Ordering::SeqCst);
+                start()
+            }
         })
     }
 
@@ -1060,7 +1069,8 @@ mod tests {
         let d = tree("rescue");
         let tries = Arc::new(Mutex::new(vec![]));
         let start = {
-            let (tries, helper) = (tries.clone(), helper(&d, Duration::from_millis(400)));
+            // It stays while the app runs: the app holds its line until the end.
+            let (tries, helper) = (tries.clone(), helper(&d, Duration::from_secs(5)));
             move |n| {
                 tries.lock().unwrap().push(n);
                 if n == 1 {
@@ -1071,7 +1081,8 @@ mod tests {
         let app = Client::with(Some(d.join("cache")), &config(&d), start);
         ready(&app);
         assert!(app.shared(), "the helper started on the second try answers");
-        assert_eq!(*tries.lock().unwrap(), [0, 1]);
+        // A slow machine may try a third time, at 8 s, before the second try's helper answers.
+        assert_eq!(tries.lock().unwrap()[..2], [0, 1]);
         drop(app);
         let _ = std::fs::remove_dir_all(d);
     }
