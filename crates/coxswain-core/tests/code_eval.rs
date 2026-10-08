@@ -121,14 +121,19 @@ fn code_eval() {
         eprintln!("the built-in model is not installed: nothing measured");
         return;
     }
-    let work = std::env::temp_dir().join(format!("coxswain-code-eval-{}", std::process::id()));
+    // `COXSWAIN_EVAL_DIR`: the copies and stores are kept there, and the next run with the same
+    // models goes on from them instead of making every vector again.
+    let kept = std::env::var_os("COXSWAIN_EVAL_DIR").map(PathBuf::from);
+    let work = kept.clone().unwrap_or_else(|| std::env::temp_dir().join(format!("coxswain-code-eval-{}", std::process::id())));
     let qs = questions(&src);
     let mut corpora: Vec<String> = qs.iter().map(|q| q.corpus.clone()).collect();
     corpora.dedup();
     let mut tallies: Vec<(String, Tally)> = vec![];
     for corpus in corpora.into_iter().filter(|c| only.is_empty() || only.contains(c)) {
         let root = work.join(&corpus);
-        if corpus == "coxswain" { this_repository(&root) } else { copy(&src.join(&corpus), &root) }
+        if !root.exists() {
+            if corpus == "coxswain" { this_repository(&root) } else { copy(&src.join(&corpus), &root) }
+        }
         let root = root.canonicalize().unwrap();
         let cfg = SearchConfig { text_roots: vec![root.clone()], meaning: true, meaning_engine: engine.clone(), meaning_model: model.clone(), ask_model: ask.clone(), history: false, ..SearchConfig::default() };
         let store = Store::open(&work.join(format!("{corpus}.db"))).unwrap();
@@ -166,7 +171,7 @@ fn code_eval() {
             tally.in_answer += in_answer;
             tally.first_word += first.unwrap_or(0.0);
             let files: Vec<String> = sources.iter().map(|(p, _)| rel(p)).take(6).collect();
-            eprintln!("{} sources {:.2} answer {:.2} {:>5.1} s  {}  [{}]", if found { "F" } else { "-" }, in_sources, in_answer, first.unwrap_or(0.0), q.text, files.join(", "));
+            eprintln!("{} sources {:.2} answer {:.2} {:>5.1} s {:>3} KB  {}  [{}]", if found { "F" } else { "-" }, in_sources, in_answer, first.unwrap_or(0.0), all.len() / 1000, q.text, files.join(", "));
             if std::env::var_os("COXSWAIN_EVAL_SHOW").is_some() {
                 eprintln!("    {}", answer.trim().replace('\n', "\n    "));
             }
@@ -188,5 +193,7 @@ fn code_eval() {
     }
     let n = sum.n.max(1) as f64;
     println!("| all | {} | {} | {:.2} | {:.2} | {:.1} s |", sum.n, sum.file, sum.in_sources / n, sum.in_answer / n, sum.first_word / n);
-    let _ = std::fs::remove_dir_all(work);
+    if kept.is_none() {
+        let _ = std::fs::remove_dir_all(work);
+    }
 }
