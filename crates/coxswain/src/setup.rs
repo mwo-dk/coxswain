@@ -208,16 +208,27 @@ pub fn run() {
     println!("{}", t!("setup.ask_builtin_hint"));
     // On a processor only when it is quick enough here: the probe says (under a second).
     let cpu_only = search().meaning_device == "cpu";
-    let builtin_chat = chat::suggest(machine.ram, cpu_only);
+    // What runs on the graphics card: a server's model there beats any built-in one on the
+    // processor, and is the one recommended and preselected.
+    let look = setup::Look { gpu: found.iter().map(|f| setup::on_gpu(f, &machine)).collect(), found: found.clone(), machine: machine.clone() };
+    let recommended = setup::recommend_ask(&search(), Some(&look));
+    let quicker = !setup::ask_servers(&search(), &look).is_empty();
     let builtin_models: Vec<&chat::Model> = chat::fitting(machine.ram).collect();
+    let mark = |s: &mut String, value: &str, slow: bool| {
+        if value == recommended && !slow {
+            s.push_str(&format!(" [{}]", t!("setup.recommended")));
+        }
+        if slow {
+            s.push_str(&format!(" [{}]", t!("settings.ask_slow_here")));
+        }
+    };
     let mut items: Vec<String> = builtin_models
         .iter()
         .map(|&m| {
             let mut s = t!("setup.ask_builtin", "model" => m.name, "size" => coxswain_core::settings::human(m.size()), "where" => setup::builtin_runs(&search(), None));
-            if builtin_chat.is_some_and(|b| std::ptr::eq(m, b)) && ask_server.is_none() {
-                s.push_str(&format!(" [{}]", t!("setup.recommended")));
-            }
-            if let Some(e) = chat::estimate(m, cpu_only, true) {
+            let e = chat::estimate(m, cpu_only, true);
+            mark(&mut s, &m.key(), !cfg!(target_os = "macos") && (quicker || e.is_some_and(|e| e.first >= chat::QUICK)));
+            if let Some(e) = e {
                 s.push_str(&format!("\n      {}", e.text()));
             }
             s
@@ -237,16 +248,25 @@ pub fn run() {
             }
         }
     }
-    items.extend(models.iter().cloned());
+    // Each of the server's with where it runs: "qwen3:8b (On Ollama at localhost:11434 · on the graphics card (RTX 4070))".
+    let place = setup::ask_choices(&search(), Some(&look)).into_iter().find(|g| g.server).map(|g| g.label).filter(|_| ask_server.is_some());
+    items.extend(models.iter().map(|m| {
+        let mut s = place.as_ref().map_or_else(|| m.clone(), |p| format!("{m} ({p})"));
+        mark(&mut s, m, false);
+        s
+    }));
     // Last: skip Ask, never the default. The default: Ask's model as it is set, else the
     // server's suggestion or first chat model, else the built-in one for this machine.
     items.push(t!("setup.ask_off"));
     let builtins = builtin_models.len();
     let off = items.len() - 1;
     let now = search().ask_model;
-    let set = builtin_models.iter().position(|m| m.key() == now).or_else(|| models.iter().position(|m| !now.is_empty() && *m == now).map(|i| builtins + i));
-    let builtin = builtin_models.iter().position(|&m| std::ptr::eq(m, builtin_chat.unwrap_or_else(|| chat::preselect(machine.ram, cpu_only)))).unwrap_or(0);
-    let default = set.or_else(|| models.iter().position(|m| !suggest.is_empty() && m.starts_with(&suggest)).map(|i| builtins + i)).or((!models.is_empty()).then_some(builtins)).unwrap_or(builtin);
+    let at = |value: &str| builtin_models.iter().position(|m| m.key() == value).or_else(|| models.iter().position(|m| !value.is_empty() && *m == value).map(|i| builtins + i));
+    // The model set stays the default, unless it is a poor choice here: then the recommended one.
+    let poor = setup::poor_in(&search(), &look).iter().any(|p| p.ask);
+    let set = at(&now).filter(|_| !poor);
+    let builtin = at(&recommended).unwrap_or(0);
+    let default = set.or_else(|| models.iter().position(|m| !suggest.is_empty() && m.starts_with(&suggest)).map(|i| builtins + i)).or(at(&recommended)).or((!models.is_empty()).then_some(builtins)).unwrap_or(builtin);
     let chosen = match choose(&items, default) {
         Some(i) if i == off => {
             save("ask_model", "");

@@ -244,7 +244,7 @@ fn save_settings(changes: serde_json::Map<String, serde_json::Value>, ctx: tauri
 #[tauri::command]
 async fn search_status(ctx: tauri::State<'_, Ctx>) -> Res<Vec<coxswain_core::settings::Line>> {
     let (index, cfg) = (ctx.index.clone(), ctx.cfg().search.clone());
-    blocking(move || Ok(coxswain_core::settings::status(&cfg, &index.status(), index.shared()))).await
+    blocking(move || Ok(coxswain_core::settings::status(&cfg, &index.status(), index.shared(), &coxswain_core::setup::poor(&cfg, false)))).await
 }
 
 /// What choosing a search level changes; none when the setup guide has to choose a model first.
@@ -743,8 +743,10 @@ struct ChatStatus {
     downloading: Option<(String, u64, u64)>,
     error: Option<String>,
     runs: String,
-    /// The built-in model to preselect when Ask has none and no server offers one.
+    /// The model to preselect when Ask has none: a server's on the graphics card, else built in.
     preselected: String,
+    /// Every chat model Ask can take, by place: the server's and the built-in ones.
+    groups: Vec<coxswain_core::setup::AskGroup>,
 }
 
 #[tauri::command(async)]
@@ -756,6 +758,7 @@ fn chat_status(ctx: tauri::State<Ctx>) -> Res<ChatStatus> {
     let cpu_only = ctx.cfg().search.meaning_device == "cpu";
     let ram = *RAM.get_or_init(coxswain_core::setup::ram_gb);
     let suggested = chat::suggest(ram, cpu_only);
+    let look = coxswain_core::setup::look(false);
     let models = chat::fitting(ram)
         .map(|m| ChatModel { key: m.key(), name: m.name, size: m.size(), ram: m.ram, installed: m.installed(), suggested: suggested.is_some_and(|s| std::ptr::eq(m, s)), estimate: chat::estimate(m, cpu_only, true).map(|e| e.text()) })
         .collect();
@@ -765,8 +768,66 @@ fn chat_status(ctx: tauri::State<Ctx>) -> Res<ChatStatus> {
         downloading: d.as_ref().filter(|(_, _, err)| err.is_none()).map(|(k, p, _)| (k.clone(), p.done.load(Ordering::Relaxed), p.total.load(Ordering::Relaxed))),
         error: d.as_ref().and_then(|(_, _, e)| e.clone()),
         runs: coxswain_core::setup::builtin_runs(&ctx.cfg().search, None),
-        preselected: chat::preselect(ram, cpu_only).key(),
+        preselected: coxswain_core::setup::recommend_ask(&ctx.cfg().search, look.as_deref()),
+        groups: coxswain_core::setup::ask_choices(&ctx.cfg().search, look.as_deref()),
     })
+}
+
+/// The built-in models on the disk, for Settings → Finding files → Built-in models.
+#[tauri::command]
+async fn models_list(ctx: tauri::State<'_, Ctx>) -> Res<Vec<coxswain_core::models::Entry>> {
+    let (index, cfg) = (ctx.index.clone(), ctx.cfg().search.clone());
+    blocking(move || Ok(coxswain_core::models::list(&cfg, &index.loaded()))).await
+}
+
+/// "unload" the built-in chat model; "delete" the model `id` (the one in use gives way to the
+/// recommended choice, saved: the page hears `config-changed`); "unused": delete all not in
+/// use. What was done, in words.
+#[tauri::command]
+async fn models_action(what: String, id: String, app: tauri::AppHandle, ctx: tauri::State<'_, Ctx>) -> Res<String> {
+    use coxswain_core::models;
+    let (index, cfg) = (ctx.index.clone(), ctx.cfg().search.clone());
+    let all = blocking({
+        let (index, cfg) = (index.clone(), cfg.clone());
+        move || Ok(models::list(&cfg, &index.loaded()))
+    })
+    .await?;
+    let human = coxswain_core::settings::human;
+    match what.as_str() {
+        "unload" => {
+            index.unload();
+            Ok(coxswain_core::t!("models.unloaded", "model" => all.iter().find(|e| e.id == id).map_or(id.as_str(), |e| e.name.as_str())))
+        }
+        "unused" => {
+            let gone: Vec<models::Entry> = all.into_iter().filter(|e| !e.in_use).collect();
+            blocking(move || {
+                for e in &gone {
+                    models::delete(e, &index).map_err(|err| format!("{}: {err}", e.folder.display()))?;
+                }
+                Ok(coxswain_core::t!("models.deleted_all", "n" => gone.len(), "size" => human(gone.iter().map(|e| e.bytes).sum())))
+            })
+            .await
+        }
+        _ => {
+            let e = all.into_iter().find(|e| e.id == id).ok_or_else(|| coxswain_core::t!("models.no_such", "name" => id))?;
+            let instead = blocking({
+                let (cfg, e) = (cfg.clone(), e.clone());
+                move || Ok(models::instead(&cfg, &e, coxswain_core::setup::look(true).as_deref()))
+            })
+            .await?;
+            if let Some((changes, _)) = &instead {
+                save_settings(changes.clone(), ctx.clone())?;
+                let _ = app.emit("config-changed", ());
+            }
+            let said = blocking({
+                let e = e.clone();
+                move || models::delete(&e, &index).map_err(|err| format!("{}: {err}", e.folder.display()))
+            })
+            .await
+            .map(|()| coxswain_core::t!("models.deleted", "model" => e.name.as_str(), "size" => human(e.bytes)))?;
+            Ok(instead.map_or(said.clone(), |(_, then)| format!("{said} {then}")))
+        }
+    }
 }
 
 /// "download" the built-in chat model `model`, then make it Ask's (the page hears
@@ -1035,7 +1096,8 @@ async fn find(query: String, scope: Option<PathBuf>, chip: coxswain_core::find::
         let rows = if kind == Kind::All { find::ALL_ROWS } else { cfg.max_results.min(GUI_MAX_HITS) };
         let found = index.find(&query, scope.as_deref(), chip, rows);
         let ask = find::ask_ready(&cfg).and_then(|_| ask_problem.map_or(Ok(()), |p| Err(Off::AskModel(p))));
-        let rows = find::rows(&query, chip, &found, ask.clone(), |id| dismissed.iter().any(|d| d == id));
+        let slow = coxswain_core::setup::poor(&cfg, false).into_iter().find(|p| p.ask);
+        let rows = find::rows(&query, chip, &found, ask.clone(), slow.as_ref(), |id| dismissed.iter().any(|d| d == id));
         let status = index.status();
         let start = find::start(&query, &rows);
         let rows = rows
@@ -1827,7 +1889,7 @@ fn main() {
             clip_set, paste, start_drag, watch_dirs, preview::git_diff, preview::sqlite_info, preview::epub_preview,
             preview::file_facts, preview::cert_info, bom::bom_info, bom::bom_node, bom::bom_diff, provenance::provenance_info, provenance::provenance_statements, provenance::provenance_subject, provenance::provenance_cancel, provenance::provenance_sources, provenance::provenance_diff, provenance::provenance_bom, preview::mail_preview, preview::plist_xml, convert::preview_engines, convert::preview_cache, convert::clear_preview_cache,
             convert::convert, convert::images, convert::pull_image, convert::remove_image, convert::pull_progress, dupes_scan,
-            dupes_progress, dupes_cancel, save_settings, search_status, search_level, guide_seen, nerd_font, copy_text, features, open_docs
+            dupes_progress, dupes_cancel, save_settings, search_status, search_level, guide_seen, nerd_font, copy_text, features, open_docs, models_list, models_action
         ])
         .run(tauri::generate_context!())
         .expect("error while running Coxswain");

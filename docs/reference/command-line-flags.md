@@ -54,7 +54,7 @@ coxswain [LEFT] [RIGHT]      a folder, or a file to open its folder with the cur
                   looks, behaviour, keys, privacy, or an option such as show_hidden
   --dump-config   print the full default config (redirect it to the config file to customise)
   --config-path   print where the config file is read from
-  --paths         print where everything is kept: config, state, index, search store, model
+  --paths         print where everything is kept: config, state, index, search store, models
   --setup-search  set up search inside files, by meaning and Ask, step by step: finds the model
                   servers on this machine and what suits it
   --index-service on|off   start the search helper with your session, or stop doing so
@@ -70,6 +70,9 @@ coxswain [LEFT] [RIGHT]      a folder, or a file to open its folder with the cur
                            built in: builtin:qwen3-1.7b, builtin:qwen3-4b or
                            builtin:qwen3-14b (downloaded once);
                            delete: the built-in ones deleted
+  --models                 the built-in models on the disk: what each is for, its size and
+                           folder, whether it is in use and loaded, when it was last used
+  --models delete NAME|unused  delete one (by the name --models shows), or all not in use
   --hints reset            show the hints on the command line again, each a few times
   --languages              the languages, by region, and how to help improve a new translation
   --whats-new [all]        what the versions since you last looked brought (all: every version)
@@ -85,17 +88,36 @@ coxswain [LEFT] [RIGHT]      a folder, or a file to open its folder with the cur
 | `--version`, `-V` | Prints `coxswain 1.20.0` |
 | `--dump-config` | Prints every option with its default, as TOML, including every built-in theme and the full `[keys]` table. `coxswain --dump-config > ~/.config/coxswain/config.toml` gives you the full list to edit |
 | `--config-path` | Prints where `config.toml` is read from |
-| `--paths` | Prints where everything is kept, one line each: `config`, `state`, `cache`, `name index`, `search store`, `model`, `previews`. See [Where things are kept](where-things-are-kept.md) |
+| `--paths` | Prints where everything is kept, one line each: `config`, `state`, `cache`, `name index`, `search store`, `models` (the folder of the built-in models), `previews`, `archive looks`. See [Where things are kept](where-things-are-kept.md) |
 | `--setup-search` | The guided setup of search inside files, by meaning and Ask: see [below](#--setup-search) |
 | `--index-service [on\|off]` | The search helper with your session: see [below](#--index-service) |
 | `--meaning [on\|off\|delete\|ollama\|server\|builtin\|cpu\|auto]` | Search by meaning: see [below](#--meaning) |
+| `--models` | Lists the [built-in models](../search/models.md) on the disk, leftovers too: for each its folder's name, its name, *for Ask · 8.4 GB · in use · loaded on the CPU, about 8.4 GB of memory · last used 2026-10-08*, and its folder; then *Delete all not in use (…): coxswain --models delete unused* when there is something to free |
+| `--models delete NAME` | Deletes one, named by its folder's name, its id (`qwen3-14b`) or its name; the one in use asks *[y/N]* first and says what comes instead (*Ask now uses qwen3:8b.*). No such model: exit status 1 |
+| `--models delete unused` | Deletes every model not in use, unfinished downloads and older versions included: *Deleted 2 not in use: 9.4 GB freed.* |
 | `--index-helper` | Runs as the search helper instead of the app: see [below](#the-helper---index-helper) |
 | `--hints reset` | Every hint on the status line shows three times again, in both apps (they share `state.json`), and says so. See [The action menu and hints](../panels/action-menu.md#hints-on-the-status-line) |
 | `--languages` | Prints every language under its region, one line each: code, own name, *new* for a fresh translation and *(current)* for the one in use, then where `language` is set and where to suggest a better word. In your language. See [Languages](../customise/languages.md) |
 | `--whats-new` | Prints the changes of the versions you have not read yet, newest first, or of the version you run when you have read them all, then counts them as read (in both apps). Each version is a line `1.29.0  2026-10-04`, then its changes, with each docs link as `Find <https://github.com/mwo-dk/coxswain/blob/master/docs/search/find-file.md>`. See [Notices and what's new](../search/notices.md) |
 | `--whats-new all` | Prints every version's changes, newest first |
 
-Anything else that starts with `-` is taken as a folder name, like any other argument.
+An option it does not know is not taken for a folder: it is said, with the closest one, and
+nothing starts (exit status 2):
+
+```
+$ coxswain --model
+coxswain: unknown option --model
+did you mean --models?
+coxswain --help lists them
+$ coxswain --meaning of
+coxswain: unknown value of for --meaning: it takes on, off, delete, ollama, server, builtin, cpu, auto, ask
+did you mean --meaning off?
+$ coxswain nowhere
+coxswain: no such folder or file: nowhere
+```
+
+A value the option does not take (`--index-service maybe`) is said the same way, and
+`--hints` alone says *--hints needs one of: reset*.
 
 ### `--meaning`
 

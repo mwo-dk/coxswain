@@ -356,6 +356,8 @@ pub fn ask_ready(cfg: &SearchConfig) -> Result<(), Off> {
 pub enum Row {
     /// Ask the query; `off` when Ask cannot be asked yet.
     Ask { off: Option<Off> },
+    /// Ask's chat model is slow here: what to say, and the better one (Enter takes it).
+    Slow { poor: crate::setup::Poor },
     /// A group's heading: how many of how many are shown.
     Head { group: GroupId, shown: usize, total: usize },
     Hit { group: GroupId, hit: Hit },
@@ -377,8 +379,9 @@ pub const ALL_ROWS: usize = 5;
 
 /// The rows for `query` under the kind `chip` (a prefix in the query wins): the Ask row, then
 /// each group with hits or a reason, in the order of the query's shape. `ask`: whether Ask can
-/// be asked; `dismissed`: the tips the user sent away.
-pub fn rows(query: &str, chip: Kind, found: &Found, ask: Result<(), Off>, dismissed: impl Fn(&str) -> bool) -> Vec<Row> {
+/// be asked; `slow`: Ask's chat model is a poor choice here (`setup::poor`), said under the
+/// Ask row; `dismissed`: the tips the user sent away.
+pub fn rows(query: &str, chip: Kind, found: &Found, ask: Result<(), Off>, slow: Option<&crate::setup::Poor>, dismissed: impl Fn(&str) -> bool) -> Vec<Row> {
     let (prefix, q) = parse(query);
     let kind = prefix.unwrap_or(chip);
     let mut out = vec![];
@@ -390,7 +393,12 @@ pub fn rows(query: &str, chip: Kind, found: &Found, ask: Result<(), Off>, dismis
     if kind != Kind::Names && asks(q) {
         let off = ask.err();
         if off.as_ref().is_none_or(shown) {
+            // Said when a model is chosen: one that cannot answer yet too (not downloaded).
+            let ready = !matches!(off, Some(Off::AskNeedsMeaning | Off::AskNoModel));
             out.push(Row::Ask { off });
+            if let Some(poor) = slow.filter(|_| ready) {
+                out.push(Row::Slow { poor: poor.clone() });
+            }
         }
     }
     let wanted = |g: GroupId| match kind {
@@ -554,7 +562,7 @@ mod tests {
             ..Found::default()
         };
         let none = |_: &str| false;
-        let r = rows("rocket", Kind::All, &found, Ok(()), none);
+        let r = rows("rocket", Kind::All, &found, Ok(()), None, none);
         assert!(matches!(r[0], Row::Head { group: GroupId::Names, shown: 5, total: 9 }), "{r:?}");
         assert_eq!(r.iter().filter(|r| matches!(r, Row::Hit { group: GroupId::Names, .. })).count(), 5);
         assert!(r.contains(&Row::More { group: GroupId::Names, n: 4 }));
@@ -562,23 +570,28 @@ mod tests {
         assert!(!r.iter().any(|r| matches!(r, Row::Ask { .. })), "one word: no Ask row");
         assert_eq!(start("rocket", &r), 1);
         // Long: words first, the Ask row on top; a question starts on it.
-        let r = rows("rocket fuel cost", Kind::All, &found, Err(Off::AskNoModel), none);
+        let r = rows("rocket fuel cost", Kind::All, &found, Err(Off::AskNoModel), None, none);
         assert_eq!(r[0], Row::Ask { off: Some(Off::AskNoModel) });
         assert!(matches!(r[1], Row::Head { group: GroupId::InFiles, .. }));
         assert_eq!(start("rocket fuel cost", &r), 2);
-        assert_eq!(start("rocket fuel cost?", &rows("rocket fuel cost?", Kind::All, &found, Ok(()), none)), 0);
+        assert_eq!(start("rocket fuel cost?", &rows("rocket fuel cost?", Kind::All, &found, Ok(()), None, none)), 0);
+        // A slow chat model is said under the Ask row, when Ask can be asked.
+        let poor = crate::setup::Poor { ask: true, text: "slow".into(), short: "slow".into(), button: None, changes: Default::default() };
+        let r = rows("rocket fuel cost", Kind::All, &found, Ok(()), Some(&poor), none);
+        assert_eq!((&r[0], &r[1]), (&Row::Ask { off: None }, &Row::Slow { poor: poor.clone() }));
+        assert!(!rows("rocket fuel cost", Kind::All, &found, Err(Off::AskNoModel), Some(&poor), none).iter().any(|r| matches!(r, Row::Slow { .. })));
         // Dismissed tips go, in All.
-        let r = rows("rocket fuel cost", Kind::All, &found, Err(Off::AskNoModel), |id| id == "find-ask" || id == "find-about");
+        let r = rows("rocket fuel cost", Kind::All, &found, Err(Off::AskNoModel), None, |id| id == "find-ask" || id == "find-about");
         assert!(!r.iter().any(|r| matches!(r, Row::Ask { .. } | Row::Off { .. })), "{r:?}");
         // One chip: its group alone, all of it; the Names chip never asks.
-        let r = rows("rocket fuel", Kind::Names, &found, Ok(()), none);
+        let r = rows("rocket fuel", Kind::Names, &found, Ok(()), None, none);
         assert_eq!(r.iter().filter(|r| matches!(r, Row::Hit { .. })).count(), 7);
         assert!(!r.iter().any(|r| matches!(r, Row::Ask { .. } | Row::More { .. })));
         // A prefix wins over the chip.
-        let r = rows("text: rocket", Kind::Names, &found, Ok(()), none);
+        let r = rows("text: rocket", Kind::Names, &found, Ok(()), None, none);
         assert!(r.iter().all(|r| !matches!(r, Row::Hit { group: GroupId::Names, .. })));
         // The cursor steps over headings.
-        let r = rows("rocket", Kind::All, &found, Ok(()), none);
+        let r = rows("rocket", Kind::All, &found, Ok(()), None, none);
         let after_names = r.iter().position(|r| matches!(r, Row::More { .. })).unwrap();
         assert!(matches!(r[step(&r, after_names, 1)], Row::Hit { group: GroupId::InFiles, .. }));
         assert_eq!(step(&r, 1, -5), 1);

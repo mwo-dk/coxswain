@@ -191,8 +191,15 @@ models, tests them and checks the GPU; what it sets shows in the status block.
 
 | Option | Does | Key |
 |---|---|---|
-| *Chat model* | The chat models of the server (Ollama here with the built-in model); models that only read meaning are left out. **Try it** asks a test question. Once saved, the model is tried at once: one that cannot answer says why in red. In bold, when the server is another machine: *Your questions and the passages closest to them are sent to …* | `[search] ask_model` |
+| *Chat model* | One list: the server's chat models (Ollama here with the built-in model) under *On Ollama at localhost:11434 · on the graphics card (…)*, the built-in ones under *Built in · on the CPU*, then *Another model…* and *Off*; models that only read meaning are left out. A pick saves it (a built-in one is downloaded first). **Try it** asks a test question. Once saved, the model is tried at once: one that cannot answer says why in red; a built-in one that is slow here says so in red with **Use qwen3:8b** ([When it is a poor choice here](../search/ask-builtin.md#when-it-is-a-poor-choice-here)). In bold, when the server is another machine: *Your questions and the passages closest to them are sent to …* | `[search] ask_model` |
 | *Let the model think first* | Better reasoning with models that can think, many seconds before the first word ([Thinking](../search/ask.md#thinking)) | `[search] ask_think` |
+
+**Built-in models** (`--settings=models` opens here)
+
+| Part | Does | Key |
+|---|---|---|
+| Each model on the disk | Its name, *for Ask · 8.4 GB · in use · loaded on the CPU, about 8.4 GB of memory · last used 2026-10-08*, its folder with **Show in panel**, **Unload now** (a chat model that is loaded) and **Delete** (a second click on the one in use) ([Built-in models](../search/models.md)) | none |
+| **Delete all not in use (size)** | Deletes every model not in use, unfinished downloads and older versions too | none |
 
 **Background reading**
 

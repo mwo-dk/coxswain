@@ -88,7 +88,7 @@ pub fn of(ask_model: &str) -> Option<&'static Model> {
 }
 
 /// Whether a built-in model runs on a Mac's GPU, where it is quick: unless `cpu_only`.
-fn metal(cpu_only: bool) -> bool {
+pub(crate) fn metal(cpu_only: bool) -> bool {
     cfg!(target_os = "macos") && !cpu_only
 }
 
@@ -118,7 +118,7 @@ pub fn preselect(ram: u64, cpu_only: bool) -> &'static Model {
 }
 
 /// Seconds to the first word that still make a model worth recommending.
-const QUICK: f64 = 10.0;
+pub const QUICK: f64 = 10.0;
 
 /// How quickly a built-in model answers on this machine's processor, from `probe`.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -241,7 +241,12 @@ impl Model {
 
     /// Where it is kept: next to the embedding model.
     pub fn folder(&self) -> Option<PathBuf> {
-        Some(crate::helper::folder()?.join("models").join(format!("{}-{}", self.id, &self.files[0].revision[..8])))
+        Some(crate::helper::folder()?.join("models").join(self.folder_name()))
+    }
+
+    /// The name of its folder.
+    pub(crate) fn folder_name(&self) -> String {
+        format!("{}-{}", self.id, &self.files[0].revision[..8])
     }
 
     /// Tokens it sees at most, answer included: its own on a Mac's GPU, else `CPU_CONTEXT`.
@@ -255,7 +260,12 @@ impl Model {
     }
 
     pub fn installed(&self) -> bool {
-        self.folder().is_some_and(|d| self.files.iter().all(|f| std::fs::metadata(d.join(f.name)).is_ok_and(|m| m.len() == f.len)))
+        self.folder().is_some_and(|d| self.installed_in(&d))
+    }
+
+    /// Whether `dir` holds the whole model.
+    pub(crate) fn installed_in(&self, dir: &std::path::Path) -> bool {
+        self.files.iter().all(|f| std::fs::metadata(dir.join(f.name)).is_ok_and(|m| m.len() == f.len))
     }
 
     pub fn download(&self, p: &Progress) -> io::Result<()> {
@@ -349,6 +359,18 @@ struct Loaded {
 }
 
 static LOADED: Mutex<Option<Loaded>> = Mutex::new(None);
+/// Which model is loaded and whether on a Mac's GPU, told apart from the slot, which a
+/// question holds while it is answered.
+static HELD: Mutex<Option<(&'static str, bool)>> = Mutex::new(None);
+
+/// The built-in chat model loaded in this process, and whether on a Mac's GPU.
+pub fn loaded() -> Option<(&'static str, bool)> {
+    *HELD.lock().unwrap_or_else(|e| e.into_inner())
+}
+
+fn held(now: Option<&Loaded>) {
+    *HELD.lock().unwrap_or_else(|e| e.into_inner()) = now.map(|l| (l.id, !l.device.is_cpu()));
+}
 
 /// The model slot; a question that panicked half-way leaves it empty, to be loaded afresh.
 fn slot() -> std::sync::MutexGuard<'static, Option<Loaded>> {
@@ -381,6 +403,7 @@ fn device(cpu_only: bool) -> Device {
 /// Free the model's memory now.
 pub fn unload() {
     *slot() = None;
+    held(None);
 }
 
 /// Ask the built-in model `m`: `question` answered from `sources` (numbered in their order)
@@ -392,10 +415,12 @@ pub fn ask(m: &'static Model, cpu_only: bool, think: bool, earlier: &[Turn], que
     if slot.as_ref().is_none_or(|l| l.id != m.id) {
         let first = slot.is_none();
         *slot = None;
+        held(None);
         if !piece("") {
             return Ok(());
         }
         *slot = Some(load(m, device(cpu_only)).or_else(|e| if cpu_only { Err(e) } else { load(m, Device::Cpu) })?);
+        held(slot.as_ref());
         if first {
             let _ = std::thread::Builder::new().name("coxswain-chat-idle".into()).spawn(let_go);
         }
@@ -410,11 +435,15 @@ pub fn ask(m: &'static Model, cpu_only: bool, think: bool, earlier: &[Turn], que
     let done = match done {
         Err(_) if !said && !loaded.device.is_cpu() => {
             *loaded = load(m, Device::Cpu)?;
+            held(Some(loaded));
             answer(loaded, m, think, earlier, question, sources, &mut piece)
         }
         d => d,
     };
     loaded.used = Instant::now();
+    if let Some(dir) = m.folder() {
+        crate::models::used(&dir);
+    }
     done
 }
 
@@ -425,6 +454,7 @@ fn let_go() {
         let mut slot = slot();
         if slot.as_ref().is_none_or(|l| l.used.elapsed() > IDLE) {
             *slot = None;
+            held(None);
             return;
         }
     }

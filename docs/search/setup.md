@@ -8,7 +8,7 @@ other three need a little setting up. The guided setup does it with you, in both
 the model servers on your machine, says what suits your hardware, and asks before it downloads
 anything.
 
-![The desktop app's Set up smart search window in Cyber on a machine with no model server: 1. Search inside files on, 112 files read so far; 2. This machine: no graphics card found, 63 GB of memory, The built-in model (465 MB download, on the CPU; nothing leaves the machine) chosen and marked recommended, No model server answers on this machine, the field for a server elsewhere with Look and Look again; 3. multilingual-e5-small with Download the built-in model (465 MB); 4. Ask: Qwen3 1.7B, built in, with Download Qwen3 1.7B (1.0 GB) and use it, the estimate On this processor: about 83 s to the first word, then 6.6 words a second (too slow to recommend; a model server answers more quickly), and Skip Ask for now; 5. Speed](../screenshots/setup-guide.png)
+![The desktop app's Set up smart search window in Cyber on a machine with no model server: 1. Search inside files on, 112 files read so far; 2. This machine: no graphics card found, 63 GB of memory, The built-in model (465 MB download, on the CPU; nothing leaves the machine) chosen and marked recommended, No model server answers on this machine, the field for a server elsewhere with Look and Look again; 3. multilingual-e5-small with Download the built-in model (465 MB); 4. Ask: Qwen3 1.7B, built in, marked slow here, with Download Qwen3 1.7B (1.0 GB) and use it, the estimate On this processor: about 89 s to the first word, then 6.1 words a second (too slow to recommend; a model server answers more quickly), and Skip Ask for now; 5. Speed](../screenshots/setup-guide.png)
 *The guide on a machine with no model server: the built-in model is recommended, and Ask offers the built-in chat model with an estimate for this processor.*
 
 ## Contents
@@ -102,13 +102,16 @@ app all steps are on one page; the terminal app asks them in order.
    are turned on, the step reads *Search by meaning is on, with the built-in model…*, and step 2's
    heading shows *the built-in model*. A download that fails says why in red under the button (no
    network, a proxy that blocks huggingface.co, a full disk); press the button again to go on.
-4. **Ask: the chat model.** Optional; nothing blocks the steps after it. First the
-   [built-in chat models](ask-builtin.md): *Optional. A built-in chat model answers on this
-   machine, with nothing to install, and nothing leaves it…*, a list with *Qwen3 1.7B, built in
-   (1.0 GB download, on the CPU; nothing leaves the machine)*, *Qwen3 4B Instruct, built in
-   (2.3 GB …)* with 16 GB of memory or more and *Qwen3 14B, built in (8.4 GB …)* with 32 GB or
-   more, the one for this machine chosen, and **recommended** when no server answers and
-   it suits the machine: always on a Mac's GPU, on a processor only when it is quick enough.
+4. **Ask: the chat model.** Optional; nothing blocks the steps after it. One list: the
+   server's chat models under *On Ollama at localhost:11434* (the server chosen in step 2, or
+   Ollama here with the built-in vectors), and the [built-in chat models](ask-builtin.md) under
+   *Built in · on the CPU*: *Qwen3 1.7B, built in (1.0 GB download, on the CPU; nothing leaves
+   the machine)*, *Qwen3 4B Instruct, built in (2.3 GB …)* with 16 GB of memory or more and
+   *Qwen3 14B, built in (8.4 GB …)* with 32 GB or more. **Recommended** goes to a server's model
+   when the server runs its models on the graphics card: it beats any built-in model on the
+   processor, which then says *slow here*. Without one, the built-in model for this machine is
+   recommended when it suits it: always on a Mac's GPU, on a processor only when it is quick
+   enough. Ask's model as set stays chosen, unless it is slow here: then the recommended one is.
    Under the list, on a processor: *On this processor: about 74 s to the first word, then 7.4
    words a second (too slow to recommend; a model server answers more quickly)*, from a short
    probe the first time ([the estimate](ask-builtin.md#the-estimate-for-this-processor)).
@@ -116,8 +119,9 @@ app all steps are on one page; the terminal app asks them in order.
    naming huggingface.co when it fails), makes it Ask's and asks the test question; once it is
    there the button reads **Use and ask a test question**. In the terminal app the built-in
    models are the first numbers of the list, each with its estimate below it, and the last is
-   *Skip Ask for now*. Something is always chosen: Ask's model as set, else the server's
-   suggestion, else the built-in model for this machine; **Skip Ask for now** (a button under
+   *Skip Ask for now*; each of the server's models says where it runs, *qwen3:8b (On Ollama at
+   localhost:11434 · on the graphics card (…))*. Something is always chosen: Ask's model as set
+   (unless it is slow here), else the server's suggestion, else the recommended one; **Skip Ask for now** (a button under
    the lists in the desktop app) turns Ask off instead. Then, with a server, its chat models: only models
    that can answer are listed. Embedding models such as
    `bge-m3` are never offered. The suggestion follows the table above; **Download** fetches it.

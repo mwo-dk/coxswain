@@ -108,10 +108,12 @@ pub fn all(cfg: &Config, status: &Status, state: &AppState, terminal: bool) -> V
             all.push(Notice::new("meaning-cpu", t!("notice.meaning_cpu", "why" => why.text()), Some("search_meaning")));
         }
     }
-    // Meaning by the built-in model on the CPU, while Ollama answers here: it could use the GPU.
-    if status.meaning && status.meaning_engine.starts_with("builtin") && !runs.is_some_and(|r| r.metal) && cfg.search.meaning_engine == "builtin" && !seen("ollama") && crate::meaning::ollama_here() {
-        let text = if terminal { t!("notice.ollama_tui") } else { t!("notice.ollama") };
-        all.push(Notice::new("ollama", text, Some("search_meaning")));
+    // A built-in model on the processor while a server runs its models on the graphics card,
+    // or a chat model too large for the processor: said once here, and on its line in
+    // Settings for as long as the choice stands.
+    for p in crate::setup::poor(&cfg.search, false) {
+        let (id, at) = if p.ask { (format!("poor-ask:{}", cfg.search.ask_model), "ask_model") } else { ("poor-meaning".to_string(), "meaning_engine") };
+        all.push(Notice::new(id, p.text, Some(at)));
     }
     // The desktop app's preview cannot play video and sound here: what to install.
     if !terminal {
@@ -246,7 +248,7 @@ mod tests {
     #[test]
     fn notices_come_one_at_a_time_and_stay_away_once_dismissed() {
         let cfg = Config::default();
-        let mut status = Status { state: crate::index::State::Ready, len: 1, texts: 10, pending: 0, bytes: 0, paused: false, roots: vec![], tools: vec![("tesseract".into(), false)], meaning: false, meaning_pending: 0, meaning_done: 0, meaning_passages: 0, meaning_renewing: 0, meaning_ms_per_file: 0, meaning_engine: String::new(), meaning_error: None, meaning_runs: None, error: None, clouds: vec![], outdated: None };
+        let mut status = Status { state: crate::index::State::Ready, len: 1, texts: 10, pending: 0, bytes: 0, paused: false, roots: vec![], tools: vec![("tesseract".into(), false)], meaning: false, meaning_pending: 0, meaning_done: 0, meaning_passages: 0, meaning_renewing: 0, meaning_ms_per_file: 0, meaning_engine: String::new(), meaning_error: None, meaning_runs: None, chat_loaded: None, error: None, clouds: vec![], outdated: None };
         let mut state = AppState::default();
         // Whether this machine's GStreamer can play video is not what is tested here.
         dismiss(&mut state, "media");

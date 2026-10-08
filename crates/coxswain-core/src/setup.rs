@@ -382,6 +382,327 @@ pub fn speed_problem(f: &Found, m: &Machine, model: &str) -> Option<String> {
     }
 }
 
+// ---------------------------------------------------------------- the better choice
+
+/// Whether `f` runs its models on a graphics card or an NPU: `Some(true)` when a model it has
+/// loaded is there, `Some(false)` when one is on the processor or the machine has neither,
+/// None when it has nothing loaded to tell by.
+pub fn on_gpu(f: &Found, m: &Machine) -> Option<bool> {
+    if m.gpu.is_none() && !m.npu {
+        return Some(false);
+    }
+    let quick = agent(Duration::from_secs(2));
+    let (loaded, on): (serde_json::Value, fn(&serde_json::Value) -> bool) = match f.kind {
+        Kind::Ollama => (get(&quick, &format!("{}/api/ps", f.url), None)?["models"].clone(), |x: &serde_json::Value| x["size_vram"].as_u64().is_some_and(|v| v > 0)),
+        Kind::Lemonade => (get(&quick, &format!("{}/health", f.url), None)?["all_models_loaded"].clone(), |x: &serde_json::Value| x["device"].as_str().is_some_and(|d| !d.eq_ignore_ascii_case("cpu"))),
+        _ => return None,
+    };
+    let loaded = loaded.as_array()?;
+    (!loaded.is_empty()).then(|| loaded.iter().any(on))
+}
+
+/// The servers on this machine, the machine, and where each server runs its models (`on_gpu`).
+#[derive(Clone, Debug, Default)]
+pub struct Look {
+    pub found: Vec<Found>,
+    pub machine: Machine,
+    pub gpu: Vec<Option<bool>>,
+}
+
+impl Look {
+    /// The servers whose models run on a graphics card, or can (a graphics card and nothing
+    /// loaded to tell by), with whether that is known; the known ones first.
+    pub fn gpu_servers(&self) -> Vec<(&Found, bool)> {
+        let card = self.machine.gpu.is_some() || self.machine.npu;
+        let mut v: Vec<(&Found, bool)> = self.found.iter().zip(&self.gpu).filter(|(_, g)| **g == Some(true) || (g.is_none() && card)).map(|(f, g)| (f, *g == Some(true))).collect();
+        v.sort_by_key(|(_, sure)| !sure);
+        v
+    }
+
+    /// The graphics card's name, or the NPU.
+    fn card(&self) -> String {
+        self.machine.gpu.as_ref().map_or_else(|| "NPU".into(), |(_, name, _)| name.clone())
+    }
+}
+
+/// How long a look is kept: servers come and go, but asking takes a second or more.
+const FRESH: Duration = Duration::from_secs(120);
+
+/// What answers on this machine and where it runs its models, asked at most every `FRESH`.
+/// `wait` false never waits: it asks in the background and gives what was kept, None the
+/// first time. Nothing is asked but the servers on this machine.
+pub fn look(wait: bool) -> Option<std::sync::Arc<Look>> {
+    use std::sync::atomic::{AtomicBool, Ordering};
+    use std::sync::{Arc, Mutex};
+    static KEPT: Mutex<Option<(Instant, Arc<Look>)>> = Mutex::new(None);
+    static ASKING: AtomicBool = AtomicBool::new(false);
+    let fresh = || {
+        let found = probe();
+        let machine = machine(&found);
+        let gpu = found.iter().map(|f| on_gpu(f, &machine)).collect();
+        // The processor's speed for the built-in models, measured once.
+        let _ = crate::chat::estimate(&crate::chat::MODELS[0], true, true);
+        let l = Arc::new(Look { found, machine, gpu });
+        *KEPT.lock().unwrap_or_else(|e| e.into_inner()) = Some((Instant::now(), l.clone()));
+        l
+    };
+    let kept = KEPT.lock().unwrap_or_else(|e| e.into_inner()).clone();
+    let again = LOOK_AGAIN.swap(false, Ordering::SeqCst);
+    if let Some((at, l)) = &kept
+        && at.elapsed() < FRESH
+        && !again
+    {
+        return Some(l.clone());
+    }
+    if wait {
+        return Some(fresh());
+    }
+    if !ASKING.swap(true, Ordering::SeqCst) {
+        let _ = std::thread::Builder::new().name("coxswain-look".into()).spawn(move || {
+            fresh();
+            ASKING.store(false, Ordering::SeqCst);
+        });
+    }
+    kept.map(|(_, l)| l)
+}
+
+/// Whether two addresses are the same server: the same host and port, `localhost` and
+/// `127.0.0.1` alike.
+fn same_server(a: &str, b: &str) -> bool {
+    use crate::settings::{host, is_local};
+    let port = |u: &str| host(u).rsplit_once(':').map(|(_, p)| p.to_string()).unwrap_or_default();
+    host(a) == host(b) || (is_local(a) && is_local(b) && port(a) == port(b))
+}
+
+/// The servers of `look` on a graphics card that Ask can use as `cfg` stands: Ollama here with
+/// the built-in model for the vectors, else the server that makes them.
+pub fn ask_servers<'a>(cfg: &crate::config::SearchConfig, look: &'a Look) -> Vec<(&'a Found, bool)> {
+    let url = crate::settings::server_url(cfg);
+    look.gpu_servers().into_iter().filter(|(f, _)| same_server(&f.url, &url) && (cfg.meaning_engine != "builtin" || f.kind == Kind::Ollama)).collect()
+}
+
+/// The servers of `look` on a graphics card that can make the vectors: any, unless Ask uses a
+/// server's model, which has to stay on the same server.
+fn meaning_servers<'a>(cfg: &crate::config::SearchConfig, look: &'a Look) -> Vec<(&'a Found, bool)> {
+    let server_ask = !cfg.ask_model.is_empty() && crate::chat::of(&cfg.ask_model).is_none();
+    let url = crate::settings::server_url(cfg);
+    look.gpu_servers().into_iter().filter(|(f, _)| !server_ask || same_server(&f.url, &url)).collect()
+}
+
+/// A model of `f` that answers (`chat`) or makes vectors: the one named like `hint` (the size
+/// that suits the graphics card), else a Qwen or one of the known embedding models, else the first.
+fn pick(f: &Found, chat: bool, hint: &str) -> Option<String> {
+    let can: Vec<&str> = f.models.iter().filter(|m| if chat { m.chat } else { m.embed }).map(|m| m.name.as_str()).collect();
+    let hint = hint.to_lowercase();
+    let known: &[&str] = if chat { &["qwen"] } else { &["bge-m3", "nomic"] };
+    let like = |w: &str| can.iter().find(|n| n.to_lowercase().starts_with(w)).or_else(|| can.iter().find(|n| n.to_lowercase().contains(w)));
+    (!hint.is_empty()).then(|| like(&hint)).flatten().or_else(|| known.iter().find_map(|w| like(w))).or(can.first()).map(|n| n.to_string())
+}
+
+/// What beats a built-in model that was chosen.
+pub enum Better<'a> {
+    /// A server's model on the graphics card; `sure` when a model it has loaded is there.
+    Server { found: &'a Found, model: String, sure: bool },
+    /// A smaller built-in model that answers within `chat::QUICK` here, if there is one.
+    Smaller(Option<&'static crate::chat::Model>),
+}
+
+/// What beats the built-in chat model `m` on this machine, or None when it is a good choice.
+/// On a Mac's GPU (`metal`) it is. Else a server's model on a graphics card, of `servers`
+/// (those Ask can use, the known ones first); else, when `m` takes `chat::QUICK` or longer to
+/// its first word (`first`, the probe's estimate), a smaller one that does not.
+pub fn better_ask<'a>(m: &crate::chat::Model, metal: bool, first: impl Fn(&crate::chat::Model) -> Option<f64>, servers: &[(&'a Found, bool)], hint: &str) -> Option<Better<'a>> {
+    if metal {
+        return None;
+    }
+    if let Some((found, model, sure)) = servers.iter().find_map(|(f, sure)| pick(f, true, hint).map(|m| (*f, m, *sure))) {
+        return Some(Better::Server { found, model, sure });
+    }
+    if first(m).is_none_or(|s| s < crate::chat::QUICK) {
+        return None;
+    }
+    Some(Better::Smaller(crate::chat::MODELS.iter().rev().find(|x| x.ram < m.ram && first(x).is_some_and(|s| s < crate::chat::QUICK))))
+}
+
+/// The server's embedding model on a graphics card that beats the built-in model on the
+/// processor, of `servers`: the server, the model, and whether that it is on the card is known.
+/// None on a Mac's GPU.
+pub fn better_meaning<'a>(metal: bool, servers: &[(&'a Found, bool)]) -> Option<(&'a Found, String, bool)> {
+    if metal {
+        return None;
+    }
+    servers.iter().find_map(|(f, sure)| pick(f, false, "").map(|m| (*f, m, *sure)))
+}
+
+/// A choice of model that is poor on this machine: what to say, and the better one.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct Poor {
+    /// About Ask's chat model; else about the model for the vectors.
+    pub ask: bool,
+    /// What is slow here, and what is quicker.
+    pub text: String,
+    /// One short line, for Find's Ask row.
+    pub short: String,
+    /// The button that takes the better one ("Use qwen3:8b"), and the options it saves; none
+    /// when the better one is to be downloaded or set up first (the text says which).
+    pub button: Option<String>,
+    pub changes: serde_json::Map<String, serde_json::Value>,
+}
+
+/// The choices of `cfg` that are poor here: a built-in model on the processor while a server
+/// on the graphics card answers, or a built-in chat model too large for the processor. Empty
+/// until the servers have been asked (`look`): `wait` false never waits for that.
+pub fn poor(cfg: &crate::config::SearchConfig, wait: bool) -> Vec<Poor> {
+    let builtin_meaning = cfg.meaning && cfg.meaning_engine == "builtin";
+    if crate::chat::metal(cfg.meaning_device == "cpu") || (crate::chat::of(&cfg.ask_model).is_none() && !builtin_meaning) {
+        return vec![];
+    }
+    look(wait).map(|l| poor_in(cfg, &l)).unwrap_or_default()
+}
+
+/// `poor` for what `look` found.
+pub fn poor_in(cfg: &crate::config::SearchConfig, look: &Look) -> Vec<Poor> {
+    use crate::t;
+    let cpu_only = cfg.meaning_device == "cpu";
+    let metal = crate::chat::metal(cpu_only);
+    let first = |m: &crate::chat::Model| crate::chat::estimate(m, cpu_only, false).map(|e| e.first);
+    let seconds = |s: f64| format!("{:.0}", s.max(1.0));
+    let mut out = vec![];
+    if let Some(m) = crate::chat::of(&cfg.ask_model) {
+        let hint = advise(&look.machine, &look.found).chat;
+        let slow = match first(m) {
+            Some(s) => t!("ask.poor_cpu", "model" => m.name, "seconds" => seconds(s)),
+            None => t!("ask.poor_cpu_unknown", "model" => m.name),
+        };
+        let short = t!("find.ask_slow", "model" => m.name);
+        let mut changes = serde_json::Map::new();
+        match better_ask(m, metal, first, &ask_servers(cfg, look), &hint) {
+            None => {}
+            Some(Better::Server { found, model, sure }) => {
+                let key = if sure { "ask.poor_server_sure" } else { "ask.poor_server_maybe" };
+                let better = t!(key, "model" => model.as_str(), "server" => found.kind.name(), "gpu" => look.card());
+                changes.insert("ask_model".into(), model.clone().into());
+                out.push(Poor { ask: true, text: format!("{slow} {better}"), short, button: Some(t!("settings.use_model", "model" => model)), changes });
+            }
+            Some(Better::Smaller(smaller)) => {
+                let better = match smaller {
+                    Some(x) => t!("ask.poor_smaller", "model" => x.name, "seconds" => first(x).map(seconds).unwrap_or_default()),
+                    None => t!("ask.poor_none"),
+                };
+                let button = smaller.filter(|x| x.installed()).map(|x| {
+                    changes.insert("ask_model".into(), x.key().into());
+                    t!("settings.use_model", "model" => x.name)
+                });
+                out.push(Poor { ask: true, text: format!("{slow} {better}"), short, button, changes });
+            }
+        }
+    }
+    if cfg.meaning && cfg.meaning_engine == "builtin"
+        && let Some((found, model, sure)) = better_meaning(metal, &meaning_servers(cfg, look))
+    {
+        let key = if sure { "meaning.poor_server_sure" } else { "meaning.poor_server_maybe" };
+        let text = format!("{} {}", t!("meaning.poor_cpu"), t!(key, "model" => model.as_str(), "server" => found.kind.name(), "gpu" => look.card()));
+        let mut changes = serde_json::Map::new();
+        changes.insert("meaning_engine".into(), found.engine.clone().into());
+        changes.insert("meaning_url".into(), found.url.clone().into());
+        changes.insert("meaning_model".into(), model.clone().into());
+        out.push(Poor { ask: false, short: text.clone(), text, button: Some(t!("settings.use_model", "model" => model)), changes });
+    }
+    out
+}
+
+/// The chat model to recommend and preselect for Ask: a server's model on the graphics card
+/// when one answers that Ask can use, else the built-in one for this machine. `look` None:
+/// the servers have not been asked yet.
+pub fn recommend_ask(cfg: &crate::config::SearchConfig, look: Option<&Look>) -> String {
+    if let Some(l) = look
+        && let Some(m) = ask_servers(cfg, l).iter().find_map(|(f, _)| pick(f, true, &advise(&l.machine, &l.found).chat))
+    {
+        return m;
+    }
+    crate::chat::preselect(ram_gb(), cfg.meaning_device == "cpu").key()
+}
+
+/// A chat model Ask can take, as Settings and the guide list it.
+#[derive(Clone, Debug, PartialEq, Serialize)]
+pub struct AskChoice {
+    /// `ask_model` for it.
+    pub value: String,
+    /// How it is shown: its name, and for a built-in one its size and speed here.
+    pub label: String,
+    /// Downloaded (a server's always is).
+    pub installed: bool,
+    pub recommended: bool,
+    /// A poor choice here: slow on the processor while something quicker is at hand.
+    pub slow: bool,
+}
+
+/// The chat models of one place: the server Ask uses, or the built-in ones.
+#[derive(Clone, Debug, PartialEq, Serialize)]
+pub struct AskGroup {
+    /// "On Ollama at localhost:11434 · on the graphics card (RTX 4070)", "Built in · on the CPU".
+    pub label: String,
+    pub models: Vec<AskChoice>,
+    /// Why a server's group has none (it does not answer, or is still being asked).
+    pub missing: Option<String>,
+    /// The servers are still being asked.
+    pub loading: bool,
+    pub server: bool,
+}
+
+/// Every chat model Ask can take as `cfg` stands, in one list: the server's (Ollama here with
+/// the built-in vectors, else the server that makes them) and the built-in ones, so one pick
+/// sets `ask_model`. `look` None: the servers are still being asked.
+pub fn ask_choices(cfg: &crate::config::SearchConfig, look: Option<&Look>) -> Vec<AskGroup> {
+    use crate::t;
+    let url = crate::settings::server_url(cfg);
+    let host = crate::settings::host(&url).to_string();
+    let recommended = recommend_ask(cfg, look);
+    let at = look.and_then(|l| l.found.iter().position(|f| same_server(&f.url, &url)).map(|i| (l, i)));
+    let server = at.map(|(l, i)| &l.found[i]);
+    let kind = server.map_or(if cfg.meaning_engine == "openai" { Kind::Other } else { Kind::Ollama }, |f| f.kind);
+    let mut label = t!("settings.ask_group_server", "server" => kind.name(), "host" => host.as_str());
+    let card = at.is_some_and(|(l, i)| l.gpu[i] == Some(true) || (l.gpu[i].is_none() && (l.machine.gpu.is_some() || l.machine.npu)));
+    if let Some((l, _)) = at.filter(|_| crate::settings::is_local(&url)) {
+        label = format!("{label} · {}", if card { t!("settings.ask_on_card", "gpu" => l.card()) } else { t!("meaning.on_cpu") });
+    }
+    let models: Vec<AskChoice> = server.map(|f| f.models.iter().filter(|m| m.chat).map(|m| AskChoice { value: m.name.clone(), label: m.name.clone(), installed: true, recommended: m.name == recommended, slow: false }).collect()).unwrap_or_default();
+    let missing = match (look, server) {
+        (None, _) => Some(t!("common.loading")),
+        (_, None) => Some(t!("settings.ask_no_server", "server" => kind.name(), "host" => host.as_str())),
+        (_, Some(_)) if models.is_empty() => Some(t!("settings.ask_no_chat_model", "server" => kind.name())),
+        _ => None,
+    };
+    let quicker = card && !models.is_empty();
+    let cpu_only = cfg.meaning_device == "cpu";
+    let builtin = crate::chat::fitting(ram_gb())
+        .map(|m| {
+            let first = crate::chat::estimate(m, cpu_only, false).map(|e| e.first);
+            let mut label = format!("{} · {}", m.name, crate::settings::human(m.size()));
+            if let Some(s) = first {
+                label = format!("{label} · {}", t!("settings.ask_first_word", "seconds" => format!("{:.0}", s.max(1.0))));
+            }
+            if !m.installed() {
+                label = format!("{label} · {}", t!("settings.ask_downloads_first"));
+            }
+            let slow = !crate::chat::metal(cpu_only) && (quicker || first.is_some_and(|s| s >= crate::chat::QUICK));
+            // Never both: a model slow here is not recommended, even as the one preselected.
+            AskChoice { value: m.key(), label, installed: m.installed(), recommended: m.key() == recommended && !slow, slow }
+        })
+        .collect();
+    vec![
+        AskGroup { label, models, missing, loading: look.is_none(), server: true },
+        AskGroup { label: format!("{} · {}", t!("settings.ask_group_builtin"), builtin_runs(cfg, None)), models: builtin, missing: None, loading: false, server: false },
+    ]
+}
+
+/// Ask the servers again at the next `look`: Settings opened, a model pulled.
+pub fn forget_look() {
+    LOOK_AGAIN.store(true, std::sync::atomic::Ordering::SeqCst);
+}
+
+static LOOK_AGAIN: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
 // ---------------------------------------------------------------- pulling and trying
 
 /// Download `model` onto the server, with its progress in `p` where the server tells it.
@@ -536,6 +857,63 @@ mod tests {
         assert_eq!(speed_problem(&f, &Machine::default(), "qwen3:8b"), None, "no GPU, nothing to say");
         let ok = fake(vec![("GET /api/ps", r#"{"models":[{"name":"qwen3:8b","size_vram":5000000000}]}"#)]);
         assert_eq!(speed_problem(&Found { url: ok, ..f }, &gpu, "qwen3:8b"), None);
+    }
+
+    fn ollama() -> Found {
+        let m = |name: &str, embed| Model { name: name.into(), embed, chat: !embed };
+        Found { kind: Kind::Ollama, url: crate::meaning::OLLAMA.into(), engine: "ollama".into(), models: vec![m("bge-m3:latest", true), m("llama3.2:3b", false), m("qwen3:8b", false)] }
+    }
+
+    /// The built-in chat model against what else answers: a server on the graphics card beats
+    /// any built-in model on the processor; on a Mac's GPU the built-in one is a good choice;
+    /// with no server, one too slow for the processor is told the smaller one that is quick.
+    #[test]
+    fn the_better_choice_for_ask() {
+        use crate::chat::MODELS;
+        let ollama = ollama();
+        let (small, large) = (&MODELS[0], &MODELS[2]);
+        let first = |m: &crate::chat::Model| Some(match m.id { "qwen3-14b" => 110.0, "qwen3-4b" => 30.0, _ => 8.0 });
+        match better_ask(large, false, first, &[(&ollama, true)], "qwen3:8b") {
+            Some(Better::Server { found, model, sure }) => assert_eq!((found.kind, model.as_str(), sure), (Kind::Ollama, "qwen3:8b", true)),
+            _ => panic!("the server's model"),
+        }
+        assert!(matches!(better_ask(small, false, first, &[(&ollama, false)], ""), Some(Better::Server { model, .. }) if model == "qwen3:8b"), "a Qwen without a hint; even the quick small one loses");
+        assert!(better_ask(large, true, first, &[(&ollama, true)], "").is_none(), "a Mac's GPU: fine as it is");
+        assert!(matches!(better_ask(large, false, first, &[], ""), Some(Better::Smaller(Some(m))) if m.id == "qwen3-1.7b"));
+        assert!(better_ask(small, false, first, &[], "").is_none(), "quick enough");
+        assert!(better_ask(large, false, |_| None, &[], "").is_none(), "nothing said before the estimate");
+        assert!(matches!(better_ask(large, false, |_| Some(60.0), &[], ""), Some(Better::Smaller(None))), "none is quick: a server, said in words");
+        assert_eq!(better_meaning(false, &[(&ollama, true)]).map(|(_, m, _)| m).as_deref(), Some("bge-m3:latest"));
+        assert!(better_meaning(true, &[(&ollama, true)]).is_none());
+    }
+
+    /// A server whose models are on the processor does not count, nor any without a graphics
+    /// card; one with nothing loaded counts when there is a card. What is said, and the button.
+    #[test]
+    fn a_poor_choice_is_said_with_the_better_one() {
+        let lemonade = Found { kind: Kind::Lemonade, url: "http://localhost:13305/api/v1".into(), engine: "openai".into(), models: vec![Model { name: "Qwen3-8B-GGUF".into(), embed: false, chat: true }] };
+        let card = Machine { gpu: Some((Vendor::Nvidia, "RTX 4070".into(), Some(8))), npu: false, ram: 32 };
+        let look = Look { found: vec![ollama(), lemonade.clone()], machine: card.clone(), gpu: vec![Some(false), None] };
+        assert_eq!(look.gpu_servers().iter().map(|(f, sure)| (f.kind, *sure)).collect::<Vec<_>>(), [(Kind::Lemonade, false)]);
+        assert!(Look { found: vec![ollama()], machine: Machine::default(), gpu: vec![None] }.gpu_servers().is_empty(), "no card");
+        let cfg = crate::config::SearchConfig { ask_model: "builtin:qwen3-14b".into(), meaning: true, ..Default::default() };
+        // Lemonade is no server for Ask with the built-in vectors: Ollama here is.
+        assert!(ask_servers(&cfg, &look).is_empty());
+        let look = Look { gpu: vec![Some(true), None], ..look };
+        let poor = poor_in(&cfg, &look);
+        if cfg!(target_os = "macos") {
+            return assert!(poor.is_empty(), "{poor:?}");
+        }
+        let ask = poor.iter().find(|p| p.ask).unwrap();
+        assert!(ask.text.contains("Qwen3 14B") && ask.text.contains("qwen3:8b") && ask.text.contains("Ollama") && ask.text.contains("RTX 4070"), "{}", ask.text);
+        assert_eq!((ask.button.as_deref(), ask.changes["ask_model"].as_str()), (Some(crate::t!("settings.use_model", "model" => "qwen3:8b").as_str()), Some("qwen3:8b")));
+        let meaning = poor.iter().find(|p| !p.ask).unwrap();
+        assert_eq!((meaning.changes["meaning_engine"].as_str(), meaning.changes["meaning_model"].as_str()), (Some("ollama"), Some("bge-m3:latest")));
+        assert_eq!(recommend_ask(&cfg, Some(&look)), "qwen3:8b");
+        assert!(recommend_ask(&cfg, None).starts_with(crate::chat::PREFIX), "before the servers are asked: built in");
+        // A server's model for Ask: nothing to say about it.
+        let cfg = crate::config::SearchConfig { ask_model: "qwen3:8b".into(), ..cfg };
+        assert!(poor_in(&cfg, &look).iter().all(|p| !p.ask));
     }
 
     /// What this machine has: `cargo test -p coxswain-core setup -- --ignored --nocapture`.

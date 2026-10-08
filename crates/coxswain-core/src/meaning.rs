@@ -43,7 +43,7 @@ pub const SCHEME: &str = "2";
 
 /// Where the model is kept: the cache folder, next to the search store.
 pub fn folder() -> Option<PathBuf> {
-    Some(crate::helper::folder()?.join("models").join(format!("{MODEL}-{}", &REVISION[..8])))
+    Some(crate::helper::folder()?.join("models").join(folder_name()))
 }
 
 /// Bytes the download takes.
@@ -53,7 +53,17 @@ pub fn size() -> u64 {
 
 /// Whether the model is downloaded (checked when it was).
 pub fn installed() -> bool {
-    folder().is_some_and(|d| FILES.iter().all(|(name, _, len)| std::fs::metadata(d.join(name)).is_ok_and(|m| m.len() == *len)))
+    folder().is_some_and(|d| installed_in(&d))
+}
+
+/// Whether `dir` holds the whole model.
+pub(crate) fn installed_in(dir: &std::path::Path) -> bool {
+    FILES.iter().all(|(name, _, len)| std::fs::metadata(dir.join(name)).is_ok_and(|m| m.len() == *len))
+}
+
+/// The name of the model's folder.
+pub(crate) fn folder_name() -> String {
+    format!("{MODEL}-{}", &REVISION[..8])
 }
 
 /// A download under way: bytes done of all, and a way to stop it.
@@ -306,6 +316,7 @@ impl Embedder {
         } else {
             (cpu, Runs::default())
         };
+        crate::models::used(&dir);
         Some(Embedder { bert: std::sync::RwLock::new(std::sync::Arc::new(bert)), runs: std::sync::Mutex::new(runs), dir, config, pad, tokenizer, pool })
     }
 
@@ -873,12 +884,6 @@ pub fn chat_problem(cfg: &crate::config::SearchConfig, try_it: bool) -> Option<S
         Ok(mut res) if res.status().as_u16() >= 400 => Some(format!("{} {}: {}", shown(&s.url), res.status(), said(&res.body_mut().read_to_string().unwrap_or_default()))),
         Ok(_) => None,
     }
-}
-
-/// Whether Ollama answers on this machine, asked quickly.
-pub fn ollama_here() -> bool {
-    let agent: ureq::Agent = ureq::Agent::config_builder().tls_config(tls()).timeout_global(Some(Duration::from_millis(400))).build().into();
-    agent.get(&format!("{OLLAMA}/api/version")).call().is_ok()
 }
 
 /// Ask Ollama to pull a model, with its progress in `p`.

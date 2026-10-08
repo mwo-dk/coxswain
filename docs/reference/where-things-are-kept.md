@@ -30,7 +30,7 @@ state         /home/me/.local/share/coxswain/state.json
 cache         /home/me/.cache/coxswain
 name index    /home/me/.cache/coxswain/index.bin
 search store  /home/me/.cache/coxswain/search.db
-model         /home/me/.cache/coxswain/models/multilingual-e5-small-614241f6
+models        /home/me/.cache/coxswain/models
 previews      /home/me/.cache/coxswain/previews
 archive looks /home/me/.cache/coxswain/peek
 ```
@@ -38,7 +38,7 @@ archive looks /home/me/.cache/coxswain/peek
 In the desktop app, Settings (**Ctrl+,**) → *Privacy and updates* → *Where things are kept*
 lists the same paths, each with **Show in panel**, and the bottom of Settings says *Settings are
 stored in …* with the path of `config.toml`. *Finding files* → *Details* → *Background reading*
-shows the search store and *Meaning* the model's folder.
+shows the search store and *Built-in models* each model with its folder ([Built-in models](../search/models.md)).
 (`coxswain-gui --settings=privacy` opens it there.)
 
 ## Every file and folder
@@ -50,8 +50,8 @@ shows the search store and *Meaning* the model's folder.
 | `state.json` | `~/.local/share/coxswain/state.json` | The desktop app's session (panes, tabs, views, the preview engine you picked), favourites, colour tags, folder notes, recent repositories; the last update check; notices dismissed | Only if you want to lose tags and notes. A damaged file is moved aside to `state.json.bad`, never overwritten |
 | `index.bin` | `~/.cache/coxswain/index.bin` | The name index, saved so it loads at once | Yes: it is built again |
 | `search.db` (with `-wal`, `-shm`) | `~/.cache/coxswain/search.db` | The text of your files, every file's size and date, folder totals, duplicate hashes, meaning vectors | Yes, with no Coxswain running: it fills again. Or **Delete what was read** in Settings → *Finding files* → *Details* → *Background reading* |
-| `models/` | `~/.cache/coxswain/models/multilingual-e5-small-614241f6/` | The built-in model for search by meaning, about 488 MB | Yes: *Delete the model* in Settings → *Finding files* → *Details* → *Meaning*, or `coxswain --meaning delete` does it for you |
-| `models/` | `~/.cache/coxswain/models/qwen3-1.7b-d7f544ee/`, `qwen3-4b-a06e946b/`, `qwen3-14b-a04a82c4/` | The [built-in chat models](../search/ask-builtin.md) for Ask, 1.0 GB, 2.3 GB and 8.4 GB, when downloaded | Yes: *Delete the model* in Settings → *Finding files* → *Details* → *Ask*, or `coxswain --meaning ask delete` |
+| `models/` | `~/.cache/coxswain/models/multilingual-e5-small-614241f6/` | The built-in model for search by meaning, about 488 MB | Yes: **Delete** under Settings → *Finding files* → *Details* → *Built-in models*, or `coxswain --models delete multilingual-e5-small` ([Built-in models](../search/models.md)) |
+| `models/` | `~/.cache/coxswain/models/qwen3-1.7b-d7f544ee/`, `qwen3-4b-a06e946b/`, `qwen3-14b-a04a82c4/` | The [built-in chat models](../search/ask-builtin.md) for Ask, 1.0 GB, 2.3 GB and 8.4 GB, when downloaded | Yes: **Delete** under Settings → *Finding files* → *Details* → *Built-in models*, or `coxswain --models delete unused` for all not in use, unfinished downloads and older versions too ([Built-in models](../search/models.md)) |
 | `peek/` | `~/.cache/coxswain/peek/<run>/` | The one file inside an archive being previewed or viewed, copied out for the look; replaced by the next, and left-overs of earlier runs go after a day | Yes, any time |
 | `inside-<n>/` | `~/.cache/coxswain/inside-<n>/` | The search helper reading the text of a file [inside an archive](../search/archives.md): one file at a time, deleted as soon as it is read, the folder when the archive is done | Yes, when no helper runs |
 | `previews/` | `~/.cache/coxswain/previews/` | PDFs, SVGs and pages made by tools (LaTeX, LibreOffice, PlantUML, pandoc), one folder per file and engine | Yes: Settings → *Previews* → *Previews made so far* → *Clear* does it |

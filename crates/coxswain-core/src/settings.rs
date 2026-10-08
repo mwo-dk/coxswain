@@ -244,16 +244,23 @@ pub fn open_at(section: &str) -> (Area, Option<&'static str>) {
     if let Some(a) = Area::ALL.into_iter().find(|a| a.id() == section) {
         return (a, None);
     }
+    if let Some(g) = GROUPS.iter().find(|g| **g == section) {
+        return (Search, Some(g));
+    }
     match find(section) {
         Some(o) => (o.area, Some(o.name)),
         None => (Overview, None),
     }
 }
 
+/// Groups of *Finding files* that Settings opens at by name, in both apps (1.x's names of
+/// sections, `meaning` and `ask`, open Overview).
+const GROUPS: [&str; 1] = ["models"];
+
 /// Every name `open_at` knows, with where it opens: for the desktop app, which opens Settings
 /// at sections given by notices too.
 pub fn sections() -> Vec<(&'static str, Area, Option<&'static str>)> {
-    let names = Area::ALL.iter().map(|a| a.id()).chain(OPTIONS.iter().map(|o| o.name));
+    let names = Area::ALL.iter().map(|a| a.id()).chain(GROUPS).chain(OPTIONS.iter().map(|o| o.name));
     names.map(|n| (n, open_at(n).0, open_at(n).1)).collect()
 }
 
@@ -391,6 +398,8 @@ pub struct Line {
     /// The note is a problem, not news.
     pub bad: bool,
     pub step: Option<Step>,
+    /// The model chosen is a poor choice here: what to say, and the better one.
+    pub poor: Option<crate::setup::Poor>,
 }
 
 /// A count with its thousands set apart by a narrow space, which reads right in every language:
@@ -457,9 +466,10 @@ fn cause(why: &str, url: &str) -> String {
 }
 
 /// The status block of Finding files, from the settings and the helper's status. `helper`:
-/// the helper answers (without it there is no reading).
-pub fn status(s: &SearchConfig, st: &Status, helper: bool) -> Vec<Line> {
-    let line = |part, key: &str, text: String| Line { part, label: t!(key), text, note: None, bad: false, step: None };
+/// the helper answers (without it there is no reading). `poor`: the models chosen that are
+/// poor choices here (`setup::poor`), each said on its line for as long as it stands.
+pub fn status(s: &SearchConfig, st: &Status, helper: bool, poor: &[crate::setup::Poor]) -> Vec<Line> {
+    let line = |part, key: &str, text: String| Line { part, label: t!(key), text, note: None, bad: false, step: None, poor: None };
     let mut names = line(Part::Names, "settings.status.names", t!("settings.status.names_ready", "n" => count(st.len)));
     if st.state != crate::index::State::Ready {
         names.text = t!("settings.status.names_building", "n" => count(st.len));
@@ -523,7 +533,11 @@ pub fn status(s: &SearchConfig, st: &Status, helper: bool) -> Vec<Line> {
                 None => t!("settings.status.server", "model" => s.ask_model, "host" => host(&url)),
             };
             ask.step = Some(Step::TryIt);
+            ask.poor = poor.iter().find(|p| p.ask).cloned();
         }
+    }
+    if s.meaning && st.meaning_error.is_none() {
+        meaning.poor = poor.iter().find(|p| !p.ask).cloned();
     }
     vec![names, text, meaning, ask]
 }
@@ -683,7 +697,7 @@ mod tests {
         }
         // Every section a notice opens is one of them.
         let known = sections();
-        let status = Status { state: crate::index::State::Ready, len: 1, texts: 10, pending: 0, bytes: 0, paused: false, roots: vec![], tools: vec![("tesseract".into(), false)], meaning: true, meaning_pending: 0, meaning_done: 0, meaning_passages: 0, meaning_renewing: 0, meaning_ms_per_file: 0, meaning_engine: String::new(), meaning_error: Some("down".into()), meaning_runs: None, error: Some("stalled".into()), clouds: vec![("OneDrive".into(), "/c".into())], outdated: None };
+        let status = Status { state: crate::index::State::Ready, len: 1, texts: 10, pending: 0, bytes: 0, paused: false, roots: vec![], tools: vec![("tesseract".into(), false)], meaning: true, meaning_pending: 0, meaning_done: 0, meaning_passages: 0, meaning_renewing: 0, meaning_ms_per_file: 0, meaning_engine: String::new(), meaning_error: Some("down".into()), meaning_runs: None, chat_loaded: None, error: Some("stalled".into()), clouds: vec![("OneDrive".into(), "/c".into())], outdated: None };
         let mut state = crate::state::AppState::default();
         state.migrated = vec!["[keys] mkdir → new_folder".into()];
         for n in crate::notices::all(&Config::default(), &status, &state, false) {
@@ -721,19 +735,19 @@ mod tests {
     #[test]
     fn settings_status_says_the_next_step() {
         let mut s = SearchConfig::default();
-        let st = Status { state: crate::index::State::Ready, len: 912_330, texts: 3875, pending: 438, bytes: 0, meaning: false, meaning_pending: 0, meaning_done: 0, meaning_passages: 0, meaning_renewing: 0, meaning_ms_per_file: 0, meaning_engine: String::new(), meaning_error: None, meaning_runs: None, error: None, paused: true, roots: vec![], tools: vec![], clouds: vec![], outdated: None };
+        let st = Status { state: crate::index::State::Ready, len: 912_330, texts: 3875, pending: 438, bytes: 0, meaning: false, meaning_pending: 0, meaning_done: 0, meaning_passages: 0, meaning_renewing: 0, meaning_ms_per_file: 0, meaning_engine: String::new(), meaning_error: None, meaning_runs: None, chat_loaded: None, error: None, paused: true, roots: vec![], tools: vec![], clouds: vec![], outdated: None };
         s.text = true;
         s.meaning = false;
-        let lines = status(&s, &st, true);
+        let lines = status(&s, &st, true, &[]);
         assert_eq!(lines.iter().map(|l| l.step).collect::<Vec<_>>(), [None, Some(Step::ReadNow), Some(Step::SetUp), Some(Step::SetUp)]);
         assert!(lines[0].text.contains("912\u{202f}330"), "{}", lines[0].text);
         assert_eq!((count(7), count(1000), count(12_345_678)), ("7".into(), "1\u{202f}000".into(), "12\u{202f}345\u{202f}678".into()));
-        assert_eq!(status(&s, &st, false)[1].step, Some(Step::Start));
+        assert_eq!(status(&s, &st, false, &[])[1].step, Some(Step::Start));
         s.meaning = true;
         s.meaning_engine = "ollama".into();
         s.ask_model = "qwen3:8b".into();
         let st = Status { meaning_error: Some("http://localhost:11434: Connection refused".into()), ..st };
-        let lines = status(&s, &st, true);
+        let lines = status(&s, &st, true, &[]);
         assert!(lines[2].bad && lines[2].note.as_deref().unwrap().contains("localhost:11434"), "{:?}", lines[2]);
         assert_eq!(lines[3].step, Some(Step::TryIt));
     }

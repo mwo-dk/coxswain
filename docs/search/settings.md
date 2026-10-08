@@ -83,8 +83,9 @@ needs the words.
 | | *API key from the environment variable* | `meaning_key_env` | string, `""` | OpenAI API only: the variable that holds the key |
 | | *Use the CPU only* | `meaning_device` | `"auto"` / `"cpu"`, `"auto"` | On a Mac only ([on a Mac's GPU](meaning.md#on-a-macs-gpu)) |
 | Ask | *Chat model* | `ask_model` | string, `""` | Chat models only; `builtin:qwen3-1.7b`, `builtin:qwen3-4b` or `builtin:qwen3-14b` for a built-in one. **Try it** asks a test question ([Ask](ask.md)) |
-| | *Built-in chat models* | none | | Each with its size and where it runs: **Download (1.0 GB) and use**, **Use**, **Delete the model**, a bar while it downloads ([Ask without a server](ask-builtin.md)) |
+| | *Chat model*, the list | none | | The server's chat models and the built-in ones under where each runs, with size and speed; a pick downloads a built-in one first, with a bar ([Ask without a server](ask-builtin.md)) |
 | | *Let the model think first* | `ask_think` | bool, `false` | Off: a model that thinks first (Qwen3 …) is asked not to ([Thinking](ask.md#thinking)) |
+| Built-in models | each model | none | | Its line and folder, **Unload now**, **Delete**; **Delete all not in use** ([Built-in models](models.md)) |
 | Background reading | *Start with my session* | none | off | [The search helper](helper.md) |
 | | **Read now** | | | The backlog at full speed |
 | | **Delete what was read (size)** | | | A second click confirms (*Click again to delete*); text, sizes, hashes and meaning go, and are read again from the start |

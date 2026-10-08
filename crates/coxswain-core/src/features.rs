@@ -78,6 +78,7 @@ pub const FEATURES: &[Feature] = &[
     f("servers", "search/servers.md", &[]),
     f("ask", "search/ask.md", &[Ask, Search]),
     f("ask_builtin", "search/ask-builtin.md", &[Ask]),
+    f("models", "search/models.md", &[Settings]),
     f("helper", "search/helper.md", &[]),
     f("battery", "search/battery.md", &[]),
     f("notices", "search/notices.md", &[Settings]),

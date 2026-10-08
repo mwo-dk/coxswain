@@ -180,12 +180,6 @@
     if (!engine) return;
     invoke("meaning_models", { engine, url }).then((list) => (models = { ok: true, list, error: "" }), (e) => (models = { ok: false, list: [], error: String(e) }));
   });
-  // Ask's chat models (only those that can chat): on the same server, or Ollama here.
-  let chatModels = $state([]);
-  $effect(() => {
-    const [engine, url] = [server ?? "ollama", server ? s.meaning_url : ""];
-    invoke("meaning_models", { engine, url, chat: true }).then((list) => (chatModels = list), () => (chatModels = []));
-  });
   // Why the chat model cannot answer: asked when Settings opens, tried when it is saved.
   let askProblem = $state(null);
   $effect(() => {
@@ -196,9 +190,46 @@
     await set("ask_model", model);
     askProblem = model ? await invoke("ask_check", { tryIt: true }).catch((e) => String(e)) : null;
   }
-  // Ask off: the field is never empty but offers a model, a server's first, else the
-  // built-in one for this machine; Use sets it (downloading a built-in one first).
-  const askPreselected = $derived(chatModels[0] ?? chat?.preselected ?? "");
+  // Ask off: a model is offered, a server's on the graphics card first, else the built-in one
+  // for this machine; Use sets it (downloading a built-in one first).
+  const askPreselected = $derived(chat?.preselected ?? "");
+  // The list of chat models: a pick sets Ask's model in one step; "Another model…" types one.
+  const OTHER = "\u0001other";
+  let askOther = $state(false);
+  const askListed = $derived(!askOther && (!s.ask_model || (chat?.groups ?? []).some((g) => g.models.some((m) => m.value === s.ask_model))));
+  const askName = (value) => (chat?.models ?? []).find((m) => m.key === value)?.name ?? value;
+  function pickAsk(value) {
+    askOther = value === OTHER;
+    if (askOther) return;
+    const m = chat?.models.find((x) => x.key === value);
+    if (m && !m.installed) chatAction("download", m.key);
+    else setAskModel(value);
+  }
+  // A model chosen that is slow here, with the better one: said on its line until it changes.
+  const askPoor = $derived(lines.find((l) => l.part === "ask")?.poor ?? null);
+  const meaningPoor = $derived(lines.find((l) => l.part === "meaning")?.poor ?? null);
+  async function usePoor(p) {
+    if (p.ask) return setAskModel(p.changes.ask_model);
+    const c = p.changes;
+    const why = await invoke("meaning_change", { name: "meaning_model", value: c.meaning_model, engine: c.meaning_engine, url: c.meaning_url }).catch(() => null);
+    if (!why) return save(c);
+    vectorsChange = { why, go: () => save(c), keep: () => {} };
+  }
+  // The built-in models on the disk: loaded when their group opens, and after each action.
+  let models_ = $state(null);
+  let modelsSaid = $state("");
+  let deleting = $state("");
+  const loadModels = () => invoke("models_list").then((v) => (models_ = v), (e) => (modelsSaid = String(e)));
+  const unusedBytes = $derived((models_ ?? []).filter((e) => !e.in_use).reduce((n, e) => n + e.bytes, 0));
+  async function modelAction(what, e) {
+    // Deleting the one in use takes a second click.
+    if (what === "delete" && e.in_use && deleting !== e.id) return (deleting = e.id);
+    deleting = "";
+    modelsSaid = await invoke("models_action", { what, id: e.id }).catch((err) => String(err));
+    loadModels();
+    loadChat();
+    loadIndex();
+  }
   function useAskPreselected() {
     const m = chat?.models.find((x) => x.key === askPreselected);
     if (m && !m.installed) chatAction("download", m.key);
@@ -495,6 +526,7 @@
             <span>{l.text}
               {#if l.note}<br /><small class="hint" class:err={l.bad}>{l.note}</small>{/if}
               {#if l.part === "meaning" && index?.meaning_runs_text && s.meaning_engine === "builtin"}<br /><small class="hint">{index.meaning_runs_text}</small>{/if}
+              {#if l.poor}<br /><small class="err">{l.poor.text}</small>{#if l.poor.button}{" "}<button class="link" onclick={() => usePoor(l.poor)}>{l.poor.button}</button>{/if}{/if}
               {#if l.part === "ask" && trial}<br /><small class="hint" class:err={trial.error}>{trial.busy ? t("common.loading") : trial.error ?? t("setup.try_done", { seconds: (trial.ms / 1000).toFixed(1) })}</small>{/if}
             </span>
             {#if l.step}<button disabled={trial?.busy && l.step === "try_it"} onclick={() => step(l)}>{t(`settings.step.${l.step}`)}</button>{:else}<span></span>{/if}
@@ -616,6 +648,10 @@
                 <button onclick={() => { vectorsChange.keep(); vectorsChange = null; }}>{t("settings.meaning_change_keep")}</button>
               </div>
             {/if}
+            {#if meaningPoor}
+              <p class="err">{meaningPoor.text}</p>
+              <div class="buttons"><button class="primary" onclick={() => usePoor(meaningPoor)}>{meaningPoor.button}</button></div>
+            {/if}
             <!-- Only on a Mac, where the built-in model can run on the GPU. -->
             {#if !server && (index?.meaning_runs?.metal || index?.meaning_runs?.cpu_why)}
               {@render check("meaning_device", s.meaning_device === "cpu", (v) => set("meaning_device", v ? "cpu" : "auto"))}
@@ -625,38 +661,62 @@
           <details class="group" id="opt-ask">
             <summary>{t("settings.group.ask")}</summary>
             {#snippet askModel()}
+              <!-- One list: the server's chat models and the built-in ones, under where each runs. -->
               <div class="folder">
-                <input id="in-ask_model" list="askmodels" value={s.ask_model || askPreselected} spellcheck="false" placeholder="qwen3:8b" onchange={(e) => setAskModel(e.currentTarget.value.trim())} />
-                <datalist id="askmodels">{#each chat?.models ?? [] as m (m.key)}<option value={m.key}>{m.name}</option>{/each}{#each chatModels as m (m)}<option value={m}></option>{/each}</datalist>
-                {#if !s.ask_model && askPreselected}<button class="primary" disabled={!!chat?.downloading} onclick={useAskPreselected}>{t("settings.ask_use")}</button>{/if}
+                <select id="in-ask_model" value={askListed ? s.ask_model : OTHER} onchange={(e) => pickAsk(e.currentTarget.value)}>
+                  {#each chat?.groups ?? [] as g (g.label)}
+                    <optgroup label={g.label}>
+                      {#if g.missing}<option disabled>{g.missing}</option>{/if}
+                      {#each g.models as m (m.value)}<option value={m.value}>{m.label}{m.recommended ? ` · ${t("setup.recommended")}` : ""}{m.slow ? ` · ${t("settings.ask_slow_here")}` : ""}</option>{/each}
+                    </optgroup>
+                  {/each}
+                  <option value={OTHER}>{t("settings.ask_other")}</option>
+                  <option value="">{t("settings.ask_off")}</option>
+                </select>
                 <button disabled={!s.ask_model || !s.search_meaning || trial?.busy} onclick={tryAsk}>{t("settings.step.try_it")}</button>
               </div>
+              {#if askOther || !askListed}<input id="in-ask_other" value={s.ask_model} spellcheck="false" placeholder="qwen3:8b" onchange={(e) => setAskModel(e.currentTarget.value.trim())} />{/if}
+              {#if !s.ask_model && askPreselected}<div class="buttons"><button class="primary" disabled={!!chat?.downloading} onclick={useAskPreselected}>{t("settings.use_model", { model: askName(askPreselected) })}</button></div>{/if}
+              {#if chat?.groups?.some((g) => g.server && g.missing && !g.loading)}<div class="buttons"><button onclick={openSetup}>{t("settings.ask_set_up_server")}</button></div>{/if}
+              {#if askPoor}
+                <p class="err">{askPoor.text}</p>
+                <div class="buttons">{#if askPoor.button}<button class="primary" onclick={() => usePoor(askPoor)}>{askPoor.button}</button>{:else}<button onclick={openSetup}>{t("setup.open")}</button>{/if}</div>
+              {/if}
+              {#if chat?.downloading}
+                <p class="hint">{t("settings.meaning_downloading", { done: size(chat.downloading[1]), total: size(chat.downloading[2]) })}</p>
+                <progress max={chat.downloading[2] || 1} value={chat.downloading[1]}></progress>
+                <div class="buttons"><button onclick={() => chatAction("cancel", chat.downloading[0])}>{t("common.cancel")}</button></div>
+              {/if}
+              {#if chat?.error}<p class="err">{chat.error}</p>{/if}
               {#if askProblem}<p class="err">{askProblem}</p>{/if}
               {#if trial && !trial.busy}<p class="hint" class:err={trial.error}>{trial.error ?? t("setup.try_done", { seconds: (trial.ms / 1000).toFixed(1) })}</p>{/if}
               {#if !builtinAsk && isRemote(serverUrl)}<p class="hint"><strong>{t("settings.ask_remote", { host: hostOf(serverUrl) })}</strong></p>{/if}
+              <p class="hint">{t("settings.ask_builtin_hint")}</p>
             {/snippet}
             {@render field("ask_model", askModel)}
-            <div class="opt" id="opt-ask_builtin">
-              <span class="field">{t("settings.ask_builtin")}</span>
-              {#each chat?.models ?? [] as m (m.key)}
-                <p>{t("settings.ask_builtin_model", { model: m.name, size: size(m.size), where: chat.runs })}{#if m.suggested}<span class="badge">{t("setup.recommended")}</span>{/if}</p>
-                <p class="hint">{t("settings.ask_builtin_memory", { ram: m.ram })}{#if m.estimate}{` · ${m.estimate}`}{/if}</p>
-                {#if chat.downloading?.[0] === m.key}
-                  <p class="hint">{t("settings.meaning_downloading", { done: size(chat.downloading[1]), total: size(chat.downloading[2]) })}</p>
-                  <progress max={chat.downloading[2] || 1} value={chat.downloading[1]}></progress>
-                  <div class="buttons"><button onclick={() => chatAction("cancel", m.key)}>{t("common.cancel")}</button></div>
-                {:else}
-                  <div class="buttons">
-                    {#if s.ask_model !== m.key}<button class:primary={m.suggested} disabled={!!chat.downloading} onclick={() => (m.installed ? setAskModel(m.key) : chatAction("download", m.key))}>{m.installed ? t("settings.ask_use") : t("settings.ask_download", { size: size(m.size) })}</button>{/if}
-                    {#if m.installed}<button onclick={() => chatAction("remove", m.key)}>{t("settings.meaning_remove")}</button>{/if}
-                  </div>
-                {/if}
-              {/each}
-              {#if chat?.error}<p class="err">{chat.error}</p>{/if}
-              <p class="hint">{t("settings.ask_builtin_hint")}</p>
-            </div>
             {@render check("ask_think")}
             {@render num("ask_context", 2048, 131072)}
+          </details>
+
+          <details class="group" id="opt-models" ontoggle={(e) => e.currentTarget.open && loadModels()}>
+            <summary>{t("models.title")}</summary>
+            <p class="hint">{t("models.hint")}</p>
+            {#each models_ ?? [] as e (e.id)}
+              <div class="opt">
+                <p><strong>{e.name}</strong>{#if e.in_use}<span class="badge">{t("models.in_use")}</span>{/if}</p>
+                <p class="hint">{e.summary}</p>
+                <p class="hint"><span class="mono">{e.folder}</span> <button class="link" onclick={() => showInPanel(e.folder, false)}>{t("settings.show_in_panel")}</button></p>
+                <div class="buttons">
+                  {#if e.loaded && e.what === "ask"}<button onclick={() => modelAction("unload", e)}>{t("models.unload")}</button>{/if}
+                  {#if e.loaded && e.what === "meaning"}<span class="hint">{t("models.stays_loaded")}</span>{/if}
+                  <button class="danger" onclick={() => modelAction("delete", e)} onblur={() => (deleting = "")}>{deleting === e.id ? t("models.confirm_again", { model: e.name }) : t("common.delete")}</button>
+                </div>
+              </div>
+            {:else}
+              <p class="hint">{t("models.none")}</p>
+            {/each}
+            {#if modelsSaid}<p class="hint">{modelsSaid}</p>{/if}
+            {#if unusedBytes}<div class="buttons"><button class="danger" onclick={() => modelAction("unused", { id: "" })}>{t("models.delete_unused", { size: size(unusedBytes) })}</button></div>{/if}
           </details>
 
           <details class="group">
@@ -821,7 +881,7 @@
           <div class="keys">
             {#each ui.cfg.paths.filter(([, p]) => p) as [what, p] (what)}
               <span>{t(`settings.path.${what.replace(" ", "_")}`)}</span>
-              <span><span class="mono">{p}</span> <button class="link" onclick={() => showInPanel(p, !["cache", "model", "previews", "archive looks"].includes(what))}>{t("settings.show_in_panel")}</button></span>
+              <span><span class="mono">{p}</span> <button class="link" onclick={() => showInPanel(p, !["cache", "models", "previews", "archive looks"].includes(what))}>{t("settings.show_in_panel")}</button></span>
             {/each}
           </div>
         </div>
