@@ -439,6 +439,20 @@ was in use meanwhile, so these times vary by half either way. What still fails: 
 answer is in code but whose docs say it in other words (*how does the search helper start?*
 reads the docs' pages), and answers the model gets wrong with the right file in front of it.
 
+**The map for a question about code, measured and left out.** Giving a question that is about
+code (most of what was found is code, or it names something in code) the project's map too,
+not only a question about the whole project, made this repository's answers worse with qwen3:8b:
+
+| This repository, 20 questions | File | Read | Answer |
+|---|---|---|---|
+| Code read as code, the map for questions about the whole project (2.18) | 16/20 | 0.79 | 0.57 |
+| The map for code questions too, in a fifth of the room, the last excerpts dropped | 14/20 | 0.81 | 0.51 |
+| The same in an eighth, the excerpts found again in the rest | 16/20 | 0.81 | 0.48 |
+
+The small projects were the same either way (20/20, 0.88 answer). So 2.19 only tells a question
+about code ([A question about code](../search/ask-code.md#a-question-about-code)) and says so;
+the excerpts stay as they were.
+
 ## Measuring again
 
 The benchmarks are tests that are ignored unless asked for. They make their data under

@@ -52,7 +52,10 @@ pub fn sources(passages: impl FnOnce(&str, Option<&Path>, usize) -> Vec<(PathBuf
     let dir = scope.unwrap_or(here);
     let mut out = if broad(question) { overview(dir, budget * 3 / 5, &cfg.text_exclude) } else { vec![] };
     let used: usize = out.iter().map(|(p, t)| p.as_os_str().len() + t.len() + 8).sum();
-    for (path, text) in passages(&lookup, scope, budget.saturating_sub(used)) {
+    // A question about code gets no map unless it is about the whole project: measured, the
+    // excerpts it pushes out said more (docs/reference/performance.md, "Code questions").
+    let found = passages(&lookup, scope, budget.saturating_sub(used));
+    for (path, text) in found {
         match out.iter_mut().find(|(p, _)| *p == path) {
             // A README the overview has: what the passages add that it does not.
             Some((_, had)) => {
@@ -63,18 +66,6 @@ pub fn sources(passages: impl FnOnce(&str, Option<&Path>, usize) -> Vec<(PathBuf
                 }
             }
             None => out.push((path, text)),
-        }
-    }
-    // A question about code that is no question about the whole project: the map of it as
-    // well, in a fifth of the room, the last excerpts making way for it.
-    if !broad(question) && (about_code(&out) || names_code(question)) {
-        let map = crate::code::map(dir, budget / 5, &skip(dir, &cfg.text_exclude));
-        if !map.is_empty() {
-            let size = |o: &[(PathBuf, String)]| o.iter().map(|(p, t)| p.as_os_str().len() + t.len() + 8).sum::<usize>();
-            while out.len() > 1 && size(&out) + map.len() > budget {
-                out.pop();
-            }
-            out.push((dir.to_path_buf(), map));
         }
     }
     // Nothing close, but the question names the folder: what it holds says the most.
@@ -364,23 +355,6 @@ mod tests {
         assert!(about_code(&s(&["/r/src/a.rs", "/r/src/b.py", "/r/README.md"])));
         assert!(!about_code(&s(&["/r/Cargo.toml", "/r/config.yaml", "/r/README.md", "/r/src/a.rs"])), "project and configuration files are no code");
         assert!(read(&s(&["/r/src/a.rs"])).starts_with("Code question: "));
-    }
-
-    #[test]
-    fn a_code_question_gets_the_map_too() {
-        let d = std::env::temp_dir().join(format!("coxswain-ask-code-{}", std::process::id()));
-        let _ = std::fs::remove_dir_all(&d);
-        std::fs::create_dir_all(d.join("src")).unwrap();
-        std::fs::write(d.join("Cargo.toml"), "[package]\nname = \"rocket\"\n[dependencies]\nserde = \"1\"\n").unwrap();
-        std::fs::write(d.join("src/fuel.rs"), "//! Fuel budgets.\npub fn burn() {}\n").unwrap();
-        let cfg = SearchConfig { ask_model: "qwen3:8b".into(), ..SearchConfig::default() };
-        let found = |_: &str, _: Option<&Path>, _: usize| vec![(d.join("src/fuel.rs"), "pub fn burn() {}".to_string())];
-        let s = sources(found, &cfg, &[], "How is fuel burnt?", None, &d).unwrap();
-        assert_eq!(s.len(), 2, "{s:?}");
-        assert!(s[1].0 == d && s[1].1.contains("src/fuel.rs: Fuel budgets.\n  pub fn burn()") && s[1].1.contains("uses serde"), "{s:?}");
-        let prose = |_: &str, _: Option<&Path>, _: usize| vec![(d.join("notes.md"), "Fuel is dear.".to_string())];
-        assert_eq!(sources(prose, &cfg, &[], "How is fuel burnt?", None, &d).unwrap().len(), 1, "prose gets no map");
-        std::fs::remove_dir_all(d).unwrap();
     }
 
     #[test]

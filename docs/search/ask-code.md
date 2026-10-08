@@ -56,10 +56,10 @@ or more are files of code; project, configuration and data files such as `Cargo.
 `coxswain_core::menu`, `passages()`, `src/store.rs`, `MAX_LOAD`, `kv_hash`, `fetchTasks`. No
 model decides it: it is worked out from the sources and the words, at once.
 
-A question about code gets the [map of the project](#the-map-of-a-project) too, in a fifth of
-the room, after the excerpts (the last excerpts make way for it when the room is full), so the
-model sees where the code it read sits and what the project uses. A question about the whole
-project gets the map anyway, in the overview.
+What it changes: the line over the sources says so. A question about code gets the same excerpts as any other; only a
+question about the whole project gets the [map](#the-map-of-a-project). Giving a specific
+question the map too was measured and left out: the excerpts it pushed out said more
+([Performance → Code questions](../reference/performance.md#code-questions)).
 
 The dim line over the sources says it: *Code question: 9 excerpts from 6 files, about 2000
 words* in place of *9 excerpts from 6 files, about 2000 words*, in both apps.
@@ -168,8 +168,8 @@ answer like the others; **Enter** on the folder's source opens it in the active 
 #### Why does the line over the sources say *Code question*?
 
 Half or more of what Ask found is files of code, or the question names something in code (a
-path, `name()`, `snake_case`, `camelCase`, `a::b`). Ask then adds the project's map after the
-excerpts. Nothing else changes: the same chat model answers.
+path, `name()`, `snake_case`, `camelCase`, `a::b`). It reads the same excerpts as for any
+question; the line only says how the question was taken.
 
 #### Does the map send anything anywhere?
 
