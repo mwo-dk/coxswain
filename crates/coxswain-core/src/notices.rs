@@ -173,11 +173,12 @@ const DOCS_URL: &str = "https://github.com/mwo-dk/coxswain/blob/master/";
 
 /// Every version's changes, newest first.
 pub fn changes() -> Vec<Change> {
-    changelog(include_str!(env!("COXSWAIN_README")))
+    changelog(include_str!(env!("COXSWAIN_CHANGELOG")), env!("COXSWAIN_CHANGELOG_BASE"))
 }
 
-fn changelog(readme: &str) -> Vec<Change> {
-    let Some((_, table)) = readme.split_once("## Changelog") else { return vec![] };
+fn changelog(readme: &str, base: &str) -> Vec<Change> {
+    // `## Changelog` in the README, `# Changelog` on its docs page.
+    let Some((_, table)) = readme.split_once("# Changelog") else { return vec![] };
     table
         .lines()
         .filter_map(|line| {
@@ -185,14 +186,14 @@ fn changelog(readme: &str) -> Vec<Change> {
             let version = cells.next()?.strip_suffix("**")?.to_string();
             let date = cells.next()?.to_string();
             let text = cells.next()?.trim_end().strip_suffix('|')?.trim().replace("\\|", "|");
-            Some(Change { version, date, parts: parts(&text) })
+            Some(Change { version, date, parts: parts(&text, base) })
         })
         .collect()
 }
 
 /// Markdown made plain: emphasis and code marks go, `[label](target)` becomes a link, a page
 /// of the docs one on GitHub.
-fn parts(text: &str) -> Vec<(String, Option<String>)> {
+fn parts(text: &str, base: &str) -> Vec<(String, Option<String>)> {
     let plain = |s: &str| s.replace(['*', '`'], "");
     let mut out = vec![];
     let mut rest = text;
@@ -200,7 +201,13 @@ fn parts(text: &str) -> Vec<(String, Option<String>)> {
         let Some((label, after)) = rest[open + 1..].split_once("](") else { break };
         let Some((target, tail)) = after.split_once(')') else { break };
         out.push((plain(&rest[..open]), None));
-        let url = if target.starts_with("http") { target.to_string() } else { format!("{DOCS_URL}{target}") };
+        let url = if target.starts_with("http") {
+            target.to_string()
+        } else if let Some(up) = target.strip_prefix("../") {
+            format!("{DOCS_URL}{up}")
+        } else {
+            format!("{DOCS_URL}{base}{target}")
+        };
         out.push((plain(label), Some(url)));
         rest = tail;
     }
@@ -349,11 +356,11 @@ mod tests {
     }
 
     #[test]
-    fn changelog_is_read_from_the_readme_with_its_links() {
+    fn changelog_is_read_with_its_links() {
         let all = changes();
         assert_eq!(all[0].version, crate::update::VERSION, "the changelog has a row for this version");
         assert!(all.len() > 50 && all.iter().all(|c| c.date.len() == 10));
-        let c = &changelog("## Changelog\n| Version | Date | What's new |\n|---|---|---|\n| **1.2.3** | 2026-01-02 | *Ask* is `quicker` a \\| b. [Ask](docs/search/ask.md) · [site](https://x.dk) |\n")[0];
+        let c = &changelog("## Changelog\n| Version | Date | What's new |\n|---|---|---|\n| **1.2.3** | 2026-01-02 | *Ask* is `quicker` a \\| b. [Ask](docs/search/ask.md) · [site](https://x.dk) |\n", "")[0];
         assert_eq!(c.version, "1.2.3");
         assert_eq!(c.parts[0], ("Ask is quicker a | b. ".into(), None));
         assert_eq!(c.parts[1], ("Ask".into(), Some(format!("{DOCS_URL}docs/search/ask.md"))));
