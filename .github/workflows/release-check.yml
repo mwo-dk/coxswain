@@ -348,7 +348,8 @@ jobs:
           # the command (it is X.Y.Z, checked above).
           docker run --rm termux/termux-docker:aarch64 bash -c "
             set -e
-            pkg install -y rust clang binutils >/dev/null
+            # The Termux package server answers an error now and then: try again, with a fresh index.
+            for i in 1 2 3 4; do pkg install -y rust clang binutils >/dev/null && break; [ "$i" = 4 ] && exit 1; sleep $((i * 15)); pkg update -y >/dev/null 2>&1 || true; done
             cargo install --locked coxswain --version $VER
             test \"\$(\$HOME/.cargo/bin/coxswain --version)\" = 'coxswain $VER'
             \$HOME/.cargo/bin/coxswain --help >/dev/null
