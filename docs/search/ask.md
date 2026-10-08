@@ -191,6 +191,7 @@ alone, as before.
 |---|---|---|---|
 | *Chat model* | `[search] ask_model` | string, `""` | The model that writes the answers: a server's (`qwen3:8b`) or a built-in one (`builtin:qwen3-1.7b`, `builtin:qwen3-4b`, `builtin:qwen3-14b`, [Ask without a server](ask-builtin.md)). Empty: Ask is not set up |
 | *Chat model*, the list | none | | Every model Ask can take, by where it runs, the recommended one and those *slow here* marked; a built-in one is downloaded when picked. Deleting is under [Built-in models](models.md) |
+| *Model for code questions* | `[search] ask_code_model` | string, `""` | The chat model for questions about code, on the same server; empty (*Same as Ask*): Ask's own ([A model for code questions](ask-code.md#a-model-for-code-questions)) |
 | *Let the model think first* | `[search] ask_think` | bool, `false` | Off: a model that thinks first (Qwen3, DeepSeek-R1, …) is asked not to. On: it thinks, many seconds before the first word ([Thinking](#thinking)) |
 | *Context for a server's model (tokens)* | `[search] ask_context` | number, `8192` (2,048 to 131,072) | The tokens a server's chat model is given, sources, question and answer together. Ollama is asked for this context (`num_ctx`); an OpenAI-style server must be set to at least as much. Not for the built-in models ([How much it reads](#how-much-it-reads)) |
 | *Meaning* → *Made by*, *Server*, *API key from the environment variable* | `meaning_engine`, `meaning_url`, `meaning_key_env` | | The server Ask talks to, as above |

@@ -639,6 +639,10 @@ say so plainly and do not guess. Answer in the language of the question, briefly
 /// in their order) and the turns before. Each piece of the answer goes to `piece` as it
 /// comes, with empty ones between; `piece` returns false to stop. Nothing is kept.
 pub fn ask(cfg: &crate::config::SearchConfig, earlier: &[Turn], question: &str, sources: &[(std::path::PathBuf, String)], mut piece: impl FnMut(&str) -> bool) -> Result<(), String> {
+    // A question about code goes to the model for code, when one is set.
+    if let Some(code) = crate::ask::code_model(cfg, question, sources) {
+        return ask(&crate::config::SearchConfig { ask_model: code, ask_code_model: String::new(), ..cfg.clone() }, earlier, question, sources, piece);
+    }
     if let Some(m) = crate::chat::of(&cfg.ask_model) {
         return crate::chat::ask(m, cfg.meaning_device == "cpu", cfg.ask_think, earlier, question, sources, piece);
     }

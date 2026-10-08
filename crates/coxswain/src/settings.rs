@@ -28,7 +28,7 @@ const GROUPS: &[(&str, &str, &[&str])] = &[
     ("settings.group.reads", "reads", &["search_text", "search_archives", "search_archives_everywhere", "search_history", "search_cloud", "cloud_read", "text_max_size", "max_results"]),
     ("settings.group.folders", "folders", &["text_roots", "names_only", "text_exclude", "name_roots", "name_exclude", "watch"]),
     ("settings.group.meaning", "meaning", &["search_meaning", "meaning_engine", "meaning_url", "meaning_model", "meaning_key_env", "meaning_device"]),
-    ("settings.group.ask", "ask", &["ask_model", "ask_think", "ask_context"]),
+    ("settings.group.ask", "ask", &["ask_model", "ask_code_model", "ask_think", "ask_context"]),
 ];
 
 /// Text options that are a switch: (name, value when on, value when off).
@@ -404,29 +404,17 @@ fn choices(name: &str, cfg: &Config) -> Option<Vec<(String, String)>> {
         // headings, then another one typed, and off.
         "ask_model" => {
             let look = coxswain_core::setup::look(false);
-            let mut v = vec![];
-            for g in coxswain_core::setup::ask_choices(&cfg.search, look.as_deref()) {
-                let missing = g.missing.clone();
-                v.push((HEAD.to_string(), match (&missing, look.is_some()) {
-                    (Some(m), false) => format!("{} ({m})", g.label),
-                    _ => g.label,
-                }));
-                if let (Some(m), true) = (missing, look.is_some()) {
-                    v.push((SET_UP.to_string(), format!("{m}: {}", t!("settings.ask_set_up_server"))));
-                }
-                for c in g.models {
-                    let mut label = c.label;
-                    if c.recommended {
-                        label += &format!(" [{}]", t!("setup.recommended"));
-                    }
-                    if c.slow {
-                        label += &format!(" [{}]", t!("settings.ask_slow_here"));
-                    }
-                    v.push((c.value, label));
-                }
-            }
+            let mut v = chat_list(coxswain_core::setup::ask_choices(&cfg.search, look.as_deref()), look.is_some());
             v.push((OTHER.to_string(), t!("settings.ask_other")));
             v.push((String::new(), t!("settings.ask_off")));
+            v
+        }
+        // The model for code questions: why, Same as Ask, then the same list as Ask's.
+        "ask_code_model" => {
+            let look = coxswain_core::setup::look(false);
+            let mut v = vec![(HEAD.to_string(), coxswain_core::setup::code_advice(&cfg.search, look.as_deref()).why), (String::new(), t!("settings.code_same"))];
+            v.extend(chat_list(coxswain_core::setup::code_choices(&cfg.search, look.as_deref()), look.is_some()));
+            v.push((OTHER.to_string(), t!("settings.ask_other")));
             v
         }
         "language" => std::iter::once(("auto".to_string(), t!("settings.language_auto"))).chain(coxswain_core::i18n::LANGUAGES.iter().map(|l| (l.code.to_string(), l.name.to_string()))).collect(),
@@ -645,7 +633,7 @@ impl App {
                     KeyCode::Down => s.mode = Mode::Pick((at + 1).min(c.len() - 1)),
                     KeyCode::PageUp => s.mode = Mode::Pick(at.saturating_sub(10)),
                     KeyCode::PageDown => s.mode = Mode::Pick((at + 10).min(c.len() - 1)),
-                    KeyCode::Enter if o.name == "ask_model" && c[at.min(c.len() - 1)].0.starts_with('\u{1}') => match c[at.min(c.len() - 1)].0.as_str() {
+                    KeyCode::Enter if matches!(o.name, "ask_model" | "ask_code_model") && c[at.min(c.len() - 1)].0.starts_with('\u{1}') => match c[at.min(c.len() - 1)].0.as_str() {
                         OTHER => s.mode = Mode::Edit(value.as_str().unwrap_or_default().to_string()),
                         SET_UP => self.setup_guide(),
                         _ => s.mode = Mode::Pick(at),
@@ -711,7 +699,7 @@ impl App {
     fn settings_space(&mut self, mut s: Box<Settings>, rows: &[Row], value: &Value) {
         let set = |name: &str, v: Value| Map::from_iter([(name.to_string(), v)]);
         match rows.get(s.cursor) {
-            Some(Row::Opt(o)) if o.name == "ask_model" => {
+            Some(Row::Opt(o)) if matches!(o.name, "ask_model" | "ask_code_model") => {
                 if let Kind::Choice(c) = kind(o, &self.cfg, value) {
                     s.mode = Mode::Pick(c.iter().position(|(v, _)| value.as_str() == Some(v)).unwrap_or(0));
                 }
@@ -1266,6 +1254,34 @@ pub fn draw(f: &mut Frame, app: &mut App) {
     if let Some(p) = cursor_at.filter(|p| p.y >= right.y && p.y < right.bottom()) {
         f.set_cursor_position(p);
     }
+}
+
+/// Chat models under the headings of where they run, as Settings lists them for Ask and for
+/// code questions: a server that is missing with the way to set it up, and the recommended
+/// one and those slow here marked.
+fn chat_list(groups: Vec<coxswain_core::setup::AskGroup>, looked: bool) -> Vec<(String, String)> {
+    let mut v = vec![];
+    for g in groups {
+        let missing = g.missing.clone();
+        v.push((HEAD.to_string(), match (&missing, looked) {
+            (Some(m), false) => format!("{} ({m})", g.label),
+            _ => g.label,
+        }));
+        if let (Some(m), true) = (missing, looked) {
+            v.push((SET_UP.to_string(), format!("{m}: {}", t!("settings.ask_set_up_server"))));
+        }
+        for c in g.models {
+            let mut label = c.label;
+            if c.recommended {
+                label += &format!(" [{}]", t!("setup.recommended"));
+            }
+            if c.slow {
+                label += &format!(" [{}]", t!("settings.ask_slow_here"));
+            }
+            v.push((c.value, label));
+        }
+    }
+    v
 }
 
 #[cfg(test)]

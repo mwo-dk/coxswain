@@ -604,7 +604,7 @@ pub struct Poor {
 /// servers have been asked (`look`): `wait` false never waits for that.
 pub fn poor(cfg: &crate::config::SearchConfig, wait: bool) -> Vec<Poor> {
     let builtin_meaning = cfg.meaning && cfg.meaning_engine == "builtin";
-    if crate::chat::of(&cfg.ask_model).is_none() && !builtin_meaning {
+    if cfg.ask_model.is_empty() && !builtin_meaning {
         return vec![];
     }
     look(wait).map(|l| poor_in(cfg, &l)).unwrap_or_default()
@@ -657,6 +657,26 @@ fn poor_at(cfg: &crate::config::SearchConfig, look: &Look, metal: bool) -> Vec<P
             }
         }
     }
+    // A model for code that runs well here and is not set yet: a tip, with the button.
+    if cfg.ask_code_model.is_empty() && !cfg.ask_model.is_empty()
+        && let Some(model) = code_advice_at(cfg, look, metal).recommended
+    {
+        let text = t!("setup.code_tip", "model" => model.as_str());
+        let mut changes = serde_json::Map::new();
+        changes.insert("ask_code_model".into(), model.clone().into());
+        out.push(Poor { ask: true, short: text.clone(), text, button: Some(t!("settings.use_model", "model" => model)), changes, tip: true });
+    }
+    // A model for code that is slow here: Same as Ask is quicker.
+    if !cfg.ask_code_model.is_empty() && cfg.ask_code_model != cfg.ask_model {
+        let advice = code_advice_at(cfg, look, metal);
+        let builtin_slow = crate::chat::of(&cfg.ask_code_model).is_some_and(|m| !metal && first(m).is_none_or(|s| s >= crate::chat::QUICK));
+        if advice.slow.contains(&cfg.ask_code_model) || builtin_slow {
+            let text = if builtin_slow { t!("setup.code_poor_cpu", "model" => crate::chat::shown(&cfg.ask_code_model)) } else { advice.why };
+            let mut changes = serde_json::Map::new();
+            changes.insert("ask_code_model".into(), "".into());
+            out.push(Poor { ask: true, short: text.clone(), text, button: Some(t!("settings.code_use_same")), changes, tip: false });
+        }
+    }
     if cfg.meaning && cfg.meaning_engine == "builtin"
         && let Some((found, model, sure)) = better_meaning(metal, &meaning_servers(cfg, look))
     {
@@ -686,6 +706,91 @@ pub fn recommend_ask(cfg: &crate::config::SearchConfig, look: Option<&Look>) -> 
         }
     }
     builtin.key()
+}
+
+// ---------------------------------------------------------------- the model for code questions
+
+/// Whether a chat model is made for code, by its name: Qwen3-Coder, Devstral, Codestral, …
+pub fn is_coder(name: &str) -> bool {
+    let n = name.to_lowercase();
+    ["coder", "codestral", "devstral", "codegemma", "codellama", "starcoder", "granite-code", "codeqwen"].iter().any(|w| n.contains(w))
+}
+
+/// Memory a model of `params` billion weights takes on a graphics card, in GB, about: 4.5 bits
+/// a weight as Ollama gives them (Q4_K_M), and the context.
+fn needs_gb(params: f64) -> f64 {
+    params * 0.6 + 0.5
+}
+
+/// What a model for code questions would be here, and why: the recommended one (None: *Same
+/// as Ask*), the models for code that would run slowly, and the line Settings shows.
+#[derive(Clone, Debug, Default, PartialEq, Serialize)]
+pub struct CodeAdvice {
+    pub recommended: Option<String>,
+    pub slow: Vec<String>,
+    pub why: String,
+}
+
+/// `CodeAdvice` for `cfg` on this machine as `look` saw it. A model made for code is
+/// recommended only where it runs well: a server's, on a graphics card whose memory holds it
+/// (on a Mac's GPU, the memory it may use of the machine's); one that does not fit is slow
+/// here, and so is any on the processor. *Same as Ask* stays the default otherwise.
+pub fn code_advice(cfg: &crate::config::SearchConfig, look: Option<&Look>) -> CodeAdvice {
+    use crate::t;
+    let Some(look) = look else { return CodeAdvice { why: t!("common.loading"), ..Default::default() } };
+    let metal = crate::chat::metal(cfg.meaning_device == "cpu");
+    code_advice_at(cfg, look, metal)
+}
+
+fn code_advice_at(cfg: &crate::config::SearchConfig, look: &Look, metal: bool) -> CodeAdvice {
+    use crate::t;
+    let fmt = |gb: f64| format!("{gb:.0}");
+    // The memory a model may use: the card's own, or on a Mac two thirds of the machine's.
+    let room = match &look.machine.gpu {
+        _ if metal => Some((look.machine.ram as f64 * 2.0 / 3.0, t!("setup.code_mac_memory"))),
+        Some((_, name, Some(gb))) => Some((*gb as f64, name.clone())),
+        _ => None,
+    };
+    let Some((room, card)) = room else {
+        return CodeAdvice { why: t!("setup.code_no_card"), ..Default::default() };
+    };
+    let servers = ask_servers(cfg, look);
+    let coders: Vec<(&str, f64)> = servers.iter().flat_map(|(f, _)| f.models.iter()).filter(|m| m.chat && is_coder(&m.name)).filter_map(|m| Some((m.name.as_str(), m.params.or(size(&m.name).0)?))).collect();
+    let Some(&(best, params)) = coders.iter().filter(|(_, p)| needs_gb(*p) <= room).max_by(|a, b| a.1.total_cmp(&b.1)) else {
+        let slow: Vec<String> = coders.iter().map(|(n, _)| n.to_string()).collect();
+        let why = match coders.first() {
+            Some((name, p)) => t!("setup.code_too_large", "model" => *name, "gb" => fmt(needs_gb(*p)), "gpu" => card.as_str(), "room" => fmt(room)),
+            None => t!("setup.code_none", "server" => servers.first().map_or("Ollama", |(f, _)| f.kind.name())),
+        };
+        return CodeAdvice { slow, why, recommended: None };
+    };
+    let slow = coders.iter().filter(|(_, p)| needs_gb(*p) > room).map(|(n, _)| n.to_string()).collect();
+    // Beside Ask's own model, or in its place each time the kind of question changes.
+    let ask = servers.iter().flat_map(|(f, _)| f.models.iter()).find(|m| m.name == cfg.ask_model).and_then(|m| m.params.or(size(&m.name).0));
+    let server = servers.iter().find(|(f, _)| f.models.iter().any(|m| m.name == best)).map_or("Ollama", |(f, _)| f.kind.name());
+    let (gb, has) = (fmt(needs_gb(params)), fmt(room));
+    let why = match ask {
+        Some(a) if needs_gb(a) + needs_gb(params) > room => t!("setup.code_swaps", "model" => best, "server" => server, "gb" => gb, "gpu" => card.as_str(), "room" => has, "ask" => cfg.ask_model.as_str()),
+        _ => t!("setup.code_fits", "model" => best, "server" => server, "gb" => gb, "gpu" => card.as_str(), "room" => has),
+    };
+    CodeAdvice { recommended: Some(best.to_string()), slow, why }
+}
+
+/// The chat models for code questions, as Settings lists them: Ask's list, with the one
+/// `code_advice` recommends and those it finds slow here marked; *Same as Ask* is the empty
+/// value, listed by the apps first.
+pub fn code_choices(cfg: &crate::config::SearchConfig, look: Option<&Look>) -> Vec<AskGroup> {
+    let advice = code_advice(cfg, look);
+    let mut groups = ask_choices(cfg, look);
+    for g in &mut groups {
+        // A built-in model is downloaded from Ask's list or Built-in models first.
+        g.models.retain(|m| m.installed);
+        for m in &mut g.models {
+            m.slow |= advice.slow.contains(&m.value);
+            m.recommended = advice.recommended.as_deref() == Some(m.value.as_str());
+        }
+    }
+    groups
 }
 
 /// A chat model Ask can take, as Settings and the guide list it.
@@ -928,6 +1033,61 @@ mod tests {
     fn ollama() -> Found {
         let m = |name: &str, embed| Model { name: name.into(), embed, chat: !embed, params: None };
         Found { kind: Kind::Ollama, url: crate::meaning::OLLAMA.into(), engine: "ollama".into(), models: vec![m("bge-m3:latest", true), m("llama3.2:3b", false), m("qwen3:8b", false)] }
+    }
+
+    /// A model for code is recommended only where it runs well, per machine: on a card that
+    /// holds it, never on one too small (the 8 GB card and qwen3-coder:30b) nor without a card;
+    /// on a Mac by two thirds of its memory. Same as Ask otherwise, and a chosen one that is
+    /// slow here is a poor choice with Same as Ask as the button.
+    #[test]
+    fn a_model_for_code_only_where_it_runs_well() {
+        let with = |models: &[(&str, f64)]| {
+            let mut f = ollama();
+            f.models.extend(models.iter().map(|(n, p)| Model { name: n.to_string(), embed: false, chat: true, params: Some(*p) }));
+            f
+        };
+        let card = |gb| Machine { gpu: Some((Vendor::Nvidia, "RTX 4070".into(), Some(gb))), npu: false, ram: 32 };
+        let cfg = crate::config::SearchConfig { ask_model: "qwen3:8b".into(), meaning: true, ..Default::default() };
+        let look = |f: Found, m: Machine| Look { found: vec![f], machine: m, gpu: vec![Some(true)] };
+        // An 8 GB card: the 30B coder does not fit; slow here, and none recommended.
+        let small = look(with(&[("qwen3-coder:30b", 30.5)]), card(8));
+        let a = code_advice_at(&cfg, &small, false);
+        assert_eq!((a.recommended.as_deref(), a.slow.as_slice()), (None, &["qwen3-coder:30b".to_string()][..]));
+        assert!(a.why.contains("qwen3-coder:30b") && a.why.contains("19 GB") && a.why.contains("RTX 4070") && a.why.contains("8 GB"), "{}", a.why);
+        // The list asks whether this machine has Metal: on a Mac the Mac's memory counts.
+        if !crate::chat::metal(false) {
+            let choices = code_choices(&cfg, Some(&small));
+            let coder = choices.iter().flat_map(|g| &g.models).find(|m| m.value == "qwen3-coder:30b").unwrap();
+            assert!(coder.slow && !coder.recommended, "never preselected");
+        }
+        let chosen = crate::config::SearchConfig { ask_code_model: "qwen3-coder:30b".into(), ..cfg.clone() };
+        let poor = poor_at(&chosen, &small, false);
+        let p = poor.iter().find(|p| p.changes.contains_key("ask_code_model")).expect("a poor choice");
+        assert_eq!((p.changes["ask_code_model"].as_str(), p.tip), (Some(""), false));
+        // A 24 GB card holds it, but not beside qwen3:8b: recommended, and the swap said.
+        let big = look(with(&[("qwen3-coder:30b", 30.5)]), card(24));
+        let a = code_advice_at(&cfg, &big, false);
+        assert_eq!(a.recommended.as_deref(), Some("qwen3-coder:30b"));
+        assert!(a.why.contains("qwen3:8b") && a.why.contains("Ollama"), "{}", a.why);
+        assert!(poor_at(&crate::config::SearchConfig { ask_code_model: "qwen3-coder:30b".into(), ..cfg.clone() }, &big, false).iter().all(|p| !p.changes.contains_key("ask_code_model")));
+        let tip = poor_at(&cfg, &big, false).into_iter().find(|p| p.changes.contains_key("ask_code_model")).expect("a tip while it is not set");
+        assert!(tip.tip && tip.changes["ask_code_model"] == "qwen3-coder:30b");
+        assert!(poor_at(&cfg, &small, false).iter().all(|p| !p.changes.contains_key("ask_code_model")), "no tip where it does not fit");
+        // A smaller coder that fits beside it on the 8 GB card is the one.
+        let both = look(with(&[("qwen3-coder:30b", 30.5), ("qwen2.5-coder:1.5b", 1.5)]), card(8));
+        assert_eq!(code_advice_at(&cfg, &both, false).recommended.as_deref(), Some("qwen2.5-coder:1.5b"));
+        // No card: none, and why.
+        let cpu = Look { found: vec![with(&[("qwen3-coder:30b", 30.5)])], machine: Machine { ram: 64, ..Default::default() }, gpu: vec![Some(false)] };
+        let a = code_advice_at(&cfg, &cpu, false);
+        assert_eq!(a.recommended, None);
+        assert_eq!(a.why, crate::t!("setup.code_no_card"));
+        // A Mac with 64 GB: two thirds hold the 30B coder; with 16 GB they do not.
+        let mac = |ram| Look { found: vec![with(&[("qwen3-coder:30b", 30.5)])], machine: Machine { gpu: Some((Vendor::Apple, "Apple M3".into(), None)), npu: false, ram }, gpu: vec![Some(true)] };
+        assert_eq!(code_advice_at(&cfg, &mac(64), true).recommended.as_deref(), Some("qwen3-coder:30b"));
+        assert_eq!(code_advice_at(&cfg, &mac(16), true).recommended, None);
+        // No model for code on the server: Same as Ask, said.
+        let a = code_advice_at(&cfg, &look(ollama(), card(24)), false);
+        assert!(a.recommended.is_none() && a.why.contains("qwen3-coder"), "{}", a.why);
     }
 
     /// The built-in chat model against what else answers: a server on the graphics card beats

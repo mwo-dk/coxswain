@@ -17,6 +17,7 @@ on. It needs what Ask needs ([What it needs](ask.md#what-it-needs)).
 - [A question about code](#a-question-about-code)
 - [The map of a project](#the-map-of-a-project)
 - [Which languages](#which-languages)
+- [A model for code questions](#a-model-for-code-questions)
 - [How well it does](#how-well-it-does)
 - [Settings and config.toml](#settings-and-configtoml)
 - [Questions](#questions)
@@ -56,7 +57,8 @@ or more are files of code; project, configuration and data files such as `Cargo.
 `coxswain_core::menu`, `passages()`, `src/store.rs`, `MAX_LOAD`, `kv_hash`, `fetchTasks`. No
 model decides it: it is worked out from the sources and the words, at once.
 
-What it changes: the line over the sources says so. A question about code gets the same excerpts as any other; only a
+What it changes: the line over the sources says so, and a [model for code questions](#a-model-for-code-questions),
+when one is set, answers it. A question about code gets the same excerpts as any other; only a
 question about the whole project gets the [map](#the-map-of-a-project). Giving a specific
 question the map too was measured and left out: the excerpts it pushed out said more
 ([Performance → Code questions](../reference/performance.md#code-questions)).
@@ -108,6 +110,48 @@ No parser: brackets, indentation, keywords and comments, the same rules for ever
 Brackets inside strings, comments and character literals (`'{'`) do not count. A file of a kind
 not in the list (Markdown, plain text, HTML) is read as prose, as before.
 
+## A model for code questions
+
+A question about code ([A question about code](#a-question-about-code)) can go to a chat model of
+its own, one made for code such as `qwen3-coder`, on the same server as Ask's. Every other
+question goes to Ask's model as before.
+
+**Where:** Settings (**F9** → *Settings* in both apps, or `--settings=ask_code_model`) →
+Finding files → Details → Ask → *Model for code questions*, under *Chat model* (desktop app: a
+list; terminal app: **Enter** on the row opens the list, with the line for this machine at its top). The list is Ask's list, with *Same as Ask* first, the default. In `config.toml`:
+`ask_code_model` in `[search]` (empty: Same as Ask).
+
+**What is recommended, per machine.** Under the list, one line says why for this machine, with
+the graphics card's name and memory and the server:
+
+| This machine | What is recommended |
+|---|---|
+| A graphics card whose memory holds a model for code on the server (about 0.6 GB per billion weights, and 0.5 GB for the context) | That model, marked *recommended*; when it does not fit beside Ask's model too, the line says the server swaps them and the first code question after another kind waits a few seconds more |
+| A card too small for it (`qwen3-coder:30b`, about 19 GB, on an 8 GB card) | None: the model is marked *slow here* and never preselected; *Same as Ask* stays |
+| A Mac with Apple silicon | A model for code on the server that fits in two thirds of the Mac's memory |
+| No graphics card | None: on the processor a model for code answers slower than Ask's own |
+| A server without a model made for code | None; the line says so |
+
+A model chosen that is slow here gets a red line under Ask in Settings and in Find's Ask row,
+like a poor choice of Ask's model, with **Use Same as Ask**.
+
+**Measured on an 8 GB card** (RTX 4070 Laptop GPU, Ollama, `qwen3:8b` for Ask, `bge-m3` for
+the vectors, the same 40 questions): 20 of them were taken for questions about code and went to
+`qwen3-coder:30b`.
+
+| On the 20 questions about code | `qwen3:8b` (Same as Ask) | `qwen3-coder:30b` |
+|---|---|---|
+| Facts in the answer | 0.81 | 0.85 |
+| First word | 6 s | 17 s |
+| Loading it (Ollama's `load_duration`) | 0 s, it stays loaded | 15 to 19 s, every time: it does not stay on the card |
+| Back to `qwen3:8b` for the next other question | | 18 s to its first word, 10 s of it loading |
+
+`qwen3-coder:30b` is a mixture of experts (3 billion weights work on each word), so once loaded
+it writes about twice as fast (16 tokens a second against 8 here), but at about 19 GB it does not
+fit an 8 GB card: Ollama keeps part of it on the processor and loads it again for each question.
+The answers were hardly better. So on this machine Settings marks it *slow here* and keeps
+*Same as Ask*; on a card with 24 GB it is recommended.
+
 ## How well it does
 
 Measured with `crates/coxswain-core/tests/code_eval.rs`: 20 questions about this repository at a
@@ -133,8 +177,11 @@ The numbers per language and on the processor are in
 
 ## Settings and config.toml
 
-None of its own. What Ask reads is set as for Ask: `ask_context` (the room, 8,192 tokens by
-default) and `text_exclude` (folders left out of the map too) in `[search]`.
+| Setting | `config.toml` (`[search]`) | What it does |
+|---|---|---|
+| Ask → *Model for code questions* | `ask_code_model` | The chat model for questions about code; empty (*Same as Ask*): Ask's own |
+| Ask → *Context* | `ask_context` | The room, 8,192 tokens by default; with a model for code, the smaller of the two models' rooms |
+| *Left out everywhere* | `text_exclude` | Folders left out of the map too |
 
 ## Questions
 
@@ -170,6 +217,13 @@ answer like the others; **Enter** on the folder's source opens it in the active 
 Half or more of what Ask found is files of code, or the question names something in code (a
 path, `name()`, `snake_case`, `camelCase`, `a::b`). It reads the same excerpts as for any
 question; the line only says how the question was taken.
+
+#### Should I take qwen3-coder for code questions?
+
+Where Settings marks it *recommended*: the graphics card holds it. On an 8 GB card
+`qwen3-coder:30b` does not fit; it runs partly on the processor and the server swaps it with
+Ask's model, so Settings marks it *slow here* and keeps *Same as Ask*. Measured numbers are under
+[A model for code questions](#a-model-for-code-questions).
 
 #### Does the map send anything anywhere?
 

@@ -453,6 +453,13 @@ The small projects were the same either way (20/20, 0.88 answer). So 2.19 only t
 about code ([A question about code](../search/ask-code.md#a-question-about-code)) and says so;
 the excerpts stay as they were.
 
+**A model for code questions** ([Ask about code](../search/ask-code.md#a-model-for-code-questions)):
+the same 40 questions with `ask_code_model = "qwen3-coder:30b"` beside `qwen3:8b`, on the 8 GB
+card. The 20 taken for questions about code: facts in the answer 0.81 with `qwen3:8b`, 0.85 with
+the coder; first word 6 s against 17 s, as Ollama loads the coder again for each question (15 to
+19 s, it does not fit the card) and `qwen3:8b` again after it (10 s). The other 20: 0.64 and 0.59,
+the same model both times, which is how much two runs differ.
+
 ## Measuring again
 
 The benchmarks are tests that are ignored unless asked for. They make their data under

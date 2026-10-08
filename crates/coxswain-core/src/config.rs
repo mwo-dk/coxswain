@@ -852,6 +852,9 @@ pub struct SearchConfig {
     /// above (Ollama on this machine when the vectors are the built-in model's), e.g.
     /// `qwen3:8b`. Empty: Ask is not set up.
     pub ask_model: String,
+    /// The chat model for questions about code (most of what Ask found is code, or the question
+    /// names something in code), on the same server, e.g. `qwen3-coder:30b`. Empty: Ask's own.
+    pub ask_code_model: String,
     /// Let Ask's chat model think before it answers (Qwen3, DeepSeek-R1 …): better reasoning,
     /// many seconds before the first word. Off: it is asked not to, where it can be.
     pub ask_think: bool,
@@ -898,6 +901,7 @@ impl Default for SearchConfig {
             meaning_key_env: String::new(),
             meaning_device: "auto".into(),
             ask_model: String::new(),
+            ask_code_model: String::new(),
             ask_think: false,
             ask_context: 8192,
             text_max_size: 20 * 1024 * 1024,

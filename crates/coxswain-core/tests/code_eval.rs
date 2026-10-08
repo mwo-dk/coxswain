@@ -106,6 +106,8 @@ fn code_eval() {
     let engine = std::env::var("COXSWAIN_EVAL_ENGINE").unwrap_or_else(|_| "ollama".into());
     let model = std::env::var("COXSWAIN_EVAL_MODEL").unwrap_or_else(|_| "bge-m3".into());
     let ask = std::env::var("COXSWAIN_EVAL_ASK").unwrap_or_default();
+    // `COXSWAIN_EVAL_CODE`: the model for code questions (`ask_code_model`).
+    let code = std::env::var("COXSWAIN_EVAL_CODE").unwrap_or_default();
     let only: Vec<String> = std::env::var("COXSWAIN_EVAL_ONLY").map(|s| s.split(',').filter(|c| !c.is_empty()).map(String::from).collect()).unwrap_or_default();
     let limit: usize = std::env::var("COXSWAIN_EVAL_LIMIT").ok().and_then(|s| s.parse().ok()).unwrap_or(usize::MAX);
     // `COXSWAIN_EVAL_DOWNLOAD=1`: the built-in models it needs are downloaded first, into the
@@ -137,7 +139,7 @@ fn code_eval() {
             if corpus == "coxswain" { this_repository(&root) } else { copy(&src.join(&corpus), &root) }
         }
         let root = root.canonicalize().unwrap();
-        let cfg = SearchConfig { text_roots: vec![root.clone()], meaning: true, meaning_engine: engine.clone(), meaning_model: model.clone(), ask_model: ask.clone(), history: false, ..SearchConfig::default() };
+        let cfg = SearchConfig { text_roots: vec![root.clone()], meaning: true, meaning_engine: engine.clone(), meaning_model: model.clone(), ask_model: ask.clone(), ask_code_model: code.clone(), history: false, ..SearchConfig::default() };
         let store = Store::open(&work.join(format!("{corpus}.db"))).unwrap();
         store.set_engine(coxswain_core::meaning::Engine::from_config(&cfg));
         store.hurry.store(true, Ordering::Relaxed);
@@ -167,13 +169,14 @@ fn code_eval() {
                 }
             }
             let in_answer = named(&q.facts, &answer);
+            let by = if coxswain_core::ask::code_model(&cfg, &q.text, &sources).is_some() { "code model" } else { "Ask's model" };
             tally.n += 1;
             tally.file += usize::from(found);
             tally.in_sources += in_sources;
             tally.in_answer += in_answer;
             tally.first_word += first.unwrap_or(0.0);
             let files: Vec<String> = sources.iter().map(|(p, _)| rel(p)).take(6).collect();
-            eprintln!("{} sources {:.2} answer {:.2} {:>5.1} s {:>3} KB  {}  [{}]", if found { "F" } else { "-" }, in_sources, in_answer, first.unwrap_or(0.0), all.len() / 1000, q.text, files.join(", "));
+            eprintln!("{} sources {:.2} answer {:.2} {:>5.1} s {:>3} KB  {by:11}  {}  [{}]", if found { "F" } else { "-" }, in_sources, in_answer, first.unwrap_or(0.0), all.len() / 1000, q.text, files.join(", "));
             if std::env::var_os("COXSWAIN_EVAL_SHOW").is_some() {
                 eprintln!("    {}", answer.trim().replace('\n', "\n    "));
             }
@@ -181,7 +184,7 @@ fn code_eval() {
         tallies.push((corpus, tally));
         drop(store);
     }
-    println!("\nengine {engine} {}, chat model {}\n", if engine == "builtin" { "" } else { &model }, if ask.is_empty() { "none" } else { &ask });
+    println!("\nengine {engine} {}, chat model {}, for code {}\n", if engine == "builtin" { "" } else { &model }, if ask.is_empty() { "none" } else { &ask }, if code.is_empty() { "the same" } else { &code });
     println!("| Corpus | Questions | Right file read | Facts in what was read | Facts in the answer | First word |\n|---|---|---|---|---|---|");
     let mut sum = Tally::default();
     for (name, t) in &tallies {
