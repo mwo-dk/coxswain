@@ -107,7 +107,9 @@ pub fn text(path: &Path, max: u64) -> Option<String> {
             }
         }));
     });
-    let until = Instant::now() + TIME;
+    // The virtual machines in CI are slow and busy: the tests' files get four times as long there.
+    let slow = cfg!(test) && std::env::var_os("COXSWAIN_SLOW_CI").is_some_and(|v| v == "1");
+    let until = Instant::now() + if slow { TIME * 4 } else { TIME };
     let reader = std::thread::Builder::new().name(THREAD.into()).stack_size(STACK);
     std::thread::scope(|scope| reader.spawn_scoped(scope, || read(bytes, until)).ok()?.join().ok()?)
 }
