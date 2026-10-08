@@ -19,6 +19,7 @@ on:
       - "crates/coxswain-core/src/flags.rs"
       - "crates/coxswain-core/src/service.rs"
       - "crates/coxswain-core/src/fs.rs"
+      - "crates/coxswain-core/src/helper.rs"
       - "crates/coxswain-core/src/index.rs"
       - "crates/coxswain-core/src/tools.rs"
       - "crates/coxswain-core/src/update.rs"
