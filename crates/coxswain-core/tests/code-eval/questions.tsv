@@ -1,0 +1,41 @@
+# corpus	question	expected files (any; a folder matches what is in it)	facts: groups split by ; alternatives by |, all in the answer, case does not matter
+coxswain	How does the search helper start?	crates/coxswain-core/src/helper.rs	--index-helper|index-helper;tcp|socket;token
+coxswain	Which crates does the terminal app use and why?	crates/coxswain/Cargo.toml	ratatui;crossterm
+coxswain	Where is the Termux trash handled?	crates/coxswain-core/src/fs.rs,crates/coxswain-core/src/xdg_trash.rs,crates/coxswain-core/src/termux.rs	xdg_trash|xdg trash|own trash;fs.rs|trash_named|xdg_trash.rs
+coxswain	How are releases gated?	.github/workflows/release.yml	draft;release-assets|every file|all files|missing file;version
+coxswain	Which Rust GUI framework is used and how does the frontend talk to it?	gui/src-tauri,gui/src/lib.js,gui/package.json	tauri;invoke
+coxswain	What does coxswain_core::menu do?	crates/coxswain-core/src/menu.rs	action menu;shift+f10;subject|hint
+coxswain	How is a file cut into passages for search by meaning?	crates/coxswain-core/src/meaning.rs	120;overlap|20 words|share;heading
+coxswain	Which embedding model is built in and how many numbers does its vector have?	crates/coxswain-core/src/meaning.rs	e5-small|e5 small;384
+coxswain	How does Ask decide that a question is about the whole folder?	crates/coxswain-core/src/ask.rs	broad;word|list;overview
+coxswain	How does the duplicate finder find identical files?	crates/coxswain-core/src/dupes.rs	size;blake3;16 kb|first 16|16kb
+coxswain	Which database does the search store use and where is it?	crates/coxswain-core/src/store.rs	sqlite;fts5|fts;cache
+coxswain	How does the store notice that files changed?	crates/coxswain-core/src/store.rs,crates/coxswain-core/src/index.rs	watch;ten minutes|10 minutes;notify|kqueue|inotify
+coxswain	How are translations stored and what happens when a key is missing?	crates/coxswain-core/src/i18n.rs	json;en-gb|british;fall
+coxswain	How does the app check for a new version?	crates/coxswain-core/src/update.rs	github;once a day|daily|day;off|turn
+coxswain	Which tools build the desktop app's frontend?	gui/package.json	svelte;vite
+coxswain	Which systems does CI test pull requests on?	.github/workflows/ci.yml	ubuntu|linux;macos;windows
+coxswain	How does undo make sure it does not overwrite anything?	crates/coxswain-core/src/undo.rs	check|still as;trash;refuse
+coxswain	Which archive formats can be opened like folders?	crates/coxswain-core/src/archive.rs	zip;tar;7z
+coxswain	How do the app and the helper talk to each other?	crates/coxswain-core/src/helper.rs	tcp|socket;json;token
+coxswain	What is the architecture of this repository?	README.md,Cargo.toml,crates	coxswain-core|core;terminal;desktop|tauri|gui
+python-shop	Which web framework and database library does this project use?	pyproject.toml,shop/main.py,shop/db.py	fastapi;sqlalchemy
+python-shop	Where is VAT added to a price and at what rate?	shop/pricing.py	price_with_vat|pricing.py;25
+python-shop	How long are cached prices kept?	shop/cache.py	300|five minutes|5 minutes;redis
+python-shop	How is the app put together?	shop/main.py,README.md,pyproject.toml	fastapi;cart;checkout|order
+ts-tasks	How many times does the API client retry a failed request?	src/api/client.ts	3|three;200
+ts-tasks	Where is a task validated and with what?	src/schema.ts	zod;schema
+ts-tasks	Which libraries does the frontend use for its state and UI?	package.json,src/store/tasks.ts	zustand;react
+ts-tasks	How does the task list get its data?	src/components/TaskList.tsx,src/store/tasks.ts	fetchtasks|usetasks;/tasks|request
+java-library	How long can a book be borrowed and how many at once?	src/main/java/org/example/library/LoanService.java	14;5|five
+java-library	Which database does the service use?	pom.xml,src/main/resources/application.properties	postgres;jpa|hibernate
+java-library	What endpoints does the API offer?	src/main/java/org/example/library/BookController.java	/books;loans;available
+java-library	How are late fees worked out?	src/main/java/org/example/library/FineCalculator.java	0.25;10
+go-shortlink	How long are the short codes and how are they made?	internal/shortener/code.go	7|seven;base62|62
+go-shortlink	Which router and database driver does the server use?	go.mod,internal/web/handlers.go,internal/store/postgres.go	chi;pgx
+go-shortlink	How is rate limiting done?	internal/ratelimit/limiter.go,cmd/server/main.go	token bucket|bucket;429|too many
+go-shortlink	Where does a short link get resolved?	internal/web/handlers.go,internal/store/postgres.go	follow|target;redirect|301
+c-tinykv	Which hash function is used?	src/hash.c	fnv
+c-tinykv	When does the table grow?	src/table.c	0.75|three quarters|75;twice|double
+c-tinykv	Which port does the server listen on and how does it serve many clients?	include/kv.h,src/net.c,src/main.c	7379;epoll
+c-tinykv	Which libraries does it link against?	CMakeLists.txt	zlib;thread

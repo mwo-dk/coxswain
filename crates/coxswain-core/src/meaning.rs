@@ -38,8 +38,8 @@ const WORDS: usize = 120;
 const OVERLAP: usize = 20;
 pub const PASSAGES: usize = 256;
 /// How a file is cut into passages and what the model is shown of each: vectors made another
-/// way are made again (the store keeps it in its meta as `passages`).
-pub const SCHEME: &str = "2";
+/// way are made again (the store keeps it in its meta as `passages`). 3: code by its items.
+pub const SCHEME: &str = "3";
 
 /// Where the model is kept: the cache folder, next to the search store.
 pub fn folder() -> Option<PathBuf> {
@@ -915,12 +915,24 @@ pub struct Passage {
     pub heading: String,
 }
 
-/// The passages of a text that get a vector: about `WORDS` words each, cut at headings
-/// (`markdown`) and at the end of a paragraph once half full, otherwise inside it with
+/// The passages of the text of the file at `path` that get a vector: code cut at its items
+/// with its lines kept (`code::passages`); other text about `WORDS` words each, cut at
+/// headings (Markdown) and at the end of a paragraph once half full, otherwise inside it with
 /// `OVERLAP` words shared; `PASSAGES` at most. The same text always gives the same passages:
 /// a vector is found again by its number.
-pub fn passages(text: &str, markdown: bool) -> Vec<Passage> {
+pub fn passages(text: &str, path: &str) -> Vec<Passage> {
+    let markdown = is_markdown(path);
     // (passage, whether it starts a section)
+    let mut all: Vec<(Passage, bool)> = if crate::code::is_code(path) { crate::code::passages(text, path) } else { vec![] };
+    if all.is_empty() {
+        all = prose(text, markdown);
+    }
+    all.retain(|(p, _)| p.text.chars().filter(|c| c.is_alphabetic()).count() >= 20);
+    cap(all)
+}
+
+/// Prose in passages of about `WORDS` words, with whether each starts a section.
+fn prose(text: &str, markdown: bool) -> Vec<(Passage, bool)> {
     let mut all: Vec<(Passage, bool)> = vec![];
     let (mut cur, mut fresh, mut heading, mut starts, mut code) = (Vec::<&str>::new(), 0, "", true, false);
     let mut flush = |cur: &mut Vec<&str>, fresh: &mut usize, heading: &str, starts: &mut bool, keep: usize| {
@@ -954,7 +966,11 @@ pub fn passages(text: &str, markdown: bool) -> Vec<Passage> {
         }
     }
     flush(&mut cur, &mut fresh, heading, &mut starts, 0);
-    all.retain(|(p, _)| p.text.chars().filter(|c| c.is_alphabetic()).count() >= 20);
+    all
+}
+
+/// At most `PASSAGES` of `all`.
+fn cap(all: Vec<(Passage, bool)>) -> Vec<Passage> {
     let n = all.len();
     if n <= PASSAGES {
         return all.into_iter().map(|(p, _)| p).collect();
@@ -979,8 +995,14 @@ pub fn passages(text: &str, markdown: bool) -> Vec<Passage> {
 }
 
 /// `next`, the passage after `text`, put on its end without the `OVERLAP` words they share
-/// when a paragraph was cut between them.
+/// when a paragraph was cut between them. Code (passages with lines) shares none: its lines
+/// follow on.
 pub fn join(text: &mut String, next: &str) {
+    if next.contains('\n') || text.contains('\n') {
+        text.push('\n');
+        text.push_str(next);
+        return;
+    }
     let (a, b): (Vec<&str>, Vec<&str>) = (text.split_whitespace().collect(), next.split_whitespace().collect());
     let shared = (1..=OVERLAP.min(a.len()).min(b.len())).rev().find(|&k| a[a.len() - k..] == b[..k]).unwrap_or(0);
     let rest = b[shared..].join(" ");
@@ -1329,15 +1351,18 @@ mod tests {
         assert_eq!(alike(&signs(&pack(&a)), &signs(&pack(&a))), DIMS as u32);
         assert_eq!(score(&[1, 2, 3], &a), 0.0, "a broken vector scores nothing");
 
-        assert_eq!(passages("too short to mean much", false).len(), 0);
+        assert_eq!(passages("too short to mean much", "notes.txt").len(), 0);
         assert!(size() > 400_000_000);
     }
 
     /// Neighbouring passages joined read as the text did: the words a cut shares come once.
     #[test]
     fn join_drops_the_words_two_passages_share() {
+        let mut code = "fn a() {\n    1\n}".to_string();
+        join(&mut code, "fn b() {\n    2\n}");
+        assert_eq!(code, "fn a() {\n    1\n}\nfn b() {\n    2\n}", "code follows on, line by line");
         let text: String = (0..300).map(|i| format!("w{i} ")).collect();
-        let p = passages(&text, false);
+        let p = passages(&text, "notes.txt");
         let mut joined = p[0].text.clone();
         join(&mut joined, &p[1].text);
         join(&mut joined, &p[2].text);
@@ -1354,7 +1379,7 @@ mod tests {
     #[test]
     fn passages_cover_the_whole_document() {
         let text: String = (0..30).map(|p| (0..90).map(|w| format!("w{p}x{w}")).collect::<Vec<_>>().join(" ") + "\n\n").collect();
-        let ps = passages(&text, false);
+        let ps = passages(&text, "notes.txt");
         for word in text.split_whitespace() {
             assert!(ps.iter().any(|p| p.text.split(' ').any(|w| w == word)), "{word} is in no passage");
         }
@@ -1362,24 +1387,24 @@ mod tests {
         // 90-word paragraphs: a passage each. One paragraph of 300 words: cut with 20 shared.
         assert!(ps[0].text.starts_with("w0x0 ") && ps[0].text.ends_with(" w0x89") && ps[1].text.starts_with("w1x0 "));
         let one = (0..300).map(|w| format!("x{w}")).collect::<Vec<_>>().join(" ");
-        let ps = passages(&one, false);
+        let ps = passages(&one, "notes.txt");
         assert_eq!(ps.iter().map(|p| p.text.split(' ').next().unwrap()).collect::<Vec<_>>(), ["x0", "x100", "x200"]);
 
         let md = format!("# Fuel\n\n{}\n\n```sh\n# not a heading\n```\n\n## Launch window\n\n{}\n", "tanks fuel budget kerosene ".repeat(20), "the window opens at dawn ".repeat(10));
-        let ps = passages(&md, true);
+        let ps = passages(&md, "notes.md");
         assert_eq!(ps.iter().map(|p| p.heading.as_str()).collect::<Vec<_>>(), ["Fuel", "Launch window"]);
         assert!(ps[1].text.starts_with("Launch window the window"), "{}", ps[1].text);
         assert_eq!(shown_to_model("/home/u/rocket/notes/plan.md", &ps[1]).lines().next(), Some("plan.md · rocket/notes · Launch window"));
-        assert!(passages(&md, false).iter().all(|p| p.heading.is_empty()), "a # in code is no heading");
+        assert!(passages(&md, "notes.txt").iter().all(|p| p.heading.is_empty()), "a # in code is no heading");
 
         // 60,000 words with a heading every 2,000: the cap, the first and the last passage, and
         // every heading.
         let long: String = (0..30).map(|s| format!("# Part {s}\n\n{}\n\n", (0..2000).map(|w| format!("p{s}w{w}")).collect::<Vec<_>>().join(" "))).collect();
-        let all = passages(&long, true);
+        let all = passages(&long, "notes.md");
         assert_eq!(all.len(), PASSAGES);
         assert!(all[0].text.contains("p0w0") && all.last().unwrap().text.contains("p29w1999"));
         assert!((0..30).all(|s| all.iter().any(|p| p.text.contains(&format!("p{s}w0 ")))), "every part's start");
-        assert_eq!(passages(&long, true), all, "the same text, the same passages");
+        assert_eq!(passages(&long, "notes.md"), all, "the same text, the same passages");
     }
 
     /// With the model downloaded: a question finds the passage about it, across languages.

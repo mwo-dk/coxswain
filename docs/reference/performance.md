@@ -12,6 +12,7 @@ numbers measured on synthetic data, so you know what to expect and can measure a
 - [The terminal app](#the-terminal-app)
 - [The numbers](#the-numbers)
 - [Search quality](#search-quality)
+- [Code questions](#code-questions)
 - [Measuring again](#measuring-again)
 - [Questions](#questions)
 
@@ -408,6 +409,35 @@ COXSWAIN_EVAL_ENGINE=ollama cargo test --release -p coxswain-core --test search_
 Each question's line shows its rank in the four lists (words, meaning, fused, as shown; `-`: not in the first 20), `P` when the
 passage that answers went to Ask (`f`: only other passages of the file, `-`: none), and how many
 files meaning found.
+
+## Code questions
+
+How well Ask answers questions about code, measured on 8 October 2026 with
+`crates/coxswain-core/tests/code_eval.rs` ([Ask about code](../search/ask-code.md)): 20
+questions about this repository at a fixed commit (490 files read) and 4 each about small
+projects in Python, TypeScript, Java, Go and C, each with the files that hold the answer and the
+facts the answer must name (`tests/code-eval/questions.tsv`). Run it by hand, with a home of its
+own: `HOME=… XDG_CACHE_HOME=… COXSWAIN_EVAL_ENGINE=ollama COXSWAIN_EVAL_ASK=qwen3:8b cargo test --release -p coxswain-core --test code_eval -- --ignored --nocapture`
+(the test's first lines list the other settings). bge-m3 and qwen3:8b on Ollama, RTX 4070 Laptop GPU (8 GB),
+`ask_context` 8,192. *File*: a file that holds the answer was among the sources; *read*: the share
+of the facts in the sources; *answer*: the share the answer names.
+
+| Corpus | Before (2.17): file · read · answer | Code read as code (2.18): file · read · answer |
+|---|---|---|
+| This repository | 13/20 · 0.75 · 0.51 | 16/20 · 0.79 · 0.57 |
+| Python | 4/4 · 1.00 · 0.79 | 4/4 · 1.00 · 0.88 |
+| TypeScript | 4/4 · 1.00 · 0.88 | 4/4 · 1.00 · 0.88 |
+| Java | 4/4 · 1.00 · 0.88 | 4/4 · 1.00 · 0.88 |
+| Go | 4/4 · 0.88 · 0.75 | 4/4 · 0.88 · 0.88 |
+| C | 3/4 · 0.75 · 0.62 | 4/4 · 1.00 · 0.88 |
+| All 40 | 32/40 · 0.84 · 0.65 | 36/40 · 0.88 · 0.72 |
+
+The repository's passages: 12,722 before, 11,077 after (code in fewer, whole items); the first
+pass took 15 to 25 minutes with bge-m3. The wait for the first word was 11 to 18 s for this
+repository's questions (about 19 KB read each) and 1 to 4 s for the small projects; the machine
+was in use meanwhile, so these times vary by half either way. What still fails: questions whose
+answer is in code but whose docs say it in other words (*how does the search helper start?*
+reads the docs' pages), and answers the model gets wrong with the right file in front of it.
 
 ## Measuring again
 

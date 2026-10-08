@@ -377,4 +377,4 @@ Yes. The chat model and the embedding model are chosen apart: vectors from Ollam
 from the built-in model work, and the other way round.
 
 ---
-[← Previous: Ask](ask.md) · [Next: Built-in models →](models.md)
+[← Previous: Ask about code](ask-code.md) · [Next: Built-in models →](models.md)

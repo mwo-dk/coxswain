@@ -131,16 +131,20 @@ source. Text that is the same in two files (a copy) is given once.
 **A question about the whole folder.** When the question asks what the folder, the project, the
 repository or the code is or is about (*what is this repository's code about?*, *explain this
 project*, *give me an overview*, *hvad handler denne mappe om?*, *worum geht es in diesem
-Projekt?*), Ask first reads an overview of Find's scope or, with the scope on everywhere, of the
+Projekt?*), or how it is built (*what is the architecture?*, *which libraries does it use?*,
+*which crates?*), Ask first reads an overview of Find's scope or, with the scope on everywhere, of the
 active panel's folder, in up to three fifths of the room:
 
 1. the README at its top (`README.md`, `README`, `readme.txt`, …), up to half of that;
 2. the tree of its folders, up to a quarter, two levels deep, 40 entries a folder, without hidden folders, the
    folders in *Left out everywhere* (`text_exclude`: `node_modules`, `target`, `build`, `dist`, …)
    and the plain names in its `.gitignore`;
-3. its project files up to three levels deep, up to an eighth each: `Cargo.toml`, `package.json`, `pyproject.toml`,
+3. for a project (a folder with `.git` or a project file), its map: each project file with what
+   it uses, each workflow, each file of code with what it says it is and its public items, in up
+   to half of the room, the README and the tree getting less then ([Ask about code](ask-code.md#the-map-of-a-project));
+4. its project files up to three levels deep, up to an eighth each: `Cargo.toml`, `package.json`, `pyproject.toml`,
    `go.mod`, `pom.xml`, `build.gradle`, `*.csproj`, `CMakeLists.txt`, `flake.nix` and others;
-4. its docs index: `docs/README.md` or `docs/index.md`.
+5. its docs index: `docs/README.md` or `docs/index.md`.
 
 A file that would get less than 200 bytes is left out, so a small context (the built-in model on
 a processor) gets the start of the README and the tree rather than scraps of everything.
@@ -341,4 +345,4 @@ Each question looks up its own passages, together with the question before it. T
 under each answer are that answer's sources.
 
 ---
-[← Previous: Search by meaning on a server](servers.md) · [Next: Ask without a server →](ask-builtin.md)
+[← Previous: Search by meaning on a server](servers.md) · [Next: Ask about code →](ask-code.md)

@@ -39,6 +39,7 @@ active panel's folder, **Ctrl+F** inside Find) limits every group and Ask; it sh
 | [Search by meaning](meaning.md) | The built-in multilingual model: turning it on, what it finds |
 | [Search by meaning on a server](servers.md) | Ollama, Lemonade, LM Studio or any server with the OpenAI API |
 | [Ask](ask.md) | Questions answered from your files by your own chat model, with numbered sources |
+| [Ask about code](ask-code.md) | Code read as code, cut at its functions and classes, and a map of a project for questions about it as a whole |
 | [Ask without a server](ask-builtin.md) | The built-in chat model (Qwen3 1.7B or 4B): downloaded once, on a Mac's GPU or the processor, nothing sent |
 | [Built-in models](models.md) | The models Coxswain downloaded: where they are, whether they are loaded, unloading and deleting them, `coxswain --models` |
 | [The search helper](helper.md) | The background process, starting it with your session, and how an app takes the registration over after an upgrade |

@@ -335,15 +335,16 @@ impl Store {
     }
 
     /// A reader learnt to get more of some kinds of files: those files are read again, once,
-    /// and the rest of the store stays. `(tag, extensions)`: the tag names what changed.
-    fn readers_changed(&self, tag: &str, exts: &[&str]) -> rusqlite::Result<()> {
+    /// and the rest of the store stays. `(tag, ends)`: the tag names what changed, the ends
+    /// are those of the files' names (`.md`, `/Makefile`).
+    fn readers_changed<S: AsRef<str>>(&self, tag: &str, ends: &[S]) -> rusqlite::Result<()> {
         let db = self.db.lock().unwrap();
         let before: String = db.query_row("SELECT value FROM meta WHERE key = 'readers'", [], |r| r.get(0)).unwrap_or_default();
         if before == tag {
             return Ok(());
         }
-        for ext in exts {
-            db.execute("UPDATE files SET has_text = NULL, embedded = NULL WHERE lower(path) LIKE ?1", [format!("%.{ext}")])?;
+        for end in ends {
+            db.execute("UPDATE files SET has_text = NULL, embedded = NULL WHERE path LIKE ?1", [format!("%{}", end.as_ref())])?;
         }
         db.execute("INSERT OR REPLACE INTO meta(key, value) VALUES ('readers', ?1)", [tag])?;
         Ok(())
@@ -850,8 +851,11 @@ impl Store {
             // (a copy, a translation left as it was) is given once.
             let mut excerpts: Vec<String> = vec![];
             let mut i = 0;
+            // An excerpt of code says the item it starts in: "› impl Store › fn passages".
+            let code = crate::code::is_code(&path.to_string_lossy());
             while i < taken.len() {
-                let mut text = all[taken[i]].text.clone();
+                let first = &all[taken[i]];
+                let mut text = if code && !first.heading.is_empty() { format!("› {}\n{}", first.heading, first.text) } else { first.text.clone() };
                 while i + 1 < taken.len() && taken[i + 1] == taken[i] + 1 {
                     i += 1;
                     crate::meaning::join(&mut text, &all[taken[i]].text);
@@ -897,8 +901,8 @@ impl Store {
             ranked = by_files(ranked);
         }
         let offline: Vec<(String, String)> = self.offline.lock().unwrap().iter().map(|at| below(at)).collect();
-        // A file's path as shown, and whether it is Markdown (its headings cut its passages).
-        let mut paths: HashMap<i64, Option<(PathBuf, bool)>> = HashMap::new();
+        // A file's path as shown, and as kept (its kind says how it is cut into passages).
+        let mut paths: HashMap<i64, Option<(PathBuf, String)>> = HashMap::new();
         let mut texts: HashMap<i64, std::rc::Rc<Vec<crate::meaning::Passage>>> = HashMap::new();
         let mut out = vec![];
         for (file, s, n) in ranked {
@@ -907,14 +911,13 @@ impl Store {
             }
             let path = paths.entry(file).or_insert_with(|| {
                 let path: String = db.query_row("SELECT path FROM files WHERE id = ?1", [file], |r| r.get(0)).ok()?;
-                let markdown = crate::meaning::is_markdown(&path);
-                (!offline.iter().any(|(from, to)| path > *from && path < *to)).then(|| (shown(path), markdown))
+                (!offline.iter().any(|(from, to)| path > *from && path < *to)).then(|| (shown(path.clone()), path))
             });
-            let Some((path, markdown)) = path.clone().filter(|(p, _)| accept(p)) else { continue };
+            let Some((path, kept)) = path.clone().filter(|(p, _)| accept(p)) else { continue };
             let passages = texts.entry(file).or_insert_with(|| {
                 #[cfg(test)]
                 self.bodies_read.fetch_add(1, Ordering::Relaxed);
-                std::rc::Rc::new(db.query_row("SELECT body FROM text WHERE rowid = ?1", [file], |r| r.get::<_, String>(0)).map(|b| crate::meaning::passages(&b, markdown)).unwrap_or_default())
+                std::rc::Rc::new(db.query_row("SELECT body FROM text WHERE rowid = ?1", [file], |r| r.get::<_, String>(0)).map(|b| crate::meaning::passages(&b, &kept)).unwrap_or_default())
             });
             if (n as usize) < passages.len() {
                 out.push((path, s, n as usize, passages.clone()));
@@ -1276,8 +1279,10 @@ pub fn scan(store: &Store, cfg: &SearchConfig, stop: &AtomicBool) -> rusqlite::R
     let began = now();
     let (roots, offline) = place(store, cfg)?;
     store.tools_changed(&crate::extract::installed::extensions())?;
-    // Diagrams got a sentence per arrow.
-    store.readers_changed("diagrams-2", &["drawio", "dio", "mmd", "mermaid", "dot", "gv", "puml", "plantuml", "pu", "iuml", "wsd", "md", "markdown", "mdx"])?;
+    // Diagrams got a sentence per arrow; code keeps its indentation and blank lines.
+    let mut ends: Vec<String> = ["drawio", "dio", "mmd", "mermaid", "dot", "gv", "puml", "plantuml", "pu", "iuml", "wsd", "md", "markdown", "mdx"].iter().map(|e| format!(".{e}")).collect();
+    ends.extend(crate::code::endings());
+    store.readers_changed("code-1", &ends)?;
     store.archives_changed(cfg.archives)?;
     store.exclude_changed(&cfg.text_exclude)?;
     let known = store.known()?;
@@ -1342,7 +1347,7 @@ fn embed(store: &Store, stop: &AtomicBool) -> rusqlite::Result<()> {
         }
         let (start, count) = (Instant::now(), files.len());
         for (id, path, body) in files {
-            let texts: Vec<String> = crate::meaning::passages(&body, crate::meaning::is_markdown(&path)).iter().map(|p| crate::meaning::shown_to_model(&path, p)).collect();
+            let texts: Vec<String> = crate::meaning::passages(&body, &path).iter().map(|p| crate::meaning::shown_to_model(&path, p)).collect();
             if texts.is_empty() {
                 store.put_vectors(id, &[])?;
                 continue;
@@ -2029,7 +2034,7 @@ mod tests {
         // 1.26.4 the old text made every scan fail there, and no file got its vectors after.
         let id = store.unread().unwrap()[0].0;
         store.read(&[(id, Some("old words".into()))]).unwrap();
-        store.readers_changed("test-2", &["png"]).unwrap();
+        store.readers_changed("test-2", &[".png"]).unwrap();
         assert_eq!(store.unread().unwrap().len(), 1);
         store.read(&[(id, Some("new words".into()))]).unwrap();
         assert_eq!(store.search("new", None, 10).total, 1);
@@ -2355,7 +2360,7 @@ mod tests {
         let long = "the launch plan and the fuel budget for the flight, written out in plain words ".repeat(2000);
         for _ in 0..3 {
             let t = Instant::now();
-            let n = crate::meaning::passages(&long, false).len();
+            let n = crate::meaning::passages(&long, "long.txt").len();
             println!("passages of a 30,000-word text: {n} in {:.1} ms", t.elapsed().as_secs_f64() * 1000.0);
         }
     }

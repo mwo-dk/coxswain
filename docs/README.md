@@ -72,6 +72,7 @@ New here? Start with [The first-run guide](panels/first-run.md), [The screen](pa
 | [Search by meaning](search/meaning.md) | The built-in multilingual model, turning it on and off, what you see, how it works |
 | [Search by meaning on a server: Ollama, Lemonade, LM Studio](search/servers.md) | Ollama, Lemonade, LM Studio, any OpenAI-compatible server, API keys, privacy |
 | [Ask: questions answered from your files](search/ask.md) | The Ask row of Find (Ctrl+Enter): your chat model answers from the closest passages, citing them, in place of the list |
+| [Ask about code](search/ask-code.md) | Code read as code: passages cut at functions and classes with their lines, named after their item; a map of a project (files, public items, dependencies) for questions about it as a whole; any language |
 | [Ask without a server: the built-in chat model](search/ask-builtin.md) | Qwen3 1.7B or 4B Instruct built in: the download, Metal on a Mac and the processor elsewhere, loaded in the helper and let go when idle, speed, `builtin:` in `ask_model` |
 | [Built-in models](search/models.md) | The models on the disk, their folder, loaded or not and where, last used; unload, delete, delete all not in use, `coxswain --models` |
 | [The search helper](search/helper.md) | One process for all windows, privacy of its connection, starting with the session, taken over after an upgrade moves the program |

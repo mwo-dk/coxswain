@@ -5,6 +5,7 @@ pub mod ask;
 pub mod bom;
 pub mod chat;
 pub mod cloud;
+pub mod code;
 pub mod config;
 pub mod i18n;
 pub mod disk;

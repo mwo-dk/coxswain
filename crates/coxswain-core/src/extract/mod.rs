@@ -61,8 +61,9 @@ fn reader(path: &Path) -> Option<Reader> {
 }
 
 /// The text of the file at `path`, `size` bytes long, if it has any and is no larger than
-/// `max`. Runs of blank space become one space or one line break. None for a file only in the
-/// cloud, unless the settings read those: reading it would download it.
+/// `max`. Runs of blank space become one space or one line break; code keeps its indentation
+/// and a blank line between its parts. None for a file only in the cloud, unless the settings
+/// read those: reading it would download it.
 pub fn text_of(path: &Path, size: u64, max: u64) -> Option<String> {
     if size == 0 || size > max || crate::cloud::keep_out(path) {
         return None;
@@ -71,8 +72,31 @@ pub fn text_of(path: &Path, size: u64, max: u64) -> Option<String> {
         Some(read) => std::panic::catch_unwind(|| read(path, max)).ok().flatten()?,
         None => plain::text(path, max)?,
     };
-    let text = tidy(&text);
-    (!text.is_empty()).then_some(text)
+    let text = if crate::code::is_code(&path.to_string_lossy()) { tidy_code(&text) } else { tidy(&text) };
+    (!text.trim().is_empty()).then_some(text)
+}
+
+/// Code as `tidy` leaves text, but with each line's indentation and one blank line where it
+/// has some.
+pub fn tidy_code(text: &str) -> String {
+    let mut out = String::with_capacity(text.len().min(MAX_TEXT));
+    let mut blank = false;
+    for line in text.lines() {
+        let line = line.replace(unseen, "");
+        let line = line.trim_end();
+        if line.is_empty() {
+            blank = !out.is_empty();
+            continue;
+        }
+        let start = if out.is_empty() { "" } else if blank { "\n\n" } else { "\n" };
+        blank = false;
+        if out.len() + start.len() + line.len() > MAX_TEXT {
+            break;
+        }
+        out.push_str(start);
+        out.push_str(line);
+    }
+    out
 }
 
 /// One space between words, one line break between lines, no more than `MAX_TEXT` bytes, and
@@ -134,7 +158,7 @@ pub fn zip_entry(path: &Path, name: &str) -> Option<Vec<u8>> {
 pub fn zip_entries(path: &Path, most: usize, wanted: impl Fn(&str) -> bool) -> Vec<(String, Vec<u8>)> {
     let Some(mut zip) = std::fs::File::open(path).ok().and_then(|f| zip::ZipArchive::new(f).ok()) else { return vec![] };
     let mut names: Vec<String> = zip.file_names().filter(|n| wanted(n)).map(String::from).collect();
-    names.sort_by(|a, b| natural(a).cmp(&natural(b)));
+    names.sort_by_key(|a| natural(a));
     names.truncate(most);
     names.into_iter().filter_map(|n| Some((n.clone(), unpack(zip.by_name(&n).ok()?)?))).collect()
 }
@@ -239,6 +263,7 @@ pub(crate) mod tests {
 
     #[test]
     fn extract_tidies_cuts_and_survives() {
+        assert_eq!(tidy_code("\n\nfn a() {\n\t  x(1,  2);   \n\n\n}\n\n"), "fn a() {\n\t  x(1,  2);\n\n}", "code keeps its indentation and one blank line");
         assert_eq!(tidy("  one   two \n\n\n three\t\n"), "one two\nthree");
         let long = "é".repeat(MAX_TEXT);
         let cut = tidy(&long);

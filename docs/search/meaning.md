@@ -248,11 +248,13 @@ file has its start, its end, the start of each section and passages evenly betwe
 words still finds every word. Before 1.39.0 only the first 960 words counted.
 
 #### Why is search by meaning re-reading everything?
-Once, after the update to 1.39.0: earlier versions gave vectors to the first 960 words of each
-file only, and those vectors cannot be mixed with the new ones. The helper notices it when it
-opens the store, drops the old vectors and makes new ones in the background, the most recently
-changed files first. The text is not read again, and search by words works all the while. Both
-apps say it once: *Search by meaning is being renewed to cover whole documents: 23,088 files,
+Once after an update that changes how files are cut into passages: 1.39.0 (whole documents,
+not the first 960 words) and 2.18.0 (code cut at its functions and classes, with its lines,
+[Ask about code](ask-code.md)). Vectors made the old way cannot be mixed with the new ones. The
+helper notices it when it opens the store, drops the old vectors and makes new ones in the
+background, the most recently changed files first. The text is not read again, except files
+of code once with their indentation, and search by words works all the while. Both
+apps say it once: *Search by meaning is being renewed to read your files better: 23,088 files,
 about 3 hours on this machine* (the time is measured on the first files). Settings (desktop) and Find's
 footer (both apps) show the files to go. Until a file has its new vectors, it is found
 by its words only. A store copied to another machine is renewed there the same way.
