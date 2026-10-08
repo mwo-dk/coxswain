@@ -747,6 +747,9 @@ struct ChatStatus {
     preselected: String,
     /// Every chat model Ask can take, by place: the server's and the built-in ones.
     groups: Vec<coxswain_core::setup::AskGroup>,
+    /// The same for the model for code questions, and why one is recommended here or none.
+    code_groups: Vec<coxswain_core::setup::AskGroup>,
+    code_why: String,
 }
 
 #[tauri::command(async)]
@@ -770,6 +773,8 @@ fn chat_status(ctx: tauri::State<Ctx>) -> Res<ChatStatus> {
         runs: coxswain_core::setup::builtin_runs(&ctx.cfg().search, None),
         preselected: coxswain_core::setup::recommend_ask(&ctx.cfg().search, look.as_deref()),
         groups: coxswain_core::setup::ask_choices(&ctx.cfg().search, look.as_deref()),
+        code_groups: coxswain_core::setup::code_choices(&ctx.cfg().search, look.as_deref()),
+        code_why: coxswain_core::setup::code_advice(&ctx.cfg().search, look.as_deref()).why,
     })
 }
 

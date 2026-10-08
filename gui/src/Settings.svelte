@@ -210,7 +210,7 @@
   const askPoor = $derived(lines.find((l) => l.part === "ask")?.poor ?? null);
   const meaningPoor = $derived(lines.find((l) => l.part === "meaning")?.poor ?? null);
   async function usePoor(p) {
-    if (p.ask) return setAskModel(p.changes.ask_model);
+    if (p.ask) return "ask_model" in p.changes ? setAskModel(p.changes.ask_model) : save(p.changes);
     const c = p.changes;
     const why = await invoke("meaning_change", { name: "meaning_model", value: c.meaning_model, engine: c.meaning_engine, url: c.meaning_url }).catch(() => null);
     if (!why) return save(c);
@@ -723,7 +723,23 @@
               {#if !builtinAsk && isRemote(serverUrl)}<p class="hint"><strong>{t("settings.ask_remote", { host: hostOf(serverUrl) })}</strong></p>{/if}
               <p class="hint">{t("settings.ask_builtin_hint")}</p>
             {/snippet}
+            {#snippet codeModel()}
+              <!-- Same as Ask, or a model of the same list for questions about code. -->
+              <select id="in-ask_code_model" value={s.ask_code_model} onchange={(e) => set("ask_code_model", e.currentTarget.value)}>
+                <option value="">{t("settings.code_same")}</option>
+                {#each chat?.code_groups ?? [] as g (g.label)}
+                  {#if g.models.length}
+                    <optgroup label={g.label}>
+                      {#each g.models as m (m.value)}<option value={m.value}>{m.label}{m.recommended ? ` · ${t("setup.recommended")}` : ""}{m.slow ? ` · ${t("settings.ask_slow_here")}` : ""}</option>{/each}
+                    </optgroup>
+                  {/if}
+                {/each}
+                {#if s.ask_code_model && !(chat?.code_groups ?? []).some((g) => g.models.some((m) => m.value === s.ask_code_model))}<option value={s.ask_code_model}>{s.ask_code_model}</option>{/if}
+              </select>
+              {#if chat?.code_why}<p class="hint">{chat.code_why}</p>{/if}
+            {/snippet}
             {@render field("ask_model", askModel)}
+            {@render field("ask_code_model", codeModel)}
             {@render check("ask_think")}
             {@render num("ask_context", 2048, 131072)}
           </details>

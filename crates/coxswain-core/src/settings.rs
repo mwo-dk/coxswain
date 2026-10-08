@@ -137,6 +137,7 @@ pub const OPTIONS: &[Opt] = &[
     opt("meaning_key_env", &["search", "meaning_key_env"], Search, &[]),
     opt("meaning_device", &["search", "meaning_device"], Search, &[]),
     opt("ask_model", &["search", "ask_model"], Search, &[Leaves]),
+    opt("ask_code_model", &["search", "ask_code_model"], Search, &[Leaves]),
     opt("ask_think", &["search", "ask_think"], Search, &[]),
     opt("ask_context", &["search", "ask_context"], Search, &[]),
     opt("preview_prefer", &["preview", "prefer"], Previews, &[]),

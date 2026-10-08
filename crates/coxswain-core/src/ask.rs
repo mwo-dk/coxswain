@@ -23,10 +23,19 @@ const LEAST: usize = 1500;
 
 /// Tokens the chat model is given, prompt and answer: a built-in model's own, or `ask_context`.
 pub fn context(cfg: &SearchConfig) -> usize {
-    match crate::chat::of(&cfg.ask_model) {
+    let of = |model: &str| match crate::chat::of(model) {
         Some(m) => m.context(cfg.meaning_device == "cpu"),
         None => cfg.ask_context.clamp(2048, 131_072),
-    }
+    };
+    // The sources are found before it is known which of the two answers: they fit both.
+    if cfg.ask_code_model.is_empty() { of(&cfg.ask_model) } else { of(&cfg.ask_model).min(of(&cfg.ask_code_model)) }
+}
+
+/// The model for code that answers `question` from `sources` instead of Ask's own, when one
+/// is set and they are about code.
+pub fn code_model(cfg: &SearchConfig, question: &str, sources: &[(PathBuf, String)]) -> Option<String> {
+    let other = !cfg.ask_code_model.is_empty() && cfg.ask_code_model != cfg.ask_model;
+    (other && (about_code(sources) || names_code(question))).then(|| cfg.ask_code_model.clone())
 }
 
 /// Tokens `text` takes, about, on the high side.
@@ -97,8 +106,10 @@ pub fn read(sources: &[(PathBuf, String)]) -> String {
 /// Whether most of the sources are code: half of them or more files of code (project and
 /// configuration files, the folder's tree and map do not count).
 pub fn about_code(sources: &[(PathBuf, String)]) -> bool {
-    let code = sources.iter().filter(|(p, _)| crate::code::is_source(&p.to_string_lossy())).count();
-    code > 0 && code * 2 >= sources.len()
+    // The folder's tree and map, a README without an extension: neither way.
+    let files: Vec<&PathBuf> = sources.iter().map(|(p, _)| p).filter(|p| p.extension().is_some()).collect();
+    let code = files.iter().filter(|p| crate::code::is_source(&p.to_string_lossy())).count();
+    code > 0 && code * 2 >= files.len()
 }
 
 /// Whether `question` names something in code: `coxswain_core::menu`, `passages()`, `ask.rs`,
