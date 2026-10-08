@@ -14,6 +14,7 @@ on. It needs what Ask needs ([What it needs](ask.md#what-it-needs)).
 ## Contents
 
 - [What changes for code](#what-changes-for-code)
+- [A question about code](#a-question-about-code)
 - [The map of a project](#the-map-of-a-project)
 - [Which languages](#which-languages)
 - [How well it does](#how-well-it-does)
@@ -46,6 +47,22 @@ Neighbouring passages of code join into one excerpt line by line. What you see i
 The first scan after the update reads your code files again and gives every passage a new
 vector (Find and Settings say *Renewing search by meaning: … files to go, about …*); words inside files
 are searchable all the while. See [Why is search by meaning re-reading everything?](meaning.md#why-is-search-by-meaning-re-reading-everything).
+
+## A question about code
+
+Ask takes a question for one about code when most of what it found is code (half the sources
+or more are files of code; project, configuration and data files such as `Cargo.toml`,
+`package.json` or `config.yaml` do not count), or when the question names something in code:
+`coxswain_core::menu`, `passages()`, `src/store.rs`, `MAX_LOAD`, `kv_hash`, `fetchTasks`. No
+model decides it: it is worked out from the sources and the words, at once.
+
+What it changes: the line over the sources says so. A question about code gets the same excerpts as any other; only a
+question about the whole project gets the [map](#the-map-of-a-project). Giving a specific
+question the map too was measured and left out: the excerpts it pushed out said more
+([Performance → Code questions](../reference/performance.md#code-questions)).
+
+The dim line over the sources says it: *Code question: 9 excerpts from 6 files, about 2000
+words* in place of *9 excerpts from 6 files, about 2000 words*, in both apps.
 
 ## The map of a project
 
@@ -147,6 +164,12 @@ Words like *architecture*, *framework*, *library*, *dependencies*, *crates* (in 
 languages) make it a question about the project as a whole: Ask reads the overview first, with
 the map of the project, then the closest excerpts. The overview's sources are listed under the
 answer like the others; **Enter** on the folder's source opens it in the active panel.
+
+#### Why does the line over the sources say *Code question*?
+
+Half or more of what Ask found is files of code, or the question names something in code (a
+path, `name()`, `snake_case`, `camelCase`, `a::b`). It reads the same excerpts as for any
+question; the line only says how the question was taken.
 
 #### Does the map send anything anywhere?
 

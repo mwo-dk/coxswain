@@ -165,6 +165,7 @@
  "ask.poor_server_sure": "{model} op {server} draait op je grafische kaart ({gpu}) en antwoordt veel sneller.",
  "ask.poor_smaller": "{model} antwoordt hier sneller (ongeveer {seconds} s); een modelserver op een grafische kaart nog sneller.",
  "ask.read": "{excerpts} uit {files}, {words}",
+ "ask.read_code": "Vraag over code: {read}",
  "ask.tip_metal": "{model} op {server} draait ook op Metal en is groter dan {builtin}: betere antwoorden.",
  "ask.tip_metal_quicker": "{model} op {server} draait ook op Metal, groter en sneller dan {builtin}.",
  "ask.words": {

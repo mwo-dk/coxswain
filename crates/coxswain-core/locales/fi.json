@@ -165,6 +165,7 @@
  "ask.poor_server_sure": "{model} palvelimella {server} toimii näytönohjaimellasi ({gpu}) ja vastaa paljon nopeammin.",
  "ask.poor_smaller": "{model} vastaa täällä nopeammin (noin {seconds} s); mallipalvelin näytönohjaimella vielä nopeammin.",
  "ask.read": "{excerpts}, lähteenä {files}, {words}",
+ "ask.read_code": "Kysymys koodista: {read}",
  "ask.tip_metal": "{model} palvelimella {server} toimii myös Metalilla ja on suurempi kuin {builtin}: paremmat vastaukset.",
  "ask.tip_metal_quicker": "{model} palvelimella {server} toimii myös Metalilla, suurempi ja nopeampi kuin {builtin}.",
  "ask.words": {

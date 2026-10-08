@@ -165,6 +165,7 @@
  "ask.poor_server_sure": "Το {model} στο {server} τρέχει στην κάρτα γραφικών σας ({gpu}) και απαντά πολύ πιο γρήγορα.",
  "ask.poor_smaller": "Το {model} απαντά εδώ πιο γρήγορα (περίπου {seconds} s)· ένας διακομιστής μοντέλων σε κάρτα γραφικών ακόμη πιο γρήγορα.",
  "ask.read": "{excerpts} από {files}, {words}",
+ "ask.read_code": "Ερώτηση για κώδικα: {read}",
  "ask.tip_metal": "Το {model} στο {server} τρέχει κι αυτό σε Metal και είναι μεγαλύτερο από το {builtin}: καλύτερες απαντήσεις.",
  "ask.tip_metal_quicker": "Το {model} στο {server} τρέχει κι αυτό σε Metal, μεγαλύτερο και ταχύτερο από το {builtin}.",
  "ask.words": {

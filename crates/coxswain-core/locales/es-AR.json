@@ -169,6 +169,7 @@
  "ask.poor_server_sure": "{model} en {server} corre en tu placa de video ({gpu}) y responde mucho antes.",
  "ask.poor_smaller": "{model} responde antes acá (unos {seconds} s); un servidor de modelos en una placa de video, todavía antes.",
  "ask.read": "{excerpts} de {files}, {words}",
+ "ask.read_code": "Pregunta sobre código: {read}",
  "ask.tip_metal": "{model} en {server} también corre en Metal y es más grande que {builtin}: mejores respuestas.",
  "ask.tip_metal_quicker": "{model} en {server} también corre en Metal, más grande y más rápido que {builtin}.",
  "ask.words": {

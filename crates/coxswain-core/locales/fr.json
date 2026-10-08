@@ -169,6 +169,7 @@
  "ask.poor_server_sure": "{model} sur {server} tourne sur votre carte graphique ({gpu}) et répond bien plus tôt.",
  "ask.poor_smaller": "{model} répond plus tôt ici (environ {seconds} s) ; un serveur de modèles sur une carte graphique, plus tôt encore.",
  "ask.read": "{excerpts} de {files}, {words}",
+ "ask.read_code": "Question sur le code: {read}",
  "ask.tip_metal": "{model} sur {server} tourne aussi sur Metal et est plus grand que {builtin} : de meilleures réponses.",
  "ask.tip_metal_quicker": "{model} sur {server} tourne aussi sur Metal, plus grand et plus rapide que {builtin}.",
  "ask.words": {

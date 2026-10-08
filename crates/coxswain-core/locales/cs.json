@@ -169,6 +169,7 @@
  "ask.poor_server_sure": "{model} na {server} běží na vaší grafické kartě ({gpu}) a odpoví mnohem dřív.",
  "ask.poor_smaller": "{model} tu odpoví dřív (asi {seconds} s); server modelů na grafické kartě ještě dřív.",
  "ask.read": "{excerpts} z: {files}, {words}",
+ "ask.read_code": "Otázka na kód: {read}",
  "ask.tip_metal": "{model} na {server} běží také na Metal a je větší než {builtin}: lepší odpovědi.",
  "ask.tip_metal_quicker": "{model} na {server} běží také na Metal, větší a rychlejší než {builtin}.",
  "ask.words": {

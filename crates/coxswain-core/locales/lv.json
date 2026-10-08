@@ -169,6 +169,7 @@
  "ask.poor_server_sure": "{model} serverī {server} darbojas uz jūsu grafikas kartes ({gpu}) un atbild daudz ātrāk.",
  "ask.poor_smaller": "{model} šeit atbild ātrāk (apmēram {seconds} s); modeļu serveris uz grafikas kartes – vēl ātrāk.",
  "ask.read": "{excerpts} no: {files}, {words}",
+ "ask.read_code": "Jautājums par kodu: {read}",
  "ask.tip_metal": "{model} serverī {server} arī darbojas ar Metal un ir lielāks par {builtin}: labākas atbildes.",
  "ask.tip_metal_quicker": "{model} serverī {server} arī darbojas ar Metal, lielāks un ātrāks par {builtin}.",
  "ask.words": {

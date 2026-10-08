@@ -52,7 +52,10 @@ pub fn sources(passages: impl FnOnce(&str, Option<&Path>, usize) -> Vec<(PathBuf
     let dir = scope.unwrap_or(here);
     let mut out = if broad(question) { overview(dir, budget * 3 / 5, &cfg.text_exclude) } else { vec![] };
     let used: usize = out.iter().map(|(p, t)| p.as_os_str().len() + t.len() + 8).sum();
-    for (path, text) in passages(&lookup, scope, budget.saturating_sub(used)) {
+    // A question about code gets no map unless it is about the whole project: measured, the
+    // excerpts it pushes out said more (docs/reference/performance.md, "Code questions").
+    let found = passages(&lookup, scope, budget.saturating_sub(used));
+    for (path, text) in found {
         match out.iter_mut().find(|(p, _)| *p == path) {
             // A README the overview has: what the passages add that it does not.
             Some((_, had)) => {
@@ -87,7 +90,28 @@ pub fn read(sources: &[(PathBuf, String)]) -> String {
     let words: usize = sources.iter().map(|(_, t)| t.split_whitespace().count()).sum();
     let round = if words >= 1000 { 100 } else { 10 };
     let words = (words + round / 2) / round * round;
-    t!("ask.read", "excerpts" => crate::tn!("ask.excerpts", excerpts), "files" => crate::tn!("preview.files", files.len()), "words" => crate::tn!("ask.words", words.max(1)))
+    let read = t!("ask.read", "excerpts" => crate::tn!("ask.excerpts", excerpts), "files" => crate::tn!("preview.files", files.len()), "words" => crate::tn!("ask.words", words.max(1)));
+    if about_code(sources) { t!("ask.read_code", "read" => read) } else { read }
+}
+
+/// Whether most of the sources are code: half of them or more files of code (project and
+/// configuration files, the folder's tree and map do not count).
+pub fn about_code(sources: &[(PathBuf, String)]) -> bool {
+    let code = sources.iter().filter(|(p, _)| crate::code::is_source(&p.to_string_lossy())).count();
+    code > 0 && code * 2 >= sources.len()
+}
+
+/// Whether `question` names something in code: `coxswain_core::menu`, `passages()`, `ask.rs`,
+/// `src/store.rs`, `snake_case`, `camelCase`.
+pub fn names_code(question: &str) -> bool {
+    question.split(|c: char| c.is_whitespace() || "?!,;\"'`".contains(c)).any(|w| {
+        let w = w.trim_end_matches(['.', ':']);
+        let c: Vec<char> = w.chars().collect();
+        // `fetchTasks`: two lower, upper, lower (not iPhone).
+        let camel = c.first().is_some_and(|c| c.is_lowercase()) && c.iter().all(|c| c.is_alphanumeric()) && c.windows(4).any(|p| p[0].is_lowercase() && p[1].is_lowercase() && p[2].is_uppercase() && p[3].is_lowercase());
+        let snake = c.windows(3).any(|p| p[0].is_alphanumeric() && p[1] == '_' && p[2].is_alphanumeric());
+        w.contains("::") || w.ends_with("()") || snake || camel || w.contains('.') && crate::code::is_source(w)
+    })
 }
 
 /// Words that ask what something is or does, in the app's languages.
@@ -155,11 +179,7 @@ fn is_manifest(name: &str) -> bool {
 /// with what it says it is and its public items), its project files to three deep, and its
 /// docs' index. Each is a source of its own; the tree's and the map's is `dir`.
 pub fn overview(dir: &Path, bytes: usize, exclude: &[String]) -> Vec<(PathBuf, String)> {
-    let mut skip: Vec<String> = exclude.to_vec();
-    // ponytail: plain names from the top .gitignore only; patterns and nested ones are not read.
-    if let Ok(ignore) = std::fs::read_to_string(dir.join(".gitignore")) {
-        skip.extend(ignore.lines().map(|l| l.trim().trim_matches('/')).filter(|l| !l.is_empty() && !l.starts_with('#') && !l.contains(['*', '?', '[', '!', '/'])).map(String::from));
-    }
+    let skip = skip(dir, exclude);
     let mut tree = format!("{}/\n", dir.file_name().unwrap_or_default().to_string_lossy());
     let mut manifests = vec![];
     walk(dir, 0, &skip, &mut tree, &mut manifests);
@@ -192,6 +212,17 @@ pub fn overview(dir: &Path, bytes: usize, exclude: &[String]) -> Vec<(PathBuf, S
         put(p.clone(), head(&p, bytes), (bytes / share[2]).max(200));
     }
     out
+}
+
+/// The names an overview of `dir` leaves out: `exclude`, and the plain names its `.gitignore`
+/// gives.
+fn skip(dir: &Path, exclude: &[String]) -> Vec<String> {
+    let mut skip: Vec<String> = exclude.to_vec();
+    // ponytail: plain names from the top .gitignore only; patterns and nested ones are not read.
+    if let Ok(ignore) = std::fs::read_to_string(dir.join(".gitignore")) {
+        skip.extend(ignore.lines().map(|l| l.trim().trim_matches('/')).filter(|l| !l.is_empty() && !l.starts_with('#') && !l.contains(['*', '?', '[', '!', '/'])).map(String::from));
+    }
+    skip
 }
 
 /// The folders and files of `dir`, sorted, folders first.
@@ -310,6 +341,20 @@ mod tests {
         assert_eq!(sources(none, &cfg, &[], "how is the code laid out", None, &d).unwrap().len(), 2);
         assert!(sources(none, &cfg, &[], "how much fuel", None, &d).is_err());
         std::fs::remove_dir_all(d).unwrap();
+    }
+
+    #[test]
+    fn code_is_told_from_prose() {
+        for q in ["What does coxswain_core::menu do?", "Where is fetchTasks called?", "What does passages() return?", "Explain src/store.rs", "Why is MAX_LOAD 0.75?", "what calls kv_hash"] {
+            assert!(names_code(q), "{q}");
+        }
+        for q in ["How does the search helper start?", "What does the fuel cost?", "Is the iPhone app on macOS too?", "Which crates does it use?", "Read notes.md"] {
+            assert!(!names_code(q), "{q}");
+        }
+        let s = |p: &[&str]| p.iter().map(|p| (PathBuf::from(p), String::new())).collect::<Vec<_>>();
+        assert!(about_code(&s(&["/r/src/a.rs", "/r/src/b.py", "/r/README.md"])));
+        assert!(!about_code(&s(&["/r/Cargo.toml", "/r/config.yaml", "/r/README.md", "/r/src/a.rs"])), "project and configuration files are no code");
+        assert!(read(&s(&["/r/src/a.rs"])).starts_with("Code question: "));
     }
 
     #[test]
