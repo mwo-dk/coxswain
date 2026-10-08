@@ -169,6 +169,7 @@
  "ask.poor_server_sure": "{model} a {server} s'executa a la vostra targeta gràfica ({gpu}) i respon molt abans.",
  "ask.poor_smaller": "{model} respon abans aquí (uns {seconds} s); un servidor de models amb targeta gràfica, encara abans.",
  "ask.read": "{excerpts} de {files}, {words}",
+ "ask.read_code": "Pregunta sobre codi: {read}",
  "ask.tip_metal": "{model} a {server} també funciona amb Metal i és més gran que {builtin}: millors respostes.",
  "ask.tip_metal_quicker": "{model} a {server} també funciona amb Metal, més gran i més ràpid que {builtin}.",
  "ask.words": {

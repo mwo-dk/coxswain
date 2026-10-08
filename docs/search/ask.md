@@ -176,6 +176,8 @@ alone, as before.
 - **Citations** **[1]**, **[2]** are underlined links in the desktop app; hover one for the
   file's path.
 - **How much was read**, over the sources, dim: *12 excerpts from 10 files, about 2600 words*.
+  A question about code says so first: *Code question: 9 excerpts from 6 files, about 2000 words*
+  ([A question about code](ask-code.md#a-question-about-code)).
 - **The sources** are a numbered list under each answer: the file's name and its folder. The
   cursor marks the one **Enter** goes to.
 - **Errors** show in red under the question: the server's own message, such as *model "qwen3:8b"

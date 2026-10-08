@@ -75,6 +75,13 @@ fn lang(path: &str) -> Option<Lang> {
     }
 }
 
+/// Whether a file is a program's source: code, not a project, configuration or data file.
+pub fn is_source(path: &str) -> bool {
+    let name = path.rsplit(['/', '\\']).next().unwrap_or(path);
+    let ext = name.rsplit_once('.').map(|(_, e)| e.to_ascii_lowercase()).unwrap_or_default();
+    is_code(path) && !is_project_file(name) && !NAMES.contains(&name) && !matches!(ext.as_str(), "json" | "jsonc" | "json5" | "yaml" | "yml" | "toml" | "ini" | "cfg" | "conf" | "css" | "scss" | "less" | "nix" | "mk" | "cmake" | "gradle" | "gemspec" | "podspec" | "tf" | "hcl" | "edn")
+}
+
 /// Whether a file is code (or a project or configuration file), read with its lines kept.
 pub fn is_code(path: &str) -> bool {
     lang(path).is_some()

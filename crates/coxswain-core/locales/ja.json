@@ -161,6 +161,7 @@
  "ask.poor_server_sure": "{server} の {model} はグラフィックカード ({gpu}) で動き、はるかに早く答えます。",
  "ask.poor_smaller": "ここでは {model} のほうが早く答えます (約 {seconds} 秒)。グラフィックカード上のモデルサーバーならさらに早くなります。",
  "ask.read": "{files}から{excerpts}、{words}",
+ "ask.read_code": "コードについての質問: {read}",
  "ask.tip_metal": "{server} の {model} も Metal で動き、{builtin} より大きいモデルです：よりよい回答。",
  "ask.tip_metal_quicker": "{server} の {model} も Metal で動き、{builtin} より大きく速いモデルです。",
  "ask.words": {

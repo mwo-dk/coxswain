@@ -165,6 +165,7 @@
  "ask.poor_server_sure": "{server}-ի {model}-ն աշխատում է ձեր վիդեոքարտի ({gpu}) վրա և պատասխանում է շատ ավելի շուտ։",
  "ask.poor_smaller": "{model}-ն այստեղ ավելի շուտ է պատասխանում (մոտ {seconds} վ). վիդեոքարտով մոդելների սերվերն՝ ավելի շուտ։",
  "ask.read": "{excerpts}՝ {files}ից, {words}",
+ "ask.read_code": "Հարց կոդի մասին: {read}",
  "ask.tip_metal": "{model}-ը {server}-ում նույնպես աշխատում է Metal-ով և ավելի մեծ է, քան {builtin}-ը՝ ավելի լավ պատասխաններ։",
  "ask.tip_metal_quicker": "{model}-ը {server}-ում նույնպես աշխատում է Metal-ով՝ ավելի մեծ և արագ, քան {builtin}-ը։",
  "ask.words": {

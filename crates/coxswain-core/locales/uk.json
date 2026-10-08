@@ -173,6 +173,7 @@
  "ask.poor_server_sure": "{model} на {server} працює на вашій відеокарті ({gpu}) і відповідає набагато швидше.",
  "ask.poor_smaller": "{model} тут відповідає швидше (близько {seconds} с); сервер моделей на відеокарті — ще швидше.",
  "ask.read": "{excerpts} з: {files}, {words}",
+ "ask.read_code": "Питання про код: {read}",
  "ask.tip_metal": "{model} на {server} теж працює на Metal і більша за {builtin}: кращі відповіді.",
  "ask.tip_metal_quicker": "{model} на {server} теж працює на Metal, більша й швидша за {builtin}.",
  "ask.words": {

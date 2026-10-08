@@ -165,6 +165,7 @@
  "ask.poor_server_sure": "{server}-(e)ko {model} zure txartel grafikoan ({gpu}) dabil eta askoz lehenago erantzuten du.",
  "ask.poor_smaller": "{model}-(e)k lehenago erantzuten du hemen ({seconds} s inguru); txartel grafikoa duen eredu-zerbitzari batek are lehenago.",
  "ask.read": "{excerpts}, {files}etik, {words}",
+ "ask.read_code": "Kodeari buruzko galdera: {read}",
  "ask.tip_metal": "{server}(e)ko {model} Metal-en ere badabil eta {builtin} baino handiagoa da: erantzun hobeak.",
  "ask.tip_metal_quicker": "{server}(e)ko {model} Metal-en ere badabil, {builtin} baino handiagoa eta azkarragoa.",
  "ask.words": {
