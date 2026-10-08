@@ -36,6 +36,15 @@ These rules hold for every contributor and every Claude session in this reposito
   (`gh pr checks <n> --watch`), and when one fails read `gh run view <id> --log-failed`, fix,
   push, and watch again. Windows is the usual one (path separators, `;` in path lists, files
   still open). A PR is done when it is merged, not when it is opened.
+- **Watch master and every Release run to the end, and fix what fails without being asked.**
+  A failure that is GitHub's or a mirror's (a cancelled job, HTTP 5xx, a hung download) is rerun
+  (`gh run rerun <id> --failed`); one of ours is fixed in a PR. A workflow-only PR whose checks
+  are not required (the virtual machines, Termux, Flatpak) merges only after those checks have
+  passed on it, not on auto-merge alone.
+- **A green job is not proof that a channel published.** After a release, check each channel
+  itself: the GitHub release and its files with their `.sha256`, the version on crates.io, the
+  Homebrew formula and cask, the WinGet pull request, the FreeBSD port's artifact. Say a release
+  is out only after that.
 - **Commits:** plain messages. No `Co-Authored-By` or other Claude attribution.
 - **Work in a git worktree** (`git worktree add -b <branch> .worktrees/<topic> origin/master`, inside the repository and
   ignored by git, so the folder above stays clean)
@@ -130,6 +139,18 @@ you add or change a feature, the docs change in the same PR.
   `<!-- screenshot: name.png: what it must show -->` and taken in the sandbox (below).
 - **Systems in this order** wherever several are listed (install tables, docs, release notes, hints): FreeBSD first, then the other BSDs and illumos, then Linux (and Android/ChromeOS), then "Any" (cargo, from a clone), and macOS and Windows last. The owner's choice, on principle.
 - Plain British English (README and docs: British or Canadian spelling where they differ from US: colour, licence as a noun, catalogue, grey, favourite, centre), short concrete sentences, tables for keys and options, no marketing.
+
+## Testing the apps on a machine someone uses
+
+- **A fake home, always.** Runs of the apps for testing (built-in models, the setup guide,
+  Settings, Ask, screenshots) use a fake `HOME` and `XDG_CONFIG_HOME`, `XDG_CACHE_HOME`,
+  `XDG_DATA_HOME`, never the user's own `config.toml`, `state.json` or cache: one test once
+  downloaded 12 GB of models into the owner's cache and left his Ask set to one of them. A local
+  model server (Ollama) may be asked questions; never pull, delete or change its models.
+- **Nothing left behind.** Anything built or downloaded for a task outside the repository (a
+  virtual machine, a ports tree, a model, a toolchain) goes in the session's scratch folder or a
+  `.worktrees/` folder and is removed when the task is done; never in `~/.cache` or the folder
+  above the repository. Say what is left, where and how large, when it must stay.
 
 ## Screenshots
 
