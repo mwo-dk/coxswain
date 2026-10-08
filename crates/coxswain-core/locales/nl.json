@@ -165,6 +165,8 @@
  "ask.poor_server_sure": "{model} op {server} draait op je grafische kaart ({gpu}) en antwoordt veel sneller.",
  "ask.poor_smaller": "{model} antwoordt hier sneller (ongeveer {seconds} s); een modelserver op een grafische kaart nog sneller.",
  "ask.read": "{excerpts} uit {files}, {words}",
+ "ask.tip_metal": "{model} op {server} draait ook op Metal en is groter dan {builtin}: betere antwoorden.",
+ "ask.tip_metal_quicker": "{model} op {server} draait ook op Metal, groter en sneller dan {builtin}.",
  "ask.words": {
   "one": "ongeveer {n} woord",
   "other": "ongeveer {n} woorden"
@@ -1632,6 +1634,7 @@
  "meaning.poor_cpu": "Het ingebouwde model leest de betekenis hier op de processor.",
  "meaning.poor_server_maybe": "{model} op {server} kan op je grafische kaart ({gpu}) draaien en je bestanden veel sneller lezen.",
  "meaning.poor_server_sure": "{model} op {server} draait op je grafische kaart ({gpu}) en leest je bestanden veel sneller.",
+ "meaning.tip_metal": "{model} op {server} draait ook op Metal en zoekt op betekenis beter dan het ingebouwde model.",
  "menu.button": "Acties",
  "menu.commands": "Opdrachten",
  "menu.none": "Hier valt hiermee niets te doen",

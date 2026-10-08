@@ -169,6 +169,8 @@
  "ask.poor_server_sure": "{model} serveryje {server} veikia jūsų vaizdo plokštėje ({gpu}) ir atsako daug greičiau.",
  "ask.poor_smaller": "{model} čia atsako greičiau (apie {seconds} s); modelių serveris vaizdo plokštėje – dar greičiau.",
  "ask.read": "{excerpts} iš: {files}, {words}",
+ "ask.tip_metal": "{model} serveryje {server} irgi veikia su Metal ir yra didesnis nei {builtin}: geresni atsakymai.",
+ "ask.tip_metal_quicker": "{model} serveryje {server} irgi veikia su Metal, didesnis ir greitesnis nei {builtin}.",
  "ask.words": {
   "one": "apie {n} žodis",
   "few": "apie {n} žodžiai",
@@ -1664,6 +1666,7 @@
  "meaning.poor_cpu": "Įtaisytas modelis čia skaito prasmę procesoriuje.",
  "meaning.poor_server_maybe": "{model} serveryje {server} gali veikti jūsų vaizdo plokštėje ({gpu}) ir perskaityti jūsų failus daug greičiau.",
  "meaning.poor_server_sure": "{model} serveryje {server} veikia jūsų vaizdo plokštėje ({gpu}) ir perskaito jūsų failus daug greičiau.",
+ "meaning.tip_metal": "{model} serveryje {server} irgi veikia su Metal ir pagal prasmę randa geriau nei įtaisytasis modelis.",
  "menu.button": "Veiksmai",
  "menu.commands": "Komandos",
  "menu.none": "Čia su tuo nieko negalima padaryti",

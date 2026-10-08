@@ -173,6 +173,8 @@
  "ask.poor_server_sure": "{model} на {server} працює на вашій відеокарті ({gpu}) і відповідає набагато швидше.",
  "ask.poor_smaller": "{model} тут відповідає швидше (близько {seconds} с); сервер моделей на відеокарті — ще швидше.",
  "ask.read": "{excerpts} з: {files}, {words}",
+ "ask.tip_metal": "{model} на {server} теж працює на Metal і більша за {builtin}: кращі відповіді.",
+ "ask.tip_metal_quicker": "{model} на {server} теж працює на Metal, більша й швидша за {builtin}.",
  "ask.words": {
   "one": "близько {n} слова",
   "few": "близько {n} слів",
@@ -1696,6 +1698,7 @@
  "meaning.poor_cpu": "Вбудована модель тут читає зміст на процесорі.",
  "meaning.poor_server_maybe": "{model} на {server} може працювати на вашій відеокарті ({gpu}) і прочитати ваші файли набагато швидше.",
  "meaning.poor_server_sure": "{model} на {server} працює на вашій відеокарті ({gpu}) і прочитає ваші файли набагато швидше.",
+ "meaning.tip_metal": "{model} на {server} теж працює на Metal і шукає за змістом краще, ніж вбудована модель.",
  "menu.button": "Дії",
  "menu.commands": "Команди",
  "menu.none": "Тут із цим нічого не зробиш",

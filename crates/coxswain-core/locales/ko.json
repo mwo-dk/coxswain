@@ -161,6 +161,8 @@
  "ask.poor_server_sure": "{server}의 {model}은(는) 그래픽 카드({gpu})에서 실행되어 훨씬 빨리 답합니다.",
  "ask.poor_smaller": "여기서는 {model}이(가) 더 빨리 답합니다(약 {seconds}초). 그래픽 카드를 쓰는 모델 서버는 더 빠릅니다.",
  "ask.read": "{files}에서 {excerpts}, {words}",
+ "ask.tip_metal": "{server}의 {model}도 Metal에서 실행되며 {builtin}보다 큽니다: 더 나은 답변.",
+ "ask.tip_metal_quicker": "{server}의 {model}도 Metal에서 실행되며, {builtin}보다 크고 빠릅니다.",
  "ask.words": {
   "other": "약 {n}단어"
  },
@@ -1600,6 +1602,7 @@
  "meaning.poor_cpu": "여기서는 내장 모델이 CPU에서 의미를 읽습니다.",
  "meaning.poor_server_maybe": "{server}의 {model}은(는) 그래픽 카드({gpu})에서 실행할 수 있어 파일을 훨씬 빨리 읽을 수 있습니다.",
  "meaning.poor_server_sure": "{server}의 {model}은(는) 그래픽 카드({gpu})에서 실행되어 파일을 훨씬 빨리 읽습니다.",
+ "meaning.tip_metal": "{server}의 {model}도 Metal에서 실행되며 내장 모델보다 의미로 더 잘 찾습니다.",
  "menu.button": "동작",
  "menu.commands": "명령",
  "menu.none": "여기서는 이것으로 할 수 있는 일이 없습니다",

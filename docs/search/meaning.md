@@ -160,6 +160,14 @@ the CPU*, *the GPU failed: …*.
 `coxswain --meaning cpu`; `coxswain --meaning auto` goes back. Both set `meaning_device` and
 start the helper again. The vectors stay: the GPU and the CPU make the same ones.
 
+**A server with a stronger model:** Ollama and LM Studio run on Metal too. When one here has a
+stronger embedding model than multilingual-e5-small (`bge-m3`, `qwen3-embedding`,
+`snowflake-arctic-embed2`), *Settings → Finding files* says so under *Meaning* in grey, as a tip,
+not in red: *bge-m3:latest on Ollama runs on Metal too, and finds by meaning better than the
+built-in model.*, with **Use bge-m3:latest** (terminal: **Enter** on the line). Taking it reads
+every file's meaning again, said and asked first. A weaker one (`nomic-embed-text`) says nothing.
+The same rules for Ask's chat model are in [the built-in chat model](ask-builtin.md#on-a-mac-a-tip-when-a-server-has-more).
+
 On Linux and Windows the built-in model always runs on the CPU; the setting changes nothing there.
 For a GPU on those, use [Ollama or another server](servers.md).
 
@@ -212,6 +220,12 @@ On Apple Silicon, yes: through Metal, in batches, several times faster than the 
 Finding files* says *… the built-in model on the GPU (Metal)* on the *Meaning* line, and `coxswain --meaning` prints the
 same line. An Intel Mac usually has no Metal GPU the model can use and stays on the CPU, which
 Settings says with the reason. See [On a Mac's GPU](#on-a-macs-gpu).
+
+#### My Mac's Settings suggests bge-m3 on Ollama in grey. Should I take it?
+If you search in many languages or long documents, yes: bge-m3 reads up to 8,000 tokens a passage
+and finds by meaning better than the built-in multilingual-e5-small; Ollama runs it on Metal
+too. It is a tip, not a fault: the built-in model stays fine, and the line stays plain until you
+choose. **Use bge-m3:latest** reads every file's meaning again, which takes a while on a large store.
 
 #### Why does my Mac say "on the CPU"?
 Settings gives the reason in brackets. *this Mac has no Metal GPU to use*: an Intel Mac or a

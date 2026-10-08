@@ -165,6 +165,8 @@
  "ask.poor_server_sure": "{model} serveris {server} töötab sinu videokaardil ({gpu}) ja vastab palju varem.",
  "ask.poor_smaller": "{model} vastab siin varem (umbes {seconds} s); mudeliserver videokaardil veel varem.",
  "ask.read": "{excerpts} {files} põhjal, {words}",
+ "ask.tip_metal": "{model} serveris {server} töötab samuti Metalil ja on suurem kui {builtin}: paremad vastused.",
+ "ask.tip_metal_quicker": "{model} serveris {server} töötab samuti Metalil, suurem ja kiirem kui {builtin}.",
  "ask.words": {
   "one": "umbes {n} sõna",
   "other": "umbes {n} sõna"
@@ -1632,6 +1634,7 @@
  "meaning.poor_cpu": "Sisseehitatud mudel loeb siin tähendust protsessoril.",
  "meaning.poor_server_maybe": "{model} serveris {server} saab töötada sinu videokaardil ({gpu}) ja lugeda su failid palju varem läbi.",
  "meaning.poor_server_sure": "{model} serveris {server} töötab sinu videokaardil ({gpu}) ja loeb su failid palju varem läbi.",
+ "meaning.tip_metal": "{model} serveris {server} töötab samuti Metalil ja leiab tähenduse järgi paremini kui sisseehitatud mudel.",
  "menu.button": "Toimingud",
  "menu.commands": "Käsud",
  "menu.none": "Siin pole sellega midagi teha",

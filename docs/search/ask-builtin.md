@@ -21,6 +21,7 @@ the scope, the sources) works the same.
 - [What you see](#what-you-see)
 - [How it runs](#how-it-runs)
 - [When it is a poor choice here](#when-it-is-a-poor-choice-here)
+- [On a Mac: a tip when a server has more](#on-a-mac-a-tip-when-a-server-has-more)
 - [How quick it is](#how-quick-it-is)
 - [The estimate for this processor](#the-estimate-for-this-processor)
 - [Settings and config.toml](#settings-and-configtoml)
@@ -129,7 +130,8 @@ Coxswain says so for as long as the choice stands, not once:
 *On the graphics card* is known when the server has a model loaded there (Ollama's `/api/ps`
 with memory on the card, Lemonade's devices); with nothing loaded yet, a machine with a graphics
 card or an NPU counts it as one. A server whose loaded model sits on the processor never
-counts. On a Mac's GPU (Metal) the built-in models are a good choice and nothing is said.
+counts. On a Mac's GPU (Metal) the built-in models are a good choice: nothing is said in red,
+only a tip when a server there has more ([below](#on-a-mac-a-tip-when-a-server-has-more)).
 
 What you see, with Ask set to Qwen3 14B on a PC with an RTX 4070 and Ollama's `qwen3:8b`:
 
@@ -148,6 +150,36 @@ card sooner still.*), and the list under *Chat model* downloads it.
 
 The servers are asked in the background, at most every two minutes, the first time Settings or
 Find needs it: only the servers on this machine, nothing else.
+
+## On a Mac: a tip when a server has more
+
+On a Mac the built-in models run on the GPU through Metal, and so do Ollama, LM Studio (with
+its MLX models) and llama.cpp. A server is no quicker by being a server there, but it can run
+models the built-in ones cannot, such as `qwen3:30b-a3b`, a mixture of experts. So on a Mac
+Coxswain still compares, and says a **tip**, not a warning:
+
+| The choice | Said when | The tip |
+|---|---|---|
+| A built-in chat model for Ask | A server Ask can use (Ollama here with the built-in vectors, else the server that makes the vectors) has a chat model with more weights than the built-in one | *qwen3:30b-a3b on Ollama runs on Metal too, larger and quicker than Qwen3 14B.* for a mixture of experts whose words go through fewer weights than the built-in one's; *qwen3:32b on Ollama runs on Metal too, and is larger than Qwen3 14B: better answers.* for a larger dense one |
+| The built-in embedding model for search by meaning | A server here has a stronger embedding model: `bge-m3`, `qwen3-embedding` or `snowflake-arctic-embed2` | *bge-m3:latest on Ollama runs on Metal too, and finds by meaning better than the built-in model.* Every file's meaning is read again, said and asked first |
+
+The size is the one the server gives (Ollama's `parameter_size`, such as *30.5B*), else the one in
+the model's name (`Qwen3-30B-A3B-MLX-4bit`: 30 billion, 3 billion a word), else, for the model the
+hardware advice names (`qwen3:14b` with 32 GB or more), the advice's. Of several larger ones the
+tip names a mixture of experts first, else the smallest larger one. A server whose models are
+the same size or smaller (`qwen3:8b` against Qwen3 14B, `nomic-embed-text`) says nothing, and
+with no server the built-in models stay the recommendation, as before.
+
+| Where | What |
+|---|---|
+| *Settings → Finding files*, the status | Under *Ask: Qwen3 14B, built in*, in grey (not red): the tip and **Use qwen3:30b-a3b** (desktop: a link; terminal: **Enter** on the *Ask* line) |
+| *Settings → Ask* | The tip in grey under *Chat model*, with the **Use qwen3:30b-a3b** button (terminal: a row *· …* with *[Use qwen3:30b-a3b]*, not red, **Enter** takes it). For the vectors, the tip is under *Meaning* |
+| Find | Under the Ask row: the tip and **Use qwen3:30b-a3b** (terminal: *· Enter: Use qwen3:30b-a3b*) |
+| What's new | Once: the notice with the tip, **Show me** opening *Settings → Ask* (terminal: the status line) |
+| The guide, step 4 | The server's chat models are listed first (desktop: the server's group above *Built in*; terminal: the numbers before the built-in ones), and the one the tip names is preselected and *recommended*. The built-in ones are never *slow here* on a Mac |
+
+**Use qwen3:30b-a3b** saves `ask_model = "qwen3:30b-a3b"` at once, and the tip goes. Keep the
+built-in model and the tip stays on its line, plain, as long as the server has the larger model.
 
 ## How quick it is
 
@@ -260,7 +292,9 @@ often 20 to 60 seconds, and the thinking is not shown. For finding and quoting, 
 Qwen3 30B-A3B is a mixture of experts: it knows as much as a 30B model but works as fast as a
 3B one, and would suit a Mac with 48 GB or more. candle, the library Coxswain runs the models
 with, runs its experts on NVIDIA's CUDA only, not on a Mac's GPU or a processor, so it is not
-offered. With a model server (Ollama, LM Studio) it runs today: `qwen3:30b` ([servers](servers.md)).
+offered. With a model server (Ollama, LM Studio) it runs today: `qwen3:30b` ([servers](servers.md)),
+and once the server has it, Settings and Find say so in a grey tip with **Use qwen3:30b-a3b**
+([On a Mac](#on-a-mac-a-tip-when-a-server-has-more)).
 
 #### Why is Qwen3 14B not offered on my machine?
 It needs 32 GB of memory: 8.4 GB for the model, the rest for the 16,000 tokens it reads and
@@ -292,7 +326,29 @@ the choice does: choose another model, or keep this one and read past it.
 When Ollama (or Lemonade, LM Studio, llama.cpp) runs a chat model on your graphics card, it
 answers in seconds where a built-in model on the processor takes a minute or more. So the guide's
 step 4, *Settings → Ask* with Ask off, and deleting the built-in model in use all take the
-server's model first. On a Mac the built-in models run on the GPU and stay a good first choice.
+server's model first. On a Mac the built-in models run on the GPU and stay a good first choice
+when no server answers; when one does, its models are listed first, and a larger one is a tip.
+
+#### On my Mac, Settings shows a grey line about Ollama or LM Studio. What is it?
+A tip, not a fault: the server runs on Metal too, and has a chat model larger than the built-in
+one you chose (*qwen3:30b-a3b on Ollama runs on Metal too, larger and quicker than Qwen3 14B.*).
+**Use qwen3:30b-a3b** (desktop) or **Enter** on the line (terminal) takes it; or keep yours and
+read past it. It shows under *Ask* in Settings, under Find's Ask row, and once in *What's new*.
+
+#### Why does the tip say "quicker" for a larger model?
+`qwen3:30b-a3b` is a mixture of experts: it holds 30 billion weights but each word goes through
+3 billion, fewer than Qwen3 14B's 14. It knows more and writes sooner. A larger dense model
+(`qwen3:32b`) is only *larger*, and the tip says *better answers*, not quicker.
+
+#### Why is there no tip with my server's qwen3:8b?
+It is smaller than the built-in Qwen3 14B you chose, and both run on the Mac's GPU: the built-in
+one is the better choice. The tip shows only for a model with more weights than yours, by the
+size the server gives, else the one in its name.
+
+#### I use LM Studio's MLX models with the built-in vectors. Why no tip for Ask?
+With the built-in model making the vectors, Ask uses Ollama here, not LM Studio. A stronger
+embedding model in LM Studio (a `qwen3-embedding` one) shows a tip under *Meaning*; once LM
+Studio makes the vectors, its larger chat models show one under *Ask*.
 
 #### Does it use my graphics card?
 On a Mac, yes (Metal). On Linux, Windows and FreeBSD, no: the built-in model runs on the

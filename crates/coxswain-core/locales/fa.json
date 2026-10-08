@@ -165,6 +165,8 @@
  "ask.poor_server_sure": "{model} روی {server} با کارت گرافیک شما ({gpu}) اجرا می‌شود و بسیار زودتر پاسخ می‌دهد.",
  "ask.poor_smaller": "{model} اینجا زودتر پاسخ می‌دهد (حدود {seconds} ثانیه)؛ یک سرور مدل روی کارت گرافیک باز هم زودتر.",
  "ask.read": "{excerpts} از {files}، {words}",
+ "ask.tip_metal": "{model} روی {server} هم روی Metal اجرا می‌شود و از {builtin} بزرگ‌تر است: پاسخ‌های بهتر.",
+ "ask.tip_metal_quicker": "{model} روی {server} هم روی Metal اجرا می‌شود، بزرگ‌تر و سریع‌تر از {builtin}.",
  "ask.words": {
   "one": "حدود {n} واژه",
   "other": "حدود {n} واژه"
@@ -1632,6 +1634,7 @@
  "meaning.poor_cpu": "مدل داخلی اینجا معنا را روی پردازنده می‌خواند.",
  "meaning.poor_server_maybe": "{model} روی {server} می‌تواند با کارت گرافیک شما ({gpu}) اجرا شود و فایل‌هایتان را بسیار زودتر بخواند.",
  "meaning.poor_server_sure": "{model} روی {server} با کارت گرافیک شما ({gpu}) اجرا می‌شود و فایل‌هایتان را بسیار زودتر می‌خواند.",
+ "meaning.tip_metal": "{model} روی {server} هم روی Metal اجرا می‌شود و بر پایهٔ معنا بهتر از مدل داخلی جست‌وجو می‌کند.",
  "menu.button": "کارها",
  "menu.commands": "فرمان‌ها",
  "menu.none": "اینجا کاری با این نمی‌شود کرد",

@@ -165,6 +165,8 @@
  "ask.poor_server_sure": "{model} palvelimella {server} toimii näytönohjaimellasi ({gpu}) ja vastaa paljon nopeammin.",
  "ask.poor_smaller": "{model} vastaa täällä nopeammin (noin {seconds} s); mallipalvelin näytönohjaimella vielä nopeammin.",
  "ask.read": "{excerpts}, lähteenä {files}, {words}",
+ "ask.tip_metal": "{model} palvelimella {server} toimii myös Metalilla ja on suurempi kuin {builtin}: paremmat vastaukset.",
+ "ask.tip_metal_quicker": "{model} palvelimella {server} toimii myös Metalilla, suurempi ja nopeampi kuin {builtin}.",
  "ask.words": {
   "one": "noin {n} sana",
   "other": "noin {n} sanaa"
@@ -1632,6 +1634,7 @@
  "meaning.poor_cpu": "Sisäänrakennettu malli lukee merkityksen täällä suorittimella.",
  "meaning.poor_server_maybe": "{model} palvelimella {server} voi toimia näytönohjaimellasi ({gpu}) ja lukea tiedostosi paljon nopeammin.",
  "meaning.poor_server_sure": "{model} palvelimella {server} toimii näytönohjaimellasi ({gpu}) ja lukee tiedostosi paljon nopeammin.",
+ "meaning.tip_metal": "{model} palvelimella {server} toimii myös Metalilla ja löytää merkityksen perusteella paremmin kuin sisäänrakennettu malli.",
  "menu.button": "Toiminnot",
  "menu.commands": "Komennot",
  "menu.none": "Tällä ei voi tehdä täällä mitään",

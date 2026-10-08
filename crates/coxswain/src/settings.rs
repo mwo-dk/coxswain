@@ -1076,7 +1076,9 @@ pub fn draw(f: &mut Frame, app: &mut App) {
                 Row::Notice(n) => lines.push(Line::from(Span::styled(fit(&format!(" • {}", n.text), w), st))),
                 Row::Poor(p) => {
                     let button = p.button.as_ref().map(|b| format!(" [{b}]")).unwrap_or_else(|| format!(" [{}]", t!("setup.open")));
-                    lines.push(Line::from(vec![Span::styled(fit(&format!(" ! {}", p.text), w.saturating_sub(button.width())), if here { st } else { red }), Span::styled(button, st)]));
+                    // A tip (a Mac's GPU) is said plain; a poor choice in red.
+                    let (mark, colour) = if p.tip { ("·", st) } else { ("!", if here { st } else { red }) };
+                    lines.push(Line::from(vec![Span::styled(fit(&format!(" {mark} {}", p.text), w.saturating_sub(button.width())), colour), Span::styled(button, st)]));
                 }
                 Row::Model(e) => lines.push(pair(&format!(" {}", e.name), &e.line(), st)),
                 Row::DeleteUnused(n) => lines.push(Line::from(Span::styled(fit(&format!(" [ {} ]", t!("models.delete_unused", "size" => cs::human(*n))), w), st))),

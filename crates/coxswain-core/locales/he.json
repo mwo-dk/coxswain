@@ -169,6 +169,8 @@
  "ask.poor_server_sure": "‏{model} ב-{server} רץ על הכרטיס הגרפי שלכם ({gpu}) ועונה הרבה יותר מהר.",
  "ask.poor_smaller": "‏{model} עונה כאן מהר יותר (כ-{seconds} שניות); שרת מודלים על כרטיס גרפי מהר עוד יותר.",
  "ask.read": "{excerpts} מתוך {files}, {words}",
+ "ask.tip_metal": "{model} ב־{server} רץ גם הוא על Metal וגדול יותר מ־{builtin}: תשובות טובות יותר.",
+ "ask.tip_metal_quicker": "{model} ב־{server} רץ גם הוא על Metal, גדול ומהיר יותר מ־{builtin}.",
  "ask.words": {
   "one": "בערך מילה אחת",
   "two": "בערך {n} מילים",
@@ -1664,6 +1666,7 @@
  "meaning.poor_cpu": "המודל המובנה קורא כאן משמעות על המעבד.",
  "meaning.poor_server_maybe": "‏{model} ב-{server} יכול לרוץ על הכרטיס הגרפי שלכם ({gpu}) ולקרוא את הקבצים שלכם הרבה יותר מהר.",
  "meaning.poor_server_sure": "‏{model} ב-{server} רץ על הכרטיס הגרפי שלכם ({gpu}) וקורא את הקבצים שלכם הרבה יותר מהר.",
+ "meaning.tip_metal": "{model} ב־{server} רץ גם הוא על Metal ומחפש לפי משמעות טוב יותר מהמודל המובנה.",
  "menu.button": "פעולות",
  "menu.commands": "פקודות",
  "menu.none": "אין כאן מה לעשות עם זה",
