@@ -99,7 +99,17 @@ files that hold the answer and the facts the answer must name. *Right file* is h
 that holds the answer is among what Ask reads; *facts* the share of the facts the answer names.
 bge-m3 and qwen3:8b on Ollama, on an RTX 4070 Laptop GPU (8 GB).
 
-<!-- numbers -->
+| | Right file read | Facts in what was read | Facts in the answer |
+|---|---|---|---|
+| This repository, 20 questions, before (2.17) | 13 of 20 | 0.75 | 0.51 |
+| This repository, with code read as code (2.18) | 16 of 20 | 0.79 | 0.57 |
+| Five small projects, 20 questions, before | 19 of 20 | 0.93 | 0.78 |
+| Five small projects, with code read as code | 20 of 20 | 0.98 | 0.88 |
+
+The small projects fit almost whole into the room, so they show mostly what the map adds (the
+C project's *which libraries does it link against?* found nothing before). In this repository,
+whose docs say much of what its code does, the questions about the terminal app's crates, the
+GUI framework and the architecture now get the project files from the map.
 
 The numbers per language and on the processor are in
 [Performance → Code questions](../reference/performance.md#code-questions).
