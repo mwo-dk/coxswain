@@ -222,7 +222,7 @@ pub fn run() {
             s.push_str(&format!(" [{}]", t!("settings.ask_slow_here")));
         }
     };
-    let mut items: Vec<String> = builtin_models
+    let builtin_items: Vec<String> = builtin_models
         .iter()
         .map(|&m| {
             let mut s = t!("setup.ask_builtin", "model" => m.name, "size" => coxswain_core::settings::human(m.size()), "where" => setup::builtin_runs(&search(), None));
@@ -248,37 +248,43 @@ pub fn run() {
             }
         }
     }
-    // Each of the server's with where it runs: "qwen3:8b (On Ollama at localhost:11434 · on the graphics card (RTX 4070))".
+    // First the server's, each with where it runs: "qwen3:8b (On Ollama at localhost:11434 ·
+    // on the graphics card (RTX 4070))", then the built-in ones.
     let place = setup::ask_choices(&search(), Some(&look)).into_iter().find(|g| g.server).map(|g| g.label).filter(|_| ask_server.is_some());
-    items.extend(models.iter().map(|m| {
-        let mut s = place.as_ref().map_or_else(|| m.clone(), |p| format!("{m} ({p})"));
-        mark(&mut s, m, false);
-        s
-    }));
+    let mut items: Vec<String> = models
+        .iter()
+        .map(|m| {
+            let mut s = place.as_ref().map_or_else(|| m.clone(), |p| format!("{m} ({p})"));
+            mark(&mut s, m, false);
+            s
+        })
+        .collect();
+    items.extend(builtin_items);
     // Last: skip Ask, never the default. The default: Ask's model as it is set, else the
     // server's suggestion or first chat model, else the built-in one for this machine.
     items.push(t!("setup.ask_off"));
-    let builtins = builtin_models.len();
+    let servers = models.len();
     let off = items.len() - 1;
     let now = search().ask_model;
-    let at = |value: &str| builtin_models.iter().position(|m| m.key() == value).or_else(|| models.iter().position(|m| !value.is_empty() && *m == value).map(|i| builtins + i));
-    // The model set stays the default, unless it is a poor choice here: then the recommended one.
+    let at = |value: &str| models.iter().position(|m| !value.is_empty() && *m == value).or_else(|| builtin_models.iter().position(|m| m.key() == value).map(|i| servers + i));
+    // The model set stays the default, unless it is a poor choice here (a tip, on a Mac's GPU,
+    // too): then the recommended one.
     let poor = setup::poor_in(&search(), &look).iter().any(|p| p.ask);
     let set = at(&now).filter(|_| !poor);
-    let builtin = at(&recommended).unwrap_or(0);
-    let default = set.or_else(|| models.iter().position(|m| !suggest.is_empty() && m.starts_with(&suggest)).map(|i| builtins + i)).or(at(&recommended)).or((!models.is_empty()).then_some(builtins)).unwrap_or(builtin);
+    let builtin = at(&recommended).unwrap_or(servers);
+    let default = set.or(at(&recommended)).or_else(|| models.iter().position(|m| !suggest.is_empty() && m.starts_with(&suggest))).or((!models.is_empty()).then_some(0)).unwrap_or(builtin);
     let chosen = match choose(&items, default) {
         Some(i) if i == off => {
             save("ask_model", "");
             None
         }
-        Some(i) if i < builtins => {
-            let m = builtin_models[i];
+        Some(i) if i >= servers => {
+            let m = builtin_models[i - servers];
             let p = std::sync::Arc::new(Progress::default());
             let ready = m.installed() || (yes(&t!("setup.download_chat", "model" => m.name, "size" => coxswain_core::settings::human(m.size()))) && with_progress(&p, || m.download(&p).map_err(|e| e.to_string())).inspect_err(|e| eprintln!("coxswain: {e}")).is_ok());
             ready.then(|| m.key())
         }
-        Some(i) => Some(models[i - builtins].clone()),
+        Some(i) => Some(models[i].clone()),
         None => None,
     };
     if let Some(model) = chosen {

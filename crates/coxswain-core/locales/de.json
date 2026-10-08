@@ -165,6 +165,8 @@
  "ask.poor_server_sure": "{model} auf {server} läuft auf Ihrer Grafikkarte ({gpu}) und antwortet weit schneller.",
  "ask.poor_smaller": "{model} antwortet hier schneller (etwa {seconds} s); ein Modellserver auf einer Grafikkarte noch schneller.",
  "ask.read": "{excerpts} aus {files}, {words}",
+ "ask.tip_metal": "{model} auf {server} läuft ebenfalls auf Metal und ist größer als {builtin}: bessere Antworten.",
+ "ask.tip_metal_quicker": "{model} auf {server} läuft ebenfalls auf Metal, größer und schneller als {builtin}.",
  "ask.words": {
   "one": "etwa {n} Wort",
   "other": "etwa {n} Wörter"
@@ -1632,6 +1634,7 @@
  "meaning.poor_cpu": "Das eingebaute Modell liest die Bedeutung hier auf dem Prozessor.",
  "meaning.poor_server_maybe": "{model} auf {server} kann auf Ihrer Grafikkarte ({gpu}) laufen und Ihre Dateien weit schneller lesen.",
  "meaning.poor_server_sure": "{model} auf {server} läuft auf Ihrer Grafikkarte ({gpu}) und liest Ihre Dateien weit schneller.",
+ "meaning.tip_metal": "{model} auf {server} läuft ebenfalls auf Metal und findet nach Bedeutung besser als das eingebaute Modell.",
  "menu.button": "Aktionen",
  "menu.commands": "Befehle",
  "menu.none": "Hier gibt es damit nichts zu tun",

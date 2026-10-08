@@ -169,6 +169,8 @@
  "ask.poor_server_sure": "{model} serverī {server} darbojas uz jūsu grafikas kartes ({gpu}) un atbild daudz ātrāk.",
  "ask.poor_smaller": "{model} šeit atbild ātrāk (apmēram {seconds} s); modeļu serveris uz grafikas kartes – vēl ātrāk.",
  "ask.read": "{excerpts} no: {files}, {words}",
+ "ask.tip_metal": "{model} serverī {server} arī darbojas ar Metal un ir lielāks par {builtin}: labākas atbildes.",
+ "ask.tip_metal_quicker": "{model} serverī {server} arī darbojas ar Metal, lielāks un ātrāks par {builtin}.",
  "ask.words": {
   "zero": "ap {n} vārdu",
   "one": "ap {n} vārds",
@@ -1664,6 +1666,7 @@
  "meaning.poor_cpu": "Iebūvētais modelis šeit lasa nozīmi uz procesora.",
  "meaning.poor_server_maybe": "{model} serverī {server} var darboties uz jūsu grafikas kartes ({gpu}) un izlasīt jūsu failus daudz ātrāk.",
  "meaning.poor_server_sure": "{model} serverī {server} darbojas uz jūsu grafikas kartes ({gpu}) un izlasa jūsu failus daudz ātrāk.",
+ "meaning.tip_metal": "{model} serverī {server} arī darbojas ar Metal un pēc nozīmes atrod labāk nekā iebūvētais modelis.",
  "menu.button": "Darbības",
  "menu.commands": "Komandas",
  "menu.none": "Šeit ar šo nav ko darīt",

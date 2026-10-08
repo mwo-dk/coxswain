@@ -169,6 +169,8 @@
  "ask.poor_server_sure": "{model} na {server} běží na vaší grafické kartě ({gpu}) a odpoví mnohem dřív.",
  "ask.poor_smaller": "{model} tu odpoví dřív (asi {seconds} s); server modelů na grafické kartě ještě dřív.",
  "ask.read": "{excerpts} z: {files}, {words}",
+ "ask.tip_metal": "{model} na {server} běží také na Metal a je větší než {builtin}: lepší odpovědi.",
+ "ask.tip_metal_quicker": "{model} na {server} běží také na Metal, větší a rychlejší než {builtin}.",
  "ask.words": {
   "one": "asi {n} slovo",
   "few": "asi {n} slova",
@@ -1664,6 +1666,7 @@
  "meaning.poor_cpu": "Vestavěný model tu čte význam na procesoru.",
  "meaning.poor_server_maybe": "{model} na {server} může běžet na vaší grafické kartě ({gpu}) a přečíst vaše soubory mnohem dřív.",
  "meaning.poor_server_sure": "{model} na {server} běží na vaší grafické kartě ({gpu}) a přečte vaše soubory mnohem dřív.",
+ "meaning.tip_metal": "{model} na {server} běží také na Metal a hledá podle významu lépe než vestavěný model.",
  "menu.button": "Akce",
  "menu.commands": "Příkazy",
  "menu.none": "Tady s tím nic udělat nejde",

@@ -36,13 +36,16 @@ impl Kind {
 }
 
 /// A model on a server, and what it can do.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct Model {
     pub name: String,
     /// It makes vectors (an embedding model).
     pub embed: bool,
     /// It answers (a chat model).
     pub chat: bool,
+    /// Billions of weights, as the server says (Ollama); else `size` reads them from the name.
+    #[serde(default)]
+    pub params: Option<f64>,
 }
 
 /// A server that answered.
@@ -127,10 +130,11 @@ fn ask_server(kind: Kind, url: &str, key: Option<&str>) -> Option<Found> {
                 let name = m["name"].as_str()?.to_string();
                 // Newer Ollamas say it in the list; older ones in `/api/show`.
                 let can: Option<Vec<String>> = m["capabilities"].as_array().map(|c| c.iter().filter_map(|x| x.as_str().map(String::from)).collect()).or_else(|| ollama_can(&slow, url, &name).ok().flatten());
-                Some(match can {
-                    Some(c) => Model { embed: c.iter().any(|x| x == "embedding"), chat: c.iter().any(|x| x == "completion"), name },
+                let params = billions(m["details"]["parameter_size"].as_str().unwrap_or(""));
+                Some(Model { params, ..match can {
+                    Some(c) => Model { embed: c.iter().any(|x| x == "embedding"), chat: c.iter().any(|x| x == "completion"), name, params: None },
                     None => guess(name),
-                })
+                } })
             });
             Some(Found { kind, url: url.to_string(), engine: "ollama".into(), models: models.collect() })
         }
@@ -144,7 +148,7 @@ fn ask_server(kind: Kind, url: &str, key: Option<&str>) -> Option<Found> {
             let models = data.iter().filter(|m| m["downloaded"].as_bool() != Some(false)).filter_map(|m| {
                 let labels: Vec<&str> = m["labels"].as_array().map(|l| l.iter().filter_map(|x| x.as_str()).collect()).unwrap_or_default();
                 let embed = labels.contains(&"embeddings");
-                Some(Model { name: m["id"].as_str()?.to_string(), embed, chat: !embed && !labels.contains(&"reranking") })
+                Some(Model { name: m["id"].as_str()?.to_string(), embed, chat: !embed && !labels.contains(&"reranking"), params: None })
             });
             openai(kind, models.collect())
         }
@@ -154,7 +158,7 @@ fn ask_server(kind: Kind, url: &str, key: Option<&str>) -> Option<Found> {
             let v = get(&quick, &format!("{base}/api/v0/models"), key)?;
             let models = v["data"].as_array()?.iter().filter_map(|m| {
                 let t = m["type"].as_str().unwrap_or("");
-                Some(Model { name: m["id"].as_str()?.to_string(), embed: t == "embeddings", chat: t == "llm" || t == "vlm" })
+                Some(Model { name: m["id"].as_str()?.to_string(), embed: t == "embeddings", chat: t == "llm" || t == "vlm", params: None })
             });
             openai(kind, models.collect())
         }
@@ -166,7 +170,7 @@ fn ask_server(kind: Kind, url: &str, key: Option<&str>) -> Option<Found> {
             let kind = if kind == Kind::LlamaCpp && get(&quick, &format!("{base}/props"), key).is_none() { Kind::LocalAi } else { kind };
             // These do not say what a model can do: a word to each, both ways, at once.
             let models = std::thread::scope(|s| {
-                let tried: Vec<_> = names.iter().map(|n| { let slow = &slow; s.spawn(move || Model { name: n.clone(), embed: tries(slow, url, key, "/embeddings", serde_json::json!({ "model": n, "input": "test" })), chat: tries(slow, url, key, "/chat/completions", serde_json::json!({ "model": n, "messages": [{ "role": "user", "content": "Hi" }], "max_tokens": 1 })) }) }).collect();
+                let tried: Vec<_> = names.iter().map(|n| { let slow = &slow; s.spawn(move || Model { name: n.clone(), embed: tries(slow, url, key, "/embeddings", serde_json::json!({ "model": n, "input": "test" })), chat: tries(slow, url, key, "/chat/completions", serde_json::json!({ "model": n, "messages": [{ "role": "user", "content": "Hi" }], "max_tokens": 1 })), params: None }) }).collect();
                 tried.into_iter().filter_map(|h| h.join().ok()).collect()
             });
             openai(kind, models)
@@ -187,7 +191,24 @@ fn tries(agent: &ureq::Agent, url: &str, key: Option<&str>, path: &str, body: se
 fn guess(name: String) -> Model {
     let n = name.to_lowercase();
     let embed = ["embed", "bge", "e5", "minilm", "gte", "arctic-embed"].iter().any(|w| n.contains(w));
-    Model { embed, chat: !embed, name }
+    Model { embed, chat: !embed, name, params: None }
+}
+
+/// Billions of weights in "8.2B", "567M" (Ollama's `parameter_size`) or a name's "14b".
+fn billions(s: &str) -> Option<f64> {
+    let s = s.trim().to_lowercase();
+    let (n, scale) = s.strip_suffix('b').map(|n| (n, 1.0)).or_else(|| s.strip_suffix('m').map(|n| (n, 1e-3)))?;
+    n.parse::<f64>().ok().filter(|n| *n > 0.0).map(|n| n * scale)
+}
+
+/// A chat model's size from its name: its billions of weights, and of those each word goes
+/// through when it is a mixture of experts ("qwen3:30b-a3b", "Qwen3-30B-A3B-MLX-4bit").
+fn size(name: &str) -> (Option<f64>, Option<f64>) {
+    let n = name.to_lowercase();
+    let words: Vec<&str> = n.split(|c: char| !c.is_ascii_alphanumeric() && c != '.').collect();
+    let total = words.iter().find(|w| w.ends_with('b') && w.starts_with(|c: char| c.is_ascii_digit())).and_then(|w| billions(w));
+    let active = words.iter().find_map(|w| w.strip_prefix('a').filter(|w| w.starts_with(|c: char| c.is_ascii_digit())).and_then(billions));
+    (total, active)
 }
 
 // ---------------------------------------------------------------- the machine
@@ -505,15 +526,19 @@ pub enum Better<'a> {
     Server { found: &'a Found, model: String, sure: bool },
     /// A smaller built-in model that answers within `chat::QUICK` here, if there is one.
     Smaller(Option<&'static crate::chat::Model>),
+    /// On a Mac's GPU: a server's model there too, larger than the built-in one, and `quicker`
+    /// when it is a mixture of experts whose words go through fewer weights than the built-in one's.
+    Metal { found: &'a Found, model: String, quicker: bool },
 }
 
 /// What beats the built-in chat model `m` on this machine, or None when it is a good choice.
-/// On a Mac's GPU (`metal`) it is. Else a server's model on a graphics card, of `servers`
-/// (those Ask can use, the known ones first); else, when `m` takes `chat::QUICK` or longer to
-/// its first word (`first`, the probe's estimate), a smaller one that does not.
+/// A server's model on a graphics card, of `servers` (those Ask can use, the known ones
+/// first); on a Mac's GPU (`metal`) only one larger than `m`. Else, off Metal, when `m` takes
+/// `chat::QUICK` or longer to its first word (`first`, the probe's estimate), a smaller one
+/// that does not.
 pub fn better_ask<'a>(m: &crate::chat::Model, metal: bool, first: impl Fn(&crate::chat::Model) -> Option<f64>, servers: &[(&'a Found, bool)], hint: &str) -> Option<Better<'a>> {
     if metal {
-        return None;
+        return servers.iter().find_map(|(f, _)| larger(f, m, hint).map(|(model, quicker)| Better::Metal { found: f, model, quicker }));
     }
     if let Some((found, model, sure)) = servers.iter().find_map(|(f, sure)| pick(f, true, hint).map(|m| (*f, m, *sure))) {
         return Some(Better::Server { found, model, sure });
@@ -524,12 +549,33 @@ pub fn better_ask<'a>(m: &crate::chat::Model, metal: bool, first: impl Fn(&crate
     Some(Better::Smaller(crate::chat::MODELS.iter().rev().find(|x| x.ram < m.ram && first(x).is_some_and(|s| s < crate::chat::QUICK))))
 }
 
-/// The server's embedding model on a graphics card that beats the built-in model on the
-/// processor, of `servers`: the server, the model, and whether that it is on the card is known.
-/// None on a Mac's GPU.
+/// The chat model of `f` larger than the built-in `m`, and whether it is quicker too: a mixture
+/// of experts that is, else the smallest larger one. Its size as the server says, else as its
+/// name says, else, for the model the hardware advice names (`hint`), the advice's.
+fn larger(f: &Found, m: &crate::chat::Model, hint: &str) -> Option<(String, bool)> {
+    let mine = size(m.id).0?;
+    let hint = hint.to_lowercase();
+    f.models
+        .iter()
+        .filter(|x| x.chat)
+        .filter_map(|x| {
+            let (named, active) = size(&x.name);
+            let total = x.params.or(named).or_else(|| (!hint.is_empty() && x.name.to_lowercase().starts_with(&hint)).then(|| size(&hint).0).flatten())?;
+            (total > mine).then(|| (x.name.clone(), active.is_some_and(|a| a < mine), total))
+        })
+        .min_by(|a, b| b.1.cmp(&a.1).then(a.2.total_cmp(&b.2)))
+        .map(|(name, quicker, _)| (name, quicker))
+}
+
+/// Embedding models that find by meaning better than the built-in multilingual-e5-small.
+const STRONGER: [&str; 3] = ["bge-m3", "qwen3-embedding", "snowflake-arctic-embed2"];
+
+/// The server's embedding model on a graphics card that beats the built-in model, of
+/// `servers`: the server, the model, and whether that it is on the card is known. Off Metal
+/// any beats it on the processor; on a Mac's GPU (`metal`) only a stronger one (`STRONGER`).
 pub fn better_meaning<'a>(metal: bool, servers: &[(&'a Found, bool)]) -> Option<(&'a Found, String, bool)> {
     if metal {
-        return None;
+        return servers.iter().find_map(|(f, sure)| f.models.iter().find(|m| m.embed && STRONGER.iter().any(|w| m.name.to_lowercase().contains(w))).map(|m| (*f, m.name.clone(), *sure)));
     }
     servers.iter().find_map(|(f, sure)| pick(f, false, "").map(|m| (*f, m, *sure)))
 }
@@ -547,14 +593,18 @@ pub struct Poor {
     /// when the better one is to be downloaded or set up first (the text says which).
     pub button: Option<String>,
     pub changes: serde_json::Map<String, serde_json::Value>,
+    /// Not poor, only better at hand: a tip, shown plain, not as a warning (a Mac's GPU).
+    #[serde(default)]
+    pub tip: bool,
 }
 
 /// The choices of `cfg` that are poor here: a built-in model on the processor while a server
-/// on the graphics card answers, or a built-in chat model too large for the processor. Empty
-/// until the servers have been asked (`look`): `wait` false never waits for that.
+/// on the graphics card answers, or a built-in chat model too large for the processor; on a
+/// Mac's GPU, a tip when a server there has a larger or stronger model. Empty until the
+/// servers have been asked (`look`): `wait` false never waits for that.
 pub fn poor(cfg: &crate::config::SearchConfig, wait: bool) -> Vec<Poor> {
     let builtin_meaning = cfg.meaning && cfg.meaning_engine == "builtin";
-    if crate::chat::metal(cfg.meaning_device == "cpu") || (crate::chat::of(&cfg.ask_model).is_none() && !builtin_meaning) {
+    if crate::chat::of(&cfg.ask_model).is_none() && !builtin_meaning {
         return vec![];
     }
     look(wait).map(|l| poor_in(cfg, &l)).unwrap_or_default()
@@ -562,9 +612,13 @@ pub fn poor(cfg: &crate::config::SearchConfig, wait: bool) -> Vec<Poor> {
 
 /// `poor` for what `look` found.
 pub fn poor_in(cfg: &crate::config::SearchConfig, look: &Look) -> Vec<Poor> {
+    poor_at(cfg, look, crate::chat::metal(cfg.meaning_device == "cpu"))
+}
+
+/// `poor_in`, on a Mac's GPU or not (`metal`).
+fn poor_at(cfg: &crate::config::SearchConfig, look: &Look, metal: bool) -> Vec<Poor> {
     use crate::t;
     let cpu_only = cfg.meaning_device == "cpu";
-    let metal = crate::chat::metal(cpu_only);
     let first = |m: &crate::chat::Model| crate::chat::estimate(m, cpu_only, false).map(|e| e.first);
     let seconds = |s: f64| format!("{:.0}", s.max(1.0));
     let mut out = vec![];
@@ -582,7 +636,13 @@ pub fn poor_in(cfg: &crate::config::SearchConfig, look: &Look) -> Vec<Poor> {
                 let key = if sure { "ask.poor_server_sure" } else { "ask.poor_server_maybe" };
                 let better = t!(key, "model" => model.as_str(), "server" => found.kind.name(), "gpu" => look.card());
                 changes.insert("ask_model".into(), model.clone().into());
-                out.push(Poor { ask: true, text: format!("{slow} {better}"), short, button: Some(t!("settings.use_model", "model" => model)), changes });
+                out.push(Poor { ask: true, text: format!("{slow} {better}"), short, button: Some(t!("settings.use_model", "model" => model)), changes, tip: false });
+            }
+            Some(Better::Metal { found, model, quicker }) => {
+                let key = if quicker { "ask.tip_metal_quicker" } else { "ask.tip_metal" };
+                let text = t!(key, "model" => model.as_str(), "server" => found.kind.name(), "builtin" => m.name);
+                changes.insert("ask_model".into(), model.clone().into());
+                out.push(Poor { ask: true, short: text.clone(), text, button: Some(t!("settings.use_model", "model" => model)), changes, tip: true });
             }
             Some(Better::Smaller(smaller)) => {
                 let better = match smaller {
@@ -593,7 +653,7 @@ pub fn poor_in(cfg: &crate::config::SearchConfig, look: &Look) -> Vec<Poor> {
                     changes.insert("ask_model".into(), x.key().into());
                     t!("settings.use_model", "model" => x.name)
                 });
-                out.push(Poor { ask: true, text: format!("{slow} {better}"), short, button, changes });
+                out.push(Poor { ask: true, text: format!("{slow} {better}"), short, button, changes, tip: false });
             }
         }
     }
@@ -601,26 +661,31 @@ pub fn poor_in(cfg: &crate::config::SearchConfig, look: &Look) -> Vec<Poor> {
         && let Some((found, model, sure)) = better_meaning(metal, &meaning_servers(cfg, look))
     {
         let key = if sure { "meaning.poor_server_sure" } else { "meaning.poor_server_maybe" };
-        let text = format!("{} {}", t!("meaning.poor_cpu"), t!(key, "model" => model.as_str(), "server" => found.kind.name(), "gpu" => look.card()));
+        let text = if metal { t!("meaning.tip_metal", "model" => model.as_str(), "server" => found.kind.name()) } else { format!("{} {}", t!("meaning.poor_cpu"), t!(key, "model" => model.as_str(), "server" => found.kind.name(), "gpu" => look.card())) };
         let mut changes = serde_json::Map::new();
         changes.insert("meaning_engine".into(), found.engine.clone().into());
         changes.insert("meaning_url".into(), found.url.clone().into());
         changes.insert("meaning_model".into(), model.clone().into());
-        out.push(Poor { ask: false, short: text.clone(), text, button: Some(t!("settings.use_model", "model" => model)), changes });
+        out.push(Poor { ask: false, short: text.clone(), text, button: Some(t!("settings.use_model", "model" => model)), changes, tip: metal });
     }
     out
 }
 
 /// The chat model to recommend and preselect for Ask: a server's model on the graphics card
-/// when one answers that Ask can use, else the built-in one for this machine. `look` None:
-/// the servers have not been asked yet.
+/// when one answers that Ask can use (on a Mac's GPU the one larger than the built-in one,
+/// as `better_ask` says, if it has one), else the built-in one for this machine. `look`
+/// None: the servers have not been asked yet.
 pub fn recommend_ask(cfg: &crate::config::SearchConfig, look: Option<&Look>) -> String {
-    if let Some(l) = look
-        && let Some(m) = ask_servers(cfg, l).iter().find_map(|(f, _)| pick(f, true, &advise(&l.machine, &l.found).chat))
-    {
-        return m;
+    let cpu_only = cfg.meaning_device == "cpu";
+    let builtin = crate::chat::preselect(ram_gb(), cpu_only);
+    if let Some(l) = look {
+        let hint = advise(&l.machine, &l.found).chat;
+        let metal = crate::chat::metal(cpu_only);
+        if let Some(m) = ask_servers(cfg, l).iter().find_map(|(f, _)| metal.then(|| larger(f, builtin, &hint)).flatten().map(|(m, _)| m).or_else(|| pick(f, true, &hint))) {
+            return m;
+        }
     }
-    crate::chat::preselect(ram_gb(), cfg.meaning_device == "cpu").key()
+    builtin.key()
 }
 
 /// A chat model Ask can take, as Settings and the guide list it.
@@ -788,7 +853,7 @@ mod tests {
     #[test]
     fn servers_are_found_with_what_their_models_can_do() {
         let ollama = fake(vec![
-            ("GET /api/tags", r#"{"models":[{"name":"qwen3:8b"},{"name":"bge-m3:latest","capabilities":["embedding"]}]}"#),
+            ("GET /api/tags", r#"{"models":[{"name":"qwen3:8b","details":{"parameter_size":"8.2B"}},{"name":"bge-m3:latest","capabilities":["embedding"]}]}"#),
             (r#""model":"qwen3:8b""#, r#"{"capabilities":["completion","tools"]}"#),
         ]);
         let lemonade = fake(vec![("GET /api/v1/models", r#"{"data":[{"id":"Qwen3-8B-GGUF","recipe":"llamacpp","labels":["reasoning"],"downloaded":true},{"id":"nomic-embed-text-v1-GGUF","recipe":"llamacpp","labels":["embeddings"],"downloaded":true},{"id":"bge-reranker","recipe":"llamacpp","labels":["reranking"]},{"id":"Gemma-3-4b","recipe":"oga-hybrid","downloaded":false}]}"#)]);
@@ -802,6 +867,7 @@ mod tests {
         let all = |v: &[(&str, bool, bool)]| v.iter().map(|(n, e, c)| (n.to_string(), *e, *c)).collect::<Vec<_>>();
         assert_eq!(can(&found[0]), all(&[("qwen3:8b", false, true), ("bge-m3:latest", true, false)]));
         assert_eq!(found[0].engine, "ollama");
+        assert_eq!(found[0].models[0].params, Some(8.2), "as Ollama says");
         assert_eq!(can(&found[1]), all(&[("Qwen3-8B-GGUF", false, true), ("nomic-embed-text-v1-GGUF", true, false), ("bge-reranker", false, false)]), "not downloaded: not listed");
         assert_eq!(found[1].url, format!("{lemonade}/api/v1"));
         assert_eq!(can(&found[2]), all(&[("text-embedding-nomic", true, false), ("qwen2.5-7b", false, true)]));
@@ -860,7 +926,7 @@ mod tests {
     }
 
     fn ollama() -> Found {
-        let m = |name: &str, embed| Model { name: name.into(), embed, chat: !embed };
+        let m = |name: &str, embed| Model { name: name.into(), embed, chat: !embed, params: None };
         Found { kind: Kind::Ollama, url: crate::meaning::OLLAMA.into(), engine: "ollama".into(), models: vec![m("bge-m3:latest", true), m("llama3.2:3b", false), m("qwen3:8b", false)] }
     }
 
@@ -878,20 +944,22 @@ mod tests {
             _ => panic!("the server's model"),
         }
         assert!(matches!(better_ask(small, false, first, &[(&ollama, false)], ""), Some(Better::Server { model, .. }) if model == "qwen3:8b"), "a Qwen without a hint; even the quick small one loses");
-        assert!(better_ask(large, true, first, &[(&ollama, true)], "").is_none(), "a Mac's GPU: fine as it is");
+        assert!(better_ask(large, true, first, &[(&ollama, true)], "").is_none(), "a Mac's GPU: the server's 8B is no larger");
         assert!(matches!(better_ask(large, false, first, &[], ""), Some(Better::Smaller(Some(m))) if m.id == "qwen3-1.7b"));
         assert!(better_ask(small, false, first, &[], "").is_none(), "quick enough");
         assert!(better_ask(large, false, |_| None, &[], "").is_none(), "nothing said before the estimate");
         assert!(matches!(better_ask(large, false, |_| Some(60.0), &[], ""), Some(Better::Smaller(None))), "none is quick: a server, said in words");
         assert_eq!(better_meaning(false, &[(&ollama, true)]).map(|(_, m, _)| m).as_deref(), Some("bge-m3:latest"));
-        assert!(better_meaning(true, &[(&ollama, true)]).is_none());
+        assert!(better_meaning(true, &[(&ollama, true)]).is_some(), "bge-m3 beats e5 on Metal too");
+        let nomic = Found { models: vec![Model { name: "nomic-embed-text:latest".into(), embed: true, ..Default::default() }], ..ollama.clone() };
+        assert!(better_meaning(true, &[(&nomic, true)]).is_none(), "on Metal, only a stronger one");
     }
 
     /// A server whose models are on the processor does not count, nor any without a graphics
     /// card; one with nothing loaded counts when there is a card. What is said, and the button.
     #[test]
     fn a_poor_choice_is_said_with_the_better_one() {
-        let lemonade = Found { kind: Kind::Lemonade, url: "http://localhost:13305/api/v1".into(), engine: "openai".into(), models: vec![Model { name: "Qwen3-8B-GGUF".into(), embed: false, chat: true }] };
+        let lemonade = Found { kind: Kind::Lemonade, url: "http://localhost:13305/api/v1".into(), engine: "openai".into(), models: vec![Model { name: "Qwen3-8B-GGUF".into(), embed: false, chat: true, params: None }] };
         let card = Machine { gpu: Some((Vendor::Nvidia, "RTX 4070".into(), Some(8))), npu: false, ram: 32 };
         let look = Look { found: vec![ollama(), lemonade.clone()], machine: card.clone(), gpu: vec![Some(false), None] };
         assert_eq!(look.gpu_servers().iter().map(|(f, sure)| (f.kind, *sure)).collect::<Vec<_>>(), [(Kind::Lemonade, false)]);
@@ -900,20 +968,65 @@ mod tests {
         // Lemonade is no server for Ask with the built-in vectors: Ollama here is.
         assert!(ask_servers(&cfg, &look).is_empty());
         let look = Look { gpu: vec![Some(true), None], ..look };
-        let poor = poor_in(&cfg, &look);
-        if cfg!(target_os = "macos") {
-            return assert!(poor.is_empty(), "{poor:?}");
-        }
+        let poor = poor_at(&cfg, &look, false);
         let ask = poor.iter().find(|p| p.ask).unwrap();
         assert!(ask.text.contains("Qwen3 14B") && ask.text.contains("qwen3:8b") && ask.text.contains("Ollama") && ask.text.contains("RTX 4070"), "{}", ask.text);
         assert_eq!((ask.button.as_deref(), ask.changes["ask_model"].as_str()), (Some(crate::t!("settings.use_model", "model" => "qwen3:8b").as_str()), Some("qwen3:8b")));
         let meaning = poor.iter().find(|p| !p.ask).unwrap();
         assert_eq!((meaning.changes["meaning_engine"].as_str(), meaning.changes["meaning_model"].as_str()), (Some("ollama"), Some("bge-m3:latest")));
-        assert_eq!(recommend_ask(&cfg, Some(&look)), "qwen3:8b");
+        if !cfg!(target_os = "macos") {
+            assert_eq!(recommend_ask(&cfg, Some(&look)), "qwen3:8b");
+        }
         assert!(recommend_ask(&cfg, None).starts_with(crate::chat::PREFIX), "before the servers are asked: built in");
         // A server's model for Ask: nothing to say about it.
         let cfg = crate::config::SearchConfig { ask_model: "qwen3:8b".into(), ..cfg };
-        assert!(poor_in(&cfg, &look).iter().all(|p| !p.ask));
+        assert!(poor_at(&cfg, &look, false).iter().all(|p| !p.ask));
+    }
+
+    /// Sizes from names: the weights, and those each word goes through in a mixture of experts.
+    #[test]
+    fn sizes_are_read_from_names() {
+        assert_eq!(size("qwen3:30b-a3b"), (Some(30.0), Some(3.0)));
+        assert_eq!(size("mlx-community/Qwen3-30B-A3B-4bit"), (Some(30.0), Some(3.0)));
+        assert_eq!(size("qwen3-1.7b"), (Some(1.7), None));
+        assert_eq!(size("llama3.2:latest"), (None, None));
+        assert_eq!(billions("567.75M"), Some(0.56775));
+    }
+
+    /// On a Mac's GPU the built-in models are a good choice: a server there only says a tip,
+    /// when it has a larger chat model or a stronger embedding model; one with smaller models,
+    /// or none, says nothing.
+    #[test]
+    fn on_metal_a_larger_server_model_is_a_tip() {
+        let mac = Machine { gpu: Some((Vendor::Apple, "Apple silicon".into(), None)), npu: false, ram: 36 };
+        let m = |name: &str, embed, params| Model { name: name.into(), embed, chat: !embed, params };
+        let cfg = crate::config::SearchConfig { ask_model: "builtin:qwen3-14b".into(), meaning: true, ..Default::default() };
+        // No server: the built-in models, nothing to say.
+        assert!(poor_at(&cfg, &Look { found: vec![], machine: mac.clone(), gpu: vec![] }, true).is_empty());
+        // Ollama on Metal with a mixture of experts and bge-m3.
+        let ollama = Found { models: vec![m("qwen3:8b", false, Some(8.2)), m("qwen3:30b-a3b", false, Some(30.5)), m("bge-m3:latest", true, Some(0.567))], ..ollama() };
+        let poor = poor_at(&cfg, &Look { found: vec![ollama.clone()], machine: mac.clone(), gpu: vec![Some(true)] }, true);
+        let ask = poor.iter().find(|p| p.ask).unwrap();
+        assert!(ask.tip && ask.text.contains("qwen3:30b-a3b") && ask.text.contains("Ollama") && ask.text.contains("Metal"), "{ask:?}");
+        assert_eq!(ask.text, crate::t!("ask.tip_metal_quicker", "model" => "qwen3:30b-a3b", "server" => "Ollama", "builtin" => "Qwen3 14B"));
+        assert_eq!(ask.changes["ask_model"].as_str(), Some("qwen3:30b-a3b"));
+        let meaning = poor.iter().find(|p| !p.ask).unwrap();
+        assert!(meaning.tip && meaning.changes["meaning_model"] == "bge-m3:latest", "{meaning:?}");
+        // A larger dense model is larger, not quicker.
+        let dense = Found { models: vec![m("qwen3:32b", false, None)], ..ollama.clone() };
+        assert!(matches!(better_ask(&crate::chat::MODELS[2], true, |_| None, &[(&dense, true)], ""), Some(Better::Metal { quicker: false, .. })));
+        // LM Studio with MLX models: Ask uses it once it makes the vectors.
+        let lms = Found { kind: Kind::LmStudio, url: "http://localhost:1234/v1".into(), engine: "openai".into(), models: vec![m("qwen3-30b-a3b-mlx", false, None), m("text-embedding-qwen3-embedding-0.6b", true, None)] };
+        let look = Look { found: vec![lms], machine: mac.clone(), gpu: vec![None] };
+        let poor = poor_at(&cfg, &look, true);
+        assert_eq!(poor.iter().map(|p| (p.ask, p.tip)).collect::<Vec<_>>(), [(false, true)], "built-in vectors: Ask stays with Ollama here");
+        assert_eq!(poor[0].changes["meaning_model"], "text-embedding-qwen3-embedding-0.6b");
+        let on_lms = crate::config::SearchConfig { meaning_engine: "openai".into(), meaning_url: "http://localhost:1234/v1".into(), ..cfg.clone() };
+        let ask = poor_at(&on_lms, &look, true).into_iter().find(|p| p.ask).unwrap();
+        assert!(ask.tip && ask.changes["ask_model"] == "qwen3-30b-a3b-mlx" && ask.text.contains("LM Studio"), "{ask:?}");
+        // A server whose models are smaller and weaker than the built-in ones: nothing.
+        let small = Found { models: vec![m("qwen3:8b", false, Some(8.2)), m("nomic-embed-text:latest", true, Some(0.137))], ..ollama };
+        assert!(poor_at(&cfg, &Look { found: vec![small], machine: mac, gpu: vec![Some(true)] }, true).is_empty());
     }
 
     /// What this machine has: `cargo test -p coxswain-core setup -- --ignored --nocapture`.

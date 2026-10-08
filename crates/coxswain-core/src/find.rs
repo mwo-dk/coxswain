@@ -576,7 +576,7 @@ mod tests {
         assert_eq!(start("rocket fuel cost", &r), 2);
         assert_eq!(start("rocket fuel cost?", &rows("rocket fuel cost?", Kind::All, &found, Ok(()), None, none)), 0);
         // A slow chat model is said under the Ask row, when Ask can be asked.
-        let poor = crate::setup::Poor { ask: true, text: "slow".into(), short: "slow".into(), button: None, changes: Default::default() };
+        let poor = crate::setup::Poor { ask: true, text: "slow".into(), short: "slow".into(), button: None, changes: Default::default(), tip: false };
         let r = rows("rocket fuel cost", Kind::All, &found, Ok(()), Some(&poor), none);
         assert_eq!((&r[0], &r[1]), (&Row::Ask { off: None }, &Row::Slow { poor: poor.clone() }));
         assert!(!rows("rocket fuel cost", Kind::All, &found, Err(Off::AskNoModel), Some(&poor), none).iter().any(|r| matches!(r, Row::Slow { .. })));

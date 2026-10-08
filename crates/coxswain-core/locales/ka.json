@@ -165,6 +165,8 @@
  "ask.poor_server_sure": "{model} {server}-ზე თქვენს ვიდეობარათზე ({gpu}) მუშაობს და გაცილებით ადრე პასუხობს.",
  "ask.poor_smaller": "{model} აქ უფრო ადრე პასუხობს (დაახლოებით {seconds} წმ); ვიდეობარათიანი მოდელების სერვერი — კიდევ უფრო ადრე.",
  "ask.read": "{excerpts} — {files}დან, {words}",
+ "ask.tip_metal": "{model} {server}-ზე ასევე Metal-ზე მუშაობს და {builtin}-ზე დიდია: უკეთესი პასუხები.",
+ "ask.tip_metal_quicker": "{model} {server}-ზე ასევე Metal-ზე მუშაობს, {builtin}-ზე დიდი და სწრაფი.",
  "ask.words": {
   "one": "დაახლ. {n} სიტყვა",
   "other": "დაახლ. {n} სიტყვა"
@@ -1632,6 +1634,7 @@
  "meaning.poor_cpu": "ჩაშენებული მოდელი აქ აზრს პროცესორზე კითხულობს.",
  "meaning.poor_server_maybe": "{model} {server}-ზე შეიძლება თქვენს ვიდეობარათზე ({gpu}) იმუშაოს და თქვენი ფაილები გაცილებით ადრე წაიკითხოს.",
  "meaning.poor_server_sure": "{model} {server}-ზე თქვენს ვიდეობარათზე ({gpu}) მუშაობს და თქვენს ფაილებს გაცილებით ადრე კითხულობს.",
+ "meaning.tip_metal": "{model} {server}-ზე ასევე Metal-ზე მუშაობს და მნიშვნელობით ჩაშენებულ მოდელზე უკეთ პოულობს.",
  "menu.button": "მოქმედებები",
  "menu.commands": "ბრძანებები",
  "menu.none": "აქ ამით გასაკეთებელი არაფერია",

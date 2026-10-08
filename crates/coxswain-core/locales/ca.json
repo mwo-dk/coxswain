@@ -169,6 +169,8 @@
  "ask.poor_server_sure": "{model} a {server} s'executa a la vostra targeta gràfica ({gpu}) i respon molt abans.",
  "ask.poor_smaller": "{model} respon abans aquí (uns {seconds} s); un servidor de models amb targeta gràfica, encara abans.",
  "ask.read": "{excerpts} de {files}, {words}",
+ "ask.tip_metal": "{model} a {server} també funciona amb Metal i és més gran que {builtin}: millors respostes.",
+ "ask.tip_metal_quicker": "{model} a {server} també funciona amb Metal, més gran i més ràpid que {builtin}.",
  "ask.words": {
   "one": "unes {n} paraula",
   "many": "unes {n} de paraules",
@@ -1664,6 +1666,7 @@
  "meaning.poor_cpu": "El model integrat llegeix el significat aquí al processador.",
  "meaning.poor_server_maybe": "{model} a {server} es pot executar a la vostra targeta gràfica ({gpu}) i llegir els vostres fitxers molt abans.",
  "meaning.poor_server_sure": "{model} a {server} s'executa a la vostra targeta gràfica ({gpu}) i llegeix els vostres fitxers molt abans.",
+ "meaning.tip_metal": "{model} a {server} també funciona amb Metal i cerca pel significat millor que el model integrat.",
  "menu.button": "Accions",
  "menu.commands": "Ordres",
  "menu.none": "Aquí no hi ha res a fer amb això",

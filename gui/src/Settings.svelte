@@ -556,7 +556,7 @@
             <span>{l.text}
               {#if l.note}<br /><small class="hint" class:err={l.bad}>{l.note}</small>{/if}
               {#if l.part === "meaning" && index?.meaning_runs_text && s.meaning_engine === "builtin"}<br /><small class="hint">{index.meaning_runs_text}</small>{/if}
-              {#if l.poor}<br /><small class="err">{l.poor.text}</small>{#if l.poor.button}{" "}<button class="link" onclick={() => usePoor(l.poor)}>{l.poor.button}</button>{/if}{/if}
+              {#if l.poor}<br /><small class={l.poor.tip ? "hint" : "err"}>{l.poor.text}</small>{#if l.poor.button}{" "}<button class="link" onclick={() => usePoor(l.poor)}>{l.poor.button}</button>{/if}{/if}
               {#if l.part === "ask" && trial}<br /><small class="hint" class:err={trial.error}>{trial.busy ? t("common.loading") : trial.error ?? t("setup.try_done", { seconds: (trial.ms / 1000).toFixed(1) })}</small>{/if}
             </span>
             {#if l.step}<button disabled={trial?.busy && l.step === "try_it"} onclick={() => step(l)}>{t(`settings.step.${l.step}`)}</button>{:else}<span></span>{/if}
@@ -679,7 +679,7 @@
               </div>
             {/if}
             {#if meaningPoor}
-              <p class="err">{meaningPoor.text}</p>
+              <p class={meaningPoor.tip ? "hint" : "err"}>{meaningPoor.text}</p>
               <div class="buttons"><button class="primary" onclick={() => usePoor(meaningPoor)}>{meaningPoor.button}</button></div>
             {/if}
             <!-- Only on a Mac, where the built-in model can run on the GPU. -->
@@ -709,7 +709,7 @@
               {#if !s.ask_model && askPreselected}<div class="buttons"><button class="primary" disabled={!!chat?.downloading} onclick={useAskPreselected}>{t("settings.use_model", { model: askName(askPreselected) })}</button></div>{/if}
               {#if chat?.groups?.some((g) => g.server && g.missing && !g.loading)}<div class="buttons"><button onclick={openSetup}>{t("settings.ask_set_up_server")}</button></div>{/if}
               {#if askPoor}
-                <p class="err">{askPoor.text}</p>
+                <p class={askPoor.tip ? "hint" : "err"}>{askPoor.text}</p>
                 <div class="buttons">{#if askPoor.button}<button class="primary" onclick={() => usePoor(askPoor)}>{askPoor.button}</button>{:else}<button onclick={openSetup}>{t("setup.open")}</button>{/if}</div>
               {/if}
               {#if chat?.downloading}

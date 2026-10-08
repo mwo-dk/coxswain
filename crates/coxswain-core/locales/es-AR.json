@@ -169,6 +169,8 @@
  "ask.poor_server_sure": "{model} en {server} corre en tu placa de video ({gpu}) y responde mucho antes.",
  "ask.poor_smaller": "{model} responde antes acá (unos {seconds} s); un servidor de modelos en una placa de video, todavía antes.",
  "ask.read": "{excerpts} de {files}, {words}",
+ "ask.tip_metal": "{model} en {server} también corre en Metal y es más grande que {builtin}: mejores respuestas.",
+ "ask.tip_metal_quicker": "{model} en {server} también corre en Metal, más grande y más rápido que {builtin}.",
  "ask.words": {
   "one": "unas {n} palabra",
   "many": "unas {n} de palabras",
@@ -1664,6 +1666,7 @@
  "meaning.poor_cpu": "El modelo incluido lee el significado acá en el procesador.",
  "meaning.poor_server_maybe": "{model} en {server} puede correr en tu placa de video ({gpu}) y leer tus archivos mucho antes.",
  "meaning.poor_server_sure": "{model} en {server} corre en tu placa de video ({gpu}) y lee tus archivos mucho antes.",
+ "meaning.tip_metal": "{model} en {server} también corre en Metal y busca por significado mejor que el modelo incorporado.",
  "menu.button": "Acciones",
  "menu.commands": "Comandos",
  "menu.none": "Acá no hay nada que hacer con esto",
