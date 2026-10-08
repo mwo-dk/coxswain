@@ -3,7 +3,9 @@
 # Where things are kept
 
 Coxswain keeps its settings, its memory and its caches in the usual folders of each system. Use
-this page to find a file, to see what takes room, or to remove everything.
+this page to find a file, or to remove everything. To see what takes room and get it back, use
+[Disk use](disk-use.md): Settings → *Privacy and updates* → *Disk use*, **F9** → *Disk use*, or
+`coxswain --disk`.
 
 ![Settings at Finding files with Details → Background reading open: Start with my session, Read now, the path /home/demo/.cache/coxswain/search.db with Show in panel, and Delete what was read (284 KB)](../screenshots/search-helper-session.png)
 *Settings → Finding files → Details → Background reading shows where the search store is and how large it is; Meaning shows the model's folder the same way, and Privacy and updates → Where things are kept lists every path.*
@@ -48,19 +50,21 @@ shows the search store and *Built-in models* each model with its folder ([Built-
 | `config.toml` | `~/.config/coxswain/config.toml` | Your settings ([Configuration](configuration.md)) | Yes: everything goes back to its default |
 | `scripts/` | `~/.config/coxswain/scripts/` | Your scripts for the desktop app's **F2** ([Scripts](../commands/scripts.md)) | They are yours |
 | `state.json` | `~/.local/share/coxswain/state.json` | The desktop app's session (panes, tabs, views, the preview engine you picked), favourites, colour tags, folder notes, recent repositories; the last update check; notices dismissed | Only if you want to lose tags and notes. A damaged file is moved aside to `state.json.bad`, never overwritten |
-| `index.bin` | `~/.cache/coxswain/index.bin` | The name index, saved so it loads at once | Yes: it is built again |
-| `search.db` (with `-wal`, `-shm`) | `~/.cache/coxswain/search.db` | The text of your files, every file's size and date, folder totals, duplicate hashes, meaning vectors | Yes, with no Coxswain running: it fills again. Or **Delete what was read** in Settings → *Finding files* → *Details* → *Background reading* |
+| `index.bin` | `~/.cache/coxswain/index.bin` | The name index, saved so it loads at once | Yes: it is built again. **Clear** in [Disk use](disk-use.md), or `coxswain --disk clear index` |
+| `search.db` (with `-wal`, `-shm`) | `~/.cache/coxswain/search.db` | The text of your files, every file's size and date, folder totals, duplicate hashes, meaning vectors, the latest errors | Yes: it fills again. While Coxswain runs, use **Clear** in [Disk use](disk-use.md) (or **Delete what was read** in Settings → *Finding files* → *Details* → *Background reading*, or `coxswain --disk clear store`), which goes through the helper; by hand only with no Coxswain running |
 | `models/` | `~/.cache/coxswain/models/multilingual-e5-small-614241f6/` | The built-in model for search by meaning, about 488 MB | Yes: **Delete** under Settings → *Finding files* → *Details* → *Built-in models*, or `coxswain --models delete multilingual-e5-small` ([Built-in models](../search/models.md)) |
 | `models/` | `~/.cache/coxswain/models/qwen3-1.7b-d7f544ee/`, `qwen3-4b-a06e946b/`, `qwen3-14b-a04a82c4/` | The [built-in chat models](../search/ask-builtin.md) for Ask, 1.0 GB, 2.3 GB and 8.4 GB, when downloaded | Yes: **Delete** under Settings → *Finding files* → *Details* → *Built-in models*, or `coxswain --models delete unused` for all not in use, unfinished downloads and older versions too ([Built-in models](../search/models.md)) |
 | `peek/` | `~/.cache/coxswain/peek/<run>/` | The one file inside an archive being previewed or viewed, copied out for the look; replaced by the next, and left-overs of earlier runs go after a day | Yes, any time |
 | `inside-<n>/` | `~/.cache/coxswain/inside-<n>/` | The search helper reading the text of a file [inside an archive](../search/archives.md): one file at a time, deleted as soon as it is read, the folder when the archive is done | Yes, when no helper runs |
 | `previews/` | `~/.cache/coxswain/previews/` | PDFs, SVGs and pages made by tools (LaTeX, LibreOffice, PlantUML, pandoc), one folder per file and engine | Yes: Settings → *Previews* → *Previews made so far* → *Clear* does it |
 | `index.addr`, `index.lock` | `~/.cache/coxswain/` | The helper's port and token (readable by you alone), and its lock | Only while no helper runs |
-| `helper.log` | `~/.cache/coxswain/` | When the helper started and left, and what failed (readable by you alone) | Yes; it is emptied past 1 MB |
+| `helper.log` | `~/.cache/coxswain/` | When the helper started and left, and what failed (readable by you alone) | Yes; it is emptied past 1 MB, or by **Clear** in Disk use |
+| `made-outside.txt` | `~/.cache/coxswain/` | The folders Coxswain made outside its own (Tectonic's cache, made by a LaTeX preview), so [Disk use](disk-use.md#outside-coxswains-folder) lists only those | Yes; Disk use then no longer lists them |
 | `libreoffice-profile/`, `libreoffice-index-profile/` | `~/.cache/coxswain/` | LibreOffice's own profiles for previews and for reading old Office files, so your open LibreOffice is left alone | Yes |
 | Session registration | `~/.config/systemd/user/coxswain-index.service` (Linux), `~/Library/LaunchAgents/dk.mwo.coxswain.index.plist` (macOS), the `coxswain-index` value under `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` (Windows), `~/.config/autostart/coxswain-index.desktop` (FreeBSD) | Only with *Start with my session* | Use `coxswain --index-service off` instead |
 | `coxswain-extract-…` | The system's temporary folder | A few seconds' work of tesseract or LibreOffice while a file is read | Removed by itself |
 | `coxswain-archive-…` | The system's temporary folder | Files on their way from one archive to another | Removed by itself |
+| Tectonic's cache | `~/.cache/tectonic` (`~/.cache/Tectonic` with older tectonic, `~/Library/Caches/Tectonic` on macOS, `%LOCALAPPDATA%\TectonicProject\Tectonic` on Windows) | TeX packages tectonic downloads when a LaTeX preview uses it; tectonic's own, shared with your own use of it | Yes: downloaded again. Disk use lists it when Coxswain made it |
 
 Archive passwords are not in any file: they live in the app's memory until it quits.
 
@@ -93,6 +97,10 @@ folder.
   itself, its previews or the copies looked at. Its files are still found by name.
 - Settings → *Previews*: *Previews made so far*: *12.4 MB in the cache; made again
   when a source changes*, with *Clear*.
+- Settings → *Privacy and updates* → *Disk use* (the total beside its heading): every row with
+  its size, what clearing costs, **Show in panel** and **Clear** ([Disk use](disk-use.md)).
+- **Space** (or **F3** in the terminal app) on `index.bin` or `search.db` shows what it holds
+  ([Data previews](../previews/data.md#coxswains-own-index-and-store)).
 
 ## Settings and config.toml
 
@@ -113,8 +121,10 @@ Uninstall the app the way you installed it ([README → Install](../../README.md
 2. Close every Coxswain window and the terminal app, and wait ten minutes for the helper to
    leave (or end the `coxswain --index-helper` process).
 3. Delete the three folders above: config, state and cache.
-4. Container images Coxswain pulled stay in podman or docker until you remove them there (or with
-   *Remove* in Settings → *Previews* → *Container images* beforehand). A model pulled with Ollama goes with
+4. Container images Coxswain pulled stay in podman or docker until you remove them there (or
+   beforehand with *Remove* in Settings → *Previews* → *Container images*, or with *Clear* under
+   *Outside Coxswain's folder* in [Disk use](disk-use.md); `coxswain --disk clear images`). So
+   does Tectonic's cache (`coxswain --disk clear tectonic` beforehand, when Coxswain made it). A model pulled with Ollama goes with
    `ollama rm bge-m3`.
 
 ## Questions
@@ -122,7 +132,9 @@ Uninstall the app the way you installed it ([README → Install](../../README.md
 #### The cache folder is large. What takes the room?
 
 Usually `search.db` (the text of your files) and `models/` (488 MB, when search by meaning is on
-with the built-in model), then `previews/`. Settings shows the size of each.
+with the built-in model), then `previews/`. Settings → *Privacy and updates* → *Disk use* (or
+`coxswain --disk`) shows the size of each, with what clearing it costs and a **Clear** button
+([Disk use](disk-use.md)).
 
 #### Can I move the cache to another disk?
 
@@ -149,4 +161,4 @@ A `state.json` that could not be read when an app started, moved aside so a new 
 saved. Your tags and notes are in it; mend it by hand or delete it.
 
 ---
-[← Previous: Update checks](updates.md) · [Next: Security →](security.md)
+[← Previous: Update checks](updates.md) · [Next: Disk use →](disk-use.md)

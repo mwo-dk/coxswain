@@ -56,7 +56,7 @@ them, and in each group the most used action first:
 | Search | Find, Find in files, Ask your files, Find duplicates |
 | Git | Git history, Git branches, Switch to branch, Git worktrees, New branch here |
 | Viewing and editing | View, Edit, Preview, Path to command line, Menu (the user menu), Folder notes |
-| App | Help, Features and questions, Commands (this list), Settings, Quit |
+| App | Help, Features and questions, Commands (this list), Settings, Disk use, Quit |
 
 [Every default key](keys.md) has the same tables, with each key.
 
@@ -90,6 +90,7 @@ keys are the ones in force, so a rebinding shows at once.
 | The command list (*Commands*) | `menu` | `F9` |
 | Help | `help` | `F1` |
 | Features and questions | `features` | none ([Features and questions](features.md)) |
+| Disk use | `disk_use` | none ([Disk use](../reference/disk-use.md)) |
 
 The actions in the list are all the `[keys]` names; see [Every default key](keys.md).
 

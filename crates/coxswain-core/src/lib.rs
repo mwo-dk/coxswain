@@ -7,6 +7,7 @@ pub mod chat;
 pub mod cloud;
 pub mod config;
 pub mod i18n;
+pub mod disk;
 pub mod dupes;
 pub mod extract;
 pub mod features;

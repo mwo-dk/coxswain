@@ -223,6 +223,29 @@
     return () => clearTimeout(timer);
   });
 
+  // Coxswain's own name index or search store (by what it holds, wherever it is): what it holds,
+  // with Settings at Disk use and, for the one in use, its Clear.
+  let own = $state(null);
+  let ownSaid = $state("");
+  let ownClearing = $state(false);
+  $effect(() => {
+    const cur = e;
+    own = null;
+    ownSaid = "";
+    ownClearing = false;
+    if (!cur || cur.is_dir || inside || diffing || !/\.(bin|db|sqlite3?|db3)$/i.test(cur.name)) return;
+    const timer = setTimeout(async () => {
+      const r = await invoke("own_store", { path: cur.path }).catch(() => null);
+      if (e?.path === cur.path) own = r;
+    }, 80);
+    return () => clearTimeout(timer);
+  });
+  async function clearOwn() {
+    if (!ownClearing) return (ownClearing = true);
+    ownClearing = false;
+    ownSaid = await invoke("disk_clear", { id: own.item, models: false, outside: false }).catch((err) => String(err));
+  }
+
   // Facts under any file: photo EXIF, audio tags, what an executable is built for.
   let facts = $state([]);
   $effect(() => {
@@ -464,6 +487,21 @@
         {:else}
           <p class="more">{t("archive.preview_opening", { archive: basename(pane.archive) })}</p>
         {/if}
+      {:else if own && !diffing}
+        <h2 class="book">{own.title}</h2>
+        <div class="own-actions">
+          <button class="render" onclick={() => (ui.modal = { kind: "settings", section: "disk" })}>{t("disk.open_settings")}</button>
+          {#if own.live}<button class="render danger" onclick={clearOwn} onblur={() => (ownClearing = false)}>{ownClearing ? t("disk.confirm_one", { what: e.path }) : t("disk.clear")}</button>{/if}
+        </div>
+        {#if ownSaid}<p class="more">{ownSaid}</p>{/if}
+        {#each own.sections as sec, i (i)}
+          {#if i}<h3>{sec.title}</h3>{/if}
+          <table class="own-table">
+            <tbody>
+              {#each sec.rows as [label, value], j (j)}<tr><td class:mono={!value || label.includes("/") || label.includes("\\")}>{label}</td><td>{value}</td></tr>{/each}
+            </tbody>
+          </table>
+        {/each}
       {:else if diffing}
         {#if html}<pre class="mono code"><code class="hljs">{@html html}</code></pre>{/if}
       {:else if kind === "bom" && !source}
@@ -1168,6 +1206,29 @@
   .markdown :global(th) {
     border: 1px solid var(--border-fg);
     padding: 2px 6px;
+  }
+  .own-table {
+    border-collapse: collapse;
+    width: 100%;
+    table-layout: fixed;
+  }
+  .own-table td {
+    padding: 2px 12px 2px 0;
+    vertical-align: top;
+    overflow-wrap: anywhere;
+  }
+  .own-table td.mono {
+    white-space: normal;
+    word-break: break-all;
+  }
+  .own-table td:first-child {
+    width: 45%;
+    color: var(--hidden-fg);
+  }
+  .own-actions {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
   }
   .facts {
     display: grid;

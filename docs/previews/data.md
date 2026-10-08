@@ -9,6 +9,16 @@ certificates as the facts that matter, with expiry coloured.
 ![Four previews: mission.yaml as a tree with counts per level, launches.db with its tables and row counts, a certificate expiring in 20 days shown in yellow, and an e-mail](../screenshots/gui-previews-data.png)
 *A YAML tree (**Tree** on), a SQLite database, a certificate chain's facts.*
 
+## Contents
+
+- [How to use it](#how-to-use-it)
+- [Formats](#formats)
+- [What you see](#what-you-see)
+- [Coxswain's own index and store](#coxswains-own-index-and-store)
+- [Settings and config.toml](#settings-and-configtoml)
+- [In the terminal app](#in-the-terminal-app)
+- [Questions](#questions)
+
 ## How to use it
 
 1. Put the cursor on the file and press **Space** or **F3**.
@@ -35,18 +45,61 @@ certificates as the facts that matter, with expiry coloured.
 | `.duckdb`, `.ddb` | Schema, table, estimated rows and column count per table | DuckDB, installed or in a container ([Previews made by tools](tools.md)) |
 | `.pem`, `.crt`, `.cer`, `.der` | Each certificate in the file (a chain shows all): *Subject*, *Issuer* (*(CA)* for an authority), *Valid*, *Expires*, *Names*, *Serial* | Read in Rust |
 | `.plist` | Binary or XML property lists, as highlighted XML | [plist](https://crates.io/crates/plist) |
+| Coxswain's `index.bin` and `search.db`, wherever they are | What the name index or the search store holds ([below](#coxswains-own-index-and-store)) | Read in Rust, the store opened read-only |
 
 ## What you see
 
 - **Trees:** keys in one colour, values in the colour of their type.
 - **Tables:** a header row, then the rows; *Showing the first 200 rows* when there are more.
 - **SQLite:** a *Table* / *Rows* table; *–* where a count took too long or the row is a view.
-  Coxswain's own `search.db` is shown the same way.
 - **Certificates:** *Expires* says *in 20 days* or *expired 3 days ago*; yellow within 30
   days, red once expired.
 - **DuckDB:** the **Read tables** button when it cannot run by itself (an image to pull), the
   table otherwise.
 - A spreadsheet over 25 MB, or a Parquet file over 500 MB, says *Too large to preview*.
+
+## Coxswain's own index and store
+
+The name index (`index.bin`) and the search store (`search.db`) are shown as what they hold, not
+as bytes or tables. Each is known by what is inside it (the index by its first eight bytes, the
+store by its tables), so a copy elsewhere, under another name, is shown too; *Where* then says
+*a copy; Coxswain uses …* and names the one in use.
+
+![The desktop app with ~/.cache/coxswain open and index.bin under the cursor: the preview says Coxswain's name index, with the buttons Settings at Disk use and Clear, Entries 674: 317 files, 357 folders, Inside archives, Built 2026-10-08 14:56, Size, Where, Folders indexed /home/demo, and Folders with the most entries](../screenshots/preview-index-bin.png)
+
+| `index.bin` | Shows |
+|---|---|
+| *Entries* | All names, and how many are files and folders |
+| *Inside archives* | Archives looked into, and the entries inside them (when search inside archives is on) |
+| *Built* | When the index was last built, and how long it took (*not noted* for an index from before 2.16) |
+| *Size*, *Where* | The file's size, its path, and whether it is the one Coxswain uses |
+| *Folders indexed* | `[search] name_roots`, or `/` (every drive on Windows) |
+| *Folders with the most entries* | The ten with the most names below them; a folder that is mostly one of its own folders gives way to that one |
+| *Left out* | `[search] name_exclude`; each folder with a `.nosearch` file (named, its text not read); files only in the cloud (named, their text not read) |
+
+![The preview of search.db: Coxswain's search store with Files known 129, Files read for their text 112, Waiting to be read 0, Without text to read 42, Only in the cloud 0, Last read, Size 1.5 MB, Where, then Files read, by kind: .java 44, .md 8, .json 5 …](../screenshots/preview-search-db.png)
+
+| `search.db` | Shows |
+|---|---|
+| The first part | Files known, files read for their text, waiting to be read, without text to read, only in the cloud (not read), when a file was last read, the size with the write-ahead log, where |
+| *Files read, by kind* | The twelve extensions with the most files read, then *N other kinds*, git commits and files inside archives |
+| *Meaning* | Passages with their vectors and the files they are of, the model that made them, files waiting for theirs |
+| *Size per part* | Text, vectors, duplicate hashes, files and sizes, the rest: SQLite's own count of each table's pages |
+| *Latest errors* | The last ten, newest first: when, the file, what (a server that refused a file, a scan that failed) |
+
+Above them: **Settings at Disk use** opens Settings at *Privacy and updates* → *Disk use*
+([Disk use](../reference/disk-use.md)), and on the one Coxswain uses **Clear** (a second click
+confirms; the store is emptied through the search helper while it runs). A copy has no **Clear**:
+delete it like any file.
+
+The store is opened read-only (SQLite's own read-only mode), so nothing is written to it, its
+write-ahead log or the helper's work, while you look; the index file is only read.
+
+In the terminal app, **F3** on either file pages the same in your pager, then *Settings at this:
+F9 → Disk use, or coxswain --settings=disk* and, for the one in use, *Clear it: Delete on its row
+there, or coxswain --disk clear index*.
+
+![The terminal app's pager with index.bin: Coxswain's name index, Entries, Inside archives, Built, Size, Where, Folders indexed, Folders with the most entries, Left out, then Settings at this: F9 → Disk use, or coxswain --settings=disk and Clear it: Delete on its row there, or coxswain --disk clear index](../screenshots/tui-index-bin.png)
 
 ## Settings and config.toml
 
@@ -56,7 +109,8 @@ container, as DuckDB has no official image) and the rest of [`[preview]`](tools.
 ## In the terminal app
 
 No preview pane (tables and trees are drawn by the desktop app's webview). **F3** shows the text
-of JSON, YAML, TOML, CSV and PEM files in your pager. On a SQLite database (`.db`, `.sqlite`,
+of JSON, YAML, TOML, CSV and PEM files in your pager; Coxswain's own `index.bin` and
+`search.db` as [what they hold](#coxswains-own-index-and-store). On a SQLite database (`.db`, `.sqlite`,
 `.sqlite3`, `.db3`) it pages its tables instead: each with its row count, its `CREATE` statement
 and its first 20 rows as aligned columns. On a Parquet file: its row count, its columns with their
 types, and its first 20 rows; a file compressed with zstd shows its columns and count, and says
@@ -79,6 +133,18 @@ The pane is for a look at the data, and a table of 200 rows draws at once. Open 
 
 Yes. SQLite files are opened read-only, and counting rows stops after about a second per table
 (the count then shows *–*), so a huge database does not hold up the pane.
+
+#### Why does search.db not show its tables like other databases?
+
+It is Coxswain's own search store, so its preview says what it holds (files read, vectors,
+errors, size per part) instead. Any other SQLite file shows its tables. A copy of the store is
+known by its tables too, and shown the same way.
+
+#### Does looking at index.bin or search.db slow the search helper?
+
+Hardly: the index file is read once, the store with a read-only connection that writes nothing.
+On a store of a million files counting by kind takes a second or two, after which the preview
+shows.
 
 #### Why does a DuckDB file need a program, when SQLite does not?
 

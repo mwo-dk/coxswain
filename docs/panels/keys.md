@@ -150,6 +150,7 @@ On a Mac the shortcuts are the same, with **Ctrl**, not Cmd.
 | – | Features and questions | `features` | Help's *Features and questions* tab ([Features and questions](features.md)); **F1** in a dialog opens it at that dialog's feature | **Tab** in the help screen; **F1** in a dialog opens it at that dialog's feature |
 | **F9** | Commands | `menu` | The command list | The same (the F-key bar still says *PullDn*) |
 | **Ctrl+,** | Settings | `settings` | The Settings window ([Settings](../customise/settings.md)) | – |
+| – | Disk use | `disk_use` | Settings at *Privacy and updates* → *Disk use* ([Disk use](../reference/disk-use.md)) | The same, in the terminal app's Settings |
 | **F10** | Quit | `quit` | Close the window | Quit |
 
 ### Keys that are not actions

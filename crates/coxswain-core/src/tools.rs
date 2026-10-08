@@ -30,6 +30,23 @@ pub fn which(program: &str) -> Option<PathBuf> {
         .find(|p| p.is_file())
 }
 
+/// podman or docker, as `[preview] container` allows: its name and where it is.
+pub fn container_runtime(cfg: &crate::config::PreviewConfig) -> Option<(&'static str, PathBuf)> {
+    let order: &[&'static str] = match cfg.container.as_str() {
+        "off" => &[],
+        "podman" => &["podman"],
+        "docker" => &["docker"],
+        _ => &["podman", "docker"],
+    };
+    order.iter().find_map(|&r| which(r).map(|p| (r, p)))
+}
+
+/// The bytes of the container image named exactly `image`, when the runtime `rt` has it.
+pub fn image_size(rt: &Path, image: &str) -> Option<u64> {
+    let out = command(rt).args(["image", "inspect", "--format", "{{.Size}}", image]).stdin(Stdio::null()).output().ok()?;
+    out.status.success().then(|| String::from_utf8_lossy(&out.stdout).trim().parse().ok()).flatten()
+}
+
 /// The app id when Coxswain runs in a Flatpak. The host's programs are then seen under
 /// `/run/host` (`--filesystem=host`), and run there with `flatpak-spawn --host`.
 pub fn flatpak() -> Option<&'static str> {

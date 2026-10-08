@@ -201,7 +201,8 @@ impl Store {
              CREATE TABLE IF NOT EXISTS hashes(path TEXT PRIMARY KEY, size INTEGER NOT NULL, modified INTEGER NOT NULL, hash TEXT NOT NULL);
              CREATE TABLE IF NOT EXISTS roots(path TEXT PRIMARY KEY, volume TEXT, inside TEXT, at TEXT NOT NULL);
              CREATE TABLE IF NOT EXISTS meta(key TEXT PRIMARY KEY, value TEXT NOT NULL);
-             CREATE TABLE IF NOT EXISTS chunks(file INTEGER NOT NULL, n INTEGER NOT NULL, vector BLOB NOT NULL, PRIMARY KEY(file, n));",
+             CREATE TABLE IF NOT EXISTS chunks(file INTEGER NOT NULL, n INTEGER NOT NULL, vector BLOB NOT NULL, PRIMARY KEY(file, n));
+             CREATE TABLE IF NOT EXISTS errors(at INTEGER NOT NULL, path TEXT, what TEXT NOT NULL);",
         )?;
         // Search by meaning came later: a store from before gets the column, and keeps its text.
         // `embedded` is NULL until the file's passages have their vectors in `chunks`, 1 when
@@ -274,7 +275,20 @@ impl Store {
         self.cleared.store(true, Ordering::SeqCst);
         let db = self.db.lock().unwrap();
         *self.signs.lock().unwrap() = None;
-        db.execute_batch("DELETE FROM text; DELETE FROM files; DELETE FROM skipped; DELETE FROM hashes; DELETE FROM chunks; VACUUM;")
+        // The vacuum goes to the write-ahead log first: written back and emptied, the room is free.
+        db.execute_batch("DELETE FROM text; DELETE FROM files; DELETE FROM skipped; DELETE FROM hashes; DELETE FROM chunks; DELETE FROM errors; VACUUM; PRAGMA wal_checkpoint(TRUNCATE);")
+    }
+
+    /// What went wrong, with the file it was about, kept for the store's preview: the latest 50,
+    /// the same one again not twice in a row.
+    pub(crate) fn note_error(&self, path: Option<&str>, what: &str) {
+        let db = self.db.lock().unwrap();
+        let last: Option<(Option<String>, String)> = db.query_row("SELECT path, what FROM errors ORDER BY rowid DESC LIMIT 1", [], |r| Ok((r.get(0)?, r.get(1)?))).ok();
+        if last.as_ref().is_some_and(|(p, w)| p.as_deref() == path && w == what) {
+            return;
+        }
+        let _ = db.execute("INSERT INTO errors(at, path, what) VALUES (?1, ?2, ?3)", params![now() as i64, path, what]);
+        let _ = db.execute("DELETE FROM errors WHERE rowid <= (SELECT max(rowid) - 50 FROM errors)", []);
     }
 
     /// Bytes the store takes on disk.
@@ -587,6 +601,9 @@ impl Store {
             if let Some(text) = text {
                 tx.prepare_cached("INSERT INTO text(rowid, body) VALUES (?1, ?2)")?.execute(params![id, text])?;
             }
+        }
+        if !files.is_empty() {
+            tx.execute("INSERT OR REPLACE INTO meta(key, value) VALUES ('read_at', ?1)", [now().to_string()])?;
         }
         tx.commit()
     }
@@ -980,6 +997,105 @@ impl Store {
     }
 }
 
+// ---------------------------------------------------------------- what it holds
+
+/// What a search store holds, for its preview: read without writing anything.
+#[derive(Debug, Default)]
+pub struct Facts {
+    /// Files known (with their sizes), and of them those read for their text.
+    pub files: usize,
+    pub read: usize,
+    /// Files read, by extension ("" for none), most first; commits and files inside archives
+    /// on their own.
+    pub kinds: Vec<(String, usize)>,
+    pub commits: usize,
+    pub inside: usize,
+    /// Files with no text to read, files only in the cloud (not read), files still to read.
+    pub no_text: usize,
+    pub cloud: usize,
+    pub waiting: usize,
+    /// Passages with their vectors, the files they are of, the files still to get them, and the
+    /// model that made them.
+    pub passages: usize,
+    pub with_vectors: usize,
+    pub vectors_waiting: usize,
+    pub model: String,
+    /// The latest errors, newest first: when, the file, what.
+    pub errors: Vec<(u64, Option<String>, String)>,
+    /// Bytes of each part: text, vectors, hashes, files, the rest.
+    pub parts: Vec<(&'static str, u64)>,
+    /// When a file was last read, in seconds since 1970.
+    pub read_at: Option<u64>,
+}
+
+/// The facts of the store in `path`, opened read-only: an error when it is no search store.
+pub fn facts(path: &Path) -> Result<Facts, String> {
+    use rusqlite::OpenFlags;
+    let mut head = [0u8; 16];
+    std::io::Read::read_exact(&mut std::fs::File::open(path).map_err(|e| e.to_string())?, &mut head).map_err(|e| e.to_string())?;
+    if &head != b"SQLite format 3\0" {
+        return Err("not a database".into());
+    }
+    let db = Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX).map_err(|e| e.to_string())?;
+    let tables: HashSet<String> = db.prepare("SELECT name FROM sqlite_master WHERE type = 'table'").and_then(|mut q| q.query_map([], |r| r.get(0))?.collect()).map_err(|e| e.to_string())?;
+    if !["files", "text", "chunks", "meta", "hashes", "skipped", "roots"].iter().all(|t| tables.contains(*t)) {
+        return Err("not a search store".into());
+    }
+    let count = |q: &str| db.query_row(q, [], |r| r.get::<_, i64>(0)).unwrap_or(0) as usize;
+    let meta = |k: &str| db.query_row("SELECT value FROM meta WHERE key = ?1", [k], |r| r.get::<_, String>(0)).ok();
+    let mut f = Facts {
+        files: count("SELECT count(*) FROM files WHERE path NOT LIKE 'git:%' AND inside IS NULL"),
+        read: count("SELECT count(*) FROM files WHERE has_text = 1"),
+        commits: count("SELECT count(*) FROM files WHERE path LIKE 'git:%'"),
+        inside: count("SELECT count(*) FROM files WHERE has_text = 1 AND inside IS NOT NULL"),
+        no_text: count("SELECT count(*) FROM files WHERE has_text = 0 AND cloud IS NULL"),
+        cloud: count("SELECT count(*) FROM files WHERE cloud = 1"),
+        waiting: count("SELECT count(*) FROM files WHERE has_text IS NULL"),
+        passages: count("SELECT count(*) FROM chunks"),
+        with_vectors: count("SELECT count(*) FROM files WHERE embedded = 1"),
+        model: meta("meaning_model").unwrap_or_default(),
+        read_at: meta("read_at").and_then(|v| v.parse().ok()),
+        ..Default::default()
+    };
+    // Vectors wait only where a model made some, or is set to.
+    if !f.model.is_empty() {
+        f.vectors_waiting = count("SELECT count(*) FROM files WHERE has_text = 1 AND embedded IS NULL");
+    }
+    let mut kinds: HashMap<String, usize> = HashMap::new();
+    if let Ok(mut q) = db.prepare("SELECT path FROM files WHERE has_text = 1 AND path NOT LIKE 'git:%'") {
+        let paths = q.query_map([], |r| r.get::<_, String>(0)).map(|rows| rows.flatten().collect::<Vec<_>>()).unwrap_or_default();
+        for p in paths {
+            let ext = Path::new(&p).extension().map(|e| e.to_string_lossy().to_lowercase()).unwrap_or_default();
+            *kinds.entry(ext).or_default() += 1;
+        }
+    }
+    f.kinds = kinds.into_iter().collect();
+    f.kinds.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(&b.0)));
+    if tables.contains("errors") {
+        f.errors = db
+            .prepare("SELECT at, path, what FROM errors ORDER BY rowid DESC LIMIT 10")
+            .and_then(|mut q| q.query_map([], |r| Ok((r.get::<_, i64>(0)? as u64, r.get(1)?, r.get(2)?)))?.collect())
+            .unwrap_or_default();
+    }
+    // Each table and index's pages, by part: SQLite's own count of them.
+    let mut parts: Vec<(&'static str, u64)> = ["text", "vectors", "hashes", "files", "rest"].map(|p| (p, 0)).to_vec();
+    if let Ok(mut q) = db.prepare("SELECT name, sum(pgsize) FROM dbstat GROUP BY name") {
+        let rows = q.query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, i64>(1)? as u64))).map(|r| r.flatten().collect::<Vec<_>>()).unwrap_or_default();
+        for (name, bytes) in rows {
+            let part = match name.trim_start_matches("sqlite_autoindex_") {
+                n if n.starts_with("text") => 0,
+                n if n.starts_with("chunks") => 1,
+                n if n.starts_with("hashes") => 2,
+                n if n.starts_with("files") => 3,
+                _ => 4,
+            };
+            parts[part].1 += bytes;
+        }
+        f.parts = parts;
+    }
+    Ok(f)
+}
+
 // ---------------------------------------------------------------- filling it
 
 /// The folders whose text is kept: the ones in the config, or the home folder.
@@ -1234,10 +1350,12 @@ fn embed(store: &Store, stop: &AtomicBool) -> rusqlite::Result<()> {
             let vectors = match engine.passages(&texts) {
                 Ok(v) => v,
                 Err(NoVectors::Down(e)) => {
+                    store.note_error(Some(path.as_str()), &e);
                     *store.meaning_error.lock().unwrap() = Some(e);
                     return Ok(());
                 }
                 Err(NoVectors::Refused(e)) => {
+                    store.note_error(Some(path.as_str()), &e);
                     *store.meaning_error.lock().unwrap() = Some(e);
                     store.db.lock().unwrap().execute("UPDATE files SET embedded = 0 WHERE id = ?1", [id])?;
                     continue;
@@ -1526,6 +1644,7 @@ pub fn keep_current(store: &Store, cfg: &SearchConfig, stop: &AtomicBool, change
     let report = |r: rusqlite::Result<()>| {
         if let Err(e) = r {
             eprintln!("coxswain: search store: {e}");
+            store.note_error(None, &e.to_string());
             *store.error.lock().unwrap() = Some(e.to_string());
         }
     };

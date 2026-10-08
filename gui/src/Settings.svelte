@@ -75,6 +75,7 @@
   });
   $effect(() => {
     if (area === "previews") untrack(() => (loadImages(), loadPreviewCache()));
+    if (area === "privacy") untrack(loadDisk);
   });
 
   /** "Find a setting": every option whose label, explanation or config key holds the words. */
@@ -304,6 +305,35 @@
     loadPreviewCache();
   }
   const imageStatus = (im) => (im.pulling != null ? im.pulling || t("common.loading") : im.size != null ? t("settings.image_pulled", { size: size(im.size) }) : t("settings.image_not_pulled"));
+
+  // ------------------------------------------------------------ privacy: disk use
+
+  // Every place Coxswain keeps things: at once, then again with the container images, which
+  // asks podman or docker.
+  let disk = $state(null);
+  let diskSaid = $state("");
+  let clearing = $state("");
+  let also = $state({ models: false, outside: false });
+  const loadDisk = () => {
+    invoke("disk_list", { images: false }).then((v) => (disk ??= v), (e) => (diskSaid = String(e)));
+    invoke("disk_list", { images: true }).then((v) => (disk = v), () => {});
+  };
+  const diskOf = (kind) => (disk ?? []).filter((d) => (kind === "outside" ? d.kind === "outside" : d.kind !== "outside"));
+  /** What *Clear everything that can be built again* clears, with what is ticked. */
+  const going = $derived((disk ?? []).filter((d) => (d.kind === "own" ? d.rebuildable : d.kind === "model" ? also.models && !d.in_use : also.outside) && d.bytes));
+  const bytesOf = (list) => list.reduce((n, d) => n + d.bytes, 0);
+  const unusedModels = $derived(bytesOf((disk ?? []).filter((d) => d.kind === "model" && !d.in_use)));
+  const outsideBytes = $derived(bytesOf(diskOf("outside")));
+  /** Clear a row, or with none everything that goes: each takes a second click. */
+  async function clearDisk(d) {
+    const id = d?.id ?? "";
+    if (clearing !== (id || "*")) return (clearing = id || "*");
+    clearing = "";
+    diskSaid = await (d?.kind === "model" ? invoke("models_action", { what: "delete", id }) : invoke("disk_clear", { id, models: also.models, outside: also.outside })).catch((e) => String(e));
+    disk = null;
+    loadDisk();
+    loadIndex();
+  }
 
   // ------------------------------------------------------------ looks
 
@@ -876,6 +906,36 @@
             {/each}
           </div>
         </div>
+        <details class="group" id="opt-disk" class:flash={flash === "disk"}>
+          <summary>{t("disk.title")} <span class="hint">{disk ? size(bytesOf(disk)) : ""}</span></summary>
+          <p class="hint">{t("disk.hint")}</p>
+          {#snippet diskRow(d)}
+            <div class="disk-row">
+              <strong class="mono" title={d.paths[0] ?? d.name}>{d.name}</strong>
+              <span class="num">{size(d.bytes)}</span>
+              <span>{d.cost}{#if d.in_use}<span class="badge">{t("models.in_use")}</span>{/if}</span>
+              <span class="disk-buttons">
+                {#if d.paths.length}<button class="link" title={d.paths[0]} onclick={() => showInPanel(d.paths[0], !(d.name.endsWith("/") || d.kind !== "own"))}>{t("settings.show_in_panel")}</button>{/if}
+                <button class="danger" disabled={!d.bytes} onclick={() => clearDisk(d)} onblur={() => (clearing = "")}>{clearing === d.id ? t("disk.confirm_one", { what: d.paths[0] ?? d.name }) : t("disk.clear")}</button>
+              </span>
+              <small class="hint">{d.what}</small>
+            </div>
+          {/snippet}
+          {#each diskOf("own") as d (d.id)}{@render diskRow(d)}{/each}
+          {#if diskOf("outside").length}
+            <p class="lab">{t("disk.head.outside")}</p>
+            <p class="hint">{t("disk.outside_hint")}</p>
+            {#each diskOf("outside") as d (d.id)}{@render diskRow(d)}{/each}
+          {/if}
+          <div class="danger-row">
+            {#if unusedModels}<label class="check"><input type="checkbox" bind:checked={also.models} /> {t("disk.also_models", { size: size(unusedModels) })}</label>{/if}
+            {#if outsideBytes}<label class="check"><input type="checkbox" bind:checked={also.outside} /> {t("disk.also_outside", { size: size(outsideBytes) })}</label>{/if}
+            {#if clearing === "*"}<p class="hint err">{t("disk.confirm")} {going.map((d) => d.paths[0] ?? d.name).join(", ")}</p>{/if}
+            <button class="danger" disabled={!going.length} onclick={() => clearDisk(null)} onblur={() => (clearing = "")}>{clearing === "*" ? t("disk.confirm_all") : t("disk.clear_all", { size: size(bytesOf(going)) })}</button>
+            <p class="hint">{t("disk.clear_all_hint")}</p>
+          </div>
+          {#if diskSaid}<p class="hint">{diskSaid}</p>{/if}
+        </details>
         <div class="opt">
           <span class="lab">{t("settings.paths")}</span>
           <div class="keys">
@@ -1309,6 +1369,25 @@
   }
   .tools .missing {
     color: var(--hidden-fg);
+  }
+  .disk-row {
+    display: grid;
+    grid-template-columns: 14em 6em 1fr auto;
+    gap: 2px 12px;
+    align-items: baseline;
+    padding: 6px 0;
+    border-bottom: 1px solid var(--border-fg);
+  }
+  .disk-row .num {
+    text-align: right;
+  }
+  .disk-row small {
+    grid-column: 1 / -1;
+  }
+  .disk-buttons {
+    display: flex;
+    gap: 10px;
+    align-items: baseline;
   }
   .danger-row {
     margin-top: 10px;

@@ -525,6 +525,7 @@
     columns: () => columnMenu(),
     duplicates: () => (ui.modal = { kind: "dupes" }),
     settings: () => (ui.modal = { kind: "settings" }),
+    disk_use: () => (ui.modal = { kind: "settings", section: "disk" }),
     back: () => goBack(),
     forward: () => goForward(),
   };

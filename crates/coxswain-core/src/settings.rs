@@ -244,8 +244,8 @@ pub fn open_at(section: &str) -> (Area, Option<&'static str>) {
     if let Some(a) = Area::ALL.into_iter().find(|a| a.id() == section) {
         return (a, None);
     }
-    if let Some(g) = GROUPS.iter().find(|g| **g == section) {
-        return (Search, Some(g));
+    if let Some((g, area)) = GROUPS.iter().find(|g| g.0 == section) {
+        return (*area, Some(g));
     }
     match find(section) {
         Some(o) => (o.area, Some(o.name)),
@@ -253,14 +253,14 @@ pub fn open_at(section: &str) -> (Area, Option<&'static str>) {
     }
 }
 
-/// Groups of *Finding files* that Settings opens at by name, in both apps (1.x's names of
+/// Groups that Settings opens at by name, in both apps, with their area (1.x's names of
 /// sections, `meaning` and `ask`, open Overview).
-const GROUPS: [&str; 1] = ["models"];
+const GROUPS: [(&str, Area); 2] = [("models", Search), ("disk", Privacy)];
 
 /// Every name `open_at` knows, with where it opens: for the desktop app, which opens Settings
 /// at sections given by notices too.
 pub fn sections() -> Vec<(&'static str, Area, Option<&'static str>)> {
-    let names = Area::ALL.iter().map(|a| a.id()).chain(GROUPS).chain(OPTIONS.iter().map(|o| o.name));
+    let names = Area::ALL.iter().map(|a| a.id()).chain(GROUPS.map(|g| g.0)).chain(OPTIONS.iter().map(|o| o.name));
     names.map(|n| (n, open_at(n).0, open_at(n).1)).collect()
 }
 
@@ -691,6 +691,7 @@ mod tests {
         assert_eq!(open_at("language"), (Looks, Some("language")));
         assert_eq!(open_at("previews"), (Previews, None));
         assert_eq!(open_at("check_updates"), (Privacy, Some("check_updates")));
+        assert_eq!(open_at("disk"), (Privacy, Some("disk")));
         // The section names of 1.x are gone with 2.0.
         for old in ["meaning", "ask", "news", "cloud", "no-such"] {
             assert_eq!(open_at(old), (Overview, None), "{old}");

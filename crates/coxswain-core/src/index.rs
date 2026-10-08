@@ -49,6 +49,8 @@ pub struct Index {
     archives: Option<(SearchConfig, Vec<PathBuf>)>,
     /// Each archive looked into: its size and modified time (nanoseconds) then.
     stamps: HashMap<u32, Stamp>,
+    /// When the build began (seconds since 1970) and how long it took (milliseconds).
+    built: Option<(u64, u64)>,
 }
 
 type Stamp = (u64, u64);
@@ -177,6 +179,7 @@ impl Index {
     /// taken from it, the rest are read.
     pub fn build(roots: &[PathBuf], exclude: &[String], archives: Option<&SearchConfig>, before: Option<&Index>) -> Index {
         let archives = archives.map(|cfg| (cfg.clone(), crate::store::roots(cfg)));
+        let (began, start) = (std::time::SystemTime::now(), Instant::now());
         let mut ix = Index { roots: roots.to_vec(), exclude: exclude.to_vec(), archives, ..Default::default() };
         for root in roots {
             let children = ix.scan(root, before, ix.looks_in(root));
@@ -184,6 +187,7 @@ impl Index {
             ix.push_tree(NONE, Scanned { name, is_dir: true, children, stamp: None });
         }
         ix.rehash();
+        ix.built = began.duration_since(std::time::UNIX_EPOCH).ok().map(|d| (d.as_secs(), start.elapsed().as_millis() as u64));
         ix
     }
 
@@ -598,6 +602,10 @@ impl Index {
             w.write_all(&size.to_le_bytes())?;
             w.write_all(&modified.to_le_bytes())?;
         }
+        // Then when it was built and how long that took; an index of before ends above.
+        let (at, ms) = self.built.unwrap_or_default();
+        w.write_all(&at.to_le_bytes())?;
+        w.write_all(&ms.to_le_bytes())?;
         w.into_inner()?.sync_all()?;
         crate::fs::private(path.parent().unwrap_or(Path::new(".")), Some(&tmp))?;
         fs::rename(tmp, path)
@@ -638,6 +646,8 @@ impl Index {
                 }
             }
         }
+        // One from before its build was timed ends here.
+        let built = r.take(16).ok().map(|b| (u64::from_le_bytes(b[0..8].try_into().unwrap()), u64::from_le_bytes(b[8..16].try_into().unwrap()))).filter(|b| b.0 > 0);
         // A damaged file must not take the helper down at every start: every name inside the
         // buffer, every parent an earlier node (so no cycles), the names in order.
         let sound = |(i, n): (usize, &Node)| (n.off as usize + n.len as usize) < names.len() && (n.parent == NONE || (n.parent as usize) < i) && (i == 0 || n.off > nodes[i - 1].off);
@@ -657,6 +667,7 @@ impl Index {
             exclude,
             gone: nodes.iter().filter(|n| n.flags & GONE != 0).count(),
             stamps,
+            built,
             names,
             lower,
             nodes,
@@ -664,6 +675,83 @@ impl Index {
         };
         ix.rehash();
         Ok(ix)
+    }
+}
+
+/// Whether a file that starts with `head` is a name index.
+pub fn is_index(head: &[u8]) -> bool {
+    head.starts_with(MAGIC)
+}
+
+/// What an index file holds, for its preview: entries, roots, the build, the folders with the
+/// most entries, what is left out.
+#[derive(Debug, Default)]
+pub struct Facts {
+    pub files: usize,
+    pub folders: usize,
+    /// Archives looked into, and the entries inside them.
+    pub archives: usize,
+    pub inside: usize,
+    pub roots: Vec<PathBuf>,
+    pub exclude: Vec<String>,
+    /// When the build began (seconds since 1970) and how long it took (milliseconds).
+    pub built: Option<(u64, u64)>,
+    /// The folders with the most entries below them, most first: a folder that is mostly one of
+    /// its own folders gives way to that one.
+    pub largest: Vec<(PathBuf, usize)>,
+    /// Folders holding `.nosearch`: named here, their text not read.
+    pub nosearch: Vec<PathBuf>,
+}
+
+impl Index {
+    /// The facts of the index in `path`: an error when it is no index.
+    pub fn facts(path: &Path) -> io::Result<Facts> {
+        let ix = Index::load(path)?;
+        let n = ix.nodes.len();
+        // Parents come before their children, so one pass from the end sums every subtree.
+        let (mut below, mut most_in_one) = (vec![0usize; n], vec![0usize; n]);
+        let mut f = Facts { roots: ix.roots.clone(), exclude: ix.exclude.clone(), built: ix.built, ..Default::default() };
+        let inside = |mut i: u32| {
+            while ix.nodes[i as usize].parent != NONE {
+                i = ix.nodes[i as usize].parent;
+                if ix.nodes[i as usize].flags & ARC != 0 {
+                    return true;
+                }
+            }
+            false
+        };
+        for i in (0..n).rev() {
+            let node = ix.nodes[i];
+            if node.flags & GONE != 0 {
+                continue;
+            }
+            if node.parent != NONE {
+                let p = node.parent as usize;
+                below[p] += below[i] + 1;
+                if node.flags & DIR != 0 {
+                    most_in_one[p] = most_in_one[p].max(below[i] + 1);
+                }
+            }
+            if node.flags & ARC != 0 {
+                f.archives += 1;
+            }
+            if node.parent == NONE {
+                continue;
+            }
+            if ix.name(i as u32) == b".nosearch" {
+                f.nosearch.extend(ix.path(node.parent));
+            }
+            match node.flags & DIR != 0 {
+                true => f.folders += 1,
+                false => f.files += 1,
+            }
+        }
+        f.inside = (0..n as u32).filter(|&i| ix.nodes[i as usize].flags & GONE == 0 && ix.nodes[i as usize].parent != NONE && inside(i)).count();
+        let mut dirs: Vec<u32> = (0..n as u32).filter(|&i| { let x = ix.nodes[i as usize]; x.flags & DIR != 0 && x.flags & GONE == 0 && x.parent != NONE && most_in_one[i as usize] * 10 < (below[i as usize] + 1) * 9 }).collect();
+        dirs.sort_by_key(|&i| std::cmp::Reverse(below[i as usize]));
+        f.largest = dirs.into_iter().filter_map(|i| Some((ix.path(i)?, below[i as usize]))).take(10).collect();
+        f.nosearch.sort();
+        Ok(f)
     }
 }
 

@@ -88,7 +88,7 @@ New here? Start with [The first-run guide](panels/first-run.md), [The screen](pa
 | [Documents: PDF, Word, EPUB, notebooks, mail, calendars](previews/documents.md) | PDF, Word .docx, EPUB, Jupyter notebooks, e-mail, AsciiDoc, reStructuredText, calendars and contacts |
 | [HTML pages, sandboxed](previews/html.md) | HTML files shown as sandboxed pages: what is allowed and blocked, scripts, the network, Rendered / Source |
 | [PowerPoint and Office: quick view and LibreOffice's exact view](previews/office.md) | PowerPoint quick view drawn in the app, LibreOffice's exact view after it, and every other Office format |
-| [Data: trees, spreadsheets, databases and certificates](previews/data.md) | JSON/YAML/TOML trees, JSON Lines, spreadsheets and CSV, SQLite, Parquet, DuckDB, certificates, property lists |
+| [Data: trees, spreadsheets, databases and certificates](previews/data.md) | JSON/YAML/TOML trees, JSON Lines, spreadsheets and CSV, SQLite, Parquet, DuckDB, certificates, property lists, Coxswain's own index.bin and search.db |
 | [Cryptography bills of materials](previews/bom.md) | CycloneDX CBOMs as a rated tree or sunburst, with filters and a compare of two scans, in both apps |
 | [Build provenance](previews/provenance.md) | SLSA and in-toto provenance as inputs → build → outputs: who signed, do the files here match, is the commit in your checkout, two builds compared; in both apps |
 | [Media and files: pictures, video, audio, fonts, archives, folders](previews/media.md) | Pictures, video, audio, fonts, archives listed (and files inside archives), folders, facts under a file |
@@ -142,6 +142,7 @@ New here? Start with [The first-run guide](panels/first-run.md), [The screen](pa
 | [Privacy: what stays, what can leave](reference/privacy.md) | What stays on your machine, every case where something can leave it, and how to stop it |
 | [Update checks](reference/updates.md) | The daily update check: what it sends, what each app shows, the upgrade command, turning it off |
 | [Where things are kept](reference/where-things-are-kept.md) | Config, state and cache folders on each system, every file in them, what is safe to delete, removing everything |
+| [Disk use](reference/disk-use.md) | Settings → Privacy and updates → Disk use and coxswain --disk: each place's size, where, what clearing costs, Clear; Tectonic's cache and container images Coxswain caused; clear everything that is built again |
 | [Security](reference/security.md) | Dependencies: how they are chosen and updated, advisory and licence checks on every change and weekly, the bundled viewers, checking a download, reporting a problem |
 | [Licences and bills of materials](reference/bills-of-materials.md) | The SBOMs, the CBOM and the third-party notices each release carries, the licence checks, the cryptography both apps use |
 | [Performance](reference/performance.md) | What keeps each app quick, the numbers for 100,000 files and a million names, and how to measure again |

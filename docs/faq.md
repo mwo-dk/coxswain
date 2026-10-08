@@ -128,6 +128,7 @@ The questions people ask most, with a short answer and a link to the full one. E
 - **How do I get the old F3 back for a BOM in the terminal app?** Press F3 (or `s`) again in the viewer, or set `bom_viewer = false`. [Answer](previews/bom.md#how-do-i-get-the-old-f3-back-in-the-terminal-app)
 - **Does a ✓ in the provenance view mean the file is safe?** No: it means the file here is the one the provenance names; the provenance itself is not verified. [Answer](previews/provenance.md#does-a--mean-the-file-is-safe)
 - **Why is the source commit "not in your checkout"?** Coxswain never fetches; run `git fetch` in your checkout. [Answer](previews/provenance.md#why-is-my-commit-not-in-your-checkout)
+- **Why does search.db not show its tables like other databases?** It is Coxswain's own store: its preview says what it holds instead (files read by kind, vectors, errors, size per part); a copy is shown the same way. [Answer](previews/data.md#why-does-searchdb-not-show-its-tables-like-other-databases)
 
 ## Files
 - **How do I get one file out of a zip without unpacking all of it?** Press Enter on the zip, go to the file and press F5: only that file is copied out. [Answer](files/archives.md#how-do-i-get-one-file-out-of-a-zip-without-unpacking-all-of-it)
@@ -168,6 +169,9 @@ The questions people ask most, with a short answer and a link to the full one. E
 - **I edited config.toml and nothing changed.** Both apps read it at start (the desktop app also after Settings); restart, and `[search]` needs a new helper. [Answer](reference/configuration.md#i-edited-configtoml-and-nothing-changed)
 - **I misspelt a key and Coxswain said nothing.** Only unreadable files are refused; an unknown setting name is ignored and the default stays. [Answer](reference/configuration.md#i-misspelt-a-key-and-coxswain-said-nothing)
 - **Does anything leave my machine?** Only the daily update check, a model download, a remote meaning server, image pulls and web pictures in previews you open. [Answer](reference/privacy.md#does-anything-leave-my-machine)
+- **What can I clear without losing anything?** Everything under Settings → Privacy and updates → Disk use but your models and what is outside Coxswain's folder is built again by itself; *Clear everything that can be built again* takes it all. [Answer](reference/disk-use.md#what-can-i-clear-without-losing-anything)
+- **Will Disk use delete container images or caches that are mine?** No: only the images named in `[preview] images` and a Tectonic cache Coxswain made, each on its own click after the exact list. [Answer](reference/disk-use.md#will-it-delete-container-images-or-a-tectonic-cache-that-are-mine)
+- **Is it safe to clear search.db while Coxswain runs?** Yes: the search helper empties it itself. [Answer](reference/disk-use.md#is-it-safe-to-clear-searchdb-while-coxswain-runs)
 - **How do I see what a new version brought?** Click the count on Settings in the desktop app (Settings → Overview → What's new), or run `coxswain --whats-new`. [Answer](search/notices.md#how-do-i-see-what-an-upgrade-brought)
 - **Does Coxswain update itself?** No; it tells you once a day, with the command for your package manager. [Answer](reference/updates.md#does-coxswain-update-itself)
 - **Where are the licences of what Coxswain is built from?** In `THIRD-PARTY-NOTICES.md`: next to `LICENSE` in the terminal archive, in the desktop app's install folder, and on every release's Assets list, with an SBOM per app and a CBOM. [Answer](reference/bills-of-materials.md#where-are-the-licences-of-the-apps-i-installed)
