@@ -604,7 +604,7 @@ pub struct Poor {
 /// servers have been asked (`look`): `wait` false never waits for that.
 pub fn poor(cfg: &crate::config::SearchConfig, wait: bool) -> Vec<Poor> {
     let builtin_meaning = cfg.meaning && cfg.meaning_engine == "builtin";
-    if crate::chat::of(&cfg.ask_model).is_none() && !builtin_meaning && cfg.ask_code_model.is_empty() {
+    if cfg.ask_model.is_empty() && !builtin_meaning {
         return vec![];
     }
     look(wait).map(|l| poor_in(cfg, &l)).unwrap_or_default()
@@ -656,6 +656,15 @@ fn poor_at(cfg: &crate::config::SearchConfig, look: &Look, metal: bool) -> Vec<P
                 out.push(Poor { ask: true, text: format!("{slow} {better}"), short, button, changes, tip: false });
             }
         }
+    }
+    // A model for code that runs well here and is not set yet: a tip, with the button.
+    if cfg.ask_code_model.is_empty() && !cfg.ask_model.is_empty()
+        && let Some(model) = code_advice_at(cfg, look, metal).recommended
+    {
+        let text = t!("setup.code_tip", "model" => model.as_str());
+        let mut changes = serde_json::Map::new();
+        changes.insert("ask_code_model".into(), model.clone().into());
+        out.push(Poor { ask: true, short: text.clone(), text, button: Some(t!("settings.use_model", "model" => model)), changes, tip: true });
     }
     // A model for code that is slow here: Same as Ask is quicker.
     if !cfg.ask_code_model.is_empty() && cfg.ask_code_model != cfg.ask_model {
@@ -1058,6 +1067,9 @@ mod tests {
         assert_eq!(a.recommended.as_deref(), Some("qwen3-coder:30b"));
         assert!(a.why.contains("qwen3:8b") && a.why.contains("Ollama"), "{}", a.why);
         assert!(poor_at(&crate::config::SearchConfig { ask_code_model: "qwen3-coder:30b".into(), ..cfg.clone() }, &big, false).iter().all(|p| !p.changes.contains_key("ask_code_model")));
+        let tip = poor_at(&cfg, &big, false).into_iter().find(|p| p.changes.contains_key("ask_code_model")).expect("a tip while it is not set");
+        assert!(tip.tip && tip.changes["ask_code_model"] == "qwen3-coder:30b");
+        assert!(poor_at(&cfg, &small, false).iter().all(|p| !p.changes.contains_key("ask_code_model")), "no tip where it does not fit");
         // A smaller coder that fits beside it on the 8 GB card is the one.
         let both = look(with(&[("qwen3-coder:30b", 30.5), ("qwen2.5-coder:1.5b", 1.5)]), card(8));
         assert_eq!(code_advice_at(&cfg, &both, false).recommended.as_deref(), Some("qwen2.5-coder:1.5b"));
