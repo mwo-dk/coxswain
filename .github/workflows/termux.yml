@@ -99,7 +99,8 @@ jobs:
         run: |
           docker run --rm -e COXSWAIN_SLOW_CI=1 -v "$PWD:/src:ro" termux/termux-docker:aarch64 bash -c '
             set -e
-            pkg install -y rust clang binutils jq >/dev/null
+            # The Termux package server answers an error now and then: try again, with a fresh index.
+            for i in 1 2 3 4; do pkg install -y rust clang binutils jq >/dev/null && break; [ "$i" = 4 ] && exit 1; sleep $((i * 15)); pkg update -y >/dev/null 2>&1 || true; done
             cp -r /src ~/src && cd ~/src
             # A stale mirror can serve an old rustc (1.92 once, when a locked crate needed 1.93).
             # The newest rust-version among the locked crates for Android is what it must reach;
