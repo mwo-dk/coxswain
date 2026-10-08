@@ -58,7 +58,9 @@ fn copy(from: &Path, to: &Path) {
         if e.path().is_dir() {
             copy(&e.path(), &to.join(e.file_name()));
         } else {
-            std::fs::copy(e.path(), to.join(e.file_name())).unwrap();
+            // Project files are kept as `*.fixture`, so that GitHub takes them for none of ours.
+            let name = e.file_name().to_string_lossy().trim_end_matches(".fixture").to_string();
+            std::fs::copy(e.path(), to.join(name)).unwrap();
         }
     }
 }
