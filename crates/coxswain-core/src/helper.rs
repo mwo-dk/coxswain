@@ -71,6 +71,8 @@ enum Request {
     /// Ask the built-in chat model, `cpu` alone or on the GPU, `think` first if it can: the
     /// answer comes in pieces.
     Ask { model: String, cpu: bool, think: bool, earlier: Vec<crate::meaning::Turn>, question: String, sources: Vec<(PathBuf, String)> },
+    /// Let the built-in chat model go now, freeing its memory.
+    Unload,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -135,6 +137,9 @@ pub struct Status {
     /// Where the built-in model runs: the GPU or the CPU, and why the CPU on a Mac.
     #[serde(default)]
     pub meaning_runs: Option<crate::meaning::Runs>,
+    /// The built-in chat model loaded in the helper, and whether on a Mac's GPU.
+    #[serde(default)]
+    pub chat_loaded: Option<(String, bool)>,
     /// Why reading the files' text failed last time; nothing further on is read until it works.
     #[serde(default)]
     pub error: Option<String>,
@@ -398,6 +403,10 @@ fn answer(ours: Ours, stream: TcpStream, index: &Service, store: Option<&Store>,
                 quit.store(true, Ordering::SeqCst);
                 Reply::Done
             }
+            Request::Unload => {
+                crate::chat::unload();
+                Reply::Done
+            }
             // An app that stops the answer closes the line: the next piece cannot be sent.
             Request::Ask { model, cpu, think, earlier, question, sources } => {
                 let mut gone = false;
@@ -430,6 +439,7 @@ fn answer(ours: Ours, stream: TcpStream, index: &Service, store: Option<&Store>,
                 meaning_engine: store.and_then(Store::engine_id).unwrap_or_default(),
                 meaning_error: store.and_then(|s| s.meaning_error.lock().unwrap().clone()),
                 meaning_runs: store.and_then(Store::engine_runs),
+                chat_loaded: crate::chat::loaded().map(|(id, metal)| (id.to_string(), metal)),
                 error: store.and_then(|s| s.error.lock().unwrap().clone()),
                 paused: store.is_some_and(|s| s.paused.load(Ordering::Relaxed)),
                 roots: store.map(Store::root_sizes).unwrap_or_default(),
@@ -580,6 +590,19 @@ impl Client {
         self.ask(&Request::Forget);
     }
 
+    /// The built-in chat model is let go, in the helper and in this app.
+    pub fn unload(&self) {
+        crate::chat::unload();
+        self.ask(&Request::Unload);
+    }
+
+    /// What is loaded of the built-in models: in the helper, else in this app.
+    pub fn loaded(&self) -> crate::models::Loaded {
+        let st = self.status();
+        let mine = crate::chat::loaded().map(|(id, metal)| (id.to_string(), metal));
+        crate::models::Loaded { chat: st.chat_loaded.or(mine), meaning: st.meaning_runs }
+    }
+
     /// The helper goes and a new one comes, with the settings as they are now.
     pub fn restart(&self) {
         self.ask(&Request::Restart);
@@ -620,7 +643,7 @@ impl Client {
         }
         let now = match self.ask(&Request::Status) {
             Some(Reply::Status(s)) => s,
-            _ => Status { state: self.own().state(), len: self.own().len(), texts: 0, pending: 0, bytes: 0, paused: false, roots: vec![], tools: vec![], meaning: false, meaning_pending: 0, meaning_done: 0, meaning_passages: 0, meaning_renewing: 0, meaning_ms_per_file: 0, meaning_engine: String::new(), meaning_error: None, meaning_runs: None, error: None, clouds: vec![], outdated: self.outdated.get().cloned() },
+            _ => Status { state: self.own().state(), len: self.own().len(), texts: 0, pending: 0, bytes: 0, paused: false, roots: vec![], tools: vec![], meaning: false, meaning_pending: 0, meaning_done: 0, meaning_passages: 0, meaning_renewing: 0, meaning_ms_per_file: 0, meaning_engine: String::new(), meaning_error: None, meaning_runs: None, chat_loaded: None, error: None, clouds: vec![], outdated: self.outdated.get().cloned() },
         };
         *status = Some((Instant::now(), now.clone()));
         now

@@ -1778,7 +1778,8 @@ impl App {
 
     /// Find's rows for what it shows now.
     pub fn find_rows(&self, query: &str, chip: Kind, found: &Found) -> Vec<Row> {
-        find::rows(query, chip, found, self.ask_state(), |id| self.find_dismissed.iter().any(|d| d == id))
+        let slow = coxswain_core::setup::poor(&self.cfg.search, false).into_iter().find(|p| p.ask);
+        find::rows(query, chip, found, self.ask_state(), slow.as_ref(), |id| self.find_dismissed.iter().any(|d| d == id))
     }
 
     /// A hit or a source of Find: its folder, with the cursor on it; a commit's folder as it was.
@@ -1816,6 +1817,21 @@ impl App {
                 self.setup_guide();
             }
         }
+    }
+
+    /// The better model of a poor choice (`setup::poor`), saved; without one, Settings opens
+    /// at the option, where its line says what to do.
+    fn take_better(&mut self, poor: &coxswain_core::setup::Poor) {
+        if poor.button.is_none() {
+            let at = if poor.ask { "ask_model" } else { "meaning_engine" };
+            return self.dialog = Some(Dialog::Settings(Box::new(settings::Settings::open(self, at))));
+        }
+        let Some(path) = Config::path() else { return self.status = Some(t!("err.no_config_folder")) };
+        self.status = Some(match self.save_options(&path, &poor.changes) {
+            Ok(()) => t!("settings.saved", "path" => path.display()),
+            Err(e) => e,
+        });
+        self.search_now();
     }
 
     /// Ask the question in Find file on a thread of its own; the answer comes in `tick`.
@@ -1968,6 +1984,12 @@ impl App {
                             return self.find_step(off);
                         }
                         Some(Row::Hit { hit, .. }) => return self.go_to_hit(&hit.path.clone()),
+                        // The better chat model, taken; or Settings at Ask, where the line says what to do.
+                        Some(Row::Slow { poor }) => {
+                            let poor = poor.clone();
+                            self.dialog = Some(Dialog::Search { query, chip, here, found, cursor, offset, show });
+                            return self.take_better(&poor);
+                        }
                         Some(Row::More { group, .. }) => {
                             chip = group.kind();
                             requery = true;
@@ -2466,7 +2488,7 @@ const USAGE: &str = "coxswain [LEFT] [RIGHT]      a folder, or a file to open it
                   looks, behaviour, keys, privacy, or an option such as show_hidden
   --dump-config   print the full default config (redirect it to the config file to customise)
   --config-path   print where the config file is read from
-  --paths         print where everything is kept: config, state, index, search store, model
+  --paths         print where everything is kept: config, state, index, search store, models
   --setup-search  set up search inside files, by meaning and Ask, step by step: finds the model
                   servers on this machine and what suits it
   --index-service on|off   start the search helper with your session, or stop doing so
@@ -2482,6 +2504,9 @@ const USAGE: &str = "coxswain [LEFT] [RIGHT]      a folder, or a file to open it
                            built in: builtin:qwen3-1.7b, builtin:qwen3-4b or
                            builtin:qwen3-14b (downloaded once);
                            delete: the built-in ones deleted
+  --models                 the built-in models on the disk: what each is for, its size and
+                           folder, whether it is in use and loaded, when it was last used
+  --models delete NAME|unused  delete one (by the name --models shows), or all not in use
   --hints reset            show the hints on the command line again, each a few times
   --languages              the languages, by region, and how to help improve a new translation
   --whats-new [all]        what the versions since you last looked brought (all: every version)
@@ -2687,12 +2712,155 @@ fn meaning(what: Option<&str>, rest: &[String]) {
     Client::start(&Config::load().map(|c| c.search).unwrap_or_default()).restart();
 }
 
+/// The options, and the values each takes after it (none: it takes none, or any words).
+const OPTIONS: &[(&str, &[&str])] = &[
+    ("--help", &[]),
+    ("-h", &[]),
+    ("--version", &[]),
+    ("-V", &[]),
+    ("--dump-config", &[]),
+    ("--config-path", &[]),
+    ("--paths", &[]),
+    ("--languages", &[]),
+    ("--hints", &["reset"]),
+    ("--whats-new", &["all"]),
+    ("--index-service", &["on", "off"]),
+    ("--setup-search", &[]),
+    ("--meaning", &["on", "off", "delete", "ollama", "server", "builtin", "cpu", "auto", "ask"]),
+    ("--models", &["delete"]),
+    ("--settings", &[]),
+];
+
+/// The edits that turn `a` into `b`.
+fn distance(a: &str, b: &str) -> usize {
+    let b: Vec<char> = b.chars().collect();
+    let mut row: Vec<usize> = (0..=b.len()).collect();
+    for (i, ca) in a.chars().enumerate() {
+        let mut prev = row[0];
+        row[0] = i + 1;
+        for j in 0..b.len() {
+            let here = row[j + 1];
+            row[j + 1] = (prev + usize::from(ca != b[j])).min(row[j] + 1).min(here + 1);
+            prev = here;
+        }
+    }
+    row[b.len()]
+}
+
+/// Why the command line cannot be run: an option or a value not known (with the closest known
+/// option), or a folder that is not there. `args` without `--settings`; `cwd` for relative paths.
+fn check_args(args: &[String], cwd: &Path) -> Result<(), String> {
+    let close = |given: &str, known: &[&str]| known.iter().map(|k| (distance(given, k), *k)).filter(|(d, k)| *d <= 3.max(given.len() / 3) || k.starts_with(given)).min().map(|(_, k)| k.to_string());
+    let Some(first) = args.first().filter(|a| *a != helper::ARG) else { return Ok(()) };
+    if first.starts_with('-') {
+        let name = first.split('=').next().unwrap_or(first);
+        let Some((_, values)) = OPTIONS.iter().find(|(o, _)| *o == name && name == first) else {
+            let mut said = format!("coxswain: {}", t!("cli.unknown_option", "option" => first));
+            if let Some(near) = close(name, &OPTIONS.iter().map(|(o, _)| *o).collect::<Vec<_>>()) {
+                said += &format!("\n{}", t!("cli.did_you_mean", "option" => near));
+            }
+            return Err(format!("{said}\n{}", t!("cli.help_lists")));
+        };
+        let value = args.get(1).map(String::as_str);
+        // `--hints` takes its value; the others may stand alone.
+        if first == "--hints" && value.is_none() {
+            return Err(format!("coxswain: {}", t!("cli.needs_value", "option" => first, "values" => values.join(", "))));
+        }
+        if value.is_some_and(|v| !values.is_empty() && !values.contains(&v)) {
+            let mut said = format!("coxswain: {}", t!("cli.unknown_value", "value" => value.unwrap_or(""), "option" => first, "values" => values.join(", ")));
+            if let Some(near) = value.and_then(|v| close(v, values)) {
+                said += &format!("\n{}", t!("cli.did_you_mean", "option" => format!("{first} {near}")));
+            }
+            return Err(said);
+        }
+        return Ok(());
+    }
+    for a in args.iter().take(2) {
+        // An option is read first only: after a folder, it is said where it goes.
+        if a.starts_with('-') {
+            check_args(std::slice::from_ref(a), cwd)?;
+            return Err(format!("coxswain: {}\n{}", t!("cli.unknown_option", "option" => a), t!("cli.did_you_mean", "option" => format!("coxswain {a}"))));
+        }
+        if !resolve(cwd, a).exists() {
+            return Err(format!("coxswain: {}", t!("cli.no_folder", "path" => a)));
+        }
+    }
+    Ok(())
+}
+
+/// `--models [delete NAME|unused]`: the built-in models on the disk, or one deleted (asked
+/// first when it is in use: what comes instead is said), or all not in use.
+fn models(rest: &[String]) {
+    use coxswain_core::models::{self, For};
+    let fail = |e: String, code: i32| -> ! {
+        eprintln!("coxswain: {e}");
+        std::process::exit(code)
+    };
+    let cfg = Config::load().unwrap_or_else(|e| fail(e, 2));
+    let client = Client::start(&cfg.search);
+    let entries = models::list(&cfg.search, &client.loaded());
+    let human = coxswain_core::settings::human;
+    match (rest.first().map(String::as_str), rest.get(1)) {
+        (None, _) => {
+            if entries.is_empty() {
+                println!("{}", t!("models.none"));
+            }
+            for e in &entries {
+                let name = if e.what == For::Leftover { format!("{} ({})", e.name, e.id) } else { e.name.clone() };
+                println!("{:<24} {name}\n  {}\n  {}", e.id, e.line(), e.folder.display());
+            }
+            let unused = models::unused_bytes(&entries);
+            if unused > 0 {
+                println!("\n{}: coxswain --models delete unused", t!("models.delete_unused", "size" => human(unused)));
+            }
+        }
+        (Some("delete"), Some(name)) if name == "unused" => {
+            let gone: Vec<_> = entries.iter().filter(|e| !e.in_use).collect();
+            for e in &gone {
+                models::delete(e, &client).unwrap_or_else(|err| fail(format!("{}: {err}", e.folder.display()), 1));
+            }
+            println!("{}", t!("models.deleted_all", "n" => gone.len(), "size" => human(gone.iter().map(|e| e.bytes).sum())));
+        }
+        (Some("delete"), Some(name)) => {
+            let Some(e) = models::find(&entries, name) else { fail(t!("models.no_such", "name" => name), 1) };
+            let instead = models::instead(&cfg.search, e, coxswain_core::setup::look(true).as_deref());
+            if instead.is_some() {
+                print!("{} [y/N] ", t!("models.confirm", "model" => e.name.as_str()));
+                let _ = std::io::stdout().flush();
+                let mut answer = String::new();
+                let _ = std::io::stdin().read_line(&mut answer);
+                if !matches!(answer.trim(), "y" | "Y" | "j" | "J") {
+                    return;
+                }
+            }
+            if let Some((changes, _)) = &instead {
+                coxswain_core::settings::save(changes).unwrap_or_else(|err| fail(err, 1));
+            }
+            models::delete(e, &client).unwrap_or_else(|err| fail(format!("{}: {err}", e.folder.display()), 1));
+            println!("{}", t!("models.deleted", "model" => e.name.as_str(), "size" => human(e.bytes)));
+            if let Some((_, said)) = instead {
+                println!("{said}");
+                client.restart();
+            }
+        }
+        _ => fail(t!("cli.unknown_value", "value" => rest.join(" "), "option" => "--models", "values" => "delete NAME, delete unused"), 2),
+    }
+}
+
 fn main() {
     let mut args: Vec<String> = std::env::args().skip(1).collect();
     // `--settings[=area|option] [LEFT] [RIGHT]`: start with Settings open, there.
     let open_settings = args.first().and_then(|a| a.strip_prefix("--settings")).filter(|r| r.is_empty() || r.starts_with('=')).map(|r| r.trim_start_matches('=').to_string());
     if open_settings.is_some() {
         args.remove(0);
+    }
+    // An option or a folder that is not known is said, and nothing starts.
+    if args.first().map(String::as_str) != Some(helper::ARG) {
+        coxswain_core::i18n::set_language(coxswain_core::i18n::resolve(&Config::load().map(|c| c.language).unwrap_or_default()));
+        if let Err(e) = check_args(&args, &std::env::current_dir().unwrap_or_else(|_| PathBuf::from("/"))) {
+            eprintln!("{e}");
+            std::process::exit(2);
+        }
     }
     match args.first().map(String::as_str) {
         // Started by an app, not by hand: hold the file name index for all of them.
@@ -2725,6 +2893,7 @@ fn main() {
             return setup::run();
         }
         Some("--meaning") => return meaning(args.get(1).map(String::as_str), &args[2.min(args.len())..]),
+        Some("--models") => return models(&args[1..]),
         _ => {}
     }
     coxswain_core::fs::lock_down();
@@ -2764,6 +2933,23 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// An option or a value not known, or a folder not there, is said, never taken for a folder.
+    #[test]
+    fn unknown_options_and_folders_are_said() {
+        let cwd = std::env::temp_dir();
+        let check = |a: &[&str]| check_args(&a.iter().map(|s| s.to_string()).collect::<Vec<_>>(), &cwd);
+        let e = check(&["--model"]).unwrap_err();
+        assert!(e.contains("--model") && e.contains("--models?") && e.contains("--help"), "{e}");
+        assert!(check(&["--frobnicate"]).unwrap_err().contains("--frobnicate"));
+        assert!(check(&["--meaning", "of"]).unwrap_err().contains("--meaning off"));
+        assert!(check(&["--hints"]).is_err() && check(&["--hints", "reset"]).is_ok());
+        assert!(check(&["--meaning", "server", "http://x:8000/v1", "m"]).is_ok() && check(&["--meaning"]).is_ok());
+        assert!(check(&["--models"]).is_ok() && check(&["--models", "delete", "unused"]).is_ok() && check(&["--models", "x"]).is_err());
+        assert!(check(&["no-such-folder-here"]).unwrap_err().contains("no-such-folder-here"));
+        assert!(check(&[".", "--paths"]).is_err(), "an option after a folder is not taken for one");
+        assert!(check(&[".", "."]).is_ok() && check(&[]).is_ok() && check(&[helper::ARG]).is_ok());
+    }
 
     #[test]
     fn a_file_argument_opens_its_folder_on_the_file() {

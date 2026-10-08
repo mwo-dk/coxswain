@@ -63,9 +63,36 @@ pub enum Row {
     EditKeys,
     /// A program that reads more (tesseract …), whether it is there, and the line that installs it.
     Tool(String, bool, Option<String>),
+    /// A model chosen that is a poor choice here, and the better one (Enter takes it).
+    Poor(coxswain_core::setup::Poor),
+    /// A built-in model on the disk: Enter shows its folder, Delete deletes it, U unloads it.
+    Model(coxswain_core::models::Entry),
+    /// Delete every built-in model not in use, and the bytes that frees.
+    DeleteUnused(u64),
 }
 
 impl Row {
+    /// What the row is, kept while rows come and go around it.
+    fn key(&self) -> String {
+        match self {
+            Row::Head(_, id) => format!("head:{id}"),
+            Row::Status(l) => format!("status:{:?}", l.part),
+            Row::Level(l) => format!("level:{}", l.id()),
+            Row::SetUp => "setup".into(),
+            Row::Opt(o) => o.name.into(),
+            Row::Service => "service".into(),
+            Row::Info(label, ..) => format!("info:{label}"),
+            Row::Go(area, _) => format!("go:{}", area.id()),
+            Row::Notice(n) => format!("notice:{}", n.id),
+            Row::Guide => "guide".into(),
+            Row::EditKeys => "keys".into(),
+            Row::Tool(name, ..) => format!("tool:{name}"),
+            Row::Poor(p) => format!("poor:{}", p.ask),
+            Row::Model(e) => format!("model:{}", e.id),
+            Row::DeleteUnused(_) => "unused".into(),
+        }
+    }
+
     fn selectable(&self) -> bool {
         !matches!(self, Row::Head(..))
     }
@@ -93,6 +120,8 @@ pub enum Mode {
     Find { query: String, at: usize },
     /// Another model reads every file's meaning again: why, and the change that waits for a yes.
     Confirm(String, Map<String, Value>),
+    /// A built-in model in use is to be deleted: its folder's name, waiting for a yes.
+    ConfirmDelete(String),
 }
 
 pub struct Settings {
@@ -112,6 +141,9 @@ pub struct Settings {
     notices: Vec<Notice>,
     /// What's new: the versions not read yet (else this one), with what they brought.
     news: Vec<(String, String)>,
+    /// The cursor's row when last drawn, by index and by `Row::key`: rows that come later (a
+    /// poor choice found in the background) do not move the cursor off its row.
+    anchor: (usize, String),
 }
 
 impl Settings {
@@ -130,6 +162,7 @@ impl Settings {
             service: coxswain_core::service::installed(),
             notices: coxswain_core::notices::all(&app.cfg, &app.index.status(), &st, true),
             news: news(&st),
+            anchor: (0, String::new()),
         };
         s.go(app, section);
         s
@@ -174,7 +207,7 @@ pub fn rows(app: &App, s: &Settings) -> Vec<Row> {
     let mut v = vec![];
     match s.area {
         Area::Overview => {
-            let lines = cs::status(&cfg.search, &app.index.status(), app.index.shared());
+            let lines = cs::status(&cfg.search, &app.index.status(), app.index.shared(), &[]);
             let search = std::iter::once(level_name()).chain(lines.iter().skip(1).map(|l| format!("{}: {}", l.label, l.text))).collect::<Vec<_>>().join(" · ");
             v.push(Row::Go(Area::Search, search));
             v.push(Row::Go(Area::Previews, choice_label("preview_prefer", &cfg.preview.prefer)));
@@ -189,26 +222,29 @@ pub fn rows(app: &App, s: &Settings) -> Vec<Row> {
             v.extend(s.news.iter().map(|(version, text)| Row::Info(version.clone(), text.clone(), text.clone())));
         }
         Area::Search => {
-            v.extend(cs::status(&cfg.search, &app.index.status(), app.index.shared()).into_iter().map(Row::Status));
+            let poor = coxswain_core::setup::poor(&cfg.search, false);
+            v.extend(cs::status(&cfg.search, &app.index.status(), app.index.shared(), &poor).into_iter().map(Row::Status));
             v.push(Row::Head(t!("settings.level"), "level"));
             v.extend(Level::ALL.into_iter().map(Row::Level));
             v.push(Row::SetUp);
             for (head, id, names) in GROUPS {
                 v.push(Row::Head(t!(head), id));
                 v.extend(names.iter().filter_map(|n| cs::find(n)).map(Row::Opt));
-                // The built-in chat models this machine has the memory for, and how quickly
-                // they answer on its processor: the probe runs in the background the first
-                // time, and the estimate shows once it is done.
-                if *id == "ask" {
-                    let cpu_only = cfg.search.meaning_device == "cpu";
-                    for m in coxswain_core::chat::fitting(coxswain_core::setup::ram_gb()) {
-                        let mut value = t!("settings.ask_builtin_memory", "ram" => m.ram);
-                        if let Some(e) = coxswain_core::chat::estimate(m, cpu_only, false) {
-                            value = format!("{value} · {}", e.text());
-                        }
-                        v.push(Row::Info(t!("settings.ask_builtin_model", "model" => m.name, "size" => cs::human(m.size()), "where" => coxswain_core::setup::builtin_runs(&cfg.search, None)), value, t!("settings.ask_builtin_hint")));
-                    }
+                // A poor choice of model is said in its group for as long as it stands.
+                if matches!(*id, "ask" | "meaning") {
+                    v.extend(poor.iter().filter(|p| p.ask == (*id == "ask")).cloned().map(Row::Poor));
                 }
+            }
+            // The built-in models on the disk: what each is, its folder, whether it is loaded.
+            v.push(Row::Head(t!("models.title"), "models"));
+            let models = coxswain_core::models::list(&cfg.search, &app.index.loaded());
+            if models.is_empty() {
+                v.push(Row::Info(t!("models.none"), String::new(), t!("models.hint")));
+            }
+            let unused = coxswain_core::models::unused_bytes(&models);
+            v.extend(models.into_iter().map(Row::Model));
+            if unused > 0 {
+                v.push(Row::DeleteUnused(unused));
             }
             let tools = app.index.status().tools;
             if !tools.is_empty() {
@@ -305,6 +341,35 @@ fn choices(name: &str, cfg: &Config) -> Option<Vec<(String, String)>> {
             ("ollama".into(), "Ollama".into()),
             ("openai".into(), t!("settings.meaning_openai")),
         ],
+        // Every chat model Ask can take, in one list: the server's and the built-in ones, under
+        // headings, then another one typed, and off.
+        "ask_model" => {
+            let look = coxswain_core::setup::look(false);
+            let mut v = vec![];
+            for g in coxswain_core::setup::ask_choices(&cfg.search, look.as_deref()) {
+                let missing = g.missing.clone();
+                v.push((HEAD.to_string(), match (&missing, look.is_some()) {
+                    (Some(m), false) => format!("{} ({m})", g.label),
+                    _ => g.label,
+                }));
+                if let (Some(m), true) = (missing, look.is_some()) {
+                    v.push((SET_UP.to_string(), format!("{m}: {}", t!("settings.ask_set_up_server"))));
+                }
+                for c in g.models {
+                    let mut label = c.label;
+                    if c.recommended {
+                        label += &format!(" [{}]", t!("setup.recommended"));
+                    }
+                    if c.slow {
+                        label += &format!(" [{}]", t!("settings.ask_slow_here"));
+                    }
+                    v.push((c.value, label));
+                }
+            }
+            v.push((OTHER.to_string(), t!("settings.ask_other")));
+            v.push((String::new(), t!("settings.ask_off")));
+            v
+        }
         "language" => std::iter::once(("auto".to_string(), t!("settings.language_auto"))).chain(coxswain_core::i18n::LANGUAGES.iter().map(|l| (l.code.to_string(), l.name.to_string()))).collect(),
         "theme" | "tui_theme" => {
             let builtin: Vec<&str> = Theme::builtin().into_iter().map(|(n, _)| n).collect();
@@ -314,6 +379,11 @@ fn choices(name: &str, cfg: &Config) -> Option<Vec<(String, String)>> {
         _ => return None,
     })
 }
+
+/// The values of Ask's list that are no model: a heading, the setup guide, a name to type.
+const HEAD: &str = "\u{1}head";
+const SET_UP: &str = "\u{1}setup";
+const OTHER: &str = "\u{1}other";
 
 /// A choice's value by its name.
 fn choice_label(name: &str, value: &str) -> String {
@@ -396,11 +466,31 @@ impl App {
                     s.go(self, next.id());
                 }
                 (_, Some('/')) => s.mode = Mode::Find { query: String::new(), at: 0 },
+                (KeyCode::Delete, _) => match rows.get(s.cursor) {
+                    Some(Row::Model(e)) if e.in_use => s.mode = Mode::ConfirmDelete(e.id.clone()),
+                    Some(Row::Model(e)) => return self.model_delete(s, &e.id.clone()),
+                    _ => {}
+                },
+                (_, Some('u' | 'U')) => {
+                    if let Some(Row::Model(e)) = rows.get(s.cursor) {
+                        s.said = Some(match (&e.loaded, e.what) {
+                            (Some(_), coxswain_core::models::For::Meaning) => (t!("models.stays_loaded"), false),
+                            (Some(_), _) => {
+                                self.index.unload();
+                                (t!("models.unloaded", "model" => e.name.as_str()), false)
+                            }
+                            (None, _) => (t!("models.not_loaded"), false),
+                        });
+                    }
+                }
                 (KeyCode::Enter, _) if opt.is_some() => {
                     let o = opt.unwrap();
                     s.mode = match kind(o, &self.cfg, &value) {
-                        // Ask's model is never offered empty: the built-in one for this machine.
-                        Kind::Text if o.name == "ask_model" && value.as_str().is_none_or(str::is_empty) => Mode::Edit(coxswain_core::chat::preselect(coxswain_core::setup::ram_gb(), self.cfg.search.meaning_device == "cpu").key()),
+                        // Ask off: the cursor on the recommended model.
+                        Kind::Choice(c) if o.name == "ask_model" && value.as_str().is_none_or(str::is_empty) => {
+                            let best = coxswain_core::setup::recommend_ask(&self.cfg.search, coxswain_core::setup::look(false).as_deref());
+                            Mode::Pick(c.iter().position(|(v, _)| *v == best).unwrap_or(0))
+                        }
                         Kind::Text => Mode::Edit(value.as_str().unwrap_or_default().to_string()),
                         Kind::Number(_, _, scale) => Mode::Edit(number_text(value.as_f64().unwrap_or(0.0) / scale)),
                         Kind::List => Mode::List { at: 0, new: String::new() },
@@ -495,6 +585,16 @@ impl App {
                     KeyCode::Down => s.mode = Mode::Pick((at + 1).min(c.len() - 1)),
                     KeyCode::PageUp => s.mode = Mode::Pick(at.saturating_sub(10)),
                     KeyCode::PageDown => s.mode = Mode::Pick((at + 10).min(c.len() - 1)),
+                    KeyCode::Enter if o.name == "ask_model" && c[at.min(c.len() - 1)].0.starts_with('\u{1}') => match c[at.min(c.len() - 1)].0.as_str() {
+                        OTHER => s.mode = Mode::Edit(value.as_str().unwrap_or_default().to_string()),
+                        SET_UP => self.setup_guide(),
+                        _ => s.mode = Mode::Pick(at),
+                    },
+                    // A built-in model not downloaded yet: downloaded on the plain terminal, then set.
+                    KeyCode::Enter if o.name == "ask_model" && coxswain_core::chat::of(&c[at.min(c.len() - 1)].0).is_some_and(|m| !m.installed()) => {
+                        let exe = coxswain_core::tools::this_app().map(|p| p.display().to_string()).unwrap_or_else(|_| "coxswain".into());
+                        self.run = Some(Run::Shell { cmd: format!("{} --meaning ask {}", coxswain_core::config::quote(&exe), c[at.min(c.len() - 1)].0), dir: self.panel().dir.clone(), wait: true });
+                    }
                     KeyCode::Enter => {
                         at = at.min(c.len() - 1);
                         if value.as_str() != Some(c[at].0.as_str()) {
@@ -532,6 +632,11 @@ impl App {
                 _ if esc => {}
                 _ => s.mode = Mode::Confirm(why, changes),
             },
+            Mode::ConfirmDelete(id) => match key.code {
+                KeyCode::Enter => return self.model_delete(s, &id),
+                _ if esc => {}
+                _ => s.mode = Mode::ConfirmDelete(id),
+            },
         }
         self.dialog = Some(Dialog::Settings(s));
     }
@@ -541,6 +646,11 @@ impl App {
     fn settings_space(&mut self, mut s: Box<Settings>, rows: &[Row], value: &Value) {
         let set = |name: &str, v: Value| Map::from_iter([(name.to_string(), v)]);
         match rows.get(s.cursor) {
+            Some(Row::Opt(o)) if o.name == "ask_model" => {
+                if let Kind::Choice(c) = kind(o, &self.cfg, value) {
+                    s.mode = Mode::Pick(c.iter().position(|(v, _)| value.as_str() == Some(v)).unwrap_or(0));
+                }
+            }
             Some(Row::Opt(o)) => {
                 let changes = match kind(o, &self.cfg, value) {
                     Kind::Switch => set(o.name, Value::Bool(!value.as_bool().unwrap_or(false))),
@@ -564,6 +674,8 @@ impl App {
                 crate::guide::copy(line);
                 s.said = Some((t!("guide.copied", "command" => line), false));
             }
+            // A poor choice on its line: Enter takes the better one.
+            Some(Row::Status(line)) if line.poor.as_ref().is_some_and(|p| p.button.is_some()) => return self.settings_change(s, line.poor.clone().map(|p| p.changes).unwrap_or_default()),
             Some(Row::Status(line)) => match line.step {
                 Some(Step::TurnOn) => return self.settings_level(s, Level::Text),
                 Some(Step::Start) => self.index.restart(),
@@ -589,6 +701,27 @@ impl App {
                 }
             }
             Some(Row::Go(area, _)) => s.go(self, area.id()),
+            Some(Row::Poor(p)) if p.button.is_some() => return self.settings_change(s, p.changes.clone()),
+            Some(Row::Poor(_)) => self.setup_guide(),
+            // Its folder in the active panel; Settings closes.
+            Some(Row::Model(e)) => {
+                let dir = e.folder.clone();
+                return self.cd(self.active, dir);
+            }
+            Some(Row::DeleteUnused(_)) => {
+                let models = coxswain_core::models::list(&self.cfg.search, &self.index.loaded());
+                let gone: Vec<_> = models.iter().filter(|e| !e.in_use).collect();
+                let mut freed = 0;
+                for e in &gone {
+                    match coxswain_core::models::delete(e, &self.index) {
+                        Ok(()) => freed += e.bytes,
+                        Err(err) => s.said = Some((format!("{}: {err}", e.folder.display()), true)),
+                    }
+                }
+                if s.said.is_none() {
+                    s.said = Some((t!("models.deleted_all", "n" => gone.len(), "size" => cs::human(freed)), false));
+                }
+            }
             Some(Row::Notice(n)) => {
                 let mut st = coxswain_core::state::AppState::load();
                 coxswain_core::notices::dismiss(&mut st, &n.id);
@@ -599,6 +732,32 @@ impl App {
             }
             _ => {}
         }
+        self.dialog = Some(Dialog::Settings(s));
+    }
+
+    /// Delete a built-in model; the one in use first gives way to the recommended choice, saved,
+    /// and the line says which.
+    fn model_delete(&mut self, mut s: Box<Settings>, id: &str) {
+        use coxswain_core::models;
+        let all = models::list(&self.cfg.search, &self.index.loaded());
+        let Some(e) = all.iter().find(|e| e.id == id) else { return self.dialog = Some(Dialog::Settings(s)) };
+        let instead = models::instead(&self.cfg.search, e, coxswain_core::setup::look(false).as_deref());
+        if let (Some((changes, _)), Some(path)) = (&instead, s.path.clone())
+            && let Err(err) = self.save_options(&path, changes)
+        {
+            s.said = Some((err, true));
+            return self.dialog = Some(Dialog::Settings(s));
+        }
+        s.said = Some(match models::delete(e, &self.index) {
+            Ok(()) => {
+                let mut said = t!("models.deleted", "model" => e.name.as_str(), "size" => cs::human(e.bytes));
+                if let Some((_, then)) = instead {
+                    said = format!("{said} {then}");
+                }
+                (said, false)
+            }
+            Err(err) => (format!("{}: {err}", e.folder.display()), true),
+        });
         self.dialog = Some(Dialog::Settings(s));
     }
 
@@ -694,6 +853,19 @@ fn find(query: &str) -> Vec<&'static Opt> {
 
 /// Full screen: areas left, rows right, the selected row explained at the bottom.
 pub fn draw(f: &mut Frame, app: &mut App) {
+    // The cursor stays on its row when rows came or went since the last drawing.
+    if let Some(Dialog::Settings(s)) = &app.dialog {
+        let rows = rows(app, s);
+        let (at, key) = &s.anchor;
+        let now = match rows.get(s.cursor).map(Row::key) {
+            Some(k) if k != *key && s.cursor == *at => rows.iter().position(|r| r.key() == *key).unwrap_or(s.cursor),
+            _ => s.cursor,
+        };
+        let anchor = (now, rows.get(now).map(Row::key).unwrap_or_default());
+        if let Some(Dialog::Settings(s)) = &mut app.dialog {
+            (s.cursor, s.anchor) = (now, anchor);
+        }
+    }
     let full = f.area();
     let t = app.theme.clone();
     let base = dstyle(&t);
@@ -765,7 +937,10 @@ pub fn draw(f: &mut Frame, app: &mut App) {
                     lines.push(Line::from(Span::styled(fit(text, w), head)));
                 }
                 Row::Status(l) => {
-                    let step = l.step.map(|x| format!(" [{}]", x.label())).unwrap_or_default();
+                    let step = match l.poor.as_ref().and_then(|p| p.button.clone()) {
+                        Some(b) => format!(" ! [{b}]"),
+                        None => l.step.map(|x| format!(" [{}]", x.label())).unwrap_or_default(),
+                    };
                     let label = format!(" {}", fit(&l.label, 9));
                     let text = fit(&l.text, w.saturating_sub(label.width() + step.width() + 1));
                     lines.push(Line::from(vec![Span::styled(format!("{label} "), if here { selected } else { head }), Span::styled(text, st), Span::styled(step, st)]));
@@ -790,6 +965,12 @@ pub fn draw(f: &mut Frame, app: &mut App) {
                 Row::Info(label, value, _) => lines.push(pair(&format!(" {label}"), value, st)),
                 Row::Go(area, value) => lines.push(Line::from(vec![Span::styled(fit(&format!(" {}", area.label()), aw.max(14)), if here { selected } else { head }), Span::styled(fit(value, w.saturating_sub(aw.max(14))), st)])),
                 Row::Notice(n) => lines.push(Line::from(Span::styled(fit(&format!(" • {}", n.text), w), st))),
+                Row::Poor(p) => {
+                    let button = p.button.as_ref().map(|b| format!(" [{b}]")).unwrap_or_else(|| format!(" [{}]", t!("setup.open")));
+                    lines.push(Line::from(vec![Span::styled(fit(&format!(" ! {}", p.text), w.saturating_sub(button.width())), if here { st } else { red }), Span::styled(button, st)]));
+                }
+                Row::Model(e) => lines.push(pair(&format!(" {}", e.name), &e.line(), st)),
+                Row::DeleteUnused(n) => lines.push(Line::from(Span::styled(fit(&format!(" [ {} ]", t!("models.delete_unused", "size" => cs::human(*n))), w), st))),
                 Row::Opt(o) => {
                     let value = &values[o.name];
                     let label = match on(o, cfg, value) {
@@ -825,7 +1006,11 @@ pub fn draw(f: &mut Frame, app: &mut App) {
                             lines.push(pair(&label, "", head));
                             if let Kind::Choice(c) = kind(o, cfg, value) {
                                 for (j, (v, name)) in c.iter().enumerate() {
-                                    let mark = if value.as_str() == Some(v.as_str()) { "(•)" } else { "( )" };
+                                    if v == HEAD {
+                                        lines.push(Line::from(Span::styled(fit(&format!("   {name}"), w), if j == *at { selected } else { head })));
+                                        continue;
+                                    }
+                                    let mark = if value.as_str() == Some(v.as_str()) { "(•)" } else if v.starts_with('\u{1}') { "   " } else { "( )" };
                                     if j == *at {
                                         cursor_line = lines.len();
                                     }
@@ -867,6 +1052,13 @@ pub fn draw(f: &mut Frame, app: &mut App) {
     let mut text: Vec<Span> = vec![];
     match &s.mode {
         Mode::Confirm(why, _) => text.push(Span::styled(format!("{why} Enter: {} · Esc: {}", t!("settings.meaning_change_go"), t!("settings.meaning_change_keep")), red)),
+        Mode::ConfirmDelete(id) => {
+            let name = rows.iter().find_map(|r| match r {
+                Row::Model(e) if e.id == *id => Some(e.name.clone()),
+                _ => None,
+            });
+            text.push(Span::styled(format!("{} {}", t!("models.confirm", "model" => name.unwrap_or_default()), t!("models.confirm_tui")), red));
+        }
         Mode::Find { query, at } => {
             if let Some(o) = find(query).get(*at) {
                 text.push(Span::raw(o.hint()));
@@ -890,6 +1082,7 @@ pub fn draw(f: &mut Frame, app: &mut App) {
                     text.push(Span::styled(format!(" {}", t!("settings.level.custom")), red));
                 }
             }
+            Some(Row::Status(l)) if l.poor.is_some() => text.push(Span::styled(l.poor.as_ref().map(|p| p.text.clone()).unwrap_or_default(), red)),
             Some(Row::Status(l)) => {
                 let note = match (l.part, &s.trial) {
                     (cs::Part::Ask, Some((said, bad))) => Some((said.clone(), *bad)),
@@ -910,6 +1103,12 @@ pub fn draw(f: &mut Frame, app: &mut App) {
             Some(Row::Info(_, _, hint)) => text.push(Span::raw(hint.clone())),
             Some(Row::Go(_, value)) => text.push(Span::raw(value.clone())),
             Some(Row::Notice(n)) => text.push(Span::raw(n.text.clone())),
+            Some(Row::Poor(p)) => text.push(Span::raw(p.text.clone())),
+            Some(Row::Model(e)) => {
+                text.push(Span::raw(e.folder.display().to_string()));
+                text.push(Span::styled(format!("  {}", t!("models.keys_tui")), dim));
+            }
+            Some(Row::DeleteUnused(_)) => text.push(Span::raw(t!("models.hint"))),
             _ => {}
         },
     }

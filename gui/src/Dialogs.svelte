@@ -182,6 +182,14 @@
     }
     ui.modal = { kind: "setup" };
   }
+  /** Ask's chat model is slow here: the better one is taken (and Find asks again), or Settings
+   *  opens at Ask, whose line says what to do. */
+  async function takeBetter(poor) {
+    if (!poor.button) return void (ui.modal = { kind: "settings", section: "ask_model" });
+    ui.cfg = await invoke("save_settings", { changes: poor.changes }).catch((e) => ((ui.status = String(e)), ui.cfg));
+    askChecked = null;
+    runSearch();
+  }
   /** Sends a tip away for good. */
   function dismissRow(m, r) {
     invoke("dismiss_notice", { id: r.dismiss }).then(runSearch, () => {});
@@ -191,6 +199,7 @@
     if (!r) return;
     if (r.row === "hit") goToHit(r.hit);
     else if (r.row === "ask" && !r.off) askNow(m);
+    else if (r.row === "slow") takeBetter(r.poor);
     else if (r.row === "more") refind(m, { chip: { names: "names", in_files: "in_files", history: "in_files", about: "about" }[r.group] });
     else if (r.off) findStep(m, r.off);
   }
@@ -611,6 +620,9 @@
                   </button>
                   {#if r.off}<button class="link step" onclick={() => findStep(m, r.off)}>{r.step}</button>{/if}
                   {#if r.dismiss}<button class="x" title={t("find.dismiss")} aria-label={t("find.dismiss")} onclick={() => dismissRow(m, r)}>×</button>{/if}
+                {:else if r.row === "slow"}
+                  <span class="offtext" class:cursor={i === m.cursor}>{r.poor.short}</span>
+                  <button class="link step" onclick={() => takeBetter(r.poor)}>{r.poor.button ?? t("find.step_settings")}</button>
                 {:else if r.row === "more"}
                   <button class="more" class:cursor={i === m.cursor} onclick={() => enterRow(m, r)}>{t("find.more", { n: num(r.n) })}</button>
                 {:else if r.row === "off"}
@@ -1026,6 +1038,7 @@
     color: var(--hidden-fg);
   }
   .hits li.ask,
+  .hits li.slow,
   .hits li.off {
     display: flex;
     align-items: center;
@@ -1034,10 +1047,12 @@
   .hits li.ask > button:first-child {
     flex: 1;
   }
+  .hits li.slow .offtext,
   .hits li.off .offtext {
     padding: 4px 8px 4px 1.9em;
     color: var(--hidden-fg);
   }
+  .hits li.slow .offtext.cursor,
   .hits li.off .offtext.cursor {
     outline: 1px solid currentColor;
   }

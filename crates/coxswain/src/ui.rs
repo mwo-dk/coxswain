@@ -579,6 +579,10 @@ fn search(f: &mut Frame, app: &mut App, full: Rect) {
             let base = if i == *cursor { sty(&t.dialog_input) } else { dstyle(&t) };
             match row {
                 Row::Ask { off: None } => vec![Line::from(Span::styled(fit(&format!(" ? {}", t!("find.ask_row", "query" => question.trim())), width), base.patch(hit_style).bg(base.bg.unwrap_or(Color::Reset))))],
+                Row::Slow { poor } => {
+                    let step = poor.button.clone().unwrap_or_else(|| t!("find.step_settings"));
+                    vec![Line::from(Span::styled(fit(&format!("   {} · Enter: {step}", poor.short), width), if i == *cursor { base } else { dim }))]
+                }
                 Row::Ask { off: Some(off) } => vec![Line::from(Span::styled(fit(&format!(" ? {}{}", off.text(), step_hint(off)), width), if i == *cursor { base } else { dim }))],
                 Row::Head { group, shown, total } => {
                     let label = coxswain_core::i18n::caps(&group.label());

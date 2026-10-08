@@ -62,8 +62,11 @@ The guided setup does all of it, with a test question: [Smart search in a few mi
 and Ask* there; or `coxswain --setup-search`). By hand:
 
 1. **Set the chat model** once. Desktop app: **Ctrl+,** → *Finding files* → *Details* →
-   *Ask* → *Chat model* (the list offers the models on the server that can answer: on Ollama, models
-   that only make vectors, such as `bge-m3`, are left out). Terminal app:
+   *Ask* → *Chat model*: one list with the server's models under *On Ollama at localhost:11434 ·
+   on the graphics card (…)* and the built-in ones under *Built in · on the CPU*, then *Another
+   model…* and *Off*. Only models that can answer are listed: on Ollama, models that only make
+   vectors, such as `bge-m3`, are left out. A pick sets it at once. Terminal app: **Enter** on
+   *Chat model* in *Settings → Finding files → Ask* opens the same list, or
    `coxswain --meaning ask qwen3:8b`. On Ollama a missing model is pulled first. A model that
    cannot answer is refused with the reason (below), in both apps.
 2. Open Find (**Ctrl+F**) and type the question. The first row reads **? Ask: "your
@@ -181,7 +184,7 @@ alone, as before.
 | Item (*Settings → Finding files → Details*) | Key | Type, default | Does |
 |---|---|---|---|
 | *Chat model* | `[search] ask_model` | string, `""` | The model that writes the answers: a server's (`qwen3:8b`) or a built-in one (`builtin:qwen3-1.7b`, `builtin:qwen3-4b`, `builtin:qwen3-14b`, [Ask without a server](ask-builtin.md)). Empty: Ask is not set up |
-| *Built-in chat models* | none | | **Download (size) and use**, **Use**, **Delete the model** for each built-in model |
+| *Chat model*, the list | none | | Every model Ask can take, by where it runs, the recommended one and those *slow here* marked; a built-in one is downloaded when picked. Deleting is under [Built-in models](models.md) |
 | *Let the model think first* | `[search] ask_think` | bool, `false` | Off: a model that thinks first (Qwen3, DeepSeek-R1, …) is asked not to. On: it thinks, many seconds before the first word ([Thinking](#thinking)) |
 | *Context for a server's model (tokens)* | `[search] ask_context` | number, `8192` (2,048 to 131,072) | The tokens a server's chat model is given, sources, question and answer together. Ollama is asked for this context (`num_ctx`); an OpenAI-style server must be set to at least as much. Not for the built-in models ([How much it reads](#how-much-it-reads)) |
 | *Meaning* → *Made by*, *Server*, *API key from the environment variable* | `meaning_engine`, `meaning_url`, `meaning_key_env` | | The server Ask talks to, as above |
@@ -293,12 +296,22 @@ No. They live in the Find window only. Closing it forgets them, and nothing is w
 disk.
 
 #### Can Ask work without Ollama or any server?
-Yes: choose the [built-in chat model](ask-builtin.md) in step 4 of the guide, or under *Built-in
-chat models* in Settings, or run `coxswain --meaning ask builtin:qwen3-1.7b`. It is downloaded
+Yes: choose the [built-in chat model](ask-builtin.md) in step 4 of the guide, or in the
+*Chat model* list in Settings, or run `coxswain --meaning ask builtin:qwen3-1.7b`. It is downloaded
 once (1.0 GB) and runs on a Mac's GPU, or slowly on the processor elsewhere.
 
+#### How do I switch Ask to another model?
+Pick it in *Chat model*: **Ctrl+,** → *Finding files* → *Details* → *Ask* (terminal app:
+**Enter** on *Chat model*, **↑ ↓**, **Enter**). The list holds the server's chat models (Ollama
+here when search by meaning uses the built-in model, else the server that makes the vectors)
+and the built-in ones, under where each runs; a pick saves `ask_model` at once. A server that
+does not answer shows *Ollama does not answer at localhost:11434* in its group, with **Set up a
+server…**. Before 2.15.0 the field was a text box whose suggestions only matched the name
+already in it, so a built-in model there hid Ollama's.
+
 #### Which chat model should I pick?
-With no server, the built-in Qwen3 1.7B, or Qwen3 4B Instruct on a Mac with 16 GB or more. On a server, one that fits your GPU's memory: `qwen3:8b` or `llama3.1:8b` with 8 GB, `gemma3:12b` or
+When a server runs a model on your graphics card, that one: Coxswain recommends it, and says
+in red when a built-in model on the processor is chosen instead. With no server, the built-in Qwen3 1.7B, or Qwen3 4B Instruct on a Mac with 16 GB or more. On a server, one that fits your GPU's memory: `qwen3:8b` or `llama3.1:8b` with 8 GB, `gemma3:12b` or
 `qwen3:14b` with 12–16 GB. Models of 3–4 B parameters answer on a CPU too, slowly. A
 multilingual model answers questions in other languages; Ask tells it to answer in the
 question's language.

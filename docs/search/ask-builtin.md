@@ -11,7 +11,7 @@ It answers like a server's model: from the passages of your files closest to the
 citing them as **[1]**, **[2]**, word by word. Everything in [Ask](ask.md) (the keys, follow-ups,
 the scope, the sources) works the same.
 
-![Settings → Finding files → Details → Ask on a PC with 64 GB: Chat model, then Built-in chat models: Qwen3 1.7B (1.0 GB, downloaded once from huggingface.co, runs on the CPU) with Needs 8 GB of memory · On this processor: about 88 s to the first word, then 6.2 words a second (too slow to recommend) and Download (1.0 GB) and use; Qwen3 4B Instruct with Needs 16 GB of memory and its estimate; Qwen3 14B with Needs 32 GB of memory, about 822 s to the first word, and Download (8.4 GB) and use; then Let the model think first](../screenshots/settings-ask-builtin.png)
+![Settings → Finding files → Details → Ask on a PC with an RTX 4070 and Ollama: Chat model set to Qwen3 14B · 8.4 GB · about 691 s to the first word, with the red line Qwen3 14B runs on the processor here: about 691 s to the first word. qwen3:8b on Ollama runs on your graphics card (NVIDIA GeForce RTX 4070 Laptop GPU) and answers far sooner, and the Use qwen3:8b button](../screenshots/settings-ask-builtin.png)
 
 ## Contents
 
@@ -20,6 +20,7 @@ the scope, the sources) works the same.
 - [Turning it on](#turning-it-on)
 - [What you see](#what-you-see)
 - [How it runs](#how-it-runs)
+- [When it is a poor choice here](#when-it-is-a-poor-choice-here)
 - [How quick it is](#how-quick-it-is)
 - [The estimate for this processor](#the-estimate-for-this-processor)
 - [Settings and config.toml](#settings-and-configtoml)
@@ -35,8 +36,7 @@ the scope, the sources) works the same.
 
 Only the models the machine has the memory for are offered (Qwen3 1.7B always): a machine with
 8 GB sees one, with 16 GB two, with 32 GB or more all three. The *Memory* column is the
-machine's memory the guide and Settings go by; *Settings → Ask → Built-in chat models* shows it
-under each model as *Needs 32 GB of memory*.
+machine's memory the guide and Settings go by.
 
 All three are Qwen3 models by Alibaba's Qwen team, under the Apache 2.0 licence, in 4-bit GGUF form
 (`Q4_K_M`). They know over a hundred languages, so a Danish question about English notes is
@@ -59,10 +59,10 @@ is checked against its SHA-256 before it is used; a file that does not match is 
 | App | How |
 |---|---|
 | Desktop app, the guide | **Ctrl+,** → **Set up…** → step 4 *Ask: the chat model*: choose *Qwen3 1.7B, built in (1.0 GB download, on the CPU; nothing leaves the machine)* in the list and press **Download Qwen3 1.7B (1.0 GB) and use it**. It is marked **recommended** (and its button is the main one) when no server answers and it suits the machine: on a Mac's GPU always, on a processor only when [the estimate](#the-estimate-for-this-processor) is under 10 s to the first word. Under the list: *On this processor: about 74 s to the first word, then 7.4 words a second (too slow to recommend; a model server answers more quickly)*. When the download is done, Ask is set to it and a test question follows: *It answered: the first word came after 8.6 s.* |
-| Desktop app, Settings | **Ctrl+,** → *Finding files* → *Details* → *Ask* → *Built-in chat models*: each model that fits the machine, its memory under it (*Needs 16 GB of memory*) with the estimate for this processor after it, **Download (1.0 GB) and use** next to the model; **Use** once it is there; **Delete the model** frees the disk |
+| Desktop app, Settings | **Ctrl+,** → *Finding files* → *Details* → *Ask* → *Chat model*: one list with the server's chat models under *On Ollama at localhost:11434 · on the graphics card (…)* and the built-in ones under *Built in · on the CPU*, each with its size and, on a processor, *about 74 s to the first word*; one not downloaded yet says *downloaded from huggingface.co when chosen*. Picking it downloads it (*Downloading the model: 312 MB of 1.0 GB*, **Cancel**) and makes it Ask's. The recommended one says *recommended*, one that is slow here *slow here*. Deleting is under [Built-in models](models.md) |
 | Terminal app, the guide | `coxswain --setup-search`, step 4: the built-in models come first in the list (`1  Qwen3 1.7B, built in (…)`), each with the estimate on the line below; the last number is *Skip Ask for now*, which turns Ask off. The default (`*`) is never the skip: Ask's model as set, else the server's suggestion, else the built-in model for this machine. Type its number, answer **y** to *Download Qwen3 1.7B (1.0 GB) and use it*; a test question follows |
-| Terminal app, Settings | **F9** → *Settings* → *Finding files* → *Ask* (or `coxswain --settings=ask`): under *Chat model*, a line per built-in model that fits the machine: its name, size and where it runs, then *Needs 16 GB of memory* and, on a processor, the estimate (it shows a moment after Settings opens, the first time). **Enter** on an empty *Chat model* offers `builtin:qwen3-1.7b` (on a Mac's GPU the one for its memory) to keep with **Enter** or change |
-| Desktop app, Settings, Ask off | *Chat model* shows a server's first chat model, else the built-in one for this machine, with **Use** next to it (downloading a built-in one first) |
+| Terminal app, Settings | **F9** → *Settings* → *Finding files* → *Ask* (or `coxswain --settings=ask_model`): **Enter** or **Space** on *Chat model* opens one list: the server's models under its heading, the built-in ones under *Built in · on the CPU* with their size and estimate (it shows a moment after Settings opens, the first time), then *Another model…* (type a name) and *Off*. **↑ ↓** and **Enter** take one; a built-in one not downloaded yet is downloaded on the plain terminal first (`coxswain --meaning ask builtin:…`). With Ask off the cursor starts on the recommended one |
+| Desktop app, Settings, Ask off | *Chat model* shows *Off*, with **Use qwen3:8b** (or the built-in one for this machine) under it: the recommended one, a server's on the graphics card first, downloading a built-in one first |
 | Terminal app, a flag | `coxswain --meaning ask builtin:qwen3-1.7b` downloads it (*Downloading: 42 %*) and sets it; `coxswain --meaning ask off` turns Ask off again; `coxswain --meaning ask delete` deletes the built-in chat models |
 
 The model in *Chat model* can also be typed: `builtin:qwen3-1.7b`, `builtin:qwen3-4b` or
@@ -82,6 +82,8 @@ The model in *Chat model* can also be typed: `builtin:qwen3-1.7b`, `builtin:qwen
 - **Settings → Finding files**: the *Ask* line of the status reads *Qwen3 1.7B, built in*, with
   **Try it**. Under *Privacy and updates*, *The built-in chat model, downloaded once* →
   *huggingface.co* is listed until it is downloaded.
+- **When it is slow here**: a red line in *Settings → Finding files* (on the *Ask* line of the
+  status) and under *Ask*, and a row under Find's Ask row ([below](#when-it-is-a-poor-choice-here)).
 - **The guide, step 5**: *The built-in chat model runs on the GPU (Metal) when it can* on a Mac,
   *… on the CPU* elsewhere.
 
@@ -96,7 +98,9 @@ The model in *Chat model* can also be typed: `builtin:qwen3-1.7b`, `builtin:qwen
   first word, the answer comes from the processor instead. `meaning_device = "cpu"` (*Use the CPU
   only* under *Meaning*) keeps it on the processor, as it does the embedding model.
 - **Elsewhere** it runs on the processor, with all its cores while it answers. A graphics card
-  on Linux or Windows is not used: for that, run Ollama ([servers](servers.md)).
+  on Linux or Windows is not used: for that, run Ollama ([servers](servers.md)). When one runs a
+  model on the card, Coxswain recommends it and says so wherever the built-in one is chosen
+  ([below](#when-it-is-a-poor-choice-here)).
 - **Thinking, when asked, on a Mac's GPU.** Qwen3 1.7B and 14B can think before they answer.
   They are told not to, so the first word comes as soon as the prompt is read, unless *Let the
   model think first* is ticked (`ask_think = true`): then, on a Mac's GPU, they think first,
@@ -110,6 +114,40 @@ The model in *Chat model* can also be typed: `builtin:qwen3-1.7b`, `builtin:qwen
   sources. See [How much it reads](ask.md#how-much-it-reads).
 - **Stop** (**Esc**, a new question, closing Find) is heard between parts of the prompt and
   between words.
+
+## When it is a poor choice here
+
+A built-in model on the processor is a poor choice when something far quicker is at hand, and
+Coxswain says so for as long as the choice stands, not once:
+
+| The choice | Said when | The better one |
+|---|---|---|
+| A built-in chat model for Ask | It runs on the processor (not a Mac's GPU) and a server Ask can use runs its models on the graphics card: Ollama here with the built-in vectors, else the server that makes the vectors | That server's chat model: the one named like the size that suits the card (`qwen3:8b` with 8–15 GB), else a Qwen, else its first |
+| A built-in chat model for Ask, no such server | Its [estimate](#the-estimate-for-this-processor) has the first word 10 s or more away (Qwen3 14B or 4B on a PC) | The largest smaller one that is quick here, if one is; and a model server on a graphics card |
+| The built-in embedding model for search by meaning | It runs on the processor and a server here runs an embedding model on the graphics card (only Ask's server, when Ask uses a server's model) | That server's embedding model (`bge-m3` first); every file's meaning is read again, said and asked first |
+
+*On the graphics card* is known when the server has a model loaded there (Ollama's `/api/ps`
+with memory on the card, Lemonade's devices); with nothing loaded yet, a machine with a graphics
+card or an NPU counts it as one. A server whose loaded model sits on the processor never
+counts. On a Mac's GPU (Metal) the built-in models are a good choice and nothing is said.
+
+What you see, with Ask set to Qwen3 14B on a PC with an RTX 4070 and Ollama's `qwen3:8b`:
+
+| Where | What |
+|---|---|
+| *Settings → Finding files*, the status | Under *Ask: Qwen3 14B, built in*, in red: *Qwen3 14B runs on the processor here: about 110 s to the first word. qwen3:8b on Ollama runs on your graphics card (NVIDIA GeForce RTX 4070 Laptop GPU) and answers far sooner.* and **Use qwen3:8b** (desktop: a link; terminal: **Enter** on the *Ask* line, whose bottom line shows the text) |
+| *Settings → Ask* | The same line in red under *Chat model*, with the **Use qwen3:8b** button (terminal: a row *! …* with *[Use qwen3:8b]*, **Enter** takes it). For the vectors, the line is under *Meaning* |
+| Find | Under the Ask row: *Qwen3 14B is slow here, on the processor* and **Use qwen3:8b** (terminal: *· Enter: Use qwen3:8b*). Without a quicker model the step is **Settings**, which opens at *Ask* |
+| What's new | Once: the notice with the same text, **Show me** opening *Settings → Ask* (terminal: the status line) |
+| The guide, step 4 | The server's model is preselected and *recommended*; the built-in ones say *slow here* |
+
+**Use qwen3:8b** saves `ask_model = "qwen3:8b"` at once, and the line goes. When no model of
+the server is quicker, or the smaller built-in model is not downloaded, there is no button: the
+line names what to do (*Qwen3 1.7B answers sooner here (about 9 s); a model server on a graphics
+card sooner still.*), and the list under *Chat model* downloads it.
+
+The servers are asked in the background, at most every two minutes, the first time Settings or
+Find needs it: only the servers on this machine, nothing else.
 
 ## How quick it is
 
@@ -150,9 +188,9 @@ a model server answers more quickly)*
 | Where | What you see |
 |---|---|
 | Desktop app, the guide, step 4 | The line under the list, for the model chosen in it |
-| Desktop app, *Settings → Ask → Built-in chat models* | The line under each model |
+| Desktop app, *Settings → Ask → Chat model* | In each built-in model's entry of the list: *about 74 s to the first word* |
 | Terminal app, `--setup-search`, step 4 | The line under each built-in model in the list |
-| Terminal app, *Settings → Finding files → Ask* | A line per built-in model, under *Chat model* |
+| Terminal app, *Settings → Finding files → Ask* | In each built-in model's entry of the *Chat model* list |
 
 - **Recommended only when quick.** Under 10 s to the first word, Qwen3 1.7B is marked
   **recommended** when no server answers, as on a Mac. Otherwise it is still chosen in the list
@@ -181,7 +219,8 @@ a model server answers more quickly)*
 | Item (*Settings → Finding files → Details*) | Key | Value | Does |
 |---|---|---|---|
 | *Ask* → *Chat model* | `[search] ask_model` | `"builtin:qwen3-1.7b"`, `"builtin:qwen3-4b"`, `"builtin:qwen3-14b"` | Ask answers with that built-in model |
-| *Ask* → *Built-in chat models* | none | | The models that fit, the memory each needs, the estimate for this processor, **Download (size) and use**, **Use**, **Delete the model** |
+| *Ask* → *Chat model*, the list | none | | The server's chat models and the built-in ones that fit, each with where it runs, its size and the estimate for this processor; a pick sets `ask_model`, downloading a built-in one first |
+| *Built-in models* | none | | The models on the disk, to unload or delete ([Built-in models](models.md)) |
 | *Ask* → *Let the model think first* | `[search] ask_think` | bool, `false` | Qwen3 1.7B and 14B think first, on a Mac's GPU |
 | *Meaning* → *Use the CPU only* | `[search] meaning_device` | `"auto"` / `"cpu"` | On a Mac, `"cpu"` keeps the built-in models off the GPU (and stops them thinking) |
 
@@ -240,11 +279,24 @@ and download it. For quick answers on a PC, run Ollama or Lemonade with a graphi
 It runs on the processor there, and the processor reads the prompt about as fast as it writes
 the answer. Coxswain gives it fewer passages for that reason. A model server with a graphics
 card (Ollama with CUDA, Lemonade on AMD) answers in a fraction of the time; the guide finds one
-when it runs.
+when it runs, and Settings says in red which one is quicker, with a **Use** button
+([When it is a poor choice here](#when-it-is-a-poor-choice-here)).
+
+#### Settings says my model "runs on the processor here" in red. Why?
+The built-in model you chose runs on the processor while a server on this machine runs a model
+on your graphics card, or it is too large to answer within 10 s here. The line names the quicker
+one; **Use qwen3:8b** (desktop) or **Enter** on the line (terminal) takes it. It stays as long as
+the choice does: choose another model, or keep this one and read past it.
+
+#### Why does Coxswain choose Ollama over the built-in model?
+When Ollama (or Lemonade, LM Studio, llama.cpp) runs a chat model on your graphics card, it
+answers in seconds where a built-in model on the processor takes a minute or more. So the guide's
+step 4, *Settings → Ask* with Ask off, and deleting the built-in model in use all take the
+server's model first. On a Mac the built-in models run on the GPU and stay a good first choice.
 
 #### Does it use my graphics card?
 On a Mac, yes (Metal). On Linux, Windows and FreeBSD, no: the built-in model runs on the
-processor. Ollama or Lemonade use the card.
+processor. Ollama or Lemonade use the card, and Coxswain recommends them when they answer.
 
 #### How good are its answers?
 Good for finding and quoting what your files say: *what does the fuel cost?* gets *The fuel
@@ -254,18 +306,19 @@ with 32 GB or more is as large as the models people run on a server with 16 GB o
 memory, and reasons better still when it may think first.
 
 #### It says the model is not downloaded. Why?
-`ask_model` names a built-in model that is not on disk, set by hand or deleted with **Delete the
-model**. Download it in *Settings → Finding files → Details → Ask*, or run
+`ask_model` names a built-in model that is not on disk, set by hand or deleted. Pick it in the
+list under *Settings → Finding files → Details → Ask → Chat model*, which downloads it, or run
 `coxswain --meaning ask builtin:qwen3-1.7b`.
 
 #### How do I free the memory or the disk?
-The memory frees itself five minutes after the last answer. **Delete the model** in Settings
-frees the disk; in the terminal app `coxswain --meaning ask delete` deletes all the built-in chat
-models. If it was Ask's model, Ask is turned off.
+The memory frees itself five minutes after the last answer, or at once with **Unload now**
+under *Settings → Finding files → Details → Built-in models* (**U** on its row in the terminal
+app). **Delete** there frees the disk; `coxswain --models delete unused` deletes all that are not
+in use. Deleting Ask's model gives Ask the recommended one ([Built-in models](models.md)).
 
 #### Can I use it with vectors from a server?
 Yes. The chat model and the embedding model are chosen apart: vectors from Ollama with answers
 from the built-in model work, and the other way round.
 
 ---
-[← Previous: Ask](ask.md) · [Next: The search helper →](helper.md)
+[← Previous: Ask](ask.md) · [Next: Built-in models →](models.md)

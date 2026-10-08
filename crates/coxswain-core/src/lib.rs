@@ -24,6 +24,7 @@ pub mod notices;
 pub mod meaning;
 pub mod menu;
 pub mod migrate;
+pub mod models;
 pub mod provenance;
 pub mod rename;
 pub mod service;

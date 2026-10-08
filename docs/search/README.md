@@ -40,6 +40,7 @@ active panel's folder, **Ctrl+F** inside Find) limits every group and Ask; it sh
 | [Search by meaning on a server](servers.md) | Ollama, Lemonade, LM Studio or any server with the OpenAI API |
 | [Ask](ask.md) | Questions answered from your files by your own chat model, with numbered sources |
 | [Ask without a server](ask-builtin.md) | The built-in chat model (Qwen3 1.7B or 4B): downloaded once, on a Mac's GPU or the processor, nothing sent |
+| [Built-in models](models.md) | The models Coxswain downloaded: where they are, whether they are loaded, unloading and deleting them, `coxswain --models` |
 | [The search helper](helper.md) | The background process, starting it with your session, and how an app takes the registration over after an upgrade |
 | [Battery](battery.md) | Why reading waits while a laptop runs on its battery |
 | [Notices and what's new](notices.md) | Tips of what to turn on, what each version brought (*Settings → Overview → What's new*, `coxswain --whats-new`), and the version in the title |

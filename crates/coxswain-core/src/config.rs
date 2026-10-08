@@ -1044,7 +1044,7 @@ impl Config {
             ("cache", crate::helper::folder()),
             ("name index", crate::index::Index::cache_path()),
             ("search store", crate::store::Store::path()),
-            ("model", crate::meaning::folder()),
+            ("models", crate::models::folder()),
             ("previews", dirs::cache_dir().map(|d| d.join("coxswain").join("previews"))),
             ("archive looks", dirs::cache_dir().map(|d| d.join("coxswain").join("peek"))),
         ]

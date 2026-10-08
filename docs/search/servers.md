@@ -42,10 +42,12 @@ themselves. The *Server* field is the base URL: Coxswain adds `/api/embed` for O
   `config.toml`.
 - The status line shows the model in use, `ollama:bge-m3` or `openai:nomic-embed-text-v1-GGUF`, and
   in red the error of a server that does not answer.
-- While search by meaning runs on the built-in model and Ollama answers on this machine, a
-  [notice](notices.md) says *Ollama runs here: search by meaning could use its GPU. Choose it*
-  under *Settings → Overview → What's new* (terminal app: `… : coxswain --meaning ollama`, once in the
-  status line).
+- While search by meaning runs on the built-in model on the processor and a server here runs an
+  embedding model on the graphics card, *Settings → Finding files* says so in red on the
+  *Meaning* line and under *Meaning*: *The built-in model reads meaning on the processor here.
+  bge-m3:latest on Ollama runs on your graphics card (…) and reads your files far sooner.*, with
+  **Use bge-m3:latest** (every file's meaning is read again: said and asked first). A
+  [notice](notices.md) says it once too ([When it is a poor choice here](ask-builtin.md#when-it-is-a-poor-choice-here)).
 
 ## What to know
 
