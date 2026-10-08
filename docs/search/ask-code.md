@@ -57,7 +57,8 @@ or more are files of code; project, configuration and data files such as `Cargo.
 `coxswain_core::menu`, `passages()`, `src/store.rs`, `MAX_LOAD`, `kv_hash`, `fetchTasks`. No
 model decides it: it is worked out from the sources and the words, at once.
 
-What it changes: the line over the sources says so. A question about code gets the same excerpts as any other; only a
+What it changes: the line over the sources says so, and a [model for code questions](#a-model-for-code-questions),
+when one is set, answers it. A question about code gets the same excerpts as any other; only a
 question about the whole project gets the [map](#the-map-of-a-project). Giving a specific
 question the map too was measured and left out: the excerpts it pushed out said more
 ([Performance → Code questions](../reference/performance.md#code-questions)).
