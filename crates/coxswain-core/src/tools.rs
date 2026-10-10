@@ -331,6 +331,14 @@ pub fn command(program: impl AsRef<std::ffi::OsStr>) -> Command {
     if let Some(appdir) = std::env::var_os("APPDIR") {
         outside(&mut c, Path::new(&appdir), std::env::vars_os());
     }
+    #[cfg(windows)]
+    // Windows gives a console program its own window when its parent has none: from the
+    // desktop app and the detached helper, every git, cmd or converter would flash a black
+    // box (the terminal app has a console, and its children share it, as an editor must).
+    if unsafe { windows_sys::Win32::System::Console::GetConsoleWindow() }.is_null() {
+        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+        std::os::windows::process::CommandExt::creation_flags(&mut c, CREATE_NO_WINDOW);
+    }
     c
 }
 

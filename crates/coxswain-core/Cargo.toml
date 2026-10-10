@@ -71,7 +71,7 @@ trash = "5.2.9"
 kqueue = "1.2.1"
 
 [target.'cfg(windows)'.dependencies]
-windows-sys = { version = "0.61.2", features = ["Win32_System_Power", "Win32_System_SystemInformation", "Win32_Storage_FileSystem", "Win32_System_Com", "Win32_UI_Shell", "Win32_UI_WindowsAndMessaging"] }
+windows-sys = { version = "0.61.2", features = ["Win32_System_Power", "Win32_System_SystemInformation", "Win32_Storage_FileSystem", "Win32_System_Com", "Win32_System_Console", "Win32_UI_Shell", "Win32_UI_WindowsAndMessaging"] }
 
 # Search by meaning on Apple's GPU: the built-in model tries Metal first on a Mac (it falls back to
 # the CPU when Metal is missing or disagrees). Only on macOS: other builds and the musl terminal
