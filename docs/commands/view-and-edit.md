@@ -107,6 +107,14 @@ The first that is set: `editor` in `config.toml`, then `$VISUAL`, then `$EDITOR`
 They work on files only. To look into a folder, press **Enter**; its summary, size and
 [note](../organise/notes.md) show in the desktop app's preview pane.
 
+#### Why did empty black windows pop up in the desktop app on Windows?
+
+Versions before 2.20.1 ran git, converters and the commands behind the previews the way Windows
+runs a console program from an app without a console: each got a window of its own, empty since
+its output went to Coxswain. Nothing was wrong with your folders or your setup. From 2.20.1 the
+desktop app starts them without a window; the terminal app has a console and its programs share
+it, so an editor it opens still shows.
+
 #### Can I edit a file inside an archive with F4?
 
 No: the editor would change a copy, and the change would be lost. Copy it out with **F5** first
