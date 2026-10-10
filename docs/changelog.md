@@ -6,6 +6,7 @@ Every version, newest first. Downloads are on the [releases page](https://github
 
 | Version | Date | What's new |
 |---|---|---|
+| **2.20.4** | 2026-10-10 | **Bundled viewers up to date.** KaTeX 0.19, marked 18.1 and Asciidoctor 4.1.1 in the desktop app's previews; the Rust toolchain action in CI follows. |
 | **2.20.3** | 2026-10-10 | **Buttons easier to read in the dark themes.** Close, OK and the other lit buttons of Dark, Nord, Tokyo Night, Windows 11 (dark) and macOS (dark) are semibold: dark letters on a pastel accent were hard to read at the usual size. Your own theme gets it with `bold = true` on its `accent` slot. [Your own theme](customise/own-theme.md) |
 | **2.20.2** | 2026-10-10 | **Search by meaning indexes build output much faster, or not at all.** A passage is at most 2,000 characters: a line of minified JSON or a list of paths used to be one "word" of thousands of tokens, and a server read all of it, so a few such files took hours. MSBuild's `obj` folders are left out by default, as `target`, `build` and `dist` are. [Search by meaning](search/meaning.md#how-it-works) |
 | **2.20.1** | 2026-10-10 | **No more black boxes on Windows.** The desktop app ran git, converters and its commands in console windows that flashed up empty, one per program; now none shows. The terminal app is unchanged, so an editor it starts still has its terminal. [View and edit](commands/view-and-edit.md#why-did-empty-black-windows-pop-up-in-the-desktop-app-on-windows) |

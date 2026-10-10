@@ -10,7 +10,7 @@
     "test": "node --test \"src/**/*.test.js\""
   },
   "dependencies": {
-    "@asciidoctor/core": "^4.1.0",
+    "@asciidoctor/core": "^4.1.1",
     "@jvmr/pptx-to-html": "^1.1.2",
     "@tauri-apps/api": "^2.12.1",
     "@viz-js/viz": "^3.31.0",
@@ -20,9 +20,9 @@
     "hyparquet": "^1.31.2",
     "hyparquet-compressors": "^1.1.2",
     "jszip": "^3.10.2",
-    "katex": "^0.18.10",
+    "katex": "^0.19.0",
     "mammoth": "^1.13.0",
-    "marked": "^18.0.14",
+    "marked": "^18.1.0",
     "marked-katex-extension": "^5.1.13",
     "mermaid": "^12.1.0",
     "smol-toml": "^1.9.0",
