@@ -892,7 +892,7 @@ impl Default for SearchConfig {
             watch: true,
             text: true,
             text_roots: vec![],
-            text_exclude: ["node_modules", "target", "build", "dist", "out", "vendor", "__pycache__", "Trash"].map(String::from).to_vec(),
+            text_exclude: ["node_modules", "target", "build", "dist", "out", "obj", "vendor", "__pycache__", "Trash"].map(String::from).to_vec(),
             names_only: vec![],
             meaning: false,
             meaning_engine: "builtin".into(),

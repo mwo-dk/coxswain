@@ -87,7 +87,9 @@ off: *Off*, *Files about your words are not found.*, and **Set up…**.
   ends at a paragraph's end once it has 60 words; a paragraph longer than that is cut, and the
   next passage starts with the last 20 words of the cut one, so nothing said across a cut is
   lost. In Markdown files (`.md`, `.markdown`, `.mdx`) each heading starts a new passage. A
-  passage with fewer than 20 letters is skipped.
+  passage with fewer than 20 letters is skipped, and one ends after 2,000 characters however
+  few words it has: a line of minified JSON or a list of paths is one "word" of thousands, and
+  a server would otherwise read all of it (the built-in model stops at 512 tokens anyway).
 - **What the model is shown** of each passage is a first line with the file's name, its folder
   and, in Markdown, the heading it sits under (`budget.md · rocket/notes · Fuel`), then the
   passage. A question that names a file, a folder or a section finds it.
