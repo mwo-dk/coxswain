@@ -90,6 +90,18 @@ pub fn sources(passages: impl FnOnce(&str, Option<&Path>, usize) -> Vec<(PathBuf
     Ok(out)
 }
 
+/// A table of an app's translated strings (`locales/de.json`, `messages.po`, `Strings.resx`):
+/// every word of the app's screens, thirty times over, so it comes closest to any question
+/// that names something an app shows, and says nothing a user asks about. Find still lists it.
+pub fn string_table(path: &Path) -> bool {
+    let ext = path.extension().map(|e| e.to_string_lossy().to_lowercase()).unwrap_or_default();
+    if matches!(ext.as_str(), "po" | "pot" | "xlf" | "xliff" | "resx" | "strings" | "arb" | "stringsdict") {
+        return true;
+    }
+    matches!(ext.as_str(), "json" | "yaml" | "yml" | "toml" | "properties" | "ts" | "js")
+        && path.parent().and_then(|d| d.file_name()).is_some_and(|d| matches!(d.to_string_lossy().to_lowercase().as_str(), "locales" | "locale" | "i18n" | "l10n" | "translations" | "lang" | "langs" | "languages" | "strings" | "messages"))
+}
+
 /// The line over the sources: how much was read, "12 excerpts from 7 files, about 6,000 words".
 pub fn read(sources: &[(PathBuf, String)]) -> String {
     let excerpts: usize = sources.iter().map(|(_, t)| t.matches(GAP).count() + 1).sum();
@@ -284,6 +296,16 @@ fn cut(text: &str, bytes: usize) -> String {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn ask_leaves_string_tables_out() {
+        for p in ["/r/crates/core/locales/ka.json", "/r/src/i18n/en.ts", "/r/po/messages.po", "/r/App/Strings.resx", "/r/lib/l10n/app_da.arb"] {
+            assert!(super::string_table(std::path::Path::new(p)), "{p}");
+        }
+        for p in ["/r/docs/locales.md", "/r/package.json", "/r/src/lang.rs", "/r/config/strings.txt", "/r/notes/messages/2024.md"] {
+            assert!(!super::string_table(std::path::Path::new(p)), "{p}");
+        }
+    }
+
     use super::*;
 
     #[test]

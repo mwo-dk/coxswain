@@ -6,6 +6,7 @@ Every version, newest first. Downloads are on the [releases page](https://github
 
 | Version | Date | What's new |
 |---|---|---|
+| **2.20.5** | 2026-10-10 | **Ask reads your files, not your translation tables.** String tables (`locales/*.json`, `.po`, `.resx`, an `i18n/` folder) no longer fill Ask's sources when a question names something an app shows, and the model is told to name only files the sources show, never to invent one. [Ask](search/ask.md#why-does-ask-never-quote-my-translation-files) |
 | **2.20.4** | 2026-10-10 | **Bundled viewers up to date.** KaTeX 0.18.11, marked 18.1 and Asciidoctor 4.1.1 in the desktop app's previews; the Rust toolchain action in CI follows. |
 | **2.20.3** | 2026-10-10 | **Buttons easier to read in the dark themes.** Close, OK and the other lit buttons of Dark, Nord, Tokyo Night, Windows 11 (dark) and macOS (dark) are semibold: dark letters on a pastel accent were hard to read at the usual size. Your own theme gets it with `bold = true` on its `accent` slot. [Your own theme](customise/own-theme.md) |
 | **2.20.2** | 2026-10-10 | **Search by meaning indexes build output much faster, or not at all.** A passage is at most 2,000 characters: a line of minified JSON or a list of paths used to be one "word" of thousands of tokens, and a server read all of it, so a few such files took hours. MSBuild's `obj` folders are left out by default, as `target`, `build` and `dist` are. [Search by meaning](search/meaning.md#how-it-works) |

@@ -809,7 +809,7 @@ impl Store {
     pub fn passages(&self, question: &str, scope: Option<&Path>, bytes: usize) -> Vec<(PathBuf, String)> {
         let mut per_file: HashMap<PathBuf, usize> = HashMap::new();
         let hits = self.closest(question, ASK_HITS, false, |path| {
-            if scope.is_some_and(|s| !path.starts_with(s)) {
+            if scope.is_some_and(|s| !path.starts_with(s)) || crate::ask::string_table(path) {
                 return false;
             }
             // Only the files that can give an excerpt have their text read.

@@ -293,6 +293,14 @@ question. Ask with other words, or check with Find (**Shift+F7**, *In files*) th
 outside *Folders read*, *Names only* folders and files still waiting for their vectors are not
 searched.
 
+#### Why does Ask never quote my translation files?
+
+A table of an app's strings (`locales/da.json`, `messages.po`, `Strings.resx`, an `i18n/` or
+`l10n/` folder) holds every word of the app's screens, so by meaning it comes closest to any
+question that names something an app shows, and it answers nothing. Ask leaves such files out
+of its sources; Find still lists them, and the model is told to name only files the sources
+show.
+
 #### Can it answer from one folder only?
 Yes. Switch Find's scope with **Ctrl+F** inside Find (*In rocket*, `[in rocket]` in the terminal
 app) before you ask: the passages then come from that folder and below. With nothing close

@@ -636,8 +636,9 @@ pub type Turn = (String, String);
 
 /// What the chat model is told to do with the sources.
 pub(crate) const RULES: &str = "You answer questions about the user's own files. Use only the numbered sources below. \
-After each statement, cite the sources it comes from as [1] or [2][3]. If the sources do not hold the answer, \
-say so plainly and do not guess. Answer in the language of the question, briefly.";
+After each statement, cite the sources it comes from as [1] or [2][3]. Name only files and folders that the sources \
+show; never invent a file name. If the sources do not hold the answer, say so plainly and do not guess. \
+Answer in the language of the question, briefly.";
 
 /// Ask: `question` answered by the chat model on the user's server or the built-in one, from `sources` (numbered
 /// in their order) and the turns before. Each piece of the answer goes to `piece` as it
