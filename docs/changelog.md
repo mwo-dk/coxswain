@@ -6,6 +6,7 @@ Every version, newest first. Downloads are on the [releases page](https://github
 
 | Version | Date | What's new |
 |---|---|---|
+| **2.21.0** | 2026-10-10 | **Ask says when it reads less than it could.** The servers tell how many tokens a chat model takes; when Ask gives it less than half, Settings → Ask and the setup guide say so under the model, with a **Use …** button (both apps), and when Ask asks for more than the model takes, the line says the server will refuse and the button sets what fits. [Ask](search/ask.md#can-ask-read-more) |
 | **2.20.5** | 2026-10-10 | **Ask reads your files, not your translation tables.** String tables (`locales/*.json`, `.po`, `.resx`, an `i18n/` folder) no longer fill Ask's sources when a question names something an app shows, and the model is told to name only files the sources show, never to invent one. [Ask](search/ask.md#why-does-ask-never-quote-my-translation-files) |
 | **2.20.4** | 2026-10-10 | **Bundled viewers up to date.** KaTeX 0.18.11, marked 18.1 and Asciidoctor 4.1.1 in the desktop app's previews; the Rust toolchain action in CI follows. |
 | **2.20.3** | 2026-10-10 | **Buttons easier to read in the dark themes.** Close, OK and the other lit buttons of Dark, Nord, Tokyo Night, Windows 11 (dark) and macOS (dark) are semibold: dark letters on a pastel accent were hard to read at the usual size. Your own theme gets it with `bold = true` on its `accent` slot. [Your own theme](customise/own-theme.md) |

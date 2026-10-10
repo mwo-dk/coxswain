@@ -1187,6 +1187,12 @@ pub fn draw(f: &mut Frame, app: &mut App) {
         _ => match rows.get(s.cursor) {
             Some(Row::Opt(o)) => {
                 text.push(Span::raw(o.hint()));
+                if o.name == "ask_context" {
+                    let a = coxswain_core::setup::context_advice(&cfg.search, coxswain_core::setup::look(false).as_deref());
+                    if let Some(n) = a.suggest {
+                        text.push(Span::styled(format!(" {} {}", a.why, t!("setup.context_use", "n" => n)), red));
+                    }
+                }
                 for c in o.costs {
                     text.push(Span::styled(format!(" [{}]", c.label()), if *c == cs::Cost::Leaves { red } else { dim }));
                 }
