@@ -549,6 +549,10 @@ impl Theme {
     }
 
     pub fn from_palette(p: &Palette) -> Self {
+        // A dark theme's buttons are dark letters on a pastel accent: semibold, or they are
+        // hard to read at 13 px (a light theme's are white on a deep accent and need nothing).
+        let dark = color_to_rgb(p.bg).is_some_and(|(r, g, b)| u32::from(r) * 30 + u32::from(g) * 59 + u32::from(b) * 11 < 12_800);
+        let accent = st(p.bg, p.accent);
         Theme {
             look: p.look.into(),
             panel: st(p.fg, p.bg),
@@ -577,7 +581,7 @@ impl Theme {
             git_conflict: bold(st(p.red, p.bg)),
             git_ignored: st(p.dim, p.bg),
             search_hit: bold(st(p.orange, "")),
-            accent: st(p.bg, p.accent),
+            accent: if dark { bold(accent) } else { accent },
             sidebar: st(p.fg, p.alt),
             tab: st(p.dim, p.alt),
             tab_active: st(p.fg, p.bg),
