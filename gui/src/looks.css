@@ -26,6 +26,10 @@
 /* Headings some looks write in spaced capitals: Georgian has no capitals in running text (the
    Mtavruli that uppercasing gives is missing from most fonts), and spacing pulls Persian's joined
    letters apart. */
+/* Lit buttons take the accent slot's weight: semibold in the dark themes (config.rs). */
+html:root .primary {
+  font-weight: var(--accent-weight);
+}
 html:root:is(:lang(ka), :lang(fa)) * {
   text-transform: none !important;
   letter-spacing: normal !important;

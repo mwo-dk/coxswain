@@ -103,7 +103,7 @@ only if you copy all of it (see the [questions](#i-set-themescyberpanel-to-tweak
 | `git_branch` | The git line, the sidebar's repositories | The git line |
 | `git_modified`, `git_added`, `git_untracked`, `git_deleted`, `git_renamed`, `git_conflict`, `git_ignored` | Git states of files ([Git](../panels/git.md)); `git_deleted` also colours errors | Git states of files; `git_conflict` also colours errors on the info line |
 | `search_hit` | The words found, in Find and the preview | The words found, in Find |
-| `accent` | Buttons, highlights, the active pane's ring, notices | Not used |
+| `accent` | Buttons, highlights, the active pane's ring, notices; `bold` makes the buttons semibold, as the dark themes do | Not used |
 | `sidebar` | The sidebar | Not used (no sidebar) |
 | `tab`, `tab_active` | Tabs | Not used (no tabs) |
 | `preview` | The preview pane | Not used (no preview pane) |
