@@ -742,6 +742,9 @@
             {@render field("ask_code_model", codeModel)}
             {@render check("ask_think")}
             {@render num("ask_context", 2048, 131072)}
+            {#if chat?.context.why}
+              <p class="hint">{chat.context.why} {#if chat.context.suggest}<button onclick={() => set("ask_context", chat.context.suggest)}>{t("setup.context_use", { n: chat.context.suggest })}</button>{/if}</p>
+            {/if}
           </details>
 
           <details class="group" id="opt-models" ontoggle={(e) => e.currentTarget.open && loadModels()}>

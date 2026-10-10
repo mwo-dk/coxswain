@@ -241,6 +241,9 @@
           {#if askServer && suggestChat && !chatModels.some((m) => m.startsWith(suggestChat))}<button disabled={!!meaning?.downloading} onclick={() => pull(suggestChat)}>{t("setup.pull", { model: suggestChat })}</button>{/if}
         </div>
         {#if builtinChosen?.estimate}<p class="hint">{builtinChosen.estimate}</p>{/if}
+        {#if chatBuiltin.context?.why}
+          <p class="hint">{chatBuiltin.context.why} {#if chatBuiltin.context.suggest}<button onclick={() => set({ ask_context: chatBuiltin.context.suggest })}>{t("setup.context_use", { n: chatBuiltin.context.suggest })}</button>{/if}</p>
+        {/if}
         {#if chatBuiltin.downloading}<p class="hint">{t("setup.downloading", { percent: Math.floor((chatBuiltin.downloading[1] * 100) / Math.max(1, chatBuiltin.downloading[2])) })}</p>{/if}
         {#if chatBuiltin.error}<p class="err">{chatBuiltin.error}</p>{/if}
       {/if}

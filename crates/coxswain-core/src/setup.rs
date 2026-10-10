@@ -46,6 +46,24 @@ pub struct Model {
     /// Billions of weights, as the server says (Ollama); else `size` reads them from the name.
     #[serde(default)]
     pub params: Option<f64>,
+    /// The most tokens it takes at once, when the server says: Ollama's `/api/show`,
+    /// Lemonade's and LM Studio's model lists, llama.cpp's `meta`.
+    #[serde(default)]
+    pub context: Option<usize>,
+}
+
+/// A model's context size as an OpenAI-style server's list gives it, under the names Lemonade,
+/// LM Studio and llama.cpp use.
+fn ctx_of(m: &serde_json::Value) -> Option<usize> {
+    ["max_context_window", "context_length", "max_context_length"].iter().find_map(|k| m[k].as_u64()).or_else(|| m["meta"]["n_ctx_train"].as_u64()).map(|n| n as usize)
+}
+
+/// An Ollama model's context size, from `/api/show`'s `model_info` (`qwen3.context_length`).
+fn ollama_context(agent: &ureq::Agent, url: &str, model: &str) -> Option<usize> {
+    let body = serde_json::json!({ "model": model }).to_string();
+    let mut res = agent.post(&format!("{url}/api/show")).header("Content-Type", "application/json").send(body).ok()?;
+    let v: serde_json::Value = serde_json::from_str(&res.body_mut().read_to_string().ok()?).ok()?;
+    v["model_info"].as_object()?.iter().find(|(k, _)| k.ends_with(".context_length")).and_then(|(_, n)| n.as_u64()).map(|n| n as usize)
 }
 
 /// A server that answered.
@@ -131,10 +149,12 @@ fn ask_server(kind: Kind, url: &str, key: Option<&str>) -> Option<Found> {
                 // Newer Ollamas say it in the list; older ones in `/api/show`.
                 let can: Option<Vec<String>> = m["capabilities"].as_array().map(|c| c.iter().filter_map(|x| x.as_str().map(String::from)).collect()).or_else(|| ollama_can(&slow, url, &name).ok().flatten());
                 let params = billions(m["details"]["parameter_size"].as_str().unwrap_or(""));
-                Some(Model { params, ..match can {
-                    Some(c) => Model { embed: c.iter().any(|x| x == "embedding"), chat: c.iter().any(|x| x == "completion"), name, params: None },
+                let model = match can {
+                    Some(c) => Model { embed: c.iter().any(|x| x == "embedding"), chat: c.iter().any(|x| x == "completion"), name, params: None, context: None },
                     None => guess(name),
-                } })
+                };
+                let context = if model.chat { ollama_context(&slow, url, &model.name) } else { None };
+                Some(Model { params, context, ..model })
             });
             Some(Found { kind, url: url.to_string(), engine: "ollama".into(), models: models.collect() })
         }
@@ -148,7 +168,7 @@ fn ask_server(kind: Kind, url: &str, key: Option<&str>) -> Option<Found> {
             let models = data.iter().filter(|m| m["downloaded"].as_bool() != Some(false)).filter_map(|m| {
                 let labels: Vec<&str> = m["labels"].as_array().map(|l| l.iter().filter_map(|x| x.as_str()).collect()).unwrap_or_default();
                 let embed = labels.contains(&"embeddings");
-                Some(Model { name: m["id"].as_str()?.to_string(), embed, chat: !embed && !labels.contains(&"reranking"), params: None })
+                Some(Model { name: m["id"].as_str()?.to_string(), embed, chat: !embed && !labels.contains(&"reranking"), params: None, context: ctx_of(m) })
             });
             openai(kind, models.collect())
         }
@@ -158,19 +178,19 @@ fn ask_server(kind: Kind, url: &str, key: Option<&str>) -> Option<Found> {
             let v = get(&quick, &format!("{base}/api/v0/models"), key)?;
             let models = v["data"].as_array()?.iter().filter_map(|m| {
                 let t = m["type"].as_str().unwrap_or("");
-                Some(Model { name: m["id"].as_str()?.to_string(), embed: t == "embeddings", chat: t == "llm" || t == "vlm", params: None })
+                Some(Model { name: m["id"].as_str()?.to_string(), embed: t == "embeddings", chat: t == "llm" || t == "vlm", params: None, context: ctx_of(m) })
             });
             openai(kind, models.collect())
         }
         Kind::LlamaCpp | Kind::Jan | Kind::LocalAi | Kind::Other => {
             let v = get(&quick, &format!("{url}/models"), key)?;
-            let names: Vec<String> = v["data"].as_array()?.iter().filter_map(|m| m["id"].as_str().map(String::from)).collect();
+            let names: Vec<(String, Option<usize>)> = v["data"].as_array()?.iter().filter_map(|m| Some((m["id"].as_str()?.to_string(), ctx_of(m)))).collect();
             // llama.cpp's server has `/props`; on 8080 without it, it is LocalAI.
             let base = url.trim_end_matches("/v1");
             let kind = if kind == Kind::LlamaCpp && get(&quick, &format!("{base}/props"), key).is_none() { Kind::LocalAi } else { kind };
             // These do not say what a model can do: a word to each, both ways, at once.
             let models = std::thread::scope(|s| {
-                let tried: Vec<_> = names.iter().map(|n| { let slow = &slow; s.spawn(move || Model { name: n.clone(), embed: tries(slow, url, key, "/embeddings", serde_json::json!({ "model": n, "input": "test" })), chat: tries(slow, url, key, "/chat/completions", serde_json::json!({ "model": n, "messages": [{ "role": "user", "content": "Hi" }], "max_tokens": 1 })), params: None }) }).collect();
+                let tried: Vec<_> = names.iter().map(|(n, context)| { let slow = &slow; s.spawn(move || Model { name: n.clone(), embed: tries(slow, url, key, "/embeddings", serde_json::json!({ "model": n, "input": "test" })), chat: tries(slow, url, key, "/chat/completions", serde_json::json!({ "model": n, "messages": [{ "role": "user", "content": "Hi" }], "max_tokens": 1 })), params: None, context: *context }) }).collect();
                 tried.into_iter().filter_map(|h| h.join().ok()).collect()
             });
             openai(kind, models)
@@ -191,7 +211,7 @@ fn tries(agent: &ureq::Agent, url: &str, key: Option<&str>, path: &str, body: se
 fn guess(name: String) -> Model {
     let n = name.to_lowercase();
     let embed = ["embed", "bge", "e5", "minilm", "gte", "arctic-embed"].iter().any(|w| n.contains(w));
-    Model { embed, chat: !embed, name, params: None }
+    Model { embed, chat: !embed, name, params: None, context: None }
 }
 
 /// Billions of weights in "8.2B", "567M" (Ollama's `parameter_size`) or a name's "14b".
@@ -708,6 +728,43 @@ pub fn recommend_ask(cfg: &crate::config::SearchConfig, look: Option<&Look>) -> 
     builtin.key()
 }
 
+// ---------------------------------------------------------------- how much Ask reads
+
+/// Whether Ask's context setting fits the model on the server: the line Settings and the setup
+/// guide show, and the value a **Use …** button sets; nothing when it fits or is not known.
+#[derive(Clone, Debug, Default, PartialEq, Serialize)]
+pub struct ContextAdvice {
+    pub why: String,
+    pub suggest: Option<usize>,
+}
+
+/// The most a server's model is given by default: more holds more of the card's memory, and
+/// an answer rarely needs more than this of the files.
+const CONTEXT_PLENTY: usize = 32_768;
+
+/// `ContextAdvice` for `cfg` on this machine as `look` saw it: when the model takes at least
+/// twice what Ask gives it, suggest up to `CONTEXT_PLENTY`; when it takes less than Ask gives,
+/// suggest what it takes. The built-in models keep their own sizes.
+pub fn context_advice(cfg: &crate::config::SearchConfig, look: Option<&Look>) -> ContextAdvice {
+    use crate::t;
+    let now = cfg.ask_context.clamp(2048, 131_072);
+    let model = &cfg.ask_model;
+    if model.is_empty() || crate::chat::of(model).is_some() {
+        return ContextAdvice::default();
+    }
+    let Some(ctx) = look.and_then(|l| l.found.iter().flat_map(|f| &f.models).find(|m| m.chat && &m.name == model)).and_then(|m| m.context) else {
+        return ContextAdvice::default();
+    };
+    if ctx >= now * 2 {
+        let suggest = (ctx.min(CONTEXT_PLENTY) / 1024) * 1024;
+        ContextAdvice { why: t!("setup.context_more", "model" => model.as_str(), "ctx" => ctx, "now" => now), suggest: Some(suggest) }
+    } else if ctx < now {
+        ContextAdvice { why: t!("setup.context_over", "model" => model.as_str(), "ctx" => ctx, "now" => now), suggest: Some((ctx / 1024) * 1024) }
+    } else {
+        ContextAdvice::default()
+    }
+}
+
 // ---------------------------------------------------------------- the model for code questions
 
 /// Whether a chat model is made for code, by its name: Qwen3-Coder, Devstral, Codestral, …
@@ -1031,7 +1088,7 @@ mod tests {
     }
 
     fn ollama() -> Found {
-        let m = |name: &str, embed| Model { name: name.into(), embed, chat: !embed, params: None };
+        let m = |name: &str, embed| Model { name: name.into(), embed, chat: !embed, params: None, context: None };
         Found { kind: Kind::Ollama, url: crate::meaning::OLLAMA.into(), engine: "ollama".into(), models: vec![m("bge-m3:latest", true), m("llama3.2:3b", false), m("qwen3:8b", false)] }
     }
 
@@ -1043,7 +1100,7 @@ mod tests {
     fn a_model_for_code_only_where_it_runs_well() {
         let with = |models: &[(&str, f64)]| {
             let mut f = ollama();
-            f.models.extend(models.iter().map(|(n, p)| Model { name: n.to_string(), embed: false, chat: true, params: Some(*p) }));
+            f.models.extend(models.iter().map(|(n, p)| Model { name: n.to_string(), embed: false, chat: true, params: Some(*p), context: None }));
             f
         };
         let card = |gb| Machine { gpu: Some((Vendor::Nvidia, "RTX 4070".into(), Some(gb))), npu: false, ram: 32 };
@@ -1119,7 +1176,7 @@ mod tests {
     /// card; one with nothing loaded counts when there is a card. What is said, and the button.
     #[test]
     fn a_poor_choice_is_said_with_the_better_one() {
-        let lemonade = Found { kind: Kind::Lemonade, url: "http://localhost:13305/api/v1".into(), engine: "openai".into(), models: vec![Model { name: "Qwen3-8B-GGUF".into(), embed: false, chat: true, params: None }] };
+        let lemonade = Found { kind: Kind::Lemonade, url: "http://localhost:13305/api/v1".into(), engine: "openai".into(), models: vec![Model { name: "Qwen3-8B-GGUF".into(), embed: false, chat: true, params: None, context: None }] };
         let card = Machine { gpu: Some((Vendor::Nvidia, "RTX 4070".into(), Some(8))), npu: false, ram: 32 };
         let look = Look { found: vec![ollama(), lemonade.clone()], machine: card.clone(), gpu: vec![Some(false), None] };
         assert_eq!(look.gpu_servers().iter().map(|(f, sure)| (f.kind, *sure)).collect::<Vec<_>>(), [(Kind::Lemonade, false)]);
@@ -1153,13 +1210,34 @@ mod tests {
         assert_eq!(billions("567.75M"), Some(0.56775));
     }
 
+    /// Ask's context against what the server's model takes: a line and a value to use when the
+    /// model takes twice as much, or less than Ask gives; nothing when it fits, is unknown or
+    /// the model is built in.
+    #[test]
+    fn ask_context_is_advised_from_the_model() {
+        let m = |name: &str, context| Model { name: name.into(), embed: false, chat: true, params: None, context };
+        let look = |models| Look { found: vec![Found { models, ..ollama() }], machine: Machine::default(), gpu: vec![Some(true)] };
+        let cfg = |model: &str, ask_context| crate::config::SearchConfig { ask_model: model.into(), ask_context, ..Default::default() };
+        let a = context_advice(&cfg("qwen3:8b", 8192), Some(&look(vec![m("qwen3:8b", Some(40_960))])));
+        assert_eq!(a.suggest, Some(32_768));
+        assert!(a.why.contains("qwen3:8b") && a.why.contains("40960") && a.why.contains("8192"), "{}", a.why);
+        let a = context_advice(&cfg("qwen3:8b", 16_384), Some(&look(vec![m("qwen3:8b", Some(4096))])));
+        assert_eq!((a.suggest, a.why.is_empty()), (Some(4096), false));
+        assert_eq!(context_advice(&cfg("qwen3:8b", 8192), Some(&look(vec![m("qwen3:8b", Some(12_000))]))), ContextAdvice::default(), "fits");
+        assert_eq!(context_advice(&cfg("qwen3:8b", 8192), Some(&look(vec![m("qwen3:8b", None)]))), ContextAdvice::default(), "unknown");
+        assert_eq!(context_advice(&cfg("builtin:qwen3-4b", 8192), Some(&look(vec![m("qwen3:8b", Some(40_960))]))), ContextAdvice::default(), "built in");
+        assert_eq!(context_advice(&cfg("qwen3:8b", 8192), None), ContextAdvice::default(), "no look yet");
+        assert_eq!(ctx_of(&serde_json::json!({ "max_context_window": 40960 })), Some(40960));
+        assert_eq!(ctx_of(&serde_json::json!({ "meta": { "n_ctx_train": 32768 } })), Some(32768));
+    }
+
     /// On a Mac's GPU the built-in models are a good choice: a server there only says a tip,
     /// when it has a larger chat model or a stronger embedding model; one with smaller models,
     /// or none, says nothing.
     #[test]
     fn on_metal_a_larger_server_model_is_a_tip() {
         let mac = Machine { gpu: Some((Vendor::Apple, "Apple silicon".into(), None)), npu: false, ram: 36 };
-        let m = |name: &str, embed, params| Model { name: name.into(), embed, chat: !embed, params };
+        let m = |name: &str, embed, params| Model { name: name.into(), embed, chat: !embed, params, context: None };
         let cfg = crate::config::SearchConfig { ask_model: "builtin:qwen3-14b".into(), meaning: true, ..Default::default() };
         // No server: the built-in models, nothing to say.
         assert!(poor_at(&cfg, &Look { found: vec![], machine: mac.clone(), gpu: vec![] }, true).is_empty());

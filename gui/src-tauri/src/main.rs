@@ -750,6 +750,8 @@ struct ChatStatus {
     /// The same for the model for code questions, and why one is recommended here or none.
     code_groups: Vec<coxswain_core::setup::AskGroup>,
     code_why: String,
+    /// Whether Ask's context fits the server's model: the line and the value **Use …** sets.
+    context: coxswain_core::setup::ContextAdvice,
 }
 
 #[tauri::command(async)]
@@ -775,6 +777,7 @@ fn chat_status(ctx: tauri::State<Ctx>) -> Res<ChatStatus> {
         groups: coxswain_core::setup::ask_choices(&ctx.cfg().search, look.as_deref()),
         code_groups: coxswain_core::setup::code_choices(&ctx.cfg().search, look.as_deref()),
         code_why: coxswain_core::setup::code_advice(&ctx.cfg().search, look.as_deref()).why,
+        context: coxswain_core::setup::context_advice(&ctx.cfg().search, look.as_deref()),
     })
 }
 

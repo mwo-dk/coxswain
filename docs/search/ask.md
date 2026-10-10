@@ -272,6 +272,14 @@ terminal app's Settings has it under *Ask*). 16,384 reads about twice as much. E
 memory on the server: on an 8 GB graphics card `qwen3:8b` with more than 8,192 pushes
 `bge-m3` out, and every question loads both again. The built-in models keep their own sizes.
 
+Since 2.21.0 you need not know this: the servers say how much a model takes (Ollama's
+`/api/show`, Lemonade's and LM Studio's model lists, llama.cpp's `meta`), and when Ask's model
+takes at least twice what Ask gives it, a line under the setting and under the model in the
+setup guide says so, *Qwen3-8B-GGUF takes up to 40960 tokens, and Ask gives it 8192 …*, with a
+**Use 32768** button (up to 32,768; the terminal app's Settings shows the line under the field,
+type the number). The other way round, Ask set to more than the model takes, the line says the
+server will refuse long questions and the button sets what the model takes.
+
 #### My OpenAI-style server says the prompt is too long. Why?
 Coxswain can ask Ollama for a context but not Lemonade, LM Studio, llama.cpp or vLLM: they use
 the context the model was loaded with, and LM Studio's default is 4,096 tokens. Load the model
