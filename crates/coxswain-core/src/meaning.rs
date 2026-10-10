@@ -36,6 +36,10 @@ pub const DIMS: usize = 384;
 /// passages evenly between.
 const WORDS: usize = 120;
 const OVERLAP: usize = 20;
+/// The most of a passage the model is shown, in bytes: 120 words of prose are about 800. A
+/// "word" of minified JSON or a path list runs to thousands, and a server (unlike the built-in
+/// model, which cuts at 512 tokens) would read them all: a few such files took hours.
+const CHARS: usize = 2000;
 pub const PASSAGES: usize = 256;
 /// How a file is cut into passages and what the model is shown of each: vectors made another
 /// way are made again (the store keeps it in its meta as `passages`). 3: code by its items.
@@ -932,6 +936,12 @@ pub fn passages(text: &str, path: &str) -> Vec<Passage> {
         all = prose(text, markdown);
     }
     all.retain(|(p, _)| p.text.chars().filter(|c| c.is_alphabetic()).count() >= 20);
+    for (p, _) in &mut all {
+        if p.text.len() > CHARS {
+            let at = (0..=CHARS).rev().find(|&i| p.text.is_char_boundary(i)).unwrap();
+            p.text.truncate(at);
+        }
+    }
     cap(all)
 }
 
@@ -1409,6 +1419,13 @@ mod tests {
         assert!(all[0].text.contains("p0w0") && all.last().unwrap().text.contains("p29w1999"));
         assert!((0..30).all(|s| all.iter().any(|p| p.text.contains(&format!("p{s}w0 ")))), "every part's start");
         assert_eq!(passages(&long, "notes.md"), all, "the same text, the same passages");
+
+        // A line of minified JSON is one word of 30,000 bytes: the passage ends at CHARS, on a
+        // character boundary.
+        let json = format!("{{\"deps\":[{}]}}", (0..1500).map(|i| format!("\"pakke{i}-æøå\"")).collect::<Vec<_>>().join(","));
+        let ps = passages(&json, "app.deps.json");
+        assert_eq!(ps.len(), 1);
+        assert!(ps[0].text.len() <= CHARS && ps[0].text.len() > CHARS - 8 && ps[0].text.starts_with("{\"deps\""), "{}", ps[0].text.len());
     }
 
     /// With the model downloaded: a question finds the passage about it, across languages.

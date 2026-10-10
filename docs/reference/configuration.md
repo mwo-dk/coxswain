@@ -240,7 +240,7 @@ flags start a new one.
 | `watch` | bool | `true` | Follow changes live with the file watcher; `false`: only the hourly rebuild |
 | `text` | bool | `true` | Keep the text of files, for Find's *In files* group ([Text in files](../search/text.md)) |
 | `text_roots` | list of paths | `[]` | The folders whose files are read. Empty: your home folder ([Choosing the folders](../search/folders.md)) |
-| `text_exclude` | list of strings | `["node_modules", "target", "build", "dist", "out", "vendor", "__pycache__", "Trash"]` | Folder names left out of reading, wherever they are. Hidden folders and folders with a `.nosearch` file always are |
+| `text_exclude` | list of strings | `["node_modules", "target", "build", "dist", "out", "obj", "vendor", "__pycache__", "Trash"]` | Folder names left out of reading, wherever they are. Hidden folders and folders with a `.nosearch` file always are |
 | `names_only` | list of paths | `[]` | Folders found by name and counted in sizes, never read |
 | `cloud` | string | `"local-only"` | Files only in OneDrive, Dropbox, Google Drive, Proton Drive, iCloud or a cloud mount: `"local-only"` finds them by name and never reads (downloads) them; `"all"` reads them ([Cloud files](../search/cloud-files.md)) |
 | `cloud_read` | list of paths | `[]` | Cloud folders whose online-only files are read anyway |
