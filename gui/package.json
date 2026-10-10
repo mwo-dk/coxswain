@@ -20,7 +20,7 @@
     "hyparquet": "^1.31.2",
     "hyparquet-compressors": "^1.1.2",
     "jszip": "^3.10.2",
-    "katex": "^0.19.0",
+    "katex": "^0.18.11",
     "mammoth": "^1.13.0",
     "marked": "^18.1.0",
     "marked-katex-extension": "^5.1.13",
