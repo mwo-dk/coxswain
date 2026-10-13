@@ -401,6 +401,19 @@ pub struct Line {
     pub step: Option<Step>,
     /// The model chosen is a poor choice here: what to say, and the better one.
     pub poor: Option<crate::setup::Poor>,
+    /// Work under way: files done of all, for a progress bar.
+    pub bar: Option<(usize, usize)>,
+}
+
+/// A progress bar of `width` cells for the terminal: `done` of `total`, filled from the left.
+pub fn bar(done: usize, total: usize, width: usize) -> String {
+    let full = if total == 0 { width } else { (done.min(total) * width) / total };
+    format!("{}{}", "█".repeat(full), "░".repeat(width - full))
+}
+
+/// Whole percent of `done` of `total`, never 100 while something is left.
+pub fn percent(done: usize, total: usize) -> usize {
+    if total == 0 { 100 } else { ((done.min(total) * 100) / total).min(if done < total { 99 } else { 100 }) }
 }
 
 /// A count with its thousands set apart by a narrow space, which reads right in every language:
@@ -470,7 +483,7 @@ fn cause(why: &str, url: &str) -> String {
 /// the helper answers (without it there is no reading). `poor`: the models chosen that are
 /// poor choices here (`setup::poor`), each said on its line for as long as it stands.
 pub fn status(s: &SearchConfig, st: &Status, helper: bool, poor: &[crate::setup::Poor]) -> Vec<Line> {
-    let line = |part, key: &str, text: String| Line { part, label: t!(key), text, note: None, bad: false, step: None, poor: None };
+    let line = |part, key: &str, text: String| Line { part, label: t!(key), text, note: None, bad: false, step: None, poor: None, bar: None };
     let mut names = line(Part::Names, "settings.status.names", t!("settings.status.names_ready", "n" => count(st.len)));
     if st.state != crate::index::State::Ready {
         names.text = t!("settings.status.names_building", "n" => count(st.len));
@@ -514,8 +527,11 @@ pub fn status(s: &SearchConfig, st: &Status, helper: bool, poor: &[crate::setup:
             meaning.note = Some(cause(why, &url));
             meaning.bad = true;
             meaning.step = Some(Step::SetUp);
-        } else if st.meaning_pending > 0 && st.meaning_ms_per_file > 0 {
-            meaning.note = Some(t!("settings.status.meaning_left", "time" => crate::notices::time_left(st)));
+        } else if st.meaning_pending > 0 {
+            meaning.bar = Some((st.meaning_done, total));
+            if st.meaning_ms_per_file > 0 {
+                meaning.note = Some(t!("settings.status.meaning_left", "time" => crate::notices::time_left(st)));
+            }
         }
     }
     let mut ask = line(Part::Ask, "settings.status.ask", t!("settings.status.off"));
@@ -752,6 +768,11 @@ mod tests {
         let lines = status(&s, &st, true, &[]);
         assert!(lines[2].bad && lines[2].note.as_deref().unwrap().contains("localhost:11434"), "{:?}", lines[2]);
         assert_eq!(lines[3].step, Some(Step::TryIt));
+        let st = Status { meaning_error: None, meaning_done: 23_611, meaning_pending: 245_762, ..st };
+        let lines = status(&s, &st, true, &[]);
+        assert_eq!(lines[2].bar, Some((23_611, 269_373)));
+        assert_eq!(bar(23_611, 269_373, 20), "█░░░░░░░░░░░░░░░░░░░");
+        assert_eq!((percent(23_611, 269_373), percent(269_372, 269_373), percent(5, 5), percent(0, 0)), (8, 99, 100, 100));
     }
 
     #[test]

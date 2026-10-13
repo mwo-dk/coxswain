@@ -1487,6 +1487,7 @@
  "find.kind_in_files": "Ֆայլերում",
  "find.kind_names": "Անուններ",
  "find.meaning_for": "իմաստը՝ {n}",
+ "find.meaning_of": "իմաստը՝ {n}՝ {total}-ից ({percent} %)",
  "find.more": "ևս {n}․ Enter-ը ցույց է տալիս բոլորը",
  "find.nothing": "«{query}»-ի համար ոչինչ չի գտնվել։",
  "find.nothing_in": "«{query}»-ի համար {folder}-ում ոչինչ չի գտնվել։",

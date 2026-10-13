@@ -1487,6 +1487,7 @@
  "find.kind_in_files": "Fitxategietan",
  "find.kind_names": "Izenak",
  "find.meaning_for": "{n} fitxategiren esanahia",
+ "find.meaning_of": "{total}tik {n} fitxategiren esanahia ({percent} %)",
  "find.more": "{n} gehiago: Sartu teklak denak erakusten ditu",
  "find.nothing": "Ez da ezer aurkitu «{query}» bilaketarako.",
  "find.nothing_in": "Ez da ezer aurkitu «{query}» bilaketarako {folder} karpetan.",

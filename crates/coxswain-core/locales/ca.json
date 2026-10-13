@@ -1518,6 +1518,7 @@
  "find.kind_in_files": "Als fitxers",
  "find.kind_names": "Noms",
  "find.meaning_for": "significat de {n}",
+ "find.meaning_of": "significat de {n} de {total} ({percent} %)",
  "find.more": "{n} més: Retorn els mostra tots",
  "find.nothing": "No s'ha trobat res per a «{query}».",
  "find.nothing_in": "No s'ha trobat res per a «{query}» a {folder}.",

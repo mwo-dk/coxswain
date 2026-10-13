@@ -1518,6 +1518,7 @@
  "find.kind_in_files": "En archivos",
  "find.kind_names": "Nombres",
  "find.meaning_for": "significado de {n}",
+ "find.meaning_of": "significado de {n} de {total} ({percent} %)",
  "find.more": "{n} más: Enter los muestra todos",
  "find.nothing": "No se encontró nada para “{query}”.",
  "find.nothing_in": "No se encontró nada para “{query}” en {folder}.",

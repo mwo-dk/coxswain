@@ -1039,8 +1039,9 @@ pub fn draw(f: &mut Frame, app: &mut App) {
                         None => l.step.map(|x| format!(" [{}]", x.label())).unwrap_or_default(),
                     };
                     let label = format!(" {}", fit(&l.label, 9));
-                    let text = fit(&l.text, w.saturating_sub(label.width() + step.width() + 1));
-                    lines.push(Line::from(vec![Span::styled(format!("{label} "), if here { selected } else { head }), Span::styled(text, st), Span::styled(step, st)]));
+                    let bar = l.bar.map(|(done, total)| format!(" {} {} %", cs::bar(done, total, 10), cs::percent(done, total))).unwrap_or_default();
+                    let text = fit(&l.text, w.saturating_sub(label.width() + bar.width() + step.width() + 1));
+                    lines.push(Line::from(vec![Span::styled(format!("{label} "), if here { selected } else { head }), Span::styled(text, st), Span::styled(bar, st), Span::styled(step, st)]));
                 }
                 Row::Level(l) => {
                     let mark = if level == Some(*l) { "(•)" } else { "( )" };

@@ -1518,6 +1518,7 @@
  "find.kind_in_files": "בקבצים",
  "find.kind_names": "שמות",
  "find.meaning_for": "משמעות ל-{n}",
+ "find.meaning_of": "משמעות ל-{n} מתוך {total} ({percent} %)",
  "find.more": "עוד {n}: Enter מציג את כולם",
  "find.nothing": "לא נמצא דבר עבור „{query}”.",
  "find.nothing_in": "לא נמצא דבר עבור „{query}” ב-{folder}.",

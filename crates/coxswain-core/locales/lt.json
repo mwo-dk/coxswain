@@ -1518,6 +1518,7 @@
  "find.kind_in_files": "Failuose",
  "find.kind_names": "Pavadinimai",
  "find.meaning_for": "prasmė {n} failų",
+ "find.meaning_of": "prasmė {n} iš {total} failų ({percent} %)",
  "find.more": "Dar {n}: Enter parodo visus",
  "find.nothing": "Pagal „{query}“ nieko nerasta.",
  "find.nothing_in": "Pagal „{query}“ aplanke {folder} nieko nerasta.",

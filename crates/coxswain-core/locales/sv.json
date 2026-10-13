@@ -1487,6 +1487,7 @@
  "find.kind_in_files": "I filer",
  "find.kind_names": "Namn",
  "find.meaning_for": "betydelse för {n}",
+ "find.meaning_of": "betydelse för {n} av {total} ({percent} %)",
  "find.more": "{n} till: Enter visar alla",
  "find.nothing": "Inget hittades för “{query}”.",
  "find.nothing_in": "Inget hittades för “{query}” i {folder}.",

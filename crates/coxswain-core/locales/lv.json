@@ -1518,6 +1518,7 @@
  "find.kind_in_files": "Failos",
  "find.kind_names": "Nosaukumi",
  "find.meaning_for": "nozīme {n} failiem",
+ "find.meaning_of": "nozīme {n} no {total} failiem ({percent} %)",
  "find.more": "Vēl {n}: Enter parāda visus",
  "find.nothing": "Vaicājumam “{query}” nekas netika atrasts.",
  "find.nothing_in": "Vaicājumam “{query}” mapē {folder} nekas netika atrasts.",

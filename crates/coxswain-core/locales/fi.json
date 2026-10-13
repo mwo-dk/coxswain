@@ -1487,6 +1487,7 @@
  "find.kind_in_files": "Tiedostoissa",
  "find.kind_names": "Nimet",
  "find.meaning_for": "merkitys {n} tiedostolle",
+ "find.meaning_of": "merkitys {n} tiedostolle {total}:sta ({percent} %)",
  "find.more": "{n} lisää: Enter näyttää kaikki",
  "find.nothing": "Haulla ”{query}” ei löytynyt mitään.",
  "find.nothing_in": "Haulla ”{query}” ei löytynyt mitään kansiosta {folder}.",

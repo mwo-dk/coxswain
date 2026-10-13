@@ -1487,6 +1487,7 @@
  "find.kind_in_files": "Σε αρχεία",
  "find.kind_names": "Ονόματα",
  "find.meaning_for": "νόημα για {n}",
+ "find.meaning_of": "νόημα για {n} από {total} ({percent} %)",
  "find.more": "{n} ακόμη: το Enter τα δείχνει όλα",
  "find.nothing": "Δεν βρέθηκε τίποτα για «{query}».",
  "find.nothing_in": "Δεν βρέθηκε τίποτα για «{query}» στο {folder}.",

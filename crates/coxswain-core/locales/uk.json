@@ -1549,6 +1549,7 @@
  "find.kind_in_files": "У файлах",
  "find.kind_names": "Назви",
  "find.meaning_for": "зміст для {n}",
+ "find.meaning_of": "зміст для {n} з {total} ({percent} %)",
  "find.more": "Ще {n}: Enter показує всі",
  "find.nothing": "Нічого не знайдено для «{query}».",
  "find.nothing_in": "Нічого не знайдено для «{query}» у {folder}.",

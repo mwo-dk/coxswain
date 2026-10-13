@@ -53,12 +53,14 @@ passage that was closest (up to 24 words) in italics, wherever in the document t
 best match are shown (within 0.10 of its score with the built-in model, 0.15 with bge-m3 and
 other server models, and above what unrelated text scores: 0.77 and 0.45), so unrelated files
 stay out. A file found by both its words and its meaning is shown once, under *In
-files*, raised by its meaning. The footer counts the files with vectors: *meaning for 8,120*.
+files*, raised by its meaning. The footer counts the files with vectors: *meaning for 8,120*, and
+while files are still to go, *meaning for 8,120 of 31,208 (26 %)*.
 
 **In Settings → Finding files**, the *Meaning* line of the status: *8,120 of 31,208 files · the
 built-in model on the GPU (Metal)* (or *on the CPU*, or on a Mac that could not use its GPU *on the
 CPU (this Mac has no Metal GPU to use)*; with a server, *bge-m3 at localhost*), and while files are
-still to go, *About 3 hours until every file is done.* Any error is in red, with **Set up…**. While
+still to go, a progress bar with the percent done (in the terminal app `██░░░░░░░░ 26 %` after the
+counts) and *About 3 hours until every file is done.* Any error is in red, with **Set up…**. While
 off: *Off*, *Files about your words are not found.*, and **Set up…**.
 
 **In Settings → Finding files → Details → Meaning**, from top to bottom:
@@ -72,7 +74,8 @@ off: *Off*, *Files about your words are not found.*, and **Set up…**.
   OpenAI API (Lemonade, LM Studio, llama.cpp …)*. The last two are on [their own page](servers.md).
 - On a Mac, the switch *Use the CPU only*.
 
-**In Find's footer**: *meaning for 8,120* once it runs.
+**In Find's footer**: *meaning for 8,120* once it runs, *meaning for 8,120 of 31,208 (26 %)* while
+files are still to go.
 
 ## How it works
 
@@ -204,7 +207,8 @@ choose whether that is worth it: turn it on in Settings (the level *Names, text 
 `coxswain --meaning on`.
 
 #### Why does it find nothing yet?
-The vectors are made in the background, a few files at a time: Settings shows how many are done (*8,120 of 31,208 files*). On a
+The vectors are made in the background, a few files at a time: Settings shows how many are done (*8,120 of 31,208 files*, with a
+progress bar and the time left) and Find's footer the percent. On a
 laptop's CPU that takes hours for a large home folder, and it waits while on battery. A
 [server with a GPU](servers.md) is much faster.
 

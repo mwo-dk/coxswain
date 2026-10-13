@@ -1456,6 +1456,7 @@
  "find.kind_in_files": "파일 내용",
  "find.kind_names": "이름",
  "find.meaning_for": "의미 {n}개",
+ "find.meaning_of": "의미 {n}개 / {total}개 ({percent} %)",
  "find.more": "{n}개 더: Enter로 모두 보기",
  "find.nothing": "“{query}”에 대한 결과가 없습니다.",
  "find.nothing_in": "{folder}에서 “{query}”에 대한 결과가 없습니다.",
