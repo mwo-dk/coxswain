@@ -1487,6 +1487,7 @@
  "find.kind_in_files": "In bestanden",
  "find.kind_names": "Namen",
  "find.meaning_for": "betekenis voor {n}",
+ "find.meaning_of": "betekenis voor {n} van {total} ({percent} %)",
  "find.more": "Nog {n}: Enter toont ze allemaal",
  "find.nothing": "Niets gevonden voor ‘{query}’.",
  "find.nothing_in": "Niets gevonden voor ‘{query}’ in {folder}.",

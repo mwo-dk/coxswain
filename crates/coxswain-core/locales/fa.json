@@ -1487,6 +1487,7 @@
  "find.kind_in_files": "در فایل‌ها",
  "find.kind_names": "نام‌ها",
  "find.meaning_for": "معنا برای {n}",
+ "find.meaning_of": "معنا برای {n} از {total} ({percent} %)",
  "find.more": "{n} مورد دیگر: Enter همه را نشان می‌دهد",
  "find.nothing": "برای «{query}» چیزی یافت نشد.",
  "find.nothing_in": "برای «{query}» در {folder} چیزی یافت نشد.",

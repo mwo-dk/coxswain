@@ -1518,6 +1518,7 @@
  "find.kind_in_files": "Nei file",
  "find.kind_names": "Nomi",
  "find.meaning_for": "significato per {n}",
+ "find.meaning_of": "significato per {n} di {total} ({percent} %)",
  "find.more": "Altri {n}: Invio li mostra tutti",
  "find.nothing": "Niente trovato per “{query}”.",
  "find.nothing_in": "Niente trovato per “{query}” in {folder}.",

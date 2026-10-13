@@ -1487,6 +1487,7 @@
  "find.kind_in_files": "ფაილებში",
  "find.kind_names": "სახელები",
  "find.meaning_for": "აზრი: {n}",
+ "find.meaning_of": "აზრი: {n} / {total} ({percent} %)",
  "find.more": "კიდევ {n}: Enter ყველას აჩვენებს",
  "find.nothing": "არაფერი მოიძებნა: „{query}“.",
  "find.nothing_in": "საქაღალდეში {folder} არაფერი მოიძებნა: „{query}“.",

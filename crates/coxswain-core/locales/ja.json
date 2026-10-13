@@ -1456,6 +1456,7 @@
  "find.kind_in_files": "ファイル内",
  "find.kind_names": "名前",
  "find.meaning_for": "意味 {n} 件",
+ "find.meaning_of": "意味 {n} / {total} 件 ({percent} %)",
  "find.more": "ほか {n} 件: Enter ですべて表示",
  "find.nothing": "「{query}」は見つかりませんでした。",
  "find.nothing_in": "{folder} で「{query}」は見つかりませんでした。",

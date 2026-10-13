@@ -554,6 +554,7 @@
           {#each lines as l (l.part)}
             <strong>{l.label}</strong>
             <span>{l.text}
+              {#if l.bar}<br /><progress max={l.bar[1] || 1} value={l.bar[0]}></progress> <small class="hint">{l.bar[1] ? Math.min(99, Math.floor((l.bar[0] * 100) / l.bar[1])) : 100} %</small>{/if}
               {#if l.note}<br /><small class="hint" class:err={l.bad}>{l.note}</small>{/if}
               {#if l.part === "meaning" && index?.meaning_runs_text && s.meaning_engine === "builtin"}<br /><small class="hint">{index.meaning_runs_text}</small>{/if}
               {#if l.poor}<br /><small class={l.poor.tip ? "hint" : "err"}>{l.poor.text}</small>{#if l.poor.button}{" "}<button class="link" onclick={() => usePoor(l.poor)}>{l.poor.button}</button>{/if}{/if}

@@ -1518,6 +1518,7 @@
  "find.kind_in_files": "V souborech",
  "find.kind_names": "Názvy",
  "find.meaning_for": "význam pro {n}",
+ "find.meaning_of": "význam pro {n} z {total} ({percent} %)",
  "find.more": "Další {n}: Enter ukáže všechny",
  "find.nothing": "Pro „{query}“ nebylo nic nalezeno.",
  "find.nothing_in": "Pro „{query}“ nebylo v {folder} nic nalezeno.",

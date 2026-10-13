@@ -1549,6 +1549,7 @@
  "find.kind_in_files": "W plikach",
  "find.kind_names": "Nazwy",
  "find.meaning_for": "znaczenie dla {n}",
+ "find.meaning_of": "znaczenie dla {n} z {total} ({percent} %)",
  "find.more": "Jeszcze {n}: Enter pokazuje wszystkie",
  "find.nothing": "Nic nie znaleziono dla „{query}”.",
  "find.nothing_in": "Nic nie znaleziono dla „{query}” w {folder}.",

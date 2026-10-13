@@ -459,7 +459,10 @@ pub fn footer(status: &crate::helper::Status) -> String {
     if status.texts > 0 || status.pending > 0 {
         s += &format!(" · {}", crate::tn!("search.texts", status.texts as u64));
     }
-    if status.meaning {
+    if status.meaning && status.meaning_pending > 0 {
+        let total = status.meaning_done + status.meaning_pending;
+        s += &format!(" · {}", t!("find.meaning_of", "n" => status.meaning_done, "total" => total, "percent" => crate::settings::percent(status.meaning_done, total)));
+    } else if status.meaning {
         s += &format!(" · {}", t!("find.meaning_for", "n" => status.meaning_done));
     }
     if status.pending > 0 {

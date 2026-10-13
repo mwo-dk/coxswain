@@ -1487,6 +1487,7 @@
  "find.kind_in_files": "Failides",
  "find.kind_names": "Nimed",
  "find.meaning_for": "tähendus {n} failil",
+ "find.meaning_of": "tähendus {n} failil {total}-st ({percent} %)",
  "find.more": "{n} veel: Enter näitab kõiki",
  "find.nothing": "Päringule „{query}” ei leitud midagi.",
  "find.nothing_in": "Päringule „{query}” ei leitud kaustas {folder} midagi.",
