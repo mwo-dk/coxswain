@@ -529,7 +529,7 @@ pub fn status(s: &SearchConfig, st: &Status, helper: bool, poor: &[crate::setup:
             meaning.step = Some(Step::SetUp);
         } else if st.meaning_pending > 0 {
             meaning.bar = Some((st.meaning_done, total));
-            if st.meaning_ms_per_file > 0 {
+            if st.meaning_ms_per_passage > 0 {
                 meaning.note = Some(t!("settings.status.meaning_left", "time" => crate::notices::time_left(st)));
             }
         }
@@ -715,7 +715,7 @@ mod tests {
         }
         // Every section a notice opens is one of them.
         let known = sections();
-        let status = Status { state: crate::index::State::Ready, len: 1, texts: 10, pending: 0, bytes: 0, paused: false, roots: vec![], tools: vec![("tesseract".into(), false)], meaning: true, meaning_pending: 0, meaning_done: 0, meaning_passages: 0, meaning_renewing: 0, meaning_ms_per_file: 0, meaning_engine: String::new(), meaning_error: Some("down".into()), meaning_runs: None, chat_loaded: None, error: Some("stalled".into()), clouds: vec![("OneDrive".into(), "/c".into())], outdated: None };
+        let status = Status { state: crate::index::State::Ready, len: 1, texts: 10, pending: 0, bytes: 0, paused: false, roots: vec![], tools: vec![("tesseract".into(), false)], meaning: true, meaning_pending: 0, meaning_done: 0, meaning_passages: 0, meaning_renewing: 0, meaning_ms_per_passage: 0, meaning_engine: String::new(), meaning_error: Some("down".into()), meaning_runs: None, chat_loaded: None, error: Some("stalled".into()), clouds: vec![("OneDrive".into(), "/c".into())], outdated: None };
         let mut state = crate::state::AppState::default();
         state.migrated = vec!["[keys] mkdir → new_folder".into()];
         for n in crate::notices::all(&Config::default(), &status, &state, false) {
@@ -753,7 +753,7 @@ mod tests {
     #[test]
     fn settings_status_says_the_next_step() {
         let mut s = SearchConfig::default();
-        let st = Status { state: crate::index::State::Ready, len: 912_330, texts: 3875, pending: 438, bytes: 0, meaning: false, meaning_pending: 0, meaning_done: 0, meaning_passages: 0, meaning_renewing: 0, meaning_ms_per_file: 0, meaning_engine: String::new(), meaning_error: None, meaning_runs: None, chat_loaded: None, error: None, paused: true, roots: vec![], tools: vec![], clouds: vec![], outdated: None };
+        let st = Status { state: crate::index::State::Ready, len: 912_330, texts: 3875, pending: 438, bytes: 0, meaning: false, meaning_pending: 0, meaning_done: 0, meaning_passages: 0, meaning_renewing: 0, meaning_ms_per_passage: 0, meaning_engine: String::new(), meaning_error: None, meaning_runs: None, chat_loaded: None, error: None, paused: true, roots: vec![], tools: vec![], clouds: vec![], outdated: None };
         s.text = true;
         s.meaning = false;
         let lines = status(&s, &st, true, &[]);

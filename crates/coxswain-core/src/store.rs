@@ -78,9 +78,9 @@ pub struct Store {
     /// Where the store is: the signs are read on a connection of their own.
     path: PathBuf,
     /// Files whose vectors were dropped for a new way of making passages, while they get new
-    /// ones; and how long a file took, in milliseconds, as measured, for the time left.
+    /// ones; and how long a passage takes, in milliseconds, as measured, for the time left.
     pub renewing: AtomicUsize,
-    pub ms_per_file: AtomicUsize,
+    pub ms_per_passage: AtomicUsize,
     /// The clouds the walks came upon (files only in the cloud): (name, folder).
     clouds: Mutex<Vec<(String, PathBuf)>>,
     /// How many files' text a search by meaning read, for the tests: per store, so tests that
@@ -225,7 +225,7 @@ impl Store {
         // The files still to get their vectors, newest first, without a look at the rest.
         db.execute_batch("CREATE INDEX IF NOT EXISTS files_unembedded ON files(modified) WHERE has_text = 1 AND embedded IS NULL")?;
         let renewing = passages_are(&db, crate::meaning::SCHEME)?;
-        Ok(Store { db: Mutex::new(db), pending: AtomicUsize::new(0), hurry: AtomicBool::new(false), cleared: AtomicBool::new(false), walked: Mutex::default(), offline: Mutex::default(), paused: AtomicBool::new(false), configured: Mutex::default(), meaning: AtomicBool::new(false), engine: Mutex::default(), meaning_error: Mutex::default(), error: Mutex::default(), signs: Mutex::default(), path: path.to_path_buf(), renewing: AtomicUsize::new(renewing), ms_per_file: AtomicUsize::new(0), clouds: Mutex::default(), #[cfg(test)] bodies_read: AtomicUsize::new(0) })
+        Ok(Store { db: Mutex::new(db), pending: AtomicUsize::new(0), hurry: AtomicBool::new(false), cleared: AtomicBool::new(false), walked: Mutex::default(), offline: Mutex::default(), paused: AtomicBool::new(false), configured: Mutex::default(), meaning: AtomicBool::new(false), engine: Mutex::default(), meaning_error: Mutex::default(), error: Mutex::default(), signs: Mutex::default(), path: path.to_path_buf(), renewing: AtomicUsize::new(renewing), ms_per_passage: AtomicUsize::new(0), clouds: Mutex::default(), #[cfg(test)] bodies_read: AtomicUsize::new(0) })
     }
 
     /// Bytes and files below `dir`, and when the walk they come from began. `None` until a
@@ -1345,9 +1345,10 @@ fn embed(store: &Store, stop: &AtomicBool) -> rusqlite::Result<()> {
             }
             return Ok(());
         }
-        let (start, count) = (Instant::now(), files.len());
+        let (start, mut count) = (Instant::now(), 0);
         for (id, path, body) in files {
             let texts: Vec<String> = crate::meaning::passages(&body, &path).iter().map(|p| crate::meaning::shown_to_model(&path, p)).collect();
+            count += texts.len();
             if texts.is_empty() {
                 store.put_vectors(id, &[])?;
                 continue;
@@ -1373,17 +1374,18 @@ fn embed(store: &Store, stop: &AtomicBool) -> rusqlite::Result<()> {
                 return Ok(());
             }
         }
-        // A file's time with the rest after it (not a wait for the mains), for the time the
-        // files still to go take.
+        // A passage's time with the rest after it (not a wait for the mains), for the time the
+        // files still to go take: per passage, not per file, since the newest files go first
+        // and a few long ones would set the pace for all.
         // The built-in model works on this processor and rests as long as it worked; a server
         // works on its own (most often a GPU) and the helper only waits for it, so it rests a
         // quarter of that.
         let work = start.elapsed();
         let rest = if matches!(*engine, crate::meaning::Engine::Builtin(_)) { work } else { work / 4 };
-        let ms = (work + rest.min(Duration::from_secs(2))).as_millis() as usize / count;
+        let ms = (work + rest.min(Duration::from_secs(2))).as_millis() as usize / count.max(1);
         store.rest_after(rest, stop);
-        let before = store.ms_per_file.load(Ordering::Relaxed);
-        store.ms_per_file.store(if before == 0 { ms } else { (before * 7 + ms) / 8 }, Ordering::Relaxed);
+        let before = store.ms_per_passage.load(Ordering::Relaxed);
+        store.ms_per_passage.store(if before == 0 { ms } else { (before * 7 + ms) / 8 }, Ordering::Relaxed);
     }
 }
 

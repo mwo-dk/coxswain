@@ -36,10 +36,13 @@ pub const DIMS: usize = 384;
 /// passages evenly between.
 const WORDS: usize = 120;
 const OVERLAP: usize = 20;
-/// The most of a passage the model is shown, in bytes: 120 words of prose are about 800. A
-/// "word" of minified JSON or a path list runs to thousands, and a server (unlike the built-in
-/// model, which cuts at 512 tokens) would read them all: a few such files took hours.
-const CHARS: usize = 2000;
+/// The most of a passage the model is shown, in bytes: 120 words of prose are about 800,
+/// so prose is never cut. A "word" of minified JSON or a path list runs to thousands, and a
+/// server (unlike the built-in model, which cuts at 512 tokens) would read them all: a few
+/// such files took hours. Dense text is 1,600 tokens at 2,000 bytes, three prose passages'
+/// worth. The cut is the same and only a dense passage gets shorter, so the passages keep
+/// their numbers and no vector is made again.
+const CHARS: usize = 1200;
 pub const PASSAGES: usize = 256;
 /// How a file is cut into passages and what the model is shown of each: vectors made another
 /// way are made again (the store keeps it in its meta as `passages`). 3: code by its items.

@@ -27,10 +27,13 @@ impl Notice {
     }
 }
 
-/// About how long the files still to get their vectors take here, as the helper measured
-/// them: "40 minutes", "3 hours".
+/// About how long the files still to get their vectors take here: the files to go, times
+/// the passages a file has had so far (over every file done, not the last few: the newest
+/// go first and are seldom typical), times what a passage takes as the helper measured it.
+/// "40 minutes", "3 hours".
 pub fn time_left(status: &Status) -> String {
-    crate::meaning::about(status.meaning_pending as f64 * status.meaning_ms_per_file as f64 / 1000.0)
+    let per_file = if status.meaning_done > 0 { status.meaning_passages as f64 / status.meaning_done as f64 } else { 1.0 };
+    crate::meaning::about(status.meaning_pending as f64 * per_file * status.meaning_ms_per_passage as f64 / 1000.0)
 }
 
 /// The notice to show now, if any. `terminal`: the notice names the command instead of Settings.
@@ -68,7 +71,7 @@ pub fn all(cfg: &Config, status: &Status, state: &AppState, terminal: bool) -> V
         all.push(Notice::new("macos-folders", t!("notice.macos_folders"), None));
     }
     // The vectors are made again to cover whole documents: once the time one takes is known.
-    if status.meaning && status.meaning_renewing > 0 && status.meaning_ms_per_file > 0 {
+    if status.meaning && status.meaning_renewing > 0 && status.meaning_ms_per_passage > 0 {
         let text = t!("notice.meaning_renew", "n" => status.meaning_renewing, "time" => time_left(status));
         all.push(Notice::new(format!("renew-passages-{}", crate::meaning::SCHEME), text, Some("search_meaning")));
     }
@@ -255,7 +258,7 @@ mod tests {
     #[test]
     fn notices_come_one_at_a_time_and_stay_away_once_dismissed() {
         let cfg = Config::default();
-        let mut status = Status { state: crate::index::State::Ready, len: 1, texts: 10, pending: 0, bytes: 0, paused: false, roots: vec![], tools: vec![("tesseract".into(), false)], meaning: false, meaning_pending: 0, meaning_done: 0, meaning_passages: 0, meaning_renewing: 0, meaning_ms_per_file: 0, meaning_engine: String::new(), meaning_error: None, meaning_runs: None, chat_loaded: None, error: None, clouds: vec![], outdated: None };
+        let mut status = Status { state: crate::index::State::Ready, len: 1, texts: 10, pending: 0, bytes: 0, paused: false, roots: vec![], tools: vec![("tesseract".into(), false)], meaning: false, meaning_pending: 0, meaning_done: 0, meaning_passages: 0, meaning_renewing: 0, meaning_ms_per_passage: 0, meaning_engine: String::new(), meaning_error: None, meaning_runs: None, chat_loaded: None, error: None, clouds: vec![], outdated: None };
         let mut state = AppState::default();
         // Whether this machine's GStreamer can play video is not what is tested here.
         dismiss(&mut state, "media");
@@ -335,9 +338,13 @@ mod tests {
         // Vectors made again to cover whole documents: told once, with the time it takes here.
         status.meaning_renewing = 3437;
         assert_eq!(ids(&state, &status), None, "not before the time a file takes is known");
-        (status.meaning_pending, status.meaning_ms_per_file) = (3437, 1200);
+        (status.meaning_pending, status.meaning_ms_per_passage) = (3437, 1200);
         let n = next(&cfg, &status, &state, true).unwrap();
         assert!(n.text.contains("3437") && n.text.contains("69 minutes"), "{}", n.text);
+        // Five passages a file so far: five times as long.
+        (status.meaning_done, status.meaning_passages) = (100, 500);
+        assert_eq!(time_left(&status), "6 hours");
+        (status.meaning_done, status.meaning_passages) = (0, 0);
         dismiss(&mut state, &n.id);
 
         // The built-in model on a Mac: on its GPU, or on its CPU and why; once each.
