@@ -90,9 +90,10 @@ files are still to go.
   ends at a paragraph's end once it has 60 words; a paragraph longer than that is cut, and the
   next passage starts with the last 20 words of the cut one, so nothing said across a cut is
   lost. In Markdown files (`.md`, `.markdown`, `.mdx`) each heading starts a new passage. A
-  passage with fewer than 20 letters is skipped, and one ends after 2,000 characters however
-  few words it has: a line of minified JSON or a list of paths is one "word" of thousands, and
-  a server would otherwise read all of it (the built-in model stops at 512 tokens anyway).
+  passage with fewer than 20 letters is skipped, and one ends after 1,200 characters however
+  few words it has: 120 words of prose are about 800, so prose is never cut, while a line of
+  minified JSON or a list of paths is one "word" of thousands, and a server would otherwise
+  read all of it (the built-in model stops at 512 tokens anyway).
 - **What the model is shown** of each passage is a first line with the file's name, its folder
   and, in Markdown, the heading it sits under (`budget.md · rocket/notes · Fuel`), then the
   passage. A question that names a file, a folder or a section finds it.
@@ -208,7 +209,9 @@ choose whether that is worth it: turn it on in Settings (the level *Names, text 
 
 #### Why does it find nothing yet?
 The vectors are made in the background, a few files at a time: Settings shows how many are done (*8,120 of 31,208 files*, with a
-progress bar and the time left) and Find's footer the percent. On a
+progress bar and the time left) and Find's footer the percent. The time left is the files to
+go, times the passages a file has had so far, times what one passage takes on your machine; it
+settles after the first few hundred files. On a
 laptop's CPU that takes hours for a large home folder, and it waits while on battery. A
 [server with a GPU](servers.md) is much faster.
 

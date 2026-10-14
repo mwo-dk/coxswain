@@ -124,11 +124,11 @@ pub struct Status {
     #[serde(default)]
     pub meaning_passages: usize,
     /// Files whose vectors are being made again for a new way of cutting passages (0 when
-    /// none), and how long one takes here, in milliseconds (0 until measured).
+    /// none), and how long a passage takes here, in milliseconds (0 until measured).
     #[serde(default)]
     pub meaning_renewing: usize,
     #[serde(default)]
-    pub meaning_ms_per_file: usize,
+    pub meaning_ms_per_passage: usize,
     /// Which model makes the vectors (`builtin:…`, `ollama:bge-m3`), and why it could not.
     #[serde(default)]
     pub meaning_engine: String,
@@ -247,7 +247,18 @@ fn serve_here() -> io::Result<()> {
     let search = Config::load().map(|c| c.search).unwrap_or_default();
     // First, or the store cannot be made on a machine that has no cache folder yet.
     std::fs::create_dir_all(&dir)?;
-    let store = if search.text { Store::open(&dir.join("search.db")).inspect_err(|e| note(format_args!("search inside files is off: the search store: {e}"))).ok().map(Arc::new) } else { None };
+    // A store locked for a moment (a helper still leaving, a compaction) is waited for, up to
+    // half a minute: giving it up would leave reading off until the next restart.
+    let open = || {
+        let wait = Instant::now();
+        loop {
+            match Store::open(&dir.join("search.db")) {
+                Err(e) if e.to_string().contains("locked") && wait.elapsed() < Duration::from_secs(30) => std::thread::sleep(Duration::from_secs(2)),
+                r => return r,
+            }
+        }
+    };
+    let store = if search.text { open().inspect_err(|e| note(format_args!("search inside files is off: the search store: {e}"))).ok().map(Arc::new) } else { None };
     if let Some(s) = &store {
         s.set_engine(if search.meaning { crate::meaning::Engine::from_config(&search) } else { None });
     }
@@ -441,7 +452,7 @@ fn answer(ours: Ours, stream: TcpStream, index: &Service, store: Option<&Store>,
                 meaning_done: counts.1,
                 meaning_passages: store.map_or(0, Store::passage_count),
                 meaning_renewing: store.map_or(0, |s| s.renewing.load(Ordering::Relaxed)),
-                meaning_ms_per_file: store.map_or(0, |s| s.ms_per_file.load(Ordering::Relaxed)),
+                meaning_ms_per_passage: store.map_or(0, |s| s.ms_per_passage.load(Ordering::Relaxed)),
                 meaning_engine: store.and_then(Store::engine_id).unwrap_or_default(),
                 meaning_error: store.and_then(|s| s.meaning_error.lock().unwrap().clone()),
                 meaning_runs: store.and_then(Store::engine_runs),
@@ -483,6 +494,9 @@ pub struct Client {
     /// The last status and when it was asked: the terminal app asks with every frame.
     status: Mutex<Option<(Instant, Status)>>,
     own: OnceLock<Arc<Service>>,
+    /// Whether a helper answered the last dial. One that is there but silent (its store busy
+    /// with a big change) is waited for, not replaced by the app's own index for good.
+    reachable: AtomicBool,
 }
 
 impl Client {
@@ -522,13 +536,13 @@ impl Client {
 
     /// `with` for an app of another version, for tests.
     fn of(ours: Ours, dir: Option<PathBuf>, search: &SearchConfig, spawn: impl Fn(usize) + Send + Sync + 'static) -> Arc<Client> {
-        Arc::new(Client { dir, spawn: Box::new(spawn), search: search.clone(), ours, outdated: OnceLock::new(), line: Mutex::default(), status: Mutex::default(), own: OnceLock::new() })
+        Arc::new(Client { dir, spawn: Box::new(spawn), search: search.clone(), ours, outdated: OnceLock::new(), line: Mutex::default(), status: Mutex::default(), own: OnceLock::new(), reachable: AtomicBool::new(false) })
     }
 
     pub fn search(&self, query: &str, scope: Option<&Path>, max: usize) -> Results {
         match self.ask(&Request::Search { query: query.into(), scope: scope.map(Path::to_path_buf), max }) {
             Some(Reply::Results(r)) => r,
-            _ => self.own().search(query, scope, max),
+            _ => self.fallback().map(|own| own.search(query, scope, max)).unwrap_or_default(),
         }
     }
 
@@ -538,7 +552,7 @@ impl Client {
     pub fn find(&self, query: &str, scope: Option<&Path>, kind: Kind, rows: usize) -> Found {
         match self.ask(&Request::Find { query: query.into(), scope: scope.map(Path::to_path_buf), kind, rows }) {
             Some(Reply::Found(f)) => f,
-            _ => crate::find::run(|q, max| self.own().search(q, scope, max), Err(if self.search.text { crate::find::Off::NoHelper } else { crate::find::Off::TextOff }), &[], query, scope, kind, rows),
+            _ => crate::find::run(|q, max| self.fallback().map(|own| own.search(q, scope, max)).unwrap_or_default(), Err(if self.search.text { crate::find::Off::NoHelper } else { crate::find::Off::TextOff }), &[], query, scope, kind, rows),
         }
     }
 
@@ -649,7 +663,9 @@ impl Client {
         }
         let now = match self.ask(&Request::Status) {
             Some(Reply::Status(s)) => s,
-            _ => Status { state: self.own().state(), len: self.own().len(), texts: 0, pending: 0, bytes: 0, paused: false, roots: vec![], tools: vec![], meaning: false, meaning_pending: 0, meaning_done: 0, meaning_passages: 0, meaning_renewing: 0, meaning_ms_per_file: 0, meaning_engine: String::new(), meaning_error: None, meaning_runs: None, chat_loaded: None, error: None, clouds: vec![], outdated: self.outdated.get().cloned() },
+            // A helper that is there but did not answer in time: the status from before.
+            _ if self.reachable.load(Ordering::Relaxed) && status.is_some() => return status.as_ref().unwrap().1.clone(),
+            _ => Status { state: self.fallback().map_or(State::Building, |own| own.state()), len: self.fallback().map_or(0, |own| own.len()), texts: 0, pending: 0, bytes: 0, paused: false, roots: vec![], tools: vec![], meaning: false, meaning_pending: 0, meaning_done: 0, meaning_passages: 0, meaning_renewing: 0, meaning_ms_per_passage: 0, meaning_engine: String::new(), meaning_error: None, meaning_runs: None, chat_loaded: None, error: None, clouds: vec![], outdated: self.outdated.get().cloned() },
         };
         *status = Some((Instant::now(), now.clone()));
         now
@@ -657,6 +673,12 @@ impl Client {
 
     fn own(&self) -> &Arc<Service> {
         self.own.get_or_init(|| Service::start(&self.search))
+    }
+
+    /// The app's own index, started when no helper can be reached: not for one that is
+    /// there and slow, which would leave this app on its own index for good.
+    fn fallback(&self) -> Option<&Arc<Service>> {
+        (!self.reachable.load(Ordering::Relaxed)).then(|| self.own())
     }
 
     /// One request, one reply. A broken line is opened again once, which starts a helper when
@@ -669,6 +691,7 @@ impl Client {
         for _ in 0..2 {
             if line.is_none() {
                 *line = self.connect();
+                self.reachable.store(line.is_some(), Ordering::Relaxed);
             }
             let Some(l) = line.as_mut() else { break };
             match exchange(l, request) {

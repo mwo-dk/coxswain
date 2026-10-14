@@ -471,7 +471,7 @@ pub fn footer(status: &crate::helper::Status) -> String {
     if status.paused {
         s += &format!(" · {}", t!("find.paused"));
     }
-    if status.meaning && status.meaning_renewing > 0 && status.meaning_pending > 0 && status.meaning_ms_per_file > 0 {
+    if status.meaning && status.meaning_renewing > 0 && status.meaning_pending > 0 && status.meaning_ms_per_passage > 0 {
         s += &format!(" · {}", t!("search.meaning_renewing", "n" => status.meaning_pending, "time" => crate::notices::time_left(status)));
     }
     // Reading that stalled says why, here where it is missed.
