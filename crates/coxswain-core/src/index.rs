@@ -910,12 +910,13 @@ pub struct Service {
     listeners: Mutex<Vec<std::sync::mpsc::Sender<Vec<PathBuf>>>>,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Default, Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum State {
     /// Serving a cached index while a fresh one is built.
     Stale,
     Building,
+    #[default]
     Ready,
 }
 

@@ -192,7 +192,8 @@ The last three are for [servers](servers.md). Search by meaning also needs `text
 
 The same search and the same *About this* group, its passages dimmed in italics. Turn it on, off or delete it with `coxswain --meaning on|off|delete`; on a Mac,
 `coxswain --meaning cpu|auto` keeps the built-in model on the CPU or lets it use the GPU, and
-`coxswain --meaning` says where it runs. There is no status
+`coxswain --meaning` says where it runs. `coxswain --meaning bench [URL MODEL]` times the model on 64
+passages ([above](#how-fast-is-it-here-and-would-another-model-be-faster)). There is no status
 of the files to go; the desktop app's Settings shows it, or wait for hits. While the vectors are
 renewed, Find's footer adds *Renewing search by meaning for whole documents: 23,088 files to go,
 about 3 hours*, and the notice says it once. While it is off, *About this* says *Find files about
@@ -246,6 +247,15 @@ the CPU only* is ticked.
 #### How do I keep it off the GPU?
 Tick *Use the CPU only* under *Settings → Finding files → Details → Meaning*, or `coxswain --meaning cpu`. The
 vectors already made stay.
+
+#### How fast is it here, and would another model be faster?
+*Measure speed* on the *Meaning* line of Settings → Finding files (both apps) embeds 64 passages of
+prose with your model, the way the helper sends them, and says *12.4 passages a second with
+openai:Qwen3-Embedding-0.6B-GGUF. At that speed the 199,000 files still to go take about 2 days.*
+Nothing is stored. From a shell, `coxswain --meaning bench` says the same, and
+`coxswain --meaning bench URL MODEL` tries another server with the OpenAI API first, without
+changing anything, so you can compare before a switch that starts the queue over. A server
+loads its model on the first passage, which is not timed.
 
 #### Why is it so slow with Ollama?
 Look at `ollama ps`: *100% CPU* means Ollama runs without your graphics card. Install the build of

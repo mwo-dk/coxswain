@@ -62,6 +62,8 @@ coxswain [LEFT] [RIGHT]      a folder, or a file to open its folder with the cur
                            or turn it off and delete the model
   --meaning ollama [MODEL] meaning read by Ollama here (bge-m3 unless named; pulled if missing)
   --meaning server URL MODEL  meaning read by a server with the OpenAI API (Lemonade, LM Studio)
+  --meaning bench [URL MODEL]  time the model on 64 passages and say what the files to go take;
+                           with a server and model named, that server is tried instead
   --meaning builtin        back to the built-in model
   --meaning cpu|auto       the built-in model on the CPU only, or on the Mac's GPU (Metal)
                            when it has one (auto, the default)

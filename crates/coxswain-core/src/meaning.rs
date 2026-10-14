@@ -10,7 +10,7 @@
 use std::io::{self, Read, Write};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use candle_core::{DType, Device, Tensor};
 use candle_nn::VarBuilder;
@@ -502,6 +502,51 @@ impl Engine {
             Engine::Server(s) => s.model.contains("e5"),
         }
     }
+}
+
+/// Passages the speed test embeds: two of the store's batches to a server.
+pub const BENCH_PASSAGES: usize = 64;
+
+/// Prose for the speed test, `BENCH_PASSAGES` passages of about 120 words, each with the
+/// words in another order so a server's prompt cache does not answer for the model.
+pub fn bench_passages() -> Vec<String> {
+    const PROSE: &str = "The harbour master keeps a ledger of every boat that leaves before dawn, with the tide, the wind and the name of whoever signed for the fuel. In spring the fishing fleet goes out together and comes back one by one, so the ledger fills from the top and empties from the bottom. The old crane on the quay still lifts the heavier nets, though the engine that drives it was built for a mill and sounds like one. A visitor who asks what the numbers in the margin mean is told they are the hours each crew spent at sea, added up for the month, and that nobody has found a better way to settle the shares.";
+    let words: Vec<&str> = PROSE.split_whitespace().collect();
+    (0..BENCH_PASSAGES).map(|i| {
+        let at = (i * 7) % words.len();
+        let turned: Vec<&str> = words[at..].iter().chain(&words[..at]).copied().collect();
+        format!("Passage {}. {}", i + 1, turned.join(" "))
+    }).collect()
+}
+
+/// A speed test of the engine `cfg` names: `bench_passages` embedded as the store sends them,
+/// after one passage that is not timed (a server loads its model on the first). Nothing is
+/// stored. The engine's name and the time the passages took.
+pub fn bench(cfg: &crate::config::SearchConfig) -> Result<(String, Duration), String> {
+    let engine = Engine::from_config(cfg).ok_or_else(|| t!("meaning.bench_no_model"))?;
+    let texts = bench_passages();
+    engine.passages(&texts[..1]).map_err(|e| e.why().to_string())?;
+    let start = Instant::now();
+    engine.passages(&texts).map_err(|e| e.why().to_string())?;
+    Ok((engine.id(), start.elapsed()))
+}
+
+/// The speed test in words: passages a second with the engine, and when the helper says how
+/// many files still wait, what they would take at that speed.
+pub fn bench_report(cfg: &crate::config::SearchConfig, status: Option<&crate::helper::Status>) -> Result<String, String> {
+    let (engine, took) = bench(cfg)?;
+    Ok(bench_text(&engine, took, status))
+}
+
+fn bench_text(engine: &str, took: Duration, status: Option<&crate::helper::Status>) -> String {
+    let secs = took.as_secs_f64().max(0.001);
+    let mut text = t!("meaning.bench", "n" => format!("{:.1}", BENCH_PASSAGES as f64 / secs), "engine" => engine);
+    if let Some(st) = status.filter(|st| st.meaning_pending > 0) {
+        let per_file = if st.meaning_done > 0 { st.meaning_passages as f64 / st.meaning_done as f64 } else { 1.0 };
+        let left = about(st.meaning_pending as f64 * per_file * secs / BENCH_PASSAGES as f64);
+        text = format!("{text} {}", t!("meaning.bench_left", "files" => crate::settings::count(st.meaning_pending), "time" => left));
+    }
+    text
 }
 
 /// A time to wait, in words: "a minute", "40 minutes", "3 hours".
@@ -1444,6 +1489,19 @@ mod tests {
 
     /// Passages of different lengths in one pass give the vectors each gives alone: the
     /// padding of the shorter ones is masked.
+    #[test]
+    fn bench_passages_differ_and_the_report_counts_the_files_to_go() {
+        let ps = bench_passages();
+        assert_eq!(ps.len(), BENCH_PASSAGES);
+        assert!(ps.iter().all(|p| (110..140).contains(&p.split_whitespace().count())), "about 120 words each");
+        assert!(ps.iter().all(|p| ps.iter().filter(|q| q.ends_with(&p[12..])).count() == 1), "no two the same");
+        let st = crate::helper::Status { meaning_pending: 1000, meaning_done: 10, meaning_passages: 50, ..crate::helper::Status::default() };
+        let text = bench_text("openai:m", Duration::from_secs(8), Some(&st));
+        // 8 passages a second; 1000 files of 5 passages at that pace: 625 s.
+        assert!(text.starts_with("8.0 passages a second with openai:m.") && text.contains("11 minutes"), "{text}");
+        assert!(!bench_text("openai:m", Duration::from_secs(8), None).contains("to go"));
+    }
+
     #[test]
     fn meaning_batches_give_the_vectors_of_one_by_one() {
         let Some(e) = Embedder::load(true) else { return };

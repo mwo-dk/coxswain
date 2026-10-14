@@ -374,6 +374,8 @@ pub enum Step {
     SetUp,
     /// Ask the chat model a test question.
     TryIt,
+    /// Time the model on a few passages.
+    Bench,
 }
 
 impl Step {
@@ -384,6 +386,7 @@ impl Step {
             Step::ReadNow => "settings.step.read_now",
             Step::SetUp => "settings.step.set_up",
             Step::TryIt => "settings.step.try_it",
+            Step::Bench => "settings.step.bench",
         })
     }
 }
@@ -532,6 +535,10 @@ pub fn status(s: &SearchConfig, st: &Status, helper: bool, poor: &[crate::setup:
             if st.meaning_ms_per_passage > 0 {
                 meaning.note = Some(t!("settings.status.meaning_left", "time" => crate::notices::time_left(st)));
             }
+        }
+        // The model's speed here, and what the files to go take at it: measured on request.
+        if meaning.step.is_none() {
+            meaning.step = Some(Step::Bench);
         }
     }
     let mut ask = line(Part::Ask, "settings.status.ask", t!("settings.status.off"));

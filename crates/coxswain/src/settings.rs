@@ -152,6 +152,8 @@ pub struct Settings {
     /// Ask's test question: the answer on its way, then what it said.
     trial_rx: Option<mpsc::Receiver<Result<Duration, String>>>,
     trial: Option<(String, bool)>,
+    /// The speed test of search by meaning: its report on its way.
+    bench_rx: Option<mpsc::Receiver<Result<String, String>>>,
     /// Read when Settings opens: they ask the system.
     service: bool,
     notices: Vec<Notice>,
@@ -181,6 +183,7 @@ impl Settings {
             said: None,
             trial_rx: None,
             trial: None,
+            bench_rx: None,
             service: coxswain_core::service::installed(),
             notices: coxswain_core::notices::all(&app.cfg, &app.index.status(), &st, true),
             news: news(&st),
@@ -225,6 +228,13 @@ impl Settings {
             self.trial_rx = None;
             self.trial = Some(match r {
                 Ok(d) => (t!("setup.try_done", "seconds" => format!("{:.1}", d.as_secs_f64())), false),
+                Err(e) => (e, true),
+            });
+        }
+        if let Some(r) = self.bench_rx.as_ref().and_then(|rx| rx.try_recv().ok()) {
+            self.bench_rx = None;
+            self.said = Some(match r {
+                Ok(text) => (text, false),
                 Err(e) => (e, true),
             });
         }
@@ -740,6 +750,13 @@ impl App {
                     std::thread::spawn(move || tx.send(coxswain_core::setup::try_ask(&cfg)));
                     s.trial_rx = Some(rx);
                     s.trial = Some((t!("common.loading"), false));
+                }
+                Some(Step::Bench) if s.bench_rx.is_none() => {
+                    let (tx, rx) = mpsc::channel();
+                    let (cfg, status) = (self.cfg.search.clone(), self.index.status());
+                    std::thread::spawn(move || tx.send(coxswain_core::meaning::bench_report(&cfg, Some(&status))));
+                    s.bench_rx = Some(rx);
+                    s.said = Some((t!("common.loading"), false));
                 }
                 _ => {}
             },

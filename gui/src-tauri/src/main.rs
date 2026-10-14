@@ -1015,6 +1015,13 @@ async fn setup_try(ctx: tauri::State<'_, Ctx>) -> Res<u64> {
     blocking(move || coxswain_core::setup::try_ask(&cfg).map(|d| d.as_millis() as u64)).await
 }
 
+/// The speed test of search by meaning: its report.
+#[tauri::command]
+async fn meaning_bench(ctx: tauri::State<'_, Ctx>) -> Res<String> {
+    let (index, cfg) = (ctx.index.clone(), ctx.cfg().search.clone());
+    blocking(move || coxswain_core::meaning::bench_report(&cfg, Some(&index.status()))).await
+}
+
 /// Whether `server` runs the chat model on the processor while a graphics card is there.
 #[tauri::command]
 async fn setup_speed(server: coxswain_core::setup::Found, ctx: tauri::State<'_, Ctx>) -> Res<Option<String>> {
@@ -1923,10 +1930,10 @@ fn main() {
         })
         .invoke_handler(tauri::generate_handler![
             get_config, action_menu, hint, hint_once, hints_reset, notices, dismiss_notice, changes, read_changes, set_title, index_status, index_action, index_service, meaning_status, meaning_action, chat_status, chat_action, meaning_models, meaning_pull, list_dir, zfs_facts, bsd_places, git_status, git_last, git_switch, git_new_branch, places, disks, get_state, save_session, save_favorites, set_tags, set_note, get_note,
-            find, find_read_too, ask, ask_stop, ask_check, meaning_change, setup_probe, setup_probe_url, setup_try, setup_speed, resolve_path, copy, rename, delete, mkdir, dir_sizes, rename_plan, rename_apply, undo, undo_next, open_path, edit_path, open_keys, scripts_folder,
+            find, find_read_too, ask, ask_stop, ask_check, meaning_change, setup_probe, setup_probe_url, setup_try, setup_speed, meaning_bench, resolve_path, copy, rename, delete, mkdir, dir_sizes, rename_plan, rename_apply, undo, undo_next, open_path, edit_path, open_keys, scripts_folder,
             read_text, run_command, scripts, run_script, check_update, archive_list, extract, pack, archive_password, archive_peek, cloud_fetch, properties, set_flags, set_permissions,
             get_config, action_menu, hint, hints_reset, notices, dismiss_notice, changes, read_changes, set_title, index_status, index_action, index_service, meaning_status, meaning_action, chat_status, chat_action, meaning_models, meaning_pull, list_dir, zfs_facts, bsd_places, git_status, git_last, git_switch, git_new_branch, places, disks, get_state, save_session, save_favorites, set_tags, set_note, get_note,
-            find, find_read_too, ask, ask_stop, ask_check, meaning_change, setup_probe, setup_probe_url, setup_try, setup_speed, resolve_path, copy, rename, delete, mkdir, dir_sizes, rename_plan, rename_apply, undo, undo_next, open_path, edit_path,
+            find, find_read_too, ask, ask_stop, ask_check, meaning_change, setup_probe, setup_probe_url, setup_try, setup_speed, meaning_bench, resolve_path, copy, rename, delete, mkdir, dir_sizes, rename_plan, rename_apply, undo, undo_next, open_path, edit_path,
             read_text, run_command, scripts, run_script, add_user_command, check_update, archive_list, extract, pack, archive_password, archive_peek, cloud_fetch, properties, set_flags, set_permissions,
             clip_set, paste, start_drag, watch_dirs, preview::git_diff, preview::sqlite_info, preview::epub_preview,
             preview::file_facts, preview::cert_info, bom::bom_info, bom::bom_node, bom::bom_diff, provenance::provenance_info, provenance::provenance_statements, provenance::provenance_subject, provenance::provenance_cancel, provenance::provenance_sources, provenance::provenance_diff, provenance::provenance_bom, preview::mail_preview, preview::plist_xml, convert::preview_engines, convert::preview_cache, convert::clear_preview_cache,
