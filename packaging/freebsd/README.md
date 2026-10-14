@@ -18,9 +18,10 @@ The desktop app is left out: it needs two crates patched from git (`[patch.crate
 
 ### Updating it for a release
 
-In a FreeBSD VM with a ports tree from the branch its packages come from, quarterly by default
-(for example `git clone --depth 1 -b 2026Q4 https://git.FreeBSD.org/ports.git /usr/ports`; with `main`,
-`USES=cargo` soon wants a newer `lang/rust` than `pkg` has and builds Rust from source, for hours):
+In a FreeBSD VM with the quarterly ports tree (for example
+`git clone --depth 1 -b 2026Q4 https://git.FreeBSD.org/ports.git /usr/ports`; with `main`,
+`USES=cargo` wants a newer `lang/rust` than `pkg` has for days after each Rust bump and builds
+Rust from source, for hours):
 
 ```sh
 cp -R packaging/freebsd/sysutils/coxswain /usr/ports/sysutils/

@@ -9,16 +9,16 @@ here=$(cd "$(dirname "$0")" && pwd)
 out="$here/out"
 mkdir -p "$out"
 
-# The ports tree from the branch pkg's packages are built from (quarterly by default): with
-# main, USES=cargo soon wants a newer lang/rust than the packages have and builds Rust from
-# source, for hours. The port itself is submitted against main: the diff is made against it.
+# The quarterly ports tree: with main, USES=cargo wants a newer lang/rust than the packages
+# have for days after each Rust bump (the quarterly and the latest package sets both lag it)
+# and builds Rust from source, for hours. The quarterly branch asks for the Rust of the
+# quarter, which both package sets have. The port itself is submitted against main: the diff
+# is made against it.
 if [ ! -d /usr/ports/Mk ]; then
-  branch=main
-  if pkg -vv | grep -q '/quarterly"'; then
-    branch="$(date +%Y)Q$(( ($(date +%m | sed 's/^0//') - 1) / 3 + 1 ))"
-  fi
+  branch="$(date +%Y)Q$(( ($(date +%m | sed 's/^0//') - 1) / 3 + 1 ))"
+  echo "ports tree: $branch"
   git clone -q --depth 1 -b "$branch" https://git.FreeBSD.org/ports.git /usr/ports ||
-    git clone -q --depth 1 https://git.FreeBSD.org/ports.git /usr/ports
+    { echo "no $branch branch yet: main"; git clone -q --depth 1 https://git.FreeBSD.org/ports.git /usr/ports; }
 fi
 git -C /usr/ports fetch -q --depth 1 origin main
 port=/usr/ports/sysutils/coxswain
