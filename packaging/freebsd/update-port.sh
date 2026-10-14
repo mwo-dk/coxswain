@@ -20,7 +20,7 @@ if [ ! -d /usr/ports/Mk ]; then
   git clone -q --depth 1 -b "$branch" https://git.FreeBSD.org/ports.git /usr/ports ||
     { echo "no $branch branch yet: main"; git clone -q --depth 1 https://git.FreeBSD.org/ports.git /usr/ports; }
 fi
-git -C /usr/ports fetch -q --depth 1 origin main
+git -C /usr/ports fetch -q --depth 1 origin main:refs/remotes/origin/main
 port=/usr/ports/sysutils/coxswain
 in_tree=no
 git -C /usr/ports cat-file -e origin/main:sysutils/coxswain/Makefile 2>/dev/null && in_tree=yes
