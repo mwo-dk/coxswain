@@ -143,18 +143,20 @@ jobs:
         if: ${{ !cancelled() }}
         env:
           RUN: ${{ needs.resolve.outputs.run }}
-        # The Release run that just ended, or (by hand) the runs of the release's commit.
+        # The Release run that just ended, or (by hand) the runs of the release's commit; or a
+        # FreeBSD workflow run started by hand for the tag, after a failed Release run.
         run: |
           if [ -z "$RUN" ]; then
             sha=$(gh api "repos/$REPO/releases/tags/$TAG" -q .target_commitish)
             RUN=$(gh api "repos/$REPO/actions/workflows/release.yml/runs?head_sha=$sha&per_page=20" -q '.workflow_runs[].id' | xargs)
           fi
-          for r in $RUN; do
-            if gh api "repos/$REPO/actions/runs/$r/artifacts" -q '.artifacts[] | select(.expired == false) | .name' | grep -qx freebsd-port; then
+          BY_HAND=$(gh api "repos/$REPO/actions/workflows/freebsd.yml/runs?event=workflow_dispatch&per_page=20" -q '.workflow_runs[].id' | xargs)
+          for r in $RUN $BY_HAND; do
+            if gh api "repos/$REPO/actions/runs/$r/artifacts" -q '.artifacts[] | select(.expired == false) | .name' | grep -qxE "freebsd-port(-$TAG-.*)?"; then
               echo "FreeBSD port for $TAG: the freebsd-port artifact of run $r"; exit 0
             fi
           done
-          echo "::error title=FreeBSD port::no freebsd-port artifact for $TAG (runs: ${RUN:-none})"; exit 1
+          echo "::error title=FreeBSD port::no freebsd-port artifact for $TAG (runs: ${RUN:-none}, by hand: ${BY_HAND:-none})"; exit 1
 
   freebsd:
     name: FreeBSD ${{ matrix.release }}

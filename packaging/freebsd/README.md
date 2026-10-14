@@ -18,7 +18,9 @@ The desktop app is left out: it needs two crates patched from git (`[patch.crate
 
 ### Updating it for a release
 
-In a FreeBSD VM with a ports tree (`git clone --depth 1 https://git.FreeBSD.org/ports.git /usr/ports`):
+In a FreeBSD VM with a ports tree from the branch its packages come from, quarterly by default
+(for example `git clone --depth 1 -b 2026Q4 https://git.FreeBSD.org/ports.git /usr/ports`; with `main`,
+`USES=cargo` soon wants a newer `lang/rust` than `pkg` has and builds Rust from source, for hours):
 
 ```sh
 cp -R packaging/freebsd/sysutils/coxswain /usr/ports/sysutils/
@@ -56,8 +58,11 @@ The first submission is by hand, as a new port:
 For every release, the `freebsd-port` job in `release.yml` runs `update-port.sh` in a FreeBSD
 14.5 VM: it sets `DISTVERSION`, regenerates `distinfo` and `Makefile.crates`, builds and checks
 the package (`make stage check-plist package`, `portlint -AC`), and makes `port.diff` against
-the port in the ports tree. The port and the diff are the run's `freebsd-port` artifact; copy
-the three files back here in a pull request of our own.
+the port in the ports tree (`main`). The port and the diff are the run's `freebsd-port` artifact; copy
+the three files back here in a pull request of our own. When that job fails, the *FreeBSD*
+workflow started by hand with the tag (`gh workflow run freebsd.yml -f tag=vX.Y.Z`) builds the
+same port and leaves it as its `freebsd-port-vX.Y.Z-<release>` artifacts, which `release-check.yml`
+accepts too.
 
 Then `file-bugzilla.py` files *sysutils/coxswain: Update to X.Y.Z* (product *Ports & Packages*,
 component *Individual Port(s)*) with the diff attached, *maintainer-approval* set to `+`, and the

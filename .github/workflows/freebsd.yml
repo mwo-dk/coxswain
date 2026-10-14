@@ -142,3 +142,11 @@ jobs:
             make -C /usr/ports/sysutils/coxswain install clean BATCH=yes
             coxswain --version
             man -w coxswain
+      # The port for the tag, as release.yml's freebsd-port job gives it: release-check.yml
+      # accepts this one too, for a release whose Release run failed there.
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: freebsd-port-${{ inputs.tag }}-${{ matrix.release }}
+          path: |
+            packaging/freebsd/sysutils/coxswain
+            packaging/freebsd/out
