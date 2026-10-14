@@ -100,7 +100,7 @@ enum Reply {
 }
 
 /// How the index is doing.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Default, Clone, Debug, Serialize, Deserialize)]
 pub struct Status {
     pub state: State,
     /// File names in the index.

@@ -116,11 +116,22 @@
       trial = { error: String(e) };
     }
   }
+  // The speed test of search by meaning: its report, or why not.
+  let bench = $state(null);
+  async function runBench() {
+    bench = { busy: true };
+    try {
+      bench = { text: await invoke("meaning_bench") };
+    } catch (e) {
+      bench = { error: String(e) };
+    }
+  }
   async function step(line) {
     error = "";
     if (line.step === "turn_on") return chooseLevel("text");
     if (line.step === "set_up") return openSetup();
     if (line.step === "try_it") return tryAsk();
+    if (line.step === "bench") return runBench();
     await invoke("index_action", { what: line.step === "read_now" ? "now" : "restart" }).catch((e) => (error = String(e)));
     loadIndex();
   }
@@ -559,8 +570,9 @@
               {#if l.part === "meaning" && index?.meaning_runs_text && s.meaning_engine === "builtin"}<br /><small class="hint">{index.meaning_runs_text}</small>{/if}
               {#if l.poor}<br /><small class={l.poor.tip ? "hint" : "err"}>{l.poor.text}</small>{#if l.poor.button}{" "}<button class="link" onclick={() => usePoor(l.poor)}>{l.poor.button}</button>{/if}{/if}
               {#if l.part === "ask" && trial}<br /><small class="hint" class:err={trial.error}>{trial.busy ? t("common.loading") : trial.error ?? t("setup.try_done", { seconds: (trial.ms / 1000).toFixed(1) })}</small>{/if}
+              {#if l.part === "meaning" && bench}<br /><small class="hint" class:err={bench.error}>{bench.busy ? t("common.loading") : bench.error ?? bench.text}</small>{/if}
             </span>
-            {#if l.step}<button disabled={trial?.busy && l.step === "try_it"} onclick={() => step(l)}>{t(`settings.step.${l.step}`)}</button>{:else}<span></span>{/if}
+            {#if l.step}<button disabled={(trial?.busy && l.step === "try_it") || (bench?.busy && l.step === "bench")} onclick={() => step(l)}>{t(`settings.step.${l.step}`)}</button>{:else}<span></span>{/if}
           {/each}
         </div>
 

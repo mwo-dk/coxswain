@@ -2508,6 +2508,8 @@ const USAGE: &str = "coxswain [LEFT] [RIGHT]      a folder, or a file to open it
   --meaning server URL MODEL  meaning read by a server with the OpenAI API (Lemonade, LM Studio)
   --meaning builtin        back to the built-in model
   --meaning cpu|auto       the built-in model on the CPU only, or on the Mac's GPU (Metal)
+  --meaning bench [URL MODEL]  time the model on 64 passages and say what the files to go take;
+                           with a server and model named, that server is tried instead
                            when it has one (auto, the default)
   --meaning ask MODEL|off  Ask in Find: the chat model on that server (Ollama here with the
                            built-in model) that answers questions from your files, or one
@@ -2667,6 +2669,17 @@ fn meaning(what: Option<&str>, rest: &[String]) {
             Config::save_value(&["search", "meaning"], true.into()).unwrap_or_else(|e| fail(e));
         }
         Some("off") => drop(Config::save_value(&["search", "meaning"], false.into()).unwrap_or_else(|e| fail(e))),
+        // The model's speed on a few passages, and what the files to go take at it; another
+        // server is tried without a change: `--meaning bench http://my-server:8000/api/v1 <model>`.
+        Some("bench") => {
+            let saved = Config::load().map(|c| c.search).unwrap_or_default();
+            let mut cfg = saved.clone();
+            if let (Some(url), Some(model)) = (rest.first(), rest.get(1)) {
+                (cfg.meaning_engine, cfg.meaning_url, cfg.meaning_model) = ("openai".into(), url.clone(), model.clone());
+            }
+            let status = Client::start(&saved).status();
+            println!("{}", meaning::bench_report(&cfg, Some(&status)).unwrap_or_else(|e| fail(e)));
+        }
         Some("delete") => {
             Config::save_value(&["search", "meaning"], false.into()).unwrap_or_else(|e| fail(e));
             meaning::remove().unwrap_or_else(|e| fail(e.to_string()));
@@ -2740,7 +2753,7 @@ const OPTIONS: &[(&str, &[&str])] = &[
     ("--whats-new", &["all"]),
     ("--index-service", &["on", "off"]),
     ("--setup-search", &[]),
-    ("--meaning", &["on", "off", "delete", "ollama", "server", "builtin", "cpu", "auto", "ask"]),
+    ("--meaning", &["on", "off", "delete", "ollama", "server", "builtin", "cpu", "auto", "ask", "bench"]),
     ("--models", &["delete"]),
     ("--disk", &["clear"]),
     ("--settings", &[]),
