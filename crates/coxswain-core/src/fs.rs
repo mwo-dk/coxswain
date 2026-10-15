@@ -370,7 +370,7 @@ fn out_of_archive(src: &Path) -> Option<(PathBuf, String)> {
 }
 
 /// A folder of its own under the temp folder, removed when dropped.
-struct Scratch(PathBuf);
+pub(crate) struct Scratch(PathBuf);
 
 impl Scratch {
     fn new() -> io::Result<Scratch> {
@@ -384,6 +384,22 @@ impl Scratch {
         fs::create_dir(&dir)?;
         private_dir(&dir)?;
         Ok(Scratch(dir))
+    }
+
+    /// A test's folder, named after the test, removed with it.
+    #[cfg(test)]
+    pub(crate) fn named(name: &str) -> Scratch {
+        let dir = std::env::temp_dir().join(format!("coxswain-test-{name}-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        Scratch(dir)
+    }
+}
+
+impl std::ops::Deref for Scratch {
+    type Target = Path;
+    fn deref(&self) -> &Path {
+        &self.0
     }
 }
 
