@@ -86,6 +86,9 @@ look = "win95"
 crt = true
 ```
 
+Slots left out take NC's blue, so for Windows 95's grey copy its tables from
+`coxswain --dump-config` into the theme first (see [A theme of your own](own-theme.md#start-from-a-built-in-theme)).
+
 ## Settings and config.toml
 
 | Setting | Key | Type, default |
