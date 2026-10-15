@@ -34,10 +34,12 @@ There are no keys of its own: looks are chosen through themes, in Settings or wi
 | Look | Themes | Shapes | Font it asks for |
 |---|---|---|---|
 | `modern` | Dark, Light, Nord, Tokyo Night | Rounded corners, soft shadows | Your *Font* setting |
-| `crt` | Cyber | Square; glowing text, faint scanlines, rings instead of shadows, one text colour for file icons, lit buttons outlined rather than filled | Your *Monospaced font*, for everything |
-| `dos` | Classic blue (NC) | Square; double borders round each pane, a hard drop shadow under dialogs | Your *Monospaced font*, for everything |
+| `crt` | Cyber, Amber, Paper white, Commodore 64, ZX Spectrum, Amstrad CPC, MSX, BBC Micro | Square; capitals in the titles, one text colour for file icons; and [the tube](#the-tube): glowing text, faint scanlines, rings instead of shadows, lit buttons outlined rather than filled | Your *Monospaced font*, for everything |
+| `dos` | Classic blue (NC), XTree Gold, DOS Shell, Midnight Commander | Square; double borders round each pane, a hard drop shadow under dialogs | Your *Monospaced font*, for everything |
+| `workbench` | Amiga Workbench 1.3 | Square; white window frames on the blue screen, white title bars with blue text, the inactive pane's ghosted in a halftone, a close gadget at the left and depth gadgets at the right, black-lined white buttons that turn orange when lit, blue scroll bars with both arrows at the end | Topaz, else Topaz a500a, TopazPlus a500a, Amiga Topaz, Amiga Forever; else your *Monospaced font* |
+| `gem` | Atari ST | Square; white windows with one-pixel black frames on the green desktop, the top window's mover bar dithered with the title on a white patch after the close box, white square buttons (the default one thick-framed), white scroll bars with arrow boxes and a dithered elevator | Atari ST 8x16 System Font, else your *Monospaced font*, for everything |
 | `win31` | Windows 3.11 | Square; black one-pixel frames, grey buttons, navy title bars | MS Sans Serif, else Microsoft Sans Serif, Arial |
-| `win95` | Windows 95 | Square; raised and sunken 3D bevels, navy title bars, grey scroll bars | MS Sans Serif, else Microsoft Sans Serif, Tahoma, Arial |
+| `win95` | Windows 95, OS/2 Warp | Square; raised and sunken 3D bevels, navy title bars, grey scroll bars | MS Sans Serif, else Microsoft Sans Serif, Tahoma, Arial |
 | `winxp` | Windows XP | Luna: rounded blue title bars, a blue task pane, beige chrome | Tahoma, else Segoe UI, Verdana |
 | `win7` | Windows 7 | Aero: pale blue navigation, glassy selection | Segoe UI |
 | `win10` | Windows 10 | Flat, square, white | Segoe UI |
@@ -46,6 +48,8 @@ There are no keys of its own: looks are chosen through themes, in Settings or wi
 | `platinum` | Mac OS 9 | Platinum: grey bevels, lavender selection | Charcoal, else Charcoal CY, Geneva, Chicago |
 | `aqua` | Mac OS X Aqua | Pinstripes, gel buttons, blue selection | Lucida Grande, else Lucida Sans Unicode, Geneva, Verdana |
 | `macos` | macOS, macOS (dark) | Current macOS | The system font (San Francisco), else Helvetica Neue, Inter |
+| `next` | NeXTSTEP | Square; black one-pixel edges with white and dark-grey bevels, black title bars with a white hairline, grey buttons that go white when pressed, a dark stippled scroll slot with a dimpled grey knob | Helvetica, else Helvetica Neue, Arial |
+| `beos` | BeOS | Square windows on a blue desktop; a yellow title tab at the left with its close and zoom squares, grey bevels, rounded grey buttons, ribbed scroll knobs | Swis721 BT, else DejaVu Sans, Verdana |
 
 The look reaches the panes, the dialogs, the Settings window and the duplicate finder: their
 frames, title bars and buttons, the F-key bar's buttons, the tabs and the scroll bars. Some of
@@ -63,13 +67,30 @@ falls back to a plain sans-serif. Windows 95 looks most like itself on Windows, 
 Under any look but `modern`, Settings greys out *Font* and says, for example, *Cyber draws its
 text in a font of its own: the font above applies to the other themes.*
 
+## The tube
+
+Cyber's scanlines and glow are not part of the `crt` look but a switch of their own, `crt`,
+that any theme can turn on: faint scanlines over the whole window, a glow on the text, rings
+instead of blurred shadows round panes and dialogs, and lit buttons drawn as an outline. The
+built-in CRT themes have it (Cyber, Amber, Paper white, and the home computers: Commodore 64,
+ZX Spectrum, Amstrad CPC, MSX, BBC Micro); the others do not. A theme of your own gets it with
+`crt = true` in its table, over whatever look it has, so Amiga Workbench, XTree Gold or Windows
+95 can sit on a tube too:
+
+```toml
+[themes.tube95]
+look = "win95"
+crt = true
+```
+
 ## Settings and config.toml
 
 | Setting | Key | Type, default |
 |---|---|---|
 | none (it comes with the theme) | `[themes.<name>] look` | one of the names above; `"dos"` when a theme of your own leaves it out |
+| none (it comes with the theme) | `[themes.<name>] crt` | true/false, `false`: the tube over any look |
 
-A name that is not one of the thirteen gives the `modern` shapes, with your *Font*.
+A name that is not one of the seventeen gives the `modern` shapes, with your *Font*.
 
 ## In the terminal app
 
@@ -107,9 +128,10 @@ the monospaced font everywhere. Add `look = "modern"` (or any other look) to its
 
 #### Is Cyber's glow and scanlines slow?
 
-It is made to be cheap: the scanlines are one small tiled image, and panes and dialogs have
+They are made to be cheap: the scanlines are one small tiled image, and panes and dialogs have
 rings instead of blurred shadows, which were redrawn on every repaint. If it still feels slow on
-an old machine, pick Dark or Classic blue (NC), which have neither.
+an old machine, pick Dark or Classic blue (NC), which have neither; or copy a CRT theme into
+one of your own with `crt = false` ([Your own theme](own-theme.md)).
 
 #### Why are Cyber's buttons outlined rather than green?
 

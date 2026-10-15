@@ -30,14 +30,28 @@ pub struct Dataset {
 /// The `zfs` program: on PATH, or where the systems put it (a user's PATH on Linux has no
 /// `/sbin`; OpenZFS on macOS installs in `/usr/local/zfs/bin`).
 fn zfs_program() -> Option<PathBuf> {
-    crate::tools::which("zfs").or_else(|| ["/sbin/zfs", "/usr/sbin/zfs", "/usr/local/sbin/zfs", "/usr/local/zfs/bin/zfs"].iter().map(PathBuf::from).find(|p| p.is_file()))
+    crate::tools::which("zfs").or_else(|| {
+        [
+            "/sbin/zfs",
+            "/usr/sbin/zfs",
+            "/usr/local/sbin/zfs",
+            "/usr/local/zfs/bin/zfs",
+        ]
+        .iter()
+        .map(PathBuf::from)
+        .find(|p| p.is_file())
+    })
 }
 
 /// What `zfs` with these arguments prints; its complaint as the error.
 fn zfs(args: &[&str]) -> io::Result<String> {
-    let program = zfs_program().ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, crate::t!("zfs.no_program")))?;
+    let program = zfs_program()
+        .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, crate::t!("zfs.no_program")))?;
     let mut c = crate::tools::command(program);
-    c.args(args).stdin(std::process::Stdio::null()).stdout(std::process::Stdio::piped()).stderr(std::process::Stdio::piped());
+    c.args(args)
+        .stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped());
     let mut child = c.spawn()?;
     // Read while it runs: a long list would fill the pipe and never end.
     let (mut out, mut err) = (child.stdout.take(), child.stderr.take());
@@ -55,7 +69,11 @@ fn zfs(args: &[&str]) -> io::Result<String> {
         if let Some(e) = err.as_mut() {
             let _ = io::Read::read_to_string(e, &mut why);
         }
-        return Err(io::Error::other(if why.trim().is_empty() { status.to_string() } else { why.trim().to_string() }));
+        return Err(io::Error::other(if why.trim().is_empty() {
+            status.to_string()
+        } else {
+            why.trim().to_string()
+        }));
     }
     Ok(text)
 }
@@ -64,7 +82,12 @@ fn zfs(args: &[&str]) -> io::Result<String> {
 
 /// The ZFS mounts in `/proc/self/mountinfo`'s text (Linux), snapshots left out.
 pub fn parse_mountinfo(mountinfo: &str) -> Vec<Dataset> {
-    let unescape = |s: &str| s.replace("\\040", " ").replace("\\011", "\t").replace("\\012", "\n").replace("\\134", "\\");
+    let unescape = |s: &str| {
+        s.replace("\\040", " ")
+            .replace("\\011", "\t")
+            .replace("\\012", "\n")
+            .replace("\\134", "\\")
+    };
     mountinfo
         .lines()
         .filter_map(|l| {
@@ -72,7 +95,10 @@ pub fn parse_mountinfo(mountinfo: &str) -> Vec<Dataset> {
             let point = left.split(' ').nth(4)?;
             let mut r = right.split(' ');
             let (fstype, source) = (r.next()?, r.next()?);
-            (fstype == "zfs" && !source.contains('@')).then(|| Dataset { name: unescape(source), mountpoint: PathBuf::from(unescape(point)) })
+            (fstype == "zfs" && !source.contains('@')).then(|| Dataset {
+                name: unescape(source),
+                mountpoint: PathBuf::from(unescape(point)),
+            })
         })
         .collect()
 }
@@ -89,7 +115,10 @@ pub fn dataset_of(dir: &Path) -> Option<Dataset> {
 #[cfg(target_os = "linux")]
 fn mounted(dir: &Path) -> Option<Dataset> {
     let text = std::fs::read_to_string("/proc/self/mountinfo").ok()?;
-    parse_mountinfo(&text).into_iter().filter(|d| dir.starts_with(&d.mountpoint)).max_by_key(|d| d.mountpoint.as_os_str().len())
+    parse_mountinfo(&text)
+        .into_iter()
+        .filter(|d| dir.starts_with(&d.mountpoint))
+        .max_by_key(|d| d.mountpoint.as_os_str().len())
 }
 
 /// statfs(2) names the file system a path is on: its type, what is mounted and where.
@@ -106,18 +135,38 @@ fn mounted(dir: &Path) -> Option<Dataset> {
         st
     };
     // SAFETY: the kernel ends each name with a NUL inside its array.
-    let text = |a: &[libc::c_char]| unsafe { CStr::from_ptr(a.as_ptr()) }.to_string_lossy().into_owned();
-    (text(&st.f_fstypename) == "zfs").then(|| Dataset { name: text(&st.f_mntfromname), mountpoint: PathBuf::from(text(&st.f_mntonname)) })
+    let text = |a: &[libc::c_char]| {
+        unsafe { CStr::from_ptr(a.as_ptr()) }
+            .to_string_lossy()
+            .into_owned()
+    };
+    (text(&st.f_fstypename) == "zfs").then(|| Dataset {
+        name: text(&st.f_mntfromname),
+        mountpoint: PathBuf::from(text(&st.f_mntonname)),
+    })
 }
 
 /// /etc/mnttab names the dataset mounted at each mount point (illumos).
 #[cfg(any(target_os = "illumos", target_os = "solaris"))]
 fn mounted(dir: &Path) -> Option<Dataset> {
     let text = std::fs::read_to_string("/etc/mnttab").ok()?;
-    crate::machine::parse_mnttab(&text).into_iter().filter(|m| m.fstype == "zfs" && dir.starts_with(&m.mount)).max_by_key(|m| m.mount.as_os_str().len()).map(|m| Dataset { name: m.device, mountpoint: m.mount })
+    crate::machine::parse_mnttab(&text)
+        .into_iter()
+        .filter(|m| m.fstype == "zfs" && dir.starts_with(&m.mount))
+        .max_by_key(|m| m.mount.as_os_str().len())
+        .map(|m| Dataset {
+            name: m.device,
+            mountpoint: m.mount,
+        })
 }
 
-#[cfg(not(any(target_os = "linux", target_os = "freebsd", target_os = "macos", target_os = "illumos", target_os = "solaris")))]
+#[cfg(not(any(
+    target_os = "linux",
+    target_os = "freebsd",
+    target_os = "macos",
+    target_os = "illumos",
+    target_os = "solaris"
+)))]
 fn mounted(_dir: &Path) -> Option<Dataset> {
     None
 }
@@ -152,7 +201,12 @@ pub fn parse_props(ds: &Dataset, text: &str) -> Facts {
         mountpoint: ds.mountpoint.clone(),
         snapshot: None,
         compression: p.get("compression").unwrap_or(&"").trim().to_string(),
-        compressratio: p.get("compressratio").unwrap_or(&"").trim().trim_end_matches('x').to_string(),
+        compressratio: p
+            .get("compressratio")
+            .unwrap_or(&"")
+            .trim()
+            .trim_end_matches('x')
+            .to_string(),
         used: n("used"),
         available: n("available"),
         referenced: n("referenced"),
@@ -170,13 +224,23 @@ pub fn facts(dir: &Path) -> Option<Facts> {
     let dir = of.as_deref().unwrap_or(dir);
     let ds = dataset_of(dir)?;
     let snapshot = in_snapshot(dir).map(|s| s.name);
-    let cached = CACHE.lock().ok()?.get_or_insert_default().get(&ds.name).filter(|(at, _)| at.elapsed() < Duration::from_secs(10)).map(|(_, f)| f.clone());
+    let cached = CACHE
+        .lock()
+        .ok()?
+        .get_or_insert_default()
+        .get(&ds.name)
+        .filter(|(at, _)| at.elapsed() < Duration::from_secs(10))
+        .map(|(_, f)| f.clone());
     let mut f = match cached {
         Some(f) => f,
         None => {
-            let f = parse_props(&ds, &zfs(&["get", "-H", "-p", "-o", "property,value", PROPS, &ds.name]).ok()?);
+            let f = parse_props(
+                &ds,
+                &zfs(&["get", "-H", "-p", "-o", "property,value", PROPS, &ds.name]).ok()?,
+            );
             if let Ok(mut c) = CACHE.lock() {
-                c.get_or_insert_default().insert(ds.name.clone(), (Instant::now(), f.clone()));
+                c.get_or_insert_default()
+                    .insert(ds.name.clone(), (Instant::now(), f.clone()));
             }
             f
         }
@@ -204,9 +268,18 @@ pub fn parse_snapshots(dataset: &str, text: &str) -> Vec<Snapshot> {
         .lines()
         .filter_map(|l| {
             let mut f = l.split('\t');
-            let name = f.next()?.strip_prefix(dataset)?.strip_prefix('@')?.to_string();
+            let name = f
+                .next()?
+                .strip_prefix(dataset)?
+                .strip_prefix('@')?
+                .to_string();
             let mut n = || f.next().and_then(|s| s.trim().parse::<u64>().ok());
-            Some(Snapshot { name, created: n()?, used: n().unwrap_or(0), referenced: n().unwrap_or(0) })
+            Some(Snapshot {
+                name,
+                created: n()?,
+                used: n().unwrap_or(0),
+                referenced: n().unwrap_or(0),
+            })
         })
         .collect();
     // Stable: snapshots taken in the same second keep ZFS's order (the order they were taken).
@@ -217,7 +290,20 @@ pub fn parse_snapshots(dataset: &str, text: &str) -> Vec<Snapshot> {
 
 /// The snapshots of `dataset`, newest first.
 pub fn snapshots(dataset: &str) -> io::Result<Vec<Snapshot>> {
-    let text = zfs(&["list", "-H", "-p", "-o", "name,creation,used,refer", "-t", "snapshot", "-s", "creation", "-d", "1", dataset])?;
+    let text = zfs(&[
+        "list",
+        "-H",
+        "-p",
+        "-o",
+        "name,creation,used,refer",
+        "-t",
+        "snapshot",
+        "-s",
+        "creation",
+        "-d",
+        "1",
+        dataset,
+    ])?;
     Ok(parse_snapshots(dataset, &text))
 }
 
@@ -233,7 +319,11 @@ pub struct InSnapshot {
 /// Whether `path` is inside a snapshot (`…/.zfs/snapshot/<name>/…`), from the path alone.
 pub fn in_snapshot(path: &Path) -> Option<InSnapshot> {
     let comps: Vec<Component> = path.components().collect();
-    let i = comps.windows(3).position(|w| w[0].as_os_str() == ".zfs" && w[1].as_os_str() == "snapshot" && matches!(w[2], Component::Normal(_)))?;
+    let i = comps.windows(3).position(|w| {
+        w[0].as_os_str() == ".zfs"
+            && w[1].as_os_str() == "snapshot"
+            && matches!(w[2], Component::Normal(_))
+    })?;
     Some(InSnapshot {
         mountpoint: comps[..i].iter().collect(),
         name: comps[i + 2].as_os_str().to_string_lossy().into_owned(),
@@ -244,7 +334,11 @@ pub fn in_snapshot(path: &Path) -> Option<InSnapshot> {
 impl InSnapshot {
     /// The same file or folder as it is now.
     pub fn live(&self) -> PathBuf {
-        if self.rel.as_os_str().is_empty() { self.mountpoint.clone() } else { self.mountpoint.join(&self.rel) }
+        if self.rel.as_os_str().is_empty() {
+            self.mountpoint.clone()
+        } else {
+            self.mountpoint.join(&self.rel)
+        }
     }
 }
 
@@ -276,8 +370,18 @@ pub fn is_read_only(path: &Path) -> bool {
 /// the folder, then one folder a snapshot, newest first, leading to `dir` as it was then. Its
 /// size is the snapshot's own space (`used`); `referenced` is the data it refers to.
 pub fn list(dir: &Path) -> io::Result<Vec<Entry>> {
-    let ds = dataset_of(dir).ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, crate::t!("zfs.not_zfs", "dir" => dir.display())))?;
-    let up = Entry { name: "..".into(), path: dir.to_path_buf(), is_dir: true, ..Entry::default() };
+    let ds = dataset_of(dir).ok_or_else(|| {
+        io::Error::new(
+            io::ErrorKind::NotFound,
+            crate::t!("zfs.not_zfs", "dir" => dir.display()),
+        )
+    })?;
+    let up = Entry {
+        name: "..".into(),
+        path: dir.to_path_buf(),
+        is_dir: true,
+        ..Entry::default()
+    };
     let snaps = snapshots(&ds.name)?;
     Ok(std::iter::once(up)
         .chain(snaps.into_iter().map(|s| Entry {
@@ -305,12 +409,20 @@ pub struct At {
 /// `dir` among the snapshots, if it is: inside one, or their list.
 pub fn at(dir: &Path) -> Option<At> {
     if let Some(of) = split(dir) {
-        return Some(At { dataset: dataset_of(&of)?.name, snapshot: None, live: of });
+        return Some(At {
+            dataset: dataset_of(&of)?.name,
+            snapshot: None,
+            live: of,
+        });
     }
     let s = in_snapshot(dir)?;
     // Not ZFS after all: a folder that happens to be called so.
     let ds = dataset_of(&s.mountpoint)?;
-    Some(At { dataset: ds.name, live: s.live(), snapshot: Some(s.name) })
+    Some(At {
+        dataset: ds.name,
+        live: s.live(),
+        snapshot: Some(s.name),
+    })
 }
 
 /// The path of `dir`'s list of snapshots.
@@ -321,24 +433,45 @@ pub fn path(dir: &Path) -> PathBuf {
 /// What changed in a file since the snapshot: `diff -u` of the snapshot's copy against the
 /// file now (a file gone since, or new since, is diffed against nothing).
 pub fn diff(path: &Path) -> io::Result<String> {
-    let at = in_snapshot(path).ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "not in a snapshot"))?;
+    let at = in_snapshot(path)
+        .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "not in a snapshot"))?;
     let now = at.live();
     let label = |p: &Path, what: &str| format!("{} ({what})", p.display());
     // illumos's own diff has neither -N nor -L: its GNU diff does, where it is installed.
     let gnu = Path::new("/usr/gnu/bin/diff");
     let illumos = cfg!(any(target_os = "illumos", target_os = "solaris"));
-    let mut c = crate::tools::command(if illumos && gnu.is_file() { gnu } else { Path::new("diff") });
-    if !illumos || gnu.is_file() {
-        c.arg("-u").arg("-N").arg("-L").arg(label(&now, &format!("@{}", at.name))).arg("-L").arg(label(&now, &crate::t!("zfs.now"))).arg(path).arg(&now);
+    let mut c = crate::tools::command(if illumos && gnu.is_file() {
+        gnu
     } else {
-        c.arg("-u").arg(path).arg(if now.exists() { now.as_path() } else { Path::new("/dev/null") });
+        Path::new("diff")
+    });
+    if !illumos || gnu.is_file() {
+        c.arg("-u")
+            .arg("-N")
+            .arg("-L")
+            .arg(label(&now, &format!("@{}", at.name)))
+            .arg("-L")
+            .arg(label(&now, &crate::t!("zfs.now")))
+            .arg(path)
+            .arg(&now);
+    } else {
+        c.arg("-u").arg(path).arg(if now.exists() {
+            now.as_path()
+        } else {
+            Path::new("/dev/null")
+        });
     }
     let o = c.output()?;
     // 0: the same; 1: differences; 2: trouble.
     if o.status.code() == Some(2) {
-        return Err(io::Error::other(String::from_utf8_lossy(&o.stderr).trim().to_string()));
+        return Err(io::Error::other(
+            String::from_utf8_lossy(&o.stderr).trim().to_string(),
+        ));
     }
-    Ok(String::from_utf8_lossy(&o.stdout).chars().take(512 * 1024).collect())
+    Ok(String::from_utf8_lossy(&o.stdout)
+        .chars()
+        .take(512 * 1024)
+        .collect())
 }
 
 /// `diff` of a file in a snapshot against now, written next to the copies the viewer reads:
@@ -348,7 +481,10 @@ pub fn diff_file(path: &Path) -> io::Result<Option<PathBuf>> {
     if text.trim().is_empty() {
         return Ok(None);
     }
-    let to = crate::archive::peek_folder()?.join(format!("{}.diff", path.file_name().unwrap_or_default().to_string_lossy()));
+    let to = crate::archive::peek_folder()?.join(format!(
+        "{}.diff",
+        path.file_name().unwrap_or_default().to_string_lossy()
+    ));
     std::fs::write(&to, text)?;
     Ok(Some(to))
 }
@@ -367,7 +503,13 @@ mod tests {
 40 29 8:1 / /boot rw - ext4 /dev/sda1 rw";
         let v = parse_mountinfo(text);
         assert_eq!(v.len(), 3);
-        assert_eq!(v[0], Dataset { name: "rpool/ROOT/ubuntu".into(), mountpoint: "/".into() });
+        assert_eq!(
+            v[0],
+            Dataset {
+                name: "rpool/ROOT/ubuntu".into(),
+                mountpoint: "/".into()
+            }
+        );
         assert_eq!(v[2].mountpoint, Path::new("/home/my files"));
     }
 
@@ -375,12 +517,24 @@ mod tests {
     fn zfs_facts_are_parsed_from_zfs_get() {
         // Recorded on FreeBSD 14.5: `zfs get -H -p -o property,value … tank/home/demo`.
         let text = "used\t37888\navailable\t524250112\nreferenced\t25600\ncompressratio\t1.08\ncompression\tlz4\nquota\t524288000\nrefquota\t0\n";
-        let ds = Dataset { name: "tank/home/demo".into(), mountpoint: "/tank/home/demo".into() };
+        let ds = Dataset {
+            name: "tank/home/demo".into(),
+            mountpoint: "/tank/home/demo".into(),
+        };
         let f = parse_props(&ds, text);
-        assert_eq!((f.used, f.available, f.referenced, f.quota, f.refquota), (37888, 524250112, 25600, 524288000, 0));
-        assert_eq!((f.compression.as_str(), f.compressratio.as_str()), ("lz4", "1.08"));
+        assert_eq!(
+            (f.used, f.available, f.referenced, f.quota, f.refquota),
+            (37888, 524250112, 25600, 524288000, 0)
+        );
+        assert_eq!(
+            (f.compression.as_str(), f.compressratio.as_str()),
+            ("lz4", "1.08")
+        );
         // Without -p the ratio has its x.
-        assert_eq!(parse_props(&ds, "compressratio\t1.52x").compressratio, "1.52");
+        assert_eq!(
+            parse_props(&ds, "compressratio\t1.52x").compressratio,
+            "1.52"
+        );
     }
 
     #[test]
@@ -390,7 +544,15 @@ mod tests {
         let v = parse_snapshots("tank/home/demo", text);
         let names: Vec<&str> = v.iter().map(|s| s.name.as_str()).collect();
         assert_eq!(names, ["same", "second", "first"]);
-        assert_eq!(v[2], Snapshot { name: "first".into(), created: 1791245434, used: 12288, referenced: 25600 });
+        assert_eq!(
+            v[2],
+            Snapshot {
+                name: "first".into(),
+                created: 1791245434,
+                used: 12288,
+                referenced: 25600
+            }
+        );
         assert!(parse_snapshots("tank/home/demo", "garbage\n").is_empty());
     }
 
@@ -401,11 +563,24 @@ mod tests {
         assert_eq!(at.mountpoint, Path::new("/tank/home/demo"));
         assert_eq!(at.name, "first");
         assert_eq!(at.live(), Path::new("/tank/home/demo/docs/note.md"));
-        assert_eq!(in_snapshot(Path::new("/z/.zfs/snapshot/s")).unwrap().live(), Path::new("/z"));
+        assert_eq!(
+            in_snapshot(Path::new("/z/.zfs/snapshot/s")).unwrap().live(),
+            Path::new("/z")
+        );
         assert!(in_snapshot(Path::new("/z/.zfs/snapshot")).is_none());
         assert!(in_snapshot(Path::new("/z/zfs/snapshot/s")).is_none());
-        assert_eq!(snapshot_path(Path::new("/tank/home/demo"), "first", Path::new("/tank/home/demo/docs")), Path::new("/tank/home/demo/.zfs/snapshot/first/docs"));
-        assert_eq!(snapshot_path(Path::new("/"), "s", Path::new("/")), Path::new("/.zfs/snapshot/s"));
+        assert_eq!(
+            snapshot_path(
+                Path::new("/tank/home/demo"),
+                "first",
+                Path::new("/tank/home/demo/docs")
+            ),
+            Path::new("/tank/home/demo/.zfs/snapshot/first/docs")
+        );
+        assert_eq!(
+            snapshot_path(Path::new("/"), "s", Path::new("/")),
+            Path::new("/.zfs/snapshot/s")
+        );
         assert!(is_read_only(p));
     }
 

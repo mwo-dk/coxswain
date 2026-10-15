@@ -13,7 +13,7 @@ SHOTS = [
     ("gui-previews.png", "Previews of Markdown, code, pictures and data"),
     ("search-find.png", "Find: names, words inside files and meaning in one list"),
     ("git-history-commits.png", "The git history of a folder"),
-    ("gui-themes.png", "Some of the eighteen themes"),
+    ("gui-themes.png", "Some of the thirty-three themes"),
     ("gui-settings.png", "Settings, by task"),
 ]
 KEEP = 10

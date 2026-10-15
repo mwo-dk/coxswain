@@ -23,7 +23,12 @@ pub struct Notice {
 
 impl Notice {
     fn new(id: impl Into<String>, text: String, settings: Option<&'static str>) -> Notice {
-        Notice { id: id.into(), text, settings, copy: None }
+        Notice {
+            id: id.into(),
+            text,
+            settings,
+            copy: None,
+        }
     }
 }
 
@@ -32,8 +37,14 @@ impl Notice {
 /// go first and are seldom typical), times what a passage takes as the helper measured it.
 /// "40 minutes", "3 hours".
 pub fn time_left(status: &Status) -> String {
-    let per_file = if status.meaning_done > 0 { status.meaning_passages as f64 / status.meaning_done as f64 } else { 1.0 };
-    crate::meaning::about(status.meaning_pending as f64 * per_file * status.meaning_ms_per_passage as f64 / 1000.0)
+    let per_file = if status.meaning_done > 0 {
+        status.meaning_passages as f64 / status.meaning_done as f64
+    } else {
+        1.0
+    };
+    crate::meaning::about(
+        status.meaning_pending as f64 * per_file * status.meaning_ms_per_passage as f64 / 1000.0,
+    )
 }
 
 /// The notice to show now, if any. `terminal`: the notice names the command instead of Settings.
@@ -48,74 +59,137 @@ pub fn all(cfg: &Config, status: &Status, state: &AppState, terminal: bool) -> V
     let mut all = vec![];
     // Version 2.0 renamed keys in config.toml: which, once.
     if !state.migrated.is_empty() {
-        all.push(Notice::new("migrated-2", t!("notice.migrated", "changes" => state.migrated.join(", ")), Some("keys")));
+        all.push(Notice::new(
+            "migrated-2",
+            t!("notice.migrated", "changes" => state.migrated.join(", ")),
+            Some("keys"),
+        ));
     }
     // Search has stalled: why, before anything else. Dismissed, it comes back with another why.
     if let Some(why) = &status.error {
-        all.push(Notice::new(format!("error:{why}"), t!("notice.search_error", "why" => why), Some("search")));
+        all.push(Notice::new(
+            format!("error:{why}"),
+            t!("notice.search_error", "why" => why),
+            Some("search"),
+        ));
     }
     if let Some(why) = status.meaning_error.as_ref().filter(|_| status.meaning) {
-        all.push(Notice::new(format!("error:{why}"), t!("notice.meaning_error", "why" => why), Some("search_meaning")));
+        all.push(Notice::new(
+            format!("error:{why}"),
+            t!("notice.meaning_error", "why" => why),
+            Some("search_meaning"),
+        ));
     }
     // Start with my session is on, but systemd or launchd did not start the helper: this app did.
     if crate::helper::UNSTARTED.load(std::sync::atomic::Ordering::Relaxed) {
-        let text = if cfg!(target_os = "macos") { t!("notice.helper_unstarted_macos") } else { t!("notice.helper_unstarted") };
+        let text = if cfg!(target_os = "macos") {
+            t!("notice.helper_unstarted_macos")
+        } else {
+            t!("notice.helper_unstarted")
+        };
         all.push(Notice::new("helper-unstarted", text, Some("search")));
     }
     // A newer version's helper runs, which this app cannot talk to: a restart brings the new one.
     if let Some(v) = &status.outdated {
-        all.push(Notice::new(format!("helper-outdated-{v}"), t!("notice.helper_outdated", "version" => v), None));
+        all.push(Notice::new(
+            format!("helper-outdated-{v}"),
+            t!("notice.helper_outdated", "version" => v),
+            None,
+        ));
     }
     // On a Mac: why macOS asks about folders, and what Coxswain reads.
     if cfg!(target_os = "macos") {
-        all.push(Notice::new("macos-folders", t!("notice.macos_folders"), None));
+        all.push(Notice::new(
+            "macos-folders",
+            t!("notice.macos_folders"),
+            None,
+        ));
     }
     // The vectors are made again to cover whole documents: once the time one takes is known.
     if status.meaning && status.meaning_renewing > 0 && status.meaning_ms_per_passage > 0 {
-        let text = t!("notice.meaning_renew", "n" => status.meaning_renewing, "time" => time_left(status));
-        all.push(Notice::new(format!("renew-passages-{}", crate::meaning::SCHEME), text, Some("search_meaning")));
+        let text =
+            t!("notice.meaning_renew", "n" => status.meaning_renewing, "time" => time_left(status));
+        all.push(Notice::new(
+            format!("renew-passages-{}", crate::meaning::SCHEME),
+            text,
+            Some("search_meaning"),
+        ));
     }
     // Clouds found: their files that are only online are found by name, never downloaded.
     if cfg.search.cloud != "all" && !status.clouds.is_empty() {
         let mut names: Vec<&str> = status.clouds.iter().map(|(n, _)| n.as_str()).collect();
         names.dedup();
         let names = names.join(", ");
-        let text = if terminal { t!("notice.cloud_tui", "names" => names) } else { t!("notice.cloud", "names" => names) };
+        let text = if terminal {
+            t!("notice.cloud_tui", "names" => names)
+        } else {
+            t!("notice.cloud", "names" => names)
+        };
         all.push(Notice::new("cloud", text, Some("search")));
     }
     // After an update, in the terminal app: where to read what it brought. Not on a first
     // start. The desktop app counts the versions not read on its Settings button instead.
     if terminal && !state.seen_version.is_empty() && state.seen_version != version {
-        all.push(Notice::new(format!("new-{version}"), t!("notice.updated_tui", "version" => version), None));
+        all.push(Notice::new(
+            format!("new-{version}"),
+            t!("notice.updated_tui", "version" => version),
+            None,
+        ));
     }
     // A repository was opened: its history is a key away.
     if !state.recent_repos.is_empty() {
         let key = cfg.key_for(crate::config::Action::History).unwrap_or("F9");
-        all.push(Notice::new("history", t!("notice.history", "key" => key), None));
+        all.push(Notice::new(
+            "history",
+            t!("notice.history", "key" => key),
+            None,
+        ));
     }
     // Home is on ZFS: its snapshots are a key away.
     if !seen("zfs") && std::env::home_dir().is_some_and(|h| crate::zfs::dataset_of(&h).is_some()) {
-        let key = cfg.key_for(crate::config::Action::Snapshots).unwrap_or("F9");
+        let key = cfg
+            .key_for(crate::config::Action::Snapshots)
+            .unwrap_or("F9");
         all.push(Notice::new("zfs", t!("notice.zfs", "key" => key), None));
     }
     if cfg.search.text && !cfg.search.meaning && status.texts > 0 {
-        let text = if terminal { t!("notice.meaning_tui") } else { t!("notice.meaning") };
+        let text = if terminal {
+            t!("notice.meaning_tui")
+        } else {
+            t!("notice.meaning")
+        };
         all.push(Notice::new("meaning", text, Some("search_meaning")));
     }
     // The built-in model on a Mac's GPU, or on its CPU when the GPU could not be used: said once.
     let runs = status.meaning_runs.as_ref().filter(|_| status.meaning);
     if let Some(runs) = runs {
         if runs.metal {
-            all.push(Notice::new("meaning-metal", t!("notice.meaning_metal", "n" => format!("{:.0}", runs.faster.max(1.0))), Some("search_meaning")));
-        } else if let Some(why) = runs.cpu_why.as_ref().filter(|w| **w != crate::meaning::Fallback::Chosen) {
-            all.push(Notice::new("meaning-cpu", t!("notice.meaning_cpu", "why" => why.text()), Some("search_meaning")));
+            all.push(Notice::new(
+                "meaning-metal",
+                t!("notice.meaning_metal", "n" => format!("{:.0}", runs.faster.max(1.0))),
+                Some("search_meaning"),
+            ));
+        } else if let Some(why) = runs
+            .cpu_why
+            .as_ref()
+            .filter(|w| **w != crate::meaning::Fallback::Chosen)
+        {
+            all.push(Notice::new(
+                "meaning-cpu",
+                t!("notice.meaning_cpu", "why" => why.text()),
+                Some("search_meaning"),
+            ));
         }
     }
     // A built-in model on the processor while a server runs its models on the graphics card,
     // or a chat model too large for the processor: said once here, and on its line in
     // Settings for as long as the choice stands.
     for p in crate::setup::poor(&cfg.search, false) {
-        let (id, at) = if p.ask { (format!("poor-ask:{}", cfg.search.ask_model), "ask_model") } else { ("poor-meaning".to_string(), "meaning_engine") };
+        let (id, at) = if p.ask {
+            (format!("poor-ask:{}", cfg.search.ask_model), "ask_model")
+        } else {
+            ("poor-meaning".to_string(), "meaning_engine")
+        };
         all.push(Notice::new(id, p.text, Some(at)));
     }
     // The desktop app's preview cannot play video and sound here: what to install.
@@ -131,33 +205,71 @@ pub fn all(cfg: &Config, status: &Status, state: &AppState, terminal: bool) -> V
                     Some(cmd) => t!("notice.cjk_font_cmd", "cmd" => cmd),
                     None => t!("notice.cjk_font"),
                 },
-                _ => t!("notice.script_font", "language" => crate::i18n::find(lang).map_or(lang, |l| l.name), "fonts" => crate::tools::script_fonts(lang)),
+                _ => {
+                    t!("notice.script_font", "language" => crate::i18n::find(lang).map_or(lang, |l| l.name), "fonts" => crate::tools::script_fonts(lang))
+                }
             };
-            all.push(Notice::new(if matches!(lang, "ja" | "ko") { "cjk-font" } else { "script-font" }, text, None));
+            all.push(Notice::new(
+                if matches!(lang, "ja" | "ko") {
+                    "cjk-font"
+                } else {
+                    "script-font"
+                },
+                text,
+                None,
+            ));
         }
     }
     // In Termux: the phone's folders wait for termux-setup-storage, the clipboard and the
     // battery for Termux:API.
     if crate::termux::storage_missing() {
-        let key = cfg.key_for(crate::config::Action::GotoLeft).unwrap_or("Alt+F1");
-        all.push(Notice { copy: Some("termux-setup-storage".into()), ..Notice::new("termux-storage", t!("notice.termux_storage", "key" => key), None) });
+        let key = cfg
+            .key_for(crate::config::Action::GotoLeft)
+            .unwrap_or("Alt+F1");
+        all.push(Notice {
+            copy: Some("termux-setup-storage".into()),
+            ..Notice::new(
+                "termux-storage",
+                t!("notice.termux_storage", "key" => key),
+                None,
+            )
+        });
     }
     if crate::termux::api_missing() {
-        all.push(Notice { copy: Some("pkg install termux-api".into()), ..Notice::new("termux-api", t!("notice.termux_api"), None) });
+        all.push(Notice {
+            copy: Some("pkg install termux-api".into()),
+            ..Notice::new("termux-api", t!("notice.termux_api"), None)
+        });
     }
     // A new translation in use: where to suggest a better word.
     if let Some(l) = crate::i18n::find(crate::i18n::language()).filter(|l| l.new) {
-        let text = if terminal { t!("notice.language_new_tui", "language" => l.name) } else { t!("notice.language_new", "language" => l.name) };
-        all.push(Notice::new(format!("language-{}", l.code), text, Some("language")));
+        let text = if terminal {
+            t!("notice.language_new_tui", "language" => l.name)
+        } else {
+            t!("notice.language_new", "language" => l.name)
+        };
+        all.push(Notice::new(
+            format!("language-{}", l.code),
+            text,
+            Some("language"),
+        ));
     }
     // The search helper found no tesseract: pictures and scans have no words to search.
-    if cfg.search.text && status.tools.iter().any(|(name, there)| name == "tesseract" && !there) {
+    if cfg.search.text
+        && status
+            .tools
+            .iter()
+            .any(|(name, there)| name == "tesseract" && !there)
+    {
         let copy = crate::tools::install("tesseract");
         let text = match &copy {
             Some(line) => t!("notice.tesseract_install", "command" => line),
             None => t!("notice.tesseract"),
         };
-        all.push(Notice { copy, ..Notice::new("tesseract", text, Some("search")) });
+        all.push(Notice {
+            copy,
+            ..Notice::new("tesseract", text, Some("search"))
+        });
     }
     all.retain(|n| !seen(&n.id));
     all
@@ -176,20 +288,34 @@ const DOCS_URL: &str = "https://github.com/mwo-dk/coxswain/blob/master/";
 
 /// Every version's changes, newest first.
 pub fn changes() -> Vec<Change> {
-    changelog(include_str!(env!("COXSWAIN_CHANGELOG")), env!("COXSWAIN_CHANGELOG_BASE"))
+    changelog(
+        include_str!(env!("COXSWAIN_CHANGELOG")),
+        env!("COXSWAIN_CHANGELOG_BASE"),
+    )
 }
 
 fn changelog(readme: &str, base: &str) -> Vec<Change> {
     // `## Changelog` in the README, `# Changelog` on its docs page.
-    let Some((_, table)) = readme.split_once("# Changelog") else { return vec![] };
+    let Some((_, table)) = readme.split_once("# Changelog") else {
+        return vec![];
+    };
     table
         .lines()
         .filter_map(|line| {
             let mut cells = line.strip_prefix("| **")?.splitn(3, " | ");
             let version = cells.next()?.strip_suffix("**")?.to_string();
             let date = cells.next()?.to_string();
-            let text = cells.next()?.trim_end().strip_suffix('|')?.trim().replace("\\|", "|");
-            Some(Change { version, date, parts: parts(&text, base) })
+            let text = cells
+                .next()?
+                .trim_end()
+                .strip_suffix('|')?
+                .trim()
+                .replace("\\|", "|");
+            Some(Change {
+                version,
+                date,
+                parts: parts(&text, base),
+            })
         })
         .collect()
 }
@@ -201,8 +327,12 @@ fn parts(text: &str, base: &str) -> Vec<(String, Option<String>)> {
     let mut out = vec![];
     let mut rest = text;
     while let Some(open) = rest.find('[') {
-        let Some((label, after)) = rest[open + 1..].split_once("](") else { break };
-        let Some((target, tail)) = after.split_once(')') else { break };
+        let Some((label, after)) = rest[open + 1..].split_once("](") else {
+            break;
+        };
+        let Some((target, tail)) = after.split_once(')') else {
+            break;
+        };
         out.push((plain(&rest[..open]), None));
         let url = if target.starts_with("http") {
             target.to_string()
@@ -224,7 +354,10 @@ pub fn unread(state: &AppState) -> Vec<Change> {
     if state.seen_version.is_empty() {
         return vec![];
     }
-    changes().into_iter().filter(|c| crate::update::is_newer(&state.seen_version, &c.version)).collect()
+    changes()
+        .into_iter()
+        .filter(|c| crate::update::is_newer(&state.seen_version, &c.version))
+        .collect()
 }
 
 /// The changes have been read, up to this version.
@@ -258,7 +391,29 @@ mod tests {
     #[test]
     fn notices_come_one_at_a_time_and_stay_away_once_dismissed() {
         let cfg = Config::default();
-        let mut status = Status { state: crate::index::State::Ready, len: 1, texts: 10, pending: 0, bytes: 0, paused: false, roots: vec![], tools: vec![("tesseract".into(), false)], meaning: false, meaning_pending: 0, meaning_done: 0, meaning_passages: 0, meaning_renewing: 0, meaning_ms_per_passage: 0, meaning_engine: String::new(), meaning_error: None, meaning_runs: None, chat_loaded: None, error: None, clouds: vec![], outdated: None };
+        let mut status = Status {
+            state: crate::index::State::Ready,
+            len: 1,
+            texts: 10,
+            pending: 0,
+            bytes: 0,
+            paused: false,
+            roots: vec![],
+            tools: vec![("tesseract".into(), false)],
+            meaning: false,
+            meaning_pending: 0,
+            meaning_done: 0,
+            meaning_passages: 0,
+            meaning_renewing: 0,
+            meaning_ms_per_passage: 0,
+            meaning_engine: String::new(),
+            meaning_error: None,
+            meaning_runs: None,
+            chat_loaded: None,
+            error: None,
+            clouds: vec![],
+            outdated: None,
+        };
         let mut state = AppState::default();
         // Whether this machine's GStreamer can play video is not what is tested here.
         dismiss(&mut state, "media");
@@ -266,44 +421,74 @@ mod tests {
         dismiss(&mut state, "zfs");
         // On a Mac: the folder prompts explained, once.
         let first = next(&cfg, &status, &state, false).map(|n| n.id);
-        assert_eq!(first.as_deref() == Some("macos-folders"), cfg!(target_os = "macos"), "{first:?}");
+        assert_eq!(
+            first.as_deref() == Some("macos-folders"),
+            cfg!(target_os = "macos"),
+            "{first:?}"
+        );
         dismiss(&mut state, "macos-folders");
         assert!(started(&mut state), "a first start is told of nothing new");
         assert!(!started(&mut state));
 
-        let ids = |state: &AppState, status: &Status| next(&cfg, status, state, false).map(|n| n.id);
+        let ids =
+            |state: &AppState, status: &Status| next(&cfg, status, state, false).map(|n| n.id);
         assert_eq!(ids(&state, &status).as_deref(), Some("meaning"));
         dismiss(&mut state, "meaning");
         let n = next(&cfg, &status, &state, false).unwrap();
         assert_eq!(n.id, "tesseract");
         // Where Coxswain knows the line that installs it, the notice says it and offers to copy it.
         if let Some(line) = crate::tools::install("tesseract") {
-            assert!(n.text.contains(&line) && n.copy.as_deref() == Some(line.as_str()), "{n:?}");
+            assert!(
+                n.text.contains(&line) && n.copy.as_deref() == Some(line.as_str()),
+                "{n:?}"
+            );
         }
         dismiss(&mut state, "tesseract");
         assert_eq!(ids(&state, &status), None);
 
         state.seen_version = "0.9.0".into();
-        assert_eq!(ids(&state, &status), None, "the desktop app counts what is new on its Settings button");
+        assert_eq!(
+            ids(&state, &status),
+            None,
+            "the desktop app counts what is new on its Settings button"
+        );
         assert!(!unread(&state).is_empty());
         let tui = next(&cfg, &status, &state, true).unwrap();
-        assert_eq!(tui.id, format!("new-{}", crate::update::VERSION), "the terminal app tells of an update");
+        assert_eq!(
+            tui.id,
+            format!("new-{}", crate::update::VERSION),
+            "the terminal app tells of an update"
+        );
         assert!(tui.text.contains("--whats-new"), "{}", tui.text);
         dismiss(&mut state, &tui.id);
-        assert_eq!((next(&cfg, &status, &state, true), state.seen_version.as_str()), (None, crate::update::VERSION));
+        assert_eq!(
+            (
+                next(&cfg, &status, &state, true),
+                state.seen_version.as_str()
+            ),
+            (None, crate::update::VERSION)
+        );
         assert!(unread(&state).is_empty());
 
         // In a repository for the first time: told of the history, once.
         state.touch_repo(std::path::Path::new("/r"));
         assert_eq!(ids(&state, &status).as_deref(), Some("history"));
-        assert!(next(&cfg, &status, &state, true).unwrap().text.contains("Ctrl+G"));
+        assert!(
+            next(&cfg, &status, &state, true)
+                .unwrap()
+                .text
+                .contains("Ctrl+G")
+        );
         dismiss(&mut state, "history");
         assert_eq!(ids(&state, &status), None);
 
         // Started on a config.toml of 1.x: what 2.0 renamed, first, once.
         state.migrated = vec!["[keys] mkdir → new_folder".into()];
         let n = next(&cfg, &status, &state, true).unwrap();
-        assert!(n.id == "migrated-2" && n.text.contains("mkdir → new_folder"), "{n:?}");
+        assert!(
+            n.id == "migrated-2" && n.text.contains("mkdir → new_folder"),
+            "{n:?}"
+        );
         dismiss(&mut state, &n.id);
         assert_eq!(ids(&state, &status), None);
 
@@ -316,19 +501,30 @@ mod tests {
         dismiss(&mut state, &n.id);
         status.meaning_error = None;
         status.error = Some("constraint failed".into());
-        assert!(next(&cfg, &status, &state, true).unwrap().text.contains("constraint failed"));
+        assert!(
+            next(&cfg, &status, &state, true)
+                .unwrap()
+                .text
+                .contains("constraint failed")
+        );
         status.error = None;
 
         // Updated while this app ran, to a version whose helper it cannot talk to: once.
         status.outdated = Some("9.0.0".into());
         let n = next(&cfg, &status, &state, true).unwrap();
-        assert!(n.id == "helper-outdated-9.0.0" && n.text.contains("9.0.0"), "{n:?}");
+        assert!(
+            n.id == "helper-outdated-9.0.0" && n.text.contains("9.0.0"),
+            "{n:?}"
+        );
         dismiss(&mut state, &n.id);
         assert_eq!(ids(&state, &status), None);
         status.outdated = None;
 
         // Clouds found: told once that their online files stay there.
-        status.clouds = vec![("OneDrive".into(), "/c/OneDrive".into()), ("Dropbox".into(), "/c/Dropbox".into())];
+        status.clouds = vec![
+            ("OneDrive".into(), "/c/OneDrive".into()),
+            ("Dropbox".into(), "/c/Dropbox".into()),
+        ];
         let n = next(&cfg, &status, &state, false).unwrap();
         assert_eq!(n.id, "cloud");
         assert!(n.text.contains("OneDrive, Dropbox"), "{}", n.text);
@@ -337,10 +533,18 @@ mod tests {
 
         // Vectors made again to cover whole documents: told once, with the time it takes here.
         status.meaning_renewing = 3437;
-        assert_eq!(ids(&state, &status), None, "not before the time a file takes is known");
+        assert_eq!(
+            ids(&state, &status),
+            None,
+            "not before the time a file takes is known"
+        );
         (status.meaning_pending, status.meaning_ms_per_passage) = (3437, 1200);
         let n = next(&cfg, &status, &state, true).unwrap();
-        assert!(n.text.contains("3437") && n.text.contains("69 minutes"), "{}", n.text);
+        assert!(
+            n.text.contains("3437") && n.text.contains("69 minutes"),
+            "{}",
+            n.text
+        );
         // Five passages a file so far: five times as long.
         (status.meaning_done, status.meaning_passages) = (100, 500);
         assert_eq!(time_left(&status), "6 hours");
@@ -349,15 +553,39 @@ mod tests {
 
         // The built-in model on a Mac: on its GPU, or on its CPU and why; once each.
         use crate::meaning::{Fallback, Runs};
-        status.meaning_runs = Some(Runs { metal: true, faster: 6.4, cpu_why: None });
+        status.meaning_runs = Some(Runs {
+            metal: true,
+            faster: 6.4,
+            cpu_why: None,
+        });
         let n = next(&cfg, &status, &state, false).unwrap();
-        assert!(n.id == "meaning-metal" && n.text.contains('6'), "{}", n.text);
+        assert!(
+            n.id == "meaning-metal" && n.text.contains('6'),
+            "{}",
+            n.text
+        );
         dismiss(&mut state, &n.id);
-        status.meaning_runs = Some(Runs { metal: false, faster: 0.0, cpu_why: Some(Fallback::Chosen) });
-        assert_eq!(ids(&state, &status), None, "the CPU the user chose is no news");
-        status.meaning_runs = Some(Runs { metal: false, faster: 0.0, cpu_why: Some(Fallback::Load("no memory".into())) });
+        status.meaning_runs = Some(Runs {
+            metal: false,
+            faster: 0.0,
+            cpu_why: Some(Fallback::Chosen),
+        });
+        assert_eq!(
+            ids(&state, &status),
+            None,
+            "the CPU the user chose is no news"
+        );
+        status.meaning_runs = Some(Runs {
+            metal: false,
+            faster: 0.0,
+            cpu_why: Some(Fallback::Load("no memory".into())),
+        });
         let n = next(&cfg, &status, &state, true).unwrap();
-        assert!(n.id == "meaning-cpu" && n.text.contains("no memory"), "{}", n.text);
+        assert!(
+            n.id == "meaning-cpu" && n.text.contains("no memory"),
+            "{}",
+            n.text
+        );
         dismiss(&mut state, &n.id);
         assert_eq!(ids(&state, &status), None);
     }
@@ -365,12 +593,22 @@ mod tests {
     #[test]
     fn changelog_is_read_with_its_links() {
         let all = changes();
-        assert_eq!(all[0].version, crate::update::VERSION, "the changelog has a row for this version");
+        assert_eq!(
+            all[0].version,
+            crate::update::VERSION,
+            "the changelog has a row for this version"
+        );
         assert!(all.len() > 50 && all.iter().all(|c| c.date.len() == 10));
-        let c = &changelog("## Changelog\n| Version | Date | What's new |\n|---|---|---|\n| **1.2.3** | 2026-01-02 | *Ask* is `quicker` a \\| b. [Ask](docs/search/ask.md) · [site](https://x.dk) |\n", "")[0];
+        let c = &changelog(
+            "## Changelog\n| Version | Date | What's new |\n|---|---|---|\n| **1.2.3** | 2026-01-02 | *Ask* is `quicker` a \\| b. [Ask](docs/search/ask.md) · [site](https://x.dk) |\n",
+            "",
+        )[0];
         assert_eq!(c.version, "1.2.3");
         assert_eq!(c.parts[0], ("Ask is quicker a | b. ".into(), None));
-        assert_eq!(c.parts[1], ("Ask".into(), Some(format!("{DOCS_URL}docs/search/ask.md"))));
+        assert_eq!(
+            c.parts[1],
+            ("Ask".into(), Some(format!("{DOCS_URL}docs/search/ask.md")))
+        );
         assert_eq!(c.parts[3], ("site".into(), Some("https://x.dk".into())));
     }
 }

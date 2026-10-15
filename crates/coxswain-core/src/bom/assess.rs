@@ -33,19 +33,40 @@ pub enum Unresolved {
 #[serde(rename_all = "camelCase", tag = "type")]
 pub enum Reason {
     /// Rated by a catalog rule.
-    Rule { params: AssetParams, evaluation: Evaluation },
+    Rule {
+        params: AssetParams,
+        evaluation: Evaluation,
+    },
     /// Padding, a KDF, a random number generator or a combiner.
-    NotRated { primitive: Option<String> },
-    Unresolved { why: Unresolved },
+    NotRated {
+        primitive: Option<String>,
+    },
+    Unresolved {
+        why: Unresolved,
+    },
     /// A key with no size of its own takes the status of its algorithm.
-    Inherited { node: u32, status: Status },
+    Inherited {
+        node: u32,
+        status: Status,
+    },
     /// A certificate or protocol includes the assets it refers to.
-    Reference { edge: EdgeKind, node: u32, status: Status },
+    Reference {
+        edge: EdgeKind,
+        node: u32,
+        status: Status,
+    },
     /// A certificate's expiry: expired is disallowed, and soon is deprecated.
     #[serde(rename_all = "camelCase")]
-    Lifecycle { not_valid_after: String, days_left: i64, status: Status },
+    Lifecycle {
+        not_valid_after: String,
+        days_left: i64,
+        status: Status,
+    },
     /// A component or group: the asset beneath it that sets its status.
-    Rollup { node: u32, status: Status },
+    Rollup {
+        node: u32,
+        status: Status,
+    },
 }
 
 impl Reason {
@@ -69,7 +90,9 @@ pub struct Assessment {
 }
 
 fn fold(reasons: Vec<Reason>) -> Assessment {
-    let status = reasons.iter().fold(Status::NotRated, |s, r| s.worst(r.status()));
+    let status = reasons
+        .iter()
+        .fold(Status::NotRated, |s, r| s.worst(r.status()));
     Assessment { status, reasons }
 }
 
@@ -87,7 +110,9 @@ pub struct Context {
 impl Context {
     /// The catalog's default profile, this year, today.
     pub fn today(policy: &Policy) -> Context {
-        let now = SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |d| d.as_secs() as i64);
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map_or(0, |d| d.as_secs() as i64);
         Context {
             profile: policy.catalog().default_profile.clone(),
             year: year_of(now),
@@ -106,14 +131,19 @@ pub fn resolve(bom: &Bom, policy: &Policy) -> (Vec<Option<Resolution>>, Vec<Issu
         .iter()
         .enumerate()
         .map(|(i, n)| {
-            let Some(Crypto::Algorithm(info)) = &n.crypto else { return None };
+            let Some(Crypto::Algorithm(info)) = &n.crypto else {
+                return None;
+            };
             let r = policy.resolve(&n.label, info);
             match &r {
                 Resolution::Unresolved { signals } => {
                     let why = if signals.is_empty() {
                         "not a known algorithm".to_string()
                     } else {
-                        let votes: Vec<String> = signals.iter().map(|s| format!("{} says {}", source(s.source), s.ids.join("+"))).collect();
+                        let votes: Vec<String> = signals
+                            .iter()
+                            .map(|s| format!("{} says {}", source(s.source), s.ids.join("+")))
+                            .collect();
                         format!("conflicting signals: {}", votes.join(", "))
                     };
                     issues.push(Issue {
@@ -136,7 +166,8 @@ pub fn resolve(bom: &Bom, policy: &Policy) -> (Vec<Option<Resolution>>, Vec<Issu
                         })
                         .collect();
                     if !outvoted.is_empty() {
-                        let winner: Vec<&str> = parts.iter().map(|p| p.algorithm_id.as_str()).collect();
+                        let winner: Vec<&str> =
+                            parts.iter().map(|p| p.algorithm_id.as_str()).collect();
                         issues.push(Issue {
                             severity: Severity::Warning,
                             code: IssueCode::OidMismatch,
@@ -185,7 +216,10 @@ impl Assessed {
         }
         let status = self.status[i as usize];
         let reasons = match self.cause[i as usize] {
-            Some(c) if status != Status::NotRated => vec![Reason::Rollup { node: c, status: self.status[c as usize] }],
+            Some(c) if status != Status::NotRated => vec![Reason::Rollup {
+                node: c,
+                status: self.status[c as usize],
+            }],
             _ => vec![],
         };
         Assessment { status, reasons }
@@ -193,7 +227,10 @@ impl Assessed {
 }
 
 fn is_crypto(kind: NodeKind) -> bool {
-    matches!(kind, NodeKind::Algorithm | NodeKind::Material | NodeKind::Certificate | NodeKind::Protocol)
+    matches!(
+        kind,
+        NodeKind::Algorithm | NodeKind::Material | NodeKind::Certificate | NodeKind::Protocol
+    )
 }
 
 /// Algorithms whose size is a key length: a key's own `size` is theirs.
@@ -236,17 +273,27 @@ impl Assessor<'_> {
     }
 
     fn rate(&self, params: AssetParams) -> Reason {
-        let evaluation = self.policy.evaluate(&params, &self.ctx.profile, self.ctx.year);
+        let evaluation = self
+            .policy
+            .evaluate(&params, &self.ctx.profile, self.ctx.year);
         Reason::Rule { params, evaluation }
     }
 
     fn references(&mut self, i: u32, depth: usize, kinds: &[EdgeKind]) -> Vec<Reason> {
-        let edges: Vec<Edge> = self.out[i as usize].iter().copied().filter(|e| kinds.contains(&e.kind)).collect();
+        let edges: Vec<Edge> = self.out[i as usize]
+            .iter()
+            .copied()
+            .filter(|e| kinds.contains(&e.kind))
+            .collect();
         edges
             .into_iter()
             .map(|e| {
                 let status = self.own(e.to, depth + 1);
-                Reason::Reference { edge: e.kind, node: e.to, status }
+                Reason::Reference {
+                    edge: e.kind,
+                    node: e.to,
+                    status,
+                }
             })
             .collect()
     }
@@ -257,10 +304,15 @@ impl Assessor<'_> {
         let unresolved = |why| fold(vec![Reason::Unresolved { why }]);
         match (&node.crypto, node.kind) {
             (_, NodeKind::Algorithm) => match &self.resolutions[i as usize] {
-                Some(Resolution::Rated { parts, .. }) => fold(parts.iter().map(|p| self.rate(p.clone())).collect()),
-                Some(Resolution::NotRated { primitive }) => {
-                    Assessment { status: Status::NotRated, reasons: vec![Reason::NotRated { primitive: primitive.clone() }] }
+                Some(Resolution::Rated { parts, .. }) => {
+                    fold(parts.iter().map(|p| self.rate(p.clone())).collect())
                 }
+                Some(Resolution::NotRated { primitive }) => Assessment {
+                    status: Status::NotRated,
+                    reasons: vec![Reason::NotRated {
+                        primitive: primitive.clone(),
+                    }],
+                },
                 _ => unresolved(Unresolved::UnknownAlgorithm),
             },
             (crypto, NodeKind::Material) => {
@@ -278,10 +330,17 @@ impl Assessor<'_> {
                     let sized: Vec<Reason> = targets
                         .iter()
                         .filter_map(|&t| match &self.resolutions[t as usize] {
-                            Some(Resolution::Rated { parts, .. }) => parts.iter().find(|p| SIZED.contains(&p.algorithm_id.as_str())),
+                            Some(Resolution::Rated { parts, .. }) => parts
+                                .iter()
+                                .find(|p| SIZED.contains(&p.algorithm_id.as_str())),
                             _ => None,
                         })
-                        .map(|part| self.rate(AssetParams { key_bits: Some(size), ..part.clone() }))
+                        .map(|part| {
+                            self.rate(AssetParams {
+                                key_bits: Some(size),
+                                ..part.clone()
+                            })
+                        })
                         .collect();
                     if !sized.is_empty() {
                         return fold(sized);
@@ -292,12 +351,16 @@ impl Assessor<'_> {
                 }
                 let reasons = targets
                     .into_iter()
-                    .map(|t| Reason::Inherited { node: t, status: self.own(t, depth + 1) })
+                    .map(|t| Reason::Inherited {
+                        node: t,
+                        status: self.own(t, depth + 1),
+                    })
                     .collect();
                 fold(reasons)
             }
             (crypto, NodeKind::Certificate) => {
-                let mut reasons = self.references(i, depth, &[EdgeKind::SignedWith, EdgeKind::HasKey]);
+                let mut reasons =
+                    self.references(i, depth, &[EdgeKind::SignedWith, EdgeKind::HasKey]);
                 let not_after = match crypto {
                     Some(Crypto::Certificate(c)) => c.not_valid_after.as_deref(),
                     _ => None,
@@ -313,26 +376,51 @@ impl Assessor<'_> {
                     } else {
                         Status::Acceptable
                     };
-                    reasons.push(Reason::Lifecycle { not_valid_after: nva.to_string(), days_left, status });
+                    reasons.push(Reason::Lifecycle {
+                        not_valid_after: nva.to_string(),
+                        days_left,
+                        status,
+                    });
                 }
-                if reasons.is_empty() { unresolved(Unresolved::NoCertificateFacts) } else { fold(reasons) }
+                if reasons.is_empty() {
+                    unresolved(Unresolved::NoCertificateFacts)
+                } else {
+                    fold(reasons)
+                }
             }
             (_, NodeKind::Protocol) => {
                 let reasons = self.references(i, depth, &[EdgeKind::UsesAlgorithm]);
-                if reasons.is_empty() { unresolved(Unresolved::NoCipherSuites) } else { fold(reasons) }
+                if reasons.is_empty() {
+                    unresolved(Unresolved::NoCipherSuites)
+                } else {
+                    fold(reasons)
+                }
             }
-            _ => Assessment { status: Status::NotRated, reasons: vec![] },
+            _ => Assessment {
+                status: Status::NotRated,
+                reasons: vec![],
+            },
         }
     }
 }
 
 /// Rates every node of the tree.
-pub fn assess(bom: &Bom, tree: &Tree, policy: &Policy, resolutions: &[Option<Resolution>], ctx: &Context) -> Assessed {
+pub fn assess(
+    bom: &Bom,
+    tree: &Tree,
+    policy: &Policy,
+    resolutions: &[Option<Resolution>],
+    ctx: &Context,
+) -> Assessed {
     let mut out = vec![vec![]; bom.nodes.len()];
     for &e in &bom.edges {
         out[e.from as usize].push(e);
     }
-    let at = if ctx.year > year_of(ctx.now) { start_of_year(ctx.year) } else { ctx.now };
+    let at = if ctx.year > year_of(ctx.now) {
+        start_of_year(ctx.year)
+    } else {
+        ctx.now
+    };
     let mut a = Assessor {
         bom,
         policy,
@@ -371,7 +459,11 @@ pub fn assess(bom: &Bom, tree: &Tree, policy: &Policy, resolutions: &[Option<Res
         let Some(p) = p else { continue };
         let (s, prev) = (status[v as usize], status[p as usize]);
         let merged = prev.worst(s);
-        let this_cause = if crypto(v) { v } else { cause[v as usize].unwrap_or(v) };
+        let this_cause = if crypto(v) {
+            v
+        } else {
+            cause[v as usize].unwrap_or(v)
+        };
         let current = cause[p as usize];
         // On a tie, an asset rated on its own explains better than one that inherits (DSA over a DSA key).
         let better = s == merged && current.is_some_and(|c| rank(this_cause) < rank(c));
@@ -424,10 +516,16 @@ pub(super) fn parse_time(s: &str) -> Option<i64> {
     let s = s.trim();
     let num = |r: std::ops::Range<usize>| -> Option<i64> {
         let part = s.get(r)?;
-        part.bytes().all(|b| b.is_ascii_digit()).then(|| part.parse().ok())?
+        part.bytes()
+            .all(|b| b.is_ascii_digit())
+            .then(|| part.parse().ok())?
     };
     let (y, m, d) = (num(0..4)?, num(5..7)?, num(8..10)?);
-    if s.get(4..5) != Some("-") || s.get(7..8) != Some("-") || !(1..=12).contains(&m) || !(1..=31).contains(&d) {
+    if s.get(4..5) != Some("-")
+        || s.get(7..8) != Some("-")
+        || !(1..=12).contains(&m)
+        || !(1..=31).contains(&d)
+    {
         return None;
     }
     let mut secs = days_from_civil(y, m, d) * 86_400;
@@ -439,9 +537,14 @@ pub(super) fn parse_time(s: &str) -> Option<i64> {
         return None;
     }
     let (h, min) = (num(11..13)?, num(14..16)?);
-    let sec = if s.get(16..17) == Some(":") { num(17..19)? } else { 0 };
+    let sec = if s.get(16..17) == Some(":") {
+        num(17..19)?
+    } else {
+        0
+    };
     secs += h * 3600 + min * 60 + sec;
-    let tail = s[if s.get(16..17) == Some(":") { 19 } else { 16 }..].trim_start_matches(|c: char| c == '.' || c.is_ascii_digit());
+    let tail = s[if s.get(16..17) == Some(":") { 19 } else { 16 }..]
+        .trim_start_matches(|c: char| c == '.' || c.is_ascii_digit());
     let offset = match tail {
         "" | "Z" | "z" => 0,
         t if t.len() == 6 && (t.starts_with('+') || t.starts_with('-')) && &t[3..4] == ":" => {
@@ -453,4 +556,3 @@ pub(super) fn parse_time(s: &str) -> Option<i64> {
     };
     Some(secs - offset)
 }
-

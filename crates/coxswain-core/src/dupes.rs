@@ -34,7 +34,12 @@ pub struct Options {
 
 impl Default for Options {
     fn default() -> Self {
-        Options { roots: vec![], min_size: 1, hidden: false, folders: true }
+        Options {
+            roots: vec![],
+            min_size: 1,
+            hidden: false,
+            folders: true,
+        }
     }
 }
 
@@ -107,7 +112,9 @@ fn file_id(_: &fs::Metadata) -> Option<(u64, u64)> {
 }
 
 fn walk(dir: &Path, opts: &Options, p: &Progress, out: &mut Vec<Found>) {
-    let Ok(rd) = crate::fs::read_dir(dir) else { return };
+    let Ok(rd) = crate::fs::read_dir(dir) else {
+        return;
+    };
     let mut subdirs = vec![];
     for de in rd.flatten() {
         if p.cancel.load(Ordering::Relaxed) {
@@ -134,7 +141,11 @@ fn walk(dir: &Path, opts: &Options, p: &Progress, out: &mut Vec<Found>) {
             p.files.fetch_add(1, Ordering::Relaxed);
             out.push(Found {
                 size: m.len(),
-                modified: m.modified().ok().and_then(|t| t.duration_since(UNIX_EPOCH).ok()).map_or(0, |d| d.as_secs()),
+                modified: m
+                    .modified()
+                    .ok()
+                    .and_then(|t| t.duration_since(UNIX_EPOCH).ok())
+                    .map_or(0, |d| d.as_secs()),
                 id: file_id(&m),
                 path: de.path(),
             });
@@ -153,7 +164,12 @@ fn walk(dir: &Path, opts: &Options, p: &Progress, out: &mut Vec<Found>) {
 
 /// BLAKE3 of the file, or of its first `limit` bytes. `read` counts the bytes as they go. A file
 /// only in the cloud is not read, unless the settings read those: it would be downloaded.
-pub(crate) fn hash_file(path: &Path, limit: Option<usize>, cancel: &AtomicBool, read: Option<&AtomicU64>) -> io::Result<blake3::Hash> {
+pub(crate) fn hash_file(
+    path: &Path,
+    limit: Option<usize>,
+    cancel: &AtomicBool,
+    read: Option<&AtomicU64>,
+) -> io::Result<blake3::Hash> {
     if crate::cloud::keep_out(path) {
         return Err(crate::cloud::not_here(path));
     }
@@ -180,7 +196,10 @@ pub(crate) fn hash_file(path: &Path, limit: Option<usize>, cancel: &AtomicBool, 
 }
 
 /// Split `groups` by `key`, keeping only subgroups with two or more files.
-fn split<K: std::hash::Hash + Eq + Send>(groups: Vec<Vec<Found>>, key: impl Fn(&Found) -> Option<K> + Sync) -> Vec<Vec<Found>> {
+fn split<K: std::hash::Hash + Eq + Send>(
+    groups: Vec<Vec<Found>>,
+    key: impl Fn(&Found) -> Option<K> + Sync,
+) -> Vec<Vec<Found>> {
     groups
         .into_par_iter()
         .flat_map_iter(|g| {
@@ -216,30 +235,56 @@ pub fn scan(opts: &Options, p: &Progress) -> Report {
     // Groups whose every file the store has hashed are not read at all.
     let store = Store::path().and_then(|path| Store::open(&path).ok());
     let _ = Store::path().map(|path| fs::remove_file(path.with_file_name("dupes-hashes.json")));
-    let stored = |f: &Found| store.as_ref().and_then(|s| s.hash(&f.path, f.size, f.modified));
-    let (mut candidates, unknown): (Vec<_>, Vec<_>) = candidates.into_iter().partition(|g| g.iter().all(|f| stored(f).is_some()));
+    let stored = |f: &Found| {
+        store
+            .as_ref()
+            .and_then(|s| s.hash(&f.path, f.size, f.modified))
+    };
+    let (mut candidates, unknown): (Vec<_>, Vec<_>) = candidates
+        .into_iter()
+        .partition(|g| g.iter().all(|f| stored(f).is_some()));
 
     // Head hashes (skipped for files that fit in the head: their full hash comes next anyway).
     p.phase.store(1, Ordering::Relaxed);
-    p.total.store(unknown.iter().map(|g| g.len() as u64).sum(), Ordering::Relaxed);
+    p.total.store(
+        unknown.iter().map(|g| g.len() as u64).sum(),
+        Ordering::Relaxed,
+    );
     p.done.store(0, Ordering::Relaxed);
     candidates.extend(split(unknown, |f| {
         p.done.fetch_add(1, Ordering::Relaxed);
-        if f.size as usize <= HEAD { Some(*blake3::hash(&[]).as_bytes()) } else { hash_file(&f.path, Some(HEAD), &p.cancel, Some(&p.bytes)).ok().map(|h| *h.as_bytes()) }
+        if f.size as usize <= HEAD {
+            Some(*blake3::hash(&[]).as_bytes())
+        } else {
+            hash_file(&f.path, Some(HEAD), &p.cancel, Some(&p.bytes))
+                .ok()
+                .map(|h| *h.as_bytes())
+        }
     }));
 
     // Full hashes, from the store where the file has not changed.
     p.phase.store(2, Ordering::Relaxed);
-    p.total.store(candidates.iter().map(|g| g.len() as u64).sum(), Ordering::Relaxed);
+    p.total.store(
+        candidates.iter().map(|g| g.len() as u64).sum(),
+        Ordering::Relaxed,
+    );
     p.done.store(0, Ordering::Relaxed);
-    let (new, hashes) = (std::sync::Mutex::new(vec![]), std::sync::Mutex::new(HashMap::new()));
+    let (new, hashes) = (
+        std::sync::Mutex::new(vec![]),
+        std::sync::Mutex::new(HashMap::new()),
+    );
     let full = split(candidates, |f| {
         p.done.fetch_add(1, Ordering::Relaxed);
         let h = match stored(f) {
             Some(h) => h,
             None => {
-                let h = hash_file(&f.path, None, &p.cancel, Some(&p.bytes)).ok()?.to_hex().to_string();
-                new.lock().ok()?.push((f.path.clone(), f.size, f.modified, h.clone()));
+                let h = hash_file(&f.path, None, &p.cancel, Some(&p.bytes))
+                    .ok()?
+                    .to_hex()
+                    .to_string();
+                new.lock()
+                    .ok()?
+                    .push((f.path.clone(), f.size, f.modified, h.clone()));
                 h
             }
         };
@@ -261,21 +306,52 @@ pub fn scan(opts: &Options, p: &Progress) -> Report {
                 hash_of.insert(f.path.clone(), hash.clone());
             }
             let size = g[0].size;
-            let mut files: Vec<DupFile> = g.into_iter().map(|f| DupFile { path: f.path, modified: f.modified }).collect();
+            let mut files: Vec<DupFile> = g
+                .into_iter()
+                .map(|f| DupFile {
+                    path: f.path,
+                    modified: f.modified,
+                })
+                .collect();
             files.sort_by(|a, b| a.path.cmp(&b.path));
-            Group { wasted: size * (files.len() as u64 - 1), hash, size, files }
+            Group {
+                wasted: size * (files.len() as u64 - 1),
+                hash,
+                size,
+                files,
+            }
         })
         .collect();
 
-    let folders = if opts.folders { folder_groups(opts, &hash_of) } else { vec![] };
+    let folders = if opts.folders {
+        folder_groups(opts, &hash_of)
+    } else {
+        vec![]
+    };
     // Files inside duplicate folders are already covered by the folder group.
     let covered: Vec<&PathBuf> = folders.iter().flat_map(|g| g.paths.iter()).collect();
-    groups.retain(|g| !g.files.iter().all(|f| covered.iter().any(|d| f.path.starts_with(d))));
-    groups.sort_by(|a, b| b.wasted.cmp(&a.wasted).then_with(|| a.files[0].path.cmp(&b.files[0].path)));
+    groups.retain(|g| {
+        !g.files
+            .iter()
+            .all(|f| covered.iter().any(|d| f.path.starts_with(d)))
+    });
+    groups.sort_by(|a, b| {
+        b.wasted
+            .cmp(&a.wasted)
+            .then_with(|| a.files[0].path.cmp(&b.files[0].path))
+    });
 
     p.phase.store(3, Ordering::Relaxed);
-    let wasted = groups.iter().map(|g| g.wasted).sum::<u64>() + folders.iter().map(|g| g.wasted).sum::<u64>();
-    Report { groups, folders, scanned_files, scanned_bytes, hashed_bytes: p.bytes.load(Ordering::Relaxed), wasted }
+    let wasted = groups.iter().map(|g| g.wasted).sum::<u64>()
+        + folders.iter().map(|g| g.wasted).sum::<u64>();
+    Report {
+        groups,
+        folders,
+        scanned_files,
+        scanned_bytes,
+        hashed_bytes: p.bytes.load(Ordering::Relaxed),
+        wasted,
+    }
 }
 
 /// Folders with identical contents: the same files by content, whatever the files and
@@ -285,7 +361,12 @@ pub fn scan(opts: &Options, p: &Progress) -> Report {
 fn folder_groups(opts: &Options, hash_of: &HashMap<PathBuf, String>) -> Vec<FolderGroup> {
     // Every file's (hash, size) below `dir`, or None when one of them has no duplicate. The
     // sorted list is the folder's signature; `out` gets (signature, size, files) per folder.
-    fn contents(dir: &Path, opts: &Options, hash_of: &HashMap<PathBuf, String>, out: &mut HashMap<PathBuf, (blake3::Hash, u64, u64)>) -> Option<Vec<(String, u64)>> {
+    fn contents(
+        dir: &Path,
+        opts: &Options,
+        hash_of: &HashMap<PathBuf, String>,
+        out: &mut HashMap<PathBuf, (blake3::Hash, u64, u64)>,
+    ) -> Option<Vec<(String, u64)>> {
         let mut all = vec![];
         let mut complete = true;
         for de in fs::read_dir(dir).ok()?.flatten() {
@@ -324,7 +405,14 @@ fn folder_groups(opts: &Options, hash_of: &HashMap<PathBuf, String>) -> Vec<Fold
         for (hash, _) in &all {
             h.update(hash.as_bytes());
         }
-        out.insert(dir.to_path_buf(), (h.finalize(), all.iter().map(|x| x.1).sum(), all.len() as u64));
+        out.insert(
+            dir.to_path_buf(),
+            (
+                h.finalize(),
+                all.iter().map(|x| x.1).sum(),
+                all.len() as u64,
+            ),
+        );
         Some(all)
     }
     let mut sigs = HashMap::new();
@@ -348,12 +436,21 @@ fn folder_groups(opts: &Options, hash_of: &HashMap<PathBuf, String>) -> Vec<Fold
         .map(|mut v| {
             v.sort();
             let (size, files) = (v[0].1, v[0].2);
-            FolderGroup { size, files, wasted: size * (v.len() as u64 - 1), paths: v.into_iter().map(|x| x.0).collect() }
+            FolderGroup {
+                size,
+                files,
+                wasted: size * (v.len() as u64 - 1),
+                paths: v.into_iter().map(|x| x.0).collect(),
+            }
         })
         .collect();
     // Keep only the topmost: drop a group whose folders all sit inside another group's folders.
     let all_paths: Vec<PathBuf> = groups.iter().flat_map(|g| g.paths.clone()).collect();
-    groups.retain(|g| !g.paths.iter().all(|p| all_paths.iter().any(|q| q != p && p.starts_with(q))));
+    groups.retain(|g| {
+        !g.paths
+            .iter()
+            .all(|p| all_paths.iter().any(|q| q != p && p.starts_with(q)))
+    });
     groups.sort_by_key(|g| std::cmp::Reverse(g.wasted));
     groups
 }
@@ -384,11 +481,21 @@ mod tests {
         #[cfg(unix)]
         fs::hard_link(d.join("other/unique.txt"), d.join("other/link.txt")).unwrap();
 
-        let r = scan(&Options { roots: vec![d.clone()], ..Default::default() }, &Progress::default());
+        let r = scan(
+            &Options {
+                roots: vec![d.clone()],
+                ..Default::default()
+            },
+            &Progress::default(),
+        );
         // a/pics and backup/pics are identical folders: one folder group.
         assert_eq!(r.folders.len(), 1);
         // `backup` holds only `pics`, so it is the copy reported (its contents are the same).
-        assert_eq!(r.folders[0].paths, [d.join("a/pics"), d.join("backup")], "same contents, different names");
+        assert_eq!(
+            r.folders[0].paths,
+            [d.join("a/pics"), d.join("backup")],
+            "same contents, different names"
+        );
         assert_eq!(r.folders[0].files, 2);
         // The small file also exists outside those folders, so its group stays; the 100 KB
         // file with a different last byte is not a duplicate; the hardlink is not either.
@@ -398,15 +505,43 @@ mod tests {
         assert_eq!(r.wasted, 2 * 20 + 100_020);
 
         // Without folder grouping every duplicated file shows as a file group.
-        let r = scan(&Options { roots: vec![d.clone()], folders: false, ..Default::default() }, &Progress::default());
+        let r = scan(
+            &Options {
+                roots: vec![d.clone()],
+                folders: false,
+                ..Default::default()
+            },
+            &Progress::default(),
+        );
         assert_eq!(r.groups.len(), 2);
         assert_eq!(r.groups[0].size, 100_000, "sorted by wasted space");
 
         // A copy only in the cloud is never read: not hashed, not a duplicate.
         crate::cloud::pretend(&d.join("other/copy.txt"), true);
-        let r = scan(&Options { roots: vec![d.clone()], folders: false, ..Default::default() }, &Progress::default());
-        assert_eq!(r.groups.iter().find(|g| g.size == 20).map(|g| g.files.len()), Some(2));
-        assert!(hash_file(&d.join("other/copy.txt"), None, &AtomicBool::new(false), None).is_err());
+        let r = scan(
+            &Options {
+                roots: vec![d.clone()],
+                folders: false,
+                ..Default::default()
+            },
+            &Progress::default(),
+        );
+        assert_eq!(
+            r.groups
+                .iter()
+                .find(|g| g.size == 20)
+                .map(|g| g.files.len()),
+            Some(2)
+        );
+        assert!(
+            hash_file(
+                &d.join("other/copy.txt"),
+                None,
+                &AtomicBool::new(false),
+                None
+            )
+            .is_err()
+        );
         crate::cloud::pretend(&d.join("other/copy.txt"), false);
         fs::remove_dir_all(d).unwrap();
     }

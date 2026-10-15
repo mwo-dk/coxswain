@@ -19,7 +19,9 @@ pub enum When {
 /// What F2 offers in `dir` with `file` under the cursor.
 pub fn entries(cfg: &Config, dir: &Path, file: Option<&Path>) -> Vec<UserCommand> {
     let list = cfg.user_menu.clone().unwrap_or_else(builtin);
-    list.into_iter().filter(|u| fits(u.when, dir, file)).collect()
+    list.into_iter()
+        .filter(|u| fits(u.when, dir, file))
+        .collect()
 }
 
 fn fits(when: Option<When>, dir: &Path, file: Option<&Path>) -> bool {
@@ -35,23 +37,54 @@ fn fits(when: Option<When>, dir: &Path, file: Option<&Path>) -> bool {
 fn builtin() -> Vec<UserCommand> {
     static FOUND: std::sync::OnceLock<Vec<UserCommand>> = std::sync::OnceLock::new();
     let found = FOUND.get_or_init(|| {
-        let os = if crate::termux::active() { "android" } else { std::env::consts::OS };
-        defaults(os, &installed, &|v| std::env::var(v).ok().filter(|s| !s.is_empty()))
+        let os = if crate::termux::active() {
+            "android"
+        } else {
+            std::env::consts::OS
+        };
+        defaults(os, &installed, &|v| {
+            std::env::var(v).ok().filter(|s| !s.is_empty())
+        })
     });
-    found.iter().map(|u| UserCommand { label: crate::t!(&u.label), ..u.clone() }).collect()
+    found
+        .iter()
+        .map(|u| UserCommand {
+            label: crate::t!(&u.label),
+            ..u.clone()
+        })
+        .collect()
 }
 
 /// A program on PATH; on Windows also an app alias (Windows Terminal's `wt`), which is not a
 /// regular file.
 fn installed(program: &str) -> bool {
     crate::tools::which(program).is_some()
-        || (cfg!(windows) && std::env::var_os("LOCALAPPDATA").is_some_and(|d| Path::new(&d).join("Microsoft").join("WindowsApps").join(format!("{program}.exe")).symlink_metadata().is_ok()))
+        || (cfg!(windows)
+            && std::env::var_os("LOCALAPPDATA").is_some_and(|d| {
+                Path::new(&d)
+                    .join("Microsoft")
+                    .join("WindowsApps")
+                    .join(format!("{program}.exe"))
+                    .symlink_metadata()
+                    .is_ok()
+            }))
 }
 
 /// The built-in entries on `os` (`std::env::consts::OS`, or `android` in Termux), with the
 /// programs `has` finds and the environment `var`; labels are i18n keys.
-fn defaults(os: &str, has: &dyn Fn(&str) -> bool, var: &dyn Fn(&str) -> Option<String>) -> Vec<UserCommand> {
-    let entry = |key: &str, label: &str, command: String, wait: bool, when: Option<When>| UserCommand { key: key.into(), label: label.into(), command, wait, when };
+fn defaults(
+    os: &str,
+    has: &dyn Fn(&str) -> bool,
+    var: &dyn Fn(&str) -> Option<String>,
+) -> Vec<UserCommand> {
+    let entry =
+        |key: &str, label: &str, command: String, wait: bool, when: Option<When>| UserCommand {
+            key: key.into(),
+            label: label.into(),
+            command,
+            wait,
+            when,
+        };
     let mut out = vec![];
     if let Some(c) = terminal(os, has, var) {
         out.push(entry("t", "usermenu.terminal", c, false, None));
@@ -60,24 +93,58 @@ fn defaults(os: &str, has: &dyn Fn(&str) -> bool, var: &dyn Fn(&str) -> Option<S
         out.push(entry("h", "usermenu.sha256", c, true, Some(When::File)));
     }
     if has("git") {
-        out.push(entry("s", "usermenu.git_status", "git status".into(), true, Some(When::Git)));
+        out.push(entry(
+            "s",
+            "usermenu.git_status",
+            "git status".into(),
+            true,
+            Some(When::Git),
+        ));
     }
     out
 }
 
 /// Common terminals, in order, for when neither `$TERMINAL` nor `x-terminal-emulator` is there.
 const TERMINALS: &[&str] = &[
-    "x-terminal-emulator", "foot", "alacritty", "kitty", "wezterm", "ghostty", "konsole", "gnome-terminal", "ptyxis", "kgx", "xfce4-terminal", "mate-terminal", "lxterminal", "qterminal",
-    "terminator", "tilix", "urxvt", "st", "xterm",
+    "x-terminal-emulator",
+    "foot",
+    "alacritty",
+    "kitty",
+    "wezterm",
+    "ghostty",
+    "konsole",
+    "gnome-terminal",
+    "ptyxis",
+    "kgx",
+    "xfce4-terminal",
+    "mate-terminal",
+    "lxterminal",
+    "qterminal",
+    "terminator",
+    "tilix",
+    "urxvt",
+    "st",
+    "xterm",
 ];
 
 /// A new terminal window in the folder the command runs in, left running on its own.
-fn terminal(os: &str, has: &dyn Fn(&str) -> bool, var: &dyn Fn(&str) -> Option<String>) -> Option<String> {
+fn terminal(
+    os: &str,
+    has: &dyn Fn(&str) -> bool,
+    var: &dyn Fn(&str) -> Option<String>,
+) -> Option<String> {
     match os {
         // Termux: the app already is the terminal.
         "android" => None,
         "macos" => Some("open -a Terminal .".into()),
-        "windows" => Some(if has("wt") { r#"start "" wt -d ."# } else { r#"start "" powershell"# }.into()),
+        "windows" => Some(
+            if has("wt") {
+                r#"start "" wt -d ."#
+            } else {
+                r#"start "" powershell"#
+            }
+            .into(),
+        ),
         _ => {
             // No desktop (a console, ssh): no window to open.
             var("WAYLAND_DISPLAY").or_else(|| var("DISPLAY"))?;
@@ -94,11 +161,24 @@ fn sha256(os: &str, has: &dyn Fn(&str) -> bool) -> Option<String> {
         // Get-FileHash would need PowerShell's quoting inside cmd's; certutil takes cmd's.
         "windows" => &[("certutil", "certutil -hashfile %f SHA256")],
         "macos" => &[("shasum", "shasum -a 256 -- %f")],
-        "freebsd" | "openbsd" | "netbsd" => &[("sha256", "sha256 -- %f"), ("sha256sum", "sha256sum -- %f"), ("cksum", "cksum -a sha256 -- %f")],
-        "illumos" | "solaris" => &[("digest", "digest -v -a sha256 -- %f"), ("sha256sum", "sha256sum -- %f")],
-        _ => &[("sha256sum", "sha256sum -- %f"), ("shasum", "shasum -a 256 -- %f")],
+        "freebsd" | "openbsd" | "netbsd" => &[
+            ("sha256", "sha256 -- %f"),
+            ("sha256sum", "sha256sum -- %f"),
+            ("cksum", "cksum -a sha256 -- %f"),
+        ],
+        "illumos" | "solaris" => &[
+            ("digest", "digest -v -a sha256 -- %f"),
+            ("sha256sum", "sha256sum -- %f"),
+        ],
+        _ => &[
+            ("sha256sum", "sha256sum -- %f"),
+            ("shasum", "shasum -a 256 -- %f"),
+        ],
     };
-    tools.iter().find(|(p, _)| has(p)).map(|(_, c)| c.to_string())
+    tools
+        .iter()
+        .find(|(p, _)| has(p))
+        .map(|(_, c)| c.to_string())
 }
 
 /// Make config.toml ready for a new entry, writing the commented example at its end when it
@@ -120,7 +200,13 @@ fn example() -> String {
         user_menu: Vec<UserCommand>,
     }
     let mut user_menu = builtin();
-    user_menu.push(UserCommand { key: "z".into(), label: "Zip the marked files".into(), command: "zip -r marked.zip %s".into(), wait: true, when: None });
+    user_menu.push(UserCommand {
+        key: "z".into(),
+        label: "Zip the marked files".into(),
+        command: "zip -r marked.zip %s".into(),
+        wait: true,
+        when: None,
+    });
     let tables = toml::to_string(&Menu { user_menu }).unwrap_or_default();
     let mut out = String::from(
         "# F2, the user menu. Entries of your own replace the built-in ones, so these are them,
@@ -143,50 +229,126 @@ mod tests {
 
     fn menu(os: &str, programs: &[&str], env: &[(&str, &str)]) -> Vec<(String, String)> {
         let has = |p: &str| programs.contains(&p);
-        let var = |v: &str| env.iter().find(|(k, _)| *k == v).map(|(_, x)| x.to_string());
-        defaults(os, &has, &var).into_iter().map(|u| (u.key, u.command)).collect()
+        let var = |v: &str| {
+            env.iter()
+                .find(|(k, _)| *k == v)
+                .map(|(_, x)| x.to_string())
+        };
+        defaults(os, &has, &var)
+            .into_iter()
+            .map(|u| (u.key, u.command))
+            .collect()
     }
 
     fn command(os: &str, programs: &[&str], env: &[(&str, &str)], key: &str) -> Option<String> {
-        menu(os, programs, env).into_iter().find(|(k, _)| k == key).map(|(_, c)| c)
+        menu(os, programs, env)
+            .into_iter()
+            .find(|(k, _)| k == key)
+            .map(|(_, c)| c)
     }
 
     const X: &[(&str, &str)] = &[("DISPLAY", ":0")];
 
     #[test]
     fn user_menu_terminal_per_os() {
-        assert_eq!(command("macos", &[], &[], "t").as_deref(), Some("open -a Terminal ."));
-        assert_eq!(command("windows", &["wt"], &[], "t").as_deref(), Some(r#"start "" wt -d ."#));
-        assert_eq!(command("windows", &[], &[], "t").as_deref(), Some(r#"start "" powershell"#), "no Windows Terminal: PowerShell");
-        assert_eq!(command("linux", &["xterm", "x-terminal-emulator"], X, "t").as_deref(), Some("nohup x-terminal-emulator >/dev/null 2>&1 &"));
-        assert_eq!(command("freebsd", &["xterm", "kitty"], X, "t").as_deref(), Some("nohup kitty >/dev/null 2>&1 &"));
+        assert_eq!(
+            command("macos", &[], &[], "t").as_deref(),
+            Some("open -a Terminal .")
+        );
+        assert_eq!(
+            command("windows", &["wt"], &[], "t").as_deref(),
+            Some(r#"start "" wt -d ."#)
+        );
+        assert_eq!(
+            command("windows", &[], &[], "t").as_deref(),
+            Some(r#"start "" powershell"#),
+            "no Windows Terminal: PowerShell"
+        );
+        assert_eq!(
+            command("linux", &["xterm", "x-terminal-emulator"], X, "t").as_deref(),
+            Some("nohup x-terminal-emulator >/dev/null 2>&1 &")
+        );
+        assert_eq!(
+            command("freebsd", &["xterm", "kitty"], X, "t").as_deref(),
+            Some("nohup kitty >/dev/null 2>&1 &")
+        );
         let own = [("WAYLAND_DISPLAY", "wayland-0"), ("TERMINAL", "foot")];
-        assert_eq!(command("linux", &["foot", "xterm"], &own, "t").as_deref(), Some("nohup foot >/dev/null 2>&1 &"), "$TERMINAL first");
+        assert_eq!(
+            command("linux", &["foot", "xterm"], &own, "t").as_deref(),
+            Some("nohup foot >/dev/null 2>&1 &"),
+            "$TERMINAL first"
+        );
         let gone = [("DISPLAY", ":0"), ("TERMINAL", "nowhere")];
-        assert_eq!(command("openbsd", &["xterm"], &gone, "t").as_deref(), Some("nohup xterm >/dev/null 2>&1 &"), "a $TERMINAL that is not installed is passed over");
-        assert_eq!(command("linux", &[], X, "t"), None, "no terminal installed: hidden");
-        assert_eq!(command("linux", &["xterm"], &[], "t"), None, "no display: hidden");
-        assert_eq!(command("android", &["xterm"], X, "t"), None, "Termux is the terminal");
+        assert_eq!(
+            command("openbsd", &["xterm"], &gone, "t").as_deref(),
+            Some("nohup xterm >/dev/null 2>&1 &"),
+            "a $TERMINAL that is not installed is passed over"
+        );
+        assert_eq!(
+            command("linux", &[], X, "t"),
+            None,
+            "no terminal installed: hidden"
+        );
+        assert_eq!(
+            command("linux", &["xterm"], &[], "t"),
+            None,
+            "no display: hidden"
+        );
+        assert_eq!(
+            command("android", &["xterm"], X, "t"),
+            None,
+            "Termux is the terminal"
+        );
     }
 
     #[test]
     fn user_menu_sha256_per_os() {
-        assert_eq!(command("freebsd", &["sha256", "sha256sum"], &[], "h").as_deref(), Some("sha256 -- %f"));
-        assert_eq!(command("linux", &["sha256sum", "shasum"], &[], "h").as_deref(), Some("sha256sum -- %f"));
-        assert_eq!(command("linux", &["shasum"], &[], "h").as_deref(), Some("shasum -a 256 -- %f"));
-        assert_eq!(command("netbsd", &["cksum"], &[], "h").as_deref(), Some("cksum -a sha256 -- %f"));
-        assert_eq!(command("openbsd", &["sha256", "cksum"], &[], "h").as_deref(), Some("sha256 -- %f"));
-        assert_eq!(command("macos", &["shasum"], &[], "h").as_deref(), Some("shasum -a 256 -- %f"));
-        assert_eq!(command("windows", &["certutil"], &[], "h").as_deref(), Some("certutil -hashfile %f SHA256"));
-        assert_eq!(command("illumos", &["digest"], &[], "h").as_deref(), Some("digest -v -a sha256 -- %f"));
+        assert_eq!(
+            command("freebsd", &["sha256", "sha256sum"], &[], "h").as_deref(),
+            Some("sha256 -- %f")
+        );
+        assert_eq!(
+            command("linux", &["sha256sum", "shasum"], &[], "h").as_deref(),
+            Some("sha256sum -- %f")
+        );
+        assert_eq!(
+            command("linux", &["shasum"], &[], "h").as_deref(),
+            Some("shasum -a 256 -- %f")
+        );
+        assert_eq!(
+            command("netbsd", &["cksum"], &[], "h").as_deref(),
+            Some("cksum -a sha256 -- %f")
+        );
+        assert_eq!(
+            command("openbsd", &["sha256", "cksum"], &[], "h").as_deref(),
+            Some("sha256 -- %f")
+        );
+        assert_eq!(
+            command("macos", &["shasum"], &[], "h").as_deref(),
+            Some("shasum -a 256 -- %f")
+        );
+        assert_eq!(
+            command("windows", &["certutil"], &[], "h").as_deref(),
+            Some("certutil -hashfile %f SHA256")
+        );
+        assert_eq!(
+            command("illumos", &["digest"], &[], "h").as_deref(),
+            Some("digest -v -a sha256 -- %f")
+        );
         assert_eq!(command("linux", &[], &[], "h"), None, "no tool: hidden");
     }
 
     #[test]
     fn user_menu_git_status_needs_git() {
-        assert_eq!(command("linux", &["git"], &[], "s").as_deref(), Some("git status"));
+        assert_eq!(
+            command("linux", &["git"], &[], "s").as_deref(),
+            Some("git status")
+        );
         assert_eq!(command("linux", &[], &[], "s"), None);
-        let keys: Vec<String> = menu("linux", &["git", "sha256sum", "xterm"], X).into_iter().map(|(k, _)| k).collect();
+        let keys: Vec<String> = menu("linux", &["git", "sha256sum", "xterm"], X)
+            .into_iter()
+            .map(|(k, _)| k)
+            .collect();
         assert_eq!(keys, ["t", "h", "s"]);
     }
 
@@ -194,7 +356,8 @@ mod tests {
     /// is on PATH: a build sandbox (Nix) may have none.
     #[test]
     fn user_menu_defaults_here() {
-        let here: Vec<(String, String)> = builtin().into_iter().map(|u| (u.key, u.command)).collect();
+        let here: Vec<(String, String)> =
+            builtin().into_iter().map(|u| (u.key, u.command)).collect();
         let h = here.iter().find(|(k, _)| k == "h").map(|(_, c)| c.as_str());
         let want = match std::env::consts::OS {
             "windows" => Some(("certutil", "certutil -hashfile %f SHA256")),
@@ -220,26 +383,39 @@ mod tests {
         let file = dir.join("a.txt");
         std::fs::write(&file, "a").unwrap();
         assert!(fits(Some(When::File), dir, Some(&file)));
-        assert!(!fits(Some(When::File), dir, Some(dir)), "a folder is not a file");
+        assert!(
+            !fits(Some(When::File), dir, Some(dir)),
+            "a folder is not a file"
+        );
         assert!(!fits(Some(When::File), dir, None));
         let sub = dir.join("src");
         std::fs::create_dir(&sub).unwrap();
         assert!(!fits(Some(When::Git), &sub, None));
         std::fs::create_dir(dir.join(".git")).unwrap();
-        assert!(fits(Some(When::Git), &sub, None), "anywhere inside the repository");
+        assert!(
+            fits(Some(When::Git), &sub, None),
+            "anywhere inside the repository"
+        );
         std::fs::remove_dir_all(&root).unwrap();
     }
 
     #[test]
     fn user_menu_own_entries_replace_the_builtin_ones() {
-        let cfg = Config::parse("[[user_menu]]\nkey = \"x\"\nlabel = \"X\"\ncommand = \"x\"\n").unwrap();
+        let cfg =
+            Config::parse("[[user_menu]]\nkey = \"x\"\nlabel = \"X\"\ncommand = \"x\"\n").unwrap();
         let got = entries(&cfg, Path::new("/"), None);
         assert_eq!(got.len(), 1);
         assert_eq!(got[0].key, "x");
         let none = Config::parse("user_menu = []\n").unwrap();
-        assert!(entries(&none, Path::new("/"), None).is_empty(), "an empty list of one's own stays empty");
+        assert!(
+            entries(&none, Path::new("/"), None).is_empty(),
+            "an empty list of one's own stays empty"
+        );
         assert!(Config::parse("").unwrap().user_menu.is_none());
-        let on_file = Config::parse("[[user_menu]]\nkey = \"x\"\nlabel = \"X\"\ncommand = \"x\"\nwhen = \"file\"\n").unwrap();
+        let on_file = Config::parse(
+            "[[user_menu]]\nkey = \"x\"\nlabel = \"X\"\ncommand = \"x\"\nwhen = \"file\"\n",
+        )
+        .unwrap();
         assert!(entries(&on_file, Path::new("/"), None).is_empty());
     }
 
@@ -251,11 +427,24 @@ mod tests {
         let new = new.unwrap();
         assert!(new.starts_with(text), "the user's text is kept as it is");
         assert_eq!(new.lines().nth(line - 1), Some("# [[user_menu]]"));
-        assert_eq!(crate::config::at_line(&new, is_menu, ex), (line, None), "not added twice");
-        assert_eq!(crate::config::at_line("", is_menu, ex), (1, Some(ex.to_string())));
+        assert_eq!(
+            crate::config::at_line(&new, is_menu, ex),
+            (line, None),
+            "not added twice"
+        );
+        assert_eq!(
+            crate::config::at_line("", is_menu, ex),
+            (1, Some(ex.to_string()))
+        );
         assert_eq!(crate::config::at_line("a = 1", is_menu, ex).0, 3);
-        assert_eq!(crate::config::at_line("x = 1\n[[user_menu]]\nkey = \"y\"\n", is_menu, ex), (2, None));
-        assert_eq!(crate::config::at_line("user_menu = []\n", is_menu, ex), (1, None));
+        assert_eq!(
+            crate::config::at_line("x = 1\n[[user_menu]]\nkey = \"y\"\n", is_menu, ex),
+            (2, None)
+        );
+        assert_eq!(
+            crate::config::at_line("user_menu = []\n", is_menu, ex),
+            (1, None)
+        );
     }
 
     #[test]
@@ -263,12 +452,15 @@ mod tests {
         let ex = example();
         assert!(ex.lines().all(|l| l.starts_with('#')));
         let body = &ex[ex.find("# [[user_menu]]").unwrap()..];
-        let open: String = body.lines().map(|l| l.trim_start_matches('#').trim_start()).collect::<Vec<_>>().join("\n");
+        let open: String = body
+            .lines()
+            .map(|l| l.trim_start_matches('#').trim_start())
+            .collect::<Vec<_>>()
+            .join("\n");
         let cfg = Config::parse(&open).unwrap();
         assert_eq!(cfg.user_menu.unwrap().last().unwrap().key, "z");
     }
 
     #[test]
-    fn user_menu_editor_at_the_line() {
-    }
+    fn user_menu_editor_at_the_line() {}
 }

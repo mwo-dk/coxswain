@@ -31,7 +31,14 @@ pub enum View {
 }
 
 fn view_of(name: &std::ffi::OsStr) -> Option<View> {
-    [(MARKER, View::History), (BRANCHES, View::Branches), (WORKTREES, View::Worktrees)].into_iter().find(|(m, _)| name == *m).map(|(_, v)| v)
+    [
+        (MARKER, View::History),
+        (BRANCHES, View::Branches),
+        (WORKTREES, View::Worktrees),
+    ]
+    .into_iter()
+    .find(|(m, _)| name == *m)
+    .map(|(_, v)| v)
 }
 /// Commits a history lists at most.
 pub const MAX_COMMITS: usize = 2000;
@@ -54,7 +61,11 @@ pub(crate) fn run(mut c: Command) -> io::Result<Vec<u8>> {
     let o = c.output()?;
     if !o.status.success() {
         let why = String::from_utf8_lossy(&o.stderr).trim().to_string();
-        return Err(io::Error::other(if why.is_empty() { "git failed".into() } else { why }));
+        return Err(io::Error::other(if why.is_empty() {
+            "git failed".into()
+        } else {
+            why
+        }));
     }
     Ok(o.stdout)
 }
@@ -63,7 +74,10 @@ pub(crate) fn run(mut c: Command) -> io::Result<Vec<u8>> {
 /// enough, the output ends, or `BUDGET` passes. `true` when it was cut short.
 fn records(mut c: Command, sep: u8, mut f: impl FnMut(&[u8]) -> bool) -> io::Result<bool> {
     let mut child = c.stdout(Stdio::piped()).stderr(Stdio::null()).spawn()?;
-    let out = child.stdout.take().ok_or_else(|| io::Error::other("no output"))?;
+    let out = child
+        .stdout
+        .take()
+        .ok_or_else(|| io::Error::other("no output"))?;
     let (done, wait) = std::sync::mpsc::channel::<()>();
     let watch = std::thread::spawn(move || {
         let late = wait.recv_timeout(BUDGET) == Err(std::sync::mpsc::RecvTimeoutError::Timeout);
@@ -120,13 +134,22 @@ pub fn path(target: &Path, commit: Option<&str>) -> PathBuf {
 /// on disk (and is not itself a real entry named so).
 pub fn split(path: &Path) -> Option<At> {
     let comps: Vec<Component> = path.components().collect();
-    let (i, view) = comps.iter().enumerate().find_map(|(i, c)| Some((i, view_of(c.as_os_str())?)))?;
+    let (i, view) = comps
+        .iter()
+        .enumerate()
+        .find_map(|(i, c)| Some((i, view_of(c.as_os_str())?)))?;
     let target: PathBuf = comps[..i].iter().collect();
     let meta = std::fs::metadata(&target).ok()?;
-    if std::fs::symlink_metadata(path_of(&target, view)).is_ok() || (view != View::History && !meta.is_dir()) {
+    if std::fs::symlink_metadata(path_of(&target, view)).is_ok()
+        || (view != View::History && !meta.is_dir())
+    {
         return None;
     }
-    let base = if meta.is_dir() { target.clone() } else { target.parent()?.to_path_buf() };
+    let base = if meta.is_dir() {
+        target.clone()
+    } else {
+        target.parent()?.to_path_buf()
+    };
     let mut rest = vec![];
     for c in &comps[i + 1..] {
         let Component::Normal(s) = c else { return None };
@@ -135,13 +158,21 @@ pub fn split(path: &Path) -> Option<At> {
     let commit = match rest.first() {
         // The worktrees are folders on disk: nothing below the list.
         Some(_) if view == View::Worktrees => return None,
-        Some(c) if (4..=40).contains(&c.len()) && c.bytes().all(|b| b.is_ascii_hexdigit()) => Some(c.clone()),
+        Some(c) if (4..=40).contains(&c.len()) && c.bytes().all(|b| b.is_ascii_hexdigit()) => {
+            Some(c.clone())
+        }
         Some(_) => return None,
         None => None,
     };
     let inner = rest.get(1..).unwrap_or_default().join("/");
     // A file's history at a commit starts in its folder.
-    Some(At { target, base, commit, inner, view })
+    Some(At {
+        target,
+        base,
+        commit,
+        inner,
+        view,
+    })
 }
 
 /// The path of a folder's list of branches or worktrees, or of its history.
@@ -176,12 +207,24 @@ fn commit(rec: &[u8]) -> Option<Commit> {
     let mut f = s.splitn(4, '\x1f');
     let hash = f.next()?.trim_start_matches(['\n', '\x1e']).to_string();
     let time = f.next()?.parse().ok()?;
-    Some(Commit { hash, time, author: f.next()?.to_string(), subject: f.next().unwrap_or("").to_string() })
+    Some(Commit {
+        hash,
+        time,
+        author: f.next()?.to_string(),
+        subject: f.next().unwrap_or("").to_string(),
+    })
 }
 
 /// What git calls `target` from `base`: its name, or `.` for the folder itself.
 fn spec(at: &At) -> String {
-    if at.target == at.base { ".".into() } else { at.target.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_else(|| ".".into()) }
+    if at.target == at.base {
+        ".".into()
+    } else {
+        at.target
+            .file_name()
+            .map(|n| n.to_string_lossy().into_owned())
+            .unwrap_or_else(|| ".".into())
+    }
 }
 
 /// The commits that touched `spec` (from `base`) up to `rev`, newest first: at most `max`, and
@@ -216,12 +259,23 @@ pub fn log(base: &Path, rev: &str, spec: &str, max: usize) -> io::Result<(Vec<Co
 pub fn show(base: &Path, rev: &str) -> io::Result<Commit> {
     let mut c = git(base);
     c.args(["log", "-1", "-z", FORMAT, rev, "--"]);
-    commit(&run(c)?).ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, format!("no commit {rev}")))
+    commit(&run(c)?)
+        .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, format!("no commit {rev}")))
 }
 
 /// A name for a commit in a listing: short id and subject, without path separators.
 fn entry_name(c: &Commit) -> String {
-    let subject: String = c.subject.chars().map(|ch| if matches!(ch, '/' | '\\') || ch.is_control() { '∕' } else { ch }).collect();
+    let subject: String = c
+        .subject
+        .chars()
+        .map(|ch| {
+            if matches!(ch, '/' | '\\') || ch.is_control() {
+                '∕'
+            } else {
+                ch
+            }
+        })
+        .collect();
     format!("{} {subject}", c.short())
 }
 
@@ -238,22 +292,51 @@ fn tree_line(rec: &[u8]) -> Option<(String, &str, u64, String)> {
         "blob" => "blob",
         _ => "commit",
     };
-    Some((path.to_string(), kind, size.parse().unwrap_or(0), oid.to_string()))
+    Some((
+        path.to_string(),
+        kind,
+        size.parse().unwrap_or(0),
+        oid.to_string(),
+    ))
 }
 
 /// What git calls `inner` below the base: `.` for the base itself.
 fn inner_spec(inner: &str) -> String {
-    if inner.is_empty() { ".".into() } else { format!("{inner}/") }
+    if inner.is_empty() {
+        ".".into()
+    } else {
+        format!("{inner}/")
+    }
 }
 
 /// A folder of the listing, as `fs::list` gives it: the commits of a history, or the folder at
 /// a commit. `..` leads up: from the commits, back to the folder on disk.
 pub fn list(dir: &Path, at: &At) -> io::Result<Vec<Entry>> {
-    let up = |path: PathBuf| Entry { name: "..".into(), path, is_dir: true, is_symlink: false, is_exec: false, hidden: false, size: 0, modified: 0, created: 0, online: false, referenced: 0 };
+    let up = |path: PathBuf| Entry {
+        name: "..".into(),
+        path,
+        is_dir: true,
+        is_symlink: false,
+        is_exec: false,
+        hidden: false,
+        size: 0,
+        modified: 0,
+        created: 0,
+        online: false,
+        referenced: 0,
+    };
     let Some(rev) = &at.commit else {
         match at.view {
-            View::Branches => return Ok(std::iter::once(up(at.base.clone())).chain(crate::branches::entries(&at.base)?).collect()),
-            View::Worktrees => return Ok(std::iter::once(up(at.base.clone())).chain(crate::branches::worktree_entries(&at.base)?).collect()),
+            View::Branches => {
+                return Ok(std::iter::once(up(at.base.clone()))
+                    .chain(crate::branches::entries(&at.base)?)
+                    .collect());
+            }
+            View::Worktrees => {
+                return Ok(std::iter::once(up(at.base.clone()))
+                    .chain(crate::branches::worktree_entries(&at.base)?)
+                    .collect());
+            }
             View::History => {}
         }
         let commits = commits_of(at)?;
@@ -276,11 +359,22 @@ pub fn list(dir: &Path, at: &At) -> io::Result<Vec<Entry>> {
     let when = show(&at.base, rev)?.time;
     let mut c = git(&at.base);
     c.args(["ls-tree", "-z", "-l", rev, "--", &inner_spec(&at.inner)]);
-    let prefix = if at.inner.is_empty() { String::new() } else { format!("{}/", at.inner) };
+    let prefix = if at.inner.is_empty() {
+        String::new()
+    } else {
+        format!("{}/", at.inner)
+    };
     let mut out = vec![up(dir.parent().unwrap_or(dir).to_path_buf())];
     for rec in run(c)?.split(|&b| b == 0) {
-        let Some((p, kind, size, _)) = tree_line(rec) else { continue };
-        let Some(name) = p.strip_prefix(&prefix).filter(|n| !n.is_empty() && !n.contains('/')) else { continue };
+        let Some((p, kind, size, _)) = tree_line(rec) else {
+            continue;
+        };
+        let Some(name) = p
+            .strip_prefix(&prefix)
+            .filter(|n| !n.is_empty() && !n.contains('/'))
+        else {
+            continue;
+        };
         out.push(Entry {
             hidden: name.starts_with('.'),
             path: dir.join(name),
@@ -296,19 +390,30 @@ pub fn list(dir: &Path, at: &At) -> io::Result<Vec<Entry>> {
         });
     }
     if out.len() == 1 && !at.inner.is_empty() {
-        return Err(io::Error::new(io::ErrorKind::NotFound, format!("{} is not in commit {rev}", at.inner)));
+        return Err(io::Error::new(
+            io::ErrorKind::NotFound,
+            format!("{} is not in commit {rev}", at.inner),
+        ));
     }
     Ok(out)
 }
 
 /// The first `max` bytes of a file at a commit, and whether there was more.
 pub fn read(at: &At, max: usize) -> io::Result<(Vec<u8>, bool)> {
-    let rev = at.commit.as_deref().ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "pick a commit first"))?;
+    let rev = at
+        .commit
+        .as_deref()
+        .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "pick a commit first"))?;
     let mut c = git(&at.base);
     c.args(["cat-file", "blob", &format!("{rev}:./{}", at.inner)]);
     let mut child = c.stdout(Stdio::piped()).stderr(Stdio::piped()).spawn()?;
     let mut buf = vec![];
-    child.stdout.take().ok_or_else(|| io::Error::other("no output"))?.take(max as u64 + 1).read_to_end(&mut buf)?;
+    child
+        .stdout
+        .take()
+        .ok_or_else(|| io::Error::other("no output"))?
+        .take(max as u64 + 1)
+        .read_to_end(&mut buf)?;
     let more = buf.len() > max;
     buf.truncate(max);
     if more {
@@ -318,7 +423,9 @@ pub fn read(at: &At, max: usize) -> io::Result<(Vec<u8>, bool)> {
     }
     let o = child.wait_with_output()?;
     if !o.status.success() {
-        return Err(io::Error::other(String::from_utf8_lossy(&o.stderr).trim().to_string()));
+        return Err(io::Error::other(
+            String::from_utf8_lossy(&o.stderr).trim().to_string(),
+        ));
     }
     Ok((buf, false))
 }
@@ -326,10 +433,18 @@ pub fn read(at: &At, max: usize) -> io::Result<(Vec<u8>, bool)> {
 /// A copy of a file as it was at a commit, to look at (the preview pane, F3), as
 /// `archive::peek` makes one of a file in an archive: it keeps the file's name.
 pub fn peek(path: &Path) -> io::Result<PathBuf> {
-    let at = split(path).filter(|at| at.commit.is_some() && !at.inner.is_empty()).ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "not a file in a history"))?;
+    let at = split(path)
+        .filter(|at| at.commit.is_some() && !at.inner.is_empty())
+        .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "not a file in a history"))?;
     let (bytes, more) = read(&at, 64 << 20)?;
     if more {
-        return Err(io::Error::new(io::ErrorKind::FileTooLarge, format!("{} is too large to look at here; copy it out with F5", at.inner)));
+        return Err(io::Error::new(
+            io::ErrorKind::FileTooLarge,
+            format!(
+                "{} is too large to look at here; copy it out with F5",
+                at.inner
+            ),
+        ));
     }
     let to = crate::archive::peek_folder()?.join(at.inner.rsplit('/').next().unwrap_or("file"));
     std::fs::write(&to, bytes)?;
@@ -338,50 +453,113 @@ pub fn peek(path: &Path) -> io::Result<PathBuf> {
 
 /// What the commit changed in the file (or folder): its diff against the commit before.
 pub fn diff(at: &At) -> io::Result<String> {
-    let rev = at.commit.as_deref().ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "pick a commit first"))?;
+    let rev = at
+        .commit
+        .as_deref()
+        .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "pick a commit first"))?;
     let mut c = git(&at.base);
-    c.args(["show", "--format=", "--no-color", "--no-ext-diff", "--no-textconv", rev, "--", inner_spec(&at.inner).trim_end_matches('/')]);
-    Ok(String::from_utf8_lossy(&run(c)?).chars().take(512 * 1024).collect())
+    c.args([
+        "show",
+        "--format=",
+        "--no-color",
+        "--no-ext-diff",
+        "--no-textconv",
+        rev,
+        "--",
+        inner_spec(&at.inner).trim_end_matches('/'),
+    ]);
+    Ok(String::from_utf8_lossy(&run(c)?)
+        .chars()
+        .take(512 * 1024)
+        .collect())
 }
 
 /// Copy a file or folder as it was at a commit (the whole folder for a commit itself) out to
 /// `dest`, as `fs::copy` would: into it when it is a folder. Returns where it landed; whatever
 /// was written is removed when it fails.
 pub fn copy_out(at: &At, dest: &Path) -> io::Result<PathBuf> {
-    let rev = at.commit.as_deref().ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "pick a commit first"))?;
+    let rev = at
+        .commit
+        .as_deref()
+        .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "pick a commit first"))?;
     let name = match at.inner.rsplit('/').next().filter(|n| !n.is_empty()) {
         Some(n) => n.to_string(),
-        None => format!("{}-{}", at.base.file_name().map_or("commit".into(), |n| n.to_string_lossy()), &rev[..rev.len().min(7)]),
+        None => format!(
+            "{}-{}",
+            at.base
+                .file_name()
+                .map_or("commit".into(), |n| n.to_string_lossy()),
+            &rev[..rev.len().min(7)]
+        ),
     };
-    let to = if dest.is_dir() { dest.join(&name) } else { dest.to_path_buf() };
+    let to = if dest.is_dir() {
+        dest.join(&name)
+    } else {
+        dest.to_path_buf()
+    };
     if std::fs::symlink_metadata(&to).is_ok() {
-        return Err(io::Error::new(io::ErrorKind::AlreadyExists, format!("{} exists", to.display())));
+        return Err(io::Error::new(
+            io::ErrorKind::AlreadyExists,
+            format!("{} exists", to.display()),
+        ));
     }
     let r = write_tree(at, rev, &to);
     if r.is_err() {
-        let _ = if to.is_dir() { std::fs::remove_dir_all(&to) } else { std::fs::remove_file(&to) };
+        let _ = if to.is_dir() {
+            std::fs::remove_dir_all(&to)
+        } else {
+            std::fs::remove_file(&to)
+        };
     }
     r.map(|_| to)
 }
 
 fn write_tree(at: &At, rev: &str, to: &Path) -> io::Result<()> {
     let mut c = git(&at.base);
-    let spec = if at.inner.is_empty() { ".".to_string() } else { at.inner.clone() };
+    let spec = if at.inner.is_empty() {
+        ".".to_string()
+    } else {
+        at.inner.clone()
+    };
     c.args(["ls-tree", "-r", "-z", "-l", rev, "--", &spec]);
     let listed = run(c)?;
     let mut files = vec![];
     for rec in listed.split(|&b| b == 0) {
-        let Some((p, kind, _, oid)) = tree_line(rec) else { continue };
-        let rel = if at.inner.is_empty() { p.as_str() } else if p == at.inner { "" } else { match p.strip_prefix(&format!("{}/", at.inner)) { Some(r) => r, None => continue } };
+        let Some((p, kind, _, oid)) = tree_line(rec) else {
+            continue;
+        };
+        let rel = if at.inner.is_empty() {
+            p.as_str()
+        } else if p == at.inner {
+            ""
+        } else {
+            match p.strip_prefix(&format!("{}/", at.inner)) {
+                Some(r) => r,
+                None => continue,
+            }
+        };
         // git never stores `..` or `.git`; refuse them anyway (and a `\\` or `C:` that Windows
         // reads as a path), so nothing lands outside `to` or makes a repository there. Also
         // what Windows reads as `.git`: `.GIT.` (trailing dots and spaces dropped), `GIT~1`.
-        let normal = Path::new(rel).components().all(|c| matches!(c, Component::Normal(_)));
-        let dot_git = |s: &str| s.trim_end_matches(['.', ' ']).eq_ignore_ascii_case(".git") || s.eq_ignore_ascii_case("git~1");
-        if !normal || rel.split('/').any(|s| matches!(s, "." | "..") || dot_git(s)) {
+        let normal = Path::new(rel)
+            .components()
+            .all(|c| matches!(c, Component::Normal(_)));
+        let dot_git = |s: &str| {
+            s.trim_end_matches(['.', ' ']).eq_ignore_ascii_case(".git")
+                || s.eq_ignore_ascii_case("git~1")
+        };
+        if !normal
+            || rel
+                .split('/')
+                .any(|s| matches!(s, "." | "..") || dot_git(s))
+        {
             continue;
         }
-        let dst = if rel.is_empty() { to.to_path_buf() } else { to.join(rel) };
+        let dst = if rel.is_empty() {
+            to.to_path_buf()
+        } else {
+            to.join(rel)
+        };
         if kind == "commit" {
             std::fs::create_dir_all(&dst)?;
         } else {
@@ -389,7 +567,13 @@ fn write_tree(at: &At, rev: &str, to: &Path) -> io::Result<()> {
         }
     }
     if files.is_empty() {
-        return Err(io::Error::new(io::ErrorKind::NotFound, format!("{} is not in commit {rev}", if at.inner.is_empty() { "." } else { &at.inner })));
+        return Err(io::Error::new(
+            io::ErrorKind::NotFound,
+            format!(
+                "{} is not in commit {rev}",
+                if at.inner.is_empty() { "." } else { &at.inner }
+            ),
+        ));
     }
     // The files and folders get the commit's time, as they were then; not the time they were
     // copied out.
@@ -397,18 +581,34 @@ fn write_tree(at: &At, rev: &str, to: &Path) -> io::Result<()> {
     // One git for every file: the ids in, the contents out.
     let mut c = git(&at.base);
     c.args(["cat-file", "--batch"]);
-    let mut child = c.stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::null()).spawn()?;
-    let mut input = child.stdin.take().ok_or_else(|| io::Error::other("no input"))?;
+    let mut child = c
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .spawn()?;
+    let mut input = child
+        .stdin
+        .take()
+        .ok_or_else(|| io::Error::other("no input"))?;
     let ids: String = files.iter().map(|(oid, ..)| format!("{oid}\n")).collect();
     let feed = std::thread::spawn(move || input.write_all(ids.as_bytes()));
-    let mut out = BufReader::new(child.stdout.take().ok_or_else(|| io::Error::other("no output"))?);
+    let mut out = BufReader::new(
+        child
+            .stdout
+            .take()
+            .ok_or_else(|| io::Error::other("no output"))?,
+    );
     // Links are made last: a file listed after a link must not be written through it.
     let mut links = vec![];
     let r = (|| -> io::Result<()> {
         for (_, kind, dst) in &files {
             let mut head = String::new();
             out.read_line(&mut head)?;
-            let size: u64 = head.split_whitespace().nth(2).and_then(|s| s.parse().ok()).ok_or_else(|| io::Error::other(format!("git: {}", head.trim())))?;
+            let size: u64 = head
+                .split_whitespace()
+                .nth(2)
+                .and_then(|s| s.parse().ok())
+                .ok_or_else(|| io::Error::other(format!("git: {}", head.trim())))?;
             let mut body = (&mut out).take(size);
             if let Some(dir) = dst.parent() {
                 std::fs::create_dir_all(dir)?;
@@ -436,7 +636,10 @@ fn write_tree(at: &At, rev: &str, to: &Path) -> io::Result<()> {
             std::fs::write(dst, &target)?;
         }
         // Folders last: writing into one sets its time to now.
-        let dirs: HashSet<&Path> = files.iter().flat_map(|(_, _, dst)| dst.ancestors().skip(1).take_while(|d| d.starts_with(to))).collect();
+        let dirs: HashSet<&Path> = files
+            .iter()
+            .flat_map(|(_, _, dst)| dst.ancestors().skip(1).take_while(|d| d.starts_with(to)))
+            .collect();
         for dir in dirs {
             let mut o = std::fs::OpenOptions::new();
             o.read(true);
@@ -465,7 +668,12 @@ pub struct Last {
 
 impl From<&Commit> for Last {
     fn from(c: &Commit) -> Last {
-        Last { time: c.time, author: c.author.clone(), hash: c.short().to_string(), subject: c.subject.clone() }
+        Last {
+            time: c.time,
+            author: c.author.clone(),
+            hash: c.short().to_string(),
+            subject: c.subject.clone(),
+        }
     }
 }
 
@@ -494,7 +702,11 @@ pub fn last_changes_cached(dir: &Path) -> Option<Arc<Lasts>> {
 /// `last_changes`, with the commit it is for (HEAD, or the commit looked into): the map is
 /// `None` when that is `have` again, as the asker has it already. With `cached`, no walk is
 /// done: `None` for the map when none is kept.
-pub fn last_changes_since(dir: &Path, have: Option<&str>, cached: bool) -> Option<(String, Option<Arc<Lasts>>)> {
+pub fn last_changes_since(
+    dir: &Path,
+    have: Option<&str>,
+    cached: bool,
+) -> Option<(String, Option<Arc<Lasts>>)> {
     let (base, rev, inner) = match split(dir) {
         Some(at) if at.commit.is_none() && at.view == View::Worktrees => return None,
         Some(at) if at.commit.is_none() && at.view == View::Branches => {
@@ -503,12 +715,18 @@ pub fn last_changes_since(dir: &Path, have: Option<&str>, cached: bool) -> Optio
             let key = format!("{:x}", {
                 use std::hash::{Hash, Hasher};
                 let mut h = std::collections::hash_map::DefaultHasher::new();
-                let mut all: Vec<_> = lasts.iter().map(|(k, v)| (k, v.as_ref().map(|l| &l.hash))).collect();
+                let mut all: Vec<_> = lasts
+                    .iter()
+                    .map(|(k, v)| (k, v.as_ref().map(|l| &l.hash)))
+                    .collect();
                 all.sort();
                 all.hash(&mut h);
                 h.finish()
             });
-            return Some((key.clone(), (have != Some(key.as_str())).then(|| Arc::new(lasts))));
+            return Some((
+                key.clone(),
+                (have != Some(key.as_str())).then(|| Arc::new(lasts)),
+            ));
         }
         Some(at) if at.commit.is_none() => {
             let oid = rev_oid(&at.base, "HEAD")?;
@@ -516,7 +734,15 @@ pub fn last_changes_since(dir: &Path, have: Option<&str>, cached: bool) -> Optio
                 return Some((oid, None));
             }
             let commits = commits_of(&at).ok()?;
-            return Some((oid, Some(Arc::new(commits.iter().map(|c| (entry_name(c), Some(Last::from(c)))).collect()))));
+            return Some((
+                oid,
+                Some(Arc::new(
+                    commits
+                        .iter()
+                        .map(|c| (entry_name(c), Some(Last::from(c))))
+                        .collect(),
+                )),
+            ));
         }
         Some(at) => (at.base, at.commit.unwrap_or_default(), at.inner),
         // A repository only in the cloud: git would download it.
@@ -573,7 +799,10 @@ static COMMITS: Keyed<Arc<Vec<Commit>>> = Mutex::new(None);
 fn commits_of(at: &At) -> io::Result<Arc<Vec<Commit>>> {
     let spec = spec(at);
     let key = rev_oid(&at.base, "HEAD").map(|oid| (at.base.clone(), oid, spec.clone()));
-    if let Some(hit) = key.as_ref().and_then(|k| COMMITS.lock().unwrap().as_ref()?.get(k).cloned()) {
+    if let Some(hit) = key
+        .as_ref()
+        .and_then(|k| COMMITS.lock().unwrap().as_ref()?.get(k).cloned())
+    {
         return Ok(hit);
     }
     let (commits, more) = log(&at.base, "HEAD", &spec, MAX_COMMITS)?;
@@ -589,12 +818,24 @@ fn commits_of(at: &At) -> io::Result<Arc<Vec<Commit>>> {
 /// taking the first that changed something at or below it, until every name has one.
 fn walk(base: &Path, rev: &str, inner: &str) -> io::Result<(Lasts, bool)> {
     let spec = inner_spec(inner);
-    let prefix = if inner.is_empty() { String::new() } else { format!("{inner}/") };
+    let prefix = if inner.is_empty() {
+        String::new()
+    } else {
+        format!("{inner}/")
+    };
     let mut c = git(base);
     c.args(["ls-tree", "-z", rev, "--", &spec]);
     let wanted: HashSet<String> = run(c)?
         .split(|&b| b == 0)
-        .filter_map(|rec| Some(String::from_utf8_lossy(rec).split_once('\t')?.1.strip_prefix(&prefix)?.to_string()))
+        .filter_map(|rec| {
+            Some(
+                String::from_utf8_lossy(rec)
+                    .split_once('\t')?
+                    .1
+                    .strip_prefix(&prefix)?
+                    .to_string(),
+            )
+        })
         .filter(|n| !n.is_empty())
         .collect();
     let mut found: Lasts = wanted.iter().map(|n| (n.clone(), None)).collect();
@@ -603,7 +844,19 @@ fn walk(base: &Path, rev: &str, inner: &str) -> io::Result<(Lasts, bool)> {
         return Ok((found, true));
     }
     let mut c = git(base);
-    c.args(["log", "-z", "--name-only", "--relative", "--no-renames", "--format=%x1e%H%x1f%at%x1f%an%x1f%s", "-n", &LAST_WALK.to_string(), rev, "--", &spec]);
+    c.args([
+        "log",
+        "-z",
+        "--name-only",
+        "--relative",
+        "--no-renames",
+        "--format=%x1e%H%x1f%at%x1f%an%x1f%s",
+        "-n",
+        &LAST_WALK.to_string(),
+        rev,
+        "--",
+        &spec,
+    ]);
     let mut now: Option<Last> = None;
     let cut = records(c, 0, |rec| {
         if rec.first() == Some(&0x1e) {
@@ -612,7 +865,9 @@ fn walk(base: &Path, rev: &str, inner: &str) -> io::Result<(Lasts, bool)> {
         }
         let name = String::from_utf8_lossy(rec);
         let name = name.trim_start_matches('\n');
-        let Some(first) = name.strip_prefix(&prefix).and_then(|r| r.split('/').next()) else { return true };
+        let Some(first) = name.strip_prefix(&prefix).and_then(|r| r.split('/').next()) else {
+            return true;
+        };
         if let (Some(slot @ None), Some(c)) = (found.get_mut(first), &now) {
             *slot = Some(c.clone());
             left -= 1;
@@ -626,7 +881,12 @@ fn walk(base: &Path, rev: &str, inner: &str) -> io::Result<(Lasts, bool)> {
 /// Sort entries by their last commit, newest first (`..` first, folders before files, as
 /// `fs::sort` does); entries without one last.
 pub fn sort_by_last(entries: &mut [Entry], lasts: &Lasts, reverse: bool) {
-    let when = |e: &Entry| lasts.get(&e.name).and_then(|l| l.as_ref()).map_or(0, |l| l.time);
+    let when = |e: &Entry| {
+        lasts
+            .get(&e.name)
+            .and_then(|l| l.as_ref())
+            .map_or(0, |l| l.time)
+    };
     entries.sort_by(|a, b| {
         let group = |e: &Entry| (!e.is_parent(), !e.is_dir);
         group(a).cmp(&group(b)).then_with(|| {
@@ -642,9 +902,23 @@ pub fn sort_by_last(entries: &mut [Entry], lasts: &Lasts, reverse: bool) {
 /// (all when `None`), at most `max`. Each is (id, time, text): a first line that says which
 /// commit it is ("commit a1b2c3d · author · 2026-09-30"), the whole message, and the paths it
 /// changed (at most 200).
-pub fn for_search(root: &Path, since: Option<&str>, max: usize) -> io::Result<Vec<(String, u64, String)>> {
+pub fn for_search(
+    root: &Path,
+    since: Option<&str>,
+    max: usize,
+) -> io::Result<Vec<(String, u64, String)>> {
     let mut c = git(root);
-    c.args(["log", "-z", "--name-only", "--no-renames", "--date=short", "--format=%x1e%H%x1f%at%x1f%an%x1f%ad%x1f%B", "-n", &max.to_string(), "HEAD"]);
+    c.args([
+        "log",
+        "-z",
+        "--name-only",
+        "--no-renames",
+        "--date=short",
+        "--format=%x1e%H%x1f%at%x1f%an%x1f%ad%x1f%B",
+        "-n",
+        &max.to_string(),
+        "HEAD",
+    ]);
     if let Some(s) = since {
         c.arg(format!("^{s}"));
     }
@@ -655,7 +929,11 @@ pub fn for_search(root: &Path, since: Option<&str>, max: usize) -> io::Result<Ve
             let s = String::from_utf8_lossy(&rec[1..]);
             let f: Vec<&str> = s.splitn(5, '\x1f').collect();
             if let [hash, time, author, date, body] = f[..] {
-                let text = format!("commit {} · {author} · {date}\n{}", &hash[..hash.len().min(7)], body.trim_end());
+                let text = format!(
+                    "commit {} · {author} · {date}\n{}",
+                    &hash[..hash.len().min(7)],
+                    body.trim_end()
+                );
                 out.push((hash.to_string(), time.parse().unwrap_or(0), text, 0));
             }
             return true;
@@ -671,7 +949,10 @@ pub fn for_search(root: &Path, since: Option<&str>, max: usize) -> io::Result<Ve
         }
         true
     })?;
-    Ok(out.into_iter().map(|(h, t, text, _)| (h, t, text)).collect())
+    Ok(out
+        .into_iter()
+        .map(|(h, t, text, _)| (h, t, text))
+        .collect())
 }
 
 /// HEAD's commit id at `root`, and whether `old` is an ancestor of it (history only grew).
@@ -681,7 +962,9 @@ pub fn head(root: &Path, old: Option<&str>) -> Option<(String, bool)> {
     let now = String::from_utf8(run(c).ok()?).ok()?.trim().to_string();
     let grew = old.is_some_and(|old| {
         let mut c = git(root);
-        c.args(["merge-base", "--is-ancestor", old, &now]).stdout(Stdio::null()).stderr(Stdio::null());
+        c.args(["merge-base", "--is-ancestor", old, &now])
+            .stdout(Stdio::null())
+            .stderr(Stdio::null());
         c.status().is_ok_and(|s| s.success())
     });
     Some((now, grew))
@@ -704,10 +987,17 @@ pub(crate) mod tests {
 
     /// A repository made with the git CLI, or `None` when there is no git.
     pub(crate) fn repo(name: &str) -> Option<PathBuf> {
-        let d = std::env::temp_dir().join(format!("coxswain-history-{name}-{}", std::process::id()));
+        let d =
+            std::env::temp_dir().join(format!("coxswain-history-{name}-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&d);
         std::fs::create_dir_all(&d).ok()?;
-        crate::tools::command("git").arg("-C").arg(&d).args(["init", "-q", "-b", "main"]).status().ok().filter(|s| s.success())?;
+        crate::tools::command("git")
+            .arg("-C")
+            .arg(&d)
+            .args(["init", "-q", "-b", "main"])
+            .status()
+            .ok()
+            .filter(|s| s.success())?;
         Some(d)
     }
 
@@ -716,7 +1006,19 @@ pub(crate) mod tests {
         let ok = crate::tools::command("git")
             .arg("-C")
             .arg(d)
-            .args(["-c", "commit.gpgsign=false", "-c", &format!("user.name={who}"), "-c", "user.email=t@t", "commit", "-q", "-a", "-m", msg])
+            .args([
+                "-c",
+                "commit.gpgsign=false",
+                "-c",
+                &format!("user.name={who}"),
+                "-c",
+                "user.email=t@t",
+                "commit",
+                "-q",
+                "-a",
+                "-m",
+                msg,
+            ])
             .env("GIT_AUTHOR_DATE", &date)
             .env("GIT_COMMITTER_DATE", &date)
             .status()
@@ -725,7 +1027,15 @@ pub(crate) mod tests {
     }
 
     pub(crate) fn add(d: &Path) {
-        assert!(crate::tools::command("git").arg("-C").arg(d).args(["add", "-A"]).status().unwrap().success());
+        assert!(
+            crate::tools::command("git")
+                .arg("-C")
+                .arg(d)
+                .args(["add", "-A"])
+                .status()
+                .unwrap()
+                .success()
+        );
     }
 
     #[test]
@@ -736,18 +1046,32 @@ pub(crate) mod tests {
         let p = path(&d.join("src/main.rs"), Some("0123456789abcdef0123"));
         assert_eq!(p, d.join("src/main.rs/@history/0123456789ab"));
         let at = split(&p.join("deep/x.rs")).unwrap();
-        assert_eq!((at.target, at.base, at.commit.as_deref(), at.inner.as_str()), (d.join("src/main.rs"), d.join("src"), Some("0123456789ab"), "deep/x.rs"));
+        assert_eq!(
+            (at.target, at.base, at.commit.as_deref(), at.inner.as_str()),
+            (
+                d.join("src/main.rs"),
+                d.join("src"),
+                Some("0123456789ab"),
+                "deep/x.rs"
+            )
+        );
         let at = split(&path(&d.join("src"), None)).unwrap();
         assert_eq!((at.base, at.commit), (d.join("src"), None));
         assert!(split(&d.join("src/@history/not-a-commit")).is_none());
         assert!(split(&d.join("src/@history/0123456789ab/../../x")).is_none());
-        assert!(split(&d.join("gone/@history")).is_none(), "the target must be there");
+        assert!(
+            split(&d.join("gone/@history")).is_none(),
+            "the target must be there"
+        );
         assert!(split(&d.join("src")).is_none());
         // A real folder of that name is just a folder.
         std::fs::create_dir_all(d.join("src/@history")).unwrap();
         assert!(split(&d.join("src/@history")).is_none());
         assert!(is_history(&p) && !is_history(&d));
-        assert_eq!(from_key(&key(&d, "abcdef0123456789")), Some(d.join("@history/abcdef012345")));
+        assert_eq!(
+            from_key(&key(&d, "abcdef0123456789")),
+            Some(d.join("@history/abcdef012345"))
+        );
         std::fs::remove_dir_all(d).unwrap();
     }
 
@@ -768,15 +1092,24 @@ pub(crate) mod tests {
         // The commits of a file, newest first, and `..` back to its folder.
         let file = d.join("src/main.rs");
         let list = crate::fs::list(&path(&file, None), true).unwrap();
-        let names: Vec<_> = list.iter().map(|e| e.name.split_once(' ').map_or(e.name.as_str(), |n| n.1)).collect();
+        let names: Vec<_> = list
+            .iter()
+            .map(|e| e.name.split_once(' ').map_or(e.name.as_str(), |n| n.1))
+            .collect();
         assert_eq!(names, ["..", "Second∕with a slash", "First: the start"]);
         assert_eq!(list[0].path, d.join("src"));
         assert_eq!(list[2].modified, 1_700_000_000);
         // The folder at the first commit: the file's folder as it was then.
         let at_first = list[2].path.clone();
         let tree = crate::fs::list(&at_first, true).unwrap();
-        let names: Vec<_> = tree.iter().map(|e| (e.name.as_str(), e.is_dir, e.size)).collect();
-        assert_eq!(names, [("..", true, 0), ("deep", true, 0), ("main.rs", false, 4)]);
+        let names: Vec<_> = tree
+            .iter()
+            .map(|e| (e.name.as_str(), e.is_dir, e.size))
+            .collect();
+        assert_eq!(
+            names,
+            [("..", true, 0), ("deep", true, 0), ("main.rs", false, 4)]
+        );
         assert_eq!(tree[0].path, path(&file, None));
         let deep = crate::fs::list(&at_first.join("deep"), true).unwrap();
         assert_eq!(deep[1].name, "a b.txt");
@@ -787,7 +1120,13 @@ pub(crate) mod tests {
         assert_eq!(read(&at, 100).unwrap(), (b"one\n".to_vec(), false));
         assert_eq!(read(&at, 2).unwrap(), (b"on".to_vec(), true));
         let copy = peek(&at_first.join("main.rs")).unwrap();
-        assert_eq!((copy.file_name().unwrap().to_str(), std::fs::read_to_string(&copy).unwrap().as_str()), (Some("main.rs"), "one\n"));
+        assert_eq!(
+            (
+                copy.file_name().unwrap().to_str(),
+                std::fs::read_to_string(&copy).unwrap().as_str()
+            ),
+            (Some("main.rs"), "one\n")
+        );
         assert!(peek(&at_first).is_err(), "a folder has no copy to look at");
         let second = split(&list[1].path.join("main.rs")).unwrap();
         assert!(diff(&second).unwrap().contains("-one\n+two"));
@@ -795,17 +1134,40 @@ pub(crate) mod tests {
         // Copied out: a file, a folder, and the whole folder of a commit; never over a file.
         let out = d.join("out");
         std::fs::create_dir_all(&out).unwrap();
-        assert_eq!(crate::fs::copy(&at_first.join("main.rs"), &out).unwrap(), out.join("main.rs"));
-        assert_eq!(std::fs::read_to_string(out.join("main.rs")).unwrap(), "one\n");
-        let mtime = std::fs::metadata(out.join("main.rs")).unwrap().modified().unwrap();
-        assert_eq!(mtime, std::time::UNIX_EPOCH + std::time::Duration::from_secs(1_700_000_000), "the commit's time, not now");
-        assert!(crate::fs::copy(&at_first.join("main.rs"), &out).is_err(), "it is there now");
+        assert_eq!(
+            crate::fs::copy(&at_first.join("main.rs"), &out).unwrap(),
+            out.join("main.rs")
+        );
+        assert_eq!(
+            std::fs::read_to_string(out.join("main.rs")).unwrap(),
+            "one\n"
+        );
+        let mtime = std::fs::metadata(out.join("main.rs"))
+            .unwrap()
+            .modified()
+            .unwrap();
+        assert_eq!(
+            mtime,
+            std::time::UNIX_EPOCH + std::time::Duration::from_secs(1_700_000_000),
+            "the commit's time, not now"
+        );
+        assert!(
+            crate::fs::copy(&at_first.join("main.rs"), &out).is_err(),
+            "it is there now"
+        );
         crate::fs::copy(&at_first.join("deep"), &out).unwrap();
-        assert_eq!(std::fs::read_to_string(out.join("deep/a b.txt")).unwrap(), "deep\n");
+        assert_eq!(
+            std::fs::read_to_string(out.join("deep/a b.txt")).unwrap(),
+            "deep\n"
+        );
         let whole = crate::fs::copy(&at_first, &out).unwrap();
         assert!(whole.join("deep/a b.txt").is_file() && whole.join("main.rs").is_file());
         let when = |p: &Path| std::fs::metadata(p).unwrap().modified().unwrap();
-        assert_eq!((when(&whole), when(&whole.join("deep"))), (mtime, mtime), "folders have the commit's time too");
+        assert_eq!(
+            (when(&whole), when(&whole.join("deep"))),
+            (mtime, mtime),
+            "folders have the commit's time too"
+        );
 
         // Read-only: nothing goes in, nothing is made or taken out there.
         assert!(crate::fs::copy(&d.join("README"), &at_first).is_err());
@@ -819,8 +1181,14 @@ pub(crate) mod tests {
         add(&d);
         commit_as(&d, "Dee", 1_700_300_000, "Renamed");
         let list = crate::fs::list(&path(&d.join("src/app.rs"), None), true).unwrap();
-        let names: Vec<_> = list.iter().map(|e| e.name.split_once(' ').map_or(e.name.as_str(), |n| n.1)).collect();
-        assert_eq!(names, ["..", "Renamed", "Second∕with a slash", "First: the start"]);
+        let names: Vec<_> = list
+            .iter()
+            .map(|e| e.name.split_once(' ').map_or(e.name.as_str(), |n| n.1))
+            .collect();
+        assert_eq!(
+            names,
+            ["..", "Renamed", "Second∕with a slash", "First: the start"]
+        );
         std::fs::remove_dir_all(d).unwrap();
     }
 
@@ -837,10 +1205,20 @@ pub(crate) mod tests {
         std::fs::write(d.join("untracked"), "u").unwrap();
 
         let l = last_changes(&d).unwrap();
-        assert_eq!(l["src"].as_ref().map(|c| (c.author.as_str(), c.time)), Some(("Bob", 1_700_100_000)), "a folder takes its newest");
-        assert_eq!(l["README"].as_ref().map(|c| c.subject.as_str()), Some("start"));
+        assert_eq!(
+            l["src"].as_ref().map(|c| (c.author.as_str(), c.time)),
+            Some(("Bob", 1_700_100_000)),
+            "a folder takes its newest"
+        );
+        assert_eq!(
+            l["README"].as_ref().map(|c| c.subject.as_str()),
+            Some("start")
+        );
         assert!(!l.contains_key("untracked"), "git does not track it");
-        assert!(Arc::ptr_eq(&l, &last_changes(&d).unwrap()), "the same HEAD: from the cache");
+        assert!(
+            Arc::ptr_eq(&l, &last_changes(&d).unwrap()),
+            "the same HEAD: from the cache"
+        );
         let src = last_changes(&d.join("src")).unwrap();
         assert_eq!(src["a.rs"].as_ref().unwrap().author, "Bob");
 
@@ -855,18 +1233,31 @@ pub(crate) mod tests {
 
         // HEAD moves: walked again. The asker that has the map for a commit is not sent it again.
         let (head, _) = last_changes_since(&d, None, false).unwrap();
-        assert_eq!(last_changes_since(&d, Some(&head), false).unwrap(), (head.clone(), None));
+        assert_eq!(
+            last_changes_since(&d, Some(&head), false).unwrap(),
+            (head.clone(), None)
+        );
         assert!(last_changes_cached(&d).is_some(), "walked before: kept");
         std::fs::write(d.join("README"), "rr").unwrap();
         commit_as(&d, "Cy", 1_700_200_000, "readme");
-        assert!(last_changes_cached(&d).is_none(), "a new HEAD: not walked yet");
+        assert!(
+            last_changes_cached(&d).is_none(),
+            "a new HEAD: not walked yet"
+        );
         let (moved, l) = last_changes_since(&d, Some(&head), false).unwrap();
         assert!(moved != head && l.is_some());
-        assert_eq!(last_changes(&d).unwrap()["README"].as_ref().unwrap().author, "Cy");
+        assert_eq!(
+            last_changes(&d).unwrap()["README"].as_ref().unwrap().author,
+            "Cy"
+        );
 
         let mut entries = crate::fs::list(&d, true).unwrap();
         sort_by_last(&mut entries, &last_changes(&d).unwrap(), false);
-        let names: Vec<_> = entries.iter().map(|e| e.name.as_str()).filter(|n| *n != ".git").collect();
+        let names: Vec<_> = entries
+            .iter()
+            .map(|e| e.name.as_str())
+            .filter(|n| *n != ".git")
+            .collect();
         assert_eq!(names[..4], ["..", "src", "README", "untracked"]);
         assert!(last_changes(&std::env::temp_dir()).is_none_or(|l| l.is_empty()));
         std::fs::remove_dir_all(d).unwrap();
@@ -877,7 +1268,12 @@ pub(crate) mod tests {
         let Some(d) = repo("search") else { return };
         std::fs::write(d.join("engine.rs"), "x").unwrap();
         add(&d);
-        commit_as(&d, "Ada", 1_700_000_000, "Tune the rocket engine\n\nThrust was low.");
+        commit_as(
+            &d,
+            "Ada",
+            1_700_000_000,
+            "Tune the rocket engine\n\nThrust was low.",
+        );
         let (one, _) = head(&d, None).unwrap();
         std::fs::write(d.join("engine.rs"), "y").unwrap();
         commit_as(&d, "Bob", 1_700_100_000, "Fix the fuel valve");
@@ -885,7 +1281,13 @@ pub(crate) mod tests {
         assert!(grew);
         let all = for_search(&d, None, 10).unwrap();
         assert_eq!(all.len(), 2);
-        assert_eq!(all[1].2, format!("commit {} · Ada · 2023-11-14\nTune the rocket engine\n\nThrust was low.\nengine.rs", &one[..7]));
+        assert_eq!(
+            all[1].2,
+            format!(
+                "commit {} · Ada · 2023-11-14\nTune the rocket engine\n\nThrust was low.\nengine.rs",
+                &one[..7]
+            )
+        );
         let new = for_search(&d, Some(&one), 10).unwrap();
         assert_eq!((new.len(), new[0].0.as_str()), (1, two.as_str()));
         assert!(for_search(&d, Some(&two), 10).unwrap().is_empty());
@@ -901,13 +1303,30 @@ pub(crate) mod tests {
         add(&d);
         commit_as(&d, "Ada", 1_700_000_000, "one");
         let (fake, mark) = (d.join("fake-gpg"), d.join("ran"));
-        std::fs::write(&fake, format!("#!/bin/sh\ntouch '{}'\nexit 0\n", mark.display())).unwrap();
-        std::fs::set_permissions(&fake, std::os::unix::fs::PermissionsExt::from_mode(0o755)).unwrap();
-        std::fs::write(d.join(".git/config"), format!("[log]\n\tshowSignature = true\n[gpg]\n\tprogram = {}\n[core]\n\tfsmonitor = {}\n", fake.display(), fake.display())).unwrap();
+        std::fs::write(
+            &fake,
+            format!("#!/bin/sh\ntouch '{}'\nexit 0\n", mark.display()),
+        )
+        .unwrap();
+        std::fs::set_permissions(&fake, std::os::unix::fs::PermissionsExt::from_mode(0o755))
+            .unwrap();
+        std::fs::write(
+            d.join(".git/config"),
+            format!(
+                "[log]\n\tshowSignature = true\n[gpg]\n\tprogram = {}\n[core]\n\tfsmonitor = {}\n",
+                fake.display(),
+                fake.display()
+            ),
+        )
+        .unwrap();
         let at = split(&path(&d.join("a.txt"), None)).unwrap();
         assert_eq!(list(&path(&d.join("a.txt"), None), &at).unwrap().len(), 2);
         let commit = log(&d, "HEAD", ".", 10).unwrap().0.remove(0);
-        assert!(show(&d, &commit.hash).is_ok() && diff(&split(&path(&d.join("a.txt"), Some(&commit.hash)).join("a.txt")).unwrap()).is_ok());
+        assert!(
+            show(&d, &commit.hash).is_ok()
+                && diff(&split(&path(&d.join("a.txt"), Some(&commit.hash)).join("a.txt")).unwrap())
+                    .is_ok()
+        );
         assert!(last_changes(&d).is_some() && for_search(&d, None, 10).is_ok());
         assert!(!mark.exists(), "the repository's gpg.program ran");
         std::fs::remove_dir_all(d).unwrap();
@@ -924,33 +1343,99 @@ pub(crate) mod tests {
         std::fs::create_dir(&outside).unwrap();
         let git_in = |args: &[&str], input: &str| {
             let mut c = crate::tools::command("git");
-            c.arg("-C").arg(&d).args(args).stdin(Stdio::piped()).stdout(Stdio::piped());
+            c.arg("-C")
+                .arg(&d)
+                .args(args)
+                .stdin(Stdio::piped())
+                .stdout(Stdio::piped());
             let mut child = c.spawn().unwrap();
-            child.stdin.take().unwrap().write_all(input.as_bytes()).unwrap();
-            String::from_utf8(child.wait_with_output().unwrap().stdout).unwrap().trim().to_string()
+            child
+                .stdin
+                .take()
+                .unwrap()
+                .write_all(input.as_bytes())
+                .unwrap();
+            String::from_utf8(child.wait_with_output().unwrap().stdout)
+                .unwrap()
+                .trim()
+                .to_string()
         };
         let blob = git_in(&["hash-object", "-w", "--stdin"], "evil\n");
-        let link = git_in(&["hash-object", "-w", "--stdin"], &outside.to_string_lossy());
+        let link = git_in(
+            &["hash-object", "-w", "--stdin"],
+            &outside.to_string_lossy(),
+        );
         let sub = git_in(&["mktree"], &format!("100644 blob {blob}\tevil\n"));
-        let tree = git_in(&["mktree"], &format!("120000 blob {link}\ta\n040000 tree {sub}\ta\n040000 tree {sub}\t.git\n100644 blob {blob}\tok\n"));
-        let commit = git_in(&["-c", "user.name=t", "-c", "user.email=t@t", "commit-tree", &tree, "-m", "x"], "");
+        let tree = git_in(
+            &["mktree"],
+            &format!(
+                "120000 blob {link}\ta\n040000 tree {sub}\ta\n040000 tree {sub}\t.git\n100644 blob {blob}\tok\n"
+            ),
+        );
+        let commit = git_in(
+            &[
+                "-c",
+                "user.name=t",
+                "-c",
+                "user.email=t@t",
+                "commit-tree",
+                &tree,
+                "-m",
+                "x",
+            ],
+            "",
+        );
         let dest = d.join("dest");
         std::fs::create_dir(&dest).unwrap();
-        let at = At { target: d.clone(), base: d.clone(), commit: Some(commit), inner: String::new(), view: View::History };
+        let at = At {
+            target: d.clone(),
+            base: d.clone(),
+            commit: Some(commit),
+            inner: String::new(),
+            view: View::History,
+        };
         let _ = copy_out(&at, &dest);
         assert!(!outside.join("evil").exists(), "written through the link");
-        assert!(std::fs::read_dir(&dest).unwrap().flatten().all(|e| !e.path().join(".git").exists()));
+        assert!(
+            std::fs::read_dir(&dest)
+                .unwrap()
+                .flatten()
+                .all(|e| !e.path().join(".git").exists())
+        );
         // `.git` as Windows would read other spellings of it: left out, the rest comes.
-        let tree = git_in(&["mktree"], &format!("040000 tree {sub}\t.GIT.\n040000 tree {sub}\tgit~1\n040000 tree {sub}\tsub\n100644 blob {blob}\tok\n"));
-        let commit = git_in(&["-c", "user.name=t", "-c", "user.email=t@t", "commit-tree", &tree, "-m", "y"], "");
-        let out = copy_out(&At { commit: Some(commit), ..at }, &dest).unwrap();
+        let tree = git_in(
+            &["mktree"],
+            &format!(
+                "040000 tree {sub}\t.GIT.\n040000 tree {sub}\tgit~1\n040000 tree {sub}\tsub\n100644 blob {blob}\tok\n"
+            ),
+        );
+        let commit = git_in(
+            &[
+                "-c",
+                "user.name=t",
+                "-c",
+                "user.email=t@t",
+                "commit-tree",
+                &tree,
+                "-m",
+                "y",
+            ],
+            "",
+        );
+        let out = copy_out(
+            &At {
+                commit: Some(commit),
+                ..at
+            },
+            &dest,
+        )
+        .unwrap();
         assert!(out.join("ok").is_file() && out.join("sub/evil").is_file());
         for git in [".GIT.", "git~1"] {
             assert!(!out.join(git).exists(), "{git} was made");
         }
         std::fs::remove_dir_all(d).unwrap();
     }
-
 }
 
 /// Timings on a big repository: `COXSWAIN_BIG_REPO=<path> cargo test -p coxswain-core --release history_timings -- --ignored --nocapture`.
@@ -958,21 +1443,49 @@ pub(crate) mod tests {
 #[test]
 #[ignore]
 fn history_timings() {
-    let Ok(root) = std::env::var("COXSWAIN_BIG_REPO") else { return };
+    let Ok(root) = std::env::var("COXSWAIN_BIG_REPO") else {
+        return;
+    };
     let root = PathBuf::from(root);
     let time = |what: &str, f: &dyn Fn() -> usize| {
         let t = std::time::Instant::now();
         let n = f();
-        println!("{what}: {n} in {:.0} ms", t.elapsed().as_secs_f64() * 1000.0);
+        println!(
+            "{what}: {n} in {:.0} ms",
+            t.elapsed().as_secs_f64() * 1000.0
+        );
     };
-    time("last commit, top folder", &|| last_changes(&root).map_or(0, |l| l.values().filter(|v| v.is_some()).count()));
-    time("last commit, top folder again (cache)", &|| last_changes(&root).map_or(0, |l| l.len()));
-    let sub = std::fs::read_dir(&root).unwrap().flatten().map(|e| e.path()).find(|p| p.is_dir() && !p.ends_with(".git")).unwrap();
-    time("last commit, a subfolder", &|| last_changes(&sub).map_or(0, |l| l.values().filter(|v| v.is_some()).count()));
-    time("commits of the top folder", &|| crate::fs::list(&path(&root, None), true).unwrap().len());
-    time("commits of a rarely changed file", &|| crate::fs::list(&path(&root.join("LICENSE"), None), true).unwrap().len());
+    time("last commit, top folder", &|| {
+        last_changes(&root).map_or(0, |l| l.values().filter(|v| v.is_some()).count())
+    });
+    time("last commit, top folder again (cache)", &|| {
+        last_changes(&root).map_or(0, |l| l.len())
+    });
+    let sub = std::fs::read_dir(&root)
+        .unwrap()
+        .flatten()
+        .map(|e| e.path())
+        .find(|p| p.is_dir() && !p.ends_with(".git"))
+        .unwrap();
+    time("last commit, a subfolder", &|| {
+        last_changes(&sub).map_or(0, |l| l.values().filter(|v| v.is_some()).count())
+    });
+    time("commits of the top folder", &|| {
+        crate::fs::list(&path(&root, None), true).unwrap().len()
+    });
+    time("commits of a rarely changed file", &|| {
+        crate::fs::list(&path(&root.join("LICENSE"), None), true)
+            .unwrap()
+            .len()
+    });
     let commits = crate::fs::list(&path(&root, None), true).unwrap();
-    time("the top folder at a commit", &|| crate::fs::list(&commits[1000].path, true).unwrap().len());
-    time("last commit at a commit", &|| last_changes(&commits[1000].path).map_or(0, |l| l.len()));
-    time("for the search store, 2000", &|| for_search(&root, None, 2000).unwrap().len());
+    time("the top folder at a commit", &|| {
+        crate::fs::list(&commits[1000].path, true).unwrap().len()
+    });
+    time("last commit at a commit", &|| {
+        last_changes(&commits[1000].path).map_or(0, |l| l.len())
+    });
+    time("for the search store, 2000", &|| {
+        for_search(&root, None, 2000).unwrap().len()
+    });
 }

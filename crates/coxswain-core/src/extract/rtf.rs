@@ -37,14 +37,32 @@ const MAX_RUN: usize = 64 * 1024;
 /// none (Word draws the shape a second time there, its text included). The table of fonts is
 /// read for its code pages. The properties of a shape and the instruction of a field are left
 /// out too, but for the text they show, and are seen to where their words are read.
-const LEFT_OUT: &[&[u8]] = &[b"colortbl", b"stylesheet", b"info", b"pict", b"object", b"listtable", b"listoverridetable", b"shprslt"];
+const LEFT_OUT: &[&[u8]] = &[
+    b"colortbl",
+    b"stylesheet",
+    b"info",
+    b"pict",
+    b"object",
+    b"listtable",
+    b"listoverridetable",
+    b"shprslt",
+];
 
 /// A group that begins with `\*` is one a reader may pass over, and all of them are left out
 /// but these: LibreOffice writes notes and comments that way, it and Word keep the text of a
 /// text box inside the description of its shape (Word 95 inside a drawing object) and the runs
 /// of a formula behind a star, a field may show a part of its instruction, and a report
 /// generator was seen to put the cells of a nested row among that row's properties.
-const KEPT: &[&[u8]] = &[b"footnote", b"annotation", b"shpinst", b"do", b"fldinst", b"moMath", b"moMathPara", b"nesttableprops"];
+const KEPT: &[&[u8]] = &[
+    b"footnote",
+    b"annotation",
+    b"shpinst",
+    b"do",
+    b"fldinst",
+    b"moMath",
+    b"moMathPara",
+    b"nesttableprops",
+];
 
 pub fn text(path: &Path, max: u64) -> Option<String> {
     // A pipe is no file of bytes, and opening one waits for a writer that may never come.
@@ -52,7 +70,11 @@ pub fn text(path: &Path, max: u64) -> Option<String> {
         return None;
     }
     let mut rtf = vec![];
-    std::fs::File::open(path).ok()?.take(max).read_to_end(&mut rtf).ok()?;
+    std::fs::File::open(path)
+        .ok()?
+        .take(max)
+        .read_to_end(&mut rtf)
+        .ok()?;
     let text = read(&rtf)?;
     (!text.trim().is_empty()).then_some(text)
 }
@@ -127,7 +149,8 @@ impl Text {
 
     fn decode(&mut self) {
         if !self.bytes.is_empty() {
-            self.out.push_str(&self.page.decode_without_bom_handling(&self.bytes).0);
+            self.out
+                .push_str(&self.page.decode_without_bom_handling(&self.bytes).0);
             self.bytes.clear();
         }
     }
@@ -143,7 +166,9 @@ impl Text {
     fn unit(&mut self, unit: u16) {
         self.decode();
         match (self.high.take(), unit) {
-            (Some(high), 0xDC00..=0xDFFF) => self.out.extend(char::decode_utf16([high, unit]).flatten()),
+            (Some(high), 0xDC00..=0xDFFF) => {
+                self.out.extend(char::decode_utf16([high, unit]).flatten())
+            }
             (_, 0xD800..=0xDBFF) => self.high = Some(unit),
             _ => self.out.extend(char::from_u32(unit.into())),
         }
@@ -155,11 +180,25 @@ fn read(rtf: &[u8]) -> Option<String> {
     if !rtf.starts_with(b"{\\rtf") {
         return None;
     }
-    let mut text = Text { out: String::new(), bytes: vec![], page: encoding_rs::WINDOWS_1252, high: None };
-    let mut group = Group { kind: Kind::Text, font: None, repeat: 1, end: End::Nothing };
+    let mut text = Text {
+        out: String::new(),
+        bytes: vec![],
+        page: encoding_rs::WINDOWS_1252,
+        high: None,
+    };
+    let mut group = Group {
+        kind: Kind::Text,
+        font: None,
+        repeat: 1,
+        end: End::Nothing,
+    };
     let mut outer: Vec<Group> = vec![];
     // The code page of the document, its default font, and the code page of each font.
-    let (mut ansi, mut default_font, mut fonts) = (encoding_rs::WINDOWS_1252, None, HashMap::<i32, &'static Encoding>::new());
+    let (mut ansi, mut default_font, mut fonts) = (
+        encoding_rs::WINDOWS_1252,
+        None,
+        HashMap::<i32, &'static Encoding>::new(),
+    );
     // The headers and footers given so far, and whether the property of a shape that was named
     // last is the text written in the shape.
     let (mut headers, mut written) = (HashSet::<String>::new(), false);
@@ -186,7 +225,9 @@ fn read(rtf: &[u8]) -> Option<String> {
                     End::Write(c) => text.char(c),
                     End::Header(from) => {
                         text.decode();
-                        let said = Some(&text.out[from..]).filter(|said| said.len() <= MAX_LOOKED).map(|said| said.trim());
+                        let said = Some(&text.out[from..])
+                            .filter(|said| said.len() <= MAX_LOOKED)
+                            .map(|said| said.trim());
                         if said.is_some_and(|said| headers.contains(said)) {
                             text.out.truncate(from);
                         } else if let Some(said) = said.filter(|_| headers.len() < MAX_HEADERS) {
@@ -213,8 +254,19 @@ fn read(rtf: &[u8]) -> Option<String> {
                 if !next.is_ascii_alphabetic() {
                     // A symbol: one character after the backslash, and two digits more after a quote.
                     at += 1;
-                    let digits = if next == b'\'' { rtf[at..].iter().take(2).take_while(|b| b.is_ascii_hexdigit()).count() } else { 0 };
-                    let hex = std::str::from_utf8(&rtf[at..at + digits]).ok().filter(|h| h.len() == 2).and_then(|h| u8::from_str_radix(h, 16).ok());
+                    let digits = if next == b'\'' {
+                        rtf[at..]
+                            .iter()
+                            .take(2)
+                            .take_while(|b| b.is_ascii_hexdigit())
+                            .count()
+                    } else {
+                        0
+                    };
+                    let hex = std::str::from_utf8(&rtf[at..at + digits])
+                        .ok()
+                        .filter(|h| h.len() == 2)
+                        .and_then(|h| u8::from_str_radix(h, 16).ok());
                     at += digits;
                     if next == b'*' {
                         // The mark of a group to pass over, where it begins the group. StarOffice writes
@@ -240,12 +292,23 @@ fn read(rtf: &[u8]) -> Option<String> {
                 }
 
                 // A word: letters, then a number if it has one, then one space that ends it.
-                let letters = rtf[at..].iter().take_while(|b| b.is_ascii_alphabetic()).count();
+                let letters = rtf[at..]
+                    .iter()
+                    .take_while(|b| b.is_ascii_alphabetic())
+                    .count();
                 let word = &rtf[at..at + letters];
                 at += letters;
-                let signed = usize::from(rtf.get(at) == Some(&b'-') && rtf.get(at + 1).is_some_and(u8::is_ascii_digit));
-                let digits = signed + rtf[at + signed..].iter().take_while(|b| b.is_ascii_digit()).count();
-                let number: Option<i32> = std::str::from_utf8(&rtf[at..at + digits]).ok().and_then(|n| n.parse().ok());
+                let signed = usize::from(
+                    rtf.get(at) == Some(&b'-') && rtf.get(at + 1).is_some_and(u8::is_ascii_digit),
+                );
+                let digits = signed
+                    + rtf[at + signed..]
+                        .iter()
+                        .take_while(|b| b.is_ascii_digit())
+                        .count();
+                let number: Option<i32> = std::str::from_utf8(&rtf[at..at + digits])
+                    .ok()
+                    .and_then(|n| n.parse().ok());
                 at += digits;
                 at += usize::from(rtf.get(at) == Some(&b' '));
 
@@ -254,7 +317,9 @@ fn read(rtf: &[u8]) -> Option<String> {
                 }
                 if word == b"bin" {
                     // Bytes as they are, a picture mostly: braces in them mean nothing.
-                    at = at.saturating_add(number.map_or(0, |n| n.max(0) as usize)).min(rtf.len());
+                    at = at
+                        .saturating_add(number.map_or(0, |n| n.max(0) as usize))
+                        .min(rtf.len());
                 } else if group.kind == Kind::Fonts {
                     let page = match word {
                         b"fcharset" => number.and_then(charset_page),
@@ -263,7 +328,9 @@ fn read(rtf: &[u8]) -> Option<String> {
                     };
                     if word == b"f" {
                         described = number.unwrap_or(0);
-                    } else if let Some(page) = page.and_then(code_page).filter(|_| fonts.len() < MAX_FONTS) {
+                    } else if let Some(page) =
+                        page.and_then(code_page).filter(|_| fonts.len() < MAX_FONTS)
+                    {
                         fonts.insert(described, page);
                     }
                 } else if group.kind == Kind::Text {
@@ -271,13 +338,19 @@ fn read(rtf: &[u8]) -> Option<String> {
                         b"fonttbl" => group.kind = Kind::Fonts,
                         w if LEFT_OUT.contains(&w) => group.kind = Kind::LeftOut,
                         // The properties of a part of a formula, `\mfPr` and the like. Some have words for values.
-                        w if w.starts_with(b"m") && w.ends_with(b"Pr") => group.kind = Kind::LeftOut,
+                        w if w.starts_with(b"m") && w.ends_with(b"Pr") => {
+                            group.kind = Kind::LeftOut
+                        }
                         // A property of a shape is its name and its value. LibreOffice writes the text
                         // typed into a drawn shape as one, and Word the text of WordArt.
-                        b"sn" => (group.kind, written) = (Kind::LeftOut, rtf[at..].starts_with(b"gtextUNICODE}")),
+                        b"sn" => {
+                            (group.kind, written) =
+                                (Kind::LeftOut, rtf[at..].starts_with(b"gtextUNICODE}"))
+                        }
                         b"sv" if !written => group.kind = Kind::LeftOut,
                         b"fldinst" => group.end = End::Instruction(text.end()),
-                        b"header" | b"headerl" | b"headerr" | b"headerf" | b"footer" | b"footerl" | b"footerr" | b"footerf" => {
+                        b"header" | b"headerl" | b"headerr" | b"headerf" | b"footer"
+                        | b"footerl" | b"footerr" | b"footerf" => {
                             text.char('\n');
                             group.end = End::Header(text.end());
                         }
@@ -294,7 +367,8 @@ fn read(rtf: &[u8]) -> Option<String> {
                                 skip = group.repeat;
                             }
                         }
-                        b"par" | b"line" | b"row" | b"nestrow" | b"page" | b"sect" | b"column" | b"softline" | b"softpage" | b"softcol" => text.char('\n'),
+                        b"par" | b"line" | b"row" | b"nestrow" | b"page" | b"sect" | b"column"
+                        | b"softline" | b"softpage" | b"softcol" => text.char('\n'),
                         // A note, a comment or a text box stands in the middle of a line, and
                         // nothing but its group parts it from the words before and after.
                         b"footnote" | b"annotation" | b"shptxt" | b"dptxbxtext" | b"sv" => {
@@ -324,20 +398,33 @@ fn read(rtf: &[u8]) -> Option<String> {
             _ => {
                 // Text as it is, up to the next thing that is not, and no more than there is room for.
                 let most = (MAX_TEXT - text.len()).min(rtf.len() - at).min(MAX_RUN);
-                let run = at - 1..at + rtf[at..at + most].iter().take_while(|b| !matches!(b, b'{' | b'}' | b'\\' | b'\r' | b'\n' | 0)).count();
+                let run = at - 1
+                    ..at + rtf[at..at + most]
+                        .iter()
+                        .take_while(|b| !matches!(b, b'{' | b'}' | b'\\' | b'\r' | b'\n' | 0))
+                        .count();
                 at = run.end;
                 first = first && rtf[run.clone()].iter().all(u8::is_ascii_whitespace);
                 starred = false;
                 let skipped = skip.min(run.len());
                 skip -= skipped;
                 if group.kind == Kind::Text && skipped < run.len() {
-                    text.bytes(&rtf[run.start + skipped..run.end], page_of(group.font.or(default_font), &fonts, ansi));
+                    text.bytes(
+                        &rtf[run.start + skipped..run.end],
+                        page_of(group.font.or(default_font), &fonts, ansi),
+                    );
                 }
             }
         }
     }
     // No more text than is kept. A document that ends inside the instruction of a field gives none of that.
-    let open = outer.iter().chain([&group]).find_map(|g| if let End::Instruction(from) = g.end { Some(from) } else { None });
+    let open = outer.iter().chain([&group]).find_map(|g| {
+        if let End::Instruction(from) = g.end {
+            Some(from)
+        } else {
+            None
+        }
+    });
     let mut most = text.end().min(MAX_TEXT).min(open.unwrap_or(MAX_TEXT));
     while !text.out.is_char_boundary(most) {
         most -= 1;
@@ -346,25 +433,49 @@ fn read(rtf: &[u8]) -> Option<String> {
     // A soft hyphen is a place where a word may be broken and no part of it, but parts it for
     // the index of the store. A character of the private area, which a symbol of Wingdings or
     // Symbol is, that index takes for a letter of the word beside it.
-    let kept = text.out[..most].chars().filter(|c| !matches!(c, '\0' | '\u{ad}'));
-    Some(kept.map(|c| if matches!(c, '\u{e000}'..='\u{f8ff}') { ' ' } else { c }).collect())
+    let kept = text.out[..most]
+        .chars()
+        .filter(|c| !matches!(c, '\0' | '\u{ad}'));
+    Some(
+        kept.map(|c| {
+            if matches!(c, '\u{e000}'..='\u{f8ff}') {
+                ' '
+            } else {
+                c
+            }
+        })
+        .collect(),
+    )
 }
 
 /// What a field shows of its instruction, for the kinds that show text and have no result: the
 /// word under a phonetic guide, `EQ \o(\s\up 11(reading),word)`, and the text of a place holder,
 /// `MACROBUTTON macro text`.
 fn shown(instruction: &str) -> &str {
-    let looked = if instruction.len() <= MAX_LOOKED { instruction.trim() } else { "" };
+    let looked = if instruction.len() <= MAX_LOOKED {
+        instruction.trim()
+    } else {
+        ""
+    };
     let (kind, rest) = looked.split_once(char::is_whitespace).unwrap_or_default();
     match kind {
-        "EQ" if rest.contains("\\o") => rest.rsplit_once(',').map_or("", |(_, word)| word.strip_suffix(')').unwrap_or(word)),
-        "MACROBUTTON" => rest.trim_start().split_once(char::is_whitespace).map_or("", |(_, text)| text),
+        "EQ" if rest.contains("\\o") => rest
+            .rsplit_once(',')
+            .map_or("", |(_, word)| word.strip_suffix(')').unwrap_or(word)),
+        "MACROBUTTON" => rest
+            .trim_start()
+            .split_once(char::is_whitespace)
+            .map_or("", |(_, text)| text),
         _ => "",
     }
 }
 
 /// The code page of the bytes of text: that of the font in use, or else that of the document.
-fn page_of(font: Option<i32>, fonts: &HashMap<i32, &'static Encoding>, ansi: &'static Encoding) -> &'static Encoding {
+fn page_of(
+    font: Option<i32>,
+    fonts: &HashMap<i32, &'static Encoding>,
+    ansi: &'static Encoding,
+) -> &'static Encoding {
     font.and_then(|f| fonts.get(&f).copied()).unwrap_or(ansi)
 }
 
@@ -436,8 +547,17 @@ mod tests {
     fn found<const N: usize>(text: &str, words: [&str; N]) -> [bool; N] {
         let db = rusqlite::Connection::open_in_memory().unwrap();
         db.execute_batch("CREATE VIRTUAL TABLE text USING fts5(body, tokenize = 'unicode61 remove_diacritics 2');").unwrap();
-        db.execute("INSERT INTO text(body) VALUES (?1)", [text]).unwrap();
-        words.map(|w| db.query_row("SELECT count(*) FROM text WHERE text MATCH ?1", [format!("\"{w}\"")], |r| r.get::<_, i64>(0)).unwrap() == 1)
+        db.execute("INSERT INTO text(body) VALUES (?1)", [text])
+            .unwrap();
+        words.map(|w| {
+            db.query_row(
+                "SELECT count(*) FROM text WHERE text MATCH ?1",
+                [format!("\"{w}\"")],
+                |r| r.get::<_, i64>(0),
+            )
+            .unwrap()
+                == 1
+        })
     }
 
     /// A document as LibreOffice writes it, cut down from one it wrote.
@@ -511,7 +631,12 @@ The first page ends here.\page The second page begins here.}
     fn rtf_gives_lines_cells_and_characters_in_order() {
         let d = folder("rtf-report");
         std::fs::write(d.join("Report.RTF"), document(REPORT)).unwrap();
-        let text = text_of(&d.join("Report.RTF"), document(REPORT).len() as u64, 1 << 20).unwrap();
+        let text = text_of(
+            &d.join("Report.RTF"),
+            document(REPORT).len() as u64,
+            1 << 20,
+        )
+        .unwrap();
         assert_eq!(text.lines().collect::<Vec<_>>(), REPORT_TEXT);
         let _ = std::fs::remove_dir_all(d);
     }
@@ -541,7 +666,10 @@ These terms apply to the }{\rtlch\fcs1 \ab0\af40 \ltrch\fcs0 \b0\dbch\af13\insrs
 \insrsid4673298 \hich\af40\dbch\af13\loch\f40 the source}
 }}\sectd \ltrsect {\rtlch\fcs1 \af40 \ltrch\fcs0 \insrsid4673298 .
 \par }}"#;
-        assert_eq!(of(word), "FUEL LOG OF FLIGHT SEVEN\nThese terms apply to the rocket named above. They also apply to its café\n· see the source.");
+        assert_eq!(
+            of(word),
+            "FUEL LOG OF FLIGHT SEVEN\nThese terms apply to the rocket named above. They also apply to its café\n· see the source."
+        );
 
         // TextEdit: a paragraph ends with a backslash at the end of the line, and the fonts
         // stand in their table without a group each.
@@ -567,7 +695,9 @@ The parts are \'a9 2012, provided \'93AS IS\'94.}";
 
         // The smallest: no code page, no character set, a space after a word that belongs to it.
         assert_eq!(
-            of(r"{\rtf1\ansi{\fonttbl{\f0 Helvetica;}}\f0\fs32 \b Memo\b0\par\fs24 Booked for 6 October.\par Bring bl\'e5b\'e6r.\par}"),
+            of(
+                r"{\rtf1\ansi{\fonttbl{\f0 Helvetica;}}\f0\fs32 \b Memo\b0\par\fs24 Booked for 6 October.\par Bring bl\'e5b\'e6r.\par}"
+            ),
             "Memo\nBooked for 6 October.\nBring blåbær."
         );
     }
@@ -612,12 +742,28 @@ Bookmark {\*\bkmkstart hiddenbookmark}marked{\*\bkmkend hiddenbookmark} text.\pa
         assert_eq!(of(document).lines().collect::<Vec<_>>(), lines);
 
         // The bytes after `\bin` are a picture as it is: braces and backslashes in them are not the document's.
-        let picture = [&b"{\\rtf1 Before{\\pict\\wmetafile8\\bin8 "[..], b"}{\\\x00\xff}{}", b"} and after the picture.\\par}"].concat();
-        assert_eq!(read(&picture).as_deref(), Some("Before and after the picture.\n"));
+        let picture = [
+            &b"{\\rtf1 Before{\\pict\\wmetafile8\\bin8 "[..],
+            b"}{\\\x00\xff}{}",
+            b"} and after the picture.\\par}",
+        ]
+        .concat();
+        assert_eq!(
+            read(&picture).as_deref(),
+            Some("Before and after the picture.\n")
+        );
 
         let d = folder("rtf-nothing");
-        std::fs::write(d.join("picture.rtf"), r"{\rtf1\ansi{\fonttbl{\f0 Arial;}}{\info{\title Hidden}}{\pict\pngblip 89504e47}}").unwrap();
-        assert_eq!(text(&d.join("picture.rtf"), 1000), None, "a document without text has none");
+        std::fs::write(
+            d.join("picture.rtf"),
+            r"{\rtf1\ansi{\fonttbl{\f0 Arial;}}{\info{\title Hidden}}{\pict\pngblip 89504e47}}",
+        )
+        .unwrap();
+        assert_eq!(
+            text(&d.join("picture.rtf"), 1000),
+            None,
+            "a document without text has none"
+        );
         let _ = std::fs::remove_dir_all(d);
     }
 
@@ -628,48 +774,104 @@ Bookmark {\*\bkmkstart hiddenbookmark}marked{\*\bkmkend hiddenbookmark} text.\pa
 \viewkind4\uc1\pard\lang1049\f0\fs20 \'cf\'f0\'e8\'e2\'e5\'f2 \'ec\'e8\'f0\lang1033\f1  and caf\'e9\par}";
         assert_eq!(of(wordpad), "Привет мир and café");
         // A Russian machine: the code page of the document, and a font that names none.
-        assert_eq!(of(r"{\rtf1\ansi\ansicpg1251\deff0{\fonttbl{\f0\fswiss Arial;}}\f0 \'cf\'f0\'e8\'e2\'e5\'f2\par}"), "Привет");
-        assert_eq!(of(r"{\rtf1\ansi\ansicpg1251 \'cf\'f0\'e8\'e2\'e5\'f2\par}"), "Привет", "no table of fonts at all");
+        assert_eq!(
+            of(
+                r"{\rtf1\ansi\ansicpg1251\deff0{\fonttbl{\f0\fswiss Arial;}}\f0 \'cf\'f0\'e8\'e2\'e5\'f2\par}"
+            ),
+            "Привет"
+        );
+        assert_eq!(
+            of(r"{\rtf1\ansi\ansicpg1251 \'cf\'f0\'e8\'e2\'e5\'f2\par}"),
+            "Привет",
+            "no table of fonts at all"
+        );
 
         // The languages Coxswain speaks that code page 1252 does not write.
         assert_eq!(
-            of(r"{\rtf1\ansi\ansicpg1252{\fonttbl{\f0\fcharset0 Arial;}{\f1\fcharset177 Arial;}}\f0 Hebrew: \rtlch\f1 \'f9\'ec\'e5\'ed\ltrch\f0  end\par}"),
+            of(
+                r"{\rtf1\ansi\ansicpg1252{\fonttbl{\f0\fcharset0 Arial;}{\f1\fcharset177 Arial;}}\f0 Hebrew: \rtlch\f1 \'f9\'ec\'e5\'ed\ltrch\f0  end\par}"
+            ),
             "Hebrew: שלום end"
         );
-        assert_eq!(of(r"{\rtf1\ansi\ansicpg1252{\fonttbl{\f0\fcharset186 Arial Baltic;}}\f0 \'ed\'eemi\'edis \'e0\'feuolas\par}"), "ķīmiķis ąžuolas");
-        assert_eq!(of(r"{\rtf1\ansi\ansicpg1257 \'ed\'eemi\'edis \'e0\'feuolas\par}"), "ķīmiķis ąžuolas");
+        assert_eq!(
+            of(
+                r"{\rtf1\ansi\ansicpg1252{\fonttbl{\f0\fcharset186 Arial Baltic;}}\f0 \'ed\'eemi\'edis \'e0\'feuolas\par}"
+            ),
+            "ķīmiķis ąžuolas"
+        );
+        assert_eq!(
+            of(r"{\rtf1\ansi\ansicpg1257 \'ed\'eemi\'edis \'e0\'feuolas\par}"),
+            "ķīmiķis ąžuolas"
+        );
         let two_fonts = r"{\rtf1\ansi{\fonttbl{\f0\fcharset238 Arial CE;}{\f1\fcharset161 Arial Greek;}}
 \f0 Za\'bf\'f3\'b3\'e6 g\'ea\'9cl\'b9 \f1 \'ea\'e1\'eb\'e7\'ec\'dd\'f1\'e1\par}";
         assert_eq!(of(two_fonts), "Zażółć gęślą καλημέρα");
 
         // Two bytes to a character. The second one may be a letter, a brace or a backslash.
         assert_eq!(
-            of(r"{\rtf1\ansi{\fonttbl{\f0\fcharset0 Arial;}{\f1\fnil\fcharset134 SimSun;}}\f0 Chinese: \f1 \'d6\'d0\'ce\'c4\f0  end\par}"),
+            of(
+                r"{\rtf1\ansi{\fonttbl{\f0\fcharset0 Arial;}{\f1\fnil\fcharset134 SimSun;}}\f0 Chinese: \f1 \'d6\'d0\'ce\'c4\f0  end\par}"
+            ),
             "Chinese: 中文 end"
         );
-        assert_eq!(of(r"{\rtf1\ansi{\fonttbl{\f0\fmodern\fcharset128 MS Mincho;}}\f0 \'93\'fa\'96\{\'8c\'ea \'83A\'83\\\'83r\par}"), "日本語 アソビ");
-        assert_eq!(of(r"{\rtf1\ansi\ansicpg949 \'c7\'d1\'b1\'b9\'be\'ee\par}"), "한국어");
+        assert_eq!(
+            of(
+                r"{\rtf1\ansi{\fonttbl{\f0\fmodern\fcharset128 MS Mincho;}}\f0 \'93\'fa\'96\{\'8c\'ea \'83A\'83\\\'83r\par}"
+            ),
+            "日本語 アソビ"
+        );
+        assert_eq!(
+            of(r"{\rtf1\ansi\ansicpg949 \'c7\'d1\'b1\'b9\'be\'ee\par}"),
+            "한국어"
+        );
         let textedit = r"{\rtf1\ansi\ansicpg1252\cocoartf2513{\fonttbl\f0\fswiss\fcharset0 Helvetica;\f1\fnil\fcharset128 HiraginoSans-W3;}
 \f0\fs24 \cf0 Hello \f1 \'93\'fa\'96\'7b\'8c\'ea
 \f0  caf\'e9}";
-        assert_eq!(of(textedit), "Hello 日本語 café", "a table of fonts without a group for each");
+        assert_eq!(
+            of(textedit),
+            "Hello 日本語 café",
+            "a table of fonts without a group for each"
+        );
 
         // A group gives the font back when it closes, and `\plain` goes back to the default one.
         let fonts = r"{\rtf1\ansi\deff0{\fonttbl{\f0\fcharset0 Arial;}{\f1\fcharset204 Arial;}}\f1 \'f0\'e0\'e7 {\f0 caf\'e9} \'e4\'e2\'e0 \plain caf\'e9\par}";
         assert_eq!(of(fonts), "раз café два café");
         assert_eq!(
-            of(r"{\rtf1\ansi\deff1{\fonttbl{\f0\fcharset0 Arial;}{\f1\fcharset204 Arial;}}\'f0\'e0\'e7\par}"),
+            of(
+                r"{\rtf1\ansi\deff1{\fonttbl{\f0\fcharset0 Arial;}{\f1\fcharset204 Arial;}}\'f0\'e0\'e7\par}"
+            ),
             "раз",
             "the default font, when none is named"
         );
-        assert_eq!(of(r"{\rtf1\ansi{\fonttbl{\f0\fnil\cpg1251 Arial;}}\f0 \'f0\'e0\'e7\par}"), "раз", "a font may name its code page itself");
-        assert_eq!(of(r"{\rtf1\mac{\fonttbl{\f0\fswiss Helvetica;}}\f0 caf\'8e p\'8c \'bfen\par}"), "café på øen");
-        assert_eq!(of(r"{\rtf1\ansi\ansicpg437 caf\'e9\par}"), "café", "a code page the reader does not have is read as 1252");
+        assert_eq!(
+            of(r"{\rtf1\ansi{\fonttbl{\f0\fnil\cpg1251 Arial;}}\f0 \'f0\'e0\'e7\par}"),
+            "раз",
+            "a font may name its code page itself"
+        );
+        assert_eq!(
+            of(r"{\rtf1\mac{\fonttbl{\f0\fswiss Helvetica;}}\f0 caf\'8e p\'8c \'bfen\par}"),
+            "café på øen"
+        );
+        assert_eq!(
+            of(r"{\rtf1\ansi\ansicpg437 caf\'e9\par}"),
+            "café",
+            "a code page the reader does not have is read as 1252"
+        );
 
         // `\uN` is followed by as many bytes as `\uc` says, for a reader without Unicode.
-        assert_eq!(of(r"{\rtf1\ansi\ansicpg932\uc2 ^u26085\'93\'fa^u26412\'96\'7b end\par}"), "日本 end");
-        assert_eq!(of(r"{\rtf1\ansi\uc0 ^u1513^u1500^u1493^u1501  end\par}"), "שלום end");
-        assert_eq!(of(r"{\rtf1\ansi\uc1 {\uc2 ^u228\'e4\'e4}^u228\'e4\'e4\par}"), "äää", "a group gives the count back when it closes");
+        assert_eq!(
+            of(r"{\rtf1\ansi\ansicpg932\uc2 ^u26085\'93\'fa^u26412\'96\'7b end\par}"),
+            "日本 end"
+        );
+        assert_eq!(
+            of(r"{\rtf1\ansi\uc0 ^u1513^u1500^u1493^u1501  end\par}"),
+            "שלום end"
+        );
+        assert_eq!(
+            of(r"{\rtf1\ansi\uc1 {\uc2 ^u228\'e4\'e4}^u228\'e4\'e4\par}"),
+            "äää",
+            "a group gives the count back when it closes"
+        );
         assert_eq!(
             of(r"{\rtf1\ansi\uc1 rocket ^u-10179^u-8576? and ^u-10179?^u-8576? end\par}"),
             "rocket 🚀 and 🚀 end",
@@ -683,9 +885,20 @@ Bookmark {\*\bkmkstart hiddenbookmark}marked{\*\bkmkend hiddenbookmark} text.\pa
         std::fs::write(d.join("empty.rtf"), b"").unwrap();
         assert_eq!(text(&d.join("empty.rtf"), 1000), None);
         assert_eq!(text(&d.join("missing.rtf"), 1000), None);
-        for other in [&b"Plain text with the wrong name.\n"[..], b"PK\x03\x04 a zip", b"{\\rt", b"{", b" {\\rtf1 late}", b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1"] {
+        for other in [
+            &b"Plain text with the wrong name.\n"[..],
+            b"PK\x03\x04 a zip",
+            b"{\\rt",
+            b"{",
+            b" {\\rtf1 late}",
+            b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1",
+        ] {
             std::fs::write(d.join("other.rtf"), other).unwrap();
-            assert_eq!(text(&d.join("other.rtf"), 1000), None, "not a document: {other:?}");
+            assert_eq!(
+                text(&d.join("other.rtf"), 1000),
+                None,
+                "not a document: {other:?}"
+            );
         }
         let _ = std::fs::remove_dir_all(d);
 
@@ -696,30 +909,66 @@ Bookmark {\*\bkmkstart hiddenbookmark}marked{\*\bkmkend hiddenbookmark} text.\pa
             let text = tidy(&read(&report[..cut]).unwrap_or_default());
             assert!(text.len() <= whole.len(), "cut at {cut}");
             let sure = text.len().saturating_sub(4);
-            assert!((0..=sure).rev().find(|&n| text.is_char_boundary(n)).is_some_and(|n| whole.starts_with(&text[..n])), "cut at {cut}: {text:?}");
+            assert!(
+                (0..=sure)
+                    .rev()
+                    .find(|&n| text.is_char_boundary(n))
+                    .is_some_and(|n| whole.starts_with(&text[..n])),
+                "cut at {cut}: {text:?}"
+            );
         }
-        assert_eq!(of(&REPORT[..REPORT.find("Cost").unwrap()]).lines().last(), Some("Item"));
+        assert_eq!(
+            of(&REPORT[..REPORT.find("Cost").unwrap()]).lines().last(),
+            Some("Item")
+        );
 
         for (broken, text) in [
             (r"{\rtf1 never closed", "never closed"),
             (r"{\rtf1 closed} after the end", "closed"),
-            (r"{\rtf1 closed more than opened}}}} after", "closed more than opened"),
+            (
+                r"{\rtf1 closed more than opened}}}} after",
+                "closed more than opened",
+            ),
             (r"{\rtf1 ends in a backslash\", "ends in a backslash"),
             (r"{\rtf1 ends in a quote\'", "ends in a quote"),
             (r"{\rtf1 ends in half a byte\'e", "ends in half a byte"),
             (r"{\rtf1 no byte\'zz at all}", "no bytezz at all"),
             (r"{\rtf1 ends in a word\pa", "ends in a word"),
             (r"{\rtf1 ends in a number\u-", "ends in a number-"),
-            (r"{\rtf1{\fonttbl{\f0\fcharset204 cut in the table of fonts", ""),
-            (r"{\rtf1 a number too large^u99999999999999999999? for a character}", "a number too large? for a character"),
-            (r"{\rtf1 one half ^u-10179? alone, the other ^u-8576? too}", "one half alone, the other too"),
-            (r"{\rtf1 no zero ^u0?\'00 in the text}", "no zero in the text"),
+            (
+                r"{\rtf1{\fonttbl{\f0\fcharset204 cut in the table of fonts",
+                "",
+            ),
+            (
+                r"{\rtf1 a number too large^u99999999999999999999? for a character}",
+                "a number too large? for a character",
+            ),
+            (
+                r"{\rtf1 one half ^u-10179? alone, the other ^u-8576? too}",
+                "one half alone, the other too",
+            ),
+            (
+                r"{\rtf1 no zero ^u0?\'00 in the text}",
+                "no zero in the text",
+            ),
             (r"{\rtf1 \bin-5 fewer than no bytes}", "fewer than no bytes"),
-            (r"{\rtf1 more bytes \bin99999999999999999999 than a number holds}", "more bytes than a number holds"),
-            (r"{\rtf1 more bytes \bin2000000000 than there are}", "more bytes"),
+            (
+                r"{\rtf1 more bytes \bin99999999999999999999 than a number holds}",
+                "more bytes than a number holds",
+            ),
+            (
+                r"{\rtf1 more bytes \bin2000000000 than there are}",
+                "more bytes",
+            ),
             (r"{\rtf1\uc-3 ^u65? fewer than none}", "A? fewer than none"),
-            (r"{\rtf1^uc2000000000 ^u65 all that follows is passed over}", "A"),
-            (r"{\rtf1 a star \* and text, a star {\*} and nothing, a font \f99999 unheard of}", "a star and text, a star and nothing, a font unheard of"),
+            (
+                r"{\rtf1^uc2000000000 ^u65 all that follows is passed over}",
+                "A",
+            ),
+            (
+                r"{\rtf1 a star \* and text, a star {\*} and nothing, a font \f99999 unheard of}",
+                "a star and text, a star and nothing, a font unheard of",
+            ),
         ] {
             assert_eq!(of(broken), text, "{broken}");
         }
@@ -733,77 +982,178 @@ Bookmark {\*\bkmkstart hiddenbookmark}marked{\*\bkmkend hiddenbookmark} text.\pa
             seed
         };
         let marks = b"{{}}\\\\\\''**abfu0123456789 -;\r\n~_\xe6\x93";
-        let words = [&b"\\u"[..], b"\\uc", b"\\bin", b"\\f", b"\\fonttbl", b"\\fcharset", b"\\ansicpg", b"\\*\\footnote", b"\\pict", b"\\par", b"\\'"];
+        let words = [
+            &b"\\u"[..],
+            b"\\uc",
+            b"\\bin",
+            b"\\f",
+            b"\\fonttbl",
+            b"\\fcharset",
+            b"\\ansicpg",
+            b"\\*\\footnote",
+            b"\\pict",
+            b"\\par",
+            b"\\'",
+        ];
         for round in 0..3000 {
             let mut bytes = b"{\\rtf1".to_vec();
             for _ in 0..random() % 400 {
                 match round % 3 {
                     0 => bytes.push(random() as u8),
                     1 => bytes.push(marks[random() as usize % marks.len()]),
-                    _ if random() % 3 == 0 => bytes.extend_from_slice(words[random() as usize % words.len()]),
+                    _ if random() % 3 == 0 => {
+                        bytes.extend_from_slice(words[random() as usize % words.len()])
+                    }
                     _ => bytes.push(marks[random() as usize % marks.len()]),
                 }
             }
             let text = read(&bytes).expect("it begins as a document");
-            assert!(text.len() <= 3 * bytes.len(), "no more than three bytes of text for a byte of the file");
+            assert!(
+                text.len() <= 3 * bytes.len(),
+                "no more than three bytes of text for a byte of the file"
+            );
             assert_eq!(read(&bytes[1..]), None);
         }
     }
 
     #[test]
     fn rtf_stops_at_the_depth_the_text_and_the_size_it_is_allowed() {
-        let nested = |depth: usize| format!("{{\\rtf1 before{} inside{} after}}", "{".repeat(depth), "}".repeat(depth));
+        let nested = |depth: usize| {
+            format!(
+                "{{\\rtf1 before{} inside{} after}}",
+                "{".repeat(depth),
+                "}".repeat(depth)
+            )
+        };
         assert_eq!(of(&nested(MAX_DEPTH - 1)), "before inside after");
-        assert_eq!(of(&nested(MAX_DEPTH)), "before", "read up to the group that is too deep");
+        assert_eq!(
+            of(&nested(MAX_DEPTH)),
+            "before",
+            "read up to the group that is too deep"
+        );
         // A mail as Outlook writes it: a group for every span of its HTML, closed at the end.
-        let mail = format!("{{\\rtf1\\ansi\\fromhtml1 Re:{} Chinese Patent Application{} Dear Sirs\\par}}", "{\\lang1033 ".repeat(2714), "}".repeat(2714));
+        let mail = format!(
+            "{{\\rtf1\\ansi\\fromhtml1 Re:{} Chinese Patent Application{} Dear Sirs\\par}}",
+            "{\\lang1033 ".repeat(2714),
+            "}".repeat(2714)
+        );
         assert_eq!(of(&mail), "Re: Chinese Patent Application Dear Sirs");
-        assert_eq!(read(format!("{{\\rtf1{}", "{".repeat(1_000_000)).as_bytes()).as_deref(), Some(""));
-        assert_eq!(read(format!("{{\\rtf1{}", "{}".repeat(1_000_000)).as_bytes()).as_deref(), Some(""));
-        let fonts: String = (0..MAX_FONTS + 10).map(|n| format!("{{\\f{n}\\fcharset204 Arial;}}")).collect();
-        let many = format!("{{\\rtf1\\ansi{{\\fonttbl{fonts}}}\\f7 \\'f0\\'e0\\'e7 \\f{} \\'f0\\'e0\\'e7\\par}}", MAX_FONTS + 5);
-        assert_eq!(of(&many), "раз ðàç", "the fonts past the last one kept are read in the code page of the document");
+        assert_eq!(
+            read(format!("{{\\rtf1{}", "{".repeat(1_000_000)).as_bytes()).as_deref(),
+            Some("")
+        );
+        assert_eq!(
+            read(format!("{{\\rtf1{}", "{}".repeat(1_000_000)).as_bytes()).as_deref(),
+            Some("")
+        );
+        let fonts: String = (0..MAX_FONTS + 10)
+            .map(|n| format!("{{\\f{n}\\fcharset204 Arial;}}"))
+            .collect();
+        let many = format!(
+            "{{\\rtf1\\ansi{{\\fonttbl{fonts}}}\\f7 \\'f0\\'e0\\'e7 \\f{} \\'f0\\'e0\\'e7\\par}}",
+            MAX_FONTS + 5
+        );
+        assert_eq!(
+            of(&many),
+            "раз ðàç",
+            "the fonts past the last one kept are read in the code page of the document"
+        );
 
         // More text than is kept: the reader stops there, in a run of text or between two, and
         // gives what is kept and no more.
         let run = format!("{{\\rtf1 {}last}}", "word ".repeat(MAX_TEXT / 5 + 1000));
         let text = read(run.as_bytes()).unwrap();
-        assert!(text.len() == MAX_TEXT && !text.contains("last"), "{}", text.len());
-        let lines = format!("{{\\rtf1 {}last}}", "word\\par ".repeat(MAX_TEXT / 5 + 1000));
+        assert!(
+            text.len() == MAX_TEXT && !text.contains("last"),
+            "{}",
+            text.len()
+        );
+        let lines = format!(
+            "{{\\rtf1 {}last}}",
+            "word\\par ".repeat(MAX_TEXT / 5 + 1000)
+        );
         let text = read(lines.as_bytes()).unwrap();
-        assert!(text.len() == MAX_TEXT && !text.contains("last"), "{}", text.len());
+        assert!(
+            text.len() == MAX_TEXT && !text.contains("last"),
+            "{}",
+            text.len()
+        );
         // A letter of Thai is one byte in the file and three in the text, written by its number or as it is.
-        let thai = format!("{{\\rtf1\\ansi\\ansicpg874 {}last}}", "\\'ca".repeat(MAX_TEXT + 1000));
+        let thai = format!(
+            "{{\\rtf1\\ansi\\ansicpg874 {}last}}",
+            "\\'ca".repeat(MAX_TEXT + 1000)
+        );
         let text = read(thai.as_bytes()).unwrap();
-        assert!(text.len() <= MAX_TEXT && text.len() > MAX_TEXT - 3 && text.chars().all(|c| c == 'ส'), "{}", text.len());
+        assert!(
+            text.len() <= MAX_TEXT && text.len() > MAX_TEXT - 3 && text.chars().all(|c| c == 'ส'),
+            "{}",
+            text.len()
+        );
         let mut thai = b"{\\rtf1\\ansi\\ansicpg874 ".to_vec();
         thai.resize(5 << 20, 0xca);
         let text = read(&thai).unwrap();
-        assert!(text.len() <= MAX_TEXT && text.len() > MAX_TEXT - 3 && text.chars().all(|c| c == 'ส'), "{}", text.len());
+        assert!(
+            text.len() <= MAX_TEXT && text.len() > MAX_TEXT - 3 && text.chars().all(|c| c == 'ส'),
+            "{}",
+            text.len()
+        );
         // Two bytes to a character, and the text is cut between two characters.
-        let chinese = format!("{{\\rtf1\\ansi\\ansicpg936 a{}last}}", "\\'d6\\'d0".repeat(MAX_TEXT / 3 + 1000));
+        let chinese = format!(
+            "{{\\rtf1\\ansi\\ansicpg936 a{}last}}",
+            "\\'d6\\'d0".repeat(MAX_TEXT / 3 + 1000)
+        );
         let text = read(chinese.as_bytes()).unwrap();
-        assert!(text.len() <= MAX_TEXT && text.len() > MAX_TEXT - 3 && text.chars().skip(1).all(|c| c == '中'), "{}", text.len());
+        assert!(
+            text.len() <= MAX_TEXT
+                && text.len() > MAX_TEXT - 3
+                && text.chars().skip(1).all(|c| c == '中'),
+            "{}",
+            text.len()
+        );
 
         // A header and an instruction longer than is looked into: the one is given as often as
         // it comes, the other shows nothing.
         let long = "word ".repeat(MAX_LOOKED / 5 + 1);
         assert_eq!(of(&format!("{{\\rtf1{{\\header {long}}}{{\\header {long}}}{{\\header short}}{{\\header short}}}}")).lines().count(), 3);
-        assert_eq!(of(&format!("{{\\rtf1 Name: {{\\field{{\\*\\fldinst MACROBUTTON None {long}}}}} end}}")), "Name: end");
+        assert_eq!(
+            of(&format!(
+                "{{\\rtf1 Name: {{\\field{{\\*\\fldinst MACROBUTTON None {long}}}}} end}}"
+            )),
+            "Name: end"
+        );
         // Inside each other, a thousand deep, each is looked into for what is its own.
-        let headers = format!("{{\\rtf1 before{}{} after}}", "{\\header x".repeat(1000), "}".repeat(1000));
+        let headers = format!(
+            "{{\\rtf1 before{}{} after}}",
+            "{\\header x".repeat(1000),
+            "}".repeat(1000)
+        );
         assert_eq!(of(&headers).lines().count(), 1002);
-        let buttons = format!("{{\\rtf1 before {}{} after}}", "{\\fldinst MACROBUTTON a b".repeat(1000), "}".repeat(1000));
+        let buttons = format!(
+            "{{\\rtf1 before {}{} after}}",
+            "{\\fldinst MACROBUTTON a b".repeat(1000),
+            "}".repeat(1000)
+        );
         assert_eq!(of(&buttons), format!("before {} after", "b".repeat(1000)));
 
         let d = folder("rtf-limits");
         std::fs::write(d.join("long.rtf"), &lines).unwrap();
         let text = text_of(&d.join("long.rtf"), lines.len() as u64, 64 << 20).unwrap();
-        assert!(text.len() <= MAX_TEXT && text.len() > MAX_TEXT - 8 && text.lines().all(|l| l == "word" || "word".starts_with(l)));
+        assert!(
+            text.len() <= MAX_TEXT
+                && text.len() > MAX_TEXT - 8
+                && text.lines().all(|l| l == "word" || "word".starts_with(l))
+        );
         // A file that grew after it was measured is read as far as it was allowed to be.
-        std::fs::write(d.join("grown.rtf"), r"{\rtf1 first words and then the last ones}").unwrap();
+        std::fs::write(
+            d.join("grown.rtf"),
+            r"{\rtf1 first words and then the last ones}",
+        )
+        .unwrap();
         assert_eq!(text_of(&d.join("grown.rtf"), 43, 18), None);
-        assert_eq!(super::text(&d.join("grown.rtf"), 18).as_deref(), Some("first words"));
+        assert_eq!(
+            super::text(&d.join("grown.rtf"), 18).as_deref(),
+            Some("first words")
+        );
         let _ = std::fs::remove_dir_all(d);
     }
 
@@ -813,16 +1163,27 @@ Bookmark {\*\bkmkstart hiddenbookmark}marked{\*\bkmkend hiddenbookmark} text.\pa
         // last paragraph of a text box: only the group parts their last word from the next one.
         let comment = r"{\rtf1\ansi {Total cost is }{{\*\atnid }{\*\atnauthor Reviewer}\chatn{\*\annotation{\*\atndate 1206454912}\ltrpar{check this number}}}{1200 euro.}\par}";
         assert_eq!(of(comment), "Total cost is\ncheck this number\n1200 euro.");
-        assert_eq!(found(&of(comment), ["number", "1200", "number1200"]), [true, true, false]);
+        assert_eq!(
+            found(&of(comment), ["number", "1200", "number1200"]),
+            [true, true, false]
+        );
         let note = r"{\rtf1\ansi \pard\plain {{\super ${\*\footnote\ftnalt $\pard\plain {\tab Titolo uno}}}}{Capitolo primo}\par}";
         assert_eq!(of(note), "$\n$ Titolo uno\nCapitolo primo");
         let word = r"{\rtf1\ansi See the manual{\super \chftn {\footnote \pard\plain {\super \chftn }{of 2004}}}and the mark.\par}";
         assert_eq!(of(word), "See the manual\nof 2004\nand the mark.");
         let chart = r"{\rtf1\ansi {\shp{\*\shpinst\shpleft0{\sp{\sn shapeType}{\sv 1}}{\shptxt \pard\plain{\b FULL NAME}\b\par\pard\plain{Position}\fs18}}}{\b ORGANIZATIONAL CHART}\par}";
         assert_eq!(of(chart), "FULL NAME\nPosition\nORGANIZATIONAL CHART");
-        assert_eq!(of(r"{\rtf1\ansi{\header\pard Headword}{\footer\pard Footword}Bodyword\par}"), "Headword\nFootword\nBodyword");
+        assert_eq!(
+            of(r"{\rtf1\ansi{\header\pard Headword}{\footer\pard Footword}Bodyword\par}"),
+            "Headword\nFootword\nBodyword"
+        );
         // The mark of a list item stays on the line of its item.
-        assert_eq!(of(r"{\rtf1\ansi{\listtext\pard\plain 1}Introduction\par{\pntext\pard\plain 2.1}Background\par}"), "1 Introduction\n2.1 Background");
+        assert_eq!(
+            of(
+                r"{\rtf1\ansi{\listtext\pard\plain 1}Introduction\par{\pntext\pard\plain 2.1}Background\par}"
+            ),
+            "1 Introduction\n2.1 Background"
+        );
     }
 
     #[test]
@@ -830,7 +1191,12 @@ Bookmark {\*\bkmkstart hiddenbookmark}marked{\*\bkmkend hiddenbookmark} text.\pa
         // StarOffice and OpenOffice.org name the style of a run so, for an old reader to pass over that one word.
         let link = r#"{\rtf1\ansi See {\field{\*\fldinst HYPERLINK "http://example.org/" }{\fldrslt \*\cs12\cf2\ul\ulc0 Geschichte}} and {\i0\b0\*\cs7\cf0 the quick brown fox}.\par}"#;
         assert_eq!(of(link), "See Geschichte and the quick brown fox.");
-        assert_eq!(of("{\\rtf1 one{ \r\n\\*\\unheardof hidden} two{\\b\\*\\unheardof  three}{text \\*\\unheardof  four}\\par}"), "one two threetext four");
+        assert_eq!(
+            of(
+                "{\\rtf1 one{ \r\n\\*\\unheardof hidden} two{\\b\\*\\unheardof  three}{text \\*\\unheardof  four}\\par}"
+            ),
+            "one two threetext four"
+        );
     }
 
     #[test]
@@ -840,18 +1206,41 @@ Bookmark {\*\bkmkstart hiddenbookmark}marked{\*\bkmkend hiddenbookmark} text.\pa
         assert_eq!(of(ruby), "Ruby: 東京 city.");
         let inside = r#"{\rtf1\ansi\uc2 {\field{\*\fldinst  EQ \\* jc4 \\* "Font:^u26032\'b7\'73, ^u39636\'c5\'e9" \\* hps10 \\o\\ar(\\s\\up 10(^u12365\'c6\'b1),^u39740\'b0\'ad^u38272\'aa\'f9{
 )}{\fldrslt }}^u12398\'c6\'ce^u26041\'a4\'e8\par}"#;
-        assert_eq!(of(inside), "鬼門の方", "no space is put into a sentence that has none");
+        assert_eq!(
+            of(inside),
+            "鬼門の方",
+            "no space is put into a sentence that has none"
+        );
         // A place holder, 'click here and type'.
-        assert_eq!(of(r"{\rtf1\ansi Name: {\field{\*\fldinst MACROBUTTON  None Placeholderword and more}} end\par}"), "Name: Placeholderword and more end");
-        assert_eq!(of(r"{\rtf1\ansi Name: {\field{\*\fldinst {\b MACROBUTTON NoMacro [Click }{\i here]}}{\fldrslt }} end\par}"), "Name: [Click here] end");
+        assert_eq!(
+            of(
+                r"{\rtf1\ansi Name: {\field{\*\fldinst MACROBUTTON  None Placeholderword and more}} end\par}"
+            ),
+            "Name: Placeholderword and more end"
+        );
+        assert_eq!(
+            of(
+                r"{\rtf1\ansi Name: {\field{\*\fldinst {\b MACROBUTTON NoMacro [Click }{\i here]}}{\fldrslt }} end\par}"
+            ),
+            "Name: [Click here] end"
+        );
 
-        assert_eq!(of(r#"{\rtf1\ansi Page {\field{\*\fldinst  PAGE }{\fldrslt 2}}, {\field{\*\fldinst EQ \\f(1,2)}}{\field{\fldinst MACROBUTTON}} end\par}"#), "Page 2, end");
+        assert_eq!(
+            of(
+                r#"{\rtf1\ansi Page {\field{\*\fldinst  PAGE }{\fldrslt 2}}, {\field{\*\fldinst EQ \\f(1,2)}}{\field{\fldinst MACROBUTTON}} end\par}"#
+            ),
+            "Page 2, end"
+        );
         for cut in [
             r#"{\rtf1\ansi See {\field{\*\fldinst HYPERLINK "http://example.org/hidden"#,
             r#"{\rtf1\ansi See {\field{\*\fldinst {\b HYPERLINK "http://example.org/hidden" }{\i \'e9"#,
             r"{\rtf1\ansi See {\field{\*\fldinst MACROBUTTON None Place",
         ] {
-            assert_eq!(of(cut), "See", "a document cut off inside an instruction: {cut}");
+            assert_eq!(
+                of(cut),
+                "See",
+                "a document cut off inside an instruction: {cut}"
+            );
         }
     }
 
@@ -860,7 +1249,12 @@ Bookmark {\*\bkmkstart hiddenbookmark}marked{\*\bkmkend hiddenbookmark} text.\pa
         // LibreOffice writes the text of a rectangle or an ellipse so, and Word the text of WordArt.
         let shape = r"{\rtf1\ansi Shape: {\field{\*\fldinst SHAPE }{\fldrslt{\shp{\*\shpinst\shpleft0{\sp{\sn shapeType}{\sv 3}}{\sp{\sn wzName}{\sv Shape1}}{\sp{\sn gtextUNICODE}{\sv Pump station}}{\sp{\sn gtextFont}{\sv Liberation Serif}}}}}}follows.\par}";
         assert_eq!(of(shape), "Shape:\nPump station\nfollows.");
-        assert_eq!(of(r"{\rtf1\ansi{\sp{\sn gtextUNICODEs}{\sv hidden}}{\sp{\sv hidden}}{\sp{\sn gtextUNICODE}{\sn wzName}{\sv hidden}} nothing\par}"), "nothing");
+        assert_eq!(
+            of(
+                r"{\rtf1\ansi{\sp{\sn gtextUNICODEs}{\sv hidden}}{\sp{\sv hidden}}{\sp{\sn gtextUNICODE}{\sn wzName}{\sv hidden}} nothing\par}"
+            ),
+            "nothing"
+        );
     }
 
     #[test]
@@ -871,7 +1265,12 @@ Bookmark {\*\bkmkstart hiddenbookmark}marked{\*\bkmkend hiddenbookmark} text.\pa
         let word = r"{\rtf1\ansi{\fonttbl{\f34\fcharset0 Cambria Math;}{\f635\fcharset161 Cambria Math Greek;}}{\mmath{\*\moMathPara {\*\moMath {\i\f34 {\mr\mscr0\msty2 A=}}{\i\f635
 {\mr\mscr0\msty2 \'f0}}{\mf{\mfPr{\mtype noBar}{\mctrlPr\f34 }}{\mnum{\mr n}}{\mden{\mr k}}}{\mnary{\mnaryPr{\mchr ^u8721 ?}{\mlimLoc undOvr}{\msubHide on}}{\me{\mr x}}}}}}\par}";
         assert_eq!(of(word), "A= π n k x");
-        assert_eq!(of(r"{\rtf1\ansi Formula: {\mmath {\moMath {\mr Energy}{\mr =}{\mr mass}}} follows.\par}"), "Formula: Energy = mass follows.");
+        assert_eq!(
+            of(
+                r"{\rtf1\ansi Formula: {\mmath {\moMath {\mr Energy}{\mr =}{\mr mass}}} follows.\par}"
+            ),
+            "Formula: Energy = mass follows."
+        );
     }
 
     #[test]
@@ -887,11 +1286,17 @@ Bookmark {\*\bkmkstart hiddenbookmark}marked{\*\bkmkend hiddenbookmark} text.\pa
         // A tick of Wingdings and a degree sign of Symbol are characters of the private area, letters to the index.
         let symbol = r"{\rtf1\ansi{\fonttbl{\f0\fcharset0 Arial;}{\f6\fcharset2 Wingdings;}}\f0 {\f6 ^u-3844\'fc}Done and 20{\f6 ^u-3920\'b0}C\par}";
         assert_eq!(of(symbol), "Done and 20 C");
-        assert_eq!(found(&of(symbol), ["and", "Done", "20"]), [true, true, true]);
+        assert_eq!(
+            found(&of(symbol), ["and", "Done", "20"]),
+            [true, true, true]
+        );
         // A soft hyphen is no part of its word, however it is written: pandoc writes it by its number.
         let soft = r"{\rtf1\ansi fuel^u173 ?tank and bl\'e5b\'e6r\'adgr\'f8d and soft\-hyphen\par}";
         assert_eq!(of(soft), "fueltank and blåbærgrød and softhyphen");
-        assert_eq!(found(&of(soft), ["fueltank", "blåbærgrød", "softhyphen"]), [true, true, true]);
+        assert_eq!(
+            found(&of(soft), ["fueltank", "blåbærgrød", "softhyphen"]),
+            [true, true, true]
+        );
     }
 
     #[test]
@@ -905,17 +1310,33 @@ Bookmark {\*\bkmkstart hiddenbookmark}marked{\*\bkmkend hiddenbookmark} text.\pa
         // One for the first, the left and the right pages each, and all of them again for the next section.
         let pages = r"{\rtf1\ansi{\headerf \pard Rocket Works\par}{\headerl \pard Rocket Works\par}{\headerr \pard Rocket {\b Works}\par}{\footerr \pard Page {\field{\*\fldinst PAGE}{\fldrslt 1}}\par}
 \pard Body\par\sect\sectd{\header \pard Rocket Works\par}{\footer \pard Page {\field{\*\fldinst PAGE}{\fldrslt 1}}}{\footerf \pard Rocket Works, first page\par}\pard Rocket Works\par\headery720 more\par}";
-        assert_eq!(of(pages), "Rocket Works\nPage 1\nBody\nRocket Works, first page\nRocket Works\nmore");
+        assert_eq!(
+            of(pages),
+            "Rocket Works\nPage 1\nBody\nRocket Works, first page\nRocket Works\nmore"
+        );
         // No more of them are remembered than there is room for; the ones that follow are given as they come.
-        let many: String = (0..MAX_HEADERS + 2).map(|n| format!("{{\\header h{n}}}{{\\header h{n}}}")).collect();
-        let text = of(&format!("{{\\rtf1 {many}{{\\header h1}}{{\\header h{}}}}}", MAX_HEADERS + 1));
-        assert_eq!(text.lines().count(), MAX_HEADERS + 2 * 2 + 1, "{:?}", text.lines().rev().take(6).collect::<Vec<_>>());
+        let many: String = (0..MAX_HEADERS + 2)
+            .map(|n| format!("{{\\header h{n}}}{{\\header h{n}}}"))
+            .collect();
+        let text = of(&format!(
+            "{{\\rtf1 {many}{{\\header h1}}{{\\header h{}}}}}",
+            MAX_HEADERS + 1
+        ));
+        assert_eq!(
+            text.lines().count(),
+            MAX_HEADERS + 2 * 2 + 1,
+            "{:?}",
+            text.lines().rev().take(6).collect::<Vec<_>>()
+        );
     }
 
     #[test]
     fn rtf_ends_a_line_at_a_column_break_and_at_a_soft_break() {
         let breaks = r"{\rtf1\ansi\cols2 The first column ends\column here, a line\softline breaks, a page\softpage ends and a column\softcol too.\par}";
-        assert_eq!(of(breaks), "The first column ends\nhere, a line\nbreaks, a page\nends and a column\ntoo.");
+        assert_eq!(
+            of(breaks),
+            "The first column ends\nhere, a line\nbreaks, a page\nends and a column\ntoo."
+        );
     }
 
     /// The store hands over regular files only. Asked for a pipe all the same, the reader must not
@@ -925,7 +1346,13 @@ Bookmark {\*\bkmkstart hiddenbookmark}marked{\*\bkmkend hiddenbookmark} text.\pa
     fn rtf_gives_nothing_for_a_named_pipe_and_does_not_wait_for_it() {
         let d = folder("rtf-pipe");
         let pipe = d.join("pipe.rtf");
-        assert!(std::process::Command::new("mkfifo").arg(&pipe).status().unwrap().success());
+        assert!(
+            std::process::Command::new("mkfifo")
+                .arg(&pipe)
+                .status()
+                .unwrap()
+                .success()
+        );
         let (done, waiting) = std::sync::mpsc::channel();
         let asked = pipe.clone();
         std::thread::spawn(move || done.send(text(&asked, 1000)));

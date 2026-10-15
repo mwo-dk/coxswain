@@ -12,7 +12,10 @@ pub struct Icon {
 }
 
 const fn i(glyph: &'static str, color: &'static str) -> Icon {
-    Icon { glyph: Cow::Borrowed(glyph), color }
+    Icon {
+        glyph: Cow::Borrowed(glyph),
+        color,
+    }
 }
 
 const FOLDER: Icon = i("\u{f07b}", "");
@@ -176,7 +179,10 @@ pub fn icon(name: &str, is_dir: bool) -> Icon {
         return FOLDER;
     }
     match lower.rsplit_once('.') {
-        Some((stem, ext)) if !stem.is_empty() => EXTS.iter().find(|(e, _)| *e == ext).map_or(FILE, |(_, ic)| ic.clone()),
+        Some((stem, ext)) if !stem.is_empty() => EXTS
+            .iter()
+            .find(|(e, _)| *e == ext)
+            .map_or(FILE, |(_, ic)| ic.clone()),
         _ => FILE,
     }
 }
@@ -186,7 +192,19 @@ pub fn icon(name: &str, is_dir: bool) -> Icon {
 pub fn entry(name: &str, is_dir: bool, is_symlink: bool, plain: Option<&Glyphs>) -> Icon {
     match plain {
         None => icon(name, is_dir),
-        Some(g) => Icon { glyph: Cow::Owned(if is_dir { &g.folder } else if is_symlink { &g.symlink } else { &g.file }.clone()), color: "" },
+        Some(g) => Icon {
+            glyph: Cow::Owned(
+                if is_dir {
+                    &g.folder
+                } else if is_symlink {
+                    &g.symlink
+                } else {
+                    &g.file
+                }
+                .clone(),
+            ),
+            color: "",
+        },
     }
 }
 

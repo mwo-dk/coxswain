@@ -10,7 +10,9 @@ use std::time::{Duration, Instant};
 /// Where installers put these outside PATH.
 fn extra_paths(program: &str) -> Vec<PathBuf> {
     let v: &[&str] = match program {
-        "soffice" if cfg!(target_os = "macos") => &["/Applications/LibreOffice.app/Contents/MacOS/soffice"],
+        "soffice" if cfg!(target_os = "macos") => {
+            &["/Applications/LibreOffice.app/Contents/MacOS/soffice"]
+        }
         "soffice" if cfg!(windows) => &[r"C:\Program Files\LibreOffice\program\soffice.exe"],
         "tesseract" if cfg!(windows) => &[r"C:\Program Files\Tesseract-OCR\tesseract.exe"],
         _ => &[],
@@ -20,13 +22,26 @@ fn extra_paths(program: &str) -> Vec<PathBuf> {
 
 /// A program on PATH (or in its usual install folder), like `which`.
 pub fn which(program: &str) -> Option<PathBuf> {
-    let names = if cfg!(windows) { vec![format!("{program}.exe"), format!("{program}.cmd"), format!("{program}.bat")] } else { vec![program.to_string()] };
+    let names = if cfg!(windows) {
+        vec![
+            format!("{program}.exe"),
+            format!("{program}.cmd"),
+            format!("{program}.bat"),
+        ]
+    } else {
+        vec![program.to_string()]
+    };
     std::env::var_os("PATH")
         .into_iter()
         .flat_map(|p| std::env::split_paths(&p).collect::<Vec<_>>())
         .flat_map(|dir| names.iter().map(move |n| dir.join(n)))
         .chain(extra_paths(program))
-        .chain(flatpak().into_iter().flat_map(|_| ["usr/bin", "usr/local/bin"]).map(|d| Path::new(HOST).join(d).join(program)))
+        .chain(
+            flatpak()
+                .into_iter()
+                .flat_map(|_| ["usr/bin", "usr/local/bin"])
+                .map(|d| Path::new(HOST).join(d).join(program)),
+        )
         .find(|p| p.is_file())
 }
 
@@ -43,15 +58,27 @@ pub fn container_runtime(cfg: &crate::config::PreviewConfig) -> Option<(&'static
 
 /// The bytes of the container image named exactly `image`, when the runtime `rt` has it.
 pub fn image_size(rt: &Path, image: &str) -> Option<u64> {
-    let out = command(rt).args(["image", "inspect", "--format", "{{.Size}}", image]).stdin(Stdio::null()).output().ok()?;
-    out.status.success().then(|| String::from_utf8_lossy(&out.stdout).trim().parse().ok()).flatten()
+    let out = command(rt)
+        .args(["image", "inspect", "--format", "{{.Size}}", image])
+        .stdin(Stdio::null())
+        .output()
+        .ok()?;
+    out.status
+        .success()
+        .then(|| String::from_utf8_lossy(&out.stdout).trim().parse().ok())
+        .flatten()
 }
 
 /// The app id when Coxswain runs in a Flatpak. The host's programs are then seen under
 /// `/run/host` (`--filesystem=host`), and run there with `flatpak-spawn --host`.
 pub fn flatpak() -> Option<&'static str> {
     static ID: std::sync::OnceLock<Option<String>> = std::sync::OnceLock::new();
-    ID.get_or_init(|| std::env::var("FLATPAK_ID").ok().filter(|_| Path::new("/.flatpak-info").is_file())).as_deref()
+    ID.get_or_init(|| {
+        std::env::var("FLATPAK_ID")
+            .ok()
+            .filter(|_| Path::new("/.flatpak-info").is_file())
+    })
+    .as_deref()
 }
 
 /// Where a Flatpak sees the host's `/usr`.
@@ -78,7 +105,11 @@ fn on_host(program: &std::ffi::OsStr, watch: bool) -> Command {
 /// A program the user asked for (the editor, a shell command, a script): in a Flatpak it runs
 /// on the host, where the user's programs and terminal are.
 pub fn user_command(program: impl AsRef<std::ffi::OsStr>) -> Command {
-    if flatpak().is_some() { on_host(program.as_ref(), false) } else { command(program) }
+    if flatpak().is_some() {
+        on_host(program.as_ref(), false)
+    } else {
+        command(program)
+    }
 }
 
 /// `c` with its environment as flatpak-spawn's `--env` options, when it runs on the host:
@@ -89,7 +120,10 @@ pub fn hosted(c: Command) -> Command {
         return c;
     }
     let args: Vec<&std::ffi::OsStr> = c.get_args().collect();
-    let at = args.iter().position(|a| !a.to_string_lossy().starts_with("--")).unwrap_or(args.len());
+    let at = args
+        .iter()
+        .position(|a| !a.to_string_lossy().starts_with("--"))
+        .unwrap_or(args.len());
     let mut h = Command::new("flatpak-spawn");
     h.args(&args[..at]);
     for (k, v) in c.get_envs() {
@@ -114,7 +148,10 @@ pub fn flatpak_tmp() {
     if flatpak().is_none() {
         return;
     }
-    if let Some(d) = dirs::cache_dir().map(|d| d.join("tmp")).filter(|d| std::fs::create_dir_all(d).is_ok()) {
+    if let Some(d) = dirs::cache_dir()
+        .map(|d| d.join("tmp"))
+        .filter(|d| std::fs::create_dir_all(d).is_ok())
+    {
         // Safety: called first thing in main, so no other thread reads the environment.
         unsafe { std::env::set_var("TMPDIR", d) };
     }
@@ -129,7 +166,11 @@ pub fn media_missing() -> Option<String> {
         return None;
     }
     let vars = |names: &[&str]| -> Option<Vec<PathBuf>> {
-        let v: Vec<PathBuf> = names.iter().filter_map(std::env::var_os).flat_map(|v| std::env::split_paths(&v).collect::<Vec<_>>()).collect();
+        let v: Vec<PathBuf> = names
+            .iter()
+            .filter_map(std::env::var_os)
+            .flat_map(|v| std::env::split_paths(&v).collect::<Vec<_>>())
+            .collect();
         (!v.is_empty()).then_some(v)
     };
     let appimage = std::env::var_os("APPDIR").is_some();
@@ -137,17 +178,38 @@ pub fn media_missing() -> Option<String> {
     // on Ubuntu, which looks only where Ubuntu keeps the plugins.
     // ponytail: the usual folders of the distributions, not the one compiled into libgstreamer;
     // asking GStreamer itself means linking it.
-    let ubuntu = PathBuf::from(format!("/usr/lib/{}-linux-gnu/gstreamer-1.0", std::env::consts::ARCH));
-    let system = vars(&["GST_PLUGIN_SYSTEM_PATH_1_0", "GST_PLUGIN_SYSTEM_PATH"]).unwrap_or_else(|| {
-        if appimage {
-            vec![ubuntu.clone()]
-        } else {
-            ["/usr/lib/gstreamer-1.0", "/usr/lib64/gstreamer-1.0", "/usr/local/lib/gstreamer-1.0", "/home/linuxbrew/.linuxbrew/lib/gstreamer-1.0"].into_iter().map(PathBuf::from).chain([ubuntu.clone()]).collect()
-        }
-    });
+    let ubuntu = PathBuf::from(format!(
+        "/usr/lib/{}-linux-gnu/gstreamer-1.0",
+        std::env::consts::ARCH
+    ));
+    let system =
+        vars(&["GST_PLUGIN_SYSTEM_PATH_1_0", "GST_PLUGIN_SYSTEM_PATH"]).unwrap_or_else(|| {
+            if appimage {
+                vec![ubuntu.clone()]
+            } else {
+                [
+                    "/usr/lib/gstreamer-1.0",
+                    "/usr/lib64/gstreamer-1.0",
+                    "/usr/local/lib/gstreamer-1.0",
+                    "/home/linuxbrew/.linuxbrew/lib/gstreamer-1.0",
+                ]
+                .into_iter()
+                .map(PathBuf::from)
+                .chain([ubuntu.clone()])
+                .collect()
+            }
+        });
     let local = dirs::data_dir().map(|d| d.join("gstreamer-1.0/plugins"));
-    let dirs: Vec<PathBuf> = vars(&["GST_PLUGIN_PATH_1_0", "GST_PLUGIN_PATH"]).unwrap_or_default().into_iter().chain(system).chain(local).collect();
-    let has = |plugin: &str| dirs.iter().any(|d| d.join(format!("libgst{plugin}.so")).is_file());
+    let dirs: Vec<PathBuf> = vars(&["GST_PLUGIN_PATH_1_0", "GST_PLUGIN_PATH"])
+        .unwrap_or_default()
+        .into_iter()
+        .chain(system)
+        .chain(local)
+        .collect();
+    let has = |plugin: &str| {
+        dirs.iter()
+            .any(|d| d.join(format!("libgst{plugin}.so")).is_file())
+    };
     if has("autodetect") && has("playback") {
         return None;
     }
@@ -165,10 +227,13 @@ pub fn media_missing() -> Option<String> {
 /// `fc-list` cannot be asked.
 pub fn script_font_missing() -> bool {
     let lang = crate::i18n::language();
-    if cfg!(any(windows, target_os = "macos")) || !matches!(lang, "ja" | "ko" | "fa" | "hy" | "ka") {
+    if cfg!(any(windows, target_os = "macos")) || !matches!(lang, "ja" | "ko" | "fa" | "hy" | "ka")
+    {
         return false;
     }
-    let out = std::process::Command::new("fc-list").args([format!(":lang={lang}"), "family".into()]).output();
+    let out = std::process::Command::new("fc-list")
+        .args([format!(":lang={lang}"), "family".into()])
+        .output();
     out.is_ok_and(|o| o.status.success() && o.stdout.trim_ascii().is_empty())
 }
 
@@ -185,7 +250,9 @@ pub fn script_fonts(lang: &str) -> String {
         "hy" => "armenian",
         _ => "georgian",
     };
-    format!("noto-fonts (Arch), fonts-noto-core (Debian, Ubuntu), google-noto-sans-{fedora}-fonts (Fedora)")
+    format!(
+        "noto-fonts (Arch), fonts-noto-core (Debian, Ubuntu), google-noto-sans-{fedora}-fonts (Fedora)"
+    )
 }
 
 /// The package managers whose install line Coxswain can write, as this system has them.
@@ -221,7 +288,15 @@ impl Manager {
         } else if cfg!(windows) {
             Some(Manager::Winget)
         } else {
-            [("pacman", Manager::Pacman), ("apt", Manager::Apt), ("dnf", Manager::Dnf), ("zypper", Manager::Zypper)].into_iter().find(|(p, _)| which(p).is_some()).map(|(_, m)| m)
+            [
+                ("pacman", Manager::Pacman),
+                ("apt", Manager::Apt),
+                ("dnf", Manager::Dnf),
+                ("zypper", Manager::Zypper),
+            ]
+            .into_iter()
+            .find(|(p, _)| which(p).is_some())
+            .map(|(_, m)| m)
         }
     }
 }
@@ -235,16 +310,106 @@ pub fn install_line(program: &str, manager: Manager) -> Option<String> {
     use Manager::*;
     // (pkg, pkgin, pkg_add, IPS, pacman, apt, dnf, zypper, brew, winget); empty: none.
     let row: [&str; 10] = match program {
-        "tesseract" => ["tesseract", "tesseract", "tesseract", "", "tesseract tesseract-data-eng", "tesseract-ocr", "tesseract", "tesseract-ocr", "tesseract", "UB-Mannheim.TesseractOCR"],
-        "pdftoppm" => ["poppler-utils", "poppler-utils", "poppler-utils", "", "poppler", "poppler-utils", "poppler-utils", "poppler-tools", "poppler", ""],
-        "soffice" => ["libreoffice", "libreoffice", "libreoffice", "", "libreoffice-fresh", "libreoffice", "libreoffice", "libreoffice", "--cask libreoffice", "TheDocumentFoundation.LibreOffice"],
-        "latex" => ["texlive-full", "", "texlive_texmf-full", "ooce/application/texlive", "texlive-basic texlive-latexextra texlive-binextra", "texlive-latex-extra latexmk", "texlive-scheme-medium latexmk", "texlive-latexmk texlive-collection-latexextra", "--cask mactex-no-gui", "MiKTeX.MiKTeX"],
-        "plantuml" => ["plantuml", "", "", "", "plantuml", "plantuml", "plantuml", "plantuml", "plantuml", ""],
-        "pandoc" => ["hs-pandoc", "pandoc-cli", "pandoc", "", "pandoc-cli", "pandoc", "pandoc", "pandoc", "pandoc", "JohnMacFarlane.Pandoc"],
+        "tesseract" => [
+            "tesseract",
+            "tesseract",
+            "tesseract",
+            "",
+            "tesseract tesseract-data-eng",
+            "tesseract-ocr",
+            "tesseract",
+            "tesseract-ocr",
+            "tesseract",
+            "UB-Mannheim.TesseractOCR",
+        ],
+        "pdftoppm" => [
+            "poppler-utils",
+            "poppler-utils",
+            "poppler-utils",
+            "",
+            "poppler",
+            "poppler-utils",
+            "poppler-utils",
+            "poppler-tools",
+            "poppler",
+            "",
+        ],
+        "soffice" => [
+            "libreoffice",
+            "libreoffice",
+            "libreoffice",
+            "",
+            "libreoffice-fresh",
+            "libreoffice",
+            "libreoffice",
+            "libreoffice",
+            "--cask libreoffice",
+            "TheDocumentFoundation.LibreOffice",
+        ],
+        "latex" => [
+            "texlive-full",
+            "",
+            "texlive_texmf-full",
+            "ooce/application/texlive",
+            "texlive-basic texlive-latexextra texlive-binextra",
+            "texlive-latex-extra latexmk",
+            "texlive-scheme-medium latexmk",
+            "texlive-latexmk texlive-collection-latexextra",
+            "--cask mactex-no-gui",
+            "MiKTeX.MiKTeX",
+        ],
+        "plantuml" => [
+            "plantuml", "", "", "", "plantuml", "plantuml", "plantuml", "plantuml", "plantuml", "",
+        ],
+        "pandoc" => [
+            "hs-pandoc",
+            "pandoc-cli",
+            "pandoc",
+            "",
+            "pandoc-cli",
+            "pandoc",
+            "pandoc",
+            "pandoc",
+            "pandoc",
+            "JohnMacFarlane.Pandoc",
+        ],
         // What the desktop app's preview and its letters need, where a notice names the line.
-        "gst-good" => ["gstreamer1-plugins-good", "gst-plugins1-good", "gstreamer1-plugins-good", "", "", "", "", "", "", ""],
-        "cjk-font" => ["noto-sans-jp noto-sans-kr", "noto-cjk-fonts", "noto-cjk", "", "", "", "", "", "", ""],
-        "nerd-font" => ["nerd-fonts", "nerd-fonts-Symbols", "symbolsonly-nerd-fonts", "", "ttf-nerd-fonts-symbols", "", "", "", "--cask font-symbols-only-nerd-font", ""],
+        "gst-good" => [
+            "gstreamer1-plugins-good",
+            "gst-plugins1-good",
+            "gstreamer1-plugins-good",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+        ],
+        "cjk-font" => [
+            "noto-sans-jp noto-sans-kr",
+            "noto-cjk-fonts",
+            "noto-cjk",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+        ],
+        "nerd-font" => [
+            "nerd-fonts",
+            "nerd-fonts-Symbols",
+            "symbolsonly-nerd-fonts",
+            "",
+            "ttf-nerd-fonts-symbols",
+            "",
+            "",
+            "",
+            "--cask font-symbols-only-nerd-font",
+            "",
+        ],
         _ => return None,
     };
     let package = row[match manager {
@@ -286,13 +451,35 @@ pub fn nerd_font() -> Option<bool> {
     let named = |name: &str| name.to_lowercase().contains("nerd");
     if cfg!(any(windows, target_os = "macos")) {
         let dirs: Vec<PathBuf> = if cfg!(windows) {
-            [std::env::var_os("WINDIR").map(|w| PathBuf::from(w).join("Fonts")), dirs::data_local_dir().map(|d| d.join("Microsoft/Windows/Fonts"))].into_iter().flatten().collect()
+            [
+                std::env::var_os("WINDIR").map(|w| PathBuf::from(w).join("Fonts")),
+                dirs::data_local_dir().map(|d| d.join("Microsoft/Windows/Fonts")),
+            ]
+            .into_iter()
+            .flatten()
+            .collect()
         } else {
-            [Some(PathBuf::from("/Library/Fonts")), dirs::home_dir().map(|h| h.join("Library/Fonts"))].into_iter().flatten().collect()
+            [
+                Some(PathBuf::from("/Library/Fonts")),
+                dirs::home_dir().map(|h| h.join("Library/Fonts")),
+            ]
+            .into_iter()
+            .flatten()
+            .collect()
         };
-        return Some(dirs.iter().filter_map(|d| std::fs::read_dir(d).ok()).flatten().flatten().any(|e| named(&e.file_name().to_string_lossy())));
+        return Some(
+            dirs.iter()
+                .filter_map(|d| std::fs::read_dir(d).ok())
+                .flatten()
+                .flatten()
+                .any(|e| named(&e.file_name().to_string_lossy())),
+        );
     }
-    let out = std::process::Command::new("fc-list").args([":", "family"]).output().ok().filter(|o| o.status.success())?;
+    let out = std::process::Command::new("fc-list")
+        .args([":", "family"])
+        .output()
+        .ok()
+        .filter(|o| o.status.success())?;
     Some(named(&String::from_utf8_lossy(&out.stdout)))
 }
 
@@ -348,7 +535,9 @@ fn outside(c: &mut Command, appdir: &Path, vars: impl Iterator<Item = (OsString,
         if !value.to_string_lossy().contains(&*appdir.to_string_lossy()) {
             continue;
         }
-        let kept: Vec<PathBuf> = std::env::split_paths(&value).filter(|p| !p.starts_with(appdir) && !p.as_os_str().is_empty()).collect();
+        let kept: Vec<PathBuf> = std::env::split_paths(&value)
+            .filter(|p| !p.starts_with(appdir) && !p.as_os_str().is_empty())
+            .collect();
         match std::env::join_paths(&kept) {
             Ok(v) if !kept.is_empty() => c.env(&key, v),
             _ => c.env_remove(&key),
@@ -364,7 +553,11 @@ fn outside(c: &mut Command, appdir: &Path, vars: impl Iterator<Item = (OsString,
 /// plain spawn would say nothing. One that is still running is left to itself, and reaped
 /// when it ends.
 pub fn spawn_watched(mut c: Command, grace: Duration) -> std::io::Result<()> {
-    let mut child = c.stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::piped()).spawn()?;
+    let mut child = c
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::piped())
+        .spawn()?;
     let start = Instant::now();
     while start.elapsed() < grace {
         if let Some(status) = child.try_wait()? {
@@ -376,7 +569,11 @@ pub fn spawn_watched(mut c: Command, grace: Duration) -> std::io::Result<()> {
                 let _ = e.read_to_string(&mut err);
             }
             let err = err.trim();
-            return Err(std::io::Error::other(if err.is_empty() { status.to_string() } else { err.to_string() }));
+            return Err(std::io::Error::other(if err.is_empty() {
+                status.to_string()
+            } else {
+                err.to_string()
+            }));
         }
         std::thread::sleep(Duration::from_millis(20));
     }
@@ -400,7 +597,10 @@ pub fn wait(child: &mut Child, timeout: Duration) -> std::io::Result<ExitStatus>
         if start.elapsed() > timeout {
             let _ = child.kill();
             let _ = child.wait();
-            return Err(std::io::Error::new(std::io::ErrorKind::TimedOut, "took too long"));
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::TimedOut,
+                "took too long",
+            ));
         }
         std::thread::sleep(Duration::from_millis(20));
     }
@@ -408,9 +608,17 @@ pub fn wait(child: &mut Child, timeout: Duration) -> std::io::Result<ExitStatus>
 
 /// `program` with `args` at the lowest priority, no input, its output kept up to `max` bytes;
 /// `None` when it fails or runs past `timeout`.
-pub fn output(program: &std::path::Path, args: &[&std::ffi::OsStr], timeout: Duration, max: u64) -> Option<Vec<u8>> {
+pub fn output(
+    program: &std::path::Path,
+    args: &[&std::ffi::OsStr],
+    timeout: Duration,
+    max: u64,
+) -> Option<Vec<u8>> {
     let mut c = low(program);
-    c.args(args).stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::null());
+    c.args(args)
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null());
     let mut child = c.spawn().ok()?;
     let mut out = child.stdout.take()?;
     let reader = std::thread::spawn(move || {
@@ -429,7 +637,11 @@ pub fn output(program: &std::path::Path, args: &[&std::ffi::OsStr], timeout: Dur
 pub fn low(program: &std::path::Path) -> Command {
     // A host program gets the host's nice, which can start it.
     let host = host_path(program);
-    let nice = if host.is_some() { Some(Path::new(HOST).join("usr/bin/nice")) } else { which("nice") };
+    let nice = if host.is_some() {
+        Some(Path::new(HOST).join("usr/bin/nice"))
+    } else {
+        which("nice")
+    };
     match nice.filter(|_| cfg!(unix)) {
         Some(nice) => {
             let mut c = command(nice);
@@ -441,7 +653,10 @@ pub fn low(program: &std::path::Path) -> Command {
             let mut c = command(program);
             #[cfg(windows)]
             // IDLE_PRIORITY_CLASS | CREATE_NO_WINDOW
-            std::os::windows::process::CommandExt::creation_flags(&mut c, 0x0000_0040 | 0x0800_0000);
+            std::os::windows::process::CommandExt::creation_flags(
+                &mut c,
+                0x0000_0040 | 0x0800_0000,
+            );
             c
         }
     }
@@ -465,17 +680,49 @@ mod tests {
 
     #[test]
     fn tools_say_how_to_install_what_is_missing() {
-        assert_eq!(install_line("tesseract", Manager::Pkg).as_deref(), Some("pkg install tesseract"));
-        assert_eq!(install_line("pdftoppm", Manager::Apt).as_deref(), Some("sudo apt install poppler-utils"));
-        assert_eq!(install_line("soffice", Manager::Brew).as_deref(), Some("brew install --cask libreoffice"));
-        assert_eq!(install_line("latex", Manager::Winget).as_deref(), Some("winget install --id MiKTeX.MiKTeX -e"));
-        assert_eq!(install_line("plantuml", Manager::Dnf).as_deref(), Some("sudo dnf install plantuml"));
-        assert_eq!(install_line("pdftoppm", Manager::Winget), None, "no package: the hint says where to get it");
+        assert_eq!(
+            install_line("tesseract", Manager::Pkg).as_deref(),
+            Some("pkg install tesseract")
+        );
+        assert_eq!(
+            install_line("pdftoppm", Manager::Apt).as_deref(),
+            Some("sudo apt install poppler-utils")
+        );
+        assert_eq!(
+            install_line("soffice", Manager::Brew).as_deref(),
+            Some("brew install --cask libreoffice")
+        );
+        assert_eq!(
+            install_line("latex", Manager::Winget).as_deref(),
+            Some("winget install --id MiKTeX.MiKTeX -e")
+        );
+        assert_eq!(
+            install_line("plantuml", Manager::Dnf).as_deref(),
+            Some("sudo dnf install plantuml")
+        );
+        assert_eq!(
+            install_line("pdftoppm", Manager::Winget),
+            None,
+            "no package: the hint says where to get it"
+        );
         assert_eq!(install_line("nope", Manager::Pacman), None);
-        assert_eq!(install_line("pdftoppm", Manager::Pkgin).as_deref(), Some("pkgin install poppler-utils"));
-        assert_eq!(install_line("tesseract", Manager::PkgAdd).as_deref(), Some("pkg_add tesseract"));
-        assert_eq!(install_line("gst-good", Manager::Pkg).as_deref(), Some("pkg install gstreamer1-plugins-good"));
-        assert_eq!(install_line("gst-good", Manager::Apt), None, "Linux: the notice names the packages of each distribution");
+        assert_eq!(
+            install_line("pdftoppm", Manager::Pkgin).as_deref(),
+            Some("pkgin install poppler-utils")
+        );
+        assert_eq!(
+            install_line("tesseract", Manager::PkgAdd).as_deref(),
+            Some("pkg_add tesseract")
+        );
+        assert_eq!(
+            install_line("gst-good", Manager::Pkg).as_deref(),
+            Some("pkg install gstreamer1-plugins-good")
+        );
+        assert_eq!(
+            install_line("gst-good", Manager::Apt),
+            None,
+            "Linux: the notice names the packages of each distribution"
+        );
         if cfg!(target_os = "freebsd") {
             assert_eq!(Manager::here(), Some(Manager::Pkg));
         }
@@ -487,30 +734,68 @@ mod tests {
         assert!(this_app().is_ok());
         if cfg!(unix) {
             let sh = which("sh").unwrap();
-            let args = |s: &str| [std::ffi::OsStr::new("-c"), std::ffi::OsStr::new(s)].map(|a| a.to_owned());
-            let run = |s: &str, t: u64, max: u64| output(&sh, &args(s).iter().map(|a| a.as_os_str()).collect::<Vec<_>>(), Duration::from_millis(t), max);
+            let args = |s: &str| {
+                [std::ffi::OsStr::new("-c"), std::ffi::OsStr::new(s)].map(|a| a.to_owned())
+            };
+            let run = |s: &str, t: u64, max: u64| {
+                output(
+                    &sh,
+                    &args(s).iter().map(|a| a.as_os_str()).collect::<Vec<_>>(),
+                    Duration::from_millis(t),
+                    max,
+                )
+            };
             assert_eq!(run("echo hello", 5000, 100), Some(b"hello\n".to_vec()));
-            assert_eq!(run("yes | head -n 50000", 5000, 10).map(|v| v.len()), Some(10), "cut at the limit, the rest drained");
+            assert_eq!(
+                run("yes | head -n 50000", 5000, 10).map(|v| v.len()),
+                Some(10),
+                "cut at the limit, the rest drained"
+            );
             assert_eq!(run("exit 3", 5000, 100), None);
             let start = Instant::now();
             // Far from the minute of sleep, however slow the machine: stopped at the time limit.
             assert_eq!(run("sleep 60", 200, 100), None);
-            assert!(start.elapsed() < Duration::from_secs(30), "stopped at the time limit");
+            assert!(
+                start.elapsed() < Duration::from_secs(30),
+                "stopped at the time limit"
+            );
         }
     }
 
     #[test]
     fn tools_hand_a_host_program_its_environment() {
         let mut c = on_host("/usr/bin/plantuml".as_ref(), true);
-        c.arg("-tsvg").env("PLANTUML_SECURITY_PROFILE", "ALLOWLIST").current_dir("/home/me");
+        c.arg("-tsvg")
+            .env("PLANTUML_SECURITY_PROFILE", "ALLOWLIST")
+            .current_dir("/home/me");
         let h = hosted(c);
-        let args: Vec<_> = h.get_args().map(|a| a.to_string_lossy().into_owned()).collect();
-        assert_eq!(args, ["--host", "--watch-bus", "--env=PLANTUML_SECURITY_PROFILE=ALLOWLIST", "/usr/bin/plantuml", "-tsvg"]);
+        let args: Vec<_> = h
+            .get_args()
+            .map(|a| a.to_string_lossy().into_owned())
+            .collect();
+        assert_eq!(
+            args,
+            [
+                "--host",
+                "--watch-bus",
+                "--env=PLANTUML_SECURITY_PROFILE=ALLOWLIST",
+                "/usr/bin/plantuml",
+                "-tsvg"
+            ]
+        );
         assert_eq!(h.get_current_dir(), Some(Path::new("/home/me")));
         let mut c = Command::new("git");
         c.env("GIT_OPTIONAL_LOCKS", "0");
-        assert_eq!(hosted(c).get_envs().count(), 1, "a program inside keeps its environment");
-        assert_eq!(host_path(Path::new("/run/host/usr/bin/tesseract")).is_some(), flatpak().is_some(), "outside a Flatpak nothing is the host's");
+        assert_eq!(
+            hosted(c).get_envs().count(),
+            1,
+            "a program inside keeps its environment"
+        );
+        assert_eq!(
+            host_path(Path::new("/run/host/usr/bin/tesseract")).is_some(),
+            flatpak().is_some(),
+            "outside a Flatpak nothing is the host's"
+        );
     }
 
     /// AppImages are Linux's, with `:` between the folders of a path list.
@@ -519,17 +804,45 @@ mod tests {
     fn tools_start_programs_without_the_appimage_inside() {
         let mut c = Command::new("soffice");
         let vars = [
-            ("LD_LIBRARY_PATH", "/tmp/.mount_Cox/usr/lib/:/tmp/.mount_Cox/usr/lib64/:/opt/lib"),
+            (
+                "LD_LIBRARY_PATH",
+                "/tmp/.mount_Cox/usr/lib/:/tmp/.mount_Cox/usr/lib64/:/opt/lib",
+            ),
             ("GTK_PATH", "/tmp/.mount_Cox//usr/lib/gtk-3.0"),
             ("XDG_DATA_DIRS", "/tmp/.mount_Cox/usr/share:/usr/share"),
             ("HOME", "/home/me"),
         ];
-        outside(&mut c, Path::new("/tmp/.mount_Cox"), vars.iter().map(|(k, v)| (OsString::from(k), OsString::from(v))));
-        let env: Vec<(String, Option<String>)> = c.get_envs().map(|(k, v)| (k.to_string_lossy().into_owned(), v.map(|v| v.to_string_lossy().into_owned()))).collect();
+        outside(
+            &mut c,
+            Path::new("/tmp/.mount_Cox"),
+            vars.iter()
+                .map(|(k, v)| (OsString::from(k), OsString::from(v))),
+        );
+        let env: Vec<(String, Option<String>)> = c
+            .get_envs()
+            .map(|(k, v)| {
+                (
+                    k.to_string_lossy().into_owned(),
+                    v.map(|v| v.to_string_lossy().into_owned()),
+                )
+            })
+            .collect();
         let get = |k: &str| env.iter().find(|(key, _)| key == k).map(|(_, v)| v.clone());
-        assert_eq!(get("LD_LIBRARY_PATH"), Some(Some("/opt/lib".into())), "only the AppImage's own folders go");
+        assert_eq!(
+            get("LD_LIBRARY_PATH"),
+            Some(Some("/opt/lib".into())),
+            "only the AppImage's own folders go"
+        );
         assert_eq!(get("XDG_DATA_DIRS"), Some(Some("/usr/share".into())));
-        assert_eq!(get("GTK_PATH"), Some(None), "all of it the AppImage's: gone");
-        assert_eq!((get("HOME"), get("GDK_BACKEND")), (None, Some(None)), "the rest as it is; what the AppImage set for its window goes");
+        assert_eq!(
+            get("GTK_PATH"),
+            Some(None),
+            "all of it the AppImage's: gone"
+        );
+        assert_eq!(
+            (get("HOME"), get("GDK_BACKEND")),
+            (None, Some(None)),
+            "the rest as it is; what the AppImage set for its window goes"
+        );
     }
 }

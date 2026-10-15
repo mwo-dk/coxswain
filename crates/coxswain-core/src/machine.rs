@@ -21,37 +21,66 @@ pub fn on_battery() -> bool {
 
 #[cfg(any(target_os = "linux", target_os = "android"))]
 fn battery_now() -> bool {
-    let read = |p: PathBuf, f: &str| std::fs::read_to_string(p.join(f)).map(|s| s.trim().to_string()).unwrap_or_default();
-    let supplies: Vec<PathBuf> = std::fs::read_dir("/sys/class/power_supply").into_iter().flatten().flatten().map(|e| e.path()).collect();
-    let mains: Vec<&PathBuf> = supplies.iter().filter(|p| read(p.to_path_buf(), "type") == "Mains").collect();
-    let battery = supplies.iter().any(|p| read(p.to_path_buf(), "type") == "Battery");
+    let read = |p: PathBuf, f: &str| {
+        std::fs::read_to_string(p.join(f))
+            .map(|s| s.trim().to_string())
+            .unwrap_or_default()
+    };
+    let supplies: Vec<PathBuf> = std::fs::read_dir("/sys/class/power_supply")
+        .into_iter()
+        .flatten()
+        .flatten()
+        .map(|e| e.path())
+        .collect();
+    let mains: Vec<&PathBuf> = supplies
+        .iter()
+        .filter(|p| read(p.to_path_buf(), "type") == "Mains")
+        .collect();
+    let battery = supplies
+        .iter()
+        .any(|p| read(p.to_path_buf(), "type") == "Battery");
     if !mains.is_empty() {
         return battery && !mains.iter().any(|p| read(p.to_path_buf(), "online") == "1");
     }
-    supplies.iter().any(|p| read(p.to_path_buf(), "type") == "Battery" && read(p.to_path_buf(), "status") == "Discharging")
+    supplies.iter().any(|p| {
+        read(p.to_path_buf(), "type") == "Battery"
+            && read(p.to_path_buf(), "status") == "Discharging"
+    })
 }
 
 #[cfg(target_os = "macos")]
 fn battery_now() -> bool {
-    crate::tools::command("pmset").args(["-g", "batt"]).output().is_ok_and(|o| String::from_utf8_lossy(&o.stdout).contains("'Battery Power'"))
+    crate::tools::command("pmset")
+        .args(["-g", "batt"])
+        .output()
+        .is_ok_and(|o| String::from_utf8_lossy(&o.stdout).contains("'Battery Power'"))
 }
 
 /// `hw.acpi.acline` is 1 on mains power and 0 on the battery; machines without ACPI power
 /// reporting (desktops, most virtual machines) have no such variable, and sysctl fails.
 #[cfg(target_os = "freebsd")]
 fn battery_now() -> bool {
-    crate::tools::command("sysctl").args(["-n", "hw.acpi.acline"]).output().is_ok_and(|o| o.status.success() && sysctl_zero(&o.stdout))
+    crate::tools::command("sysctl")
+        .args(["-n", "hw.acpi.acline"])
+        .output()
+        .is_ok_and(|o| o.status.success() && sysctl_zero(&o.stdout))
 }
 
 /// `hw.power` is 1 on mains power and 0 on the battery; the kernel starts it at 1, so a
 /// machine without apm(4) counts as on mains.
 #[cfg(target_os = "openbsd")]
 fn battery_now() -> bool {
-    crate::tools::command("sysctl").args(["-n", "hw.power"]).output().is_ok_and(|o| o.status.success() && sysctl_zero(&o.stdout))
+    crate::tools::command("sysctl")
+        .args(["-n", "hw.power"])
+        .output()
+        .is_ok_and(|o| o.status.success() && sysctl_zero(&o.stdout))
 }
 
 /// Whether `sysctl -n`'s answer is 0.
-#[cfg_attr(not(any(target_os = "freebsd", target_os = "openbsd")), allow(dead_code))]
+#[cfg_attr(
+    not(any(target_os = "freebsd", target_os = "openbsd")),
+    allow(dead_code)
+)]
 fn sysctl_zero(out: &[u8]) -> bool {
     out.trim_ascii() == b"0"
 }
@@ -60,7 +89,9 @@ fn sysctl_zero(out: &[u8]) -> bool {
 /// as on mains.
 #[cfg(target_os = "netbsd")]
 fn battery_now() -> bool {
-    crate::tools::command("envstat").output().is_ok_and(|o| ac_unplugged(&String::from_utf8_lossy(&o.stdout)))
+    crate::tools::command("envstat")
+        .output()
+        .is_ok_and(|o| ac_unplugged(&String::from_utf8_lossy(&o.stdout)))
 }
 
 /// Whether envstat's text has an `acpiacad` adapter that is not connected: `FALSE`, or `OFF`
@@ -72,7 +103,9 @@ fn ac_unplugged(envstat: &str) -> bool {
         if l.starts_with('[') {
             adapter = l.starts_with("[acpiacad");
         }
-        adapter && l.strip_prefix("connected:").is_some_and(|v| matches!(v.trim(), "FALSE" | "OFF"))
+        adapter
+            && l.strip_prefix("connected:")
+                .is_some_and(|v| matches!(v.trim(), "FALSE" | "OFF"))
     })
 }
 
@@ -80,13 +113,22 @@ fn ac_unplugged(envstat: &str) -> bool {
 /// batteries have none.
 #[cfg(any(target_os = "illumos", target_os = "solaris"))]
 fn battery_now() -> bool {
-    crate::tools::command("kstat").args(["-p", "acpi_drv:0:power"]).output().is_ok_and(|o| kstat_on_battery(&String::from_utf8_lossy(&o.stdout)))
+    crate::tools::command("kstat")
+        .args(["-p", "acpi_drv:0:power"])
+        .output()
+        .is_ok_and(|o| kstat_on_battery(&String::from_utf8_lossy(&o.stdout)))
 }
 
 /// Whether `kstat -p`'s lines say `system power` is `battery`.
-#[cfg_attr(not(any(target_os = "illumos", target_os = "solaris")), allow(dead_code))]
+#[cfg_attr(
+    not(any(target_os = "illumos", target_os = "solaris")),
+    allow(dead_code)
+)]
 fn kstat_on_battery(kstat: &str) -> bool {
-    kstat.lines().any(|l| l.split_once(":system power").is_some_and(|(_, v)| v.trim().eq_ignore_ascii_case("battery")))
+    kstat.lines().any(|l| {
+        l.split_once(":system power")
+            .is_some_and(|(_, v)| v.trim().eq_ignore_ascii_case("battery"))
+    })
 }
 
 #[cfg(windows)]
@@ -97,7 +139,17 @@ fn battery_now() -> bool {
     unsafe { GetSystemPowerStatus(&mut s) != 0 && s.ACLineStatus == 0 }
 }
 
-#[cfg(not(any(target_os = "linux", target_os = "android", target_os = "macos", target_os = "freebsd", target_os = "netbsd", target_os = "openbsd", target_os = "illumos", target_os = "solaris", windows)))]
+#[cfg(not(any(
+    target_os = "linux",
+    target_os = "android",
+    target_os = "macos",
+    target_os = "freebsd",
+    target_os = "netbsd",
+    target_os = "openbsd",
+    target_os = "illumos",
+    target_os = "solaris",
+    windows
+)))]
 fn battery_now() -> bool {
     false
 }
@@ -120,19 +172,42 @@ pub struct Mounted {
 /// disks go, with the portal's and gvfs's mounts under `/run/user`), a ZFS snapshot mounted when
 /// it was looked into, and the FUSE mount an AppImage runs from (`/tmp/.mount_…`).
 pub fn hidden_mount(mount: &Path, fstype: &str) -> bool {
-    let system = ["/boot", "/efi", "/snap", "/var/lib", "/run", "/proc", "/sys"].iter().any(|p| mount.starts_with(p)) && !mount.starts_with("/run/media");
-    system || (fstype.starts_with("fuse") && appimage_mount(mount, false)) || crate::zfs::in_snapshot(mount).is_some()
+    let system = [
+        "/boot", "/efi", "/snap", "/var/lib", "/run", "/proc", "/sys",
+    ]
+    .iter()
+    .any(|p| mount.starts_with(p))
+        && !mount.starts_with("/run/media");
+    system
+        || (fstype.starts_with("fuse") && appimage_mount(mount, false))
+        || crate::zfs::in_snapshot(mount).is_some()
 }
 
 /// Whether `path` is named like the mount an AppImage's runtime makes for itself, `.mount_` and
 /// a few letters, and, with `in_temp`, sits right in the temporary folder, where it makes them.
 pub fn appimage_mount(path: &Path, in_temp: bool) -> bool {
-    path.file_name().is_some_and(|n| n.as_encoded_bytes().starts_with(b".mount_")) && (!in_temp || path.parent().is_some_and(|p| p == Path::new("/tmp") || p == std::env::temp_dir()))
+    path.file_name()
+        .is_some_and(|n| n.as_encoded_bytes().starts_with(b".mount_"))
+        && (!in_temp
+            || path
+                .parent()
+                .is_some_and(|p| p == Path::new("/tmp") || p == std::env::temp_dir()))
 }
 
 /// File systems that are the kernel's, not places to go.
-#[cfg_attr(not(any(target_os = "netbsd", target_os = "openbsd", target_os = "illumos", target_os = "solaris")), allow(dead_code))]
-const PSEUDO: &[&str] = &["proc", "procfs", "kernfs", "ptyfs", "devfs", "tmpfs", "mfs", "ctfs", "objfs", "mntfs", "fd", "sharefs", "dev", "bootfs", "lofs", "null", "nullfs", "autofs"];
+#[cfg_attr(
+    not(any(
+        target_os = "netbsd",
+        target_os = "openbsd",
+        target_os = "illumos",
+        target_os = "solaris"
+    )),
+    allow(dead_code)
+)]
+const PSEUDO: &[&str] = &[
+    "proc", "procfs", "kernfs", "ptyfs", "devfs", "tmpfs", "mfs", "ctfs", "objfs", "mntfs", "fd",
+    "sharefs", "dev", "bootfs", "lofs", "null", "nullfs", "autofs",
+];
 
 /// The mounted file systems, for the desktop app's sidebar on the systems its disk library does
 /// not know: getmntinfo(3) on NetBSD and OpenBSD.
@@ -151,14 +226,24 @@ pub fn mounted() -> Vec<Mounted> {
     }
     // SAFETY: as above; the names end with a NUL inside their arrays.
     let all = unsafe { std::slice::from_raw_parts(list, n as usize) };
-    let text = |a: &[libc::c_char]| unsafe { CStr::from_ptr(a.as_ptr()) }.to_string_lossy().into_owned();
+    let text = |a: &[libc::c_char]| {
+        unsafe { CStr::from_ptr(a.as_ptr()) }
+            .to_string_lossy()
+            .into_owned()
+    };
     all.iter()
         .map(|f| {
             #[cfg(target_os = "netbsd")]
             let block = f.f_frsize as u64;
             #[cfg(not(target_os = "netbsd"))]
             let block = f.f_bsize as u64;
-            Mounted { device: text(&f.f_mntfromname), mount: PathBuf::from(text(&f.f_mntonname)), fstype: text(&f.f_fstypename), total: (f.f_blocks as u64).saturating_mul(block), free: (f.f_bavail.max(0) as u64).saturating_mul(block) }
+            Mounted {
+                device: text(&f.f_mntfromname),
+                mount: PathBuf::from(text(&f.f_mntonname)),
+                fstype: text(&f.f_fstypename),
+                total: (f.f_blocks as u64).saturating_mul(block),
+                free: (f.f_bavail.max(0) as u64).saturating_mul(block),
+            }
         })
         .filter(|m| !PSEUDO.contains(&m.fstype.as_str()))
         .collect()
@@ -178,7 +263,10 @@ pub fn mounted() -> Vec<Mounted> {
                 let mut st: libc::statvfs = unsafe { std::mem::zeroed() };
                 if unsafe { libc::statvfs(c.as_ptr(), &mut st) } == 0 {
                     let block = st.f_frsize as u64;
-                    (m.total, m.free) = ((st.f_blocks as u64).saturating_mul(block), (st.f_bavail as u64).saturating_mul(block));
+                    (m.total, m.free) = (
+                        (st.f_blocks as u64).saturating_mul(block),
+                        (st.f_bavail as u64).saturating_mul(block),
+                    );
                 }
             }
             m
@@ -187,13 +275,22 @@ pub fn mounted() -> Vec<Mounted> {
 }
 
 /// /etc/mnttab's lines: device, mount point, type, options and time, by tabs. Sizes are 0.
-#[cfg_attr(not(any(target_os = "illumos", target_os = "solaris")), allow(dead_code))]
+#[cfg_attr(
+    not(any(target_os = "illumos", target_os = "solaris")),
+    allow(dead_code)
+)]
 pub(crate) fn parse_mnttab(text: &str) -> Vec<Mounted> {
     text.lines()
         .filter_map(|l| {
             let mut f = l.split('\t');
             let (device, mount, fstype) = (f.next()?, f.next()?, f.next()?);
-            mount.starts_with('/').then(|| Mounted { device: device.into(), mount: PathBuf::from(mount), fstype: fstype.into(), total: 0, free: 0 })
+            mount.starts_with('/').then(|| Mounted {
+                device: device.into(),
+                mount: PathBuf::from(mount),
+                fstype: fstype.into(),
+                total: 0,
+                free: 0,
+            })
         })
         .collect()
 }
@@ -211,10 +308,17 @@ pub fn locate(id: &str, inside: &Path) -> Option<PathBuf> {
 }
 
 /// `inside`, found below `top` (the part of the file system mounted) at `point`.
-#[cfg_attr(not(any(target_os = "linux", target_os = "macos", windows)), allow(dead_code))]
+#[cfg_attr(
+    not(any(target_os = "linux", target_os = "macos", windows)),
+    allow(dead_code)
+)]
 fn under(point: &Path, top: &Path, inside: &Path) -> Option<PathBuf> {
     let rest = inside.strip_prefix(top).ok()?;
-    Some(if rest.as_os_str().is_empty() { point.to_path_buf() } else { point.join(rest) })
+    Some(if rest.as_os_str().is_empty() {
+        point.to_path_buf()
+    } else {
+        point.join(rest)
+    })
 }
 
 /// Mounted file systems as (device, part of it mounted, mount point), from mountinfo.
@@ -222,7 +326,11 @@ fn under(point: &Path, top: &Path, inside: &Path) -> Option<PathBuf> {
 fn mounts() -> Vec<(PathBuf, PathBuf, PathBuf)> {
     // `id parent major:minor root mountpoint options … - fstype source superoptions`, with
     // spaces in paths written as \040. `root` is a btrfs subvolume, or a bind mount's folder.
-    let unescape = |s: &str| s.replace("\\040", " ").replace("\\011", "\t").replace("\\134", "\\");
+    let unescape = |s: &str| {
+        s.replace("\\040", " ")
+            .replace("\\011", "\t")
+            .replace("\\134", "\\")
+    };
     std::fs::read_to_string("/proc/self/mountinfo")
         .unwrap_or_default()
         .lines()
@@ -231,7 +339,13 @@ fn mounts() -> Vec<(PathBuf, PathBuf, PathBuf)> {
             let mut f = left.split(' ').skip(3);
             let (top, point) = (f.next()?, f.next()?);
             let source = right.split(' ').nth(1)?;
-            source.starts_with("/dev/").then(|| (PathBuf::from(unescape(source)), PathBuf::from(unescape(top)), PathBuf::from(unescape(point))))
+            source.starts_with("/dev/").then(|| {
+                (
+                    PathBuf::from(unescape(source)),
+                    PathBuf::from(unescape(top)),
+                    PathBuf::from(unescape(point)),
+                )
+            })
         })
         .collect()
 }
@@ -239,12 +353,25 @@ fn mounts() -> Vec<(PathBuf, PathBuf, PathBuf)> {
 /// UUID -> device, from /dev/disk/by-uuid.
 #[cfg(target_os = "linux")]
 fn uuids() -> Vec<(String, PathBuf)> {
-    std::fs::read_dir("/dev/disk/by-uuid").into_iter().flatten().flatten().filter_map(|e| Some((e.file_name().into_string().ok()?, std::fs::canonicalize(e.path()).ok()?))).collect()
+    std::fs::read_dir("/dev/disk/by-uuid")
+        .into_iter()
+        .flatten()
+        .flatten()
+        .filter_map(|e| {
+            Some((
+                e.file_name().into_string().ok()?,
+                std::fs::canonicalize(e.path()).ok()?,
+            ))
+        })
+        .collect()
 }
 
 #[cfg(target_os = "linux")]
 fn volume_of(path: &Path) -> Option<(String, PathBuf)> {
-    let (device, top, point) = mounts().into_iter().filter(|(.., point)| path.starts_with(point)).max_by_key(|(.., point)| point.as_os_str().len())?;
+    let (device, top, point) = mounts()
+        .into_iter()
+        .filter(|(.., point)| path.starts_with(point))
+        .max_by_key(|(.., point)| point.as_os_str().len())?;
     let device = std::fs::canonicalize(device).ok()?;
     let (id, _) = uuids().into_iter().find(|(_, d)| *d == device)?;
     Some((id, top.join(path.strip_prefix(&point).ok()?)))
@@ -256,7 +383,9 @@ fn locate_on(id: &str, inside: &Path) -> Option<PathBuf> {
     // The mount that holds the most of the path: the subvolume it is in.
     mounts()
         .into_iter()
-        .filter(|(d, top, _)| inside.starts_with(top) && std::fs::canonicalize(d).ok().as_ref() == Some(&device))
+        .filter(|(d, top, _)| {
+            inside.starts_with(top) && std::fs::canonicalize(d).ok().as_ref() == Some(&device)
+        })
         .max_by_key(|(_, top, point)| (top.as_os_str().len(), usize::MAX - point.as_os_str().len()))
         .and_then(|(_, top, point)| under(&point, &top, inside))
 }
@@ -264,9 +393,22 @@ fn locate_on(id: &str, inside: &Path) -> Option<PathBuf> {
 /// `diskutil info` of a path or volume, as (VolumeUUID, MountPoint).
 #[cfg(target_os = "macos")]
 fn diskutil(what: &Path) -> Option<(String, PathBuf)> {
-    let out = crate::tools::command("diskutil").arg("info").arg("-plist").arg(what).output().ok()?;
+    let out = crate::tools::command("diskutil")
+        .arg("info")
+        .arg("-plist")
+        .arg(what)
+        .output()
+        .ok()?;
     let text = String::from_utf8_lossy(&out.stdout);
-    let value = |key: &str| text.split(&format!("<key>{key}</key>")).nth(1)?.split("<string>").nth(1)?.split("</string>").next().map(str::to_string);
+    let value = |key: &str| {
+        text.split(&format!("<key>{key}</key>"))
+            .nth(1)?
+            .split("<string>")
+            .nth(1)?
+            .split("</string>")
+            .next()
+            .map(str::to_string)
+    };
     Some((value("VolumeUUID")?, PathBuf::from(value("MountPoint")?)))
 }
 
@@ -279,7 +421,9 @@ fn volume_of(path: &Path) -> Option<(String, PathBuf)> {
 #[cfg(target_os = "macos")]
 fn locate_on(id: &str, inside: &Path) -> Option<PathBuf> {
     let (_, point) = diskutil(Path::new(id))?;
-    (!point.as_os_str().is_empty()).then(|| under(&point, Path::new("/"), inside)).flatten()
+    (!point.as_os_str().is_empty())
+        .then(|| under(&point, Path::new("/"), inside))
+        .flatten()
 }
 
 /// The serial of the volume at a drive root such as `D:\`.
@@ -289,20 +433,38 @@ fn serial(root: &Path) -> Option<String> {
     use windows_sys::Win32::Storage::FileSystem::GetVolumeInformationW;
     let wide: Vec<u16> = root.as_os_str().encode_wide().chain([0]).collect();
     let mut serial = 0u32;
-    let ok = unsafe { GetVolumeInformationW(wide.as_ptr(), std::ptr::null_mut(), 0, &mut serial, std::ptr::null_mut(), std::ptr::null_mut(), std::ptr::null_mut(), 0) };
+    let ok = unsafe {
+        GetVolumeInformationW(
+            wide.as_ptr(),
+            std::ptr::null_mut(),
+            0,
+            &mut serial,
+            std::ptr::null_mut(),
+            std::ptr::null_mut(),
+            std::ptr::null_mut(),
+            0,
+        )
+    };
     (ok != 0).then(|| format!("{serial:08X}"))
 }
 
 #[cfg(windows)]
 fn volume_of(path: &Path) -> Option<(String, PathBuf)> {
-    let std::path::Component::Prefix(prefix) = path.components().next()? else { return None };
+    let std::path::Component::Prefix(prefix) = path.components().next()? else {
+        return None;
+    };
     let root = PathBuf::from(format!("{}\\", prefix.as_os_str().to_string_lossy()));
-    Some((serial(&root)?, Path::new("\\").join(path.strip_prefix(&root).ok()?)))
+    Some((
+        serial(&root)?,
+        Path::new("\\").join(path.strip_prefix(&root).ok()?),
+    ))
 }
 
 #[cfg(windows)]
 fn locate_on(id: &str, inside: &Path) -> Option<PathBuf> {
-    let root = (b'A'..=b'Z').map(|l| PathBuf::from(format!("{}:\\", l as char))).find(|root| root.exists() && serial(root).as_deref() == Some(id))?;
+    let root = (b'A'..=b'Z')
+        .map(|l| PathBuf::from(format!("{}:\\", l as char)))
+        .find(|root| root.exists() && serial(root).as_deref() == Some(id))?;
     under(&root, Path::new("\\"), inside)
 }
 
@@ -346,13 +508,27 @@ mod tests {
                 (!hidden_mount(Path::new(point), right.split(' ').next()?)).then_some(point)
             })
             .collect();
-        assert_eq!(shown, ["/", "/home", "/run/media/me/USB", "/mnt/nas", r"/home/me/Google\040Drive", "/tank/home", "/mnt/.mount_backup"]);
+        assert_eq!(
+            shown,
+            [
+                "/",
+                "/home",
+                "/run/media/me/USB",
+                "/mnt/nas",
+                r"/home/me/Google\040Drive",
+                "/tank/home",
+                "/mnt/.mount_backup"
+            ]
+        );
     }
 
     #[test]
     fn appimage_mounts_are_found_in_the_temporary_folder() {
         assert!(appimage_mount(Path::new("/tmp/.mount_coxswaDnLNBP"), true));
-        assert!(appimage_mount(&std::env::temp_dir().join(".mount_Obsidi"), true));
+        assert!(appimage_mount(
+            &std::env::temp_dir().join(".mount_Obsidi"),
+            true
+        ));
         assert!(!appimage_mount(Path::new("/home/me/.mount_notes"), true));
         assert!(appimage_mount(Path::new("/home/me/.mount_notes"), false));
         assert!(!appimage_mount(Path::new("/tmp/mount_x"), false));
@@ -363,22 +539,55 @@ mod tests {
         // Wherever the tests run, a folder on a real disk is found again by its disk.
         for dir in [std::env::temp_dir(), std::env::current_dir().unwrap()] {
             if let Some((id, inside)) = volume(&dir) {
-                assert_eq!(locate(&id, &inside).as_deref(), Some(dir.as_path()), "{id} {inside:?}");
+                assert_eq!(
+                    locate(&id, &inside).as_deref(),
+                    Some(dir.as_path()),
+                    "{id} {inside:?}"
+                );
             }
         }
         assert_eq!(locate("no-such-disk", Path::new("/")), None);
-        assert_eq!(under(Path::new("/run/media/me/Backup"), Path::new("/"), Path::new("/Photos")), Some(PathBuf::from("/run/media/me/Backup/Photos")));
-        assert_eq!(under(Path::new("/home"), Path::new("/@home"), Path::new("/@home/me")), Some(PathBuf::from("/home/me")));
-        assert_eq!(under(Path::new("/home"), Path::new("/@home"), Path::new("/@/etc")), None);
+        assert_eq!(
+            under(
+                Path::new("/run/media/me/Backup"),
+                Path::new("/"),
+                Path::new("/Photos")
+            ),
+            Some(PathBuf::from("/run/media/me/Backup/Photos"))
+        );
+        assert_eq!(
+            under(
+                Path::new("/home"),
+                Path::new("/@home"),
+                Path::new("/@home/me")
+            ),
+            Some(PathBuf::from("/home/me"))
+        );
+        assert_eq!(
+            under(Path::new("/home"), Path::new("/@home"), Path::new("/@/etc")),
+            None
+        );
         let _ = on_battery();
     }
 
     #[test]
-    #[cfg(any(target_os = "netbsd", target_os = "openbsd", target_os = "illumos", target_os = "solaris"))]
+    #[cfg(any(
+        target_os = "netbsd",
+        target_os = "openbsd",
+        target_os = "illumos",
+        target_os = "solaris"
+    ))]
     fn machine_lists_the_mounted_file_systems() {
         let all = mounted();
-        assert!(all.iter().any(|m| m.mount == Path::new("/") && m.total > 0 && m.free <= m.total), "{all:?}");
-        assert!(all.iter().all(|m| !PSEUDO.contains(&m.fstype.as_str())), "{all:?}");
+        assert!(
+            all.iter()
+                .any(|m| m.mount == Path::new("/") && m.total > 0 && m.free <= m.total),
+            "{all:?}"
+        );
+        assert!(
+            all.iter().all(|m| !PSEUDO.contains(&m.fstype.as_str())),
+            "{all:?}"
+        );
     }
 
     #[test]
@@ -386,14 +595,26 @@ mod tests {
         let text = "rpool/ROOT/omnios\t/\tzfs\tdev=4010002\t1700000000\n/devices\t/devices\tdevfs\tdev=8880000\t1700000000\nrpool/export/home\t/export/home dir\tzfs\trw\t1700000001\n";
         let m = parse_mnttab(text);
         assert_eq!(m.len(), 3);
-        assert_eq!((m[0].device.as_str(), m[0].mount.as_path(), m[0].fstype.as_str()), ("rpool/ROOT/omnios", Path::new("/"), "zfs"));
-        assert_eq!(m[2].mount, Path::new("/export/home dir"), "spaces stay: the fields are split by tabs");
+        assert_eq!(
+            (
+                m[0].device.as_str(),
+                m[0].mount.as_path(),
+                m[0].fstype.as_str()
+            ),
+            ("rpool/ROOT/omnios", Path::new("/"), "zfs")
+        );
+        assert_eq!(
+            m[2].mount,
+            Path::new("/export/home dir"),
+            "spaces stay: the fields are split by tabs"
+        );
         assert!(PSEUDO.contains(&m[1].fstype.as_str()));
     }
 
     // From the NetBSD Guide, chapter 11 (Power management), on battery:
     // https://www.netbsd.org/docs/guide/en/chap-power.html
-    const ENVSTAT_GUIDE: &str = "                      Current  CritMax  WarnMax  WarnMin  CritMin  Unit
+    const ENVSTAT_GUIDE: &str =
+        "                      Current  CritMax  WarnMax  WarnMin  CritMin  Unit
 [acpiacad0]
          connected:     FALSE
 [acpibat0]
@@ -450,12 +671,21 @@ mod tests {
     fn machine_reads_netbsd_envstat() {
         assert!(ac_unplugged(ENVSTAT_GUIDE));
         assert!(!ac_unplugged(ENVSTAT_MAINS));
-        assert!(!ac_unplugged(ENVSTAT_TWO_BATTERIES), "ON is connected; acpibat1's OFF is not the adapter's");
-        assert!(ac_unplugged(&ENVSTAT_TWO_BATTERIES.replacen("ON", "OFF", 1)));
+        assert!(
+            !ac_unplugged(ENVSTAT_TWO_BATTERIES),
+            "ON is connected; acpibat1's OFF is not the adapter's"
+        );
+        assert!(ac_unplugged(
+            &ENVSTAT_TWO_BATTERIES.replacen("ON", "OFF", 1)
+        ));
         // A second battery after an unplugged adapter.
-        assert!(ac_unplugged(&format!("{ENVSTAT_GUIDE}[acpibat1]\n           present:      TRUE\n")));
+        assert!(ac_unplugged(&format!(
+            "{ENVSTAT_GUIDE}[acpibat1]\n           present:      TRUE\n"
+        )));
         // No adapter (a desktop): never on battery, though a battery says FALSE.
-        assert!(!ac_unplugged(&ENVSTAT_GUIDE.replace("[acpiacad0]\n         connected:     FALSE\n", "")));
+        assert!(!ac_unplugged(
+            &ENVSTAT_GUIDE.replace("[acpiacad0]\n         connected:     FALSE\n", "")
+        ));
         assert!(!ac_unplugged(""));
     }
 

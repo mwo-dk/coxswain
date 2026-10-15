@@ -6,9 +6,9 @@
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Mutex;
 use std::sync::Arc;
+use std::sync::Mutex;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use crate::helper::Client;
@@ -41,8 +41,17 @@ impl Default for Sizer {
 
 impl Sizer {
     pub fn new(index: Option<Arc<Client>>) -> Sizer {
-        let pool = rayon::ThreadPoolBuilder::new().num_threads(2).thread_name(|i| format!("coxswain-sizes-{i}")).build().expect("a thread pool");
-        Sizer { pool, known: Mutex::default(), index, changed: Mutex::default() }
+        let pool = rayon::ThreadPoolBuilder::new()
+            .num_threads(2)
+            .thread_name(|i| format!("coxswain-sizes-{i}"))
+            .build()
+            .expect("a thread pool");
+        Sizer {
+            pool,
+            known: Mutex::default(),
+            index,
+            changed: Mutex::default(),
+        }
     }
 
     /// The size measured a short while ago, if any.
@@ -64,7 +73,10 @@ impl Sizer {
             return Some(size);
         }
         let size = self.pool.install(|| walk(path, stop))?;
-        self.known.lock().ok()?.insert(path.to_path_buf(), (size, Instant::now()));
+        self.known
+            .lock()
+            .ok()?
+            .insert(path.to_path_buf(), (size, Instant::now()));
         Some(size)
     }
 
@@ -74,7 +86,9 @@ impl Sizer {
             known.retain(|folder, _| !changed.starts_with(folder));
         }
         if let Ok(mut all) = self.changed.lock() {
-            let now = SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |d| d.as_secs());
+            let now = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .map_or(0, |d| d.as_secs());
             // The last ten minutes are enough: the store walks every ten.
             all.retain(|(_, at)| at + 900 > now);
             all.push((changed.to_path_buf(), now));
@@ -87,7 +101,12 @@ impl Sizer {
             return None;
         }
         let (size, walked) = self.index.as_ref()?.size(dir)?;
-        let changed = self.changed.lock().ok()?.iter().any(|(p, at)| p.starts_with(dir) && *at >= walked);
+        let changed = self
+            .changed
+            .lock()
+            .ok()?
+            .iter()
+            .any(|(p, at)| p.starts_with(dir) && *at >= walked);
         (!changed).then_some(size)
     }
 }
@@ -96,7 +115,10 @@ impl Sizer {
 // ponytail: network mounts are measured like any folder, slowly; skip by file system type
 // if that bites.
 fn not_on_disk(path: &Path) -> bool {
-    cfg!(unix) && ["/proc", "/sys", "/dev", "/run"].iter().any(|p| path.starts_with(p))
+    cfg!(unix)
+        && ["/proc", "/sys", "/dev", "/run"]
+            .iter()
+            .any(|p| path.starts_with(p))
 }
 
 /// Symlinks are counted, not followed; unreadable parts, and other apps' data on a Mac below
@@ -105,11 +127,15 @@ pub(crate) fn walk(path: &Path, stop: &AtomicBool) -> Option<Size> {
     if stop.load(Ordering::Relaxed) {
         return None;
     }
-    let Ok(meta) = fs::symlink_metadata(path) else { return Some((0, 0)) };
+    let Ok(meta) = fs::symlink_metadata(path) else {
+        return Some((0, 0));
+    };
     if !meta.is_dir() {
         return Some((meta.len(), 1));
     }
-    let Ok(rd) = crate::fs::read_dir(path) else { return Some((0, 0)) };
+    let Ok(rd) = crate::fs::read_dir(path) else {
+        return Some((0, 0));
+    };
     rd.flatten()
         .collect::<Vec<_>>()
         .par_iter()
@@ -132,19 +158,40 @@ mod tests {
         fs::create_dir_all(d.join("a/b")).unwrap();
         fs::write(d.join("a/one"), [0u8; 100]).unwrap();
         fs::write(d.join("a/b/two"), [0u8; 50]).unwrap();
-        let (sizer, go, stop) = (Sizer::default(), AtomicBool::new(false), AtomicBool::new(true));
+        let (sizer, go, stop) = (
+            Sizer::default(),
+            AtomicBool::new(false),
+            AtomicBool::new(true),
+        );
 
-        assert_eq!(sizer.measure(&d.join("a"), &stop), None, "stopped before it began");
+        assert_eq!(
+            sizer.measure(&d.join("a"), &stop),
+            None,
+            "stopped before it began"
+        );
         assert_eq!(sizer.known(&d.join("a")), None);
         assert_eq!(sizer.measure(&d.join("a"), &go), Some((150, 2)));
-        assert_eq!(sizer.measure(&d.join("a"), &go), Some(crate::fs::dir_size(&d.join("a"))), "as the one-off measure");
+        assert_eq!(
+            sizer.measure(&d.join("a"), &go),
+            Some(crate::fs::dir_size(&d.join("a"))),
+            "as the one-off measure"
+        );
 
         fs::write(d.join("a/b/three"), [0u8; 7]).unwrap();
-        assert_eq!(sizer.measure(&d.join("a"), &stop), Some((150, 2)), "remembered, even when stopped");
+        assert_eq!(
+            sizer.measure(&d.join("a"), &stop),
+            Some((150, 2)),
+            "remembered, even when stopped"
+        );
         sizer.forget(&d.join("a/b/three"));
         assert_eq!(sizer.measure(&d.join("a"), &go), Some((157, 3)));
 
-        assert_eq!(sizer.measure(Path::new("/proc"), &go).filter(|_| cfg!(unix)), None);
+        assert_eq!(
+            sizer
+                .measure(Path::new("/proc"), &go)
+                .filter(|_| cfg!(unix)),
+            None
+        );
         fs::remove_dir_all(d).unwrap();
     }
 }

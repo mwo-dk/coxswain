@@ -77,8 +77,12 @@ pub enum Predicate {
     Provenance(Box<Provenance>),
     Vsa(Vsa),
     /// A CycloneDX document, for the BOM viewer.
-    Bom { bom: Value },
-    Other { predicate: Value },
+    Bom {
+        bom: Value,
+    },
+    Other {
+        predicate: Value,
+    },
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]

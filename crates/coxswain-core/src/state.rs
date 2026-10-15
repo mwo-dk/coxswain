@@ -47,7 +47,10 @@ impl Default for AppState {
         AppState {
             session: serde_json::Value::Null,
             // Named in the language in use when the state is first created.
-            favorites: vec![FavoriteGroup { name: crate::t!("state.favourites"), paths: vec![] }],
+            favorites: vec![FavoriteGroup {
+                name: crate::t!("state.favourites"),
+                paths: vec![],
+            }],
             tags: BTreeMap::new(),
             notes: BTreeMap::new(),
             recent_repos: vec![],
@@ -73,7 +76,9 @@ impl AppState {
     /// Missing file = defaults. A corrupt file is moved aside to `state.json.bad` so saving
     /// the defaults never destroys it.
     pub fn load_from(path: &Path) -> AppState {
-        let Ok(text) = std::fs::read_to_string(path) else { return AppState::default() };
+        let Ok(text) = std::fs::read_to_string(path) else {
+            return AppState::default();
+        };
         serde_json::from_str(&text).unwrap_or_else(|_| {
             let _ = std::fs::rename(path, path.with_extension("json.bad"));
             AppState::default()
@@ -90,7 +95,9 @@ impl AppState {
     }
 
     pub fn load() -> AppState {
-        AppState::path().map(|p| AppState::load_from(&p)).unwrap_or_default()
+        AppState::path()
+            .map(|p| AppState::load_from(&p))
+            .unwrap_or_default()
     }
 
     pub fn save(&self) -> io::Result<()> {
@@ -108,7 +115,11 @@ impl AppState {
 
     /// The ending Pack suggests: the last one used, else ".zip".
     pub fn pack_ending(&self) -> &str {
-        if crate::archive::pack_format(&self.pack_ending).is_some() { &self.pack_ending } else { ".zip" }
+        if crate::archive::pack_format(&self.pack_ending).is_some() {
+            &self.pack_ending
+        } else {
+            ".zip"
+        }
     }
 
     /// Moves `root` to the top of the recent repositories; false when it was there already.

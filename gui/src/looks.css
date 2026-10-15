@@ -44,23 +44,24 @@ html:root:is(:lang(ka), :lang(fa)) * {
 }
 
 /* Everything square: the terminal and early Windows and Mac. */
-html:root:is([data-look="crt"], [data-look="dos"], [data-look="win31"], [data-look="win95"], [data-look="win10"], [data-look="system7"]) {
+html:root:is([data-look="crt"], [data-look="dos"], [data-look="workbench"], [data-look="gem"], [data-look="win31"], [data-look="win95"], [data-look="win10"], [data-look="system7"], [data-look="next"]) {
   --r-lg: 0;
   --r: 0;
   --r-sm: 0;
   --r-pill: 0;
 }
 
-/* ------------------------------------------------------------------ crt (Cyber) */
-/* A green phosphor terminal: monospace everywhere, glowing text, faint scanlines. */
+/* ------------------------------------------------------------------ the tube (crt = true) */
+/* Scanlines, a glow on the text, rings instead of shadows: over any look. The built-in CRT
+   themes (Cyber, the phosphors, the home computers) have it; `crt = true` gives it to a theme
+   of your own. */
 
-html:root[data-look="crt"] {
-  --font: var(--mono-font) !important;
+html:root[data-crt] {
   --shadow: 0 0 0 1px var(--border-fg), 0 0 0 4px color-mix(in srgb, var(--panel-fg) 10%, transparent);
   text-shadow: 0 0 5px color-mix(in srgb, currentColor 55%, transparent);
   caret-color: var(--panel-fg);
 }
-html:root[data-look="crt"]::after {
+html:root[data-crt]::after {
   content: "";
   position: fixed;
   inset: 0;
@@ -70,14 +71,29 @@ html:root[data-look="crt"]::after {
      window made every repaint five times as slow in the WebKit the AppImage brings. */
   background: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAGAAAABgCAYAAADimHc4AAAAB3RJTUUH6gkdCi4g6ZbTRQAAAGVJREFUeNrt1AENAAAIA6C/hv2DGsPNQQiaZAJwogoCFAQoCEBBgIIAFAQoCEBBgIIAFAQoCEBBgIIAFAQoCEBBgIIAFAQoCEBBgIIAFAQoCFAQgIIABQEoCFAQgIIABQEoCPhiAdElA2GnMPTwAAAAAElFTkSuQmCC");
 }
-html:root[data-look="crt"] ::selection {
+html:root[data-crt] ::selection {
   color: var(--panel-bg);
   background: var(--panel-fg);
 }
 /* Rings, not blurred halos: a blurred shadow around a pane or a dialog is redrawn with every
    repaint, and cost more than the text glow. */
-html:root[data-look="crt"] .pane.active {
+html:root[data-crt] .pane.active {
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent-bg) 45%, transparent);
+}
+/* Lit buttons and badges glow on the dark instead of being filled: dark letters on bright green
+   were smeared by the scanlines and the glow, and could hardly be read. */
+html:root[data-crt] :is(.primary, .scope.on, .update, .render, .archive-badge, .archive-crumb, .badge, .new) {
+  color: var(--panel-fg);
+  background: color-mix(in srgb, var(--accent-bg) 16%, var(--panel-bg));
+  box-shadow: inset 0 0 0 1px var(--accent-bg);
+  font-weight: bold;
+}
+
+/* ------------------------------------------------------------------ crt (Cyber, the phosphors, the home computers) */
+/* A terminal: monospace everywhere, square, capitals in the titles, one text colour for icons. */
+
+html:root[data-look="crt"] {
+  --font: var(--mono-font) !important;
 }
 /* One phosphor: file icons take the text colour instead of their own. */
 html:root[data-look="crt"] :is(.row, .preview header) .icon {
@@ -90,14 +106,6 @@ html:root[data-look="crt"] :is(.dialog, .settings, .dupes) h2,
 html:root[data-look="crt"] :is(.settings, .dupes) > header {
   text-transform: uppercase;
   letter-spacing: 0.08em;
-}
-/* Lit buttons and badges glow on the dark instead of being filled: dark letters on bright green
-   were smeared by the scanlines and the glow, and could hardly be read. */
-html:root[data-look="crt"] :is(.primary, .scope.on, .update, .render, .archive-badge, .archive-crumb, .badge, .new) {
-  color: var(--panel-fg);
-  background: color-mix(in srgb, var(--accent-bg) 16%, var(--panel-bg));
-  box-shadow: inset 0 0 0 1px var(--accent-bg);
-  font-weight: bold;
 }
 html:root[data-look="crt"] *::-webkit-scrollbar-thumb {
   background: color-mix(in srgb, var(--panel-fg) 45%, transparent);
@@ -521,4 +529,419 @@ html:root[data-look="macos"] :is(.buttons .primary, .settings .primary, .dupes .
 html:root[data-look="macos"] *::-webkit-scrollbar-thumb {
   border: 3px solid transparent;
   border-radius: var(--r-pill);
+}
+
+/* ------------------------------------------------------------------ Amiga Workbench 1.3 */
+/* The four colours of Workbench 1.x's Preferences palette, 12-bit $05A, $FFF, $000, $F80 with
+   each nibble doubled: blue #0055aa (colour 0, the screen), white #ffffff (1, borders and
+   title bars), black #000000 (2, text), orange #ff8800 (3, highlights). Intuition 1.x filled
+   the active window's title bar with the block pen (white) and wrote the title in the detail
+   pen (blue), and ghosted an inactive one in a halftone; the close gadget sat at the left, the
+   back and front gadgets at the right, and a scroll bar's two arrows together at its end. The
+   ROM font was Topaz, 8 or 9 point. */
+
+html:root[data-look="workbench"] {
+  --font: Topaz, "Topaz a500a", "TopazPlus a500a", "Amiga Topaz", "Amiga Forever", var(--mono-font) !important;
+  --shadow: none;
+}
+html:root[data-look="workbench"] body {
+  background: #0055aa;
+}
+/* Window frames: a blue outer line and a white inner line, on any theme background. The white
+   line is an outline, not an inset shadow: the tabs, rows and footer fill the pane and would
+   cover a shadow. */
+html:root[data-look="workbench"] :is(.pane, .side, .cmdline) {
+  border: 2px solid #0055aa;
+  outline: 1px solid #ffffff;
+  outline-offset: -3px;
+}
+html:root[data-look="workbench"] .pane.drag-over {
+  outline: 2px dashed #ff8800;
+}
+html:root[data-look="workbench"] :is(.dialog, .settings, .dupes) {
+  border: 1px solid #0055aa;
+  outline: 2px solid #ffffff;
+  box-shadow: 0 0 0 3px #0055aa;
+}
+/* Title bars: white with blue text; the inactive pane's is ghosted in a halftone. */
+html:root[data-look="workbench"] :is(.dialog > h2:first-child, .settings > header, .dupes > header) {
+  display: flex;
+  align-items: center;
+  color: #0055aa;
+  background: #ffffff;
+  border: 0;
+}
+html:root[data-look="workbench"] .dialog > h2:first-child {
+  gap: 8px;
+  margin: -16px -18px 0;
+  padding: 3px 6px;
+}
+html:root[data-look="workbench"] .dialog.search > h2:first-child {
+  margin: -10px -12px 0;
+}
+html:root[data-look="workbench"] :is(.settings, .dupes) > header :is(button, h2) {
+  color: #0055aa;
+}
+/* The close gadget at the left (a square with a square in it) and, at the right, one pair of
+   overlapping squares for the back and front gadgets, drawn with rings and rectangles. */
+html:root[data-look="workbench"] :is(.dialog > h2:first-child, .settings > header, .dupes > header)::before {
+  content: "";
+  flex: none;
+  width: 14px;
+  height: 14px;
+  box-shadow: inset 0 0 0 1px #0055aa, inset 0 0 0 4px #ffffff, inset 0 0 0 7px #0055aa;
+}
+html:root[data-look="workbench"] :is(.dialog > h2:first-child, .settings > header, .dupes > header)::after {
+  content: "";
+  flex: none;
+  width: 22px;
+  height: 16px;
+  margin-inline-start: auto;
+  background:
+    linear-gradient(#ffffff, #ffffff) calc(100% - 1px) calc(100% - 1px) / 11px 8px no-repeat,
+    linear-gradient(#0055aa, #0055aa) 100% 100% / 13px 10px no-repeat,
+    linear-gradient(#ffffff, #ffffff) 1px 1px / 11px 8px no-repeat,
+    linear-gradient(#0055aa, #0055aa) 0 0 / 13px 10px no-repeat;
+}
+html:root[data-look="workbench"] .pane .tabs {
+  background: repeating-conic-gradient(#ffffff 0 25%, #0055aa 0 50%) 0 0 / 2px 2px;
+}
+html:root[data-look="workbench"] .pane.active .tabs {
+  background: #ffffff;
+}
+html:root[data-look="workbench"] :is(.tab, .newtab) {
+  color: #0055aa;
+  background: #ffffff;
+}
+html:root[data-look="workbench"] .tab.current {
+  color: #000000;
+  font-weight: bold;
+}
+/* Gadgets: white boxes with a black line, orange when lit. */
+html:root[data-look="workbench"] :is(.keybar button, .buttons button, .settings footer button, .settings .lang, .settings .theme, .dupes button, .head button, .modes button) {
+  color: #000000;
+  background: #ffffff;
+  border: 1px solid #000000;
+}
+html:root[data-look="workbench"] :is(.buttons .primary, .settings .primary, .dupes .primary, .settings :is(.lang, .theme).on) {
+  color: #000000;
+  background: #ff8800;
+}
+/* Scroll bars: a blue track, a white knob, both arrows together at the end as in 1.x. */
+html:root[data-look="workbench"] *::-webkit-scrollbar {
+  width: 16px;
+  height: 16px;
+  background: #0055aa;
+  box-shadow: inset 1px 1px #ffffff;
+}
+html:root[data-look="workbench"] *::-webkit-scrollbar-thumb {
+  background: #ffffff;
+  border: 0;
+  border-radius: 0;
+  box-shadow: inset 0 0 0 2px #0055aa;
+}
+html:root[data-look="workbench"] *::-webkit-scrollbar-button:start {
+  display: none;
+}
+html:root[data-look="workbench"] *::-webkit-scrollbar-button:end {
+  display: block;
+  width: 16px;
+  height: 16px;
+  background: #ffffff;
+  box-shadow: inset 0 0 0 1px #0055aa;
+}
+html:root[data-look="workbench"] *::-webkit-scrollbar-button:end:vertical:decrement {
+  background: conic-gradient(from 150deg at 50% 20%, #0055aa 0 60deg, transparent 0) 50% 50% / 8px 8px no-repeat #ffffff;
+}
+html:root[data-look="workbench"] *::-webkit-scrollbar-button:end:vertical:increment {
+  background: conic-gradient(from 330deg at 50% 80%, #0055aa 0 60deg, transparent 0) 50% 50% / 8px 8px no-repeat #ffffff;
+}
+html:root[data-look="workbench"] *::-webkit-scrollbar-button:end:horizontal:decrement {
+  background: conic-gradient(from 60deg at 20% 50%, #0055aa 0 60deg, transparent 0) 50% 50% / 8px 8px no-repeat #ffffff;
+}
+html:root[data-look="workbench"] *::-webkit-scrollbar-button:end:horizontal:increment {
+  background: conic-gradient(from 240deg at 80% 50%, #0055aa 0 60deg, transparent 0) 50% 50% / 8px 8px no-repeat #ffffff;
+}
+
+/* ------------------------------------------------------------------ Atari ST GEM */
+/* TOS on a medium-resolution ST: white windows with one-pixel black frames on the desktop's
+   green, the top window's mover bar in the AES's 50% dither with the title on a white patch
+   after the close box, white square buttons, the default one with the thick frame GEM gives it.
+   Black and white are the ST palette's $000 and $777, the green its medium-res default colour
+   2, $070 (3 bits a channel, 7 = full), so #00ff00. The dither is pixels in a checker; on a
+   colour monitor medium-res pixels are twice as tall as wide, so it showed as fine vertical
+   lines, which is what is drawn here (axis-aligned, so WebKit keeps it crisp). */
+
+html:root[data-look="gem"] {
+  --font: "Atari ST 8x16 System Font", var(--mono-font) !important;
+  --shadow: none;
+  --dither: repeating-linear-gradient(90deg, #000000 0 1px, #ffffff 1px 2px);
+}
+html:root[data-look="gem"] body {
+  background: #00ff00;
+}
+html:root[data-look="gem"] :is(.pane, .side, .cmdline, .dialog, .settings, .dupes) {
+  border: 1px solid #000000;
+}
+/* The mover bar: dithered on the top window, plain white on the others. */
+html:root[data-look="gem"] .pane .tabs {
+  background: #ffffff;
+}
+html:root[data-look="gem"] :is(.settings, .dupes) > header,
+html:root[data-look="gem"] .pane.active .tabs {
+  background: var(--dither) 0 3px / 100% calc(100% - 6px) no-repeat, #ffffff;
+}
+/* The title on a white patch of its own width, the close box before it, at the left as in GEM;
+   black on the white whatever the theme's tab and dialog text colours are. */
+html:root[data-look="gem"] :is(.settings, .dupes) > header h2,
+html:root[data-look="gem"] .tab {
+  color: #000000;
+  background: #ffffff;
+  padding-inline: 8px;
+}
+html:root[data-look="gem"] :is(.settings, .dupes) > header h2 {
+  flex: none;
+}
+html:root[data-look="gem"] :is(.settings, .dupes) > header .x,
+html:root[data-look="gem"] .newtab {
+  color: #000000;
+  background: #ffffff;
+  border: 1px solid #000000;
+  border-radius: 0;
+}
+html:root[data-look="gem"] :is(.settings, .dupes) > header .x {
+  order: -1;
+}
+html:root[data-look="gem"] :is(.keybar button, .buttons button, .settings footer button, .settings .lang, .settings .theme, .dupes button, .head button, .modes button) {
+  color: #000000;
+  background: #ffffff;
+  border: 1px solid #000000;
+  border-radius: 0;
+}
+/* The default button: GEM draws its frame three pixels thick. */
+html:root[data-look="gem"] :is(.buttons .primary, .settings .primary, .dupes .primary) {
+  color: #000000;
+  background: #ffffff;
+  box-shadow: 0 0 0 2px #000000;
+}
+/* Scroll bars: white track, boxed arrows, a dithered elevator. */
+html:root[data-look="gem"] *::-webkit-scrollbar {
+  width: 16px;
+  height: 16px;
+  background: #ffffff;
+  border-left: 1px solid #000000;
+}
+html:root[data-look="gem"] *::-webkit-scrollbar-thumb {
+  background: var(--dither);
+  border: 1px solid #000000;
+  border-radius: 0;
+}
+/* One arrow box at each end: WebKit lays out two at both ends once the buttons have a size. */
+html:root[data-look="gem"] *::-webkit-scrollbar-button {
+  width: 16px;
+  height: 16px;
+  background: #ffffff center / 7px 7px no-repeat;
+  border: 1px solid #000000;
+}
+html:root[data-look="gem"] *::-webkit-scrollbar-button:start:increment,
+html:root[data-look="gem"] *::-webkit-scrollbar-button:end:decrement {
+  display: none;
+}
+html:root[data-look="gem"] *::-webkit-scrollbar-button:vertical:decrement {
+  background-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'><path d='M4 0 8 8H0z'/></svg>");
+}
+html:root[data-look="gem"] *::-webkit-scrollbar-button:vertical:increment {
+  background-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'><path d='M0 0h8L4 8z'/></svg>");
+}
+html:root[data-look="gem"] *::-webkit-scrollbar-button:horizontal:decrement {
+  background-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'><path d='M8 0v8L0 4z'/></svg>");
+}
+html:root[data-look="gem"] *::-webkit-scrollbar-button:horizontal:increment {
+  background-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'><path d='M0 0l8 4-8 4z'/></svg>");
+}
+
+/* ------------------------------------------------------------------ NeXTSTEP 3 */
+/* The four greys of the NeXT MegaPixel Display's 2-bit palette, as AppKit named them: NX_WHITE
+   1.0 (#ffffff), NX_LTGRAY 0.667 (#aaaaaa), NX_DKGRAY 0.333 (#555555) and NX_BLACK 0.0
+   (#000000). Window faces in light grey, bevels white top-left and dark grey bottom-right inside
+   a black edge; the key window's title bar black with white bold text and the face's white
+   highlight showing under it. A pressed button goes white, as NeXT's did. The desktop is the
+   dark grey. The default button's Return glyph is left out. */
+
+html:root[data-look="next"] {
+  --font: Helvetica, "Helvetica Neue", Arial, sans-serif !important;
+  --shadow: inset 1px 1px #ffffff, inset -1px -1px #555555;
+  --bevel-out: inset 1px 1px #ffffff, inset -1px -1px #555555;
+  --bevel-in: inset 1px 1px #555555, inset -1px -1px #ffffff;
+}
+html:root[data-look="next"] body {
+  background: #555555;
+}
+html:root[data-look="next"] :is(.pane, .side, .cmdline, input:not([type="checkbox"], .cmd), select, textarea) {
+  border: 1px solid #000000;
+  box-shadow: var(--bevel-in);
+}
+html:root[data-look="next"] :is(.dialog, .settings, .dupes) {
+  border: 1px solid #000000;
+  background: #aaaaaa;
+}
+html:root[data-look="next"] .dialog > h2:first-child {
+  margin: -16px -18px 0;
+  padding: 3px 8px;
+}
+html:root[data-look="next"] .dialog.search > h2:first-child {
+  margin: -10px -12px 0;
+}
+html:root[data-look="next"] :is(.dialog > h2:first-child, .settings > header, .dupes > header) {
+  color: #ffffff;
+  background: #000000;
+  font-weight: bold;
+  border: 0;
+  border-bottom: 1px solid #ffffff;
+  justify-content: center;
+  text-align: center;
+}
+html:root[data-look="next"] :is(.settings, .dupes) > header :is(button, h2) {
+  color: #ffffff;
+}
+html:root[data-look="next"] :is(.keybar button, .buttons button, .settings footer button, .settings .lang, .settings .theme, .dupes button, .head button, .modes button) {
+  color: #000000;
+  background: #aaaaaa;
+  border: 1px solid #000000;
+  box-shadow: var(--bevel-out);
+}
+html:root[data-look="next"] :is(.keybar button, .buttons button, .dupes button, .settings button):active,
+html:root[data-look="next"] .settings :is(.lang, .theme).on {
+  background: #ffffff;
+  box-shadow: var(--bevel-in);
+}
+html:root[data-look="next"] .tabs {
+  background: #aaaaaa;
+}
+html:root[data-look="next"] .tab.current {
+  background: #aaaaaa;
+  box-shadow: var(--bevel-out);
+}
+/* NeXT put the vertical scroll bar on the left; ours stays on the right, where WebKit draws it.
+   The slot is the dark stipple a 2-bit display made of a mid grey; the knob is the light grey
+   face with its bevel and a dimple. */
+html:root[data-look="next"] *::-webkit-scrollbar {
+  width: 16px;
+  height: 16px;
+  background: repeating-conic-gradient(#555555 0 25%, #aaaaaa 0 50%) 0 0 / 2px 2px;
+}
+html:root[data-look="next"] *::-webkit-scrollbar-thumb {
+  background: radial-gradient(circle, #555555 2px, #ffffff 3px, #aaaaaa 4px);
+  border: 0;
+  border-radius: 0;
+  box-shadow: var(--bevel-out);
+}
+
+/* ------------------------------------------------------------------ BeOS R5 */
+/* Be's interface kit colours (InterfaceDefs.h): panel 216,216,216, window tab 255,203,0, desktop
+   51,102,152, inactive tab 232. Its other greys are tint_color() of the panel: lighten 1 #dfdfdf,
+   lighten 2 #efefef, darken 1 #b8b8b8, darken 2 #989898, darken 3 #787878, darken 4 #585858; of
+   the tab: lighten 2 #ffea9c, darken 1 #d9ad00, darken 3 #8e7100. The R5 window frame is a
+   152 line, a white highlight and a 96 inner line (Haiku's DefaultDecorator copies it). Swis721
+   BT is Be's Swiss 721: Helvetica-like, a little wider. */
+
+html:root[data-look="beos"] {
+  --font: "Swis721 BT", "DejaVu Sans", Verdana, sans-serif !important;
+  --r-lg: 0;
+  --r: 0;
+  --r-sm: 3px;
+  --r-pill: 3px;
+  --shadow: inset 1px 1px #ffffff;
+  --bevel-out: inset 1px 1px #ffffff, inset -1px -1px #989898;
+  --bevel-in: inset 1px 1px #989898, inset -1px -1px #ffffff;
+}
+html:root[data-look="beos"] body {
+  background: #336698;
+}
+html:root[data-look="beos"] :is(.pane:not(.active), .side, .cmdline, .dialog, .settings, .dupes) {
+  border: 1px solid #989898;
+}
+html:root[data-look="beos"] :is(.side, .cmdline) {
+  box-shadow: var(--shadow);
+}
+html:root[data-look="beos"] :is(.dialog, .settings, .dupes) {
+  background: #d8d8d8;
+}
+/* The yellow tab at the left of the window top: close square, title, zoom square. */
+html:root[data-look="beos"] :is(.dialog > h2:first-child, .settings > header h2, .dupes > header h2) {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+  margin-right: auto;
+  padding: 4px 10px;
+  color: #000000;
+  background: #ffcb00;
+  border: 1px solid #989898;
+  border-width: 0 1px 1px 0;
+  box-shadow: inset 1px 1px #ffea9c, inset -1px -1px #d9ad00;
+}
+html:root[data-look="beos"] .dialog > h2:first-child {
+  align-self: flex-start;
+  margin: -16px 0 0 -18px;
+}
+html:root[data-look="beos"] .dialog.search > h2:first-child {
+  margin: -10px 0 0 -12px;
+}
+html:root[data-look="beos"] :is(.settings, .dupes) > header {
+  align-items: stretch;
+  padding: 0 8px 0 0;
+  border-bottom: 1px solid #989898;
+}
+html:root[data-look="beos"] :is(.dialog > h2:first-child, .settings > header h2, .dupes > header h2)::before,
+html:root[data-look="beos"] :is(.dialog > h2:first-child, .settings > header h2, .dupes > header h2)::after {
+  content: "";
+  width: 12px;
+  height: 12px;
+  border: 1px solid #8e7100;
+  border-radius: 2px;
+  box-shadow: inset 1px 1px #ffea9c, inset -1px -1px #b38f00;
+}
+html:root[data-look="beos"] :is(.dialog > h2:first-child, .settings > header h2, .dupes > header h2)::after {
+  outline: 1px solid #8e7100;
+  outline-offset: -4px;
+}
+/* Buttons: a lighter face, a dark rounded border, darker still at the bottom and right. */
+html:root[data-look="beos"] :is(.keybar button, .buttons button, .settings footer button, .settings .lang, .settings .theme, .dupes button, .head button, .modes button) {
+  color: #000000;
+  background: #dfdfdf;
+  border: 1px solid #989898;
+  border-right-color: #787878;
+  border-bottom-color: #787878;
+  border-radius: 3px;
+  box-shadow: var(--bevel-out);
+}
+html:root[data-look="beos"] :is(.keybar button, .buttons button, .dupes button, .settings button):active,
+html:root[data-look="beos"] .settings :is(.lang, .theme).on {
+  background: #b8b8b8;
+  box-shadow: var(--bevel-in);
+}
+/* The default button: a thicker dark ring round it. */
+html:root[data-look="beos"] :is(.buttons .primary, .settings .primary, .dupes .primary) {
+  box-shadow: var(--bevel-out), 0 0 0 1px #d8d8d8, 0 0 0 3px #585858;
+}
+html:root[data-look="beos"] .tab.current {
+  color: #000000;
+  background: #ffcb00;
+  box-shadow: inset 1px 1px #ffea9c, inset -1px 0 #989898;
+}
+/* Be's scroll bars: 14 px (B_V_SCROLL_BAR_WIDTH), a grey knob with fine ribs across its middle. */
+html:root[data-look="beos"] *::-webkit-scrollbar {
+  width: 14px;
+  height: 14px;
+  background: #efefef;
+}
+html:root[data-look="beos"] *::-webkit-scrollbar-thumb {
+  background: repeating-linear-gradient(to bottom, #ffffff 0 1px, #989898 1px 2px, #d8d8d8 2px 3px) 50% 50% / 8px 9px no-repeat, #d8d8d8;
+  background-clip: padding-box;
+  border: 1px solid #989898;
+  border-radius: 3px;
+}
+html:root[data-look="beos"] *::-webkit-scrollbar-thumb:horizontal {
+  background: repeating-linear-gradient(to right, #ffffff 0 1px, #989898 1px 2px, #d8d8d8 2px 3px) 50% 50% / 9px 8px no-repeat, #d8d8d8;
 }

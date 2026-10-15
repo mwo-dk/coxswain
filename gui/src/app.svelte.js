@@ -116,7 +116,7 @@ export const themeName = (id) => (ui.cfg.builtin_themes.includes(id) ? t(`theme.
 export async function setTheme(name, save = false) {
   if (!ui.cfg.themes[name]) name = "cyber";
   ui.theme = name;
-  applyTheme(ui.cfg.themes[name], ui.cfg.gui, ui.cfg.looks[name]);
+  applyTheme(ui.cfg.themes[name], ui.cfg.gui, ui.cfg.looks[name], ui.cfg.crt?.[name]);
   if (!save) return;
   try {
     ui.cfg = await invoke("save_settings", { changes: { theme: name } });

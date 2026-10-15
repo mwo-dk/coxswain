@@ -175,9 +175,10 @@ export function glob(pattern, name) {
 export const quote = (s) => (/^[\w\-./+,:@]+$/.test(s) ? s : `'${s.replaceAll("'", "'\\''")}'`);
 
 /** Theme slots become CSS variables: --panel-fg, --panel-bg, ... */
-export function applyTheme(theme, gui, look = "modern") {
-  // Shapes and chrome per look: looks.css.
+export function applyTheme(theme, gui, look = "modern", crt = false) {
+  // Shapes and chrome per look, and the tube (scanlines, glow) on top: looks.css.
   document.documentElement.dataset.look = look;
+  document.documentElement.toggleAttribute("data-crt", crt);
   const root = document.documentElement.style;
   for (const [slot, s] of Object.entries(theme)) {
     const name = slot.replaceAll("_", "-");

@@ -15,17 +15,32 @@ use crate::config::Glyphs;
 /// and the user (git-lfs, say) still holds.
 pub fn command(dir: &Path) -> Command {
     let mut c = crate::tools::command("git");
-    let no_hooks = if cfg!(windows) { "core.hooksPath=NUL" } else { "core.hooksPath=/dev/null" };
-    c.args(["-c", "core.fsmonitor=false", "-c", "log.showSignature=false", "-c", "protocol.allow=never", "-c", no_hooks, "-C"])
-        .arg(dir)
-        .env("GIT_OPTIONAL_LOCKS", "0")
-        .env("GIT_NO_LAZY_FETCH", "1")
-        .stdin(Stdio::null());
+    let no_hooks = if cfg!(windows) {
+        "core.hooksPath=NUL"
+    } else {
+        "core.hooksPath=/dev/null"
+    };
+    c.args([
+        "-c",
+        "core.fsmonitor=false",
+        "-c",
+        "log.showSignature=false",
+        "-c",
+        "protocol.allow=never",
+        "-c",
+        no_hooks,
+        "-C",
+    ])
+    .arg(dir)
+    .env("GIT_OPTIONAL_LOCKS", "0")
+    .env("GIT_NO_LAZY_FETCH", "1")
+    .stdin(Stdio::null());
     // As environment, not `-c`: a driver's name may hold `=`, which `-c` would split at.
     let keys = repo_filters(dir);
     c.env("GIT_CONFIG_COUNT", keys.len().to_string());
     for (i, (key, value)) in keys.iter().enumerate() {
-        c.env(format!("GIT_CONFIG_KEY_{i}"), key).env(format!("GIT_CONFIG_VALUE_{i}"), value);
+        c.env(format!("GIT_CONFIG_KEY_{i}"), key)
+            .env(format!("GIT_CONFIG_VALUE_{i}"), value);
     }
     c
 }
@@ -35,7 +50,13 @@ pub(crate) fn repo_filters(dir: &Path) -> Vec<(String, &'static str)> {
     let out = crate::tools::command("git")
         .arg("-C")
         .arg(dir)
-        .args(["config", "--show-scope", "--name-only", "--get-regexp", r"^filter\."])
+        .args([
+            "config",
+            "--show-scope",
+            "--name-only",
+            "--get-regexp",
+            r"^filter\.",
+        ])
         .env("GIT_CONFIG_COUNT", "0")
         .stdin(Stdio::null())
         .output();
@@ -50,7 +71,18 @@ pub(crate) fn repo_filters(dir: &Path) -> Vec<(String, &'static str)> {
         .collect();
     drivers.sort();
     drivers.dedup();
-    drivers.iter().flat_map(|d| [("clean", ""), ("smudge", ""), ("process", ""), ("required", "false")].map(|(k, v)| (format!("filter.{d}.{k}"), v))).collect()
+    drivers
+        .iter()
+        .flat_map(|d| {
+            [
+                ("clean", ""),
+                ("smudge", ""),
+                ("process", ""),
+                ("required", "false"),
+            ]
+            .map(|(k, v)| (format!("filter.{d}.{k}"), v))
+        })
+        .collect()
 }
 
 /// Ordered by how loudly it should show; a directory takes the loudest of its contents.
@@ -101,7 +133,15 @@ pub fn operation(git_dir: &Path) -> Option<&'static str> {
     if has("rebase-merge") || (has("rebase-apply") && !has("rebase-apply/applying")) {
         return Some("rebase");
     }
-    [("MERGE_HEAD", "merge"), ("CHERRY_PICK_HEAD", "cherry_pick"), ("REVERT_HEAD", "revert"), ("BISECT_LOG", "bisect")].into_iter().find(|(f, _)| has(f)).map(|(_, op)| op)
+    [
+        ("MERGE_HEAD", "merge"),
+        ("CHERRY_PICK_HEAD", "cherry_pick"),
+        ("REVERT_HEAD", "revert"),
+        ("BISECT_LOG", "bisect"),
+    ]
+    .into_iter()
+    .find(|(f, _)| has(f))
+    .map(|(_, op)| op)
 }
 
 #[derive(Clone, Debug, Default, Serialize)]
@@ -127,11 +167,25 @@ impl Status {
                 .filter(|o| o.status.success())
                 .map(|o| o.stdout)
         };
-        let dirs = git(&["rev-parse", "--show-toplevel", "--absolute-git-dir", "--git-common-dir"])?;
+        let dirs = git(&[
+            "rev-parse",
+            "--show-toplevel",
+            "--absolute-git-dir",
+            "--git-common-dir",
+        ])?;
         let dirs = String::from_utf8_lossy(&dirs);
         let mut dirs = dirs.lines().map(PathBuf::from);
         let (root, git_dir, common) = (dirs.next()?, dirs.next()?, dir.join(dirs.next()?));
-        let out = git(&["status", "--porcelain=v2", "--branch", "--show-stash", "-z", "-unormal", "--ignored=matching", "--ignore-submodules=dirty"])?;
+        let out = git(&[
+            "status",
+            "--porcelain=v2",
+            "--branch",
+            "--show-stash",
+            "-z",
+            "-unormal",
+            "--ignored=matching",
+            "--ignore-submodules=dirty",
+        ])?;
         let mut st = Status::parse(&root, &String::from_utf8_lossy(&out));
         // A linked worktree's git folder is its own, under the common one's `worktrees`.
         let same = |a: &Path, b: &Path| a.canonicalize().ok() == b.canonicalize().ok();
@@ -143,7 +197,10 @@ impl Status {
     }
 
     pub fn parse(root: &Path, out: &str) -> Status {
-        let mut st = Status { root: root.to_path_buf(), ..Default::default() };
+        let mut st = Status {
+            root: root.to_path_buf(),
+            ..Default::default()
+        };
         let s = &mut st.summary;
         let mut records = out.split('\0');
         while let Some(rec) = records.next() {
@@ -205,8 +262,15 @@ impl Status {
             let abs = root.join(path.trim_end_matches('/'));
             st.files.insert(abs.clone(), FileStatus { kind, staged });
             if kind != Kind::Ignored {
-                for dir in abs.ancestors().skip(1).take_while(|d| d.starts_with(root) && *d != root) {
-                    let e = st.files.entry(dir.to_path_buf()).or_insert(FileStatus { kind, staged });
+                for dir in abs
+                    .ancestors()
+                    .skip(1)
+                    .take_while(|d| d.starts_with(root) && *d != root)
+                {
+                    let e = st
+                        .files
+                        .entry(dir.to_path_buf())
+                        .or_insert(FileStatus { kind, staged });
                     e.kind = e.kind.max(kind);
                     e.staged |= staged;
                 }
@@ -223,7 +287,11 @@ impl Status {
         path.ancestors()
             .skip(1)
             .take_while(|d| d.starts_with(&self.root))
-            .find_map(|d| self.files.get(d).filter(|s| matches!(s.kind, Kind::Untracked | Kind::Ignored)))
+            .find_map(|d| {
+                self.files
+                    .get(d)
+                    .filter(|s| matches!(s.kind, Kind::Untracked | Kind::Ignored))
+            })
             .copied()
     }
 
@@ -285,7 +353,9 @@ mod tests {
     #[cfg(unix)]
     #[test]
     fn git_status_never_runs_the_repository_filters() {
-        let Some(d) = crate::history::tests::repo("filter") else { return };
+        let Some(d) = crate::history::tests::repo("filter") else {
+            return;
+        };
         std::fs::write(d.join("a.txt"), "a\n").unwrap();
         std::fs::write(d.join(".gitattributes"), "* filter=ev\n").unwrap();
         crate::history::tests::add(&d);
@@ -297,7 +367,10 @@ mod tests {
         std::fs::write(d.join("a.txt"), "b\n").unwrap();
         let st = Status::read(&d).expect("status");
         assert!(!mark.exists(), "the repository's filter ran");
-        assert_eq!(st.files.get(&st.root.join("a.txt")).map(|f| f.kind), Some(Kind::Modified));
+        assert_eq!(
+            st.files.get(&st.root.join("a.txt")).map(|f| f.kind),
+            Some(Kind::Modified)
+        );
         std::fs::remove_dir_all(d).unwrap();
     }
 
@@ -320,8 +393,14 @@ mod tests {
         let root = Path::new("/r");
         let st = Status::parse(root, OUT);
         let s = &st.summary;
-        assert_eq!((s.branch.as_str(), s.ahead, s.behind, s.stash), ("main", 2, 1, 3));
-        assert_eq!((s.staged, s.modified, s.untracked, s.conflicts), (2, 1, 1, 1));
+        assert_eq!(
+            (s.branch.as_str(), s.ahead, s.behind, s.stash),
+            ("main", 2, 1, 3)
+        );
+        assert_eq!(
+            (s.staged, s.modified, s.untracked, s.conflicts),
+            (2, 1, 1, 1)
+        );
         let k = |p: &str| st.get(&root.join(p)).map(|f| f.kind);
         assert_eq!(k("src/lib.rs"), Some(Kind::Modified));
         assert_eq!(k("src/new file.rs"), Some(Kind::Added));
@@ -333,7 +412,10 @@ mod tests {
         assert_eq!(k("target/debug/x"), Some(Kind::Ignored));
         assert_eq!(k("README.md"), None);
         assert!(st.get(&root.join("src/new file.rs")).unwrap().staged);
-        assert_eq!(st.prompt(&Glyphs::ascii()), "git: main ^2 v1 +2 ~1 ?1 !1 $3");
+        assert_eq!(
+            st.prompt(&Glyphs::ascii()),
+            "git: main ^2 v1 +2 ~1 ?1 !1 $3"
+        );
     }
 
     #[test]

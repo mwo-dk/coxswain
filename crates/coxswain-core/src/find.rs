@@ -27,7 +27,13 @@ pub enum Kind {
 }
 
 impl Kind {
-    pub const EVERY: [Kind; 5] = [Kind::All, Kind::Names, Kind::InFiles, Kind::About, Kind::Ask];
+    pub const EVERY: [Kind; 5] = [
+        Kind::All,
+        Kind::Names,
+        Kind::InFiles,
+        Kind::About,
+        Kind::Ask,
+    ];
 
     /// The next kind (Tab), or the one before (Shift+Tab), round.
     pub fn next(self, back: bool) -> Kind {
@@ -180,7 +186,11 @@ impl Found {
 /// leading `?` Ask. English in every language, like `ext:`. The query without it.
 pub fn parse(input: &str) -> (Option<Kind>, &str) {
     let s = input.trim_start();
-    let prefix = |p: &str| s.get(..p.len()).filter(|h| h.eq_ignore_ascii_case(p)).map(|_| s[p.len()..].trim_start());
+    let prefix = |p: &str| {
+        s.get(..p.len())
+            .filter(|h| h.eq_ignore_ascii_case(p))
+            .map(|_| s[p.len()..].trim_start())
+    };
     if let Some(rest) = prefix("text:") {
         (Some(Kind::InFiles), rest)
     } else if let Some(rest) = prefix("about:") {
@@ -198,7 +208,11 @@ pub fn shape(query: &str) -> Shape {
     let question = q.ends_with('?');
     let body = q.trim_end_matches('?');
     let lower = body.to_lowercase();
-    if body.contains(['*', '?', '!', '|', '"', '/', '\\']) || ["ext:", "file:", "folder:", "case:"].iter().any(|k| lower.contains(k)) {
+    if body.contains(['*', '?', '!', '|', '"', '/', '\\'])
+        || ["ext:", "file:", "folder:", "case:"]
+            .iter()
+            .any(|k| lower.contains(k))
+    {
         return Shape::Syntax;
     }
     match body.split_whitespace().count() {
@@ -220,7 +234,8 @@ pub fn order(shape: Shape) -> [GroupId; 4] {
 /// Whether the Ask row shows: two words or more, or a question; never for name syntax.
 pub fn asks(query: &str) -> bool {
     let s = shape(query);
-    s == Shape::Question || (s == Shape::Long || query.split_whitespace().count() > 1) && s != Shape::Syntax
+    s == Shape::Question
+        || (s == Shape::Long || query.split_whitespace().count() > 1) && s != Shape::Syntax
 }
 
 /// Reciprocal rank fusion: a file scores `words / (k + its rank among the word hits)` plus
@@ -243,17 +258,30 @@ pub struct Words<'a> {
 }
 
 /// Chosen with the search-quality eval (docs/reference/performance.md, "Search quality").
-pub const WEIGHTS: Weights = Weights { k: 60.0, words: 1.0, some: 0.0, meaning: 2.0 };
+pub const WEIGHTS: Weights = Weights {
+    k: 60.0,
+    words: 1.0,
+    some: 0.0,
+    meaning: 2.0,
+};
 
 /// A hit's fused score: its weighted reciprocal rank in each list it is in.
 fn score(words: Words, meaning: &[Hit], w: Weights, h: &Hit) -> f32 {
     let rank = |list: &[Hit]| list.iter().position(|x| x.path == h.path);
-    let by_words = rank(words.hits).map_or(0.0, |r| if r < words.every { w.words } else { w.some } / (w.k + r as f32 + 1.0));
+    let by_words = rank(words.hits).map_or(
+        0.0,
+        |r| if r < words.every { w.words } else { w.some } / (w.k + r as f32 + 1.0),
+    );
     by_words + rank(meaning).map_or(0.0, |r| w.meaning / (w.k + r as f32 + 1.0))
 }
 
 /// `hits` best first by fused score; equal scores keep their order.
-fn by_score(words: Words, meaning: &[Hit], w: Weights, hits: impl Iterator<Item = Hit>) -> Vec<Hit> {
+fn by_score(
+    words: Words,
+    meaning: &[Hit],
+    w: Weights,
+    hits: impl Iterator<Item = Hit>,
+) -> Vec<Hit> {
     let mut v: Vec<(f32, Hit)> = hits.map(|h| (score(words, meaning, w, &h), h)).collect();
     v.sort_by(|a, b| b.0.total_cmp(&a.0));
     v.into_iter().map(|(_, h)| h).collect()
@@ -268,24 +296,74 @@ pub fn fuse(words: Words, meaning: &[Hit], w: Weights) -> (Vec<Hit>, Vec<Hit>, V
     let close = |h: &Hit| meaning.iter().any(|m| m.path == h.path);
     // A file with only some of the words stays when meaning agrees, or when there is no meaning.
     let kept = |(i, h): &(usize, &Hit)| *i < words.every || meaning.is_empty() || close(h);
-    let words_kept: Vec<Hit> = words.hits.iter().enumerate().filter(kept).map(|(_, h)| h.clone()).collect();
-    let only_meaning = || meaning.iter().filter(|h| !words.hits.iter().any(|x| x.path == h.path));
-    let in_files = by_score(words, meaning, w, words_kept.iter().filter(|h| !commit(h)).cloned());
-    let about = by_score(words, meaning, w, only_meaning().filter(|h| !commit(h)).cloned());
-    let history = by_score(words, meaning, w, words_kept.iter().chain(only_meaning()).filter(|h| commit(h)).cloned());
+    let words_kept: Vec<Hit> = words
+        .hits
+        .iter()
+        .enumerate()
+        .filter(kept)
+        .map(|(_, h)| h.clone())
+        .collect();
+    let only_meaning = || {
+        meaning
+            .iter()
+            .filter(|h| !words.hits.iter().any(|x| x.path == h.path))
+    };
+    let in_files = by_score(
+        words,
+        meaning,
+        w,
+        words_kept.iter().filter(|h| !commit(h)).cloned(),
+    );
+    let about = by_score(
+        words,
+        meaning,
+        w,
+        only_meaning().filter(|h| !commit(h)).cloned(),
+    );
+    let history = by_score(
+        words,
+        meaning,
+        w,
+        words_kept
+            .iter()
+            .chain(only_meaning())
+            .filter(|h| commit(h))
+            .cloned(),
+    );
     (in_files, about, history)
 }
 
 /// Every file of both lists once, best first by fused score: what the search-quality eval
 /// measures against words alone and meaning alone.
 pub fn fused(words: Words, meaning: &[Hit], w: Weights) -> Vec<Hit> {
-    by_score(words, meaning, w, words.hits.iter().chain(meaning.iter().filter(|h| !words.hits.iter().any(|x| x.path == h.path))).cloned())
+    by_score(
+        words,
+        meaning,
+        w,
+        words
+            .hits
+            .iter()
+            .chain(
+                meaning
+                    .iter()
+                    .filter(|h| !words.hits.iter().any(|x| x.path == h.path)),
+            )
+            .cloned(),
+    )
 }
 
 /// What Find looks for: names from `names`, words and meaning from `store` (or why there is
 /// none), below `scope` when given, `rows` hits per group at most. `text_roots`: the folders
 /// whose text is read.
-pub fn run(names: impl FnOnce(&str, usize) -> Results, store: Result<&Store, Off>, text_roots: &[PathBuf], query: &str, scope: Option<&Path>, kind: Kind, rows: usize) -> Found {
+pub fn run(
+    names: impl FnOnce(&str, usize) -> Results,
+    store: Result<&Store, Off>,
+    text_roots: &[PathBuf],
+    query: &str,
+    scope: Option<&Path>,
+    kind: Kind,
+    rows: usize,
+) -> Found {
     let (prefix, q) = parse(query);
     let kind = prefix.unwrap_or(kind);
     let mut found = Found::default();
@@ -295,7 +373,10 @@ pub fn run(names: impl FnOnce(&str, usize) -> Results, store: Result<&Store, Off
     let syntax = shape(q) == Shape::Syntax;
     if matches!(kind, Kind::All | Kind::Names) {
         let r = names(q, rows);
-        found.names = Group { hits: r.hits, total: r.total };
+        found.names = Group {
+            hits: r.hits,
+            total: r.total,
+        };
     }
     if kind == Kind::Names || kind == Kind::All && syntax {
         return found;
@@ -307,24 +388,49 @@ pub fn run(names: impl FnOnce(&str, usize) -> Results, store: Result<&Store, Off
             return found;
         }
     };
-    if let Some(dir) = scope.filter(|d| !text_roots.iter().any(|r| d.starts_with(r) || r.starts_with(d))) {
+    if let Some(dir) = scope.filter(|d| {
+        !text_roots
+            .iter()
+            .any(|r| d.starts_with(r) || r.starts_with(d))
+    }) {
         found.off.push(Off::NotRead(dir.to_path_buf()));
         return found;
     }
     // Each list deeper than shown, so the fusion has room.
     let deep = rows.saturating_mul(4);
-    let (words, every) = if kind == Kind::About { Default::default() } else { store.search_words(q, scope, deep) };
+    let (words, every) = if kind == Kind::About {
+        Default::default()
+    } else {
+        store.search_words(q, scope, deep)
+    };
     let meaning = if store.meaning.load(std::sync::atomic::Ordering::Relaxed) {
         store.similar(q, scope, deep)
     } else {
         found.off.push(Off::MeaningOff);
         vec![]
     };
-    if let Some(why) = store.meaning_error.lock().unwrap().clone().filter(|_| meaning.is_empty() && !found.off.contains(&Off::MeaningOff)) {
+    if let Some(why) = store
+        .meaning_error
+        .lock()
+        .unwrap()
+        .clone()
+        .filter(|_| meaning.is_empty() && !found.off.contains(&Off::MeaningOff))
+    {
         found.off.push(Off::MeaningError(why));
     }
-    let commits_found = words.hits.iter().filter(|h| crate::history::is_history(&h.path)).count();
-    let (in_files, about, history) = fuse(Words { hits: &words.hits, every }, &meaning, WEIGHTS);
+    let commits_found = words
+        .hits
+        .iter()
+        .filter(|h| crate::history::is_history(&h.path))
+        .count();
+    let (in_files, about, history) = fuse(
+        Words {
+            hits: &words.hits,
+            every,
+        },
+        &meaning,
+        WEIGHTS,
+    );
     let group = |mut hits: Vec<Hit>, total: usize| {
         let total = total.max(hits.len());
         hits.truncate(rows);
@@ -332,7 +438,11 @@ pub fn run(names: impl FnOnce(&str, usize) -> Results, store: Result<&Store, Off
     };
     // With the fallback to any of the words, the files meaning did not agree with are not shown:
     // the count is of those that are.
-    let with_words = if words.hits.len() > every { in_files.len() } else { words.total.saturating_sub(commits_found) };
+    let with_words = if words.hits.len() > every {
+        in_files.len()
+    } else {
+        words.total.saturating_sub(commits_found)
+    };
     found.in_files = group(in_files, with_words);
     found.about = group(about, 0);
     found.history = group(history, commits_found);
@@ -355,16 +465,33 @@ pub fn ask_ready(cfg: &SearchConfig) -> Result<(), Off> {
 #[serde(tag = "row", rename_all = "snake_case")]
 pub enum Row {
     /// Ask the query; `off` when Ask cannot be asked yet.
-    Ask { off: Option<Off> },
+    Ask {
+        off: Option<Off>,
+    },
     /// Ask's chat model is slow here: what to say, and the better one (Enter takes it).
-    Slow { poor: crate::setup::Poor },
+    Slow {
+        poor: crate::setup::Poor,
+    },
     /// A group's heading: how many of how many are shown.
-    Head { group: GroupId, shown: usize, total: usize },
-    Hit { group: GroupId, hit: Hit },
+    Head {
+        group: GroupId,
+        shown: usize,
+        total: usize,
+    },
+    Hit {
+        group: GroupId,
+        hit: Hit,
+    },
     /// More in the group than shown: Enter (or Tab) shows the group alone.
-    More { group: GroupId, n: usize },
+    More {
+        group: GroupId,
+        n: usize,
+    },
     /// Why the group has nothing, and its step.
-    Off { group: GroupId, off: Off },
+    Off {
+        group: GroupId,
+        off: Off,
+    },
 }
 
 impl Row {
@@ -381,7 +508,14 @@ pub const ALL_ROWS: usize = 5;
 /// each group with hits or a reason, in the order of the query's shape. `ask`: whether Ask can
 /// be asked; `slow`: Ask's chat model is a poor choice here (`setup::poor`), said under the
 /// Ask row; `dismissed`: the tips the user sent away.
-pub fn rows(query: &str, chip: Kind, found: &Found, ask: Result<(), Off>, slow: Option<&crate::setup::Poor>, dismissed: impl Fn(&str) -> bool) -> Vec<Row> {
+pub fn rows(
+    query: &str,
+    chip: Kind,
+    found: &Found,
+    ask: Result<(), Off>,
+    slow: Option<&crate::setup::Poor>,
+    dismissed: impl Fn(&str) -> bool,
+) -> Vec<Row> {
     let (prefix, q) = parse(query);
     let kind = prefix.unwrap_or(chip);
     let mut out = vec![];
@@ -417,17 +551,38 @@ pub fn rows(query: &str, chip: Kind, found: &Found, ask: Result<(), Off>, slow: 
                 _ => false,
             };
             for off in found.off.iter().filter(|o| mine(o) && shown(o)) {
-                out.push(Row::Head { group: g, shown: 0, total: 0 });
-                out.push(Row::Off { group: g, off: off.clone() });
+                out.push(Row::Head {
+                    group: g,
+                    shown: 0,
+                    total: 0,
+                });
+                out.push(Row::Off {
+                    group: g,
+                    off: off.clone(),
+                });
             }
             continue;
         }
-        let n = if kind == Kind::All { ALL_ROWS } else { usize::MAX };
+        let n = if kind == Kind::All {
+            ALL_ROWS
+        } else {
+            usize::MAX
+        };
         let shown = group.hits.len().min(n);
-        out.push(Row::Head { group: g, shown, total: group.total.max(group.hits.len()) });
-        out.extend(hits.by_ref().take(n).map(|h| Row::Hit { group: g, hit: h.clone() }));
+        out.push(Row::Head {
+            group: g,
+            shown,
+            total: group.total.max(group.hits.len()),
+        });
+        out.extend(hits.by_ref().take(n).map(|h| Row::Hit {
+            group: g,
+            hit: h.clone(),
+        }));
         if kind == Kind::All && group.total > shown {
-            out.push(Row::More { group: g, n: group.total - shown });
+            out.push(Row::More {
+                group: g,
+                n: group.total - shown,
+            });
         }
     }
     out
@@ -437,7 +592,16 @@ pub fn rows(query: &str, chip: Kind, found: &Found, ask: Result<(), Off>, slow: 
 pub fn start(query: &str, rows: &[Row]) -> usize {
     let (_, q) = parse(query);
     let ask = shape(q) == Shape::Question;
-    rows.iter().position(|r| if ask { matches!(r, Row::Ask { .. }) } else { matches!(r, Row::Hit { .. }) }).or_else(|| rows.iter().position(Row::selectable)).unwrap_or(0)
+    rows.iter()
+        .position(|r| {
+            if ask {
+                matches!(r, Row::Ask { .. })
+            } else {
+                matches!(r, Row::Hit { .. })
+            }
+        })
+        .or_else(|| rows.iter().position(Row::selectable))
+        .unwrap_or(0)
 }
 
 /// The next selectable row from `at`, `by` rows on (negative: back), within the list.
@@ -446,7 +610,10 @@ pub fn step(rows: &[Row], at: usize, by: isize) -> usize {
     if selectable.is_empty() {
         return 0;
     }
-    let here = selectable.iter().position(|&i| i >= at).unwrap_or(selectable.len() - 1);
+    let here = selectable
+        .iter()
+        .position(|&i| i >= at)
+        .unwrap_or(selectable.len() - 1);
     selectable[(here as isize + by).clamp(0, selectable.len() as isize - 1) as usize]
 }
 
@@ -461,7 +628,10 @@ pub fn footer(status: &crate::helper::Status) -> String {
     }
     if status.meaning && status.meaning_pending > 0 {
         let total = status.meaning_done + status.meaning_pending;
-        s += &format!(" · {}", t!("find.meaning_of", "n" => status.meaning_done, "total" => total, "percent" => crate::settings::percent(status.meaning_done, total)));
+        s += &format!(
+            " · {}",
+            t!("find.meaning_of", "n" => status.meaning_done, "total" => total, "percent" => crate::settings::percent(status.meaning_done, total))
+        );
     } else if status.meaning {
         s += &format!(" · {}", t!("find.meaning_for", "n" => status.meaning_done));
     }
@@ -471,8 +641,15 @@ pub fn footer(status: &crate::helper::Status) -> String {
     if status.paused {
         s += &format!(" · {}", t!("find.paused"));
     }
-    if status.meaning && status.meaning_renewing > 0 && status.meaning_pending > 0 && status.meaning_ms_per_passage > 0 {
-        s += &format!(" · {}", t!("search.meaning_renewing", "n" => status.meaning_pending, "time" => crate::notices::time_left(status)));
+    if status.meaning
+        && status.meaning_renewing > 0
+        && status.meaning_pending > 0
+        && status.meaning_ms_per_passage > 0
+    {
+        s += &format!(
+            " · {}",
+            t!("search.meaning_renewing", "n" => status.meaning_pending, "time" => crate::notices::time_left(status))
+        );
     }
     // Reading that stalled says why, here where it is missed.
     if let Some(why) = &status.error {
@@ -494,7 +671,10 @@ pub fn read_too(cfg: &SearchConfig, dir: &Path) -> Vec<PathBuf> {
 /// "Read this folder too": `dir` added to the folders read in config.toml, and the config as
 /// it is now. The helper reads it once it starts again.
 pub fn save_read_too(cfg: &SearchConfig, dir: &Path) -> Result<crate::config::Config, String> {
-    let roots: toml_edit::Array = read_too(cfg, dir).iter().map(|p| p.display().to_string()).collect();
+    let roots: toml_edit::Array = read_too(cfg, dir)
+        .iter()
+        .map(|p| p.display().to_string())
+        .collect();
     crate::config::Config::save_value(&["search", "text_roots"], toml_edit::Value::Array(roots))
 }
 
@@ -503,7 +683,12 @@ mod tests {
     use super::*;
 
     fn hit(p: &str) -> Hit {
-        Hit { path: PathBuf::from(p), is_dir: false, snippet: Some(p.into()), similar: None }
+        Hit {
+            path: PathBuf::from(p),
+            is_dir: false,
+            snippet: Some(p.into()),
+            similar: None,
+        }
     }
 
     fn paths(v: &[Hit]) -> Vec<String> {
@@ -512,17 +697,30 @@ mod tests {
 
     #[test]
     fn find_parse_prefixes() {
-        assert_eq!(parse("text: rocket fuel"), (Some(Kind::InFiles), "rocket fuel"));
+        assert_eq!(
+            parse("text: rocket fuel"),
+            (Some(Kind::InFiles), "rocket fuel")
+        );
         assert_eq!(parse("ABOUT:brændstof"), (Some(Kind::About), "brændstof"));
-        assert_eq!(parse("? what does it cost"), (Some(Kind::Ask), "what does it cost"));
-        assert_eq!(parse("a?c.txt"), (None, "a?c.txt"), "a ? in the middle stays a wildcard");
+        assert_eq!(
+            parse("? what does it cost"),
+            (Some(Kind::Ask), "what does it cost")
+        );
+        assert_eq!(
+            parse("a?c.txt"),
+            (None, "a?c.txt"),
+            "a ? in the middle stays a wildcard"
+        );
         assert_eq!(parse("ext:rs"), (None, "ext:rs"));
         assert_eq!(parse("texture"), (None, "texture"));
     }
 
     #[test]
     fn find_shape_of_queries() {
-        for q in ["*.rs", "ext:md", "src/ foo", "!test", "foo|bar", "\"a b\"", "a?c", "file: x", "case: X"] {
+        for q in [
+            "*.rs", "ext:md", "src/ foo", "!test", "foo|bar", "\"a b\"", "a?c", "file: x",
+            "case: X",
+        ] {
             assert_eq!(shape(q), Shape::Syntax, "{q}");
         }
         assert_eq!(shape("rocket"), Shape::Short);
@@ -533,22 +731,41 @@ mod tests {
         assert_eq!(order(Shape::Long)[0], GroupId::InFiles);
         assert_eq!(order(Shape::Short)[0], GroupId::Names);
         // The Ask row: two words or more, or a question; never name syntax, never one word.
-        assert!(!asks("rocket") && asks("rocket fuel") && asks("rocket?") && !asks("*.rs") && asks("rocket fuel cost"));
+        assert!(
+            !asks("rocket")
+                && asks("rocket fuel")
+                && asks("rocket?")
+                && !asks("*.rs")
+                && asks("rocket fuel cost")
+        );
     }
 
     #[test]
     fn find_fuse_by_rank() {
         let words = vec![hit("/a"), hit("/b"), hit("/c")];
         let meaning = vec![hit("/c"), hit("/d"), hit("/r/@history/abc")];
-        let all = |hits| Words { hits, every: usize::MAX };
+        let all = |hits| Words {
+            hits,
+            every: usize::MAX,
+        };
         let (in_files, about, history) = fuse(all(&words), &meaning, WEIGHTS);
         // c has the words and is closest in meaning: it rises above a and b.
         assert_eq!(paths(&in_files), ["/c", "/a", "/b"]);
         assert_eq!(paths(&about), ["/d"], "found by meaning alone");
-        assert!(in_files[0].snippet.as_deref() == Some("/c"), "the word snippet is kept");
-        assert_eq!(paths(&history), ["/r/@history/abc"], "a commit goes to History");
+        assert!(
+            in_files[0].snippet.as_deref() == Some("/c"),
+            "the word snippet is kept"
+        );
+        assert_eq!(
+            paths(&history),
+            ["/r/@history/abc"],
+            "a commit goes to History"
+        );
         // A file with only some of the words stays when meaning finds it too, or meaning is off.
-        let some = |every| Words { hits: &words, every };
+        let some = |every| Words {
+            hits: &words,
+            every,
+        };
         assert_eq!(paths(&fuse(some(1), &[hit("/b")], WEIGHTS).0), ["/b", "/a"]);
         assert_eq!(paths(&fuse(some(1), &[], WEIGHTS).0), ["/a", "/b", "/c"]);
         // Ties keep the word order.
@@ -559,44 +776,161 @@ mod tests {
     #[test]
     fn find_rows_follow_the_shape() {
         let found = Found {
-            names: Group { hits: (0..7).map(|i| hit(&format!("/n{i}"))).collect(), total: 9 },
-            in_files: Group { hits: vec![hit("/w")], total: 1 },
+            names: Group {
+                hits: (0..7).map(|i| hit(&format!("/n{i}"))).collect(),
+                total: 9,
+            },
+            in_files: Group {
+                hits: vec![hit("/w")],
+                total: 1,
+            },
             off: vec![Off::MeaningOff],
             ..Found::default()
         };
         let none = |_: &str| false;
         let r = rows("rocket", Kind::All, &found, Ok(()), None, none);
-        assert!(matches!(r[0], Row::Head { group: GroupId::Names, shown: 5, total: 9 }), "{r:?}");
-        assert_eq!(r.iter().filter(|r| matches!(r, Row::Hit { group: GroupId::Names, .. })).count(), 5);
-        assert!(r.contains(&Row::More { group: GroupId::Names, n: 4 }));
-        assert!(r.contains(&Row::Off { group: GroupId::About, off: Off::MeaningOff }));
-        assert!(!r.iter().any(|r| matches!(r, Row::Ask { .. })), "one word: no Ask row");
+        assert!(
+            matches!(
+                r[0],
+                Row::Head {
+                    group: GroupId::Names,
+                    shown: 5,
+                    total: 9
+                }
+            ),
+            "{r:?}"
+        );
+        assert_eq!(
+            r.iter()
+                .filter(|r| matches!(
+                    r,
+                    Row::Hit {
+                        group: GroupId::Names,
+                        ..
+                    }
+                ))
+                .count(),
+            5
+        );
+        assert!(r.contains(&Row::More {
+            group: GroupId::Names,
+            n: 4
+        }));
+        assert!(r.contains(&Row::Off {
+            group: GroupId::About,
+            off: Off::MeaningOff
+        }));
+        assert!(
+            !r.iter().any(|r| matches!(r, Row::Ask { .. })),
+            "one word: no Ask row"
+        );
         assert_eq!(start("rocket", &r), 1);
         // Long: words first, the Ask row on top; a question starts on it.
-        let r = rows("rocket fuel cost", Kind::All, &found, Err(Off::AskNoModel), None, none);
-        assert_eq!(r[0], Row::Ask { off: Some(Off::AskNoModel) });
-        assert!(matches!(r[1], Row::Head { group: GroupId::InFiles, .. }));
+        let r = rows(
+            "rocket fuel cost",
+            Kind::All,
+            &found,
+            Err(Off::AskNoModel),
+            None,
+            none,
+        );
+        assert_eq!(
+            r[0],
+            Row::Ask {
+                off: Some(Off::AskNoModel)
+            }
+        );
+        assert!(matches!(
+            r[1],
+            Row::Head {
+                group: GroupId::InFiles,
+                ..
+            }
+        ));
         assert_eq!(start("rocket fuel cost", &r), 2);
-        assert_eq!(start("rocket fuel cost?", &rows("rocket fuel cost?", Kind::All, &found, Ok(()), None, none)), 0);
+        assert_eq!(
+            start(
+                "rocket fuel cost?",
+                &rows("rocket fuel cost?", Kind::All, &found, Ok(()), None, none)
+            ),
+            0
+        );
         // A slow chat model is said under the Ask row, when Ask can be asked.
-        let poor = crate::setup::Poor { ask: true, text: "slow".into(), short: "slow".into(), button: None, changes: Default::default(), tip: false };
-        let r = rows("rocket fuel cost", Kind::All, &found, Ok(()), Some(&poor), none);
-        assert_eq!((&r[0], &r[1]), (&Row::Ask { off: None }, &Row::Slow { poor: poor.clone() }));
-        assert!(!rows("rocket fuel cost", Kind::All, &found, Err(Off::AskNoModel), Some(&poor), none).iter().any(|r| matches!(r, Row::Slow { .. })));
+        let poor = crate::setup::Poor {
+            ask: true,
+            text: "slow".into(),
+            short: "slow".into(),
+            button: None,
+            changes: Default::default(),
+            tip: false,
+        };
+        let r = rows(
+            "rocket fuel cost",
+            Kind::All,
+            &found,
+            Ok(()),
+            Some(&poor),
+            none,
+        );
+        assert_eq!(
+            (&r[0], &r[1]),
+            (&Row::Ask { off: None }, &Row::Slow { poor: poor.clone() })
+        );
+        assert!(
+            !rows(
+                "rocket fuel cost",
+                Kind::All,
+                &found,
+                Err(Off::AskNoModel),
+                Some(&poor),
+                none
+            )
+            .iter()
+            .any(|r| matches!(r, Row::Slow { .. }))
+        );
         // Dismissed tips go, in All.
-        let r = rows("rocket fuel cost", Kind::All, &found, Err(Off::AskNoModel), None, |id| id == "find-ask" || id == "find-about");
-        assert!(!r.iter().any(|r| matches!(r, Row::Ask { .. } | Row::Off { .. })), "{r:?}");
+        let r = rows(
+            "rocket fuel cost",
+            Kind::All,
+            &found,
+            Err(Off::AskNoModel),
+            None,
+            |id| id == "find-ask" || id == "find-about",
+        );
+        assert!(
+            !r.iter()
+                .any(|r| matches!(r, Row::Ask { .. } | Row::Off { .. })),
+            "{r:?}"
+        );
         // One chip: its group alone, all of it; the Names chip never asks.
         let r = rows("rocket fuel", Kind::Names, &found, Ok(()), None, none);
         assert_eq!(r.iter().filter(|r| matches!(r, Row::Hit { .. })).count(), 7);
-        assert!(!r.iter().any(|r| matches!(r, Row::Ask { .. } | Row::More { .. })));
+        assert!(
+            !r.iter()
+                .any(|r| matches!(r, Row::Ask { .. } | Row::More { .. }))
+        );
         // A prefix wins over the chip.
         let r = rows("text: rocket", Kind::Names, &found, Ok(()), None, none);
-        assert!(r.iter().all(|r| !matches!(r, Row::Hit { group: GroupId::Names, .. })));
+        assert!(r.iter().all(|r| !matches!(
+            r,
+            Row::Hit {
+                group: GroupId::Names,
+                ..
+            }
+        )));
         // The cursor steps over headings.
         let r = rows("rocket", Kind::All, &found, Ok(()), None, none);
-        let after_names = r.iter().position(|r| matches!(r, Row::More { .. })).unwrap();
-        assert!(matches!(r[step(&r, after_names, 1)], Row::Hit { group: GroupId::InFiles, .. }));
+        let after_names = r
+            .iter()
+            .position(|r| matches!(r, Row::More { .. }))
+            .unwrap();
+        assert!(matches!(
+            r[step(&r, after_names, 1)],
+            Row::Hit {
+                group: GroupId::InFiles,
+                ..
+            }
+        ));
         assert_eq!(step(&r, 1, -5), 1);
     }
 
@@ -609,7 +943,10 @@ mod tests {
         cfg.ask_model = "qwen3:8b".into();
         assert_eq!(ask_ready(&cfg), Ok(()));
         cfg.text_roots = vec![PathBuf::from("/home/u")];
-        assert_eq!(read_too(&cfg, Path::new("/mnt/a")), [PathBuf::from("/home/u"), PathBuf::from("/mnt/a")]);
+        assert_eq!(
+            read_too(&cfg, Path::new("/mnt/a")),
+            [PathBuf::from("/home/u"), PathBuf::from("/mnt/a")]
+        );
         assert_eq!(read_too(&cfg, Path::new("/home/u")).len(), 1);
     }
 }

@@ -27,8 +27,17 @@ pub struct Planned {
 /// 1-based position in `selected`, `{n:3}` zero-pads it to 3 digits.
 /// Conflicts: an empty result, a path separator, two files mapping to the same name, or a
 /// name taken by a file that is not itself being renamed away.
-pub fn plan(selected: &[String], existing: &[String], pattern: &str, replacement: &str, flags: Flags) -> Result<Vec<Planned>, String> {
-    let re = regex::RegexBuilder::new(pattern).case_insensitive(flags.case_insensitive).build().map_err(|e| e.to_string())?;
+pub fn plan(
+    selected: &[String],
+    existing: &[String],
+    pattern: &str,
+    replacement: &str,
+    flags: Flags,
+) -> Result<Vec<Planned>, String> {
+    let re = regex::RegexBuilder::new(pattern)
+        .case_insensitive(flags.case_insensitive)
+        .build()
+        .map_err(|e| e.to_string())?;
     let counter = regex::Regex::new(r"\{n(?::(\d+))?\}").expect("valid");
     let numbered = regex::Regex::new(r"\$(\d+)").expect("valid");
     let mut out: Vec<Planned> = selected
@@ -46,14 +55,28 @@ pub fn plan(selected: &[String], existing: &[String], pattern: &str, replacement
                 Some(d) if d > 0 && !flags.whole_name => (&from[..d], &from[d..]),
                 _ => (from.as_str(), ""),
             };
-            let stem = if flags.global { re.replace_all(stem, rep.as_ref()) } else { re.replace(stem, rep.as_ref()) };
-            Planned { from: from.clone(), to: format!("{stem}{ext}"), conflict: None }
+            let stem = if flags.global {
+                re.replace_all(stem, rep.as_ref())
+            } else {
+                re.replace(stem, rep.as_ref())
+            };
+            Planned {
+                from: from.clone(),
+                to: format!("{stem}{ext}"),
+                conflict: None,
+            }
         })
         .collect();
 
     // A name is free if nobody else ends up with it; files not selected keep theirs. Where the
     // disk does not mind the case, `A.txt` is `a.txt`: the rename would write over it.
-    let key = |name: &str| if cfg!(any(windows, target_os = "macos")) { name.to_lowercase() } else { name.to_string() };
+    let key = |name: &str| {
+        if cfg!(any(windows, target_os = "macos")) {
+            name.to_lowercase()
+        } else {
+            name.to_string()
+        }
+    };
     let chosen: HashSet<&str> = selected.iter().map(String::as_str).collect();
     let mut taken: HashMap<String, usize> = HashMap::new();
     for name in existing.iter().filter(|n| !chosen.contains(n.as_str())) {
@@ -81,11 +104,17 @@ pub fn plan(selected: &[String], existing: &[String], pattern: &str, replacement
 /// still under temporary names get their old names back.
 pub fn apply(dir: &Path, plan: &[Planned]) -> Result<(), String> {
     if let Some(p) = plan.iter().find(|p| p.conflict.is_some()) {
-        return Err(format!("{}: {}", p.from, p.conflict.as_deref().unwrap_or("")));
+        return Err(format!(
+            "{}: {}",
+            p.from,
+            p.conflict.as_deref().unwrap_or("")
+        ));
     }
     let moves: Vec<&Planned> = plan.iter().filter(|p| p.from != p.to).collect();
     let tmp = |i: usize| dir.join(format!(".coxswain-rename-{}-{i}", std::process::id()));
-    let back = |from: usize, to: usize| (from..to).for_each(|j| drop(std::fs::rename(tmp(j), dir.join(&moves[j].from))));
+    let back = |from: usize, to: usize| {
+        (from..to).for_each(|j| drop(std::fs::rename(tmp(j), dir.join(&moves[j].from))))
+    };
     for (i, p) in moves.iter().enumerate() {
         if let Err(e) = std::fs::rename(dir.join(&p.from), tmp(i)) {
             back(0, i);
@@ -124,13 +153,41 @@ mod tests {
     #[test]
     fn rename_groups_counter_flags() {
         let names = s(&["a-b.txt", "c-d.txt"]);
-        let p = plan(&names, &names, r"(\w)-(\w)", "$2_$1_{n:2}", Flags::default()).unwrap();
+        let p = plan(
+            &names,
+            &names,
+            r"(\w)-(\w)",
+            "$2_$1_{n:2}",
+            Flags::default(),
+        )
+        .unwrap();
         assert_eq!(tos(&p), ["b_a_01.txt", "d_c_02.txt"]);
-        let p = plan(&s(&["aaa.md"]), &s(&["aaa.md"]), "A", "x", Flags { case_insensitive: true, global: true, whole_name: false }).unwrap();
+        let p = plan(
+            &s(&["aaa.md"]),
+            &s(&["aaa.md"]),
+            "A",
+            "x",
+            Flags {
+                case_insensitive: true,
+                global: true,
+                whole_name: false,
+            },
+        )
+        .unwrap();
         assert_eq!(tos(&p), ["xxx.md"]);
         let p = plan(&s(&["aaa.md"]), &s(&["aaa.md"]), "a", "x", Flags::default()).unwrap();
         assert_eq!(tos(&p), ["xaa.md"]);
-        let p = plan(&s(&["x.tar.gz"]), &s(&["x.tar.gz"]), r"\.tar\.gz$", ".tgz", Flags { whole_name: true, ..Default::default() }).unwrap();
+        let p = plan(
+            &s(&["x.tar.gz"]),
+            &s(&["x.tar.gz"]),
+            r"\.tar\.gz$",
+            ".tgz",
+            Flags {
+                whole_name: true,
+                ..Default::default()
+            },
+        )
+        .unwrap();
         assert_eq!(tos(&p), ["x.tgz"]);
         assert!(plan(&names, &names, "(", "", Flags::default()).is_err());
     }
@@ -139,15 +196,39 @@ mod tests {
     fn rename_conflicts() {
         let existing = s(&["a.txt", "b.txt", "keep.txt"]);
         // Both map to the same name.
-        let p = plan(&s(&["a.txt", "b.txt"]), &existing, ".*", "same", Flags::default()).unwrap();
+        let p = plan(
+            &s(&["a.txt", "b.txt"]),
+            &existing,
+            ".*",
+            "same",
+            Flags::default(),
+        )
+        .unwrap();
         assert!(p.iter().all(|x| x.conflict.is_some()));
         // Taken by a file that stays.
         let p = plan(&s(&["a.txt"]), &existing, "a", "keep", Flags::default()).unwrap();
         assert!(p[0].conflict.is_some());
         // Two selected files mapping to one name collide.
-        let p = plan(&s(&["a.txt", "b.txt"]), &existing, "^(a|b)$", "x", Flags::default()).unwrap();
+        let p = plan(
+            &s(&["a.txt", "b.txt"]),
+            &existing,
+            "^(a|b)$",
+            "x",
+            Flags::default(),
+        )
+        .unwrap();
         assert!(p.iter().all(|x| x.conflict.is_some()));
-        let p = plan(&s(&["a.txt"]), &existing, r"^a\.txt$", "", Flags { whole_name: true, ..Default::default() }).unwrap();
+        let p = plan(
+            &s(&["a.txt"]),
+            &existing,
+            r"^a\.txt$",
+            "",
+            Flags {
+                whole_name: true,
+                ..Default::default()
+            },
+        )
+        .unwrap();
         assert!(p[0].conflict.is_some(), "empty name");
         let p = plan(&s(&["a.txt"]), &existing, "a", "x/y", Flags::default()).unwrap();
         assert!(p[0].conflict.is_some(), "separator");
@@ -164,21 +245,55 @@ mod tests {
         std::fs::write(d.join("a"), "A").unwrap();
         std::fs::write(d.join("b"), "B").unwrap();
         let swap = vec![
-            Planned { from: "a".into(), to: "b".into(), conflict: None },
-            Planned { from: "b".into(), to: "a".into(), conflict: None },
+            Planned {
+                from: "a".into(),
+                to: "b".into(),
+                conflict: None,
+            },
+            Planned {
+                from: "b".into(),
+                to: "a".into(),
+                conflict: None,
+            },
         ];
         apply(&d, &swap).unwrap();
         assert_eq!(std::fs::read_to_string(d.join("a")).unwrap(), "B");
         assert_eq!(std::fs::read_to_string(d.join("b")).unwrap(), "A");
-        let bad = vec![Planned { from: "a".into(), to: "c".into(), conflict: Some("x".into()) }];
+        let bad = vec![Planned {
+            from: "a".into(),
+            to: "c".into(),
+            conflict: Some("x".into()),
+        }];
         assert!(apply(&d, &bad).is_err());
         assert!(d.join("a").exists());
         // A rename that fails halfway gives the files already set aside their names back.
-        let gone = vec![Planned { from: "a".into(), to: "c".into(), conflict: None }, Planned { from: "missing".into(), to: "d".into(), conflict: None }];
+        let gone = vec![
+            Planned {
+                from: "a".into(),
+                to: "c".into(),
+                conflict: None,
+            },
+            Planned {
+                from: "missing".into(),
+                to: "d".into(),
+                conflict: None,
+            },
+        ];
         assert!(apply(&d, &gone).is_err());
-        let names: Vec<String> = std::fs::read_dir(&d).unwrap().flatten().map(|e| e.file_name().to_string_lossy().into_owned()).collect();
-        assert_eq!(names.iter().filter(|n| *n == "a" || *n == "b").count(), 2, "{names:?}");
-        assert!(names.iter().all(|n| !n.starts_with(".coxswain-rename")), "{names:?}");
+        let names: Vec<String> = std::fs::read_dir(&d)
+            .unwrap()
+            .flatten()
+            .map(|e| e.file_name().to_string_lossy().into_owned())
+            .collect();
+        assert_eq!(
+            names.iter().filter(|n| *n == "a" || *n == "b").count(),
+            2,
+            "{names:?}"
+        );
+        assert!(
+            names.iter().all(|n| !n.starts_with(".coxswain-rename")),
+            "{names:?}"
+        );
         std::fs::remove_dir_all(d).unwrap();
     }
 
@@ -186,7 +301,10 @@ mod tests {
     fn rename_case_only_conflicts_where_case_does_not_count() {
         let existing = s(&["a.txt", "B.txt"]);
         let p = plan(&s(&["a.txt"]), &existing, "a", "b", Flags::default()).unwrap();
-        assert_eq!(p[0].conflict.is_some(), cfg!(any(windows, target_os = "macos")));
+        assert_eq!(
+            p[0].conflict.is_some(),
+            cfg!(any(windows, target_os = "macos"))
+        );
         // A file's own name in another case is free everywhere.
         let p = plan(&s(&["a.txt"]), &existing, "a", "A", Flags::default()).unwrap();
         assert!(p[0].conflict.is_none());

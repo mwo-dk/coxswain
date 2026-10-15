@@ -62,9 +62,19 @@ impl Entry {
             For::Ask => t!("models.for_ask"),
             For::Leftover => self.note.clone().unwrap_or_default(),
         };
-        let mut parts = vec![what, crate::settings::human(self.bytes), if self.in_use { t!("models.in_use") } else { t!("models.not_in_use") }];
+        let mut parts = vec![
+            what,
+            crate::settings::human(self.bytes),
+            if self.in_use {
+                t!("models.in_use")
+            } else {
+                t!("models.not_in_use")
+            },
+        ];
         parts.push(match &self.loaded {
-            Some((at, bytes)) => t!("models.loaded", "where" => at, "size" => crate::settings::human(*bytes)),
+            Some((at, bytes)) => {
+                t!("models.loaded", "where" => at, "size" => crate::settings::human(*bytes))
+            }
             None => t!("models.not_loaded"),
         });
         parts.push(self.used_text());
@@ -75,7 +85,9 @@ impl Entry {
 /// The date of `secs` since 1970, here.
 fn date(secs: u64) -> String {
     let t = std::time::UNIX_EPOCH + std::time::Duration::from_secs(secs);
-    chrono::DateTime::<chrono::Local>::from(t).format("%Y-%m-%d").to_string()
+    chrono::DateTime::<chrono::Local>::from(t)
+        .format("%Y-%m-%d")
+        .to_string()
 }
 
 /// Where the built-in models are kept: the cache folder's `models`.
@@ -101,27 +113,55 @@ pub struct Loaded {
 
 /// Every built-in model on the disk, those in use first.
 pub fn list(cfg: &SearchConfig, loaded: &Loaded) -> Vec<Entry> {
-    folder().map(|d| list_in(&d, cfg, loaded)).unwrap_or_default()
+    folder()
+        .map(|d| list_in(&d, cfg, loaded))
+        .unwrap_or_default()
 }
 
 /// The models in `dir`.
 fn list_in(dir: &Path, cfg: &SearchConfig, loaded: &Loaded) -> Vec<Entry> {
-    let Ok(rd) = std::fs::read_dir(dir) else { return vec![] };
-    let where_ = |metal: bool| if metal { t!("meaning.on_metal") } else { t!("meaning.on_cpu") };
+    let Ok(rd) = std::fs::read_dir(dir) else {
+        return vec![];
+    };
+    let where_ = |metal: bool| {
+        if metal {
+            t!("meaning.on_metal")
+        } else {
+            t!("meaning.on_cpu")
+        }
+    };
     let mut out: Vec<Entry> = rd
         .flatten()
         .map(|e| {
             let path = e.path();
             let id = e.file_name().to_string_lossy().into_owned();
             let bytes = crate::fs::dir_size(&path).0;
-            let used = std::fs::metadata(path.join(USED)).and_then(|m| m.modified()).ok().and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok()).map(|d| d.as_secs());
-            let mut entry = Entry { id: id.clone(), name: id.clone(), what: For::Leftover, note: None, folder: path.clone(), bytes, used, in_use: false, loaded: None, summary: String::new() };
+            let used = std::fs::metadata(path.join(USED))
+                .and_then(|m| m.modified())
+                .ok()
+                .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+                .map(|d| d.as_secs());
+            let mut entry = Entry {
+                id: id.clone(),
+                name: id.clone(),
+                what: For::Leftover,
+                note: None,
+                folder: path.clone(),
+                bytes,
+                used,
+                in_use: false,
+                loaded: None,
+                summary: String::new(),
+            };
             if id == crate::meaning::folder_name() {
                 entry.name = crate::meaning::MODEL.into();
                 if crate::meaning::installed_in(&path) {
                     entry.what = For::Meaning;
                     entry.in_use = cfg.meaning && cfg.meaning_engine == "builtin";
-                    entry.loaded = loaded.meaning.as_ref().map(|r| (r.text(), crate::meaning::size()));
+                    entry.loaded = loaded
+                        .meaning
+                        .as_ref()
+                        .map(|r| (r.text(), crate::meaning::size()));
                 } else {
                     entry.note = Some(t!("models.unfinished"));
                 }
@@ -130,14 +170,22 @@ fn list_in(dir: &Path, cfg: &SearchConfig, loaded: &Loaded) -> Vec<Entry> {
                 if m.installed_in(&path) {
                     entry.what = For::Ask;
                     entry.in_use = cfg.ask_model == m.key();
-                    entry.loaded = loaded.chat.as_ref().filter(|(id, _)| id == m.id).map(|(_, metal)| (where_(*metal), m.size()));
+                    entry.loaded = loaded
+                        .chat
+                        .as_ref()
+                        .filter(|(id, _)| id == m.id)
+                        .map(|(_, metal)| (where_(*metal), m.size()));
                 } else {
                     entry.note = Some(t!("models.unfinished"));
                 }
             } else {
                 // A folder of another revision is named as its model, with eight other characters.
                 let stem = id.rsplit_once('-').map_or(id.as_str(), |(s, _)| s);
-                let older = crate::chat::MODELS.iter().find(|m| m.id == stem).map(|m| m.name).or((stem == crate::meaning::MODEL).then_some(crate::meaning::MODEL));
+                let older = crate::chat::MODELS
+                    .iter()
+                    .find(|m| m.id == stem)
+                    .map(|m| m.name)
+                    .or((stem == crate::meaning::MODEL).then_some(crate::meaning::MODEL));
                 entry.note = Some(match older {
                     Some(name) => {
                         entry.name = name.into();
@@ -161,7 +209,11 @@ pub fn unused_bytes(entries: &[Entry]) -> u64 {
 
 /// What deleting a model does to the settings, when it is in use: the options to save, and
 /// what to tell the user. `look`: the servers asked, for the recommended choice.
-pub fn instead(cfg: &SearchConfig, entry: &Entry, look: Option<&crate::setup::Look>) -> Option<(serde_json::Map<String, serde_json::Value>, String)> {
+pub fn instead(
+    cfg: &SearchConfig,
+    entry: &Entry,
+    look: Option<&crate::setup::Look>,
+) -> Option<(serde_json::Map<String, serde_json::Value>, String)> {
     if !entry.in_use {
         return None;
     }
@@ -171,15 +223,31 @@ pub fn instead(cfg: &SearchConfig, entry: &Entry, look: Option<&crate::setup::Lo
             // The recommended one, if it is at hand: a server's, or another built-in one downloaded.
             let next = crate::setup::recommend_ask(cfg, look);
             let next = match crate::chat::of(&next) {
-                Some(m) if m.key() == cfg.ask_model || !m.installed() => crate::chat::MODELS.iter().rev().find(|m| m.key() != cfg.ask_model && m.installed() && crate::chat::fitting(crate::setup::ram_gb()).any(|f| f.id == m.id)).map(|m| m.key()).unwrap_or_default(),
+                Some(m) if m.key() == cfg.ask_model || !m.installed() => crate::chat::MODELS
+                    .iter()
+                    .rev()
+                    .find(|m| {
+                        m.key() != cfg.ask_model
+                            && m.installed()
+                            && crate::chat::fitting(crate::setup::ram_gb()).any(|f| f.id == m.id)
+                    })
+                    .map(|m| m.key())
+                    .unwrap_or_default(),
                 _ => next,
             };
             changes.insert("ask_model".into(), next.clone().into());
-            let said = if next.is_empty() { t!("models.deleted_ask_off", "model" => entry.name.as_str()) } else { t!("models.deleted_ask_now", "model" => entry.name.as_str(), "next" => crate::chat::shown(&next)) };
+            let said = if next.is_empty() {
+                t!("models.deleted_ask_off", "model" => entry.name.as_str())
+            } else {
+                t!("models.deleted_ask_now", "model" => entry.name.as_str(), "next" => crate::chat::shown(&next))
+            };
             Some((changes, said))
         }
         For::Meaning => {
-            let better = look.and_then(|l| crate::setup::better_meaning(false, &l.gpu_servers()).map(|(f, m, _)| (f.engine.clone(), f.url.clone(), m)));
+            let better = look.and_then(|l| {
+                crate::setup::better_meaning(false, &l.gpu_servers())
+                    .map(|(f, m, _)| (f.engine.clone(), f.url.clone(), m))
+            });
             let said = match better {
                 Some((engine, url, model)) => {
                     let said = t!("models.deleted_meaning_now", "model" => entry.name.as_str(), "next" => model.as_str());
@@ -201,9 +269,25 @@ pub fn instead(cfg: &SearchConfig, entry: &Entry, look: Option<&crate::setup::Lo
 
 /// The entry `name` names: its folder's name, its model's id or `ask_model`, or its name.
 pub fn find<'a>(entries: &'a [Entry], name: &str) -> Option<&'a Entry> {
-    let n = name.trim().trim_start_matches(crate::chat::PREFIX).to_lowercase();
-    let id_of = |e: &Entry| crate::chat::MODELS.iter().find(|m| m.name == e.name).map(|m| m.id);
-    entries.iter().find(|e| e.id.to_lowercase() == n).or_else(|| entries.iter().find(|e| e.what != For::Leftover && (e.name.to_lowercase() == n || id_of(e) == Some(n.as_str()))))
+    let n = name
+        .trim()
+        .trim_start_matches(crate::chat::PREFIX)
+        .to_lowercase();
+    let id_of = |e: &Entry| {
+        crate::chat::MODELS
+            .iter()
+            .find(|m| m.name == e.name)
+            .map(|m| m.id)
+    };
+    entries
+        .iter()
+        .find(|e| e.id.to_lowercase() == n)
+        .or_else(|| {
+            entries.iter().find(|e| {
+                e.what != For::Leftover
+                    && (e.name.to_lowercase() == n || id_of(e) == Some(n.as_str()))
+            })
+        })
 }
 
 /// Delete a model's folder; a chat model is let go of first, here and in the helper.
@@ -236,14 +320,24 @@ mod tests {
         std::fs::create_dir_all(&old).unwrap();
         std::fs::write(old.join("weights.gguf"), vec![0u8; 5000]).unwrap();
         used(&old);
-        let cfg = SearchConfig { ask_model: small.key(), ..SearchConfig::default() };
+        let cfg = SearchConfig {
+            ask_model: small.key(),
+            ..SearchConfig::default()
+        };
         let all = list_in(&dir, &cfg, &Loaded::default());
         assert_eq!(all.len(), 2, "{all:?}");
         let e = find(&all, "qwen3-14b-0123abcd").unwrap();
-        assert_eq!((e.name.as_str(), e.what, e.in_use, e.bytes), ("Qwen3 14B", For::Leftover, false, 5000));
+        assert_eq!(
+            (e.name.as_str(), e.what, e.in_use, e.bytes),
+            ("Qwen3 14B", For::Leftover, false, 5000)
+        );
         assert!(e.used.is_some() && e.note.as_deref() == Some(t!("models.older").as_str()));
         let e = all.iter().find(|e| e.folder == chat).unwrap();
-        assert_eq!((e.what, e.in_use), (For::Leftover, false), "an unfinished download is not in use");
+        assert_eq!(
+            (e.what, e.in_use),
+            (For::Leftover, false),
+            "an unfinished download is not in use"
+        );
         assert_eq!(unused_bytes(&all), 6000);
         assert!(instead(&cfg, e, None).is_none());
         std::fs::remove_dir_all(&dir).unwrap();
@@ -252,12 +346,34 @@ mod tests {
     /// Deleting the chat model in use turns Ask to another one downloaded, or off.
     #[test]
     fn deleting_the_model_in_use_says_what_comes_instead() {
-        let e = Entry { id: "x".into(), name: "Qwen3 14B".into(), what: For::Ask, note: None, folder: PathBuf::new(), bytes: 0, used: None, in_use: true, loaded: None, summary: String::new() };
-        let cfg = SearchConfig { ask_model: "builtin:qwen3-14b".into(), ..SearchConfig::default() };
+        let e = Entry {
+            id: "x".into(),
+            name: "Qwen3 14B".into(),
+            what: For::Ask,
+            note: None,
+            folder: PathBuf::new(),
+            bytes: 0,
+            used: None,
+            in_use: true,
+            loaded: None,
+            summary: String::new(),
+        };
+        let cfg = SearchConfig {
+            ask_model: "builtin:qwen3-14b".into(),
+            ..SearchConfig::default()
+        };
         let (changes, said) = instead(&cfg, &e, None).unwrap();
-        assert!(changes["ask_model"].as_str().is_some_and(|m| m != "builtin:qwen3-14b"), "{changes:?}");
+        assert!(
+            changes["ask_model"]
+                .as_str()
+                .is_some_and(|m| m != "builtin:qwen3-14b"),
+            "{changes:?}"
+        );
         assert!(said.contains("Qwen3 14B"), "{said}");
-        let meaning = Entry { what: For::Meaning, ..e };
+        let meaning = Entry {
+            what: For::Meaning,
+            ..e
+        };
         let (changes, _) = instead(&cfg, &meaning, None).unwrap();
         assert_eq!(changes["search_meaning"], false);
     }

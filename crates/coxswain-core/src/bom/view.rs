@@ -5,12 +5,12 @@
 use std::collections::HashSet;
 use std::path::Path;
 
+use super::Error;
 use super::assess::{self, Assessed, Context};
 use super::model::*;
-use super::policy::{policy, Family, Resolution};
+use super::policy::{Family, Resolution, policy};
 use super::status::Status;
 use super::tree::{self, Tree, TreeMode};
-use super::Error;
 
 /// A BOM read, resolved, rated and laid out.
 pub struct Loaded {
@@ -44,12 +44,26 @@ impl Loaded {
         for e in &bom.edges {
             out[e.from as usize].push((e.kind, e.to));
         }
-        Loaded { bom, tree, mode, resolutions, issues, assessed, ctx, out }
+        Loaded {
+            bom,
+            tree,
+            mode,
+            resolutions,
+            issues,
+            assessed,
+            ctx,
+            out,
+        }
     }
 
     /// This BOM as one side of a compare.
     pub fn side(&self) -> super::diff::Side<'_> {
-        super::diff::Side { bom: &self.bom, tree: &self.tree, resolutions: &self.resolutions, status: &self.assessed.status }
+        super::diff::Side {
+            bom: &self.bom,
+            tree: &self.tree,
+            resolutions: &self.resolutions,
+            status: &self.assessed.status,
+        }
     }
 
     pub fn node(&self, i: u32) -> &Node {
@@ -72,11 +86,21 @@ impl Loaded {
             match self.bom.nodes[n as usize].kind {
                 NodeKind::Algorithm => {
                     if let Some(Resolution::Rated { parts, .. }) = &self.resolutions[n as usize] {
-                        found.extend(parts.iter().filter_map(|p| policy().algorithm(&p.algorithm_id)).map(|a| a.family));
+                        found.extend(
+                            parts
+                                .iter()
+                                .filter_map(|p| policy().algorithm(&p.algorithm_id))
+                                .map(|a| a.family),
+                        );
                     }
                 }
                 NodeKind::Material | NodeKind::Certificate | NodeKind::Protocol if depth < 2 => {
-                    todo.extend(self.out[n as usize].iter().filter(|(k, _)| *k != EdgeKind::Contains).map(|&(_, to)| (to, depth + 1)));
+                    todo.extend(
+                        self.out[n as usize]
+                            .iter()
+                            .filter(|(k, _)| *k != EdgeKind::Contains)
+                            .map(|&(_, to)| (to, depth + 1)),
+                    );
                 }
                 _ => {}
             }
@@ -97,7 +121,9 @@ impl Loaded {
             _ => None,
         }
         .unwrap_or_else(|| prefix.to_string());
-        let &(_, alg) = self.out[i as usize].iter().find(|(_, to)| self.bom.nodes[*to as usize].kind == NodeKind::Algorithm)?;
+        let &(_, alg) = self.out[i as usize]
+            .iter()
+            .find(|(_, to)| self.bom.nodes[*to as usize].kind == NodeKind::Algorithm)?;
         Some((kind, self.bom.nodes[alg as usize].label.clone()))
     }
 
@@ -107,7 +133,9 @@ impl Loaded {
         if group.kind != GroupKind::Kind {
             return None;
         }
-        self.tree.children[i as usize].first().map(|&c| self.node(c).kind)
+        self.tree.children[i as usize]
+            .first()
+            .map(|&c| self.node(c).kind)
     }
 
     /// What a search looks in, lower case: label, OID and source paths.
@@ -135,7 +163,10 @@ pub fn on_disk(bom_path: &Path, location: &str) -> Option<std::path::PathBuf> {
 }
 
 pub fn is_crypto(kind: NodeKind) -> bool {
-    matches!(kind, NodeKind::Algorithm | NodeKind::Material | NodeKind::Certificate | NodeKind::Protocol)
+    matches!(
+        kind,
+        NodeKind::Algorithm | NodeKind::Material | NodeKind::Certificate | NodeKind::Protocol
+    )
 }
 
 /// What to show. Empty sets let everything through.
@@ -150,7 +181,10 @@ pub struct Filter {
 
 impl Filter {
     pub fn is_active(&self) -> bool {
-        !self.status.is_empty() || !self.kind.is_empty() || !self.family.is_empty() || !self.query.trim().is_empty()
+        !self.status.is_empty()
+            || !self.kind.is_empty()
+            || !self.family.is_empty()
+            || !self.query.trim().is_empty()
     }
 }
 
@@ -190,7 +224,11 @@ pub fn leaf_counts(tree: &Tree, keep: Option<&[bool]>) -> Vec<f64> {
             continue;
         }
         let kids = &tree.children[i as usize];
-        leaves[i as usize] = if kids.is_empty() { 1.0 } else { kids.iter().map(|&c| leaves[c as usize]).sum() };
+        leaves[i as usize] = if kids.is_empty() {
+            1.0
+        } else {
+            kids.iter().map(|&c| leaves[c as usize]).sum()
+        };
     }
     leaves
 }
@@ -243,7 +281,15 @@ pub fn sunburst(l: &Loaded, leaves: &[f64], root: u32, rings: usize, min_angle: 
                 m.a1 += span;
                 m.status = m.status.worst(l.status(c));
             } else {
-                arcs.push(Arc { node: Some(c), parent: p, count: 1, status: l.status(c), depth: depth + 1, a0: at, a1: at + span });
+                arcs.push(Arc {
+                    node: Some(c),
+                    parent: p,
+                    count: 1,
+                    status: l.status(c),
+                    depth: depth + 1,
+                    a0: at,
+                    a1: at + span,
+                });
                 stack.push((c, depth + 1, at, at + span));
             }
             at += span;

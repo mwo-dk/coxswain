@@ -43,7 +43,9 @@ pub struct Tree {
 impl Tree {
     pub fn node<'a>(&'a self, bom: &'a Bom, i: u32) -> &'a Node {
         let i = i as usize;
-        bom.nodes.get(i).unwrap_or_else(|| &self.groups[i - bom.nodes.len()])
+        bom.nodes
+            .get(i)
+            .unwrap_or_else(|| &self.groups[i - bom.nodes.len()])
     }
 
     pub fn len(&self) -> usize {
@@ -56,14 +58,21 @@ impl Tree {
 }
 
 fn structural(kind: EdgeKind) -> bool {
-    matches!(kind, EdgeKind::Contains | EdgeKind::DependsOn | EdgeKind::Provides)
+    matches!(
+        kind,
+        EdgeKind::Contains | EdgeKind::DependsOn | EdgeKind::Provides
+    )
 }
 
 /// The modes this BOM can be shown in, best first. The view offers a switch when there is more than one.
 pub fn modes(bom: &Bom) -> Vec<TreeMode> {
     let mut modes = vec![];
     let component_tree = bom.edges.iter().any(|e| {
-        structural(e.kind) && matches!(bom.nodes[e.from as usize].kind, NodeKind::Application | NodeKind::Component)
+        structural(e.kind)
+            && matches!(
+                bom.nodes[e.from as usize].kind,
+                NodeKind::Application | NodeKind::Component
+            )
     });
     if component_tree {
         modes.push(TreeMode::Dependencies);
@@ -87,7 +96,13 @@ struct Builder {
 }
 
 impl Builder {
-    fn add_group(&mut self, label: String, kind: GroupKind, path: Option<String>, parent: u32) -> u32 {
+    fn add_group(
+        &mut self,
+        label: String,
+        kind: GroupKind,
+        path: Option<String>,
+        parent: u32,
+    ) -> u32 {
         let idx = (self.first_group + self.groups.len()) as u32;
         let tag = match kind {
             GroupKind::Directory => "directory",
@@ -130,7 +145,12 @@ impl Builder {
 
 pub fn build(bom: &Bom, mode: TreeMode) -> Tree {
     let n = bom.nodes.len();
-    let mut b = Builder { first_group: n, groups: vec![], parent: vec![UNPLACED; n], tree_edges: HashSet::new() };
+    let mut b = Builder {
+        first_group: n,
+        groups: vec![],
+        parent: vec![UNPLACED; n],
+        tree_edges: HashSet::new(),
+    };
     b.parent[0] = ROOT;
     let mut extra_edges = vec![];
 
@@ -170,9 +190,22 @@ pub fn build(bom: &Bom, mode: TreeMode) -> Tree {
         if unplaced.is_empty() {
             break;
         }
-        let pointed_at: HashSet<u32> = bom.edges.iter().filter(|e| !b.placed(e.from)).map(|e| e.to).collect();
-        let sources: Vec<u32> = unplaced.iter().copied().filter(|i| !pointed_at.contains(i)).collect();
-        let now = if sources.is_empty() { &unplaced[..1] } else { &sources[..] };
+        let pointed_at: HashSet<u32> = bom
+            .edges
+            .iter()
+            .filter(|e| !b.placed(e.from))
+            .map(|e| e.to)
+            .collect();
+        let sources: Vec<u32> = unplaced
+            .iter()
+            .copied()
+            .filter(|i| !pointed_at.contains(i))
+            .collect();
+        let now = if sources.is_empty() {
+            &unplaced[..1]
+        } else {
+            &sources[..]
+        };
         for &i in now {
             let kind = bom.nodes[i as usize].kind;
             let group = match kind_groups.get(&kind) {
@@ -206,9 +239,22 @@ pub fn build(bom: &Bom, mode: TreeMode) -> Tree {
         }
     }
 
-    let mut cross_edges: Vec<Edge> = bom.edges.iter().copied().filter(|e| !b.tree_edges.contains(e)).collect();
+    let mut cross_edges: Vec<Edge> = bom
+        .edges
+        .iter()
+        .copied()
+        .filter(|e| !b.tree_edges.contains(e))
+        .collect();
     cross_edges.extend(extra_edges);
-    Tree { mode, groups: b.groups, parent, children, depth, order, cross_edges }
+    Tree {
+        mode,
+        groups: b.groups,
+        parent,
+        children,
+        depth,
+        order,
+        cross_edges,
+    }
 }
 
 /// The label of a group per kind. The views translate it by the group's kind; this is the fallback.
@@ -271,7 +317,9 @@ fn place_by_source_file(bom: &Bom, b: &mut Builder, extra_edges: &mut Vec<Edge>)
     let mut dirs = vec![Dir::default()];
     let mut further: Vec<(String, u32)> = vec![];
     for (i, node) in bom.nodes.iter().enumerate() {
-        let Some(first) = node.occurrences.first().map(|o| o.location.as_str()) else { continue };
+        let Some(first) = node.occurrences.first().map(|o| o.location.as_str()) else {
+            continue;
+        };
         let (d, f) = file_slot(&mut dirs, first);
         dirs[d].files[f].1.push(i as u32);
         let mut seen = HashSet::new();
@@ -285,17 +333,46 @@ fn place_by_source_file(bom: &Bom, b: &mut Builder, extra_edges: &mut Vec<Edge>)
     // Depth first without recursion: a path of a hundred thousand segments costs no stack.
     enum Work {
         /// A subdirectory: make its group (after folding single-child chains), then fill it.
-        Dir { name: String, dir: usize, path: String, parent: u32 },
+        Dir {
+            name: String,
+            dir: usize,
+            path: String,
+            parent: u32,
+        },
         /// A directory's files, after all its subdirectories.
-        Files { dir: usize, path: String, parent: u32 },
+        Files {
+            dir: usize,
+            path: String,
+            parent: u32,
+        },
     }
-    let join = |path: &str, name: &str| if path.is_empty() { name.to_string() } else { format!("{path}/{name}") };
+    let join = |path: &str, name: &str| {
+        if path.is_empty() {
+            name.to_string()
+        } else {
+            format!("{path}/{name}")
+        }
+    };
     let mut file_group: HashMap<String, u32> = HashMap::new();
-    let mut work = vec![Work::Files { dir: 0, path: String::new(), parent: 0 }];
-    work.extend(dirs[0].dirs.iter().rev().map(|(name, d)| Work::Dir { name: name.clone(), dir: *d, path: String::new(), parent: 0 }));
+    let mut work = vec![Work::Files {
+        dir: 0,
+        path: String::new(),
+        parent: 0,
+    }];
+    work.extend(dirs[0].dirs.iter().rev().map(|(name, d)| Work::Dir {
+        name: name.clone(),
+        dir: *d,
+        path: String::new(),
+        parent: 0,
+    }));
     while let Some(item) = work.pop() {
         match item {
-            Work::Dir { name, mut dir, path, parent } => {
+            Work::Dir {
+                name,
+                mut dir,
+                path,
+                parent,
+            } => {
                 let mut full = join(&path, &name);
                 let mut label = name;
                 while dirs[dir].files.is_empty() && dirs[dir].dirs.len() == 1 {
@@ -305,10 +382,17 @@ fn place_by_source_file(bom: &Bom, b: &mut Builder, extra_edges: &mut Vec<Edge>)
                     dir = *child;
                 }
                 let g = b.add_group(label, GroupKind::Directory, Some(full.clone()), parent);
-                work.push(Work::Files { dir, path: full.clone(), parent: g });
-                work.extend(
-                    dirs[dir].dirs.iter().rev().map(|(n, d)| Work::Dir { name: n.clone(), dir: *d, path: full.clone(), parent: g }),
-                );
+                work.push(Work::Files {
+                    dir,
+                    path: full.clone(),
+                    parent: g,
+                });
+                work.extend(dirs[dir].dirs.iter().rev().map(|(n, d)| Work::Dir {
+                    name: n.clone(),
+                    dir: *d,
+                    path: full.clone(),
+                    parent: g,
+                }));
             }
             Work::Files { dir, path, parent } => {
                 for (name, assets) in &dirs[dir].files {
@@ -325,7 +409,11 @@ fn place_by_source_file(bom: &Bom, b: &mut Builder, extra_edges: &mut Vec<Edge>)
 
     for (path, asset) in further {
         if let Some(&g) = file_group.get(&path) {
-            extra_edges.push(Edge { from: g, to: asset, kind: EdgeKind::OccursIn });
+            extra_edges.push(Edge {
+                from: g,
+                to: asset,
+                kind: EdgeKind::OccursIn,
+            });
         }
     }
 }

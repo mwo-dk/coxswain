@@ -31,7 +31,12 @@ fn questions(dir: &Path) -> Vec<Question> {
         .filter(|l| !l.starts_with('#') && !l.trim().is_empty())
         .map(|l| {
             let f: Vec<&str> = l.split('\t').collect();
-            Question { text: f[0].into(), expected: f[1].split(',').map(String::from).collect(), phrase: f[2].to_lowercase(), kind: f[3].into() }
+            Question {
+                text: f[0].into(),
+                expected: f[1].split(',').map(String::from).collect(),
+                phrase: f[2].to_lowercase(),
+                kind: f[3].into(),
+            }
         })
         .collect()
 }
@@ -51,7 +56,13 @@ fn corpus(from: &Path, to: &Path) {
 
 /// Rank (1-based) of the first expected file among `paths`.
 fn rank(paths: &[PathBuf], root: &Path, q: &Question) -> Option<usize> {
-    paths.iter().position(|p| p.strip_prefix(root).is_ok_and(|r| q.expected.iter().any(|e| Path::new(e) == r))).map(|i| i + 1)
+    paths
+        .iter()
+        .position(|p| {
+            p.strip_prefix(root)
+                .is_ok_and(|r| q.expected.iter().any(|e| Path::new(e) == r))
+        })
+        .map(|i| i + 1)
 }
 
 #[derive(Default)]
@@ -71,7 +82,12 @@ impl Score {
     }
     fn row(&self, name: &str) -> String {
         let n = self.n.max(1) as f64;
-        format!("| {name} | {:.2} | {:.2} | {:.2} |", self.at1 as f64 / n, self.at5 as f64 / n, self.rr / n)
+        format!(
+            "| {name} | {:.2} | {:.2} | {:.2} |",
+            self.at1 as f64 / n,
+            self.at5 as f64 / n,
+            self.rr / n
+        )
     }
 }
 
@@ -81,7 +97,12 @@ fn sweep() -> Vec<find::Weights> {
     for k in [10.0, 60.0] {
         for meaning in [1.0, 2.0] {
             for some in [0.0, 0.25, 0.5, 1.0] {
-                v.push(find::Weights { k, words: 1.0, some, meaning });
+                v.push(find::Weights {
+                    k,
+                    words: 1.0,
+                    some,
+                    meaning,
+                });
             }
         }
     }
@@ -103,34 +124,98 @@ fn search_quality() {
     std::fs::create_dir_all(&root).unwrap();
     corpus(&src, &root);
     let root = root.canonicalize().unwrap();
-    let cfg = SearchConfig { text_roots: vec![root.clone()], meaning: true, meaning_engine: engine.clone(), meaning_model: model.clone(), history: false, ..SearchConfig::default() };
+    let cfg = SearchConfig {
+        text_roots: vec![root.clone()],
+        meaning: true,
+        meaning_engine: engine.clone(),
+        meaning_model: model.clone(),
+        history: false,
+        ..SearchConfig::default()
+    };
     let store = Store::open(&d.join("search.db")).unwrap();
     store.set_engine(coxswain_core::meaning::Engine::from_config(&cfg));
     store.hurry.store(true, Ordering::Relaxed);
     let started = std::time::Instant::now();
     store::scan(&store, &cfg, &AtomicBool::new(false)).unwrap();
     let (waiting, done) = store.meaning_counts();
-    assert_eq!(waiting, 0, "every file has its vectors: {:?}", store.meaning_error.lock().unwrap());
-    eprintln!("engine {} · {done} files read and embedded in {:.1} s", store.engine_id().unwrap_or_default(), started.elapsed().as_secs_f64());
+    assert_eq!(
+        waiting,
+        0,
+        "every file has its vectors: {:?}",
+        store.meaning_error.lock().unwrap()
+    );
+    eprintln!(
+        "engine {} · {done} files read and embedded in {:.1} s",
+        store.engine_id().unwrap_or_default(),
+        started.elapsed().as_secs_f64()
+    );
 
     let qs = questions(&src);
-    let (mut words, mut meaning, mut both, mut shown, mut ask_file, mut ask_passage) = (Score::default(), Score::default(), Score::default(), Score::default(), 0, 0);
+    let (mut words, mut meaning, mut both, mut shown, mut ask_file, mut ask_passage) = (
+        Score::default(),
+        Score::default(),
+        Score::default(),
+        Score::default(),
+        0,
+        0,
+    );
     let mut by_kind: std::collections::BTreeMap<String, (Score, Score, usize)> = Default::default();
     let mut lists = vec![];
     for q in &qs {
-        let paths = |hits: &[coxswain_core::index::Hit]| hits.iter().map(|h| h.path.clone()).collect::<Vec<_>>();
+        let paths = |hits: &[coxswain_core::index::Hit]| {
+            hits.iter().map(|h| h.path.clone()).collect::<Vec<_>>()
+        };
         let (word_hits, every) = store.search_words(&q.text, None, 20);
         let (word_hits, words_of) = (word_hits.hits, every);
         let similar = store.similar(&q.text, None, 20);
         let w = rank(&paths(&word_hits), &root, q);
         let m = rank(&paths(&similar), &root, q);
-        let b = rank(&paths(&find::fused(find::Words { hits: &word_hits, every: words_of }, &similar, find::WEIGHTS)), &root, q);
+        let b = rank(
+            &paths(&find::fused(
+                find::Words {
+                    hits: &word_hits,
+                    every: words_of,
+                },
+                &similar,
+                find::WEIGHTS,
+            )),
+            &root,
+            q,
+        );
         // As Find shows it in All: In files, then About this, five each.
-        let (in_files, about, _) = find::fuse(find::Words { hits: &word_hits, every: words_of }, &similar, find::WEIGHTS);
-        let s = rank(&paths(&in_files.iter().take(5).chain(about.iter().take(5)).cloned().collect::<Vec<_>>()), &root, q);
-        let sources = store.passages(&q.text, None, coxswain_core::ask::budget(&cfg, &[], &q.text));
-        let from_file: Vec<&String> = sources.iter().filter(|(p, _)| rank(std::slice::from_ref(p), &root, q).is_some()).map(|(_, t)| t).collect();
-        let passage = from_file.iter().any(|t| t.to_lowercase().contains(&q.phrase));
+        let (in_files, about, _) = find::fuse(
+            find::Words {
+                hits: &word_hits,
+                every: words_of,
+            },
+            &similar,
+            find::WEIGHTS,
+        );
+        let s = rank(
+            &paths(
+                &in_files
+                    .iter()
+                    .take(5)
+                    .chain(about.iter().take(5))
+                    .cloned()
+                    .collect::<Vec<_>>(),
+            ),
+            &root,
+            q,
+        );
+        let sources = store.passages(
+            &q.text,
+            None,
+            coxswain_core::ask::budget(&cfg, &[], &q.text),
+        );
+        let from_file: Vec<&String> = sources
+            .iter()
+            .filter(|(p, _)| rank(std::slice::from_ref(p), &root, q).is_some())
+            .map(|(_, t)| t)
+            .collect();
+        let passage = from_file
+            .iter()
+            .any(|t| t.to_lowercase().contains(&q.phrase));
         words.add(w);
         meaning.add(m);
         both.add(b);
@@ -144,30 +229,85 @@ fn search_quality() {
         // Ranks in words, meaning, fused, as shown; P: the answering passage was sent to Ask,
         // f: only other passages of the file; then how many files meaning found at all.
         let r = |r: Option<usize>| r.map_or("-".into(), |r| r.to_string());
-        eprintln!("{:>2} {:>2} {:>2} {:>2} {} {:>2} {:8} {}", r(w), r(m), r(b), r(s), if passage { "P" } else if from_file.is_empty() { "-" } else { "f" }, similar.len(), q.kind, q.text);
+        eprintln!(
+            "{:>2} {:>2} {:>2} {:>2} {} {:>2} {:8} {}",
+            r(w),
+            r(m),
+            r(b),
+            r(s),
+            if passage {
+                "P"
+            } else if from_file.is_empty() {
+                "-"
+            } else {
+                "f"
+            },
+            similar.len(),
+            q.kind,
+            q.text
+        );
         lists.push((word_hits, words_of, similar, q));
     }
     let n = qs.len();
-    println!("\n{n} questions, {done} files, engine {}\n", store.engine_id().unwrap_or_default());
+    println!(
+        "\n{n} questions, {done} files, engine {}\n",
+        store.engine_id().unwrap_or_default()
+    );
     println!("| List | Recall@1 | Recall@5 | MRR |\n|---|---|---|---|");
-    println!("{}", words.row("Words alone (every word, then any of them)"));
+    println!(
+        "{}",
+        words.row("Words alone (every word, then any of them)")
+    );
     println!("{}", meaning.row("Meaning alone"));
     println!("{}", both.row("Fused (words and meaning by rank)"));
     println!("{}", shown.row("Find as shown (In files, then About this)"));
-    println!("\nAsk: the right file among the excerpts sent (a context of {} tokens) for {ask_file} of {n} questions, the passage that answers for {ask_passage} of {n}.\n", cfg.ask_context);
-    println!("| Kind | Questions | Meaning recall@5 | Fused recall@5 | Ask passage |\n|---|---|---|---|---|");
+    println!(
+        "\nAsk: the right file among the excerpts sent (a context of {} tokens) for {ask_file} of {n} questions, the passage that answers for {ask_passage} of {n}.\n",
+        cfg.ask_context
+    );
+    println!(
+        "| Kind | Questions | Meaning recall@5 | Fused recall@5 | Ask passage |\n|---|---|---|---|---|"
+    );
     for (kind, (m, b, p)) in &by_kind {
-        println!("| {kind} | {} | {:.2} | {:.2} | {p} of {} |", m.n, m.at5 as f64 / m.n as f64, b.at5 as f64 / b.n as f64, m.n);
+        println!(
+            "| {kind} | {} | {:.2} | {:.2} | {p} of {} |",
+            m.n,
+            m.at5 as f64 / m.n as f64,
+            b.at5 as f64 / b.n as f64,
+            m.n
+        );
     }
     // The weights tried: `COXSWAIN_EVAL_SWEEP=1`.
     if std::env::var_os("COXSWAIN_EVAL_SWEEP").is_some() {
-        println!("\n| k | words | some words | meaning | Recall@1 | Recall@5 | MRR |\n|---|---|---|---|---|---|---|");
+        println!(
+            "\n| k | words | some words | meaning | Recall@1 | Recall@5 | MRR |\n|---|---|---|---|---|---|---|"
+        );
         for w in sweep() {
             let mut sc = Score::default();
             for (wh, every, sim, q) in &lists {
-                sc.add(rank(&find::fused(find::Words { hits: wh, every: *every }, sim, w).iter().map(|h| h.path.clone()).collect::<Vec<_>>(), &root, q));
+                sc.add(rank(
+                    &find::fused(
+                        find::Words {
+                            hits: wh,
+                            every: *every,
+                        },
+                        sim,
+                        w,
+                    )
+                    .iter()
+                    .map(|h| h.path.clone())
+                    .collect::<Vec<_>>(),
+                    &root,
+                    q,
+                ));
             }
-            println!("{}", sc.row(&format!("{} | {} | {} | {}", w.k, w.words, w.some, w.meaning)));
+            println!(
+                "{}",
+                sc.row(&format!(
+                    "{} | {} | {} | {}",
+                    w.k, w.words, w.some, w.meaning
+                ))
+            );
         }
     }
     drop(store);

@@ -3,7 +3,9 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 
 fn fixture(path: &str) -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src/bom/testdata").join(path)
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("src/bom/testdata")
+        .join(path)
 }
 
 fn open(path: &str) -> Bom {
@@ -23,12 +25,19 @@ const REAL: [&str; 9] = [
 ];
 
 fn by_label<'a>(bom: &'a Bom, label: &str) -> (u32, &'a Node) {
-    let i = bom.nodes.iter().position(|n| n.label == label).unwrap_or_else(|| panic!("no node {label}"));
+    let i = bom
+        .nodes
+        .iter()
+        .position(|n| n.label == label)
+        .unwrap_or_else(|| panic!("no node {label}"));
     (i as u32, &bom.nodes[i])
 }
 
 fn by_key(bom: &Bom, key: &str) -> u32 {
-    bom.nodes.iter().position(|n| n.key == key).unwrap_or_else(|| panic!("no node {key}")) as u32
+    bom.nodes
+        .iter()
+        .position(|n| n.key == key)
+        .unwrap_or_else(|| panic!("no node {key}")) as u32
 }
 
 fn codes(bom: &Bom) -> Vec<IssueCode> {
@@ -48,16 +57,25 @@ fn every_fixture_has_a_root_and_edges_between_nodes() {
         let bom = open(path);
         assert_eq!(bom.nodes[0].kind, NodeKind::Application, "{path}");
         for e in &bom.edges {
-            assert!((e.from as usize) < bom.nodes.len() && (e.to as usize) < bom.nodes.len(), "{path}");
+            assert!(
+                (e.from as usize) < bom.nodes.len() && (e.to as usize) < bom.nodes.len(),
+                "{path}"
+            );
         }
     }
 }
 
 #[test]
 fn refuses_what_is_not_cyclonedx() {
-    assert_eq!(parse_json(r#"{"spdxVersion": "SPDX-2.3"}"#, None), Err(Error::NotCycloneDx));
+    assert_eq!(
+        parse_json(r#"{"spdxVersion": "SPDX-2.3"}"#, None),
+        Err(Error::NotCycloneDx)
+    );
     assert_eq!(parse_json("[]", None), Err(Error::NotCycloneDx));
-    assert!(matches!(parse_json("{\n  \"bomFormat\": ", None), Err(Error::InvalidJson { line: 2, .. })));
+    assert!(matches!(
+        parse_json("{\n  \"bomFormat\": ", None),
+        Err(Error::InvalidJson { line: 2, .. })
+    ));
 }
 
 #[test]
@@ -65,7 +83,10 @@ fn cbomkit_output_gets_a_root_named_after_the_repository() {
     let bom = open("cbomkit/keycloak.cdx.json");
     assert_eq!(bom.nodes[0].label, "keycloak");
     assert!(bom.nodes[0].synthetic);
-    assert_eq!(bom.source.properties["gitUrl"], "https://github.com/keycloak/keycloak");
+    assert_eq!(
+        bom.source.properties["gitUrl"],
+        "https://github.com/keycloak/keycloak"
+    );
 
     // only crypto assets, linked key to algorithm
     assert_eq!(bom.nodes.len(), 57);
@@ -77,15 +98,31 @@ fn cbomkit_output_gets_a_root_named_after_the_repository() {
     // evidence, with the API call
     let (_, rsa) = by_label(&bom, "RSA-2048");
     assert_eq!(rsa.occurrences.len(), 3);
-    assert_eq!(rsa.occurrences[0].location, "core/src/main/java/org/keycloak/jose/jwk/JWKParser.java");
+    assert_eq!(
+        rsa.occurrences[0].location,
+        "core/src/main/java/org/keycloak/jose/jwk/JWKParser.java"
+    );
     assert_eq!(rsa.occurrences[0].line, Some(136));
-    assert!(rsa.occurrences[0].context.as_deref().unwrap().contains("KeyFactory#getInstance"));
-    assert_eq!(bom.nodes.iter().map(|n| n.occurrences.len()).sum::<usize>(), 103);
+    assert!(
+        rsa.occurrences[0]
+            .context
+            .as_deref()
+            .unwrap()
+            .contains("KeyFactory#getInstance")
+    );
+    assert_eq!(
+        bom.nodes.iter().map(|n| n.occurrences.len()).sum::<usize>(),
+        103
+    );
 }
 
 #[test]
 fn a_root_without_git_url_is_named_after_the_file() {
-    let bom = parse(r#"{"bomFormat": "CycloneDX", "specVersion": "1.6"}"#, Some("app.cdx.json")).unwrap();
+    let bom = parse(
+        r#"{"bomFormat": "CycloneDX", "specVersion": "1.6"}"#,
+        Some("app.cdx.json"),
+    )
+    .unwrap();
     assert_eq!(bom.nodes[0].label, "app");
     let bom = parse(r#"{"bomFormat": "CycloneDX", "specVersion": "1.6"}"#, None).unwrap();
     assert_eq!(bom.nodes[0].label, "CBOM");
@@ -95,15 +132,30 @@ fn a_root_without_git_url_is_named_after_the_file() {
 fn components_depend_on_and_provide() {
     let bom = open("bom-examples/example-with-dependencies.cdx.json");
     assert_eq!(bom.source.spec_version, "1.7");
-    assert_eq!((bom.nodes[0].key.as_str(), bom.nodes[0].label.as_str()), ("acme-application", "Acme Application"));
+    assert_eq!(
+        (bom.nodes[0].key.as_str(), bom.nodes[0].label.as_str()),
+        ("acme-application", "Acme Application")
+    );
     assert!(!bom.nodes[0].synthetic);
     let edge = |from, to| {
         let (from, to) = (by_key(&bom, from), by_key(&bom, to));
-        bom.edges.iter().find(|e| e.from == from && e.to == to).map(|e| e.kind)
+        bom.edges
+            .iter()
+            .find(|e| e.from == from && e.to == to)
+            .map(|e| e.kind)
     };
-    assert_eq!(edge("acme-application", "crypto-library"), Some(EdgeKind::DependsOn));
-    assert_eq!(edge("crypto-library", "aes128gcm"), Some(EdgeKind::Provides));
-    assert_eq!(edge("crypto-library", "some-library"), Some(EdgeKind::DependsOn));
+    assert_eq!(
+        edge("acme-application", "crypto-library"),
+        Some(EdgeKind::DependsOn)
+    );
+    assert_eq!(
+        edge("crypto-library", "aes128gcm"),
+        Some(EdgeKind::Provides)
+    );
+    assert_eq!(
+        edge("crypto-library", "some-library"),
+        Some(EdgeKind::DependsOn)
+    );
 }
 
 #[test]
@@ -118,28 +170,62 @@ fn reads_algorithm_family_and_strips_the_curve_namespace() {
 #[test]
 fn assets_without_a_bom_ref_are_reported_and_kept() {
     let bom = open("bom-examples/algorithm.cdx.json");
-    assert_eq!(codes(&bom).iter().filter(|&&c| c == IssueCode::MissingBomRef).count(), 2);
-    assert!(by_label(&bom, "AES-128-GCM-128-12").1.key.starts_with("#anon-"));
+    assert_eq!(
+        codes(&bom)
+            .iter()
+            .filter(|&&c| c == IssueCode::MissingBomRef)
+            .count(),
+        2
+    );
+    assert!(
+        by_label(&bom, "AES-128-GCM-128-12")
+            .1
+            .key
+            .starts_with("#anon-")
+    );
 }
 
 #[test]
 fn a_dangling_reference_is_an_issue() {
     let bom = open("bom-examples/protocol.cdx.json");
-    let dangling: Vec<_> = bom.issues.iter().filter(|i| i.code == IssueCode::DanglingRef).collect();
+    let dangling: Vec<_> = bom
+        .issues
+        .iter()
+        .filter(|i| i.code == IssueCode::DanglingRef)
+        .collect();
     assert_eq!(dangling.len(), 1);
-    assert!(dangling[0].message.contains("crypto/algorithm/rsa-2048@1.2.840.113549.1.1.1"));
+    assert!(
+        dangling[0]
+            .message
+            .contains("crypto/algorithm/rsa-2048@1.2.840.113549.1.1.1")
+    );
 }
 
 #[test]
 fn a_certificate_links_its_signature_algorithm_and_key() {
     let bom = open("bom-examples/certificate.cdx.json");
     let (cert, node) = by_label(&bom, "google.com");
-    let Some(Crypto::Certificate(info)) = &node.crypto else { panic!("not a certificate") };
-    assert_eq!(info.not_valid_after.as_deref(), Some("2017-11-22T07:59:59Z"));
+    let Some(Crypto::Certificate(info)) = &node.crypto else {
+        panic!("not a certificate")
+    };
+    assert_eq!(
+        info.not_valid_after.as_deref(),
+        Some("2017-11-22T07:59:59Z")
+    );
     assert_eq!(info.format.as_deref(), Some("X.509"));
-    let out: Vec<_> =
-        bom.edges.iter().filter(|e| e.from == cert).map(|e| (e.kind, bom.nodes[e.to as usize].label.as_str())).collect();
-    assert_eq!(out, [(EdgeKind::SignedWith, "SHA512withRSA"), (EdgeKind::HasKey, "RSA-2048")]);
+    let out: Vec<_> = bom
+        .edges
+        .iter()
+        .filter(|e| e.from == cert)
+        .map(|e| (e.kind, bom.nodes[e.to as usize].label.as_str()))
+        .collect();
+    assert_eq!(
+        out,
+        [
+            (EdgeKind::SignedWith, "SHA512withRSA"),
+            (EdgeKind::HasKey, "RSA-2048")
+        ]
+    );
     assert_eq!(by_label(&bom, "RSA-2048").1.kind, NodeKind::Material);
 }
 
@@ -161,7 +247,10 @@ fn a_duplicate_bom_ref_keeps_the_first() {
         None,
     )
     .unwrap();
-    assert_eq!(codes(&bom), [IssueCode::DuplicateBomRef, IssueCode::DanglingRef]);
+    assert_eq!(
+        codes(&bom),
+        [IssueCode::DuplicateBomRef, IssueCode::DanglingRef]
+    );
     assert_eq!(bom.edges, vec![]); // a self edge is dropped
 }
 
@@ -169,13 +258,29 @@ fn a_duplicate_bom_ref_keeps_the_first() {
 // both must give the same model.
 
 fn comparable(bom: &Bom) -> (String, Vec<Node>, Vec<Edge>, Vec<IssueCode>) {
-    let nodes = bom.nodes.iter().map(|n| Node { raw: serde_json::Value::Null, ..n.clone() }).collect();
-    (bom.source.spec_version.clone(), nodes, bom.edges.clone(), codes(bom))
+    let nodes = bom
+        .nodes
+        .iter()
+        .map(|n| Node {
+            raw: serde_json::Value::Null,
+            ..n.clone()
+        })
+        .collect();
+    (
+        bom.source.spec_version.clone(),
+        nodes,
+        bom.edges.clone(),
+        codes(bom),
+    )
 }
 
 #[test]
 fn xml_parses_to_the_same_model_as_json() {
-    for name in ["cryptography-implementation-1.6", "cryptography-full-1.7", "cryptography-certificate-advanced-1.7"] {
+    for name in [
+        "cryptography-implementation-1.6",
+        "cryptography-full-1.7",
+        "cryptography-certificate-advanced-1.7",
+    ] {
         let xml = open(&format!("spec/{name}.xml"));
         let json = open(&format!("spec/{name}.json"));
         assert_eq!(xml.source.format, Format::Xml);
@@ -188,7 +293,11 @@ fn xml_parses_to_the_same_model_as_json() {
 fn xml_crypto_ref_in_protocol_properties_is_a_uses_edge() {
     let bom = open("spec/cryptography-full-1.6.xml");
     let (from, to) = (by_key(&bom, "asset-2"), by_key(&bom, "asset-4"));
-    assert!(bom.edges.contains(&Edge { from, to, kind: EdgeKind::Uses }));
+    assert!(bom.edges.contains(&Edge {
+        from,
+        to,
+        kind: EdgeKind::Uses
+    }));
     let a = algorithm(&bom.nodes[by_key(&bom, "asset-1") as usize]);
     assert_eq!(a.curve.as_deref(), Some("brainpoolP160r1"));
     assert_eq!(a.functions, ["keygen", "encrypt", "decrypt", "tag"]);
@@ -201,9 +310,21 @@ fn xml_metadata_component_nested_dependencies_and_provides() {
     assert_eq!(bom.nodes[0].key, "acme-application");
     let k = |key| by_key(&bom, key);
     for edge in [
-        Edge { from: k("acme-application"), to: k("crypto-library"), kind: EdgeKind::DependsOn },
-        Edge { from: k("crypto-library"), to: k("aes128gcm"), kind: EdgeKind::Provides },
-        Edge { from: k("draftietftlshybriddesign13"), to: k("mlkem1024"), kind: EdgeKind::DependsOn },
+        Edge {
+            from: k("acme-application"),
+            to: k("crypto-library"),
+            kind: EdgeKind::DependsOn,
+        },
+        Edge {
+            from: k("crypto-library"),
+            to: k("aes128gcm"),
+            kind: EdgeKind::Provides,
+        },
+        Edge {
+            from: k("draftietftlshybriddesign13"),
+            to: k("mlkem1024"),
+            kind: EdgeKind::DependsOn,
+        },
     ] {
         assert!(bom.edges.contains(&edge), "{edge:?}");
     }
@@ -211,7 +332,11 @@ fn xml_metadata_component_nested_dependencies_and_provides() {
 
 #[test]
 fn xml_spec_version_comes_from_the_namespace() {
-    let bom = parse(r#"<bom xmlns="http://cyclonedx.org/schema/bom/1.7" version="1"/>"#, None).unwrap();
+    let bom = parse(
+        r#"<bom xmlns="http://cyclonedx.org/schema/bom/1.7" version="1"/>"#,
+        None,
+    )
+    .unwrap();
     assert_eq!(bom.source.spec_version, "1.7");
     assert_eq!(codes(&bom), []);
 }
@@ -220,14 +345,20 @@ fn xml_spec_version_comes_from_the_namespace() {
 fn xml_with_a_doctype_is_refused() {
     let bomb = r#"<?xml version="1.0"?><!DOCTYPE lolz [<!ENTITY lol "lol"><!ENTITY lol2 "&lol;&lol;">]><bom xmlns="http://cyclonedx.org/schema/bom/1.6"><components/></bom>"#;
     assert_eq!(parse(bomb, None), Err(Error::UnsafeXml));
-    assert_eq!(parse("<?xml version=\"1.0\"?>\n<!doctype bom><bom/>", None), Err(Error::UnsafeXml));
+    assert_eq!(
+        parse("<?xml version=\"1.0\"?>\n<!doctype bom><bom/>", None),
+        Err(Error::UnsafeXml)
+    );
 }
 
 #[test]
 fn malformed_xml_says_where() {
     let err = parse("<bom>\n  <components>\n</bom>", None).unwrap_err();
     assert!(matches!(err, Error::InvalidXml { line: 3, .. }), "{err:?}");
-    assert!(matches!(parse("<bom>\n<components>", None), Err(Error::InvalidXml { .. })));
+    assert!(matches!(
+        parse("<bom>\n<components>", None),
+        Err(Error::InvalidXml { .. })
+    ));
     let deep = format!("<bom>{}", "<a>".repeat(1000));
     assert!(matches!(parse(&deep, None), Err(Error::InvalidXml { .. })));
 }
@@ -264,11 +395,16 @@ fn check_tree(t: &Tree, path: &str) {
 }
 
 fn labels(t: &Tree, bom: &Bom, i: u32) -> Vec<String> {
-    t.children[i as usize].iter().map(|&c| t.node(bom, c).label.clone()).collect()
+    t.children[i as usize]
+        .iter()
+        .map(|&c| t.node(bom, c).label.clone())
+        .collect()
 }
 
 fn find(t: &Tree, bom: &Bom, label: &str) -> u32 {
-    (0..t.len() as u32).find(|&i| t.node(bom, i).label == label).unwrap_or_else(|| panic!("no node {label}"))
+    (0..t.len() as u32)
+        .find(|&i| t.node(bom, i).label == label)
+        .unwrap_or_else(|| panic!("no node {label}"))
 }
 
 #[test]
@@ -287,12 +423,22 @@ fn scanner_output_is_grouped_by_source_file() {
     assert_eq!(tree::modes(&bom), [TreeMode::Files, TreeMode::Flat]);
     let t = tree::build(&bom, TreeMode::Files);
     let top = labels(&t, &bom, 0);
-    for want in ["core/src/main/java/org/keycloak/jose", "services/src/main/java/org/keycloak/keys", "crypto"] {
+    for want in [
+        "core/src/main/java/org/keycloak/jose",
+        "services/src/main/java/org/keycloak/keys",
+        "crypto",
+    ] {
         assert!(top.iter().any(|l| l == want), "{want} not in {top:?}");
     }
     // cipherscape has 12: it also makes groups for files where assets only occur again
     assert_eq!(top.len(), 9);
-    assert!(t.groups.iter().enumerate().all(|(g, _)| !t.children[bom.nodes.len() + g].is_empty()), "an empty group");
+    assert!(
+        t.groups
+            .iter()
+            .enumerate()
+            .all(|(g, _)| !t.children[bom.nodes.len() + g].is_empty()),
+        "an empty group"
+    );
 
     // single-child directory chains are folded
     for (g, group) in t.groups.iter().enumerate() {
@@ -300,14 +446,24 @@ fn scanner_output_is_grouped_by_source_file() {
         if group.group.as_ref().unwrap().kind == GroupKind::Directory {
             let children = &t.children[i];
             let only_a_file = children.len() == 1
-                && t.node(&bom, children[0]).group.as_ref().is_some_and(|g| g.kind == GroupKind::File);
-            assert!(children.len() > 1 || only_a_file, "{} is a chain", group.label);
+                && t.node(&bom, children[0])
+                    .group
+                    .as_ref()
+                    .is_some_and(|g| g.kind == GroupKind::File);
+            assert!(
+                children.len() > 1 || only_a_file,
+                "{} is a chain",
+                group.label
+            );
         }
     }
 
     // under the file of the first occurrence; other files get an edge
     let rsa = find(&t, &bom, "RSA-2048");
-    assert_eq!(t.node(&bom, t.parent[rsa as usize].unwrap()).label, "JWKParser.java");
+    assert_eq!(
+        t.node(&bom, t.parent[rsa as usize].unwrap()).label,
+        "JWKParser.java"
+    );
     let others: Vec<_> = t
         .cross_edges
         .iter()
@@ -316,7 +472,11 @@ fn scanner_output_is_grouped_by_source_file() {
         .collect();
     assert_eq!(others, ["RSAKeyValueType.java"]); // two occurrences in one file are one edge
 
-    assert!(t.groups.iter().all(|g| g.group.as_ref().unwrap().kind != GroupKind::Kind));
+    assert!(
+        t.groups
+            .iter()
+            .all(|g| g.group.as_ref().unwrap().kind != GroupKind::Kind)
+    );
 }
 
 #[test]
@@ -337,7 +497,10 @@ fn referenced_assets_hang_under_their_referrer_before_kind_groups() {
     assert_eq!(tree::modes(&bom), [TreeMode::Flat]);
     let t = tree::build(&bom, TreeMode::Flat);
     assert_eq!(labels(&t, &bom, 0), ["Certificates"]);
-    assert_eq!(labels(&t, &bom, find(&t, &bom, "google.com")), ["SHA512withRSA", "RSA-2048"]);
+    assert_eq!(
+        labels(&t, &bom, find(&t, &bom, "google.com")),
+        ["SHA512withRSA", "RSA-2048"]
+    );
     assert_eq!(labels(&t, &bom, find(&t, &bom, "RSA-2048")), ["RSA-2048"]); // key, then its algorithm
 }
 
@@ -365,10 +528,16 @@ fn a_large_bom_builds_quickly() {
         let provides: Vec<String> = (0..4).map(|j| format!("alg-{i}-{j}")).collect();
         components.push(serde_json::json!({"type": "library", "name": format!("lib-{i}"), "bom-ref": format!("lib-{i}")}));
         for r in &provides {
-            components.push(serde_json::json!({"type": "cryptographic-asset", "name": r, "bom-ref": r,
-                "cryptoProperties": {"assetType": "algorithm"}}));
+            components.push(
+                serde_json::json!({"type": "cryptographic-asset", "name": r, "bom-ref": r,
+                "cryptoProperties": {"assetType": "algorithm"}}),
+            );
         }
-        let parent = if i == 0 { "app".to_string() } else { format!("lib-{}", (i - 1) / 3) };
+        let parent = if i == 0 {
+            "app".to_string()
+        } else {
+            format!("lib-{}", (i - 1) / 3)
+        };
         dependencies.push(serde_json::json!({"ref": parent, "dependsOn": [format!("lib-{i}")]}));
         dependencies.push(serde_json::json!({"ref": format!("lib-{i}"), "provides": provides}));
     }
@@ -382,14 +551,17 @@ fn a_large_bom_builds_quickly() {
     assert_eq!(bom.nodes.len(), 20_001);
     assert_eq!(t.len(), 20_001);
     check_tree(&t, "large");
-    assert!(started.elapsed() < crate::test_limit(std::time::Duration::from_secs(5)), "took {:?}", started.elapsed());
+    assert!(
+        started.elapsed() < crate::test_limit(std::time::Duration::from_secs(5)),
+        "took {:?}",
+        started.elapsed()
+    );
 }
-
 
 // Ratings
 
 use assess::{Context, Reason};
-use policy::{policy, AssetParams, Param, Resolution};
+use policy::{AssetParams, Param, Resolution, policy};
 
 #[test]
 fn status_order_and_roll_up() {
@@ -398,7 +570,10 @@ fn status_order_and_roll_up() {
     assert_eq!(Status::NotRated.worst(Status::NotRated), Status::NotRated);
     // an unknown asset never lets its component read as green
     assert_eq!(Status::Safe.worst(Status::Unknown), Status::Unknown);
-    assert_eq!(Status::Unknown.worst(Status::Deprecated), Status::Deprecated);
+    assert_eq!(
+        Status::Unknown.worst(Status::Deprecated),
+        Status::Deprecated
+    );
     let colors: Vec<_> = Status::ALL.iter().map(|s| s.color()).collect();
     use status::Color::*;
     assert_eq!(colors, [Green, Green, Grey, Yellow, Red, Red, Muted]);
@@ -426,15 +601,29 @@ fn golden_ratings_match_cipherscape() {
             param_set: c.param_set.clone(),
         };
         let got = policy().evaluate(&asset, &c.profile, c.year).status;
-        assert_eq!(got, c.expect, "{} {:?} {:?} {:?} @{} {}", c.algorithm, c.key_bits, c.security_bits, c.param_set, c.profile, c.year);
+        assert_eq!(
+            got, c.expect,
+            "{} {:?} {:?} {:?} @{} {}",
+            c.algorithm, c.key_bits, c.security_bits, c.param_set, c.profile, c.year
+        );
     }
 }
 
 #[test]
 fn an_evaluation_says_what_is_missing_and_where_the_rule_comes_from() {
     let e = policy().evaluate(&AssetParams::new("rsa"), "nist", 2026);
-    assert_eq!((e.status, e.missing), (Status::Unknown, vec![Param::KeyBits]));
-    let e = policy().evaluate(&AssetParams { key_bits: Some(2048), ..AssetParams::new("rsa") }, "nist", 2031);
+    assert_eq!(
+        (e.status, e.missing),
+        (Status::Unknown, vec![Param::KeyBits])
+    );
+    let e = policy().evaluate(
+        &AssetParams {
+            key_bits: Some(2048),
+            ..AssetParams::new("rsa")
+        },
+        "nist",
+        2031,
+    );
     let source = e.source.unwrap();
     assert_eq!(source.reference.as_deref(), Some("ir8547"));
     assert!(source.text.contains("IR 8547"));
@@ -443,8 +632,17 @@ fn an_evaluation_says_what_is_missing_and_where_the_rule_comes_from() {
 
 #[test]
 fn remediation_fits_the_profile_and_parameters() {
-    let aes = |bits| AssetParams { key_bits: Some(bits), ..AssetParams::new("aes") };
-    let rsa1024 = policy().remediation(&AssetParams { key_bits: Some(1024), ..AssetParams::new("rsa") }, "nist");
+    let aes = |bits| AssetParams {
+        key_bits: Some(bits),
+        ..AssetParams::new("aes")
+    };
+    let rsa1024 = policy().remediation(
+        &AssetParams {
+            key_bits: Some(1024),
+            ..AssetParams::new("rsa")
+        },
+        "nist",
+    );
     assert_eq!(rsa1024.len(), 2);
     assert!(rsa1024[0].summary.contains("broken"));
     assert!(rsa1024[1].summary.contains("post-quantum"));
@@ -464,8 +662,18 @@ fn resolved(name: &str, info: AlgorithmInfo) -> Resolved {
     }
 }
 
-fn params(id: &str, key_bits: Option<u64>, security_bits: Option<u64>, param_set: Option<&str>) -> AssetParams {
-    AssetParams { algorithm_id: id.into(), key_bits, security_bits, param_set: param_set.map(str::to_string) }
+fn params(
+    id: &str,
+    key_bits: Option<u64>,
+    security_bits: Option<u64>,
+    param_set: Option<&str>,
+) -> AssetParams {
+    AssetParams {
+        algorithm_id: id.into(),
+        key_bits,
+        security_bits,
+        param_set: param_set.map(str::to_string),
+    }
 }
 
 #[test]
@@ -482,7 +690,11 @@ fn names_found_in_real_files_resolve() {
         // CBOMkit: Keycloak and Kafka
         ("AES", none(), one("aes", None, None, None)),
         ("AES128", none(), one("aes", Some(128), None, None)),
-        ("AES128-CBC-PKCS5", none(), one("aes", Some(128), None, None)),
+        (
+            "AES128-CBC-PKCS5",
+            none(),
+            one("aes", Some(128), None, None),
+        ),
         ("AES128-GCM", none(), one("aes", Some(128), None, None)),
         ("ConcatenationKDF", none(), Err("not-rated")),
         ("DSA", none(), one("dsa", None, None, None)),
@@ -507,34 +719,68 @@ fn names_found_in_real_files_resolve() {
         (
             "RSA-PKCS1-1.5-SHA512-2048",
             info(Some("RSASSA-PKCS1"), Some("512"), "1.2.840.113549.1.1.13"),
-            Ok(vec![params("rsa", Some(2048), None, None), params("sha2", None, None, Some("512"))]),
+            Ok(vec![
+                params("rsa", Some(2048), None, None),
+                params("sha2", None, None, Some("512")),
+            ]),
         ),
-        ("SHA384", info(None, Some("384"), "2.16.840.1.101.3.4.2.9"), one("sha2", None, None, Some("384"))),
+        (
+            "SHA384",
+            info(None, Some("384"), "2.16.840.1.101.3.4.2.9"),
+            one("sha2", None, None, Some("384")),
+        ),
         (
             "SHA512withRSA",
             info(None, Some("512"), "1.2.840.113549.1.1.13"),
-            Ok(vec![params("sha2", None, None, Some("512")), params("rsa", None, None, None)]),
+            Ok(vec![
+                params("sha2", None, None, Some("512")),
+                params("rsa", None, None, None),
+            ]),
         ),
-        ("RSA-2048", info(None, Some("2048"), "1.2.840.113549.1.1.1"), one("rsa", Some(2048), None, None)),
-        ("AES-128-GCM-128-12", info(Some("AES"), Some("128"), "2.16.840.1.101.3.4.1.6"), one("aes", Some(128), None, None)),
+        (
+            "RSA-2048",
+            info(None, Some("2048"), "1.2.840.113549.1.1.1"),
+            one("rsa", Some(2048), None, None),
+        ),
+        (
+            "AES-128-GCM-128-12",
+            info(Some("AES"), Some("128"), "2.16.840.1.101.3.4.1.6"),
+            one("aes", Some(128), None, None),
+        ),
         (
             "AES-256-GCM",
-            AlgorithmInfo { classical_security_level: Some(256), ..info(Some("AES"), None, "2.16.840.1.101.3.4.1.46") },
+            AlgorithmInfo {
+                classical_security_level: Some(256),
+                ..info(Some("AES"), None, "2.16.840.1.101.3.4.1.46")
+            },
             one("aes", Some(256), None, None),
         ),
         (
             "ECDH-secp521r1",
-            AlgorithmInfo { curve: Some("secp521r1".into()), ..info(Some("ECDH"), None, "1.3.132.0.35") },
+            AlgorithmInfo {
+                curve: Some("secp521r1".into()),
+                ..info(Some("ECDH"), None, "1.3.132.0.35")
+            },
             one("ecc", None, Some(256), None),
         ),
         (
             "draft-ietf-tls-hybrid-design-13",
-            AlgorithmInfo { primitive: Some("combiner".into()), ..info(None, None, "1.3.101.110") },
+            AlgorithmInfo {
+                primitive: Some("combiner".into()),
+                ..info(None, None, "1.3.101.110")
+            },
             Err("not-rated"),
         ),
         ("ML-DSA-65", none(), one("ml-dsa", None, None, Some("65"))),
         ("Kyber768", none(), one("ml-kem", None, None, Some("768"))),
-        ("sha256WithRSAEncryption", none(), Ok(vec![params("sha2", None, None, Some("256")), params("rsa", None, None, None)])),
+        (
+            "sha256WithRSAEncryption",
+            none(),
+            Ok(vec![
+                params("sha2", None, None, Some("256")),
+                params("rsa", None, None, None),
+            ]),
+        ),
     ];
     for (name, info, want) in cases {
         assert_eq!(resolved(name, info), want, "{name}");
@@ -543,7 +789,11 @@ fn names_found_in_real_files_resolve() {
 
 fn outvoted(name: &str, info: AlgorithmInfo) -> Vec<policy::SignalSource> {
     match policy().resolve(name, &info) {
-        Resolution::Rated { signals, .. } => signals.iter().filter(|s| !s.agreed).map(|s| s.source).collect(),
+        Resolution::Rated { signals, .. } => signals
+            .iter()
+            .filter(|s| !s.agreed)
+            .map(|s| s.source)
+            .collect(),
         other => panic!("{name}: {other:?}"),
     }
 }
@@ -559,27 +809,48 @@ fn wrong_oids_are_outvoted_not_trusted() {
     };
 
     // ML-KEM-1024 with an AES OID
-    let info = AlgorithmInfo { primitive: Some("kem".into()), ..with(Some("ML-KEM"), None, "2.16.840.1.101.3.4.1.48") };
-    assert_eq!(resolved("ML-KEM-1024", info.clone()), Ok(vec![params("ml-kem", None, None, Some("1024"))]));
+    let info = AlgorithmInfo {
+        primitive: Some("kem".into()),
+        ..with(Some("ML-KEM"), None, "2.16.840.1.101.3.4.1.48")
+    };
+    assert_eq!(
+        resolved("ML-KEM-1024", info.clone()),
+        Ok(vec![params("ml-kem", None, None, Some("1024"))])
+    );
     assert_eq!(outvoted("ML-KEM-1024", info), [Oid]);
 
     // SHA-384 with the SHA3-384 OID
     let info = with(Some("SHA-2"), Some("384"), "2.16.840.1.101.3.4.2.9");
-    assert_eq!(resolved("SHA-384", info.clone()), Ok(vec![params("sha2", None, None, Some("384"))]));
+    assert_eq!(
+        resolved("SHA-384", info.clone()),
+        Ok(vec![params("sha2", None, None, Some("384"))])
+    );
     assert_eq!(outvoted("SHA-384", info), [Oid]);
 
     // X25519 with the id-ecDH OID: ECC by majority, with the right strength
-    let info = AlgorithmInfo { curve: Some("Curve25519".into()), ..with(Some("ECDH"), None, "1.3.132.1.12") };
-    assert_eq!(resolved("X25519", info.clone()), Ok(vec![params("ecc", None, Some(128), None)]));
+    let info = AlgorithmInfo {
+        curve: Some("Curve25519".into()),
+        ..with(Some("ECDH"), None, "1.3.132.1.12")
+    };
+    assert_eq!(
+        resolved("X25519", info.clone()),
+        Ok(vec![params("ecc", None, Some(128), None)])
+    );
     assert_eq!(outvoted("X25519", info), [Name]);
 
     // a tie between name and OID goes to the name
     let info = with(None, None, "2.16.840.1.101.3.4.2.9");
-    assert_eq!(resolved("SHA-384", info.clone()), Ok(vec![params("sha2", None, None, Some("384"))]));
+    assert_eq!(
+        resolved("SHA-384", info.clone()),
+        Ok(vec![params("sha2", None, None, Some("384"))])
+    );
     assert_eq!(outvoted("SHA-384", info), [Oid]);
 
     // OID and family disagreeing with no name to settle it: no answer rather than a guess
-    assert_eq!(resolved("?", with(Some("AES"), None, "2.16.840.1.101.3.4.2.9")), Err("unresolved"));
+    assert_eq!(
+        resolved("?", with(Some("AES"), None, "2.16.840.1.101.3.4.2.9")),
+        Err("unresolved")
+    );
 }
 
 #[test]
@@ -589,20 +860,31 @@ fn every_algorithm_in_the_fixtures_is_resolved_or_skipped_on_purpose() {
         let bom = open(path);
         for n in &bom.nodes {
             if let Some(Crypto::Algorithm(info)) = &n.crypto
-                && matches!(policy().resolve(&n.label, info), Resolution::Unresolved { .. })
+                && matches!(
+                    policy().resolve(&n.label, info),
+                    Resolution::Unresolved { .. }
+                )
             {
                 unresolved.insert(n.label.clone());
             }
         }
     }
     // Only junk may stay unresolved. Teach the resolver or the catalog before adding to this.
-    assert_eq!(unresolved.into_iter().collect::<Vec<_>>(), ["PRIVATE KEY", "RAW"]);
+    assert_eq!(
+        unresolved.into_iter().collect::<Vec<_>>(),
+        ["PRIVATE KEY", "RAW"]
+    );
 }
 
 /// The fixed moment the assessment tests rate at: 2026-09-24.
 fn context(year: i32) -> Context {
     let now = assess::parse_time("2026-09-24T00:00:00Z").unwrap();
-    Context { profile: "nist".into(), year, now, expiry_warning_days: 90 }
+    Context {
+        profile: "nist".into(),
+        year,
+        now,
+        expiry_warning_days: 90,
+    }
 }
 
 struct Rated {
@@ -617,11 +899,22 @@ impl Rated {
         let bom = open(path);
         let tree = tree::build(&bom, tree::modes(&bom)[0]);
         let (resolutions, issues) = assess::resolve(&bom, policy());
-        Rated { bom, tree, resolutions, issues }
+        Rated {
+            bom,
+            tree,
+            resolutions,
+            issues,
+        }
     }
 
     fn at(&self, year: i32) -> assess::Assessed {
-        assess::assess(&self.bom, &self.tree, policy(), &self.resolutions, &context(year))
+        assess::assess(
+            &self.bom,
+            &self.tree,
+            policy(),
+            &self.resolutions,
+            &context(year),
+        )
     }
 
     fn find(&self, label: &str) -> u32 {
@@ -651,16 +944,26 @@ fn keycloak_is_rated_by_the_catalog() {
         assert_eq!(r.status(&now, label), want, "{label}");
     }
     let ec = now.explain(r.find("EC"));
-    assert!(matches!(&ec.reasons[0], Reason::Rule { evaluation, .. } if evaluation.missing == [Param::SecurityBits]));
+    assert!(
+        matches!(&ec.reasons[0], Reason::Rule { evaluation, .. } if evaluation.missing == [Param::SecurityBits])
+    );
 
     // a key without parameters takes its algorithm's status
     let key = now.explain(r.find("secret-key@ad2ff456-2f18-4c34-938b-54964e020aeb"));
-    assert_eq!(key.reasons, [Reason::Inherited { node: r.find("HMAC-SHA256"), status: Status::Acceptable }]);
+    assert_eq!(
+        key.reasons,
+        [Reason::Inherited {
+            node: r.find("HMAC-SHA256"),
+            status: Status::Acceptable
+        }]
+    );
     assert_eq!(key.status, Status::Acceptable);
 
     // the worst rolls up to the root, and the explanation names the asset, not a group or a key
     assert_eq!(now.status[0], Status::Disallowed);
-    let Reason::Rollup { node, status } = now.explain(0).reasons[0].clone() else { panic!("not a roll-up") };
+    let Reason::Rollup { node, status } = now.explain(0).reasons[0].clone() else {
+        panic!("not a roll-up")
+    };
     assert_eq!(status, Status::Disallowed);
     assert_eq!(r.tree.node(&r.bom, node).label, "DSA");
 
@@ -696,7 +999,10 @@ fn an_expired_certificate_is_red_whatever_its_algorithms() {
 }
 
 fn params_rsa_2048() -> AssetParams {
-    AssetParams { key_bits: Some(2048), ..AssetParams::new("rsa") }
+    AssetParams {
+        key_bits: Some(2048),
+        ..AssetParams::new("rsa")
+    }
 }
 
 #[test]
@@ -722,7 +1028,11 @@ fn a_certificate_close_to_expiry_is_deprecated() {
 #[test]
 fn outvoted_oids_are_warnings() {
     let r = Rated::new("bom-examples/algorithm.cdx.json");
-    let m: Vec<_> = r.issues.iter().filter(|i| i.code == IssueCode::OidMismatch).collect();
+    let m: Vec<_> = r
+        .issues
+        .iter()
+        .filter(|i| i.code == IssueCode::OidMismatch)
+        .collect();
     assert_eq!(m.len(), 1);
     assert!(m[0].message.contains("ML-KEM-1024"), "{}", m[0].message);
 }
@@ -741,7 +1051,10 @@ fn assets_that_refer_to_each_other_in_a_circle_are_unknown() {
     let tree = tree::build(&bom, TreeMode::Flat);
     let (res, _) = assess::resolve(&bom, policy());
     let a = assess::assess(&bom, &tree, policy(), &res, &context(2026));
-    assert_eq!((a.status[1], a.status[2]), (Status::Unknown, Status::Unknown));
+    assert_eq!(
+        (a.status[1], a.status[2]),
+        (Status::Unknown, Status::Unknown)
+    );
 }
 
 #[test]
@@ -749,7 +1062,10 @@ fn dates_without_a_date_crate() {
     use assess::{parse_time, start_of_year, year_of};
     assert_eq!(parse_time("1970-01-01"), Some(0));
     assert_eq!(parse_time("2000-03-01T00:00:00Z"), Some(951_868_800));
-    assert_eq!(parse_time("2000-03-01T01:00:00.123+01:00"), Some(951_868_800));
+    assert_eq!(
+        parse_time("2000-03-01T01:00:00.123+01:00"),
+        Some(951_868_800)
+    );
     assert_eq!(parse_time("2000-13-01"), None);
     assert_eq!(year_of(951_868_800), 2000);
     assert_eq!(year_of(start_of_year(2031)), 2031);
@@ -758,16 +1074,27 @@ fn dates_without_a_date_crate() {
 
 #[test]
 fn sniffing_by_name_and_by_content() {
-    assert!(sniff_name("app.cdx.json") && sniff_name("App.CDX.XML") && sniff_name("x.cbom.json") && sniff_name("bom.json"));
+    assert!(
+        sniff_name("app.cdx.json")
+            && sniff_name("App.CDX.XML")
+            && sniff_name("x.cbom.json")
+            && sniff_name("bom.json")
+    );
     assert!(!sniff_name("package.json") && !sniff_name("sbom.txt"));
-    assert!(sniff_head(br#"{"$schema": "x", "bomFormat": "CycloneDX", "specVersion": "1.6"}"#));
-    assert!(sniff_head(br#"<?xml version="1.0"?><bom xmlns="http://cyclonedx.org/schema/bom/1.6">"#));
+    assert!(sniff_head(
+        br#"{"$schema": "x", "bomFormat": "CycloneDX", "specVersion": "1.6"}"#
+    ));
+    assert!(sniff_head(
+        br#"<?xml version="1.0"?><bom xmlns="http://cyclonedx.org/schema/bom/1.6">"#
+    ));
     assert!(!sniff_head(br#"{"name": "CycloneDX", "version": "1"}"#));
 
     assert!(sniff(&fixture("spec/cryptography-full-1.7.json")));
     assert!(sniff(&fixture("spec/cryptography-full-1.7.xml")));
     assert!(!sniff(&fixture("README.md")));
-    assert!(!sniff(&PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("Cargo.toml")));
+    assert!(!sniff(
+        &PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("Cargo.toml")
+    ));
 }
 
 // Diff
@@ -788,11 +1115,21 @@ impl Version {
         let tree = tree::build(&bom, tree::modes(&bom)[0]);
         let (resolutions, _) = assess::resolve(&bom, policy());
         let status = assess::assess(&bom, &tree, policy(), &resolutions, &context(2026)).status;
-        Version { bom, tree, resolutions, status }
+        Version {
+            bom,
+            tree,
+            resolutions,
+            status,
+        }
     }
 
     fn side(&self) -> diff::Side<'_> {
-        diff::Side { bom: &self.bom, tree: &self.tree, resolutions: &self.resolutions, status: &self.status }
+        diff::Side {
+            bom: &self.bom,
+            tree: &self.tree,
+            resolutions: &self.resolutions,
+            status: &self.status,
+        }
     }
 
     fn labelled(&self, change: &[Change], which: Change) -> Vec<String> {
@@ -852,7 +1189,10 @@ fn keycloak_before_and_after_a_clean_up() {
     let before = json("cbomkit/keycloak.cdx.json");
     let mut after = before.clone();
     // fixed: SHA-1 becomes SHA-256 in the same place; DSA and its two keys are gone
-    let sha1 = components(&mut after).iter_mut().find(|c| c["name"] == "SHA1").unwrap();
+    let sha1 = components(&mut after)
+        .iter_mut()
+        .find(|c| c["name"] == "SHA1")
+        .unwrap();
     sha1["name"] = "SHA256".into();
     sha1["cryptoProperties"]["oid"] = "2.16.840.1.101.3.4.2.1".into();
     sha1["cryptoProperties"]["algorithmProperties"]["parameterSetIdentifier"] = "256".into();
@@ -860,12 +1200,17 @@ fn keycloak_before_and_after_a_clean_up() {
         .iter()
         .filter(|c| {
             c["name"] == "DSA"
-                || c["evidence"]["occurrences"][0]["location"].as_str().is_some_and(|l| l.ends_with("DSAKeyValueType.java"))
+                || c["evidence"]["occurrences"][0]["location"]
+                    .as_str()
+                    .is_some_and(|l| l.ends_with("DSAKeyValueType.java"))
         })
         .map(|c| c["bom-ref"].clone())
         .collect();
     components(&mut after).retain(|c| !gone.contains(&c["bom-ref"]));
-    after["dependencies"].as_array_mut().unwrap().retain(|d| !gone.contains(&d["ref"]));
+    after["dependencies"]
+        .as_array_mut()
+        .unwrap()
+        .retain(|d| !gone.contains(&d["ref"]));
     // a new risk: someone added MD5
     components(&mut after).push(serde_json::json!({
         "type": "cryptographic-asset", "bom-ref": "md5-new", "name": "MD5",
@@ -875,10 +1220,21 @@ fn keycloak_before_and_after_a_clean_up() {
 
     let (a, b) = (Version::new(&before), Version::new(&after));
     let d = diff::diff(&a.side(), &b.side());
-    assert_eq!((d.counts.added, d.counts.removed, d.counts.new_risks), (2, 4, 1));
+    assert_eq!(
+        (d.counts.added, d.counts.removed, d.counts.new_risks),
+        (2, 4, 1)
+    );
     assert_eq!(d.counts.fixed, 4); // SHA-1 (deprecated), and DSA with its two keys (disallowed)
     let removed: Vec<&str> = d.removed.iter().map(|r| r.label.as_str()).collect();
-    assert_eq!(removed, ["DSA", "key@b627000e-ed4e-449c-acb9-4e9547d6ee93", "key@58af0705-bf7c-4abc-9f49-5b3ed8dd31ca", "SHA1"]);
+    assert_eq!(
+        removed,
+        [
+            "DSA",
+            "key@b627000e-ed4e-449c-acb9-4e9547d6ee93",
+            "key@58af0705-bf7c-4abc-9f49-5b3ed8dd31ca",
+            "SHA1"
+        ]
+    );
     assert_eq!(b.labelled(&d.change, Change::Added), ["MD5", "SHA256"]);
 }
 
@@ -886,12 +1242,24 @@ fn keycloak_before_and_after_a_clean_up() {
 fn a_renewed_certificate_is_an_improvement_not_a_swap() {
     let before = json("bom-examples/certificate.cdx.json");
     let mut after = before.clone();
-    let cert = components(&mut after).iter_mut().find(|c| c["cryptoProperties"]["assetType"] == "certificate").unwrap();
-    cert["cryptoProperties"]["certificateProperties"]["notValidAfter"] = "2027-11-22T07:59:59Z".into();
+    let cert = components(&mut after)
+        .iter_mut()
+        .find(|c| c["cryptoProperties"]["assetType"] == "certificate")
+        .unwrap();
+    cert["cryptoProperties"]["certificateProperties"]["notValidAfter"] =
+        "2027-11-22T07:59:59Z".into();
     let (a, b) = (Version::new(&before), Version::new(&after));
     let d = diff::diff(&a.side(), &b.side());
     assert_eq!(b.labelled(&d.change, Change::Improved), ["google.com"]);
-    assert_eq!((d.counts.added, d.counts.removed, d.counts.improved, d.counts.fixed), (0, 0, 1, 1));
+    assert_eq!(
+        (
+            d.counts.added,
+            d.counts.removed,
+            d.counts.improved,
+            d.counts.fixed
+        ),
+        (0, 0, 1, 1)
+    );
 }
 
 // View helpers
@@ -902,27 +1270,52 @@ use view::{Filter, Loaded};
 fn view_names_filters_and_sunburst() {
     let l = Loaded::open(&fixture("cbomkit/keycloak.cdx.json"), None).unwrap();
     assert_eq!(l.mode, TreeMode::Files);
-    let key = (0..l.tree.len() as u32).find(|&i| l.node(i).label == "secret-key@ad2ff456-2f18-4c34-938b-54964e020aeb").unwrap();
-    assert_eq!(l.key_of(key), Some(("secret-key".into(), "HMAC-SHA256".into())));
+    let key = (0..l.tree.len() as u32)
+        .find(|&i| l.node(i).label == "secret-key@ad2ff456-2f18-4c34-938b-54964e020aeb")
+        .unwrap();
+    assert_eq!(
+        l.key_of(key),
+        Some(("secret-key".into(), "HMAC-SHA256".into()))
+    );
     assert_eq!(l.families(key), [policy::Family::Mac]);
     let flat = Loaded::open(&fixture("cbomkit/keycloak.cdx.json"), Some(TreeMode::Flat)).unwrap();
     assert!((0..flat.tree.len() as u32).any(|i| flat.group_kind(i) == Some(NodeKind::Algorithm)));
 
     let text: Vec<String> = (0..l.tree.len() as u32).map(|i| l.search_text(i)).collect();
-    let f = Filter { status: [Status::Disallowed].into(), ..Default::default() };
+    let f = Filter {
+        status: [Status::Disallowed].into(),
+        ..Default::default()
+    };
     let (matches, keep) = view::mask(&l, &f, &text);
     assert_eq!(matches.iter().filter(|&&m| m).count(), 3);
     assert!(keep[0] && !matches[0]);
-    let f = Filter { query: "jwkparser".into(), ..Default::default() };
+    let f = Filter {
+        query: "jwkparser".into(),
+        ..Default::default()
+    };
     let (matches, _) = view::mask(&l, &f, &text);
     assert!(matches.iter().filter(|&&m| m).count() >= 2); // the file group and what is found in it
 
     let leaves = view::leaf_counts(&l.tree, None);
     let arcs = view::sunburst(&l, &leaves, 0, view::RINGS, view::MIN_ANGLE);
-    let ring1: f64 = arcs.iter().filter(|a| a.depth == 1).map(|a| a.a1 - a.a0).sum();
+    let ring1: f64 = arcs
+        .iter()
+        .filter(|a| a.depth == 1)
+        .map(|a| a.a1 - a.a0)
+        .sum();
     assert!((ring1 - 360.0).abs() < 1e-9);
-    assert!(arcs.iter().all(|a| a.node.is_none() || a.a1 - a.a0 >= view::MIN_ANGLE));
-    let (_, keep) = view::mask(&l, &Filter { status: [Status::Disallowed].into(), ..Default::default() }, &text);
+    assert!(
+        arcs.iter()
+            .all(|a| a.node.is_none() || a.a1 - a.a0 >= view::MIN_ANGLE)
+    );
+    let (_, keep) = view::mask(
+        &l,
+        &Filter {
+            status: [Status::Disallowed].into(),
+            ..Default::default()
+        },
+        &text,
+    );
     let leaves = view::leaf_counts(&l.tree, Some(&keep));
     assert_eq!(leaves[0], 3.0);
 }
@@ -936,8 +1329,18 @@ fn a_file_named_in_a_bom_gets_the_systems_separators() {
     std::fs::write(&file, "").unwrap();
     let bom = dir.join("cbom.json");
     // the same string as joining part by part: on Windows, backslashes only
-    assert_eq!(view::on_disk(&bom, "src/main/Keys.java").unwrap().to_string_lossy(), file.to_string_lossy());
-    assert_eq!(view::on_disk(&bom, "/src/./main/Keys.java").unwrap().to_string_lossy(), file.to_string_lossy());
+    assert_eq!(
+        view::on_disk(&bom, "src/main/Keys.java")
+            .unwrap()
+            .to_string_lossy(),
+        file.to_string_lossy()
+    );
+    assert_eq!(
+        view::on_disk(&bom, "/src/./main/Keys.java")
+            .unwrap()
+            .to_string_lossy(),
+        file.to_string_lossy()
+    );
     assert_eq!(view::on_disk(&bom, "src/../../etc/passwd"), None);
     assert_eq!(view::on_disk(&bom, "src/main/Gone.java"), None);
     std::fs::remove_dir_all(&dir).unwrap();

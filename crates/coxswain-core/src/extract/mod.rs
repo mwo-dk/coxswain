@@ -52,7 +52,9 @@ fn reader(path: &Path) -> Option<Reader> {
         // Diagrams as text: their words, and a sentence per arrow.
         "mmd" | "mermaid" => |path, max| plain::text(path, max).map(diagram::mermaid),
         "dot" | "gv" => |path, max| plain::text(path, max).map(diagram::graphviz),
-        "puml" | "plantuml" | "pu" | "iuml" | "wsd" => |path, max| plain::text(path, max).map(diagram::plantuml),
+        "puml" | "plantuml" | "pu" | "iuml" | "wsd" => {
+            |path, max| plain::text(path, max).map(diagram::plantuml)
+        }
         "md" | "markdown" | "mdx" => |path, max| plain::text(path, max).map(diagram::markdown),
         e if installed::PICTURES.contains(&e) => installed::picture,
         e if installed::OFFICE.contains(&e) => installed::office,
@@ -69,10 +71,16 @@ pub fn text_of(path: &Path, size: u64, max: u64) -> Option<String> {
         return None;
     }
     let text = match reader(path) {
-        Some(read) => std::panic::catch_unwind(|| read(path, max)).ok().flatten()?,
+        Some(read) => std::panic::catch_unwind(|| read(path, max))
+            .ok()
+            .flatten()?,
         None => plain::text(path, max)?,
     };
-    let text = if crate::code::is_code(&path.to_string_lossy()) { tidy_code(&text) } else { tidy(&text) };
+    let text = if crate::code::is_code(&path.to_string_lossy()) {
+        tidy_code(&text)
+    } else {
+        tidy(&text)
+    };
     (!text.trim().is_empty()).then_some(text)
 }
 
@@ -88,7 +96,13 @@ pub fn tidy_code(text: &str) -> String {
             blank = !out.is_empty();
             continue;
         }
-        let start = if out.is_empty() { "" } else if blank { "\n\n" } else { "\n" };
+        let start = if out.is_empty() {
+            ""
+        } else if blank {
+            "\n\n"
+        } else {
+            "\n"
+        };
         blank = false;
         if out.len() + start.len() + line.len() > MAX_TEXT {
             break;
@@ -103,7 +117,16 @@ pub fn tidy_code(text: &str) -> String {
 /// nothing of what `unseen` names.
 pub fn tidy(text: &str) -> String {
     let mut out = String::with_capacity(text.len().min(MAX_TEXT));
-    for line in text.lines().map(|l| l.replace(unseen, "").split_whitespace().collect::<Vec<_>>().join(" ")).filter(|l| !l.is_empty()) {
+    for line in text
+        .lines()
+        .map(|l| {
+            l.replace(unseen, "")
+                .split_whitespace()
+                .collect::<Vec<_>>()
+                .join(" ")
+        })
+        .filter(|l| !l.is_empty())
+    {
         if !out.is_empty() {
             out.push('\n');
         }
@@ -122,7 +145,8 @@ pub fn tidy(text: &str) -> String {
 /// through; what a hostile file puts after a byte that is not is left out, and nothing is
 /// copied: a byte that is no UTF-8 would take three as a replacement character.
 pub fn utf8(bytes: &[u8]) -> &str {
-    std::str::from_utf8(bytes).unwrap_or_else(|e| std::str::from_utf8(&bytes[..e.valid_up_to()]).unwrap_or_default())
+    std::str::from_utf8(bytes)
+        .unwrap_or_else(|e| std::str::from_utf8(&bytes[..e.valid_up_to()]).unwrap_or_default())
 }
 
 /// What stands in a text and is no part of what it says. A control character that is no blank
@@ -155,12 +179,28 @@ pub fn zip_entry(path: &Path, name: &str) -> Option<Vec<u8>> {
 
 /// The entries of a zip file whose names `wanted` picks, in the order of their names, each
 /// unpacked. Entries larger than `MAX_ENTRY` are left out; at most `most` entries are read.
-pub fn zip_entries(path: &Path, most: usize, wanted: impl Fn(&str) -> bool) -> Vec<(String, Vec<u8>)> {
-    let Some(mut zip) = std::fs::File::open(path).ok().and_then(|f| zip::ZipArchive::new(f).ok()) else { return vec![] };
-    let mut names: Vec<String> = zip.file_names().filter(|n| wanted(n)).map(String::from).collect();
+pub fn zip_entries(
+    path: &Path,
+    most: usize,
+    wanted: impl Fn(&str) -> bool,
+) -> Vec<(String, Vec<u8>)> {
+    let Some(mut zip) = std::fs::File::open(path)
+        .ok()
+        .and_then(|f| zip::ZipArchive::new(f).ok())
+    else {
+        return vec![];
+    };
+    let mut names: Vec<String> = zip
+        .file_names()
+        .filter(|n| wanted(n))
+        .map(String::from)
+        .collect();
     names.sort_by_key(|a| natural(a));
     names.truncate(most);
-    names.into_iter().filter_map(|n| Some((n.clone(), unpack(zip.by_name(&n).ok()?)?))).collect()
+    names
+        .into_iter()
+        .filter_map(|n| Some((n.clone(), unpack(zip.by_name(&n).ok()?)?)))
+        .collect()
 }
 
 /// "slide10.xml" after "slide9.xml": digits compare as numbers.
@@ -204,7 +244,9 @@ fn tags_dropped(xml: &[u8], lines: &[&str], skip: &[&str], opens: bool) -> Strin
     let named = |name: &str, among: &[&str]| among.iter().any(|one| one.eq_ignore_ascii_case(name));
     while out.len() < MAX_TEXT {
         match reader.read_event() {
-            Ok(Event::Start(e)) if skipping > 0 || named(e.local_name().as_ref(), skip) => skipping += 1,
+            Ok(Event::Start(e)) if skipping > 0 || named(e.local_name().as_ref(), skip) => {
+                skipping += 1
+            }
             Ok(Event::Start(e)) if opens && named(e.local_name().as_ref(), lines) => out.push('\n'),
             Ok(Event::End(e)) => {
                 if skipping > 0 {
@@ -213,9 +255,15 @@ fn tags_dropped(xml: &[u8], lines: &[&str], skip: &[&str], opens: bool) -> Strin
                     out.push('\n');
                 }
             }
-            Ok(Event::Empty(e)) if skipping == 0 && named(e.local_name().as_ref(), lines) => out.push('\n'),
-            Ok(Event::Text(t)) if skipping == 0 => out.push_str(start(&t.into_inner(), MAX_TEXT - out.len())),
-            Ok(Event::CData(t)) if skipping == 0 => out.push_str(start(&t.into_inner(), MAX_TEXT - out.len())),
+            Ok(Event::Empty(e)) if skipping == 0 && named(e.local_name().as_ref(), lines) => {
+                out.push('\n')
+            }
+            Ok(Event::Text(t)) if skipping == 0 => {
+                out.push_str(start(&t.into_inner(), MAX_TEXT - out.len()))
+            }
+            Ok(Event::CData(t)) if skipping == 0 => {
+                out.push_str(start(&t.into_inner(), MAX_TEXT - out.len()))
+            }
             // &amp; and &#233; arrive on their own. An entity the document made up is dropped:
             // none is ever looked up or unfolded, so none can grow without end.
             Ok(Event::GeneralRef(r)) if skipping == 0 => match r.resolve_char_ref() {
@@ -245,7 +293,8 @@ pub(crate) mod tests {
 
     /// A folder for a test's files, empty.
     pub fn folder(name: &str) -> PathBuf {
-        let d = std::env::temp_dir().join(format!("coxswain-extract-{name}-{}", std::process::id()));
+        let d =
+            std::env::temp_dir().join(format!("coxswain-extract-{name}-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&d);
         std::fs::create_dir_all(&d).unwrap();
         d
@@ -255,7 +304,8 @@ pub(crate) mod tests {
     pub fn zip_file(path: &Path, entries: &[(&str, &[u8])]) {
         let mut zip = zip::ZipWriter::new(std::fs::File::create(path).unwrap());
         for (name, bytes) in entries {
-            zip.start_file(*name, zip::write::SimpleFileOptions::default()).unwrap();
+            zip.start_file(*name, zip::write::SimpleFileOptions::default())
+                .unwrap();
             zip.write_all(bytes).unwrap();
         }
         zip.finish().unwrap();
@@ -263,51 +313,142 @@ pub(crate) mod tests {
 
     #[test]
     fn extract_tidies_cuts_and_survives() {
-        assert_eq!(tidy_code("\n\nfn a() {\n\t  x(1,  2);   \n\n\n}\n\n"), "fn a() {\n\t  x(1,  2);\n\n}", "code keeps its indentation and one blank line");
+        assert_eq!(
+            tidy_code("\n\nfn a() {\n\t  x(1,  2);   \n\n\n}\n\n"),
+            "fn a() {\n\t  x(1,  2);\n\n}",
+            "code keeps its indentation and one blank line"
+        );
         assert_eq!(tidy("  one   two \n\n\n three\t\n"), "one two\nthree");
         let long = "é".repeat(MAX_TEXT);
         let cut = tidy(&long);
         assert!(cut.len() <= MAX_TEXT && cut.len() > MAX_TEXT - 4 && cut.chars().all(|c| c == 'é'));
         // The store's marks, a command for a terminal and a bell are taken out, and blank space of any kind is a space.
-        assert_eq!(tidy("be\u{1}fore\u{2} \u{1b}[31mred\u{7}\tand\u{c}green \u{1} end"), "before [31mred and green end");
-        assert_eq!(tidy("bud\u{AD}get, bud\u{200B}get and bud\u{2060}get"), "budget, budget and budget");
+        assert_eq!(
+            tidy("be\u{1}fore\u{2} \u{1b}[31mred\u{7}\tand\u{c}green \u{1} end"),
+            "before [31mred and green end"
+        );
+        assert_eq!(
+            tidy("bud\u{AD}get, bud\u{200B}get and bud\u{2060}get"),
+            "budget, budget and budget"
+        );
         // The line that does not fit begins on a line of its own and is cut at a word: no two words are joined at the end.
-        let cut = tidy(&format!("{}\nslut\nfærge diesel {}", "x".repeat(MAX_TEXT - 20), "y".repeat(40)));
-        assert!(cut.ends_with("x\nslut\nfærge diesel") && cut.len() <= MAX_TEXT, "{}", &cut[cut.len() - 40..]);
+        let cut = tidy(&format!(
+            "{}\nslut\nfærge diesel {}",
+            "x".repeat(MAX_TEXT - 20),
+            "y".repeat(40)
+        ));
+        assert!(
+            cut.ends_with("x\nslut\nfærge diesel") && cut.len() <= MAX_TEXT,
+            "{}",
+            &cut[cut.len() - 40..]
+        );
         // One text longer than what is kept is cut where it is read, not after it was built.
         let built = xml_text(format!("<a>{long}</a>").as_bytes(), &[], &[]);
-        assert!(built.len() <= MAX_TEXT && built.len() > MAX_TEXT - 4 && built.chars().all(|c| c == 'é'), "{} bytes", built.len());
+        assert!(
+            built.len() <= MAX_TEXT
+                && built.len() > MAX_TEXT - 4
+                && built.chars().all(|c| c == 'é'),
+            "{} bytes",
+            built.len()
+        );
 
         assert_eq!(xml_text(b"<w:p><w:r><w:t>Fuel &amp; fire</w:t></w:r></w:p><w:p><w:t>Go</w:t><w:br/>now</w:p>", &["p", "br"], &[]), "Fuel & fire\nGo\nnow\n");
         // A web page ends a line where a cell or a break begins, since it need not close them; and it writes the names as it likes.
-        assert_eq!(xml_text(b"<table><tr><td>budget<br>Fuel<td>Bro</table>", &["td", "br"], &[]), "budgetFuelBro");
-        assert_eq!(page_text(b"<TABLE><tr><td>budget<br>Fuel<td>Bro<BR>Tunnel</table>", &["td", "br"], &[]), "\nbudget\nFuel\nBro\nTunnel");
-        assert_eq!(xml_text(b"<a>keep<STYLE>p { x }</STYLE>this</a>", &[], &["style"]), "keepthis");
+        assert_eq!(
+            xml_text(
+                b"<table><tr><td>budget<br>Fuel<td>Bro</table>",
+                &["td", "br"],
+                &[]
+            ),
+            "budgetFuelBro"
+        );
+        assert_eq!(
+            page_text(
+                b"<TABLE><tr><td>budget<br>Fuel<td>Bro<BR>Tunnel</table>",
+                &["td", "br"],
+                &[]
+            ),
+            "\nbudget\nFuel\nBro\nTunnel"
+        );
+        assert_eq!(
+            xml_text(b"<a>keep<STYLE>p { x }</STYLE>this</a>", &[], &["style"]),
+            "keepthis"
+        );
         // A byte that is no UTF-8 ends the reading, and costs no copy of the document.
-        assert_eq!(xml_text(b"<a>caf\xc3\xa9 and\xff then</a>", &[], &[]), "café and");
+        assert_eq!(
+            xml_text(b"<a>caf\xc3\xa9 and\xff then</a>", &[], &[]),
+            "café and"
+        );
         assert_eq!(utf8(b"\xffabc"), "");
-        assert_eq!(xml_text(b"<a>keep<style>p { x }</style><b>this</b></a>", &[], &["style"]), "keepthis");
-        assert_eq!(xml_text(b"<a>cut <b>short", &[], &[]), "cut short", "what is left of a broken document");
-        assert_eq!(xml_text("<a>caf&#233; &#x41;&lt;&nbsp;b&made-up;</a>".as_bytes(), &[], &[]), "café A< b");
+        assert_eq!(
+            xml_text(
+                b"<a>keep<style>p { x }</style><b>this</b></a>",
+                &[],
+                &["style"]
+            ),
+            "keepthis"
+        );
+        assert_eq!(
+            xml_text(b"<a>cut <b>short", &[], &[]),
+            "cut short",
+            "what is left of a broken document"
+        );
+        assert_eq!(
+            xml_text(
+                "<a>caf&#233; &#x41;&lt;&nbsp;b&made-up;</a>".as_bytes(),
+                &[],
+                &[]
+            ),
+            "café A< b"
+        );
         let laughs = b"<!DOCTYPE l [<!ENTITY a \"ha\"><!ENTITY b \"&a;&a;&a;&a;&a;&a;&a;&a;\">]><l>&b;&b;&b;</l>";
-        assert_eq!(xml_text(laughs, &[], &[]), "", "entities of the document's own are never unfolded");
+        assert_eq!(
+            xml_text(laughs, &[], &[]),
+            "",
+            "entities of the document's own are never unfolded"
+        );
 
         let d = folder("shared");
-        zip_file(&d.join("f.zip"), &[("ppt/slides/slide10.xml", b"ten"), ("ppt/slides/slide9.xml", b"nine"), ("other.xml", b"no")]);
-        assert_eq!(zip_entry(&d.join("f.zip"), "other.xml").as_deref(), Some(&b"no"[..]));
+        zip_file(
+            &d.join("f.zip"),
+            &[
+                ("ppt/slides/slide10.xml", b"ten"),
+                ("ppt/slides/slide9.xml", b"nine"),
+                ("other.xml", b"no"),
+            ],
+        );
+        assert_eq!(
+            zip_entry(&d.join("f.zip"), "other.xml").as_deref(),
+            Some(&b"no"[..])
+        );
         assert_eq!(zip_entry(&d.join("f.zip"), "missing.xml"), None);
         let slides = zip_entries(&d.join("f.zip"), 10, |n| n.starts_with("ppt/slides/"));
-        assert_eq!(slides.iter().map(|(_, b)| b.as_slice()).collect::<Vec<_>>(), [&b"nine"[..], &b"ten"[..]]);
+        assert_eq!(
+            slides.iter().map(|(_, b)| b.as_slice()).collect::<Vec<_>>(),
+            [&b"nine"[..], &b"ten"[..]]
+        );
         std::fs::write(d.join("broken.zip"), b"PK\x03\x04 not a zip").unwrap();
         assert!(zip_entries(&d.join("broken.zip"), 10, |_| true).is_empty());
 
         // A reader that panics costs that one file its text, nothing more.
-        assert_eq!(std::panic::catch_unwind(|| -> Option<String> { panic!("a parser gave up") }).ok().flatten(), None);
+        assert_eq!(
+            std::panic::catch_unwind(|| -> Option<String> { panic!("a parser gave up") })
+                .ok()
+                .flatten(),
+            None
+        );
         std::fs::write(d.join("empty.pdf"), b"").unwrap();
         assert_eq!(text_of(&d.join("empty.pdf"), 0, 100), None);
         std::fs::write(d.join("notes.txt"), "Book   the ferry.\n\n").unwrap();
-        assert_eq!(text_of(&d.join("notes.txt"), 20, 100).as_deref(), Some("Book the ferry."));
-        assert_eq!(text_of(&d.join("notes.txt"), 20, 10), None, "larger than allowed");
+        assert_eq!(
+            text_of(&d.join("notes.txt"), 20, 100).as_deref(),
+            Some("Book the ferry.")
+        );
+        assert_eq!(
+            text_of(&d.join("notes.txt"), 20, 10),
+            None,
+            "larger than allowed"
+        );
         let _ = std::fs::remove_dir_all(d);
     }
 }

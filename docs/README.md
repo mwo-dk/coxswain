@@ -125,7 +125,7 @@ New here? Start with [The first-run guide](panels/first-run.md), [The screen](pa
 |---|---|
 | [Customising](customise/README.md) | The Settings window, themes, looks, languages, keys, glyphs and fonts, with the main keys |
 | [The Settings window](customise/settings.md) | Opening it (Ctrl+, F9, --settings=search|search_meaning), its areas from Overview to Privacy and updates, Find a setting, every item with its config.toml key, how saving keeps comments, the terminal app's Settings (F9, --settings) and flags |
-| [Themes](customise/themes.md) | The 18 built-in themes, picking one in each app (Settings, F9 "Theme: …", `theme` / `[gui] theme`), what the terminal app takes |
+| [Themes](customise/themes.md) | The 33 built-in themes, picking one in each app (Settings, F9 "Theme: …", `theme` / `[gui] theme`), what the terminal app takes |
 | [Looks](customise/looks.md) | The desktop app's corners, bevels, title bars and era fonts per theme, `look =` in your own theme |
 | [Your own theme and the colour slots](customise/own-theme.md) | Your own theme: `[themes.<name>]`, starting from --dump-config, colour names vs #rrggbb, every colour slot and where each app uses it |
 | [Languages](customise/languages.md) | The 29 languages with flags, by region, how Automatic picks one, right to left in Hebrew and Persian, what is translated, improving a translation |

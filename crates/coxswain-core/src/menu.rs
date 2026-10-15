@@ -49,7 +49,13 @@ pub struct Subject {
 impl Subject {
     /// What kind of entries these are, for when a hint comes up anew.
     fn kind(&self) -> (Place, bool, bool, bool, bool) {
-        (self.place, self.files > 0, self.folders > 0, self.archives > 0, self.marked > 1)
+        (
+            self.place,
+            self.files > 0,
+            self.folders > 0,
+            self.archives > 0,
+            self.marked > 1,
+        )
     }
     fn count(&self) -> usize {
         self.files + self.folders
@@ -87,7 +93,9 @@ impl Action {
             Branches => s.git && disk,
             SwitchBranch => s.place == Place::Branches && s.single(),
             NewBranch => s.place == Place::Branches,
-            Snapshots => s.zfs && (disk && (n == 0 || s.folders == 1 && s.one) || s.place == Place::Snapshot),
+            Snapshots => {
+                s.zfs && (disk && (n == 0 || s.folders == 1 && s.one) || s.place == Place::Snapshot)
+            }
             Package => cfg!(target_os = "freebsd") && disk && s.single() && s.files == 1,
             Tag => n > 0 && disk,
             Notes => disk,
@@ -106,14 +114,30 @@ impl Action {
 
 /// The headings the action menu shows, in its order: opening and looking first, the app (what
 /// Coxswain can do) last.
-const GROUPS: [Group; 8] = [Group::Moving, Group::Viewing, Group::Files, Group::Archives, Group::Search, Group::Git, Group::Panels, Group::App];
+const GROUPS: [Group; 8] = [
+    Group::Moving,
+    Group::Viewing,
+    Group::Files,
+    Group::Archives,
+    Group::Search,
+    Group::Git,
+    Group::Panels,
+    Group::App,
+];
 
 /// The action menu for `s`: under each heading the actions that fit, the most used first.
 /// `gui`: the desktop app, which has actions the terminal app lacks.
 pub fn actions(s: &Subject, gui: bool) -> Vec<(Group, Vec<Action>)> {
     GROUPS
         .iter()
-        .map(|&g| (g, g.actions().filter(|a| a.applies(s) && (gui || !a.gui_only())).collect::<Vec<_>>()))
+        .map(|&g| {
+            (
+                g,
+                g.actions()
+                    .filter(|a| a.applies(s) && (gui || !a.gui_only()))
+                    .collect::<Vec<_>>(),
+            )
+        })
         .filter(|(_, v)| !v.is_empty())
         .collect()
 }
@@ -130,14 +154,34 @@ const HINTS: &[(&str, &[(&str, Action)])] = &[
     ("find", &[("key", Action::Search)]),
     ("features", &[("key", Action::Help)]),
     ("quick", &[]),
-    ("panels", &[("swap", Action::SwapPanels), ("same", Action::SameDir), ("off", Action::TogglePanels)]),
+    (
+        "panels",
+        &[
+            ("swap", Action::SwapPanels),
+            ("same", Action::SameDir),
+            ("off", Action::TogglePanels),
+        ],
+    ),
     ("marked", &[("copy", Action::Copy), ("move", Action::Move)]),
     ("in_archive", &[("copy", Action::Copy)]),
     ("archive", &[("extract", Action::Extract)]),
-    ("folder", &[("pack", Action::Pack), ("rename", Action::Rename)]),
-    ("file", &[("view", Action::View), ("edit", Action::Edit), ("rename", Action::Rename)]),
+    (
+        "folder",
+        &[("pack", Action::Pack), ("rename", Action::Rename)],
+    ),
+    (
+        "file",
+        &[
+            ("view", Action::View),
+            ("edit", Action::Edit),
+            ("rename", Action::Rename),
+        ],
+    ),
     ("branches", &[("switch", Action::SwitchBranch)]),
-    ("git", &[("branches", Action::Branches), ("history", Action::History)]),
+    (
+        "git",
+        &[("branches", Action::Branches), ("history", Action::History)],
+    ),
     ("zfs", &[("snapshots", Action::Snapshots)]),
 ];
 
@@ -168,23 +212,37 @@ fn keys(cfg: &Config, a: Action) -> Option<String> {
 
 /// The hint for `s`, given how often each was shown: its id and text. None when hints are off,
 /// or every one that fits has been shown `TIMES` times, or one of its actions has no key.
-pub fn pick(s: &Subject, cfg: &Config, shown: &BTreeMap<String, u32>) -> Option<(&'static str, String)> {
+pub fn pick(
+    s: &Subject,
+    cfg: &Config,
+    shown: &BTreeMap<String, u32>,
+) -> Option<(&'static str, String)> {
     if !cfg.hints {
         return None;
     }
-    HINTS.iter().filter(|(id, _)| fits(id, s) && shown.get(*id).copied().unwrap_or(0) < TIMES).find_map(|(id, acts)| {
-        let named: Option<Vec<(&str, String)>> = acts.iter().map(|&(p, a)| keys(cfg, a).map(|k| (p, k))).collect();
-        let named = named?;
-        let args: Vec<(&str, &str)> = named.iter().map(|(p, k)| (*p, k.as_str())).collect();
-        Some((*id, crate::i18n::tr(&format!("hint.{id}"), &args)))
-    })
+    HINTS
+        .iter()
+        .filter(|(id, _)| fits(id, s) && shown.get(*id).copied().unwrap_or(0) < TIMES)
+        .find_map(|(id, acts)| {
+            let named: Option<Vec<(&str, String)>> = acts
+                .iter()
+                .map(|&(p, a)| keys(cfg, a).map(|k| (p, k)))
+                .collect();
+            let named = named?;
+            let args: Vec<(&str, &str)> = named.iter().map(|(p, k)| (*p, k.as_str())).collect();
+            Some((*id, crate::i18n::tr(&format!("hint.{id}"), &args)))
+        })
 }
 
 /// `pick`, with the counts kept in state.json. `last` is the subject the hint on show (its id)
 /// was picked for. A hint counts as shown once more when it comes up anew: another hint was on
 /// show, or the cursor went to another kind of entry (a file after a folder, several marked,
 /// into an archive). Moving from file to file keeps it, and counts it once.
-pub fn hint(s: &Subject, cfg: &Config, last: Option<(&Subject, &str)>) -> Option<(&'static str, String)> {
+pub fn hint(
+    s: &Subject,
+    cfg: &Config,
+    last: Option<(&Subject, &str)>,
+) -> Option<(&'static str, String)> {
     if !cfg.hints {
         return None;
     }
@@ -225,56 +283,141 @@ mod tests {
     use super::*;
 
     fn names(s: &Subject, gui: bool) -> Vec<&'static str> {
-        actions(s, gui).into_iter().flat_map(|(_, v)| v).map(Action::name).collect()
+        actions(s, gui)
+            .into_iter()
+            .flat_map(|(_, v)| v)
+            .map(Action::name)
+            .collect()
     }
 
     #[test]
     fn menu_fits_what_is_under_the_cursor() {
-        let file = Subject { files: 1, one: true, ..Default::default() };
+        let file = Subject {
+            files: 1,
+            one: true,
+            ..Default::default()
+        };
         let n = names(&file, true);
-        assert_eq!(&n[..3], ["open", "view", "edit"], "opening and looking first: {n:?}");
+        assert_eq!(
+            &n[..3],
+            ["open", "view", "edit"],
+            "opening and looking first: {n:?}"
+        );
         for a in ["copy", "move", "rename", "delete", "pack", "properties"] {
             assert!(n.contains(&a), "{a} in {n:?}");
         }
         assert!(!n.contains(&"extract") && !n.contains(&"history") && !n.contains(&"action_menu"));
 
-        let folder = Subject { folders: 1, one: true, git: true, ..Default::default() };
+        let folder = Subject {
+            folders: 1,
+            one: true,
+            git: true,
+            ..Default::default()
+        };
         let n = names(&folder, false);
-        assert!(!n.contains(&"view") && !n.contains(&"edit") && n.contains(&"pack") && n.contains(&"history") && n.contains(&"branches"));
-        assert!(!n.contains(&"clip_copy"), "the terminal app has no clipboard: {n:?}");
+        assert!(
+            !n.contains(&"view")
+                && !n.contains(&"edit")
+                && n.contains(&"pack")
+                && n.contains(&"history")
+                && n.contains(&"branches")
+        );
+        assert!(
+            !n.contains(&"clip_copy"),
+            "the terminal app has no clipboard: {n:?}"
+        );
 
-        let archive = Subject { files: 1, archives: 1, one: true, ..Default::default() };
+        let archive = Subject {
+            files: 1,
+            archives: 1,
+            one: true,
+            ..Default::default()
+        };
         assert!(names(&archive, true).contains(&"extract"));
 
         // Several marked: what works on all of them, nothing for one.
-        let marked = Subject { files: 2, folders: 1, marked: 3, ..Default::default() };
+        let marked = Subject {
+            files: 2,
+            folders: 1,
+            marked: 3,
+            ..Default::default()
+        };
         let n = names(&marked, true);
-        assert!(n.contains(&"copy") && n.contains(&"batch_rename") && !n.contains(&"rename") && !n.contains(&"open"), "{n:?}");
+        assert!(
+            n.contains(&"copy")
+                && n.contains(&"batch_rename")
+                && !n.contains(&"rename")
+                && !n.contains(&"open"),
+            "{n:?}"
+        );
 
         // Read-only places: nothing that changes.
-        let snap = Subject { files: 1, one: true, place: Place::Snapshot, zfs: true, ..Default::default() };
+        let snap = Subject {
+            files: 1,
+            one: true,
+            place: Place::Snapshot,
+            zfs: true,
+            ..Default::default()
+        };
         let n = names(&snap, true);
-        assert!(n.contains(&"copy") && n.contains(&"snapshots") && !n.contains(&"delete") && !n.contains(&"rename"), "{n:?}");
+        assert!(
+            n.contains(&"copy")
+                && n.contains(&"snapshots")
+                && !n.contains(&"delete")
+                && !n.contains(&"rename"),
+            "{n:?}"
+        );
 
         // On `..` with nothing marked: what is done to the folder itself.
-        let here = Subject { git: true, ..Default::default() };
+        let here = Subject {
+            git: true,
+            ..Default::default()
+        };
         let n = names(&here, true);
-        for a in ["new_folder", "notes", "search", "ask", "duplicates", "history", "worktrees", "swap_panels", "same_dir", "toggle_panels"] {
+        for a in [
+            "new_folder",
+            "notes",
+            "search",
+            "ask",
+            "duplicates",
+            "history",
+            "worktrees",
+            "swap_panels",
+            "same_dir",
+            "toggle_panels",
+        ] {
             assert!(n.contains(&a), "{a} in {n:?}");
         }
         assert!(!n.contains(&"tag") && !n.contains(&"copy"), "{n:?}");
         // Find on a file too; duplicates and the panels not.
         let n = names(&file, true);
-        assert!(n.contains(&"search") && n.contains(&"tag") && !n.contains(&"duplicates") && !n.contains(&"swap_panels"), "{n:?}");
-        assert!(!names(&file, false).contains(&"tag"), "the terminal app has no colour tags");
+        assert!(
+            n.contains(&"search")
+                && n.contains(&"tag")
+                && !n.contains(&"duplicates")
+                && !n.contains(&"swap_panels"),
+            "{n:?}"
+        );
+        assert!(
+            !names(&file, false).contains(&"tag"),
+            "the terminal app has no colour tags"
+        );
     }
 
     #[test]
     fn hints_show_a_few_times_then_never() {
         let cfg = Config::default();
-        assert_eq!(cfg.handy_key(Action::Search), Some("Ctrl+F"), "Find's scope names Ctrl+F, not Alt+F7");
+        assert_eq!(
+            cfg.handy_key(Action::Search),
+            Some("Ctrl+F"),
+            "Find's scope names Ctrl+F, not Alt+F7"
+        );
         assert_eq!(cfg.handy_key(Action::Copy), Some("F5"));
-        let folder = Subject { folders: 1, one: true, ..Default::default() };
+        let folder = Subject {
+            folders: 1,
+            one: true,
+            ..Default::default()
+        };
         let mut shown = BTreeMap::new();
         assert_eq!(pick(&folder, &cfg, &shown).map(|h| h.0), Some("menu"));
         assert!(pick(&folder, &cfg, &shown).unwrap().1.contains("Shift+F10"));
@@ -289,16 +432,36 @@ mod tests {
         shown.insert("quick".to_string(), TIMES);
         let parent = Subject::default();
         let text = pick(&parent, &cfg, &shown).unwrap().1;
-        assert!(text.contains("Ctrl+U") && text.contains("Alt+O") && text.contains("Ctrl+O"), "on ..: the panels: {text}");
+        assert!(
+            text.contains("Ctrl+U") && text.contains("Alt+O") && text.contains("Ctrl+O"),
+            "on ..: the panels: {text}"
+        );
         let (id, text) = pick(&folder, &cfg, &shown).unwrap();
         assert_eq!(id, "folder");
-        assert!(text.contains("Alt+F5") && text.contains("Shift+F6"), "{text}");
+        assert!(
+            text.contains("Alt+F5") && text.contains("Shift+F6"),
+            "{text}"
+        );
         shown.insert("folder".to_string(), TIMES);
         assert_eq!(pick(&folder, &cfg, &shown), None);
-        let marked = Subject { files: 3, marked: 3, ..Default::default() };
+        let marked = Subject {
+            files: 3,
+            marked: 3,
+            ..Default::default()
+        };
         assert!(pick(&marked, &cfg, &shown).unwrap().1.contains("F5"));
         // Off in Settings, or with a key unbound: none.
-        assert_eq!(pick(&marked, &Config { hints: false, ..Config::default() }, &shown), None);
+        assert_eq!(
+            pick(
+                &marked,
+                &Config {
+                    hints: false,
+                    ..Config::default()
+                },
+                &shown
+            ),
+            None
+        );
         let mut unbound = Config::default();
         unbound.keys.insert(Action::Copy, vec![]);
         assert_eq!(pick(&marked, &unbound, &shown), None);

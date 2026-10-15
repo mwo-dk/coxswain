@@ -54,7 +54,11 @@ pub struct Diff {
 impl Diff {
     /// How many changes of an area, over all pairs.
     pub fn count(&self, area: Area) -> usize {
-        self.pairs.iter().flat_map(|p| &p.changes).filter(|c| c.area == area).count()
+        self.pairs
+            .iter()
+            .flat_map(|p| &p.changes)
+            .filter(|c| c.area == area)
+            .count()
     }
 }
 
@@ -69,33 +73,67 @@ pub fn diff(before: &Attestations, after: &Attestations) -> Diff {
             before.entries.iter().enumerate().position(|(i, b)| {
                 !taken[i]
                     && b.statement.predicate_type == a.statement.predicate_type
-                    && b.statement.subjects.iter().any(|s| a.statement.subjects.iter().any(|t| s.label() == t.label()))
+                    && b.statement
+                        .subjects
+                        .iter()
+                        .any(|s| a.statement.subjects.iter().any(|t| s.label() == t.label()))
             })
         };
         match i {
             Some(i) => {
                 taken[i] = true;
-                out.pairs.push(Pair { before: i, after: j, changes: entry(&before.entries[i], a) });
+                out.pairs.push(Pair {
+                    before: i,
+                    after: j,
+                    changes: entry(&before.entries[i], a),
+                });
             }
             None => out.only_after.push(j),
         }
     }
-    out.only_before = taken.iter().enumerate().filter(|(_, t)| !**t).map(|(i, _)| i).collect();
+    out.only_before = taken
+        .iter()
+        .enumerate()
+        .filter(|(_, t)| !**t)
+        .map(|(i, _)| i)
+        .collect();
     out
 }
 
 fn entry(b: &Entry, a: &Entry) -> Vec<Change> {
     let mut out = Vec::new();
-    let resources = |area, out: &mut Vec<Change>, b: &[Resource], a: &[Resource], key: fn(&Resource) -> String, value: fn(&Resource) -> String| {
+    let resources = |area,
+                     out: &mut Vec<Change>,
+                     b: &[Resource],
+                     a: &[Resource],
+                     key: fn(&Resource) -> String,
+                     value: fn(&Resource) -> String| {
         let bm: BTreeMap<String, String> = b.iter().map(|r| (key(r), value(r))).collect();
         let am: BTreeMap<String, String> = a.iter().map(|r| (key(r), value(r))).collect();
         maps(area, out, &bm, &am);
     };
-    resources(Area::Subject, &mut out, &b.statement.subjects, &a.statement.subjects, |r| r.label().to_string(), digests);
-    if let (Predicate::Provenance(b), Predicate::Provenance(a)) = (&b.statement.predicate, &a.statement.predicate) {
+    resources(
+        Area::Subject,
+        &mut out,
+        &b.statement.subjects,
+        &a.statement.subjects,
+        |r| r.label().to_string(),
+        digests,
+    );
+    if let (Predicate::Provenance(b), Predicate::Provenance(a)) =
+        (&b.statement.predicate, &a.statement.predicate)
+    {
         let builder = |p: &Provenance| {
-            let mut m = BTreeMap::from([("builder.id".to_string(), p.builder.id.clone()), ("buildType".to_string(), p.build_type.clone())]);
-            m.extend(p.builder.version.iter().map(|(k, v)| (format!("builder.version.{k}"), v.clone())));
+            let mut m = BTreeMap::from([
+                ("builder.id".to_string(), p.builder.id.clone()),
+                ("buildType".to_string(), p.build_type.clone()),
+            ]);
+            m.extend(
+                p.builder
+                    .version
+                    .iter()
+                    .map(|(k, v)| (format!("builder.version.{k}"), v.clone())),
+            );
             m
         };
         maps(Area::Builder, &mut out, &builder(b), &builder(a));
@@ -106,11 +144,22 @@ fn entry(b: &Entry, a: &Entry) -> Vec<Change> {
             m
         };
         maps(Area::Parameter, &mut out, &params(b), &params(a));
-        resources(Area::Dependency, &mut out, &b.dependencies, &a.dependencies, dependency_key, dependency_value);
+        resources(
+            Area::Dependency,
+            &mut out,
+            &b.dependencies,
+            &a.dependencies,
+            dependency_key,
+            dependency_value,
+        );
     }
     if let (Some(bs), Some(as_)) = (&b.signer, &a.signer) {
         let claims = |s: &Signer| {
-            let mut m: BTreeMap<String, String> = s.claims.iter().map(|(c, v)| (format!("{c:?}"), v.clone())).collect();
+            let mut m: BTreeMap<String, String> = s
+                .claims
+                .iter()
+                .map(|(c, v)| (format!("{c:?}"), v.clone()))
+                .collect();
             m.insert("identity".into(), s.identity.clone());
             m
         };
@@ -119,43 +168,88 @@ fn entry(b: &Entry, a: &Entry) -> Vec<Change> {
     out
 }
 
-fn maps(area: Area, out: &mut Vec<Change>, b: &BTreeMap<String, String>, a: &BTreeMap<String, String>) {
+fn maps(
+    area: Area,
+    out: &mut Vec<Change>,
+    b: &BTreeMap<String, String>,
+    a: &BTreeMap<String, String>,
+) {
     for (k, bv) in b {
         match a.get(k) {
-            None => out.push(Change { area, key: k.clone(), kind: Kind::Removed, before: Some(bv.clone()), after: None }),
-            Some(av) if av != bv => out.push(Change { area, key: k.clone(), kind: Kind::Changed, before: Some(bv.clone()), after: Some(av.clone()) }),
+            None => out.push(Change {
+                area,
+                key: k.clone(),
+                kind: Kind::Removed,
+                before: Some(bv.clone()),
+                after: None,
+            }),
+            Some(av) if av != bv => out.push(Change {
+                area,
+                key: k.clone(),
+                kind: Kind::Changed,
+                before: Some(bv.clone()),
+                after: Some(av.clone()),
+            }),
             Some(_) => {}
         }
     }
     for (k, av) in a.iter().filter(|(k, _)| !b.contains_key(*k)) {
-        out.push(Change { area, key: k.clone(), kind: Kind::Added, before: None, after: Some(av.clone()) });
+        out.push(Change {
+            area,
+            key: k.clone(),
+            kind: Kind::Added,
+            before: None,
+            after: Some(av.clone()),
+        });
     }
 }
 
 /// A dependency by what it is, not which version: its URI without `@ref`, else its name.
 fn dependency_key(r: &Resource) -> String {
     match r.uri.as_deref() {
-        Some(u) if u.starts_with("git+") => u.rsplit_once('@').filter(|(head, _)| head.contains("://")).map_or(u, |(head, _)| head).to_string(),
+        Some(u) if u.starts_with("git+") => u
+            .rsplit_once('@')
+            .filter(|(head, _)| head.contains("://"))
+            .map_or(u, |(head, _)| head)
+            .to_string(),
         Some(u) => u.split('?').next().unwrap_or(u).to_string(),
         None => r.label().to_string(),
     }
 }
 
 fn dependency_value(r: &Resource) -> String {
-    let reference = r.uri.as_deref().and_then(|u| u.strip_prefix(&dependency_key(r))).unwrap_or("");
+    let reference = r
+        .uri
+        .as_deref()
+        .and_then(|u| u.strip_prefix(&dependency_key(r)))
+        .unwrap_or("");
     let d = digests(r);
-    [reference.trim_start_matches(['@', '?']), &d].iter().filter(|s| !s.is_empty()).copied().collect::<Vec<_>>().join(" ")
+    [reference.trim_start_matches(['@', '?']), &d]
+        .iter()
+        .filter(|s| !s.is_empty())
+        .copied()
+        .collect::<Vec<_>>()
+        .join(" ")
 }
 
 fn digests(r: &Resource) -> String {
-    r.digest.iter().map(|(a, d)| format!("{a}:{d}")).collect::<Vec<_>>().join(" ")
+    r.digest
+        .iter()
+        .map(|(a, d)| format!("{a}:{d}"))
+        .collect::<Vec<_>>()
+        .join(" ")
 }
 
 /// Leaves of a JSON value as `prefix.a.b[0]` → text.
 fn flatten(prefix: &str, v: &Value, out: &mut BTreeMap<String, String>) {
     match v {
-        Value::Object(o) => o.iter().for_each(|(k, v)| flatten(&format!("{prefix}.{k}"), v, out)),
-        Value::Array(a) => a.iter().enumerate().for_each(|(i, v)| flatten(&format!("{prefix}[{i}]"), v, out)),
+        Value::Object(o) => o
+            .iter()
+            .for_each(|(k, v)| flatten(&format!("{prefix}.{k}"), v, out)),
+        Value::Array(a) => a
+            .iter()
+            .enumerate()
+            .for_each(|(i, v)| flatten(&format!("{prefix}[{i}]"), v, out)),
         Value::Null => {}
         Value::String(s) => {
             out.insert(prefix.to_string(), s.clone());

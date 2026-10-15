@@ -57,7 +57,14 @@ struct Format {
 /// are two answers, with nothing between them in the file. So does a run of a formula
 /// (`m:r`): what stands over and under the line of a fraction has nothing between it.
 static WORD: Format = Format {
-    parts: &["word/document", "word/header", "word/footer", "word/footnotes", "word/endnotes", "word/comments"],
+    parts: &[
+        "word/document",
+        "word/header",
+        "word/footer",
+        "word/footnotes",
+        "word/endnotes",
+        "word/comments",
+    ],
     text: &["t"],
     lines: &["p", "br", "cr", "sdt", "m:r"],
     signs: &[("tab", " "), ("ptab", " "), ("noBreakHyphen", "-")],
@@ -80,7 +87,16 @@ static OPEN: Format = Format {
     // Deleted text, the number of a note, who made a comment and when (the initials have one
     // name in the standard and another in the files LibreOffice wrote before it), a picture
     // kept as text inside the document, and the code of a script set into the text.
-    skip: &["tracked-changes", "note-citation", "dc:creator", "dc:date", "creator-initials", "sender-initials", "binary-data", "script"],
+    skip: &[
+        "tracked-changes",
+        "note-citation",
+        "dc:creator",
+        "dc:date",
+        "creator-initials",
+        "sender-initials",
+        "binary-data",
+        "script",
+    ],
 };
 
 /// The text of a Word or OpenDocument file: its body, then its headers, footers, notes and
@@ -91,19 +107,30 @@ pub fn text(path: &Path, max: u64) -> Option<String> {
     if size > max {
         return None;
     }
-    let mut zip = zip::ZipArchive::new(Metered { file, left: size.saturating_mul(8).saturating_add(1 << 20) }).ok()?;
+    let mut zip = zip::ZipArchive::new(Metered {
+        file,
+        left: size.saturating_mul(8).saturating_add(1 << 20),
+    })
+    .ok()?;
     // An OpenDocument file with a password keeps its parts under their names, as ciphertext.
-    if unpack(&mut zip, "META-INF/manifest.xml", 1 << 20).is_some_and(|manifest| String::from_utf8_lossy(&manifest).contains("encryption-data")) {
+    if unpack(&mut zip, "META-INF/manifest.xml", 1 << 20)
+        .is_some_and(|manifest| String::from_utf8_lossy(&manifest).contains("encryption-data"))
+    {
         return None;
     }
-    let mut parts: Vec<(usize, &Format, String)> = zip.file_names().filter_map(|name| part(name).map(|(at, format)| (at, format, name.to_string()))).collect();
+    let mut parts: Vec<(usize, &Format, String)> = zip
+        .file_names()
+        .filter_map(|name| part(name).map(|(at, format)| (at, format, name.to_string())))
+        .collect();
     parts.sort_by_cached_key(|(at, _, name)| (*at, super::natural(name)));
     let (mut out, mut room) = (String::new(), MAX_XML);
     for (_, format, name) in parts.iter().take(MAX_PARTS) {
         if out.len() >= MAX_TEXT || room == 0 {
             break;
         }
-        let Some(xml) = unpack(&mut zip, name, room) else { continue };
+        let Some(xml) = unpack(&mut zip, name, room) else {
+            continue;
+        };
         room -= xml.len() as u64;
         let mut text = String::new();
         read(&xml, format, &mut text);
@@ -111,7 +138,11 @@ pub fn text(path: &Path, max: u64) -> Option<String> {
         // used or not, and a watermark is in all ten of them: each line of them once.
         if name == "styles.xml" {
             let mut seen = HashSet::new();
-            text = text.lines().filter(|line| seen.insert(*line)).collect::<Vec<_>>().join("\n");
+            text = text
+                .lines()
+                .filter(|line| seen.insert(*line))
+                .collect::<Vec<_>>()
+                .join("\n");
         }
         keep(&mut out, &text);
         keep(&mut out, "\n");
@@ -134,7 +165,9 @@ impl Read for Metered {
         if self.left == 0 {
             return Err(std::io::Error::other("read more than a document needs"));
         }
-        let most = usize::try_from(self.left).unwrap_or(usize::MAX).min(buf.len());
+        let most = usize::try_from(self.left)
+            .unwrap_or(usize::MAX)
+            .min(buf.len());
         let n = self.file.read(&mut buf[..most])?;
         self.left -= n as u64;
         Ok(n)
@@ -151,26 +184,44 @@ impl Seek for Metered {
 /// read as far as it goes.
 fn unpack(zip: &mut Zip, name: &str, room: u64) -> Option<Vec<u8>> {
     let mut bytes = vec![];
-    zip.by_name(name).ok()?.take(room).read_to_end(&mut bytes).ok()?;
+    zip.by_name(name)
+        .ok()?
+        .take(room)
+        .read_to_end(&mut bytes)
+        .ok()?;
     Some(bytes)
 }
 
 /// Where a part of the zip comes in the order of reading, and its format. `None` for a part
 /// that holds no text.
 fn part(name: &str) -> Option<(usize, &'static Format)> {
-    let kind = name.strip_suffix(".xml")?.trim_end_matches(|c: char| c.is_ascii_digit());
-    [&WORD, &OPEN].into_iter().find_map(|format| Some((format.parts.iter().position(|part| *part == kind)?, format)))
+    let kind = name
+        .strip_suffix(".xml")?
+        .trim_end_matches(|c: char| c.is_ascii_digit());
+    [&WORD, &OPEN]
+        .into_iter()
+        .find_map(|format| Some((format.parts.iter().position(|part| *part == kind)?, format)))
 }
 
 /// Whether the element is one of `names`.
 fn among(names: &[&str], name: QName) -> bool {
-    names.iter().any(|n| *n == name.as_ref() || *n == name.local_name().as_ref())
+    names
+        .iter()
+        .any(|n| *n == name.as_ref() || *n == name.local_name().as_ref())
 }
 
 /// The value of the element's attribute named `key` (without its prefix), if it has one.
 fn attribute(element: &BytesStart, key: &str) -> Option<String> {
-    let found = element.attributes().flatten().find(|a| a.key.local_name().as_ref() == key)?;
-    Some(found.normalized_value(quick_xml::XmlVersion::Implicit1_0).ok()?.into_owned())
+    let found = element
+        .attributes()
+        .flatten()
+        .find(|a| a.key.local_name().as_ref() == key)?;
+    Some(
+        found
+            .normalized_value(quick_xml::XmlVersion::Implicit1_0)
+            .ok()?
+            .into_owned(),
+    )
 }
 
 /// Adds `text` to `out`, as much of it as `MAX_TEXT` leaves room for.
@@ -189,7 +240,11 @@ fn read(xml: &[u8], format: &Format, out: &mut String) {
     let mut reader = quick_xml::Reader::from_str(&xml);
     // An end without a start, or an "&" on its own, is no reason to stop reading.
     let config = reader.config_mut();
-    (config.check_end_names, config.allow_unmatched_ends, config.allow_dangling_amp) = (false, true, true);
+    (
+        config.check_end_names,
+        config.allow_unmatched_ends,
+        config.allow_dangling_amp,
+    ) = (false, true, true);
     // How deep the reader is in what is left out, in elements of text and in cells of tables.
     // Counted, not called: a document nested a million deep costs no more than a flat one.
     let (mut skipping, mut inside, mut cells) = (0usize, 0usize, 0usize);
@@ -235,7 +290,10 @@ fn read(xml: &[u8], format: &Format, out: &mut String) {
             }
             continue;
         }
-        let (text, cell) = (among(format.text, name) as usize, among(&[format.cell], name) as usize);
+        let (text, cell) = (
+            among(format.text, name) as usize,
+            among(&[format.cell], name) as usize,
+        );
         if among(format.lines, name) {
             if joins > 0 {
                 joins -= 1;
@@ -245,7 +303,11 @@ fn read(xml: &[u8], format: &Format, out: &mut String) {
             }
         }
         if let Some(element) = element {
-            if let Some((_, sign)) = format.signs.iter().find(|(element, _)| among(&[element], name)) {
+            if let Some((_, sign)) = format
+                .signs
+                .iter()
+                .find(|(element, _)| among(&[element], name))
+            {
                 keep(out, sign);
             }
             match name.local_name().as_ref() {
@@ -259,11 +321,18 @@ fn read(xml: &[u8], format: &Format, out: &mut String) {
                 // A drop-down field of the older kind: its entries are attributes, and the
                 // page shows the chosen one.
                 "ddList" if !closes => list = Some((0, 0)),
-                "result" if list.is_some() => list = attribute(element, "val").and_then(|v| v.parse().ok()).map(|chosen| (chosen, 0)),
+                "result" if list.is_some() => {
+                    list = attribute(element, "val")
+                        .and_then(|v| v.parse().ok())
+                        .map(|chosen| (chosen, 0))
+                }
                 "listEntry" => {
                     if let Some((chosen, seen)) = list.as_mut() {
                         if chosen == seen {
-                            keep(out, &format!(" {} ", attribute(element, "val").unwrap_or_default()));
+                            keep(
+                                out,
+                                &format!(" {} ", attribute(element, "val").unwrap_or_default()),
+                            );
                         }
                         *seen += 1;
                     }
@@ -321,13 +390,18 @@ mod tests {
 
     /// A paragraph of a Word file.
     fn p(text: &str) -> String {
-        format!("<w:p><w:pPr><w:pStyle w:val=\"Normal\"/></w:pPr><w:r><w:rPr></w:rPr><w:t xml:space=\"preserve\">{text}</w:t></w:r></w:p>")
+        format!(
+            "<w:p><w:pPr><w:pStyle w:val=\"Normal\"/></w:pPr><w:r><w:rPr></w:rPr><w:t xml:space=\"preserve\">{text}</w:t></w:r></w:p>"
+        )
     }
 
     /// What the reader makes of a file with these parts, as the store gets it.
     fn read_file(name: &str, parts: &[(&str, &str)]) -> Option<String> {
         let d = folder(name);
-        let parts: Vec<(&str, &[u8])> = parts.iter().map(|(name, xml)| (*name, xml.as_bytes())).collect();
+        let parts: Vec<(&str, &[u8])> = parts
+            .iter()
+            .map(|(name, xml)| (*name, xml.as_bytes()))
+            .collect();
         zip_file(&d.join(name), &parts);
         let text = text(&d.join(name), u64::MAX).map(|t| tidy(&t));
         let _ = std::fs::remove_dir_all(d);
@@ -336,26 +410,46 @@ mod tests {
 
     #[test]
     fn word_gives_the_body_then_headers_footers_notes_and_comments() {
-        let part = |root: &str, text: &str| format!("<w:{root} xmlns:w=\"w\">{}</w:{root}>", p(text));
+        let part =
+            |root: &str, text: &str| format!("<w:{root} xmlns:w=\"w\">{}</w:{root}>", p(text));
         let text = read_file(
             "parts.docx",
             &[
                 ("word/comments.xml", &part("comments", "A comment")),
-                ("word/commentsExtended.xml", &part("commentsEx", "Not a part with text")),
+                (
+                    "word/commentsExtended.xml",
+                    &part("commentsEx", "Not a part with text"),
+                ),
                 ("word/endnotes.xml", &part("endnotes", "An endnote")),
                 ("word/footer1.xml", &part("ftr", "A footer")),
                 ("word/footnotes.xml", &part("footnotes", "A footnote")),
                 ("word/header10.xml", &part("hdr", "Header ten")),
                 ("word/header2.xml", &part("hdr", "Header two")),
                 ("word/styles.xml", &part("styles", "A style")),
-                ("word/glossary/document.xml", &part("glossaryDocument", "A building block")),
-                ("docProps/core.xml", "<cp:coreProperties><dc:title>A title</dc:title></cp:coreProperties>"),
+                (
+                    "word/glossary/document.xml",
+                    &part("glossaryDocument", "A building block"),
+                ),
+                (
+                    "docProps/core.xml",
+                    "<cp:coreProperties><dc:title>A title</dc:title></cp:coreProperties>",
+                ),
                 ("word/document.xml", &word(&p("The body"))),
             ],
         );
-        assert_eq!(text.as_deref(), Some("The body\nHeader two\nHeader ten\nA footer\nA footnote\nAn endnote\nA comment"));
+        assert_eq!(
+            text.as_deref(),
+            Some("The body\nHeader two\nHeader ten\nA footer\nA footnote\nAn endnote\nA comment")
+        );
         // The main part has a number in its name when the document was saved on the web.
-        assert_eq!(read_file("second.docm", &[("word/document2.xml", &word(&p("The body")))]).as_deref(), Some("The body"));
+        assert_eq!(
+            read_file(
+                "second.docm",
+                &[("word/document2.xml", &word(&p("The body")))]
+            )
+            .as_deref(),
+            Some("The body")
+        );
     }
 
     #[test]
@@ -380,7 +474,17 @@ mod tests {
         assert_eq!(lines[0], "A word with boldness inside.");
         assert_eq!(lines[1], "Blåbærgrød på æblet, a café, שלום and 你好世界.");
         assert_eq!(lines[2], "Fuel & fire <éA> <kept> R & D");
-        assert_eq!(lines[3..], ["Tab separated, line", "broken, page", "broken, non-breaking, hyphen.", "Linked words.", "Postal code", "City"]);
+        assert_eq!(
+            lines[3..],
+            [
+                "Tab separated, line",
+                "broken, page",
+                "broken, non-breaking, hyphen.",
+                "Linked words.",
+                "Postal code",
+                "City"
+            ]
+        );
     }
 
     #[test]
@@ -394,7 +498,10 @@ mod tests {
                     <wp14:sizeRelH relativeFrom=\"margin\"><wp14:pctWidth>40000</wp14:pctWidth></wp14:sizeRelH></wp:anchor></w:drawing></mc:Choice>\
                     <mc:Fallback><w:pict><v:shape><v:textbox><w:txbxContent><w:p><w:r><w:t>In the box.</w:t></w:r></w:p></w:txbxContent>\
                     </v:textbox></v:shape></w:pict></mc:Fallback></mc:AlternateContent></w:r><w:r><w:t>after</w:t></w:r></w:p>";
-        assert_eq!(read_file("box.docx", &[("word/document.xml", &word(body))]).as_deref(), Some("Before\nIn the box.\nafter"));
+        assert_eq!(
+            read_file("box.docx", &[("word/document.xml", &word(body))]).as_deref(),
+            Some("Before\nIn the box.\nafter")
+        );
     }
 
     #[test]
@@ -407,33 +514,65 @@ mod tests {
                     <w:p><w:r><w:t xml:space=\"preserve\">Page </w:t></w:r><w:r><w:fldChar w:fldCharType=\"begin\"/></w:r>\
                     <w:r><w:instrText xml:space=\"preserve\"> PAGE \\* MERGEFORMAT </w:instrText></w:r>\
                     <w:r><w:fldChar w:fldCharType=\"separate\"/></w:r><w:r><w:t>2</w:t></w:r><w:r><w:fldChar w:fldCharType=\"end\"/></w:r></w:p>";
-        assert_eq!(read_file("changes.docx", &[("word/document.xml", &word(body))]).as_deref(), Some("Kept and added\nStayed\nMoved\nPage 2"));
+        assert_eq!(
+            read_file("changes.docx", &[("word/document.xml", &word(body))]).as_deref(),
+            Some("Kept and added\nStayed\nMoved\nPage 2")
+        );
     }
 
     #[test]
     fn a_table_gives_a_line_for_each_row_and_a_word_for_each_cell() {
-        let cell = |text: &[&str]| format!("<w:tc><w:tcPr><w:tcW w:w=\"3212\"/></w:tcPr>{}</w:tc>", text.iter().map(|t| p(t)).collect::<String>());
+        let cell = |text: &[&str]| {
+            format!(
+                "<w:tc><w:tcPr><w:tcW w:w=\"3212\"/></w:tcPr>{}</w:tc>",
+                text.iter().map(|t| p(t)).collect::<String>()
+            )
+        };
         let row = |cells: &[String]| format!("<w:tr><w:trPr></w:trPr>{}</w:tr>", cells.concat());
         let table = format!(
             "{}<w:tbl><w:tblGrid><w:gridCol w:w=\"3212\"/></w:tblGrid>{}{}</w:tbl>{}",
             p("Before"),
             row(&[cell(&["Item"]), cell(&["Cost"]), cell(&["Note"])]),
-            row(&[cell(&["Fuel"]), cell(&["1200"]), cell(&["Largest", "Two paragraphs"])]),
+            row(&[
+                cell(&["Fuel"]),
+                cell(&["1200"]),
+                cell(&["Largest", "Two paragraphs"])
+            ]),
             p("After")
         );
         let lines = "Before\nItem Cost Note\nFuel 1200 Largest Two paragraphs\nAfter";
-        assert_eq!(read_file("table.docx", &[("word/document.xml", &word(&table))]).as_deref(), Some(lines));
+        assert_eq!(
+            read_file("table.docx", &[("word/document.xml", &word(&table))]).as_deref(),
+            Some(lines)
+        );
 
-        let paragraphs = |text: &[&str]| text.iter().map(|t| format!("<text:p>{t}</text:p>")).collect::<String>();
-        let cell = |text: &[&str]| format!("<table:table-cell office:value-type=\"string\">{}</table:table-cell>", paragraphs(text));
-        let row = |cells: &[String]| format!("<table:table-row>{}</table:table-row>", cells.concat());
+        let paragraphs = |text: &[&str]| {
+            text.iter()
+                .map(|t| format!("<text:p>{t}</text:p>"))
+                .collect::<String>()
+        };
+        let cell = |text: &[&str]| {
+            format!(
+                "<table:table-cell office:value-type=\"string\">{}</table:table-cell>",
+                paragraphs(text)
+            )
+        };
+        let row =
+            |cells: &[String]| format!("<table:table-row>{}</table:table-row>", cells.concat());
         let table = format!(
             "<text:p>Before</text:p><table:table table:name=\"Costs\"><table:table-column table:number-columns-repeated=\"3\"/>\
              {}{}</table:table><text:p>After</text:p>",
             row(&[cell(&["Item"]), cell(&["Cost"]), cell(&["Note"])]),
-            row(&[cell(&["Fuel"]), cell(&["1200"]), cell(&["Largest", "Two paragraphs"])]),
+            row(&[
+                cell(&["Fuel"]),
+                cell(&["1200"]),
+                cell(&["Largest", "Two paragraphs"])
+            ]),
         );
-        assert_eq!(read_file("table.odt", &[("content.xml", &open(&table))]).as_deref(), Some(lines));
+        assert_eq!(
+            read_file("table.odt", &[("content.xml", &open(&table))]).as_deref(),
+            Some(lines)
+        );
     }
 
     #[test]
@@ -460,10 +599,19 @@ mod tests {
         let text = read_file(
             "parts.ott",
             &[
-                ("mimetype", "application/vnd.oasis.opendocument.text-template"),
+                (
+                    "mimetype",
+                    "application/vnd.oasis.opendocument.text-template",
+                ),
                 ("styles.xml", styles),
-                ("meta.xml", "<office:document-meta><office:meta><dc:title>A title</dc:title></office:meta></office:document-meta>"),
-                ("Object 1/content.xml", &open("<text:p>A document inside the document</text:p>")),
+                (
+                    "meta.xml",
+                    "<office:document-meta><office:meta><dc:title>A title</dc:title></office:meta></office:document-meta>",
+                ),
+                (
+                    "Object 1/content.xml",
+                    &open("<text:p>A document inside the document</text:p>"),
+                ),
                 ("content.xml", &open(body)),
             ],
         );
@@ -526,21 +674,57 @@ mod tests {
             text(&d.join(name), u64::MAX)
         };
         assert_eq!(read("empty.docx", b""), None);
-        assert_eq!(read("text.odt", b"Plain text with the name of a document."), None);
+        assert_eq!(
+            read("text.odt", b"Plain text with the name of a document."),
+            None
+        );
         assert_eq!(read("start.docx", b"PK\x03\x04 and no more of a zip"), None);
         // An older Word file, and one with a password, is no zip at all.
-        assert_eq!(read("older.docx", b"\xD0\xCF\x11\xE0\xA1\xB1\x1A\xE1\0\0\0\0\0\0\0\0"), None);
+        assert_eq!(
+            read(
+                "older.docx",
+                b"\xD0\xCF\x11\xE0\xA1\xB1\x1A\xE1\0\0\0\0\0\0\0\0"
+            ),
+            None
+        );
         assert_eq!(text(&d.join("missing.docx"), u64::MAX), None);
         assert_eq!(text(&d, u64::MAX), None, "a folder");
 
-        zip_file(&d.join("other.docx"), &[("xl/workbook.xml", b"<workbook><t>Not this</t></workbook>"), ("word/media/document.png", b"<w:t>Nor this</w:t>")]);
-        assert_eq!(text(&d.join("other.docx"), u64::MAX), None, "a zip without the parts of a document");
-        zip_file(&d.join("tags.docx"), &[("word/document.xml", word("<w:p><w:pPr><w:jc w:val=\"center\"/></w:pPr></w:p>").as_bytes())]);
-        assert_eq!(text(&d.join("tags.docx"), u64::MAX), None, "a document without text");
+        zip_file(
+            &d.join("other.docx"),
+            &[
+                ("xl/workbook.xml", b"<workbook><t>Not this</t></workbook>"),
+                ("word/media/document.png", b"<w:t>Nor this</w:t>"),
+            ],
+        );
+        assert_eq!(
+            text(&d.join("other.docx"), u64::MAX),
+            None,
+            "a zip without the parts of a document"
+        );
+        zip_file(
+            &d.join("tags.docx"),
+            &[(
+                "word/document.xml",
+                word("<w:p><w:pPr><w:jc w:val=\"center\"/></w:pPr></w:p>").as_bytes(),
+            )],
+        );
+        assert_eq!(
+            text(&d.join("tags.docx"), u64::MAX),
+            None,
+            "a document without text"
+        );
 
-        zip_file(&d.join("large.docx"), &[("word/document.xml", word(&p("The body")).as_bytes())]);
+        zip_file(
+            &d.join("large.docx"),
+            &[("word/document.xml", word(&p("The body")).as_bytes())],
+        );
         let size = std::fs::metadata(d.join("large.docx")).unwrap().len();
-        assert_eq!(text(&d.join("large.docx"), size - 1), None, "larger than allowed");
+        assert_eq!(
+            text(&d.join("large.docx"), size - 1),
+            None,
+            "larger than allowed"
+        );
         assert!(text(&d.join("large.docx"), size).is_some());
         let _ = std::fs::remove_dir_all(d);
     }
@@ -562,16 +746,43 @@ mod tests {
             std::fs::write(&path, noise(3000, seed)).unwrap();
             assert_eq!(text(&path, u64::MAX), None, "chance, seed {seed}");
             // Chance behind the first bytes of a zip, and as the parts of one.
-            std::fs::write(&path, [&b"PK\x03\x04\x14\0\0\0\x08\0"[..], &noise(3000, seed)].concat()).unwrap();
+            std::fs::write(
+                &path,
+                [&b"PK\x03\x04\x14\0\0\0\x08\0"[..], &noise(3000, seed)].concat(),
+            )
+            .unwrap();
             assert_eq!(text(&path, u64::MAX), None, "chance in a zip, seed {seed}");
-            let parts = [noise(3000, seed), noise(3000, seed + 100), noise(3000, seed + 200)];
-            zip_file(&path, &[("word/document.xml", &parts[0]), ("content.xml", &parts[1]), ("styles.xml", &parts[2])]);
+            let parts = [
+                noise(3000, seed),
+                noise(3000, seed + 100),
+                noise(3000, seed + 200),
+            ];
+            zip_file(
+                &path,
+                &[
+                    ("word/document.xml", &parts[0]),
+                    ("content.xml", &parts[1]),
+                    ("styles.xml", &parts[2]),
+                ],
+            );
             let _ = text(&path, u64::MAX);
         }
 
         // A file cut off anywhere, and one with a byte changed anywhere.
-        let body = word(&[p("The first paragraph."), p("The second, of a café &amp; 你好.")].concat());
-        zip_file(&path, &[("word/document.xml", body.as_bytes()), ("word/footnotes.xml", body.as_bytes())]);
+        let body = word(
+            &[
+                p("The first paragraph."),
+                p("The second, of a café &amp; 你好."),
+            ]
+            .concat(),
+        );
+        zip_file(
+            &path,
+            &[
+                ("word/document.xml", body.as_bytes()),
+                ("word/footnotes.xml", body.as_bytes()),
+            ],
+        );
         let whole = std::fs::read(&path).unwrap();
         assert!(text(&path, u64::MAX).is_some());
         for cut in (0..whole.len()).step_by(3) {
@@ -602,19 +813,35 @@ mod tests {
             }
         }
         let mut left = String::new();
-        read(&body.as_bytes()[..body.find("paragraph").unwrap()], &WORD, &mut left);
-        assert_eq!(tidy(&left), "The first", "what is left of a part that is cut off");
+        read(
+            &body.as_bytes()[..body.find("paragraph").unwrap()],
+            &WORD,
+            &mut left,
+        );
+        assert_eq!(
+            tidy(&left),
+            "The first",
+            "what is left of a part that is cut off"
+        );
 
         // An end without a start counts nothing below zero, and the text after it is read.
         let mut out = String::new();
-        read(b"</w:tc></w:t></w:moveFrom></w:p><w:p><w:t>Still read</w:t>", &WORD, &mut out);
+        read(
+            b"</w:tc></w:t></w:moveFrom></w:p><w:p><w:t>Still read</w:t>",
+            &WORD,
+            &mut out,
+        );
         assert_eq!(tidy(&out), "Still read");
     }
 
     #[test]
     fn a_document_nested_deep_or_full_of_entities_is_read_within_the_limits() {
         let deep = 200_000;
-        let nested = format!("{}<w:t>At the bottom</w:t>{}", "<w:tbl><w:tr><w:tc><w:p>".repeat(deep), "</w:p></w:tc></w:tr></w:tbl>".repeat(deep));
+        let nested = format!(
+            "{}<w:t>At the bottom</w:t>{}",
+            "<w:tbl><w:tr><w:tc><w:p>".repeat(deep),
+            "</w:p></w:tc></w:tr></w:tbl>".repeat(deep)
+        );
         let mut out = String::new();
         read(nested.as_bytes(), &WORD, &mut out);
         assert_eq!(tidy(&out), "At the bottom");
@@ -622,13 +849,28 @@ mod tests {
         let laughs = "<!DOCTYPE l [<!ENTITY a \"ha\"><!ENTITY b \"&a;&a;&a;&a;&a;&a;&a;&a;\">]><w:p><w:r><w:t>Said &b;&b;&b; once</w:t></w:r></w:p>";
         let mut out = String::new();
         read(laughs.as_bytes(), &WORD, &mut out);
-        assert_eq!(tidy(&out), "Said once", "entities of the document's own are never unfolded");
+        assert_eq!(
+            tidy(&out),
+            "Said once",
+            "entities of the document's own are never unfolded"
+        );
 
         // More text than is kept: the body fills it, and the part after it is not read.
         let long = "é".repeat(MAX_TEXT / 2 - 100);
         let body = word(&[p("The start"), p(&long), p(&long), p(&long)].concat());
-        let text = read_file("long.docx", &[("word/document.xml", &body), ("word/header1.xml", &p("A header"))]).unwrap();
-        assert!(text.len() <= MAX_TEXT && text.len() > MAX_TEXT - 4, "{} bytes", text.len());
+        let text = read_file(
+            "long.docx",
+            &[
+                ("word/document.xml", &body),
+                ("word/header1.xml", &p("A header")),
+            ],
+        )
+        .unwrap();
+        assert!(
+            text.len() <= MAX_TEXT && text.len() > MAX_TEXT - 4,
+            "{} bytes",
+            text.len()
+        );
         assert!(text.starts_with("The start\né") && text.ends_with('é'));
     }
 
@@ -640,7 +882,10 @@ mod tests {
                     <w:t xml:space=\"preserve\">Y</w:t></w:r></w:p><w:p><w:r><w:t xml:space=\"preserve\">esterday the ascent was nominal.</w:t></w:r></w:p>\
                     <w:p><w:pPr><w:framePr w:w=\"2000\" w:hAnchor=\"page\"/></w:pPr><w:r><w:t>A frame that is no drop cap</w:t></w:r></w:p>";
         let text = read_file("dropcap.docx", &[("word/document.xml", &word(body))]);
-        assert_eq!(text.as_deref(), Some("Yesterday the ascent was nominal.\nA frame that is no drop cap"));
+        assert_eq!(
+            text.as_deref(),
+            Some("Yesterday the ascent was nominal.\nA frame that is no drop cap")
+        );
     }
 
     #[test]
@@ -656,8 +901,17 @@ mod tests {
                     </w:r><w:r><w:fldChar w:fldCharType=\"separate\"/></w:r><w:r><w:fldChar w:fldCharType=\"end\"/></w:r><w:r><w:t xml:space=\"preserve\"> now.</w:t></w:r></w:p>\
                     <w:p><w:r><w:fldChar w:fldCharType=\"begin\"><w:ffData><w:ddList><w:listEntry w:val=\"First\"/><w:listEntry w:val=\"Second\"/></w:ddList>\
                     </w:ffData></w:fldChar></w:r><w:r><w:t xml:space=\"preserve\"> is chosen when none is.</w:t></w:r></w:p>";
-        let text = read_file("fields.docx", &[("word/document.xml", &word(body)), ("word/header1.xml", header)]);
-        assert_eq!(text.as_deref(), Some("Choose Nitrogen now.\nFirst is chosen when none is.\nStrictly & confidential"));
+        let text = read_file(
+            "fields.docx",
+            &[
+                ("word/document.xml", &word(body)),
+                ("word/header1.xml", header),
+            ],
+        );
+        assert_eq!(
+            text.as_deref(),
+            Some("Choose Nitrogen now.\nFirst is chosen when none is.\nStrictly & confidential")
+        );
     }
 
     #[test]
@@ -668,7 +922,10 @@ mod tests {
                     <m:r><m:t xml:space=\"preserve\">=</m:t></m:r><m:f><m:num><m:r><m:t xml:space=\"preserve\">distance</m:t></m:r></m:num>\
                     <m:den><m:r><m:t xml:space=\"preserve\">elapsed</m:t></m:r></m:den></m:f></m:oMath></w:p>";
         let text = read_file("formula.docx", &[("word/document.xml", &word(body))]).unwrap();
-        assert_eq!(text.lines().collect::<Vec<_>>(), ["Velocity is", "velocity", "=", "distance", "elapsed"]);
+        assert_eq!(
+            text.lines().collect::<Vec<_>>(),
+            ["Velocity is", "velocity", "=", "distance", "elapsed"]
+        );
     }
 
     #[test]
@@ -679,16 +936,34 @@ mod tests {
                     <text:p>Beforehand<text:script script:language=\"JavaScript\">var scriptsecret = 42;</text:script> and afterwards stand apart.</text:p>\
                     <text:p>A long com\u{AD}pound noun.</text:p>";
         let text = read_file("comment.odt", &[("content.xml", &open(body))]).unwrap();
-        let lines = ["Vibration", "Recheck the accelerometer.", "peaked at liftoff.", "Beforehand and afterwards stand apart.", "A long compound noun."];
+        let lines = [
+            "Vibration",
+            "Recheck the accelerometer.",
+            "peaked at liftoff.",
+            "Beforehand and afterwards stand apart.",
+            "A long compound noun.",
+        ];
         assert_eq!(text.lines().collect::<Vec<_>>(), lines);
         // The soft hyphen as OnlyOffice writes it into a Word file: the word stays whole there too.
-        assert_eq!(read_file("soft.docx", &[("word/document.xml", &word(&p("A long com\u{AD}pound noun.")))]).as_deref(), Some("A long compound noun."));
+        assert_eq!(
+            read_file(
+                "soft.docx",
+                &[(
+                    "word/document.xml",
+                    &word(&p("A long com\u{AD}pound noun."))
+                )]
+            )
+            .as_deref(),
+            Some("A long compound noun.")
+        );
     }
 
     #[test]
     fn opendocument_reads_the_same_header_once_and_a_locked_file_not_at_all() {
         let page = |name: &str, header: &str| {
-            format!("<style:master-page style:name=\"{name}\"><style:header><text:p>{header}</text:p></style:header></style:master-page>")
+            format!(
+                "<style:master-page style:name=\"{name}\"><style:header><text:p>{header}</text:p></style:header></style:master-page>"
+            )
         };
         let styles = format!(
             "<office:document-styles><office:master-styles>{}{}{}{}</office:master-styles></office:document-styles>",
@@ -697,8 +972,20 @@ mod tests {
             page("Envelope", "Strictly confidential"),
             page("Index", "The index")
         );
-        let text = read_file("watermark.odt", &[("content.xml", &open("<text:p>Body under a watermark.</text:p>")), ("styles.xml", &styles)]);
-        assert_eq!(text.as_deref(), Some("Body under a watermark.\nStrictly confidential\nThe index"));
+        let text = read_file(
+            "watermark.odt",
+            &[
+                (
+                    "content.xml",
+                    &open("<text:p>Body under a watermark.</text:p>"),
+                ),
+                ("styles.xml", &styles),
+            ],
+        );
+        assert_eq!(
+            text.as_deref(),
+            Some("Body under a watermark.\nStrictly confidential\nThe index")
+        );
 
         // A file with a password keeps its parts under their names, as ciphertext, and says so
         // in its manifest. Its content.xml here is readable, so that only the manifest counts.
@@ -708,9 +995,27 @@ mod tests {
                         manifest:algorithm-name=\"http://www.w3.org/2001/04/xmlenc#aes256-cbc\" manifest:initialisation-vector=\"abc=\"/>\
                         </manifest:encryption-data></manifest:file-entry></manifest:manifest>";
         let content = open("<text:p>Would be ciphertext.</text:p>");
-        assert_eq!(read_file("locked.odt", &[("META-INF/manifest.xml", manifest), ("content.xml", &content)]), None);
-        let plain = manifest.replace("<manifest:encryption-data", "<manifest:other").replace("</manifest:encryption-data>", "</manifest:other>");
-        assert_eq!(read_file("open.odt", &[("META-INF/manifest.xml", &plain), ("content.xml", &content)]).as_deref(), Some("Would be ciphertext."));
+        assert_eq!(
+            read_file(
+                "locked.odt",
+                &[
+                    ("META-INF/manifest.xml", manifest),
+                    ("content.xml", &content)
+                ]
+            ),
+            None
+        );
+        let plain = manifest
+            .replace("<manifest:encryption-data", "<manifest:other")
+            .replace("</manifest:encryption-data>", "</manifest:other>");
+        assert_eq!(
+            read_file(
+                "open.odt",
+                &[("META-INF/manifest.xml", &plain), ("content.xml", &content)]
+            )
+            .as_deref(),
+            Some("Would be ciphertext.")
+        );
     }
 
     #[test]
@@ -719,13 +1024,24 @@ mod tests {
         // The record at the end of a zip that says where its directory is, over and over: each
         // says the directory is at the start, where there is none.
         let ending = b"PK\x05\x06\0\0\0\0\x01\0\x01\0\x2e\0\0\0\0\0\0\0\0\0";
-        std::fs::write(d.join("endings.docx"), ending.repeat(512 * 1024 / ending.len())).unwrap();
+        std::fs::write(
+            d.join("endings.docx"),
+            ending.repeat(512 * 1024 / ending.len()),
+        )
+        .unwrap();
         let started = std::time::Instant::now();
         assert_eq!(text(&d.join("endings.docx"), u64::MAX), None);
-        assert!(started.elapsed() < crate::test_limit(std::time::Duration::from_secs(5)), "{:?}", started.elapsed());
+        assert!(
+            started.elapsed() < crate::test_limit(std::time::Duration::from_secs(5)),
+            "{:?}",
+            started.elapsed()
+        );
         // What zip reads of a file is metered, whatever it looks for.
         std::fs::write(d.join("short.docx"), b"0123456789").unwrap();
-        let mut metered = Metered { file: std::fs::File::open(d.join("short.docx")).unwrap(), left: 7 };
+        let mut metered = Metered {
+            file: std::fs::File::open(d.join("short.docx")).unwrap(),
+            left: 7,
+        };
         let mut read = String::new();
         assert!(metered.read_to_string(&mut read).is_err());
         assert_eq!(read, "0123456");
@@ -734,11 +1050,32 @@ mod tests {
         let tag = format!("<w:x w:val=\"{}\"/>", "a".repeat(1000));
         let tags = tag.repeat(MAX_XML as usize / tag.len() + 1);
         let body = word(&format!("{tags}{}", p("Behind the limit")));
-        zip_file(&d.join("tags.docx"), &[("word/document.xml", body.as_bytes()), ("word/header1.xml", p("A header").as_bytes())]);
-        assert_eq!(text(&d.join("tags.docx"), u64::MAX), None, "neither the text behind the limit nor the part after it");
+        zip_file(
+            &d.join("tags.docx"),
+            &[
+                ("word/document.xml", body.as_bytes()),
+                ("word/header1.xml", p("A header").as_bytes()),
+            ],
+        );
+        assert_eq!(
+            text(&d.join("tags.docx"), u64::MAX),
+            None,
+            "neither the text behind the limit nor the part after it"
+        );
         let body = word(&format!("{}{}", tag.repeat(1000), p("Within the limit")));
-        zip_file(&d.join("fewer.docx"), &[("word/document.xml", body.as_bytes()), ("word/header1.xml", p("A header").as_bytes())]);
-        assert_eq!(text(&d.join("fewer.docx"), u64::MAX).map(|t| tidy(&t)).as_deref(), Some("Within the limit\nA header"));
+        zip_file(
+            &d.join("fewer.docx"),
+            &[
+                ("word/document.xml", body.as_bytes()),
+                ("word/header1.xml", p("A header").as_bytes()),
+            ],
+        );
+        assert_eq!(
+            text(&d.join("fewer.docx"), u64::MAX)
+                .map(|t| tidy(&t))
+                .as_deref(),
+            Some("Within the limit\nA header")
+        );
         let _ = std::fs::remove_dir_all(d);
     }
 }

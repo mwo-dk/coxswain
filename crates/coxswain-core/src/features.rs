@@ -22,7 +22,16 @@ const fn f(id: &'static str, docs: &'static str, actions: &'static [Action]) -> 
 }
 
 /// The areas, in the order of `docs/README.md`: `features.area.<area>` names each.
-pub const AREAS: [&str; 8] = ["panels", "organise", "commands", "search", "previews", "files", "customise", "reference"];
+pub const AREAS: [&str; 8] = [
+    "panels",
+    "organise",
+    "commands",
+    "search",
+    "previews",
+    "files",
+    "customise",
+    "reference",
+];
 
 /// Where "Show me" opens a feature's page.
 pub const DOCS: &str = "https://github.com/mwo-dk/coxswain/blob/master/docs/";
@@ -32,17 +41,45 @@ pub const DOCS: &str = "https://github.com/mwo-dk/coxswain/blob/master/docs/";
 pub const FEATURES: &[Feature] = &[
     // panels
     f("first_run", "panels/first-run.md", &[Help]),
-    f("the_screen", "panels/the-screen.md", &[SwitchPanel, TogglePanels]),
-    f("moving", "panels/moving.md", &[Open, Parent, GotoLeft, GotoRight, EditPath, Refresh]),
+    f(
+        "the_screen",
+        "panels/the-screen.md",
+        &[SwitchPanel, TogglePanels],
+    ),
+    f(
+        "moving",
+        "panels/moving.md",
+        &[Open, Parent, GotoLeft, GotoRight, EditPath, Refresh],
+    ),
     f("quick_search", "panels/quick-search.md", &[]),
-    f("marking", "panels/marking.md", &[Mark, MarkGroup, UnmarkGroup, InvertMarks, MarkAll]),
-    f("sorting", "panels/sorting.md", &[SortName, SortExt, SortTime, SortSize, ToggleHidden]),
-    f("tabs_and_panes", "panels/tabs-and-panes.md", &[NewTab, CloseTab, NextTab, Back, Forward, TogglePanels]),
+    f(
+        "marking",
+        "panels/marking.md",
+        &[Mark, MarkGroup, UnmarkGroup, InvertMarks, MarkAll],
+    ),
+    f(
+        "sorting",
+        "panels/sorting.md",
+        &[SortName, SortExt, SortTime, SortSize, ToggleHidden],
+    ),
+    f(
+        "tabs_and_panes",
+        "panels/tabs-and-panes.md",
+        &[NewTab, CloseTab, NextTab, Back, Forward, TogglePanels],
+    ),
     f("views", "panels/views.md", &[ToggleView, Columns]),
-    f("folder_sizes", "panels/folder-sizes.md", &[FolderSizes, Columns]),
+    f(
+        "folder_sizes",
+        "panels/folder-sizes.md",
+        &[FolderSizes, Columns],
+    ),
     f("git", "panels/git.md", &[History, Branches, Refresh]),
     f("git_history", "panels/git-history.md", &[History]),
-    f("git_branches", "panels/git-branches.md", &[Branches, SwitchBranch, Worktrees, NewBranch]),
+    f(
+        "git_branches",
+        "panels/git-branches.md",
+        &[Branches, SwitchBranch, Worktrees, NewBranch],
+    ),
     f("mouse", "panels/mouse.md", &[]),
     f("command_list", "panels/command-list.md", &[Menu, Help]),
     f("features", "panels/features.md", &[Help, Features]),
@@ -55,20 +92,32 @@ pub const FEATURES: &[Feature] = &[
     f("favourites", "organise/favourites.md", &[ToggleSidebar]),
     f("sidebar", "organise/sidebar.md", &[ToggleSidebar]),
     // commands
-    f("command_line", "commands/command-line.md", &[CopyPath, TogglePanels]),
+    f(
+        "command_line",
+        "commands/command-line.md",
+        &[CopyPath, TogglePanels],
+    ),
     f("user_menu", "commands/user-menu.md", &[UserMenu]),
     f("scripts", "commands/scripts.md", &[UserMenu]),
     f("view_and_edit", "commands/view-and-edit.md", &[View, Edit]),
     f("opening_files", "commands/opening-files.md", &[Open]),
     // search
     f("search_setup", "search/setup.md", &[Settings]),
-    f("find_file", "search/find-file.md", &[Search, SearchText, Ask]),
+    f(
+        "find_file",
+        "search/find-file.md",
+        &[Search, SearchText, Ask],
+    ),
     f("names", "search/names.md", &[Search]),
     f("name_syntax", "search/name-syntax.md", &[Search]),
     f("text", "search/text.md", &[SearchText, Search]),
     f("search_documents", "search/documents.md", &[SearchText]),
     f("scans", "search/scans.md", &[]),
-    f("search_diagrams", "search/diagrams.md", &[SearchText, Search]),
+    f(
+        "search_diagrams",
+        "search/diagrams.md",
+        &[SearchText, Search],
+    ),
     f("search_history", "search/history.md", &[Search, SearchText]),
     f("search_archives", "search/archives.md", &[Search]),
     f("search_folders", "search/folders.md", &[Settings]),
@@ -85,32 +134,96 @@ pub const FEATURES: &[Feature] = &[
     f("notices", "search/notices.md", &[Settings]),
     f("search_settings", "search/settings.md", &[Settings]),
     // previews
-    f("text_and_code", "previews/text-and-code.md", &[TogglePreview, View, Edit, Open]),
-    f("preview_documents", "previews/documents.md", &[TogglePreview, View, Open]),
+    f(
+        "text_and_code",
+        "previews/text-and-code.md",
+        &[TogglePreview, View, Edit, Open],
+    ),
+    f(
+        "preview_documents",
+        "previews/documents.md",
+        &[TogglePreview, View, Open],
+    ),
     f("html", "previews/html.md", &[TogglePreview, View, Open]),
-    f("office", "previews/office.md", &[TogglePreview, Open, Settings]),
-    f("preview_data", "previews/data.md", &[TogglePreview, View, Open]),
+    f(
+        "office",
+        "previews/office.md",
+        &[TogglePreview, Open, Settings],
+    ),
+    f(
+        "preview_data",
+        "previews/data.md",
+        &[TogglePreview, View, Open],
+    ),
     f("cbom", "previews/bom.md", &[View]),
     f("provenance", "previews/provenance.md", &[View]),
-    f("preview_media", "previews/media.md", &[TogglePreview, View, Open, Extract]),
-    f("preview_diagrams", "previews/diagrams.md", &[TogglePreview, View, Open, Settings]),
-    f("latex", "previews/latex.md", &[TogglePreview, View, Edit, Open, Settings]),
-    f("preview_tools", "previews/tools.md", &[TogglePreview, Settings]),
-    f("containers", "previews/containers.md", &[Settings, TogglePreview]),
-    f("preview_safety", "previews/safety.md", &[Open, Edit, TogglePreview]),
+    f(
+        "preview_media",
+        "previews/media.md",
+        &[TogglePreview, View, Open, Extract],
+    ),
+    f(
+        "preview_diagrams",
+        "previews/diagrams.md",
+        &[TogglePreview, View, Open, Settings],
+    ),
+    f(
+        "latex",
+        "previews/latex.md",
+        &[TogglePreview, View, Edit, Open, Settings],
+    ),
+    f(
+        "preview_tools",
+        "previews/tools.md",
+        &[TogglePreview, Settings],
+    ),
+    f(
+        "containers",
+        "previews/containers.md",
+        &[Settings, TogglePreview],
+    ),
+    f(
+        "preview_safety",
+        "previews/safety.md",
+        &[Open, Edit, TogglePreview],
+    ),
     // files
     f("copy", "files/copy.md", &[Copy]),
-    f("move_and_rename", "files/move-and-rename.md", &[Move, Rename]),
+    f(
+        "move_and_rename",
+        "files/move-and-rename.md",
+        &[Move, Rename],
+    ),
     f("new_folder", "files/new-folder.md", &[NewFolder]),
     f("delete", "files/delete.md", &[Delete, DeleteForever]),
     f("undo", "files/undo.md", &[Undo]),
-    f("clipboard", "files/clipboard.md", &[ClipCopy, ClipCut, Paste]),
+    f(
+        "clipboard",
+        "files/clipboard.md",
+        &[ClipCopy, ClipCut, Paste],
+    ),
     f("drag_and_drop", "files/drag-and-drop.md", &[]),
     f("batch_rename", "files/batch-rename.md", &[BatchRename]),
-    f("archives", "files/archives.md", &[Open, Copy, Move, NewFolder, Delete]),
-    f("pack_and_extract", "files/pack-and-extract.md", &[Pack, Extract]),
-    f("archive_passwords", "files/archive-passwords.md", &[Pack, Extract]),
-    f("properties", "files/properties.md", &[Properties, Flags, Package]),
+    f(
+        "archives",
+        "files/archives.md",
+        &[Open, Copy, Move, NewFolder, Delete],
+    ),
+    f(
+        "pack_and_extract",
+        "files/pack-and-extract.md",
+        &[Pack, Extract],
+    ),
+    f(
+        "archive_passwords",
+        "files/archive-passwords.md",
+        &[Pack, Extract],
+    ),
+    f(
+        "properties",
+        "files/properties.md",
+        &[Properties, Flags, Package],
+    ),
     f("duplicates", "files/duplicates.md", &[Duplicates]),
     f("zfs_snapshots", "files/zfs-snapshots.md", &[Snapshots]),
     // customise
@@ -120,15 +233,31 @@ pub const FEATURES: &[Feature] = &[
     f("own_theme", "customise/own-theme.md", &[]),
     f("languages", "customise/languages.md", &[Settings]),
     f("change_keys", "customise/keys.md", &[Help, Settings]),
-    f("glyphs_and_fonts", "customise/glyphs-and-fonts.md", &[Settings]),
+    f(
+        "glyphs_and_fonts",
+        "customise/glyphs-and-fonts.md",
+        &[Settings],
+    ),
     // reference
-    f("terminal_app", "reference/terminal-app.md", &[Menu, Help, View, Edit, Refresh, Quit]),
+    f(
+        "terminal_app",
+        "reference/terminal-app.md",
+        &[Menu, Help, View, Edit, Refresh, Quit],
+    ),
     f("command_line_flags", "reference/command-line-flags.md", &[]),
     f("configuration", "reference/configuration.md", &[Settings]),
     f("privacy", "reference/privacy.md", &[Settings]),
     f("updates", "reference/updates.md", &[Settings]),
-    f("where_things_are_kept", "reference/where-things-are-kept.md", &[Settings]),
-    f("disk_use", "reference/disk-use.md", &[DiskUse, Settings, Menu]),
+    f(
+        "where_things_are_kept",
+        "reference/where-things-are-kept.md",
+        &[Settings],
+    ),
+    f(
+        "disk_use",
+        "reference/disk-use.md",
+        &[DiskUse, Settings, Menu],
+    ),
     f("bills_of_materials", "reference/bills-of-materials.md", &[]),
     f("linux_arm", "reference/linux-arm.md", &[]),
     f("chromeos", "reference/chromeos.md", &[]),
@@ -238,13 +367,25 @@ fn all_in(words: &[String], hay: &str) -> bool {
 /// terminal app lacks.
 pub fn entry(cfg: &Config, f: &Feature, gui: bool) -> Entry {
     let t = |k: &str| text(cfg, &format!("feature.{}.{k}", f.id)).unwrap_or_default();
-    let qa = (1..=4).map_while(|i| Some((text(cfg, &format!("feature.{}.q{i}", f.id))?, t(&format!("a{i}"))))).collect();
+    let qa = (1..=4)
+        .map_while(|i| {
+            Some((
+                text(cfg, &format!("feature.{}.q{i}", f.id))?,
+                t(&format!("a{i}")),
+            ))
+        })
+        .collect();
     Entry {
         id: f.id,
         area: crate::i18n::tr(&format!("features.area.{}", f.area()), &[]),
         title: t("title"),
         what: t("what"),
-        keys: f.actions.iter().filter(|a| gui || !a.gui_only()).map(|&a| (a.label(), keys(cfg, a))).collect(),
+        keys: f
+            .actions
+            .iter()
+            .filter(|a| gui || !a.gui_only())
+            .map(|&a| (a.label(), keys(cfg, a)))
+            .collect(),
         qa,
         url: f.url(),
     }
@@ -271,7 +412,9 @@ pub fn list(cfg: &Config, query: &str, gui: bool) -> Vec<Entry> {
             } else if all_in(&words, &format!("{title} {what}")) {
                 2
             } else {
-                e.qa.retain(|(q, a)| all_in(&words, &fold(&format!("{} {} {q} {a}", e.title, e.what))));
+                e.qa.retain(|(q, a)| {
+                    all_in(&words, &fold(&format!("{} {} {q} {a}", e.title, e.what)))
+                });
                 if e.qa.is_empty() {
                     return None;
                 }
@@ -307,19 +450,33 @@ mod tests {
         let docs = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../docs");
         let mut missing = vec![];
         for area in AREAS {
-            for e in std::fs::read_dir(docs.join(area)).unwrap_or_else(|e| panic!("docs/{area}: {e}")) {
+            for e in
+                std::fs::read_dir(docs.join(area)).unwrap_or_else(|e| panic!("docs/{area}: {e}"))
+            {
                 let name = e.unwrap().file_name().to_string_lossy().into_owned();
                 let page = format!("{area}/{name}");
-                if name.ends_with(".md") && name != "README.md" && !NOT_FEATURES.contains(&page.as_str()) && !FEATURES.iter().any(|f| f.docs == page) {
+                if name.ends_with(".md")
+                    && name != "README.md"
+                    && !NOT_FEATURES.contains(&page.as_str())
+                    && !FEATURES.iter().any(|f| f.docs == page)
+                {
                     missing.push(page);
                 }
             }
         }
-        assert!(missing.is_empty(), "docs pages without a Features entry (crates/coxswain-core/src/features.rs): {missing:?}");
+        assert!(
+            missing.is_empty(),
+            "docs pages without a Features entry (crates/coxswain-core/src/features.rs): {missing:?}"
+        );
         for f in FEATURES {
             assert!(docs.join(f.docs).is_file(), "{}: no docs/{}", f.id, f.docs);
             assert!(AREAS.contains(&f.area()), "{}: area {}", f.id, f.area());
-            assert_eq!(FEATURES.iter().filter(|g| g.id == f.id).count(), 1, "{} twice", f.id);
+            assert_eq!(
+                FEATURES.iter().filter(|g| g.id == f.id).count(),
+                1,
+                "{} twice",
+                f.id
+            );
         }
     }
 
@@ -328,13 +485,29 @@ mod tests {
         let cfg = Config::default();
         for f in FEATURES {
             let e = entry(&cfg, f, true);
-            assert!(!e.title.is_empty() && !e.what.is_empty(), "{}: title and what", f.id);
-            assert!((2..=3).contains(&e.qa.len()), "{}: {} questions", f.id, e.qa.len());
+            assert!(
+                !e.title.is_empty() && !e.what.is_empty(),
+                "{}: title and what",
+                f.id
+            );
+            assert!(
+                (2..=3).contains(&e.qa.len()),
+                "{}: {} questions",
+                f.id,
+                e.qa.len()
+            );
             for (q, a) in &e.qa {
                 assert!(!q.is_empty() && !a.is_empty(), "{}: {q}", f.id);
             }
-            for s in [&e.title, &e.what].into_iter().chain(e.qa.iter().flat_map(|(q, a)| [q, a])) {
-                assert!(!s.contains('{'), "{}: a placeholder that is no action: {s}", f.id);
+            for s in [&e.title, &e.what]
+                .into_iter()
+                .chain(e.qa.iter().flat_map(|(q, a)| [q, a]))
+            {
+                assert!(
+                    !s.contains('{'),
+                    "{}: a placeholder that is no action: {s}",
+                    f.id
+                );
             }
         }
     }
@@ -353,7 +526,11 @@ mod tests {
         assert_eq!(all.len(), FEATURES.len());
         let undo = list(&cfg, "UNDO", true);
         assert_eq!(undo[0].id, "undo", "a title match first");
-        assert_eq!(list(&cfg, "Find", true)[0].id, "find_file", "the title it names before Find duplicates");
+        assert_eq!(
+            list(&cfg, "Find", true)[0].id,
+            "find_file",
+            "the title it names before Find duplicates"
+        );
         let areas: Vec<&str> = FEATURES.iter().map(Feature::area).collect();
         let mut sorted = areas.clone();
         sorted.sort_by_key(|a| AREAS.iter().position(|x| x == a));

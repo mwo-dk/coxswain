@@ -12,7 +12,11 @@ const DAY: u64 = 24 * 3600;
 
 /// `major.minor.patch` from "1.2.3" or "v1.2.3"; pre-release suffixes are ignored.
 fn parse(v: &str) -> Option<(u64, u64, u64)> {
-    let mut it = v.trim().trim_start_matches('v').split(['.', '-', '+']).map(|p| p.parse().ok());
+    let mut it = v
+        .trim()
+        .trim_start_matches('v')
+        .split(['.', '-', '+'])
+        .map(|p| p.parse().ok());
     Some((it.next()??, it.next()??, it.next()??))
 }
 
@@ -24,10 +28,17 @@ pub fn is_newer(current: &str, latest: &str) -> bool {
 pub fn fetch_latest() -> Option<String> {
     // The system's certificate store, not a bundled one: a work machine behind a TLS-inspecting
     // proxy trusts its own CA, and the check would otherwise fail silently there.
-    let agent: ureq::Agent = ureq::Agent::config_builder().timeout_global(Some(Duration::from_secs(5))).tls_config(crate::meaning::tls()).build().into();
+    let agent: ureq::Agent = ureq::Agent::config_builder()
+        .timeout_global(Some(Duration::from_secs(5)))
+        .tls_config(crate::meaning::tls())
+        .build()
+        .into();
     let body = agent
         .get(API_URL)
-        .header("User-Agent", concat!("coxswain/", env!("CARGO_PKG_VERSION")))
+        .header(
+            "User-Agent",
+            concat!("coxswain/", env!("CARGO_PKG_VERSION")),
+        )
         .call()
         .ok()?
         .body_mut()
@@ -38,7 +49,9 @@ pub fn fetch_latest() -> Option<String> {
 }
 
 fn now() -> u64 {
-    SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |d| d.as_secs())
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_or(0, |d| d.as_secs())
 }
 
 /// Has a day passed since the last check?
@@ -76,10 +89,14 @@ pub fn upgrade_hint() -> Option<&'static str> {
         return Some(FLATPAK_UPDATE);
     }
     // Inside an AppImage the executable is in a temporary mount; $APPIMAGE is the file itself.
-    let exe = std::env::var_os("APPIMAGE").map(PathBuf::from).or_else(|| std::env::current_exe().ok())?;
+    let exe = std::env::var_os("APPIMAGE")
+        .map(PathBuf::from)
+        .or_else(|| std::env::current_exe().ok())?;
     let exe = std::fs::canonicalize(&exe).unwrap_or(exe);
     // A cask copies Coxswain.app into /Applications, so the path alone does not show Homebrew.
-    let cask = ["/opt/homebrew", "/usr/local"].iter().any(|p| Path::new(p).join("Caskroom/coxswain-gui").is_dir());
+    let cask = ["/opt/homebrew", "/usr/local"]
+        .iter()
+        .any(|p| Path::new(p).join("Caskroom/coxswain-gui").is_dir());
     hint_for(&exe.to_string_lossy(), cfg!(target_os = "macos") && cask).or(SCRIPT_UPDATE)
 }
 
@@ -89,32 +106,40 @@ pub const FLATPAK_UPDATE: &str = "flatpak update io.github.mwo_dk.Coxswain";
 /// On FreeBSD, the other BSDs and illumos the install script updates both apps: it fetches the
 /// latest release again. Each line uses the download tool the base system has.
 pub const SCRIPT_UPDATE: Option<&str> = if cfg!(target_os = "freebsd") {
-    Some("fetch -qo - https://raw.githubusercontent.com/mwo-dk/coxswain/master/install/install-freebsd.sh | sh")
+    Some(
+        "fetch -qo - https://raw.githubusercontent.com/mwo-dk/coxswain/master/install/install-freebsd.sh | sh",
+    )
 } else if cfg!(any(target_os = "netbsd", target_os = "openbsd")) {
-    Some("ftp -o - https://raw.githubusercontent.com/mwo-dk/coxswain/master/install/install-unix.sh | sh")
+    Some(
+        "ftp -o - https://raw.githubusercontent.com/mwo-dk/coxswain/master/install/install-unix.sh | sh",
+    )
 } else if cfg!(any(target_os = "illumos", target_os = "solaris")) {
-    Some("curl -fsSL https://raw.githubusercontent.com/mwo-dk/coxswain/master/install/install-unix.sh | sh")
+    Some(
+        "curl -fsSL https://raw.githubusercontent.com/mwo-dk/coxswain/master/install/install-unix.sh | sh",
+    )
 } else {
     None
 };
 
 fn hint_for(exe: &str, mac_cask: bool) -> Option<&'static str> {
     let p = exe.replace('\\', "/").to_lowercase();
-    Some(if p.contains("/caskroom/") || (mac_cask && p.contains("/applications/coxswain.app/")) {
-        "brew upgrade --cask coxswain-gui"
-    } else if p.contains("/cellar/") {
-        "brew upgrade coxswain"
-    } else if p.contains("/com.termux/files/usr/bin/") {
-        "pkg upgrade coxswain"
-    } else if p.contains("/.cargo/bin/") {
-        "cargo install coxswain"
-    } else if p.contains("/microsoft/winget/packages/mwo-dk.coxswain.terminal_") {
-        // WinGet unpacks the terminal app's zip under its Packages folder. The desktop installer
-        // lands where a download would, so it gets the releases page.
-        "winget upgrade mwo-dk.Coxswain.Terminal"
-    } else {
-        return None;
-    })
+    Some(
+        if p.contains("/caskroom/") || (mac_cask && p.contains("/applications/coxswain.app/")) {
+            "brew upgrade --cask coxswain-gui"
+        } else if p.contains("/cellar/") {
+            "brew upgrade coxswain"
+        } else if p.contains("/com.termux/files/usr/bin/") {
+            "pkg upgrade coxswain"
+        } else if p.contains("/.cargo/bin/") {
+            "cargo install coxswain"
+        } else if p.contains("/microsoft/winget/packages/mwo-dk.coxswain.terminal_") {
+            // WinGet unpacks the terminal app's zip under its Packages folder. The desktop installer
+            // lands where a download would, so it gets the releases page.
+            "winget upgrade mwo-dk.Coxswain.Terminal"
+        } else {
+            return None;
+        },
+    )
 }
 
 #[cfg(test)]
@@ -137,19 +162,59 @@ mod tests {
     #[test]
     fn update_hint_follows_the_install_source() {
         let h = |p| hint_for(p, false);
-        assert_eq!(h("/home/linuxbrew/.linuxbrew/Cellar/coxswain/1.2.0/bin/coxswain"), Some("brew upgrade coxswain"));
-        assert_eq!(h("/opt/homebrew/Cellar/coxswain/1.2.0/bin/coxswain"), Some("brew upgrade coxswain"));
-        assert_eq!(h("/home/linuxbrew/.linuxbrew/Caskroom/coxswain-gui/1.2.0/Coxswain_1.2.0_amd64.AppImage"), Some("brew upgrade --cask coxswain-gui"));
-        assert_eq!(hint_for("/Applications/Coxswain.app/Contents/MacOS/coxswain-gui", true), Some("brew upgrade --cask coxswain-gui"));
-        assert_eq!(h("/Applications/Coxswain.app/Contents/MacOS/coxswain-gui"), None);
-        assert_eq!(h("/home/me/.cargo/bin/coxswain"), Some("cargo install coxswain"));
-        assert_eq!(h(r"C:\Users\me\scoop\apps\coxswain\1.2.0\coxswain.exe"), None);
-        assert_eq!(h(r"C:\Users\me\AppData\Local\Microsoft\WinGet\Packages\mwo-dk.Coxswain.Terminal_Microsoft.Winget.Source_8wekyb3d8bbwe\coxswain-terminal-v1.31.0-x86_64-pc-windows-msvc\coxswain.exe"), Some("winget upgrade mwo-dk.Coxswain.Terminal"));
-        assert_eq!(h(r"C:\Users\me\AppData\Local\Coxswain\coxswain-gui.exe"), None);
+        assert_eq!(
+            h("/home/linuxbrew/.linuxbrew/Cellar/coxswain/1.2.0/bin/coxswain"),
+            Some("brew upgrade coxswain")
+        );
+        assert_eq!(
+            h("/opt/homebrew/Cellar/coxswain/1.2.0/bin/coxswain"),
+            Some("brew upgrade coxswain")
+        );
+        assert_eq!(
+            h(
+                "/home/linuxbrew/.linuxbrew/Caskroom/coxswain-gui/1.2.0/Coxswain_1.2.0_amd64.AppImage"
+            ),
+            Some("brew upgrade --cask coxswain-gui")
+        );
+        assert_eq!(
+            hint_for(
+                "/Applications/Coxswain.app/Contents/MacOS/coxswain-gui",
+                true
+            ),
+            Some("brew upgrade --cask coxswain-gui")
+        );
+        assert_eq!(
+            h("/Applications/Coxswain.app/Contents/MacOS/coxswain-gui"),
+            None
+        );
+        assert_eq!(
+            h("/home/me/.cargo/bin/coxswain"),
+            Some("cargo install coxswain")
+        );
+        assert_eq!(
+            h(r"C:\Users\me\scoop\apps\coxswain\1.2.0\coxswain.exe"),
+            None
+        );
+        assert_eq!(
+            h(
+                r"C:\Users\me\AppData\Local\Microsoft\WinGet\Packages\mwo-dk.Coxswain.Terminal_Microsoft.Winget.Source_8wekyb3d8bbwe\coxswain-terminal-v1.31.0-x86_64-pc-windows-msvc\coxswain.exe"
+            ),
+            Some("winget upgrade mwo-dk.Coxswain.Terminal")
+        );
+        assert_eq!(
+            h(r"C:\Users\me\AppData\Local\Coxswain\coxswain-gui.exe"),
+            None
+        );
         assert_eq!(h(r"C:\Program Files\Coxswain\coxswain-gui.exe"), None);
         assert_eq!(h("/home/me/.local/bin/coxswain"), None);
-        assert_eq!(h("/data/data/com.termux/files/usr/bin/coxswain"), Some("pkg upgrade coxswain"));
-        assert_eq!(h("/data/data/com.termux/files/home/.cargo/bin/coxswain"), Some("cargo install coxswain"));
+        assert_eq!(
+            h("/data/data/com.termux/files/usr/bin/coxswain"),
+            Some("pkg upgrade coxswain")
+        );
+        assert_eq!(
+            h("/data/data/com.termux/files/home/.cargo/bin/coxswain"),
+            Some("cargo install coxswain")
+        );
         assert_eq!(h("/home/me/Downloads/Coxswain_1.2.0_amd64.AppImage"), None);
     }
 }
