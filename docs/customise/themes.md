@@ -13,6 +13,9 @@ differ, and you can [make your own](own-theme.md).
 ![Nine of the Windows and Mac themes side by side in the desktop app, light and dark, each with its own sidebar, selection colour and chrome](../screenshots/gui-themes.png)
 *Nine of the Windows and Mac themes. In the desktop app a theme also brings a [look](looks.md).*
 
+![Fifteen classics in the desktop app: Amber and Paper white phosphors, XTree Gold, DOS Shell and Midnight Commander on blue, the Commodore 64, ZX Spectrum, Amstrad CPC, MSX and BBC Micro screens, Atari ST GEM, Amiga Workbench 1.3, NeXTSTEP, BeOS and OS/2 Warp](../screenshots/gui-classics.png)
+*The classics: the phosphors, the file managers of the DOS years, the home computers, the Amiga and the other desktops.*
+
 ## How to use it
 
 | | Desktop app | Terminal app |

@@ -11,6 +11,9 @@ drawn in the era's own colours, as the real thing was.
 ![Nine themes with their looks: square Windows 3.11 and 95 windows with bevels, Luna's rounded blue title bars in XP, Aero in Windows 7, Mica in Windows 11, System 7's black-on-white lines, Mac OS 9's grey bevels, Aqua and current macOS](../screenshots/gui-themes.png)
 *The same window in nine looks.*
 
+![The classics: Amiga Workbench 1.3 with white frames on blue, Atari ST GEM in black and white on green, NeXTSTEP's black title bars and grey bevels, BeOS's yellow tab, and the CRT themes with their scanlines](../screenshots/gui-classics.png)
+*The four new looks, Workbench, GEM, NeXTSTEP and BeOS, among the classics; the home computers and phosphors sit on the tube.*
+
 ## How to use it
 
 A look comes with its theme: pick the theme and you get its look.
