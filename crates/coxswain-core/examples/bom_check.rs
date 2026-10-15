@@ -2,8 +2,8 @@
 //! Reads each BOM as Coxswain's own BOM viewer does (tools/bom/generate.sh runs it on what it
 //! made). Fails on a file it cannot read, or on a problem in one, such as a dangling reference.
 //! For a CBOM it also prints how each asset rates, so a release shows its own cryptography.
-use coxswain_core::bom::view::{is_crypto, Loaded};
 use coxswain_core::bom::Status;
+use coxswain_core::bom::view::{Loaded, is_crypto};
 use std::collections::BTreeMap;
 use std::path::Path;
 use std::process::ExitCode;
@@ -25,7 +25,9 @@ fn main() -> ExitCode {
             }
         };
         let issues: Vec<_> = l.bom.issues.iter().chain(&l.issues).collect();
-        let assets: Vec<u32> = (0..l.bom.nodes.len() as u32).filter(|&i| is_crypto(l.node(i).kind)).collect();
+        let assets: Vec<u32> = (0..l.bom.nodes.len() as u32)
+            .filter(|&i| is_crypto(l.node(i).kind))
+            .collect();
         println!(
             "{file}: CycloneDX {}, {} nodes, {} cryptographic assets, {} problems",
             l.bom.source.spec_version,
@@ -37,7 +39,9 @@ fn main() -> ExitCode {
             eprintln!("  problem: {}", i.message);
         }
         // Names nothing knows are expected in a CBOM (BLAKE3, ZipCrypto): reported, not failed.
-        ok &= issues.iter().all(|i| i.code == coxswain_core::bom::IssueCode::UnresolvedAlgorithm);
+        ok &= issues
+            .iter()
+            .all(|i| i.code == coxswain_core::bom::IssueCode::UnresolvedAlgorithm);
         let mut by: BTreeMap<Status, Vec<&str>> = BTreeMap::new();
         for &i in &assets {
             by.entry(l.status(i)).or_default().push(&l.node(i).label);
@@ -46,5 +50,9 @@ fn main() -> ExitCode {
             println!("  {:<11} {}", status.name(), names.join(", "));
         }
     }
-    if ok { ExitCode::SUCCESS } else { ExitCode::FAILURE }
+    if ok {
+        ExitCode::SUCCESS
+    } else {
+        ExitCode::FAILURE
+    }
 }

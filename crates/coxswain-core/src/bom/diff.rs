@@ -14,7 +14,7 @@ use serde::Serialize;
 use std::collections::{HashMap, VecDeque};
 
 use super::model::*;
-use super::policy::{normalize, Resolution};
+use super::policy::{Resolution, normalize};
 use super::status::Status;
 use super::tree::Tree;
 
@@ -74,7 +74,10 @@ pub struct Diff {
 }
 
 fn is_crypto(kind: NodeKind) -> bool {
-    matches!(kind, NodeKind::Algorithm | NodeKind::Material | NodeKind::Certificate | NodeKind::Protocol)
+    matches!(
+        kind,
+        NodeKind::Algorithm | NodeKind::Material | NodeKind::Certificate | NodeKind::Protocol
+    )
 }
 
 fn green(s: Status) -> bool {
@@ -118,7 +121,13 @@ pub fn identities(side: &Side) -> Vec<String> {
                     .iter()
                     .map(|p| {
                         let n = |x: Option<u64>| x.map(|x| x.to_string()).unwrap_or_default();
-                        format!("{}:{}:{}:{}", p.algorithm_id, n(p.key_bits), n(p.security_bits), p.param_set.as_deref().unwrap_or(""))
+                        format!(
+                            "{}:{}:{}:{}",
+                            p.algorithm_id,
+                            n(p.key_bits),
+                            n(p.security_bits),
+                            p.param_set.as_deref().unwrap_or("")
+                        )
                     })
                     .collect();
                 parts.sort();
@@ -134,10 +143,16 @@ pub fn identities(side: &Side) -> Vec<String> {
             (_, NodeKind::Algorithm) => format!("alg:{}", algorithm(v)),
             (crypto, NodeKind::Material) => {
                 let (kind, size) = match crypto {
-                    Some(Crypto::Material(m)) => (m.kind.as_deref().unwrap_or(""), m.size.map(|s| s.to_string()).unwrap_or_default()),
+                    Some(Crypto::Material(m)) => (
+                        m.kind.as_deref().unwrap_or(""),
+                        m.size.map(|s| s.to_string()).unwrap_or_default(),
+                    ),
                     _ => ("", String::new()),
                 };
-                let alg = algorithm_of.get(&v).map(|&a| algorithm(a)).unwrap_or_default();
+                let alg = algorithm_of
+                    .get(&v)
+                    .map(|&a| algorithm(a))
+                    .unwrap_or_default();
                 format!("key:{kind}:{size}:{alg}")
             }
             (crypto, NodeKind::Certificate) => {
@@ -145,14 +160,22 @@ pub fn identities(side: &Side) -> Vec<String> {
                     Some(Crypto::Certificate(c)) => (c.subject.as_deref(), c.issuer.as_deref()),
                     _ => (None, None),
                 };
-                format!("cert:{}|{}", subject.unwrap_or(&node.label), issuer.unwrap_or(""))
+                format!(
+                    "cert:{}|{}",
+                    subject.unwrap_or(&node.label),
+                    issuer.unwrap_or("")
+                )
             }
             (crypto, NodeKind::Protocol) => {
                 let (kind, version) = match crypto {
                     Some(Crypto::Protocol(p)) => (p.kind.as_deref(), p.version.as_deref()),
                     _ => (None, None),
                 };
-                format!("proto:{}:{}", kind.unwrap_or(&node.label), version.unwrap_or(""))
+                format!(
+                    "proto:{}:{}",
+                    kind.unwrap_or(&node.label),
+                    version.unwrap_or("")
+                )
             }
             (_, NodeKind::Component) => match &node.purl {
                 Some(purl) => format!("comp:{}", without_version(purl)),
@@ -165,7 +188,10 @@ pub fn identities(side: &Side) -> Vec<String> {
                     Some(GroupKind::File) => "file",
                     _ => "kind",
                 };
-                format!("group:{kind}:{}", group.and_then(|g| g.path.as_deref()).unwrap_or(&node.label))
+                format!(
+                    "group:{kind}:{}",
+                    group.and_then(|g| g.path.as_deref()).unwrap_or(&node.label)
+                )
             }
             (_, NodeKind::Application) => "app".to_string(),
         }
@@ -255,14 +281,27 @@ pub fn diff(before: &Side, after: &Side) -> Diff {
             Some(o) => o.location.clone(),
             None => id_before[i].split(" @ ").nth(1).unwrap_or("").to_string(),
         };
-        removed.push(Removed { label: node.label.clone(), kind: node.kind, status, place });
+        removed.push(Removed {
+            label: node.label.clone(),
+            kind: node.kind,
+            status,
+            place,
+        });
         counts.removed += 1;
         if !green(status) {
             counts.fixed += 1;
         }
     }
     // worst first; on a tie, an algorithm before the keys and certificates that inherit from it
-    removed.sort_by(|a, b| severity(b.status).cmp(&severity(a.status)).then(kind_rank(a.kind).cmp(&kind_rank(b.kind))));
+    removed.sort_by(|a, b| {
+        severity(b.status)
+            .cmp(&severity(a.status))
+            .then(kind_rank(a.kind).cmp(&kind_rank(b.kind)))
+    });
 
-    Diff { change, removed, counts }
+    Diff {
+        change,
+        removed,
+        counts,
+    }
 }

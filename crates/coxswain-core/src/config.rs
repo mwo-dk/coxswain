@@ -305,10 +305,16 @@ macro_rules! theme {
         #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
         #[serde(default)]
         pub struct Theme {
-            /// The desktop app's shapes and chrome: `modern`, `crt`, `dos`, `win31`, `win95`,
-            /// `winxp`, `win7`, `win10`, `win11`, `system7`, `platinum`, `aqua` or `macos`.
+            /// The desktop app's shapes and chrome: `modern`, `crt`, `dos`, `workbench`, `gem`,
+            /// `win31`, `win95`, `winxp`, `win7`, `win10`, `win11`, `system7`, `platinum`, `aqua`,
+            /// `macos`, `next` or `beos`.
             /// Colors come from the slots; the terminal app ignores it.
             pub look: String,
+            /// The desktop app's tube: scanlines, a glow on the text and rings instead of
+            /// shadows, over any look. The built-in CRT themes have it; the terminal app
+            /// ignores it.
+            #[serde(skip_serializing_if = "std::ops::Not::not")]
+            pub crt: bool,
             $(pub $slot: Style),*
         }
 
@@ -338,6 +344,7 @@ impl Theme {
     pub fn nc() -> Self {
         Theme {
             look: "dos".into(),
+            crt: false,
             panel: st("#55ffff", "#0000aa"),
             border: st("#55ffff", "#0000aa"),
             header: bold(st("#ffff55", "#0000aa")),
@@ -524,15 +531,618 @@ impl Theme {
         })
     }
 
+    /// An amber monochrome phosphor terminal (P3): near-black, amber text, one phosphor in
+    /// every slot, paler amber folders. The amber is #ffb000, the usual sRGB for a P3 monitor's
+    /// yellow-orange glow (peak about 602 nm); the rest are tints and shades of that one hue.
+    pub fn amber() -> Self {
+        Theme::from_palette(&Palette {
+            look: "crt",
+            bg: "#0a0600",
+            alt: "#070400",
+            raised: "#1a1000",
+            fg: "#ffb000",
+            sel_fg: "#ffd27a",
+            dim: "#b37a00",
+            border: "#4d3300",
+            accent: "#ffb000",
+            sel_bg: "#4d3300",
+            dir: "#ffcc55",
+            red: "#ff8c00",
+            green: "#e0a020",
+            yellow: "#ffe39c",
+            blue: "#d9a84e",
+            magenta: "#f0c070",
+            orange: "#ffd27a",
+        })
+    }
+
+    /// Paper white: a P4 white-phosphor terminal (the Macintosh and VT420 white), one phosphor
+    /// in greys with a cool cast. Folders and marks bold white, hidden files dim, a lit grey
+    /// cursor row.
+    pub fn paper() -> Self {
+        Theme {
+            look: "crt".into(),
+            crt: true,
+            panel: st("#e3e6ea", "#0b0b0e"),
+            border: st("#44464c", "#0b0b0e"),
+            header: st("#888b90", "#0b0b0e"),
+            directory: bold(st("#ffffff", "#0b0b0e")),
+            executable: st("#ffffff", "#0b0b0e"),
+            hidden: st("#888b90", "#0b0b0e"),
+            symlink: st("#b4b7bc", "#0b0b0e"),
+            cursor: st("#ffffff", "#3a3a40"),
+            marked: bold(st("#ffffff", "#1e1e23")),
+            marked_cursor: bold(st("#ffffff", "#3a3a40")),
+            status: st("#888b90", "#08080a"),
+            keybar_num: st("#888b90", "#08080a"),
+            keybar_label: st("#e3e6ea", "#141418"),
+            cmdline: st("#e3e6ea", "#08080a"),
+            dialog: st("#e3e6ea", "#141418"),
+            dialog_border: st("#e3e6ea", "#141418"),
+            dialog_input: st("#e3e6ea", "#0b0b0e"),
+            git_branch: bold(st("#b4b7bc", "#0b0b0e")),
+            git_modified: st("#b4b7bc", "#0b0b0e"),
+            git_added: st("#e3e6ea", "#0b0b0e"),
+            git_untracked: st("#ffffff", "#0b0b0e"),
+            git_deleted: st("#ffffff", "#0b0b0e"),
+            git_renamed: st("#b4b7bc", "#0b0b0e"),
+            git_conflict: bold(st("#ffffff", "#0b0b0e")),
+            git_ignored: st("#888b90", "#0b0b0e"),
+            search_hit: bold(st("#ffffff", "")),
+            accent: bold(st("#0b0b0e", "#e3e6ea")),
+            sidebar: st("#e3e6ea", "#08080a"),
+            tab: st("#888b90", "#08080a"),
+            tab_active: st("#e3e6ea", "#0b0b0e"),
+            preview: st("#e3e6ea", "#08080a"),
+        }
+    }
+
+    /// XTree Gold 2/3 for DOS: light-grey and bright-white text on the dark blue screen, a
+    /// yellow bar on the current item, cyan and green for sizes and stats, black on grey for
+    /// the command area, white on blue for dialogs with grey fields, white on red for errors.
+    /// Exact CGA RGB only.
+    pub fn xtree() -> Self {
+        Theme {
+            look: "dos".into(),
+            crt: false,
+            panel: st("#aaaaaa", "#0000aa"),
+            border: st("#aaaaaa", "#0000aa"),
+            header: bold(st("#55ffff", "#0000aa")),
+            directory: bold(st("#ffffff", "#0000aa")),
+            executable: st("#55ff55", "#0000aa"),
+            hidden: st("#00aaaa", "#0000aa"),
+            symlink: st("#ff55ff", "#0000aa"),
+            cursor: st("#000000", "#ffff55"),
+            marked: bold(st("#ffff55", "#0000aa")),
+            marked_cursor: bold(st("#0000aa", "#ffff55")),
+            status: st("#000000", "#aaaaaa"),
+            keybar_num: bold(st("#0000aa", "#aaaaaa")),
+            keybar_label: st("#000000", "#aaaaaa"),
+            cmdline: st("#000000", "#aaaaaa"),
+            dialog: st("#ffffff", "#0000aa"),
+            dialog_border: st("#aaaaaa", "#0000aa"),
+            dialog_input: st("#000000", "#aaaaaa"),
+            git_branch: bold(st("#ff55ff", "#0000aa")),
+            git_modified: st("#ffff55", "#0000aa"),
+            git_added: st("#55ff55", "#0000aa"),
+            git_untracked: st("#55ffff", "#0000aa"),
+            git_deleted: st("#ffffff", "#aa0000"),
+            git_renamed: st("#ff55ff", "#0000aa"),
+            git_conflict: bold(st("#ffffff", "#aa0000")),
+            git_ignored: st("#00aaaa", "#0000aa"),
+            search_hit: bold(st("#ffff55", "")),
+            accent: bold(st("#000000", "#ffff55")),
+            sidebar: st("#aaaaaa", "#0000aa"),
+            tab: st("#00aaaa", "#0000aa"),
+            tab_active: st("#000000", "#aaaaaa"),
+            preview: st("#aaaaaa", "#0000aa"),
+        }
+    }
+
+    /// MS-DOS Shell (DOS 5 and 6), its default "Basic Blue" scheme: black on light grey lists,
+    /// white-on-blue /// title bars, a black-on-cyan cursor, blue folders, in exact CGA RGB;
+    /// git states, symlinks and search hits /// in deeper shades, since no CGA colour but black
+    /// and blue reads on light grey.
+    pub fn dosshell() -> Self {
+        Theme {
+            look: "dos".into(),
+            crt: false,
+            panel: st("#000000", "#aaaaaa"),
+            border: st("#000000", "#aaaaaa"),
+            header: bold(st("#ffffff", "#0000aa")),
+            directory: st("#0000aa", "#aaaaaa"),
+            executable: bold(st("#000000", "#aaaaaa")),
+            hidden: st("#555555", "#aaaaaa"),
+            symlink: st("#550055", "#aaaaaa"),
+            cursor: st("#000000", "#00aaaa"),
+            marked: bold(st("#000000", "#ffffff")),
+            marked_cursor: bold(st("#000000", "#00aaaa")),
+            status: st("#000000", "#ffffff"),
+            keybar_num: st("#ffffff", "#0000aa"),
+            keybar_label: st("#000000", "#aaaaaa"),
+            cmdline: st("#000000", "#aaaaaa"),
+            dialog: st("#000000", "#aaaaaa"),
+            dialog_border: st("#000000", "#aaaaaa"),
+            dialog_input: st("#000000", "#00aaaa"),
+            git_branch: bold(st("#550055", "#aaaaaa")),
+            git_modified: st("#442200", "#aaaaaa"),
+            git_added: st("#003300", "#aaaaaa"),
+            git_untracked: st("#660000", "#aaaaaa"),
+            git_deleted: st("#660000", "#aaaaaa"),
+            git_renamed: st("#003333", "#aaaaaa"),
+            git_conflict: bold(st("#660000", "#aaaaaa")),
+            git_ignored: st("#555555", "#aaaaaa"),
+            search_hit: bold(st("#660000", "")),
+            accent: st("#ffffff", "#0000aa"),
+            sidebar: st("#000000", "#aaaaaa"),
+            tab: st("#555555", "#aaaaaa"),
+            tab_active: st("#ffffff", "#0000aa"),
+            preview: st("#000000", "#aaaaaa"),
+        }
+    }
+
+    /// GNU Midnight Commander's default skin: light grey on blue (not NC's cyan), white
+    /// folders, yellow marks, black-on-cyan cursor, grey dialogs, black-on-cyan tabs and
+    /// buttons; in the Linux console's CGA RGB.
+    pub fn mc() -> Self {
+        Theme {
+            look: "dos".into(),
+            crt: false,
+            panel: st("#aaaaaa", "#0000aa"),
+            border: st("#aaaaaa", "#0000aa"),
+            header: bold(st("#ffff55", "#0000aa")),
+            directory: bold(st("#ffffff", "#0000aa")),
+            executable: st("#55ff55", "#0000aa"),
+            hidden: st("#00aaaa", "#0000aa"),
+            symlink: st("#aaaaaa", "#0000aa"),
+            cursor: st("#000000", "#00aaaa"),
+            marked: bold(st("#ffff55", "#0000aa")),
+            marked_cursor: bold(st("#0000aa", "#00aaaa")),
+            status: st("#aaaaaa", "#000000"),
+            keybar_num: st("#ffffff", "#000000"),
+            keybar_label: st("#000000", "#00aaaa"),
+            cmdline: st("#aaaaaa", "#0000aa"),
+            dialog: st("#000000", "#aaaaaa"),
+            dialog_border: st("#000000", "#aaaaaa"),
+            dialog_input: st("#000000", "#00aaaa"),
+            git_branch: bold(st("#ff55ff", "#0000aa")),
+            git_modified: st("#ffff55", "#0000aa"),
+            git_added: st("#55ff55", "#0000aa"),
+            git_untracked: st("#ff6666", "#0000aa"),
+            git_deleted: st("#ff6666", "#0000aa"),
+            git_renamed: st("#55ffff", "#0000aa"),
+            git_conflict: bold(st("#ff6666", "#0000aa")),
+            git_ignored: st("#00aaaa", "#0000aa"),
+            search_hit: bold(st("#ffff55", "")),
+            accent: bold(st("#000000", "#00aaaa")),
+            sidebar: st("#aaaaaa", "#0000aa"),
+            tab: st("#000000", "#00aaaa"),
+            tab_active: st("#ffffff", "#000000"),
+            preview: st("#aaaaaa", "#0000aa"),
+        }
+    }
+
+    /// Commodore 64 power-on screen: light blue on blue, white folders, an inverse cursor row.
+    /// VIC-II colours /// in the common C64-Wiki values; the text blues are lightened to read,
+    /// the border keeps the real one.
+    pub fn c64() -> Self {
+        Theme {
+            look: "crt".into(),
+            crt: true,
+            panel: st("#aea5dc", "#40318d"),
+            border: st("#7869c4", "#40318d"),
+            header: st("#ffffff", "#40318d"),
+            directory: bold(st("#ffffff", "#40318d")),
+            executable: st("#94e089", "#40318d"),
+            hidden: st("#9f9f9f", "#40318d"),
+            symlink: st("#c6a1cc", "#40318d"),
+            cursor: st("#40318d", "#aea5dc"),
+            marked: bold(st("#bfce72", "#40318d")),
+            marked_cursor: bold(st("#40318d", "#bfce72")),
+            status: st("#9f9f9f", "#40318d"),
+            keybar_num: st("#9f9f9f", "#40318d"),
+            keybar_label: st("#40318d", "#aea5dc"),
+            cmdline: st("#aea5dc", "#40318d"),
+            dialog: st("#aea5dc", "#40318d"),
+            dialog_border: st("#ffffff", "#40318d"),
+            dialog_input: st("#aea5dc", "#40318d"),
+            git_branch: bold(st("#c6a1cc", "#40318d")),
+            git_modified: st("#bfce72", "#40318d"),
+            git_added: st("#94e089", "#40318d"),
+            git_untracked: st("#d2a09c", "#40318d"),
+            git_deleted: st("#d2a09c", "#40318d"),
+            git_renamed: st("#75cec8", "#40318d"),
+            git_conflict: bold(st("#d2a09c", "#40318d")),
+            git_ignored: st("#9f9f9f", "#40318d"),
+            search_hit: bold(st("#bfce72", "")),
+            accent: bold(st("#40318d", "#aea5dc")),
+            sidebar: st("#aea5dc", "#40318d"),
+            tab: st("#9f9f9f", "#40318d"),
+            tab_active: st("#ffffff", "#40318d"),
+            preview: st("#aea5dc", "#40318d"),
+        }
+    }
+
+    /// Sinclair ZX Spectrum: bright white on black, the ULA's bright palette for colours and
+    /// its non-bright shades for dim. Colour values are the Spectrum's canonical RGB (bright at
+    /// 0xff, non-bright at 0xd7).
+    pub fn spectrum() -> Self {
+        Theme::from_palette(&Palette {
+            look: "crt",
+            bg: "#000000",
+            alt: "#000000",
+            raised: "#000000",
+            fg: "#ffffff",
+            sel_fg: "#ffffff",
+            dim: "#d7d7d7",
+            border: "#d7d7d7",
+            accent: "#00ffff",
+            sel_bg: "#0000d7",
+            dir: "#ffff00",
+            red: "#ff0000",
+            green: "#00ff00",
+            yellow: "#ffff00",
+            blue: "#00d7d7",
+            magenta: "#ff00ff",
+            orange: "#00ffff",
+        })
+    }
+
+    /// Amstrad CPC 464 at power-on: bright yellow on blue, the cursor inverted (blue on
+    /// yellow). Every colour is one of the CPC's 27 hardware colours (0, 128 or 255 a channel).
+    pub fn cpc() -> Self {
+        Theme {
+            look: "crt".into(),
+            crt: true,
+            panel: st("#ffff00", "#000080"),
+            border: st("#8080ff", "#000080"),
+            header: st("#8080ff", "#000080"),
+            directory: st("#00ffff", "#000080"),
+            executable: st("#00ff00", "#000080"),
+            hidden: st("#8080ff", "#000080"),
+            symlink: st("#ff00ff", "#000080"),
+            cursor: st("#000080", "#ffff00"),
+            marked: bold(st("#ffffff", "#000080")),
+            marked_cursor: bold(st("#000080", "#ffffff")),
+            status: st("#8080ff", "#000080"),
+            keybar_num: st("#8080ff", "#000080"),
+            keybar_label: st("#ffff00", "#0000ff"),
+            cmdline: st("#ffff00", "#000080"),
+            dialog: st("#ffff00", "#0000ff"),
+            dialog_border: st("#ffffff", "#0000ff"),
+            dialog_input: st("#ffff00", "#000080"),
+            git_branch: bold(st("#ff00ff", "#000080")),
+            git_modified: st("#ff8000", "#000080"),
+            git_added: st("#00ff00", "#000080"),
+            git_untracked: st("#ff8080", "#000080"),
+            git_deleted: st("#ff8080", "#000080"),
+            git_renamed: st("#80ffff", "#000080"),
+            git_conflict: bold(st("#ff8080", "#000080")),
+            git_ignored: st("#8080ff", "#000080"),
+            search_hit: bold(st("#ff8000", "")),
+            accent: bold(st("#000080", "#ffff00")),
+            sidebar: st("#ffff00", "#000080"),
+            tab: st("#8080ff", "#000080"),
+            tab_active: st("#ffff00", "#000080"),
+            preview: st("#ffff00", "#000080"),
+        }
+    }
+
+    /// MSX: white text on the dark blue of MSX-BASIC's boot screen, light blue lines, cyan
+    /// folders, a black cursor bar, the function keys white on blue as KEY ON draws them. The
+    /// V9938's default palette (the MSX2's 3-bit RGB rendering of the TMS9918 colours), with
+    /// red, blue and magenta lightened within its 512 colours so they read on the blue, and an
+    /// orange from the same steps for search hits.
+    pub fn msx() -> Self {
+        Theme {
+            look: "crt".into(),
+            crt: true,
+            panel: st("#ffffff", "#2424ff"),
+            border: st("#496dff", "#2424ff"),
+            header: st("#b6b6b6", "#2424ff"),
+            directory: st("#49dbff", "#2424ff"),
+            executable: st("#6dff6d", "#2424ff"),
+            hidden: st("#b6b6b6", "#2424ff"),
+            symlink: st("#ffb6ff", "#2424ff"),
+            cursor: st("#ffffff", "#000000"),
+            marked: bold(st("#dbdb24", "#2424ff")),
+            marked_cursor: bold(st("#dbdb24", "#000000")),
+            status: st("#b6b6b6", "#2424ff"),
+            keybar_num: st("#ffffff", "#2424ff"),
+            keybar_label: st("#ffffff", "#000000"),
+            cmdline: st("#ffffff", "#2424ff"),
+            dialog: st("#ffffff", "#000000"),
+            dialog_border: st("#49dbff", "#000000"),
+            dialog_input: st("#ffffff", "#2424ff"),
+            git_branch: bold(st("#ffb6ff", "#2424ff")),
+            git_modified: st("#dbdb24", "#2424ff"),
+            git_added: st("#6dff6d", "#2424ff"),
+            git_untracked: st("#ffb6b6", "#2424ff"),
+            git_deleted: st("#ffb6b6", "#2424ff"),
+            git_renamed: st("#92dbff", "#2424ff"),
+            git_conflict: bold(st("#ffb6b6", "#2424ff")),
+            git_ignored: st("#b6b6b6", "#2424ff"),
+            search_hit: bold(st("#ffdb49", "")),
+            accent: bold(st("#2424ff", "#49dbff")),
+            sidebar: st("#ffffff", "#2424ff"),
+            tab: st("#b6b6b6", "#2424ff"),
+            tab_active: st("#ffffff", "#2424ff"),
+            preview: st("#ffffff", "#2424ff"),
+        }
+    }
+
+    /// BBC Micro Mode 7 (Teletext): white on black, yellow headers on a blue bar, cyan folders,
+    /// green marks, a Ceefax page. The eight saturated Teletext colours of the SAA5050, nothing
+    /// else.
+    pub fn bbc() -> Self {
+        Theme {
+            look: "crt".into(),
+            crt: true,
+            panel: st("#ffffff", "#000000"),
+            border: st("#0000ff", "#000000"),
+            header: st("#ffff00", "#0000ff"),
+            directory: st("#00ffff", "#000000"),
+            executable: st("#ffff00", "#000000"),
+            hidden: st("#ff00ff", "#000000"),
+            symlink: st("#ff00ff", "#000000"),
+            cursor: st("#ffffff", "#0000ff"),
+            marked: st("#00ff00", "#000000"),
+            marked_cursor: st("#00ff00", "#0000ff"),
+            status: st("#ffffff", "#0000ff"),
+            keybar_num: st("#ffffff", "#000000"),
+            keybar_label: st("#000000", "#00ffff"),
+            cmdline: st("#ffffff", "#000000"),
+            dialog: st("#ffffff", "#000000"),
+            dialog_border: st("#ffff00", "#000000"),
+            dialog_input: st("#ffffff", "#0000ff"),
+            git_branch: st("#00ffff", "#000000"),
+            git_modified: st("#ffff00", "#000000"),
+            git_added: st("#00ff00", "#000000"),
+            git_untracked: st("#ff00ff", "#000000"),
+            git_deleted: st("#ff0000", "#000000"),
+            git_renamed: st("#00ffff", "#000000"),
+            git_conflict: st("#ff0000", "#000000"),
+            git_ignored: st("#ff00ff", "#000000"),
+            search_hit: st("#ffff00", ""),
+            accent: bold(st("#000000", "#ffff00")),
+            sidebar: st("#ffffff", "#000000"),
+            tab: st("#ff00ff", "#000000"),
+            tab_active: st("#ffff00", "#0000ff"),
+            preview: st("#ffffff", "#000000"),
+        }
+    }
+
+    /// Atari ST GEM desktop in medium resolution: black on white windows, the green desktop as
+    /// chrome, one-pixel black frames, inverse selection. Every colour is an ST 9-bit palette
+    /// value (3 bits a channel, 0..7 expanded to 0..255).
+    pub fn atarist() -> Self {
+        Theme {
+            look: "gem".into(),
+            crt: false,
+            panel: st("#000000", "#ffffff"),
+            border: st("#000000", "#ffffff"),
+            header: st("#6d6d6d", "#ffffff"),
+            directory: st("#006dff", "#ffffff"),
+            executable: st("#006d00", "#ffffff"),
+            hidden: st("#6d6d6d", "#ffffff"),
+            symlink: st("#b649b6", "#ffffff"),
+            cursor: st("#ffffff", "#000000"),
+            marked: bold(st("#6d6d00", "#ffffff")),
+            marked_cursor: bold(st("#ffff00", "#000000")),
+            status: st("#6d6d6d", "#ffffff"),
+            keybar_num: st("#ffffff", "#000000"),
+            keybar_label: st("#000000", "#00ff00"),
+            cmdline: st("#000000", "#ffffff"),
+            dialog: st("#000000", "#00ff00"),
+            dialog_border: st("#000000", "#00ff00"),
+            dialog_input: st("#000000", "#ffffff"),
+            git_branch: bold(st("#b649b6", "#ffffff")),
+            git_modified: st("#6d6d00", "#ffffff"),
+            git_added: st("#006d00", "#ffffff"),
+            git_untracked: st("#db0000", "#ffffff"),
+            git_deleted: st("#db0000", "#ffffff"),
+            git_renamed: st("#0049ff", "#ffffff"),
+            git_conflict: bold(st("#db0000", "#ffffff")),
+            git_ignored: st("#6d6d6d", "#ffffff"),
+            search_hit: bold(st("#b64900", "")),
+            accent: st("#ffffff", "#000000"),
+            sidebar: st("#000000", "#ffffff"),
+            tab: st("#6d6d6d", "#ffffff"),
+            tab_active: st("#000000", "#ffffff"),
+            preview: st("#000000", "#ffffff"),
+        }
+    }
+
+    /// Amiga Workbench 1.3: white on the Workbench blue, black-on-orange cursor as a selected
+    /// icon, orange marks, dialogs white on blue as the 1.3 Preferences screen with white
+    /// string gadgets. The four Workbench 1.x default colours plus 12-bit Amiga shades for git
+    /// states.
+    pub fn workbench() -> Self {
+        Theme {
+            look: "workbench".into(),
+            crt: false,
+            panel: st("#ffffff", "#0055aa"),
+            border: st("#ffffff", "#0055aa"),
+            header: bold(st("#ff8800", "#0055aa")),
+            directory: bold(st("#ffffff", "#0055aa")),
+            executable: st("#66ff66", "#0055aa"),
+            hidden: st("#99bbee", "#0055aa"),
+            symlink: st("#ffbbff", "#0055aa"),
+            cursor: st("#000000", "#ff8800"),
+            marked: bold(st("#ff8800", "#000000")),
+            marked_cursor: bold(st("#000000", "#ff8800")),
+            status: st("#ffffff", "#0055aa"),
+            keybar_num: st("#ffffff", "#0055aa"),
+            keybar_label: st("#000000", "#ffffff"),
+            cmdline: st("#ffffff", "#0055aa"),
+            dialog: st("#ffffff", "#0055aa"),
+            dialog_border: st("#ffffff", "#0055aa"),
+            dialog_input: st("#000000", "#ffffff"),
+            git_branch: bold(st("#ffbbff", "#0055aa")),
+            git_modified: st("#ffcc66", "#0055aa"),
+            git_added: st("#66ff66", "#0055aa"),
+            git_untracked: st("#ffbbbb", "#0055aa"),
+            git_deleted: st("#ffbbbb", "#0055aa"),
+            git_renamed: st("#88ddff", "#0055aa"),
+            git_conflict: bold(st("#ffbbbb", "#0055aa")),
+            git_ignored: st("#99bbee", "#0055aa"),
+            search_hit: bold(st("#ffcc66", "")),
+            accent: st("#000000", "#ff8800"),
+            sidebar: st("#ffffff", "#0055aa"),
+            tab: st("#99bbee", "#0055aa"),
+            tab_active: st("#000000", "#ffffff"),
+            preview: st("#ffffff", "#0055aa"),
+        }
+    }
+
+    /// NeXTSTEP 3: the 2-bit greys (#ffffff, #aaaaaa, #555555, #000000) of the MegaPixel
+    /// display: black text on grey, white text fields, cursor row and Terminal, white-on-black
+    /// title bars. Lists are #cccccc, one step lighter than NeXT's #aaaaaa chrome, so the git
+    /// colours (AppKit's named colours, darkened) keep a hue at 4.5:1; the hued slots have no
+    /// NeXT original.
+    pub fn next() -> Self {
+        Theme {
+            look: "next".into(),
+            crt: false,
+            panel: st("#000000", "#cccccc"),
+            border: st("#555555", "#cccccc"),
+            header: st("#000000", "#aaaaaa"),
+            directory: bold(st("#000000", "#cccccc")),
+            executable: st("#005500", "#cccccc"),
+            hidden: st("#555555", "#cccccc"),
+            symlink: st("#800080", "#cccccc"),
+            cursor: st("#000000", "#ffffff"),
+            marked: bold(st("#804000", "#cccccc")),
+            marked_cursor: bold(st("#804000", "#ffffff")),
+            status: st("#000000", "#aaaaaa"),
+            keybar_num: st("#ffffff", "#000000"),
+            keybar_label: st("#000000", "#aaaaaa"),
+            cmdline: st("#000000", "#ffffff"),
+            dialog: st("#000000", "#aaaaaa"),
+            dialog_border: st("#000000", "#aaaaaa"),
+            dialog_input: st("#000000", "#ffffff"),
+            git_branch: bold(st("#800080", "#cccccc")),
+            git_modified: st("#804000", "#cccccc"),
+            git_added: st("#005500", "#cccccc"),
+            git_untracked: st("#aa0000", "#cccccc"),
+            git_deleted: st("#550000", "#cccccc"),
+            git_renamed: st("#0000aa", "#cccccc"),
+            git_conflict: bold(st("#aa0000", "#cccccc")),
+            git_ignored: st("#555555", "#cccccc"),
+            search_hit: bold(st("#804000", "")),
+            accent: st("#ffffff", "#000000"),
+            sidebar: st("#000000", "#aaaaaa"),
+            tab: st("#555555", "#aaaaaa"),
+            tab_active: st("#000000", "#cccccc"),
+            preview: st("#000000", "#ffffff"),
+        }
+    }
+
+    /// BeOS R5: black on white lists, panel grey chrome, the yellow window tab on a marked row
+    /// under the cursor, the menu-selection slate blue as the cursor row. Values are the R5
+    /// ui_color() defaults (216 grey, 255,203,0 tab, 115,120,184 selection, 0,0,229 keyboard
+    /// navigation, 51,102,152 desktop), with black dialog frames as on an R5 window.
+    pub fn beos() -> Self {
+        Theme {
+            look: "beos".into(),
+            crt: false,
+            panel: st("#000000", "#ffffff"),
+            border: st("#acacac", "#ffffff"),
+            header: st("#777777", "#ffffff"),
+            directory: st("#000000", "#ffffff"),
+            executable: st("#008000", "#ffffff"),
+            hidden: st("#777777", "#ffffff"),
+            symlink: st("#800080", "#ffffff"),
+            cursor: st("#000000", "#7378b8"),
+            marked: bold(st("#8f6b00", "#ffffff")),
+            marked_cursor: bold(st("#000000", "#ffcb00")),
+            status: st("#777777", "#d8d8d8"),
+            keybar_num: st("#555555", "#d8d8d8"),
+            keybar_label: st("#000000", "#d8d8d8"),
+            cmdline: st("#000000", "#d8d8d8"),
+            dialog: st("#000000", "#d8d8d8"),
+            dialog_border: st("#000000", "#d8d8d8"),
+            dialog_input: st("#000000", "#ffffff"),
+            git_branch: bold(st("#800080", "#ffffff")),
+            git_modified: st("#8f6b00", "#ffffff"),
+            git_added: st("#008000", "#ffffff"),
+            git_untracked: st("#cc0000", "#ffffff"),
+            git_deleted: st("#cc0000", "#ffffff"),
+            git_renamed: st("#0000e5", "#ffffff"),
+            git_conflict: bold(st("#cc0000", "#ffffff")),
+            git_ignored: st("#777777", "#ffffff"),
+            search_hit: bold(st("#a03800", "")),
+            accent: st("#ffffff", "#336698"),
+            sidebar: st("#000000", "#d8d8d8"),
+            tab: st("#777777", "#d8d8d8"),
+            tab_active: st("#000000", "#ffffff"),
+            preview: st("#000000", "#d8d8d8"),
+        }
+    }
+
+    /// OS/2 Warp 3's Workplace Shell: PM pale grey (204,204,204) folders, dialogs and chrome,
+    /// black text, dark blue (0,0,128) selection with white text, and an OS/2 Window's light
+    /// grey on black for the command line. Greens, browns and dim greys darkened from PM's
+    /// table so they read on the grey.
+    pub fn os2() -> Self {
+        Theme {
+            look: "win95".into(),
+            crt: false,
+            panel: st("#000000", "#cccccc"),
+            border: st("#808080", "#cccccc"),
+            header: st("#666666", "#cccccc"),
+            directory: st("#000000", "#cccccc"),
+            executable: st("#005a00", "#cccccc"),
+            hidden: st("#666666", "#cccccc"),
+            symlink: st("#800080", "#cccccc"),
+            cursor: st("#ffffff", "#000080"),
+            marked: bold(st("#5c4d00", "#cccccc")),
+            marked_cursor: bold(st("#ffff00", "#000080")),
+            status: st("#666666", "#cccccc"),
+            keybar_num: st("#000080", "#cccccc"),
+            keybar_label: st("#000000", "#cccccc"),
+            cmdline: st("#aaaaaa", "#000000"),
+            dialog: st("#000000", "#cccccc"),
+            dialog_border: st("#000080", "#cccccc"),
+            dialog_input: st("#000000", "#cccccc"),
+            git_branch: bold(st("#800080", "#cccccc")),
+            git_modified: st("#5c4d00", "#cccccc"),
+            git_added: st("#005a00", "#cccccc"),
+            git_untracked: st("#800000", "#cccccc"),
+            git_deleted: st("#800000", "#cccccc"),
+            git_renamed: st("#0000ff", "#cccccc"),
+            git_conflict: bold(st("#800000", "#cccccc")),
+            git_ignored: st("#666666", "#cccccc"),
+            search_hit: bold(st("#803300", "")),
+            accent: st("#cccccc", "#000080"),
+            sidebar: st("#000000", "#cccccc"),
+            tab: st("#666666", "#cccccc"),
+            tab_active: st("#000000", "#cccccc"),
+            preview: st("#000000", "#cccccc"),
+        }
+    }
+
     /// Every built-in theme: (name, theme).
     pub fn builtin() -> Vec<(&'static str, Theme)> {
         vec![
             ("cyber", Theme::cyber()),
+            ("amber", Theme::amber()),
+            ("paper", Theme::paper()),
             ("dark", Theme::dark()),
             ("light", Theme::light()),
             ("nord", Theme::nord()),
             ("midnight", Theme::midnight()),
             ("nc", Theme::nc()),
+            ("xtree", Theme::xtree()),
+            ("dosshell", Theme::dosshell()),
+            ("mc", Theme::mc()),
+            ("c64", Theme::c64()),
+            ("spectrum", Theme::spectrum()),
+            ("cpc", Theme::cpc()),
+            ("msx", Theme::msx()),
+            ("bbc", Theme::bbc()),
+            ("atarist", Theme::atarist()),
+            ("workbench", Theme::workbench()),
             ("win31", Theme::win31()),
             ("win95", Theme::win95()),
             ("winxp", Theme::winxp()),
@@ -545,6 +1155,9 @@ impl Theme {
             ("aqua", Theme::aqua()),
             ("macos", Theme::macos()),
             ("macos-dark", Theme::macos_dark()),
+            ("next", Theme::next()),
+            ("beos", Theme::beos()),
+            ("os2", Theme::os2()),
         ]
     }
 
@@ -555,6 +1168,7 @@ impl Theme {
         let accent = st(p.bg, p.accent);
         Theme {
             look: p.look.into(),
+            crt: p.look == "crt",
             panel: st(p.fg, p.bg),
             border: st(p.border, p.bg),
             header: st(p.dim, p.bg),
@@ -1305,6 +1919,12 @@ mod tests {
         assert_eq!(km[&"Alt+F7".parse().unwrap()], Action::Search);
         assert_eq!(c.theme().look, "dos");
         assert_eq!(c.gui_theme(None).look, "crt");
+        // The tube comes with the CRT look, and only there; `crt = true` gives it to any theme.
+        assert!(c.gui_theme(None).crt && !c.theme().crt);
+        assert!(Theme::builtin().iter().all(|(_, t)| t.crt == (t.look == "crt")));
+        let own = Config::parse("[themes.mine]\nlook = \"win95\"\ncrt = true\n").unwrap();
+        assert!(own.themes["mine"].crt && own.themes["mine"].look == "win95");
+        assert!(c.to_toml().contains("crt = true") && !Config::parse("[themes.x]\nlook = \"modern\"\n").unwrap().to_toml().contains("[themes.x]\ncrt"));
         // Exact RGB everywhere: named colors would follow the terminal's own palette.
         for (_, t) in Theme::builtin() {
             assert!(t.slots().iter().all(|(_, s)| [&s.fg, &s.bg].iter().all(|c| c.is_empty() || c.starts_with('#'))));

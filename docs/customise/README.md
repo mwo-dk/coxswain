@@ -13,7 +13,7 @@ through each part, with the keys and the exact `config.toml` lines.
 | Page | What it covers |
 |---|---|
 | [The Settings window](settings.md) | Opening it, its areas (Overview, Finding files, Previews, Looks, Behaviour, Keys, Privacy and updates), *Find a setting…*, every item with the `config.toml` key it writes, how saving keeps your comments |
-| [Themes](themes.md) | The 18 built-in themes, picking one in each app, what the terminal app takes from a theme |
+| [Themes](themes.md) | The 33 built-in themes, picking one in each app, what the terminal app takes from a theme |
 | [Looks](looks.md) | The desktop app's shapes and chrome per era: corners, bevels, title bars and the fonts they ask for |
 | [Your own theme and the colour slots](own-theme.md) | `[themes.<name>]`, the 31 colour slots, colour names and `#rrggbb`, starting from a built-in theme |
 | [Languages](languages.md) | The 29 languages by region, how *Automatic* picks one, right to left in Hebrew and Persian, improving a translation |

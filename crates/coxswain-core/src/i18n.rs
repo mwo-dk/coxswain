@@ -24,8 +24,20 @@ pub struct Language {
     pub new: bool,
 }
 
-const fn lang(code: &'static str, name: &'static str, flag: &'static str, group: &'static str, new: bool) -> Language {
-    Language { code, name, flag, group, new }
+const fn lang(
+    code: &'static str,
+    name: &'static str,
+    flag: &'static str,
+    group: &'static str,
+    new: bool,
+) -> Language {
+    Language {
+        code,
+        name,
+        flag,
+        group,
+        new,
+    }
 }
 
 /// Every language, by region and by its own name within one: the list both apps show.
@@ -38,9 +50,27 @@ pub const LANGUAGES: &[Language] = &[
     lang("sv", "Svenska", "se", "language.group.nordic", false),
     lang("ca", "Català", "es-ct", "language.group.western", false),
     lang("de", "Deutsch", "de", "language.group.western", false),
-    lang("de-AT", "Deutsch (Österreich)", "at", "language.group.western", false),
-    lang("de-CH", "Deutsch (Schweiz)", "ch", "language.group.western", false),
-    lang("en-GB", "English (United Kingdom)", "gb", "language.group.western", false),
+    lang(
+        "de-AT",
+        "Deutsch (Österreich)",
+        "at",
+        "language.group.western",
+        false,
+    ),
+    lang(
+        "de-CH",
+        "Deutsch (Schweiz)",
+        "ch",
+        "language.group.western",
+        false,
+    ),
+    lang(
+        "en-GB",
+        "English (United Kingdom)",
+        "gb",
+        "language.group.western",
+        false,
+    ),
     lang("eu", "Euskara", "es-pv", "language.group.western", false),
     lang("fr", "Français", "fr", "language.group.western", false),
     lang("it", "Italiano", "it", "language.group.western", false),
@@ -53,10 +83,34 @@ pub const LANGUAGES: &[Language] = &[
     lang("fa", "فارسی", "derafsh", "language.group.middle_east", true),
     lang("hy", "Հայերեն", "am", "language.group.caucasus", true),
     lang("ka", "ქართული", "ge", "language.group.caucasus", true),
-    lang("en-CA", "English (Canada)", "ca", "language.group.americas", false),
-    lang("es-AR", "Español (Argentina)", "ar", "language.group.americas", false),
-    lang("en-AU", "English (Australia)", "au", "language.group.asia", false),
-    lang("en-NZ", "English (New Zealand)", "nz", "language.group.asia", false),
+    lang(
+        "en-CA",
+        "English (Canada)",
+        "ca",
+        "language.group.americas",
+        false,
+    ),
+    lang(
+        "es-AR",
+        "Español (Argentina)",
+        "ar",
+        "language.group.americas",
+        false,
+    ),
+    lang(
+        "en-AU",
+        "English (Australia)",
+        "au",
+        "language.group.asia",
+        false,
+    ),
+    lang(
+        "en-NZ",
+        "English (New Zealand)",
+        "nz",
+        "language.group.asia",
+        false,
+    ),
     lang("ja", "日本語", "jp", "language.group.asia", true),
     lang("ko", "한국어", "kr", "language.group.asia", true),
 ];
@@ -98,7 +152,15 @@ fn digits_in(lang: &str, s: String) -> String {
     if lang != "fa" {
         return s;
     }
-    s.chars().map(|c| if c.is_ascii_digit() { char::from_u32('۰' as u32 + (c as u32 - '0' as u32)).unwrap_or(c) } else { c }).collect()
+    s.chars()
+        .map(|c| {
+            if c.is_ascii_digit() {
+                char::from_u32('۰' as u32 + (c as u32 - '0' as u32)).unwrap_or(c)
+            } else {
+                c
+            }
+        })
+        .collect()
 }
 
 pub const REFERENCE: &str = "en-GB";
@@ -221,7 +283,10 @@ type Map = HashMap<String, serde_json::Value>;
 /// Swiss Standard German from German: ss for ß, and «guillemets» for „quotes“ (keys are
 /// ASCII, so only texts change).
 fn swiss(de: &str) -> String {
-    de.replace('ß', "ss").replace('ẞ', "SS").replace('„', "«").replace('“', "»")
+    de.replace('ß', "ss")
+        .replace('ẞ', "SS")
+        .replace('„', "«")
+        .replace('“', "»")
 }
 
 fn catalogues() -> &'static HashMap<&'static str, Map> {
@@ -279,11 +344,15 @@ pub fn language() -> &'static str {
 }
 
 fn lookup(code: &str, key: &str) -> Option<&'static serde_json::Value> {
-    chain(code).into_iter().find_map(|c| catalogues().get(c)?.get(key))
+    chain(code)
+        .into_iter()
+        .find_map(|c| catalogues().get(c)?.get(key))
 }
 
 fn fill(text: &str, args: &[(&str, &str)]) -> String {
-    args.iter().fold(text.to_string(), |s, (k, v)| s.replace(&format!("{{{k}}}"), v))
+    args.iter().fold(text.to_string(), |s, (k, v)| {
+        s.replace(&format!("{{{k}}}"), v)
+    })
 }
 
 /// The text for `key` in the current language, `{name}` placeholders filled from `args`. A
@@ -291,7 +360,10 @@ fn fill(text: &str, args: &[(&str, &str)]) -> String {
 pub fn tr(key: &str, args: &[(&str, &str)]) -> String {
     match lookup(language(), key) {
         Some(serde_json::Value::String(s)) => fill(s, args),
-        Some(serde_json::Value::Object(o)) => o.get("other").and_then(|v| v.as_str()).map_or_else(|| key.to_string(), |s| fill(s, args)),
+        Some(serde_json::Value::Object(o)) => o
+            .get("other")
+            .and_then(|v| v.as_str())
+            .map_or_else(|| key.to_string(), |s| fill(s, args)),
         _ => key.to_string(),
     }
 }
@@ -305,7 +377,11 @@ pub fn trn(key: &str, n: u64, args: &[(&str, &str)]) -> String {
     all.extend_from_slice(args);
     match lookup(lang, key) {
         Some(serde_json::Value::Object(o)) => {
-            let form = o.get(plural(lang, n)).or_else(|| o.get("other")).and_then(|v| v.as_str()).unwrap_or(key);
+            let form = o
+                .get(plural(lang, n))
+                .or_else(|| o.get("other"))
+                .and_then(|v| v.as_str())
+                .unwrap_or(key);
             fill(form, &all)
         }
         Some(serde_json::Value::String(s)) => fill(s, &all),
@@ -468,10 +544,19 @@ mod tests {
         let reference = catalogue(REFERENCE);
         let mut seen: Vec<&str> = vec![];
         for l in LANGUAGES {
-            assert!(reference.contains_key(l.group), "{}: no text for {}", l.code, l.group);
+            assert!(
+                reference.contains_key(l.group),
+                "{}: no text for {}",
+                l.code,
+                l.group
+            );
             // A region's languages stand together.
             if seen.last() != Some(&l.group) {
-                assert!(!seen.contains(&l.group), "{} is apart from its region", l.code);
+                assert!(
+                    !seen.contains(&l.group),
+                    "{} is apart from its region",
+                    l.code
+                );
                 seen.push(l.group);
             }
             assert_ne!(source(l.code), "{}", "{} has no catalogue", l.code);
@@ -499,41 +584,88 @@ mod tests {
         for (key, v) in catalogue("de-CH") {
             // Only a text of its own may keep ß, such as the font sample that shows the letter.
             if !own.contains_key(&key) {
-                assert!(!v.to_string().contains(['ß', 'ẞ', '„', '“']), "de-CH: {key}: {v}");
+                assert!(
+                    !v.to_string().contains(['ß', 'ẞ', '„', '“']),
+                    "de-CH: {key}: {v}"
+                );
             }
         }
-        assert!(catalogue("de")["common.close"].as_str().unwrap().contains('ß'));
+        assert!(
+            catalogue("de")["common.close"]
+                .as_str()
+                .unwrap()
+                .contains('ß')
+        );
     }
 
     #[test]
     fn i18n_plural_categories() {
         // Same answers as CLDR / Intl.PluralRules.
-        assert_eq!([0, 1, 2, 5].map(|n| plural("en-GB", n)), ["other", "one", "other", "other"]);
-        assert_eq!([0, 1, 2, 1_000_000].map(|n| plural("fr", n)), ["one", "one", "other", "many"]);
-        assert_eq!([1, 2, 5, 11, 21, 22, 25].map(|n| plural("lt", n)), ["one", "few", "few", "other", "one", "few", "few"]);
-        assert_eq!([0, 1, 2, 10, 11, 21, 111].map(|n| plural("lv", n)), ["zero", "one", "other", "zero", "zero", "one", "zero"]);
-        assert_eq!([1, 2, 3, 20].map(|n| plural("he", n)), ["one", "two", "other", "other"]);
+        assert_eq!(
+            [0, 1, 2, 5].map(|n| plural("en-GB", n)),
+            ["other", "one", "other", "other"]
+        );
+        assert_eq!(
+            [0, 1, 2, 1_000_000].map(|n| plural("fr", n)),
+            ["one", "one", "other", "many"]
+        );
+        assert_eq!(
+            [1, 2, 5, 11, 21, 22, 25].map(|n| plural("lt", n)),
+            ["one", "few", "few", "other", "one", "few", "few"]
+        );
+        assert_eq!(
+            [0, 1, 2, 10, 11, 21, 111].map(|n| plural("lv", n)),
+            ["zero", "one", "other", "zero", "zero", "one", "zero"]
+        );
+        assert_eq!(
+            [1, 2, 3, 20].map(|n| plural("he", n)),
+            ["one", "two", "other", "other"]
+        );
         let pl_uk = [0, 1, 2, 4, 5, 11, 12, 14, 21, 22, 25, 101, 112, 122];
         assert_eq!(
             pl_uk.map(|n| plural("pl", n)),
-            ["many", "one", "few", "few", "many", "many", "many", "many", "many", "few", "many", "many", "many", "few"]
+            [
+                "many", "one", "few", "few", "many", "many", "many", "many", "many", "few", "many",
+                "many", "many", "few"
+            ]
         );
         assert_eq!(
             pl_uk.map(|n| plural("uk", n)),
-            ["many", "one", "few", "few", "many", "many", "many", "many", "one", "few", "many", "one", "many", "few"]
+            [
+                "many", "one", "few", "few", "many", "many", "many", "many", "one", "few", "many",
+                "one", "many", "few"
+            ]
         );
-        assert_eq!([0, 1, 2, 4, 5, 22].map(|n| plural("cs", n)), ["other", "one", "few", "few", "other", "other"]);
-        assert_eq!([0, 1, 2].map(|n| plural("el", n)), ["other", "one", "other"]);
-        assert_eq!([0, 1, 2].map(|n| plural("ja", n)), ["other", "other", "other"]);
-        assert_eq!([0, 1, 2].map(|n| plural("ko", n)), ["other", "other", "other"]);
+        assert_eq!(
+            [0, 1, 2, 4, 5, 22].map(|n| plural("cs", n)),
+            ["other", "one", "few", "few", "other", "other"]
+        );
+        assert_eq!(
+            [0, 1, 2].map(|n| plural("el", n)),
+            ["other", "one", "other"]
+        );
+        assert_eq!(
+            [0, 1, 2].map(|n| plural("ja", n)),
+            ["other", "other", "other"]
+        );
+        assert_eq!(
+            [0, 1, 2].map(|n| plural("ko", n)),
+            ["other", "other", "other"]
+        );
         assert_eq!([0, 1, 2].map(|n| plural("fa", n)), ["one", "one", "other"]);
         assert_eq!([0, 1, 2].map(|n| plural("hy", n)), ["one", "one", "other"]);
-        assert_eq!([0, 1, 2].map(|n| plural("ka", n)), ["other", "one", "other"]);
+        assert_eq!(
+            [0, 1, 2].map(|n| plural("ka", n)),
+            ["other", "one", "other"]
+        );
     }
 
     #[test]
     fn i18n_persian_digits() {
-        assert_eq!(digits_in("fa", "2026-10-06 12.5 KB".into()), "۲۰۲۶-۱۰-۰۶ ۱۲.۵ KB");
+        assert_eq!(
+            digits_in("fa", "2026-10-06 12.5 KB".into()),
+            "۲۰۲۶-۱۰-۰۶ ۱۲.۵ KB"
+        );
         assert_eq!(digits_in("ka", "2026".into()), "2026");
         assert!(is_rtl("fa") && is_rtl("he") && !is_rtl("hy"));
         assert_eq!(caps("ძებნა ab"), "ძებნა AB");
@@ -544,29 +676,45 @@ mod tests {
         let reference = catalogue(REFERENCE);
         assert!(!reference.is_empty());
         let placeholders = |s: &str| {
-            let mut v: Vec<String> = s.split('{').skip(1).filter_map(|p| p.split_once('}').map(|x| x.0.to_string())).collect();
+            let mut v: Vec<String> = s
+                .split('{')
+                .skip(1)
+                .filter_map(|p| p.split_once('}').map(|x| x.0.to_string()))
+                .collect();
             v.sort();
             v
         };
         let texts = |v: &serde_json::Value| -> Vec<String> {
             match v {
                 serde_json::Value::String(s) => vec![s.clone()],
-                serde_json::Value::Object(o) => o.values().filter_map(|x| x.as_str().map(String::from)).collect(),
+                serde_json::Value::Object(o) => o
+                    .values()
+                    .filter_map(|x| x.as_str().map(String::from))
+                    .collect(),
                 _ => vec![],
             }
         };
         for code in LANGUAGES.iter().map(|l| l.code) {
-            let own: Map = serde_json::from_str(source(code)).unwrap_or_else(|e| panic!("{code}.json: {e}"));
+            let own: Map =
+                serde_json::from_str(source(code)).unwrap_or_else(|e| panic!("{code}.json: {e}"));
             // A language of its own (not a variant that holds only its differences) has every
             // text; theme names may stay British English.
             if !code.starts_with("en") && chain(code).len() == 2 {
-                let missing: Vec<&String> = reference.keys().filter(|k| !own.contains_key(*k) && !k.starts_with("theme.")).collect();
+                let missing: Vec<&String> = reference
+                    .keys()
+                    .filter(|k| !own.contains_key(*k) && !k.starts_with("theme."))
+                    .collect();
                 assert!(missing.is_empty(), "{code} lacks {missing:?}");
             }
             for (key, v) in &own {
-                let Some(r) = reference.get(key) else { panic!("{code}: unknown key {key}") };
+                let Some(r) = reference.get(key) else {
+                    panic!("{code}: unknown key {key}")
+                };
                 // The same placeholders as British English, in every plural form.
-                let want = texts(r).first().map(|s| placeholders(s)).unwrap_or_default();
+                let want = texts(r)
+                    .first()
+                    .map(|s| placeholders(s))
+                    .unwrap_or_default();
                 for t in texts(v) {
                     let mut have = placeholders(&t);
                     have.retain(|p| p != "n");

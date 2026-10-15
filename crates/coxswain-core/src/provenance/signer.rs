@@ -77,7 +77,10 @@ pub struct Signer {
 
 impl Signer {
     pub fn get(&self, c: Claim) -> Option<&str> {
-        self.claims.iter().find(|(k, _)| *k == c).map(|(_, v)| v.as_str())
+        self.claims
+            .iter()
+            .find(|(k, _)| *k == c)
+            .map(|(_, v)| v.as_str())
     }
 }
 
@@ -98,8 +101,18 @@ pub fn read(der: &[u8]) -> Result<Signer, String> {
     let mut claims: Vec<(Claim, String, bool)> = Vec::new();
     for ext in cert.extensions() {
         let oid = ext.oid.to_id_string();
-        let Some((c, legacy)) = oid.strip_prefix(PREFIX).and_then(|a| a.parse().ok()).and_then(claim) else { continue };
-        let value = if legacy { String::from_utf8_lossy(ext.value).into_owned() } else { utf8_string(ext.value) };
+        let Some((c, legacy)) = oid
+            .strip_prefix(PREFIX)
+            .and_then(|a| a.parse().ok())
+            .and_then(claim)
+        else {
+            continue;
+        };
+        let value = if legacy {
+            String::from_utf8_lossy(ext.value).into_owned()
+        } else {
+            utf8_string(ext.value)
+        };
         match claims.iter_mut().find(|(k, ..)| *k == c) {
             Some(slot) if slot.2 && !legacy => *slot = (c, value, legacy),
             Some(_) => {}

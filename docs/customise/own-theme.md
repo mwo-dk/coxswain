@@ -124,6 +124,7 @@ The terminal app sets each cell's colours from the slot; `bold` makes the text b
 |---|---|
 | `[themes.<name>]` | a table per theme; none by default (the built-in ones are always there) |
 | `[themes.<name>] look` | text, `"dos"` when left out; see [Looks](looks.md) |
+| `[themes.<name>] crt` | true/false, `false`: the tube (scanlines, a glow on the text) over any look in the desktop app; see [Looks](looks.md#the-tube) |
 | `[themes.<name>.<slot>] fg`, `bg` | text: `#rrggbb` or a colour name; empty by default |
 | `[themes.<name>.<slot>] bold` | true/false, `false` |
 | `[gui] theme` / `theme` | the name to use, in the desktop app / the terminal app |

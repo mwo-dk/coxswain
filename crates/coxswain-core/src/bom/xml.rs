@@ -6,8 +6,8 @@
 //! `<components><component/>…</components>` is a list, `<property name="k">v</property>`
 //! is `{name, value}`, and so on.
 
-use quick_xml::events::{BytesStart, Event};
 use quick_xml::XmlVersion;
+use quick_xml::events::{BytesStart, Event};
 use serde_json::{Map, Number, Value};
 
 use super::Error;
@@ -40,7 +40,13 @@ const LISTS: [(&str, &str); 7] = [
 ];
 
 /// Leaf values that are numbers in the JSON schema. Not `version`: that is a string except on `<bom>`.
-const NUMERIC: [&str; 5] = ["line", "offset", "size", "classicalSecurityLevel", "nistQuantumSecurityLevel"];
+const NUMERIC: [&str; 5] = [
+    "line",
+    "offset",
+    "size",
+    "classicalSecurityLevel",
+    "nistQuantumSecurityLevel",
+];
 
 /// Deeper than this is no BOM, and would only cost stack.
 const MAX_DEPTH: usize = 128;
@@ -57,14 +63,19 @@ pub fn to_json(xml: &str) -> Result<Value, Error> {
     if contains_doctype(xml) {
         return Err(Error::UnsafeXml);
     }
-    let Some(root) = parse(xml)? else { return Ok(Value::Object(Map::new())) };
+    let Some(root) = parse(xml)? else {
+        return Ok(Value::Object(Map::new()));
+    };
     if root.name != "bom" {
         return Ok(Value::Object(Map::new()));
     }
     let spec_version = root.attributes.iter().find_map(|(k, v)| {
         let ns = (k == "xmlns" || k.starts_with("xmlns:")).then_some(v.as_str())?;
         let version = ns.strip_prefix("http://cyclonedx.org/schema/bom/")?;
-        version.split('.').all(|p| !p.is_empty() && p.bytes().all(|b| b.is_ascii_digit())).then(|| version.to_string())
+        version
+            .split('.')
+            .all(|p| !p.is_empty() && p.bytes().all(|b| b.is_ascii_digit()))
+            .then(|| version.to_string())
     });
     let mut out = match convert(&plain(&root), "bom") {
         Value::Object(out) => out,
@@ -86,7 +97,9 @@ pub fn to_json(xml: &str) -> Result<Value, Error> {
 
 fn contains_doctype(xml: &str) -> bool {
     const NEEDLE: &[u8] = b"<!doctype";
-    xml.as_bytes().windows(NEEDLE.len()).any(|w| w.eq_ignore_ascii_case(NEEDLE))
+    xml.as_bytes()
+        .windows(NEEDLE.len())
+        .any(|w| w.eq_ignore_ascii_case(NEEDLE))
 }
 
 /// Reads the elements. Malformed XML is an error with its line; entities other than the five
@@ -95,12 +108,21 @@ fn parse(xml: &str) -> Result<Option<Element>, Error> {
     let mut reader = quick_xml::Reader::from_str(xml);
     let mut stack: Vec<Element> = vec![];
     let mut root = None;
-    let invalid = |at: u64, why: String| Error::InvalidXml { line: line_at(xml, at as usize), message: why };
+    let invalid = |at: u64, why: String| Error::InvalidXml {
+        line: line_at(xml, at as usize),
+        message: why,
+    };
     loop {
-        let event = reader.read_event().map_err(|e| invalid(reader.error_position(), e.to_string()))?;
+        let event = reader
+            .read_event()
+            .map_err(|e| invalid(reader.error_position(), e.to_string()))?;
         match event {
             Event::Start(_) | Event::Empty(_) if stack.len() >= MAX_DEPTH || root.is_some() => {
-                let why = if root.is_some() { "more than one root element" } else { "nested too deeply" };
+                let why = if root.is_some() {
+                    "more than one root element"
+                } else {
+                    "nested too deeply"
+                };
                 return Err(invalid(reader.buffer_position(), why.to_string()));
             }
             Event::Start(e) => stack.push(element(&e)),
@@ -112,7 +134,9 @@ fn parse(xml: &str) -> Result<Option<Element>, Error> {
                 }
             }
             Event::End(_) => {
-                let mut el = stack.pop().expect("the reader checks that ends match starts");
+                let mut el = stack
+                    .pop()
+                    .expect("the reader checks that ends match starts");
                 el.text = el.text.trim().to_string();
                 match stack.last_mut() {
                     Some(parent) => parent.children.push(el),
@@ -149,7 +173,10 @@ fn parse(xml: &str) -> Result<Option<Element>, Error> {
         }
     }
     if !stack.is_empty() {
-        return Err(invalid(reader.buffer_position(), format!("<{}> is never closed", stack.last().unwrap().name)));
+        return Err(invalid(
+            reader.buffer_position(),
+            format!("<{}> is never closed", stack.last().unwrap().name),
+        ));
     }
     Ok(root)
 }
@@ -161,11 +188,18 @@ fn element(e: &BytesStart) -> Element {
         .flatten()
         .map(|a| {
             let key = a.key.as_ref().to_string();
-            let value = a.normalized_value(XmlVersion::Implicit1_0).map(|v| v.into_owned());
+            let value = a
+                .normalized_value(XmlVersion::Implicit1_0)
+                .map(|v| v.into_owned());
             (key, value.unwrap_or_else(|_| a.value.to_string()))
         })
         .collect();
-    Element { name, attributes, children: vec![], text: String::new() }
+    Element {
+        name,
+        attributes,
+        children: vec![],
+        text: String::new(),
+    }
 }
 
 fn line_at(xml: &str, at: usize) -> usize {
@@ -208,31 +242,49 @@ fn plain(el: &Element) -> Value {
 }
 
 fn is_list(name: &str, parent: &str) -> bool {
-    WRAPPERS.iter().any(|&(w, c)| c == name && w == parent) || LISTS.iter().any(|&(c, p)| c == name && p == parent)
+    WRAPPERS.iter().any(|&(w, c)| c == name && w == parent)
+        || LISTS.iter().any(|&(c, p)| c == name && p == parent)
 }
 
 /// Step two: reshape the plain tree where CycloneDX's XML and JSON differ.
 fn convert(value: &Value, name: &str) -> Value {
     let obj = match value {
-        Value::Array(items) => return Value::Array(items.iter().map(|v| convert(v, name)).collect()),
+        Value::Array(items) => {
+            return Value::Array(items.iter().map(|v| convert(v, name)).collect());
+        }
         Value::Object(obj) => obj,
-        Value::String(s) if NUMERIC.contains(&name) => return number(s).map_or_else(|| value.clone(), Value::Number),
+        Value::String(s) if NUMERIC.contains(&name) => {
+            return number(s).map_or_else(|| value.clone(), Value::Number);
+        }
         _ => return value.clone(),
     };
 
     // <property name="k">v</property> is {name, value}
     if name == "property" {
         let mut out = Map::new();
-        out.insert("name".into(), obj.get("name").cloned().unwrap_or(Value::Null));
-        out.insert("value".into(), obj.get("#text").cloned().unwrap_or_else(|| "".into()));
+        out.insert(
+            "name".into(),
+            obj.get("name").cloned().unwrap_or(Value::Null),
+        );
+        out.insert(
+            "value".into(),
+            obj.get("#text").cloned().unwrap_or_else(|| "".into()),
+        );
         return Value::Object(out);
     }
 
     // <dependency ref="a"><dependency ref="b"/><provides ref="c"/></dependency> is {ref, dependsOn, provides}
     if name == "dependency" {
         let refs = |key| -> Vec<Value> {
-            let items = obj.get(key).and_then(Value::as_array).map(Vec::as_slice).unwrap_or_default();
-            items.iter().map(|d| d.get("ref").cloned().unwrap_or(Value::Null)).collect()
+            let items = obj
+                .get(key)
+                .and_then(Value::as_array)
+                .map(Vec::as_slice)
+                .unwrap_or_default();
+            items
+                .iter()
+                .map(|d| d.get("ref").cloned().unwrap_or(Value::Null))
+                .collect()
         };
         let mut out = Map::new();
         out.insert("ref".into(), obj.get("ref").cloned().unwrap_or(Value::Null));
@@ -257,7 +309,10 @@ fn convert(value: &Value, name: &str) -> Value {
             // the old <tools><tool/>…; the new form is a plain object
             out.insert(key.clone(), convert(&v["tool"], "tool"));
         } else if key == "dependencies" {
-            out.insert(key.clone(), convert(v.get("dependency").unwrap_or(&empty), "dependency"));
+            out.insert(
+                key.clone(),
+                convert(v.get("dependency").unwrap_or(&empty), "dependency"),
+            );
         } else if key == "cryptoRef" {
             // <cryptoRef> repeats directly in protocolProperties
             out.insert("cryptoRefArray".into(), convert(v, key));

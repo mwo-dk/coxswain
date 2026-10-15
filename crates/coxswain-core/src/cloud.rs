@@ -5,8 +5,8 @@
 
 use std::fs::Metadata;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 /// Windows attributes of a file whose data is not on the disk: the Cloud Files API's (OneDrive,
 /// Dropbox, Google Drive for desktop, Proton Drive, iCloud for Windows) and older storage
@@ -66,7 +66,11 @@ pub fn online_meta(meta: &Metadata, path: &Path) -> bool {
 #[cfg(not(windows))]
 fn meta(path: &Path) -> Option<Metadata> {
     let m = std::fs::symlink_metadata(path).ok()?;
-    if m.file_type().is_symlink() { std::fs::metadata(path).ok() } else { Some(m) }
+    if m.file_type().is_symlink() {
+        std::fs::metadata(path).ok()
+    } else {
+        Some(m)
+    }
 }
 
 /// Whether `path` is only in the cloud. On Windows the attributes come from the folder's
@@ -111,7 +115,12 @@ pub fn ask_for(path: &Path) {
 /// Whether reading `path` for a preview would download a file the user has not asked for. A
 /// path inside an archive or a history counts as the file that holds it.
 pub fn unasked(path: &Path) -> bool {
-    let Some(file) = path.ancestors().find(|p| std::fs::symlink_metadata(p).is_ok()) else { return false };
+    let Some(file) = path
+        .ancestors()
+        .find(|p| std::fs::symlink_metadata(p).is_ok())
+    else {
+        return false;
+    };
     online(file) && !ASKED.lock().unwrap().iter().any(|p| p == file)
 }
 
@@ -144,7 +153,11 @@ pub fn keep_out_meta(meta: &Metadata, path: &Path) -> bool {
 
 /// The error of a read that was not made because the file is only in the cloud.
 pub fn not_here(path: &Path) -> std::io::Error {
-    std::io::Error::other(format!("{}: {}", path.display(), crate::t!("cloud.online_only")))
+    std::io::Error::other(format!(
+        "{}: {}",
+        path.display(),
+        crate::t!("cloud.online_only")
+    ))
 }
 
 /// Git in a repository whose files are only in the cloud would download them: `dir` is in one
@@ -152,9 +165,13 @@ pub fn not_here(path: &Path) -> std::io::Error {
 // ponytail: only the index and HEAD are looked at; a repository whose old packs alone went
 // back to the cloud has them downloaded by git.
 pub fn git_kept_out(dir: &Path) -> bool {
-    let Some(root) = dir.ancestors().find(|a| a.join(".git").exists()) else { return false };
+    let Some(root) = dir.ancestors().find(|a| a.join(".git").exists()) else {
+        return false;
+    };
     let git = root.join(".git");
-    [git.join("index"), git.join("HEAD"), git].iter().any(|p| keep_out(p))
+    [git.join("index"), git.join("HEAD"), git]
+        .iter()
+        .any(|p| keep_out(p))
 }
 
 /// Which cloud `path` (a file only in the cloud) is in, and the folder that holds that cloud:
@@ -162,16 +179,37 @@ pub fn git_kept_out(dir: &Path) -> bool {
 pub fn place(path: &Path) -> (String, PathBuf) {
     #[cfg(target_os = "linux")]
     if let Some((point, fs)) = mount_of(path) {
-        let name = point.file_name().and_then(|n| provider(&n.to_string_lossy())).map_or_else(|| fs.trim_start_matches("fuse.").to_string(), str::to_string);
+        let name = point
+            .file_name()
+            .and_then(|n| provider(&n.to_string_lossy()))
+            .map_or_else(
+                || fs.trim_start_matches("fuse.").to_string(),
+                str::to_string,
+            );
         return (name, point);
     }
     // The outermost folder named for a cloud: `Dropbox/notes/OneDrive.txt` is in Dropbox.
     let mut found = None;
     for a in path.ancestors().skip(1) {
-        let name = a.file_name().map(|n| n.to_string_lossy()).unwrap_or_default();
-        let parent = a.parent().and_then(Path::file_name).map(|n| n.to_string_lossy()).unwrap_or_default();
+        let name = a
+            .file_name()
+            .map(|n| n.to_string_lossy())
+            .unwrap_or_default();
+        let parent = a
+            .parent()
+            .and_then(Path::file_name)
+            .map(|n| n.to_string_lossy())
+            .unwrap_or_default();
         // macOS: ~/Library/CloudStorage/OneDrive-Personal, ~/Library/Mobile Documents.
-        let named = if parent == "CloudStorage" { Some(provider(&name).unwrap_or(name.split('-').next().unwrap_or_default()).to_string()) } else { provider(&name).map(str::to_string) };
+        let named = if parent == "CloudStorage" {
+            Some(
+                provider(&name)
+                    .unwrap_or(name.split('-').next().unwrap_or_default())
+                    .to_string(),
+            )
+        } else {
+            provider(&name).map(str::to_string)
+        };
         if let Some(n) = named {
             found = Some((n, a.to_path_buf()));
         }
@@ -182,16 +220,46 @@ pub fn place(path: &Path) -> (String, PathBuf) {
 /// The cloud a folder of this name belongs to, as its client names its folder.
 fn provider(name: &str) -> Option<&'static str> {
     let n = name.to_lowercase();
-    let starts = [("onedrive", "OneDrive"), ("dropbox", "Dropbox"), ("google drive", "Google Drive"), ("googledrive", "Google Drive"), ("my drive", "Google Drive"), ("proton drive", "Proton Drive"), ("protondrive", "Proton Drive"), ("icloud", "iCloud Drive"), ("mobile documents", "iCloud Drive"), ("pcloud", "pCloud"), ("nextcloud", "Nextcloud")];
+    let starts = [
+        ("onedrive", "OneDrive"),
+        ("dropbox", "Dropbox"),
+        ("google drive", "Google Drive"),
+        ("googledrive", "Google Drive"),
+        ("my drive", "Google Drive"),
+        ("proton drive", "Proton Drive"),
+        ("protondrive", "Proton Drive"),
+        ("icloud", "iCloud Drive"),
+        ("mobile documents", "iCloud Drive"),
+        ("pcloud", "pCloud"),
+        ("nextcloud", "Nextcloud"),
+    ];
     let whole = [("box", "Box"), ("mega", "MEGA")];
-    starts.iter().find(|(p, _)| n.starts_with(p)).or_else(|| whole.iter().find(|(p, _)| n == *p)).map(|(_, name)| *name)
+    starts
+        .iter()
+        .find(|(p, _)| n.starts_with(p))
+        .or_else(|| whole.iter().find(|(p, _)| n == *p))
+        .map(|(_, name)| *name)
 }
 
 // ---------------------------------------------------------------- Linux: cloud mounts
 
 /// FUSE file systems that keep their files here: everything else on FUSE is taken for a cloud
 /// or a server (rclone, google-drive-ocamlfuse, onedriver, gvfs, sshfs, davfs2's WebDAV).
-const LOCAL_FUSE: [&str; 13] = ["portal", "doc", "lxcfs", "squashfuse", "snapfuse", "fuse-overlayfs", "mergerfs", "bindfs", "gocryptfs", "encfs", "cryfs", "ntfs-3g", "vmhgfs-fuse"];
+const LOCAL_FUSE: [&str; 13] = [
+    "portal",
+    "doc",
+    "lxcfs",
+    "squashfuse",
+    "snapfuse",
+    "fuse-overlayfs",
+    "mergerfs",
+    "bindfs",
+    "gocryptfs",
+    "encfs",
+    "cryfs",
+    "ntfs-3g",
+    "vmhgfs-fuse",
+];
 
 /// Whether a file system of this type (`fuse.rclone`) holds files that are elsewhere.
 pub fn cloud_fs(fstype: &str) -> bool {
@@ -200,7 +268,9 @@ pub fn cloud_fs(fstype: &str) -> bool {
     if matches!(fstype, "fuse" | "davfs") {
         return true;
     }
-    let Some(kind) = fstype.strip_prefix("fuse.") else { return false };
+    let Some(kind) = fstype.strip_prefix("fuse.") else {
+        return false;
+    };
     // An AppImage is mounted under its own name.
     !LOCAL_FUSE.contains(&kind) && !kind.to_lowercase().contains("appimage")
 }
@@ -209,7 +279,12 @@ pub fn cloud_fs(fstype: &str) -> bool {
 pub fn cloud_mounts(mountinfo: &str) -> Vec<(PathBuf, String)> {
     // `id parent major:minor root mountpoint options … - fstype source superoptions`, with
     // spaces in paths written as \040.
-    let unescape = |s: &str| s.replace("\\040", " ").replace("\\011", "\t").replace("\\012", "\n").replace("\\134", "\\");
+    let unescape = |s: &str| {
+        s.replace("\\040", " ")
+            .replace("\\011", "\t")
+            .replace("\\012", "\n")
+            .replace("\\134", "\\")
+    };
     mountinfo
         .lines()
         .filter_map(|l| {
@@ -232,13 +307,19 @@ pub fn mount_of(path: &Path) -> Option<(PathBuf, String)> {
         match &*m {
             Some((at, v)) if at.elapsed() < Duration::from_secs(10) => v.clone(),
             _ => {
-                let v = std::sync::Arc::new(cloud_mounts(&std::fs::read_to_string("/proc/self/mountinfo").unwrap_or_default()));
+                let v = std::sync::Arc::new(cloud_mounts(
+                    &std::fs::read_to_string("/proc/self/mountinfo").unwrap_or_default(),
+                ));
                 *m = Some((Instant::now(), v.clone()));
                 v
             }
         }
     };
-    mounts.iter().filter(|(p, _)| path.starts_with(p)).max_by_key(|(p, _)| p.as_os_str().len()).cloned()
+    mounts
+        .iter()
+        .filter(|(p, _)| path.starts_with(p))
+        .max_by_key(|(p, _)| p.as_os_str().len())
+        .cloned()
 }
 
 /// Whether `dir` is a cloud mount whose files the settings do not read: the search store does
@@ -279,12 +360,18 @@ mod tests {
     fn cloud_attributes_and_flags_tell_online_files() {
         // OneDrive "online only": unpinned, recalled on access. "Always keep": pinned, here.
         assert!(online_attributes(RECALL_ON_DATA_ACCESS | UNPINNED | 0x20));
-        assert!(online_attributes(RECALL_ON_DATA_ACCESS | PINNED), "pinned, not downloaded yet");
+        assert!(
+            online_attributes(RECALL_ON_DATA_ACCESS | PINNED),
+            "pinned, not downloaded yet"
+        );
         assert!(online_attributes(RECALL_ON_OPEN));
         assert!(online_attributes(OFFLINE), "older storage managers");
         assert!(!online_attributes(PINNED | 0x20), "kept on this device");
         assert!(!online_attributes(0x20), "downloaded earlier, still here");
-        assert!(!online_attributes(0x400 | 0x20), "a reparse point alone is not online");
+        assert!(
+            !online_attributes(0x400 | 0x20),
+            "a reparse point alone is not online"
+        );
         assert!(dataless(SF_DATALESS) && dataless(SF_DATALESS | 0x20));
         assert!(!dataless(0) && !dataless(0x8000));
     }
@@ -302,21 +389,52 @@ mod tests {
         let found: Vec<(PathBuf, String)> = cloud_mounts(info);
         assert_eq!(
             found,
-            [("/home/me/Google Drive", "fuse.rclone"), ("/home/me/OneDrive", "fuse.onedriver"), ("/run/user/1000/gvfs", "fuse.gvfsd-fuse")].map(|(p, t)| (PathBuf::from(p), t.to_string()))
+            [
+                ("/home/me/Google Drive", "fuse.rclone"),
+                ("/home/me/OneDrive", "fuse.onedriver"),
+                ("/run/user/1000/gvfs", "fuse.gvfsd-fuse")
+            ]
+            .map(|(p, t)| (PathBuf::from(p), t.to_string()))
         );
         assert!(cloud_fs("fuse.google-drive-ocamlfuse") && cloud_fs("fuse.sshfs"));
-        assert!(cloud_fs("fuse") && cloud_fs("davfs"), "davfs2 and other FUSE without a subtype are remote");
-        assert!(!cloud_fs("fuse.portal") && !cloud_fs("fuseblk") && !cloud_fs("ext4") && !cloud_fs("fuse.mergerfs"));
+        assert!(
+            cloud_fs("fuse") && cloud_fs("davfs"),
+            "davfs2 and other FUSE without a subtype are remote"
+        );
+        assert!(
+            !cloud_fs("fuse.portal")
+                && !cloud_fs("fuseblk")
+                && !cloud_fs("ext4")
+                && !cloud_fs("fuse.mergerfs")
+        );
     }
 
     #[test]
     fn cloud_places_are_named_for_their_client() {
         let p = |s: &str| place(Path::new(s));
-        assert_eq!(p("/c/Users/me/OneDrive - Contoso/Plans/q3.xlsx"), ("OneDrive".into(), PathBuf::from("/c/Users/me/OneDrive - Contoso")));
-        assert_eq!(p("/Users/me/Library/CloudStorage/GoogleDrive-me@x.com/My Drive/a.pdf"), ("Google Drive".into(), PathBuf::from("/Users/me/Library/CloudStorage/GoogleDrive-me@x.com")));
-        assert_eq!(p("/Users/me/Library/CloudStorage/Acme-Work/a.pdf").0, "Acme");
+        assert_eq!(
+            p("/c/Users/me/OneDrive - Contoso/Plans/q3.xlsx"),
+            (
+                "OneDrive".into(),
+                PathBuf::from("/c/Users/me/OneDrive - Contoso")
+            )
+        );
+        assert_eq!(
+            p("/Users/me/Library/CloudStorage/GoogleDrive-me@x.com/My Drive/a.pdf"),
+            (
+                "Google Drive".into(),
+                PathBuf::from("/Users/me/Library/CloudStorage/GoogleDrive-me@x.com")
+            )
+        );
+        assert_eq!(
+            p("/Users/me/Library/CloudStorage/Acme-Work/a.pdf").0,
+            "Acme"
+        );
         assert_eq!(p("/home/me/Dropbox/notes/OneDrive.txt").0, "Dropbox");
-        assert_eq!(p("/x/Sync/a.txt"), ("cloud".into(), PathBuf::from("/x/Sync")));
+        assert_eq!(
+            p("/x/Sync/a.txt"),
+            ("cloud".into(), PathBuf::from("/x/Sync"))
+        );
     }
 
     #[test]
@@ -328,10 +446,19 @@ mod tests {
         assert!(!online(&f) && !keep_out(&f));
         pretend(&f, true);
         assert!(online(&f) && keep_out(&f));
-        assert!(!keep_out(&d.join("missing")), "a file that is not there is nobody's business here");
-        assert!(unasked(&f) && unasked(&f.join("inside.txt")), "a path inside it counts as the file");
+        assert!(
+            !keep_out(&d.join("missing")),
+            "a file that is not there is nobody's business here"
+        );
+        assert!(
+            unasked(&f) && unasked(&f.join("inside.txt")),
+            "a path inside it counts as the file"
+        );
         ask_for(&f);
-        assert!(!unasked(&f) && keep_out(&f), "asked for in the app; indexing still leaves it");
+        assert!(
+            !unasked(&f) && keep_out(&f),
+            "asked for in the app; indexing still leaves it"
+        );
         pretend(&f, false);
         assert!(!keep_out(&f));
         std::fs::remove_dir_all(d).unwrap();

@@ -37,7 +37,11 @@ struct Stamp {
 
 fn stamp(path: &Path, deep: bool) -> Option<Stamp> {
     let m = fs::symlink_metadata(path).ok()?;
-    let mut s = Stamp { size: m.len(), modified: m.modified().ok(), entries: 1 };
+    let mut s = Stamp {
+        size: m.len(),
+        modified: m.modified().ok(),
+        entries: 1,
+    };
     if deep && m.is_dir() {
         for e in fs::read_dir(path).ok()?.flatten() {
             let inner = stamp(&e.path(), true)?;
@@ -69,11 +73,16 @@ pub struct Record {
 }
 
 fn now() -> i64 {
-    SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |d| d.as_secs() as i64)
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_or(0, |d| d.as_secs() as i64)
 }
 
 fn name(p: &Path) -> String {
-    p.file_name().map_or_else(|| p.display().to_string(), |n| n.to_string_lossy().into_owned())
+    p.file_name().map_or_else(
+        || p.display().to_string(),
+        |n| n.to_string_lossy().into_owned(),
+    )
 }
 
 /// The trash gives back what went into it: Windows, the freedesktop.org trash (Linux, the
@@ -84,7 +93,17 @@ pub fn trash_restores() -> bool {
 }
 
 /// Put `path` back from the trash; `name`: its name in Coxswain's own trash (Termux, illumos).
-#[cfg(any(windows, all(unix, not(target_os = "macos"), not(target_os = "ios"), not(target_os = "android"), not(target_os = "illumos"), not(target_os = "solaris"))))]
+#[cfg(any(
+    windows,
+    all(
+        unix,
+        not(target_os = "macos"),
+        not(target_os = "ios"),
+        not(target_os = "android"),
+        not(target_os = "illumos"),
+        not(target_os = "solaris")
+    )
+))]
 fn restore(path: &Path, _name: &Path, since: i64) -> io::Result<()> {
     use trash::os_limited;
     let want = comparable(path);
@@ -94,18 +113,30 @@ fn restore(path: &Path, _name: &Path, since: i64) -> io::Result<()> {
     // Windows lists a name as Explorer shows it, without a known ending (`report` for
     // `report.pdf`); the ending is still on the item's place in the Recycle Bin.
     let shown_short = |i: &trash::TrashItem| {
-        cfg!(windows) && Path::new(&i.name).file_stem().is_some() && Some(i.name.as_os_str()) == Path::new(file).file_stem() && Path::new(&i.id).extension() == Path::new(file).extension()
+        cfg!(windows)
+            && Path::new(&i.name).file_stem().is_some()
+            && Some(i.name.as_os_str()) == Path::new(file).file_stem()
+            && Path::new(&i.id).extension() == Path::new(file).extension()
     };
     let mut item = os_limited::list()
         .map_err(io::Error::other)?
         .into_iter()
-        .filter(|i| i.time_deleted >= since && comparable(&i.original_parent.join(if shown_short(i) { file } else { i.name.as_os_str() })) == want)
+        .filter(|i| {
+            i.time_deleted >= since
+                && comparable(&i.original_parent.join(if shown_short(i) {
+                    file
+                } else {
+                    i.name.as_os_str()
+                })) == want
+        })
         .max_by_key(|i| i.time_deleted)
         .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, t!("undo.not_in_trash")))?;
     // Restored under its whole name, which is also what the collision check looks at.
     item.name = file.to_os_string();
     os_limited::restore_all([item]).map_err(|e| match e {
-        trash::Error::RestoreCollision { .. } => io::Error::new(io::ErrorKind::AlreadyExists, t!("undo.taken")),
+        trash::Error::RestoreCollision { .. } => {
+            io::Error::new(io::ErrorKind::AlreadyExists, t!("undo.taken"))
+        }
         e => io::Error::other(e),
     })
 }
@@ -117,21 +148,41 @@ fn restore(path: &Path, name: &Path, _since: i64) -> io::Result<()> {
 
 #[cfg(any(target_os = "macos", target_os = "ios"))]
 fn restore(_path: &Path, _name: &Path, _since: i64) -> io::Result<()> {
-    Err(io::Error::new(io::ErrorKind::Unsupported, t!("undo.no_restore")))
+    Err(io::Error::new(
+        io::ErrorKind::Unsupported,
+        t!("undo.no_restore"),
+    ))
 }
 
 /// A path as the trash records it: the folder resolved, as the trash crate does; on Windows
 /// without `\\?\` and in one case.
-#[cfg(any(windows, all(unix, not(target_os = "macos"), not(target_os = "ios"), not(target_os = "android"), not(target_os = "illumos"), not(target_os = "solaris"))))]
+#[cfg(any(
+    windows,
+    all(
+        unix,
+        not(target_os = "macos"),
+        not(target_os = "ios"),
+        not(target_os = "android"),
+        not(target_os = "illumos"),
+        not(target_os = "solaris")
+    )
+))]
 fn comparable(p: &Path) -> PathBuf {
-    let p = match (p.parent().and_then(|d| fs::canonicalize(d).ok()), p.file_name()) {
+    let p = match (
+        p.parent().and_then(|d| fs::canonicalize(d).ok()),
+        p.file_name(),
+    ) {
         (Some(d), Some(n)) => d.join(n),
         _ => p.to_path_buf(),
     };
     #[cfg(windows)]
     let p = {
         let s = p.to_string_lossy();
-        let s = s.strip_prefix(r"\\?\UNC\").map(|r| format!(r"\\{r}")).or_else(|| s.strip_prefix(r"\\?\").map(str::to_string)).unwrap_or_else(|| s.to_string());
+        let s = s
+            .strip_prefix(r"\\?\UNC\")
+            .map(|r| format!(r"\\{r}"))
+            .or_else(|| s.strip_prefix(r"\\?\").map(str::to_string))
+            .unwrap_or_else(|| s.to_string());
         PathBuf::from(s.to_lowercase())
     };
     p
@@ -139,7 +190,11 @@ fn comparable(p: &Path) -> PathBuf {
 
 impl Record {
     pub fn new(kind: Kind) -> Record {
-        Record { kind, items: vec![], since: now() - 1 }
+        Record {
+            kind,
+            items: vec![],
+            since: now() - 1,
+        }
     }
 
     pub fn kind(&self) -> Kind {
@@ -160,7 +215,11 @@ impl Record {
                 None => return,
             },
         };
-        self.items.push(Item { from: from.to_path_buf(), to: to.to_path_buf(), stamp });
+        self.items.push(Item {
+            from: from.to_path_buf(),
+            to: to.to_path_buf(),
+            stamp,
+        });
     }
 
     /// The operation on `src`, as `fs` and `archive` do it (`dst`: where to, for a copy, a move
@@ -196,14 +255,23 @@ impl Record {
             }
             Kind::Mkdir => {
                 // Each folder made, the outermost first, so undo removes the innermost first.
-                let mut made: Vec<PathBuf> = src.ancestors().take_while(|a| !a.as_os_str().is_empty() && !on_disk(a)).map(Path::to_path_buf).collect();
+                let mut made: Vec<PathBuf> = src
+                    .ancestors()
+                    .take_while(|a| !a.as_os_str().is_empty() && !on_disk(a))
+                    .map(Path::to_path_buf)
+                    .collect();
                 cfs::mkdir_locked(src, password)?;
                 if src.is_dir() {
                     made.reverse();
                     made.iter().for_each(|p| self.done(p, p));
                 }
             }
-            Kind::Pack => return Err(io::Error::new(io::ErrorKind::InvalidInput, "a pack is done with archive::create_locked")),
+            Kind::Pack => {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidInput,
+                    "a pack is done with archive::create_locked",
+                ));
+            }
         }
         Ok(())
     }
@@ -211,30 +279,50 @@ impl Record {
     /// The paths it touches, to read again after it is undone.
     pub fn touched(&self) -> Vec<PathBuf> {
         let trash = self.kind == Kind::Trash;
-        self.items.iter().flat_map(|i| [Some(i.from.clone()), (!trash).then(|| i.to.clone())]).flatten().collect()
+        self.items
+            .iter()
+            .flat_map(|i| [Some(i.from.clone()), (!trash).then(|| i.to.clone())])
+            .flatten()
+            .collect()
     }
 
     /// What it was, for "Undo: …" and "Undone: …": *rename a.txt → b.txt*, *move 3 items to
     /// Documents*.
     pub fn label(&self) -> String {
         let n = self.items.len();
-        let what = |p: &Path| if n == 1 { format!("\"{}\"", name(p)) } else { tn!("items", n) };
-        let Some(first) = self.items.first() else { return String::new() };
+        let what = |p: &Path| {
+            if n == 1 {
+                format!("\"{}\"", name(p))
+            } else {
+                tn!("items", n)
+            }
+        };
+        let Some(first) = self.items.first() else {
+            return String::new();
+        };
         let into = |p: &Path| p.parent().map(name).unwrap_or_default();
         match self.kind {
-            Kind::Move | Kind::Rename if self.items.iter().all(|i| i.from.parent() == i.to.parent()) => {
+            Kind::Move | Kind::Rename
+                if self.items.iter().all(|i| i.from.parent() == i.to.parent()) =>
+            {
                 if n == 1 {
                     t!("undo.what.rename_one", "from" => name(&first.from), "to" => name(&first.to))
                 } else {
                     t!("undo.what.rename", "what" => what(&first.from))
                 }
             }
-            Kind::Move | Kind::Rename => t!("undo.what.move", "what" => what(&first.from), "dir" => into(&first.to)),
-            Kind::Copy => t!("undo.what.copy", "what" => what(&first.from), "dir" => into(&first.to)),
+            Kind::Move | Kind::Rename => {
+                t!("undo.what.move", "what" => what(&first.from), "dir" => into(&first.to))
+            }
+            Kind::Copy => {
+                t!("undo.what.copy", "what" => what(&first.from), "dir" => into(&first.to))
+            }
             Kind::Mkdir => t!("undo.what.mkdir", "what" => format!("\"{}\"", name(&first.from))),
             Kind::Trash => t!("undo.what.trash", "what" => what(&first.from)),
             Kind::Pack => t!("undo.what.pack", "what" => format!("\"{}\"", name(&first.to))),
-            Kind::Extract => t!("undo.what.extract", "what" => what(&first.from), "dir" => into(&first.to)),
+            Kind::Extract => {
+                t!("undo.what.extract", "what" => what(&first.from), "dir" => into(&first.to))
+            }
         }
     }
 
@@ -255,7 +343,11 @@ impl Record {
                 }
             }
         }
-        Undone { label: self.label(), done, refused }
+        Undone {
+            label: self.label(),
+            done,
+            refused,
+        }
     }
 
     /// Whether `item`'s result is still as the operation left it.
@@ -263,19 +355,29 @@ impl Record {
         let deep = matches!(self.kind, Kind::Copy | Kind::Pack | Kind::Extract);
         match stamp(&item.to, deep) {
             None => Err(format!("{}: {}", item.to.display(), t!("undo.gone"))),
-            Some(s) if Some(s) != item.stamp => Err(format!("{}: {}", item.to.display(), t!("undo.changed"))),
+            Some(s) if Some(s) != item.stamp => {
+                Err(format!("{}: {}", item.to.display(), t!("undo.changed")))
+            }
             Some(_) => Ok(()),
         }
     }
 
     fn free(path: &Path) -> Result<(), String> {
-        if fs::symlink_metadata(path).is_ok() { Err(format!("{}: {}", path.display(), t!("undo.taken"))) } else { Ok(()) }
+        if fs::symlink_metadata(path).is_ok() {
+            Err(format!("{}: {}", path.display(), t!("undo.taken")))
+        } else {
+            Ok(())
+        }
     }
 
     /// Where `item` goes back to is free, or is the item itself: a rename that changed only the
     /// case, where case does not count.
     fn free_for(item: &Item) -> Result<(), String> {
-        if cfs::same_file(&item.from, &item.to) { Ok(()) } else { Self::free(&item.from) }
+        if cfs::same_file(&item.from, &item.to) {
+            Ok(())
+        } else {
+            Self::free(&item.from)
+        }
     }
 
     fn undo_one(&self, item: &Item) -> Result<(), String> {
@@ -284,7 +386,9 @@ impl Record {
             Kind::Move | Kind::Rename => {
                 self.unchanged(item)?;
                 Self::free_for(item)?;
-                cfs::rename(&item.to, &item.from).map(drop).map_err(|e| err(&item.to, e))
+                cfs::rename(&item.to, &item.from)
+                    .map(drop)
+                    .map_err(|e| err(&item.to, e))
             }
             Kind::Copy | Kind::Pack | Kind::Extract => {
                 self.unchanged(item)?;
@@ -314,7 +418,11 @@ impl Record {
     /// is free.
     fn undo_renames(&self) -> (usize, Vec<String>) {
         let mut refused = vec![];
-        let mut ok: Vec<&Item> = self.items.iter().filter(|i| self.unchanged(i).map_err(|e| refused.push(e)).is_ok()).collect();
+        let mut ok: Vec<&Item> = self
+            .items
+            .iter()
+            .filter(|i| self.unchanged(i).map_err(|e| refused.push(e)).is_ok())
+            .collect();
         // Until none is dropped: a name is free only while the item leaving it still goes.
         loop {
             let leaving: Vec<PathBuf> = ok.iter().map(|i| i.to.clone()).collect();
@@ -330,8 +438,17 @@ impl Record {
                 break;
             }
         }
-        let Some(dir) = ok.first().and_then(|i| i.to.parent()) else { return (0, refused) };
-        let plan: Vec<crate::rename::Planned> = ok.iter().map(|i| crate::rename::Planned { from: name(&i.to), to: name(&i.from), conflict: None }).collect();
+        let Some(dir) = ok.first().and_then(|i| i.to.parent()) else {
+            return (0, refused);
+        };
+        let plan: Vec<crate::rename::Planned> = ok
+            .iter()
+            .map(|i| crate::rename::Planned {
+                from: name(&i.to),
+                to: name(&i.from),
+                conflict: None,
+            })
+            .collect();
         match crate::rename::apply(dir, &plan) {
             Ok(()) => (ok.len(), refused),
             Err(e) => {
@@ -413,10 +530,22 @@ mod tests {
         let u = r.undo(|_| {});
         assert_eq!(u.done, 1);
         assert_eq!(u.refused.len(), 2, "{:?}", u.refused);
-        assert!(u.refused.iter().any(|e| e.contains("b.txt") && e.contains(&t!("undo.changed"))));
-        assert!(u.refused.iter().any(|e| e.contains("c.txt") && e.contains(&t!("undo.taken"))));
+        assert!(
+            u.refused
+                .iter()
+                .any(|e| e.contains("b.txt") && e.contains(&t!("undo.changed")))
+        );
+        assert!(
+            u.refused
+                .iter()
+                .any(|e| e.contains("c.txt") && e.contains(&t!("undo.taken")))
+        );
         assert_eq!(fs::read_to_string(d.join("a.txt")).unwrap(), "a.txt");
-        assert_eq!(fs::read_to_string(d.join("c.txt")).unwrap(), "new c", "never overwritten");
+        assert_eq!(
+            fs::read_to_string(d.join("c.txt")).unwrap(),
+            "new c",
+            "never overwritten"
+        );
         assert!(d.join("docs/c.txt").exists() && d.join("docs/b.txt").exists());
     }
 
@@ -437,10 +566,15 @@ mod tests {
         fs::write(d.join("a"), "A").unwrap();
         fs::write(d.join("b"), "B").unwrap();
         fs::write(d.join("c"), "C").unwrap();
-        let plan = [("a", "b"), ("b", "a"), ("c", "d")].map(|(f, t)| crate::rename::Planned { from: f.into(), to: t.into(), conflict: None });
+        let plan = [("a", "b"), ("b", "a"), ("c", "d")].map(|(f, t)| crate::rename::Planned {
+            from: f.into(),
+            to: t.into(),
+            conflict: None,
+        });
         crate::rename::apply(&d, &plan).unwrap();
         let mut r = Record::new(Kind::Rename);
-        plan.iter().for_each(|p| r.done(&d.join(&p.from), &d.join(&p.to)));
+        plan.iter()
+            .for_each(|p| r.done(&d.join(&p.from), &d.join(&p.to)));
         // The name c gave up is taken since.
         fs::write(d.join("c"), "new").unwrap();
         let u = r.undo(|_| {});
@@ -515,7 +649,9 @@ mod tests {
             return;
         }
         // In the folder of the tests, which is on the disk the user's trash is on.
-        let d = std::env::current_dir().unwrap().join(format!("target-undo-trash-{}", std::process::id()));
+        let d = std::env::current_dir()
+            .unwrap()
+            .join(format!("target-undo-trash-{}", std::process::id()));
         let _ = fs::remove_dir_all(&d);
         fs::create_dir_all(&d).unwrap();
         if !cfs::trash_takes(std::slice::from_ref(&d)) {
@@ -527,7 +663,11 @@ mod tests {
         assert!(!d.join("gone.txt").exists());
         let u = r.undo(|_| {});
         assert_eq!(u.done, 1, "{:?}", u.refused);
-        assert_eq!(fs::read_to_string(d.join("gone.txt")).unwrap(), "back", "back under its whole name");
+        assert_eq!(
+            fs::read_to_string(d.join("gone.txt")).unwrap(),
+            "back",
+            "back under its whole name"
+        );
         // Trashed again and its place taken: refused, nothing overwritten.
         let mut r = Record::new(Kind::Trash);
         r.run(&d.join("gone.txt"), Path::new(""), None).unwrap();
@@ -542,15 +682,24 @@ mod tests {
     fn history_keeps_the_last_ones() {
         let d = tmp("history");
         let mut h = History::default();
-        assert!(!h.push(Record::new(Kind::Copy)), "nothing to undo is not kept");
+        assert!(
+            !h.push(Record::new(Kind::Copy)),
+            "nothing to undo is not kept"
+        );
         for i in 0..KEEP + 3 {
             let mut r = Record::new(Kind::Mkdir);
             r.run(&d.join(i.to_string()), Path::new(""), None).unwrap();
             assert!(h.push(r));
         }
         assert_eq!(h.list.len(), KEEP);
-        assert_eq!(h.next().unwrap().label(), format!("new folder \"{}\"", KEEP + 2));
-        assert_eq!(h.pop().unwrap().label(), format!("new folder \"{}\"", KEEP + 2));
+        assert_eq!(
+            h.next().unwrap().label(),
+            format!("new folder \"{}\"", KEEP + 2)
+        );
+        assert_eq!(
+            h.pop().unwrap().label(),
+            format!("new folder \"{}\"", KEEP + 2)
+        );
         assert_eq!(h.pushed, KEEP as u64 + 3);
     }
 }

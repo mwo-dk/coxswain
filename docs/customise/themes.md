@@ -2,13 +2,19 @@
 
 # Themes
 
-A theme is a set of colours. Eighteen come built in: Cyber, a green phosphor terminal and the
-desktop app's default; Norton Commander blue, the terminal app's default; four modern ones; and
-the looks of Windows 3.11 to 11 and Mac System 7 to today. Each app has its own theme, so the
-two can differ, and you can [make your own](own-theme.md).
+A theme is a set of colours. Thirty-three come built in: Cyber, a green phosphor terminal and
+the desktop app's default, with its amber and paper-white siblings; Norton Commander blue, the
+terminal app's default, and its kin XTree Gold, DOS Shell and Midnight Commander; four modern
+ones; the home computers, Commodore 64, ZX Spectrum, Amstrad CPC, MSX, BBC Micro and Atari ST;
+Amiga Workbench 1.3, the home of Directory Opus; and the desktops, Windows 3.11 to 11, Mac
+System 7 to today, NeXTSTEP, BeOS and OS/2 Warp. Each app has its own theme, so the two can
+differ, and you can [make your own](own-theme.md).
 
 ![Nine of the Windows and Mac themes side by side in the desktop app, light and dark, each with its own sidebar, selection colour and chrome](../screenshots/gui-themes.png)
 *Nine of the Windows and Mac themes. In the desktop app a theme also brings a [look](looks.md).*
+
+![Fifteen classics in the desktop app: Amber and Paper white phosphors, XTree Gold, DOS Shell and Midnight Commander on blue, the Commodore 64, ZX Spectrum, Amstrad CPC, MSX and BBC Micro screens, Atari ST GEM, Amiga Workbench 1.3, NeXTSTEP, BeOS and OS/2 Warp](../screenshots/gui-classics.png)
+*The classics: the phosphors, the file managers of the DOS years, the home computers, the Amiga and the other desktops.*
 
 ## How to use it
 
@@ -39,11 +45,23 @@ In the terminal app, open `config.toml` (`coxswain --config-path` prints where),
 | Name in the config | Shown as | Look | What it is |
 |---|---|---|---|
 | `cyber` | Cyber | `crt` | Green phosphor on black, as in WarGames: glowing text, faint scanlines, cyan folders, amber instead of red. Monospaced throughout. The desktop app's default |
+| `amber` | Amber | `crt` | Amber phosphor on near-black, as on a P3 monochrome monitor: glowing amber text, faint scanlines, paler amber folders, a dark-amber cursor row; every colour a shade of one phosphor. Monospaced throughout |
+| `paper` | Paper white | `crt` | White phosphor on black, as on a VT420 or an old Macintosh: one phosphor, so everything is a grey or a white with a cool cast; folders and marks bold white, hidden files dim, a grey cursor row. Glowing text and scanlines from the CRT look, monospaced throughout |
 | `dark` | Dark | `modern` | Neutral dark, blue accent |
 | `light` | Light | `modern` | White, blue accent |
 | `nord` | Nord | `modern` | The Nord palette |
 | `midnight` | Tokyo Night | `modern` | The Tokyo Night palette |
 | `nc` | Classic blue (NC) | `dos` | Norton Commander 5: cyan on blue, a black-on-cyan cursor, yellow marks, in exact CGA colours. The terminal app's default |
+| `xtree` | XTree Gold | `dos` | XTree Gold 2/3 for DOS: light-grey and bright-white text on dark blue, a yellow bar on the current item, cyan and green sizes and stats, a grey command area in black text, white-on-red errors, in exact CGA colours |
+| `dosshell` | DOS Shell | `dos` | MS-DOS Shell's Basic Blue: black on light grey, white-on-blue title bars, a black-on-cyan cursor, blue folders, in CGA colours; git states in deeper shades |
+| `mc` | Midnight Commander | `dos` | Midnight Commander's default skin: light grey on blue, bold white folders, yellow marks, a black-on-cyan cursor, black-on-grey dialogs, the command line on the blue, in CGA colours |
+| `c64` | Commodore 64 | `crt` | The Commodore 64's power-on screen: light blue text on VIC-II blue, a lighter blue border, white folders and headers, the cursor row inverted to blue on light blue, marks and git states in the other VIC colours (yellow, light green, light red, cyan) |
+| `spectrum` | ZX Spectrum | `crt` | Sinclair ZX Spectrum: bright white on black, yellow folders, green programs, magenta links, a white-on-blue cursor bar, cyan buttons and search hits, in the Spectrum's own eight colours at their bright and non-bright levels |
+| `cpc` | Amstrad CPC | `crt` | An Amstrad CPC 464 at power-on: bright yellow text on blue, bright cyan folders, an inverted blue-on-yellow cursor, white marks, dialogs on bright blue; every colour is one of the CPC's own 27 |
+| `msx` | MSX | `crt` | MSX-BASIC's boot screen: white on dark blue (COLOR 15,4), light blue lines, cyan folders, light green programs, yellow marks, a black cursor bar, dialogs black with a cyan frame; glowing text and scanlines from the CRT look |
+| `bbc` | BBC Micro | `crt` | BBC Micro Mode 7: white on black in the eight saturated Teletext colours, yellow headers on a Ceefax blue bar, cyan folders, green marks, a white-on-blue cursor |
+| `atarist` | Atari ST | `gem` | GEM on the Atari ST in medium resolution: black text in white windows on the green desktop, one-pixel black frames, striped title bars, white-on-black selection |
+| `workbench` | Amiga Workbench 1.3 | `workbench` | Amiga Workbench 1.3: white text on Workbench blue, a black-on-orange cursor as a selected icon, orange marks, white bold folders, dialogs white on blue as the 1.3 Preferences screen with white input boxes, in the four Workbench 1.x colours |
 | `win31` | Windows 3.11 | `win31` | White lists, grey chrome, navy selection, square corners |
 | `win95` | Windows 95 | `win95` | Grey 3D bevels, navy title bars, navy selection |
 | `winxp` | Windows XP | `winxp` | Luna: beige chrome, blue task pane, rounded blue title bars |
@@ -56,8 +74,11 @@ In the terminal app, open `config.toml` (`coxswain --config-path` prints where),
 | `aqua` | Mac OS X Aqua | `aqua` | Pinstripes, gel buttons, blue selection (10.0 to 10.4) |
 | `macos` | macOS | `macos` | Current macOS, light |
 | `macos-dark` | macOS (dark) | `macos` | Current macOS, dark |
+| `next` | NeXTSTEP | `next` | NeXTSTEP 3: the four greys of the NeXT display, light grey lists and chrome with black text, white text fields and cursor row, black title bars; the git colours are AppKit's named colours, darkened |
+| `beos` | BeOS | `beos` | BeOS R5: black text on white lists, the 216 panel grey round them, a slate-blue cursor row and the yellow window tab on a marked row under the cursor; the desktop blue for buttons and the active pane |
+| `os2` | OS/2 Warp | `win95` | Workplace Shell: pale grey folders and dialogs with black text, dark blue selection, a black command line like an OS/2 Window |
 
-This is the order Settings shows them in. In Cyber, file icons take the text colour instead of
+This is the order Settings shows them in. In the CRT themes, file icons take the text colour instead of
 their own, so everything is one phosphor, and the age chips go from cyan (new) to dim green.
 Lit buttons and badges glow as a green outline on the dark rather than being filled
 ([Looks](looks.md#what-you-see)).
@@ -130,9 +151,10 @@ After the built-in ones, under the name you gave them (`[themes.<name>]`), as in
 
 #### Which theme is closest to Midnight Commander or Far Manager?
 
-*Classic blue (NC)*, `nc`: Norton Commander's cyan on blue in exact CGA colours, which those
-programs copied. In the desktop app it comes with the `dos` look: square corners, double pane
-borders and the monospaced font for everything.
+*Midnight Commander*, `mc`, is its default skin: Norton's cyan on blue with yellow folder names
+and grey dialogs. Far Manager is closest to *Classic blue (NC)*, `nc`, Norton Commander's own
+colours in exact CGA values, which it copied. In the desktop app both come with the `dos` look:
+square corners, double pane borders and the monospaced font for everything.
 
 #### Does the theme change the colour tags?
 

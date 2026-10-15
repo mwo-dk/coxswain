@@ -37,18 +37,33 @@ const MAX_DEPTH: usize = 16;
 /// room for some hundreds of addresses, and a quarter of it for a header that says what a
 /// part is, which is a line or three. `mail-parser` takes two milliseconds for a content
 /// type of this size that is made to be slow, and a file has room for thousands of them.
-const WANTED: [&str; 8] = ["subject", "from", "to", "cc", "date", "content-type", "content-transfer-encoding", "content-disposition"];
+const WANTED: [&str; 8] = [
+    "subject",
+    "from",
+    "to",
+    "cc",
+    "date",
+    "content-type",
+    "content-transfer-encoding",
+    "content-disposition",
+];
 const FIELD: usize = 16 * 1024;
 /// The kinds of text that are data and not words of the message.
 const DATA: [&str; 4] = ["text/calendar", "text/csv", "text/vcard", "text/x-vcard"];
 
 pub fn text(path: &Path, max: u64) -> Option<String> {
     let mut bytes = vec![];
-    std::fs::File::open(path).ok()?.take(max.saturating_add(1)).read_to_end(&mut bytes).ok()?;
+    std::fs::File::open(path)
+        .ok()?
+        .take(max.saturating_add(1))
+        .read_to_end(&mut bytes)
+        .ok()?;
     if bytes.len() as u64 > max {
         return None;
     }
-    let mailbox = path.extension().is_some_and(|e| e.eq_ignore_ascii_case("mbox"));
+    let mailbox = path
+        .extension()
+        .is_some_and(|e| e.eq_ignore_ascii_case("mbox"));
     // A message of a mailbox has a share of the text and not all of it, so that one large
     // message does not hide every message after it.
     let room = if mailbox { MAX_TEXT / 16 } else { MAX_TEXT };
@@ -57,7 +72,11 @@ pub fn text(path: &Path, max: u64) -> Option<String> {
         if rest.is_empty() || out.len() >= MAX_TEXT {
             break;
         }
-        let end = if mailbox { next_message(rest) } else { rest.len() };
+        let end = if mailbox {
+            next_message(rest)
+        } else {
+            rest.len()
+        };
         add(&mut out, &message(&rest[..end], 0, room), MAX_TEXT);
         rest = &rest[end..];
     }
@@ -70,8 +89,11 @@ pub fn text(path: &Path, max: u64) -> Option<String> {
 /// asked for, since mailboxes are joined by scripts as well, and a paragraph that begins
 /// with "From " starts no message: the patches that git writes have no ">" before one.
 fn next_message(bytes: &[u8]) -> usize {
-    static START: LazyLock<Regex> = LazyLock::new(|| pattern(r"(?m-u)^From .*\d\d:\d\d.*[ +-]\d{4}\s*$"));
-    START.find_at(bytes, bytes.len().min(1)).map_or(bytes.len(), |line| line.start())
+    static START: LazyLock<Regex> =
+        LazyLock::new(|| pattern(r"(?m-u)^From .*\d\d:\d\d.*[ +-]\d{4}\s*$"));
+    START
+        .find_at(bytes, bytes.len().min(1))
+        .map_or(bytes.len(), |line| line.start())
 }
 
 fn pattern(of: &str) -> Regex {
@@ -103,7 +125,11 @@ fn message(raw: &[u8], depth: usize, room: usize) -> String {
     // Blank lines before the headers are passed over, and the line that parts the messages
     // of a mailbox is not a header.
     let raw = raw.trim_ascii_start();
-    let raw = if raw.starts_with(b"From ") { &raw[memchr(b'\n', raw).map_or(raw.len(), |at| at + 1)..] } else { raw };
+    let raw = if raw.starts_with(b"From ") {
+        &raw[memchr(b'\n', raw).map_or(raw.len(), |at| at + 1)..]
+    } else {
+        raw
+    };
     let (head, body) = split(raw);
     if head.is_empty() {
         return String::new();
@@ -121,8 +147,14 @@ fn part(head: &Head, body: &[u8], depth: usize, room: usize, found: &mut Found) 
         // after the last part ends with "--" as well. A message that was cut off has no such
         // line, and its last part runs to the end.
         let mark = format!("--{boundary}").into_bytes();
-        let ends_there = |at: usize| matches!(body.get(at + mark.len()), None | Some(b'\r' | b'\n' | b' ' | b'\t' | b'-'));
-        let mut marks = memmem::find_iter(body, &mark).filter(|&at| (at == 0 || body[at - 1] == b'\n') && ends_there(at));
+        let ends_there = |at: usize| {
+            matches!(
+                body.get(at + mark.len()),
+                None | Some(b'\r' | b'\n' | b' ' | b'\t' | b'-')
+            )
+        };
+        let mut marks = memmem::find_iter(body, &mark)
+            .filter(|&at| (at == 0 || body[at - 1] == b'\n') && ends_there(at));
         // The form of the body that is chosen among the parts of an alternative, and how
         // many words it has.
         let (mut next, mut form) = (marks.next(), (String::new(), 0));
@@ -131,9 +163,13 @@ fn part(head: &Head, body: &[u8], depth: usize, room: usize, found: &mut Found) 
             if after.starts_with(b"--") || depth >= MAX_DEPTH {
                 break;
             }
-            let start = at + mark.len() + memchr(b'\n', after).map_or(after.len(), |line_end| line_end + 1);
+            let start =
+                at + mark.len() + memchr(b'\n', after).map_or(after.len(), |line_end| line_end + 1);
             next = marks.next();
-            let (head, body) = split(body.get(start..next.unwrap_or(body.len())).unwrap_or_default());
+            let (head, body) = split(
+                body.get(start..next.unwrap_or(body.len()))
+                    .unwrap_or_default(),
+            );
             let mut one = Found::default();
             part(&headers(&head), body, depth + 1, room, &mut one);
             // The parts of an alternative are one body in several forms, and a mail program
@@ -153,15 +189,33 @@ fn part(head: &Head, body: &[u8], depth: usize, room: usize, found: &mut Found) 
     }
     if matches!(kind, "message/rfc822" | "message/global") {
         if depth < MAX_DEPTH {
-            add(&mut found.inside, &message(&decoded(&head.encoding, body), depth + 1, room), room);
+            add(
+                &mut found.inside,
+                &message(&decoded(&head.encoding, body), depth + 1, room),
+                room,
+            );
         }
-    } else if !head.attached && !DATA.contains(&kind) && (kind.is_empty() || ["text/", "message/", "multipart/"].iter().any(|text| kind.starts_with(text))) {
+    } else if !head.attached
+        && !DATA.contains(&kind)
+        && (kind.is_empty()
+            || ["text/", "message/", "multipart/"]
+                .iter()
+                .any(|text| kind.starts_with(text)))
+    {
         // Text of any kind is read, a patch or Markdown as it is. The report of a mail that
         // came back is text too, and so is a body that says it has parts and names no
         // boundary between them.
         let bytes = decoded(&head.encoding, body);
         let text = characters(&bytes[..bytes.len().min(MAX_TEXT)], head.charset.as_deref());
-        add(&mut found.body, &if kind == "text/html" { plain(&text) } else { text }, room);
+        add(
+            &mut found.body,
+            &if kind == "text/html" {
+                plain(&text)
+            } else {
+                text
+            },
+            room,
+        );
     }
     // A text that was sent along as a file is part of the body to many mail programs, and
     // has a name all the same.
@@ -185,10 +239,21 @@ fn split(raw: &[u8]) -> (Vec<u8>, &[u8]) {
         // A line that begins with blank space is the rest of the header before it.
         if !line.starts_with(b" ") && !line.starts_with(b"\t") {
             let name = memchr(b':', line).map(|colon| line[..colon].trim_ascii_end());
-            let Some(name) = name.filter(|n| !n.is_empty() && n.iter().all(u8::is_ascii_graphic)) else { break };
-            let wanted = WANTED.iter().position(|w| w.as_bytes().eq_ignore_ascii_case(name));
+            let Some(name) = name.filter(|n| !n.is_empty() && n.iter().all(u8::is_ascii_graphic))
+            else {
+                break;
+            };
+            let wanted = WANTED
+                .iter()
+                .position(|w| w.as_bytes().eq_ignore_ascii_case(name));
             let first = wanted.filter(|w| !std::mem::replace(&mut seen[*w], true));
-            room = first.map_or(0, |w| if WANTED[w].starts_with("content-") { FIELD / 4 } else { FIELD });
+            room = first.map_or(0, |w| {
+                if WANTED[w].starts_with("content-") {
+                    FIELD / 4
+                } else {
+                    FIELD
+                }
+            });
         }
         let cut = &line[..line.len().min(room)];
         kept.extend_from_slice(cut);
@@ -228,12 +293,16 @@ fn headers(kept: &[u8]) -> Head {
     if std::str::from_utf8(&kept).is_ok() {
         return head;
     }
-    let lines = kept.split_inclusive(|b| *b == b'\n').map(|line| characters(line, head.charset.as_deref()));
+    let lines = kept
+        .split_inclusive(|b| *b == b'\n')
+        .map(|line| characters(line, head.charset.as_deref()));
     parsed(&lines.collect::<String>())
 }
 
 fn parsed(head: &str) -> Head {
-    let Some(mail) = MessageParser::default().parse_headers(head.as_bytes()) else { return Head::default() };
+    let Some(mail) = MessageParser::default().parse_headers(head.as_bytes()) else {
+        return Head::default();
+    };
     let one = |a: &Addr| match (a.name(), a.address()) {
         (Some(name), Some(address)) => format!("{name} <{address}>"),
         (name, address) => name.or(address).unwrap_or_default().to_string(),
@@ -242,21 +311,53 @@ fn parsed(head: &str) -> Head {
     // A group of addresses has a name, and it is often all that is said of who a mail went to.
     let who = |address: Option<&Address>| match address {
         Some(Address::List(list)) => all(list),
-        Some(Address::Group(groups)) => {
-            groups.iter().map(|g| format!("{}: {}", g.name.as_deref().unwrap_or_default(), all(&g.addresses))).collect::<Vec<_>>().join("; ")
-        }
+        Some(Address::Group(groups)) => groups
+            .iter()
+            .map(|g| {
+                format!(
+                    "{}: {}",
+                    g.name.as_deref().unwrap_or_default(),
+                    all(&g.addresses)
+                )
+            })
+            .collect::<Vec<_>>()
+            .join("; "),
         None => String::new(),
     };
-    let date = mail.date().filter(|d| d.is_valid()).map(|d| d.to_rfc822()).unwrap_or_default();
-    let lines = [mail.subject().unwrap_or_default().to_string(), who(mail.from()), who(mail.to()), who(mail.cc()), date];
+    let date = mail
+        .date()
+        .filter(|d| d.is_valid())
+        .map(|d| d.to_rfc822())
+        .unwrap_or_default();
+    let lines = [
+        mail.subject().unwrap_or_default().to_string(),
+        who(mail.from()),
+        who(mail.to()),
+        who(mail.cc()),
+        date,
+    ];
     let kind = mail.content_type();
     Head {
-        lines: lines.into_iter().filter(|l| !l.is_empty()).collect::<Vec<_>>().join("\n"),
-        kind: kind.map(|k| format!("{}/{}", k.ctype(), k.subtype().unwrap_or_default()).to_ascii_lowercase()).unwrap_or_default(),
+        lines: lines
+            .into_iter()
+            .filter(|l| !l.is_empty())
+            .collect::<Vec<_>>()
+            .join("\n"),
+        kind: kind
+            .map(|k| {
+                format!("{}/{}", k.ctype(), k.subtype().unwrap_or_default()).to_ascii_lowercase()
+            })
+            .unwrap_or_default(),
         boundary: kind.and_then(|k| k.attribute("boundary")).map(String::from),
         charset: kind.and_then(|k| k.attribute("charset")).map(String::from),
-        encoding: mail.content_transfer_encoding().unwrap_or_default().trim().to_ascii_lowercase(),
-        attached: mail.content_disposition().is_some_and(|d| d.is_attachment()),
+        encoding: mail
+            .content_transfer_encoding()
+            .unwrap_or_default()
+            .trim()
+            .to_ascii_lowercase(),
+        attached: mail
+            .content_disposition()
+            .is_some_and(|d| d.is_attachment()),
         name: mail.attachment_name().map(String::from),
     }
 }
@@ -272,7 +373,8 @@ fn parsed(head: &str) -> Head {
 /// such beginnings takes minutes.
 fn words(head: &[u8]) -> Cow<'_, [u8]> {
     static SEAM: LazyLock<Regex> = LazyLock::new(|| pattern(r"(?-u)\?=\s+(=\?[^?\s]+\?[bqBQ]\?)"));
-    static WORD: LazyLock<Regex> = LazyLock::new(|| pattern(r"(?-u)(=\?[^?\s]+\?[bqBQ]\?[^?]*\?=)|=\?"));
+    static WORD: LazyLock<Regex> =
+        LazyLock::new(|| pattern(r"(?-u)(=\?[^?\s]+\?[bqBQ]\?[^?]*\?=)|=\?"));
     if memmem::find(head, b"=?").is_none() {
         return Cow::Borrowed(head);
     }
@@ -283,11 +385,18 @@ fn words(head: &[u8]) -> Cow<'_, [u8]> {
         let (before, kind) = (&head[..seam.get(0).map_or(0, |s| s.start())], &seam[1]);
         let near = &before[before.len().saturating_sub(128)..];
         let word = memmem::rfind(near, b"=?").map_or(&[][..], |at| &near[at..]);
-        let text = word.get(kind.len()..).filter(|_| word[..kind.len()].eq_ignore_ascii_case(kind));
-        let joins = text.is_some_and(|t| !t.ends_with(b"=") && !t.iter().any(|b| b"? \t\r\n".contains(b)));
+        let text = word
+            .get(kind.len()..)
+            .filter(|_| word[..kind.len()].eq_ignore_ascii_case(kind));
+        let joins =
+            text.is_some_and(|t| !t.ends_with(b"=") && !t.iter().any(|b| b"? \t\r\n".contains(b)));
         if joins { vec![] } else { seam[0].to_vec() }
     });
-    WORD.replace_all(&joined, |word: &Captures| word.get(1).map_or(&b"= ?"[..], |w| w.as_bytes()).to_vec()).into_owned().into()
+    WORD.replace_all(&joined, |word: &Captures| {
+        word.get(1).map_or(&b"= ?"[..], |w| w.as_bytes()).to_vec()
+    })
+    .into_owned()
+    .into()
 }
 
 /// A body as it was before it was sent as base64 or quoted-printable, and of a body that
@@ -296,7 +405,11 @@ fn decoded<'a>(encoding: &str, body: &'a [u8]) -> Cow<'a, [u8]> {
     let sent = &body[..body.len().min(2 * MAX_TEXT)];
     if encoding.starts_with("base64") {
         let (end, bytes) = MessageStream::new(sent).decode_base64_mime(b"");
-        if end == usize::MAX { Cow::Borrowed(&[]) } else { bytes }
+        if end == usize::MAX {
+            Cow::Borrowed(&[])
+        } else {
+            bytes
+        }
     } else if encoding.starts_with("quoted-printable") {
         quoted_printable(sent).into()
     } else {
@@ -314,7 +427,9 @@ fn quoted_printable(body: &[u8]) -> Vec<u8> {
         out.extend_from_slice(&rest[..at]);
         (rest, after_one) = (&rest[at + 1..], after_one && at == 0);
         match rest {
-            [a, b, ..] if digit(a).is_some() && digit(b).is_some() => out.push((digit(a).unwrap_or(0) * 16 + digit(b).unwrap_or(0)) as u8),
+            [a, b, ..] if digit(a).is_some() && digit(b).is_some() => {
+                out.push((digit(a).unwrap_or(0) * 16 + digit(b).unwrap_or(0)) as u8)
+            }
             [b'\n', ..] | [b'\r', b'\n', ..] if !after_one => {}
             _ => {
                 out.push(b'=');
@@ -339,18 +454,34 @@ fn quoted_printable(body: &[u8]) -> Vec<u8> {
 fn characters(bytes: &[u8], charset: Option<&str>) -> String {
     // UTF-7 ends a run of base64 at any character that is none, and "-" is only the one
     // that is dropped; `mail-parser` drops them all, and with them the space between words.
-    static RUN: LazyLock<Regex> = LazyLock::new(|| pattern(r"(?-u)(\+[A-Za-z0-9+/]+)([^A-Za-z0-9+/-]|\z)"));
-    let said = |names: &[&str]| charset.is_some_and(|c| names.iter().any(|name| c.to_ascii_lowercase().contains(name)));
+    static RUN: LazyLock<Regex> =
+        LazyLock::new(|| pattern(r"(?-u)(\+[A-Za-z0-9+/]+)([^A-Za-z0-9+/-]|\z)"));
+    let said = |names: &[&str]| {
+        charset.is_some_and(|c| {
+            names
+                .iter()
+                .any(|name| c.to_ascii_lowercase().contains(name))
+        })
+    };
     let named = charset.and_then(|c| charset_decoder(c.as_bytes()));
     // UTF-16 and UTF-7 are not ASCII with more characters added, and have no lines of bytes.
     if let (Some(decode), true) = (named, said(&["16", "ucs", "unicode", "utf-7", "utf7"])) {
-        return decode(&if said(&["7"]) { RUN.replace_all(bytes, &b"$1-$2"[..]) } else { Cow::Borrowed(bytes) });
+        return decode(&if said(&["7"]) {
+            RUN.replace_all(bytes, &b"$1-$2"[..])
+        } else {
+            Cow::Borrowed(bytes)
+        });
     }
-    let lines = bytes.split_inclusive(|b| *b == b'\n').map(|line| match (std::str::from_utf8(line), named.or_else(|| charset_decoder(b"windows-1252"))) {
-        (Ok(text), _) => text.to_string(),
-        // Cut in the middle of its last character, it is UTF-8 all the same.
-        (Err(e), Some(decode)) if !said(&["utf"]) && e.error_len().is_some() => decode(line),
-        _ => String::from_utf8_lossy(line).into_owned(),
+    let lines = bytes.split_inclusive(|b| *b == b'\n').map(|line| {
+        match (
+            std::str::from_utf8(line),
+            named.or_else(|| charset_decoder(b"windows-1252")),
+        ) {
+            (Ok(text), _) => text.to_string(),
+            // Cut in the middle of its last character, it is UTF-8 all the same.
+            (Err(e), Some(decode)) if !said(&["utf"]) && e.error_len().is_some() => decode(line),
+            _ => String::from_utf8_lossy(line).into_owned(),
+        }
     });
     lines.collect()
 }
@@ -361,24 +492,35 @@ fn characters(bytes: &[u8], charset: Option<&str>) -> String {
 /// begins a tag only before a letter, and ">" inside the quotes of an attribute ends none.
 fn plain(html: &str) -> String {
     const INLINE: [&str; 32] = [
-        "a", "abbr", "acronym", "b", "bdi", "bdo", "big", "cite", "code", "del", "dfn", "em", "font", "i", "ins", "kbd", "mark", "nobr", "q", "s", "samp",
-        "small", "span", "strike", "strong", "sub", "sup", "time", "tt", "u", "var", "wbr",
+        "a", "abbr", "acronym", "b", "bdi", "bdo", "big", "cite", "code", "del", "dfn", "em",
+        "font", "i", "ins", "kbd", "mark", "nobr", "q", "s", "samp", "small", "span", "strike",
+        "strong", "sub", "sup", "time", "tt", "u", "var", "wbr",
     ];
     const HIDDEN: [&str; 4] = ["script", "style", "template", "title"];
     static MARKUP: LazyLock<Regex> = LazyLock::new(|| {
         // What opens also ends, at the end of the text when nowhere else. That a comment is
         // left open is then not found out by reading to the end, from every comment anew.
-        let hidden = HIDDEN.map(|tag| format!(r"<{tag}(?:\s[^>]*)?>.*?(?:</{tag}\s*>|\z)")).join("|");
+        let hidden = HIDDEN
+            .map(|tag| format!(r"<{tag}(?:\s[^>]*)?>.*?(?:</{tag}\s*>|\z)"))
+            .join("|");
         let tag = r#"</?[a-z](?:=\s*"[^"]*"|=\s*'[^']*'|[^>])*(?:>|\z)"#;
-        pattern(&format!(r"(?is-u)<!--+>|<!--.*?(?:-->|\z)|{hidden}|{tag}|<[!?/][^>]*(?:>|\z)|&#?[a-z0-9]{{1,32}};"))
+        pattern(&format!(
+            r"(?is-u)<!--+>|<!--.*?(?:-->|\z)|{hidden}|{tag}|<[!?/][^>]*(?:>|\z)|&#?[a-z0-9]{{1,32}};"
+        ))
     });
     let text = MARKUP.replace_all(html.as_bytes(), |found: &Captures| {
         let (found, mut text) = (&found[0], String::new());
-        let letters = found[1..].iter().skip_while(|b| **b == b'/').take_while(|b| b.is_ascii_alphanumeric());
+        let letters = found[1..]
+            .iter()
+            .skip_while(|b| **b == b'/')
+            .take_while(|b| b.is_ascii_alphanumeric());
         let name: String = letters.map(|b| b.to_ascii_lowercase() as char).collect();
         if found.starts_with(b"&") {
             add_html_token(&mut text, found, false);
-        } else if !name.is_empty() && !INLINE.contains(&name.as_str()) && !HIDDEN.contains(&name.as_str()) {
+        } else if !name.is_empty()
+            && !INLINE.contains(&name.as_str())
+            && !HIDDEN.contains(&name.as_str())
+        {
             text.push('\n');
         }
         text
@@ -391,10 +533,18 @@ fn plain(html: &str) -> String {
 /// word for the store, and the control characters, among them the zero byte and the two
 /// that the store marks its finds with.
 fn shown(text: &str) -> String {
-    static COLOUR: LazyLock<regex::Regex> = LazyLock::new(|| regex::Regex::new("\x1b\\[[0-9;]*[A-Za-z]").expect("valid"));
+    static COLOUR: LazyLock<regex::Regex> =
+        LazyLock::new(|| regex::Regex::new("\x1b\\[[0-9;]*[A-Za-z]").expect("valid"));
     let text = COLOUR.replace_all(text, "");
     let seen = text.chars().filter(|c| !matches!(c, '\u{ad}' | '\u{200b}'));
-    seen.map(|c| if c.is_control() && !matches!(c, '\n' | '\t') { ' ' } else { c }).collect()
+    seen.map(|c| {
+        if c.is_control() && !matches!(c, '\n' | '\t') {
+            ' '
+        } else {
+            c
+        }
+    })
+    .collect()
 }
 
 #[cfg(test)]
@@ -410,9 +560,15 @@ mod tests {
         static FOLDERS: AtomicUsize = AtomicUsize::new(0);
         let path = folder(&format!("mail-{}", FOLDERS.fetch_add(1, Ordering::Relaxed))).join(name);
         std::fs::write(&path, bytes).unwrap();
-        let text = super::text(&path, 32 << 20).map(|t| tidy(&t)).filter(|t| !t.is_empty());
+        let text = super::text(&path, 32 << 20)
+            .map(|t| tidy(&t))
+            .filter(|t| !t.is_empty());
         if bytes.len() < 10_000 {
-            assert_eq!(text_of(&path, bytes.len() as u64, 32 << 20), text, "the store finds this reader by the name of the file");
+            assert_eq!(
+                text_of(&path, bytes.len() as u64, 32 << 20),
+                text,
+                "the store finds this reader by the name of the file"
+            );
         }
         let _ = std::fs::remove_dir_all(path.parent().unwrap());
         text
@@ -431,9 +587,16 @@ mod tests {
         const LETTERS: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
         let mut out = String::new();
         for (i, three) in bytes.chunks(3).enumerate() {
-            let n = three.iter().enumerate().fold(0u32, |n, (at, b)| n | (*b as u32) << (16 - 8 * at));
+            let n = three
+                .iter()
+                .enumerate()
+                .fold(0u32, |n, (at, b)| n | (*b as u32) << (16 - 8 * at));
             for at in 0..4 {
-                out.push(if at <= three.len() { LETTERS[(n >> (18 - 6 * at)) as usize & 63] as char } else { '=' });
+                out.push(if at <= three.len() {
+                    LETTERS[(n >> (18 - 6 * at)) as usize & 63] as char
+                } else {
+                    '='
+                });
             }
             if i % 19 == 18 {
                 out.push_str("\r\n");
@@ -495,7 +658,11 @@ mod tests {
             valve.log\n\
             火箭.png";
         assert_eq!(read("flight.eml", mail.as_bytes()).as_deref(), Some(text));
-        assert_eq!(read("unix.EML", mail.replace("\r\n", "\n").as_bytes()).as_deref(), Some(text), "line ends of either kind");
+        assert_eq!(
+            read("unix.EML", mail.replace("\r\n", "\n").as_bytes()).as_deref(),
+            Some(text),
+            "line ends of either kind"
+        );
     }
 
     #[test]
@@ -503,16 +670,29 @@ mod tests {
         let mail = "From: ada@example.com\nSubject: Bench test\n\nThe valve opened late.\n\nFrom what we saw, it was the cold.\n";
         assert_eq!(
             read("old.eml", mail.as_bytes()).as_deref(),
-            Some("Bench test\nada@example.com\nThe valve opened late.\nFrom what we saw, it was the cold.")
+            Some(
+                "Bench test\nada@example.com\nThe valve opened late.\nFrom what we saw, it was the cold."
+            )
         );
-        assert_eq!(read("headers.eml", b"Subject: Only a subject").as_deref(), Some("Only a subject"));
         assert_eq!(
-            read("latin.eml", b"Subject: R\xf8dgr\xf8d\nFrom: S\xf8ren <soren@example.dk>\n\nBl\xe5b\xe6r\n").as_deref(),
+            read("headers.eml", b"Subject: Only a subject").as_deref(),
+            Some("Only a subject")
+        );
+        assert_eq!(
+            read(
+                "latin.eml",
+                b"Subject: R\xf8dgr\xf8d\nFrom: S\xf8ren <soren@example.dk>\n\nBl\xe5b\xe6r\n"
+            )
+            .as_deref(),
             Some("Rødgrød\nSøren <soren@example.dk>\nBlåbær"),
             "Latin-1 as it is"
         );
         let saved = format!("From ada@example.com Tue Sep 15 10:30:00 2026\n{mail}");
-        assert_eq!(read("saved.eml", saved.as_bytes()), read("old.eml", mail.as_bytes()), "a message saved with the line of a mailbox before it");
+        assert_eq!(
+            read("saved.eml", saved.as_bytes()),
+            read("old.eml", mail.as_bytes()),
+            "a message saved with the line of a mailbox before it"
+        );
     }
 
     #[test]
@@ -524,10 +704,17 @@ mod tests {
             --rel\nContent-Type: image/png\nContent-Disposition: inline; filename=logo.png\nContent-ID: <logo>\n\niVBORw0KGgo=\n\
             --rel--\n\
             --alt--\n";
-        assert_eq!(read("both.eml", both.as_bytes()).as_deref(), Some("Both\nThe marked up body.\nlogo.png"));
+        assert_eq!(
+            read("both.eml", both.as_bytes()).as_deref(),
+            Some("Both\nThe marked up body.\nlogo.png")
+        );
 
         let empty_html = both.replace("The <b>marked up</b> body.", "&nbsp;");
-        assert_eq!(read("empty.eml", empty_html.as_bytes()).as_deref(), Some("Both\nThe plain body.\nlogo.png"), "a part without words is no body");
+        assert_eq!(
+            read("empty.eml", empty_html.as_bytes()).as_deref(),
+            Some("Both\nThe plain body.\nlogo.png"),
+            "a part without words is no body"
+        );
 
         let forms = |plain: &str, html: &str| {
             let mail = format!(
@@ -538,14 +725,20 @@ mod tests {
             read("forms.eml", mail.as_bytes())
         };
         assert_eq!(
-            forms("Your mail program does not show HTML. Open this message in a browser.", "<h1>Engine test passed</h1><p>It ran for ninety seconds.</p>")
-                .as_deref(),
+            forms(
+                "Your mail program does not show HTML. Open this message in a browser.",
+                "<h1>Engine test passed</h1><p>It ran for ninety seconds.</p>"
+            )
+            .as_deref(),
             Some("News\nEngine test passed\nIt ran for ninety seconds."),
             "a plain part that only points at the HTML"
         );
         assert_eq!(
-            forms("The launch window opens on Tuesday at noon, and the fuel is on its way.", "<img src=\"cid:news\"><a href=\"x\">View in browser</a>")
-                .as_deref(),
+            forms(
+                "The launch window opens on Tuesday at noon, and the fuel is on its way.",
+                "<img src=\"cid:news\"><a href=\"x\">View in browser</a>"
+            )
+            .as_deref(),
             Some("News\nThe launch window opens on Tuesday at noon, and the fuel is on its way."),
             "HTML that is a picture of the words"
         );
@@ -565,42 +758,146 @@ mod tests {
     #[test]
     fn mail_in_other_character_sets_and_encodings_is_read() {
         let mail = |kind: &str, encoding: &str, body: &[u8]| {
-            [format!("Subject: Test\nContent-Type: {kind}\nContent-Transfer-Encoding: {encoding}\n\n").as_bytes(), body].concat()
+            [
+                format!(
+                    "Subject: Test\nContent-Type: {kind}\nContent-Transfer-Encoding: {encoding}\n\n"
+                )
+                .as_bytes(),
+                body,
+            ]
+            .concat()
         };
-        let body =
-            |kind: &str, encoding: &str, body: &[u8]| read("set.eml", &mail(kind, encoding, body)).map(|t| t.trim_start_matches("Test").trim().to_string());
+        let body = |kind: &str, encoding: &str, body: &[u8]| {
+            read("set.eml", &mail(kind, encoding, body))
+                .map(|t| t.trim_start_matches("Test").trim().to_string())
+        };
 
-        assert_eq!(body("text/plain; charset=iso-8859-1", "8bit", b"R\xf8dgr\xf8d p\xe5 \xe5en, caf\xe9").as_deref(), Some("Rødgrød på åen, café"));
         assert_eq!(
-            body("text/plain; charset=ISO-8859-1", "Quoted-Printable", b"R=F8dgr=F8d p=E5 =\n=E5en, caf=E9 og 2 + 2 =3D 4, se ?q=rocket").as_deref(),
+            body(
+                "text/plain; charset=iso-8859-1",
+                "8bit",
+                b"R\xf8dgr\xf8d p\xe5 \xe5en, caf\xe9"
+            )
+            .as_deref(),
+            Some("Rødgrød på åen, café")
+        );
+        assert_eq!(
+            body(
+                "text/plain; charset=ISO-8859-1",
+                "Quoted-Printable",
+                b"R=F8dgr=F8d p=E5 =\n=E5en, caf=E9 og 2 + 2 =3D 4, se ?q=rocket"
+            )
+            .as_deref(),
             Some("Rødgrød på åen, café og 2 + 2 = 4, se ?q=rocket")
         );
-        assert_eq!(body("text/plain; charset=windows-1252", "8bit", b"\x93p\xe5 \xe5en\x94 koster 5 \x80").as_deref(), Some("“på åen” koster 5 €"));
         assert_eq!(
-            body("text/plain; charset=utf-8", "BASE64", base64("Rødgrød, שלום and 火箭".as_bytes()).as_bytes()).as_deref(),
+            body(
+                "text/plain; charset=windows-1252",
+                "8bit",
+                b"\x93p\xe5 \xe5en\x94 koster 5 \x80"
+            )
+            .as_deref(),
+            Some("“på åen” koster 5 €")
+        );
+        assert_eq!(
+            body(
+                "text/plain; charset=utf-8",
+                "BASE64",
+                base64("Rødgrød, שלום and 火箭".as_bytes()).as_bytes()
+            )
+            .as_deref(),
             Some("Rødgrød, שלום and 火箭")
         );
-        assert_eq!(body("text/plain; charset=windows-1255", "8bit", b"\xf9\xec\xe5\xed rocket").as_deref(), Some("שלום rocket"));
-        assert_eq!(body("text/plain; charset=iso-8859-8", "8bit", b"\xf9\xec\xe5\xed rocket").as_deref(), Some("שלום rocket"));
         assert_eq!(
-            body("text/plain; charset=utf-16", "base64", base64(b"\xff\xfeR\x00\xf8\x00d\x00 \x00k\x70\xad\x7b").as_bytes()).as_deref(),
+            body(
+                "text/plain; charset=windows-1255",
+                "8bit",
+                b"\xf9\xec\xe5\xed rocket"
+            )
+            .as_deref(),
+            Some("שלום rocket")
+        );
+        assert_eq!(
+            body(
+                "text/plain; charset=iso-8859-8",
+                "8bit",
+                b"\xf9\xec\xe5\xed rocket"
+            )
+            .as_deref(),
+            Some("שלום rocket")
+        );
+        assert_eq!(
+            body(
+                "text/plain; charset=utf-16",
+                "base64",
+                base64(b"\xff\xfeR\x00\xf8\x00d\x00 \x00k\x70\xad\x7b").as_bytes()
+            )
+            .as_deref(),
             Some("Rød 火箭")
         );
-        assert_eq!(body("text/plain; charset=koi8-r", "8bit", b"\xf2\xc1\xcb\xc5\xd4\xc1").as_deref(), Some("Ракета"));
-        assert_eq!(body("text/html; charset=iso-8859-1", "quoted-printable", b"<p>Bl=E5b=E6r</p><p>gr&oslash;d</p>").as_deref(), Some("Blåbær\ngrød"));
-
-        assert_eq!(body("text/plain", "8bit", "Rødgrød 火箭".as_bytes()).as_deref(), Some("Rødgrød 火箭"), "UTF-8 that is not declared");
-        assert_eq!(body("text/plain", "8bit", b"R\xf8dgr\xf8d p\xe5 \xe5en").as_deref(), Some("Rødgrød på åen"), "Latin-1 that is not declared");
-        assert_eq!(body("text/plain; charset=made-up", "8bit", b"R\xf8dgr\xf8d").as_deref(), Some("Rødgrød"), "a character set nobody knows");
         assert_eq!(
-            body("text/plain; charset=UTF-8", "8bit", b"R\xc3\xb8dgr\xc3\xb8d \xff p\xc3\xa5").as_deref(),
+            body(
+                "text/plain; charset=koi8-r",
+                "8bit",
+                b"\xf2\xc1\xcb\xc5\xd4\xc1"
+            )
+            .as_deref(),
+            Some("Ракета")
+        );
+        assert_eq!(
+            body(
+                "text/html; charset=iso-8859-1",
+                "quoted-printable",
+                b"<p>Bl=E5b=E6r</p><p>gr&oslash;d</p>"
+            )
+            .as_deref(),
+            Some("Blåbær\ngrød")
+        );
+
+        assert_eq!(
+            body("text/plain", "8bit", "Rødgrød 火箭".as_bytes()).as_deref(),
+            Some("Rødgrød 火箭"),
+            "UTF-8 that is not declared"
+        );
+        assert_eq!(
+            body("text/plain", "8bit", b"R\xf8dgr\xf8d p\xe5 \xe5en").as_deref(),
+            Some("Rødgrød på åen"),
+            "Latin-1 that is not declared"
+        );
+        assert_eq!(
+            body("text/plain; charset=made-up", "8bit", b"R\xf8dgr\xf8d").as_deref(),
+            Some("Rødgrød"),
+            "a character set nobody knows"
+        );
+        assert_eq!(
+            body(
+                "text/plain; charset=UTF-8",
+                "8bit",
+                b"R\xc3\xb8dgr\xc3\xb8d \xff p\xc3\xa5"
+            )
+            .as_deref(),
             Some("Rødgrød \u{fffd} på"),
             "UTF-8 with a byte that is wrong stays UTF-8"
         );
-        assert_eq!(read("bare.eml", b"Subject: Gammel post\n\nR\xf8dgr\xf8d\n").as_deref(), Some("Gammel post\nRødgrød"));
-        assert_eq!(body("text/plain", "base64", b"not base64 at all, but words").as_deref(), Some(""), "base64 that breaks the rules is not read as text");
-        let chinese = body("text/plain; charset=gb2312", "8bit", b"\xbb\xf0\xbc\xfd launch").unwrap();
-        assert!(chinese.ends_with(" launch") && !chinese.contains("火箭"), "a character set of two bytes to the character is not read, the ASCII in it is");
+        assert_eq!(
+            read("bare.eml", b"Subject: Gammel post\n\nR\xf8dgr\xf8d\n").as_deref(),
+            Some("Gammel post\nRødgrød")
+        );
+        assert_eq!(
+            body("text/plain", "base64", b"not base64 at all, but words").as_deref(),
+            Some(""),
+            "base64 that breaks the rules is not read as text"
+        );
+        let chinese = body(
+            "text/plain; charset=gb2312",
+            "8bit",
+            b"\xbb\xf0\xbc\xfd launch",
+        )
+        .unwrap();
+        assert!(
+            chinese.ends_with(" launch") && !chinese.contains("火箭"),
+            "a character set of two bytes to the character is not read, the ASCII in it is"
+        );
     }
 
     #[test]
@@ -617,8 +914,18 @@ mod tests {
             )
         };
         let text = "Fwd: Valve logs\nada@example.com\nSee what Grace wrote.\nforwarded.eml\nlogs.zip\nValve logs\nGrace Hopper <grace@example.com>\nThe valve opened late.\nvalve.csv";
-        assert_eq!(read("forward.eml", outer("7bit", inner).as_bytes()).as_deref(), Some(text));
-        assert_eq!(read("forward64.eml", outer("base64", &base64(inner.as_bytes())).as_bytes()).as_deref(), Some(text));
+        assert_eq!(
+            read("forward.eml", outer("7bit", inner).as_bytes()).as_deref(),
+            Some(text)
+        );
+        assert_eq!(
+            read(
+                "forward64.eml",
+                outer("base64", &base64(inner.as_bytes())).as_bytes()
+            )
+            .as_deref(),
+            Some(text)
+        );
     }
 
     #[test]
@@ -637,11 +944,31 @@ mod tests {
             Anden i kassen: æøå\ngrace@example.com\nRødgrød i den anden.\nsecond.pdf\n\
             Third\nThe third and last, 火箭.";
         assert_eq!(read("box.mbox", mailbox.as_bytes()).as_deref(), Some(text));
-        assert_eq!(read("box.MBOX", mailbox.replace('\n', "\r\n").as_bytes()).as_deref(), Some(text), "as a mail program on Windows leaves it");
-        assert_eq!(read("one.mbox", b"Subject: No line before it\n\nStill a message.\n").as_deref(), Some("No line before it\nStill a message."));
+        assert_eq!(
+            read("box.MBOX", mailbox.replace('\n', "\r\n").as_bytes()).as_deref(),
+            Some(text),
+            "as a mail program on Windows leaves it"
+        );
+        assert_eq!(
+            read(
+                "one.mbox",
+                b"Subject: No line before it\n\nStill a message.\n"
+            )
+            .as_deref(),
+            Some("No line before it\nStill a message.")
+        );
 
-        let many = "From a@example.com Tue Sep 29 16:56:06 2026\nSubject: One of many\n\nWords.\n\n".repeat(super::MAX_MESSAGES + 10);
-        assert_eq!(read("many.mbox", many.as_bytes()).unwrap().matches("One of many").count(), super::MAX_MESSAGES, "no more messages than the limit");
+        let many =
+            "From a@example.com Tue Sep 29 16:56:06 2026\nSubject: One of many\n\nWords.\n\n"
+                .repeat(super::MAX_MESSAGES + 10);
+        assert_eq!(
+            read("many.mbox", many.as_bytes())
+                .unwrap()
+                .matches("One of many")
+                .count(),
+            super::MAX_MESSAGES,
+            "no more messages than the limit"
+        );
     }
 
     #[test]
@@ -649,8 +976,19 @@ mod tests {
         assert_eq!(read("empty.eml", b""), None);
         assert_eq!(read("empty.mbox", b""), None);
         assert_eq!(read("blank.eml", b"\n\n\n"), None);
-        assert_eq!(read("notes.eml", b"Just some notes, no headers.\n\nAnd a second paragraph: with a colon.\n"), None, "text that is not mail");
-        assert_eq!(read("lines.mbox", &b"From \n\n".repeat(200_000)), None, "a mailbox of nothing but its lines");
+        assert_eq!(
+            read(
+                "notes.eml",
+                b"Just some notes, no headers.\n\nAnd a second paragraph: with a colon.\n"
+            ),
+            None,
+            "text that is not mail"
+        );
+        assert_eq!(
+            read("lines.mbox", &b"From \n\n".repeat(200_000)),
+            None,
+            "a mailbox of nothing but its lines"
+        );
 
         let path = folder("mail-large").join("large.eml");
         std::fs::write(&path, b"Subject: Too large\n\nbody\n").unwrap();
@@ -665,13 +1003,22 @@ mod tests {
             Content-Type: multipart/mixed;\r\n boundary=\"x\"\r\n\r\n--x\r\nContent-Type: text/html; charset=iso-8859-1\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\n\
             <p>Bl=E5b=E6r &amp; gr&oslash;d</p>\r\n--x\r\nContent-Type: message/rfc822\r\nContent-Transfer-Encoding: base64\r\n\r\n{}\r\n--x\r\n\
             Content-Disposition: attachment; filename*=utf-8''r%C3%B8d.pdf\r\n\r\nJVBERi0=\r\n--x--\r\n",
-            base64(b"Subject: Inside\nContent-Type: text/plain; charset=utf-16\n\n\xff\xfeh\x00i\x00")
+            base64(
+                b"Subject: Inside\nContent-Type: text/plain; charset=utf-16\n\n\xff\xfeh\x00i\x00"
+            )
         );
-        assert!(read("whole.eml", whole.as_bytes()).unwrap().ends_with("Blåbær & grød\nrød.pdf\nInside\nhi"));
+        assert!(
+            read("whole.eml", whole.as_bytes())
+                .unwrap()
+                .ends_with("Blåbær & grød\nrød.pdf\nInside\nhi")
+        );
         for end in 0..whole.len() {
             let cut = read("cut.eml", &whole.as_bytes()[..end]);
             assert_eq!(cut, read("cut.mbox", &whole.as_bytes()[..end]));
-            assert!(cut.is_some() || end < whole.find("From: ").unwrap(), "there is text once the subject is whole: {end}");
+            assert!(
+                cut.is_some() || end < whole.find("From: ").unwrap(),
+                "there is text once the subject is whole: {end}"
+            );
         }
 
         // Bytes of no meaning, as they are and behind the headers of a message.
@@ -688,7 +1035,10 @@ mod tests {
         for round in 0..100 {
             let bytes = noise(round * 19);
             let _ = read("noise.eml", &bytes);
-            let _ = read("noise.mbox", &[b"From \n", &bytes[..], b"\n\nFrom \n", &bytes[..]].concat());
+            let _ = read(
+                "noise.mbox",
+                &[b"From \n", &bytes[..], b"\n\nFrom \n", &bytes[..]].concat(),
+            );
             for kind in [
                 "text/plain; charset=utf-16",
                 "text/html; charset=shift_jis",
@@ -709,18 +1059,47 @@ mod tests {
     #[test]
     fn mail_nested_without_end_is_followed_to_a_depth_and_no_further() {
         let levels = 100_000;
-        let messages = format!("Subject: outermost\n{}Subject: innermost\n\nwords\n", "Content-Type: message/rfc822\n\n".repeat(levels));
-        assert_eq!(read("messages.eml", messages.as_bytes()).as_deref(), Some("outermost"));
-
-        let hidden = format!("Subject: wrapper\nContent-Type: message/rfc822\nContent-Transfer-Encoding: base64\n\n{}", base64(messages.as_bytes()));
-        assert_eq!(read("hidden.eml", hidden.as_bytes()).as_deref(), Some("wrapper\noutermost"));
-
-        let parts: String = (0..levels).map(|i| format!("Content-Type: multipart/mixed; boundary=b{i}\n\n--b{i}\n")).collect();
-        assert_eq!(read("parts.eml", format!("Subject: parts\n{parts}Content-Type: text/plain\n\ninnermost\n").as_bytes()).as_deref(), Some("parts"));
-
-        let shallow: String = (0..super::MAX_DEPTH).map(|i| format!("Content-Type: multipart/mixed; boundary=b{i}\n\n--b{i}\n")).collect();
+        let messages = format!(
+            "Subject: outermost\n{}Subject: innermost\n\nwords\n",
+            "Content-Type: message/rfc822\n\n".repeat(levels)
+        );
         assert_eq!(
-            read("shallow.eml", format!("Subject: parts\n{shallow}Content-Type: text/plain\n\ninnermost\n").as_bytes()).as_deref(),
+            read("messages.eml", messages.as_bytes()).as_deref(),
+            Some("outermost")
+        );
+
+        let hidden = format!(
+            "Subject: wrapper\nContent-Type: message/rfc822\nContent-Transfer-Encoding: base64\n\n{}",
+            base64(messages.as_bytes())
+        );
+        assert_eq!(
+            read("hidden.eml", hidden.as_bytes()).as_deref(),
+            Some("wrapper\noutermost")
+        );
+
+        let parts: String = (0..levels)
+            .map(|i| format!("Content-Type: multipart/mixed; boundary=b{i}\n\n--b{i}\n"))
+            .collect();
+        assert_eq!(
+            read(
+                "parts.eml",
+                format!("Subject: parts\n{parts}Content-Type: text/plain\n\ninnermost\n")
+                    .as_bytes()
+            )
+            .as_deref(),
+            Some("parts")
+        );
+
+        let shallow: String = (0..super::MAX_DEPTH)
+            .map(|i| format!("Content-Type: multipart/mixed; boundary=b{i}\n\n--b{i}\n"))
+            .collect();
+        assert_eq!(
+            read(
+                "shallow.eml",
+                format!("Subject: parts\n{shallow}Content-Type: text/plain\n\ninnermost\n")
+                    .as_bytes()
+            )
+            .as_deref(),
             Some("parts\ninnermost")
         );
     }
@@ -730,14 +1109,35 @@ mod tests {
         let begun = std::time::Instant::now();
         // Encoded words that never end: `mail-parser` reads from each of them to the end of the header.
         let open = "=?ab?q?x ".repeat(44_444);
-        let text = read("subject.eml", format!("Subject: {open}\n\nbody\n").as_bytes()).unwrap();
-        assert!(text.starts_with("= ?ab?q?x = ?ab?q?x") && text.ends_with("\nbody"), "{}", &text[..40]);
-        let _ = read("names.eml", format!("To: {open}\nContent-Type: text/plain; name=\"{open}\"\n\nbody\n").as_bytes());
+        let text = read(
+            "subject.eml",
+            format!("Subject: {open}\n\nbody\n").as_bytes(),
+        )
+        .unwrap();
+        assert!(
+            text.starts_with("= ?ab?q?x = ?ab?q?x") && text.ends_with("\nbody"),
+            "{}",
+            &text[..40]
+        );
+        let _ = read(
+            "names.eml",
+            format!("To: {open}\nContent-Type: text/plain; name=\"{open}\"\n\nbody\n").as_bytes(),
+        );
         let first = "From a@example.com Tue Sep 29 16:56:06 2026\nSubject: one\n\nbody\n\n";
-        let second = format!("{first}From b@example.com Tue Sep 29 16:57:06 2026\nSubject: {open}\n\nbody\n");
-        assert!(read("second.mbox", second.as_bytes()).unwrap().starts_with("one\nbody\n= ?ab?q?x"));
+        let second = format!(
+            "{first}From b@example.com Tue Sep 29 16:57:06 2026\nSubject: {open}\n\nbody\n"
+        );
+        assert!(
+            read("second.mbox", second.as_bytes())
+                .unwrap()
+                .starts_with("one\nbody\n= ?ab?q?x")
+        );
         assert_eq!(
-            read("words.eml", "Subject: Is 2+2=? or =?utf-8?q?fl=C3=B8de?= (=?ab?q?x\n\nbody\n".as_bytes()).as_deref(),
+            read(
+                "words.eml",
+                "Subject: Is 2+2=? or =?utf-8?q?fl=C3=B8de?= (=?ab?q?x\n\nbody\n".as_bytes()
+            )
+            .as_deref(),
             Some("Is 2+2= ? or fløde (= ?ab?q?x\nbody"),
             "a word that ends is read beside those that do not"
         );
@@ -746,29 +1146,72 @@ mod tests {
         let pieces = "a*1=bbbbbb;".repeat(380_000);
         let names: String = (0..200_000).map(|i| format!("a{i}*1=x;")).collect();
         for parameters in [pieces, names] {
-            let part = format!("--b\nContent-Type: text/plain; {parameters}\nContent-Disposition: inline; {parameters}\n\nbody\n");
-            let mail = format!("Subject: s\nContent-Type: multipart/mixed; boundary=b\n\n{part}{part}--b--\n");
-            assert_eq!(read("parameters.eml", mail.as_bytes()).as_deref(), Some("s\nbody\nbody"));
+            let part = format!(
+                "--b\nContent-Type: text/plain; {parameters}\nContent-Disposition: inline; {parameters}\n\nbody\n"
+            );
+            let mail = format!(
+                "Subject: s\nContent-Type: multipart/mixed; boundary=b\n\n{part}{part}--b--\n"
+            );
+            assert_eq!(
+                read("parameters.eml", mail.as_bytes()).as_deref(),
+                Some("s\nbody\nbody")
+            );
         }
         // Quadratic reading takes many minutes; a debug build in a busy virtual machine, beside the
         // other tests, has taken 46 seconds (NetBSD).
-        assert!(begun.elapsed() < crate::test_limit(std::time::Duration::from_secs(5)), "took {:?}", begun.elapsed());
+        assert!(
+            begun.elapsed() < crate::test_limit(std::time::Duration::from_secs(5)),
+            "took {:?}",
+            begun.elapsed()
+        );
     }
 
     #[test]
     fn mail_gives_no_more_text_than_is_kept_and_of_a_header_no_more_than_mail_has() {
         // Each of these bytes is three in UTF-8.
-        let euro = [&b"Subject: s\nContent-Type: text/plain; charset=windows-1252\n\n"[..], &vec![0x80u8; 5 << 20]].concat();
+        let euro = [
+            &b"Subject: s\nContent-Type: text/plain; charset=windows-1252\n\n"[..],
+            &vec![0x80u8; 5 << 20],
+        ]
+        .concat();
         let text = untidied("euro.eml", &euro);
-        assert!(text.len() <= super::MAX_TEXT + 16 && text.contains("€€€"), "{} bytes", text.len());
+        assert!(
+            text.len() <= super::MAX_TEXT + 16 && text.contains("€€€"),
+            "{} bytes",
+            text.len()
+        );
 
         // Headers of a megabyte at every level: `mail-parser` takes ninety times their size in memory.
-        let levels: String = (0..15).map(|i| format!("Subject: s{i}\nTo: {}\nContent-Type: message/rfc822\n\n", "a@example.com, ".repeat(80_000))).collect();
-        let text = untidied("nested.eml", (levels + "Subject: last\n\nbody\n").as_bytes());
-        assert!(text.len() < 400_000 && text.contains("s14\na@example.com, a@example.com") && text.trim_end().ends_with("last\nbody"), "{} bytes", text.len());
+        let levels: String = (0..15)
+            .map(|i| {
+                format!(
+                    "Subject: s{i}\nTo: {}\nContent-Type: message/rfc822\n\n",
+                    "a@example.com, ".repeat(80_000)
+                )
+            })
+            .collect();
+        let text = untidied(
+            "nested.eml",
+            (levels + "Subject: last\n\nbody\n").as_bytes(),
+        );
+        assert!(
+            text.len() < 400_000
+                && text.contains("s14\na@example.com, a@example.com")
+                && text.trim_end().ends_with("last\nbody"),
+            "{} bytes",
+            text.len()
+        );
 
-        let first = format!("To: {}\nContent-Type: multipart/mixed; boundary=b\nSubject: s\n\n--b\n\nbody\n--b--\n", "a@example.com, ".repeat(80_000));
-        assert!(read("first.eml", first.as_bytes()).unwrap().ends_with("a@example.com\nbody"), "what follows a header that is cut is read");
+        let first = format!(
+            "To: {}\nContent-Type: multipart/mixed; boundary=b\nSubject: s\n\n--b\n\nbody\n--b--\n",
+            "a@example.com, ".repeat(80_000)
+        );
+        assert!(
+            read("first.eml", first.as_bytes())
+                .unwrap()
+                .ends_with("a@example.com\nbody"),
+            "what follows a header that is cut is read"
+        );
     }
 
     #[test]
@@ -795,7 +1238,12 @@ mod tests {
 
     #[test]
     fn mail_html_keeps_words_apart_that_a_tag_parts_and_whole_that_a_tag_is_in() {
-        let html = |body: &str| read("page.eml", format!("Subject: s\nContent-Type: text/html; charset=utf-8\n\n{body}").as_bytes());
+        let html = |body: &str| {
+            read(
+                "page.eml",
+                format!("Subject: s\nContent-Type: text/html; charset=utf-8\n\n{body}").as_bytes(),
+            )
+        };
         assert_eq!(
             html("<p><b>Important</b> notice</p><p><a href=\"x\">Click</a> here</p><div><br></div><div><i>Ada</i> Lovelace</div>").as_deref(),
             Some("s\nImportant notice\nClick here\nAda Lovelace")
@@ -809,7 +1257,12 @@ mod tests {
 
     #[test]
     fn mail_html_forgives_what_a_browser_forgives() {
-        let html = |body: &str| read("page.eml", format!("Subject: s\nContent-Type: text/html\n\n{body}").as_bytes());
+        let html = |body: &str| {
+            read(
+                "page.eml",
+                format!("Subject: s\nContent-Type: text/html\n\n{body}").as_bytes(),
+            )
+        };
         assert_eq!(
             html("<p>Before.</p><!----><p>Between.</p><!------ rule ------><p>After.</p><!--- header ---><p>Last.</p><!-->x<!--->y<!-- > -->z").as_deref(),
             Some("s\nBefore.\nBetween.\nAfter.\nLast.\nxyz"),
@@ -819,11 +1272,29 @@ mod tests {
             html("<html><head><title>Title words</title>\n<body>\n<p>Body words after a head left open.</p>\n</body></html>").as_deref(),
             Some("s\nBody words after a head left open.")
         );
-        assert_eq!(html("<p>Pressure was < 5 bar & rising, 3<4.</p>").as_deref(), Some("s\nPressure was < 5 bar & rising, 3<4."));
-        assert_eq!(html("<a href=\"x\" title=\"next > page\">Next</a> <a title='a > b'>page</a>").as_deref(), Some("s\nNext page"));
-        assert_eq!(html("<a title=x\">One</a> <a title='y>Two</a> three").as_deref(), Some("s\nOne Two three"), "quotes that are left open");
-        assert_eq!(html("<p>Words</p><a href=\"http://exam").as_deref(), Some("s\nWords"), "cut off inside a tag");
-        assert_eq!(html("<p>Words</p><!-- cut off <p>inside a comment</p>").as_deref(), Some("s\nWords"));
+        assert_eq!(
+            html("<p>Pressure was < 5 bar & rising, 3<4.</p>").as_deref(),
+            Some("s\nPressure was < 5 bar & rising, 3<4.")
+        );
+        assert_eq!(
+            html("<a href=\"x\" title=\"next > page\">Next</a> <a title='a > b'>page</a>")
+                .as_deref(),
+            Some("s\nNext page")
+        );
+        assert_eq!(
+            html("<a title=x\">One</a> <a title='y>Two</a> three").as_deref(),
+            Some("s\nOne Two three"),
+            "quotes that are left open"
+        );
+        assert_eq!(
+            html("<p>Words</p><a href=\"http://exam").as_deref(),
+            Some("s\nWords"),
+            "cut off inside a tag"
+        );
+        assert_eq!(
+            html("<p>Words</p><!-- cut off <p>inside a comment</p>").as_deref(),
+            Some("s\nWords")
+        );
     }
 
     #[test]
@@ -831,35 +1302,63 @@ mod tests {
         let mail = "Subject: s\nContent-Type: text/html\n\n<head profile=\"x\"><title lang=en>Hidden title</title></head>\
             <body><style type=\"text/css\">p { color: red }</style><script type=\"application/ld+json\">{\"reservationNumber\": \"RXJ34P\"}</script>\
             <p>Shipped.</p><STYLE>\n.a > .b { }\n</STYLE >Sent.<titles>Kept.</titles></body>";
-        assert_eq!(read("style.eml", mail.as_bytes()).as_deref(), Some("s\nShipped.\nSent.\nKept."));
+        assert_eq!(
+            read("style.eml", mail.as_bytes()).as_deref(),
+            Some("s\nShipped.\nSent.\nKept.")
+        );
     }
 
     #[test]
     fn mail_headers_end_at_a_line_that_is_blank_to_the_eye_or_is_no_header() {
         assert_eq!(
-            read("twice.eml", b"Subject: s\r\r\nFrom: a@example.com\r\r\n\r\r\nbody words\r\r\n").as_deref(),
+            read(
+                "twice.eml",
+                b"Subject: s\r\r\nFrom: a@example.com\r\r\n\r\r\nbody words\r\r\n"
+            )
+            .as_deref(),
             Some("s\na@example.com\nbody words"),
             "line ends that were translated twice"
         );
         assert_eq!(
-            read("space.eml", b"Subject: s\nFrom: a@example.com\n \t\nThe body after a line of blanks.\n").as_deref(),
+            read(
+                "space.eml",
+                b"Subject: s\nFrom: a@example.com\n \t\nThe body after a line of blanks.\n"
+            )
+            .as_deref(),
             Some("s\na@example.com\nThe body after a line of blanks.")
         );
         assert_eq!(
             read("none.eml", b"Subject: s\nFrom: a@example.com\nThe body with no blank line before it.\nNote: still the body.\n").as_deref(),
             Some("s\na@example.com\nThe body with no blank line before it.\nNote: still the body.")
         );
-        assert_eq!(read("blank.eml", b"\n\r\nSubject: s\n\nbody\n").as_deref(), Some("s\nbody"), "blank lines before the headers");
-        assert_eq!(read("blank.mbox", b"\nFrom a@example.com Tue Sep 29 16:56:06 2026\nSubject: s\n\nbody\n").as_deref(), Some("s\nbody"));
+        assert_eq!(
+            read("blank.eml", b"\n\r\nSubject: s\n\nbody\n").as_deref(),
+            Some("s\nbody"),
+            "blank lines before the headers"
+        );
+        assert_eq!(
+            read(
+                "blank.mbox",
+                b"\nFrom a@example.com Tue Sep 29 16:56:06 2026\nSubject: s\n\nbody\n"
+            )
+            .as_deref(),
+            Some("s\nbody")
+        );
         let parts = "Subject: s\nContent-Type: multipart/mixed; boundary=b\n\n--b\n\nNote: a part without headers begins with a blank line.\n--b--\n";
-        assert_eq!(read("parts.eml", parts.as_bytes()).as_deref(), Some("s\nNote: a part without headers begins with a blank line."));
+        assert_eq!(
+            read("parts.eml", parts.as_bytes()).as_deref(),
+            Some("s\nNote: a part without headers begins with a blank line.")
+        );
     }
 
     #[test]
     fn mail_in_quoted_printable_that_breaks_the_rules_is_decoded_where_it_keeps_them() {
         let mail = b"Subject: s\nContent-Type: text/plain; charset=iso-8859-1\nContent-Transfer-Encoding: Quoted-Printable (as it was)\n\n\
             Title\n=====\nR=F8dgr=F8d, a=b, 100=\n% and =\r\nmore =";
-        assert_eq!(read("equals.eml", mail).as_deref(), Some("s\nTitle\n=====\nRødgrød, a=b, 100% and more ="));
+        assert_eq!(
+            read("equals.eml", mail).as_deref(),
+            Some("s\nTitle\n=====\nRødgrød, a=b, 100% and more =")
+        );
     }
 
     #[test]
@@ -868,7 +1367,10 @@ mod tests {
             --n\nContent-Type: text/html\n\n<p>before&#0;after &#1;not found&#2; bud&shy;get</p>\n\
             --n\n\nbuild \x1b[1;31mfailed\x1b[0m to\0link\n\
             --n\nContent-Disposition: attachment; filename=\"a\0b.txt\"\n\nx\n--n--\n";
-        assert_eq!(read("zero.eml", mail.as_bytes()).as_deref(), Some("Zero\nbefore after not found budget\nbuild failed to link\na b.txt"));
+        assert_eq!(
+            read("zero.eml", mail.as_bytes()).as_deref(),
+            Some("Zero\nbefore after not found budget\nbuild failed to link\na b.txt")
+        );
     }
 
     #[test]
@@ -887,7 +1389,10 @@ mod tests {
             From 10:30 the pump runs.\n";
         let text = "[PATCH 1/2] Valve\nada@example.com\nThe valve opened late.\nFrom now on it opens earlier, says the turbopump.\n---\nvalve.txt | 1 +\n\
             [PATCH 2/2] Pump\nada@example.com\nFrom 10:30 the pump runs.";
-        assert_eq!(read("patches.mbox", patches.as_bytes()).as_deref(), Some(text));
+        assert_eq!(
+            read("patches.mbox", patches.as_bytes()).as_deref(),
+            Some(text)
+        );
 
         let joined = "From a@example.com Tue Sep 29 16:56:06 2026\nSubject: One\n\nFirst body.\n\
             From b@example.com Tue Sep 29 16:57:06 +0200 2026\r\nSubject: =?utf-8?b?csO4ZGdyw7hk?=\n\nSecond body.\n\
@@ -901,22 +1406,61 @@ mod tests {
 
     #[test]
     fn mailbox_gives_each_message_a_share_of_the_text() {
-        let large = format!("From a@example.com Tue Sep 29 16:56:06 2026\nSubject: Large\n\n{}\n", "a picture as letters\n".repeat(400_000));
-        let mailbox = format!("{large}From b@example.com Tue Sep 29 16:57:06 2026\nSubject: After it\n\nThe words of the message after the large one.\n");
+        let large = format!(
+            "From a@example.com Tue Sep 29 16:56:06 2026\nSubject: Large\n\n{}\n",
+            "a picture as letters\n".repeat(400_000)
+        );
+        let mailbox = format!(
+            "{large}From b@example.com Tue Sep 29 16:57:06 2026\nSubject: After it\n\nThe words of the message after the large one.\n"
+        );
         let text = read("large.mbox", mailbox.as_bytes()).unwrap();
-        assert!(text.starts_with("Large\na picture as letters\n") && text.ends_with("\nAfter it\nThe words of the message after the large one."));
+        assert!(
+            text.starts_with("Large\na picture as letters\n")
+                && text.ends_with("\nAfter it\nThe words of the message after the large one.")
+        );
         assert!(text.len() < super::MAX_TEXT / 8, "{} bytes", text.len());
-        assert!(read("large.eml", large.as_bytes()).unwrap().len() > super::MAX_TEXT - 100, "a message in a file of its own has all the room");
+        assert!(
+            read("large.eml", large.as_bytes()).unwrap().len() > super::MAX_TEXT - 100,
+            "a message in a file of its own has all the room"
+        );
     }
 
     #[test]
     fn mail_that_is_utf8_is_read_as_utf8_whatever_it_says() {
-        let mail = |kind: &str, body: &[u8]| [format!("Subject: s\nContent-Type: {kind}\nContent-Transfer-Encoding: 8bit\n\n").as_bytes(), body].concat();
-        let cron = mail("text/plain; charset=ANSI_X3.4-1968", "Rødgrød på åen\n".as_bytes());
-        assert_eq!(read("cron.eml", &cron).as_deref(), Some("s\nRødgrød på åen"), "as mail from cron says");
-        assert_eq!(read("latin.eml", &mail("text/plain; charset=iso-8859-1", "Blåbær 火箭\n".as_bytes())).as_deref(), Some("s\nBlåbær 火箭"));
+        let mail = |kind: &str, body: &[u8]| {
+            [
+                format!("Subject: s\nContent-Type: {kind}\nContent-Transfer-Encoding: 8bit\n\n")
+                    .as_bytes(),
+                body,
+            ]
+            .concat()
+        };
+        let cron = mail(
+            "text/plain; charset=ANSI_X3.4-1968",
+            "Rødgrød på åen\n".as_bytes(),
+        );
         assert_eq!(
-            read("mixed.eml", &mail("text/plain", b"R\xc3\xb8dgr\xc3\xb8d p\xc3\xa5 \xc3\xa5en\n> caf\xe9 cr\xe8me\n")).as_deref(),
+            read("cron.eml", &cron).as_deref(),
+            Some("s\nRødgrød på åen"),
+            "as mail from cron says"
+        );
+        assert_eq!(
+            read(
+                "latin.eml",
+                &mail("text/plain; charset=iso-8859-1", "Blåbær 火箭\n".as_bytes())
+            )
+            .as_deref(),
+            Some("s\nBlåbær 火箭")
+        );
+        assert_eq!(
+            read(
+                "mixed.eml",
+                &mail(
+                    "text/plain",
+                    b"R\xc3\xb8dgr\xc3\xb8d p\xc3\xa5 \xc3\xa5en\n> caf\xe9 cr\xe8me\n"
+                )
+            )
+            .as_deref(),
             Some("s\nRødgrød på åen\n> café crème"),
             "one line that is not UTF-8 is that line alone"
         );
@@ -927,20 +1471,34 @@ mod tests {
         let hebrew = b"Subject: \xf9\xec\xe5\xed\nContent-Type: text/plain; charset=windows-1255\n\n\xf9\xec\xe5\xed\n";
         assert_eq!(read("hebrew.eml", hebrew).as_deref(), Some("שלום\nשלום"));
         let mixed = b"Subject: R\xc3\xb8dgr\xc3\xb8d\nFrom: S\xf8ren <s@example.dk>\n\nbody\n";
-        assert_eq!(read("mixed.eml", mixed).as_deref(), Some("Rødgrød\nSøren <s@example.dk>\nbody"), "each header by itself");
+        assert_eq!(
+            read("mixed.eml", mixed).as_deref(),
+            Some("Rødgrød\nSøren <s@example.dk>\nbody"),
+            "each header by itself"
+        );
     }
 
     #[test]
     fn mail_in_utf7_keeps_the_character_that_ends_a_run() {
         let mail = "Subject: s\nContent-Type: text/plain; charset=utf-7\n\np+AOU +AOU-en og r+APg-dgr+APg-d+AOU";
-        assert_eq!(read("utf7.eml", mail.as_bytes()).as_deref(), Some("s\npå åen og rødgrødå"));
+        assert_eq!(
+            read("utf7.eml", mail.as_bytes()).as_deref(),
+            Some("s\npå åen og rødgrødå")
+        );
     }
 
     #[test]
     fn mail_subject_cut_in_the_middle_of_a_character_is_whole() {
         let base64 = "Subject: =?utf-8?B?QnLD?=\n =?utf-8?B?pm5kc3RvZg==?=\n\nbody\n";
-        assert_eq!(read("cut.eml", base64.as_bytes()).as_deref(), Some("Brændstof\nbody"));
+        assert_eq!(
+            read("cut.eml", base64.as_bytes()).as_deref(),
+            Some("Brændstof\nbody")
+        );
         let quoted = "Subject: =?UTF-8?Q?Br=C3?= =?utf-8?q?=A6ndstof?= =?iso-8859-1?q?_p=E5_?= =?utf-8?b?w6U=?= =?utf-8?b?ZW4=?=\n\nbody\n";
-        assert_eq!(read("cut.eml", quoted.as_bytes()).as_deref(), Some("Brændstof på åen\nbody"), "words of other kinds stay words of their own");
+        assert_eq!(
+            read("cut.eml", quoted.as_bytes()).as_deref(),
+            Some("Brændstof på åen\nbody"),
+            "words of other kinds stay words of their own"
+        );
     }
 }

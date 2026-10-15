@@ -19,7 +19,8 @@ const LABEL: &str = "dk.mwo.coxswain.index";
 /// Started by the desktop session from an XDG autostart entry, which nothing restarts: the
 /// BSDs, which have no per-user service manager, and a Flatpak, which cannot reach systemd.
 fn autostart() -> bool {
-    cfg!(not(any(windows, target_os = "linux", target_os = "macos"))) || crate::tools::flatpak().is_some()
+    cfg!(not(any(windows, target_os = "linux", target_os = "macos")))
+        || crate::tools::flatpak().is_some()
 }
 
 /// Whether a service manager (systemd, launchd) starts the registered helper, so an app asks it
@@ -34,7 +35,11 @@ fn run(c: &mut Command) -> io::Result<()> {
     if out.status.success() {
         Ok(())
     } else {
-        Err(io::Error::other(format!("{:?}: {}", c.get_program(), String::from_utf8_lossy(&out.stderr).trim())))
+        Err(io::Error::other(format!(
+            "{:?}: {}",
+            c.get_program(),
+            String::from_utf8_lossy(&out.stderr).trim()
+        )))
     }
 }
 
@@ -84,11 +89,23 @@ fn file() -> Option<PathBuf> {
         None
     } else if crate::tools::flatpak().is_some() {
         // The host's own autostart folder: the Flatpak's config folder is not the session's.
-        Some(std::env::home_dir()?.join(".config/autostart").join(format!("{NAME}.desktop")))
+        Some(
+            std::env::home_dir()?
+                .join(".config/autostart")
+                .join(format!("{NAME}.desktop")),
+        )
     } else if autostart() {
-        Some(dirs::config_dir()?.join("autostart").join(format!("{NAME}.desktop")))
+        Some(
+            dirs::config_dir()?
+                .join("autostart")
+                .join(format!("{NAME}.desktop")),
+        )
     } else {
-        Some(dirs::config_dir()?.join("systemd/user").join(format!("{NAME}.service")))
+        Some(
+            dirs::config_dir()?
+                .join("systemd/user")
+                .join(format!("{NAME}.service")),
+        )
     }
 }
 
@@ -144,7 +161,10 @@ fn unit(exe: &Path, flatpak: Option<&str>) -> String {
 /// Whether the helper is registered.
 pub fn installed() -> bool {
     if cfg!(windows) {
-        crate::tools::command("reg").args(["query", RUN_KEY, "/v", NAME]).output().is_ok_and(|o| o.status.success())
+        crate::tools::command("reg")
+            .args(["query", RUN_KEY, "/v", NAME])
+            .output()
+            .is_ok_and(|o| o.status.success())
     } else {
         file().is_some_and(|f| f.exists())
     }
@@ -153,7 +173,14 @@ pub fn installed() -> bool {
 /// The program the registration starts, as written in it.
 fn registered() -> Option<PathBuf> {
     let text = if cfg!(windows) {
-        String::from_utf8(crate::tools::command("reg").args(["query", RUN_KEY, "/v", NAME]).output().ok()?.stdout).ok()?
+        String::from_utf8(
+            crate::tools::command("reg")
+                .args(["query", RUN_KEY, "/v", NAME])
+                .output()
+                .ok()?
+                .stdout,
+        )
+        .ok()?
     } else {
         std::fs::read_to_string(file()?).ok()?
     };
@@ -199,15 +226,24 @@ pub fn starts(exe: &Path) -> bool {
     if crate::tools::flatpak().is_some() {
         return installed();
     }
-    registered().is_some_and(|r| r == exe || std::fs::canonicalize(&r).ok().is_some_and(|r| Some(r) == std::fs::canonicalize(exe).ok()))
+    registered().is_some_and(|r| {
+        r == exe
+            || std::fs::canonicalize(&r)
+                .ok()
+                .is_some_and(|r| Some(r) == std::fs::canonicalize(exe).ok())
+    })
 }
 
 /// Write again a registration an older version wrote, for the program it names: before 2.1.2
 /// the LaunchAgent ran the helper as a background job, which macOS throttles until the backlog
 /// barely moves, and systemd and launchd started again a helper that had left on purpose.
 pub fn refresh() {
-    let Some(text) = file().and_then(|f| std::fs::read_to_string(f).ok()) else { return };
-    if let Some(exe) = exe_in(&text).filter(|e| e.exists() && text != unit(e, crate::tools::flatpak())) {
+    let Some(text) = file().and_then(|f| std::fs::read_to_string(f).ok()) else {
+        return;
+    };
+    if let Some(exe) =
+        exe_in(&text).filter(|e| e.exists() && text != unit(e, crate::tools::flatpak()))
+    {
         let _ = install(&exe);
     }
 }
@@ -233,7 +269,9 @@ pub fn install(exe: &Path) -> io::Result<()> {
     let exe = &stable(exe);
     if cfg!(windows) {
         let line = format!("\"{}\" {} {STAY}", exe.display(), crate::helper::ARG);
-        run(crate::tools::command("reg").args(["add", RUN_KEY, "/v", NAME, "/t", "REG_SZ", "/d", &line, "/f"]))?;
+        run(crate::tools::command("reg").args([
+            "add", RUN_KEY, "/v", NAME, "/t", "REG_SZ", "/d", &line, "/f",
+        ]))?;
         // Now as well, not only from the next login.
         return crate::helper::launch(exe, true);
     }
@@ -260,7 +298,9 @@ pub fn uninstall() -> io::Result<()> {
     if cfg!(windows) {
         return run(crate::tools::command("reg").args(["delete", RUN_KEY, "/v", NAME, "/f"]));
     }
-    let Some(file) = file().filter(|f| f.exists()) else { return Ok(()) };
+    let Some(file) = file().filter(|f| f.exists()) else {
+        return Ok(());
+    };
     // An autostart entry has nothing to stop through: the helper running now stays until logout.
     if cfg!(target_os = "macos") {
         let _ = launchctl(&["bootout", &service()]);
@@ -285,14 +325,24 @@ mod tests {
         assert!(text.contains("/opt/Cox Swain/coxswain-gui"));
         assert!(text.contains(crate::helper::ARG) && text.contains(STAY));
         if cfg!(target_os = "linux") {
-            assert!(text.contains("ExecStart=\"/opt/Cox Swain/coxswain-gui\" --index-helper --stay"));
+            assert!(
+                text.contains("ExecStart=\"/opt/Cox Swain/coxswain-gui\" --index-helper --stay")
+            );
             // A helper that left on purpose (another runs, or a restart) is not started again and again.
             assert!(text.contains("Restart=on-failure"));
-            assert!(file().unwrap().ends_with("systemd/user/coxswain-index.service"));
+            assert!(
+                file()
+                    .unwrap()
+                    .ends_with("systemd/user/coxswain-index.service")
+            );
         }
         if cfg!(target_os = "freebsd") {
             assert!(text.contains("Exec=\"/opt/Cox Swain/coxswain-gui\" --index-helper --stay"));
-            assert!(file().unwrap().ends_with("autostart/coxswain-index.desktop"));
+            assert!(
+                file()
+                    .unwrap()
+                    .ends_with("autostart/coxswain-index.desktop")
+            );
         }
         if !cfg!(windows) {
             assert_eq!(exe_in(&text).as_deref(), Some(exe));
@@ -301,23 +351,41 @@ mod tests {
             assert!(text.contains("<array><string>/opt/Cox Swain/coxswain-gui</string><string>--index-helper</string><string>--stay</string></array>"));
             assert!(text.contains("<key>SuccessfulExit</key><false/>"));
             assert!(!text.contains("Background") && !text.contains("LowPriorityIO"));
-            assert!(text.contains(&format!("<key>StandardErrorPath</key><string>{}</string>", crate::helper::log().unwrap().display())));
-            assert!(service().starts_with("gui/") && service().ends_with("/dk.mwo.coxswain.index") && domain() != "gui/0");
+            assert!(text.contains(&format!(
+                "<key>StandardErrorPath</key><string>{}</string>",
+                crate::helper::log().unwrap().display()
+            )));
+            assert!(
+                service().starts_with("gui/")
+                    && service().ends_with("/dk.mwo.coxswain.index")
+                    && domain() != "gui/0"
+            );
             // macOS reads it. By its full path: a build with a PATH of its own (Nix) has no
             // /usr/bin on it.
-            let f = std::env::temp_dir().join(format!("coxswain-plist-{}.plist", std::process::id()));
+            let f =
+                std::env::temp_dir().join(format!("coxswain-plist-{}.plist", std::process::id()));
             std::fs::write(&f, &text).unwrap();
-            let lint = std::process::Command::new("/usr/bin/plutil").arg("-lint").arg(&f).output();
+            let lint = std::process::Command::new("/usr/bin/plutil")
+                .arg("-lint")
+                .arg(&f)
+                .output();
             let _ = std::fs::remove_file(&f);
             if let Ok(lint) = lint {
-                assert!(lint.status.success(), "{}", String::from_utf8_lossy(&lint.stdout));
+                assert!(
+                    lint.status.success(),
+                    "{}",
+                    String::from_utf8_lossy(&lint.stdout)
+                );
             }
         }
     }
 
     #[test]
     fn service_in_a_flatpak_starts_the_app_by_its_id() {
-        let text = unit(Path::new("/app/bin/coxswain-gui"), Some("io.github.mwo_dk.Coxswain"));
+        let text = unit(
+            Path::new("/app/bin/coxswain-gui"),
+            Some("io.github.mwo_dk.Coxswain"),
+        );
         assert!(text.contains("Exec=flatpak run --command=coxswain-gui io.github.mwo_dk.Coxswain --index-helper --stay"), "{text}");
     }
 }

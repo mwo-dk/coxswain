@@ -1,8 +1,8 @@
 //! Statements, DSSE envelopes, Sigstore bundles and JSON Lines of them, to the model. Lenient:
 //! a broken line or field becomes an [`Issue`] and the rest still loads.
 
-use super::model::*;
 use super::Error;
+use super::model::*;
 use base64::Engine;
 use base64::alphabet;
 use base64::engine::{DecodePaddingMode, GeneralPurpose, GeneralPurposeConfig};
@@ -42,7 +42,12 @@ pub fn from_text(text: &str) -> Result<Attestations, Error> {
                     }
                     Err(e) => {
                         first_error.get_or_insert((i + 1, e.to_string()));
-                        issue(&mut out.issues, IssueCode::InvalidJson, format!("Not JSON: {e}"), Some(i + 1));
+                        issue(
+                            &mut out.issues,
+                            IssueCode::InvalidJson,
+                            format!("Not JSON: {e}"),
+                            Some(i + 1),
+                        );
                     }
                 }
             }
@@ -50,7 +55,10 @@ pub fn from_text(text: &str) -> Result<Attestations, Error> {
                 return Err(match first_error {
                     // Not one line was JSON: report the file as one document.
                     Some(_) if out.issues.iter().all(|i| i.code == IssueCode::InvalidJson) => {
-                        Error::InvalidJson { line: whole.line(), message: whole.to_string() }
+                        Error::InvalidJson {
+                            line: whole.line(),
+                            message: whole.to_string(),
+                        }
                     }
                     _ => Error::NotAttestation,
                 });
@@ -64,7 +72,11 @@ pub fn from_text(text: &str) -> Result<Attestations, Error> {
 }
 
 fn issue(issues: &mut Vec<Issue>, code: IssueCode, message: String, line: Option<usize>) {
-    issues.push(Issue { code, message, line });
+    issues.push(Issue {
+        code,
+        message,
+        line,
+    });
 }
 
 /// One statement, envelope or bundle.
@@ -76,19 +88,39 @@ pub fn entry(v: &Value, line: Option<usize>, issues: &mut Vec<Issue>) -> Option<
             return None;
         };
         let mut e = envelope(env, line, issues)?;
-        e.wrapping = Wrapping::Bundle { media_type: mt.to_string() };
+        e.wrapping = Wrapping::Bundle {
+            media_type: mt.to_string(),
+        };
         let vm = v.get("verificationMaterial");
         let cert = vm
-            .and_then(|m| m.pointer("/certificate/rawBytes").or_else(|| m.pointer("/x509CertificateChain/certificates/0/rawBytes")))
+            .and_then(|m| {
+                m.pointer("/certificate/rawBytes")
+                    .or_else(|| m.pointer("/x509CertificateChain/certificates/0/rawBytes"))
+            })
             .and_then(Value::as_str);
         if let Some(cert) = cert {
-            match decode(cert).ok_or_else(|| "not base64".to_string()).and_then(|der| super::signer::read(&der)) {
+            match decode(cert)
+                .ok_or_else(|| "not base64".to_string())
+                .and_then(|der| super::signer::read(&der))
+            {
                 Ok(s) => e.signer = Some(s),
-                Err(m) => issue(issues, IssueCode::BadCertificate, format!("The certificate could not be read: {m}"), line),
+                Err(m) => issue(
+                    issues,
+                    IssueCode::BadCertificate,
+                    format!("The certificate could not be read: {m}"),
+                    line,
+                ),
             }
         }
-        e.public_key = vm.and_then(|m| m.pointer("/publicKey/hint")).and_then(Value::as_str).map(str::to_string);
-        e.log = vm.and_then(|m| m.get("tlogEntries")).and_then(Value::as_array).map(|a| a.iter().map(log_entry).collect()).unwrap_or_default();
+        e.public_key = vm
+            .and_then(|m| m.pointer("/publicKey/hint"))
+            .and_then(Value::as_str)
+            .map(str::to_string);
+        e.log = vm
+            .and_then(|m| m.get("tlogEntries"))
+            .and_then(Value::as_array)
+            .map(|a| a.iter().map(log_entry).collect())
+            .unwrap_or_default();
         return Some(e);
     }
     if v.get("payloadType").is_some() {
@@ -96,7 +128,15 @@ pub fn entry(v: &Value, line: Option<usize>, issues: &mut Vec<Issue>) -> Option<
     }
     if v.get("_type").is_some() {
         let statement = statement(v, line, issues);
-        return Some(Entry { line, wrapping: Wrapping::Statement, signatures: vec![], signer: None, public_key: None, log: vec![], statement });
+        return Some(Entry {
+            line,
+            wrapping: Wrapping::Statement,
+            signatures: vec![],
+            signer: None,
+            public_key: None,
+            log: vec![],
+            statement,
+        });
     }
     let m = "Not an in-toto statement, a DSSE envelope or a Sigstore bundle".to_string();
     issue(issues, IssueCode::NotAttestation, m, line);
@@ -106,17 +146,32 @@ pub fn entry(v: &Value, line: Option<usize>, issues: &mut Vec<Issue>) -> Option<
 fn envelope(v: &Value, line: Option<usize>, issues: &mut Vec<Issue>) -> Option<Entry> {
     let pt = str_at(v, "payloadType").unwrap_or("");
     if pt != IN_TOTO {
-        issue(issues, IssueCode::NotInToto, format!("The payload is {pt:?}, not an in-toto statement"), line);
+        issue(
+            issues,
+            IssueCode::NotInToto,
+            format!("The payload is {pt:?}, not an in-toto statement"),
+            line,
+        );
         return None;
     }
     let Some(bytes) = str_at(v, "payload").and_then(decode) else {
-        issue(issues, IssueCode::BadBase64, "The payload is not valid base64".into(), line);
+        issue(
+            issues,
+            IssueCode::BadBase64,
+            "The payload is not valid base64".into(),
+            line,
+        );
         return None;
     };
     let st: Value = match serde_json::from_slice(&bytes) {
         Ok(st) => st,
         Err(e) => {
-            issue(issues, IssueCode::InvalidJson, format!("The payload is not JSON: {e}"), line);
+            issue(
+                issues,
+                IssueCode::InvalidJson,
+                format!("The payload is not JSON: {e}"),
+                line,
+            );
             return None;
         }
     };
@@ -126,14 +181,24 @@ fn envelope(v: &Value, line: Option<usize>, issues: &mut Vec<Issue>) -> Option<E
         .map(|a| {
             a.iter()
                 .map(|s| Signature {
-                    keyid: str_at(s, "keyid").filter(|k| !k.is_empty()).map(str::to_string),
+                    keyid: str_at(s, "keyid")
+                        .filter(|k| !k.is_empty())
+                        .map(str::to_string),
                     length: str_at(s, "sig").and_then(decode).map_or(0, |b| b.len()),
                 })
                 .collect()
         })
         .unwrap_or_default();
     let statement = statement(&st, line, issues);
-    Some(Entry { line, wrapping: Wrapping::Envelope, signatures, signer: None, public_key: None, log: vec![], statement })
+    Some(Entry {
+        line,
+        wrapping: Wrapping::Envelope,
+        signatures,
+        signer: None,
+        public_key: None,
+        log: vec![],
+        statement,
+    })
 }
 
 /// DSSE allows standard and URL-safe base64, with or without padding.
@@ -149,11 +214,21 @@ pub fn decode(s: &str) -> Option<Vec<u8>> {
 fn statement(v: &Value, line: Option<usize>, issues: &mut Vec<Issue>) -> Statement {
     let t = str_at(v, "_type").unwrap_or("");
     if !t.starts_with(STATEMENT) {
-        issue(issues, IssueCode::UnknownStatementType, format!("Unknown statement type {t:?}"), line);
+        issue(
+            issues,
+            IssueCode::UnknownStatementType,
+            format!("Unknown statement type {t:?}"),
+            line,
+        );
     }
     let subjects: Vec<Resource> = array(v, "subject").iter().map(resource).collect();
     for s in subjects.iter().filter(|s| s.digest.is_empty()) {
-        issue(issues, IssueCode::SubjectWithoutDigest, format!("{} has no digest", s.label()), line);
+        issue(
+            issues,
+            IssueCode::SubjectWithoutDigest,
+            format!("{} has no digest", s.label()),
+            line,
+        );
     }
     let predicate_type = str_at(v, "predicateType").unwrap_or("").to_string();
     let p = v.get("predicate").cloned().unwrap_or(Value::Null);
@@ -168,21 +243,42 @@ fn statement(v: &Value, line: Option<usize>, issues: &mut Vec<Issue>) -> Stateme
     } else {
         Predicate::Other { predicate: p }
     };
-    Statement { subjects, predicate_type, predicate, raw: v.clone() }
+    Statement {
+        subjects,
+        predicate_type,
+        predicate,
+        raw: v.clone(),
+    }
 }
 
 fn v1(p: &Value, line: Option<usize>, issues: &mut Vec<Issue>) -> Provenance {
     let bd = p.get("buildDefinition").unwrap_or(&Value::Null);
     let rd = p.get("runDetails").unwrap_or(&Value::Null);
     let build_type = str_at(bd, "buildType").unwrap_or("").to_string();
-    let id = rd.pointer("/builder/id").and_then(Value::as_str).unwrap_or("").to_string();
+    let id = rd
+        .pointer("/builder/id")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .to_string();
     if build_type.is_empty() || id.is_empty() {
-        issue(issues, IssueCode::BadPredicate, "SLSA v1 provenance without a buildType or builder.id".into(), line);
+        issue(
+            issues,
+            IssueCode::BadPredicate,
+            "SLSA v1 provenance without a buildType or builder.id".into(),
+            line,
+        );
     }
     let builder = Builder {
         id,
-        version: rd.pointer("/builder/version").map(strings).unwrap_or_default(),
-        dependencies: rd.pointer("/builder/builderDependencies").and_then(Value::as_array).map(|a| a.iter().map(resource).collect()).unwrap_or_default(),
+        version: rd
+            .pointer("/builder/version")
+            .map(strings)
+            .unwrap_or_default(),
+        dependencies: rd
+            .pointer("/builder/builderDependencies")
+            .and_then(Value::as_array)
+            .map(|a| a.iter().map(resource).collect())
+            .unwrap_or_default(),
     };
     let meta = rd.get("metadata").unwrap_or(&Value::Null);
     Provenance {
@@ -191,7 +287,10 @@ fn v1(p: &Value, line: Option<usize>, issues: &mut Vec<Issue>) -> Provenance {
         builder,
         external: bd.get("externalParameters").cloned().unwrap_or(Value::Null),
         internal: bd.get("internalParameters").cloned().unwrap_or(Value::Null),
-        dependencies: array(bd, "resolvedDependencies").iter().map(resource).collect(),
+        dependencies: array(bd, "resolvedDependencies")
+            .iter()
+            .map(resource)
+            .collect(),
         invocation: str_at(meta, "invocationId").map(str::to_string),
         started: str_at(meta, "startedOn").map(str::to_string),
         finished: str_at(meta, "finishedOn").map(str::to_string),
@@ -205,9 +304,18 @@ fn v1(p: &Value, line: Option<usize>, issues: &mut Vec<Issue>) -> Provenance {
 /// environment and buildConfig are internal.
 fn v0_2(p: &Value, line: Option<usize>, issues: &mut Vec<Issue>) -> Provenance {
     let build_type = str_at(p, "buildType").unwrap_or("").to_string();
-    let id = p.pointer("/builder/id").and_then(Value::as_str).unwrap_or("").to_string();
+    let id = p
+        .pointer("/builder/id")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .to_string();
     if build_type.is_empty() || id.is_empty() {
-        issue(issues, IssueCode::BadPredicate, "SLSA v0.2 provenance without a buildType or builder.id".into(), line);
+        issue(
+            issues,
+            IssueCode::BadPredicate,
+            "SLSA v0.2 provenance without a buildType or builder.id".into(),
+            line,
+        );
     }
     let inv = p.get("invocation").unwrap_or(&Value::Null);
     let mut dependencies = Vec::new();
@@ -219,22 +327,38 @@ fn v0_2(p: &Value, line: Option<usize>, issues: &mut Vec<Issue>) -> Provenance {
     }
     dependencies.extend(array(p, "materials").iter().map(resource));
     let mut internal = serde_json::Map::new();
-    for (from, to) in [(inv.get("environment"), "environment"), (p.get("buildConfig"), "buildConfig")] {
+    for (from, to) in [
+        (inv.get("environment"), "environment"),
+        (p.get("buildConfig"), "buildConfig"),
+    ] {
         if let Some(v) = from.filter(|v| !v.is_null()) {
             internal.insert(to.to_string(), v.clone());
         }
     }
     let meta = p.get("metadata").unwrap_or(&Value::Null);
-    let flag = |k: &str| meta.pointer(&format!("/completeness/{k}")).and_then(Value::as_bool).unwrap_or(false);
+    let flag = |k: &str| {
+        meta.pointer(&format!("/completeness/{k}"))
+            .and_then(Value::as_bool)
+            .unwrap_or(false)
+    };
     Provenance {
         version: SlsaVersion::V0_2,
         build_type,
-        builder: Builder { id, ..Builder::default() },
+        builder: Builder {
+            id,
+            ..Builder::default()
+        },
         external: inv.get("parameters").cloned().unwrap_or(Value::Null),
-        internal: if internal.is_empty() { Value::Null } else { Value::Object(internal) },
+        internal: if internal.is_empty() {
+            Value::Null
+        } else {
+            Value::Object(internal)
+        },
         dependencies,
         // The spec says `buildInvocationId`; slsa-github-generator writes `buildInvocationID`.
-        invocation: str_at(meta, "buildInvocationId").or_else(|| str_at(meta, "buildInvocationID")).map(str::to_string),
+        invocation: str_at(meta, "buildInvocationId")
+            .or_else(|| str_at(meta, "buildInvocationID"))
+            .map(str::to_string),
         started: str_at(meta, "buildStartedOn").map(str::to_string),
         finished: str_at(meta, "buildFinishedOn").map(str::to_string),
         byproducts: vec![],
@@ -249,12 +373,23 @@ fn v0_2(p: &Value, line: Option<usize>, issues: &mut Vec<Issue>) -> Provenance {
 
 fn vsa(p: &Value) -> Vsa {
     Vsa {
-        verifier: p.pointer("/verifier/id").and_then(Value::as_str).unwrap_or("").to_string(),
+        verifier: p
+            .pointer("/verifier/id")
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .to_string(),
         time: str_at(p, "timeVerified").map(str::to_string),
         resource: str_at(p, "resourceUri").map(str::to_string),
-        policy: p.pointer("/policy/uri").and_then(Value::as_str).map(str::to_string),
+        policy: p
+            .pointer("/policy/uri")
+            .and_then(Value::as_str)
+            .map(str::to_string),
         result: str_at(p, "verificationResult").map(str::to_string),
-        levels: array(p, "verifiedLevels").iter().filter_map(Value::as_str).map(str::to_string).collect(),
+        levels: array(p, "verifiedLevels")
+            .iter()
+            .filter_map(Value::as_str)
+            .map(str::to_string)
+            .collect(),
     }
 }
 
@@ -272,11 +407,19 @@ fn resource(v: &Value) -> Resource {
 
 fn log_entry(v: &Value) -> LogEntry {
     // Bundles write these 64-bit numbers as strings; older ones as numbers.
-    let num = |k: &str| v.get(k).and_then(|n| n.as_i64().or_else(|| n.as_str().and_then(|s| s.parse().ok())));
+    let num = |k: &str| {
+        v.get(k).and_then(|n| {
+            n.as_i64()
+                .or_else(|| n.as_str().and_then(|s| s.parse().ok()))
+        })
+    };
     LogEntry {
         index: num("logIndex").and_then(|n| u64::try_from(n).ok()),
         integrated_time: num("integratedTime"),
-        kind: v.pointer("/kindVersion/kind").and_then(Value::as_str).map(str::to_string),
+        kind: v
+            .pointer("/kindVersion/kind")
+            .and_then(Value::as_str)
+            .map(str::to_string),
         has_proof: v.get("inclusionProof").is_some_and(Value::is_object),
         has_promise: v.get("inclusionPromise").is_some_and(Value::is_object),
     }
@@ -285,7 +428,16 @@ fn log_entry(v: &Value) -> LogEntry {
 /// An object's values as text: strings as they are, anything else as JSON.
 fn strings(v: &Value) -> BTreeMap<String, String> {
     v.as_object()
-        .map(|o| o.iter().map(|(k, v)| (k.clone(), v.as_str().map_or_else(|| v.to_string(), str::to_string))).collect())
+        .map(|o| {
+            o.iter()
+                .map(|(k, v)| {
+                    (
+                        k.clone(),
+                        v.as_str().map_or_else(|| v.to_string(), str::to_string),
+                    )
+                })
+                .collect()
+        })
         .unwrap_or_default()
 }
 
@@ -294,5 +446,7 @@ fn str_at<'a>(v: &'a Value, key: &str) -> Option<&'a str> {
 }
 
 fn array<'a>(v: &'a Value, key: &str) -> &'a [Value] {
-    v.get(key).and_then(Value::as_array).map_or(&[], Vec::as_slice)
+    v.get(key)
+        .and_then(Value::as_array)
+        .map_or(&[], Vec::as_slice)
 }

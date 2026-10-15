@@ -17,16 +17,27 @@ pub const AUTO_LIMIT: u64 = 256 * 1024 * 1024;
 /// Where a subject is looked for, in this order: by its name below the provenance's folder, by
 /// its last part in that folder, then the same in the other pane's folder.
 pub fn locate(provenance: &Path, other: Option<&Path>, s: &Resource) -> Option<PathBuf> {
-    let name = s.name.as_deref().or_else(|| s.uri.as_deref().map(url_file)).filter(|n| !n.is_empty())?;
+    let name = s
+        .name
+        .as_deref()
+        .or_else(|| s.uri.as_deref().map(url_file))
+        .filter(|n| !n.is_empty())?;
     let last = name.rsplit(['/', '\\']).next().unwrap_or(name);
     let dirs = [provenance.parent(), other];
-    dirs.iter().flatten().find_map(|d| crate::fs::beneath(d, name).or_else(|| crate::fs::beneath(d, last))).filter(|p| p.is_file())
+    dirs.iter()
+        .flatten()
+        .find_map(|d| crate::fs::beneath(d, name).or_else(|| crate::fs::beneath(d, last)))
+        .filter(|p| p.is_file())
 }
 
 /// The file a URL names: its last path part, without query or fragment.
 fn url_file(u: &str) -> &str {
     let u = u.split(['?', '#']).next().unwrap_or(u);
-    if u.contains("://") { u.rsplit('/').next().unwrap_or("") } else { u }
+    if u.contains("://") {
+        u.rsplit('/').next().unwrap_or("")
+    } else {
+        u
+    }
 }
 
 /// A subject that names a container image rather than a file: `ghcr.io/owner/app`,
@@ -38,7 +49,8 @@ pub fn is_image(s: &Resource) -> bool {
     }
     let first = n.split('/').next().unwrap_or("");
     // A registry host: `ghcr.io`, `registry:5000`, `localhost`. Never `.` or `..`.
-    let host = !first.starts_with('.') && (first.contains('.') || first.contains(':') || first == "localhost");
+    let host = !first.starts_with('.')
+        && (first.contains('.') || first.contains(':') || first == "localhost");
     n.contains('/') && !n.contains("://") && host
 }
 
@@ -48,7 +60,12 @@ pub enum Subject {
     /// The file here has the digest the provenance names.
     Matches { path: PathBuf, algorithm: String },
     /// It does not: this is not the file that was built.
-    Differs { path: PathBuf, algorithm: String, expected: String, actual: String },
+    Differs {
+        path: PathBuf,
+        algorithm: String,
+        expected: String,
+        actual: String,
+    },
     /// No file of that name here.
     Missing,
     /// Larger than [`AUTO_LIMIT`]: checked when asked.
@@ -69,7 +86,13 @@ pub enum CannotCheck {
 }
 
 /// Checks one subject. `limit` is [`AUTO_LIMIT`] unless the user asked; `cancel` stops the hash.
-pub fn subject(provenance: &Path, other: Option<&Path>, s: &Resource, limit: Option<u64>, cancel: &AtomicBool) -> Subject {
+pub fn subject(
+    provenance: &Path,
+    other: Option<&Path>,
+    s: &Resource,
+    limit: Option<u64>,
+    cancel: &AtomicBool,
+) -> Subject {
     let Some(path) = locate(provenance, other, s) else {
         let why = if is_image(s) {
             CannotCheck::Image
@@ -80,8 +103,15 @@ pub fn subject(provenance: &Path, other: Option<&Path>, s: &Resource, limit: Opt
         };
         return Subject::CannotCheck { why };
     };
-    let Some((algorithm, expected)) = ["sha256", "sha512"].iter().find_map(|a| s.digest.get(*a).map(|d| (*a, d.to_lowercase()))) else {
-        let why = if s.digest.is_empty() { CannotCheck::NoDigest } else { CannotCheck::Algorithms(s.digest.keys().cloned().collect()) };
+    let Some((algorithm, expected)) = ["sha256", "sha512"]
+        .iter()
+        .find_map(|a| s.digest.get(*a).map(|d| (*a, d.to_lowercase())))
+    else {
+        let why = if s.digest.is_empty() {
+            CannotCheck::NoDigest
+        } else {
+            CannotCheck::Algorithms(s.digest.keys().cloned().collect())
+        };
         return Subject::CannotCheck { why };
     };
     let size = std::fs::metadata(&path).map(|m| m.len()).unwrap_or(0);
@@ -89,9 +119,20 @@ pub fn subject(provenance: &Path, other: Option<&Path>, s: &Resource, limit: Opt
         return Subject::Large { path, size };
     }
     match hash(&path, algorithm, cancel) {
-        Ok(actual) if actual == expected => Subject::Matches { path, algorithm: algorithm.into() },
-        Ok(actual) => Subject::Differs { path, algorithm: algorithm.into(), expected, actual },
-        Err(e) => Subject::Unreadable { path, message: e.to_string() },
+        Ok(actual) if actual == expected => Subject::Matches {
+            path,
+            algorithm: algorithm.into(),
+        },
+        Ok(actual) => Subject::Differs {
+            path,
+            algorithm: algorithm.into(),
+            expected,
+            actual,
+        },
+        Err(e) => Subject::Unreadable {
+            path,
+            message: e.to_string(),
+        },
     }
 }
 
@@ -105,7 +146,12 @@ type HashKey = (PathBuf, u64, Option<SystemTime>, String);
 /// is not read, unless the settings read those: it would be downloaded.
 pub fn hash(path: &Path, algorithm: &str, cancel: &AtomicBool) -> io::Result<String> {
     let meta = std::fs::metadata(path)?;
-    let key: HashKey = (path.to_path_buf(), meta.len(), meta.modified().ok(), algorithm.to_string());
+    let key: HashKey = (
+        path.to_path_buf(),
+        meta.len(),
+        meta.modified().ok(),
+        algorithm.to_string(),
+    );
     if let Some((_, d)) = HASHED.lock().unwrap().iter().find(|(k, _)| *k == key) {
         return Ok(d.clone());
     }
@@ -141,7 +187,10 @@ fn hash_file(path: &Path, algorithm: &str, cancel: &AtomicBool) -> io::Result<St
     match algorithm {
         "sha256" => run::<sha2::Sha256>(&mut f, cancel),
         "sha512" => run::<sha2::Sha512>(&mut f, cancel),
-        a => Err(io::Error::new(io::ErrorKind::Unsupported, format!("{a} is not computed"))),
+        a => Err(io::Error::new(
+            io::ErrorKind::Unsupported,
+            format!("{a} is not computed"),
+        )),
     }
 }
 
@@ -157,14 +206,24 @@ pub struct GitSource {
 pub fn git_source(r: &Resource) -> Option<GitSource> {
     let uri = r.uri.as_deref()?.strip_prefix("git+")?;
     // v1 says gitCommit; v0.2's configSource says sha1.
-    let commit = r.digest.get("gitCommit").or_else(|| r.digest.get("sha1"))?.to_lowercase();
-    let (scheme_host, path) = uri.split_once("://").map(|(_, rest)| rest.split_once('/').unwrap_or((rest, "")))?;
+    let commit = r
+        .digest
+        .get("gitCommit")
+        .or_else(|| r.digest.get("sha1"))?
+        .to_lowercase();
+    let (scheme_host, path) = uri
+        .split_once("://")
+        .map(|(_, rest)| rest.split_once('/').unwrap_or((rest, "")))?;
     let (path, reference) = match path.split_once('@') {
         Some((p, r)) => (p, Some(r.to_string())),
         None => (path, None),
     };
     let host = scheme_host.rsplit('@').next().unwrap_or(scheme_host);
-    Some(GitSource { repo: repo_key(host, path), reference, commit })
+    Some(GitSource {
+        repo: repo_key(host, path),
+        reference,
+        commit,
+    })
 }
 
 fn repo_key(host: &str, path: &str) -> String {
@@ -204,16 +263,36 @@ pub enum Source {
 /// Where the commit of `src` is, in a checkout of its repository at or above `provenance`'s
 /// folder or `other`. Runs read-only git; never fetches.
 pub fn source(provenance: &Path, other: Option<&Path>, src: &GitSource) -> Source {
-    let Some(checkout) = checkouts(provenance.parent(), other).into_iter().find(|c| remotes(c).contains(&src.repo)) else {
+    let Some(checkout) = checkouts(provenance.parent(), other)
+        .into_iter()
+        .find(|c| remotes(c).contains(&src.repo))
+    else {
         return Source::NoCheckout;
     };
-    let git = |args: &[&str]| crate::git::command(&checkout).args(args).stdout(Stdio::piped()).stderr(Stdio::null()).output().ok();
+    let git = |args: &[&str]| {
+        crate::git::command(&checkout)
+            .args(args)
+            .stdout(Stdio::piped())
+            .stderr(Stdio::null())
+            .output()
+            .ok()
+    };
     let ok = |args: &[&str]| git(args).is_some_and(|o| o.status.success());
     let count = |range: &str| {
-        git(&["rev-list", "--count", range]).and_then(|o| String::from_utf8_lossy(&o.stdout).trim().parse::<u64>().ok()).unwrap_or(0)
+        git(&["rev-list", "--count", range])
+            .and_then(|o| {
+                String::from_utf8_lossy(&o.stdout)
+                    .trim()
+                    .parse::<u64>()
+                    .ok()
+            })
+            .unwrap_or(0)
     };
     // A commit id only: never a ref or an option from the file.
-    if src.commit.len() < 7 || !src.commit.bytes().all(|b| b.is_ascii_hexdigit()) || !ok(&["cat-file", "-e", &format!("{}^{{commit}}", src.commit)]) {
+    if src.commit.len() < 7
+        || !src.commit.bytes().all(|b| b.is_ascii_hexdigit())
+        || !ok(&["cat-file", "-e", &format!("{}^{{commit}}", src.commit)])
+    {
         return Source::Missing { checkout };
     }
     if ok(&["merge-base", "--is-ancestor", &src.commit, "HEAD"]) {
@@ -231,7 +310,11 @@ pub fn source(provenance: &Path, other: Option<&Path>, src: &GitSource) -> Sourc
 fn checkouts(dir: Option<&Path>, other: Option<&Path>) -> Vec<PathBuf> {
     let mut out: Vec<PathBuf> = Vec::new();
     for d in [dir, other].into_iter().flatten() {
-        let top = crate::git::command(d).args(["rev-parse", "--show-toplevel"]).stdout(Stdio::piped()).stderr(Stdio::null()).output();
+        let top = crate::git::command(d)
+            .args(["rev-parse", "--show-toplevel"])
+            .stdout(Stdio::piped())
+            .stderr(Stdio::null())
+            .output();
         if let Some(o) = top.ok().filter(|o| o.status.success()) {
             let p = PathBuf::from(String::from_utf8_lossy(&o.stdout).trim());
             if !out.contains(&p) {
@@ -250,5 +333,9 @@ fn remotes(checkout: &Path) -> Vec<String> {
         .stderr(Stdio::null())
         .output();
     let Ok(o) = out else { return vec![] };
-    String::from_utf8_lossy(&o.stdout).lines().filter_map(|l| l.split_once(' ')).filter_map(|(_, url)| remote_key(url)).collect()
+    String::from_utf8_lossy(&o.stdout)
+        .lines()
+        .filter_map(|l| l.split_once(' '))
+        .filter_map(|(_, url)| remote_key(url))
+        .collect()
 }

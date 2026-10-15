@@ -14,10 +14,18 @@ pub const PACKAGE: &str = "@package";
 
 /// What `program` with `args` prints, given a few seconds; `None` when it is missing or fails.
 fn run(program: &str, args: &[&str]) -> Option<String> {
-    let p = crate::tools::which(program).or_else(|| ["/usr/sbin", "/sbin", "/usr/bin"].iter().map(|d| Path::new(d).join(program)).find(|p| p.is_file()))?;
+    let p = crate::tools::which(program).or_else(|| {
+        ["/usr/sbin", "/sbin", "/usr/bin"]
+            .iter()
+            .map(|d| Path::new(d).join(program))
+            .find(|p| p.is_file())
+    })?;
     let args: Vec<&std::ffi::OsStr> = args.iter().map(std::ffi::OsStr::new).collect();
     let mut c = crate::tools::command(&p);
-    c.args(&args).stdin(std::process::Stdio::null()).stdout(std::process::Stdio::piped()).stderr(std::process::Stdio::null());
+    c.args(&args)
+        .stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::null());
     let mut child = c.spawn().ok()?;
     let mut out = child.stdout.take()?;
     let reader = std::thread::spawn(move || {
@@ -25,7 +33,9 @@ fn run(program: &str, args: &[&str]) -> Option<String> {
         let _ = io::Read::read_to_string(&mut out, &mut v);
         v
     });
-    let ok = crate::tools::wait(&mut child, Duration::from_secs(4)).ok()?.success();
+    let ok = crate::tools::wait(&mut child, Duration::from_secs(4))
+        .ok()?
+        .success();
     let text = reader.join().ok()?;
     ok.then_some(text)
 }
@@ -45,7 +55,11 @@ pub fn package_of(path: &Path) -> Option<String> {
 
 /// `pkg info -q -l`'s text: the package's files.
 pub fn parse_files(text: &str) -> Vec<PathBuf> {
-    text.lines().map(str::trim).filter(|l| l.starts_with('/')).map(PathBuf::from).collect()
+    text.lines()
+        .map(str::trim)
+        .filter(|l| l.starts_with('/'))
+        .map(PathBuf::from)
+        .collect()
 }
 
 /// The file whose package `path` lists, when it is `<file>/@package` (and not a real entry).
@@ -54,7 +68,9 @@ pub fn split(path: &Path) -> Option<PathBuf> {
         return None;
     }
     let file = path.parent()?;
-    std::fs::symlink_metadata(file).is_ok().then(|| file.to_path_buf())
+    std::fs::symlink_metadata(file)
+        .is_ok()
+        .then(|| file.to_path_buf())
 }
 
 /// The path of the list of files of `file`'s package.
@@ -65,13 +81,28 @@ pub fn path(file: &Path) -> PathBuf {
 /// The files of the package `file` belongs to, as `fs::list` gives a folder: `..` back to the
 /// file's folder, then each file by its full path, as it is on disk now.
 pub fn list(file: &Path) -> io::Result<Vec<Entry>> {
-    let pkg = package_of(file).ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, crate::t!("pkg.none", "name" => file.display())))?;
-    let text = run("pkg", &["info", "-q", "-l", &pkg]).ok_or_else(|| io::Error::other(crate::t!("pkg.none", "name" => file.display())))?;
-    let up = Entry { name: "..".into(), path: file.parent().unwrap_or(file).to_path_buf(), is_dir: true, ..Entry::default() };
+    let pkg = package_of(file).ok_or_else(|| {
+        io::Error::new(
+            io::ErrorKind::NotFound,
+            crate::t!("pkg.none", "name" => file.display()),
+        )
+    })?;
+    let text = run("pkg", &["info", "-q", "-l", &pkg])
+        .ok_or_else(|| io::Error::other(crate::t!("pkg.none", "name" => file.display())))?;
+    let up = Entry {
+        name: "..".into(),
+        path: file.parent().unwrap_or(file).to_path_buf(),
+        is_dir: true,
+        ..Entry::default()
+    };
     Ok(std::iter::once(up)
         .chain(parse_files(&text).into_iter().map(|p| {
             let m = std::fs::symlink_metadata(&p).ok();
-            let secs = |t: io::Result<std::time::SystemTime>| t.ok().and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok()).map_or(0, |d| d.as_secs());
+            let secs = |t: io::Result<std::time::SystemTime>| {
+                t.ok()
+                    .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+                    .map_or(0, |d| d.as_secs())
+            };
             Entry {
                 name: p.to_string_lossy().into_owned(),
                 is_symlink: m.as_ref().is_some_and(|m| m.file_type().is_symlink()),
@@ -118,7 +149,9 @@ pub fn boot_environments() -> Vec<BootEnv> {
     if !cfg!(target_os = "freebsd") {
         return vec![];
     }
-    run("bectl", &["list", "-H"]).map(|t| parse_bectl(&t)).unwrap_or_default()
+    run("bectl", &["list", "-H"])
+        .map(|t| parse_bectl(&t))
+        .unwrap_or_default()
 }
 
 /// A running jail: its id, name, root folder and host name.
@@ -139,7 +172,12 @@ pub fn parse_jls(text: &str) -> Vec<Jail> {
             let (jid, rest) = l.trim().split_once(' ')?;
             let (name, rest) = rest.split_once(' ')?;
             let (path, hostname) = rest.rsplit_once(' ')?;
-            Some(Jail { jid: jid.parse().ok()?, name: name.to_string(), path: PathBuf::from(path), hostname: hostname.to_string() })
+            Some(Jail {
+                jid: jid.parse().ok()?,
+                name: name.to_string(),
+                path: PathBuf::from(path),
+                hostname: hostname.to_string(),
+            })
         })
         .collect()
 }
@@ -149,7 +187,9 @@ pub fn jails() -> Vec<Jail> {
     if !cfg!(target_os = "freebsd") {
         return vec![];
     }
-    run("jls", &["-h", "jid", "name", "path", "host.hostname"]).map(|t| parse_jls(&t)).unwrap_or_default()
+    run("jls", &["-h", "jid", "name", "path", "host.hostname"])
+        .map(|t| parse_jls(&t))
+        .unwrap_or_default()
 }
 
 /// A place to go to in the sidebar and the terminal app's go-to list: a boot environment or a
@@ -175,7 +215,12 @@ pub fn places() -> Vec<Place> {
                 _ if b.mountpoint.is_none() => crate::t!("bsd.be_unmounted"),
                 _ => String::new(),
             };
-            Place { kind: "boot", name: b.name, path: b.mountpoint.filter(|p| p.is_dir()), note }
+            Place {
+                kind: "boot",
+                name: b.name,
+                path: b.mountpoint.filter(|p| p.is_dir()),
+                note,
+            }
         })
         .collect();
     v.extend(jails().into_iter().map(|j| Place {
@@ -195,8 +240,17 @@ mod tests {
     #[test]
     fn bsd_package_files_are_parsed() {
         // `pkg info -q -l git`, recorded on FreeBSD 14.5.
-        let v = parse_files("\t/usr/local/bin/git\n\t/usr/local/bin/git-shell\n\n/usr/local/share/man/man1/git.1.gz\n");
-        assert_eq!(v, [Path::new("/usr/local/bin/git"), Path::new("/usr/local/bin/git-shell"), Path::new("/usr/local/share/man/man1/git.1.gz")]);
+        let v = parse_files(
+            "\t/usr/local/bin/git\n\t/usr/local/bin/git-shell\n\n/usr/local/share/man/man1/git.1.gz\n",
+        );
+        assert_eq!(
+            v,
+            [
+                Path::new("/usr/local/bin/git"),
+                Path::new("/usr/local/bin/git-shell"),
+                Path::new("/usr/local/share/man/man1/git.1.gz")
+            ]
+        );
         assert!(parse_files("git-2.56.0:\n").is_empty());
     }
 
@@ -207,7 +261,10 @@ mod tests {
         assert_eq!(split(&path(&f)), Some(f.clone()));
         assert_eq!(split(&f.with_extension("gone").join(PACKAGE)), None);
         // Nothing goes into it.
-        assert_eq!(crate::fs::mkdir(&path(&f).join("x")).unwrap_err().kind(), io::ErrorKind::PermissionDenied);
+        assert_eq!(
+            crate::fs::mkdir(&path(&f).join("x")).unwrap_err().kind(),
+            io::ErrorKind::PermissionDenied
+        );
         std::fs::remove_file(&f).unwrap();
     }
 
@@ -217,9 +274,23 @@ mod tests {
         let text = "default\tNR\t/\t2.1G\t2024-05-01 10:12\n14.1-backup\t-\t-\t312M\t2024-06-02 09:00\nupgrade\t-\t/tmp/be_mount.Xa1\t1.1G\t2024-07-01 12:00\nnext\tT\t-\t8K\t2024-07-02 12:00\n";
         let v = parse_bectl(text);
         assert_eq!(v.len(), 4);
-        assert_eq!(v[0], BootEnv { name: "default".into(), active: true, on_reboot: true, mountpoint: Some("/".into()) });
-        assert_eq!((v[1].active, v[1].on_reboot, v[1].mountpoint.clone()), (false, false, None));
-        assert_eq!(v[2].mountpoint.as_deref(), Some(Path::new("/tmp/be_mount.Xa1")));
+        assert_eq!(
+            v[0],
+            BootEnv {
+                name: "default".into(),
+                active: true,
+                on_reboot: true,
+                mountpoint: Some("/".into())
+            }
+        );
+        assert_eq!(
+            (v[1].active, v[1].on_reboot, v[1].mountpoint.clone()),
+            (false, false, None)
+        );
+        assert_eq!(
+            v[2].mountpoint.as_deref(),
+            Some(Path::new("/tmp/be_mount.Xa1"))
+        );
         assert!(v[3].on_reboot && !v[3].active);
     }
 
@@ -229,7 +300,15 @@ mod tests {
         let text = "jid name path host.hostname\n1 web /jails/web web.example.org\n2 db / db\n3 odd /jails/with space odd.example\n";
         let v = parse_jls(text);
         assert_eq!(v.len(), 3);
-        assert_eq!(v[0], Jail { jid: 1, name: "web".into(), path: "/jails/web".into(), hostname: "web.example.org".into() });
+        assert_eq!(
+            v[0],
+            Jail {
+                jid: 1,
+                name: "web".into(),
+                path: "/jails/web".into(),
+                hostname: "web.example.org".into()
+            }
+        );
         assert_eq!(v[2].path, Path::new("/jails/with space"));
         assert!(parse_jls("jid name path host.hostname\n").is_empty());
     }

@@ -26,8 +26,9 @@ use super::{MAX_ENTRY, MAX_TEXT};
 /// word processor do, so nothing is put between them. Every other element, known or not,
 /// ends the line, for two words that became one are both lost to a search.
 const INLINE: [&str; 35] = [
-    "a", "abbr", "acronym", "b", "bdi", "bdo", "big", "cite", "code", "data", "del", "dfn", "em", "font", "i", "ins", "kbd", "mark", "nobr", "q", "rb", "ruby",
-    "s", "samp", "small", "span", "strike", "strong", "sub", "sup", "time", "tt", "u", "var", "wbr",
+    "a", "abbr", "acronym", "b", "bdi", "bdo", "big", "cite", "code", "data", "del", "dfn", "em",
+    "font", "i", "ins", "kbd", "mark", "nobr", "q", "rb", "ruby", "s", "samp", "small", "span",
+    "strike", "strong", "sub", "sup", "time", "tt", "u", "var", "wbr",
 ];
 /// Elements whose inside is no text of the page.
 const LEFT_OUT: [&str; 3] = ["script", "style", "template"];
@@ -38,10 +39,16 @@ const WRITTEN: [&str; 2] = ["textarea", "title"];
 const MOST: usize = 5000;
 
 /// The encoding a page declares, in a `<meta>` tag or as XML does, among its first bytes.
-static DECLARED: LazyLock<regex::bytes::Regex> =
-    LazyLock::new(|| regex::bytes::Regex::new(r#"(?i-u)(?:<meta[^>]*?charset|<\?xml[^>]*?encoding)\s*=\s*["']?\s*([a-z0-9_:.-]+)"#).expect("valid"));
+static DECLARED: LazyLock<regex::bytes::Regex> = LazyLock::new(|| {
+    regex::bytes::Regex::new(
+        r#"(?i-u)(?:<meta[^>]*?charset|<\?xml[^>]*?encoding)\s*=\s*["']?\s*([a-z0-9_:.-]+)"#,
+    )
+    .expect("valid")
+});
 /// A comment or a script, where a declaration is no declaration.
-static HIDDEN: LazyLock<regex::bytes::Regex> = LazyLock::new(|| regex::bytes::Regex::new(r"(?is-u)<!--.*?-->|<script.*?</script").expect("valid"));
+static HIDDEN: LazyLock<regex::bytes::Regex> = LazyLock::new(|| {
+    regex::bytes::Regex::new(r"(?is-u)<!--.*?-->|<script.*?</script").expect("valid")
+});
 
 /// The text of a book or a page: a book when the name of the file ends in `.epub`.
 pub fn text(path: &Path, max: u64) -> Option<String> {
@@ -49,11 +56,18 @@ pub fn text(path: &Path, max: u64) -> Option<String> {
         return None;
     }
     let mut out = String::new();
-    if path.extension().is_some_and(|e| e.eq_ignore_ascii_case("epub")) {
+    if path
+        .extension()
+        .is_some_and(|e| e.eq_ignore_ascii_case("epub"))
+    {
         book(path, &mut out)?;
     } else {
         let mut bytes = vec![];
-        std::fs::File::open(path).ok()?.take(max).read_to_end(&mut bytes).ok()?;
+        std::fs::File::open(path)
+            .ok()?
+            .take(max)
+            .read_to_end(&mut bytes)
+            .ok()?;
         page(&decoded(&bytes)?, &mut out, true);
     }
     // A soft hyphen says where a word may be broken at the end of a line, and a byte order
@@ -69,7 +83,10 @@ fn book(path: &Path, out: &mut String) -> Option<()> {
     let mut zip = zip::ZipArchive::new(std::fs::File::open(path).ok()?).ok()?;
     // The files of the zip by their names as a link would give them, for a package that
     // writes `Text\Ch1.xhtml` or `text/ch1.xhtml` for `Text/Ch1.xhtml`.
-    let names: HashMap<String, String> = zip.file_names().map(|name| (key(name), name.to_string())).collect();
+    let names: HashMap<String, String> = zip
+        .file_names()
+        .map(|name| (key(name), name.to_string()))
+        .collect();
     // A file of the zip, no more than `most` bytes of it: what it says it holds is looked at
     // before it is unpacked, and one byte more than `most` says that it lied.
     let mut file = |name: &str, most: usize| {
@@ -82,7 +99,9 @@ fn book(path: &Path, out: &mut String) -> Option<()> {
         _ => None,
     })?;
     let package = named(&[], &package);
-    let folder: Vec<&str> = package.rsplit_once('/').map_or(vec![], |(folder, _)| folder.split('/').collect());
+    let folder: Vec<&str> = package
+        .rsplit_once('/')
+        .map_or(vec![], |(folder, _)| folder.split('/').collect());
     let chapters = contents(&decoded(&file(&package, 8 << 20)?)?, out);
     // All the chapters together may unpack to what one entry may. Every name in the spine
     // costs 4096 bytes at the least, found or not, and a file is read once however many
@@ -90,14 +109,20 @@ fn book(path: &Path, out: &mut String) -> Option<()> {
     // a thousand times, nor is an empty one opened a million times.
     let (mut room, mut read) = (MAX_ENTRY as usize, HashSet::new());
     for chapter in chapters {
-        let Some(left) = room.checked_sub(4096).filter(|_| out.len() <= MAX_TEXT) else { break };
+        let Some(left) = room.checked_sub(4096).filter(|_| out.len() <= MAX_TEXT) else {
+            break;
+        };
         room = left;
         let name = named(&folder, &chapter);
         if !read.insert(key(&name)) {
             continue;
         }
-        let Some(bytes) = file(&name, room) else { continue };
-        let Some(left) = room.checked_sub(bytes.len()) else { break };
+        let Some(bytes) = file(&name, room) else {
+            continue;
+        };
+        let Some(left) = room.checked_sub(bytes.len()) else {
+            break;
+        };
         room = left;
         if let Some(chapter) = decoded(&bytes) {
             page(&chapter, out, false);
@@ -120,7 +145,9 @@ fn contents(package: &str, out: &mut String) -> Vec<String> {
                     // A page of a book may also be a picture, which has no text.
                     let kind = attribute(inside, "media-type").unwrap_or_default();
                     let text = kind.is_empty() || kind.contains("html") || kind.contains("xml");
-                    if let (true, Some(id), Some(file)) = (text, attribute(inside, "id"), attribute(inside, "href")) {
+                    if let (true, Some(id), Some(file)) =
+                        (text, attribute(inside, "id"), attribute(inside, "href"))
+                    {
                         files.insert(id, file);
                     }
                 }
@@ -130,7 +157,9 @@ fn contents(package: &str, out: &mut String) -> Vec<String> {
                 _ => line = None,
             },
             Piece::Text(text) => line.iter_mut().for_each(|line| unescape(text, line)),
-            Piece::Literal(text) => line.iter_mut().for_each(|line| line.push_str(cut(text, (MAX_TEXT + 1).saturating_sub(line.len())))),
+            Piece::Literal(text) => line.iter_mut().for_each(|line| {
+                line.push_str(cut(text, (MAX_TEXT + 1).saturating_sub(line.len())))
+            }),
             Piece::Close(_) => line.take().into_iter().for_each(|line| line.push('\n')),
         }
     }
@@ -144,7 +173,11 @@ fn contents(package: &str, out: &mut String) -> Vec<String> {
 /// with `%20` for a space, and perhaps with the `#place` in the file at its end.
 fn named(folder: &[&str], link: &str) -> String {
     let link = link.split('#').next().unwrap_or_default();
-    let mut parts: Vec<&str> = if link.starts_with('/') { vec![] } else { folder.to_vec() };
+    let mut parts: Vec<&str> = if link.starts_with('/') {
+        vec![]
+    } else {
+        folder.to_vec()
+    };
     for part in link.split('/') {
         match part {
             "" | "." => {}
@@ -187,13 +220,19 @@ fn decoded(bytes: &[u8]) -> Option<Cow<'_, str>> {
     }
     if let Some((encoding, mark)) = Encoding::for_bom(bytes) {
         let rest = &bytes[mark..];
-        return Some(if encoding == UTF_8 { String::from_utf8_lossy(rest) } else { encoding.decode_without_bom_handling(rest).0 });
+        return Some(if encoding == UTF_8 {
+            String::from_utf8_lossy(rest)
+        } else {
+            encoding.decode_without_bom_handling(rest).0
+        });
     }
     let head = &bytes[..bytes.len().min(8192)];
     if head.contains(&0) {
         return None;
     }
-    let declared = DECLARED.captures(&HIDDEN.replace_all(head, &b""[..])).and_then(|found| Encoding::for_label(&found[1]));
+    let declared = DECLARED
+        .captures(&HIDDEN.replace_all(head, &b""[..]))
+        .and_then(|found| Encoding::for_label(&found[1]));
     // ISO-2022-JP writes Japanese in the bytes of ASCII, so it is read as it says before
     // the bytes are tried as UTF-8, which they always are.
     if declared == Some(ISO_2022_JP) {
@@ -215,7 +254,13 @@ fn decoded(bytes: &[u8]) -> Option<Cow<'_, str>> {
     // A page that says UTF-16 in letters of one byte each is not UTF-16, and a label that
     // encoding_rs answers with its replacement encoding would be one U+FFFD for the whole
     // page: neither is compatible with ASCII, and the page is read as a browser reads it.
-    Some(declared.filter(|e| e.is_ascii_compatible()).unwrap_or(WINDOWS_1252).decode_without_bom_handling(bytes).0)
+    Some(
+        declared
+            .filter(|e| e.is_ascii_compatible())
+            .unwrap_or(WINDOWS_1252)
+            .decode_without_bom_handling(bytes)
+            .0,
+    )
 }
 
 /// The text of a page, onto `out`: what is between its tags, with a line for each block. The
@@ -235,7 +280,8 @@ fn page(page: &str, out: &mut String, titled: bool) {
                     out.push(' ');
                 }
                 unescape(inner, out);
-                if text.ends_with(char::is_whitespace) && !inner.is_empty() && out.len() <= MAX_TEXT {
+                if text.ends_with(char::is_whitespace) && !inner.is_empty() && out.len() <= MAX_TEXT
+                {
                     out.push(' ');
                 }
             }
@@ -313,10 +359,16 @@ impl<'a> Pieces<'a> {
         // `</script>` closes a script; `</scripted>` does not.
         let closes = |at: usize| {
             rest[at..].starts_with(b"</")
-                && rest[at + 2..].get(..name.len()).is_some_and(|written| written.eq_ignore_ascii_case(name))
-                && rest.get(at + 2 + name.len()).is_none_or(|b| b.is_ascii_whitespace() || matches!(b, b'/' | b'>'))
+                && rest[at + 2..]
+                    .get(..name.len())
+                    .is_some_and(|written| written.eq_ignore_ascii_case(name))
+                && rest
+                    .get(at + 2 + name.len())
+                    .is_none_or(|b| b.is_ascii_whitespace() || matches!(b, b'/' | b'>'))
         };
-        let end = memchr::memchr_iter(b'<', rest).find(|&at| closes(at)).unwrap_or(rest.len());
+        let end = memchr::memchr_iter(b'<', rest)
+            .find(|&at| closes(at))
+            .unwrap_or(rest.len());
         let written = &self.page[self.at..self.at + end];
         self.at += end;
         written
@@ -327,14 +379,24 @@ impl<'a> Pieces<'a> {
     /// brackets, with nothing but elements of a line around it. The element is then gone
     /// through; else nothing is.
     fn mark(&mut self, name: &str) -> Option<&'a str> {
-        let (mut peek, mut text) = (Pieces { page: self.page, at: self.at }, None);
+        let (mut peek, mut text) = (
+            Pieces {
+                page: self.page,
+                at: self.at,
+            },
+            None,
+        );
         for _ in 0..8 {
             match peek.next()? {
                 Piece::Text(written) if text.is_none() => text = Some(written.trim()),
                 Piece::Close(inner) if inner.eq_ignore_ascii_case(name) => {
                     let text = text?;
-                    let (number, roman) = (text.bytes().all(|b| b.is_ascii_digit()), text.bytes().all(|b| b"ivx".contains(&b)));
-                    let mark = (1..=8).contains(&text.len()) && (number || roman || text.starts_with('[') && text.ends_with(']'));
+                    let (number, roman) = (
+                        text.bytes().all(|b| b.is_ascii_digit()),
+                        text.bytes().all(|b| b"ivx".contains(&b)),
+                    );
+                    let mark = (1..=8).contains(&text.len())
+                        && (number || roman || text.starts_with('[') && text.ends_with(']'));
                     if mark {
                         self.at = peek.at;
                     }
@@ -363,7 +425,11 @@ impl<'a> Iterator for Pieces<'a> {
             let letter = |at: usize| bytes.get(at).is_some_and(u8::is_ascii_alphabetic);
             // Where what began at the `<` is over: past the first `end`, or where the page
             // ends when there is none.
-            let past = |from: usize, end: &str| rest[from..].find(end).map_or(rest.len(), |at| from + at + end.len());
+            let past = |from: usize, end: &str| {
+                rest[from..]
+                    .find(end)
+                    .map_or(rest.len(), |at| from + at + end.len())
+            };
             if rest.starts_with("<!--") {
                 // A comment ends at `-->`, or at `--!>`, which a browser takes for the same.
                 let end = past(2, "-->");
@@ -374,17 +440,28 @@ impl<'a> Iterator for Pieces<'a> {
             } else if letter(1) || (bytes.get(1) == Some(&b'/') && letter(2)) {
                 let closing = bytes[1] == b'/';
                 let name = 1 + usize::from(closing);
-                let named = bytes[name..].iter().position(|b| b.is_ascii_whitespace() || matches!(b, b'>' | b'/')).map_or(bytes.len(), |at| name + at);
+                let named = bytes[name..]
+                    .iter()
+                    .position(|b| b.is_ascii_whitespace() || matches!(b, b'>' | b'/'))
+                    .map_or(bytes.len(), |at| name + at);
                 let (end, empty, _) = attributes(rest, named, "");
                 self.at += end;
                 let name = &rest[name..named];
-                return Some(if closing { Piece::Close(name) } else { Piece::Open(name, &rest[named..end], empty) });
-            } else if bytes.get(1).is_some_and(|b| matches!(b, b'!' | b'?' | b'/')) {
+                return Some(if closing {
+                    Piece::Close(name)
+                } else {
+                    Piece::Open(name, &rest[named..end], empty)
+                });
+            } else if bytes
+                .get(1)
+                .is_some_and(|b| matches!(b, b'!' | b'?' | b'/'))
+            {
                 // What kind of document this is, an instruction to a program, a tag with no name.
                 let mut end = past(1, ">");
                 // The kind of document, first in the page, may declare entities of its own
                 // between `[` and `]`, with a `>` in each.
-                if bytes[1] == b'!' && self.page[..self.at].trim().is_empty()
+                if bytes[1] == b'!'
+                    && self.page[..self.at].trim().is_empty()
                     && let Some(open) = rest[..end].find('[')
                 {
                     end = past(past(open, "]"), ">");
@@ -430,7 +507,8 @@ fn attributes<'a>(tag: &'a str, mut at: usize, wanted: &str) -> (usize, bool, Op
         let value = at;
         let value = match bytes.get(at) {
             Some(quote @ (b'"' | b'\'')) => {
-                let end = memchr::memchr(*quote, &bytes[at + 1..]).map_or(bytes.len(), |end| at + 1 + end);
+                let end = memchr::memchr(*quote, &bytes[at + 1..])
+                    .map_or(bytes.len(), |end| at + 1 + end);
                 at = (end + 1).min(bytes.len());
                 &tag[value + 1..end]
             }
@@ -492,21 +570,42 @@ fn reference(text: &str) -> Option<(char, usize)> {
     let body = &text[1..];
     let closed = |length: usize| length + usize::from(text[length..].starts_with(';'));
     if let Some(number) = body.strip_prefix('#') {
-        let (digits, radix) = number.strip_prefix(['x', 'X']).map_or((number, 10), |digits| (digits, 16));
+        let (digits, radix) = number
+            .strip_prefix(['x', 'X'])
+            .map_or((number, 10), |digits| (digits, 16));
         // Eight digits after any zeros in front: a number of more digits is no character.
         let zeros = digits.bytes().take_while(|b| *b == b'0').count();
-        let length = zeros + digits[zeros..].bytes().take(8).take_while(|b| (*b as char).is_digit(radix)).count();
+        let length = zeros
+            + digits[zeros..]
+                .bytes()
+                .take(8)
+                .take_while(|b| (*b as char).is_digit(radix))
+                .count();
         let character = match u32::from_str_radix(&digits[..length], radix).ok()? {
             // Pages written on Windows number the dashes and quotes of Windows-1252.
-            code @ 0x80..=0x9f => WINDOWS_1252.decode_without_bom_handling(&[code as u8]).0.chars().next()?,
-            code => char::from_u32(code).filter(|c| *c != '\0').unwrap_or(char::REPLACEMENT_CHARACTER),
+            code @ 0x80..=0x9f => WINDOWS_1252
+                .decode_without_bom_handling(&[code as u8])
+                .0
+                .chars()
+                .next()?,
+            code => char::from_u32(code)
+                .filter(|c| *c != '\0')
+                .unwrap_or(char::REPLACEMENT_CHARACTER),
         };
         return Some((character, closed(text.len() - digits.len() + length)));
     }
-    let length = body.bytes().take(32).take_while(u8::is_ascii_alphanumeric).count();
-    let character = ENTITIES[ENTITIES.binary_search_by_key(&&body[..length], |(name, _)| name).ok()?].1;
+    let length = body
+        .bytes()
+        .take(32)
+        .take_while(u8::is_ascii_alphanumeric)
+        .count();
+    let character = ENTITIES[ENTITIES
+        .binary_search_by_key(&&body[..length], |(name, _)| name)
+        .ok()?]
+    .1;
     // Only the oldest names, those of Latin-1, also hold without their `;`.
-    (text[1 + length..].starts_with(';') || (character as u32) < 256).then_some((character, closed(1 + length)))
+    (text[1 + length..].starts_with(';') || (character as u32) < 256)
+        .then_some((character, closed(1 + length)))
 }
 
 /// The characters that have a name in HTML 4, in the order of their names. HTML 5 added two
@@ -631,9 +730,23 @@ mod tests {
         let page = "<?xml version=\"1.0\"?><!DOCTYPE html><p>one<!-- two --> three<script>if (a < b) { document.write(\"<p>four</p>\") }</SCRIPT> five\
                     <style>p > a { }</style><template><p>six</p></template><a href=\"x>y\" title='a > b'>seven</a> <script src=\"a.js\"/>eight \
                     <![CDATA[nine & <ten>]]> 3 < 4 <!-->eleven";
-        assert_eq!(read(&d, "a.html", page.as_bytes()).as_deref(), Some("one three\nfive\nseven\neight nine & <ten> 3 < 4 eleven"));
-        assert_eq!(read(&d, "open.html", b"<p>kept</p><script>let lost = 1;").as_deref(), Some("kept"), "a script that is never closed");
-        assert_eq!(read(&d, "only.html", b"<html><head><style>p { }</style></head><body><!-- nothing --></body></html>"), None);
+        assert_eq!(
+            read(&d, "a.html", page.as_bytes()).as_deref(),
+            Some("one three\nfive\nseven\neight nine & <ten> 3 < 4 eleven")
+        );
+        assert_eq!(
+            read(&d, "open.html", b"<p>kept</p><script>let lost = 1;").as_deref(),
+            Some("kept"),
+            "a script that is never closed"
+        );
+        assert_eq!(
+            read(
+                &d,
+                "only.html",
+                b"<html><head><style>p { }</style></head><body><!-- nothing --></body></html>"
+            ),
+            None
+        );
         let _ = std::fs::remove_dir_all(d);
     }
 
@@ -641,14 +754,55 @@ mod tests {
     fn page_reads_what_a_browser_shows_where_a_scanner_would_stop_early_or_late() {
         let d = folder("page-browser");
         let read = |name: &str, bytes: &[u8]| read(&d, name, bytes);
-        assert_eq!(read("title.html", b"<title>The <script> element</title><p>All the text</p>").as_deref(), Some("The <script> element\nAll the text"));
+        assert_eq!(
+            read(
+                "title.html",
+                b"<title>The <script> element</title><p>All the text</p>"
+            )
+            .as_deref(),
+            Some("The <script> element\nAll the text")
+        );
         let area = b"<p>before</p><textarea>write <style> here</textarea><p>after</p>";
-        assert_eq!(read("area.html", area).as_deref(), Some("before\nwrite <style> here\nafter"));
-        assert_eq!(read("bang.html", b"<p>one</p><!-- a --!><p>two</p><!-- b --><p>three</p>").as_deref(), Some("one\ntwo\nthree"));
-        assert_eq!(read("zeros.html", b"<p>A&#0000000065;B &#x000000041;</p>").as_deref(), Some("AAB A"));
-        assert_eq!(read("prefix.html", b"<script>var a = \"</scripted>\"; var secretcode = 1;</script><p>kept</p>").as_deref(), Some("kept"));
-        assert_eq!(read("slash.html", b"<script src=https://example.org/lib/>var leaked = 1;</script><p>kept</p>").as_deref(), Some("kept"));
-        assert_eq!(read("subset.html", b"<!DOCTYPE html [<!ENTITY auth \"Jane\">]><p>&auth; wrote</p>").as_deref(), Some("&auth; wrote"));
+        assert_eq!(
+            read("area.html", area).as_deref(),
+            Some("before\nwrite <style> here\nafter")
+        );
+        assert_eq!(
+            read(
+                "bang.html",
+                b"<p>one</p><!-- a --!><p>two</p><!-- b --><p>three</p>"
+            )
+            .as_deref(),
+            Some("one\ntwo\nthree")
+        );
+        assert_eq!(
+            read("zeros.html", b"<p>A&#0000000065;B &#x000000041;</p>").as_deref(),
+            Some("AAB A")
+        );
+        assert_eq!(
+            read(
+                "prefix.html",
+                b"<script>var a = \"</scripted>\"; var secretcode = 1;</script><p>kept</p>"
+            )
+            .as_deref(),
+            Some("kept")
+        );
+        assert_eq!(
+            read(
+                "slash.html",
+                b"<script src=https://example.org/lib/>var leaked = 1;</script><p>kept</p>"
+            )
+            .as_deref(),
+            Some("kept")
+        );
+        assert_eq!(
+            read(
+                "subset.html",
+                b"<!DOCTYPE html [<!ENTITY auth \"Jane\">]><p>&auth; wrote</p>"
+            )
+            .as_deref(),
+            Some("&auth; wrote")
+        );
         let _ = std::fs::remove_dir_all(d);
     }
 
@@ -659,7 +813,10 @@ mod tests {
                     fish&chips &#0; &#x110000; &Eacute;cole &euro;5 &hellip; exam&shy;ple un\u{ad}til bom&#xFEFF;inside &#</p>";
         let text = "blåbærgrød på café Smør én A <b> & AT&T © 2024 – &unknown; fish&chips \u{fffd} \u{fffd} École €5 … example until bominside &#";
         assert_eq!(read(&d, "a.html", page.as_bytes()).as_deref(), Some(text));
-        assert!(ENTITIES.windows(2).all(|pair| pair[0].0 < pair[1].0), "a name is found by halving, so the names are in order");
+        assert!(
+            ENTITIES.windows(2).all(|pair| pair[0].0 < pair[1].0),
+            "a name is found by halving, so the names are in order"
+        );
         let _ = std::fs::remove_dir_all(d);
     }
 
@@ -668,29 +825,98 @@ mod tests {
         let d = folder("page-encodings");
         let read = |name: &str, bytes: &[u8]| read(&d, name, bytes);
         let declared = b"<meta http-equiv=\"Content-Type\" content=\"text/html; charset=windows-1252\"><p>bl\xe5b\xe6rgr\xf8d \x96 caf\xe9</p>";
-        assert_eq!(read("declared.html", declared).as_deref(), Some("blåbærgrød – café"));
-        assert_eq!(read("hebrew.html", b"<META CHARSET=windows-1255><p>\xf9\xec\xe5\xed</p>").as_deref(), Some("שלום"));
+        assert_eq!(
+            read("declared.html", declared).as_deref(),
+            Some("blåbærgrød – café")
+        );
+        assert_eq!(
+            read(
+                "hebrew.html",
+                b"<META CHARSET=windows-1255><p>\xf9\xec\xe5\xed</p>"
+            )
+            .as_deref(),
+            Some("שלום")
+        );
         let as_xml = b"<?xml version=\"1.0\" encoding=\"GBK\"?><html><body><p>\xc4\xe3\xba\xc3</p></body></html>";
         assert_eq!(read("chinese.xhtml", as_xml).as_deref(), Some("你好"));
-        assert_eq!(read("silent.html", b"<p>r\xf8dgr\xf8d med fl\xf8de</p>").as_deref(), Some("rødgrød med fløde"), "nothing declared: as a browser reads it");
-        assert_eq!(read("wrong.html", "<meta charset=\"iso-8859-1\"><p>Århus שלום</p>".as_bytes()).as_deref(), Some("Århus שלום"), "UTF-8 whatever it says");
-        assert_eq!(read("cut.html", &"<p>blåbærgrød og rødgrød".as_bytes()[..27]).as_deref(), Some("blåbærgrød og rødgr\u{fffd}"), "cut inside a letter");
-        let stale = ["<meta charset=\"iso-8859-1\">".as_bytes(), "<p>Blåbærgrød på caféen i Århus</p>".repeat(20).as_bytes(), b"<p>na\xefve</p>"].concat();
-        assert!(read("stale.html", &stale).is_some_and(|text| text.contains("Blåbærgrød") && text.ends_with("na\u{fffd}ve")), "UTF-8 with one byte pasted in");
-        assert_eq!(read("false.html", b"<meta charset=utf-16><p>caf\xe9</p>").as_deref(), Some("café"), "UTF-16 has no letters of one byte");
-        let japanese = b"<meta charset=\"iso-2022-jp\"><p>\x1b$B$3$l$OF|K\\8l$N%Z!<%8$G$9\x1b(B</p>";
-        assert_eq!(read("japanese.html", japanese).as_deref(), Some("これは日本語のページです"), "seven bits, so valid UTF-8 as well");
-        assert_eq!(read("hz.html", b"<meta charset=\"hz-gb-2312\"><p>hello world caf\xe9 more words</p>").as_deref(), Some("hello world café more words"));
+        assert_eq!(
+            read("silent.html", b"<p>r\xf8dgr\xf8d med fl\xf8de</p>").as_deref(),
+            Some("rødgrød med fløde"),
+            "nothing declared: as a browser reads it"
+        );
+        assert_eq!(
+            read(
+                "wrong.html",
+                "<meta charset=\"iso-8859-1\"><p>Århus שלום</p>".as_bytes()
+            )
+            .as_deref(),
+            Some("Århus שלום"),
+            "UTF-8 whatever it says"
+        );
+        assert_eq!(
+            read("cut.html", &"<p>blåbærgrød og rødgrød".as_bytes()[..27]).as_deref(),
+            Some("blåbærgrød og rødgr\u{fffd}"),
+            "cut inside a letter"
+        );
+        let stale = [
+            "<meta charset=\"iso-8859-1\">".as_bytes(),
+            "<p>Blåbærgrød på caféen i Århus</p>".repeat(20).as_bytes(),
+            b"<p>na\xefve</p>",
+        ]
+        .concat();
+        assert!(
+            read("stale.html", &stale)
+                .is_some_and(|text| text.contains("Blåbærgrød") && text.ends_with("na\u{fffd}ve")),
+            "UTF-8 with one byte pasted in"
+        );
+        assert_eq!(
+            read("false.html", b"<meta charset=utf-16><p>caf\xe9</p>").as_deref(),
+            Some("café"),
+            "UTF-16 has no letters of one byte"
+        );
+        let japanese =
+            b"<meta charset=\"iso-2022-jp\"><p>\x1b$B$3$l$OF|K\\8l$N%Z!<%8$G$9\x1b(B</p>";
+        assert_eq!(
+            read("japanese.html", japanese).as_deref(),
+            Some("これは日本語のページです"),
+            "seven bits, so valid UTF-8 as well"
+        );
+        assert_eq!(
+            read(
+                "hz.html",
+                b"<meta charset=\"hz-gb-2312\"><p>hello world caf\xe9 more words</p>"
+            )
+            .as_deref(),
+            Some("hello world café more words")
+        );
         let hidden = b"<!-- <meta charset=\"koi8-r\"> was wrong --><script>s = '<meta charset=\"koi8-r\">'</script>\
                        <meta charset=\"windows-1251\"><p>\xcf\xf0\xe8\xe2\xe5\xf2</p>";
-        assert_eq!(read("hidden.html", hidden).as_deref(), Some("Привет"), "a declaration in a comment or a script is none");
+        assert_eq!(
+            read("hidden.html", hidden).as_deref(),
+            Some("Привет"),
+            "a declaration in a comment or a script is none"
+        );
         for bytes in [u16::to_le_bytes, u16::to_be_bytes] {
-            let wide: Vec<u8> = "\u{feff}<p>Blåbær 你好</p>".encode_utf16().flat_map(bytes).collect();
+            let wide: Vec<u8> = "\u{feff}<p>Blåbær 你好</p>"
+                .encode_utf16()
+                .flat_map(bytes)
+                .collect();
             assert_eq!(read("wide.html", &wide).as_deref(), Some("Blåbær 你好"));
         }
-        let wider: Vec<u8> = "\u{feff}<p>Hello wide world</p>".chars().flat_map(|c| (c as u32).to_le_bytes()).collect();
-        assert_eq!(read("wider.html", &wider), None, "UTF-32 is not read as UTF-16");
-        assert_eq!(read("picture.html", b"<p>GIF89a\x00\x01\x02</p>"), None, "a zero byte is in no page");
+        let wider: Vec<u8> = "\u{feff}<p>Hello wide world</p>"
+            .chars()
+            .flat_map(|c| (c as u32).to_le_bytes())
+            .collect();
+        assert_eq!(
+            read("wider.html", &wider),
+            None,
+            "UTF-32 is not read as UTF-16"
+        );
+        assert_eq!(
+            read("picture.html", b"<p>GIF89a\x00\x01\x02</p>"),
+            None,
+            "a zero byte is in no page"
+        );
         let _ = std::fs::remove_dir_all(d);
     }
 
@@ -701,15 +927,26 @@ mod tests {
             ("mimetype", b"application/epub+zip"),
             ("META-INF/container.xml", CONTAINER.as_bytes()),
             ("OEBPS/content.opf", PACKAGE.as_bytes()),
-            ("OEBPS/nav.xhtml", b"<html><body><nav>Not a chapter</nav></body></html>"),
+            (
+                "OEBPS/nav.xhtml",
+                b"<html><body><nav>Not a chapter</nav></body></html>",
+            ),
             ("OEBPS/cover.jpg", b"\xff\xd8\xff\xe0 no text"),
-            ("OEBPS/text/chapter 1.xhtml", "<html><body><p>שלום og 你好</p></body></html>".as_bytes()),
+            (
+                "OEBPS/text/chapter 1.xhtml",
+                "<html><body><p>שלום og 你好</p></body></html>".as_bytes(),
+            ),
             ("OEBPS/text/b.xhtml", CHAPTER.as_bytes()),
         ];
         zip_file(&d.join("a.epub"), &entries);
         let text = text_of(&d.join("a.epub"), 1, 1 << 20);
         // The title of a chapter's page is the book's, and a chapter the spine names twice is read once.
-        assert_eq!(text.as_deref(), Some("Rejsen til fyret & hjem\nSøren Ågård\nFyrtårnet\nCaféen lå ved havet.\nשלום og 你好"));
+        assert_eq!(
+            text.as_deref(),
+            Some(
+                "Rejsen til fyret & hjem\nSøren Ågård\nFyrtårnet\nCaféen lå ved havet.\nשלום og 你好"
+            )
+        );
 
         // As a program that does not know XML writes it: nothing quoted, nothing closed.
         let entries: [(&str, &[u8]); 3] = [
@@ -718,7 +955,10 @@ mod tests {
             ("one.html", b"<p>Eneste kapitel"),
         ];
         zip_file(&d.join("b.EPUB"), &entries);
-        assert_eq!(text_of(&d.join("b.EPUB"), 1, 1 << 20).as_deref(), Some("Kort\nEneste kapitel"));
+        assert_eq!(
+            text_of(&d.join("b.EPUB"), 1, 1 << 20).as_deref(),
+            Some("Kort\nEneste kapitel")
+        );
 
         // Names as they are written by hand: a slash in front, a space encoded, another case,
         // a backslash, and a chapter that is XML of no named kind.
@@ -728,7 +968,10 @@ mod tests {
             ("book one/text/ch1.xhtml", b"<p>Found anyway</p>"),
         ];
         zip_file(&d.join("c.epub"), &entries);
-        assert_eq!(text_of(&d.join("c.epub"), 1, 1 << 20).as_deref(), Some("Case\nFound anyway"));
+        assert_eq!(
+            text_of(&d.join("c.epub"), 1, 1 << 20).as_deref(),
+            Some("Case\nFound anyway")
+        );
         let _ = std::fs::remove_dir_all(d);
     }
 
@@ -743,11 +986,25 @@ mod tests {
              <spine><itemref idref='c'/><itemref idref='d'/>{}</spine>",
             "<itemref idref='m'/><itemref idref='c'/>".repeat(20_000)
         );
-        let entries = [("META-INF/container.xml", "<rootfile full-path='p.opf'/>"), ("p.opf", &package), ("c.html", "<p>Oncewords</p>")];
-        zip_file(&d.join("a.epub"), &entries.map(|(name, text)| (name, text.as_bytes())));
+        let entries = [
+            ("META-INF/container.xml", "<rootfile full-path='p.opf'/>"),
+            ("p.opf", &package),
+            ("c.html", "<p>Oncewords</p>"),
+        ];
+        zip_file(
+            &d.join("a.epub"),
+            &entries.map(|(name, text)| (name, text.as_bytes())),
+        );
         let start = std::time::Instant::now();
-        assert_eq!(text_of(&d.join("a.epub"), 1, 1 << 24).as_deref(), Some("Book\nOncewords"));
-        assert!(start.elapsed() < crate::test_limit(std::time::Duration::from_secs(5)), "{:?}", start.elapsed());
+        assert_eq!(
+            text_of(&d.join("a.epub"), 1, 1 << 24).as_deref(),
+            Some("Book\nOncewords")
+        );
+        assert!(
+            start.elapsed() < crate::test_limit(std::time::Duration::from_secs(5)),
+            "{:?}",
+            start.elapsed()
+        );
         let _ = std::fs::remove_dir_all(d);
     }
 
@@ -760,7 +1017,13 @@ mod tests {
             std::fs::write(d.join(name), b"").unwrap();
             assert_eq!(text(&d.join(name), 100), None);
         }
-        assert_eq!((text(&d.join("missing.html"), 100), text(&d.join("missing.epub"), 100)), (None, None));
+        assert_eq!(
+            (
+                text(&d.join("missing.html"), 100),
+                text(&d.join("missing.epub"), 100)
+            ),
+            (None, None)
+        );
         std::fs::write(d.join("large.html"), b"<p>Too much</p>").unwrap();
         assert_eq!(text(&d.join("large.html"), 5), None, "larger than allowed");
 
@@ -770,20 +1033,40 @@ mod tests {
                 std::fs::write(d.join(name), &bytes).unwrap();
                 let _ = text(&d.join(name), 1 << 20);
             }
-            let entries: [(&str, &[u8]); 3] = [("META-INF/container.xml", b"<rootfile full-path='p.opf'/>"), ("p.opf", &bytes), ("c.html", &bytes)];
+            let entries: [(&str, &[u8]); 3] = [
+                ("META-INF/container.xml", b"<rootfile full-path='p.opf'/>"),
+                ("p.opf", &bytes),
+                ("c.html", &bytes),
+            ];
             zip_file(&d.join("inside.epub"), &entries);
             let _ = text(&d.join("inside.epub"), 1 << 20);
         }
 
         // Every piece of what pages are made of, in no order.
-        let bits = ["<", ">", "/", "!", "--", "[", "]", "?", "&", "#", ";", "x", "\"", "'", "=", " ", "\n", "a", "p", "é", "中", "9", "%", ":", ".."];
-        let words =
-            ["script", "style", "template", "img alt", "![CDATA[", "td", "amp", "eacute", "item", "itemref", "href", "id", "idref", "title", "sup", "textarea"];
+        let bits = [
+            "<", ">", "/", "!", "--", "[", "]", "?", "&", "#", ";", "x", "\"", "'", "=", " ", "\n",
+            "a", "p", "é", "中", "9", "%", ":", "..",
+        ];
+        let words = [
+            "script", "style", "template", "img alt", "![CDATA[", "td", "amp", "eacute", "item",
+            "itemref", "href", "id", "idref", "title", "sup", "textarea",
+        ];
         for _ in 0..20_000 {
-            let soup: String = (0..next() % 40).map(|_| if next() % 3 == 1 { words[next() % words.len()] } else { bits[next() % bits.len()] }).collect();
+            let soup: String = (0..next() % 40)
+                .map(|_| {
+                    if next() % 3 == 1 {
+                        words[next() % words.len()]
+                    } else {
+                        bits[next() % bits.len()]
+                    }
+                })
+                .collect();
             let mut out = String::new();
             page(&soup, &mut out, true);
-            assert!(out.len() <= soup.len(), "what is meant is never longer than what is written: {soup:?} gave {out:?}");
+            assert!(
+                out.len() <= soup.len(),
+                "what is meant is never longer than what is written: {soup:?} gave {out:?}"
+            );
             let (chapters, name) = (contents(&soup, &mut out), named(&[&soup], &soup));
             assert!(chapters.len() <= soup.len() && name.len() <= 2 * soup.len() + 1);
         }
@@ -793,13 +1076,26 @@ mod tests {
         for cut in 0..=whole.len() {
             let mut out = String::new();
             page(&decoded(&whole.as_bytes()[..cut]).unwrap(), &mut out, true);
-            assert!(cut < whole.len() || super::super::tidy(&out) == "Fyret\nBlåbær & rødgrød på caféen שלום 你好\nSlut");
+            assert!(
+                cut < whole.len()
+                    || super::super::tidy(&out)
+                        == "Fyret\nBlåbær & rødgrød på caféen שלום 你好\nSlut"
+            );
         }
 
-        let entries = [("META-INF/container.xml", CONTAINER), ("OEBPS/content.opf", PACKAGE), ("OEBPS/text/b.xhtml", CHAPTER)];
-        zip_file(&d.join("whole.epub"), &entries.map(|(name, text)| (name, text.as_bytes())));
+        let entries = [
+            ("META-INF/container.xml", CONTAINER),
+            ("OEBPS/content.opf", PACKAGE),
+            ("OEBPS/text/b.xhtml", CHAPTER),
+        ];
+        zip_file(
+            &d.join("whole.epub"),
+            &entries.map(|(name, text)| (name, text.as_bytes())),
+        );
         let whole = std::fs::read(d.join("whole.epub")).unwrap();
-        assert!(text(&d.join("whole.epub"), 1 << 20).is_some_and(|text| text.contains("Fyrtårnet")));
+        assert!(
+            text(&d.join("whole.epub"), 1 << 20).is_some_and(|text| text.contains("Fyrtårnet"))
+        );
         // A zip lists its entries at its end, so a book that was cut off has no text or little.
         for cut in (0..whole.len()).step_by(3) {
             std::fs::write(d.join("cut.epub"), &whole[..cut]).unwrap();
@@ -813,24 +1109,54 @@ mod tests {
         let d = folder("book-large");
         let mut out = String::new();
         page(&"lighthouse ".repeat(MAX_TEXT / 8), &mut out, true);
-        assert!(out.len() > MAX_TEXT / 2 && out.len() <= MAX_TEXT + 1, "one text without an end");
-        let chapter = "<p>Fyret st&aring;r p&aring; klippen h&oslash;jt over havet.</p>\n".repeat(MAX_TEXT / 128);
+        assert!(
+            out.len() > MAX_TEXT / 2 && out.len() <= MAX_TEXT + 1,
+            "one text without an end"
+        );
+        let chapter = "<p>Fyret st&aring;r p&aring; klippen h&oslash;jt over havet.</p>\n"
+            .repeat(MAX_TEXT / 128);
         let mut out = String::new();
         page(&chapter.repeat(5), &mut out, true);
-        assert!(out.len() > MAX_TEXT / 2 && out.len() <= MAX_TEXT + 1, "many small texts");
+        assert!(
+            out.len() > MAX_TEXT / 2 && out.len() <= MAX_TEXT + 1,
+            "many small texts"
+        );
 
-        let package = "<package><manifest><item id='c' href='c.html'/></manifest><spine>".to_string() + &"<itemref idref='c'/>".repeat(20_000);
-        let entries = [("META-INF/container.xml", "<rootfile full-path='p.opf'/>"), ("p.opf", &package), ("c.html", &chapter)];
-        zip_file(&d.join("again.epub"), &entries.map(|(name, text)| (name, text.as_bytes())));
+        let package = "<package><manifest><item id='c' href='c.html'/></manifest><spine>"
+            .to_string()
+            + &"<itemref idref='c'/>".repeat(20_000);
+        let entries = [
+            ("META-INF/container.xml", "<rootfile full-path='p.opf'/>"),
+            ("p.opf", &package),
+            ("c.html", &chapter),
+        ];
+        zip_file(
+            &d.join("again.epub"),
+            &entries.map(|(name, text)| (name, text.as_bytes())),
+        );
         std::fs::write(d.join("c.html"), &chapter).unwrap();
-        assert_eq!(text_of(&d.join("again.epub"), 1, 1 << 20), text_of(&d.join("c.html"), 1, 1 << 24), "one chapter many times is one chapter");
+        assert_eq!(
+            text_of(&d.join("again.epub"), 1, 1 << 20),
+            text_of(&d.join("c.html"), 1, 1 << 24),
+            "one chapter many times is one chapter"
+        );
 
         // A title of many literal sections, and an author as long: together no more than the limit.
         let section = format!("<![CDATA[{}]]>", "t".repeat(MAX_TEXT / 4)).repeat(3);
         let package = format!("<dc:title>{section}</dc:title><dc:creator>{section}</dc:creator>");
-        let entries = [("META-INF/container.xml", "<rootfile full-path='p.opf'/>"), ("p.opf", &package)];
-        zip_file(&d.join("titled.epub"), &entries.map(|(name, text)| (name, text.as_bytes())));
-        assert!(text(&d.join("titled.epub"), 1 << 24).is_some_and(|text| text.len() > MAX_TEXT / 2 && text.len() <= MAX_TEXT + 2), "a long title");
+        let entries = [
+            ("META-INF/container.xml", "<rootfile full-path='p.opf'/>"),
+            ("p.opf", &package),
+        ];
+        zip_file(
+            &d.join("titled.epub"),
+            &entries.map(|(name, text)| (name, text.as_bytes())),
+        );
+        assert!(
+            text(&d.join("titled.epub"), 1 << 24)
+                .is_some_and(|text| text.len() > MAX_TEXT / 2 && text.len() <= MAX_TEXT + 2),
+            "a long title"
+        );
         let _ = std::fs::remove_dir_all(d);
     }
 
@@ -839,12 +1165,21 @@ mod tests {
         // A table written one cell to a line, each indented: more blank space than the limit, fewer words.
         let mut page_text = String::from("<table>\n");
         for row in 0..40_000 {
-            page_text += &format!("    <tr>\n{0}<td>row{row}cell1</td>\n{0}<td>row{row}cell2</td>\n{0}<td>row{row}cell3</td>\n    </tr>\n", " ".repeat(60));
+            page_text += &format!(
+                "    <tr>\n{0}<td>row{row}cell1</td>\n{0}<td>row{row}cell2</td>\n{0}<td>row{row}cell3</td>\n    </tr>\n",
+                " ".repeat(60)
+            );
         }
         page_text += "</table><p>lastrowword</p>";
         assert!(page_text.len() > MAX_TEXT * 2);
         let mut out = String::new();
         page(&page_text, &mut out, true);
-        assert!(out.len() <= MAX_TEXT + 1 && out.contains("row39999cell3") && out.ends_with("lastrowword\n"), "{} bytes", out.len());
+        assert!(
+            out.len() <= MAX_TEXT + 1
+                && out.contains("row39999cell3")
+                && out.ends_with("lastrowword\n"),
+            "{} bytes",
+            out.len()
+        );
     }
 }

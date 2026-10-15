@@ -111,6 +111,8 @@ struct UiConfig {
     themes: BTreeMap<String, UiTheme>,
     /// Each theme's look (shapes and chrome, see `Theme::look`), by name.
     looks: BTreeMap<String, String>,
+    /// Which themes draw the tube (`Theme::crt`), by name.
+    crt: BTreeMap<String, bool>,
     /// The built-in themes' names, in the order Settings shows them.
     builtin_themes: Vec<&'static str>,
     glyphs: Glyphs,
@@ -187,6 +189,7 @@ fn get_config(ctx: tauri::State<Ctx>) -> Res<UiConfig> {
         groups: coxswain_core::config::Group::ALL.iter().map(|g| (g.label(), g.actions().map(Action::name).collect())).collect(),
         themes,
         looks: cfg.themes.iter().map(|(name, t)| (name.clone(), t.look.clone())).collect(),
+        crt: cfg.themes.iter().map(|(name, t)| (name.clone(), t.crt)).collect(),
         builtin_themes: coxswain_core::config::Theme::builtin().into_iter().map(|(name, _)| name).collect(),
         glyphs: cfg.glyphs(),
         show_hidden: cfg.show_hidden,

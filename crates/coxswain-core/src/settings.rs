@@ -30,7 +30,15 @@ pub enum Area {
 }
 
 impl Area {
-    pub const ALL: [Area; 7] = [Area::Overview, Area::Search, Area::Previews, Area::Looks, Area::Behaviour, Area::Keys, Area::Privacy];
+    pub const ALL: [Area; 7] = [
+        Area::Overview,
+        Area::Search,
+        Area::Previews,
+        Area::Looks,
+        Area::Behaviour,
+        Area::Keys,
+        Area::Privacy,
+    ];
 
     /// Its name in `--settings=<name>` and in the `settings.area.<name>` text.
     pub fn id(self) -> &'static str {
@@ -107,8 +115,18 @@ impl Opt {
     }
 }
 
-const fn opt(name: &'static str, path: &'static [&'static str], area: Area, costs: &'static [Cost]) -> Opt {
-    Opt { name, path, area, costs }
+const fn opt(
+    name: &'static str,
+    path: &'static [&'static str],
+    area: Area,
+    costs: &'static [Cost],
+) -> Opt {
+    Opt {
+        name,
+        path,
+        area,
+        costs,
+    }
 }
 
 use Area::*;
@@ -117,9 +135,19 @@ use Cost::*;
 /// Every option, by area.
 pub const OPTIONS: &[Opt] = &[
     opt("search_text", &["search", "text"], Search, &[Disk, Cpu]),
-    opt("search_meaning", &["search", "meaning"], Search, &[Disk, Cpu, Network]),
+    opt(
+        "search_meaning",
+        &["search", "meaning"],
+        Search,
+        &[Disk, Cpu, Network],
+    ),
     opt("search_archives", &["search", "archives"], Search, &[Cpu]),
-    opt("search_archives_everywhere", &["search", "archives_everywhere"], Search, &[Disk, Cpu]),
+    opt(
+        "search_archives_everywhere",
+        &["search", "archives_everywhere"],
+        Search,
+        &[Disk, Cpu],
+    ),
     opt("search_history", &["search", "history"], Search, &[Disk]),
     opt("search_cloud", &["search", "cloud"], Search, &[Network]),
     opt("cloud_read", &["search", "cloud_read"], Search, &[Network]),
@@ -134,15 +162,35 @@ pub const OPTIONS: &[Opt] = &[
     opt("meaning_engine", &["search", "meaning_engine"], Search, &[]),
     opt("meaning_url", &["search", "meaning_url"], Search, &[Leaves]),
     opt("meaning_model", &["search", "meaning_model"], Search, &[]),
-    opt("meaning_key_env", &["search", "meaning_key_env"], Search, &[]),
+    opt(
+        "meaning_key_env",
+        &["search", "meaning_key_env"],
+        Search,
+        &[],
+    ),
     opt("meaning_device", &["search", "meaning_device"], Search, &[]),
     opt("ask_model", &["search", "ask_model"], Search, &[Leaves]),
-    opt("ask_code_model", &["search", "ask_code_model"], Search, &[Leaves]),
+    opt(
+        "ask_code_model",
+        &["search", "ask_code_model"],
+        Search,
+        &[Leaves],
+    ),
     opt("ask_think", &["search", "ask_think"], Search, &[]),
     opt("ask_context", &["search", "ask_context"], Search, &[]),
     opt("preview_prefer", &["preview", "prefer"], Previews, &[]),
-    opt("preview_container", &["preview", "container"], Previews, &[]),
-    opt("latex_image", &["preview", "images", "latex"], Previews, &[Disk, Network]),
+    opt(
+        "preview_container",
+        &["preview", "container"],
+        Previews,
+        &[],
+    ),
+    opt(
+        "latex_image",
+        &["preview", "images", "latex"],
+        Previews,
+        &[Disk, Network],
+    ),
     opt("latex_auto", &["preview", "latex_auto"], Previews, &[Cpu]),
     opt("preview_timeout", &["preview", "timeout"], Previews, &[]),
     opt("language", &["language"], Looks, &[]),
@@ -159,7 +207,12 @@ pub const OPTIONS: &[Opt] = &[
     opt("right_click", &["right_click"], Behaviour, &[]),
     opt("hints", &["hints"], Behaviour, &[]),
     opt("folder_sizes", &["folder_sizes"], Behaviour, &[Cpu]),
-    opt("git_last_commit", &["git", "last_commit"], Behaviour, &[Cpu]),
+    opt(
+        "git_last_commit",
+        &["git", "last_commit"],
+        Behaviour,
+        &[Cpu],
+    ),
     opt("editor", &["editor"], Behaviour, &[]),
     opt("viewer", &["viewer"], Behaviour, &[]),
     opt("bom_viewer", &["bom_viewer"], Behaviour, &[]),
@@ -179,8 +232,20 @@ pub fn values(cfg: &Config) -> serde_json::Map<String, Value> {
     OPTIONS
         .iter()
         .map(|o| {
-            let v = o.path.iter().try_fold(&all, |v, k| v.get(k)).cloned().unwrap_or(Value::Null);
-            (o.name.to_string(), if v.is_null() { Value::String(String::new()) } else { v })
+            let v = o
+                .path
+                .iter()
+                .try_fold(&all, |v, k| v.get(k))
+                .cloned()
+                .unwrap_or(Value::Null);
+            (
+                o.name.to_string(),
+                if v.is_null() {
+                    Value::String(String::new())
+                } else {
+                    v
+                },
+            )
         })
         .collect()
 }
@@ -198,12 +263,19 @@ pub fn apply(text: &str, changes: &serde_json::Map<String, Value>) -> Result<Str
             Value::Bool(b) => (*b).into(),
             Value::Number(n) => match n.as_i64() {
                 Some(i) => i.into(),
-                None => n.as_f64().ok_or_else(|| t!("err.unsupported_value", "name" => name))?.into(),
+                None => n
+                    .as_f64()
+                    .ok_or_else(|| t!("err.unsupported_value", "name" => name))?
+                    .into(),
             },
             Value::String(s) => s.as_str().into(),
             Value::Array(a) => {
                 let texts: Option<Vec<&str>> = a.iter().map(|v| v.as_str()).collect();
-                texts.ok_or_else(|| t!("err.unsupported_value", "name" => name))?.into_iter().collect::<toml_edit::Array>().into()
+                texts
+                    .ok_or_else(|| t!("err.unsupported_value", "name" => name))?
+                    .into_iter()
+                    .collect::<toml_edit::Array>()
+                    .into()
             }
             _ => return Err(t!("err.unsupported_value", "name" => name)),
         };
@@ -217,11 +289,17 @@ pub fn apply(text: &str, changes: &serde_json::Map<String, Value>) -> Result<Str
 /// half-written config never replaces a working one. The caller restarts the helper when an
 /// option says so (`Opt::restarts_helper`).
 pub fn save(changes: &serde_json::Map<String, Value>) -> Result<Config, String> {
-    save_to(&Config::path().ok_or_else(|| t!("err.no_config_folder"))?, changes)
+    save_to(
+        &Config::path().ok_or_else(|| t!("err.no_config_folder"))?,
+        changes,
+    )
 }
 
 /// `save`, to the config.toml at `path`.
-pub fn save_to(path: &std::path::Path, changes: &serde_json::Map<String, Value>) -> Result<Config, String> {
+pub fn save_to(
+    path: &std::path::Path,
+    changes: &serde_json::Map<String, Value>,
+) -> Result<Config, String> {
     // One save at a time: two read-change-write rounds at once would lose one's change.
     static SAVING: std::sync::Mutex<()> = std::sync::Mutex::new(());
     let _one = SAVING.lock().unwrap_or_else(|e| e.into_inner());
@@ -234,7 +312,9 @@ pub fn save_to(path: &std::path::Path, changes: &serde_json::Map<String, Value>)
         std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
     }
     let tmp = path.with_extension("toml.tmp");
-    std::fs::write(&tmp, new_text).and_then(|_| std::fs::rename(&tmp, &path)).map_err(|e| format!("{}: {e}", path.display()))?;
+    std::fs::write(&tmp, new_text)
+        .and_then(|_| std::fs::rename(&tmp, &path))
+        .map_err(|e| format!("{}: {e}", path.display()))?;
     crate::i18n::set_language(crate::i18n::resolve(&cfg.language));
     Ok(cfg)
 }
@@ -261,7 +341,11 @@ const GROUPS: [(&str, Area); 2] = [("models", Search), ("disk", Privacy)];
 /// Every name `open_at` knows, with where it opens: for the desktop app, which opens Settings
 /// at sections given by notices too.
 pub fn sections() -> Vec<(&'static str, Area, Option<&'static str>)> {
-    let names = Area::ALL.iter().map(|a| a.id()).chain(GROUPS.map(|g| g.0)).chain(OPTIONS.iter().map(|o| o.name));
+    let names = Area::ALL
+        .iter()
+        .map(|a| a.id())
+        .chain(GROUPS.map(|g| g.0))
+        .chain(OPTIONS.iter().map(|o| o.name));
     names.map(|n| (n, open_at(n).0, open_at(n).1)).collect()
 }
 
@@ -320,7 +404,11 @@ pub fn level(s: &SearchConfig) -> Option<Level> {
 /// opens instead. `builtin_ready`: the built-in model is downloaded. Going down a level keeps
 /// what was set up (the model stays; deleting it is a button of its own), except that leaving
 /// Ask forgets its chat model, as that is what turns Ask on.
-pub fn level_changes(level: Level, s: &SearchConfig, builtin_ready: bool) -> Option<serde_json::Map<String, Value>> {
+pub fn level_changes(
+    level: Level,
+    s: &SearchConfig,
+    builtin_ready: bool,
+) -> Option<serde_json::Map<String, Value>> {
     let meaning_ready = s.meaning_engine != "builtin" || builtin_ready;
     let mut m = serde_json::Map::new();
     let mut set = |k: &str, v: Value| {
@@ -410,13 +498,21 @@ pub struct Line {
 
 /// A progress bar of `width` cells for the terminal: `done` of `total`, filled from the left.
 pub fn bar(done: usize, total: usize, width: usize) -> String {
-    let full = if total == 0 { width } else { (done.min(total) * width) / total };
+    let full = if total == 0 {
+        width
+    } else {
+        (done.min(total) * width) / total
+    };
     format!("{}{}", "█".repeat(full), "░".repeat(width - full))
 }
 
 /// Whole percent of `done` of `total`, never 100 while something is left.
 pub fn percent(done: usize, total: usize) -> usize {
-    if total == 0 { 100 } else { ((done.min(total) * 100) / total).min(if done < total { 99 } else { 100 }) }
+    if total == 0 {
+        100
+    } else {
+        ((done.min(total) * 100) / total).min(if done < total { 99 } else { 100 })
+    }
 }
 
 /// A count with its thousands set apart by a narrow space, which reads right in every language:
@@ -446,7 +542,11 @@ fn human_latin(n: u64) -> String {
     for u in ["KB", "MB", "GB", "TB"] {
         v /= 1024.0;
         if v < 1024.0 {
-            return if v < 100.0 { format!("{v:.1} {}", crate::i18n::tr(&format!("unit.{u}"), &[])) } else { format!("{v:.0} {}", crate::i18n::tr(&format!("unit.{u}"), &[])) };
+            return if v < 100.0 {
+                format!("{v:.1} {}", crate::i18n::tr(&format!("unit.{u}"), &[]))
+            } else {
+                format!("{v:.0} {}", crate::i18n::tr(&format!("unit.{u}"), &[]))
+            };
         }
     }
     format!("{v:.0} {}", t!("unit.PB"))
@@ -462,20 +562,37 @@ pub fn host(url: &str) -> &str {
 /// Whether the server at `url` is this machine.
 pub fn is_local(url: &str) -> bool {
     let h = host(url);
-    let name = if h.starts_with('[') { h.split(']').next().map(|n| &n[1..]).unwrap_or(h) } else { h.split(':').next().unwrap_or(h) };
+    let name = if h.starts_with('[') {
+        h.split(']').next().map(|n| &n[1..]).unwrap_or(h)
+    } else {
+        h.split(':').next().unwrap_or(h)
+    };
     matches!(name, "localhost" | "::1") || name.starts_with("127.")
 }
 
 /// The server that makes the vectors (or Ask's, with the built-in model: Ollama here).
 pub fn server_url(s: &SearchConfig) -> String {
-    if s.meaning_url.is_empty() && s.meaning_engine != "openai" { crate::meaning::OLLAMA.to_string() } else { s.meaning_url.clone() }
+    if s.meaning_url.is_empty() && s.meaning_engine != "openai" {
+        crate::meaning::OLLAMA.to_string()
+    } else {
+        s.meaning_url.clone()
+    }
 }
 
 /// A server error in words with the step it calls for, not as it came: a server that does not
 /// answer is said to be so.
 fn cause(why: &str, url: &str) -> String {
     let w = why.to_lowercase();
-    if ["connection refused", "connect", "dns", "timed out", "unreachable"].iter().any(|k| w.contains(k)) {
+    if [
+        "connection refused",
+        "connect",
+        "dns",
+        "timed out",
+        "unreachable",
+    ]
+    .iter()
+    .any(|k| w.contains(k))
+    {
         t!("settings.status.down", "host" => host(url))
     } else {
         t!("settings.status.failed", "why" => why)
@@ -485,13 +602,35 @@ fn cause(why: &str, url: &str) -> String {
 /// The status block of Finding files, from the settings and the helper's status. `helper`:
 /// the helper answers (without it there is no reading). `poor`: the models chosen that are
 /// poor choices here (`setup::poor`), each said on its line for as long as it stands.
-pub fn status(s: &SearchConfig, st: &Status, helper: bool, poor: &[crate::setup::Poor]) -> Vec<Line> {
-    let line = |part, key: &str, text: String| Line { part, label: t!(key), text, note: None, bad: false, step: None, poor: None, bar: None };
-    let mut names = line(Part::Names, "settings.status.names", t!("settings.status.names_ready", "n" => count(st.len)));
+pub fn status(
+    s: &SearchConfig,
+    st: &Status,
+    helper: bool,
+    poor: &[crate::setup::Poor],
+) -> Vec<Line> {
+    let line = |part, key: &str, text: String| Line {
+        part,
+        label: t!(key),
+        text,
+        note: None,
+        bad: false,
+        step: None,
+        poor: None,
+        bar: None,
+    };
+    let mut names = line(
+        Part::Names,
+        "settings.status.names",
+        t!("settings.status.names_ready", "n" => count(st.len)),
+    );
     if st.state != crate::index::State::Ready {
         names.text = t!("settings.status.names_building", "n" => count(st.len));
     }
-    let mut text = line(Part::Text, "settings.status.text", t!("settings.status.off"));
+    let mut text = line(
+        Part::Text,
+        "settings.status.text",
+        t!("settings.status.off"),
+    );
     if !s.text {
         text.note = Some(t!("settings.status.text_off"));
         text.step = Some(Step::TurnOn);
@@ -513,7 +652,11 @@ pub fn status(s: &SearchConfig, st: &Status, helper: bool, poor: &[crate::setup:
         }
     }
     let url = server_url(s);
-    let mut meaning = line(Part::Meaning, "settings.status.meaning", t!("settings.status.off"));
+    let mut meaning = line(
+        Part::Meaning,
+        "settings.status.meaning",
+        t!("settings.status.off"),
+    );
     if !s.meaning {
         meaning.note = Some(t!("settings.status.meaning_off"));
         meaning.step = Some(Step::SetUp);
@@ -521,7 +664,11 @@ pub fn status(s: &SearchConfig, st: &Status, helper: bool, poor: &[crate::setup:
         let by = if s.meaning_engine == "builtin" {
             t!("settings.status.builtin", "where" => st.meaning_runs.as_ref().map(|r| r.text()).unwrap_or_else(|| t!("meaning.on_cpu")))
         } else {
-            let model = if s.meaning_model.is_empty() { "bge-m3" } else { &s.meaning_model };
+            let model = if s.meaning_model.is_empty() {
+                "bge-m3"
+            } else {
+                &s.meaning_model
+            };
             t!("settings.status.server", "model" => model, "host" => host(&url))
         };
         let total = st.meaning_done + st.meaning_pending;
@@ -533,7 +680,9 @@ pub fn status(s: &SearchConfig, st: &Status, helper: bool, poor: &[crate::setup:
         } else if st.meaning_pending > 0 {
             meaning.bar = Some((st.meaning_done, total));
             if st.meaning_ms_per_passage > 0 {
-                meaning.note = Some(t!("settings.status.meaning_left", "time" => crate::notices::time_left(st)));
+                meaning.note = Some(
+                    t!("settings.status.meaning_left", "time" => crate::notices::time_left(st)),
+                );
             }
         }
         // The model's speed here, and what the files to go take at it: measured on request.
@@ -580,7 +729,11 @@ pub struct Out {
 /// What the settings as they are can send or fetch, and where: the update check, the built-in
 /// model's download, the model server, Ask, cloud files, container images.
 pub fn outbound(cfg: &Config) -> Vec<Out> {
-    let out = |key: &str, to: &str, local| Out { what: t!(key), to: to.to_string(), local };
+    let out = |key: &str, to: &str, local| Out {
+        what: t!(key),
+        to: to.to_string(),
+        local,
+    };
     let s = &cfg.search;
     let mut v = vec![];
     if cfg.check_updates {
@@ -594,16 +747,30 @@ pub fn outbound(cfg: &Config) -> Vec<Out> {
         v.push(out("settings.out.meaning", host(&url), is_local(&url)));
     }
     match crate::chat::of(&s.ask_model) {
-        Some(m) if !m.installed() => v.push(out("settings.out.chat_model", "huggingface.co", false)),
+        Some(m) if !m.installed() => {
+            v.push(out("settings.out.chat_model", "huggingface.co", false))
+        }
         Some(_) => {}
-        None if crate::find::ask_ready(s).is_ok() => v.push(out("settings.out.ask", host(&url), is_local(&url))),
+        None if crate::find::ask_ready(s).is_ok() => {
+            v.push(out("settings.out.ask", host(&url), is_local(&url)))
+        }
         None => {}
     }
     if s.cloud == "all" || !s.cloud_read.is_empty() {
-        v.push(out("settings.out.cloud", &t!("settings.out.cloud_where"), false));
+        v.push(out(
+            "settings.out.cloud",
+            &t!("settings.out.cloud_where"),
+            false,
+        ));
     }
     if cfg.preview.prefer != "local" && cfg.preview.container != "off" {
-        let mut hosts: Vec<&str> = cfg.preview.images.values().filter(|i| !i.is_empty()).map(|i| registry(i)).collect();
+        let mut hosts: Vec<&str> = cfg
+            .preview
+            .images
+            .values()
+            .filter(|i| !i.is_empty())
+            .map(|i| registry(i))
+            .collect();
         hosts.sort();
         hosts.dedup();
         if !hosts.is_empty() {
@@ -629,14 +796,37 @@ mod tests {
     fn settings_every_option_is_explained_in_every_language() {
         // Texts of their own: every language but the English and German variants, which take
         // the rest from British English and German.
-        for l in crate::i18n::LANGUAGES.iter().filter(|l| !l.code.starts_with("en-") && !l.code.starts_with("de-")).map(|l| l.code).chain(["en-GB"]) {
+        for l in crate::i18n::LANGUAGES
+            .iter()
+            .filter(|l| !l.code.starts_with("en-") && !l.code.starts_with("de-"))
+            .map(|l| l.code)
+            .chain(["en-GB"])
+        {
             let own = crate::i18n::own(l);
             let lacks: Vec<String> = OPTIONS
                 .iter()
-                .flat_map(|o| [format!("setting.{}", o.name), format!("setting.{}.hint", o.name)])
-                .chain(Area::ALL.iter().map(|a| format!("settings.area.{}", a.id())))
-                .chain(Level::ALL.iter().flat_map(|v| [format!("settings.level.{}", v.id()), format!("settings.level.{}.hint", v.id())]))
-                .filter(|k| !own.get(k).and_then(|v| v.as_str()).is_some_and(|s| !s.trim().is_empty()))
+                .flat_map(|o| {
+                    [
+                        format!("setting.{}", o.name),
+                        format!("setting.{}.hint", o.name),
+                    ]
+                })
+                .chain(
+                    Area::ALL
+                        .iter()
+                        .map(|a| format!("settings.area.{}", a.id())),
+                )
+                .chain(Level::ALL.iter().flat_map(|v| {
+                    [
+                        format!("settings.level.{}", v.id()),
+                        format!("settings.level.{}.hint", v.id()),
+                    ]
+                }))
+                .filter(|k| {
+                    !own.get(k)
+                        .and_then(|v| v.as_str())
+                        .is_some_and(|s| !s.trim().is_empty())
+                })
                 .collect();
             assert!(lacks.is_empty(), "{l} lacks {lacks:?}");
         }
@@ -649,10 +839,16 @@ mod tests {
         assert_eq!(v.len(), OPTIONS.len());
         // Each one is found where the description says, unset optional ones as empty text.
         assert_eq!(v["search_text"], Value::Bool(cfg.search.text));
-        assert_eq!(v["latex_image"], Value::String(cfg.preview.images["latex"].clone()));
+        assert_eq!(
+            v["latex_image"],
+            Value::String(cfg.preview.images["latex"].clone())
+        );
         assert_eq!(v["tui_theme"], Value::String(cfg.theme.clone()));
         assert_eq!(v["editor"], Value::String(String::new()));
-        assert!(v.iter().all(|(k, x)| !x.is_null() && find(k).is_some()), "{v:?}");
+        assert!(
+            v.iter().all(|(k, x)| !x.is_null() && find(k).is_some()),
+            "{v:?}"
+        );
         let mut names: Vec<&str> = OPTIONS.iter().map(|o| o.name).collect();
         names.sort();
         names.dedup();
@@ -668,9 +864,15 @@ mod tests {
         ch.insert("text_roots".into(), serde_json::json!(["/a", "/b"]));
         ch.insert("editor".into(), "hx".into());
         let new = apply(text, &ch).unwrap();
-        assert!(new.contains("# mine") && new.contains("show_hidden = true # keep"), "{new}");
+        assert!(
+            new.contains("# mine") && new.contains("show_hidden = true # keep"),
+            "{new}"
+        );
         let cfg = Config::parse(&new).unwrap();
-        assert_eq!((cfg.gui.line_height, cfg.editor.as_deref()), (1.5, Some("hx")));
+        assert_eq!(
+            (cfg.gui.line_height, cfg.editor.as_deref()),
+            (1.5, Some("hx"))
+        );
         assert_eq!(cfg.search.text_roots.len(), 2);
         // An empty editor takes the key out again: $EDITOR applies.
         let mut ch = serde_json::Map::new();
@@ -693,17 +895,47 @@ mod tests {
         ch.insert("search_archives".into(), false.into());
         ch.insert("cloud_read".into(), serde_json::json!(["/home/me/gdrive"]));
         let out = apply(text, &ch).unwrap();
-        for kept in ["# my config", "theme = \"nc\"  # terminal", "# big text", "quit = [\"F10\"]"] {
+        for kept in [
+            "# my config",
+            "theme = \"nc\"  # terminal",
+            "# big text",
+            "quit = [\"F10\"]",
+        ] {
             assert!(out.contains(kept), "{kept} lost:\n{out}");
         }
         let cfg = Config::parse(&out).unwrap();
-        assert_eq!((cfg.gui.font_size, cfg.language.as_str(), cfg.show_hidden), (17.0, "da", false));
+        assert_eq!(
+            (cfg.gui.font_size, cfg.language.as_str(), cfg.show_hidden),
+            (17.0, "da", false)
+        );
         assert_eq!(cfg.preview.images["latex"], "texlive:medium");
-        assert_eq!(cfg.search.names_only, [std::path::PathBuf::from("/home/me/Mail")]);
-        assert_eq!((cfg.search.cloud_read, cfg.search.cloud.as_str()), (vec![std::path::PathBuf::from("/home/me/gdrive")], "local-only"), "online files stay there unless asked");
-        assert!(!cfg.search.archives && Config::default().search.archives, "on unless switched off");
-        assert_eq!(cfg.preview.images["plantuml"], "docker.io/plantuml/plantuml:latest", "other defaults stay");
-        assert!(apply(text, &serde_json::Map::from_iter([("nope".into(), 1.into())])).is_err());
+        assert_eq!(
+            cfg.search.names_only,
+            [std::path::PathBuf::from("/home/me/Mail")]
+        );
+        assert_eq!(
+            (cfg.search.cloud_read, cfg.search.cloud.as_str()),
+            (
+                vec![std::path::PathBuf::from("/home/me/gdrive")],
+                "local-only"
+            ),
+            "online files stay there unless asked"
+        );
+        assert!(
+            !cfg.search.archives && Config::default().search.archives,
+            "on unless switched off"
+        );
+        assert_eq!(
+            cfg.preview.images["plantuml"], "docker.io/plantuml/plantuml:latest",
+            "other defaults stay"
+        );
+        assert!(
+            apply(
+                text,
+                &serde_json::Map::from_iter([("nope".into(), 1.into())])
+            )
+            .is_err()
+        );
     }
 
     #[test]
@@ -722,7 +954,29 @@ mod tests {
         }
         // Every section a notice opens is one of them.
         let known = sections();
-        let status = Status { state: crate::index::State::Ready, len: 1, texts: 10, pending: 0, bytes: 0, paused: false, roots: vec![], tools: vec![("tesseract".into(), false)], meaning: true, meaning_pending: 0, meaning_done: 0, meaning_passages: 0, meaning_renewing: 0, meaning_ms_per_passage: 0, meaning_engine: String::new(), meaning_error: Some("down".into()), meaning_runs: None, chat_loaded: None, error: Some("stalled".into()), clouds: vec![("OneDrive".into(), "/c".into())], outdated: None };
+        let status = Status {
+            state: crate::index::State::Ready,
+            len: 1,
+            texts: 10,
+            pending: 0,
+            bytes: 0,
+            paused: false,
+            roots: vec![],
+            tools: vec![("tesseract".into(), false)],
+            meaning: true,
+            meaning_pending: 0,
+            meaning_done: 0,
+            meaning_passages: 0,
+            meaning_renewing: 0,
+            meaning_ms_per_passage: 0,
+            meaning_engine: String::new(),
+            meaning_error: Some("down".into()),
+            meaning_runs: None,
+            chat_loaded: None,
+            error: Some("stalled".into()),
+            clouds: vec![("OneDrive".into(), "/c".into())],
+            outdated: None,
+        };
         let mut state = crate::state::AppState::default();
         state.migrated = vec!["[keys] mkdir → new_folder".into()];
         for n in crate::notices::all(&Config::default(), &status, &state, false) {
@@ -739,7 +993,10 @@ mod tests {
         s.meaning = false;
         assert_eq!(level(&s), Some(Level::Text));
         let ch = level_changes(Level::Names, &s, false).unwrap();
-        assert_eq!((ch["search_text"].as_bool(), ch["search_meaning"].as_bool()), (Some(false), Some(false)));
+        assert_eq!(
+            (ch["search_text"].as_bool(), ch["search_meaning"].as_bool()),
+            (Some(false), Some(false))
+        );
         // Meaning with the built-in model not downloaded, or Ask without a chat model: the guide.
         assert_eq!(level_changes(Level::Meaning, &s, false), None);
         assert!(level_changes(Level::Meaning, &s, true).is_some());
@@ -747,12 +1004,22 @@ mod tests {
         s.meaning_engine = "ollama".into();
         s.ask_model = "qwen3:8b".into();
         let ch = level_changes(Level::Ask, &s, false).unwrap();
-        assert_eq!((ch["search_text"].as_bool(), ch["search_meaning"].as_bool()), (Some(true), Some(true)));
+        assert_eq!(
+            (ch["search_text"].as_bool(), ch["search_meaning"].as_bool()),
+            (Some(true), Some(true))
+        );
         s.meaning = true;
         assert_eq!(level(&s), Some(Level::Ask));
         // Down from Ask to meaning forgets the chat model; down to text keeps it.
-        assert_eq!(level_changes(Level::Meaning, &s, false).unwrap()["ask_model"], "");
-        assert!(!level_changes(Level::Text, &s, false).unwrap().contains_key("ask_model"));
+        assert_eq!(
+            level_changes(Level::Meaning, &s, false).unwrap()["ask_model"],
+            ""
+        );
+        assert!(
+            !level_changes(Level::Text, &s, false)
+                .unwrap()
+                .contains_key("ask_model")
+        );
         s.text = false;
         assert_eq!(level(&s), None);
     }
@@ -760,34 +1027,114 @@ mod tests {
     #[test]
     fn settings_status_says_the_next_step() {
         let mut s = SearchConfig::default();
-        let st = Status { state: crate::index::State::Ready, len: 912_330, texts: 3875, pending: 438, bytes: 0, meaning: false, meaning_pending: 0, meaning_done: 0, meaning_passages: 0, meaning_renewing: 0, meaning_ms_per_passage: 0, meaning_engine: String::new(), meaning_error: None, meaning_runs: None, chat_loaded: None, error: None, paused: true, roots: vec![], tools: vec![], clouds: vec![], outdated: None };
+        let st = Status {
+            state: crate::index::State::Ready,
+            len: 912_330,
+            texts: 3875,
+            pending: 438,
+            bytes: 0,
+            meaning: false,
+            meaning_pending: 0,
+            meaning_done: 0,
+            meaning_passages: 0,
+            meaning_renewing: 0,
+            meaning_ms_per_passage: 0,
+            meaning_engine: String::new(),
+            meaning_error: None,
+            meaning_runs: None,
+            chat_loaded: None,
+            error: None,
+            paused: true,
+            roots: vec![],
+            tools: vec![],
+            clouds: vec![],
+            outdated: None,
+        };
         s.text = true;
         s.meaning = false;
         let lines = status(&s, &st, true, &[]);
-        assert_eq!(lines.iter().map(|l| l.step).collect::<Vec<_>>(), [None, Some(Step::ReadNow), Some(Step::SetUp), Some(Step::SetUp)]);
-        assert!(lines[0].text.contains("912\u{202f}330"), "{}", lines[0].text);
-        assert_eq!((count(7), count(1000), count(12_345_678)), ("7".into(), "1\u{202f}000".into(), "12\u{202f}345\u{202f}678".into()));
+        assert_eq!(
+            lines.iter().map(|l| l.step).collect::<Vec<_>>(),
+            [
+                None,
+                Some(Step::ReadNow),
+                Some(Step::SetUp),
+                Some(Step::SetUp)
+            ]
+        );
+        assert!(
+            lines[0].text.contains("912\u{202f}330"),
+            "{}",
+            lines[0].text
+        );
+        assert_eq!(
+            (count(7), count(1000), count(12_345_678)),
+            (
+                "7".into(),
+                "1\u{202f}000".into(),
+                "12\u{202f}345\u{202f}678".into()
+            )
+        );
         assert_eq!(status(&s, &st, false, &[])[1].step, Some(Step::Start));
         s.meaning = true;
         s.meaning_engine = "ollama".into();
         s.ask_model = "qwen3:8b".into();
-        let st = Status { meaning_error: Some("http://localhost:11434: Connection refused".into()), ..st };
+        let st = Status {
+            meaning_error: Some("http://localhost:11434: Connection refused".into()),
+            ..st
+        };
         let lines = status(&s, &st, true, &[]);
-        assert!(lines[2].bad && lines[2].note.as_deref().unwrap().contains("localhost:11434"), "{:?}", lines[2]);
+        assert!(
+            lines[2].bad
+                && lines[2]
+                    .note
+                    .as_deref()
+                    .unwrap()
+                    .contains("localhost:11434"),
+            "{:?}",
+            lines[2]
+        );
         assert_eq!(lines[3].step, Some(Step::TryIt));
-        let st = Status { meaning_error: None, meaning_done: 23_611, meaning_pending: 245_762, ..st };
+        let st = Status {
+            meaning_error: None,
+            meaning_done: 23_611,
+            meaning_pending: 245_762,
+            ..st
+        };
         let lines = status(&s, &st, true, &[]);
         assert_eq!(lines[2].bar, Some((23_611, 269_373)));
         assert_eq!(bar(23_611, 269_373, 20), "█░░░░░░░░░░░░░░░░░░░");
-        assert_eq!((percent(23_611, 269_373), percent(269_372, 269_373), percent(5, 5), percent(0, 0)), (8, 99, 100, 100));
+        assert_eq!(
+            (
+                percent(23_611, 269_373),
+                percent(269_372, 269_373),
+                percent(5, 5),
+                percent(0, 0)
+            ),
+            (8, 99, 100, 100)
+        );
     }
 
     #[test]
     fn settings_say_what_leaves_and_where() {
-        assert_eq!(host("http://user@my-server:13305/api/v1"), "my-server:13305");
-        assert!(is_local("http://localhost:11434") && is_local("http://127.0.0.1:8000/v1") && is_local("http://[::1]:1234"));
+        assert_eq!(
+            host("http://user@my-server:13305/api/v1"),
+            "my-server:13305"
+        );
+        assert!(
+            is_local("http://localhost:11434")
+                && is_local("http://127.0.0.1:8000/v1")
+                && is_local("http://[::1]:1234")
+        );
         assert!(!is_local("http://my-server:13305/api/v1"));
-        assert_eq!((registry("docker.io/pandoc/core"), registry("texlive/texlive"), registry("ghcr.io/x/y:1")), ("docker.io", "docker.io", "ghcr.io"));
+        assert_eq!(
+            (
+                registry("docker.io/pandoc/core"),
+                registry("texlive/texlive"),
+                registry("ghcr.io/x/y:1")
+            ),
+            ("docker.io", "docker.io", "ghcr.io")
+        );
         let mut cfg = Config::default();
         cfg.check_updates = false;
         cfg.preview.container = "off".into();
@@ -799,6 +1146,15 @@ mod tests {
         cfg.search.meaning_url = "http://my-server:13305/api/v1".into();
         cfg.search.ask_model = "qwen3:8b".into();
         let out = outbound(&cfg);
-        assert_eq!(out.iter().map(|o| (o.to.as_str(), o.local)).collect::<Vec<_>>(), [("api.github.com", false), ("my-server:13305", false), ("my-server:13305", false)]);
+        assert_eq!(
+            out.iter()
+                .map(|o| (o.to.as_str(), o.local))
+                .collect::<Vec<_>>(),
+            [
+                ("api.github.com", false),
+                ("my-server:13305", false),
+                ("my-server:13305", false)
+            ]
+        );
     }
 }

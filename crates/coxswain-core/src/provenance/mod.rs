@@ -41,8 +41,13 @@ impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Error::NotAttestation => write!(f, "This file holds no in-toto attestation."),
-            Error::InvalidJson { line, message } => write!(f, "This file isn't valid JSON (line {line}): {message}"),
-            Error::TooLarge(size) => write!(f, "This file is too large to show as provenance ({size} bytes)."),
+            Error::InvalidJson { line, message } => {
+                write!(f, "This file isn't valid JSON (line {line}): {message}")
+            }
+            Error::TooLarge(size) => write!(
+                f,
+                "This file is too large to show as provenance ({size} bytes)."
+            ),
             Error::Io(e) => write!(f, "{e}"),
         }
     }
@@ -53,14 +58,22 @@ impl std::error::Error for Error {}
 /// Whether a file holds attestations: by its name, else by its first bytes. Callers ask this
 /// before `bom::sniff`, since a statement may carry a CycloneDX predicate.
 pub fn sniff(path: &Path) -> bool {
-    let name = path.file_name().map(|n| n.to_string_lossy().to_lowercase()).unwrap_or_default();
+    let name = path
+        .file_name()
+        .map(|n| n.to_string_lossy().to_lowercase())
+        .unwrap_or_default();
     if sniff_name(&name) {
         return true;
     }
-    if ![".json", ".jsonl", ".ndjson"].iter().any(|e| name.ends_with(e)) {
+    if ![".json", ".jsonl", ".ndjson"]
+        .iter()
+        .any(|e| name.ends_with(e))
+    {
         return false;
     }
-    let Ok(file) = std::fs::File::open(path) else { return false };
+    let Ok(file) = std::fs::File::open(path) else {
+        return false;
+    };
     if file.metadata().is_ok_and(|m| m.len() > MAX_SIZE) {
         return false;
     }
@@ -72,9 +85,17 @@ pub fn sniff(path: &Path) -> bool {
 /// `*.sigstore`, `*.dsse.json`, `*.provenance.json`, `*.build.slsa` and `provenance.json`.
 pub fn sniff_name(name: &str) -> bool {
     let name = name.to_lowercase();
-    [".intoto.jsonl", ".intoto.json", ".sigstore.json", ".sigstore", ".dsse.json", ".provenance.json", ".build.slsa"]
-        .iter()
-        .any(|e| name.ends_with(e))
+    [
+        ".intoto.jsonl",
+        ".intoto.json",
+        ".sigstore.json",
+        ".sigstore",
+        ".dsse.json",
+        ".provenance.json",
+        ".build.slsa",
+    ]
+    .iter()
+    .any(|e| name.ends_with(e))
         || name == "provenance.json"
 }
 
@@ -95,7 +116,9 @@ pub fn load(path: &Path) -> Result<Attestations, Error> {
         return Err(Error::TooLarge(size));
     }
     let mut bytes = Vec::with_capacity(size as usize);
-    file.take(MAX_SIZE + 1).read_to_end(&mut bytes).map_err(io)?;
+    file.take(MAX_SIZE + 1)
+        .read_to_end(&mut bytes)
+        .map_err(io)?;
     if bytes.len() as u64 > MAX_SIZE {
         return Err(Error::TooLarge(bytes.len() as u64));
     }

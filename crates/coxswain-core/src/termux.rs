@@ -9,7 +9,10 @@ use std::time::Duration;
 
 /// Whether this runs inside Termux.
 pub fn active() -> bool {
-    is_termux(std::env::var_os("TERMUX_VERSION").is_some(), std::env::var_os("PREFIX").as_deref().map(Path::new))
+    is_termux(
+        std::env::var_os("TERMUX_VERSION").is_some(),
+        std::env::var_os("PREFIX").as_deref().map(Path::new),
+    )
 }
 
 fn is_termux(version: bool, prefix: Option<&Path>) -> bool {
@@ -27,7 +30,9 @@ pub fn storage() -> Vec<(String, PathBuf)> {
     if !active() {
         return vec![];
     }
-    let Some(dir) = std::env::home_dir().map(|h| h.join("storage")) else { return vec![] };
+    let Some(dir) = std::env::home_dir().map(|h| h.join("storage")) else {
+        return vec![];
+    };
     storage_in(&dir)
 }
 
@@ -63,9 +68,21 @@ pub fn opener() -> Option<PathBuf> {
 pub fn copy(text: &str) -> bool {
     use std::io::Write;
     use std::process::Stdio;
-    let Some(set) = program("termux-clipboard-set") else { return false };
-    let Ok(mut child) = crate::tools::command(set).stdin(Stdio::piped()).stdout(Stdio::null()).stderr(Stdio::null()).spawn() else { return false };
-    let wrote = child.stdin.take().is_some_and(|mut i| i.write_all(text.as_bytes()).is_ok());
+    let Some(set) = program("termux-clipboard-set") else {
+        return false;
+    };
+    let Ok(mut child) = crate::tools::command(set)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()
+    else {
+        return false;
+    };
+    let wrote = child
+        .stdin
+        .take()
+        .is_some_and(|mut i| i.write_all(text.as_bytes()).is_ok());
     // Without the Termux:API app the command waits for it forever.
     crate::tools::wait(&mut child, Duration::from_secs(3)).is_ok_and(|s| s.success()) && wrote
 }
@@ -89,7 +106,9 @@ pub fn certificates() -> Option<Vec<u8>> {
     if !active() {
         return None;
     }
-    let prefix = std::env::var_os("PREFIX").map(PathBuf::from).unwrap_or_else(|| PathBuf::from("/data/data/com.termux/files/usr"));
+    let prefix = std::env::var_os("PREFIX")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| PathBuf::from("/data/data/com.termux/files/usr"));
     std::fs::read(prefix.join("etc/tls/cert.pem")).ok()
 }
 
@@ -100,7 +119,10 @@ mod tests {
     #[test]
     fn termux_is_told_by_its_variables() {
         assert!(is_termux(true, None));
-        assert!(is_termux(false, Some(Path::new("/data/data/com.termux/files/usr"))));
+        assert!(is_termux(
+            false,
+            Some(Path::new("/data/data/com.termux/files/usr"))
+        ));
         assert!(!is_termux(false, Some(Path::new("/usr"))));
         assert!(!is_termux(false, None));
     }
@@ -108,7 +130,8 @@ mod tests {
     #[test]
     fn termux_battery_status_is_read() {
         let on = br#"{"health":"GOOD","percentage":81,"plugged":"UNPLUGGED","status":"DISCHARGING","temperature":27.5}"#;
-        let off = br#"{"health":"GOOD","percentage":81,"plugged":"PLUGGED_USB","status":"CHARGING"}"#;
+        let off =
+            br#"{"health":"GOOD","percentage":81,"plugged":"PLUGGED_USB","status":"CHARGING"}"#;
         assert_eq!(unplugged(on), Some(true));
         assert_eq!(unplugged(off), Some(false));
         assert_eq!(unplugged(b"Termux:API is not installed"), None);

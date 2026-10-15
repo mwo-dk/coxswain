@@ -5,7 +5,10 @@
 //! (the phone's storage under `~/storage`, another ZFS dataset than the home folder's on illumos)
 //! is refused, and the caller asks to delete it for good.
 
-#![cfg_attr(not(any(target_os = "android", target_os = "illumos", target_os = "solaris")), allow(dead_code))]
+#![cfg_attr(
+    not(any(target_os = "android", target_os = "illumos", target_os = "solaris")),
+    allow(dead_code)
+)]
 
 use std::fs;
 use std::io::{self, Write};
@@ -37,7 +40,10 @@ pub fn put(path: &Path) -> io::Result<String> {
 /// folder of it that exists.
 fn same_fs(trash: &Path, path: &Path) -> bool {
     let dev = |m: fs::Metadata| m.dev();
-    let t = trash.ancestors().find_map(|a| fs::metadata(a).ok()).map(dev);
+    let t = trash
+        .ancestors()
+        .find_map(|a| fs::metadata(a).ok())
+        .map(dev);
     t.is_some() && t == fs::symlink_metadata(path).ok().map(dev)
 }
 
@@ -46,13 +52,24 @@ fn put_in(trash: &Path, path: &Path, same: fn(&Path, &Path) -> bool) -> io::Resu
     let path = std::path::absolute(path)?;
     fs::symlink_metadata(&path)?;
     if !same(trash, &path) {
-        return Err(io::Error::new(io::ErrorKind::CrossesDevices, "the trash is on another filesystem"));
+        return Err(io::Error::new(
+            io::ErrorKind::CrossesDevices,
+            "the trash is on another filesystem",
+        ));
     }
     let (files, info) = (trash.join("files"), trash.join("info"));
     fs::create_dir_all(&files)?;
     fs::create_dir_all(&info)?;
-    let name = path.file_name().ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "no name"))?.to_string_lossy().into_owned();
-    let body = format!("[Trash Info]\nPath={}\nDeletionDate={}\n", encode(&path), chrono::Local::now().format("%Y-%m-%dT%H:%M:%S"));
+    let name = path
+        .file_name()
+        .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "no name"))?
+        .to_string_lossy()
+        .into_owned();
+    let body = format!(
+        "[Trash Info]\nPath={}\nDeletionDate={}\n",
+        encode(&path),
+        chrono::Local::now().format("%Y-%m-%dT%H:%M:%S")
+    );
     // The info file is made first and exclusively: it claims the name.
     for n in crate::fs::name_candidates(&name) {
         if fs::symlink_metadata(files.join(&n)).is_ok() {
@@ -63,7 +80,9 @@ fn put_in(trash: &Path, path: &Path, same: fn(&Path, &Path) -> bool) -> io::Resu
             Err(e) if e.kind() == io::ErrorKind::AlreadyExists => continue,
             r => r?,
         };
-        let moved = f.write_all(body.as_bytes()).and_then(|_| fs::rename(&path, files.join(&n)));
+        let moved = f
+            .write_all(body.as_bytes())
+            .and_then(|_| fs::rename(&path, files.join(&n)));
         return match moved {
             Ok(()) => Ok(n),
             Err(e) => {
@@ -86,13 +105,20 @@ pub fn restore(name: &str, path: &Path) -> io::Result<()> {
 fn restore_in(trash: &Path, name: &str, path: &Path) -> io::Result<()> {
     let path = std::path::absolute(path)?;
     let info = trash.join("info").join(format!("{name}.trashinfo"));
-    let body = fs::read_to_string(&info).map_err(|_| io::Error::new(io::ErrorKind::NotFound, "not in the trash"))?;
+    let body = fs::read_to_string(&info)
+        .map_err(|_| io::Error::new(io::ErrorKind::NotFound, "not in the trash"))?;
     // Still the one this path put there, not another under a name freed and taken since.
-    if !body.lines().any(|l| l.strip_prefix("Path=") == Some(encode(&path).as_str())) {
+    if !body
+        .lines()
+        .any(|l| l.strip_prefix("Path=") == Some(encode(&path).as_str()))
+    {
         return Err(io::Error::new(io::ErrorKind::NotFound, "not in the trash"));
     }
     if fs::symlink_metadata(&path).is_ok() {
-        return Err(io::Error::new(io::ErrorKind::AlreadyExists, format!("{} exists", path.display())));
+        return Err(io::Error::new(
+            io::ErrorKind::AlreadyExists,
+            format!("{} exists", path.display()),
+        ));
     }
     fs::rename(trash.join("files").join(name), &path)?;
     let _ = fs::remove_file(info);
@@ -118,7 +144,8 @@ mod tests {
     use super::*;
 
     fn tmp(name: &str) -> PathBuf {
-        let d = std::env::temp_dir().join(format!("coxswain-test-trash-{name}-{}", std::process::id()));
+        let d =
+            std::env::temp_dir().join(format!("coxswain-test-trash-{name}-{}", std::process::id()));
         let _ = fs::remove_dir_all(&d);
         fs::create_dir_all(&d).unwrap();
         d
@@ -139,9 +166,23 @@ mod tests {
         assert!(!d.join("a b.txt").exists());
         assert!(trash.join("files/a b.txt").exists() && trash.join("files/a b (2).txt").exists());
         let i = info(&trash, "a b (2).txt");
-        assert!(i.starts_with(&format!("[Trash Info]\nPath={}/a%20b.txt\nDeletionDate=", encode(&d))), "{i}");
-        let date = i.lines().nth(2).unwrap().strip_prefix("DeletionDate=").unwrap();
-        assert!(chrono::NaiveDateTime::parse_from_str(date, "%Y-%m-%dT%H:%M:%S").is_ok(), "{date}");
+        assert!(
+            i.starts_with(&format!(
+                "[Trash Info]\nPath={}/a%20b.txt\nDeletionDate=",
+                encode(&d)
+            )),
+            "{i}"
+        );
+        let date = i
+            .lines()
+            .nth(2)
+            .unwrap()
+            .strip_prefix("DeletionDate=")
+            .unwrap();
+        assert!(
+            chrono::NaiveDateTime::parse_from_str(date, "%Y-%m-%dT%H:%M:%S").is_ok(),
+            "{date}"
+        );
         // A folder goes in whole.
         fs::create_dir_all(d.join("dir/sub")).unwrap();
         assert_eq!(put_in(&trash, &d.join("dir"), same_fs).unwrap(), "dir");
@@ -159,14 +200,26 @@ mod tests {
         let new = put_in(&trash, &f, same_fs).unwrap();
         // Something is there again: left alone.
         fs::write(&f, "other").unwrap();
-        assert_eq!(restore_in(&trash, &new, &f).unwrap_err().kind(), io::ErrorKind::AlreadyExists);
+        assert_eq!(
+            restore_in(&trash, &new, &f).unwrap_err().kind(),
+            io::ErrorKind::AlreadyExists
+        );
         assert_eq!(fs::read_to_string(&f).unwrap(), "other");
         fs::remove_file(&f).unwrap();
         // Another path's item under that name is not this one's.
-        assert_eq!(restore_in(&trash, &new, &d.join("else.txt")).unwrap_err().kind(), io::ErrorKind::NotFound);
+        assert_eq!(
+            restore_in(&trash, &new, &d.join("else.txt"))
+                .unwrap_err()
+                .kind(),
+            io::ErrorKind::NotFound
+        );
         restore_in(&trash, &new, &f).unwrap();
         assert_eq!(fs::read_to_string(&f).unwrap(), "new");
-        assert_eq!(restore_in(&trash, &new, &f).unwrap_err().kind(), io::ErrorKind::NotFound, "gone from the trash");
+        assert_eq!(
+            restore_in(&trash, &new, &f).unwrap_err().kind(),
+            io::ErrorKind::NotFound,
+            "gone from the trash"
+        );
         fs::remove_file(&f).unwrap();
         restore_in(&trash, &old, &f).unwrap();
         assert_eq!(fs::read_to_string(&f).unwrap(), "old");
@@ -175,7 +228,10 @@ mod tests {
 
     #[test]
     fn encodes_what_a_uri_cannot_hold() {
-        assert_eq!(encode(Path::new("/home/ø 100%/#a~b-c_d.e")), "/home/%C3%B8%20100%25/%23a~b-c_d.e");
+        assert_eq!(
+            encode(Path::new("/home/ø 100%/#a~b-c_d.e")),
+            "/home/%C3%B8%20100%25/%23a~b-c_d.e"
+        );
     }
 
     #[test]

@@ -25,9 +25,21 @@ const REPO: &str = "intfloat/multilingual-e5-small";
 const REVISION: &str = "614241f622f53c4eeff9890bdc4f31cfecc418b3";
 /// The files of the model: name, SHA-256, bytes.
 const FILES: &[(&str, &str, u64)] = &[
-    ("config.json", "69137736cab8b8903a07fe8afaafdda25aac55415a12a55d1bffa9f581abf959", 655),
-    ("tokenizer.json", "0b44a9d7b51c3c62626640cda0e2c2f70fdacdc25bbbd68038369d14ebdf4c39", 17_082_730),
-    ("model.safetensors", "1a55775f53449dac10a2bcbc312469fac40b96d53198c407081a831f81c98477", 470_641_600),
+    (
+        "config.json",
+        "69137736cab8b8903a07fe8afaafdda25aac55415a12a55d1bffa9f581abf959",
+        655,
+    ),
+    (
+        "tokenizer.json",
+        "0b44a9d7b51c3c62626640cda0e2c2f70fdacdc25bbbd68038369d14ebdf4c39",
+        17_082_730,
+    ),
+    (
+        "model.safetensors",
+        "1a55775f53449dac10a2bcbc312469fac40b96d53198c407081a831f81c98477",
+        470_641_600,
+    ),
 ];
 /// Numbers per vector of the built-in model. A server's model has its own count.
 pub const DIMS: usize = 384;
@@ -65,7 +77,9 @@ pub fn installed() -> bool {
 
 /// Whether `dir` holds the whole model.
 pub(crate) fn installed_in(dir: &std::path::Path) -> bool {
-    FILES.iter().all(|(name, _, len)| std::fs::metadata(dir.join(name)).is_ok_and(|m| m.len() == *len))
+    FILES
+        .iter()
+        .all(|(name, _, len)| std::fs::metadata(dir.join(name)).is_ok_and(|m| m.len() == *len))
 }
 
 /// The name of the model's folder.
@@ -83,8 +97,21 @@ pub struct Progress {
 
 /// Download what is missing of the model, each file checked against its SHA-256.
 pub fn download(p: &Progress) -> io::Result<()> {
-    let files: Vec<Pinned> = FILES.iter().map(|&(name, sha, len)| Pinned { repo: REPO, revision: REVISION, name, sha, len }).collect();
-    fetch(&folder().ok_or_else(|| io::Error::other("no cache folder"))?, &files, p)
+    let files: Vec<Pinned> = FILES
+        .iter()
+        .map(|&(name, sha, len)| Pinned {
+            repo: REPO,
+            revision: REVISION,
+            name,
+            sha,
+            len,
+        })
+        .collect();
+    fetch(
+        &folder().ok_or_else(|| io::Error::other("no cache folder"))?,
+        &files,
+        p,
+    )
 }
 
 /// A file of a model on Hugging Face, at a pinned revision, with its SHA-256 and bytes.
@@ -99,17 +126,37 @@ pub(crate) struct Pinned {
 /// Download what is missing of `files` into `dir`, each checked against its SHA-256.
 pub(crate) fn fetch(dir: &std::path::Path, files: &[Pinned], p: &Progress) -> io::Result<()> {
     std::fs::create_dir_all(dir)?;
-    p.total.store(files.iter().map(|f| f.len).sum(), Ordering::Relaxed);
+    p.total
+        .store(files.iter().map(|f| f.len).sum(), Ordering::Relaxed);
     p.done.store(0, Ordering::Relaxed);
-    let agent: ureq::Agent = ureq::Agent::config_builder().tls_config(tls()).timeout_connect(Some(Duration::from_secs(20))).build().into();
-    for &Pinned { repo, revision, name, sha, len } in files {
+    let agent: ureq::Agent = ureq::Agent::config_builder()
+        .tls_config(tls())
+        .timeout_connect(Some(Duration::from_secs(20)))
+        .build()
+        .into();
+    for &Pinned {
+        repo,
+        revision,
+        name,
+        sha,
+        len,
+    } in files
+    {
         let file = dir.join(name);
         if std::fs::metadata(&file).is_ok_and(|m| m.len() == len) {
             p.done.fetch_add(len, Ordering::Relaxed);
             continue;
         }
         let url = format!("https://huggingface.co/{repo}/resolve/{revision}/{name}");
-        let mut body = agent.get(&url).header("User-Agent", concat!("coxswain/", env!("CARGO_PKG_VERSION"))).call().map_err(|e| io::Error::other(format!("huggingface.co: {e}")))?.into_body();
+        let mut body = agent
+            .get(&url)
+            .header(
+                "User-Agent",
+                concat!("coxswain/", env!("CARGO_PKG_VERSION")),
+            )
+            .call()
+            .map_err(|e| io::Error::other(format!("huggingface.co: {e}")))?
+            .into_body();
         let mut reader = body.as_reader();
         let part = file.with_extension("part");
         let mut out = std::fs::File::create(&part)?;
@@ -133,7 +180,9 @@ pub(crate) fn fetch(dir: &std::path::Path, files: &[Pinned], p: &Progress) -> io
         let hex: String = hash.finalize().iter().map(|b| format!("{b:02x}")).collect();
         if got != len || hex != sha {
             let _ = std::fs::remove_file(&part);
-            return Err(io::Error::other(format!("{name}: not the file expected (SHA-256 {hex})")));
+            return Err(io::Error::other(format!(
+                "{name}: not the file expected (SHA-256 {hex})"
+            )));
         }
         std::fs::rename(part, file)?;
     }
@@ -219,8 +268,22 @@ fn cosine(a: &[f32], b: &[f32]) -> f32 {
 /// Where the model runs: on the GPU when it is wanted, `gpu` loads it there, its vector of the
 /// probe is the CPU's and it is quicker; on the CPU otherwise, with why. `vectors` gives a
 /// model's vectors of some texts.
-fn choose<M>(cpu_only: bool, cpu: M, gpu: impl FnOnce() -> Result<M, Fallback>, vectors: impl Fn(&M, &[&str]) -> Result<Vec<Vec<f32>>, String>) -> (M, Runs) {
-    let on_cpu = |cpu, why| (cpu, Runs { metal: false, faster: 0.0, cpu_why: Some(why) });
+fn choose<M>(
+    cpu_only: bool,
+    cpu: M,
+    gpu: impl FnOnce() -> Result<M, Fallback>,
+    vectors: impl Fn(&M, &[&str]) -> Result<Vec<Vec<f32>>, String>,
+) -> (M, Runs) {
+    let on_cpu = |cpu, why| {
+        (
+            cpu,
+            Runs {
+                metal: false,
+                faster: 0.0,
+                cpu_why: Some(why),
+            },
+        )
+    };
     if cpu_only {
         return on_cpu(cpu, Fallback::Chosen);
     }
@@ -228,7 +291,10 @@ fn choose<M>(cpu_only: bool, cpu: M, gpu: impl FnOnce() -> Result<M, Fallback>, 
         Ok(g) => g,
         Err(why) => return on_cpu(cpu, why),
     };
-    let first = |m: &M, n: usize| vectors(m, &vec![PROBE; n]).and_then(|v| v.into_iter().next().ok_or_else(|| "no vector".to_string()));
+    let first = |m: &M, n: usize| {
+        vectors(m, &vec![PROBE; n])
+            .and_then(|v| v.into_iter().next().ok_or_else(|| "no vector".to_string()))
+    };
     let t = std::time::Instant::now();
     let here = first(&cpu, 1);
     let cpu_time = t.elapsed().as_secs_f32();
@@ -246,7 +312,14 @@ fn choose<M>(cpu_only: bool, cpu: M, gpu: impl FnOnce() -> Result<M, Fallback>, 
             } else if faster < 1.0 {
                 on_cpu(cpu, Fallback::Slower(faster))
             } else {
-                (gpu, Runs { metal: true, faster, cpu_why: None })
+                (
+                    gpu,
+                    Runs {
+                        metal: true,
+                        faster,
+                        cpu_why: None,
+                    },
+                )
             }
         }
         (Err(e), _) | (_, Err(e)) => on_cpu(cpu, Fallback::Load(e)),
@@ -262,31 +335,71 @@ struct Bert {
 impl Bert {
     fn load(dir: &std::path::Path, config: &Config, device: Device) -> Result<Bert, String> {
         // Memory-mapped: the pages are the file's, shared, and dropped by the system when short.
-        let weights = unsafe { VarBuilder::from_mmaped_safetensors(&[dir.join("model.safetensors")], DType::F32, &device) }.map_err(|e| e.to_string())?;
-        Ok(Bert { model: BertModel::load(weights, config).map_err(|e| e.to_string())?, device })
+        let weights = unsafe {
+            VarBuilder::from_mmaped_safetensors(
+                &[dir.join("model.safetensors")],
+                DType::F32,
+                &device,
+            )
+        }
+        .map_err(|e| e.to_string())?;
+        Ok(Bert {
+            model: BertModel::load(weights, config).map_err(|e| e.to_string())?,
+            device,
+        })
     }
 
     /// The vectors of `texts` in one pass: each the mean of the model's last layer over its
     /// words, of length one; empty for a text the model gives nothing for. The shorter texts
     /// are padded and their padding masked, so each vector is what it would be alone.
-    fn vectors(&self, tokenizer: &tokenizers::Tokenizer, pad: u32, texts: &[&str]) -> candle_core::Result<Vec<Vec<f32>>> {
-        let enc = tokenizer.encode_batch(texts.to_vec(), true).map_err(|e| candle_core::Error::Msg(e.to_string()))?;
+    fn vectors(
+        &self,
+        tokenizer: &tokenizers::Tokenizer,
+        pad: u32,
+        texts: &[&str],
+    ) -> candle_core::Result<Vec<Vec<f32>>> {
+        let enc = tokenizer
+            .encode_batch(texts.to_vec(), true)
+            .map_err(|e| candle_core::Error::Msg(e.to_string()))?;
         let len = enc.iter().map(|e| e.len()).max().unwrap_or(0);
-        let (mut ids, mut mask) = (Vec::with_capacity(len * enc.len()), Vec::with_capacity(len * enc.len()));
+        let (mut ids, mut mask) = (
+            Vec::with_capacity(len * enc.len()),
+            Vec::with_capacity(len * enc.len()),
+        );
         for e in &enc {
-            ids.extend(e.get_ids().iter().copied().chain(std::iter::repeat(pad)).take(len));
-            mask.extend(e.get_attention_mask().iter().copied().chain(std::iter::repeat(0)).take(len));
+            ids.extend(
+                e.get_ids()
+                    .iter()
+                    .copied()
+                    .chain(std::iter::repeat(pad))
+                    .take(len),
+            );
+            mask.extend(
+                e.get_attention_mask()
+                    .iter()
+                    .copied()
+                    .chain(std::iter::repeat(0))
+                    .take(len),
+            );
         }
         let ids = Tensor::from_vec(ids, (enc.len(), len), &self.device)?;
         let mask = Tensor::from_vec(mask, (enc.len(), len), &self.device)?;
         let out = self.model.forward(&ids, &ids.zeros_like()?, Some(&mask))?;
         let m = mask.to_dtype(DType::F32)?.unsqueeze(2)?;
-        let rows: Vec<Vec<f32>> = out.broadcast_mul(&m)?.sum(1)?.broadcast_div(&m.sum(1)?)?.to_vec2()?;
+        let rows: Vec<Vec<f32>> = out
+            .broadcast_mul(&m)?
+            .sum(1)?
+            .broadcast_div(&m.sum(1)?)?
+            .to_vec2()?;
         Ok(rows
             .into_iter()
             .map(|v| {
                 let n = v.iter().map(|x| x * x).sum::<f32>().sqrt();
-                if n > 0.0 { v.iter().map(|x| x / n).collect() } else { vec![] }
+                if n > 0.0 {
+                    v.iter().map(|x| x / n).collect()
+                } else {
+                    vec![]
+                }
             })
             .collect())
     }
@@ -308,10 +421,20 @@ impl Embedder {
     /// The model, on the GPU when it can be and `cpu_only` is not asked.
     pub fn load(cpu_only: bool) -> Option<Embedder> {
         let dir = folder().filter(|_| installed())?;
-        let config: Config = serde_json::from_str(&std::fs::read_to_string(dir.join("config.json")).ok()?).ok()?;
+        let config: Config =
+            serde_json::from_str(&std::fs::read_to_string(dir.join("config.json")).ok()?).ok()?;
         let mut tokenizer = tokenizers::Tokenizer::from_file(dir.join("tokenizer.json")).ok()?;
-        tokenizer.with_truncation(Some(tokenizers::TruncationParams { max_length: 512, ..Default::default() })).ok()?;
-        let pool = rayon::ThreadPoolBuilder::new().num_threads(2).thread_name(|i| format!("coxswain-meaning-{i}")).build().ok()?;
+        tokenizer
+            .with_truncation(Some(tokenizers::TruncationParams {
+                max_length: 512,
+                ..Default::default()
+            }))
+            .ok()?;
+        let pool = rayon::ThreadPoolBuilder::new()
+            .num_threads(2)
+            .thread_name(|i| format!("coxswain-meaning-{i}"))
+            .build()
+            .ok()?;
         let pad = config.pad_token_id as u32;
         let cpu = Bert::load(&dir, &config, Device::Cpu).ok()?;
         let (bert, runs) = if cfg!(target_os = "macos") {
@@ -319,12 +442,24 @@ impl Embedder {
                 let device = Device::new_metal(0).map_err(|e| Fallback::NoMetal(e.to_string()))?;
                 Bert::load(&dir, &config, device).map_err(Fallback::Load)
             };
-            pool.install(|| choose(cpu_only, cpu, gpu, |b: &Bert, t| b.vectors(&tokenizer, pad, t).map_err(|e| e.to_string())))
+            pool.install(|| {
+                choose(cpu_only, cpu, gpu, |b: &Bert, t| {
+                    b.vectors(&tokenizer, pad, t).map_err(|e| e.to_string())
+                })
+            })
         } else {
             (cpu, Runs::default())
         };
         crate::models::used(&dir);
-        Some(Embedder { bert: std::sync::RwLock::new(std::sync::Arc::new(bert)), runs: std::sync::Mutex::new(runs), dir, config, pad, tokenizer, pool })
+        Some(Embedder {
+            bert: std::sync::RwLock::new(std::sync::Arc::new(bert)),
+            runs: std::sync::Mutex::new(runs),
+            dir,
+            config,
+            pad,
+            tokenizer,
+            pool,
+        })
     }
 
     /// Where the model runs now.
@@ -334,7 +469,9 @@ impl Embedder {
 
     /// The vector of a question.
     pub fn query(&self, text: &str) -> Option<Vec<f32>> {
-        self.embed(&[&format!("query: {text}")]).pop().filter(|v| !v.is_empty())
+        self.embed(&[&format!("query: {text}")])
+            .pop()
+            .filter(|v| !v.is_empty())
     }
 
     /// The vectors of passages of a document: zeros for one the model gives none for, which
@@ -342,7 +479,10 @@ impl Embedder {
     pub fn passages(&self, texts: &[String]) -> Vec<Vec<f32>> {
         let texts: Vec<String> = texts.iter().map(|t| format!("passage: {t}")).collect();
         let texts: Vec<&str> = texts.iter().map(String::as_str).collect();
-        self.embed(&texts).into_iter().map(|v| if v.is_empty() { vec![0.0; DIMS] } else { v }).collect()
+        self.embed(&texts)
+            .into_iter()
+            .map(|v| if v.is_empty() { vec![0.0; DIMS] } else { v })
+            .collect()
     }
 
     /// The vectors of `texts`, empty where there is none, in batches. A GPU that fails moves
@@ -350,7 +490,11 @@ impl Embedder {
     fn embed(&self, texts: &[&str]) -> Vec<Vec<f32>> {
         self.pool.install(|| {
             let bert = self.bert.read().unwrap().clone();
-            let size = if bert.device.is_metal() { BATCH } else { CPU_BATCH };
+            let size = if bert.device.is_metal() {
+                BATCH
+            } else {
+                CPU_BATCH
+            };
             let mut out = Vec::with_capacity(texts.len());
             for batch in texts.chunks(size) {
                 match bert.vectors(&self.tokenizer, self.pad, batch) {
@@ -361,7 +505,12 @@ impl Embedder {
                     }
                     // On the CPU a batch that fails goes one by one: a passage the model cannot
                     // take costs only itself.
-                    Err(_) if !bert.device.is_metal() => out.extend(batch.iter().map(|t| bert.vectors(&self.tokenizer, self.pad, &[t]).ok().and_then(|mut v| v.pop()).unwrap_or_default())),
+                    Err(_) if !bert.device.is_metal() => out.extend(batch.iter().map(|t| {
+                        bert.vectors(&self.tokenizer, self.pad, &[t])
+                            .ok()
+                            .and_then(|mut v| v.pop())
+                            .unwrap_or_default()
+                    })),
                     Err(_) => {
                         out.resize(texts.len(), vec![]);
                         break;
@@ -376,9 +525,15 @@ impl Embedder {
     fn to_cpu(&self, why: String) -> bool {
         let mut bert = self.bert.write().unwrap();
         if bert.device.is_metal() {
-            let Ok(cpu) = Bert::load(&self.dir, &self.config, Device::Cpu) else { return false };
+            let Ok(cpu) = Bert::load(&self.dir, &self.config, Device::Cpu) else {
+                return false;
+            };
             *bert = std::sync::Arc::new(cpu);
-            *self.runs.lock().unwrap() = Runs { metal: false, faster: 0.0, cpu_why: Some(Fallback::Failed(why)) };
+            *self.runs.lock().unwrap() = Runs {
+                metal: false,
+                faster: 0.0,
+                cpu_why: Some(Fallback::Failed(why)),
+            };
         }
         true
     }
@@ -404,7 +559,9 @@ pub const OLLAMA: &str = "http://localhost:11434";
 
 /// The API key the settings name a variable for, when that variable is set.
 pub fn key_of(cfg: &crate::config::SearchConfig) -> Option<String> {
-    (!cfg.meaning_key_env.is_empty()).then(|| std::env::var(&cfg.meaning_key_env).ok()).flatten()
+    (!cfg.meaning_key_env.is_empty())
+        .then(|| std::env::var(&cfg.meaning_key_env).ok())
+        .flatten()
 }
 
 /// Why a server gave no vectors: it did not answer, and the file waits for the next round; or
@@ -461,8 +618,13 @@ impl Engine {
     /// The vector of a question.
     pub fn query(&self, text: &str) -> Result<Vec<f32>, String> {
         match self {
-            Engine::Builtin(e) => e.query(text).ok_or_else(|| "the model gave no vector".into()),
-            Engine::Server(s) => s.embed(&[format!("{}{text}", s.prefix().0)]).map(|mut v| v.remove(0)).map_err(|e| e.why().to_string()),
+            Engine::Builtin(e) => e
+                .query(text)
+                .ok_or_else(|| "the model gave no vector".into()),
+            Engine::Server(s) => s
+                .embed(&[format!("{}{text}", s.prefix().0)])
+                .map(|mut v| v.remove(0))
+                .map_err(|e| e.why().to_string()),
         }
     }
 
@@ -476,7 +638,14 @@ impl Engine {
             Engine::Server(s) => {
                 let mut out = Vec::with_capacity(texts.len());
                 for part in texts.chunks(32) {
-                    out.extend(s.embed(&part.iter().map(|t| format!("{}{t}", s.prefix().1)).collect::<Vec<_>>())?);
+                    out.extend(
+                        s.embed(
+                            &part
+                                .iter()
+                                .map(|t| format!("{}{t}", s.prefix().1))
+                                .collect::<Vec<_>>(),
+                        )?,
+                    );
                 }
                 Ok(out)
             }
@@ -512,11 +681,13 @@ pub const BENCH_PASSAGES: usize = 64;
 pub fn bench_passages() -> Vec<String> {
     const PROSE: &str = "The harbour master keeps a ledger of every boat that leaves before dawn, with the tide, the wind and the name of whoever signed for the fuel. In spring the fishing fleet goes out together and comes back one by one, so the ledger fills from the top and empties from the bottom. The old crane on the quay still lifts the heavier nets, though the engine that drives it was built for a mill and sounds like one. A visitor who asks what the numbers in the margin mean is told they are the hours each crew spent at sea, added up for the month, and that nobody has found a better way to settle the shares.";
     let words: Vec<&str> = PROSE.split_whitespace().collect();
-    (0..BENCH_PASSAGES).map(|i| {
-        let at = (i * 7) % words.len();
-        let turned: Vec<&str> = words[at..].iter().chain(&words[..at]).copied().collect();
-        format!("Passage {}. {}", i + 1, turned.join(" "))
-    }).collect()
+    (0..BENCH_PASSAGES)
+        .map(|i| {
+            let at = (i * 7) % words.len();
+            let turned: Vec<&str> = words[at..].iter().chain(&words[..at]).copied().collect();
+            format!("Passage {}. {}", i + 1, turned.join(" "))
+        })
+        .collect()
 }
 
 /// A speed test of the engine `cfg` names: `bench_passages` embedded as the store sends them,
@@ -525,7 +696,9 @@ pub fn bench_passages() -> Vec<String> {
 pub fn bench(cfg: &crate::config::SearchConfig) -> Result<(String, Duration), String> {
     let engine = Engine::from_config(cfg).ok_or_else(|| t!("meaning.bench_no_model"))?;
     let texts = bench_passages();
-    engine.passages(&texts[..1]).map_err(|e| e.why().to_string())?;
+    engine
+        .passages(&texts[..1])
+        .map_err(|e| e.why().to_string())?;
     let start = Instant::now();
     engine.passages(&texts).map_err(|e| e.why().to_string())?;
     Ok((engine.id(), start.elapsed()))
@@ -533,7 +706,10 @@ pub fn bench(cfg: &crate::config::SearchConfig) -> Result<(String, Duration), St
 
 /// The speed test in words: passages a second with the engine, and when the helper says how
 /// many files still wait, what they would take at that speed.
-pub fn bench_report(cfg: &crate::config::SearchConfig, status: Option<&crate::helper::Status>) -> Result<String, String> {
+pub fn bench_report(
+    cfg: &crate::config::SearchConfig,
+    status: Option<&crate::helper::Status>,
+) -> Result<String, String> {
     let (engine, took) = bench(cfg)?;
     Ok(bench_text(&engine, took, status))
 }
@@ -542,9 +718,16 @@ fn bench_text(engine: &str, took: Duration, status: Option<&crate::helper::Statu
     let secs = took.as_secs_f64().max(0.001);
     let mut text = t!("meaning.bench", "n" => format!("{:.1}", BENCH_PASSAGES as f64 / secs), "engine" => engine);
     if let Some(st) = status.filter(|st| st.meaning_pending > 0) {
-        let per_file = if st.meaning_done > 0 { st.meaning_passages as f64 / st.meaning_done as f64 } else { 1.0 };
+        let per_file = if st.meaning_done > 0 {
+            st.meaning_passages as f64 / st.meaning_done as f64
+        } else {
+            1.0
+        };
         let left = about(st.meaning_pending as f64 * per_file * secs / BENCH_PASSAGES as f64);
-        text = format!("{text} {}", t!("meaning.bench_left", "files" => crate::settings::count(st.meaning_pending), "time" => left));
+        text = format!(
+            "{text} {}",
+            t!("meaning.bench_left", "files" => crate::settings::count(st.meaning_pending), "time" => left)
+        );
     }
     text
 }
@@ -600,7 +783,12 @@ pub fn config_id(cfg: &crate::config::SearchConfig) -> String {
 /// None when the vectors stay (the same model, or the same weights under another name) or
 /// there are none; else how many files are read again, and about how long that takes here:
 /// the time the new model takes for one passage, times the `passages` the store has.
-pub fn change_notice(old: &crate::config::SearchConfig, new: &crate::config::SearchConfig, done: usize, passages: usize) -> Option<String> {
+pub fn change_notice(
+    old: &crate::config::SearchConfig,
+    new: &crate::config::SearchConfig,
+    done: usize,
+    passages: usize,
+) -> Option<String> {
     if done == 0 || same_model(&config_id(old), &config_id(new)) {
         return None;
     }
@@ -623,19 +811,49 @@ pub fn change_notice(old: &crate::config::SearchConfig, new: &crate::config::Sea
 impl Server {
     /// The digest Ollama's list gives the model.
     fn digest(&self) -> Option<String> {
-        let mut res = self.agent.get(&format!("{}/api/tags", self.url)).call().ok()?;
-        let v: serde_json::Value = serde_json::from_str(&res.body_mut().read_to_string().ok()?).ok()?;
+        let mut res = self
+            .agent
+            .get(&format!("{}/api/tags", self.url))
+            .call()
+            .ok()?;
+        let v: serde_json::Value =
+            serde_json::from_str(&res.body_mut().read_to_string().ok()?).ok()?;
         let id = server_id(false, &self.model);
-        v["models"].as_array()?.iter().find(|m| m["name"].as_str().is_some_and(|n| server_id(false, n) == id))?["digest"].as_str().map(String::from)
+        v["models"].as_array()?.iter().find(|m| {
+            m["name"]
+                .as_str()
+                .is_some_and(|n| server_id(false, n) == id)
+        })?["digest"]
+            .as_str()
+            .map(String::from)
     }
 
     fn new(cfg: &crate::config::SearchConfig) -> Server {
         let openai = cfg.meaning_engine == "openai";
-        let url = if cfg.meaning_url.is_empty() && !openai { OLLAMA.to_string() } else { cfg.meaning_url.trim_end_matches('/').to_string() };
-        let model = if cfg.meaning_model.is_empty() && !openai { "bge-m3".to_string() } else { cfg.meaning_model.clone() };
+        let url = if cfg.meaning_url.is_empty() && !openai {
+            OLLAMA.to_string()
+        } else {
+            cfg.meaning_url.trim_end_matches('/').to_string()
+        };
+        let model = if cfg.meaning_model.is_empty() && !openai {
+            "bge-m3".to_string()
+        } else {
+            cfg.meaning_model.clone()
+        };
         let key = key_of(cfg);
-        let agent = ureq::Agent::config_builder().tls_config(tls()).timeout_global(Some(Duration::from_secs(120))).http_status_as_error(false).build().into();
-        Server { openai, url, model, key, agent }
+        let agent = ureq::Agent::config_builder()
+            .tls_config(tls())
+            .timeout_global(Some(Duration::from_secs(120)))
+            .http_status_as_error(false)
+            .build()
+            .into();
+        Server {
+            openai,
+            url,
+            model,
+            key,
+            agent,
+        }
     }
 
     /// What some models want in front of a question and of a passage.
@@ -652,28 +870,78 @@ impl Server {
 
     /// Vectors of `texts`, of length one, in their order.
     fn embed(&self, texts: &[String]) -> Result<Vec<Vec<f32>>, NoVectors> {
-        let (path, body) = if self.openai { ("/embeddings", serde_json::json!({ "model": self.model, "input": texts })) } else { ("/api/embed", serde_json::json!({ "model": self.model, "input": texts })) };
-        let mut req = self.agent.post(&format!("{}{path}", self.url)).header("Content-Type", "application/json");
+        let (path, body) = if self.openai {
+            (
+                "/embeddings",
+                serde_json::json!({ "model": self.model, "input": texts }),
+            )
+        } else {
+            (
+                "/api/embed",
+                serde_json::json!({ "model": self.model, "input": texts }),
+            )
+        };
+        let mut req = self
+            .agent
+            .post(&format!("{}{path}", self.url))
+            .header("Content-Type", "application/json");
         if let Some(key) = &self.key {
             req = req.header("Authorization", &format!("Bearer {key}"));
         }
-        let mut res = req.send(body.to_string()).map_err(|e| NoVectors::Down(format!("{}: {e}", shown(&self.url))))?;
+        let mut res = req
+            .send(body.to_string())
+            .map_err(|e| NoVectors::Down(format!("{}: {e}", shown(&self.url))))?;
         let status = res.status();
-        let text = res.body_mut().read_to_string().map_err(|e| NoVectors::Down(e.to_string()))?;
+        let text = res
+            .body_mut()
+            .read_to_string()
+            .map_err(|e| NoVectors::Down(e.to_string()))?;
         let v: serde_json::Value = serde_json::from_str(&text).unwrap_or_default();
-        let said = || v["error"].as_str().or_else(|| v["error"]["message"].as_str()).map(String::from);
+        let said = || {
+            v["error"]
+                .as_str()
+                .or_else(|| v["error"]["message"].as_str())
+                .map(String::from)
+        };
         if status.as_u16() >= 400 {
-            return Err(NoVectors::Refused(format!("{} {}: {}", shown(&self.url), status, said().unwrap_or(text))));
+            return Err(NoVectors::Refused(format!(
+                "{} {}: {}",
+                shown(&self.url),
+                status,
+                said().unwrap_or(text)
+            )));
         }
-        let rows: Vec<&serde_json::Value> = if self.openai { v["data"].as_array().map(|d| d.iter().map(|x| &x["embedding"]).collect()).unwrap_or_default() } else { v["embeddings"].as_array().map(|d| d.iter().collect()).unwrap_or_default() };
+        let rows: Vec<&serde_json::Value> = if self.openai {
+            v["data"]
+                .as_array()
+                .map(|d| d.iter().map(|x| &x["embedding"]).collect())
+                .unwrap_or_default()
+        } else {
+            v["embeddings"]
+                .as_array()
+                .map(|d| d.iter().collect())
+                .unwrap_or_default()
+        };
         if rows.len() != texts.len() {
-            return Err(NoVectors::Refused(said().unwrap_or_else(|| "no vectors in the answer".into())));
+            return Err(NoVectors::Refused(
+                said().unwrap_or_else(|| "no vectors in the answer".into()),
+            ));
         }
         rows.into_iter()
             .map(|r| {
-                let v: Vec<f32> = r.as_array().ok_or(NoVectors::Refused("not a vector".into()))?.iter().filter_map(|x| x.as_f64()).map(|x| x as f32).collect();
+                let v: Vec<f32> = r
+                    .as_array()
+                    .ok_or(NoVectors::Refused("not a vector".into()))?
+                    .iter()
+                    .filter_map(|x| x.as_f64())
+                    .map(|x| x as f32)
+                    .collect();
                 let n = v.iter().map(|x| x * x).sum::<f32>().sqrt();
-                if n > 0.0 { Ok(v.iter().map(|x| x / n).collect()) } else { Err(NoVectors::Refused("an empty vector".into())) }
+                if n > 0.0 {
+                    Ok(v.iter().map(|x| x / n).collect())
+                } else {
+                    Err(NoVectors::Refused("an empty vector".into()))
+                }
             })
             .collect()
     }
@@ -691,27 +959,68 @@ Answer in the language of the question, briefly.";
 /// Ask: `question` answered by the chat model on the user's server or the built-in one, from `sources` (numbered
 /// in their order) and the turns before. Each piece of the answer goes to `piece` as it
 /// comes, with empty ones between; `piece` returns false to stop. Nothing is kept.
-pub fn ask(cfg: &crate::config::SearchConfig, earlier: &[Turn], question: &str, sources: &[(std::path::PathBuf, String)], mut piece: impl FnMut(&str) -> bool) -> Result<(), String> {
+pub fn ask(
+    cfg: &crate::config::SearchConfig,
+    earlier: &[Turn],
+    question: &str,
+    sources: &[(std::path::PathBuf, String)],
+    mut piece: impl FnMut(&str) -> bool,
+) -> Result<(), String> {
     // A question about code goes to the model for code, when one is set.
     if let Some(code) = crate::ask::code_model(cfg, question, sources) {
-        return ask(&crate::config::SearchConfig { ask_model: code, ask_code_model: String::new(), ..cfg.clone() }, earlier, question, sources, piece);
+        return ask(
+            &crate::config::SearchConfig {
+                ask_model: code,
+                ask_code_model: String::new(),
+                ..cfg.clone()
+            },
+            earlier,
+            question,
+            sources,
+            piece,
+        );
     }
     if let Some(m) = crate::chat::of(&cfg.ask_model) {
-        return crate::chat::ask(m, cfg.meaning_device == "cpu", cfg.ask_think, earlier, question, sources, piece);
+        return crate::chat::ask(
+            m,
+            cfg.meaning_device == "cpu",
+            cfg.ask_think,
+            earlier,
+            question,
+            sources,
+            piece,
+        );
     }
     if cfg.ask_model.is_empty() {
         return Err("no chat model is set for Ask".into());
     }
     let s = Server::new(cfg);
     // The oldest turns go first when the context cannot hold them all with the sources.
-    let room = crate::ask::context(cfg).saturating_sub(crate::chat::answer_room(crate::chat::thinks(cfg)));
-    let size = |e: &[Turn]| crate::ask::tokens(RULES) + crate::ask::tokens(question) + sources.iter().map(|(p, t)| crate::ask::tokens(t) + p.as_os_str().len() / 3 + 4).sum::<usize>() + e.iter().map(|(q, a)| crate::ask::tokens(q) + crate::ask::tokens(a) + 8).sum::<usize>();
+    let room =
+        crate::ask::context(cfg).saturating_sub(crate::chat::answer_room(crate::chat::thinks(cfg)));
+    let size = |e: &[Turn]| {
+        crate::ask::tokens(RULES)
+            + crate::ask::tokens(question)
+            + sources
+                .iter()
+                .map(|(p, t)| crate::ask::tokens(t) + p.as_os_str().len() / 3 + 4)
+                .sum::<usize>()
+            + e.iter()
+                .map(|(q, a)| crate::ask::tokens(q) + crate::ask::tokens(a) + 8)
+                .sum::<usize>()
+    };
     let mut earlier = earlier;
     while !earlier.is_empty() && size(earlier) > room {
         earlier = &earlier[1..];
     }
-    let context: String = sources.iter().enumerate().map(|(i, (path, text))| format!("[{}] {}\n{text}\n\n", i + 1, path.display())).collect();
-    let mut messages = vec![serde_json::json!({ "role": "system", "content": format!("{RULES}\n\nSources:\n\n{context}") })];
+    let context: String = sources
+        .iter()
+        .enumerate()
+        .map(|(i, (path, text))| format!("[{}] {}\n{text}\n\n", i + 1, path.display()))
+        .collect();
+    let mut messages = vec![
+        serde_json::json!({ "role": "system", "content": format!("{RULES}\n\nSources:\n\n{context}") }),
+    ];
     for (q, a) in earlier {
         messages.push(serde_json::json!({ "role": "user", "content": q }));
         messages.push(serde_json::json!({ "role": "assistant", "content": a }));
@@ -721,8 +1030,13 @@ pub fn ask(cfg: &crate::config::SearchConfig, earlier: &[Turn], question: &str, 
     // `/no_think` at the end of the question.
     let quiet = !cfg.ask_think && s.openai && no_think_by_word(&cfg.ask_model);
     messages.push(serde_json::json!({ "role": "user", "content": if quiet { format!("{question} /no_think") } else { question.to_string() } }));
-    let path = if s.openai { "/chat/completions" } else { "/api/chat" };
-    let mut body = serde_json::json!({ "model": cfg.ask_model, "messages": messages, "stream": true });
+    let path = if s.openai {
+        "/chat/completions"
+    } else {
+        "/api/chat"
+    };
+    let mut body =
+        serde_json::json!({ "model": cfg.ask_model, "messages": messages, "stream": true });
     if !s.openai {
         // Ollama refuses only `think: true` to a model that cannot think; one before 0.9 ignores it.
         if !cfg.ask_think {
@@ -731,7 +1045,8 @@ pub fn ask(cfg: &crate::config::SearchConfig, earlier: &[Turn], question: &str, 
         body["options"] = serde_json::json!({ "num_ctx": crate::ask::context(cfg) });
     }
     // A model that is not loaded yet takes a while to answer at all; after that, pieces come.
-    let agent: ureq::Agent = ureq::Agent::config_builder().tls_config(tls())
+    let agent: ureq::Agent = ureq::Agent::config_builder()
+        .tls_config(tls())
         .timeout_connect(Some(Duration::from_secs(10)))
         .timeout_recv_response(Some(Duration::from_secs(300)))
         // A server that stalls mid-answer does not hold the thread for ever.
@@ -739,7 +1054,9 @@ pub fn ask(cfg: &crate::config::SearchConfig, earlier: &[Turn], question: &str, 
         .http_status_as_error(false)
         .build()
         .into();
-    let mut req = agent.post(&format!("{}{path}", s.url)).header("Content-Type", "application/json");
+    let mut req = agent
+        .post(&format!("{}{path}", s.url))
+        .header("Content-Type", "application/json");
     if let Some(key) = &s.key {
         req = req.header("Authorization", &format!("Bearer {key}"));
     }
@@ -747,7 +1064,9 @@ pub fn ask(cfg: &crate::config::SearchConfig, earlier: &[Turn], question: &str, 
     // heard meanwhile: `piece` is asked every 100 ms whether to go on.
     let (sent, answer) = std::sync::mpsc::channel();
     let (url, body) = (s.url.clone(), body.to_string());
-    std::thread::spawn(move || sent.send(req.send(body).map_err(|e| format!("{}: {e}", shown(&url)))));
+    std::thread::spawn(move || {
+        sent.send(req.send(body).map_err(|e| format!("{}: {e}", shown(&url))))
+    });
     let mut res = loop {
         match answer.recv_timeout(Duration::from_millis(100)) {
             Ok(res) => break res?,
@@ -758,14 +1077,25 @@ pub fn ask(cfg: &crate::config::SearchConfig, earlier: &[Turn], question: &str, 
     };
     if res.status().as_u16() >= 400 {
         let text = res.body_mut().read_to_string().unwrap_or_default();
-        return Err(format!("{} {}: {}", shown(&s.url), res.status(), said(&text)));
+        return Err(format!(
+            "{} {}: {}",
+            shown(&s.url),
+            res.status(),
+            said(&text)
+        ));
     }
     let mut thinking = false;
     // An answer is text: 8 MB is far more than any, and a line without end stops there.
-    for line in io::BufRead::lines(io::BufReader::new(res.into_body().into_with_config().limit(8 << 20).reader())) {
+    for line in io::BufRead::lines(io::BufReader::new(
+        res.into_body().into_with_config().limit(8 << 20).reader(),
+    )) {
         let line = line.map_err(|e| e.to_string())?;
         // OpenAI servers send `data: {…}` lines and `data: [DONE]`; Ollama one JSON per line.
-        let data = if s.openai { line.strip_prefix("data:").unwrap_or("").trim() } else { line.trim() };
+        let data = if s.openai {
+            line.strip_prefix("data:").unwrap_or("").trim()
+        } else {
+            line.trim()
+        };
         if data.is_empty() {
             continue;
         }
@@ -773,10 +1103,17 @@ pub fn ask(cfg: &crate::config::SearchConfig, earlier: &[Turn], question: &str, 
             break;
         }
         let v: serde_json::Value = serde_json::from_str(data).map_err(|e| e.to_string())?;
-        if let Some(e) = v["error"].as_str().or_else(|| v["error"]["message"].as_str()) {
+        if let Some(e) = v["error"]
+            .as_str()
+            .or_else(|| v["error"]["message"].as_str())
+        {
             return Err(e.to_string());
         }
-        let text = if s.openai { v["choices"][0]["delta"]["content"].as_str() } else { v["message"]["content"].as_str() };
+        let text = if s.openai {
+            v["choices"][0]["delta"]["content"].as_str()
+        } else {
+            v["message"]["content"].as_str()
+        };
         // Every line asks whether to go on, so Stop works while the model thinks aloud too:
         // an empty piece is only that question.
         let text = text.map(|t| unthink(t, &mut thinking)).unwrap_or_default();
@@ -794,22 +1131,36 @@ pub fn ask(cfg: &crate::config::SearchConfig, earlier: &[Turn], question: &str, 
 /// hybrid models, not its coder and instruct ones, which do not think at all.
 fn no_think_by_word(model: &str) -> bool {
     let m = model.to_lowercase();
-    m.contains("qwen3") && !m.contains("coder") && !m.contains("instruct") && !m.contains("thinking")
+    m.contains("qwen3")
+        && !m.contains("coder")
+        && !m.contains("instruct")
+        && !m.contains("thinking")
 }
 
 /// Have Ollama load the chat model now, on a thread, so that it is ready by the time the
 /// sources are found: a model not loaded takes seconds to answer at all. Only for Ollama
 /// (its own API loads a model on an empty request); other servers load as they see fit.
 pub fn warm(cfg: &crate::config::SearchConfig) {
-    if cfg.meaning_engine == "openai" || cfg.ask_model.is_empty() || crate::chat::of(&cfg.ask_model).is_some() {
+    if cfg.meaning_engine == "openai"
+        || cfg.ask_model.is_empty()
+        || crate::chat::of(&cfg.ask_model).is_some()
+    {
         return;
     }
     let s = Server::new(cfg);
     // With the context Ask asks for, or Ollama loads the model a second time for the question.
     let body = serde_json::json!({ "model": cfg.ask_model, "options": { "num_ctx": crate::ask::context(cfg) } }).to_string();
     std::thread::spawn(move || {
-        let agent: ureq::Agent = ureq::Agent::config_builder().tls_config(tls()).timeout_global(Some(Duration::from_secs(300))).http_status_as_error(false).build().into();
-        let _ = agent.post(&format!("{}/api/generate", s.url)).header("Content-Type", "application/json").send(body);
+        let agent: ureq::Agent = ureq::Agent::config_builder()
+            .tls_config(tls())
+            .timeout_global(Some(Duration::from_secs(300)))
+            .http_status_as_error(false)
+            .build()
+            .into();
+        let _ = agent
+            .post(&format!("{}/api/generate", s.url))
+            .header("Content-Type", "application/json")
+            .send(body);
     });
 }
 
@@ -843,7 +1194,14 @@ pub(crate) fn unthink(piece: &str, thinking: &mut bool) -> String {
 /// would otherwise show in the status line and in Settings.
 pub(crate) fn shown(url: &str) -> String {
     match url.split_once("://") {
-        Some((scheme, rest)) if rest.split(['/', '?', '#']).next().is_some_and(|host| host.contains('@')) => format!("{scheme}://{}", &rest[rest.find('@').unwrap() + 1..]),
+        Some((scheme, rest))
+            if rest
+                .split(['/', '?', '#'])
+                .next()
+                .is_some_and(|host| host.contains('@')) =>
+        {
+            format!("{scheme}://{}", &rest[rest.find('@').unwrap() + 1..])
+        }
         _ => url.to_string(),
     }
 }
@@ -854,25 +1212,64 @@ pub(crate) fn tls() -> ureq::tls::TlsConfig {
     use ureq::tls::{PemItem, RootCerts};
     let termux: Vec<_> = crate::termux::certificates()
         .iter()
-        .flat_map(|pem| ureq::tls::parse_pem(pem).filter_map(|i| if let Ok(PemItem::Certificate(c)) = i { Some(c) } else { None }).collect::<Vec<_>>())
+        .flat_map(|pem| {
+            ureq::tls::parse_pem(pem)
+                .filter_map(|i| {
+                    if let Ok(PemItem::Certificate(c)) = i {
+                        Some(c)
+                    } else {
+                        None
+                    }
+                })
+                .collect::<Vec<_>>()
+        })
         .collect();
-    let roots = if termux.is_empty() { RootCerts::PlatformVerifier } else { RootCerts::new_with_certs(&termux) };
+    let roots = if termux.is_empty() {
+        RootCerts::PlatformVerifier
+    } else {
+        RootCerts::new_with_certs(&termux)
+    };
     ureq::tls::TlsConfig::builder().root_certs(roots).build()
 }
 
 /// The embedding models a server has: Ollama's pulled models, or an OpenAI server's list,
 /// with the API `key` a server may want.
 pub fn server_models(openai: bool, url: &str, key: Option<&str>) -> Result<Vec<String>, String> {
-    let url = if url.is_empty() { OLLAMA } else { url.trim_end_matches('/') };
-    let agent: ureq::Agent = ureq::Agent::config_builder().tls_config(tls()).timeout_global(Some(Duration::from_secs(5))).build().into();
+    let url = if url.is_empty() {
+        OLLAMA
+    } else {
+        url.trim_end_matches('/')
+    };
+    let agent: ureq::Agent = ureq::Agent::config_builder()
+        .tls_config(tls())
+        .timeout_global(Some(Duration::from_secs(5)))
+        .build()
+        .into();
     let path = if openai { "/models" } else { "/api/tags" };
     let mut req = agent.get(&format!("{url}{path}"));
     if let Some(key) = key {
         req = req.header("Authorization", &format!("Bearer {key}"));
     }
-    let text = req.call().map_err(|e| format!("{}: {e}", shown(url)))?.body_mut().read_to_string().map_err(|e| e.to_string())?;
+    let text = req
+        .call()
+        .map_err(|e| format!("{}: {e}", shown(url)))?
+        .body_mut()
+        .read_to_string()
+        .map_err(|e| e.to_string())?;
     let v: serde_json::Value = serde_json::from_str(&text).map_err(|e| e.to_string())?;
-    let names = if openai { v["data"].as_array().map(|d| d.iter().filter_map(|m| m["id"].as_str().map(String::from)).collect()) } else { v["models"].as_array().map(|d| d.iter().filter_map(|m| m["name"].as_str().map(String::from)).collect()) };
+    let names = if openai {
+        v["data"].as_array().map(|d| {
+            d.iter()
+                .filter_map(|m| m["id"].as_str().map(String::from))
+                .collect()
+        })
+    } else {
+        v["models"].as_array().map(|d| {
+            d.iter()
+                .filter_map(|m| m["name"].as_str().map(String::from))
+                .collect()
+        })
+    };
     Ok(names.unwrap_or_default())
 }
 
@@ -884,29 +1281,53 @@ pub fn chat_models(openai: bool, url: &str, key: Option<&str>) -> Result<Vec<Str
     if openai {
         return Ok(names);
     }
-    let url = if url.is_empty() { OLLAMA } else { url.trim_end_matches('/') };
-    let agent: ureq::Agent = ureq::Agent::config_builder().tls_config(tls()).timeout_global(Some(Duration::from_secs(5))).http_status_as_error(false).build().into();
+    let url = if url.is_empty() {
+        OLLAMA
+    } else {
+        url.trim_end_matches('/')
+    };
+    let agent: ureq::Agent = ureq::Agent::config_builder()
+        .tls_config(tls())
+        .timeout_global(Some(Duration::from_secs(5)))
+        .http_status_as_error(false)
+        .build()
+        .into();
     Ok(names.into_iter().filter(|m| !matches!(ollama_can(&agent, url, m), Ok(Some(c)) if !c.iter().any(|x| x == "completion"))).collect())
 }
 
 /// What an Ollama model can do, from `/api/show`: its capabilities ("completion", "embedding",
 /// …), or None when the server does not say (an Ollama before 0.6.4).
-pub(crate) fn ollama_can(agent: &ureq::Agent, url: &str, model: &str) -> Result<Option<Vec<String>>, String> {
+pub(crate) fn ollama_can(
+    agent: &ureq::Agent,
+    url: &str,
+    model: &str,
+) -> Result<Option<Vec<String>>, String> {
     let body = serde_json::json!({ "model": model }).to_string();
-    let mut res = agent.post(&format!("{url}/api/show")).header("Content-Type", "application/json").send(body).map_err(|e| format!("{}: {e}", shown(url)))?;
+    let mut res = agent
+        .post(&format!("{url}/api/show"))
+        .header("Content-Type", "application/json")
+        .send(body)
+        .map_err(|e| format!("{}: {e}", shown(url)))?;
     let text = res.body_mut().read_to_string().map_err(|e| e.to_string())?;
     if res.status().as_u16() >= 400 {
         return Err(format!("{} {}: {}", shown(url), res.status(), said(&text)));
     }
     let v: serde_json::Value = serde_json::from_str(&text).map_err(|e| e.to_string())?;
-    Ok(v["capabilities"].as_array().map(|c| c.iter().filter_map(|x| x.as_str().map(String::from)).collect()))
+    Ok(v["capabilities"].as_array().map(|c| {
+        c.iter()
+            .filter_map(|x| x.as_str().map(String::from))
+            .collect()
+    }))
 }
 
 /// The error a server's answer names (`{"error": "…"}` or `{"error": {"message": "…"}}`), or
 /// the answer itself.
 pub(crate) fn said(text: &str) -> String {
     let v: serde_json::Value = serde_json::from_str(text).unwrap_or_default();
-    v["error"].as_str().or_else(|| v["error"]["message"].as_str()).map_or_else(|| text.to_string(), String::from)
+    v["error"]
+        .as_str()
+        .or_else(|| v["error"]["message"].as_str())
+        .map_or_else(|| text.to_string(), String::from)
 }
 
 /// Why Ask's chat model cannot answer, in words for the user; None when it can, or when that
@@ -923,7 +1344,9 @@ pub fn chat_problem(cfg: &crate::config::SearchConfig, try_it: bool) -> Option<S
     let s = Server::new(cfg);
     if !s.openai {
         return match ollama_can(&s.agent, &s.url, model) {
-            Ok(Some(c)) if !c.iter().any(|x| x == "completion") => Some(crate::t!("search.ask_not_chat", "model" => model.trim_end_matches(":latest"), "example" => "qwen3:8b")),
+            Ok(Some(c)) if !c.iter().any(|x| x == "completion") => Some(
+                crate::t!("search.ask_not_chat", "model" => model.trim_end_matches(":latest"), "example" => "qwen3:8b"),
+            ),
             Ok(_) => None,
             Err(e) => Some(e),
         };
@@ -932,22 +1355,42 @@ pub fn chat_problem(cfg: &crate::config::SearchConfig, try_it: bool) -> Option<S
         return None;
     }
     let body = serde_json::json!({ "model": model, "messages": [{ "role": "user", "content": "Hi" }], "max_tokens": 1, "stream": false });
-    let mut req = s.agent.post(&format!("{}/chat/completions", s.url)).header("Content-Type", "application/json");
+    let mut req = s
+        .agent
+        .post(&format!("{}/chat/completions", s.url))
+        .header("Content-Type", "application/json");
     if let Some(key) = &s.key {
         req = req.header("Authorization", &format!("Bearer {key}"));
     }
     match req.send(body.to_string()) {
         Err(e) => Some(format!("{}: {e}", shown(&s.url))),
-        Ok(mut res) if res.status().as_u16() >= 400 => Some(format!("{} {}: {}", shown(&s.url), res.status(), said(&res.body_mut().read_to_string().unwrap_or_default()))),
+        Ok(mut res) if res.status().as_u16() >= 400 => Some(format!(
+            "{} {}: {}",
+            shown(&s.url),
+            res.status(),
+            said(&res.body_mut().read_to_string().unwrap_or_default())
+        )),
         Ok(_) => None,
     }
 }
 
 /// Ask Ollama to pull a model, with its progress in `p`.
 pub fn ollama_pull(url: &str, model: &str, p: &Progress) -> io::Result<()> {
-    let url = if url.is_empty() { OLLAMA } else { url.trim_end_matches('/') };
-    let agent: ureq::Agent = ureq::Agent::config_builder().tls_config(tls()).timeout_connect(Some(Duration::from_secs(10))).build().into();
-    let mut body = agent.post(&format!("{url}/api/pull")).send(serde_json::json!({ "model": model, "stream": true }).to_string()).map_err(io::Error::other)?.into_body();
+    let url = if url.is_empty() {
+        OLLAMA
+    } else {
+        url.trim_end_matches('/')
+    };
+    let agent: ureq::Agent = ureq::Agent::config_builder()
+        .tls_config(tls())
+        .timeout_connect(Some(Duration::from_secs(10)))
+        .build()
+        .into();
+    let mut body = agent
+        .post(&format!("{url}/api/pull"))
+        .send(serde_json::json!({ "model": model, "stream": true }).to_string())
+        .map_err(io::Error::other)?
+        .into_body();
     // One JSON line per step: {"status", "total", "completed"} while layers come, {"error"} if not.
     for line in io::BufRead::lines(io::BufReader::new(body.as_reader())) {
         let v: serde_json::Value = serde_json::from_str(&line?).unwrap_or_default();
@@ -980,14 +1423,21 @@ pub struct Passage {
 pub fn passages(text: &str, path: &str) -> Vec<Passage> {
     let markdown = is_markdown(path);
     // (passage, whether it starts a section)
-    let mut all: Vec<(Passage, bool)> = if crate::code::is_code(path) { crate::code::passages(text, path) } else { vec![] };
+    let mut all: Vec<(Passage, bool)> = if crate::code::is_code(path) {
+        crate::code::passages(text, path)
+    } else {
+        vec![]
+    };
     if all.is_empty() {
         all = prose(text, markdown);
     }
     all.retain(|(p, _)| p.text.chars().filter(|c| c.is_alphabetic()).count() >= 20);
     for (p, _) in &mut all {
         if p.text.len() > CHARS {
-            let at = (0..=CHARS).rev().find(|&i| p.text.is_char_boundary(i)).unwrap();
+            let at = (0..=CHARS)
+                .rev()
+                .find(|&i| p.text.is_char_boundary(i))
+                .unwrap();
             p.text.truncate(at);
         }
     }
@@ -997,15 +1447,23 @@ pub fn passages(text: &str, path: &str) -> Vec<Passage> {
 /// Prose in passages of about `WORDS` words, with whether each starts a section.
 fn prose(text: &str, markdown: bool) -> Vec<(Passage, bool)> {
     let mut all: Vec<(Passage, bool)> = vec![];
-    let (mut cur, mut fresh, mut heading, mut starts, mut code) = (Vec::<&str>::new(), 0, "", true, false);
-    let mut flush = |cur: &mut Vec<&str>, fresh: &mut usize, heading: &str, starts: &mut bool, keep: usize| {
-        if *fresh > 0 {
-            all.push((Passage { text: cur.join(" "), heading: heading.to_string() }, *starts));
-            *starts = false;
-        }
-        cur.drain(..cur.len() - keep.min(cur.len()));
-        *fresh = 0;
-    };
+    let (mut cur, mut fresh, mut heading, mut starts, mut code) =
+        (Vec::<&str>::new(), 0, "", true, false);
+    let mut flush =
+        |cur: &mut Vec<&str>, fresh: &mut usize, heading: &str, starts: &mut bool, keep: usize| {
+            if *fresh > 0 {
+                all.push((
+                    Passage {
+                        text: cur.join(" "),
+                        heading: heading.to_string(),
+                    },
+                    *starts,
+                ));
+                *starts = false;
+            }
+            cur.drain(..cur.len() - keep.min(cur.len()));
+            *fresh = 0;
+        };
     for line in text.lines() {
         let line = line.trim();
         let hashes = line.len() - line.trim_start_matches('#').len();
@@ -1054,7 +1512,11 @@ fn cap(all: Vec<(Passage, bool)>) -> Vec<Passage> {
     for k in 0..left {
         keep[rest[k * rest.len() / left]] = true;
     }
-    all.into_iter().zip(keep).filter(|(_, k)| *k).map(|((p, _), _)| p).collect()
+    all.into_iter()
+        .zip(keep)
+        .filter(|(_, k)| *k)
+        .map(|((p, _), _)| p)
+        .collect()
 }
 
 /// `next`, the passage after `text`, put on its end without the `OVERLAP` words they share
@@ -1066,8 +1528,14 @@ pub fn join(text: &mut String, next: &str) {
         text.push_str(next);
         return;
     }
-    let (a, b): (Vec<&str>, Vec<&str>) = (text.split_whitespace().collect(), next.split_whitespace().collect());
-    let shared = (1..=OVERLAP.min(a.len()).min(b.len())).rev().find(|&k| a[a.len() - k..] == b[..k]).unwrap_or(0);
+    let (a, b): (Vec<&str>, Vec<&str>) = (
+        text.split_whitespace().collect(),
+        next.split_whitespace().collect(),
+    );
+    let shared = (1..=OVERLAP.min(a.len()).min(b.len()))
+        .rev()
+        .find(|&k| a[a.len() - k..] == b[..k])
+        .unwrap_or(0);
     let rest = b[shared..].join(" ");
     if !rest.is_empty() {
         text.push(' ');
@@ -1085,18 +1553,36 @@ pub fn is_markdown(path: &str) -> bool {
 /// heading, so a question that names them finds it, then the passage.
 pub fn shown_to_model(path: &str, p: &Passage) -> String {
     let path = std::path::Path::new(path);
-    let name = path.file_name().map(|n| n.to_string_lossy()).unwrap_or_default();
-    let folder: Vec<_> = path.parent().into_iter().flat_map(|d| d.iter().rev().take(2)).map(|c| c.to_string_lossy()).collect();
+    let name = path
+        .file_name()
+        .map(|n| n.to_string_lossy())
+        .unwrap_or_default();
+    let folder: Vec<_> = path
+        .parent()
+        .into_iter()
+        .flat_map(|d| d.iter().rev().take(2))
+        .map(|c| c.to_string_lossy())
+        .collect();
     let folder = folder.into_iter().rev().collect::<Vec<_>>().join("/");
-    let heading = if p.heading.is_empty() { String::new() } else { format!(" · {}", p.heading) };
+    let heading = if p.heading.is_empty() {
+        String::new()
+    } else {
+        format!(" · {}", p.heading)
+    };
     format!("{name} · {folder}{heading}\n{}", p.text)
 }
 
 /// A vector in its length plus 4 bytes: its numbers as signed bytes of its largest one, then
 /// that one.
 pub fn pack(v: &[f32]) -> Vec<u8> {
-    let scale = v.iter().fold(0f32, |m, x| m.max(x.abs())).max(f32::MIN_POSITIVE);
-    let mut out: Vec<u8> = v.iter().map(|x| (x / scale * 127.0).round().clamp(-127.0, 127.0) as i8 as u8).collect();
+    let scale = v
+        .iter()
+        .fold(0f32, |m, x| m.max(x.abs()))
+        .max(f32::MIN_POSITIVE);
+    let mut out: Vec<u8> = v
+        .iter()
+        .map(|x| (x / scale * 127.0).round().clamp(-127.0, 127.0) as i8 as u8)
+        .collect();
     out.extend(scale.to_le_bytes());
     out
 }
@@ -1107,8 +1593,14 @@ pub fn score(packed: &[u8], q: &[f32]) -> f32 {
     if packed.len() != n + 4 || n == 0 {
         return 0.0;
     }
-    let scale = f32::from_le_bytes([packed[n], packed[n + 1], packed[n + 2], packed[n + 3]]) / 127.0;
-    packed[..n].iter().zip(q).map(|(b, x)| (*b as i8) as f32 * x).sum::<f32>() * scale
+    let scale =
+        f32::from_le_bytes([packed[n], packed[n + 1], packed[n + 2], packed[n + 3]]) / 127.0;
+    packed[..n]
+        .iter()
+        .zip(q)
+        .map(|(b, x)| (*b as i8) as f32 * x)
+        .sum::<f32>()
+        * scale
 }
 
 /// The signs of a packed vector, one bit each: a first sieve over many passages.
@@ -1153,36 +1645,71 @@ mod tests {
                 got.extend_from_slice(&buf[..n]);
             }
             let lines = "{\"message\":{\"content\":\"<think>hm</think>\"}}\n{\"message\":{\"content\":\"Rocket \"}}\n{\"message\":{\"content\":\"[1]\"},\"done\":true}\n";
-            write!(c, "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{lines}", lines.len()).unwrap();
+            write!(
+                c,
+                "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{lines}",
+                lines.len()
+            )
+            .unwrap();
             let _ = c.shutdown(std::net::Shutdown::Write);
             let _ = c.read_to_end(&mut Vec::new());
             String::from_utf8_lossy(&got).into_owned()
         });
-        let cfg = crate::config::SearchConfig { meaning_engine: "ollama".into(), meaning_url: url, ask_model: "chat".into(), ..Default::default() };
+        let cfg = crate::config::SearchConfig {
+            meaning_engine: "ollama".into(),
+            meaning_url: url,
+            ask_model: "chat".into(),
+            ..Default::default()
+        };
         let mut answer = String::new();
-        let sources = [(std::path::PathBuf::from("/p/rocket.md"), "The rocket is named Tern.".to_string())];
-        ask(&cfg, &[("What is it?".into(), "A rocket [1].".into())], "Its name?", &sources, |p| {
-            answer.push_str(p);
-            true
-        })
+        let sources = [(
+            std::path::PathBuf::from("/p/rocket.md"),
+            "The rocket is named Tern.".to_string(),
+        )];
+        ask(
+            &cfg,
+            &[("What is it?".into(), "A rocket [1].".into())],
+            "Its name?",
+            &sources,
+            |p| {
+                answer.push_str(p);
+                true
+            },
+        )
         .unwrap();
         assert_eq!(answer, "Rocket [1]");
         let sent = server.join().unwrap();
         assert!(sent.starts_with("POST /api/chat"));
-        assert!(sent.contains("[1] /p/rocket.md\\nThe rocket is named Tern."), "{sent}");
+        assert!(
+            sent.contains("[1] /p/rocket.md\\nThe rocket is named Tern."),
+            "{sent}"
+        );
         assert!(sent.contains("\"model\":\"chat\""));
         assert!(sent.contains("A rocket [1]."), "the turns before go along");
-        assert!(sent.contains("\"think\":false"), "asked not to think first: {sent}");
-        assert!(sent.contains("\"num_ctx\":8192"), "the context the model was warmed with: {sent}");
+        assert!(
+            sent.contains("\"think\":false"),
+            "asked not to think first: {sent}"
+        );
+        assert!(
+            sent.contains("\"num_ctx\":8192"),
+            "the context the model was warmed with: {sent}"
+        );
 
         let off = crate::config::SearchConfig::default();
-        assert!(ask(&off, &[], "q", &sources, |_| true).is_err(), "no chat model, no Ask");
+        assert!(
+            ask(&off, &[], "q", &sources, |_| true).is_err(),
+            "no chat model, no Ask"
+        );
     }
 
     #[test]
     fn ask_asks_qwen3_not_to_think_by_word() {
         assert!(no_think_by_word("Qwen3-8B-GGUF") && no_think_by_word("qwen/qwen3-4b"));
-        assert!(!no_think_by_word("qwen3-coder:30b") && !no_think_by_word("Qwen3-4B-Instruct-2507") && !no_think_by_word("llama3.2"));
+        assert!(
+            !no_think_by_word("qwen3-coder:30b")
+                && !no_think_by_word("Qwen3-4B-Instruct-2507")
+                && !no_think_by_word("llama3.2")
+        );
     }
 
     /// Stop is heard while the server has not said anything yet (a model loading), and Ollama
@@ -1198,14 +1725,25 @@ mod tests {
                 let (mut c, _) = listener.accept().unwrap();
                 let mut buf = [0; 4096];
                 let n = c.read(&mut buf).unwrap_or(0);
-                heads.push(String::from_utf8_lossy(&buf[..n]).lines().next().unwrap_or("").to_string());
+                heads.push(
+                    String::from_utf8_lossy(&buf[..n])
+                        .lines()
+                        .next()
+                        .unwrap_or("")
+                        .to_string(),
+                );
                 open.push(c);
             }
             // Not a byte in answer: the client gives up first.
             std::thread::sleep(Duration::from_secs(1));
             heads
         });
-        let cfg = crate::config::SearchConfig { meaning_engine: "ollama".into(), meaning_url: url, ask_model: "chat".into(), ..Default::default() };
+        let cfg = crate::config::SearchConfig {
+            meaning_engine: "ollama".into(),
+            meaning_url: url,
+            ask_model: "chat".into(),
+            ..Default::default()
+        };
         warm(&cfg);
         let start = std::time::Instant::now();
         let mut asked = 0;
@@ -1216,11 +1754,17 @@ mod tests {
         })
         .unwrap();
         // The timeout is minutes; a busy machine can take seconds to stop.
-        assert!(start.elapsed() < Duration::from_secs(60), "stopped while waiting, not after the timeout");
+        assert!(
+            start.elapsed() < Duration::from_secs(60),
+            "stopped while waiting, not after the timeout"
+        );
         assert_eq!(asked, 3);
         let mut heads = server.join().unwrap();
         heads.sort();
-        assert_eq!(heads, ["POST /api/chat HTTP/1.1", "POST /api/generate HTTP/1.1"]);
+        assert_eq!(
+            heads,
+            ["POST /api/chat HTTP/1.1", "POST /api/generate HTTP/1.1"]
+        );
     }
 
     /// Servers with the OpenAI API (Lemonade, LM Studio, llama.cpp) load a model when asked:
@@ -1230,20 +1774,36 @@ mod tests {
         let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
         listener.set_nonblocking(true).unwrap();
         let url = format!("http://{}/v1", listener.local_addr().unwrap());
-        warm(&crate::config::SearchConfig { meaning_engine: "openai".into(), meaning_url: url, ask_model: "chat".into(), ..Default::default() });
+        warm(&crate::config::SearchConfig {
+            meaning_engine: "openai".into(),
+            meaning_url: url,
+            ask_model: "chat".into(),
+            ..Default::default()
+        });
         std::thread::sleep(Duration::from_millis(300));
-        assert_eq!(listener.accept().map(drop).unwrap_err().kind(), std::io::ErrorKind::WouldBlock);
+        assert_eq!(
+            listener.accept().map(drop).unwrap_err().kind(),
+            std::io::ErrorKind::WouldBlock
+        );
     }
 
     /// A server named with `user:password@` in Settings: its errors do not repeat the password.
     #[test]
     fn ask_errors_never_show_the_password_in_the_url() {
-        assert_eq!(shown("http://me:hunter2@host:11434/v1"), "http://host:11434/v1");
+        assert_eq!(
+            shown("http://me:hunter2@host:11434/v1"),
+            "http://host:11434/v1"
+        );
         assert_eq!(shown("http://host/x?u=a@b"), "http://host/x?u=a@b");
         assert_eq!(shown("not a url"), "not a url");
         let (url, server) = one_answer("401 Unauthorized", "{\"error\":\"who?\"}");
         let url = url.replace("http://", "http://me:hunter2@");
-        let cfg = crate::config::SearchConfig { meaning_engine: "ollama".into(), meaning_url: url, ask_model: "chat".into(), ..Default::default() };
+        let cfg = crate::config::SearchConfig {
+            meaning_engine: "ollama".into(),
+            meaning_url: url,
+            ask_model: "chat".into(),
+            ..Default::default()
+        };
         let err = ask(&cfg, &[], "q", &[("/p/a.md".into(), "a".into())], |_| true).unwrap_err();
         assert!(err.contains("401") && !err.contains("hunter2"), "{err}");
         let _ = server.join();
@@ -1255,8 +1815,16 @@ mod tests {
     #[test]
     fn ask_stops_while_the_model_thinks() {
         let think = "{\"message\":{\"content\":\"<think>hm\"}}\n".repeat(50);
-        let (url, server) = one_answer("200 OK", &format!("{think}{{\"message\":{{\"content\":\"</think>Rocket\"}},\"done\":true}}\n"));
-        let cfg = crate::config::SearchConfig { meaning_engine: "ollama".into(), meaning_url: url, ask_model: "chat".into(), ..Default::default() };
+        let (url, server) = one_answer(
+            "200 OK",
+            &format!("{think}{{\"message\":{{\"content\":\"</think>Rocket\"}},\"done\":true}}\n"),
+        );
+        let cfg = crate::config::SearchConfig {
+            meaning_engine: "ollama".into(),
+            meaning_url: url,
+            ask_model: "chat".into(),
+            ..Default::default()
+        };
         let mut heard = vec![];
         ask(&cfg, &[], "q", &[("/p/a.md".into(), "a".into())], |p| {
             heard.push(p.to_string());
@@ -1272,7 +1840,10 @@ mod tests {
         use std::io::{Read, Write};
         let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
         let url = format!("http://{}", listener.local_addr().unwrap());
-        let reply = format!("HTTP/1.1 {status}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}", body.len());
+        let reply = format!(
+            "HTTP/1.1 {status}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+            body.len()
+        );
         let server = std::thread::spawn(move || {
             let (mut c, _) = listener.accept().unwrap();
             let got = request(&mut c);
@@ -1295,8 +1866,17 @@ mod tests {
             let n = c.read(&mut buf).unwrap();
             got.extend_from_slice(&buf[..n]);
             let text = String::from_utf8_lossy(&got);
-            let Some((head, body)) = text.split_once("\r\n\r\n") else { continue };
-            let len = head.lines().find_map(|l| l.split_once(':').filter(|(k, _)| k.eq_ignore_ascii_case("content-length")).and_then(|(_, n)| n.trim().parse::<usize>().ok())).unwrap_or(0);
+            let Some((head, body)) = text.split_once("\r\n\r\n") else {
+                continue;
+            };
+            let len = head
+                .lines()
+                .find_map(|l| {
+                    l.split_once(':')
+                        .filter(|(k, _)| k.eq_ignore_ascii_case("content-length"))
+                        .and_then(|(_, n)| n.trim().parse::<usize>().ok())
+                })
+                .unwrap_or(0);
             if body.len() >= len {
                 return text.into_owned();
             }
@@ -1314,7 +1894,10 @@ mod tests {
                 let mut c = c.unwrap();
                 let got = request(&mut c);
                 let (status, body) = if got.starts_with("GET /api/tags") {
-                    ("200 OK", r#"{"models":[{"name":"qwen3:8b"},{"name":"bge-m3:latest"}]}"#)
+                    (
+                        "200 OK",
+                        r#"{"models":[{"name":"qwen3:8b"},{"name":"bge-m3:latest"}]}"#,
+                    )
                 } else if got.contains(r#""model":"qwen3:8b""#) {
                     ("200 OK", r#"{"capabilities":["completion","tools"]}"#)
                 } else if got.contains(r#""model":"bge-m3:latest""#) {
@@ -1322,7 +1905,12 @@ mod tests {
                 } else {
                     ("404 Not Found", r#"{"error":"model 'nope' not found"}"#)
                 };
-                write!(c, "HTTP/1.1 {status}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}", body.len()).unwrap();
+                write!(
+                    c,
+                    "HTTP/1.1 {status}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+                    body.len()
+                )
+                .unwrap();
                 let _ = c.shutdown(std::net::Shutdown::Write);
                 let _ = c.read_to_end(&mut Vec::new());
             }
@@ -1335,26 +1923,58 @@ mod tests {
     fn ask_tells_a_model_that_only_makes_vectors() {
         let url = fake_ollama();
         assert_eq!(chat_models(false, &url, None).unwrap(), ["qwen3:8b"]);
-        let cfg = |m: &str| crate::config::SearchConfig { meaning_engine: "ollama".into(), meaning_url: url.clone(), ask_model: m.into(), ..Default::default() };
+        let cfg = |m: &str| crate::config::SearchConfig {
+            meaning_engine: "ollama".into(),
+            meaning_url: url.clone(),
+            ask_model: m.into(),
+            ..Default::default()
+        };
         assert_eq!(chat_problem(&cfg("qwen3:8b"), true), None);
         let why = chat_problem(&cfg("bge-m3:latest"), false).unwrap();
-        assert!(why.contains("bge-m3") && !why.contains(":latest") && why.contains("qwen3:8b"), "{why}");
+        assert!(
+            why.contains("bge-m3") && !why.contains(":latest") && why.contains("qwen3:8b"),
+            "{why}"
+        );
         let why = chat_problem(&cfg("nope"), false).unwrap();
         assert!(why.contains("not found"), "{why}");
-        assert_eq!(chat_problem(&cfg(""), true), None, "no model, nothing to say");
+        assert_eq!(
+            chat_problem(&cfg(""), true),
+            None,
+            "no model, nothing to say"
+        );
     }
 
     /// A change of the vectors' model is said before it is saved, with the files it reads again;
     /// the same model with its tag is no change.
     #[test]
     fn a_change_of_model_says_what_it_costs() {
-        let old = crate::config::SearchConfig { meaning_engine: "ollama".into(), meaning_url: "http://127.0.0.1:9".into(), meaning_model: "bge-m3".into(), ..Default::default() };
-        let tagged = crate::config::SearchConfig { meaning_model: "bge-m3:latest".into(), ..old.clone() };
+        let old = crate::config::SearchConfig {
+            meaning_engine: "ollama".into(),
+            meaning_url: "http://127.0.0.1:9".into(),
+            meaning_model: "bge-m3".into(),
+            ..Default::default()
+        };
+        let tagged = crate::config::SearchConfig {
+            meaning_model: "bge-m3:latest".into(),
+            ..old.clone()
+        };
         assert_eq!(change_notice(&old, &tagged, 3437, 3437), None);
-        let vectors = format!("{{\"data\":[{}]}}", ["{\"embedding\":[0.6,0.8]}"; 8].join(","));
+        let vectors = format!(
+            "{{\"data\":[{}]}}",
+            ["{\"embedding\":[0.6,0.8]}"; 8].join(",")
+        );
         let (url, server) = one_answer("200 OK", &vectors);
-        let other = crate::config::SearchConfig { meaning_engine: "openai".into(), meaning_url: url, meaning_model: "nomic".into(), ..old.clone() };
-        assert_eq!(change_notice(&old, &other, 0, 0), None, "no vectors, nothing to lose");
+        let other = crate::config::SearchConfig {
+            meaning_engine: "openai".into(),
+            meaning_url: url,
+            meaning_model: "nomic".into(),
+            ..old.clone()
+        };
+        assert_eq!(
+            change_notice(&old, &other, 0, 0),
+            None,
+            "no vectors, nothing to lose"
+        );
         let said = change_notice(&old, &other, 3437, 3437).unwrap();
         assert!(said.contains("3437") && said.contains("about"), "{said}");
         assert!(server.join().unwrap().starts_with("POST /embeddings"));
@@ -1364,35 +1984,77 @@ mod tests {
     /// question when asked to, and not otherwise.
     #[test]
     fn ask_tries_an_openai_model_only_when_saved() {
-        let cfg = |url: &str| crate::config::SearchConfig { meaning_engine: "openai".into(), meaning_url: url.into(), ask_model: "embed".into(), ..Default::default() };
+        let cfg = |url: &str| crate::config::SearchConfig {
+            meaning_engine: "openai".into(),
+            meaning_url: url.into(),
+            ask_model: "embed".into(),
+            ..Default::default()
+        };
         assert_eq!(chat_problem(&cfg("http://127.0.0.1:9"), false), None);
-        let (url, server) = one_answer("400 Bad Request", r#"{"error":{"message":"embed does not support chat"}}"#);
+        let (url, server) = one_answer(
+            "400 Bad Request",
+            r#"{"error":{"message":"embed does not support chat"}}"#,
+        );
         let why = chat_problem(&cfg(&url), true).unwrap();
-        assert!(why.contains("400") && why.contains("does not support chat"), "{why}");
+        assert!(
+            why.contains("400") && why.contains("does not support chat"),
+            "{why}"
+        );
         let sent = server.join().unwrap();
-        assert!(sent.starts_with("POST /chat/completions") && sent.contains(r#""max_tokens":1"#), "{sent}");
+        assert!(
+            sent.starts_with("POST /chat/completions") && sent.contains(r#""max_tokens":1"#),
+            "{sent}"
+        );
     }
 
     #[test]
     fn meaning_sends_the_key_and_tells_a_refusal_from_a_server_that_is_down() {
         // A variable every machine has stands in for the key's.
-        let (var, secret) = std::env::vars().find(|(_, v)| !v.is_empty() && v.is_ascii() && !v.contains(['\r', '\n'])).unwrap();
+        let (var, secret) = std::env::vars()
+            .find(|(_, v)| !v.is_empty() && v.is_ascii() && !v.contains(['\r', '\n']))
+            .unwrap();
         let (url, server) = one_answer("200 OK", "{\"data\":[{\"id\":\"nomic\"}]}");
         assert_eq!(server_models(true, &url, Some(&secret)).unwrap(), ["nomic"]);
-        let sent_key = |sent: String| sent.to_lowercase().contains(&format!("authorization: bearer {secret}").to_lowercase());
-        assert!(sent_key(server.join().unwrap()), "the models list wants the key too");
+        let sent_key = |sent: String| {
+            sent.to_lowercase()
+                .contains(&format!("authorization: bearer {secret}").to_lowercase())
+        };
+        assert!(
+            sent_key(server.join().unwrap()),
+            "the models list wants the key too"
+        );
 
-        let cfg = crate::config::SearchConfig { meaning_engine: "openai".into(), meaning_url: String::new(), meaning_model: "m".into(), meaning_key_env: var, ..Default::default() };
+        let cfg = crate::config::SearchConfig {
+            meaning_engine: "openai".into(),
+            meaning_url: String::new(),
+            meaning_model: "m".into(),
+            meaning_key_env: var,
+            ..Default::default()
+        };
         assert_eq!(key_of(&cfg).as_deref(), Some(secret.as_str()));
-        let (url, server) = one_answer("404 Not Found", "{\"error\":{\"message\":\"no such model\"}}");
-        let engine = Engine::from_config(&crate::config::SearchConfig { meaning_url: url, ..cfg.clone() }).unwrap();
+        let (url, server) = one_answer(
+            "404 Not Found",
+            "{\"error\":{\"message\":\"no such model\"}}",
+        );
+        let engine = Engine::from_config(&crate::config::SearchConfig {
+            meaning_url: url,
+            ..cfg.clone()
+        })
+        .unwrap();
         match engine.passages(&["a passage".into()]) {
             Err(NoVectors::Refused(why)) => assert!(why.contains("no such model"), "{why}"),
             other => panic!("{other:?}"),
         }
         assert!(sent_key(server.join().unwrap()));
-        let engine = Engine::from_config(&crate::config::SearchConfig { meaning_url: "http://127.0.0.1:9".into(), ..cfg }).unwrap();
-        assert!(matches!(engine.passages(&["a passage".into()]), Err(NoVectors::Down(_))));
+        let engine = Engine::from_config(&crate::config::SearchConfig {
+            meaning_url: "http://127.0.0.1:9".into(),
+            ..cfg
+        })
+        .unwrap();
+        assert!(matches!(
+            engine.passages(&["a passage".into()]),
+            Err(NoVectors::Down(_))
+        ));
     }
 
     #[test]
@@ -1407,10 +2069,16 @@ mod tests {
         let c = unit(&|i| (i as f32 * 2.9).cos());
         let exact = |x: &[f32], y: &[f32]| x.iter().zip(y).map(|(p, q)| p * q).sum::<f32>();
         for (x, y) in [(&a, &a), (&a, &b), (&a, &c)] {
-            assert!((score(&pack(x), y) - exact(x, y)).abs() < 0.01, "packing keeps the score");
+            assert!(
+                (score(&pack(x), y) - exact(x, y)).abs() < 0.01,
+                "packing keeps the score"
+            );
         }
         assert!(score(&pack(&a), &b) > score(&pack(&a), &c));
-        assert!(alike(&signs(&pack(&a)), &signs(&pack(&b))) > alike(&signs(&pack(&a)), &signs(&pack(&c))));
+        assert!(
+            alike(&signs(&pack(&a)), &signs(&pack(&b)))
+                > alike(&signs(&pack(&a)), &signs(&pack(&c)))
+        );
         assert_eq!(alike(&signs(&pack(&a)), &signs(&pack(&a))), DIMS as u32);
         assert_eq!(score(&[1, 2, 3], &a), 0.0, "a broken vector scores nothing");
 
@@ -1423,13 +2091,21 @@ mod tests {
     fn join_drops_the_words_two_passages_share() {
         let mut code = "fn a() {\n    1\n}".to_string();
         join(&mut code, "fn b() {\n    2\n}");
-        assert_eq!(code, "fn a() {\n    1\n}\nfn b() {\n    2\n}", "code follows on, line by line");
+        assert_eq!(
+            code, "fn a() {\n    1\n}\nfn b() {\n    2\n}",
+            "code follows on, line by line"
+        );
         let text: String = (0..300).map(|i| format!("w{i} ")).collect();
         let p = passages(&text, "notes.txt");
         let mut joined = p[0].text.clone();
         join(&mut joined, &p[1].text);
         join(&mut joined, &p[2].text);
-        let want: Vec<String> = (0..p[2].text.split_whitespace().last().unwrap()[1..].parse::<usize>().unwrap() + 1).map(|i| format!("w{i}")).collect();
+        let want: Vec<String> = (0..p[2].text.split_whitespace().last().unwrap()[1..]
+            .parse::<usize>()
+            .unwrap()
+            + 1)
+            .map(|i| format!("w{i}"))
+            .collect();
         assert_eq!(joined, want.join(" "));
         let mut apart = "one two".to_string();
         join(&mut apart, "three four");
@@ -1441,49 +2117,128 @@ mod tests {
     /// shown to the model with it. A longer one than the cap keeps its start, end and headings.
     #[test]
     fn passages_cover_the_whole_document() {
-        let text: String = (0..30).map(|p| (0..90).map(|w| format!("w{p}x{w}")).collect::<Vec<_>>().join(" ") + "\n\n").collect();
+        let text: String = (0..30)
+            .map(|p| {
+                (0..90)
+                    .map(|w| format!("w{p}x{w}"))
+                    .collect::<Vec<_>>()
+                    .join(" ")
+                    + "\n\n"
+            })
+            .collect();
         let ps = passages(&text, "notes.txt");
         for word in text.split_whitespace() {
-            assert!(ps.iter().any(|p| p.text.split(' ').any(|w| w == word)), "{word} is in no passage");
+            assert!(
+                ps.iter().any(|p| p.text.split(' ').any(|w| w == word)),
+                "{word} is in no passage"
+            );
         }
         assert!(ps.iter().all(|p| p.text.split(' ').count() <= WORDS));
         // 90-word paragraphs: a passage each. One paragraph of 300 words: cut with 20 shared.
-        assert!(ps[0].text.starts_with("w0x0 ") && ps[0].text.ends_with(" w0x89") && ps[1].text.starts_with("w1x0 "));
-        let one = (0..300).map(|w| format!("x{w}")).collect::<Vec<_>>().join(" ");
+        assert!(
+            ps[0].text.starts_with("w0x0 ")
+                && ps[0].text.ends_with(" w0x89")
+                && ps[1].text.starts_with("w1x0 ")
+        );
+        let one = (0..300)
+            .map(|w| format!("x{w}"))
+            .collect::<Vec<_>>()
+            .join(" ");
         let ps = passages(&one, "notes.txt");
-        assert_eq!(ps.iter().map(|p| p.text.split(' ').next().unwrap()).collect::<Vec<_>>(), ["x0", "x100", "x200"]);
+        assert_eq!(
+            ps.iter()
+                .map(|p| p.text.split(' ').next().unwrap())
+                .collect::<Vec<_>>(),
+            ["x0", "x100", "x200"]
+        );
 
-        let md = format!("# Fuel\n\n{}\n\n```sh\n# not a heading\n```\n\n## Launch window\n\n{}\n", "tanks fuel budget kerosene ".repeat(20), "the window opens at dawn ".repeat(10));
+        let md = format!(
+            "# Fuel\n\n{}\n\n```sh\n# not a heading\n```\n\n## Launch window\n\n{}\n",
+            "tanks fuel budget kerosene ".repeat(20),
+            "the window opens at dawn ".repeat(10)
+        );
         let ps = passages(&md, "notes.md");
-        assert_eq!(ps.iter().map(|p| p.heading.as_str()).collect::<Vec<_>>(), ["Fuel", "Launch window"]);
-        assert!(ps[1].text.starts_with("Launch window the window"), "{}", ps[1].text);
-        assert_eq!(shown_to_model("/home/u/rocket/notes/plan.md", &ps[1]).lines().next(), Some("plan.md · rocket/notes · Launch window"));
-        assert!(passages(&md, "notes.txt").iter().all(|p| p.heading.is_empty()), "a # in code is no heading");
+        assert_eq!(
+            ps.iter().map(|p| p.heading.as_str()).collect::<Vec<_>>(),
+            ["Fuel", "Launch window"]
+        );
+        assert!(
+            ps[1].text.starts_with("Launch window the window"),
+            "{}",
+            ps[1].text
+        );
+        assert_eq!(
+            shown_to_model("/home/u/rocket/notes/plan.md", &ps[1])
+                .lines()
+                .next(),
+            Some("plan.md · rocket/notes · Launch window")
+        );
+        assert!(
+            passages(&md, "notes.txt")
+                .iter()
+                .all(|p| p.heading.is_empty()),
+            "a # in code is no heading"
+        );
 
         // 60,000 words with a heading every 2,000: the cap, the first and the last passage, and
         // every heading.
-        let long: String = (0..30).map(|s| format!("# Part {s}\n\n{}\n\n", (0..2000).map(|w| format!("p{s}w{w}")).collect::<Vec<_>>().join(" "))).collect();
+        let long: String = (0..30)
+            .map(|s| {
+                format!(
+                    "# Part {s}\n\n{}\n\n",
+                    (0..2000)
+                        .map(|w| format!("p{s}w{w}"))
+                        .collect::<Vec<_>>()
+                        .join(" ")
+                )
+            })
+            .collect();
         let all = passages(&long, "notes.md");
         assert_eq!(all.len(), PASSAGES);
         assert!(all[0].text.contains("p0w0") && all.last().unwrap().text.contains("p29w1999"));
-        assert!((0..30).all(|s| all.iter().any(|p| p.text.contains(&format!("p{s}w0 ")))), "every part's start");
-        assert_eq!(passages(&long, "notes.md"), all, "the same text, the same passages");
+        assert!(
+            (0..30).all(|s| all.iter().any(|p| p.text.contains(&format!("p{s}w0 ")))),
+            "every part's start"
+        );
+        assert_eq!(
+            passages(&long, "notes.md"),
+            all,
+            "the same text, the same passages"
+        );
 
         // A line of minified JSON is one word of 30,000 bytes: the passage ends at CHARS, on a
         // character boundary.
-        let json = format!("{{\"deps\":[{}]}}", (0..1500).map(|i| format!("\"pakke{i}-æøå\"")).collect::<Vec<_>>().join(","));
+        let json = format!(
+            "{{\"deps\":[{}]}}",
+            (0..1500)
+                .map(|i| format!("\"pakke{i}-æøå\""))
+                .collect::<Vec<_>>()
+                .join(",")
+        );
         let ps = passages(&json, "app.deps.json");
         assert_eq!(ps.len(), 1);
-        assert!(ps[0].text.len() <= CHARS && ps[0].text.len() > CHARS - 8 && ps[0].text.starts_with("{\"deps\""), "{}", ps[0].text.len());
+        assert!(
+            ps[0].text.len() <= CHARS
+                && ps[0].text.len() > CHARS - 8
+                && ps[0].text.starts_with("{\"deps\""),
+            "{}",
+            ps[0].text.len()
+        );
     }
 
     /// With the model downloaded: a question finds the passage about it, across languages.
     #[test]
     fn meaning_finds_passages_by_meaning() {
-        let Some(e) = Embedder::load(false) else { return };
+        let Some(e) = Embedder::load(false) else {
+            return;
+        };
         let q = e.query("how much fuel does the rocket need").unwrap();
         let score = |p: &str| score(&pack(&e.passages(&[p.to_string()])[0]), &q);
-        let (fuel, danish, apples) = (score("The fuel budget for flight seven is the largest cost of the launch."), score("Brændstofbudgettet for flyvning syv er den største udgift ved opsendelsen."), score("Opskrift på æblekage med kanel og vaniljesauce."));
+        let (fuel, danish, apples) = (
+            score("The fuel budget for flight seven is the largest cost of the launch."),
+            score("Brændstofbudgettet for flyvning syv er den største udgift ved opsendelsen."),
+            score("Opskrift på æblekage med kanel og vaniljesauce."),
+        );
         assert!(fuel > apples && danish > apples, "{fuel} {danish} {apples}");
     }
 
@@ -1493,20 +2248,42 @@ mod tests {
     fn bench_passages_differ_and_the_report_counts_the_files_to_go() {
         let ps = bench_passages();
         assert_eq!(ps.len(), BENCH_PASSAGES);
-        assert!(ps.iter().all(|p| (110..140).contains(&p.split_whitespace().count())), "about 120 words each");
-        assert!(ps.iter().all(|p| ps.iter().filter(|q| q.ends_with(&p[12..])).count() == 1), "no two the same");
-        let st = crate::helper::Status { meaning_pending: 1000, meaning_done: 10, meaning_passages: 50, ..crate::helper::Status::default() };
+        assert!(
+            ps.iter()
+                .all(|p| (110..140).contains(&p.split_whitespace().count())),
+            "about 120 words each"
+        );
+        assert!(
+            ps.iter()
+                .all(|p| ps.iter().filter(|q| q.ends_with(&p[12..])).count() == 1),
+            "no two the same"
+        );
+        let st = crate::helper::Status {
+            meaning_pending: 1000,
+            meaning_done: 10,
+            meaning_passages: 50,
+            ..crate::helper::Status::default()
+        };
         let text = bench_text("openai:m", Duration::from_secs(8), Some(&st));
         // 8 passages a second; 1000 files of 5 passages at that pace: 625 s.
-        assert!(text.starts_with("8.0 passages a second with openai:m.") && text.contains("11 minutes"), "{text}");
+        assert!(
+            text.starts_with("8.0 passages a second with openai:m.") && text.contains("11 minutes"),
+            "{text}"
+        );
         assert!(!bench_text("openai:m", Duration::from_secs(8), None).contains("to go"));
     }
 
     #[test]
     fn meaning_batches_give_the_vectors_of_one_by_one() {
-        let Some(e) = Embedder::load(true) else { return };
+        let Some(e) = Embedder::load(true) else {
+            return;
+        };
         let bert = e.bert.read().unwrap().clone();
-        let texts = ["passage: short", PROBE, "passage: a little longer than the first one is"];
+        let texts = [
+            "passage: short",
+            PROBE,
+            "passage: a little longer than the first one is",
+        ];
         let together = bert.vectors(&e.tokenizer, e.pad, &texts).unwrap();
         for (t, v) in texts.iter().zip(&together) {
             let alone = bert.vectors(&e.tokenizer, e.pad, &[t]).unwrap().remove(0);
@@ -1522,27 +2299,65 @@ mod tests {
         type Fake = (&'static str, Vec<f32>, u64);
         let vectors = |m: &Fake, t: &[&str]| {
             sleep(m.2 * t.len() as u64);
-            if m.1.is_empty() { Err("out of memory".to_string()) } else { Ok(vec![m.1.clone(); t.len()]) }
+            if m.1.is_empty() {
+                Err("out of memory".to_string())
+            } else {
+                Ok(vec![m.1.clone(); t.len()])
+            }
         };
         let cpu = || ("cpu", vec![1.0, 0.0], 20);
         let gpu = |v: Vec<f32>, ms| move || Ok::<Fake, Fallback>(("gpu", v, ms));
 
         let (m, runs) = choose(false, cpu(), gpu(vec![1.0, 0.0001], 0), vectors);
         assert_eq!(m.0, "gpu");
-        assert!(runs.metal && runs.cpu_why.is_none() && runs.faster > 1.0, "{runs:?}");
+        assert!(
+            runs.metal && runs.cpu_why.is_none() && runs.faster > 1.0,
+            "{runs:?}"
+        );
 
         let (m, runs) = choose(true, cpu(), gpu(vec![1.0, 0.0], 0), vectors);
         assert_eq!((m.0, runs.cpu_why), ("cpu", Some(Fallback::Chosen)));
-        let (m, runs) = choose(false, cpu(), || Err(Fallback::NoMetal("no device".into())), vectors);
-        assert_eq!((m.0, runs.cpu_why), ("cpu", Some(Fallback::NoMetal("no device".into()))));
+        let (m, runs) = choose(
+            false,
+            cpu(),
+            || Err(Fallback::NoMetal("no device".into())),
+            vectors,
+        );
+        assert_eq!(
+            (m.0, runs.cpu_why),
+            ("cpu", Some(Fallback::NoMetal("no device".into())))
+        );
         let (m, runs) = choose(false, cpu(), gpu(vec![], 0), vectors);
-        assert_eq!((m.0, runs.cpu_why), ("cpu", Some(Fallback::Load("out of memory".into()))));
+        assert_eq!(
+            (m.0, runs.cpu_why),
+            ("cpu", Some(Fallback::Load("out of memory".into())))
+        );
         // The probe: a vector that points elsewhere is not the CPU's.
         let (m, runs) = choose(false, cpu(), gpu(vec![1.0, 0.1], 0), vectors);
-        assert!(m.0 == "cpu" && matches!(runs.cpu_why, Some(Fallback::Probe(c)) if c < AGREE && c > 0.99), "{runs:?}");
-        let (m, runs) = choose(false, ("cpu", vec![1.0, 0.0], 0), gpu(vec![1.0, 0.0], 20), vectors);
-        assert!(m.0 == "cpu" && matches!(runs.cpu_why, Some(Fallback::Slower(_))), "{runs:?}");
-        assert!(!runs.text().is_empty() && Runs { metal: true, ..Default::default() }.text() != Runs::default().text());
+        assert!(
+            m.0 == "cpu"
+                && matches!(runs.cpu_why, Some(Fallback::Probe(c)) if c < AGREE && c > 0.99),
+            "{runs:?}"
+        );
+        let (m, runs) = choose(
+            false,
+            ("cpu", vec![1.0, 0.0], 0),
+            gpu(vec![1.0, 0.0], 20),
+            vectors,
+        );
+        assert!(
+            m.0 == "cpu" && matches!(runs.cpu_why, Some(Fallback::Slower(_))),
+            "{runs:?}"
+        );
+        assert!(
+            !runs.text().is_empty()
+                && Runs {
+                    metal: true,
+                    ..Default::default()
+                }
+                .text()
+                    != Runs::default().text()
+        );
     }
 
     /// On a Mac with the model downloaded and a Metal GPU: the model runs there, or says why
@@ -1553,13 +2368,22 @@ mod tests {
         if Device::new_metal(0).is_err() {
             return eprintln!("skipped: no Metal device");
         }
-        let (Some(gpu), Some(cpu)) = (Embedder::load(false), Embedder::load(true)) else { return eprintln!("skipped: the model is not downloaded") };
+        let (Some(gpu), Some(cpu)) = (Embedder::load(false), Embedder::load(true)) else {
+            return eprintln!("skipped: the model is not downloaded");
+        };
         let runs = gpu.runs();
         assert!(runs.metal != runs.cpu_why.is_some(), "{runs:?}");
         if !runs.metal {
             return eprintln!("skipped: on the CPU: {}", runs.text());
         }
-        let texts: Vec<String> = (0..40).map(|i| format!("Passage {i} about the fuel budget of flight {i}, {}", "and more words ".repeat(i))).collect();
+        let texts: Vec<String> = (0..40)
+            .map(|i| {
+                format!(
+                    "Passage {i} about the fuel budget of flight {i}, {}",
+                    "and more words ".repeat(i)
+                )
+            })
+            .collect();
         for (a, b) in gpu.passages(&texts).iter().zip(cpu.passages(&texts)) {
             assert!(cosine(a, &b) >= AGREE, "{}", cosine(a, &b));
         }

@@ -153,7 +153,10 @@ pub struct AssetParams {
 
 impl AssetParams {
     pub fn new(id: &str) -> AssetParams {
-        AssetParams { algorithm_id: id.to_string(), ..Default::default() }
+        AssetParams {
+            algorithm_id: id.to_string(),
+            ..Default::default()
+        }
     }
 }
 
@@ -168,14 +171,20 @@ pub struct Evaluation {
 
 impl Evaluation {
     fn unknown(source: Option<Source>, missing: Vec<Param>) -> Evaluation {
-        Evaluation { status: Status::Unknown, source, note: None, missing }
+        Evaluation {
+            status: Status::Unknown,
+            source,
+            note: None,
+            missing,
+        }
     }
 }
 
 /// The catalog that ships with coxswain.
 pub fn catalog() -> &'static Catalog {
-    static CATALOG: LazyLock<Catalog> =
-        LazyLock::new(|| serde_json::from_str(include_str!("catalog.json")).expect("the vendored catalog parses"));
+    static CATALOG: LazyLock<Catalog> = LazyLock::new(|| {
+        serde_json::from_str(include_str!("catalog.json")).expect("the vendored catalog parses")
+    });
     &CATALOG
 }
 
@@ -206,10 +215,21 @@ impl Policy {
             }
         }
         for (k, id) in FAMILY_ALIASES {
-            aliases.entry(k.to_string()).or_insert_with(|| id.to_string());
+            aliases
+                .entry(k.to_string())
+                .or_insert_with(|| id.to_string());
         }
-        let by_id = catalog.algorithms.iter().map(|a| (a.id.as_str(), a)).collect();
-        Policy { catalog, by_id, aliases, oids }
+        let by_id = catalog
+            .algorithms
+            .iter()
+            .map(|a| (a.id.as_str(), a))
+            .collect();
+        Policy {
+            catalog,
+            by_id,
+            aliases,
+            oids,
+        }
     }
 
     pub fn catalog(&self) -> &'static Catalog {
@@ -221,12 +241,18 @@ impl Policy {
     }
 
     fn rules(&self, algorithm: &'static Algorithm, profile: &str) -> &'static [Rule] {
-        algorithm.rules.get(profile).or_else(|| algorithm.rules.get("*")).map_or(&[], Vec::as_slice)
+        algorithm
+            .rules
+            .get(profile)
+            .or_else(|| algorithm.rules.get("*"))
+            .map_or(&[], Vec::as_slice)
     }
 
     /// The status of one asset under a profile in a year.
     pub fn evaluate(&self, asset: &AssetParams, profile: &str, year: i32) -> Evaluation {
-        let Some(algorithm) = self.algorithm(&asset.algorithm_id) else { return Evaluation::unknown(None, vec![]) };
+        let Some(algorithm) = self.algorithm(&asset.algorithm_id) else {
+            return Evaluation::unknown(None, vec![]);
+        };
         for rule in self.rules(algorithm, profile) {
             match matches(rule.when.as_ref(), asset) {
                 Ok(false) => continue,
@@ -250,17 +276,26 @@ impl Policy {
 
     /// The advice that fits this asset under a profile.
     pub fn remediation(&self, asset: &AssetParams, profile: &str) -> Vec<&'static Remediation> {
-        let Some(algorithm) = self.algorithm(&asset.algorithm_id) else { return vec![] };
+        let Some(algorithm) = self.algorithm(&asset.algorithm_id) else {
+            return vec![];
+        };
         algorithm
             .remediation
             .iter()
-            .filter(|r| r.profiles.as_ref().is_none_or(|p| p.iter().any(|p| p == profile)))
+            .filter(|r| {
+                r.profiles
+                    .as_ref()
+                    .is_none_or(|p| p.iter().any(|p| p == profile))
+            })
             .filter(|r| matches(r.when.as_ref(), asset) == Ok(true))
             .collect()
     }
 
     pub fn milestones(&self, profile: &str) -> &'static [i32] {
-        self.catalog.profiles.get(profile).map_or(&[], |p| p.milestones.as_slice())
+        self.catalog
+            .profiles
+            .get(profile)
+            .map_or(&[], |p| p.milestones.as_slice())
     }
 }
 
@@ -282,12 +317,17 @@ fn matches(when: Option<&Condition>, a: &AssetParams) -> Result<bool, Vec<Param>
     if let Some(ops) = &when.param_set {
         match &a.param_set {
             Some(v) => {
-                ok &= ops.eq.as_ref().is_none_or(|e| e == v) && ops.one_of.as_ref().is_none_or(|l| l.contains(v));
+                ok &= ops.eq.as_ref().is_none_or(|e| e == v)
+                    && ops.one_of.as_ref().is_none_or(|l| l.contains(v));
             }
             None => missing.push(Param::ParamSet),
         }
     }
-    if missing.is_empty() { Ok(ok) } else { Err(missing) }
+    if missing.is_empty() {
+        Ok(ok)
+    } else {
+        Err(missing)
+    }
 }
 
 fn numeric(o: &NumOps, v: u64) -> bool {
@@ -301,7 +341,10 @@ fn numeric(o: &NumOps, v: u64) -> bool {
 
 /// Ignores case and punctuation: "SHA-1", "sha1" and "SHA_1" are all "sha1".
 pub fn normalize(s: &str) -> String {
-    s.chars().filter(char::is_ascii_alphanumeric).map(|c| c.to_ascii_lowercase()).collect()
+    s.chars()
+        .filter(char::is_ascii_alphanumeric)
+        .map(|c| c.to_ascii_lowercase())
+        .collect()
 }
 
 // ------------------------------------------------------------------------------------------
@@ -327,7 +370,10 @@ pub struct Signal {
 #[derive(Clone, Debug, PartialEq, Serialize)]
 #[serde(rename_all = "kebab-case", tag = "kind")]
 pub enum Resolution {
-    Rated { parts: Vec<AssetParams>, signals: Vec<Signal> },
+    Rated {
+        parts: Vec<AssetParams>,
+        signals: Vec<Signal>,
+    },
     /// Padding, a KDF, a random number generator or a hybrid combiner: nothing to rate on its own.
     NotRated { primitive: Option<String> },
     /// No vote at all, or votes that disagree without a name to settle it.
@@ -342,15 +388,30 @@ struct KnownOid {
 }
 
 const fn oid(ids: &'static [&'static str]) -> KnownOid {
-    KnownOid { ids, param_set: None, key_bits: None, curve: None }
+    KnownOid {
+        ids,
+        param_set: None,
+        key_bits: None,
+        curve: None,
+    }
 }
 
 const fn oid_sha2(ids: &'static [&'static str], set: &'static str) -> KnownOid {
-    KnownOid { ids, param_set: Some(("sha2", set)), key_bits: None, curve: None }
+    KnownOid {
+        ids,
+        param_set: Some(("sha2", set)),
+        key_bits: None,
+        curve: None,
+    }
 }
 
 const fn oid_curve(curve: &'static str) -> KnownOid {
-    KnownOid { ids: &["ecc"], param_set: None, key_bits: None, curve: Some(curve) }
+    KnownOid {
+        ids: &["ecc"],
+        param_set: None,
+        key_bits: None,
+        curve: Some(curve),
+    }
 }
 
 /// OIDs the catalog does not list, mostly signature schemes that name two algorithms.
@@ -359,7 +420,7 @@ static KNOWN_OIDS: LazyLock<HashMap<String, KnownOid>> = LazyLock::new(|| {
         // PKCS#1 signature schemes: hash and RSA
         ("1.2.840.113549.1.1.4", oid(&["md5", "rsa"])),
         ("1.2.840.113549.1.1.5", oid(&["sha1", "rsa"])),
-        ("1.2.840.113549.1.1.7", oid(&["rsa"])),  // RSAES-OAEP
+        ("1.2.840.113549.1.1.7", oid(&["rsa"])), // RSAES-OAEP
         ("1.2.840.113549.1.1.10", oid(&["rsa"])), // RSASSA-PSS
         ("1.2.840.113549.1.1.11", oid_sha2(&["sha2", "rsa"], "256")),
         ("1.2.840.113549.1.1.12", oid_sha2(&["sha2", "rsa"], "384")),
@@ -386,7 +447,12 @@ static KNOWN_OIDS: LazyLock<HashMap<String, KnownOid>> = LazyLock::new(|| {
     // The NIST AES arc 2.16.840.1.101.3.4.1.{1-9, 21-29, 41-49}: modes of AES-128, -192 and -256.
     for (base, bits) in [(0, 128), (20, 192), (40, 256)] {
         for mode in 1..=9 {
-            let entry = KnownOid { ids: &["aes"], param_set: None, key_bits: Some(bits), curve: None };
+            let entry = KnownOid {
+                ids: &["aes"],
+                param_set: None,
+                key_bits: Some(bits),
+                curve: None,
+            };
             m.insert(format!("2.16.840.1.101.3.4.1.{}", base + mode), entry);
         }
     }
@@ -425,11 +491,14 @@ static NOT_RATED_NAME: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"^(mgf1?|oaep|pss|pkcs1|pkcs5|pkcs7|nopadding|hkdf.*|pbkdf2.*|.*kdf|tlsprf.*|.*drbg|sha1prng|nativeprng|securerandom)$")
         .unwrap()
 });
-static WITH: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"(?i)^(.+?)with(.+?)(encryption)?$").unwrap());
+static WITH: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"(?i)^(.+?)with(.+?)(encryption)?$").unwrap());
 static SEPARATORS: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"[-_/\s]+").unwrap());
-static CURVE_TOKEN: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"(?i)^(secp\d+[rk]1|prime\d+v1|brainpoolp\d+r1|p\d{3}|curve(25519|448))$").unwrap());
-static LETTERS_DIGITS: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"(?i)^([a-z]+)(\d+)$").unwrap());
+static CURVE_TOKEN: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"(?i)^(secp\d+[rk]1|prime\d+v1|brainpoolp\d+r1|p\d{3}|curve(25519|448))$").unwrap()
+});
+static LETTERS_DIGITS: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"(?i)^([a-z]+)(\d+)$").unwrap());
 
 /// What an OID says about one of the algorithms it names.
 #[derive(Clone, Debug, Default)]
@@ -441,10 +510,16 @@ struct OidHint {
 
 impl Policy {
     /// The algorithms an OID names, with what it says about each.
-    fn oid_signal(&self, oid: Option<&str>) -> Option<(Vec<String>, HashMap<&'static str, OidHint>)> {
+    fn oid_signal(
+        &self,
+        oid: Option<&str>,
+    ) -> Option<(Vec<String>, HashMap<&'static str, OidHint>)> {
         let oid = oid?;
         if let Some(&(id, param_set)) = self.oids.get(oid) {
-            let hint = OidHint { param_set, ..Default::default() };
+            let hint = OidHint {
+                param_set,
+                ..Default::default()
+            };
             return Some((vec![id.to_string()], [(id, hint)].into_iter().collect()));
         }
         let known = KNOWN_OIDS.get(oid)?;
@@ -463,24 +538,44 @@ impl Policy {
 
     /// What an algorithm asset is, from its name and what the BOM says about it.
     pub fn resolve(&self, name: &str, info: &AlgorithmInfo) -> Resolution {
-        let primitive = info.primitive.as_deref().filter(|p| NOT_RATED_PRIMITIVES.contains(p));
+        let primitive = info
+            .primitive
+            .as_deref()
+            .filter(|p| NOT_RATED_PRIMITIVES.contains(p));
         if primitive.is_some() || NOT_RATED_NAME.is_match(&normalize(name)) {
-            return Resolution::NotRated { primitive: primitive.map(str::to_string) };
+            return Resolution::NotRated {
+                primitive: primitive.map(str::to_string),
+            };
         }
 
         let parsed = parse_name(name, &self.aliases);
         let oid = self.oid_signal(info.oid.as_deref());
-        let family_id = info.family.as_deref().and_then(|f| self.aliases.get(&normalize(f)));
+        let family_id = info
+            .family
+            .as_deref()
+            .and_then(|f| self.aliases.get(&normalize(f)));
 
         let mut signals = vec![];
         if let Some((ids, _)) = &oid {
-            signals.push(Signal { source: SignalSource::Oid, ids: ids.clone(), agreed: false });
+            signals.push(Signal {
+                source: SignalSource::Oid,
+                ids: ids.clone(),
+                agreed: false,
+            });
         }
         if let Some(id) = family_id {
-            signals.push(Signal { source: SignalSource::Family, ids: vec![id.clone()], agreed: false });
+            signals.push(Signal {
+                source: SignalSource::Family,
+                ids: vec![id.clone()],
+                agreed: false,
+            });
         }
         if !parsed.ids.is_empty() {
-            signals.push(Signal { source: SignalSource::Name, ids: parsed.ids.clone(), agreed: false });
+            signals.push(Signal {
+                source: SignalSource::Name,
+                ids: parsed.ids.clone(),
+                agreed: false,
+            });
         }
         if signals.is_empty() {
             return Resolution::Unresolved { signals };
@@ -489,13 +584,18 @@ impl Policy {
         // Majority vote: signals agree when they share an algorithm.
         let agreeing: Vec<Vec<usize>> = signals
             .iter()
-            .map(|s| (0..signals.len()).filter(|&t| signals[t].ids.iter().any(|id| s.ids.contains(id))).collect())
+            .map(|s| {
+                (0..signals.len())
+                    .filter(|&t| signals[t].ids.iter().any(|id| s.ids.contains(id)))
+                    .collect()
+            })
             .collect();
         let mut best = 0;
         for i in 1..signals.len() {
             let more = agreeing[i].len() > agreeing[best].len();
             // On a tie the name wins: OIDs are copied between files by hand, and wrong more often.
-            let tie_to_name = agreeing[i].len() == agreeing[best].len() && signals[i].source == SignalSource::Name;
+            let tie_to_name = agreeing[i].len() == agreeing[best].len()
+                && signals[i].source == SignalSource::Name;
             if more || tie_to_name {
                 best = i;
             }
@@ -512,27 +612,45 @@ impl Policy {
         let mut ids: &[String] = &[];
         for &w in &winners {
             let s = &signals[w];
-            if s.ids.len() > ids.len() || (s.ids.len() == ids.len() && s.source == SignalSource::Name) {
+            if s.ids.len() > ids.len()
+                || (s.ids.len() == ids.len() && s.source == SignalSource::Name)
+            {
                 ids = &s.ids;
             }
         }
-        let oid_agreed = winners.iter().any(|&w| signals[w].source == SignalSource::Oid);
+        let oid_agreed = winners
+            .iter()
+            .any(|&w| signals[w].source == SignalSource::Oid);
         let composite = ids.len() > 1;
         let param_set = info.param_set.as_deref();
-        let param_number = param_set.filter(|s| !s.is_empty() && s.bytes().all(|b| b.is_ascii_digit())).and_then(|s| s.parse::<u64>().ok());
+        let param_number = param_set
+            .filter(|s| !s.is_empty() && s.bytes().all(|b| b.is_ascii_digit()))
+            .and_then(|s| s.parse::<u64>().ok());
 
         let parts = ids
             .iter()
             .map(|id| {
                 let mut p = AssetParams::new(id);
-                let hint = oid.as_ref().filter(|_| oid_agreed).and_then(|(_, hints)| hints.get(id.as_str()));
-                let OidHint { param_set: oid_set, key_bits: oid_bits, curve: oid_curve } = hint.cloned().unwrap_or_default();
+                let hint = oid
+                    .as_ref()
+                    .filter(|_| oid_agreed)
+                    .and_then(|(_, hints)| hints.get(id.as_str()));
+                let OidHint {
+                    param_set: oid_set,
+                    key_bits: oid_bits,
+                    curve: oid_curve,
+                } = hint.cloned().unwrap_or_default();
                 let digits = parsed.digits.get(id).map(String::as_str);
                 match id.as_str() {
                     "rsa" | "ffdh" | "dsa" => {
                         // parameterSetIdentifier is the hash size for RSA signature schemes, not the key.
                         let from_param = param_number.filter(|&n| !composite && n >= 512);
-                        p.key_bits = parsed.numbers.iter().copied().find(|&n| n >= 512).or(from_param);
+                        p.key_bits = parsed
+                            .numbers
+                            .iter()
+                            .copied()
+                            .find(|&n| n >= 512)
+                            .or(from_param);
                     }
                     "aes" => {
                         let candidates = [digits.and_then(|d| d.parse().ok())]
@@ -542,7 +660,11 @@ impl Policy {
                         p.key_bits = candidates.flatten().find(|n| [128, 192, 256].contains(n));
                     }
                     "ecc" => {
-                        let curve = info.curve.as_deref().or(parsed.curve.as_deref()).or(oid_curve);
+                        let curve = info
+                            .curve
+                            .as_deref()
+                            .or(parsed.curve.as_deref())
+                            .or(oid_curve);
                         p.security_bits = curve.and_then(curve_bits);
                     }
                     "sha2" | "sha3" => {
@@ -550,12 +672,24 @@ impl Policy {
                         p.param_set = pick(&[digits, oid_set, own], &["224", "256", "384", "512"]);
                     }
                     "hmac" => {
-                        let digits = if digits == Some("1") { Some("160") } else { digits };
-                        p.param_set = pick(&[digits, oid_set, param_set], &["160", "224", "256", "384", "512"]);
+                        let digits = if digits == Some("1") {
+                            Some("160")
+                        } else {
+                            digits
+                        };
+                        p.param_set = pick(
+                            &[digits, oid_set, param_set],
+                            &["160", "224", "256", "384", "512"],
+                        );
                     }
                     "ml-kem" | "ml-dsa" => {
-                        let allowed: &[&str] = if id == "ml-kem" { &["512", "768", "1024"] } else { &["44", "65", "87"] };
-                        let numbers: Vec<String> = parsed.numbers.iter().map(u64::to_string).collect();
+                        let allowed: &[&str] = if id == "ml-kem" {
+                            &["512", "768", "1024"]
+                        } else {
+                            &["44", "65", "87"]
+                        };
+                        let numbers: Vec<String> =
+                            parsed.numbers.iter().map(u64::to_string).collect();
                         let mut candidates = vec![digits];
                         candidates.extend(numbers.iter().map(|n| Some(n.as_str())));
                         candidates.extend([oid_set, param_set]);
@@ -571,7 +705,11 @@ impl Policy {
 }
 
 fn pick(candidates: &[Option<&str>], allowed: &[&str]) -> Option<String> {
-    candidates.iter().flatten().find(|c| allowed.contains(c)).map(|c| c.to_string())
+    candidates
+        .iter()
+        .flatten()
+        .find(|c| allowed.contains(c))
+        .map(|c| c.to_string())
 }
 
 #[derive(Debug, Default)]
@@ -590,7 +728,9 @@ impl ParsedName {
             self.ids.push(id.to_string());
         }
         if let Some(d) = digits {
-            self.digits.entry(id.to_string()).or_insert_with(|| d.to_string());
+            self.digits
+                .entry(id.to_string())
+                .or_insert_with(|| d.to_string());
         }
     }
 }

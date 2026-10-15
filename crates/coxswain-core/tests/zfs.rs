@@ -8,7 +8,10 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 fn run(cmd: &str, args: &[&str]) {
-    let s = Command::new(cmd).args(args).status().unwrap_or_else(|e| panic!("{cmd}: {e}"));
+    let s = Command::new(cmd)
+        .args(args)
+        .status()
+        .unwrap_or_else(|e| panic!("{cmd}: {e}"));
     assert!(s.success(), "{cmd} {args:?}: {s}");
 }
 
@@ -20,7 +23,9 @@ struct Pool {
 
 impl Drop for Pool {
     fn drop(&mut self) {
-        let _ = Command::new("zpool").args(["destroy", "-f", &self.name]).status();
+        let _ = Command::new("zpool")
+            .args(["destroy", "-f", &self.name])
+            .status();
         let _ = std::fs::remove_file(&self.file);
     }
 }
@@ -33,16 +38,31 @@ fn zfs_snapshots_end_to_end() {
     let id = std::process::id();
     let base = std::env::temp_dir().join(format!("coxswain-zfs-e2e-{id}"));
     std::fs::create_dir_all(&base).unwrap();
-    let pool = Pool { name: format!("coxswain_e2e_{id}"), file: base.join("pool.img") };
+    let pool = Pool {
+        name: format!("coxswain_e2e_{id}"),
+        file: base.join("pool.img"),
+    };
     if cfg!(any(target_os = "illumos", target_os = "solaris")) {
         run("mkfile", &["128m", pool.file.to_str().unwrap()]);
     } else {
         run("truncate", &["-s", "128M", pool.file.to_str().unwrap()]);
     }
     let root = base.join("mnt");
-    run("zpool", &["create", "-m", root.to_str().unwrap(), &pool.name, pool.file.to_str().unwrap()]);
+    run(
+        "zpool",
+        &[
+            "create",
+            "-m",
+            root.to_str().unwrap(),
+            &pool.name,
+            pool.file.to_str().unwrap(),
+        ],
+    );
     let ds = format!("{}/home", pool.name);
-    run("zfs", &["create", "-o", "compression=lz4", "-o", "quota=64M", &ds]);
+    run(
+        "zfs",
+        &["create", "-o", "compression=lz4", "-o", "quota=64M", &ds],
+    );
     let home = root.join("home");
     std::fs::create_dir(home.join("docs")).unwrap();
     std::fs::write(home.join("docs/note.md"), "one\ntwo\n").unwrap();
@@ -75,7 +95,10 @@ fn zfs_snapshots_end_to_end() {
     let old = first.join("note.md");
     assert_eq!(std::fs::read_to_string(&old).unwrap(), "one\ntwo\n");
     let at = zfs::at(first).unwrap();
-    assert_eq!((at.dataset.as_str(), at.snapshot.as_deref()), (ds.as_str(), Some("first")));
+    assert_eq!(
+        (at.dataset.as_str(), at.snapshot.as_deref()),
+        (ds.as_str(), Some("first"))
+    );
 
     // What changed since, and a copy restored.
     let d = zfs::diff(&old).unwrap();
@@ -86,7 +109,12 @@ fn zfs_snapshots_end_to_end() {
     assert_eq!(std::fs::read_to_string(got).unwrap(), "one\ntwo\n");
 
     // Read-only: nothing is made, moved or deleted there.
-    for e in [cfs::mkdir(&first.join("new")), cfs::delete(&old), cfs::rename(&old, &restore).map(drop), cfs::copy(&restore, first).map(drop)] {
+    for e in [
+        cfs::mkdir(&first.join("new")),
+        cfs::delete(&old),
+        cfs::rename(&old, &restore).map(drop),
+        cfs::copy(&restore, first).map(drop),
+    ] {
         assert_eq!(e.unwrap_err().kind(), std::io::ErrorKind::PermissionDenied);
     }
     assert!(zfs::is_read_only(&zfs::path(&docs)));
@@ -97,8 +125,15 @@ fn zfs_snapshots_end_to_end() {
         // ZFS keeps nodump and hidden for users; uchg it does not keep.
         flags::set_user(&live, &["nodump", "hidden"]).unwrap();
         let f = flags::read(&live).unwrap();
-        assert!(f.set.contains(&"nodump") && f.set.contains(&"hidden"), "{:?}", f.set);
-        assert_eq!(flags::set_user(&live, &["uchg"]).unwrap_err().kind(), std::io::ErrorKind::Unsupported);
+        assert!(
+            f.set.contains(&"nodump") && f.set.contains(&"hidden"),
+            "{:?}",
+            f.set
+        );
+        assert_eq!(
+            flags::set_user(&live, &["uchg"]).unwrap_err().kind(),
+            std::io::ErrorKind::Unsupported
+        );
         flags::set_user(&live, &[]).unwrap();
         assert!(!flags::read(&live).unwrap().set.contains(&"nodump"));
     }

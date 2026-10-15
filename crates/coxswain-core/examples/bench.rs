@@ -15,17 +15,42 @@ fn main() {
     let root = args.next().unwrap_or_else(|| "/".into());
     let mut queries: Vec<String> = args.collect();
     if queries.is_empty() {
-        queries = ["a", "main.rs", "ext:rs", "*.toml", "zzzzqqq", "src/ lib", "!e ext:md", "case: README"].map(String::from).to_vec();
+        queries = [
+            "a",
+            "main.rs",
+            "ext:rs",
+            "*.toml",
+            "zzzzqqq",
+            "src/ lib",
+            "!e ext:md",
+            "case: README",
+        ]
+        .map(String::from)
+        .to_vec();
     }
     let exclude = SearchConfig::default().exclude;
     let t = Instant::now();
     let cfg = SearchConfig::default();
-    let ix = Index::build(&[root.clone().into()], &exclude, archives.then_some(&cfg), None);
+    let ix = Index::build(
+        &[root.clone().into()],
+        &exclude,
+        archives.then_some(&cfg),
+        None,
+    );
     println!("build: {} entries in {:?}", ix.len(), t.elapsed());
     if archives && std::env::var_os("BENCH_ONCE").is_none() {
         let t = Instant::now();
-        let again = Index::build(&[root.into()], &exclude, archives.then_some(&cfg), Some(&ix));
-        println!("again: {} entries in {:?} (unchanged archives from the first)", again.len(), t.elapsed());
+        let again = Index::build(
+            &[root.into()],
+            &exclude,
+            archives.then_some(&cfg),
+            Some(&ix),
+        );
+        println!(
+            "again: {} entries in {:?} (unchanged archives from the first)",
+            again.len(),
+            t.elapsed()
+        );
     }
     let file = std::env::temp_dir().join("coxswain-bench.bin");
     let t = Instant::now();
@@ -37,8 +62,16 @@ fn main() {
     println!("load:  {:?}", t.elapsed());
     for q in &queries {
         let _ = ix.search(q, None, 1000);
-        let best = (0..5).map(|_| ix.search(q, None, 1000).micros).min().unwrap();
-        println!("{:>14}  {:>8} hits  {:>7.2} ms", q, ix.search(q, None, 1000).total, best as f64 / 1000.0);
+        let best = (0..5)
+            .map(|_| ix.search(q, None, 1000).micros)
+            .min()
+            .unwrap();
+        println!(
+            "{:>14}  {:>8} hits  {:>7.2} ms",
+            q,
+            ix.search(q, None, 1000).total,
+            best as f64 / 1000.0
+        );
     }
     let _ = std::fs::remove_file(file);
 }

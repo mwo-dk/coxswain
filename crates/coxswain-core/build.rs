@@ -3,10 +3,14 @@
 //! README's last ten versions. Its links are relative to the folder it is in.
 fn main() {
     let dir = std::path::PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap());
-    let (file, base) = [(dir.join("../../docs/changelog.md"), "docs/"), (dir.join("README.md"), ""), (dir.join("../../README.md"), "")]
-        .into_iter()
-        .find(|(p, _)| p.exists())
-        .expect("a changelog: docs/changelog.md or README.md");
+    let (file, base) = [
+        (dir.join("../../docs/changelog.md"), "docs/"),
+        (dir.join("README.md"), ""),
+        (dir.join("../../README.md"), ""),
+    ]
+    .into_iter()
+    .find(|(p, _)| p.exists())
+    .expect("a changelog: docs/changelog.md or README.md");
     println!("cargo:rerun-if-changed={}", file.display());
     println!("cargo:rustc-env=COXSWAIN_CHANGELOG={}", file.display());
     println!("cargo:rustc-env=COXSWAIN_CHANGELOG_BASE={base}");

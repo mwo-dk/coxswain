@@ -21,7 +21,11 @@ const MAX_OUTPUT: usize = 16 * 1024;
 
 pub fn text(path: &Path, max: u64) -> Option<String> {
     let mut bytes = vec![];
-    std::fs::File::open(path).ok()?.take(max.saturating_add(1)).read_to_end(&mut bytes).ok()?;
+    std::fs::File::open(path)
+        .ok()?
+        .take(max.saturating_add(1))
+        .read_to_end(&mut bytes)
+        .ok()?;
     if bytes.len() as u64 > max {
         return None;
     }
@@ -65,7 +69,12 @@ static UNSEEN: LazyLock<Regex> = LazyLock::new(|| {
 /// The text of a notebook. One that is cut off or broken gives its text up to that place.
 fn notebook(json: &[u8]) -> String {
     let mut out = String::new();
-    let _ = Walk { at: At::Book, out: &mut out, most: MAX_TEXT }.deserialize(&mut serde_json::Deserializer::from_slice(json));
+    let _ = Walk {
+        at: At::Book,
+        out: &mut out,
+        most: MAX_TEXT,
+    }
+    .deserialize(&mut serde_json::Deserializer::from_slice(json));
     out
 }
 
@@ -96,7 +105,11 @@ impl<'de> DeserializeSeed<'de> for Walk<'_> {
     fn deserialize<D: Deserializer<'de>>(self, from: D) -> Result<(), D::Error> {
         // Text is asked for as bytes, which serde_json hands over as they are. Asked for text, it refuses one half of a character pair
         // written as an escape, which JavaScript writes, and the reading would end there.
-        if self.at == At::Text { from.deserialize_bytes(self) } else { from.deserialize_any(self) }
+        if self.at == At::Text {
+            from.deserialize_bytes(self)
+        } else {
+            from.deserialize_any(self)
+        }
     }
 }
 
@@ -113,12 +126,23 @@ impl<'de> Visitor<'de> for Walk<'_> {
     }
 
     fn visit_bytes<E>(self, text: &[u8]) -> Result<(), E> {
-        push(self.out, &UNSEEN.replace_all(&String::from_utf8_lossy(text), ""), self.most);
+        push(
+            self.out,
+            &UNSEEN.replace_all(&String::from_utf8_lossy(text), ""),
+            self.most,
+        );
         Ok(())
     }
 
     fn visit_seq<A: SeqAccess<'de>>(self, mut list: A) -> Result<(), A::Error> {
-        while list.next_element_seed(Walk { at: self.at, out: &mut *self.out, most: self.most })?.is_some() {
+        while list
+            .next_element_seed(Walk {
+                at: self.at,
+                out: &mut *self.out,
+                most: self.most,
+            })?
+            .is_some()
+        {
             // Jupyter leaves the line end on each line of a text. Its second format and some other programs take it off.
             if self.at == At::Text {
                 end_line(self.out, self.most);
@@ -148,9 +172,17 @@ impl<'de> Visitor<'de> for Walk<'_> {
                     }
                 };
                 if at == At::Output {
-                    map.next_value_seed(Walk { at, out: &mut printed, most: MAX_OUTPUT })?;
+                    map.next_value_seed(Walk {
+                        at,
+                        out: &mut printed,
+                        most: MAX_OUTPUT,
+                    })?;
                 } else {
-                    map.next_value_seed(Walk { at, out: &mut *self.out, most: self.most })?;
+                    map.next_value_seed(Walk {
+                        at,
+                        out: &mut *self.out,
+                        most: self.most,
+                    })?;
                 }
                 if at == At::Text {
                     end_line(self.out, self.most);
@@ -171,16 +203,45 @@ impl<'de> Visitor<'de> for Walk<'_> {
 
 /// A tag or an entity of HTML. A tag ends at the next < or >, an entity at the first character that is none of its name:
 /// no search looks past the place where the next one begins, so the time grows with the length only.
-static MARKUP: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"</?[A-Za-z][^<>]*>|&(#[0-9]+|#[xX][0-9A-Fa-f]+|[A-Za-z]+);").unwrap());
+static MARKUP: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"</?[A-Za-z][^<>]*>|&(#[0-9]+|#[xX][0-9A-Fa-f]+|[A-Za-z]+);").unwrap()
+});
 /// The tags that stand inside a word, as in <b>R</b>ocket: they are dropped.
 const WITHIN: &[&str] = &[
-    "a", "abbr", "b", "bdi", "bdo", "big", "cite", "code", "del", "dfn", "em", "font", "i", "ins", "kbd", "mark", "q", "s", "samp", "small", "span", "strike",
-    "strong", "sub", "sup", "tt", "u", "var", "wbr",
+    "a", "abbr", "b", "bdi", "bdo", "big", "cite", "code", "del", "dfn", "em", "font", "i", "ins",
+    "kbd", "mark", "q", "s", "samp", "small", "span", "strike", "strong", "sub", "sup", "tt", "u",
+    "var", "wbr",
 ];
 /// The tags that end a line. Any other name between < and > is no tag of a label and is kept, as in List<String>.
 const BREAKS: &[&str] = &[
-    "blockquote", "br", "caption", "center", "dd", "div", "dl", "dt", "h1", "h2", "h3", "h4", "h5", "h6", "hr", "img", "li", "ol", "p", "pre", "table", "tbody",
-    "td", "tfoot", "th", "thead", "tr", "ul",
+    "blockquote",
+    "br",
+    "caption",
+    "center",
+    "dd",
+    "div",
+    "dl",
+    "dt",
+    "h1",
+    "h2",
+    "h3",
+    "h4",
+    "h5",
+    "h6",
+    "hr",
+    "img",
+    "li",
+    "ol",
+    "p",
+    "pre",
+    "table",
+    "tbody",
+    "td",
+    "tfoot",
+    "th",
+    "thead",
+    "tr",
+    "ul",
 ];
 
 /// HTML as plain words, read as a browser reads it: what is no tag and no entity is text, a lone & or < too.
@@ -190,7 +251,9 @@ fn words(html: &str) -> String {
     // sent the search to the end of the label, and a label of such comments took hours.
     let (mut kept, mut rest) = (String::with_capacity(html.len()), html);
     while let Some((before, comment)) = rest.split_once("<!--") {
-        let Some((_, after)) = comment.split_once("-->") else { break };
+        let Some((_, after)) = comment.split_once("-->") else {
+            break;
+        };
         kept.push_str(before);
         rest = after;
     }
@@ -204,8 +267,15 @@ fn words(html: &str) -> String {
         plain.push_str(&kept[from..found.start()]);
         from = found.end();
         let markup = found.as_str();
-        let tag = markup.trim_start_matches(['<', '/']).split(|c: char| !c.is_ascii_alphanumeric()).next().unwrap_or_default();
-        match markup.strip_prefix('&').map(|entity| character(entity.trim_end_matches(';'))) {
+        let tag = markup
+            .trim_start_matches(['<', '/'])
+            .split(|c: char| !c.is_ascii_alphanumeric())
+            .next()
+            .unwrap_or_default();
+        match markup
+            .strip_prefix('&')
+            .map(|entity| character(entity.trim_end_matches(';')))
+        {
             Some(Some(character)) => plain.push(character),
             None if among(WITHIN, tag) => {}
             None if among(BREAKS, tag) => plain.push('\n'),
@@ -256,22 +326,40 @@ fn labels(xml: &str, out: &mut String, mut room: Option<&mut u64>) {
     let mut waiting = None;
     // For a sentence per arrow: the shapes' labels by id, the arrows (from, to, id), and the
     // labels of arrows, written on the arrow or in a cell of their own inside it.
-    let (mut names, mut arrows, mut on_arrow): (std::collections::HashMap<String, String>, Vec<(String, String, String)>, std::collections::HashMap<String, String>) = Default::default();
+    let (mut names, mut arrows, mut on_arrow): (
+        std::collections::HashMap<String, String>,
+        Vec<(String, String, String)>,
+        std::collections::HashMap<String, String>,
+    ) = Default::default();
     let mut object_id: Option<String> = None;
     while out.len() < MAX_TEXT {
         let page = std::mem::take(&mut begun);
         match reader.read_event() {
             Ok(Event::Start(e)) | Ok(Event::Empty(e)) => {
                 // What an attribute says, without the XML that it is kept in.
-                let said = |name: &str| e.try_get_attribute(name).ok().flatten().map(|attribute| words(&attribute.value));
+                let said = |name: &str| {
+                    e.try_get_attribute(name)
+                        .ok()
+                        .flatten()
+                        .map(|attribute| words(&attribute.value))
+                };
                 let (label, object) = match e.local_name().as_ref() {
                     "diagram" => (said("name"), None),
                     "mxCell" => (said("value"), None),
                     "object" | "UserObject" => (None, said("label")),
                     _ => continue,
                 };
-                let raw = |name: &str| e.try_get_attribute(name).ok().flatten().map(|a| a.value.to_string());
-                let id = raw("id").or_else(|| (e.local_name().as_ref() == "mxCell").then(|| object_id.take()).flatten());
+                let raw = |name: &str| {
+                    e.try_get_attribute(name)
+                        .ok()
+                        .flatten()
+                        .map(|a| a.value.to_string())
+                };
+                let id = raw("id").or_else(|| {
+                    (e.local_name().as_ref() == "mxCell")
+                        .then(|| object_id.take())
+                        .flatten()
+                });
                 if matches!(e.local_name().as_ref(), "object" | "UserObject") {
                     object_id = raw("id");
                 }
@@ -279,8 +367,17 @@ fn labels(xml: &str, out: &mut String, mut room: Option<&mut u64>) {
                 // draw.io shows a label as HTML when the style says one of these two. Any other label is text as it stands, and read
                 // as HTML it would lose the Table of List<Table>.
                 let style = e.try_get_attribute("style").ok().flatten();
-                let html = style.is_some_and(|style| style.value.split(';').any(|part| part == "html=1" || part == "whiteSpace=wrap"));
-                let shown: Vec<String> = std::mem::replace(&mut waiting, object).into_iter().chain(label).map(|label| if html { words(&label) } else { label }).collect();
+                let html = style.is_some_and(|style| {
+                    style
+                        .value
+                        .split(';')
+                        .any(|part| part == "html=1" || part == "whiteSpace=wrap")
+                });
+                let shown: Vec<String> = std::mem::replace(&mut waiting, object)
+                    .into_iter()
+                    .chain(label)
+                    .map(|label| if html { words(&label) } else { label })
+                    .collect();
                 if e.local_name().as_ref() == "mxCell" {
                     let text = shown.join(" ").trim().to_string();
                     match (raw("edge").as_deref(), raw("source"), raw("target"), &id) {
@@ -312,8 +409,19 @@ fn labels(xml: &str, out: &mut String, mut room: Option<&mut u64>) {
             Ok(Event::End(e)) if e.local_name().as_ref() == "root" => {
                 for (from, to, id) in arrows.drain(..) {
                     if let (Some(a), Some(b)) = (names.get(&from), names.get(&to)) {
-                        let label = on_arrow.get(&id).filter(|l| names.get(&id) != Some(*l)).map_or(String::new(), |l| format!(": {}", l.replace('\n', " ")));
-                        push(out, &format!("{} to {}{label}.\n", a.replace('\n', " "), b.replace('\n', " ")), MAX_TEXT);
+                        let label = on_arrow
+                            .get(&id)
+                            .filter(|l| names.get(&id) != Some(*l))
+                            .map_or(String::new(), |l| format!(": {}", l.replace('\n', " ")));
+                        push(
+                            out,
+                            &format!(
+                                "{} to {}{label}.\n",
+                                a.replace('\n', " "),
+                                b.replace('\n', " ")
+                            ),
+                            MAX_TEXT,
+                        );
                     }
                 }
                 names.clear();
@@ -329,14 +437,20 @@ fn labels(xml: &str, out: &mut String, mut room: Option<&mut u64>) {
         }
     }
     // The mxCell never came, and the label is kept as it stands: that loses no word.
-    push(out, &waiting.map(|label| label + "\n").unwrap_or_default(), MAX_TEXT);
+    push(
+        out,
+        &waiting.map(|label| label + "\n").unwrap_or_default(),
+        MAX_TEXT,
+    );
 }
 
 /// A packed page as the XML it is, no more of it than `room` bytes, which shrinks by what was used.
 /// A page that is broken gives what could be unpacked of it, and text that is no packed page gives nothing.
 fn unpack(page: &str, room: &mut u64) -> String {
     let mut bytes = vec![];
-    let _ = flate2::read::DeflateDecoder::new(&base64(page)[..]).take(*room).read_to_end(&mut bytes);
+    let _ = flate2::read::DeflateDecoder::new(&base64(page)[..])
+        .take(*room)
+        .read_to_end(&mut bytes);
     *room = room.saturating_sub(bytes.len() as u64);
 
     // %C3%A6 is the two bytes of "æ". The bytes are moved down in place: a page may be large, and its text is never longer than what it is made from.
@@ -351,7 +465,8 @@ fn unpack(page: &str, room: &mut u64) -> String {
         (to, from) = (to + 1, from + step);
     }
     bytes.truncate(to);
-    String::from_utf8(bytes).unwrap_or_else(|broken| String::from_utf8_lossy(broken.as_bytes()).into_owned())
+    String::from_utf8(bytes)
+        .unwrap_or_else(|broken| String::from_utf8_lossy(broken.as_bytes()).into_owned())
 }
 
 /// The bytes that base64 text stands for, up to the first character that is not of its alphabet. Blank space is passed over.
@@ -445,19 +560,33 @@ mod tests {
 
     /// Text with all but letters and digits percent-encoded, which is the first step of packing a page.
     fn escaped(text: &str) -> String {
-        text.bytes().map(|b| if b.is_ascii_alphanumeric() { (b as char).to_string() } else { format!("%{b:02X}") }).collect()
+        text.bytes()
+            .map(|b| {
+                if b.is_ascii_alphanumeric() {
+                    (b as char).to_string()
+                } else {
+                    format!("%{b:02X}")
+                }
+            })
+            .collect()
     }
 
     /// Bytes deflated and then written as base64, which is the rest of packing a page.
     fn deflated(bytes: &[u8]) -> String {
-        let mut deflate = flate2::write::DeflateEncoder::new(vec![], flate2::Compression::default());
+        let mut deflate =
+            flate2::write::DeflateEncoder::new(vec![], flate2::Compression::default());
         deflate.write_all(bytes).unwrap();
         let alphabet = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
         let mut text = String::new();
         for three in deflate.finish().unwrap().chunks(3) {
-            let bits = three.iter().fold(0u32, |bits, b| bits << 8 | *b as u32) << (8 * (3 - three.len()));
+            let bits =
+                three.iter().fold(0u32, |bits, b| bits << 8 | *b as u32) << (8 * (3 - three.len()));
             let sixes = (0..4).map(|n| alphabet[(bits >> (18 - 6 * n)) as usize & 63] as char);
-            text.extend(sixes.take(three.len() + 1).chain(std::iter::repeat_n('=', 3 - three.len())));
+            text.extend(
+                sixes
+                    .take(three.len() + 1)
+                    .chain(std::iter::repeat_n('=', 3 - three.len())),
+            );
         }
         text
     }
@@ -478,11 +607,20 @@ mod tests {
     fn notebook_gives_its_cells_in_order_each_followed_by_what_it_printed() {
         let text = read("flight.ipynb", NOTEBOOK.as_bytes()).unwrap();
         let cells = "# Flight 7\nBlåbærgrød på en ø, café, שלום, 火箭\n| Stage | Thrust |\n|---|---|\n| First | 7600 kN |\nprint('liftoff')\n";
-        let printed = "liftoff\nat 12:04\nstage thrust\n0 first 7600\nZeroDivisionError\ndivision by zero\n";
-        assert_eq!(text, format!("{cells}{printed}The end"), "no picture, no HTML of a result, no traceback, nothing about the notebook itself");
+        let printed =
+            "liftoff\nat 12:04\nstage thrust\n0 first 7600\nZeroDivisionError\ndivision by zero\n";
+        assert_eq!(
+            text,
+            format!("{cells}{printed}The end"),
+            "no picture, no HTML of a result, no traceback, nothing about the notebook itself"
+        );
 
         let marked = format!("\u{feff}{NOTEBOOK}");
-        assert_eq!(read("marked.IPYNB", marked.as_bytes()), Some(text), "a byte order mark is passed over");
+        assert_eq!(
+            read("marked.IPYNB", marked.as_bytes()),
+            Some(text),
+            "a byte order mark is passed over"
+        );
     }
 
     #[test]
@@ -499,7 +637,10 @@ mod tests {
             {"cells": [{"cell_type": "markdown", "metadata": {}, "source": "Second worksheet"}], "metadata": {}}
         ]}"##;
         let text = read("old.ipynb", old.as_bytes()).unwrap();
-        assert_eq!(text, "Første ark\nprint 2 + 2\nx = 'old'\n4\n'old result'\nNameError\nname 'y' is not defined\nSecond worksheet");
+        assert_eq!(
+            text,
+            "Første ark\nprint 2 + 2\nx = 'old'\n4\n'old result'\nNameError\nname 'y' is not defined\nSecond worksheet"
+        );
     }
 
     #[test]
@@ -514,11 +655,21 @@ mod tests {
         );
         let text = notebook(book.as_bytes());
         assert!(text.starts_with("train()\nepoch 1 loss 0.5\n"));
-        assert!(text.len() < MAX_OUTPUT + 100, "{} bytes are kept of nearly 2 MB", text.len());
-        assert!(text.contains("\nafter the log\nfire and smoke"), "the cell after the long one begins a line, and words are whole without their colours");
+        assert!(
+            text.len() < MAX_OUTPUT + 100,
+            "{} bytes are kept of nearly 2 MB",
+            text.len()
+        );
+        assert!(
+            text.contains("\nafter the log\nfire and smoke"),
+            "the cell after the long one begins a line, and words are whole without their colours"
+        );
 
         let text = read("colours.ipynb", book.as_bytes()).unwrap();
-        assert!(text.ends_with("\nafter the log\nfire and smoke gone 100%"), "no character is left that the store or a terminal gives a meaning");
+        assert!(
+            text.ends_with("\nafter the log\nfire and smoke gone 100%"),
+            "no character is left that the store or a terminal gives a meaning"
+        );
     }
 
     #[test]
@@ -526,7 +677,10 @@ mod tests {
         // The arrow from the rocket to the porridge is said as a sentence once its page is whole.
         let first = "Første side\nRocket\nstage 1\nBlåbærgrød på en ø\ncafé שלום 火箭\nStage\nThrust\nFuel & fire\nManual\nRocket stage 1 to Blåbærgrød på en ø café שלום 火箭.\n";
         let second = "Page & two\nitems: List<String> & R&D\nsecond line";
-        assert_eq!(read("rocket.drawio", DIAGRAM.as_bytes()), Some(format!("{first}{second}")));
+        assert_eq!(
+            read("rocket.drawio", DIAGRAM.as_bytes()),
+            Some(format!("{first}{second}"))
+        );
 
         let bare = r#"<?xml version="1.0" encoding="UTF-8"?><mxGraphModel><root><mxCell id="2" value="No file around it" vertex="1"/></root></mxGraphModel>"#;
         // Arrows with labels: on the arrow itself, or in a cell inside it, as draw.io writes both.
@@ -536,55 +690,139 @@ mod tests {
             <mxCell id="y" edge="1" source="e" target="a" parent="1"/><mxCell id="yl" value="token" vertex="1" connectable="0" parent="y"/>
             <mxCell id="z" edge="1" source="a" target="gone" parent="1"/></root></mxGraphModel>"#;
         let read_flow = read("flow.drawio", flow.as_bytes()).unwrap();
-        assert!(read_flow.ends_with("Browser to Entra ID: sign in.\nEntra ID to API: token."), "{read_flow}");
-        assert_eq!(read("bare.dio", bare.as_bytes()).as_deref(), Some("No file around it"));
+        assert!(
+            read_flow.ends_with("Browser to Entra ID: sign in.\nEntra ID to API: token."),
+            "{read_flow}"
+        );
+        assert_eq!(
+            read("bare.dio", bare.as_bytes()).as_deref(),
+            Some("No file around it")
+        );
     }
 
     #[test]
     fn packed_diagram_gives_what_it_gives_unpacked() {
-        let file = format!(r#"<mxfile><diagram id="p1" name="Packed page">{PACKED}</diagram><diagram name="Second">{PACKED}</diagram></mxfile>"#);
-        assert_eq!(read("packed.drawio", file.as_bytes()).as_deref(), Some("Packed page\nBlåbær\ncafé 火箭\nSecond\nBlåbær\ncafé 火箭"));
+        let file = format!(
+            r#"<mxfile><diagram id="p1" name="Packed page">{PACKED}</diagram><diagram name="Second">{PACKED}</diagram></mxfile>"#
+        );
+        assert_eq!(
+            read("packed.drawio", file.as_bytes()).as_deref(),
+            Some("Packed page\nBlåbær\ncafé 火箭\nSecond\nBlåbær\ncafé 火箭")
+        );
 
         // The whole diagram, each page packed here, with the line breaks that some programs put around a packed page.
-        let mut pages = DIAGRAM.split("<mxGraphModel").skip(1).map(|page| format!("<mxGraphModel{}", page.split("</diagram>").next().unwrap()));
+        let mut pages = DIAGRAM
+            .split("<mxGraphModel")
+            .skip(1)
+            .map(|page| format!("<mxGraphModel{}", page.split("</diagram>").next().unwrap()));
         let file = format!(
             "<mxfile>\n<diagram name=\"Første side\">\n{}\n</diagram>\n<diagram name=\"Page &amp; two\">{}</diagram>\n</mxfile>",
             deflated(escaped(&pages.next().unwrap()).as_bytes()),
             deflated(escaped(&pages.next().unwrap()).as_bytes())
         );
-        assert_eq!(read("packed.dio", file.as_bytes()), read("plain.drawio", DIAGRAM.as_bytes()));
+        assert_eq!(
+            read("packed.dio", file.as_bytes()),
+            read("plain.drawio", DIAGRAM.as_bytes())
+        );
     }
 
     #[test]
     fn label_is_read_as_a_browser_reads_it() {
-        assert_eq!(words("<b>Rock</b>et <FONT color=\"#f00\">fu</FONT>el"), "Rocket fuel", "a tag inside a word does not part it");
-        assert_eq!(words("<p>Hello</p><p>World</p>one<br>two<BR/>three<hr>"), "\nHello\n\nWorld\none\ntwo\nthree\n", "paragraphs are never joined");
-        assert_eq!(words("<ul><li>one</li><li>two</li></ul>").split_whitespace().collect::<Vec<_>>(), ["one", "two"]);
-        assert_eq!(words("caf&#233; &#xE9;&#Xe9; &lt;tag&gt; &amp;amp; a&nbsp;b &quot;q&quot; &apos;"), "café éé <tag> &amp; a b \"q\" '");
+        assert_eq!(
+            words("<b>Rock</b>et <FONT color=\"#f00\">fu</FONT>el"),
+            "Rocket fuel",
+            "a tag inside a word does not part it"
+        );
+        assert_eq!(
+            words("<p>Hello</p><p>World</p>one<br>two<BR/>three<hr>"),
+            "\nHello\n\nWorld\none\ntwo\nthree\n",
+            "paragraphs are never joined"
+        );
+        assert_eq!(
+            words("<ul><li>one</li><li>two</li></ul>")
+                .split_whitespace()
+                .collect::<Vec<_>>(),
+            ["one", "two"]
+        );
+        assert_eq!(
+            words("caf&#233; &#xE9;&#Xe9; &lt;tag&gt; &amp;amp; a&nbsp;b &quot;q&quot; &apos;"),
+            "café éé <tag> &amp; a b \"q\" '"
+        );
         let text = "R&D, a < b > c, x<y, 1 & 2; &made-up; &unknown; &#99999999999; &#xD800; &; Map<Key, Value> and <<use>>";
-        assert_eq!(words(text), text, "what is no tag and no entity of HTML is text");
-        assert_eq!(words("kept<!-- a note\n<b>in</b> it -->too <!-- never closed"), "kepttoo <!-- never closed");
+        assert_eq!(
+            words(text),
+            text,
+            "what is no tag and no entity of HTML is text"
+        );
+        assert_eq!(
+            words("kept<!-- a note\n<b>in</b> it -->too <!-- never closed"),
+            "kepttoo <!-- never closed"
+        );
         assert_eq!(words("<b never closed"), "<b never closed");
         assert_eq!(words(""), "");
     }
 
     #[test]
     fn label_is_html_only_when_the_style_of_its_shape_says_so() {
-        let shape = |label: &str, style: &str| diagram(&format!(r#"<root><mxCell id="2" value="{label}" style="{style}" vertex="1"/></root>"#));
-        assert_eq!(shape("+tables: List&lt;Table&gt; rows", "text;html=0;"), "+tables: List<Table> rows\n");
-        assert_eq!(shape("+isBefore(): start&lt;b.start and end&gt;after", "text;align=left;"), "+isBefore(): start<b.start and end>after\n");
-        assert_eq!(shape("&lt;&lt;table&gt;&gt; &lt;div&gt; a&amp;nbsp;b&#10;next", ""), "<<table>> <div> a&nbsp;b\nnext\n", "no word is taken for a tag");
+        let shape = |label: &str, style: &str| {
+            diagram(&format!(
+                r#"<root><mxCell id="2" value="{label}" style="{style}" vertex="1"/></root>"#
+            ))
+        };
+        assert_eq!(
+            shape("+tables: List&lt;Table&gt; rows", "text;html=0;"),
+            "+tables: List<Table> rows\n"
+        );
+        assert_eq!(
+            shape(
+                "+isBefore(): start&lt;b.start and end&gt;after",
+                "text;align=left;"
+            ),
+            "+isBefore(): start<b.start and end>after\n"
+        );
+        assert_eq!(
+            shape(
+                "&lt;&lt;table&gt;&gt; &lt;div&gt; a&amp;nbsp;b&#10;next",
+                ""
+            ),
+            "<<table>> <div> a&nbsp;b\nnext\n",
+            "no word is taken for a tag"
+        );
         // The same members as draw.io writes them into a label that is HTML.
-        assert_eq!(shape("+tables: List&amp;lt;Table&amp;gt; rows&lt;br&gt;+marks", "text;html=1;"), "+tables: List<Table> rows\n+marks\n");
-        assert_eq!(shape("&lt;b&gt;R&lt;/b&gt;ocket", "rounded=1;whiteSpace=wrap;"), "Rocket\n", "draw.io shows a label that wraps as HTML");
-        assert_eq!(shape("&lt;b&gt;R&lt;/b&gt;ocket", "xhtml=1;html=10;nowhiteSpace=wrap"), "<b>R</b>ocket\n");
+        assert_eq!(
+            shape(
+                "+tables: List&amp;lt;Table&amp;gt; rows&lt;br&gt;+marks",
+                "text;html=1;"
+            ),
+            "+tables: List<Table> rows\n+marks\n"
+        );
+        assert_eq!(
+            shape("&lt;b&gt;R&lt;/b&gt;ocket", "rounded=1;whiteSpace=wrap;"),
+            "Rocket\n",
+            "draw.io shows a label that wraps as HTML"
+        );
+        assert_eq!(
+            shape(
+                "&lt;b&gt;R&lt;/b&gt;ocket",
+                "xhtml=1;html=10;nowhiteSpace=wrap"
+            ),
+            "<b>R</b>ocket\n"
+        );
 
         // The label of an object is written as the style of the mxCell inside it says.
-        let object = |style: &str| diagram(&format!(r#"<root><object label="Map&lt;i, q&gt; of" id="2"><mxCell style="{style}" vertex="1"/></object></root>"#));
+        let object = |style: &str| {
+            diagram(&format!(
+                r#"<root><object label="Map&lt;i, q&gt; of" id="2"><mxCell style="{style}" vertex="1"/></object></root>"#
+            ))
+        };
         assert_eq!(object("text;"), "Map<i, q> of\n");
         assert_eq!(object("html=1;"), "Map of\n");
         let lonely = r#"<UserObject label="&lt;i&gt;one&lt;/i&gt;"/><mxCell value="&lt;i&gt;two&lt;/i&gt;" style="html=1"/><object label="&lt;p&gt;end"/>"#;
-        assert_eq!(diagram(lonely), "one\ntwo\n<p>end\n", "an object with no mxCell inside it keeps its label");
+        assert_eq!(
+            diagram(lonely),
+            "one\ntwo\n<p>end\n",
+            "an object with no mxCell inside it keeps its label"
+        );
     }
 
     #[test]
@@ -593,16 +831,26 @@ mod tests {
         // length took 25 seconds in the build that the tests run in, and one of twice the length four times as long. It takes a tenth
         // of a second now, a quarter when the machine is busy with the other tests: the limit is far from both.
         let limit = crate::test_limit(std::time::Duration::from_secs(5));
-        let page = format!(r#"<mxGraphModel><root><mxCell id="2" value="{}" style="html=1;"/></root></mxGraphModel>"#, "&lt;!--&amp;a;".repeat(20_000));
+        let page = format!(
+            r#"<mxGraphModel><root><mxCell id="2" value="{}" style="html=1;"/></root></mxGraphModel>"#,
+            "&lt;!--&amp;a;".repeat(20_000)
+        );
         let start = std::time::Instant::now();
         let text = diagram(&page);
         assert!(start.elapsed() < limit, "it took {:?}", start.elapsed());
         assert_eq!(text, format!("{}\n", "<!--&a;".repeat(20_000)));
 
-        let packed = format!(r#"<mxfile><diagram name="P">{}</diagram></mxfile>"#, deflated(escaped(&page).as_bytes()));
+        let packed = format!(
+            r#"<mxfile><diagram name="P">{}</diagram></mxfile>"#,
+            deflated(escaped(&page).as_bytes())
+        );
         let start = std::time::Instant::now();
         assert_eq!(diagram(&packed), format!("P\n{text}"));
-        assert!(start.elapsed() < limit, "packed, it took {:?}", start.elapsed());
+        assert!(
+            start.elapsed() < limit,
+            "packed, it took {:?}",
+            start.elapsed()
+        );
     }
 
     #[test]
@@ -617,7 +865,11 @@ mod tests {
             ]}}"##
         );
         let text = "# Setup\n![setup.png]() and\nbelow\n<img src=\"\"> after\naddress = 'data:image/png;base64,' + picture\n";
-        assert_eq!(notebook(book.as_bytes()), text, "the words data and base64 are words as any other");
+        assert_eq!(
+            notebook(book.as_bytes()),
+            text,
+            "the words data and base64 are words as any other"
+        );
     }
 
     #[test]
@@ -630,7 +882,10 @@ mod tests {
                 {"output_type": "pyout", "text": ["with its\n", "line end"]}
             ]}
         ]}]}"#;
-        assert_eq!(notebook(book), "budget\nFuel\na = 1\nb = 2\none\ntwo\nwith its\nline end\n");
+        assert_eq!(
+            notebook(book),
+            "budget\nFuel\na = 1\nb = 2\none\ntwo\nwith its\nline end\n"
+        );
     }
 
     #[test]
@@ -641,11 +896,25 @@ mod tests {
 
     #[test]
     fn what_a_terminal_does_not_show_is_no_part_of_a_word() {
-        let printed = |text: &str| notebook(format!(r#"{{"cells": [{{"outputs": [{{"output_type": "stream", "text": "{text}"}}]}}]}}"#).as_bytes());
-        assert_eq!(printed(r"\u001b[1mbold\u001b(B\u001b[m word, as tput sgr0 ends it"), "bold word, as tput sgr0 ends it\n");
+        let printed = |text: &str| {
+            notebook(format!(r#"{{"cells": [{{"outputs": [{{"output_type": "stream", "text": "{text}"}}]}}]}}"#).as_bytes())
+        };
+        assert_eq!(
+            printed(r"\u001b[1mbold\u001b(B\u001b[m word, as tput sgr0 ends it"),
+            "bold word, as tput sgr0 ends it\n"
+        );
         assert_eq!(printed(r"\u001b)0\u001b*A\u001b+Bsets"), "sets\n");
-        assert_eq!(printed(r"see \u001b]8;;https://example.com/a\u001b\\the li\u001b]8;;\u0007nk\u001b]0;title\u0007 here"), "see the link here\n");
-        assert_eq!(printed(r"\u001b]8;;never ended \u001b[1mbold"), "\u{1b}]8;;never ended bold\n", "what is begun and never ended is text");
+        assert_eq!(
+            printed(
+                r"see \u001b]8;;https://example.com/a\u001b\\the li\u001b]8;;\u0007nk\u001b]0;title\u0007 here"
+            ),
+            "see the link here\n"
+        );
+        assert_eq!(
+            printed(r"\u001b]8;;never ended \u001b[1mbold"),
+            "\u{1b}]8;;never ended bold\n",
+            "what is begun and never ended is text"
+        );
         assert_eq!(printed(r"cut off \u001b("), "cut off \u{1b}(\n");
     }
 
@@ -653,27 +922,54 @@ mod tests {
     fn half_a_character_pair_does_not_end_the_reading() {
         // JavaScript writes and reads one half of a pair as an escape, Python reads it.
         let pair = [r"\ud83d", r"\ude80"].concat();
-        let book = format!(r#"{{"cells": [{{"outputs": [{{"text": ["rocket \ud83d"]}}], "source": "one \ud83d\ud83d \udc00 {pair}"}}, {{"source": "two"}}]}}"#);
+        let book = format!(
+            r#"{{"cells": [{{"outputs": [{{"text": ["rocket \ud83d"]}}], "source": "one \ud83d\ud83d \udc00 {pair}"}}, {{"source": "two"}}]}}"#
+        );
         let text = notebook(book.as_bytes());
-        let words: Vec<_> = text.split(|c: char| !c.is_alphanumeric() && c != '\u{1f680}').filter(|word| !word.is_empty()).collect();
+        let words: Vec<_> = text
+            .split(|c: char| !c.is_alphanumeric() && c != '\u{1f680}')
+            .filter(|word| !word.is_empty())
+            .collect();
         assert_eq!(words, ["one", "\u{1f680}", "rocket", "two"]);
     }
 
     #[test]
     fn packed_page_is_base64_of_deflated_percent_encoded_text() {
         assert_eq!(base64("SGVsbG8="), b"Hello");
-        assert_eq!(base64("SGVs\nbG8gd2\r\n 9ybGQ"), b"Hello world", "line breaks are passed over, and the padding may be missing");
+        assert_eq!(
+            base64("SGVs\nbG8gd2\r\n 9ybGQ"),
+            b"Hello world",
+            "line breaks are passed over, and the padding may be missing"
+        );
         assert_eq!(base64("+/+/"), [0xfb, 0xff, 0xbf]);
-        assert_eq!(base64("SGVsbG8=IGFnYWlu"), b"Hello", "it ends where the padding begins");
+        assert_eq!(
+            base64("SGVsbG8=IGFnYWlu"),
+            b"Hello",
+            "it ends where the padding begins"
+        );
         assert_eq!(base64("<mxGraphModel>"), b"");
         assert_eq!(base64(""), b"");
 
         let mut room = 1000;
-        assert_eq!(unpack(&deflated(escaped("Blåbær 100% <b>").as_bytes()), &mut room), "Blåbær 100% <b>");
-        assert_eq!(room, 1000 - "Bl%C3%A5b%C3%A6r%20100%25%20%3Cb%3E".len() as u64);
-        assert_eq!(unpack(&deflated(b"100% %4 %zz %C3 %41%"), &mut room), "100% %4 %zz \u{fffd} A%", "what is no percent-encoding stays as it is");
+        assert_eq!(
+            unpack(&deflated(escaped("Blåbær 100% <b>").as_bytes()), &mut room),
+            "Blåbær 100% <b>"
+        );
+        assert_eq!(
+            room,
+            1000 - "Bl%C3%A5b%C3%A6r%20100%25%20%3Cb%3E".len() as u64
+        );
+        assert_eq!(
+            unpack(&deflated(b"100% %4 %zz %C3 %41%"), &mut room),
+            "100% %4 %zz \u{fffd} A%",
+            "what is no percent-encoding stays as it is"
+        );
         assert_eq!(unpack("not packed at all", &mut room), "");
-        assert_eq!(unpack(&PACKED[..PACKED.len() / 2], &mut room).get(..20), Some("<mxGraphModel><root>"), "what could be unpacked of a page that is cut off");
+        assert_eq!(
+            unpack(&PACKED[..PACKED.len() / 2], &mut room).get(..20),
+            Some("<mxGraphModel><root>"),
+            "what could be unpacked of a page that is cut off"
+        );
     }
 
     #[test]
@@ -688,19 +984,39 @@ mod tests {
         assert_eq!(file("empty.drawio", b""), None);
         assert_eq!(file("blank.ipynb", b" \n\t\n"), None);
         assert_eq!(file("no-cells.ipynb", b"{\"nbformat\": 4}"), None);
-        assert_eq!(file("no-shapes.drawio", b"<mxfile><diagram name=\"\"><mxGraphModel/></diagram></mxfile>"), None);
-        assert_eq!(file("notes.ipynb", b"Notes about the notebook"), None, "neither JSON nor XML");
+        assert_eq!(
+            file(
+                "no-shapes.drawio",
+                b"<mxfile><diagram name=\"\"><mxGraphModel/></diagram></mxfile>"
+            ),
+            None
+        );
+        assert_eq!(
+            file("notes.ipynb", b"Notes about the notebook"),
+            None,
+            "neither JSON nor XML"
+        );
         assert_eq!(text(&d.join("not-there.ipynb"), 1 << 20), None);
         assert_eq!(text(&d, 1 << 20), None, "a folder");
         std::fs::write(d.join("large.ipynb"), NOTEBOOK).unwrap();
-        assert_eq!(text(&d.join("large.ipynb"), NOTEBOOK.len() as u64 - 1), None, "larger than allowed");
+        assert_eq!(
+            text(&d.join("large.ipynb"), NOTEBOOK.len() as u64 - 1),
+            None,
+            "larger than allowed"
+        );
         assert!(text(&d.join("large.ipynb"), NOTEBOOK.len() as u64).is_some());
         assert!(text(&d.join("large.ipynb"), u64::MAX).is_some());
         for seed in 0..50 {
             let random = noise(3000, seed);
             assert_eq!(file("random.ipynb", &random), None);
-            assert_eq!(file("random.drawio", &[b"{\"cells\":[", &random[..]].concat()), None);
-            assert_eq!(file("random.dio", &[b"<mxfile><diagram>", &random[..]].concat()), None);
+            assert_eq!(
+                file("random.drawio", &[b"{\"cells\":[", &random[..]].concat()),
+                None
+            );
+            assert_eq!(
+                file("random.dio", &[b"<mxfile><diagram>", &random[..]].concat()),
+                None
+            );
         }
         let _ = std::fs::remove_dir_all(d);
 
@@ -708,7 +1024,10 @@ mod tests {
         let whole = notebook(NOTEBOOK.as_bytes());
         for cut in 0..NOTEBOOK.len() {
             let text = notebook(&NOTEBOOK.as_bytes()[..cut]);
-            assert!(text.lines().all(|line| whole.lines().any(|l| l == line)), "cut at {cut}: {text:?}");
+            assert!(
+                text.lines().all(|line| whole.lines().any(|l| l == line)),
+                "cut at {cut}: {text:?}"
+            );
         }
         let cut = NOTEBOOK.find("\"traceback\"").unwrap();
         let text = tidy(&notebook(&NOTEBOOK.as_bytes()[..cut]));
@@ -720,11 +1039,17 @@ mod tests {
         for cut in 0..DIAGRAM.len() {
             let text = diagram(&String::from_utf8_lossy(&DIAGRAM.as_bytes()[..cut]));
             // An object that is cut off from its mxCell gives its label as it stands: nothing says that it is HTML.
-            assert!(whole.starts_with(text.trim_end_matches("Fuel &amp; <i>fire</i>\n")), "cut at {cut}: {text:?}");
+            assert!(
+                whole.starts_with(text.trim_end_matches("Fuel &amp; <i>fire</i>\n")),
+                "cut at {cut}: {text:?}"
+            );
         }
         for cut in 0..PACKED.len() {
             let text = diagram(&format!("<mxfile><diagram name=\"P\">{}", &PACKED[..cut]));
-            assert!(text == "P\n" || text == "P\nBlåbær\ncafé 火箭\n", "cut at {cut}: {text:?}");
+            assert!(
+                text == "P\n" || text == "P\nBlåbær\ncafé 火箭\n",
+                "cut at {cut}: {text:?}"
+            );
         }
 
         // Spoiled in three places, a thousand ways each.
@@ -732,7 +1057,8 @@ mod tests {
             let spoiled = |document: &str| {
                 let mut bytes = document.as_bytes().to_vec();
                 for (n, place) in noise(12, seed).chunks(4).enumerate() {
-                    let at = u32::from_le_bytes([place[0], place[1], place[2], 0]) as usize % bytes.len();
+                    let at = u32::from_le_bytes([place[0], place[1], place[2], 0]) as usize
+                        % bytes.len();
                     match (seed as usize + n) % 3 {
                         0 => bytes[at] = place[3],
                         1 => bytes.insert(at, place[3]),
@@ -743,7 +1069,10 @@ mod tests {
             };
             notebook(spoiled(NOTEBOOK).as_bytes());
             diagram(&spoiled(DIAGRAM));
-            diagram(&format!("<mxfile><diagram>{}</diagram></mxfile>", spoiled(PACKED)));
+            diagram(&format!(
+                "<mxfile><diagram>{}</diagram></mxfile>",
+                spoiled(PACKED)
+            ));
             words(&String::from_utf8_lossy(&noise(200, seed)));
         }
     }
@@ -756,28 +1085,60 @@ mod tests {
         for deep in [lists, objects, r#"{"worksheets":["#.repeat(200_000)] {
             assert_eq!(notebook(deep.as_bytes()), "");
         }
-        assert_eq!(diagram(&"<mxCell value=\"deep\">".repeat(3)), "deep\ndeep\ndeep\n", "elements in elements are read one after the other");
-        assert_eq!(diagram(&"<object label=\"deep\"><a>".repeat(200_000)).len(), 200_000 * 5);
+        assert_eq!(
+            diagram(&"<mxCell value=\"deep\">".repeat(3)),
+            "deep\ndeep\ndeep\n",
+            "elements in elements are read one after the other"
+        );
+        assert_eq!(
+            diagram(&"<object label=\"deep\"><a>".repeat(200_000)).len(),
+            200_000 * 5
+        );
 
         // A page that is packed inside a packed page stays packed.
         let inner = format!("<mxfile><diagram name=\"Inner\">{PACKED}</diagram></mxfile>");
-        assert_eq!(diagram(&format!("<mxfile><diagram name=\"Outer\">{}</diagram></mxfile>", deflated(escaped(&inner).as_bytes()))), "Outer\nInner\n");
+        assert_eq!(
+            diagram(&format!(
+                "<mxfile><diagram name=\"Outer\">{}</diagram></mxfile>",
+                deflated(escaped(&inner).as_bytes())
+            )),
+            "Outer\nInner\n"
+        );
 
         // A page unpacks to no more than there is room for, and the pages of a file share the room.
         let mut room = 58;
-        assert_eq!(unpack(PACKED, &mut room), "<mxGraphModel><root><mxCell id=\"0\"/>");
+        assert_eq!(
+            unpack(PACKED, &mut room),
+            "<mxGraphModel><root><mxCell id=\"0\"/>"
+        );
         assert_eq!(room, 0);
         assert_eq!(unpack(PACKED, &mut room), "");
-        let page = escaped(&format!("<mxGraphModel><root>{}</root></mxGraphModel>", "<mxCell value=\"a\"/>".repeat(100_000)));
-        let file = format!("<mxfile>{}</mxfile>", format!("<diagram>{}</diagram>", deflated(page.as_bytes())).repeat(3));
+        let page = escaped(&format!(
+            "<mxGraphModel><root>{}</root></mxGraphModel>",
+            "<mxCell value=\"a\"/>".repeat(100_000)
+        ));
+        let file = format!(
+            "<mxfile>{}</mxfile>",
+            format!("<diagram>{}</diagram>", deflated(page.as_bytes())).repeat(3)
+        );
         let (mut out, mut room) = (String::new(), page.len() as u64 * 3 / 2);
         labels(&file, &mut out, Some(&mut room));
-        assert_eq!((room, out.len()), (0, 150_000 * 2), "the first page is read whole, the second to its middle, the third not at all");
+        assert_eq!(
+            (room, out.len()),
+            (0, 150_000 * 2),
+            "the first page is read whole, the second to its middle, the third not at all"
+        );
 
         // No more text is kept than the store takes.
-        let long = format!(r#"{{"cells":[{{"source":[{}"end"]}}]}}"#, r#""Blåbær og fløde\n","#.repeat(300_000));
+        let long = format!(
+            r#"{{"cells":[{{"source":[{}"end"]}}]}}"#,
+            r#""Blåbær og fløde\n","#.repeat(300_000)
+        );
         assert!((MAX_TEXT - 3..=MAX_TEXT).contains(&notebook(long.as_bytes()).len()));
-        let long = format!("<mxfile><diagram name=\"Long\"><mxGraphModel>{}", "<mxCell value=\"Blåbær og fløde\"/>".repeat(300_000));
+        let long = format!(
+            "<mxfile><diagram name=\"Long\"><mxGraphModel>{}",
+            "<mxCell value=\"Blåbær og fløde\"/>".repeat(300_000)
+        );
         assert!((MAX_TEXT - 3..=MAX_TEXT).contains(&diagram(&long).len()));
         let long = format!("<mxCell value=\"{}\"/>", "é".repeat(MAX_TEXT));
         assert_eq!(diagram(&long).len(), MAX_TEXT);

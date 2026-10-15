@@ -29,7 +29,8 @@ use pdf_extract::content::{Content, Operation};
 use pdf_extract::encryption::decrypt_object;
 use pdf_extract::xref::XrefEntry;
 use pdf_extract::{
-    Dictionary, Document, EncryptionState, LoadOptions, MediaBox, Object, ObjectId, ObjectStream, OutputDev, OutputError, Reader, Stream, Transform,
+    Dictionary, Document, EncryptionState, LoadOptions, MediaBox, Object, ObjectId, ObjectStream,
+    OutputDev, OutputError, Reader, Stream, Transform,
 };
 
 use super::{MAX_ENTRY, MAX_TEXT};
@@ -65,7 +66,11 @@ const MAX_CONTENT: u64 = 2 << 20;
 /// What drawing a form costs before its first thing.
 const DRAW: u64 = 8;
 /// The encodings of simple fonts that pdf-extract knows by name.
-const ENCODINGS: [&[u8]; 3] = [b"WinAnsiEncoding", b"MacRomanEncoding", b"MacExpertEncoding"];
+const ENCODINGS: [&[u8]; 3] = [
+    b"WinAnsiEncoding",
+    b"MacRomanEncoding",
+    b"MacExpertEncoding",
+];
 /// The standard encoding where it differs from the one pdf-extract starts from, and the
 /// built-in encoding of Symbol, each as the differences of a font are written: a code, then
 /// the names of the characters from that code on.
@@ -93,8 +98,13 @@ const SYMBOL: &str = "32 /space /exclam /universal /numbersign /existential /per
 /// not a PDF, larger than `max`.
 pub fn text(path: &Path, max: u64) -> Option<String> {
     let mut bytes = vec![];
-    std::fs::File::open(path).ok()?.take(max.saturating_add(1)).read_to_end(&mut bytes).ok()?;
-    if bytes.len() as u64 > max || memmem::find(&bytes[..bytes.len().min(1024)], b"%PDF-").is_none() {
+    std::fs::File::open(path)
+        .ok()?
+        .take(max.saturating_add(1))
+        .read_to_end(&mut bytes)
+        .ok()?;
+    if bytes.len() as u64 > max || memmem::find(&bytes[..bytes.len().min(1024)], b"%PDF-").is_none()
+    {
         return None;
     }
     // A panic of pdf-extract on a page that is wrong is caught below, and costs nothing but the
@@ -110,8 +120,16 @@ pub fn text(path: &Path, max: u64) -> Option<String> {
     // The virtual machines in CI are slow and busy: the tests' files get four times as long there.
     let slow = cfg!(test) && std::env::var_os("COXSWAIN_SLOW_CI").is_some_and(|v| v == "1");
     let until = Instant::now() + if slow { TIME * 4 } else { TIME };
-    let reader = std::thread::Builder::new().name(THREAD.into()).stack_size(STACK);
-    std::thread::scope(|scope| reader.spawn_scoped(scope, || read(bytes, until)).ok()?.join().ok()?)
+    let reader = std::thread::Builder::new()
+        .name(THREAD.into())
+        .stack_size(STACK);
+    std::thread::scope(|scope| {
+        reader
+            .spawn_scoped(scope, || read(bytes, until))
+            .ok()?
+            .join()
+            .ok()?
+    })
 }
 
 const THREAD: &str = "pdf";
@@ -130,7 +148,10 @@ fn read(mut bytes: Vec<u8>, until: Instant) -> Option<String> {
     // A file whose tables cannot be read, or lead to no page, is read again with a table
     // made from the objects that are in it.
     let mut doc = loaded(&mut bytes, most, until);
-    if doc.as_ref().is_none_or(|doc| doc.page_iter().next().is_none()) {
+    if doc
+        .as_ref()
+        .is_none_or(|doc| doc.page_iter().next().is_none())
+    {
         bytes = rebuilt(&bytes)?;
         doc = loaded(&mut bytes, most, until);
     }
@@ -142,7 +163,12 @@ fn read(mut bytes: Vec<u8>, until: Instant) -> Option<String> {
     // it, which for page 2000 of 2000 is all of them. It is given a tree with one page in it.
     // What a page inherits is not lost: that goes by the page's own /Parent. The tree, and
     // a page for what lies on top of a page, get numbers no object of the document has.
-    let free = doc.objects.keys().next_back().map_or(0, |id| id.0).checked_add(2)?;
+    let free = doc
+        .objects
+        .keys()
+        .next_back()
+        .map_or(0, |id| id.0)
+        .checked_add(2)?;
     let (tree, above) = ((free - 1, 0), (free, 0));
     doc.catalog_mut().ok()?.set("Pages", tree);
 
@@ -167,7 +193,9 @@ fn read(mut bytes: Vec<u8>, until: Instant) -> Option<String> {
             doc.objects.insert(tree, one.into());
             let mut words = Words::new(&mut text, until);
             // A page pdf-extract gives up on keeps what was read of it.
-            let _ = catch_unwind(AssertUnwindSafe(|| pdf_extract::output_doc_page(&doc, &mut words, 1)));
+            let _ = catch_unwind(AssertUnwindSafe(|| {
+                pdf_extract::output_doc_page(&doc, &mut words, 1)
+            }));
             words.close_line(true);
         }
     }
@@ -184,17 +212,40 @@ fn loaded(bytes: &mut [u8], most: u64, until: Instant) -> Option<Document> {
     if let Some(word) = locked {
         bytes[word..word + LOCKED.len()].copy_from_slice(LOCKED);
     }
-    LOAD.set(Some(Load { room: MAX_ENTRY, things: most, left: bytes.len() as u64, until, locked: locked.is_some() }));
-    let options = LoadOptions { filter: Some(at_load), ..Default::default() };
-    let mut doc = catch_unwind(|| Document::load_mem_with_options(bytes, options)).ok()?.ok()?;
+    LOAD.set(Some(Load {
+        room: MAX_ENTRY,
+        things: most,
+        left: bytes.len() as u64,
+        until,
+        locked: locked.is_some(),
+    }));
+    let options = LoadOptions {
+        filter: Some(at_load),
+        ..Default::default()
+    };
+    let mut doc = catch_unwind(|| Document::load_mem_with_options(bytes, options))
+        .ok()?
+        .ok()?;
     if locked.is_some() {
         unlock(&mut doc, most)?;
     }
     // A trailer made anew names no catalog: the catalog may be in an object stream, where no
     // look at the bytes of the file finds it. Among the objects loaded it is one of a kind.
     if doc.trailer.get(b"Root").is_err() {
-        let named = |object: &Object, key: &[u8], name: &[u8]| object.as_dict().ok().and_then(|d| d.get(key).ok()).and_then(|t| t.as_name().ok()) == Some(name);
-        if let Some(id) = doc.objects.iter().find(|(_, object)| named(object, b"Type", b"Catalog")).map(|(id, _)| *id) {
+        let named = |object: &Object, key: &[u8], name: &[u8]| {
+            object
+                .as_dict()
+                .ok()
+                .and_then(|d| d.get(key).ok())
+                .and_then(|t| t.as_name().ok())
+                == Some(name)
+        };
+        if let Some(id) = doc
+            .objects
+            .iter()
+            .find(|(_, object)| named(object, b"Type", b"Catalog"))
+            .map(|(id, _)| *id)
+        {
             doc.trailer.set("Root", Object::Reference(id));
         }
     }
@@ -212,16 +263,34 @@ fn rebuilt(bytes: &[u8]) -> Option<Vec<u8>> {
         // Back over the generation and the number, each after blank space: how long each is.
         let mut end = at;
         let mut back = |wanted: fn(&u8) -> bool| {
-            let start = bytes[..end].iter().rposition(|c| !wanted(c)).map_or(0, |at| at + 1);
+            let start = bytes[..end]
+                .iter()
+                .rposition(|c| !wanted(c))
+                .map_or(0, |at| at + 1);
             let length = end - start;
             end = start;
             length
         };
-        let lengths = [back(u8::is_ascii_whitespace), back(u8::is_ascii_digit), back(u8::is_ascii_whitespace), back(u8::is_ascii_digit)];
-        if lengths.contains(&0) || lengths[3] > 10 || !end.checked_sub(1).is_none_or(|before| b" \t\r\n\0\x0c>])".contains(&bytes[before])) {
+        let lengths = [
+            back(u8::is_ascii_whitespace),
+            back(u8::is_ascii_digit),
+            back(u8::is_ascii_whitespace),
+            back(u8::is_ascii_digit),
+        ];
+        if lengths.contains(&0)
+            || lengths[3] > 10
+            || !end
+                .checked_sub(1)
+                .is_none_or(|before| b" \t\r\n\0\x0c>])".contains(&bytes[before]))
+        {
             continue;
         }
-        let Ok(id) = std::str::from_utf8(&bytes[end..end + lengths[3]]).unwrap_or_default().parse::<u32>() else { continue };
+        let Ok(id) = std::str::from_utf8(&bytes[end..end + lengths[3]])
+            .unwrap_or_default()
+            .parse::<u32>()
+        else {
+            continue;
+        };
         starts.insert(id, end);
     }
     let last = *starts.keys().next_back()?;
@@ -229,17 +298,32 @@ fn rebuilt(bytes: &[u8]) -> Option<Vec<u8>> {
     let own = memmem::rfind_iter(bytes, b"trailer").find_map(|at| {
         let to = memmem::find(&bytes[at..], b"startxref").map_or(bytes.len(), |end| at + end);
         let mut text = bytes[at + 7..to].to_vec();
-        for (word, spelled) in [(LOCKED, &b"/Encrypt"[..]), (b"/Prev", b"/Prex"), (b"/XRefStm", b"/XRefStx")] {
+        for (word, spelled) in [
+            (LOCKED, &b"/Encrypt"[..]),
+            (b"/Prev", b"/Prex"),
+            (b"/XRefStm", b"/XRefStx"),
+        ] {
             for found in memmem::find_iter(&bytes[at + 7..to], word) {
                 text[found..found + word.len()].copy_from_slice(spelled);
             }
         }
-        matches!(object_at(&[b"1 0 obj", &text[..], b" endobj"].concat(), 0)?, Object::Dictionary(_)).then_some(text)
+        matches!(
+            object_at(&[b"1 0 obj", &text[..], b" endobj"].concat(), 0)?,
+            Object::Dictionary(_)
+        )
+        .then_some(text)
     });
     // lopdf insists on a size. The file's own, when it has one, comes after and counts.
     let own = own.and_then(|text| {
         let at = memmem::find(&text, b"<<")? + 2;
-        Some([&text[..at], format!(" /Size {} ", last + 1).as_bytes(), &text[at..]].concat())
+        Some(
+            [
+                &text[..at],
+                format!(" /Size {} ", last + 1).as_bytes(),
+                &text[at..],
+            ]
+            .concat(),
+        )
     });
     let trailer = own.unwrap_or_else(|| format!("<< /Size {} >>", last + 1).into_bytes());
     let mut file = bytes.to_vec();
@@ -249,32 +333,61 @@ fn rebuilt(bytes: &[u8]) -> Option<Vec<u8>> {
     for (id, at) in starts {
         file.extend(format!("{id} 1\n{at:010} 00000 n \n").bytes());
     }
-    file.extend([b"trailer\n", &trailer[..], format!("\nstartxref\n{table}\n%%EOF\n").as_bytes()].concat());
+    file.extend(
+        [
+            b"trailer\n",
+            &trailer[..],
+            format!("\nstartxref\n{table}\n%%EOF\n").as_bytes(),
+        ]
+        .concat(),
+    );
     Some(file)
 }
 
 /// What lies on top of a page, the fields of a form, notes, stamps: every annotation that has
 /// a look of its own has it as a stream of content, and is given as a page with that content.
 fn on_top(doc: &Document, page: ObjectId) -> Vec<Dictionary> {
-    let annotations = doc.get_dictionary(page).ok().and_then(|page| held(doc, page, b"Annots")).and_then(|o| o.as_array().ok());
+    let annotations = doc
+        .get_dictionary(page)
+        .ok()
+        .and_then(|page| held(doc, page, b"Annots"))
+        .and_then(|o| o.as_array().ok());
     // The fields of a form may count on the fonts that the form as a whole names.
-    let shared = doc.catalog().ok().and_then(|c| dict_at(doc, c, b"AcroForm")).and_then(|form| form.get(b"DR").ok());
-    let looks = annotations.into_iter().flatten().take(MAX_ON_TOP).filter_map(|annotation| {
-        let annotation = doc.dereference(annotation).ok()?.1.as_dict().ok()?;
-        let (id, look) = stream_at(doc, dict_at(doc, annotation, b"AP")?.get(b"N").ok()?)?;
-        let mut page = Dictionary::new();
-        page.set("Type", "Page");
-        page.set("MediaBox", vec![0.into(), 0.into(), 612.into(), 792.into()]);
-        page.set("Resources", look.dict.get(b"Resources").ok().or(shared).cloned().unwrap_or(Dictionary::new().into()));
-        page.set("Contents", id);
-        Some(page)
-    });
+    let shared = doc
+        .catalog()
+        .ok()
+        .and_then(|c| dict_at(doc, c, b"AcroForm"))
+        .and_then(|form| form.get(b"DR").ok());
+    let looks = annotations
+        .into_iter()
+        .flatten()
+        .take(MAX_ON_TOP)
+        .filter_map(|annotation| {
+            let annotation = doc.dereference(annotation).ok()?.1.as_dict().ok()?;
+            let (id, look) = stream_at(doc, dict_at(doc, annotation, b"AP")?.get(b"N").ok()?)?;
+            let mut page = Dictionary::new();
+            page.set("Type", "Page");
+            page.set("MediaBox", vec![0.into(), 0.into(), 612.into(), 792.into()]);
+            page.set(
+                "Resources",
+                look.dict
+                    .get(b"Resources")
+                    .ok()
+                    .or(shared)
+                    .cloned()
+                    .unwrap_or(Dictionary::new().into()),
+            );
+            page.set("Contents", id);
+            Some(page)
+        });
     looks.collect()
 }
 
 /// What a dictionary has under a key, a reference followed.
 fn held<'a>(doc: &'a Document, dict: &'a Dictionary, key: &[u8]) -> Option<&'a Object> {
-    doc.dereference(dict.get(key).ok()?).ok().map(|(_, object)| object)
+    doc.dereference(dict.get(key).ok()?)
+        .ok()
+        .map(|(_, object)| object)
 }
 
 fn dict_at<'a>(doc: &'a Document, dict: &'a Dictionary, key: &[u8]) -> Option<&'a Dictionary> {
@@ -290,7 +403,11 @@ fn stream_at<'a>(doc: &'a Document, object: &'a Object) -> Option<(ObjectId, &'a
 }
 
 fn is(stream: &Stream, key: &[u8], name: &[u8]) -> bool {
-    stream.dict.get(key).and_then(Object::as_name).is_ok_and(|n| n == name)
+    stream
+        .dict
+        .get(key)
+        .and_then(Object::as_name)
+        .is_ok_and(|n| n == name)
 }
 
 // ---------------------------------------------------------------- before: the file loaded
@@ -305,7 +422,10 @@ fn things(bytes: &[u8], content: bool) -> u64 {
         let (blank, delimiter) = (b" \t\n\r\0\x0c".contains(c), b"()<>[]{}/%".contains(c));
         // A token starts at an opening bracket, a slash, or a regular character after a blank
         // or a bracket. The second character of `<<` opens nothing, and neither does a name.
-        if b"([{/".contains(c) || (*c == b'<' && !named) || (apart && !blank && !delimiter && !named) {
+        if b"([{/".contains(c)
+            || (*c == b'<' && !named)
+            || (apart && !blank && !delimiter && !named)
+        {
             count += match c {
                 b'[' => 5,
                 b'<' => 2,
@@ -323,7 +443,9 @@ fn things(bytes: &[u8], content: bool) -> u64 {
 fn weighs(object: &Object) -> u64 {
     match object {
         Object::Array(items) => 5 + items.iter().map(weighs).sum::<u64>(),
-        Object::Dictionary(dict) | Object::Stream(Stream { dict, .. }) => 2 + dict.iter().map(|(_, item)| weighs(item)).sum::<u64>(),
+        Object::Dictionary(dict) | Object::Stream(Stream { dict, .. }) => {
+            2 + dict.iter().map(|(_, item)| weighs(item)).sum::<u64>()
+        }
         _ => 1,
     }
 }
@@ -391,7 +513,12 @@ fn weight(bytes: &[u8], most: u64) -> u64 {
                 counted = false;
                 1
             }
-            _ => 1 + rest[1..].iter().position(|c| b" \t\n\r\0\x0c()<>[]{}/%".contains(c)).unwrap_or(rest.len() - 1),
+            _ => {
+                1 + rest[1..]
+                    .iter()
+                    .position(|c| b" \t\n\r\0\x0c()<>[]{}/%".contains(c))
+                    .unwrap_or(rest.len() - 1)
+            }
         };
         at += step;
         count += counted as u64 + step as u64 / 120;
@@ -406,7 +533,9 @@ fn weight(bytes: &[u8], most: u64) -> u64 {
 /// more than `most` things. Every object starts at `obj`, as a trailer does at `trailer`, and
 /// wherever in the file that stands the table of objects may point.
 fn heavy(bytes: &[u8], most: u64) -> bool {
-    let starts = memmem::find_iter(bytes, b"obj").filter(|at| !bytes[..*at].ends_with(b"end")).map(|at| at + 3);
+    let starts = memmem::find_iter(bytes, b"obj")
+        .filter(|at| !bytes[..*at].ends_with(b"end"))
+        .map(|at| at + 3);
     let trailers = memmem::find_iter(bytes, b"trailer").map(|at| at + 7);
     let mut sum = 0;
     for at in starts.chain(trailers) {
@@ -433,49 +562,104 @@ fn tables(bytes: &[u8]) -> Option<Option<usize>> {
     let end = tail + memmem::rfind(&bytes[tail..], b"%%EOF")?;
     let word = end.checked_sub(25)?;
     let word = word + memmem::rfind(&bytes[word..end], b"startxref")?;
-    let newest: usize = std::str::from_utf8(&bytes[word + 9..end]).ok()?.trim().parse().ok()?;
+    let newest: usize = std::str::from_utf8(&bytes[word + 9..end])
+        .ok()?
+        .trim()
+        .parse()
+        .ok()?;
 
     let (mut starts, mut seen, mut locked) = (vec![newest], HashSet::new(), None);
     while let Some(start) = starts.pop() {
-        let Some(table) = bytes.get(start..).filter(|_| seen.insert(start)) else { continue };
+        let Some(table) = bytes.get(start..).filter(|_| seen.insert(start)) else {
+            continue;
+        };
         if seen.len() > MAX_TABLES {
             return None;
         }
         // A table written as text has a dictionary after it, one in a stream is an object
         // with one. Both are read as lopdf reads them, by lopdf.
         let (object, named) = if table.starts_with(b"xref") {
-            let Some(from) = memmem::find(table, b"trailer").map(|at| at + 7) else { continue };
+            let Some(from) = memmem::find(table, b"trailer").map(|at| at + 7) else {
+                continue;
+            };
             let to = memmem::find(&table[from..], b"startxref").map_or(table.len(), |at| from + at);
-            (object_at(&[b"1 0 obj", &table[from..to], b" endobj"].concat(), 0)?, start + from..start + to)
+            (
+                object_at(&[b"1 0 obj", &table[from..to], b" endobj"].concat(), 0)?,
+                start + from..start + to,
+            )
         } else {
-            (object_at(bytes, start)?, start..start + memmem::find(table, b"stream").unwrap_or(table.len()))
+            (
+                object_at(bytes, start)?,
+                start..start + memmem::find(table, b"stream").unwrap_or(table.len()),
+            )
         };
         if let Object::Stream(stream) = &object {
             let rows = unpacked(stream, bytes.len() as u64)?.len();
-            let widths: Vec<i64> = stream.dict.get(b"W").and_then(Object::as_array).ok()?.iter().filter_map(|width| width.as_i64().ok()).collect();
-            let width = widths.iter().filter(|width| (0..=8).contains(*width)).sum::<i64>() as usize;
-            if widths.iter().any(|width| !(0..=8).contains(width)) || width == 0 || rows / width > bytes.len() / 8 + 4096 {
+            let widths: Vec<i64> = stream
+                .dict
+                .get(b"W")
+                .and_then(Object::as_array)
+                .ok()?
+                .iter()
+                .filter_map(|width| width.as_i64().ok())
+                .collect();
+            let width = widths
+                .iter()
+                .filter(|width| (0..=8).contains(*width))
+                .sum::<i64>() as usize;
+            if widths.iter().any(|width| !(0..=8).contains(width))
+                || width == 0
+                || rows / width > bytes.len() / 8 + 4096
+            {
                 return None;
             }
         }
-        let (Object::Dictionary(dict) | Object::Stream(Stream { dict, .. })) = &object else { return None };
+        let (Object::Dictionary(dict) | Object::Stream(Stream { dict, .. })) = &object else {
+            return None;
+        };
         if start == newest && dict.has(b"Encrypt") {
             let word = named.start + memmem::find(&bytes[named.clone()], b"/Encrypt")?;
-            locked = bytes.get(word + 8).is_some_and(|after| b" \t\r\n/<[(".contains(after)).then_some(word);
+            locked = bytes
+                .get(word + 8)
+                .is_some_and(|after| b" \t\r\n/<[(".contains(after))
+                .then_some(word);
             locked?;
         }
-        starts.extend([&b"Prev"[..], b"XRefStm"].iter().filter_map(|key| usize::try_from(dict.get(key).and_then(Object::as_i64).ok()?).ok()));
+        starts.extend(
+            [&b"Prev"[..], b"XRefStm"].iter().filter_map(|key| {
+                usize::try_from(dict.get(key).and_then(Object::as_i64).ok()?).ok()
+            }),
+        );
     }
     Some(locked)
 }
 
 /// The object that starts at a place in a file, as lopdf reads it.
 fn object_at(bytes: &[u8], at: usize) -> Option<Object> {
-    let mut numbers = bytes.get(at..)?.split(u8::is_ascii_whitespace).filter(|word| !word.is_empty()).map(|word| std::str::from_utf8(word).ok());
-    let id = (numbers.next()??.parse().ok()?, numbers.next()??.parse().ok()?);
-    let mut reader =
-        Reader { buffer: bytes, document: Document::new(), encryption_state: None, raw_objects: Default::default(), password: None, strict: false };
-    reader.document.reference_table.insert(id.0, XrefEntry::Normal { offset: at.try_into().ok()?, generation: id.1 });
+    let mut numbers = bytes
+        .get(at..)?
+        .split(u8::is_ascii_whitespace)
+        .filter(|word| !word.is_empty())
+        .map(|word| std::str::from_utf8(word).ok());
+    let id = (
+        numbers.next()??.parse().ok()?,
+        numbers.next()??.parse().ok()?,
+    );
+    let mut reader = Reader {
+        buffer: bytes,
+        document: Document::new(),
+        encryption_state: None,
+        raw_objects: Default::default(),
+        password: None,
+        strict: false,
+    };
+    reader.document.reference_table.insert(
+        id.0,
+        XrefEntry::Normal {
+            offset: at.try_into().ok()?,
+            generation: id.1,
+        },
+    );
     reader.get_object(id, &mut HashSet::new()).ok()
 }
 
@@ -502,14 +686,25 @@ thread_local! {
 /// Called by lopdf for every object it loads, before it unpacks an object stream.
 fn at_load(id: (u32, u16), object: &mut Object) -> Option<((u32, u16), Object)> {
     let mut load = LOAD.get()?;
-    let size = object.as_stream().map_or(0, |stream| stream.content.len() as u64);
+    let size = object
+        .as_stream()
+        .map_or(0, |stream| stream.content.len() as u64);
     if Instant::now() > load.until || size > load.left {
         // Out of lopdf, back to `read`, and without a word: this is no fault of the program's.
         std::panic::resume_unwind(Box::new(()));
     }
     // What is given back is used for the objects inside an object stream only, and a stream is
     // never one of them. Nor is one so heavy that a copy of it would be a burden.
-    let Object::Stream(stream) = object else { return Some((id, if weighs(object) > MAX_THINGS { Object::Null } else { object.clone() })) };
+    let Object::Stream(stream) = object else {
+        return Some((
+            id,
+            if weighs(object) > MAX_THINGS {
+                Object::Null
+            } else {
+                object.clone()
+            },
+        ));
+    };
     load.left -= size;
     if is(stream, b"Subtype", b"Image") {
         hush(stream);
@@ -517,7 +712,9 @@ fn at_load(id: (u32, u16), object: &mut Object) -> Option<((u32, u16), Object)> 
         stream.dict.set("Type", Object::Name(HELD.to_vec()));
     } else if is(stream, b"Type", b"ObjStm") {
         match unpacked(stream, load.room).map(|bytes| (bytes.len() as u64, things(&bytes, false))) {
-            Some((size, weight)) if weight <= load.things => (load.room, load.things) = (load.room - size, load.things - weight),
+            Some((size, weight)) if weight <= load.things => {
+                (load.room, load.things) = (load.room - size, load.things - weight)
+            }
             _ => hush(stream),
         }
     }
@@ -537,16 +734,26 @@ fn unlock(doc: &mut Document, most: u64) -> Option<()> {
     let (mut room, mut things_left, mut inside) = (MAX_ENTRY, most, vec![]);
     for (id, object) in doc.objects.iter_mut().filter(|(id, _)| **id != lock) {
         let _ = decrypt_object(&state, *id, object);
-        let Object::Stream(stream) = object else { continue };
+        let Object::Stream(stream) = object else {
+            continue;
+        };
         if is(stream, b"Type", HELD) {
             stream.dict.set("Type", "ObjStm");
             match unpacked(stream, room).map(|bytes| (bytes.len() as u64, things(&bytes, false))) {
-                Some((size, weight)) if weight <= things_left => (room, things_left) = (room - size, things_left - weight),
+                Some((size, weight)) if weight <= things_left => {
+                    (room, things_left) = (room - size, things_left - weight)
+                }
                 _ => hush(stream),
             }
             // An object is taken from the stream the table says it is in.
             let listed = |number: &u32| !matches!(doc.reference_table.get(*number), Some(XrefEntry::Compressed { container, .. }) if *container != id.0);
-            inside.extend(ObjectStream::new(stream).map(|stream| stream.objects).unwrap_or_default().into_iter().filter(|((number, _), _)| listed(number)));
+            inside.extend(
+                ObjectStream::new(stream)
+                    .map(|stream| stream.objects)
+                    .unwrap_or_default()
+                    .into_iter()
+                    .filter(|((number, _), _)| listed(number)),
+            );
         }
     }
     for (id, object) in inside {
@@ -571,7 +778,9 @@ fn of_lopdf<T, E>(ask: impl FnOnce() -> Result<T, E>) -> Option<T> {
 
 /// What lopdf unpacks the stream to, when that is no more than `most` bytes.
 fn unpacked(stream: &Stream, most: u64) -> Option<Cow<'_, [u8]>> {
-    let Ok(filters) = stream.filters() else { return Some(Cow::Borrowed(&stream.content)) };
+    let Ok(filters) = stream.filters() else {
+        return Some(Cow::Borrowed(&stream.content));
+    };
     let mut bytes = Cow::Borrowed(&stream.content[..]);
     for filter in filters {
         bytes = Cow::Owned(match filter {
@@ -595,7 +804,10 @@ fn unpacked(stream: &Stream, most: u64) -> Option<Cow<'_, [u8]>> {
     }
     // A predictor changes the bytes, not how many there are: now lopdf may do all of it.
     if stream.dict.has(b"DecodeParms") {
-        return Some(of_lopdf(|| stream.decompressed_content()).map_or(Cow::Borrowed(&stream.content[..]), Cow::Owned));
+        return Some(
+            of_lopdf(|| stream.decompressed_content())
+                .map_or(Cow::Borrowed(&stream.content[..]), Cow::Owned),
+        );
     }
     Some(bytes)
 }
@@ -603,9 +815,13 @@ fn unpacked(stream: &Stream, most: u64) -> Option<Cow<'_, [u8]>> {
 /// As lopdf inflates: zlib, and when that gives nothing, deflate from the third byte on.
 fn inflated(packed: &[u8], most: u64) -> Option<Vec<u8>> {
     let mut out = vec![];
-    let zlib = flate2::read::ZlibDecoder::new(packed).take(most + 1).read_to_end(&mut out);
+    let zlib = flate2::read::ZlibDecoder::new(packed)
+        .take(most + 1)
+        .read_to_end(&mut out);
     if zlib.is_err() && out.is_empty() && packed.len() > 2 {
-        let _ = flate2::read::DeflateDecoder::new(&packed[2..]).take(most + 1).read_to_end(&mut out);
+        let _ = flate2::read::DeflateDecoder::new(&packed[2..])
+            .take(most + 1)
+            .read_to_end(&mut out);
     }
     (out.len() as u64 <= most).then_some(out)
 }
@@ -624,19 +840,31 @@ struct Known {
 impl Known {
     fn of(content: &[u8]) -> Known {
         // As lopdf reads an operator: letters, and nothing of the kind before or after.
-        let part = |at: Option<&u8>| at.is_some_and(|c| c.is_ascii_alphabetic() || b"*'\"".contains(c));
-        let draws = memmem::find_iter(content, b"Do").filter(|at| !part(at.checked_sub(1).and_then(|i| content.get(i))) && !part(content.get(at + 2))).count();
+        let part =
+            |at: Option<&u8>| at.is_some_and(|c| c.is_ascii_alphabetic() || b"*'\"".contains(c));
+        let draws = memmem::find_iter(content, b"Do")
+            .filter(|at| {
+                !part(at.checked_sub(1).and_then(|i| content.get(i))) && !part(content.get(at + 2))
+            })
+            .count();
         let mut names = (draws > 0 && !content.contains(&b'#')).then(HashMap::new);
         let mut rest = content;
         while let (Some(found), Some(at)) = (&mut names, memchr::memchr(b'/', rest)) {
             rest = &rest[at + 1..];
-            let end = rest.iter().position(|c| c.is_ascii_whitespace() || b"\0()<>[]{}/%".contains(c)).unwrap_or(rest.len());
+            let end = rest
+                .iter()
+                .position(|c| c.is_ascii_whitespace() || b"\0()<>[]{}/%".contains(c))
+                .unwrap_or(rest.len());
             *found.entry(rest[..end].to_vec()).or_default() += 1;
             if found.len() > 1024 {
                 names = None;
             }
         }
-        Known { weight: things(content, true).saturating_add(content.len() as u64 / 120), draws: draws as u64, names }
+        Known {
+            weight: things(content, true).saturating_add(content.len() as u64 / 120),
+            draws: draws as u64,
+            names,
+        }
     }
 }
 
@@ -644,7 +872,11 @@ impl Known {
 fn calm(doc: &mut Document, until: Instant) -> HashMap<ObjectId, Known> {
     let ids: Vec<ObjectId> = doc.objects.keys().copied().collect();
     // Each object is taken out to be mended, so that the others can be looked at meanwhile.
-    let mut mending = Mending { plain: HashMap::new(), widths: MAX_WIDTHS, until };
+    let mut mending = Mending {
+        plain: HashMap::new(),
+        widths: MAX_WIDTHS,
+        until,
+    };
     for id in &ids {
         if let Some(mut object) = doc.objects.insert(*id, Object::Null) {
             mend(&mut object, doc, &mut mending, 2 * DEPTH);
@@ -654,23 +886,38 @@ fn calm(doc: &mut Document, until: Instant) -> HashMap<ObjectId, Known> {
     let mut plain = mending.plain;
     // Content written anew is kept unpacked, all of it together within bounds.
     let mut room = MAX_ENTRY;
-    let drawn: HashSet<ObjectId> = doc.page_iter().take(MAX_PAGES).flat_map(|page| doc.get_page_contents(page)).collect();
+    let drawn: HashSet<ObjectId> = doc
+        .page_iter()
+        .take(MAX_PAGES)
+        .flat_map(|page| doc.get_page_contents(page))
+        .collect();
     let mut known = HashMap::new();
     for id in ids {
-        let Some(Object::Stream(stream)) = doc.objects.get_mut(&id) else { continue };
+        let Some(Object::Stream(stream)) = doc.objects.get_mut(&id) else {
+            continue;
+        };
         match plain.remove(&id) {
             Some((_, content)) if !content.is_empty() => stream.set_plain_content(content),
             _ if is(stream, b"Subtype", b"Image") => hush(stream),
             _ => {}
         }
-        let content = if Instant::now() < until { unpacked(stream, MAX_ENTRY) } else { None };
+        let content = if Instant::now() < until {
+            unpacked(stream, MAX_ENTRY)
+        } else {
+            None
+        };
         let Some(content) = content else {
             hush(stream);
             continue;
         };
         let as_is = Known::of(&content);
-        let shown = as_is.weight <= MAX_CONTENT && (drawn.contains(&id) || is(stream, b"Subtype", b"Form"));
-        match shown.then(|| rewritten(&content)).flatten().filter(|written| written.len() as u64 <= room) {
+        let shown =
+            as_is.weight <= MAX_CONTENT && (drawn.contains(&id) || is(stream, b"Subtype", b"Form"));
+        match shown
+            .then(|| rewritten(&content))
+            .flatten()
+            .filter(|written| written.len() as u64 <= room)
+        {
             Some(written) => {
                 room -= written.len() as u64;
                 known.insert(id, Known::of(&written));
@@ -692,29 +939,52 @@ fn calm(doc: &mut Document, until: Instant) -> HashMap<ObjectId, Known> {
 /// filled after them. `Words` reads it back. `None` when the content has neither.
 fn rewritten(content: &[u8]) -> Option<Vec<u8>> {
     // Either quote comes after the string it shows and ends there.
-    let shows = |at: usize| at > 0 && b")> \t\r\n".contains(&content[at - 1]) && content.get(at + 1).is_none_or(u8::is_ascii_whitespace);
-    if memchr::memchr2_iter(b'\'', b'"', content).all(|at| !shows(at)) && memmem::find(content, b"ActualText").is_none() {
+    let shows = |at: usize| {
+        at > 0
+            && b")> \t\r\n".contains(&content[at - 1])
+            && content.get(at + 1).is_none_or(u8::is_ascii_whitespace)
+    };
+    if memchr::memchr2_iter(b'\'', b'"', content).all(|at| !shows(at))
+        && memmem::find(content, b"ActualText").is_none()
+    {
         return None;
     }
     let op = |operator: &str, operands: Vec<Object>| Operation::new(operator, operands);
     let path = |points: Vec<f64>| {
-        let goes = points.into_iter().map(|point| op("l", vec![point.into(), 0.0.into()]));
-        [op("m", vec![SPAN.into(), 0.0.into()])].into_iter().chain(goes).chain([op("f", vec![])])
+        let goes = points
+            .into_iter()
+            .map(|point| op("l", vec![point.into(), 0.0.into()]));
+        [op("m", vec![SPAN.into(), 0.0.into()])]
+            .into_iter()
+            .chain(goes)
+            .chain([op("f", vec![])])
     };
     let mut written = vec![];
     // How many marked spans are open, and at what depth the one with the text was opened.
     let (mut open, mut spanned) = (0usize, None);
-    for Operation { operator, mut operands } in of_lopdf(|| Content::decode(content))?.operations {
+    for Operation {
+        operator,
+        mut operands,
+    } in of_lopdf(|| Content::decode(content))?.operations
+    {
         match (operator.as_str(), operands.len()) {
             ("'", 1) => written.extend([op("T*", vec![]), op("Tj", operands)]),
             ("\"", 3) => {
                 let string = operands.split_off(2);
                 let spacing = operands.split_off(1);
-                written.extend([op("Tc", spacing), op("Tw", operands), op("T*", vec![]), op("Tj", string)]);
+                written.extend([
+                    op("Tc", spacing),
+                    op("Tw", operands),
+                    op("T*", vec![]),
+                    op("Tj", string),
+                ]);
             }
             ("BDC" | "BMC", _) => {
                 open += 1;
-                let said = operands.get(1).and_then(|o| o.as_dict().ok()).and_then(|span| span.get(b"ActualText").ok());
+                let said = operands
+                    .get(1)
+                    .and_then(|o| o.as_dict().ok())
+                    .and_then(|span| span.get(b"ActualText").ok());
                 if let (Some(Object::String(said, _)), None) = (said, spanned) {
                     spanned = Some(open);
                     written.extend(path(units(said).into_iter().map(f64::from).collect()));
@@ -734,7 +1004,12 @@ fn rewritten(content: &[u8]) -> Option<Vec<u8>> {
             _ => written.push(op(&operator, operands)),
         }
     }
-    of_lopdf(|| Content { operations: written }.encode())
+    of_lopdf(|| {
+        Content {
+            operations: written,
+        }
+        .encode()
+    })
 }
 
 /// A point no drawing goes to: where the path that carries the text of a span starts.
@@ -744,7 +1019,10 @@ const SPAN: f64 = -65537.5;
 /// each byte is a character, near enough.
 fn units(string: &[u8]) -> Vec<u16> {
     match string.strip_prefix(b"\xfe\xff") {
-        Some(utf16) => utf16.chunks_exact(2).map(|pair| u16::from_be_bytes([pair[0], pair[1]])).collect(),
+        Some(utf16) => utf16
+            .chunks_exact(2)
+            .map(|pair| u16::from_be_bytes([pair[0], pair[1]]))
+            .collect(),
         None => string.iter().map(|byte| *byte as u16).collect(),
     }
 }
@@ -781,13 +1059,19 @@ fn mend(object: &mut Object, doc: &Document, mending: &mut Mending, depth: usize
                 && kind == b"ICCBased"
                 && let Some((id, _)) = stream_at(doc, profile)
             {
-                mending.plain.entry(id).or_insert((Use::Nothing, b"\n".to_vec()));
+                mending
+                    .plain
+                    .entry(id)
+                    .or_insert((Use::Nothing, b"\n".to_vec()));
             }
-            items.iter_mut().for_each(|item| mend(item, doc, mending, depth - 1));
+            items
+                .iter_mut()
+                .for_each(|item| mend(item, doc, mending, depth - 1));
         }
         Object::Dictionary(dict) | Object::Stream(Stream { dict, .. }) => {
             mend_font(dict, doc, mending);
-            dict.iter_mut().for_each(|(_, item)| mend(item, doc, mending, depth - 1));
+            dict.iter_mut()
+                .for_each(|(_, item)| mend(item, doc, mending, depth - 1));
         }
         _ => {}
     }
@@ -796,19 +1080,41 @@ fn mend(object: &mut Object, doc: &Document, mending: &mut Mending, depth: usize
 /// A font, its descriptor or its encoding, changed to what pdf-extract reads without giving up.
 /// Any other dictionary has none of these keys and is left as it is.
 fn mend_font(dict: &mut Dictionary, doc: &Document, mending: &mut Mending) {
-    let Mending { plain, widths, until } = mending;
+    let Mending {
+        plain,
+        widths,
+        until,
+    } = mending;
     let until = *until;
-    let name = |dict: &Dictionary, key: &[u8]| held(doc, dict, key).and_then(|o| o.as_name().ok()).map(<[u8]>::to_vec);
+    let name = |dict: &Dictionary, key: &[u8]| {
+        held(doc, dict, key)
+            .and_then(|o| o.as_name().ok())
+            .map(<[u8]>::to_vec)
+    };
     let kind = name(dict, b"Subtype").unwrap_or_default();
 
     // The streams it names.
-    for (key, used) in [(&b"ToUnicode"[..], Use::Map), (b"FontFile", Use::Program), (b"FontFile2", Use::Nothing), (b"FontFile3", Use::Nothing)] {
+    for (key, used) in [
+        (&b"ToUnicode"[..], Use::Map),
+        (b"FontFile", Use::Program),
+        (b"FontFile2", Use::Nothing),
+        (b"FontFile3", Use::Nothing),
+    ] {
         let Ok(named) = dict.get(key) else { continue };
         let keep = match stream_at(doc, named) {
             // The one kind of font program in FontFile3 that pdf-extract reads, with a parser that holds.
             Some((_, stream)) if key == b"FontFile3" && is(stream, b"Subtype", b"Type1C") => true,
             Some((id, stream)) => {
-                let (as_what, content) = plain.entry(id).or_insert_with(|| (used, if Instant::now() < until { in_place_of(stream, used) } else { vec![] }));
+                let (as_what, content) = plain.entry(id).or_insert_with(|| {
+                    (
+                        used,
+                        if Instant::now() < until {
+                            in_place_of(stream, used)
+                        } else {
+                            vec![]
+                        },
+                    )
+                });
                 *as_what == used && !content.is_empty()
             }
             None => key != b"ToUnicode" || matches!(named, Object::Name(n) if n == b"Identity-H"),
@@ -825,7 +1131,8 @@ fn mend_font(dict: &mut Dictionary, doc: &Document, mending: &mut Mending) {
     let encoding = name(dict, b"Encoding");
     if kind == b"Type0" {
         match dict.get(b"Encoding").ok().and_then(|o| stream_at(doc, o)) {
-            Some((id, _)) if plain.entry(id).or_insert((Use::Codes, CODES.to_vec())).0 == Use::Codes => {}
+            Some((id, _))
+                if plain.entry(id).or_insert((Use::Codes, CODES.to_vec())).0 == Use::Codes => {}
             _ if encoding.is_some_and(|e| e == b"Identity-H" || e == b"Identity-V") => {}
             _ => dict.set("Encoding", "Identity-H"),
         }
@@ -835,7 +1142,11 @@ fn mend_font(dict: &mut Dictionary, doc: &Document, mending: &mut Mending) {
         let descriptor = dict_at(doc, dict, b"FontDescriptor");
         let flags = descriptor.and_then(|d| d.get(b"Flags").and_then(Object::as_i64).ok());
         let mapped = dict.has(b"ToUnicode") || descriptor.is_some_and(|d| d.has(b"FontFile3"));
-        let lacks = !dict.has(b"Encoding") && (kind == b"Type3" || (mapped && kind != b"TrueType" && !descriptor.is_some_and(|d| d.has(b"FontFile"))));
+        let lacks = !dict.has(b"Encoding")
+            && (kind == b"Type3"
+                || (mapped
+                    && kind != b"TrueType"
+                    && !descriptor.is_some_and(|d| d.has(b"FontFile"))));
         if lacks || encoding.is_some_and(|e| !ENCODINGS.contains(&&e[..])) {
             dict.set("Encoding", "WinAnsiEncoding");
         }
@@ -845,10 +1156,18 @@ fn mend_font(dict: &mut Dictionary, doc: &Document, mending: &mut Mending) {
         // Symbol has its own. The rest have theirs in their program, and are left alone.
         let own = dict_at(doc, dict, b"Encoding")
             .filter(|e| kind != b"Type3" && !e.has(b"BaseEncoding"))
-            .map(|e| held(doc, e, b"Differences").and_then(|o| o.as_array().ok()).cloned().unwrap_or_default());
+            .map(|e| {
+                held(doc, e, b"Differences")
+                    .and_then(|o| o.as_array().ok())
+                    .cloned()
+                    .unwrap_or_default()
+            });
         if let Some(own) = own {
             let base = name(dict, b"BaseFont").unwrap_or_default();
-            let symbolic = flags.map_or(base.ends_with(b"Symbol") || base.ends_with(b"Dingbats"), |flags| flags & 32 == 0);
+            let symbolic = flags.map_or(
+                base.ends_with(b"Symbol") || base.ends_with(b"Dingbats"),
+                |flags| flags & 32 == 0,
+            );
             let built_in = match (symbolic, base.ends_with(b"Symbol")) {
                 (false, _) => Some(STANDARD),
                 (true, true) => Some(SYMBOL),
@@ -857,7 +1176,12 @@ fn mend_font(dict: &mut Dictionary, doc: &Document, mending: &mut Mending) {
             if let Some(built_in) = built_in {
                 let mut all: Vec<Object> = built_in
                     .split(' ')
-                    .map(|word| word.strip_prefix('/').map_or_else(|| Object::Integer(word.parse().unwrap_or(0)), |name| Object::Name(name.into())))
+                    .map(|word| {
+                        word.strip_prefix('/').map_or_else(
+                            || Object::Integer(word.parse().unwrap_or(0)),
+                            |name| Object::Name(name.into()),
+                        )
+                    })
                     .collect();
                 all.extend(own);
                 let mut encoding = Dictionary::new();
@@ -866,12 +1190,17 @@ fn mend_font(dict: &mut Dictionary, doc: &Document, mending: &mut Mending) {
             }
         }
         // The widths and the last character have to agree.
-        let listed = held(doc, dict, b"Widths").and_then(|o| o.as_array().ok()).map(Vec::len);
-        if let (Ok(first), Some(listed)) = (dict.get(b"FirstChar").and_then(Object::as_i64), listed) {
+        let listed = held(doc, dict, b"Widths")
+            .and_then(|o| o.as_array().ok())
+            .map(Vec::len);
+        if let (Ok(first), Some(listed)) = (dict.get(b"FirstChar").and_then(Object::as_i64), listed)
+        {
             dict.set("LastChar", first.saturating_add(listed as i64 - 1));
         }
     } else if kind == b"CIDFontType0" || kind == b"CIDFontType2" {
-        let written = held(doc, dict, b"W").and_then(|o| o.as_array().ok()).map(|given| widths_of(given, widths));
+        let written = held(doc, dict, b"W")
+            .and_then(|o| o.as_array().ok())
+            .map(|given| widths_of(given, widths));
         if let Some(written) = written {
             dict.set("W", written);
         }
@@ -883,14 +1212,33 @@ fn mend_font(dict: &mut Dictionary, doc: &Document, mending: &mut Mending) {
 /// The digits of everything a browser prints are such a run: with the default width in their
 /// place, the words after a number land where they are not, and are cut in two.
 fn widths_of(given: &[Object], room: &mut usize) -> Vec<Object> {
-    let width = |object: &Object| object.as_float().ok().filter(|width| width.is_finite()).unwrap_or(0.0);
+    let width = |object: &Object| {
+        object
+            .as_float()
+            .ok()
+            .filter(|width| width.is_finite())
+            .unwrap_or(0.0)
+    };
     let mut written = vec![];
     let mut at = 0;
-    while let (Some(first), Some(next)) = (given.get(at).and_then(|first| first.as_i64().ok()), given.get(at + 1)) {
+    while let (Some(first), Some(next)) = (
+        given.get(at).and_then(|first| first.as_i64().ok()),
+        given.get(at + 1),
+    ) {
         let (run, step): (Vec<Object>, usize) = match (next, given.get(at + 2)) {
-            (Object::Array(run), _) => (run.iter().take(*room).map(|each| width(each).into()).collect(), 2),
+            (Object::Array(run), _) => (
+                run.iter()
+                    .take(*room)
+                    .map(|each| width(each).into())
+                    .collect(),
+                2,
+            ),
             (last, Some(all)) => {
-                let long = last.as_i64().map_or(0, |last| last.saturating_sub(first).saturating_add(1).clamp(0, MAX_CODES as i64));
+                let long = last.as_i64().map_or(0, |last| {
+                    last.saturating_sub(first)
+                        .saturating_add(1)
+                        .clamp(0, MAX_CODES as i64)
+                });
                 (vec![width(all).into(); (long as usize).min(*room)], 3)
             }
             _ => break,
@@ -910,8 +1258,12 @@ const CODES: &[u8] = b"1 begincodespacerange\n<0000> <FFFF>\nendcodespacerange\n
 /// What is put in the place of a stream a font names. Empty: it cannot be made safe.
 fn in_place_of(stream: &Stream, used: Use) -> Vec<u8> {
     match used {
-        Use::Map => unpacked(stream, MAX_MAP).map(|bytes| map_of(&bytes)).unwrap_or_default(),
-        Use::Program => unpacked(stream, MAX_ENTRY).map(|bytes| program_of(&bytes)).unwrap_or_default(),
+        Use::Map => unpacked(stream, MAX_MAP)
+            .map(|bytes| map_of(&bytes))
+            .unwrap_or_default(),
+        Use::Program => unpacked(stream, MAX_ENTRY)
+            .map(|bytes| program_of(&bytes))
+            .unwrap_or_default(),
         Use::Codes => CODES.to_vec(),
         Use::Nothing => b"\n".to_vec(),
     }
@@ -920,9 +1272,15 @@ fn in_place_of(stream: &Stream, used: Use) -> Vec<u8> {
 /// The readable part of a Type 1 font program, where its encoding is. The parser it goes to
 /// calls itself for every bracket opened: with more of them than a font has, nothing is given.
 fn program_of(bytes: &[u8]) -> Vec<u8> {
-    let Some(end) = memmem::find(&bytes[..bytes.len().min(MAX_PROGRAM)], b"eexec") else { return vec![] };
+    let Some(end) = memmem::find(&bytes[..bytes.len().min(MAX_PROGRAM)], b"eexec") else {
+        return vec![];
+    };
     let opened = bytes[..end].iter().filter(|c| b"([{<".contains(c)).count();
-    if opened > DEPTH { vec![] } else { bytes[..end].to_vec() }
+    if opened > DEPTH {
+        vec![]
+    } else {
+        bytes[..end].to_vec()
+    }
 }
 
 /// A map from codes to characters written anew: single codes and ranges of them, no more than
@@ -943,11 +1301,20 @@ fn map_of(bytes: &[u8]) -> Vec<u8> {
             b'<' if rest.get(1) == Some(&b'<') => 2,
             b'<' => {
                 let end = ends(|c| *c == b'>');
-                let mut digits: Vec<u8> = rest[1..end].iter().filter_map(|c| (*c as char).to_digit(16)).map(|d| d as u8).collect();
+                let mut digits: Vec<u8> = rest[1..end]
+                    .iter()
+                    .filter_map(|c| (*c as char).to_digit(16))
+                    .map(|d| d as u8)
+                    .collect();
                 if digits.len() % 2 == 1 {
                     digits.push(0);
                 }
-                tokens.push(Token::Hex(digits.chunks(2).map(|pair| pair[0] << 4 | pair[1]).collect()));
+                tokens.push(Token::Hex(
+                    digits
+                        .chunks(2)
+                        .map(|pair| pair[0] << 4 | pair[1])
+                        .collect(),
+                ));
                 end + 1
             }
             b'[' => {
@@ -967,33 +1334,58 @@ fn map_of(bytes: &[u8]) -> Vec<u8> {
     }
 
     // A code is one to four bytes, what it stands for is UTF-16.
-    let code = |hex: &[u8]| (1..=4).contains(&hex.len()).then(|| hex.iter().fold(0u32, |code, byte| code << 8 | *byte as u32));
-    let units = |hex: &[u8]| hex.chunks_exact(2).map(|pair| u16::from_be_bytes([pair[0], pair[1]])).collect::<Vec<u16>>();
+    let code = |hex: &[u8]| {
+        (1..=4)
+            .contains(&hex.len())
+            .then(|| hex.iter().fold(0u32, |code, byte| code << 8 | *byte as u32))
+    };
+    let units = |hex: &[u8]| {
+        hex.chunks_exact(2)
+            .map(|pair| u16::from_be_bytes([pair[0], pair[1]]))
+            .collect::<Vec<u16>>()
+    };
     let (mut singles, mut spans) = (vec![], vec![]);
     let mut put = |code: u32, to: &[u16]| {
         if !to.is_empty() && String::from_utf16(to).is_ok() && singles.len() < MAX_CODES {
-            singles.push(format!("<{code:08X}> <{}>\n", to.iter().map(|unit| format!("{unit:04X}")).collect::<String>()));
+            singles.push(format!(
+                "<{code:08X}> <{}>\n",
+                to.iter()
+                    .map(|unit| format!("{unit:04X}"))
+                    .collect::<String>()
+            ));
         }
     };
     let (mut single, mut ranges) = (false, false);
     let mut tokens = tokens.iter().peekable();
     while let Some(token) = tokens.next() {
         match token {
-            Token::Word(word) => (single, ranges) = (*word == b"beginbfchar", *word == b"beginbfrange"),
+            Token::Word(word) => {
+                (single, ranges) = (*word == b"beginbfchar", *word == b"beginbfrange")
+            }
             Token::Hex(from) if single => {
-                if let (Some(code), Some(Token::Hex(to))) = (code(from), tokens.next_if(|next| matches!(next, Token::Hex(_)))) {
+                if let (Some(code), Some(Token::Hex(to))) = (
+                    code(from),
+                    tokens.next_if(|next| matches!(next, Token::Hex(_))),
+                ) {
                     put(code, &units(to));
                 }
             }
             Token::Hex(from) if ranges => {
-                let Some(Token::Hex(to)) = tokens.next_if(|next| matches!(next, Token::Hex(_))) else { continue };
-                let (Some(from), Some(to)) = (code(from), code(to)) else { continue };
+                let Some(Token::Hex(to)) = tokens.next_if(|next| matches!(next, Token::Hex(_)))
+                else {
+                    continue;
+                };
+                let (Some(from), Some(to)) = (code(from), code(to)) else {
+                    continue;
+                };
                 let to = to.min(from.saturating_add(u16::MAX as u32));
                 match tokens.next() {
                     // The last unit goes up by one with each code. A range of single units that
                     // stays within them is one pdf-extract counts out well, and may stay a range.
                     Some(Token::Hex(first)) => match units(first)[..] {
-                        [first] if to >= from && first as u32 + (to - from) <= u16::MAX as u32 => spans.push((from, to, first)),
+                        [first] if to >= from && first as u32 + (to - from) <= u16::MAX as u32 => {
+                            spans.push((from, to, first))
+                        }
                         ref first => {
                             for code in from..=to {
                                 let mut units = first.to_vec();
@@ -1006,7 +1398,11 @@ fn map_of(bytes: &[u8]) -> Vec<u8> {
                     },
                     Some(Token::Open) => {
                         for code in from..=to {
-                            let Some(Token::Hex(to)) = tokens.next_if(|next| matches!(next, Token::Hex(_))) else { break };
+                            let Some(Token::Hex(to)) =
+                                tokens.next_if(|next| matches!(next, Token::Hex(_)))
+                            else {
+                                break;
+                            };
                             put(code, &units(to));
                         }
                     }
@@ -1021,8 +1417,18 @@ fn map_of(bytes: &[u8]) -> Vec<u8> {
         room = room.saturating_sub((to - from) as usize + 1);
         room > 0
     });
-    let spans: Vec<String> = spans.iter().map(|(from, to, first)| format!("<{from:08X}> <{to:08X}> <{first:04X}>\n")).collect();
-    format!("{} beginbfchar\n{}endbfchar\n{} beginbfrange\n{}endbfrange\n", singles.len(), singles.concat(), spans.len(), spans.concat()).into_bytes()
+    let spans: Vec<String> = spans
+        .iter()
+        .map(|(from, to, first)| format!("<{from:08X}> <{to:08X}> <{first:04X}>\n"))
+        .collect();
+    format!(
+        "{} beginbfchar\n{}endbfchar\n{} beginbfrange\n{}endbfrange\n",
+        singles.len(),
+        singles.concat(),
+        spans.len(),
+        spans.concat()
+    )
+    .into_bytes()
 }
 
 // ---------------------------------------------------------------- before: a page within bounds
@@ -1033,26 +1439,59 @@ type Costs = HashMap<(ObjectId, usize), u64>;
 /// Whether pdf-extract reads the page within bounds: what it inherits is found, and the
 /// content it goes through, every form counted as many times as it is drawn, weighs no more
 /// than `MAX_CONTENT` things. A page too dear for the forms it draws is read without them.
-fn affordable(doc: &mut Document, known: &HashMap<ObjectId, Known>, costs: &mut Costs, page: ObjectId) -> bool {
-    let Ok(mut dict) = doc.get_dictionary(page) else { return false };
+fn affordable(
+    doc: &mut Document,
+    known: &HashMap<ObjectId, Known>,
+    costs: &mut Costs,
+    page: ObjectId,
+) -> bool {
+    let Ok(mut dict) = doc.get_dictionary(page) else {
+        return false;
+    };
     // pdf-extract goes up by /Parent, calling itself, for the resources and the size of the page.
     let mut resources = None;
     for level in 0.. {
         resources = resources.or(dict_at(doc, dict, b"Resources"));
-        let Ok(parent) = dict.get(b"Parent").and_then(Object::as_reference).and_then(|id| doc.get_dictionary(id)) else { break };
+        let Ok(parent) = dict
+            .get(b"Parent")
+            .and_then(Object::as_reference)
+            .and_then(|id| doc.get_dictionary(id))
+        else {
+            break;
+        };
         if level == DEPTH {
             return false;
         }
         dict = parent;
     }
-    let contents: Vec<ObjectId> =
-        doc.get_page_contents(page).iter().map(|id| doc.objects.get(id).and_then(|o| stream_at(doc, o)).map_or(*id, |(id, _)| id)).collect();
-    let sum = |cost: &mut dyn FnMut(ObjectId) -> u64| contents.iter().fold(0u64, |sum, id| sum.saturating_add(cost(*id)));
+    let contents: Vec<ObjectId> = doc
+        .get_page_contents(page)
+        .iter()
+        .map(|id| {
+            doc.objects
+                .get(id)
+                .and_then(|o| stream_at(doc, o))
+                .map_or(*id, |(id, _)| id)
+        })
+        .collect();
+    let sum = |cost: &mut dyn FnMut(ObjectId) -> u64| {
+        contents
+            .iter()
+            .fold(0u64, |sum, id| sum.saturating_add(cost(*id)))
+    };
     if sum(&mut |id| drawing(doc, known, costs, id, resources, DEPTH)) <= MAX_CONTENT {
         return true;
     }
-    let alone = sum(&mut |id| known.get(&id).map_or(0, |k| k.weight.saturating_add(k.draws.saturating_mul(DRAW))));
-    let drawn: Vec<ObjectId> = resources.into_iter().flat_map(|r| forms(doc, r)).map(|(_, id)| id).collect();
+    let alone = sum(&mut |id| {
+        known
+            .get(&id)
+            .map_or(0, |k| k.weight.saturating_add(k.draws.saturating_mul(DRAW)))
+    });
+    let drawn: Vec<ObjectId> = resources
+        .into_iter()
+        .flat_map(|r| forms(doc, r))
+        .map(|(_, id)| id)
+        .collect();
     for form in drawn {
         if let Some(Object::Stream(stream)) = doc.objects.get_mut(&form) {
             hush(stream);
@@ -1062,15 +1501,32 @@ fn affordable(doc: &mut Document, known: &HashMap<ObjectId, Known>, costs: &mut 
 }
 
 /// The forms of a resource dictionary, by name.
-fn forms<'a>(doc: &'a Document, resources: &'a Dictionary) -> impl Iterator<Item = (&'a [u8], ObjectId)> {
-    dict_at(doc, resources, b"XObject").into_iter().flat_map(|forms| forms.iter()).filter_map(|(name, form)| Some((&name[..], stream_at(doc, form)?.0)))
+fn forms<'a>(
+    doc: &'a Document,
+    resources: &'a Dictionary,
+) -> impl Iterator<Item = (&'a [u8], ObjectId)> {
+    dict_at(doc, resources, b"XObject")
+        .into_iter()
+        .flat_map(|forms| forms.iter())
+        .filter_map(|(name, form)| Some((&name[..], stream_at(doc, form)?.0)))
 }
 
 /// What pdf-extract goes through for this stream drawn once with these resources, in things,
 /// or `u64::MAX`: it would never end, or go deeper than `DEPTH`.
-fn drawing(doc: &Document, known: &HashMap<ObjectId, Known>, costs: &mut Costs, id: ObjectId, resources: Option<&Dictionary>, depth: usize) -> u64 {
-    let Some(stream) = known.get(&id) else { return 0 };
-    let (Some(resources), true) = (resources, stream.draws > 0) else { return stream.weight };
+fn drawing(
+    doc: &Document,
+    known: &HashMap<ObjectId, Known>,
+    costs: &mut Costs,
+    id: ObjectId,
+    resources: Option<&Dictionary>,
+    depth: usize,
+) -> u64 {
+    let Some(stream) = known.get(&id) else {
+        return 0;
+    };
+    let (Some(resources), true) = (resources, stream.draws > 0) else {
+        return stream.weight;
+    };
     // The same form with the same resources costs the same, and while it is being counted it
     // is one that draws itself.
     let key = (id, resources as *const Dictionary as usize);
@@ -1083,18 +1539,33 @@ fn drawing(doc: &Document, known: &HashMap<ObjectId, Known>, costs: &mut Costs, 
     costs.insert(key, u64::MAX);
     let (mut cost, mut dearest) = (stream.weight, DRAW);
     for (name, form) in forms(doc, resources) {
-        let times = stream.names.as_ref().map_or(stream.draws, |names| names.get(name).copied().unwrap_or(0).min(stream.draws));
+        let times = stream.names.as_ref().map_or(stream.draws, |names| {
+            names.get(name).copied().unwrap_or(0).min(stream.draws)
+        });
         if times > 0 {
             // A form has resources of its own, or draws with those it is drawn with.
-            let own = doc.objects.get(&form).and_then(|o| o.as_stream().ok()).and_then(|form| dict_at(doc, &form.dict, b"Resources"));
-            let one = DRAW.saturating_add(drawing(doc, known, costs, form, own.or(Some(resources)), depth - 1));
+            let own = doc
+                .objects
+                .get(&form)
+                .and_then(|o| o.as_stream().ok())
+                .and_then(|form| dict_at(doc, &form.dict, b"Resources"));
+            let one = DRAW.saturating_add(drawing(
+                doc,
+                known,
+                costs,
+                form,
+                own.or(Some(resources)),
+                depth - 1,
+            ));
             cost = cost.saturating_add(one.saturating_mul(times));
             dearest = dearest.max(one);
         }
     }
     // Without the names, every `Do` is taken to draw the dearest.
     if stream.names.is_none() {
-        cost = stream.weight.saturating_add(dearest.saturating_mul(stream.draws));
+        cost = stream
+            .weight
+            .saturating_add(dearest.saturating_mul(stream.draws));
     }
     costs.insert(key, cost);
     cost
@@ -1156,19 +1627,49 @@ struct Words<'a> {
 
 impl<'a> Words<'a> {
     fn new(text: &'a mut String, until: Instant) -> Self {
-        Words { text, line: vec![], last: None, start: true, span: None, seen: 0, until }
+        Words {
+            text,
+            line: vec![],
+            last: None,
+            start: true,
+            span: None,
+            seen: 0,
+            until,
+        }
     }
 
     /// What one glyph stands for, put on the line side by side where the glyph is, the first
     /// of it on the side it is read from. A character drawn again where it already is, as Word
     /// draws a word twice, a hair apart, for a font with no bold face, is not put twice.
     fn put(&mut self, shown: &str, place: f64, reach: f64, size: f64) {
-        let (count, leftward) = (shown.chars().count() as f64, shown.chars().next().is_some_and(right_to_left));
+        let (count, leftward) = (
+            shown.chars().count() as f64,
+            shown.chars().next().is_some_and(right_to_left),
+        );
         for (nth, c) in shown.chars().enumerate() {
-            let nth = if leftward { count - 1.0 - nth as f64 } else { nth as f64 };
-            let span = (place + reach * nth / count, place + reach * (nth + 1.0) / count);
-            if reach <= 0.0 || !self.line.iter().rev().take(64).any(|drawn| drawn.c == c && (drawn.span.0 - span.0).abs() < size * 0.05) {
-                self.line.push(Drawn { c, span, size, gap: None });
+            let nth = if leftward {
+                count - 1.0 - nth as f64
+            } else {
+                nth as f64
+            };
+            let span = (
+                place + reach * nth / count,
+                place + reach * (nth + 1.0) / count,
+            );
+            if reach <= 0.0
+                || !self
+                    .line
+                    .iter()
+                    .rev()
+                    .take(64)
+                    .any(|drawn| drawn.c == c && (drawn.span.0 - span.0).abs() < size * 0.05)
+            {
+                self.line.push(Drawn {
+                    c,
+                    span,
+                    size,
+                    gap: None,
+                });
             }
         }
     }
@@ -1192,7 +1693,9 @@ impl<'a> Words<'a> {
     /// Stops pdf-extract when the time or the room is used up.
     fn go_on(&mut self) -> Result<(), OutputError> {
         self.seen += 1;
-        if self.text.len() + self.line.len() > MAX_TEXT || (self.seen.is_multiple_of(64) && Instant::now() > self.until) {
+        if self.text.len() + self.line.len() > MAX_TEXT
+            || (self.seen.is_multiple_of(64) && Instant::now() > self.until)
+        {
             return Err(OutputError::FormatError(std::fmt::Error));
         }
         Ok(())
@@ -1220,8 +1723,18 @@ fn as_seen(mut line: Vec<Drawn>) -> String {
 /// or more single characters follow each other with gaps narrower than a space between words
 /// is, the gaps are no spaces.
 fn close_up(line: &mut Vec<Drawn>) {
-    let alone = |at: usize| line[at].c != ' ' && (at == 0 || line[at - 1].c == ' ') && line.get(at + 1).is_none_or(|next| next.c == ' ');
-    let narrow = |at: &usize| line[*at].gap.is_some_and(|gap| gap < SET_APART) && *at > 0 && at + 1 < line.len() && alone(at - 1) && alone(at + 1);
+    let alone = |at: usize| {
+        line[at].c != ' '
+            && (at == 0 || line[at - 1].c == ' ')
+            && line.get(at + 1).is_none_or(|next| next.c == ' ')
+    };
+    let narrow = |at: &usize| {
+        line[*at].gap.is_some_and(|gap| gap < SET_APART)
+            && *at > 0
+            && at + 1 < line.len()
+            && alone(at - 1)
+            && alone(at + 1)
+    };
     let closed: HashSet<usize> = (0..line.len()).filter(narrow).collect();
     if closed.len() >= 2 {
         let mut at = 0;
@@ -1233,18 +1746,41 @@ fn close_up(line: &mut Vec<Drawn>) {
 }
 
 impl OutputDev for Words<'_> {
-    fn output_character(&mut self, trm: &Transform, width: f64, _: f64, font_size: f64, char: &str) -> Result<(), OutputError> {
+    fn output_character(
+        &mut self,
+        trm: &Transform,
+        width: f64,
+        _: f64,
+        font_size: f64,
+        char: &str,
+    ) -> Result<(), OutputError> {
         self.go_on()?;
         // In the frame of the line, so that text turned on its side has words too.
         let length = trm.m11.hypot(trm.m12);
-        let way = if length > 0.0 && length.is_finite() { (trm.m11 / length, trm.m12 / length) } else { (1.0, 0.0) };
+        let way = if length > 0.0 && length.is_finite() {
+            (trm.m11 / length, trm.m12 / length)
+        } else {
+            (1.0, 0.0)
+        };
         let size = (trm.m11 * trm.m22 - trm.m12 * trm.m21).abs().sqrt() * font_size.abs();
-        let size = if size > 0.0 && size.is_finite() { size } else { 1.0 };
-        let spot = Spot { at: (trm.m31, trm.m32), way, reach: width * font_size * length, size };
+        let size = if size > 0.0 && size.is_finite() {
+            size
+        } else {
+            1.0
+        };
+        let spot = Spot {
+            at: (trm.m31, trm.m32),
+            way,
+            reach: width * font_size * length,
+            size,
+        };
         let place = spot.at.0 * way.0 + spot.at.1 * way.1;
         if let (Some(last), true) = (&self.last, self.start) {
             let (x, y) = (spot.at.0 - last.at.0, spot.at.1 - last.at.1);
-            let (along, across) = (x * last.way.0 + y * last.way.1, (y * last.way.0 - x * last.way.1).abs());
+            let (along, across) = (
+                x * last.way.0 + y * last.way.1,
+                (y * last.way.0 - x * last.way.1).abs(),
+            );
             // The gap between the two characters, whichever is to the left.
             let gap = (along - last.reach).max(-(along + spot.reach));
             if across > size * 1.5 || (along < last.reach && across > size * 0.5) {
@@ -1252,19 +1788,30 @@ impl OutputDev for Words<'_> {
                 // "ation", and "rtcSet-" and "Geometry", where a name goes on in its own case.
                 let first = char.chars().next().unwrap_or(' ');
                 let ends = matches!(&self.line[..], [.., before, Drawn { c: '-', .. }] if before.c.is_alphabetic());
-                let goes_on = matches!(&self.line[..], [.., before, _] if before.c.is_lowercase()) && first.is_uppercase();
+                let goes_on = matches!(&self.line[..], [.., before, _] if before.c.is_lowercase())
+                    && first.is_uppercase();
                 let broken = ends && (first.is_lowercase() || goes_on);
                 if broken {
                     self.line.pop();
                 }
                 self.close_line(!broken);
             } else if gap > size * SPACE {
-                self.line.push(Drawn { c: ' ', span: (place, place), size, gap: Some(gap / size) });
+                self.line.push(Drawn {
+                    c: ' ',
+                    span: (place, place),
+                    size,
+                    gap: Some(gap / size),
+                });
             } else if size > last.size * 1.2 && x * last.way.1 - y * last.way.0 > last.size * 0.25 {
                 // The mark of a footnote, small and raised, and the footnote right after it
                 // are two words, as they are to pdftotext: the size grows and the line drops.
                 // A power or an index after its base is not: the size shrinks.
-                self.line.push(Drawn { c: ' ', span: (place, place), size, gap: Some(SET_APART) });
+                self.line.push(Drawn {
+                    c: ' ',
+                    span: (place, place),
+                    size,
+                    gap: Some(SET_APART),
+                });
             }
         }
         if self.line.len() > MAX_LINE {
@@ -1293,7 +1840,10 @@ impl OutputDev for Words<'_> {
         }
         match &mut self.span {
             // The glyphs of a span say where its text goes, not what it is.
-            Some(span) => (span.from, span.to, span.size) = (span.from.min(place), span.to.max(place + spot.reach), size),
+            Some(span) => {
+                (span.from, span.to, span.size) =
+                    (span.from.min(place), span.to.max(place + spot.reach), size)
+            }
             None => self.put(&shown, place, spot.reach, size),
         }
         (self.start, self.last) = (false, Some(spot));
@@ -1307,16 +1857,46 @@ impl OutputDev for Words<'_> {
 
     /// Where a path starts at `SPAN`, it is the text of a marked span that `rewritten` put
     /// there, or the end of the span.
-    fn fill(&mut self, _: &Transform, _: &pdf_extract::ColorSpace, _: &[f64], path: &pdf_extract::Path) -> Result<(), OutputError> {
+    fn fill(
+        &mut self,
+        _: &Transform,
+        _: &pdf_extract::ColorSpace,
+        _: &[f64],
+        path: &pdf_extract::Path,
+    ) -> Result<(), OutputError> {
         use pdf_extract::PathOp::{LineTo, MoveTo};
         if let [MoveTo(x, _), points @ ..] = &path.ops[..]
             && *x == SPAN
         {
-            let units: Vec<u16> = points.iter().filter_map(|op| if let LineTo(unit, _) = op { Some(*unit as u16) } else { None }).collect();
+            let units: Vec<u16> = points
+                .iter()
+                .filter_map(|op| {
+                    if let LineTo(unit, _) = op {
+                        Some(*unit as u16)
+                    } else {
+                        None
+                    }
+                })
+                .collect();
             match (self.span.take(), &units[..]) {
-                (Some(Span { text, from, to, size }), [1]) if from.is_finite() => self.put(&text, from, to - from, size),
+                (
+                    Some(Span {
+                        text,
+                        from,
+                        to,
+                        size,
+                    }),
+                    [1],
+                ) if from.is_finite() => self.put(&text, from, to - from, size),
                 (_, [1]) => {}
-                _ => self.span = Some(Span { text: String::from_utf16(&units).unwrap_or_default(), from: f64::INFINITY, to: f64::NEG_INFINITY, size: 1.0 }),
+                _ => {
+                    self.span = Some(Span {
+                        text: String::from_utf16(&units).unwrap_or_default(),
+                        from: f64::INFINITY,
+                        to: f64::NEG_INFINITY,
+                        size: 1.0,
+                    })
+                }
             }
         }
         self.go_on()
@@ -1326,7 +1906,12 @@ impl OutputDev for Words<'_> {
         Ok(())
     }
 
-    fn begin_page(&mut self, _: u32, _: &MediaBox, _: Option<(f64, f64, f64, f64)>) -> Result<(), OutputError> {
+    fn begin_page(
+        &mut self,
+        _: u32,
+        _: &MediaBox,
+        _: Option<(f64, f64, f64, f64)>,
+    ) -> Result<(), OutputError> {
         Ok(())
     }
 
@@ -1338,7 +1923,13 @@ impl OutputDev for Words<'_> {
         Ok(())
     }
 
-    fn stroke(&mut self, _: &Transform, _: &pdf_extract::ColorSpace, _: &[f64], _: &pdf_extract::Path) -> Result<(), OutputError> {
+    fn stroke(
+        &mut self,
+        _: &Transform,
+        _: &pdf_extract::ColorSpace,
+        _: &[f64],
+        _: &pdf_extract::Path,
+    ) -> Result<(), OutputError> {
         self.go_on()
     }
 }
@@ -1360,8 +1951,14 @@ fn reading_order(line: &str) -> String {
     let mut at = 0;
     while at < chars.len() {
         // A run of them goes as far as the last before a letter that reads from the left.
-        let run = chars[at..].iter().take_while(|c| right_to_left(**c) || !c.is_alphabetic()).count();
-        let last = chars[at..at + run].iter().rposition(|c| right_to_left(*c)).filter(|_| right_to_left(chars[at]));
+        let run = chars[at..]
+            .iter()
+            .take_while(|c| right_to_left(**c) || !c.is_alphabetic())
+            .count();
+        let last = chars[at..at + run]
+            .iter()
+            .rposition(|c| right_to_left(*c))
+            .filter(|_| right_to_left(chars[at]));
         if let Some(last) = last {
             turn(&mut chars[at..=at + last]);
         }
@@ -1376,8 +1973,14 @@ fn turn(chars: &mut [char]) {
     chars.reverse();
     let mut at = 0;
     while at < chars.len() {
-        let run = chars[at..].iter().take_while(|c| !right_to_left(**c)).count();
-        let last = chars[at..at + run].iter().rposition(|c| from_left(*c)).filter(|_| from_left(chars[at]));
+        let run = chars[at..]
+            .iter()
+            .take_while(|c| !right_to_left(**c))
+            .count();
+        let last = chars[at..at + run]
+            .iter()
+            .rposition(|c| from_left(*c))
+            .filter(|_| from_left(chars[at]));
         if let Some(last) = last {
             chars[at..=at + last].reverse();
         }
@@ -1395,13 +1998,19 @@ mod tests {
     use std::io::Write;
 
     const CATALOG: &[u8] = b"<< /Type /Catalog /Pages 2 0 R >>";
-    const HELVETICA: &[u8] = b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>";
+    const HELVETICA: &[u8] =
+        b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>";
     const FONT: &str = "/Font << /F1 3 0 R >>";
     const HELLO: &[u8] = b"BT /F1 12 Tf 72 720 Td (Hello there) Tj ET\n";
 
     /// A stream: what its dictionary has beside the length, and its content.
     fn stream(entries: &str, content: &[u8]) -> Vec<u8> {
-        [format!("<< /Length {} {entries} >>\nstream\n", content.len()).as_bytes(), content, b"\nendstream"].concat()
+        [
+            format!("<< /Length {} {entries} >>\nstream\n", content.len()).as_bytes(),
+            content,
+            b"\nendstream",
+        ]
+        .concat()
     }
 
     fn deflated(content: &[u8]) -> Vec<u8> {
@@ -1411,7 +2020,10 @@ mod tests {
     }
 
     fn packed(entries: &str, content: &[u8]) -> Vec<u8> {
-        stream(&format!("/Filter /FlateDecode {entries}"), &deflated(content))
+        stream(
+            &format!("/Filter /FlateDecode {entries}"),
+            &deflated(content),
+        )
     }
 
     /// A PDF file of these objects, numbered from 1, the first of them the catalog.
@@ -1420,12 +2032,27 @@ mod tests {
         let mut starts = vec![];
         for (n, object) in objects.iter().enumerate() {
             starts.push(file.len());
-            file.extend([format!("{} 0 obj\n", n + 1).as_bytes(), object, b"\nendobj\n"].concat());
+            file.extend(
+                [
+                    format!("{} 0 obj\n", n + 1).as_bytes(),
+                    object,
+                    b"\nendobj\n",
+                ]
+                .concat(),
+            );
         }
         let table = file.len();
         file.extend(format!("xref\n0 {}\n0000000000 65535 f \n", objects.len() + 1).bytes());
-        starts.iter().for_each(|at| file.extend(format!("{at:010} 00000 n \n").bytes()));
-        file.extend(format!("trailer\n<< /Size {} /Root 1 0 R >>\nstartxref\n{table}\n%%EOF\n", objects.len() + 1).bytes());
+        starts
+            .iter()
+            .for_each(|at| file.extend(format!("{at:010} 00000 n \n").bytes()));
+        file.extend(
+            format!(
+                "trailer\n<< /Size {} /Root 1 0 R >>\nstartxref\n{table}\n%%EOF\n",
+                objects.len() + 1
+            )
+            .bytes(),
+        );
         file
     }
 
@@ -1433,11 +2060,24 @@ mod tests {
     /// from 4, and `resources` is what the pages draw with.
     fn document(resources: &str, more: &[Vec<u8>], contents: &[Vec<u8>]) -> Vec<u8> {
         let first = 4 + more.len();
-        let kids: String = (0..contents.len()).map(|n| format!("{} 0 R ", first + 2 * n)).collect();
-        let mut objects = vec![CATALOG.to_vec(), format!("<< /Type /Pages /Kids [{kids}] /Count {} >>", contents.len()).into_bytes(), HELVETICA.to_vec()];
+        let kids: String = (0..contents.len())
+            .map(|n| format!("{} 0 R ", first + 2 * n))
+            .collect();
+        let mut objects = vec![
+            CATALOG.to_vec(),
+            format!(
+                "<< /Type /Pages /Kids [{kids}] /Count {} >>",
+                contents.len()
+            )
+            .into_bytes(),
+            HELVETICA.to_vec(),
+        ];
         objects.extend(more.iter().cloned());
         for (n, content) in contents.iter().enumerate() {
-            let page = format!("<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << {resources} >> /Contents {} 0 R >>", first + 2 * n + 1);
+            let page = format!(
+                "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << {resources} >> /Contents {} 0 R >>",
+                first + 2 * n + 1
+            );
             objects.extend([page.into_bytes(), content.clone()]);
         }
         pdf(&objects)
@@ -1468,7 +2108,12 @@ mod tests {
             b"\nendcmap CMapName currentdict /CMap defineresource pop end end",
         ]
         .concat();
-        vec![font, inner.into_bytes(), descriptor.to_vec(), packed("", &map)]
+        vec![
+            font,
+            inner.into_bytes(),
+            descriptor.to_vec(),
+            packed("", &map),
+        ]
     }
     const TWO_BYTE: &str = "/Font << /F1 3 0 R /F2 4 0 R >>";
 
@@ -1480,7 +2125,15 @@ mod tests {
             -200 -14 Td (First) Tj 100 0 Td (Kerosene) Tj 100 0 Td (7600 kN) Tj ET";
         let second = b"BT /F1 12 Tf 1 0 0 1 72 720 Tm (Second) Tj 1 0 0 1 120 720 Tm (page) Tj ET q 0 0 m 10 10 l S Q BT /F1 12 Tf 72 700 Td (zeppelin) Tj ET";
         let file = document(FONT, &[], &[stream("", first), packed("", second)]);
-        let lines = ["Launch report", "Blåbærgrød på en ø", "The café is opened", "Stage Fuel Thrust", "First Kerosene 7600 kN", "Second page", "zeppelin"];
+        let lines = [
+            "Launch report",
+            "Blåbærgrød på en ø",
+            "The café is opened",
+            "Stage Fuel Thrust",
+            "First Kerosene 7600 kN",
+            "Second page",
+            "zeppelin",
+        ];
         assert_eq!(read("pages", &file).as_deref(), Some(&*lines.join("\n")));
     }
 
@@ -1491,23 +2144,41 @@ mod tests {
             2 beginbfrange <0010> <0029> <0061> <0030> <0031> [<4F60> <597D>] endbfrange";
         // Hebrew is drawn as it is seen, from the left, its last letter first.
         let content = b"BT /F2 12 Tf 72 700 Td <0004000300020001> Tj <0007> Tj <00300031> Tj <0007> Tj <001E0015 0005 00120014> Tj ET";
-        let file = document(TWO_BYTE, &two_byte_font(map, "/DW 600"), &[stream("", content)]);
+        let file = document(
+            TWO_BYTE,
+            &two_byte_font(map, "/DW 600"),
+            &[stream("", content)],
+        );
         assert_eq!(read("map", &file).as_deref(), Some("שלום 你好 office"));
 
-        assert_eq!(reading_order("They write דלונ 1948 תנשב, so it is."), "They write בשנת 1948 נולד, so it is.", "numbers read from the left");
-        assert_eq!(reading_order("12.5 ok םלועה לכל םולש"), "שלום לכל העולם 12.5 ok", "a line that reads from the right");
+        assert_eq!(
+            reading_order("They write דלונ 1948 תנשב, so it is."),
+            "They write בשנת 1948 נולד, so it is.",
+            "numbers read from the left"
+        );
+        assert_eq!(
+            reading_order("12.5 ok םלועה לכל םולש"),
+            "שלום לכל העולם 12.5 ok",
+            "a line that reads from the right"
+        );
     }
 
     #[test]
     fn pdf_turns_hebrew_to_reading_order_however_it_is_drawn() {
-        let more = two_byte_font(b"4 beginbfchar <0001> <05E9> <0002> <05DC> <0003> <05D5> <0004> <05DD> endbfchar", "/DW 600");
+        let more = two_byte_font(
+            b"4 beginbfchar <0001> <05E9> <0002> <05DC> <0003> <05D5> <0004> <05DD> endbfchar",
+            "/DW 600",
+        );
         // "שלום לו." as LibreOffice draws it: the full stop and the space first, where they are
         // seen, then the letters from the left, the last first. Below it, "שלום" as some draw
         // it: letter by letter from the right.
         let content = b"BT /F1 12 Tf 1 0 0 1 72 700 Tm (.) Tj 1 0 0 1 89.8 700 Tm ( ) Tj ET
             BT /F2 12 Tf 1 0 0 1 75.4 700 Tm <00030002> Tj 1 0 0 1 96 700 Tm <0004000300020001> Tj
             1 0 0 1 200 680 Tm [<0001> 1200 <0002> 1200 <0003> 1200 <0004>] TJ ET";
-        assert_eq!(read("drawn", &document(TWO_BYTE, &more, &[stream("", content)])).as_deref(), Some("שלום לו.\nשלום"));
+        assert_eq!(
+            read("drawn", &document(TWO_BYTE, &more, &[stream("", content)])).as_deref(),
+            Some("שלום לו.\nשלום")
+        );
     }
 
     #[test]
@@ -1517,11 +2188,52 @@ mod tests {
         // the first ends, and is one word with it.
         let content = b"BT /F2 12 Tf 72 700 Td <00010002> Tj 12 0 Td <00030004> Tj ET";
         let map = b"1 beginbfrange <0001> <0004> <0061> endbfrange";
-        assert_eq!(read("runs", &document(TWO_BYTE, &two_byte_font(map, "/DW 0 /W [1 4 500]"), &[stream("", content)])).as_deref(), Some("abcd"));
-        assert_eq!(read("cut", &document(TWO_BYTE, &two_byte_font(map, "/DW 500 /W [1 4]"), &[stream("", content)])).as_deref(), Some("abcd"));
+        assert_eq!(
+            read(
+                "runs",
+                &document(
+                    TWO_BYTE,
+                    &two_byte_font(map, "/DW 0 /W [1 4 500]"),
+                    &[stream("", content)]
+                )
+            )
+            .as_deref(),
+            Some("abcd")
+        );
+        assert_eq!(
+            read(
+                "cut",
+                &document(
+                    TWO_BYTE,
+                    &two_byte_font(map, "/DW 500 /W [1 4]"),
+                    &[stream("", content)]
+                )
+            )
+            .as_deref(),
+            Some("abcd")
+        );
         let mut room = 7;
-        assert_eq!(widths_of(&[0.into(), vec![1.into(), 2.into()].into(), 5.into(), 9.into(), 3.into(), 20.into(), 30.into(), 40.into()], &mut room).len(), 4);
-        assert_eq!(room, 0, "two of the first run, five of the second, none of the third");
+        assert_eq!(
+            widths_of(
+                &[
+                    0.into(),
+                    vec![1.into(), 2.into()].into(),
+                    5.into(),
+                    9.into(),
+                    3.into(),
+                    20.into(),
+                    30.into(),
+                    40.into()
+                ],
+                &mut room
+            )
+            .len(),
+            4
+        );
+        assert_eq!(
+            room, 0,
+            "two of the first run, five of the second, none of the third"
+        );
     }
 
     #[test]
@@ -1530,38 +2242,82 @@ mod tests {
         // two letters alone.
         let content = b"BT /F1 24 Tf 72 700 Td [(P) -119 (L) -119 (A) -119 (N)] TJ 0 -40 Td [(d) -119 (e) -590 (s) -119 (e) -119 (m)] TJ
             0 -40 Td [(1) -300 (2) -300 (3) -300 (4)] TJ 0 -40 Td [(a) -119 (b)] TJ ET";
-        assert_eq!(read("apart", &document(FONT, &[], &[stream("", content)])).as_deref(), Some("PLAN\nde sem\n1 2 3 4\na b"));
+        assert_eq!(
+            read("apart", &document(FONT, &[], &[stream("", content)])).as_deref(),
+            Some("PLAN\nde sem\n1 2 3 4\na b")
+        );
     }
 
     #[test]
     fn pdf_ends_a_word_at_a_glyph_that_takes_room_and_says_nothing() {
         // InDesign has the spaces of some fonts as U+0008, and the map of a font may lack the
         // space altogether.
-        let map = b"1 beginbfrange <0001> <0004> <0061> endbfrange 1 beginbfchar <0005> <0008> endbfchar";
+        let map =
+            b"1 beginbfrange <0001> <0004> <0061> endbfrange 1 beginbfchar <0005> <0008> endbfchar";
         let content = b"BT /F2 12 Tf 72 700 Td <000100020005 00030004 0006 00010002> Tj ET";
-        assert_eq!(read("room", &document(TWO_BYTE, &two_byte_font(map, "/DW 600"), &[stream("", content)])).as_deref(), Some("ab cd ab"));
+        assert_eq!(
+            read(
+                "room",
+                &document(
+                    TWO_BYTE,
+                    &two_byte_font(map, "/DW 600"),
+                    &[stream("", content)]
+                )
+            )
+            .as_deref(),
+            Some("ab cd ab")
+        );
     }
 
     #[test]
     fn pdf_weighs_what_lopdf_would_build_and_refuses_too_much() {
-        assert_eq!(things(b"1 0 R /Name (a string) [1 2] << /K 1 >>", false), 18);
+        assert_eq!(
+            things(b"1 0 R /Name (a string) [1 2] << /K 1 >>", false),
+            18
+        );
         assert_eq!(things(b"0 0 m 1 1 l S", true), 19, "an operator is five");
-        assert_eq!(weight(b"[1 2 (a]b) <<>>] endobj [3 4]", 1000), 10, "the bracket in the string closes nothing");
+        assert_eq!(
+            weight(b"[1 2 (a]b) <<>>] endobj [3 4]", 1000),
+            10,
+            "the bracket in the string closes nothing"
+        );
         assert_eq!(weight(b"<< /A (endobj) /B [1] >> endobj", 1000), 11);
         assert_eq!(weight(b"42 endobj", 1000), 1);
         assert_eq!(weight(&b"[".repeat(500), 100), 105, "no further than asked");
         // A string that never closes, after every `obj`: not read to the end for each of them.
         let start = Instant::now();
         assert!(heavy(&b"1 0 obj (".repeat(200_000), 1 << 20));
-        assert!(start.elapsed() < crate::test_limit(Duration::from_secs(5)), "took {:?}", start.elapsed());
+        assert!(
+            start.elapsed() < crate::test_limit(Duration::from_secs(5)),
+            "took {:?}",
+            start.elapsed()
+        );
 
         // A list of numbers heavier than the file allows, and one that is not.
-        let listed = |count: usize| document(FONT, &[format!("[{}]", "0 ".repeat(count)).into_bytes()], &[stream("", HELLO)]);
-        assert_eq!(read("light", &listed(100_000)).as_deref(), Some("Hello there"));
+        let listed = |count: usize| {
+            document(
+                FONT,
+                &[format!("[{}]", "0 ".repeat(count)).into_bytes()],
+                &[stream("", HELLO)],
+            )
+        };
+        assert_eq!(
+            read("light", &listed(100_000)).as_deref(),
+            Some("Hello there")
+        );
         assert_eq!(read("heavy", &listed(600_000)), None);
         // A page of operators that would take gigabytes to decode is left out; one that would not is read.
-        let operators = |count: usize| document(FONT, &[], &[packed("", &[HELLO, &b"n ".repeat(count)].concat())]);
-        assert_eq!(read("operators", &operators(300_000)).as_deref(), Some("Hello there"));
+        let operators = |count: usize| {
+            document(
+                FONT,
+                &[],
+                &[packed("", &[HELLO, &b"n ".repeat(count)].concat())],
+            )
+        };
+        assert_eq!(
+            read("operators", &operators(300_000)).as_deref(),
+            Some("Hello there")
+        );
         assert_eq!(read("too many", &operators(500_000)), None);
     }
 
@@ -1571,8 +2327,16 @@ mod tests {
         // API do in a manual, and one that goes on in capitals, which is left as it is.
         let content = b"BT /F1 12 Tf 14 TL 72 720 Td (The words come out one by one, hyphen-) Tj T* (ation and all, rtcSet-) Tj T* (Geometry too. RTC_VER-) Tj
             T* (TEX stays.) Tj ET BT /F1 12 Tf 0 1 -1 0 300 100 Tm [(Up) -400 (the) -400 (si) 10 (de)] TJ 0 1 -1 0 320 100 Tm (Next to it) Tj ET";
-        let lines = ["The words come out one by one, hyphenation and all, rtcSetGeometry too. RTC_VER-", "TEX stays.", "Up the side", "Next to it"];
-        assert_eq!(read("side", &document(FONT, &[], &[stream("", content)])).as_deref(), Some(&*lines.join("\n")));
+        let lines = [
+            "The words come out one by one, hyphenation and all, rtcSetGeometry too. RTC_VER-",
+            "TEX stays.",
+            "Up the side",
+            "Next to it",
+        ];
+        assert_eq!(
+            read("side", &document(FONT, &[], &[stream("", content)])).as_deref(),
+            Some(&*lines.join("\n"))
+        );
     }
 
     #[test]
@@ -1583,11 +2347,27 @@ mod tests {
         for four in deflated(HELLO).chunks(4) {
             let mut word = [0u8; 4];
             word[..four.len()].copy_from_slice(four);
-            let digits: Vec<u8> = (0..5).rev().map(|n| (u32::from_be_bytes(word) / 85u32.pow(n) % 85) as u8 + b'!').collect();
+            let digits: Vec<u8> = (0..5)
+                .rev()
+                .map(|n| (u32::from_be_bytes(word) / 85u32.pow(n) % 85) as u8 + b'!')
+                .collect();
             armoured.push_str(std::str::from_utf8(&digits[..four.len() + 1]).unwrap());
         }
-        let file = document(FONT, &[], &[packed("", quotes), stream("/Filter [/ASCII85Decode /FlateDecode]", format!("{armoured}~>").as_bytes())]);
-        assert_eq!(read("quotes", &file).as_deref(), Some("It's the first line\nand the second\nand the third\nHello there"));
+        let file = document(
+            FONT,
+            &[],
+            &[
+                packed("", quotes),
+                stream(
+                    "/Filter [/ASCII85Decode /FlateDecode]",
+                    format!("{armoured}~>").as_bytes(),
+                ),
+            ],
+        );
+        assert_eq!(
+            read("quotes", &file).as_deref(),
+            Some("It's the first line\nand the second\nand the third\nHello there")
+        );
     }
 
     #[test]
@@ -1599,9 +2379,20 @@ mod tests {
             b"/Tx BMC BT /F1 12 Tf 2 5 Td (Ada Lovelace) Tj ET EMC",
         );
         let link = b"<< /Type /Annot /Subtype /Link /Rect [0 0 10 10] >>";
-        let objects =
-            [CATALOG, b"<< /Type /Pages /Kids [4 0 R] /Count 1 >>", HELVETICA, page, &stream("", b"BT /F1 12 Tf 72 700 Td (Name:) Tj ET"), field, &look, link];
-        assert_eq!(read("form", &pdf(&objects.map(<[u8]>::to_vec))).as_deref(), Some("Name:\nAda Lovelace"));
+        let objects = [
+            CATALOG,
+            b"<< /Type /Pages /Kids [4 0 R] /Count 1 >>",
+            HELVETICA,
+            page,
+            &stream("", b"BT /F1 12 Tf 72 700 Td (Name:) Tj ET"),
+            field,
+            &look,
+            link,
+        ];
+        assert_eq!(
+            read("form", &pdf(&objects.map(<[u8]>::to_vec))).as_deref(),
+            Some("Name:\nAda Lovelace")
+        );
     }
 
     #[test]
@@ -1609,9 +2400,20 @@ mod tests {
         // Encrypted as PDF 1.4 has it, by lopdf. The page is in an object stream and nowhere else.
         let locked = |password: &str| {
             let mut keys = Document::new();
-            keys.trailer.set("ID", vec![Object::string_literal("0123456789abcdef"), Object::string_literal("0123456789abcdef")]);
-            let version =
-                EncryptionVersion::V2 { document: &keys, owner_password: "owner", user_password: password, key_length: 128, permissions: Permissions::all() };
+            keys.trailer.set(
+                "ID",
+                vec![
+                    Object::string_literal("0123456789abcdef"),
+                    Object::string_literal("0123456789abcdef"),
+                ],
+            );
+            let version = EncryptionVersion::V2 {
+                document: &keys,
+                owner_password: "owner",
+                user_password: password,
+                key_length: 128,
+                permissions: Permissions::all(),
+            };
             let state = EncryptionState::try_from(version).unwrap();
             let sealed = |id: u32, entries: &str, content: &[u8]| {
                 let mut object = Object::Stream(Stream::new(Dictionary::new(), content.to_vec()));
@@ -1627,13 +2429,21 @@ mod tests {
                         "/{} {} ",
                         String::from_utf8_lossy(key),
                         match value {
-                            Object::String(bytes, _) => format!("<{}>", bytes.iter().map(|byte| format!("{byte:02X}")).collect::<String>()),
+                            Object::String(bytes, _) => format!(
+                                "<{}>",
+                                bytes
+                                    .iter()
+                                    .map(|byte| format!("{byte:02X}"))
+                                    .collect::<String>()
+                            ),
                             other => format!("{other:?}"),
                         }
                     )
                 })
                 .collect();
-            let page = format!("7 0 << /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << {FONT} >> /Contents 4 0 R >>");
+            let page = format!(
+                "7 0 << /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << {FONT} >> /Contents 4 0 R >>"
+            );
             let lock = format!("<< {lock}>>").into_bytes();
             let objects = [
                 CATALOG,
@@ -1645,23 +2455,45 @@ mod tests {
             ];
             let mut file = pdf(&objects.map(<[u8]>::to_vec));
             let root = memmem::rfind(&file, b"/Root 1 0 R").unwrap();
-            file.splice(root..root, *b"/Encrypt 6 0 R /ID [(0123456789abcdef) (0123456789abcdef)] ");
-            assert!(memmem::find(&file, b"Hello").is_none() && memmem::find(&file, b"/Page ").is_none());
+            file.splice(
+                root..root,
+                *b"/Encrypt 6 0 R /ID [(0123456789abcdef) (0123456789abcdef)] ",
+            );
+            assert!(
+                memmem::find(&file, b"Hello").is_none() && memmem::find(&file, b"/Page ").is_none()
+            );
             file
         };
         assert_eq!(read("open", &locked("")).as_deref(), Some("Hello there"));
-        assert_eq!(read("locked", &locked("secret")), None, "it takes a password");
+        assert_eq!(
+            read("locked", &locked("secret")),
+            None,
+            "it takes a password"
+        );
 
         let mut file = vec![];
-        Document::load_mem(&document(FONT, &[], &[stream("", HELLO)])).unwrap().save_modern(&mut file).unwrap();
-        assert!(memmem::find(&file, b"/ObjStm").is_some() && memmem::find(&file, b"/Type /Page").is_none());
+        Document::load_mem(&document(FONT, &[], &[stream("", HELLO)]))
+            .unwrap()
+            .save_modern(&mut file)
+            .unwrap();
+        assert!(
+            memmem::find(&file, b"/ObjStm").is_some()
+                && memmem::find(&file, b"/Type /Page").is_none()
+        );
         assert_eq!(read("streams", &file).as_deref(), Some("Hello there"));
     }
 
     #[test]
     fn pdf_without_text_is_none_and_no_bytes_make_it_panic() {
-        let image = stream("/Type /XObject /Subtype /Image /Width 2 /Height 2 /ColorSpace /DeviceGray /BitsPerComponent 8", b"\x00\x7f\x7f\xff");
-        let scan = document("/XObject << /Im 4 0 R >>", &[image], &[stream("", b"q 612 0 0 792 0 0 cm /Im Do Q")]);
+        let image = stream(
+            "/Type /XObject /Subtype /Image /Width 2 /Height 2 /ColorSpace /DeviceGray /BitsPerComponent 8",
+            b"\x00\x7f\x7f\xff",
+        );
+        let scan = document(
+            "/XObject << /Im 4 0 R >>",
+            &[image],
+            &[stream("", b"q 612 0 0 792 0 0 cm /Im Do Q")],
+        );
         assert_eq!(read("scan", &scan), None);
 
         let folder = folder("pdf-no-text");
@@ -1670,8 +2502,15 @@ mod tests {
         assert_eq!(text(&folder.join("missing.pdf"), 1000), None);
         let good = document(FONT, &[], &[packed("", HELLO)]);
         std::fs::write(folder.join("large.pdf"), &good).unwrap();
-        assert_eq!(text(&folder.join("large.pdf"), good.len() as u64 - 1), None, "larger than allowed");
-        assert_eq!(text(&folder.join("large.pdf"), good.len() as u64).as_deref(), Some("Hello there\n"));
+        assert_eq!(
+            text(&folder.join("large.pdf"), good.len() as u64 - 1),
+            None,
+            "larger than allowed"
+        );
+        assert_eq!(
+            text(&folder.join("large.pdf"), good.len() as u64).as_deref(),
+            Some("Hello there\n")
+        );
         let _ = std::fs::remove_dir_all(folder);
 
         // Bytes of no meaning: by themselves, after a good start, in the middle of a good file.
@@ -1684,11 +2523,17 @@ mod tests {
             (0..len).map(|_| next()).collect()
         };
         assert_eq!(read("noise", &noise(5000)), None);
-        assert_eq!(read("noise", &[&b"%PDF-1.7\n"[..], &noise(5000)].concat()), None);
+        assert_eq!(
+            read("noise", &[&b"%PDF-1.7\n"[..], &noise(5000)].concat()),
+            None
+        );
         for at in (0..good.len()).step_by(good.len() / 40) {
             let _ = read("cut", &good[..at]);
             let _ = read("noise", &[&good[..at], &noise(50), &good[at..]].concat());
-            let _ = read("noise", &[&good[..at], &noise(10), &good[(at + 10).min(good.len())..]].concat());
+            let _ = read(
+                "noise",
+                &[&good[..at], &noise(10), &good[(at + 10).min(good.len())..]].concat(),
+            );
         }
     }
 
@@ -1696,22 +2541,42 @@ mod tests {
     fn pdf_mends_the_fonts_pdf_extract_gives_up_on() {
         let reads = |name: &str, font: &str, more: &[Vec<u8>]| {
             let more: Vec<Vec<u8>> = [&[font.as_bytes().to_vec()], more].concat();
-            assert_eq!(read(name, &document("/Font << /F1 4 0 R >>", &more, &[stream("", HELLO)])).as_deref(), Some("Hello there"), "{name}");
+            assert_eq!(
+                read(
+                    name,
+                    &document("/Font << /F1 4 0 R >>", &more, &[stream("", HELLO)])
+                )
+                .as_deref(),
+                Some("Hello there"),
+                "{name}"
+            );
         };
-        reads("an encoding it does not know", "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /StandardEncoding >>", &[]);
+        reads(
+            "an encoding it does not know",
+            "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /StandardEncoding >>",
+            &[],
+        );
         reads(
             "widths that do not match",
             "<< /Type /Font /Subtype /TrueType /BaseFont /Arial /Encoding /WinAnsiEncoding /FirstChar 32 /LastChar 40 /Widths [250 250 250] >>",
             &[],
         );
         let few = b"1 beginbfchar <48> <0048> endbfchar";
-        reads("a map that lacks letters", "<< /Type /Font /Subtype /Type1 /BaseFont /Mine /ToUnicode 5 0 R >>", &[stream("", few)]);
+        reads(
+            "a map that lacks letters",
+            "<< /Type /Font /Subtype /Type1 /BaseFont /Mine /ToUnicode 5 0 R >>",
+            &[stream("", few)],
+        );
         reads(
             "a map that is no map",
             "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding /ToUnicode 5 0 R >>",
             &[stream("", b"<< /Not [a map")],
         );
-        reads("a map by a name", "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding /ToUnicode /Identity-V >>", &[]);
+        reads(
+            "a map by a name",
+            "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding /ToUnicode /Identity-V >>",
+            &[],
+        );
     }
 
     #[test]
@@ -1719,63 +2584,166 @@ mod tests {
         let within = |name: &str, file: &[u8]| {
             let start = Instant::now();
             let text = read(name, file);
-            assert!(start.elapsed() < crate::test_limit(TIME + Duration::from_secs(20)), "{name} took {:?}", start.elapsed());
+            assert!(
+                start.elapsed() < crate::test_limit(TIME + Duration::from_secs(20)),
+                "{name} took {:?}",
+                start.elapsed()
+            );
             text
         };
-        let form = |content: &[u8], resources: &str| stream(&format!("/Type /XObject /Subtype /Form /BBox [0 0 9 9] /Resources << {resources} >>"), content);
+        let form = |content: &[u8], resources: &str| {
+            stream(
+                &format!(
+                    "/Type /XObject /Subtype /Form /BBox [0 0 9 9] /Resources << {resources} >>"
+                ),
+                content,
+            )
+        };
         let drawing = [HELLO, b"/X Do\n"].concat();
 
         // A form that draws itself, and eight forms that each draw the next a hundred times.
-        let itself = document(&format!("{FONT} /XObject << /X 4 0 R >>"), &[form(b"/X Do", "/XObject << /X 4 0 R >>")], &[stream("", &drawing)]);
+        let itself = document(
+            &format!("{FONT} /XObject << /X 4 0 R >>"),
+            &[form(b"/X Do", "/XObject << /X 4 0 R >>")],
+            &[stream("", &drawing)],
+        );
         assert_eq!(within("itself", &itself).as_deref(), Some("Hello there"));
-        let forms: Vec<Vec<u8>> = (0..8).map(|n| form(&b"/X Do\n".repeat(100), &format!("/XObject << /X {} 0 R >>", (5 + n).min(11)))).collect();
-        let hundreds = document(&format!("{FONT} /XObject << /X 4 0 R >>"), &forms, &[stream("", &drawing)]);
-        assert_eq!(within("hundreds", &hundreds).as_deref(), Some("Hello there"));
+        let forms: Vec<Vec<u8>> = (0..8)
+            .map(|n| {
+                form(
+                    &b"/X Do\n".repeat(100),
+                    &format!("/XObject << /X {} 0 R >>", (5 + n).min(11)),
+                )
+            })
+            .collect();
+        let hundreds = document(
+            &format!("{FONT} /XObject << /X 4 0 R >>"),
+            &forms,
+            &[stream("", &drawing)],
+        );
+        assert_eq!(
+            within("hundreds", &hundreds).as_deref(),
+            Some("Hello there")
+        );
 
         // Forms in forms: read as deep as `DEPTH`, and left out when they go deeper.
         let nested = |deep: usize| {
             let forms: Vec<Vec<u8>> = (1..=deep)
                 .map(|n| {
-                    form(if n < deep { b"/X Do" } else { b"BT /F1 12 Tf 72 700 Td (Deep down) Tj ET" }, &format!("{FONT} /XObject << /X {} 0 R >>", 4 + n))
+                    form(
+                        if n < deep {
+                            b"/X Do"
+                        } else {
+                            b"BT /F1 12 Tf 72 700 Td (Deep down) Tj ET"
+                        },
+                        &format!("{FONT} /XObject << /X {} 0 R >>", 4 + n),
+                    )
                 })
                 .collect();
-            document(&format!("{FONT} /XObject << /X 4 0 R >>"), &forms, &[stream("", &drawing)])
+            document(
+                &format!("{FONT} /XObject << /X 4 0 R >>"),
+                &forms,
+                &[stream("", &drawing)],
+            )
         };
-        assert_eq!(within("deep", &nested(DEPTH)).as_deref(), Some("Hello there\nDeep down"));
-        assert_eq!(within("deeper", &nested(DEPTH + 1)).as_deref(), Some("Hello there"));
-        let brackets = format!("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding /Deep {}{} >>", "[".repeat(90), "]".repeat(90));
-        assert_eq!(within("brackets", &document("/Font << /F1 4 0 R >>", &[brackets.into()], &[stream("", HELLO)])).as_deref(), Some("Hello there"));
+        assert_eq!(
+            within("deep", &nested(DEPTH)).as_deref(),
+            Some("Hello there\nDeep down")
+        );
+        assert_eq!(
+            within("deeper", &nested(DEPTH + 1)).as_deref(),
+            Some("Hello there")
+        );
+        let brackets = format!(
+            "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding /Deep {}{} >>",
+            "[".repeat(90),
+            "]".repeat(90)
+        );
+        assert_eq!(
+            within(
+                "brackets",
+                &document(
+                    "/Font << /F1 4 0 R >>",
+                    &[brackets.into()],
+                    &[stream("", HELLO)]
+                )
+            )
+            .as_deref(),
+            Some("Hello there")
+        );
 
         // A page that is its own parent, with nothing of its own to stop at.
-        let orphan =
-            pdf(&[CATALOG, b"<< /Type /Pages /Kids [4 0 R] /Count 1 >>", HELVETICA, b"<< /Type /Page /Parent 4 0 R /Contents 5 0 R >>", &stream("", HELLO)]
-                .map(<[u8]>::to_vec));
+        let orphan = pdf(&[
+            CATALOG,
+            b"<< /Type /Pages /Kids [4 0 R] /Count 1 >>",
+            HELVETICA,
+            b"<< /Type /Page /Parent 4 0 R /Contents 5 0 R >>",
+            &stream("", HELLO),
+        ]
+        .map(<[u8]>::to_vec));
         assert_eq!(within("orphan", &orphan), None);
 
         // A page that names the same megabyte of content two thousand times.
         let megabyte = [HELLO, &b" ".repeat(1 << 20)].concat();
-        let page = format!("<< /Type /Page /Parent 2 0 R /MediaBox [0 0 9 9] /Resources << {FONT} >> /Contents [{}] >>", "5 0 R ".repeat(2000));
-        let many =
-            pdf(&[CATALOG.to_vec(), b"<< /Type /Pages /Kids [4 0 R] /Count 1 >>".to_vec(), HELVETICA.to_vec(), page.into_bytes(), packed("", &megabyte)]);
+        let page = format!(
+            "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 9 9] /Resources << {FONT} >> /Contents [{}] >>",
+            "5 0 R ".repeat(2000)
+        );
+        let many = pdf(&[
+            CATALOG.to_vec(),
+            b"<< /Type /Pages /Kids [4 0 R] /Count 1 >>".to_vec(),
+            HELVETICA.to_vec(),
+            page.into_bytes(),
+            packed("", &megabyte),
+        ]);
         assert_eq!(within("many", &many), None);
 
         // Maps and a font program of brackets in brackets, and a map of every code there is.
         let mapped = "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding /ToUnicode 5 0 R >>";
         for open in ["[", "(", "<<"] {
-            let file = document("/Font << /F1 4 0 R >>", &[mapped.into(), packed("", open.repeat(100_000).as_bytes())], &[stream("", HELLO)]);
-            assert_eq!(within("opened", &file).as_deref(), Some("Hello there"), "{open}");
+            let file = document(
+                "/Font << /F1 4 0 R >>",
+                &[mapped.into(), packed("", open.repeat(100_000).as_bytes())],
+                &[stream("", HELLO)],
+            );
+            assert_eq!(
+                within("opened", &file).as_deref(),
+                Some("Hello there"),
+                "{open}"
+            );
         }
         let every = b"1 beginbfrange <00000000> <FFFFFFFF> <0041> endbfrange 1 beginbfrange <00> <FF> <D800> endbfrange 1 beginbfchar <48> <D800> endbfchar";
-        within("every", &document("/Font << /F1 4 0 R >>", &[mapped.into(), stream("", every)], &[stream("", HELLO)]));
+        within(
+            "every",
+            &document(
+                "/Font << /F1 4 0 R >>",
+                &[mapped.into(), stream("", every)],
+                &[stream("", HELLO)],
+            ),
+        );
         let font = "<< /Type /Font /Subtype /Type1 /BaseFont /Mine /FirstChar 32 /LastChar 32 /Widths [250] /FontDescriptor 5 0 R >>";
         let descriptor = "<< /Type /FontDescriptor /FontName /Mine /Flags 4 /FontBBox [0 0 1 1] /ItalicAngle 0 /Ascent 1 /Descent 0 /CapHeight 1 /StemV 1 \
                           /FontFile 6 0 R >>";
-        let program = packed("/Length1 200005", &[&b"{".repeat(200_000)[..], b"eexec"].concat());
-        let braces = document("/Font << /F1 4 0 R >>", &[font.into(), descriptor.into(), program], &[stream("", HELLO)]);
+        let program = packed(
+            "/Length1 200005",
+            &[&b"{".repeat(200_000)[..], b"eexec"].concat(),
+        );
+        let braces = document(
+            "/Font << /F1 4 0 R >>",
+            &[font.into(), descriptor.into(), program],
+            &[stream("", HELLO)],
+        );
         assert_eq!(within("braces", &braces).as_deref(), Some("Hello there"));
 
         // Text before any font is named: what pdf-extract gives up on costs that page, no more.
-        let unnamed = document(FONT, &[], &[stream("", b"BT 72 720 Td (No font) Tj ET"), stream("", HELLO)]);
+        let unnamed = document(
+            FONT,
+            &[],
+            &[
+                stream("", b"BT 72 720 Td (No font) Tj ET"),
+                stream("", HELLO),
+            ],
+        );
         assert_eq!(within("unnamed", &unnamed).as_deref(), Some("Hello there"));
     }
 
@@ -1787,30 +2755,77 @@ mod tests {
             stream.dict.set("Filter", filter);
             stream
         };
-        assert_eq!(unpacked(&of("FlateDecode", deflated(&spaces)), 100_000).map(|b| b.len()), Some(100_000));
-        assert_eq!(unpacked(&of("FlateDecode", deflated(&spaces)), 99_999).map(|b| b.len()), None);
-        assert_eq!(unpacked(&of("FlateDecode", [b"xx", &deflated(&spaces)[2..]].concat()), 99_999).map(|b| b.len()), None, "deflate without the start of zlib");
-        assert_eq!(unpacked(&of("ASCII85Decode", b"z".repeat(1000)), 3999).map(|b| b.len()), None);
-        assert_eq!(unpacked(&of("LZWDecode", vec![0; 1000]), 4_000_000 - 1).map(|b| b.len()), None);
-        assert_eq!(unpacked(&of("DCTDecode", spaces.clone()), 10).map(|b| b.len()), Some(100_000), "not unpacked at all");
+        assert_eq!(
+            unpacked(&of("FlateDecode", deflated(&spaces)), 100_000).map(|b| b.len()),
+            Some(100_000)
+        );
+        assert_eq!(
+            unpacked(&of("FlateDecode", deflated(&spaces)), 99_999).map(|b| b.len()),
+            None
+        );
+        assert_eq!(
+            unpacked(
+                &of("FlateDecode", [b"xx", &deflated(&spaces)[2..]].concat()),
+                99_999
+            )
+            .map(|b| b.len()),
+            None,
+            "deflate without the start of zlib"
+        );
+        assert_eq!(
+            unpacked(&of("ASCII85Decode", b"z".repeat(1000)), 3999).map(|b| b.len()),
+            None
+        );
+        assert_eq!(
+            unpacked(&of("LZWDecode", vec![0; 1000]), 4_000_000 - 1).map(|b| b.len()),
+            None
+        );
+        assert_eq!(
+            unpacked(&of("DCTDecode", spaces.clone()), 10).map(|b| b.len()),
+            Some(100_000),
+            "not unpacked at all"
+        );
 
         // An object stream is unpacked by lopdf as it loads: all of them share what room there is.
         let mut kept = Object::Stream(of("FlateDecode", deflated(&spaces)));
         kept.as_stream_mut().unwrap().dict.set("Type", "ObjStm");
         let mut over = kept.clone();
         let size = deflated(&spaces).len();
-        LOAD.set(Some(Load { room: 150_000, things: MAX_THINGS, left: 2 * size as u64, until: Instant::now() + TIME, locked: false }));
+        LOAD.set(Some(Load {
+            room: 150_000,
+            things: MAX_THINGS,
+            left: 2 * size as u64,
+            until: Instant::now() + TIME,
+            locked: false,
+        }));
         at_load((1, 0), &mut kept);
         at_load((2, 0), &mut over);
-        assert_eq!((LOAD.get().unwrap().room, kept.as_stream().unwrap().content.len(), &over.as_stream().unwrap().content[..]), (50_000, size, &b"\n"[..]));
+        assert_eq!(
+            (
+                LOAD.get().unwrap().room,
+                kept.as_stream().unwrap().content.len(),
+                &over.as_stream().unwrap().content[..]
+            ),
+            (50_000, size, &b"\n"[..])
+        );
         // And a file has no more bytes of streams than it has bytes: one listed a third time ends the loading.
         assert!(catch_unwind(AssertUnwindSafe(|| at_load((3, 0), &mut kept.clone()))).is_err());
 
         // Three hundred pages are read to the last, and none when the time is up.
-        let pages: Vec<Vec<u8>> = (1..=300).map(|n| stream("", format!("BT /F1 12 Tf 72 720 Td (Page {n} of many) Tj ET").as_bytes())).collect();
+        let pages: Vec<Vec<u8>> = (1..=300)
+            .map(|n| {
+                stream(
+                    "",
+                    format!("BT /F1 12 Tf 72 720 Td (Page {n} of many) Tj ET").as_bytes(),
+                )
+            })
+            .collect();
         let file = document(FONT, &[], &pages);
         let text = super::read(file.clone(), Instant::now() + Duration::from_secs(60)).unwrap();
-        assert_eq!((text.lines().count(), text.lines().last()), (300, Some("Page 300 of many")));
+        assert_eq!(
+            (text.lines().count(), text.lines().last()),
+            (300, Some("Page 300 of many"))
+        );
         assert_eq!(super::read(file, Instant::now()), None);
     }
 
@@ -1835,22 +2850,54 @@ mod tests {
                 file.extend([format!("{} 0 obj\n", n + 1).as_bytes(), object, b"\nendobj\n"].concat());
             }
             let at = file.len();
-            let listed: Vec<u8> = [0].iter().chain(&starts).flat_map(|start| [&[1u8][..], &start.to_be_bytes(), &[0]].concat()).collect();
+            let listed: Vec<u8> = [0]
+                .iter()
+                .chain(&starts)
+                .flat_map(|start| [&[1u8][..], &start.to_be_bytes(), &[0]].concat())
+                .collect();
             let rows = if rows.is_empty() { &listed } else { rows };
-            file.extend([b"6 0 obj\n", &packed(&format!("/Type /XRef /Size 6 /Root 1 0 R /W [{widths}]"), rows)[..], b"\nendobj\n"].concat());
+            file.extend(
+                [
+                    b"6 0 obj\n",
+                    &packed(
+                        &format!("/Type /XRef /Size 6 /Root 1 0 R /W [{widths}]"),
+                        rows,
+                    )[..],
+                    b"\nendobj\n",
+                ]
+                .concat(),
+            );
             file.extend(format!("startxref\n{at}\n%%EOF\n").bytes());
             file
         };
-        assert_eq!(read("table", &table("1 4 1", b"")).as_deref(), Some("Hello there"));
+        assert_eq!(
+            read("table", &table("1 4 1", b"")).as_deref(),
+            Some("Hello there")
+        );
         // A table that is refused is not read: the file is read by a table made of its objects.
-        assert_eq!(read("wide", &table("20000000000 4 1", b"")).as_deref(), Some("Hello there"));
-        assert_eq!(read("narrow", &table("0 0 0", b"")).as_deref(), Some("Hello there"));
-        assert_eq!(read("long", &table("1 4 1", &[0; 100_000])).as_deref(), Some("Hello there"));
+        assert_eq!(
+            read("wide", &table("20000000000 4 1", b"")).as_deref(),
+            Some("Hello there")
+        );
+        assert_eq!(
+            read("narrow", &table("0 0 0", b"")).as_deref(),
+            Some("Hello there")
+        );
+        assert_eq!(
+            read("long", &table("1 4 1", &[0; 100_000])).as_deref(),
+            Some("Hello there")
+        );
 
         // One stream listed ten thousand times, in a file as it is and in one that says it is
         // encrypted: neither is read ten thousand times. The first is read by a table made anew,
         // the second takes a password it does not have.
-        for (trailer, text) in [("", Some("Hello there")), ("/Encrypt 7 0 R /ID [(0123456789abcdef) (0123456789abcdef)]", None)] {
+        for (trailer, text) in [
+            ("", Some("Hello there")),
+            (
+                "/Encrypt 7 0 R /ID [(0123456789abcdef) (0123456789abcdef)]",
+                None,
+            ),
+        ] {
             let lock = b"<< /Filter /Standard /V 1 /R 2 /O (oooooooooooooooooooooooooooooooo) /U (uuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuu) /P -4 >>";
             let objects = [
                 CATALOG,
@@ -1863,30 +2910,87 @@ mod tests {
             ];
             let file = pdf(&objects.map(<[u8]>::to_vec));
             let table = memmem::find(&file, b"xref\n0 8").unwrap();
-            let listed = format!("xref\n0 10008\n{}", format!("{:010} 00000 n \n", memmem::find(&file, b"6 0 obj").unwrap()).repeat(10_000));
-            let end = format!("trailer\n<< /Size 10008 /Root 1 0 R {trailer} >>\nstartxref\n{table}\n%%EOF\n");
-            let file = [&file[..table], listed.as_bytes(), &file[table + 9..memmem::find(&file, b"trailer").unwrap()], end.as_bytes()].concat();
+            let listed = format!(
+                "xref\n0 10008\n{}",
+                format!(
+                    "{:010} 00000 n \n",
+                    memmem::find(&file, b"6 0 obj").unwrap()
+                )
+                .repeat(10_000)
+            );
+            let end = format!(
+                "trailer\n<< /Size 10008 /Root 1 0 R {trailer} >>\nstartxref\n{table}\n%%EOF\n"
+            );
+            let file = [
+                &file[..table],
+                listed.as_bytes(),
+                &file[table + 9..memmem::find(&file, b"trailer").unwrap()],
+                end.as_bytes(),
+            ]
+            .concat();
             let start = Instant::now();
             assert_eq!(read("listed", &file).as_deref(), text, "{trailer}");
-            assert!(start.elapsed() < crate::test_limit(Duration::from_secs(10)), "{trailer} took {:?}", start.elapsed());
+            assert!(
+                start.elapsed() < crate::test_limit(Duration::from_secs(10)),
+                "{trailer} took {:?}",
+                start.elapsed()
+            );
         }
     }
 
     #[test]
     fn pdf_reads_a_file_with_junk_before_its_header_or_tables_it_cannot_use() {
         let good = document(FONT, &[], &[stream("", HELLO)]);
-        assert_eq!(read("junk", &[b"\xef\xbb\xbfsome junk header line\r\n", &good[..]].concat()).as_deref(), Some("Hello there"));
+        assert_eq!(
+            read(
+                "junk",
+                &[b"\xef\xbb\xbfsome junk header line\r\n", &good[..]].concat()
+            )
+            .as_deref(),
+            Some("Hello there")
+        );
         // A comment put in after the header, which puts every offset off; a startxref that
         // points nowhere; a file cut before its table, with no trailer at all.
-        assert_eq!(read("offsets", &[&good[..9], b"% a comment added later\n", &good[9..]].concat()).as_deref(), Some("Hello there"));
+        assert_eq!(
+            read(
+                "offsets",
+                &[&good[..9], b"% a comment added later\n", &good[9..]].concat()
+            )
+            .as_deref(),
+            Some("Hello there")
+        );
         let word = memmem::rfind(&good, b"startxref").unwrap();
-        assert_eq!(read("nowhere", &[&good[..word], b"startxref\n999999\n%%EOF\n"].concat()).as_deref(), Some("Hello there"));
-        assert_eq!(read("no table", &good[..memmem::find(&good, b"xref\n0 ").unwrap()]).as_deref(), Some("Hello there"));
+        assert_eq!(
+            read(
+                "nowhere",
+                &[&good[..word], b"startxref\n999999\n%%EOF\n"].concat()
+            )
+            .as_deref(),
+            Some("Hello there")
+        );
+        assert_eq!(
+            read(
+                "no table",
+                &good[..memmem::find(&good, b"xref\n0 ").unwrap()]
+            )
+            .as_deref(),
+            Some("Hello there")
+        );
         // The same, of a file that keeps its page and its catalog in an object stream.
         let mut modern = vec![];
-        Document::load_mem(&good).unwrap().save_modern(&mut modern).unwrap();
+        Document::load_mem(&good)
+            .unwrap()
+            .save_modern(&mut modern)
+            .unwrap();
         let word = memmem::rfind(&modern, b"startxref").unwrap();
-        assert_eq!(read("modern", &[&modern[..word], b"startxref\n0\n%%EOF\n"].concat()).as_deref(), Some("Hello there"));
+        assert_eq!(
+            read(
+                "modern",
+                &[&modern[..word], b"startxref\n0\n%%EOF\n"].concat()
+            )
+            .as_deref(),
+            Some("Hello there")
+        );
         assert_eq!(rebuilt(b"%PDF-1.4\nnothing 3 obj here endobj"), None);
     }
 
@@ -1899,7 +3003,11 @@ mod tests {
         let content = b"/Span << /ActualText (first) >> BDC BT /F1 12 Tf 72 700 Td (\\336rst) Tj ET EMC BT /F1 12 Tf 72 680 Td (plain) Tj
             /Span << /ActualText <FEFF> >> BDC (-) Tj EMC ET
             BT /F2 12 Tf 72 660 Td /Span << /ActualText <FEFF062D> >> BDC <0001> Tj EMC <0002> Tj ET";
-        let file = document(TWO_BYTE, &two_byte_font(map, "/DW 600"), &[stream("", content)]);
+        let file = document(
+            TWO_BYTE,
+            &two_byte_font(map, "/DW 600"),
+            &[stream("", content)],
+        );
         assert_eq!(read("span", &file).as_deref(), Some("first\nplain\nبح"));
     }
 
@@ -1909,7 +3017,10 @@ mod tests {
         // no space between, as LaTeX draws them. A power and an index stay with their base.
         let content = b"BT /F1 12 Tf 72 700 Td (E = mc) Tj 5 Ts /F1 8 Tf (2) Tj 0 Ts /F1 12 Tf ( and F) Tj -3 Ts /F1 8 Tf (s) Tj 0 Ts /F1 12 Tf (/2) Tj ET
             BT /F1 6 Tf 1 0 0 1 61.2 59.64 Tm (1) Tj /F1 8 Tf 1 0 0 1 64.68 56.76 Tm (Footnotebody here) Tj ET";
-        assert_eq!(read("footnote", &document(FONT, &[], &[stream("", content)])).as_deref(), Some("E = mc2 and Fs/2\n1 Footnotebody here"));
+        assert_eq!(
+            read("footnote", &document(FONT, &[], &[stream("", content)])).as_deref(),
+            Some("E = mc2 and Fs/2\n1 Footnotebody here")
+        );
     }
 
     #[test]
@@ -1919,14 +3030,24 @@ mod tests {
         let times = "<< /Type /Font /Subtype /Type1 /BaseFont /Times-Roman /Encoding << /Differences [150 /endash] >> >>";
         let symbol = "<< /Type /Font /Subtype /Type1 /BaseFont /Symbol /Encoding << /Differences [1 /alpha] >> >>";
         let content = b"BT /F1 12 Tf 72 700 Td (\\256rst that's \\226 fine) Tj ET BT /F2 12 Tf 72 680 Td (\\001bg) Tj ET";
-        let file = document("/Font << /F1 4 0 R /F2 5 0 R >>", &[times.into(), symbol.into()], &[stream("", content)]);
-        assert_eq!(read("differences", &file).as_deref(), Some("first that’s – fine\nαβγ"));
+        let file = document(
+            "/Font << /F1 4 0 R /F2 5 0 R >>",
+            &[times.into(), symbol.into()],
+            &[stream("", content)],
+        );
+        assert_eq!(
+            read("differences", &file).as_deref(),
+            Some("first that’s – fine\nαβγ")
+        );
     }
 
     #[test]
     fn pdf_writes_a_word_drawn_twice_for_bold_once() {
         // Word draws a word a second time a hair to the right for a font that has no bold face.
         let content = b"BT /F1 12 Tf 72 700 Td (Boldword and normal) Tj ET BT /F1 12 Tf 72.3 700 Td (Boldword) Tj ET";
-        assert_eq!(read("bold", &document(FONT, &[], &[stream("", content)])).as_deref(), Some("Boldword and normal"));
+        assert_eq!(
+            read("bold", &document(FONT, &[], &[stream("", content)])).as_deref(),
+            Some("Boldword and normal")
+        );
     }
 }

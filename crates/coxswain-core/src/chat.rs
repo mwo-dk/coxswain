@@ -42,7 +42,13 @@ pub struct Model {
 }
 
 /// Qwen3's tokenizer, the same for all of them.
-const TOKENIZER: Pinned = Pinned { repo: "Qwen/Qwen3-1.7B", revision: "70d244cc86ccca08cf5af4e1e306ecf908b1ad5e", name: "tokenizer.json", sha: "aeb13307a71acd8fe81861d94ad54ab689df773318809eed3cbe794b4492dae4", len: 11_422_654 };
+const TOKENIZER: Pinned = Pinned {
+    repo: "Qwen/Qwen3-1.7B",
+    revision: "70d244cc86ccca08cf5af4e1e306ecf908b1ad5e",
+    name: "tokenizer.json",
+    sha: "aeb13307a71acd8fe81861d94ad54ab689df773318809eed3cbe794b4492dae4",
+    len: 11_422_654,
+};
 
 /// The small one for any machine, a better one for 16 GB, and one that knows and reasons more
 /// for 32 GB. Qwen3 30B-A3B would be quicker than the 14B and know more, but candle runs its
@@ -56,7 +62,16 @@ pub const MODELS: &[Model] = &[
         context: CONTEXT,
         layers: 1409.0,
         head: 311.0,
-        files: &[Pinned { repo: "unsloth/Qwen3-1.7B-GGUF", revision: "d7f544eead698dbd1f15126ef60b45a1e1933222", name: "Qwen3-1.7B-Q4_K_M.gguf", sha: "b139949c5bd74937ad8ed8c8cf3d9ffb1e99c866c823204dc42c0d91fa181897", len: 1_107_409_472 }, TOKENIZER],
+        files: &[
+            Pinned {
+                repo: "unsloth/Qwen3-1.7B-GGUF",
+                revision: "d7f544eead698dbd1f15126ef60b45a1e1933222",
+                name: "Qwen3-1.7B-Q4_K_M.gguf",
+                sha: "b139949c5bd74937ad8ed8c8cf3d9ffb1e99c866c823204dc42c0d91fa181897",
+                len: 1_107_409_472,
+            },
+            TOKENIZER,
+        ],
     },
     Model {
         id: "qwen3-4b",
@@ -66,7 +81,16 @@ pub const MODELS: &[Model] = &[
         context: CONTEXT,
         layers: 3633.0,
         head: 389.0,
-        files: &[Pinned { repo: "unsloth/Qwen3-4B-Instruct-2507-GGUF", revision: "a06e946bb6b655725eafa393f4a9745d460374c9", name: "Qwen3-4B-Instruct-2507-Q4_K_M.gguf", sha: "3605803b982cb64aead44f6c1b2ae36e3acdb41d8e46c8a94c6533bc4c67e597", len: 2_497_281_120 }, TOKENIZER],
+        files: &[
+            Pinned {
+                repo: "unsloth/Qwen3-4B-Instruct-2507-GGUF",
+                revision: "a06e946bb6b655725eafa393f4a9745d460374c9",
+                name: "Qwen3-4B-Instruct-2507-Q4_K_M.gguf",
+                sha: "3605803b982cb64aead44f6c1b2ae36e3acdb41d8e46c8a94c6533bc4c67e597",
+                len: 2_497_281_120,
+            },
+            TOKENIZER,
+        ],
     },
     Model {
         id: "qwen3-14b",
@@ -77,7 +101,16 @@ pub const MODELS: &[Model] = &[
         context: 16_384,
         layers: 13212.0,
         head: 778.0,
-        files: &[Pinned { repo: "unsloth/Qwen3-14B-GGUF", revision: "a04a82c4739b3ef5fa6da7d10261db2c67dd1985", name: "Qwen3-14B-Q4_K_M.gguf", sha: "5eaa0870bd81ed3b58a630a271234cfa604e43ffb3a19cd68e54a80dd9d52a66", len: 9_001_753_984 }, TOKENIZER],
+        files: &[
+            Pinned {
+                repo: "unsloth/Qwen3-14B-GGUF",
+                revision: "a04a82c4739b3ef5fa6da7d10261db2c67dd1985",
+                name: "Qwen3-14B-Q4_K_M.gguf",
+                sha: "5eaa0870bd81ed3b58a630a271234cfa604e43ffb3a19cd68e54a80dd9d52a66",
+                len: 9_001_753_984,
+            },
+            TOKENIZER,
+        ],
     },
 ];
 
@@ -95,7 +128,9 @@ pub(crate) fn metal(cpu_only: bool) -> bool {
 /// The models offered on a machine with `ram` GB: those it has the memory for, the small one
 /// always.
 pub fn fitting(ram: u64) -> impl Iterator<Item = &'static Model> {
-    MODELS.iter().filter(move |m| m.ram <= ram.max(MODELS[0].ram))
+    MODELS
+        .iter()
+        .filter(move |m| m.ram <= ram.max(MODELS[0].ram))
 }
 
 /// The model to recommend for a machine with `ram` GB. On a Mac's GPU: the largest one with
@@ -105,16 +140,26 @@ pub fn fitting(ram: u64) -> impl Iterator<Item = &'static Model> {
 pub fn suggest(ram: u64, cpu_only: bool) -> Option<&'static Model> {
     if metal(cpu_only) {
         let apple = cfg!(target_arch = "aarch64");
-        return MODELS.iter().rev().find(|m| ram >= m.ram && (apple || m.ram <= MODELS[0].ram)).or(Some(&MODELS[0]));
+        return MODELS
+            .iter()
+            .rev()
+            .find(|m| ram >= m.ram && (apple || m.ram <= MODELS[0].ram))
+            .or(Some(&MODELS[0]));
     }
-    estimate(&MODELS[0], cpu_only, true).filter(|e| e.first < QUICK).map(|_| &MODELS[0])
+    estimate(&MODELS[0], cpu_only, true)
+        .filter(|e| e.first < QUICK)
+        .map(|_| &MODELS[0])
 }
 
 /// The built-in model to preselect where nothing better is at hand, so a choice is never
 /// empty: the recommended one on a Mac's GPU, else the small one, with its estimate shown.
 /// It never waits for the probe.
 pub fn preselect(ram: u64, cpu_only: bool) -> &'static Model {
-    if metal(cpu_only) { suggest(ram, cpu_only).unwrap_or(&MODELS[0]) } else { &MODELS[0] }
+    if metal(cpu_only) {
+        suggest(ram, cpu_only).unwrap_or(&MODELS[0])
+    } else {
+        &MODELS[0]
+    }
 }
 
 /// Seconds to the first word that still make a model worth recommending.
@@ -135,14 +180,22 @@ impl Estimate {
     fn of(m: &Model, ns: f64) -> Estimate {
         let read = 1e3 / (ns * m.layers * READ_COST);
         let write = 1e3 / (ns * (m.layers + m.head) * WRITE_COST);
-        Estimate { read, write, first: (CPU_CONTEXT - ANSWER) as f64 / read + 1.0 / write }
+        Estimate {
+            read,
+            write,
+            first: (CPU_CONTEXT - ANSWER) as f64 / read + 1.0 / write,
+        }
     }
 
     /// "about 40 s to the first word, then 3 words a second", and why it is not recommended
     /// when it is not: a token is about ¾ of a word.
     pub fn text(&self) -> String {
         let s = crate::t!("ask.builtin_estimate", "seconds" => format!("{:.0}", self.first.max(1.0)), "words" => format!("{:.1}", self.write * 0.75));
-        if self.first < QUICK { s } else { format!("{s} ({})", crate::t!("ask.builtin_slow")) }
+        if self.first < QUICK {
+            s
+        } else {
+            format!("{s} ({})", crate::t!("ask.builtin_slow"))
+        }
     }
 }
 
@@ -166,7 +219,9 @@ pub fn estimate(m: &Model, cpu_only: bool, wait: bool) -> Option<Estimate> {
         None if wait => *SPEED.get_or_init(speed),
         None => {
             if !STARTED.swap(true, std::sync::atomic::Ordering::Relaxed) {
-                let _ = std::thread::Builder::new().name("coxswain-chat-probe".into()).spawn(|| SPEED.get_or_init(speed));
+                let _ = std::thread::Builder::new()
+                    .name("coxswain-chat-probe".into())
+                    .spawn(|| SPEED.get_or_init(speed));
             }
             return None;
         }
@@ -180,15 +235,34 @@ pub fn estimate(m: &Model, cpu_only: bool, wait: bool) -> Option<Estimate> {
 fn speed() -> Option<f64> {
     let file = dirs::data_dir().map(|d| d.join("coxswain").join("chat-speed.txt"));
     // A debug build is far slower: its result is kept apart.
-    let key = format!("{} × {} · {}{}", cpu_name(), std::thread::available_parallelism().map_or(1, |n| n.get()), crate::update::VERSION, if cfg!(debug_assertions) { " debug" } else { "" });
-    let kept: Option<f64> = file.as_ref().and_then(|f| std::fs::read_to_string(f).ok()).and_then(|t| Some(t.split_once('\n').filter(|(k, _)| *k == key)?.1.trim().parse().ok()?));
+    let key = format!(
+        "{} × {} · {}{}",
+        cpu_name(),
+        std::thread::available_parallelism().map_or(1, |n| n.get()),
+        crate::update::VERSION,
+        if cfg!(debug_assertions) { " debug" } else { "" }
+    );
+    let kept: Option<f64> = file
+        .as_ref()
+        .and_then(|f| std::fs::read_to_string(f).ok())
+        .and_then(|t| {
+            Some(
+                t.split_once('\n')
+                    .filter(|(k, _)| *k == key)?
+                    .1
+                    .trim()
+                    .parse()
+                    .ok()?,
+            )
+        });
     let ns = match (kept, probe()) {
         (Some(k), Some(n)) if k <= n => return Some(k),
         (k, None) => return k,
         (_, Some(n)) => n,
     };
     if let Some(f) = file {
-        let _ = std::fs::create_dir_all(f.parent().unwrap_or(&f)).and_then(|_| std::fs::write(&f, format!("{key}\n{ns}\n")));
+        let _ = std::fs::create_dir_all(f.parent().unwrap_or(&f))
+            .and_then(|_| std::fs::write(&f, format!("{key}\n{ns}\n")));
     }
     Some(ns)
 }
@@ -196,12 +270,25 @@ fn speed() -> Option<f64> {
 /// The processor's name, for the key the probe is kept under.
 fn cpu_name() -> String {
     let name = if cfg!(any(target_os = "linux", target_os = "android")) {
-        std::fs::read_to_string("/proc/cpuinfo").ok().and_then(|t| t.lines().find(|l| l.starts_with("model name") || l.starts_with("Hardware")).and_then(|l| l.split_once(':')).map(|(_, v)| v.trim().to_string()))
+        std::fs::read_to_string("/proc/cpuinfo").ok().and_then(|t| {
+            t.lines()
+                .find(|l| l.starts_with("model name") || l.starts_with("Hardware"))
+                .and_then(|l| l.split_once(':'))
+                .map(|(_, v)| v.trim().to_string())
+        })
     } else if cfg!(windows) {
         std::env::var("PROCESSOR_IDENTIFIER").ok()
     } else {
-        let key = if cfg!(target_os = "macos") { "machdep.cpu.brand_string" } else { "hw.model" };
-        crate::tools::command("sysctl").args(["-n", key]).output().ok().map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+        let key = if cfg!(target_os = "macos") {
+            "machdep.cpu.brand_string"
+        } else {
+            "hw.model"
+        };
+        crate::tools::command("sysctl")
+            .args(["-n", key])
+            .output()
+            .ok()
+            .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
     };
     name.unwrap_or_default()
 }
@@ -216,7 +303,9 @@ fn probe() -> Option<f64> {
     let (k, n) = (2048, 6144);
     let cpu = &Device::Cpu;
     // Zeros cost as much as real weights; made, not quantized, they take no time.
-    let w = QTensor::new(QStorage::Cpu(GgmlDType::Q4K.cpu_zeros(n * k)), (n, k)).and_then(QMatMul::from_qtensor).ok()?;
+    let w = QTensor::new(QStorage::Cpu(GgmlDType::Q4K.cpu_zeros(n * k)), (n, k))
+        .and_then(QMatMul::from_qtensor)
+        .ok()?;
     let x = Tensor::randn(0f32, 1.0, (ROWS, k), cpu).ok()?;
     w.forward(&x).ok()?;
     let (start, mut best) = (Instant::now(), f64::MAX);
@@ -230,7 +319,10 @@ fn probe() -> Option<f64> {
 
 /// How `ask_model` is shown: a built-in model by its name, a server's as it is.
 pub fn shown(ask_model: &str) -> String {
-    of(ask_model).map_or_else(|| ask_model.to_string(), |m| crate::t!("ask.builtin_name", "model" => m.name))
+    of(ask_model).map_or_else(
+        || ask_model.to_string(),
+        |m| crate::t!("ask.builtin_name", "model" => m.name),
+    )
 }
 
 impl Model {
@@ -241,7 +333,11 @@ impl Model {
 
     /// Where it is kept: next to the embedding model.
     pub fn folder(&self) -> Option<PathBuf> {
-        Some(crate::helper::folder()?.join("models").join(self.folder_name()))
+        Some(
+            crate::helper::folder()?
+                .join("models")
+                .join(self.folder_name()),
+        )
     }
 
     /// The name of its folder.
@@ -251,7 +347,11 @@ impl Model {
 
     /// Tokens it sees at most, answer included: its own on a Mac's GPU, else `CPU_CONTEXT`.
     pub(crate) fn context(&self, cpu_only: bool) -> usize {
-        if metal(cpu_only) { self.context } else { CPU_CONTEXT }
+        if metal(cpu_only) {
+            self.context
+        } else {
+            CPU_CONTEXT
+        }
     }
 
     /// Bytes the download takes.
@@ -265,11 +365,19 @@ impl Model {
 
     /// Whether `dir` holds the whole model.
     pub(crate) fn installed_in(&self, dir: &std::path::Path) -> bool {
-        self.files.iter().all(|f| std::fs::metadata(dir.join(f.name)).is_ok_and(|m| m.len() == f.len))
+        self.files
+            .iter()
+            .all(|f| std::fs::metadata(dir.join(f.name)).is_ok_and(|m| m.len() == f.len))
     }
 
     pub fn download(&self, p: &Progress) -> io::Result<()> {
-        crate::meaning::fetch(&self.folder().ok_or_else(|| io::Error::other("no cache folder"))?, self.files, p)
+        crate::meaning::fetch(
+            &self
+                .folder()
+                .ok_or_else(|| io::Error::other("no cache folder"))?,
+            self.files,
+            p,
+        )
     }
 
     pub fn remove(&self) -> io::Result<()> {
@@ -295,7 +403,8 @@ const THINK: usize = 4096;
 /// Whether Ask's model thinks first: when `ask_think` asks it to, on a server, or built in a
 /// hybrid model on a Mac's GPU (on a processor the thinking would take minutes).
 pub(crate) fn thinks(cfg: &crate::config::SearchConfig) -> bool {
-    cfg.ask_think && of(&cfg.ask_model).is_none_or(|m| m.hybrid && metal(cfg.meaning_device == "cpu"))
+    cfg.ask_think
+        && of(&cfg.ask_model).is_none_or(|m| m.hybrid && metal(cfg.meaning_device == "cpu"))
 }
 
 /// Tokens kept for the answer, and the thinking before it.
@@ -310,14 +419,32 @@ const IDLE: Duration = Duration::from_secs(300);
 /// The prompt in Qwen's chat format, the system turn holding the rules and the sources, then
 /// the turns before and the question, as long as it fits `budget` tokens by `count`: the
 /// oldest turns go first, then the last sources. `quiet`: a hybrid model told not to think.
-fn prompt(quiet: bool, earlier: &[Turn], question: &str, sources: &[(PathBuf, String)], budget: usize, count: impl Fn(&str) -> usize) -> String {
+fn prompt(
+    quiet: bool,
+    earlier: &[Turn],
+    question: &str,
+    sources: &[(PathBuf, String)],
+    budget: usize,
+    count: impl Fn(&str) -> usize,
+) -> String {
     let build = |earlier: &[Turn], sources: &[(PathBuf, String)]| {
-        let context: String = sources.iter().enumerate().map(|(i, (path, text))| format!("[{}] {}\n{text}\n\n", i + 1, path.display())).collect();
-        let mut p = format!("<|im_start|>system\n{}\n\nSources:\n\n{context}<|im_end|>\n", crate::meaning::RULES);
+        let context: String = sources
+            .iter()
+            .enumerate()
+            .map(|(i, (path, text))| format!("[{}] {}\n{text}\n\n", i + 1, path.display()))
+            .collect();
+        let mut p = format!(
+            "<|im_start|>system\n{}\n\nSources:\n\n{context}<|im_end|>\n",
+            crate::meaning::RULES
+        );
         for (q, a) in earlier {
-            p.push_str(&format!("<|im_start|>user\n{q}<|im_end|>\n<|im_start|>assistant\n{a}<|im_end|>\n"));
+            p.push_str(&format!(
+                "<|im_start|>user\n{q}<|im_end|>\n<|im_start|>assistant\n{a}<|im_end|>\n"
+            ));
         }
-        p.push_str(&format!("<|im_start|>user\n{question}<|im_end|>\n<|im_start|>assistant\n"));
+        p.push_str(&format!(
+            "<|im_start|>user\n{question}<|im_end|>\n<|im_start|>assistant\n"
+        ));
         // Qwen3's own template turns thinking off this way.
         if quiet {
             p.push_str("<think>\n\n</think>\n\n");
@@ -383,12 +510,23 @@ fn slot() -> std::sync::MutexGuard<'static, Option<Loaded>> {
 }
 
 fn load(m: &'static Model, device: Device) -> Result<Loaded, String> {
-    let dir = m.folder().filter(|_| m.installed()).ok_or_else(|| crate::t!("ask.builtin_missing", "model" => m.name))?;
+    let dir = m
+        .folder()
+        .filter(|_| m.installed())
+        .ok_or_else(|| crate::t!("ask.builtin_missing", "model" => m.name))?;
     let mut file = std::fs::File::open(dir.join(m.files[0].name)).map_err(|e| e.to_string())?;
     let content = gguf_file::Content::read(&mut file).map_err(|e| e.to_string())?;
-    let weights = ModelWeights::from_gguf(content, &mut file, &device).map_err(|e| e.to_string())?;
-    let tokenizer = tokenizers::Tokenizer::from_file(dir.join(TOKENIZER.name)).map_err(|e| e.to_string())?;
-    Ok(Loaded { id: m.id, weights, tokenizer, device, used: Instant::now() })
+    let weights =
+        ModelWeights::from_gguf(content, &mut file, &device).map_err(|e| e.to_string())?;
+    let tokenizer =
+        tokenizers::Tokenizer::from_file(dir.join(TOKENIZER.name)).map_err(|e| e.to_string())?;
+    Ok(Loaded {
+        id: m.id,
+        weights,
+        tokenizer,
+        device,
+        used: Instant::now(),
+    })
 }
 
 /// The device the model runs on: a Mac's GPU unless `cpu_only`, else the CPU.
@@ -410,7 +548,15 @@ pub fn unload() {
 /// and the turns before, each piece of the answer to `piece` as it comes, with empty ones
 /// between while the prompt is read and while it thinks (a hybrid model on the GPU, when
 /// `think`); `piece` returns false to stop. One question at a time.
-pub fn ask(m: &'static Model, cpu_only: bool, think: bool, earlier: &[Turn], question: &str, sources: &[(PathBuf, String)], mut piece: impl FnMut(&str) -> bool) -> Result<(), String> {
+pub fn ask(
+    m: &'static Model,
+    cpu_only: bool,
+    think: bool,
+    earlier: &[Turn],
+    question: &str,
+    sources: &[(PathBuf, String)],
+    mut piece: impl FnMut(&str) -> bool,
+) -> Result<(), String> {
     let mut slot = slot();
     if slot.as_ref().is_none_or(|l| l.id != m.id) {
         let first = slot.is_none();
@@ -419,18 +565,34 @@ pub fn ask(m: &'static Model, cpu_only: bool, think: bool, earlier: &[Turn], que
         if !piece("") {
             return Ok(());
         }
-        *slot = Some(load(m, device(cpu_only)).or_else(|e| if cpu_only { Err(e) } else { load(m, Device::Cpu) })?);
+        *slot = Some(load(m, device(cpu_only)).or_else(|e| {
+            if cpu_only {
+                Err(e)
+            } else {
+                load(m, Device::Cpu)
+            }
+        })?);
         held(slot.as_ref());
         if first {
-            let _ = std::thread::Builder::new().name("coxswain-chat-idle".into()).spawn(let_go);
+            let _ = std::thread::Builder::new()
+                .name("coxswain-chat-idle".into())
+                .spawn(let_go);
         }
     }
     let loaded = slot.as_mut().unwrap();
     let mut said = false;
-    let done = answer(loaded, m, think, earlier, question, sources, &mut |t: &str| {
-        said |= !t.is_empty();
-        piece(t)
-    });
+    let done = answer(
+        loaded,
+        m,
+        think,
+        earlier,
+        question,
+        sources,
+        &mut |t: &str| {
+            said |= !t.is_empty();
+            piece(t)
+        },
+    );
     // A GPU that fails before a word was said: the CPU tries.
     let done = match done {
         Err(_) if !said && !loaded.device.is_cpu() => {
@@ -460,40 +622,77 @@ fn let_go() {
     }
 }
 
-fn answer(l: &mut Loaded, m: &Model, think: bool, earlier: &[Turn], question: &str, sources: &[(PathBuf, String)], piece: &mut dyn FnMut(&str) -> bool) -> Result<(), String> {
+fn answer(
+    l: &mut Loaded,
+    m: &Model,
+    think: bool,
+    earlier: &[Turn],
+    question: &str,
+    sources: &[(PathBuf, String)],
+    piece: &mut dyn FnMut(&str) -> bool,
+) -> Result<(), String> {
     let err = |e: candle_core::Error| e.to_string();
     let tok = &l.tokenizer;
     let count = |s: &str| tok.encode(s, false).map_or(usize::MAX, |e| e.len());
     let think = think && m.hybrid && !l.device.is_cpu();
     let room = answer_room(think);
-    let text = prompt(m.hybrid && !think, earlier, question, sources, m.context(l.device.is_cpu()) - room, count);
-    let ids = tok.encode(text, false).map_err(|e| e.to_string())?.get_ids().to_vec();
-    let ends: Vec<u32> = ["<|im_end|>", "<|endoftext|>"].iter().filter_map(|t| tok.token_to_id(t)).collect();
+    let text = prompt(
+        m.hybrid && !think,
+        earlier,
+        question,
+        sources,
+        m.context(l.device.is_cpu()) - room,
+        count,
+    );
+    let ids = tok
+        .encode(text, false)
+        .map_err(|e| e.to_string())?
+        .get_ids()
+        .to_vec();
+    let ends: Vec<u32> = ["<|im_end|>", "<|endoftext|>"]
+        .iter()
+        .filter_map(|t| tok.token_to_id(t))
+        .collect();
     l.weights.clear_kv_cache();
     let mut logits = None;
     for (i, chunk) in ids.chunks(CHUNK).enumerate() {
         if !piece("") {
             return Ok(());
         }
-        let input = Tensor::new(chunk, &l.device).and_then(|t| t.unsqueeze(0)).map_err(err)?;
+        let input = Tensor::new(chunk, &l.device)
+            .and_then(|t| t.unsqueeze(0))
+            .map_err(err)?;
         logits = Some(l.weights.forward(&input, i * CHUNK).map_err(err)?);
     }
     // Qwen's advice, less random without thinking: the sources are the facts.
     let (p, temperature) = if think { (0.95, 0.6) } else { (0.8, 0.5) };
-    let mut sampler = LogitsProcessor::from_sampling(ids.len() as u64, Sampling::TopKThenTopP { k: 20, p, temperature });
+    let mut sampler = LogitsProcessor::from_sampling(
+        ids.len() as u64,
+        Sampling::TopKThenTopP {
+            k: 20,
+            p,
+            temperature,
+        },
+    );
     let (mut out, mut given, mut thinking, mut begun) = (Vec::<u32>::new(), 0, false, false);
     let mut logits = logits.ok_or("an empty question")?;
     for n in 0..room {
-        let last = logits.squeeze(0).and_then(|t| t.to_dtype(DType::F32)).map_err(err)?;
+        let last = logits
+            .squeeze(0)
+            .and_then(|t| t.to_dtype(DType::F32))
+            .map_err(err)?;
         let from = out.len().saturating_sub(64);
-        let last = candle_transformers::utils::apply_repeat_penalty(&last, 1.05, &out[from..]).map_err(err)?;
+        let last = candle_transformers::utils::apply_repeat_penalty(&last, 1.05, &out[from..])
+            .map_err(err)?;
         let next = sampler.sample(&last).map_err(err)?;
         if ends.contains(&next) {
             break;
         }
         out.push(next);
         let text = tok.decode(&out, true).map_err(|e| e.to_string())?;
-        let mut new = fresh(&text, &mut given).map(|t| crate::meaning::unthink(&t, &mut thinking)).unwrap_or_default();
+        let mut new = fresh(&text, &mut given)
+            .map(|t| crate::meaning::unthink(&t, &mut thinking))
+            .unwrap_or_default();
         // After its thinking the model starts a new paragraph: the answer starts with a word.
         if !begun {
             new = new.trim_start().to_string();
@@ -502,7 +701,9 @@ fn answer(l: &mut Loaded, m: &Model, think: bool, earlier: &[Turn], question: &s
         if !piece(&new) {
             return Ok(());
         }
-        let input = Tensor::new(&[next], &l.device).and_then(|t| t.unsqueeze(0)).map_err(err)?;
+        let input = Tensor::new(&[next], &l.device)
+            .and_then(|t| t.unsqueeze(0))
+            .map_err(err)?;
         logits = l.weights.forward(&input, ids.len() + n).map_err(err)?;
     }
     Ok(())
@@ -514,20 +715,33 @@ mod tests {
 
     #[test]
     fn the_prompt_is_chatml_and_fits() {
-        let sources = vec![(PathBuf::from("/a.md"), "one ".repeat(50)), (PathBuf::from("/b.md"), "two ".repeat(50))];
+        let sources = vec![
+            (PathBuf::from("/a.md"), "one ".repeat(50)),
+            (PathBuf::from("/b.md"), "two ".repeat(50)),
+        ];
         let earlier = vec![("Old?".to_string(), "Old.".to_string())];
         let words = |s: &str| s.split_whitespace().count();
         let all = prompt(true, &earlier, "New?", &sources, 10_000, words);
         assert!(all.starts_with("<|im_start|>system\n"));
         assert!(all.contains("[1] /a.md\n") && all.contains("[2] /b.md\n"));
-        assert!(all.contains("<|im_start|>user\nOld?<|im_end|>\n<|im_start|>assistant\nOld.<|im_end|>\n"));
-        assert!(all.ends_with("<|im_start|>user\nNew?<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n"));
+        assert!(
+            all.contains(
+                "<|im_start|>user\nOld?<|im_end|>\n<|im_start|>assistant\nOld.<|im_end|>\n"
+            )
+        );
+        assert!(all.ends_with(
+            "<|im_start|>user\nNew?<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n"
+        ));
         assert!(!prompt(false, &earlier, "New?", &sources, 10_000, words).contains("<think>"));
         // Too long: the turn before goes first, then the last source; the question stays.
         let short = prompt(true, &earlier, "New?", &sources, words(&all) - 1, words);
         assert!(!short.contains("Old?") && short.contains("[2] /b.md"));
         let shorter = prompt(true, &earlier, "New?", &sources, words(&all) - 40, words);
-        assert!(shorter.contains("[1] /a.md") && !shorter.contains("[2] /b.md") && shorter.contains("New?"));
+        assert!(
+            shorter.contains("[1] /a.md")
+                && !shorter.contains("[2] /b.md")
+                && shorter.contains("New?")
+        );
     }
 
     #[test]
@@ -535,7 +749,11 @@ mod tests {
         let mut given = 0;
         assert_eq!(fresh("Hej", &mut given).as_deref(), Some("Hej"));
         assert_eq!(fresh("Hej", &mut given), None);
-        assert_eq!(fresh("Hej s\u{fffd}", &mut given), None, "half a character waits");
+        assert_eq!(
+            fresh("Hej s\u{fffd}", &mut given),
+            None,
+            "half a character waits"
+        );
         assert_eq!(fresh("Hej så", &mut given).as_deref(), Some(" så"));
     }
 
@@ -545,13 +763,22 @@ mod tests {
         assert!(of("qwen3:8b").is_none() && of("builtin:other").is_none());
         if cfg!(target_os = "macos") {
             assert_eq!(suggest(8, false).map(|m| m.id), Some("qwen3-1.7b"));
-            let apple = |id| Some(if cfg!(target_arch = "aarch64") { id } else { "qwen3-1.7b" });
+            let apple = |id| {
+                Some(if cfg!(target_arch = "aarch64") {
+                    id
+                } else {
+                    "qwen3-1.7b"
+                })
+            };
             assert_eq!(suggest(16, false).map(|m| m.id), apple("qwen3-4b"));
             assert_eq!(suggest(64, false).map(|m| m.id), apple("qwen3-14b"));
         }
         // On a processor only the small one, and only when it is quick enough.
         let quick = estimate(&MODELS[0], true, true).is_some_and(|e| e.first < QUICK);
-        assert_eq!(suggest(64, true).map(|m| m.id), quick.then_some("qwen3-1.7b"));
+        assert_eq!(
+            suggest(64, true).map(|m| m.id),
+            quick.then_some("qwen3-1.7b")
+        );
         // Something is always preselected: on a processor the small one, quick or not.
         assert_eq!(preselect(64, true).id, "qwen3-1.7b");
         assert_eq!(of(&MODELS[1].key()).map(|m| m.id), Some("qwen3-4b"));
@@ -561,20 +788,44 @@ mod tests {
         assert_eq!(ids(16), ["qwen3-1.7b", "qwen3-4b"]);
         assert_eq!(ids(64), ["qwen3-1.7b", "qwen3-4b", "qwen3-14b"]);
         // Thinking: on a server when asked; built in, a hybrid model on a Mac's GPU only.
-        let cfg = |model: &str, think, device: &str| crate::config::SearchConfig { ask_model: model.into(), ask_think: think, meaning_device: device.into(), ..Default::default() };
+        let cfg = |model: &str, think, device: &str| crate::config::SearchConfig {
+            ask_model: model.into(),
+            ask_think: think,
+            meaning_device: device.into(),
+            ..Default::default()
+        };
         assert!(thinks(&cfg("qwen3:8b", true, "cpu")) && !thinks(&cfg("qwen3:8b", false, "")));
-        assert!(!thinks(&cfg("builtin:qwen3-4b", true, "")) && !thinks(&cfg("builtin:qwen3-14b", true, "cpu")));
-        assert_eq!(thinks(&cfg("builtin:qwen3-14b", true, "")), cfg!(target_os = "macos"));
-        assert_eq!(MODELS[2].context(false), if cfg!(target_os = "macos") { 16_384 } else { CPU_CONTEXT });
+        assert!(
+            !thinks(&cfg("builtin:qwen3-4b", true, ""))
+                && !thinks(&cfg("builtin:qwen3-14b", true, "cpu"))
+        );
+        assert_eq!(
+            thinks(&cfg("builtin:qwen3-14b", true, "")),
+            cfg!(target_os = "macos")
+        );
+        assert_eq!(
+            MODELS[2].context(false),
+            if cfg!(target_os = "macos") {
+                16_384
+            } else {
+                CPU_CONTEXT
+            }
+        );
     }
 
     #[test]
     fn the_estimate_scales_with_the_model() {
-        let (small, large) = (Estimate::of(&MODELS[0], 0.05), Estimate::of(&MODELS[1], 0.05));
+        let (small, large) = (
+            Estimate::of(&MODELS[0], 0.05),
+            Estimate::of(&MODELS[1], 0.05),
+        );
         assert!(large.read < small.read && large.write < small.write && large.first > small.first);
         assert!(small.first > (CPU_CONTEXT - ANSWER) as f64 / small.read);
         let twice = Estimate::of(&MODELS[0], 0.1);
-        assert!((twice.first - 2.0 * small.first).abs() < 1e-9, "twice as slow a processor, twice as long");
+        assert!(
+            (twice.first - 2.0 * small.first).abs() < 1e-9,
+            "twice as slow a processor, twice as long"
+        );
     }
 
     #[test]
@@ -583,7 +834,11 @@ mod tests {
         let ns = probe().unwrap();
         assert!(ns > 0.0 && ns.is_finite());
         eprintln!("probe: {ns:.4} ns a weight");
-        assert!(start.elapsed() < crate::test_limit(Duration::from_secs(1)), "{:?}", start.elapsed());
+        assert!(
+            start.elapsed() < crate::test_limit(Duration::from_secs(1)),
+            "{:?}",
+            start.elapsed()
+        );
     }
 
     /// The estimate against the real thing: a prompt at the processor's cap, model loaded.
@@ -591,7 +846,10 @@ mod tests {
     #[test]
     #[ignore]
     fn the_estimate_is_near() {
-        let m = &MODELS[std::env::var("COXSWAIN_CHAT_MODEL").ok().and_then(|i| i.parse().ok()).unwrap_or(0)];
+        let m = &MODELS[std::env::var("COXSWAIN_CHAT_MODEL")
+            .ok()
+            .and_then(|i| i.parse().ok())
+            .unwrap_or(0)];
         m.download(&Progress::default()).unwrap();
         let t = Instant::now();
         let ns = probe().unwrap();
@@ -601,49 +859,106 @@ mod tests {
         ask(m, true, false, &[], "Hi", &[], |_| true).unwrap();
         eprintln!("loaded and a short question in {:.1?}", start.elapsed());
         let passage = "The rocket Kestrel launches from Andøya. Its fuel costs 40,000 euros per flight, and the crew trains for six months before each launch. ".repeat(12);
-        let sources: Vec<_> = (0..6).map(|i| (PathBuf::from(format!("/home/demo/rocket/{i}.md")), passage.clone())).collect();
+        let sources: Vec<_> = (0..6)
+            .map(|i| {
+                (
+                    PathBuf::from(format!("/home/demo/rocket/{i}.md")),
+                    passage.clone(),
+                )
+            })
+            .collect();
         let (mut first, mut n, start) = (None, 0, Instant::now());
-        ask(m, true, false, &[], "What does the fuel cost, and what is the rocket called?", &sources, |t| {
-            if !t.is_empty() {
-                first.get_or_insert(start.elapsed());
-                n += 1;
-            }
-            true
-        })
+        ask(
+            m,
+            true,
+            false,
+            &[],
+            "What does the fuel cost, and what is the rocket called?",
+            &sources,
+            |t| {
+                if !t.is_empty() {
+                    first.get_or_insert(start.elapsed());
+                    n += 1;
+                }
+                true
+            },
+        )
         .unwrap();
         let first = first.unwrap();
         let tokens = {
             let slot = slot();
-            let count = |s: &str| slot.as_ref().unwrap().tokenizer.encode(s, false).unwrap().len();
-            count(&prompt(m.hybrid, &[], "What does the fuel cost, and what is the rocket called?", &sources, CPU_CONTEXT - ANSWER, count))
+            let count = |s: &str| {
+                slot.as_ref()
+                    .unwrap()
+                    .tokenizer
+                    .encode(s, false)
+                    .unwrap()
+                    .len()
+            };
+            count(&prompt(
+                m.hybrid,
+                &[],
+                "What does the fuel cost, and what is the rocket called?",
+                &sources,
+                CPU_CONTEXT - ANSWER,
+                count,
+            ))
         };
         let write = n as f64 / (start.elapsed() - first).as_secs_f64();
-        eprintln!("probe {ns:.4} ns a weight in {probed:.1?}; estimate: first word {:.1} s, writes {:.1} tokens/s, reads {:.1}", e.first, e.write, e.read);
-        eprintln!("measured: first word {:.1} s, writes {write:.1} tokens/s, reads {:.1} ({tokens} tokens)", first.as_secs_f64(), tokens as f64 / first.as_secs_f64());
+        eprintln!(
+            "probe {ns:.4} ns a weight in {probed:.1?}; estimate: first word {:.1} s, writes {:.1} tokens/s, reads {:.1}",
+            e.first, e.write, e.read
+        );
+        eprintln!(
+            "measured: first word {:.1} s, writes {write:.1} tokens/s, reads {:.1} ({tokens} tokens)",
+            first.as_secs_f64(),
+            tokens as f64 / first.as_secs_f64()
+        );
     }
 
     /// Downloads the small model (1.1 GB) and asks it about two files.
     #[test]
     #[ignore]
     fn it_answers_from_the_sources() {
-        let m = &MODELS[std::env::var("COXSWAIN_CHAT_MODEL").ok().and_then(|i| i.parse().ok()).unwrap_or(0)];
+        let m = &MODELS[std::env::var("COXSWAIN_CHAT_MODEL")
+            .ok()
+            .and_then(|i| i.parse().ok())
+            .unwrap_or(0)];
         m.download(&Progress::default()).unwrap();
         let sources = vec![
             (PathBuf::from("/home/demo/rocket/plan.md"), "# Launch plan\nThe rocket is called Kestrel. It launches from Andøya on 14 March, weather permitting.".to_string()),
             (PathBuf::from("/home/demo/rocket/budget.md"), "# Budget\nFuel costs 40,000 euros per flight, more than the crew and the launch pad together.".to_string()),
         ];
         let (mut answer, mut first, start) = (String::new(), None, Instant::now());
-        ask(m, true, false, &[], "What does the fuel cost, and what is the rocket called?", &sources, |t| {
-            if !t.is_empty() && first.is_none() {
-                first = Some(start.elapsed());
-            }
-            answer.push_str(t);
-            true
-        })
+        ask(
+            m,
+            true,
+            false,
+            &[],
+            "What does the fuel cost, and what is the rocket called?",
+            &sources,
+            |t| {
+                if !t.is_empty() && first.is_none() {
+                    first = Some(start.elapsed());
+                }
+                answer.push_str(t);
+                true
+            },
+        )
         .unwrap();
         let words = start.elapsed() - first.unwrap();
-        let tokens = slot().as_ref().map(|l| l.tokenizer.encode(answer.as_str(), false).unwrap().len()).unwrap();
-        eprintln!("{answer}\n-- first word after {:.1?}, then {:.1} tokens/s", first.unwrap(), tokens as f64 / words.as_secs_f64());
-        assert!(answer.contains("Kestrel") && answer.contains("40"), "{answer}");
+        let tokens = slot()
+            .as_ref()
+            .map(|l| l.tokenizer.encode(answer.as_str(), false).unwrap().len())
+            .unwrap();
+        eprintln!(
+            "{answer}\n-- first word after {:.1?}, then {:.1} tokens/s",
+            first.unwrap(),
+            tokens as f64 / words.as_secs_f64()
+        );
+        assert!(
+            answer.contains("Kestrel") && answer.contains("40"),
+            "{answer}"
+        );
     }
 }
