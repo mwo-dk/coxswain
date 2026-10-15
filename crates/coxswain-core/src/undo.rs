@@ -505,11 +505,8 @@ impl History {
 mod tests {
     use super::*;
 
-    fn tmp(name: &str) -> PathBuf {
-        let d = std::env::temp_dir().join(format!("coxswain-undo-{name}-{}", std::process::id()));
-        let _ = fs::remove_dir_all(&d);
-        fs::create_dir_all(&d).unwrap();
-        d
+    fn tmp(name: &str) -> crate::fs::Scratch {
+        crate::fs::Scratch::named(&format!("undo-{name}"))
     }
 
     #[test]
@@ -614,7 +611,7 @@ mod tests {
             return;
         }
         let d = tmp("copy");
-        if !cfs::trash_takes(std::slice::from_ref(&d)) {
+        if !cfs::trash_takes(std::slice::from_ref(&d.to_path_buf())) {
             return;
         }
         fs::create_dir_all(d.join("src/deep")).unwrap();

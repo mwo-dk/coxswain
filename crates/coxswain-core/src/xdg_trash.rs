@@ -143,12 +143,8 @@ fn encode(path: &Path) -> String {
 mod tests {
     use super::*;
 
-    fn tmp(name: &str) -> PathBuf {
-        let d =
-            std::env::temp_dir().join(format!("coxswain-test-trash-{name}-{}", std::process::id()));
-        let _ = fs::remove_dir_all(&d);
-        fs::create_dir_all(&d).unwrap();
-        d
+    fn tmp(name: &str) -> crate::fs::Scratch {
+        crate::fs::Scratch::named(&format!("trash-{name}"))
     }
 
     fn info(trash: &Path, n: &str) -> String {
