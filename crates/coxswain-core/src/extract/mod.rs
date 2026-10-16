@@ -90,7 +90,7 @@ pub fn tidy_code(text: &str) -> String {
     let mut out = String::with_capacity(text.len().min(MAX_TEXT));
     let mut blank = false;
     for line in text.lines() {
-        let line = line.replace(unseen, "");
+        let line = seen(line);
         let line = line.trim_end();
         if line.is_empty() {
             blank = !out.is_empty();
@@ -114,19 +114,21 @@ pub fn tidy_code(text: &str) -> String {
 }
 
 /// One space between words, one line break between lines, no more than `MAX_TEXT` bytes, and
-/// nothing of what `unseen` names.
+/// the text as `seen` leaves it.
 pub fn tidy(text: &str) -> String {
     let mut out = String::with_capacity(text.len().min(MAX_TEXT));
-    for line in text
-        .lines()
-        .map(|l| {
-            l.replace(unseen, "")
-                .split_whitespace()
-                .collect::<Vec<_>>()
-                .join(" ")
-        })
-        .filter(|l| !l.is_empty())
-    {
+    let mut line = String::new();
+    for l in text.lines() {
+        line.clear();
+        for word in seen(l).split_whitespace() {
+            if !line.is_empty() {
+                line.push(' ');
+            }
+            line.push_str(word);
+        }
+        if line.is_empty() {
+            continue;
+        }
         if !out.is_empty() {
             out.push('\n');
         }
@@ -149,59 +151,106 @@ pub fn utf8(bytes: &[u8]) -> &str {
         .unwrap_or_else(|e| std::str::from_utf8(&bytes[..e.valid_up_to()]).unwrap_or_default())
 }
 
-/// What stands in a text and is no part of what it says. A control character that is no blank
-/// space: the store marks the words it found with two of them, and a terminal takes others for
-/// commands. And the soft hyphen, the zero width space and the word joiner, which say where a
-/// word may be broken at the end of a line or may not: left in, they end the word for the
-/// store, and "bud-get" is not found as "budget".
-fn unseen(c: char) -> bool {
-    c.is_control() && !c.is_whitespace() || matches!(c, '\u{AD}' | '\u{200B}' | '\u{2060}')
+/// Whether bytes that are not UTF-8 are UTF-8 with a byte or two broken, as where a file was cut
+/// off or a letter was pasted in from elsewhere. In any other encoding nearly every letter
+/// beyond ASCII is broken UTF-8. A sample says which, for the whole may be 64 MB and broken
+/// bytes are slow to look at.
+fn nearly_utf8(bytes: &[u8]) -> bool {
+    let sample = String::from_utf8_lossy(&bytes[..bytes.len().min(1 << 16)]);
+    let broken = sample.matches(char::REPLACEMENT_CHARACTER).count();
+    let whole = sample.chars().filter(|c| !c.is_ascii()).count() - broken;
+    whole > broken
+}
+
+/// A line without what stands in it and is no part of what it says, copied only when it has
+/// some. A control character that is no blank space becomes a space: the store marks the words
+/// it found with two of them, a terminal takes others for commands, and one between two words
+/// parts them. The soft hyphen, the zero width space, the word joiner and a byte order mark
+/// inside the text go: they say where a word may be broken at the end of a line or may not,
+/// and left in, they end the word for the store, and "bud-get" is not found as "budget".
+fn seen(line: &str) -> std::borrow::Cow<'_, str> {
+    let hidden = |c: char| matches!(c, '\u{AD}' | '\u{200B}' | '\u{2060}' | '\u{FEFF}');
+    let control = |c: char| c.is_control() && !c.is_whitespace();
+    if !line.contains(|c: char| hidden(c) || control(c)) {
+        return line.into();
+    }
+    line.chars()
+        .filter(|c| !hidden(*c))
+        .map(|c| if control(c) { ' ' } else { c })
+        .collect::<String>()
+        .into()
 }
 
 /// The start of a text: no more than `most` bytes of it, and no part of a character.
 fn start(text: &str, most: usize) -> &str {
-    let mut end = most.min(text.len());
-    while !text.is_char_boundary(end) {
-        end -= 1;
-    }
-    &text[..end]
+    &text[..text.floor_char_boundary(most)]
+}
+
+/// Adds to `out` as much of `text` as keeps it within `most` bytes.
+fn push_within(out: &mut String, text: &str, most: usize) {
+    out.push_str(start(text, most.saturating_sub(out.len())));
 }
 
 // ---------------------------------------------------------------- for the readers
 
-/// One entry of a zip file, unpacked, or `None` when it is missing or larger than
-/// `MAX_ENTRY`.
-pub fn zip_entry(path: &Path, name: &str) -> Option<Vec<u8>> {
-    let mut zip = zip::ZipArchive::new(std::fs::File::open(path).ok()?).ok()?;
-    let entry = zip.by_name(name).ok()?;
-    unpack(entry)
+/// The value of the element's attribute of that name, whatever its prefix. A malformed
+/// attribute is passed over, and a value that cannot be normalised is given as it is.
+fn attr(element: &quick_xml::events::BytesStart, name: &str) -> Option<String> {
+    let found = element
+        .attributes()
+        .with_checks(false)
+        .flatten()
+        .find(|a| a.key.local_name().as_ref() == name)?;
+    Some(
+        found
+            .normalized_value(quick_xml::XmlVersion::Implicit1_0)
+            .unwrap_or(found.value.clone())
+            .into_owned(),
+    )
 }
 
-/// The entries of a zip file whose names `wanted` picks, in the order of their names, each
-/// unpacked. Entries larger than `MAX_ENTRY` are left out; at most `most` entries are read.
-pub fn zip_entries(
-    path: &Path,
-    most: usize,
-    wanted: impl Fn(&str) -> bool,
-) -> Vec<(String, Vec<u8>)> {
-    let Some(mut zip) = std::fs::File::open(path)
-        .ok()
-        .and_then(|f| zip::ZipArchive::new(f).ok())
-    else {
-        return vec![];
-    };
-    let mut names: Vec<String> = zip
-        .file_names()
-        .filter_map(Result::ok)
-        .filter(|n| wanted(n))
-        .map(String::from)
-        .collect();
-    names.sort_by_key(|a| natural(a));
-    names.truncate(most);
-    names
-        .into_iter()
-        .filter_map(|n| Some((n.clone(), unpack(zip.by_name(&n).ok()?)?)))
-        .collect()
+/// The zip at `path`, if it is one and no larger than `max`, read through `Metered`.
+pub(super) fn open_zip(path: &Path, max: u64) -> Option<zip::ZipArchive<Metered>> {
+    let file = std::fs::File::open(path).ok()?;
+    let size = file.metadata().ok()?.len();
+    if size > max {
+        return None;
+    }
+    zip::ZipArchive::new(Metered {
+        file,
+        left: size.saturating_mul(8).saturating_add(1 << 20),
+    })
+    .ok()
+}
+
+/// A file that gives no more than `left` bytes, all told. zip looks from the end of the file
+/// for the record that says where its directory is, and when the directory is broken, tries
+/// the next such record before it, and the next, each time reading as far as the record
+/// points: a file of nothing but such records costs it the square of its length, an hour for
+/// 20 MB. A document is read once through, and a few times its length is more than enough.
+pub(super) struct Metered {
+    file: std::fs::File,
+    left: u64,
+}
+
+impl Read for Metered {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        if self.left == 0 {
+            return Err(std::io::Error::other("read more than a document needs"));
+        }
+        let most = usize::try_from(self.left)
+            .unwrap_or(usize::MAX)
+            .min(buf.len());
+        let n = self.file.read(&mut buf[..most])?;
+        self.left -= n as u64;
+        Ok(n)
+    }
+}
+
+impl std::io::Seek for Metered {
+    fn seek(&mut self, pos: std::io::SeekFrom) -> std::io::Result<u64> {
+        self.file.seek(pos)
+    }
 }
 
 /// "slide10.xml" after "slide9.xml": digits compare as numbers.
@@ -269,15 +318,18 @@ fn tags_dropped(xml: &[u8], lines: &[&str], skip: &[&str], opens: bool) -> Strin
             // none is ever looked up or unfolded, so none can grow without end.
             Ok(Event::GeneralRef(r)) if skipping == 0 => match r.resolve_char_ref() {
                 Ok(Some(c)) => out.push(c),
-                _ => out.push_str(match &*r.into_inner() {
-                    "amp" => "&",
-                    "lt" => "<",
-                    "gt" => ">",
-                    "quot" => "\"",
-                    "apos" => "'",
-                    "nbsp" => " ",
-                    _ => "",
-                }),
+                _ => {
+                    let name = r.into_inner();
+                    match quick_xml::escape::resolve_xml_entity(&name) {
+                        Some(known) => out.push_str(known),
+                        None if &*name == "nbsp" => out.push(' '),
+                        // A web page names the characters of HTML, &eacute;, which XML has not.
+                        None if opens => {
+                            out.extend(book::reference(&format!("&{name};")).map(|(c, _)| c))
+                        }
+                        None => {}
+                    }
+                }
             },
             Ok(Event::Eof) | Err(_) => break,
             _ => {}
@@ -313,6 +365,31 @@ pub(crate) mod tests {
     }
 
     #[test]
+    fn a_file_of_zip_endings_is_read_within_its_limits() {
+        let d = folder("endings");
+        // The record at the end of a zip that says where its directory is, over and over: each
+        // says the directory is at the start, where there is none.
+        let ending = b"PK\x05\x06\0\0\0\0\x01\0\x01\0\x2e\0\0\0\0\0\0\0\0\0";
+        let bytes = ending.repeat(512 * 1024 / ending.len());
+        for name in [
+            "endings.docx",
+            "endings.pptx",
+            "endings.epub",
+            "endings.xlsx",
+        ] {
+            std::fs::write(d.join(name), &bytes).unwrap();
+            let started = std::time::Instant::now();
+            assert_eq!(text_of(&d.join(name), bytes.len() as u64, u64::MAX), None);
+            assert!(
+                started.elapsed() < crate::test_limit(std::time::Duration::from_secs(5)),
+                "{name}: {:?}",
+                started.elapsed()
+            );
+        }
+        let _ = std::fs::remove_dir_all(d);
+    }
+
+    #[test]
     fn extract_tidies_cuts_and_survives() {
         assert_eq!(
             tidy_code("\n\nfn a() {\n\t  x(1,  2);   \n\n\n}\n\n"),
@@ -323,15 +400,16 @@ pub(crate) mod tests {
         let long = "é".repeat(MAX_TEXT);
         let cut = tidy(&long);
         assert!(cut.len() <= MAX_TEXT && cut.len() > MAX_TEXT - 4 && cut.chars().all(|c| c == 'é'));
-        // The store's marks, a command for a terminal and a bell are taken out, and blank space of any kind is a space.
+        // The store's marks, a command for a terminal and a bell part words as a space does, and blank space of any kind is a space.
         assert_eq!(
             tidy("be\u{1}fore\u{2} \u{1b}[31mred\u{7}\tand\u{c}green \u{1} end"),
-            "before [31mred and green end"
+            "be fore [31mred and green end"
         );
         assert_eq!(
-            tidy("bud\u{AD}get, bud\u{200B}get and bud\u{2060}get"),
-            "budget, budget and budget"
+            tidy("bud\u{AD}get, bud\u{200B}get, bud\u{FEFF}get and bud\u{2060}get"),
+            "budget, budget, budget and budget"
         );
+        assert_eq!(tidy_code("\tfn\u{1}a()\u{AD}  "), "\tfn a()");
         // The line that does not fit begins on a line of its own and is cut at a word: no two words are joined at the end.
         let cut = tidy(&format!(
             "{}\nslut\nfærge diesel {}",
@@ -410,27 +488,6 @@ pub(crate) mod tests {
         );
 
         let d = folder("shared");
-        zip_file(
-            &d.join("f.zip"),
-            &[
-                ("ppt/slides/slide10.xml", b"ten"),
-                ("ppt/slides/slide9.xml", b"nine"),
-                ("other.xml", b"no"),
-            ],
-        );
-        assert_eq!(
-            zip_entry(&d.join("f.zip"), "other.xml").as_deref(),
-            Some(&b"no"[..])
-        );
-        assert_eq!(zip_entry(&d.join("f.zip"), "missing.xml"), None);
-        let slides = zip_entries(&d.join("f.zip"), 10, |n| n.starts_with("ppt/slides/"));
-        assert_eq!(
-            slides.iter().map(|(_, b)| b.as_slice()).collect::<Vec<_>>(),
-            [&b"nine"[..], &b"ten"[..]]
-        );
-        std::fs::write(d.join("broken.zip"), b"PK\x03\x04 not a zip").unwrap();
-        assert!(zip_entries(&d.join("broken.zip"), 10, |_| true).is_empty());
-
         // A reader that panics costs that one file its text, nothing more.
         assert_eq!(
             std::panic::catch_unwind(|| -> Option<String> { panic!("a parser gave up") })

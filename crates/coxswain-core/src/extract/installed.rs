@@ -73,7 +73,9 @@ impl Drop for Scratch {
     }
 }
 
-/// tesseract's languages: English and the system's language when installed, else what is.
+/// tesseract's languages: English and the language Coxswain is set to (the system's, when it
+/// is set to "auto") when installed, else what is. Read once: the search helper reads no
+/// catalogue, so the setting is read from config.toml here.
 fn languages(tesseract: &Path) -> &'static str {
     static LANGS: OnceLock<String> = OnceLock::new();
     LANGS.get_or_init(|| {
@@ -92,9 +94,15 @@ fn languages(tesseract: &Path) -> &'static str {
             .map(str::to_string)
             .collect();
         // BCP 47 to tesseract's ISO 639-2 names, for the languages Coxswain speaks and a few more.
-        let own = sys_locale::get_locale()
-            .unwrap_or_default()
-            .to_ascii_lowercase();
+        let set = crate::config::Config::load()
+            .map(|c| c.language)
+            .unwrap_or_default();
+        let own = if set.is_empty() || set == "auto" {
+            sys_locale::get_locale().unwrap_or_default()
+        } else {
+            set
+        }
+        .to_ascii_lowercase();
         let code = match own.split(['-', '_']).next().unwrap_or("") {
             "da" => "dan",
             "sv" => "swe",
@@ -128,17 +136,16 @@ fn languages(tesseract: &Path) -> &'static str {
 }
 
 /// The words tesseract finds in a picture.
-fn ocr(picture: &Path) -> Option<String> {
-    let tesseract = program("tesseract")?;
+fn ocr(tesseract: &Path, picture: &Path) -> Option<String> {
     let args = [
         picture.as_os_str(),
         OsStr::new("stdout"),
         OsStr::new("-l"),
-        OsStr::new(languages(&tesseract)),
+        OsStr::new(languages(tesseract)),
         OsStr::new("--psm"),
         OsStr::new("3"),
     ];
-    let out = tools::output(&tesseract, &args, TIMEOUT, super::MAX_TEXT as u64)?;
+    let out = tools::output(tesseract, &args, TIMEOUT, super::MAX_TEXT as u64)?;
     let text = String::from_utf8_lossy(&out).into_owned();
     // A picture without words gives a few stray letters.
     (text
@@ -149,17 +156,19 @@ fn ocr(picture: &Path) -> Option<String> {
         .then_some(text)
 }
 
-/// The words in a picture, unless it is a photo from a camera.
+/// The words in a picture, unless it is a photo from a camera. Nothing is read of it when
+/// tesseract is not installed.
 pub fn picture(path: &Path, _max: u64) -> Option<String> {
+    let tesseract = program("tesseract")?;
     if camera_photo(path) {
         return None;
     }
-    ocr(path)
+    ocr(&tesseract, path)
 }
 
 /// The words on the pages of a PDF that has pictures of pages instead of text.
 pub fn scanned_pdf(path: &Path) -> Option<String> {
-    let (pdftoppm, _) = (program("pdftoppm")?, program("tesseract")?);
+    let (pdftoppm, tesseract) = (program("pdftoppm")?, program("tesseract")?);
     let scratch = Scratch::new()?;
     let last = MAX_PAGES.to_string();
     let prefix = scratch.0.join("page");
@@ -180,7 +189,7 @@ pub fn scanned_pdf(path: &Path) -> Option<String> {
         .map(|e| e.path())
         .collect();
     pages.sort();
-    let text: Vec<String> = pages.iter().filter_map(|p| ocr(p)).collect();
+    let text: Vec<String> = pages.iter().filter_map(|p| ocr(&tesseract, p)).collect();
     (!text.is_empty()).then(|| text.join("\n"))
 }
 
@@ -228,13 +237,21 @@ const LIBREOFFICE_SETTINGS: [&str; 5] = [
 pub fn libreoffice_profile(name: &str) -> Option<String> {
     let profile = dirs::cache_dir()?.join("coxswain").join(name);
     lock_profile(&profile)?;
-    Some(format!(
-        "file:///{}",
-        profile
-            .to_string_lossy()
-            .trim_start_matches('/')
-            .replace('\\', "/")
-    ))
+    Some(file_url(&profile.to_string_lossy()))
+}
+
+/// A folder as a `file:` URL: a space, `#`, `%` or a letter beyond ASCII in it percent-encoded,
+/// as in `C:\Users\John Doe`, which LibreOffice would not take as it is.
+fn file_url(path: &str) -> String {
+    let mut url = String::from("file:///");
+    for b in path.replace('\\', "/").trim_start_matches('/').bytes() {
+        if b.is_ascii_alphanumeric() || b"-_.~/:".contains(&b) {
+            url.push(b as char);
+        } else {
+            url.push_str(&format!("%{b:02X}"));
+        }
+    }
+    url
 }
 
 /// Puts `LIBREOFFICE_SETTINGS` into the profile at `profile`. LibreOffice rewrites the file as
@@ -333,6 +350,15 @@ mod tests {
         lock_profile(&d).unwrap();
         assert!(all(&std::fs::read_to_string(&file).unwrap()));
         std::fs::remove_dir_all(d).unwrap();
+    }
+
+    #[test]
+    fn a_profile_folder_is_a_url_with_its_odd_letters_encoded() {
+        assert_eq!(
+            file_url(r"C:\Users\John Doe\AppData\Local\coxswain\p"),
+            "file:///C:/Users/John%20Doe/AppData/Local/coxswain/p"
+        );
+        assert_eq!(file_url("/home/a#b%cø"), "file:///home/a%23b%25c%C3%B8");
     }
 
     /// A JPEG start with an EXIF block whose first directory has these tags.

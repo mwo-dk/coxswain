@@ -25,7 +25,7 @@ use super::{MAX_ENTRY, MAX_TEXT};
 /// Elements that are part of a line: one may begin or end inside a word, as the runs of a
 /// word processor do, so nothing is put between them. Every other element, known or not,
 /// ends the line, for two words that became one are both lost to a search.
-const INLINE: [&str; 35] = [
+pub(super) const INLINE: [&str; 35] = [
     "a", "abbr", "acronym", "b", "bdi", "bdo", "big", "cite", "code", "data", "del", "dfn", "em",
     "font", "i", "ins", "kbd", "mark", "nobr", "q", "rb", "ruby", "s", "samp", "small", "span",
     "strike", "strong", "sub", "sup", "time", "tt", "u", "var", "wbr",
@@ -70,9 +70,6 @@ pub fn text(path: &Path, max: u64) -> Option<String> {
             .ok()?;
         page(&decoded(&bytes)?, &mut out, true);
     }
-    // A soft hyphen says where a word may be broken at the end of a line, and a byte order
-    // mark inside a text was pasted there. A search takes either for the end of the word.
-    out.retain(|c| !matches!(c, '\u{ad}' | '\u{feff}'));
     (!out.trim().is_empty()).then_some(out)
 }
 
@@ -80,13 +77,13 @@ pub fn text(path: &Path, max: u64) -> Option<String> {
 
 /// The text of an EPUB, onto `out`: its title and authors, then its chapters in reading order.
 fn book(path: &Path, out: &mut String) -> Option<()> {
-    let mut zip = zip::ZipArchive::new(std::fs::File::open(path).ok()?).ok()?;
+    let mut zip = super::open_zip(path, u64::MAX)?;
     // The files of the zip by their names as a link would give them, for a package that
     // writes `Text\Ch1.xhtml` or `text/ch1.xhtml` for `Text/Ch1.xhtml`.
     let names: HashMap<String, String> = zip
         .file_names()
         .filter_map(Result::ok)
-        .map(|name| (key(&name), name.to_string()))
+        .map(|name| (key(&name), name.into_owned()))
         .collect();
     // A file of the zip, no more than `most` bytes of it: what it says it holds is looked at
     // before it is unpacked, and one byte more than `most` says that it lied.
@@ -158,14 +155,14 @@ fn contents(package: &str, out: &mut String) -> Vec<String> {
                 _ => line = None,
             },
             Piece::Text(text) => line.iter_mut().for_each(|line| unescape(text, line)),
-            Piece::Literal(text) => line.iter_mut().for_each(|line| {
-                line.push_str(cut(text, (MAX_TEXT + 1).saturating_sub(line.len())))
-            }),
+            Piece::Literal(text) => line
+                .iter_mut()
+                .for_each(|line| super::push_within(line, text, MAX_TEXT + 1)),
             Piece::Close(_) => line.take().into_iter().for_each(|line| line.push('\n')),
         }
     }
     for text in [titles, authors] {
-        out.push_str(cut(&text, (MAX_TEXT + 1).saturating_sub(out.len())));
+        super::push_within(out, &text, MAX_TEXT + 1);
     }
     spine.iter().filter_map(|id| files.remove(id)).collect()
 }
@@ -214,7 +211,7 @@ fn key(name: &str) -> String {
 /// The bytes of a page as text: in the encoding of its byte order mark; as UTF-8 when they are
 /// that, or nearly, whatever the page says; else in the encoding the page declares; else in
 /// Windows-1252, as a browser does. `None` for bytes that are no text.
-fn decoded(bytes: &[u8]) -> Option<Cow<'_, str>> {
+pub(super) fn decoded(bytes: &[u8]) -> Option<Cow<'_, str>> {
     // UTF-32 begins with the mark of UTF-16 and would be read as it, a zero between letters.
     if bytes.starts_with(b"\xff\xfe\0\0") || bytes.starts_with(b"\0\0\xfe\xff") {
         return None;
@@ -242,14 +239,8 @@ fn decoded(bytes: &[u8]) -> Option<Cow<'_, str>> {
     if let Ok(text) = std::str::from_utf8(bytes) {
         return Some(text.into());
     }
-    // UTF-8 with a byte or two broken, as where a file was cut off or a letter was pasted in
-    // from elsewhere, is still UTF-8, whatever the page declares. In any other encoding
-    // nearly every letter beyond ASCII is broken UTF-8. A sample says which, for the whole
-    // may be 64 MB and broken bytes are slow to look at.
-    let sample = String::from_utf8_lossy(&bytes[..bytes.len().min(1 << 16)]);
-    let broken = sample.matches(char::REPLACEMENT_CHARACTER).count();
-    let whole = sample.chars().filter(|c| !c.is_ascii()).count() - broken;
-    if whole > broken {
+    // UTF-8 with a byte or two broken is still UTF-8, whatever the page declares.
+    if super::nearly_utf8(bytes) {
         return Some(String::from_utf8_lossy(bytes));
     }
     // A page that says UTF-16 in letters of one byte each is not UTF-16, and a label that
@@ -286,7 +277,7 @@ fn page(page: &str, out: &mut String, titled: bool) {
                     out.push(' ');
                 }
             }
-            Piece::Literal(text) => out.push_str(cut(text, MAX_TEXT + 1 - out.len())),
+            Piece::Literal(text) => out.push_str(super::start(text, MAX_TEXT + 1 - out.len())),
             Piece::Open(name, _, false) if among(local(name), &LEFT_OUT) => {
                 pieces.leave_out(name);
             }
@@ -462,7 +453,7 @@ impl<'a> Iterator for Pieces<'a> {
                 // The kind of document, first in the page, may declare entities of its own
                 // between `[` and `]`, with a `>` in each.
                 if bytes[1] == b'!'
-                    && self.page[..self.at].trim().is_empty()
+                    && self.page[..self.at].trim_end().is_empty()
                     && let Some(open) = rest[..end].find('[')
                 {
                     end = past(past(open, "]"), ">");
@@ -543,19 +534,10 @@ fn among(name: &str, names: &[&str]) -> bool {
     names.iter().any(|one| one.eq_ignore_ascii_case(name))
 }
 
-/// The start of `text`, no more than `most` bytes of it.
-fn cut(text: &str, most: usize) -> &str {
-    let mut end = most.min(text.len());
-    while !text.is_char_boundary(end) {
-        end -= 1;
-    }
-    &text[..end]
-}
-
 /// Text as it is written in a page, onto `out` as it is meant: `é` for `&eacute;`. No more of
 /// it than fills `out` to `MAX_TEXT`; what is meant is never longer than what is written.
 fn unescape(text: &str, out: &mut String) {
-    let mut rest = cut(text, (MAX_TEXT + 1).saturating_sub(out.len()));
+    let mut rest = super::start(text, (MAX_TEXT + 1).saturating_sub(out.len()));
     while let Some(at) = rest.find('&') {
         out.push_str(&rest[..at]);
         let (character, length) = reference(&rest[at..]).unwrap_or(('&', 1));
@@ -567,7 +549,7 @@ fn unescape(text: &str, out: &mut String) {
 
 /// The character that the start of `text` stands for, and how many bytes of `text` say so:
 /// `&#233;`, `&#xe9;` or `&eacute;`. `None` when the `&` is only a `&`, as in AT&T.
-fn reference(text: &str) -> Option<(char, usize)> {
+pub(super) fn reference(text: &str) -> Option<(char, usize)> {
     let body = &text[1..];
     let closed = |length: usize| length + usize::from(text[length..].starts_with(';'));
     if let Some(number) = body.strip_prefix('#') {
@@ -687,6 +669,33 @@ mod tests {
         </package>"#;
     const CHAPTER: &str = r#"<?xml version="1.0" encoding="utf-8"?><html xmlns="http://www.w3.org/1999/xhtml"><head><title>Rejsen til fyret</title>
         <link rel="stylesheet" href="s.css"/><script src="a.js"/></head><body><h1>Fyrtårnet</h1><p>Caf&eacute;en l&aring; ved havet.</p></body></html>"#;
+
+    #[test]
+    fn page_of_blank_space_and_declarations_is_read_quickly() {
+        // Whether a declaration is the first thing on the page is not asked of all the page
+        // before it, each time.
+        let page = format!(
+            "{}{}<p>kept</p>",
+            " ".repeat(2 << 20),
+            "<!x>".repeat(200_000)
+        );
+        let started = std::time::Instant::now();
+        let mut out = String::new();
+        super::page(&page, &mut out, false);
+        assert!(
+            started.elapsed() < crate::test_limit(std::time::Duration::from_secs(5)),
+            "{:?}",
+            started.elapsed()
+        );
+        assert_eq!(out.trim(), "kept");
+        let mut out = String::new();
+        super::page(
+            "  \n<!DOCTYPE x [<!ENTITY a \"b>\">]><p>after</p>",
+            &mut out,
+            false,
+        );
+        assert_eq!(out.trim(), "after");
+    }
 
     #[test]
     fn page_keeps_a_word_whole_and_ends_a_line_at_a_block() {

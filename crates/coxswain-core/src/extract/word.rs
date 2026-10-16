@@ -10,10 +10,9 @@
 //! stands in the middle of a paragraph without being part of its sentence.
 
 use std::collections::HashSet;
-use std::io::{Read, Seek};
+use std::io::Read;
 use std::path::Path;
 
-use quick_xml::events::BytesStart;
 use quick_xml::name::QName;
 
 use super::MAX_TEXT;
@@ -28,7 +27,7 @@ const MAX_PARTS: usize = 100;
 /// than is kept, well before its end.
 const MAX_XML: u64 = 16 * 1024 * 1024;
 
-type Zip = zip::ZipArchive<Metered>;
+type Zip = zip::ZipArchive<super::Metered>;
 
 /// How a format keeps its text. An element is known by its name without the prefix, `w:p` by
 /// `p`, as the prefix is the writer's choice. A name given with its prefix is that element
@@ -102,26 +101,26 @@ static OPEN: Format = Format {
 /// The text of a Word or OpenDocument file: its body, then its headers, footers, notes and
 /// comments. `None` when the file is no such document, has no text, or is larger than `max`.
 pub fn text(path: &Path, max: u64) -> Option<String> {
-    let file = std::fs::File::open(path).ok()?;
-    let size = file.metadata().ok()?.len();
-    if size > max {
-        return None;
-    }
-    let mut zip = zip::ZipArchive::new(Metered {
-        file,
-        left: size.saturating_mul(8).saturating_add(1 << 20),
-    })
-    .ok()?;
+    let mut zip = super::open_zip(path, max)?;
     // An OpenDocument file with a password keeps its parts under their names, as ciphertext.
     if unpack(&mut zip, "META-INF/manifest.xml", 1 << 20)
         .is_some_and(|manifest| String::from_utf8_lossy(&manifest).contains("encryption-data"))
     {
         return None;
     }
-    let mut parts: Vec<(usize, &Format, String)> = zip
+    // A chart or a formula set into an OpenDocument text is a document of its own, in a
+    // folder of its own, read after the styles as a presentation reads it.
+    let mut parts: Vec<(usize, Option<&Format>, String)> = zip
         .file_names()
         .filter_map(Result::ok)
-        .filter_map(|name| part(&name).map(|(at, format)| (at, format, name.to_string())))
+        .filter_map(|name| {
+            let (at, format) = match part(&name) {
+                Some((at, format)) => (at, Some(format)),
+                None if name.ends_with("/content.xml") => (OPEN.parts.len(), None),
+                None => return None,
+            };
+            Some((at, format, name.into_owned()))
+        })
         .collect();
     parts.sort_by_cached_key(|(at, _, name)| (*at, super::natural(name)));
     let (mut out, mut room) = (String::new(), MAX_XML);
@@ -134,7 +133,13 @@ pub fn text(path: &Path, max: u64) -> Option<String> {
         };
         room -= xml.len() as u64;
         let mut text = String::new();
-        read(&xml, format, &mut text);
+        match format {
+            Some(format) => read(&xml, format, &mut text),
+            None => {
+                let (lines, skip) = super::slides::OPENDOCUMENT;
+                text = super::xml_text(&xml, lines, skip);
+            }
+        }
         // The styles of an OpenDocument file hold a header and a footer for every kind of page,
         // used or not, and a watermark is in all ten of them: each line of them once.
         if name == "styles.xml" {
@@ -149,36 +154,6 @@ pub fn text(path: &Path, max: u64) -> Option<String> {
         keep(&mut out, "\n");
     }
     (!out.trim().is_empty()).then_some(out)
-}
-
-/// A file that gives no more than `left` bytes, all told. zip looks from the end of the file
-/// for the record that says where its directory is, and when the directory is broken, tries
-/// the next such record before it, and the next, each time reading as far as the record
-/// points: a file of nothing but such records costs it the square of its length, an hour for
-/// 20 MB. A document is read once through, and a few times its length is more than enough.
-struct Metered {
-    file: std::fs::File,
-    left: u64,
-}
-
-impl Read for Metered {
-    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
-        if self.left == 0 {
-            return Err(std::io::Error::other("read more than a document needs"));
-        }
-        let most = usize::try_from(self.left)
-            .unwrap_or(usize::MAX)
-            .min(buf.len());
-        let n = self.file.read(&mut buf[..most])?;
-        self.left -= n as u64;
-        Ok(n)
-    }
-}
-
-impl Seek for Metered {
-    fn seek(&mut self, pos: std::io::SeekFrom) -> std::io::Result<u64> {
-        self.file.seek(pos)
-    }
 }
 
 /// One part of the zip, unpacked, no more than `room` bytes of it. A part cut off there is
@@ -211,34 +186,16 @@ fn among(names: &[&str], name: QName) -> bool {
         .any(|n| *n == name.as_ref() || *n == name.local_name().as_ref())
 }
 
-/// The value of the element's attribute named `key` (without its prefix), if it has one.
-fn attribute(element: &BytesStart, key: &str) -> Option<String> {
-    let found = element
-        .attributes()
-        .flatten()
-        .find(|a| a.key.local_name().as_ref() == key)?;
-    Some(
-        found
-            .normalized_value(quick_xml::XmlVersion::Implicit1_0)
-            .ok()?
-            .into_owned(),
-    )
-}
-
 /// Adds `text` to `out`, as much of it as `MAX_TEXT` leaves room for.
 fn keep(out: &mut String, text: &str) {
-    let mut room = MAX_TEXT.saturating_sub(out.len()).min(text.len());
-    while !text.is_char_boundary(room) {
-        room -= 1;
-    }
-    out.push_str(&text[..room]);
+    super::push_within(out, text, MAX_TEXT);
 }
 
-/// Adds the text of one part to `out`. What is left of a broken part is still read.
+/// Adds the text of one part to `out`, as far as it is UTF-8. What is left of a broken part is
+/// still read.
 fn read(xml: &[u8], format: &Format, out: &mut String) {
     use quick_xml::events::Event;
-    let xml = String::from_utf8_lossy(xml);
-    let mut reader = quick_xml::Reader::from_str(&xml);
+    let mut reader = quick_xml::Reader::from_str(super::utf8(xml));
     // An end without a start, or an "&" on its own, is no reason to stop reading.
     let config = reader.config_mut();
     (
@@ -312,10 +269,10 @@ fn read(xml: &[u8], format: &Format, out: &mut String) {
                 keep(out, sign);
             }
             match name.local_name().as_ref() {
-                "framePr" if attribute(element, "dropCap").is_some() => joins = 2,
+                "framePr" if super::attr(element, "dropCap").is_some() => joins = 2,
                 // A watermark, and WordArt, is a shape whose words are an attribute.
                 "textpath" => {
-                    if let Some(words) = attribute(element, "string") {
+                    if let Some(words) = super::attr(element, "string") {
                         keep(out, &format!("\n{words}\n"));
                     }
                 }
@@ -323,7 +280,7 @@ fn read(xml: &[u8], format: &Format, out: &mut String) {
                 // page shows the chosen one.
                 "ddList" if !closes => list = Some((0, 0)),
                 "result" if list.is_some() => {
-                    list = attribute(element, "val")
+                    list = super::attr(element, "val")
                         .and_then(|v| v.parse().ok())
                         .map(|chosen| (chosen, 0))
                 }
@@ -332,7 +289,7 @@ fn read(xml: &[u8], format: &Format, out: &mut String) {
                         if chosen == seen {
                             keep(
                                 out,
-                                &format!(" {} ", attribute(element, "val").unwrap_or_default()),
+                                &format!(" {} ", super::attr(element, "val").unwrap_or_default()),
                             );
                         }
                         *seen += 1;
@@ -628,8 +585,22 @@ mod tests {
             "Second of a list",
             "A header",
             "Page 2",
+            "A document inside the document",
         ];
         assert_eq!(text.unwrap().lines().collect::<Vec<_>>(), lines);
+    }
+
+    #[test]
+    fn a_formula_set_into_an_opendocument_text_is_read() {
+        let formula = r#"<math><semantics><mrow><mi>speed</mi><mo>=</mo><mfrac><mi>distance</mi><mi>time</mi></mfrac></mrow></semantics></math>"#;
+        let text = read_file(
+            "formula.odt",
+            &[
+                ("content.xml", &open("<text:p>Before</text:p>")),
+                ("Object 1/content.xml", formula),
+            ],
+        );
+        assert_eq!(text.as_deref(), Some("Before\nspeed\n=\ndistance\ntime"));
     }
 
     #[test]
@@ -1020,26 +991,11 @@ mod tests {
     }
 
     #[test]
-    fn a_file_of_zip_endings_or_of_tags_alone_is_read_within_its_limits() {
+    fn a_file_of_tags_alone_is_read_within_its_limits() {
         let d = folder("bounds");
-        // The record at the end of a zip that says where its directory is, over and over: each
-        // says the directory is at the start, where there is none.
-        let ending = b"PK\x05\x06\0\0\0\0\x01\0\x01\0\x2e\0\0\0\0\0\0\0\0\0";
-        std::fs::write(
-            d.join("endings.docx"),
-            ending.repeat(512 * 1024 / ending.len()),
-        )
-        .unwrap();
-        let started = std::time::Instant::now();
-        assert_eq!(text(&d.join("endings.docx"), u64::MAX), None);
-        assert!(
-            started.elapsed() < crate::test_limit(std::time::Duration::from_secs(5)),
-            "{:?}",
-            started.elapsed()
-        );
         // What zip reads of a file is metered, whatever it looks for.
         std::fs::write(d.join("short.docx"), b"0123456789").unwrap();
-        let mut metered = Metered {
+        let mut metered = crate::extract::Metered {
             file: std::fs::File::open(d.join("short.docx")).unwrap(),
             left: 7,
         };
