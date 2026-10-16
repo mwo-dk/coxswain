@@ -192,6 +192,7 @@ pub fn zip_entries(
     };
     let mut names: Vec<String> = zip
         .file_names()
+        .filter_map(Result::ok)
         .filter(|n| wanted(n))
         .map(String::from)
         .collect();

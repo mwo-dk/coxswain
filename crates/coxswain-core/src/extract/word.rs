@@ -120,7 +120,8 @@ pub fn text(path: &Path, max: u64) -> Option<String> {
     }
     let mut parts: Vec<(usize, &Format, String)> = zip
         .file_names()
-        .filter_map(|name| part(name).map(|(at, format)| (at, format, name.to_string())))
+        .filter_map(Result::ok)
+        .filter_map(|name| part(&name).map(|(at, format)| (at, format, name.to_string())))
         .collect();
     parts.sort_by_cached_key(|(at, _, name)| (*at, super::natural(name)));
     let (mut out, mut room) = (String::new(), MAX_XML);

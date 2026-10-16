@@ -605,7 +605,11 @@ fn read_raw_items(archive: &Path, password: Option<&str>, max: usize) -> io::Res
         for i in 0..z.len().min(max) {
             let e = z.by_index_raw(i).map_err(io::Error::other)?;
             out.push(Item {
-                name: e.name().trim_end_matches('/').to_string(),
+                name: e
+                    .name()
+                    .map_err(io::Error::other)?
+                    .trim_end_matches('/')
+                    .to_string(),
                 size: e.size(),
                 dir: e.is_dir(),
                 modified: e.last_modified().map_or(0, unix),
@@ -731,7 +735,11 @@ pub(crate) fn search_read(
             for i in 0..z.len().min(SEARCH_ENTRIES) {
                 let (name, ok) = {
                     let e = z.by_index_raw(i).map_err(io::Error::other)?;
-                    let name = e.name().trim_end_matches('/').to_string();
+                    let name = e
+                        .name()
+                        .map_err(io::Error::other)?
+                        .trim_end_matches('/')
+                        .to_string();
                     let ok =
                         e.is_file() && !e.encrypted() && sound(&name) && wanted(&name, e.size());
                     (name, ok)
@@ -1113,7 +1121,10 @@ fn copy_entries(
             let (name, dir, encrypted, mode) = {
                 let e = z.by_index_raw(i).map_err(io::Error::other)?;
                 (
-                    e.name().trim_end_matches('/').to_string(),
+                    e.name()
+                        .map_err(io::Error::other)?
+                        .trim_end_matches('/')
+                        .to_string(),
                     e.is_dir(),
                     e.encrypted(),
                     e.unix_mode(),
@@ -1326,15 +1337,16 @@ fn rewrite(
                     if e.encrypted() && !e.is_dir() {
                         first_locked.get_or_insert(i);
                     }
-                    let old = e.name().trim_end_matches('/').to_string();
-                    let slash = e.name().ends_with('/');
+                    let full = e.name().map_err(io::Error::other)?;
+                    let old = full.trim_end_matches('/').to_string();
+                    let slash = full.ends_with('/');
                     // Locked the old way (ZipCrypto): the crate's raw copy drops that lock and
                     // leaves the bytes scrambled, so the file is read with the password and
                     // locked anew with AES-256 (as new files are). Without one: ask.
                     let old_lock = e.encrypted()
                         && !e.is_dir()
                         && zip::read::HasZipMetadata::get_metadata(&e)
-                            .aes_mode
+                            .aes_settings()
                             .is_none();
                     match keep(&old) {
                         Some(new) if old_lock => {
@@ -2524,7 +2536,7 @@ mod tests {
         let mut z = zip::ZipArchive::new(File::open(d.join("pw.zip")).unwrap()).unwrap();
         for i in 0..z.len() {
             let e = z.by_index_raw(i).unwrap();
-            assert!(e.is_dir() || e.encrypted(), "{}", e.name());
+            assert!(e.is_dir() || e.encrypted(), "{:?}", e.name());
         }
         // Tar has no passwords; an empty one is none.
         assert!(
@@ -2602,7 +2614,7 @@ mod tests {
         assert!(
             a.encrypted()
                 && zip::read::HasZipMetadata::get_metadata(&a)
-                    .aes_mode
+                    .aes_settings()
                     .is_some(),
             "locked anew with AES"
         );

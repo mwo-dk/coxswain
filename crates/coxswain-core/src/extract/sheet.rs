@@ -486,6 +486,7 @@ impl Zip {
         let named = self
             .archive
             .file_names()
+            .filter_map(Result::ok)
             .find(|n| n.replace('\\', "/").eq_ignore_ascii_case(name))?
             .to_string();
         let (mut bytes, most) = (vec![], MAX_ENTRY.min(self.left));
@@ -619,6 +620,7 @@ fn excel(zip: &mut Zip) -> Option<String> {
     let names = zip
         .archive
         .file_names()
+        .filter_map(Result::ok)
         .map(|n| n.replace('\\', "/"))
         .filter(|n| n.to_lowercase().starts_with(&notes));
     for name in names.take(MOST_SHEETS).collect::<Vec<_>>() {

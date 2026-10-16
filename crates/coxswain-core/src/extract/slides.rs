@@ -112,6 +112,7 @@ fn within(path: &Path, max: u64, mut room: u64) -> Option<String> {
         // The slides, then what is set into them as documents of their own, each in its folder.
         let objects: Vec<String> = zip
             .file_names()
+            .filter_map(Result::ok)
             .filter(|name| name.ends_with("/content.xml"))
             .map(String::from)
             .collect();
@@ -135,6 +136,7 @@ fn within(path: &Path, max: u64, mut room: u64) -> Option<String> {
 fn powerpoint(out: &mut String, zip: &mut Zip, room: &mut u64) {
     let mut slides: Vec<(u64, String)> = zip
         .file_names()
+        .filter_map(Result::ok)
         .filter_map(|name| {
             let file = name.strip_prefix("ppt/slides/")?.strip_suffix(".xml")?;
             Some((

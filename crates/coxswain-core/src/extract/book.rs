@@ -85,7 +85,8 @@ fn book(path: &Path, out: &mut String) -> Option<()> {
     // writes `Text\Ch1.xhtml` or `text/ch1.xhtml` for `Text/Ch1.xhtml`.
     let names: HashMap<String, String> = zip
         .file_names()
-        .map(|name| (key(name), name.to_string()))
+        .filter_map(Result::ok)
+        .map(|name| (key(&name), name.to_string()))
         .collect();
     // A file of the zip, no more than `most` bytes of it: what it says it holds is looked at
     // before it is unpacked, and one byte more than `most` says that it lied.
