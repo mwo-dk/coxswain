@@ -178,7 +178,7 @@ impl Index {
     }
 
     pub fn cache_path() -> Option<PathBuf> {
-        Some(dirs::cache_dir()?.join("coxswain").join("index.bin"))
+        Some(crate::helper::folder()?.join("index.bin"))
     }
 
     pub fn len(&self) -> usize {
@@ -1229,8 +1229,15 @@ impl Service {
                 );
                 *self.index.write().unwrap() = fresh;
                 self.state.store(State::Ready as u8, Ordering::Relaxed);
-                if let Some(c) = &cache {
-                    let _ = self.index.read().unwrap().save(c);
+                // Not saved, the index is built again at every start: helper.log says why.
+                if let Some(c) = &cache
+                    && let Err(e) = self.index.read().unwrap().save(c)
+                    && crate::helper::SERVING.load(Ordering::Relaxed)
+                {
+                    crate::helper::note_once(format!(
+                        "the file-name index is not saved to {}: {e}",
+                        c.display()
+                    ));
                 }
                 rebuild_at = Instant::now() + Duration::from_secs(3600);
                 if watch && watcher.is_none() {
@@ -1265,7 +1272,13 @@ impl Service {
                         for k in kids.iter().filter(|k| {
                             k.is_dir()
                                 && !k.is_symlink()
-                                && !exclude.iter().any(|e| k.starts_with(e))
+                                && !excluded(
+                                    &exclude,
+                                    k,
+                                    &k.file_name()
+                                        .map(|n| n.to_string_lossy())
+                                        .unwrap_or_default(),
+                                )
                                 && !crate::fs::protected(k)
                         }) {
                             let _ = w.watch(k, RecursiveMode::Recursive);
