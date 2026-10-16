@@ -168,6 +168,23 @@ pub struct Settings {
     disk_rx: Option<mpsc::Receiver<Vec<coxswain_core::disk::Item>>>,
     /// Also the models not in use, also what is outside: ticked for *Clear everything*.
     ticks: (bool, bool),
+    /// The built-in models on the disk, with what was loaded when they were read: their sizes
+    /// take a walk of each folder, so a drawing reads them only when that changed, and a key
+    /// (which may delete one, or change the one in use) forgets them.
+    pub(crate) models: Option<(coxswain_core::models::Loaded, Vec<coxswain_core::models::Entry>)>,
+}
+
+/// How to install a search tool that is missing, asked of the system once per tool: it looks
+/// for the package manager on the PATH.
+pub(crate) fn install_line(name: &str) -> Option<String> {
+    static LINES: std::sync::Mutex<Vec<(String, Option<String>)>> = std::sync::Mutex::new(Vec::new());
+    let mut lines = LINES.lock().unwrap_or_else(|e| e.into_inner());
+    if let Some((_, line)) = lines.iter().find(|(n, _)| n == name) {
+        return line.clone();
+    }
+    let line = coxswain_core::tools::install(name);
+    lines.push((name.to_string(), line.clone()));
+    line
 }
 
 impl Settings {
@@ -191,6 +208,7 @@ impl Settings {
             disk: vec![],
             disk_rx: None,
             ticks: (false, false),
+            models: None,
         };
         s.go(app, section);
         s
@@ -288,7 +306,10 @@ pub fn rows(app: &App, s: &Settings) -> Vec<Row> {
             }
             // The built-in models on the disk: what each is, its folder, whether it is loaded.
             v.push(Row::Head(t!("models.title"), "models"));
-            let models = coxswain_core::models::list(&cfg.search, &app.index.loaded());
+            let models = match &s.models {
+                Some((_, models)) => models.clone(),
+                None => coxswain_core::models::list(&cfg.search, &app.index.loaded()),
+            };
             if models.is_empty() {
                 v.push(Row::Info(t!("models.none"), String::new(), t!("models.hint")));
             }
@@ -301,7 +322,7 @@ pub fn rows(app: &App, s: &Settings) -> Vec<Row> {
             if !tools.is_empty() {
                 v.push(Row::Head(t!("settings.search_tools"), "tools"));
                 v.extend(tools.into_iter().map(|(name, there)| {
-                    let line = (!there).then(|| coxswain_core::tools::install(&name)).flatten();
+                    let line = (!there).then(|| install_line(&name)).flatten();
                     Row::Tool(name, there, line)
                 }));
             }
@@ -442,8 +463,8 @@ const HEAD: &str = "\u{1}head";
 const SET_UP: &str = "\u{1}setup";
 const OTHER: &str = "\u{1}other";
 
-/// A choice's value by its name.
-fn choice_label(name: &str, value: &str) -> String {
+/// A choice's value by its name: a value not in the list (a theme of the user's own) by itself.
+pub(crate) fn choice_label(name: &str, value: &str) -> String {
     let cfg = Config::default();
     choices(name, &cfg).and_then(|c| c.into_iter().find(|(v, _)| v == value)).map_or_else(|| value.to_string(), |(_, l)| l)
 }
@@ -496,6 +517,7 @@ impl App {
         };
         let esc = key.code == KeyCode::Esc;
         s.said = None;
+        s.models = None;
         let rows = rows(self, &s);
         let values = cs::values(&self.cfg);
         let opt = match rows.get(s.cursor) {
@@ -967,18 +989,29 @@ fn find(query: &str) -> Vec<&'static Opt> {
 
 /// Full screen: areas left, rows right, the selected row explained at the bottom.
 pub fn draw(f: &mut Frame, app: &mut App) {
-    // The cursor stays on its row when rows came or went since the last drawing.
-    if let Some(Dialog::Settings(s)) = &app.dialog {
-        let rows = rows(app, s);
-        let (at, key) = &s.anchor;
-        let now = match rows.get(s.cursor).map(Row::key) {
-            Some(k) if k != *key && s.cursor == *at => rows.iter().position(|r| r.key() == *key).unwrap_or(s.cursor),
-            _ => s.cursor,
-        };
-        let anchor = (now, rows.get(now).map(Row::key).unwrap_or_default());
-        if let Some(Dialog::Settings(s)) = &mut app.dialog {
-            (s.cursor, s.anchor) = (now, anchor);
+    // The models on the disk, read again only when what is loaded changed.
+    let Some(Dialog::Settings(s)) = &app.dialog else { return };
+    if s.area == Area::Search {
+        let loaded = app.index.loaded();
+        if s.models.as_ref().is_none_or(|(l, _)| *l != loaded) {
+            let list = coxswain_core::models::list(&app.cfg.search, &loaded);
+            if let Some(Dialog::Settings(s)) = &mut app.dialog {
+                s.models = Some((loaded, list));
+            }
         }
+    }
+    // The rows, once a drawing. The cursor stays on its row when rows came or went since the
+    // last drawing.
+    let Some(Dialog::Settings(s)) = &app.dialog else { return };
+    let rows = rows(app, s);
+    let (at, key) = &s.anchor;
+    let now = match rows.get(s.cursor).map(Row::key) {
+        Some(k) if k != *key && s.cursor == *at => rows.iter().position(|r| r.key() == *key).unwrap_or(s.cursor),
+        _ => s.cursor,
+    };
+    let anchor = (now, rows.get(now).map(Row::key).unwrap_or_default());
+    if let Some(Dialog::Settings(s)) = &mut app.dialog {
+        (s.cursor, s.anchor) = (now, anchor);
     }
     let full = f.area();
     let t = app.theme.clone();
@@ -1008,7 +1041,6 @@ pub fn draw(f: &mut Frame, app: &mut App) {
     let w = right.width as usize;
     let cfg = &app.cfg;
     let values = cs::values(cfg);
-    let rows = rows(app, s);
     let level = cs::level(&cfg.search);
     let mut cursor_at: Option<Position> = None;
 

@@ -2473,6 +2473,10 @@ fn main_loop(term: &mut DefaultTerminal, app: &mut App) -> std::io::Result<()> {
                     app.cfg.search = cfg.search;
                     app.cfg.user_menu = cfg.user_menu;
                 }
+                // A model downloaded from Settings shows there.
+                if let Some(Dialog::Settings(s)) = &mut app.dialog {
+                    s.models = None;
+                }
                 app.reload();
             }
             Some(Run::ShowOutput) => suspended(term, || {

@@ -39,7 +39,7 @@ enum Row {
 fn rows(step: usize) -> Vec<Row> {
     match step {
         1 => Level::ALL.into_iter().map(Row::Level).collect(),
-        2 => [Row::Theme, Row::Language, Row::Icons].into_iter().chain(coxswain_core::tools::install("nerd-font").map(|_| Row::Font)).collect(),
+        2 => [Row::Theme, Row::Language, Row::Icons].into_iter().chain(crate::settings::install_line("nerd-font").map(|_| Row::Font)).collect(),
         3 => vec![Row::Updates],
         _ => vec![],
     }
@@ -52,14 +52,8 @@ pub fn copy(text: &str) {
     if coxswain_core::termux::copy(text) {
         return;
     }
-    const B64: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-    let mut out = String::new();
-    for c in text.as_bytes().chunks(3) {
-        let n = (c[0] as u32) << 16 | (*c.get(1).unwrap_or(&0) as u32) << 8 | *c.get(2).unwrap_or(&0) as u32;
-        for i in 0..4 {
-            out.push(if i <= c.len() { B64[(n >> (18 - 6 * i) & 63) as usize] as char } else { '=' });
-        }
-    }
+    use base64::Engine;
+    let out = base64::engine::general_purpose::STANDARD.encode(text);
     let _ = write!(std::io::stdout(), "\x1b]52;c;{out}\x07");
     let _ = std::io::stdout().flush();
 }
@@ -122,7 +116,7 @@ impl App {
             Row::Icons => set("glyphs", if self.cfg.plain_glyphs() { "nerd" } else { "ascii" }.into()),
             Row::Updates => set("check_updates", (!self.cfg.check_updates).into()),
             Row::Font => {
-                let line = coxswain_core::tools::install("nerd-font").unwrap_or_default();
+                let line = crate::settings::install_line("nerd-font").unwrap_or_default();
                 copy(&line);
                 g.said = Some((t!("guide.copied", "command" => line), false));
                 return self.dialog = Some(Dialog::Guide(g));
@@ -181,13 +175,14 @@ pub fn draw(f: &mut Frame, app: &mut App) {
         2 => {
             lines.push(para(t!("guide.looks_intro")));
             lines.push(Line::from(""));
-            let lang = if cfg.language == "auto" { t!("settings.language_auto") } else { coxswain_core::i18n::find(&cfg.language).map_or(cfg.language.clone(), |l| l.name.to_string()) };
-            let theme = coxswain_core::i18n::tr(&format!("theme.{}", cfg.theme), &[]);
+            // As Settings names them; a theme of the user's own by its name.
+            let lang = crate::settings::choice_label("language", &cfg.language);
+            let theme = crate::settings::choice_label("tui_theme", &cfg.theme);
             let icons = if cfg.plain_glyphs() { t!("settings.glyphs_ascii") } else { t!("settings.glyphs_nerd") };
             lines.push(row(0, format!("{}: ‹ {theme} ›", t!("setting.tui_theme"))));
             lines.push(row(1, format!("{}: ‹ {lang} ›", t!("setting.language"))));
             lines.push(row(2, format!("{}: ‹ {icons} ›", t!("setting.glyphs"))));
-            if let Some(line) = coxswain_core::tools::install("nerd-font") {
+            if let Some(line) = crate::settings::install_line("nerd-font") {
                 lines.push(row(3, format!("{} {line}", t!("guide.icons_install"))));
             }
             lines.push(Line::from(""));
