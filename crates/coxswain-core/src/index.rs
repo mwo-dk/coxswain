@@ -1274,7 +1274,6 @@ impl Service {
                     Some(&self.index.read().unwrap()),
                 );
                 *self.index.write().unwrap() = fresh;
-                self.state.store(State::Ready as u8, Ordering::Relaxed);
                 // Not saved, the index is built again at every start: helper.log says why.
                 if let Some(c) = &cache
                     && let Err(e) = self.index.read().unwrap().save(c)
@@ -1308,6 +1307,8 @@ impl Service {
                             }
                             let _ = batch.commit();
                         }
+                        // Ready once the watcher is in place, so nothing made meanwhile is missed.
+                        self.state.store(State::Ready as u8, Ordering::Relaxed);
                         continue;
                     }
                     for root in &roots {
@@ -1335,6 +1336,7 @@ impl Service {
                         let _ = w.watch(root, RecursiveMode::NonRecursive);
                     }
                 }
+                self.state.store(State::Ready as u8, Ordering::Relaxed);
             }
             // Gather a burst of events, then apply them in one pass.
             let (mut dirty, mut paths) = (HashSet::new(), vec![]);
