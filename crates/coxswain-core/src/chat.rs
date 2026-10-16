@@ -356,7 +356,7 @@ impl Model {
 
     /// Bytes the download takes.
     pub fn size(&self) -> u64 {
-        self.files.iter().map(|f| f.len).sum()
+        crate::meaning::total(self.files)
     }
 
     pub fn installed(&self) -> bool {
@@ -365,9 +365,7 @@ impl Model {
 
     /// Whether `dir` holds the whole model.
     pub(crate) fn installed_in(&self, dir: &std::path::Path) -> bool {
-        self.files
-            .iter()
-            .all(|f| std::fs::metadata(dir.join(f.name)).is_ok_and(|m| m.len() == f.len))
+        crate::meaning::complete(dir, self.files)
     }
 
     pub fn download(&self, p: &Progress) -> io::Result<()> {
