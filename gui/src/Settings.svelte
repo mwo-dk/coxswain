@@ -354,25 +354,24 @@
 
   const current = $derived(ui.cfg.languages.find((l) => l.code === ui.cfg.language));
   let langFilter = $state("");
+  /** Items in runs of the same key, in order: [key, items]. */
+  const groupRuns = (items, keyOf) =>
+    items.reduce((g, x) => {
+      const key = keyOf(x);
+      if (g.at(-1)?.[0] !== key) g.push([key, []]);
+      g.at(-1)[1].push(x);
+      return g;
+    }, []);
   /** The languages under their regions, those the filter leaves: [group key, languages]. */
   const langGroups = $derived(
-    ui.cfg.languages
-      .filter((l) => !langFilter.trim() || `${l.name} ${l.code}`.toLowerCase().includes(langFilter.trim().toLowerCase()))
-      .reduce((g, l) => {
-        if (g.at(-1)?.[0] !== l.group) g.push([l.group, []]);
-        g.at(-1)[1].push(l);
-        return g;
-      }, []),
+    groupRuns(
+      ui.cfg.languages.filter((l) => !langFilter.trim() || `${l.name} ${l.code}`.toLowerCase().includes(langFilter.trim().toLowerCase())),
+      (l) => l.group,
+    ),
   );
   /** The themes under their groups, your own last: [group key, theme ids]. */
-  const themeGroups = $derived(
-    themeIds().reduce((g, id) => {
-      const group = ui.cfg.theme_groups[id] ?? "theme.group.own";
-      if (g.at(-1)?.[0] !== group) g.push([group, []]);
-      g.at(-1)[1].push(id);
-      return g;
-    }, []),
-  );
+  const themeGroup = $derived(Object.fromEntries(ui.cfg.builtin_themes));
+  const themeGroups = $derived(groupRuns(themeIds(), (id) => themeGroup[id] ?? "theme.group.own"));
   let themeFor = $state("theme");
   /** The theme brings its own font (every look but the modern one): the Font field does nothing. */
   const ownFont = $derived(ui.cfg.looks[s.theme] !== "modern");

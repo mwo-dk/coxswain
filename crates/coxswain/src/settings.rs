@@ -455,8 +455,9 @@ fn choices(name: &str, cfg: &Config) -> Option<Vec<(String, String)>> {
             let own = cfg.themes.keys().filter(|n| Theme::BUILTIN.iter().all(|(b, ..)| b != n)).map(|n| (n.clone(), n.clone()));
             let (mut v, mut group) = (vec![], "");
             for (name, label) in builtin.chain(own) {
-                if Theme::group(&name) != group {
-                    group = Theme::group(&name);
+                let g = Theme::group(&name);
+                if g != group {
+                    group = g;
                     v.push((HEAD.to_string(), t!(group)));
                 }
                 v.push((name, label));
