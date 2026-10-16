@@ -576,6 +576,7 @@
  "err.cancelled": "취소됨",
  "err.clipboard_no_files": "클립보드에 파일이 없습니다",
  "err.epub_no_rootfile": "이 EPUB 책에는 루트 파일이 없습니다",
+ "err.key_twice": "config.toml의 [keys]에서 {key}이(가) {a}와(과) {b} 모두에 지정되어 있습니다",
  "err.no_application": "이 종류의 파일을 여는 응용 프로그램이 없습니다",
  "err.no_cache_folder": "캐시 폴더 없음",
  "err.no_certificate": "이 PEM 파일에 인증서가 없습니다",

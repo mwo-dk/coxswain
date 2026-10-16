@@ -636,6 +636,7 @@
  "err.cancelled": "Atcelts",
  "err.clipboard_no_files": "Starpliktuvē nav failu",
  "err.epub_no_rootfile": "Šai EPUB grāmatai nav saknes faila",
+ "err.key_twice": "{key} config.toml sadaļā [keys] piešķirts gan {a}, gan {b}",
  "err.no_application": "Neviena lietotne neatver šāda veida failu",
  "err.no_cache_folder": "Nav kešatmiņas mapes",
  "err.no_certificate": "Šajā PEM failā nav sertifikāta",

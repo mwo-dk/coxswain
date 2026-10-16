@@ -606,6 +606,7 @@
  "err.cancelled": "Չեղարկվեց",
  "err.clipboard_no_files": "Սեղմատախտակին ֆայլեր չկան",
  "err.epub_no_rootfile": "Այս EPUB գիրքը արմատային ֆայլ չունի",
+ "err.key_twice": "{key}-ը config.toml-ի [keys]-ում տրված է և՛ {a}-ին, և՛ {b}-ին",
  "err.no_application": "Ոչ մի ծրագիր չի բացում այս տեսակի ֆայլը",
  "err.no_cache_folder": "Քեշի թղթապանակ չկա",
  "err.no_certificate": "Այս PEM ֆայլում վկայագիր չկա",

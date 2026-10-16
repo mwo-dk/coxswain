@@ -606,6 +606,7 @@
  "err.cancelled": "გაუქმდა",
  "err.clipboard_no_files": "ბუფერში ფაილები არ არის",
  "err.epub_no_rootfile": "ამ EPUB წიგნს ძირეული ფაილი არ აქვს",
+ "err.key_twice": "{key} config.toml-ის [keys]-ში მინიჭებულია {a}-საც და {b}-საც",
  "err.no_application": "ამ ტიპის ფაილს არცერთი აპლიკაცია არ ხსნის",
  "err.no_cache_folder": "ქეშის საქაღალდე არ არის",
  "err.no_certificate": "ამ PEM ფაილში სერტიფიკატი არ არის",

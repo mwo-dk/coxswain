@@ -128,6 +128,16 @@ impl fmt::Display for Key {
     }
 }
 
+/// A key as written on the keyboard, however config.toml spells it: `Ctrl+G` for `ctrl+g`,
+/// `Delete` for `del`.
+pub fn written(k: &str) -> String {
+    let k = k.parse::<Key>().map_or_else(|_| k.to_string(), |k| k.to_string());
+    match k.rsplit_once('+') {
+        Some((mods, c)) if c.chars().count() == 1 => format!("{mods}+{}", c.to_uppercase()),
+        _ => k,
+    }
+}
+
 // ---------------------------------------------------------------- actions
 
 macro_rules! actions {
@@ -1758,8 +1768,16 @@ impl Config {
         for (tool, image) in PreviewConfig::default().images {
             self.preview.images.entry(tool).or_insert(image);
         }
+        // A key the user gave an action is that action's: another action's default loses it.
+        let mine: std::collections::HashSet<Key> = self.keys.values().flatten().filter_map(|k| k.parse().ok()).collect();
         for &a in Action::ALL {
-            self.keys.entry(a).or_insert_with(|| a.default_keys().iter().map(|k| k.to_string()).collect());
+            self.keys.entry(a).or_insert_with(|| {
+                a.default_keys()
+                    .iter()
+                    .filter(|k| !k.parse::<Key>().is_ok_and(|k| mine.contains(&k)))
+                    .map(|k| k.to_string())
+                    .collect()
+            });
         }
         for (name, theme) in Theme::builtin() {
             self.themes.entry(name.into()).or_insert(theme);
@@ -1774,7 +1792,9 @@ impl Config {
         let mut map = HashMap::new();
         for (&action, keys) in &self.keys {
             for k in keys {
-                map.insert(k.parse::<Key>()?, action);
+                if let Some(prev) = map.insert(k.parse::<Key>()?, action).filter(|&p| p != action) {
+                    return Err(crate::t!("err.key_twice", "key" => k, "a" => prev.name(), "b" => action.name()));
+                }
             }
         }
         Ok(map)
@@ -1789,7 +1809,16 @@ impl Config {
     /// over Alt+F7), else its first.
     pub fn handy_key(&self, action: Action) -> Option<&str> {
         let keys = self.keys.get(&action)?;
-        keys.iter().find(|k| k.starts_with("Ctrl+")).or(keys.first()).map(String::as_str)
+        let ctrl = |k: &&String| k.get(..5).is_some_and(|p| p.eq_ignore_ascii_case("ctrl+"));
+        keys.iter().find(ctrl).or(keys.first()).map(String::as_str)
+    }
+
+    /// The keys of `action` as texts show them, "F8 / Delete", or "—" with none.
+    pub fn keys_shown(&self, action: Action) -> String {
+        match self.keys.get(&action).filter(|k| !k.is_empty()) {
+            Some(k) => k.iter().map(|k| written(k)).collect::<Vec<_>>().join(" / "),
+            None => "—".into(),
+        }
     }
 
     pub fn theme(&self) -> Theme {
@@ -1886,6 +1915,23 @@ pub fn edit_command(editor: &str, file: &std::path::Path, line: usize) -> String
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn config_keys_given_twice_and_as_written() {
+        // A key the user gives an action leaves the action it is a default of.
+        let cfg = Config::parse("[keys]\npack = [\"F5\"]\n").unwrap();
+        assert_eq!(cfg.keymap().unwrap()[&"F5".parse::<Key>().unwrap()], Action::Pack);
+        assert!(!cfg.keys[&Action::Copy].iter().any(|k| k == "F5"));
+        // One the user gives two actions is an error that names both.
+        let e = Config::parse("[keys]\ncopy = [\"F9\"]\npack = [\"f9\"]\n").unwrap_err();
+        assert!(e.contains("copy") && e.contains("pack"), "{e}");
+        let cfg = Config::parse("[keys]\nsearch = [\"Alt+F7\", \"ctrl+f\"]\ndelete = [\"F8\", \"del\"]\n").unwrap();
+        assert_eq!(cfg.handy_key(Action::Search), Some("ctrl+f"));
+        assert_eq!(written("ctrl+f"), "Ctrl+F");
+        assert_eq!(cfg.keys_shown(Action::Delete), "F8 / Delete");
+        let none = Config::parse("[keys]\nhelp = []\n").unwrap();
+        assert_eq!(none.keys_shown(Action::Help), "—");
+    }
 
     #[test]
     fn config_edit_and_unset_go_into_inline_tables() {

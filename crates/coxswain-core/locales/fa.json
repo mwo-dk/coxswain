@@ -606,6 +606,7 @@
  "err.cancelled": "لغو شد",
  "err.clipboard_no_files": "کلیپ‌بورد هیچ فایلی ندارد",
  "err.epub_no_rootfile": "این کتاب EPUB فایل ریشه ندارد",
+ "err.key_twice": "{key} در [keys] فایل config.toml هم به {a} و هم به {b} داده شده است",
  "err.no_application": "هیچ برنامه‌ای این نوع فایل را باز نمی‌کند",
  "err.no_cache_folder": "پوشه‌ی حافظه‌ی نهان وجود ندارد",
  "err.no_certificate": "هیچ گواهی‌ای در این فایل PEM نیست",

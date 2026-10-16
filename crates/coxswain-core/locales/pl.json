@@ -666,6 +666,7 @@
  "err.cancelled": "Anulowano",
  "err.clipboard_no_files": "Schowek nie zawiera plików",
  "err.epub_no_rootfile": "Ta książka EPUB nie ma pliku głównego",
+ "err.key_twice": "{key} jest w [keys] pliku config.toml przypisany zarówno do {a}, jak i do {b}",
  "err.no_application": "Żadna aplikacja nie otwiera tego rodzaju plików",
  "err.no_cache_folder": "Brak folderu pamięci podręcznej",
  "err.no_certificate": "Brak certyfikatu w tym pliku PEM",

@@ -24,18 +24,18 @@ pub fn keys(cfg: &Config) -> Vec<(String, String)> {
         Action::Help,
     ]
     .into_iter()
-    .map(|a| (a.label(), cfg.key_for(a).unwrap_or("—").to_string()))
+    .map(|a| (a.label(), cfg.key_for(a).map_or_else(|| "—".into(), crate::config::written)))
     .collect()
 }
 
 /// Step 1's line on the action menu and what a right-click does.
 pub fn menu_line(cfg: &Config) -> String {
-    t!("guide.menu_line", "key" => cfg.keys.get(&Action::ActionMenu).map(|k| k.join(" / ")).unwrap_or_default())
+    t!("guide.menu_line", "key" => cfg.keys_shown(Action::ActionMenu))
 }
 
 /// Step 1's line on F1 → Features.
 pub fn features_line(cfg: &Config) -> String {
-    t!("guide.features_line", "key" => cfg.key_for(Action::Help).unwrap_or("—"))
+    t!("guide.features_line", "key" => cfg.key_for(Action::Help).map_or_else(|| "—".into(), crate::config::written))
 }
 
 /// Its title: "Two panels · 1 of 4".

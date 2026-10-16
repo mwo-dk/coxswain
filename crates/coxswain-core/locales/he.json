@@ -636,6 +636,7 @@
  "err.cancelled": "בוטל",
  "err.clipboard_no_files": "אין קבצים בלוח",
  "err.epub_no_rootfile": "לספר EPUB זה אין קובץ שורש",
+ "err.key_twice": "{key} מוקצה גם ל־{a} וגם ל־{b} ב־[keys] של config.toml",
  "err.no_application": "אין יישום שפותח קבצים מסוג זה",
  "err.no_cache_folder": "אין תיקיית מטמון",
  "err.no_certificate": "אין אישור בקובץ PEM זה",

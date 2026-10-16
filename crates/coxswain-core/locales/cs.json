@@ -636,6 +636,7 @@
  "err.cancelled": "Zrušeno",
  "err.clipboard_no_files": "Ve schránce nejsou žádné soubory",
  "err.epub_no_rootfile": "Tato kniha EPUB nemá kořenový soubor",
+ "err.key_twice": "{key} je v [keys] souboru config.toml přiřazena k {a} i k {b}",
  "err.no_application": "Tento druh souboru neotevírá žádná aplikace",
  "err.no_cache_folder": "Žádná složka mezipaměti",
  "err.no_certificate": "V tomto souboru PEM není žádný certifikát",

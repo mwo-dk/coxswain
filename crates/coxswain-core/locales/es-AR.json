@@ -636,6 +636,7 @@
  "err.cancelled": "Cancelado",
  "err.clipboard_no_files": "El portapapeles no contiene archivos",
  "err.epub_no_rootfile": "Este libro EPUB no tiene archivo raíz",
+ "err.key_twice": "{key} está asignada a {a} y a {b} a la vez en [keys] de config.toml",
  "err.no_application": "Ninguna aplicación abre este tipo de archivo",
  "err.no_cache_folder": "No hay carpeta de caché",
  "err.no_certificate": "No hay ningún certificado en este archivo PEM",

@@ -606,6 +606,7 @@
  "err.cancelled": "Peruutettu",
  "err.clipboard_no_files": "Leikepöydällä ei ole tiedostoja",
  "err.epub_no_rootfile": "Tässä EPUB-kirjassa ei ole juuritiedostoa",
+ "err.key_twice": "{key} on annettu sekä toiminnolle {a} että {b} config.toml-tiedoston osassa [keys]",
  "err.no_application": "Mikään sovellus ei avaa tämäntyyppistä tiedostoa",
  "err.no_cache_folder": "Välimuistikansiota ei ole",
  "err.no_certificate": "Tässä PEM-tiedostossa ei ole varmennetta",

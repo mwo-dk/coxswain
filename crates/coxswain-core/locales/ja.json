@@ -576,6 +576,7 @@
  "err.cancelled": "キャンセルしました",
  "err.clipboard_no_files": "クリップボードにファイルがありません",
  "err.epub_no_rootfile": "この EPUB にはルートファイルがありません",
+ "err.key_twice": "config.toml の [keys] で {key} が {a} と {b} の両方に割り当てられています",
  "err.no_application": "この種類のファイルを開くアプリケーションがありません",
  "err.no_cache_folder": "キャッシュフォルダーがありません",
  "err.no_certificate": "この PEM ファイルに証明書がありません",

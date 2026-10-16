@@ -606,6 +606,7 @@
  "err.cancelled": "Katkestatud",
  "err.clipboard_no_files": "Lõikelaual pole faile",
  "err.epub_no_rootfile": "Selles EPUB-raamatus pole juurfaili",
+ "err.key_twice": "{key} on failis config.toml jaotises [keys] antud nii toimingule {a} kui ka {b}",
  "err.no_application": "Ükski rakendus ei ava seda tüüpi faili",
  "err.no_cache_folder": "Vahemälu kausta pole",
  "err.no_certificate": "Selles PEM-failis pole sertifikaati",

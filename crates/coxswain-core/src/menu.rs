@@ -206,8 +206,8 @@ fn fits(id: &str, s: &Subject) -> bool {
 
 /// The keys of `a` as the hint names them: "Shift+F10 / Menu".
 fn keys(cfg: &Config, a: Action) -> Option<String> {
-    let k = cfg.keys.get(&a).filter(|k| !k.is_empty())?;
-    Some(k.join(" / "))
+    cfg.keys.get(&a).filter(|k| !k.is_empty())?;
+    Some(cfg.keys_shown(a))
 }
 
 /// The hint for `s`, given how often each was shown: its id and text. None when hints are off,

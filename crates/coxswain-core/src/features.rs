@@ -6,7 +6,7 @@
 use serde::Serialize;
 use unicode_normalization::UnicodeNormalization;
 
-use crate::config::{Action, Config};
+use crate::config::{written, Action, Config};
 use Action::*;
 
 /// A feature: its id (its texts' key), its docs page under `docs/` (whose folder is its area),
@@ -297,21 +297,6 @@ pub struct Entry {
     pub url: String,
 }
 
-/// A key as written on the keyboard: `Ctrl+G`, not `Ctrl+g`.
-fn written(k: &str) -> String {
-    match k.rsplit_once('+') {
-        Some((mods, c)) if c.len() == 1 => format!("{mods}+{}", c.to_uppercase()),
-        _ => k.to_string(),
-    }
-}
-
-/// The keys of `a`, "F8 / Delete", or "—" with none.
-fn keys(cfg: &Config, a: Action) -> String {
-    match cfg.keys.get(&a).filter(|k| !k.is_empty()) {
-        Some(k) => k.iter().map(|k| written(k)).collect::<Vec<_>>().join(" / "),
-        None => "—".into(),
-    }
-}
 
 /// The text `key` with each `{action}` filled with that action's handiest key (its name when it
 /// has none). None when the language has no such text.
@@ -384,7 +369,7 @@ pub fn entry(cfg: &Config, f: &Feature, gui: bool) -> Entry {
             .actions
             .iter()
             .filter(|a| gui || !a.gui_only())
-            .map(|&a| (a.label(), keys(cfg, a)))
+            .map(|&a| (a.label(), cfg.keys_shown(a)))
             .collect(),
         qa,
         url: f.url(),

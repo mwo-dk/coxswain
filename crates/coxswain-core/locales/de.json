@@ -606,6 +606,7 @@
  "err.cancelled": "Abgebrochen",
  "err.clipboard_no_files": "Die Zwischenablage enthält keine Dateien",
  "err.epub_no_rootfile": "Dieses EPUB-Buch hat keine Stammdatei",
+ "err.key_twice": "{key} ist in [keys] von config.toml sowohl {a} als auch {b} zugewiesen",
  "err.no_application": "Keine Anwendung öffnet diese Art von Datei",
  "err.no_cache_folder": "Kein Cache-Ordner",
  "err.no_certificate": "Kein Zertifikat in dieser PEM-Datei",

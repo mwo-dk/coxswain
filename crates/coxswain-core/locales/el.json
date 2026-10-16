@@ -606,6 +606,7 @@
  "err.cancelled": "Ακυρώθηκε",
  "err.clipboard_no_files": "Το Πρόχειρο δεν περιέχει αρχεία",
  "err.epub_no_rootfile": "Αυτό το βιβλίο EPUB δεν έχει αρχείο ρίζας",
+ "err.key_twice": "Το {key} έχει δοθεί και στο {a} και στο {b} στο [keys] του config.toml",
  "err.no_application": "Καμία εφαρμογή δεν ανοίγει αυτό το είδος αρχείου",
  "err.no_cache_folder": "Δεν υπάρχει φάκελος cache",
  "err.no_certificate": "Δεν υπάρχει πιστοποιητικό σε αυτό το αρχείο PEM",
