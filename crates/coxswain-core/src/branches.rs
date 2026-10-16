@@ -87,18 +87,7 @@ pub fn entry_name(b: &Branch) -> String {
             s += &format!(" {arrow}{n}");
         }
     }
-    let subject: String = b
-        .subject
-        .chars()
-        .map(|ch| {
-            if matches!(ch, '/' | '\\') || ch.is_control() {
-                '∕'
-            } else {
-                ch
-            }
-        })
-        .collect();
-    format!("{s} · {subject}")
+    format!("{s} · {}", crate::history::safe_name(&b.subject))
 }
 
 /// The branch an entry of the list is, read again.
@@ -121,17 +110,12 @@ fn find(dir: &Path, entry: &str) -> io::Result<Branch> {
 
 fn dir_entry(name: String, path: PathBuf, time: u64) -> Entry {
     Entry {
-        hidden: false,
         name,
         path,
         is_dir: true,
-        is_symlink: false,
-        is_exec: false,
-        size: 0,
         modified: time,
         created: time,
-        online: false,
-        referenced: 0,
+        ..Entry::default()
     }
 }
 

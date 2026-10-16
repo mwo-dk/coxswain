@@ -269,11 +269,9 @@ pub fn show(base: &Path, rev: &str) -> io::Result<Commit> {
         .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, format!("no commit {rev}")))
 }
 
-/// A name for a commit in a listing: short id and subject, without path separators.
-fn entry_name(c: &Commit) -> String {
-    let subject: String = c
-        .subject
-        .chars()
+/// `s` as part of a name in a listing: path separators and control characters as `∕`.
+pub(crate) fn safe_name(s: &str) -> String {
+    s.chars()
         .map(|ch| {
             if matches!(ch, '/' | '\\') || ch.is_control() {
                 '∕'
@@ -281,8 +279,12 @@ fn entry_name(c: &Commit) -> String {
                 ch
             }
         })
-        .collect();
-    format!("{} {subject}", c.short())
+        .collect()
+}
+
+/// A name for a commit in a listing: short id and subject, without path separators.
+fn entry_name(c: &Commit) -> String {
+    format!("{} {}", c.short(), safe_name(&c.subject))
 }
 
 /// One line of `git ls-tree -l -z`: mode, kind, id, size, path.
@@ -322,14 +324,7 @@ pub fn list(dir: &Path, at: &At) -> io::Result<Vec<Entry>> {
         name: "..".into(),
         path,
         is_dir: true,
-        is_symlink: false,
-        is_exec: false,
-        hidden: false,
-        size: 0,
-        modified: 0,
-        created: 0,
-        online: false,
-        referenced: 0,
+        ..Entry::default()
     };
     let Some(rev) = &at.commit else {
         match at.view {
@@ -351,14 +346,9 @@ pub fn list(dir: &Path, at: &At) -> io::Result<Vec<Entry>> {
             name: entry_name(c),
             path: path(&at.target, Some(&c.hash)),
             is_dir: true,
-            is_symlink: false,
-            is_exec: false,
-            hidden: false,
-            size: 0,
             modified: c.time,
             created: c.time,
-            online: false,
-            referenced: 0,
+            ..Entry::default()
         }));
         return Ok(out);
     };
@@ -391,8 +381,7 @@ pub fn list(dir: &Path, at: &At) -> io::Result<Vec<Entry>> {
             size,
             modified: when,
             created: when,
-            online: false,
-            referenced: 0,
+            ..Entry::default()
         });
     }
     if out.len() == 1 && !at.inner.is_empty() {

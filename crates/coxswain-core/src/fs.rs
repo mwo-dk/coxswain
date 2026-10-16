@@ -237,14 +237,7 @@ pub fn list_with_archive(
             name: "..".into(),
             path: parent,
             is_dir: true,
-            is_symlink: false,
-            is_exec: false,
-            hidden: false,
-            size: 0,
-            modified: 0,
-            created: 0,
-            online: false,
-            referenced: 0,
+            ..Entry::default()
         });
     }
     for de in fs::read_dir(dir)? {
@@ -556,7 +549,11 @@ fn copy_tree(src: &Path, to: &Path) -> io::Result<()> {
             format!("{} exists", to.display()),
         ))
     } else {
-        fs::copy(src, to).map(drop)
+        // Not there before (above): a copy that fails half way (a full disk) leaves nothing,
+        // so trying again is not refused as "exists".
+        fs::copy(src, to).map(drop).inspect_err(|_| {
+            let _ = fs::remove_file(to);
+        })
     }
 }
 
@@ -604,7 +601,8 @@ pub fn rename_locked(src: &Path, dst: &Path, password: Option<&str>) -> io::Resu
 fn rename_plain(src: &Path, dst: &Path) -> io::Result<PathBuf> {
     let to = target(src, dst);
     // `to` may be `src` itself in another case (`Notes` to `notes` where case does not count).
-    if to.exists() && !same_file(src, &to) {
+    // A link counts as there, even one to nothing: rename would replace it.
+    if fs::symlink_metadata(&to).is_ok() && !same_file(src, &to) {
         return Err(io::Error::new(
             io::ErrorKind::AlreadyExists,
             format!("{} exists", to.display()),
@@ -815,25 +813,8 @@ fn read_dir_once(
 /// Total bytes and file count under `path`, in parallel. Symlinks are counted, not followed;
 /// unreadable parts, and other apps' data on a Mac (`protected`) below it, are skipped.
 pub fn dir_size(path: &Path) -> (u64, u64) {
-    use rayon::prelude::*;
-    let Ok(meta) = fs::symlink_metadata(path) else {
-        return (0, 0);
-    };
-    if !meta.is_dir() {
-        return (meta.len(), 1);
-    }
-    let Ok(rd) = read_dir(path) else {
-        return (0, 0);
-    };
-    rd.flatten()
-        .collect::<Vec<_>>()
-        .par_iter()
-        .map(|de| match de.file_type() {
-            Ok(t) if t.is_dir() && protected(&de.path()) => (0, 0),
-            Ok(t) if t.is_dir() => dir_size(&de.path()),
-            _ => (de.metadata().map_or(0, |m| m.len()), 1),
-        })
-        .reduce(|| (0, 0), |a, b| (a.0 + b.0, a.1 + b.1))
+    // Never stopped, so always measured.
+    crate::sizes::walk(path, &std::sync::atomic::AtomicBool::new(false)).unwrap_or_default()
 }
 
 /// What Properties shows of a file or folder: the basics, and where the system has them, its
@@ -1316,14 +1297,9 @@ mod tests {
             name: name.into(),
             path: PathBuf::from(name),
             is_dir: true,
-            is_symlink: false,
-            is_exec: false,
-            hidden: false,
-            size: 0,
             modified,
             created: modified,
-            online: false,
-            referenced: 0,
+            ..Entry::default()
         };
         // As git lists them: newest first; two made in the same second.
         let git = [
@@ -1403,6 +1379,16 @@ mod tests {
         );
         assert!(d.join("moved/sub/f").exists());
         assert_eq!(dir_size(&d.join("moved")), (1, 1));
+        // A link to nothing at the target is there all the same: not replaced.
+        #[cfg(unix)]
+        {
+            std::os::unix::fs::symlink(d.join("nowhere"), d.join("link")).unwrap();
+            fs::write(d.join("b.txt"), "b").unwrap();
+            assert!(rename(&d.join("b.txt"), &d.join("link")).is_err());
+            assert!(fs::symlink_metadata(d.join("link")).unwrap().is_symlink());
+            fs::remove_file(d.join("link")).unwrap();
+            fs::remove_file(d.join("b.txt")).unwrap();
+        }
         fs::write(d.join("a.txt"), "").unwrap();
         assert_eq!(free_name(&d, "a.txt"), d.join("a (2).txt"));
         assert_eq!(free_name(&d, "b.txt"), d.join("b.txt"));
