@@ -125,9 +125,6 @@ says *… is available in the desktop app (coxswain-gui)* on the command line.
 ² Both apps, but most terminals never pass **Ctrl+,** on: in the terminal app use **F9** →
 *Settings*, or bind it to a key the terminal sends, such as `settings = ["Alt+,"]`.
 
-"Further down" for two actions on one key means: first the left column from top to bottom, then
-the right column.
-
 ## Keys you cannot change
 
 These belong to where they are, not to an action:
