@@ -85,6 +85,7 @@ the cursor, in a dim colour. The first ones teach the menu itself; then they tea
 |---|---|
 | Anything | *Shift+F10 / Menu: what you can do with this* |
 | Anywhere | *Alt+F7 / Ctrl+F finds anything on this machine* |
+| Anywhere | *F1 → Features: everything Coxswain can do, with questions answered* ([Features and questions](features.md)) |
 | A file or folder | *Alt+letter jumps to a name: type how it starts* ([Quick search](quick-search.md)) |
 | `..`, nothing marked | *Ctrl+U swaps the panels · Alt+O shows this folder in the other one · Ctrl+O panels on or off* |
 | Several marked | *F5 copies them to the other panel · F6 moves them* |

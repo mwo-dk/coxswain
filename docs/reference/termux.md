@@ -130,8 +130,9 @@ USB stick) is another filesystem: there **F8** asks *No bin on the phone's stora
 deleting* turned off. **Enter** or **Y** deletes for good; **Esc** or **N** leaves it alone.
 **Shift+F8** deletes for good after its usual question, as everywhere.
 
-Coxswain does not show, restore or empty this trash. Look in `~/.local/share/Trash/files` and
-move a file back with **F6**; `rm -rf ~/.local/share/Trash` empties it. Android's own bin, in
+**Ctrl+Z** puts back what **F8** moved there ([Undo](../files/undo.md)). Beyond that, Coxswain
+does not show or empty this trash: look in `~/.local/share/Trash/files` and move a file back with
+**F6**; `rm -rf ~/.local/share/Trash` empties it. Android's own bin, in
 the Files or Gallery app, is a separate one: Coxswain's trash is not in it, and what you delete
 there is not in Coxswain's.
 
@@ -260,7 +261,8 @@ stopping it while the screen is off.
 **Where does F8 put my files in Termux?** In `~/.local/share/Trash/files`, with a
 `.trashinfo` for each in `~/.local/share/Trash/info` that says where it came from and when.
 Android has no desktop trash, so the Termux build keeps one of its own ([Deleting](#deleting-termuxs-trash)).
-To get a file back, go there and move it with **F6**. Android's Files app does not show it.
+To get a file back, press **Ctrl+Z** right after F8 ([Undo](../files/undo.md)), or go there and
+move it with **F6**. Android's Files app does not show it.
 
 **Why does F8 ask to delete for good on the phone's storage?** `~/storage/…` leads to Android's
 shared storage, a filesystem of its own. Moving a file from there into the trash in Termux's
