@@ -231,7 +231,7 @@ pub fn script_font_missing() -> bool {
     {
         return false;
     }
-    let out = std::process::Command::new("fc-list")
+    let out = command("fc-list")
         .args([format!(":lang={lang}"), "family".into()])
         .output();
     out.is_ok_and(|o| o.status.success() && o.stdout.trim_ascii().is_empty())
@@ -242,8 +242,15 @@ pub fn script_fonts(lang: &str) -> String {
     if cfg!(target_os = "freebsd") {
         return "noto (pkg install noto)".into();
     }
+    if cfg!(target_os = "netbsd") {
+        return "noto-ttf (pkgin install noto-ttf)".into();
+    }
     if cfg!(target_os = "openbsd") {
         return "noto-fonts (pkg_add noto-fonts)".into();
+    }
+    // illumos and the rest: no package known by name, so the font's own.
+    if !cfg!(target_os = "linux") {
+        return "Noto".into();
     }
     let fedora = match lang {
         "fa" => "arabic",
@@ -475,7 +482,7 @@ pub fn nerd_font() -> Option<bool> {
                 .any(|e| named(&e.file_name().to_string_lossy())),
         );
     }
-    let out = std::process::Command::new("fc-list")
+    let out = command("fc-list")
         .args([":", "family"])
         .output()
         .ok()
@@ -615,22 +622,36 @@ pub fn output(
     max: u64,
 ) -> Option<Vec<u8>> {
     let mut c = low(program);
-    c.args(args)
-        .stdin(Stdio::null())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::null());
-    let mut child = c.spawn().ok()?;
-    let mut out = child.stdout.take()?;
-    let reader = std::thread::spawn(move || {
-        let mut v = vec![];
-        let _ = (&mut out).take(max).read_to_end(&mut v);
-        // Whatever is past the limit is drained, so the program is not stuck writing it.
-        let _ = std::io::copy(&mut out, &mut std::io::sink());
-        v
-    });
-    let status = wait(&mut child, timeout).ok()?;
-    let v = reader.join().ok()?;
-    status.success().then_some(v)
+    c.args(args);
+    capture(c, timeout, max)
+        .ok()
+        .filter(|o| o.status.success())
+        .map(|o| o.stdout)
+}
+
+/// What `c` prints, with no input, given `timeout`: its output up to `max` bytes, and up to
+/// 64 KB of its complaints. Both are read while it runs, so a long output never fills a pipe
+/// and holds it up; whatever is past the limit is drained.
+pub fn capture(mut c: Command, timeout: Duration, max: u64) -> std::io::Result<std::process::Output> {
+    fn drain(pipe: Option<impl Read + Send + 'static>, max: u64) -> std::thread::JoinHandle<Vec<u8>> {
+        std::thread::spawn(move || {
+            let mut v = vec![];
+            if let Some(mut p) = pipe {
+                let _ = (&mut p).take(max).read_to_end(&mut v);
+                let _ = std::io::copy(&mut p, &mut std::io::sink());
+            }
+            v
+        })
+    }
+    c.stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::piped());
+    let mut child = c.spawn()?;
+    let (out, err) = (drain(child.stdout.take(), max), drain(child.stderr.take(), 64 << 10));
+    let status = wait(&mut child, timeout)?;
+    Ok(std::process::Output {
+        status,
+        stdout: out.join().unwrap_or_default(),
+        stderr: err.join().unwrap_or_default(),
+    })
 }
 
 /// `program` at the lowest priority the platform offers.

@@ -22,22 +22,11 @@ fn run(program: &str, args: &[&str]) -> Option<String> {
     })?;
     let args: Vec<&std::ffi::OsStr> = args.iter().map(std::ffi::OsStr::new).collect();
     let mut c = crate::tools::command(&p);
-    c.args(&args)
-        .stdin(std::process::Stdio::null())
-        .stdout(std::process::Stdio::piped())
-        .stderr(std::process::Stdio::null());
-    let mut child = c.spawn().ok()?;
-    let mut out = child.stdout.take()?;
-    let reader = std::thread::spawn(move || {
-        let mut v = String::new();
-        let _ = io::Read::read_to_string(&mut out, &mut v);
-        v
-    });
-    let ok = crate::tools::wait(&mut child, Duration::from_secs(4))
-        .ok()?
-        .success();
-    let text = reader.join().ok()?;
-    ok.then_some(text)
+    c.args(&args);
+    crate::tools::capture(c, Duration::from_secs(4), u64::MAX)
+        .ok()
+        .filter(|o| o.status.success())
+        .map(|o| String::from_utf8_lossy(&o.stdout).into_owned())
 }
 
 // ---------------------------------------------------------------- packages
