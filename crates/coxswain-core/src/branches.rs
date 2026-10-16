@@ -199,9 +199,11 @@ pub fn switch(dir: &Path, entry: &str) -> io::Result<String> {
     let at = history::split(dir)
         .filter(|at| at.view == View::Branches && at.commit.is_none())
         .ok_or_else(|| {
+            // Rare (the apps ask first): the key as config.toml has it.
+            let cfg = crate::config::Config::load().unwrap_or_default();
             io::Error::new(
                 io::ErrorKind::InvalidInput,
-                crate::t!("branches.switch_where"),
+                crate::t!("branches.switch_where", "key" => cfg.keys_shown(crate::config::Action::Branches)),
             )
         })?;
     let b = find(&at.base, entry)?;

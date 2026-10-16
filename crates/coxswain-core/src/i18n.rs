@@ -686,6 +686,119 @@ mod tests {
         assert_eq!(caps("ძებნა ab"), "ძებნა AB");
     }
 
+    /// Every text the code names with a literal key (`t!("…"`, `tn!`, `tr(`, `trn(`, and the
+    /// desktop app's `t('…'`, `tn(`) is in British English, and a Rust call gives each of its
+    /// `{placeholders}` (`{n}` comes with a count). Keys made at run time are not checked here.
+    #[test]
+    fn i18n_every_text_the_code_names_is_there() {
+        use std::path::{Path, PathBuf};
+        fn walk(d: &Path, exts: &[&str], out: &mut Vec<PathBuf>) {
+            for e in std::fs::read_dir(d).into_iter().flatten().flatten() {
+                let p = e.path();
+                if p.is_dir() {
+                    walk(&p, exts, out);
+                } else if p.extension().is_some_and(|x| exts.iter().any(|e| x == *e)) {
+                    out.push(p);
+                }
+            }
+        }
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let mut files = vec![];
+        for c in std::fs::read_dir(root.join("crates")).into_iter().flatten().flatten() {
+            walk(&c.path().join("src"), &["rs"], &mut files);
+        }
+        // Not there in the packaged crate.
+        walk(&root.join("gui/src"), &["js", "svelte", "ts"], &mut files);
+        let reference = catalogue(REFERENCE);
+        let named = regex::Regex::new(r#""([A-Za-z_0-9]+)"\s*(=>|,)"#).unwrap();
+        let wants = |v: &serde_json::Value| -> Vec<String> {
+            let forms: Vec<&str> = match v {
+                serde_json::Value::Object(o) => o.values().filter_map(|f| f.as_str()).collect(),
+                v => v.as_str().into_iter().collect(),
+            };
+            let mut all: Vec<String> = forms
+                .iter()
+                .flat_map(|s| s.split('{').skip(1).filter_map(|p| p.split_once('}').map(|x| x.0.to_string())))
+                .collect();
+            all.sort();
+            all.dedup();
+            all
+        };
+        let mut bad = vec![];
+        for f in &files {
+            let text = std::fs::read_to_string(f).unwrap_or_default();
+            let rust = f.extension().is_some_and(|x| x == "rs");
+            let calls: &[&str] = if rust { &["t!(", "tn!(", "tr(", "trn("] } else { &["t(", "tn("] };
+            for call in calls {
+                for (i, _) in text.match_indices(call) {
+                    if text[..i].ends_with(|c: char| c.is_alphanumeric() || c == '_' || c == '.') {
+                        continue;
+                    }
+                    let line = &text[text[..i].rfind('\n').map_or(0, |p| p + 1)..i];
+                    if line.contains("//") || line.trim_start().starts_with('*') {
+                        continue;
+                    }
+                    let rest = text[i + call.len()..].trim_start();
+                    let Some(q) = rest.chars().next().filter(|c| matches!(c, '"' | '\'')) else {
+                        continue;
+                    };
+                    let Some(end) = rest[1..].find(q) else { continue };
+                    let key = &rest[1..1 + end];
+                    if !key.contains('.') || key.ends_with('.') || key.contains([' ', '{', '$']) {
+                        continue;
+                    }
+                    let Some(v) = reference.get(key) else {
+                        bad.push(format!("{}: no text {key}", f.display()));
+                        continue;
+                    };
+                    if !rust {
+                        continue;
+                    }
+                    // The call, to its closing bracket, strings skipped.
+                    let (mut depth, mut in_str, mut esc, mut stop) = (1, false, false, rest.len());
+                    for (j, c) in rest.char_indices() {
+                        match (in_str, esc, c) {
+                            (true, true, _) => esc = false,
+                            (true, false, '\\') => esc = true,
+                            (_, false, '"') => in_str = !in_str,
+                            (false, _, '(' | '[') => depth += 1,
+                            (false, _, ')' | ']') => {
+                                depth -= 1;
+                                if depth == 0 {
+                                    stop = j;
+                                    break;
+                                }
+                            }
+                            _ => {}
+                        }
+                    }
+                    let span = &rest[1 + end..stop];
+                    // `tr(key, args)` with its arguments made elsewhere: not checked.
+                    if call.starts_with("tr") && !span.contains("&[") && !span.trim_start_matches([',', ' ']).is_empty() {
+                        continue;
+                    }
+                    let given: Vec<&str> = named.captures_iter(span).map(|c| c.get(1).unwrap().as_str()).collect();
+                    let counted = call.starts_with("tn") || call.starts_with("trn");
+                    let lacks: Vec<String> = wants(v)
+                        .into_iter()
+                        .filter(|p| !(counted && p == "n") && !given.contains(&p.as_str()))
+                        .collect();
+                    if !lacks.is_empty() {
+                        bad.push(format!("{}: {key} without {}", f.display(), lacks.join(", ")));
+                    }
+                }
+            }
+        }
+        // Named at run time, so each by hand: every action's name.
+        for a in crate::config::Action::ALL {
+            if !reference.contains_key(&format!("action.{}", a.name())) {
+                bad.push(format!("no text action.{}", a.name()));
+            }
+        }
+        assert!(files.len() > 50, "the sources are where this test looks");
+        assert!(bad.is_empty(), "{}", bad.join("\n"));
+    }
+
     #[test]
     fn i18n_catalogues_are_complete_and_well_formed() {
         let reference = catalogue(REFERENCE);
