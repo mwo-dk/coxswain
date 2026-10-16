@@ -44,7 +44,7 @@ Below the permissions, where they apply:
 
 | Item | Shows | Where |
 |---|---|---|
-| *Flags* | The file flags set, by the names `ls -lo` uses: `uarch`, `nodump`, `hidden`, `schg` …; *none* when there are none. Under it, a tick box for each flag you may set (when you own the file) | FreeBSD, macOS; on Linux the attributes `lsattr` shows that matter here: `immutable`, `append-only`, `nodump` |
+| *Flags* | The file flags set, by the names `ls -lo` uses: `uarch`, `nodump`, `hidden`, `schg` …; *none* when there are none. Under it, a tick box for each flag you may set (when you own the file) | FreeBSD, macOS (not NetBSD or OpenBSD); on Linux the attributes `lsattr` shows that matter here: `immutable`, `append-only`, `nodump` |
 | *Package* | The installed package the file belongs to, `git-2.56.0`, and *Files of this package*, which lists its files as a folder | FreeBSD, files of packages (`pkg which`) |
 | *ZFS dataset*, *Mounted at* | The dataset the file is on, and where it is mounted | ZFS |
 | *Compression* | The dataset's compression and its ratio: `lz4, ratio 1.52x` | ZFS |
