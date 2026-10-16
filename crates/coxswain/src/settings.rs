@@ -168,6 +168,23 @@ pub struct Settings {
     disk_rx: Option<mpsc::Receiver<Vec<coxswain_core::disk::Item>>>,
     /// Also the models not in use, also what is outside: ticked for *Clear everything*.
     ticks: (bool, bool),
+    /// The built-in models on the disk, with what was loaded when they were read: their sizes
+    /// take a walk of each folder, so a drawing reads them only when that changed, and a key
+    /// (which may delete one, or change the one in use) forgets them.
+    pub(crate) models: Option<(coxswain_core::models::Loaded, Vec<coxswain_core::models::Entry>)>,
+}
+
+/// How to install a search tool that is missing, asked of the system once per tool: it looks
+/// for the package manager on the PATH.
+pub(crate) fn install_line(name: &str) -> Option<String> {
+    static LINES: std::sync::Mutex<Vec<(String, Option<String>)>> = std::sync::Mutex::new(Vec::new());
+    let mut lines = LINES.lock().unwrap_or_else(|e| e.into_inner());
+    if let Some((_, line)) = lines.iter().find(|(n, _)| n == name) {
+        return line.clone();
+    }
+    let line = coxswain_core::tools::install(name);
+    lines.push((name.to_string(), line.clone()));
+    line
 }
 
 impl Settings {
@@ -191,6 +208,7 @@ impl Settings {
             disk: vec![],
             disk_rx: None,
             ticks: (false, false),
+            models: None,
         };
         s.go(app, section);
         s
@@ -288,7 +306,10 @@ pub fn rows(app: &App, s: &Settings) -> Vec<Row> {
             }
             // The built-in models on the disk: what each is, its folder, whether it is loaded.
             v.push(Row::Head(t!("models.title"), "models"));
-            let models = coxswain_core::models::list(&cfg.search, &app.index.loaded());
+            let models = match &s.models {
+                Some((_, models)) => models.clone(),
+                None => coxswain_core::models::list(&cfg.search, &app.index.loaded()),
+            };
             if models.is_empty() {
                 v.push(Row::Info(t!("models.none"), String::new(), t!("models.hint")));
             }
@@ -301,7 +322,7 @@ pub fn rows(app: &App, s: &Settings) -> Vec<Row> {
             if !tools.is_empty() {
                 v.push(Row::Head(t!("settings.search_tools"), "tools"));
                 v.extend(tools.into_iter().map(|(name, there)| {
-                    let line = (!there).then(|| coxswain_core::tools::install(&name)).flatten();
+                    let line = (!there).then(|| install_line(&name)).flatten();
                     Row::Tool(name, there, line)
                 }));
             }
@@ -442,8 +463,43 @@ const HEAD: &str = "\u{1}head";
 const SET_UP: &str = "\u{1}setup";
 const OTHER: &str = "\u{1}other";
 
-/// A choice's value by its name.
-fn choice_label(name: &str, value: &str) -> String {
+/// Where a list of choices opens: on the value set; with Ask off, on the recommended model;
+/// a model typed by name, on *Other*. Never on a heading.
+fn pick_start(o: &Opt, cfg: &Config, value: &Value, c: &[(String, String)]) -> usize {
+    let now = value.as_str().unwrap_or_default();
+    let at = if o.name == "ask_model" && now.is_empty() {
+        let best = coxswain_core::setup::recommend_ask(&cfg.search, coxswain_core::setup::look(false).as_deref());
+        c.iter().position(|(v, _)| *v == best)
+    } else {
+        c.iter().position(|(v, _)| v == now).or_else(|| c.iter().position(|(v, _)| !now.is_empty() && v == OTHER))
+    };
+    pick_step(c, at.unwrap_or(0), 1)
+}
+
+/// `at` in a list of choices, moved on past headings in the direction `by` (back, when that
+/// runs off the end).
+fn pick_step(c: &[(String, String)], at: usize, by: isize) -> usize {
+    let n = c.len() as isize;
+    if n == 0 {
+        return 0;
+    }
+    let at = (at as isize).min(n - 1);
+    let dir = if by < 0 { -1 } else { 1 };
+    let head = |i: isize| c[i as usize].0 == HEAD;
+    for d in [dir, -dir] {
+        let mut i = at;
+        while (0..n).contains(&i) && head(i) {
+            i += d;
+        }
+        if (0..n).contains(&i) {
+            return i as usize;
+        }
+    }
+    at as usize
+}
+
+/// A choice's value by its name: a value not in the list (a theme of the user's own) by itself.
+pub(crate) fn choice_label(name: &str, value: &str) -> String {
     let cfg = Config::default();
     choices(name, &cfg).and_then(|c| c.into_iter().find(|(v, _)| v == value)).map_or_else(|| value.to_string(), |(_, l)| l)
 }
@@ -496,6 +552,7 @@ impl App {
         };
         let esc = key.code == KeyCode::Esc;
         s.said = None;
+        s.models = None;
         let rows = rows(self, &s);
         let values = cs::values(&self.cfg);
         let opt = match rows.get(s.cursor) {
@@ -544,15 +601,10 @@ impl App {
                 (KeyCode::Enter, _) if opt.is_some() => {
                     let o = opt.unwrap();
                     s.mode = match kind(o, &self.cfg, &value) {
-                        // Ask off: the cursor on the recommended model.
-                        Kind::Choice(c) if o.name == "ask_model" && value.as_str().is_none_or(str::is_empty) => {
-                            let best = coxswain_core::setup::recommend_ask(&self.cfg.search, coxswain_core::setup::look(false).as_deref());
-                            Mode::Pick(c.iter().position(|(v, _)| *v == best).unwrap_or(0))
-                        }
                         Kind::Text => Mode::Edit(value.as_str().unwrap_or_default().to_string()),
                         Kind::Number(_, _, scale) => Mode::Edit(number_text(value.as_f64().unwrap_or(0.0) / scale)),
                         Kind::List => Mode::List { at: 0, new: String::new() },
-                        Kind::Choice(c) => Mode::Pick(c.iter().position(|(v, _)| value.as_str() == Some(v)).unwrap_or(0)),
+                        Kind::Choice(c) => Mode::Pick(pick_start(o, &self.cfg, &value, &c)),
                         Kind::Switch | Kind::TextSwitch(..) => return self.settings_space(s, &rows, &value),
                     };
                 }
@@ -566,8 +618,10 @@ impl App {
                     let new = match kind(o, &self.cfg, &value) {
                         Kind::Number(lo, hi, scale) => match text.trim().replace(',', ".").parse::<f64>() {
                             Ok(n) if (lo..=hi).contains(&n) => {
+                                // Only the font's sizes are kept with decimals (f32); the rest
+                                // are whole numbers (bytes, counts, seconds).
                                 let n = n * scale;
-                                if n.fract() == 0.0 { Value::from(n as i64) } else { Value::from((n * 100.0).round() / 100.0) }
+                                if matches!(o.name, "font_size" | "line_height") && n.fract() != 0.0 { Value::from((n * 100.0).round() / 100.0) } else { Value::from(n.round() as i64) }
                             }
                             _ => {
                                 s.said = Some((t!("tui.settings.range", "name" => o.label(), "min" => number_text(lo), "max" => number_text(hi)), true));
@@ -639,10 +693,10 @@ impl App {
                 let Kind::Choice(c) = kind(o, &self.cfg, &value) else { return self.dialog = Some(Dialog::Settings(s)) };
                 match key.code {
                     _ if esc => {}
-                    KeyCode::Up => s.mode = Mode::Pick(at.saturating_sub(1)),
-                    KeyCode::Down => s.mode = Mode::Pick((at + 1).min(c.len() - 1)),
-                    KeyCode::PageUp => s.mode = Mode::Pick(at.saturating_sub(10)),
-                    KeyCode::PageDown => s.mode = Mode::Pick((at + 10).min(c.len() - 1)),
+                    KeyCode::Up => s.mode = Mode::Pick(pick_step(&c, at.saturating_sub(1), -1)),
+                    KeyCode::Down => s.mode = Mode::Pick(pick_step(&c, at + 1, 1)),
+                    KeyCode::PageUp => s.mode = Mode::Pick(pick_step(&c, at.saturating_sub(10), -1)),
+                    KeyCode::PageDown => s.mode = Mode::Pick(pick_step(&c, at + 10, 1)),
                     KeyCode::Enter if matches!(o.name, "ask_model" | "ask_code_model") && c[at.min(c.len() - 1)].0.starts_with('\u{1}') => match c[at.min(c.len() - 1)].0.as_str() {
                         OTHER => s.mode = Mode::Edit(value.as_str().unwrap_or_default().to_string()),
                         SET_UP => self.setup_guide(),
@@ -650,8 +704,7 @@ impl App {
                     },
                     // A built-in model not downloaded yet: downloaded on the plain terminal, then set.
                     KeyCode::Enter if o.name == "ask_model" && coxswain_core::chat::of(&c[at.min(c.len() - 1)].0).is_some_and(|m| !m.installed()) => {
-                        let exe = coxswain_core::tools::this_app().map(|p| p.display().to_string()).unwrap_or_else(|_| "coxswain".into());
-                        self.run = Some(Run::Shell { cmd: format!("{} --meaning ask {}", coxswain_core::config::quote(&exe), c[at.min(c.len() - 1)].0), dir: self.panel().dir.clone(), wait: true });
+                        self.run_self(&format!("--meaning ask {}", coxswain_core::config::quote(&c[at.min(c.len() - 1)].0)));
                     }
                     KeyCode::Enter => {
                         at = at.min(c.len() - 1);
@@ -711,7 +764,7 @@ impl App {
         match rows.get(s.cursor) {
             Some(Row::Opt(o)) if matches!(o.name, "ask_model" | "ask_code_model") => {
                 if let Kind::Choice(c) = kind(o, &self.cfg, value) {
-                    s.mode = Mode::Pick(c.iter().position(|(v, _)| value.as_str() == Some(v)).unwrap_or(0));
+                    s.mode = Mode::Pick(pick_start(o, &self.cfg, value, &c));
                 }
             }
             Some(Row::Opt(o)) => {
@@ -937,8 +990,13 @@ impl App {
 
     /// The search setup guide, on the plain terminal.
     pub fn setup_guide(&mut self) {
+        self.run_self("--setup-search");
+    }
+
+    /// This program with `args`, on the plain terminal, waiting for a key when it ends.
+    fn run_self(&mut self, args: &str) {
         let exe = coxswain_core::tools::this_app().map(|p| p.display().to_string()).unwrap_or_else(|_| "coxswain".into());
-        self.run = Some(Run::Shell { cmd: format!("{} --setup-search", coxswain_core::config::quote(&exe)), dir: self.panel().dir.clone(), wait: true });
+        self.run = Some(Run::Shell { cmd: format!("{} {args}", coxswain_core::config::quote(&exe)), dir: self.panel().dir.clone(), wait: true });
     }
 }
 
@@ -967,18 +1025,29 @@ fn find(query: &str) -> Vec<&'static Opt> {
 
 /// Full screen: areas left, rows right, the selected row explained at the bottom.
 pub fn draw(f: &mut Frame, app: &mut App) {
-    // The cursor stays on its row when rows came or went since the last drawing.
-    if let Some(Dialog::Settings(s)) = &app.dialog {
-        let rows = rows(app, s);
-        let (at, key) = &s.anchor;
-        let now = match rows.get(s.cursor).map(Row::key) {
-            Some(k) if k != *key && s.cursor == *at => rows.iter().position(|r| r.key() == *key).unwrap_or(s.cursor),
-            _ => s.cursor,
-        };
-        let anchor = (now, rows.get(now).map(Row::key).unwrap_or_default());
-        if let Some(Dialog::Settings(s)) = &mut app.dialog {
-            (s.cursor, s.anchor) = (now, anchor);
+    // The models on the disk, read again only when what is loaded changed.
+    let Some(Dialog::Settings(s)) = &app.dialog else { return };
+    if s.area == Area::Search {
+        let loaded = app.index.loaded();
+        if s.models.as_ref().is_none_or(|(l, _)| *l != loaded) {
+            let list = coxswain_core::models::list(&app.cfg.search, &loaded);
+            if let Some(Dialog::Settings(s)) = &mut app.dialog {
+                s.models = Some((loaded, list));
+            }
         }
+    }
+    // The rows, once a drawing. The cursor stays on its row when rows came or went since the
+    // last drawing.
+    let Some(Dialog::Settings(s)) = &app.dialog else { return };
+    let rows = rows(app, s);
+    let (at, key) = &s.anchor;
+    let now = match rows.get(s.cursor).map(Row::key) {
+        Some(k) if k != *key && s.cursor == *at => rows.iter().position(|r| r.key() == *key).unwrap_or(s.cursor),
+        _ => s.cursor,
+    };
+    let anchor = (now, rows.get(now).map(Row::key).unwrap_or_default());
+    if let Some(Dialog::Settings(s)) = &mut app.dialog {
+        (s.cursor, s.anchor) = (now, anchor);
     }
     let full = f.area();
     let t = app.theme.clone();
@@ -1008,7 +1077,6 @@ pub fn draw(f: &mut Frame, app: &mut App) {
     let w = right.width as usize;
     let cfg = &app.cfg;
     let values = cs::values(cfg);
-    let rows = rows(app, s);
     let level = cs::level(&cfg.search);
     let mut cursor_at: Option<Position> = None;
 
@@ -1346,6 +1414,33 @@ mod tests {
     fn selected(app: &App) -> Option<&'static str> {
         let s = settings(app);
         rows(app, s).get(s.cursor).and_then(Row::id)
+    }
+
+    /// Ask's list opens on the same row by Enter and by Space, and no move stops on a heading.
+    #[test]
+    fn asks_list_opens_and_moves_on_models() {
+        let d = std::env::temp_dir();
+        let mut app = app(&d);
+        app.cfg.search.ask_model = String::new();
+        app.dialog = Some(Dialog::Settings(Box::new(Settings::open(&app, "ask_model"))));
+        let pick = |app: &App| match settings(app).mode {
+            Mode::Pick(at) => at,
+            _ => panic!("no list open"),
+        };
+        key(&mut app, KeyCode::Enter);
+        let by_enter = pick(&app);
+        key(&mut app, KeyCode::Esc);
+        key(&mut app, KeyCode::Char(' '));
+        assert_eq!(pick(&app), by_enter);
+        let o = cs::find("ask_model").unwrap();
+        let Kind::Choice(c) = kind(o, &app.cfg, &Value::from("")) else { panic!() };
+        assert_ne!(c[by_enter].0, HEAD);
+        for code in [KeyCode::Up, KeyCode::PageUp, KeyCode::Down, KeyCode::PageDown, KeyCode::Up] {
+            key(&mut app, code);
+            assert_ne!(c[pick(&app)].0, HEAD, "{code:?}");
+        }
+        let c = [(HEAD.to_string(), String::new()), ("a".to_string(), String::new()), (HEAD.to_string(), String::new()), ("b".to_string(), String::new())];
+        assert_eq!((pick_step(&c, 0, -1), pick_step(&c, 2, 1), pick_step(&c, 2, -1), pick_step(&c, 9, 1)), (1, 3, 1, 3));
     }
 
     #[test]

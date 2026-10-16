@@ -695,6 +695,8 @@
  "error.create": "Nie udało się utworzyć: {what}",
  "error.delete": "Nie udało się usunąć: {what}",
  "error.extract": "Nie udało się rozpakować: {what}",
+ "error.job_stopped": "{what}: przerwano przed końcem",
+ "error.job_stopped_detail": "Podczas pracy coś poszło nie tak. Sprawdź, co zostało już zrobione.",
  "error.move": "Nie udało się przenieść: {what}",
  "error.new_branch": "Nie udało się utworzyć gałęzi {name}",
  "error.pack": "Nie udało się spakować: {what}",

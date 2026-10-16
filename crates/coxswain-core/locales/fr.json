@@ -665,6 +665,8 @@
  "error.create": "Impossible de créer {what}",
  "error.delete": "Impossible de supprimer {what}",
  "error.extract": "Impossible d’extraire {what}",
+ "error.job_stopped": "{what} : arrêté avant la fin",
+ "error.job_stopped_detail": "Un problème est survenu pendant l’opération. Vérifiez ce qui a déjà été fait.",
  "error.move": "Impossible de déplacer {what}",
  "error.new_branch": "Impossible de créer la branche {name}",
  "error.pack": "Impossible de compresser {what}",

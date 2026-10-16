@@ -605,6 +605,8 @@
  "error.create": "{what} を作成できません",
  "error.delete": "{what} を削除できません",
  "error.extract": "{what} を展開できません",
+ "error.job_stopped": "{what}: 終わる前に止まりました",
+ "error.job_stopped_detail": "実行中に問題が起きました。ここまでに行われた内容を確認してください。",
  "error.move": "{what} を移動できません",
  "error.new_branch": "ブランチ {name} を作成できません",
  "error.pack": "{what} を圧縮できません",

@@ -635,6 +635,8 @@
  "error.create": "{what} konnte nicht erstellt werden",
  "error.delete": "{what} konnte nicht gelöscht werden",
  "error.extract": "{what} konnte nicht entpackt werden",
+ "error.job_stopped": "{what}: vor dem Ende abgebrochen",
+ "error.job_stopped_detail": "Während der Arbeit ist etwas schiefgegangen. Prüfen, was bisher erledigt ist.",
  "error.move": "{what} konnte nicht verschoben werden",
  "error.new_branch": "Der Branch {name} konnte nicht erstellt werden",
  "error.pack": "{what} konnte nicht gepackt werden",

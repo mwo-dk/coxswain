@@ -665,6 +665,8 @@
  "error.create": "לא ניתן ליצור את {what}",
  "error.delete": "לא ניתן למחוק את {what}",
  "error.extract": "לא ניתן לחלץ את {what}",
+ "error.job_stopped": "{what}: נעצר לפני שהסתיים",
+ "error.job_stopped_detail": "משהו השתבש בזמן הפעולה. בדקו מה כבר נעשה.",
  "error.move": "לא ניתן להעביר את {what}",
  "error.new_branch": "לא ניתן ליצור את הענף {name}",
  "error.pack": "לא ניתן לארוז את {what}",

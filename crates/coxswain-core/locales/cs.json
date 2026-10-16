@@ -665,6 +665,8 @@
  "error.create": "Nelze vytvořit {what}",
  "error.delete": "Nelze odstranit {what}",
  "error.extract": "Nelze rozbalit {what}",
+ "error.job_stopped": "{what}: skončilo dřív, než bylo hotovo",
+ "error.job_stopped_detail": "Během práce se něco pokazilo. Zkontrolujte, co už je hotové.",
  "error.move": "Nelze přesunout {what}",
  "error.new_branch": "Nelze vytvořit větev {name}",
  "error.pack": "Nelze zabalit {what}",

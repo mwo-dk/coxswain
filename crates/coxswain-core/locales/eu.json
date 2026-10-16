@@ -635,6 +635,8 @@
  "error.create": "Ezin izan da sortu: {what}",
  "error.delete": "Ezin izan da ezabatu: {what}",
  "error.extract": "Ezin izan da erauzi: {what}",
+ "error.job_stopped": "{what}: amaitu aurretik gelditu da",
+ "error.job_stopped_detail": "Zerbait gaizki joan da exekutatzean. Egiaztatu orain arte zer egin den.",
  "error.move": "Ezin izan da mugitu: {what}",
  "error.new_branch": "Ezin izan da {name} adarra sortu",
  "error.pack": "Ezin izan da paketatu: {what}",

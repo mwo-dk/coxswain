@@ -635,6 +635,8 @@
  "error.create": "Could not create {what}",
  "error.delete": "Could not delete {what}",
  "error.extract": "Could not extract {what}",
+ "error.job_stopped": "{what}: stopped before it was done",
+ "error.job_stopped_detail": "Something went wrong while it ran. Check what was done so far.",
  "error.move": "Could not move {what}",
  "error.new_branch": "Could not create the branch {name}",
  "error.pack": "Could not pack {what}",

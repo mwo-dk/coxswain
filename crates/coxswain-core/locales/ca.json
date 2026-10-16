@@ -665,6 +665,8 @@
  "error.create": "No s'ha pogut crear {what}",
  "error.delete": "No s'ha pogut suprimir {what}",
  "error.extract": "No s'ha pogut extreure {what}",
+ "error.job_stopped": "{what}: s’ha aturat abans d’acabar",
+ "error.job_stopped_detail": "Alguna cosa ha fallat mentre s’executava. Comproveu què s’ha fet fins ara.",
  "error.move": "No s'ha pogut moure {what}",
  "error.new_branch": "No s'ha pogut crear la branca {name}",
  "error.pack": "No s'ha pogut empaquetar {what}",

@@ -635,6 +635,8 @@
  "error.create": "Kunde inte skapa {what}",
  "error.delete": "Kunde inte radera {what}",
  "error.extract": "Kunde inte packa upp {what}",
+ "error.job_stopped": "{what}: stannade innan det var klart",
+ "error.job_stopped_detail": "Något gick fel under arbetet. Kontrollera vad som har gjorts hittills.",
  "error.move": "Kunde inte flytta {what}",
  "error.new_branch": "Kunde inte skapa grenen {name}",
  "error.pack": "Kunde inte packa {what}",
