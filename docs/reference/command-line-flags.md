@@ -97,7 +97,7 @@ coxswain [LEFT] [RIGHT]      a folder, or a file to open its folder with the cur
 | `--paths` | Prints where everything is kept, one line each: `config`, `state`, `cache`, `name index`, `search store`, `models` (the folder of the built-in models), `previews`, `archive looks`. See [Where things are kept](where-things-are-kept.md) |
 | `--setup-search` | The guided setup of search inside files, by meaning and Ask: see [below](#--setup-search) |
 | `--index-service [on\|off]` | The search helper with your session: see [below](#--index-service) |
-| `--meaning [on\|off\|delete\|ollama\|server\|builtin\|cpu\|auto]` | Search by meaning: see [below](#--meaning) |
+| `--meaning [on\|off\|delete\|ollama\|server\|builtin\|cpu\|auto\|ask\|bench]` | Search by meaning: see [below](#--meaning) |
 | `--models` | Lists the [built-in models](../search/models.md) on the disk, leftovers too: for each its folder's name, its name, *for Ask · 8.4 GB · in use · loaded on the CPU, about 8.4 GB of memory · last used 2026-10-08*, and its folder; then *Delete all not in use (…): coxswain --models delete unused* when there is something to free |
 | `--models delete NAME` | Deletes one, named by its folder's name, its id (`qwen3-14b`) or its name; the one in use asks *[y/N]* first and says what comes instead (*Ask now uses qwen3:8b.*). No such model: exit status 1 |
 | `--models delete unused` | Deletes every model not in use, unfinished downloads and older versions included: *Deleted 2 not in use: 9.4 GB freed.* |
@@ -119,7 +119,7 @@ coxswain: unknown option --model
 did you mean --models?
 coxswain --help lists them
 $ coxswain --meaning of
-coxswain: unknown value of for --meaning: it takes on, off, delete, ollama, server, builtin, cpu, auto, ask
+coxswain: unknown value of for --meaning: it takes on, off, delete, ollama, server, builtin, cpu, auto, ask, bench
 did you mean --meaning off?
 $ coxswain nowhere
 coxswain: no such folder or file: nowhere
@@ -145,6 +145,7 @@ new search helper with the new settings. See [Search by meaning](../search/meani
 | `--meaning ollama [MODEL]` | Uses Ollama on this machine (`http://localhost:11434`) with `MODEL`, default `bge-m3`. When Ollama lacks the model it pulls it first: `Pulling bge-m3 with Ollama…`. Sets `meaning_engine = "ollama"`, `meaning_model` and `meaning = true` |
 | `--meaning server URL MODEL` | Uses a server with the OpenAI API at `URL` (for example `http://localhost:8000/api/v1` for Lemonade) with `MODEL`. It first asks the server for its models, so a wrong address fails here, not later. Sets `meaning_engine = "openai"`, `meaning_url`, `meaning_model` and `meaning = true` |
 | `--meaning builtin` | Back to the built-in model: sets `meaning_engine = "builtin"`, then does `--meaning on` |
+| `--meaning bench [URL MODEL]` | Times the configured model on 64 passages and prints how many it does a second, and how long the files still to go would take at that speed. With `URL MODEL` it tries that OpenAI-API server instead, without changing `config.toml` ([How fast is it here?](../search/meaning.md#how-fast-is-it-here-and-would-another-model-be-faster)) |
 | `--meaning ask MODEL` | [Ask](../search/ask.md)'s chat model, on the vectors' server (Ollama here with the built-in model). On Ollama a missing model is pulled first; an OpenAI-style server must list it. Sets `ask_model`. `--meaning ask off` empties it |
 | `--meaning ask builtin:qwen3-1.7b` | [The built-in chat model](../search/ask-builtin.md) instead, with no server: downloads it from huggingface.co once (1.0 GB; `builtin:qwen3-4b` is 2.3 GB, `builtin:qwen3-14b` 8.4 GB), showing `Downloading: 42 %`, then sets `ask_model`. `--meaning ask delete` deletes the built-in chat models, and empties `ask_model` when it named one |
 

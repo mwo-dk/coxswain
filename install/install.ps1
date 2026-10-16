@@ -58,7 +58,10 @@ if (-not (Have cargo)) {
     Info "on Windows; please accept that. You can remove Rust later with 'rustup self uninstall'."
     if (Ask "Would you like me to install Rust now?") {
         $installer = Join-Path $env:TEMP "rustup-init.exe"
-        Invoke-WebRequest "https://win.rustup.rs/x86_64" -OutFile $installer -UseBasicParsing
+        # The OS's architecture, not this PowerShell's: an x64 PowerShell runs on ARM64 too.
+        $arch = if ([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture -eq "Arm64" -or
+                    $env:PROCESSOR_ARCHITEW6432 -eq "ARM64" -or $env:PROCESSOR_ARCHITECTURE -eq "ARM64") { "aarch64" } else { "x86_64" }
+        Invoke-WebRequest "https://win.rustup.rs/$arch" -OutFile $installer -UseBasicParsing
         & $installer -y --profile minimal
         if ($LASTEXITCODE -ne 0) { Fail "The Rust installer did not finish." }
         Refresh-Path
@@ -68,10 +71,22 @@ if (-not (Have cargo)) {
     }
 }
 
-# Coxswain uses the 2024 edition, which needs Rust 1.85 or newer.
-$minor = [int]((rustc --version) -split " ")[1].Split(".")[1]
-if ($minor -lt 85) {
-    Say "Your Rust ($(rustc --version)) is older than Coxswain needs (1.85)."
+# The newest rust-version among the locked crates for this machine is what Rust must reach
+# (1.85, the 2024 edition, when cargo cannot say).
+$hostTriple = ((rustc -vV) | Where-Object { $_ -like "host: *" }) -replace "^host: ", ""
+$need = [version]"1.85"
+try {
+    $meta = cargo metadata --locked --format-version 1 --filter-platform $hostTriple 2>$null
+    if ($LASTEXITCODE -eq 0) {
+        $newest = ($meta | ConvertFrom-Json).packages.rust_version | Where-Object { $_ } |
+            ForEach-Object { [version]($(if ($_ -match "^\d+\.\d+$") { "$_.0" } else { $_ })) } |
+            Sort-Object | Select-Object -Last 1
+        if ($newest) { $need = $newest }
+    }
+} catch { }
+$haveRust = [version](((rustc --version) -split " ")[1] -replace "[-+].*$", "")
+if ($haveRust -lt $need) {
+    Say "Your Rust ($(rustc --version)) is older than Coxswain needs ($need)."
     if ((Have rustup) -and (Ask "Would you like me to update it with 'rustup update stable'?")) {
         Run rustup update stable
     } else {

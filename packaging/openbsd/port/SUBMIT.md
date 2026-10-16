@@ -1,6 +1,6 @@
 # Submitting Coxswain to openbsd-wip, then to OpenBSD ports
 
-**Owner steps, in order:** [termux-packages](../../termux/SUBMIT.md), [pkgsrc-wip](../../pkgsrc/SUBMIT.md), [omnios-extra](../../omnios/SUBMIT.md), [oi-userland](../../openindiana/SUBMIT.md), **openbsd-wip**, [nixpkgs](../../nix/SUBMIT.md). This is step 5 of 6; see [packaging/README.md](../../README.md#submitting-by-hand).
+**Owner steps, in order:** [termux-packages](../../termux/SUBMIT.md), [pkgsrc-wip](../../pkgsrc/SUBMIT.md), [omnios-extra](../../omnios/SUBMIT.md), **openbsd-wip**, [nixpkgs](../../nix/SUBMIT.md). This is step 4 of 5; see [packaging/README.md](../../README.md#submitting-by-hand).
 
 The port is [`sysutils/coxswain/`](sysutils/coxswain/) in this folder, laid out as in
 [openbsd-wip](https://github.com/jasperla/openbsd-wip) and the ports tree. It builds the
