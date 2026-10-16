@@ -186,6 +186,22 @@ pub fn all(cfg: &Config, status: &Status, state: &AppState, terminal: bool) -> V
             ));
         }
     }
+    // A built-in model on the processor while the machine has a graphics card and no model
+    // server answers: a local Ollama would use the card, and how to install it. Said once.
+    let builtin = (cfg.search.meaning && cfg.search.meaning_engine == "builtin")
+        || crate::chat::of(&cfg.search.ask_model).is_some();
+    if builtin
+        && !seen("gpu-ollama")
+        && let Some(l) = crate::setup::look(false)
+    {
+        let a = crate::setup::advise(&l.machine, &l.found);
+        if let Some(text) = a.faster {
+            all.push(Notice {
+                copy: a.copy,
+                ..Notice::new("gpu-ollama", text, Some("search_meaning"))
+            });
+        }
+    }
     // A built-in model on the processor while a server runs its models on the graphics card,
     // or a chat model too large for the processor: said once here, and on its line in
     // Settings for as long as the choice stands.

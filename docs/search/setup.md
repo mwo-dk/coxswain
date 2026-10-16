@@ -15,6 +15,7 @@ anything.
 
 - [What each part does](#what-each-part-does)
 - [What to use on your machine](#what-to-use-on-your-machine)
+  - [A graphics card and no server](#a-graphics-card-and-no-server)
 - [Starting the guide](#starting-the-guide)
 - [The steps](#the-steps)
 - [Servers one by one](#servers-one-by-one)
@@ -44,11 +45,13 @@ The guide detects the hardware and recommends one of these. It says why in one l
 
 | Your machine | Server | Vectors | Ask | Why |
 |---|---|---|---|---|
+| **FreeBSD**, any card (NVIDIA, AMD, Intel) | Ollama with Vulkan (`pkg install ollama`) | `bge-m3` | `qwen3:4b` | FreeBSD's Ollama is built with Vulkan, not CUDA or ROCm |
 | **NVIDIA**, 8 GB (e.g. RTX 4070) | Ollama with CUDA | `bge-m3` | `qwen3:8b` | CUDA is Ollama's quickest path; both models fit in 8 GB together |
 | NVIDIA, 16 GB or more | Ollama with CUDA | `bge-m3` | `qwen3:14b` | More memory, a better model for answers |
 | NVIDIA, 6 GB or less | Ollama with CUDA | `bge-m3` | `qwen3:4b` | A small model still fits next to the vectors |
-| **AMD Ryzen AI** (NPU, Radeon 780M/890M) or a **Radeon** card | Lemonade | its embedding model (`nomic-embed-text-v1-GGUF`) | `Qwen3-8B-GGUF`, or a Hybrid/NPU model | Lemonade runs models on AMD's NPU and Radeon graphics, which Ollama mostly does not |
+ or a **Radeon** card | Lemonade | its embedding model (`nomic-embed-text-v1-GGUF`) | `Qwen3-8B-GGUF`, or a Hybrid/NPU model | Lemonade runs models on AMD's NPU and Radeon graphics, which Ollama mostly does not |
 | AMD with less than 32 GB and no NPU | Lemonade | as above | `Qwen3-4B-GGUF` | The Radeon in a Ryzen shares the system's memory |
+| **Intel Arc** card (Linux) | Ollama with Vulkan | `bge-m3` | `qwen3:4b` | Ollama's Vulkan backend runs on Intel cards |
 | **Apple silicon**, no server running | none | the built-in model, on the GPU through Metal (465 MB to download) | the [built-in chat model](ask-builtin.md) on the GPU: Qwen3 14B with 32 GB or more (8.4 GB), Qwen3 4B Instruct with 16 GB or more (2.3 GB), else Qwen3 1.7B (1.0 GB) | Nothing to install, nothing leaves the machine; the GPU makes it quick |
 | **Apple silicon**, 16 GB, with a server | Ollama or LM Studio | `bge-m3` | `qwen3:8b` | Both use the GPU through Metal |
 | Apple silicon, 32 GB or more, with a server | Ollama or LM Studio | `bge-m3` | `qwen3:14b` | Half the shared memory can go to the model |
@@ -58,6 +61,36 @@ When a server is already running, the guide recommends that one if it suits the 
 does not, it recommends the running server with models for both vectors and answers. Every server
 it finds is listed and you can pick any of them. When no server answers, *The built-in model* is
 chosen and marked **recommended**, on every machine.
+
+### A graphics card and no server
+
+The built-in models run on the processor everywhere but on a Mac: they cannot use an NVIDIA,
+AMD or Intel graphics card. So when the machine has one, with 4 GB of its own memory or more
+(or its memory is not known), and no model server answers, the guide says under the machine line,
+instead of *No model server answers on this machine*:
+
+*This machine has NVIDIA GeForce RTX 4070, but no model server answers, so search by meaning and
+Ask run the built-in models on the processor. A local Ollama would run them on the graphics card
+with CUDA, much faster: install it, then look again in Set up smart search. Install: curl -fsSL
+https://ollama.com/install.sh | sh*
+
+What it names follows the system and the card:
+
+| System | Backend named | How to get Ollama |
+|---|---|---|
+| FreeBSD | Vulkan, for every card | `pkg install ollama` |
+| Linux | CUDA (NVIDIA), ROCm / Vulkan (AMD), Vulkan (Intel) | `curl -fsSL https://ollama.com/install.sh \| sh`, Ollama's own installer |
+| Windows | CUDA (NVIDIA; other cards are not detected on Windows) | The download page, `https://ollama.com/download/windows` |
+
+The other BSDs and illumos get no line: Ollama names no build for them. Nor does a Mac: the
+built-in models use its GPU through Metal already (and Ollama on an Intel Mac uses the
+processor too). The desktop app adds **Copy** for the command, the terminal app prints it; Coxswain
+never runs it and downloads nothing. After installing, press **Look again** (desktop) or run
+`coxswain --setup-search` again (terminal), and pick Ollama in step 2.
+
+The same line is a notice once, while search by meaning or Ask uses a built-in model: in the
+terminal app's status line, and in the desktop app under *Settings → What's new*, with **Copy**
+and a link to *Finding files → Details → Meaning* ([notices](notices.md)).
 
 On a Mac with no Ollama or LM Studio, the line under the machine reads *Apple silicon with 64 GB
 of shared memory and no model server: the built-in model makes the vectors on its GPU (Metal),
@@ -147,8 +180,10 @@ downloads with `/api/pull`.
 
 - Recommended models: `bge-m3` for vectors (568 M parameters, 100+ languages), `qwen3:8b` for Ask
   (`qwen3:4b` with less memory, `qwen3:14b` with 16 GB or more). By hand: `ollama pull bge-m3`.
+- FreeBSD: `pkg install ollama`, then `ollama serve`. The package runs models on the graphics
+  card with Vulkan.
 - NVIDIA: Ollama uses CUDA when its CUDA build is installed. On Arch Linux that is
-  `sudo pacman -S ollama-cuda` (AMD: `ollama-rocm`), then `systemctl restart ollama`. Other
+  `sudo pacman -S ollama-cuda` (AMD: `ollama-rocm`, Intel: `ollama-vulkan`), then `systemctl restart ollama`. Other
   systems: [Ollama's GPU guide](https://docs.ollama.com/gpu).
 - Check: `ollama ps` shows *100% GPU* in the PROCESSOR column while a model is loaded.
 
@@ -198,9 +233,10 @@ question:
 | LM Studio | It does not say; the guide reminds you of *GPU offload* | The model's settings in LM Studio |
 | NVIDIA in general | | `nvidia-smi` shows the server's process and its memory |
 
-The graphics card is found with `nvidia-smi` (NVIDIA), the kernel's `/sys/class/drm` and
-`/dev/accel` (AMD on Linux), Lemonade's `/system-info` (AMD on any system) and the processor
-type (Apple silicon).
+The graphics card is found with `nvidia-smi` (NVIDIA, on any system), `pciconf -l` (AMD and
+Intel on FreeBSD), the kernel's `/sys/class/drm` and `/dev/accel` (AMD and Intel on Linux),
+Lemonade's `/system-info` (AMD on any system) and the processor type (Apple silicon). The
+graphics in an Intel processor do not count: they have no memory of their own for the models.
 
 ## Keep reading in the background
 
@@ -294,6 +330,14 @@ Do what the line says for your server: on Arch Linux `sudo pacman -S ollama-cuda
 `ollama-rocm`) and `systemctl restart ollama`; elsewhere [Ollama's GPU
 guide](https://docs.ollama.com/gpu); in Lemonade a Hybrid or NPU model; in LM Studio *GPU
 offload*. Then run the guide again and ask the test question.
+
+#### Why does it say Ollama would be faster?
+The machine has a graphics card, and no model server answers, so the built-in models run on the
+processor: they use only a Mac's GPU. Ollama on that card makes the vectors and answers many
+times quicker. The line names the backend (CUDA, ROCm, Vulkan) and the command or page for your
+system ([A graphics card and no server](#a-graphics-card-and-no-server)); Coxswain installs
+nothing. To stop it: install Ollama, or dismiss the notice; the guide keeps saying it in step 2
+while it holds. The built-in models work all the same.
 
 #### Does changing the model start over?
 Only a real change of the vectors' model does. You are told first how many files are read again
