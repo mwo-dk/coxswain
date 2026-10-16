@@ -52,13 +52,13 @@ const OVERLAP: usize = 20;
 /// so prose is never cut. A "word" of minified JSON or a path list runs to thousands, and a
 /// server (unlike the built-in model, which cuts at 512 tokens) would read them all: a few
 /// such files took hours. Dense text is 1,600 tokens at 2,000 bytes, three prose passages'
-/// worth. The cut is the same and only a dense passage gets shorter, so the passages keep
-/// their numbers and no vector is made again.
-const CHARS: usize = 1200;
+/// worth. Code is cut into its items at this size too, so only a dense passage gets shorter.
+pub(crate) const CHARS: usize = 1200;
 pub const PASSAGES: usize = 256;
 /// How a file is cut into passages and what the model is shown of each: vectors made another
 /// way are made again (the store keeps it in its meta as `passages`). 3: code by its items.
-pub const SCHEME: &str = "3";
+/// 4: items of code up to `CHARS`, as much as the model is shown.
+pub const SCHEME: &str = "4";
 
 /// Where the model is kept: the cache folder, next to the search store.
 pub fn folder() -> Option<PathBuf> {

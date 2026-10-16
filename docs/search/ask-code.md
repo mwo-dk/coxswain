@@ -31,8 +31,8 @@ is now cut like this:
 
 - **at its items**: a function, a method, a class, a struct, an `impl`, a module, a top-level
   block, an SQL statement. Small items (a few `use` lines, two short functions) go together; an
-  item longer than about 1,500 bytes is cut at the items inside it (the methods of a class), and
-  a long function at its blank lines;
+  item longer than about 1,200 bytes (as much as the model is shown of a passage) is cut at the
+  items inside it (the methods of a class), and a long function at its blank lines;
 - **with its lines and indentation as they are**, and one blank line where the file has some;
 - **with its comments**: the doc comment, the attributes, annotations and decorators above an
   item (`///`, `/** */`, `#[…]`, `@Override`, `@property`) stay with it; a Python docstring is
