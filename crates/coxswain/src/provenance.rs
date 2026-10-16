@@ -915,7 +915,9 @@ mod tests {
         assert!(screen(&mut v, 140, 40).contains("\"_type\": \"https://in-toto.io/Statement/v1\""));
         assert!(matches!(v.key(key(KeyCode::F(3)), false), Outcome::Source));
         assert!(matches!(v.key(key(KeyCode::Esc), false), Outcome::Close));
-        std::fs::remove_dir_all(&dir).unwrap();
+        // The viewer's checks may still hold a file open, which Windows does not delete.
+        drop(v);
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]
