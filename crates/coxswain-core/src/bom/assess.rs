@@ -10,6 +10,7 @@
 //!
 //! Components, groups and the root take the worst asset beneath them.
 
+use super::view::is_crypto;
 use serde::Serialize;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -137,19 +138,23 @@ pub fn resolve(bom: &Bom, policy: &Policy) -> (Vec<Option<Resolution>>, Vec<Issu
             let r = policy.resolve(&n.label, info);
             match &r {
                 Resolution::Unresolved { signals } => {
-                    let why = if signals.is_empty() {
-                        "not a known algorithm".to_string()
+                    let message = if signals.is_empty() {
+                        crate::t!("bom.issue.unknown_algorithm", "name" => n.label)
                     } else {
                         let votes: Vec<String> = signals
                             .iter()
-                            .map(|s| format!("{} says {}", source(s.source), s.ids.join("+")))
+                            .map(|s| format!("{}: {}", source(s.source), s.ids.join("+")))
                             .collect();
-                        format!("conflicting signals: {}", votes.join(", "))
+                        crate::t!(
+                            "bom.issue.conflicting_signals",
+                            "name" => n.label,
+                            "signals" => votes.join(", "),
+                        )
                     };
                     issues.push(Issue {
                         severity: Severity::Info,
                         code: IssueCode::UnresolvedAlgorithm,
-                        message: format!("\"{}\" couldn't be identified ({why}).", n.label),
+                        message,
                         node: Some(i as u32),
                     });
                 }
@@ -162,7 +167,7 @@ pub fn resolve(bom: &Bom, policy: &Policy) -> (Vec<Option<Resolution>>, Vec<Issu
                                 (SignalSource::Oid, Some(oid)) => format!(" {oid}"),
                                 _ => String::new(),
                             };
-                            format!("{}{oid} suggests {}", source(s.source), s.ids.join(" + "))
+                            format!("{}{oid}: {}", source(s.source), s.ids.join(" + "))
                         })
                         .collect();
                     if !outvoted.is_empty() {
@@ -171,11 +176,11 @@ pub fn resolve(bom: &Bom, policy: &Policy) -> (Vec<Option<Resolution>>, Vec<Issu
                         issues.push(Issue {
                             severity: Severity::Warning,
                             code: IssueCode::OidMismatch,
-                            message: format!(
-                                "\"{}\": {}, but the other signals say {}.",
-                                n.label,
-                                outvoted.join("; "),
-                                winner.join(" + ")
+                            message: crate::t!(
+                                "bom.issue.outvoted",
+                                "name" => n.label,
+                                "signals" => outvoted.join("; "),
+                                "winner" => winner.join(" + "),
                             ),
                             node: Some(i as u32),
                         });
@@ -224,13 +229,6 @@ impl Assessed {
         };
         Assessment { status, reasons }
     }
-}
-
-fn is_crypto(kind: NodeKind) -> bool {
-    matches!(
-        kind,
-        NodeKind::Algorithm | NodeKind::Material | NodeKind::Certificate | NodeKind::Protocol
-    )
 }
 
 /// Algorithms whose size is a key length: a key's own `size` is theirs.
@@ -436,12 +434,10 @@ pub fn assess(
     // nearest node above that is not one.
     let n = tree.len();
     let crypto = |i: u32| (i as usize) < bom.nodes.len() && is_crypto(bom.nodes[i as usize].kind);
-    let rank = |i: u32| match bom.nodes.get(i as usize).map(|n| n.kind) {
-        Some(NodeKind::Algorithm) => 0,
-        Some(NodeKind::Certificate) => 1,
-        Some(NodeKind::Protocol) => 2,
-        Some(NodeKind::Material) => 3,
-        _ => 9,
+    let rank = |i: u32| {
+        bom.nodes
+            .get(i as usize)
+            .map_or(9, |n| super::diff::kind_rank(n.kind))
     };
     let mut status = vec![Status::NotRated; n];
     let mut cause: Vec<Option<u32>> = vec![None; n];
@@ -547,7 +543,15 @@ pub(super) fn parse_time(s: &str) -> Option<i64> {
         .trim_start_matches(|c: char| c == '.' || c.is_ascii_digit());
     let offset = match tail {
         "" | "Z" | "z" => 0,
-        t if t.len() == 6 && (t.starts_with('+') || t.starts_with('-')) && &t[3..4] == ":" => {
+        t if t.is_ascii()
+            && t.len() == 6
+            && (t.starts_with('+') || t.starts_with('-'))
+            && &t[3..4] == ":"
+            && t[1..3]
+                .bytes()
+                .chain(t[4..6].bytes())
+                .all(|b| b.is_ascii_digit()) =>
+        {
             let (oh, om): (i64, i64) = (t[1..3].parse().ok()?, t[4..6].parse().ok()?);
             let o = oh * 3600 + om * 60;
             if t.starts_with('+') { o } else { -o }

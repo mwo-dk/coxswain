@@ -7,6 +7,7 @@ use serde::Serialize;
 use std::fs::File;
 use std::io::{self, BufReader, Read, Seek, Write};
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 #[derive(Clone, Debug, Serialize, PartialEq)]
 pub struct ArchiveEntry {
@@ -172,9 +173,9 @@ fn create_fresh(path: &Path) -> io::Result<File> {
 
 /// A tar written plain at `tar`, compressed into `to` as `pack` says.
 fn compress(tar: &Path, to: &Path, pack: Pack) -> io::Result<()> {
-    let (mut from, out) = (BufReader::new(File::open(tar)?), create_fresh(to)?);
+    let (mut from, mut out) = (BufReader::new(File::open(tar)?), create_fresh(to)?);
     match pack {
-        Pack::None => io::copy(&mut from, &mut io::BufWriter::new(out)).map(drop),
+        Pack::None => io::copy(&mut from, &mut out).map(drop),
         Pack::Gz => {
             let mut w = flate2::write::GzEncoder::new(out, flate2::Compression::default());
             io::copy(&mut from, &mut w)?;
@@ -192,13 +193,75 @@ fn compress(tar: &Path, to: &Path, pack: Pack) -> io::Result<()> {
             w.finish().map(drop).map_err(io::Error::other)
         }
         Pack::Zst => {
-            ruzstd::encoding::compress(
-                from,
-                io::BufWriter::new(out),
-                ruzstd::encoding::CompressionLevel::Fastest,
-            );
-            Ok(())
+            let (mut r, mut w) = (Keep::new(from), Keep::new(io::BufWriter::new(out)));
+            zstd_into(&mut r, &mut w)?;
+            w.inner.flush()
         }
+    }
+}
+
+/// zstd-compress `r` into `w`. ruzstd unwraps its reads and writes, so both go through
+/// `Keep`, which stores the first error and lets the compressor run out; that error, or a
+/// panic of the compressor's own, comes back here as an `Err`.
+fn zstd_into<R: Read, W: Write>(r: &mut Keep<R>, w: &mut Keep<W>) -> io::Result<()> {
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        ruzstd::encoding::compress(
+            &mut *r,
+            &mut *w,
+            ruzstd::encoding::CompressionLevel::Fastest,
+        )
+    }))
+    .map_err(|_| io::Error::other("zstd compression failed"))?;
+    match r.err.take().or(w.err.take()) {
+        Some(e) => Err(e),
+        None => Ok(()),
+    }
+}
+
+/// A reader or writer that never fails: the first error is kept in `err`, and from then on
+/// reads give the end and writes take everything.
+struct Keep<T> {
+    inner: T,
+    err: Option<io::Error>,
+}
+
+impl<T> Keep<T> {
+    fn new(inner: T) -> Self {
+        Keep { inner, err: None }
+    }
+}
+
+impl<T: Read> Read for Keep<T> {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        while self.err.is_none() {
+            match self.inner.read(buf) {
+                Err(e) if e.kind() == io::ErrorKind::Interrupted => {}
+                Err(e) => self.err = Some(e),
+                r => return r,
+            }
+        }
+        Ok(0)
+    }
+}
+
+impl<T: Write> Write for Keep<T> {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        while self.err.is_none() {
+            match self.inner.write(buf) {
+                Err(e) if e.kind() == io::ErrorKind::Interrupted => {}
+                Err(e) => self.err = Some(e),
+                r => return r,
+            }
+        }
+        Ok(buf.len())
+    }
+    fn flush(&mut self) -> io::Result<()> {
+        if self.err.is_none()
+            && let Err(e) = self.inner.flush()
+        {
+            self.err = Some(e);
+        }
+        Ok(())
     }
 }
 
@@ -236,7 +299,8 @@ fn password_for(archive: &Path, given: Option<&str>) -> Option<String> {
 /// The entries of the archives last looked into, newest last, with their size and modified
 /// time: browsing an archive lists it once per folder, and a compressed tar is read in full
 /// each time. A few, so the preview of another archive does not push out the one browsed.
-static LAST: std::sync::Mutex<Vec<(PathBuf, Stamp, Vec<Item>)>> = std::sync::Mutex::new(Vec::new());
+static LAST: std::sync::Mutex<Vec<Looked>> = std::sync::Mutex::new(Vec::new());
+type Looked = (PathBuf, Stamp, Arc<[Item]>);
 const LAST_KEPT: usize = 4;
 
 type Stamp = (u64, Option<std::time::SystemTime>);
@@ -286,8 +350,8 @@ impl Read for Noting<'_> {
     }
 }
 
-/// The error of copying a 7z entry: `LOCKED` when a locked entry could not be read.
-fn seven_copy_error(err: io::Error, noting: &Noting, locked: bool) -> io::Error {
+/// The error of copying an entry: `LOCKED` when a locked entry could not be read.
+fn copy_error(err: io::Error, noting: &Noting, locked: bool) -> io::Error {
     if locked && noting.failed {
         self::locked()
     } else {
@@ -434,27 +498,33 @@ fn seven_error(e: sevenz_rust2::Error) -> io::Error {
 pub fn list(path: &Path, max: usize) -> io::Result<(Vec<ArchiveEntry>, bool)> {
     // Not looked into yet: only as far as is shown (a big compressed tar is not unpacked to
     // its end for a preview's first rows).
-    let cached = stamp(path).ok().and_then(|st| {
-        LAST.lock()
-            .unwrap()
-            .iter()
-            .find(|(p, s, _)| p == path && *s == st)
-            .map(|(.., items)| items.clone())
-    });
-    let all = match cached {
-        Some(all) => all,
-        None => read_items_with(
-            path,
-            password_for(path, None).as_deref(),
-            max.saturating_add(1),
-        )?,
+    // Read to its end within that, it is kept as `items` keeps it.
+    let st = stamp(path)?;
+    let (all, more) = match cached(path, st) {
+        Some(all) => {
+            let more = all.len() > max;
+            (all, more)
+        }
+        None => {
+            let mut raw = read_raw_items(
+                path,
+                password_for(path, None).as_deref(),
+                max.saturating_add(1),
+            )?;
+            let more = raw.len() > max;
+            raw.retain(|it| sound(&it.name));
+            let all: Arc<[Item]> = raw.into();
+            if !more {
+                keep_items(path, st, all.clone());
+            }
+            (all, more)
+        }
     };
-    let more = all.len() > max;
     Ok((
-        all.into_iter()
+        all.iter()
             .take(max)
             .map(|it| ArchiveEntry {
-                name: it.name,
+                name: it.name.clone(),
                 size: it.size,
                 is_dir: it.dir,
                 modified: it.modified,
@@ -563,24 +633,33 @@ struct Item {
 }
 
 /// The archive's entries, from the last look at it when it has not changed since.
-fn items(archive: &Path) -> io::Result<Vec<Item>> {
+fn items(archive: &Path) -> io::Result<Arc<[Item]>> {
     let stamp = stamp(archive)?;
-    if let Some((_, _, items)) = LAST
-        .lock()
+    if let Some(items) = cached(archive, stamp) {
+        return Ok(items);
+    }
+    let out: Arc<[Item]> = read_items(archive)?.into();
+    keep_items(archive, stamp, out.clone());
+    Ok(out)
+}
+
+/// The entries of `archive` from the last look, if it has not changed since.
+fn cached(archive: &Path, stamp: Stamp) -> Option<Arc<[Item]>> {
+    LAST.lock()
         .unwrap()
         .iter()
         .find(|(p, s, _)| p == archive && *s == stamp)
-    {
-        return Ok(items.clone());
-    }
-    let out = read_items(archive)?;
+        .map(|(.., items)| items.clone())
+}
+
+/// Keep all the entries of `archive`, read when it was as `stamp` says, for the next look.
+fn keep_items(archive: &Path, stamp: Stamp, items: Arc<[Item]>) {
     let mut last = LAST.lock().unwrap();
     last.retain(|(p, ..)| p != archive);
     if last.len() >= LAST_KEPT {
         last.remove(0);
     }
-    last.push((archive.to_path_buf(), stamp, out.clone()));
-    Ok(out)
+    last.push((archive.to_path_buf(), stamp, items));
 }
 
 fn read_items(archive: &Path) -> io::Result<Vec<Item>> {
@@ -605,7 +684,11 @@ fn read_raw_items(archive: &Path, password: Option<&str>, max: usize) -> io::Res
         for i in 0..z.len().min(max) {
             let e = z.by_index_raw(i).map_err(io::Error::other)?;
             out.push(Item {
-                name: e.name().trim_end_matches('/').to_string(),
+                name: e
+                    .name()
+                    .map_err(io::Error::other)?
+                    .trim_end_matches('/')
+                    .to_string(),
                 size: e.size(),
                 dir: e.is_dir(),
                 modified: e.last_modified().map_or(0, unix),
@@ -729,14 +812,20 @@ pub(crate) fn search_read(
             let mut z = zip::ZipArchive::new(BufReader::new(File::open(archive)?))
                 .map_err(io::Error::other)?;
             for i in 0..z.len().min(SEARCH_ENTRIES) {
+                // An entry that cannot be opened is passed over, not the rest of the archive.
                 let (name, ok) = {
-                    let e = z.by_index_raw(i).map_err(io::Error::other)?;
-                    let name = e.name().trim_end_matches('/').to_string();
+                    let Ok(e) = z.by_index_raw(i) else { continue };
+                    let Ok(name) = e.name().map(|n| n.trim_end_matches('/').to_string()) else {
+                        continue;
+                    };
                     let ok =
                         e.is_file() && !e.encrypted() && sound(&name) && wanted(&name, e.size());
                     (name, ok)
                 };
-                if ok && !read(&name, &mut z.by_index(i).map_err(io::Error::other)?) {
+                if ok
+                    && let Ok(mut f) = z.by_index(i)
+                    && !read(&name, &mut f)
+                {
                     break;
                 }
             }
@@ -798,7 +887,7 @@ pub fn listing(archive: &Path, inner: &str) -> io::Result<(Vec<crate::fs::Entry>
     };
     let mut seen = std::collections::BTreeMap::new();
     let mut locked = false;
-    for it in items(archive)? {
+    for it in items(archive)?.iter() {
         let Some(rest) = it.name.strip_prefix(&prefix).filter(|r| !r.is_empty()) else {
             continue;
         };
@@ -910,34 +999,40 @@ pub fn copy_out(
 /// Files larger than this inside an archive are not copied out just to be looked at.
 pub const PEEK_MAX: u64 = 256 * 1024 * 1024;
 
+/// `name` is too large to be copied out just to be looked at (also a history's).
+pub(crate) fn too_large(name: &str) -> io::Error {
+    io::Error::new(
+        io::ErrorKind::FileTooLarge,
+        crate::t!("archive.too_large", "name" => name),
+    )
+}
+
 /// A copy of the file at `path` (a path through an archive), to look at: the
 /// preview pane, F3. It keeps the file's name, so it is previewed by its kind. The copy before
 /// it goes, and copies left by earlier runs go after a day. A locked file needs its password
 /// remembered: `LOCKED` without it.
 pub fn peek(path: &Path) -> io::Result<PathBuf> {
-    let (archive, inner) = split(path)
-        .filter(|(_, i)| !i.is_empty())
-        .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "not inside an archive"))?;
+    let (archive, inner) = split(path).filter(|(_, i)| !i.is_empty()).ok_or_else(|| {
+        io::Error::new(io::ErrorKind::InvalidInput, crate::t!("err.not_in_archive"))
+    })?;
     let it = items(&archive)?
-        .into_iter()
+        .iter()
         .find(|it| it.name == inner)
+        .cloned()
         .ok_or_else(|| {
             io::Error::new(
                 io::ErrorKind::NotFound,
-                format!("{inner} is not in the archive"),
+                crate::t!("err.not_in_the_archive", "name" => inner),
             )
         })?;
     if it.dir {
         return Err(io::Error::new(
             io::ErrorKind::InvalidInput,
-            format!("{inner} is a folder"),
+            crate::t!("err.is_folder", "name" => inner),
         ));
     }
     if it.size > PEEK_MAX {
-        return Err(io::Error::new(
-            io::ErrorKind::FileTooLarge,
-            format!("{inner} is too large to look at inside the archive; copy it out with F5"),
-        ));
+        return Err(too_large(&inner));
     }
     // One at a time: each starts in a fresh folder, which would take away the copy of one
     // still being looked at, and peeks piling up while the cursor moves each unpack.
@@ -974,10 +1069,16 @@ pub fn peek(path: &Path) -> io::Result<PathBuf> {
 /// A fresh folder for this run's copy to look at (also a history's, `history::peek`): the copy
 /// before it goes, and copies left by earlier runs go after a day.
 pub(crate) fn peek_folder() -> io::Result<PathBuf> {
-    let base = dirs::cache_dir()
-        .ok_or_else(|| io::Error::other("no cache folder"))?
-        .join("coxswain")
-        .join("peek");
+    run_folder("peek", true)
+}
+
+/// This run's own folder in the cache's `sub`, for this user's eyes only (a copy may be of a
+/// locked file). Folders left by earlier runs go after a day; `fresh` empties this run's too,
+/// which may be one a crashed run with the same process id left.
+pub(crate) fn run_folder(sub: &str, fresh: bool) -> io::Result<PathBuf> {
+    let base = crate::helper::folder()
+        .ok_or_else(|| io::Error::other(crate::t!("err.no_cache_folder")))?
+        .join(sub);
     let day = std::time::Duration::from_secs(24 * 3600);
     for old in std::fs::read_dir(&base).into_iter().flatten().flatten() {
         if old
@@ -989,8 +1090,9 @@ pub(crate) fn peek_folder() -> io::Result<PathBuf> {
         }
     }
     let run = base.join(std::process::id().to_string());
-    let _ = std::fs::remove_dir_all(&run);
-    // The copy may be of a locked file: for this user's eyes only.
+    if fresh {
+        let _ = std::fs::remove_dir_all(&run);
+    }
     crate::fs::private_dir(&run)?;
     Ok(run)
 }
@@ -1094,12 +1196,8 @@ fn copy_entries(
             &mut File::create(path)?,
         )?;
         if n > left.get() {
-            return Err(io::Error::new(
-                io::ErrorKind::FileTooLarge,
-                format!(
-                    "{} is too large to look at inside the archive; copy it out with F5",
-                    path.display()
-                ),
+            return Err(too_large(
+                &path.file_name().unwrap_or_default().to_string_lossy(),
             ));
         }
         left.set(left.get() - n);
@@ -1113,7 +1211,10 @@ fn copy_entries(
             let (name, dir, encrypted, mode) = {
                 let e = z.by_index_raw(i).map_err(io::Error::other)?;
                 (
-                    e.name().trim_end_matches('/').to_string(),
+                    e.name()
+                        .map_err(io::Error::other)?
+                        .trim_end_matches('/')
+                        .to_string(),
                     e.is_dir(),
                     e.encrypted(),
                     e.unix_mode(),
@@ -1137,12 +1238,14 @@ fn copy_entries(
                 (false, _) => z.by_index(i).map_err(io::Error::other)?,
             };
             // A wrong ZipCrypto password is only seen in what comes out: the check fails.
-            if let Err(err) = write(&path, &mut e) {
-                return Err(if encrypted && err.kind() != io::ErrorKind::FileTooLarge {
-                    locked()
-                } else {
-                    err
-                });
+            let size = e.size();
+            let mut from = Noting {
+                from: &mut e,
+                left: size,
+                failed: false,
+            };
+            if let Err(err) = write(&path, &mut from) {
+                return Err(copy_error(err, &from, encrypted));
             }
             // A script stays one; nothing but the permission bits is taken.
             #[cfg(unix)]
@@ -1187,7 +1290,7 @@ fn copy_entries(
                 write(&path, &mut from)
             };
             if let Err(err) = done {
-                failed = Some(seven_copy_error(err, &from, locked));
+                failed = Some(copy_error(err, &from, locked));
                 return Ok(false);
             }
             // The one file asked for is out: nothing after it is unpacked.
@@ -1326,15 +1429,16 @@ fn rewrite(
                     if e.encrypted() && !e.is_dir() {
                         first_locked.get_or_insert(i);
                     }
-                    let old = e.name().trim_end_matches('/').to_string();
-                    let slash = e.name().ends_with('/');
+                    let full = e.name().map_err(io::Error::other)?;
+                    let old = full.trim_end_matches('/').to_string();
+                    let slash = full.ends_with('/');
                     // Locked the old way (ZipCrypto): the crate's raw copy drops that lock and
                     // leaves the bytes scrambled, so the file is read with the password and
                     // locked anew with AES-256 (as new files are). Without one: ask.
                     let old_lock = e.encrypted()
                         && !e.is_dir()
                         && zip::read::HasZipMetadata::get_metadata(&e)
-                            .aes_mode
+                            .aes_settings()
                             .is_none();
                     match keep(&old) {
                         Some(new) if old_lock => {
@@ -1450,7 +1554,7 @@ fn rewrite(
                         w.push_archive_entry(entry, Some(&mut from))
                     };
                     if let Err(err) = pushed {
-                        failed = Some(seven_copy_error(io::Error::other(err), &from, locked));
+                        failed = Some(copy_error(io::Error::other(err), &from, locked));
                         return Ok(false);
                     }
                     Ok(true)
@@ -1610,7 +1714,7 @@ fn named(sources: &[PathBuf]) -> io::Result<Vec<(String, PathBuf)>> {
 pub fn add(archive: &Path, into: &[(String, PathBuf)], password: Option<&str>) -> io::Result<()> {
     let new = entries_of(into)?;
     let have: std::collections::HashSet<String> =
-        items(archive)?.into_iter().map(|it| it.name).collect();
+        items(archive)?.iter().map(|it| it.name.clone()).collect();
     if let Some((name, _)) = new
         .iter()
         .find(|(name, n)| !matches!(n, New::Dir) && have.contains(name))
@@ -1653,7 +1757,7 @@ pub fn mkdir(archive: &Path, inner: &str, password: Option<&str>) -> io::Result<
 
 /// Rename or move `from` (a file, or a folder and all in it) to `to`, inside the archive.
 pub fn rename_in(archive: &Path, from: &str, to: &str, password: Option<&str>) -> io::Result<()> {
-    let names: Vec<String> = items(archive)?.into_iter().map(|it| it.name).collect();
+    let names: Vec<String> = items(archive)?.iter().map(|it| it.name.clone()).collect();
     if names
         .iter()
         .any(|n| n == to || n.starts_with(&format!("{to}/")))
@@ -1829,6 +1933,31 @@ mod tests {
     use super::*;
 
     #[test]
+    fn a_zstd_write_that_fails_comes_back_as_an_error() {
+        struct Full(usize);
+        impl Write for Full {
+            fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+                if self.0 < buf.len() {
+                    return Err(io::Error::from(io::ErrorKind::StorageFull));
+                }
+                self.0 -= buf.len();
+                Ok(buf.len())
+            }
+            fn flush(&mut self) -> io::Result<()> {
+                Ok(())
+            }
+        }
+        let data: Vec<u8> = (0..1u32 << 20)
+            .map(|i| (i.wrapping_mul(2_654_435_761) >> 24) as u8)
+            .collect();
+        let err = zstd_into(&mut Keep::new(&data[..]), &mut Keep::new(Full(1000))).unwrap_err();
+        assert_eq!(err.kind(), io::ErrorKind::StorageFull);
+        let mut out = Vec::new();
+        zstd_into(&mut Keep::new(&data[..]), &mut Keep::new(&mut out)).unwrap();
+        assert!(!out.is_empty());
+    }
+
+    #[test]
     fn pack_endings_swap_and_cycle() {
         assert_eq!(with_ending("/a/b.tar.gz", ".7z"), "/a/b.7z");
         assert_eq!(with_ending("b.TGZ", ".zip"), "b.zip");
@@ -1859,6 +1988,28 @@ mod tests {
     }
 
     /// A 7z locked here has its key made as 7-Zip makes it: 2^19 rounds, not the crate's 2^8.
+    #[test]
+    fn a_locked_zip_entry_that_cannot_be_written_says_why_and_asks_no_password() {
+        let d = std::env::temp_dir().join(format!("coxswain-test-zipwrite-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        std::fs::write(d.join("a.txt"), "secret").unwrap();
+        let p = d.join("locked.zip");
+        create_locked(&p, &[d.join("a.txt")], Some("hunter2"), false).unwrap();
+        // The folder to write into is a file, so the write fails, not the password.
+        std::fs::write(d.join("plain"), "").unwrap();
+        let err = copy_out(
+            &p,
+            "a.txt",
+            &d.join("plain").join("a.txt"),
+            Some("hunter2"),
+            false,
+        )
+        .unwrap_err();
+        assert_ne!(err.to_string(), LOCKED);
+        std::fs::remove_dir_all(d).unwrap();
+    }
+
     #[test]
     fn archive_7z_key_is_made_as_7zip_makes_it() {
         let d = std::env::temp_dir().join(format!("coxswain-test-7zkey-{}", std::process::id()));
@@ -1967,7 +2118,7 @@ mod tests {
                 .iter()
                 .map(|e| e.name.clone())
                 .collect::<Vec<_>>(),
-            [long.clone()]
+            std::slice::from_ref(&long)
         );
 
         // A long-name record far past any name is refused before it is read.
@@ -2478,6 +2629,36 @@ mod tests {
     }
 
     #[test]
+    fn search_reads_past_a_zip_entry_it_cannot_open() {
+        let d = std::env::temp_dir().join(format!("coxswain-test-zipskip-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        let zp = d.join("a.zip");
+        let mut w = zip::ZipWriter::new(File::create(&zp).unwrap());
+        for name in ["odd.txt", "fine.txt"] {
+            let o = zip::write::SimpleFileOptions::default()
+                .compression_method(zip::CompressionMethod::Stored);
+            w.start_file(name, o).unwrap();
+            io::Write::write_all(&mut w, b"words").unwrap();
+        }
+        w.finish().unwrap();
+        // The first entry says it is packed by method 7, which nothing reads.
+        let mut bytes = std::fs::read(&zp).unwrap();
+        bytes[8] = 7;
+        let central = memchr::memmem::find(&bytes, b"PK\x01\x02").unwrap();
+        bytes[central + 10] = 7;
+        std::fs::write(&zp, &bytes).unwrap();
+        let mut read = vec![];
+        search_read(&zp, bytes.len() as u64, &|_, _| true, &mut |name, _| {
+            read.push(name.to_string());
+            true
+        })
+        .unwrap();
+        assert_eq!(read, ["fine.txt"]);
+        std::fs::remove_dir_all(d).unwrap();
+    }
+
+    #[test]
     fn archive_packed_with_a_password_opens_only_with_it() {
         let d = std::env::temp_dir().join(format!("coxswain-test-pack-pw-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&d);
@@ -2544,7 +2725,7 @@ mod tests {
         let mut z = zip::ZipArchive::new(File::open(d.join("pw.zip")).unwrap()).unwrap();
         for i in 0..z.len() {
             let e = z.by_index_raw(i).unwrap();
-            assert!(e.is_dir() || e.encrypted(), "{}", e.name());
+            assert!(e.is_dir() || e.encrypted(), "{:?}", e.name());
         }
         // Tar has no passwords; an empty one is none.
         assert!(
@@ -2622,7 +2803,7 @@ mod tests {
         assert!(
             a.encrypted()
                 && zip::read::HasZipMetadata::get_metadata(&a)
-                    .aes_mode
+                    .aes_settings()
                     .is_some(),
             "locked anew with AES"
         );

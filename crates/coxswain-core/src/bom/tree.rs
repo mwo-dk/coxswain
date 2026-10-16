@@ -280,8 +280,13 @@ struct Dir {
 }
 
 /// The directory and file entry of a source path, made on first sight.
+/// The parts of a source path, split at `/` or `\\` as on disk.
+fn segments(location: &str) -> impl Iterator<Item = &str> {
+    location.split(['/', '\\']).filter(|s| !s.is_empty())
+}
+
 fn file_slot(dirs: &mut Vec<Dir>, location: &str) -> (usize, usize) {
-    let segments: Vec<&str> = location.split('/').filter(|s| !s.is_empty()).collect();
+    let segments: Vec<&str> = segments(location).collect();
     let mut d = 0;
     for &s in segments.iter().take(segments.len().saturating_sub(1)) {
         d = match dirs[d].dir_index.get(s) {
@@ -325,7 +330,10 @@ fn place_by_source_file(bom: &Bom, b: &mut Builder, extra_edges: &mut Vec<Edge>)
         let mut seen = HashSet::new();
         for o in &node.occurrences[1..] {
             if o.location != first && seen.insert(o.location.as_str()) {
-                further.push((o.location.clone(), i as u32));
+                further.push((
+                    segments(&o.location).collect::<Vec<_>>().join("/"),
+                    i as u32,
+                ));
             }
         }
     }

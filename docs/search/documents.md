@@ -20,7 +20,7 @@ Nothing to do: every file of these kinds inside a [folder read](folders.md) is r
 | Kind | Files | What is read |
 |---|---|---|
 | PDF | `.pdf` | The text; a very long document is read for three seconds, which is most of it. A PDF without text is a scan: see [Scans](scans.md) |
-| Word and OpenDocument text | `.docx` `.docm` `.dotx` `.odt` `.ott` | The text, with headers, footers, footnotes and comments |
+| Word and OpenDocument text | `.docx` `.docm` `.dotx` `.odt` `.ott` | The text, with headers, footers, footnotes and comments; in an OpenDocument file also the charts and formulas set into it |
 | Rich text | `.rtf` | The text |
 | Spreadsheets | `.xlsx` `.xlsm` `.xlsb` `.xls` `.ods` | Every sheet: the values, not the formulas |
 | Presentations | `.pptx` `.ppsx` `.potx` `.odp` | The slides, with the speaker notes |

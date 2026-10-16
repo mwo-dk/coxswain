@@ -49,9 +49,7 @@ pub fn from_value(doc: &Value, format: Format, file_name: Option<&str>) -> Resul
         r.issues.push(Issue {
             severity: Severity::Warning,
             code: IssueCode::UnsupportedSpecVersion,
-            message: format!(
-                "CycloneDX {spec_version} isn't fully supported (1.6 and 1.7 are). Cryptographic details may be missing."
-            ),
+            message: crate::t!("bom.issue.spec_version", "version" => spec_version),
             node: None,
         });
     }
@@ -94,7 +92,7 @@ pub fn from_value(doc: &Value, format: Format, file_name: Option<&str>) -> Resul
             r.issues.push(Issue {
                 severity: Severity::Warning,
                 code: IssueCode::DanglingRef,
-                message: format!("dependencies: \"{name}\" is not a component in this BOM."),
+                message: crate::t!("bom.issue.not_a_component", "name" => name),
                 node: None,
             });
             continue;
@@ -123,11 +121,11 @@ pub fn from_value(doc: &Value, format: Format, file_name: Option<&str>) -> Resul
             r.issues.push(Issue {
                 severity: Severity::Warning,
                 code: IssueCode::DanglingRef,
-                message: format!(
-                    "{}: {} refers to \"{}\", which is not in this BOM.",
-                    r.nodes[p.from as usize].label,
-                    p.field,
-                    display(Some(p.target))
+                message: crate::t!(
+                    "bom.issue.dangling_ref",
+                    "name" => r.nodes[p.from as usize].label,
+                    "field" => p.field,
+                    "target" => display(Some(p.target)),
                 ),
                 node: Some(p.from),
             });
@@ -183,9 +181,9 @@ impl<'a> Reader<'a> {
                 self.issues.push(Issue {
                     severity: Severity::Info,
                     code: IssueCode::MissingBomRef,
-                    message: format!(
-                        "\"{}\" has no bom-ref, so nothing can reference it.",
-                        self.nodes[idx as usize].label
+                    message: crate::t!(
+                        "bom.issue.no_bom_ref",
+                        "name" => self.nodes[idx as usize].label,
                     ),
                     node: Some(idx),
                 });
@@ -196,9 +194,7 @@ impl<'a> Reader<'a> {
             self.issues.push(Issue {
                 severity: Severity::Warning,
                 code: IssueCode::DuplicateBomRef,
-                message: format!(
-                    "bom-ref \"{bom_ref}\" is used more than once; the first one wins."
-                ),
+                message: crate::t!("bom.issue.duplicate_ref", "ref" => bom_ref),
                 node: Some(idx),
             });
             return;
@@ -289,7 +285,13 @@ fn component_node(c: &Obj, kind: NodeKind, fallback_key: String) -> Node {
         group: None,
         occurrences: occurrences(c),
         crypto,
-        raw: Value::Object(c.clone()),
+        // Its own fields: the components inside are nodes of their own.
+        raw: Value::Object(
+            c.iter()
+                .filter(|(k, _)| k.as_str() != "components")
+                .map(|(k, v)| (k.clone(), v.clone()))
+                .collect(),
+        ),
     }
 }
 

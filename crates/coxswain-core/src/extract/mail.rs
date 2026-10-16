@@ -105,11 +105,7 @@ fn pattern(of: &str) -> Regex {
 
 /// A line more in `to`, or as much of it as there is room for when `to` may hold `most` bytes.
 fn add(to: &mut String, text: &str, most: usize) {
-    let mut room = most.saturating_sub(to.len()).min(text.len());
-    while !text.is_char_boundary(room) {
-        room -= 1;
-    }
-    to.push_str(&text[..room]);
+    super::push_within(to, text, most);
     to.push('\n');
 }
 
@@ -529,12 +525,11 @@ fn characters(bytes: &[u8], charset: Option<&str>) -> String {
     // that is dropped; `mail-parser` drops them all, and with them the space between words.
     static RUN: LazyLock<Regex> =
         LazyLock::new(|| pattern(r"(?-u)(\+[A-Za-z0-9+/]+)([^A-Za-z0-9+/-]|\z)"));
+    let lower = charset.map(str::to_ascii_lowercase);
     let said = |names: &[&str]| {
-        charset.is_some_and(|c| {
-            names
-                .iter()
-                .any(|name| c.to_ascii_lowercase().contains(name))
-        })
+        lower
+            .as_deref()
+            .is_some_and(|c| names.iter().any(|name| c.contains(name)))
     };
     let named = charset.and_then(|c| charset_decoder(c.as_bytes()));
     // UTF-16 and UTF-7 are not ASCII with more characters added, and have no lines of bytes.
@@ -545,14 +540,15 @@ fn characters(bytes: &[u8], charset: Option<&str>) -> String {
             Cow::Borrowed(bytes)
         });
     }
+    let (fallback, utf) = (
+        named.or_else(|| charset_decoder(b"windows-1252")),
+        said(&["utf"]),
+    );
     let lines = bytes.split_inclusive(|b| *b == b'\n').map(|line| {
-        match (
-            std::str::from_utf8(line),
-            named.or_else(|| charset_decoder(b"windows-1252")),
-        ) {
+        match (std::str::from_utf8(line), fallback) {
             (Ok(text), _) => text.to_string(),
             // Cut in the middle of its last character, it is UTF-8 all the same.
-            (Err(e), Some(decode)) if !said(&["utf"]) && e.error_len().is_some() => decode(line),
+            (Err(e), Some(decode)) if !utf && e.error_len().is_some() => decode(line),
             _ => String::from_utf8_lossy(line).into_owned(),
         }
     });
@@ -601,23 +597,12 @@ fn plain(html: &str) -> String {
     String::from_utf8_lossy(&text).into_owned()
 }
 
-/// The text without what is not seen in it: the colours of a terminal, which mail from cron
-/// and from build servers has, the soft hyphen and the space without width, which part a
-/// word for the store, and the control characters, among them the zero byte and the two
-/// that the store marks its finds with.
+/// The text without the colours of a terminal, which mail from cron and from build servers
+/// has. `tidy` takes out the rest of what is not seen.
 fn shown(text: &str) -> String {
     static COLOUR: LazyLock<regex::Regex> =
         LazyLock::new(|| regex::Regex::new("\x1b\\[[0-9;]*[A-Za-z]").expect("valid"));
-    let text = COLOUR.replace_all(text, "");
-    let seen = text.chars().filter(|c| !matches!(c, '\u{ad}' | '\u{200b}'));
-    seen.map(|c| {
-        if c.is_control() && !matches!(c, '\n' | '\t') {
-            ' '
-        } else {
-            c
-        }
-    })
-    .collect()
+    COLOUR.replace_all(text, "").into_owned()
 }
 
 #[cfg(test)]

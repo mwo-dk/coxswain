@@ -13,7 +13,7 @@ use std::path::Path;
 
 use super::{MAX_ENTRY, MAX_TEXT, start, xml_text};
 
-type Zip = zip::ZipArchive<std::fs::File>;
+type Zip = zip::ZipArchive<super::Metered>;
 /// How a part is read by `xml_text`: the elements that end a line, and those left out.
 type Rules = (&'static [&'static str], &'static [&'static str]);
 
@@ -60,7 +60,7 @@ const LINKED: &[&str] = &[
 /// in the standard and another in the files that LibreOffice wrote before it. Left out are a
 /// picture written as text, and the styles, where the form of a date or a number holds text:
 /// ".", "km".
-const OPENDOCUMENT: Rules = (
+pub(super) const OPENDOCUMENT: Rules = (
     &[
         "p",
         "h",
@@ -102,18 +102,15 @@ pub fn text(path: &Path, max: u64) -> Option<String> {
 /// unpack to `MAX_ENTRY` and a file may hold thousands of parts: without a limit for them
 /// together, a small file could keep the reader busy for hours.
 fn within(path: &Path, max: u64, mut room: u64) -> Option<String> {
-    let file = std::fs::File::open(path).ok()?;
-    if file.metadata().ok()?.len() > max {
-        return None;
-    }
-    let mut zip = zip::ZipArchive::new(file).ok()?;
+    let mut zip = super::open_zip(path, max)?;
     let mut out = String::new();
     if zip.index_for_name("content.xml").is_some() {
         // The slides, then what is set into them as documents of their own, each in its folder.
         let objects: Vec<String> = zip
             .file_names()
+            .filter_map(Result::ok)
             .filter(|name| name.ends_with("/content.xml"))
-            .map(String::from)
+            .map(|name| name.into_owned())
             .collect();
         let _ = std::iter::once("content.xml".to_string())
             .chain(objects)
@@ -135,6 +132,7 @@ fn within(path: &Path, max: u64, mut room: u64) -> Option<String> {
 fn powerpoint(out: &mut String, zip: &mut Zip, room: &mut u64) {
     let mut slides: Vec<(u64, String)> = zip
         .file_names()
+        .filter_map(Result::ok)
         .filter_map(|name| {
             let file = name.strip_prefix("ppt/slides/")?.strip_suffix(".xml")?;
             Some((
@@ -1076,7 +1074,7 @@ mod tests {
         );
         assert_eq!(
             read(&d.join("deck.pptx")).as_deref(),
-            Some("beforemarkedafter [31mred\nThe budget")
+            Some("before marked after [31mred\nThe budget")
         );
         let _ = std::fs::remove_dir_all(d);
     }

@@ -17,10 +17,9 @@ use std::collections::HashMap;
 use std::io::Read;
 use std::path::Path;
 
-use quick_xml::XmlVersion;
 use quick_xml::events::{BytesStart, Event};
 
-use super::{MAX_ENTRY, MAX_TEXT, page_text, start, utf8, xml_text};
+use super::{MAX_ENTRY, MAX_TEXT, attr, page_text, start, utf8, xml_text};
 
 /// The most sheets read of one workbook. Each is unpacked on its own.
 const MOST_SHEETS: usize = 256;
@@ -61,7 +60,7 @@ pub fn text(path: &Path, max: u64) -> Option<String> {
         .ok()?;
     let text = if head.starts_with(b"PK") {
         let mut zip = Zip {
-            archive: zip::ZipArchive::new(std::fs::File::open(path).ok()?).ok()?,
+            archive: super::open_zip(path, max)?,
             left: 4 * MAX_ENTRY,
         };
         match zip.part("content.xml") {
@@ -85,7 +84,9 @@ pub fn text(path: &Path, max: u64) -> Option<String> {
             .take(max)
             .read_to_end(&mut bytes)
             .ok()?;
-        let mut text = decoded(bytes)?;
+        // As a page named .html is read: by its mark, as UTF-8 or nearly, in the encoding it
+        // declares, else in Windows-1252, as exports for Denmark and its neighbours often are.
+        let mut text = super::book::decoded(&bytes)?.into_owned();
         match text
             .trim_start_matches('\u{feff}')
             .trim_start()
@@ -102,56 +103,6 @@ pub fn text(path: &Path, max: u64) -> Option<String> {
         }
     };
     (!text.trim().is_empty()).then_some(text)
-}
-
-/// Text as a program on the web writes it: UTF-8, UTF-16 with a mark at its start, or
-/// Windows-1252 when it is neither, as exports for Denmark and its neighbours often are. A
-/// page that is UTF-8 but for a stray byte is read as UTF-8 still. A zero byte near the
-/// start says that it is no text at all.
-fn decoded(bytes: Vec<u8>) -> Option<String> {
-    let wide = |bytes: &[u8], unit: fn([u8; 2]) -> u16| {
-        let units = bytes.chunks_exact(2).map(|pair| unit([pair[0], pair[1]]));
-        Some(
-            char::decode_utf16(units)
-                .map(|c| c.unwrap_or(char::REPLACEMENT_CHARACTER))
-                .collect(),
-        )
-    };
-    match bytes.get(..2) {
-        Some([0xFF, 0xFE]) => return wide(&bytes[2..], u16::from_le_bytes),
-        Some([0xFE, 0xFF]) => return wide(&bytes[2..], u16::from_be_bytes),
-        _ => {}
-    }
-    if bytes.iter().take(8192).any(|byte| *byte == 0) {
-        return None;
-    }
-    let fault = match String::from_utf8(bytes) {
-        Ok(text) => return Some(text),
-        Err(fault) => fault,
-    };
-    let valid = fault.utf8_error().valid_up_to();
-    let bytes = fault.into_bytes();
-    if !bytes[..valid].is_ascii() {
-        return Some(String::from_utf8_lossy(&bytes).into_owned());
-    }
-    // Windows-1252 is Latin-1 but for the 32 characters that Latin-1 leaves for controls.
-    const OWN: [char; 32] = [
-        '€', '\u{81}', '‚', 'ƒ', '„', '…', '†', '‡', 'ˆ', '‰', 'Š', '‹', 'Œ', '\u{8D}', 'Ž',
-        '\u{8F}', '\u{90}', '‘', '’', '“', '”', '•', '–', '—', '˜', '™', 'š', '›', 'œ', '\u{9D}',
-        'ž', 'Ÿ',
-    ];
-    Some(
-        bytes
-            .iter()
-            .map(|b| {
-                if (0x80..0xA0).contains(b) {
-                    OWN[*b as usize - 0x80]
-                } else {
-                    *b as char
-                }
-            })
-            .collect(),
-    )
 }
 
 // ---------------------------------------------------------------- the text, as it grows
@@ -433,14 +384,7 @@ fn walk(xml: &[u8], mut each: impl FnMut(Part) -> bool) {
                 let mut one = [0u8; 4];
                 each(Part::Text(match r.resolve_char_ref() {
                     Ok(Some(c)) => c.encode_utf8(&mut one),
-                    _ => match &*r.into_inner() {
-                        "amp" => "&",
-                        "lt" => "<",
-                        "gt" => ">",
-                        "quot" => "\"",
-                        "apos" => "'",
-                        _ => "",
-                    },
+                    _ => quick_xml::escape::resolve_xml_entity(&r.into_inner()).unwrap_or(""),
                 }))
             }
             Ok(Event::Eof) | Err(_) => false,
@@ -452,33 +396,18 @@ fn walk(xml: &[u8], mut each: impl FnMut(Part) -> bool) {
     }
 }
 
-/// The value of the attribute of that name, whatever its prefix.
-fn attr(element: &BytesStart, name: &str) -> Option<String> {
-    let found = element
-        .attributes()
-        .with_checks(false)
-        .map_while(Result::ok)
-        .find(|a| a.key.local_name().as_ref() == name)?;
-    Some(
-        found
-            .normalized_value(XmlVersion::Implicit1_0)
-            .unwrap_or(found.value.clone())
-            .into_owned(),
-    )
-}
-
 // ---------------------------------------------------------------- .xlsx, .xlsm and .xlsb
 
 /// The zip of a spreadsheet, and how many bytes may still be unpacked of it.
 struct Zip {
-    archive: zip::ZipArchive<std::fs::File>,
+    archive: zip::ZipArchive<super::Metered>,
     left: u64,
 }
 
 impl Zip {
     /// A part by its name, or the first `MAX_ENTRY` bytes of it, and what was read of it
     /// before a fault in the zip. The sheet of a large workbook unpacks to more than that, and
-    /// its first rows are as much text as is kept; `zip_entry` would leave all of it out.
+    /// its first rows are as much text as is kept.
     ///
     /// Some writers call a part by a name with other capitals than they gave it, and some
     /// name the parts with the backslashes of Windows.
@@ -486,8 +415,14 @@ impl Zip {
         let named = self
             .archive
             .file_names()
-            .find(|n| n.replace('\\', "/").eq_ignore_ascii_case(name))?
-            .to_string();
+            .filter_map(Result::ok)
+            .find(|n| {
+                n.len() == name.len()
+                    && n.bytes()
+                        .zip(name.bytes())
+                        .all(|(a, b)| (if a == b'\\' { b'/' } else { a }).eq_ignore_ascii_case(&b))
+            })?
+            .into_owned();
         let (mut bytes, most) = (vec![], MAX_ENTRY.min(self.left));
         let _ = self
             .archive
@@ -619,6 +554,7 @@ fn excel(zip: &mut Zip) -> Option<String> {
     let names = zip
         .archive
         .file_names()
+        .filter_map(Result::ok)
         .map(|n| n.replace('\\', "/"))
         .filter(|n| n.to_lowercase().starts_with(&notes));
     for name in names.take(MOST_SHEETS).collect::<Vec<_>>() {
@@ -731,7 +667,7 @@ fn xlsx_kinds(xml: &[u8]) -> Vec<Kind> {
         match part {
             Part::Open(e) => match e.local_name().as_ref() {
                 "numFmt" if codes.len() < MOST_FORMATS => {
-                    drop(codes.insert(id(e), kind(id(e), attr(e, "formatCode").as_deref())))
+                    codes.insert(id(e), kind(id(e), attr(e, "formatCode").as_deref()));
                 }
                 "cellXfs" => inside = true,
                 "xf" if inside => formats.push(id(e)),
@@ -1336,58 +1272,10 @@ impl Rc4 {
     }
 }
 
-/// The MD5 of a message, as RFC 1321 lays it out: it keys the cipher of a locked workbook,
+/// The MD5 of a message: it keys the cipher of a locked workbook,
 /// and is no good for anything else any more.
 fn md5(message: &[u8]) -> [u8; 16] {
-    const SHIFTS: [u32; 16] = [7, 12, 17, 22, 5, 9, 14, 20, 4, 11, 16, 23, 6, 10, 15, 21];
-    const SINES: [u32; 64] = [
-        0xd76aa478, 0xe8c7b756, 0x242070db, 0xc1bdceee, 0xf57c0faf, 0x4787c62a, 0xa8304613,
-        0xfd469501, 0x698098d8, 0x8b44f7af, 0xffff5bb1, 0x895cd7be, 0x6b901122, 0xfd987193,
-        0xa679438e, 0x49b40821, 0xf61e2562, 0xc040b340, 0x265e5a51, 0xe9b6c7aa, 0xd62f105d,
-        0x02441453, 0xd8a1e681, 0xe7d3fbc8, 0x21e1cde6, 0xc33707d6, 0xf4d50d87, 0x455a14ed,
-        0xa9e3e905, 0xfcefa3f8, 0x676f02d9, 0x8d2a4c8a, 0xfffa3942, 0x8771f681, 0x6d9d6122,
-        0xfde5380c, 0xa4beea44, 0x4bdecfa9, 0xf6bb4b60, 0xbebfbc70, 0x289b7ec6, 0xeaa127fa,
-        0xd4ef3085, 0x04881d05, 0xd9d4d039, 0xe6db99e5, 0x1fa27cf8, 0xc4ac5665, 0xf4292244,
-        0x432aff97, 0xab9423a7, 0xfc93a039, 0x655b59c3, 0x8f0ccc92, 0xffeff47d, 0x85845dd1,
-        0x6fa87e4f, 0xfe2ce6e0, 0xa3014314, 0x4e0811a1, 0xf7537e82, 0xbd3af235, 0x2ad7d2bb,
-        0xeb86d391,
-    ];
-    let mut padded = message.to_vec();
-    padded.push(0x80);
-    while padded.len() % 64 != 56 {
-        padded.push(0);
-    }
-    padded.extend_from_slice(&(message.len() as u64).wrapping_mul(8).to_le_bytes());
-    let mut state = [0x67452301u32, 0xefcdab89, 0x98badcfe, 0x10325476];
-    for chunk in padded.chunks_exact(64) {
-        let words: Vec<u32> = chunk
-            .chunks_exact(4)
-            .map(|w| u32::from_le_bytes([w[0], w[1], w[2], w[3]]))
-            .collect();
-        let [mut a, mut b, mut c, mut d] = state;
-        for i in 0..64 {
-            let (mix, word) = match i / 16 {
-                0 => ((b & c) | (!b & d), i),
-                1 => ((d & b) | (!d & c), (5 * i + 1) % 16),
-                2 => (b ^ c ^ d, (3 * i + 5) % 16),
-                _ => (c ^ (b | !d), 7 * i % 16),
-            };
-            let turned = a
-                .wrapping_add(mix)
-                .wrapping_add(SINES[i])
-                .wrapping_add(words[word])
-                .rotate_left(SHIFTS[i / 16 * 4 + i % 4]);
-            (a, d, c, b) = (d, c, b, b.wrapping_add(turned));
-        }
-        for (sum, part) in state.iter_mut().zip([a, b, c, d]) {
-            *sum = sum.wrapping_add(part);
-        }
-    }
-    let mut digest = [0u8; 16];
-    for (place, word) in state.iter().enumerate() {
-        digest[place * 4..place * 4 + 4].copy_from_slice(&word.to_le_bytes());
-    }
-    digest
+    <md5::Md5 as md5::Digest>::digest(message).into()
 }
 
 /// The stream with the workbook in a compound file: `Workbook`, or `Book` before 1997.
@@ -2524,6 +2412,16 @@ mod tests {
             text_of(&d.join("stray.xls"), 100, 1 << 20).as_deref(),
             Some("Færge til Ærø\nBro\u{fffd} og")
         );
+        // A page says its encoding, as a page named .html does.
+        std::fs::write(
+            d.join("page.xls"),
+            b"<html><head><meta charset=\"iso-8859-2\"></head><body><td>Gda\xf1sk \xb1</td></body></html>",
+        )
+        .unwrap();
+        assert_eq!(
+            text_of(&d.join("page.xls"), 100, 1 << 20).as_deref(),
+            Some("Gdańsk ą")
+        );
         std::fs::write(d.join("binary.xls"), b"MZ\0\0\0\0program").unwrap();
         assert_eq!(text_of(&d.join("binary.xls"), 100, 1 << 20), None);
         let _ = std::fs::remove_dir_all(d);
@@ -2865,8 +2763,7 @@ mod tests {
             22
         );
         let zip = |left: usize| Zip {
-            archive: zip::ZipArchive::new(std::fs::File::open(d.join("large.xlsx")).unwrap())
-                .unwrap(),
+            archive: crate::extract::open_zip(&d.join("large.xlsx"), u64::MAX).unwrap(),
             left: left as u64,
         };
         let read = excel(&mut zip(workbook.len()

@@ -269,6 +269,32 @@ pub fn source(provenance: &Path, other: Option<&Path>, src: &GitSource) -> Sourc
     else {
         return Source::NoCheckout;
     };
+    at(checkout, src)
+}
+
+/// `source` for each of `deps` that is a git source (None for the others), with the
+/// checkouts and their remotes looked up once for all of them.
+pub fn sources(provenance: &Path, other: Option<&Path>, deps: &[Resource]) -> Vec<Option<Source>> {
+    let found: Vec<(PathBuf, Vec<String>)> = checkouts(provenance.parent(), other)
+        .into_iter()
+        .map(|c| {
+            let r = remotes(&c);
+            (c, r)
+        })
+        .collect();
+    deps.iter()
+        .map(|d| {
+            let src = git_source(d)?;
+            Some(match found.iter().find(|(_, r)| r.contains(&src.repo)) {
+                Some((c, _)) => at(c.clone(), &src),
+                None => Source::NoCheckout,
+            })
+        })
+        .collect()
+}
+
+/// Where the commit of `src` is in `checkout`, a checkout of its repository.
+fn at(checkout: PathBuf, src: &GitSource) -> Source {
     let git = |args: &[&str]| {
         crate::git::command(&checkout)
             .args(args)

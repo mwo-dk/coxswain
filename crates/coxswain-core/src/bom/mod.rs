@@ -49,22 +49,18 @@ pub enum Error {
 
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            Error::NotCycloneDx => write!(f, "{}", crate::t!("err.bom.not_cyclonedx")),
-            Error::InvalidJson { line, message } => write!(
-                f,
-                "{}",
+        f.write_str(&match self {
+            Error::NotCycloneDx => crate::t!("err.bom.not_cyclonedx"),
+            Error::InvalidJson { line, message } => {
                 crate::t!("err.bom.invalid_json", "line" => line, "message" => message)
-            ),
-            Error::InvalidXml { line, message } => write!(
-                f,
-                "{}",
+            }
+            Error::InvalidXml { line, message } => {
                 crate::t!("err.bom.invalid_xml", "line" => line, "message" => message)
-            ),
-            Error::UnsafeXml => write!(f, "{}", crate::t!("err.bom.unsafe_xml")),
-            Error::TooLarge(_) => write!(f, "{}", crate::t!("err.bom.too_large")),
-            Error::Io(e) => write!(f, "{e}"),
-        }
+            }
+            Error::UnsafeXml => crate::t!("err.bom.unsafe_xml"),
+            Error::TooLarge(_) => crate::t!("err.bom.too_large"),
+            Error::Io(e) => e.clone(),
+        })
     }
 }
 
@@ -75,14 +71,25 @@ pub const SNIFF_BYTES: usize = 8192;
 
 /// Whether a file is a CycloneDX BOM: by its name, else by its first bytes for JSON and XML.
 pub fn sniff(path: &Path) -> bool {
-    let name = path
+    sniff_file(path, &[".json", ".xml"], sniff_name, sniff_head)
+}
+
+/// Whether the file at `path` is one `name` says it is by its (lowercase) name, else, with one
+/// of the endings `exts` and at most `MAX_SIZE`, one `head` says it is by its first bytes.
+pub(crate) fn sniff_file(
+    path: &Path,
+    exts: &[&str],
+    name: fn(&str) -> bool,
+    head: fn(&[u8]) -> bool,
+) -> bool {
+    let lower = path
         .file_name()
         .map(|n| n.to_string_lossy().to_lowercase())
         .unwrap_or_default();
-    if sniff_name(&name) {
+    if name(&lower) {
         return true;
     }
-    if !(name.ends_with(".json") || name.ends_with(".xml")) {
+    if !exts.iter().any(|e| lower.ends_with(e)) {
         return false;
     }
     let Ok(file) = std::fs::File::open(path) else {
@@ -91,8 +98,26 @@ pub fn sniff(path: &Path) -> bool {
     if file.metadata().is_ok_and(|m| m.len() > MAX_SIZE) {
         return false;
     }
-    let mut head = Vec::with_capacity(SNIFF_BYTES);
-    file.take(SNIFF_BYTES as u64).read_to_end(&mut head).is_ok() && sniff_head(&head)
+    let mut first = Vec::with_capacity(SNIFF_BYTES);
+    file.take(SNIFF_BYTES as u64)
+        .read_to_end(&mut first)
+        .is_ok()
+        && head(&first)
+}
+
+/// The text of the file at `path`, or `Err` with its size when it is over `MAX_SIZE`.
+pub(crate) fn read_capped(path: &Path) -> std::io::Result<Result<String, u64>> {
+    let file = std::fs::File::open(path)?;
+    let size = file.metadata()?.len();
+    if size > MAX_SIZE {
+        return Ok(Err(size));
+    }
+    let mut bytes = Vec::with_capacity(size as usize);
+    file.take(MAX_SIZE + 1).read_to_end(&mut bytes)?;
+    if bytes.len() as u64 > MAX_SIZE {
+        return Ok(Err(bytes.len() as u64));
+    }
+    Ok(Ok(String::from_utf8_lossy(&bytes).into_owned()))
 }
 
 /// Names that say BOM: `*.cdx.json`, `*.cdx.xml`, `*.cbom.json`, `bom.json` and `bom.xml`.
@@ -114,21 +139,11 @@ pub fn sniff_head(head: &[u8]) -> bool {
 
 /// Reads a CycloneDX file, JSON or XML by its first character.
 pub fn load(path: &Path) -> Result<Bom, Error> {
-    let io = |e: std::io::Error| Error::Io(e.to_string());
-    let file = std::fs::File::open(path).map_err(io)?;
-    let size = file.metadata().map_err(io)?.len();
-    if size > MAX_SIZE {
-        return Err(Error::TooLarge(size));
-    }
-    let mut bytes = Vec::with_capacity(size as usize);
-    file.take(MAX_SIZE + 1)
-        .read_to_end(&mut bytes)
-        .map_err(io)?;
-    if bytes.len() as u64 > MAX_SIZE {
-        return Err(Error::TooLarge(bytes.len() as u64));
-    }
+    let text = read_capped(path)
+        .map_err(|e| Error::Io(e.to_string()))?
+        .map_err(Error::TooLarge)?;
     let name = path.file_name().map(|n| n.to_string_lossy().into_owned());
-    parse(&String::from_utf8_lossy(&bytes), name.as_deref())
+    parse(&text, name.as_deref())
 }
 
 /// Reads CycloneDX from text, JSON or XML by its first character.

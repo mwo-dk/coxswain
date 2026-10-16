@@ -205,6 +205,7 @@ fn maps(
 }
 
 /// A dependency by what it is, not which version: its URI without `@ref`, else its name.
+/// Both apps mark the rows of a compare by it.
 pub fn dependency_key(r: &Resource) -> String {
     match r.uri.as_deref() {
         Some(u) if u.starts_with("git+") => u
