@@ -289,23 +289,23 @@ fn swiss(de: &str) -> String {
         .replace('“', "»")
 }
 
-fn catalogues() -> &'static HashMap<&'static str, Map> {
-    static C: OnceLock<HashMap<&'static str, Map>> = OnceLock::new();
-    C.get_or_init(|| {
+/// A language's catalogue (de-CH: German made Swiss, under its own texts), parsed the first
+/// time it is asked for: a start reads the two or three files its language falls back
+/// through, not all of them.
+fn cat(code: &str) -> Option<&'static Map> {
+    const N: usize = LANGUAGES.len();
+    static C: [OnceLock<Map>; N] = [const { OnceLock::new() }; N];
+    let i = LANGUAGES.iter().position(|l| l.code == code)?;
+    Some(C[i].get_or_init(|| {
         let parse = |s: &str| -> Map { serde_json::from_str(s).unwrap_or_default() };
-        LANGUAGES
-            .iter()
-            .map(|l| {
-                let mut own = parse(source(l.code));
-                if l.code == "de-CH" {
-                    let mut all = parse(&swiss(source("de")));
-                    all.extend(own);
-                    own = all;
-                }
-                (l.code, own)
-            })
-            .collect()
-    })
+        let own = parse(source(code));
+        if code != "de-CH" {
+            return own;
+        }
+        let mut all = parse(&swiss(source("de")));
+        all.extend(own);
+        all
+    }))
 }
 
 /// The fallback chain for a language: itself, its base language for a regional variant that
@@ -313,7 +313,7 @@ fn catalogues() -> &'static HashMap<&'static str, Map> {
 fn chain(code: &str) -> Vec<&str> {
     let base = code.split('-').next().unwrap_or(code);
     let mut v = vec![code];
-    if base != code && catalogues().contains_key(base) {
+    if base != code && find(base).is_some() {
         v.push(base);
     }
     v.push(REFERENCE);
@@ -324,7 +324,7 @@ fn chain(code: &str) -> Vec<&str> {
 pub fn catalogue(code: &str) -> Map {
     let mut out = Map::new();
     for c in chain(code).into_iter().rev() {
-        if let Some(own) = catalogues().get(c) {
+        if let Some(own) = cat(c) {
             out.extend(own.iter().map(|(k, v)| (k.clone(), v.clone())));
         }
     }
@@ -346,7 +346,7 @@ pub fn language() -> &'static str {
 fn lookup(code: &str, key: &str) -> Option<&'static serde_json::Value> {
     chain(code)
         .into_iter()
-        .find_map(|c| catalogues().get(c)?.get(key))
+        .find_map(|c| cat(c)?.get(key))
 }
 
 fn fill(text: &str, args: &[(&str, &str)]) -> String {
