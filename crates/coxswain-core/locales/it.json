@@ -162,6 +162,8 @@
   "many": "{n} di estratti",
   "other": "{n} estratti"
  },
+ "ask.helper_odd_reply": "l’assistente di ricerca ha risposto altro",
+ "ask.helper_stopped": "l’assistente di ricerca si è fermato",
  "ask.poor_cpu": "{model} qui gira sul processore: circa {seconds} s alla prima parola.",
  "ask.poor_cpu_unknown": "{model} qui gira sul processore, lentamente.",
  "ask.poor_none": "Un server di modelli su una scheda grafica risponde molto prima: Configura… ne trova uno.",

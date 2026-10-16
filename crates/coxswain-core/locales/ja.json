@@ -154,6 +154,8 @@
  "ask.excerpts": {
   "other": "{n} 個の抜粋"
  },
+ "ask.helper_odd_reply": "検索ヘルパーが別の応答を返しました",
+ "ask.helper_stopped": "検索ヘルパーが終了しました",
  "ask.poor_cpu": "ここでは {model} は CPU で動きます: 最初の語まで約 {seconds} 秒。",
  "ask.poor_cpu_unknown": "ここでは {model} は CPU で動くため、遅くなります。",
  "ask.poor_none": "グラフィックカード上のモデルサーバーなら、はるかに早く答えます: 設定… で見つけられます。",

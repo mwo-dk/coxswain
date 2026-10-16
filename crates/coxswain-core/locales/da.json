@@ -158,6 +158,8 @@
   "one": "{n} uddrag",
   "other": "{n} uddrag"
  },
+ "ask.helper_odd_reply": "søgehjælperen svarede noget andet",
+ "ask.helper_stopped": "søgehjælperen stoppede",
  "ask.poor_cpu": "{model} kører på processoren her: omkring {seconds} s til første ord.",
  "ask.poor_cpu_unknown": "{model} kører på processoren her, langsomt.",
  "ask.poor_none": "En modelserver på et grafikkort svarer langt hurtigere: Sæt op… finder en.",

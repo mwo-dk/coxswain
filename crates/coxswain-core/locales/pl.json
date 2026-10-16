@@ -166,6 +166,8 @@
   "many": "{n} fragmentów",
   "other": "{n} fragmentu"
  },
+ "ask.helper_odd_reply": "pomocnik wyszukiwania odpowiedział czymś innym",
+ "ask.helper_stopped": "pomocnik wyszukiwania się zatrzymał",
  "ask.poor_cpu": "{model} działa tu na procesorze: około {seconds} s do pierwszego słowa.",
  "ask.poor_cpu_unknown": "{model} działa tu na procesorze, powoli.",
  "ask.poor_none": "Serwer modeli na karcie graficznej odpowiada znacznie szybciej: Skonfiguruj… go znajdzie.",

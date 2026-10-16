@@ -158,6 +158,8 @@
   "one": "{n} ote",
   "other": "{n} otetta"
  },
+ "ask.helper_odd_reply": "hakuapuri vastasi jotain muuta",
+ "ask.helper_stopped": "hakuapuri lopetti",
  "ask.poor_cpu": "{model} toimii täällä suorittimella: noin {seconds} s ensimmäiseen sanaan.",
  "ask.poor_cpu_unknown": "{model} toimii täällä suorittimella, hitaasti.",
  "ask.poor_none": "Mallipalvelin näytönohjaimella vastaa paljon nopeammin: Ota käyttöön… löytää sellaisen.",

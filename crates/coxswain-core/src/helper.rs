@@ -222,6 +222,9 @@ pub(crate) fn note(what: std::fmt::Arguments) {
 /// notice says where to allow it.
 pub static UNSTARTED: AtomicBool = AtomicBool::new(false);
 
+/// This process is the helper: its stderr is helper.log, not an app's screen.
+pub(crate) static SERVING: AtomicBool = AtomicBool::new(false);
+
 /// A request longer than this is nobody's: the connection is dropped, so a stray process on the
 /// machine cannot make the helper swallow memory.
 const LINE_MAX: u64 = 1 << 20;
@@ -262,6 +265,7 @@ fn write_private(path: &Path, text: &str) -> io::Result<()> {
 /// Be the helper: serve until no app has asked for `LINGER`. Returns at once when another
 /// helper already runs.
 pub fn serve() -> io::Result<()> {
+    SERVING.store(true, Ordering::Relaxed);
     // Not one that grows without end, when a helper fails again and again.
     if let Some(log) = log().and_then(|l| std::fs::OpenOptions::new().write(true).open(l).ok())
         && log.metadata().is_ok_and(|m| m.len() > 1 << 20)
@@ -910,13 +914,13 @@ impl Client {
         loop {
             let mut line = String::new();
             if from.read_line(&mut line).map_err(|e| e.to_string())? == 0 {
-                return Err("the search helper stopped".into());
+                return Err(crate::t!("ask.helper_stopped"));
             }
             match serde_json::from_str(&line).map_err(|e| e.to_string())? {
                 Reply::Piece { text } if piece(&text) => {}
                 Reply::Piece { .. } => return Ok(()),
                 Reply::Answered { error } => return error.map_or(Ok(()), Err),
-                _ => return Err("the search helper answered something else".into()),
+                _ => return Err(crate::t!("ask.helper_odd_reply")),
             }
         }
     }

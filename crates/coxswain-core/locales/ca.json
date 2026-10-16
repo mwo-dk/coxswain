@@ -162,6 +162,8 @@
   "many": "{n} de fragments",
   "other": "{n} fragments"
  },
+ "ask.helper_odd_reply": "l'assistent de cerca ha respost una altra cosa",
+ "ask.helper_stopped": "l'assistent de cerca s'ha aturat",
  "ask.poor_cpu": "{model} s'executa aquí al processador: uns {seconds} s fins a la primera paraula.",
  "ask.poor_cpu_unknown": "{model} s'executa aquí al processador, a poc a poc.",
  "ask.poor_none": "Un servidor de models amb targeta gràfica respon molt abans: Configura… en troba un.",

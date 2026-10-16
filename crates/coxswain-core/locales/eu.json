@@ -158,6 +158,8 @@
   "one": "{n} pasarte",
   "other": "{n} pasarte"
  },
+ "ask.helper_odd_reply": "bilaketa-laguntzaileak beste zerbait erantzun du",
+ "ask.helper_stopped": "bilaketa-laguntzailea gelditu da",
  "ask.poor_cpu": "{model} prozesadorean dabil hemen: {seconds} s inguru lehen hitzera arte.",
  "ask.poor_cpu_unknown": "{model} prozesadorean dabil hemen, motel.",
  "ask.poor_none": "Txartel grafikoa duen eredu-zerbitzari batek askoz lehenago erantzuten du: Konfiguratu… aukerak bat aurkitzen du.",
