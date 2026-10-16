@@ -165,13 +165,13 @@ jobs:
         with:
           persist-credentials: false
           ref: ${{ needs.draft.outputs.sha }}
-      - uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067 # v1
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # v1
         with:
           toolchain: stable
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           key: boms
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 22
           cache: npm
@@ -185,7 +185,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ needs.draft.outputs.tag }}
-        run: for i in 1 2 3 4 5; do gh release upload --clobber "$TAG" dist-bom/* && break; [ "$i" = 5 ] && exit 1; sleep $((i * 10)); done
+        run: packaging/retry.sh gh release upload --clobber "$TAG" dist-bom/*
 
   desktop:
     needs: [draft, boms]
@@ -222,12 +222,12 @@ jobs:
         timeout-minutes: 10
         with:
           packages: libwebkit2gtk-4.1-dev libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
-      - uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067 # v1
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # v1
         with:
           toolchain: stable
           targets: ${{ runner.os == 'macOS' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 22
           cache: npm
@@ -242,7 +242,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ needs.draft.outputs.tag }}
         # GitHub's API answers a 500 now and then: try again before failing the release.
-        run: for i in 1 2 3 4 5; do gh release download "$TAG" --repo "$GITHUB_REPOSITORY" -p THIRD-PARTY-NOTICES.md -D gui/src-tauri --clobber && exit 0; sleep $((i * 10)); done; exit 1
+        run: bash packaging/retry.sh gh release download "$TAG" --repo "$GITHUB_REPOSITORY" -p THIRD-PARTY-NOTICES.md -D gui/src-tauri --clobber
       # Developer ID signing and notarisation, when the Apple secrets are set: macOS then keeps
       # its privacy answers (Desktop, Documents …) from one version to the next. Without them
       # the app is ad-hoc signed (tauri.conf.json's "-"), as before. docs/reference/macos.md.
@@ -314,7 +314,7 @@ jobs:
         timeout-minutes: 10
         with:
           packages: musl-tools
-      - uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067 # v1
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # v1
         with:
           toolchain: stable
           targets: ${{ matrix.target }}
@@ -334,18 +334,18 @@ jobs:
           name="coxswain-terminal-$TAG-$TARGET"
           mkdir "$name"
           cp LICENSE README.md "$name/"
-          for i in 1 2 3 4 5; do gh release download "$TAG" --repo "$GITHUB_REPOSITORY" -p THIRD-PARTY-NOTICES.md -D "$name" --clobber && break; [ "$i" = 5 ] && exit 1; sleep $((i * 10)); done
+          bash packaging/retry.sh gh release download "$TAG" --repo "$GITHUB_REPOSITORY" -p THIRD-PARTY-NOTICES.md -D "$name" --clobber
           if [ "$RUNNER_OS" = Windows ]; then
             cp target/$TARGET/release/coxswain.exe target/$TARGET/release/cox.exe "$name/"
             7z a -bso0 "$name.zip" "$name"
             file="$name.zip"
           else
-            cp target/$TARGET/release/coxswain target/$TARGET/release/cox "$name/"
+            cp target/$TARGET/release/coxswain "$name/" && ln -s coxswain "$name/cox"
             tar czf "$name.tar.gz" "$name"
             file="$name.tar.gz"
           fi
           if command -v sha256sum >/dev/null; then sha256sum "$file" > "$file.sha256"; else shasum -a 256 "$file" > "$file.sha256"; fi
-          for i in 1 2 3 4 5; do gh release upload --clobber "$TAG" "$file" "$file.sha256" && break; [ "$i" = 5 ] && exit 1; sleep $((i * 10)); done
+          bash packaging/retry.sh gh release upload --clobber "$TAG" "$file" "$file.sha256"
 
   # FreeBSD: both apps, built in a FreeBSD 14.5 virtual machine. The terminal app needs nothing
   # beyond the base system; the desktop app needs WebKitGTK from packages (install-freebsd.sh
@@ -362,7 +362,7 @@ jobs:
         with:
           persist-credentials: false
           ref: ${{ needs.draft.outputs.sha }}
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 22
           cache: npm
@@ -387,21 +387,22 @@ jobs:
             set -e
             cargo build --release --locked -p coxswain -p coxswain-gui
             mkdir out
-            cp target/release/coxswain target/release/cox target/release/coxswain-gui out/
+            cp target/release/coxswain target/release/coxswain-gui out/
             rm -rf target
       - name: Package and upload
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ needs.draft.outputs.tag }}
         run: |
-          for i in 1 2 3 4 5; do gh release download "$TAG" --repo "$GITHUB_REPOSITORY" -p THIRD-PARTY-NOTICES.md --clobber && break; [ "$i" = 5 ] && exit 1; sleep $((i * 10)); done
+          packaging/retry.sh gh release download "$TAG" --repo "$GITHUB_REPOSITORY" -p THIRD-PARTY-NOTICES.md --clobber
           target=x86_64-unknown-freebsd
           term="coxswain-terminal-$TAG-$target"
           desk="coxswain-desktop-$TAG-$target"
           mkdir "$term" "$desk"
           cp LICENSE README.md THIRD-PARTY-NOTICES.md "$term/"
           cp LICENSE README.md THIRD-PARTY-NOTICES.md "$desk/"
-          cp out/coxswain out/cox crates/coxswain/coxswain.1 packaging/freebsd/coxswain_index "$term/"
+          cp out/coxswain crates/coxswain/coxswain.1 packaging/freebsd/coxswain_index "$term/"
+          ln -s coxswain "$term/cox"
           cp out/coxswain-gui "$desk/"
           cp gui/src-tauri/icons/128x128.png "$desk/coxswain.png"
           cp packaging/freebsd/coxswain.desktop "$desk/"
@@ -409,7 +410,7 @@ jobs:
             tar czf "$d.tar.gz" "$d"
             sha256sum "$d.tar.gz" > "$d.tar.gz.sha256"
           done
-          for i in 1 2 3 4 5; do gh release upload --clobber "$TAG" "$term.tar.gz" "$term.tar.gz.sha256" "$desk.tar.gz" "$desk.tar.gz.sha256" && break; [ "$i" = 5 ] && exit 1; sleep $((i * 10)); done
+          packaging/retry.sh gh release upload --clobber "$TAG" "$term.tar.gz" "$term.tar.gz.sha256" "$desk.tar.gz" "$desk.tar.gz.sha256"
 
   # NetBSD, OpenBSD and illumos: the terminal app (and on OpenBSD the desktop app, experimental),
   # each built in a virtual machine of that system and packed here (packaging/pack-unix.sh).
@@ -434,7 +435,7 @@ jobs:
         with:
           persist-credentials: false
           ref: ${{ needs.draft.outputs.sha }}
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         if: matrix.sys == 'openbsd'
         with:
           node-version: 22
@@ -495,7 +496,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ needs.draft.outputs.tag }}
         run: |
-          for i in 1 2 3 4 5; do gh release download "$TAG" --repo "$GITHUB_REPOSITORY" -p THIRD-PARTY-NOTICES.md --clobber && break; [ "$i" = 5 ] && exit 1; sleep $((i * 10)); done
+          packaging/retry.sh gh release download "$TAG" --repo "$GITHUB_REPOSITORY" -p THIRD-PARTY-NOTICES.md --clobber
           sh packaging/pack-unix.sh "$TAG" "${{ matrix.target }}" out dist "${{ matrix.service }}"
           if [ -f out/coxswain-gui ]; then
             desk="coxswain-desktop-$TAG-${{ matrix.target }}"
@@ -505,7 +506,7 @@ jobs:
             tar czf "dist/$desk.tar.gz" "$desk"
             (cd dist && sha256sum "$desk.tar.gz" > "$desk.tar.gz.sha256")
           fi
-          for i in 1 2 3 4 5; do gh release upload --clobber "$TAG" dist/* && break; [ "$i" = 5 ] && exit 1; sleep $((i * 10)); done
+          packaging/retry.sh gh release upload --clobber "$TAG" dist/*
 
   # Every file the matrices above make (packaging/release-assets.sh), each archive's .sha256 and
   # one SHA256SUMS over all of them, or no release: on any gap this fails, says what is missing,
@@ -637,7 +638,7 @@ jobs:
               echo "update-port.sh failed (try $i of 3)"; sleep 60
             done
             exit 1
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: freebsd-port
           path: |
@@ -712,7 +713,7 @@ jobs:
         with:
           persist-credentials: false
           ref: ${{ needs.draft.outputs.sha }}
-      - uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067 # v1
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # v1
         if: env.CARGO_REGISTRY_TOKEN != ''
         with:
           toolchain: stable

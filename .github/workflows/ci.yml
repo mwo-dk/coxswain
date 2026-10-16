@@ -14,9 +14,11 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # A pull request that changes only docs, CLAUDE.md, LICENSE or a packaging SUBMIT.md needs no
-  # build: the five machines below are skipped and "CI result" passes at once. README.md is not
-  # among them (the core crate compiles its changelog in), nor docs/flags (the GUI embeds them).
+  # A pull request that only edits docs pages, CLAUDE.md, LICENSE or a packaging SUBMIT.md needs
+  # no build: the five machines below are skipped and "CI result" passes at once. README.md and
+  # docs/changelog.md are not among them (the core crate compiles the changelog in), nor
+  # docs/flags (the GUI embeds them), nor an added, removed or renamed docs page (a test checks
+  # every page against features::FEATURES): those get a "page:" prefix, which never skips.
   changes:
     runs-on: ubuntu-24.04
     outputs:
@@ -28,9 +30,9 @@ jobs:
           PR: ${{ github.event.pull_request.number }}
         run: |
           if [ -z "$PR" ]; then echo code=true >> "$GITHUB_OUTPUT"; exit 0; fi
-          files=$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR/files" --paginate --jq '.[].filename')
+          files=$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR/files" --paginate --jq '.[] | if .status != "modified" and (.filename | test("^docs/.*\\.md$")) then "page:" + .filename else .filename end')
           printf '%s\n' "$files"
-          if [ -n "$files" ] && ! printf '%s\n' "$files" | grep -qvP '^(docs/(?!flags/)|CLAUDE\.md$|LICENSE$|packaging/.*/SUBMIT\.md$)'; then
+          if [ -n "$files" ] && ! printf '%s\n' "$files" | grep -qvP '^(docs/(?!flags/|changelog\.md$)|CLAUDE\.md$|LICENSE$|packaging/.*/SUBMIT\.md$)'; then
             echo code=false >> "$GITHUB_OUTPUT"
           else
             echo code=true >> "$GITHUB_OUTPUT"
@@ -57,13 +59,13 @@ jobs:
         with:
           packages: libwebkit2gtk-4.1-dev libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
 
-      - uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067 # v1
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # v1
         with:
           toolchain: stable
           components: clippy
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
 
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 22
           cache: npm

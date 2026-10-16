@@ -199,7 +199,7 @@ if [ -z "$VERSION" ] && [ -z "$FROM" ]; then
 fi
 if [ -z "$VERSION" ]; then
   # shellcheck disable=SC2012
-  VERSION=$(ls "$FROM" | sed -n "s/^coxswain-terminal-\(v[0-9.]*\)-$TARGET\.tar\.gz$/\1/p" | sort -t. -k1,1 -k2,2n -k3,3n | tail -n 1)
+  VERSION=$(ls "$FROM" | sed -n "s/^coxswain-terminal-\(v[0-9.]*\)-$TARGET\.tar\.gz$/\1/p" | sort -t. -k1.2,1n -k2,2n -k3,3n | tail -n 1)
   [ -n "$VERSION" ] || fail "No coxswain-terminal-v…-$TARGET.tar.gz in $FROM."
 fi
 case "$VERSION" in v*) ;; *) VERSION="v$VERSION" ;; esac

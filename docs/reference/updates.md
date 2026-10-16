@@ -66,7 +66,7 @@ It is worked out from where the program is installed:
 |---|---|
 | Homebrew formula (the terminal app) | `brew upgrade coxswain` |
 | Homebrew cask (the desktop app) | `brew upgrade --cask coxswain-gui` |
-| Cargo | `cargo install coxswain` |
+| Cargo | `cargo install --locked coxswain` |
 | WinGet, the terminal app (`mwo-dk.Coxswain.Terminal`) | `winget upgrade mwo-dk.Coxswain.Terminal` |
 | Flatpak, the desktop app (`io.github.mwo_dk.Coxswain`) | `flatpak update io.github.mwo_dk.Coxswain`; a software centre such as GNOME Software or Discover updates it too ([Flatpak](flatpak.md#updating)) |
 | Anything else on FreeBSD (the install script, the archives) | `fetch -qo - https://raw.githubusercontent.com/mwo-dk/coxswain/master/install/install-freebsd.sh \| sh`, which updates both apps where they are ([FreeBSD](freebsd.md#updating)) |

@@ -119,10 +119,12 @@ clean = "="
 folder = "/"
 file = " "
 symlink = "@"
+cloud = "*"
 ```
 
-These are the ASCII set. The first twelve are [git](../panels/git.md); `folder`, `file` and
-`symlink` mark entries. More: [Glyphs and fonts](../customise/glyphs-and-fonts.md).
+These are the ASCII set. The first twelve are [git](../panels/git.md); `folder`, `file`,
+`symlink` and `cloud` (a file only in the cloud, not downloaded) mark entries. More:
+[Glyphs and fonts](../customise/glyphs-and-fonts.md).
 
 ## `[keys]`
 
@@ -189,16 +191,18 @@ changing them: [Changing keys](../customise/keys.md)):
 | `worktrees` | `Alt+W` | `switch_branch` | `Alt+S` |
 | `new_branch` | none | `snapshots` | `Alt+Z` |
 | `flags` | none | `package` | none |
-| `features` | none | | |
-| `undo` | `Ctrl+Z` | | |
+| `features` | none | `mark_all` | `Ctrl+A` |
+| `undo` | `Ctrl+Z` | `action_menu` | `Shift+F10`, `Menu` |
+| `rename` | `Shift+F6` | `disk_use` | none |
 
 Keys inside dialogs (Enter, Esc, Tab and Shift+Tab in Find, the digits in *Colour tag*) are fixed.
 
 ## `[themes.<name>]`
 
-Your own colour themes, one table per theme, with a `look` and up to 31 colour slots, each a
-table with `fg`, `bg` (a colour name or `#rrggbb`) and `bold`. A slot you leave out keeps the
-NC theme's colour. A table named like a built-in theme (`[themes.nord]`) replaces that theme
+Your own colour themes, one table per theme, with a `look`, `crt` (`true` or `false`, default
+`false`: the desktop app's tube, scanlines and a glow over any look; the terminal app ignores it,
+[The tube](../customise/looks.md#the-tube)) and up to 31 colour slots, each a table with `fg`,
+`bg` (a colour name or `#rrggbb`) and `bold`. A slot you leave out keeps the NC theme's colour. A table named like a built-in theme (`[themes.nord]`) replaces that theme
 whole: its unset slots then come from NC too, not from the built-in Nord. See
 [Your own theme and the colour slots](../customise/own-theme.md).
 
@@ -254,7 +258,9 @@ flags start a new one.
 | `meaning_key_env` | string | `""` | The name of the environment variable that holds the server's API key. The key itself is never in this file |
 | `meaning_device` | string | `"auto"` | Where the built-in model runs: `"auto"` (a Mac's GPU through Metal when it has one whose results match the CPU's, the CPU elsewhere) or `"cpu"` (the CPU only). Only Macs have a choice ([Search by meaning](../search/meaning.md#on-a-macs-gpu)) |
 | `ask_model` | string | `""` | The chat model that answers in [Ask](../search/ask.md), on the server above (Ollama on this machine with the built-in model), e.g. `qwen3:8b`; or a built-in one, `builtin:qwen3-1.7b`, `builtin:qwen3-4b` or `builtin:qwen3-14b` ([Ask without a server](../search/ask-builtin.md)). Empty: Ask is not set up |
+| `ask_code_model` | string | `""` | The chat model for questions about code, on the same server, e.g. `qwen3-coder:30b`. Empty: Ask's own ([A model for code questions](../search/ask-code.md#a-model-for-code-questions)) |
 | `ask_think` | bool | `false` | Let Ask's chat model think before it answers (Qwen3, DeepSeek-R1 …). Off: it is asked not to, so the first word comes at once ([Thinking](../search/ask.md#thinking)) |
+| `ask_context` | number | `8192` (2,048 to 131,072) | The tokens a server's chat model is given: sources, question and answer together. Ollama is asked for this context (`num_ctx`); an OpenAI-style server must be set to at least as much. Not used by the built-in models ([How much it reads](../search/ask.md#how-much-it-reads)) |
 | `history` | bool | `true` | Keep the history of the git repositories in the folders read: commit messages, authors and changed paths of the newest 2000 commits of each, found by Find's words in files and by meaning ([History in search](../search/history.md)) |
 
 Changing `meaning_engine` or `meaning_model` makes the helper work out the vectors again,
@@ -344,7 +350,9 @@ Each Settings item and the key it writes, area by area ([The Settings window](..
 | | *Server*, *Model*, *API key from the environment variable* | `[search] meaning_url`, `meaning_model`, `meaning_key_env` |
 | | *Use the CPU only* (on a Mac) | `[search] meaning_device` |
 | *Finding files → Details → Ask* | *Chat model* | `[search] ask_model` |
+| | *Model for code questions* | `[search] ask_code_model` |
 | | *Let the model think first* | `[search] ask_think` |
+| | *Context for a server's model (tokens)* | `[search] ask_context` |
 | *Finding files → Details → Background reading* | *Start with my session* | none: the session registration |
 | *Previews* | *How previews are made* | `[preview] prefer` |
 | | *Container runtime* | `[preview] container` |
