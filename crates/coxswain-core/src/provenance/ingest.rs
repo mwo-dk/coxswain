@@ -45,7 +45,7 @@ pub fn from_text(text: &str) -> Result<Attestations, Error> {
                         issue(
                             &mut out.issues,
                             IssueCode::InvalidJson,
-                            format!("Not JSON: {e}"),
+                            crate::t!("provenance.issue.line_not_json", "detail" => e),
                             Some(i + 1),
                         );
                     }
@@ -83,7 +83,7 @@ fn issue(issues: &mut Vec<Issue>, code: IssueCode, message: String, line: Option
 pub fn entry(v: &Value, line: Option<usize>, issues: &mut Vec<Issue>) -> Option<Entry> {
     if let Some(mt) = str_at(v, "mediaType").filter(|m| m.starts_with(BUNDLE)) {
         let Some(env) = v.get("dsseEnvelope") else {
-            let m = "A Sigstore bundle with a plain signature, not an attestation".to_string();
+            let m = crate::t!("provenance.issue.plain_bundle");
             issue(issues, IssueCode::NotAttestation, m, line);
             return None;
         };
@@ -107,7 +107,7 @@ pub fn entry(v: &Value, line: Option<usize>, issues: &mut Vec<Issue>) -> Option<
                 Err(m) => issue(
                     issues,
                     IssueCode::BadCertificate,
-                    format!("The certificate could not be read: {m}"),
+                    crate::t!("provenance.issue.bad_certificate", "detail" => m),
                     line,
                 ),
             }
@@ -127,7 +127,7 @@ pub fn entry(v: &Value, line: Option<usize>, issues: &mut Vec<Issue>) -> Option<
         return envelope(v, line, issues);
     }
     if v.get("_type").is_some() {
-        let statement = statement(v, line, issues);
+        let statement = statement(v.clone(), line, issues);
         return Some(Entry {
             line,
             wrapping: Wrapping::Statement,
@@ -138,7 +138,7 @@ pub fn entry(v: &Value, line: Option<usize>, issues: &mut Vec<Issue>) -> Option<
             statement,
         });
     }
-    let m = "Not an in-toto statement, a DSSE envelope or a Sigstore bundle".to_string();
+    let m = crate::t!("provenance.issue.not_attestation");
     issue(issues, IssueCode::NotAttestation, m, line);
     None
 }
@@ -149,7 +149,7 @@ fn envelope(v: &Value, line: Option<usize>, issues: &mut Vec<Issue>) -> Option<E
         issue(
             issues,
             IssueCode::NotInToto,
-            format!("The payload is {pt:?}, not an in-toto statement"),
+            crate::t!("provenance.issue.not_in_toto", "type" => format!("{pt:?}")),
             line,
         );
         return None;
@@ -158,7 +158,7 @@ fn envelope(v: &Value, line: Option<usize>, issues: &mut Vec<Issue>) -> Option<E
         issue(
             issues,
             IssueCode::BadBase64,
-            "The payload is not valid base64".into(),
+            crate::t!("provenance.issue.bad_base64"),
             line,
         );
         return None;
@@ -169,7 +169,7 @@ fn envelope(v: &Value, line: Option<usize>, issues: &mut Vec<Issue>) -> Option<E
             issue(
                 issues,
                 IssueCode::InvalidJson,
-                format!("The payload is not JSON: {e}"),
+                crate::t!("provenance.issue.payload_not_json", "detail" => e),
                 line,
             );
             return None;
@@ -189,7 +189,7 @@ fn envelope(v: &Value, line: Option<usize>, issues: &mut Vec<Issue>) -> Option<E
                 .collect()
         })
         .unwrap_or_default();
-    let statement = statement(&st, line, issues);
+    let statement = statement(st, line, issues);
     Some(Entry {
         line,
         wrapping: Wrapping::Envelope,
@@ -211,43 +211,45 @@ pub fn decode(s: &str) -> Option<Vec<u8>> {
         .ok()
 }
 
-fn statement(v: &Value, line: Option<usize>, issues: &mut Vec<Issue>) -> Statement {
-    let t = str_at(v, "_type").unwrap_or("");
+fn statement(v: Value, line: Option<usize>, issues: &mut Vec<Issue>) -> Statement {
+    let t = str_at(&v, "_type").unwrap_or("");
     if !t.starts_with(STATEMENT) {
         issue(
             issues,
             IssueCode::UnknownStatementType,
-            format!("Unknown statement type {t:?}"),
+            crate::t!("provenance.issue.unknown_type", "type" => format!("{t:?}")),
             line,
         );
     }
-    let subjects: Vec<Resource> = array(v, "subject").iter().map(resource).collect();
+    let subjects: Vec<Resource> = array(&v, "subject").iter().map(resource).collect();
     for s in subjects.iter().filter(|s| s.digest.is_empty()) {
         issue(
             issues,
             IssueCode::SubjectWithoutDigest,
-            format!("{} has no digest", s.label()),
+            crate::t!("provenance.issue.no_digest", "name" => s.label()),
             line,
         );
     }
-    let predicate_type = str_at(v, "predicateType").unwrap_or("").to_string();
-    let p = v.get("predicate").cloned().unwrap_or(Value::Null);
+    let predicate_type = str_at(&v, "predicateType").unwrap_or("").to_string();
+    let p = v.get("predicate").unwrap_or(&Value::Null);
     let predicate = if predicate_type.starts_with(SLSA_V1) {
-        Predicate::Provenance(Box::new(v1(&p, line, issues)))
+        Predicate::Provenance(Box::new(v1(p, line, issues)))
     } else if predicate_type.starts_with(SLSA_V0_2) {
-        Predicate::Provenance(Box::new(v0_2(&p, line, issues)))
+        Predicate::Provenance(Box::new(v0_2(p, line, issues)))
     } else if predicate_type.starts_with(VSA) {
-        Predicate::Vsa(vsa(&p))
+        Predicate::Vsa(vsa(p))
     } else if predicate_type.starts_with(CYCLONEDX) {
-        Predicate::Bom { bom: p }
+        Predicate::Bom { bom: p.clone() }
     } else {
-        Predicate::Other { predicate: p }
+        Predicate::Other {
+            predicate: p.clone(),
+        }
     };
     Statement {
         subjects,
         predicate_type,
         predicate,
-        raw: v.clone(),
+        raw: v,
     }
 }
 
@@ -264,7 +266,7 @@ fn v1(p: &Value, line: Option<usize>, issues: &mut Vec<Issue>) -> Provenance {
         issue(
             issues,
             IssueCode::BadPredicate,
-            "SLSA v1 provenance without a buildType or builder.id".into(),
+            crate::t!("provenance.issue.no_builder", "version" => "v1"),
             line,
         );
     }
@@ -313,7 +315,7 @@ fn v0_2(p: &Value, line: Option<usize>, issues: &mut Vec<Issue>) -> Provenance {
         issue(
             issues,
             IssueCode::BadPredicate,
-            "SLSA v0.2 provenance without a buildType or builder.id".into(),
+            crate::t!("provenance.issue.no_builder", "version" => "v0.2"),
             line,
         );
     }

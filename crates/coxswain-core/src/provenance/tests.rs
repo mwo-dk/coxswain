@@ -736,6 +736,32 @@ mod checks {
             ..src(&commits[0])
         };
         assert_eq!(check::source(&prov, None, &other), Source::NoCheckout);
+        // All at once: the same answers, a plain dependency none.
+        let dep = |uri: &str| Resource {
+            name: None,
+            uri: Some(uri.into()),
+            digest: [("gitCommit".to_string(), commits[2].clone())].into(),
+            ..Default::default()
+        };
+        assert_eq!(
+            check::sources(
+                &prov,
+                None,
+                &[
+                    dep("git+https://github.com/demo/rocket@refs/heads/main"),
+                    dep("https://example.com/x.tar.gz"),
+                    dep("git+https://github.com/someone/else"),
+                ]
+            ),
+            [
+                Some(Source::Ahead {
+                    checkout: top.clone(),
+                    ahead: 2
+                }),
+                None,
+                Some(Source::NoCheckout)
+            ]
+        );
         std::fs::remove_dir_all(&d).unwrap();
     }
 }

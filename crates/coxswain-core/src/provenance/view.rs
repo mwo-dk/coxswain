@@ -182,16 +182,10 @@ pub fn facts(e: &Entry) -> Vec<Fact> {
         .dependencies
         .iter()
         .find_map(|d| check::git_source(d).map(|g| (d, g)));
-    let source_uri = source
-        .as_ref()
-        .and_then(|(d, _)| d.uri.as_deref())
-        .map(|u| {
-            let u = u.strip_prefix("git+").unwrap_or(u);
-            u.rsplit_once('@')
-                .filter(|(h, _)| h.contains("://"))
-                .map_or(u, |(h, _)| h)
-                .to_string()
-        });
+    let source_uri = source.as_ref().map(|(d, _)| {
+        let key = super::diff::dependency_key(d);
+        key.strip_prefix("git+").map_or(key.clone(), str::to_string)
+    });
     let github = |k: &str| {
         at(int, &format!("/{k}")).or_else(|| at(int, &format!("/environment/{}", k.to_lowercase())))
     };
@@ -300,22 +294,12 @@ pub fn bom_file(e: &Entry, name: &str) -> std::io::Result<PathBuf> {
     let Predicate::Bom { bom } = &e.statement.predicate else {
         return Err(std::io::Error::other("not a CycloneDX predicate"));
     };
-    let base = dirs::cache_dir()
-        .ok_or_else(|| std::io::Error::other("no cache folder"))?
-        .join("coxswain")
-        .join("provenance");
-    let day = std::time::Duration::from_secs(24 * 3600);
-    for old in std::fs::read_dir(&base).into_iter().flatten().flatten() {
-        if old
-            .metadata()
-            .and_then(|m| m.modified())
-            .is_ok_and(|t| t.elapsed().unwrap_or_default() > day)
-        {
-            let _ = std::fs::remove_dir_all(old.path());
-        }
-    }
-    let run = base.join(std::process::id().to_string());
-    crate::fs::private_dir(&run)?;
+    // Emptied once a run, not on each call: a BOM taken out before may still be open.
+    static FIRST: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(true);
+    let run = crate::archive::run_folder(
+        "provenance",
+        FIRST.swap(false, std::sync::atomic::Ordering::Relaxed),
+    )?;
     let stem: String = name
         .chars()
         .map(|c| {

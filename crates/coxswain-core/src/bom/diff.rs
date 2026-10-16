@@ -10,6 +10,7 @@
 //!
 //! These are matched as a multiset: three identical keys in one file match three in the other.
 
+use super::view::is_crypto;
 use serde::Serialize;
 use std::collections::{HashMap, VecDeque};
 
@@ -73,13 +74,6 @@ pub struct Diff {
     pub counts: Counts,
 }
 
-fn is_crypto(kind: NodeKind) -> bool {
-    matches!(
-        kind,
-        NodeKind::Algorithm | NodeKind::Material | NodeKind::Certificate | NodeKind::Protocol
-    )
-}
-
 fn green(s: Status) -> bool {
     matches!(s, Status::Safe | Status::Acceptable | Status::NotRated)
 }
@@ -89,7 +83,8 @@ fn severity(s: Status) -> i32 {
     if s == Status::NotRated { 0 } else { s as i32 }
 }
 
-fn kind_rank(kind: NodeKind) -> u8 {
+/// Algorithms first, then the keys and certificates that inherit from them.
+pub(super) fn kind_rank(kind: NodeKind) -> u8 {
     match kind {
         NodeKind::Algorithm => 0,
         NodeKind::Certificate => 1,
