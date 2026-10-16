@@ -9,7 +9,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant};
 
 use crate::helper::Client;
 
@@ -86,9 +86,7 @@ impl Sizer {
             known.retain(|folder, _| !changed.starts_with(folder));
         }
         if let Ok(mut all) = self.changed.lock() {
-            let now = SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .map_or(0, |d| d.as_secs());
+            let now = crate::fs::now();
             // The last ten minutes are enough: the store walks every ten.
             all.retain(|(_, at)| at + 900 > now);
             all.push((changed.to_path_buf(), now));

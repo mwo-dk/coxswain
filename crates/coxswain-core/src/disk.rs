@@ -440,13 +440,6 @@ fn section(title: String, rows: Vec<(String, String)>) -> Section {
     Section { title, rows }
 }
 
-fn when(secs: u64) -> String {
-    let t = std::time::UNIX_EPOCH + std::time::Duration::from_secs(secs);
-    chrono::DateTime::<chrono::Local>::from(t)
-        .format("%Y-%m-%d %H:%M")
-        .to_string()
-}
-
 fn same_file(a: &Path, b: Option<PathBuf>) -> bool {
     let canon = |p: &Path| std::fs::canonicalize(p).unwrap_or_else(|_| p.to_path_buf());
     b.is_some_and(|b| canon(a) == canon(&b))
@@ -499,7 +492,7 @@ fn index_report(path: &Path, bytes: u64, f: crate::index::Facts) -> Report {
             t!("disk.report.built"),
             match f.built {
                 Some((at, ms)) => {
-                    t!("disk.report.built_value", "when" => when(at), "seconds" => if ms < 1000 { format!("{:.2}", ms as f64 / 1000.0) } else { format!("{:.1}", ms as f64 / 1000.0) })
+                    t!("disk.report.built_value", "when" => crate::i18n::date_time(at), "seconds" => crate::i18n::digits(if ms < 1000 { format!("{:.2}", ms as f64 / 1000.0) } else { format!("{:.1}", ms as f64 / 1000.0) }))
                 }
                 None => t!("disk.report.built_unknown"),
             },
@@ -571,7 +564,7 @@ fn store_report(path: &Path, bytes: u64, f: crate::store::Facts) -> Report {
         (
             t!("disk.report.last_read"),
             f.read_at
-                .map(when)
+                .map(crate::i18n::date_time)
                 .unwrap_or_else(|| t!("disk.report.not_yet")),
         ),
         (t!("disk.report.size"), human(bytes)),
@@ -632,7 +625,7 @@ fn store_report(path: &Path, bytes: u64, f: crate::store::Facts) -> Report {
             .iter()
             .map(|(at, p, what)| {
                 (
-                    format!("{} {}", when(*at), p.as_deref().unwrap_or("")),
+                    format!("{} {}", crate::i18n::date_time(*at), p.as_deref().unwrap_or("")),
                     what.clone(),
                 )
             })

@@ -134,6 +134,21 @@ pub fn digits(s: String) -> String {
     digits_in(language(), s)
 }
 
+/// `secs` (since 1970) as local date and time, `2026-10-16 14:05`, in the language's digits.
+pub fn date_time(secs: u64) -> String {
+    local(secs, "%Y-%m-%d %H:%M")
+}
+
+/// `secs` (since 1970) as local date, `2026-10-16`, in the language's digits.
+pub fn date(secs: u64) -> String {
+    local(secs, "%Y-%m-%d")
+}
+
+fn local(secs: u64, format: &str) -> String {
+    let t = std::time::UNIX_EPOCH + std::time::Duration::from_secs(secs);
+    digits(chrono::DateTime::<chrono::Local>::from(t).format(format).to_string())
+}
+
 /// `s` in capitals, except Georgian: it has no capitals in running text, and its Mtavruli
 /// letters (what Unicode uppercases Mkhedruli to) are missing from most fonts.
 pub fn caps(s: &str) -> String {

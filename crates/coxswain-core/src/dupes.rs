@@ -17,7 +17,6 @@ use std::fs;
 use std::io::{self, Read};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use std::time::UNIX_EPOCH;
 
 use crate::store::Store;
 
@@ -141,11 +140,7 @@ fn walk(dir: &Path, opts: &Options, p: &Progress, out: &mut Vec<Found>) {
             p.files.fetch_add(1, Ordering::Relaxed);
             out.push(Found {
                 size: m.len(),
-                modified: m
-                    .modified()
-                    .ok()
-                    .and_then(|t| t.duration_since(UNIX_EPOCH).ok())
-                    .map_or(0, |d| d.as_secs()),
+                modified: crate::fs::secs(m.modified()).unwrap_or(0),
                 id: file_id(&m),
                 path: de.path(),
             });

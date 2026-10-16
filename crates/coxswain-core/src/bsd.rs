@@ -87,11 +87,7 @@ pub fn list(file: &Path) -> io::Result<Vec<Entry>> {
     Ok(std::iter::once(up)
         .chain(parse_files(&text).into_iter().map(|p| {
             let m = std::fs::symlink_metadata(&p).ok();
-            let secs = |t: io::Result<std::time::SystemTime>| {
-                t.ok()
-                    .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
-                    .map_or(0, |d| d.as_secs())
-            };
+            let secs = |t| crate::fs::secs(t).unwrap_or(0);
             Entry {
                 name: p.to_string_lossy().into_owned(),
                 is_symlink: m.as_ref().is_some_and(|m| m.file_type().is_symlink()),

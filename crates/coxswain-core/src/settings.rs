@@ -529,9 +529,9 @@ fn human_latin(n: u64) -> String {
         return format!("{n} {}", t!("unit.B"));
     }
     let mut v = n as f64;
-    for u in ["KB", "MB", "GB", "TB"] {
+    for u in ["KB", "MB", "GB", "TB", "PB", "EB"] {
         v /= 1024.0;
-        if v < 1024.0 {
+        if v < 1024.0 || u == "EB" {
             return if v < 100.0 {
                 format!("{v:.1} {}", crate::i18n::tr(&format!("unit.{u}"), &[]))
             } else {
@@ -539,7 +539,7 @@ fn human_latin(n: u64) -> String {
             };
         }
     }
-    format!("{v:.0} {}", t!("unit.PB"))
+    unreachable!("the last unit takes any size")
 }
 
 /// The server's address without its scheme and path: `localhost:11434`.
@@ -950,6 +950,12 @@ mod tests {
         );
         assert!(!dir.join("config.toml.tmp").exists());
         std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn settings_sizes_go_up_to_exabytes() {
+        assert_eq!(human_latin(1 << 50), "1.0 PB");
+        assert_eq!(human_latin(1 << 60), "1.0 EB");
     }
 
     #[test]

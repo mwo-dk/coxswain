@@ -86,6 +86,16 @@ pub fn private(dir: &Path, file: Option<&Path>) -> io::Result<()> {
     Ok(())
 }
 
+/// `t` in seconds since 1970; `None` before then, or when the system keeps no such time.
+pub fn secs(t: io::Result<std::time::SystemTime>) -> Option<u64> {
+    Some(t.ok()?.duration_since(UNIX_EPOCH).ok()?.as_secs())
+}
+
+/// Now, in seconds since 1970.
+pub fn now() -> u64 {
+    secs(Ok(std::time::SystemTime::now())).unwrap_or(0)
+}
+
 /// `bytes` as the new content of `path`, through a file beside it, so a failed write never
 /// leaves a half-written `path` (and the file beside it is removed); with `own`, readable by the
 /// user alone, as `private` makes it.
@@ -146,16 +156,8 @@ impl Entry {
             is_dir: meta.is_dir(),
             is_symlink,
             size: if meta.is_dir() { 0 } else { meta.len() },
-            modified: meta
-                .modified()
-                .ok()
-                .and_then(|t| t.duration_since(UNIX_EPOCH).ok())
-                .map_or(0, |d| d.as_secs()),
-            created: meta
-                .created()
-                .ok()
-                .and_then(|t| t.duration_since(UNIX_EPOCH).ok())
-                .map_or(0, |d| d.as_secs()),
+            modified: secs(meta.modified()).unwrap_or(0),
+            created: secs(meta.created()).unwrap_or(0),
             online: !meta.is_dir() && crate::cloud::online_meta(&meta, &path),
             referenced: 0,
             name,
@@ -846,9 +848,6 @@ pub struct Props {
 /// Properties of `path`: a folder's size is a walk of it, and the facts run `zfs` and `pkg`,
 /// so not on a thread that draws.
 pub fn properties(path: &Path) -> io::Result<Props> {
-    let secs = |t: io::Result<std::time::SystemTime>| {
-        Some(t.ok()?.duration_since(UNIX_EPOCH).ok()?.as_secs())
-    };
     let lmeta = fs::symlink_metadata(path)?;
     let meta = fs::metadata(path).unwrap_or_else(|_| lmeta.clone());
     let (size, files) = dir_size(path);
