@@ -4,7 +4,7 @@
 //! Nothing is downloaded here unless `pull` is called, and nothing leaves the machine but the
 //! requests to the servers asked about.
 
-use crate::meaning::{ollama_can, said, shown, tls};
+use crate::meaning::{said, shown, tls};
 use serde::{Deserialize, Serialize};
 use std::time::{Duration, Instant};
 
@@ -62,16 +62,30 @@ fn ctx_of(m: &serde_json::Value) -> Option<usize> {
         .map(|n| n as usize)
 }
 
-/// An Ollama model's context size, from `/api/show`'s `model_info` (`qwen3.context_length`).
-fn ollama_context(agent: &ureq::Agent, url: &str, model: &str) -> Option<usize> {
+/// What Ollama's `/api/show` says of a model: its `capabilities`, and in `model_info` its
+/// context size (`qwen3.context_length`).
+fn ollama_show(agent: &ureq::Agent, url: &str, model: &str) -> Option<serde_json::Value> {
     let body = serde_json::json!({ "model": model }).to_string();
     let mut res = agent
         .post(&format!("{url}/api/show"))
         .header("Content-Type", "application/json")
         .send(body)
         .ok()?;
-    let v: serde_json::Value = serde_json::from_str(&res.body_mut().read_to_string().ok()?).ok()?;
-    v["model_info"]
+    serde_json::from_str(&res.body_mut().read_to_string().ok()?).ok()
+}
+
+/// What an Ollama model can do (`completion`, `embedding`), from a list or `/api/show`.
+fn ollama_caps(v: &serde_json::Value) -> Option<Vec<String>> {
+    v["capabilities"].as_array().map(|c| {
+        c.iter()
+            .filter_map(|x| x.as_str().map(String::from))
+            .collect()
+    })
+}
+
+/// An Ollama model's context size, from `/api/show`'s `model_info`.
+fn ollama_context(show: &serde_json::Value) -> Option<usize> {
+    show["model_info"]
         .as_object()?
         .iter()
         .find(|(k, _)| k.ends_with(".context_length"))
@@ -177,44 +191,56 @@ fn ask_server(kind: Kind, url: &str, key: Option<&str>) -> Option<Found> {
     match kind {
         Kind::Ollama => {
             let tags = get(&quick, &format!("{url}/api/tags"), key)?;
-            let models = tags["models"].as_array()?.iter().filter_map(|m| {
-                let name = m["name"].as_str()?.to_string();
-                // Newer Ollamas say it in the list; older ones in `/api/show`.
-                let can: Option<Vec<String>> = m["capabilities"]
-                    .as_array()
-                    .map(|c| {
-                        c.iter()
-                            .filter_map(|x| x.as_str().map(String::from))
-                            .collect()
+            // Each model on a thread of its own, with one `/api/show` at most: it has what the
+            // list lacks (an older Ollama's capabilities, a chat model's context).
+            let models = std::thread::scope(|s| {
+                let each: Vec<_> = tags["models"]
+                    .as_array()?
+                    .iter()
+                    .filter_map(|m| {
+                        let name = m["name"].as_str()?.to_string();
+                        let slow = &slow;
+                        Some(s.spawn(move || {
+                            let listed = ollama_caps(m);
+                            let not_chat = listed
+                                .as_ref()
+                                .is_some_and(|c| !c.iter().any(|x| x == "completion"));
+                            let show = if not_chat {
+                                None
+                            } else {
+                                ollama_show(slow, url, &name)
+                            };
+                            let can = listed.or_else(|| show.as_ref().and_then(ollama_caps));
+                            let model = match can {
+                                Some(c) => Model {
+                                    embed: c.iter().any(|x| x == "embedding"),
+                                    chat: c.iter().any(|x| x == "completion"),
+                                    name,
+                                    params: None,
+                                    context: None,
+                                },
+                                None => guess(name),
+                            };
+                            Model {
+                                params: billions(
+                                    m["details"]["parameter_size"].as_str().unwrap_or(""),
+                                ),
+                                context: show
+                                    .as_ref()
+                                    .filter(|_| model.chat)
+                                    .and_then(ollama_context),
+                                ..model
+                            }
+                        }))
                     })
-                    .or_else(|| ollama_can(&slow, url, &name).ok().flatten());
-                let params = billions(m["details"]["parameter_size"].as_str().unwrap_or(""));
-                let model = match can {
-                    Some(c) => Model {
-                        embed: c.iter().any(|x| x == "embedding"),
-                        chat: c.iter().any(|x| x == "completion"),
-                        name,
-                        params: None,
-                        context: None,
-                    },
-                    None => guess(name),
-                };
-                let context = if model.chat {
-                    ollama_context(&slow, url, &model.name)
-                } else {
-                    None
-                };
-                Some(Model {
-                    params,
-                    context,
-                    ..model
-                })
-            });
+                    .collect();
+                Some(each.into_iter().filter_map(|h| h.join().ok()).collect())
+            })?;
             Some(Found {
                 kind,
                 url: url.to_string(),
                 engine: "ollama".into(),
-                models: models.collect(),
+                models,
             })
         }
         Kind::Lemonade => {
@@ -454,25 +480,6 @@ pub fn ram_gb() -> u64 {
             .and_then(|v| v.trim().trim_end_matches("kB").trim().parse::<u64>().ok())
             .map_or(0, |kb| kb.div_ceil(1 << 20))
     }
-    #[cfg(any(target_os = "macos", target_os = "freebsd"))]
-    {
-        let key = if cfg!(target_os = "macos") {
-            "hw.memsize"
-        } else {
-            "hw.physmem"
-        };
-        crate::tools::command("sysctl")
-            .args(["-n", key])
-            .output()
-            .ok()
-            .and_then(|o| {
-                String::from_utf8_lossy(&o.stdout)
-                    .trim()
-                    .parse::<u64>()
-                    .ok()
-            })
-            .map_or(0, |b| b.div_ceil(1 << 30))
-    }
     #[cfg(windows)]
     {
         use windows_sys::Win32::System::SystemInformation::{GlobalMemoryStatusEx, MEMORYSTATUSEX};
@@ -484,11 +491,8 @@ pub fn ram_gb() -> u64 {
             0
         }
     }
-    // NetBSD, OpenBSD and illumos: pages times their size.
-    #[cfg(all(
-        unix,
-        not(any(target_os = "linux", target_os = "macos", target_os = "freebsd"))
-    ))]
+    // The other Unix systems (the BSDs, macOS, illumos): pages times their size.
+    #[cfg(all(unix, not(target_os = "linux")))]
     {
         // SAFETY: sysconf only reads.
         let (pages, size) = unsafe {

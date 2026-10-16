@@ -14,49 +14,18 @@ use serde::Serialize;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
-use std::time::SystemTime;
 
 type Res<T> = Result<T, String>;
 
-struct Loaded {
-    path: PathBuf,
-    modified: Option<SystemTime>,
-    attestations: Attestations,
+/// The file in view, and the one it was compared with.
+static LAST: crate::recent::Recent<Attestations> = crate::recent::Recent::new();
+
+fn loaded(path: &Path) -> Res<Arc<Attestations>> {
+    LAST.get(path, |_| true, || provenance::load(path).map_err(|e| e.to_string()))
 }
 
-static LAST: Mutex<Vec<Arc<Loaded>>> = Mutex::new(Vec::new());
-const KEPT: usize = 2;
-
-fn error_text(e: provenance::Error) -> String {
-    match e {
-        provenance::Error::NotAttestation => t!("err.provenance.not_attestation"),
-        provenance::Error::InvalidJson { line, message } => t!("err.bom.invalid_json", "line" => line, "message" => message),
-        provenance::Error::TooLarge(_) => t!("err.provenance.too_large"),
-        provenance::Error::Io(e) => e,
-    }
-}
-
-fn loaded(path: &Path) -> Res<Arc<Loaded>> {
-    let modified = std::fs::metadata(path).and_then(|m| m.modified()).ok();
-    {
-        let mut last = LAST.lock().unwrap();
-        if let Some(at) = last.iter().position(|l| l.path == path && l.modified == modified) {
-            let l = last.remove(at);
-            last.insert(0, l.clone());
-            return Ok(l);
-        }
-    }
-    let attestations = provenance::load(path).map_err(error_text)?;
-    let l = Arc::new(Loaded { path: path.to_path_buf(), modified, attestations });
-    let mut last = LAST.lock().unwrap();
-    last.retain(|x| x.path != l.path);
-    last.insert(0, l.clone());
-    last.truncate(KEPT);
-    Ok(l)
-}
-
-fn entry_at(l: &Loaded, index: usize) -> Res<&Entry> {
-    l.attestations.entries.get(index).ok_or_else(|| t!("err.provenance.no_statement"))
+fn entry_at(l: &Attestations, index: usize) -> Res<&Entry> {
+    l.entries.get(index).ok_or_else(|| t!("err.provenance.no_statement"))
 }
 
 /// An entry as the view needs it: the model, the build's facts, and what can be checked.
@@ -66,12 +35,12 @@ pub struct EntryView {
     #[serde(flatten)]
     entry: Entry,
     facts: Vec<Fact>,
-    /// Per subject: a container image, which no file here can match.
-    images: Vec<bool>,
     /// Per dependency: a git source, whose commit can be looked for in a checkout.
     git: Vec<bool>,
     /// Per dependency: one short line (a git source as `repo@commit`).
     input_labels: Vec<String>,
+    /// Per dependency: what it is, not which version (`diff::dependency_key`), for the compare.
+    dep_keys: Vec<String>,
     /// The builder as one short line.
     builder_label: String,
 }
@@ -88,29 +57,29 @@ pub async fn provenance_info(path: PathBuf) -> Res<ProvenanceView> {
     tauri::async_runtime::spawn_blocking(move || {
         let l = loaded(&path)?;
         let entries = l
-            .attestations
             .entries
             .iter()
             .map(|e| {
-                let (git, input_labels, builder_label) = match &e.statement.predicate {
+                let (git, input_labels, dep_keys, builder_label) = match &e.statement.predicate {
                     provenance::Predicate::Provenance(p) => (
                         p.dependencies.iter().map(|d| check::git_source(d).is_some()).collect(),
                         p.dependencies.iter().map(view::input_label).collect(),
+                        p.dependencies.iter().map(provenance::diff::dependency_key).collect(),
                         view::builder_label(&p.builder.id),
                     ),
-                    _ => (vec![], vec![], String::new()),
+                    _ => (vec![], vec![], vec![], String::new()),
                 };
                 EntryView {
                     entry: e.clone(),
                     facts: view::facts(e),
-                    images: e.statement.subjects.iter().map(check::is_image).collect(),
                     git,
                     input_labels,
+                    dep_keys,
                     builder_label,
                 }
             })
             .collect();
-        Ok(ProvenanceView { entries, issues: l.attestations.issues.clone() })
+        Ok(ProvenanceView { entries, issues: l.issues.clone() })
     })
     .await
     .map_err(|e| e.to_string())?
@@ -122,7 +91,7 @@ pub async fn provenance_statements(path: PathBuf) -> Res<serde_json::Value> {
     crate::here(&path)?;
     tauri::async_runtime::spawn_blocking(move || {
         let l = loaded(&path)?;
-        let mut all: Vec<serde_json::Value> = l.attestations.entries.iter().map(|e| e.statement.raw.clone()).collect();
+        let mut all: Vec<serde_json::Value> = l.entries.iter().map(|e| e.statement.raw.clone()).collect();
         Ok(if all.len() == 1 { all.remove(0) } else { serde_json::Value::Array(all) })
     })
     .await
@@ -161,7 +130,7 @@ pub async fn provenance_subject(path: PathBuf, entry: usize, index: usize, other
     let cancel = cancel_for(&path);
     tauri::async_runtime::spawn_blocking(move || {
         let l = loaded(&path)?;
-        let s = entry_at(&l, entry)?.statement.subjects.get(index).ok_or_else(|| t!("err.provenance.no_statement"))?;
+        let s = entry_at(&l, entry)?.statement.subjects.get(index).ok_or_else(|| t!("err.provenance.no_subject"))?;
         let limit = if all { None } else { Some(check::AUTO_LIMIT) };
         Ok(check::subject(&path, other.as_deref(), s, limit, &cancel))
     })
@@ -205,7 +174,7 @@ pub async fn provenance_diff(old: PathBuf, path: PathBuf) -> Res<ProvenanceDiff>
     crate::here(&old)?;
     tauri::async_runtime::spawn_blocking(move || {
         let (before, after) = (loaded(&old)?, loaded(&path)?);
-        let d = diff::diff(&before.attestations, &after.attestations);
+        let d = diff::diff(&before, &after);
         let counts = Counts {
             builder: d.count(Area::Builder),
             parameters: d.count(Area::Parameter),
@@ -279,5 +248,13 @@ mod tests {
         let d = run(provenance_diff(fixture("made/statement-v1.json"), fixture("made/statement-v1.json"))).unwrap();
         assert_eq!(d.counts.parameters + d.counts.dependencies + d.counts.subjects + d.counts.builder + d.counts.signer, 0);
         assert!(run(provenance_diff(fixture("made/statement-v1.json"), PathBuf::from("/nonexistent"))).is_err());
+    }
+
+    #[test]
+    fn dependencies_carry_the_diffs_keys() {
+        let v = run(provenance_info(fixture("made/statement-v1.json"))).unwrap();
+        let e = &v.entries[0];
+        assert!(!e.dep_keys.is_empty());
+        assert_eq!(e.dep_keys.len(), e.input_labels.len());
     }
 }

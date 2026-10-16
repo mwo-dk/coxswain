@@ -87,18 +87,7 @@ pub fn entry_name(b: &Branch) -> String {
             s += &format!(" {arrow}{n}");
         }
     }
-    let subject: String = b
-        .subject
-        .chars()
-        .map(|ch| {
-            if matches!(ch, '/' | '\\') || ch.is_control() {
-                '∕'
-            } else {
-                ch
-            }
-        })
-        .collect();
-    format!("{s} · {subject}")
+    format!("{s} · {}", crate::history::safe_name(&b.subject))
 }
 
 /// The branch an entry of the list is, read again.
@@ -121,17 +110,12 @@ fn find(dir: &Path, entry: &str) -> io::Result<Branch> {
 
 fn dir_entry(name: String, path: PathBuf, time: u64) -> Entry {
     Entry {
-        hidden: false,
         name,
         path,
         is_dir: true,
-        is_symlink: false,
-        is_exec: false,
-        size: 0,
         modified: time,
         created: time,
-        online: false,
-        referenced: 0,
+        ..Entry::default()
     }
 }
 
@@ -215,9 +199,11 @@ pub fn switch(dir: &Path, entry: &str) -> io::Result<String> {
     let at = history::split(dir)
         .filter(|at| at.view == View::Branches && at.commit.is_none())
         .ok_or_else(|| {
+            // Rare (the apps ask first): the key as config.toml has it.
+            let cfg = crate::config::Config::load().unwrap_or_default();
             io::Error::new(
                 io::ErrorKind::InvalidInput,
-                crate::t!("branches.switch_where"),
+                crate::t!("branches.switch_where", "key" => cfg.keys_shown(crate::config::Action::Branches)),
             )
         })?;
     let b = find(&at.base, entry)?;
@@ -369,11 +355,8 @@ pub fn worktree_entries(dir: &Path) -> io::Result<Vec<Entry>> {
                     name += &format!(" {}", crate::t!(key));
                 }
             }
-            let time = std::fs::metadata(&w.path)
-                .and_then(|m| m.modified())
-                .ok()
-                .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
-                .map_or(0, |d| d.as_secs());
+            let time =
+                crate::fs::secs(std::fs::metadata(&w.path).and_then(|m| m.modified())).unwrap_or(0);
             dir_entry(name, w.path, time)
         })
         .collect())

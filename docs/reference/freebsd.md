@@ -284,6 +284,7 @@ port you built and installed is a package like any other.
 | Trash (F8) | `~/.local/share/Trash`, the freedesktop.org layout that KDE, Xfce and GNOME use, so their trash shows and restores what Coxswain moved there |
 | Drives in the sidebar | The mounted file systems, from the kernel's mount list; the root file system is *System* |
 | Battery | `sysctl hw.acpi.acline`: `0` means on battery, and the helper pauses ([Battery](../search/battery.md)). A machine without ACPI power reporting counts as on mains |
+| Memory in the setup guide | `sysconf(_SC_PHYS_PAGES)` |
 | Removable disks | Known by their path only: a USB disk mounted somewhere else next time is read again, not recognised ([Removable disks](../search/removable-disks.md)) |
 | Start with my session | An XDG autostart entry, not a service ([above](#the-search-helper)) |
 | The update notice | Names the install script's one-line command ([Updating](#updating)) |

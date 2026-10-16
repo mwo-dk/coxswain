@@ -63,8 +63,11 @@ not modifiers Coxswain reads; use **Ctrl** or **Alt**.
 - **`[]` unbinds an action.** It stays in **F9**'s command list, without a key.
 - **A plain character** bound to an action (`+`, `-`, `*`, a letter) only works while the
   command line is empty; once you have typed something, it goes into the command line.
-- **A key bound to two actions runs one of them**, the one further down the table below, with no
-  warning. Bind each key once; unbind the default holder first.
+- **A key you bind leaves the action it was a default of.** `pack = ["F5"]` makes **F5** Pack,
+  and Copy, whose only default it was, is left without a key (still in **F9**'s command list).
+- **A key you bind to two actions is refused**, like an unknown key name: the terminal app does
+  not start and says `coxswain: F9 is given to both copy and pack in [keys] of config.toml`;
+  the desktop app starts with every default and prints that line on its terminal.
 - **An Alt+letter that you bind is no longer a [quick search](../panels/quick-search.md)** for
   that letter.
 - **An unknown key name is refused.** The terminal app does not start and says
@@ -122,9 +125,6 @@ says *… is available in the desktop app (coxswain-gui)* on the command line.
 
 ² Both apps, but most terminals never pass **Ctrl+,** on: in the terminal app use **F9** →
 *Settings*, or bind it to a key the terminal sends, such as `settings = ["Alt+,"]`.
-
-"Further down" for two actions on one key means: first the left column from top to bottom, then
-the right column.
 
 ## Keys you cannot change
 

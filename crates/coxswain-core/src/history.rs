@@ -50,7 +50,13 @@ const BUDGET: Duration = Duration::from_secs(4);
 const ID: usize = 12;
 
 pub(crate) fn git(dir: &Path) -> Command {
-    let mut c = crate::git::command(dir);
+    git_with(dir, &crate::git::repo_filters(dir))
+}
+
+/// `git` with the filter settings given (`git::command_with`): none for a command that runs no
+/// filter, which then costs no `git config` first.
+fn git_with(dir: &Path, keys: &[(String, &str)]) -> Command {
+    let mut c = crate::git::command_with(dir, keys);
     // Paths are names, never patterns.
     c.env("GIT_LITERAL_PATHSPECS", "1");
     c
@@ -263,11 +269,9 @@ pub fn show(base: &Path, rev: &str) -> io::Result<Commit> {
         .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, format!("no commit {rev}")))
 }
 
-/// A name for a commit in a listing: short id and subject, without path separators.
-fn entry_name(c: &Commit) -> String {
-    let subject: String = c
-        .subject
-        .chars()
+/// `s` as part of a name in a listing: path separators and control characters as `∕`.
+pub(crate) fn safe_name(s: &str) -> String {
+    s.chars()
         .map(|ch| {
             if matches!(ch, '/' | '\\') || ch.is_control() {
                 '∕'
@@ -275,8 +279,12 @@ fn entry_name(c: &Commit) -> String {
                 ch
             }
         })
-        .collect();
-    format!("{} {subject}", c.short())
+        .collect()
+}
+
+/// A name for a commit in a listing: short id and subject, without path separators.
+fn entry_name(c: &Commit) -> String {
+    format!("{} {}", c.short(), safe_name(&c.subject))
 }
 
 /// One line of `git ls-tree -l -z`: mode, kind, id, size, path.
@@ -316,14 +324,7 @@ pub fn list(dir: &Path, at: &At) -> io::Result<Vec<Entry>> {
         name: "..".into(),
         path,
         is_dir: true,
-        is_symlink: false,
-        is_exec: false,
-        hidden: false,
-        size: 0,
-        modified: 0,
-        created: 0,
-        online: false,
-        referenced: 0,
+        ..Entry::default()
     };
     let Some(rev) = &at.commit else {
         match at.view {
@@ -345,14 +346,9 @@ pub fn list(dir: &Path, at: &At) -> io::Result<Vec<Entry>> {
             name: entry_name(c),
             path: path(&at.target, Some(&c.hash)),
             is_dir: true,
-            is_symlink: false,
-            is_exec: false,
-            hidden: false,
-            size: 0,
             modified: c.time,
             created: c.time,
-            online: false,
-            referenced: 0,
+            ..Entry::default()
         }));
         return Ok(out);
     };
@@ -385,14 +381,13 @@ pub fn list(dir: &Path, at: &At) -> io::Result<Vec<Entry>> {
             size,
             modified: when,
             created: when,
-            online: false,
-            referenced: 0,
+            ..Entry::default()
         });
     }
     if out.len() == 1 && !at.inner.is_empty() {
         return Err(io::Error::new(
             io::ErrorKind::NotFound,
-            format!("{} is not in commit {rev}", at.inner),
+            crate::t!("history.not_in_commit", "path" => at.inner, "rev" => rev),
         ));
     }
     Ok(out)
@@ -400,10 +395,12 @@ pub fn list(dir: &Path, at: &At) -> io::Result<Vec<Entry>> {
 
 /// The first `max` bytes of a file at a commit, and whether there was more.
 pub fn read(at: &At, max: usize) -> io::Result<(Vec<u8>, bool)> {
-    let rev = at
-        .commit
-        .as_deref()
-        .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "pick a commit first"))?;
+    let rev = at.commit.as_deref().ok_or_else(|| {
+        io::Error::new(
+            io::ErrorKind::InvalidInput,
+            crate::t!("history.pick_commit"),
+        )
+    })?;
     let mut c = git(&at.base);
     c.args(["cat-file", "blob", &format!("{rev}:./{}", at.inner)]);
     let mut child = c.stdout(Stdio::piped()).stderr(Stdio::piped()).spawn()?;
@@ -453,10 +450,12 @@ pub fn peek(path: &Path) -> io::Result<PathBuf> {
 
 /// What the commit changed in the file (or folder): its diff against the commit before.
 pub fn diff(at: &At) -> io::Result<String> {
-    let rev = at
-        .commit
-        .as_deref()
-        .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "pick a commit first"))?;
+    let rev = at.commit.as_deref().ok_or_else(|| {
+        io::Error::new(
+            io::ErrorKind::InvalidInput,
+            crate::t!("history.pick_commit"),
+        )
+    })?;
     let mut c = git(&at.base);
     c.args([
         "show",
@@ -478,10 +477,12 @@ pub fn diff(at: &At) -> io::Result<String> {
 /// `dest`, as `fs::copy` would: into it when it is a folder. Returns where it landed; whatever
 /// was written is removed when it fails.
 pub fn copy_out(at: &At, dest: &Path) -> io::Result<PathBuf> {
-    let rev = at
-        .commit
-        .as_deref()
-        .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "pick a commit first"))?;
+    let rev = at.commit.as_deref().ok_or_else(|| {
+        io::Error::new(
+            io::ErrorKind::InvalidInput,
+            crate::t!("history.pick_commit"),
+        )
+    })?;
     let name = match at.inner.rsplit('/').next().filter(|n| !n.is_empty()) {
         Some(n) => n.to_string(),
         None => format!(
@@ -500,7 +501,7 @@ pub fn copy_out(at: &At, dest: &Path) -> io::Result<PathBuf> {
     if std::fs::symlink_metadata(&to).is_ok() {
         return Err(io::Error::new(
             io::ErrorKind::AlreadyExists,
-            format!("{} exists", to.display()),
+            crate::t!("err.exists", "path" => to.display()),
         ));
     }
     let r = write_tree(at, rev, &to);
@@ -569,10 +570,7 @@ fn write_tree(at: &At, rev: &str, to: &Path) -> io::Result<()> {
     if files.is_empty() {
         return Err(io::Error::new(
             io::ErrorKind::NotFound,
-            format!(
-                "{} is not in commit {rev}",
-                if at.inner.is_empty() { "." } else { &at.inner }
-            ),
+            crate::t!("history.not_in_commit", "path" => if at.inner.is_empty() { "." } else { &at.inner }, "rev" => rev),
         ));
     }
     // The files and folders get the commit's time, as they were then; not the time they were
@@ -772,7 +770,7 @@ pub fn last_changes_since(
 /// The commit `rev` names.
 fn rev_oid(base: &Path, rev: &str) -> Option<String> {
     let out = run({
-        let mut c = git(base);
+        let mut c = git_with(base, &[]);
         c.args(["rev-parse", "--verify", "-q", &format!("{rev}^{{commit}}")]);
         c
     })
@@ -823,7 +821,7 @@ fn walk(base: &Path, rev: &str, inner: &str) -> io::Result<(Lasts, bool)> {
     } else {
         format!("{inner}/")
     };
-    let mut c = git(base);
+    let mut c = git_with(base, &[]);
     c.args(["ls-tree", "-z", rev, "--", &spec]);
     let wanted: HashSet<String> = run(c)?
         .split(|&b| b == 0)

@@ -10,6 +10,14 @@ use tauri::http::{header, Request, Response, StatusCode};
 
 /// The page's origin, which may read what this protocol serves.
 const ORIGIN: &str = if cfg!(windows) { "http://tauri.localhost" } else { "tauri://localhost" };
+
+/// The origin the answer lets read it: the page's own, or under `npx tauri dev` (a debug build)
+/// the dev server's, `http://localhost:<port>`. Never a preview frame's (`null`) or `*`.
+fn allowed_origin(req: &Request<Vec<u8>>) -> String {
+    let asked = req.headers().get(header::ORIGIN).and_then(|o| o.to_str().ok()).unwrap_or_default();
+    let dev = || tauri::Url::parse(asked).is_ok_and(|u| u.scheme() == "http" && u.host_str() == Some("localhost") && u.path() == "/" && asked == u.origin().ascii_serialization());
+    if asked == "tauri://localhost" || asked == "http://tauri.localhost" || (cfg!(debug_assertions) && dev()) { asked.to_string() } else { ORIGIN.to_string() }
+}
 /// The most one range answer holds, as Tauri's own protocol: a video is read piece by piece.
 const MAX_RANGE: u64 = 1000 * 1024;
 
@@ -17,22 +25,7 @@ const MAX_RANGE: u64 = 1000 * 1024;
 /// `http://asset.localhost/C%3A%2Fa.pdf`). Only an absolute path without `..`.
 fn path_of(req: &Request<Vec<u8>>) -> Option<PathBuf> {
     let raw = req.uri().path().strip_prefix('/')?.as_bytes();
-    let mut out = Vec::with_capacity(raw.len());
-    let mut i = 0;
-    while i < raw.len() {
-        let hex = |b: u8| (b as char).to_digit(16);
-        match (raw[i], raw.get(i + 1).copied().and_then(hex), raw.get(i + 2).copied().and_then(hex)) {
-            (b'%', Some(h), Some(l)) => {
-                out.push((h * 16 + l) as u8);
-                i += 3;
-            }
-            (b, ..) => {
-                out.push(b);
-                i += 1;
-            }
-        }
-    }
-    let path = PathBuf::from(String::from_utf8(out).ok()?);
+    let path = PathBuf::from(String::from_utf8(coxswain_core::fs::percent_decode(raw)).ok()?);
     (path.is_absolute() && !path.components().any(|c| c == Component::ParentDir)).then_some(path)
 }
 
@@ -52,7 +45,9 @@ fn range(header: &str, len: u64) -> Option<(u64, u64)> {
 /// The answer to one request. `unasked` tells a file only in the cloud that the user has not
 /// asked for (`coxswain_core::cloud::unasked`; a test passes its own).
 pub fn respond(req: &Request<Vec<u8>>, unasked: impl Fn(&Path) -> bool) -> Response<Vec<u8>> {
-    let status = |s: StatusCode| Response::builder().status(s).header(header::ACCESS_CONTROL_ALLOW_ORIGIN, ORIGIN).body(Vec::new()).expect("a plain answer");
+    let origin = allowed_origin(req);
+    let answer = || Response::builder().header(header::ACCESS_CONTROL_ALLOW_ORIGIN, &origin).header(header::VARY, "Origin");
+    let status = |s: StatusCode| answer().status(s).body(Vec::new()).expect("a plain answer");
     let Some(path) = path_of(req) else { return status(StatusCode::FORBIDDEN) };
     if unasked(&path) {
         return status(StatusCode::FORBIDDEN);
@@ -63,7 +58,7 @@ pub fn respond(req: &Request<Vec<u8>>, unasked: impl Fn(&Path) -> bool) -> Respo
         let mut magic = Vec::with_capacity(len.min(8192) as usize);
         (&mut file).take(8192).read_to_end(&mut magic)?;
         let mime = tauri::utils::mime_type::MimeType::parse(&magic, &path.to_string_lossy());
-        let resp = Response::builder().header(header::ACCESS_CONTROL_ALLOW_ORIGIN, ORIGIN).header(header::CONTENT_TYPE, mime).header(header::ACCEPT_RANGES, "bytes");
+        let resp = answer().header(header::CONTENT_TYPE, mime).header(header::ACCEPT_RANGES, "bytes");
         let ranged = req.headers().get(header::RANGE).and_then(|r| r.to_str().ok());
         let (resp, body) = match ranged.map(|r| range(r, len)) {
             Some(None) => (resp.status(StatusCode::RANGE_NOT_SATISFIABLE).header(header::CONTENT_RANGE, format!("bytes */{len}")), Vec::new()),
@@ -104,6 +99,17 @@ mod tests {
             r = r.header("range", v);
         }
         r.body(Vec::new()).unwrap()
+    }
+
+    #[test]
+    fn only_the_apps_own_origins_are_let_read() {
+        let from = |o: &str| allowed_origin(&Request::builder().uri("asset://localhost/x").header("origin", o).body(Vec::new()).unwrap());
+        assert_eq!(from("tauri://localhost"), "tauri://localhost");
+        assert_eq!(from("http://tauri.localhost"), "http://tauri.localhost");
+        assert_eq!(from("http://localhost:1420"), if cfg!(debug_assertions) { "http://localhost:1420" } else { ORIGIN });
+        for other in ["null", "*", "asset://localhost", "http://asset.localhost", "http://localhost:1420/x", "http://evil.example", ""] {
+            assert_eq!(from(other), ORIGIN, "{other}");
+        }
     }
 
     #[test]

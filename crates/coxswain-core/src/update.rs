@@ -1,13 +1,18 @@
 //! The built-in version, and a once-a-day check for a newer release on GitHub.
 
 use std::path::{Path, PathBuf};
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::Duration;
 
 use crate::state::AppState;
 
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 pub const RELEASES_URL: &str = "https://github.com/mwo-dk/coxswain/releases/latest";
 const API_URL: &str = "https://api.github.com/repos/mwo-dk/coxswain/releases/latest";
+
+/// The server the update check asks, as Settings and the first-run guide name it.
+pub fn host() -> &'static str {
+    crate::settings::host(API_URL)
+}
 const DAY: u64 = 24 * 3600;
 
 /// `major.minor.patch` from "1.2.3" or "v1.2.3"; pre-release suffixes are ignored.
@@ -48,20 +53,14 @@ pub fn fetch_latest() -> Option<String> {
     Some(v["tag_name"].as_str()?.trim_start_matches('v').to_string())
 }
 
-fn now() -> u64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map_or(0, |d| d.as_secs())
-}
-
 /// Has a day passed since the last check?
 pub fn due(st: &AppState) -> bool {
-    now().saturating_sub(st.update_checked) >= DAY
+    crate::fs::now().saturating_sub(st.update_checked) >= DAY
 }
 
 pub fn record(st: &mut AppState, latest: String) {
     st.latest_version = latest;
-    st.update_checked = now();
+    st.update_checked = crate::fs::now();
 }
 
 /// The newer version the last check found, if any.

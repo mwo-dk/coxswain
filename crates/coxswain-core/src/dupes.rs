@@ -17,7 +17,6 @@ use std::fs;
 use std::io::{self, Read};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use std::time::UNIX_EPOCH;
 
 use crate::store::Store;
 
@@ -141,11 +140,7 @@ fn walk(dir: &Path, opts: &Options, p: &Progress, out: &mut Vec<Found>) {
             p.files.fetch_add(1, Ordering::Relaxed);
             out.push(Found {
                 size: m.len(),
-                modified: m
-                    .modified()
-                    .ok()
-                    .and_then(|t| t.duration_since(UNIX_EPOCH).ok())
-                    .map_or(0, |d| d.as_secs()),
+                modified: crate::fs::secs(m.modified()).unwrap_or(0),
                 id: file_id(&m),
                 path: de.path(),
             });
@@ -234,7 +229,6 @@ pub fn scan(opts: &Options, p: &Progress) -> Report {
 
     // Groups whose every file the store has hashed are not read at all.
     let store = Store::path().and_then(|path| Store::open(&path).ok());
-    let _ = Store::path().map(|path| fs::remove_file(path.with_file_name("dupes-hashes.json")));
     let stored = |f: &Found| {
         store
             .as_ref()
@@ -297,13 +291,14 @@ pub fn scan(opts: &Options, p: &Progress) -> Report {
     }
     let hashes = hashes.into_inner().unwrap_or_default();
 
-    let mut hash_of: HashMap<PathBuf, String> = HashMap::new();
+    // Each duplicate's hash and size, for the folders.
+    let mut hash_of: HashMap<PathBuf, (String, u64)> = HashMap::new();
     let mut groups: Vec<Group> = full
         .into_iter()
         .map(|g| {
             let hash = hashes[&g[0].path].clone();
             for f in &g {
-                hash_of.insert(f.path.clone(), hash.clone());
+                hash_of.insert(f.path.clone(), (hash.clone(), f.size));
             }
             let size = g[0].size;
             let mut files: Vec<DupFile> = g
@@ -358,13 +353,13 @@ pub fn scan(opts: &Options, p: &Progress) -> Report {
 /// subfolders are called and however they are arranged. A folder containing any file without a
 /// duplicate (never hashed) has no twin, so only folders made entirely of duplicated files can
 /// match. Only the topmost matching folders are reported.
-fn folder_groups(opts: &Options, hash_of: &HashMap<PathBuf, String>) -> Vec<FolderGroup> {
+fn folder_groups(opts: &Options, hash_of: &HashMap<PathBuf, (String, u64)>) -> Vec<FolderGroup> {
     // Every file's (hash, size) below `dir`, or None when one of them has no duplicate. The
     // sorted list is the folder's signature; `out` gets (signature, size, files) per folder.
     fn contents(
         dir: &Path,
         opts: &Options,
-        hash_of: &HashMap<PathBuf, String>,
+        hash_of: &HashMap<PathBuf, (String, u64)>,
         out: &mut HashMap<PathBuf, (blake3::Hash, u64, u64)>,
     ) -> Option<Vec<(String, u64)>> {
         let mut all = vec![];
@@ -391,9 +386,9 @@ fn folder_groups(opts: &Options, hash_of: &HashMap<PathBuf, String>) -> Vec<Fold
                     None => complete = false,
                 }
             } else {
-                match (hash_of.get(&p), de.metadata()) {
-                    (Some(h), Ok(m)) => all.push((h.clone(), m.len())),
-                    _ => complete = false,
+                match hash_of.get(&p) {
+                    Some(hs) => all.push(hs.clone()),
+                    None => complete = false,
                 }
             }
         }

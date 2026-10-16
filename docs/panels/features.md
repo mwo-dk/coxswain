@@ -74,7 +74,7 @@ The filter ignores case and diacritics: `große` finds *Grösse*, `etiquette` fi
 | **Enter** | – | Show me |
 | **Tab** | Moves through the tabs and buttons | Back to the keys of Help |
 | **Esc** | Closes (back to the dialog it came from) | The same |
-| **F1** | Closes | The same |
+| **F1** | Closes (back to the dialog it came from), like Esc | Closes |
 
 ## Show me
 

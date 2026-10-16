@@ -293,10 +293,14 @@ pub fn find<'a>(entries: &'a [Entry], name: &str) -> Option<&'a Entry> {
 /// Delete a model's folder; a chat model is let go of first, here and in the helper.
 pub fn delete(entry: &Entry, helper: &crate::helper::Client) -> std::io::Result<()> {
     if entry.what == For::Ask {
-        crate::chat::unload();
         helper.unload();
     }
-    match std::fs::remove_dir_all(&entry.folder) {
+    remove_dir(&entry.folder)
+}
+
+/// Delete a folder and all in it; one that is not there is no error.
+pub(crate) fn remove_dir(dir: &std::path::Path) -> std::io::Result<()> {
+    match std::fs::remove_dir_all(dir) {
         Err(e) if e.kind() != std::io::ErrorKind::NotFound => Err(e),
         _ => Ok(()),
     }

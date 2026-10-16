@@ -147,6 +147,7 @@ coxswain --index-helper --stay >/dev/null 2>&1 &
 | Battery | envstat(8): an `acpiacad` adapter with `connected: FALSE` means on battery, and the helper pauses ([Battery](../search/battery.md)) |
 | Memory in the setup guide | `sysconf(_SC_PHYS_PAGES)` |
 | Removable disks | Known by their path only ([Removable disks](../search/removable-disks.md)) |
+| File flags | Not shown or set: Properties has no *Flags* line, and **F9** → *File flags* says *File flags are for FreeBSD and macOS* |
 | ZFS | NetBSD's ZFS is not read; **Alt+Z** says the folder is not on ZFS |
 | The update notice | Names the install line ([Updating](#updating-and-uninstalling)) |
 

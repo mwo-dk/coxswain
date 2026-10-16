@@ -184,19 +184,21 @@ fn read(mut bytes: Vec<u8>, until: Instant) -> Option<String> {
                 doc.objects.insert(above, look.into());
                 above
             });
-            if !affordable(&mut doc, &known, &mut costs, page) {
-                continue;
+            let (fits, hushed) = affordable(&mut doc, &known, &mut costs, page);
+            if fits {
+                let mut one = Dictionary::new();
+                one.set("Type", "Pages");
+                one.set("Kids", vec![Object::Reference(page)]);
+                doc.objects.insert(tree, one.into());
+                let mut words = Words::new(&mut text, until);
+                // A page pdf-extract gives up on keeps what was read of it.
+                let _ = catch_unwind(AssertUnwindSafe(|| {
+                    pdf_extract::output_doc_page(&doc, &mut words, 1)
+                }));
+                words.close_line(true);
             }
-            let mut one = Dictionary::new();
-            one.set("Type", "Pages");
-            one.set("Kids", vec![Object::Reference(page)]);
-            doc.objects.insert(tree, one.into());
-            let mut words = Words::new(&mut text, until);
-            // A page pdf-extract gives up on keeps what was read of it.
-            let _ = catch_unwind(AssertUnwindSafe(|| {
-                pdf_extract::output_doc_page(&doc, &mut words, 1)
-            }));
-            words.close_line(true);
+            // The forms hushed for this page, which other pages may draw within bounds.
+            doc.objects.extend(hushed);
         }
     }
     (!text.trim().is_empty()).then_some(text)
@@ -294,9 +296,14 @@ fn rebuilt(bytes: &[u8]) -> Option<Vec<u8>> {
         starts.insert(id, end);
     }
     let last = *starts.keys().next_back()?;
-    // The file's own trailer, when it has one that can be read.
+    // The file's own trailer, when it has one that can be read. Each word `trailer` is
+    // read up to the next one at most (and a trailer is small), so a file of nothing but
+    // that word costs its length once, not its length for each word.
+    let mut next = bytes.len();
     let own = memmem::rfind_iter(bytes, b"trailer").find_map(|at| {
-        let to = memmem::find(&bytes[at..], b"startxref").map_or(bytes.len(), |end| at + end);
+        let span = &bytes[at + 7..next.min(at + 7 + TRAILER_MAX)];
+        next = at;
+        let to = at + 7 + memmem::find(span, b"startxref").unwrap_or(span.len());
         let mut text = bytes[at + 7..to].to_vec();
         for (word, spelled) in [
             (LOCKED, &b"/Encrypt"[..]),
@@ -547,6 +554,9 @@ fn heavy(bytes: &[u8], most: u64) -> bool {
     false
 }
 
+/// The most of a file read as one trailer, when its own is rebuilt.
+const TRAILER_MAX: usize = 64 * 1024;
+
 /// `/Encrypt` as lopdf is given it, and an object stream under a name it does not know: one
 /// it cannot unpack it throws away, and an encrypted one it cannot unpack.
 const LOCKED: &[u8] = b"/Encrypx";
@@ -781,10 +791,20 @@ fn unpacked(stream: &Stream, most: u64) -> Option<Cow<'_, [u8]>> {
     let Ok(filters) = stream.filters() else {
         return Some(Cow::Borrowed(&stream.content));
     };
+    // As lopdf takes them: one dictionary for every filter, an array of them not at all.
+    let params = stream
+        .dict
+        .get(b"DecodeParms")
+        .and_then(Object::as_dict)
+        .ok();
     let mut bytes = Cow::Borrowed(&stream.content[..]);
     for filter in filters {
         bytes = Cow::Owned(match filter {
-            b"FlateDecode" => inflated(&bytes, most)?,
+            // The predictor after it takes a byte from each row: never more than inflated.
+            b"FlateDecode" => match predicted(inflated(&bytes, most)?, params) {
+                Some(bytes) => bytes,
+                None => return Some(Cow::Borrowed(&stream.content)),
+            },
             // These two lopdf may unpack itself: they give four bytes for one at the most, and
             // 4096, the longest entry of the table, for a code of nine bits.
             b"ASCII85Decode" | b"LZWDecode" => {
@@ -793,6 +813,9 @@ fn unpacked(stream: &Stream, most: u64) -> Option<Cow<'_, [u8]>> {
                 }
                 let mut one = Stream::new(Dictionary::new(), bytes.into_owned());
                 one.dict.set("Filter", Object::Name(filter.to_vec()));
+                if let Some(params) = params {
+                    one.dict.set("DecodeParms", params.clone());
+                }
                 match of_lopdf(|| one.decompressed_content()) {
                     Some(bytes) => bytes,
                     None => return Some(Cow::Borrowed(&stream.content)),
@@ -802,14 +825,28 @@ fn unpacked(stream: &Stream, most: u64) -> Option<Cow<'_, [u8]>> {
             _ => return Some(Cow::Borrowed(&stream.content)),
         });
     }
-    // A predictor changes the bytes, not how many there are: now lopdf may do all of it.
-    if stream.dict.has(b"DecodeParms") {
-        return Some(
-            of_lopdf(|| stream.decompressed_content())
-                .map_or(Cow::Borrowed(&stream.content[..]), Cow::Owned),
-        );
-    }
     Some(bytes)
+}
+
+/// Inflated bytes with the PNG predictor `params` name undone, as lopdf undoes it; `None`
+/// where lopdf would fail. A row longer than the bytes is one it would fail on, after
+/// making room for it, however large.
+fn predicted(bytes: Vec<u8>, params: Option<&Dictionary>) -> Option<Vec<u8>> {
+    let Some(params) = params.filter(|_| !bytes.is_empty()) else {
+        return Some(bytes);
+    };
+    let int = |key: &[u8], or: i64| params.get(key).and_then(Object::as_i64).unwrap_or(or);
+    if !(10..=15).contains(&int(b"Predictor", 1)) {
+        return Some(bytes);
+    }
+    let columns = int(b"Columns", 1).max(1) as u64;
+    let colors = int(b"Colors", 1).max(1) as u64;
+    let bits = int(b"BitsPerComponent", 8).max(8) as u64;
+    let pixel = colors.checked_mul(bits)? / 8;
+    if pixel.checked_mul(columns)? >= bytes.len() as u64 {
+        return None;
+    }
+    of_lopdf(|| pdf_extract::filters::png::decode_frame(&bytes, pixel as usize, columns as usize))
 }
 
 /// As lopdf inflates: zlib, and when that gives nothing, deflate from the third byte on.
@@ -899,6 +936,12 @@ fn calm(doc: &mut Document, until: Instant) -> HashMap<ObjectId, Known> {
         match plain.remove(&id) {
             Some((_, content)) if !content.is_empty() => stream.set_plain_content(content),
             _ if is(stream, b"Subtype", b"Image") => hush(stream),
+            // An attachment or the metadata, which pdf-extract never reads: not unpacked to
+            // be weighed, at times many MB that would use up the time for the pages.
+            _ if is(stream, b"Type", b"EmbeddedFile") || is(stream, b"Type", b"Metadata") => {
+                hush(stream);
+                continue;
+            }
             _ => {}
         }
         let content = if Instant::now() < until {
@@ -1346,7 +1389,7 @@ fn map_of(bytes: &[u8]) -> Vec<u8> {
     };
     let (mut singles, mut spans) = (vec![], vec![]);
     let mut put = |code: u32, to: &[u16]| {
-        if !to.is_empty() && String::from_utf16(to).is_ok() && singles.len() < MAX_CODES {
+        if singles.len() < MAX_CODES && !to.is_empty() && String::from_utf16(to).is_ok() {
             singles.push(format!(
                 "<{code:08X}> <{}>\n",
                 to.iter()
@@ -1356,6 +1399,9 @@ fn map_of(bytes: &[u8]) -> Vec<u8> {
         }
     };
     let (mut single, mut ranges) = (false, false);
+    // The codes ranges are counted out to, all together: a range that gives no text (a lone
+    // surrogate) fills no map, and many of them would be counted out for ever.
+    let mut walk = MAX_CODES;
     let mut tokens = tokens.iter().peekable();
     while let Some(token) = tokens.next() {
         match token {
@@ -1387,6 +1433,11 @@ fn map_of(bytes: &[u8]) -> Vec<u8> {
                             spans.push((from, to, first))
                         }
                         ref first => {
+                            if walk == 0 {
+                                continue;
+                            }
+                            let to = to.min(from.saturating_add(walk as u32 - 1));
+                            walk -= (to.saturating_sub(from) as usize + 1).min(walk);
                             for code in from..=to {
                                 let mut units = first.to_vec();
                                 if let Some(last) = units.last_mut() {
@@ -1438,15 +1489,16 @@ type Costs = HashMap<(ObjectId, usize), u64>;
 
 /// Whether pdf-extract reads the page within bounds: what it inherits is found, and the
 /// content it goes through, every form counted as many times as it is drawn, weighs no more
-/// than `MAX_CONTENT` things. A page too dear for the forms it draws is read without them.
+/// than `MAX_CONTENT` things. A page too dear for the forms it draws is read without them:
+/// they are hushed, and given back (the second value) to be put back once it is read.
 fn affordable(
     doc: &mut Document,
     known: &HashMap<ObjectId, Known>,
     costs: &mut Costs,
     page: ObjectId,
-) -> bool {
+) -> (bool, Vec<(ObjectId, Object)>) {
     let Ok(mut dict) = doc.get_dictionary(page) else {
-        return false;
+        return (false, vec![]);
     };
     // pdf-extract goes up by /Parent, calling itself, for the resources and the size of the page.
     let mut resources = None;
@@ -1460,7 +1512,7 @@ fn affordable(
             break;
         };
         if level == DEPTH {
-            return false;
+            return (false, vec![]);
         }
         dict = parent;
     }
@@ -1480,7 +1532,7 @@ fn affordable(
             .fold(0u64, |sum, id| sum.saturating_add(cost(*id)))
     };
     if sum(&mut |id| drawing(doc, known, costs, id, resources, DEPTH)) <= MAX_CONTENT {
-        return true;
+        return (true, vec![]);
     }
     let alone = sum(&mut |id| {
         known
@@ -1492,12 +1544,19 @@ fn affordable(
         .flat_map(|r| forms(doc, r))
         .map(|(_, id)| id)
         .collect();
-    for form in drawn {
-        if let Some(Object::Stream(stream)) = doc.objects.get_mut(&form) {
-            hush(stream);
-        }
-    }
-    alone <= MAX_CONTENT
+    let hushed = drawn
+        .into_iter()
+        .filter_map(|form| {
+            let object = doc.objects.get_mut(&form)?;
+            let Object::Stream(stream) = object else {
+                return None;
+            };
+            let mut quiet = Stream::new(stream.dict.clone(), vec![]);
+            hush(&mut quiet);
+            Some((form, std::mem::replace(object, Object::Stream(quiet))))
+        })
+        .collect();
+    (alone <= MAX_CONTENT, hushed)
 }
 
 /// The forms of a resource dictionary, by name.
@@ -2164,6 +2223,21 @@ mod tests {
     }
 
     #[test]
+    fn pdf_map_of_ranges_to_nothing_is_counted_out_quickly() {
+        // Each range once walked 65536 codes that a lone surrogate keeps from the map.
+        let map = [
+            &b"1 beginbfrange "[..],
+            &b"<0000> <FFFF> <D800> ".repeat(100_000),
+            b"endbfrange 1 beginbfchar <0041> <0061> endbfchar",
+        ]
+        .concat();
+        let start = Instant::now();
+        let out = String::from_utf8(map_of(&map)).unwrap();
+        assert!(start.elapsed() < Duration::from_secs(5));
+        assert!(out.ends_with("endbfrange\n"));
+    }
+
+    #[test]
     fn pdf_turns_hebrew_to_reading_order_however_it_is_drawn() {
         let more = two_byte_font(
             b"4 beginbfchar <0001> <05E9> <0002> <05DC> <0003> <05D5> <0004> <05DD> endbfchar",
@@ -2484,6 +2558,28 @@ mod tests {
     }
 
     #[test]
+    fn pdf_attachments_and_metadata_are_not_unpacked_to_be_weighed() {
+        let mut doc = Document::load_mem(&document(
+            FONT,
+            &[
+                packed("/Type /EmbeddedFile", &[0; 1 << 20]),
+                packed("/Type /Metadata /Subtype /XML", b"<x:xmpmeta/>"),
+            ],
+            &[stream("", HELLO)],
+        ))
+        .unwrap();
+        let known = calm(&mut doc, Instant::now() + TIME);
+        for id in [(4, 0), (5, 0)] {
+            assert!(!known.contains_key(&id));
+            let Ok(Object::Stream(s)) = doc.get_object(id) else {
+                panic!("{id:?} is no stream");
+            };
+            assert_eq!(s.content, b"\n");
+        }
+        assert!(known.contains_key(&(7, 0)), "the page's content is weighed");
+    }
+
+    #[test]
     fn pdf_without_text_is_none_and_no_bytes_make_it_panic() {
         let image = stream(
             "/Type /XObject /Subtype /Image /Width 2 /Height 2 /ColorSpace /DeviceGray /BitsPerComponent 8",
@@ -2624,6 +2720,18 @@ mod tests {
         assert_eq!(
             within("hundreds", &hundreds).as_deref(),
             Some("Hello there")
+        );
+        // The forms left out of a page too dear are still there for the next page.
+        let mut shared = forms.clone();
+        shared.push(form(b"BT /F1 12 Tf 72 700 Td (In a form) Tj ET", FONT));
+        let next = document(
+            &format!("{FONT} /XObject << /X 4 0 R /Y 12 0 R >>"),
+            &shared,
+            &[stream("", &drawing), stream("", b"/Y Do")],
+        );
+        assert_eq!(
+            within("next", &next).as_deref(),
+            Some("Hello there\nIn a form")
         );
 
         // Forms in forms: read as deep as `DEPTH`, and left out when they go deeper.
@@ -2785,6 +2893,22 @@ mod tests {
             Some(100_000),
             "not unpacked at all"
         );
+        // Rows with a PNG predictor are undone as lopdf undoes them, from one inflate.
+        let rows: Vec<u8> = (0..4000u32).flat_map(|n| [2, n as u8, 1, 2, 3]).collect();
+        let mut predicted = of("FlateDecode", deflated(&rows));
+        let mut params = Dictionary::new();
+        params.set("Predictor", 12);
+        params.set("Columns", 4);
+        predicted.dict.set("DecodeParms", params);
+        let ours = unpacked(&predicted, 100_000).unwrap();
+        assert_eq!(ours.len(), 16_000);
+        assert_eq!(*ours, predicted.decompressed_content().unwrap());
+        // A row longer than the stream fails, as in lopdf, and the stream is taken as it is.
+        let mut params = Dictionary::new();
+        params.set("Predictor", 12);
+        params.set("Columns", 1i64 << 40);
+        predicted.dict.set("DecodeParms", params);
+        assert_eq!(*unpacked(&predicted, 100_000).unwrap(), predicted.content);
 
         // An object stream is unpacked by lopdf as it loads: all of them share what room there is.
         let mut kept = Object::Stream(of("FlateDecode", deflated(&spaces)));
@@ -2992,6 +3116,19 @@ mod tests {
             Some("Hello there")
         );
         assert_eq!(rebuilt(b"%PDF-1.4\nnothing 3 obj here endobj"), None);
+    }
+
+    #[test]
+    fn pdf_of_trailer_words_alone_is_rebuilt_quickly() {
+        // Each word was once read to the end of the file: minutes for this, hours for 20 MB.
+        let file = [
+            &b"%PDF-1.4\n1 0 obj 1 endobj "[..],
+            &b"trailer ".repeat(100_000),
+        ]
+        .concat();
+        let start = Instant::now();
+        assert!(rebuilt(&file).is_some());
+        assert!(start.elapsed() < Duration::from_secs(10));
     }
 
     #[test]

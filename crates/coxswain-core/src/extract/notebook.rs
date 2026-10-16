@@ -35,24 +35,14 @@ pub fn text(path: &Path, max: u64) -> Option<String> {
         b'<' => diagram(&String::from_utf8_lossy(bytes)),
         _ => return None,
     };
-    // What a program printed holds backspaces and worse, and the store marks the words it found with two such characters.
-    let text = text.replace(|c: char| c.is_control() && c != '\n', " ");
+    // What a program printed holds backspaces and worse: `tidy` makes each a space.
     (!text.trim().is_empty()).then_some(text)
-}
-
-/// Adds to `out` as much of `text` as keeps it within `most` bytes.
-fn push(out: &mut String, text: &str, most: usize) {
-    let mut room = most.saturating_sub(out.len()).min(text.len());
-    while !text.is_char_boundary(room) {
-        room -= 1;
-    }
-    out.push_str(&text[..room]);
 }
 
 /// Ends the line that `out` is in, if it is in one.
 fn end_line(out: &mut String, most: usize) {
     if !out.ends_with('\n') {
-        push(out, "\n", most);
+        super::push_within(out, "\n", most);
     }
 }
 
@@ -104,9 +94,10 @@ impl<'de> DeserializeSeed<'de> for Walk<'_> {
 
     fn deserialize<D: Deserializer<'de>>(self, from: D) -> Result<(), D::Error> {
         // Text is asked for as bytes, which serde_json hands over as they are. Asked for text, it refuses one half of a character pair
-        // written as an escape, which JavaScript writes, and the reading would end there.
+        // written as an escape, which JavaScript writes, and the reading would end there. A text that is
+        // null is asked for as an option first: as bytes it would end the reading too.
         if self.at == At::Text {
-            from.deserialize_bytes(self)
+            from.deserialize_option(self)
         } else {
             from.deserialize_any(self)
         }
@@ -120,13 +111,42 @@ impl<'de> Visitor<'de> for Walk<'_> {
         f.write_str("text, a list or an object")
     }
 
-    /// Text where a list or an object belongs says nothing.
+    /// Text where a list or an object belongs says nothing, and nor do null, a number or a truth.
     fn visit_str<E>(self, _: &str) -> Result<(), E> {
         Ok(())
     }
 
+    fn visit_unit<E>(self) -> Result<(), E> {
+        Ok(())
+    }
+
+    fn visit_none<E>(self) -> Result<(), E> {
+        Ok(())
+    }
+
+    fn visit_bool<E>(self, _: bool) -> Result<(), E> {
+        Ok(())
+    }
+
+    fn visit_i64<E>(self, _: i64) -> Result<(), E> {
+        Ok(())
+    }
+
+    fn visit_u64<E>(self, _: u64) -> Result<(), E> {
+        Ok(())
+    }
+
+    fn visit_f64<E>(self, _: f64) -> Result<(), E> {
+        Ok(())
+    }
+
+    /// A text that is there, as bytes.
+    fn visit_some<D: Deserializer<'de>>(self, from: D) -> Result<(), D::Error> {
+        from.deserialize_bytes(self)
+    }
+
     fn visit_bytes<E>(self, text: &[u8]) -> Result<(), E> {
-        push(
+        super::push_within(
             self.out,
             &UNSEEN.replace_all(&String::from_utf8_lossy(text), ""),
             self.most,
@@ -191,7 +211,7 @@ impl<'de> Visitor<'de> for Walk<'_> {
             Ok(())
         })();
         if !printed.is_empty() {
-            push(self.out, &printed, self.most);
+            super::push_within(self.out, &printed, self.most);
             // What was printed may have been cut in the middle of a line, and the next cell must not go on in that line.
             end_line(self.out, self.most);
         }
@@ -206,12 +226,6 @@ impl<'de> Visitor<'de> for Walk<'_> {
 static MARKUP: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"</?[A-Za-z][^<>]*>|&(#[0-9]+|#[xX][0-9A-Fa-f]+|[A-Za-z]+);").unwrap()
 });
-/// The tags that stand inside a word, as in <b>R</b>ocket: they are dropped.
-const WITHIN: &[&str] = &[
-    "a", "abbr", "b", "bdi", "bdo", "big", "cite", "code", "del", "dfn", "em", "font", "i", "ins",
-    "kbd", "mark", "q", "s", "samp", "small", "span", "strike", "strong", "sub", "sup", "tt", "u",
-    "var", "wbr",
-];
 /// The tags that end a line. Any other name between < and > is no tag of a label and is kept, as in List<String>.
 const BREAKS: &[&str] = &[
     "blockquote",
@@ -272,12 +286,13 @@ fn words(html: &str) -> String {
             .split(|c: char| !c.is_ascii_alphanumeric())
             .next()
             .unwrap_or_default();
+        // The tags inside a word, as in <b>R</b>ocket, are those of a page; and so are the entities.
         match markup
             .strip_prefix('&')
             .map(|entity| character(entity.trim_end_matches(';')))
         {
             Some(Some(character)) => plain.push(character),
-            None if among(WITHIN, tag) => {}
+            None if among(&super::book::INLINE, tag) => {}
             None if among(BREAKS, tag) => plain.push('\n'),
             // What is no tag of a label and no entity that is known stays as it is written.
             _ => plain.push_str(markup),
@@ -287,24 +302,19 @@ fn words(html: &str) -> String {
     plain
 }
 
-/// The character an entity stands for: those a browser writes when it saves a label, and the numbered ones.
+/// The character an entity stands for: a name of HTML's, or a number that is a character.
 fn character(entity: &str) -> Option<char> {
-    Some(match entity {
-        "amp" => '&',
-        "lt" => '<',
-        "gt" => '>',
-        "quot" => '"',
-        "apos" => '\'',
-        "nbsp" => ' ',
-        _ => {
-            let number = entity.strip_prefix('#')?;
-            let code = match number.strip_prefix(['x', 'X']) {
-                Some(hex) => u32::from_str_radix(hex, 16),
-                None => number.parse(),
-            };
-            char::from_u32(code.ok()?)?
-        }
-    })
+    let Some(number) = entity.strip_prefix('#') else {
+        return match super::book::reference(&format!("&{entity};"))?.0 {
+            '\u{a0}' => Some(' '),
+            c => Some(c),
+        };
+    };
+    let code = match number.strip_prefix(['x', 'X']) {
+        Some(hex) => u32::from_str_radix(hex, 16),
+        None => number.parse(),
+    };
+    char::from_u32(code.ok()?)
 }
 
 /// The text of a diagram. All its packed pages together may unpack to `MAX_ENTRY` bytes.
@@ -400,8 +410,8 @@ fn labels(xml: &str, out: &mut String, mut room: Option<&mut u64>) {
                     }
                 }
                 for label in shown {
-                    push(out, &label, MAX_TEXT);
-                    push(out, "\n", MAX_TEXT);
+                    super::push_within(out, &label, MAX_TEXT);
+                    super::push_within(out, "\n", MAX_TEXT);
                 }
             }
             // A page is whole: a sentence per arrow between two shapes with labels. Its ids are its
@@ -413,7 +423,7 @@ fn labels(xml: &str, out: &mut String, mut room: Option<&mut u64>) {
                             .get(&id)
                             .filter(|l| names.get(&id) != Some(*l))
                             .map_or(String::new(), |l| format!(": {}", l.replace('\n', " ")));
-                        push(
+                        super::push_within(
                             out,
                             &format!(
                                 "{} to {}{label}.\n",
@@ -437,7 +447,7 @@ fn labels(xml: &str, out: &mut String, mut room: Option<&mut u64>) {
         }
     }
     // The mxCell never came, and the label is kept as it stands: that loses no word.
-    push(
+    super::push_within(
         out,
         &waiting.map(|label| label + "\n").unwrap_or_default(),
         MAX_TEXT,
@@ -850,6 +860,24 @@ mod tests {
             start.elapsed() < limit,
             "packed, it took {:?}",
             start.elapsed()
+        );
+    }
+
+    #[test]
+    fn a_label_has_the_tags_and_names_of_characters_of_a_page() {
+        assert_eq!(
+            words("Fu<nobr>el</nobr> &eacute;t&eacute; <time>now</time>"),
+            "Fuel été now"
+        );
+    }
+
+    #[test]
+    fn null_and_numbers_where_text_or_lists_belong_end_no_reading() {
+        let book = br#"{"cells":[{"source":null,"outputs":null},1,{"outputs":[{"text":null}],"source":["kept\n",null,"too"]},{"source":"also"}]}"#;
+        let text = notebook(book);
+        assert!(
+            text.contains("kept") && text.contains("too") && text.contains("also"),
+            "{text:?}"
         );
     }
 

@@ -277,22 +277,9 @@ pub fn cloud_fs(fstype: &str) -> bool {
 
 /// The cloud mounts in `/proc/self/mountinfo`'s text: (mount point, file system type).
 pub fn cloud_mounts(mountinfo: &str) -> Vec<(PathBuf, String)> {
-    // `id parent major:minor root mountpoint options … - fstype source superoptions`, with
-    // spaces in paths written as \040.
-    let unescape = |s: &str| {
-        s.replace("\\040", " ")
-            .replace("\\011", "\t")
-            .replace("\\012", "\n")
-            .replace("\\134", "\\")
-    };
-    mountinfo
-        .lines()
-        .filter_map(|l| {
-            let (left, right) = l.split_once(" - ")?;
-            let point = left.split(' ').nth(4)?;
-            let fstype = right.split(' ').next()?;
-            cloud_fs(fstype).then(|| (PathBuf::from(unescape(point)), fstype.to_string()))
-        })
+    crate::machine::mountinfo(mountinfo)
+        .filter(|m| cloud_fs(&m.fstype))
+        .map(|m| (m.point, m.fstype))
         .collect()
 }
 

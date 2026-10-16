@@ -128,6 +128,16 @@ impl fmt::Display for Key {
     }
 }
 
+/// A key as written on the keyboard, however config.toml spells it: `Ctrl+G` for `ctrl+g`,
+/// `Delete` for `del`.
+pub fn written(k: &str) -> String {
+    let k = k.parse::<Key>().map_or_else(|_| k.to_string(), |k| k.to_string());
+    match k.rsplit_once('+') {
+        Some((mods, c)) if c.chars().count() == 1 => format!("{mods}+{}", c.to_uppercase()),
+        _ => k,
+    }
+}
+
 // ---------------------------------------------------------------- actions
 
 macro_rules! actions {
@@ -1689,14 +1699,24 @@ impl Config {
     pub fn edit(text: &str, keys: &[&str], value: toml_edit::Value) -> Result<String, String> {
         let mut doc: toml_edit::DocumentMut = text.parse().map_err(|e| format!("config: {e}"))?;
         let (last, parents) = keys.split_last().ok_or("config: no key")?;
-        let mut table = doc.as_table_mut();
+        // Parents as tables or as inline tables (`images = { latex = "…" }`): both parse.
+        let mut table: &mut dyn toml_edit::TableLike = doc.as_table_mut();
+        let mut inline = false;
         for k in parents {
-            let item = table.entry(k).or_insert_with(|| {
-                let mut t = toml_edit::Table::new();
-                t.set_implicit(true);
-                toml_edit::Item::Table(t)
-            });
-            table = item.as_table_mut().ok_or_else(|| crate::t!("err.not_a_table", "key" => k))?;
+            if table.get(k).is_none() {
+                // A table cannot sit inside an inline one.
+                let new = if inline {
+                    toml_edit::Item::Value(toml_edit::InlineTable::new().into())
+                } else {
+                    let mut t = toml_edit::Table::new();
+                    t.set_implicit(true);
+                    toml_edit::Item::Table(t)
+                };
+                table.insert(k, new);
+            }
+            let item = table.get_mut(k).expect("there now");
+            inline |= item.is_inline_table();
+            table = item.as_table_like_mut().ok_or_else(|| crate::t!("err.not_a_table", "key" => k))?;
         }
         // Update in place where the key exists, so its comments stay.
         match table.get_mut(last).and_then(|i| i.as_value_mut()) {
@@ -1716,7 +1736,9 @@ impl Config {
     pub fn unset(text: &str, keys: &[&str]) -> Result<String, String> {
         let mut doc: toml_edit::DocumentMut = text.parse().map_err(|e| format!("config: {e}"))?;
         let (last, parents) = keys.split_last().ok_or("config: no key")?;
-        let table = parents.iter().try_fold(doc.as_table_mut(), |t, k| t.get_mut(k).and_then(|i| i.as_table_mut()));
+        let table = parents.iter().try_fold(doc.as_table_mut() as &mut dyn toml_edit::TableLike, |t, k| {
+            t.get_mut(k).and_then(|i| i.as_table_like_mut())
+        });
         if let Some(t) = table {
             t.remove(last);
         }
@@ -1726,14 +1748,11 @@ impl Config {
     /// Set one value in the user's config.toml and write it; only what still parses is written.
     pub fn save_value(keys: &[&str], value: toml_edit::Value) -> Result<Config, String> {
         let path = Config::path().ok_or_else(|| crate::t!("err.no_config_folder"))?;
-        let text = std::fs::read_to_string(&path).unwrap_or_default();
-        let new = Config::edit(&text, keys, value)?;
-        let cfg = Config::parse(&new)?;
-        if let Some(dir) = path.parent() {
-            std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
-        }
-        std::fs::write(&path, new).map_err(|e| format!("{}: {e}", path.display()))?;
-        Ok(cfg)
+        update_config(&path, |text| {
+            let new = Config::edit(text, keys, value)?;
+            let cfg = Config::parse(&new)?;
+            Ok((Some(new), cfg))
+        })
     }
 
     pub fn parse(text: &str) -> Result<Config, String> {
@@ -1749,8 +1768,16 @@ impl Config {
         for (tool, image) in PreviewConfig::default().images {
             self.preview.images.entry(tool).or_insert(image);
         }
+        // A key the user gave an action is that action's: another action's default loses it.
+        let mine: std::collections::HashSet<Key> = self.keys.values().flatten().filter_map(|k| k.parse().ok()).collect();
         for &a in Action::ALL {
-            self.keys.entry(a).or_insert_with(|| a.default_keys().iter().map(|k| k.to_string()).collect());
+            self.keys.entry(a).or_insert_with(|| {
+                a.default_keys()
+                    .iter()
+                    .filter(|k| !k.parse::<Key>().is_ok_and(|k| mine.contains(&k)))
+                    .map(|k| k.to_string())
+                    .collect()
+            });
         }
         for (name, theme) in Theme::builtin() {
             self.themes.entry(name.into()).or_insert(theme);
@@ -1765,7 +1792,9 @@ impl Config {
         let mut map = HashMap::new();
         for (&action, keys) in &self.keys {
             for k in keys {
-                map.insert(k.parse::<Key>()?, action);
+                if let Some(prev) = map.insert(k.parse::<Key>()?, action).filter(|&p| p != action) {
+                    return Err(crate::t!("err.key_twice", "key" => k, "a" => prev.name(), "b" => action.name()));
+                }
             }
         }
         Ok(map)
@@ -1780,7 +1809,16 @@ impl Config {
     /// over Alt+F7), else its first.
     pub fn handy_key(&self, action: Action) -> Option<&str> {
         let keys = self.keys.get(&action)?;
-        keys.iter().find(|k| k.starts_with("Ctrl+")).or(keys.first()).map(String::as_str)
+        let ctrl = |k: &&String| k.get(..5).is_some_and(|p| p.eq_ignore_ascii_case("ctrl+"));
+        keys.iter().find(ctrl).or(keys.first()).map(String::as_str)
+    }
+
+    /// The keys of `action` as texts show them, "F8 / Delete", or "—" with none.
+    pub fn keys_shown(&self, action: Action) -> String {
+        match self.keys.get(&action).filter(|k| !k.is_empty()) {
+            Some(k) => k.iter().map(|k| written(k)).collect::<Vec<_>>().join(" / "),
+            None => "—".into(),
+        }
     }
 
     pub fn theme(&self) -> Theme {
@@ -1818,20 +1856,35 @@ const KEYS_EXAMPLE: &str = "# Keys of your own: an action and its keys, in place
 /// end first, the rest kept as it is.
 pub fn prepare_at(found: impl Fn(&str) -> bool, example: &str) -> Result<(PathBuf, usize), String> {
     let path = Config::path().ok_or_else(|| crate::t!("err.no_config_folder"))?;
+    let line = update_config(&path, |text| {
+        let (line, new) = at_line(text, found, example);
+        Ok((new, line))
+    })?;
+    Ok((path, line))
+}
+
+/// Change the config.toml at `path`: `edit` gets its text (empty when there is none yet) and
+/// gives the new text to write, or `None` to leave it, and what to hand back. One change at a
+/// time, in every path that writes it, so two at once never lose one; through a link (a config
+/// kept with dotfiles) to the file itself; a file that cannot be read is never written over;
+/// and written through a file beside it, so a failed write never leaves half a config.
+pub(crate) fn update_config<T>(
+    path: &std::path::Path,
+    edit: impl FnOnce(&str) -> Result<(Option<String>, T), String>,
+) -> Result<T, String> {
+    static SAVING: std::sync::Mutex<()> = std::sync::Mutex::new(());
+    let _one = SAVING.lock().unwrap_or_else(|e| e.into_inner());
+    let path = std::fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
     let text = match std::fs::read_to_string(&path) {
         Ok(t) => t,
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => String::new(),
-        // Never written over when it cannot be read.
         Err(e) => return Err(format!("{}: {e}", path.display())),
     };
-    let (line, new) = at_line(&text, found, example);
+    let (new, out) = edit(&text)?;
     if let Some(new) = new {
-        if let Some(dir) = path.parent() {
-            std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
-        }
-        std::fs::write(&path, new).map_err(|e| format!("{}: {e}", path.display()))?;
+        crate::fs::replace(&path, new.as_bytes(), false).map_err(|e| format!("{}: {e}", path.display()))?;
     }
-    Ok((path, line))
+    Ok(out)
 }
 
 /// The line (from 1) of `text` that `found` matches, commented out or not; when there is none,
@@ -1862,6 +1915,35 @@ pub fn edit_command(editor: &str, file: &std::path::Path, line: usize) -> String
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn config_keys_given_twice_and_as_written() {
+        // A key the user gives an action leaves the action it is a default of.
+        let cfg = Config::parse("[keys]\npack = [\"F5\"]\n").unwrap();
+        assert_eq!(cfg.keymap().unwrap()[&"F5".parse::<Key>().unwrap()], Action::Pack);
+        assert!(!cfg.keys[&Action::Copy].iter().any(|k| k == "F5"));
+        // One the user gives two actions is an error that names both.
+        let e = Config::parse("[keys]\ncopy = [\"F9\"]\npack = [\"f9\"]\n").unwrap_err();
+        assert!(e.contains("copy") && e.contains("pack"), "{e}");
+        let cfg = Config::parse("[keys]\nsearch = [\"Alt+F7\", \"ctrl+f\"]\ndelete = [\"F8\", \"del\"]\n").unwrap();
+        assert_eq!(cfg.handy_key(Action::Search), Some("ctrl+f"));
+        assert_eq!(written("ctrl+f"), "Ctrl+F");
+        assert_eq!(cfg.keys_shown(Action::Delete), "F8 / Delete");
+        let none = Config::parse("[keys]\nhelp = []\n").unwrap();
+        assert_eq!(none.keys_shown(Action::Help), "—");
+    }
+
+    #[test]
+    fn config_edit_and_unset_go_into_inline_tables() {
+        for text in ["[preview]\nimages = { latex = \"x\" }\n", "preview = { theme = \"y\" }\n"] {
+            let new = Config::edit(text, &["preview", "images", "latex"], "z".into()).unwrap();
+            let cfg = Config::parse(&new).unwrap();
+            assert_eq!(cfg.preview.images["latex"], "z", "{new}");
+            let back = Config::unset(&new, &["preview", "images", "latex"]).unwrap();
+            assert!(!back.contains("\"z\""), "{back}");
+            Config::parse(&back).unwrap();
+        }
+    }
 
     #[test]
     fn config_opens_at_its_keys() {

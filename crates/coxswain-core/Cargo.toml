@@ -21,7 +21,7 @@ notify = "8"
 regex = "1"
 serde_json = "1"
 ureq = { version = "3", features = ["platform-verifier"] }
-zip = { version = "8.6.0", default-features = false, features = ["deflate-flate2-zlib-rs", "aes-crypto"] }
+zip = { version = "9.0.3", default-features = false, features = ["deflate-flate2-zlib-rs", "aes-crypto"] }
 tar = "0.4.46"
 flate2 = "1.1.10"
 blake3 = "1.8.7"
@@ -40,6 +40,8 @@ candle-transformers = "0.11.0"
 # pure-Rust `fancy-regex` backend would only be dead code next to it. 0.22 is what candle-core wants.
 tokenizers = { version = "0.22", default-features = false }
 sha2 = "0.11.0"
+# The key of an old .xls locked with Excel's default password (decrypt only).
+md-5 = "0.11"
 # F1 → Features: its filter ignores diacritics. Already in the tree (tokenizers, the terminal app).
 unicode-normalization = "0.1.25"
 # Provenance: DSSE payloads and signatures are base64.

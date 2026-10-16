@@ -87,11 +87,13 @@ pub fn plan(
     }
     for p in &mut out {
         p.conflict = if p.to.is_empty() {
-            Some("empty name".into())
+            Some(crate::t!("rename.conflict_empty"))
         } else if p.to.contains(['/', '\\']) {
-            Some("contains a path separator".into())
+            Some(crate::t!("rename.conflict_separator"))
+        } else if cfg!(windows) && windows_refuses(&p.to) {
+            Some(crate::t!("rename.conflict_windows"))
         } else if taken[&key(&p.to)] > 1 {
-            Some("name already taken".into())
+            Some(crate::t!("rename.conflict_taken"))
         } else {
             None
         };
@@ -99,9 +101,31 @@ pub fn plan(
     Ok(out)
 }
 
+/// A name Windows will not give a file: one with `<>:"|?*` or a control character in it, one
+/// ending in a dot or a space (Windows would drop them, so the file gets another name than the
+/// one shown), or a device's name (`CON`, `nul.txt`, `COM1`).
+fn windows_refuses(name: &str) -> bool {
+    let stem = name
+        .split('.')
+        .next()
+        .unwrap_or(name)
+        .trim_end()
+        .to_ascii_uppercase();
+    let device = matches!(stem.as_str(), "CON" | "PRN" | "AUX" | "NUL")
+        || (stem.len() == 4
+            && (stem.starts_with("COM") || stem.starts_with("LPT"))
+            && stem.as_bytes()[3].is_ascii_digit()
+            && stem.as_bytes()[3] != b'0');
+    device
+        || name.ends_with(['.', ' '])
+        || name
+            .chars()
+            .any(|c| matches!(c, '<' | '>' | ':' | '"' | '|' | '?' | '*') || c.is_control())
+}
+
 /// Rename in `dir` as planned. Refuses if any entry has a conflict. Uses temporary names so
-/// swaps (a -> b, b -> a) work. Unchanged entries are skipped. When a rename fails, the files
-/// still under temporary names get their old names back.
+/// swaps (a -> b, b -> a) work. Unchanged entries are skipped. When a rename fails, every file
+/// gets its old name back: all of the batch is done, or none of it.
 pub fn apply(dir: &Path, plan: &[Planned]) -> Result<(), String> {
     if let Some(p) = plan.iter().find(|p| p.conflict.is_some()) {
         return Err(format!(
@@ -123,7 +147,9 @@ pub fn apply(dir: &Path, plan: &[Planned]) -> Result<(), String> {
     }
     for (i, p) in moves.iter().enumerate() {
         if let Err(e) = std::fs::rename(tmp(i), dir.join(&p.to)) {
-            back(i, moves.len());
+            // The ones already under their new names go back through their temporary ones.
+            (0..i).for_each(|j| drop(std::fs::rename(dir.join(&moves[j].to), tmp(j))));
+            back(0, moves.len());
             return Err(format!("{} -> {}: {e}", p.from, p.to));
         }
     }
@@ -232,6 +258,13 @@ mod tests {
         assert!(p[0].conflict.is_some(), "empty name");
         let p = plan(&s(&["a.txt"]), &existing, "a", "x/y", Flags::default()).unwrap();
         assert!(p[0].conflict.is_some(), "separator");
+        assert!(windows_refuses("nul.txt") && windows_refuses("COM1") && windows_refuses("a?b"));
+        assert!(windows_refuses("dot.") && windows_refuses("space "));
+        assert!(
+            !windows_refuses("console.txt") && !windows_refuses("COM0") && !windows_refuses("a.b")
+        );
+        let p = plan(&s(&["a.txt"]), &existing, "a", "aux", Flags::default()).unwrap();
+        assert_eq!(p[0].conflict.is_some(), cfg!(windows), "a device's name");
         // Unchanged is not a conflict.
         let p = plan(&s(&["a.txt"]), &existing, "zzz", "q", Flags::default()).unwrap();
         assert_eq!((p[0].to.as_str(), p[0].conflict.is_none()), ("a.txt", true));
@@ -280,6 +313,21 @@ mod tests {
             },
         ];
         assert!(apply(&d, &gone).is_err());
+        // One that fails in the second round (no such folder) leaves the first one as it was.
+        let late = vec![
+            Planned {
+                from: "a".into(),
+                to: "c".into(),
+                conflict: None,
+            },
+            Planned {
+                from: "b".into(),
+                to: "no-such/d".into(),
+                conflict: None,
+            },
+        ];
+        assert!(apply(&d, &late).is_err());
+        assert!(d.join("a").exists() && d.join("b").exists() && !d.join("c").exists());
         let names: Vec<String> = std::fs::read_dir(&d)
             .unwrap()
             .flatten()

@@ -439,7 +439,7 @@ fn dialog(f: &mut Frame, app: &mut App) {
             input_line(f, app, field, filter);
         }
         Dialog::Menu { title, filter, items, cursor, direct, .. } => {
-            let visible: Vec<_> = items.iter().filter(|it| it.label.to_lowercase().contains(&filter.to_lowercase())).collect();
+            let visible: Vec<&crate::MenuItem> = crate::menu_visible(items, filter).into_iter().map(|i| &items[i]).collect();
             let kw = items.iter().map(|i| i.key.width()).max().unwrap_or(0);
             let lw = items.iter().map(|i| i.label.width()).max().unwrap_or(0).max(items.iter().filter_map(|i| i.group.as_ref()).map(|g| g.width()).max().unwrap_or(0));
             // The rows: a heading where the group changes (the action menu), then the items;
@@ -458,7 +458,7 @@ fn dialog(f: &mut Frame, app: &mut App) {
                 input_line(f, app, Rect { y, height: 1, ..inner }, filter);
                 y += 1;
             }
-            let rows = (inner.bottom() - y) as usize;
+            let rows = inner.bottom().saturating_sub(y) as usize;
             let at = lines.iter().position(|l| l.0 == Some(*cursor)).unwrap_or(0);
             let skip = at.saturating_sub(rows.saturating_sub(1));
             for (item, heading) in lines.into_iter().skip(skip).take(rows) {
@@ -483,7 +483,7 @@ fn search(f: &mut Frame, app: &mut App, full: Rect) {
     let dir = app.panel().dir.clone();
     let now = app.index.status();
     let Some(Dialog::Search { query, chip, here, found, cursor, show, .. }) = &app.dialog else { return };
-    let (query, chip, here, show) = (query.clone(), *chip, *here, *show);
+    let (query, chip, here, show, cursor) = (query.clone(), *chip, *here, *show, *cursor);
     let rows = app.find_rows(&query, chip, found);
     let (prefix, question) = find::parse(&query);
     let kind = prefix.unwrap_or(chip);
@@ -540,7 +540,7 @@ fn search(f: &mut Frame, app: &mut App, full: Rect) {
         return f.render_widget(Paragraph::new(lines).wrap(Wrap { trim: false }), list);
     }
     if answer {
-        let (cursor, off) = (*cursor, app.ask_state().err());
+        let off = app.ask_state().err();
         return ask(f, &app.chat, app.ask_rx.is_some(), off.as_ref(), &app.cfg.search, &t, cursor, list);
     }
     let width = list.width as usize;
@@ -562,6 +562,9 @@ fn search(f: &mut Frame, app: &mut App, full: Rect) {
         }
         return f.render_widget(Paragraph::new(lines).wrap(Wrap { trim: true }), list);
     }
+    // The rows are rebuilt every frame and can shrink under the cursor (a tip dismissed, the
+    // slow-model row going): the cursor goes back onto a row that is there.
+    let cursor = find::step(&rows, cursor, 0);
 
     // Each row as lines; a hit with a passage takes two.
     let step_hint = |off: &find::Off| {
@@ -576,22 +579,22 @@ fn search(f: &mut Frame, app: &mut App, full: Rect) {
         .iter()
         .enumerate()
         .map(|(i, row)| {
-            let base = if i == *cursor { sty(&t.dialog_input) } else { dstyle(&t) };
+            let base = if i == cursor { sty(&t.dialog_input) } else { dstyle(&t) };
             match row {
                 Row::Ask { off: None } => vec![Line::from(Span::styled(fit(&format!(" ? {}", t!("find.ask_row", "query" => question.trim())), width), base.patch(hit_style).bg(base.bg.unwrap_or(Color::Reset))))],
                 Row::Slow { poor } => {
                     let step = poor.button.clone().unwrap_or_else(|| t!("find.step_settings"));
-                    vec![Line::from(Span::styled(fit(&format!("   {} · Enter: {step}", poor.short), width), if i == *cursor { base } else { dim }))]
+                    vec![Line::from(Span::styled(fit(&format!("   {} · Enter: {step}", poor.short), width), if i == cursor { base } else { dim }))]
                 }
-                Row::Ask { off: Some(off) } => vec![Line::from(Span::styled(fit(&format!(" ? {}{}", off.text(), step_hint(off)), width), if i == *cursor { base } else { dim }))],
+                Row::Ask { off: Some(off) } => vec![Line::from(Span::styled(fit(&format!(" ? {}{}", off.text(), step_hint(off)), width), if i == cursor { base } else { dim }))],
                 Row::Head { group, shown, total } => {
                     let label = coxswain_core::i18n::caps(&group.label());
                     let count = if *total > 0 { t!("find.of", "shown" => shown, "total" => total) } else { String::new() };
                     let gap = width.saturating_sub(label.width() + count.width() + 1);
                     vec![Line::from(Span::styled(format!("{label}{}{count} ", " ".repeat(gap)), dstyle(&t).fg(header_fg).add_modifier(Modifier::BOLD)))]
                 }
-                Row::More { n, .. } => vec![Line::from(Span::styled(fit(&format!("   {}", t!("find.more", "n" => n)), width), if i == *cursor { base } else { dim }))],
-                Row::Off { off, .. } => vec![Line::from(Span::styled(fit(&format!("   {}{}", off.text(), step_hint(off)), width), if i == *cursor { base } else { dim }))],
+                Row::More { n, .. } => vec![Line::from(Span::styled(fit(&format!("   {}", t!("find.more", "n" => n)), width), if i == cursor { base } else { dim }))],
+                Row::Off { off, .. } => vec![Line::from(Span::styled(fit(&format!("   {}{}", off.text(), step_hint(off)), width), if i == cursor { base } else { dim }))],
                 Row::Hit { hit: h, .. } => {
                     let p = h.path.to_string_lossy();
                     let (parent, name) = p.rsplit_once(std::path::MAIN_SEPARATOR).unwrap_or(("", &p));
@@ -612,9 +615,10 @@ fn search(f: &mut Frame, app: &mut App, full: Rect) {
         .collect();
     // The cursor's row in sight.
     let height = list.height as usize;
-    let Some(Dialog::Search { cursor, offset, .. }) = &mut app.dialog else { return };
-    *offset = (*offset).min(*cursor);
-    while *offset < *cursor && block[*offset..=*cursor].iter().map(Vec::len).sum::<usize>() > height {
+    let Some(Dialog::Search { cursor: at, offset, .. }) = &mut app.dialog else { return };
+    *at = cursor;
+    *offset = (*offset).min(cursor);
+    while *offset < cursor && block[*offset..=cursor].iter().map(Vec::len).sum::<usize>() > height {
         *offset += 1;
     }
     let lines: Vec<Line> = block.into_iter().skip(*offset).flatten().take(height).collect();

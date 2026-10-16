@@ -4,7 +4,7 @@
   // its label and one-line explanation are `setting.<name>` texts), written to config.toml at
   // once (comments and layout kept) and applied without a restart.
   import { tick, untrack } from "svelte";
-  import { ui, setTheme, themeIds, themeName, tab, cd } from "./app.svelte.js";
+  import { ui, setTheme, themeIds, themeName, tab, showInTab, actionLabel, keysOf } from "./app.svelte.js";
   import { invoke, size, parent } from "./lib.js";
   import { t, setLanguage } from "./i18n.svelte.js";
   import CopyLine from "./CopyLine.svelte";
@@ -61,6 +61,8 @@
     area = a;
     query = "";
     if (!at) return;
+    // One block shows both themes: the one asked for.
+    if (at === "theme" || at === "tui_theme") themeFor = at;
     await tick();
     const el = document.getElementById(`opt-${at}`);
     if (!el) return;
@@ -94,7 +96,12 @@
     invoke("search_status").then((v) => (lines = v), () => {});
   };
   loadIndex();
+  // Polled only while an area that shows them is open (a search lists every area's options),
+  // and read at once on arriving there.
+  const shows = (...areas) => !!query || areas.includes(area);
   $effect(() => {
+    if (!shows("search", "overview")) return;
+    untrack(loadIndex);
     const id = setInterval(loadIndex, 2000);
     return () => clearInterval(id);
   });
@@ -142,9 +149,7 @@
   async function showInPanel(path, isFile = true) {
     close();
     const tb = tab();
-    await cd(tb, isFile ? parent(path) : path);
-    const i = tb.items.findIndex((e) => e.path === path);
-    if (i >= 0) tb.cursor = i;
+    await showInTab(tb, path, !isFile);
   }
   const adding = $state({});
   /** What the store has of a folder read: its bytes, and whether its disk is away. */
@@ -174,6 +179,7 @@
   const loadMeaning = () => invoke("meaning_status").then((v) => (meaning = v), () => (meaning = null));
   loadMeaning();
   $effect(() => {
+    if (!shows("search")) return;
     const id = setInterval(loadMeaning, meaning?.downloading ? 500 : 3000);
     return () => clearInterval(id);
   });
@@ -252,6 +258,7 @@
   const loadChat = () => invoke("chat_status").then((v) => (chat = v), () => (chat = null));
   loadChat();
   $effect(() => {
+    if (!shows("search")) return;
     const id = setInterval(loadChat, chat?.downloading ? 500 : 3000);
     return () => clearInterval(id);
   });
@@ -275,9 +282,6 @@
     if (pulling && !now && server) invoke("meaning_models", { engine: server, url: s.meaning_url }).then((list) => (models = { ok: true, list, error: "" }), () => {});
     pulling = now;
   });
-  const hostOf = (url) => url.replace(/^\w+:\/\//, "").split(/[/?#]/)[0];
-  const isRemote = (url) => !/^(localhost|127\.|\[::1\])/.test(hostOf(url));
-  const serverUrl = $derived(s.meaning_url || (server !== "openai" ? "http://localhost:11434" : ""));
   async function pull(model) {
     error = "";
     await invoke("meaning_pull", { model, url: s.meaning_url }).catch((e) => (error = String(e)));
@@ -368,12 +372,11 @@
   // ------------------------------------------------------------ keys
 
   let keyFilter = $state("");
-  const keysOf = (action) => Object.entries(ui.cfg.keymap).filter(([, a]) => a === action).map(([k]) => k);
   const keyGroups = $derived(
     ui.cfg.groups
       .map(([label, acts]) => [label, acts.filter((a) => {
         const q = keyFilter.trim().toLowerCase();
-        return !q || `${ui.cfg.actions[a]?.[0] ?? a} ${a} ${keysOf(a).join(" ")}`.toLowerCase().includes(q);
+        return !q || `${actionLabel(a)} ${a} ${keysOf(a).join(" ")}`.toLowerCase().includes(q);
       })])
       .filter(([, acts]) => acts.length),
   );
@@ -669,7 +672,7 @@
             {#if server}
               {#snippet url()}
                 <input id="in-meaning_url" value={s.meaning_url} spellcheck="false" placeholder={server === "ollama" ? "http://localhost:11434" : "http://localhost:8000/api/v1"} onchange={(e) => set("meaning_url", e.currentTarget.value.trim())} />
-                <p class="hint">{models.ok ? t("settings.meaning_server_ok") : models.error}{#if isRemote(serverUrl)}<br /><strong>{t("settings.meaning_remote", { host: hostOf(serverUrl) })}</strong>{/if}</p>
+                <p class="hint">{models.ok ? t("settings.meaning_server_ok") : models.error}{#if !ui.cfg.server_local}<br /><strong>{t("settings.meaning_remote", { host: ui.cfg.server_host })}</strong>{/if}</p>
               {/snippet}
               {@render field("meaning_url", url)}
               {#snippet model()}
@@ -733,7 +736,7 @@
               {#if chat?.error}<p class="err">{chat.error}</p>{/if}
               {#if askProblem}<p class="err">{askProblem}</p>{/if}
               {#if trial && !trial.busy}<p class="hint" class:err={trial.error}>{trial.error ?? t("setup.try_done", { seconds: (trial.ms / 1000).toFixed(1) })}</p>{/if}
-              {#if !builtinAsk && isRemote(serverUrl)}<p class="hint"><strong>{t("settings.ask_remote", { host: hostOf(serverUrl) })}</strong></p>{/if}
+              {#if !builtinAsk && !ui.cfg.server_local}<p class="hint"><strong>{t("settings.ask_remote", { host: ui.cfg.server_host })}</strong></p>{/if}
               <p class="hint">{t("settings.ask_builtin_hint")}</p>
             {/snippet}
             {#snippet codeModel()}
@@ -918,7 +921,7 @@
           <p class="label region">{label}</p>
           <div class="keys">
             {#each acts as a (a)}
-              <span>{ui.cfg.actions[a]?.[0] ?? a}</span>
+              <span>{actionLabel(a)}</span>
               <span class="mono">{keysOf(a).join(" · ") || "—"}</span>
             {/each}
           </div>

@@ -86,6 +86,43 @@ pub fn private(dir: &Path, file: Option<&Path>) -> io::Result<()> {
     Ok(())
 }
 
+/// `t` in seconds since 1970; `None` before then, or when the system keeps no such time.
+pub fn secs(t: io::Result<std::time::SystemTime>) -> Option<u64> {
+    Some(t.ok()?.duration_since(UNIX_EPOCH).ok()?.as_secs())
+}
+
+/// Now, in seconds since 1970.
+pub fn now() -> u64 {
+    secs(Ok(std::time::SystemTime::now())).unwrap_or(0)
+}
+
+/// `bytes` as the new content of `path`, through a file beside it, so a failed write never
+/// leaves a half-written `path` (and the file beside it is removed); with `own`, readable by the
+/// user alone, as `private` makes it.
+pub fn replace(path: &Path, bytes: &[u8], own: bool) -> io::Result<()> {
+    let dir = path.parent().unwrap_or(Path::new("."));
+    let tmp = match path.extension() {
+        Some(e) => path.with_extension(format!("{}.tmp", e.to_string_lossy())),
+        None => path.with_extension("tmp"),
+    };
+    let done = (|| {
+        if own {
+            private(dir, None)?;
+        } else {
+            fs::create_dir_all(dir)?;
+        }
+        fs::write(&tmp, bytes)?;
+        if own {
+            private(dir, Some(&tmp))?;
+        }
+        fs::rename(&tmp, path)
+    })();
+    if done.is_err() {
+        let _ = fs::remove_file(&tmp);
+    }
+    done
+}
+
 impl Entry {
     pub fn is_parent(&self) -> bool {
         self.name == ".."
@@ -119,16 +156,8 @@ impl Entry {
             is_dir: meta.is_dir(),
             is_symlink,
             size: if meta.is_dir() { 0 } else { meta.len() },
-            modified: meta
-                .modified()
-                .ok()
-                .and_then(|t| t.duration_since(UNIX_EPOCH).ok())
-                .map_or(0, |d| d.as_secs()),
-            created: meta
-                .created()
-                .ok()
-                .and_then(|t| t.duration_since(UNIX_EPOCH).ok())
-                .map_or(0, |d| d.as_secs()),
+            modified: secs(meta.modified()).unwrap_or(0),
+            created: secs(meta.created()).unwrap_or(0),
             online: !meta.is_dir() && crate::cloud::online_meta(&meta, &path),
             referenced: 0,
             name,
@@ -210,14 +239,7 @@ pub fn list_with_archive(
             name: "..".into(),
             path: parent,
             is_dir: true,
-            is_symlink: false,
-            is_exec: false,
-            hidden: false,
-            size: 0,
-            modified: 0,
-            created: 0,
-            online: false,
-            referenced: 0,
+            ..Entry::default()
         });
     }
     for de in fs::read_dir(dir)? {
@@ -461,7 +483,12 @@ fn copy_out_or_in(
     if let Some((archive, inner)) = into_archive(dst) {
         let name = src
             .file_name()
-            .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "nothing to copy"))?
+            .ok_or_else(|| {
+                io::Error::new(
+                    io::ErrorKind::InvalidInput,
+                    crate::t!("err.nothing_to_copy"),
+                )
+            })?
             .to_string_lossy();
         // Into a folder of the archive under its own name, or under the name `dst` gives.
         let (to, inner) = if crate::archive::is_folder(&archive, &inner)? {
@@ -494,7 +521,7 @@ fn copy_out_or_in(
     if to.starts_with(src) && src.is_dir() {
         return Err(io::Error::new(
             io::ErrorKind::InvalidInput,
-            "cannot copy a folder into itself",
+            crate::t!("err.copy_into_itself"),
         ));
     }
     copy_tree(src, &to)?;
@@ -526,10 +553,14 @@ fn copy_tree(src: &Path, to: &Path) -> io::Result<()> {
         // ponytail: no overwrite prompt yet; delete the target first.
         Err(io::Error::new(
             io::ErrorKind::AlreadyExists,
-            format!("{} exists", to.display()),
+            crate::t!("err.exists", "path" => to.display()),
         ))
     } else {
-        fs::copy(src, to).map(drop)
+        // Not there before (above): a copy that fails half way (a full disk) leaves nothing,
+        // so trying again is not refused as "exists".
+        fs::copy(src, to).map(drop).inspect_err(|_| {
+            let _ = fs::remove_file(to);
+        })
     }
 }
 
@@ -577,10 +608,11 @@ pub fn rename_locked(src: &Path, dst: &Path, password: Option<&str>) -> io::Resu
 fn rename_plain(src: &Path, dst: &Path) -> io::Result<PathBuf> {
     let to = target(src, dst);
     // `to` may be `src` itself in another case (`Notes` to `notes` where case does not count).
-    if to.exists() && !same_file(src, &to) {
+    // A link counts as there, even one to nothing: rename would replace it.
+    if fs::symlink_metadata(&to).is_ok() && !same_file(src, &to) {
         return Err(io::Error::new(
             io::ErrorKind::AlreadyExists,
-            format!("{} exists", to.display()),
+            crate::t!("err.exists", "path" => to.display()),
         ));
     }
     match fs::rename(src, &to) {
@@ -788,25 +820,8 @@ fn read_dir_once(
 /// Total bytes and file count under `path`, in parallel. Symlinks are counted, not followed;
 /// unreadable parts, and other apps' data on a Mac (`protected`) below it, are skipped.
 pub fn dir_size(path: &Path) -> (u64, u64) {
-    use rayon::prelude::*;
-    let Ok(meta) = fs::symlink_metadata(path) else {
-        return (0, 0);
-    };
-    if !meta.is_dir() {
-        return (meta.len(), 1);
-    }
-    let Ok(rd) = read_dir(path) else {
-        return (0, 0);
-    };
-    rd.flatten()
-        .collect::<Vec<_>>()
-        .par_iter()
-        .map(|de| match de.file_type() {
-            Ok(t) if t.is_dir() && protected(&de.path()) => (0, 0),
-            Ok(t) if t.is_dir() => dir_size(&de.path()),
-            _ => (de.metadata().map_or(0, |m| m.len()), 1),
-        })
-        .reduce(|| (0, 0), |a, b| (a.0 + b.0, a.1 + b.1))
+    // Never stopped, so always measured.
+    crate::sizes::walk(path, &std::sync::atomic::AtomicBool::new(false)).unwrap_or_default()
 }
 
 /// What Properties shows of a file or folder: the basics, and where the system has them, its
@@ -838,9 +853,6 @@ pub struct Props {
 /// Properties of `path`: a folder's size is a walk of it, and the facts run `zfs` and `pkg`,
 /// so not on a thread that draws.
 pub fn properties(path: &Path) -> io::Result<Props> {
-    let secs = |t: io::Result<std::time::SystemTime>| {
-        Some(t.ok()?.duration_since(UNIX_EPOCH).ok()?.as_secs())
-    };
     let lmeta = fs::symlink_metadata(path)?;
     let meta = fs::metadata(path).unwrap_or_else(|_| lmeta.clone());
     let (size, files) = dir_size(path);
@@ -951,6 +963,25 @@ fn windows_open(path: &Path) -> io::Result<()> {
         31 => Err(io::Error::other(crate::t!("err.no_application"))),
         _ => Err(io::Error::from_raw_os_error(code as i32)),
     }
+}
+
+/// `%XX` undone, as in a `file://` link: a `%` without two digits of sixteen after it stays.
+pub fn percent_decode(bytes: &[u8]) -> Vec<u8> {
+    let digit = |at: usize| bytes.get(at).and_then(|b| (*b as char).to_digit(16));
+    let (mut out, mut at) = (Vec::with_capacity(bytes.len()), 0);
+    while at < bytes.len() {
+        match (bytes[at], digit(at + 1), digit(at + 2)) {
+            (b'%', Some(high), Some(low)) => {
+                out.push((high * 16 + low) as u8);
+                at += 3;
+            }
+            (byte, ..) => {
+                out.push(byte);
+                at += 1;
+            }
+        }
+    }
+    out
 }
 
 /// `s` as a path: `~` is the home folder, and a relative path starts from `base`.
@@ -1095,6 +1126,12 @@ pub fn cause(err: &str) -> String {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn percent_decode_undoes_two_digits_and_leaves_the_rest() {
+        assert_eq!(super::percent_decode(b"a%C3%A6%2f"), "aæ/".as_bytes());
+        assert_eq!(super::percent_decode(b"%zz%+1%4"), b"%zz%+1%4");
+    }
+
     use super::*;
 
     /// On a Mac the walks leave other apps' data alone: `~/Library` but iCloud Drive and the
@@ -1289,14 +1326,9 @@ mod tests {
             name: name.into(),
             path: PathBuf::from(name),
             is_dir: true,
-            is_symlink: false,
-            is_exec: false,
-            hidden: false,
-            size: 0,
             modified,
             created: modified,
-            online: false,
-            referenced: 0,
+            ..Entry::default()
         };
         // As git lists them: newest first; two made in the same second.
         let git = [
@@ -1376,6 +1408,16 @@ mod tests {
         );
         assert!(d.join("moved/sub/f").exists());
         assert_eq!(dir_size(&d.join("moved")), (1, 1));
+        // A link to nothing at the target is there all the same: not replaced.
+        #[cfg(unix)]
+        {
+            std::os::unix::fs::symlink(d.join("nowhere"), d.join("link")).unwrap();
+            fs::write(d.join("b.txt"), "b").unwrap();
+            assert!(rename(&d.join("b.txt"), &d.join("link")).is_err());
+            assert!(fs::symlink_metadata(d.join("link")).unwrap().is_symlink());
+            fs::remove_file(d.join("link")).unwrap();
+            fs::remove_file(d.join("b.txt")).unwrap();
+        }
         fs::write(d.join("a.txt"), "").unwrap();
         assert_eq!(free_name(&d, "a.txt"), d.join("a (2).txt"));
         assert_eq!(free_name(&d, "b.txt"), d.join("b.txt"));

@@ -106,18 +106,21 @@ fn restore_in(trash: &Path, name: &str, path: &Path) -> io::Result<()> {
     let path = std::path::absolute(path)?;
     let info = trash.join("info").join(format!("{name}.trashinfo"));
     let body = fs::read_to_string(&info)
-        .map_err(|_| io::Error::new(io::ErrorKind::NotFound, "not in the trash"))?;
+        .map_err(|_| io::Error::new(io::ErrorKind::NotFound, crate::t!("err.not_in_trash")))?;
     // Still the one this path put there, not another under a name freed and taken since.
     if !body
         .lines()
         .any(|l| l.strip_prefix("Path=") == Some(encode(&path).as_str()))
     {
-        return Err(io::Error::new(io::ErrorKind::NotFound, "not in the trash"));
+        return Err(io::Error::new(
+            io::ErrorKind::NotFound,
+            crate::t!("err.not_in_trash"),
+        ));
     }
     if fs::symlink_metadata(&path).is_ok() {
         return Err(io::Error::new(
             io::ErrorKind::AlreadyExists,
-            format!("{} exists", path.display()),
+            crate::t!("err.exists", "path" => path.display()),
         ));
     }
     fs::rename(trash.join("files").join(name), &path)?;

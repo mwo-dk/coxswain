@@ -205,7 +205,9 @@ Both are written in letters that take two columns in a terminal and need a font 
 - **Fonts in the desktop app:** after every font list come Vazirmatn, Noto Sans Arabic and Noto
   Naskh Arabic (Geeza Pro on macOS; Segoe UI and Tahoma on Windows have the letters), Noto Sans
   Armenian and Noto Sans Georgian (Sylfaen on Windows; macOS has its own), then the Japanese and
-  Korean ones. On Linux they come with `noto-fonts` (Arch), `fonts-noto-core` (Debian, Ubuntu)
+  Korean ones. On FreeBSD they come with `noto` (`pkg install noto`), on NetBSD with `noto-ttf`
+  (`pkgin install noto-ttf`), on OpenBSD with `noto-fonts` (`pkg_add noto-fonts`), and on Linux
+  with `noto-fonts` (Arch), `fonts-noto-core` (Debian, Ubuntu)
   or `google-noto-sans-arabic-fonts`, `google-noto-sans-armenian-fonts` and
   `google-noto-sans-georgian-fonts` (Fedora); Vazirmatn, drawn for Persian, is `fonts-vazirmatn`
   on Debian and Ubuntu. When Coxswain speaks one of these and `fc-list` knows no font for it,
@@ -325,10 +327,10 @@ Georgian headings as they are.
 
 #### Persian, Armenian or Georgian shows as boxes. What is missing?
 
-A font with those letters. On Linux install `noto-fonts` (Arch), `fonts-noto-core` (Debian,
-Ubuntu) or `google-noto-sans-arabic-fonts`, `google-noto-sans-armenian-fonts`,
-`google-noto-sans-georgian-fonts` (Fedora), and start the desktop app again; on FreeBSD
-`pkg install noto`. The desktop app says so once under *Settings → Overview → What's new*. See
+A font with those letters. On FreeBSD `pkg install noto`, on NetBSD `pkgin install noto-ttf`,
+on OpenBSD `pkg_add noto-fonts`; on Linux install `noto-fonts` (Arch), `fonts-noto-core`
+(Debian, Ubuntu) or `google-noto-sans-arabic-fonts`, `google-noto-sans-armenian-fonts`,
+`google-noto-sans-georgian-fonts` (Fedora). Then start the desktop app again. The desktop app says so once under *Settings → Overview → What's new*. See
 [Persian, Armenian and Georgian](#persian-armenian-and-georgian).
 
 #### Japanese or Korean shows as boxes. What is missing?

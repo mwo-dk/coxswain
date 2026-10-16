@@ -190,6 +190,7 @@ for the rc.d script.
 | Battery | `sysctl hw.power`: `0` means on battery, and the helper pauses ([Battery](../search/battery.md)) |
 | Memory in the setup guide | `sysconf(_SC_PHYS_PAGES)` |
 | Removable disks | Known by their path only |
+| File flags | Not shown or set: Properties has no *Flags* line, and **F9** → *File flags* says *File flags are for FreeBSD and macOS* |
 | ZFS | None on OpenBSD |
 | The update notice | Names the install line ([Updating](#updating-and-uninstalling)) |
 

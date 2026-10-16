@@ -13,8 +13,9 @@ use std::path::Path;
 
 use crate::meaning::Passage;
 
-/// Bytes of a passage of code at most, and at least before the next item joins it.
-const MOST: usize = 1500;
+/// Bytes of a passage of code at most (what the model is shown of any passage), and at least
+/// before the next item joins it.
+const MOST: usize = crate::meaning::CHARS;
 const LEAST: usize = 500;
 
 /// How a language writes its comments and strings.
@@ -1105,7 +1106,9 @@ fn public(line: &str, path: &str, name: &str) -> bool {
 
 /// The public items of a file of code, as their first line says them, `most` at most.
 fn signatures(text: &str, path: &str, most: usize) -> Vec<String> {
-    let Some(l) = lang(path) else { return vec![] };
+    let Some(l) = lang(path).filter(|_| most > 0) else {
+        return vec![];
+    };
     if !path.rsplit('.').next().is_some_and(|e| {
         !matches!(
             e,
@@ -1150,16 +1153,17 @@ fn signatures(text: &str, path: &str, most: usize) -> Vec<String> {
                 && !name.starts_with('[')
                 && (t.ends_with('{') || t.ends_with(')'));
         if fits && public(line.text, path, &name) {
+            // One more than `most`: the rest are told of, not shown.
+            if out.len() == most {
+                out.push("…".into());
+                break;
+            }
             let sig = t.trim_end_matches(['{', ':']).trim_end();
             out.push(if sig.chars().count() > 120 {
                 format!("{}…", sig.chars().take(120).collect::<String>())
             } else {
                 sig.to_string()
             });
-            if out.len() == most {
-                out.push("…".into());
-                break;
-            }
         }
     }
     out
@@ -1609,6 +1613,14 @@ mod tests {
             uses("Dockerfile", "FROM rust:1.80 AS build\nRUN cargo build\n").1,
             ["rust:1.80"]
         );
+    }
+
+    #[test]
+    fn signatures_keep_to_their_number() {
+        let text = "pub fn a() {\n}\n\npub fn b() {\n}\n";
+        assert!(signatures(text, "x.rs", 0).is_empty(), "no room, no items");
+        assert_eq!(signatures(text, "x.rs", 1), ["pub fn a()", "…"]);
+        assert_eq!(signatures(text, "x.rs", 2), ["pub fn a()", "pub fn b()"], "none cut");
     }
 
     #[test]

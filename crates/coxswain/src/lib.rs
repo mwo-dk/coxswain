@@ -316,6 +316,17 @@ pub struct MenuItem {
     pub group: Option<String>,
 }
 
+/// The branch an entry of the branches listing names (`branches::entry_name`'s inverse).
+fn branch_of(entry: &str) -> String {
+    entry.trim_start_matches("* ").split(' ').next().unwrap_or_default().replace('∕', "/")
+}
+
+/// The menu's items whose label holds the filter, as indexes: the keys and the drawing agree.
+pub(crate) fn menu_visible(items: &[MenuItem], filter: &str) -> Vec<usize> {
+    let f = filter.to_lowercase();
+    (0..items.len()).filter(|&i| items[i].label.to_lowercase().contains(&f)).collect()
+}
+
 pub enum Dialog {
     Input { title: String, label: String, value: String, prompt: Prompt },
     /// Delete `paths`; `forever` skips the trash.
@@ -435,6 +446,9 @@ pub struct App {
     /// worked out for.
     pub hint: Option<(&'static str, String)>,
     hint_for: Option<coxswain_core::menu::Subject>,
+    /// What is under the cursor may have changed (a key, a click, a listing, git): the hint
+    /// is worked out again only then.
+    hint_stale: bool,
     /// Find shows how to limit it to the panel's folder: the first few times it opens.
     pub find_hint: bool,
     pub quick: Option<String>,
@@ -453,6 +467,8 @@ pub struct App {
     search_tx: mpsc::Sender<FindJob>,
     search_rx: mpsc::Receiver<(u64, Found)>,
     search_gen: u64,
+    /// The last search whose answer came: behind `search_gen` while one is out.
+    search_got: u64,
     /// Ask in Find file: the turns so far, the answer on its way, and its stop flag. Closing
     /// Find file forgets them.
     pub chat: Vec<Turn>,
@@ -608,6 +624,7 @@ impl App {
             status: None,
             hint: None,
             hint_for: None,
+            hint_stale: true,
             find_hint: false,
             quick: None,
             show_hidden,
@@ -622,6 +639,7 @@ impl App {
             search_tx,
             search_rx,
             search_gen: 0,
+            search_got: 0,
             chat: vec![],
             ask_rx: None,
             ask_stop: Arc::default(),
@@ -643,7 +661,7 @@ impl App {
             cfg,
         };
         let mut app = app;
-        app.refresh_git();
+        app.refresh_git(&[0, 1]);
         app.measure(0);
         app.measure(1);
         Ok(app)
@@ -669,10 +687,10 @@ impl App {
         }
     }
 
-    /// git status, and the last commit of each entry, run on a thread; results arrive
+    /// git status, and the last commit of each entry, of the panels `sides`, run on a thread; results arrive
     /// through `git_rx`.
-    fn refresh_git(&self) {
-        let dirs: HashSet<PathBuf> = self.panels.iter().map(|p| p.dir.clone()).collect();
+    fn refresh_git(&self, sides: &[usize]) {
+        let dirs: HashSet<PathBuf> = sides.iter().map(|&s| self.panels[s].dir.clone()).collect();
         let last = self.cfg.git.last_commit;
         for dir in dirs {
             let tx = self.git_tx.clone();
@@ -731,7 +749,7 @@ impl App {
     fn reload(&mut self) {
         self.load(0, None);
         self.load(1, None);
-        self.refresh_git();
+        self.refresh_git(&[0, 1]);
         self.measure(0);
         self.measure(1);
     }
@@ -739,7 +757,7 @@ impl App {
     fn cd(&mut self, side: usize, dir: PathBuf) {
         let came = self.panels[side].enter(dir.clone());
         self.load(side, came);
-        self.refresh_git();
+        self.refresh_git(&[side]);
         self.measure(side);
         // A locked archive, looked into: its password, kept for this run, then again.
         if self.panels[side].error.as_deref().is_some_and(|e| e.contains(coxswain_core::archive::LOCKED)) {
@@ -751,6 +769,7 @@ impl App {
     /// commits come from git, which can take seconds on a big repository: on a thread, the
     /// status line saying so meanwhile.
     fn load(&mut self, side: usize, select: Option<String>) {
+        self.hint_stale = true;
         let h = self.show_hidden;
         let p = &mut self.panels[side];
         if !virtual_list(&p.dir) {
@@ -772,6 +791,7 @@ impl App {
     /// A listing from the thread, for the panels still showing its folder. One that failed
     /// walks up, as `Panel::load` does, and the status line says why.
     fn listed(&mut self, dir: PathBuf, keep: Option<String>, r: std::io::Result<Vec<Entry>>) {
+        self.hint_stale = true;
         let busy = t!("status.busy", "what" => Self::describe(std::slice::from_ref(&dir)));
         if self.status.as_deref() == Some(busy.as_str()) {
             self.status = None;
@@ -789,11 +809,14 @@ impl App {
                 }
                 Err(e) => {
                     p.error = Some(e.to_string());
-                    self.status = p.error.clone();
+                    let why = p.error.clone();
                     if let Some(up) = p.dir.parent() {
                         p.dir = up.to_path_buf();
                         self.load(side, None);
                     }
+                    // After the walk up: a parent read on a thread too says it is busy, and
+                    // its listing clears only that.
+                    self.status = why;
                 }
             }
         }
@@ -815,6 +838,7 @@ impl App {
 
     fn on_key(&mut self, ev: KeyEvent) {
         let Some(key) = to_key(ev) else { return };
+        self.hint_stale = true;
         self.status = None;
         if self.dialog.is_some() {
             return self.dialog_key(key);
@@ -1231,11 +1255,7 @@ impl App {
         }
         // A file of a package: to its folder, the cursor on it.
         if coxswain_core::bsd::split(&self.panel().dir).is_some() {
-            if let (Some(dir), Some(name)) = (e.path.parent(), e.path.file_name()) {
-                self.cd(self.active, dir.to_path_buf());
-                self.panel_mut().select_name(&name.to_string_lossy());
-            }
-            return;
+            return self.reveal(&e.path.clone());
         }
         // A file in a snapshot: what changed in it since, in the viewer.
         if coxswain_core::zfs::in_snapshot(&e.path).is_some() {
@@ -1375,7 +1395,7 @@ impl App {
         let Some(e) = p.current().filter(|e| in_list && !e.is_parent()) else {
             return self.status = Some(t!("branches.switch_where", "key" => self.key_label(Action::Branches)));
         };
-        let branch = e.name.trim_start_matches("* ").split(' ').next().unwrap_or_default().replace('∕', "/");
+        let branch = branch_of(&e.name);
         let repo = p.dir.parent().and_then(Path::file_name).unwrap_or_default().to_string_lossy().into_owned();
         let text = t!("branches.switch_text", "branch" => branch, "repo" => repo);
         self.dialog = Some(Dialog::Switch { title: t!("action.switch_branch"), text, dir: p.dir.clone(), entry: e.name.clone() });
@@ -1391,7 +1411,7 @@ impl App {
         }
         let from = p.current().filter(|e| in_list && !e.is_parent()).map(|e| e.name.clone());
         let label = match &from {
-            Some(e) => t!("branches.new_from", "branch" => e.trim_start_matches("* ").split(' ').next().unwrap_or_default().replace('∕', "/")),
+            Some(e) => t!("branches.new_from", "branch" => branch_of(e)),
             None => t!("branches.new_here"),
         };
         self.input(&t!("action.new_branch"), label, String::new(), Prompt::NewBranch(p.dir.clone(), from));
@@ -1526,8 +1546,16 @@ impl App {
     /// How far the job is; when it is done, what came of it.
     fn poll_job(&mut self) {
         let Some(job) = &mut self.job else { return };
-        let (mut done, mut undone) = (None, None);
-        while let Ok(msg) = job.rx.try_recv() {
+        let (mut done, mut undone, mut gone) = (None, None, false);
+        loop {
+            let msg = match job.rx.try_recv() {
+                Ok(msg) => msg,
+                Err(mpsc::TryRecvError::Empty) => break,
+                Err(mpsc::TryRecvError::Disconnected) => {
+                    gone = true;
+                    break;
+                }
+            };
             match msg {
                 JobMsg::At(i) if job.src.len() > 1 => {
                     let what = Self::describe(std::slice::from_ref(&job.src[i]));
@@ -1541,6 +1569,14 @@ impl App {
                 JobMsg::Done(failed, rec) => done = Some((failed, Some(rec))),
                 JobMsg::Undone(u) => undone = Some(u),
             }
+        }
+        // Its thread ended without saying it was done (it panicked): the job goes, so the app
+        // can quit, and the user is told. An undo's record is lost then.
+        if gone && done.is_none() && undone.is_none() {
+            let what = if job.src.is_empty() { job.line.clone() } else { Self::describe(&job.src) };
+            self.job = None;
+            self.status = None;
+            return self.after_op(String::new(), t!("error.job_stopped", "what" => what), vec![t!("error.job_stopped_detail")]);
         }
         if let Some(u) = undone {
             self.job = None;
@@ -1723,7 +1759,8 @@ impl App {
                 let pats: Vec<Vec<u8>> = value.split([' ', ';', ',']).filter(|s| !s.is_empty()).map(|s| s.to_lowercase().into_bytes()).collect();
                 let p = self.panel_mut();
                 for e in p.entries.iter().filter(|e| !e.is_dir) {
-                    if pats.iter().any(|g| index::glob(g, e.name.to_lowercase().as_bytes())) {
+                    let name = e.name.to_lowercase();
+                    if pats.iter().any(|g| index::glob(g, name.as_bytes())) {
                         if sel {
                             p.marked.insert(e.path.clone());
                         } else {
@@ -1798,6 +1835,11 @@ impl App {
         if history::is_history(path) {
             return self.cd(self.active, path.to_path_buf());
         }
+        self.reveal(path);
+    }
+
+    /// To a file's folder, the cursor on it.
+    fn reveal(&mut self, path: &Path) {
         if let (Some(dir), Some(name)) = (path.parent(), path.file_name()) {
             self.cd(self.active, dir.to_path_buf());
             self.panel_mut().select_name(&name.to_string_lossy());
@@ -1924,7 +1966,7 @@ impl App {
             Dialog::Switch { title, text, dir, entry } => match (key.code, ch) {
                 (KeyCode::Enter, _) | (_, Some('y' | 'Y')) => {
                     let r = coxswain_core::branches::switch(&dir, &entry);
-                    let branch = entry.trim_start_matches("* ").split(' ').next().unwrap_or_default().replace('∕', "/");
+                    let branch = branch_of(&entry);
                     self.git_said(t!("error.switch", "branch" => branch), r);
                 }
                 _ if esc || matches!(ch, Some('n' | 'N')) => {}
@@ -2060,9 +2102,7 @@ impl App {
                 }
             }
             Dialog::Menu { title, mut filter, items, mut cursor, direct, feature } => {
-                let visible: Vec<usize> = (0..items.len())
-                    .filter(|&i| items[i].label.to_lowercase().contains(&filter.to_lowercase()))
-                    .collect();
+                let visible = menu_visible(&items, &filter);
                 let run = match (key.code, ch) {
                     _ if esc => return,
                     (KeyCode::Enter, _) => visible.get(cursor).copied(),
@@ -2103,8 +2143,7 @@ impl App {
                 let last = list.len().saturating_sub(1);
                 let mut refilter = false;
                 match (key.code, ch) {
-                    _ if esc => return self.dialog = back.map(|b| *b),
-                    _ if action == Some(Action::Help) => return,
+                    _ if esc || action == Some(Action::Help) => return self.dialog = back.map(|b| *b),
                     (KeyCode::Tab, _) => return self.dialog = Some(Dialog::Help { scroll: 0 }),
                     (KeyCode::Enter, _) => said = list.get(cursor).map(|e| Self::show_me(&e.url)),
                     (KeyCode::Up, _) => cursor = cursor.saturating_sub(1),
@@ -2142,10 +2181,7 @@ impl App {
                     self.dialog = Some(Dialog::Bom(v));
                 }
                 bom::Outcome::Reveal(file) => {
-                    if let (Some(dir), Some(name)) = (file.parent(), file.file_name()) {
-                        self.cd(self.active, dir.to_path_buf());
-                        self.panel_mut().select_name(&name.to_string_lossy());
-                    }
+                    self.reveal(&file);
                 }
                 bom::Outcome::Compare => {
                     match self.panels[self.active ^ 1].current().filter(|e| !e.is_dir && e.path != v.path) {
@@ -2163,10 +2199,7 @@ impl App {
                     self.dialog = Some(Dialog::Provenance(v));
                 }
                 provenance::Outcome::Reveal(file) => {
-                    if let (Some(dir), Some(name)) = (file.parent(), file.file_name()) {
-                        self.cd(self.active, dir.to_path_buf());
-                        self.panel_mut().select_name(&name.to_string_lossy());
-                    }
+                    self.reveal(&file);
                 }
                 provenance::Outcome::Cd(dir) => self.cd(self.active, dir),
                 provenance::Outcome::Compare => {
@@ -2196,22 +2229,23 @@ impl App {
     }
 
     fn on_mouse(&mut self, m: MouseEvent) {
+        self.hint_stale = true;
         let Some(side) = (0..2).find(|&i| self.areas[i].contains((m.column, m.row).into())) else { return };
         if self.dialog.is_some() {
             return;
         }
         let area = self.areas[side];
+        // The entry clicked: rows start below the border and the column header, and end
+        // above the separator and the info line.
+        let p = &self.panels[side];
+        let i = m.row.checked_sub(area.y + 2).map(usize::from).filter(|&r| r < p.page).map(|r| p.offset + r).filter(|&i| i < p.entries.len());
         match m.kind {
             MouseEventKind::ScrollUp => self.panels[side].move_cursor(-3),
             MouseEventKind::ScrollDown => self.panels[side].move_cursor(3),
             MouseEventKind::Down(MouseButton::Left) => {
                 self.active = side;
-                // Rows start below the border and the column header.
-                let row = m.row.saturating_sub(area.y + 2) as usize;
-                let p = &mut self.panels[side];
-                let i = p.offset + row;
-                if m.row >= area.y + 2 && i < p.entries.len() {
-                    p.cursor = i;
+                if let Some(i) = i {
+                    self.panels[side].cursor = i;
                     let double = self.last_click.is_some_and(|(t, x, y)| t.elapsed() < Duration::from_millis(400) && (x, y) == (m.column, m.row));
                     self.last_click = Some((Instant::now(), m.column, m.row));
                     if double {
@@ -2224,14 +2258,12 @@ impl App {
             // and opens the action menu.
             MouseEventKind::Down(MouseButton::Right) => {
                 self.active = side;
-                let i = self.panels[side].offset + m.row.saturating_sub(area.y + 2) as usize;
+                let Some(i) = i else { return };
                 if self.cfg.right_click != "menu" {
                     return self.panels[side].toggle_mark(i);
                 }
-                if m.row >= area.y + 2 && i < self.panels[side].entries.len() {
-                    self.panels[side].cursor = i;
-                    self.action_menu();
-                }
+                self.panels[side].cursor = i;
+                self.action_menu();
             }
             _ => {}
         }
@@ -2259,7 +2291,7 @@ impl App {
                 self.measure(side);
             }
         }
-        self.refresh_git();
+        self.refresh_git(&[0, 1]);
     }
 
     /// Git results and index progress, polled between events.
@@ -2270,9 +2302,10 @@ impl App {
         if !self.cfg.hints {
             return self.hint = None;
         }
-        if self.dialog.is_some() || self.status.is_some() || self.quick.is_some() || !self.cmdline.is_empty() {
+        if self.dialog.is_some() || self.status.is_some() || self.quick.is_some() || !self.cmdline.is_empty() || !self.hint_stale {
             return;
         }
+        self.hint_stale = false;
         let s = self.panel().subject();
         if self.hint_for.as_ref() == Some(&s) {
             return;
@@ -2294,6 +2327,7 @@ impl App {
             }
         }
         while let Ok((generation, now)) = self.search_rx.try_recv() {
+            self.search_got = generation;
             if generation != self.search_gen {
                 continue;
             }
@@ -2355,17 +2389,19 @@ impl App {
         while let Ok((dir, news)) = self.git_rx.try_recv() {
             for p in self.panels.iter_mut().filter(|p| p.dir == dir) {
                 match &news {
-                    Git::Status(st) => p.git = st.as_deref().cloned(),
+                    Git::Status(st) => (p.git, self.hint_stale) = (st.as_deref().cloned(), true),
                     Git::Last(last) => p.last = last.clone(),
-                    Git::Zfs(f) => p.zfs = f.as_deref().cloned(),
+                    Git::Zfs(f) => (p.zfs, self.hint_stale) = (f.as_deref().cloned(), true),
                     Git::Package(name) => p.package = name.clone(),
                 }
             }
         }
-        let state = self.index.state();
-        if state != *last_state {
-            *last_state = state;
-            if matches!(self.dialog, Some(Dialog::Search { .. })) {
+        // Find open: asked again when the index is ready. Only then, as each asking is a
+        // round trip to the helper.
+        if matches!(self.dialog, Some(Dialog::Search { .. })) {
+            let state = self.index.state();
+            if state != *last_state {
+                *last_state = state;
                 self.search_now();
             }
         }
@@ -2469,6 +2505,10 @@ fn main_loop(term: &mut DefaultTerminal, app: &mut App) -> std::io::Result<()> {
                     app.cfg.search = cfg.search;
                     app.cfg.user_menu = cfg.user_menu;
                 }
+                // A model downloaded from Settings shows there.
+                if let Some(Dialog::Settings(s)) = &mut app.dialog {
+                    s.models = None;
+                }
                 app.reload();
             }
             Some(Run::ShowOutput) => suspended(term, || {
@@ -2479,8 +2519,8 @@ fn main_loop(term: &mut DefaultTerminal, app: &mut App) -> std::io::Result<()> {
             })?,
             None => {}
         }
-        // Quicker while a search is out, so its answer shows as soon as it comes.
-        let waiting = matches!(app.dialog, Some(Dialog::Search { .. }));
+        // Quicker while a search or an answer is out, so it shows as soon as it comes.
+        let waiting = app.search_got != app.search_gen || app.ask_rx.is_some() || app.ask_check_rx.is_some();
         if event::poll(Duration::from_millis(if waiting { 30 } else { 200 }))? {
             match event::read()? {
                 Event::Key(k) => app.on_key(k),
@@ -2584,13 +2624,16 @@ fn index_service(on: Option<&str>) {
     Client::start(&Config::load().map(|c| c.search).unwrap_or_default()).restart();
 }
 
+/// A command line option that could not be done: why, and the exit code.
+fn fail(e: impl std::fmt::Display, code: i32) -> ! {
+    eprintln!("coxswain: {e}");
+    std::process::exit(code)
+}
+
 /// `--meaning on|off|delete`: search by meaning, as Settings in the desktop app does it.
 fn meaning(what: Option<&str>, rest: &[String]) {
     use coxswain_core::meaning;
-    let fail = |e: String| -> ! {
-        eprintln!("coxswain: {e}");
-        std::process::exit(1)
-    };
+    let fail = |e: String| -> ! { fail(e, 1) };
     let save = |key: &str, value: &str| drop(Config::save_value(&["search", key], value.into()).unwrap_or_else(|e| fail(e)));
     // A download, with how far it is on one line.
     let download = |get: &dyn Fn(&meaning::Progress) -> std::io::Result<()>| {
@@ -2696,8 +2739,9 @@ fn meaning(what: Option<&str>, rest: &[String]) {
                 if coxswain_core::chat::of(&Config::load().map(|c| c.search.ask_model).unwrap_or_default()).is_some() {
                     save("ask_model", "");
                 }
+                let helper = Client::start(&Config::load().map(|c| c.search).unwrap_or_default());
                 for m in coxswain_core::chat::MODELS {
-                    m.remove().unwrap_or_else(|e| fail(e.to_string()));
+                    m.remove(&helper).unwrap_or_else(|e| fail(e.to_string()));
                 }
                 return;
             }
@@ -2820,10 +2864,6 @@ fn check_args(args: &[String], cwd: &Path) -> Result<(), String> {
 /// first when it is in use: what comes instead is said), or all not in use.
 fn models(rest: &[String]) {
     use coxswain_core::models::{self, For};
-    let fail = |e: String, code: i32| -> ! {
-        eprintln!("coxswain: {e}");
-        std::process::exit(code)
-    };
     let cfg = Config::load().unwrap_or_else(|e| fail(e, 2));
     let client = Client::start(&cfg.search);
     let entries = models::list(&cfg.search, &client.loaded());
@@ -2880,10 +2920,6 @@ fn models(rest: &[String]) {
 /// it), or everything that is built again by itself.
 fn disk(rest: &[String]) {
     use coxswain_core::disk::{self, Kind};
-    let fail = |e: String, code: i32| -> ! {
-        eprintln!("coxswain: {e}");
-        std::process::exit(code)
-    };
     let cfg = Config::load().unwrap_or_else(|e| fail(e, 2));
     let client = Client::start(&cfg.search);
     let items = disk::items(&cfg, &client.loaded(), true);
@@ -2930,7 +2966,8 @@ fn disk(rest: &[String]) {
     }
 }
 
-fn main() {
+/// The program, under both its names (`coxswain` and `cox`).
+pub fn main() {
     let mut args: Vec<String> = std::env::args().skip(1).collect();
     // `--settings[=area|option] [LEFT] [RIGHT]`: start with Settings open, there.
     let open_settings = args.first().and_then(|a| a.strip_prefix("--settings")).filter(|r| r.is_empty() || r.starts_with('=')).map(|r| r.trim_start_matches('=').to_string());
@@ -2960,7 +2997,6 @@ fn main() {
         }
         Some("--languages") => return languages(),
         Some("--hints") if args.get(1).map(String::as_str) == Some("reset") => {
-            coxswain_core::i18n::set_language(coxswain_core::i18n::resolve(&Config::load().map(|c| c.language).unwrap_or_default()));
             return match coxswain_core::menu::reset() {
                 Ok(()) => println!("{}", t!("settings.hints_reset_done")),
                 Err(e) => {
@@ -2971,10 +3007,7 @@ fn main() {
         }
         Some("--whats-new") => return whats_new(args.get(1).map(String::as_str) == Some("all")),
         Some("--index-service") => return index_service(args.get(1).map(String::as_str)),
-        Some("--setup-search") => {
-            coxswain_core::i18n::set_language(coxswain_core::i18n::resolve(&Config::load().map(|c| c.language).unwrap_or_default()));
-            return setup::run();
-        }
+        Some("--setup-search") => return setup::run(),
         Some("--meaning") => return meaning(args.get(1).map(String::as_str), &args[2.min(args.len())..]),
         Some("--models") => return models(&args[1..]),
         Some("--disk") => return disk(&args[1..]),
@@ -3005,6 +3038,13 @@ fn main() {
         app.dialog = Some(Dialog::Guide(Box::default()));
     }
     let mut term = ratatui::init();
+    // ratatui's panic hook restores the screen but not the mouse: turn it off first, or the
+    // shell gets mouse escapes after a panic.
+    let restore = std::panic::take_hook();
+    std::panic::set_hook(Box::new(move |i| {
+        let _ = execute!(std::io::stdout(), ratatui::crossterm::event::DisableMouseCapture);
+        restore(i)
+    }));
     let _ = execute!(std::io::stdout(), ratatui::crossterm::event::EnableMouseCapture);
     let res = main_loop(&mut term, &mut app);
     let _ = execute!(std::io::stdout(), ratatui::crossterm::event::DisableMouseCapture);
@@ -3226,6 +3266,54 @@ mod tests {
         let _ = std::fs::remove_dir_all(d);
     }
 
+    /// A job whose thread ended without a word (a panic in it) is let go and said, so the app
+    /// can still quit.
+    #[test]
+    fn a_job_whose_thread_died_is_let_go() {
+        let d = std::env::temp_dir();
+        let mut app = app(d.clone(), d.clone());
+        let (tx, rx) = mpsc::channel();
+        tx.send(JobMsg::At(0)).unwrap();
+        drop(tx);
+        app.job = Some(Job { op: Some(Transfer::Copy), src: vec![d.join("a.txt")], dst: d, password: None, select: None, line: "busy".into(), rx });
+        app.poll_job();
+        assert!(app.job.is_none());
+        assert!(matches!(app.dialog, Some(Dialog::Message { .. })), "and says so");
+    }
+
+    /// A folder not in a commit: back to the commit, which is read on a thread too, and the
+    /// reason stays on the status line.
+    #[test]
+    fn a_folder_not_in_a_commit_says_why_when_it_walks_up() {
+        let d = std::env::temp_dir().join(format!("coxswain-test-commit-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        std::fs::write(d.join("a.txt"), "a").unwrap();
+        let git = |args: &[&str]| coxswain_core::tools::command("git").arg("-C").arg(&d).args(["-c", "user.name=t", "-c", "user.email=t@t", "-c", "commit.gpgsign=false"]).args(args).output();
+        let made = git(&["init", "-q"]).is_ok_and(|o| o.status.success()) && git(&["add", "."]).is_ok_and(|o| o.status.success()) && git(&["commit", "-q", "-m", "one"]).is_ok_and(|o| o.status.success());
+        if !made {
+            return println!("no git");
+        }
+        let hash = String::from_utf8(git(&["rev-parse", "HEAD"]).unwrap().stdout).unwrap();
+        let commit = history::path(&d, Some(hash.trim()));
+        let mut app = app(d.clone(), d.clone());
+        let gone = commit.join("no-such-folder");
+        app.cd(0, gone.clone());
+        while app.panels[0].dir == gone {
+            let (dir, keep, r) = app.list_rx.recv_timeout(Duration::from_secs(10)).unwrap();
+            app.listed(dir, keep, r);
+        }
+        let why = app.panels[0].error.clone();
+        assert!(why.is_some());
+        assert_eq!(app.panels[0].dir, commit, "back to the commit");
+        // The commit, listed on its thread.
+        let (dir, keep, r) = app.list_rx.recv_timeout(Duration::from_secs(10)).unwrap();
+        app.listed(dir, keep, r);
+        assert!(!app.panels[0].entries.is_empty(), "the commit is listed");
+        assert_eq!(app.status, why, "the reason stays on the status line");
+        let _ = std::fs::remove_dir_all(d);
+    }
+
     #[test]
     fn find_keys_switch_kind_scope_and_view() {
         let d = std::env::temp_dir();
@@ -3366,6 +3454,44 @@ mod perf {
 #[cfg(test)]
 mod panel_tests {
     use super::*;
+
+    /// Find's rows are rebuilt every frame: a cursor past the last one (rows gone under it)
+    /// goes back onto one, it never stops the app.
+    #[test]
+    fn finds_cursor_past_the_rows_is_brought_back() {
+        use ratatui::backend::TestBackend;
+        let d = std::env::temp_dir();
+        let cfg = Config { check_updates: false, ..Config::default() };
+        let index = Client::with(None, &cfg.search, |_| {});
+        let mut app = App::with_index(cfg, d.clone(), d.clone(), index).unwrap();
+        let hit = |n: &str| coxswain_core::index::Hit { path: d.join(n), is_dir: false, snippet: None, similar: None };
+        let mut found = Found::default();
+        found.names.hits = vec![hit("a.txt"), hit("b.txt")];
+        found.names.total = 2;
+        app.dialog = Some(Dialog::Search { query: "txt".into(), chip: Kind::All, here: false, found, cursor: 99, offset: 0, show: Show::List });
+        let mut term = ratatui::Terminal::new(TestBackend::new(80, 24)).unwrap();
+        term.draw(|f| ui::draw(f, &mut app)).unwrap();
+        let Some(Dialog::Search { query, chip, found, cursor, .. }) = &app.dialog else { panic!() };
+        let rows = app.find_rows(query, *chip, found);
+        assert!(*cursor < rows.len() && rows[*cursor].selectable(), "{cursor} of {}", rows.len());
+    }
+
+    /// A menu on a terminal of a few rows draws what fits, it never stops the app.
+    #[test]
+    fn a_menu_on_a_tiny_terminal_draws() {
+        use ratatui::backend::TestBackend;
+        let d = std::env::temp_dir();
+        let cfg = Config { check_updates: false, ..Config::default() };
+        let index = Client::with(None, &cfg.search, |_| {});
+        let mut app = App::with_index(cfg, d.clone(), d, index).unwrap();
+        let items = vec![MenuItem { key: "1".into(), label: "One".into(), run: MenuRun::Say(String::new()), group: None }];
+        app.dialog = Some(Dialog::Menu { title: "M".into(), filter: String::new(), items, cursor: 0, direct: false, feature: "" });
+        for h in 1..=5 {
+            let mut term = ratatui::Terminal::new(TestBackend::new(40, h)).unwrap();
+            term.draw(|f| ui::draw(f, &mut app)).unwrap();
+        }
+        assert_eq!(menu_visible(&[MenuItem { key: "1".into(), label: "Copy".into(), run: MenuRun::Say(String::new()), group: None }], "COP"), [0]);
+    }
 
     #[test]
     fn marks_keep_their_bytes_and_a_sort_keeps_the_cursor() {

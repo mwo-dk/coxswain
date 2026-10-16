@@ -227,7 +227,9 @@ pub fn run() {
         .map(|&m| {
             let mut s = t!("setup.ask_builtin", "model" => m.name, "size" => coxswain_core::settings::human(m.size()), "where" => setup::builtin_runs(&search(), None));
             let e = chat::estimate(m, cpu_only, true);
-            mark(&mut s, &m.key(), !cfg!(target_os = "macos") && (quicker || e.is_some_and(|e| e.first >= chat::QUICK)));
+            // Quick on a Mac's GPU, unless set to the processor (as `chat::metal` says).
+            let metal = cfg!(target_os = "macos") && !cpu_only;
+            mark(&mut s, &m.key(), !metal && (quicker || e.is_some_and(|e| e.first >= chat::QUICK)));
             if let Some(e) = e {
                 s.push_str(&format!("\n      {}", e.text()));
             }

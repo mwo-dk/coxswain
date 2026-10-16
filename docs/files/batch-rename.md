@@ -37,8 +37,10 @@ counter. Every new name is shown before anything changes, and conflicts are caug
 - The title says *Batch rename 12 items*.
 - The list shows every name as `old → new`; names that change are highlighted.
 - A rename that cannot happen is marked red with its reason: `empty name`, `contains a path
-  separator`, or `name already taken` (two files getting the same name, or a name taken by a
-  file that is not itself being renamed).
+  separator`, `name already taken` (two files getting the same name, or a name taken by a
+  file that is not itself being renamed), or, on Windows, `a name Windows does not allow` (one
+  with `<>:"|?*` in it, one ending in a dot or a space, or a device's name such as `CON` or
+  `nul.txt`). The reasons are in the app's language.
 - A regular expression that does not parse shows its error in red above the list.
 - **Rename** stays greyed out while there is a conflict or nothing changes.
 - Afterwards the status line says `Renamed 12 items` and the pane is read again.
@@ -87,8 +89,8 @@ No; batch rename works on folders on disk. Inside an archive, rename one entry a
 
 Each file is first renamed to a temporary name `.coxswain-rename-…` and then to its new name. If
 the system refuses a step (a disk removed mid-way), the error is shown in the dialog, and every
-file still under a temporary name gets its old name back. Files already renamed before the
-failure keep their new names.
+file gets its old name back, the ones already renamed before the failure too: the batch is
+done whole, or not at all.
 
 #### Why is `b.txt` a conflict for `a.txt` when only `B.txt` exists?
 

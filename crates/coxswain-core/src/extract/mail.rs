@@ -51,19 +51,22 @@ const FIELD: usize = 16 * 1024;
 /// The kinds of text that are data and not words of the message.
 const DATA: [&str; 4] = ["text/calendar", "text/csv", "text/vcard", "text/x-vcard"];
 
-pub fn text(path: &Path, max: u64) -> Option<String> {
+/// The bytes of the file, when it holds no more than `max`, and whether it is a mailbox.
+fn read(path: &Path, max: u64) -> Option<(Vec<u8>, bool)> {
     let mut bytes = vec![];
     std::fs::File::open(path)
         .ok()?
         .take(max.saturating_add(1))
         .read_to_end(&mut bytes)
         .ok()?;
-    if bytes.len() as u64 > max {
-        return None;
-    }
     let mailbox = path
         .extension()
         .is_some_and(|e| e.eq_ignore_ascii_case("mbox"));
+    (bytes.len() as u64 <= max).then_some((bytes, mailbox))
+}
+
+pub fn text(path: &Path, max: u64) -> Option<String> {
+    let (bytes, mailbox) = read(path, max)?;
     // A message of a mailbox has a share of the text and not all of it, so that one large
     // message does not hide every message after it.
     let room = if mailbox { MAX_TEXT / 16 } else { MAX_TEXT };
@@ -102,12 +105,56 @@ fn pattern(of: &str) -> Regex {
 
 /// A line more in `to`, or as much of it as there is room for when `to` may hold `most` bytes.
 fn add(to: &mut String, text: &str, most: usize) {
-    let mut room = most.saturating_sub(to.len()).min(text.len());
-    while !text.is_char_boundary(room) {
-        room -= 1;
-    }
-    to.push_str(&text[..room]);
+    super::push_within(to, text, most);
     to.push('\n');
+}
+
+/// The first message of a file, for a preview: its headers one by one, its body and its
+/// attachments, read as `text` reads it.
+pub struct Summary {
+    pub subject: String,
+    pub from: String,
+    pub to: String,
+    pub date: String,
+    pub text: String,
+    /// The name, when the part has one, and the size of each attachment.
+    pub attachments: Vec<(Option<String>, usize)>,
+}
+
+/// The first message of the file, or `None` when it holds more than `max` or no message.
+pub fn summary(path: &Path, max: u64) -> Option<Summary> {
+    let (bytes, mailbox) = read(path, max)?;
+    let raw = start(&bytes);
+    let raw = if mailbox {
+        &raw[..next_message(raw)]
+    } else {
+        raw
+    };
+    let (head, body) = split(raw);
+    if head.is_empty() {
+        return None;
+    }
+    let (head, mut found) = (headers(&head), Found::default());
+    part(&head, body, 0, MAX_TEXT, &mut found);
+    Some(Summary {
+        subject: head.subject,
+        from: head.from,
+        to: head.to,
+        date: head.date,
+        text: shown(&found.body).trim().to_string(),
+        attachments: found.files,
+    })
+}
+
+/// A message without the blank lines before its headers and the line that parts the
+/// messages of a mailbox, which is not a header.
+fn start(raw: &[u8]) -> &[u8] {
+    let raw = raw.trim_ascii_start();
+    if raw.starts_with(b"From ") {
+        &raw[memchr(b'\n', raw).map_or(raw.len(), |at| at + 1)..]
+    } else {
+        raw
+    }
 }
 
 /// What one message holds, gathered part by part. Each of the three may hold `room` bytes.
@@ -116,21 +163,15 @@ struct Found {
     /// The parts that are text, in their order.
     body: String,
     attachments: String,
+    /// Each attachment's name and size, for `summary`.
+    files: Vec<(Option<String>, usize)>,
     /// The messages forwarded inside this one, each read as this one is.
     inside: String,
 }
 
 /// The text of one message. Bytes without one of the headers that are read are not a message.
 fn message(raw: &[u8], depth: usize, room: usize) -> String {
-    // Blank lines before the headers are passed over, and the line that parts the messages
-    // of a mailbox is not a header.
-    let raw = raw.trim_ascii_start();
-    let raw = if raw.starts_with(b"From ") {
-        &raw[memchr(b'\n', raw).map_or(raw.len(), |at| at + 1)..]
-    } else {
-        raw
-    };
-    let (head, body) = split(raw);
+    let (head, body) = split(start(raw));
     if head.is_empty() {
         return String::new();
     }
@@ -184,6 +225,7 @@ fn part(head: &Head, body: &[u8], depth: usize, room: usize, found: &mut Found) 
             }
             add(&mut found.attachments, &one.attachments, room);
             add(&mut found.inside, &one.inside, room);
+            found.files.append(&mut one.files);
         }
         return add(&mut found.body, &form.0, room);
     }
@@ -221,6 +263,25 @@ fn part(head: &Head, body: &[u8], depth: usize, room: usize, found: &mut Found) 
     // has a name all the same.
     if let Some(name) = &head.name {
         add(&mut found.attachments, name, room);
+    }
+    if head.attached || head.name.is_some() {
+        found
+            .files
+            .push((head.name.clone(), sent_size(&head.encoding, body)));
+    }
+}
+
+/// The size of a body as it was before it was sent: base64 is three bytes for every four
+/// letters, without the "=" that fill it up. Quoted-printable is taken as it is.
+fn sent_size(encoding: &str, body: &[u8]) -> usize {
+    if encoding.starts_with("base64") {
+        let letters = body
+            .iter()
+            .filter(|b| b.is_ascii_alphanumeric() || matches!(b, b'+' | b'/'))
+            .count();
+        letters * 3 / 4
+    } else {
+        body.len()
     }
 }
 
@@ -274,6 +335,10 @@ fn split(raw: &[u8]) -> (Vec<u8>, &[u8]) {
 struct Head {
     /// The subject, who the message is from, to and copied to, and its date, a line each.
     lines: String,
+    subject: String,
+    from: String,
+    to: String,
+    date: String,
     /// The content type in small letters, as "text/html"; empty when there is none.
     kind: String,
     boundary: Option<String>,
@@ -329,20 +394,24 @@ fn parsed(head: &str) -> Head {
         .filter(|d| d.is_valid())
         .map(|d| d.to_rfc822())
         .unwrap_or_default();
-    let lines = [
+    let (subject, from, to) = (
         mail.subject().unwrap_or_default().to_string(),
         who(mail.from()),
         who(mail.to()),
-        who(mail.cc()),
-        date,
-    ];
+    );
+    let lines = [&subject, &from, &to, &who(mail.cc()), &date]
+        .into_iter()
+        .filter(|l| !l.is_empty())
+        .map(String::as_str)
+        .collect::<Vec<_>>()
+        .join("\n");
     let kind = mail.content_type();
     Head {
-        lines: lines
-            .into_iter()
-            .filter(|l| !l.is_empty())
-            .collect::<Vec<_>>()
-            .join("\n"),
+        lines,
+        subject,
+        from,
+        to,
+        date,
         kind: kind
             .map(|k| {
                 format!("{}/{}", k.ctype(), k.subtype().unwrap_or_default()).to_ascii_lowercase()
@@ -456,12 +525,11 @@ fn characters(bytes: &[u8], charset: Option<&str>) -> String {
     // that is dropped; `mail-parser` drops them all, and with them the space between words.
     static RUN: LazyLock<Regex> =
         LazyLock::new(|| pattern(r"(?-u)(\+[A-Za-z0-9+/]+)([^A-Za-z0-9+/-]|\z)"));
+    let lower = charset.map(str::to_ascii_lowercase);
     let said = |names: &[&str]| {
-        charset.is_some_and(|c| {
-            names
-                .iter()
-                .any(|name| c.to_ascii_lowercase().contains(name))
-        })
+        lower
+            .as_deref()
+            .is_some_and(|c| names.iter().any(|name| c.contains(name)))
     };
     let named = charset.and_then(|c| charset_decoder(c.as_bytes()));
     // UTF-16 and UTF-7 are not ASCII with more characters added, and have no lines of bytes.
@@ -472,14 +540,15 @@ fn characters(bytes: &[u8], charset: Option<&str>) -> String {
             Cow::Borrowed(bytes)
         });
     }
+    let (fallback, utf) = (
+        named.or_else(|| charset_decoder(b"windows-1252")),
+        said(&["utf"]),
+    );
     let lines = bytes.split_inclusive(|b| *b == b'\n').map(|line| {
-        match (
-            std::str::from_utf8(line),
-            named.or_else(|| charset_decoder(b"windows-1252")),
-        ) {
+        match (std::str::from_utf8(line), fallback) {
             (Ok(text), _) => text.to_string(),
             // Cut in the middle of its last character, it is UTF-8 all the same.
-            (Err(e), Some(decode)) if !said(&["utf"]) && e.error_len().is_some() => decode(line),
+            (Err(e), Some(decode)) if !utf && e.error_len().is_some() => decode(line),
             _ => String::from_utf8_lossy(line).into_owned(),
         }
     });
@@ -528,29 +597,19 @@ fn plain(html: &str) -> String {
     String::from_utf8_lossy(&text).into_owned()
 }
 
-/// The text without what is not seen in it: the colours of a terminal, which mail from cron
-/// and from build servers has, the soft hyphen and the space without width, which part a
-/// word for the store, and the control characters, among them the zero byte and the two
-/// that the store marks its finds with.
+/// The text without the colours of a terminal, which mail from cron and from build servers
+/// has. `tidy` takes out the rest of what is not seen.
 fn shown(text: &str) -> String {
     static COLOUR: LazyLock<regex::Regex> =
         LazyLock::new(|| regex::Regex::new("\x1b\\[[0-9;]*[A-Za-z]").expect("valid"));
-    let text = COLOUR.replace_all(text, "");
-    let seen = text.chars().filter(|c| !matches!(c, '\u{ad}' | '\u{200b}'));
-    seen.map(|c| {
-        if c.is_control() && !matches!(c, '\n' | '\t') {
-            ' '
-        } else {
-            c
-        }
-    })
-    .collect()
+    COLOUR.replace_all(text, "").into_owned()
 }
 
 #[cfg(test)]
 mod tests {
     use super::super::tests::folder;
     use super::super::{text_of, tidy};
+    use std::path::Path;
     use std::sync::atomic::{AtomicUsize, Ordering};
 
     /// The text of a file with these bytes, tidied as the store gets it. The reader is called
@@ -1500,5 +1559,48 @@ mod tests {
             Some("Brændstof på åen\nbody"),
             "words of other kinds stay words of their own"
         );
+    }
+
+    #[test]
+    fn summary_gives_fields_body_and_attachment_sizes() {
+        let mail = format!(
+            "From: Ann <ann@example.com>\nTo: team: bo@example.com;\nSubject: Plan\n\
+            Date: Tue, 15 Sep 2026 10:30:00 +0200\n\
+            Content-Type: multipart/mixed; boundary=b\n\n\
+            --b\nContent-Type: text/html\n\n<p>Hello <b>there</b></p>\n\
+            --b\nContent-Type: application/pdf; name=a.pdf\nContent-Transfer-Encoding: base64\n\
+            Content-Disposition: attachment; filename=a.pdf\n\n{}\n\
+            --b\nContent-Type: application/octet-stream\nContent-Disposition: attachment\n\nabc\n--b--\n",
+            base64(&[7u8; 100])
+        );
+        let path = folder("mail-summary").join("a.eml");
+        std::fs::write(&path, mail).unwrap();
+        let m = super::summary(&path, 1 << 20).unwrap();
+        let _ = std::fs::remove_dir_all(path.parent().unwrap());
+        assert_eq!(
+            (m.subject.as_str(), m.from.as_str(), m.to.as_str()),
+            ("Plan", "Ann <ann@example.com>", "team: bo@example.com")
+        );
+        assert!(m.date.contains("2026"), "{}", m.date);
+        assert_eq!(m.text, "Hello there", "HTML made plain");
+        assert_eq!(
+            m.attachments,
+            [(Some("a.pdf".into()), 100), (None, 4)],
+            "the size before base64; the line end before the boundary is the part's"
+        );
+    }
+
+    #[test]
+    fn summary_of_messages_nested_beyond_reason_does_not_overflow() {
+        let path = folder("mail-summary-deep").join("deep.eml");
+        let mut mail = String::new();
+        for _ in 0..100_000 {
+            mail.push_str("Subject: s\nContent-Type: message/rfc822\n\n");
+        }
+        std::fs::write(&path, mail).unwrap();
+        let m = super::summary(&path, 32 << 20);
+        let _ = std::fs::remove_dir_all(path.parent().unwrap());
+        assert_eq!(m.map(|m| m.subject).as_deref(), Some("s"));
+        assert!(super::summary(Path::new("/nonexistent/x.eml"), 1 << 20).is_none());
     }
 }

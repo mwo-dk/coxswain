@@ -3,7 +3,7 @@ resolver = "3"
 members = ["crates/coxswain-core", "crates/coxswain", "gui/src-tauri"]
 
 [workspace.package]
-version = "2.24.2"
+version = "2.24.3"
 edition = "2024"
 license = "MIT"
 repository = "https://github.com/mwo-dk/coxswain"
@@ -36,3 +36,7 @@ tao = { git = "https://github.com/tauri-apps/tao", rev = "d19f4c12a0d881260a436d
 # version, and two tao-macros 0.1.4 would collide there (packaging/nix).
 tao-macros = { git = "https://github.com/tauri-apps/tao", rev = "d19f4c12a0d881260a436d9ccf3e8f349c58e2a4" }
 drag = { git = "https://github.com/mwo-dk/drag-rs", rev = "5781ababde2b6df0ad0e6e555863d73587f16f65" }
+# zip 9.0.3 casts a file mode to u16 for fchmodat, but mode_t is u32 on NetBSD and OpenBSD, so it
+# does not build there. vendor/zip is 9.0.3 with that one line changed (src/read/extract.rs); drop
+# this when zip-rs/zip2 releases the fix.
+zip = { path = "vendor/zip" }

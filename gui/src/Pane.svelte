@@ -1,6 +1,6 @@
 <script>
   import { tick } from "svelte";
-  import { ui, newTab, load, cd, up, goBack, goForward, focusPane, openFind, nextView, openGitView, openSnapshots } from "./app.svelte.js";
+  import { ui, addTab, closeTab, cd, up, goBack, goForward, focusPane, openFind, nextView, openGitView, openSnapshots } from "./app.svelte.js";
   import { invoke, basename, crumbs, size, MARKERS, SNAPSHOTS, PACKAGE, date, composing } from "./lib.js";
   import { t as tr, tn } from "./i18n.svelte.js"; // `t` is the tab here
   import DetailsView from "./DetailsView.svelte";
@@ -41,17 +41,6 @@
     await cd(t, dir);
   }
 
-  function addTab() {
-    p.tabs.push(newTab(t.dir, t.view));
-    p.active = p.tabs.length - 1;
-    load(p.tabs[p.active]);
-  }
-
-  function closeTab(i) {
-    if (p.tabs.length === 1) return;
-    p.tabs.splice(i, 1);
-    p.active = Math.min(p.active, p.tabs.length - 1);
-  }
 
   const selBytes = $derived(t.items.filter((e) => t.marked.has(e.path)).reduce((a, e) => a + (e.is_dir ? t.sizes[e.path] ?? 0 : e.size), 0));
   const count = $derived(t.items.length - (t.items[0]?.name === ".." ? 1 : 0));
@@ -76,15 +65,15 @@
   <div class="tabs" role="tablist">
     {#each p.tabs as tb, i (tb.id)}
       <div class="tab" class:current={i === p.active} role="tab" tabindex="-1" aria-selected={i === p.active}
-        onclick={() => focusPane(index, i)} onauxclick={(e) => e.button === 1 && closeTab(i)} onkeydown={() => {}} title={`${tb.dir}\n${tr("pane.tab_tip", { key: ui.cfg.actions.close_tab?.[1] ?? "" })}`}>
+        onclick={() => focusPane(index, i)} onauxclick={(e) => e.button === 1 && closeTab(p, i)} onkeydown={() => {}} title={`${tb.dir}\n${tr("pane.tab_tip", { key: ui.cfg.actions.close_tab?.[1] ?? "" })}`}>
         <span class="ticon">{tb.git ? "\u{e702}" : "\u{f07b}"}</span>
         <span class="tname">{tabName(tb)}</span>
         {#if p.tabs.length > 1}
-          <button class="x" title={tr("pane.close_tab")} onclick={(e) => { e.stopPropagation(); closeTab(i); }}>×</button>
+          <button class="x" title={tr("pane.close_tab")} onclick={(e) => { e.stopPropagation(); closeTab(p, i); }}>×</button>
         {/if}
       </div>
     {/each}
-    <button class="newtab" title={tr("pane.new_tab")} onclick={addTab}>+</button>
+    <button class="newtab" title={tr("pane.new_tab")} onclick={() => addTab(p)}>+</button>
   </div>
 
   <div class="bar">

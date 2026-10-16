@@ -90,7 +90,10 @@ export async function renderMermaid(src) {
 /** Markdown with $math$ (KaTeX) and ```mermaid blocks drawn as diagrams. */
 export async function renderMarkdown(src) {
   if (/\$|\\\(|\\\[/.test(src)) await withMath();
-  const doc = new DOMParser().parseFromString(clean(await marked.parse(src)), "text/html");
+  const html = clean(await marked.parse(src));
+  // Most documents have no diagram: no second parse and sanitizing for them.
+  if (!html.includes('class="language-mermaid"')) return html;
+  const doc = new DOMParser().parseFromString(html, "text/html");
   for (const code of doc.querySelectorAll("pre > code.language-mermaid")) {
     // renderMermaid's result is already sanitized; parse it in an inert document too.
     const svg = new DOMParser().parseFromString(await renderMermaid(code.textContent), "text/html");
@@ -175,12 +178,13 @@ export async function renderNotebook(path) {
 // ------------------------------------------------------------ fonts
 
 let fontSeq = 0;
-/** Load a font file under a fresh family name and return that name. */
+/** Load a font file under a fresh family name: that name, and the face, which the preview
+ *  that loaded it removes from `document.fonts` when it shows something else. */
 export async function loadFont(path) {
   const family = `coxswain-preview-${++fontSeq}`;
   const face = new FontFace(family, `url("${convertFileSrc(path)}")`);
   document.fonts.add(await face.load());
-  return family;
+  return { family, face };
 }
 
 // ------------------------------------------------------------ structured data

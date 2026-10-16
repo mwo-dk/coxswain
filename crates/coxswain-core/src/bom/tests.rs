@@ -349,6 +349,18 @@ fn xml_with_a_doctype_is_refused() {
         parse("<?xml version=\"1.0\"?>\n<!doctype bom><bom/>", None),
         Err(Error::UnsafeXml)
     );
+    // The words alone, in a comment or in text, are no declaration.
+    let ns = r#"<bom xmlns="http://cyclonedx.org/schema/bom/1.6">"#;
+    for inner in ["<!-- <!DOCTYPE x> -->", "<![CDATA[<!DOCTYPE x>]]>"] {
+        assert!(
+            parse(&format!("{ns}{inner}<components/></bom>"), None).is_ok(),
+            "{inner}"
+        );
+    }
+    assert_eq!(
+        parse(&format!("{ns}<!DOCTYPE x><components/></bom>"), None),
+        Err(Error::UnsafeXml)
+    );
 }
 
 #[test]
@@ -1061,6 +1073,8 @@ fn assets_that_refer_to_each_other_in_a_circle_are_unknown() {
 fn dates_without_a_date_crate() {
     use assess::{parse_time, start_of_year, year_of};
     assert_eq!(parse_time("1970-01-01"), Some(0));
+    assert_eq!(parse_time("2024-01-01T00:00:00+aé:0"), None);
+    assert_eq!(parse_time("2024-01-01T00:00:00++1:00"), None);
     assert_eq!(parse_time("2000-03-01T00:00:00Z"), Some(951_868_800));
     assert_eq!(
         parse_time("2000-03-01T01:00:00.123+01:00"),
@@ -1344,4 +1358,48 @@ fn a_file_named_in_a_bom_gets_the_systems_separators() {
     assert_eq!(view::on_disk(&bom, "src/../../etc/passwd"), None);
     assert_eq!(view::on_disk(&bom, "src/main/Gone.java"), None);
     std::fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
+fn windows_source_paths_nest_like_any_other() {
+    let asset = |name: &str, r: &str, at: &[&str]| {
+        let at: Vec<_> = at
+            .iter()
+            .map(|l| serde_json::json!({"location": l}))
+            .collect();
+        serde_json::json!({"type": "cryptographic-asset", "name": name, "bom-ref": r,
+            "cryptoProperties": {"assetType": "algorithm"}, "evidence": {"occurrences": at}})
+    };
+    let doc = serde_json::json!({
+        "bomFormat": "CycloneDX", "specVersion": "1.6",
+        "components": [
+            asset("AES", "a", &["src\\a\\X.java", "src\\b\\Y.java"]),
+            asset("RSA", "b", &["src\\b\\Y.java"]),
+        ]
+    });
+    let bom = ingest::from_value(&doc, Format::Json, None).unwrap();
+    let t = tree::build(&bom, TreeMode::Files);
+    assert_eq!(labels(&t, &bom, 0), ["src"]);
+    assert_eq!(labels(&t, &bom, find(&t, &bom, "src")), ["a", "b"]);
+    let aes = find(&t, &bom, "AES");
+    let others: Vec<_> = t
+        .cross_edges
+        .iter()
+        .filter(|e| e.kind == EdgeKind::OccursIn && e.to == aes)
+        .map(|e| t.node(&bom, e.from).label.as_str())
+        .collect();
+    assert_eq!(others, ["Y.java"]);
+}
+
+#[test]
+fn a_component_keeps_its_own_fields_not_those_of_the_components_inside() {
+    let doc = serde_json::json!({
+        "bomFormat": "CycloneDX", "specVersion": "1.6",
+        "components": [{"type": "library", "name": "outer", "bom-ref": "o",
+            "components": [{"type": "library", "name": "inner", "bom-ref": "i"}]}]
+    });
+    let bom = ingest::from_value(&doc, Format::Json, None).unwrap();
+    let outer = bom.nodes.iter().find(|n| n.label == "outer").unwrap();
+    assert!(outer.raw.get("components").is_none());
+    assert_eq!(outer.raw["name"], "outer");
 }

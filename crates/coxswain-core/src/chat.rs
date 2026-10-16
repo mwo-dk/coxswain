@@ -356,7 +356,7 @@ impl Model {
 
     /// Bytes the download takes.
     pub fn size(&self) -> u64 {
-        self.files.iter().map(|f| f.len).sum()
+        crate::meaning::total(self.files)
     }
 
     pub fn installed(&self) -> bool {
@@ -365,9 +365,7 @@ impl Model {
 
     /// Whether `dir` holds the whole model.
     pub(crate) fn installed_in(&self, dir: &std::path::Path) -> bool {
-        self.files
-            .iter()
-            .all(|f| std::fs::metadata(dir.join(f.name)).is_ok_and(|m| m.len() == f.len))
+        crate::meaning::complete(dir, self.files)
     }
 
     pub fn download(&self, p: &Progress) -> io::Result<()> {
@@ -380,12 +378,11 @@ impl Model {
         )
     }
 
-    pub fn remove(&self) -> io::Result<()> {
-        unload();
-        match self.folder().map(std::fs::remove_dir_all) {
-            Some(Err(e)) if e.kind() != io::ErrorKind::NotFound => Err(e),
-            _ => Ok(()),
-        }
+    /// Delete the model; it is let go of first, here and in the helper.
+    pub fn remove(&self, helper: &crate::helper::Client) -> io::Result<()> {
+        helper.unload();
+        self.folder()
+            .map_or(Ok(()), |f| crate::models::remove_dir(&f))
     }
 }
 
@@ -463,17 +460,6 @@ fn prompt(
             turns = &turns[1..];
         }
     }
-}
-
-/// The text of `ids` not yet given out, once it ends in a whole character: a character can
-/// take more than one token.
-fn fresh(text: &str, given: &mut usize) -> Option<String> {
-    if text.len() <= *given || text.ends_with('\u{fffd}') || !text.is_char_boundary(*given) {
-        return None;
-    }
-    let out = text[*given..].to_string();
-    *given = text.len();
-    Some(out)
 }
 
 /// The model, loaded on one device, with its tokenizer.
@@ -674,7 +660,10 @@ fn answer(
             temperature,
         },
     );
-    let (mut out, mut given, mut thinking, mut begun) = (Vec::<u32>::new(), 0, false, false);
+    let (mut out, mut thinking, mut begun) = (Vec::<u32>::new(), false, false);
+    // Each token's text once it ends in a whole character (a character can take more than one
+    // token), without decoding the whole answer again.
+    let mut stream = tok.decode_stream(true);
     let mut logits = logits.ok_or("an empty question")?;
     for n in 0..room {
         let last = logits
@@ -689,8 +678,9 @@ fn answer(
             break;
         }
         out.push(next);
-        let text = tok.decode(&out, true).map_err(|e| e.to_string())?;
-        let mut new = fresh(&text, &mut given)
+        let mut new = stream
+            .step(next)
+            .map_err(|e| e.to_string())?
             .map(|t| crate::meaning::unthink(&t, &mut thinking))
             .unwrap_or_default();
         // After its thinking the model starts a new paragraph: the answer starts with a word.
@@ -742,19 +732,6 @@ mod tests {
                 && !shorter.contains("[2] /b.md")
                 && shorter.contains("New?")
         );
-    }
-
-    #[test]
-    fn pieces_are_whole_characters() {
-        let mut given = 0;
-        assert_eq!(fresh("Hej", &mut given).as_deref(), Some("Hej"));
-        assert_eq!(fresh("Hej", &mut given), None);
-        assert_eq!(
-            fresh("Hej s\u{fffd}", &mut given),
-            None,
-            "half a character waits"
-        );
-        assert_eq!(fresh("Hej så", &mut given).as_deref(), Some(" så"));
     }
 
     #[test]

@@ -224,7 +224,7 @@ geometry live in `gui/src/bom.js`.
 
 The TUI has no preview pane. F3 runs `viewer`, else `$PAGER`, else `less`. So the terminal
 viewer is a new full-screen dialog, modelled on the scrollable `Dialog::Help`
-(`crates/coxswain/src/main.rs:154`).
+(`crates/coxswain/src/lib.rs`).
 
 - **F3 on a BOM** opens `Dialog::Bom`. Inside, **F3 again** (or `s`) opens the source in the
   pager as before, so nothing is lost. A config switch, `bom_viewer = false`, keeps the old

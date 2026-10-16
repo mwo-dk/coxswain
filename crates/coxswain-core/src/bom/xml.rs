@@ -59,10 +59,6 @@ struct Element {
 }
 
 pub fn to_json(xml: &str) -> Result<Value, Error> {
-    // No DTDs: CycloneDX never needs one, and refusing them rules out entity expansion.
-    if contains_doctype(xml) {
-        return Err(Error::UnsafeXml);
-    }
     let Some(root) = parse(xml)? else {
         return Ok(Value::Object(Map::new()));
     };
@@ -93,13 +89,6 @@ pub fn to_json(xml: &str) -> Result<Value, Error> {
     }
     doc.extend(out);
     Ok(Value::Object(doc))
-}
-
-fn contains_doctype(xml: &str) -> bool {
-    const NEEDLE: &[u8] = b"<!doctype";
-    xml.as_bytes()
-        .windows(NEEDLE.len())
-        .any(|w| w.eq_ignore_ascii_case(NEEDLE))
 }
 
 /// Reads the elements. Malformed XML is an error with its line; entities other than the five
@@ -167,6 +156,7 @@ fn parse(xml: &str) -> Result<Option<Element>, Error> {
                     }
                 }
             }
+            // No DTDs: CycloneDX never needs one, and refusing them rules out entity expansion.
             Event::DocType(_) => return Err(Error::UnsafeXml),
             Event::Eof => break,
             _ => {}

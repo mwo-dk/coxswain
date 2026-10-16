@@ -8,7 +8,7 @@ use std::collections::VecDeque;
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::SystemTime;
 
 /// How many operations the history keeps.
 pub const KEEP: usize = 20;
@@ -70,12 +70,6 @@ pub struct Record {
     items: Vec<Item>,
     /// When it started, in seconds since the epoch: what the trash holds from before is not its.
     since: i64,
-}
-
-fn now() -> i64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map_or(0, |d| d.as_secs() as i64)
 }
 
 fn name(p: &Path) -> String {
@@ -193,7 +187,7 @@ impl Record {
         Record {
             kind,
             items: vec![],
-            since: now() - 1,
+            since: crate::fs::now() as i64 - 1,
         }
     }
 

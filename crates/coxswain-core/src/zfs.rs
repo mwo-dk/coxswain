@@ -48,34 +48,17 @@ fn zfs(args: &[&str]) -> io::Result<String> {
     let program = zfs_program()
         .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, crate::t!("zfs.no_program")))?;
     let mut c = crate::tools::command(program);
-    c.args(args)
-        .stdin(std::process::Stdio::null())
-        .stdout(std::process::Stdio::piped())
-        .stderr(std::process::Stdio::piped());
-    let mut child = c.spawn()?;
-    // Read while it runs: a long list would fill the pipe and never end.
-    let (mut out, mut err) = (child.stdout.take(), child.stderr.take());
-    let reader = std::thread::spawn(move || {
-        let mut v = String::new();
-        if let Some(o) = out.as_mut() {
-            let _ = io::Read::read_to_string(o, &mut v);
-        }
-        v
-    });
-    let status = crate::tools::wait(&mut child, BUDGET)?;
-    let text = reader.join().unwrap_or_default();
-    if !status.success() {
-        let mut why = String::new();
-        if let Some(e) = err.as_mut() {
-            let _ = io::Read::read_to_string(e, &mut why);
-        }
+    c.args(args);
+    let o = crate::tools::capture(c, BUDGET, u64::MAX)?;
+    if !o.status.success() {
+        let why = String::from_utf8_lossy(&o.stderr);
         return Err(io::Error::other(if why.trim().is_empty() {
-            status.to_string()
+            o.status.to_string()
         } else {
             why.trim().to_string()
         }));
     }
-    Ok(text)
+    Ok(String::from_utf8_lossy(&o.stdout).into_owned())
 }
 
 // ---------------------------------------------------------------- which dataset

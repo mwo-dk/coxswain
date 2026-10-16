@@ -425,17 +425,12 @@ fn read(rtf: &[u8]) -> Option<String> {
             None
         }
     });
-    let mut most = text.end().min(MAX_TEXT).min(open.unwrap_or(MAX_TEXT));
-    while !text.out.is_char_boundary(most) {
-        most -= 1;
-    }
+    let end = text.end().min(MAX_TEXT).min(open.unwrap_or(MAX_TEXT));
+    let most = text.out.floor_char_boundary(end);
     // A zero is no character of any text, and would end it for a reader that takes it as the end.
-    // A soft hyphen is a place where a word may be broken and no part of it, but parts it for
-    // the index of the store. A character of the private area, which a symbol of Wingdings or
-    // Symbol is, that index takes for a letter of the word beside it.
-    let kept = text.out[..most]
-        .chars()
-        .filter(|c| !matches!(c, '\0' | '\u{ad}'));
+    // A character of the private area, which a symbol of Wingdings or Symbol is, the index of
+    // the store takes for a letter of the word beside it.
+    let kept = text.out[..most].chars().filter(|c| *c != '\0');
     Some(
         kept.map(|c| {
             if matches!(c, '\u{e000}'..='\u{f8ff}') {
@@ -910,10 +905,7 @@ Bookmark {\*\bkmkstart hiddenbookmark}marked{\*\bkmkend hiddenbookmark} text.\pa
             assert!(text.len() <= whole.len(), "cut at {cut}");
             let sure = text.len().saturating_sub(4);
             assert!(
-                (0..=sure)
-                    .rev()
-                    .find(|&n| text.is_char_boundary(n))
-                    .is_some_and(|n| whole.starts_with(&text[..n])),
+                whole.starts_with(&text[..text.floor_char_boundary(sure)]),
                 "cut at {cut}: {text:?}"
             );
         }
