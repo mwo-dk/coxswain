@@ -79,7 +79,7 @@ fetch -qo - https://raw.githubusercontent.com/mwo-dk/coxswain/master/install/ins
 ftp -o - https://raw.githubusercontent.com/mwo-dk/coxswain/master/install/install-unix.sh | sh         # NetBSD, OpenBSD
 curl -fsSL https://raw.githubusercontent.com/mwo-dk/coxswain/master/install/install-unix.sh | sh       # illumos
 brew install mwo-dk/coxswain/coxswain                                                                 # Linux, macOS: terminal app
-cargo install coxswain                                                                                # anywhere with Rust, Termux too
+cargo install --locked coxswain                                                                       # anywhere with Rust, Termux too
 brew install --cask mwo-dk/coxswain/coxswain-gui                                                      # macOS: desktop app
 winget install mwo-dk.Coxswain.Terminal                                                               # Windows: terminal app
 ```
@@ -95,9 +95,9 @@ winget install mwo-dk.Coxswain.Terminal                                         
 | Linux, Flatpak | Not in it: the line above | Not on Flathub yet: build it with `flatpak-builder` ([Flatpak](docs/reference/flatpak.md)) |
 | Linux on ARM64 (Raspberry Pi OS 64-bit, Asahi, ARM servers) | The static `aarch64-unknown-linux-musl` binary, or `brew` as above | `_arm64.deb`, `.aarch64.rpm`, `_aarch64.AppImage` ([Linux on ARM](docs/reference/linux-arm.md)) |
 | Nix (Linux, macOS) | `nix run github:mwo-dk/coxswain`, or `nix profile install github:mwo-dk/coxswain` ([Nix](docs/reference/nix.md)) | `nix run github:mwo-dk/coxswain#coxswain-gui` (Linux) |
-| Android (Termux) | `pkg install coxswain` once it is in Termux's repository; until then `pkg install rust git && cargo install coxswain` ([Termux](docs/reference/termux.md)) | Not on Android |
+| Android (Termux) | `pkg install coxswain` once it is in Termux's repository; until then `pkg install rust git && cargo install --locked coxswain` ([Termux](docs/reference/termux.md)) | Not on Android |
 | ChromeOS | The Linux binary for its processor, in the Linux terminal | The `.deb` for its processor, in Linux ([ChromeOS](docs/reference/chromeos.md)) |
-| Any | `cargo install coxswain` | `./install/install.sh` (or `install\install.ps1`) from a clone |
+| Any | `cargo install --locked coxswain` | `./install/install.sh` (or `install\install.ps1`) from a clone |
 | macOS | `brew install mwo-dk/coxswain/coxswain` | `brew install --cask mwo-dk/coxswain/coxswain-gui`, or the `.dmg` |
 | Windows | `winget install mwo-dk.Coxswain.Terminal`, or `coxswain-terminal-<version>-x86_64-pc-windows-msvc.zip` | `.msi` or `-setup.exe` |
 | Windows on ARM | `coxswain-terminal-<version>-aarch64-pc-windows-msvc.zip` | `_arm64_en-US.msi` or `_arm64-setup.exe` ([Windows on ARM](docs/reference/windows-arm.md)) |
@@ -176,7 +176,7 @@ Newest first. Downloads for each release are on the [releases page](https://gith
 
 | Version | Date | What's new |
 |---|---|---|
-| **2.24.2** | 2026-10-16 | **Install scripts and release downloads, put right.** The install scripts check for the Rust that Coxswain's dependencies really need, fetch native Rust on Windows on ARM, install the right WebKitGTK on openSUSE, pick the newest archive by number with `--from`, and the FreeBSD uninstall names `~/.local/share/coxswain`. The terminal archives for FreeBSD, the other BSDs, Linux and macOS are about 13 MB smaller, because `cox` is now a link. The Homebrew formula and cask can no longer go out with a missing checksum. The docs now list the actions, settings, flags and questions they missed. [Install](#install) |
+| **2.24.2** | 2026-10-16 | **Install scripts and release downloads, put right.** `cargo install coxswain` needs `--locked` for now: a library the built-in models use asks for a version of zip that its makers have withdrawn, and only the lock file shipped with Coxswain still names it. The docs and the update notice now say `cargo install --locked coxswain`. The install scripts check for the Rust that Coxswain's dependencies really need, fetch native Rust on Windows on ARM, install the right WebKitGTK on openSUSE, pick the newest archive by number with `--from`, and the FreeBSD uninstall names `~/.local/share/coxswain`. The terminal archives for FreeBSD, the other BSDs, Linux and macOS are about 13 MB smaller, because `cox` is now a link. The Homebrew formula and cask can no longer go out with a missing checksum. The docs now list the actions, settings, flags and questions they missed. [Install](#install) |
 | **2.24.1** | 2026-10-15 | **Commodore 64 in Colodore colours.** The theme now uses the Colodore palette, the colours of a PAL C64 as measured on its monitor, instead of the C64-Wiki values: a bluer blue, and brighter light blue, yellow and light green. [Themes](docs/customise/themes.md) |
 | **2.24.0** | 2026-10-15 | **The classics: fifteen more themes, and a tube for any of them.** Amiga Workbench 1.3, the home of Directory Opus, with a look of its own; XTree Gold, DOS Shell and Midnight Commander beside Norton Commander blue; the home computers Commodore 64, ZX Spectrum, Amstrad CPC, MSX, BBC Micro and Atari ST (with a GEM look); Amber and Paper white beside Cyber; NeXTSTEP and BeOS with looks of their own, and OS/2 Warp. `crt = true` in a theme of your own puts Cyber's scanlines and glow over any look. [Themes](docs/customise/themes.md) · [Looks](docs/customise/looks.md#the-tube) |
 | **2.23.1** | 2026-10-14 | **TLS library brought up to date.** rustls 0.23.46 closes four advisories published today (RUSTSEC-2026-0346 to 0349: a `Debug` print that could show session secrets, data sent on after a rejected ECH, an oversized certificate allocation, and a key-exchange downgrade), in every connection the apps make: the update check, model downloads and remote model servers. No advisories open. [Security](docs/reference/security.md) |

@@ -131,7 +131,7 @@ fn hint_for(exe: &str, mac_cask: bool) -> Option<&'static str> {
         } else if p.contains("/com.termux/files/usr/bin/") {
             "pkg upgrade coxswain"
         } else if p.contains("/.cargo/bin/") {
-            "cargo install coxswain"
+            "cargo install --locked coxswain"
         } else if p.contains("/microsoft/winget/packages/mwo-dk.coxswain.terminal_") {
             // WinGet unpacks the terminal app's zip under its Packages folder. The desktop installer
             // lands where a download would, so it gets the releases page.
@@ -189,7 +189,7 @@ mod tests {
         );
         assert_eq!(
             h("/home/me/.cargo/bin/coxswain"),
-            Some("cargo install coxswain")
+            Some("cargo install --locked coxswain")
         );
         assert_eq!(
             h(r"C:\Users\me\scoop\apps\coxswain\1.2.0\coxswain.exe"),
@@ -213,7 +213,7 @@ mod tests {
         );
         assert_eq!(
             h("/data/data/com.termux/files/home/.cargo/bin/coxswain"),
-            Some("cargo install coxswain")
+            Some("cargo install --locked coxswain")
         );
         assert_eq!(h("/home/me/Downloads/Coxswain_1.2.0_amd64.AppImage"), None);
     }

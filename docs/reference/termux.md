@@ -39,7 +39,7 @@ Until then, build it in Termux with Rust's package manager. It takes a few minut
 
 ```sh
 pkg install rust git
-cargo install coxswain
+cargo install --locked coxswain
 ```
 
 `cargo` puts the program in `~/.cargo/bin`; add that to your `PATH` in `~/.bashrc` if `coxswain`
@@ -164,7 +164,7 @@ files takes long on a phone and warms it. A model server on another computer doe
 | Certificates for HTTPS | The system's store | Termux's own, `$PREFIX/etc/tls/cert.pem` (`pkg install ca-certificates`) |
 | The go-to list (Alt+F1) | Type a path | Type a path, and the phone's folders |
 | F8 (Delete) | To the desktop's trash | To Coxswain's own trash in `~/.local/share/Trash`; on the phone's storage F8 asks to delete for good instead ([Deleting](#deleting-termuxs-trash)) |
-| Update hint | By where it is installed | `cargo install coxswain` for a cargo build; `pkg upgrade coxswain` for one installed with `pkg` |
+| Update hint | By where it is installed | `cargo install --locked coxswain` for a cargo build; `pkg upgrade coxswain` for one installed with `pkg` |
 
 Everything else, keys, config and the search index included, is the same. The config is in
 `~/.config/coxswain` inside Termux's home ([Where things are kept](where-things-are-kept.md)).
@@ -177,7 +177,7 @@ With the package, Termux updates Coxswain with everything else:
 pkg upgrade
 ```
 
-Installed with cargo, run `cargo install coxswain` again. The once-a-day update check tells you
+Installed with cargo, run `cargo install --locked coxswain` again. The once-a-day update check tells you
 when a new version is out ([Update checks](updates.md)).
 
 ## Uninstalling
@@ -220,7 +220,7 @@ How the recipe goes to Termux, and how versions are kept current after that:
 desktop. Android has neither; the terminal app needs only a terminal, and Termux is one.
 
 **`pkg install coxswain` says *Unable to locate package*.** The package is not in Termux's
-repository yet. Use `cargo install coxswain` meanwhile ([Installing](#installing)); `pkg` takes
+repository yet. Use `cargo install --locked coxswain` meanwhile ([Installing](#installing)); `pkg` takes
 over later, and `cargo uninstall coxswain` then removes the cargo copy.
 
 **I see only Termux's own files, not my Downloads.** Run `termux-setup-storage` once and allow
@@ -256,7 +256,7 @@ Coxswain and stays ten minutes after the last one quits. `termux-wake-lock` keep
 stopping it while the screen is off.
 
 **Why does the update check never say anything?** With the static musl binary it cannot look up `api.github.com` on Android. Built with
-`cargo install coxswain` it can. With either, `coxswain --version` says which version you have.
+`cargo install --locked coxswain` it can. With either, `coxswain --version` says which version you have.
 
 **Where does F8 put my files in Termux?** In `~/.local/share/Trash/files`, with a
 `.trashinfo` for each in `~/.local/share/Trash/info` that says where it came from and when.
