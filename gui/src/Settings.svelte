@@ -581,14 +581,17 @@
 
         <fieldset class="levels">
           <legend>{t("settings.level")}</legend>
-          {#each ui.cfg.levels as [l, costs] (l)}
-            <label class="level" class:on={ui.cfg.level === l}>
-              <input type="radio" name="level" checked={ui.cfg.level === l} onchange={() => chooseLevel(l)} />
-              <span><span class="lab">{t(`settings.level.${l}`)}</span>{#each costs as c (c)}<span class="badge" class:out={c === "leaves"}>{t(`settings.cost.${c}`)}</span>{/each}
-                <small class="hint">{t(`settings.level.${l}.hint`)}</small></span>
-            </label>
-          {/each}
-          {#if !ui.cfg.level}<p class="hint err">{t("settings.level.custom")}</p>{/if}
+          <!-- The grid inside, not on the fieldset: an older WebKitGTK (FreeBSD 15.1's) sizes a grid fieldset's legend to its narrowest, a word a line. -->
+          <div class="level-list">
+            {#each ui.cfg.levels as [l, costs] (l)}
+              <label class="level" class:on={ui.cfg.level === l}>
+                <input type="radio" name="level" checked={ui.cfg.level === l} onchange={() => chooseLevel(l)} />
+                <span><span class="lab">{t(`settings.level.${l}`)}</span>{#each costs as c (c)}<span class="badge" class:out={c === "leaves"}>{t(`settings.cost.${c}`)}</span>{/each}
+                  <small class="hint">{t(`settings.level.${l}.hint`)}</small></span>
+              </label>
+            {/each}
+            {#if !ui.cfg.level}<p class="hint err">{t("settings.level.custom")}</p>{/if}
+          </div>
         </fieldset>
         <div class="buttons"><button class="primary" onclick={openSetup}>{t("setup.open")}</button> <span class="hint">{t("setup.open_hint")}</span></div>
         <div class="buttons"><button onclick={() => (ui.modal = { kind: "guide", step: 0 })}>{t("guide.show_again")}</button> <span class="hint">{t("guide.show_again_hint")}</span></div>
@@ -1151,15 +1154,15 @@
     border: 0;
     margin: 0;
     padding: 0;
+    max-width: 48em;
+  }
+  .level-list {
     display: grid;
     gap: 6px;
-    max-width: 48em;
   }
   legend {
     font-weight: bold;
     margin-bottom: 6px;
-    /* WebKitGTK sizes a grid fieldset's legend to its narrowest: a word a line. */
-    width: 100%;
     padding: 0;
   }
   .level {
