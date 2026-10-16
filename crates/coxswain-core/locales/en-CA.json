@@ -15,7 +15,6 @@
   "one": "Moved {n} duplicate to the trash",
   "other": "Moved {n} duplicates to the trash"
  },
- "err.not_email": "Not an email message",
  "error.trash": "Could not move {what} to the trash",
  "feature.delete.a2": "Not every file system has a trash the system can use. The error names the file. Use {delete_forever} to delete it for good, after checking.",
  "feature.delete.q2": "Moving to the trash fails on a network share or a USB stick.",

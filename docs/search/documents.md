@@ -19,10 +19,10 @@ Nothing to do: every file of these kinds inside a [folder read](folders.md) is r
 
 | Kind | Files | What is read |
 |---|---|---|
-| PDF | `.pdf` | The text; a very long document is read for three seconds, which is most of it. A PDF without text is a scan: see [Scans](scans.md) |
+| PDF | `.pdf` | The text, and what is drawn on top of the pages: filled-in form fields, stamps and notes as they show on the page; a very long document is read for three seconds, which is most of it. A PDF without text is a scan: see [Scans](scans.md) |
 | Word and OpenDocument text | `.docx` `.docm` `.dotx` `.odt` `.ott` | The text, with headers, footers, footnotes and comments |
 | Rich text | `.rtf` | The text |
-| Spreadsheets | `.xlsx` `.xlsm` `.xlsb` `.xls` `.ods` | Every sheet: the values, not the formulas |
+| Spreadsheets | `.xlsx` `.xlsm` `.xlsb` `.xls` `.ods` | Every sheet: the values, not the formulas, and the notes on the cells (not in `.xls`) |
 | Presentations | `.pptx` `.ppsx` `.potx` `.odp` | The slides, with the speaker notes |
 | Mail | `.eml` `.mbox` | Subject, sender, receivers, the message and the names of its attachments |
 | Books and web pages | `.epub` `.html` `.htm` `.xhtml` | The text, without the markup |
@@ -64,6 +64,12 @@ Check that it is `.docx` (or `.odt` …), not the older `.doc`: that one needs
 
 #### Does it find the formulas in my spreadsheet?
 No, the values: what the cells show. A formula's result is found; the formula is not.
+
+#### Are the notes on cells and the fields of a PDF form found?
+Yes. The notes on the cells of an `.xlsx`, `.xlsm`, `.xlsb` or `.ods` are read after the sheets,
+without who wrote them; an `.xls`'s notes are not. In a PDF, what a filled-in form field, a stamp
+or a note shows on the page is found. The text of a sticky note that only shows in its pop-up is
+not.
 
 #### Are the attachments of a mail read?
 Their names are, so `budget.xlsx` finds the mail that had it attached. Their contents are not.

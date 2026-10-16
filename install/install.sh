@@ -57,10 +57,15 @@ if ! have cargo; then
     fail "No problem. Install Rust from https://rustup.rs when you're ready, then run this again."
   fi
 fi
-# Coxswain uses the 2024 edition, which needs Rust 1.85 or newer.
-RUST_MINOR="$(rustc --version | awk '{split($2, v, "."); print v[2]}')"
-if [ "${RUST_MINOR:-0}" -lt 85 ]; then
-  bold "Your Rust ($(rustc --version)) is older than Coxswain needs (1.85)."
+# The newest rust-version among the locked crates for this machine is what Rust must reach
+# (1.85, the 2024 edition, when cargo cannot say).
+host="$(rustc -vV | sed -n 's/^host: //p')"
+need="$(cargo metadata --locked --format-version 1 --filter-platform "$host" 2>/dev/null |
+  grep -o '"rust_version":"[0-9.]*"' | cut -d'"' -f4 | sort -V | tail -1 || true)"
+need="${need:-1.85}"
+have_rust="$(rustc --version | cut -d' ' -f2)"
+if [ "$(printf '%s\n%s\n' "$need" "$have_rust" | sort -V | head -1)" != "$need" ]; then
+  bold "Your Rust ($(rustc --version)) is older than Coxswain needs ($need)."
   if have rustup && ask "Would you like me to update it with 'rustup update stable'?"; then
     rustup update stable
   else
@@ -84,7 +89,7 @@ if [ "$TUI_ONLY" = 0 ]; then
       PKGS=(pacman -S --needed --noconfirm webkit2gtk-4.1 base-devel curl wget file openssl libappindicator-gtk3 librsvg pkgconf)
       PRE=(true)
     elif have zypper; then
-      PKGS=(zypper install -y webkit2gtk3-soup2-devel libopenssl-devel curl wget file libappindicator3-1 librsvg-devel gcc gcc-c++ make pkg-config)
+      PKGS=(zypper install -y webkit2gtk3-devel libopenssl-devel curl wget file libappindicator3-1 librsvg-devel gcc gcc-c++ make pkg-config)
       PRE=(true)
     else
       PKGS=()
