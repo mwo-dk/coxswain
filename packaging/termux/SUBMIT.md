@@ -1,6 +1,6 @@
 # Submitting Coxswain to termux-packages
 
-**Owner steps, in order:** **termux-packages**, [pkgsrc-wip](../pkgsrc/SUBMIT.md), [omnios-extra](../omnios/SUBMIT.md), [oi-userland](../openindiana/SUBMIT.md), [openbsd-wip](../openbsd/port/SUBMIT.md), [nixpkgs](../nix/SUBMIT.md). This is step 1 of 6; see [packaging/README.md](../README.md#submitting-by-hand).
+**Owner steps, in order:** **termux-packages**, [pkgsrc-wip](../pkgsrc/SUBMIT.md), [omnios-extra](../omnios/SUBMIT.md), [openbsd-wip](../openbsd/port/SUBMIT.md), [nixpkgs](../nix/SUBMIT.md). This is step 1 of 5; see [packaging/README.md](../README.md#submitting-by-hand).
 
 The recipe is `coxswain/build.sh` in this folder. CI (`.github/workflows/termux.yml`) builds it
 from each commit with termux-packages' own builder for `aarch64`, then installs the `.deb` in

@@ -1,6 +1,6 @@
 # Submitting Coxswain to nixpkgs
 
-**Owner steps, in order:** [termux-packages](../termux/SUBMIT.md), [pkgsrc-wip](../pkgsrc/SUBMIT.md), [omnios-extra](../omnios/SUBMIT.md), [oi-userland](../openindiana/SUBMIT.md), [openbsd-wip](../openbsd/port/SUBMIT.md), **nixpkgs**. This is step 6 of 6; see [packaging/README.md](../README.md#submitting-by-hand).
+**Owner steps, in order:** [termux-packages](../termux/SUBMIT.md), [pkgsrc-wip](../pkgsrc/SUBMIT.md), [omnios-extra](../omnios/SUBMIT.md), [openbsd-wip](../openbsd/port/SUBMIT.md), **nixpkgs**. This is step 5 of 5; see [packaging/README.md](../README.md#submitting-by-hand).
 
 What is here, and what the owner does to get `coxswain` (and later `coxswain-gui`) into
 [NixOS/nixpkgs](https://github.com/NixOS/nixpkgs). Nothing has been submitted yet.

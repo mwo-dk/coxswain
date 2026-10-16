@@ -28,7 +28,7 @@ Termux's own bot follows our releases.
 
 The recipes for illumos and pkgsrc are built in CI where that is cheap and submitted by hand:
 [omnios/](omnios/SUBMIT.md) for omnios-extra (`omnios-extra.yml` builds it with their build
-system on OmniOS), [openindiana/](openindiana/SUBMIT.md) for oi-userland (not built in CI), and
+system on OmniOS, and its package installs on OpenIndiana too), and
 [pkgsrc/](pkgsrc/SUBMIT.md) for pkgsrc-wip, which covers NetBSD and SmartOS (`pkgsrc.yml` builds
 it on NetBSD; `pkgsrc/update.py` moves it to a new release).
 
@@ -78,6 +78,5 @@ and the copy-paste commands that move its recipe to a new release:
 1. termux-packages: [termux/SUBMIT.md](termux/SUBMIT.md)
 2. pkgsrc-wip: [pkgsrc/SUBMIT.md](pkgsrc/SUBMIT.md)
 3. omnios-extra: [omnios/SUBMIT.md](omnios/SUBMIT.md)
-4. oi-userland: [openindiana/SUBMIT.md](openindiana/SUBMIT.md)
-5. openbsd-wip, then ports@openbsd.org: [openbsd/port/SUBMIT.md](openbsd/port/SUBMIT.md)
-6. nixpkgs: [nix/SUBMIT.md](nix/SUBMIT.md)
+4. openbsd-wip, then ports@openbsd.org: [openbsd/port/SUBMIT.md](openbsd/port/SUBMIT.md)
+5. nixpkgs: [nix/SUBMIT.md](nix/SUBMIT.md)
