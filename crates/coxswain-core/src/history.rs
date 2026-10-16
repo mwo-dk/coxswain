@@ -387,7 +387,7 @@ pub fn list(dir: &Path, at: &At) -> io::Result<Vec<Entry>> {
     if out.len() == 1 && !at.inner.is_empty() {
         return Err(io::Error::new(
             io::ErrorKind::NotFound,
-            format!("{} is not in commit {rev}", at.inner),
+            crate::t!("history.not_in_commit", "path" => at.inner, "rev" => rev),
         ));
     }
     Ok(out)
@@ -398,7 +398,7 @@ pub fn read(at: &At, max: usize) -> io::Result<(Vec<u8>, bool)> {
     let rev = at
         .commit
         .as_deref()
-        .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "pick a commit first"))?;
+        .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, crate::t!("history.pick_commit")))?;
     let mut c = git(&at.base);
     c.args(["cat-file", "blob", &format!("{rev}:./{}", at.inner)]);
     let mut child = c.stdout(Stdio::piped()).stderr(Stdio::piped()).spawn()?;
@@ -451,7 +451,7 @@ pub fn diff(at: &At) -> io::Result<String> {
     let rev = at
         .commit
         .as_deref()
-        .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "pick a commit first"))?;
+        .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, crate::t!("history.pick_commit")))?;
     let mut c = git(&at.base);
     c.args([
         "show",
@@ -476,7 +476,7 @@ pub fn copy_out(at: &At, dest: &Path) -> io::Result<PathBuf> {
     let rev = at
         .commit
         .as_deref()
-        .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "pick a commit first"))?;
+        .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, crate::t!("history.pick_commit")))?;
     let name = match at.inner.rsplit('/').next().filter(|n| !n.is_empty()) {
         Some(n) => n.to_string(),
         None => format!(
@@ -495,7 +495,7 @@ pub fn copy_out(at: &At, dest: &Path) -> io::Result<PathBuf> {
     if std::fs::symlink_metadata(&to).is_ok() {
         return Err(io::Error::new(
             io::ErrorKind::AlreadyExists,
-            format!("{} exists", to.display()),
+            crate::t!("err.exists", "path" => to.display()),
         ));
     }
     let r = write_tree(at, rev, &to);
@@ -564,10 +564,7 @@ fn write_tree(at: &At, rev: &str, to: &Path) -> io::Result<()> {
     if files.is_empty() {
         return Err(io::Error::new(
             io::ErrorKind::NotFound,
-            format!(
-                "{} is not in commit {rev}",
-                if at.inner.is_empty() { "." } else { &at.inner }
-            ),
+            crate::t!("history.not_in_commit", "path" => if at.inner.is_empty() { "." } else { &at.inner }, "rev" => rev),
         ));
     }
     // The files and folders get the commit's time, as they were then; not the time they were

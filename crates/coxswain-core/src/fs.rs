@@ -481,7 +481,7 @@ fn copy_out_or_in(
     if let Some((archive, inner)) = into_archive(dst) {
         let name = src
             .file_name()
-            .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "nothing to copy"))?
+            .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, crate::t!("err.nothing_to_copy")))?
             .to_string_lossy();
         // Into a folder of the archive under its own name, or under the name `dst` gives.
         let (to, inner) = if crate::archive::is_folder(&archive, &inner)? {
@@ -514,7 +514,7 @@ fn copy_out_or_in(
     if to.starts_with(src) && src.is_dir() {
         return Err(io::Error::new(
             io::ErrorKind::InvalidInput,
-            "cannot copy a folder into itself",
+            crate::t!("err.copy_into_itself"),
         ));
     }
     copy_tree(src, &to)?;
@@ -546,7 +546,7 @@ fn copy_tree(src: &Path, to: &Path) -> io::Result<()> {
         // ponytail: no overwrite prompt yet; delete the target first.
         Err(io::Error::new(
             io::ErrorKind::AlreadyExists,
-            format!("{} exists", to.display()),
+            crate::t!("err.exists", "path" => to.display()),
         ))
     } else {
         // Not there before (above): a copy that fails half way (a full disk) leaves nothing,
@@ -605,7 +605,7 @@ fn rename_plain(src: &Path, dst: &Path) -> io::Result<PathBuf> {
     if fs::symlink_metadata(&to).is_ok() && !same_file(src, &to) {
         return Err(io::Error::new(
             io::ErrorKind::AlreadyExists,
-            format!("{} exists", to.display()),
+            crate::t!("err.exists", "path" => to.display()),
         ));
     }
     match fs::rename(src, &to) {
