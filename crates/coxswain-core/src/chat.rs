@@ -380,12 +380,11 @@ impl Model {
         )
     }
 
-    pub fn remove(&self) -> io::Result<()> {
-        unload();
-        match self.folder().map(std::fs::remove_dir_all) {
-            Some(Err(e)) if e.kind() != io::ErrorKind::NotFound => Err(e),
-            _ => Ok(()),
-        }
+    /// Delete the model; it is let go of first, here and in the helper.
+    pub fn remove(&self, helper: &crate::helper::Client) -> io::Result<()> {
+        helper.unload();
+        self.folder()
+            .map_or(Ok(()), |f| crate::models::remove_dir(&f))
     }
 }
 

@@ -191,10 +191,7 @@ pub(crate) fn fetch(dir: &std::path::Path, files: &[Pinned], p: &Progress) -> io
 
 /// Delete the model.
 pub fn remove() -> io::Result<()> {
-    match folder().map(std::fs::remove_dir_all) {
-        Some(Err(e)) if e.kind() != io::ErrorKind::NotFound => Err(e),
-        _ => Ok(()),
-    }
+    folder().map_or(Ok(()), |f| crate::models::remove_dir(&f))
 }
 
 /// Passages per pass on the GPU: one pass over many is what makes it quick there. On the CPU
