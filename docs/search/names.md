@@ -34,7 +34,7 @@ the walk goes.
 |---|---|
 | At start | The index saved in Coxswain's cache folder (`index.bin`) loads, in about 90 ms, so searching works at once |
 | Right after | A fresh index is built in the background; the saved one answers meanwhile |
-| All the time | The file watcher (inotify on Linux, FSEvents on macOS, ReadDirectoryChangesW on Windows, kqueue on the BSDs, event ports on illumos) adds and removes names: a new file can be found within a second. A folder made since is watched as soon as it appears, with what is in it |
+| All the time | The file watcher (inotify on Linux, FSEvents on macOS, ReadDirectoryChangesW on Windows, kqueue on the BSDs, event ports on illumos) adds and removes names: a new file can be found within a second. A folder made since is watched as soon as it appears, with what is in it; on macOS, one made right in a root (in your home folder itself, say) waits for the hourly rebuild ([#222](https://github.com/mwo-dk/coxswain/issues/222)) |
 | Every hour | The whole index is built again, which catches anything the watcher missed |
 
 **What is indexed:** all of `/` on Linux and macOS, every fixed drive on Windows. Hidden files and
