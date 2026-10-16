@@ -140,6 +140,16 @@ jobs:
           BASE: ${{ github.base_ref }}
         run: git fetch --no-tags --depth=1 origin "+refs/heads/$BASE:refs/remotes/origin/$BASE"
       - run: python3 tools/docs-check.py
+      # Every theme, action, config.toml key, flag and feature has its mention in docs/. Here too,
+      # not only in `test`, because a docs-only pull request skips `test`.
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # v1
+        with:
+          toolchain: stable
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          shared-key: docs
+      - run: cargo test -p coxswain-core --locked --test docs
+      - run: cargo test -p coxswain-core --locked --lib features
 
   # The one check branch protection requires: the machines above passed, or were not needed, and
   # the docs are current.
