@@ -226,7 +226,7 @@ jobs:
         shell: vmsh {0}
         run: |
           set -e
-          pkg_add -D unsigned /usr/ports/packages/amd64/all/coxswain-2.8.1.tgz
+          pkg_add -D unsigned /usr/ports/packages/amd64/all/coxswain-*.tgz
           pkg_info -L coxswain
           coxswain --version
           cox --version
