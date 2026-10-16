@@ -2965,7 +2965,8 @@ fn disk(rest: &[String]) {
     }
 }
 
-fn main() {
+/// The program, under both its names (`coxswain` and `cox`).
+pub fn main() {
     let mut args: Vec<String> = std::env::args().skip(1).collect();
     // `--settings[=area|option] [LEFT] [RIGHT]`: start with Settings open, there.
     let open_settings = args.first().and_then(|a| a.strip_prefix("--settings")).filter(|r| r.is_empty() || r.starts_with('=')).map(|r| r.trim_start_matches('=').to_string());

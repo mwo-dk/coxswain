@@ -10,14 +10,20 @@ keywords.workspace = true
 categories.workspace = true
 description = "Coxswain: a Norton Commander style file manager for the terminal"
 
+# The program is the library, so it is built and tested once; the two names call it.
+[lib]
+doctest = false
+
 [[bin]]
 name = "coxswain"
-path = "src/main.rs"
+path = "src/bin/coxswain.rs"
+test = false
 
 # The same program under a name that is quick to type.
 [[bin]]
 name = "cox"
-path = "src/main.rs"
+path = "src/bin/cox.rs"
+test = false
 
 [dependencies]
 coxswain-core.workspace = true
