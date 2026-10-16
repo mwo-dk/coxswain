@@ -1477,7 +1477,7 @@
  "feature.views.q3": "Proč je moje složka s fotkami v miniaturách pomalá?",
  "feature.views.title": "Podrobnosti, sloupce a miniatury",
  "feature.views.what": "Ukažte složku jako podrobnosti, Millerovy sloupce nebo miniatury, zvlášť pro každou kartu, v desktopové aplikaci.",
- "feature.where_things_are_kept.a1": "Obvykle search.db (text vašich souborů) a models/ (488 MB s vestavěným modelem), pak previews/. Nastavení ukazuje velikost každého z nich.",
+ "feature.where_things_are_kept.a1": "Obvykle search.db (text vašich souborů) a models/ (465 MB s vestavěným modelem), pak previews/. Nastavení ukazuje velikost každého z nich.",
  "feature.where_things_are_kept.a2": "Zkopírujte state.json, když žádný Coxswain neběží. Štítky a poznámky se ukládají podle úplné cesty, takže se ukážou jen tam, kde existují stejné cesty.",
  "feature.where_things_are_kept.a3": "Soubor state.json, který nešel při spuštění přečíst, odsunutý stranou, aby se mohl uložit nový. Jsou v něm vaše štítky a poznámky; opravte ho ručně, nebo ho smažte.",
  "feature.where_things_are_kept.q1": "Složka mezipaměti je velká. Co zabírá místo?",

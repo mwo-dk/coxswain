@@ -166,7 +166,7 @@ says so.
 Search by meaning works the same in both apps: the search helper does it, and Find's
 *About this* group shows its hits. What differs is how you turn it on.
 
-1. Run `coxswain --meaning on`. It downloads the built-in model (about 488 MB), showing
+1. Run `coxswain --meaning on`. It downloads the built-in model (about 465 MB), showing
    *Downloading: 42 %*, sets `[search] meaning = true` and starts
    a new helper. Or `coxswain --meaning ollama` or `coxswain --meaning server URL MODEL` for a
    server ([Command-line flags](command-line-flags.md#--meaning)).

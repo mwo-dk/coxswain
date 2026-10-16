@@ -171,7 +171,8 @@ See [The search helper](../search/helper.md).
 
 The one in `flake.lock` (nixos-unstable at the time it was last locked). To build with yours,
 set `inputs.coxswain.inputs.nixpkgs.follows = "nixpkgs"`; Coxswain needs a Rust toolchain that
-supports edition 2024 (Rust 1.85 or newer).
+is new enough for the locked crates: Rust 1.93 or newer for the terminal app, 1.95 for the
+desktop app on Linux (its `sysinfo` asks for it).
 
 ---
 [← Previous: Linux on ARM](linux-arm.md) · [Next: Termux on Android →](termux.md)

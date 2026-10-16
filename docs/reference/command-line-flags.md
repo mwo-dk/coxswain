@@ -62,11 +62,11 @@ coxswain [LEFT] [RIGHT]      a folder, or a file to open its folder with the cur
                            or turn it off and delete the model
   --meaning ollama [MODEL] meaning read by Ollama here (bge-m3 unless named; pulled if missing)
   --meaning server URL MODEL  meaning read by a server with the OpenAI API (Lemonade, LM Studio)
-  --meaning bench [URL MODEL]  time the model on 64 passages and say what the files to go take;
-                           with a server and model named, that server is tried instead
   --meaning builtin        back to the built-in model
   --meaning cpu|auto       the built-in model on the CPU only, or on the Mac's GPU (Metal)
                            when it has one (auto, the default)
+  --meaning bench [URL MODEL]  time the model on 64 passages and say what the files to go take;
+                           with a server and model named, that server is tried instead
   --meaning ask MODEL|off  Ask in Find: the chat model on that server (Ollama here with the
                            built-in model) that answers questions from your files, or one
                            built in: builtin:qwen3-1.7b, builtin:qwen3-4b or
@@ -139,7 +139,7 @@ new search helper with the new settings. See [Search by meaning](../search/meani
 | `--meaning` | Prints `on` when `[search] meaning` is on and its engine is ready (the built-in model downloaded, or a server set), else `off`. With the built-in model on, a second line says where it runs: `Built-in model · on the GPU (Metal)`, `Built-in model · on the CPU`, or on a Mac that could not use its GPU `Built-in model · on the CPU (this Mac has no Metal GPU to use)` |
 | `--meaning cpu` | The built-in model on the CPU only, on a Mac too: sets `meaning_device = "cpu"` |
 | `--meaning auto` | The built-in model on the Mac's GPU (Metal) when it can, the CPU elsewhere: sets `meaning_device = "auto"`, the default |
-| `--meaning on` | Downloads the built-in model (multilingual-e5-small, about 488 MB) if it is not there, showing `Downloading: 42 %`, then sets `meaning = true`. It does not change `meaning_engine` |
+| `--meaning on` | Downloads the built-in model (multilingual-e5-small, about 465 MB) if it is not there, showing `Downloading: 42 %`, then sets `meaning = true`. It does not change `meaning_engine` |
 | `--meaning off` | Sets `meaning = false`. The model stays on disk |
 | `--meaning delete` | Sets `meaning = false` and deletes the model folder |
 | `--meaning ollama [MODEL]` | Uses Ollama on this machine (`http://localhost:11434`) with `MODEL`, default `bge-m3`. When Ollama lacks the model it pulls it first: `Pulling bge-m3 with Ollama…`. Sets `meaning_engine = "ollama"`, `meaning_model` and `meaning = true` |
@@ -178,8 +178,8 @@ See [The search helper](../search/helper.md).
 | Status | When |
 |---|---|
 | `0` | Done, or the app quit normally |
-| `1` | A `--meaning` or `--index-service` flag failed; it prints `coxswain: …` with the reason |
-| `2` | `config.toml` could not be read or has a mistake: `coxswain: config: …` or `coxswain: unknown key 'Ctlr+P'`. The app does not start |
+| `1` | A flag's work failed (`--meaning`, `--index-service`, `--models delete`, `--disk clear`, `--hints reset`), or `--models delete` names no such model; it prints `coxswain: …` with the reason |
+| `2` | An option, value or folder it does not know (`coxswain --model`, `--meaning of`, `coxswain nowhere`), or a name `--disk clear` does not take; or `config.toml` could not be read or has a mistake: `coxswain: config: …` or `coxswain: unknown key 'Ctlr+P'`. The app does not start |
 
 ## The desktop app: `coxswain-gui`
 
@@ -194,6 +194,8 @@ coxswain-gui [--settings[=AREA|OPTION]] [--duplicates [FOLDER …] | [LEFT] [RIG
 | `--settings=search` | …at *Finding files* |
 | `--settings=search_meaning` | …at *Finding files*, with *Details → Meaning* open and scrolled to |
 | `--settings=ask_model` | …at *Finding files*, with *Details → Ask* open and scrolled to |
+| `--settings=models` | …at *Finding files*, with *Built-in models* open ([Built-in models](../search/models.md)) |
+| `--settings=disk` | …at *Privacy and updates*, with *Disk use* open ([Disk use](disk-use.md)) |
 | `--settings=language` | …at *Looks*, scrolled to *Language* ([Languages](../customise/languages.md)) |
 | `--settings=overview` | …at *Overview*, where *What's new* is ([Notices and what's new](../search/notices.md)) |
 | `--settings=AREA` | …at that area: `overview`, `search`, `previews`, `looks`, `behaviour`, `keys`, `privacy` |

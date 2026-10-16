@@ -64,17 +64,23 @@ It is worked out from where the program is installed:
 
 | Installed with | Command shown |
 |---|---|
-| Homebrew formula (the terminal app) | `brew upgrade coxswain` |
-| Homebrew cask (the desktop app) | `brew upgrade --cask coxswain-gui` |
-| Cargo | `cargo install --locked coxswain` |
-| WinGet, the terminal app (`mwo-dk.Coxswain.Terminal`) | `winget upgrade mwo-dk.Coxswain.Terminal` |
-| Flatpak, the desktop app (`io.github.mwo_dk.Coxswain`) | `flatpak update io.github.mwo_dk.Coxswain`; a software centre such as GNOME Software or Discover updates it too ([Flatpak](flatpak.md#updating)) |
 | Anything else on FreeBSD (the install script, the archives) | `fetch -qo - https://raw.githubusercontent.com/mwo-dk/coxswain/master/install/install-freebsd.sh \| sh`, which updates both apps where they are ([FreeBSD](freebsd.md#updating)) |
 | Anything else on NetBSD or OpenBSD | `ftp -o - https://raw.githubusercontent.com/mwo-dk/coxswain/master/install/install-unix.sh \| sh` ([NetBSD](netbsd.md#updating-and-uninstalling), [OpenBSD](openbsd.md#updating-and-uninstalling)) |
 | Anything else on illumos | `curl -fsSL https://raw.githubusercontent.com/mwo-dk/coxswain/master/install/install-unix.sh \| sh` ([illumos](illumos.md#updating-and-uninstalling)) |
-| A download, `.deb`, `.rpm`, AppImage, the Windows installer (also when WinGet ran it: `winget upgrade mwo-dk.Coxswain`), the Arch package, a source build | None: it points to the [releases page](https://github.com/mwo-dk/coxswain/releases/latest) |
+| Flatpak, the desktop app (`io.github.mwo_dk.Coxswain`) | `flatpak update io.github.mwo_dk.Coxswain`. It is not on Flathub yet: a Flatpak you built updates by building it again ([Flatpak](flatpak.md#updating)) |
+| Termux's package (`/data/data/com.termux/files/usr/bin`) | `pkg upgrade coxswain`, once the package is in Termux's repository ([Termux](termux.md)) |
+| Cargo (`~/.cargo/bin`, Termux too) | `cargo install --locked coxswain` |
+| Homebrew formula (the terminal app) | `brew upgrade coxswain` |
+| Homebrew cask (the desktop app) | `brew upgrade --cask coxswain-gui` |
+| WinGet, the terminal app (`mwo-dk.Coxswain.Terminal`) | `winget upgrade mwo-dk.Coxswain.Terminal` |
+| A download, `.deb`, `.rpm`, AppImage, the Windows installer, a source build | None: it points to the [releases page](https://github.com/mwo-dk/coxswain/releases/latest) |
 
-The install tables in the [README](../../README.md#install) say how to update each.
+The Windows desktop installer lands where a download would, so it gets the releases page too.
+Its WinGet package, `mwo-dk.Coxswain`, is waiting for WinGet's review; until it is listed, only
+`mwo-dk.Coxswain.Terminal` is on WinGet. There is no Arch (AUR) package yet.
+
+How to install each is in the [README](../../README.md#install) and
+[install/INSTALL.md](../../install/INSTALL.md); update the same way.
 
 ## Settings and config.toml
 
@@ -102,8 +108,8 @@ stays in charge.
 
 It could not tell a package manager from where the program runs: a download, a `.deb`, an
 AppImage, or the Windows desktop installer, which lands in the same folder whether you ran it
-yourself or WinGet did (then `winget upgrade mwo-dk.Coxswain`). Update it the way you installed
-it; the README's install tables say how.
+yourself or, once its WinGet package is listed, WinGet did. Update it the way you installed it:
+download the new release, or run your package manager's upgrade.
 
 #### I updated, but it still says a newer version is available.
 

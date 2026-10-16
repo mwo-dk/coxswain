@@ -61,8 +61,9 @@ It all runs on your own machine, or on your own server (Ollama, Lemonade, LM Stu
    finds the model servers on your machine and says what suits it.
 2. **Use the graphics card or NPU** if you have one: the guide checks that the server does.
 3. **Let it read in the background:** *Start with my session* keeps the index current between
-   launches (a systemd user service, a launchd agent, a Run entry or an XDG autostart entry on
-   FreeBSD; no administrator rights).
+   launches (an XDG autostart entry on FreeBSD, the other BSDs, illumos and in the Flatpak, a
+   systemd user service on Linux, a launchd agent on macOS, a Run entry on Windows; no
+   administrator rights).
 
 The whole walk-through: [Smart search in a few minutes](docs/search/setup.md).
 
@@ -87,7 +88,7 @@ winget install mwo-dk.Coxswain.Terminal                                         
 | System | Terminal app | Desktop app |
 |---|---|---|
 | FreeBSD 14, 15 | `fetch -qo - https://raw.githubusercontent.com/mwo-dk/coxswain/master/install/install-freebsd.sh \| sh` installs both apps ([FreeBSD](docs/reference/freebsd.md)); `--terminal-only` for the terminal app alone | The same line (experimental), with the packages it needs from `pkg` |
-| NetBSD 10, 11 | `ftp -o - https://raw.githubusercontent.com/mwo-dk/coxswain/master/install/install-unix.sh \| sh` ([NetBSD](docs/reference/netbsd.md)) | Not yet: webkit-gtk41's binary packages miss dependencies |
+| NetBSD 10 (11 untested) | `ftp -o - https://raw.githubusercontent.com/mwo-dk/coxswain/master/install/install-unix.sh \| sh` ([NetBSD](docs/reference/netbsd.md)) | Not yet: webkit-gtk41's binary packages miss dependencies |
 | OpenBSD 7.9 | `ftp -o - https://raw.githubusercontent.com/mwo-dk/coxswain/master/install/install-unix.sh \| sh` installs both apps ([OpenBSD](docs/reference/openbsd.md)); `--terminal-only` for the terminal app alone | The same line (experimental), with `webkitgtk41` from `pkg_add` |
 | illumos (OmniOS, OpenIndiana) | `curl -fsSL https://raw.githubusercontent.com/mwo-dk/coxswain/master/install/install-unix.sh \| sh` ([illumos](docs/reference/illumos.md)) | Not built: no WebKitGTK 4.1 |
 | TrueNAS | The Linux build (Community Edition) or the FreeBSD one (CORE) in your home, over SSH ([TrueNAS](docs/reference/truenas.md)) | Not on a NAS |
@@ -95,7 +96,7 @@ winget install mwo-dk.Coxswain.Terminal                                         
 | Linux, Flatpak | Not in it: the line above | Not on Flathub yet: build it with `flatpak-builder` ([Flatpak](docs/reference/flatpak.md)) |
 | Linux on ARM64 (Raspberry Pi OS 64-bit, Asahi, ARM servers) | The static `aarch64-unknown-linux-musl` binary, or `brew` as above | `_arm64.deb`, `.aarch64.rpm`, `_aarch64.AppImage` ([Linux on ARM](docs/reference/linux-arm.md)) |
 | Nix (Linux, macOS) | `nix run github:mwo-dk/coxswain`, or `nix profile install github:mwo-dk/coxswain` ([Nix](docs/reference/nix.md)) | `nix run github:mwo-dk/coxswain#coxswain-gui` (Linux) |
-| Android (Termux) | `pkg install coxswain` once it is in Termux's repository; until then `pkg install rust git && cargo install --locked coxswain` ([Termux](docs/reference/termux.md)) | Not on Android |
+| Android (Termux) | `pkg install coxswain` once it is in Termux's repository; until then `pkg install rust clang binutils git && cargo install --locked coxswain` ([Termux](docs/reference/termux.md)) | Not on Android |
 | ChromeOS | The Linux binary for its processor, in the Linux terminal | The `.deb` for its processor, in Linux ([ChromeOS](docs/reference/chromeos.md)) |
 | Any | `cargo install --locked coxswain` | `./install/install.sh` (or `install\install.ps1`) from a clone |
 | macOS | `brew install mwo-dk/coxswain/coxswain` | `brew install --cask mwo-dk/coxswain/coxswain-gui`, or the `.dmg` |
@@ -107,8 +108,8 @@ Downloads are on the [releases page](https://github.com/mwo-dk/coxswain/releases
 `xattr -cr /Applications/Coxswain.app` once (the cask does it for you); on Windows click
 *More info* and *Run anyway*. Why macOS may ask about your folders again after an update: [macOS](docs/reference/macos.md#why-a-new-version-may-ask-again).
 Both apps check once a day for a newer release and give the exact update command
-([Update checks](docs/reference/updates.md)). Every way to install and update, and building
-from source: [install/INSTALL.md](install/INSTALL.md). Git glyphs want a
+([Update checks](docs/reference/updates.md)). Building from source with the install scripts:
+[install/INSTALL.md](install/INSTALL.md). Git glyphs want a
 [Nerd Font](https://www.nerdfonts.com/); without one set `glyphs = "ascii"`
 ([Glyphs and fonts](docs/customise/glyphs-and-fonts.md)).
 

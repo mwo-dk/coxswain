@@ -1415,7 +1415,7 @@
  "feature.views.q3": "사진 폴더가 썸네일에서 느린 이유는?",
  "feature.views.title": "자세히, 열, 썸네일",
  "feature.views.what": "데스크톱 앱에서 폴더를 자세히, 밀러 열, 썸네일로 보여 주며 탭마다 고릅니다.",
- "feature.where_things_are_kept.a1": "보통 search.db(파일의 텍스트)와 models/(내장 모델이면 488 MB), 그다음 previews/입니다. 설정에 각각의 크기가 나옵니다.",
+ "feature.where_things_are_kept.a1": "보통 search.db(파일의 텍스트)와 models/(내장 모델이면 465 MB), 그다음 previews/입니다. 설정에 각각의 크기가 나옵니다.",
  "feature.where_things_are_kept.a2": "Coxswain이 실행되지 않을 때 state.json을 복사하세요. 태그와 메모는 전체 경로로 보관되므로 같은 경로가 있는 곳에서만 보입니다.",
  "feature.where_things_are_kept.a3": "시작할 때 읽을 수 없었던 state.json을 새 파일을 저장할 수 있도록 옮겨 둔 것입니다. 태그와 메모가 그 안에 있으니 직접 고치거나 지우세요.",
  "feature.where_things_are_kept.q1": "캐시 폴더가 큽니다. 무엇이 공간을 차지하나요?",

@@ -1477,7 +1477,7 @@
  "feature.views.q3": "¿Por qué mi carpeta de fotos va lenta en miniaturas?",
  "feature.views.title": "Detalles, columnas y miniaturas",
  "feature.views.what": "Mostrá una carpeta como detalles, columnas de Miller o miniaturas, elegido por pestaña, en la app de escritorio.",
- "feature.where_things_are_kept.a1": "Por lo general search.db (el texto de tus archivos) y models/ (488 MB con el modelo incluido), después previews/. Configuración muestra el tamaño de cada uno.",
+ "feature.where_things_are_kept.a1": "Por lo general search.db (el texto de tus archivos) y models/ (465 MB con el modelo incluido), después previews/. Configuración muestra el tamaño de cada uno.",
  "feature.where_things_are_kept.a2": "Copiá state.json mientras no haya ningún Coxswain corriendo. Las etiquetas y las notas se guardan por ruta completa, así que solo aparecen donde existan las mismas rutas.",
  "feature.where_things_are_kept.a3": "Un state.json que no se pudo leer al arrancar, apartado para poder guardar uno nuevo. Tus etiquetas y notas están ahí; arreglalo a mano o borralo.",
  "feature.where_things_are_kept.q1": "La carpeta de caché es grande. ¿Qué ocupa el espacio?",

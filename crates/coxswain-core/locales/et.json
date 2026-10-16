@@ -1446,7 +1446,7 @@
  "feature.views.q3": "Miks on mu fotokaust pisipiltides aeglane?",
  "feature.views.title": "Üksikasjad, veerud ja pisipildid",
  "feature.views.what": "Näita kausta üksikasjade, Milleri veergude või pisipiltidena, valitud vahelehe kaupa, töölauarakenduses.",
- "feature.where_things_are_kept.a1": "Tavaliselt search.db (sinu failide tekst) ja models/ (sisseehitatud mudeliga 488 MB), siis previews/. Sätted näitavad igaühe suurust.",
+ "feature.where_things_are_kept.a1": "Tavaliselt search.db (sinu failide tekst) ja models/ (sisseehitatud mudeliga 465 MB), siis previews/. Sätted näitavad igaühe suurust.",
  "feature.where_things_are_kept.a2": "Kopeeri state.json, kui ükski Coxswain ei tööta. Sildid ja märkmed hoitakse täieliku tee järgi, seega ilmuvad need ainult seal, kus on samad teed.",
  "feature.where_things_are_kept.a3": "state.json, mida ei saanud käivitumisel lugeda ja mis tõsteti kõrvale, et uut salvestada saaks. Sinu sildid ja märkmed on selles; paranda see käsitsi või kustuta.",
  "feature.where_things_are_kept.q1": "Vahemälu kaust on suur. Mis ruumi võtab?",

@@ -27,6 +27,10 @@ fn markdown(dir: &Path, out: &mut Vec<PathBuf>) {
 fn code() -> String {
     let mut pages = vec![root().join("README.md")];
     markdown(&root().join("docs"), &mut pages);
+    code_of(pages)
+}
+
+fn code_of(pages: Vec<PathBuf>) -> String {
     let mut code = String::new();
     for page in pages {
         let text = std::fs::read_to_string(&page).unwrap();
@@ -160,4 +164,30 @@ fn a_name_counts_only_on_its_own() {
     assert!(named(&code, "win11-dark") && named(&code, "name_roots") && !named(&code, "no_such_key_anywhere"));
     assert!(!named("win11-dark", "win11") && !named("text_roots", "text") && named("a = text\n", "text"));
     assert!(config_keys().len() > 80 && flags().len() > 20, "{} keys, {} flags", config_keys().len(), flags().len());
+}
+
+/// `--settings=<name>`: every area and group Settings opens at is in the flags page, and every
+/// option it opens at is named somewhere in the docs.
+#[test]
+fn every_settings_section_is_in_the_docs() {
+    use coxswain_core::settings::{OPTIONS, sections};
+    let options: Vec<&str> = OPTIONS.iter().map(|o| o.name).collect();
+    let page = std::fs::read_to_string(root().join("docs/reference/command-line-flags.md")).unwrap();
+    let listed = |n: &str| page.contains(&format!("`{n}`")) || page.contains(&format!("--settings={n}`"));
+    let gone: Vec<&str> = sections().into_iter().map(|s| s.0).filter(|n| !options.contains(n) && !listed(n)).collect();
+    assert!(gone.is_empty(), "--settings= names not in docs/reference/command-line-flags.md: {gone:?}");
+    missing("Settings options", options, &[]);
+}
+
+/// The flags page shows `coxswain --help` as the terminal app prints it, word for word.
+#[test]
+fn the_flags_page_shows_the_help_as_it_is() {
+    let src = std::fs::read_to_string(root().join("crates/coxswain/src/lib.rs")).unwrap();
+    let start = src.find("const USAGE: &str = \"").expect("USAGE in crates/coxswain/src/lib.rs") + 21;
+    let usage = &src[start..start + src[start..].find("\";").unwrap()];
+    let page = std::fs::read_to_string(root().join("docs/reference/command-line-flags.md")).unwrap();
+    assert!(
+        page.replace("\r\n", "\n").contains(&format!("```\n{usage}\n```")),
+        "docs/reference/command-line-flags.md must show coxswain --help as crates/coxswain/src/lib.rs's USAGE has it:\n{usage}"
+    );
 }

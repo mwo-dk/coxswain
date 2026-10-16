@@ -1477,7 +1477,7 @@
  "feature.views.q3": "Kāpēc mana fotoattēlu mape sīktēlos ir lēna?",
  "feature.views.title": "Detaļas, kolonnas un sīktēli",
  "feature.views.what": "Rādiet mapi kā detaļas, Millera kolonnas vai sīktēlus, izvēloties katrai cilnei, darbvirsmas lietotnē.",
- "feature.where_things_are_kept.a1": "Parasti search.db (jūsu failu teksts) un models/ (488 MB ar iebūvēto modeli), tad previews/. Iestatījumi rāda katra lielumu.",
+ "feature.where_things_are_kept.a1": "Parasti search.db (jūsu failu teksts) un models/ (465 MB ar iebūvēto modeli), tad previews/. Iestatījumi rāda katra lielumu.",
  "feature.where_things_are_kept.a2": "Nokopējiet state.json, kamēr neviens Coxswain nedarbojas. Krāsu atzīmes un piezīmes tiek glabātas pēc pilna ceļa, tāpēc tās redzamas tikai tur, kur ir tie paši ceļi.",
  "feature.where_things_are_kept.a3": "state.json, ko startējot nevarēja nolasīt, pārvietots malā, lai varētu saglabāt jaunu. Tajā ir jūsu krāsu atzīmes un piezīmes; salabojiet to ar roku vai izdzēsiet.",
  "feature.where_things_are_kept.q1": "Kešatmiņas mape ir liela. Kas aizņem vietu?",

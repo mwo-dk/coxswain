@@ -128,4 +128,4 @@ Every version, newest first. Downloads are on the [releases page](https://github
 | **1.0.0** | 2026-09-29 | Coxswain under its own name: two panels in the terminal and on the desktop, previews, duplicates, 18 themes and 18 languages. [Docs index](README.md) |
 
 ---
-[← README](../README.md) · [Docs index](README.md)
+[← Previous: Questions, collected](faq.md) · [Next: Docs index →](README.md)

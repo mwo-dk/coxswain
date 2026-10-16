@@ -116,10 +116,12 @@ you add or change a feature, the docs change in the same PR.
 - **The docs are always current, and CI holds them to it.** The *docs* check
   (`tools/docs-check.py` and `crates/coxswain-core/tests/docs.rs`) runs on every pull request and
   blocks merge: links and anchors resolve, the changelog has the version's row and the README its
-  last ten, no old version stands as an example (`coxswain X.Y.Z`), every theme, action,
-  `config.toml` key, flag and feature is in `docs/` (and every action in F1 → Features), and a
-  minor or major release has no screenshot placeholders left. Run `python3 tools/docs-check.py`
-  and `cargo test -p coxswain-core --test docs` before pushing.
+  last ten, no old version stands as an example (write `coxswain X.Y.Z`), every page has its
+  *Previous* / *Next* links in `docs/README.md`'s order and a long one its contents, every theme,
+  action, `config.toml` key, flag, `--settings=` name and feature is in `docs/` (every action in
+  F1 → Features too, and `coxswain --help` word for word), and a minor or major release has no
+  screenshot placeholders left. Run `python3 tools/docs-check.py` and
+  `cargo test -p coxswain-core --test docs` before pushing.
 - **The docs are a tree:** a folder per area (`docs/panels/`, `docs/search/`, `docs/previews/`,
   `docs/files/`, …), each with a `README.md` index of its pages, and **one page per feature**
   (`docs/search/meaning.md`, `docs/files/archives.md`). A new feature gets its own page in its

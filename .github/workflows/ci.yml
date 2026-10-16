@@ -14,11 +14,12 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # A pull request that only edits docs pages, CLAUDE.md, LICENSE or a packaging SUBMIT.md needs
-  # no build: the five machines below are skipped and "CI result" passes at once. README.md and
-  # docs/changelog.md are not among them (the core crate compiles the changelog in), nor
-  # docs/flags (the GUI embeds them), nor an added, removed or renamed docs page (a test checks
-  # every page against features::FEATURES): those get a "page:" prefix, which never skips.
+  # A pull request that only edits docs pages, design notes, CLAUDE.md, LICENSE or a packaging
+  # SUBMIT.md needs no build: the five machines below are skipped and "CI result" passes at once
+  # (the docs job still runs). README.md and docs/changelog.md are not among them (the core crate
+  # compiles the changelog in), nor docs/flags (the GUI embeds them), nor an added, removed or
+  # renamed docs page (a test checks every page against features::FEATURES): those get a "page:"
+  # prefix, which never skips.
   changes:
     runs-on: ubuntu-24.04
     outputs:
@@ -32,7 +33,7 @@ jobs:
           if [ -z "$PR" ]; then echo code=true >> "$GITHUB_OUTPUT"; exit 0; fi
           files=$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR/files" --paginate --jq '.[] | if .status != "modified" and (.filename | test("^docs/.*\\.md$")) then "page:" + .filename else .filename end')
           printf '%s\n' "$files"
-          if [ -n "$files" ] && ! printf '%s\n' "$files" | grep -qvP '^(docs/(?!flags/|changelog\.md$)|CLAUDE\.md$|LICENSE$|packaging/.*/SUBMIT\.md$)'; then
+          if [ -n "$files" ] && ! printf '%s\n' "$files" | grep -qvP '^(docs/(?!flags/|changelog\.md$)|design/|CLAUDE\.md$|LICENSE$|packaging/.*/SUBMIT\.md$)'; then
             echo code=false >> "$GITHUB_OUTPUT"
           else
             echo code=true >> "$GITHUB_OUTPUT"

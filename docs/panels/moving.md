@@ -8,6 +8,14 @@ in both apps, **Ctrl+L** in the desktop app, or `cd` on the command line.
 
 ![The desktop app's left pane with its path bar in edit mode after Ctrl+L, ~/projects/rocket/src typed and selected; the right pane shows ~/Documents](../screenshots/panels-goto.png)
 
+## Contents
+
+- [How to use it](#how-to-use-it)
+- [What you see](#what-you-see)
+- [Settings and config.toml](#settings-and-configtoml)
+- [In the terminal app](#in-the-terminal-app)
+- [Questions](#questions)
+
 ## How to use it
 
 ### Moving in a panel

@@ -9,6 +9,14 @@ the search syntax and where the config file is.
 ![The desktop app's F9 Commands list filtered by theme: Theme: Cyber marked current, then Dark, Light, Nord and the other themes](../screenshots/panels-command-list.png)
 ![The terminal app's F1 Help at 120 columns: the groups in two columns, Moving at the top left, Files, Archives, Search and Git on the right](../screenshots/panels-help.png)
 
+## Contents
+
+- [How to use it](#how-to-use-it)
+- [What you see](#what-you-see)
+- [Settings and config.toml](#settings-and-configtoml)
+- [In the terminal app](#in-the-terminal-app)
+- [Questions](#questions)
+
 ## How to use it
 
 ### The command list

@@ -16,14 +16,22 @@ differ, and you can [make your own](own-theme.md).
 ![Fifteen classics in the desktop app: Amber and Paper white phosphors, XTree Gold, DOS Shell and Midnight Commander on blue, the Commodore 64, ZX Spectrum, Amstrad CPC, MSX and BBC Micro screens, Atari ST GEM, Amiga Workbench 1.3, NeXTSTEP, BeOS and OS/2 Warp](../screenshots/gui-classics.png)
 *The classics: the phosphors, the file managers of the DOS years, the home computers, the Amiga and the other desktops.*
 
+## Contents
+
+- [How to use it](#how-to-use-it)
+- [What you see](#what-you-see)
+- [Settings and config.toml](#settings-and-configtoml)
+- [In the terminal app](#in-the-terminal-app)
+- [Questions](#questions)
+
 ## How to use it
 
 | | Desktop app | Terminal app |
 |---|---|---|
 | Key in `config.toml` | `[gui] theme`, default `"cyber"` | `theme` (top level), default `"nc"` |
-| Pick it | Settings (**Ctrl+,**) → *Looks*, *For*: *Desktop app*, then click a swatch | The desktop app's Settings → *Looks*, *For*: *Terminal app*, then a swatch; or set `theme = "win95"` in `config.toml` |
+| Pick it | Settings (**Ctrl+,**) → *Looks*, *For*: *Desktop app*, then click a swatch | Its own Settings (**F9** → *Settings*) → *Looks* → *Theme of the terminal app*; or the desktop app's Settings → *Looks*, *For*: *Terminal app*, then a swatch; or set `theme = "win95"` in `config.toml` |
 | Or | **F9**, type `theme`, pick *Theme: Windows 95* | |
-| Takes effect | At once, and saved | At the next start |
+| Takes effect | At once, and saved | From its own Settings: at once, and saved. From the desktop app or `config.toml`: at its next start |
 
 In the desktop app:
 

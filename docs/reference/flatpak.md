@@ -120,16 +120,20 @@ paths the running app uses.
 
 ## Updating
 
-Flathub publishes each release a little after it is on the [releases
-page](https://github.com/mwo-dk/coxswain/releases/latest). Update it with everything else:
+While it is not on Flathub, a Flatpak you built updates by building it again from a newer
+checkout: `git pull` in your clone, then the `sources.sh` and `flatpak-builder` lines of
+[Building it yourself](#building-it-yourself). `--install --force-clean` replaces the installed
+one and keeps your config and index.
+
+Once Flathub lists it, it updates with everything else:
 
 ```sh
 flatpak update
 ```
 
 or only Coxswain with `flatpak update io.github.mwo_dk.Coxswain`, which is the command the
-update notice shows at the right of the command line. GNOME Software and Discover update it on
-their own schedule.
+update notice shows at the right of the command line. GNOME Software and Discover then update it
+on their own schedule.
 
 ## Uninstalling
 

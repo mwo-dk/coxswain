@@ -1477,7 +1477,7 @@
  "feature.views.q3": "Perché la mia cartella di foto è lenta nelle miniature?",
  "feature.views.title": "Dettagli, colonne e miniature",
  "feature.views.what": "Mostra una cartella come dettagli, colonne di Miller o miniature, scelti per scheda, nell’app desktop.",
- "feature.where_things_are_kept.a1": "Di solito search.db (il testo dei tuoi file) e models/ (488 MB con il modello integrato), poi previews/. Impostazioni mostra la dimensione di ciascuno.",
+ "feature.where_things_are_kept.a1": "Di solito search.db (il testo dei tuoi file) e models/ (465 MB con il modello integrato), poi previews/. Impostazioni mostra la dimensione di ciascuno.",
  "feature.where_things_are_kept.a2": "Copia state.json mentre nessun Coxswain è in esecuzione. Etichette e note sono conservate per percorso completo, quindi appaiono solo dove esistono gli stessi percorsi.",
  "feature.where_things_are_kept.a3": "Uno state.json che non si è potuto leggere all’avvio, messo da parte perché se ne potesse salvare uno nuovo. Contiene le tue etichette e note; riparalo a mano o eliminalo.",
  "feature.where_things_are_kept.q1": "La cartella della cache è grande. Cosa occupa lo spazio?",

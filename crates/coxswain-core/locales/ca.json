@@ -1477,7 +1477,7 @@
  "feature.views.q3": "Per què la meva carpeta de fotos va lenta en miniatures?",
  "feature.views.title": "Detalls, columnes i miniatures",
  "feature.views.what": "Mostreu una carpeta com a detalls, columnes de Miller o miniatures, triat per pestanya, a l'aplicació d'escriptori.",
- "feature.where_things_are_kept.a1": "Normalment search.db (el text dels vostres fitxers) i models/ (488 MB amb el model integrat), després previews/. Paràmetres mostra la mida de cadascun.",
+ "feature.where_things_are_kept.a1": "Normalment search.db (el text dels vostres fitxers) i models/ (465 MB amb el model integrat), després previews/. Paràmetres mostra la mida de cadascun.",
  "feature.where_things_are_kept.a2": "Copieu state.json mentre no s'executa cap Coxswain. Les etiquetes i les notes es guarden pel camí complet, així que només surten on existeixen els mateixos camins.",
  "feature.where_things_are_kept.a3": "Un state.json que no s'ha pogut llegir en iniciar, apartat perquè se'n pogués desar un de nou. Les vostres etiquetes i notes hi són; arregleu-lo a mà o suprimiu-lo.",
  "feature.where_things_are_kept.q1": "La carpeta de la memòria cau és gran. Què ocupa l'espai?",

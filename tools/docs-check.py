@@ -11,7 +11,10 @@
 3. No version older than the current major.minor is shown as Coxswain's own (`coxswain 1.20.0`,
    `User-Agent: coxswain/1.20.0`, `coxswain-terminal-v1.23.1-…`) outside the changelogs and picture
    descriptions: such examples go stale, so they say `X.Y.Z`.
-4. No `<!-- screenshot:` placeholder is left when the version raises its minor or major number
+4. Every page in docs/README.md's order (then faq.md and changelog.md) ends with *Previous* and
+   *Next* links to its neighbours in that order, and starts with a link back to the README; a
+   page of more than 150 lines has a table of contents (a list of links to its own headings).
+5. No `<!-- screenshot:` placeholder is left when the version raises its minor or major number
    over the base branch's (--base, else origin/$GITHUB_BASE_REF, else origin/master); otherwise
    each one is a warning.
 
@@ -41,7 +44,8 @@ def error(where: str, msg: str) -> None:
 
 
 def warning(where: str, msg: str) -> None:
-    print(f"::warning file={where.partition(':')[0]}::{msg}" if GHA else f"warning: {where}: {msg}")
+    file, _, line = where.partition(":")
+    print(f"::warning file={file},line={line or 1}::{msg}" if GHA else f"warning: {where}: {msg}")
 
 
 def pages() -> list[Path]:
@@ -147,6 +151,43 @@ def changelog_rows(page: Path) -> list[tuple[str, str]]:
     return rows
 
 
+def reading_order() -> list[Path]:
+    """docs/README.md, then every page its headings and tables link, in order, then the FAQ and
+    the changelog."""
+    index = ROOT / "docs/README.md"
+    order = [index]
+    for _, line in prose_lines(index.read_text(encoding="utf-8")):
+        m = re.match(r"^(?:##\s*|\|\s*)\[[^\]]+\]\(([^)#]+\.md)\)", line)
+        if m:
+            page = (index.parent / m.group(1)).resolve()
+            if page not in order and page.is_relative_to(index.parent):
+                order.append(page)
+    return order + [p for p in (ROOT / "docs/faq.md", ROOT / "docs/changelog.md") if p not in order]
+
+
+def check_order() -> None:
+    order = reading_order()
+    for i, page in enumerate(order):
+        lines = page.read_text(encoding="utf-8").splitlines()
+        where = rel(page)
+        if not lines or "README.md" not in lines[0]:
+            error(f"{where}:1", "the first line links back to the README")
+        want = {
+            "Previous": order[i - 1] if i else ROOT / "README.md",
+            "Next": order[i + 1] if i + 1 < len(order) else order[0],
+        }
+        toc = sum(1 for l in lines if re.match(r"^\s*- \[[^\]]+\]\(#[^)]+\)", l))
+        if len(lines) > 150 and toc < 3 and page not in (order[0], ROOT / "docs/changelog.md"):
+            error(where, f"{len(lines)} lines and no table of contents: add ## Contents with its headings")
+        for word, target in want.items():
+            found = [l for l in lines[-5:] if f"{word}:" in l]
+            m = re.search(rf"\[[^\]]*{word}:[^\]]*\]\(([^)#]+)", found[-1]) if found else None
+            if not m:
+                error(where, f"no *{word}* link at the end (it is {rel(target)})")
+            elif (page.parent / m.group(1)).resolve() != target:
+                error(where, f"*{word}* goes to {m.group(1)}, but docs/README.md's order says {rel(target)}")
+
+
 def version(cargo: str) -> str:
     return tomllib.loads(cargo)["workspace"]["package"]["version"]
 
@@ -222,7 +263,16 @@ def check_placeholders(v: str, base: str | None) -> int:
     return count
 
 
+def self_check() -> None:
+    """GitHub's anchors, as the links rely on them."""
+    assert slug("How fast is it here, and would another model be faster?") == "how-fast-is-it-here-and-would-another-model-be-faster"
+    assert slug("`[themes.<name>]`") == "themesname"
+    assert slug("Settings and config.toml") == "settings-and-configtoml"
+    assert slug("Ask's [model](x.md) <b>here</b>") == "asks-model-here"
+
+
 def main() -> int:
+    self_check()
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--base", help="the branch the version is compared with (default origin/master)")
     args = ap.parse_args()
@@ -230,6 +280,7 @@ def main() -> int:
     n = check_links()
     check_changelog(v)
     check_stale_versions(v)
+    check_order()
     p = check_placeholders(v, args.base)
     for e in errors:
         print(e, file=sys.stderr)

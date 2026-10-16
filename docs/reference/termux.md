@@ -35,22 +35,25 @@ Once the package is in Termux's main repository:
 pkg install coxswain
 ```
 
-Until then, build it in Termux with Rust's package manager. It takes a few minutes on a phone:
+Until then, build it in Termux with Rust's package manager. It takes a few minutes on a phone.
+`clang` and `binutils` are needed too: SQLite and BLAKE3 are compiled from C. These are the
+packages CI installs before the same `cargo install`:
 
 ```sh
-pkg install rust git
+pkg install rust clang binutils git
 cargo install --locked coxswain
 ```
 
-`cargo` puts the program in `~/.cargo/bin`; add that to your `PATH` in `~/.bashrc` if `coxswain`
+`cargo` puts the program, and `cox` with it, in `~/.cargo/bin`; add that to your `PATH` in `~/.bashrc` if `coxswain`
 is not found:
 
 ```sh
 echo 'export PATH="$HOME/.cargo/bin:$PATH"' >> ~/.bashrc
 ```
 
-Start it with `coxswain`, or the shorter `cox` when it came from the package. The package also
-installs the manual page: `man coxswain` (`pkg install man` first, if `man` is missing).
+Start it with `coxswain`, or the shorter `cox`, which the package and `cargo install` both put
+there. The package also installs the manual page: `man coxswain` (`pkg install man` first, if
+`man` is missing).
 
 | Package | What it adds |
 |---|---|
@@ -183,7 +186,7 @@ when a new version is out ([Update checks](updates.md)).
 ## Uninstalling
 
 `pkg uninstall coxswain`, or `cargo uninstall coxswain`. The config, state and cache stay in
-`~/.config/coxswain`, `~/.local/state/coxswain` and `~/.cache/coxswain`
+`~/.config/coxswain`, `~/.local/share/coxswain` and `~/.cache/coxswain`
 ([Where things are kept](where-things-are-kept.md)); delete them by hand to remove everything.
 
 ## The package recipe

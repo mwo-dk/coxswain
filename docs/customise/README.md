@@ -34,4 +34,4 @@ through each part, with the keys and the exact `config.toml` lines.
 key with its default. Every key is listed in [Configuration: every key](../reference/configuration.md).
 
 ---
-[← Previous: Finding duplicates](../files/duplicates.md) · [Next: The Settings window →](settings.md)
+[← Previous: ZFS snapshots as folders](../files/zfs-snapshots.md) · [Next: The Settings window →](settings.md)

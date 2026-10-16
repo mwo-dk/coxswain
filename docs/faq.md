@@ -4,6 +4,18 @@
 
 The questions people ask most, with a short answer and a link to the full one. Every feature page has its own *Questions* section with more.
 
+## Contents
+
+- [Coxswain 2.0](#coxswain-20)
+- [Panels and keys](#panels-and-keys)
+- [Tags, notes, favourites and the sidebar](#tags-notes-favourites-and-the-sidebar)
+- [Commands, the user menu and scripts](#commands-the-user-menu-and-scripts)
+- [Search](#search)
+- [The preview pane](#the-preview-pane)
+- [Files](#files)
+- [Customising](#customising)
+- [Reference](#reference)
+
 ## Coxswain 2.0
 
 - **Coxswain 2.0 changed my config.toml: what happened?** On its first start it renamed seven keys to the words the apps use (`mkdir` → `new_folder`, `select_group` → `mark_group`, `[search] exclude` → `name_exclude` …), once, keeping your values, comments and order; a notice lists what it changed. [Answer](reference/configuration.md#renamed-in-20)
@@ -205,7 +217,7 @@ The questions people ask most, with a short answer and a link to the full one. E
 - **On a Mac, Coxswain keeps asking to "access data from other apps".** Versions before 2.1.1 walked `~/Library`; now the walks leave it out (but iCloud Drive and the cloud folders) and never open Photos or Music libraries, so the helper does not raise that prompt. [Answer](reference/macos.md#it-kept-asking-to-access-data-from-other-apps-why-and-is-it-gone)
 - **Does Coxswain need Full Disk Access on a Mac?** No, and it never asks; Desktop, Documents and Downloads are asked for once each. [Answer](reference/macos.md#does-coxswain-need-full-disk-access)
 - **Do I need Ollama for search by meaning on a Mac?** No: the built-in model runs on the Mac's GPU (Metal); the setup guide recommends it when no server answers. [Answer](reference/macos.md#do-i-need-ollama-for-search-by-meaning-on-a-mac)
-- **The cache folder is large. What takes the room?** Mostly search.db and the 488 MB model, then previews/. [Answer](reference/where-things-are-kept.md#the-cache-folder-is-large-what-takes-the-room)
+- **The cache folder is large. What takes the room?** Mostly search.db and the 465 MB model, then previews/. [Answer](reference/where-things-are-kept.md#the-cache-folder-is-large-what-takes-the-room)
 
 ---
-[← Previous: Windows on ARM](reference/windows-arm.md) · [Next: Docs index →](README.md)
+[← Previous: Windows on ARM](reference/windows-arm.md) · [Next: Changelog →](changelog.md)
