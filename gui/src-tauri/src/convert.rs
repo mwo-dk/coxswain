@@ -16,7 +16,7 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::collections::BTreeMap;
 use std::sync::Mutex;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 type Res<T> = Result<T, String>;
 
@@ -119,13 +119,14 @@ pub struct Converted {
     instead: Option<String>,
 }
 
-fn cache_dir(path: &Path, tool: &str, engine: &str) -> Res<PathBuf> {
+/// Where the result for `path` goes; `main` is the document it builds (`latex::main_file`).
+fn cache_dir(path: &Path, main: &Path, tool: &str, engine: &str) -> Res<PathBuf> {
     let meta = std::fs::metadata(path).map_err(|e| e.to_string())?;
     let mut h = std::collections::hash_map::DefaultHasher::new();
     (path, meta.len(), meta.modified().ok(), tool, engine).hash(&mut h);
     if tool == "latex" {
         // A chapter, a picture or the bibliography changed: that is a new document too.
-        latex::newest(&latex::main_file(path)).hash(&mut h);
+        latex::newest(main).hash(&mut h);
     }
     let dir = previews_dir()?.join(format!("{:016x}", h.finish()));
     Ok(dir)
@@ -135,7 +136,7 @@ fn cache_dir(path: &Path, tool: &str, engine: &str) -> Res<PathBuf> {
 fn output(tool: &str, path: &Path, out: &Path) -> (&'static str, PathBuf) {
     let stem = path.file_stem().unwrap_or_default().to_string_lossy();
     match tool {
-        "latex" => ("pdf", out.join(latex::main_file(path).with_extension("pdf").file_name().unwrap_or_default())),
+        "latex" => ("pdf", out.join(path.with_extension("pdf").file_name().unwrap_or_default())),
         "libreoffice" => ("pdf", out.join(format!("{stem}.pdf"))),
         "plantuml" => ("svg", out.join("diagram.svg")),
         "pandoc" => ("html", out.join("doc.html")),
@@ -150,8 +151,10 @@ pub async fn convert(path: PathBuf, tool: String, engine: String, cached_only: b
     crate::here(&path)?;
     let cfg = ctx.cfg().preview.clone();
     tauri::async_runtime::spawn_blocking(move || {
-        let out = cache_dir(&path, &tool, &engine)?;
-        let (kind, file) = output(&tool, &path, &out);
+        // A chapter builds its document, not itself.
+        let main = if tool == "latex" { latex::main_file(&path) } else { path.clone() };
+        let out = cache_dir(&path, &main, &tool, &engine)?;
+        let (kind, file) = output(&tool, &main, &out);
         // What the build said is kept next to its result, so the next look says it too.
         let said = |what: &str| std::fs::read_to_string(out.join(what)).ok().filter(|s| !s.is_empty());
         let done = |file: PathBuf| -> Res<Option<Converted>> {
@@ -169,16 +172,16 @@ pub async fn convert(path: PathBuf, tool: String, engine: String, cached_only: b
         }
         let _ = std::fs::remove_dir_all(&out);
         std::fs::create_dir_all(&out).map_err(|e| e.to_string())?;
-        match run(&cfg, &tool, &engine, &path, &out, &file) {
+        match run(&cfg, &tool, &engine, &main, &out, &file) {
             Ok(()) if file.is_file() => done(file),
             // A document with an error still makes a PDF: shown, with the error above it.
             Err(e) if file.is_file() => {
-                let _ = std::fs::write(out.join("note.txt"), failure(&tool, &path, &out, &e));
+                let _ = std::fs::write(out.join("note.txt"), failure(&tool, &main, &out, &e));
                 done(file)
             }
-            Ok(()) => Err(failure(&tool, &path, &out, &t!("convert.no_result"))),
+            Ok(()) => Err(failure(&tool, &main, &out, &t!("convert.no_result"))),
             Err(e) => {
-                let why = failure(&tool, &path, &out, &e);
+                let why = failure(&tool, &main, &out, &e);
                 // A LaTeX build that one engine cannot make, another often can (tectonic is
                 // XeTeX only, a TeX Live container has everything): the others are tried, and
                 // what they make is kept as this engine's result, so the next look finds it.
@@ -187,7 +190,7 @@ pub async fn convert(path: PathBuf, tool: String, engine: String, cached_only: b
                     for other in engines(&cfg, &tool).into_iter().filter(|x| x.available && !x.needs_pull && x.id != engine) {
                         let _ = std::fs::remove_dir_all(&out);
                         std::fs::create_dir_all(&out).map_err(|e| e.to_string())?;
-                        if run(&cfg, &tool, &other.id, &path, &out, &file).is_ok() || file.is_file() {
+                        if run(&cfg, &tool, &other.id, &main, &out, &file).is_ok() || file.is_file() {
                             let said = why.lines().next().unwrap_or_default().to_string();
                             let _ = std::fs::write(out.join("instead.txt"), t!("convert.built_instead", "engine" => other.label, "failed" => first, "why" => said));
                             return done(file);
@@ -228,7 +231,7 @@ fn failure(tool: &str, path: &Path, out: &Path, err: &str) -> String {
     if tool != "latex" {
         return err.to_string();
     }
-    let log = out.join(latex::main_file(path).with_extension("log").file_name().unwrap_or_default());
+    let log = out.join(path.with_extension("log").file_name().unwrap_or_default());
     let text = std::fs::read_to_string(log).unwrap_or_default();
     let lines: Vec<&str> = text.lines().collect();
     match lines.iter().position(|l| l.starts_with('!')) {
@@ -248,8 +251,8 @@ static LIBREOFFICE: Mutex<()> = Mutex::new(());
 fn run(cfg: &PreviewConfig, tool: &str, engine: &str, path: &Path, out: &Path, file: &Path) -> Res<()> {
     let first = build(cfg, tool, engine, path, out, file, None);
     // pdfLaTeX was picked, and a package the document loads needs XeTeX: once more with that.
-    if tool == "latex" && first.is_err() && !file.is_file() && latex::engine_flag(&latex::main_file(path)) == "-pdf" {
-        let log = out.join(latex::main_file(path).with_extension("log").file_name().unwrap_or_default());
+    if tool == "latex" && first.is_err() && !file.is_file() && latex::engine_flag(path) == "-pdf" {
+        let log = out.join(path.with_extension("log").file_name().unwrap_or_default());
         if std::fs::read_to_string(log).is_ok_and(|l| l.contains("requires either XeTeX or") || l.contains("requires either XeTeX or LuaTeX")) {
             let _ = std::fs::remove_dir_all(out);
             std::fs::create_dir_all(out).map_err(|e| e.to_string())?;
@@ -259,11 +262,9 @@ fn run(cfg: &PreviewConfig, tool: &str, engine: &str, path: &Path, out: &Path, f
     first
 }
 
-/// One run of `tool`. `flag`: latexmk's engine, when not the document's own.
+/// One run of `tool` on `path`, the document (for LaTeX its main file, not a chapter).
+/// `flag`: latexmk's engine, when not the document's own.
 fn build(cfg: &PreviewConfig, tool: &str, engine: &str, path: &Path, out: &Path, file: &Path, flag: Option<&'static str>) -> Res<()> {
-    // A chapter builds its document, not itself.
-    let main = if tool == "latex" { latex::main_file(path) } else { path.to_path_buf() };
-    let path = main.as_path();
     let dir = path.parent().ok_or_else(|| t!("err.no_folder"))?;
     let name = path.file_name().ok_or_else(|| t!("err.no_file_name"))?.to_string_lossy().into_owned();
     let timeout = Duration::from_secs(cfg.timeout.max(10));
@@ -681,14 +682,8 @@ pub fn pull_progress() -> BTreeMap<String, String> {
 fn wait(c: Command, timeout: Duration, container: Option<(&Path, &str)>) -> Res<()> {
     let mut c = coxswain_core::tools::hosted(c);
     let mut child = c.stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::piped()).spawn().map_err(|e| e.to_string())?;
-    let mut err = child.stderr.take();
-    let reader = std::thread::spawn(move || {
-        let mut s = String::new();
-        if let Some(e) = err.as_mut() {
-            let _ = e.take(64 * 1024).read_to_string(&mut s);
-        }
-        s
-    });
+    let err = child.stderr.take();
+    let reader = std::thread::spawn(move || err.map(tail).unwrap_or_default());
     let status = wait_child(&mut child, timeout, container)?;
     let stderr = reader.join().unwrap_or_default();
     if status.success() { Ok(()) } else { Err(last_lines(&stderr, 12).unwrap_or_else(|| t!("convert.failed", "status" => status))) }
@@ -704,7 +699,7 @@ fn capture(c: Command, input: Option<&Path>, timeout: Duration, file: &Path, con
             let _ = stdin.write_all(&data);
         });
     }
-    let (mut so, mut se) = (child.stdout.take(), child.stderr.take());
+    let (mut so, se) = (child.stdout.take(), child.stderr.take());
     let out_reader = std::thread::spawn(move || {
         let mut v = vec![];
         if let Some(o) = so.as_mut() {
@@ -712,13 +707,7 @@ fn capture(c: Command, input: Option<&Path>, timeout: Duration, file: &Path, con
         }
         v
     });
-    let err_reader = std::thread::spawn(move || {
-        let mut s = String::new();
-        if let Some(e) = se.as_mut() {
-            let _ = e.take(64 * 1024).read_to_string(&mut s);
-        }
-        s
-    });
+    let err_reader = std::thread::spawn(move || se.map(tail).unwrap_or_default());
     let status = wait_child(&mut child, timeout, container)?;
     let stdout = out_reader.join().unwrap_or_default();
     let stderr = err_reader.join().unwrap_or_default();
@@ -728,22 +717,37 @@ fn capture(c: Command, input: Option<&Path>, timeout: Duration, file: &Path, con
     std::fs::write(file, stdout).map_err(|e| e.to_string())
 }
 
+/// Wait within `timeout`; on timeout kill it (`tools::wait`) and its container.
 fn wait_child(child: &mut std::process::Child, timeout: Duration, container: Option<(&Path, &str)>) -> Res<std::process::ExitStatus> {
-    let start = Instant::now();
-    loop {
-        if let Some(s) = child.try_wait().map_err(|e| e.to_string())? {
-            return Ok(s);
-        }
-        if start.elapsed() > timeout {
-            let _ = child.kill();
+    match coxswain_core::tools::wait(child, timeout) {
+        Err(e) if e.kind() == std::io::ErrorKind::TimedOut => {
             if let Some((rt, name)) = container {
                 let _ = coxswain_core::tools::command(rt).args(["kill", name]).stdout(Stdio::null()).stderr(Stdio::null()).status();
             }
-            let _ = child.wait();
-            return Err(t!("convert.timed_out", "seconds" => timeout.as_secs()));
+            Err(t!("convert.timed_out", "seconds" => timeout.as_secs()))
         }
-        std::thread::sleep(Duration::from_millis(100));
+        r => r.map_err(|e| e.to_string()),
     }
+}
+
+/// What a program wrote, to its end, of which the last 64 KiB are kept: the pipe stays open
+/// until it is done, so a tool that says much is not stopped by a closed pipe.
+fn tail(mut r: impl Read) -> String {
+    const CAP: usize = 64 * 1024;
+    let (mut keep, mut buf) = (Vec::new(), [0u8; 8192]);
+    loop {
+        let n = match r.read(&mut buf) {
+            Ok(0) => break,
+            Ok(n) => n,
+            Err(e) if e.kind() == std::io::ErrorKind::Interrupted => continue,
+            Err(_) => break,
+        };
+        keep.extend_from_slice(&buf[..n]);
+        if keep.len() > 2 * CAP {
+            keep.drain(..keep.len() - CAP);
+        }
+    }
+    String::from_utf8_lossy(&keep[keep.len().saturating_sub(CAP)..]).into_owned()
 }
 
 fn last_lines(s: &str, n: usize) -> Option<String> {
@@ -766,6 +770,14 @@ mod tests {
         cfg.prefer_tool.insert("latex".into(), "container".into());
         assert!(engines(&cfg, "latex")[0].id.starts_with("container:"), "per-tool preference wins");
         assert!(engines(&cfg, "nonsense").iter().all(|e| !e.available));
+    }
+
+    #[test]
+    fn tail_reads_to_the_end_and_keeps_the_last_part() {
+        let said = "x".repeat(300 * 1024) + "\nthe error\n";
+        let kept = tail(said.as_bytes());
+        assert_eq!(kept.len(), 64 * 1024);
+        assert!(kept.ends_with("the error\n"));
     }
 
     #[test]
@@ -811,6 +823,7 @@ mod tests {
         std::fs::write(d.join("paper/main.tex"), "\\documentclass{article}\\usepackage{graphicx}\\begin{document}\\includegraphics{../figures/dot.png}\\input{chapters/method}\\end{document}\n").unwrap();
         let chapter = d.join("paper/chapters/method.tex");
         std::fs::write(&chapter, "% !TEX root = ../main.tex\n\\section{Method}\n").unwrap();
+        let chapter = latex::main_file(&chapter);
         let (_, pdf) = output("latex", &chapter, &d.join("out-project"));
         assert!(pdf.ends_with("out-project/main.pdf"), "{pdf:?}");
         if let Err(e) = run(&PreviewConfig::default(), "latex", "container:podman", &chapter, &d.join("out-project"), &pdf) {
@@ -856,9 +869,11 @@ mod tests {
         let spec = std::env::var("COXSWAIN_WARM").expect("COXSWAIN_WARM=path|tool|engine");
         let [path, tool, engine]: [&str; 3] = spec.split('|').collect::<Vec<_>>().try_into().unwrap();
         let path = PathBuf::from(path);
-        let out = cache_dir(&path, tool, engine).unwrap();
+        let main = if tool == "latex" { latex::main_file(&path) } else { path.clone() };
+        let out = cache_dir(&path, &main, tool, engine).unwrap();
         std::fs::create_dir_all(&out).unwrap();
-        let (_, file) = output(tool, &path, &out);
+        let (_, file) = output(tool, &main, &out);
+        let path = main;
         // COXSWAIN_WARM_COPY: a result made outside (where the container runtime is), copied in.
         match std::env::var("COXSWAIN_WARM_COPY") {
             Ok(src) => drop(std::fs::copy(src, &file).unwrap()),

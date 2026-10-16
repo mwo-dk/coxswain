@@ -620,6 +620,7 @@
  "err.not_email": "Էլ. նամակ չէ",
  "err.nothing_to_run": "Գործարկելու բան չկա",
  "err.provenance.no_statement": "Այդ հայտարարությունը ֆայլում չէ։",
+ "err.provenance.no_subject": "Այդ ելքը հայտարարության մեջ չէ։",
  "err.provenance.not_attestation": "Այս ֆայլը in-toto ատեստացիա չի պարունակում։",
  "err.provenance.too_large": "Այս ֆայլը չափազանց մեծ է՝ որպես ծագում ցույց տալու համար։",
  "err.unknown_setting": "Անհայտ կարգավորում՝ {name}",

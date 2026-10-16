@@ -650,6 +650,7 @@
  "err.not_email": "Tai ne el. laiškas",
  "err.nothing_to_run": "Nėra ką vykdyti",
  "err.provenance.no_statement": "Šio teiginio faile nėra.",
+ "err.provenance.no_subject": "Šios išvesties teiginyje nėra.",
  "err.provenance.not_attestation": "Šiame faile nėra in-toto atestacijos.",
  "err.provenance.too_large": "Šis failas per didelis, kad būtų rodomas kaip kilmė.",
  "err.unknown_setting": "Nežinomas parametras {name}",

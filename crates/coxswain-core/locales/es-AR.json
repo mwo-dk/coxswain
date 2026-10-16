@@ -650,6 +650,7 @@
  "err.not_email": "No es un mensaje de correo",
  "err.nothing_to_run": "No hay nada para ejecutar",
  "err.provenance.no_statement": "Esa declaración no está en el archivo.",
+ "err.provenance.no_subject": "Esa salida no está en la declaración.",
  "err.provenance.not_attestation": "Este archivo no contiene ninguna atestación in-toto.",
  "err.provenance.too_large": "Este archivo es demasiado grande para mostrarlo como procedencia.",
  "err.unknown_setting": "Opción desconocida: {name}",

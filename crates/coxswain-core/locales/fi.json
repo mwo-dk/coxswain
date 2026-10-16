@@ -620,6 +620,7 @@
  "err.not_email": "Ei sähköpostiviesti",
  "err.nothing_to_run": "Ei mitään suoritettavaa",
  "err.provenance.no_statement": "Tätä lausumaa ei ole tiedostossa.",
+ "err.provenance.no_subject": "Tätä tuotosta ei ole lausumassa.",
  "err.provenance.not_attestation": "Tässä tiedostossa ei ole in-toto-attestaatiota.",
  "err.provenance.too_large": "Tämä tiedosto on liian suuri näytettäväksi alkuperätietona.",
  "err.unknown_setting": "Tuntematon asetus {name}",

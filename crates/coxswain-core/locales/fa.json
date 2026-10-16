@@ -620,6 +620,7 @@
  "err.not_email": "پیام ایمیل نیست",
  "err.nothing_to_run": "چیزی برای اجرا نیست",
  "err.provenance.no_statement": "آن بیانیه در این فایل نیست.",
+ "err.provenance.no_subject": "آن خروجی در این بیانیه نیست.",
  "err.provenance.not_attestation": "این فایل هیچ تصدیق in-toto ندارد.",
  "err.provenance.too_large": "این فایل برای نمایش به‌صورت منشأ بیش از حد بزرگ است.",
  "err.unknown_setting": "تنظیم ناشناخته‌ی {name}",

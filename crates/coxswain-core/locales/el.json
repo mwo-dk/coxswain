@@ -620,6 +620,7 @@
  "err.not_email": "Δεν είναι μήνυμα email",
  "err.nothing_to_run": "Τίποτα για εκτέλεση",
  "err.provenance.no_statement": "Αυτή η δήλωση δεν υπάρχει στο αρχείο.",
+ "err.provenance.no_subject": "Αυτή η έξοδος δεν υπάρχει στη δήλωση.",
  "err.provenance.not_attestation": "Αυτό το αρχείο δεν περιέχει βεβαίωση in-toto.",
  "err.provenance.too_large": "Αυτό το αρχείο είναι πολύ μεγάλο για να εμφανιστεί ως προέλευση.",
  "err.unknown_setting": "Άγνωστη ρύθμιση {name}",

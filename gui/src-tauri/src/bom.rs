@@ -13,28 +13,12 @@ use coxswain_core::t;
 use serde::Serialize;
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex};
-use std::time::SystemTime;
+use std::sync::Arc;
 
 type Res<T> = Result<T, String>;
 
-/// A BOM read and rated (coxswain-core's `view::Loaded`), with what tells whether it is still current.
-struct Loaded {
-    path: PathBuf,
-    modified: Option<SystemTime>,
-    view: view::Loaded,
-}
-
-impl std::ops::Deref for Loaded {
-    type Target = view::Loaded;
-    fn deref(&self) -> &view::Loaded {
-        &self.view
-    }
-}
-
-/// Most recent first: the BOM in view, and the one it was compared with.
-static LAST: Mutex<Vec<Arc<Loaded>>> = Mutex::new(Vec::new());
-const KEPT: usize = 2;
+/// The BOM in view, and the one it was compared with.
+static LAST: crate::recent::Recent<view::Loaded> = crate::recent::Recent::new();
 
 fn mode_of(name: Option<&str>) -> Option<TreeMode> {
     match name? {
@@ -45,38 +29,12 @@ fn mode_of(name: Option<&str>) -> Option<TreeMode> {
     }
 }
 
-fn error_text(e: bom::Error) -> String {
-    match e {
-        bom::Error::NotCycloneDx => t!("err.bom.not_cyclonedx"),
-        bom::Error::InvalidJson { line, message } => t!("err.bom.invalid_json", "line" => line, "message" => message),
-        bom::Error::InvalidXml { line, message } => t!("err.bom.invalid_xml", "line" => line, "message" => message),
-        bom::Error::UnsafeXml => t!("err.bom.unsafe_xml"),
-        bom::Error::TooLarge(_) => t!("err.bom.too_large"),
-        bom::Error::Io(e) => e,
-    }
-}
-
 /// The BOM at `path`, from the cache or read, parsed, resolved and rated anew.
-fn loaded(path: &Path, mode: Option<&str>) -> Res<Arc<Loaded>> {
-    let modified = std::fs::metadata(path).and_then(|m| m.modified()).ok();
+fn loaded(path: &Path, mode: Option<&str>) -> Res<Arc<view::Loaded>> {
     let want = mode_of(mode);
-    {
-        let mut last = LAST.lock().unwrap();
-        // A mode this BOM does not have gives its best one, which is what is kept.
-        let fits = |l: &Loaded| want.is_none_or(|m| m == l.mode || !tree::modes(&l.bom).contains(&m));
-        if let Some(at) = last.iter().position(|l| l.path == path && l.modified == modified && fits(l)) {
-            let l = last.remove(at);
-            last.insert(0, l.clone());
-            return Ok(l);
-        }
-    }
-    let view = view::Loaded::open(path, want).map_err(error_text)?;
-    let l = Arc::new(Loaded { path: path.to_path_buf(), modified, view });
-    let mut last = LAST.lock().unwrap();
-    last.retain(|x| x.path != l.path);
-    last.insert(0, l.clone());
-    last.truncate(KEPT);
-    Ok(l)
+    // A mode this BOM does not have gives its best one, which is what is kept.
+    let fits = |l: &view::Loaded| want.is_none_or(|m| m == l.mode || !tree::modes(&l.bom).contains(&m));
+    LAST.get(path, fits, || view::Loaded::open(path, want).map_err(|e| e.to_string()))
 }
 
 /// One row of the tree.
@@ -345,7 +303,8 @@ pub async fn bom_node(path: PathBuf, mode: Option<String>, index: u32) -> Res<No
                 }
             })
             .collect();
-        advice.dedup();
+        let mut seen = std::collections::HashSet::new();
+        advice.retain(|a| seen.insert(a.clone()));
 
         let found_in = node
             .occurrences

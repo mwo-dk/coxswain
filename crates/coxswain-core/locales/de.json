@@ -620,6 +620,7 @@
  "err.not_email": "Keine E-Mail-Nachricht",
  "err.nothing_to_run": "Nichts auszuführen",
  "err.provenance.no_statement": "Diese Aussage steht nicht in der Datei.",
+ "err.provenance.no_subject": "Diese Ausgabe steht nicht in der Aussage.",
  "err.provenance.not_attestation": "Diese Datei enthält keine in-toto-Attestierung.",
  "err.provenance.too_large": "Diese Datei ist zu groß, um sie als Provenienz anzuzeigen.",
  "err.unknown_setting": "Unbekannte Einstellung {name}",

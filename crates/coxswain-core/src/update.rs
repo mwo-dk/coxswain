@@ -8,6 +8,11 @@ use crate::state::AppState;
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 pub const RELEASES_URL: &str = "https://github.com/mwo-dk/coxswain/releases/latest";
 const API_URL: &str = "https://api.github.com/repos/mwo-dk/coxswain/releases/latest";
+
+/// The server the update check asks, as Settings and the first-run guide name it.
+pub fn host() -> &'static str {
+    crate::settings::host(API_URL)
+}
 const DAY: u64 = 24 * 3600;
 
 /// `major.minor.patch` from "1.2.3" or "v1.2.3"; pre-release suffixes are ignored.

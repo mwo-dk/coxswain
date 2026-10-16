@@ -620,6 +620,7 @@
  "err.not_email": "Not an e-mail message",
  "err.nothing_to_run": "Nothing to run",
  "err.provenance.no_statement": "That statement is not in the file.",
+ "err.provenance.no_subject": "That output is not in the statement.",
  "err.provenance.not_attestation": "This file holds no in-toto attestation.",
  "err.provenance.too_large": "This file is too large to show as provenance.",
  "err.unknown_setting": "Unknown setting {name}",

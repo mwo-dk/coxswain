@@ -590,6 +590,7 @@
  "err.not_email": "メールメッセージではありません",
  "err.nothing_to_run": "実行するものがありません",
  "err.provenance.no_statement": "そのステートメントはファイルにありません。",
+ "err.provenance.no_subject": "その出力はステートメントにありません。",
  "err.provenance.not_attestation": "このファイルには in-toto アテステーションがありません。",
  "err.provenance.too_large": "このファイルは大きすぎて来歴として表示できません。",
  "err.unknown_setting": "不明な設定 {name}",

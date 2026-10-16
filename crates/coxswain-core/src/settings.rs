@@ -737,7 +737,7 @@ pub fn outbound(cfg: &Config) -> Vec<Out> {
     let s = &cfg.search;
     let mut v = vec![];
     if cfg.check_updates {
-        v.push(out("settings.out.update", "api.github.com", false));
+        v.push(out("settings.out.update", crate::update::host(), false));
     }
     let url = server_url(s);
     if s.meaning && s.meaning_engine == "builtin" && !crate::meaning::installed() {
