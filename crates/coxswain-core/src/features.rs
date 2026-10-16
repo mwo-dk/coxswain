@@ -49,7 +49,7 @@ pub const FEATURES: &[Feature] = &[
     f(
         "moving",
         "panels/moving.md",
-        &[Open, Parent, GotoLeft, GotoRight, EditPath, Refresh],
+        &[Open, Parent, GotoLeft, GotoRight, EditPath, Refresh, SameDir, SwapPanels],
     ),
     f("quick_search", "panels/quick-search.md", &[]),
     f(
@@ -65,7 +65,7 @@ pub const FEATURES: &[Feature] = &[
     f(
         "tabs_and_panes",
         "panels/tabs-and-panes.md",
-        &[NewTab, CloseTab, NextTab, Back, Forward, TogglePanels],
+        &[NewTab, CloseTab, NextTab, PrevTab, Back, Forward, TogglePanels],
     ),
     f("views", "panels/views.md", &[ToggleView, Columns]),
     f(
@@ -452,8 +452,18 @@ mod tests {
             missing.is_empty(),
             "docs pages without a Features entry (crates/coxswain-core/src/features.rs): {missing:?}"
         );
+        // Every feature is in the full map, and every action's key is shown with a feature, but
+        // the cursor keys, which everyone knows (panels/moving.md lists them).
+        let map = std::fs::read_to_string(docs.join("README.md")).unwrap();
+        let cursor = [Up, Down, PageUp, PageDown, Home, End];
+        let keyless: Vec<_> = Action::ALL
+            .iter()
+            .filter(|a| !cursor.contains(a) && !FEATURES.iter().any(|f| f.actions.contains(a)))
+            .collect();
+        assert!(keyless.is_empty(), "actions in no Features entry: {keyless:?}");
         for f in FEATURES {
             assert!(docs.join(f.docs).is_file(), "{}: no docs/{}", f.id, f.docs);
+            assert!(map.contains(&format!("]({})", f.docs)), "{}: docs/README.md does not link {}", f.id, f.docs);
             assert!(AREAS.contains(&f.area()), "{}: area {}", f.id, f.area());
             assert_eq!(
                 FEATURES.iter().filter(|g| g.id == f.id).count(),

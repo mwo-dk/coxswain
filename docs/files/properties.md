@@ -135,5 +135,10 @@ Coxswain runs.
 A file inside an archive is not on disk, so it has no properties the system can report. Copy it
 out with **F5** first ([Archives as folders](archives.md#limits)).
 
+#### How do I change permissions in the terminal app?
+Its window (**Alt+Enter**) only shows the facts. Change permissions on the command line
+(`chmod 755 deploy.sh`), and your file flags with **F9** → *File flags* on the file
+([In the terminal app](#in-the-terminal-app)).
+
 ---
 [← Previous: Passwords for encrypted zip and 7z](archive-passwords.md) · [Next: Finding duplicates →](duplicates.md)

@@ -1,4 +1,4 @@
-//! The provenance viewer (docs/design/provenance-viewer.md): F3 on build provenance opens it
+//! The provenance viewer (design/provenance-viewer.md): F3 on build provenance opens it
 //! full screen as inputs → build → outputs, with the signer, the checks against the disk, and a
 //! compare with the file in the other panel. F3 again shows the source in the pager, as before.
 //!
@@ -915,7 +915,9 @@ mod tests {
         assert!(screen(&mut v, 140, 40).contains("\"_type\": \"https://in-toto.io/Statement/v1\""));
         assert!(matches!(v.key(key(KeyCode::F(3)), false), Outcome::Source));
         assert!(matches!(v.key(key(KeyCode::Esc), false), Outcome::Close));
-        std::fs::remove_dir_all(&dir).unwrap();
+        // The viewer's checks may still hold a file open, which Windows does not delete.
+        drop(v);
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

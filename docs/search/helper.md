@@ -8,6 +8,16 @@ after the last, or it can start with your session so it reads while no window is
 
 ![Settings at Finding files with Details → Background reading open: Start with my session, Read now, the path /home/demo/.cache/coxswain/search.db with Show in panel, and Delete what was read (284 KB)](../screenshots/search-helper-session.png)
 
+## Contents
+
+- [How to use it](#how-to-use-it)
+- [What you see](#what-you-see)
+- [How it works](#how-it-works)
+- [Settings and config.toml](#settings-and-configtoml)
+- [Check that it runs, and turn it off](#check-that-it-runs-and-turn-it-off)
+- [In the terminal app](#in-the-terminal-app)
+- [Questions](#questions)
+
 ## How to use it
 
 Nothing to do: the first app starts it and the others find it. A new window searches at once.
@@ -23,14 +33,14 @@ This registers the helper with the system:
 
 | System | Registration |
 |---|---|
-| Linux | A systemd user unit, `~/.config/systemd/user/coxswain-index.service`, with `Nice=10` and idle I/O |
-| Linux, the Flatpak | An XDG autostart entry, `~/.config/autostart/coxswain-index.desktop`, that runs `flatpak run --command=coxswain-gui io.github.mwo_dk.Coxswain --index-helper --stay` at login ([Flatpak](../reference/flatpak.md#the-search-helper)) |
-| macOS | A LaunchAgent, `~/Library/LaunchAgents/dk.mwo.coxswain.index.plist`, with `Nice` 10, which macOS lists under *System Settings → General → Login Items & Extensions* |
-| Windows | A *Run* entry, `coxswain-index`, under `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` |
 | FreeBSD | An XDG autostart entry, `~/.config/autostart/coxswain-index.desktop`, which the desktop session starts at login; an rc.d script and a login-shell line are the other ways ([FreeBSD](../reference/freebsd.md#the-search-helper)) |
 | NetBSD | An XDG autostart entry, as on FreeBSD; an rc.d script is the other way ([NetBSD](../reference/netbsd.md#the-search-helper)) |
 | OpenBSD | An XDG autostart entry, as on FreeBSD; an rc.d script for `rcctl` is the other way ([OpenBSD](../reference/openbsd.md#the-search-helper)) |
 | illumos | An XDG autostart entry, as on FreeBSD; on a server, the SMF service `application/coxswain-index` ([illumos](../reference/illumos.md#the-search-helper)) |
+| Linux | A systemd user unit, `~/.config/systemd/user/coxswain-index.service`, with `Nice=10` and idle I/O |
+| Linux, the Flatpak | An XDG autostart entry, `~/.config/autostart/coxswain-index.desktop`, that runs `flatpak run --command=coxswain-gui io.github.mwo_dk.Coxswain --index-helper --stay` at login ([Flatpak](../reference/flatpak.md#the-search-helper)) |
+| macOS | A LaunchAgent, `~/Library/LaunchAgents/dk.mwo.coxswain.index.plist`, with `Nice` 10, which macOS lists under *System Settings → General → Login Items & Extensions* |
+| Windows | A *Run* entry, `coxswain-index`, under `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` |
 
 It then starts at login and stays, so the backlog is read before any window is opened. Unticking
 it (or `off`) removes the registration and stops the running one; the helper goes back to
@@ -101,12 +111,12 @@ Nothing of its own while it works. Signs of it:
 
 | System | What *Start with my session* registers | Check that it runs | Turn it off |
 |---|---|---|---|
+| FreeBSD | An XDG autostart entry, `~/.config/autostart/coxswain-index.desktop` | `pgrep -lf index-helper` | Untick it, or `coxswain --index-service off`; the running helper stays until you log out |
+| NetBSD, OpenBSD, illumos | The same entry | `pgrep -lf index-helper` (illumos: `pgrep -fl index-helper`) | The same |
 | Linux | A systemd user service, `coxswain-index.service` | `systemctl --user status coxswain-index` | Untick it, or `coxswain --index-service off` |
 | Linux, the Flatpak | An XDG autostart entry, `~/.config/autostart/coxswain-index.desktop` | `flatpak ps` lists `io.github.mwo_dk.Coxswain` with no window open | Untick it; the running helper stays until you log out |
-| macOS | A LaunchAgent, `~/Library/LaunchAgents/dk.mwo.coxswain.index.plist` | `launchctl print gui/$(id -u)/dk.mwo.coxswain.index` | The same |
-| Windows | A *Run* entry for your user in the registry | Task Manager → *Startup apps* lists Coxswain | The same, or disable it in Task Manager |
-| FreeBSD | An XDG autostart entry, `~/.config/autostart/coxswain-index.desktop` | `pgrep -lf index-helper` | The same; the running helper stays until you log out |
-| NetBSD, OpenBSD, illumos | The same entry | `pgrep -lf index-helper` (illumos: `pgrep -fl index-helper`) | The same |
+| macOS | A LaunchAgent, `~/Library/LaunchAgents/dk.mwo.coxswain.index.plist` | `launchctl print gui/$(id -u)/dk.mwo.coxswain.index` | Untick it, or `coxswain --index-service off` |
+| Windows | A *Run* entry for your user in the registry | Task Manager → *Startup apps* lists Coxswain | Untick it, or `coxswain --index-service off`, or disable it in Task Manager |
 
 The [guided setup](setup.md#keep-reading-in-the-background) offers it as its last step but one.
 
@@ -175,8 +185,8 @@ and where to allow it. To see what happened:
 
 | System | Look at |
 |---|---|
-| macOS | `launchctl print gui/$(id -u)/dk.mwo.coxswain.index`: `state = running` and its `pid`, `runs` (how often it started), `last exit code`; and `~/Library/Caches/coxswain/helper.log` |
 | Linux | `systemctl --user status coxswain-index` and `journalctl --user -u coxswain-index` |
+| macOS | `launchctl print gui/$(id -u)/dk.mwo.coxswain.index`: `state = running` and its `pid`, `runs` (how often it started), `last exit code`; and `~/Library/Caches/coxswain/helper.log` |
 
 On a Mac, turn on **System Settings → General → Login Items & Extensions → Coxswain → Allow in the
 Background**, then untick and tick *Start with my session* again (or `coxswain --index-service off`

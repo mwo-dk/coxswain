@@ -9,6 +9,15 @@ once per archive, and it is never written anywhere. Packing (**Alt+F5**) can loc
 
 ![The Locked archive dialog for secret.7z: the password field as dots, the buttons Unlock and Cancel, and the line Enter Unlock · Esc Cancel](../screenshots/files-archive-password.png)
 
+## Contents
+
+- [How to use it](#how-to-use-it)
+- [What you see](#what-you-see)
+- [How long the password is kept, and where](#how-long-the-password-is-kept-and-where)
+- [Settings and config.toml](#settings-and-configtoml)
+- [In the terminal app](#in-the-terminal-app)
+- [Questions](#questions)
+
 ## How to use it
 
 1. Do what you want with the archive: open it (**Enter**), copy a file out (**F5**), move it out

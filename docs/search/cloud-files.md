@@ -14,6 +14,16 @@ cloud. Files that are on your disk, inside a cloud folder or not, are read as be
 
 ![The desktop app in ~/OneDrive (a cloud mount), Details view: Budget 2026.txt, Holiday 2025.jpg, Party ideas.txt and Quarterly report.pdf, each with a cloud glyph after its name; OneDrive in the sidebar's drives; the preview pane on Holiday 2025.jpg says Online only: not downloaded. Press Enter to download and open it, or: with the button Download and preview](../screenshots/search-cloud-files.png)
 
+## Contents
+
+- [How to use it](#how-to-use-it)
+- [What you see](#what-you-see)
+- [What is read, and what is not](#what-is-read-and-what-is-not)
+- [How it is told](#how-it-is-told)
+- [Settings and config.toml](#settings-and-configtoml)
+- [In the terminal app](#in-the-terminal-app)
+- [Questions](#questions)
+
 ## How to use it
 
 Nothing to do: it is on from the start, in both apps, on Windows, macOS and Linux.
@@ -90,9 +100,9 @@ online-only file that was not asked for.
 
 | System | Clouds | Online-only when |
 |---|---|---|
-| **Windows** | OneDrive, Dropbox, Google Drive for desktop, Proton Drive, iCloud for Windows, Nextcloud: every app on the Cloud Files API | The file's attributes have `RECALL_ON_DATA_ACCESS` (0x400000), `RECALL_ON_OPEN` (0x40000) or `OFFLINE` (0x1000). *Always keep on this device* (`PINNED`) with the data on disk is read |
-| **macOS** | iCloud Drive, and OneDrive, Dropbox, Google Drive and others under `~/Library/CloudStorage` (File Provider) | The file's flags have `SF_DATALESS` |
 | **Linux** | Cloud mounts: rclone, google-drive-ocamlfuse, onedriver, GNOME's Google Drive (gvfs), WebDAV through davfs2, sshfs, and other FUSE file systems that are not local, FUSE without a subtype included (`/proc/self/mountinfo`) | Every file on such a mount, as the mount itself fetches what is read. Local FUSE file systems (the document portal, AppImages, mergerfs, gocryptfs, ntfs-3g and the like) are ordinary disks |
+| **macOS** | iCloud Drive, and OneDrive, Dropbox, Google Drive and others under `~/Library/CloudStorage` (File Provider) | The file's flags have `SF_DATALESS` |
+| **Windows** | OneDrive, Dropbox, Google Drive for desktop, Proton Drive, iCloud for Windows, Nextcloud: every app on the Cloud Files API | The file's attributes have `RECALL_ON_DATA_ACCESS` (0x400000), `RECALL_ON_OPEN` (0x40000) or `OFFLINE` (0x1000). *Always keep on this device* (`PINNED`) with the data on disk is read |
 
 NFS and SMB shares are not cloud mounts: reading their files downloads nothing to keep, so they
 are read like a disk (slowly; leave one out with *Names only* if it bites).

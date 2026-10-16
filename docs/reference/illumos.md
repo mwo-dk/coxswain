@@ -211,7 +211,6 @@ page and the `application/coxswain-index` SMF service (disabled) in place:
 | Distribution | Recipe | Package | Tested |
 |---|---|---|---|
 | OmniOS | [`packaging/omnios`](../../packaging/omnios/SUBMIT.md), for omnios-extra | `ooce/application/coxswain`, in `/opt/ooce` | Built, installed and started on r151058 in CI |
-| OpenIndiana | [`packaging/openindiana`](../../packaging/openindiana/SUBMIT.md), for oi-userland | `file/coxswain`, in `/usr` | Not built yet |
 | SmartOS and others with pkgsrc | [`packaging/pkgsrc`](../../packaging/pkgsrc/SUBMIT.md), for pkgsrc-wip | `coxswain`, in `/opt/local` | Built on NetBSD only |
 
 Until they are in, use [the script](#install-with-one-line).
@@ -237,7 +236,7 @@ folders and reads text with the lowest priority. Leave out what you never search
 `name_exclude` in `[search]`, or index only your own shares ([Choosing the folders](../search/folders.md)).
 
 **Search by meaning?** The built-in model runs on the processor, the same code as on Linux
-(`coxswain --meaning on`); the model (488 MB) is downloaded once after you say so. Its tests run
+(`coxswain --meaning on`); the model (465 MB) is downloaded once after you say so. Its tests run
 on OmniOS in CI; the model itself has not been tried on illumos yet.
 
 ---

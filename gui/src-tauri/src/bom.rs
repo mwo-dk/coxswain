@@ -1,4 +1,4 @@
-//! The BOM view (docs/design/bom-viewer.md): a CycloneDX BOM as a rated tree, and the details
+//! The BOM view (design/bom-viewer.md): a CycloneDX BOM as a rated tree, and the details
 //! of one node. Parsing and rating are coxswain-core's `bom`; this shapes them for BomView.svelte.
 //!
 //! The last two BOMs read are kept, by path, modification time and tree mode, so selecting

@@ -14,6 +14,15 @@ drawn in the era's own colours, as the real thing was.
 ![The classics: Amiga Workbench 1.3 with white frames on blue, Atari ST GEM in black and white on green, NeXTSTEP's black title bars and grey bevels, BeOS's yellow tab, and the CRT themes with their scanlines](../screenshots/gui-classics.png)
 *The four new looks, Workbench, GEM, NeXTSTEP and BeOS, among the classics; the home computers and phosphors sit on the tube.*
 
+## Contents
+
+- [How to use it](#how-to-use-it)
+- [What you see](#what-you-see)
+- [The tube](#the-tube)
+- [Settings and config.toml](#settings-and-configtoml)
+- [In the terminal app](#in-the-terminal-app)
+- [Questions](#questions)
+
 ## How to use it
 
 A look comes with its theme: pick the theme and you get its look.

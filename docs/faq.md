@@ -4,6 +4,18 @@
 
 The questions people ask most, with a short answer and a link to the full one. Every feature page has its own *Questions* section with more.
 
+## Contents
+
+- [Coxswain 2.0](#coxswain-20)
+- [Panels and keys](#panels-and-keys)
+- [Tags, notes, favourites and the sidebar](#tags-notes-favourites-and-the-sidebar)
+- [Commands, the user menu and scripts](#commands-the-user-menu-and-scripts)
+- [Search](#search)
+- [The preview pane](#the-preview-pane)
+- [Files](#files)
+- [Customising](#customising)
+- [Reference](#reference)
+
 ## Coxswain 2.0
 
 - **Coxswain 2.0 changed my config.toml: what happened?** On its first start it renamed seven keys to the words the apps use (`mkdir` → `new_folder`, `select_group` → `mark_group`, `[search] exclude` → `name_exclude` …), once, keeping your values, comments and order; a notice lists what it changed. [Answer](reference/configuration.md#renamed-in-20)
@@ -200,12 +212,12 @@ The questions people ask most, with a short answer and a link to the full one. E
 - **And on NetBSD, OpenBSD or illumos?** rc.d (`coxswain_index=YES` and `coxswain_index_user=` in `/etc/rc.conf`), `rcctl enable coxswain_index` then `rcctl set coxswain_index user $USER`, or the SMF service `application/coxswain-index` with `start/user` set. [NetBSD](reference/netbsd.md#the-search-helper) · [OpenBSD](reference/openbsd.md#the-search-helper) · [illumos](reference/illumos.md#the-search-helper)
 - **Is there a Flatpak?** Yes, of the desktop app (`io.github.mwo_dk.Coxswain`); it is not on Flathub yet, so build it with `flatpak-builder` from `packaging/flatpak`. [Answer](reference/flatpak.md#building-it-yourself)
 - **In the Flatpak, F4 says *sh: hx: not found*.** The editor runs on the host: install it there, and give a terminal editor its terminal (`editor = "kitty -e hx"`). [Answer](reference/flatpak.md#questions)
-- **Does Coxswain run on an Android phone?** The terminal app does, in Termux: `pkg install coxswain` once the package is in Termux's repository, `cargo install coxswain` until then. [Answer](reference/termux.md#installing)
+- **Does Coxswain run on an Android phone?** The terminal app does, in Termux: `pkg install coxswain` once the package is in Termux's repository, `cargo install --locked coxswain` until then. [Answer](reference/termux.md#installing)
 - **In Termux I only see Termux's own files.** Run `termux-setup-storage` once; the phone's folders are then in `~/storage`. [Answer](reference/termux.md#your-phones-folders)
 - **On a Mac, Coxswain keeps asking to "access data from other apps".** Versions before 2.1.1 walked `~/Library`; now the walks leave it out (but iCloud Drive and the cloud folders) and never open Photos or Music libraries, so the helper does not raise that prompt. [Answer](reference/macos.md#it-kept-asking-to-access-data-from-other-apps-why-and-is-it-gone)
 - **Does Coxswain need Full Disk Access on a Mac?** No, and it never asks; Desktop, Documents and Downloads are asked for once each. [Answer](reference/macos.md#does-coxswain-need-full-disk-access)
 - **Do I need Ollama for search by meaning on a Mac?** No: the built-in model runs on the Mac's GPU (Metal); the setup guide recommends it when no server answers. [Answer](reference/macos.md#do-i-need-ollama-for-search-by-meaning-on-a-mac)
-- **The cache folder is large. What takes the room?** Mostly search.db and the 488 MB model, then previews/. [Answer](reference/where-things-are-kept.md#the-cache-folder-is-large-what-takes-the-room)
+- **The cache folder is large. What takes the room?** Mostly search.db and the 465 MB model, then previews/. [Answer](reference/where-things-are-kept.md#the-cache-folder-is-large-what-takes-the-room)
 
 ---
-[← Previous: Windows on ARM](reference/windows-arm.md) · [Next: Docs index →](README.md)
+[← Previous: Windows on ARM](reference/windows-arm.md) · [Next: Changelog →](changelog.md)

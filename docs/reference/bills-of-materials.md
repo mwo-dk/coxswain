@@ -29,8 +29,9 @@ The files are on the release's **Assets** list on the
 
 `THIRD-PARTY-NOTICES.md` also ships inside the apps: next to `LICENSE` in every terminal
 archive, in the desktop installers (in `/usr/lib/Coxswain/` from the `.deb`, in the app's
-resources on macOS and Windows), and in `/usr/share/licenses/coxswain-bin/` from the Arch
-package `coxswain-bin` (built with `makepkg` from `packaging/aur/`).
+resources on macOS and Windows). The Arch package `coxswain-bin`, which is not on the AUR yet,
+puts it in `/usr/share/licenses/coxswain-bin/` when you build it with `makepkg` from
+`packaging/aur/`.
 
 The files are made from the release's own commit. The same commit always gives the same files,
 byte for byte, so anyone can make them again and compare.
@@ -108,8 +109,8 @@ download holds.
 
 #### Where are the licences of the apps I installed?
 In `THIRD-PARTY-NOTICES.md`, next to `LICENSE`: in the terminal app's archive, in the desktop
-app's install folder, or in `/usr/share/licenses/` from the Arch package. Every release also has it on its
-Assets list.
+app's install folder, or in `/usr/share/licenses/coxswain-bin/` from an Arch package you built
+from `packaging/aur/`. Every release also has it on its Assets list.
 
 #### A new dependency fails the "bills of materials" check. What now?
 Read the message. A crypto crate needs a `[[library]]` in `tools/bom/crypto.toml`; an npm

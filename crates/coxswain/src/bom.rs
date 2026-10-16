@@ -1,4 +1,4 @@
-//! The BOM viewer (docs/design/bom-viewer.md): F3 on a CycloneDX BOM opens it full screen as a
+//! The BOM viewer (design/bom-viewer.md): F3 on a CycloneDX BOM opens it full screen as a
 //! rated tree, or as a sunburst drawn with half blocks, with filters, details and a compare with
 //! the file in the other panel. F3 again shows the source in the pager, as before.
 //!
@@ -1084,6 +1084,8 @@ mod tests {
         assert!(v.compare.is_none());
         v.cannot_compare("nothing there".into());
         assert!(has(&screen(&mut v, 140, 40), "nothing there"));
-        std::fs::remove_dir_all(&dir).unwrap();
+        // The viewer's checks may still hold a file open, which Windows does not delete.
+        drop(v);
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }

@@ -20,7 +20,7 @@ a time in its status line and has `coxswain --whats-new`. Nothing is shown twice
 
 ## How to use it
 
-**The title** needs nothing: it reads `Coxswain 1.41.0`, the version. The desktop app sets it
+**The title** needs nothing: it reads `Coxswain X.Y.Z`, the version. The desktop app sets it
 on its window, and on Linux on the title bar GTK draws too (which otherwise kept the title it
 was made with). The terminal app sets it as the terminal's title. What can be searched, which
 the title also said before 1.41.0, is now the first footer line of
@@ -41,7 +41,7 @@ the title also said before 1.41.0, is now the first footer line of
 5. **Esc** or **Close** closes Settings.
 
 **What's new, in the terminal app:** after an upgrade the status line says once
-`Coxswain 1.29.0 is installed: coxswain --whats-new says what it brought`. Run
+`Coxswain X.Y.Z is installed: coxswain --whats-new says what it brought`. Run
 `coxswain --whats-new` in a shell.
 
 | Key, click or command | Desktop app | Terminal app |
@@ -81,13 +81,17 @@ sight: the count on the button drops, and the *new* marks go next time.
 | *Search inside files has stopped: …* | A scan of the files failed; nothing further is read, and no vectors come, until one works. Dismissed, it comes back with another reason | *Settings → Finding files* |
 | *Start with my session is on, but macOS did not start the search helper, so Coxswain started it until you log out. …* (on Linux: *systemd*) | The system was to start the registered helper and did not within eight seconds, so this app started one. The text says where to allow it (on a Mac: *System Settings → General → Login Items & Extensions → Coxswain → Allow in the Background*) and how to see why (`launchctl print gui/$(id -u)/dk.mwo.coxswain.index`, `helper.log`; `systemctl --user status coxswain-index`) | *Settings → Finding files* ([The search helper](helper.md#start-with-my-session-is-on-but-background-reading-does-not-start-why)) |
 | *Search by meaning cannot read what files are about: …* | The server did not answer, or refused (a model that is not pulled) | *Settings → Finding files → Details → Meaning* ([servers](servers.md)) |
-| *Coxswain 1.29.0 is installed: coxswain --whats-new says what it brought* | Terminal app only: the first start after an upgrade (not the first start ever). The desktop app counts the version on its button instead | – |
+| *Coxswain X.Y.Z is installed: coxswain --whats-new says what it brought* | Terminal app only: the first start after an upgrade (not the first start ever). The desktop app counts the version on its button instead | – |
 | *New: Ctrl+G on a file or folder in a git repository shows its history, commit by commit* | A folder of a git repository has been opened (the key is yours from `[keys]`) | Nothing: it only tells, so it has **Dismiss** only ([Git history](../panels/git-history.md)) |
+| *New: your files are on ZFS. Alt+Z on a folder lists its snapshots: browse them as folders, compare a file with now, copy back what was* | Your home folder is on a ZFS dataset (FreeBSD, illumos, Linux with ZFS); the key is yours from `[keys]` | Nothing: **Dismiss** only ([ZFS snapshots](../files/zfs-snapshots.md)) |
 | *New: search by meaning finds files about your words, in any language. Turn it on* | Text search is on and has files, and search by meaning is off. Terminal app: *…in any language: coxswain --meaning on* | *Settings → Finding files → Details → Meaning* |
 | *Search by meaning now uses your Mac's GPU (Metal): about 6× faster* | The built-in model runs on a Mac's GPU; the factor is what the probe measured when the helper started | *Settings → Finding files → Details → Meaning* ([on a Mac's GPU](meaning.md#on-a-macs-gpu)) |
 | *Search by meaning runs on the CPU: …* | On a Mac, the built-in model could not use the GPU, with the reason (*this Mac has no Metal GPU to use*, *the GPU failed: …*). Not shown when you chose *Use the CPU only* | *Settings → Finding files → Details → Meaning* ([on a Mac's GPU](meaning.md#on-a-macs-gpu)) |
 | *Qwen3 14B runs on the processor here: about 110 s to the first word. qwen3:8b on Ollama runs on your graphics card (…) and answers far sooner.* | Ask's built-in chat model runs on the processor while a server here runs a model on the graphics card, or it takes 10 s or more to its first word. Once per model chosen; the line stays in Settings as long as the choice does | *Settings → Finding files → Details → Ask* ([When it is a poor choice here](ask-builtin.md#when-it-is-a-poor-choice-here)) |
 | *The built-in model reads meaning on the processor here. bge-m3:latest on Ollama runs on your graphics card (…) and reads your files far sooner.* | Search by meaning uses the built-in model on the processor while a server here runs an embedding model on the graphics card | *Settings → Finding files → Details → Meaning* ([servers](servers.md)) |
+| *Video and sound need GStreamer's good plugins to play here. Install them with: …* (the line for this system; without one, the package names). In an AppImage: *This AppImage plays video and sound only with GStreamer plugins where Debian and Ubuntu keep them, and there are none. …* | Desktop app on Linux and the BSDs, when GStreamer's good plugins are not found | Nothing: **Dismiss** only ([Media](../previews/media.md)) |
+| *No Japanese or Korean font is installed, so their letters may show as boxes. Install one with: …* | Desktop app on Linux and the BSDs, in Japanese or Korean, when `fc-list` finds no font for the language | Nothing: **Dismiss** only ([Japanese and Korean](../customise/languages.md#japanese-and-korean)) |
+| *No font for Persian is installed, so its letters may show as boxes. Install one, for example …* (Armenian and Georgian the same) | Desktop app on Linux and the BSDs, in Persian, Armenian or Georgian, when `fc-list` finds no font for the language | Nothing: **Dismiss** only ([Persian, Armenian and Georgian](../customise/languages.md#persian-armenian-and-georgian)) |
 | *Found OneDrive, Dropbox: files that are only online are found by name only, so nothing is downloaded. Change in Settings* | The helper found files only in the cloud, and `cloud` is not `"all"`. Terminal app: *… cloud = "all" in config.toml reads them* | *Settings → Finding files* ([Cloud files](cloud-files.md)) |
 | *Install tesseract to search the words in scans, screenshots and pictures: sudo apt install tesseract-ocr* (the line for this system; without one, the text ends at *pictures*) | Text search is on and the helper found no tesseract. The desktop app adds **Copy** for the line; Coxswain never runs it | *Settings → Finding files* ([Installing what is missing](scans.md#installing-what-is-missing)) |
 | *In Termux: run termux-setup-storage once, and Alt+F1 lists your phone's folders (shared storage, Downloads, DCIM …)* | Terminal app in Termux, before `~/storage` exists. The terminal app copies nothing; run the line yourself | Nothing: run it in Termux ([Termux](../reference/termux.md#your-phones-folders)) |

@@ -141,8 +141,8 @@ const QUESTIONS: &[(&str, &str)] = &[
         "Ikonerne er tomme firkanter. Hvad gør jeg?",
     ),
     (
-        "design/bom-viewer.md",
-        "the open questions of the BOM viewer's design",
+        "previews/bom.md",
+        "how do I see what changed between two crypto scans?",
     ),
     (
         "reference/command-line-flags.md",

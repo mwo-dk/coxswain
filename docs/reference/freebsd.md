@@ -209,7 +209,7 @@ A second login finds the first helper running and its own one ends at once.
 
 | Way | On FreeBSD |
 |---|---|
-| The built-in model | Works as on Linux, on the processor: `coxswain --meaning on`, or *Settings → Search by meaning*. The model (488 MB) is downloaded once, after you say so |
+| The built-in model | Works as on Linux, on the processor: `coxswain --meaning on`, or *Settings → Search by meaning*. The model (465 MB) is downloaded once, after you say so |
 | Ollama on this machine | `doas pkg install ollama`, start it with `ollama serve` in a terminal of its own, then `coxswain --meaning ollama` or the guide in Settings |
 | A server elsewhere | Lemonade, LM Studio or llama.cpp on another machine, with the OpenAI API: `coxswain --meaning server http://host:port MODEL`. Its address is shown in Settings, and the text of your files goes there |
 

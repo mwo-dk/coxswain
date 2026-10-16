@@ -203,5 +203,10 @@ about the images in `[preview] images`. An image that was never pulled has no si
 The same rows and the same clearing in both. The desktop app has **Show in panel** and the two
 clicks; the terminal app has **Enter** and **Delete**, and `coxswain --disk` on the command line.
 
+#### How do I get there?
+In both apps **F9** → *Disk use*. In the desktop app also **Ctrl+,** → *Privacy and updates* →
+*Disk use*; in the terminal app **F9** → *Settings* → *Privacy and updates*, the rows under
+*Disk use*, or `coxswain --disk` on the command line ([How to reach it](#how-to-reach-it)).
+
 ---
 [← Previous: Where things are kept](where-things-are-kept.md) · [Next: Security →](security.md)

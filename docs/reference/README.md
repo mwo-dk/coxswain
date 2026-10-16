@@ -29,7 +29,7 @@ the full list.
 | DragonFly BSD | Not supported; its Rust (1.85 in DPorts) is too old for Coxswain's dependencies |
 | [illumos](illumos.md) | The terminal app on OmniOS and OpenIndiana: the one-line install, the search helper as an SMF service, ZFS snapshots and datasets, how illumos differs |
 | [TrueNAS](truenas.md) | The terminal app on TrueNAS over SSH: which build, installing into your home, snapshots, leaving the system's datasets alone, indexing the shares |
-| [Flatpak](flatpak.md) | The desktop app from Flathub: what the sandbox lets it do and why, your editor and commands on the host, the programs previews use, the search helper, where its files are kept, updating, building it yourself |
+| [Flatpak](flatpak.md) | The desktop app as a Flatpak (not on Flathub yet: built from the manifest): what the sandbox lets it do and why, your editor and commands on the host, the programs previews use, the search helper, where its files are kept, updating, building it yourself |
 | [Linux on ARM](linux-arm.md) | Both apps on 64-bit ARM Linux: which file for a Raspberry Pi, Asahi or an ARM server, what they need (glibc 2.35, WebKitGTK 4.1), installing, search by meaning on ARM |
 | [Nix](nix.md) | The flake: `nix run github:mwo-dk/coxswain`, `nix profile install`, NixOS and Home Manager, the desktop app on Linux, updating, the package prepared for nixpkgs |
 | [Termux on Android](termux.md) | The terminal app on a phone or tablet: installing with `pkg` or `cargo`, the phone's folders (`termux-setup-storage`, Alt+F1), opening with termux-open, clipboard and battery through Termux:API, the helper without a session service, a trash of its own, F-keys on Termux's extra keys row, updating, the package recipe and how CI builds and starts it |

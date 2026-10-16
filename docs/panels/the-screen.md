@@ -58,7 +58,7 @@ skips it. **F1** → *Show the guide again* (desktop app), **F1** then **G** (te
 | Status | In the command line row, until the next key | Right of the command line, until the next key |
 | Settings | – (**F9** → *Settings*) | *Settings* with a cog, at the right of the command line row. Its tooltip: *Settings · Ctrl+, · What's new: 2, under Overview*; a click opens Settings at *Overview* |
 | F-key bar | The bottom row: the number and label of **F1** to **F10** | The bottom row of buttons; a key with no action is greyed |
-| Window title | The terminal's title: `Coxswain 1.41.0` | The window's title, the same text |
+| Window title | The terminal's title: `Coxswain X.Y.Z` | The window's title, the same text |
 
 The F-key labels:
 
@@ -97,7 +97,7 @@ the desktop app shows it above the list or in the status line.
 Both apps put the version in their title:
 
 ```
-Coxswain 1.41.0
+Coxswain X.Y.Z
 ```
 
 Before 1.41.0 the title also listed the kinds of search that were on (`search: names · text ·
@@ -114,7 +114,7 @@ Messages go to the command line row and stay until the next key: *Refreshed*, `C
 
 Two kinds of message come by themselves:
 
-- **Updates:** `Coxswain 1.21.0 is available: <how>` when a newer release is out
+- **Updates:** `Coxswain X.Y.Z is available: <how>` when a newer release is out
   ([Update checks](../reference/updates.md)). In the desktop app it is a button that opens
   the release page.
 - **Tips** of what search can do that you have not turned on (*Install tesseract to search the

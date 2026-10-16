@@ -25,7 +25,7 @@ with the command that upgrades your copy. Nothing is downloaded or installed by 
 3. Run the command it names in a shell, or click the button for the release page.
 4. After the upgrade, the desktop app's **⚙ Settings** button shows a count: click it for
    *Settings → Overview → What's new*, with the new version's changes marked *new*. The terminal app says
-   once `Coxswain 1.21.0 is installed: coxswain --whats-new says what it brought`
+   once `Coxswain X.Y.Z is installed: coxswain --whats-new says what it brought`
    ([Notices and what's new](../search/notices.md)).
 
 To turn it off: Settings (**Ctrl+,**) → *Privacy and updates* → untick *Check for a new
@@ -34,7 +34,7 @@ version*, or `check_updates = false` in `config.toml`.
 ## What it does
 
 - It asks `https://api.github.com/repos/mwo-dk/coxswain/releases/latest` for the latest
-  release's version number, with `User-Agent: coxswain/1.20.0`. Nothing else is sent.
+  release's version number, with `User-Agent: coxswain/X.Y.Z`. Nothing else is sent.
 - It waits at most 5 seconds. Offline, or with GitHub unreachable, it simply finds nothing and
   says nothing.
 - It uses the system's certificate store, so it works behind a company proxy that inspects TLS.
@@ -49,11 +49,11 @@ version*, or `check_updates = false` in `config.toml`.
 
 | | Desktop app | Terminal app |
 |---|---|---|
-| Newer version, installed by a package manager | A button at the right of the command line: *Coxswain 1.21.0 is available: brew upgrade coxswain*. Its tooltip: *Upgrade with: brew upgrade coxswain. Click for the release notes.* | The status line: `Coxswain 1.21.0 is available: brew upgrade coxswain` |
-| Newer version, installed from a download | *Coxswain 1.21.0 is available*, tooltip *Open the releases page* | `Coxswain 1.21.0 is available: https://github.com/mwo-dk/coxswain/releases/latest` |
+| Newer version, installed by a package manager | A button at the right of the command line: *Coxswain X.Y.Z is available: brew upgrade coxswain*. Its tooltip: *Upgrade with: brew upgrade coxswain. Click for the release notes.* | The status line: `Coxswain X.Y.Z is available: brew upgrade coxswain` |
+| Newer version, installed from a download | *Coxswain X.Y.Z is available*, tooltip *Open the releases page* | `Coxswain X.Y.Z is available: https://github.com/mwo-dk/coxswain/releases/latest` |
 | Click | Opens the release page in your browser | – |
 | How long | Until you update; it has no `×` | Until the status line shows something else |
-| After updating | A count on **⚙ Settings**; a click opens *Settings → Overview → What's new*, where the new version's changes are marked *new* | Once, in the status line: `Coxswain 1.21.0 is installed: coxswain --whats-new says what it brought` |
+| After updating | A count on **⚙ Settings**; a click opens *Settings → Overview → What's new*, where the new version's changes are marked *new* | Once, in the status line: `Coxswain X.Y.Z is installed: coxswain --whats-new says what it brought` |
 
 While the update button shows, the desktop app holds back a problem with search in the status
 line ([Notices and what's new](../search/notices.md)).
@@ -64,17 +64,23 @@ It is worked out from where the program is installed:
 
 | Installed with | Command shown |
 |---|---|
-| Homebrew formula (the terminal app) | `brew upgrade coxswain` |
-| Homebrew cask (the desktop app) | `brew upgrade --cask coxswain-gui` |
-| Cargo | `cargo install coxswain` |
-| WinGet, the terminal app (`mwo-dk.Coxswain.Terminal`) | `winget upgrade mwo-dk.Coxswain.Terminal` |
-| Flatpak, the desktop app (`io.github.mwo_dk.Coxswain`) | `flatpak update io.github.mwo_dk.Coxswain`; a software centre such as GNOME Software or Discover updates it too ([Flatpak](flatpak.md#updating)) |
 | Anything else on FreeBSD (the install script, the archives) | `fetch -qo - https://raw.githubusercontent.com/mwo-dk/coxswain/master/install/install-freebsd.sh \| sh`, which updates both apps where they are ([FreeBSD](freebsd.md#updating)) |
 | Anything else on NetBSD or OpenBSD | `ftp -o - https://raw.githubusercontent.com/mwo-dk/coxswain/master/install/install-unix.sh \| sh` ([NetBSD](netbsd.md#updating-and-uninstalling), [OpenBSD](openbsd.md#updating-and-uninstalling)) |
 | Anything else on illumos | `curl -fsSL https://raw.githubusercontent.com/mwo-dk/coxswain/master/install/install-unix.sh \| sh` ([illumos](illumos.md#updating-and-uninstalling)) |
-| A download, `.deb`, `.rpm`, AppImage, the Windows installer (also when WinGet ran it: `winget upgrade mwo-dk.Coxswain`), the Arch package, a source build | None: it points to the [releases page](https://github.com/mwo-dk/coxswain/releases/latest) |
+| Flatpak, the desktop app (`io.github.mwo_dk.Coxswain`) | `flatpak update io.github.mwo_dk.Coxswain`. It is not on Flathub yet: a Flatpak you built updates by building it again ([Flatpak](flatpak.md#updating)) |
+| Termux's package (`/data/data/com.termux/files/usr/bin`) | `pkg upgrade coxswain`, once the package is in Termux's repository ([Termux](termux.md)) |
+| Cargo (`~/.cargo/bin`, Termux too) | `cargo install --locked coxswain` |
+| Homebrew formula (the terminal app) | `brew upgrade coxswain` |
+| Homebrew cask (the desktop app) | `brew upgrade --cask coxswain-gui` |
+| WinGet, the terminal app (`mwo-dk.Coxswain.Terminal`) | `winget upgrade mwo-dk.Coxswain.Terminal` |
+| A download, `.deb`, `.rpm`, AppImage, the Windows installer, a source build | None: it points to the [releases page](https://github.com/mwo-dk/coxswain/releases/latest) |
 
-The install tables in the [README](../../README.md#install) say how to update each.
+The Windows desktop installer lands where a download would, so it gets the releases page too.
+Its WinGet package, `mwo-dk.Coxswain`, is waiting for WinGet's review; until it is listed, only
+`mwo-dk.Coxswain.Terminal` is on WinGet. There is no Arch (AUR) package yet.
+
+How to install each is in the [README](../../README.md#install) and
+[install/INSTALL.md](../../install/INSTALL.md); update the same way.
 
 ## Settings and config.toml
 
@@ -102,8 +108,8 @@ stays in charge.
 
 It could not tell a package manager from where the program runs: a download, a `.deb`, an
 AppImage, or the Windows desktop installer, which lands in the same folder whether you ran it
-yourself or WinGet did (then `winget upgrade mwo-dk.Coxswain`). Update it the way you installed
-it; the README's install tables say how.
+yourself or, once its WinGet package is listed, WinGet did. Update it the way you installed it:
+download the new release, or run your package manager's upgrade.
 
 #### I updated, but it still says a newer version is available.
 
@@ -117,7 +123,7 @@ check runs at most once a day, so a release out an hour ago may show tomorrow.
 
 #### What does the check send?
 
-Only the request for the latest version, with `User-Agent: coxswain/1.20.0`. See
+Only the request for the latest version, with `User-Agent: coxswain/X.Y.Z`. See
 [Privacy](privacy.md#what-can-leave-it).
 
 #### How do I get rid of the update button?

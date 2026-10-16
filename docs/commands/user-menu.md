@@ -51,8 +51,8 @@ The commands per system (the first one installed is taken):
 
 | System | Open a terminal here | SHA-256 of the file |
 |---|---|---|
-| FreeBSD | `$TERMINAL`, else the first of `x-terminal-emulator`, foot, Alacritty, kitty, WezTerm, Ghostty, Konsole, GNOME Terminal, Ptyxis, Console (`kgx`), Xfce Terminal, MATE Terminal, LXTerminal, QTerminal, Terminator, Tilix, urxvt, st, xterm | `sha256 -- %f` (else `sha256sum`) |
-| OpenBSD, NetBSD | the same | `sha256 -- %f`, else `sha256sum`, else `cksum -a sha256 -- %f` |
+| FreeBSD | `$TERMINAL`, else the first of `x-terminal-emulator`, foot, Alacritty, kitty, WezTerm, Ghostty, Konsole, GNOME Terminal, Ptyxis, Console (`kgx`), Xfce Terminal, MATE Terminal, LXTerminal, QTerminal, Terminator, Tilix, urxvt, st, xterm | `sha256 -- %f`, else `sha256sum -- %f`, else `cksum -a sha256 -- %f` |
+| NetBSD, OpenBSD | the same | the same |
 | illumos | the same | `digest -v -a sha256 -- %f`, else `sha256sum` |
 | Linux | the same | `sha256sum -- %f`, else `shasum -a 256 -- %f` |
 | Android (Termux) | not offered: Termux is the terminal | `sha256sum -- %f` |
