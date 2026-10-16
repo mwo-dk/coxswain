@@ -441,6 +441,9 @@ pub struct App {
     /// worked out for.
     pub hint: Option<(&'static str, String)>,
     hint_for: Option<coxswain_core::menu::Subject>,
+    /// What is under the cursor may have changed (a key, a click, a listing, git): the hint
+    /// is worked out again only then.
+    hint_stale: bool,
     /// Find shows how to limit it to the panel's folder: the first few times it opens.
     pub find_hint: bool,
     pub quick: Option<String>,
@@ -459,6 +462,8 @@ pub struct App {
     search_tx: mpsc::Sender<FindJob>,
     search_rx: mpsc::Receiver<(u64, Found)>,
     search_gen: u64,
+    /// The last search whose answer came: behind `search_gen` while one is out.
+    search_got: u64,
     /// Ask in Find file: the turns so far, the answer on its way, and its stop flag. Closing
     /// Find file forgets them.
     pub chat: Vec<Turn>,
@@ -614,6 +619,7 @@ impl App {
             status: None,
             hint: None,
             hint_for: None,
+            hint_stale: true,
             find_hint: false,
             quick: None,
             show_hidden,
@@ -628,6 +634,7 @@ impl App {
             search_tx,
             search_rx,
             search_gen: 0,
+            search_got: 0,
             chat: vec![],
             ask_rx: None,
             ask_stop: Arc::default(),
@@ -649,7 +656,7 @@ impl App {
             cfg,
         };
         let mut app = app;
-        app.refresh_git();
+        app.refresh_git(&[0, 1]);
         app.measure(0);
         app.measure(1);
         Ok(app)
@@ -675,10 +682,10 @@ impl App {
         }
     }
 
-    /// git status, and the last commit of each entry, run on a thread; results arrive
+    /// git status, and the last commit of each entry, of the panels `sides`, run on a thread; results arrive
     /// through `git_rx`.
-    fn refresh_git(&self) {
-        let dirs: HashSet<PathBuf> = self.panels.iter().map(|p| p.dir.clone()).collect();
+    fn refresh_git(&self, sides: &[usize]) {
+        let dirs: HashSet<PathBuf> = sides.iter().map(|&s| self.panels[s].dir.clone()).collect();
         let last = self.cfg.git.last_commit;
         for dir in dirs {
             let tx = self.git_tx.clone();
@@ -737,7 +744,7 @@ impl App {
     fn reload(&mut self) {
         self.load(0, None);
         self.load(1, None);
-        self.refresh_git();
+        self.refresh_git(&[0, 1]);
         self.measure(0);
         self.measure(1);
     }
@@ -745,7 +752,7 @@ impl App {
     fn cd(&mut self, side: usize, dir: PathBuf) {
         let came = self.panels[side].enter(dir.clone());
         self.load(side, came);
-        self.refresh_git();
+        self.refresh_git(&[side]);
         self.measure(side);
         // A locked archive, looked into: its password, kept for this run, then again.
         if self.panels[side].error.as_deref().is_some_and(|e| e.contains(coxswain_core::archive::LOCKED)) {
@@ -757,6 +764,7 @@ impl App {
     /// commits come from git, which can take seconds on a big repository: on a thread, the
     /// status line saying so meanwhile.
     fn load(&mut self, side: usize, select: Option<String>) {
+        self.hint_stale = true;
         let h = self.show_hidden;
         let p = &mut self.panels[side];
         if !virtual_list(&p.dir) {
@@ -778,6 +786,7 @@ impl App {
     /// A listing from the thread, for the panels still showing its folder. One that failed
     /// walks up, as `Panel::load` does, and the status line says why.
     fn listed(&mut self, dir: PathBuf, keep: Option<String>, r: std::io::Result<Vec<Entry>>) {
+        self.hint_stale = true;
         let busy = t!("status.busy", "what" => Self::describe(std::slice::from_ref(&dir)));
         if self.status.as_deref() == Some(busy.as_str()) {
             self.status = None;
@@ -821,6 +830,7 @@ impl App {
 
     fn on_key(&mut self, ev: KeyEvent) {
         let Some(key) = to_key(ev) else { return };
+        self.hint_stale = true;
         self.status = None;
         if self.dialog.is_some() {
             return self.dialog_key(key);
@@ -1729,7 +1739,8 @@ impl App {
                 let pats: Vec<Vec<u8>> = value.split([' ', ';', ',']).filter(|s| !s.is_empty()).map(|s| s.to_lowercase().into_bytes()).collect();
                 let p = self.panel_mut();
                 for e in p.entries.iter().filter(|e| !e.is_dir) {
-                    if pats.iter().any(|g| index::glob(g, e.name.to_lowercase().as_bytes())) {
+                    let name = e.name.to_lowercase();
+                    if pats.iter().any(|g| index::glob(g, name.as_bytes())) {
                         if sel {
                             p.marked.insert(e.path.clone());
                         } else {
@@ -2200,6 +2211,7 @@ impl App {
     }
 
     fn on_mouse(&mut self, m: MouseEvent) {
+        self.hint_stale = true;
         let Some(side) = (0..2).find(|&i| self.areas[i].contains((m.column, m.row).into())) else { return };
         if self.dialog.is_some() {
             return;
@@ -2263,7 +2275,7 @@ impl App {
                 self.measure(side);
             }
         }
-        self.refresh_git();
+        self.refresh_git(&[0, 1]);
     }
 
     /// Git results and index progress, polled between events.
@@ -2274,9 +2286,10 @@ impl App {
         if !self.cfg.hints {
             return self.hint = None;
         }
-        if self.dialog.is_some() || self.status.is_some() || self.quick.is_some() || !self.cmdline.is_empty() {
+        if self.dialog.is_some() || self.status.is_some() || self.quick.is_some() || !self.cmdline.is_empty() || !self.hint_stale {
             return;
         }
+        self.hint_stale = false;
         let s = self.panel().subject();
         if self.hint_for.as_ref() == Some(&s) {
             return;
@@ -2298,6 +2311,7 @@ impl App {
             }
         }
         while let Ok((generation, now)) = self.search_rx.try_recv() {
+            self.search_got = generation;
             if generation != self.search_gen {
                 continue;
             }
@@ -2359,17 +2373,19 @@ impl App {
         while let Ok((dir, news)) = self.git_rx.try_recv() {
             for p in self.panels.iter_mut().filter(|p| p.dir == dir) {
                 match &news {
-                    Git::Status(st) => p.git = st.as_deref().cloned(),
+                    Git::Status(st) => (p.git, self.hint_stale) = (st.as_deref().cloned(), true),
                     Git::Last(last) => p.last = last.clone(),
-                    Git::Zfs(f) => p.zfs = f.as_deref().cloned(),
+                    Git::Zfs(f) => (p.zfs, self.hint_stale) = (f.as_deref().cloned(), true),
                     Git::Package(name) => p.package = name.clone(),
                 }
             }
         }
-        let state = self.index.state();
-        if state != *last_state {
-            *last_state = state;
-            if matches!(self.dialog, Some(Dialog::Search { .. })) {
+        // Find open: asked again when the index is ready. Only then, as each asking is a
+        // round trip to the helper.
+        if matches!(self.dialog, Some(Dialog::Search { .. })) {
+            let state = self.index.state();
+            if state != *last_state {
+                *last_state = state;
                 self.search_now();
             }
         }
@@ -2487,8 +2503,8 @@ fn main_loop(term: &mut DefaultTerminal, app: &mut App) -> std::io::Result<()> {
             })?,
             None => {}
         }
-        // Quicker while a search is out, so its answer shows as soon as it comes.
-        let waiting = matches!(app.dialog, Some(Dialog::Search { .. }));
+        // Quicker while a search or an answer is out, so it shows as soon as it comes.
+        let waiting = app.search_got != app.search_gen || app.ask_rx.is_some() || app.ask_check_rx.is_some();
         if event::poll(Duration::from_millis(if waiting { 30 } else { 200 }))? {
             match event::read()? {
                 Event::Key(k) => app.on_key(k),
