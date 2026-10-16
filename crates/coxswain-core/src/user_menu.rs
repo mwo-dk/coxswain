@@ -460,7 +460,4 @@ mod tests {
         let cfg = Config::parse(&open).unwrap();
         assert_eq!(cfg.user_menu.unwrap().last().unwrap().key, "z");
     }
-
-    #[test]
-    fn user_menu_editor_at_the_line() {}
 }

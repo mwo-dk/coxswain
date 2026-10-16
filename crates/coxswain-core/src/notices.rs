@@ -117,8 +117,13 @@ pub fn all(cfg: &Config, status: &Status, state: &AppState, terminal: bool) -> V
     }
     // Clouds found: their files that are only online are found by name, never downloaded.
     if cfg.search.cloud != "all" && !status.clouds.is_empty() {
-        let mut names: Vec<&str> = status.clouds.iter().map(|(n, _)| n.as_str()).collect();
-        names.dedup();
+        // Each once, in the order first seen: two OneDrive roots name OneDrive once.
+        let mut names: Vec<&str> = vec![];
+        for (n, _) in &status.clouds {
+            if !names.contains(&n.as_str()) {
+                names.push(n);
+            }
+        }
         let names = names.join(", ");
         let text = if terminal {
             t!("notice.cloud_tui", "names" => names)
@@ -524,10 +529,12 @@ mod tests {
         status.clouds = vec![
             ("OneDrive".into(), "/c/OneDrive".into()),
             ("Dropbox".into(), "/c/Dropbox".into()),
+            ("OneDrive".into(), "/c/OneDrive - Work".into()),
         ];
         let n = next(&cfg, &status, &state, false).unwrap();
         assert_eq!(n.id, "cloud");
         assert!(n.text.contains("OneDrive, Dropbox"), "{}", n.text);
+        assert_eq!(n.text.matches("OneDrive").count(), 1, "{}", n.text);
         dismiss(&mut state, "cloud");
         assert_eq!(ids(&state, &status), None);
 
