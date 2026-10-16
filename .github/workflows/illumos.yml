@@ -36,7 +36,6 @@ on:
       - "install/**"
       - "packaging/pack-unix.sh"
       - "packaging/illumos/**"
-      - "packaging/openindiana/**"
       - ".github/workflows/illumos.yml"
       - ".github/actions/apt-install/**"
 

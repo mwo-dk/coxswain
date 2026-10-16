@@ -1,6 +1,6 @@
 # Submitting Coxswain to pkgsrc-wip
 
-**Owner steps, in order:** [termux-packages](../termux/SUBMIT.md), **pkgsrc-wip**, [omnios-extra](../omnios/SUBMIT.md), [oi-userland](../openindiana/SUBMIT.md), [openbsd-wip](../openbsd/port/SUBMIT.md), [nixpkgs](../nix/SUBMIT.md). This is step 2 of 6; see [packaging/README.md](../README.md#submitting-by-hand).
+**Owner steps, in order:** [termux-packages](../termux/SUBMIT.md), **pkgsrc-wip**, [omnios-extra](../omnios/SUBMIT.md), [openbsd-wip](../openbsd/port/SUBMIT.md), [nixpkgs](../nix/SUBMIT.md). This is step 2 of 5; see [packaging/README.md](../README.md#submitting-by-hand).
 
 The package is [`coxswain/`](coxswain/) in this folder, for `wip/coxswain` in
 [pkgsrc-wip](https://pkgsrc.org/wip/). pkgsrc builds on NetBSD, SmartOS and other illumos
