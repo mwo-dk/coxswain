@@ -110,7 +110,7 @@ pub fn run() {
     println!("{}", advice.why);
     // A graphics card and no server: a local Ollama would use the card, and how to get it.
     if let Some(faster) = &advice.faster {
-        println!("{faster}");
+        println!("{}{}", faster.text, faster.how);
     } else if found.is_empty() {
         println!("{}", t!("setup.none_found"));
     }

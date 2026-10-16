@@ -5,12 +5,12 @@
   import { ui } from "./app.svelte.js";
   import { invoke, size } from "./lib.js";
   import { t } from "./i18n.svelte.js";
+  import CopyLine from "./CopyLine.svelte";
 
   const s = $derived(ui.cfg.settings);
   // Back to where it was started from (the first-run guide), else closed.
   const close = () => (ui.modal = ui.modal?.back ?? null);
   let error = $state("");
-  let copied = $state(false);
   /** How much of a download is done, in whole percent. */
   const pct = (done, total) => Math.floor((done * 100) / Math.max(1, total));
 
@@ -181,7 +181,7 @@
           <label class="choice" class:on={server === null}><input type="radio" name="server" checked={server === null} onchange={() => (chosen = null)} />
             <span>{t("setup.builtin", { size: size(meaning?.size ?? 0), where: look.builtin_runs })}{#if look.advice.server == null || !look.found.length}<span class="badge">{t("setup.recommended")}</span>{/if}</span></label>
         </div>
-        {#if look.advice.faster}<p class="hint">{look.advice.faster}{#if look.advice.copy}{" "}<button class="link" title={look.advice.copy} onclick={() => invoke("copy_text", { text: look.advice.copy }).then(() => (copied = true), (e) => (error = String(e)))}>{copied ? t("common.copied") : t("common.copy")}</button>{/if}</p>
+        {#if look.advice.faster}<p class="hint">{look.advice.faster.text}{#if look.advice.faster.copy}{" "}<CopyLine line={look.advice.faster.copy} />{:else}{look.advice.faster.how}{/if}</p>
         {:else if !look.found.length}<p class="hint">{t("setup.none_found")}</p>{/if}
         <div class="row">
           <input placeholder="http://192.168.1.20:11434" bind:value={remoteUrl} spellcheck="false" aria-label={t("setup.other")} />

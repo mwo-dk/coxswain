@@ -424,7 +424,8 @@ pub fn machine(found: &[Found]) -> Machine {
     }
     #[cfg(target_os = "linux")]
     if m.gpu.is_none() {
-        m.gpu = card_on_linux();
+        let devices = drm_devices();
+        m.gpu = amd_on_linux(&devices).or_else(|| intel_card_on_linux(&devices));
         m.npu = std::path::Path::new("/dev/accel/accel0").exists();
     }
     #[cfg(target_os = "freebsd")]
@@ -458,38 +459,54 @@ pub fn machine(found: &[Found]) -> Machine {
     m
 }
 
-/// An AMD graphics card or the Radeon in a Ryzen, else an Intel card of its own (not the
-/// graphics in the processor, which sits at 00:02.0), from the kernel's view of it.
+/// The name shown for an Intel graphics card of its own.
+const INTEL_CARD: &str = "Intel Arc";
+
+/// The graphics devices the kernel knows, each with its PCI vendor (`0x1002`, `0x8086`, …).
 #[cfg(target_os = "linux")]
-fn card_on_linux() -> Option<(Vendor, String, Option<u64>)> {
-    let devices: Vec<std::path::PathBuf> = std::fs::read_dir("/sys/class/drm")
-        .ok()?
-        .flatten()
-        .map(|e| e.path().join("device"))
-        .collect();
-    let vendor = |d: &std::path::Path| {
-        std::fs::read_to_string(d.join("vendor")).map_or(String::new(), |v| v.trim().to_string())
+fn drm_devices() -> Vec<(std::path::PathBuf, String)> {
+    let Ok(dir) = std::fs::read_dir("/sys/class/drm") else {
+        return vec![];
     };
-    if let Some(dev) = devices.iter().find(|d| vendor(d) == "0x1002") {
-        let vram = std::fs::read_to_string(dev.join("mem_info_vram_total"))
-            .ok()
-            .and_then(|b| b.trim().parse::<u64>().ok())
-            .map(|b| b.div_ceil(1 << 30));
-        let name = std::fs::read_to_string(dev.join("product_name"))
-            .ok()
-            .map(|s| s.trim().to_string())
-            .filter(|s| !s.is_empty())
-            .unwrap_or_else(|| "AMD Radeon".into());
-        return Some((Vendor::Amd, name, vram));
-    }
+    dir.flatten()
+        .map(|e| e.path().join("device"))
+        .filter_map(|d| {
+            let v = std::fs::read_to_string(d.join("vendor")).ok()?;
+            Some((d, v.trim().to_string()))
+        })
+        .collect()
+}
+
+/// An AMD graphics card or the Radeon in a Ryzen, from the kernel's view of it.
+#[cfg(target_os = "linux")]
+fn amd_on_linux(devices: &[(std::path::PathBuf, String)]) -> Option<(Vendor, String, Option<u64>)> {
+    let (dev, _) = devices.iter().find(|(_, v)| v == "0x1002")?;
+    let vram = std::fs::read_to_string(dev.join("mem_info_vram_total"))
+        .ok()
+        .and_then(|b| b.trim().parse::<u64>().ok())
+        .map(|b| b.div_ceil(1 << 30));
+    let name = std::fs::read_to_string(dev.join("product_name"))
+        .ok()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+        .unwrap_or_else(|| "AMD Radeon".into());
+    Some((Vendor::Amd, name, vram))
+}
+
+/// An Intel graphics card of its own (not the graphics in the processor, which sits at
+/// 00:02.0), from the kernel's view of it.
+#[cfg(target_os = "linux")]
+fn intel_card_on_linux(
+    devices: &[(std::path::PathBuf, String)],
+) -> Option<(Vendor, String, Option<u64>)> {
     devices
         .iter()
-        .find(|d| {
-            vendor(d) == "0x8086"
+        .any(|(d, v)| {
+            v == "0x8086"
                 && std::fs::canonicalize(d)
                     .is_ok_and(|p| !p.to_string_lossy().ends_with(":00:02.0"))
         })
-        .map(|_| (Vendor::Intel, "Intel Arc".into(), None))
+        .then(|| (Vendor::Intel, INTEL_CARD.into(), None))
 }
 
 /// An AMD graphics card, else an Intel card of its own (not at pci0:0:2:0, where the graphics
@@ -504,7 +521,7 @@ fn card_in_pciconf(list: &str) -> Option<(Vendor, String, Option<u64>)> {
     lines
         .iter()
         .any(|l| l.contains("vendor=0x8086") && !l.contains("@pci0:0:2:0:"))
-        .then(|| (Vendor::Intel, "Intel Arc".into(), None))
+        .then(|| (Vendor::Intel, INTEL_CARD.into(), None))
 }
 
 pub fn ram_gb() -> u64 {
@@ -557,8 +574,16 @@ pub struct Advice {
     pub why: String,
     /// A graphics card the built-in models cannot use, and no model server: what a local
     /// Ollama would do, and how to get it (`faster_with_ollama`).
-    pub faster: Option<String>,
-    /// The command that installs it, to copy, where there is one.
+    pub faster: Option<Faster>,
+}
+
+/// What a local Ollama would do on the graphics card (`text`), how to get it (`how`: the
+/// install or download line, with the space before it, so `text` + `how` is the whole hint in
+/// every language), and the bare command to copy, where there is one.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct Faster {
+    pub text: String,
+    pub how: String,
     pub copy: Option<String>,
 }
 
@@ -574,10 +599,8 @@ fn chat_for(gb: u64) -> &'static str {
 /// What suits `m`, with the servers `found` on it. A Mac with no server is told the built-in
 /// model, which runs on its GPU: nothing to install, nothing leaves the machine.
 pub fn advise(m: &Machine, found: &[Found]) -> Advice {
-    let (faster, copy) = faster_with_ollama(m, found, std::env::consts::OS).unzip();
     Advice {
-        faster,
-        copy: copy.flatten(),
+        faster: faster_with_ollama(m, found, std::env::consts::OS),
         ..advise_server(m, found)
     }
 }
@@ -591,11 +614,7 @@ const ENOUGH_VRAM_GB: u64 = 4;
 /// with the command to copy where there is one. Nothing on macOS, where the built-in models
 /// use Metal (and Ollama on an Intel Mac uses the processor), nor where Ollama is not known.
 /// Only said, never installed.
-pub fn faster_with_ollama(
-    m: &Machine,
-    found: &[Found],
-    os: &str,
-) -> Option<(String, Option<String>)> {
+pub fn faster_with_ollama(m: &Machine, found: &[Found], os: &str) -> Option<Faster> {
     let (vendor, name, vram) = m.gpu.as_ref()?;
     if !found.is_empty() || *vendor == Vendor::Apple || vram.is_some_and(|v| v < ENOUGH_VRAM_GB) {
         return None;
@@ -615,21 +634,39 @@ pub fn faster_with_ollama(
         Some(cmd) => crate::t!("setup.ollama_install", "cmd" => cmd),
         None => crate::t!("setup.ollama_download", "url" => "https://ollama.com/download/windows"),
     };
-    let text = crate::t!("setup.faster_ollama", "gpu" => name, "backend" => backend, "how" => how);
-    Some((text, cmd.map(String::from)))
+    // Every language ends `setup.faster_ollama` with `{how}`: without it, the text ends on its
+    // own full stop, and the rest of the whole hint is the how.
+    let full = crate::t!("setup.faster_ollama", "gpu" => name, "backend" => backend, "how" => how.as_str());
+    let text = crate::t!("setup.faster_ollama", "gpu" => name, "backend" => backend, "how" => "");
+    let text = text.trim_end();
+    Some(Faster {
+        how: full
+            .strip_prefix(text)
+            .map_or_else(|| format!(" {how}"), String::from),
+        text: text.to_string(),
+        copy: cmd.map(String::from),
+    })
+}
+
+/// Ollama with bge-m3 and the chat model that fits `vram`, and why (`why`, given that model).
+fn ollama_on_card(vram: Option<u64>, why: impl FnOnce(&str) -> String) -> Advice {
+    let chat = chat_for(vram.unwrap_or(0));
+    Advice {
+        server: Some(Kind::Ollama),
+        embed: "bge-m3".into(),
+        chat: chat.into(),
+        why: why(chat),
+        ..Default::default()
+    }
 }
 
 fn advise_server(m: &Machine, found: &[Found]) -> Advice {
     let ram = m.ram.to_string();
     let vulkan = |name: &String, vram: &Option<u64>| {
-        let chat = chat_for(vram.unwrap_or(0));
-        Advice {
-            server: Some(Kind::Ollama),
-            embed: "bge-m3".into(),
-            chat: chat.into(),
-            why: crate::t!("setup.why_vulkan", "gpu" => name, "chat" => chat),
-            ..Default::default()
-        }
+        ollama_on_card(
+            *vram,
+            |chat| crate::t!("setup.why_vulkan", "gpu" => name, "chat" => chat),
+        )
     };
     match &m.gpu {
         Some((Vendor::Apple, _, _)) if found.is_empty() => Advice {
@@ -645,15 +682,11 @@ fn advise_server(m: &Machine, found: &[Found]) -> Advice {
         }
         Some((Vendor::Intel, name, vram)) => vulkan(name, vram),
         Some((Vendor::Nvidia, name, vram)) => {
-            let chat = chat_for(vram.unwrap_or(0));
             let gb = vram.map(|v| v.to_string()).unwrap_or_else(|| "?".into());
-            Advice {
-                server: Some(Kind::Ollama),
-                embed: "bge-m3".into(),
-                chat: chat.into(),
-                why: crate::t!("setup.why_nvidia", "gpu" => name, "vram" => gb, "chat" => chat),
-                ..Default::default()
-            }
+            ollama_on_card(
+                *vram,
+                |chat| crate::t!("setup.why_nvidia", "gpu" => name, "vram" => gb, "chat" => chat),
+            )
         }
         Some((Vendor::Amd, name, _)) => {
             // An APU shares the system's memory; Lemonade gives models up to about half of it.
@@ -1067,6 +1100,11 @@ pub struct Poor {
     /// Not poor, only better at hand: a tip, shown plain, not as a warning (a Mac's GPU).
     #[serde(default)]
     pub tip: bool,
+}
+
+/// Whether `s` runs a built-in model: meaning with the built-in engine, or a built-in Ask model.
+pub fn uses_builtin(s: &crate::config::SearchConfig) -> bool {
+    (s.meaning && s.meaning_engine == "builtin") || crate::chat::of(&s.ask_model).is_some()
 }
 
 /// The choices of `cfg` that are poor here: a built-in model on the processor while a server
@@ -1874,7 +1912,24 @@ mod tests {
             (Vendor::Nvidia, "windows", "CUDA", None),
             (Vendor::Intel, "windows", "Vulkan", None),
         ] {
-            let (text, cmd) = says(&card(v, Some(8)), &[], os).expect(os);
+            let Faster {
+                text,
+                how,
+                copy: cmd,
+            } = says(&card(v, Some(8)), &[], os).expect(os);
+            // The how is not in the text, and is said once, after it.
+            let line = match copy {
+                Some(c) => crate::t!("setup.ollama_install", "cmd" => c),
+                None => {
+                    crate::t!("setup.ollama_download", "url" => "https://ollama.com/download/windows")
+                }
+            };
+            assert_eq!(how.trim_start(), line, "{os}");
+            assert!(
+                !text.contains(&line) && !text.ends_with(' '),
+                "{os}: {text}"
+            );
+            let text = format!("{text}{how}");
             assert!(
                 text.contains("Card") && text.contains(backend),
                 "{os}: {text}"
