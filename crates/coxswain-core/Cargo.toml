@@ -8,7 +8,7 @@ homepage.workspace = true
 readme.workspace = true
 keywords.workspace = true
 categories.workspace = true
-description = "Core of Coxswain: config, file operations, git status and an Everything-style file name index"
+description = "The shared core of Coxswain, the two-panel file manager: file operations with undo, archives, previews and text from documents, search by name, text and meaning, git, ZFS, config, themes and translations"
 
 [dependencies]
 serde = { version = "1", features = ["derive"] }
