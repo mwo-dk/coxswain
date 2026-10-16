@@ -9,6 +9,11 @@ use std::sync::OnceLock;
 
 use coxswain_core::config::{Action, Config, Glyphs, Theme};
 
+/// A file of the repository as text, with Windows line ends made plain: git may check out CRLF.
+fn read(path: impl AsRef<std::path::Path>) -> String {
+    std::fs::read_to_string(path).unwrap().replace("\r\n", "\n")
+}
+
 fn root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../..")
 }
@@ -33,7 +38,7 @@ fn code() -> &'static str {
         markdown(&root().join("docs"), &mut pages);
         let mut code = String::new();
         for page in pages {
-            let text = std::fs::read_to_string(&page).unwrap();
+            let text = read(&page);
             let mut fenced = false;
             for line in text.lines() {
                 let t = line.trim_start();
@@ -128,9 +133,9 @@ fn every_config_key_is_in_the_docs() {
 /// The flags of both apps: the terminal app's `OPTIONS` with the values each takes, and the
 /// desktop app's, from their sources (the binaries are not this crate's).
 fn flags() -> Vec<String> {
-    let read = |p: &str| std::fs::read_to_string(root().join(p)).unwrap();
+    let file = |p: &str| read(root().join(p));
     let mut flags = vec![];
-    let tui = read("crates/coxswain/src/lib.rs");
+    let tui = file("crates/coxswain/src/lib.rs");
     let start = tui.find("const OPTIONS: &[(&str, &[&str])] = &[").expect("OPTIONS in crates/coxswain/src/lib.rs");
     let table = &tui[start..start + tui[start..].find("];").unwrap()];
     for line in table.lines().filter(|l| l.trim_start().starts_with("(\"")) {
@@ -139,7 +144,7 @@ fn flags() -> Vec<String> {
         flags.extend(values.iter().map(|v| format!("{flag} {v}")));
         flags.push(flag.to_string());
     }
-    let gui = read("gui/src-tauri/src/main.rs");
+    let gui = file("gui/src-tauri/src/main.rs");
     for piece in gui.split('"').skip(1).step_by(2) {
         if piece.starts_with("--") && piece[2..].chars().all(|c| c.is_ascii_lowercase() || c == '-') {
             flags.push(piece.to_string());
@@ -174,7 +179,7 @@ fn a_name_counts_only_on_its_own() {
 fn every_settings_section_is_in_the_docs() {
     use coxswain_core::settings::{OPTIONS, sections};
     let options: Vec<&str> = OPTIONS.iter().map(|o| o.name).collect();
-    let page = std::fs::read_to_string(root().join("docs/reference/command-line-flags.md")).unwrap();
+    let page = read(root().join("docs/reference/command-line-flags.md"));
     let listed = |n: &str| page.contains(&format!("`{n}`")) || page.contains(&format!("--settings={n}`"));
     let gone: Vec<&str> = sections().into_iter().map(|s| s.0).filter(|n| !options.contains(n) && !listed(n)).collect();
     assert!(gone.is_empty(), "--settings= names not in docs/reference/command-line-flags.md: {gone:?}");
@@ -184,12 +189,12 @@ fn every_settings_section_is_in_the_docs() {
 /// The flags page shows `coxswain --help` as the terminal app prints it, word for word.
 #[test]
 fn the_flags_page_shows_the_help_as_it_is() {
-    let src = std::fs::read_to_string(root().join("crates/coxswain/src/lib.rs")).unwrap();
+    let src = read(root().join("crates/coxswain/src/lib.rs"));
     let start = src.find("const USAGE: &str = \"").expect("USAGE in crates/coxswain/src/lib.rs") + 21;
     let usage = &src[start..start + src[start..].find("\";").unwrap()];
-    let page = std::fs::read_to_string(root().join("docs/reference/command-line-flags.md")).unwrap();
+    let page = read(root().join("docs/reference/command-line-flags.md"));
     assert!(
-        page.replace("\r\n", "\n").contains(&format!("```\n{usage}\n```")),
+        page.contains(&format!("```\n{usage}\n```")),
         "docs/reference/command-line-flags.md must show coxswain --help as crates/coxswain/src/lib.rs's USAGE has it:\n{usage}"
     );
 }
