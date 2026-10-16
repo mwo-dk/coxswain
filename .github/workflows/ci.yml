@@ -128,6 +128,7 @@ jobs:
   # minor or major release (tools/docs-check.py). What the code lists (themes, actions,
   # config.toml keys, flags) is checked by crates/coxswain-core/tests/docs.rs, in `test` above.
   docs:
+    needs: changes
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -140,16 +141,21 @@ jobs:
           BASE: ${{ github.base_ref }}
         run: git fetch --no-tags --depth=1 origin "+refs/heads/$BASE:refs/remotes/origin/$BASE"
       - run: python3 tools/docs-check.py
-      # Every theme, action, config.toml key, flag and feature has its mention in docs/. Here too,
-      # not only in `test`, because a docs-only pull request skips `test`.
+      # Every theme, action, config.toml key, flag and feature has its mention in docs/. `test`
+      # runs these on code changes (and every push to master); a docs-only pull request skips
+      # `test`, so it runs them here.
       - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # v1
+        if: needs.changes.outputs.code == 'false'
         with:
           toolchain: stable
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        if: needs.changes.outputs.code == 'false'
         with:
           shared-key: docs
-      - run: cargo test -p coxswain-core --locked --test docs
-      - run: cargo test -p coxswain-core --locked --lib features
+      - if: needs.changes.outputs.code == 'false'
+        run: cargo test -p coxswain-core --locked --test docs
+      - if: needs.changes.outputs.code == 'false'
+        run: cargo test -p coxswain-core --locked --lib features
 
   # The one check branch protection requires: the machines above passed, or were not needed, and
   # the docs are current.

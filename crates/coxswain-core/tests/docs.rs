@@ -5,6 +5,7 @@
 //! (docs page ↔ `features::FEATURES`) are checked in `features.rs`.
 
 use std::path::{Path, PathBuf};
+use std::sync::OnceLock;
 
 use coxswain_core::config::{Action, Config, Glyphs, Theme};
 
@@ -24,34 +25,34 @@ fn markdown(dir: &Path, out: &mut Vec<PathBuf>) {
 }
 
 /// The code of README.md and every docs page: inline code spans and fenced blocks, one per line.
-fn code() -> String {
-    let mut pages = vec![root().join("README.md")];
-    markdown(&root().join("docs"), &mut pages);
-    code_of(pages)
-}
-
-fn code_of(pages: Vec<PathBuf>) -> String {
-    let mut code = String::new();
-    for page in pages {
-        let text = std::fs::read_to_string(&page).unwrap();
-        let mut fenced = false;
-        for line in text.lines() {
-            let t = line.trim_start();
-            if t.starts_with("```") || t.starts_with("~~~") {
-                fenced = !fenced;
-            } else if fenced {
-                code.push_str(line);
-                code.push('\n');
-            } else {
-                // `a` `b`: the odd pieces between backticks.
-                for span in line.split('`').skip(1).step_by(2) {
-                    code.push_str(span);
+/// Read once per test run.
+fn code() -> &'static str {
+    static CODE: OnceLock<String> = OnceLock::new();
+    CODE.get_or_init(|| {
+        let mut pages = vec![root().join("README.md")];
+        markdown(&root().join("docs"), &mut pages);
+        let mut code = String::new();
+        for page in pages {
+            let text = std::fs::read_to_string(&page).unwrap();
+            let mut fenced = false;
+            for line in text.lines() {
+                let t = line.trim_start();
+                if t.starts_with("```") || t.starts_with("~~~") {
+                    fenced = !fenced;
+                } else if fenced {
+                    code.push_str(line);
                     code.push('\n');
+                } else {
+                    // `a` `b`: the odd pieces between backticks.
+                    for span in line.split('`').skip(1).step_by(2) {
+                        code.push_str(span);
+                        code.push('\n');
+                    }
                 }
             }
         }
-    }
-    code
+        code
+    })
 }
 
 /// `word` stands on its own somewhere in `code`: not inside a longer name (`win11` is not found
@@ -65,7 +66,7 @@ fn named(code: &str, word: &str) -> bool {
 
 fn missing<'a>(what: &str, names: impl IntoIterator<Item = &'a str>, except: &[&str]) {
     let code = code();
-    let gone: Vec<&str> = names.into_iter().filter(|n| !except.contains(n) && !named(&code, n)).collect();
+    let gone: Vec<&str> = names.into_iter().filter(|n| !except.contains(n) && !named(code, n)).collect();
     assert!(gone.is_empty(), "{what} not named in docs/ (in `code`): {gone:?}");
 }
 
@@ -161,9 +162,10 @@ fn every_flag_is_in_the_docs() {
 #[test]
 fn a_name_counts_only_on_its_own() {
     let code = code();
-    assert!(named(&code, "win11-dark") && named(&code, "name_roots") && !named(&code, "no_such_key_anywhere"));
+    assert!(named(code, "win11-dark") && named(code, "name_roots") && !named(code, "no_such_key_anywhere"));
     assert!(!named("win11-dark", "win11") && !named("text_roots", "text") && named("a = text\n", "text"));
-    assert!(config_keys().len() > 80 && flags().len() > 20, "{} keys, {} flags", config_keys().len(), flags().len());
+    let (keys, flags) = (config_keys().len(), flags().len());
+    assert!(keys > 80 && flags > 20, "{keys} keys, {flags} flags");
 }
 
 /// `--settings=<name>`: every area and group Settings opens at is in the flags page, and every

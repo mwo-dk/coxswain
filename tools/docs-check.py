@@ -23,6 +23,8 @@ What the code shows (themes, actions, config keys, flags, features) is checked b
 """
 
 import argparse
+import functools
+import itertools
 import os
 import re
 import subprocess
@@ -46,6 +48,15 @@ def error(where: str, msg: str) -> None:
 def warning(where: str, msg: str) -> None:
     file, _, line = where.partition(":")
     print(f"::warning file={file},line={line or 1}::{msg}" if GHA else f"warning: {where}: {msg}")
+
+
+@functools.cache
+def read(path: Path) -> str:
+    return path.read_text(encoding="utf-8")
+
+
+def minor(v: str) -> tuple[int, ...]:
+    return tuple(map(int, v.split(".")[:2]))
 
 
 def pages() -> list[Path]:
@@ -84,7 +95,7 @@ _anchors: dict[Path, set[str]] = {}
 
 def anchors(page: Path) -> set[str]:
     if page not in _anchors:
-        text = page.read_text(encoding="utf-8")
+        text = read(page)
         seen: dict[str, int] = {}
         found = set(re.findall(r"""(?:\bid|<a\s+name)\s*=\s*["']([^"']+)["']""", text))
         for _, line in prose_lines(text):
@@ -105,7 +116,7 @@ REFDEF = re.compile(r"^\s{0,3}\[[^\]]+\]:\s*<?(\S+?)>?(?:\s|$)")
 
 def links(page: Path):
     """(line number, target) of every link, picture and HTML reference outside code."""
-    for n, line in prose_lines(page.read_text(encoding="utf-8")):
+    for n, line in prose_lines(read(page)):
         line = re.sub(r"(`+).*?\1", "", line)  # inline code
         for m in (*LINK.finditer(line), *HTML.finditer(line)):
             yield n, m.group(1)
@@ -138,7 +149,7 @@ ROW = re.compile(r"^\|\s*\*\*(\d+\.\d+\.\d+)\*\*\s*\|")
 def changelog_rows(page: Path) -> list[tuple[str, str]]:
     """(version, row with every relative link made relative to the repository) of a table."""
     rows = []
-    for line in page.read_text(encoding="utf-8").splitlines():
+    for line in read(page).splitlines():
         m = ROW.match(line)
         if m:
             def to_root(l: re.Match) -> str:
@@ -156,7 +167,7 @@ def reading_order() -> list[Path]:
     the changelog."""
     index = ROOT / "docs/README.md"
     order = [index]
-    for _, line in prose_lines(index.read_text(encoding="utf-8")):
+    for _, line in prose_lines(read(index)):
         m = re.match(r"^(?:##\s*|\|\s*)\[[^\]]+\]\(([^)#]+\.md)\)", line)
         if m:
             page = (index.parent / m.group(1)).resolve()
@@ -168,7 +179,7 @@ def reading_order() -> list[Path]:
 def check_order() -> None:
     order = reading_order()
     for i, page in enumerate(order):
-        lines = page.read_text(encoding="utf-8").splitlines()
+        lines = read(page).splitlines()
         where = rel(page)
         if not lines or "README.md" not in lines[0]:
             error(f"{where}:1", "the first line links back to the README")
@@ -201,17 +212,13 @@ def check_changelog(v: str) -> None:
         error("README.md", f"no changelog row for {v}, the version in Cargo.toml")
     want = full[:10]
     if readme != want:
-        for i in range(max(len(readme), len(want))):
-            a = readme[i] if i < len(readme) else None
-            b = want[i] if i < len(want) else None
-            if a != b:
-                error(
-                    "README.md",
-                    f"changelog row {i + 1} must be docs/changelog.md's "
-                    f"({b[0] if b else 'none, only ten'}), is {a[0] if a else 'missing'}"
-                    + (" with other text" if a and b and a[0] == b[0] else ""),
-                )
-                break
+        i, a, b = next((i, a, b) for i, (a, b) in enumerate(itertools.zip_longest(readme, want)) if a != b)
+        error(
+            "README.md",
+            f"changelog row {i + 1} must be docs/changelog.md's "
+            f"({b[0] if b else 'none, only ten'}), is {a[0] if a else 'missing'}"
+            + (" with other text" if a and b and a[0] == b[0] else ""),
+        )
 
 
 OWN_VERSION = re.compile(r"\b[Cc]oxswain[\w-]*[ /-]v?(\d+)\.(\d+)\.\d+\b")
@@ -219,11 +226,11 @@ HISTORY = {"docs/changelog.md", "docs/whats-new-2.md"}
 
 
 def check_stale_versions(v: str) -> None:
-    now = tuple(map(int, v.split(".")[:2]))
+    now = minor(v)
     for page in pages():
         if rel(page) in HISTORY:
             continue
-        for n, line in enumerate(page.read_text(encoding="utf-8").splitlines(), 1):
+        for n, line in enumerate(read(page).splitlines(), 1):
             line = re.sub(r"!\[[^\]]*\]", "", line)  # a picture's description says what it shows
             for m in OWN_VERSION.finditer(line):
                 history = re.search(r"\b(until|before|since|after|from)\W*$", line[: m.start()], re.I) or re.match(
@@ -249,10 +256,10 @@ def base_version(base: str | None) -> str | None:
 
 def check_placeholders(v: str, base: str | None) -> int:
     was = base_version(base)
-    raised = was is not None and tuple(map(int, v.split(".")[:2])) > tuple(map(int, was.split(".")[:2]))
+    raised = was is not None and minor(v) > minor(was)
     count = 0
     for page in pages():
-        for n, line in enumerate(page.read_text(encoding="utf-8").splitlines(), 1):
+        for n, line in enumerate(read(page).splitlines(), 1):
             if "<!-- screenshot:" in line:
                 count += 1
                 msg = f"screenshot placeholder: {line.strip()}"
@@ -276,7 +283,7 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--base", help="the branch the version is compared with (default origin/master)")
     args = ap.parse_args()
-    v = version((ROOT / "Cargo.toml").read_text(encoding="utf-8"))
+    v = version(read(ROOT / "Cargo.toml"))
     n = check_links()
     check_changelog(v)
     check_stale_versions(v)
