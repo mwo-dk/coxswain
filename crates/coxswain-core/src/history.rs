@@ -50,7 +50,13 @@ const BUDGET: Duration = Duration::from_secs(4);
 const ID: usize = 12;
 
 pub(crate) fn git(dir: &Path) -> Command {
-    let mut c = crate::git::command(dir);
+    git_with(dir, &crate::git::repo_filters(dir))
+}
+
+/// `git` with the filter settings given (`git::command_with`): none for a command that runs no
+/// filter, which then costs no `git config` first.
+fn git_with(dir: &Path, keys: &[(String, &str)]) -> Command {
+    let mut c = crate::git::command_with(dir, keys);
     // Paths are names, never patterns.
     c.env("GIT_LITERAL_PATHSPECS", "1");
     c
@@ -772,7 +778,7 @@ pub fn last_changes_since(
 /// The commit `rev` names.
 fn rev_oid(base: &Path, rev: &str) -> Option<String> {
     let out = run({
-        let mut c = git(base);
+        let mut c = git_with(base, &[]);
         c.args(["rev-parse", "--verify", "-q", &format!("{rev}^{{commit}}")]);
         c
     })
@@ -823,7 +829,7 @@ fn walk(base: &Path, rev: &str, inner: &str) -> io::Result<(Lasts, bool)> {
     } else {
         format!("{inner}/")
     };
-    let mut c = git(base);
+    let mut c = git_with(base, &[]);
     c.args(["ls-tree", "-z", rev, "--", &spec]);
     let wanted: HashSet<String> = run(c)?
         .split(|&b| b == 0)

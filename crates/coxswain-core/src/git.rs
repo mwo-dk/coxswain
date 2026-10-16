@@ -14,6 +14,12 @@ use crate::config::Glyphs;
 /// (a switch of branches would run its post-checkout). No locks taken. Config from the system
 /// and the user (git-lfs, say) still holds.
 pub fn command(dir: &Path) -> Command {
+    command_with(dir, &repo_filters(dir))
+}
+
+/// `command` with `keys` (`repo_filters`) for the repository's filter drivers, worked out once
+/// for several commands, or none for one that runs no filter (`rev-parse`, `ls-tree`).
+pub(crate) fn command_with(dir: &Path, keys: &[(String, &str)]) -> Command {
     let mut c = crate::tools::command("git");
     let no_hooks = if cfg!(windows) {
         "core.hooksPath=NUL"
@@ -36,7 +42,6 @@ pub fn command(dir: &Path) -> Command {
     .env("GIT_NO_LAZY_FETCH", "1")
     .stdin(Stdio::null());
     // As environment, not `-c`: a driver's name may hold `=`, which `-c` would split at.
-    let keys = repo_filters(dir);
     c.env("GIT_CONFIG_COUNT", keys.len().to_string());
     for (i, (key, value)) in keys.iter().enumerate() {
         c.env(format!("GIT_CONFIG_KEY_{i}"), key)
@@ -144,6 +149,64 @@ pub fn operation(git_dir: &Path) -> Option<&'static str> {
     .map(|(_, op)| op)
 }
 
+/// `git status` runs by repository root.
+static STATUS: Shared<Option<std::sync::Arc<Vec<u8>>>> = Shared::new();
+
+/// One run at a time per key, shared: a caller that comes while one runs waits, then takes the
+/// next run, which every caller that came in the meantime shares. Never the run that was under
+/// way when it came, as that may have started before the change it asks about.
+pub(crate) struct Shared<T> {
+    runs: std::sync::Mutex<std::collections::BTreeMap<PathBuf, Flight<T>>>,
+    done: std::sync::Condvar,
+}
+
+struct Flight<T> {
+    started: u64,
+    finished: u64,
+    out: Option<T>,
+}
+
+impl<T: Clone> Shared<T> {
+    pub(crate) const fn new() -> Self {
+        Shared {
+            runs: std::sync::Mutex::new(std::collections::BTreeMap::new()),
+            done: std::sync::Condvar::new(),
+        }
+    }
+
+    pub(crate) fn run(&self, key: &Path, f: impl FnOnce() -> T) -> T {
+        let lock = || self.runs.lock().unwrap_or_else(|e| e.into_inner());
+        let mut runs = lock();
+        let flight = runs.entry(key.to_path_buf()).or_insert(Flight {
+            started: 0,
+            finished: 0,
+            out: None,
+        });
+        let want = flight.started + 1;
+        loop {
+            let flight = runs.get_mut(key).expect("kept");
+            if flight.finished >= want {
+                return flight.out.clone().expect("a finished run has its result");
+            }
+            // None running: the one before has finished, and this caller runs the next.
+            if flight.started == flight.finished {
+                flight.started = want;
+                break;
+            }
+            runs = self.done.wait(runs).unwrap_or_else(|e| e.into_inner());
+        }
+        drop(runs);
+        let out = f();
+        let mut runs = lock();
+        let flight = runs.get_mut(key).expect("kept");
+        flight.finished = want;
+        flight.out = Some(out.clone());
+        drop(runs);
+        self.done.notify_all();
+        out
+    }
+}
+
 #[derive(Clone, Debug, Default, Serialize)]
 pub struct Status {
     pub root: PathBuf,
@@ -159,33 +222,43 @@ impl Status {
         if crate::cloud::git_kept_out(dir) {
             return None;
         }
-        let git = |args: &[&str]| {
-            command(dir)
-                .args(args)
+        let git = |mut c: Command, args: &[&str]| {
+            c.args(args)
                 .output()
                 .ok()
                 .filter(|o| o.status.success())
                 .map(|o| o.stdout)
         };
-        let dirs = git(&[
-            "rev-parse",
-            "--show-toplevel",
-            "--absolute-git-dir",
-            "--git-common-dir",
-        ])?;
+        // rev-parse runs no filter driver: a folder outside a repository costs one git.
+        let dirs = git(
+            command_with(dir, &[]),
+            &[
+                "rev-parse",
+                "--show-toplevel",
+                "--absolute-git-dir",
+                "--git-common-dir",
+            ],
+        )?;
         let dirs = String::from_utf8_lossy(&dirs);
         let mut dirs = dirs.lines().map(PathBuf::from);
         let (root, git_dir, common) = (dirs.next()?, dirs.next()?, dir.join(dirs.next()?));
-        let out = git(&[
-            "status",
-            "--porcelain=v2",
-            "--branch",
-            "--show-stash",
-            "-z",
-            "-unormal",
-            "--ignored=matching",
-            "--ignore-submodules=dirty",
-        ])?;
+        // The whole work tree: panes and tabs in one repository that ask at once share a run.
+        let out = STATUS.run(&root, || {
+            git(
+                command(dir),
+                &[
+                    "status",
+                    "--porcelain=v2",
+                    "--branch",
+                    "--show-stash",
+                    "-z",
+                    "-unormal",
+                    "--ignored=matching",
+                    "--ignore-submodules=dirty",
+                ],
+            )
+            .map(std::sync::Arc::new)
+        })?;
         let mut st = Status::parse(&root, &String::from_utf8_lossy(&out));
         // A linked worktree's git folder is its own, under the common one's `worktrees`.
         let same = |a: &Path, b: &Path| a.canonicalize().ok() == b.canonicalize().ok();
@@ -347,6 +420,33 @@ impl Kind {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Callers that come while a run is under way share the one run after it; none takes the
+    /// run that had started before it came.
+    #[test]
+    fn git_runs_at_once_are_shared() {
+        use std::sync::atomic::{AtomicU32, Ordering};
+        use std::time::Duration;
+        static RUNS: Shared<u32> = Shared::new();
+        static COUNT: AtomicU32 = AtomicU32::new(0);
+        let key = Path::new("/repo");
+        let slow = || {
+            std::thread::sleep(Duration::from_millis(300));
+            COUNT.fetch_add(1, Ordering::SeqCst) + 1
+        };
+        std::thread::scope(|s| {
+            let first = s.spawn(|| RUNS.run(key, slow));
+            std::thread::sleep(Duration::from_millis(100));
+            let later: Vec<_> = (0..3).map(|_| s.spawn(|| RUNS.run(key, slow))).collect();
+            assert_eq!(first.join().unwrap(), 1);
+            for l in later {
+                assert_eq!(l.join().unwrap(), 2);
+            }
+        });
+        assert_eq!(COUNT.load(Ordering::SeqCst), 2);
+        // Another key runs on its own.
+        assert_eq!(RUNS.run(Path::new("/other"), || 7), 7);
+    }
 
     /// A repository someone else made names a filter to run on every file `status` looks at:
     /// it never runs, and the status is still read.
