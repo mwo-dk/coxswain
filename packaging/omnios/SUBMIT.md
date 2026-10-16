@@ -1,6 +1,6 @@
 # Submitting Coxswain to omnios-extra
 
-**Owner steps, in order:** [termux-packages](../termux/SUBMIT.md), [pkgsrc-wip](../pkgsrc/SUBMIT.md), **omnios-extra**, [oi-userland](../openindiana/SUBMIT.md), [openbsd-wip](../openbsd/port/SUBMIT.md), [nixpkgs](../nix/SUBMIT.md). This is step 3 of 6; see [packaging/README.md](../README.md#submitting-by-hand).
+**Owner steps, in order:** [termux-packages](../termux/SUBMIT.md), [pkgsrc-wip](../pkgsrc/SUBMIT.md), **omnios-extra**, [openbsd-wip](../openbsd/port/SUBMIT.md), [nixpkgs](../nix/SUBMIT.md). This is step 3 of 5; see [packaging/README.md](../README.md#submitting-by-hand).
 
 The recipe is [`coxswain/`](coxswain/) in this folder: `build.sh`, `local.mog` and the SMF
 manifest template in `files/`. It builds the terminal app from the GitHub release tarball with

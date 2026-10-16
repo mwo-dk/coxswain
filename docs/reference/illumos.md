@@ -211,7 +211,6 @@ page and the `application/coxswain-index` SMF service (disabled) in place:
 | Distribution | Recipe | Package | Tested |
 |---|---|---|---|
 | OmniOS | [`packaging/omnios`](../../packaging/omnios/SUBMIT.md), for omnios-extra | `ooce/application/coxswain`, in `/opt/ooce` | Built, installed and started on r151058 in CI |
-| OpenIndiana | [`packaging/openindiana`](../../packaging/openindiana/SUBMIT.md), for oi-userland | `file/coxswain`, in `/usr` | Not built yet |
 | SmartOS and others with pkgsrc | [`packaging/pkgsrc`](../../packaging/pkgsrc/SUBMIT.md), for pkgsrc-wip | `coxswain`, in `/opt/local` | Built on NetBSD only |
 
 Until they are in, use [the script](#install-with-one-line).
