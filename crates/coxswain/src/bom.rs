@@ -1,4 +1,4 @@
-//! The BOM viewer (docs/design/bom-viewer.md): F3 on a CycloneDX BOM opens it full screen as a
+//! The BOM viewer (design/bom-viewer.md): F3 on a CycloneDX BOM opens it full screen as a
 //! rated tree, or as a sunburst drawn with half blocks, with filters, details and a compare with
 //! the file in the other panel. F3 again shows the source in the pager, as before.
 //!

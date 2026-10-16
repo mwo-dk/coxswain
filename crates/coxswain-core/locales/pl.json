@@ -1508,7 +1508,7 @@
  "feature.views.q3": "Dlaczego mój folder ze zdjęciami jest wolny w miniaturach?",
  "feature.views.title": "Szczegóły, kolumny i miniatury",
  "feature.views.what": "Pokazuj folder jako szczegóły, kolumny Millera lub miniatury, wybierane dla każdej karty, w aplikacji desktopowej.",
- "feature.where_things_are_kept.a1": "Zwykle search.db (tekst Twoich plików) i models/ (488 MB z wbudowanym modelem), potem previews/. Ustawienia pokazują rozmiar każdego.",
+ "feature.where_things_are_kept.a1": "Zwykle search.db (tekst Twoich plików) i models/ (465 MB z wbudowanym modelem), potem previews/. Ustawienia pokazują rozmiar każdego.",
  "feature.where_things_are_kept.a2": "Skopiuj state.json, gdy nie działa żaden Coxswain. Etykiety i notatki są zapisane z pełną ścieżką, więc pojawią się tylko tam, gdzie istnieją te same ścieżki.",
  "feature.where_things_are_kept.a3": "Plik state.json, którego nie dało się odczytać przy starcie, odsunięty, aby można było zapisać nowy. Są w nim Twoje etykiety i notatki; napraw go ręcznie albo usuń.",
  "feature.where_things_are_kept.q1": "Folder pamięci podręcznej jest duży. Co zajmuje miejsce?",

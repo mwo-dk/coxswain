@@ -14,11 +14,12 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # A pull request that only edits docs pages, CLAUDE.md, LICENSE or a packaging SUBMIT.md needs
-  # no build: the five machines below are skipped and "CI result" passes at once. README.md and
-  # docs/changelog.md are not among them (the core crate compiles the changelog in), nor
-  # docs/flags (the GUI embeds them), nor an added, removed or renamed docs page (a test checks
-  # every page against features::FEATURES): those get a "page:" prefix, which never skips.
+  # A pull request that only edits docs pages, design notes, CLAUDE.md, LICENSE or a packaging
+  # SUBMIT.md needs no build: the five machines below are skipped and "CI result" passes at once
+  # (the docs job still runs). README.md and docs/changelog.md are not among them (the core crate
+  # compiles the changelog in), nor docs/flags (the GUI embeds them), nor an added, removed or
+  # renamed docs page (a test checks every page against features::FEATURES): those get a "page:"
+  # prefix, which never skips.
   changes:
     runs-on: ubuntu-24.04
     outputs:
@@ -32,7 +33,7 @@ jobs:
           if [ -z "$PR" ]; then echo code=true >> "$GITHUB_OUTPUT"; exit 0; fi
           files=$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR/files" --paginate --jq '.[] | if .status != "modified" and (.filename | test("^docs/.*\\.md$")) then "page:" + .filename else .filename end')
           printf '%s\n' "$files"
-          if [ -n "$files" ] && ! printf '%s\n' "$files" | grep -qvP '^(docs/(?!flags/|changelog\.md$)|CLAUDE\.md$|LICENSE$|packaging/.*/SUBMIT\.md$)'; then
+          if [ -n "$files" ] && ! printf '%s\n' "$files" | grep -qvP '^(docs/(?!flags/|changelog\.md$)|design/|CLAUDE\.md$|LICENSE$|packaging/.*/SUBMIT\.md$)'; then
             echo code=false >> "$GITHUB_OUTPUT"
           else
             echo code=true >> "$GITHUB_OUTPUT"
@@ -122,16 +123,52 @@ jobs:
         if: runner.os == 'Linux' && runner.arch == 'X64'
         run: cargo package -p coxswain-core --locked
 
-  # The one check branch protection requires: the machines above passed, or were not needed.
+  # The docs are held to the code on every pull request and push, docs-only ones too: links and
+  # anchors, the changelog rows, old versions as examples, and no screenshot placeholders left in a
+  # minor or major release (tools/docs-check.py). What the code lists (themes, actions,
+  # config.toml keys, flags) is checked by crates/coxswain-core/tests/docs.rs, in `test` above.
+  docs:
+    needs: changes
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # The base branch's Cargo.toml says whether this raises the minor or major version.
+      - name: Base branch
+        if: github.base_ref != ''
+        env:
+          BASE: ${{ github.base_ref }}
+        run: git fetch --no-tags --depth=1 origin "+refs/heads/$BASE:refs/remotes/origin/$BASE"
+      - run: python3 tools/docs-check.py
+      # Every theme, action, config.toml key, flag and feature has its mention in docs/. `test`
+      # runs these on code changes (and every push to master); a docs-only pull request skips
+      # `test`, so it runs them here.
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # v1
+        if: needs.changes.outputs.code == 'false'
+        with:
+          toolchain: stable
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        if: needs.changes.outputs.code == 'false'
+        with:
+          shared-key: docs
+      - if: needs.changes.outputs.code == 'false'
+        run: cargo test -p coxswain-core --locked --test docs
+      - if: needs.changes.outputs.code == 'false'
+        run: cargo test -p coxswain-core --locked --lib features
+
+  # The one check branch protection requires: the machines above passed, or were not needed, and
+  # the docs are current.
   result:
     name: CI result
-    needs: [changes, test]
+    needs: [changes, test, docs]
     if: always()
     runs-on: ubuntu-24.04
     steps:
       - env:
           CHANGES: ${{ needs.changes.result }}
           TEST: ${{ needs.test.result }}
+          DOCS: ${{ needs.docs.result }}
         run: |
-          echo "changes: $CHANGES, test: $TEST"
-          [ "$CHANGES" = success ] && { [ "$TEST" = success ] || [ "$TEST" = skipped ]; }
+          echo "changes: $CHANGES, test: $TEST, docs: $DOCS"
+          [ "$CHANGES" = success ] && [ "$DOCS" = success ] && { [ "$TEST" = success ] || [ "$TEST" = skipped ]; }

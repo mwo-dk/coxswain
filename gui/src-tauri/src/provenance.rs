@@ -1,4 +1,4 @@
-//! The provenance view (docs/design/provenance-viewer.md): inputs → build → outputs, the signer,
+//! The provenance view (design/provenance-viewer.md): inputs → build → outputs, the signer,
 //! and the checks against the disk. Reading and checking are coxswain-core's `provenance`; this
 //! shapes them for ProvenanceView.svelte. Nothing is verified, and nothing leaves the machine.
 //!

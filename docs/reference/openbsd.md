@@ -223,7 +223,7 @@ doas pkg_add node webkitgtk41 librsvg
 cargo build --release --locked -p coxswain-gui
 ```
 
-The build needs Rust 1.94 or later (OpenBSD 7.9 has 1.94.1). If linking stops with *out of
+The build needs Rust 1.93 or later, for both apps (OpenBSD 7.9 has 1.94.1). If linking stops with *out of
 memory*, raise the data size first: `ulimit -d unlimited` in a `staff` login.
 
 ## The desktop app: what experimental means
@@ -244,7 +244,8 @@ OpenBSD desktop yet. Please say what works and what does not in an
 
 **Is there a port?** Not in the ports tree yet. A `sysutils/coxswain` port of the terminal
 app is ready in [`packaging/openbsd/port`](../../packaging/openbsd/port/SUBMIT.md), for
-openbsd-wip and then ports@; it builds with the 7.9 ports tree in CI. Built from it, `doas
+openbsd-wip and then ports@; CI builds it with the 7.9 ports tree when the *OpenBSD* workflow
+is started by hand (it is not part of every run). Built from it, `doas
 pkg_add` installs `coxswain`, `cox`, the manual page and the `coxswain_index` rc.d script.
 Until it is in the tree, the script, the archives or `cargo install --locked coxswain`.
 

@@ -49,6 +49,7 @@ What each action does: [Every default key](../panels/keys.md).
 | `A` | Shift+A: a bare capital means Shift. `Ctrl+F` means Ctrl and the F key, without Shift |
 | `F1` to `F24` | Function keys |
 | `Enter` (or `Return`), `Esc` (`Escape`), `Tab`, `Backspace`, `Space` | |
+| `Menu` | The context-menu key, next to the right Ctrl on many keyboards |
 | `Delete` (`Del`), `Insert` (`Ins`), `Home`, `End`, `PageUp` (`PgUp`), `PageDown` (`PgDn`) | |
 | `Up`, `Down`, `Left`, `Right` | The arrow keys |
 | `Ctrl+`, `Alt+`, `Shift+` in front | Held with it, in any order and any case: `ctrl+alt+x`, `Shift+F8` |

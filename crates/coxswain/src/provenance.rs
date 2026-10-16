@@ -1,4 +1,4 @@
-//! The provenance viewer (docs/design/provenance-viewer.md): F3 on build provenance opens it
+//! The provenance viewer (design/provenance-viewer.md): F3 on build provenance opens it
 //! full screen as inputs → build → outputs, with the signer, the checks against the disk, and a
 //! compare with the file in the other panel. F3 again shows the source in the pager, as before.
 //!

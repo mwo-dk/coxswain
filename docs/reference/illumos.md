@@ -236,7 +236,7 @@ folders and reads text with the lowest priority. Leave out what you never search
 `name_exclude` in `[search]`, or index only your own shares ([Choosing the folders](../search/folders.md)).
 
 **Search by meaning?** The built-in model runs on the processor, the same code as on Linux
-(`coxswain --meaning on`); the model (488 MB) is downloaded once after you say so. Its tests run
+(`coxswain --meaning on`); the model (465 MB) is downloaded once after you say so. Its tests run
 on OmniOS in CI; the model itself has not been tried on illumos yet.
 
 ---

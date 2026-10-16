@@ -288,7 +288,7 @@ active pane, made first when it is not there yet ([Scripts](../commands/scripts.
 | *What can leave this machine* | Built from your settings as they are: the update check → `api.github.com`; the built-in model while it is not downloaded → `huggingface.co`; the text of your files → the model server; your questions → the chat model's server; files only online → your cloud services; container images → their registries. A server on this machine says *(this machine)* | |
 | *Disk use* | Every place Coxswain keeps things, with its size, what clearing costs, **Show in panel** and **Clear**, the built-in models, what Coxswain caused outside its folder, and *Clear everything that can be built again*; click the heading (with the total beside it) to open it, or `--settings=disk` ([Disk use](../reference/disk-use.md)) | |
 | *Where things are kept* | Settings, state, cache, name index, what was read, the built-in model, previews and looks inside archives, each path with **Show in panel** (the list `coxswain --paths` prints; [Where things are kept](../reference/where-things-are-kept.md)) | |
-| **Open config.toml**, and the version | *Coxswain 1.42.0* | |
+| **Open config.toml**, and the version | *Coxswain X.Y.Z* | |
 
 See [Privacy](../reference/privacy.md).
 

@@ -1,4 +1,4 @@
-// The BOM view's logic without the DOM (see BomView.svelte and docs/design/bom-viewer.md):
+// The BOM view's logic without the DOM (see BomView.svelte and design/bom-viewer.md):
 // which rows match the filters, and which rows the tree shows.
 
 /** Statuses from worst to best, as the chips show them. */

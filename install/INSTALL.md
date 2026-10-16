@@ -12,9 +12,6 @@ Node.js is missing, it offers to install them and waits for your yes.
 
 The first build takes a few minutes. After that, rebuilding is quick.
 
-**Rather not build?** Ready-made installers for Windows, macOS and Linux are on the
-[releases page](https://github.com/mwo-dk/coxswain/releases/latest).
-
 **On FreeBSD** there is a script of its own that installs both apps from the release, with `pkg`
 for what the desktop app needs: see [FreeBSD](../docs/reference/freebsd.md).
 
@@ -27,6 +24,11 @@ FreeBSD build. DragonFly BSD: not supported; its Rust (1.85 in DPorts) is too ol
 
 **With Nix** the repository is a flake: `nix run github:mwo-dk/coxswain` builds and starts the
 terminal app, `#coxswain-gui` the desktop app on Linux. See [Nix](../docs/reference/nix.md).
+
+**Rather not build?** Ready-made installers for Linux, macOS and Windows are on the
+[releases page](https://github.com/mwo-dk/coxswain/releases/latest), and the package managers
+(Homebrew, WinGet, crates.io, the `.deb`, `.rpm` and AppImage, Flatpak, Termux) are in the
+[README's install table](../README.md#install), in the order of the systems.
 
 ## Getting the code
 
@@ -57,7 +59,7 @@ Options:
 
 What you get:
 
-- `~/.local/bin/coxswain`: the terminal app.
+- `~/.local/bin/coxswain`: the terminal app, and `~/.local/bin/cox`, the same under a shorter name.
 - `~/.local/bin/coxswain-gui`: the desktop app, plus a "Coxswain" entry in your application menu.
   On macOS the desktop app goes to `~/Applications/Coxswain.app` instead.
 
@@ -107,7 +109,7 @@ The desktop app uses WebView2, which is already part of Windows 10 and 11.
   desktop app picks it up automatically once it's installed. Without one, add
   `glyphs = "ascii"` to the config.
 - **Settings.** `coxswain --config-path` shows where the config file goes.
-  `coxswain --dump-config` prints every option, including keys, colors and fonts.
+  `coxswain --dump-config` prints every option, including keys, colours and fonts.
 - **Keys.** Norton Commander's: F3 view, F5 copy, F6 move, F7 new folder, F8 delete, F10
   quit, and Alt+F7 to search every file on the computer. F1 lists them all, and F9 opens a
   searchable list of every command.
@@ -125,7 +127,8 @@ The build prerequisites for each platform are listed at <https://v2.tauri.app/st
 
 ## Uninstalling
 
-- **Linux and macOS:** delete `~/.local/bin/coxswain` and `~/.local/bin/coxswain-gui`.
+- **Linux and macOS:** delete `~/.local/bin/coxswain`, `~/.local/bin/cox` and
+  `~/.local/bin/coxswain-gui`.
   - Linux: also delete `~/.local/share/applications/coxswain.desktop`.
   - macOS: also delete `~/Applications/Coxswain.app`.
 - **Windows:** delete `%LOCALAPPDATA%\Programs\Coxswain` and the Start Menu shortcut.

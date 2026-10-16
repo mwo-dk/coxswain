@@ -14,6 +14,16 @@ cloud. Files that are on your disk, inside a cloud folder or not, are read as be
 
 ![The desktop app in ~/OneDrive (a cloud mount), Details view: Budget 2026.txt, Holiday 2025.jpg, Party ideas.txt and Quarterly report.pdf, each with a cloud glyph after its name; OneDrive in the sidebar's drives; the preview pane on Holiday 2025.jpg says Online only: not downloaded. Press Enter to download and open it, or: with the button Download and preview](../screenshots/search-cloud-files.png)
 
+## Contents
+
+- [How to use it](#how-to-use-it)
+- [What you see](#what-you-see)
+- [What is read, and what is not](#what-is-read-and-what-is-not)
+- [How it is told](#how-it-is-told)
+- [Settings and config.toml](#settings-and-configtoml)
+- [In the terminal app](#in-the-terminal-app)
+- [Questions](#questions)
+
 ## How to use it
 
 Nothing to do: it is on from the start, in both apps, on Windows, macOS and Linux.

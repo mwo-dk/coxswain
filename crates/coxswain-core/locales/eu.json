@@ -1446,7 +1446,7 @@
  "feature.views.q3": "Zergatik da motela nire argazki-karpeta miniaturetan?",
  "feature.views.title": "Xehetasunak, zutabeak eta miniaturak",
  "feature.views.what": "Erakutsi karpeta bat xehetasun, Miller zutabe edo miniatura gisa, fitxa bakoitzean aukeratuta, mahaigaineko aplikazioan.",
- "feature.where_things_are_kept.a1": "Normalean search.db (zure fitxategien testua) eta models/ (488 MB eredu integratuarekin), gero previews/. Ezarpenek bakoitzaren tamaina erakusten dute.",
+ "feature.where_things_are_kept.a1": "Normalean search.db (zure fitxategien testua) eta models/ (465 MB eredu integratuarekin), gero previews/. Ezarpenek bakoitzaren tamaina erakusten dute.",
  "feature.where_things_are_kept.a2": "Kopiatu state.json Coxswain martxan ez dagoen bitartean. Etiketak eta oharrak bide osoaren arabera gordetzen dira, beraz bide berak dauden lekuan bakarrik agertzen dira.",
  "feature.where_things_are_kept.a3": "Abiaraztean irakurri ezin izan zen state.json bat, alde batera utzia berri bat gorde ahal izateko. Zure etiketak eta oharrak barruan daude; konpondu eskuz edo ezabatu.",
  "feature.where_things_are_kept.q1": "Cache-karpeta handia da. Zerk hartzen du lekua?",

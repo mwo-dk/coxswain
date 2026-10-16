@@ -1,5 +1,5 @@
 //! Bills of materials: CycloneDX CBOMs today, SBOMs later. Read-only, and nothing leaves the
-//! machine. Design: `docs/design/bom-viewer.md`. Ported from cipherscape's DOM-free core.
+//! machine. Design: `design/bom-viewer.md`. Ported from cipherscape's DOM-free core.
 //!
 //! - `model`: the BOM as the views see it, whatever the file format.
 //! - `ingest` and `xml`: CycloneDX JSON and XML to the model.

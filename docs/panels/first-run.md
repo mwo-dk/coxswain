@@ -110,7 +110,7 @@ terminal app, and [What's new in 2.0](../whats-new-2.md).
 **Did skipping change anything?** No. Only the choices you made on the steps you saw are saved.
 
 **I chose *+ meaning* and a guide about models opened. Why?** Search by meaning needs a model: the
-built-in one (downloaded once, 488 MB) or one on a server such as Ollama. The setup guide
+built-in one (downloaded once, 465 MB) or one on a server such as Ollama. The setup guide
 chooses it with you; closing it brings you back to step 2. See [Smart search in a few
 minutes](../search/setup.md).
 

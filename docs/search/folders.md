@@ -9,6 +9,14 @@ to add a data disk, or to keep a mail store or other people's papers out of the 
 ![Settings at Finding files with Details → Folders open: Folders read (your home folder, 14.3 MB in the index), Names only, Left out everywhere with node_modules, target and the rest, Where names are found, Never indexed and Follow changes as they happen](../screenshots/search-folders.png)
 *Settings → Finding files, with the lists of folders.*
 
+## Contents
+
+- [How to use it](#how-to-use-it)
+- [What you see](#what-you-see)
+- [Settings and config.toml](#settings-and-configtoml)
+- [In the terminal app](#in-the-terminal-app)
+- [Questions](#questions)
+
 ## How to use it
 
 **Desktop app.** Open Settings (**Ctrl+,**, or start with `coxswain-gui --settings=search`) and go

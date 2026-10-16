@@ -2548,9 +2548,9 @@ const USAGE: &str = "coxswain [LEFT] [RIGHT]      a folder, or a file to open it
   --meaning server URL MODEL  meaning read by a server with the OpenAI API (Lemonade, LM Studio)
   --meaning builtin        back to the built-in model
   --meaning cpu|auto       the built-in model on the CPU only, or on the Mac's GPU (Metal)
+                           when it has one (auto, the default)
   --meaning bench [URL MODEL]  time the model on 64 passages and say what the files to go take;
                            with a server and model named, that server is tried instead
-                           when it has one (auto, the default)
   --meaning ask MODEL|off  Ask in Find: the chat model on that server (Ollama here with the
                            built-in model) that answers questions from your files, or one
                            built in: builtin:qwen3-1.7b, builtin:qwen3-4b or

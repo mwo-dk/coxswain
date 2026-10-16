@@ -1415,7 +1415,7 @@
  "feature.views.q3": "写真のフォルダーで縮小版が遅いのはなぜですか？",
  "feature.views.title": "詳細、列、縮小版",
  "feature.views.what": "デスクトップアプリで、フォルダーを詳細、Miller 列、縮小版で表示します。タブごとに選べます。",
- "feature.where_things_are_kept.a1": "たいていは search.db (ファイルのテキスト) と models/ (内蔵モデルで 488 MB)、次に previews/ です。設定にそれぞれのサイズが出ます。",
+ "feature.where_things_are_kept.a1": "たいていは search.db (ファイルのテキスト) と models/ (内蔵モデルで 465 MB)、次に previews/ です。設定にそれぞれのサイズが出ます。",
  "feature.where_things_are_kept.a2": "Coxswain が動いていない間に state.json をコピーします。タグとメモはフルパスで保存されるので、同じパスがある場所でだけ表示されます。",
  "feature.where_things_are_kept.a3": "起動時に読めなかった state.json で、新しいものを保存できるよう脇に移されたものです。タグとメモはその中にあります。手で直すか削除してください。",
  "feature.where_things_are_kept.q1": "キャッシュフォルダーが大きいです。何が場所を取っていますか？",

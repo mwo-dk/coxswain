@@ -1,6 +1,6 @@
 # Design: a CBOM viewer (SBOMs later)
 
-Status: **draft**, for review before any code. Branch `feature/cbom`.
+Status: **built**. The user's page is [Cryptography bills of materials](../docs/previews/bom.md). Branch `feature/cbom`.
 
 ## What and why
 

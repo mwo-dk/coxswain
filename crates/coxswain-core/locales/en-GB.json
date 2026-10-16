@@ -1446,7 +1446,7 @@
  "feature.views.q3": "Why is my photo folder slow in thumbnails?",
  "feature.views.title": "Details, columns and thumbnails",
  "feature.views.what": "Show a folder as details, Miller columns or thumbnails, chosen per tab, in the desktop app.",
- "feature.where_things_are_kept.a1": "Usually search.db (the text of your files) and models/ (488 MB with the built-in model), then previews/. Settings shows the size of each.",
+ "feature.where_things_are_kept.a1": "Usually search.db (the text of your files) and models/ (465 MB with the built-in model), then previews/. Settings shows the size of each.",
  "feature.where_things_are_kept.a2": "Copy state.json while no Coxswain runs. Tags and notes are kept by full path, so they show only where the same paths exist.",
  "feature.where_things_are_kept.a3": "A state.json that could not be read at start, moved aside so a new one could be saved. Your tags and notes are in it; mend it by hand or delete it.",
  "feature.where_things_are_kept.q1": "The cache folder is large. What takes the room?",

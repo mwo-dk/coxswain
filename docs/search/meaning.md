@@ -80,8 +80,8 @@ files are still to go.
 ## How it works
 
 - **The model** is [multilingual-e5-small](https://huggingface.co/intfloat/multilingual-e5-small),
-  downloaded once from Hugging Face at a pinned version: three files, 488 MB (465 MiB), each checked
-  against its SHA-256 before it is used. It is kept in Coxswain's cache folder under
+  downloaded once from Hugging Face at a pinned version: three files, 465 MB as the apps count
+  it (488 million bytes), each checked against its SHA-256 before it is used. It is kept in Coxswain's cache folder under
   `models/multilingual-e5-small-614241f6`.
 - **It runs on the CPU**, with [candle](https://github.com/huggingface/candle) in pure Rust, on two
   threads, so the machine stays yours, on Linux and Windows. **On a Mac with Apple Silicon it runs

@@ -68,10 +68,11 @@ The FreeBSD script, for the terminal app, into your home:
 fetch -qo - https://raw.githubusercontent.com/mwo-dk/coxswain/master/install/install-freebsd.sh | sh -s -- --terminal-only --prefix ~/.local
 ```
 
-It needs no root and no packages. The FreeBSD build is made on FreeBSD 14 and starts on
-FreeBSD 13.5 (checked in CI); CORE 13.3 is based on FreeBSD 13.3. CORE no longer gets new
-features from iXsystems, and FreeBSD 13 reached its end of life in April 2026, so this is
-tested less than the rest.
+It needs no root and no packages. The FreeBSD build is made on FreeBSD 14.5, and CI tests it on
+FreeBSD 14.5 and 15.1 only; CORE 13.3 is based on FreeBSD 13.3, which CI does not test. CORE
+no longer gets new features from iXsystems, and FreeBSD 13 reached its end of life in April
+2026, so on CORE it is tested less than the rest: please report what fails in an
+[issue](https://github.com/mwo-dk/coxswain/issues).
 
 ## Snapshots
 

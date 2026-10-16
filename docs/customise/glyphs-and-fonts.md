@@ -9,6 +9,15 @@ choose the interface font, the monospaced font, the icon font and the text size.
 
 ![The terminal app in Classic blue (NC) with glyphs = "ascii" in ~/projects/rocket: no file icons, folders marked with /, git marks ~ ? and . in the left column, and the git line reading git: master ^1 +1 ~1 ?2 $1](../screenshots/customise-glyphs.png)
 
+## Contents
+
+- [How to use it](#how-to-use-it)
+- [What you see](#what-you-see)
+- [Your own glyph set](#your-own-glyph-set)
+- [Settings and config.toml](#settings-and-configtoml)
+- [In the terminal app](#in-the-terminal-app)
+- [Questions](#questions)
+
 ## How to use it
 
 **Nerd Font or plain characters:**

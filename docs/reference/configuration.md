@@ -139,7 +139,8 @@ tag = []                    # [] unbinds it
 
 **Key names:** a letter, digit or sign (`a`, `+`, `.`, `,`), `F1` to `F24`, `Enter` (or
 `Return`), `Esc` (`Escape`), `Tab`, `Backspace`, `Delete` (`Del`), `Insert` (`Ins`), `Home`,
-`End`, `PageUp` (`PgUp`), `PageDown` (`PgDn`), `Up`, `Down`, `Left`, `Right`, `Space`; with
+`End`, `PageUp` (`PgUp`), `PageDown` (`PgDn`), `Up`, `Down`, `Left`, `Right`, `Space`, `Menu`
+(the context-menu key); with
 `Ctrl+`, `Alt+` and `Shift+` in front, in any case. `A` alone means Shift+A; `Ctrl+F` means
 Ctrl and the F key.
 
@@ -238,7 +239,7 @@ flags start a new one.
 
 | Key | Type | Default | Does |
 |---|---|---|---|
-| `name_roots` | list of paths | `[]` | The folders in the name index (1.x: `roots`). Empty: `/` on Linux and macOS, every drive on Windows |
+| `name_roots` | list of paths | `[]` | The folders in the name index (1.x: `roots`). Empty: `/` everywhere but Windows (FreeBSD, the other BSDs, illumos, Linux, macOS), every fixed drive on Windows |
 | `name_exclude` | list of strings | `["/proc", "/sys", "/dev", "/run", "/tmp/.X11-unix"]` | Left out of the name index: a path skips that tree, a bare name skips every folder of that name (1.x: `exclude`) |
 | `max_results` | number | `10000` | Most name hits per search (the desktop app shows 500 at most) |
 | `watch` | bool | `true` | Follow changes live with the file watcher; `false`: only the hourly rebuild |

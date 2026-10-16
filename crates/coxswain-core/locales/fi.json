@@ -1446,7 +1446,7 @@
  "feature.views.q3": "Miksi valokuvakansioni on hidas pikkukuvanäkymässä?",
  "feature.views.title": "Tiedot, sarakkeet ja pikkukuvat",
  "feature.views.what": "Näytä kansio tietoina, Miller-sarakkeina tai pikkukuvina, välilehtikohtaisesti valittuna, työpöytäsovelluksessa.",
- "feature.where_things_are_kept.a1": "Yleensä search.db (tiedostojesi teksti) ja models/ (488 MB sisäänrakennetun mallin kanssa), sitten previews/. Asetukset näyttää kunkin koon.",
+ "feature.where_things_are_kept.a1": "Yleensä search.db (tiedostojesi teksti) ja models/ (465 MB sisäänrakennetun mallin kanssa), sitten previews/. Asetukset näyttää kunkin koon.",
  "feature.where_things_are_kept.a2": "Kopioi state.json, kun yksikään Coxswain ei ole käynnissä. Tunnisteet ja muistiinpanot säilytetään koko polun mukaan, joten ne näkyvät vain siellä, missä samat polut ovat olemassa.",
  "feature.where_things_are_kept.a3": "state.json, jota ei voitu lukea käynnistyksessä, siirrettynä sivuun, jotta uusi voitiin tallentaa. Tunnisteesi ja muistiinpanosi ovat siinä; korjaa se käsin tai poista se.",
  "feature.where_things_are_kept.q1": "Välimuistikansio on suuri. Mikä vie tilaa?",

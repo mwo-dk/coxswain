@@ -14,7 +14,7 @@ termux_step_pre_configure() {
 }
 
 termux_step_make() {
-	cargo build --jobs "$TERMUX_PKG_MAKE_PROCESSES" --target "$CARGO_TARGET_NAME" --release -p coxswain
+	cargo build --jobs "$TERMUX_PKG_MAKE_PROCESSES" --target "$CARGO_TARGET_NAME" --release --locked -p coxswain
 }
 
 termux_step_make_install() {

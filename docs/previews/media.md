@@ -12,6 +12,15 @@ program is built for.
 
 ![The desktop app with wallpaper.jpg, a photo with EXIF, under the cursor: the picture and, under it, Camera Fujifilm X-T5, Lens, Taken, Exposure 1/250 s, Aperture f/5.6, ISO 200, Focal length 23 mm and Location](../screenshots/previews-photo.png)
 
+## Contents
+
+- [How to use it](#how-to-use-it)
+- [Formats](#formats)
+- [What you see](#what-you-see)
+- [Settings and config.toml](#settings-and-configtoml)
+- [In the terminal app](#in-the-terminal-app)
+- [Questions](#questions)
+
 ## How to use it
 
 1. Put the cursor on the file or folder and press **Space** or **F3**.
@@ -109,8 +118,9 @@ find an audio output (`autoaudiosink`) and ended the page's process, which left 
 and deaf to keys. From 1.29.1 the preview checks for the plugins first and says what to install
 instead of showing a player. With the AppImage on a distribution other than Debian or Ubuntu,
 installing them does not help, since its GStreamer does not look where your distribution keeps
-them: install Coxswain from a package built for your distribution (`makepkg -si` in
-`packaging/aur/coxswain-bin` on Arch, Homebrew's formula) or press
+them: install Coxswain from a package built for your distribution (the `.deb` or `.rpm`, or
+`makepkg -si` in `packaging/aur/coxswain-bin` on Arch, which is not on the AUR yet; Homebrew's
+cask on Linux is the AppImage, and its formula is the terminal app only) or press
 **Enter** to play the file in its app.
 
 #### How is a file inside an archive previewed?

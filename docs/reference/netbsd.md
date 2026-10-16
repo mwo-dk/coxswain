@@ -6,8 +6,8 @@ The terminal app, `coxswain`, runs on NetBSD: one binary that needs nothing beyo
 system, built and tested on every change, with pkgsrc's Rust. The desktop app is not shipped for
 NetBSD yet: [why](#the-desktop-app).
 
-Release builds are for **NetBSD 10 and 11 on amd64**, built on NetBSD 10.1. NetBSD keeps its
-libraries' interfaces, so the 10.1 build runs on 11 as well.
+Release builds are for **NetBSD 10 on amd64**, built and tested on NetBSD 10.1. NetBSD keeps
+its libraries' interfaces, so the 10.1 build should run on 11 as well, but CI does not test 11.
 
 ## Contents
 
@@ -179,7 +179,7 @@ On another architecture that pkgsrc's Rust supports (aarch64 too) this is the wa
 
 The desktop app needs WebKitGTK with the 4.1 API, which pkgsrc has as `www/webkit-gtk41`, and
 it builds from the same code as on FreeBSD and OpenBSD. It is not shipped yet because the binary
-packages for NetBSD 10.1 and 11.0 could not be installed in CI: `webkit-gtk41`'s dependencies
+packages for NetBSD 10.1 could not be installed in CI: `webkit-gtk41`'s dependencies
 `dbus`, `libxml2` and others were missing from the package repository. When the binary packages
 are complete again, NetBSD gets the desktop app as OpenBSD has it. Until then, with pkgsrc built
 from source (`cd /usr/pkgsrc/www/webkit-gtk41 && make install`), the
@@ -200,7 +200,7 @@ rc.d script for the search helper (in `/usr/pkg/share/examples/rc.d`). CI builds
 **Why is it not in pkgsrc?** Not yet: the package is prepared ([above](#the-pkgsrc-package)) and
 goes to pkgsrc-wip first. Until then, the script, the archives or `cargo install --locked coxswain`.
 
-**Does it run on NetBSD 9?** It is built on 10.1 and tested on 10.1 and 11.0 only. On 9, build from
+**Does it run on NetBSD 9?** It is built and tested on 10.1 only. On 9, build from
 source if pkgsrc's Rust there is 1.93 or later.
 
 **Why does the helper miss new files deep in my tree for a while?** Their folders are past the

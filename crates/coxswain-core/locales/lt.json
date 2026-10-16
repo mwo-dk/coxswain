@@ -1477,7 +1477,7 @@
  "feature.views.q3": "Kodėl mano nuotraukų aplankas lėtas miniatiūrų rodinyje?",
  "feature.views.title": "Išsami informacija, stulpeliai ir miniatiūros",
  "feature.views.what": "Rodykite aplanką kaip išsamią informaciją, Miller stulpelius ar miniatiūras, pasirenkant kiekvienam skirtukui, darbalaukio programoje.",
- "feature.where_things_are_kept.a1": "Dažniausiai search.db (jūsų failų tekstas) ir models/ (488 MB su įtaisytu modeliu), tada previews/. Parametrai rodo kiekvieno dydį.",
+ "feature.where_things_are_kept.a1": "Dažniausiai search.db (jūsų failų tekstas) ir models/ (465 MB su įtaisytu modeliu), tada previews/. Parametrai rodo kiekvieno dydį.",
  "feature.where_things_are_kept.a2": "Nukopijuokite state.json, kol neveikia joks Coxswain. Žymės ir pastabos saugomos pagal visą kelią, todėl rodomos tik ten, kur yra tie patys keliai.",
  "feature.where_things_are_kept.a3": "state.json, kurio nepavyko perskaityti paleidžiant, patrauktas į šalį, kad būtų galima įrašyti naują. Jame yra jūsų žymės ir pastabos; pataisykite jį rankiniu būdu arba ištrinkite.",
  "feature.where_things_are_kept.q1": "Podėlio aplankas didelis. Kas užima vietą?",

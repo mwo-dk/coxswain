@@ -8,6 +8,16 @@ after the last, or it can start with your session so it reads while no window is
 
 ![Settings at Finding files with Details → Background reading open: Start with my session, Read now, the path /home/demo/.cache/coxswain/search.db with Show in panel, and Delete what was read (284 KB)](../screenshots/search-helper-session.png)
 
+## Contents
+
+- [How to use it](#how-to-use-it)
+- [What you see](#what-you-see)
+- [How it works](#how-it-works)
+- [Settings and config.toml](#settings-and-configtoml)
+- [Check that it runs, and turn it off](#check-that-it-runs-and-turn-it-off)
+- [In the terminal app](#in-the-terminal-app)
+- [Questions](#questions)
+
 ## How to use it
 
 Nothing to do: the first app starts it and the others find it. A new window searches at once.

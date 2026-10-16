@@ -1446,7 +1446,7 @@
  "feature.views.q3": "Warum ist mein Fotoordner in den Miniaturen langsam?",
  "feature.views.title": "Details, Spalten und Miniaturen",
  "feature.views.what": "Zeigen Sie einen Ordner als Details, Miller-Spalten oder Miniaturen, pro Tab gewählt, in der Desktop-App.",
- "feature.where_things_are_kept.a1": "Meist search.db (der Text Ihrer Dateien) und models/ (488 MB mit dem eingebauten Modell), dann previews/. Die Einstellungen zeigen die Größe von jedem.",
+ "feature.where_things_are_kept.a1": "Meist search.db (der Text Ihrer Dateien) und models/ (465 MB mit dem eingebauten Modell), dann previews/. Die Einstellungen zeigen die Größe von jedem.",
  "feature.where_things_are_kept.a2": "Kopieren Sie state.json, während kein Coxswain läuft. Farbmarkierungen und Notizen werden nach vollem Pfad gespeichert, also erscheinen sie nur dort, wo es dieselben Pfade gibt.",
  "feature.where_things_are_kept.a3": "Eine state.json, die beim Start nicht gelesen werden konnte und beiseitegelegt wurde, damit eine neue gespeichert werden konnte. Ihre Farbmarkierungen und Notizen sind darin; reparieren Sie sie von Hand oder löschen Sie sie.",
  "feature.where_things_are_kept.q1": "Der Cache-Ordner ist groß. Was braucht den Platz?",

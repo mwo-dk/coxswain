@@ -1,6 +1,6 @@
 //! Build provenance and other in-toto attestations: SLSA provenance v0.2 and v1, bare or in DSSE
 //! envelopes or Sigstore bundles, one or many per file. Read-only, nothing is verified, and
-//! nothing leaves the machine. Design: `docs/design/provenance-viewer.md`.
+//! nothing leaves the machine. Design: `design/provenance-viewer.md`.
 //!
 //! - `model`: what the views see, whatever the wrapping and the SLSA version.
 //! - `ingest`: the file formats to the model.

@@ -1477,7 +1477,7 @@
  "feature.views.q3": "Pourquoi mon dossier de photos est-il lent en vignettes ?",
  "feature.views.title": "Détails, colonnes et vignettes",
  "feature.views.what": "Affichez un dossier en détails, en colonnes de Miller ou en vignettes, au choix pour chaque onglet, dans l’app de bureau.",
- "feature.where_things_are_kept.a1": "Le plus souvent search.db (le texte de vos fichiers) et models/ (488 Mo avec le modèle intégré), puis previews/. Réglages montre la taille de chacun.",
+ "feature.where_things_are_kept.a1": "Le plus souvent search.db (le texte de vos fichiers) et models/ (465 Mo avec le modèle intégré), puis previews/. Réglages montre la taille de chacun.",
  "feature.where_things_are_kept.a2": "Copiez state.json quand aucun Coxswain ne tourne. Les étiquettes et les notes sont gardées par chemin complet, elles n’apparaissent donc que là où les mêmes chemins existent.",
  "feature.where_things_are_kept.a3": "Un state.json qui n’a pas pu être lu au démarrage, mis de côté pour qu’un nouveau puisse être enregistré. Vos étiquettes et vos notes s’y trouvent ; réparez-le à la main ou supprimez-le.",
  "feature.where_things_are_kept.q1": "Le dossier de cache est gros. Qu’est-ce qui prend la place ?",

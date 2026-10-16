@@ -27,7 +27,7 @@ accepted, the flake is the way to get Coxswain with Nix.
 ```sh
 nix run github:mwo-dk/coxswain                    # the terminal app
 nix run github:mwo-dk/coxswain#coxswain-gui       # the desktop app (Linux)
-nix run github:mwo-dk/coxswain/v2.1.0             # a given release
+nix run github:mwo-dk/coxswain/vX.Y.Z             # a given release
 ```
 
 Arguments go after `--`: `nix run github:mwo-dk/coxswain -- ~/src ~/Downloads` opens those two
@@ -171,7 +171,8 @@ See [The search helper](../search/helper.md).
 
 The one in `flake.lock` (nixos-unstable at the time it was last locked). To build with yours,
 set `inputs.coxswain.inputs.nixpkgs.follows = "nixpkgs"`; Coxswain needs a Rust toolchain that
-supports edition 2024 (Rust 1.85 or newer).
+is new enough for the locked crates: Rust 1.93 or newer for the terminal app, 1.95 for the
+desktop app on Linux (its `sysinfo` asks for it).
 
 ---
 [← Previous: Linux on ARM](linux-arm.md) · [Next: Termux on Android →](termux.md)

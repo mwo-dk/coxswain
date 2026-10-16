@@ -1446,7 +1446,7 @@
  "feature.views.q3": "Varför är min fotomapp långsam i miniatyrvyn?",
  "feature.views.title": "Detaljer, kolumner och miniatyrer",
  "feature.views.what": "Visa en mapp som detaljer, Miller-kolumner eller miniatyrer, valt per flik, i skrivbordsappen.",
- "feature.where_things_are_kept.a1": "Oftast search.db (texten i dina filer) och models/ (488 MB med den inbyggda modellen), sedan previews/. Inställningar visar storleken på var och en.",
+ "feature.where_things_are_kept.a1": "Oftast search.db (texten i dina filer) och models/ (465 MB med den inbyggda modellen), sedan previews/. Inställningar visar storleken på var och en.",
  "feature.where_things_are_kept.a2": "Kopiera state.json medan inget Coxswain körs. Etiketter och anteckningar sparas med fullständig sökväg, så de syns bara där samma sökvägar finns.",
  "feature.where_things_are_kept.a3": "En state.json som inte kunde läsas vid start, flyttad undan så att en ny kunde sparas. Dina etiketter och anteckningar finns i den; laga den för hand eller radera den.",
  "feature.where_things_are_kept.q1": "Cachemappen är stor. Vad tar plats?",
