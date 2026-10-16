@@ -1432,12 +1432,17 @@ mod tests {
         key(&mut app, KeyCode::Esc);
         key(&mut app, KeyCode::Char(' '));
         assert_eq!(pick(&app), by_enter);
+        // The list is read again at every key, as the app does: the machine probe can finish
+        // in between and change which models it offers.
         let o = cs::find("ask_model").unwrap();
-        let Kind::Choice(c) = kind(o, &app.cfg, &Value::from("")) else { panic!() };
-        assert_ne!(c[by_enter].0, HEAD);
+        let list = |app: &App| match kind(o, &app.cfg, &Value::from("")) {
+            Kind::Choice(c) => c,
+            _ => panic!("ask_model is no choice"),
+        };
+        assert_ne!(list(&app)[by_enter].0, HEAD);
         for code in [KeyCode::Up, KeyCode::PageUp, KeyCode::Down, KeyCode::PageDown, KeyCode::Up] {
             key(&mut app, code);
-            assert_ne!(c[pick(&app)].0, HEAD, "{code:?}");
+            assert_ne!(list(&app)[pick(&app)].0, HEAD, "{code:?}");
         }
         let c = [(HEAD.to_string(), String::new()), ("a".to_string(), String::new()), (HEAD.to_string(), String::new()), ("b".to_string(), String::new())];
         assert_eq!((pick_step(&c, 0, -1), pick_step(&c, 2, 1), pick_step(&c, 2, -1), pick_step(&c, 9, 1)), (1, 3, 1, 3));
