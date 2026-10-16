@@ -44,7 +44,11 @@ jobs:
           run: |
             set -e
             # The newest quarterly branch: the one pkgin's packages are built from.
-            y=$(date +%Y) m=$(date +%m) m=${m#0} q=$(( (m + 2) / 3 ))
+            # One assignment per line: NetBSD's sh expands a whole line's words before it assigns.
+            y=$(date +%Y)
+            m=$(date +%m)
+            m=${m#0}
+            q=$(( (m + 2) / 3 ))
             for i in 1 2 3 4; do
               b="pkgsrc-${y}Q${q}"
               ftp -o /tmp/pkgsrc.tar.gz "https://cdn.netbsd.org/pub/pkgsrc/$b/pkgsrc.tar.gz" >/dev/null 2>&1 && break
