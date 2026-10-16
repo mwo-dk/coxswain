@@ -804,11 +804,14 @@ impl App {
                 }
                 Err(e) => {
                     p.error = Some(e.to_string());
-                    self.status = p.error.clone();
+                    let why = p.error.clone();
                     if let Some(up) = p.dir.parent() {
                         p.dir = up.to_path_buf();
                         self.load(side, None);
                     }
+                    // After the walk up: a parent read on a thread too says it is busy, and
+                    // its listing clears only that.
+                    self.status = why;
                 }
             }
         }
@@ -2118,8 +2121,7 @@ impl App {
                 let last = list.len().saturating_sub(1);
                 let mut refilter = false;
                 match (key.code, ch) {
-                    _ if esc => return self.dialog = back.map(|b| *b),
-                    _ if action == Some(Action::Help) => return,
+                    _ if esc || action == Some(Action::Help) => return self.dialog = back.map(|b| *b),
                     (KeyCode::Tab, _) => return self.dialog = Some(Dialog::Help { scroll: 0 }),
                     (KeyCode::Enter, _) => said = list.get(cursor).map(|e| Self::show_me(&e.url)),
                     (KeyCode::Up, _) => cursor = cursor.saturating_sub(1),
@@ -2217,17 +2219,17 @@ impl App {
             return;
         }
         let area = self.areas[side];
+        // The entry clicked: rows start below the border and the column header, and end
+        // above the separator and the info line.
+        let p = &self.panels[side];
+        let i = m.row.checked_sub(area.y + 2).map(usize::from).filter(|&r| r < p.page).map(|r| p.offset + r).filter(|&i| i < p.entries.len());
         match m.kind {
             MouseEventKind::ScrollUp => self.panels[side].move_cursor(-3),
             MouseEventKind::ScrollDown => self.panels[side].move_cursor(3),
             MouseEventKind::Down(MouseButton::Left) => {
                 self.active = side;
-                // Rows start below the border and the column header.
-                let row = m.row.saturating_sub(area.y + 2) as usize;
-                let p = &mut self.panels[side];
-                let i = p.offset + row;
-                if m.row >= area.y + 2 && i < p.entries.len() {
-                    p.cursor = i;
+                if let Some(i) = i {
+                    self.panels[side].cursor = i;
                     let double = self.last_click.is_some_and(|(t, x, y)| t.elapsed() < Duration::from_millis(400) && (x, y) == (m.column, m.row));
                     self.last_click = Some((Instant::now(), m.column, m.row));
                     if double {
@@ -2240,14 +2242,12 @@ impl App {
             // and opens the action menu.
             MouseEventKind::Down(MouseButton::Right) => {
                 self.active = side;
-                let i = self.panels[side].offset + m.row.saturating_sub(area.y + 2) as usize;
+                let Some(i) = i else { return };
                 if self.cfg.right_click != "menu" {
                     return self.panels[side].toggle_mark(i);
                 }
-                if m.row >= area.y + 2 && i < self.panels[side].entries.len() {
-                    self.panels[side].cursor = i;
-                    self.action_menu();
-                }
+                self.panels[side].cursor = i;
+                self.action_menu();
             }
             _ => {}
         }
@@ -3254,6 +3254,39 @@ mod tests {
         assert_eq!(app.panels[0].dir, d.join("sub"), "not a repository: back to the folder");
         assert!(app.status.is_some(), "and says why");
         // The app's threads (sizes, git) may still hold the folder open on Windows.
+        let _ = std::fs::remove_dir_all(d);
+    }
+
+    /// A folder not in a commit: back to the commit, which is read on a thread too, and the
+    /// reason stays on the status line.
+    #[test]
+    fn a_folder_not_in_a_commit_says_why_when_it_walks_up() {
+        let d = std::env::temp_dir().join(format!("coxswain-test-commit-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        std::fs::write(d.join("a.txt"), "a").unwrap();
+        let git = |args: &[&str]| coxswain_core::tools::command("git").arg("-C").arg(&d).args(["-c", "user.name=t", "-c", "user.email=t@t", "-c", "commit.gpgsign=false"]).args(args).output();
+        let made = git(&["init", "-q"]).is_ok_and(|o| o.status.success()) && git(&["add", "."]).is_ok_and(|o| o.status.success()) && git(&["commit", "-q", "-m", "one"]).is_ok_and(|o| o.status.success());
+        if !made {
+            return println!("no git");
+        }
+        let hash = String::from_utf8(git(&["rev-parse", "HEAD"]).unwrap().stdout).unwrap();
+        let commit = history::path(&d, Some(hash.trim()));
+        let mut app = app(d.clone(), d.clone());
+        let gone = commit.join("no-such-folder");
+        app.cd(0, gone.clone());
+        while app.panels[0].dir == gone {
+            let (dir, keep, r) = app.list_rx.recv_timeout(Duration::from_secs(10)).unwrap();
+            app.listed(dir, keep, r);
+        }
+        let why = app.panels[0].error.clone();
+        assert!(why.is_some());
+        assert_eq!(app.panels[0].dir, commit, "back to the commit");
+        // The commit, listed on its thread.
+        let (dir, keep, r) = app.list_rx.recv_timeout(Duration::from_secs(10)).unwrap();
+        app.listed(dir, keep, r);
+        assert!(!app.panels[0].entries.is_empty(), "the commit is listed");
+        assert_eq!(app.status, why, "the reason stays on the status line");
         let _ = std::fs::remove_dir_all(d);
     }
 
