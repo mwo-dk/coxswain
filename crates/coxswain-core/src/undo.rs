@@ -357,6 +357,7 @@ impl Record {
             done,
             refused,
             back,
+            touched: self.touched(),
         }
     }
 
@@ -470,7 +471,7 @@ impl Record {
 }
 
 /// What undo did.
-#[derive(Debug)]
+#[derive(Debug, serde::Serialize)]
 pub struct Undone {
     /// What was undone, as `Record::label` says it.
     pub label: String,
@@ -479,6 +480,8 @@ pub struct Undone {
     pub refused: Vec<String>,
     /// The items moved, renamed or trashed that are back where they were.
     pub back: Vec<PathBuf>,
+    /// What it changed: `Record::touched`, for the sizes measured again.
+    pub touched: Vec<PathBuf>,
 }
 
 /// The last operations, the newest last; for the app run only.

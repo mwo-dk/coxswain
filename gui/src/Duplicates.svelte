@@ -2,7 +2,7 @@
   // Find duplicate files and folders (the engine is coxswain-core's dupes.rs): pick where to look,
   // scan, review the groups, mark the copies to remove, move them to the trash.
   import { ui, tab, otherTab, showInTab } from "./app.svelte.js";
-  import { invoke, convertFileSrc, size, date, basename, parent, previewKind, composing } from "./lib.js";
+  import { invoke, convertFileSrc, size, date, basename, parent, previewKind, composing, inside as below } from "./lib.js";
   import { t, tn, num } from "./i18n.svelte.js";
 
   const d = ui.modal;
@@ -74,7 +74,7 @@
   const freed = $derived(groups.reduce((a, g) => a + g.items.filter((it) => d.marked?.[it.path]).length * g.size, 0));
 
   /** Whether `p` is one of `roots` or inside one: a copy inside a marked folder goes with it. */
-  const inside = (p, roots) => roots.some((r) => p === r || p.startsWith(r.endsWith(ui.cfg.sep) ? r : r + ui.cfg.sep));
+  const inside = (p, roots) => roots.some((r) => below(p, r, ui.cfg.sep));
   const markedNow = () => Object.keys(d.marked).filter((p) => d.marked[p]);
 
   /** Mark or unmark one copy; the last copy of a group that stays cannot be marked. */

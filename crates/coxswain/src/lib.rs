@@ -520,8 +520,8 @@ enum JobMsg {
     At(usize),
     /// What failed, and what can be undone of what did not.
     Done(Vec<(PathBuf, std::io::Error)>, Record),
-    /// An undo has ended: what came of it, and the paths it changed.
-    Undone(coxswain_core::undo::Undone, Vec<PathBuf>),
+    /// An undo has ended: what came of it.
+    Undone(coxswain_core::undo::Undone),
 }
 
 /// A search for Find: its generation, the query, the kind chip, the folder it is limited to,
@@ -729,6 +729,15 @@ impl App {
 
     /// These were added, removed or written: the folders they are in are measured again.
     fn changed(&mut self, paths: &[PathBuf]) {
+        let stale = self.forget(paths);
+        // A panel showing a folder the change is in, not the folder it is in itself.
+        for side in (0..2).filter(|&s| stale[s]) {
+            self.measure(side);
+        }
+    }
+
+    /// The sizes of the folders these are in, forgotten: by each panel that dropped one.
+    fn forget(&mut self, paths: &[PathBuf]) -> [bool; 2] {
         let mut stale = [false; 2];
         for p in paths {
             self.sizer.forget(p);
@@ -738,10 +747,7 @@ impl App {
                 stale[side] |= panel.sizes.len() < had;
             }
         }
-        // A panel showing a folder the change is in, not the folder it is in itself.
-        for side in (0..2).filter(|&s| stale[s]) {
-            self.measure(side);
-        }
+        stale
     }
 
     /// Measure the folders in a panel on a thread, the first ones first; results arrive
@@ -1515,7 +1521,8 @@ impl App {
         if let Some(j) = &self.job {
             return self.status = Some(j.line.clone());
         }
-        self.changed(&touches(op, &src, &dst));
+        // Measured in `finish`: while it runs, a folder's size would be halfway.
+        self.forget(&touches(op, &src, &dst));
         let (tx, rx) = mpsc::channel();
         let (items, to, pw) = (src.clone(), dst.clone(), password.clone());
         std::thread::spawn(move || {
@@ -1583,7 +1590,7 @@ impl App {
                 }
                 JobMsg::At(_) => {}
                 JobMsg::Done(failed, rec) => done = Some((failed, Some(rec))),
-                JobMsg::Undone(u, touched) => undone = Some((u, touched)),
+                JobMsg::Undone(u) => undone = Some(u),
             }
         }
         // Its thread ended without saying it was done (it panicked): the job goes, so the app
@@ -1594,11 +1601,11 @@ impl App {
             self.status = None;
             return self.after_op(String::new(), t!("error.job_stopped", "what" => what), vec![t!("error.job_stopped_detail")]);
         }
-        if let Some((u, touched)) = undone {
+        if let Some(u) = undone {
             self.job = None;
             self.status = None;
             // Measured while it ran, a folder's size would be halfway.
-            self.changed(&touched);
+            self.changed(&u.touched);
             self.after_op(t!("undo.done", "what" => &u.label), t!("undo.partly", "what" => &u.label), u.refused);
             // The cursor goes on what came back, where its folder is shown.
             for side in 0..2 {
@@ -1688,13 +1695,12 @@ impl App {
             return self.status = Some(j.line.clone());
         }
         let Some(rec) = self.undo.pop() else { return self.status = Some(t!("undo.nothing")) };
-        let touched = rec.touched();
-        self.changed(&touched);
+        self.forget(&rec.touched());
         let line = t!("status.busy", "what" => rec.label());
         let (tx, rx) = mpsc::channel();
         std::thread::spawn(move || {
             let u = rec.undo(|i| drop(tx.send(JobMsg::At(i))));
-            let _ = tx.send(JobMsg::Undone(u, touched));
+            let _ = tx.send(JobMsg::Undone(u));
         });
         self.status = Some(line.clone());
         self.job = Some(Job { op: None, src: vec![], dst: PathBuf::new(), password: None, select: None, line, rx });
@@ -2308,14 +2314,17 @@ impl App {
         if paths.is_empty() {
             return;
         }
-        self.changed(&paths);
-        for side in 0..2 {
+        let stale = self.forget(&paths);
+        for (side, stale) in stale.into_iter().enumerate() {
             // macOS names what changed by its real path (`/private/var` for `/var`).
             let dir = &self.panels[side].dir;
             let real = std::fs::canonicalize(dir).ok();
             let here = |p: &Path| p == dir || real.as_deref() == Some(p);
-            if paths.iter().any(|p| here(p) || p.parent().is_some_and(here)) {
+            let reread = paths.iter().any(|p| here(p) || p.parent().is_some_and(here));
+            if reread {
                 self.load(side, None);
+            }
+            if reread || stale {
                 self.measure(side);
             }
         }

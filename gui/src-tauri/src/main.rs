@@ -1329,13 +1329,14 @@ async fn rename(paths: Vec<PathBuf>, base: PathBuf, dest: String, password: Opti
 /// To the trash, or gone for good with `forever`. Inside a locked 7z, `password` opens it.
 #[tauri::command]
 async fn delete(paths: Vec<PathBuf>, forever: bool, password: Option<String>, ctx: tauri::State<'_, Ctx>) -> Res<()> {
-    paths.iter().for_each(|p| ctx.sizer.forget(p));
     // For good is the one that cannot be undone.
     if forever {
         let r = each(paths.clone(), move |p| bfs::delete_locked(p, password.as_deref())).await;
         ctx.changed(&paths);
         return r;
     }
+    // The history names only what went to the trash: one that fails halfway is forgotten too.
+    paths.iter().for_each(|p| ctx.sizer.forget(p));
     each_undo(&ctx, UndoKind::Trash, paths, move |rec, p| rec.run(p, Path::new(""), password.as_deref())).await
 }
 
@@ -1389,13 +1390,11 @@ fn rename_apply(dir: PathBuf, plan: Vec<Planned>, ctx: tauri::State<Ctx>) -> Res
 /// Ctrl+Z: undo the newest operation. What it was, a line for each item left as it is, and
 /// what is back where it was (the cursor goes there).
 #[tauri::command]
-async fn undo(ctx: tauri::State<'_, Ctx>) -> Res<(String, Vec<String>, Vec<PathBuf>)> {
+async fn undo(ctx: tauri::State<'_, Ctx>) -> Res<coxswain_core::undo::Undone> {
     let rec = ctx.undo.lock().map_err(|e| e.to_string())?.pop().ok_or_else(|| coxswain_core::t!("undo.nothing"))?;
-    let touched = rec.touched();
-    touched.iter().for_each(|p| ctx.sizer.forget(p));
     let u = blocking(move || Ok(rec.undo(|_| {}))).await?;
-    ctx.changed(&touched);
-    Ok((u.label, u.refused, u.back))
+    ctx.changed(&u.touched);
+    Ok(u)
 }
 
 /// What Ctrl+Z would undo, and how many operations were kept so far (a new one: the page says
@@ -1512,7 +1511,6 @@ async fn archive_peek(path: PathBuf) -> Res<PathBuf> {
 #[tauri::command]
 async fn pack(paths: Vec<PathBuf>, base: PathBuf, dest: String, password: Option<String>, hide_names: bool, ctx: tauri::State<'_, Ctx>) -> Res<PathBuf> {
     let to = resolve(&base, &dest);
-    ctx.sizer.forget(&to);
     let at = to.clone();
     tauri::async_runtime::spawn_blocking(move || coxswain_core::archive::create_locked(&at, &paths, password.as_deref(), hide_names))
         .await

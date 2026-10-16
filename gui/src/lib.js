@@ -69,6 +69,8 @@ export function keyString(e) {
   return (e.ctrlKey ? "Ctrl+" : "") + (e.altKey ? "Alt+" : "") + (shift ? "Shift+" : "") + k;
 }
 
+/** Whether `path` is `folder` or below it; `folder` may end with `sep` (a root). */
+export const inside = (path, folder, sep) => path === folder || path.startsWith(folder.endsWith(sep) ? folder : folder + sep);
 export const basename = (p) => p.split(/[\\/]/).filter(Boolean).pop() ?? p;
 export const parent = (p) => {
   const sep = p.includes("\\") && !p.includes("/") ? "\\" : "/";

@@ -5,7 +5,7 @@
   import { listen } from "@tauri-apps/api/event";
   import { ui, openFind, init, tab, pane, otherTab, item, load, cd, up, openHistory, openSnapshots, openPackage, openGitView, switchBranch, newBranch, addTab, closeTab, goBack, goForward, openItem, toggleMark, targets, reloadAll, refreshDisks, snapshot, setTheme, themeIds, themeName, nextView, measureFolders, columnMenu, subject, hooks, refreshUndo, actionLabel, visibleTabs } from "./app.svelte.js";
   import { failure } from "./errors.js";
-  import { invoke, keyString, basename, parent, globRe, quote, isArchive, packFormat, LOCKED } from "./lib.js";
+  import { invoke, keyString, basename, parent, globRe, quote, isArchive, packFormat, LOCKED, inside } from "./lib.js";
   import { t, tn } from "./i18n.svelte.js";
   import Sidebar from "./Sidebar.svelte";
   import Pane from "./Pane.svelte";
@@ -84,7 +84,7 @@
   // A copy, move, delete or undo has ended: the folders it changed things in are measured again.
   listen("sizes-changed", (ev) => {
     for (const t of allTabs()) {
-      const stale = Object.keys(t.sizes).filter((f) => ev.payload.some((p) => p === f || p.startsWith(f + ui.cfg.sep)));
+      const stale = Object.keys(t.sizes).filter((f) => ev.payload.some((p) => inside(p, f, ui.cfg.sep)));
       if (stale.length) measureFolders(t, stale);
     }
   });
@@ -385,7 +385,7 @@
       let back = [];
       try {
         let label, refused;
-        [label, refused, back] = await invoke("undo");
+        ({ label, refused, back } = await invoke("undo"));
         ui.status = refused.length ? "" : t("undo.done", { what: label });
         if (refused.length) ui.modal = failure(t("undo.partly", { what: label }), refused.join("\n"));
       } catch (e) {

@@ -268,15 +268,21 @@ pub fn mounted() -> Vec<Mounted> {
         })
         .filter(|m| !PSEUDO.contains(&m.fstype.as_str()))
         // What MNT_NOWAIT gives is the kernel's last count, minutes old: a disk on this machine
-        // is asked again, a network one keeps that count.
+        // is asked again, a network one keeps that count, and one without blocks (a total of 0)
+        // has none to count.
         .map(|mut m| {
-            if !(m.fstype.starts_with("nfs") || m.fstype == "smbfs" || m.fstype.starts_with("fuse"))
-            {
+            if m.total > 0 && !is_network(&m.fstype) {
                 sizes_now(&mut m);
             }
             m
         })
         .collect()
+}
+
+/// A file system that may answer from another machine, slowly or not at all.
+#[cfg(any(target_os = "freebsd", target_os = "netbsd", target_os = "openbsd"))]
+fn is_network(fstype: &str) -> bool {
+    fstype.starts_with("nfs") || fstype == "smbfs" || fstype.starts_with("fuse")
 }
 
 /// `m`'s size and free space as they are now, from statvfs(2), as `df` counts them.

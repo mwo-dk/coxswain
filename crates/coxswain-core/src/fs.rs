@@ -916,27 +916,29 @@ pub fn properties(path: &Path) -> io::Result<Props> {
 fn owner_names(uid: u32, gid: u32) -> String {
     use std::ffi::CStr;
     let mut buf = vec![0 as libc::c_char; 16 * 1024];
-    // SAFETY: getpwuid_r and getgrgid_r fill the struct they are given, pointing into `buf`,
-    // and set `found` to it or to null; the name is read before `buf` is used again.
-    let user = unsafe {
-        let mut pw: libc::passwd = std::mem::zeroed();
-        let mut found = std::ptr::null_mut();
-        (libc::getpwuid_r(uid, &mut pw, buf.as_mut_ptr(), buf.len(), &mut found) == 0
-            && !found.is_null())
-        .then(|| CStr::from_ptr(pw.pw_name).to_string_lossy().into_owned())
+    // The name a lookup found (`rc` 0, `found` set), or the number.
+    let named = |rc: libc::c_int, found: bool, name: *const libc::c_char, id: u32| {
+        if rc == 0 && found {
+            // SAFETY: a found entry's name is a NUL-ended string in `buf`, read before `buf`
+            // is used again.
+            unsafe { CStr::from_ptr(name) }
+                .to_string_lossy()
+                .into_owned()
+        } else {
+            id.to_string()
+        }
     };
-    let group = unsafe {
-        let mut gr: libc::group = std::mem::zeroed();
-        let mut found = std::ptr::null_mut();
-        (libc::getgrgid_r(gid, &mut gr, buf.as_mut_ptr(), buf.len(), &mut found) == 0
-            && !found.is_null())
-        .then(|| CStr::from_ptr(gr.gr_name).to_string_lossy().into_owned())
-    };
-    format!(
-        "{}:{}",
-        user.unwrap_or_else(|| uid.to_string()),
-        group.unwrap_or_else(|| gid.to_string())
-    )
+    // SAFETY: getpwuid_r and getgrgid_r fill the zeroed struct they are given, pointing into
+    // `buf`, and set `found` to it or to null.
+    let mut pw: libc::passwd = unsafe { std::mem::zeroed() };
+    let mut found = std::ptr::null_mut();
+    let rc = unsafe { libc::getpwuid_r(uid, &mut pw, buf.as_mut_ptr(), buf.len(), &mut found) };
+    let user = named(rc, !found.is_null(), pw.pw_name, uid);
+    let mut gr: libc::group = unsafe { std::mem::zeroed() };
+    let mut found = std::ptr::null_mut();
+    let rc = unsafe { libc::getgrgid_r(gid, &mut gr, buf.as_mut_ptr(), buf.len(), &mut found) };
+    let group = named(rc, !found.is_null(), gr.gr_name, gid);
+    format!("{user}:{group}")
 }
 
 /// Open with the desktop's default application, detached.

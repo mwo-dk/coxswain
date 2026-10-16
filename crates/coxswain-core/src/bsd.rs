@@ -45,14 +45,16 @@ pub fn package_of(path: &Path) -> Option<String> {
 /// Whether files in `dir` may belong to an installed package, for the action menu: on FreeBSD,
 /// anywhere but in a home folder, a temporary folder or a mounted disk, where pkg puts nothing.
 pub fn packages_here(dir: &Path) -> bool {
+    if !cfg!(target_os = "freebsd") {
+        return false;
+    }
     let home = std::env::home_dir();
-    cfg!(target_os = "freebsd")
-        && !["/tmp", "/var/tmp", "/home", "/usr/home", "/mnt", "/media"]
-            .iter()
-            .map(Path::new)
-            .chain(home.as_deref())
-            .chain([std::env::temp_dir().as_path()])
-            .any(|p| dir.starts_with(p))
+    !["/tmp", "/var/tmp", "/home", "/usr/home", "/mnt", "/media"]
+        .iter()
+        .map(Path::new)
+        .chain(home.as_deref())
+        .chain([std::env::temp_dir().as_path()])
+        .any(|p| dir.starts_with(p))
 }
 
 /// `pkg info -q -l`'s text: the package's files.
