@@ -1084,6 +1084,8 @@ mod tests {
         assert!(v.compare.is_none());
         v.cannot_compare("nothing there".into());
         assert!(has(&screen(&mut v, 140, 40), "nothing there"));
-        std::fs::remove_dir_all(&dir).unwrap();
+        // The viewer's checks may still hold a file open, which Windows does not delete.
+        drop(v);
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }
