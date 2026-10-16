@@ -300,21 +300,11 @@ pub fn save_to(
     path: &std::path::Path,
     changes: &serde_json::Map<String, Value>,
 ) -> Result<Config, String> {
-    // One save at a time: two read-change-write rounds at once would lose one's change.
-    static SAVING: std::sync::Mutex<()> = std::sync::Mutex::new(());
-    let _one = SAVING.lock().unwrap_or_else(|e| e.into_inner());
-    // Through a link (a config kept with dotfiles) to the file itself.
-    let path = std::fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
-    let text = std::fs::read_to_string(&path).unwrap_or_default();
-    let new_text = apply(&text, changes)?;
-    let cfg = Config::parse(&new_text)?;
-    if let Some(dir) = path.parent() {
-        std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
-    }
-    let tmp = path.with_extension("toml.tmp");
-    std::fs::write(&tmp, new_text)
-        .and_then(|_| std::fs::rename(&tmp, &path))
-        .map_err(|e| format!("{}: {e}", path.display()))?;
+    let cfg = crate::config::update_config(path, |text| {
+        let new_text = apply(text, changes)?;
+        let cfg = Config::parse(&new_text)?;
+        Ok((Some(new_text), cfg))
+    })?;
     crate::i18n::set_language(crate::i18n::resolve(&cfg.language));
     Ok(cfg)
 }
@@ -936,6 +926,30 @@ mod tests {
             )
             .is_err()
         );
+    }
+
+    #[test]
+    fn settings_never_write_over_a_config_that_cannot_be_read() {
+        let dir = std::env::temp_dir().join(format!("coxswain-unreadable-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("config.toml");
+        // A comment in Latin-1: not UTF-8, so it cannot be read as text.
+        let old = b"# caf\xe9\ntheme = \"nc\"\n";
+        std::fs::write(&path, old).unwrap();
+        let mut ch = serde_json::Map::new();
+        ch.insert("show_hidden".into(), true.into());
+        assert!(save_to(&path, &ch).is_err());
+        assert_eq!(std::fs::read(&path).unwrap(), old);
+        // A missing one is written new.
+        std::fs::remove_file(&path).unwrap();
+        save_to(&path, &ch).unwrap();
+        assert!(
+            std::fs::read_to_string(&path)
+                .unwrap()
+                .contains("show_hidden = true")
+        );
+        assert!(!dir.join("config.toml.tmp").exists());
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 
     #[test]

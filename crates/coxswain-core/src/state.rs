@@ -86,12 +86,8 @@ impl AppState {
     }
 
     pub fn save_to(&self, path: &Path) -> io::Result<()> {
-        let tmp = path.with_extension("json.tmp");
         // Notes, tags, favourites and recent folders: readable by the user alone.
-        crate::fs::private(path.parent().unwrap_or(Path::new(".")), None)?;
-        std::fs::write(&tmp, serde_json::to_vec_pretty(self)?)?;
-        crate::fs::private(path.parent().unwrap_or(Path::new(".")), Some(&tmp))?;
-        std::fs::rename(tmp, path)
+        crate::fs::replace(path, &serde_json::to_vec_pretty(self)?, true)
     }
 
     pub fn load() -> AppState {

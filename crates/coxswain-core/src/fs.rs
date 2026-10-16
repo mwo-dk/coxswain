@@ -86,6 +86,33 @@ pub fn private(dir: &Path, file: Option<&Path>) -> io::Result<()> {
     Ok(())
 }
 
+/// `bytes` as the new content of `path`, through a file beside it, so a failed write never
+/// leaves a half-written `path` (and the file beside it is removed); with `own`, readable by the
+/// user alone, as `private` makes it.
+pub fn replace(path: &Path, bytes: &[u8], own: bool) -> io::Result<()> {
+    let dir = path.parent().unwrap_or(Path::new("."));
+    let tmp = match path.extension() {
+        Some(e) => path.with_extension(format!("{}.tmp", e.to_string_lossy())),
+        None => path.with_extension("tmp"),
+    };
+    let done = (|| {
+        if own {
+            private(dir, None)?;
+        } else {
+            fs::create_dir_all(dir)?;
+        }
+        fs::write(&tmp, bytes)?;
+        if own {
+            private(dir, Some(&tmp))?;
+        }
+        fs::rename(&tmp, path)
+    })();
+    if done.is_err() {
+        let _ = fs::remove_file(&tmp);
+    }
+    done
+}
+
 impl Entry {
     pub fn is_parent(&self) -> bool {
         self.name == ".."

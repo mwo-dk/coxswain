@@ -83,9 +83,7 @@ pub fn on_start() -> Result<(), String> {
     let Some((new, said)) = rewrite(&text)? else {
         return Ok(());
     };
-    let tmp = path.with_extension("toml.tmp");
-    std::fs::write(&tmp, new).and_then(|_| std::fs::rename(&tmp, &path)).map_err(|e| {
-        let _ = std::fs::remove_file(&tmp);
+    crate::fs::replace(&path, new.as_bytes(), false).map_err(|e| {
         crate::t!("notice.migrate_failed", "path" => path.display(), "why" => e, "changes" => said.join(", "))
     })?;
     let mut st = crate::state::AppState::load();
