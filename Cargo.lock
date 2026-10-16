@@ -960,10 +960,8 @@ dependencies = [
  "gtk",
  "kamadak-exif",
  "lofty",
- "mail-parser",
  "notify",
  "plist",
- "regex",
  "rusqlite",
  "serde",
  "serde_json",
@@ -972,7 +970,6 @@ dependencies = [
  "tauri-build",
  "toml_edit 0.25.15+spec-1.1.0",
  "x509-parser",
- "zip",
 ]
 
 [[package]]

@@ -17,22 +17,7 @@ const MAX_RANGE: u64 = 1000 * 1024;
 /// `http://asset.localhost/C%3A%2Fa.pdf`). Only an absolute path without `..`.
 fn path_of(req: &Request<Vec<u8>>) -> Option<PathBuf> {
     let raw = req.uri().path().strip_prefix('/')?.as_bytes();
-    let mut out = Vec::with_capacity(raw.len());
-    let mut i = 0;
-    while i < raw.len() {
-        let hex = |b: u8| (b as char).to_digit(16);
-        match (raw[i], raw.get(i + 1).copied().and_then(hex), raw.get(i + 2).copied().and_then(hex)) {
-            (b'%', Some(h), Some(l)) => {
-                out.push((h * 16 + l) as u8);
-                i += 3;
-            }
-            (b, ..) => {
-                out.push(b);
-                i += 1;
-            }
-        }
-    }
-    let path = PathBuf::from(String::from_utf8(out).ok()?);
+    let path = PathBuf::from(String::from_utf8(coxswain_core::fs::percent_decode(raw)).ok()?);
     (path.is_absolute() && !path.components().any(|c| c == Component::ParentDir)).then_some(path)
 }
 

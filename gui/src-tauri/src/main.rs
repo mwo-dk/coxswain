@@ -1515,21 +1515,7 @@ fn to_clip(p: &Path) -> String {
 
 fn from_clip(s: &str) -> PathBuf {
     let Some(rest) = s.strip_prefix("file://") else { return PathBuf::from(s) };
-    let (b, mut out, mut i) = (rest.as_bytes(), vec![], 0);
-    while i < b.len() {
-        let hex = (b[i] == b'%').then(|| std::str::from_utf8(b.get(i + 1..i + 3)?).ok()).flatten();
-        match hex.and_then(|h| u8::from_str_radix(h, 16).ok()) {
-            Some(v) => {
-                out.push(v);
-                i += 3;
-            }
-            None => {
-                out.push(b[i]);
-                i += 1;
-            }
-        }
-    }
-    PathBuf::from(String::from_utf8_lossy(&out).into_owned())
+    PathBuf::from(String::from_utf8_lossy(&coxswain_core::fs::percent_decode(rest.as_bytes())).into_owned())
 }
 
 fn os_clipboard() -> Option<clipboard_rs::ClipboardContext> {
