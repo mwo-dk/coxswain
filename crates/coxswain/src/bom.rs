@@ -30,15 +30,24 @@ const KINDS: [NodeKind; 5] = [NodeKind::Algorithm, NodeKind::Certificate, NodeKi
 /// Children a node shows before a "more" row.
 const PAGE: usize = 500;
 
-/// Ratings keep their colours in every theme, and the status word says it too.
-fn color(s: Status) -> Color {
+/// Ratings keep their colours in every theme, and the status word says it too; `light`:
+/// darker, on a light dialog, so that they can be read there.
+pub(crate) fn rated(c: coxswain_core::bom::status::Color, light: bool) -> Color {
     use coxswain_core::bom::status::Color as C;
-    match s.color() {
-        C::Green => Color::Rgb(0x43, 0xa0, 0x47),
-        C::Yellow => Color::Rgb(0xf9, 0xa8, 0x25),
-        C::Red => Color::Rgb(0xe5, 0x39, 0x35),
-        C::Grey | C::Muted => Color::Rgb(0x9e, 0x9e, 0x9e),
+    match (c, light) {
+        (C::Green, false) => Color::Rgb(0x43, 0xa0, 0x47),
+        (C::Yellow, false) => Color::Rgb(0xf9, 0xa8, 0x25),
+        (C::Red, false) => Color::Rgb(0xe5, 0x39, 0x35),
+        (C::Grey | C::Muted, false) => Color::Rgb(0x9e, 0x9e, 0x9e),
+        (C::Green, true) => Color::Rgb(0x1b, 0x5e, 0x20),
+        (C::Yellow, true) => Color::Rgb(0x7a, 0x4f, 0x00),
+        (C::Red, true) => Color::Rgb(0xb7, 0x1c, 0x1c),
+        (C::Grey | C::Muted, true) => Color::Rgb(0x42, 0x42, 0x42),
     }
+}
+
+fn color(s: Status) -> Color {
+    rated(s.color(), false)
 }
 
 /// Whether the dialog's background is light, as the Norton theme's grey.
@@ -54,15 +63,7 @@ pub(crate) fn is_light(theme: &Theme) -> bool {
 
 /// A status word: the rating's colour, darker on a light dialog so that it can be read there.
 fn word(s: Status, theme: &Theme) -> Style {
-    use coxswain_core::bom::status::Color as C;
-    let c = match (s.color(), is_light(theme)) {
-        (C::Green, true) => Color::Rgb(0x1b, 0x5e, 0x20),
-        (C::Yellow, true) => Color::Rgb(0x7a, 0x4f, 0x00),
-        (C::Red, true) => Color::Rgb(0xb7, 0x1c, 0x1c),
-        (C::Grey | C::Muted, true) => Color::Rgb(0x42, 0x42, 0x42),
-        _ => color(s),
-    };
-    Style::default().fg(c)
+    Style::default().fg(rated(s.color(), is_light(theme)))
 }
 
 /// Secondary text: the theme's colour for hidden files, on the dialog's own background (the
@@ -810,7 +811,8 @@ impl Viewer {
                 }
             }
         }
-        advice.dedup();
+        let mut seen = std::collections::HashSet::new();
+        advice.retain(|a| seen.insert(a.clone()));
         if !advice.is_empty() {
             out.push(Line::styled(t!("bom.advice"), dim));
             out.extend(advice.into_iter().map(|x| Line::from(format!("  • {x}"))));

@@ -316,6 +316,11 @@ pub struct MenuItem {
     pub group: Option<String>,
 }
 
+/// The branch an entry of the branches listing names (`branches::entry_name`'s inverse).
+fn branch_of(entry: &str) -> String {
+    entry.trim_start_matches("* ").split(' ').next().unwrap_or_default().replace('∕', "/")
+}
+
 /// The menu's items whose label holds the filter, as indexes: the keys and the drawing agree.
 pub(crate) fn menu_visible(items: &[MenuItem], filter: &str) -> Vec<usize> {
     let f = filter.to_lowercase();
@@ -1250,11 +1255,7 @@ impl App {
         }
         // A file of a package: to its folder, the cursor on it.
         if coxswain_core::bsd::split(&self.panel().dir).is_some() {
-            if let (Some(dir), Some(name)) = (e.path.parent(), e.path.file_name()) {
-                self.cd(self.active, dir.to_path_buf());
-                self.panel_mut().select_name(&name.to_string_lossy());
-            }
-            return;
+            return self.reveal(&e.path.clone());
         }
         // A file in a snapshot: what changed in it since, in the viewer.
         if coxswain_core::zfs::in_snapshot(&e.path).is_some() {
@@ -1394,7 +1395,7 @@ impl App {
         let Some(e) = p.current().filter(|e| in_list && !e.is_parent()) else {
             return self.status = Some(t!("branches.switch_where", "key" => self.key_label(Action::Branches)));
         };
-        let branch = e.name.trim_start_matches("* ").split(' ').next().unwrap_or_default().replace('∕', "/");
+        let branch = branch_of(&e.name);
         let repo = p.dir.parent().and_then(Path::file_name).unwrap_or_default().to_string_lossy().into_owned();
         let text = t!("branches.switch_text", "branch" => branch, "repo" => repo);
         self.dialog = Some(Dialog::Switch { title: t!("action.switch_branch"), text, dir: p.dir.clone(), entry: e.name.clone() });
@@ -1410,7 +1411,7 @@ impl App {
         }
         let from = p.current().filter(|e| in_list && !e.is_parent()).map(|e| e.name.clone());
         let label = match &from {
-            Some(e) => t!("branches.new_from", "branch" => e.trim_start_matches("* ").split(' ').next().unwrap_or_default().replace('∕', "/")),
+            Some(e) => t!("branches.new_from", "branch" => branch_of(e)),
             None => t!("branches.new_here"),
         };
         self.input(&t!("action.new_branch"), label, String::new(), Prompt::NewBranch(p.dir.clone(), from));
@@ -1834,6 +1835,11 @@ impl App {
         if history::is_history(path) {
             return self.cd(self.active, path.to_path_buf());
         }
+        self.reveal(path);
+    }
+
+    /// To a file's folder, the cursor on it.
+    fn reveal(&mut self, path: &Path) {
         if let (Some(dir), Some(name)) = (path.parent(), path.file_name()) {
             self.cd(self.active, dir.to_path_buf());
             self.panel_mut().select_name(&name.to_string_lossy());
@@ -1960,7 +1966,7 @@ impl App {
             Dialog::Switch { title, text, dir, entry } => match (key.code, ch) {
                 (KeyCode::Enter, _) | (_, Some('y' | 'Y')) => {
                     let r = coxswain_core::branches::switch(&dir, &entry);
-                    let branch = entry.trim_start_matches("* ").split(' ').next().unwrap_or_default().replace('∕', "/");
+                    let branch = branch_of(&entry);
                     self.git_said(t!("error.switch", "branch" => branch), r);
                 }
                 _ if esc || matches!(ch, Some('n' | 'N')) => {}
@@ -2175,10 +2181,7 @@ impl App {
                     self.dialog = Some(Dialog::Bom(v));
                 }
                 bom::Outcome::Reveal(file) => {
-                    if let (Some(dir), Some(name)) = (file.parent(), file.file_name()) {
-                        self.cd(self.active, dir.to_path_buf());
-                        self.panel_mut().select_name(&name.to_string_lossy());
-                    }
+                    self.reveal(&file);
                 }
                 bom::Outcome::Compare => {
                     match self.panels[self.active ^ 1].current().filter(|e| !e.is_dir && e.path != v.path) {
@@ -2196,10 +2199,7 @@ impl App {
                     self.dialog = Some(Dialog::Provenance(v));
                 }
                 provenance::Outcome::Reveal(file) => {
-                    if let (Some(dir), Some(name)) = (file.parent(), file.file_name()) {
-                        self.cd(self.active, dir.to_path_buf());
-                        self.panel_mut().select_name(&name.to_string_lossy());
-                    }
+                    self.reveal(&file);
                 }
                 provenance::Outcome::Cd(dir) => self.cd(self.active, dir),
                 provenance::Outcome::Compare => {
@@ -2624,13 +2624,16 @@ fn index_service(on: Option<&str>) {
     Client::start(&Config::load().map(|c| c.search).unwrap_or_default()).restart();
 }
 
+/// A command line option that could not be done: why, and the exit code.
+fn fail(e: impl std::fmt::Display, code: i32) -> ! {
+    eprintln!("coxswain: {e}");
+    std::process::exit(code)
+}
+
 /// `--meaning on|off|delete`: search by meaning, as Settings in the desktop app does it.
 fn meaning(what: Option<&str>, rest: &[String]) {
     use coxswain_core::meaning;
-    let fail = |e: String| -> ! {
-        eprintln!("coxswain: {e}");
-        std::process::exit(1)
-    };
+    let fail = |e: String| -> ! { fail(e, 1) };
     let save = |key: &str, value: &str| drop(Config::save_value(&["search", key], value.into()).unwrap_or_else(|e| fail(e)));
     // A download, with how far it is on one line.
     let download = |get: &dyn Fn(&meaning::Progress) -> std::io::Result<()>| {
@@ -2860,10 +2863,6 @@ fn check_args(args: &[String], cwd: &Path) -> Result<(), String> {
 /// first when it is in use: what comes instead is said), or all not in use.
 fn models(rest: &[String]) {
     use coxswain_core::models::{self, For};
-    let fail = |e: String, code: i32| -> ! {
-        eprintln!("coxswain: {e}");
-        std::process::exit(code)
-    };
     let cfg = Config::load().unwrap_or_else(|e| fail(e, 2));
     let client = Client::start(&cfg.search);
     let entries = models::list(&cfg.search, &client.loaded());
@@ -2920,10 +2919,6 @@ fn models(rest: &[String]) {
 /// it), or everything that is built again by itself.
 fn disk(rest: &[String]) {
     use coxswain_core::disk::{self, Kind};
-    let fail = |e: String, code: i32| -> ! {
-        eprintln!("coxswain: {e}");
-        std::process::exit(code)
-    };
     let cfg = Config::load().unwrap_or_else(|e| fail(e, 2));
     let client = Client::start(&cfg.search);
     let items = disk::items(&cfg, &client.loaded(), true);
@@ -3000,7 +2995,6 @@ fn main() {
         }
         Some("--languages") => return languages(),
         Some("--hints") if args.get(1).map(String::as_str) == Some("reset") => {
-            coxswain_core::i18n::set_language(coxswain_core::i18n::resolve(&Config::load().map(|c| c.language).unwrap_or_default()));
             return match coxswain_core::menu::reset() {
                 Ok(()) => println!("{}", t!("settings.hints_reset_done")),
                 Err(e) => {
@@ -3011,10 +3005,7 @@ fn main() {
         }
         Some("--whats-new") => return whats_new(args.get(1).map(String::as_str) == Some("all")),
         Some("--index-service") => return index_service(args.get(1).map(String::as_str)),
-        Some("--setup-search") => {
-            coxswain_core::i18n::set_language(coxswain_core::i18n::resolve(&Config::load().map(|c| c.language).unwrap_or_default()));
-            return setup::run();
-        }
+        Some("--setup-search") => return setup::run(),
         Some("--meaning") => return meaning(args.get(1).map(String::as_str), &args[2.min(args.len())..]),
         Some("--models") => return models(&args[1..]),
         Some("--disk") => return disk(&args[1..]),

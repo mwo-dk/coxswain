@@ -21,7 +21,10 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::Arc;
 
-use crate::bom::{faint, is_light};
+use crate::bom::{faint, is_light, rated};
+/// Fixed colours, the BOM viewer's ratings', with a glyph beside each so colour is never the
+/// only signal.
+use coxswain_core::bom::status::Color as Tone;
 use crate::ui::{date, fit, sty};
 
 /// Inputs shown before a "more" row.
@@ -52,25 +55,8 @@ enum Col {
     Out,
 }
 
-/// Fixed colours, as the BOM viewer's ratings, with a glyph beside each so colour is never the
-/// only signal; darker on a light dialog.
-#[derive(Clone, Copy)]
-enum Tone {
-    Green,
-    Red,
-    Grey,
-}
-
 fn tone(t: Tone, theme: &Theme) -> Style {
-    let light = is_light(theme);
-    Style::default().fg(match (t, light) {
-        (Tone::Green, false) => Color::Rgb(0x43, 0xa0, 0x47),
-        (Tone::Red, false) => Color::Rgb(0xe5, 0x39, 0x35),
-        (Tone::Grey, false) => Color::Rgb(0x9e, 0x9e, 0x9e),
-        (Tone::Green, true) => Color::Rgb(0x1b, 0x5e, 0x20),
-        (Tone::Red, true) => Color::Rgb(0xb7, 0x1c, 0x1c),
-        (Tone::Grey, true) => Color::Rgb(0x42, 0x42, 0x42),
-    })
+    Style::default().fg(rated(t, is_light(theme)))
 }
 
 enum Msg {
