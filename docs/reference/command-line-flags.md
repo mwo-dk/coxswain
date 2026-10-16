@@ -91,7 +91,7 @@ coxswain [LEFT] [RIGHT]      a folder, or a file to open its folder with the cur
 | `LEFT`, `RIGHT` | The folders of the left and right panel. A relative path is from the current folder, `~` is home. A file opens its folder with the cursor on it. Without them: the current folder in both |
 | `--settings[=AREA\|OPTION] [LEFT] [RIGHT]` | Starts the app with [Settings](../customise/settings.md#in-the-terminal-app) open: at Overview, at an area (`overview`, `search`, `previews`, `looks`, `behaviour`, `keys`, `privacy`) or with the cursor on an option (`show_hidden`, `search_meaning`, `ask_model`, `language`, `max_results` …). **Esc** closes it to the panels, which show `LEFT` and `RIGHT` as without the flag. A name it does not know, such as 1.x's `meaning`, `ask`, `news` or `cloud`, opens Overview |
 | `--help`, `-h` | Prints the text above |
-| `--version`, `-V` | Prints `coxswain 1.20.0` |
+| `--version`, `-V` | Prints `coxswain X.Y.Z` |
 | `--dump-config` | Prints every option with its default, as TOML, including every built-in theme and the full `[keys]` table. `coxswain --dump-config > ~/.config/coxswain/config.toml` gives you the full list to edit |
 | `--config-path` | Prints where `config.toml` is read from |
 | `--paths` | Prints where everything is kept, one line each: `config`, `state`, `cache`, `name index`, `search store`, `models` (the folder of the built-in models), `previews`, `archive looks`. See [Where things are kept](where-things-are-kept.md) |
@@ -247,8 +247,8 @@ Every other flag changes nothing. See [Configuration: every key](configuration.m
 
 #### How do I find out which version I have?
 
-`coxswain --version` prints `coxswain 1.20.0`. In the desktop app, the title of *Help* (**F1**)
-and the window title show it: `Coxswain 1.20.0`.
+`coxswain --version` prints `coxswain X.Y.Z`. In the desktop app, the title of *Help* (**F1**)
+and the window title show it: `Coxswain X.Y.Z`.
 
 #### `coxswain-gui --help` opened a window.
 

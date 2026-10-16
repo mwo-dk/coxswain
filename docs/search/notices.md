@@ -20,7 +20,7 @@ a time in its status line and has `coxswain --whats-new`. Nothing is shown twice
 
 ## How to use it
 
-**The title** needs nothing: it reads `Coxswain 1.41.0`, the version. The desktop app sets it
+**The title** needs nothing: it reads `Coxswain X.Y.Z`, the version. The desktop app sets it
 on its window, and on Linux on the title bar GTK draws too (which otherwise kept the title it
 was made with). The terminal app sets it as the terminal's title. What can be searched, which
 the title also said before 1.41.0, is now the first footer line of
@@ -41,7 +41,7 @@ the title also said before 1.41.0, is now the first footer line of
 5. **Esc** or **Close** closes Settings.
 
 **What's new, in the terminal app:** after an upgrade the status line says once
-`Coxswain 1.29.0 is installed: coxswain --whats-new says what it brought`. Run
+`Coxswain X.Y.Z is installed: coxswain --whats-new says what it brought`. Run
 `coxswain --whats-new` in a shell.
 
 | Key, click or command | Desktop app | Terminal app |
@@ -81,7 +81,7 @@ sight: the count on the button drops, and the *new* marks go next time.
 | *Search inside files has stopped: …* | A scan of the files failed; nothing further is read, and no vectors come, until one works. Dismissed, it comes back with another reason | *Settings → Finding files* |
 | *Start with my session is on, but macOS did not start the search helper, so Coxswain started it until you log out. …* (on Linux: *systemd*) | The system was to start the registered helper and did not within eight seconds, so this app started one. The text says where to allow it (on a Mac: *System Settings → General → Login Items & Extensions → Coxswain → Allow in the Background*) and how to see why (`launchctl print gui/$(id -u)/dk.mwo.coxswain.index`, `helper.log`; `systemctl --user status coxswain-index`) | *Settings → Finding files* ([The search helper](helper.md#start-with-my-session-is-on-but-background-reading-does-not-start-why)) |
 | *Search by meaning cannot read what files are about: …* | The server did not answer, or refused (a model that is not pulled) | *Settings → Finding files → Details → Meaning* ([servers](servers.md)) |
-| *Coxswain 1.29.0 is installed: coxswain --whats-new says what it brought* | Terminal app only: the first start after an upgrade (not the first start ever). The desktop app counts the version on its button instead | – |
+| *Coxswain X.Y.Z is installed: coxswain --whats-new says what it brought* | Terminal app only: the first start after an upgrade (not the first start ever). The desktop app counts the version on its button instead | – |
 | *New: Ctrl+G on a file or folder in a git repository shows its history, commit by commit* | A folder of a git repository has been opened (the key is yours from `[keys]`) | Nothing: it only tells, so it has **Dismiss** only ([Git history](../panels/git-history.md)) |
 | *New: search by meaning finds files about your words, in any language. Turn it on* | Text search is on and has files, and search by meaning is off. Terminal app: *…in any language: coxswain --meaning on* | *Settings → Finding files → Details → Meaning* |
 | *Search by meaning now uses your Mac's GPU (Metal): about 6× faster* | The built-in model runs on a Mac's GPU; the factor is what the probe measured when the helper started | *Settings → Finding files → Details → Meaning* ([on a Mac's GPU](meaning.md#on-a-macs-gpu)) |

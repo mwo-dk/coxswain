@@ -25,7 +25,7 @@ with the command that upgrades your copy. Nothing is downloaded or installed by 
 3. Run the command it names in a shell, or click the button for the release page.
 4. After the upgrade, the desktop app's **⚙ Settings** button shows a count: click it for
    *Settings → Overview → What's new*, with the new version's changes marked *new*. The terminal app says
-   once `Coxswain 1.21.0 is installed: coxswain --whats-new says what it brought`
+   once `Coxswain X.Y.Z is installed: coxswain --whats-new says what it brought`
    ([Notices and what's new](../search/notices.md)).
 
 To turn it off: Settings (**Ctrl+,**) → *Privacy and updates* → untick *Check for a new
@@ -34,7 +34,7 @@ version*, or `check_updates = false` in `config.toml`.
 ## What it does
 
 - It asks `https://api.github.com/repos/mwo-dk/coxswain/releases/latest` for the latest
-  release's version number, with `User-Agent: coxswain/1.20.0`. Nothing else is sent.
+  release's version number, with `User-Agent: coxswain/X.Y.Z`. Nothing else is sent.
 - It waits at most 5 seconds. Offline, or with GitHub unreachable, it simply finds nothing and
   says nothing.
 - It uses the system's certificate store, so it works behind a company proxy that inspects TLS.
@@ -49,11 +49,11 @@ version*, or `check_updates = false` in `config.toml`.
 
 | | Desktop app | Terminal app |
 |---|---|---|
-| Newer version, installed by a package manager | A button at the right of the command line: *Coxswain 1.21.0 is available: brew upgrade coxswain*. Its tooltip: *Upgrade with: brew upgrade coxswain. Click for the release notes.* | The status line: `Coxswain 1.21.0 is available: brew upgrade coxswain` |
-| Newer version, installed from a download | *Coxswain 1.21.0 is available*, tooltip *Open the releases page* | `Coxswain 1.21.0 is available: https://github.com/mwo-dk/coxswain/releases/latest` |
+| Newer version, installed by a package manager | A button at the right of the command line: *Coxswain X.Y.Z is available: brew upgrade coxswain*. Its tooltip: *Upgrade with: brew upgrade coxswain. Click for the release notes.* | The status line: `Coxswain X.Y.Z is available: brew upgrade coxswain` |
+| Newer version, installed from a download | *Coxswain X.Y.Z is available*, tooltip *Open the releases page* | `Coxswain X.Y.Z is available: https://github.com/mwo-dk/coxswain/releases/latest` |
 | Click | Opens the release page in your browser | – |
 | How long | Until you update; it has no `×` | Until the status line shows something else |
-| After updating | A count on **⚙ Settings**; a click opens *Settings → Overview → What's new*, where the new version's changes are marked *new* | Once, in the status line: `Coxswain 1.21.0 is installed: coxswain --whats-new says what it brought` |
+| After updating | A count on **⚙ Settings**; a click opens *Settings → Overview → What's new*, where the new version's changes are marked *new* | Once, in the status line: `Coxswain X.Y.Z is installed: coxswain --whats-new says what it brought` |
 
 While the update button shows, the desktop app holds back a problem with search in the status
 line ([Notices and what's new](../search/notices.md)).
@@ -117,7 +117,7 @@ check runs at most once a day, so a release out an hour ago may show tomorrow.
 
 #### What does the check send?
 
-Only the request for the latest version, with `User-Agent: coxswain/1.20.0`. See
+Only the request for the latest version, with `User-Agent: coxswain/X.Y.Z`. See
 [Privacy](privacy.md#what-can-leave-it).
 
 #### How do I get rid of the update button?

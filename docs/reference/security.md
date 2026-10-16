@@ -121,7 +121,7 @@ Every terminal build on the [releases page](https://github.com/mwo-dk/coxswain/r
 with a `.sha256` file:
 
 ```sh
-sha256sum -c coxswain-terminal-v1.23.1-x86_64-unknown-linux-musl.tar.gz.sha256
+sha256sum -c coxswain-terminal-vX.Y.Z-x86_64-unknown-linux-musl.tar.gz.sha256
 ```
 
 Since 1.27.4 every release also carries one `SHA256SUMS` over all its downloads, the desktop

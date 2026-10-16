@@ -113,8 +113,8 @@ action's name. The **F9** list and **F1** help leave them out.
 | Copying an install line | **Space** on the row in Settings: to the terminal's clipboard with OSC 52 | A **Copy** button |
 | Notices | Shown once in the status line, then counted as seen; the ones not shown yet are listed in *Settings → Overview*, where **Enter** opens the area that does it | Counted on **⚙ Settings** and listed under *Settings → Overview → What's new* until dismissed or acted on; a problem with search is also a button with `×` in the status line |
 | What a version brought | `coxswain --whats-new`, pointed to once after an upgrade, and *Settings → Overview* | *Settings → Overview → What's new* |
-| Update notice | `Coxswain 1.21.0 is available: brew upgrade coxswain` in the status line, checked at start | A button that opens the release page, checked every hour |
-| Window title | Sets the terminal's title: `Coxswain 1.41.0` | The window's title |
+| Update notice | `Coxswain X.Y.Z is available: brew upgrade coxswain` in the status line, checked at start | A button that opens the release page, checked every hour |
+| Window title | Sets the terminal's title: `Coxswain X.Y.Z` | The window's title |
 | Hebrew | Letters reversed in terminals without bidi support | Mirrored layout |
 
 ## Archives in the terminal app

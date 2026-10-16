@@ -27,7 +27,7 @@ accepted, the flake is the way to get Coxswain with Nix.
 ```sh
 nix run github:mwo-dk/coxswain                    # the terminal app
 nix run github:mwo-dk/coxswain#coxswain-gui       # the desktop app (Linux)
-nix run github:mwo-dk/coxswain/v2.1.0             # a given release
+nix run github:mwo-dk/coxswain/vX.Y.Z             # a given release
 ```
 
 Arguments go after `--`: `nix run github:mwo-dk/coxswain -- ~/src ~/Downloads` opens those two

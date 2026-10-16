@@ -72,7 +72,7 @@ script or a picture on the web gets nothing from the web ([HTML pages](../previe
 
 | When | What goes where | Who starts it | To stop it |
 |---|---|---|---|
-| **Update check**, once a day | A request to `api.github.com` for the latest release's version number, with `User-Agent: coxswain/1.20.0` | Both apps, by themselves | `check_updates = false`, or untick *Settings → Privacy and updates → Check for a new version* ([Update checks](updates.md)) |
+| **Update check**, once a day | A request to `api.github.com` for the latest release's version number, with `User-Agent: coxswain/X.Y.Z` | Both apps, by themselves | `check_updates = false`, or untick *Settings → Privacy and updates → Check for a new version* ([Update checks](updates.md)) |
 | **Model download**, once | The three files of multilingual-e5-small (about 488 MB) from `huggingface.co` | You: *Download the model* in Settings, or `coxswain --meaning on` | Do not turn search by meaning on, or use a server |
 | **Search by meaning on another machine** | The text of your files (all of it, up to 256 passages each, with the file's name and two folders) and everything you type in Find while search by meaning is on, to that server | You: a *Server* that is not on this machine | Use the built-in model or a server on `localhost`. Settings warns: *The text of your files, with their names and folders, is sent to my-server to be read for meaning.* |
 | **Chat model download**, once | The Qwen3 model and its tokenizer (1.0 GB, or 2.3 GB for the 4B one) from `huggingface.co` | You: *Download … and use* in Settings or the guide, or `coxswain --meaning ask builtin:qwen3-1.7b` | Use a chat model on a server, or none |
@@ -86,7 +86,7 @@ On a machine with search by meaning on the built-in model, Coxswain also asks
 never leaves the machine.
 
 Every request Coxswain itself sends (the update check, a download, a server) names the app as
-`User-Agent: coxswain/1.20.0` (its version), and no more about you or the machine.
+`User-Agent: coxswain/X.Y.Z` (its version), and no more about you or the machine.
 
 Nothing else: no crash reports, no usage counts, no fonts or libraries fetched at run time.
 Every preview library ships inside the app, and draw.io's viewer runs offline.
@@ -160,7 +160,7 @@ Tracking pixels and web fonts on the web are blocked, and a link in it goes nowh
 
 #### Does the update check send anything about me?
 
-Only what any web request sends: your IP address to GitHub, and `User-Agent: coxswain/1.20.0`.
+Only what any web request sends: your IP address to GitHub, and `User-Agent: coxswain/X.Y.Z`.
 No machine ID, no file names, no settings.
 
 #### Does Coxswain talk to Ollama without asking?

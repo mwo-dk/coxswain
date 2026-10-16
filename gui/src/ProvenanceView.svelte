@@ -1,6 +1,6 @@
 <script>
   // Build provenance as inputs → build → outputs, with the signer and the checks against the
-  // disk (docs/design/provenance-viewer.md). In the preview pane, and full-window (`full`) from
+  // disk (design/provenance-viewer.md). In the preview pane, and full-window (`full`) from
   // its ⤢ button. The Rust side (provenance.rs) reads and checks; nothing is verified. Every
   // string from the file is shown as text, never HTML.
   import { onDestroy, untrack } from "svelte";

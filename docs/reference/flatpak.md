@@ -112,7 +112,7 @@ paths the running app uses.
 |---|---|---|
 | WebKitGTK, GStreamer | From the GNOME runtime, updated by Flathub | From your distribution (the AppImage brings its own) |
 | Updates | `flatpak update`, or the software centre | The package manager, or a new download |
-| The update notice | *Coxswain 2.3.0 is available: flatpak update io.github.mwo_dk.Coxswain* | Points to the releases page |
+| The update notice | *Coxswain X.Y.Z is available: flatpak update io.github.mwo_dk.Coxswain* | Points to the releases page |
 | Start with my session | An XDG autostart entry | A systemd user service |
 | Config and index | Under `~/.var/app/io.github.mwo_dk.Coxswain/` | `~/.config/coxswain/`, `~/.cache/coxswain/` |
 | Preview programs | The host's, from `/usr/bin` and `/usr/local/bin` | Anything on `PATH` |
