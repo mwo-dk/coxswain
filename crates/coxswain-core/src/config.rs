@@ -348,6 +348,9 @@ impl Default for Theme {
     }
 }
 
+/// A built-in theme: its name, its group (a `theme.group.*` key) and how it is made.
+pub type BuiltinTheme = (&'static str, &'static str, fn() -> Theme);
+
 impl Theme {
     /// Norton Commander 5: cyan on blue, black-on-cyan cursor, yellow marks. Exact CGA RGB, so
     /// the terminal's own palette (often a pale "blue") does not wash it out.
@@ -1133,43 +1136,52 @@ impl Theme {
         }
     }
 
-    /// Every built-in theme: (name, theme).
+    /// Every built-in theme with its group (a `theme.group.*` key), in the order both apps
+    /// list them: a group's themes stand together.
+    pub const BUILTIN: &[BuiltinTheme] = &[
+        ("cyber", "theme.group.coxswain", Theme::cyber),
+        ("dark", "theme.group.coxswain", Theme::dark),
+        ("light", "theme.group.coxswain", Theme::light),
+        ("midnight", "theme.group.coxswain", Theme::midnight),
+        ("nord", "theme.group.coxswain", Theme::nord),
+        ("amber", "theme.group.coxswain", Theme::amber),
+        ("paper", "theme.group.coxswain", Theme::paper),
+        ("nc", "theme.group.dos", Theme::nc),
+        ("mc", "theme.group.dos", Theme::mc),
+        ("xtree", "theme.group.dos", Theme::xtree),
+        ("dosshell", "theme.group.dos", Theme::dosshell),
+        ("win31", "theme.group.windows", Theme::win31),
+        ("win95", "theme.group.windows", Theme::win95),
+        ("winxp", "theme.group.windows", Theme::winxp),
+        ("win7", "theme.group.windows", Theme::win7),
+        ("win10", "theme.group.windows", Theme::win10),
+        ("win11", "theme.group.windows", Theme::win11),
+        ("win11-dark", "theme.group.windows", Theme::win11_dark),
+        ("system7", "theme.group.mac", Theme::system7),
+        ("platinum", "theme.group.mac", Theme::platinum),
+        ("aqua", "theme.group.mac", Theme::aqua),
+        ("macos", "theme.group.mac", Theme::macos),
+        ("macos-dark", "theme.group.mac", Theme::macos_dark),
+        ("next", "theme.group.desktops", Theme::next),
+        ("beos", "theme.group.desktops", Theme::beos),
+        ("os2", "theme.group.desktops", Theme::os2),
+        ("workbench", "theme.group.desktops", Theme::workbench),
+        ("atarist", "theme.group.desktops", Theme::atarist),
+        ("c64", "theme.group.home", Theme::c64),
+        ("spectrum", "theme.group.home", Theme::spectrum),
+        ("cpc", "theme.group.home", Theme::cpc),
+        ("msx", "theme.group.home", Theme::msx),
+        ("bbc", "theme.group.home", Theme::bbc),
+    ];
+
+    /// Every built-in theme: (name, theme), in the order both apps list them.
     pub fn builtin() -> Vec<(&'static str, Theme)> {
-        vec![
-            ("cyber", Theme::cyber()),
-            ("amber", Theme::amber()),
-            ("paper", Theme::paper()),
-            ("dark", Theme::dark()),
-            ("light", Theme::light()),
-            ("nord", Theme::nord()),
-            ("midnight", Theme::midnight()),
-            ("nc", Theme::nc()),
-            ("xtree", Theme::xtree()),
-            ("dosshell", Theme::dosshell()),
-            ("mc", Theme::mc()),
-            ("c64", Theme::c64()),
-            ("spectrum", Theme::spectrum()),
-            ("cpc", Theme::cpc()),
-            ("msx", Theme::msx()),
-            ("bbc", Theme::bbc()),
-            ("atarist", Theme::atarist()),
-            ("workbench", Theme::workbench()),
-            ("win31", Theme::win31()),
-            ("win95", Theme::win95()),
-            ("winxp", Theme::winxp()),
-            ("win7", Theme::win7()),
-            ("win10", Theme::win10()),
-            ("win11", Theme::win11()),
-            ("win11-dark", Theme::win11_dark()),
-            ("system7", Theme::system7()),
-            ("platinum", Theme::platinum()),
-            ("aqua", Theme::aqua()),
-            ("macos", Theme::macos()),
-            ("macos-dark", Theme::macos_dark()),
-            ("next", Theme::next()),
-            ("beos", Theme::beos()),
-            ("os2", Theme::os2()),
-        ]
+        Self::BUILTIN.iter().map(|(n, _, f)| (*n, f())).collect()
+    }
+
+    /// The group a theme is listed under: a `theme.group.*` key; *Your own* for one not built in.
+    pub fn group(name: &str) -> &'static str {
+        Self::BUILTIN.iter().find(|(n, ..)| *n == name).map_or("theme.group.own", |(_, g, _)| g)
     }
 
     pub fn from_palette(p: &Palette) -> Self {
@@ -2003,6 +2015,29 @@ mod tests {
         assert_eq!("Ctrl+F".parse::<Key>().unwrap(), Key::new(KeyCode::Char('f'), true, false, false));
         assert!("Ctrl+Shift+F".parse::<Key>().unwrap().shift);
         assert!("Ctrl+Nope".parse::<Key>().is_err());
+    }
+
+    #[test]
+    fn config_every_theme_is_in_one_group() {
+        let reference = crate::i18n::catalogue(crate::i18n::REFERENCE);
+        // Every `theme.<name>` text is a built-in theme, listed once.
+        let mut named: Vec<&str> = reference.keys().filter_map(|k| k.strip_prefix("theme.")).filter(|k| !k.starts_with("group.")).collect();
+        let mut listed: Vec<&str> = Theme::BUILTIN.iter().map(|(n, ..)| *n).collect();
+        named.sort_unstable();
+        listed.sort_unstable();
+        assert_eq!(named, listed);
+        let mut seen: Vec<&str> = vec![];
+        for &(name, group, _) in Theme::BUILTIN {
+            assert!(reference.contains_key(group), "{name}: no text for {group}");
+            // A group's themes stand together.
+            if seen.last() != Some(&group) {
+                assert!(!seen.contains(&group), "{name} is apart from its group");
+                seen.push(group);
+            }
+            assert_eq!(Theme::group(name), group);
+        }
+        assert!(reference.contains_key("theme.group.own"));
+        assert_eq!(Theme::group("mine"), "theme.group.own");
     }
 
     #[test]

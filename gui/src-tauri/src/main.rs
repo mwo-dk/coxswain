@@ -130,6 +130,8 @@ struct UiConfig {
     crt: BTreeMap<String, bool>,
     /// The built-in themes' names, in the order Settings shows them.
     builtin_themes: Vec<&'static str>,
+    /// Each built-in theme's group, a `theme.group.*` key, by name.
+    theme_groups: BTreeMap<&'static str, &'static str>,
     glyphs: Glyphs,
     show_hidden: bool,
     folder_sizes: bool,
@@ -215,7 +217,8 @@ fn get_config(ctx: tauri::State<Ctx>) -> Res<UiConfig> {
         themes,
         looks: cfg.themes.iter().map(|(name, t)| (name.clone(), t.look.clone())).collect(),
         crt: cfg.themes.iter().map(|(name, t)| (name.clone(), t.crt)).collect(),
-        builtin_themes: coxswain_core::config::Theme::builtin().into_iter().map(|(name, _)| name).collect(),
+        builtin_themes: coxswain_core::config::Theme::BUILTIN.iter().map(|(name, ..)| *name).collect(),
+        theme_groups: coxswain_core::config::Theme::BUILTIN.iter().map(|(name, group, _)| (*name, *group)).collect(),
         glyphs: cfg.glyphs(),
         show_hidden: cfg.show_hidden,
         folder_sizes: cfg.folder_sizes,

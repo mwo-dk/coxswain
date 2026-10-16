@@ -364,7 +364,15 @@
         return g;
       }, []),
   );
-  const themes = $derived(themeIds());
+  /** The themes under their groups, your own last: [group key, theme ids]. */
+  const themeGroups = $derived(
+    themeIds().reduce((g, id) => {
+      const group = ui.cfg.theme_groups[id] ?? "theme.group.own";
+      if (g.at(-1)?.[0] !== group) g.push([group, []]);
+      g.at(-1)[1].push(id);
+      return g;
+    }, []),
+  );
   let themeFor = $state("theme");
   /** The theme brings its own font (every look but the modern one): the Font field does nothing. */
   const ownFont = $derived(ui.cfg.looks[s.theme] !== "modern");
@@ -870,20 +878,23 @@
           </div>
           <span class="lab">{t(`setting.${themeFor}`)}</span>
           <div class="themes" role="radiogroup" aria-label={t(`setting.${themeFor}`)}>
-            {#each themes as id (id)}
-              {@const th = ui.cfg.themes[id]}
-              <button class="theme" class:on={s[themeFor] === id} role="radio" aria-checked={s[themeFor] === id} onclick={() => set(themeFor, id)}>
-                <!-- A tiny window in the theme's colours: sidebar, a folder, the cursor row, a file. -->
-                <span class="swatch" style:background={th.panel.bg} style:border-color={th.border.fg} aria-hidden="true">
-                  <span class="side" style:background={th.sidebar.bg}></span>
-                  <span class="rows">
-                    <i style:background={th.directory.fg}></i>
-                    <i class="cur" style:background={th.cursor.bg}><b style:background={th.cursor.fg}></b></i>
-                    <i style:background={th.panel.fg}></i>
+            {#each themeGroups as [group, ids] (group)}
+              <p class="label region">{t(group)}</p>
+              {#each ids as id (id)}
+                {@const th = ui.cfg.themes[id]}
+                <button class="theme" class:on={s[themeFor] === id} role="radio" aria-checked={s[themeFor] === id} onclick={() => set(themeFor, id)}>
+                  <!-- A tiny window in the theme's colours: sidebar, a folder, the cursor row, a file. -->
+                  <span class="swatch" style:background={th.panel.bg} style:border-color={th.border.fg} aria-hidden="true">
+                    <span class="side" style:background={th.sidebar.bg}></span>
+                    <span class="rows">
+                      <i style:background={th.directory.fg}></i>
+                      <i class="cur" style:background={th.cursor.bg}><b style:background={th.cursor.fg}></b></i>
+                      <i style:background={th.panel.fg}></i>
+                    </span>
                   </span>
-                </span>
-                <span>{themeName(id)}</span>
-              </button>
+                  <span>{themeName(id)}</span>
+                </button>
+              {/each}
             {/each}
           </div>
           <p class="hint">{t(`setting.${themeFor}.hint`)}</p>

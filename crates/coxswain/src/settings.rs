@@ -450,9 +450,18 @@ fn choices(name: &str, cfg: &Config) -> Option<Vec<(String, String)>> {
         }
         "language" => std::iter::once(("auto".to_string(), t!("settings.language_auto"))).chain(coxswain_core::i18n::LANGUAGES.iter().map(|l| (l.code.to_string(), l.name.to_string()))).collect(),
         "theme" | "tui_theme" => {
-            let builtin: Vec<&str> = Theme::builtin().into_iter().map(|(n, _)| n).collect();
-            let own = cfg.themes.keys().filter(|n| !builtin.contains(&n.as_str())).cloned();
-            builtin.iter().map(|n| (n.to_string(), t!(&format!("theme.{n}")))).chain(own.map(|n| (n.clone(), n))).collect()
+            // Under the headings of their groups, as the desktop app lists them; your own last.
+            let builtin = Theme::BUILTIN.iter().map(|(n, ..)| (n.to_string(), t!(&format!("theme.{n}"))));
+            let own = cfg.themes.keys().filter(|n| Theme::BUILTIN.iter().all(|(b, ..)| b != n)).map(|n| (n.clone(), n.clone()));
+            let (mut v, mut group) = (vec![], "");
+            for (name, label) in builtin.chain(own) {
+                if Theme::group(&name) != group {
+                    group = Theme::group(&name);
+                    v.push((HEAD.to_string(), t!(group)));
+                }
+                v.push((name, label));
+            }
+            v
         }
         _ => return None,
     })
@@ -772,7 +781,7 @@ impl App {
                     Kind::Switch => set(o.name, Value::Bool(!value.as_bool().unwrap_or(false))),
                     Kind::TextSwitch(yes, no) => set(o.name, Value::from(if value.as_str() == Some(yes) { no } else { yes })),
                     Kind::Choice(c) => {
-                        let i = c.iter().position(|(v, _)| value.as_str() == Some(v)).map_or(0, |i| (i + 1) % c.len());
+                        let i = pick_step(&c, c.iter().position(|(v, _)| value.as_str() == Some(v)).map_or(0, |i| (i + 1) % c.len()), 1);
                         set(o.name, Value::from(c[i].0.clone()))
                     }
                     _ => return self.dialog = Some(Dialog::Settings(s)),
@@ -1414,6 +1423,21 @@ mod tests {
     fn selected(app: &App) -> Option<&'static str> {
         let s = settings(app);
         rows(app, s).get(s.cursor).and_then(Row::id)
+    }
+
+    /// The themes stand under their groups' headings, your own last; the next one skips a heading.
+    #[test]
+    fn themes_are_listed_by_group() {
+        let d = std::env::temp_dir();
+        let mut app = app(&d);
+        app.cfg.themes.insert("mine".into(), Theme::nc());
+        let o = cs::find("tui_theme").unwrap();
+        let Kind::Choice(c) = kind(o, &app.cfg, &Value::from("nc")) else { panic!() };
+        let heads: Vec<&str> = c.iter().filter(|(v, _)| v == HEAD).map(|(_, l)| l.as_str()).collect();
+        assert_eq!(heads.len(), 7);
+        assert_eq!((c[0].0.as_str(), c[1].0.as_str(), c.last().unwrap().0.as_str()), (HEAD, "cyber", "mine"));
+        let paper = c.iter().position(|(v, _)| v == "paper").unwrap();
+        assert_eq!(c[pick_step(&c, paper + 1, 1)].0, "nc");
     }
 
     /// Ask's list opens on the same row by Enter and by Space, and no move stops on a heading.

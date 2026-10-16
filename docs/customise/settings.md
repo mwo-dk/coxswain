@@ -231,13 +231,13 @@ Opening this area asks the container runtime which images it has.
 
 ## Looks
 
-![Settings at Looks: the languages under their regions, among them The Middle East with עברית and فارسی and The Caucasus with Հայերեն and ქართული, then the For switch on Desktop app and the theme swatches with Cyber chosen](../screenshots/settings-looks.png)
+![Settings at Looks: the languages under their regions, among them The Middle East with עברית and فارسی and The Caucasus with Հայերեն and ქართული, then the For switch on Desktop app and the theme swatches under their first group, Coxswain's own, with Cyber chosen](../screenshots/settings-looks.png)
 
 | Option | Does | Key |
 |---|---|---|
 | *Language* | The language in use with its flag, a filter, then *Automatic* and every language by region, by its own name ([Languages](languages.md)) | `language` |
 | *For: Desktop app / Terminal app* | Which app's theme the swatches below choose. The terminal app takes a new one when it starts again ([Themes](themes.md)) | |
-| *Theme of the desktop app* / *Theme of the terminal app* | Every built-in theme as a swatch in its own colours, then your own `[themes.<name>]` | `[gui] theme` / `theme` |
+| *Theme of the desktop app* / *Theme of the terminal app* | Every built-in theme as a swatch in its own colours, under the headings of its group (*Coxswain's own*, *File managers of the DOS years*, *Windows*, *Mac*, *Other desktops*, *Home computers*), then your own `[themes.<name>]` under *Your own* ([Themes](themes.md#what-you-see)) | `[gui] theme` / `theme` |
 | *Icons and git glyphs* | *Nerd Font* or *Plain characters (ASCII)* ([Glyphs and fonts](glyphs-and-fonts.md)) | `glyphs` |
 | *Font* | The interface font, as a CSS font list. Greyed out under a theme that brings its own font (every theme but Dark, Light, Nord and Tokyo Night), with the line *Cyber draws its text in a font of its own: the font above applies to the other themes.* ([Looks](looks.md)) | `[gui] font` |
 | *Monospaced font* | File contents, paths and code; under Cyber and Classic blue (NC), everything | `[gui] mono_font` |
