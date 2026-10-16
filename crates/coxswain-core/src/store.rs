@@ -1833,7 +1833,11 @@ fn passages_are(db: &Connection, scheme: &str) -> rusqlite::Result<usize> {
         })
         .unwrap_or_default()
     };
-    if meta("passages") != scheme {
+    let stored = meta("passages");
+    // A newer Coxswain cut these passages: an older one leaves its vectors alone instead of
+    // throwing them away, so going back and forth between versions costs no new vectors.
+    let newer = matches!((stored.parse::<u32>(), scheme.parse::<u32>()), (Ok(a), Ok(b)) if a > b);
+    if stored != scheme && !newer {
         let tx = db.unchecked_transaction()?;
         let had = tx.execute(
             "UPDATE files SET embedded = NULL WHERE embedded IS NOT NULL",
@@ -3682,6 +3686,31 @@ mod tests {
         );
         drop(store);
         std::fs::remove_dir_all(d).unwrap();
+    }
+
+    /// A store whose passages a newer Coxswain cut keeps its vectors when an older one opens it.
+    #[test]
+    fn an_older_scheme_keeps_the_vectors_of_a_newer_one() {
+        let d = std::env::temp_dir().join(format!("coxswain-store-newer-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        let store = Store::open(&d.join("search.db")).unwrap();
+        {
+            let db = store.db.lock().unwrap();
+            db.execute("INSERT INTO files(id, path, size, modified, has_text, embedded) VALUES (1, '/a.txt', 1, 1, 1, 1)", []).unwrap();
+            db.execute("INSERT INTO chunks(file, n, vector) VALUES (1, 0, x'00')", []).unwrap();
+            db.execute("INSERT OR REPLACE INTO meta(key, value) VALUES ('passages', '999')", []).unwrap();
+        }
+        drop(store);
+        let store = Store::open(&d.join("search.db")).unwrap();
+        assert_eq!(store.renewing.load(Ordering::Relaxed), 0);
+        let db = store.db.lock().unwrap();
+        let one = |q: &str| db.query_row(q, [], |r| r.get::<_, String>(0)).unwrap();
+        assert_eq!(one("SELECT CAST(count(*) AS TEXT) FROM chunks"), "1", "the vectors stayed");
+        assert_eq!(one("SELECT value FROM meta WHERE key = 'passages'"), "999");
+        drop(db);
+        drop(store);
+        let _ = std::fs::remove_dir_all(&d);
     }
 
     /// `bge-m3` picked again from Ollama's list as `bge-m3:latest`, or the same weights under
