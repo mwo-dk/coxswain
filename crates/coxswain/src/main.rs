@@ -316,6 +316,12 @@ pub struct MenuItem {
     pub group: Option<String>,
 }
 
+/// The menu's items whose label holds the filter, as indexes: the keys and the drawing agree.
+pub(crate) fn menu_visible(items: &[MenuItem], filter: &str) -> Vec<usize> {
+    let f = filter.to_lowercase();
+    (0..items.len()).filter(|&i| items[i].label.to_lowercase().contains(&f)).collect()
+}
+
 pub enum Dialog {
     Input { title: String, label: String, value: String, prompt: Prompt },
     /// Delete `paths`; `forever` skips the trash.
@@ -2060,9 +2066,7 @@ impl App {
                 }
             }
             Dialog::Menu { title, mut filter, items, mut cursor, direct, feature } => {
-                let visible: Vec<usize> = (0..items.len())
-                    .filter(|&i| items[i].label.to_lowercase().contains(&filter.to_lowercase()))
-                    .collect();
+                let visible = menu_visible(&items, &filter);
                 let run = match (key.code, ch) {
                     _ if esc => return,
                     (KeyCode::Enter, _) => visible.get(cursor).copied(),
@@ -3005,6 +3009,13 @@ fn main() {
         app.dialog = Some(Dialog::Guide(Box::default()));
     }
     let mut term = ratatui::init();
+    // ratatui's panic hook restores the screen but not the mouse: turn it off first, or the
+    // shell gets mouse escapes after a panic.
+    let restore = std::panic::take_hook();
+    std::panic::set_hook(Box::new(move |i| {
+        let _ = execute!(std::io::stdout(), ratatui::crossterm::event::DisableMouseCapture);
+        restore(i)
+    }));
     let _ = execute!(std::io::stdout(), ratatui::crossterm::event::EnableMouseCapture);
     let res = main_loop(&mut term, &mut app);
     let _ = execute!(std::io::stdout(), ratatui::crossterm::event::DisableMouseCapture);
@@ -3366,6 +3377,44 @@ mod perf {
 #[cfg(test)]
 mod panel_tests {
     use super::*;
+
+    /// Find's rows are rebuilt every frame: a cursor past the last one (rows gone under it)
+    /// goes back onto one, it never stops the app.
+    #[test]
+    fn finds_cursor_past_the_rows_is_brought_back() {
+        use ratatui::backend::TestBackend;
+        let d = std::env::temp_dir();
+        let cfg = Config { check_updates: false, ..Config::default() };
+        let index = Client::with(None, &cfg.search, |_| {});
+        let mut app = App::with_index(cfg, d.clone(), d.clone(), index).unwrap();
+        let hit = |n: &str| coxswain_core::index::Hit { path: d.join(n), is_dir: false, snippet: None, similar: None };
+        let mut found = Found::default();
+        found.names.hits = vec![hit("a.txt"), hit("b.txt")];
+        found.names.total = 2;
+        app.dialog = Some(Dialog::Search { query: "txt".into(), chip: Kind::All, here: false, found, cursor: 99, offset: 0, show: Show::List });
+        let mut term = ratatui::Terminal::new(TestBackend::new(80, 24)).unwrap();
+        term.draw(|f| ui::draw(f, &mut app)).unwrap();
+        let Some(Dialog::Search { query, chip, found, cursor, .. }) = &app.dialog else { panic!() };
+        let rows = app.find_rows(query, *chip, found);
+        assert!(*cursor < rows.len() && rows[*cursor].selectable(), "{cursor} of {}", rows.len());
+    }
+
+    /// A menu on a terminal of a few rows draws what fits, it never stops the app.
+    #[test]
+    fn a_menu_on_a_tiny_terminal_draws() {
+        use ratatui::backend::TestBackend;
+        let d = std::env::temp_dir();
+        let cfg = Config { check_updates: false, ..Config::default() };
+        let index = Client::with(None, &cfg.search, |_| {});
+        let mut app = App::with_index(cfg, d.clone(), d, index).unwrap();
+        let items = vec![MenuItem { key: "1".into(), label: "One".into(), run: MenuRun::Say(String::new()), group: None }];
+        app.dialog = Some(Dialog::Menu { title: "M".into(), filter: String::new(), items, cursor: 0, direct: false, feature: "" });
+        for h in 1..=5 {
+            let mut term = ratatui::Terminal::new(TestBackend::new(40, h)).unwrap();
+            term.draw(|f| ui::draw(f, &mut app)).unwrap();
+        }
+        assert_eq!(menu_visible(&[MenuItem { key: "1".into(), label: "Copy".into(), run: MenuRun::Say(String::new()), group: None }], "COP"), [0]);
+    }
 
     #[test]
     fn marks_keep_their_bytes_and_a_sort_keeps_the_cursor() {
