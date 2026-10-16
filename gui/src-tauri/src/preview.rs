@@ -16,24 +16,27 @@ type Res<T> = Result<T, String>;
 #[tauri::command]
 pub async fn git_diff(path: PathBuf) -> Res<Option<String>> {
     crate::here(&path)?;
-    if let Some(at) = coxswain_core::history::split(&path).filter(|_| !path.exists()) {
-        let text = tauri::async_runtime::spawn_blocking(move || coxswain_core::history::diff(&at)).await.map_err(|e| e.to_string())?.map_err(|e| e.to_string())?;
-        return Ok((!text.trim().is_empty()).then_some(text));
-    }
-    // In a ZFS snapshot: what changed in it since, against the file now.
-    if coxswain_core::zfs::in_snapshot(&path).is_some() {
-        let text = tauri::async_runtime::spawn_blocking(move || coxswain_core::zfs::diff(&path)).await.map_err(|e| e.to_string())?.map_err(|e| e.to_string())?;
-        return Ok((!text.trim().is_empty()).then_some(text));
-    }
-    let (Some(dir), Some(name)) = (path.parent(), path.file_name()) else { return Ok(None) };
-    let out = coxswain_core::git::command(dir)
-        // No external diff or textconv program from the repository's own config.
-        .args(["diff", "--no-color", "--no-ext-diff", "--no-textconv", "--ignore-submodules=dirty", "HEAD", "--"])
-        .arg(name)
-        .output()
-        .map_err(|e| e.to_string())?;
-    let text = String::from_utf8_lossy(&out.stdout);
-    Ok((out.status.success() && !text.trim().is_empty()).then(|| text.chars().take(512 * 1024).collect()))
+    crate::blocking(move || {
+        if let Some(at) = coxswain_core::history::split(&path).filter(|_| !path.exists()) {
+            let text = coxswain_core::history::diff(&at).map_err(|e| e.to_string())?;
+            return Ok((!text.trim().is_empty()).then_some(text));
+        }
+        // In a ZFS snapshot: what changed in it since, against the file now.
+        if coxswain_core::zfs::in_snapshot(&path).is_some() {
+            let text = coxswain_core::zfs::diff(&path).map_err(|e| e.to_string())?;
+            return Ok((!text.trim().is_empty()).then_some(text));
+        }
+        let (Some(dir), Some(name)) = (path.parent(), path.file_name()) else { return Ok(None) };
+        let out = coxswain_core::git::command(dir)
+            // No external diff or textconv program from the repository's own config.
+            .args(["diff", "--no-color", "--no-ext-diff", "--no-textconv", "--ignore-submodules=dirty", "HEAD", "--"])
+            .arg(name)
+            .output()
+            .map_err(|e| e.to_string())?;
+        let text = String::from_utf8_lossy(&out.stdout);
+        Ok((out.status.success() && !text.trim().is_empty()).then(|| text.chars().take(512 * 1024).collect()))
+    })
+    .await
 }
 
 // ---------------------------------------------------------------- SQLite
@@ -55,42 +58,16 @@ pub struct Book {
     html: String,
 }
 
+/// The book's title and its first chapter with real text: covers and title pages are skipped.
 #[tauri::command]
 pub async fn epub_preview(path: PathBuf) -> Res<Book> {
     crate::here(&path)?;
-    let mut z = zip::ZipArchive::new(BufReader::new(File::open(&path).map_err(|e| e.to_string())?)).map_err(|e| e.to_string())?;
-    let mut read = |name: &str| -> Res<String> {
-        let mut s = String::new();
-        z.by_name(name).map_err(|e| format!("{name}: {e}"))?.take(4 << 20).read_to_string(&mut s).map_err(|e| e.to_string())?;
-        Ok(s)
-    };
-    let attr = |tag: &str, name: &str| -> Option<String> {
-        regex::Regex::new(&format!(r#"\b{name}\s*=\s*["']([^"']*)["']"#)).ok()?.captures(tag).map(|c| c[1].to_string())
-    };
-    let container = read("META-INF/container.xml")?;
-    let opf_path = regex::Regex::new(r"<rootfile\b[^>]*>").unwrap().find(&container).and_then(|m| attr(m.as_str(), "full-path")).ok_or_else(|| t!("err.epub_no_rootfile"))?;
-    let opf = read(&opf_path)?;
-    let base = Path::new(&opf_path).parent().map(|p| p.to_string_lossy().into_owned()).unwrap_or_default();
-    let title = regex::Regex::new(r"(?s)<dc:title[^>]*>(.*?)</dc:title>").unwrap().captures(&opf).map(|c| c[1].trim().to_string()).unwrap_or_default();
-    let items: Vec<(String, String)> = regex::Regex::new(r"<item\b[^>]*>")
-        .unwrap()
-        .find_iter(&opf)
-        .filter_map(|m| Some((attr(m.as_str(), "id")?, attr(m.as_str(), "href")?)))
-        .collect();
-    let body = regex::Regex::new(r"(?s)<body[^>]*>(.*)</body>").unwrap();
-    let tags = regex::Regex::new(r"(?s)<[^>]*>").unwrap();
-    for m in regex::Regex::new(r"<itemref\b[^>]*>").unwrap().find_iter(&opf) {
-        let Some(id) = attr(m.as_str(), "idref") else { continue };
-        let Some((_, href)) = items.iter().find(|(i, _)| *i == id) else { continue };
-        let file = if base.is_empty() { href.clone() } else { format!("{base}/{href}") };
-        let Ok(doc) = read(&file) else { continue };
-        let html = body.captures(&doc).map_or(doc.clone(), |c| c[1].to_string());
-        // Skip covers and title pages: the first document with some real text wins.
-        if tags.replace_all(&html, "").split_whitespace().count() > 60 {
-            return Ok(Book { title, html });
-        }
-    }
-    Err(t!("err.no_readable_chapter"))
+    crate::blocking(move || match coxswain_core::extract::book::first_chapter(&path) {
+        None => Err(t!("err.epub_no_rootfile")),
+        Some((_, None)) => Err(t!("err.no_readable_chapter")),
+        Some((title, Some(html))) => Ok(Book { title, html }),
+    })
+    .await
 }
 
 // ---------------------------------------------------------------- certificates
@@ -112,8 +89,12 @@ pub struct Cert {
 #[tauri::command]
 pub async fn cert_info(path: PathBuf) -> Res<Vec<Cert>> {
     crate::here(&path)?;
+    crate::blocking(move || certs(&path)).await
+}
+
+fn certs(path: &Path) -> Res<Vec<Cert>> {
     use x509_parser::prelude::*;
-    let data = std::fs::read(&path).map_err(|e| e.to_string())?;
+    let data = std::fs::read(path).map_err(|e| e.to_string())?;
     let now = ASN1Time::now().timestamp();
     let describe = |c: &X509Certificate| {
         let names = c
@@ -171,34 +152,22 @@ pub struct Mail {
     attachments: Vec<(String, usize)>,
 }
 
+/// The first message of a mail file, read as the search reads it (`extract::mail`).
 #[tauri::command]
 pub async fn mail_preview(path: PathBuf) -> Res<Mail> {
     crate::here(&path)?;
-    use mail_parser::{Address, MessageParser, MimeHeaders};
-    let data = std::fs::read(&path).map_err(|e| e.to_string())?;
-    let m = MessageParser::default().parse(&data[..]).ok_or_else(|| t!("err.not_email"))?;
-    let who = |a: Option<&Address>| {
-        a.map(|a| {
-            a.iter()
-                .map(|x| match (&x.name, &x.address) {
-                    (Some(n), Some(e)) => format!("{n} <{e}>"),
-                    (None, Some(e)) => e.to_string(),
-                    (Some(n), None) => n.to_string(),
-                    _ => String::new(),
-                })
-                .collect::<Vec<_>>()
-                .join(", ")
+    crate::blocking(move || {
+        let m = coxswain_core::extract::mail::summary(&path, 64 << 20).ok_or_else(|| t!("err.not_email"))?;
+        Ok(Mail {
+            subject: m.subject,
+            from: m.from,
+            to: m.to,
+            date: m.date,
+            text: m.text.chars().take(200_000).collect(),
+            attachments: m.attachments.into_iter().map(|(name, size)| (name.unwrap_or_else(|| t!("facts.unnamed")), size)).collect(),
         })
-        .unwrap_or_default()
-    };
-    Ok(Mail {
-        subject: m.subject().unwrap_or("").to_string(),
-        from: who(m.from()),
-        to: who(m.to()),
-        date: m.date().map(|d| d.to_rfc822()).unwrap_or_default(),
-        text: m.body_text(0).map(|t| t.chars().take(200_000).collect()).unwrap_or_default(),
-        attachments: m.attachments().map(|a| (a.attachment_name().map_or_else(|| t!("facts.unnamed"), str::to_string), a.contents().len())).collect(),
     })
+    .await
 }
 
 // ---------------------------------------------------------------- property lists
@@ -207,10 +176,13 @@ pub async fn mail_preview(path: PathBuf) -> Res<Mail> {
 #[tauri::command]
 pub async fn plist_xml(path: PathBuf) -> Res<String> {
     crate::here(&path)?;
-    let v = plist::Value::from_file(&path).map_err(|e| e.to_string())?;
-    let mut out = vec![];
-    v.to_writer_xml(&mut out).map_err(|e| e.to_string())?;
-    Ok(String::from_utf8_lossy(&out).into_owned())
+    crate::blocking(move || {
+        let v = plist::Value::from_file(&path).map_err(|e| e.to_string())?;
+        let mut out = vec![];
+        v.to_writer_xml(&mut out).map_err(|e| e.to_string())?;
+        Ok(String::from_utf8_lossy(&out).into_owned())
+    })
+    .await
 }
 
 // ---------------------------------------------------------------- facts
@@ -224,11 +196,13 @@ pub async fn file_facts(path: PathBuf) -> Vec<(String, String)> {
         return vec![];
     }
     let ext = path.extension().map(|e| e.to_string_lossy().to_lowercase()).unwrap_or_default();
-    match ext.as_str() {
+    tauri::async_runtime::spawn_blocking(move || match ext.as_str() {
         "jpg" | "jpeg" | "tif" | "tiff" | "heic" | "heif" | "png" | "webp" | "avif" | "dng" => exif_facts(&path),
         "mp3" | "flac" | "ogg" | "opus" | "m4a" | "aac" | "wav" | "aiff" | "wv" | "ape" => audio_facts(&path),
         _ => binary_facts(&path),
-    }
+    })
+    .await
+    .unwrap_or_default()
 }
 
 fn exif_facts(path: &Path) -> Vec<(String, String)> {

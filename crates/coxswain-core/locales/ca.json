@@ -657,6 +657,7 @@
  "err.nothing_to_copy": "No hi ha res per copiar",
  "err.nothing_to_run": "No hi ha res per executar",
  "err.provenance.no_statement": "Aquesta declaració no és al fitxer.",
+ "err.provenance.no_subject": "Aquesta sortida no és a la declaració.",
  "err.provenance.not_attestation": "Aquest fitxer no conté cap atestació in-toto.",
  "err.provenance.too_large": "Aquest fitxer és massa gran per mostrar-lo com a procedència.",
  "err.unknown_setting": "Paràmetre desconegut: {name}",

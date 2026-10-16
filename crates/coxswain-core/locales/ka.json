@@ -627,6 +627,7 @@
  "err.nothing_to_copy": "დასაკოპირებელი არაფერია",
  "err.nothing_to_run": "გასაშვები არაფერია",
  "err.provenance.no_statement": "ეს განცხადება ფაილში არ არის.",
+ "err.provenance.no_subject": "ეს გამოსავალი განცხადებაში არ არის.",
  "err.provenance.not_attestation": "ამ ფაილში in-toto ატესტაცია არ არის.",
  "err.provenance.too_large": "ეს ფაილი ძალიან დიდია წარმომავლობის სახით საჩვენებლად.",
  "err.unknown_setting": "უცნობი პარამეტრი {name}",

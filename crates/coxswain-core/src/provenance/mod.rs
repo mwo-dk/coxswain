@@ -40,14 +40,13 @@ pub enum Error {
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Error::NotAttestation => write!(f, "This file holds no in-toto attestation."),
-            Error::InvalidJson { line, message } => {
-                write!(f, "This file isn't valid JSON (line {line}): {message}")
-            }
-            Error::TooLarge(size) => write!(
+            Error::NotAttestation => write!(f, "{}", crate::t!("err.provenance.not_attestation")),
+            Error::InvalidJson { line, message } => write!(
                 f,
-                "This file is too large to show as provenance ({size} bytes)."
+                "{}",
+                crate::t!("err.bom.invalid_json", "line" => line, "message" => message)
             ),
+            Error::TooLarge(_) => write!(f, "{}", crate::t!("err.provenance.too_large")),
             Error::Io(e) => write!(f, "{e}"),
         }
     }

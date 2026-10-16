@@ -25,6 +25,7 @@ mod bom;
 mod provenance;
 mod convert;
 mod preview;
+mod recent;
 
 pub struct Ctx {
     /// Replaced when Settings are saved.
@@ -82,9 +83,10 @@ impl Ctx {
 type Res<T> = Result<T, String>;
 
 // A command without `async` runs on the main thread, the webview's: everything that reads or
-// writes the disk, the clipboard or the config is `command(async)` and runs on the async
-// runtime instead, so a slow disk never freezes the window. What needs the main thread
-// (`set_title`, `start_drag`) and what only reads memory stays plain.
+// writes the disk, the clipboard or the config is `async` and runs on the async runtime
+// instead, so a slow disk never freezes the window. Its slow part (a disk read, a process to
+// wait for) goes through `blocking`, so it does not hold one of the runtime's few workers.
+// What needs the main thread (`set_title`, `start_drag`) and what only reads memory stays plain.
 
 #[derive(Serialize)]
 struct UiStyle {
@@ -138,6 +140,13 @@ struct UiConfig {
     options: &'static [coxswain_core::settings::Opt],
     sections: Vec<(&'static str, coxswain_core::settings::Area, Option<&'static str>)>,
     outbound: Vec<coxswain_core::settings::Out>,
+    /// The server search by meaning and Ask use (`settings::server_url`), its host and whether
+    /// it is this machine.
+    server_url: String,
+    server_host: String,
+    server_local: bool,
+    /// The server the update check asks, whether or not it is on.
+    update_host: &'static str,
     paths: Vec<(&'static str, Option<PathBuf>)>,
     /// The search level the settings make (none for a mix), and each level's costs.
     level: Option<coxswain_core::settings::Level>,
@@ -151,6 +160,8 @@ struct UiConfig {
     media_missing: Option<String>,
     /// The formats Pack offers.
     pack_formats: &'static [coxswain_core::archive::PackFormat],
+    /// Every archive ending, and those of archives that take a password (`archive::endings`).
+    archive_endings: (Vec<&'static str>, Vec<&'static str>),
     /// Open the first-run guide at start; its keys and themes.
     guide: bool,
     guide_keys: Vec<(String, String)>,
@@ -173,6 +184,7 @@ fn css(c: &str) -> Option<String> {
 #[tauri::command(async)]
 fn get_config(ctx: tauri::State<Ctx>) -> Res<UiConfig> {
     let cfg = ctx.cfg();
+    let server_url = coxswain_core::settings::server_url(&cfg.search);
     let themes = cfg
         .themes
         .iter()
@@ -207,6 +219,10 @@ fn get_config(ctx: tauri::State<Ctx>) -> Res<UiConfig> {
         options: coxswain_core::settings::OPTIONS,
         sections: coxswain_core::settings::sections(),
         outbound: coxswain_core::settings::outbound(&cfg),
+        server_host: coxswain_core::settings::host(&server_url).to_string(),
+        server_local: coxswain_core::settings::is_local(&server_url),
+        server_url,
+        update_host: coxswain_core::update::host(),
         paths: Config::paths(),
         level: coxswain_core::settings::level(&cfg.search),
         levels: coxswain_core::settings::Level::ALL.iter().map(|l| (*l, l.costs())).collect(),
@@ -217,6 +233,7 @@ fn get_config(ctx: tauri::State<Ctx>) -> Res<UiConfig> {
         version: coxswain_core::update::VERSION,
         media_missing: coxswain_core::tools::media_missing(),
         pack_formats: coxswain_core::archive::PACK_FORMATS,
+        archive_endings: coxswain_core::archive::endings(),
         guide: ctx.guide,
         guide_keys: coxswain_core::guide::keys(&cfg),
         guide_menu: coxswain_core::guide::menu_line(&cfg),
@@ -420,6 +437,8 @@ struct GitInfo {
     /// The status of every entry not in `files`: the folder's own, when it is untracked or
     /// ignored (then so is everything in it).
     all: Option<git::FileStatus>,
+    /// The recent repositories, this one first (`AppState::touch_repo`).
+    recent: Vec<PathBuf>,
 }
 
 #[tauri::command]
@@ -433,8 +452,9 @@ async fn git_status(dir: PathBuf, ctx: tauri::State<'_, Ctx>) -> Res<Option<GitI
     if st.touch_repo(&s.root) {
         st.save().map_err(|e| format!("saving state: {e}"))?;
     }
+    let recent = st.recent_repos.clone();
     drop(st);
-    Ok(Some(GitInfo { prompt: s.prompt(&ctx.cfg().glyphs()), branch: s.summary.branch.clone(), root: s.root, files, all }))
+    Ok(Some(GitInfo { prompt: s.prompt(&ctx.cfg().glyphs()), branch: s.summary.branch.clone(), root: s.root, files, all, recent }))
 }
 
 /// Switch to the branch `entry` of the list of branches `dir`: git's message, or why it refused.
@@ -981,7 +1001,7 @@ fn meaning_pull(model: String, url: String, kind: Option<coxswain_core::setup::K
 /// and what their models can do, the machine, and what suits it.
 #[derive(Serialize)]
 struct SetupLook {
-    found: Vec<coxswain_core::setup::Found>,
+    found: Vec<FoundView>,
     machine: coxswain_core::setup::Machine,
     advice: coxswain_core::setup::Advice,
     /// The index in `found` of the server recommended.
@@ -1000,6 +1020,7 @@ async fn setup_probe(ctx: tauri::State<'_, Ctx>) -> Res<SetupLook> {
         let advice = setup::advise(&machine, &found);
         let best = setup::best(&found, &advice).and_then(|b| found.iter().position(|f| f.url == b.url));
         let runs = index.status().meaning_runs.filter(|_| cfg.meaning && cfg.meaning_engine == "builtin");
+        let found = found.into_iter().map(FoundView::from).collect();
         Ok(SetupLook { found, machine, advice, best, builtin_runs: setup::builtin_runs(&cfg, runs.as_ref()) })
     })
     .await
@@ -1007,9 +1028,25 @@ async fn setup_probe(ctx: tauri::State<'_, Ctx>) -> Res<SetupLook> {
 
 /// A server on another machine, named in the setup: what answers there.
 #[tauri::command]
-async fn setup_probe_url(url: String, ctx: tauri::State<'_, Ctx>) -> Res<Option<coxswain_core::setup::Found>> {
+async fn setup_probe_url(url: String, ctx: tauri::State<'_, Ctx>) -> Res<Option<FoundView>> {
     let key = coxswain_core::meaning::key_of(&ctx.cfg().search);
-    blocking(move || Ok(coxswain_core::setup::probe_url(&url, key.as_deref()))).await
+    blocking(move || Ok(coxswain_core::setup::probe_url(&url, key.as_deref()).map(FoundView::from))).await
+}
+
+/// A server that answered, with its host and whether it is this machine, as Settings says them.
+#[derive(Serialize)]
+struct FoundView {
+    #[serde(flatten)]
+    found: coxswain_core::setup::Found,
+    host: String,
+    local: bool,
+}
+
+impl From<coxswain_core::setup::Found> for FoundView {
+    fn from(found: coxswain_core::setup::Found) -> Self {
+        let (host, local) = (coxswain_core::settings::host(&found.url).to_string(), coxswain_core::settings::is_local(&found.url));
+        FoundView { found, host, local }
+    }
 }
 
 /// The test question to Ask's chat model: milliseconds to its first word.
@@ -1516,21 +1553,7 @@ fn to_clip(p: &Path) -> String {
 
 fn from_clip(s: &str) -> PathBuf {
     let Some(rest) = s.strip_prefix("file://") else { return PathBuf::from(s) };
-    let (b, mut out, mut i) = (rest.as_bytes(), vec![], 0);
-    while i < b.len() {
-        let hex = (b[i] == b'%').then(|| std::str::from_utf8(b.get(i + 1..i + 3)?).ok()).flatten();
-        match hex.and_then(|h| u8::from_str_radix(h, 16).ok()) {
-            Some(v) => {
-                out.push(v);
-                i += 3;
-            }
-            None => {
-                out.push(b[i]);
-                i += 1;
-            }
-        }
-    }
-    PathBuf::from(String::from_utf8_lossy(&out).into_owned())
+    PathBuf::from(String::from_utf8_lossy(&coxswain_core::fs::percent_decode(rest.as_bytes())).into_owned())
 }
 
 fn os_clipboard() -> Option<clipboard_rs::ClipboardContext> {
@@ -1703,7 +1726,7 @@ fn output(mut c: std::process::Command, dir: &Path) -> Res<String> {
 /// Run a shell command in `dir` and return what it printed. `cd` is handled by the UI.
 #[tauri::command]
 async fn run_command(cmd: String, dir: PathBuf) -> Res<String> {
-    output(shell(&cmd), &dir)
+    blocking(move || output(shell(&cmd), &dir)).await
 }
 
 #[derive(Serialize)]
@@ -1772,19 +1795,22 @@ async fn run_script(user: Option<usize>, path: Option<PathBuf>, dir: PathBuf, fi
     if let Some(i) = user {
         let list = coxswain_core::user_menu::entries(&ctx.cfg(), &dir, file.as_deref());
         let cmd = list.get(i).ok_or_else(|| coxswain_core::t!("err.no_such_command"))?.expand(&dir, file.as_deref(), &selected);
-        return output(shell(&cmd), &dir);
+        return blocking(move || output(shell(&cmd), &dir)).await;
     }
     let script = path.ok_or_else(|| coxswain_core::t!("err.nothing_to_run"))?;
-    // Only files from the scripts directory may run this way.
-    let allowed = scripts_dir().and_then(|d| std::fs::canonicalize(d).ok());
-    let real = std::fs::canonicalize(&script).map_err(|e| e.to_string())?;
-    if !allowed.is_some_and(|d| real.starts_with(d)) {
-        return Err(coxswain_core::t!("err.not_coxswain_script"));
-    }
-    let args = if selected.is_empty() { file.into_iter().collect() } else { selected };
-    let mut c = coxswain_core::tools::user_command(&real);
-    c.args(args);
-    output(c, &dir)
+    blocking(move || {
+        // Only files from the scripts directory may run this way.
+        let allowed = scripts_dir().and_then(|d| std::fs::canonicalize(d).ok());
+        let real = std::fs::canonicalize(&script).map_err(|e| e.to_string())?;
+        if !allowed.is_some_and(|d| real.starts_with(d)) {
+            return Err(coxswain_core::t!("err.not_coxswain_script"));
+        }
+        let args = if selected.is_empty() { file.into_iter().collect() } else { selected };
+        let mut c = coxswain_core::tools::user_command(&real);
+        c.args(args);
+        output(c, &dir)
+    })
+    .await
 }
 
 /// Settings → Keys: config.toml at `[keys]` (an example written there first when it has none),
@@ -1853,7 +1879,7 @@ fn local(url: &tauri::Url) -> bool {
 fn main() {
     coxswain_core::tools::flatpak_tmp();
     // Started by an app, not by hand: hold the file name index for all of them. No window.
-    if std::env::args().nth(1).as_deref() == Some(helper::ARG) {
+    if std::env::args_os().nth(1).is_some_and(|a| a == helper::ARG) {
         return drop(helper::serve());
     }
     coxswain_core::fs::lock_down();
@@ -1878,20 +1904,25 @@ fn main() {
     // Launched from a desktop menu the cwd is usually `/`; home is a better start.
     let home = std::env::home_dir().unwrap_or_default();
     let cwd = std::env::current_dir().ok().filter(|d| d.parent().is_some()).unwrap_or(home);
-    let mut args: Vec<String> = std::env::args().skip(1).collect();
+    // A folder's name need not be Unicode; the options are.
+    let mut args: Vec<std::ffi::OsString> = std::env::args_os().skip(1).collect();
+    let folder = |a: &std::ffi::OsStr| match a.to_str() {
+        Some(s) => resolve(&cwd, s),
+        None => cwd.join(a),
+    };
     // `coxswain-gui --settings[=section] [folders…]`: start with the Settings window open, at
     // that section (`search`).
-    let open_settings = args.first().and_then(|a| a.strip_prefix("--settings")).filter(|r| r.is_empty() || r.starts_with('=')).map(|r| r.trim_start_matches('=').to_string());
+    let open_settings = args.first().and_then(|a| a.to_str()?.strip_prefix("--settings")).filter(|r| r.is_empty() || r.starts_with('=')).map(|r| r.trim_start_matches('=').to_string());
     if open_settings.is_some() {
         args.remove(0);
     }
     // `coxswain-gui --duplicates [folders…]`: the folders (default: the current one) are scanned for
     // duplicates at start instead of being opened in the panes.
-    let duplicates = (args.first().map(String::as_str) == Some("--duplicates")).then(|| {
-        let roots: Vec<PathBuf> = args.drain(..).skip(1).map(|a| resolve(&cwd, &a)).collect();
+    let duplicates = args.first().is_some_and(|a| a == "--duplicates").then(|| {
+        let roots: Vec<PathBuf> = args.drain(..).skip(1).map(|a| folder(&a)).collect();
         if roots.is_empty() { vec![cwd.clone()] } else { roots }
     });
-    let dir = |i: usize| args.get(i).map(|a| resolve(&cwd, a)).unwrap_or_else(|| cwd.clone());
+    let dir = |i: usize| args.get(i).map(|a| folder(a)).unwrap_or_else(|| cwd.clone());
     let index = Client::start(&cfg.search);
     let ctx = Ctx {
         sizer: Arc::new(coxswain_core::sizes::Sizer::new(Some(index.clone()))),
@@ -1935,9 +1966,6 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             get_config, action_menu, hint, hint_once, hints_reset, notices, dismiss_notice, changes, read_changes, set_title, index_status, index_action, index_service, meaning_status, meaning_action, chat_status, chat_action, meaning_models, meaning_pull, list_dir, zfs_facts, bsd_places, git_status, git_last, git_switch, git_new_branch, places, disks, get_state, save_session, save_favorites, set_tags, set_note, get_note,
             find, find_read_too, ask, ask_stop, ask_check, meaning_change, setup_probe, setup_probe_url, setup_try, setup_speed, meaning_bench, resolve_path, copy, rename, delete, mkdir, dir_sizes, rename_plan, rename_apply, undo, undo_next, open_path, edit_path, open_keys, scripts_folder,
-            read_text, run_command, scripts, run_script, check_update, archive_list, extract, pack, archive_password, archive_peek, cloud_fetch, properties, set_flags, set_permissions,
-            get_config, action_menu, hint, hints_reset, notices, dismiss_notice, changes, read_changes, set_title, index_status, index_action, index_service, meaning_status, meaning_action, chat_status, chat_action, meaning_models, meaning_pull, list_dir, zfs_facts, bsd_places, git_status, git_last, git_switch, git_new_branch, places, disks, get_state, save_session, save_favorites, set_tags, set_note, get_note,
-            find, find_read_too, ask, ask_stop, ask_check, meaning_change, setup_probe, setup_probe_url, setup_try, setup_speed, meaning_bench, resolve_path, copy, rename, delete, mkdir, dir_sizes, rename_plan, rename_apply, undo, undo_next, open_path, edit_path,
             read_text, run_command, scripts, run_script, add_user_command, check_update, archive_list, extract, pack, archive_password, archive_peek, cloud_fetch, properties, set_flags, set_permissions,
             clip_set, paste, start_drag, watch_dirs, preview::git_diff, preview::sqlite_info, preview::epub_preview,
             preview::file_facts, preview::cert_info, bom::bom_info, bom::bom_node, bom::bom_diff, provenance::provenance_info, provenance::provenance_statements, provenance::provenance_subject, provenance::provenance_cancel, provenance::provenance_sources, provenance::provenance_diff, provenance::provenance_bom, preview::mail_preview, preview::plist_xml, convert::preview_engines, convert::preview_cache, convert::clear_preview_cache,

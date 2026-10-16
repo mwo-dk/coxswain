@@ -1,7 +1,7 @@
 // Shared app state and navigation. Components read `ui` and call these functions.
 
 import { SvelteSet } from "svelte/reactivity";
-import { invoke, listDir, basename, parent, applyTheme, isArchive, HISTORY, BRANCHES, WORKTREES, SNAPSHOTS, PACKAGE, LOCKED } from "./lib.js";
+import { invoke, listDir, basename, parent, applyTheme, isArchive, setArchiveEndings, HISTORY, BRANCHES, WORKTREES, SNAPSHOTS, PACKAGE, LOCKED } from "./lib.js";
 import { setLanguage, t } from "./i18n.svelte.js";
 import { failure } from "./errors.js";
 /** The texts, for functions whose tab is called `t`. */
@@ -39,8 +39,6 @@ export const ui = $state({
   previewEngine: {},
   /** One modal at a time: { kind, ... } */
   modal: null,
-  /** The modal to go back to when the search setup guide closes (the first-run guide). */
-  resume: null,
   /** Settings → What's new: the notices not dismissed, and the versions not read. */
   news: { notices: [], unread: [] },
   favorites: [],
@@ -67,7 +65,18 @@ export async function refreshUndo(ok) {
 }
 
 /** An action's name in F1 and F9: Undo says what it would undo. */
-export const actionLabel = (name) => (name === "undo" && ui.undo ? t("undo.menu", { what: ui.undo }) : ui.cfg.actions[name][0]);
+export const actionLabel = (name) => (name === "undo" && ui.undo ? t("undo.menu", { what: ui.undo }) : (ui.cfg.actions[name]?.[0] ?? name));
+
+/** The keys of an action, its first default key first, a letter key written as on the
+ *  keyboard: Ctrl+G, not the keymap's Ctrl+g. */
+export function keysOf(name) {
+  const first = ui.cfg.actions[name]?.[1];
+  return Object.entries(ui.cfg.keymap)
+    .filter(([, a]) => a === name)
+    .map(([k]) => k)
+    .sort((a, b) => (b === first) - (a === first))
+    .map((k) => k.replace(/\+([a-z])$/, (_, c) => "+" + c.toUpperCase()));
+}
 
 let nextId = 1;
 
@@ -92,6 +101,22 @@ export function newTab(dir, view = "details") {
     back: [],
     fwd: [],
   };
+}
+
+/** A new tab in pane `p` at its tab's folder and view, made the active one. */
+export function addTab(p) {
+  const t = p.tabs[p.active];
+  p.tabs.push(newTab(t.dir, t.view));
+  p.active = p.tabs.length - 1;
+  load(p.tabs[p.active]);
+}
+
+/** Close tab `i` of pane `p`, unless it is the last; the active tab stays the one it was. */
+export function closeTab(p, i = p.active) {
+  if (p.tabs.length === 1) return;
+  p.tabs.splice(i, 1);
+  if (i < p.active) p.active--;
+  else p.active = Math.min(p.active, p.tabs.length - 1);
 }
 
 /** Find, at a kind: `all` (Ctrl+F), `in_files` (Shift+F7) or `ask` (Ctrl+F7). */
@@ -176,7 +201,7 @@ export async function load(t, dir = t.dir, focus) {
         label: tr("archive.locked_label"),
         value: "",
         ok: tr("verb.unlock"),
-        run: (password) => invoke("archive_password", { path: dir, password }).then(() => load(t, dir, focus)),
+        run: (password) => invoke("archive_password", { path: dir, password }).then(() => (dir === t.dir ? load(t, dir, focus) : cd(t, dir))),
       };
     }
     t.error = locked ? tr("archive.locked_title") : String(e);
@@ -187,7 +212,7 @@ export async function load(t, dir = t.dir, focus) {
   invoke("zfs_facts", { dir: t.dir }).then((z) => t.dir === dir && (t.zfs = z), () => {});
   invoke("git_status", { dir: t.dir }).then((g) => {
     if (t.dir === dir) t.git = g;
-    if (g && !ui.recent.includes(g.root)) ui.recent = [g.root, ...ui.recent].slice(0, 12);
+    if (g) ui.recent = g.recent;
   }, () => {});
   // The last commit of each entry: one git walk for the folder, cached until HEAD moves, and
   // not sent again while HEAD stays. A listing sorted by commit before the walk was done
@@ -307,6 +332,14 @@ export function newBranch(tb = tab()) {
   };
 }
 
+/** Tab `tb` shows `path`: a folder opened, a file in its folder with the cursor on it. */
+export async function showInTab(tb, path, isDir = false) {
+  await cd(tb, isDir ? path : parent(path));
+  if (isDir) return;
+  const i = tb.items.findIndex((e) => e.path === path);
+  if (i >= 0) tb.cursor = i;
+}
+
 export async function cd(t, dir, history = true) {
   if (!dir || dir === t.dir) return;
   const from = t.dir;
@@ -413,6 +446,7 @@ export function snapshot() {
 export async function init() {
   ui.cfg = await invoke("get_config");
   setLanguage(ui.cfg);
+  setArchiveEndings(ui.cfg.archive_endings);
   const st = await invoke("get_state");
   const s = st.session ?? {};
   ui.favorites = st.favorites;

@@ -3,9 +3,9 @@
   import { getCurrentWindow } from "@tauri-apps/api/window";
   import { getCurrentWebview } from "@tauri-apps/api/webview";
   import { listen } from "@tauri-apps/api/event";
-  import { ui, openFind, init, tab, pane, otherTab, item, load, cd, up, openHistory, openSnapshots, openPackage, openGitView, switchBranch, newBranch, newTab, goBack, goForward, openItem, toggleMark, targets, reloadAll, refreshDisks, snapshot, setTheme, themeIds, themeName, nextView, measureFolders, columnMenu, subject, hooks, refreshUndo, actionLabel } from "./app.svelte.js";
+  import { ui, openFind, init, tab, pane, otherTab, item, load, cd, up, openHistory, openSnapshots, openPackage, openGitView, switchBranch, newBranch, addTab, closeTab, goBack, goForward, openItem, toggleMark, targets, reloadAll, refreshDisks, snapshot, setTheme, themeIds, themeName, nextView, measureFolders, columnMenu, subject, hooks, refreshUndo, actionLabel } from "./app.svelte.js";
   import { failure } from "./errors.js";
-  import { invoke, keyString, basename, parent, glob, quote, isArchive, packFormat, LOCKED } from "./lib.js";
+  import { invoke, keyString, basename, parent, globRe, quote, isArchive, packFormat, LOCKED } from "./lib.js";
   import { t, tn } from "./i18n.svelte.js";
   import Sidebar from "./Sidebar.svelte";
   import Pane from "./Pane.svelte";
@@ -96,7 +96,7 @@
     const dest = tab(at).dir;
     if (p.paths.every((x) => parent(x) === dest)) return; // dropped where it came from
     const n = describe(p.paths);
-    const go = (isMove) => op((password, only) => invoke(isMove ? "rename" : "copy", { paths: only ?? p.paths, base: dest, dest, password }), t(isMove ? "status.moved" : "status.copied", { what: n }), n, t(isMove ? "error.move" : "error.copy", { what: n }));
+    const go = (isMove) => transferTo(p.paths, dest, dest, isMove, n);
     ui.modal = {
       kind: "menu",
       feature: "drag_and_drop",
@@ -165,12 +165,16 @@
     await reloadAll();
   }
 
+  /** Copy or move `paths` (named relative to `base`) to `dest`, with its status line and error. */
+  const transferTo = (paths, base, dest, isMove, what = describe(paths)) =>
+    op((password, only) => invoke(isMove ? "rename" : "copy", { paths: only ?? paths, base, dest, password }), t(isMove ? "status.moved" : "status.copied", { what }), what, t(isMove ? "error.move" : "error.copy", { what }));
+
   function transfer(isMove, dest = otherTab().dir) {
     const paths = targets();
     if (!paths.length) return;
     const what = describe(paths);
     prompt(t(isMove ? "dialog.move" : "dialog.copy", { what }), t("dialog.to"), dest, t(isMove ? "verb.move" : "verb.copy"), (d) => {
-      if (d.trim()) op((password, only) => invoke(isMove ? "rename" : "copy", { paths: only ?? paths, base: tab().dir, dest: d, password }), t(isMove ? "status.moved" : "status.copied", { what }), what, t(isMove ? "error.move" : "error.copy", { what }));
+      if (d.trim()) transferTo(paths, tab().dir, d, isMove, what);
     }, isMove ? "move_and_rename" : "copy");
   }
 
@@ -229,15 +233,9 @@
     prompt(t(sel ? "app.mark_files" : "app.unmark_files"), t("app.matching"), "*", t(sel ? "verb.mark" : "verb.unmark"), (v) => {
       const pats = v.split(/[\s;,]+/).filter(Boolean);
       const t = tab();
-      for (const e of t.items) if (!e.is_dir && pats.some((g) => glob(g, e.name))) sel ? t.marked.add(e.path) : t.marked.delete(e.path);
+      const res = pats.map(globRe);
+      for (const e of t.items) if (!e.is_dir && res.some((r) => r.test(e.name))) sel ? t.marked.add(e.path) : t.marked.delete(e.path);
     }, "marking");
-  }
-
-  function addTab() {
-    const p = pane();
-    p.tabs.push(newTab(tab().dir, tab().view));
-    p.active = p.tabs.length - 1;
-    load(tab());
   }
 
   function cycleTab(d) {
@@ -335,7 +333,7 @@
     copy_path: () => {
       const e = item();
       if (!e || e.name === "..") return;
-      ui.cmd = (ui.cmd && !ui.cmd.endsWith(" ") ? ui.cmd + " " : ui.cmd) + quote(e.name) + " ";
+      ui.cmd = (ui.cmd && !ui.cmd.endsWith(" ") ? ui.cmd + " " : ui.cmd) + quote(e.name, ui.cfg.sep === "\\") + " ";
       cmdInput?.focus();
     },
     // F3 toggles the preview, as NC's F3 toggled its viewer; Esc closes it too.
@@ -480,14 +478,8 @@
       }),
     help: () => (ui.modal = { kind: "help" }),
     features: () => (ui.modal = { kind: "help", tab: "features", filter: "" }),
-    new_tab: addTab,
-    close_tab: () => {
-      const p = pane();
-      if (p.tabs.length > 1) {
-        p.tabs.splice(p.active, 1);
-        p.active = Math.min(p.active, p.tabs.length - 1);
-      }
-    },
+    new_tab: () => addTab(pane()),
+    close_tab: () => closeTab(pane()),
     next_tab: () => cycleTab(1),
     prev_tab: () => cycleTab(-1),
     toggle_preview: () => {

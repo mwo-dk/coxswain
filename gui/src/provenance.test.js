@@ -2,8 +2,12 @@
 // sniff_head have it (the same cases as their Rust test).
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { isProvenanceName, looksLikeProvenance, looksLikeBom } from "./sniff.js";
+import { isProvenanceName, isBomName, looksLikeProvenance, looksLikeBom } from "./sniff.js";
 
+test("BOM by name, the names coxswain-core's bom::sniff_name takes", () => {
+  for (const n of ["app.cdx.json", "App.CDX.XML", "x.cbom.json", "bom.json", "bom.xml"]) assert.ok(isBomName(n), n);
+  for (const n of ["package.json", "sbom.txt", "x.cbom.xml", "a.json"]) assert.ok(!isBomName(n), n);
+});
 
 test("provenance by name", () => {
   for (const n of ["x.intoto.jsonl", "X.INTOTO.JSON", "a.sigstore.json", "a.sigstore", "a.dsse.json", "rocket.provenance.json", "b.build.slsa", "provenance.json"])

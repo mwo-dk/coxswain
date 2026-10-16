@@ -4,7 +4,7 @@
   // its ⤢ button. The Rust side (provenance.rs) reads and checks; nothing is verified. Every
   // string from the file is shown as text, never HTML.
   import { onDestroy, untrack } from "svelte";
-  import { ui, tab, otherTab, item, cd, focusPane } from "./app.svelte.js";
+  import { ui, tab, otherTab, item, showInTab, focusPane } from "./app.svelte.js";
   import { invoke, basename, parent, previewKind, size, date } from "./lib.js";
   import { t, tn } from "./i18n.svelte.js";
 
@@ -176,11 +176,7 @@
       tb = otherTab();
       focusPane(ui.activePane ^ 1);
     }
-    await cd(tb, isDir ? target : parent(target));
-    if (!isDir) {
-      const i = tb.items.findIndex((e) => e.path === target);
-      if (i >= 0) tb.cursor = i;
-    }
+    await showInTab(tb, target, isDir);
     ui.status = t("status.showing", { name: basename(target) });
   }
 
@@ -243,15 +239,7 @@
   ];
   /** Rows the compare marks: dependencies and subjects by key, as the diff names them. */
   const changed = $derived(new Set((pair?.changes ?? []).filter((c) => c.area === "dependency" || c.area === "subject").map((c) => c.key)));
-  const depKey = (d) => {
-    const u = d.uri;
-    if (!u) return label(d);
-    if (u.startsWith("git+")) {
-      const at = u.lastIndexOf("@");
-      return at > u.indexOf("://") ? u.slice(0, at) : u;
-    }
-    return u.split("?")[0];
-  };
+
 
   // ------------------------------------------------------------ keys
 
@@ -414,7 +402,7 @@
               <span class="mark {r?.state === 'onBranch' || r?.state === 'ahead' ? 'green' : 'grey'}">{x.git ? (SOURCE_MARK[r?.state] ?? "·") : "·"}</span>
               <span class="text">
                 <span class="name" title={x.d.uri ?? label(x.d)}>{entry.inputLabels[x.i]}</span>
-                {#if changed.has(depKey(x.d))}<span class="cmark" title={t("provenance.area.dependency")}>Δ</span>{/if}
+                {#if changed.has(entry.depKeys[x.i])}<span class="cmark" title={t("provenance.area.dependency")}>Δ</span>{/if}
                 {#if x.d.configSource}<small class="tag">{t("provenance.config_source")}</small>{/if}
                 {#if x.git}<small class="state">{sourceWord(r)}</small>{/if}
               </span>

@@ -687,6 +687,7 @@
  "err.nothing_to_copy": "Нічого копіювати",
  "err.nothing_to_run": "Нічого запускати",
  "err.provenance.no_statement": "Цього твердження у файлі немає.",
+ "err.provenance.no_subject": "Цього виходу в твердженні немає.",
  "err.provenance.not_attestation": "У цьому файлі немає атестації in-toto.",
  "err.provenance.too_large": "Цей файл завеликий, щоб показати його як дані про походження.",
  "err.unknown_setting": "Невідомий параметр {name}",

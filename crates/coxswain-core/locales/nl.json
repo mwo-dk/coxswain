@@ -627,6 +627,7 @@
  "err.nothing_to_copy": "Niets om te kopiëren",
  "err.nothing_to_run": "Niets om uit te voeren",
  "err.provenance.no_statement": "Die verklaring staat niet in het bestand.",
+ "err.provenance.no_subject": "Die output staat niet in de verklaring.",
  "err.provenance.not_attestation": "Dit bestand bevat geen in-toto-attestatie.",
  "err.provenance.too_large": "Dit bestand is te groot om als herkomst te tonen.",
  "err.unknown_setting": "Onbekende instelling {name}",

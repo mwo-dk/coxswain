@@ -627,6 +627,7 @@
  "err.nothing_to_copy": "Pole midagi kopeerida",
  "err.nothing_to_run": "Pole midagi käivitada",
  "err.provenance.no_statement": "Seda väidet failis ei ole.",
+ "err.provenance.no_subject": "Seda väljundit väites ei ole.",
  "err.provenance.not_attestation": "Selles failis pole in-toto atesteeringut.",
  "err.provenance.too_large": "See fail on päritoluna näitamiseks liiga suur.",
  "err.unknown_setting": "Tundmatu säte {name}",

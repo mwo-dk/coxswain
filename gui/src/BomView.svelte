@@ -2,7 +2,7 @@
   // A CycloneDX BOM as a rated tree, with filters and a details box (docs/design/bom-viewer.md).
   // In the preview pane, and full-window (`full`) from its ⤢ button. The Rust side (bom.rs)
   // parses and rates; bom.js filters. Every string from the file is shown as text, never HTML.
-  import { ui, tab, otherTab, item, cd, focusPane } from "./app.svelte.js";
+  import { ui, tab, otherTab, item, showInTab, focusPane } from "./app.svelte.js";
   import { invoke, basename, parent, previewKind, composing } from "./lib.js";
   import { t, tn, num } from "./i18n.svelte.js";
   import { STATUSES, KINDS, FAMILIES, COLOR, isCrypto, childrenOf, filtering, mask, visibleRows, PAGE, leafCounts, sunburstArcs, arcPath, pathTo } from "./bom.js";
@@ -163,9 +163,7 @@
       tb = otherTab();
       focusPane(ui.activePane ^ 1);
     }
-    await cd(tb, parent(file));
-    const i = tb.items.findIndex((e) => e.path === file);
-    if (i >= 0) tb.cursor = i;
+    await showInTab(tb, file);
     ui.status = t("status.showing", { name: basename(file) });
   }
 

@@ -657,6 +657,7 @@
  "err.nothing_to_copy": "אין מה להעתיק",
  "err.nothing_to_run": "אין מה להריץ",
  "err.provenance.no_statement": "ההצהרה הזו אינה בקובץ.",
+ "err.provenance.no_subject": "הפלט הזה אינו בהצהרה.",
  "err.provenance.not_attestation": "קובץ זה אינו מכיל עדות in-toto.",
  "err.provenance.too_large": "קובץ זה גדול מדי להצגה כמוצא בנייה.",
  "err.unknown_setting": "הגדרה לא ידועה {name}",

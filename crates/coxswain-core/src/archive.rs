@@ -1692,6 +1692,18 @@ pub fn takes_password(path: &Path) -> bool {
     matches!(kind(path), Some(Kind::Zip | Kind::SevenZ))
 }
 
+/// Every ending an archive is known by, longest first where one ends another, and those of
+/// the archives that can have a password (`takes_password`): for the desktop app's page.
+pub fn endings() -> (Vec<&'static str>, Vec<&'static str>) {
+    let all = ENDINGS.iter().map(|(e, _)| *e).collect();
+    let locked = ENDINGS
+        .iter()
+        .filter(|(_, k)| matches!(k, Kind::Zip | Kind::SevenZ))
+        .map(|(e, _)| *e)
+        .collect();
+    (all, locked)
+}
+
 /// A format Pack writes: its name, the endings that pick it (the one suggested first), and
 /// whether it can be locked with a password. `id` names its hint (`archive.format_<id>`).
 #[derive(Clone, Copy, Debug, Serialize, PartialEq)]
@@ -1836,6 +1848,14 @@ mod tests {
                 assert_eq!(takes_password(&p), f.password, "{e}");
             }
         }
+        // The page's lists say what is_archive and takes_password say.
+        let (all, locked) = endings();
+        for e in &all {
+            let p = Path::new("x").with_extension(&e[1..]);
+            assert!(is_archive(&p), "{e}");
+            assert_eq!(takes_password(&p), locked.contains(e), "{e}");
+        }
+        assert!(locked.iter().all(|e| all.contains(e)));
     }
 
     /// A 7z locked here has its key made as 7-Zip makes it: 2^19 rounds, not the crate's 2^8.

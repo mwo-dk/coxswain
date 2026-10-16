@@ -657,6 +657,7 @@
  "err.nothing_to_copy": "Nav ko kopēt",
  "err.nothing_to_run": "Nav ko palaist",
  "err.provenance.no_statement": "Šī paziņojuma failā nav.",
+ "err.provenance.no_subject": "Šīs izvades paziņojumā nav.",
  "err.provenance.not_attestation": "Šajā failā nav in-toto apliecinājuma.",
  "err.provenance.too_large": "Šis fails ir pārāk liels, lai to rādītu kā izcelsmi.",
  "err.unknown_setting": "Nezināms iestatījums {name}",

@@ -47,8 +47,7 @@
     const changes = await invoke("search_level", { level: id }).catch((e) => ((error = String(e)), undefined));
     if (changes === undefined) return;
     if (!changes) {
-      ui.resume = { kind: "guide", step: 1 };
-      ui.modal = { kind: "setup" };
+      ui.modal = { kind: "setup", back: { kind: "guide", step: 1 } };
       return;
     }
     await save(changes);
@@ -128,7 +127,7 @@
       </div>
     {:else}
       <p class="lead">{t("guide.privacy_intro")}</p>
-      <label class="check"><input type="checkbox" checked={s.check_updates} onchange={(e) => save({ check_updates: e.currentTarget.checked })} /> {t("guide.privacy_update")} <span class="mono hint">api.github.com</span></label>
+      <label class="check"><input type="checkbox" checked={s.check_updates} onchange={(e) => save({ check_updates: e.currentTarget.checked })} /> {t("guide.privacy_update")} <span class="mono hint">{ui.cfg.update_host}</span></label>
       <p class="label">{t("guide.privacy_now")}</p>
       <ul>
         {#each ui.cfg.outbound as o, i (i)}<li>{o.what} → <span class="mono">{o.to}</span>{#if o.local} <small class="hint">({t("settings.privacy_local")})</small>{/if}</li>{:else}<li>{t("settings.privacy_nothing")}</li>{/each}

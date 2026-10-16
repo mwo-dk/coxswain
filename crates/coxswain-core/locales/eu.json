@@ -627,6 +627,7 @@
  "err.nothing_to_copy": "Ez dago ezer kopiatzeko",
  "err.nothing_to_run": "Ez dago exekutatzeko ezer",
  "err.provenance.no_statement": "Adierazpen hori ez dago fitxategian.",
+ "err.provenance.no_subject": "Irteera hori ez dago adierazpenean.",
  "err.provenance.not_attestation": "Fitxategi honek ez du in-toto atestaziorik.",
  "err.provenance.too_large": "Fitxategi hau handiegia da jatorri gisa erakusteko.",
  "err.unknown_setting": "Ezarpen ezezaguna: {name}",

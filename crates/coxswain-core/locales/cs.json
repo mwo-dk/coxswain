@@ -657,6 +657,7 @@
  "err.nothing_to_copy": "Není co kopírovat",
  "err.nothing_to_run": "Není co spustit",
  "err.provenance.no_statement": "Toto prohlášení v souboru není.",
+ "err.provenance.no_subject": "Tento výstup v prohlášení není.",
  "err.provenance.not_attestation": "Tento soubor neobsahuje žádnou atestaci in-toto.",
  "err.provenance.too_large": "Tento soubor je příliš velký, aby se dal ukázat jako původ sestavení.",
  "err.unknown_setting": "Neznámé nastavení {name}",

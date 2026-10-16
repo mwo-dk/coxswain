@@ -627,6 +627,7 @@
  "err.nothing_to_copy": "Inget att kopiera",
  "err.nothing_to_run": "Inget att köra",
  "err.provenance.no_statement": "Den utsagan finns inte i filen.",
+ "err.provenance.no_subject": "Den utdatan finns inte i utsagan.",
  "err.provenance.not_attestation": "Den här filen innehåller ingen in-toto-attestering.",
  "err.provenance.too_large": "Den här filen är för stor för att visas som härkomst.",
  "err.unknown_setting": "Okänd inställning {name}",

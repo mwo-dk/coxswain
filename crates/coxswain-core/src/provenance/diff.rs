@@ -205,7 +205,7 @@ fn maps(
 }
 
 /// A dependency by what it is, not which version: its URI without `@ref`, else its name.
-fn dependency_key(r: &Resource) -> String {
+pub fn dependency_key(r: &Resource) -> String {
     match r.uri.as_deref() {
         Some(u) if u.starts_with("git+") => u
             .rsplit_once('@')

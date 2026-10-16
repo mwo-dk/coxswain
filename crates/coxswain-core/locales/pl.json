@@ -687,6 +687,7 @@
  "err.nothing_to_copy": "Nie ma czego kopiować",
  "err.nothing_to_run": "Nie ma nic do uruchomienia",
  "err.provenance.no_statement": "Tego oświadczenia nie ma w pliku.",
+ "err.provenance.no_subject": "Tego wyjścia nie ma w oświadczeniu.",
  "err.provenance.not_attestation": "Ten plik nie zawiera atestacji in-toto.",
  "err.provenance.too_large": "Ten plik jest za duży, by pokazać go jako dane o pochodzeniu.",
  "err.unknown_setting": "Nieznane ustawienie {name}",

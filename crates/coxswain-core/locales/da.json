@@ -627,6 +627,7 @@
  "err.nothing_to_copy": "Intet at kopiere",
  "err.nothing_to_run": "Intet at køre",
  "err.provenance.no_statement": "Det udsagn findes ikke i filen.",
+ "err.provenance.no_subject": "Det output findes ikke i udsagnet.",
  "err.provenance.not_attestation": "Denne fil indeholder ingen in-toto-attestation.",
  "err.provenance.too_large": "Denne fil er for stor til at blive vist som proveniens.",
  "err.unknown_setting": "Ukendt indstilling {name}",

@@ -132,8 +132,8 @@
         if (!bin && (k === "data" || k === "text" || k === "jsonl") && /\.(json|jsonl|ndjson)$/i.test(cur.name) && looksLikeProvenance(s)) {
           sniffed = { path: cur.path, kind: "provenance" };
           if (!src) return;
-        }
-        if (!bin && (k === "data" || k === "text") && /\.(json|xml)$/i.test(cur.name) && looksLikeBom(s)) {
+        } else if (!bin && (k === "data" || k === "text") && /\.(json|xml)$/i.test(cur.name) && looksLikeBom(s)) {
+          // A statement with a CycloneDX predicate is provenance first.
           sniffed = { path: cur.path, kind: "bom" };
           if (!src) return;
         }
@@ -181,6 +181,8 @@
   $effect(() => {
     const cur = e;
     const k = kind;
+    const was = untrack(() => rich);
+    if (was?.face) document.fonts.delete(was.face);
     rich = null;
     const deck = k === "office" && ["pptx", "pptm", "ppsx", "potx"].includes(ext(cur));
     if (!["docx", "notebook", "sheet", "font", "parquet", "drawio"].includes(k) && !deck) return;
@@ -189,7 +191,7 @@
       try {
         if (k === "docx") r = { html: await renderDocx(cur.path) };
         else if (k === "notebook") r = { html: await renderNotebook(cur.path) };
-        else if (k === "font") r = { family: await loadFont(cur.path) };
+        else if (k === "font") r = await loadFont(cur.path);
         else if (k === "parquet") r = { parquet: await readParquet(cur.path) };
         else if (deck) r = { slides: await renderPptx(cur.path) };
         else if (k === "drawio") r = { drawio: (await invoke("read_text", { path: cur.path, max: 32 * 1024 * 1024 }))[0] };
@@ -197,7 +199,10 @@
       } catch (err) {
         r = { error: String(err?.message ?? err) };
       }
-      if (e?.path !== cur.path) return;
+      if (e?.path !== cur.path) {
+        if (r.face) document.fonts.delete(r.face);
+        return;
+      }
       if (r.sheet) sheetName = r.sheet.names[0] ?? "";
       rich = r;
     }, 80);
@@ -361,10 +366,14 @@
   $effect(() => {
     const dir = notesDir;
     if (!dir) return;
-    invoke("get_note", { dir }).then((n) => {
-      note = n;
-      noteDir = dir;
-    });
+    // Only the answer for the folder still under the cursor: a slow one must not land late.
+    // A note that cannot be read is not saved over either.
+    let live = true;
+    invoke("get_note", { dir }).then(
+      (n) => live && ((note = n), (noteDir = dir)),
+      () => live && ((note = ""), (noteDir = "")),
+    );
+    return () => (live = false);
   });
   $effect(() => {
     if (notesFocus) noteArea?.focus();
@@ -386,8 +395,14 @@
   }
 
   async function calcSize() {
-    const r = (await invoke("dir_sizes", { paths: [e.path] }))[e.path];
-    if (r) pane.sizes[e.path] = r[0];
+    // The cursor may have moved on by the time a big folder is measured.
+    const [path, p] = [e.path, pane];
+    try {
+      const r = (await invoke("dir_sizes", { paths: [path] }))[path];
+      if (r) p.sizes[path] = r[0];
+    } catch (err) {
+      ui.status = String(err);
+    }
   }
 </script>
 
@@ -453,7 +468,7 @@
       {/if}
       {#if !diffing && kind === "bom"}
         <div class="modes" role="group" aria-label={t("preview.show")}>
-          <button class:on={ui.previewSource === false} onclick={() => (ui.previewSource = false)}>{t("preview.tree")}</button>
+          <button class:on={!source && ui.previewSource !== "sunburst"} onclick={() => (ui.previewSource = false)}>{t("preview.tree")}</button>
           <button class:on={ui.previewSource === "sunburst"} onclick={() => (ui.previewSource = "sunburst")}>{t("bom.sunburst")}</button>
           <button class:on={source} onclick={() => (ui.previewSource = true)}>{t("preview.source")}</button>
         </div>
@@ -684,16 +699,9 @@
             {#each rich.sheet.names as n (n)}<button class:on={n === sheetName} onclick={() => (sheetName = n)}>{n}</button>{/each}
           </div>
         {/if}
-        <div class="table-wrap">
-          <table class="sheet">
-            <tbody>
-              {#each rows.slice(0, 200) as row, i (i)}
-                <tr>{#each row as c, j (j)}{#if i === 0}<th>{c}</th>{:else}<td>{c}</td>{/if}{/each}</tr>
-              {/each}
-            </tbody>
-          </table>
-        </div>
-        {#if rows.length > 200}<p class="more">{tn("preview.first_rows", 200)}</p>{/if}
+        <!-- The first row is the header: 200 rows under it. -->
+        {@render grid(rows)}
+        {#if rows.length > 201}<p class="more">{tn("preview.first_rows", 200)}</p>{/if}
       {:else if kind === "text"}
         {#if html}
           <pre class="mono code"><code class="hljs">{@html html}</code></pre>

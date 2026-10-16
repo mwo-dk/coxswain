@@ -50,20 +50,19 @@ pub enum Error {
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Error::NotCycloneDx => write!(f, "This file is not a CycloneDX BOM."),
-            Error::InvalidJson { line, message } => {
-                write!(f, "This file isn't valid JSON (line {line}): {message}")
-            }
-            Error::InvalidXml { line, message } => {
-                write!(f, "This file isn't valid XML (line {line}): {message}")
-            }
-            Error::UnsafeXml => write!(
+            Error::NotCycloneDx => write!(f, "{}", crate::t!("err.bom.not_cyclonedx")),
+            Error::InvalidJson { line, message } => write!(
                 f,
-                "This XML contains a DOCTYPE declaration, which is refused for safety."
+                "{}",
+                crate::t!("err.bom.invalid_json", "line" => line, "message" => message)
             ),
-            Error::TooLarge(size) => {
-                write!(f, "This file is too large to show as a BOM ({size} bytes).")
-            }
+            Error::InvalidXml { line, message } => write!(
+                f,
+                "{}",
+                crate::t!("err.bom.invalid_xml", "line" => line, "message" => message)
+            ),
+            Error::UnsafeXml => write!(f, "{}", crate::t!("err.bom.unsafe_xml")),
+            Error::TooLarge(_) => write!(f, "{}", crate::t!("err.bom.too_large")),
             Error::Io(e) => write!(f, "{e}"),
         }
     }

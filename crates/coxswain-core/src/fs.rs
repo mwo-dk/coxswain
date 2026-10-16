@@ -965,6 +965,25 @@ fn windows_open(path: &Path) -> io::Result<()> {
     }
 }
 
+/// `%XX` undone, as in a `file://` link: a `%` without two digits of sixteen after it stays.
+pub fn percent_decode(bytes: &[u8]) -> Vec<u8> {
+    let digit = |at: usize| bytes.get(at).and_then(|b| (*b as char).to_digit(16));
+    let (mut out, mut at) = (Vec::with_capacity(bytes.len()), 0);
+    while at < bytes.len() {
+        match (bytes[at], digit(at + 1), digit(at + 2)) {
+            (b'%', Some(high), Some(low)) => {
+                out.push((high * 16 + low) as u8);
+                at += 3;
+            }
+            (byte, ..) => {
+                out.push(byte);
+                at += 1;
+            }
+        }
+    }
+    out
+}
+
 /// `s` as a path: `~` is the home folder, and a relative path starts from `base`.
 pub fn resolve(base: &Path, s: &str) -> PathBuf {
     let s = s.trim();
@@ -1107,6 +1126,12 @@ pub fn cause(err: &str) -> String {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn percent_decode_undoes_two_digits_and_leaves_the_rest() {
+        assert_eq!(super::percent_decode(b"a%C3%A6%2f"), "aæ/".as_bytes());
+        assert_eq!(super::percent_decode(b"%zz%+1%4"), b"%zz%+1%4");
+    }
+
     use super::*;
 
     /// On a Mac the walks leave other apps' data alone: `~/Library` but iCloud Drive and the
