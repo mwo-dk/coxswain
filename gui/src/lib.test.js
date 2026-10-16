@@ -66,3 +66,13 @@ test("natord and sortItems: as coxswain-core's fs::natord and fs::sort", async (
   assert.deepEqual(names("time"), ["..", "Docs", "a10.md", "b.txt", "a2.md"], "newest first, none last");
   assert.deepEqual(names("size"), ["..", "Docs", "a2.md", "b.txt", "a10.md"], "biggest first");
 });
+
+test("inside: the folder itself and below it, not a sibling that starts the same", async () => {
+  const { inside } = await pick("inside");
+  assert.ok(inside("/a/b", "/a/b", "/"));
+  assert.ok(inside("/a/b/c", "/a/b", "/"));
+  assert.ok(!inside("/a/bc", "/a/b", "/"));
+  assert.ok(inside("/a", "/", "/"));
+  assert.ok(inside("C:\\x\\y", "C:\\", "\\"));
+  assert.ok(!inside("C:\\xy", "C:\\x", "\\"));
+});

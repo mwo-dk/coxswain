@@ -103,6 +103,12 @@ These rules hold for every contributor and every Claude session in this reposito
   page's *Questions*; keys in them as `{action}` placeholders, so they follow the keymap. A test
   fails when a docs feature page has no entry (reference pages that are no feature are listed
   in the test).
+- **Work a user's machine must redo is a decision, not a side effect.** A change that makes
+  existing stores redo work (vectors made again, files read again, an index rebuilt) is named in
+  the PR title and in its changelog row, saying what is redone and for which files. A passage
+  change that concerns only some readers bumps that reader's version (`readers` in the store),
+  not `meaning::SCHEME`, so only those files are redone; and an older version never throws
+  away what a newer one made.
 - **Nothing leaves the machine unless the user asks** for it (the update check aside, and it can
   be turned off). Anything that sends data (a model download, a remote server) is opt-in, and
   Settings names where it goes.

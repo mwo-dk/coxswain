@@ -8,7 +8,7 @@ homepage.workspace = true
 readme.workspace = true
 keywords.workspace = true
 categories.workspace = true
-description = "Core of Coxswain: config, file operations, git status and an Everything-style file name index"
+description = "The shared core of Coxswain, the two-panel file manager: file operations with undo, archives, previews and text from documents, search by name, text and meaning, git, ZFS, config, themes and translations"
 
 [dependencies]
 serde = { version = "1", features = ["derive"] }
@@ -21,7 +21,7 @@ notify = "8"
 regex = "1"
 serde_json = "1"
 ureq = { version = "3", features = ["platform-verifier"] }
-zip = { version = "9.0.3", default-features = false, features = ["deflate-flate2-zlib-rs", "aes-crypto"] }
+zip = { version = "9.0.4", default-features = false, features = ["deflate-flate2-zlib-rs", "aes-crypto"] }
 tar = "0.4.46"
 flate2 = "1.1.10"
 blake3 = "1.8.7"
@@ -39,7 +39,7 @@ candle-transformers = "0.11.0"
 # candle-core turns on its `onig` regex backend (Oniguruma, C; it builds under musl-tools), so the
 # pure-Rust `fancy-regex` backend would only be dead code next to it. 0.22 is what candle-core wants.
 tokenizers = { version = "0.22", default-features = false }
-sha2 = "0.11.0"
+sha2 = "0.11.1"
 # The key of an old .xls locked with Excel's default password (decrypt only).
 md-5 = "0.11"
 # F1 → Features: its filter ignores diacritics. Already in the tree (tokenizers, the terminal app).
@@ -52,9 +52,9 @@ x509-parser = "0.18.1"
 getrandom = "0.4"
 # More archive formats, all pure Rust: bzip2 (its default backend), xz, zstd, 7z with AES.
 bzip2 = "0.6.1"
-lzma-rust2 = "0.21.0"
+lzma-rust2 = "0.22.0"
 ruzstd = "0.9.0"
-sevenz-rust2 = { version = "0.23.0", features = ["aes256"] }
+sevenz-rust2 = { version = "0.24.0", features = ["aes256"] }
 # F3 on a Parquet file in the terminal app: its columns and first rows. Pure Rust codecs only
 # (snappy, gzip, lz4, brotli); a zstd file shows its columns and row count.
 parquet = { version = "60", default-features = false, features = ["snap", "flate2-zlib-rs", "lz4", "brotli"] }

@@ -28,6 +28,7 @@ on:
       - "crates/coxswain-core/src/cloud.rs"
       - "crates/coxswain-core/src/setup.rs"
       - "crates/coxswain-core/src/menu.rs"
+      - "crates/coxswain-core/src/config.rs"
       - "crates/coxswain-core/src/undo.rs"
       - "crates/coxswain-core/src/xdg_trash.rs"
       - "crates/coxswain-core/tests/zfs.rs"

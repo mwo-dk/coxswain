@@ -230,7 +230,7 @@ Everything here only reads, except your own file flags, and needs no root.
 | The dataset | The pane's footer (the panel's bottom border in the terminal app): `zroot/home/alice · 1.52x · 12.3 GB used · 88.1 GB free`, or `… of 100 GB` with a quota | `zfs get`, kept ten seconds a dataset |
 | ZFS facts | **Alt+Enter** (Properties): dataset, mountpoint, compression and ratio, used, available, referenced, quota and refquota, how many snapshots | [Properties](../files/properties.md#zfs-packages-and-file-flags) |
 | The package of a file | **Alt+Enter** on a file under `/usr/local`: *Package git-2.56.0* | `pkg which` |
-| A package's files | *F9 → Files of this package*, or the button in Properties: `<file>/@package` lists every file it installed | `pkg info -l` |
+| A package's files | *F9 → Files of this package*, or the button in Properties: `<file>/@package` lists every file it installed. Offered for files outside your home folder, the temporary folders (`/tmp`, `/var/tmp`) and `/mnt` and `/media`, where pkg installs nothing | `pkg info -l` |
 | File flags | **Alt+Enter**: `uarch`, `nodump`, `schg` … as `ls -lo` names them; tick `nodump`, `hidden`, `uchg`, `uappnd` on your own files (on ZFS only `nodump` and `hidden`) | stat(2), chflags(2) |
 | Boot environments | The desktop app's sidebar, and **Alt+F1** / **Alt+F2** in the terminal app | `bectl list -H` |
 | Jails | The same places | `jls -h jid name path host.hostname` |
@@ -280,9 +280,9 @@ port you built and installed is a package like any other.
 
 | Feature | On FreeBSD |
 |---|---|
-| File watching | kqueue. It holds an open descriptor for every path it watches, so the helper watches folders only, not files, shallowest first and at most 20,000 of them (a FreeBSD base system with a desktop has about 11,000), and never more than three quarters of its open-file limit (`ulimit -n`, raised to the hard limit first). New files and folders in a watched folder open no descriptors of their own. A file added, removed or renamed shows in Find within a second; folders past the 20,000 are read again at the hourly rebuild, and changed text is read within ten minutes |
+| File watching | kqueue. It holds an open descriptor for every path it watches, so the helper watches folders only, not files, shallowest first and at most 20,000 of them (a FreeBSD base system with a desktop has about 11,000), and never more than three quarters of its open-file limit (`ulimit -n`, raised to the hard limit first). New files and folders in a watched folder open no descriptors of their own. A folder made after the helper started is watched as soon as it appears, with the folders in it, within the same 20,000. A file added, removed or renamed shows in Find within a second; folders past the 20,000 are read again at the hourly rebuild, and changed text is read within ten minutes |
 | Trash (F8) | `~/.local/share/Trash`, the freedesktop.org layout that KDE, Xfce and GNOME use, so their trash shows and restores what Coxswain moved there |
-| Drives in the sidebar | The mounted file systems, from the kernel's mount list; the root file system is *System* |
+| Drives in the sidebar | The mounted file systems, from the kernel's mount list (getmntinfo(3)); the root file system is *System*. Free space is what `df` shows as *Avail* |
 | Battery | `sysctl hw.acpi.acline`: `0` means on battery, and the helper pauses ([Battery](../search/battery.md)). A machine without ACPI power reporting counts as on mains |
 | Memory in the setup guide | `sysconf(_SC_PHYS_PAGES)` |
 | Removable disks | Known by their path only: a USB disk mounted somewhere else next time is read again, not recognised ([Removable disks](../search/removable-disks.md)) |
@@ -366,7 +366,22 @@ Tested on FreeBSD 14.5 (amd64), on every change in CI and by hand under X11:
 | Opening a file in its program | Through `xdg-open` (package `xdg-utils`), the same code as on Linux; not tried on FreeBSD yet |
 | Video and sound in the preview | With `gstreamer1-plugins-good` |
 | Wayland sessions | Not tested yet; `GDK_BACKEND=x11` starts it under XWayland |
-| FreeBSD 15 | Built on 14.5; tests and the port run on 15.1 in CI too |
+| FreeBSD 15 | Built on 14.5; tests and the port run on 15.1 in CI too, and tried by hand (below) |
+
+FreeBSD 15.1 (amd64) was tried by hand on 2026-10-16, both apps of 2.24.1 under Xfce with
+X11 (`scfb`), installed with the one-line install script:
+
+| Tried | |
+|---|---|
+| The first-run guide, browsing, tabs, the sidebar, F1, F9's command list, the action menu (**Shift+F10**) | Work in both apps |
+| Previews: Markdown, PDF, pictures; a `.zip` opened as a folder and a file in it previewed | Work |
+| Copy (F5), new folder (F7), delete to the trash (F8), **Ctrl+Z** | Work. Fixed since: folder sizes on screen stayed as they were before the operation until a restart, and after undoing a delete the cursor did not go to what came back |
+| **Enter** on a file opens it in its program | Works, through `xdg-open` |
+| Find: words in files, names, the search helper | Work. Fixed since: names in a folder made after the helper started were not found until its hourly rebuild; a name that is the whole query, and your home folder, now come before the system's headers |
+| Settings | Work. Fixed since: the heading *How far should Find look?* was squeezed to a word a line; *Previews* now says that podman and docker do not run its Linux images here and names `pkg install texlive-full`; *Never indexed* no longer lists Linux's `/sys` and `/run` |
+| The sidebar's free space | Fixed since: it showed 18.9 GB where `df` showed 26 GB free (it counted free inodes, not free blocks) |
+| Properties | Works. Fixed since: *Owner* shows the names (`mwo:wheel`), not only the ids; *Files of this package* is no longer offered for files in `/tmp` |
+| `coxswain-gui` over ssh | Fixed since: it ended with a GTK panic; now it says there is no display and exits with status 1. `coxswain-gui --version` and `--help` work without one |
 
 The app has no tray icon and sends no desktop notifications, so neither depends on FreeBSD
 support. Please report what works and what does not on your desktop in an

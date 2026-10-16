@@ -34,7 +34,7 @@ Both apps also open their Settings from the command line (`--settings`). For the
 |---|---|---|
 | Start in two folders | `coxswain ~/src ~/Downloads` | `coxswain-gui ~/src ~/Downloads` |
 | Start on a file | `coxswain notes.md` | `coxswain-gui notes.md` |
-| The version | `coxswain --version` | The title of *Help* (**F1**), or the window title |
+| The version | `coxswain --version` | `coxswain-gui --version`, the title of *Help* (**F1**), or the window title |
 | Settings, at an area or an option | `coxswain --settings=search` | `coxswain-gui --settings=search` |
 | Where things are kept | `coxswain --paths`, or `coxswain --settings=privacy` | `coxswain-gui --settings=privacy`: *Where things are kept* |
 | Every default | `coxswain --dump-config` | – |
@@ -185,6 +185,7 @@ See [The search helper](../search/helper.md).
 
 ```
 coxswain-gui [--settings[=AREA|OPTION]] [--duplicates [FOLDER …] | [LEFT] [RIGHT]]
+coxswain-gui --version | --help
 ```
 
 | Flag | Does |
@@ -201,6 +202,8 @@ coxswain-gui [--settings[=AREA|OPTION]] [--duplicates [FOLDER …] | [LEFT] [RIG
 | `--settings=AREA` | …at that area: `overview`, `search`, `previews`, `looks`, `behaviour`, `keys`, `privacy` |
 | `--settings=OPTION` | …at the area of that option, with its group open, scrolled to it and lit up for a moment: an option's name, such as `check_updates` or `folder_sizes` |
 | `--duplicates [FOLDER …]` | Opens *Find duplicates* and scans these folders at once; without folders, the current one. The panes open as usual behind it |
+| `--version`, `-V` | Prints `coxswain-gui X.Y.Z` and exits. No window opens, so it works over ssh too |
+| `--help`, `-h` | Prints these flags and exits |
 | `--index-helper` | Runs as the search helper, with no window: see [below](#the-helper---index-helper) |
 
 `--settings` must come first, then `--duplicates`; everything else is taken as folders. Given
@@ -208,10 +211,14 @@ both, *Find duplicates* opens (there is one window at a time); Settings is a **C
 Any other word after `--settings=` opens it at *Overview*; so do the section names of 1.x
 (`meaning`, `ask`, `news`, `cloud`), which 2.0 no longer knows.
 
-The desktop app has no `--help`, `--version`, `--paths` or `--meaning`: use the terminal app's
-flags, which work on the same `config.toml`, the same cache and the same helper. A
-`config.toml` it cannot read does not stop it: it starts with every default and prints
-`coxswain: config: …; using defaults` on the terminal it was started from.
+The desktop app has no `--paths` or `--meaning`: use the terminal app's flags, which work on
+the same `config.toml`, the same cache and the same helper. A `config.toml` it cannot read does
+not stop it: it starts with every default and prints `coxswain: config: …; using defaults` on
+the terminal it was started from.
+
+On Linux and the BSDs it needs a display: started where neither `DISPLAY` nor
+`WAYLAND_DISPLAY` is set (over ssh, on a console), it prints *coxswain-gui: no display to open
+the window on…* in your language and exits with status 1. `--version` and `--help` need none.
 
 ## The helper: `--index-helper`
 
@@ -249,12 +256,20 @@ Every other flag changes nothing. See [Configuration: every key](configuration.m
 
 #### How do I find out which version I have?
 
-`coxswain --version` prints `coxswain X.Y.Z`. In the desktop app, the title of *Help* (**F1**)
-and the window title show it: `Coxswain X.Y.Z`.
+`coxswain --version` prints `coxswain X.Y.Z`, and `coxswain-gui --version` prints
+`coxswain-gui X.Y.Z`. In the desktop app, the title of *Help* (**F1**) and the window title show
+it: `Coxswain X.Y.Z`.
 
-#### `coxswain-gui --help` opened a window.
+#### `coxswain-gui --paths` opened a window.
 
-The desktop app takes arguments it does not know as folders. Use `coxswain --help`.
+The desktop app takes arguments it does not know as folders. `coxswain-gui --help` lists the
+ones it knows; `coxswain --help` lists the rest.
+
+#### `coxswain-gui` over ssh says there is no display.
+
+There is no screen for its window there. Run it in your desktop session, or use the terminal
+app (`coxswain`) over ssh. `ssh -X` forwards X11 and sets `DISPLAY`, but the window is slow
+that way.
 
 #### `coxswain --meaning ollama` says it cannot connect.
 

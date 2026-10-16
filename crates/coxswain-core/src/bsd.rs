@@ -42,6 +42,21 @@ pub fn package_of(path: &Path) -> Option<String> {
     (!name.is_empty() && !name.contains(char::is_whitespace)).then_some(name)
 }
 
+/// Whether files in `dir` may belong to an installed package, for the action menu: on FreeBSD,
+/// anywhere but in a home folder, a temporary folder or a mounted disk, where pkg puts nothing.
+pub fn packages_here(dir: &Path) -> bool {
+    if !cfg!(target_os = "freebsd") {
+        return false;
+    }
+    let home = std::env::home_dir();
+    !["/tmp", "/var/tmp", "/home", "/usr/home", "/mnt", "/media"]
+        .iter()
+        .map(Path::new)
+        .chain(home.as_deref())
+        .chain([std::env::temp_dir().as_path()])
+        .any(|p| dir.starts_with(p))
+}
+
 /// `pkg info -q -l`'s text: the package's files.
 pub fn parse_files(text: &str) -> Vec<PathBuf> {
     text.lines()

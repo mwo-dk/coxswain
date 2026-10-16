@@ -240,7 +240,7 @@ flags start a new one.
 | Key | Type | Default | Does |
 |---|---|---|---|
 | `name_roots` | list of paths | `[]` | The folders in the name index (1.x: `roots`). Empty: `/` everywhere but Windows (FreeBSD, the other BSDs, illumos, Linux, macOS), every fixed drive on Windows |
-| `name_exclude` | list of strings | `["/proc", "/sys", "/dev", "/run", "/tmp/.X11-unix"]` | Left out of the name index: a path skips that tree, a bare name skips every folder of that name (1.x: `exclude`) |
+| `name_exclude` | list of strings | `["/proc", "/sys", "/dev", "/run", "/tmp/.X11-unix"]` | Left out of the name index: a path skips that tree, a bare name skips every folder of that name (1.x: `exclude`). On the BSDs `["/proc", "/dev", "/tmp/.X11-unix"]`, on illumos `["/proc", "/dev", "/devices", "/system", "/tmp/.X11-unix"]`: the trees each system's kernel makes up |
 | `max_results` | number | `10000` | Most name hits per search (the desktop app shows 500 at most) |
 | `watch` | bool | `true` | Follow changes live with the file watcher; `false`: only the hourly rebuild |
 | `text` | bool | `true` | Keep the text of files, for Find's *In files* group ([Text in files](../search/text.md)) |

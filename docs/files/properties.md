@@ -8,6 +8,7 @@ the desktop app you can change the permission bits there (on Windows the read-on
 your own file flags; the terminal app shows the same facts in a window of text.
 
 ![The Properties dialog of deploy.sh: Location /home/demo/projects/rocket, Type File, Size 69 B, Created, Modified and Accessed, Owner uid 1000, gid 1000, Permissions 755 with rwxr-xr-x next to it, Apply and Close](../screenshots/files-properties.png)
+<!-- screenshot: files-properties.png: retake: the Owner line now reads demo:demo · uid 1000, gid 1000 -->
 
 ## How to use it
 
@@ -29,7 +30,7 @@ The dialog is titled with the entry's name.
 | *Type* | *File*, *Folder*, or *Symbolic link* `→` its target |
 | *Size* | The size; from 10 KB on also the exact bytes; for a folder, *in 1,234 files* |
 | *Created*, *Modified*, *Accessed* | Dates, where the file system records them |
-| *Owner* | `uid 1000, gid 1000` (Linux, macOS) |
+| *Owner* | The user and group by name, as `ls -l` shows them, then their ids: `demo:demo · uid 1000, gid 1000` (Linux, macOS, the BSDs, illumos). An id with no name stays a number |
 | *Permissions* | An octal field, `644`, with `rw-r--r--` next to it, updated as you type (Linux, macOS) |
 | *Attributes* | *Read-only* (Windows) |
 
@@ -41,6 +42,7 @@ and nothing is changed. After *Apply* the dialog closes and the pane is read aga
 Below the permissions, where they apply:
 
 ![Properties of README.md on FreeBSD 14.5: Owner uid 1001, Permissions 644, Flags uarch with tick boxes for nodump and hidden, ZFS dataset tank/home/demo mounted at /tank/home/demo, Compression lz4 ratio 1.24x, Space 1001 KB used, 499 MB available, 424 KB referenced, Quota 500 MB with descendants, Snapshots 3 (Alt+Z lists them)](../screenshots/files-properties-zfs.png)
+<!-- screenshot: files-properties-zfs.png: retake on FreeBSD: the Owner line now reads demo:wheel · uid 1001, gid 0 -->
 
 | Item | Shows | Where |
 |---|---|---|

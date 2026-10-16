@@ -683,7 +683,7 @@
           {#if p.modified}<dt>{t("dialogs.modified")}</dt><dd>{date(p.modified)}</dd>{/if}
           {#if p.accessed}<dt>{t("dialogs.accessed")}</dt><dd>{date(p.accessed)}</dd>{/if}
           {#if p.mode !== null}
-            <dt>{t("dialogs.owner")}</dt><dd>{t("dialogs.owner_ids", { uid: p.uid, gid: p.gid })}</dd>
+            <dt>{t("dialogs.owner")}</dt><dd>{#if p.owner}{p.owner} · {/if}{t("dialogs.owner_ids", { uid: p.uid, gid: p.gid })}</dd>
             <dt>{t("dialogs.permissions")}</dt>
             <dd class="perm"><input bind:this={input} bind:value={m.mode} size="5" spellcheck="false" /> <code>{validMode(m.mode) ? rwx(parseInt(m.mode, 8)) : ""}</code></dd>
           {:else}

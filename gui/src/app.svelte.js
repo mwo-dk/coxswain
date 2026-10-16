@@ -180,6 +180,7 @@ export async function load(t, dir = t.dir, focus) {
     t.history = r.history;
     t.snapshot = r.snapshot;
     t.package = r.package;
+    t.packages = r.packages;
     t.hasNotes = r.has_notes;
     t.error = null;
     // Inside an archive a folder's size comes with the listing; there is nothing to measure. A
@@ -538,6 +539,7 @@ export function subject(tb = tab()) {
     place,
     git: !!tb.git,
     zfs: !!tb.zfs,
+    packages: !!tb.packages,
   };
 }
 

@@ -51,6 +51,9 @@ pub struct Index {
     stamps: HashMap<u32, Stamp>,
     /// When the build began (seconds since 1970) and how long it took (milliseconds).
     built: Option<(u64, u64)>,
+    /// The home folder's node, found again whenever the folders change: search ranks what is
+    /// below it first.
+    home: Option<u32>,
 }
 
 type Stamp = (u64, u64);
@@ -163,6 +166,8 @@ fn tree(entries: Vec<crate::archive::ArchiveEntry>) -> Vec<Scanned> {
 pub struct Looked {
     targets: Vec<(u32, u64, bool, Vec<Scanned>)>,
     known: HashMap<u32, HashMap<Vec<u8>, u32>>,
+    /// Folders that were not in the index before: the watcher has yet to watch them.
+    new_dirs: Vec<PathBuf>,
 }
 
 impl Index {
@@ -390,6 +395,13 @@ impl Index {
                 self.dirs.insert(h[i], i as u32);
             }
         }
+        self.find_home();
+    }
+
+    fn find_home(&mut self) {
+        self.home = std::env::home_dir()
+            .and_then(|h| self.find_dir(&h))
+            .map(|(id, _)| id);
     }
 
     /// Full path, or `None` if the node or an ancestor was deleted.
@@ -462,6 +474,7 @@ impl Index {
         for (p, c) in kids {
             known.entry(p).or_default().insert(self.name(c).to_vec(), c);
         }
+        let mut new_dirs = vec![];
         let targets = targets
             .into_iter()
             .map(|(id, (dir, h))| {
@@ -479,6 +492,7 @@ impl Index {
                         let path = dir.join(&s.name);
                         let below = self.looks_below(&path, look);
                         s.children = self.scan(&path, None, below);
+                        new_dirs.push(path);
                     } else if !s.is_dir && look && crate::archive::is_archive(Path::new(&s.name)) {
                         // An archive that is new, or changed since it was looked into, is read again.
                         let path = dir.join(&s.name);
@@ -494,7 +508,11 @@ impl Index {
                 (id, h, is_dir, on_disk)
             })
             .collect();
-        Looked { targets, known }
+        Looked {
+            targets,
+            known,
+            new_dirs,
+        }
     }
 
     /// The index side of `refresh`: what `look` found goes in.
@@ -528,6 +546,7 @@ impl Index {
             }
         }
         // ponytail: tombstones are never compacted in place; a rebuild reclaims them (`stale`).
+        self.find_home();
     }
 
     /// Whether a quarter of the nodes are gone: every search still walks them, so a rebuild
@@ -605,7 +624,7 @@ impl Index {
         let hay = if q.case { &self.names } else { &self.lower };
         let check = |id: u32| self.matches(id, &q, scope);
 
-        let mut ids: Vec<u32> = match q.anchor() {
+        let ids: Vec<u32> = match q.anchor() {
             // Scan the whole name buffer once, in parallel chunks cut at name boundaries.
             Some(finder) => {
                 let chunks = rayon::current_num_threads() * 8;
@@ -635,10 +654,23 @@ impl Index {
                 .filter(|&id| check(id))
                 .collect(),
         };
-        let total = ids.len();
-        ids.truncate(max);
-        let hits = ids
+        // Best first: a name that is the whole query, then what is in the home folder; else as
+        // the index holds them. Before the cut at `max`, so those are never the ones left out.
+        // One stable pass into four buckets, each in the index's order: exact and at home,
+        // exact, at home, the rest.
+        let exact = lowercase(query.trim());
+        let mut buckets: [Vec<u32>; 4] = Default::default();
+        for id in ids {
+            let n = self.nodes[id as usize];
+            let name = &self.lower[n.off as usize..n.off as usize + n.len as usize];
+            let away = !self.home.is_some_and(|h| self.below(id, h));
+            buckets[(name != exact) as usize * 2 + away as usize].push(id);
+        }
+        let total = buckets.iter().map(Vec::len).sum();
+        let hits = buckets
             .into_iter()
+            .flatten()
+            .take(max)
             .filter_map(|id| {
                 Some(Hit {
                     path: self.path(id)?,
@@ -653,6 +685,18 @@ impl Index {
             total,
             micros: t.elapsed().as_micros() as u64,
         }
+    }
+
+    /// Whether `id` is somewhere below the folder `dir`.
+    fn below(&self, id: u32, dir: u32) -> bool {
+        let mut cur = self.nodes[id as usize].parent;
+        while cur != NONE {
+            if cur == dir {
+                return true;
+            }
+            cur = self.nodes[cur as usize].parent;
+        }
+        false
     }
 
     fn matches(&self, id: u32, q: &Query, scope: Option<u32>) -> bool {
@@ -1217,6 +1261,8 @@ impl Service {
         use notify::{RecursiveMode, Watcher};
         let (tx, rx) = std::sync::mpsc::channel::<notify::Result<notify::Event>>();
         let mut watcher: Option<crate::DirWatcher> = None;
+        // Folders kqueue may still watch: new ones take from it.
+        let mut left = 0;
         let mut rebuild_at = Instant::now();
         loop {
             if rebuild_at <= Instant::now() {
@@ -1228,7 +1274,6 @@ impl Service {
                     Some(&self.index.read().unwrap()),
                 );
                 *self.index.write().unwrap() = fresh;
-                self.state.store(State::Ready as u8, Ordering::Relaxed);
                 // Not saved, the index is built again at every start: helper.log says why.
                 if let Some(c) = &cache
                     && let Err(e) = self.index.read().unwrap().save(c)
@@ -1253,12 +1298,17 @@ impl Service {
                     if BY_FOLDER {
                         if let Some(w) = watcher.as_mut() {
                             // One batch: kqueue hands every watch to the kernel on each `watch`.
+                            let budget = claim_folders();
+                            let dirs = folders_to_watch(&roots, &exclude, budget);
+                            left = budget - dirs.len();
                             let mut batch = w.paths_mut();
-                            for dir in folders_to_watch(&roots, &exclude, claim_folders()) {
+                            for dir in dirs {
                                 let _ = batch.add(&dir, RecursiveMode::NonRecursive);
                             }
                             let _ = batch.commit();
                         }
+                        // Ready once the watcher is in place, so nothing made meanwhile is missed.
+                        self.state.store(State::Ready as u8, Ordering::Relaxed);
                         continue;
                     }
                     for root in &roots {
@@ -1286,6 +1336,7 @@ impl Service {
                         let _ = w.watch(root, RecursiveMode::NonRecursive);
                     }
                 }
+                self.state.store(State::Ready as u8, Ordering::Relaxed);
             }
             // Gather a burst of events, then apply them in one pass.
             let (mut dirty, mut paths) = (HashSet::new(), vec![]);
@@ -1309,8 +1360,18 @@ impl Service {
             }
             if !dirty.is_empty() {
                 // The disk is read under a read lock: searches go on meanwhile.
-                let looked = self.index.read().unwrap().look(&dirty);
+                let mut looked = self.index.read().unwrap().look(&dirty);
+                let new_dirs = std::mem::take(&mut looked.new_dirs);
                 self.index.write().unwrap().apply(looked);
+                // A folder made since the watcher started is watched too, with what is below
+                // it, and read once more for what came into it before its watch did.
+                if let Some(w) = watcher.as_mut()
+                    && watch_new(w, &new_dirs, &roots, &exclude, &mut left)
+                {
+                    let again: HashSet<PathBuf> = new_dirs.into_iter().collect();
+                    let looked = self.index.read().unwrap().look(&again);
+                    self.index.write().unwrap().apply(looked);
+                }
                 self.listeners
                     .lock()
                     .unwrap()
@@ -1322,6 +1383,40 @@ impl Service {
             }
         }
     }
+}
+
+/// Watch `new_dirs`, folders that appeared since the watcher started. kqueue and event ports
+/// watch folder by folder: each, and the folders below it, while `left` lasts. notify's
+/// recursive watches (inotify, FSEvents) follow new folders below them themselves, but a root
+/// is watched alone: a folder made right in it gets a recursive watch of its own. True when
+/// something was watched.
+fn watch_new(
+    w: &mut crate::DirWatcher,
+    new_dirs: &[PathBuf],
+    roots: &[PathBuf],
+    exclude: &[String],
+    left: &mut usize,
+) -> bool {
+    use notify::{RecursiveMode, Watcher};
+    if BY_FOLDER {
+        let dirs = folders_to_watch(new_dirs, exclude, *left);
+        *left -= dirs.len();
+        let mut batch = w.paths_mut();
+        for dir in &dirs {
+            let _ = batch.add(dir, RecursiveMode::NonRecursive);
+        }
+        let _ = batch.commit();
+        return !dirs.is_empty();
+    }
+    let mut any = false;
+    for d in new_dirs.iter().filter(|d| {
+        d.parent().is_some_and(|p| roots.iter().any(|r| r == p))
+            && !d.is_symlink()
+            && !crate::fs::protected(d)
+    }) {
+        any |= w.watch(d, RecursiveMode::Recursive).is_ok();
+    }
+    any
 }
 
 /// The file watcher is kqueue, which needs an open descriptor per watched path, or illumos's
@@ -1443,6 +1538,56 @@ mod tests {
     }
 
     #[test]
+    // FSEvents reports nothing for the temporary folders of GitHub's macOS runners, so this is not
+    // run there; a real Mac is checked by hand (issue #222).
+    #[cfg_attr(target_os = "macos", ignore)]
+    fn a_folder_made_after_the_start_is_watched_too() {
+        let d = std::env::temp_dir().join(format!("coxswain-ix-new-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&d);
+        fs::create_dir_all(d.join("old")).unwrap();
+        // FSEvents names /private/var for macOS's /var.
+        let d = d.canonicalize().unwrap();
+        let svc = Arc::new(Service {
+            index: RwLock::default(),
+            state: AtomicU8::new(State::Building as u8),
+            listeners: Mutex::default(),
+        });
+        let s = svc.clone();
+        let root = d.clone();
+        std::thread::spawn(move || s.run(vec![root], vec![], None, true, None));
+        let found = |q: &str| {
+            let until = Instant::now() + crate::test_limit(Duration::from_secs(10));
+            while Instant::now() < until {
+                if svc.search(q, None, 10).total > 0 {
+                    return true;
+                }
+                std::thread::sleep(Duration::from_millis(100));
+            }
+            false
+        };
+        while svc.state() != State::Ready {
+            std::thread::sleep(Duration::from_millis(50));
+        }
+        // Right in the root, and below a watched folder.
+        for top in ["made", "old/made"] {
+            fs::create_dir_all(d.join(top)).unwrap();
+            assert!(found("made"), "{top} itself");
+            std::thread::sleep(Duration::from_millis(800));
+            fs::create_dir_all(d.join(top).join("deeper")).unwrap();
+            assert!(found("deeper"), "a folder in {top}");
+            std::thread::sleep(Duration::from_millis(800));
+            fs::write(d.join(top).join("deeper/note-in-new.txt"), "x").unwrap();
+            assert!(found("note-in-new"), "a file in {top}/deeper");
+            fs::remove_dir_all(d.join(top)).unwrap();
+            let until = Instant::now() + crate::test_limit(Duration::from_secs(10));
+            while svc.search("note-in-new", None, 10).total > 0 && Instant::now() < until {
+                std::thread::sleep(Duration::from_millis(100));
+            }
+        }
+        let _ = fs::remove_dir_all(&d);
+    }
+
+    #[test]
     fn kqueue_watches_folders_only_shallowest_first() {
         let d = tree("kq");
         let all = folders_to_watch(
@@ -1523,6 +1668,75 @@ mod tests {
             .collect();
         assert_eq!(scoped.len(), 2);
         assert_eq!(ix.search("rs", None, 1).total, 2);
+        fs::remove_dir_all(d).unwrap();
+    }
+
+    #[test]
+    fn a_name_that_is_the_whole_query_comes_first() {
+        let d = std::env::temp_dir().join(format!("coxswain-ix-exact-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&d);
+        for (i, f) in ["a/zebra-notes.txt", "b/zebra.tar", "c/old-zebra", "z/Zebra"]
+            .iter()
+            .enumerate()
+        {
+            let p = d.join(format!("{i}{f}"));
+            fs::create_dir_all(p.parent().unwrap()).unwrap();
+            fs::write(p, "x").unwrap();
+        }
+        let ix = Index::build(std::slice::from_ref(&d), &[], None, None);
+        for q in ["zebra", "ZEBRA"] {
+            let r = ix.search(q, None, 1);
+            assert_eq!(
+                (r.total, name_of(&r.hits[0].path)),
+                (4, "Zebra".into()),
+                "{q}"
+            );
+        }
+        fs::remove_dir_all(d).unwrap();
+    }
+
+    #[test]
+    fn ranking_keeps_the_index_order_within_each_bucket() {
+        let d = std::env::temp_dir().join(format!("coxswain-ix-order-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&d);
+        for f in [
+            "a/x/kiwi",
+            "a/kiwi-1",
+            "b/kiwi-2",
+            "home/kiwi-3",
+            "home/y/kiwi",
+            "c/kiwi-4",
+        ] {
+            let p = d.join(f);
+            fs::create_dir_all(p.parent().unwrap()).unwrap();
+            fs::write(p, "x").unwrap();
+        }
+        let mut ix = Index::build(std::slice::from_ref(&d), &[], None, None);
+        ix.home = ix.find_dir(&d.join("home")).map(|(id, _)| id);
+        // The index's own order: every match by node id.
+        let all: Vec<PathBuf> = (0..ix.nodes.len() as u32)
+            .filter(|&id| ix.name(id).starts_with(b"kiwi"))
+            .filter_map(|id| ix.path(id))
+            .collect();
+        let at_home = |p: &PathBuf| p.starts_with(d.join("home"));
+        let exact = |p: &PathBuf| name_of(p) == "kiwi";
+        let mut want = vec![];
+        for (e, h) in [(true, true), (true, false), (false, true), (false, false)] {
+            want.extend(
+                all.iter()
+                    .filter(|p| exact(p) == e && at_home(p) == h)
+                    .cloned(),
+            );
+        }
+        let got: Vec<PathBuf> = ix
+            .search("kiwi", None, 100)
+            .hits
+            .into_iter()
+            .map(|h| h.path)
+            .collect();
+        assert_eq!(got, want);
+        assert_eq!(name_of(&got[0]), "kiwi");
+        assert!(at_home(&got[0]) && !at_home(&got[1]) && at_home(&got[2]));
         fs::remove_dir_all(d).unwrap();
     }
 

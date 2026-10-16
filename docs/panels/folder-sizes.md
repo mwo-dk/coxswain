@@ -55,7 +55,8 @@ first start; see [Renamed in 2.0](../reference/configuration.md#renamed-in-20)).
 
 **How fresh they are.** A measured size is believed for five minutes, so going back to a
 folder shows its sizes at once. Copying, moving, deleting, pasting, packing or extracting with
-Coxswain forgets the sizes of the folders involved, and they are measured again. In both apps,
+Coxswain, and undoing it with **Ctrl+Z**, forgets the sizes of the folders involved and of every
+folder they are in, and those shown are measured again when it has ended. In both apps,
 a change the file watcher sees in a folder on screen does the same. The helper's
 sizes follow its own watcher, and its walk every ten minutes.
 

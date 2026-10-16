@@ -33,9 +33,9 @@ toml_edit = "0.25.15"
 default = ["custom-protocol"]
 custom-protocol = ["tauri/custom-protocol"]
 
-# The disks in the sidebar, where sysinfo knows the system; elsewhere the core reads them
-# (`machine::mounted`).
-[target.'cfg(any(target_os = "linux", target_os = "macos", target_os = "freebsd", windows))'.dependencies]
+# The disks in the sidebar, where sysinfo knows the system and says which are removable;
+# elsewhere the core reads them (`machine::mounted`): sysinfo's FreeBSD free space is wrong.
+[target.'cfg(any(target_os = "linux", target_os = "macos", windows))'.dependencies]
 sysinfo = { version = "0.39", default-features = false, features = ["disk"] }
 
 # The title bar GTK draws keeps its first title; it is set as well (`set_title`).

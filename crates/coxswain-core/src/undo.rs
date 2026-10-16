@@ -325,14 +325,29 @@ impl Record {
     pub fn undo(&self, mut at: impl FnMut(usize)) -> Undone {
         let mut refused = vec![];
         let mut done = 0;
+        // What came back where it was, for the apps to put the cursor on.
+        let mut back = vec![];
         if self.kind == Kind::Rename {
             let (n, r) = self.undo_renames();
             (done, refused) = (n, r);
+            // Back under its old name: that name is there and the new one is not.
+            back = (self.items.iter())
+                .filter(|i| {
+                    fs::symlink_metadata(&i.from).is_ok()
+                        && (fs::symlink_metadata(&i.to).is_err() || cfs::same_file(&i.from, &i.to))
+                })
+                .map(|i| i.from.clone())
+                .collect();
         } else {
             for (i, item) in self.items.iter().enumerate().rev() {
                 at(self.items.len() - 1 - i);
                 match self.undo_one(item) {
-                    Ok(()) => done += 1,
+                    Ok(()) => {
+                        done += 1;
+                        if matches!(self.kind, Kind::Move | Kind::Trash) {
+                            back.push(item.from.clone());
+                        }
+                    }
                     Err(why) => refused.push(why),
                 }
             }
@@ -341,6 +356,8 @@ impl Record {
             label: self.label(),
             done,
             refused,
+            back,
+            touched: self.touched(),
         }
     }
 
@@ -454,13 +471,17 @@ impl Record {
 }
 
 /// What undo did.
-#[derive(Debug)]
+#[derive(Debug, serde::Serialize)]
 pub struct Undone {
     /// What was undone, as `Record::label` says it.
     pub label: String,
     pub done: usize,
     /// One line for each item left as it is: its path and why.
     pub refused: Vec<String>,
+    /// The items moved, renamed or trashed that are back where they were.
+    pub back: Vec<PathBuf>,
+    /// What it changed: `Record::touched`, for the sizes measured again.
+    pub touched: Vec<PathBuf>,
 }
 
 /// The last operations, the newest last; for the app run only.
@@ -520,6 +541,7 @@ mod tests {
         fs::write(d.join("c.txt"), "new c").unwrap();
         let u = r.undo(|_| {});
         assert_eq!(u.done, 1);
+        assert_eq!(u.back, [d.join("a.txt")], "only what came back");
         assert_eq!(u.refused.len(), 2, "{:?}", u.refused);
         assert!(
             u.refused

@@ -221,6 +221,7 @@ impl Panel {
             place,
             git: self.git.is_some(),
             zfs: self.zfs.is_some(),
+            packages: coxswain_core::bsd::packages_here(&self.dir),
         }
     }
 
@@ -519,6 +520,7 @@ enum JobMsg {
     At(usize),
     /// What failed, and what can be undone of what did not.
     Done(Vec<(PathBuf, std::io::Error)>, Record),
+    /// An undo has ended: what came of it.
     Undone(coxswain_core::undo::Undone),
 }
 
@@ -577,6 +579,17 @@ fn line_key(key: Key, plain: Option<char>) -> Option<LineKey> {
         (_, Some(c)) => LineKey::Type(c),
         _ => return None,
     })
+}
+
+/// What a file operation (`None`: packing into `dst`) adds, removes or writes: the folders
+/// these are in change size. A move, rename, delete or new folder changes `src`; a copy, move,
+/// extract or pack what is in `dst`.
+fn touches(op: Option<Transfer>, src: &[PathBuf], dst: &Path) -> Vec<PathBuf> {
+    let mut out = if matches!(op, Some(Transfer::Move | Transfer::Rename | Transfer::Delete(_) | Transfer::Mkdir)) { src.to_vec() } else { vec![] };
+    if !dst.as_os_str().is_empty() {
+        out.push(if op.is_none() { dst.to_path_buf() } else { dst.join("new") });
+    }
+    out
 }
 
 /// A folder listed by a program (git, zfs, pkg), which can take a while: read on a thread.
@@ -716,10 +729,25 @@ impl App {
 
     /// These were added, removed or written: the folders they are in are measured again.
     fn changed(&mut self, paths: &[PathBuf]) {
+        let stale = self.forget(paths);
+        // A panel showing a folder the change is in, not the folder it is in itself.
+        for side in (0..2).filter(|&s| stale[s]) {
+            self.measure(side);
+        }
+    }
+
+    /// The sizes of the folders these are in, forgotten: by each panel that dropped one.
+    fn forget(&mut self, paths: &[PathBuf]) -> [bool; 2] {
+        let mut stale = [false; 2];
         for p in paths {
             self.sizer.forget(p);
-            self.panels.iter_mut().for_each(|panel| panel.sizes.retain(|folder, _| !p.starts_with(folder)));
+            for (side, panel) in self.panels.iter_mut().enumerate() {
+                let had = panel.sizes.len();
+                panel.sizes.retain(|folder, _| !p.starts_with(folder));
+                stale[side] |= panel.sizes.len() < had;
+            }
         }
+        stale
     }
 
     /// Measure the folders in a panel on a thread, the first ones first; results arrive
@@ -1493,13 +1521,8 @@ impl App {
         if let Some(j) = &self.job {
             return self.status = Some(j.line.clone());
         }
-        if matches!(op, Some(Transfer::Move | Transfer::Rename | Transfer::Delete(_) | Transfer::Mkdir)) {
-            self.changed(&src);
-        } else if op.is_none() {
-            self.changed(std::slice::from_ref(&dst));
-        } else {
-            self.changed(&[dst.join("new")]);
-        }
+        // Measured in `finish`: while it runs, a folder's size would be halfway.
+        self.forget(&touches(op, &src, &dst));
         let (tx, rx) = mpsc::channel();
         let (items, to, pw) = (src.clone(), dst.clone(), password.clone());
         std::thread::spawn(move || {
@@ -1581,7 +1604,16 @@ impl App {
         if let Some(u) = undone {
             self.job = None;
             self.status = None;
-            return self.after_op(t!("undo.done", "what" => u.label), t!("undo.partly", "what" => u.label), u.refused);
+            // Measured while it ran, a folder's size would be halfway.
+            self.changed(&u.touched);
+            self.after_op(t!("undo.done", "what" => &u.label), t!("undo.partly", "what" => &u.label), u.refused);
+            // The cursor goes on what came back, where its folder is shown.
+            for side in 0..2 {
+                if let Some(name) = u.back.iter().find(|p| p.parent() == Some(self.panels[side].dir.as_path())).and_then(|p| p.file_name()) {
+                    self.panels[side].select_name(&name.to_string_lossy());
+                }
+            }
+            return;
         }
         // A key clears the status line; while the job runs, it comes back.
         if self.status.is_none() {
@@ -1597,6 +1629,8 @@ impl App {
     /// for just what was locked.
     fn finish(&mut self, job: Job, failed: Vec<(PathBuf, std::io::Error)>, rec: Option<Record>) {
         let Job { op, src, dst, password, select, .. } = job;
+        // Again now it has ended: a folder measured while it ran would keep a size halfway.
+        self.changed(&touches(op, &src, &dst));
         let what = Self::describe(&src);
         // What can be undone is kept, and the status line says how.
         let key = self.key_label(Action::Undo).to_string();
@@ -1661,7 +1695,7 @@ impl App {
             return self.status = Some(j.line.clone());
         }
         let Some(rec) = self.undo.pop() else { return self.status = Some(t!("undo.nothing")) };
-        self.changed(&rec.touched());
+        self.forget(&rec.touched());
         let line = t!("status.busy", "what" => rec.label());
         let (tx, rx) = mpsc::channel();
         std::thread::spawn(move || {
@@ -2280,14 +2314,17 @@ impl App {
         if paths.is_empty() {
             return;
         }
-        self.changed(&paths);
-        for side in 0..2 {
+        let stale = self.forget(&paths);
+        for (side, stale) in stale.into_iter().enumerate() {
             // macOS names what changed by its real path (`/private/var` for `/var`).
             let dir = &self.panels[side].dir;
             let real = std::fs::canonicalize(dir).ok();
             let here = |p: &Path| p == dir || real.as_deref() == Some(p);
-            if paths.iter().any(|p| here(p) || p.parent().is_some_and(here)) {
+            let reread = paths.iter().any(|p| here(p) || p.parent().is_some_and(here));
+            if reread {
                 self.load(side, None);
+            }
+            if reread || stale {
                 self.measure(side);
             }
         }

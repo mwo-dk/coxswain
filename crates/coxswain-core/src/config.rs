@@ -1512,11 +1512,23 @@ pub struct SearchConfig {
     pub cloud_read: Vec<PathBuf>,
 }
 
+/// The trees the kernel makes up, never indexed: Linux's `/proc`, `/sys`, `/dev` and `/run`;
+/// the BSDs have no `/sys` or `/run`, illumos has `/devices` and `/system` (contracts, objects).
+fn kernel_trees() -> &'static [&'static str] {
+    if cfg!(any(target_os = "freebsd", target_os = "netbsd", target_os = "openbsd")) {
+        &["/proc", "/dev"]
+    } else if cfg!(any(target_os = "illumos", target_os = "solaris")) {
+        &["/proc", "/dev", "/devices", "/system"]
+    } else {
+        &["/proc", "/sys", "/dev", "/run"]
+    }
+}
+
 impl Default for SearchConfig {
     fn default() -> Self {
         SearchConfig {
             roots: vec![],
-            exclude: ["/proc", "/sys", "/dev", "/run", "/tmp/.X11-unix"].map(String::from).to_vec(),
+            exclude: kernel_trees().iter().copied().chain(["/tmp/.X11-unix"]).map(String::from).collect(),
             max_results: 10_000,
             watch: true,
             text: true,
