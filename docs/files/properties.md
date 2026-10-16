@@ -7,8 +7,7 @@ the system has them, its ZFS dataset, the FreeBSD package it belongs to and its 
 the desktop app you can change the permission bits there (on Windows the read-only flag) and
 your own file flags; the terminal app shows the same facts in a window of text.
 
-![The Properties dialog of deploy.sh: Location /home/demo/projects/rocket, Type File, Size 69 B, Created, Modified and Accessed, Owner uid 1000, gid 1000, Permissions 755 with rwxr-xr-x next to it, Apply and Close](../screenshots/files-properties.png)
-<!-- screenshot: files-properties.png: retake: the Owner line now reads demo:demo · uid 1000, gid 1000 -->
+![The Properties dialog of deploy.sh: Location /home/demo/projects/rocket, Type File, Size 69 B, Created, Modified and Accessed, Owner demo:demo · uid 1000, gid 1000, Permissions 755 with rwxr-xr-x next to it, Flags none, Apply and Close](../screenshots/files-properties.png)
 
 ## How to use it
 
