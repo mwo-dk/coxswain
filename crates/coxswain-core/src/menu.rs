@@ -234,10 +234,28 @@ pub fn pick(
         })
 }
 
-/// `pick`, with the counts kept in state.json. `last` is the subject the hint on show (its id)
-/// was picked for. A hint counts as shown once more when it comes up anew: another hint was on
-/// show, or the cursor went to another kind of entry (a file after a folder, several marked,
-/// into an archive). Moving from file to file keeps it, and counts it once.
+/// `pick`, counted in `shown`, and whether that changed (then the caller saves it). `last` is
+/// the subject the hint on show (its id) was picked for. A hint counts as shown once more when
+/// it comes up anew: another hint was on show, or the cursor went to another kind of entry (a
+/// file after a folder, several marked, into an archive). Moving from file to file keeps it,
+/// and counts it once.
+pub fn hint_in(
+    s: &Subject,
+    cfg: &Config,
+    last: Option<(&Subject, &str)>,
+    shown: &mut BTreeMap<String, u32>,
+) -> (Option<(&'static str, String)>, bool) {
+    let Some(h) = pick(s, cfg, shown) else {
+        return (None, false);
+    };
+    let anew = last.is_none_or(|(was, id)| id != h.0 || was.kind() != s.kind());
+    if anew {
+        *shown.entry(h.0.to_string()).or_default() += 1;
+    }
+    (Some(h), anew)
+}
+
+/// `hint_in`, with the counts kept in state.json, written only when one changed.
 pub fn hint(
     s: &Subject,
     cfg: &Config,
@@ -247,31 +265,43 @@ pub fn hint(
         return None;
     }
     let mut st = crate::state::AppState::load();
-    let h = pick(s, cfg, &st.hints_shown)?;
-    if last.is_none_or(|(was, id)| id != h.0 || was.kind() != s.kind()) {
-        *st.hints_shown.entry(h.0.to_string()).or_default() += 1;
+    let (h, changed) = hint_in(s, cfg, last, &mut st.hints_shown);
+    if changed {
         let _ = st.save();
     }
-    Some(h)
+    h
 }
 
 /// Whether the hint `id`, shown where it applies rather than on the status line (Find's
-/// scope), is still to be shown; counted as shown once more when it is.
+/// scope), is still to be shown; counted in `shown` as shown once more when it is (so `shown`
+/// changed exactly when this is true).
+pub fn once_in(id: &str, cfg: &Config, shown: &mut BTreeMap<String, u32>) -> bool {
+    if !cfg.hints {
+        return false;
+    }
+    let n = shown.entry(id.to_string()).or_default();
+    if *n >= TIMES {
+        return false;
+    }
+    *n += 1;
+    true
+}
+
+/// `once_in`, with the counts kept in state.json.
 pub fn once(id: &str, cfg: &Config) -> bool {
     if !cfg.hints {
         return false;
     }
     let mut st = crate::state::AppState::load();
-    let n = st.hints_shown.entry(id.to_string()).or_default();
-    if *n >= TIMES {
-        return false;
+    let due = once_in(id, cfg, &mut st.hints_shown);
+    if due {
+        let _ = st.save();
     }
-    *n += 1;
-    let _ = st.save();
-    true
+    due
 }
 
-/// Every hint shows again (`coxswain --hints reset`, Settings → Behaviour).
+/// Every hint shows again (`coxswain --hints reset`, Settings → Behaviour). An app that keeps
+/// the state in memory clears its `hints_shown` instead and saves that.
 pub fn reset() -> std::io::Result<()> {
     let mut st = crate::state::AppState::load();
     st.hints_shown.clear();
@@ -402,6 +432,27 @@ mod tests {
             !names(&file, false).contains(&"tag"),
             "the terminal app has no colour tags"
         );
+    }
+
+    #[test]
+    fn hints_count_when_they_come_up_anew() {
+        let cfg = Config::default();
+        let folder = Subject {
+            folders: 1,
+            one: true,
+            ..Default::default()
+        };
+        let other = folder.clone();
+        let mut shown = BTreeMap::new();
+        let (h, changed) = hint_in(&folder, &cfg, None, &mut shown);
+        let id = h.unwrap().0;
+        assert!(changed && shown[id] == 1);
+        // The same kind again (folder to folder): no count, nothing to save.
+        assert!(!hint_in(&other, &cfg, Some((&folder, id)), &mut shown).1);
+        assert_eq!(shown[id], 1);
+        assert!(once_in("find_scope", &cfg, &mut shown));
+        shown.insert("find_scope".into(), TIMES);
+        assert!(!once_in("find_scope", &cfg, &mut shown));
     }
 
     #[test]
