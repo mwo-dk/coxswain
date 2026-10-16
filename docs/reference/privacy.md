@@ -85,6 +85,9 @@ On a machine with search by meaning on the built-in model, Coxswain also asks
 `http://localhost:11434`, now and then, whether Ollama runs there, to suggest it. That request
 never leaves the machine.
 
+Every request Coxswain itself sends (the update check, a download, a server) names the app as
+`User-Agent: coxswain/1.20.0` (its version), and no more about you or the machine.
+
 Nothing else: no crash reports, no usage counts, no fonts or libraries fetched at run time.
 Every preview library ships inside the app, and draw.io's viewer runs offline.
 
