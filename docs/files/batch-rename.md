@@ -89,8 +89,8 @@ No; batch rename works on folders on disk. Inside an archive, rename one entry a
 
 Each file is first renamed to a temporary name `.coxswain-rename-…` and then to its new name. If
 the system refuses a step (a disk removed mid-way), the error is shown in the dialog, and every
-file gets its old name back. Files already renamed before the
-failure go back to their old names too: the batch is done whole, or not at all.
+file gets its old name back, the ones already renamed before the failure too: the batch is
+done whole, or not at all.
 
 #### Why is `b.txt` a conflict for `a.txt` when only `B.txt` exists?
 
