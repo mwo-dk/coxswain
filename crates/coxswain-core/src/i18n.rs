@@ -146,7 +146,11 @@ pub fn date(secs: u64) -> String {
 
 fn local(secs: u64, format: &str) -> String {
     let t = std::time::UNIX_EPOCH + std::time::Duration::from_secs(secs);
-    digits(chrono::DateTime::<chrono::Local>::from(t).format(format).to_string())
+    digits(
+        chrono::DateTime::<chrono::Local>::from(t)
+            .format(format)
+            .to_string(),
+    )
 }
 
 /// `s` in capitals, except Georgian: it has no capitals in running text, and its Mtavruli
@@ -359,9 +363,7 @@ pub fn language() -> &'static str {
 }
 
 fn lookup(code: &str, key: &str) -> Option<&'static serde_json::Value> {
-    chain(code)
-        .into_iter()
-        .find_map(|c| cat(c)?.get(key))
+    chain(code).into_iter().find_map(|c| cat(c)?.get(key))
 }
 
 fn fill(text: &str, args: &[(&str, &str)]) -> String {
@@ -704,7 +706,11 @@ mod tests {
         }
         let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
         let mut files = vec![];
-        for c in std::fs::read_dir(root.join("crates")).into_iter().flatten().flatten() {
+        for c in std::fs::read_dir(root.join("crates"))
+            .into_iter()
+            .flatten()
+            .flatten()
+        {
             walk(&c.path().join("src"), &["rs"], &mut files);
         }
         // Not there in the packaged crate.
@@ -718,7 +724,11 @@ mod tests {
             };
             let mut all: Vec<String> = forms
                 .iter()
-                .flat_map(|s| s.split('{').skip(1).filter_map(|p| p.split_once('}').map(|x| x.0.to_string())))
+                .flat_map(|s| {
+                    s.split('{')
+                        .skip(1)
+                        .filter_map(|p| p.split_once('}').map(|x| x.0.to_string()))
+                })
                 .collect();
             all.sort();
             all.dedup();
@@ -728,7 +738,11 @@ mod tests {
         for f in &files {
             let text = std::fs::read_to_string(f).unwrap_or_default();
             let rust = f.extension().is_some_and(|x| x == "rs");
-            let calls: &[&str] = if rust { &["t!(", "tn!(", "tr(", "trn("] } else { &["t(", "tn("] };
+            let calls: &[&str] = if rust {
+                &["t!(", "tn!(", "tr(", "trn("]
+            } else {
+                &["t(", "tn("]
+            };
             for call in calls {
                 for (i, _) in text.match_indices(call) {
                     if text[..i].ends_with(|c: char| c.is_alphanumeric() || c == '_' || c == '.') {
@@ -742,7 +756,9 @@ mod tests {
                     let Some(q) = rest.chars().next().filter(|c| matches!(c, '"' | '\'')) else {
                         continue;
                     };
-                    let Some(end) = rest[1..].find(q) else { continue };
+                    let Some(end) = rest[1..].find(q) else {
+                        continue;
+                    };
                     let key = &rest[1..1 + end];
                     if !key.contains('.') || key.ends_with('.') || key.contains([' ', '{', '$']) {
                         continue;
@@ -774,17 +790,27 @@ mod tests {
                     }
                     let span = &rest[1 + end..stop];
                     // `tr(key, args)` with its arguments made elsewhere: not checked.
-                    if call.starts_with("tr") && !span.contains("&[") && !span.trim_start_matches([',', ' ']).is_empty() {
+                    if call.starts_with("tr")
+                        && !span.contains("&[")
+                        && !span.trim_start_matches([',', ' ']).is_empty()
+                    {
                         continue;
                     }
-                    let given: Vec<&str> = named.captures_iter(span).map(|c| c.get(1).unwrap().as_str()).collect();
+                    let given: Vec<&str> = named
+                        .captures_iter(span)
+                        .map(|c| c.get(1).unwrap().as_str())
+                        .collect();
                     let counted = call.starts_with("tn") || call.starts_with("trn");
                     let lacks: Vec<String> = wants(v)
                         .into_iter()
                         .filter(|p| !(counted && p == "n") && !given.contains(&p.as_str()))
                         .collect();
                     if !lacks.is_empty() {
-                        bad.push(format!("{}: {key} without {}", f.display(), lacks.join(", ")));
+                        bad.push(format!(
+                            "{}: {key} without {}",
+                            f.display(),
+                            lacks.join(", ")
+                        ));
                     }
                 }
             }

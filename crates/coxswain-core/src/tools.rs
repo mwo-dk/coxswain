@@ -632,8 +632,15 @@ pub fn output(
 /// What `c` prints, with no input, given `timeout`: its output up to `max` bytes, and up to
 /// 64 KB of its complaints. Both are read while it runs, so a long output never fills a pipe
 /// and holds it up; whatever is past the limit is drained.
-pub fn capture(mut c: Command, timeout: Duration, max: u64) -> std::io::Result<std::process::Output> {
-    fn drain(pipe: Option<impl Read + Send + 'static>, max: u64) -> std::thread::JoinHandle<Vec<u8>> {
+pub fn capture(
+    mut c: Command,
+    timeout: Duration,
+    max: u64,
+) -> std::io::Result<std::process::Output> {
+    fn drain(
+        pipe: Option<impl Read + Send + 'static>,
+        max: u64,
+    ) -> std::thread::JoinHandle<Vec<u8>> {
         std::thread::spawn(move || {
             let mut v = vec![];
             if let Some(mut p) = pipe {
@@ -643,9 +650,14 @@ pub fn capture(mut c: Command, timeout: Duration, max: u64) -> std::io::Result<s
             v
         })
     }
-    c.stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::piped());
+    c.stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
     let mut child = c.spawn()?;
-    let (out, err) = (drain(child.stdout.take(), max), drain(child.stderr.take(), 64 << 10));
+    let (out, err) = (
+        drain(child.stdout.take(), max),
+        drain(child.stderr.take(), 64 << 10),
+    );
     let status = wait(&mut child, timeout)?;
     Ok(std::process::Output {
         status,

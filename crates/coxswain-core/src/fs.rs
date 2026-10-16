@@ -483,7 +483,12 @@ fn copy_out_or_in(
     if let Some((archive, inner)) = into_archive(dst) {
         let name = src
             .file_name()
-            .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, crate::t!("err.nothing_to_copy")))?
+            .ok_or_else(|| {
+                io::Error::new(
+                    io::ErrorKind::InvalidInput,
+                    crate::t!("err.nothing_to_copy"),
+                )
+            })?
             .to_string_lossy();
         // Into a folder of the archive under its own name, or under the name `dst` gives.
         let (to, inner) = if crate::archive::is_folder(&archive, &inner)? {

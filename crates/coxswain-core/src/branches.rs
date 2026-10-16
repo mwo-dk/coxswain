@@ -355,7 +355,8 @@ pub fn worktree_entries(dir: &Path) -> io::Result<Vec<Entry>> {
                     name += &format!(" {}", crate::t!(key));
                 }
             }
-            let time = crate::fs::secs(std::fs::metadata(&w.path).and_then(|m| m.modified())).unwrap_or(0);
+            let time =
+                crate::fs::secs(std::fs::metadata(&w.path).and_then(|m| m.modified())).unwrap_or(0);
             dir_entry(name, w.path, time)
         })
         .collect())

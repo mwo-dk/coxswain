@@ -6,7 +6,7 @@
 use serde::Serialize;
 use unicode_normalization::UnicodeNormalization;
 
-use crate::config::{written, Action, Config};
+use crate::config::{Action, Config, written};
 use Action::*;
 
 /// A feature: its id (its texts' key), its docs page under `docs/` (whose folder is its area),
@@ -296,7 +296,6 @@ pub struct Entry {
     pub qa: Vec<(String, String)>,
     pub url: String,
 }
-
 
 /// The text `key` with each `{action}` filled with that action's handiest key (its name when it
 /// has none). None when the language has no such text.

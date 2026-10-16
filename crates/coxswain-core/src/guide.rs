@@ -24,7 +24,13 @@ pub fn keys(cfg: &Config) -> Vec<(String, String)> {
         Action::Help,
     ]
     .into_iter()
-    .map(|a| (a.label(), cfg.key_for(a).map_or_else(|| "—".into(), crate::config::written)))
+    .map(|a| {
+        (
+            a.label(),
+            cfg.key_for(a)
+                .map_or_else(|| "—".into(), crate::config::written),
+        )
+    })
     .collect()
 }
 

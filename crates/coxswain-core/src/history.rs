@@ -395,10 +395,12 @@ pub fn list(dir: &Path, at: &At) -> io::Result<Vec<Entry>> {
 
 /// The first `max` bytes of a file at a commit, and whether there was more.
 pub fn read(at: &At, max: usize) -> io::Result<(Vec<u8>, bool)> {
-    let rev = at
-        .commit
-        .as_deref()
-        .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, crate::t!("history.pick_commit")))?;
+    let rev = at.commit.as_deref().ok_or_else(|| {
+        io::Error::new(
+            io::ErrorKind::InvalidInput,
+            crate::t!("history.pick_commit"),
+        )
+    })?;
     let mut c = git(&at.base);
     c.args(["cat-file", "blob", &format!("{rev}:./{}", at.inner)]);
     let mut child = c.stdout(Stdio::piped()).stderr(Stdio::piped()).spawn()?;
@@ -448,10 +450,12 @@ pub fn peek(path: &Path) -> io::Result<PathBuf> {
 
 /// What the commit changed in the file (or folder): its diff against the commit before.
 pub fn diff(at: &At) -> io::Result<String> {
-    let rev = at
-        .commit
-        .as_deref()
-        .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, crate::t!("history.pick_commit")))?;
+    let rev = at.commit.as_deref().ok_or_else(|| {
+        io::Error::new(
+            io::ErrorKind::InvalidInput,
+            crate::t!("history.pick_commit"),
+        )
+    })?;
     let mut c = git(&at.base);
     c.args([
         "show",
@@ -473,10 +477,12 @@ pub fn diff(at: &At) -> io::Result<String> {
 /// `dest`, as `fs::copy` would: into it when it is a folder. Returns where it landed; whatever
 /// was written is removed when it fails.
 pub fn copy_out(at: &At, dest: &Path) -> io::Result<PathBuf> {
-    let rev = at
-        .commit
-        .as_deref()
-        .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, crate::t!("history.pick_commit")))?;
+    let rev = at.commit.as_deref().ok_or_else(|| {
+        io::Error::new(
+            io::ErrorKind::InvalidInput,
+            crate::t!("history.pick_commit"),
+        )
+    })?;
     let name = match at.inner.rsplit('/').next().filter(|n| !n.is_empty()) {
         Some(n) => n.to_string(),
         None => format!(

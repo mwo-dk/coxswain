@@ -112,7 +112,10 @@ fn restore_in(trash: &Path, name: &str, path: &Path) -> io::Result<()> {
         .lines()
         .any(|l| l.strip_prefix("Path=") == Some(encode(&path).as_str()))
     {
-        return Err(io::Error::new(io::ErrorKind::NotFound, crate::t!("err.not_in_trash")));
+        return Err(io::Error::new(
+            io::ErrorKind::NotFound,
+            crate::t!("err.not_in_trash"),
+        ));
     }
     if fs::symlink_metadata(&path).is_ok() {
         return Err(io::Error::new(

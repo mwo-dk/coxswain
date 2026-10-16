@@ -169,7 +169,11 @@ mod tests {
         );
         assert_eq!(sizer.known(&d.join("a")), None);
         assert_eq!(sizer.measure(&d.join("a"), &go), Some((150, 2)));
-        assert_eq!(crate::fs::dir_size(&d.join("a")), (150, 2), "the one-off measure");
+        assert_eq!(
+            crate::fs::dir_size(&d.join("a")),
+            (150, 2),
+            "the one-off measure"
+        );
 
         fs::write(d.join("a/b/three"), [0u8; 7]).unwrap();
         assert_eq!(

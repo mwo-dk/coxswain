@@ -625,7 +625,11 @@ fn store_report(path: &Path, bytes: u64, f: crate::store::Facts) -> Report {
             .iter()
             .map(|(at, p, what)| {
                 (
-                    format!("{} {}", crate::i18n::date_time(*at), p.as_deref().unwrap_or("")),
+                    format!(
+                        "{} {}",
+                        crate::i18n::date_time(*at),
+                        p.as_deref().unwrap_or("")
+                    ),
                     what.clone(),
                 )
             })

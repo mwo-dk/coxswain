@@ -105,7 +105,12 @@ pub fn plan(
 /// ending in a dot or a space (Windows would drop them, so the file gets another name than the
 /// one shown), or a device's name (`CON`, `nul.txt`, `COM1`).
 fn windows_refuses(name: &str) -> bool {
-    let stem = name.split('.').next().unwrap_or(name).trim_end().to_ascii_uppercase();
+    let stem = name
+        .split('.')
+        .next()
+        .unwrap_or(name)
+        .trim_end()
+        .to_ascii_uppercase();
     let device = matches!(stem.as_str(), "CON" | "PRN" | "AUX" | "NUL")
         || (stem.len() == 4
             && (stem.starts_with("COM") || stem.starts_with("LPT"))
@@ -113,7 +118,9 @@ fn windows_refuses(name: &str) -> bool {
             && stem.as_bytes()[3] != b'0');
     device
         || name.ends_with(['.', ' '])
-        || name.chars().any(|c| matches!(c, '<' | '>' | ':' | '"' | '|' | '?' | '*') || c.is_control())
+        || name
+            .chars()
+            .any(|c| matches!(c, '<' | '>' | ':' | '"' | '|' | '?' | '*') || c.is_control())
 }
 
 /// Rename in `dir` as planned. Refuses if any entry has a conflict. Uses temporary names so
@@ -253,7 +260,9 @@ mod tests {
         assert!(p[0].conflict.is_some(), "separator");
         assert!(windows_refuses("nul.txt") && windows_refuses("COM1") && windows_refuses("a?b"));
         assert!(windows_refuses("dot.") && windows_refuses("space "));
-        assert!(!windows_refuses("console.txt") && !windows_refuses("COM0") && !windows_refuses("a.b"));
+        assert!(
+            !windows_refuses("console.txt") && !windows_refuses("COM0") && !windows_refuses("a.b")
+        );
         let p = plan(&s(&["a.txt"]), &existing, "a", "aux", Flags::default()).unwrap();
         assert_eq!(p[0].conflict.is_some(), cfg!(windows), "a device's name");
         // Unchanged is not a conflict.

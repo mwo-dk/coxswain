@@ -202,8 +202,14 @@ fn ask_server(kind: Kind, url: &str, key: Option<&str>) -> Option<Found> {
                         let slow = &slow;
                         Some(s.spawn(move || {
                             let listed = ollama_caps(m);
-                            let not_chat = listed.as_ref().is_some_and(|c| !c.iter().any(|x| x == "completion"));
-                            let show = if not_chat { None } else { ollama_show(slow, url, &name) };
+                            let not_chat = listed
+                                .as_ref()
+                                .is_some_and(|c| !c.iter().any(|x| x == "completion"));
+                            let show = if not_chat {
+                                None
+                            } else {
+                                ollama_show(slow, url, &name)
+                            };
                             let can = listed.or_else(|| show.as_ref().and_then(ollama_caps));
                             let model = match can {
                                 Some(c) => Model {
@@ -216,8 +222,13 @@ fn ask_server(kind: Kind, url: &str, key: Option<&str>) -> Option<Found> {
                                 None => guess(name),
                             };
                             Model {
-                                params: billions(m["details"]["parameter_size"].as_str().unwrap_or("")),
-                                context: show.as_ref().filter(|_| model.chat).and_then(ollama_context),
+                                params: billions(
+                                    m["details"]["parameter_size"].as_str().unwrap_or(""),
+                                ),
+                                context: show
+                                    .as_ref()
+                                    .filter(|_| model.chat)
+                                    .and_then(ollama_context),
                                 ..model
                             }
                         }))
