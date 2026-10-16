@@ -910,7 +910,8 @@ async fn chat_action(what: String, model: String, app: tauri::AppHandle, ctx: ta
             if ctx.cfg().search.ask_model == model {
                 use_it(&app, "")?;
             }
-            blocking(move || m.remove().map_err(|e| e.to_string())).await?;
+            let index = ctx.index.clone();
+            blocking(move || m.remove(&index).map_err(|e| e.to_string())).await?;
         }
     }
     Ok(())

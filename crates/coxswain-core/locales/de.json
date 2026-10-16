@@ -158,6 +158,8 @@
   "one": "{n} Auszug",
   "other": "{n} Auszüge"
  },
+ "ask.helper_odd_reply": "der Suchhelfer hat etwas anderes geantwortet",
+ "ask.helper_stopped": "der Suchhelfer hat sich beendet",
  "ask.poor_cpu": "{model} läuft hier auf dem Prozessor: etwa {seconds} s bis zum ersten Wort.",
  "ask.poor_cpu_unknown": "{model} läuft hier auf dem Prozessor, langsam.",
  "ask.poor_none": "Ein Modellserver auf einer Grafikkarte antwortet weit schneller: Einrichten… findet einen.",

@@ -154,6 +154,8 @@
  "ask.excerpts": {
   "other": "발췌 {n}개"
  },
+ "ask.helper_odd_reply": "검색 도우미가 다른 응답을 보냈습니다",
+ "ask.helper_stopped": "검색 도우미가 멈췄습니다",
  "ask.poor_cpu": "여기서는 {model}이(가) CPU에서 실행됩니다: 첫 단어까지 약 {seconds}초.",
  "ask.poor_cpu_unknown": "여기서는 {model}이(가) CPU에서 실행되어 느립니다.",
  "ask.poor_none": "그래픽 카드를 쓰는 모델 서버는 훨씬 빨리 답합니다: 설정…에서 찾을 수 있습니다.",

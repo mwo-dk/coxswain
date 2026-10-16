@@ -162,6 +162,8 @@
   "many": "{n} de fragmentos",
   "other": "{n} fragmentos"
  },
+ "ask.helper_odd_reply": "el asistente de búsqueda respondió otra cosa",
+ "ask.helper_stopped": "el asistente de búsqueda se detuvo",
  "ask.poor_cpu": "{model} corre acá en el procesador: unos {seconds} s hasta la primera palabra.",
  "ask.poor_cpu_unknown": "{model} corre acá en el procesador, despacio.",
  "ask.poor_none": "Un servidor de modelos en una placa de video responde mucho antes: Configurar… encuentra uno.",

@@ -162,6 +162,8 @@
   "many": "{n} d'extraits",
   "other": "{n} extraits"
  },
+ "ask.helper_odd_reply": "l’assistant de recherche a répondu autre chose",
+ "ask.helper_stopped": "l’assistant de recherche s’est arrêté",
  "ask.poor_cpu": "{model} tourne ici sur le processeur : environ {seconds} s jusqu’au premier mot.",
  "ask.poor_cpu_unknown": "{model} tourne ici sur le processeur, lentement.",
  "ask.poor_none": "Un serveur de modèles sur une carte graphique répond bien plus tôt : Configurer… en trouve un.",

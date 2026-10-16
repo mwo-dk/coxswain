@@ -211,7 +211,7 @@ pub fn log() -> Option<PathBuf> {
 }
 
 /// A line in helper.log (the helper's stderr), with the time.
-fn note(what: std::fmt::Arguments) {
+pub(crate) fn note(what: std::fmt::Arguments) {
     eprintln!(
         "{} coxswain {VERSION}: {what}",
         chrono::Local::now().format("%Y-%m-%d %H:%M:%S")
@@ -221,6 +221,9 @@ fn note(what: std::fmt::Arguments) {
 /// The system was to start the registered helper and did not, so this app started one: a
 /// notice says where to allow it.
 pub static UNSTARTED: AtomicBool = AtomicBool::new(false);
+
+/// This process is the helper: its stderr is helper.log, not an app's screen.
+pub(crate) static SERVING: AtomicBool = AtomicBool::new(false);
 
 /// A request longer than this is nobody's: the connection is dropped, so a stray process on the
 /// machine cannot make the helper swallow memory.
@@ -262,6 +265,7 @@ fn write_private(path: &Path, text: &str) -> io::Result<()> {
 /// Be the helper: serve until no app has asked for `LINGER`. Returns at once when another
 /// helper already runs.
 pub fn serve() -> io::Result<()> {
+    SERVING.store(true, Ordering::Relaxed);
     // Not one that grows without end, when a helper fails again and again.
     if let Some(log) = log().and_then(|l| std::fs::OpenOptions::new().write(true).open(l).ok())
         && log.metadata().is_ok_and(|m| m.len() > 1 << 20)
@@ -388,6 +392,7 @@ fn serve_in(
         Arc::new(AtomicBool::new(false)),
         Arc::new(Mutex::new(Instant::now())),
     );
+    let counted = Arc::new(Counted::default());
     {
         let (clients, quit, last, text_roots) = (
             clients.clone(),
@@ -397,7 +402,7 @@ fn serve_in(
         );
         std::thread::spawn(move || {
             for stream in listener.incoming().flatten() {
-                let (index, store, roots, token, clients, quit, last) = (
+                let (index, store, roots, token, clients, quit, last, counted) = (
                     index.clone(),
                     store.clone(),
                     text_roots.clone(),
@@ -405,6 +410,7 @@ fn serve_in(
                     clients.clone(),
                     quit.clone(),
                     last.clone(),
+                    counted.clone(),
                 );
                 std::thread::spawn(move || {
                     clients.fetch_add(1, Ordering::SeqCst);
@@ -416,6 +422,7 @@ fn serve_in(
                         &roots,
                         &token,
                         &quit,
+                        &counted,
                     );
                     clients.fetch_sub(1, Ordering::SeqCst);
                     *last.lock().unwrap() = Instant::now();
@@ -479,7 +486,7 @@ fn newer(a: &str, b: &str) -> bool {
 }
 
 /// `what` in helper.log the first time only: an app that cannot be served asks again and again.
-fn note_once(what: String) {
+pub(crate) fn note_once(what: String) {
     static TOLD: Mutex<Vec<String>> = Mutex::new(Vec::new());
     let mut told = TOLD.lock().unwrap();
     if !told.contains(&what) {
@@ -488,6 +495,41 @@ fn note_once(what: String) {
     }
 }
 
+/// The parts of a Status that scan the store or the PATH: counted once for every client that
+/// asks within `COUNTED_FOR`, as the terminal app asks with its frames and Settings every 2 s.
+#[derive(Clone, Default)]
+struct Costly {
+    texts: usize,
+    meaning: (usize, usize),
+    passages: usize,
+    roots: Vec<(PathBuf, Option<PathBuf>, Size)>,
+    tools: Vec<(String, bool)>,
+}
+type Counted = Mutex<Option<(Instant, Costly)>>;
+const COUNTED_FOR: Duration = Duration::from_secs(2);
+
+fn costly(store: Option<&Store>, counted: &Counted) -> Costly {
+    let mut c = counted.lock().unwrap();
+    if let Some((at, costly)) = c.as_ref()
+        && at.elapsed() < COUNTED_FOR
+    {
+        return costly.clone();
+    }
+    let costly = Costly {
+        texts: store.map_or(0, Store::texts),
+        meaning: store.map(Store::meaning_counts).unwrap_or_default(),
+        passages: store.map_or(0, Store::passage_count),
+        roots: store.map(Store::root_sizes).unwrap_or_default(),
+        tools: crate::extract::installed::found()
+            .iter()
+            .map(|(n, p)| (n.to_string(), p.is_some()))
+            .collect(),
+    };
+    *c = Some((Instant::now(), costly.clone()));
+    costly
+}
+
+#[allow(clippy::too_many_arguments)]
 fn answer(
     ours: Ours,
     stream: TcpStream,
@@ -496,6 +538,7 @@ fn answer(
     text_roots: &[PathBuf],
     token: &str,
     quit: &AtomicBool,
+    counted: &Counted,
 ) -> io::Result<()> {
     stream.set_nodelay(true)?;
     stream.set_read_timeout(Some(HELLO_WAIT))?;
@@ -595,6 +638,7 @@ fn answer(
             },
             Request::IndexNow => {
                 store.inspect(|s| s.hurry.store(true, Ordering::Relaxed));
+                *counted.lock().unwrap() = None;
                 Reply::Done
             }
             Request::Forget => {
@@ -602,6 +646,7 @@ fn answer(
                     .map(Store::clear)
                     .transpose()
                     .map_err(io::Error::other)?;
+                *counted.lock().unwrap() = None;
                 Reply::Done
             }
             Request::Restart => {
@@ -637,17 +682,23 @@ fn answer(
                 Reply::Answered { error: done.err() }
             }
             Request::Status => Reply::Status({
-                let counts = store.map(Store::meaning_counts).unwrap_or_default();
+                let Costly {
+                    texts,
+                    meaning: counts,
+                    passages,
+                    roots,
+                    tools,
+                } = costly(store, counted);
                 Status {
                     state: index.state(),
                     len: index.len(),
-                    texts: store.map_or(0, Store::texts),
+                    texts,
                     pending: store.map_or(0, |s| s.pending.load(Ordering::Relaxed)),
                     bytes: store.map_or(0, Store::bytes),
                     meaning: store.is_some_and(|s| s.meaning.load(Ordering::Relaxed)),
                     meaning_pending: counts.0,
                     meaning_done: counts.1,
-                    meaning_passages: store.map_or(0, Store::passage_count),
+                    meaning_passages: passages,
                     meaning_renewing: store.map_or(0, |s| s.renewing.load(Ordering::Relaxed)),
                     meaning_ms_per_passage: store
                         .map_or(0, |s| s.ms_per_passage.load(Ordering::Relaxed)),
@@ -657,11 +708,8 @@ fn answer(
                     chat_loaded: crate::chat::loaded().map(|(id, metal)| (id.to_string(), metal)),
                     error: store.and_then(|s| s.error.lock().unwrap().clone()),
                     paused: store.is_some_and(|s| s.paused.load(Ordering::Relaxed)),
-                    roots: store.map(Store::root_sizes).unwrap_or_default(),
-                    tools: crate::extract::installed::found()
-                        .iter()
-                        .map(|(n, p)| (n.to_string(), p.is_some()))
-                        .collect(),
+                    roots,
+                    tools,
                     clouds: store.map(Store::clouds).unwrap_or_default(),
                     outdated: None,
                 }
@@ -709,11 +757,13 @@ impl Client {
                 return;
             };
             // A registration that starts another program (an older version, or one an upgrade
-            // has removed) is taken over by this app, unless an upgrade removed this one.
+            // has removed) is taken over by this app, unless an upgrade removed this one, or it
+            // starts the other Coxswain app, which serves as well.
             if n == 0
                 && registered
                 && exe.exists()
                 && !crate::service::starts(&exe)
+                && !crate::service::other_app(&exe)
                 && crate::service::install(&exe).is_ok()
             {
                 return;
@@ -864,13 +914,13 @@ impl Client {
         loop {
             let mut line = String::new();
             if from.read_line(&mut line).map_err(|e| e.to_string())? == 0 {
-                return Err("the search helper stopped".into());
+                return Err(crate::t!("ask.helper_stopped"));
             }
             match serde_json::from_str(&line).map_err(|e| e.to_string())? {
                 Reply::Piece { text } if piece(&text) => {}
                 Reply::Piece { .. } => return Ok(()),
                 Reply::Answered { error } => return error.map_or(Ok(()), Err),
-                _ => return Err("the search helper answered something else".into()),
+                _ => return Err(crate::t!("ask.helper_odd_reply")),
             }
         }
     }
@@ -936,50 +986,39 @@ impl Client {
     }
 
     pub fn status(&self) -> Status {
-        let mut status = self.status.lock().unwrap();
-        if let Some((at, known)) = &*status {
-            if at.elapsed() < Duration::from_millis(500) {
-                return known.clone();
-            }
+        let known = self.status.lock().unwrap().clone();
+        if let Some((at, known)) = &known
+            && at.elapsed() < Duration::from_millis(500)
+        {
+            return known.clone();
         }
-        // A search under way holds the line: the status from before will do, so drawing the
-        // screen never waits for a search.
-        if self.line.try_lock().is_err() {
-            if let Some((_, known)) = &*status {
-                return known.clone();
-            }
-        }
-        let now = match self.ask(&Request::Status) {
+        // Another thread holds the line, for a search or for the first connect, which waits
+        // seconds for a helper: what is known will do, so drawing the screen never waits.
+        let Ok(mut line) = self.line.try_lock() else {
+            return known.map_or_else(
+                || Status {
+                    state: State::Building,
+                    outdated: self.outdated.get().cloned(),
+                    ..Status::default()
+                },
+                |(_, known)| known,
+            );
+        };
+        let now = match self.ask_on(&mut line, &Request::Status) {
             Some(Reply::Status(s)) => s,
             // A helper that is there but did not answer in time: the status from before.
-            _ if self.reachable.load(Ordering::Relaxed) && status.is_some() => {
-                return status.as_ref().unwrap().1.clone();
+            _ if self.reachable.load(Ordering::Relaxed) && known.is_some() => {
+                return known.unwrap().1;
             }
             _ => Status {
                 state: self.fallback().map_or(State::Building, |own| own.state()),
                 len: self.fallback().map_or(0, |own| own.len()),
-                texts: 0,
-                pending: 0,
-                bytes: 0,
-                paused: false,
-                roots: vec![],
-                tools: vec![],
-                meaning: false,
-                meaning_pending: 0,
-                meaning_done: 0,
-                meaning_passages: 0,
-                meaning_renewing: 0,
-                meaning_ms_per_passage: 0,
-                meaning_engine: String::new(),
-                meaning_error: None,
-                meaning_runs: None,
-                chat_loaded: None,
-                error: None,
-                clouds: vec![],
                 outdated: self.outdated.get().cloned(),
+                ..Status::default()
             },
         };
-        *status = Some((Instant::now(), now.clone()));
+        drop(line);
+        *self.status.lock().unwrap() = Some((Instant::now(), now.clone()));
         now
     }
 
@@ -996,10 +1035,14 @@ impl Client {
     /// One request, one reply. A broken line is opened again once, which starts a helper when
     /// none runs. `None` when that fails too: then the app's own index answers, from now on.
     fn ask(&self, request: &Request) -> Option<Reply> {
+        self.ask_on(&mut self.line.lock().unwrap(), request)
+    }
+
+    /// `ask` on a line already held.
+    fn ask_on(&self, line: &mut Option<Line>, request: &Request) -> Option<Reply> {
         if self.own.get().is_some() {
             return None;
         }
-        let mut line = self.line.lock().unwrap();
         for _ in 0..2 {
             if line.is_none() {
                 *line = self.connect();

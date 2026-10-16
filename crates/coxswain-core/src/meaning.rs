@@ -23,23 +23,29 @@ use crate::t;
 pub const MODEL: &str = "multilingual-e5-small";
 const REPO: &str = "intfloat/multilingual-e5-small";
 const REVISION: &str = "614241f622f53c4eeff9890bdc4f31cfecc418b3";
-/// The files of the model: name, SHA-256, bytes.
-const FILES: &[(&str, &str, u64)] = &[
-    (
-        "config.json",
-        "69137736cab8b8903a07fe8afaafdda25aac55415a12a55d1bffa9f581abf959",
-        655,
-    ),
-    (
-        "tokenizer.json",
-        "0b44a9d7b51c3c62626640cda0e2c2f70fdacdc25bbbd68038369d14ebdf4c39",
-        17_082_730,
-    ),
-    (
-        "model.safetensors",
-        "1a55775f53449dac10a2bcbc312469fac40b96d53198c407081a831f81c98477",
-        470_641_600,
-    ),
+/// The files of the model.
+const FILES: &[Pinned] = &[
+    Pinned {
+        repo: REPO,
+        revision: REVISION,
+        name: "config.json",
+        sha: "69137736cab8b8903a07fe8afaafdda25aac55415a12a55d1bffa9f581abf959",
+        len: 655,
+    },
+    Pinned {
+        repo: REPO,
+        revision: REVISION,
+        name: "tokenizer.json",
+        sha: "0b44a9d7b51c3c62626640cda0e2c2f70fdacdc25bbbd68038369d14ebdf4c39",
+        len: 17_082_730,
+    },
+    Pinned {
+        repo: REPO,
+        revision: REVISION,
+        name: "model.safetensors",
+        sha: "1a55775f53449dac10a2bcbc312469fac40b96d53198c407081a831f81c98477",
+        len: 470_641_600,
+    },
 ];
 /// Numbers per vector of the built-in model. A server's model has its own count.
 pub const DIMS: usize = 384;
@@ -52,13 +58,13 @@ const OVERLAP: usize = 20;
 /// so prose is never cut. A "word" of minified JSON or a path list runs to thousands, and a
 /// server (unlike the built-in model, which cuts at 512 tokens) would read them all: a few
 /// such files took hours. Dense text is 1,600 tokens at 2,000 bytes, three prose passages'
-/// worth. The cut is the same and only a dense passage gets shorter, so the passages keep
-/// their numbers and no vector is made again.
-const CHARS: usize = 1200;
+/// worth. Code is cut into its items at this size too, so only a dense passage gets shorter.
+pub(crate) const CHARS: usize = 1200;
 pub const PASSAGES: usize = 256;
 /// How a file is cut into passages and what the model is shown of each: vectors made another
 /// way are made again (the store keeps it in its meta as `passages`). 3: code by its items.
-pub const SCHEME: &str = "3";
+/// 4: items of code up to `CHARS`, as much as the model is shown.
+pub const SCHEME: &str = "4";
 
 /// Where the model is kept: the cache folder, next to the search store.
 pub fn folder() -> Option<PathBuf> {
@@ -67,7 +73,7 @@ pub fn folder() -> Option<PathBuf> {
 
 /// Bytes the download takes.
 pub fn size() -> u64 {
-    FILES.iter().map(|f| f.2).sum()
+    total(FILES)
 }
 
 /// Whether the model is downloaded (checked when it was).
@@ -77,9 +83,7 @@ pub fn installed() -> bool {
 
 /// Whether `dir` holds the whole model.
 pub(crate) fn installed_in(dir: &std::path::Path) -> bool {
-    FILES
-        .iter()
-        .all(|(name, _, len)| std::fs::metadata(dir.join(name)).is_ok_and(|m| m.len() == *len))
+    complete(dir, FILES)
 }
 
 /// The name of the model's folder.
@@ -97,19 +101,9 @@ pub struct Progress {
 
 /// Download what is missing of the model, each file checked against its SHA-256.
 pub fn download(p: &Progress) -> io::Result<()> {
-    let files: Vec<Pinned> = FILES
-        .iter()
-        .map(|&(name, sha, len)| Pinned {
-            repo: REPO,
-            revision: REVISION,
-            name,
-            sha,
-            len,
-        })
-        .collect();
     fetch(
         &folder().ok_or_else(|| io::Error::other("no cache folder"))?,
-        &files,
+        FILES,
         p,
     )
 }
@@ -123,17 +117,27 @@ pub(crate) struct Pinned {
     pub len: u64,
 }
 
+/// Bytes `files` take.
+pub(crate) fn total(files: &[Pinned]) -> u64 {
+    files.iter().map(|f| f.len).sum()
+}
+
+/// Whether `dir` holds all of `files`, each of its size.
+pub(crate) fn complete(dir: &std::path::Path, files: &[Pinned]) -> bool {
+    files
+        .iter()
+        .all(|f| std::fs::metadata(dir.join(f.name)).is_ok_and(|m| m.len() == f.len))
+}
+
 /// Download what is missing of `files` into `dir`, each checked against its SHA-256.
 pub(crate) fn fetch(dir: &std::path::Path, files: &[Pinned], p: &Progress) -> io::Result<()> {
     std::fs::create_dir_all(dir)?;
-    p.total
-        .store(files.iter().map(|f| f.len).sum(), Ordering::Relaxed);
+    p.total.store(total(files), Ordering::Relaxed);
     p.done.store(0, Ordering::Relaxed);
-    let agent: ureq::Agent = ureq::Agent::config_builder()
-        .tls_config(tls())
-        .timeout_connect(Some(Duration::from_secs(20)))
-        .build()
-        .into();
+    let agent = agent(|b| {
+        b.timeout_connect(Some(Duration::from_secs(20)))
+            .timeout_recv_response(Some(Duration::from_secs(60)))
+    });
     for &Pinned {
         repo,
         revision,
@@ -148,16 +152,12 @@ pub(crate) fn fetch(dir: &std::path::Path, files: &[Pinned], p: &Progress) -> io
             continue;
         }
         let url = format!("https://huggingface.co/{repo}/resolve/{revision}/{name}");
-        let mut body = agent
+        let body = agent
             .get(&url)
-            .header(
-                "User-Agent",
-                concat!("coxswain/", env!("CARGO_PKG_VERSION")),
-            )
             .call()
             .map_err(|e| io::Error::other(format!("huggingface.co: {e}")))?
             .into_body();
-        let mut reader = body.as_reader();
+        let mut reader = Cancellable::new(body.into_reader(), &p.cancel);
         let part = file.with_extension("part");
         let mut out = std::fs::File::create(&part)?;
         let (mut hash, mut buf, mut got) = (Sha256::new(), vec![0u8; 1 << 20], 0u64);
@@ -167,7 +167,10 @@ pub(crate) fn fetch(dir: &std::path::Path, files: &[Pinned], p: &Progress) -> io
                 let _ = std::fs::remove_file(&part);
                 return Err(io::Error::new(io::ErrorKind::Interrupted, "cancelled"));
             }
-            let n = reader.read(&mut buf)?;
+            let n = match reader.read(&mut buf) {
+                Err(_) if p.cancel.load(Ordering::Relaxed) => continue,
+                r => r?,
+            };
             if n == 0 {
                 break;
             }
@@ -189,12 +192,68 @@ pub(crate) fn fetch(dir: &std::path::Path, files: &[Pinned], p: &Progress) -> io
     Ok(())
 }
 
+/// A download's body read on a thread of its own, so that Cancel is seen within a moment even
+/// while the connection hangs; that thread ends with the connection.
+struct Cancellable<'a> {
+    chunks: std::sync::mpsc::Receiver<io::Result<Vec<u8>>>,
+    cancel: &'a AtomicBool,
+    chunk: Vec<u8>,
+    at: usize,
+}
+
+impl<'a> Cancellable<'a> {
+    fn new(mut from: impl Read + Send + 'static, cancel: &'a AtomicBool) -> Self {
+        let (tx, chunks) = std::sync::mpsc::sync_channel(16);
+        std::thread::spawn(move || {
+            loop {
+                let mut b = vec![0u8; 1 << 16];
+                let r = from.read(&mut b).map(|n| {
+                    b.truncate(n);
+                    b
+                });
+                let end = !matches!(&r, Ok(b) if !b.is_empty());
+                if tx.send(r).is_err() || end {
+                    break;
+                }
+            }
+        });
+        Cancellable {
+            chunks,
+            cancel,
+            chunk: vec![],
+            at: 0,
+        }
+    }
+}
+
+impl Read for Cancellable<'_> {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        use std::sync::mpsc::RecvTimeoutError;
+        while self.at == self.chunk.len() {
+            if self.cancel.load(Ordering::Relaxed) {
+                return Err(io::Error::other("cancelled"));
+            }
+            match self.chunks.recv_timeout(Duration::from_millis(100)) {
+                Ok(chunk) => {
+                    (self.chunk, self.at) = (chunk?, 0);
+                    if self.chunk.is_empty() {
+                        return Ok(0);
+                    }
+                }
+                Err(RecvTimeoutError::Timeout) => {}
+                Err(RecvTimeoutError::Disconnected) => return Ok(0),
+            }
+        }
+        let n = (self.chunk.len() - self.at).min(buf.len());
+        buf[..n].copy_from_slice(&self.chunk[self.at..self.at + n]);
+        self.at += n;
+        Ok(n)
+    }
+}
+
 /// Delete the model.
 pub fn remove() -> io::Result<()> {
-    match folder().map(std::fs::remove_dir_all) {
-        Some(Err(e)) if e.kind() != io::ErrorKind::NotFound => Err(e),
-        _ => Ok(()),
-    }
+    folder().map_or(Ok(()), |f| crate::models::remove_dir(&f))
 }
 
 /// Passages per pass on the GPU: one pass over many is what makes it quick there. On the CPU
@@ -551,11 +610,34 @@ pub struct Server {
     url: String,
     model: String,
     key: Option<String>,
-    agent: ureq::Agent,
+    /// Made when first asked: Ask uses only the address and the key.
+    agent: std::sync::OnceLock<ureq::Agent>,
 }
 
 /// Ollama on this machine, where it listens unless told otherwise.
 pub const OLLAMA: &str = "http://localhost:11434";
+
+/// A server's address without a closing slash; none is Ollama on this machine, but not for
+/// an OpenAI server, which has no address of its own.
+pub fn base(url: &str, openai: bool) -> &str {
+    if url.is_empty() && !openai {
+        OLLAMA
+    } else {
+        url.trim_end_matches('/')
+    }
+}
+
+type Builder = ureq::config::ConfigBuilder<ureq::typestate::AgentScope>;
+
+/// An agent for the web: the system's certificates (Termux's own there), Coxswain and its
+/// version as the User-Agent (nothing else of the user), and what `f` sets: its timeouts.
+pub(crate) fn agent(f: impl FnOnce(Builder) -> Builder) -> ureq::Agent {
+    f(ureq::Agent::config_builder()
+        .tls_config(tls())
+        .user_agent(concat!("coxswain/", env!("CARGO_PKG_VERSION"))))
+    .build()
+    .into()
+}
 
 /// The API key the settings name a variable for, when that variable is set.
 pub fn key_of(cfg: &crate::config::SearchConfig) -> Option<String> {
@@ -812,7 +894,7 @@ impl Server {
     /// The digest Ollama's list gives the model.
     fn digest(&self) -> Option<String> {
         let mut res = self
-            .agent
+            .agent()
             .get(&format!("{}/api/tags", self.url))
             .call()
             .ok()?;
@@ -830,30 +912,29 @@ impl Server {
 
     fn new(cfg: &crate::config::SearchConfig) -> Server {
         let openai = cfg.meaning_engine == "openai";
-        let url = if cfg.meaning_url.is_empty() && !openai {
-            OLLAMA.to_string()
-        } else {
-            cfg.meaning_url.trim_end_matches('/').to_string()
-        };
+        let url = base(&cfg.meaning_url, openai).to_string();
         let model = if cfg.meaning_model.is_empty() && !openai {
             "bge-m3".to_string()
         } else {
             cfg.meaning_model.clone()
         };
         let key = key_of(cfg);
-        let agent = ureq::Agent::config_builder()
-            .tls_config(tls())
-            .timeout_global(Some(Duration::from_secs(120)))
-            .http_status_as_error(false)
-            .build()
-            .into();
         Server {
             openai,
             url,
             model,
             key,
-            agent,
+            agent: Default::default(),
         }
+    }
+
+    fn agent(&self) -> &ureq::Agent {
+        self.agent.get_or_init(|| {
+            agent(|b| {
+                b.timeout_global(Some(Duration::from_secs(120)))
+                    .http_status_as_error(false)
+            })
+        })
     }
 
     /// What some models want in front of a question and of a passage.
@@ -882,7 +963,7 @@ impl Server {
             )
         };
         let mut req = self
-            .agent
+            .agent()
             .post(&format!("{}{path}", self.url))
             .header("Content-Type", "application/json");
         if let Some(key) = &self.key {
@@ -1045,15 +1126,13 @@ pub fn ask(
         body["options"] = serde_json::json!({ "num_ctx": crate::ask::context(cfg) });
     }
     // A model that is not loaded yet takes a while to answer at all; after that, pieces come.
-    let agent: ureq::Agent = ureq::Agent::config_builder()
-        .tls_config(tls())
-        .timeout_connect(Some(Duration::from_secs(10)))
-        .timeout_recv_response(Some(Duration::from_secs(300)))
-        // A server that stalls mid-answer does not hold the thread for ever.
-        .timeout_recv_body(Some(Duration::from_secs(900)))
-        .http_status_as_error(false)
-        .build()
-        .into();
+    let agent = agent(|b| {
+        b.timeout_connect(Some(Duration::from_secs(10)))
+            .timeout_recv_response(Some(Duration::from_secs(300)))
+            // A server that stalls mid-answer does not hold the thread for ever.
+            .timeout_recv_body(Some(Duration::from_secs(900)))
+            .http_status_as_error(false)
+    });
     let mut req = agent
         .post(&format!("{}{path}", s.url))
         .header("Content-Type", "application/json");
@@ -1151,12 +1230,10 @@ pub fn warm(cfg: &crate::config::SearchConfig) {
     // With the context Ask asks for, or Ollama loads the model a second time for the question.
     let body = serde_json::json!({ "model": cfg.ask_model, "options": { "num_ctx": crate::ask::context(cfg) } }).to_string();
     std::thread::spawn(move || {
-        let agent: ureq::Agent = ureq::Agent::config_builder()
-            .tls_config(tls())
-            .timeout_global(Some(Duration::from_secs(300)))
-            .http_status_as_error(false)
-            .build()
-            .into();
+        let agent = agent(|b| {
+            b.timeout_global(Some(Duration::from_secs(300)))
+                .http_status_as_error(false)
+        });
         let _ = agent
             .post(&format!("{}/api/generate", s.url))
             .header("Content-Type", "application/json")
@@ -1209,6 +1286,12 @@ pub(crate) fn shown(url: &str) -> String {
 /// TLS that trusts the system's certificate store, as the update check does, so a proxy that
 /// inspects TLS or a server with a company certificate works. In Termux, Termux's store.
 pub(crate) fn tls() -> ureq::tls::TlsConfig {
+    static TLS: std::sync::LazyLock<ureq::tls::TlsConfig> = std::sync::LazyLock::new(read_tls);
+    TLS.clone()
+}
+
+/// Termux's certificates are read once.
+fn read_tls() -> ureq::tls::TlsConfig {
     use ureq::tls::{PemItem, RootCerts};
     let termux: Vec<_> = crate::termux::certificates()
         .iter()
@@ -1235,16 +1318,8 @@ pub(crate) fn tls() -> ureq::tls::TlsConfig {
 /// The embedding models a server has: Ollama's pulled models, or an OpenAI server's list,
 /// with the API `key` a server may want.
 pub fn server_models(openai: bool, url: &str, key: Option<&str>) -> Result<Vec<String>, String> {
-    let url = if url.is_empty() {
-        OLLAMA
-    } else {
-        url.trim_end_matches('/')
-    };
-    let agent: ureq::Agent = ureq::Agent::config_builder()
-        .tls_config(tls())
-        .timeout_global(Some(Duration::from_secs(5)))
-        .build()
-        .into();
+    let url = base(url, openai);
+    let agent = agent(|b| b.timeout_global(Some(Duration::from_secs(5))));
     let path = if openai { "/models" } else { "/api/tags" };
     let mut req = agent.get(&format!("{url}{path}"));
     if let Some(key) = key {
@@ -1281,17 +1356,11 @@ pub fn chat_models(openai: bool, url: &str, key: Option<&str>) -> Result<Vec<Str
     if openai {
         return Ok(names);
     }
-    let url = if url.is_empty() {
-        OLLAMA
-    } else {
-        url.trim_end_matches('/')
-    };
-    let agent: ureq::Agent = ureq::Agent::config_builder()
-        .tls_config(tls())
-        .timeout_global(Some(Duration::from_secs(5)))
-        .http_status_as_error(false)
-        .build()
-        .into();
+    let url = base(url, false);
+    let agent = agent(|b| {
+        b.timeout_global(Some(Duration::from_secs(5)))
+            .http_status_as_error(false)
+    });
     Ok(names.into_iter().filter(|m| !matches!(ollama_can(&agent, url, m), Ok(Some(c)) if !c.iter().any(|x| x == "completion"))).collect())
 }
 
@@ -1343,7 +1412,7 @@ pub fn chat_problem(cfg: &crate::config::SearchConfig, try_it: bool) -> Option<S
     }
     let s = Server::new(cfg);
     if !s.openai {
-        return match ollama_can(&s.agent, &s.url, model) {
+        return match ollama_can(s.agent(), &s.url, model) {
             Ok(Some(c)) if !c.iter().any(|x| x == "completion") => Some(
                 crate::t!("search.ask_not_chat", "model" => model.trim_end_matches(":latest"), "example" => "qwen3:8b"),
             ),
@@ -1356,7 +1425,7 @@ pub fn chat_problem(cfg: &crate::config::SearchConfig, try_it: bool) -> Option<S
     }
     let body = serde_json::json!({ "model": model, "messages": [{ "role": "user", "content": "Hi" }], "max_tokens": 1, "stream": false });
     let mut req = s
-        .agent
+        .agent()
         .post(&format!("{}/chat/completions", s.url))
         .header("Content-Type", "application/json");
     if let Some(key) = &s.key {
@@ -1376,24 +1445,25 @@ pub fn chat_problem(cfg: &crate::config::SearchConfig, try_it: bool) -> Option<S
 
 /// Ask Ollama to pull a model, with its progress in `p`.
 pub fn ollama_pull(url: &str, model: &str, p: &Progress) -> io::Result<()> {
-    let url = if url.is_empty() {
-        OLLAMA
-    } else {
-        url.trim_end_matches('/')
-    };
-    let agent: ureq::Agent = ureq::Agent::config_builder()
-        .tls_config(tls())
-        .timeout_connect(Some(Duration::from_secs(10)))
-        .build()
-        .into();
-    let mut body = agent
+    let url = base(url, false);
+    let agent = agent(|b| {
+        b.timeout_connect(Some(Duration::from_secs(10)))
+            .timeout_recv_response(Some(Duration::from_secs(60)))
+    });
+    let body = agent
         .post(&format!("{url}/api/pull"))
         .send(serde_json::json!({ "model": model, "stream": true }).to_string())
         .map_err(io::Error::other)?
         .into_body();
+    let cancelled = || io::Error::new(io::ErrorKind::Interrupted, "cancelled");
     // One JSON line per step: {"status", "total", "completed"} while layers come, {"error"} if not.
-    for line in io::BufRead::lines(io::BufReader::new(body.as_reader())) {
-        let v: serde_json::Value = serde_json::from_str(&line?).unwrap_or_default();
+    let lines = io::BufReader::new(Cancellable::new(body.into_reader(), &p.cancel));
+    for line in io::BufRead::lines(lines) {
+        let line = match line {
+            Err(_) if p.cancel.load(Ordering::Relaxed) => return Err(cancelled()),
+            l => l?,
+        };
+        let v: serde_json::Value = serde_json::from_str(&line).unwrap_or_default();
         if let Some(e) = v["error"].as_str() {
             return Err(io::Error::other(e.to_string()));
         }
@@ -1402,7 +1472,7 @@ pub fn ollama_pull(url: &str, model: &str, p: &Progress) -> io::Result<()> {
             p.done.store(done, Ordering::Relaxed);
         }
         if p.cancel.load(Ordering::Relaxed) {
-            return Err(io::Error::new(io::ErrorKind::Interrupted, "cancelled"));
+            return Err(cancelled());
         }
     }
     Ok(())
@@ -1623,6 +1693,35 @@ pub fn alike(a: &[u64], b: &[u64]) -> u32 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_download_is_read_whole_and_cancelled_while_it_hangs() {
+        let cancel = AtomicBool::new(false);
+        let mut got = String::new();
+        Cancellable::new(io::Cursor::new(b"all of it".to_vec()), &cancel)
+            .read_to_string(&mut got)
+            .unwrap();
+        assert_eq!(got, "all of it");
+        struct Hang;
+        impl Read for Hang {
+            fn read(&mut self, _: &mut [u8]) -> io::Result<usize> {
+                std::thread::sleep(Duration::from_secs(3600));
+                Ok(0)
+            }
+        }
+        let mut hung = Cancellable::new(Hang, &cancel);
+        cancel.store(true, Ordering::Relaxed);
+        let at = Instant::now();
+        assert!(hung.read(&mut [0; 8]).is_err());
+        assert!(at.elapsed() < Duration::from_secs(5));
+    }
+
+    #[test]
+    fn a_server_without_an_address_is_ollama_here_unless_openai() {
+        assert_eq!(base("", false), OLLAMA);
+        assert_eq!(base("", true), "");
+        assert_eq!(base("http://gpu:8000/v1/", true), "http://gpu:8000/v1");
+    }
 
     #[test]
     fn ask_streams_the_answer_without_the_thinking() {

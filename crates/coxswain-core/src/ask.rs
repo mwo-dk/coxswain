@@ -643,7 +643,8 @@ pub fn overview(dir: &Path, bytes: usize, exclude: &[String]) -> Vec<(PathBuf, S
         [4, 8, 16]
     };
     if let Some(p) = readme {
-        put(p.clone(), head(&p, bytes), (bytes / share[0]).max(200));
+        let most = (bytes / share[0]).max(200);
+        put(p.clone(), head(&p, most), most);
     }
     let tree = if map.is_empty() {
         tree
@@ -655,8 +656,10 @@ pub fn overview(dir: &Path, bytes: usize, exclude: &[String]) -> Vec<(PathBuf, S
         tree,
         (bytes / share[1] + map.len()).max(200),
     );
+    // Each read only as far as it can be kept.
+    let most = (bytes / share[2]).max(200);
     for p in manifests.into_iter().chain(docs) {
-        put(p.clone(), head(&p, bytes), (bytes / share[2]).max(200));
+        put(p.clone(), head(&p, most), most);
     }
     out
 }

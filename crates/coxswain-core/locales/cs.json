@@ -162,6 +162,8 @@
   "few": "{n} úryvky",
   "other": "{n} úryvků"
  },
+ "ask.helper_odd_reply": "pomocník hledání odpověděl něco jiného",
+ "ask.helper_stopped": "pomocník hledání skončil",
  "ask.poor_cpu": "{model} tu běží na procesoru: asi {seconds} s do prvního slova.",
  "ask.poor_cpu_unknown": "{model} tu běží na procesoru, pomalu.",
  "ask.poor_none": "Server modelů na grafické kartě odpoví mnohem dřív: Nastavit… nějaký najde.",

@@ -95,8 +95,9 @@ pub struct Store {
     bodies_read: AtomicUsize,
 }
 
-/// A file as the store knows it: size, date, and whether it was left in the cloud.
-type Known = HashMap<String, (u64, i64, bool)>;
+/// A file as the store knows it: size, date, and whether it was left in the cloud; and whether
+/// the walk met it.
+type Known = HashMap<String, ((u64, i64, bool), bool)>;
 /// A file that changed: path, size, date, left in the cloud.
 type Changed = (String, u64, i64, bool);
 /// A file inside an archive: its path as a key, size, modified.
@@ -194,7 +195,7 @@ impl Store {
         db.pragma_update(None, "journal_mode", "WAL")?;
         db.pragma_update(None, "synchronous", "NORMAL")?;
         if db.pragma_query_value(None, "user_version", |r| r.get::<_, i32>(0))? != VERSION {
-            db.execute_batch("DROP TABLE IF EXISTS files; DROP TABLE IF EXISTS text; DROP TABLE IF EXISTS skipped; DROP TABLE IF EXISTS hashes; DROP TABLE IF EXISTS roots; DROP TABLE IF EXISTS meta;")?;
+            db.execute_batch("DROP TABLE IF EXISTS files; DROP TABLE IF EXISTS text; DROP TABLE IF EXISTS skipped; DROP TABLE IF EXISTS hashes; DROP TABLE IF EXISTS roots; DROP TABLE IF EXISTS meta; DROP TABLE IF EXISTS chunks; DROP TABLE IF EXISTS errors;")?;
             db.pragma_update(None, "user_version", VERSION)?;
         }
         // The duplicate finder writes hashes from the app while the helper scans.
@@ -234,6 +235,10 @@ impl Store {
         }
         // The files still to get their vectors, newest first, without a look at the rest.
         db.execute_batch("CREATE INDEX IF NOT EXISTS files_unembedded ON files(modified) WHERE has_text = 1 AND embedded IS NULL")?;
+        // The files still to be read, so that a burst of changes does not scan every row.
+        db.execute_batch(
+            "CREATE INDEX IF NOT EXISTS files_unread ON files(id) WHERE has_text IS NULL",
+        )?;
         let renewing = passages_are(&db, crate::meaning::SCHEME)?;
         Ok(Store {
             db: Mutex::new(db),
@@ -525,7 +530,7 @@ impl Store {
         let rows = q.query_map([], |r| {
             Ok((
                 r.get(0)?,
-                (r.get::<_, i64>(1)? as u64, r.get(2)?, r.get(3)?),
+                ((r.get::<_, i64>(1)? as u64, r.get(2)?, r.get(3)?), false),
             ))
         })?;
         rows.collect()
@@ -587,28 +592,24 @@ impl Store {
         }
         // The files whose passages lose their vectors, for the signs kept in memory.
         let mut stale: HashSet<i64> = HashSet::new();
+        let at = "(path = ?1 OR (path > ?2 AND path < ?3))";
+        let ids = format!("SELECT id FROM files WHERE {at}");
+        let deletes = [
+            format!("DELETE FROM text WHERE rowid IN ({ids})"),
+            format!("DELETE FROM chunks WHERE file IN ({ids})"),
+            format!("DELETE FROM files WHERE {at}"),
+            format!("DELETE FROM hashes WHERE {at}"),
+            format!("DELETE FROM skipped WHERE {at}"),
+        ];
         for path in gone {
             let (from, to) = below(path);
-            let at = "(path = ?1 OR (path > ?2 AND path < ?3))";
-            let mut q = tx.prepare(&format!("SELECT id FROM files WHERE {at}"))?;
             stale.extend(
-                q.query_map([path, &from, &to], |r| r.get::<_, i64>(0))?
+                tx.prepare_cached(&ids)?
+                    .query_map([path, &from, &to], |r| r.get::<_, i64>(0))?
                     .flatten(),
             );
-            drop(q);
-            tx.execute(
-                &format!("DELETE FROM text WHERE rowid IN (SELECT id FROM files WHERE {at})"),
-                [path, &from, &to],
-            )?;
-            tx.execute(
-                &format!("DELETE FROM chunks WHERE file IN (SELECT id FROM files WHERE {at})"),
-                [path, &from, &to],
-            )?;
-            for table in ["files", "hashes", "skipped"] {
-                tx.execute(
-                    &format!("DELETE FROM {table} WHERE {at}"),
-                    [path, &from, &to],
-                )?;
+            for sql in &deletes {
+                tx.prepare_cached(sql)?.execute([path, &from, &to])?;
             }
         }
         // One row goes, with its text and vectors.
@@ -716,15 +717,34 @@ impl Store {
                 .is_ok()
     }
 
-    /// Files still to be read: (id, path, size, inside an archive).
-    fn unread(&self) -> rusqlite::Result<Vec<(i64, String, u64, bool)>> {
+    /// How many files are still to be read.
+    fn unread_count(&self) -> rusqlite::Result<usize> {
+        self.db.lock().unwrap().query_row(
+            "SELECT count(*) FROM files WHERE has_text IS NULL",
+            [],
+            |r| Ok(r.get::<_, i64>(0)? as usize),
+        )
+    }
+
+    /// Up to `n` files on disk still to be read after the id `after`: (id, path, size).
+    fn unread_disk(&self, after: i64, n: usize) -> rusqlite::Result<Vec<(i64, String, u64)>> {
         let db = self.db.lock().unwrap();
-        let mut q = db.prepare(
-            "SELECT id, path, size, inside IS NOT NULL FROM files WHERE has_text IS NULL",
+        let mut q = db.prepare_cached(
+            "SELECT id, path, size FROM files WHERE has_text IS NULL AND inside IS NULL AND id > ?1 ORDER BY id LIMIT ?2",
         )?;
-        let rows = q.query_map([], |r| {
-            Ok((r.get(0)?, r.get(1)?, r.get::<_, i64>(2)? as u64, r.get(3)?))
+        let rows = q.query_map(rusqlite::params![after, n as i64], |r| {
+            Ok((r.get(0)?, r.get(1)?, r.get::<_, i64>(2)? as u64))
         })?;
+        rows.collect()
+    }
+
+    /// The files inside archives still to be read: (id, path), all of them, so that each
+    /// archive is read in one pass.
+    fn unread_inside(&self) -> rusqlite::Result<Vec<(i64, String)>> {
+        let db = self.db.lock().unwrap();
+        let mut q =
+            db.prepare("SELECT id, path FROM files WHERE has_text IS NULL AND inside IS NOT NULL")?;
+        let rows = q.query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?;
         rows.collect()
     }
 
@@ -1698,8 +1718,6 @@ struct Walk {
     changed: Vec<Changed>,
     /// Folders left out, with their totals.
     skipped: Vec<(String, Size)>,
-    /// Every file.
-    seen: HashSet<String>,
     /// Folders that are git work trees (they hold a `.git`).
     repos: Vec<PathBuf>,
 }
@@ -1714,12 +1732,13 @@ fn left_in_cloud(store: &Store, meta: &std::fs::Metadata, path: &Path) -> bool {
     crate::cloud::keep_out_meta(meta, path)
 }
 
-/// Walk `dirs` and everything below them. `None` when `stop` was set meanwhile.
+/// Walk `dirs` and everything below them, marking in `known` the files met. `None` when
+/// `stop` was set meanwhile.
 fn walk(
     store: &Store,
     dirs: Vec<PathBuf>,
     cfg: &SearchConfig,
-    known: &Known,
+    known: &mut Known,
     stop: &AtomicBool,
 ) -> Option<Walk> {
     let mut found = Walk::default();
@@ -1765,15 +1784,19 @@ fn walk(
             };
             let modified = secs(&meta);
             let cloud = left_in_cloud(store, &meta, &path);
-            if known
-                .get(text)
-                .is_none_or(|k| *k != (meta.len(), modified, cloud))
-            {
-                found
+            // Roots may overlap: a file met twice still matches its row.
+            match known.get_mut(text) {
+                Some((k, seen)) if *k == (meta.len(), modified, cloud) => *seen = true,
+                Some((_, seen)) => {
+                    *seen = true;
+                    found
+                        .changed
+                        .push((text.to_string(), meta.len(), modified, cloud));
+                }
+                None => found
                     .changed
-                    .push((text.to_string(), meta.len(), modified, cloud));
+                    .push((text.to_string(), meta.len(), modified, cloud)),
             }
-            found.seen.insert(text.to_string());
         }
     }
     Some(found)
@@ -1850,20 +1873,21 @@ pub fn scan(store: &Store, cfg: &SearchConfig, stop: &AtomicBool) -> rusqlite::R
     store.readers_changed("code-1", &ends)?;
     store.archives_changed(cfg.archives)?;
     store.exclude_changed(&cfg.text_exclude)?;
-    let known = store.known()?;
-    let Some(found) = walk(store, roots.clone(), cfg, &known, stop) else {
+    let mut known = store.known()?;
+    let Some(found) = walk(store, roots.clone(), cfg, &mut known, stop) else {
         return Ok(());
     };
     // Rows of a disk that is not plugged in stay.
     let kept: Vec<(String, String)> = offline.iter().map(|at| below(at)).collect();
     // Commits are not files on disk: `history` keeps them.
     let gone: Vec<String> = known
-        .into_keys()
-        .filter(|path| {
-            !path.starts_with("git:")
-                && !found.seen.contains(path)
+        .into_iter()
+        .filter(|(path, (_, seen))| {
+            !seen
+                && !path.starts_with("git:")
                 && !kept.iter().any(|(from, to)| path > from && path < to)
         })
+        .map(|(path, _)| path)
         .collect();
     *store.offline.lock().unwrap() = offline;
     store.apply(
@@ -1895,9 +1919,7 @@ pub fn scan(store: &Store, cfg: &SearchConfig, stop: &AtomicBool) -> rusqlite::R
     if hash(store, stop)? {
         return Ok(());
     }
-    embed(store, stop)?;
-    store.hurry.store(false, Ordering::Relaxed);
-    Ok(())
+    embed(store, stop)
 }
 
 /// Hash the files that share a size. `true` when stopped.
@@ -2073,19 +2095,24 @@ fn place(store: &Store, cfg: &SearchConfig) -> rusqlite::Result<(Vec<PathBuf>, V
 /// Read the text of the files waiting for it: those on disk, then those inside archives, one
 /// archive at a time and in one pass through it. `true` when stopped.
 fn read(store: &Store, cfg: &SearchConfig, stop: &AtomicBool) -> rusqlite::Result<bool> {
-    let (inside, unread): (Vec<_>, Vec<_>) = store.unread()?.into_iter().partition(|f| f.3);
     store
         .pending
-        .store(unread.len() + inside.len(), Ordering::Relaxed);
+        .store(store.unread_count()?, Ordering::Relaxed);
     let done = |n: usize| {
         store.pending.fetch_sub(n, Ordering::Relaxed);
         stop.load(Ordering::Relaxed) || store.cleared.load(Ordering::Relaxed)
     };
-    for batch in unread.chunks(200) {
+    // In batches by id: every row read gets its `has_text`, and the cursor ends the loop even
+    // if one did not.
+    let mut after = 0;
+    loop {
+        let batch = store.unread_disk(after, 200)?;
+        let Some(last) = batch.last() else { break };
+        after = last.0;
         let start = Instant::now();
         let rows: Vec<_> = batch
             .iter()
-            .map(|(id, path, size, _)| {
+            .map(|(id, path, size)| {
                 (
                     *id,
                     if left_out_file(path, cfg) {
@@ -2102,11 +2129,12 @@ fn read(store: &Store, cfg: &SearchConfig, stop: &AtomicBool) -> rusqlite::Resul
         }
         store.rest(start, stop);
     }
+    let inside = store.unread_inside()?;
     let mut archives: HashMap<PathBuf, Vec<(i64, String)>> = HashMap::new();
     let mut lost = vec![];
     // Which archive a folder inside one is in: found once per folder, not per member.
     let mut holders: HashMap<PathBuf, Option<(PathBuf, String)>> = HashMap::new();
-    for (id, path, ..) in inside {
+    for (id, path) in inside {
         let path = Path::new(&path);
         let holder = path.parent().map(|dir| {
             holders
@@ -2340,7 +2368,7 @@ pub fn refresh(
         }
     }
     *paths = again;
-    let Some(found) = walk(store, new, cfg, &Known::default(), stop) else {
+    let Some(found) = walk(store, new, cfg, &mut Known::default(), stop) else {
         return Ok(());
     };
     changed.extend(found.changed);
@@ -2377,7 +2405,7 @@ pub fn measure(
             skipped.push((text, size));
         }
     }
-    let Some(found) = walk(store, again, cfg, &Known::default(), stop) else {
+    let Some(found) = walk(store, again, cfg, &mut Known::default(), stop) else {
         return Ok(());
     };
     skipped.extend(found.skipped);
@@ -2403,7 +2431,7 @@ pub fn keep_current(
 ) {
     let report = |r: rusqlite::Result<()>| {
         if let Err(e) = r {
-            eprintln!("coxswain: search store: {e}");
+            crate::helper::note(format_args!("search store: {e}"));
             store.note_error(None, &e.to_string());
             *store.error.lock().unwrap() = Some(e.to_string());
         }
@@ -2411,6 +2439,9 @@ pub fn keep_current(
     while !stop.load(Ordering::Relaxed) {
         store.cleared.store(false, Ordering::SeqCst);
         let scanned = scan(store, cfg, stop);
+        // Index now is done with, whether the scan worked or not: a failing one is not run
+        // again at once, over and over.
+        store.hurry.store(false, Ordering::Relaxed);
         if scanned.is_ok() {
             *store.error.lock().unwrap() = None;
         }
@@ -2639,11 +2670,32 @@ mod tests {
 
         // The store of another version is filled afresh.
         drop(store);
-        Connection::open(d.join("search.db"))
-            .unwrap()
-            .pragma_update(None, "user_version", VERSION + 1)
+        let old = Connection::open(d.join("search.db")).unwrap();
+        old.execute_batch(
+            "INSERT INTO errors VALUES (0, NULL, 'old'); INSERT INTO chunks VALUES (1, 0, x'00');",
+        )
+        .unwrap();
+        old.pragma_update(None, "user_version", VERSION + 1)
             .unwrap();
-        assert_eq!(Store::open(&d.join("search.db")).unwrap().texts(), 0);
+        drop(old);
+        let store = Store::open(&d.join("search.db")).unwrap();
+        assert_eq!(store.texts(), 0);
+        let rows = |t: &str| {
+            store
+                .db
+                .lock()
+                .unwrap()
+                .query_row(&format!("SELECT count(*) FROM {t}"), [], |r| {
+                    r.get::<_, i64>(0)
+                })
+                .unwrap()
+        };
+        assert_eq!(
+            (rows("errors"), rows("chunks")),
+            (0, 0),
+            "nothing of the old store stays"
+        );
+        drop(store);
         std::fs::remove_dir_all(d).unwrap();
     }
 
@@ -3150,20 +3202,23 @@ mod tests {
         store
             .read(
                 &store
-                    .unread()
+                    .unread_disk(0, 1000)
                     .unwrap()
                     .iter()
                     .map(|(id, ..)| (*id, None))
                     .collect::<Vec<_>>(),
             )
             .unwrap();
-        assert!(store.unread().unwrap().is_empty());
+        assert!(store.unread_disk(0, 1000).unwrap().is_empty());
         store.tools_changed(&[]).unwrap();
-        assert!(store.unread().unwrap().is_empty(), "nothing new");
+        assert!(
+            store.unread_disk(0, 1000).unwrap().is_empty(),
+            "nothing new"
+        );
         store.tools_changed(&["png", "jpg"]).unwrap();
         assert_eq!(
             store
-                .unread()
+                .unread_disk(0, 1000)
                 .unwrap()
                 .iter()
                 .map(|r| r.1.as_str())
@@ -3175,10 +3230,10 @@ mod tests {
 
         // A reader that learnt more: its files are read again over the text they had. Before
         // 1.26.4 the old text made every scan fail there, and no file got its vectors after.
-        let id = store.unread().unwrap()[0].0;
+        let id = store.unread_disk(0, 1000).unwrap()[0].0;
         store.read(&[(id, Some("old words".into()))]).unwrap();
         store.readers_changed("test-2", &[".png"]).unwrap();
-        assert_eq!(store.unread().unwrap().len(), 1);
+        assert_eq!(store.unread_disk(0, 1000).unwrap().len(), 1);
         store.read(&[(id, Some("new words".into()))]).unwrap();
         assert_eq!(store.search("new", None, 10).total, 1);
         assert_eq!(store.search("old", None, 10).total, 0);

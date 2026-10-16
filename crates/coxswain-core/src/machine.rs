@@ -321,32 +321,45 @@ fn under(point: &Path, top: &Path, inside: &Path) -> Option<PathBuf> {
     })
 }
 
-/// Mounted file systems as (device, part of it mounted, mount point), from mountinfo.
-#[cfg(target_os = "linux")]
-fn mounts() -> Vec<(PathBuf, PathBuf, PathBuf)> {
-    // `id parent major:minor root mountpoint options … - fstype source superoptions`, with
-    // spaces in paths written as \040. `root` is a btrfs subvolume, or a bind mount's folder.
+/// A line of Linux's `/proc/self/mountinfo`.
+pub(crate) struct Mount {
+    /// The part of the file system mounted: a btrfs subvolume, or a bind mount's folder.
+    pub root: PathBuf,
+    pub point: PathBuf,
+    pub fstype: String,
+    pub source: String,
+}
+
+/// The mounts in mountinfo's text: `id parent major:minor root mountpoint options … - fstype
+/// source superoptions`, with a space, tab, newline or backslash in a field written in octal.
+pub(crate) fn mountinfo(text: &str) -> impl Iterator<Item = Mount> + '_ {
     let unescape = |s: &str| {
         s.replace("\\040", " ")
             .replace("\\011", "\t")
+            .replace("\\012", "\n")
             .replace("\\134", "\\")
     };
-    std::fs::read_to_string("/proc/self/mountinfo")
-        .unwrap_or_default()
-        .lines()
-        .filter_map(|l| {
-            let (left, right) = l.split_once(" - ")?;
-            let mut f = left.split(' ').skip(3);
-            let (top, point) = (f.next()?, f.next()?);
-            let source = right.split(' ').nth(1)?;
-            source.starts_with("/dev/").then(|| {
-                (
-                    PathBuf::from(unescape(source)),
-                    PathBuf::from(unescape(top)),
-                    PathBuf::from(unescape(point)),
-                )
-            })
+    text.lines().filter_map(move |l| {
+        let (left, right) = l.split_once(" - ")?;
+        let mut f = left.split(' ').skip(3);
+        let (root, point) = (f.next()?, f.next()?);
+        let mut r = right.split(' ');
+        let (fstype, source) = (r.next()?, r.next()?);
+        Some(Mount {
+            root: unescape(root).into(),
+            point: unescape(point).into(),
+            fstype: unescape(fstype),
+            source: unescape(source),
         })
+    })
+}
+
+/// Mounted file systems as (device, part of it mounted, mount point), from mountinfo.
+#[cfg(target_os = "linux")]
+fn mounts() -> Vec<(PathBuf, PathBuf, PathBuf)> {
+    mountinfo(&std::fs::read_to_string("/proc/self/mountinfo").unwrap_or_default())
+        .filter(|m| m.source.starts_with("/dev/"))
+        .map(|m| (m.source.into(), m.root, m.point))
         .collect()
 }
 
@@ -481,6 +494,27 @@ fn locate_on(_: &str, _: &Path) -> Option<PathBuf> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn mountinfo_fields_are_unescaped() {
+        let text = "36 25 0:32 /@home /home/a\\040b\\012c rw - btrfs /dev/sda2 rw\nbroken line\n";
+        let m: Vec<_> = mountinfo(text).collect();
+        assert_eq!(m.len(), 1);
+        assert_eq!(
+            (
+                m[0].root.as_path(),
+                m[0].point.as_path(),
+                m[0].fstype.as_str(),
+                m[0].source.as_str()
+            ),
+            (
+                Path::new("/@home"),
+                Path::new("/home/a b\nc"),
+                "btrfs",
+                "/dev/sda2"
+            )
+        );
+    }
 
     #[test]
     fn drives_leave_out_system_app_and_snapshot_mounts() {

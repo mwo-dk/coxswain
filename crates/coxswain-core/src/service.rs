@@ -234,6 +234,24 @@ pub fn starts(exe: &Path) -> bool {
     })
 }
 
+/// Whether the registration starts the other Coxswain app, which is still there: both apps
+/// can be the helper, so neither takes it from the other.
+pub fn other_app(exe: &Path) -> bool {
+    registered().is_some_and(|r| other_of(&r, exe))
+}
+
+/// `r` is there and is the terminal app where `exe` is the desktop app, or the other way round.
+/// ponytail: an older install of the other app stays registered; it steps down for this one.
+fn other_of(r: &Path, exe: &Path) -> bool {
+    let terminal = |p: &Path| {
+        matches!(
+            p.file_stem().and_then(|s| s.to_str()),
+            Some("coxswain" | "cox")
+        )
+    };
+    r.exists() && terminal(r) != terminal(exe)
+}
+
 /// Write again a registration an older version wrote, for the program it names: before 2.1.2
 /// the LaunchAgent ran the helper as a background job, which macOS throttles until the backlog
 /// barely moves, and systemd and launchd started again a helper that had left on purpose.
@@ -317,6 +335,19 @@ pub fn uninstall() -> io::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_registration_of_the_other_app_is_left_to_it() {
+        // The test program is there, and is no terminal app by its name.
+        let there = std::env::current_exe().unwrap();
+        assert!(other_of(&there, Path::new("/usr/bin/coxswain")));
+        // The same app elsewhere, or a program an upgrade removed, is taken over.
+        assert!(!other_of(&there, Path::new("/opt/Coxswain/coxswain-gui")));
+        assert!(!other_of(
+            Path::new("/gone/coxswain-gui"),
+            Path::new("/usr/bin/coxswain")
+        ));
+    }
 
     #[test]
     fn service_unit_runs_this_app_as_a_helper_that_stays() {

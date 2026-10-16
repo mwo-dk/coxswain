@@ -158,6 +158,8 @@
   "one": "{n} katkend",
   "other": "{n} katkendit"
  },
+ "ask.helper_odd_reply": "otsinguabiline vastas midagi muud",
+ "ask.helper_stopped": "otsinguabiline lõpetas",
  "ask.poor_cpu": "{model} töötab siin protsessoril: umbes {seconds} s esimese sõnani.",
  "ask.poor_cpu_unknown": "{model} töötab siin protsessoril, aeglaselt.",
  "ask.poor_none": "Mudeliserver videokaardil vastab palju varem: Seadista… leiab selle.",

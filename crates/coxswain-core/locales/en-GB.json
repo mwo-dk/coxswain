@@ -158,6 +158,8 @@
   "one": "{n} excerpt",
   "other": "{n} excerpts"
  },
+ "ask.helper_odd_reply": "the search helper answered something else",
+ "ask.helper_stopped": "the search helper stopped",
  "ask.poor_cpu": "{model} runs on the processor here: about {seconds} s to the first word.",
  "ask.poor_cpu_unknown": "{model} runs on the processor here, slowly.",
  "ask.poor_none": "A model server on a graphics card answers far sooner: Set up… finds one.",

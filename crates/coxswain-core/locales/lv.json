@@ -162,6 +162,8 @@
   "one": "{n} fragments",
   "other": "{n} fragmenti"
  },
+ "ask.helper_odd_reply": "meklēšanas palīgs atbildēja ko citu",
+ "ask.helper_stopped": "meklēšanas palīgs apstājās",
  "ask.poor_cpu": "{model} šeit darbojas uz procesora: apmēram {seconds} s līdz pirmajam vārdam.",
  "ask.poor_cpu_unknown": "{model} šeit darbojas uz procesora, lēni.",
  "ask.poor_none": "Modeļu serveris uz grafikas kartes atbild daudz ātrāk: Iestatīt… to atradīs.",

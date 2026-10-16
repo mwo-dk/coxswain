@@ -162,6 +162,8 @@
   "few": "{n} ištraukos",
   "other": "{n} ištraukų"
  },
+ "ask.helper_odd_reply": "paieškos pagalbinė programa atsakė kažką kita",
+ "ask.helper_stopped": "paieškos pagalbinė programa sustojo",
  "ask.poor_cpu": "{model} čia veikia procesoriuje: apie {seconds} s iki pirmojo žodžio.",
  "ask.poor_cpu_unknown": "{model} čia veikia procesoriuje, lėtai.",
  "ask.poor_none": "Modelių serveris vaizdo plokštėje atsako daug greičiau: Nustatyti… jį suras.",

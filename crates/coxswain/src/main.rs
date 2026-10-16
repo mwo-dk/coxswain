@@ -2696,8 +2696,9 @@ fn meaning(what: Option<&str>, rest: &[String]) {
                 if coxswain_core::chat::of(&Config::load().map(|c| c.search.ask_model).unwrap_or_default()).is_some() {
                     save("ask_model", "");
                 }
+                let helper = Client::start(&Config::load().map(|c| c.search).unwrap_or_default());
                 for m in coxswain_core::chat::MODELS {
-                    m.remove().unwrap_or_else(|e| fail(e.to_string()));
+                    m.remove(&helper).unwrap_or_else(|e| fail(e.to_string()));
                 }
                 return;
             }

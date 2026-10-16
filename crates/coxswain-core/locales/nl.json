@@ -158,6 +158,8 @@
   "one": "{n} fragment",
   "other": "{n} fragmenten"
  },
+ "ask.helper_odd_reply": "de zoekhulp antwoordde iets anders",
+ "ask.helper_stopped": "de zoekhulp is gestopt",
  "ask.poor_cpu": "{model} draait hier op de processor: ongeveer {seconds} s tot het eerste woord.",
  "ask.poor_cpu_unknown": "{model} draait hier op de processor, traag.",
  "ask.poor_none": "Een modelserver op een grafische kaart antwoordt veel sneller: Instellen… vindt er een.",
