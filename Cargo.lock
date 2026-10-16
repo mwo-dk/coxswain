@@ -902,7 +902,7 @@ checksum = "7f8f80099a98041a3d1622845c271458a2d73e688351bf3cb999266764b81d48"
 
 [[package]]
 name = "coxswain"
-version = "2.24.1"
+version = "2.24.3"
 dependencies = [
  "base64 0.23.1",
  "chrono",
@@ -916,7 +916,7 @@ dependencies = [
 
 [[package]]
 name = "coxswain-core"
-version = "2.24.1"
+version = "2.24.3"
 dependencies = [
  "base64 0.23.1",
  "blake3",
@@ -962,7 +962,7 @@ dependencies = [
 
 [[package]]
 name = "coxswain-gui"
-version = "2.24.1"
+version = "2.24.3"
 dependencies = [
  "clipboard-rs",
  "coxswain-core",
