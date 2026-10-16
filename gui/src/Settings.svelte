@@ -1158,6 +1158,9 @@
   legend {
     font-weight: bold;
     margin-bottom: 6px;
+    /* WebKitGTK sizes a grid fieldset's legend to its narrowest: a word a line. */
+    width: 100%;
+    padding: 0;
   }
   .level {
     display: flex;

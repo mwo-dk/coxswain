@@ -301,7 +301,7 @@ pub fn clear(item: &Item, cfg: &Config, helper: &Client) -> Result<u64, String> 
         (Kind::Outside, _) => {
             let image = item.id.trim_start_matches("image:");
             let (_, rt) = crate::tools::container_runtime(&cfg.preview)
-                .ok_or_else(|| t!("convert.no_runtime"))?;
+                .ok_or_else(crate::tools::no_runtime)?;
             let out = crate::tools::command(&rt)
                 .args(["image", "rm", image])
                 .stdin(std::process::Stdio::null())

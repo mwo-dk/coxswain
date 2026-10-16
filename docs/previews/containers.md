@@ -10,7 +10,11 @@ draw diagrams and reStructuredText. A container gets no network and sees your fi
 
 ## How to use it
 
-1. Install podman (or docker). Nothing else: the default images are set.
+1. Install podman (or docker). Nothing else: the default images are set. On FreeBSD, the other
+   BSDs and illumos neither runs these Linux images: the engine button's note and *Settings →
+   Previews* say *No podman or docker here, and the preview images are Linux ones: install the
+   program itself instead, such as `pkg install texlive-full`*, with that system's line
+   ([Installing what is missing](tools.md#installing-what-is-missing)).
 2. Put the cursor on a file whose tool is not installed, e.g. a `.tex` file, and open the pane
    (**Space** or **F3**). The engine button reads **podman texlive:latest**.
 3. The first time, the image has to be downloaded. The preview says *First run pulls

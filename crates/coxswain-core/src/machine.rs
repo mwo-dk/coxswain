@@ -197,6 +197,7 @@ pub fn appimage_mount(path: &Path, in_temp: bool) -> bool {
 /// File systems that are the kernel's, not places to go.
 #[cfg_attr(
     not(any(
+        target_os = "freebsd",
         target_os = "netbsd",
         target_os = "openbsd",
         target_os = "illumos",
@@ -205,13 +206,33 @@ pub fn appimage_mount(path: &Path, in_temp: bool) -> bool {
     allow(dead_code)
 )]
 const PSEUDO: &[&str] = &[
-    "proc", "procfs", "kernfs", "ptyfs", "devfs", "tmpfs", "mfs", "ctfs", "objfs", "mntfs", "fd",
-    "sharefs", "dev", "bootfs", "lofs", "null", "nullfs", "autofs",
+    "proc",
+    "procfs",
+    "kernfs",
+    "ptyfs",
+    "devfs",
+    "tmpfs",
+    "mfs",
+    "ctfs",
+    "objfs",
+    "mntfs",
+    "fd",
+    "sharefs",
+    "dev",
+    "bootfs",
+    "lofs",
+    "null",
+    "nullfs",
+    "autofs",
+    "fdescfs",
+    "linprocfs",
+    "linsysfs",
 ];
 
 /// The mounted file systems, for the desktop app's sidebar on the systems its disk library does
-/// not know: getmntinfo(3) on NetBSD and OpenBSD.
-#[cfg(any(target_os = "netbsd", target_os = "openbsd"))]
+/// not know or gets wrong: getmntinfo(3) on the BSDs (sysinfo counts FreeBSD's free inodes as
+/// free blocks).
+#[cfg(any(target_os = "freebsd", target_os = "netbsd", target_os = "openbsd"))]
 pub fn mounted() -> Vec<Mounted> {
     use std::ffi::CStr;
     // getmntinfo hands out one buffer of its own, overwritten by the next call.
@@ -246,7 +267,39 @@ pub fn mounted() -> Vec<Mounted> {
             }
         })
         .filter(|m| !PSEUDO.contains(&m.fstype.as_str()))
+        // What MNT_NOWAIT gives is the kernel's last count, minutes old: a disk on this machine
+        // is asked again, a network one keeps that count.
+        .map(|mut m| {
+            if !(m.fstype.starts_with("nfs") || m.fstype == "smbfs" || m.fstype.starts_with("fuse"))
+            {
+                sizes_now(&mut m);
+            }
+            m
+        })
         .collect()
+}
+
+/// `m`'s size and free space as they are now, from statvfs(2), as `df` counts them.
+#[cfg(any(
+    target_os = "freebsd",
+    target_os = "netbsd",
+    target_os = "openbsd",
+    target_os = "illumos",
+    target_os = "solaris"
+))]
+fn sizes_now(m: &mut Mounted) {
+    use std::os::unix::ffi::OsStrExt;
+    if let Ok(c) = std::ffi::CString::new(m.mount.as_os_str().as_bytes()) {
+        // SAFETY: statvfs fills the zeroed struct it is given.
+        let mut st: libc::statvfs = unsafe { std::mem::zeroed() };
+        if unsafe { libc::statvfs(c.as_ptr(), &mut st) } == 0 {
+            #[allow(clippy::unnecessary_cast)] // the types differ between systems
+            let block = st.f_frsize as u64;
+            #[allow(clippy::unnecessary_cast)]
+            let (blocks, avail) = (st.f_blocks as u64, st.f_bavail as u64);
+            (m.total, m.free) = (blocks.saturating_mul(block), avail.saturating_mul(block));
+        }
+    }
 }
 
 /// The mounted file systems, from /etc/mnttab, with their sizes from statvfs(2): illumos.
@@ -257,18 +310,7 @@ pub fn mounted() -> Vec<Mounted> {
         .into_iter()
         .filter(|m| !PSEUDO.contains(&m.fstype.as_str()))
         .map(|mut m| {
-            use std::os::unix::ffi::OsStrExt;
-            if let Ok(c) = std::ffi::CString::new(m.mount.as_os_str().as_bytes()) {
-                // SAFETY: statvfs fills the zeroed struct it is given.
-                let mut st: libc::statvfs = unsafe { std::mem::zeroed() };
-                if unsafe { libc::statvfs(c.as_ptr(), &mut st) } == 0 {
-                    let block = st.f_frsize as u64;
-                    (m.total, m.free) = (
-                        (st.f_blocks as u64).saturating_mul(block),
-                        (st.f_bavail as u64).saturating_mul(block),
-                    );
-                }
-            }
+            sizes_now(&mut m);
             m
         })
         .collect()
@@ -606,6 +648,7 @@ mod tests {
 
     #[test]
     #[cfg(any(
+        target_os = "freebsd",
         target_os = "netbsd",
         target_os = "openbsd",
         target_os = "illumos",
@@ -613,10 +656,21 @@ mod tests {
     ))]
     fn machine_lists_the_mounted_file_systems() {
         let all = mounted();
+        let root = all.iter().find(|m| m.mount == Path::new("/"));
         assert!(
-            all.iter()
-                .any(|m| m.mount == Path::new("/") && m.total > 0 && m.free <= m.total),
+            root.is_some_and(|m| m.total > 0 && m.free <= m.total),
             "{all:?}"
+        );
+        // Free blocks, as df counts them: not free inodes.
+        // SAFETY: statvfs fills the zeroed struct it is given.
+        let mut st: libc::statvfs = unsafe { std::mem::zeroed() };
+        assert_eq!(unsafe { libc::statvfs(c"/".as_ptr(), &mut st) }, 0);
+        #[allow(clippy::unnecessary_cast)]
+        let df = st.f_bavail as u64 * st.f_frsize as u64;
+        let free = root.unwrap().free;
+        assert!(
+            free.abs_diff(df) <= df / 20 + (64 << 20),
+            "{free} against df's {df}"
         );
         assert!(
             all.iter().all(|m| !PSEUDO.contains(&m.fstype.as_str())),

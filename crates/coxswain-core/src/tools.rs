@@ -447,6 +447,23 @@ pub fn install_line(program: &str, manager: Manager) -> Option<String> {
     })
 }
 
+/// Why previews have no container: neither podman nor docker is installed. On the BSDs and
+/// illumos, where neither runs the previews' Linux images, the program itself is the way, and
+/// the line that installs the LaTeX one says so.
+pub fn no_runtime() -> String {
+    let elsewhere = cfg!(any(
+        target_os = "freebsd",
+        target_os = "netbsd",
+        target_os = "openbsd",
+        target_os = "illumos",
+        target_os = "solaris"
+    ));
+    match install("latex").filter(|_| elsewhere) {
+        Some(line) => crate::t!("convert.no_runtime_here", "line" => line),
+        None => crate::t!("convert.no_runtime"),
+    }
+}
+
 /// The line that installs `program` here, if Coxswain knows one.
 pub fn install(program: &str) -> Option<String> {
     install_line(program, Manager::here()?)

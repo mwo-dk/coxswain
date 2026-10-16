@@ -57,13 +57,26 @@ pub struct Ctx {
     asking: Arc<std::sync::atomic::AtomicU64>,
     /// What Ctrl+Z undoes, the newest last; for this run.
     undo: Mutex<History>,
+    /// The app, set at start: what tells the window that sizes changed.
+    app: std::sync::OnceLock<tauri::AppHandle>,
 }
 
 impl Ctx {
-    /// Keep what can be undone of an operation.
+    /// Keep what can be undone of an operation, done now: the folders it changed are measured again.
     fn remember(&self, rec: Record) {
+        self.changed(&rec.touched());
         if let Ok(mut h) = self.undo.lock() {
             h.push(rec);
+        }
+    }
+
+    /// These were added, removed or written by an operation that has ended: every folder they
+    /// are in loses its remembered size, here and in the window (`sizes-changed`), which
+    /// measures those again. A measure taken while it ran would show a size halfway.
+    fn changed(&self, paths: &[PathBuf]) {
+        paths.iter().for_each(|p| self.sizer.forget(p));
+        if let Some(app) = self.app.get() {
+            let _ = app.emit("sizes-changed", paths);
         }
     }
 
@@ -343,6 +356,8 @@ struct Listing {
     snapshot: Option<coxswain_core::zfs::At>,
     /// The package whose files the folder lists.
     package: Option<String>,
+    /// Files in it may belong to an installed package (`bsd::packages_here`).
+    packages: bool,
 }
 
 /// A history being looked into: the file or folder it is of, and the commit looked into.
@@ -388,7 +403,7 @@ async fn list_dir(dir: PathBuf, show_hidden: bool, sort: SortKey, reverse: bool,
     let plain = cfg.plain_glyphs().then(|| cfg.glyphs());
     let (prefix, items) = to_page(&dir, entries, |p| st.tags.get(p).cloned(), plain.as_ref());
     let (archive, locked) = inside.map_or((None, false), |(a, locked)| (Some(a), locked));
-    Ok(Listing { has_notes: st.notes.contains_key(&dir), dir, prefix, items, archive, locked, history: in_history, snapshot, package })
+    Ok(Listing { has_notes: st.notes.contains_key(&dir), packages: coxswain_core::bsd::packages_here(&dir), dir, prefix, items, archive, locked, history: in_history, snapshot, package })
 }
 
 /// The entries as the page gets them: with their icon and tag, and without the path when it
@@ -542,16 +557,17 @@ async fn disks() -> Res<Vec<Disk>> {
     tauri::async_runtime::spawn_blocking(read_disks).await.map_err(|e| e.to_string())
 }
 
-/// The mounted file systems as unlabelled disks: from sysinfo where it knows the system.
-#[cfg(any(target_os = "linux", target_os = "macos", target_os = "freebsd", windows))]
+/// The mounted file systems as unlabelled disks: from sysinfo on Linux, macOS and Windows, which
+/// also says which are removable.
+#[cfg(any(target_os = "linux", target_os = "macos", windows))]
 fn mounted_disks() -> Vec<Disk> {
     let list = sysinfo::Disks::new_with_refreshed_list();
     list.list().iter().map(|d| Disk { label: String::new(), device: d.name().to_string_lossy().into_owned(), mount: d.mount_point().to_path_buf(), total: d.total_space(), free: d.available_space(), removable: d.is_removable(), fstype: d.file_system().to_string_lossy().into_owned() }).collect()
 }
 
-/// The mounted file systems as unlabelled disks: from the core on NetBSD, OpenBSD and
-/// illumos, which sysinfo does not know.
-#[cfg(not(any(target_os = "linux", target_os = "macos", target_os = "freebsd", windows)))]
+/// The mounted file systems as unlabelled disks: from the core on the BSDs and illumos, which
+/// sysinfo does not know or, on FreeBSD, counts free inodes as free space.
+#[cfg(not(any(target_os = "linux", target_os = "macos", windows)))]
 fn mounted_disks() -> Vec<Disk> {
     coxswain_core::machine::mounted().into_iter().map(|m| Disk { label: String::new(), device: m.device, mount: m.mount, total: m.total, free: m.free, removable: false, fstype: m.fstype }).collect()
 }
@@ -1316,7 +1332,9 @@ async fn delete(paths: Vec<PathBuf>, forever: bool, password: Option<String>, ct
     paths.iter().for_each(|p| ctx.sizer.forget(p));
     // For good is the one that cannot be undone.
     if forever {
-        return each(paths, move |p| bfs::delete_locked(p, password.as_deref())).await;
+        let r = each(paths.clone(), move |p| bfs::delete_locked(p, password.as_deref())).await;
+        ctx.changed(&paths);
+        return r;
     }
     each_undo(&ctx, UndoKind::Trash, paths, move |rec, p| rec.run(p, Path::new(""), password.as_deref())).await
 }
@@ -1368,13 +1386,16 @@ fn rename_apply(dir: PathBuf, plan: Vec<Planned>, ctx: tauri::State<Ctx>) -> Res
     Ok(())
 }
 
-/// Ctrl+Z: undo the newest operation. What it was, and a line for each item left as it is.
+/// Ctrl+Z: undo the newest operation. What it was, a line for each item left as it is, and
+/// what is back where it was (the cursor goes there).
 #[tauri::command]
-async fn undo(ctx: tauri::State<'_, Ctx>) -> Res<(String, Vec<String>)> {
+async fn undo(ctx: tauri::State<'_, Ctx>) -> Res<(String, Vec<String>, Vec<PathBuf>)> {
     let rec = ctx.undo.lock().map_err(|e| e.to_string())?.pop().ok_or_else(|| coxswain_core::t!("undo.nothing"))?;
-    rec.touched().iter().for_each(|p| ctx.sizer.forget(p));
+    let touched = rec.touched();
+    touched.iter().for_each(|p| ctx.sizer.forget(p));
     let u = blocking(move || Ok(rec.undo(|_| {}))).await?;
-    Ok((u.label, u.refused))
+    ctx.changed(&touched);
+    Ok((u.label, u.refused, u.back))
 }
 
 /// What Ctrl+Z would undo, and how many operations were kept so far (a new one: the page says
@@ -1497,6 +1518,7 @@ async fn pack(paths: Vec<PathBuf>, base: PathBuf, dest: String, password: Option
         .await
         .map_err(|e| e.to_string())?
         .map_err(|e| format!("{}: {e}", to.display()))?;
+    ctx.changed(std::slice::from_ref(&to));
     let mut rec = Record::new(UndoKind::Pack);
     rec.done(&to, &to);
     ctx.remember(rec);
@@ -1876,11 +1898,25 @@ fn local(url: &tauri::Url) -> bool {
     }
 }
 
+const USAGE: &str = "coxswain-gui [LEFT] [RIGHT]   a folder, or a file to open its folder with the cursor on it
+  --settings[=AREA|OPTION]  start with Settings open: overview, search, previews, looks,
+                            behaviour, keys, privacy, or an option such as show_hidden
+  --duplicates [FOLDER …]   start with Find duplicates scanning these folders (default: this one)
+  --version
+  --help
+The terminal app, coxswain, has the rest: coxswain --help";
+
 fn main() {
     coxswain_core::tools::flatpak_tmp();
     // Started by an app, not by hand: hold the file name index for all of them. No window.
     if std::env::args_os().nth(1).is_some_and(|a| a == helper::ARG) {
         return drop(helper::serve());
+    }
+    // As the terminal app has them: they print, and need no window.
+    match std::env::args().nth(1).as_deref() {
+        Some("--version" | "-V") => return println!("coxswain-gui {}", coxswain_core::update::VERSION),
+        Some("--help" | "-h") => return println!("{USAGE}"),
+        _ => {}
     }
     coxswain_core::fs::lock_down();
     // A config.toml of 1.x gets the names of 2.0, once.
@@ -1892,6 +1928,12 @@ fn main() {
         Config::default()
     });
     coxswain_core::i18n::set_language(coxswain_core::i18n::resolve(&cfg.language));
+    // Over ssh, or on a console: GTK cannot start, and would say so with a panic.
+    #[cfg(all(unix, not(target_os = "macos")))]
+    if ["DISPLAY", "WAYLAND_DISPLAY", "GDK_BACKEND"].iter().all(|v| std::env::var_os(v).is_none_or(|x| x.is_empty())) {
+        eprintln!("coxswain-gui: {}", coxswain_core::t!("cli.no_display"));
+        std::process::exit(1);
+    }
     // Validate early: a bad key in the config should not surface as a blank window.
     if let Err(e) = cfg.keymap() {
         eprintln!("coxswain: {e}");
@@ -1949,6 +1991,7 @@ fn main() {
         measuring: Mutex::default(),
         asking: Arc::default(),
         undo: Mutex::default(),
+        app: std::sync::OnceLock::new(),
     };
     tauri::Builder::default()
         .manage(ctx)
@@ -1958,6 +2001,7 @@ fn main() {
         })
         .setup(|app| {
             *app.state::<Ctx>().watcher.lock().expect("fresh lock") = start_watcher(app.handle());
+            let _ = app.state::<Ctx>().app.set(app.handle().clone());
             // The window from the config, made here so that it gets its navigation guard.
             let window = app.config().app.windows.first().cloned().ok_or("no window in the config")?;
             tauri::WebviewWindowBuilder::from_config(app.handle(), &window)?.on_navigation(local).build()?;
@@ -2063,7 +2107,7 @@ mod perf {
         let (mut entries, _) = bfs::list_with_archive(&dir, true).unwrap();
         bfs::sort(&mut entries, SortKey::Name, false);
         let (prefix, items) = to_page(&dir, entries, |_| None, None);
-        let listing = Listing { has_notes: false, dir, prefix, items, archive: None, locked: false, history: None, snapshot: None, package: None };
+        let listing = Listing { has_notes: false, dir, prefix, items, archive: None, locked: false, history: None, snapshot: None, package: None, packages: false };
         println!("list_dir body (list, sort, icons): {:.0} ms", ms(t));
         let t = std::time::Instant::now();
         let json = serde_json::to_vec(&listing).unwrap();

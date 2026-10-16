@@ -3,7 +3,7 @@
   import { getCurrentWindow } from "@tauri-apps/api/window";
   import { getCurrentWebview } from "@tauri-apps/api/webview";
   import { listen } from "@tauri-apps/api/event";
-  import { ui, openFind, init, tab, pane, otherTab, item, load, cd, up, openHistory, openSnapshots, openPackage, openGitView, switchBranch, newBranch, addTab, closeTab, goBack, goForward, openItem, toggleMark, targets, reloadAll, refreshDisks, snapshot, setTheme, themeIds, themeName, nextView, measureFolders, columnMenu, subject, hooks, refreshUndo, actionLabel } from "./app.svelte.js";
+  import { ui, openFind, init, tab, pane, otherTab, item, load, cd, up, openHistory, openSnapshots, openPackage, openGitView, switchBranch, newBranch, addTab, closeTab, goBack, goForward, openItem, toggleMark, targets, reloadAll, refreshDisks, snapshot, setTheme, themeIds, themeName, nextView, measureFolders, columnMenu, subject, hooks, refreshUndo, actionLabel, visibleTabs } from "./app.svelte.js";
   import { failure } from "./errors.js";
   import { invoke, keyString, basename, parent, globRe, quote, isArchive, packFormat, LOCKED } from "./lib.js";
   import { t, tn } from "./i18n.svelte.js";
@@ -80,6 +80,13 @@
   listen("config-changed", async () => (ui.cfg = await invoke("get_config")));
   listen("dir-changed", (ev) => {
     for (const t of allTabs()) if (ev.payload.includes(t.dir) || ev.payload.includes(gitDir(t))) load(t);
+  });
+  // A copy, move, delete or undo has ended: the folders it changed things in are measured again.
+  listen("sizes-changed", (ev) => {
+    for (const t of allTabs()) {
+      const stale = Object.keys(t.sizes).filter((f) => ev.payload.some((p) => p === f || p.startsWith(f + ui.cfg.sep)));
+      if (stale.length) measureFolders(t, stale);
+    }
   });
 
   // Files dragged in from other applications, or from a pane (the drag is native, see dragOut).
@@ -375,15 +382,18 @@
     undo: async () => {
       if (!ui.undo) return void (ui.status = t("undo.nothing"));
       ui.status = t("status.busy", { what: ui.undo });
+      let back = [];
       try {
-        const [label, refused] = await invoke("undo");
+        let label, refused;
+        [label, refused, back] = await invoke("undo");
         ui.status = refused.length ? "" : t("undo.done", { what: label });
         if (refused.length) ui.modal = failure(t("undo.partly", { what: label }), refused.join("\n"));
       } catch (e) {
         ui.status = String(e);
       }
       await refreshUndo();
-      await reloadAll();
+      // The cursor goes on what came back, where its folder is shown.
+      await Promise.all(visibleTabs().map((v) => load(v, v.dir, back.find((p) => parent(p) === v.dir))));
     },
     delete_forever: () => readOnly() || remove(true),
     clip_copy: () => clip(false),

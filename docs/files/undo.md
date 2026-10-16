@@ -64,7 +64,7 @@ text field; with the command line empty it undoes the last file operation.
 |---|---|
 | After an operation that can be undone | `Moved "report.pdf" · Ctrl+Z undoes it`, `Copied 3 items · Ctrl+Z undoes it`, `Created photos · Ctrl+Z undoes it` (the terminal app names the whole path) |
 | While undo works | `Working on move "report.pdf" to Backups…` |
-| When it is done | `Undone: move "report.pdf" to Backups`, `Undone: rename a.txt → b.txt` |
+| When it is done | `Undone: move "report.pdf" to Backups`, `Undone: rename a.txt → b.txt`. What a move, rename or delete brought back has the cursor on it, in each pane that shows its folder |
 | Nothing left to undo | `Nothing to undo` |
 | After **F8** on a Mac or in the Flatpak | `Moved "report.pdf" to the bin · Ctrl+Z cannot bring it back here: restore it from the system's bin` |
 

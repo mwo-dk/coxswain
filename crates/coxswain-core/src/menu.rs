@@ -44,6 +44,8 @@ pub struct Subject {
     /// The folder is in a git repository, on a ZFS dataset.
     pub git: bool,
     pub zfs: bool,
+    /// The folder may hold files of installed packages (`bsd::packages_here`).
+    pub packages: bool,
 }
 
 impl Subject {
@@ -96,7 +98,7 @@ impl Action {
             Snapshots => {
                 s.zfs && (disk && (n == 0 || s.folders == 1 && s.one) || s.place == Place::Snapshot)
             }
-            Package => cfg!(target_os = "freebsd") && disk && s.single() && s.files == 1,
+            Package => s.packages && disk && s.single() && s.files == 1,
             Tag => n > 0 && disk,
             Notes => disk,
             Worktrees => s.git && disk,

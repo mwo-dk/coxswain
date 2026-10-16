@@ -872,7 +872,8 @@ pub(crate) fn properties(p: &coxswain_core::fs::Props, snapshots_key: &str) -> S
         add("dialogs.modified", date(m));
     }
     if let (Some(mode), Some(uid), Some(gid)) = (p.mode, p.uid, p.gid) {
-        add("dialogs.owner", t!("dialogs.owner_ids", "uid" => uid, "gid" => gid));
+        let ids = t!("dialogs.owner_ids", "uid" => uid, "gid" => gid);
+        add("dialogs.owner", p.owner.as_ref().map_or(ids.clone(), |o| format!("{o} · {ids}")));
         add("dialogs.permissions", format!("{mode:04o}"));
     }
     if let Some(z) = &p.zfs {

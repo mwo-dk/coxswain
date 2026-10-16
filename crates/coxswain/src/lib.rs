@@ -221,6 +221,7 @@ impl Panel {
             place,
             git: self.git.is_some(),
             zfs: self.zfs.is_some(),
+            packages: coxswain_core::bsd::packages_here(&self.dir),
         }
     }
 
@@ -519,7 +520,8 @@ enum JobMsg {
     At(usize),
     /// What failed, and what can be undone of what did not.
     Done(Vec<(PathBuf, std::io::Error)>, Record),
-    Undone(coxswain_core::undo::Undone),
+    /// An undo has ended: what came of it, and the paths it changed.
+    Undone(coxswain_core::undo::Undone, Vec<PathBuf>),
 }
 
 /// A search for Find: its generation, the query, the kind chip, the folder it is limited to,
@@ -577,6 +579,17 @@ fn line_key(key: Key, plain: Option<char>) -> Option<LineKey> {
         (_, Some(c)) => LineKey::Type(c),
         _ => return None,
     })
+}
+
+/// What a file operation (`None`: packing into `dst`) adds, removes or writes: the folders
+/// these are in change size. A move, rename, delete or new folder changes `src`; a copy, move,
+/// extract or pack what is in `dst`.
+fn touches(op: Option<Transfer>, src: &[PathBuf], dst: &Path) -> Vec<PathBuf> {
+    let mut out = if matches!(op, Some(Transfer::Move | Transfer::Rename | Transfer::Delete(_) | Transfer::Mkdir)) { src.to_vec() } else { vec![] };
+    if !dst.as_os_str().is_empty() {
+        out.push(if op.is_none() { dst.to_path_buf() } else { dst.join("new") });
+    }
+    out
 }
 
 /// A folder listed by a program (git, zfs, pkg), which can take a while: read on a thread.
@@ -716,9 +729,18 @@ impl App {
 
     /// These were added, removed or written: the folders they are in are measured again.
     fn changed(&mut self, paths: &[PathBuf]) {
+        let mut stale = [false; 2];
         for p in paths {
             self.sizer.forget(p);
-            self.panels.iter_mut().for_each(|panel| panel.sizes.retain(|folder, _| !p.starts_with(folder)));
+            for (side, panel) in self.panels.iter_mut().enumerate() {
+                let had = panel.sizes.len();
+                panel.sizes.retain(|folder, _| !p.starts_with(folder));
+                stale[side] |= panel.sizes.len() < had;
+            }
+        }
+        // A panel showing a folder the change is in, not the folder it is in itself.
+        for side in (0..2).filter(|&s| stale[s]) {
+            self.measure(side);
         }
     }
 
@@ -1493,13 +1515,7 @@ impl App {
         if let Some(j) = &self.job {
             return self.status = Some(j.line.clone());
         }
-        if matches!(op, Some(Transfer::Move | Transfer::Rename | Transfer::Delete(_) | Transfer::Mkdir)) {
-            self.changed(&src);
-        } else if op.is_none() {
-            self.changed(std::slice::from_ref(&dst));
-        } else {
-            self.changed(&[dst.join("new")]);
-        }
+        self.changed(&touches(op, &src, &dst));
         let (tx, rx) = mpsc::channel();
         let (items, to, pw) = (src.clone(), dst.clone(), password.clone());
         std::thread::spawn(move || {
@@ -1567,7 +1583,7 @@ impl App {
                 }
                 JobMsg::At(_) => {}
                 JobMsg::Done(failed, rec) => done = Some((failed, Some(rec))),
-                JobMsg::Undone(u) => undone = Some(u),
+                JobMsg::Undone(u, touched) => undone = Some((u, touched)),
             }
         }
         // Its thread ended without saying it was done (it panicked): the job goes, so the app
@@ -1578,10 +1594,19 @@ impl App {
             self.status = None;
             return self.after_op(String::new(), t!("error.job_stopped", "what" => what), vec![t!("error.job_stopped_detail")]);
         }
-        if let Some(u) = undone {
+        if let Some((u, touched)) = undone {
             self.job = None;
             self.status = None;
-            return self.after_op(t!("undo.done", "what" => u.label), t!("undo.partly", "what" => u.label), u.refused);
+            // Measured while it ran, a folder's size would be halfway.
+            self.changed(&touched);
+            self.after_op(t!("undo.done", "what" => &u.label), t!("undo.partly", "what" => &u.label), u.refused);
+            // The cursor goes on what came back, where its folder is shown.
+            for side in 0..2 {
+                if let Some(name) = u.back.iter().find(|p| p.parent() == Some(self.panels[side].dir.as_path())).and_then(|p| p.file_name()) {
+                    self.panels[side].select_name(&name.to_string_lossy());
+                }
+            }
+            return;
         }
         // A key clears the status line; while the job runs, it comes back.
         if self.status.is_none() {
@@ -1597,6 +1622,8 @@ impl App {
     /// for just what was locked.
     fn finish(&mut self, job: Job, failed: Vec<(PathBuf, std::io::Error)>, rec: Option<Record>) {
         let Job { op, src, dst, password, select, .. } = job;
+        // Again now it has ended: a folder measured while it ran would keep a size halfway.
+        self.changed(&touches(op, &src, &dst));
         let what = Self::describe(&src);
         // What can be undone is kept, and the status line says how.
         let key = self.key_label(Action::Undo).to_string();
@@ -1661,12 +1688,13 @@ impl App {
             return self.status = Some(j.line.clone());
         }
         let Some(rec) = self.undo.pop() else { return self.status = Some(t!("undo.nothing")) };
-        self.changed(&rec.touched());
+        let touched = rec.touched();
+        self.changed(&touched);
         let line = t!("status.busy", "what" => rec.label());
         let (tx, rx) = mpsc::channel();
         std::thread::spawn(move || {
             let u = rec.undo(|i| drop(tx.send(JobMsg::At(i))));
-            let _ = tx.send(JobMsg::Undone(u));
+            let _ = tx.send(JobMsg::Undone(u, touched));
         });
         self.status = Some(line.clone());
         self.job = Some(Job { op: None, src: vec![], dst: PathBuf::new(), password: None, select: None, line, rx });

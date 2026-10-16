@@ -104,7 +104,7 @@ The whole `[search]` table with its defaults:
 ```toml
 [search]
 name_roots = []            # the name index: empty = the whole machine
-name_exclude = ["/proc", "/sys", "/dev", "/run", "/tmp/.X11-unix"]
+name_exclude = ["/proc", "/sys", "/dev", "/run", "/tmp/.X11-unix"]   # the BSDs: no /sys, /run
 max_results = 10000
 watch = true
 text = true

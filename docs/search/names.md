@@ -22,7 +22,9 @@ For names in this folder only, switch the scope with **Ctrl+F** inside Find (bel
 ## What you see
 
 The *Names* group: its heading counts them (*5 of 128*; in *All* the first five show, *123 more:
-Enter shows them all* follows). Each hit is a name and its folder. Under the list: *1,402,311
+Enter shows them all* follows). Each hit is a name and its folder. A name that is your whole
+query (`launch` for *launch*, in any case) comes first, then what is in your home folder, then
+the rest. Under the list: *1,402,311
 files indexed*. While the first index is built, ` · building index…` is added and hits come in as
 the walk goes.
 
@@ -32,12 +34,13 @@ the walk goes.
 |---|---|
 | At start | The index saved in Coxswain's cache folder (`index.bin`) loads, in about 90 ms, so searching works at once |
 | Right after | A fresh index is built in the background; the saved one answers meanwhile |
-| All the time | The file watcher (inotify on Linux, FSEvents on macOS, ReadDirectoryChangesW on Windows) adds and removes names: a new file can be found within a second |
+| All the time | The file watcher (inotify on Linux, FSEvents on macOS, ReadDirectoryChangesW on Windows, kqueue on the BSDs, event ports on illumos) adds and removes names: a new file can be found within a second. A folder made since is watched as soon as it appears, with what is in it |
 | Every hour | The whole index is built again, which catches anything the watcher missed |
 
 **What is indexed:** all of `/` on Linux and macOS, every fixed drive on Windows. Hidden files and
 folders are indexed like any other. **Left out:** `/proc`, `/sys`, `/dev`, `/run` and
-`/tmp/.X11-unix` by default. In `name_exclude`, a path skips that tree and a bare name (`node_modules`)
+`/tmp/.X11-unix` by default (on the BSDs `/proc`, `/dev` and `/tmp/.X11-unix`; on illumos also
+`/devices` and `/system`). In `name_exclude`, a path skips that tree and a bare name (`node_modules`)
 skips every folder of that name.
 
 The index is held by the [search helper](helper.md) and shared by every window and terminal app.
@@ -73,7 +76,7 @@ were `roots` and `exclude`; the first start of 2.0 renames them in `config.toml`
 | Key | Type | Default | Does |
 |---|---|---|---|
 | `name_roots` | list of paths | `[]` | Where the name index looks; empty is `/`, or every fixed drive on Windows |
-| `name_exclude` | list of strings | `["/proc", "/sys", "/dev", "/run", "/tmp/.X11-unix"]` | Paths and folder names left out of the name index. Listing it replaces the default |
+| `name_exclude` | list of strings | `["/proc", "/sys", "/dev", "/run", "/tmp/.X11-unix"]` | Paths and folder names left out of the name index. Listing it replaces the default. On the BSDs `["/proc", "/dev", "/tmp/.X11-unix"]`, on illumos `["/proc", "/dev", "/devices", "/system", "/tmp/.X11-unix"]`: the trees each system's kernel makes up |
 | `watch` | bool | `true` | Follow changes live. Off: only the hourly rebuild updates the index |
 | `max_results` | number | `10000` | Most hits of one search |
 

@@ -73,7 +73,7 @@ fn engines(cfg: &PreviewConfig, tool: &str) -> Vec<Engine> {
     let image = cfg.images.get(tool).cloned().unwrap_or_default();
     let container = match (runtime(cfg), image.is_empty()) {
         (_, true) => Engine { id: "container:".into(), label: t!("convert.container"), available: false, note: t!("convert.no_image", "tool" => tool), needs_pull: false },
-        (None, false) => Engine { id: "container:".into(), label: t!("convert.container"), available: false, note: t!("convert.no_runtime"), needs_pull: false },
+        (None, false) => Engine { id: "container:".into(), label: t!("convert.container"), available: false, note: coxswain_core::tools::no_runtime(), needs_pull: false },
         (Some((rt, path)), false) => {
             let pulled = image_size(&path, &image).is_some();
             let short = image.rsplit('/').next().unwrap_or(&image).to_string();
@@ -271,7 +271,7 @@ fn build(cfg: &PreviewConfig, tool: &str, engine: &str, path: &Path, out: &Path,
     let (kind, which_one) = engine.split_once(':').ok_or_else(|| t!("convert.unknown_engine"))?;
 
     if kind == "container" {
-        let (rt, rt_path) = runtime(cfg).ok_or_else(|| t!("convert.no_runtime"))?;
+        let (rt, rt_path) = runtime(cfg).ok_or_else(coxswain_core::tools::no_runtime)?;
         if rt != which_one {
             return Err(t!("convert.not_available", "program" => which_one));
         }
@@ -640,7 +640,7 @@ pub struct Image {
 pub async fn images(ctx: tauri::State<'_, crate::Ctx>) -> Res<Vec<Image>> {
     let cfg = ctx.cfg().preview.clone();
     tauri::async_runtime::spawn_blocking(move || {
-        let (_, rt) = runtime(&cfg).ok_or_else(|| t!("convert.no_runtime"))?;
+        let (_, rt) = runtime(&cfg).ok_or_else(coxswain_core::tools::no_runtime)?;
         let pulling = PULLING.lock().unwrap().clone();
         Ok(cfg
             .images
@@ -657,14 +657,14 @@ pub async fn images(ctx: tauri::State<'_, crate::Ctx>) -> Res<Vec<Image>> {
 #[tauri::command]
 pub async fn pull_image(image: String, ctx: tauri::State<'_, crate::Ctx>) -> Res<()> {
     let cfg = ctx.cfg().preview.clone();
-    tauri::async_runtime::spawn_blocking(move || pull(&runtime(&cfg).ok_or_else(|| t!("convert.no_runtime"))?.1, &image)).await.map_err(|e| e.to_string())?
+    tauri::async_runtime::spawn_blocking(move || pull(&runtime(&cfg).ok_or_else(coxswain_core::tools::no_runtime)?.1, &image)).await.map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
 pub async fn remove_image(image: String, ctx: tauri::State<'_, crate::Ctx>) -> Res<()> {
     let cfg = ctx.cfg().preview.clone();
     tauri::async_runtime::spawn_blocking(move || {
-        let (_, rt) = runtime(&cfg).ok_or_else(|| t!("convert.no_runtime"))?;
+        let (_, rt) = runtime(&cfg).ok_or_else(coxswain_core::tools::no_runtime)?;
         let out = coxswain_core::tools::command(rt).args(["image", "rm", &image]).stdin(Stdio::null()).output().map_err(|e| e.to_string())?;
         if out.status.success() { Ok(()) } else { Err(last_lines(&String::from_utf8_lossy(&out.stderr), 3).unwrap_or_default()) }
     })
