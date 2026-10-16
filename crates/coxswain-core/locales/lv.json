@@ -658,6 +658,8 @@
  "error.create": "Neizdevās izveidot {what}",
  "error.delete": "Neizdevās dzēst {what}",
  "error.extract": "Neizdevās izpakot {what}",
+ "error.job_stopped": "{what}: apstājās pirms beigām",
+ "error.job_stopped_detail": "Darba laikā kaut kas nogāja greizi. Pārbaudiet, kas līdz šim izdarīts.",
  "error.move": "Neizdevās pārvietot {what}",
  "error.new_branch": "Neizdevās izveidot zaru {name}",
  "error.pack": "Neizdevās iepakot {what}",

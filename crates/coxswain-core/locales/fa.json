@@ -628,6 +628,8 @@
  "error.create": "ایجاد {what} ممکن نشد",
  "error.delete": "حذف {what} ممکن نشد",
  "error.extract": "استخراج {what} ممکن نشد",
+ "error.job_stopped": "{what}: پیش از پایان متوقف شد",
+ "error.job_stopped_detail": "هنگام اجرا مشکلی پیش آمد. بررسی کنید تا اینجا چه انجام شده است.",
  "error.move": "انتقال {what} ممکن نشد",
  "error.new_branch": "ایجاد شاخه‌ی {name} ممکن نشد",
  "error.pack": "بسته‌بندی {what} ممکن نشد",

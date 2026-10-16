@@ -598,6 +598,8 @@
  "error.create": "{what}을(를) 만들 수 없습니다",
  "error.delete": "{what}을(를) 삭제할 수 없습니다",
  "error.extract": "{what}의 압축을 풀 수 없습니다",
+ "error.job_stopped": "{what}: 끝나기 전에 멈췄습니다",
+ "error.job_stopped_detail": "실행 중에 문제가 생겼습니다. 지금까지 처리된 내용을 확인하세요.",
  "error.move": "{what}을(를) 이동할 수 없습니다",
  "error.new_branch": "{name} 브랜치를 만들 수 없습니다",
  "error.pack": "{what}을(를) 압축할 수 없습니다",

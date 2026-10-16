@@ -628,6 +628,8 @@
  "error.create": "Չհաջողվեց ստեղծել՝ {what}",
  "error.delete": "Չհաջողվեց ջնջել՝ {what}",
  "error.extract": "Չհաջողվեց հանել՝ {what}",
+ "error.job_stopped": "{what}. դադարեց մինչև ավարտը",
+ "error.job_stopped_detail": "Աշխատանքի ընթացքում ինչ-որ բան սխալ գնաց։ Ստուգեք, թե ինչ է արդեն արված։",
  "error.move": "Չհաջողվեց տեղափոխել՝ {what}",
  "error.new_branch": "Չհաջողվեց ստեղծել {name} ճյուղը",
  "error.pack": "Չհաջողվեց արխիվացնել՝ {what}",

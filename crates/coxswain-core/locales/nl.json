@@ -628,6 +628,8 @@
  "error.create": "Kan {what} niet maken",
  "error.delete": "Kan {what} niet verwijderen",
  "error.extract": "Kan {what} niet uitpakken",
+ "error.job_stopped": "{what}: gestopt voordat het klaar was",
+ "error.job_stopped_detail": "Er ging iets mis tijdens het werk. Controleer wat er tot nu toe is gedaan.",
  "error.move": "Kan {what} niet verplaatsen",
  "error.new_branch": "Kan de branch {name} niet maken",
  "error.pack": "Kan {what} niet inpakken",

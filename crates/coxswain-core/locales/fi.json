@@ -628,6 +628,8 @@
  "error.create": "Kohteen {what} luonti epäonnistui",
  "error.delete": "Kohteen {what} poisto epäonnistui",
  "error.extract": "Kohteen {what} purku epäonnistui",
+ "error.job_stopped": "{what}: pysähtyi ennen kuin valmistui",
+ "error.job_stopped_detail": "Jokin meni vikaan työn aikana. Tarkista, mitä on jo tehty.",
  "error.move": "Kohteen {what} siirto epäonnistui",
  "error.new_branch": "Haaran {name} luonti epäonnistui",
  "error.pack": "Kohteen {what} pakkaus epäonnistui",

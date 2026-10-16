@@ -628,6 +628,8 @@
  "error.create": "Kunne ikke oprette {what}",
  "error.delete": "Kunne ikke slette {what}",
  "error.extract": "Kunne ikke udpakke {what}",
+ "error.job_stopped": "{what}: stoppede, før det var færdigt",
+ "error.job_stopped_detail": "Noget gik galt undervejs. Tjek, hvad der er gjort indtil nu.",
  "error.move": "Kunne ikke flytte {what}",
  "error.new_branch": "Kunne ikke oprette grenen {name}",
  "error.pack": "Kunne ikke pakke {what}",

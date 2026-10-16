@@ -628,6 +628,8 @@
  "error.create": "{what} loomine nurjus",
  "error.delete": "{what} kustutamine nurjus",
  "error.extract": "{what} lahtipakkimine nurjus",
+ "error.job_stopped": "{what}: peatus enne lõppu",
+ "error.job_stopped_detail": "Töö ajal läks midagi valesti. Kontrolli, mis seni tehtud on.",
  "error.move": "{what} teisaldamine nurjus",
  "error.new_branch": "Haru {name} loomine nurjus",
  "error.pack": "{what} pakkimine nurjus",

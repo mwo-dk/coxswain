@@ -658,6 +658,8 @@
  "error.create": "No se pudo crear {what}",
  "error.delete": "No se pudo eliminar {what}",
  "error.extract": "No se pudo extraer {what}",
+ "error.job_stopped": "{what}: se detuvo antes de terminar",
+ "error.job_stopped_detail": "Algo falló mientras se ejecutaba. Revisá lo que se hizo hasta ahora.",
  "error.move": "No se pudo mover {what}",
  "error.new_branch": "No se pudo crear la rama {name}",
  "error.pack": "No se pudo comprimir {what}",

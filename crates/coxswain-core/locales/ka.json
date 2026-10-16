@@ -628,6 +628,8 @@
  "error.create": "ვერ შეიქმნა: {what}",
  "error.delete": "ვერ წაიშალა: {what}",
  "error.extract": "ვერ გაიხსნა: {what}",
+ "error.job_stopped": "{what}: დასრულებამდე შეჩერდა",
+ "error.job_stopped_detail": "მუშაობისას რაღაც არასწორად წავიდა. შეამოწმეთ, რა გაკეთდა აქამდე.",
  "error.move": "ვერ გადავიდა: {what}",
  "error.new_branch": "ტოტი {name} ვერ შეიქმნა",
  "error.pack": "ვერ შეიფუთა: {what}",

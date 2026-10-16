@@ -658,6 +658,8 @@
  "error.create": "Nepavyko sukurti {what}",
  "error.delete": "Nepavyko pašalinti {what}",
  "error.extract": "Nepavyko išskleisti {what}",
+ "error.job_stopped": "{what}: sustojo nebaigus",
+ "error.job_stopped_detail": "Vykdant kažkas nepavyko. Patikrinkite, kas jau padaryta.",
  "error.move": "Nepavyko perkelti {what}",
  "error.new_branch": "Nepavyko sukurti šakos {name}",
  "error.pack": "Nepavyko supakuoti {what}",

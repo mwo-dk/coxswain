@@ -1545,8 +1545,16 @@ impl App {
     /// How far the job is; when it is done, what came of it.
     fn poll_job(&mut self) {
         let Some(job) = &mut self.job else { return };
-        let (mut done, mut undone) = (None, None);
-        while let Ok(msg) = job.rx.try_recv() {
+        let (mut done, mut undone, mut gone) = (None, None, false);
+        loop {
+            let msg = match job.rx.try_recv() {
+                Ok(msg) => msg,
+                Err(mpsc::TryRecvError::Empty) => break,
+                Err(mpsc::TryRecvError::Disconnected) => {
+                    gone = true;
+                    break;
+                }
+            };
             match msg {
                 JobMsg::At(i) if job.src.len() > 1 => {
                     let what = Self::describe(std::slice::from_ref(&job.src[i]));
@@ -1560,6 +1568,14 @@ impl App {
                 JobMsg::Done(failed, rec) => done = Some((failed, Some(rec))),
                 JobMsg::Undone(u) => undone = Some(u),
             }
+        }
+        // Its thread ended without saying it was done (it panicked): the job goes, so the app
+        // can quit, and the user is told. An undo's record is lost then.
+        if gone && done.is_none() && undone.is_none() {
+            let what = if job.src.is_empty() { job.line.clone() } else { Self::describe(&job.src) };
+            self.job = None;
+            self.status = None;
+            return self.after_op(String::new(), t!("error.job_stopped", "what" => what), vec![t!("error.job_stopped_detail")]);
         }
         if let Some(u) = undone {
             self.job = None;
@@ -3255,6 +3271,21 @@ mod tests {
         assert!(app.status.is_some(), "and says why");
         // The app's threads (sizes, git) may still hold the folder open on Windows.
         let _ = std::fs::remove_dir_all(d);
+    }
+
+    /// A job whose thread ended without a word (a panic in it) is let go and said, so the app
+    /// can still quit.
+    #[test]
+    fn a_job_whose_thread_died_is_let_go() {
+        let d = std::env::temp_dir();
+        let mut app = app(d.clone(), d.clone());
+        let (tx, rx) = mpsc::channel();
+        tx.send(JobMsg::At(0)).unwrap();
+        drop(tx);
+        app.job = Some(Job { op: Some(Transfer::Copy), src: vec![d.join("a.txt")], dst: d, password: None, select: None, line: "busy".into(), rx });
+        app.poll_job();
+        assert!(app.job.is_none());
+        assert!(matches!(app.dialog, Some(Dialog::Message { .. })), "and says so");
     }
 
     /// A folder not in a commit: back to the commit, which is read on a thread too, and the

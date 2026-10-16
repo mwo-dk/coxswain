@@ -688,6 +688,8 @@
  "error.create": "Не вдалося створити {what}",
  "error.delete": "Не вдалося видалити {what}",
  "error.extract": "Не вдалося розпакувати {what}",
+ "error.job_stopped": "{what}: зупинилося, не завершившись",
+ "error.job_stopped_detail": "Під час роботи щось пішло не так. Перевірте, що вже зроблено.",
  "error.move": "Не вдалося перемістити {what}",
  "error.new_branch": "Не вдалося створити гілку {name}",
  "error.pack": "Не вдалося запакувати {what}",

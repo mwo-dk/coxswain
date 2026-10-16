@@ -658,6 +658,8 @@
  "error.create": "Impossibile creare {what}",
  "error.delete": "Impossibile eliminare {what}",
  "error.extract": "Impossibile estrarre {what}",
+ "error.job_stopped": "{what}: interrotto prima della fine",
+ "error.job_stopped_detail": "Qualcosa è andato storto durante l’operazione. Controlla cosa è stato fatto finora.",
  "error.move": "Impossibile spostare {what}",
  "error.new_branch": "Impossibile creare il branch {name}",
  "error.pack": "Impossibile comprimere {what}",
