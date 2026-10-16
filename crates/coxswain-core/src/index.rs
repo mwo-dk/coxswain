@@ -51,6 +51,9 @@ pub struct Index {
     stamps: HashMap<u32, Stamp>,
     /// When the build began (seconds since 1970) and how long it took (milliseconds).
     built: Option<(u64, u64)>,
+    /// The home folder's node, found again whenever the folders change: search ranks what is
+    /// below it first.
+    home: Option<u32>,
 }
 
 type Stamp = (u64, u64);
@@ -392,6 +395,13 @@ impl Index {
                 self.dirs.insert(h[i], i as u32);
             }
         }
+        self.find_home();
+    }
+
+    fn find_home(&mut self) {
+        self.home = std::env::home_dir()
+            .and_then(|h| self.find_dir(&h))
+            .map(|(id, _)| id);
     }
 
     /// Full path, or `None` if the node or an ancestor was deleted.
@@ -536,6 +546,7 @@ impl Index {
             }
         }
         // ponytail: tombstones are never compacted in place; a rebuild reclaims them (`stale`).
+        self.find_home();
     }
 
     /// Whether a quarter of the nodes are gone: every search still walks them, so a rebuild
@@ -613,7 +624,7 @@ impl Index {
         let hay = if q.case { &self.names } else { &self.lower };
         let check = |id: u32| self.matches(id, &q, scope);
 
-        let mut ids: Vec<u32> = match q.anchor() {
+        let ids: Vec<u32> = match q.anchor() {
             // Scan the whole name buffer once, in parallel chunks cut at name boundaries.
             Some(finder) => {
                 let chunks = rayon::current_num_threads() * 8;
@@ -645,19 +656,21 @@ impl Index {
         };
         // Best first: a name that is the whole query, then what is in the home folder; else as
         // the index holds them. Before the cut at `max`, so those are never the ones left out.
+        // One stable pass into four buckets, each in the index's order: exact and at home,
+        // exact, at home, the rest.
         let exact = lowercase(query.trim());
-        let home = std::env::home_dir()
-            .and_then(|h| self.find_dir(&h))
-            .map(|(id, _)| id);
-        ids.par_sort_by_cached_key(|&id| {
+        let mut buckets: [Vec<u32>; 4] = Default::default();
+        for id in ids {
             let n = self.nodes[id as usize];
             let name = &self.lower[n.off as usize..n.off as usize + n.len as usize];
-            (name != exact, !home.is_some_and(|h| self.below(id, h)))
-        });
-        let total = ids.len();
-        ids.truncate(max);
-        let hits = ids
+            let away = !self.home.is_some_and(|h| self.below(id, h));
+            buckets[(name != exact) as usize * 2 + away as usize].push(id);
+        }
+        let total = buckets.iter().map(Vec::len).sum();
+        let hits = buckets
             .into_iter()
+            .flatten()
+            .take(max)
             .filter_map(|id| {
                 Some(Hit {
                     path: self.path(id)?,
@@ -1674,6 +1687,51 @@ mod tests {
                 "{q}"
             );
         }
+        fs::remove_dir_all(d).unwrap();
+    }
+
+    #[test]
+    fn ranking_keeps_the_index_order_within_each_bucket() {
+        let d = std::env::temp_dir().join(format!("coxswain-ix-order-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&d);
+        for f in [
+            "a/x/kiwi",
+            "a/kiwi-1",
+            "b/kiwi-2",
+            "home/kiwi-3",
+            "home/y/kiwi",
+            "c/kiwi-4",
+        ] {
+            let p = d.join(f);
+            fs::create_dir_all(p.parent().unwrap()).unwrap();
+            fs::write(p, "x").unwrap();
+        }
+        let mut ix = Index::build(std::slice::from_ref(&d), &[], None, None);
+        ix.home = ix.find_dir(&d.join("home")).map(|(id, _)| id);
+        // The index's own order: every match by node id.
+        let all: Vec<PathBuf> = (0..ix.nodes.len() as u32)
+            .filter(|&id| ix.name(id).starts_with(b"kiwi"))
+            .filter_map(|id| ix.path(id))
+            .collect();
+        let at_home = |p: &PathBuf| p.starts_with(d.join("home"));
+        let exact = |p: &PathBuf| name_of(p) == "kiwi";
+        let mut want = vec![];
+        for (e, h) in [(true, true), (true, false), (false, true), (false, false)] {
+            want.extend(
+                all.iter()
+                    .filter(|p| exact(p) == e && at_home(p) == h)
+                    .cloned(),
+            );
+        }
+        let got: Vec<PathBuf> = ix
+            .search("kiwi", None, 100)
+            .hits
+            .into_iter()
+            .map(|h| h.path)
+            .collect();
+        assert_eq!(got, want);
+        assert_eq!(name_of(&got[0]), "kiwi");
+        assert!(at_home(&got[0]) && !at_home(&got[1]) && at_home(&got[2]));
         fs::remove_dir_all(d).unwrap();
     }
 
