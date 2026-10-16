@@ -194,7 +194,7 @@ trap 'rm -rf "$TMP"' EXIT INT TERM
 
 if [ -z "$VERSION" ] && [ -z "$FROM" ]; then
   download "https://api.github.com/repos/$REPO/releases/latest" "$TMP/latest.json" || true
-  VERSION=$(sed -n 's/.*"tag_name": *"\([^"]*\)".*/\1/p' "$TMP/latest.json" 2>/dev/null | head -n 1)
+  VERSION=$(tr ',' '\n' < "$TMP/latest.json" 2>/dev/null | sed -n 's/.*"tag_name": *"\([^"]*\)".*/\1/p' | head -n 1)
   [ -n "$VERSION" ] || fail "Could not ask GitHub for the latest release. Is the network up? Or name one: --version v2.8.0"
 fi
 if [ -z "$VERSION" ]; then
