@@ -75,7 +75,7 @@
   {#each ancestors as col (col.dir)}
     <Rows class="col" items={col.items} {rowH} cursor={col.items.findIndex((e) => e.path === col.open)} role="listbox" aria-label={col.dir}>
       {#snippet row(e)}
-        {@render entry(e, e.path === col.open ? "open" : "", () => jump(col.dir, e.name), () => openItem(t))}
+        {@render entry(e, e.path === col.open ? "open" : "", () => jump(col.dir, e.name), () => jump(col.dir, e.name).then(() => openItem(t, t.items.findIndex((x) => x.name === e.name))))}
       {/snippet}
     </Rows>
   {/each}

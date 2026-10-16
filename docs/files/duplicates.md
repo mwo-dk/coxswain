@@ -56,7 +56,9 @@ downloaded twice, a photo in three places with thumbnails, and a document in an 
    can still restore them. The groups that are left stay on screen.
 
 **Every group always keeps at least one copy.** A rule never marks all of them, and ticking
-the last unmarked copy of a group is refused with *Every group keeps at least one copy.*
+the last unmarked copy of a group is refused with *Every group keeps at least one copy.* A copy
+inside a marked folder counts as marked: it goes to the bin with the folder. A rule replaces the
+marks only in the groups it decides; the tick boxes of the others stay as you set them.
 
 The `×` at the top right (or **Esc**) closes the window; the `×` also stops a scan under way.
 *Scan again* runs the same scan anew, for example after you moved things.

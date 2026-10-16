@@ -11,7 +11,7 @@
     if (tb) cd(tb, path);
   };
 
-  const saveFavorites = () => invoke("save_favorites", { favorites: $state.snapshot(ui.favorites) });
+  const saveFavorites = () => invoke("save_favorites", { favorites: $state.snapshot(ui.favorites) }).catch((e) => (ui.status = String(e)));
 
   function addHere(g) {
     if (here && !g.paths.includes(here)) {

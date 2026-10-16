@@ -2,7 +2,7 @@
   // Every modal: prompts, confirmations, find file, menus, batch rename, tags, help.
   // App forwards keys through `handleKey`; returning true means "handled".
   import { tick, untrack } from "svelte";
-  import { ui, tab, cd, load, openPackage, refreshUndo, actionLabel } from "./app.svelte.js";
+  import { ui, tab, cd, showInTab, load, openPackage, refreshUndo, actionLabel, keysOf } from "./app.svelte.js";
   import { Channel } from "@tauri-apps/api/core";
   import { invoke, takesPassword, withEnding, packFormat, basename, parent, size, date, TAGS, TAG_COLORS, tagName, isHistory, historyOf } from "./lib.js";
   import { t, tn, num } from "./i18n.svelte.js";
@@ -209,9 +209,7 @@
     const tb = tab();
     // A commit: its folder as it was then.
     if (isHistory(h.path)) return cd(tb, h.path);
-    await cd(tb, parent(h.path));
-    const i = tb.items.findIndex((e) => e.path === h.path);
-    if (i >= 0) tb.cursor = i;
+    await showInTab(tb, h.path);
   }
 
   // ------------------------------------------------------------ batch rename
@@ -395,11 +393,13 @@
       case "bom":
       case "settings":
       case "dupes":
+      case "setup":
+      case "provenance":
         // windows with fields and buttons of their own: Esc (above) closes them, Enter is theirs
         return false;
       case "help":
         if (!(act === "help" || (k === "Enter" && m.tab !== "features"))) return false;
-        ui.modal = null;
+        close();
         return true;
       default:
         if (k === "Enter" || act === "help") close();
@@ -502,13 +502,8 @@
               {#each ui.cfg.groups as [group, names] (group)}
                 <tr class="head"><th colspan="2">{group}</th></tr>
                 {#each names as name (name)}
-                  {@const [, first] = ui.cfg.actions[name]}
                   {@const label = actionLabel(name)}
-                  {@const keys = Object.entries(ui.cfg.keymap)
-                    .filter(([, a]) => a === name)
-                    .map(([k]) => k)
-                    .sort((a, b) => (b === first) - (a === first))
-                    .map((k) => k.replace(/\+([a-z])$/, (_, c) => "+" + c.toUpperCase()))}
+                  {@const keys = keysOf(name)}
                   <tr><td>{label}</td><td>{#each keys as k, i (i)}<kbd>{k}</kbd>{/each}</td></tr>
                 {/each}
               {/each}

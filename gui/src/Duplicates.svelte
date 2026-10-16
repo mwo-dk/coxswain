@@ -1,7 +1,7 @@
 <script>
   // Find duplicate files and folders (the engine is coxswain-core's dupes.rs): pick where to look,
   // scan, review the groups, mark the copies to remove, move them to the trash.
-  import { ui, tab, otherTab, cd } from "./app.svelte.js";
+  import { ui, tab, otherTab, showInTab } from "./app.svelte.js";
   import { invoke, convertFileSrc, size, date, basename, parent, previewKind, composing } from "./lib.js";
   import { t, tn, num } from "./i18n.svelte.js";
 
@@ -73,9 +73,13 @@
   const marked = $derived(Object.keys(d.marked ?? {}).filter((p) => d.marked[p]));
   const freed = $derived(groups.reduce((a, g) => a + g.items.filter((it) => d.marked?.[it.path]).length * g.size, 0));
 
-  /** Mark or unmark one copy; the last unmarked copy of a group cannot be marked. */
+  /** Whether `p` is one of `roots` or inside one: a copy inside a marked folder goes with it. */
+  const inside = (p, roots) => roots.some((r) => p === r || p.startsWith(r.endsWith(ui.cfg.sep) ? r : r + ui.cfg.sep));
+  const markedNow = () => Object.keys(d.marked).filter((p) => d.marked[p]);
+
+  /** Mark or unmark one copy; the last copy of a group that stays cannot be marked. */
   function toggle(g, path) {
-    if (!d.marked[path] && g.items.filter((it) => !d.marked[it.path]).length <= 1) {
+    if (!d.marked[path] && g.items.filter((it) => !inside(it.path, markedNow())).length <= 1) {
       d.error = t("dupes.keep_one");
       return;
     }
@@ -83,12 +87,17 @@
     d.marked[path] = !d.marked[path];
   }
 
-  /** Mark all copies but the one `keep` picks, in every group. */
+  /** Mark all copies but the one `keep` picks, in every group it decides; the marks of the
+   *  others stay. The copy kept is never inside a folder marked here (folder groups come first). */
   function rule(keep) {
     const m = {};
     for (const g of groups) {
-      const k = keep(g);
-      if (!k) continue;
+      const left = g.items.filter((it) => !inside(it.path, Object.keys(m)));
+      const k = left.length ? keep({ ...g, items: left }) : null;
+      if (!k) {
+        for (const it of g.items) if (d.marked[it.path]) m[it.path] = true;
+        continue;
+      }
       for (const it of g.items) if (it !== k) m[it.path] = true;
     }
     d.marked = m;
@@ -96,7 +105,7 @@
   const newest = (g) => (g.folder ? null : g.items.reduce((a, b) => (b.modified > a.modified ? b : a)));
   const oldest = (g) => (g.folder ? null : g.items.reduce((a, b) => (b.modified < a.modified ? b : a)));
   let keepUnder = $state("");
-  const under = (g) => g.items.find((it) => keepUnder && it.path.startsWith(keepUnder));
+  const under = (g) => g.items.find((it) => keepUnder && inside(it.path, [keepUnder]));
 
   async function trash() {
     const paths = marked;
@@ -109,9 +118,14 @@
       run: async () => {
         try {
           await invoke("delete", { paths, forever: false });
-          const gone = new Set(paths);
-          d.report.folders = d.report.folders.map((g) => ({ ...g, paths: g.paths.filter((p) => !gone.has(p)) })).filter((g) => g.paths.length > 1);
-          d.report.groups = d.report.groups.map((g) => ({ ...g, files: g.files.filter((f) => !gone.has(f.path)) })).filter((g) => g.files.length > 1);
+          // What was in a trashed folder went with it; the waste is counted again as dupes.rs does.
+          const drop = (g, key) => {
+            const list = g[key].filter((x) => !inside(x.path ?? x, paths));
+            return { ...g, [key]: list, wasted: g.size * (list.length - 1) };
+          };
+          d.report.folders = d.report.folders.map((g) => drop(g, "paths")).filter((g) => g.paths.length > 1);
+          d.report.groups = d.report.groups.map((g) => drop(g, "files")).filter((g) => g.files.length > 1);
+          d.report.wasted = [...d.report.folders, ...d.report.groups].reduce((a, g) => a + g.wasted, 0);
           d.marked = {};
           ui.status = tn("dupes.trashed", paths.length);
         } catch (e) {
@@ -125,10 +139,7 @@
   function show(path) {
     ui.modal = null;
     const tb = tab();
-    cd(tb, parent(path)).then(() => {
-      const i = tb.items.findIndex((e) => e.path === path);
-      if (i >= 0) tb.cursor = i;
-    });
+    showInTab(tb, path);
   }
 
   const close = () => {
@@ -150,7 +161,7 @@
       {#each Object.keys(d.roots) as p (p)}
         <label class="chip" class:on={d.roots[p]} title={p}>
           <input type="checkbox" bind:checked={d.roots[p]} disabled={d.scanning} />
-          {p === home ? "~" : p.startsWith(home + "/") ? "~/" + p.slice(home.length + 1) : p}
+          {p === home ? "~" : p.startsWith(home + ui.cfg.sep) ? "~" + ui.cfg.sep + p.slice(home.length + 1) : p}
         </label>
       {/each}
       <input class="add" bind:value={extra} placeholder={t("dupes.add_folder")} spellcheck="false" onkeydown={(e) => e.key === "Enter" && !composing(e) && (e.stopPropagation(), addRoot())} />

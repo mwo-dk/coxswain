@@ -8,11 +8,10 @@
 
   const s = $derived(ui.cfg.settings);
   // Back to where it was started from (the first-run guide), else closed.
-  const close = () => {
-    ui.modal = ui.resume;
-    ui.resume = null;
-  };
+  const close = () => (ui.modal = ui.modal?.back ?? null);
   let error = $state("");
+  /** How much of a download is done, in whole percent. */
+  const pct = (done, total) => Math.floor((done * 100) / Math.max(1, total));
 
   async function set(changes) {
     error = "";
@@ -53,8 +52,8 @@
   const servers = $derived([...(look?.found ?? []), ...(remote ? [remote] : [])]);
   // The server chosen: the one set now, else the one recommended; null is the built-in model.
   let chosen = $state(undefined);
-  const server = $derived(chosen !== undefined ? chosen : servers.find((f) => s.meaning_engine !== "builtin" && f.engine === s.meaning_engine && sameUrl(f.url, s.meaning_url)) ?? (look ? (look.best != null ? look.found[look.best] : null) : undefined));
-  const sameUrl = (a, b) => (a || "").replace(/\/$/, "") === (b || "http://localhost:11434").replace(/\/$/, "");
+  const server = $derived(chosen !== undefined ? chosen : servers.find((f) => s.meaning_engine !== "builtin" && f.engine === s.meaning_engine && sameUrl(f.url, ui.cfg.server_url)) ?? (look ? (look.best != null ? look.found[look.best] : null) : undefined));
+  const sameUrl = (a, b) => (a || "").replace(/\/$/, "") === (b || "").replace(/\/$/, "");
   const name = (kind) => ({ ollama: "Ollama", lemonade: "Lemonade", lmstudio: "LM Studio", llamacpp: "llama.cpp", jan: "Jan", localai: "LocalAI" })[kind] ?? "OpenAI API";
   const machineLine = $derived.by(() => {
     const m = look?.machine;
@@ -62,7 +61,6 @@
     const gpu = m.gpu ? `${m.gpu[1]}${m.gpu[2] ? ` (${m.gpu[2]} GB)` : ""}` : t("setup.no_gpu");
     return t("setup.machine", { what: m.npu ? `${gpu} + NPU` : gpu, ram: m.ram });
   });
-  const isRemote = (url) => !!url && !/^https?:\/\/(localhost|127\.|\[::1\])/.test(url);
 
   // Step 3: the model for the vectors.
   const embedModels = $derived(server ? server.models.filter((m) => m.embed).map((m) => m.name) : []);
@@ -71,7 +69,7 @@
   $effect(() => {
     if (!embedModels.includes(embed)) embed = embedModels.find((m) => m.startsWith(suggestEmbed)) ?? embedModels[0] ?? "";
   });
-  const meaningNow = $derived(s.search_meaning ? (s.meaning_engine === "builtin" ? t("setup.builtin_short") : `${s.meaning_model} · ${s.meaning_url || "http://localhost:11434"}`) : "");
+  const meaningNow = $derived(s.search_meaning ? (s.meaning_engine === "builtin" ? t("setup.builtin_short") : `${s.meaning_model} · ${ui.cfg.server_url}`) : "");
   let vectorsChange = $state(null);
   async function useEmbed() {
     const changes = { meaning_engine: server.engine, meaning_url: server.url, meaning_model: embed, search_meaning: true, search_text: true };
@@ -177,7 +175,7 @@
             <label class="choice" class:on={server?.url === f.url}><input type="radio" name="server" checked={server?.url === f.url} onchange={() => (chosen = f)} />
               <span>{t("setup.found", { server: name(f.kind), url: f.url, embed: f.models.filter((m) => m.embed).length, chat: f.models.filter((m) => m.chat).length })}
                 {#if look.best != null && look.found[look.best]?.url === f.url}<span class="badge">{t("setup.recommended")}</span>{/if}
-                {#if isRemote(f.url)}<br /><strong>{t("settings.meaning_remote", { host: f.url })}</strong>{/if}</span></label>
+                {#if !f.local}<br /><strong>{t("settings.meaning_remote", { host: f.host })}</strong>{/if}</span></label>
           {/each}
           <label class="choice" class:on={server === null}><input type="radio" name="server" checked={server === null} onchange={() => (chosen = null)} />
             <span>{t("setup.builtin", { size: size(meaning?.size ?? 0), where: look.builtin_runs })}{#if look.advice.server == null || !look.found.length}<span class="badge">{t("setup.recommended")}</span>{/if}</span></label>
@@ -197,7 +195,7 @@
       <h3>{t("setup.step_embed")}</h3>
       {#if server === null}
         <p class="hint">{t("setup.builtin_hint")}</p>
-        {#if meaning?.downloading}<p class="hint">{t("setup.downloading", { percent: Math.floor((meaning.downloading[0] * 100) / Math.max(1, meaning.downloading[1])) })}</p>
+        {#if meaning?.downloading}<p class="hint">{t("setup.downloading", { percent: pct(meaning.downloading[0], meaning.downloading[1]) })}</p>
         {:else if s.search_meaning && s.meaning_engine === "builtin" && meaning?.installed}<p class="ok">{t("setup.builtin_on")}</p>
         {:else}<button class="primary" onclick={useBuiltin}>{meaning?.installed ? t("setup.use_builtin") : t("setup.download_builtin", { size: size(meaning?.size ?? 0) })}</button>{/if}
         {#if meaning?.error}<p class="err">{meaning.error}</p>{/if}
@@ -208,7 +206,7 @@
           <button class="primary" disabled={!embed} onclick={useEmbed}>{t("setup.use")}</button>
           {#if suggestEmbed && !embedModels.some((m) => m.startsWith(suggestEmbed))}<button disabled={!!meaning?.downloading} onclick={() => pull(suggestEmbed)}>{t("setup.pull", { model: suggestEmbed })}</button>{/if}
         </div>
-        {#if meaning?.downloading}<p class="hint">{t("setup.downloading", { percent: Math.floor((meaning.downloading[0] * 100) / Math.max(1, meaning.downloading[1])) })}</p>{/if}
+        {#if meaning?.downloading}<p class="hint">{t("setup.downloading", { percent: pct(meaning.downloading[0], meaning.downloading[1]) })}</p>{/if}
         {#if meaning?.error}<p class="err">{meaning.error}</p>{/if}
       {/if}
       {#if vectorsChange}
@@ -229,7 +227,7 @@
         <div class="row">
           <select bind:value={askPick} onchange={() => (askTouched = true)} aria-label={t("setup.step_ask")}>
             {#if askServer}
-              <optgroup label={t("settings.ask_group_server", { server: name(askServer.kind), host: askServer.url.replace(/^\w+:\/\//, "").split("/")[0] })}>
+              <optgroup label={t("settings.ask_group_server", { server: name(askServer.kind), host: askServer.host })}>
                 {#each chatModels as m (m)}<option value={m}>{m}{mark(m)}</option>{/each}
               </optgroup>
             {/if}
@@ -244,7 +242,7 @@
         {#if chatBuiltin.context?.why}
           <p class="hint">{chatBuiltin.context.why} {#if chatBuiltin.context.suggest}<button onclick={() => set({ ask_context: chatBuiltin.context.suggest })}>{t("setup.context_use", { n: chatBuiltin.context.suggest })}</button>{/if}</p>
         {/if}
-        {#if chatBuiltin.downloading}<p class="hint">{t("setup.downloading", { percent: Math.floor((chatBuiltin.downloading[1] * 100) / Math.max(1, chatBuiltin.downloading[2])) })}</p>{/if}
+        {#if chatBuiltin.downloading}<p class="hint">{t("setup.downloading", { percent: pct(chatBuiltin.downloading[1], chatBuiltin.downloading[2]) })}</p>{/if}
         {#if chatBuiltin.error}<p class="err">{chatBuiltin.error}</p>{/if}
       {/if}
       <div class="row"><button disabled={trial?.busy} onclick={() => set({ ask_model: "" })}>{t("setup.ask_off")}</button></div>

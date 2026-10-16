@@ -26,6 +26,7 @@
   onpointerdown={down}
   onpointermove={move}
   onpointerup={() => (dragging = false)}
+  onlostpointercapture={() => (dragging = false)}
 ></div>
 
 <style>

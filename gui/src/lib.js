@@ -94,7 +94,7 @@ const ltr = (s) => `\u2066${s}\u2069`;
 
 /** Exact bytes below 10 KB, then one decimal. */
 export function size(n) {
-  const fmt = (v, digits, u) => ltr(`${num(v, { minimumFractionDigits: digits, maximumFractionDigits: digits, useGrouping: false })} ${t(`unit.${u}`)}`);
+  const fmt = (v, digits, u) => ltr(`${sizeNum(v, digits)} ${t(`unit.${u}`)}`);
   if (n < 10_240) return fmt(n, 0, "B");
   let v = n;
   for (const u of ["KB", "MB", "GB", "TB", "PB"]) {
@@ -104,6 +104,14 @@ export function size(n) {
   return fmt(v, 0, "EB");
 }
 
+// A size's number with no or one decimal: a row's size is drawn often, so the two formatters
+// are made once per language.
+let sz = { lang: "", f: [] };
+function sizeNum(v, digits) {
+  if (sz.lang !== i18n.lang) sz = { lang: i18n.lang, f: [0, 1].map((k) => new Intl.NumberFormat(i18n.lang, { minimumFractionDigits: k, maximumFractionDigits: k, useGrouping: false })) };
+  return sz.f[digits].format(v);
+}
+
 // Two digits at least, in the language's own (Persian writes ۰۵); one formatter per language.
 let two = { lang: "", f: null };
 function pad2(n) {
@@ -111,11 +119,17 @@ function pad2(n) {
   return two.f.format(n);
 }
 
+const ymd = (d) => `${pad2(d.getFullYear())}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+
 export function date(secs) {
   if (!secs) return "";
   const d = new Date(secs * 1000);
-  const p = (n) => pad2(n);
-  return ltr(`${p(d.getFullYear())}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`);
+  return ltr(`${ymd(d)} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`);
+}
+
+/** The day alone, in the language's own digits. */
+export function day(secs) {
+  return secs ? ltr(ymd(new Date(secs * 1000))) : "";
 }
 
 const H = 3600;
@@ -164,15 +178,60 @@ export function ageColor(secs, look) {
   }
 }
 
-/** `*` and `?` wildcards, whole name, case-insensitive. */
-export function glob(pattern, name) {
+/** `*` and `?` wildcards, whole name, case-insensitive, as a RegExp to test many names with. */
+export function globRe(pattern) {
   const re = pattern.replace(/[.+^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*").replace(/\?/g, ".");
   // `u`: `?` is one character, also outside the basic plane (an emoji).
-  return new RegExp(`^${re}$`, "iu").test(name);
+  return new RegExp(`^${re}$`, "iu");
 }
 
-/** Shell-quote a word the way coxswain-core's `quote` does on Unix. */
-export const quote = (s) => (/^[\w\-./+,:@]+$/.test(s) ? s : `'${s.replaceAll("'", "'\\''")}'`);
+const isDigit = (c) => c >= "0" && c <= "9";
+const byPoint = (x, y) => {
+  const [a, b] = [[...x], [...y]];
+  for (let i = 0; i < Math.min(a.length, b.length); i++) if (a[i] !== b[i]) return a[i].codePointAt(0) - b[i].codePointAt(0);
+  return a.length - b.length;
+};
+
+/** Case-insensitive natural order, "file2" before "file10", as coxswain-core's fs::natord. */
+export function natord(a, b) {
+  const [x, y] = [[...a], [...b]];
+  let [i, j] = [0, 0];
+  for (;;) {
+    if (i >= x.length || j >= y.length) return x.length - i - (y.length - j);
+    if (isDigit(x[i]) && isDigit(y[j])) {
+      let [ei, ej] = [i, j];
+      while (ei < x.length && isDigit(x[ei])) ei++;
+      while (ej < y.length && isDigit(y[ej])) ej++;
+      const [na, nb] = [x.slice(i, ei).join("").replace(/^0+/, ""), y.slice(j, ej).join("").replace(/^0+/, "")];
+      const ord = na.length - nb.length || (na < nb ? -1 : na > nb ? 1 : 0);
+      if (ord) return ord;
+      [i, j] = [ei, ej];
+    } else {
+      const ord = byPoint(x[i].toLowerCase(), y[j].toLowerCase());
+      if (ord) return ord;
+      [i, j] = [i + 1, j + 1];
+    }
+  }
+}
+
+/** A listing sorted again by `key` ("name", "ext", "time", "size"; "commit" is by name), as
+ *  coxswain-core's fs::sort: `..`, then folders, then files; `reverse` within each. */
+export function sortItems(items, key, reverse) {
+  const group = (e) => (e.name === ".." ? 0 : e.is_dir ? 1 : 2);
+  const ext = (e) => (!e.is_dir && e.name.lastIndexOf(".") > 0 ? e.name.slice(e.name.lastIndexOf(".") + 1) : "");
+  const down = (x, y) => ((y ?? -Infinity) > (x ?? -Infinity) ? 1 : (y ?? -Infinity) < (x ?? -Infinity) ? -1 : 0);
+  const by = {
+    ext: (a, b) => natord(ext(a), ext(b)),
+    time: (a, b) => down(a.modified, b.modified),
+    size: (a, b) => down(a.size, b.size),
+  }[key];
+  return [...items].sort((a, b) => group(a) - group(b) || (reverse ? -1 : 1) * ((by?.(a, b) ?? 0) || natord(a.name, b.name)));
+}
+
+/** Shell-quote a word the way coxswain-core's `quote` does: in double quotes for Windows'
+ *  `cmd /C` (`win`), in single quotes for a Unix shell. */
+export const quote = (s, win = false) =>
+  /^[A-Za-z0-9_\-./+,:@]+$/.test(s) ? s : win ? `"${s.replaceAll('"', '""')}"` : `'${s.replaceAll("'", "'\\''")}'`;
 
 /** Theme slots become CSS variables: --panel-fg, --panel-bg, ... */
 export function applyTheme(theme, gui, look = "modern", crt = false) {
@@ -243,15 +302,22 @@ export const CONVERTER = {
 };
 const SHEET = ["csv", "tsv", "xlsx", "xlsm", "xls", "ods"];
 
-const ARCHIVE = /\.(zip|jar|apk|nupkg|whl|vsix|tar|tgz|tar\.gz|tar\.bz2|tbz2?|tar\.xz|txz|tar\.zst|tzst|7z)$/i;
+/** Every archive ending, longest first, and those of archives that take a password: the
+ *  core's (`archive::endings`), set once the config has come (`setArchiveEndings`). */
+const archive = { all: [], locked: [] };
+export const setArchiveEndings = ([all, locked]) => Object.assign(archive, { all, locked });
+const endingOf = (list, name) => {
+  const lower = name.toLowerCase();
+  return list.find((e) => lower.endsWith(e));
+};
 
-export const isArchive = (name) => ARCHIVE.test(name);
+export const isArchive = (name) => !!endingOf(archive.all, name);
 /** `name` with its archive ending (.tar.gz whole) swapped for `ending`, or `ending` added. */
-export const withEnding = (name, ending) => name.replace(ARCHIVE, "") + ending;
+export const withEnding = (name, ending) => name.slice(0, name.length - (endingOf(archive.all, name)?.length ?? 0)) + ending;
 /** The pack format (of `formats`, from the core) whose ending `name` has, if any. */
 export const packFormat = (formats, name) => formats.find((f) => f.endings.some((e) => name.toLowerCase().endsWith(e)));
 /** Whether an archive by this name can have a password: a zip or a 7z (archive::takes_password). */
-export const takesPassword = (name) => /\.(zip|jar|apk|nupkg|whl|vsix|7z)$/i.test(name);
+export const takesPassword = (name) => !!endingOf(archive.locked, name);
 /** The path segment that leads into a file's or folder's git history (history::MARKER). */
 export const HISTORY = "@history";
 /** The segments that lead to a repository's branches and worktrees (history::BRANCHES, WORKTREES). */
