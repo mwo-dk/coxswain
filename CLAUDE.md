@@ -126,7 +126,8 @@ you add or change a feature, the docs change in the same PR.
   *Previous* / *Next* links in `docs/README.md`'s order and a long one its contents, every theme,
   action, `config.toml` key, flag, `--settings=` name and feature is in `docs/` (every action in
   F1 → Features too, and `coxswain --help` word for word), and a minor or major release has no
-  screenshot placeholders left. Docs-only pull requests run them too. Run
+  screenshot placeholders left (except the few in `NEEDS_HARDWARE` in `tools/docs-check.py`, each
+  naming the machine it needs). Docs-only pull requests run them too. Run
   `python3 tools/docs-check.py` and `cargo test -p coxswain-core --test docs` before pushing.
 - **The docs are a tree:** a folder per area (`docs/panels/`, `docs/search/`, `docs/previews/`,
   `docs/files/`, …), each with a `README.md` index of its pages, and **one page per feature**

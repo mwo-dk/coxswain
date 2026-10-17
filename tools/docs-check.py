@@ -16,7 +16,8 @@
    page of more than 150 lines has a table of contents (a list of links to its own headings).
 5. No `<!-- screenshot:` placeholder is left when the version raises its minor or major number
    over the base branch's (--base, else origin/$GITHUB_BASE_REF, else origin/master); otherwise
-   each one is a warning.
+   each one is a warning. The pictures in NEEDS_HARDWARE are only warned about: each needs a
+   machine or a runtime the sandbox has not, and says which.
 
 What the code shows (themes, actions, config keys, flags, features) is checked by
 `cargo test -p coxswain-core --test docs`. Python 3.11+, standard library only.
@@ -254,6 +255,17 @@ def base_version(base: str | None) -> str | None:
     return version(cargo)
 
 
+# Pictures the sandbox cannot take, each with what it needs. Any other placeholder blocks a minor
+# or major release.
+NEEDS_HARDWARE = {
+    "previews-tools-settings.png": "containers, which must not run in the sandbox",
+    "previews-container-pull.png": "podman pulling an image, which must not run in the sandbox",
+    "files-properties-zfs.png": "a FreeBSD desktop with ZFS",
+    "freebsd-sidebar-be.png": "a FreeBSD desktop with a ZFS root, boot environments and jails",
+    "macos-setup-builtin.png": "a Mac",
+}
+
+
 def check_placeholders(v: str, base: str | None) -> int:
     was = base_version(base)
     raised = was is not None and minor(v) > minor(was)
@@ -263,7 +275,10 @@ def check_placeholders(v: str, base: str | None) -> int:
             if "<!-- screenshot:" in line:
                 count += 1
                 msg = f"screenshot placeholder: {line.strip()}"
-                if raised:
+                name = line.split("<!-- screenshot:", 1)[1].split(":", 1)[0].strip()
+                if name in NEEDS_HARDWARE:
+                    warning(f"{rel(page)}:{n}", f"{msg} (needs {NEEDS_HARDWARE[name]})")
+                elif raised:
                     error(f"{rel(page)}:{n}", f"{msg} ({was} → {v} is a minor or major release: take it)")
                 else:
                     warning(f"{rel(page)}:{n}", msg)
