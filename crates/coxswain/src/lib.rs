@@ -2599,6 +2599,8 @@ fn run_in(sh: &str, flag: &str, cmd: &str, dir: &Path, wait: bool) -> std::io::R
 
 fn main_loop(term: &mut DefaultTerminal, app: &mut App) -> std::io::Result<()> {
     let mut state = app.index.state();
+    // A command has run: Ctrl+O shows its output, or says there is none yet.
+    let mut ran = false;
     // A file operation still running when asked to quit finishes first: cut short, it
     // would leave half a file behind.
     while !app.quit || app.job.is_some() {
@@ -2606,6 +2608,7 @@ fn main_loop(term: &mut DefaultTerminal, app: &mut App) -> std::io::Result<()> {
         match app.run.take() {
             Some(Run::Shell { cmd, dir, wait }) => {
                 suspended(term, || run_shell(&cmd, &dir, wait))?;
+                ran = true;
                 // The setup guide, run from Find, changes the search settings.
                 // An entry added to the user menu shows at once.
                 if let Ok(cfg) = Config::load() {
@@ -2619,9 +2622,18 @@ fn main_loop(term: &mut DefaultTerminal, app: &mut App) -> std::io::Result<()> {
                 app.reload();
             }
             Some(Run::ShowOutput) => suspended(term, || {
-                // Any key returns to the panels.
+                // A line under the output says what happened; any key returns to the panels
+                // and takes the line away again.
+                use ratatui::crossterm::style::{Attribute, Print, SetAttribute};
                 let _ = terminal::enable_raw_mode();
+                let mut out = std::io::stdout();
+                if cursor::position().is_ok_and(|(x, _)| x > 0) {
+                    let _ = execute!(out, Print("\r\n"));
+                }
+                let say = t!(if ran { "tui.panels_hidden" } else { "tui.panels_hidden_none" });
+                let _ = execute!(out, SetAttribute(Attribute::Reverse), Print(say), SetAttribute(Attribute::Reset));
                 while !matches!(event::read(), Ok(Event::Key(k)) if k.kind == KeyEventKind::Press) {}
+                let _ = execute!(out, Print("\r"), terminal::Clear(terminal::ClearType::CurrentLine));
                 let _ = terminal::disable_raw_mode();
             })?,
             None => {}
@@ -3699,11 +3711,12 @@ mod wide_letters {
             let text: Vec<usize> = (0..info.len()).filter(|&x| info[x] != " ").collect();
             let (l, r) = (text[0], info.len() - 1 - text[text.len() - 1]);
             assert!(l.abs_diff(r) <= 2, "{lang}: not centred: {}", info.concat());
-            // The key bar: each key number in its own slot.
+            // The key bar: each key number in its own slot, F12 (Settings) in the eleventh.
             let bar = &s[23];
             for n in 1..=9 {
-                assert_eq!(bar[(n - 1) * 8], n.to_string(), "{lang}: {}", bar.concat());
+                assert_eq!(bar[(n - 1) * 7], n.to_string(), "{lang}: {}", bar.concat());
             }
+            assert_eq!(bar[70..72].concat(), "12", "{lang}: {}", bar.concat());
             // Find, with a Japanese query, and a dialog with a long Korean text.
             app.dialog = Some(Dialog::Search { query: "日本語 보고서".into(), chip: Kind::All, here: false, found: Found::default(), cursor: 0, offset: 0, show: Show::List });
             let s = draw(&mut app);

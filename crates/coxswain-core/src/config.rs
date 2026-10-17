@@ -270,7 +270,8 @@ actions! {
     // F1's second tab, and F1 inside a dialog: no key of its own.
     Features = "features", "Features and questions", App, [];
     Menu = "menu", "Commands", App, ["F9"];
-    Settings = "settings", "Settings", App, ["Ctrl+,"];
+    // F12 too: most terminals never pass Ctrl+, on, and every one passes F12.
+    Settings = "settings", "Settings", App, ["Ctrl+,", "F12"];
     // Settings at Disk use: from F9 and the action menu, no key of its own.
     DiskUse = "disk_use", "Disk use", App, [];
     Quit = "quit", "Quit", App, ["F10"];

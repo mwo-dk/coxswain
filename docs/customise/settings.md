@@ -35,7 +35,8 @@ once and is written to the file, your comments kept.
 
    | Way | Opens at |
    |---|---|
-   | **Ctrl+,** anywhere in the window (the `settings` action; see [Changing keys](keys.md)) | Overview |
+   | **Ctrl+,** or **F12** anywhere in the window (the `settings` action; see [Changing keys](keys.md)) | Overview |
+   | **Shift+F10** → *Settings* in the [action menu](../panels/action-menu.md), near the top | Overview |
    | **F9** → *Settings* in the [command list](../panels/command-list.md) | Overview |
    | The **Settings** button with a gear, at the right end of the command line row. Its tooltip names the key and, when tips or versions wait, how many and where: *Settings · Ctrl+, · What's new: 2, under Overview* | Overview, where *What's new* is ([Notices and what's new](../search/notices.md)) |
    | **Show me** on a tip under *What's new* | The tip's area: the meaning and Ollama tips open *Finding files* at *Meaning*, the tesseract and cloud tips *Finding files*, a new language *Looks* at *Language*, the 2.0 renaming notice *Keys* |
@@ -373,8 +374,10 @@ explanations and costs: both apps read them from one description in `coxswain-co
 
 | Way | Opens at |
 |---|---|
+| **F12**: *12 Settings* at the right end of the F-key bar | Overview |
+| **Shift+F10** → *Settings* in the [action menu](../panels/action-menu.md), near the top | Overview |
 | **F9** → *Settings* in the [command list](../panels/command-list.md) | Overview |
-| **Ctrl+,** (the `settings` action), in terminals that pass it on | Overview |
+| **Ctrl+,** (the `settings` action's other key), in terminals that pass it on | Overview |
 | `coxswain --settings` | Overview, with both panels in the current folder |
 | `coxswain --settings=<area>` | That area: `overview`, `search`, `previews`, `looks`, `behaviour`, `keys`, `privacy` |
 | `coxswain --settings=<option>` | The option's area, the cursor on it: `show_hidden`, `search_meaning`, `ask_model`, `language`, `check_updates` … (the names in [Settings and config.toml](#settings-and-configtoml)) |
@@ -382,6 +385,9 @@ explanations and costs: both apps read them from one description in `coxswain-co
 | **Enter** on a tip under *What's new* in Overview | The tip's area, as *Show me* in the desktop app; the tip is not shown again |
 
 Folders after the flag open in the panels, as without it: `coxswain --settings=search ~/src`.
+
+The first few times, the empty command line says so too: *Ctrl+, / F12 opens Settings: theme,
+keys, language and every other option*.
 
 ### The keys
 
@@ -544,11 +550,12 @@ updates* lists what can leave with your settings as they are, and where to.
 
 #### Where is the Settings key if Ctrl+, does nothing?
 
-`Ctrl+,` is the default of the `settings` action; if you rebound it in `[keys]`, the gear
-button's tooltip shows the key it has now, and so does *Keys* in Settings. **F9** → *Settings*
-and the gear button always work. Most terminals send **Ctrl+,** as a plain comma or not at all,
-so in the terminal app use **F9** → *Settings* or `coxswain --settings`, or give the action a key
-the terminal passes on, such as `settings = ["Alt+,"]` under `[keys]` ([Changing keys](keys.md)).
+**Ctrl+,** and **F12** are the defaults of the `settings` action; if you rebound them in
+`[keys]`, the gear button's tooltip shows the key it has now, and so does *Keys* in Settings.
+Most terminals send **Ctrl+,** as a plain comma or not at all, so the terminal app has **F12**
+too, and shows it as *12 Settings* at the right end of the F-key bar. **Shift+F10** →
+*Settings* (near the top of the action menu), **F9** → *Settings*, the gear button in the
+desktop app and `coxswain --settings` always work.
 
 #### What does Clear under "Previews made so far" remove?
 
