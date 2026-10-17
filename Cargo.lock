@@ -454,8 +454,6 @@ dependencies = [
 [[package]]
 name = "candle-core"
 version = "0.11.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5ecb245093b0f791b89d3420c3df9c6d49c60ab63ba54db896bf8a3baf486706"
 dependencies = [
  "byteorder",
  "candle-metal-kernels",
@@ -478,7 +476,7 @@ dependencies = [
  "tokenizers",
  "yoke 0.8.3",
  "zerocopy",
- "zip 8.6.0",
+ "zip",
 ]
 
 [[package]]
@@ -957,7 +955,7 @@ dependencies = [
  "ureq",
  "windows-sys 0.61.2",
  "x509-parser",
- "zip 9.0.4",
+ "zip",
 ]
 
 [[package]]
@@ -8302,18 +8300,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 3.0.9",
-]
-
-[[package]]
-name = "zip"
-version = "8.6.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2d04a6b5381502aa6087c94c669499eb1602eb9c5e8198e534de571f7154809b"
-dependencies = [
- "crc32fast",
- "indexmap 2.14.2",
- "memchr",
- "typed-path",
 ]
 
 [[package]]
