@@ -61,6 +61,11 @@ const factsAt = new Map();
  *  again only after ten seconds. Nothing is read per listing. */
 export function gitFacts(dir) {
   if (Date.now() - (factsAt.get(dir) ?? 0) < 10000) return;
+  // Kept for the folders hovered lately only: past 200, all are forgotten and read again.
+  if (factsAt.size >= 200) {
+    factsAt.clear();
+    ui.facts = {};
+  }
   factsAt.set(dir, Date.now());
   invoke("git_facts", { dir }).then((f) => (ui.facts[dir] = f), () => {});
 }
@@ -143,15 +148,22 @@ export const tab = (i = ui.activePane) => ui.panes[i]?.tabs[ui.panes[i].active];
 export const otherTab = () => tab(ui.dual ? ui.activePane ^ 1 : ui.activePane);
 export const item = (t = tab()) => t?.items[t.cursor];
 
-/** The built-in themes' ids, in their order. */
-const builtinIds = () => ui.cfg.builtin_themes.map(([id]) => id);
+/** The built-in themes' ids, in their order, made once per `ui.cfg.builtin_themes`. */
+let builtin = { of: null, ids: [], set: new Set() };
+const builtinIds = () => {
+  if (builtin.of !== ui.cfg.builtin_themes) {
+    const ids = ui.cfg.builtin_themes.map(([id]) => id);
+    builtin = { of: ui.cfg.builtin_themes, ids, set: new Set(ids) };
+  }
+  return builtin;
+};
 /** Every theme's id: the built-in ones in their order, then the user's `[themes.<name>]`. */
 export const themeIds = () => {
-  const builtin = builtinIds();
-  return [...builtin, ...Object.keys(ui.cfg.themes).filter((id) => !builtin.includes(id))];
+  const { ids, set } = builtinIds();
+  return [...ids, ...Object.keys(ui.cfg.themes).filter((id) => !set.has(id))];
 };
 /** A theme's name as shown: translated when built in, else as the user named it. */
-export const themeName = (id) => (builtinIds().includes(id) ? t(`theme.${id}`) : id);
+export const themeName = (id) => (builtinIds().set.has(id) ? t(`theme.${id}`) : id);
 
 /** Show a theme; with `save`, also store it in config.toml, as Settings does. */
 export async function setTheme(name, save = false) {

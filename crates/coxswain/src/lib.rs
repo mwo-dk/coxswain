@@ -52,6 +52,9 @@ pub struct Panel {
     /// The git facts the info line shows (`facts_dir`), one line, as they were read for that
     /// folder: `None` while they are read or when it is no repository.
     pub facts: Option<(PathBuf, Option<String>)>,
+    /// The folder `facts_dir` named at the last tick: its facts are read once the cursor has
+    /// rested there a tick, so holding a key over many repositories runs no git for each.
+    facts_seen: Option<PathBuf>,
 }
 
 impl Panel {
@@ -76,6 +79,7 @@ impl Panel {
             zfs: None,
             package: None,
             facts: None,
+            facts_seen: None,
         };
         p.load(show_hidden);
         if let Some(name) = file {
@@ -2386,6 +2390,10 @@ impl App {
             if p.facts.as_ref().is_some_and(|(d, _)| *d == at) {
                 continue;
             }
+            if p.facts_seen.as_ref() != Some(&at) {
+                p.facts_seen = Some(at);
+                continue;
+            }
             p.facts = Some((at.clone(), None));
             // The panel's own repository has its status already.
             let st = p.current().filter(|e| e.is_parent()).and(p.git.clone());
@@ -2477,8 +2485,13 @@ impl App {
         while let Ok((dir, news)) = self.git_rx.try_recv() {
             for p in self.panels.iter_mut().filter(|p| p.dir == dir) {
                 match &news {
-                    // Read again: the facts too, when the cursor is on them.
-                    Git::Status(st) => (p.git, p.facts, self.hint_stale) = (st.as_deref().cloned(), None, true),
+                    Git::Status(st) => {
+                        // Read again: the facts too, when they are this repository's (on `..`).
+                        if p.facts.as_ref().is_some_and(|(d, _)| p.git.iter().chain(st.as_deref()).any(|g| g.root == *d)) {
+                            p.facts = None;
+                        }
+                        (p.git, self.hint_stale) = (st.as_deref().cloned(), true);
+                    }
                     Git::Last(last) => p.last = last.clone(),
                     Git::Zfs(f) => (p.zfs, self.hint_stale) = (f.as_deref().cloned(), true),
                     Git::Package(name) => p.package = name.clone(),

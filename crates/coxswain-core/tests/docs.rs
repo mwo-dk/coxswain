@@ -77,7 +77,7 @@ fn missing<'a>(what: &str, names: impl IntoIterator<Item = &'a str>, except: &[&
 
 #[test]
 fn every_builtin_theme_is_in_the_docs() {
-    let names: Vec<&str> = Theme::builtin().into_iter().map(|(n, _)| n).collect();
+    let names: Vec<&str> = Theme::BUILTIN.iter().map(|(n, ..)| *n).collect();
     missing("built-in themes", names, &[]);
 }
 
