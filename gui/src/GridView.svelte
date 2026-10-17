@@ -2,7 +2,7 @@
   // Thumbnails: images show themselves, everything else its icon. Arrow keys move in 2D
   // (handled in App, which reads the column count from `data-cols`).
   import { untrack } from "svelte";
-  import { openItem, toggleMark, dragOut, rowContext, rowMenu } from "./app.svelte.js";
+  import { openItem, toggleMark, dragOut, rowContext, rowMenu, gitFacts } from "./app.svelte.js";
   import { convertFileSrc, previewKind, TAG_COLORS } from "./lib.js";
   import { ui } from "./app.svelte.js";
   import { t as tr } from "./i18n.svelte.js";
@@ -92,7 +92,8 @@
         onclick={(ev) => click(ev, i)}
         ondblclick={() => openItem(t, i)}
         oncontextmenu={(ev) => rowContext(ev, t, i, onfocus)}
-        title={e.name}
+        title={[e.name, ...(ui.facts[e.path] ?? [])].join("\n")}
+        onmouseenter={e.is_dir ? () => gitFacts(e.path) : undefined}
       >
         <div class="thumb">
           <!-- A picture only in the cloud is not drawn: that would download it. -->

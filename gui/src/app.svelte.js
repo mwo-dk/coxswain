@@ -52,7 +52,18 @@ export const ui = $state({
   /** What Ctrl+Z would undo ("" for nothing), and how many operations the history has kept. */
   undo: "",
   undoSeq: 0,
+  /** A repository's folder -> its git facts, one a line (null when it is none): `gitFacts`. */
+  facts: {},
 });
+
+const factsAt = new Map();
+/** Read the git facts of `dir`, a repository's own folder, for a tooltip: when hovered, and
+ *  again only after ten seconds. Nothing is read per listing. */
+export function gitFacts(dir) {
+  if (Date.now() - (factsAt.get(dir) ?? 0) < 10000) return;
+  factsAt.set(dir, Date.now());
+  invoke("git_facts", { dir }).then((f) => (ui.facts[dir] = f), () => {});
+}
 
 /** Read what Ctrl+Z would undo. After an operation that went well, `ok` is said on the status
  *  line, with how to undo it when it can be. */
