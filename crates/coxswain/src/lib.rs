@@ -49,6 +49,9 @@ pub struct Panel {
     pub zfs: Option<coxswain_core::zfs::Facts>,
     /// The package whose files the folder lists.
     pub package: Option<String>,
+    /// The git facts the info line shows (`facts_dir`), one line, as they were read for that
+    /// folder: `None` while they are read or when it is no repository.
+    pub facts: Option<(PathBuf, Option<String>)>,
 }
 
 impl Panel {
@@ -72,6 +75,7 @@ impl Panel {
             last: None,
             zfs: None,
             package: None,
+            facts: None,
         };
         p.load(show_hidden);
         if let Some(name) = file {
@@ -177,6 +181,7 @@ impl Panel {
         self.last = None;
         self.zfs = None;
         self.package = None;
+        self.facts = None;
         // Coming up out of a directory (or a history): the cursor on it, as NC does.
         from.strip_prefix(&self.dir).ok().and_then(|r| r.components().next()).map(|n| n.as_os_str().to_string_lossy().into_owned())
     }
@@ -190,6 +195,17 @@ impl Panel {
 
     pub fn current(&self) -> Option<&Entry> {
         self.entries.get(self.cursor)
+    }
+
+    /// The repository whose git facts the info line shows for the entry under the cursor: on
+    /// `..` the one the panel is in, on a folder the folder, when it is a repository's own.
+    pub fn facts_dir(&self) -> Option<PathBuf> {
+        let e = self.current()?;
+        if e.is_parent() {
+            self.git.as_ref().map(|g| g.root.clone())
+        } else {
+            (e.is_dir && !e.online && !virtual_list(&self.dir)).then(|| e.path.clone())
+        }
     }
 
     /// What the action menu and the hints are about: the marked entries (or the one under the
@@ -424,6 +440,8 @@ enum Git {
     Last(Option<Arc<Lasts>>),
     Zfs(Option<Box<coxswain_core::zfs::Facts>>),
     Package(Option<String>),
+    /// The git facts of a repository's folder (`Panel::facts_dir`), one line.
+    Facts(PathBuf, Option<String>),
 }
 
 /// Work done by the main loop after a frame: what needs the real terminal, and what takes a
@@ -2360,8 +2378,33 @@ impl App {
         self.hint_for = Some(s);
     }
 
+    /// The git facts of the repository under each panel's cursor (`Panel::facts_dir`), read on
+    /// a thread when the cursor comes to it: never for a whole listing.
+    fn follow_facts(&mut self) {
+        for p in &mut self.panels {
+            let Some(at) = p.facts_dir() else { continue };
+            if p.facts.as_ref().is_some_and(|(d, _)| *d == at) {
+                continue;
+            }
+            p.facts = Some((at.clone(), None));
+            // The panel's own repository has its status already.
+            let st = p.current().filter(|e| e.is_parent()).and(p.git.clone());
+            let (tx, g, dir) = (self.git_tx.clone(), self.glyphs.clone(), p.dir.clone());
+            std::thread::spawn(move || {
+                // On `..` the git line on the border shows the first line already.
+                let (f, skip) = match st {
+                    Some(st) => (Some(st.facts(&g)), 1),
+                    None => (git::facts(&at, &g), 0),
+                };
+                let line = f.map(|f| f.lines()[skip..].join(" · "));
+                let _ = tx.send((dir, Git::Facts(at, line)));
+            });
+        }
+    }
+
     fn tick(&mut self, last_state: &mut State) {
         self.follow_hint();
+        self.follow_facts();
         if let Ok(v) = self.update_rx.try_recv() {
             let how = coxswain_core::update::upgrade_hint().unwrap_or(coxswain_core::update::RELEASES_URL);
             self.status = Some(t!("status.update", "version" => v, "how" => how));
@@ -2434,10 +2477,16 @@ impl App {
         while let Ok((dir, news)) = self.git_rx.try_recv() {
             for p in self.panels.iter_mut().filter(|p| p.dir == dir) {
                 match &news {
-                    Git::Status(st) => (p.git, self.hint_stale) = (st.as_deref().cloned(), true),
+                    // Read again: the facts too, when the cursor is on them.
+                    Git::Status(st) => (p.git, p.facts, self.hint_stale) = (st.as_deref().cloned(), None, true),
                     Git::Last(last) => p.last = last.clone(),
                     Git::Zfs(f) => (p.zfs, self.hint_stale) = (f.as_deref().cloned(), true),
                     Git::Package(name) => p.package = name.clone(),
+                    Git::Facts(at, line) => {
+                        if p.facts.as_ref().is_some_and(|(d, _)| d == at) {
+                            p.facts = Some((at.clone(), line.clone()));
+                        }
+                    }
                 }
             }
         }

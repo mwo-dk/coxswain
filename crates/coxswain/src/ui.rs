@@ -292,6 +292,12 @@ fn panel(f: &mut Frame, app: &mut App, side: usize, area: Rect) {
             Some(None) => right = format!(" {}{right}", t!("history.older")),
             None => {}
         }
+        // A repository's folder, or `..` in one: its branch, upstream, remote and last fetch.
+        if let Some((at, Some(line))) = &p.facts
+            && p.facts_dir().as_ref() == Some(at)
+        {
+            right = format!(" {}{right}", fit(line, w.saturating_sub(e.name.width() + 2).min(line.width())));
+        }
         if e.online {
             right = format!(" {}{right}", t!("tui.online", "key" => app.key_label(coxswain_core::config::Action::View)));
         }

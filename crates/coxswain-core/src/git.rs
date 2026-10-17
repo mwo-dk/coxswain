@@ -210,6 +210,10 @@ impl<T: Clone> Shared<T> {
 #[derive(Clone, Debug, Default, Serialize)]
 pub struct Status {
     pub root: PathBuf,
+    /// The repository's git folder (a linked worktree's own) and the common one, where git
+    /// keeps `FETCH_HEAD`.
+    #[serde(skip)]
+    pub git_dirs: [PathBuf; 2],
     pub summary: Summary,
     /// Absolute path -> status, for files and (aggregated) their parent directories.
     pub files: HashMap<PathBuf, FileStatus>,
@@ -266,6 +270,7 @@ impl Status {
             st.summary.worktree = root.file_name().map(|n| n.to_string_lossy().into_owned());
         }
         st.summary.operation = operation(&git_dir);
+        st.git_dirs = [git_dir, common];
         Some(st)
     }
 
@@ -403,6 +408,100 @@ impl Status {
     }
 }
 
+/// What the git line's tooltip tells beyond the line, read only when asked (a hover, the
+/// cursor on it): never per listing, and never fetched.
+#[derive(Clone, Debug)]
+pub struct Facts {
+    pub prompt: String,
+    pub upstream: Option<String>,
+    pub ahead: u32,
+    pub behind: u32,
+    /// The URL of the branch's remote (or `origin`), without credentials.
+    pub remote: Option<String>,
+    /// When the repository was last fetched: `FETCH_HEAD`'s time.
+    pub fetched: Option<u64>,
+}
+
+impl Status {
+    /// The facts of this repository: one `git ls-remote --get-url` (which only reads the config,
+    /// never the network) and a look at `FETCH_HEAD`.
+    pub fn facts(&self, g: &Glyphs) -> Facts {
+        let remote = command_with(&self.root, &[])
+            .args(["ls-remote", "--get-url"])
+            .output()
+            .ok()
+            .filter(|o| o.status.success())
+            .map(|o| without_credentials(String::from_utf8_lossy(&o.stdout).trim()))
+            .filter(|u| !u.is_empty());
+        let fetched = self
+            .git_dirs
+            .iter()
+            .filter_map(|d| d.join("FETCH_HEAD").metadata().ok()?.modified().ok())
+            .max()
+            .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+            .map(|d| d.as_secs());
+        let s = &self.summary;
+        Facts {
+            prompt: self.prompt(g),
+            upstream: s.upstream.clone(),
+            ahead: s.ahead,
+            behind: s.behind,
+            remote,
+            fetched,
+        }
+    }
+}
+
+/// The facts of the repository whose own folder `dir` is (one look for `.git` before any git
+/// runs, as most folders are none).
+pub fn facts(dir: &Path, g: &Glyphs) -> Option<Facts> {
+    if !dir.join(".git").exists() {
+        return None;
+    }
+    Some(Status::read(dir)?.facts(g))
+}
+
+impl Facts {
+    /// One fact a line: the git line, the upstream with ahead and behind, the last fetch, the
+    /// remote (the longest, so last). The terminal app joins them with ` · `.
+    pub fn lines(&self) -> Vec<String> {
+        let upstream = match &self.upstream {
+            Some(u) => crate::t!(
+                "git.facts_upstream",
+                "upstream" => u,
+                "ahead" => crate::i18n::digits(self.ahead.to_string()),
+                "behind" => crate::i18n::digits(self.behind.to_string())
+            ),
+            None => crate::t!("git.facts_no_upstream"),
+        };
+        let fetched = match self.fetched {
+            Some(t) => crate::t!("git.facts_fetched", "time" => crate::i18n::date_time(t)),
+            None => crate::t!("git.facts_never_fetched"),
+        };
+        let mut v = vec![self.prompt.clone(), upstream, fetched];
+        if let Some(r) = &self.remote {
+            v.push(crate::t!("git.facts_remote", "url" => r));
+        }
+        v
+    }
+}
+
+/// `url` without the user and password a remote's URL may carry (`https://token@host/…`). The
+/// user of an scp-like address (`git@host:repo`) is no secret and stays.
+pub fn without_credentials(url: &str) -> String {
+    let Some((scheme, rest)) = url.split_once("://") else {
+        return url.to_string();
+    };
+    // The user and password go first (a password may hold `#` or `?`), then the query and
+    // fragment, which may carry a token (`?access_token=…`).
+    let host_end = rest.find('/').unwrap_or(rest.len());
+    let rest = &rest[rest[..host_end].rfind('@').map_or(0, |at| at + 1)..];
+    format!(
+        "{scheme}://{}",
+        &rest[..rest.find(['?', '#']).unwrap_or(rest.len())]
+    )
+}
+
 impl Kind {
     pub fn glyph(self, g: &Glyphs) -> &str {
         match self {
@@ -516,6 +615,65 @@ mod tests {
             st.prompt(&Glyphs::ascii()),
             "git: main ^2 v1 +2 ~1 ?1 !1 $3"
         );
+    }
+
+    #[test]
+    fn git_remote_url_loses_its_credentials() {
+        for (url, shown) in [
+            (
+                "https://user:secret@github.com/a/b.git",
+                "https://github.com/a/b.git",
+            ),
+            ("https://ghp_token@github.com/a/b", "https://github.com/a/b"),
+            ("ssh://git@host:22/a@b", "ssh://host:22/a@b"),
+            ("git@github.com:a/b.git", "git@github.com:a/b.git"),
+            ("https://github.com/a/b", "https://github.com/a/b"),
+            ("https://h/a.git?access_token=t#x", "https://h/a.git"),
+            ("https://u:p@h?private_token=t", "https://h"),
+            ("https://u:p#s@h/a", "https://h/a"),
+            ("https://u:p?s@h/a", "https://h/a"),
+            ("/srv/git/a.git", "/srv/git/a.git"),
+        ] {
+            assert_eq!(without_credentials(url), shown);
+        }
+    }
+
+    /// The remote's URL, without its password, and the last fetch; a folder that is no
+    /// repository's own has none.
+    #[cfg(unix)]
+    #[test]
+    fn git_facts_of_a_repository() {
+        let Some(d) = crate::history::tests::repo("facts") else {
+            return;
+        };
+        std::fs::write(d.join("a.txt"), "a\n").unwrap();
+        crate::history::tests::add(&d);
+        crate::history::tests::commit_as(&d, "Ada", 1_700_000_000, "one");
+        let git = |args: &[&str]| {
+            let ok = std::process::Command::new("git")
+                .arg("-C")
+                .arg(&d)
+                .args(args)
+                .status()
+                .unwrap();
+            assert!(ok.success());
+        };
+        git(&[
+            "remote",
+            "add",
+            "origin",
+            "https://ada:secret@example.org/r.git",
+        ]);
+        let g = Glyphs::ascii();
+        let f = facts(&d, &g).expect("facts");
+        assert_eq!(f.remote.as_deref(), Some("https://example.org/r.git"));
+        assert_eq!((f.upstream.as_deref(), f.fetched), (None, None));
+        assert!(!f.lines().join("\n").contains("secret"));
+        std::fs::write(d.join(".git/FETCH_HEAD"), "").unwrap();
+        assert!(facts(&d, &g).unwrap().fetched.is_some());
+        std::fs::create_dir(d.join("sub")).unwrap();
+        assert!(facts(&d.join("sub"), &g).is_none());
+        std::fs::remove_dir_all(d).unwrap();
     }
 
     #[test]

@@ -1,5 +1,5 @@
 <script>
-  import { ui, load, byLast, openItem, toggleMark, dragOut, columnMenu, rowContext, rowMenu } from "./app.svelte.js";
+  import { ui, load, byLast, openItem, toggleMark, dragOut, columnMenu, rowContext, rowMenu, gitFacts } from "./app.svelte.js";
   import { size, date, day, age, ageColor, TAG_COLORS, tagName, sortItems, basename, HISTORY, SNAPSHOTS } from "./lib.js";
   import { t as tr, num } from "./i18n.svelte.js"; // `t` is the tab here
   import Rows from "./Rows.svelte";
@@ -122,6 +122,8 @@
         onclick={(ev) => click(ev, i)}
         ondblclick={() => openItem(t, i)}
         oncontextmenu={(ev) => rowContext(ev, t, i, onfocus)}
+        title={ui.facts[e.path]?.join("\n")}
+        onmouseenter={e.is_dir ? () => gitFacts(e.path) : undefined}
       >
         <span class="name">
           <span class="icon" style:color={e.icon.color || null}>{e.name === ".." ? "\u{f062}" : e.icon.glyph}</span>

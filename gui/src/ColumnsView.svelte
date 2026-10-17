@@ -1,7 +1,7 @@
 <script>
   // Miller columns: two ancestor levels, the current folder, and a peek into the folder
   // under the cursor. Left/Right walk the hierarchy (handled in App).
-  import { ui, cd, load, openItem, toggleMark } from "./app.svelte.js";
+  import { ui, cd, load, openItem, toggleMark, gitFacts } from "./app.svelte.js";
   import { listDir, parent, TAG_COLORS } from "./lib.js";
   import { t as tr, i18n } from "./i18n.svelte.js"; // `t` is the tab here
   import Rows from "./Rows.svelte";
@@ -62,7 +62,7 @@
 
 {#snippet entry(e, cls, onclick, ondblclick)}
   <!-- svelte-ignore a11y_click_events_have_key_events -->
-  <div class="row {cls}" class:dir={e.is_dir} class:hidden={e.hidden} role="option" tabindex="-1" aria-selected={cls.includes("cursor")} {onclick} {ondblclick}>
+  <div class="row {cls}" class:dir={e.is_dir} class:hidden={e.hidden} role="option" tabindex="-1" aria-selected={cls.includes("cursor")} {onclick} {ondblclick} title={ui.facts[e.path]?.join("\n")} onmouseenter={e.is_dir ? () => gitFacts(e.path) : undefined}>
     <span class="icon" style:color={e.icon.color || null}>{e.icon.glyph}</span>
     <span class="label">{e.name}</span>
     {#if e.tag}<span class="tag" style:background={TAG_COLORS[e.tag]}></span>{/if}

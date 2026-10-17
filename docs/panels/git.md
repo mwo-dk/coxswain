@@ -17,6 +17,7 @@ repositories you visited. **Ctrl+G** opens a file's or folder's history:
 
 - [How to use it](#how-to-use-it)
 - [The git line](#the-git-line)
+- [Upstream, remote and last fetch](#upstream-remote-and-last-fetch)
 - [File and folder glyphs](#file-and-folder-glyphs)
 - [Last commit per file](#last-commit-per-file)
 - [When it updates](#when-it-updates)
@@ -51,7 +52,8 @@ stages. The repository's own hooks, file system monitor and filter drivers never
 ## The git line
 
 In the terminal app it is at the bottom left of the panel's border; in the desktop app at the
-right of the pane's footer (hover it for the repository's folder; click it for the
+right of the pane's footer (hover it for the repository's folder, upstream, remote and last
+fetch, see [below](#upstream-remote-and-last-fetch); click it for the
 [branches](git-branches.md)). A folder's preview in the desktop app shows it too, as *Git*.
 
 With plain characters (`glyphs = "ascii"`) a line reads:
@@ -88,6 +90,37 @@ These come from the files git keeps in the repository's git folder while it work
 (`MERGE_HEAD`, `rebase-merge`, `CHERRY_PICK_HEAD`, `REVERT_HEAD`, `BISECT_LOG`), read with the
 status; no extra git runs for them. The line is drawn in the theme's `git_branch` colour (bold
 magenta in NC).
+
+## Upstream, remote and last fetch
+
+How far behind is this branch, and how old is that number? The git line counts the commits
+ahead and behind, but only as of the last fetch: Coxswain never fetches. These facts tell you
+where you stand:
+
+| Fact | Example | From |
+|---|---|---|
+| The git line | `git: master ^1 ~1 +1 ?1 $1` | `git status`, as above |
+| Upstream | *Upstream: origin/master, 1 ahead, 0 behind* (or *No upstream*) | the branch's upstream, as git records it |
+| Last fetch | *Last fetch: 2026-10-17 14:02* (or *Never fetched*) | the time of the repository's `FETCH_HEAD` |
+| Remote | *Remote: https://github.com/demo/rocket.git* | `git ls-remote --get-url`, which reads the config and never the network |
+
+The remote is the one the branch follows, or `origin`. A user name and password or a token in
+its URL (`https://token@host/…`) are left out; the user of an ssh address (`git@host:…`) stays.
+
+| | Desktop app | Terminal app |
+|---|---|---|
+| The repository you are in | Hover the git line in the pane's footer: the tooltip lists the repository's folder, the upstream, the last fetch and the remote, then *Click for the branches* | Put the cursor on `..` (where it is when a folder opens): the line under the panel reads `..  Upstream: origin/master, 1 ahead, 0 behind · Last fetch: … · Remote: …` |
+| A repository's folder in the list (a project in `~/projects`, a submodule, a repository inside another) | Hover its row (any view): the tooltip has its git line, upstream, last fetch and remote | Put the cursor on it: the line under the panel reads `rocket  git: master ^1 ~1 · Upstream: … · Last fetch: … · Remote: …` |
+
+They are read only when you point at them, on a thread of their own: never for every folder of
+a listing. A folder in the list costs one look for its `.git` when the cursor or the mouse comes
+to it; only a repository's own folder runs git (its `git status` and `git ls-remote --get-url`).
+The desktop app keeps the answer for ten seconds, so moving the mouse back and forth runs
+nothing new; the terminal app reads it again when the cursor comes to it anew, and after
+**Ctrl+R**. A narrow panel cuts the terminal app's line at its right end, so the remote, last
+on the line, is the first to go; a wider terminal shows all of it.
+
+![The terminal app: on the left ~/projects with the cursor on rocket, its git line, upstream and last fetch under the panel; on the right inside rocket, the cursor on .. and its upstream, last fetch and remote](../screenshots/tui-git-facts.png)
 
 ## File and folder glyphs
 
@@ -187,7 +220,9 @@ See [Glyphs and fonts](../customise/glyphs-and-fonts.md) and [Your own theme](..
 ## In the terminal app
 
 The same git line (bottom left of the border) and the same glyphs (in a column before the
-name). The last commit of the entry under the cursor is in the line under the panel, and
+name). The last commit of the entry under the cursor is in the line under the panel, the
+[upstream, remote and last fetch](#upstream-remote-and-last-fetch) too when the cursor is on
+`..` or on a repository's folder, and
 **Ctrl+G** opens the [history](git-history.md). No diff, no list of repositories and no git icon on tabs, since it has no preview pane,
 sidebar or tabs; the user menu's `git diff (file)` shows the diff instead.
 
@@ -248,6 +283,37 @@ files has none either.
 It shows in a repository, in the details view of a pane at least 620 pixels wide, when it is
 ticked in the columns menu and *Last commit of each file* is on in
 Settings → *Behaviour* (`[git] last_commit`).
+
+#### How far behind is my branch, and is that up to date?
+
+Hover the git line (desktop app) or put the cursor on `..` (terminal app): *Upstream:
+origin/master, 1 ahead, 2 behind* counts the commits as of *Last fetch*. Coxswain never
+fetches, so a fetch you have not made is not counted. Run `git fetch` in a terminal (or from
+the [user menu](../commands/user-menu.md), **F2**), and the counts and the time follow within a
+moment, or on **Ctrl+R**.
+
+#### Why does it say "Never fetched"?
+
+The repository has no `FETCH_HEAD`: nothing has been fetched into it since it was cloned
+(`git clone` does not write one) or made. The first `git fetch` or `git pull` writes it.
+
+#### Why does it say "No upstream"?
+
+The branch follows no branch on a remote, so there is nothing to be ahead of or behind: a new
+local branch, before `git push -u` or `git branch -u origin/<name>`. Coxswain does not set one;
+that is for your own git.
+
+#### Where is the password in the remote's URL?
+
+Left out on purpose: a URL like `https://user:secret@host/repo.git` or `https://token@host/…`
+shows as `https://host/repo.git`, so a token never ends up on the screen or in a screenshot.
+git still uses the URL as it is written in the config.
+
+#### Why does a folder show no tooltip, or nothing under the panel?
+
+It is not a repository's own folder (it has no `.git`), or it is in the cloud only, in an
+archive or in a [history](git-history.md). A folder inside a repository shares its
+repository's facts: hover the git line, or go to `..`.
 
 #### Can Coxswain commit or stage?
 

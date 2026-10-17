@@ -113,6 +113,10 @@ g add docs && ada commit -qm "Rename the plan, add the wind rule"
 g init -q --bare "$d/.remotes/rocket.git"
 g remote add origin "$d/.remotes/rocket.git"
 g push -q -u origin master
+# A fetch, for the last fetch the git line's tooltip and the info line show.
+g fetch -q origin
+# The bare repository's real path would show as the remote: a URL of the kind a project has.
+g remote set-url origin https://git.example.org/demo/rocket.git
 printf '\n## Build\n\n    cargo build --release\n' >> README.md && g commit -qam "Document the build"
 # A branch one commit ahead, for the branches folder (Alt+B).
 g checkout -q -b feature/engine && printf 'pub fn throttle(level: f64) -> f64 {\n    level.clamp(0.0, 1.0)\n}\n' > src/throttle.rs
