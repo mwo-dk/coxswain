@@ -496,7 +496,10 @@ pub fn without_credentials(url: &str) -> String {
     // fragment, which may carry a token (`?access_token=…`).
     let host_end = rest.find('/').unwrap_or(rest.len());
     let rest = &rest[rest[..host_end].rfind('@').map_or(0, |at| at + 1)..];
-    format!("{scheme}://{}", &rest[..rest.find(['?', '#']).unwrap_or(rest.len())])
+    format!(
+        "{scheme}://{}",
+        &rest[..rest.find(['?', '#']).unwrap_or(rest.len())]
+    )
 }
 
 impl Kind {
