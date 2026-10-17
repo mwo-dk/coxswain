@@ -492,11 +492,11 @@ pub fn without_credentials(url: &str) -> String {
     let Some((scheme, rest)) = url.split_once("://") else {
         return url.to_string();
     };
+    // A query or fragment may carry a token (`?access_token=…`): it is never shown.
+    let rest = &rest[..rest.find(['?', '#']).unwrap_or(rest.len())];
     let host_end = rest.find('/').unwrap_or(rest.len());
-    match rest[..host_end].rfind('@') {
-        Some(at) => format!("{scheme}://{}", &rest[at + 1..]),
-        None => url.to_string(),
-    }
+    let at = rest[..host_end].rfind('@').map_or(0, |at| at + 1);
+    format!("{scheme}://{}", &rest[at..])
 }
 
 impl Kind {
@@ -625,6 +625,8 @@ mod tests {
             ("ssh://git@host:22/a@b", "ssh://host:22/a@b"),
             ("git@github.com:a/b.git", "git@github.com:a/b.git"),
             ("https://github.com/a/b", "https://github.com/a/b"),
+            ("https://h/a.git?access_token=t#x", "https://h/a.git"),
+            ("https://u:p@h?private_token=t", "https://h"),
             ("/srv/git/a.git", "/srv/git/a.git"),
         ] {
             assert_eq!(without_credentials(url), shown);
