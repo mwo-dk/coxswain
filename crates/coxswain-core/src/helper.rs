@@ -1416,6 +1416,22 @@ mod tests {
             two.size(&d.join("files/src")).map(|s| s.0),
             Some(crate::fs::dir_size(&d.join("files/src")))
         );
+        // Which the sizer takes without a walk.
+        let sizer = crate::sizes::Sizer::new(Some(Client::with(
+            Some(d.join("cache")),
+            &config(&d),
+            |_| {},
+        )));
+        assert_eq!(
+            sizer.known_only(&d.join("files/src")),
+            Some(crate::fs::dir_size(&d.join("files/src")))
+        );
+        assert_eq!(
+            sizer.known(&d.join("files/src")),
+            None,
+            "from the store, not measured"
+        );
+        drop(sizer);
 
         // A restart brings a new helper.
         one.restart();

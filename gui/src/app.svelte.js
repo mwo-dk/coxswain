@@ -398,6 +398,14 @@ export async function measureFolders(t, paths) {
   if (!paths && measuring.get(t) === dir) return;
   if (!paths) measuring.set(t, dir);
   try {
+    // The folder above only when its size is already known (measured lately, or in the store):
+    // never walked for this.
+    const up = !paths && t.items.find((e) => e.name === "..");
+    if (up && t.sizes[up.path] === undefined) {
+      const r = await invoke("dir_size_known", { path: up.path });
+      if (t.dir !== dir) return;
+      if (r) [t.sizes[up.path], t.counts[up.path]] = r;
+    }
     const todo = paths ?? t.items.filter((e) => e.is_dir && e.name !== ".." && t.sizes[e.path] === undefined).map((e) => e.path);
     for (const p of todo) {
       if (t.dir !== dir) return;
