@@ -492,11 +492,11 @@ pub fn without_credentials(url: &str) -> String {
     let Some((scheme, rest)) = url.split_once("://") else {
         return url.to_string();
     };
-    // A query or fragment may carry a token (`?access_token=…`): it is never shown.
-    let rest = &rest[..rest.find(['?', '#']).unwrap_or(rest.len())];
+    // The user and password go first (a password may hold `#` or `?`), then the query and
+    // fragment, which may carry a token (`?access_token=…`).
     let host_end = rest.find('/').unwrap_or(rest.len());
-    let at = rest[..host_end].rfind('@').map_or(0, |at| at + 1);
-    format!("{scheme}://{}", &rest[at..])
+    let rest = &rest[rest[..host_end].rfind('@').map_or(0, |at| at + 1)..];
+    format!("{scheme}://{}", &rest[..rest.find(['?', '#']).unwrap_or(rest.len())])
 }
 
 impl Kind {
@@ -627,6 +627,8 @@ mod tests {
             ("https://github.com/a/b", "https://github.com/a/b"),
             ("https://h/a.git?access_token=t#x", "https://h/a.git"),
             ("https://u:p@h?private_token=t", "https://h"),
+            ("https://u:p#s@h/a", "https://h/a"),
+            ("https://u:p?s@h/a", "https://h/a"),
             ("/srv/git/a.git", "/srv/git/a.git"),
         ] {
             assert_eq!(without_credentials(url), shown);
