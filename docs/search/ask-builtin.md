@@ -309,7 +309,12 @@ quickly)*. You can still choose it: pick it in the list (desktop) or type its nu
 and download it. For quick answers on a PC, run Ollama or Lemonade with a graphics card
 ([servers](servers.md)); the guide recommends their chat model when one answers.
 
-#### Why is it so slow on my PC?
+#### Why does it say Ollama would be faster?
+The PC has a graphics card the built-in models cannot use, and no model server answers. Ollama
+on the card answers in seconds; the setup guide (step 2) and a notice, once, say how to install
+it for your system. See [A graphics card and no server](setup.md#a-graphics-card-and-no-server).
+
+
 It runs on the processor there, and the processor reads the prompt about as fast as it writes
 the answer. Coxswain gives it fewer passages for that reason. A model server with a graphics
 card (Ollama with CUDA, Lemonade on AMD) answers in a fraction of the time; the guide finds one

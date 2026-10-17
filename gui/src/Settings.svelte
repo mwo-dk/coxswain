@@ -354,17 +354,24 @@
 
   const current = $derived(ui.cfg.languages.find((l) => l.code === ui.cfg.language));
   let langFilter = $state("");
+  /** Items in runs of the same key, in order: [key, items]. */
+  const groupRuns = (items, keyOf) =>
+    items.reduce((g, x) => {
+      const key = keyOf(x);
+      if (g.at(-1)?.[0] !== key) g.push([key, []]);
+      g.at(-1)[1].push(x);
+      return g;
+    }, []);
   /** The languages under their regions, those the filter leaves: [group key, languages]. */
   const langGroups = $derived(
-    ui.cfg.languages
-      .filter((l) => !langFilter.trim() || `${l.name} ${l.code}`.toLowerCase().includes(langFilter.trim().toLowerCase()))
-      .reduce((g, l) => {
-        if (g.at(-1)?.[0] !== l.group) g.push([l.group, []]);
-        g.at(-1)[1].push(l);
-        return g;
-      }, []),
+    groupRuns(
+      ui.cfg.languages.filter((l) => !langFilter.trim() || `${l.name} ${l.code}`.toLowerCase().includes(langFilter.trim().toLowerCase())),
+      (l) => l.group,
+    ),
   );
-  const themes = $derived(themeIds());
+  /** The themes under their groups, your own last: [group key, theme ids]. */
+  const themeGroup = $derived(Object.fromEntries(ui.cfg.builtin_themes));
+  const themeGroups = $derived(groupRuns(themeIds(), (id) => themeGroup[id] ?? "theme.group.own"));
   let themeFor = $state("theme");
   /** The theme brings its own font (every look but the modern one): the Font field does nothing. */
   const ownFont = $derived(ui.cfg.looks[s.theme] !== "modern");
@@ -870,20 +877,23 @@
           </div>
           <span class="lab">{t(`setting.${themeFor}`)}</span>
           <div class="themes" role="radiogroup" aria-label={t(`setting.${themeFor}`)}>
-            {#each themes as id (id)}
-              {@const th = ui.cfg.themes[id]}
-              <button class="theme" class:on={s[themeFor] === id} role="radio" aria-checked={s[themeFor] === id} onclick={() => set(themeFor, id)}>
-                <!-- A tiny window in the theme's colours: sidebar, a folder, the cursor row, a file. -->
-                <span class="swatch" style:background={th.panel.bg} style:border-color={th.border.fg} aria-hidden="true">
-                  <span class="side" style:background={th.sidebar.bg}></span>
-                  <span class="rows">
-                    <i style:background={th.directory.fg}></i>
-                    <i class="cur" style:background={th.cursor.bg}><b style:background={th.cursor.fg}></b></i>
-                    <i style:background={th.panel.fg}></i>
+            {#each themeGroups as [group, ids] (group)}
+              <p class="label region">{t(group)}</p>
+              {#each ids as id (id)}
+                {@const th = ui.cfg.themes[id]}
+                <button class="theme" class:on={s[themeFor] === id} role="radio" aria-checked={s[themeFor] === id} onclick={() => set(themeFor, id)}>
+                  <!-- A tiny window in the theme's colours: sidebar, a folder, the cursor row, a file. -->
+                  <span class="swatch" style:background={th.panel.bg} style:border-color={th.border.fg} aria-hidden="true">
+                    <span class="side" style:background={th.sidebar.bg}></span>
+                    <span class="rows">
+                      <i style:background={th.directory.fg}></i>
+                      <i class="cur" style:background={th.cursor.bg}><b style:background={th.cursor.fg}></b></i>
+                      <i style:background={th.panel.fg}></i>
+                    </span>
                   </span>
-                </span>
-                <span>{themeName(id)}</span>
-              </button>
+                  <span>{themeName(id)}</span>
+                </button>
+              {/each}
             {/each}
           </div>
           <p class="hint">{t(`setting.${themeFor}.hint`)}</p>

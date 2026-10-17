@@ -7,7 +7,7 @@ lists, the cursor row, folders, git states, dialogs …) and, for the desktop ap
 [look](looks.md). Use it to fix one colour you do not like, or to bring your terminal's palette
 into both apps.
 
-![The desktop app in the custom theme harbour, Settings open at Looks: the harbour swatch after the built-in ones, selected; the slots it leaves out keep Classic blue's colours](../screenshots/customise-own-theme.png)
+![The desktop app in the custom theme harbour, Settings open at Looks: the harbour swatch under Your own, after the Other desktops and Home computers groups, selected; the slots it leaves out keep Classic blue's colours](../screenshots/customise-own-theme.png)
 
 ## Contents
 
@@ -46,8 +46,8 @@ into both apps.
 
 3. Pick it:
    - **Desktop app:** restart it, then Settings (**Ctrl+,**) → *Looks* → *Theme*: your
-     theme is after the built-in ones, under its own name. Or set `theme = "harbour"` under
-     `[gui]`.
+     theme is after the built-in ones, under *Your own*, by its own name. Or set
+     `theme = "harbour"` under `[gui]`.
    - **Terminal app:** set `theme = "harbour"` at the top of the file, or pick it in the desktop
      app's Settings → *Looks* with *For* on *Terminal app*, and start it again.
 
@@ -111,7 +111,7 @@ only if you copy all of it (see the [questions](#i-set-themescyberpanel-to-tweak
 ## What you see
 
 The desktop app turns each slot into CSS colours, so a change shows everywhere that slot is used
-as soon as the theme is applied. In Settings, your theme gets a swatch like the built-in ones: a
+as soon as the theme is applied. In Settings, your theme gets a swatch like the built-in ones, in the last group, *Your own*: a
 small window in its `panel`, `sidebar`, `directory`, `cursor` and `border` colours. The desktop
 app also decides from `panel`'s background whether the theme is light or dark, for scroll bars
 and form pickers.

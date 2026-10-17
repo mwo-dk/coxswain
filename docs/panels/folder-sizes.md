@@ -42,6 +42,7 @@ first start; see [Renamed in 2.0](../reference/configuration.md#renamed-in-20)).
 | Before it is measured | `SUB-DIR` in the Size column | An empty Size cell |
 | Measured | The size in the Size column | The size in the Size column; with the *Files* column on, the number of files inside, all levels down |
 | While measuring on request | – | Status line: `Measuring 12 folders…` |
+| The `..` row (the folder above) | Its size in place of `UP--DIR` when it is already known, else `UP--DIR` | Its size when it is already known, else an empty Size cell |
 | Marked folders | Not counted in `… in 3 marked` | Counted in `3 marked (…)` once measured |
 
 ## Where the sizes come from
@@ -64,12 +65,20 @@ sizes follow its own watcher, and its walk every ten minutes.
 length. Symbolic links are counted as links, never followed. Folders that cannot be read are
 skipped. `/proc`, `/sys`, `/dev` and `/run` are never measured.
 
+**The folder above (`..`)** is never walked for its row: it shows a size only when one is
+already at hand, either measured in the last five minutes (you were just in it, or picked
+**Folder sizes** there) or a sum in the search helper's store (inside the folders search
+reads). Otherwise the row stays as it was: `UP--DIR` in the terminal app, an empty Size cell
+in the desktop app. Walking the folder above would mean walking everything beside the folder
+you are in, often the whole disk.
+
 ## A folder in the preview pane and in Properties
 
 With the cursor on a folder, the desktop app's [preview pane](../previews/README.md)
 (**Space**) shows *Contents* (how many folders and files it holds directly), *Files here*
 (the size of those files), *Newest*, its **Total size** (a *Calculate* link when it has not
-been measured yet) and its *Git* line.
+been measured yet) and its *Git* line. With the cursor on `..`, the *Total size* is the folder
+above's, filled in when it is already known; *Calculate* measures it when it is not.
 
 **Properties** (**Alt+Enter**, desktop app) walks the folder afresh and shows its size in
 bytes and the number of files in it; see [Properties and permissions](../files/properties.md).
@@ -104,6 +113,17 @@ that, or with **Folder sizes** in the **F9** list.
 - It is `/proc`, `/sys`, `/dev` or `/run`, which are never measured.
 - Desktop app: the Size column is hidden, or the pane is too narrow for it
   ([Views](views.md#what-you-see)).
+
+#### Why does `..` sometimes show no size?
+
+The `..` row shows the folder above's size only when it costs nothing: measured in the last
+five minutes, or summed by the search helper because it lies inside the folders search reads.
+Anywhere else, finding it would mean walking every folder beside this one, often a whole
+disk, just to fill one row, so Coxswain leaves `UP--DIR` (terminal app) or an empty cell
+(desktop app). It becomes known when it is measured as a folder of its own: in the folder
+two levels up, or, in the desktop app, with the preview pane's *Calculate* link on `..`
+(**Space** with the cursor on it), which fills the row too. For five minutes after that, `..`
+shows it at once.
 
 #### Why are sizes in my home folder instant, and slow elsewhere?
 

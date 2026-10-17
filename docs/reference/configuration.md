@@ -6,7 +6,7 @@ Both apps read one TOML file, `config.toml`. Set only what you want to change; e
 keeps its default. This page lists every key, with its type, its default, what it does, which
 app reads it and which Settings item writes it.
 
-![Settings at Looks: the languages under their regions, the For switch on Desktop app, and the theme swatches with Cyber chosen](../screenshots/settings-looks.png)
+![Settings at Looks: the languages under their regions, the For switch on Desktop app, and the theme swatches under their first group, Coxswain's own, with Cyber chosen](../screenshots/settings-looks.png)
 *The desktop app's Settings (**Ctrl+,**) write single values into `config.toml`. The path is shown at the bottom: "Settings are stored in /home/demo/.config/coxswain/config.toml".*
 
 ## Contents

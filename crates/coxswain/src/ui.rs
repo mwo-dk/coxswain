@@ -246,10 +246,10 @@ fn panel(f: &mut Frame, app: &mut App, side: usize, area: Rect) {
             format!("{} {}", coxswain_core::icons::entry(&e.name, e.is_dir, e.is_symlink, plain).glyph, e.name)
         };
         let name = &name;
-        let sz = if e.is_parent() {
-            t!("tui.updir")
-        } else if let Some(n) = p.sizes.get(&e.path) {
+        let sz = if let Some(n) = p.sizes.get(&e.path) {
             size(*n)
+        } else if e.is_parent() {
+            t!("tui.updir")
         } else if e.is_dir {
             t!("tui.subdir")
         } else {

@@ -3,7 +3,7 @@ resolver = "3"
 members = ["crates/coxswain-core", "crates/coxswain", "gui/src-tauri"]
 
 [workspace.package]
-version = "2.24.4"
+version = "2.25.0"
 edition = "2024"
 license = "MIT"
 repository = "https://github.com/mwo-dk/coxswain"
@@ -40,3 +40,7 @@ drag = { git = "https://github.com/mwo-dk/drag-rs", rev = "5781ababde2b6df0ad0e6
 # does not build there. vendor/zip is 9.0.4 with that one line changed (src/read/extract.rs); drop
 # this when zip-rs/zip2 releases the fix.
 zip = { path = "vendor/zip" }
+# candle-core 0.11.0 needs zip 8, which has three advisories (RUSTSEC-2026-0367, -0368, -0369) and
+# no fixed 8.x. vendor/candle-core is 0.11.0 on zip 9: its zip requirement and three lines that read
+# names (names are a Result in zip 9; src/npy.rs, src/pickle.rs). Drop this when candle moves to zip 9.
+candle-core = { path = "vendor/candle-core" }

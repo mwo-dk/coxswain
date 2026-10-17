@@ -60,17 +60,26 @@ impl Sizer {
         (at.elapsed() < FRESH).then_some(size)
     }
 
-    /// The size of `path`, remembered or measured now. `None` when `stop` was set meanwhile,
-    /// and for folders that are not on a disk (`/proc`).
-    pub fn measure(&self, path: &Path, stop: &AtomicBool) -> Option<Size> {
+    /// The size of `path` when it is cheap: measured a short while ago, or in the store.
+    /// Never a walk; the store's answer is a round trip to the helper, so not on a UI thread.
+    pub fn known_only(&self, path: &Path) -> Option<Size> {
         if let Some(size) = self.known(path) {
             return Some(size);
         }
         if not_on_disk(path) {
             return None;
         }
-        if let Some(size) = self.stored(path) {
+        self.stored(path)
+    }
+
+    /// The size of `path`, remembered or measured now. `None` when `stop` was set meanwhile,
+    /// and for folders that are not on a disk (`/proc`).
+    pub fn measure(&self, path: &Path, stop: &AtomicBool) -> Option<Size> {
+        if let Some(size) = self.known_only(path) {
             return Some(size);
+        }
+        if not_on_disk(path) {
+            return None;
         }
         let size = self.pool.install(|| walk(path, stop))?;
         self.known
@@ -189,6 +198,28 @@ mod tests {
                 .measure(Path::new("/proc"), &go)
                 .filter(|_| cfg!(unix)),
             None
+        );
+        fs::remove_dir_all(d).unwrap();
+    }
+
+    /// Cheap or nothing: a size measured a short while ago, else `None`, never a walk. The
+    /// store's answer is tested with a helper in `helper::tests`.
+    #[test]
+    fn known_only_never_walks() {
+        let d = std::env::temp_dir().join(format!("coxswain-known-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&d);
+        fs::create_dir_all(d.join("a")).unwrap();
+        fs::write(d.join("a/one"), [0u8; 10]).unwrap();
+        let sizer = Sizer::default();
+        assert_eq!(sizer.known_only(&d.join("a")), None, "neither: not walked");
+        assert_eq!(sizer.known(&d.join("a")), None, "and nothing remembered");
+        sizer.measure(&d.join("a"), &AtomicBool::new(false));
+        assert_eq!(sizer.known_only(&d.join("a")), Some((10, 1)), "remembered");
+        sizer.forget(&d.join("a/one"));
+        assert_eq!(
+            sizer.known_only(&d.join("a")),
+            None,
+            "forgotten, not walked again"
         );
         fs::remove_dir_all(d).unwrap();
     }

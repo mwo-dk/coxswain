@@ -764,7 +764,15 @@ impl App {
         let p = &self.panels[side];
         let (dir, tx, sizer) = (p.dir.clone(), self.sizes_tx.clone(), self.sizer.clone());
         let folders: Vec<PathBuf> = p.entries.iter().filter(|e| e.is_dir && !e.is_parent() && !p.sizes.contains_key(&e.path)).map(|e| e.path.clone()).collect();
+        // The folder above, only when its size is already known: never walked from here.
+        let up = p.entries.iter().find(|e| e.is_parent()).map(|e| e.path.clone()).filter(|u| !p.sizes.contains_key(u));
         std::thread::spawn(move || {
+            if let Some(up) = up
+                && let Some((bytes, _)) = sizer.known_only(&up)
+                && tx.send((dir.clone(), up, bytes)).is_err()
+            {
+                return;
+            }
             for f in folders {
                 let Some((bytes, _)) = sizer.measure(&f, &stop) else { continue };
                 if stop.load(Ordering::Relaxed) || tx.send((dir.clone(), f, bytes)).is_err() {

@@ -108,7 +108,10 @@ pub fn run() {
     let gpu = machine.gpu.as_ref().map_or_else(|| t!("setup.no_gpu"), |(_, name, vram)| vram.map_or(name.clone(), |v| format!("{name} ({v} GB)")));
     println!("{}", t!("setup.machine", "what" => if machine.npu { format!("{gpu} + NPU") } else { gpu }, "ram" => machine.ram));
     println!("{}", advice.why);
-    if found.is_empty() {
+    // A graphics card and no server: a local Ollama would use the card, and how to get it.
+    if let Some(faster) = &advice.faster {
+        println!("{}{}", faster.text, faster.how);
+    } else if found.is_empty() {
         println!("{}", t!("setup.none_found"));
     }
     let best = setup::best(&found, &advice).map(|b| b.url.clone());

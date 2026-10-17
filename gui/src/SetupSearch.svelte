@@ -5,6 +5,7 @@
   import { ui } from "./app.svelte.js";
   import { invoke, size } from "./lib.js";
   import { t } from "./i18n.svelte.js";
+  import CopyLine from "./CopyLine.svelte";
 
   const s = $derived(ui.cfg.settings);
   // Back to where it was started from (the first-run guide), else closed.
@@ -180,7 +181,8 @@
           <label class="choice" class:on={server === null}><input type="radio" name="server" checked={server === null} onchange={() => (chosen = null)} />
             <span>{t("setup.builtin", { size: size(meaning?.size ?? 0), where: look.builtin_runs })}{#if look.advice.server == null || !look.found.length}<span class="badge">{t("setup.recommended")}</span>{/if}</span></label>
         </div>
-        {#if !look.found.length}<p class="hint">{t("setup.none_found")}</p>{/if}
+        {#if look.advice.faster}<p class="hint">{look.advice.faster.text}{#if look.advice.faster.copy}{" "}<CopyLine line={look.advice.faster.copy} />{:else}{look.advice.faster.how}{/if}</p>
+        {:else if !look.found.length}<p class="hint">{t("setup.none_found")}</p>{/if}
         <div class="row">
           <input placeholder="http://192.168.1.20:11434" bind:value={remoteUrl} spellcheck="false" aria-label={t("setup.other")} />
           <button disabled={!remoteUrl.trim()} onclick={probeRemote}>{t("setup.look")}</button>

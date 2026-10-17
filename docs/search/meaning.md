@@ -257,7 +257,13 @@ Nothing is stored. From a shell, `coxswain --meaning bench` says the same, and
 changing anything, so you can compare before a switch that starts the queue over. A server
 loads its model on the first passage, which is not timed.
 
-#### Why is it so slow with Ollama?
+#### Why does it say Ollama would be faster?
+On a PC with a graphics card and no model server, the built-in model reads meaning on the
+processor; Ollama would use the card. The setup guide (step 2) says so, with the command for your
+system, and a notice says it once. See [A graphics card and no
+server](setup.md#a-graphics-card-and-no-server).
+
+
 Look at `ollama ps`: *100% CPU* means Ollama runs without your graphics card. Install the build of
 Ollama for your GPU (on Arch and CachyOS `ollama-cuda` or `ollama-rocm`) and restart it.
 

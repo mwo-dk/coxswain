@@ -20,11 +20,9 @@ listed under the answer, numbered the same way, under a line that says how much 
 The answer opens in place of the list; **Esc** goes back to the list. Nothing is kept: the
 questions and answers exist only while Find is open, and closing it forgets them.
 
-<picture><source media="(prefers-reduced-motion: reduce)" srcset="../screenshots/ask.png"><img src="../screenshots/ask.gif" alt="Ctrl+F opens Find, rocket fuel cost is typed and Ctrl+Enter asks; after a wait the answer appears in place, Rocket fuel costs 2,105 kEUR in April and 2,655 kEUR in June [1], with the numbered sources budget.txt and budget-da.txt under it and the line Enter ask, or go to the source"></picture>
+<picture><source media="(prefers-reduced-motion: reduce)" srcset="../screenshots/ask.png"><img src="../screenshots/ask.gif" alt="Ctrl+F opens Find, rocket fuel cost is typed and Ctrl+Enter asks; the answer appears in place, The rocket fuel costs 2,105 kEUR in April and 2,655 kEUR in June [1], with the dim line 2 excerpts from 2 files, about 50 words over the numbered sources budget.txt and budget-da.txt and the line Enter ask, or go to the source; Esc goes back to the list"></picture>
 
-*`qwen3:8b` on Ollama on the same machine; the wait for the first word is cut short.*
-
-<!-- screenshot: ask.png: Ask's answer with the dim line "N excerpts from M files, about … words" over the numbered sources (and ask.gif retaken the same way) -->
+*`qwen3:8b` on Ollama on the same machine, the model already loaded.*
 
 ## Contents
 

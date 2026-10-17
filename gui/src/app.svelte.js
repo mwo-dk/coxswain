@@ -132,10 +132,15 @@ export const tab = (i = ui.activePane) => ui.panes[i]?.tabs[ui.panes[i].active];
 export const otherTab = () => tab(ui.dual ? ui.activePane ^ 1 : ui.activePane);
 export const item = (t = tab()) => t?.items[t.cursor];
 
+/** The built-in themes' ids, in their order. */
+const builtinIds = () => ui.cfg.builtin_themes.map(([id]) => id);
 /** Every theme's id: the built-in ones in their order, then the user's `[themes.<name>]`. */
-export const themeIds = () => [...ui.cfg.builtin_themes, ...Object.keys(ui.cfg.themes).filter((id) => !ui.cfg.builtin_themes.includes(id))];
+export const themeIds = () => {
+  const builtin = builtinIds();
+  return [...builtin, ...Object.keys(ui.cfg.themes).filter((id) => !builtin.includes(id))];
+};
 /** A theme's name as shown: translated when built in, else as the user named it. */
-export const themeName = (id) => (ui.cfg.builtin_themes.includes(id) ? t(`theme.${id}`) : id);
+export const themeName = (id) => (builtinIds().includes(id) ? t(`theme.${id}`) : id);
 
 /** Show a theme; with `save`, also store it in config.toml, as Settings does. */
 export async function setTheme(name, save = false) {
@@ -393,6 +398,14 @@ export async function measureFolders(t, paths) {
   if (!paths && measuring.get(t) === dir) return;
   if (!paths) measuring.set(t, dir);
   try {
+    // The folder above only when its size is already known (measured lately, or in the store):
+    // never walked for this.
+    const up = !paths && t.items.find((e) => e.name === "..");
+    if (up && t.sizes[up.path] === undefined) {
+      const r = await invoke("dir_size_known", { path: up.path });
+      if (t.dir !== dir) return;
+      if (r) [t.sizes[up.path], t.counts[up.path]] = r;
+    }
     const todo = paths ?? t.items.filter((e) => e.is_dir && e.name !== ".." && t.sizes[e.path] === undefined).map((e) => e.path);
     for (const p of todo) {
       if (t.dir !== dir) return;
