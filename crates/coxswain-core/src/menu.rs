@@ -107,24 +107,24 @@ impl Action {
             Duplicates => disk && (s.folders > 0 || n == 0),
             // On `..` with nothing marked: the panels themselves.
             SwapPanels | SameDir | TogglePanels => n == 0,
-            // What Coxswain can do, from any menu.
-            Features => true,
+            // What Coxswain can do, and Settings, from any menu.
+            Features | Settings => true,
             _ => false,
         }
     }
 }
 
-/// The headings the action menu shows, in its order: opening and looking first, the app (what
-/// Coxswain can do) last.
+/// The headings the action menu shows, in its order: opening first, then the app (Settings,
+/// what Coxswain can do), so Settings is found near the top, then looking and the rest.
 const GROUPS: [Group; 8] = [
     Group::Moving,
+    Group::App,
     Group::Viewing,
     Group::Files,
     Group::Archives,
     Group::Search,
     Group::Git,
     Group::Panels,
-    Group::App,
 ];
 
 /// The action menu for `s`: under each heading the actions that fit, the most used first.
@@ -155,6 +155,7 @@ const HINTS: &[(&str, &[(&str, Action)])] = &[
     ("menu", &[("key", Action::ActionMenu)]),
     ("find", &[("key", Action::Search)]),
     ("features", &[("key", Action::Help)]),
+    ("settings", &[("key", Action::Settings)]),
     ("quick", &[]),
     (
         "panels",
@@ -191,7 +192,7 @@ fn fits(id: &str, s: &Subject) -> bool {
     let disk = s.place == Place::Disk;
     match id {
         "menu" => s.count() > 0,
-        "find" | "features" => true,
+        "find" | "features" | "settings" => true,
         "quick" => disk && s.count() > 0,
         "panels" => disk && s.count() == 0,
         "marked" => s.marked > 1 && s.writable(),
@@ -331,9 +332,9 @@ mod tests {
         };
         let n = names(&file, true);
         assert_eq!(
-            &n[..3],
-            ["open", "view", "edit"],
-            "opening and looking first: {n:?}"
+            &n[..5],
+            ["open", "features", "settings", "view", "edit"],
+            "opening first, Settings near the top, then looking: {n:?}"
         );
         for a in ["copy", "move", "rename", "delete", "pack", "properties"] {
             assert!(n.contains(&a), "{a} in {n:?}");
@@ -481,6 +482,9 @@ mod tests {
         assert_eq!(pick(&folder, &cfg, &shown).map(|h| h.0), Some("features"));
         assert!(pick(&folder, &cfg, &shown).unwrap().1.contains("F1"));
         shown.insert("features".to_string(), TIMES);
+        assert_eq!(pick(&folder, &cfg, &shown).map(|h| h.0), Some("settings"));
+        assert!(pick(&folder, &cfg, &shown).unwrap().1.contains("F12"));
+        shown.insert("settings".to_string(), TIMES);
         assert_eq!(pick(&folder, &cfg, &shown).map(|h| h.0), Some("quick"));
         shown.insert("quick".to_string(), TIMES);
         let parent = Subject::default();

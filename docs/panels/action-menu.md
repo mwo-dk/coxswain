@@ -11,7 +11,7 @@ it*.
 
 <picture><source media="(prefers-reduced-motion: reduce)" srcset="../screenshots/action-menu.png"><img src="../screenshots/action-menu.gif" alt="The desktop app: the cursor on the folder src, Shift+F10 opens What to do with &quot;src&quot; with Open, Path to command line, Copy, Move, Rename, Delete, New folder, Pack into an archive and the git entries under their headings; Down moves to Rename, Enter asks for the new name"></picture>
 
-![The terminal app's action menu on a file: What to do with "README.md", with Open, View, Edit and Path to command line under Moving and Viewing, Copy, Move, Rename, Delete, New folder and Properties under Files, Pack under Archives, Git history, Git branches and Git worktrees under Git, Features and questions under App](../screenshots/action-menu-tui.png)
+![The terminal app's action menu on a file: What to do with "README.md", with Open under Moving, Features and questions and Settings (Ctrl+,) under App, View, Edit and Path to command line under Viewing, Copy, Move, Rename, Delete, New folder and Properties under Files, Pack under Archives, Find, Find in files and Ask under Search, Git history, Git branches and Git worktrees under Git; the key bar ends in 12 Settings](../screenshots/action-menu-tui.png)
 
 - [Opening the menu](#opening-the-menu)
 - [What it lists](#what-it-lists)
@@ -49,13 +49,13 @@ asks first (unless you turned that off).
 ## What it lists
 
 The actions that fit, under the headings of the [command list](command-list.md), in this order:
-opening and looking first, then files, archives, search, git, the panels and the app; in each
-heading the most used first (*Moving*, *Viewing*, *Files*, *Archives*, *Search*, *Git*, *Panels*,
-*App*).
+opening first, then the app (Features and questions, Settings), so Settings is near the top,
+then looking, files, archives, search, git and the panels; in each heading the most used first
+(*Moving*, *App*, *Viewing*, *Files*, *Archives*, *Search*, *Git*, *Panels*).
 
 | Under the cursor (or marked) | The menu lists |
 |---|---|
-| Anything, anywhere | Find (**Alt+F7**, **Ctrl+F**), Search inside files (**Shift+F7**), Ask your files (**Ctrl+F7**) under *Search*; [Features and questions](features.md) under *App* |
+| Anything, anywhere | Find (**Alt+F7**, **Ctrl+F**), Search inside files (**Shift+F7**), Ask your files (**Ctrl+F7**) under *Search*; [Features and questions](features.md) and [Settings](../customise/settings.md) (**Ctrl+,**, **F12**) under *App* |
 | A file | Open, View (**F3**), Edit (**F4**), Path to command line (**Ctrl+Enter**), Folder notes (**Alt+N**, desktop app), Copy (**F5**), Move (**F6**), Rename (**Shift+F6**), Delete (**F8**), New folder (**F7**), Copy to clipboard (**Ctrl+C**, desktop app), Properties (**Alt+Enter**), Colour tag (**Alt+T**, desktop app), Pack into an archive (**Alt+F5**) |
 | A folder | Open, Path to command line, Folder notes, Copy, Move, Rename, Delete, New folder, Copy to clipboard, Properties, Colour tag, Pack into an archive, Find duplicates (**Ctrl+D**, desktop app) |
 | An archive (zip, tar, 7z …) | What a file has, and Extract archive (**Ctrl+E**); Open goes into it like a folder |
@@ -86,6 +86,7 @@ the cursor, in a dim colour. The first ones teach the menu itself; then they tea
 | Anything | *Shift+F10 / Menu: what you can do with this* |
 | Anywhere | *Alt+F7 / Ctrl+F finds anything on this machine* |
 | Anywhere | *F1 → Features: everything Coxswain can do, with questions answered* ([Features and questions](features.md)) |
+| Anywhere | *Ctrl+, / F12 opens Settings: theme, keys, language and every other option* ([Settings](../customise/settings.md)) |
 | A file or folder | *Alt+letter jumps to a name: type how it starts* ([Quick search](quick-search.md)) |
 | `..`, nothing marked | *Ctrl+U swaps the panels · Alt+O shows this folder in the other one · Ctrl+O panels on or off* |
 | Several marked | *F5 copies them to the other panel · F6 moves them* |

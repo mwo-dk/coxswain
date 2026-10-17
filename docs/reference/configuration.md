@@ -187,7 +187,7 @@ changing them: [Changing keys](../customise/keys.md)):
 | `refresh` | `Ctrl+R` | `pack` | `Alt+F5` |
 | `swap_panels` | `Ctrl+U` | `columns` | none |
 | `toggle_panels` | `Ctrl+O` | `duplicates` | `Ctrl+D` |
-| `toggle_hidden` | `Alt+.` | `settings` | `Ctrl+,` |
+| `toggle_hidden` | `Alt+.` | `settings` | `Ctrl+,`, `F12` |
 | `history` | `Ctrl+G` | `branches` | `Alt+B` |
 | `worktrees` | `Alt+W` | `switch_branch` | `Alt+S` |
 | `new_branch` | none | `snapshots` | `Alt+Z` |

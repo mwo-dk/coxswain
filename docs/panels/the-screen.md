@@ -56,8 +56,8 @@ skips it. **F1** → *Show the guide again* (desktop app), **F1** then **G** (te
 | Sort order | A letter bottom right: `n` name, `x` extension, `t` time, `s` size; upper case when reversed | An arrow next to the column header that sorts ([Sorting](sorting.md)) |
 | Command line | The row under the panels: `/home/demo/projects/rocket> ` | The row under the panes: the folder, `❯`, and *Type a command…* |
 | Status | In the command line row, until the next key | Right of the command line, until the next key |
-| Settings | – (**F9** → *Settings*) | *Settings* with a cog, at the right of the command line row. Its tooltip: *Settings · Ctrl+, · What's new: 2, under Overview*; a click opens Settings at *Overview* |
-| F-key bar | The bottom row: the number and label of **F1** to **F10** | The bottom row of buttons; a key with no action is greyed |
+| Settings | *12 Settings* at the right end of the F-key bar (**F12**) | *Settings* with a cog, at the right of the command line row. Its tooltip: *Settings · Ctrl+, · What's new: 2, under Overview*; a click opens Settings at *Overview* |
+| F-key bar | The bottom row: the number and label of **F1** to **F10**, then **F11** and **F12** when they have an action (**F12**: *Settings*) | The bottom row of buttons; a key with no action is greyed |
 | Window title | The terminal's title: `Coxswain X.Y.Z` | The window's title, the same text |
 
 The F-key labels:
@@ -74,6 +74,7 @@ The F-key labels:
 | **F8** | *Delete* | *Delete* |
 | **F9** | *PullDn* | *Commands* |
 | **F10** | *Quit* | *Quit* |
+| **F12** | *Settings* | – (the gear button at the right of the command line row) |
 
 They follow your `[keys]`: bind another action to **F2** and its name shows there (two actions
 on one key: the one the key runs).

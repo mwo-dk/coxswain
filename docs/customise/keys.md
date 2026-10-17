@@ -112,7 +112,7 @@ not modifiers Coxswain reads; use **Ctrl** or **Alt**.
 | `refresh` | **Ctrl+R** | `pack` | **Alt+F5** |
 | `swap_panels` | **Ctrl+U** | `columns` ¹ | none |
 | `toggle_panels` | **Ctrl+O** | `duplicates` ¹ | **Ctrl+D** |
-| `toggle_hidden` | **Alt+.** | `settings` ² | **Ctrl+,** |
+| `toggle_hidden` | **Alt+.** | `settings` ² | **Ctrl+,**, **F12** |
 | `history` | **Ctrl+G** | `branches` | **Alt+B** |
 | `worktrees` | **Alt+W** | `switch_branch` | **Alt+S** |
 | `new_branch` | none | `snapshots` | **Alt+Z** |
@@ -124,8 +124,8 @@ not modifiers Coxswain reads; use **Ctrl** or **Alt**.
 ¹ The desktop app only. In the terminal app the key still belongs to the action, and pressing it
 says *… is available in the desktop app (coxswain-gui)* on the command line.
 
-² Both apps, but most terminals never pass **Ctrl+,** on: in the terminal app use **F9** →
-*Settings*, or bind it to a key the terminal sends, such as `settings = ["Alt+,"]`.
+² Both apps. Most terminals never pass **Ctrl+,** on, so **F12** is there too; the terminal
+app shows it as *12 Settings* at the right end of the F-key bar.
 
 ## Keys you cannot change
 

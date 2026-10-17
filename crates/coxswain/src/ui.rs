@@ -346,17 +346,22 @@ fn cmdline(f: &mut Frame, app: &App, area: Rect) {
 
 fn keybar(f: &mut Frame, app: &App, area: Rect) {
     let t = &app.theme;
-    let slot = area.width as usize / 10;
+    // F1 to F10 as in NC, then F11 and F12 when they run something (F12: Settings).
+    let fkey = |n| app.keymap.get(&Key::new(KeyCode::F(n), false, false, false));
+    let keys: Vec<u8> = (1..=12u8).filter(|&n| n <= 10 || fkey(n).is_some()).collect();
+    let slot = area.width as usize / keys.len();
     let mut spans = vec![];
-    for n in 1..=10u8 {
+    for (i, &n) in keys.iter().enumerate() {
         // The keymap, so the bar names the action the key runs when two share it.
         // Norton Commander's short words where the plain ones do not fit: RenMov, Mkdir, PullDn.
-        let label = app.keymap.get(&Key::new(KeyCode::F(n), false, false, false)).map_or(String::new(), |a| match a {
+        let label = fkey(n).map_or(String::new(), |a| match a {
             Action::Move | Action::NewFolder | Action::Menu => t!(&format!("tui.keybar.{}", a.name())),
             a => a.label(),
         });
         let num = n.to_string();
-        let lw = slot.saturating_sub(num.len());
+        // The last slot takes what is left over, so "12Settings" fits in 80 columns.
+        let w = if i + 1 == keys.len() { area.width as usize - slot * i } else { slot };
+        let lw = w.saturating_sub(num.len());
         spans.push(Span::styled(num, sty(&t.keybar_num)));
         spans.push(Span::styled(fit(&label, lw), sty(&t.keybar_label)));
     }

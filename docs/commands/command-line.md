@@ -83,7 +83,7 @@ without the AppImage's own libraries in their environment.
 | While it runs | The panels step aside. The terminal shows `/home/demo/projects/rocket> git log` and then the command's own output; the program has the real terminal and can read keys | The status line says *Running git log…*. The app stays usable |
 | Afterwards | The panels come back at once | The [preview pane](../previews/README.md) opens and shows the output, headed with the command in bold and *Command output* under it |
 | Output shown | As the program writes it | Standard output, then standard error, then `[exit status: 1]` on a line of its own when it failed. A command that printed nothing shows *(no output)* |
-| Look again | **Ctrl+O** (*Panels on/off*) hides the panels and shows the terminal with the last output; any key brings the panels back | The `×` in the output's header (*Close the command output and show the preview again*) goes back to the file preview; **Esc**, **F3** or **Space** close the pane |
+| Look again | **Ctrl+O** (*Panels on/off*) hides the panels and shows the terminal with the last output, with *Panels hidden · any key brings them back* under it (*No command has run yet · any key brings the panels back* before the first); any key brings the panels back | The `×` in the output's header (*Close the command output and show the preview again*) goes back to the file preview; **Esc**, **F3** or **Space** close the pane |
 | `cd` to a folder that is not there | Status line: *cd: no such folder: foo* | Status line: the error, for example `/home/demo/foo: No such file or directory (os error 2)`, and the panel stays |
 
 ## Settings and config.toml
@@ -112,8 +112,10 @@ cannot ask for your password. Use a terminal, or the terminal app, for those.
 
 #### The output flashed by in the terminal app. Where is it?
 
-Press **Ctrl+O**: the panels hide and the terminal shows what the command printed. Any key
-brings the panels back. For commands whose output you always want to read, put them in the
+Press **Ctrl+O**: the panels hide and the terminal shows what the command printed, with
+*Panels hidden · any key brings them back* in reverse video under it. Any key brings the panels
+back and takes that line away. Before any command has run the line says *No command has run yet
+· any key brings the panels back*. For commands whose output you always want to read, put them in the
 [user menu](user-menu.md) with `wait = true`, which waits for **Enter** before the panels return.
 
 #### How do I stop a command that runs too long in the desktop app?

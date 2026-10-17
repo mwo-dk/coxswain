@@ -149,7 +149,7 @@ On a Mac the shortcuts are the same, with **Ctrl**, not Cmd.
 | **F1** | Help | `help` | The help window; its *Show the guide again* button opens the [first-run guide](first-run.md) | The help screen ([Help](command-list.md)); **G** there opens the first-run guide |
 | – | Features and questions | `features` | Help's *Features and questions* tab ([Features and questions](features.md)); **F1** in a dialog opens it at that dialog's feature | **Tab** in the help screen; **F1** in a dialog opens it at that dialog's feature |
 | **F9** | Commands | `menu` | The command list | The same (the F-key bar still says *PullDn*) |
-| **Ctrl+,** | Settings | `settings` | The Settings window ([Settings](../customise/settings.md)) | The terminal app's Settings, in terminals that pass **Ctrl+,** on; **F9** → *Settings* always works |
+| **Ctrl+,**, **F12** | Settings | `settings` | The Settings window ([Settings](../customise/settings.md)) | The terminal app's Settings; most terminals pass only **F12** on, shown as *12 Settings* on the F-key bar. **Shift+F10** → *Settings* and **F9** → *Settings* always work |
 | – | Disk use | `disk_use` | Settings at *Privacy and updates* → *Disk use* ([Disk use](../reference/disk-use.md)) | The same, in the terminal app's Settings |
 | **F10** | Quit | `quit` | Close the window | Quit |
 
