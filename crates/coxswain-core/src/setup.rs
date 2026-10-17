@@ -1997,7 +1997,9 @@ mod tests {
             npu: true,
             ram: 64,
         };
-        assert_eq!(advise(&ryzen, &some).server, Some(Kind::Lemonade));
+        // FreeBSD has no Lemonade: every card goes to Ollama's Vulkan there.
+        let amd = if cfg!(target_os = "freebsd") { Kind::Ollama } else { Kind::Lemonade };
+        assert_eq!(advise(&ryzen, &some).server, Some(amd));
         let mac = Machine {
             gpu: Some((Vendor::Apple, "Apple silicon".into(), None)),
             npu: false,
