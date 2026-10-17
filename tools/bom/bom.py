@@ -128,10 +128,10 @@ def cmd_sbom(a):
 def locked_crates(metadata_path):
     """Crates in the build, by name: their versions and licences (from `cargo metadata`)."""
     meta = load(metadata_path)
-    used = {n["id"] for n in meta["resolve"]["nodes"]}
+    used = {n["id"] for n in meta["resolve"]["nodes"]} - set(meta["workspace_members"])
     crates = {}
     for p in meta["packages"]:
-        if p["id"] in used and p.get("source"):
+        if p["id"] in used:
             crates.setdefault(p["name"], []).append(p)
     return crates
 
