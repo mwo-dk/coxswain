@@ -436,10 +436,10 @@ impl Status {
         let fetched = self
             .git_dirs
             .iter()
-            .filter_map(|d| d.join("FETCH_HEAD").metadata().ok()?.modified().ok())
-            .max()
-            .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
-            .map(|d| d.as_secs());
+            .filter_map(|d| {
+                crate::fs::secs(d.join("FETCH_HEAD").metadata().and_then(|m| m.modified()))
+            })
+            .max();
         let s = &self.summary;
         Facts {
             prompt: self.prompt(g),

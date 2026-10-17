@@ -782,7 +782,8 @@ impl App {
                     Kind::Switch => set(o.name, Value::Bool(!value.as_bool().unwrap_or(false))),
                     Kind::TextSwitch(yes, no) => set(o.name, Value::from(if value.as_str() == Some(yes) { no } else { yes })),
                     Kind::Choice(c) => {
-                        let i = pick_step(&c, c.iter().position(|(v, _)| value.as_str() == Some(v)).map_or(0, |i| (i + 1) % c.len()), 1);
+                        let next = c.iter().position(|(v, _)| value.as_str() == Some(v)).map_or(0, |i| (i + 1) % c.len());
+                        let i = pick_step(&c, next, 1);
                         set(o.name, Value::from(c[i].0.clone()))
                     }
                     _ => return self.dialog = Some(Dialog::Settings(s)),

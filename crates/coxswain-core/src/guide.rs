@@ -81,7 +81,7 @@ mod tests {
         assert!(
             THEMES
                 .iter()
-                .all(|t| crate::config::Theme::builtin().iter().any(|(n, _)| n == t))
+                .all(|t| crate::config::Theme::BUILTIN.iter().any(|(n, ..)| n == t))
         );
     }
 }

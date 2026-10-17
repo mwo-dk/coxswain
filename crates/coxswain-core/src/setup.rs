@@ -660,14 +660,13 @@ fn ollama_on_card(vram: Option<u64>, why: impl FnOnce(&str) -> String) -> Advice
     }
 }
 
+/// Ollama on the card `name` through Vulkan.
+fn vulkan(name: &str, vram: Option<u64>) -> Advice {
+    ollama_on_card(vram, |chat| crate::t!("setup.why_vulkan", "gpu" => name, "chat" => chat))
+}
+
 fn advise_server(m: &Machine, found: &[Found]) -> Advice {
     let ram = m.ram.to_string();
-    let vulkan = |name: &String, vram: &Option<u64>| {
-        ollama_on_card(
-            *vram,
-            |chat| crate::t!("setup.why_vulkan", "gpu" => name, "chat" => chat),
-        )
-    };
     match &m.gpu {
         Some((Vendor::Apple, _, _)) if found.is_empty() => Advice {
             server: None,
@@ -678,9 +677,9 @@ fn advise_server(m: &Machine, found: &[Found]) -> Advice {
         },
         // Ollama's Vulkan: Intel's cards, and every card on FreeBSD, whose port has no CUDA or ROCm.
         Some((Vendor::Nvidia | Vendor::Amd, name, vram)) if cfg!(target_os = "freebsd") => {
-            vulkan(name, vram)
+            vulkan(name, *vram)
         }
-        Some((Vendor::Intel, name, vram)) => vulkan(name, vram),
+        Some((Vendor::Intel, name, vram)) => vulkan(name, *vram),
         Some((Vendor::Nvidia, name, vram)) => {
             let gb = vram.map(|v| v.to_string()).unwrap_or_else(|| "?".into());
             ollama_on_card(
