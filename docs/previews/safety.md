@@ -49,7 +49,7 @@ open it outside the pane:
   go to the cache folder. Containers see your folders read-only. The only thing that writes is
   extracting an archive, and only when you press **Ctrl+E**.
 - **Change a database.** SQLite and DuckDB files are opened read-only; counting SQLite rows
-  stops after about a second per table.
+  stops after two and a half seconds for the whole database.
 - **Let a document run programs.** LaTeX runs without `-shell-escape`, and latexmk without the
   `latexmkrc` a project may carry (it is Perl); only your own `~/.latexmkrc` is read. pandoc
   runs with `--sandbox`, PlantUML may include files from the diagram's folder only, and

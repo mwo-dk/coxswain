@@ -1238,8 +1238,12 @@ impl Store {
         let Some(engine) = self.engine() else {
             return vec![];
         };
+        // The server answering again takes back what a failed query said.
         let q = match engine.query(query) {
-            Ok(q) => q,
+            Ok(q) => {
+                *self.meaning_error.lock().unwrap() = None;
+                q
+            }
             Err(e) => {
                 *self.meaning_error.lock().unwrap() = Some(e);
                 return vec![];

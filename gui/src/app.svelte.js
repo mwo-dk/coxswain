@@ -178,9 +178,16 @@ export async function setTheme(name, save = false) {
   }
 }
 
-/** Re-read a tab, keeping the cursor on `focus` (default: the current name). */
+/** Each tab's latest listing asked for: an answer to an older one is dropped. */
+const listing = new WeakMap();
+
+/** Re-read a tab, keeping the cursor on `focus` (default: the current name). True when listed,
+ *  false when it failed, undefined when a later load of the tab overtook it. */
 export async function load(t, dir = t.dir, focus) {
   const keep = focus ?? item(t)?.name;
+  const seq = (listing.get(t) ?? 0) + 1;
+  listing.set(t, seq);
+  const stale = () => listing.get(t) !== seq;
   // A slow disk: after a moment the status line says what is being read.
   const slow = setTimeout(() => (ui.status = tr("status.busy", { what: basename(dir) || dir })), 150);
   try {
@@ -188,6 +195,8 @@ export async function load(t, dir = t.dir, focus) {
       clearTimeout(slow);
       if (ui.status === tr("status.busy", { what: basename(dir) || dir })) ui.status = "";
     });
+    // A slow folder answering after a later cd would show the wrong folder.
+    if (stale()) return undefined;
     if (r.dir !== t.dir) {
       t.marked.clear();
       // In the same repository the last-commit column stays (empty) until git answers, so
@@ -219,6 +228,7 @@ export async function load(t, dir = t.dir, focus) {
     const at = keep ? r.items.findIndex((e) => e.name === keep || e.path === keep) : -1;
     t.cursor = at >= 0 ? at : Math.max(0, Math.min(t.cursor, r.items.length - 1));
   } catch (e) {
+    if (stale()) return undefined;
     // A locked archive, looked into: its password, kept by the app for this run, then again.
     const locked = String(e).includes(LOCKED);
     if (locked) {
@@ -404,6 +414,7 @@ export async function cd(t, dir, history = true) {
   const pre = dir.endsWith(ui.cfg.sep) ? dir : dir + ui.cfg.sep;
   const came = from.startsWith(pre) ? pre + from.slice(pre.length).split(/[\\/]/)[0] : undefined;
   const ok = await load(t, dir, came);
+  if (ok === undefined) return;
   if (!ok) {
     t.cursor = prevCursor;
     ui.status = t.error;
@@ -536,9 +547,11 @@ export async function init() {
   // directory may be gone; fall back to home.
   await Promise.all(
     ui.panes.flatMap((p) => p.tabs).map(async (t) => {
-      if (await load(t)) return;
+      const ok = await load(t);
+      if (ok !== false) return;
       const up = parent(t.dir);
-      if (!(up && (await load(t, up, basename(t.dir))))) await load(t, ui.cfg.home);
+      const above = up ? await load(t, up, basename(t.dir)) : false;
+      if (above === false) await load(t, ui.cfg.home);
     }),
   );
   invoke("places").then((p) => (ui.places = p));

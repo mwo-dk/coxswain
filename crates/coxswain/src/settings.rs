@@ -1002,7 +1002,14 @@ impl App {
         let cfg = cs::save_to(path, changes)?;
         self.theme = cfg.theme();
         self.glyphs = cfg.glyphs();
+        let hidden = cfg.show_hidden != self.cfg.show_hidden;
         self.cfg = cfg;
+        // The panels list by the app's own flag (Hidden files flips it for the run): a new setting
+        // replaces it and shows at once.
+        if hidden {
+            self.show_hidden = self.cfg.show_hidden;
+            self.reload();
+        }
         if changes.keys().any(|k| cs::find(k).is_some_and(|o| o.restarts_helper())) {
             self.index.restart();
         }
@@ -1500,9 +1507,15 @@ mod tests {
         let d = std::env::temp_dir().join(format!("coxswain-test-settings-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&d);
         std::fs::create_dir_all(d.join("mail")).unwrap();
+        std::fs::write(d.join(".secret"), "").unwrap();
         let path = d.join("config.toml");
         std::fs::write(&path, "# mine\nlanguage = \"en-GB\"\nshow_hidden = false # keep\n").unwrap();
         let mut app = app(&d);
+        let hidden = |app: &App| app.panels.iter().all(|p| p.entries.iter().any(|e| e.name == ".secret"));
+        // As at start: the panels list by the config read.
+        app.show_hidden = false;
+        app.reload();
+        assert!(!hidden(&app));
         app.cfg = Config::parse(&std::fs::read_to_string(&path).unwrap()).unwrap();
         let mut s = Settings::open(&app, "show_hidden");
         s.path = Some(path.clone());
@@ -1524,6 +1537,7 @@ mod tests {
         let text = std::fs::read_to_string(&path).unwrap();
         assert!(text.contains("# mine") && text.contains("show_hidden = true # keep"), "{text}");
         assert!(app.cfg.show_hidden);
+        assert!(app.show_hidden && hidden(&app), "the panels show hidden files at once");
         assert!(settings(&app).said.as_ref().is_some_and(|(_, bad)| !bad));
 
         // Enter edits a number in place; out of its range it is refused and not written.

@@ -344,9 +344,12 @@
     const cur = e;
     summary = null;
     if (kind !== "folder" || !cur || cur.name === "..") return;
+    // A big folder answering after the cursor moved on must not show under another.
+    let live = true;
     const timer = setTimeout(async () => {
       try {
         const r = await invoke("list_dir", { dir: cur.path, showHidden: ui.showHidden, sort: "name", reverse: false });
+        if (!live) return;
         const items = r.items.filter((x) => x.name !== "..");
         summary = {
           folders: items.filter((x) => x.is_dir).length,
@@ -355,10 +358,13 @@
           newest: items.reduce((a, x) => Math.max(a, x.modified), 0),
         };
       } catch {
-        summary = null;
+        if (live) summary = null;
       }
     }, 80);
-    return () => clearTimeout(timer);
+    return () => {
+      live = false;
+      clearTimeout(timer);
+    };
   });
 
   // Notes belong to the folder under the cursor, or to the current folder for files.
