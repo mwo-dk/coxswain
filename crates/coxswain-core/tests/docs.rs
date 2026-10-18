@@ -1,8 +1,9 @@
 //! The docs check, the part that needs the code's own lists: every built-in theme, every action,
 //! every `config.toml` key and every command-line flag is named in `docs/` (in code, as
 //! `` `page_up` `` or in a fenced block), so nothing a user can set or press goes undocumented.
-//! Links, the changelog and screenshot placeholders are `tools/docs-check.py`'s; the features
-//! (docs page ↔ `features::FEATURES`) are checked in `features.rs`.
+//! F1's texts name an action's key only through its `{action}` placeholder, so they follow the
+//! keymap. Links, the changelog and screenshot placeholders are `tools/docs-check.py`'s; the
+//! features (docs page ↔ `features::FEATURES`) are checked in `features.rs`.
 
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
@@ -197,4 +198,50 @@ fn the_flags_page_shows_the_help_as_it_is() {
         page.contains(&format!("```\n{usage}\n```")),
         "docs/reference/command-line-flags.md must show coxswain --help as crates/coxswain/src/lib.rs's USAGE has it:\n{usage}"
     );
+}
+
+/// F1 → Features (`feature.*`) and Help (`help.*`) in every language name an action's key as
+/// `{action}` (`{settings}`), never as its default written out (`F12`, `Ctrl+O`, `Alt+G`): a
+/// written key goes stale when the default changes, and is wrong for whoever changed it.
+#[test]
+fn f1_texts_name_keys_by_their_action() {
+    use coxswain_core::config::written;
+    // Keys in these texts that are not the action's: a key inside Find or a prompt, the
+    // terminal's own Ctrl+C, a `[keys]` example, the key a question is about.
+    const NOT_THE_ACTION: &[(&str, &str)] = &[
+        ("feature.change_keys.a2", "*"),
+        ("feature.clipboard.a3", "Ctrl+C"),
+        ("feature.find_file.a3", "*"),
+        ("feature.settings_window.q3", "Ctrl+,"),
+        ("feature.settings_window.a3", "Ctrl+,"),
+        ("help.also4", "Ctrl+U"),
+    ];
+    let cfg = Config::default();
+    // An F-key or a key with a modifier: `Enter`, `+` or `Space` are words too.
+    let keys: Vec<String> = Action::ALL
+        .iter()
+        .flat_map(|a| cfg.keys.get(a).into_iter().flatten())
+        .map(|k| written(k))
+        .filter(|k| (k.len() > 1 && k.contains('+')) || (k.starts_with('F') && k[1..].parse::<u8>().is_ok()))
+        .collect();
+    let edge = |c: Option<char>| c.is_some_and(|c| c.is_alphanumeric() || c == '+');
+    let mut found = vec![];
+    for e in std::fs::read_dir(root().join("crates/coxswain-core/locales")).unwrap() {
+        let path = e.unwrap().path();
+        let lang = path.file_stem().unwrap().to_string_lossy().into_owned();
+        let texts: serde_json::Map<String, serde_json::Value> = serde_json::from_str(&read(&path)).unwrap();
+        for (id, text) in &texts {
+            let Some(text) = text.as_str().filter(|_| id.starts_with("feature.") || id.starts_with("help.")) else { continue };
+            for k in &keys {
+                if NOT_THE_ACTION.iter().any(|&(i, key)| i == id && (key == "*" || key == k)) {
+                    continue;
+                }
+                if text.match_indices(k.as_str()).any(|(i, _)| !edge(text[..i].chars().next_back()) && !edge(text[i + k.len()..].chars().next())) {
+                    found.push(format!("{lang} {id}: {k}"));
+                }
+            }
+        }
+    }
+    found.sort();
+    assert!(found.is_empty(), "a default key written out in F1's texts; use its {{action}} placeholder:\n{}", found.join("\n"));
 }

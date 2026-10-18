@@ -9,8 +9,8 @@
 2. The version in Cargo.toml has its row in docs/changelog.md, and the README's changelog table is
    the newest ten rows of docs/changelog.md, word for word (links compared by where they lead).
 3. No version older than the current major.minor is shown as Coxswain's own (`coxswain 1.20.0`,
-   `User-Agent: coxswain/1.20.0`, `coxswain-terminal-v1.23.1-…`) outside the changelogs and picture
-   descriptions: such examples go stale, so they say `X.Y.Z`.
+   `User-Agent: coxswain/1.20.0`, `coxswain-terminal-v1.23.1-…`) outside the changelogs, picture
+   descriptions and alt texts included: such examples go stale, so they say `X.Y.Z`.
 4. Every page in docs/README.md's order (then faq.md and changelog.md) ends with *Previous* and
    *Next* links to its neighbours in that order, and starts with a link back to the README; a
    page of more than 150 lines has a table of contents (a list of links to its own headings).
@@ -18,6 +18,8 @@
    over the base branch's (--base, else origin/$GITHUB_BASE_REF, else origin/master); otherwise
    each one is a warning. The pictures in NEEDS_HARDWARE are only warned about: each needs a
    machine or a runtime the sandbox has not, and says which.
+6. Every question under a *Questions* heading is a `####` heading, so the FAQ and other pages can
+   link to its answer: no question as a bold paragraph (`**Why …?** …`), none at another level.
 
 What the code shows (themes, actions, config keys, flags, features) is checked by
 `cargo test -p coxswain-core --test docs`. Python 3.11+, standard library only.
@@ -232,13 +234,32 @@ def check_stale_versions(v: str) -> None:
         if rel(page) in HISTORY:
             continue
         for n, line in enumerate(read(page).splitlines(), 1):
-            line = re.sub(r"!\[[^\]]*\]", "", line)  # a picture's description says what it shows
             for m in OWN_VERSION.finditer(line):
                 history = re.search(r"\b(until|before|since|after|from)\W*$", line[: m.start()], re.I) or re.match(
                     r"\s+and (later|earlier)", line[m.end() :]
                 )  # "until Coxswain 1.17.0", "2.1.1 and later": history, not an example
                 if (int(m.group(1)), int(m.group(2))) < now and not history:
                     error(f"{rel(page)}:{n}", f"{m.group(0)}: an old version as an example; say X.Y.Z")
+
+
+def check_questions() -> None:
+    for page in pages():
+        level = 0  # the level of the Questions heading the lines are under, 0 when none
+        for n, line in prose_lines(read(page)):
+            where = f"{rel(page)}:{n}"
+            if re.match(r"^\*\*[^*].*?\?\*\*", line):
+                error(where, "a question as a bold paragraph: make it a #### heading, its answer below")
+            m = re.match(r"^(#{1,6})\s+(.*?)\s*$", line)
+            if not m:
+                continue
+            depth, text = len(m.group(1)), m.group(2)
+            if text.endswith("?"):
+                if level and depth != 4:
+                    error(where, f"a question under Questions is a #### heading, not {m.group(1)}")
+            elif text.startswith("Questions"):
+                level = depth
+            elif depth <= level:
+                level = 0
 
 
 def base_version(base: str | None) -> str | None:
@@ -303,6 +324,7 @@ def main() -> int:
     check_changelog(v)
     check_stale_versions(v)
     check_order()
+    check_questions()
     p = check_placeholders(v, args.base)
     for e in errors:
         print(e, file=sys.stderr)
