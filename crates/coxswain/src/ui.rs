@@ -14,7 +14,12 @@ use std::str::FromStr;
 use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
 
 pub(crate) fn sty(s: &config::Style) -> Style {
-    let color = |c: &str| (!c.is_empty()).then(|| Color::from_str(c).ok()).flatten();
+    // `#rrggbb`, what the themes write, read directly: `Color::from_str` tries the colour
+    // names first, which costs more than the rest of a row's drawing.
+    let color = |c: &str| match c.strip_prefix('#').filter(|h| h.len() == 6 && h.bytes().all(|b| b.is_ascii_hexdigit())).and_then(|h| u32::from_str_radix(h, 16).ok()) {
+        Some(n) => Some(Color::Rgb((n >> 16) as u8, (n >> 8) as u8, n as u8)),
+        _ => (!c.is_empty()).then(|| Color::from_str(c).ok()).flatten(),
+    };
     let mut out = Style::default();
     if let Some(c) = color(&s.fg) {
         out = out.fg(c);
@@ -114,7 +119,41 @@ pub fn draw(f: &mut Frame, app: &mut App) {
     }
 }
 
+/// What a panel's folder is, as its title's badge says: read from the disk once per folder.
+pub enum Place {
+    Archive,
+    History(coxswain_core::history::At),
+    /// A dataset's list of snapshots.
+    Snapshots,
+    Plain,
+}
+
+impl Place {
+    fn of(dir: &std::path::Path) -> Place {
+        if coxswain_core::archive::split(dir).is_some() {
+            Place::Archive
+        } else if let Some(at) = coxswain_core::history::split(dir) {
+            Place::History(at)
+        } else if coxswain_core::zfs::split(dir).is_some() {
+            Place::Snapshots
+        } else {
+            Place::Plain
+        }
+    }
+}
+
 fn panel(f: &mut Frame, app: &mut App, side: usize, area: Rect) {
+    // What drawing needs from the disk, read when the folder or the symlink under the cursor
+    // is new, not at every frame.
+    let p = &mut app.panels[side];
+    if p.place.as_ref().is_none_or(|(d, _)| *d != p.dir) {
+        p.place = Some((p.dir.clone(), Place::of(&p.dir)));
+    }
+    if let Some(e) = p.current().filter(|e| e.is_symlink)
+        && p.link.as_ref().is_none_or(|(at, _)| *at != e.path)
+    {
+        p.link = Some((e.path.clone(), std::fs::read_link(&e.path).ok()));
+    }
     let t = &app.theme;
     let active = side == app.active && app.dialog.is_none();
     let (base, border) = (sty(&t.panel), sty(&t.border).bg(sty(&t.panel).bg.unwrap_or(Color::Reset)));
@@ -123,16 +162,17 @@ fn panel(f: &mut Frame, app: &mut App, side: usize, area: Rect) {
     let title_style = if side == app.active { sty(&t.cursor) } else { border };
     // Inside an archive the title says so, so a copy out is not taken for one between folders.
     // So is a history, with the commit looked into.
-    let dir = match (coxswain_core::archive::split(&p.dir), coxswain_core::history::split(&p.dir)) {
-        (Some(_), _) => format!("{} [{}]", p.dir.to_string_lossy(), t!("archive.badge")),
-        (_, Some(at)) => match (at.commit, at.view) {
+    let place = p.place.as_ref().map_or(&Place::Plain, |(_, pl)| pl);
+    let dir = match place {
+        Place::Archive => format!("{} [{}]", p.dir.to_string_lossy(), t!("archive.badge")),
+        Place::History(at) => match (&at.commit, at.view) {
             (Some(c), _) => format!("{} [{}]", p.dir.to_string_lossy(), t!("history.badge_at", "commit" => &c[..c.len().min(7)])),
             (None, coxswain_core::history::View::History) => format!("{} [{}]", p.dir.to_string_lossy(), t!("history.badge")),
             (None, coxswain_core::history::View::Branches) => format!("{} [{}]", p.dir.to_string_lossy(), t!("branches.badge")),
             (None, coxswain_core::history::View::Worktrees) => format!("{} [{}]", p.dir.to_string_lossy(), t!("worktrees.badge")),
         },
         // Among a dataset's snapshots: which, of which dataset.
-        _ => match (coxswain_core::zfs::in_snapshot(&p.dir), coxswain_core::zfs::split(&p.dir), &p.package) {
+        _ => match (coxswain_core::zfs::in_snapshot(&p.dir), matches!(place, Place::Snapshots).then_some(()), &p.package) {
             (Some(s), ..) => {
                 let ds = p.zfs.as_ref().map_or(String::new(), |f| f.dataset.clone());
                 format!("{} [{}]", p.dir.to_string_lossy(), t!("zfs.badge_at", "name" => s.name, "dataset" => ds))
@@ -302,10 +342,8 @@ fn panel(f: &mut Frame, app: &mut App, side: usize, area: Rect) {
             right = format!(" {}{right}", t!("tui.online", "key" => app.key_label(coxswain_core::config::Action::View)));
         }
         let mut name = e.name.clone();
-        if e.is_symlink {
-            if let Ok(target) = std::fs::read_link(&e.path) {
-                name = format!("{name} -> {}", target.display());
-            }
+        if let Some((_, Some(target))) = p.link.as_ref().filter(|(at, _)| e.is_symlink && *at == e.path) {
+            name = format!("{name} -> {}", target.display());
         }
         Line::from(vec![Span::styled(fit(&name, w.saturating_sub(right.width())), base), Span::styled(right, base)])
     } else {
@@ -921,4 +959,18 @@ pub(crate) fn properties(p: &coxswain_core::fs::Props, snapshots_key: &str) -> S
         }
     }
     out.join("\n")
+}
+
+#[cfg(test)]
+mod sty_tests {
+    use super::*;
+
+    /// A theme's `#rrggbb`, read directly, is the colour `Color::from_str` reads.
+    #[test]
+    fn hex_colours_read_as_ratatui_reads_them() {
+        for c in ["#ffffff", "#1A2b3C", "#000000", "red", "", "#12345", "#+12345"] {
+            let s = config::Style { fg: c.into(), ..Default::default() };
+            assert_eq!(sty(&s).fg, (!c.is_empty()).then(|| Color::from_str(c).ok()).flatten(), "{c}");
+        }
+    }
 }
