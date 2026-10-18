@@ -242,6 +242,7 @@ Mac's GPU ([Ask without a server](ask-builtin.md#how-it-runs)).
 ## Questions
 
 #### What is sent, and where?
+
 With the [built-in chat model](ask-builtin.md): nothing; it answers on this machine. With a server's: the question, the questions and answers before it in this Find, and the excerpts with
 their file paths (for a question about the folder as a whole, also its README, project files,
 folder tree and docs index), as much as `ask_context` holds, to the chat model on the server set under *Settings → Finding files → Details → Meaning* (Ollama on this machine
@@ -249,6 +250,7 @@ with the built-in model). Nothing else, and nothing to anyone else. With a serve
 machine, Settings says so in bold, as for the vectors. See [Privacy](../reference/privacy.md).
 
 #### How much of my files does Ask read?
+
 As much as the chat model's context holds: with a server's model and the default 8,192 tokens,
 about 2,500–3,000 words, from up to about a dozen files; with the built-in model on a processor,
 the closest three or four passages. The line over the sources says what it was, for example
@@ -256,6 +258,7 @@ the closest three or four passages. The line over the sources says what it was, 
 after it, and the files that match best give more. See [How much it reads](#how-much-it-reads).
 
 #### Why does a question about the whole project read the README?
+
 A broad question (*what is this repository's code about?*, *give me an overview*) has no
 passage that answers it: the closest passages are scattered fragments. Ask reads the folder's
 README, its project files (`Cargo.toml`, `package.json`, …), its folder tree and its docs index
@@ -264,6 +267,7 @@ sources. The folder is Find's scope (*In rocket*) or, with the scope on everywhe
 panel's folder: open the project's top folder before you ask.
 
 #### Can Ask read more?
+
 With a model on a server, yes: raise *Context for a server's model* under *Settings → Finding
 files → Details → Ask*, or `ask_context` under `[search]` in `config.toml` (both apps; the
 terminal app's Settings has it under *Ask*). 16,384 reads about twice as much. Each token holds
@@ -279,12 +283,14 @@ type the number). The other way round, Ask set to more than the model takes, the
 server will refuse long questions and the button sets what the model takes.
 
 #### My OpenAI-style server says the prompt is too long. Why?
+
 Coxswain can ask Ollama for a context but not Lemonade, LM Studio, llama.cpp or vLLM: they use
 the context the model was loaded with, and LM Studio's default is 4,096 tokens. Load the model
 there with a context of at least `ask_context` (8,192), or set `ask_context` to what the server
 has.
 
 #### Does Ask see the whole of a long document?
+
 Yes, since 1.39.0: every passage of a file has a vector, up to 256 of them (about 25,000 words), so
 the passage that answers can come from the last chapter. Each passage is matched with the file's
 name, its folder and its Markdown heading in front of it, so *what does the rocket plan say about
@@ -294,6 +300,7 @@ the vectors are being [renewed](meaning.md#why-is-search-by-meaning-re-reading-e
 waiting for its new ones gives no passages yet.
 
 #### Why does it say the sources do not hold the answer?
+
 The model is told to answer from the sources only and to say so when they do not answer the
 question. Ask with other words, or check with Find (**Shift+F7**, *In files*) that the file is read: folders
 outside *Folders read*, *Names only* folders and files still waiting for their vectors are not
@@ -308,20 +315,24 @@ of its sources; Find still lists them, and the model is told to name only files 
 show.
 
 #### Can it answer from one folder only?
+
 Yes. Switch Find's scope with **Ctrl+F** inside Find (*In rocket*, `[in rocket]` in the terminal
 app) before you ask: the passages then come from that folder and below. With nothing close
 there, it says *Nothing in the files in rocket is close to the question.*
 
 #### Are the answers kept, for next time?
+
 No. They live in the Find window only. Closing it forgets them, and nothing is written to
 disk.
 
 #### Can Ask work without Ollama or any server?
+
 Yes: choose the [built-in chat model](ask-builtin.md) in step 4 of the guide, or in the
 *Chat model* list in Settings, or run `coxswain --meaning ask builtin:qwen3-1.7b`. It is downloaded
 once (1.0 GB) and runs on a Mac's GPU, or slowly on the processor elsewhere.
 
 #### How do I switch Ask to another model?
+
 Pick it in *Chat model*: **Ctrl+,** → *Finding files* → *Details* → *Ask* (terminal app:
 **Enter** on *Chat model*, **↑ ↓**, **Enter**). The list holds the server's chat models (Ollama
 here when search by meaning uses the built-in model, else the server that makes the vectors)
@@ -331,6 +342,7 @@ server…**. Before 2.15.0 the field was a text box whose suggestions only match
 already in it, so a built-in model there hid Ollama's.
 
 #### Which chat model should I pick?
+
 When a server runs a model on your graphics card, that one: Coxswain recommends it, and says
 in red when a built-in model on the processor is chosen instead. With no server, the built-in Qwen3 1.7B, or Qwen3 4B Instruct on a Mac with 16 GB or more. On a server, one that fits your GPU's memory: `qwen3:8b` or `llama3.1:8b` with 8 GB, `gemma3:12b` or
 `qwen3:14b` with 12–16 GB. Models of 3–4 B parameters answer on a CPU too, slowly. A
@@ -338,6 +350,7 @@ multilingual model answers questions in other languages; Ask tells it to answer 
 question's language.
 
 #### The first answer takes long. Why?
+
 The server loads the model into memory on the first question; that can take half a minute. On
 Ollama, Ask has the model loaded while it looks the sources up, so the wait starts before the
 question is sent. A server with the OpenAI API (Lemonade, LM Studio, llama.cpp) is sent nothing
@@ -349,6 +362,7 @@ would add many seconds more; Ask asks it not to ([Thinking](#thinking)).
 <a id="it-says-my-model-makes-vectors-and-cannot-answer-why"></a>
 
 #### It says my model only reads meaning and cannot answer. Why?
+
 The model in *Chat model* is an embedding model, such as `bge-m3` or `nomic-embed-text`: it turns
 text into vectors for search by meaning and cannot write an answer. Pick a chat model instead,
 such as `qwen3:8b`. On Ollama, Coxswain asks the server what each model can do (`/api/show`)
@@ -358,6 +372,7 @@ you choose is sent a one-word question when you save it (Settings, or `coxswain 
 its error, if any, shows under *Chat model*.
 
 #### Why does a follow-up sometimes find other sources?
+
 Each question looks up its own passages, together with the question before it. The numbers
 under each answer are that answer's sources.
 

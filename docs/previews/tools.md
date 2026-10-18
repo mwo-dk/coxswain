@@ -51,7 +51,7 @@ your click.
 | Key | Desktop app | Terminal app |
 |---|---|---|
 | **Space** / **F3** | Shows or hides the pane | – |
-| **Ctrl+,** | Settings | – (edit `config.toml`) |
+| **Ctrl+,** | Settings | **F12**: the same *Previews* area, which sets the desktop app's previews |
 
 ## How it works
 
@@ -114,8 +114,8 @@ runs the command: paste it into a shell, then show the file again.
 ![The preview pane on sequence.puml with no plantuml and no container runtime: plantuml is not installed. Neither podman nor docker is installed., the line Install it: sudo pacman -S plantuml with Copy, and Settings → Previews](../screenshots/previews-install-line.png)
 
 The package manager is the system's own: `pkg` on FreeBSD, `pkgin` on NetBSD, `pkg_add` on
-OpenBSD, `pkg` on illumos, Homebrew on a Mac, `winget` on
-Windows, and on Linux the first of `pacman`, `apt`, `dnf` and `zypper` that is installed.
+OpenBSD, `pkg` on illumos, on Linux the first of `pacman`, `apt`, `dnf` and `zypper` that is
+installed, Homebrew on a Mac and `winget` on Windows.
 
 | System | LibreOffice | LaTeX | PlantUML | pandoc |
 |---|---|---|---|---|
@@ -171,7 +171,8 @@ Setting one image keeps the others' defaults. `prefer_tool` and the other images
 ## In the terminal app
 
 The terminal app has no preview pane, so it runs none of these tools; the `[preview]` section is
-the desktop app's (the terminal app reads the same `config.toml` and leaves it alone). Run the
+the desktop app's. The terminal app's Settings (**F12** → *Previews*) change it all the same, for
+the desktop app. Run the
 tool yourself on the command line (`latexmk -pdf`, `soffice --headless --convert-to pdf`,
 `plantuml`, `pandoc`, `duckdb`) and open the result with **Enter**.
 

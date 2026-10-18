@@ -58,34 +58,42 @@ The same: the helper reads the documents for both apps.
 ## Questions
 
 #### Why is a Word document not found by its text?
+
 Check that it is `.docx` (or `.odt` …), not the older `.doc`: that one needs
 [LibreOffice](scans.md). Check that it is smaller than 20 MB, not locked with a password, and in a
 [folder read](folders.md).
 
 #### Does it find the formulas in my spreadsheet?
+
 No, the values: what the cells show. A formula's result is found; the formula is not.
 
 #### Are the notes on cells and the fields of a PDF form found?
+
 Yes. The notes on the cells of an `.xlsx`, `.xlsm`, `.xlsb` or `.ods` are read after the sheets,
 without who wrote them; an `.xls`'s notes are not. In a PDF, what a filled-in form field, a stamp
 or a note shows on the page is found. The text of a sticky note that only shows in its pop-up is
 not.
 
 #### Are the attachments of a mail read?
+
 Their names are, so `budget.xlsx` finds the mail that had it attached. Their contents are not.
 
 #### Does it read `.tex`, CSV and JSON?
+
 Yes, as plain text, like code and Markdown.
 
 #### Why does a long PDF miss words near its end?
+
 A PDF is read for at most three seconds, which covers most documents but not every page of a very
 long one. Its words are also cut at 4 MB of text.
 
 #### Does opening a document for search change it, or start Word?
+
 No. The readers only read, in Coxswain itself, and touch no network. Only the optional programs of
 [Scans](scans.md) are started, and only when installed.
 
 #### A file that failed to read: is it tried again?
+
 Yes, when it changes. Until then it is marked as without text, so the helper does not keep trying.
 
 ---

@@ -158,4 +158,4 @@ The command line has text, and while it does, **Backspace** edits it. Press **Es
 the command line.
 
 ---
-[← Previous: The screen](the-screen.md) · [Next: Quick search →](quick-search.md)
+[← Previous: Notices and what's new](notices.md) · [Next: Quick search →](quick-search.md)

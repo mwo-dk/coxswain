@@ -12,7 +12,7 @@ worktrees, and **Enter** on one opens its folder. Both apps do this.
 
 ![The terminal app in Classic blue, the left panel titled /home/demo/projects/rocket/@branches [branches], the cursor on * master ↑1 and the info line with its commit id, date and author](../screenshots/tui-git-branches.png)
 
-<picture><source media="(prefers-reduced-motion: reduce)" srcset="../screenshots/branches.png"><img src="../screenshots/branches.gif" alt="The terminal app in Classic blue in ~/projects/rocket: Alt+B lists feature/engine, * master and origin/master in @branches; Down puts the cursor on feature/engine and the info line shows its commit; Enter shows the branch's files, read-only, titled [commit bc213b7]; Enter on src lists engine.rs, main.rs and throttle.rs"></picture>
+<picture><source media="(prefers-reduced-motion: reduce)" srcset="../screenshots/branches.png"><img src="../screenshots/branches.gif" alt="The terminal app in Classic blue in ~/projects/rocket: Alt+B lists feature/engine, * master and origin/master in @branches; Down puts the cursor on feature/engine and the info line shows its commit; Enter shows the branch's files, read-only, titled [commit 584d26d]; Enter on src lists engine.rs, main.rs and throttle.rs"></picture>
 
 *The branches folder in the terminal app: **Alt+B**, then **Enter** on a branch to browse its files.*
 
@@ -124,8 +124,9 @@ is just a folder.
 
 ## Limits
 
-- **Only switch and new branch change anything.** No delete, rename, push, pull, fetch or merge
-  in this version: use git on the command line or the [user menu](../commands/user-menu.md).
+- **Only switch and new branch change anything.** No delete, rename, push, pull, fetch or merge:
+  **Alt+G** opens your own git tool for those ([Open in your git tool](git.md#open-in-your-git-tool)),
+  or use git on the command line or the [user menu](../commands/user-menu.md).
 - **No hooks and no filters of the repository run.** Coxswain runs git with the repository's own
   hooks, file system monitor and filter drivers turned off, as it does for the status. A
   repository that defines filters of its own (git-crypt, say) would have its files written

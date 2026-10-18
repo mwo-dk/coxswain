@@ -6,7 +6,7 @@ Folders show their size without being asked, in both apps, so you can see at a g
 the space goes. This page explains where the sizes come from, how fresh they are, how to
 measure again, and how to switch it off.
 
-![The details view of the home folder with every column on: each folder's size and the number of files in it](../screenshots/gui-folder-sizes.png)
+![The details view of ~/projects with every column on (Type, Size, Files, Modified, Created): each folder's size and the number of files in it, and on .. the size and files of the folder above, 33.6 MB in 299 files](../screenshots/gui-folder-sizes.png)
 *The desktop app with the Files and Created columns on: `projects` holds 3.1 MB in 102 files.*
 
 ## Contents

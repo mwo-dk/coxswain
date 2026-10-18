@@ -37,7 +37,7 @@ the search helper from boot once you `sysrc coxswain_index_enable=YES`. The term
 nothing beyond the base system and is a first-class build; the desktop app needs WebKitGTK from
 packages and is marked experimental for now. Hints that name a package say `pkg install`.
 
-[FreeBSD](reference/freebsd.md)
+[FreeBSD](systems/freebsd.md)
 
 ## One Find
 
@@ -55,7 +55,8 @@ Settings is ordered by what you come for: *Overview*, *Finding files*, *Previews
 *Behaviour*, *Keys*, *Privacy and updates*, with *Find a setting* above them. Every option says
 what it does and what it costs (disk, processor, network, data that leaves the machine), and is
 saved to `config.toml` at once with your comments kept. The terminal app has the same Settings,
-full screen: **F9** → *Settings*, or `coxswain --settings`.
+full screen: **F9** → *Settings*, or `coxswain --settings`; since 2.26.1 also **F12**, *12
+Settings* on its F-key bar.
 
 [The Settings window](customise/settings.md)
 
@@ -132,15 +133,8 @@ A few names in `config.toml` now use the word the apps use. **On the first start
 rewrite your `config.toml` once**, keeping your comments and the order of your keys, and a notice
 lists what changed. Nothing else in the file is touched.
 
-| Where | Before 2.0 | From 2.0 |
-|---|---|---|
-| `[keys]` | `select_group` | `mark_group` |
-| `[keys]` | `unselect_group` | `unmark_group` |
-| `[keys]` | `invert_selection` | `invert_marks` |
-| `[keys]` | `mkdir` | `new_folder` |
-| `[keys]` | `dir_sizes` | `folder_sizes` |
-| `[search]` | `roots` | `name_roots` |
-| `[search]` | `exclude` | `name_exclude` |
+The seven keys, from `select_group` → `mark_group` to `[search] exclude` → `name_exclude`, are
+listed in [Configuration → Renamed in 2.0](reference/configuration.md#renamed-in-20).
 
 The old names are not read any more. A config that cannot be written (read-only, or kept in a
 store that is) is left as it is, and the app says on its error output which keys to rename.
@@ -160,7 +154,9 @@ store that is) is left as it is, and the app says on its error output which keys
 
 ## Questions
 
-**Do I have to do anything to update to 2.0?** No. Start it: your `config.toml` is updated once and
+#### Do I have to do anything to update to 2.0?
+
+No. Start it: your `config.toml` is updated once and
 a notice says what changed. Scripts that start the apps with `--settings=meaning`, `ask`, `news`
 or `cloud` need the new names above.
 
@@ -172,7 +168,9 @@ names: update it too.
 source. Until then the terminal app stops with the name of the first old key, and the desktop app
 starts with the defaults and says why on its error output.
 
-**Where do I see what else is new?** Settings → *Overview* in the desktop app; `coxswain
+#### Where do I see what else is new?
+
+Settings → *Overview* in the desktop app; `coxswain
 --whats-new` (or `--whats-new all`) in the terminal app; the changelog in the
 [README](../README.md#changelog).
 

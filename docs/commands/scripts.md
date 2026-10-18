@@ -3,7 +3,7 @@
 # Scripts
 
 In the desktop app, every program in the `scripts` folder next to your config is an entry of
-the **F2** menu (on Linux and macOS the executable files; a `README` or a hidden file is not
+the **F2** menu (on the BSDs, illumos, Linux and macOS the executable files; a `README` or a hidden file is not
 listed). A script gets the marked files as arguments, so a longer job (resize these
 pictures, convert these documents, upload these files) is one file you drop in a folder, with
 no quoting to get right in `config.toml`.
@@ -23,7 +23,7 @@ no quoting to get right in `config.toml`.
    | macOS | `~/Library/Application Support/coxswain/scripts/` |
    | Windows | `%APPDATA%\coxswain\scripts\` |
 
-2. Put a script there. On Linux and macOS it must start with a `#!` line and be executable
+2. Put a script there. On the BSDs, illumos, Linux and macOS it must start with a `#!` line and be executable
    (`chmod +x`). On Windows it must be a program Windows starts by itself, such as a `.exe`,
    `.bat` or `.cmd` file.
 

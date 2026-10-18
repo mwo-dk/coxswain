@@ -122,13 +122,21 @@ you add or change a feature, the docs change in the same PR.
 - **The docs are always current, and CI holds them to it.** The *docs* check
   (`tools/docs-check.py` and `crates/coxswain-core/tests/docs.rs`) runs on every pull request and
   blocks merge: links and anchors resolve, the changelog has the version's row and the README its
-  last ten, no old version stands as an example (write `coxswain X.Y.Z`), every page has its
+  last ten, no old version stands as an example (write `coxswain X.Y.Z`; picture alt texts
+  too), every question under *Questions* is a `####` heading (never a bold paragraph), every page has its
   *Previous* / *Next* links in `docs/README.md`'s order and a long one its contents, every theme,
   action, `config.toml` key, flag, `--settings=` name and feature is in `docs/` (every action in
-  F1 → Features too, and `coxswain --help` word for word), and a minor or major release has no
+  F1 → Features too, and `coxswain --help` word for word), F1's texts (`feature.*`, `help.*` in
+  every locale) name an action's key only as `{action}`, never a default key written out, and a minor or major release has no
   screenshot placeholders left (except the few in `NEEDS_HARDWARE` in `tools/docs-check.py`, each
   naming the machine it needs). Docs-only pull requests run them too. Run
   `python3 tools/docs-check.py` and `cargo test -p coxswain-core --test docs` before pushing.
+- **A change fixes every mention of the old way.** A change to a key, a way to reach something, a
+  default, a behaviour or what a screen shows fixes every mention of the old one in `docs/`,
+  `README.md`, the F1 texts in every locale and the pictures of that screen, in the same PR, not
+  only the feature's own page. Before a feature PR is opened, a docs-sync review is run: a
+  reviewer given the diff lists what changed and greps for the old wording, and every hit is
+  fixed.
 - **The docs are a tree:** a folder per area (`docs/panels/`, `docs/search/`, `docs/previews/`,
   `docs/files/`, …), each with a `README.md` index of its pages, and **one page per feature**
   (`docs/search/meaning.md`, `docs/files/archives.md`). A new feature gets its own page in its

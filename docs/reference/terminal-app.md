@@ -37,6 +37,7 @@ page says what it has, what it lacks and why, and where it behaves differently.
 2. Move with the arrows, **Enter** to open, **Tab** for the other panel, **F5** to copy,
    **F10** to quit. The keys are the same as in the desktop app: see [Every default key](../panels/keys.md).
 3. **F9** lists every action the terminal app has, with its key. **F1** shows the keys.
+   **F12** opens Settings.
 
 Every flag: [Command-line flags](command-line-flags.md#the-terminal-app-coxswain).
 
@@ -54,20 +55,21 @@ Every flag: [Command-line flags](command-line-flags.md#the-terminal-app-coxswain
 | Archives as folders: look inside, copy and move in and out, take out, extract (**Ctrl+E**), pack (**Alt+F5**), passwords | [Archives in the terminal app](#archives-in-the-terminal-app) |
 | Find (**Alt+F7**, **Ctrl+F**; **Shift+F7** for *In files*, **Ctrl+F7** for Ask): names, words in files, meaning and history in groups, the scope chip, the Ask row (**Alt+Enter**) and the answer in place | [Find](../search/find-file.md) |
 | Search by meaning, turned on in Settings → Finding files or with `coxswain --meaning on` | [Search by meaning in the terminal app](#search-by-meaning-in-the-terminal-app) |
-| Folder sizes in the Size column | [Folder sizes](../panels/folder-sizes.md) |
-| The git line, a glyph per file, and the last commit of the entry under the cursor in the info line | [Git in the panels](../panels/git.md) |
+| Folder sizes in the Size column, and on `..` the size of the folder above once known | [Folder sizes](../panels/folder-sizes.md) |
+| The git line, a glyph per file, and the last commit of the entry under the cursor in the info line; on `..` the upstream (ahead, behind), the last fetch and the remote, and on a repository's folder its own | [Git in the panels](../panels/git.md), [Upstream, remote and last fetch](../panels/git.md#upstream-remote-and-last-fetch) |
+| Open in your git tool (**Alt+G**): lazygit, gitui or tig in place of the panels, or your desktop client, to commit, push or pull | [Open in your git tool](../panels/git.md#open-in-your-git-tool) |
 | Git history as folders (**Ctrl+G**): the commits of a file or folder, the files as they were, **F3** and **F5** on them | [Git history in the terminal app](#git-history-in-the-terminal-app) |
 | Git branches (**Alt+B**) and worktrees (**Alt+W**): a branch's files, switching (**Alt+S**), new branches | [Git branches and worktrees](../panels/git-branches.md#in-the-terminal-app) |
 | ZFS snapshots as folders (**Alt+Z**), the diff of a file against now (**Enter**), copied back with **F5**; the dataset in the panel's bottom border | [ZFS snapshots as folders](../files/zfs-snapshots.md#in-the-terminal-app) |
 | Properties (**Alt+Enter**) as text, with ZFS, the FreeBSD package and file flags; *F9 → File flags* and *F9 → Files of this package* | [Properties](../files/properties.md#in-the-terminal-app) |
-| FreeBSD's boot environments and jails under **Alt+F1** / **Alt+F2**, as NC's drive menu | [FreeBSD](freebsd.md#boot-environments-and-jails) |
+| FreeBSD's boot environments and jails under **Alt+F1** / **Alt+F2**, as NC's drive menu | [FreeBSD](../systems/freebsd.md#boot-environments-and-jails) |
 | Every theme's colours, Nerd Font or ASCII glyphs, your own themes | [Themes](../customise/themes.md), [Glyphs and fonts](../customise/glyphs-and-fonts.md) |
 | All 29 languages (`coxswain --languages` lists them) | [Languages](../customise/languages.md) |
 | Your own keys from `[keys]` | [Changing keys](../customise/keys.md) |
 | The command list (**F9**) and help (**F1**) | [The command list](../panels/command-list.md) |
-| Settings (**F9** → *Settings*, `coxswain --settings`): the desktop app's areas and options, full screen, saved at once; the install line of a missing program, copied with **Space** | [Settings in the terminal app](../customise/settings.md#in-the-terminal-app) |
+| Settings (**F12**, *12 Settings* on the F-key bar; also **Shift+F10** or **F9** → *Settings*, `coxswain --settings`): the desktop app's areas and options, full screen, saved at once; the install line of a missing program, copied with **Space** | [Settings in the terminal app](../customise/settings.md#in-the-terminal-app) |
 | The mouse: click, double-click, right-click marks, wheel | [The mouse](../panels/mouse.md) |
-| Update checks and notices, in the status line; the version in the terminal's title | [Update checks](updates.md), [Notices](../search/notices.md) |
+| Update checks and notices, in the status line; the version in the terminal's title | [Update checks](updates.md), [Notices](../panels/notices.md) |
 
 ## What only the desktop app has
 
@@ -93,7 +95,7 @@ action's name. The **F9** list and **F1** help leave them out.
 |---|---|---|
 | **F3** | Opens the file in `viewer`, `$PAGER` or `less` (`more` on Windows) | The preview pane on or off |
 | **F4** | `editor`, `$VISUAL`, `$EDITOR` or `vi` (`notepad` on Windows), in the terminal | `editor` without a terminal, or the default application |
-| **Ctrl+O** | Shows the terminal with the last command's output; any key comes back | One pane or two |
+| **Ctrl+O** | Shows the terminal with the last command's output, *Panels hidden · any key brings them back* under it; any key comes back ([The command line](../commands/command-line.md#the-output-flashed-by-in-the-terminal-app-where-is-it)) | One pane or two |
 | **Enter** on a program | Runs it in the panel's folder and waits for Enter | Hands it to the desktop |
 | **Enter** on another file | Opens it in its default application | Opens it in its default application |
 | A command's output | In the terminal, the panels hidden meanwhile | In the preview pane |
@@ -183,14 +185,16 @@ Find's footer says *meaning for 3,437* once the helper has it running. Full deta
 ## What you see
 
 - **The panels:** double blue frames, the folder path in the title (with `[archive]` inside an
-  archive), columns Name, Size and Modified; `UP--DIR` and `SUB-DIR` in the Size column.
+  archive), columns Name, Size and Modified; `SUB-DIR` in the Size column until a folder is
+  measured, and on `..` the size of the folder above once known, else `UP--DIR`.
 - **Changes on disk** show by themselves: a file another program writes, copies in or deletes
   appears or goes in the panel within a second, the cursor staying on its name, and the git line
   follows commits and checkouts (the panels' folders and their repository's `.git` are
   watched). A folder inside an archive or a history is read again when you go back to it.
 - **The status line** under the panels: the result of the last operation (`Copied 3 files`), a
   notice, an update, or the size of what is marked.
-- **The command line** with the panel's folder as the prompt, and the F-key bar below it.
+- **The command line** with the panel's folder as the prompt, and the F-key bar below it:
+  **F1** to **F10** as in NC, then *12 Settings* (**F12**).
 - **Dialogs** are grey boxes in the middle. The title says what and how many (*Copy 3 items*,
   *Move or rename "budget.txt"*), the field is labelled *To:*, and the bottom line is the same as
   in the desktop app: *Enter Copy · Esc Cancel*, with the dialog's own verb (*Move*, *Create*,
@@ -206,7 +210,8 @@ Find's footer says *meaning for 3,437* once the helper has it running. Full deta
 
 ## Settings and config.toml
 
-**F9** → *Settings* (or `coxswain --settings`) opens Settings full screen: the same areas and
+**F12** (*12 Settings* on the F-key bar; **Ctrl+,** too, where the terminal passes it on, and
+**Shift+F10** or **F9** → *Settings*), or `coxswain --settings`, opens Settings full screen: the same areas and
 options as the desktop app's, read from the same description in `coxswain-core`, and written to
 the same `config.toml` at once, your comments kept. **←** **→** pick the area, **↑** **↓** the
 option, **Space** flips or chooses, **Enter** types a value or opens a list, **/** finds a
@@ -251,7 +256,7 @@ desktop app watches its panes' folders the same way.
 
 #### How do I change a setting without editing config.toml?
 
-**F9**, type `set`, **Enter**. Settings opens full screen at Overview; **→** goes to the next
+Press **F12** (or click *12 Settings* on the F-key bar). Settings opens full screen at Overview; **→** goes to the next
 area. On a switch such as *Ask before deleting*, **Space** flips it and the bottom line says
 *Saved to …/config.toml*. `coxswain --settings=confirm_delete` opens with the cursor on it.
 
@@ -262,7 +267,7 @@ area. On a switch such as *Ask before deleting*, **Space** flips it and the bott
 
 #### How do I copy an install line? There is no Copy button.
 
-In *Settings → Finding files* (**F9** → *Settings*), put the cursor on the missing program under
+In *Settings → Finding files* (**F12**), put the cursor on the missing program under
 *Programs that read more* and press **Space**. The terminal puts the line on its clipboard (OSC 52,
 over ssh too); the bottom says *Copied: …*. Your terminal must allow OSC 52; if it does not, type
 the line from the row.

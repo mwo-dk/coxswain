@@ -803,7 +803,9 @@ mod tests {
                     let counted = call.starts_with("tn") || call.starts_with("trn");
                     let lacks: Vec<String> = wants(v)
                         .into_iter()
+                        // `{settings}` and other action names: keys filled by features::with_keys.
                         .filter(|p| (!counted || p != "n") && !given.contains(&p.as_str()))
+                        .filter(|p| !crate::config::Action::ALL.iter().any(|a| a.name() == p))
                         .collect();
                     if !lacks.is_empty() {
                         bad.push(format!(

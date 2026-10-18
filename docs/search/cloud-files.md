@@ -26,7 +26,7 @@ cloud. Files that are on your disk, inside a cloud folder or not, are read as be
 
 ## How to use it
 
-Nothing to do: it is on from the start, in both apps, on Windows, macOS and Linux.
+Nothing to do: it is on from the start, in both apps, on Linux, macOS and Windows.
 
 - **To see one file:** in the desktop app the preview says *Online only: not downloaded. Press
   Enter to download and open it, or:* with the button **Download and preview**, which downloads it
@@ -135,45 +135,53 @@ The [helper](helper.md) reads the setting when it starts; Settings restarts it.
 
 ## In the terminal app
 
-The same files are left in the cloud, with the `*` or cloud glyph and the info line. There is no
-Settings window: set `cloud` and `cloud_read` in `config.toml`. **F3** on an online-only file
+The same files are left in the cloud, with the `*` or cloud glyph and the info line. Its
+Settings (**F12** → *Finding files* → *What is read*) set `cloud` and `cloud_read`, as the
+desktop app's do. **F3** on an online-only file
 downloads it and views it.
 
 ## Questions
 
 #### Will Coxswain download my OneDrive?
+
 No. Since 1.28.0 a file that is only online is found by name and left in the cloud: not read for
 search, not hashed, no thumbnail, no preview, until you open that one file yourself. Files OneDrive
 already keeps on your disk are read, as they cost no download.
 
 #### An older version downloaded my OneDrive. How do I free the space again?
+
 Update to 1.28.0 or later first. Then in Explorer right-click the OneDrive folder (or a part of it)
 and choose *Free up space*: the files become online-only again, and Coxswain drops their text at
 its next pass. On macOS, *Remove Download* in Finder does the same for iCloud Drive and
 `~/Library/CloudStorage`.
 
 #### How do I search inside my Dropbox files?
+
 Make the folder available offline in Dropbox (*Make available offline*): Dropbox downloads it in
 its own time, and Coxswain reads the files once they are on disk. Or let Coxswain download them:
 *Settings → Finding files → Details → What is read → Cloud folders read anyway → Read its files* next to Dropbox, or the box *Read
 files that are only online* for every cloud.
 
 #### Does a file I opened once stay searchable?
+
 As long as the cloud app keeps it on disk. If it frees the space again, the file goes back to
 being found by name only.
 
 #### Does anything break without a network?
+
 No. Nothing waits on the network, since nothing online-only is read: names, listings, sizes and
 the text of what is on disk all work offline. On Linux, a cloud mount itself may be slow to list
 when offline; Coxswain does not walk one for search unless you read it.
 
 #### I set `cloud = "all"`. Will Coxswain download everything at once?
+
 It reads one file at a time with rests, as it does for local files, and never on battery unless
 you press *Read now*: the cloud app downloads each as it is read. A big cloud still means a big
 download and a full disk, so prefer *Read its files* on one folder, or the cloud app's own
 *Always keep on this device*.
 
 #### Does this cover Google Drive's "streamed" files and Proton Drive?
+
 On Windows, every cloud app built on Windows' Cloud Files API marks its online files the same way,
 and Coxswain reads that mark: Google Drive for desktop, Proton Drive, Nextcloud and iCloud for
 Windows included. On macOS the File Provider apps (under `~/Library/CloudStorage`) do the
@@ -181,6 +189,7 @@ same. A cloud app with its own virtual drive that does not mark files is not rec
 folder to *Names only* ([Choosing the folders](folders.md)).
 
 #### Can I see which files are online-only?
+
 In the panels: the cloud glyph after the name. Find shows no glyph; the panel does once you
 go to the file.
 

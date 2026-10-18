@@ -116,7 +116,7 @@ A question about code ([A question about code](#a-question-about-code)) can go t
 its own, one made for code such as `qwen3-coder`, on the same server as Ask's. Every other
 question goes to Ask's model as before.
 
-**Where:** Settings (**F9** → *Settings* in both apps, or `--settings=ask_code_model`) →
+**Where:** Settings (**Ctrl+,** in the desktop app, **F12** in the terminal app, *Settings* in **F9** in both, or `--settings=ask_code_model`) →
 Finding files → Details → Ask → *Model for code questions*, under *Chat model* (desktop app: a
 list; terminal app: **Enter** on the row opens the list, with the line for this machine at its top). The list is Ask's list, with *Same as Ask* first, the default. In `config.toml`:
 `ask_code_model` in `[search]` (empty: Same as Ask).

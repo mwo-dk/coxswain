@@ -1,4 +1,4 @@
-[← README](../../README.md) · [Docs index](../README.md) · [Reference](README.md)
+[← README](../../README.md) · [Docs index](../README.md) · [Systems](README.md)
 
 # Windows on ARM
 
@@ -45,7 +45,7 @@ x64 one, and WinGet takes the ARM one on an ARM machine by itself.
 
 The x64 build runs on Windows on ARM too, under emulation. To change to the native one, uninstall
 Coxswain (*Settings → Apps → Installed apps*), then run the ARM installer. Your settings, tags and
-search index are in your user folders and stay ([Where things are kept](where-things-are-kept.md)).
+search index are in your user folders and stay ([Where things are kept](../reference/where-things-are-kept.md)).
 In Task Manager's *Details* tab, the *Architecture* column says *ARM64* for the native app.
 
 ## Search by meaning on ARM

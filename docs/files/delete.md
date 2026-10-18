@@ -43,8 +43,8 @@ Inside an archive the button reads *Delete* for **F8** too, and the status line 
 out first (**F5**) if you may want them back. A 7z with locked contents asks for its password
 ([Passwords](archive-passwords.md)).
 
-**Ctrl+Z** puts back what **F8** moved to the trash, on Windows, Linux, the BSDs, illumos and
-in Termux ([Undo](undo.md)). On a Mac and in the Flatpak it cannot: the status line says so,
+**Ctrl+Z** puts back what **F8** moved to the trash, on FreeBSD and the other BSDs, illumos,
+Linux, in Termux and on Windows ([Undo](undo.md)). On a Mac and in the Flatpak it cannot: the status line says so,
 and you restore from the system's trash. **Shift+F8** is never undone.
 
 ## Settings and config.toml
@@ -82,7 +82,7 @@ the top of other disks), the same one your file manager shows.
 
 To Coxswain's own trash, `~/.local/share/Trash` in Termux's home. From the phone's storage
 (`~/storage/…`) nothing is moved: **F8** asks to delete for good, even with the question turned
-off ([Termux](../reference/termux.md#deleting-termuxs-trash)).
+off ([Termux](../systems/termux.md#deleting-termuxs-trash)).
 
 #### How do I stop Coxswain asking every time?
 

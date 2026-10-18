@@ -1,7 +1,7 @@
 # The desktop app as a Flatpak, built from source with no network: Cargo's and npm's downloads
 # come from cargo-sources.json and node-sources.json, which sources.sh writes from the lock
 # files. It builds the checkout it sits in (the Flatpak workflow, or by hand). It is not
-# Flathub's manifest: see SUBMIT.md. docs/reference/flatpak.md.
+# Flathub's manifest: see SUBMIT.md. docs/systems/flatpak.md.
 id: io.github.mwo_dk.Coxswain
 runtime: org.gnome.Platform
 # WebKitGTK 4.1 (GTK 3), which Tauri 2 uses, is in the GNOME runtime up to 51 at least.

@@ -77,6 +77,7 @@ on macOS and Windows as paths. Without a system clipboard, copy and paste still 
 Coxswain.
 
 #### Does the terminal app have it?
+
 No. A terminal has no access to the system's file clipboard, and **Ctrl+C** belongs to the
 terminal; pressing one of these keys there says *Copy to clipboard is available in the desktop app
 (coxswain-gui)*. Copy and move with **F5** and **F6** instead ([In the terminal app](#in-the-terminal-app)).

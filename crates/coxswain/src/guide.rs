@@ -208,7 +208,7 @@ pub fn draw(f: &mut Frame, app: &mut App) {
                 lines.push(para(format!("  {} → {}{local}", o.what, o.to)));
             }
             lines.push(Line::from(""));
-            lines.push(Line::from(Span::styled(t!("guide.again_tui"), dim)));
+            lines.push(Line::from(Span::styled(coxswain_core::features::with_keys(cfg, &t!("guide.again_tui")), dim)));
         }
     }
     let body = Rect { x: inner.x + 2, y: inner.y + 1, width: inner.width.saturating_sub(4), height: inner.height.saturating_sub(3) };

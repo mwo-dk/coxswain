@@ -12,11 +12,11 @@ itself goes on as usual.
 
 Nothing to do. To read anyway, on battery:
 
-1. Open *Settings → Finding files* (**Ctrl+,**).
+1. Open *Settings → Finding files* (**Ctrl+,** in the desktop app, **F12** in the terminal app).
 2. Press **Read now** on the *Words* line (or under *Details → Background reading*). The helper reads the backlog at full speed, without rests, until it is
    done, and makes the vectors too.
 
-The terminal app has no Read now; plug in, or use the desktop app's Settings.
+The terminal app's Settings have the same **Read now** ([below](#in-the-terminal-app)).
 
 ## What you see
 
@@ -38,7 +38,7 @@ Whether the machine is on battery is asked at most every thirty seconds:
 | OpenBSD | `sysctl hw.power`: `0` is on battery |
 | illumos | `kstat -p acpi_drv:0:power`: `system power` is `battery`; without that kstat (servers), never |
 | Linux | `/sys/class/power_supply`: a supply of type `Battery`, and no mains supply `online`; without a mains entry, a battery that is `Discharging` |
-| Termux on Android | `termux-battery-status` (Termux:API), when it is installed: `UNPLUGGED` is on battery; else as on Linux ([Termux](../reference/termux.md#clipboard-and-battery-termuxapi)) |
+| Termux on Android | `termux-battery-status` (Termux:API), when it is installed: `UNPLUGGED` is on battery; else as on Linux ([Termux](../systems/termux.md#clipboard-and-battery-termuxapi)) |
 | macOS | `pmset` |
 | Windows | The system's power status |
 
@@ -49,28 +49,34 @@ backlog is done.
 
 ## In the terminal app
 
-The same helper, so the same pause. The terminal app does not show that it is paused; the
-backlog simply waits.
+The same helper, so the same pause. Its Settings (**F12** → *Finding files*) say *Paused while
+the machine runs on its battery.* under the *Words* line; **Enter** on that line is **Read now**.
+Elsewhere (the panels, Find) nothing says so: the backlog simply waits.
 
 ## Questions
 
 #### My desktop PC says it is paused for battery.
+
 It reports a battery (a UPS can look like one). Press **Read now**, or check what
 `/sys/class/power_supply` lists: a `Battery` with no mains supply `online`.
 
 #### Does search stop working on battery?
+
 No. Names, text and meaning are all searched as usual. Only reading new and changed files, hashing
 them and making vectors wait.
 
 #### I pressed Read now on battery. Does it stay on?
+
 Until the backlog is done. After that, new files wait for the mains again.
 
 #### Does the file watcher still follow changes on battery?
+
 Yes, for names: a new file is found by name within a second. Its text is read once the mains is
 back.
 
 #### Why does it check only every thirty seconds?
+
 Asking costs a little each time, and a pause that starts half a minute late costs nothing.
 
 ---
-[← Previous: The search helper](helper.md) · [Next: Notices and what's new →](notices.md)
+[← Previous: The search helper](helper.md) · [Next: Search settings →](settings.md)

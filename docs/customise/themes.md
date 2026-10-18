@@ -42,7 +42,7 @@ Each app has its own theme, so the two can differ, and you can [make your own](o
 | | Desktop app | Terminal app |
 |---|---|---|
 | Key in `config.toml` | `[gui] theme`, default `"cyber"` | `theme` (top level), default `"nc"` |
-| Pick it | Settings (**Ctrl+,**) → *Looks*, *For*: *Desktop app*, then click a swatch | Its own Settings (**F9** → *Settings*) → *Looks* → *Theme of the terminal app*; or the desktop app's Settings → *Looks*, *For*: *Terminal app*, then a swatch; or set `theme = "win95"` in `config.toml` |
+| Pick it | Settings (**Ctrl+,**) → *Looks*, *For*: *Desktop app*, then click a swatch | Its own Settings (**F12**) → *Looks* → *Theme of the terminal app*; or the desktop app's Settings → *Looks*, *For*: *Terminal app*, then a swatch; or set `theme = "win95"` in `config.toml` |
 | Or | **F9**, type `theme`, pick *Theme: Windows 95* | |
 | Takes effect | At once, and saved | From its own Settings: at once, and saved. From the desktop app or `config.toml`: at its next start |
 
@@ -61,8 +61,10 @@ Or, without Settings:
    the one in use says *current* where the others show a key.
 2. Pick one with **Up**/**Down** and **Enter**. It is applied and saved, as in Settings.
 
-In the terminal app, open `config.toml` (`coxswain --config-path` prints where), put
-`theme = "win95"` at the top, above the first `[table]`, and start the app again.
+In the terminal app, press **F12** (*12 Settings* on the F-key bar), go to *Looks* with **→**,
+put the cursor on *Theme of the terminal app* and press **Enter**; pick one with **↑** **↓** and
+**Enter**. It changes at once and is saved as `theme`. Or put `theme = "win95"` at the top of
+`config.toml`, above the first `[table]`, and start the app again.
 
 ## What you see
 
@@ -79,6 +81,11 @@ The desktop app's default and its phosphor siblings, and four modern schemes.
 | `nord` | Nord | `modern` | The Nord palette |
 | `amber` | Amber | `crt` | Amber phosphor on near-black, as on a P3 monochrome monitor: glowing amber text, faint scanlines, paler amber folders, a dark-amber cursor row; every colour a shade of one phosphor. Monospaced throughout |
 | `paper` | Paper white | `crt` | White phosphor on black, as on a VT420 or an old Macintosh: one phosphor, so everything is a grey or a white with a cool cast; folders and marks bold white, hidden files dim, a grey cursor row. Glowing text and scanlines from the CRT look, monospaced throughout |
+
+In the CRT themes, file icons take the text colour instead of
+their own, so everything is one phosphor, and the age chips go from cyan (new) to dim green.
+Lit buttons and badges glow as a green outline on the dark rather than being filled
+([Looks](looks.md#what-you-see)).
 
 ![The desktop app in Cyber: two panels of green text on black, cyan folders, green age chips, the sidebar on the left](../screenshots/gui-details.png)
 *Cyber, the desktop app's default.*
@@ -163,10 +170,7 @@ The power-on screens of the 8-bit machines, in their own palettes.
 
 Your [own themes](own-theme.md) (`[themes.<name>]`), under the names you gave them, in
 alphabetical order.
-This is the order both apps' Settings show them in. In the CRT themes, file icons take the text colour instead of
-their own, so everything is one phosphor, and the age chips go from cyan (new) to dim green.
-Lit buttons and badges glow as a green outline on the dark rather than being filled
-([Looks](looks.md#what-you-see)).
+This is the order both apps' Settings show them in.
 
 ![The terminal app in Classic blue (NC): two panels with double borders, cyan text on blue, yellow column headers, the F-key bar at the bottom](../screenshots/tui-panels.png)
 *Classic blue (NC), the terminal app's default.*
@@ -200,7 +204,7 @@ the desktop app's; the terminal app's panels always have NC's double borders, an
 the terminal's. Slots only the desktop app has (`accent`, `sidebar`, `tab`, `tab_active`,
 `preview`) are not used there.
 
-Pick its theme in its own Settings: **F9** → *Settings* → *Looks* → *Theme of the terminal app*,
+Pick its theme in its own Settings: **F12** → *Looks* → *Theme of the terminal app*,
 **Enter**, then **↑** **↓** and **Enter** (or **Space** for the next one). The list has the same
 groups as the desktop app's, each under its heading; **↑**, **↓**, **PgUp**, **PgDn** and
 **Space** pass over the headings, so the cursor always rests on a theme. It changes at once and

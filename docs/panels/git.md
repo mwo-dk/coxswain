@@ -53,6 +53,26 @@ commands), for the diff `git diff`, and for the last commits and the history `gi
 list of branches: a switch to a branch and a new branch (`git switch`). It never commits or
 stages: **Alt+G** hands that to your own git tool. The repository's own hooks, file system monitor and filter drivers never run.
 
+```mermaid
+flowchart LR
+    repo[("Your repository")]
+    subgraph reads["Coxswain reads"]
+        r1["Status and branch"]
+        r2["Upstream: ahead, behind"]
+        r3["Last fetch and remote"]
+        r4["Last commit per file"]
+        r5["History, branches, worktrees"]
+    end
+    subgraph writes["Coxswain writes, when you ask"]
+        w1["Switch branch: Alt+S"]
+        w2["New branch here"]
+    end
+    tool["Your git tool: Alt+G<br/>commit, stage, push, pull, fetch, merge"]
+    repo --> reads
+    writes --> repo
+    tool --> repo
+```
+
 ## The git line
 
 In the terminal app it is at the bottom left of the panel's border; in the desktop app at the
@@ -113,7 +133,7 @@ its URL (`https://token@host/…`) are left out; the user of an ssh address (`gi
 
 | | Desktop app | Terminal app |
 |---|---|---|
-| The repository you are in | Hover the git line in the pane's footer: the tooltip lists the repository's folder, the upstream, the last fetch and the remote, then *Click for the branches* | Put the cursor on `..` (where it is when a folder opens): the line under the panel reads `..  Upstream: origin/master, 1 ahead, 0 behind · Last fetch: … · Remote: …` |
+| The repository you are in | Hover the git line in the pane's footer: the tooltip lists the repository's folder, the upstream, the last fetch and the remote, then *Click for the branches* and *Alt+G: open in your git tool* | Put the cursor on `..` (where it is when a folder opens): the line under the panel reads `..  Upstream: origin/master, 1 ahead, 0 behind · Last fetch: … · Remote: …` |
 | A repository's folder in the list (a project in `~/projects`, a submodule, a repository inside another) | Hover its row (any view): the tooltip has its git line, upstream, last fetch and remote | Put the cursor on it: the line under the panel reads `rocket  git: master ^1 ~1 · Upstream: … · Last fetch: … · Remote: …` |
 
 They are read only when you point at them, on a thread of their own: never for every folder of
@@ -124,7 +144,9 @@ nothing new; the terminal app reads it again when the cursor comes to it anew, a
 **Ctrl+R**. A narrow panel cuts the terminal app's line at its right end, so the remote, last
 on the line, is the first to go; a wider terminal shows all of it.
 
-![The terminal app: on the left ~/projects with the cursor on rocket, its git line, upstream and last fetch under the panel; on the right inside rocket, the cursor on .. and its upstream, last fetch and remote](../screenshots/tui-git-facts.png)
+![The desktop app (Cyber): the mouse on the git line master ↑1 in the footer of the pane in ~/projects/rocket, and its tooltip: /home/demo/projects/rocket, Upstream: origin/master, 1 ahead, 0 behind, Last fetch, Remote: https://git.example.org/demo/rocket.git, Click for the branches, Alt+G: open in your git tool](../screenshots/panels-git-facts.png)
+
+![The terminal app: on the left ~/projects with the cursor on rocket, its git line, upstream and last fetch under the panel; on the right inside rocket, the cursor on .. and its upstream, last fetch and remote; the F-key bar ends with 12 Settings](../screenshots/tui-git-facts.png)
 
 ## File and folder glyphs
 

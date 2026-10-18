@@ -51,32 +51,40 @@ The same syntax, word for word. **F1** lists it, and the footer ends with `synta
 ## Questions
 
 #### Why does `*.rs` not find `main.rs.bak`?
+
 Wildcards match the whole name. Use `.rs` (a plain substring) or `*.rs*`.
 
 #### How do I find a folder, not files?
+
 `folder: name`. And `file:` for files only.
 
 #### How do I find something under a certain folder?
+
 Put a `/` in a term: `projects/ budget` finds names with "budget" anywhere under a folder whose
 path contains `projects/`. Or open the folder and press **Ctrl+F** inside Find for
 [names in this folder](names.md#names-in-this-folder).
 
 #### How do I leave out a whole folder, like `node_modules`?
+
 `!node_modules/` drops every hit whose path runs through one. To leave it out of the index for
 good, see `name_exclude` in [Names everywhere](names.md#settings-and-configtoml).
 
 #### Does the syntax work for the words in files?
+
 No. A query with name syntax shows names only. The words of *In files* are words: every word must
 be there (or, failing that, any of them), the last may be the start of one, and `!`, `|`, `ext:`
 and quotes mean nothing there. See [Text in files](text.md).
 
 #### How do I search for a name with a space in it?
+
 Quote it: `"annual report"`. Without quotes it is two terms, both anywhere in the name.
 
 #### Is `case:` for one term or the whole query?
+
 For the whole query. `case: README` finds `README.md` but not `readme.md`.
 
 #### Can I search by size or date?
+
 No. Everything's `size:` and `dm:` are not part of Coxswain's syntax; sort the panel by size or
 date instead ([Sorting](../panels/sorting.md)).
 

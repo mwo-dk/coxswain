@@ -16,15 +16,16 @@ Every key here is a default. Each one can be changed in `config.toml` under `[ke
 | Page | What it covers |
 |---|---|
 | [The first-run guide](first-run.md) | The four steps shown on the first start: the panels and their keys, how far Find looks, looks and icons, privacy; skipping it, opening it again (**F1**, Settings → *Overview*) |
-| [The screen](the-screen.md) | The panels, the active panel, the title bar with the version, the status line, the F-key bar, starting in a folder |
+| [The screen](the-screen.md) | The panels, the active panel, the title bar with the version, the status line, the F-key bar (in the terminal app with *12 Settings*), starting in a folder |
+| [Notices and what's new](notices.md) | Tips of what to turn on, what each version brought (*Settings → Overview → What's new*, `coxswain --whats-new`), and the version in the title |
 | [Moving around and going to a folder](moving.md) | Cursor keys, opening, the parent folder, the other panel, refreshing, typing a path |
 | [Quick search](quick-search.md) | **Alt+letter** jumps to a name in the panel |
 | [Marking files](marking.md) | **Insert**, `+`, `-`, `*`, marking with the mouse, what works on the marks |
 | [Sorting and hidden files](sorting.md) | **Ctrl+F3** to **Ctrl+F6**, sorting by column header, **Alt+.** |
 | [Tabs, back and forward, one pane or two](tabs-and-panes.md) | Tabs, history, **Ctrl+O**, the splitter |
 | [Views: details, columns, thumbnails](views.md) | **Alt+V**, Miller columns, thumbnails, the columns menu, the age chip |
-| [Folder sizes](folder-sizes.md) | Sizes that fill in by themselves, where they come from, measuring again |
-| [Git in the panels](git.md) | The git line, glyphs per file, the last commit per file, the diff, recent repositories |
+| [Folder sizes](folder-sizes.md) | Sizes that fill in by themselves, the size of the folder above on `..`, where they come from, measuring again |
+| [Git in the panels](git.md) | The git line with the upstream, last fetch and remote, glyphs per file, the last commit per file, the diff, recent repositories, **Alt+G** to open your git tool |
 | [Git history as folders](git-history.md) | **Ctrl+G**: a file's or folder's commits, the files as they were, their diff, copying an old version out |
 | [Git branches and worktrees](git-branches.md) | **Alt+B**: the branches, a branch's files, switching (**Alt+S**) and new branches; **Alt+W**: the worktrees |
 | [The mouse](mouse.md) | Clicks, marks, drags, the path bar, the splitters |
@@ -65,12 +66,14 @@ Show the hints again* (desktop app) or `coxswain --hints reset`.
 | **Ctrl+F3** … **Ctrl+F6** | Yes | Yes | Sort by name, extension, time, size |
 | **Alt+.** | Yes | Yes | Hidden files on or off |
 | **Alt+F1** / **Alt+F2** | Types a path in the left / right pane | *Left panel* / *Right panel* dialog | Go to a folder |
-| **Ctrl+O** | One pane or two | Shows the last command's output | Panels |
+| **Ctrl+O** | One pane or two | Hides the panels and shows the last command's output; any key brings them back ([more](../commands/command-line.md#the-output-flashed-by-in-the-terminal-app-where-is-it)) | Panels |
 | **Ctrl+T**, **Ctrl+W**, **Ctrl+Tab** | Yes | – | New, close, next tab |
 | **Alt+Left** / **Alt+Right** | Yes | – | Back / forward |
 | **Alt+V** | Yes | – | Details, columns, thumbnails |
 | **Ctrl+G** | Yes | Yes | The git history of the file or folder under the cursor |
 | **Alt+B** / **Alt+W** | Yes | Yes | The repository's branches / worktrees |
+| **Alt+G** | Yes | Yes | [Open in your git tool](git.md#open-in-your-git-tool): commit, push or pull in lazygit, gitui, tig or your desktop client |
+| **Ctrl+,**, **F12** | Settings | Settings, full screen (most terminals pass only **F12** on: *12 Settings* on the F-key bar) | [Settings](../customise/settings.md) |
 | **Shift+F10**, **Menu** | Yes, also the **⋯** on a row and Ctrl+right-click | Yes | [What can I do with this?](action-menu.md): the actions that fit |
 | **F9** | Yes | Yes | The command list |
 | **F1** | Yes | Yes | Help; from there the [first-run guide](first-run.md) again (*Show the guide again* in the desktop app, **G** in the terminal app) |

@@ -1,4 +1,4 @@
-[← README](../../README.md) · [Docs index](../README.md) · [Search](README.md)
+[← README](../../README.md) · [Docs index](../README.md) · [Panels and keys](README.md)
 
 # Notices and what's new
 
@@ -6,7 +6,8 @@ The window's title says which version runs. Tips tell you of
 search you could turn on and of the git history once you are in a repository, and after an
 upgrade you can read what the new version brought. The desktop app counts all of this on its
 *Settings* button and lists it under *Settings → Overview → What's new*; the terminal app says one thing at
-a time in its status line and has `coxswain --whats-new`. Nothing is shown twice.
+a time in its status line, lists the same under *Settings → Overview* (**F12**), and has
+`coxswain --whats-new`. Nothing is shown twice.
 
 ## Contents
 
@@ -16,7 +17,7 @@ a time in its status line and has `coxswain --whats-new`. Nothing is shown twice
 - [In the terminal app](#in-the-terminal-app)
 - [Questions](#questions)
 
-![The desktop app's window in Cyber with Coxswain 2.0.0 in its title bar, two panes on the home folder, the command line with the Settings button and its count, and the F-key bar](../screenshots/panels-title.png)
+![The desktop app's window in Cyber with coxswain X.Y.Z in its title bar, two panes on the home folder, the command line with the Settings button and its count, and the F-key bar](../screenshots/panels-title.png)
 
 ## How to use it
 
@@ -24,7 +25,7 @@ a time in its status line and has `coxswain --whats-new`. Nothing is shown twice
 on its window, and on Linux on the title bar GTK draws too (which otherwise kept the title it
 was made with). The terminal app sets it as the terminal's title. What can be searched, which
 the title also said before 1.41.0, is now the first footer line of
-[Find](find-file.md#what-you-see): *563 files indexed · text of 112 files · meaning for 112*.
+[Find](../search/find-file.md#what-you-see): *563 files indexed · text of 112 files · meaning for 112*.
 
 **What's new, in the desktop app:**
 
@@ -42,11 +43,12 @@ the title also said before 1.41.0, is now the first footer line of
 
 **What's new, in the terminal app:** after an upgrade the status line says once
 `Coxswain X.Y.Z is installed: coxswain --whats-new says what it brought`. Run
-`coxswain --whats-new` in a shell.
+`coxswain --whats-new` in a shell, or press **F12**: *Settings → Overview* lists what the
+versions you have not read brought.
 
 | Key, click or command | Desktop app | Terminal app |
 |---|---|---|
-| See what is new | Click **⚙ Settings** while it shows a count | `coxswain --whats-new` |
+| See what is new | Click **⚙ Settings** while it shows a count | **F12** (*Settings → Overview*), or `coxswain --whats-new` |
 | Every version | *Earlier versions: 54* under *What's new* folds them open | `coxswain --whats-new all` |
 | Act on a tip | **Show me**: opens the right Settings area | Run the command it names |
 | Dismiss a tip | **Dismiss** (tooltip *Not shown again*) | Nothing to do: shown once, it counts as seen |
@@ -79,24 +81,24 @@ sight: the count on the button drops, and the *new* marks go next time.
 |---|---|---|
 | *Coxswain 2.0 renamed keys in config.toml, your comments kept: [keys] mkdir → new_folder, …* | The first start of 2.0 rewrote a `config.toml` of 1.x, once | *Settings → Keys* ([Renamed in 2.0](../reference/configuration.md#renamed-in-20)) |
 | *Search inside files has stopped: …* | A scan of the files failed; nothing further is read, and no vectors come, until one works. Dismissed, it comes back with another reason | *Settings → Finding files* |
-| *Start with my session is on, but macOS did not start the search helper, so Coxswain started it until you log out. …* (on Linux: *systemd*) | The system was to start the registered helper and did not within eight seconds, so this app started one. The text says where to allow it (on a Mac: *System Settings → General → Login Items & Extensions → Coxswain → Allow in the Background*) and how to see why (`launchctl print gui/$(id -u)/dk.mwo.coxswain.index`, `helper.log`; `systemctl --user status coxswain-index`) | *Settings → Finding files* ([The search helper](helper.md#start-with-my-session-is-on-but-background-reading-does-not-start-why)) |
-| *Search by meaning cannot read what files are about: …* | The server did not answer, or refused (a model that is not pulled) | *Settings → Finding files → Details → Meaning* ([servers](servers.md)) |
+| *Start with my session is on, but macOS did not start the search helper, so Coxswain started it until you log out. …* (on Linux: *systemd*) | The system was to start the registered helper and did not within eight seconds, so this app started one. The text says where to allow it (on a Mac: *System Settings → General → Login Items & Extensions → Coxswain → Allow in the Background*) and how to see why (`launchctl print gui/$(id -u)/dk.mwo.coxswain.index`, `helper.log`; `systemctl --user status coxswain-index`) | *Settings → Finding files* ([The search helper](../search/helper.md#start-with-my-session-is-on-but-background-reading-does-not-start-why)) |
+| *Search by meaning cannot read what files are about: …* | The server did not answer, or refused (a model that is not pulled) | *Settings → Finding files → Details → Meaning* ([servers](../search/servers.md)) |
 | *Coxswain X.Y.Z is installed: coxswain --whats-new says what it brought* | Terminal app only: the first start after an upgrade (not the first start ever). The desktop app counts the version on its button instead | – |
-| *New: Ctrl+G on a file or folder in a git repository shows its history, commit by commit* | A folder of a git repository has been opened (the key is yours from `[keys]`) | Nothing: it only tells, so it has **Dismiss** only ([Git history](../panels/git-history.md)) |
+| *New: Ctrl+G on a file or folder in a git repository shows its history, commit by commit* | A folder of a git repository has been opened (the key is yours from `[keys]`) | Nothing: it only tells, so it has **Dismiss** only ([Git history](git-history.md)) |
 | *New: your files are on ZFS. Alt+Z on a folder lists its snapshots: browse them as folders, compare a file with now, copy back what was* | Your home folder is on a ZFS dataset (FreeBSD, illumos, Linux with ZFS); the key is yours from `[keys]` | Nothing: **Dismiss** only ([ZFS snapshots](../files/zfs-snapshots.md)) |
 | *New: search by meaning finds files about your words, in any language. Turn it on* | Text search is on and has files, and search by meaning is off. Terminal app: *…in any language: coxswain --meaning on* | *Settings → Finding files → Details → Meaning* |
-| *Search by meaning now uses your Mac's GPU (Metal): about 6× faster* | The built-in model runs on a Mac's GPU; the factor is what the probe measured when the helper started | *Settings → Finding files → Details → Meaning* ([on a Mac's GPU](meaning.md#on-a-macs-gpu)) |
-| *Search by meaning runs on the CPU: …* | On a Mac, the built-in model could not use the GPU, with the reason (*this Mac has no Metal GPU to use*, *the GPU failed: …*). Not shown when you chose *Use the CPU only* | *Settings → Finding files → Details → Meaning* ([on a Mac's GPU](meaning.md#on-a-macs-gpu)) |
-| *Qwen3 14B runs on the processor here: about 110 s to the first word. qwen3:8b on Ollama runs on your graphics card (…) and answers far sooner.* | Ask's built-in chat model runs on the processor while a server here runs a model on the graphics card, or it takes 10 s or more to its first word. Once per model chosen; the line stays in Settings as long as the choice does | *Settings → Finding files → Details → Ask* ([When it is a poor choice here](ask-builtin.md#when-it-is-a-poor-choice-here)) |
-| *The built-in model reads meaning on the processor here. bge-m3:latest on Ollama runs on your graphics card (…) and reads your files far sooner.* | Search by meaning uses the built-in model on the processor while a server here runs an embedding model on the graphics card | *Settings → Finding files → Details → Meaning* ([servers](servers.md)) |
-| *Video and sound need GStreamer's good plugins to play here. Install them with: …* (the line for this system; without one, the package names). In an AppImage: *This AppImage plays video and sound only with GStreamer plugins where Debian and Ubuntu keep them, and there are none. …* | Desktop app on Linux and the BSDs, when GStreamer's good plugins are not found | Nothing: **Dismiss** only ([Media](../previews/media.md)) |
-| *No Japanese or Korean font is installed, so their letters may show as boxes. Install one with: …* | Desktop app on Linux and the BSDs, in Japanese or Korean, when `fc-list` finds no font for the language | Nothing: **Dismiss** only ([Japanese and Korean](../customise/languages.md#japanese-and-korean)) |
-| *No font for Persian is installed, so its letters may show as boxes. Install one, for example …* (Armenian and Georgian the same) | Desktop app on Linux and the BSDs, in Persian, Armenian or Georgian, when `fc-list` finds no font for the language | Nothing: **Dismiss** only ([Persian, Armenian and Georgian](../customise/languages.md#persian-armenian-and-georgian)) |
-| *This machine has NVIDIA GeForce RTX 4070, but no model server answers, so search by meaning and Ask run the built-in models on the processor. A local Ollama would run them on the graphics card with CUDA, much faster: … Install: curl -fsSL https://ollama.com/install.sh \| sh* | Search by meaning or Ask uses a built-in model, the machine has a graphics card (not a Mac) and no model server answers. The desktop app adds **Copy** for the command; Coxswain never runs it | *Settings → Finding files → Details → Meaning* ([A graphics card and no server](setup.md#a-graphics-card-and-no-server)) |
-| *Found OneDrive, Dropbox: files that are only online are found by name only, so nothing is downloaded. Change in Settings* | The helper found files only in the cloud, and `cloud` is not `"all"`. Terminal app: *… cloud = "all" in config.toml reads them* | *Settings → Finding files* ([Cloud files](cloud-files.md)) |
-| *Install tesseract to search the words in scans, screenshots and pictures: sudo apt install tesseract-ocr* (the line for this system; without one, the text ends at *pictures*) | Text search is on and the helper found no tesseract. The desktop app adds **Copy** for the line; Coxswain never runs it | *Settings → Finding files* ([Installing what is missing](scans.md#installing-what-is-missing)) |
-| *In Termux: run termux-setup-storage once, and Alt+F1 lists your phone's folders (shared storage, Downloads, DCIM …)* | Terminal app in Termux, before `~/storage` exists. The terminal app copies nothing; run the line yourself | Nothing: run it in Termux ([Termux](../reference/termux.md#your-phones-folders)) |
-| *In Termux: pkg install termux-api and the Termux:API app put copied lines on Android's clipboard and tell the search helper when the phone runs on its battery* | Terminal app in Termux, without `termux-clipboard-set` | Nothing ([Termux:API](../reference/termux.md#clipboard-and-battery-termuxapi)) |
+| *Search by meaning now uses your Mac's GPU (Metal): about 6× faster* | The built-in model runs on a Mac's GPU; the factor is what the probe measured when the helper started | *Settings → Finding files → Details → Meaning* ([on a Mac's GPU](../search/meaning.md#on-a-macs-gpu)) |
+| *Search by meaning runs on the CPU: …* | On a Mac, the built-in model could not use the GPU, with the reason (*this Mac has no Metal GPU to use*, *the GPU failed: …*). Not shown when you chose *Use the CPU only* | *Settings → Finding files → Details → Meaning* ([on a Mac's GPU](../search/meaning.md#on-a-macs-gpu)) |
+| *Qwen3 14B runs on the processor here: about 110 s to the first word. qwen3:8b on Ollama runs on your graphics card (…) and answers far sooner.* | Ask's built-in chat model runs on the processor while a server here runs a model on the graphics card, or it takes 10 s or more to its first word. Once per model chosen; the line stays in Settings as long as the choice does | *Settings → Finding files → Details → Ask* ([When it is a poor choice here](../search/ask-builtin.md#when-it-is-a-poor-choice-here)) |
+| *The built-in model reads meaning on the processor here. bge-m3:latest on Ollama runs on your graphics card (…) and reads your files far sooner.* | Search by meaning uses the built-in model on the processor while a server here runs an embedding model on the graphics card | *Settings → Finding files → Details → Meaning* ([servers](../search/servers.md)) |
+| *Video and sound need GStreamer's good plugins to play here. Install them with: …* (the line for this system; without one, the package names). In an AppImage: *This AppImage plays video and sound only with GStreamer plugins where Debian and Ubuntu keep them, and there are none. …* | Desktop app on the BSDs and Linux, when GStreamer's good plugins are not found | Nothing: **Dismiss** only ([Media](../previews/media.md)) |
+| *No Japanese or Korean font is installed, so their letters may show as boxes. Install one with: …* | Desktop app on the BSDs and Linux, in Japanese or Korean, when `fc-list` finds no font for the language | Nothing: **Dismiss** only ([Japanese and Korean](../customise/languages.md#japanese-and-korean)) |
+| *No font for Persian is installed, so its letters may show as boxes. Install one, for example …* (Armenian and Georgian the same) | Desktop app on the BSDs and Linux, in Persian, Armenian or Georgian, when `fc-list` finds no font for the language | Nothing: **Dismiss** only ([Persian, Armenian and Georgian](../customise/languages.md#persian-armenian-and-georgian)) |
+| *This machine has NVIDIA GeForce RTX 4070, but no model server answers, so search by meaning and Ask run the built-in models on the processor. A local Ollama would run them on the graphics card with CUDA, much faster: … Install: curl -fsSL https://ollama.com/install.sh \| sh* | Search by meaning or Ask uses a built-in model, the machine has a graphics card (not a Mac) and no model server answers. The desktop app adds **Copy** for the command; Coxswain never runs it | *Settings → Finding files → Details → Meaning* ([A graphics card and no server](../search/setup.md#a-graphics-card-and-no-server)) |
+| *Found OneDrive, Dropbox: files that are only online are found by name only, so nothing is downloaded. Change in Settings* | The helper found files only in the cloud, and `cloud` is not `"all"`. Terminal app: *… cloud = "all" in config.toml reads them* | *Settings → Finding files* ([Cloud files](../search/cloud-files.md)) |
+| *Install tesseract to search the words in scans, screenshots and pictures: sudo apt install tesseract-ocr* (the line for this system; without one, the text ends at *pictures*) | Text search is on and the helper found no tesseract. The desktop app adds **Copy** for the line; Coxswain never runs it | *Settings → Finding files* ([Installing what is missing](../search/scans.md#installing-what-is-missing)) |
+| *In Termux: run termux-setup-storage once, and Alt+F1 lists your phone's folders (shared storage, Downloads, DCIM …)* | Terminal app in Termux, before `~/storage` exists. The terminal app copies nothing; run the line yourself | Nothing: run it in Termux ([Termux](../systems/termux.md#your-phones-folders)) |
+| *In Termux: pkg install termux-api and the Termux:API app put copied lines on Android's clipboard and tell the search helper when the phone runs on its battery* | Terminal app in Termux, without `termux-clipboard-set` | Nothing ([Termux:API](../systems/termux.md#clipboard-and-battery-termuxapi)) |
 
 **Problems in the status line.** The first two, a problem with search, also show in the desktop
 app as a button at the right of the command line row, before *⚙ Settings*, with **×** beside it:
@@ -109,7 +111,7 @@ is ready.
 
 A tip dismissed, acted on or (in the terminal app) shown is not shown again, in either app; the
 versions read are read in both. Both apps keep this in the shared state file
-([What the apps remember](../panels/session.md)).
+([What the apps remember](session.md)).
 
 ### `coxswain --whats-new`
 
@@ -133,58 +135,67 @@ app, once in the terminal app. The title cannot be changed. *Settings → Overvi
 
 The same tips and title. Differences: there is no count; tips come one at a time in the status
 line, once, and name the command instead of a Settings area; after an upgrade a tip points to
-`coxswain --whats-new`, which prints the versions in the shell. *Settings → Overview* (**F9** →
-*Settings*) lists the tips not shown yet, where **Enter** opens the area that does it, and what
+`coxswain --whats-new`, which prints the versions in the shell. *Settings → Overview* (**F12**,
+or **F9** → *Settings*) lists the tips not shown yet, where **Enter** opens the area that does it, and what
 the versions you have not read brought. The title
 is the terminal's (a terminal that does not show titles shows nothing).
 
 ## Questions
 
 #### What does the number on the Settings button count?
+
 The tips under *For you* that you have not dismissed or acted on, plus the versions after the
 one you last read about. Click the button: *What's new* opens, the versions count as read, and the
 number drops to the tips that are left. **Dismiss** or **Show me** takes those away.
 
 #### Where did the tips in the status line go?
+
 In the desktop app they moved to *Settings → Overview → What's new*, so the command line row stays quiet
 and a tip waits there until you act on it. Only a problem with search (*Search inside files has
 stopped: …*, *Search by meaning cannot read what files are about: …*) is still a button in the status line, and
 it is in the list as well. The terminal app still shows one tip at a time in its status line.
 
 #### How do I see what an upgrade brought?
+
 Desktop app: click **⚙ Settings** while it shows a number, or *Settings → Overview → What's new*. The
-versions you have not read are at the top, marked *new*. Terminal app: `coxswain --whats-new`.
+versions you have not read are at the top, marked *new*. Terminal app: **F12** → *Overview*, or
+`coxswain --whats-new` in a shell.
 
 #### How do I read about older versions?
+
 Under *Settings → Overview → What's new*, click *Earlier versions: N*. In a shell, `coxswain --whats-new all`. The same
 table is at the bottom of the [README](../../README.md#changelog).
 
 #### Does What's new go on the internet?
+
 No. The changes are built into the app. Only a click on a docs link opens your browser at
 GitHub. The [update check](../reference/updates.md) is separate.
 
 #### I dismissed a tip by mistake. Can I get it back?
+
 Not from the app: dismissed tips are remembered in the state file. Each one's action is still
 there: *Settings → Finding files → Details → Meaning*, `coxswain --meaning on`, and so on.
 
 #### I use both apps. Will I see each tip twice?
+
 No. Both read and write the same state file, so a tip seen in one is seen in the other. The same
 goes for versions: after `coxswain --whats-new`, or the terminal app's upgrade tip, the desktop
 app no longer counts that version.
 
 #### Where did "search: names · text" in the title go?
-To Find's footer, where it is used: *563 files indexed · text of 112 files · meaning for
-112*. *text of* is missing while *Words inside files* is off or the helper cannot be reached;
-*meaning for* joins once [search by meaning](meaning.md) runs.
+
+To Find's footer, where it is used: see [The screen](the-screen.md#where-did-search-names--text-in-the-title-go).
 
 #### The title on Linux used to say just "Coxswain". Why the change?
+
 GTK's title bar kept the title the window was made with. The desktop app now sets that bar's title
 too, so the version shows on Linux as on macOS and Windows.
 
 #### Why did the Ollama tip appear?
+
 Search by meaning runs on the built-in model on your CPU, and Ollama answered on
 `http://localhost:11434`. It could make the vectors on its GPU, much faster: see
-[servers](servers.md).
+[servers](../search/servers.md).
 
 ---
-[← Previous: Battery](battery.md) · [Next: Search settings →](settings.md)
+[← Previous: The screen](the-screen.md) · [Next: Moving around and going to a folder →](moving.md)

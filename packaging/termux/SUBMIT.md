@@ -88,7 +88,7 @@ submit, and that low-quality work is closed. So:
      `bundled`, `onig`). If they want the system libraries, add `TERMUX_PKG_DEPENDS="oniguruma"`
      and `export RUSTONIG_SYSTEM_LIBONIG=1` in `termux_step_pre_configure`, build again, push.
 7. When it is merged, the package reaches users within a day: `pkg install coxswain`.
-   Change the README's install row and `docs/reference/termux.md` from *once it is in Termux's
+   Change the README's install row and `docs/systems/termux.md` from *once it is in Termux's
    repository* to the plain command.
 
 ## The pull request

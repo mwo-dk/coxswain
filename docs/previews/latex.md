@@ -187,8 +187,7 @@ either: results go to the cache.
 
 #### The LaTeX container never starts by itself.
 
-Its image is not pulled yet, and a 5 GB download never starts without a click. Press **Build
-PDF**, or **Pull** it in Settings first.
+Its image is not pulled yet: see [the answer in Containers](containers.md#the-latex-container-never-starts-by-itself).
 
 #### Does tectonic download anything?
 

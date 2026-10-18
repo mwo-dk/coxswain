@@ -99,14 +99,16 @@ within a minute. A walk every ten minutes catches anything the watcher missed.
 ## In the terminal app
 
 The same store, the same hits, found by the same helper. The passage goes on a second line under
-each name, your words in the `search_hit` colour. There is no Settings window: set the keys in
-`config.toml`, and the helper takes them at its next start ([questions](folders.md#questions)).
+each name, your words in the `search_hit` colour. Its Settings (**F12** → *Finding files*) have
+the same items, and the helper starts again with a change; keys set by hand in `config.toml` are
+taken at its next start ([questions](folders.md#questions)).
 
 ![The terminal app's Find at In files with "engine" typed: each hit a name and folder, the passage on the next line, engine highlighted](../screenshots/tui-text-search.png)
 
 ## Questions
 
 #### Why doesn't a file I just saved show up in text search?
+
 It is read within seconds of the save, if all of these hold:
 
 - It is inside a [folder that is read](folders.md) (your home folder by default), and not in a
@@ -117,40 +119,48 @@ It is read within seconds of the save, if all of these hold:
   new file waits its turn. *Read now* in Settings reads the backlog at full speed.
 
 #### Why does `budge` not find "budgets"?
+
 Only the last word may be a start; the others must be whole words. Put the partial word last, or
 type it in full.
 
 #### Text search finds nothing at all.
+
 Check *Settings → Finding files*: the *Words* line must not say *Off* (choose the level *Names and
 text*) or *Not running* (press **Start it**). Right after the first start the
 store is still being filled: ` · 31,000 still to read` counts down.
 
 #### Can I search the text in one folder only?
+
 Yes: open the folder in the active panel and press **Ctrl+F** inside Find. The scope reads *In
 rocket*, and *In files* (with every other group, and Ask) keeps to that folder and below. The
 folder must be among the [folders read](folders.md); if it is not, *Read this folder too* adds it.
 
 #### Why does a question find files with only some of its words?
+
 When fewer than 10 files have every word, files with any of the words of four letters or more are
 added, so *what does the rocket fuel cost* finds the budget that says "fuel" and "cost". With
 search by meaning on, such a file is shown only when meaning finds it too.
 
 #### Does anything leave my machine?
+
 Not for search by words: the text stays in `search.db` on your disk. Search by meaning with the
 built-in model stays on the machine too; with a [server on another machine](servers.md) the text is
 sent to it. See [Privacy](../reference/privacy.md).
 
 #### How big does `search.db` get?
+
 About the size of the text in your files, plus a little for each file known. Settings shows it on the
 *Words* line of *Finding files*: *Files read: 31,208 · waiting: 0 · 412 MB on disk*, and on the
 button *Delete what was read (412 MB)*.
 
 #### How do I start the index afresh?
+
 *Settings → Finding files → Details → Background reading → Delete what was read (412 MB)*, then click again (*Click again to delete*). It
 empties `search.db`, sizes, hashes and vectors included, and the helper fills it again from the
 start. Or delete `search.db` while no Coxswain runs.
 
 #### Why is only part of a very large file found?
+
 At most 4 MB of text is kept from one file, and a very long PDF is read for three seconds. Words
 past that are not in the store.
 

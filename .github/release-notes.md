@@ -21,7 +21,7 @@ Every file comes from this release's **Assets** list below.
 
 On FreeBSD one line installs both, with the packages the desktop app needs:
 `fetch -qo - https://raw.githubusercontent.com/mwo-dk/coxswain/master/install/install-freebsd.sh | sh`
-([FreeBSD](https://github.com/mwo-dk/coxswain/blob/master/docs/reference/freebsd.md)).
+([FreeBSD](https://github.com/mwo-dk/coxswain/blob/master/docs/systems/freebsd.md)).
 
 The terminal app is a single file named `coxswain` (`coxswain.exe` on Windows). Put it anywhere on your `PATH`.
 

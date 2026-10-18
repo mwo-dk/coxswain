@@ -28,7 +28,7 @@ UNINSTALL=0
 
 usage() {
   if [ -f "$0" ]; then sed -n '2,17p' "$0" | sed 's/^# \{0,1\}//'
-  else echo "See https://github.com/mwo-dk/coxswain/blob/master/docs/reference/freebsd.md"; fi
+  else echo "See https://github.com/mwo-dk/coxswain/blob/master/docs/systems/freebsd.md"; fi
 }
 
 while [ $# -gt 0 ]; do
@@ -249,4 +249,4 @@ case ":$PATH:" in
 esac
 info "Start the terminal app with: coxswain    (or cox)"
 [ -x "$PREFIX/bin/coxswain-gui" ] && info "Start the desktop app with: coxswain-gui, or Coxswain in the menu"
-info "Update later by running this script again. Guide: https://github.com/$REPO/blob/master/docs/reference/freebsd.md"
+info "Update later by running this script again. Guide: https://github.com/$REPO/blob/master/docs/systems/freebsd.md"

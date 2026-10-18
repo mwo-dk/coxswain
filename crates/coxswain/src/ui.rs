@@ -800,6 +800,8 @@ fn feature_lines(list: &[coxswain_core::features::Entry], cursor: usize, heading
 
 /// The help text, its keys under the group headings, in two columns when `width` allows.
 fn help_text(app: &App, width: usize) -> Vec<Line<'static>> {
+    // `{view}`, `{menu}` … in the texts: the keys of the user's keymap.
+    let keys = |s: String| coxswain_core::features::with_keys(&app.cfg, &s);
     let mut v = vec![
         Line::from(t!("help.tagline", "version" => coxswain_core::update::VERSION)).bold(),
         Line::from(""),
@@ -821,11 +823,11 @@ fn help_text(app: &App, width: usize) -> Vec<Line<'static>> {
     v.extend(key_columns(&groups, width));
     v.push(Line::from(""));
     for k in ["help.also1", "help.also2", "help.also3", "help.also4", "help.bom", "help.provenance", "help.history"] {
-        v.push(Line::from(t!(k, "key" => app.key_label(Action::History))));
+        v.push(Line::from(keys(t!(k, "key" => app.key_label(Action::History)))));
     }
     let key = |a| app.key_label(a).to_string();
-    v.push(Line::from(t!("help.branches", "key" => key(Action::Branches), "switch" => key(Action::SwitchBranch), "worktrees" => key(Action::Worktrees))));
-    v.push(Line::from(t!("help.git_tool", "key" => key(Action::GitTool))));
+    v.push(Line::from(keys(t!("help.branches", "key" => key(Action::Branches), "switch" => key(Action::SwitchBranch), "worktrees" => key(Action::Worktrees)))));
+    v.push(Line::from(keys(t!("help.git_tool", "key" => key(Action::GitTool)))));
     v.push(Line::from(""));
     v.extend(syntax_lines());
     v.push(Line::from(""));

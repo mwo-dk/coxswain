@@ -47,7 +47,7 @@ question it reads. A chat model is let go by itself five minutes after its last 
 | App | Where |
 |---|---|
 | Desktop app | **Ctrl+,** → *Finding files* → *Details* → *Built-in models* (or `coxswain-gui --settings=models`). Each model has its line, its folder with **Show in panel**, **Unload now** (a chat model that is loaded) and **Delete**; **Delete all not in use (8.4 GB)** under the list |
-| Terminal app | **F9** → *Settings* → *Finding files*, the *Built-in models* heading near the end (or `coxswain --settings=models`). One row per model: its name, then its line. The bottom line names the folder and the keys: *Enter: show its folder · Delete: delete it · U: unload it*. The last row is **[ Delete all not in use (8.4 GB) ]** |
+| Terminal app | **F12** (or *Settings* in **F9**) → *Finding files*, the *Built-in models* heading near the end (or `coxswain --settings=models`). One row per model: its name, then its line. The bottom line names the folder and the keys: *Enter: show its folder · Delete: delete it · U: unload it*. The last row is **[ Delete all not in use (8.4 GB) ]** |
 | Both apps | The same models are rows of [Disk use](../reference/disk-use.md) (Settings → *Privacy and updates*), beside everything else Coxswain keeps on the disk, with the same **Delete** (*Clear* there) |
 | Command line | `coxswain --models` ([below](#on-the-command-line)) |
 
@@ -97,7 +97,8 @@ disk, and deleting the model in use changes `ask_model`, `meaning_engine`, `mean
 ## Questions
 
 #### Where are the built-in models kept?
-In the `models` folder of the cache folder: `~/.cache/coxswain/models/` on Linux and FreeBSD,
+
+In the `models` folder of the cache folder: `~/.cache/coxswain/models/` on FreeBSD, the other BSDs, illumos and Linux,
 `~/Library/Caches/coxswain/models/` on a Mac, `%LOCALAPPDATA%\coxswain\models\` on Windows.
 `coxswain --paths` prints it as *models*. Each model has a folder of its own, named after it and
 the first eight characters of the revision it was downloaded at (`qwen3-1.7b-d7f544ee`).
@@ -105,31 +106,37 @@ the first eight characters of the revision it was downloaded at (`qwen3-1.7b-d7f
 (desktop) or **Enter** on its row (terminal).
 
 #### How do I free the disk space?
+
 **Delete** on a model, or **Delete all not in use**, which also takes unfinished downloads and
 older versions. In the terminal app, **Delete** on its row in Settings, or
 `coxswain --models delete unused`. The models are only downloaded again when you choose them.
 
 #### How do I free the memory now?
+
 **Unload now** on the chat model (desktop), **U** on its row (terminal). It is let go by itself
 five minutes after the last answer anyway. The embedding model stays loaded while search by
 meaning is on; turn search by meaning off, or choose a server for it, to free it.
 
 #### What happens when I delete the model in use?
+
 You are asked first. Ask, or search by meaning, then takes the recommended choice: a server's
 model on the graphics card when one answers, else another built-in chat model you have, else it
 turns off. The line after the delete says which ([the table](#deleting-the-model-in-use)).
 
 #### What is "an older version" or "an unfinished download"?
+
 A new release can pin a newer revision of a model: it is downloaded into a new folder, and the
 old folder stays until you delete it. A download that was cancelled or broke off leaves an
 unfinished folder (files ending in `.part`). Neither is ever in use, so *Delete all not in use*
 takes them.
 
 #### Why is my Ollama model not listed?
+
 Ollama, Lemonade and LM Studio keep their own models; Coxswain does not download or delete
 them. Use the server's own list (`ollama list`, `ollama rm qwen3:8b`).
 
 #### Does deleting a model send anything anywhere?
+
 No. Only choosing a built-in model again downloads it, from huggingface.co.
 
 ---

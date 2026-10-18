@@ -5,7 +5,7 @@ name: illumos
 # installed with install/install-unix.sh, and the search helper's SMF service imported, refused
 # without a user, started as one, checked and stopped. Then the same archive installed and run
 # on OpenIndiana. Every push to master; pull requests only for this system's code.
-# docs/reference/illumos.md.
+# docs/systems/illumos.md.
 on:
   workflow_call: # from release.yml, for every push to master
   pull_request:

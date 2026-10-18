@@ -38,7 +38,7 @@ Markdown file links: the app's own content security policy allows only the app a
 | Your settings | `config.toml` |
 | The session, favourites, tags, notes, recent repositories, dismissed notices, the last update check | `state.json` |
 | The name index: every file name in the folders indexed | `index.bin` in the cache folder |
-| The search store: the text of your files, their sizes, hashes and meaning vectors | `search.db` in the cache folder, permissions `0600` (you alone) on Linux and macOS |
+| The search store: the text of your files, their sizes, hashes and meaning vectors | `search.db` in the cache folder, permissions `0600` (you alone) on the BSDs, illumos, Linux and macOS |
 | The model for search by meaning | `models/` in the cache folder |
 | Previews made by tools | `previews/` in the cache folder |
 | Passwords of encrypted archives | Nowhere on disk: in the app's memory until it quits ([Passwords](../files/archive-passwords.md)) |
@@ -62,7 +62,7 @@ them. They are found by name only ([Cloud files](../search/cloud-files.md)).
 **Other apps' data on a Mac** (`~/Library` but iCloud Drive and the cloud folders, the Photos and
 Music libraries) is never opened by Coxswain's walks, and Coxswain needs no Full Disk Access.
 macOS may ask once about Desktop, Documents, Downloads and removable or network volumes
-([macOS](macos.md#the-folder-prompts)).
+([macOS](../systems/macos.md#the-folder-prompts)).
 
 **HTML files** are shown as pages in a sandbox: the page runs no scripts and may load only
 pictures, styles, fonts and media from your own disk (beside the file). A page that links a

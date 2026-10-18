@@ -5,7 +5,7 @@
 Once a day, each app asks GitHub whether a newer release exists, and tells you when it does,
 with the command that upgrades your copy. Nothing is downloaded or installed by itself.
 
-![The desktop app (Cyber): at the right end of the command line row, next to Settings, the button Coxswain 2.9.0 is available](../screenshots/reference-update.png)
+![The desktop app (Cyber): at the right end of the command line row, next to Settings, the button Coxswain X.Y.Z is available, naming the newer version](../screenshots/reference-update.png)
 
 ## Contents
 
@@ -26,7 +26,7 @@ with the command that upgrades your copy. Nothing is downloaded or installed by 
 4. After the upgrade, the desktop app's **⚙ Settings** button shows a count: click it for
    *Settings → Overview → What's new*, with the new version's changes marked *new*. The terminal app says
    once `Coxswain X.Y.Z is installed: coxswain --whats-new says what it brought`
-   ([Notices and what's new](../search/notices.md)).
+   ([Notices and what's new](../panels/notices.md)).
 
 To turn it off: Settings (**Ctrl+,**) → *Privacy and updates* → untick *Check for a new
 version*, or `check_updates = false` in `config.toml`.
@@ -56,7 +56,7 @@ version*, or `check_updates = false` in `config.toml`.
 | After updating | A count on **⚙ Settings**; a click opens *Settings → Overview → What's new*, where the new version's changes are marked *new* | Once, in the status line: `Coxswain X.Y.Z is installed: coxswain --whats-new says what it brought` |
 
 While the update button shows, the desktop app holds back a problem with search in the status
-line ([Notices and what's new](../search/notices.md)).
+line ([Notices and what's new](../panels/notices.md)).
 
 ## The upgrade command
 
@@ -64,11 +64,11 @@ It is worked out from where the program is installed:
 
 | Installed with | Command shown |
 |---|---|
-| Anything else on FreeBSD (the install script, the archives) | `fetch -qo - https://raw.githubusercontent.com/mwo-dk/coxswain/master/install/install-freebsd.sh \| sh`, which updates both apps where they are ([FreeBSD](freebsd.md#updating)) |
-| Anything else on NetBSD or OpenBSD | `ftp -o - https://raw.githubusercontent.com/mwo-dk/coxswain/master/install/install-unix.sh \| sh` ([NetBSD](netbsd.md#updating-and-uninstalling), [OpenBSD](openbsd.md#updating-and-uninstalling)) |
-| Anything else on illumos | `curl -fsSL https://raw.githubusercontent.com/mwo-dk/coxswain/master/install/install-unix.sh \| sh` ([illumos](illumos.md#updating-and-uninstalling)) |
-| Flatpak, the desktop app (`io.github.mwo_dk.Coxswain`) | `flatpak update io.github.mwo_dk.Coxswain`. It is not on Flathub yet: a Flatpak you built updates by building it again ([Flatpak](flatpak.md#updating)) |
-| Termux's package (`/data/data/com.termux/files/usr/bin`) | `pkg upgrade coxswain`, once the package is in Termux's repository ([Termux](termux.md)) |
+| Anything else on FreeBSD (the install script, the archives) | `fetch -qo - https://raw.githubusercontent.com/mwo-dk/coxswain/master/install/install-freebsd.sh \| sh`, which updates both apps where they are ([FreeBSD](../systems/freebsd.md#updating)) |
+| Anything else on NetBSD or OpenBSD | `ftp -o - https://raw.githubusercontent.com/mwo-dk/coxswain/master/install/install-unix.sh \| sh` ([NetBSD](../systems/netbsd.md#updating-and-uninstalling), [OpenBSD](../systems/openbsd.md#updating-and-uninstalling)) |
+| Anything else on illumos | `curl -fsSL https://raw.githubusercontent.com/mwo-dk/coxswain/master/install/install-unix.sh \| sh` ([illumos](../systems/illumos.md#updating-and-uninstalling)) |
+| Flatpak, the desktop app (`io.github.mwo_dk.Coxswain`) | `flatpak update io.github.mwo_dk.Coxswain`. It is not on Flathub yet: a Flatpak you built updates by building it again ([Flatpak](../systems/flatpak.md#updating)) |
+| Termux's package (`/data/data/com.termux/files/usr/bin`) | `pkg upgrade coxswain`, once the package is in Termux's repository ([Termux](../systems/termux.md)) |
 | Cargo (`~/.cargo/bin`, Termux too) | `cargo install --locked coxswain` |
 | Homebrew formula (the terminal app) | `brew upgrade coxswain` |
 | Homebrew cask (the desktop app) | `brew upgrade --cask coxswain-gui` |

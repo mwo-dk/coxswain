@@ -103,25 +103,30 @@ text_max_size = 52428800   # 50 MB
 
 ## In the terminal app
 
-There is no Settings window: edit `config.toml` (its path: `coxswain --config-path`). The helper
-reads the config when it starts, so a change made by hand takes effect at its next start (see the
-questions). `.nosearch` works the same from any app.
+The same lists in its Settings: **F12** → *Finding files* → *Folders*. **Enter** on a list opens
+it: each entry with `−`, **Delete** removes one, and the `+ Add` line takes a path you type. The
+helper starts again with the change. Or edit `config.toml` (its path: `coxswain --config-path`):
+the helper reads the config when it starts, so a change made by hand takes effect at its next
+start (see the questions). `.nosearch` works the same from any app.
 
 ## Questions
 
 #### How do I make a folder names-only?
+
 Desktop app: *Settings → Finding files → Details → Folders → Names only*, type or paste the folder and press
 **Add** (or open the folder in the active panel and press **Add** with the field empty). From
 anywhere: put an empty file named `.nosearch` in it. In `config.toml`:
 `names_only = ["/home/me/Mail"]` under `[search]`.
 
 #### How do I leave out files like `*.log`, or one file?
+
 Add the pattern under *Settings → Finding files → Details → Folders → Left out everywhere* (`*.log`, `*.csv`, `secret*`), or
 the file's name (`passwords.txt`): every file that matches, anywhere, loses its text from the
 index at the next scan and is never read again. It is still found by name. In `config.toml`, add it
 to `text_exclude`.
 
 #### Where is `search.db`, and can I look inside?
+
 In Coxswain's cache folder: `~/.cache/coxswain/search.db` on Linux, `~/Library/Caches/coxswain` on
 macOS, `%LOCALAPPDATA%\coxswain` on Windows (`coxswain --paths` prints it). *Settings → Finding
 files → Details → Background reading → Show in panel* opens it in the active panel; the preview shows its tables and their
@@ -130,39 +135,48 @@ writes to it. The cache
 folder itself is never read into the index, so the store does not index itself.
 
 #### I added a folder outside my home folder, and now my home folder is not read.
+
 Listing folders replaces the default. Add your home folder to *Folders read* too.
 
 #### I changed `[search]` in `config.toml` by hand and nothing happened.
+
 The helper reads the config when it starts. Changes made in Settings restart it; a change made by
 hand takes effect when it next starts. Make any change under *Settings → Finding files*, or
 close every Coxswain window and wait ten minutes. With the helper started with your session, run
 `coxswain --index-service off` and then `on`.
 
 #### Is a names-only folder still in folder sizes?
+
 In [folder sizes](../panels/folder-sizes.md), yes: its files are counted, never read. Its names are
 found by [names everywhere](names.md) as before.
 
 #### What happens to text already in the index when I leave a folder out?
+
 It goes from the index when the new helper walks the folders read.
 
 #### Can I read a hidden folder, like `~/.notes`?
+
 No. Hidden folders are always left out of reading. Their files are still found by name.
 
 #### Can I read `node_modules` or `build` after all?
+
 Yes: press its **×** under *Left out everywhere*, or set `text_exclude` without that name. In `config.toml`
 the list replaces the default one, so list the others you still want left out.
 
 #### Will adding my OneDrive folder download it?
+
 No. Its files that are only online are found by name and never read, so nothing is downloaded;
 the files OneDrive keeps on your disk are read. See [Cloud files](cloud-files.md).
 
 #### Why is a build folder with another name than `target` not read?
+
 Cargo marks each of its build folders with a `CACHEDIR.TAG`, whatever the folder is called, and a
 folder with that tag is read as if it held `.nosearch`: its files are found by name and counted in
 folder sizes, never read. To read one after all, delete its `CACHEDIR.TAG` (Cargo writes it again
 at its next build).
 
 #### Does `.nosearch` hide a folder from name search too?
+
 No, only from reading. To leave a folder out of the name index, use `name_exclude` (see
 [Names everywhere](names.md#settings-and-configtoml)).
 

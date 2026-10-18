@@ -13,6 +13,15 @@ Settings → *Finding files* or *Overview*, or `coxswain --setup-search`). It ha
 
 ![Settings at Finding files with Details → Meaning open: Meaning with Turn off, Made by Ollama, Server http://localhost:11434, Model bge-m3:latest with its Pull button](../screenshots/search-meaning-server.png)
 
+## Contents
+
+- [How to use it](#how-to-use-it)
+- [What you see](#what-you-see)
+- [What to know](#what-to-know)
+- [Settings and config.toml](#settings-and-configtoml)
+- [In the terminal app](#in-the-terminal-app)
+- [Questions](#questions)
+
 ## How to use it
 
 | | Desktop app: *Settings → Finding files → Details → Meaning → Made by* | Terminal app |
@@ -47,7 +56,7 @@ themselves. The *Server* field is the base URL: Coxswain adds `/api/embed` for O
   *Meaning* line and under *Meaning*: *The built-in model reads meaning on the processor here.
   bge-m3:latest on Ollama runs on your graphics card (…) and reads your files far sooner.*, with
   **Use bge-m3:latest** (every file's meaning is read again: said and asked first). A
-  [notice](notices.md) says it once too ([When it is a poor choice here](ask-builtin.md#when-it-is-a-poor-choice-here)).
+  [notice](../panels/notices.md) says it once too ([When it is a poor choice here](ask-builtin.md#when-it-is-a-poor-choice-here)).
 
 ## What to know
 
@@ -60,7 +69,7 @@ themselves. The *Server* field is the base URL: Coxswain adds `/api/embed` for O
   file. The same model written another way (`bge-m3` and `bge-m3:latest`), or the same weights
   under another name on Ollama, is no change: the vectors stay.
 - **A server that does not answer** pauses search by meaning: Settings (*Meaning has stopped: …*), the terminal app's
-  Find and a [notice](notices.md) (*Search by meaning cannot read what files are about: …*) show
+  Find and a [notice](../panels/notices.md) (*Search by meaning cannot read what files are about: …*) show
   the error, the files
   wait, and they are done at the next pass once it answers. A search asks the server for the
   question's vector too, so while it is down, meaning hits are missing; word hits are not.
@@ -97,29 +106,36 @@ meaning_key_env = "LEMONADE_KEY"
 `coxswain --meaning ollama [MODEL]`, `--meaning server URL MODEL` and `--meaning builtin` write
 the keys and start the helper again; `--meaning server` first checks that the server answers,
 with the key `meaning_key_env` names when one is set, as the model lists in Settings do. For
-Ollama on another machine, or an API key, edit `config.toml`. The warning about text sent to
-another machine is shown only in the desktop app's Settings; see [Privacy](../reference/privacy.md).
+Ollama on another machine, or an API key, use its Settings: **F12** → *Finding files* →
+*Meaning* has *Server*, *Model* and *API key from the environment variable*, as in the desktop
+app (or edit `config.toml`). A server on another machine is listed under **F12** → *Privacy and
+updates* → *What can leave this machine*; see [Privacy](../reference/privacy.md).
 
 ## Questions
 
 #### Which model should I pick on a server?
+
 A multilingual embedding model, if your files are in several languages: `bge-m3` is the
 suggestion. Any embedding model the server offers works; chat models do not.
 
 #### Does `coxswain --meaning ollama` work with Ollama on another machine?
+
 It talks to Ollama on this machine. For another one, set `meaning_url = "http://192.168.1.20:11434"` under
 `[search]` (or use Settings).
 
 #### Is a server faster than the built-in model?
+
 Usually much faster: a GPU or NPU makes vectors for thousands of passages in the time the CPU makes
 a few. The helper rests between batches a quarter of the time the server took (with the built-in
 model, as long as it took), and waits on battery.
 
 #### Why does Settings say the text of my files is sent somewhere?
+
 The *Server* is not this machine. To make vectors, the server must read the passages, and your
 questions. Use a server you trust, or one on `localhost`.
 
 #### My server wants an API key. Where does it go?
+
 In an environment variable; name that variable under *API key from the environment variable*
 (`meaning_key_env`). The variable must be set where the search helper starts: in your session, or in
 the systemd unit, LaunchAgent or autostart entry when the helper [starts with your session](helper.md). The key
@@ -127,15 +143,18 @@ goes only to the saved *Server*. Over `http://` it travels unencrypted, as do yo
 use `https://` for a server on another machine.
 
 #### Why does switching the model start over?
+
 Vectors of two models cannot be compared. The store remembers which model made them, and when that
 changes every file gets new ones. You are asked first, with the number of files and about how long it takes.
 Picking `bge-m3:latest` from the list for `bge-m3` is not a switch: Ollama's missing tag counts as
 `:latest`, and Ollama's digest of the weights is compared too.
 
 #### The server was off for a while. Do I have to do anything?
+
 No. Files wait while it does not answer, and are done once it does.
 
 #### Why is there no "Delete the model" button for a server?
+
 The model lives on the server, not in Coxswain. Remove it there, for example `ollama rm bge-m3`.
 
 ---

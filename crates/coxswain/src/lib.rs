@@ -369,7 +369,7 @@ pub enum Dialog {
     /// A CycloneDX BOM, full screen (F3 on one).
     Bom(Box<bom::Viewer>),
     Provenance(Box<provenance::Viewer>),
-    /// Settings, full screen (F9 → Settings, `--settings`).
+    /// Settings, full screen (F12, F9 → Settings, `--settings`).
     Settings(Box<settings::Settings>),
     /// The first-run guide, full screen (the first start, F1 → G, Settings → Overview).
     Guide(Box<guide::Guide>),
@@ -710,8 +710,9 @@ impl App {
         &mut self.panels[self.active]
     }
 
+    /// The key shown for `a`: one the terminal delivers (Settings' F12, not Ctrl+,).
     pub fn key_label(&self, a: Action) -> &str {
-        self.cfg.key_for(a).unwrap_or("")
+        self.cfg.tty_key(a).unwrap_or("")
     }
 
     /// The action's name in F1 and F9: Undo says what it would undo.
@@ -2678,7 +2679,7 @@ fn main_loop(term: &mut DefaultTerminal, app: &mut App) -> std::io::Result<()> {
 }
 
 const USAGE: &str = "coxswain [LEFT] [RIGHT]      a folder, or a file to open its folder with the cursor on it
-  --settings[=AREA|OPTION]  start with Settings open (also F9 → Settings): search, previews,
+  --settings[=AREA|OPTION]  start with Settings open (in the app: F12): search, previews,
                   looks, behaviour, keys, privacy, or an option such as show_hidden
   --dump-config   print the full default config (redirect it to the config file to customise)
   --config-path   print where the config file is read from

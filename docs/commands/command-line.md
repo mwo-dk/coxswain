@@ -67,7 +67,7 @@ space, is taken; `cd src && make` is `cd` to a folder named `src && make`.
 
 ## The shell
 
-| | Linux and macOS | Windows |
+| | The BSDs, illumos, Linux and macOS | Windows |
 |---|---|---|
 | Terminal app | `$SHELL -c "<line>"` (`sh` when `$SHELL` is unset) | `cmd /C "<line>"` |
 | Desktop app | `sh -c "<line>"` | `cmd /C "<line>"` |
@@ -117,6 +117,8 @@ Press **Ctrl+O**: the panels hide and the terminal shows what the command printe
 back and takes that line away. Before any command has run the line says *No command has run yet
 · any key brings the panels back*. For commands whose output you always want to read, put them in the
 [user menu](user-menu.md) with `wait = true`, which waits for **Enter** before the panels return.
+
+![The terminal app after ls and Ctrl+O: the panels hidden, the prompt /home/demo/projects/rocket> ls with its output Cargo.toml README.md TODO.txt deploy.sh docs src target, and under it Panels hidden · any key brings them back in reverse video](../screenshots/commands-panels-hidden-tui.png)
 
 #### How do I stop a command that runs too long in the desktop app?
 

@@ -1,4 +1,4 @@
-[← README](../../README.md) · [Docs index](../README.md) · [Reference](README.md)
+[← README](../../README.md) · [Docs index](../README.md) · [Systems](README.md)
 
 # Nix
 
@@ -72,7 +72,7 @@ Add the flake as an input and put the packages in your system or your home:
 ```
 
 With Home Manager the same two lines go in `home.packages`. Coxswain's settings stay in
-`~/.config/coxswain/config.toml` as on any Linux ([Where things are kept](where-things-are-kept.md));
+`~/.config/coxswain/config.toml` as on any Linux ([Where things are kept](../reference/where-things-are-kept.md));
 Home Manager can write that file with `xdg.configFile."coxswain/config.toml".text`, but then
 Settings cannot save to it, since the file is a read-only link into the store.
 
@@ -108,7 +108,7 @@ search by meaning links nixpkgs' oniguruma rather than building its own copy.
 The once-a-day update check cannot tell a Nix install from a download, so its notice points at
 the releases page. Update with the commands above instead, or turn the check off with
 `check_updates = false` in `config.toml` (Settings → *Privacy and updates* → *Check for a new
-version*); see [Update checks](updates.md).
+version*); see [Update checks](../reference/updates.md).
 
 ## nixpkgs and the flake
 
@@ -127,20 +127,20 @@ from the release they name.
 
 ## Questions
 
-### Why does `nix run github:mwo-dk/coxswain` take so long the first time?
+#### Why does `nix run github:mwo-dk/coxswain` take so long the first time?
 
 There is no binary cache for the flake, so Nix compiles the app and all its crates: a few
 minutes for the terminal app, longer for the desktop app with its frontend. The result stays in
 your store, and the next `nix run` of the same commit starts at once. Once Coxswain is in
 nixpkgs, `nix run nixpkgs#coxswain` comes ready-built from cache.nixos.org.
 
-### Why is there no desktop app for macOS in the flake?
+#### Why is there no desktop app for macOS in the flake?
 
 The Mac app is a signed-ad-hoc `.app` bundle with its own Info.plist, folder-prompt texts and
 Metal for search by meaning; Nix would give a bare binary without those. Use the `.dmg` or
 `brew install --cask mwo-dk/coxswain/coxswain-gui`. The terminal app builds on both Macs.
 
-### The update notice says a new version is out, but `nix profile upgrade` changes nothing.
+#### The update notice says a new version is out, but `nix profile upgrade` changes nothing.
 
 The notice comes from GitHub's latest release; a profile installed from the flake follows
 `master`, which has the release as soon as it is tagged, so `nix profile upgrade coxswain`
@@ -148,14 +148,14 @@ fetches it. With nixpkgs the new version arrives only after the update has been 
 reached your channel, which can take days. Turn the notice off with `check_updates = false`
 if it gets ahead of your channel.
 
-### Can Settings save when my `config.toml` comes from Home Manager?
+#### Can Settings save when my `config.toml` comes from Home Manager?
 
 No. Home Manager makes `~/.config/coxswain/config.toml` a link into the read-only Nix store, so
-the desktop app's Settings and the first-run guide cannot write it, and their changes are lost.
+Settings (in either app) and the first-run guide cannot write it, and their changes are lost.
 Either let Coxswain own the file, or keep all settings in your Home Manager configuration and
 make changes there. `coxswain --dump-config` prints every key with its default to start from.
 
-### Does the search helper start with my session on NixOS?
+#### Does the search helper start with my session on NixOS?
 
 Settings → *Finding files* → *Details* → *Background reading* → *Start with my session* (or
 `coxswain --index-service on`) writes a systemd user unit under `~/.config/systemd/user`. It
@@ -167,7 +167,7 @@ an upgrade removes. Turn it on with `coxswain --index-service on` instead (the t
 runs the same helper), or turn it off and on again after each upgrade.
 See [The search helper](../search/helper.md).
 
-### Which nixpkgs does the flake build with?
+#### Which nixpkgs does the flake build with?
 
 The one in `flake.lock` (nixos-unstable at the time it was last locked). To build with yours,
 set `inputs.coxswain.inputs.nixpkgs.follows = "nixpkgs"`; Coxswain needs a Rust toolchain that
@@ -175,4 +175,4 @@ is new enough for the locked crates: Rust 1.93 or newer for the terminal app, 1.
 desktop app on Linux (its `sysinfo` asks for it).
 
 ---
-[← Previous: Linux on ARM](linux-arm.md) · [Next: Termux on Android →](termux.md)
+[← Previous: Flatpak](flatpak.md) · [Next: Termux on Android →](termux.md)

@@ -8,7 +8,7 @@ On a folder in a ZFS dataset, **Alt+Z** lists the dataset's snapshots, newest fi
 see how it differs from the file now, and copy an old version back with **F5**. Nothing is ever
 written into a snapshot. Both apps do this, on FreeBSD, on Linux with OpenZFS and on macOS
 with OpenZFS; the terminal app does it on illumos (OmniOS, OpenIndiana) and on
-[TrueNAS](../reference/truenas.md#snapshots) too. No root is needed.
+[TrueNAS](../systems/truenas.md#snapshots) too. No root is needed.
 
 ![The desktop app on FreeBSD 14.5: the left pane in /tank/home/demo/projects/rocket/@snapshots with the badge snapshots of tank/home/demo at the end of the path bar, listing before-upgrade, daily-2026-10-05 and daily-2026-10-04 with their own space (13.0 KB, 13.0 KB, 55.0 KB); the right pane is the folder now; both footers say tank/home/demo · 1.24x · 1001 KB of 500 MB](../screenshots/zfs-snapshots-gui.png)
 *Alt+Z in `/tank/home/demo/projects/rocket`: the dataset's snapshots, newest first.*
@@ -112,8 +112,8 @@ folders runs it once.
 - Off ZFS, **Alt+Z** says *… is not on ZFS: there are no snapshots here*, and no footer line
   shows. On Windows there is no ZFS.
 
-The dataset of a folder comes from the kernel's mount table (statfs(2) on FreeBSD and macOS,
-`/proc/self/mountinfo` on Linux, `/etc/mnttab` on illumos), not from running `zfs`: cheap
+The dataset of a folder comes from the kernel's mount table (statfs(2) on FreeBSD,
+`/etc/mnttab` on illumos, `/proc/self/mountinfo` on Linux, statfs(2) on macOS), not from running `zfs`: cheap
 enough for every folder. On illumos, **Diff** uses GNU diff (`/usr/gnu/bin/diff`, in the base
 system) for its headers; without it, the system's `diff -u`.
 
@@ -123,7 +123,7 @@ snapshot.
 
 The first time you start Coxswain with your home folder on ZFS, you are told that the snapshots
 are there and which key opens them: under *Settings → Overview → What's new* in the desktop app,
-once in the status line in the terminal app ([Notices](../search/notices.md)).
+once in the status line in the terminal app ([Notices](../panels/notices.md)).
 
 ## Limits
 
@@ -151,6 +151,7 @@ Nothing to turn on: the footer line and **Alt+Z** are there whenever a folder is
 
 ## In the terminal app
 
+<!-- screenshot: tui-zfs-snapshots.png: retake on FreeBSD with ZFS: the same view at coxswain X.Y.Z, the F-key bar ending with 12 Settings and the size of the folder above on .. -->
 ![The terminal app in Classic blue (NC) on FreeBSD: the left panel titled …/projects/rocket/@snapshots [snapshots of tank/home/demo] with before-upgrade, daily-2026-10-05 and daily-2026-10-04, the info line 56320 used, 333824 referenced, and tank/home/demo · 1.24x · 1025024 of 500M in the bottom border; the right panel is the folder now](../screenshots/tui-zfs-snapshots.png)
 
 Everything above works the same, keys included. The differences: the title says
@@ -211,7 +212,7 @@ folder lists the snapshots of the dataset it is on; the footer names that datase
 
 Yes: a boot environment is a dataset, and its snapshots list like any other. The boot
 environments themselves are in the sidebar and **Alt+F1**
-([FreeBSD](../reference/freebsd.md#boot-environments-and-jails)).
+([FreeBSD](../systems/freebsd.md#boot-environments-and-jails)).
 
 ---
 [← Previous: Finding duplicates](duplicates.md) · [Next: Customising →](../customise/README.md)

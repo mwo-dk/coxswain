@@ -6,21 +6,70 @@ Every feature of both apps, the terminal app (`coxswain`) and the desktop app (`
 
 New here? Start with [The first-run guide](panels/first-run.md), [The screen](panels/the-screen.md) and [Every default key](panels/keys.md). Coming from 1.x? Read [What's new in 2.0](whats-new-2.md). Puzzled? See [Questions, collected](faq.md). Every version: [the changelog](changelog.md).
 
+## The map
+
+```mermaid
+mindmap
+  root((Coxswain))
+    Panels and keys
+      The screen and notices
+      Moving, marking, sorting
+      Tabs, views, folder sizes
+      Git, history, branches
+      F1, F9, Shift+F10
+    Organise
+      Colour tags
+      Folder notes
+      Favourites and sidebar
+    Commands
+      Command line
+      User menu F2 and scripts
+      View F3, edit F4
+    Search
+      Find: names, text, meaning
+      Ask your files
+      The search helper
+      Built-in models
+    Previews
+      Text, code, documents
+      Office, data, media
+      CBOMs and provenance
+      LaTeX, tools, containers
+    Files
+      Copy, move, delete, undo
+      Archives as folders
+      Properties, duplicates
+      ZFS snapshots
+    Customising
+      Settings
+      Themes and looks
+      Languages, keys, glyphs
+    Reference
+      Terminal app, flags
+      config.toml, privacy
+      Where things are kept
+    Systems
+      FreeBSD, other BSDs, illumos
+      Linux, Android, ChromeOS
+      macOS, Windows
+```
+
 ## [Panels and keys](panels/README.md)
 
 | Page | What it covers |
 |---|---|
 | [Panels and keys](panels/README.md) | The area's pages, finding what Coxswain can do (F1, F9, Shift+F10, hints), and the main keys of both apps |
 | [The first-run guide](panels/first-run.md) | The four steps shown on the first start (panels and keys, how far Find looks, looks with the Nerd Font check, privacy), skipping, opening it again (F1, Settings → Overview) |
-| [The screen](panels/the-screen.md) | Panels, active panel, title bar with the version, status line and notices, F-key bar, archives shown in the pane, starting in a folder |
+| [The screen](panels/the-screen.md) | Panels, active panel, title bar with the version, status line and notices, F-key bar (*12 Settings* at its right end in the terminal app), archives shown in the pane, starting in a folder |
+| [Notices and what's new](panels/notices.md) | The version in the title, the tips, the count on Settings, *What's new* and `coxswain --whats-new` |
 | [Moving around and going to a folder](panels/moving.md) | Cursor keys, Enter, parent, other panel, refresh, Alt+F1/Alt+F2, Ctrl+L, cd |
 | [Quick search](panels/quick-search.md) | Alt+letter to jump to a name |
 | [Marking files](panels/marking.md) | Insert, + - *, patterns, marking with the mouse, what uses the marks |
 | [Sorting and hidden files](panels/sorting.md) | Ctrl+F3 to Ctrl+F6, headers, the rules, Alt+. and show_hidden |
-| [Tabs, back and forward, one pane or two](panels/tabs-and-panes.md) | Tabs, back and forward, one pane or two (Ctrl+O), the splitter |
+| [Tabs, back and forward, one pane or two](panels/tabs-and-panes.md) | Tabs, back and forward, one pane or two (Ctrl+O; in the terminal app the last output, with *Panels hidden · any key brings them back*), the splitter |
 | [Views: details, columns, thumbnails](panels/views.md) | Details, Miller columns, thumbnails, the columns menu, the age chip |
-| [Folder sizes](panels/folder-sizes.md) | Where they come from, how fresh, measuring again, switching off |
-| [Git in the panels](panels/git.md) | The git line (worktree, detached HEAD, merge or rebase under way), file glyphs, the last commit per file, the diff, recent repositories, user menu commands |
+| [Folder sizes](panels/folder-sizes.md) | Where they come from, how fresh, the size on `..` once known, measuring again, switching off |
+| [Git in the panels](panels/git.md) | The git line (worktree, detached HEAD, merge or rebase under way), upstream, remote and last fetch (the git line's tooltip, the terminal app's info line on `..`, a repository folder's own on hover), file glyphs, the last commit per file, the diff, recent repositories, Open in your git tool (Alt+G), user menu commands |
 | [Git history as folders](panels/git-history.md) | Ctrl+G, the commits of a file or folder, the files at a commit, preview and diff, F3, F5, read-only, limits |
 | [Git branches and worktrees](panels/git-branches.md) | Alt+B, the branches, a branch's files, switching (Alt+S) and new branches, Alt+W, the worktrees, limits |
 | [The mouse](panels/mouse.md) | Clicks, marks, drags, path bar, tabs, splitters, in both apps |
@@ -45,7 +94,7 @@ New here? Start with [The first-run guide](panels/first-run.md), [The screen](pa
 | Page | What it covers |
 |---|---|
 | [Commands, the user menu and scripts](commands/README.md) | The area, and its keys in both apps |
-| [The command line and its output](commands/command-line.md) | The command line: typing, cd, Ctrl+Enter, the shell, output in the terminal (Ctrl+O) and in the preview pane |
+| [The command line and its output](commands/command-line.md) | The command line: typing, cd, Ctrl+Enter, the shell, output in the terminal (Ctrl+O, with *Panels hidden · any key brings them back*) and in the preview pane |
 | [The user menu, F2](commands/user-menu.md) | The user menu (F2): the built-in entries per system (terminal, SHA-256, git status), Add your own command, [[user_menu]], %f %d %s %%, wait, when, entries to copy |
 | [Scripts](commands/scripts.md) | The desktop app's scripts folder, run from F2 with the marked files as arguments |
 | [View and edit, F3 and F4](commands/view-and-edit.md) | View and edit (F3, F4): viewer, editor, $PAGER, $VISUAL, $EDITOR, the preview pane in the desktop app |
@@ -69,7 +118,7 @@ New here? Start with [The first-run guide](panels/first-run.md), [The screen](pa
 | [Choosing the folders: folders read, names only, .nosearch](search/folders.md) | Folders read, Names only, .nosearch, text_exclude |
 | [Cloud files: OneDrive, Dropbox, Google Drive, Proton Drive, iCloud](search/cloud-files.md) | Online-only files found by name and never downloaded, the cloud glyph, Download and preview, `cloud` and `cloud_read`, per system |
 | [Removable disks](search/removable-disks.md) | Text kept while unplugged, found again at any mount point |
-| [Search by meaning](search/meaning.md) | The built-in multilingual model, turning it on and off, what you see, how it works |
+| [Search by meaning](search/meaning.md) | The built-in multilingual model, turning it on and off, what you see, how it works, how fast it is here (*Measure speed*, `coxswain --meaning bench`) |
 | [Search by meaning on a server: Ollama, Lemonade, LM Studio](search/servers.md) | Ollama, Lemonade, LM Studio, any OpenAI-compatible server, API keys, privacy |
 | [Ask: questions answered from your files](search/ask.md) | The Ask row of Find (Ctrl+Enter): your chat model answers from the closest passages, citing them, in place of the list |
 | [Ask about code](search/ask-code.md) | Code read as code: passages cut at functions and classes with their lines, named after their item; a map of a project (files, public items, dependencies) for questions about it as a whole; any language |
@@ -77,7 +126,6 @@ New here? Start with [The first-run guide](panels/first-run.md), [The screen](pa
 | [Built-in models](search/models.md) | The models on the disk, their folder, loaded or not and where, last used; unload, delete, delete all not in use, `coxswain --models` |
 | [The search helper](search/helper.md) | One process for all windows, privacy of its connection, starting with the session, taken over after an upgrade moves the program |
 | [Battery](search/battery.md) | Reading pauses on battery, Read now reads anyway |
-| [Notices and what's new](search/notices.md) | The version in the title, the tips, the count on Settings, *What's new* and `coxswain --whats-new` |
 | [Search settings](search/settings.md) | Every item of Settings → Finding files (the status, the levels, Details), its config.toml key, and the terminal flags |
 
 ## [The preview pane](previews/README.md)
@@ -124,8 +172,8 @@ New here? Start with [The first-run guide](panels/first-run.md), [The screen](pa
 | Page | What it covers |
 |---|---|
 | [Customising](customise/README.md) | The Settings window, themes, looks, languages, keys, glyphs and fonts, with the main keys |
-| [The Settings window](customise/settings.md) | Opening it (Ctrl+, F12, Shift+F10, F9, --settings=search|search_meaning), its areas from Overview to Privacy and updates, Find a setting, every item with its config.toml key, how saving keeps comments, the terminal app's Settings (F9, --settings) and flags |
-| [Themes](customise/themes.md) | The 33 built-in themes, picking one in each app (Settings, F9 "Theme: …", `theme` / `[gui] theme`), what the terminal app takes |
+| [The Settings window](customise/settings.md) | Opening it (Ctrl+, or the gear in the desktop app, F12 in the terminal app, Shift+F10, F9, `--settings=search` or `--settings=search_meaning`), its areas from Overview to Privacy and updates, Find a setting, every item with its config.toml key, how saving keeps comments, the terminal app's full-screen Settings (F12, `--settings`) and flags |
+| [Themes](customise/themes.md) | The 33 built-in themes in six groups, picking one in each app (Settings → Looks, F12 in the terminal app, F9 "Theme: …", `theme` / `[gui] theme`), what the terminal app takes |
 | [Looks](customise/looks.md) | The desktop app's corners, bevels, title bars and era fonts per theme, `look =` in your own theme |
 | [Your own theme and the colour slots](customise/own-theme.md) | Your own theme: `[themes.<name>]`, starting from --dump-config, colour names vs #rrggbb, every colour slot and where each app uses it |
 | [Languages](customise/languages.md) | The 29 languages with flags, by region, how Automatic picks one, right to left in Hebrew and Persian, what is translated, improving a translation |
@@ -147,19 +195,25 @@ New here? Start with [The first-run guide](panels/first-run.md), [The screen](pa
 | [Security](reference/security.md) | Dependencies: how they are chosen and updated, advisory and licence checks on every change and weekly, the bundled viewers, checking a download, reporting a problem |
 | [Licences and bills of materials](reference/bills-of-materials.md) | The SBOMs, the CBOM and the third-party notices each release carries, the licence checks, the cryptography both apps use |
 | [Performance](reference/performance.md) | What keeps each app quick, the numbers for 100,000 files and a million names, and how to measure again |
-| [FreeBSD](reference/freebsd.md) | Both apps on FreeBSD: one-line install, packages, the search helper without systemd (autostart, rc.d, login shell), search by meaning, ZFS snapshots and facts, a file's package, file flags, boot environments and jails, differences, updating, the desktop app's experimental status, other BSDs |
-| [NetBSD](reference/netbsd.md) | The terminal app on NetBSD 10: one-line install with ftp, pkgin for the extras, the search helper from rc.d, kqueue within the open-file limit, envstat for the battery, why the desktop app waits for webkit-gtk41's packages |
-| [OpenBSD](reference/openbsd.md) | Both apps on OpenBSD 7.9 (the desktop app experimental): one-line install, pkg_add, OpenBSD's own Rust, the search helper with rcctl, login.conf limits (open files, datasize) and what Coxswain does about them |
+
+## [Systems](systems/README.md)
+
+| Page | What it covers |
+|---|---|
+| [Systems](systems/README.md) | What is particular to each system, in one page each: FreeBSD first, then the other BSDs and illumos, Linux, Android, ChromeOS, macOS and Windows |
+| [FreeBSD](systems/freebsd.md) | Both apps on FreeBSD: one-line install, packages, the search helper without systemd (autostart, rc.d, login shell), search by meaning, ZFS snapshots and facts, a file's package, file flags, boot environments and jails, differences, updating, the desktop app's experimental status, other BSDs |
+| [NetBSD](systems/netbsd.md) | The terminal app on NetBSD 10: one-line install with ftp, pkgin for the extras, the search helper from rc.d, kqueue within the open-file limit, envstat for the battery, why the desktop app waits for webkit-gtk41's packages |
+| [OpenBSD](systems/openbsd.md) | Both apps on OpenBSD 7.9 (the desktop app experimental): one-line install, pkg_add, OpenBSD's own Rust, the search helper with rcctl, login.conf limits (open files, datasize) and what Coxswain does about them |
 | DragonFly BSD | Not supported; its Rust (1.85 in DPorts) is too old for Coxswain's dependencies |
-| [illumos](reference/illumos.md) | The terminal app on OmniOS and OpenIndiana: one-line install with curl, the search helper as an SMF service, ZFS snapshots and datasets, event ports for watching, zones, why there is no desktop build |
-| [TrueNAS](reference/truenas.md) | The terminal app on a TrueNAS box over SSH (Community Edition with the Linux build, CORE with the FreeBSD build) into your home: snapshots of every dataset, leaving the system datasets alone, indexing the shares |
-| [Flatpak](reference/flatpak.md) | The desktop app as a Flatpak (io.github.mwo_dk.Coxswain): --filesystem=host and flatpak-spawn, the editor, commands and preview programs on the host, the search helper inside the sandbox, autostart, its own config folder, updating, building with flatpak-builder |
-| [Linux on ARM](reference/linux-arm.md) | Both apps on 64-bit ARM Linux (Raspberry Pi OS, Asahi, ARM servers): the files, what they need, installing, the Pi, Asahi, servers, search by meaning on ARM |
-| [Nix](reference/nix.md) | The flake for both apps (`nix run github:mwo-dk/coxswain`), profile, NixOS and Home Manager installs, the desktop app's wrapping, updating, nixpkgs and the flake |
-| [Termux on Android](reference/termux.md) | The terminal app in Termux: `pkg install coxswain` (or `cargo install --locked coxswain` until the package is in), the phone's folders with termux-setup-storage and Alt+F1, termux-open, Termux:API for clipboard and battery, the helper without a session service, F8 without a trash, F-keys on the extra keys row, updating, the package recipe and its CI build |
-| [ChromeOS](reference/chromeos.md) | Both apps in ChromeOS's Linux: which .deb, installing, sharing ChromeOS folders, the helper, no GPU for meaning search, what was checked |
-| [macOS](reference/macos.md) | The folder prompts (TCC) and what to answer, what is never read on a Mac (~/Library but iCloud Drive, Photos and Music libraries), Full Disk Access, ad-hoc signing and asking again after updates, search by meaning on the GPU without a server |
-| [Windows on ARM](reference/windows-arm.md) | Native ARM64 builds of both apps: which file, installing, WinGet, from the x64 build to the ARM one, search by meaning |
+| [illumos](systems/illumos.md) | The terminal app on OmniOS and OpenIndiana: one-line install with curl, the search helper as an SMF service, ZFS snapshots and datasets, event ports for watching, zones, why there is no desktop build |
+| [TrueNAS](systems/truenas.md) | The terminal app on a TrueNAS box over SSH (Community Edition with the Linux build, CORE with the FreeBSD build) into your home: snapshots of every dataset, leaving the system datasets alone, indexing the shares |
+| [Linux on ARM](systems/linux-arm.md) | Both apps on 64-bit ARM Linux (Raspberry Pi OS, Asahi, ARM servers): the files, what they need, installing, the Pi, Asahi, servers, search by meaning on ARM |
+| [Flatpak](systems/flatpak.md) | The desktop app as a Flatpak (io.github.mwo_dk.Coxswain): --filesystem=host and flatpak-spawn, the editor, commands and preview programs on the host, the search helper inside the sandbox, autostart, its own config folder, updating, building with flatpak-builder |
+| [Nix](systems/nix.md) | The flake for both apps (`nix run github:mwo-dk/coxswain`), profile, NixOS and Home Manager installs, the desktop app's wrapping, updating, nixpkgs and the flake |
+| [Termux on Android](systems/termux.md) | The terminal app in Termux: `pkg install coxswain` (or `cargo install --locked coxswain` until the package is in), the phone's folders with termux-setup-storage and Alt+F1, termux-open, Termux:API for clipboard and battery, the helper without a session service, F8 without a trash, F-keys on the extra keys row, updating, the package recipe and its CI build |
+| [ChromeOS](systems/chromeos.md) | Both apps in ChromeOS's Linux: which .deb, installing, sharing ChromeOS folders, the helper, no GPU for meaning search, what was checked |
+| [macOS](systems/macos.md) | The folder prompts (TCC) and what to answer, what is never read on a Mac (~/Library but iCloud Drive, Photos and Music libraries), Full Disk Access, ad-hoc signing and asking again after updates, search by meaning on the GPU without a server |
+| [Windows on ARM](systems/windows-arm.md) | Native ARM64 builds of both apps: which file, installing, WinGet, from the x64 build to the ARM one, search by meaning |
 
 ## [Questions, collected](faq.md)
 

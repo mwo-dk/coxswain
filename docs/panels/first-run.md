@@ -42,10 +42,10 @@ what you asked for comes first. **F1** opens it then ([Opening it again](#openin
 
 **Icons (step 3).** The file and git icons need a Nerd Font.
 
-- The desktop app looks for one (fontconfig on Linux and FreeBSD, the font folders on macOS and
+- The desktop app looks for one (fontconfig on FreeBSD and Linux, the font folders on macOS and
   Windows). Found: it says so. Not found: it says the icons would show as boxes, and offers the
   line that installs one on this system with a **Copy** button (for example
-  `sudo pacman -S ttf-nerd-fonts-symbols`, `pkg install nerd-fonts`,
+  `pkg install nerd-fonts`, `sudo pacman -S ttf-nerd-fonts-symbols`,
   `brew install --cask font-symbols-only-nerd-font`), or the advice to get one from
   nerdfonts.com where there is no package, and **Use plain characters**.
 - The terminal app cannot see the terminal's font, so it shows a folder and a file icon and asks
@@ -74,7 +74,7 @@ app, "↑↓ choose · Space change · Enter next · Backspace back · Esc skip"
 | Where | Desktop app | Terminal app |
 |---|---|---|
 | Help | **F1**, then **Show the guide again** at the top | **F1**, then **G** |
-| Settings | Settings → *Overview* → **Show the guide again** | **F9** → *Settings* → *Overview* → *Show the guide again* (**Enter** or **Space**) |
+| Settings | Settings → *Overview* → **Show the guide again** | **F12** (Settings) → *Overview* → *Show the guide again* (**Enter** or **Space**) |
 
 ## How the two apps differ
 
@@ -100,25 +100,38 @@ Your comments in `config.toml` are kept. That the guide was seen is kept in `sta
 
 ## Questions
 
-**I skipped the guide. Can I get it back?** Yes: **F1**, then *Show the guide again* (desktop) or
-**G** (terminal); or Settings → *Overview*.
+#### I skipped the guide. Can I get it back?
 
-**Why did the guide not open after I updated to 2.0?** It is for a first start. After an update you
-get what is new instead: Settings → *Overview* in the desktop app, `coxswain --whats-new` in the
-terminal app, and [What's new in 2.0](../whats-new-2.md).
+Yes: **F1**, then *Show the guide again* (desktop app) or **G** (terminal app); or Settings
+(**Ctrl+,** in the desktop app, **F12** in the terminal app) → *Overview* → *Show the guide
+again*.
 
-**Did skipping change anything?** No. Only the choices you made on the steps you saw are saved.
+#### Why did the guide not open after I updated to 2.0?
 
-**I chose *+ meaning* and a guide about models opened. Why?** Search by meaning needs a model: the
+It is for a first start. After an update you
+get what is new instead: *What's new* under Settings → *Overview* in both apps (or
+`coxswain --whats-new`), and [What's new in 2.0](../whats-new-2.md).
+
+#### Did skipping change anything?
+
+No. Only the choices you made on the steps you saw are saved.
+
+#### I chose *+ meaning* and a guide about models opened. Why?
+
+Search by meaning needs a model: the
 built-in one (downloaded once, 465 MB) or one on a server such as Ollama. The setup guide
 chooses it with you; closing it brings you back to step 2. See [Smart search in a few
 minutes](../search/setup.md).
 
-**The icons are boxes in the terminal app.** Your terminal's font has no Nerd Font symbols. Choose
+#### Why are the icons boxes in the terminal app?
+
+Your terminal's font has no Nerd Font symbols. Choose
 *Plain characters* in step 3, or install a Nerd Font and choose it in your terminal's settings.
 See [Glyphs and fonts](../customise/glyphs-and-fonts.md).
 
-**Does the guide send anything anywhere?** No. Step 4 only shows what could leave the machine and
+#### Does the guide send anything anywhere?
+
+No. Step 4 only shows what could leave the machine and
 lets you switch the update check.
 
 ---

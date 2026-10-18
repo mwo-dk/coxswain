@@ -31,7 +31,7 @@ model or a server suits it. By hand:
 |---|---|
 | Desktop app | *Settings → Finding files* → the level *Names, text and meaning*, or *Details → Meaning → Download the model (465 MB) and turn on*. A bar shows *Downloading the model: 120 MB of 465 MB*; **Cancel** stops it |
 | Terminal app | `coxswain --meaning on`: prints *Downloading: 42 %*, then turns it on (with a [server](servers.md) as the engine, nothing is downloaded) |
-| A row in Find | *Find files about your words too, in any language, even without the words.* under *About this*, with *Set up* (it opens the guided setup; in the terminal app it runs `coxswain --setup-search`); **Delete** sends it away. Also and the [notice](notices.md) *New: search by meaning finds files about your words, in any language. Turn it on*: in the desktop app under *Settings → Overview → What's new* (**Show me**), in the terminal app once in the status line |
+| A row in Find | *Find files about your words too, in any language, even without the words.* under *About this*, with *Set up* (it opens the guided setup; in the terminal app it runs `coxswain --setup-search`); **Delete** sends it away. Also and the [notice](../panels/notices.md) *New: search by meaning finds files about your words, in any language. Turn it on*: in the desktop app under *Settings → Overview → What's new* (**Show me**), in the terminal app once in the status line |
 
 It needs *Words inside files*: choosing the level or the button turns them on too. Then:
 
@@ -193,8 +193,9 @@ The last three are for [servers](servers.md). Search by meaning also needs `text
 The same search and the same *About this* group, its passages dimmed in italics. Turn it on, off or delete it with `coxswain --meaning on|off|delete`; on a Mac,
 `coxswain --meaning cpu|auto` keeps the built-in model on the CPU or lets it use the GPU, and
 `coxswain --meaning` says where it runs. `coxswain --meaning bench [URL MODEL]` times the model on 64
-passages ([above](#how-fast-is-it-here-and-would-another-model-be-faster)). There is no status
-of the files to go; the desktop app's Settings shows it, or wait for hits. While the vectors are
+passages ([above](#how-fast-is-it-here-and-would-another-model-be-faster)). Its Settings
+(**F12** → *Finding files*) show the *Meaning* line with the files done and to go, and
+*Measure speed*, as the desktop app's do. While the vectors are
 renewed, Find's footer adds *Renewing search by meaning for whole documents: 23,088 files to go,
 about 3 hours*, and the notice says it once. While it is off, *About this* says *Find files about
 your words too, in any language, even without the words.* with *Set up*. When vectors stop
@@ -204,11 +205,13 @@ refused*, or *Reading stopped: …* when reading itself failed.
 ## Questions
 
 #### Why is search by meaning off?
+
 It needs a 465 MB model that Coxswain does not ship, and CPU (or, on a Mac, GPU) time to read your files with it. You
 choose whether that is worth it: turn it on in Settings (the level *Names, text and meaning* under *Finding files*) or with
 `coxswain --meaning on`.
 
 #### Why does it find nothing yet?
+
 The vectors are made in the background, a few files at a time: Settings shows how many are done (*8,120 of 31,208 files*, with a
 progress bar and the time left) and Find's footer the percent. The time left is the files to
 go, times the passages a file has had so far, times what one passage takes on your machine; it
@@ -217,8 +220,9 @@ laptop's CPU that takes hours for a large home folder, and it waits while on bat
 [server with a GPU](servers.md) is much faster.
 
 #### Vectors stopped coming. Why?
+
 Both apps say why, in red: Settings on the *Meaning* line of *Finding files* (desktop) and the status line of
-Find's *About this* group (both apps), and a [notice](notices.md) in the status line of both (in the desktop app also under *Settings → Overview → What's new*). *No
+Find's *About this* group (both apps), and a [notice](../panels/notices.md) in the status line of both (in the desktop app also under *Settings → Overview → What's new*). *No
 vectors: …* is the server or the model: Ollama not running (`systemctl start ollama`), or the
 model not pulled (`ollama pull bge-m3`, or *Pull* in Settings). *Reading stopped: …* means a scan
 failed before the vectors' turn; vectors come only after the text is read. Before 1.26.4 a store
@@ -226,18 +230,21 @@ whose Markdown files were read again after an update failed every scan that way,
 vectors stopped after the first few hundred files: 1.26.4 mends such a store by itself.
 
 #### Does the built-in model use my Mac's GPU?
+
 On Apple Silicon, yes: through Metal, in batches, several times faster than the CPU. *Settings →
 Finding files* says *… the built-in model on the GPU (Metal)* on the *Meaning* line, and `coxswain --meaning` prints the
 same line. An Intel Mac usually has no Metal GPU the model can use and stays on the CPU, which
 Settings says with the reason. See [On a Mac's GPU](#on-a-macs-gpu).
 
 #### My Mac's Settings suggests bge-m3 on Ollama in grey. Should I take it?
+
 If you search in many languages or long documents, yes: bge-m3 reads up to 8,000 tokens a passage
 and finds by meaning better than the built-in multilingual-e5-small; Ollama runs it on Metal
 too. It is a tip, not a fault: the built-in model stays fine, and the line stays plain until you
 choose. **Use bge-m3:latest** reads every file's meaning again, which takes a while on a large store.
 
 #### Why does my Mac say "on the CPU"?
+
 Settings gives the reason in brackets. *this Mac has no Metal GPU to use*: an Intel Mac or a
 virtual machine. *the GPU's results differed from the CPU's*: the GPU's vectors were not the same,
 so they are not used. *the GPU failed*: it broke while working; the next start of the helper
@@ -245,10 +252,12 @@ tries again (*Turn off*, then *Turn on*, or `coxswain --meaning on`). *chosen in
 the CPU only* is ticked.
 
 #### How do I keep it off the GPU?
+
 Tick *Use the CPU only* under *Settings → Finding files → Details → Meaning*, or `coxswain --meaning cpu`. The
 vectors already made stay.
 
 #### How fast is it here, and would another model be faster?
+
 *Measure speed* on the *Meaning* line of Settings → Finding files (both apps) embeds 64 passages of
 prose with your model, the way the helper sends them, and says *12.4 passages a second with
 openai:Qwen3-Embedding-0.6B-GGUF. At that speed the 199,000 files still to go take about 2 days.*
@@ -258,21 +267,18 @@ changing anything, so you can compare before a switch that starts the queue over
 loads its model on the first passage, which is not timed.
 
 #### Why does it say Ollama would be faster?
-On a PC with a graphics card and no model server, the built-in model reads meaning on the
-processor; Ollama would use the card. The setup guide (step 2) says so, with the command for your
-system, and a notice says it once. See [A graphics card and no
-server](setup.md#a-graphics-card-and-no-server).
 
-
-Look at `ollama ps`: *100% CPU* means Ollama runs without your graphics card. Install the build of
-Ollama for your GPU (on Arch and CachyOS `ollama-cuda` or `ollama-rocm`) and restart it.
+The full answer: [Why does it say Ollama would be faster?](setup.md#why-does-it-say-ollama-would-be-faster)
+in the setup guide.
 
 #### Is a document found by what its last chapter is about?
+
 Yes, since 1.39.0: the whole text gets vectors, up to 256 passages (about 25,000 words). A longer
 file has its start, its end, the start of each section and passages evenly between; search by
 words still finds every word. Before 1.39.0 only the first 960 words counted.
 
 #### Why is search by meaning re-reading everything?
+
 Once after an update that changes how files are cut into passages: 1.39.0 (whole documents,
 not the first 960 words) and 2.18.0 (code cut at its functions and classes, with its lines,
 [Ask about code](ask-code.md)). Vectors made the old way cannot be mixed with the new ones. The
@@ -285,6 +291,7 @@ footer (both apps) show the files to go. Until a file has its new vectors, it is
 by its words only. A store copied to another machine is renewed there the same way.
 
 #### How long does the renewal take?
+
 Somewhat longer than turning search by meaning on took the first time: a long file now gets up
 to 256 vectors where it had 8, a short one the same as before. Measured on this documentation
 (93 pages, many of them long), per 1,000 files: about an hour with the built-in model on the CPU
@@ -294,6 +301,7 @@ It waits on battery, as always; *Read now* skips the rests. The notice says how 
 likely to take on your machine, from the first files.
 
 #### Why did the renewal crawl on a large store?
+
 Before 2.8.1, choosing the next few files read the text of every file still waiting: with 300,000
 waiting, two seconds for each eight files, more than the server took to make their vectors. From
 2.8.1 an index finds them at once, and a server's work is followed by a shorter rest. Folders a
@@ -302,28 +310,34 @@ either, see [Choosing the folders](folders.md): their text already in the store 
 helper's next walk of the folders read.
 
 #### Why does it show files that have nothing to do with my question?
+
 It shows the files closest to your question, above a floor. When nothing in your files is about
 it, the closest may still pass. Files with your words are under *In files*, apart from them; use
 more specific words.
 
 #### Where is the model kept and how do I delete it?
+
 In Coxswain's cache folder under `models/` (`coxswain --paths` prints it as `model`; Settings shows
 it under *Finding files → Details → Meaning*, and under *Privacy and updates → Where things are
 kept*). **Delete the model** there, or `coxswain --meaning delete`.
 
 #### Does the model send anything anywhere?
+
 No. The download is the only network use; after it, the model runs on your machine and nothing you
 have leaves it. See [Privacy](../reference/privacy.md).
 
 #### Can I type the question in English and find Danish files?
+
 Yes. The model is multilingual: a question and a passage about the same thing get close vectors
 whatever their languages.
 
 #### Does it slow my machine down?
+
 It works on two threads (or the GPU on a Mac), in batches with rests, and not on battery. Searching is quick; making the
 vectors the first time is the slow part.
 
 #### Why did turning it on turn on *Words inside files* too?
+
 Search by meaning works on the text the helper keeps, so it needs *Words inside files*. The level
 *Names, text and meaning* and the button *Download the model … and turn on* turn them on with it.
 

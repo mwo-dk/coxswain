@@ -8,8 +8,8 @@ other three need a little setting up. The guided setup does it with you, in both
 the model servers on your machine, says what suits your hardware, and asks before it downloads
 anything.
 
-![The desktop app's Set up smart search window in Cyber on a machine with no model server: 1. Search inside files on, 112 files read so far; 2. This machine: no graphics card found, 63 GB of memory, The built-in model (465 MB download, on the CPU; nothing leaves the machine) chosen and marked recommended, No model server answers on this machine, the field for a server elsewhere with Look and Look again; 3. multilingual-e5-small with Download the built-in model (465 MB); 4. Ask: Qwen3 1.7B, built in, marked slow here, with Download Qwen3 1.7B (1.0 GB) and use it, the estimate On this processor: about 89 s to the first word, then 6.1 words a second (too slow to recommend; a model server answers more quickly), and Skip Ask for now; 5. Speed](../screenshots/setup-guide.png)
-*The guide on a machine with no model server: the built-in model is recommended, and Ask offers the built-in chat model with an estimate for this processor.*
+![The desktop app's Set up smart search window in Cyber on a machine with an AMD graphics card and no model server: 1. Search inside files on, 112 files read so far; 2. This machine: AMD Radeon RX 7800 XT (16 GB), 63 GB of memory, the line that Lemonade runs models on AMD's NPU and Radeon graphics, The built-in model (465 MB download, on the CPU; nothing leaves the machine) chosen and marked recommended, under it This machine has AMD Radeon RX 7800 XT, but no model server answers … a local Ollama would run them on the graphics card with ROCm / Vulkan, much faster, with its install line and Copy, then the field for a server elsewhere with Look and Look again; 3. multilingual-e5-small with Download the built-in model (465 MB); 4. Ask: Qwen3 1.7B, built in, slow here, with Download Qwen3 1.7B (1.0 GB) and use it, the estimate for this processor (too slow to recommend) and Skip Ask for now; 5. Speed](../screenshots/setup-guide.png)
+*The guide on a machine with an AMD graphics card and no model server: the built-in model is recommended for now, the guide says a local Ollama would use the card and gives its install line, and Ask offers the built-in chat model with an estimate for this processor.*
 
 ## Contents
 
@@ -90,7 +90,7 @@ never runs it and downloads nothing. After installing, press **Look again** (des
 
 The same line is a notice once, while search by meaning or Ask uses a built-in model: in the
 terminal app's status line, and in the desktop app under *Settings → What's new*, with **Copy**
-and a link to *Finding files → Details → Meaning* ([notices](notices.md)).
+and a link to *Finding files → Details → Meaning* ([notices](../panels/notices.md)).
 
 On a Mac with no Ollama or LM Studio, the line under the machine reads *Apple silicon with 64 GB
 of shared memory and no model server: the built-in model makes the vectors on its GPU (Metal),
@@ -248,8 +248,8 @@ open. It uses a little processor time when files change and pauses on battery
 
 | System | What is registered | Check that it runs | Turn it off |
 |---|---|---|---|
-| FreeBSD | An XDG autostart entry, `~/.config/autostart/coxswain-index.desktop` ([other ways](../reference/freebsd.md#the-search-helper)) | `pgrep -lf index-helper` | Untick it, or `coxswain --index-service off` |
-| NetBSD, OpenBSD, illumos | The same entry; rc.d, `rcctl` or SMF are the other ways ([NetBSD](../reference/netbsd.md#the-search-helper), [OpenBSD](../reference/openbsd.md#the-search-helper), [illumos](../reference/illumos.md#the-search-helper)) | `pgrep -lf index-helper` | Untick it, or `coxswain --index-service off` |
+| FreeBSD | An XDG autostart entry, `~/.config/autostart/coxswain-index.desktop` ([other ways](../systems/freebsd.md#the-search-helper)) | `pgrep -lf index-helper` | Untick it, or `coxswain --index-service off` |
+| NetBSD, OpenBSD, illumos | The same entry; rc.d, `rcctl` or SMF are the other ways ([NetBSD](../systems/netbsd.md#the-search-helper), [OpenBSD](../systems/openbsd.md#the-search-helper), [illumos](../systems/illumos.md#the-search-helper)) | `pgrep -lf index-helper` | Untick it, or `coxswain --index-service off` |
 | Linux | A systemd user service, `coxswain-index.service` | `systemctl --user status coxswain-index` | Untick it, or `coxswain --index-service off` |
 | macOS | A LaunchAgent, `~/Library/LaunchAgents/dk.mwo.coxswain.index.plist` | `launchctl list \| grep coxswain` | The same |
 | Windows | A *Run* entry for your user in the registry | Task Manager → *Startup apps* lists Coxswain | The same, or disable it in Task Manager |
@@ -293,6 +293,7 @@ them in order on the command line.
 ## Questions
 
 #### I have no Ollama or any server. Does search by meaning work?
+
 Yes. The built-in model needs nothing installed: it runs inside Coxswain's search helper, on the
 GPU through Metal on a Mac with Apple silicon and on the processor elsewhere. In step 2 leave
 *The built-in model* chosen (it is marked **recommended** when no server answers) and press
@@ -300,6 +301,7 @@ GPU through Metal on a Mac with Apple silicon and on the processor elsewhere. In
 [built-in chat model](ask-builtin.md) in step 4.
 
 #### I pressed the download button and nothing seemed to happen. Why?
+
 Before 2.1.1 the guide did not show the download's end, and hid its error, when the built-in
 model was chosen: meaning was turned on, but the page went on showing *off*. Now the percentage
 shows while it downloads, *Search by meaning is on, with the built-in model…* when it is done,
@@ -307,31 +309,37 @@ and the error in red when it fails. The download comes from huggingface.co: a ne
 blocks it fails with that address in the error.
 
 #### Why does the address field show `http://192.168.1.20:11434`?
+
 It is a grey example, not a value: the field is empty until you type. Nothing is filled in from
 your machine or your network.
 
 #### The guide finds no server, but Ollama is running. Why?
+
 The guide asks `localhost` on the usual ports and waits less than a second for each. An Ollama
 started with `OLLAMA_HOST` on another port, or in a container without the port published, is
 not found: type its address under *A server on another machine*, e.g. `http://localhost:11500`.
 
 #### Why does it not offer my model for Ask?
+
 Only models that can answer are listed. On Ollama a model whose capabilities lack `completion`
 (an embedding model such as `bge-m3`) is left out. On llama.cpp, Jan and LocalAI, a model that
 did not answer the one-word test is left out. Load it in the server, then press **Look again**.
 
 #### Which is better, the built-in model or a server?
+
 On a processor alone, the built-in model: it needs nothing installed. With a graphics card or an
 NPU, a server: `bge-m3` finds more and is many times quicker. The [search quality
 numbers](../reference/performance.md#search-quality) compare them.
 
 #### It says the model runs on the processor. What do I do?
+
 Do what the line says for your server: on Arch Linux `sudo pacman -S ollama-cuda` (or
 `ollama-rocm`) and `systemctl restart ollama`; elsewhere [Ollama's GPU
 guide](https://docs.ollama.com/gpu); in Lemonade a Hybrid or NPU model; in LM Studio *GPU
 offload*. Then run the guide again and ask the test question.
 
 #### Why does it say Ollama would be faster?
+
 The machine has a graphics card, and no model server answers, so the built-in models run on the
 processor: they use only a Mac's GPU. Ollama on that card makes the vectors and answers many
 times quicker. The line names the backend (CUDA, ROCm, Vulkan) and the command or page for your
@@ -340,14 +348,17 @@ nothing. To stop it: install Ollama, or dismiss the notice; the guide keeps sayi
 while it holds. The built-in models work all the same.
 
 #### Does changing the model start over?
+
 Only a real change of the vectors' model does. You are told first how many files are read again
 and about how long. `bge-m3` and `bge-m3:latest` are the same model. See
 [Servers](servers.md#why-does-switching-the-model-start-over).
 
 #### Can I run the guide again later?
+
 Yes, as often as you like. It shows what is set now, and a step you skip keeps its setting.
 
 #### My Lemonade is on port 8000. Is that a problem?
+
 No. The guide tries 13305 and 8000. Settings takes whatever address you give it.
 
 ---

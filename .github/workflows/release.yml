@@ -245,7 +245,7 @@ jobs:
         run: bash packaging/retry.sh gh release download "$TAG" --repo "$GITHUB_REPOSITORY" -p THIRD-PARTY-NOTICES.md -D gui/src-tauri --clobber
       # Developer ID signing and notarisation, when the Apple secrets are set: macOS then keeps
       # its privacy answers (Desktop, Documents …) from one version to the next. Without them
-      # the app is ad-hoc signed (tauri.conf.json's "-"), as before. docs/reference/macos.md.
+      # the app is ad-hoc signed (tauri.conf.json's "-"), as before. docs/systems/macos.md.
       - name: Apple signing
         if: runner.os == 'macOS'
         shell: bash
@@ -349,7 +349,7 @@ jobs:
 
   # FreeBSD: both apps, built in a FreeBSD 14.5 virtual machine. The terminal app needs nothing
   # beyond the base system; the desktop app needs WebKitGTK from packages (install-freebsd.sh
-  # installs them). docs/reference/freebsd.md.
+  # installs them). docs/systems/freebsd.md.
   freebsd:
     needs: [draft, boms]
     if: needs.draft.outputs.id != ''
@@ -415,7 +415,7 @@ jobs:
   # NetBSD, OpenBSD and illumos: the terminal app (and on OpenBSD the desktop app, experimental),
   # each built in a virtual machine of that system and packed here (packaging/pack-unix.sh).
   # A failure of one of them stops the release: every system ships, or none.
-  # docs/reference/netbsd.md, openbsd.md, illumos.md.
+  # docs/systems/netbsd.md, openbsd.md, illumos.md.
   other-unix:
     needs: [draft, boms]
     if: needs.draft.outputs.id != ''

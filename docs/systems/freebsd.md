@@ -1,4 +1,4 @@
-[← README](../../README.md) · [Docs index](../README.md) · [Reference](README.md)
+[← README](../../README.md) · [Docs index](../README.md) · [Systems](README.md)
 
 # FreeBSD
 
@@ -106,7 +106,7 @@ The desktop archive holds `coxswain-gui`, `coxswain.desktop` and `coxswain.png`:
 packages below first, then copy the binary to `/usr/local/bin`, the `.desktop` file to
 `/usr/local/share/applications` and the icon to `/usr/local/share/icons/hicolor/128x128/apps`.
 Every download can also be checked against the release's `SHA256SUMS` and its signed provenance
-([Security](security.md)).
+([Security](../reference/security.md)).
 
 ## The packages, and what each is for
 
@@ -258,20 +258,30 @@ the section is left out.
 
 ### Questions about these
 
-**Does the snapshot list need root, or `zfs allow`?** No: `zfs list -t snapshot` and reading
+#### Does the snapshot list need root, or `zfs allow`?
+
+No: `zfs list -t snapshot` and reading
 `.zfs/snapshot` work for every user ([more](../files/zfs-snapshots.md#do-i-need-root-or-zfs-allow)).
 
-**Why is a boot environment greyed?** It is not mounted, so there is no folder to open.
+#### Why is a boot environment greyed?
+
+It is not mounted, so there is no folder to open.
 `doas bectl mount 14.1-backup` mounts it under `/tmp`; it then opens like any other.
 
-**Why does every file show `uarch` under Flags?** ZFS sets the archive flag on files it writes;
+#### Why does every file show `uarch` under Flags?
+
+ZFS sets the archive flag on files it writes;
 `ls -lo` shows it too ([more](../files/properties.md#why-does-every-file-on-zfs-show-uarch)).
 
-**Can I clear `schg` from Coxswain?** No: system flags are root's, and at securelevel 1 or higher
+#### Can I clear `schg` from Coxswain?
+
+No: system flags are root's, and at securelevel 1 or higher
 not even root can clear them until the machine runs at securelevel 0. Properties says so when
 one is set.
 
-**Why is there no *Package* line?** The file belongs to no package: it is part of the base
+#### Why is there no *Package* line?
+
+The file belongs to no package: it is part of the base
 system (`/bin`, `/usr/bin`, `/etc`, kept by `freebsd-update`), yours, or in a tree such as
 `/usr/ports`. With pkgbase, base system files belong to `FreeBSD-*` packages and show them. A
 port you built and installed is a package like any other.
@@ -296,7 +306,7 @@ port you built and installed is a package like any other.
 ## Updating
 
 Both apps check once a day for a newer release, and say so with the command to update
-([Update checks](updates.md)). On FreeBSD that command is the install line again:
+([Update checks](../reference/updates.md)). On FreeBSD that command is the install line again:
 
 ```sh
 fetch -qo - https://raw.githubusercontent.com/mwo-dk/coxswain/master/install/install-freebsd.sh | sh
@@ -314,7 +324,7 @@ This removes the programs, the manual page, the menu entry, the icon, the rc.d s
 autostart entry. If rc.conf turns the helper on, remove those lines too:
 `doas sysrc -x coxswain_index_enable coxswain_index_user`. Your settings, the state and the index
 stay; remove them with `rm -rf ~/.config/coxswain ~/.local/share/coxswain ~/.cache/coxswain`
-([Where things are kept](where-things-are-kept.md)).
+([Where things are kept](../reference/where-things-are-kept.md)).
 
 ## Building from source
 
@@ -390,30 +400,44 @@ that use.
 
 ## Troubleshooting
 
-**The icons are empty boxes.** No Nerd Font is installed. `doas pkg install nerd-fonts`, then
+#### The icons are empty boxes
+
+No Nerd Font is installed. `doas pkg install nerd-fonts`, then
 restart the app; or choose plain characters: the [first-run guide](../panels/first-run.md)'s
-*Looks* step offers both (*Use plain characters*), or Settings (**Ctrl+,**) → *Looks* → *Icons
+*Looks* step offers both (*Use plain characters*), or Settings (**Ctrl+,**; **F12** in the terminal app) → *Looks* → *Icons
 and git glyphs* → *Plain characters (ASCII)*, or `glyphs = "ascii"`
 in `config.toml` ([Glyphs and fonts](../customise/glyphs-and-fonts.md)).
 
-**`coxswain-gui` says it cannot find `libwebkit2gtk-4.1.so.0`.** WebKitGTK is not installed:
+#### `coxswain-gui` says it cannot find `libwebkit2gtk-4.1.so.0`
+
+WebKitGTK is not installed:
 `doas pkg install webkit2-gtk_41`.
 
-**MESA-EGL warns about DRI3 when the app starts.** Harmless: there is no accelerated OpenGL
+#### MESA-EGL warns about DRI3 when the app starts
+
+Harmless: there is no accelerated OpenGL
 (a virtual machine, or `Xvfb`), and WebKitGTK draws in software.
 
-**The window stays white or flickers.** Some graphics drivers disagree with WebKitGTK's
+#### The window stays white or flickers
+
+Some graphics drivers disagree with WebKitGTK's
 compositing. Start it with `WEBKIT_DISABLE_COMPOSITING_MODE=1 coxswain-gui`; if that helps,
 put the variable in the `Exec=` line of `coxswain.desktop`, or in your shell's profile.
 
-**Wayland or X11?** GTK chooses Wayland when `WAYLAND_DISPLAY` is set and X11 otherwise. To try
+#### Wayland or X11?
+
+GTK chooses Wayland when `WAYLAND_DISPLAY` is set and X11 otherwise. To try
 X11 under a Wayland compositor: `GDK_BACKEND=x11 coxswain-gui`.
 
-**Enter on a file says no program could open it.** `xdg-open` is missing (`doas pkg install
+#### Enter on a file says no program could open it
+
+`xdg-open` is missing (`doas pkg install
 xdg-utils`), or no program is set for that kind of file: `xdg-mime default <app>.desktop
 <type>`.
 
-**A new file deep in a large tree shows in Find only after an hour.** Its folder is past the
+#### A new file deep in a large tree shows in Find only after an hour
+
+Its folder is past the
 20,000 the helper watches ([above](#how-freebsd-differs-from-linux-here)). Leave large trees you
 never search out of the index (`/usr/ports`, `/usr/src`, build folders): *Settings → Finding
 files → Details → Folders → Never indexed*, or `name_exclude` in `[search]` ([Choosing the folders](../search/folders.md)).
@@ -433,33 +457,47 @@ for the search helper and what differs there. DragonFly BSD: not supported; its 
 
 ## Questions
 
-**Is the desktop app safe to use on FreeBSD?** It uses the same code as on Linux for everything
+#### Is the desktop app safe to use on FreeBSD?
+
+It uses the same code as on Linux for everything
 that touches your files: copying, moving and deleting are in the shared core, tested on FreeBSD
 in CI. *Experimental* is about the window layer and desktop integration, not about your data.
 
-**Why is the desktop app experimental and the terminal app not?** The terminal app depends on
+#### Why is the desktop app experimental and the terminal app not?
+
+The terminal app depends on
 nothing FreeBSD-specific beyond what its tests cover. The desktop app depends on Tauri, which
 does not support FreeBSD officially and needs two patched crates
 ([above](#the-desktop-app-what-experimental-means)).
 
-**Is there a port or a package?** Not yet in the ports tree. A `sysutils/coxswain` port of the
+#### Is there a port or a package?
+
+Not yet in the ports tree. A `sysutils/coxswain` port of the
 terminal app is ready in [packaging/freebsd](../../packaging/freebsd/README.md) and waits for
 review; until it is in, the script, the archives or `cargo install --locked coxswain`.
 
-**Does it need Linux binary compatibility (`linux64`)?** No. Both apps are native FreeBSD
+#### Does it need Linux binary compatibility (`linux64`)?
+
+No. Both apps are native FreeBSD
 binaries.
 
-**Why does the script ask for root?** Only to install packages with `pkg`, and to write under
+#### Why does the script ask for root?
+
+Only to install packages with `pkg`, and to write under
 `/usr/local` when you choose it. With `--prefix ~/.local` and `--terminal-only`, it needs no
 root at all.
 
-**Does Start with my session work under i3 or another window manager?** Not by itself: only
+#### Does Start with my session work under i3 or another window manager?
+
+Not by itself: only
 desktop environments read XDG autostart entries. Use the [rc.d script](#from-boot-with-rcd) or
 the [login shell line](#from-your-login-shell); or start the entry with `dex`, if you use it
 already.
 
-**Does it run on aarch64 (a Raspberry Pi, an Ampere server)?** From source, yes; there is no
+#### Does it run on aarch64 (a Raspberry Pi, an Ampere server)?
+
+From source, yes; there is no
 release build yet ([Building from source](#building-from-source)).
 
 ---
-[← Previous: Performance](performance.md) · [Next: NetBSD →](netbsd.md)
+[← Previous: Systems](README.md) · [Next: NetBSD →](netbsd.md)

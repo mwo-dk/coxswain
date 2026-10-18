@@ -90,9 +90,9 @@ that:
 | System | **F8** undone | How |
 |---|---|---|
 | FreeBSD, NetBSD, OpenBSD | yes | the freedesktop.org trash (`~/.local/share/Trash`, or `.Trash-<uid>` at the top of another disk) |
-| illumos | yes | Coxswain's own trash in `~/.local/share/Trash`, for files on your home folder's ZFS dataset ([illumos](../reference/illumos.md)) |
+| illumos | yes | Coxswain's own trash in `~/.local/share/Trash`, for files on your home folder's ZFS dataset ([illumos](../systems/illumos.md)) |
 | Linux | yes | the same trash your desktop and file manager use; not in the Flatpak, whose trash is the host's (it says so) |
-| Termux on Android | yes | Coxswain's own trash in Termux's home ([Termux](../reference/termux.md)) |
+| Termux on Android | yes | Coxswain's own trash in Termux's home ([Termux](../systems/termux.md)) |
 | macOS | no | the Trash gives nothing back to apps; the status line says so: use Finder's *Put Back* |
 | Windows | yes | the Recycle Bin |
 
@@ -144,8 +144,8 @@ There is no setting for the length of the history. See [Changing keys](../custom
 
 #### Can I undo a delete?
 
-A move to the trash (**F8**, **Delete**): yes, with **Ctrl+Z**, on Windows, Linux, the BSDs,
-illumos and in Termux. The file comes back where it was, under its name, unless something else
+A move to the trash (**F8**, **Delete**): yes, with **Ctrl+Z**, on FreeBSD and the other BSDs,
+illumos, Linux, in Termux and on Windows. The file comes back where it was, under its name, unless something else
 is there now. On a Mac and in the Flatpak the trash gives nothing back to apps, so the status
 line says *Ctrl+Z cannot bring it back here* right after **F8**; restore it from the system's
 trash (Finder's *Put Back*). Deleting for good (**Shift+F8**) cannot be undone.

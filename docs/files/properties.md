@@ -29,8 +29,8 @@ The dialog is titled with the entry's name.
 | *Type* | *File*, *Folder*, or *Symbolic link* `→` its target |
 | *Size* | The size; from 10 KB on also the exact bytes; for a folder, *in 1,234 files* |
 | *Created*, *Modified*, *Accessed* | Dates, where the file system records them |
-| *Owner* | The user and group by name, as `ls -l` shows them, then their ids: `demo:demo · uid 1000, gid 1000` (Linux, macOS, the BSDs, illumos). An id with no name stays a number |
-| *Permissions* | An octal field, `644`, with `rw-r--r--` next to it, updated as you type (Linux, macOS) |
+| *Owner* | The user and group by name, as `ls -l` shows them, then their ids: `demo:demo · uid 1000, gid 1000` (the BSDs, illumos, Linux, macOS). An id with no name stays a number |
+| *Permissions* | An octal field, `644`, with `rw-r--r--` next to it, updated as you type (the BSDs, Linux, macOS) |
 | *Attributes* | *Read-only* (Windows) |
 
 A value that is not octal says *Permissions are 3 or 4 octal digits, e.g. 644* under the list,
@@ -45,7 +45,7 @@ Below the permissions, where they apply:
 
 | Item | Shows | Where |
 |---|---|---|
-| *Flags* | The file flags set, by the names `ls -lo` uses: `uarch`, `nodump`, `hidden`, `schg` …; *none* when there are none. Under it, a tick box for each flag you may set (when you own the file) | FreeBSD, macOS (not NetBSD or OpenBSD); on Linux the attributes `lsattr` shows that matter here: `immutable`, `append-only`, `nodump` |
+| *Flags* | The file flags set, by the names `ls -lo` uses: `uarch`, `nodump`, `hidden`, `schg` …; *none* when there are none. Under it, a tick box for each flag you may set (when you own the file) | FreeBSD (not NetBSD or OpenBSD); on Linux the attributes `lsattr` shows that matter here: `immutable`, `append-only`, `nodump`; macOS |
 | *Package* | The installed package the file belongs to, `git-2.56.0`, and *Files of this package*, which lists its files as a folder | FreeBSD, files of packages (`pkg which`) |
 | *ZFS dataset*, *Mounted at* | The dataset the file is on, and where it is mounted | ZFS |
 | *Compression* | The dataset's compression and its ratio: `lz4, ratio 1.52x` | ZFS |
@@ -135,6 +135,7 @@ A file inside an archive is not on disk, so it has no properties the system can 
 out with **F5** first ([Archives as folders](archives.md#limits)).
 
 #### How do I change permissions in the terminal app?
+
 Its window (**Alt+Enter**) only shows the facts. Change permissions on the command line
 (`chmod 755 deploy.sh`), and your file flags with **F9** → *File flags* on the file
 ([In the terminal app](#in-the-terminal-app)).

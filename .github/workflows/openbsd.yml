@@ -5,7 +5,7 @@ name: OpenBSD
 # app started under X11 for a minute, with a picture of its window as this run's artifact; the
 # terminal app's archive packed as a release packs it, installed with install/install-unix.sh,
 # and the search helper's rc.d script started with rcctl, checked and stopped.
-# Every push to master; pull requests only for this system's code (paths below). docs/reference/openbsd.md.
+# Every push to master; pull requests only for this system's code (paths below). docs/systems/openbsd.md.
 # The port for openbsd-wip (packaging/openbsd/port) builds a crates.io release, not this
 # checkout, so it runs only when started by hand: `gh workflow run openbsd.yml` (--ref <branch>).
 on:
