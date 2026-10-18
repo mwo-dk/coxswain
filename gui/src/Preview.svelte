@@ -772,6 +772,7 @@
     color: #000;
     box-shadow: 0 0 0 1px var(--border-fg);
     overflow: hidden;
+    contain: paint;
   }
   .note {
     margin: 0 0 6px;
@@ -1190,8 +1191,12 @@
     color: var(--hidden-fg);
     font-size: 0.85em;
   }
+  /* A file's own HTML stays inside its box: an element it places "fixed" over the whole window
+     is clipped to the preview. Wide content scrolls here instead. */
   .markdown {
     line-height: 1.55;
+    contain: paint;
+    overflow-x: auto;
   }
   .markdown :global(pre),
   .markdown :global(code) {

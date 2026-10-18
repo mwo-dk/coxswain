@@ -9,6 +9,16 @@ shown in part.
 
 ![The desktop app with launch-news.html, a page saved from the web, under the cursor in ~/Downloads: the preview shows it with its own stylesheet beside it and empty boxes where its pictures on the web would be](../screenshots/previews-safety.png)
 
+## Contents
+
+- [How to use it](#how-to-use-it)
+- [What a preview never does](#what-a-preview-never-does)
+- [Speed](#speed)
+- [Limits](#limits)
+- [Settings and config.toml](#settings-and-configtoml)
+- [In the terminal app](#in-the-terminal-app)
+- [Questions](#questions)
+
 ## How to use it
 
 Nothing to do: all of this holds for every preview. To see a file with its scripts, or in full,
@@ -27,7 +37,14 @@ open it outside the pane:
   notebooks, Word documents, slides, EPUB chapters, AsciiDoc, reStructuredText, Graphviz and
   HTML notebook outputs. Mermaid runs with `securityLevel: "strict"`; AsciiDoc in secure mode,
   without includes. HTML files are shown in a frame that allows no scripts at all ([HTML
-  pages](html.md)).
+  pages](html.md)). A rendered file's own `<style>` sheets are dropped (only a diagram keeps
+  its own), and what it draws stays inside the preview: nothing it places "fixed" can cover the
+  window.
+- **Serve a file as a web page.** PDFs, pictures, video and fonts reach the page through the
+  app's own file protocol. It never answers as HTML or XML: a file that holds a page is served
+  as plain text whatever its name, so a `.pdf` that is really a web page shows its text and
+  runs nothing. Only a file that starts the way a PDF does (`%PDF-`) opens in the PDF viewer;
+  every other answer carries a sandbox that lets nothing in it run.
 - **Write next to your files.** Tool results, LaTeX's auxiliary files and LibreOffice's profile
   go to the cache folder. Containers see your folders read-only. The only thing that writes is
   extracting an archive, and only when you press **Ctrl+E**.
@@ -85,6 +102,7 @@ the app, and previews of every kind are blocked from the web.
 | Archives | 2,000 entries | *2000+ entries* |
 | Word, notebooks, spreadsheets, PowerPoint quick view | 25 MB | *Too large to preview* |
 | Parquet | 500 MB | *Too large to preview* |
+| A file read whole through the app's file protocol | 512 MiB | Refused; video and audio are read in pieces |
 | draw.io | 32 MB | Cut off, does not parse |
 | E-mail text | 200,000 characters | – |
 | Tool runs | `[preview] timeout`, 120 s | *Stopped after 120 s (the timeout in [preview])* |
@@ -125,6 +143,12 @@ its first 512 KB, tables their first 200 rows. Press **F4** or **Enter** for the
 
 Files over 25 MB are not rendered as documents or spreadsheets (Parquet: 500 MB). Open it with
 **Enter**.
+
+#### Why does a PDF show as text?
+
+Because it is not a PDF inside: its bytes do not start with `%PDF-`, and it may be a web page
+under a `.pdf` name, which is a common trick in attachments. The preview shows such a file as
+plain text instead of running it as a page. Press **Enter** to open it in its program.
 
 #### Does the preview slow down startup?
 

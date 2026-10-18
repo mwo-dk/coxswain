@@ -8,11 +8,18 @@ import { highlight } from "./hl.js";
 import { convertFileSrc } from "./lib.js";
 import { t } from "./i18n.svelte.js";
 
-export const clean = (html) => DOMPurify.sanitize(html, { USE_PROFILES: { html: true, svg: true, svgFilters: true, mathMl: true } });
+/** Sanitized HTML. No `<style>`: a file's style sheet would restyle the whole window. `styles`
+ *  keeps them for a diagram's own SVG (Mermaid scopes its rules to the diagram's id) and for HTML
+ *  whose every piece is sanitized already. */
+export const clean = (html, { styles = false } = {}) =>
+  DOMPurify.sanitize(html, { USE_PROFILES: { html: true, svg: true, svgFilters: true, mathMl: true }, FORBID_TAGS: styles ? [] : ["style"] });
 const escape = (s) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
 
 /** File bytes through the asset protocol; refuses files too big to preview. */
 export async function bytes(path, max = 25 * 1024 * 1024) {
+  // The size first, so a file too big is never read.
+  const head = await fetch(convertFileSrc(path), { method: "HEAD" });
+  if (Number(head.headers.get("content-length")) > max) throw new Error(t("render.too_large"));
   const r = await fetch(convertFileSrc(path));
   if (!r.ok) throw new Error(`${r.status} ${r.statusText}`);
   if (Number(r.headers.get("content-length")) > max) throw new Error(t("render.too_large"));
@@ -81,7 +88,7 @@ async function mermaid() {
 export async function renderMermaid(src) {
   try {
     const { svg } = await (await mermaid()).render(`coxswain-mermaid-${++mermaidSeq}`, src);
-    return `<div class="diagram">${clean(svg)}</div>`;
+    return `<div class="diagram">${clean(svg, { styles: true })}</div>`;
   } catch (e) {
     return `<pre class="diagram-error">${escape(String(e?.message ?? e))}</pre>`;
   }
@@ -99,7 +106,7 @@ export async function renderMarkdown(src) {
     const svg = new DOMParser().parseFromString(await renderMermaid(code.textContent), "text/html");
     code.parentElement.replaceWith(...doc.adoptNode(svg.body).childNodes);
   }
-  return clean(doc.body.innerHTML);
+  return clean(doc.body.innerHTML, { styles: true });
 }
 
 export { highlight };
@@ -161,18 +168,19 @@ export async function renderNotebook(path) {
     }
     if (cell.cell_type !== "code") continue;
     const n = cell.execution_count ?? " ";
-    parts.push(`<div class="cell code"><span class="prompt">In [${n}]</span><pre class="hljs"><code>${highlight(src, lang)}</code></pre></div>`);
+    parts.push(`<div class="cell code"><span class="prompt">In [${escape(String(n))}]</span><pre class="hljs"><code>${highlight(src, lang)}</code></pre></div>`);
     for (const out of cell.outputs ?? []) {
       const data = out.data ?? {};
       if (out.output_type === "stream") parts.push(`<pre class="out">${escape(join(out.text))}</pre>`);
       else if (out.output_type === "error") parts.push(`<pre class="out err">${escape(`${out.ename}: ${out.evalue}`)}</pre>`);
-      else if (data["image/png"]) parts.push(`<img class="out" src="data:image/png;base64,${join(data["image/png"]).trim()}">`);
+      else if (data["image/png"]) parts.push(`<img class="out" src="data:image/png;base64,${escape(join(data["image/png"]).trim())}">`);
       else if (data["image/svg+xml"]) parts.push(`<div class="out">${clean(join(data["image/svg+xml"]))}</div>`);
       else if (data["text/html"]) parts.push(`<div class="out">${clean(join(data["text/html"]))}</div>`);
       else if (data["text/plain"]) parts.push(`<pre class="out">${escape(join(data["text/plain"]))}</pre>`);
     }
   }
-  return clean(parts.join(""));
+  // Every part is sanitized or escaped already; a markdown cell's diagram keeps its styles.
+  return clean(parts.join(""), { styles: true });
 }
 
 // ------------------------------------------------------------ fonts
