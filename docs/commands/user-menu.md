@@ -95,13 +95,16 @@ In `command`:
 
 | Placeholder | Becomes |
 |---|---|
-| `%f` | The name of the file under the cursor: the name only, since the command runs in its folder. Empty on `..` |
-| `%d` | The panel's folder, as a full path |
+| `%f` | The name of the file under the cursor: the name only, since the command runs in its folder. A name that starts with `-` comes as `./-name` (`.\-name` on Windows), so the program does not take it for an option. Empty on `..` |
+| `%d` | The panel's folder, as a full path; on Windows `.`, the same folder, as the command runs there |
 | `%s` | The marked files as full paths, separated by spaces; when nothing is marked, the name under the cursor |
 | `%%` | A single `%` |
 
-Each is quoted for the shell when it needs it: `'it'\''s here.txt'` on the BSDs, illumos, Linux and macOS,
-`"My File.txt"` on Windows. Names of only letters, digits and `-_./+,:@` stay as they are. So
+Each is quoted for the shell when it needs it: `'it'\''s here.txt'` on the BSDs, illumos, Linux and macOS.
+Names of only letters, digits and `-_./+,:@` stay as they are. On Windows a name that needs
+quotes goes in as `"%COXSWAIN_0%"`, a variable that holds it: cmd.exe expands a `%PATH%` even
+inside quotes, so a file named `%USERPROFILE%.txt` would otherwise become another name. The
+terminal app shows the line with the names in. So
 names with spaces or quotes are safe; do not put your own quotes around a placeholder.
 
 ## Ready-made entries to copy
@@ -165,8 +168,13 @@ No Settings item: the menu is edited in `config.toml`, reached with **F2**, **+*
 | `user_menu` left out | – | the entries above | No `[[user_menu]]` at all: the entries F2 comes with |
 | `[keys]` `user_menu` | list of keys | `["F2"]` | The key that opens the menu |
 
-The shell is the same as the command line's: `$SHELL -c` in the terminal app, `sh -c` in the
-desktop app, `cmd /C` on Windows.
+The shell is `sh -c` on Linux, the BSDs, illumos, Termux and macOS, in both apps, whatever your
+`$SHELL` is, and `cmd /S /C` on Windows: the names are quoted for `sh`, and fish, nushell, xonsh
+or elvish read quotes otherwise, so a file name could end the quoting and run what follows it.
+Only the line you type on the terminal app's [command line](command-line.md#the-shell) runs in
+your `$SHELL`.
+The same holds for **F3** and **F4** with a viewer or editor of your own, **Enter** on a program,
+and a command of your own in `[git] tool`.
 
 ## In the terminal app
 
@@ -236,6 +244,12 @@ the cursor is on.
 
 No. Coxswain already quotes each name when it needs it; your own quotes would end up inside the
 command as part of the name. Write `git diff -- %f`, not `git diff -- "%f"`.
+
+#### My entry uses fish (or zsh) syntax and fails.
+
+Entries run in `sh`, whatever your `$SHELL` is: the names that `%f`, `%d` and `%s` put in are
+quoted for `sh`, and another shell would read those quotes otherwise. Call your shell yourself
+and pass the names as arguments: `command = "fish -c 'for f in $argv; echo $f; end' -- %s"`.
 
 #### Can an entry have an upper-case key?
 

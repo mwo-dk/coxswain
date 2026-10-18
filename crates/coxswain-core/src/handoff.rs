@@ -25,8 +25,11 @@ pub struct Handoff {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Run {
-    /// A shell command line, run in the terminal the terminal app runs in, which waits for it.
+    /// A command line (`tools::Line::command`), run in the terminal the terminal app runs in,
+    /// which waits for it.
     Here(String),
+    /// A command line (`tools::Line::command`), started on its own in `root`.
+    Line(String),
     /// A program and its arguments, started on its own in `root`.
     // ponytail: arguments as UTF-8 text, so a repository path that is not UTF-8 is mangled;
     // OsString when one turns up.
@@ -290,13 +293,21 @@ fn look(at: &str) -> Option<PathBuf> {
             .to_string_lossy()
             .into_owned();
     }
-    while let Some(a) = s.find('%') {
-        let b = a + 1 + s[a + 1..].find('%')?;
-        let v = std::env::var(&s[a + 1..b]).ok()?;
-        s.replace_range(a..=b, &v);
-    }
-    let p = PathBuf::from(s);
+    let p = PathBuf::from(vars(s, &|v| std::env::var(v).ok())?);
     p.exists().then_some(p)
+}
+
+/// `s` with each `%VAR%` replaced by what `var` says it is.
+fn vars(mut s: String, var: &dyn Fn(&str) -> Option<String>) -> Option<String> {
+    // On after what went in: a value that names itself would go round for ever.
+    let mut from = 0;
+    while let Some(a) = s[from..].find('%').map(|i| from + i) {
+        let b = a + 1 + s[a + 1..].find('%')?;
+        let v = var(&s[a + 1..b])?;
+        s.replace_range(a..=b, &v);
+        from = a + v.len();
+    }
+    Some(s)
 }
 
 /// The handoff on `os`, with programs found by `look` (a tool's places), `has` (a terminal on
@@ -344,16 +355,16 @@ fn plan(
         let in_terminal = tools
             .iter()
             .any(|t| !t.window && stem.eq_ignore_ascii_case(t.name));
+        // `%d` is quoted for sh: the user's `$SHELL` (fish) may read quotes otherwise.
         let run = if terminal {
             Run::Here(cmd)
         } else if in_terminal {
-            let (sh, flag) = shell(os, var);
-            let (p, a) = in_emulator(os, &root, &[sh, flag.into(), cmd], has, var)
+            let (sh, flag) = if os == "windows" { ("cmd", "/C") } else { ("sh", "-c") };
+            let (p, a) = in_emulator(os, &root, &[sh.into(), flag.into(), cmd], has, var)
                 .ok_or(Missing::Nothing)?;
             Run::Spawn(p, a)
         } else {
-            let (sh, flag) = shell(os, var);
-            Run::Spawn(sh, vec![flag.into(), cmd])
+            Run::Line(cmd)
         };
         return Ok(Handoff {
             root,
@@ -364,7 +375,8 @@ fn plan(
     // No tool: a shell in the repository, in this terminal or a new one.
     let Some(f) = found else {
         let run = if terminal {
-            Run::Here(quote(&shell(os, var).0))
+            let sh = if os == "windows" { "cmd".into() } else { var("SHELL").unwrap_or_else(|| "sh".into()) };
+            Run::Here(quote(&sh))
         } else {
             let (p, a) = in_emulator(os, &root, &[], has, var).ok_or(Missing::Nothing)?;
             Run::Spawn(p, a)
@@ -390,15 +402,6 @@ fn plan(
         Run::Spawn(p, a)
     };
     Ok(Handoff { root, name, run })
-}
-
-/// The user's shell on `os` and its flag for a command line.
-fn shell(os: &str, var: &dyn Fn(&str) -> Option<String>) -> (String, &'static str) {
-    if os == "windows" {
-        ("cmd".into(), "/C")
-    } else {
-        (var("SHELL").unwrap_or_else(|| "sh".into()), "-c")
-    }
 }
 
 /// A new terminal window in `root` running `inner` (a program and its arguments), or the shell
@@ -471,14 +474,19 @@ fn in_emulator(
     }
 }
 
-/// Start `h` (a `Run::Spawn`) in its repository, on its own: in a Flatpak, on the host. A
-/// program that fails at once says why.
+/// Start `h` (a `Run::Spawn` or `Run::Line`) in its repository, on its own: in a Flatpak, on
+/// the host. A program that fails at once says why.
 pub fn spawn(h: &Handoff) -> std::io::Result<()> {
-    let Run::Spawn(program, args) = &h.run else {
-        return Err(std::io::Error::other("not a program to start"));
+    let mut c = match &h.run {
+        Run::Spawn(program, args) => {
+            let mut c = crate::tools::user_command(program);
+            c.args(args);
+            c
+        }
+        Run::Line(cmd) => crate::tools::Line::from(cmd.clone()).command(),
+        Run::Here(_) => return Err(std::io::Error::other("not a program to start")),
     };
-    let mut c = crate::tools::user_command(program);
-    c.args(args).current_dir(&h.root);
+    c.current_dir(&h.root);
     crate::tools::spawn_watched(c, std::time::Duration::from_secs(1))
 }
 
@@ -676,11 +684,22 @@ mod tests {
         let line = format!("gitui -d {}", quote(&repo));
         assert_eq!(
             h.run,
-            spawn("xterm", &["-e", "/bin/zsh", "-c", &line]),
+            spawn("xterm", &["-e", "sh", "-c", &line]),
             "in a terminal"
         );
         let h = f.plan("linux", "my-client", &f.repo, false, X).unwrap();
-        assert_eq!(h.run, spawn("/bin/zsh", &["-c", "my-client"]), "on its own");
+        assert_eq!(h.run, Run::Line("my-client".into()), "on its own");
+    }
+
+    #[test]
+    fn handoff_vars_expand_once() {
+        let var = |v: &str| match v {
+            "SELF" => Some("%SELF%".to_string()),
+            "A" => Some(r"C:\a".to_string()),
+            _ => None,
+        };
+        assert_eq!(vars(r"%A%\x\%SELF%".into(), &var).as_deref(), Some(r"C:\a\x\%SELF%"));
+        assert_eq!(vars("%NONE%".into(), &var), None);
     }
 
     #[test]

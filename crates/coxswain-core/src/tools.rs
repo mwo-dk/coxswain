@@ -112,6 +112,84 @@ pub fn user_command(program: impl AsRef<std::ffi::OsStr>) -> Command {
     }
 }
 
+/// A command line Coxswain builds (F2's entries, the viewer and editor, a program run with
+/// Enter, a git tool), its file names put in by `word`, and the values it names on Windows.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct Line {
+    pub cmd: String,
+    /// On Windows, the values the line names as `%COXSWAIN_n%`.
+    pub env: Vec<(String, String)>,
+}
+
+impl From<String> for Line {
+    fn from(cmd: String) -> Line {
+        Line { cmd, env: vec![] }
+    }
+}
+
+impl Line {
+    /// `s` as one word of the line: quoted for sh, as `config::quote` does. On Windows a
+    /// variable instead, which cmd.exe replaces with `s` as it is: it would expand a `%PATH%`
+    /// in `s` even inside quotes, but never what a variable holds. (A `"`, which no Windows
+    /// file name has, keeps `quote`'s doubling: a variable holding one would end the quotes.)
+    pub fn word(&mut self, s: &str) -> String {
+        let q = crate::config::quote(s);
+        if cfg!(windows) && q != s && !s.contains('"') {
+            let name = format!("COXSWAIN_{}", self.env.len());
+            let w = format!("\"%{name}%\"");
+            self.env.push((name, s.into()));
+            w
+        } else {
+            q
+        }
+    }
+
+    /// The line as it reads with its values in, for showing.
+    pub fn shown(&self) -> String {
+        self.env.iter().fold(self.cmd.clone(), |l, (k, v)| {
+            l.replace(&format!("%{k}%"), v)
+        })
+    }
+
+    /// The line run by `sh -c` on Unix (Termux has its `sh` on PATH too) and `cmd /S /C` on
+    /// Windows, in a Flatpak on the host. Never by the user's `$SHELL`: `word` quotes for sh,
+    /// and fish, for one, reads `\'` inside single quotes as a quote, so a file named
+    /// `x\';echo hi;#` would end the quoting there and run `echo hi`.
+    pub fn command(&self) -> Command {
+        #[cfg(windows)]
+        {
+            // Passed as it is: Rust would write each inner `"` as `\"`, which cmd.exe does not
+            // read. `/S` takes only the outer quotes away, whatever the line holds.
+            let mut c = user_command("cmd");
+            std::os::windows::process::CommandExt::raw_arg(
+                &mut c,
+                format!("/S /C \"{}\"", self.cmd),
+            );
+            c.envs(self.env.iter().map(|(k, v)| (k, v)));
+            c
+        }
+        #[cfg(not(windows))]
+        {
+            let mut c = user_command("sh");
+            c.arg("-c").arg(&self.cmd);
+            c
+        }
+    }
+}
+
+/// A command line the user typed in the terminal app: by their `$SHELL` on Unix, in its own
+/// syntax (a name pasted in is quoted for it, `config::quote_for`); by cmd.exe on Windows.
+pub fn typed_line(cmd: &str) -> Command {
+    match std::env::var_os("SHELL").filter(|s| cfg!(unix) && !s.is_empty()) {
+        Some(sh) => {
+            let mut c = user_command(sh);
+            c.arg("-c").arg(cmd);
+            c
+        }
+        None => Line::from(cmd.to_string()).command(),
+    }
+}
+
 /// `c` with its environment as flatpak-spawn's `--env` options, when it runs on the host:
 /// flatpak-spawn does not pass its own environment on (PlantUML's allowlist is set there).
 /// Anything else comes back as it is.
