@@ -263,6 +263,34 @@ pub fn list_with_archive(
     Ok((out, None))
 }
 
+/// What a folder holds, for the preview of a folder: its folders, its files, their bytes and
+/// the newest date (seconds since the Unix epoch), without `..`.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Serialize)]
+pub struct Summary {
+    pub folders: usize,
+    pub files: usize,
+    pub bytes: u64,
+    pub newest: u64,
+}
+
+/// `dir`'s `Summary`, from the same listing the panel has (an archive's, a history's too).
+pub fn summary(dir: &Path, show_hidden: bool) -> io::Result<Summary> {
+    let mut s = Summary::default();
+    for e in list_with_archive(dir, show_hidden)?.0 {
+        if e.is_parent() {
+            continue;
+        }
+        if e.is_dir {
+            s.folders += 1;
+        } else {
+            s.files += 1;
+            s.bytes += e.size;
+        }
+        s.newest = s.newest.max(e.modified);
+    }
+    Ok(s)
+}
+
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum SortKey {
@@ -1196,6 +1224,20 @@ mod tests {
     }
 
     use super::*;
+
+    #[test]
+    fn summary_counts_folders_files_and_bytes() {
+        let d = std::env::temp_dir().join(format!("coxswain-summary-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&d);
+        fs::create_dir_all(d.join("sub")).unwrap();
+        fs::write(d.join("a.txt"), b"abc").unwrap();
+        fs::write(d.join(".hid"), b"12345").unwrap();
+        let s = summary(&d, false).unwrap();
+        assert_eq!((s.folders, s.files, s.bytes), (1, 1, 3));
+        assert!(s.newest > 0);
+        assert_eq!(summary(&d, true).unwrap().bytes, 8);
+        let _ = fs::remove_dir_all(&d);
+    }
 
     #[test]
     #[cfg(unix)]

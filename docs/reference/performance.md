@@ -208,7 +208,8 @@ and an RTX 4070 Laptop GPU.
 
 A search by meaning on such a store takes about 20 ms besides the question's own vector. The
 signs are read on a connection of their own, so word search goes on meanwhile, and they are
-kept up to date as files change, without reading them again.
+kept up to date as files change, without reading them again. A file written while they are
+being read or searched never waits for them: its change waits until the search is done.
 
 **Finding the right file** (`meaning_eval`, ignored, in `crates/coxswain-core/tests/`): this
 documentation's 93 pages (123,000 words, 31 of them longer than 1,500 words) as the files, and

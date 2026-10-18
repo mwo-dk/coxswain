@@ -348,15 +348,8 @@
     let live = true;
     const timer = setTimeout(async () => {
       try {
-        const r = await invoke("list_dir", { dir: cur.path, showHidden: ui.showHidden, sort: "name", reverse: false });
-        if (!live) return;
-        const items = r.items.filter((x) => x.name !== "..");
-        summary = {
-          folders: items.filter((x) => x.is_dir).length,
-          files: items.filter((x) => !x.is_dir).length,
-          bytes: items.reduce((a, x) => a + (x.is_dir ? 0 : x.size), 0),
-          newest: items.reduce((a, x) => Math.max(a, x.modified), 0),
-        };
+        const r = await invoke("dir_summary", { dir: cur.path, showHidden: ui.showHidden });
+        if (live) summary = r;
       } catch {
         if (live) summary = null;
       }

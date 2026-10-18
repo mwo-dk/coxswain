@@ -79,8 +79,10 @@ read (damaged, locked, not what its name says) is marked as without text and tri
 changes.
 
 **Following changes.** The helper follows the file watcher: it collects changes for two seconds,
-then reads the files that changed. A change inside a folder left out is measured for folder sizes
-within a minute. A walk every ten minutes catches anything the watcher missed.
+then reads the files that changed. While it is still hashing files or making the vectors for
+[search by meaning](meaning.md), it stops for the changes every minute. A change inside a folder
+left out is measured for folder sizes within a minute. A walk every ten minutes catches anything
+the watcher missed.
 
 ## Settings and config.toml
 
