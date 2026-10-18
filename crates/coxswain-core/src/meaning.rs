@@ -660,7 +660,9 @@ impl NoVectors {
     /// An HTTP error status as one or the other: only what is about the input is the file's.
     pub fn from_status(status: u16, why: String) -> NoVectors {
         match status {
-            400 | 413 | 422 => NoVectors::Refused(why),
+            // 500 too: some servers (older Ollama) answer it for an input that is too long, and
+            // stopping on it would leave meaning stuck on that one file at every scan.
+            400 | 413 | 422 | 500 => NoVectors::Refused(why),
             _ => NoVectors::Down(why),
         }
     }
@@ -1704,10 +1706,10 @@ mod tests {
     #[test]
     fn a_server_error_stops_the_round_and_a_refused_input_skips_the_file() {
         use super::NoVectors;
-        for s in [401, 403, 404, 405, 408, 429, 500, 502, 503] {
+        for s in [401, 403, 404, 405, 408, 429, 502, 503, 504] {
             assert!(matches!(NoVectors::from_status(s, String::new()), NoVectors::Down(_)), "{s}");
         }
-        for s in [400, 413, 422] {
+        for s in [400, 413, 422, 500] {
             assert!(matches!(NoVectors::from_status(s, String::new()), NoVectors::Refused(_)), "{s}");
         }
     }

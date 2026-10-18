@@ -73,9 +73,9 @@ themselves. The *Server* field is the base URL: Coxswain adds `/api/embed` for O
   the error, the files
   wait, and they are done at the next pass once it answers. The same goes for a server that
   answers with an error about itself rather than the file (HTTP 401 or 403 for a key it does
-  not take, 404 for a model that is gone, 408, 429 for too many requests, any 5xx): the pass
-  stops at the first one instead of asking again for every file. Only 400, 413 and 422 (an
-  input it will not take) skip just that file until the next scan. A search asks the server for
+  not take, 404 for a model that is gone, 408, 429 for too many requests, 502, 503 or 504): the pass
+  stops at the first one instead of asking again for every file. Only 400, 413, 422 and 500 (an
+  input it will not take; some servers answer 500 for one that is too long) skip just that file until the next scan. A search asks the server for
   the question's vector too, so while it is down, meaning hits are missing; word hits are not,
   and the error goes away with the first search it answers again.
 - **Prefixes.** Models whose name has `e5` get `query: ` and `passage: ` in front, and
