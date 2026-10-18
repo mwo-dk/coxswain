@@ -90,13 +90,23 @@ pub fn entry_name(b: &Branch) -> String {
     format!("{s} · {}", crate::history::safe_name(&b.subject))
 }
 
-/// The branch an entry of the list is, read again.
-fn find(dir: &Path, entry: &str) -> io::Result<Branch> {
-    let name = entry
+/// The branch an entry of the list names, `entry_name`'s inverse.
+pub fn name_of(entry: &str) -> String {
+    segment(entry).replace('∕', "/")
+}
+
+/// The name part of an entry of the list, as `entry_name` wrote it (`∕` for `/`).
+fn segment(entry: &str) -> &str {
+    entry
         .trim_start_matches("* ")
         .split(' ')
         .next()
-        .unwrap_or_default();
+        .unwrap_or_default()
+}
+
+/// The branch an entry of the list is, read again.
+fn find(dir: &Path, entry: &str) -> io::Result<Branch> {
+    let name = segment(entry);
     branches(dir)?
         .into_iter()
         .find(|b| b.name.replace('/', "∕") == name)
@@ -376,6 +386,28 @@ mod tests {
             .unwrap()
             .status
             .success()
+    }
+
+    #[test]
+    fn name_of_reads_entry_name_back() {
+        for (name, current, ahead, behind) in [
+            ("main", true, 0, 0),
+            ("origin/feature/x", false, 3, 1),
+            ("fix", false, 0, 2),
+        ] {
+            let b = Branch {
+                name: name.into(),
+                remote: false,
+                current,
+                oid: String::new(),
+                time: 0,
+                author: String::new(),
+                subject: "A subject with spaces".into(),
+                ahead,
+                behind,
+            };
+            assert_eq!(name_of(&entry_name(&b)), name);
+        }
     }
 
     #[test]

@@ -4,7 +4,7 @@
 //! Nothing is downloaded here unless `pull` is called, and nothing leaves the machine but the
 //! requests to the servers asked about.
 
-use crate::meaning::{said, shown, tls};
+use crate::meaning::{ollama_caps, ollama_show, said, shown, tls};
 use serde::{Deserialize, Serialize};
 use std::time::{Duration, Instant};
 
@@ -62,27 +62,6 @@ fn ctx_of(m: &serde_json::Value) -> Option<usize> {
         .map(|n| n as usize)
 }
 
-/// What Ollama's `/api/show` says of a model: its `capabilities`, and in `model_info` its
-/// context size (`qwen3.context_length`).
-fn ollama_show(agent: &ureq::Agent, url: &str, model: &str) -> Option<serde_json::Value> {
-    let body = serde_json::json!({ "model": model }).to_string();
-    let mut res = agent
-        .post(&format!("{url}/api/show"))
-        .header("Content-Type", "application/json")
-        .send(body)
-        .ok()?;
-    serde_json::from_str(&res.body_mut().read_to_string().ok()?).ok()
-}
-
-/// What an Ollama model can do (`completion`, `embedding`), from a list or `/api/show`.
-fn ollama_caps(v: &serde_json::Value) -> Option<Vec<String>> {
-    v["capabilities"].as_array().map(|c| {
-        c.iter()
-            .filter_map(|x| x.as_str().map(String::from))
-            .collect()
-    })
-}
-
 /// An Ollama model's context size, from `/api/show`'s `model_info`.
 fn ollama_context(show: &serde_json::Value) -> Option<usize> {
     show["model_info"]
@@ -117,12 +96,7 @@ const PLACES: [(Kind, &str); 7] = [
 ];
 
 fn agent(timeout: Duration) -> ureq::Agent {
-    ureq::Agent::config_builder()
-        .tls_config(tls())
-        .timeout_global(Some(timeout))
-        .http_status_as_error(false)
-        .build()
-        .into()
+    crate::meaning::agent(|b| b.timeout_global(Some(timeout)).http_status_as_error(false))
 }
 
 fn get(agent: &ureq::Agent, url: &str, key: Option<&str>) -> Option<serde_json::Value> {
@@ -208,7 +182,7 @@ fn ask_server(kind: Kind, url: &str, key: Option<&str>) -> Option<Found> {
                             let show = if not_chat {
                                 None
                             } else {
-                                ollama_show(slow, url, &name)
+                                ollama_show(slow, url, &name).ok()
                             };
                             let can = listed.or_else(|| show.as_ref().and_then(ollama_caps));
                             let model = match can {

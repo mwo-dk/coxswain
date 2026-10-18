@@ -338,11 +338,6 @@ pub struct MenuItem {
     pub group: Option<String>,
 }
 
-/// The branch an entry of the branches listing names (`branches::entry_name`'s inverse).
-fn branch_of(entry: &str) -> String {
-    entry.trim_start_matches("* ").split(' ').next().unwrap_or_default().replace('∕', "/")
-}
-
 /// The menu's items whose label holds the filter, as indexes: the keys and the drawing agree.
 pub(crate) fn menu_visible(items: &[MenuItem], filter: &str) -> Vec<usize> {
     let f = filter.to_lowercase();
@@ -1460,7 +1455,7 @@ impl App {
         let Some(e) = p.current().filter(|e| in_list && !e.is_parent()) else {
             return self.status = Some(t!("branches.switch_where", "key" => self.key_label(Action::Branches)));
         };
-        let branch = branch_of(&e.name);
+        let branch = coxswain_core::branches::name_of(&e.name);
         let repo = p.dir.parent().and_then(Path::file_name).unwrap_or_default().to_string_lossy().into_owned();
         let text = t!("branches.switch_text", "branch" => branch, "repo" => repo);
         self.dialog = Some(Dialog::Switch { title: t!("action.switch_branch"), text, dir: p.dir.clone(), entry: e.name.clone() });
@@ -1476,7 +1471,7 @@ impl App {
         }
         let from = p.current().filter(|e| in_list && !e.is_parent()).map(|e| e.name.clone());
         let label = match &from {
-            Some(e) => t!("branches.new_from", "branch" => branch_of(e)),
+            Some(e) => t!("branches.new_from", "branch" => coxswain_core::branches::name_of(e)),
             None => t!("branches.new_here"),
         };
         self.input(&t!("action.new_branch"), label, String::new(), Prompt::NewBranch(p.dir.clone(), from));
@@ -2062,7 +2057,7 @@ impl App {
             Dialog::Switch { title, text, dir, entry } => match (key.code, ch) {
                 (KeyCode::Enter, _) | (_, Some('y' | 'Y')) => {
                     let r = coxswain_core::branches::switch(&dir, &entry);
-                    let branch = branch_of(&entry);
+                    let branch = coxswain_core::branches::name_of(&entry);
                     self.git_said(t!("error.switch", "branch" => branch), r);
                 }
                 _ if esc || matches!(ch, Some('n' | 'N')) => {}
