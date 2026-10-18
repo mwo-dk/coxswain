@@ -4,7 +4,7 @@
 
 The sidebar is the column at the left of the desktop app's window (at the right in Hebrew and
 Arabic). It holds your usual folders, your disks with their free space, your
-[favourites](favourites.md) and the git repositories you opened last, each one click away.
+[cloud accounts](clouds.md), your [favourites](favourites.md) and the git repositories you opened last, each one click away.
 
 ![The sidebar of the desktop app: PLACES with Home; DRIVES with System, 250 GB free and a green bar of the space used; a favourites group WORK with rocket, website and Documents; + New group; GIT REPOSITORIES with rocket and website. rocket is highlighted in both lists](../screenshots/gui-details.png)
 *The sidebar in the Cyber theme. The entries for the folder you are in are highlighted.*
@@ -19,7 +19,7 @@ Arabic). It holds your usual folders, your disks with their free space, your
 | Show or hide it | **Ctrl+B**, or *Sidebar* in the command list (**F9**) |
 | Make it wider or narrower | Drag its inner edge (the splitter between it and the panes) |
 | Go somewhere | Click an entry: the active tab of the active pane goes there |
-| Fold a section away | Click its header (*Places*, *Drives*, a group's name, *Git repositories*); click again to open it |
+| Fold a section away | Click its header (*Places*, *Drives*, *Clouds*, a group's name, *Git repositories*); click again to open it |
 
 The sidebar has no keyboard cursor: it is for the mouse. From the keyboard, **Ctrl+L** (*Edit
 path*) and **Alt+F1** / **Alt+F2** take you to any folder by typing its path; see
@@ -35,6 +35,7 @@ path*) and **Alt+F1** / **Alt+F2** take you to any folder by typing its path; se
 |---|---|
 | *Places* | *Home*, *Desktop*, *Documents*, *Downloads*, *Pictures*, *Music* and *Videos*: those your system names and that exist, each folder once |
 | *Drives* | Every mounted disk (not the snapshots ZFS mounts while you look into them): its name, its free space (*339 GB free*) and a thin bar of the space used, which turns red past 90%. The root disk is called *System*; the others are named after their mount point. Removable disks (USB sticks, SD cards) get their own icon. Hover a drive for its device and mount point, such as `/dev/nvme0n1p2 · /`. The list and the free space are read again every 30 seconds while the window is in view, and whenever the window comes back to the front |
+| *Clouds* | One entry per cloud account whose sync app or mount keeps a folder on this machine (*OneDrive – Personal*, *Google Drive – you@example.com*, *Nextcloud – me@cloud.example.com*), with a cloud icon. Only there when one is found; see [Clouds](clouds.md) |
 | *Boot environments* | FreeBSD with a ZFS root: each boot environment, with *running now*, *active on reboot* or *not mounted* after its name. A mounted one opens as a folder; one that is not mounted is greyed, and a click says how to mount it ([FreeBSD](../systems/freebsd.md#boot-environments-and-jails)) |
 | *Jails* | FreeBSD: each running jail, with its jid and host name; a click opens its root folder when you may read it |
 | Your favourite groups | One section per group, its header with a **⋯** (Add current folder, Rename group, Delete group) and a `+` on hover; see [Favourites](favourites.md), then *+ New group* |
@@ -63,8 +64,9 @@ window. The recent repositories are kept in `state.json` as `recent_repos`. See
 No sidebar. **Ctrl+B** says *Sidebar is available in the desktop app (coxswain-gui)*. The
 terminal app shows the git branch and status of a repository in the panel frame
 ([Git in the panels](../panels/git.md)), but it does not keep a list of recent repositories: the
-list is filled only by the desktop app. FreeBSD's boot environments and jails are under
-**Alt+F1** and **Alt+F2** there ([FreeBSD](../systems/freebsd.md#boot-environments-and-jails)).
+list is filled only by the desktop app. Your [clouds](clouds.md) and FreeBSD's boot
+environments and jails are under **Alt+F1** and **Alt+F2** there
+([FreeBSD](../systems/freebsd.md#boot-environments-and-jails)).
 
 ## Questions
 
@@ -132,4 +134,4 @@ At the right. The whole window is mirrored for right-to-left languages; see
 You hid it with **Ctrl+B**, and that is remembered. Press **Ctrl+B** again.
 
 ---
-[← Previous: Favourites](favourites.md) · [Next: Commands, the user menu and scripts →](../commands/README.md)
+[← Previous: Favourites](favourites.md) · [Next: Clouds →](clouds.md)

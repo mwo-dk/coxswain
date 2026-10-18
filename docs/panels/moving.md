@@ -52,7 +52,7 @@ More on this: [Opening files](../commands/opening-files.md).
 
 | Key | Terminal app | Desktop app |
 |---|---|---|
-| **Alt+F1** | Dialog *Left panel*, *Go to folder:*, filled in with the left panel's folder | The left pane's path bar turns into a text field with its path selected |
+| **Alt+F1** | Dialog *Left panel*, *Go to folder:*, filled in with the left panel's folder. With [clouds](../organise/clouds.md), FreeBSD's boot environments or Termux's phone folders, first a list of them with *Type a path…* at the top | The left pane's path bar turns into a text field with its path selected |
 | **Alt+F2** | Dialog *Right panel*, the same for the right panel | The same for the right pane |
 | **Ctrl+L** | – | The active pane's path bar turns into a text field |
 
@@ -69,7 +69,7 @@ Other ways:
 - Desktop app: click a part of the path bar to go there, or empty space in it to type a path.
   The buttons left of it are **Back**, **Forward** and **Up** ([Tabs, back and forward](tabs-and-panes.md)).
 - Desktop app: the [sidebar](../organise/sidebar.md) (**Ctrl+B**) has places, drives,
-  favourites and recent git repositories.
+  [clouds](../organise/clouds.md), favourites and recent git repositories.
 - [Find](../search/find-file.md) (**Alt+F7**, **Ctrl+F**): **Enter** on a hit opens its
   folder with the cursor on it.
 

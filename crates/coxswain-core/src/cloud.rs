@@ -218,7 +218,7 @@ pub fn place(path: &Path) -> (String, PathBuf) {
 }
 
 /// The cloud a folder of this name belongs to, as its client names its folder.
-fn provider(name: &str) -> Option<&'static str> {
+pub(crate) fn provider(name: &str) -> Option<&'static str> {
     let n = name.to_lowercase();
     let starts = [
         ("onedrive", "OneDrive"),

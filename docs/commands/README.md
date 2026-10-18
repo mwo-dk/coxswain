@@ -35,4 +35,4 @@ terminal app hands the terminal to the program, the desktop app collects its out
 Every key can be changed under `[keys]` ([Changing keys](../customise/keys.md)).
 
 ---
-[← Previous: The sidebar](../organise/sidebar.md) · [Next: The command line and its output →](command-line.md)
+[← Previous: Clouds](../organise/clouds.md) · [Next: The command line and its output →](command-line.md)

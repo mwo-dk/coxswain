@@ -93,6 +93,7 @@ pub const FEATURES: &[Feature] = &[
     f("notes", "organise/notes.md", &[Notes]),
     f("favourites", "organise/favourites.md", &[ToggleSidebar]),
     f("sidebar", "organise/sidebar.md", &[ToggleSidebar]),
+    f("clouds", "organise/clouds.md", &[ToggleSidebar, GotoLeft, GotoRight]),
     // commands
     f(
         "command_line",
