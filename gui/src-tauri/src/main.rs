@@ -9,7 +9,7 @@ use coxswain_core::icons::{self, Icon};
 use coxswain_core::helper::{self, Client};
 use coxswain_core::index::State;
 use coxswain_core::rename::{self, Flags, Planned};
-use coxswain_core::undo::{History, Kind as UndoKind, Record};
+use coxswain_core::undo::{History, Kind as UndoKind, Op, Record};
 use coxswain_core::state::{AppState, FavoriteGroup};
 use coxswain_core::git;
 use coxswain_core::history;
@@ -1345,17 +1345,24 @@ fn resolve_path(base: PathBuf, input: String) -> PathBuf {
     resolve(&base, &input)
 }
 
-/// Run `op` on every source, on a blocking thread (a big copy must not hold one of the async
-/// runtime's few workers); collect failures into one message.
-async fn each(paths: Vec<PathBuf>, op: impl Fn(&Path) -> std::io::Result<()> + Send + 'static) -> Res<()> {
-    blocking(move || {
-        let errors: Vec<String> = paths.iter().filter_map(|p| op(p).err().map(|e| format!("{}: {e}", p.display()))).collect();
-        if errors.is_empty() { Ok(()) } else { Err(errors.join("\n")) }
-    })
-    .await
+/// `op` on `paths` (to `dst`), as both apps run it, on a blocking thread: a big copy must not
+/// hold one of the async runtime's few workers. The folders it changes are forgotten while it
+/// runs and measured again after, what can be undone goes into the history, and failures come
+/// back as one message.
+async fn job(ctx: &Ctx, op: Op, paths: Vec<PathBuf>, dst: PathBuf, password: Option<String>) -> Res<()> {
+    let touched = op.touches(&paths, &dst);
+    touched.iter().for_each(|p| ctx.sizer.forget(p));
+    let (failed, rec) = tauri::async_runtime::spawn_blocking(move || coxswain_core::undo::run(op, &paths, &dst, password.as_deref(), |_| {}))
+        .await
+        .map_err(|e| e.to_string())?;
+    ctx.changed(&touched);
+    ctx.remember(rec);
+    let errors: Vec<String> = failed.iter().map(|(p, e)| format!("{}: {e}", p.display())).collect();
+    if errors.is_empty() { Ok(()) } else { Err(errors.join("\n")) }
 }
 
-/// `each` as an operation that can be undone: what can be of it goes into the history.
+/// Run `op` on every source, as an operation that can be undone (on a blocking thread, like
+/// `job`): what can be of it goes into the history; failures come back as one message.
 async fn each_undo(ctx: &Ctx, kind: UndoKind, paths: Vec<PathBuf>, op: impl Fn(&mut Record, &Path) -> std::io::Result<()> + Send + 'static) -> Res<()> {
     let (rec, r) = tauri::async_runtime::spawn_blocking(move || {
         let mut rec = Record::new(kind);
@@ -1375,38 +1382,34 @@ async fn blocking<T: Send + 'static>(f: impl FnOnce() -> Res<T> + Send + 'static
 
 #[tauri::command]
 async fn copy(paths: Vec<PathBuf>, base: PathBuf, dest: String, password: Option<String>, ctx: tauri::State<'_, Ctx>) -> Res<()> {
-    let dst = resolve(&base, &dest);
-    ctx.sizer.forget(&dst.join("new"));
     // The password of a locked archive, held for this copy only.
-    each_undo(&ctx, UndoKind::Copy, paths, move |rec, p| rec.run(p, &dst, password.as_deref())).await
+    job(&ctx, Op::Copy, paths, resolve(&base, &dest), password).await
 }
 
 #[tauri::command]
 async fn rename(paths: Vec<PathBuf>, base: PathBuf, dest: String, password: Option<String>, ctx: tauri::State<'_, Ctx>) -> Res<()> {
-    let dst = resolve(&base, &dest);
-    paths.iter().chain([&dst.join("new")]).for_each(|p| ctx.sizer.forget(p));
-    each_undo(&ctx, UndoKind::Move, paths, move |rec, p| rec.run(p, &dst, password.as_deref())).await
+    job(&ctx, Op::Move, paths, resolve(&base, &dest), password).await
 }
 
-/// To the trash, or gone for good with `forever`. Inside a locked 7z, `password` opens it.
+/// How deleting `paths` goes (as in the terminal app): for good inside an archive or where the
+/// trash cannot take them, and then asked even when deleting is not confirmed.
+#[tauri::command(async)]
+fn delete_plan(paths: Vec<PathBuf>, forever: bool, inside: bool) -> bfs::DeletePlan {
+    bfs::delete_plan(&paths, forever, inside)
+}
+
+/// To the trash, or gone for good with `forever` (as `delete_plan` says). Inside a locked 7z,
+/// `password` opens it.
 #[tauri::command]
 async fn delete(paths: Vec<PathBuf>, forever: bool, password: Option<String>, ctx: tauri::State<'_, Ctx>) -> Res<()> {
-    // For good is the one that cannot be undone.
-    if forever {
-        let r = each(paths.clone(), move |p| bfs::delete_locked(p, password.as_deref())).await;
-        ctx.changed(&paths);
-        return r;
-    }
-    // The history names only what went to the trash: one that fails halfway is forgotten too.
-    paths.iter().for_each(|p| ctx.sizer.forget(p));
-    each_undo(&ctx, UndoKind::Trash, paths, move |rec, p| rec.run(p, Path::new(""), password.as_deref())).await
+    job(&ctx, if forever { Op::Forever } else { Op::Trash }, paths, PathBuf::new(), password).await
 }
 
 /// Async, as inside an archive the archive is written anew.
 #[tauri::command]
 async fn mkdir(base: PathBuf, name: String, password: Option<String>, ctx: tauri::State<'_, Ctx>) -> Res<PathBuf> {
     let d = resolve(&base, &name);
-    each_undo(&ctx, UndoKind::Mkdir, vec![d.clone()], move |rec, p| rec.run(p, Path::new(""), password.as_deref())).await?;
+    job(&ctx, Op::Mkdir, vec![d.clone()], PathBuf::new(), password).await?;
     Ok(d)
 }
 
@@ -1554,9 +1557,7 @@ async fn archive_list(path: PathBuf) -> Res<ArchiveListing> {
 
 #[tauri::command]
 async fn extract(paths: Vec<PathBuf>, base: PathBuf, dest: String, password: Option<String>, ctx: tauri::State<'_, Ctx>) -> Res<()> {
-    let dst = resolve(&base, &dest);
-    ctx.sizer.forget(&dst.join("new"));
-    each_undo(&ctx, UndoKind::Extract, paths, move |rec, p| rec.run(p, &dst, password.as_deref())).await
+    job(&ctx, Op::Extract, paths, resolve(&base, &dest), password).await
 }
 
 /// The password of the locked archive `path` is in (or is), kept in memory for this run.
@@ -1582,19 +1583,9 @@ async fn archive_peek(path: PathBuf) -> Res<PathBuf> {
 #[tauri::command]
 async fn pack(paths: Vec<PathBuf>, base: PathBuf, dest: String, password: Option<String>, hide_names: bool, ctx: tauri::State<'_, Ctx>) -> Res<PathBuf> {
     let to = resolve(&base, &dest);
-    let at = to.clone();
-    tauri::async_runtime::spawn_blocking(move || coxswain_core::archive::create_locked(&at, &paths, password.as_deref(), hide_names))
-        .await
-        .map_err(|e| e.to_string())?
-        .map_err(|e| format!("{}: {e}", to.display()))?;
-    ctx.changed(std::slice::from_ref(&to));
-    let mut rec = Record::new(UndoKind::Pack);
-    rec.done(&to, &to);
-    ctx.remember(rec);
+    job(&ctx, Op::Pack { hide_names }, paths, to.clone(), password).await?;
     // The format is suggested next time, in both apps.
-    if let Some(f) = coxswain_core::archive::pack_format(&dest) {
-        ctx.edit(|st| st.pack_ending = f.endings[0].into())?;
-    }
+    ctx.edit_if(|st| ((), coxswain_core::archive::remember_format(st, &dest)))?;
     Ok(to)
 }
 
@@ -2075,7 +2066,7 @@ fn main() {
         })
         .invoke_handler(tauri::generate_handler![
             get_config, action_menu, hint, hint_once, hints_reset, notices, dismiss_notice, changes, read_changes, set_title, index_status, index_action, index_service, meaning_status, meaning_action, chat_status, chat_action, meaning_models, meaning_pull, list_dir, dir_summary, zfs_facts, bsd_places, git_status, git_facts, git_last, git_switch, branch_name, git_new_branch, git_tool, git_tools, places, disks, get_state, save_session, save_favorites, set_tags, set_note, get_note,
-            find, find_read_too, ask, ask_stop, ask_check, meaning_change, setup_probe, setup_probe_url, setup_try, setup_speed, meaning_bench, resolve_path, copy, rename, delete, mkdir, dir_sizes, dir_size_known, rename_plan, rename_apply, undo, undo_next, open_path, edit_path, open_keys, scripts_folder,
+            find, find_read_too, ask, ask_stop, ask_check, meaning_change, setup_probe, setup_probe_url, setup_try, setup_speed, meaning_bench, resolve_path, copy, rename, delete_plan, delete, mkdir, dir_sizes, dir_size_known, rename_plan, rename_apply, undo, undo_next, open_path, edit_path, open_keys, scripts_folder,
             read_text, run_command, scripts, run_script, add_user_command, check_update, archive_list, extract, pack, archive_password, archive_peek, cloud_fetch, properties, set_flags, set_permissions,
             clip_set, paste, start_drag, watch_dirs, preview::git_diff, preview::sqlite_info, preview::epub_preview,
             preview::file_facts, preview::cert_info, bom::bom_info, bom::bom_node, bom::bom_diff, provenance::provenance_info, provenance::provenance_statements, provenance::provenance_subject, provenance::provenance_cancel, provenance::provenance_sources, provenance::provenance_diff, provenance::provenance_bom, preview::mail_preview, preview::plist_xml, convert::preview_engines, convert::preview_cache, convert::clear_preview_cache,

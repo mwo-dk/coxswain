@@ -185,18 +185,26 @@
     }, isMove ? "move_and_rename" : "copy");
   }
 
-  function remove(forever) {
+  async function remove(forever) {
     const paths = targets();
     if (!paths.length) return;
     const what = describe(paths);
-    // Inside an archive there is no trash: it is taken out of the archive, which is written anew.
+    // For good inside an archive (it is written anew without them) and where the trash cannot
+    // take them (Termux, illumos: another filesystem), then asked even when not confirmed.
     const inside = tab().archive;
-    const gone = forever || !!inside;
+    let plan;
+    try {
+      plan = await invoke("delete_plan", { paths, forever, inside: !!inside });
+    } catch (e) {
+      ui.status = String(e);
+      return;
+    }
+    const gone = plan.forever;
     // Where the trash gives nothing back, the status line says so.
     const said = gone ? t("status.deleted", { what }) : ui.cfg.trash_restores ? t("status.trashed", { what }) : `${t("status.trashed", { what })} · ${t("undo.no_restore_hint", { key: ui.cfg.actions.undo?.[1] ?? "" })}`;
-    const run = () => op((password, only) => invoke("delete", { paths: only ?? paths, forever, password }), said, what, t(gone ? "error.delete" : "error.trash", { what }));
-    const text = inside ? t("confirm.archive_remove", { what, archive: basename(inside) }) : t(forever ? "confirm.delete_forever" : "confirm.trash", { what });
-    if (ui.cfg.confirm_delete) ui.modal = { kind: "confirm", title: t("dialog.delete"), text, ok: t(gone ? "common.delete" : "app.move_to_trash"), run, feature: "delete" };
+    const run = () => op((password, only) => invoke("delete", { paths: only ?? paths, forever: gone, password }), said, what, t(gone ? "error.delete" : "error.trash", { what }));
+    const text = t(plan.question, { what, archive: inside ? basename(inside) : "" });
+    if (ui.cfg.confirm_delete || plan.must_confirm) ui.modal = { kind: "confirm", title: t("dialog.delete"), text, ok: t(gone ? "common.delete" : "app.move_to_trash"), run, feature: "delete" };
     else run();
   }
 

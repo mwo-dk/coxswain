@@ -470,6 +470,85 @@ impl Record {
     }
 }
 
+/// A file operation as both apps run it on a list of items.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum Op {
+    Copy,
+    /// Moved, or renamed in place.
+    Move,
+    Extract,
+    Trash,
+    /// Deleted for good: the one that cannot be undone.
+    Forever,
+    /// A new folder, the one item given.
+    Mkdir,
+    /// Packed into the archive `dst`; a 7z's names hidden too with `hide_names`.
+    Pack {
+        hide_names: bool,
+    },
+}
+
+impl Op {
+    /// The folders an operation from `src` to `dst` changes the size of, to forget while it
+    /// runs and measure again when it ends. A move, delete or new folder changes `src`; a
+    /// copy, move or extract what is in `dst`, a pack `dst` itself.
+    pub fn touches(self, src: &[PathBuf], dst: &Path) -> Vec<PathBuf> {
+        let mut out = if matches!(self, Op::Move | Op::Trash | Op::Forever | Op::Mkdir) {
+            src.to_vec()
+        } else {
+            vec![]
+        };
+        if !dst.as_os_str().is_empty() {
+            out.push(match self {
+                Op::Pack { .. } => dst.to_path_buf(),
+                _ => dst.join("new"),
+            });
+        }
+        out
+    }
+}
+
+/// Run `op` on every item in turn (`dst`: where to, or the archive for a pack), `at(i)`
+/// before item `i`; `password` opens a locked archive. Gives back what failed, with why, and
+/// the record of what can be undone (empty for `Forever`).
+pub fn run(
+    op: Op,
+    items: &[PathBuf],
+    dst: &Path,
+    password: Option<&str>,
+    mut at: impl FnMut(usize),
+) -> (Vec<(PathBuf, io::Error)>, Record) {
+    let mut rec = Record::new(match op {
+        Op::Copy => Kind::Copy,
+        Op::Move => Kind::Move,
+        Op::Extract => Kind::Extract,
+        Op::Trash | Op::Forever => Kind::Trash,
+        Op::Mkdir => Kind::Mkdir,
+        Op::Pack { .. } => Kind::Pack,
+    });
+    if let Op::Pack { hide_names } = op {
+        return match crate::archive::create_locked(dst, items, password, hide_names) {
+            Ok(()) => {
+                rec.done(dst, dst);
+                (vec![], rec)
+            }
+            Err(e) => (vec![(dst.to_path_buf(), e)], rec),
+        };
+    }
+    let mut failed = vec![];
+    for (i, p) in items.iter().enumerate() {
+        at(i);
+        let r = match op {
+            Op::Forever => cfs::delete_locked(p, password),
+            _ => rec.run(p, dst, password),
+        };
+        if let Err(e) = r {
+            failed.push((p.clone(), e));
+        }
+    }
+    (failed, rec)
+}
+
 /// What undo did.
 #[derive(Debug, serde::Serialize)]
 pub struct Undone {
@@ -522,6 +601,86 @@ mod tests {
 
     fn tmp(name: &str) -> crate::fs::Scratch {
         crate::fs::Scratch::named(&format!("undo-{name}"))
+    }
+
+    #[test]
+    fn run_goes_on_past_a_failed_item() {
+        let d = tmp("run");
+        fs::create_dir(d.join("to")).unwrap();
+        fs::write(d.join("a.txt"), "a").unwrap();
+        let (items, missing) = (
+            vec![d.join("a.txt"), d.join("gone.txt")],
+            d.join("gone.txt"),
+        );
+        let mut seen = vec![];
+        let (failed, rec) = run(Op::Copy, &items, &d.join("to"), None, |i| seen.push(i));
+        assert_eq!(seen, [0, 1]);
+        assert_eq!(failed.len(), 1);
+        assert_eq!(failed[0].0, missing);
+        assert!(d.join("to/a.txt").is_file());
+        assert_eq!((rec.kind(), rec.items.len()), (Kind::Copy, 1));
+
+        let (failed, rec) = run(Op::Move, &items, &d.join("to/sub"), None, |_| {});
+        assert_eq!(failed.len(), 1);
+        assert!(!d.join("a.txt").exists());
+        assert_eq!((rec.kind(), rec.items.len()), (Kind::Move, 1));
+
+        let zip = d.join("p.zip");
+        let (failed, rec) = run(
+            Op::Pack { hide_names: true },
+            &[d.join("to")],
+            &zip,
+            None,
+            |_| {},
+        );
+        assert!(failed.is_empty() && zip.is_file());
+        assert_eq!((rec.kind(), rec.items.len()), (Kind::Pack, 1));
+        let (failed, rec) = run(
+            Op::Pack { hide_names: true },
+            std::slice::from_ref(&missing),
+            &d.join("q.zip"),
+            None,
+            |_| {},
+        );
+        assert_eq!(failed.len(), 1);
+        assert_eq!(failed[0].0, d.join("q.zip"));
+        assert!(rec.is_empty());
+
+        let (failed, rec) = run(
+            Op::Forever,
+            &[zip.clone(), missing],
+            Path::new(""),
+            None,
+            |_| {},
+        );
+        assert_eq!(failed.len(), 1);
+        assert!(!zip.exists());
+        assert!(rec.is_empty(), "for good is not undone");
+
+        let (failed, rec) = run(
+            Op::Mkdir,
+            &[d.join("new/deep")],
+            Path::new(""),
+            None,
+            |_| {},
+        );
+        assert!(failed.is_empty() && d.join("new/deep").is_dir());
+        assert_eq!(rec.items.len(), 2);
+    }
+
+    #[test]
+    fn touches_names_the_folders_that_change() {
+        let (src, dst) = (vec![PathBuf::from("/a/x")], Path::new("/b"));
+        assert_eq!(Op::Copy.touches(&src, dst), [PathBuf::from("/b/new")]);
+        assert_eq!(
+            Op::Move.touches(&src, dst),
+            [PathBuf::from("/a/x"), PathBuf::from("/b/new")]
+        );
+        assert_eq!(Op::Forever.touches(&src, Path::new("")), src);
+        assert_eq!(
+            Op::Pack { hide_names: false }.touches(&src, Path::new("/b/p.zip")),
+            [PathBuf::from("/b/p.zip")]
+        );
     }
 
     #[test]

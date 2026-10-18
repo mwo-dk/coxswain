@@ -1878,6 +1878,18 @@ pub fn pack_format(name: &str) -> Option<&'static PackFormat> {
         .find(|f| f.endings.iter().any(|e| lower.ends_with(e)))
 }
 
+/// The format `dest`'s name picks, kept in `st` to be suggested next time, in both apps.
+/// Says whether `st` changed, to save it.
+pub fn remember_format(st: &mut crate::state::AppState, dest: &str) -> bool {
+    match pack_format(dest) {
+        Some(f) if st.pack_ending != f.endings[0] => {
+            st.pack_ending = f.endings[0].into();
+            true
+        }
+        _ => false,
+    }
+}
+
 /// `name` with its archive ending (`.tar.gz` whole) swapped for `ending`, or `ending` added.
 pub fn with_ending(name: &str, ending: &str) -> String {
     let lower = name.to_ascii_lowercase();
@@ -1937,6 +1949,15 @@ pub fn create_locked(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_pack_format_is_remembered_once() {
+        let mut st = crate::state::AppState::default();
+        assert!(remember_format(&mut st, "/x/a.TAR.GZ"));
+        assert_eq!(st.pack_ending, ".tar.gz");
+        assert!(!remember_format(&mut st, "b.tar.gz"), "unchanged");
+        assert!(!remember_format(&mut st, "c.txt"), "no format");
+    }
 
     #[test]
     fn a_zstd_write_that_fails_comes_back_as_an_error() {

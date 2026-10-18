@@ -21,6 +21,10 @@ question off.
 | **Shift+F8**, **Shift+Delete** | Deletes for good | *Permanently delete "report.pdf"? This cannot be undone.* |
 | either, inside an archive | Takes it out of the archive (there is no trash there) | *Take "a.txt" out of tools.zip? The archive is written anew without it; there is no trash inside an archive.* |
 
+Both apps decide the same way. Where the trash cannot take the files (the two rows above), **F8**
+deletes them for good and always asks first, even with *Ask before deleting* off; the button
+then reads *Delete*, and the status line says *Deleted …* afterwards.
+
 3. Confirm or cancel:
 
 | | Desktop app | Terminal app |
@@ -54,7 +58,8 @@ and you restore from the system's trash. **Shift+F8** is never undone.
 | *Behaviour → Ask before deleting* | `confirm_delete` | true / false | `true` |
 
 With the question off, both keys act at once, **Shift+F8 included**, and so does taking things
-out of an archive. The keys are `delete` and `delete_forever` in `[keys]`.
+out of an archive. Only **F8** where there is no trash (illumos on another ZFS dataset, Termux on
+the phone's storage) still asks. The keys are `delete` and `delete_forever` in `[keys]`.
 
 ## In the terminal app
 
@@ -88,6 +93,12 @@ off ([Termux](../systems/termux.md#deleting-termuxs-trash)).
 
 Untick *Settings → Behaviour → Ask before deleting*, or put `confirm_delete = false` in
 `config.toml`. Be careful: **Shift+F8** then deletes for good without a question.
+
+#### Why does F8 still ask with the question turned off?
+
+The trash cannot take those files (illumos on another ZFS dataset than your home folder's, Termux
+on the phone's storage), so **F8** would delete them for good. The question says so: *No bin on
+this disk: delete "photo.jpg" for good?* Both apps ask this, whatever *Ask before deleting* says.
 
 #### Can I get back a file I deleted with Shift+F8?
 
