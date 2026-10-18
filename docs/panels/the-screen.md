@@ -125,7 +125,7 @@ Two kinds of message come by themselves:
   a problem with search (*Search inside files has stopped: …*) is a button in the status line,
   with a `×`. The terminal app shows one tip at a time once in the status line, with the command
   that turns it on, and counts it as seen; after an upgrade it points to `coxswain --whats-new`.
-  See [Notices and what's new](../search/notices.md).
+  See [Notices and what's new](notices.md).
 
 ## Starting in a folder
 
@@ -230,4 +230,4 @@ out, **F8** takes files out, and copies into it are added to it. See
 [Archives as folders](../files/archives.md).
 
 ---
-[← Previous: The first-run guide](first-run.md) · [Next: Moving around and going to a folder →](moving.md)
+[← Previous: The first-run guide](first-run.md) · [Next: Notices and what's new →](notices.md)

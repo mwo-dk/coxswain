@@ -1,4 +1,4 @@
-[← README](../../README.md) · [Docs index](../README.md) · [Reference](README.md)
+[← README](../../README.md) · [Docs index](../README.md) · [Systems](README.md)
 
 # Linux on ARM
 
@@ -62,7 +62,7 @@ For the terminal app, unpack the archive and put `coxswain` and `cox` on your `P
 (`~/.local/bin`, for example).
 
 Both apps check once a day for a newer release and name the file to get
-([Update checks](updates.md)).
+([Update checks](../reference/updates.md)).
 
 ## Raspberry Pi
 
@@ -129,4 +129,4 @@ The built-in model runs on the Pi's processor. Use a model server on another com
 run overnight; *Words inside files* needs no model and is quick.
 
 ---
-[← Previous: Flatpak](flatpak.md) · [Next: Nix →](nix.md)
+[← Previous: TrueNAS](truenas.md) · [Next: Flatpak →](flatpak.md)

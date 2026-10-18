@@ -90,9 +90,9 @@ that:
 | System | **F8** undone | How |
 |---|---|---|
 | FreeBSD, NetBSD, OpenBSD | yes | the freedesktop.org trash (`~/.local/share/Trash`, or `.Trash-<uid>` at the top of another disk) |
-| illumos | yes | Coxswain's own trash in `~/.local/share/Trash`, for files on your home folder's ZFS dataset ([illumos](../reference/illumos.md)) |
+| illumos | yes | Coxswain's own trash in `~/.local/share/Trash`, for files on your home folder's ZFS dataset ([illumos](../systems/illumos.md)) |
 | Linux | yes | the same trash your desktop and file manager use; not in the Flatpak, whose trash is the host's (it says so) |
-| Termux on Android | yes | Coxswain's own trash in Termux's home ([Termux](../reference/termux.md)) |
+| Termux on Android | yes | Coxswain's own trash in Termux's home ([Termux](../systems/termux.md)) |
 | macOS | no | the Trash gives nothing back to apps; the status line says so: use Finder's *Put Back* |
 | Windows | yes | the Recycle Bin |
 

@@ -1,4 +1,4 @@
-[← README](../../README.md) · [Docs index](../README.md) · [Reference](README.md)
+[← README](../../README.md) · [Docs index](../README.md) · [Systems](README.md)
 
 # Flatpak
 
@@ -46,7 +46,7 @@ A Flatpak gets only what its manifest asks for. Coxswain asks for these:
 |---|---|
 | `--filesystem=host` | A file manager works on all your files: the panels, copy and move, the trash, Find, previews. Without it every folder would need a portal dialog first |
 | `--talk-name=org.freedesktop.Flatpak` | `flatpak-spawn --host`: your editor, shell commands, scripts and the programs previews use run on the host ([next section](#your-programs-run-on-the-host)) |
-| `--share=network` | The daily [update check](updates.md) (it can be turned off) and, when you turn them on, the model download and a server for [search by meaning](../search/meaning.md). Nothing else goes out ([Privacy](privacy.md)) |
+| `--share=network` | The daily [update check](../reference/updates.md) (it can be turned off) and, when you turn them on, the model download and a server for [search by meaning](../search/meaning.md). Nothing else goes out ([Privacy](../reference/privacy.md)) |
 | `--socket=wayland`, `--socket=fallback-x11`, `--device=dri`, `--share=ipc` | The window, drawn on the GPU |
 | `--socket=pulseaudio` | Sound and video in the preview pane |
 
@@ -103,7 +103,7 @@ A Flatpak keeps its files in its own folder, not in `~/.config` and `~/.cache`:
 So the Flatpak and a terminal app installed another way do not share a config, an index or
 tags. To use the config you have, copy it once:
 `cp ~/.config/coxswain/config.toml ~/.var/app/io.github.mwo_dk.Coxswain/config/coxswain/`.
-*Settings → Privacy and updates* and [Where things are kept](where-things-are-kept.md) show the
+*Settings → Privacy and updates* and [Where things are kept](../reference/where-things-are-kept.md) show the
 paths the running app uses.
 
 ## How it differs from the other Linux packages
@@ -168,11 +168,11 @@ Flathub's linter on it, installs it and starts it on a display of its own.
 
 ## Questions
 
-**Why does it need `--filesystem=host`? Is that not the whole point of a sandbox?**
+#### Why does it need `--filesystem=host`? Is that not the whole point of a sandbox?
 A file manager's job is your files, all of them: a portal dialog for every folder would make the
 panels useless. What the sandbox still gives you is a known runtime and no access to the
 system's `/usr` and `/etc`. Coxswain itself never sends your files anywhere
-([Privacy](privacy.md)).
+([Privacy](../reference/privacy.md)).
 
 **F4 does nothing, or says *sh: hx: not found*.**
 The editor runs on the host, so it has to be installed there and on the host's `PATH`. A
@@ -189,11 +189,11 @@ They are where they were, in `~/.config/coxswain/` and `~/.local/share/coxswain/
 keeps its own under `~/.var/app/io.github.mwo_dk.Coxswain/`. Copy `config.toml` across
 ([Where its files are kept](#where-its-files-are-kept)); the index is built again on its own.
 
-**Does search by meaning work in the Flatpak?**
+#### Does search by meaning work in the Flatpak?
 Yes. The built-in model downloads into the Flatpak's data folder when you turn it on, and
 Ollama or a server on this machine (`http://localhost:11434`) is reached as usual.
 
-**Can it open a terminal in the current folder?**
+#### Can it open a terminal in the current folder?
 Through the [user menu](../commands/user-menu.md) (**F2**). This entry runs on the host, so the
 terminal opens in the active panel's folder with your shell, not inside the sandbox:
 
@@ -204,11 +204,11 @@ label = "Terminal here"
 command = "gnome-terminal --working-directory=%d"
 ```
 
-**Why is git inside the Flatpak and not the host's?**
+#### Why is git inside the Flatpak and not the host's?
 Coxswain runs git with settings that stop a repository you did not make (a download, an
 unpacked archive) from running its own hooks, filters or file system monitor. Those settings are
 passed in git's environment, which `flatpak-spawn` would not carry to the host; the bundled git
 gets them.
 
 ---
-[← Previous: TrueNAS](truenas.md) · [Next: Linux on ARM →](linux-arm.md)
+[← Previous: Linux on ARM](linux-arm.md) · [Next: Nix →](nix.md)

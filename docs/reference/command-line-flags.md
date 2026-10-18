@@ -107,7 +107,7 @@ coxswain [LEFT] [RIGHT]      a folder, or a file to open its folder with the cur
 | `--index-helper` | Runs as the search helper instead of the app: see [below](#the-helper---index-helper) |
 | `--hints reset` | Every hint on the status line shows three times again, in both apps (they share `state.json`), and says so. See [The action menu and hints](../panels/action-menu.md#hints-on-the-status-line) |
 | `--languages` | Prints every language under its region, one line each: code, own name, *new* for a fresh translation and *(current)* for the one in use, then where `language` is set and where to suggest a better word. In your language. See [Languages](../customise/languages.md) |
-| `--whats-new` | Prints the changes of the versions you have not read yet, newest first, or of the version you run when you have read them all, then counts them as read (in both apps). Each version is a line `1.29.0  2026-10-04`, then its changes, with each docs link as `Find <https://github.com/mwo-dk/coxswain/blob/master/docs/search/find-file.md>`. See [Notices and what's new](../search/notices.md) |
+| `--whats-new` | Prints the changes of the versions you have not read yet, newest first, or of the version you run when you have read them all, then counts them as read (in both apps). Each version is a line `1.29.0  2026-10-04`, then its changes, with each docs link as `Find <https://github.com/mwo-dk/coxswain/blob/master/docs/search/find-file.md>`. See [Notices and what's new](../panels/notices.md) |
 | `--whats-new all` | Prints every version's changes, newest first |
 
 An option it does not know is not taken for a folder: it is said, with the closest one, and
@@ -198,7 +198,7 @@ coxswain-gui --version | --help
 | `--settings=models` | …at *Finding files*, with *Built-in models* open ([Built-in models](../search/models.md)) |
 | `--settings=disk` | …at *Privacy and updates*, with *Disk use* open ([Disk use](disk-use.md)) |
 | `--settings=language` | …at *Looks*, scrolled to *Language* ([Languages](../customise/languages.md)) |
-| `--settings=overview` | …at *Overview*, where *What's new* is ([Notices and what's new](../search/notices.md)) |
+| `--settings=overview` | …at *Overview*, where *What's new* is ([Notices and what's new](../panels/notices.md)) |
 | `--settings=AREA` | …at that area: `overview`, `search`, `previews`, `looks`, `behaviour`, `keys`, `privacy` |
 | `--settings=OPTION` | …at the area of that option, with its group open, scrolled to it and lit up for a moment: an option's name, such as `check_updates` or `folder_sizes` |
 | `--duplicates [FOLDER …]` | Opens *Find duplicates* and scans these folders at once; without folders, the current one. The panes open as usual behind it |

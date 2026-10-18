@@ -1,4 +1,4 @@
-[← README](../../README.md) · [Docs index](../README.md) · [Reference](README.md)
+[← README](../../README.md) · [Docs index](../README.md) · [Systems](README.md)
 
 # OpenBSD
 
@@ -96,7 +96,7 @@ doas install -m 555 coxswain_index /etc/rc.d/
 ```
 
 The two sums printed must be the same. Every download can also be checked against the release's
-`SHA256SUMS` and its signed provenance ([Security](security.md)).
+`SHA256SUMS` and its signed provenance ([Security](../reference/security.md)).
 
 ## The packages, and what each is for
 
@@ -242,14 +242,18 @@ OpenBSD desktop yet. Please say what works and what does not in an
 
 ## Questions
 
-**Is there a port?** Not in the ports tree yet. A `sysutils/coxswain` port of the terminal
+#### Is there a port?
+
+Not in the ports tree yet. A `sysutils/coxswain` port of the terminal
 app is ready in [`packaging/openbsd/port`](../../packaging/openbsd/port/SUBMIT.md), for
 openbsd-wip and then ports@; CI builds it with the 7.9 ports tree when the *OpenBSD* workflow
 is started by hand (it is not part of every run). Built from it, `doas
 pkg_add` installs `coxswain`, `cox`, the manual page and the `coxswain_index` rc.d script.
 Until it is in the tree, the script, the archives or `cargo install --locked coxswain`.
 
-**Why does the helper miss a new file deep in my tree until later?** Its folder is past the
+#### Why does the helper miss a new file deep in my tree until later?
+
+Its folder is past the
 watch budget ([OpenBSD's limits](#openbsds-limits-and-what-coxswain-does-about-them)). A login
 class with more open files, or leaving large trees out of the index (`name_exclude` in
 `[search]`), fixes it.
@@ -259,13 +263,19 @@ than the 1.5 GB a process gets by default: `ulimit -d unlimited` in a `staff` lo
 `datasize-cur` raised in `login.conf`. A model server elsewhere needs no memory here
 ([Servers](../search/servers.md)).
 
-**Does the terminal app need `wxallowed`?** No: it never writes and executes the same memory.
+#### Does the terminal app need `wxallowed`?
 
-**Why does the script ask for root?** To install packages with `pkg_add`, to write under
+No: it never writes and executes the same memory.
+
+#### Why does the script ask for root?
+
+To install packages with `pkg_add`, to write under
 `/usr/local`, and to put the rc.d script in `/etc/rc.d`. With `--prefix ~/.local` and
 `--terminal-only` it needs no root.
 
-**Will the 7.9 build run on 7.8 or -current?** No: OpenBSD's library majors change. Build from
+#### Will the 7.9 build run on 7.8 or -current?
+
+No: OpenBSD's library majors change. Build from
 source there.
 
 ---

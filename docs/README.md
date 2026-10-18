@@ -13,6 +13,7 @@ New here? Start with [The first-run guide](panels/first-run.md), [The screen](pa
 | [Panels and keys](panels/README.md) | The area's pages, finding what Coxswain can do (F1, F9, Shift+F10, hints), and the main keys of both apps |
 | [The first-run guide](panels/first-run.md) | The four steps shown on the first start (panels and keys, how far Find looks, looks with the Nerd Font check, privacy), skipping, opening it again (F1, Settings → Overview) |
 | [The screen](panels/the-screen.md) | Panels, active panel, title bar with the version, status line and notices, F-key bar, archives shown in the pane, starting in a folder |
+| [Notices and what's new](panels/notices.md) | The version in the title, the tips, the count on Settings, *What's new* and `coxswain --whats-new` |
 | [Moving around and going to a folder](panels/moving.md) | Cursor keys, Enter, parent, other panel, refresh, Alt+F1/Alt+F2, Ctrl+L, cd |
 | [Quick search](panels/quick-search.md) | Alt+letter to jump to a name |
 | [Marking files](panels/marking.md) | Insert, + - *, patterns, marking with the mouse, what uses the marks |
@@ -77,7 +78,6 @@ New here? Start with [The first-run guide](panels/first-run.md), [The screen](pa
 | [Built-in models](search/models.md) | The models on the disk, their folder, loaded or not and where, last used; unload, delete, delete all not in use, `coxswain --models` |
 | [The search helper](search/helper.md) | One process for all windows, privacy of its connection, starting with the session, taken over after an upgrade moves the program |
 | [Battery](search/battery.md) | Reading pauses on battery, Read now reads anyway |
-| [Notices and what's new](search/notices.md) | The version in the title, the tips, the count on Settings, *What's new* and `coxswain --whats-new` |
 | [Search settings](search/settings.md) | Every item of Settings → Finding files (the status, the levels, Details), its config.toml key, and the terminal flags |
 
 ## [The preview pane](previews/README.md)
@@ -147,19 +147,25 @@ New here? Start with [The first-run guide](panels/first-run.md), [The screen](pa
 | [Security](reference/security.md) | Dependencies: how they are chosen and updated, advisory and licence checks on every change and weekly, the bundled viewers, checking a download, reporting a problem |
 | [Licences and bills of materials](reference/bills-of-materials.md) | The SBOMs, the CBOM and the third-party notices each release carries, the licence checks, the cryptography both apps use |
 | [Performance](reference/performance.md) | What keeps each app quick, the numbers for 100,000 files and a million names, and how to measure again |
-| [FreeBSD](reference/freebsd.md) | Both apps on FreeBSD: one-line install, packages, the search helper without systemd (autostart, rc.d, login shell), search by meaning, ZFS snapshots and facts, a file's package, file flags, boot environments and jails, differences, updating, the desktop app's experimental status, other BSDs |
-| [NetBSD](reference/netbsd.md) | The terminal app on NetBSD 10: one-line install with ftp, pkgin for the extras, the search helper from rc.d, kqueue within the open-file limit, envstat for the battery, why the desktop app waits for webkit-gtk41's packages |
-| [OpenBSD](reference/openbsd.md) | Both apps on OpenBSD 7.9 (the desktop app experimental): one-line install, pkg_add, OpenBSD's own Rust, the search helper with rcctl, login.conf limits (open files, datasize) and what Coxswain does about them |
+
+## [Systems](systems/README.md)
+
+| Page | What it covers |
+|---|---|
+| [Systems](systems/README.md) | What is particular to each system, in one page each: FreeBSD first, then the other BSDs and illumos, Linux, Android, ChromeOS, macOS and Windows |
+| [FreeBSD](systems/freebsd.md) | Both apps on FreeBSD: one-line install, packages, the search helper without systemd (autostart, rc.d, login shell), search by meaning, ZFS snapshots and facts, a file's package, file flags, boot environments and jails, differences, updating, the desktop app's experimental status, other BSDs |
+| [NetBSD](systems/netbsd.md) | The terminal app on NetBSD 10: one-line install with ftp, pkgin for the extras, the search helper from rc.d, kqueue within the open-file limit, envstat for the battery, why the desktop app waits for webkit-gtk41's packages |
+| [OpenBSD](systems/openbsd.md) | Both apps on OpenBSD 7.9 (the desktop app experimental): one-line install, pkg_add, OpenBSD's own Rust, the search helper with rcctl, login.conf limits (open files, datasize) and what Coxswain does about them |
 | DragonFly BSD | Not supported; its Rust (1.85 in DPorts) is too old for Coxswain's dependencies |
-| [illumos](reference/illumos.md) | The terminal app on OmniOS and OpenIndiana: one-line install with curl, the search helper as an SMF service, ZFS snapshots and datasets, event ports for watching, zones, why there is no desktop build |
-| [TrueNAS](reference/truenas.md) | The terminal app on a TrueNAS box over SSH (Community Edition with the Linux build, CORE with the FreeBSD build) into your home: snapshots of every dataset, leaving the system datasets alone, indexing the shares |
-| [Flatpak](reference/flatpak.md) | The desktop app as a Flatpak (io.github.mwo_dk.Coxswain): --filesystem=host and flatpak-spawn, the editor, commands and preview programs on the host, the search helper inside the sandbox, autostart, its own config folder, updating, building with flatpak-builder |
-| [Linux on ARM](reference/linux-arm.md) | Both apps on 64-bit ARM Linux (Raspberry Pi OS, Asahi, ARM servers): the files, what they need, installing, the Pi, Asahi, servers, search by meaning on ARM |
-| [Nix](reference/nix.md) | The flake for both apps (`nix run github:mwo-dk/coxswain`), profile, NixOS and Home Manager installs, the desktop app's wrapping, updating, nixpkgs and the flake |
-| [Termux on Android](reference/termux.md) | The terminal app in Termux: `pkg install coxswain` (or `cargo install --locked coxswain` until the package is in), the phone's folders with termux-setup-storage and Alt+F1, termux-open, Termux:API for clipboard and battery, the helper without a session service, F8 without a trash, F-keys on the extra keys row, updating, the package recipe and its CI build |
-| [ChromeOS](reference/chromeos.md) | Both apps in ChromeOS's Linux: which .deb, installing, sharing ChromeOS folders, the helper, no GPU for meaning search, what was checked |
-| [macOS](reference/macos.md) | The folder prompts (TCC) and what to answer, what is never read on a Mac (~/Library but iCloud Drive, Photos and Music libraries), Full Disk Access, ad-hoc signing and asking again after updates, search by meaning on the GPU without a server |
-| [Windows on ARM](reference/windows-arm.md) | Native ARM64 builds of both apps: which file, installing, WinGet, from the x64 build to the ARM one, search by meaning |
+| [illumos](systems/illumos.md) | The terminal app on OmniOS and OpenIndiana: one-line install with curl, the search helper as an SMF service, ZFS snapshots and datasets, event ports for watching, zones, why there is no desktop build |
+| [TrueNAS](systems/truenas.md) | The terminal app on a TrueNAS box over SSH (Community Edition with the Linux build, CORE with the FreeBSD build) into your home: snapshots of every dataset, leaving the system datasets alone, indexing the shares |
+| [Linux on ARM](systems/linux-arm.md) | Both apps on 64-bit ARM Linux (Raspberry Pi OS, Asahi, ARM servers): the files, what they need, installing, the Pi, Asahi, servers, search by meaning on ARM |
+| [Flatpak](systems/flatpak.md) | The desktop app as a Flatpak (io.github.mwo_dk.Coxswain): --filesystem=host and flatpak-spawn, the editor, commands and preview programs on the host, the search helper inside the sandbox, autostart, its own config folder, updating, building with flatpak-builder |
+| [Nix](systems/nix.md) | The flake for both apps (`nix run github:mwo-dk/coxswain`), profile, NixOS and Home Manager installs, the desktop app's wrapping, updating, nixpkgs and the flake |
+| [Termux on Android](systems/termux.md) | The terminal app in Termux: `pkg install coxswain` (or `cargo install --locked coxswain` until the package is in), the phone's folders with termux-setup-storage and Alt+F1, termux-open, Termux:API for clipboard and battery, the helper without a session service, F8 without a trash, F-keys on the extra keys row, updating, the package recipe and its CI build |
+| [ChromeOS](systems/chromeos.md) | Both apps in ChromeOS's Linux: which .deb, installing, sharing ChromeOS folders, the helper, no GPU for meaning search, what was checked |
+| [macOS](systems/macos.md) | The folder prompts (TCC) and what to answer, what is never read on a Mac (~/Library but iCloud Drive, Photos and Music libraries), Full Disk Access, ad-hoc signing and asking again after updates, search by meaning on the GPU without a server |
+| [Windows on ARM](systems/windows-arm.md) | Native ARM64 builds of both apps: which file, installing, WinGet, from the x64 build to the ARM one, search by meaning |
 
 ## [Questions, collected](faq.md)
 

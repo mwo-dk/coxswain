@@ -1,4 +1,4 @@
-[← README](../../README.md) · [Docs index](../README.md) · [Reference](README.md)
+[← README](../../README.md) · [Docs index](../README.md) · [Systems](README.md)
 
 # TrueNAS
 
@@ -121,7 +121,7 @@ text_roots = ["/mnt/tank/home/alice", "/mnt/tank/documents"]
 ```
 
 `name_exclude` replaces the default list, so the system folders stay in it
-([Choosing the folders](../search/folders.md), [every key](configuration.md#search)). No walk of
+([Choosing the folders](../search/folders.md), [every key](../reference/configuration.md#search)). No walk of
 Coxswain's goes into a dataset's `.zfs` folder, even with *Snapshot directory: Visible*: it would
 hold the whole dataset again for each snapshot. On a large pool the first reading takes a while,
 at the lowest priority. The helper starts with the app and leaves ten minutes after it. To have
@@ -133,21 +133,31 @@ restart. Do not edit the system's crontab by hand; TrueNAS rewrites it.
 
 ## Questions
 
-**Can I run the desktop app on TrueNAS?** No: there is no desktop to run it in. Run it on your
+#### Can I run the desktop app on TrueNAS?
+
+No: there is no desktop to run it in. Run it on your
 computer and open the NAS's shares (SMB or NFS) in it.
 
-**Can I browse snapshots through an SMB share from the desktop app?** **Alt+Z** needs the `zfs`
+#### Can I browse snapshots through an SMB share from the desktop app?
+
+**Alt+Z** needs the `zfs`
 command, which runs only on the NAS. Windows' *Previous Versions* shows them over SMB; with
 Coxswain, SSH to the NAS and use the terminal app.
 
-**Do I need root, or the `truenas_admin` user?** No. Listing and reading snapshots works for any
+#### Do I need root, or the `truenas_admin` user?
+
+No. Listing and reading snapshots works for any
 user who can read the folder.
 
-**Will a TrueNAS update remove it?** Not when it is in your home on a data pool, as above. A copy
+#### Will a TrueNAS update remove it?
+
+Not when it is in your home on a data pool, as above. A copy
 in `/usr/local` on the boot pool would be lost at the next update.
 
-**Does it change anything on my pools?** Only what you do with it: copying, moving or deleting
+#### Does it change anything on my pools?
+
+Only what you do with it: copying, moving or deleting
 files where you have the right to. Its own state is in your home.
 
 ---
-[← Previous: illumos](illumos.md) · [Next: Flatpak →](flatpak.md)
+[← Previous: illumos](illumos.md) · [Next: Linux on ARM →](linux-arm.md)

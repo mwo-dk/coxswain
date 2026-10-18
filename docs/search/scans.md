@@ -53,7 +53,7 @@ Where it shows:
 | Where | Desktop app | Terminal app |
 |---|---|---|
 | *Settings → Finding files → Details → What is read → Programs that read more* | Each missing program: *not installed*, then *Install it:* with the line and **Copy** (*Copied* beside it after the click) | *Settings → Finding files → Programs that read more*: the row shows `✓`, or the line. **Space** on it copies the line to the terminal's clipboard (OSC 52); the bottom says *Copied: …* |
-| The tesseract [notice](notices.md) | *Install tesseract to search the words in scans, screenshots and pictures: sudo apt install tesseract-ocr*, under *Settings → Overview → What's new*, with **Copy** | The same text, once in the status line |
+| The tesseract [notice](../panels/notices.md) | *Install tesseract to search the words in scans, screenshots and pictures: sudo apt install tesseract-ocr*, under *Settings → Overview → What's new*, with **Copy** | The same text, once in the status line |
 
 Without a package manager Coxswain knows (a Linux with none of the four), there is no line: the
 notice says *Install tesseract to search the words in scans, screenshots and pictures* and the
@@ -69,7 +69,7 @@ row says *not installed*.
 
 A missing one adds *· not installed* and the line that installs it, with **Copy**
 ([above](#installing-what-is-missing)). While tesseract is missing and text search is on, both
-apps show the [notice](notices.md) *Install tesseract to search the words in scans, screenshots
+apps show the [notice](../panels/notices.md) *Install tesseract to search the words in scans, screenshots
 and pictures: …* with the line for this system: the desktop app under *Settings → Overview →
 What's new* until dismissed, with **Copy**; the terminal app once in its status line.
 

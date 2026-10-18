@@ -32,7 +32,7 @@ an acceptance far more likely than submitting now.
 
 ## Until then
 
-Users can build the Flatpak themselves ([docs/reference/flatpak.md](../../docs/reference/flatpak.md#building-it-yourself)).
+Users can build the Flatpak themselves ([docs/systems/flatpak.md](../../docs/systems/flatpak.md#building-it-yourself)).
 The app is ready for it: in a Flatpak it runs the editor, commands, scripts and preview programs
 on the host with `flatpak-spawn --host`, keeps the search helper in the sandbox, registers
 *Start with my session* as an XDG autostart entry, puts temporary files where the host can read

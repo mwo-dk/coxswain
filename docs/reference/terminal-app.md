@@ -60,14 +60,14 @@ Every flag: [Command-line flags](command-line-flags.md#the-terminal-app-coxswain
 | Git branches (**Alt+B**) and worktrees (**Alt+W**): a branch's files, switching (**Alt+S**), new branches | [Git branches and worktrees](../panels/git-branches.md#in-the-terminal-app) |
 | ZFS snapshots as folders (**Alt+Z**), the diff of a file against now (**Enter**), copied back with **F5**; the dataset in the panel's bottom border | [ZFS snapshots as folders](../files/zfs-snapshots.md#in-the-terminal-app) |
 | Properties (**Alt+Enter**) as text, with ZFS, the FreeBSD package and file flags; *F9 → File flags* and *F9 → Files of this package* | [Properties](../files/properties.md#in-the-terminal-app) |
-| FreeBSD's boot environments and jails under **Alt+F1** / **Alt+F2**, as NC's drive menu | [FreeBSD](freebsd.md#boot-environments-and-jails) |
+| FreeBSD's boot environments and jails under **Alt+F1** / **Alt+F2**, as NC's drive menu | [FreeBSD](../systems/freebsd.md#boot-environments-and-jails) |
 | Every theme's colours, Nerd Font or ASCII glyphs, your own themes | [Themes](../customise/themes.md), [Glyphs and fonts](../customise/glyphs-and-fonts.md) |
 | All 29 languages (`coxswain --languages` lists them) | [Languages](../customise/languages.md) |
 | Your own keys from `[keys]` | [Changing keys](../customise/keys.md) |
 | The command list (**F9**) and help (**F1**) | [The command list](../panels/command-list.md) |
 | Settings (**F9** → *Settings*, `coxswain --settings`): the desktop app's areas and options, full screen, saved at once; the install line of a missing program, copied with **Space** | [Settings in the terminal app](../customise/settings.md#in-the-terminal-app) |
 | The mouse: click, double-click, right-click marks, wheel | [The mouse](../panels/mouse.md) |
-| Update checks and notices, in the status line; the version in the terminal's title | [Update checks](updates.md), [Notices](../search/notices.md) |
+| Update checks and notices, in the status line; the version in the terminal's title | [Update checks](updates.md), [Notices](../panels/notices.md) |
 
 ## What only the desktop app has
 

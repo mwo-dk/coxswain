@@ -117,7 +117,7 @@ const QUESTIONS: &[(&str, &str)] = &[
         "Why does it say showing the first 500?",
     ),
     (
-        "search/notices.md",
+        "panels/notices.md",
         "I dismissed a tip by mistake. Can I get it back?",
     ),
     (

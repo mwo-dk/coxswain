@@ -1,4 +1,4 @@
-[← README](../../README.md) · [Docs index](../README.md) · [Reference](README.md)
+[← README](../../README.md) · [Docs index](../README.md) · [Systems](README.md)
 
 # illumos: OmniOS and OpenIndiana
 
@@ -84,7 +84,7 @@ pfexec cp coxswain.1 /usr/local/share/man/man1/
 ```
 
 The two sums printed must be the same. Every download can also be checked against the
-release's `SHA256SUMS` and its signed provenance ([Security](security.md)).
+release's `SHA256SUMS` and its signed provenance ([Security](../reference/security.md)).
 
 ## Starting the app
 
@@ -165,7 +165,7 @@ Boot environments (`beadm`) and zones are not listed; that is FreeBSD's `bectl` 
 ## Updating and uninstalling
 
 Both apps check once a day for a newer release and name the command to update
-([Update checks](updates.md)). On illumos that is the install line again:
+([Update checks](../reference/updates.md)). On illumos that is the install line again:
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/mwo-dk/coxswain/master/install/install-unix.sh | sh
@@ -179,7 +179,7 @@ curl -fsSL https://raw.githubusercontent.com/mwo-dk/coxswain/master/install/inst
 
 This removes the program, the manual page and the SMF service. Your settings and the index stay:
 `rm -rf ~/.config/coxswain ~/.local/share/coxswain ~/.cache/coxswain` removes them
-([Where things are kept](where-things-are-kept.md)).
+([Where things are kept](../reference/where-things-are-kept.md)).
 
 ## Building from source
 
@@ -217,25 +217,37 @@ Until they are in, use [the script](#install-with-one-line).
 
 ## Questions
 
-**Does it run in a zone?** It needs nothing from the global zone, so a non-global zone runs it
+#### Does it run in a zone?
+
+It needs nothing from the global zone, so a non-global zone runs it
 the same way. There, `zfs` lists only the datasets delegated to the zone, so **Alt+Z** works on
 those, and other folders show no ZFS line. (CI tests the global zone only.)
 
-**Does it run on OpenIndiana?** Yes: CI installs the OmniOS-built archive on OpenIndiana 2026.04
+#### Does it run on OpenIndiana?
+
+Yes: CI installs the OmniOS-built archive on OpenIndiana 2026.04
 with the same script and runs it. Other illumos distributions with the same base libraries
 should run it too; they are not tested.
 
-**Why does Diff say the file is new or gone without names in its header?** GNU diff is not
+#### Why does Diff say the file is new or gone without names in its header?
+
+GNU diff is not
 installed; the system's `diff` has no `-N` or `-L`. `pfexec pkg install text/gnu-diffutils`.
 
-**Why is there no tesseract hint?** OmniOS has no package for it. Search by words in scans needs
+#### Why is there no tesseract hint?
+
+OmniOS has no package for it. Search by words in scans needs
 Tesseract; without it, scans are found by name only ([Scans and pictures](../search/scans.md)).
 
-**Is the helper heavy on a file server with millions of files?** It watches at most 20,000
+#### Is the helper heavy on a file server with millions of files?
+
+It watches at most 20,000
 folders and reads text with the lowest priority. Leave out what you never search:
 `name_exclude` in `[search]`, or index only your own shares ([Choosing the folders](../search/folders.md)).
 
-**Search by meaning?** The built-in model runs on the processor, the same code as on Linux
+#### Search by meaning?
+
+The built-in model runs on the processor, the same code as on Linux
 (`coxswain --meaning on`); the model (465 MB) is downloaded once after you say so. Its tests run
 on OmniOS in CI; the model itself has not been tried on illumos yet.
 

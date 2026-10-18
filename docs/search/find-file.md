@@ -270,7 +270,7 @@ In the desktop app F3 is the preview pane, and Find covers it. Press **Enter** t
 then **Space** for the [preview](../previews/README.md). **F4** edits a hit in both apps.
 
 #### I sent a tip away by mistake. How do I get it back?
-Not from the app: like other [notices](notices.md#i-dismissed-a-tip-by-mistake-can-i-get-it-back),
+Not from the app: like other [notices](../panels/notices.md#i-dismissed-a-tip-by-mistake-can-i-get-it-back),
 dismissed tips are remembered in the state file. What they lead to is still there: **Ctrl+F7**
 says what Ask needs, and **Set up…** in *Settings → Finding files* or `coxswain --setup-search` set it up.
 

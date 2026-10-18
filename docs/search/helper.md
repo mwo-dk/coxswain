@@ -33,12 +33,12 @@ This registers the helper with the system:
 
 | System | Registration |
 |---|---|
-| FreeBSD | An XDG autostart entry, `~/.config/autostart/coxswain-index.desktop`, which the desktop session starts at login; an rc.d script and a login-shell line are the other ways ([FreeBSD](../reference/freebsd.md#the-search-helper)) |
-| NetBSD | An XDG autostart entry, as on FreeBSD; an rc.d script is the other way ([NetBSD](../reference/netbsd.md#the-search-helper)) |
-| OpenBSD | An XDG autostart entry, as on FreeBSD; an rc.d script for `rcctl` is the other way ([OpenBSD](../reference/openbsd.md#the-search-helper)) |
-| illumos | An XDG autostart entry, as on FreeBSD; on a server, the SMF service `application/coxswain-index` ([illumos](../reference/illumos.md#the-search-helper)) |
+| FreeBSD | An XDG autostart entry, `~/.config/autostart/coxswain-index.desktop`, which the desktop session starts at login; an rc.d script and a login-shell line are the other ways ([FreeBSD](../systems/freebsd.md#the-search-helper)) |
+| NetBSD | An XDG autostart entry, as on FreeBSD; an rc.d script is the other way ([NetBSD](../systems/netbsd.md#the-search-helper)) |
+| OpenBSD | An XDG autostart entry, as on FreeBSD; an rc.d script for `rcctl` is the other way ([OpenBSD](../systems/openbsd.md#the-search-helper)) |
+| illumos | An XDG autostart entry, as on FreeBSD; on a server, the SMF service `application/coxswain-index` ([illumos](../systems/illumos.md#the-search-helper)) |
 | Linux | A systemd user unit, `~/.config/systemd/user/coxswain-index.service`, with `Nice=10` and idle I/O |
-| Linux, the Flatpak | An XDG autostart entry, `~/.config/autostart/coxswain-index.desktop`, that runs `flatpak run --command=coxswain-gui io.github.mwo_dk.Coxswain --index-helper --stay` at login ([Flatpak](../reference/flatpak.md#the-search-helper)) |
+| Linux, the Flatpak | An XDG autostart entry, `~/.config/autostart/coxswain-index.desktop`, that runs `flatpak run --command=coxswain-gui io.github.mwo_dk.Coxswain --index-helper --stay` at login ([Flatpak](../systems/flatpak.md#the-search-helper)) |
 | macOS | A LaunchAgent, `~/Library/LaunchAgents/dk.mwo.coxswain.index.plist`, with `Nice` 10, which macOS lists under *System Settings → General → Login Items & Extensions* |
 | Windows | A *Run* entry, `coxswain-index`, under `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` |
 

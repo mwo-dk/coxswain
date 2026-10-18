@@ -100,16 +100,24 @@ Your comments in `config.toml` are kept. That the guide was seen is kept in `sta
 
 ## Questions
 
-**I skipped the guide. Can I get it back?** Yes: **F1**, then *Show the guide again* (desktop) or
+#### I skipped the guide. Can I get it back?
+
+Yes: **F1**, then *Show the guide again* (desktop) or
 **G** (terminal); or Settings → *Overview*.
 
-**Why did the guide not open after I updated to 2.0?** It is for a first start. After an update you
+#### Why did the guide not open after I updated to 2.0?
+
+It is for a first start. After an update you
 get what is new instead: Settings → *Overview* in the desktop app, `coxswain --whats-new` in the
 terminal app, and [What's new in 2.0](../whats-new-2.md).
 
-**Did skipping change anything?** No. Only the choices you made on the steps you saw are saved.
+#### Did skipping change anything?
 
-**I chose *+ meaning* and a guide about models opened. Why?** Search by meaning needs a model: the
+No. Only the choices you made on the steps you saw are saved.
+
+#### I chose *+ meaning* and a guide about models opened. Why?
+
+Search by meaning needs a model: the
 built-in one (downloaded once, 465 MB) or one on a server such as Ollama. The setup guide
 chooses it with you; closing it brings you back to step 2. See [Smart search in a few
 minutes](../search/setup.md).
@@ -118,7 +126,9 @@ minutes](../search/setup.md).
 *Plain characters* in step 3, or install a Nerd Font and choose it in your terminal's settings.
 See [Glyphs and fonts](../customise/glyphs-and-fonts.md).
 
-**Does the guide send anything anywhere?** No. Step 4 only shows what could leave the machine and
+#### Does the guide send anything anywhere?
+
+No. Step 4 only shows what could leave the machine and
 lets you switch the update check.
 
 ---

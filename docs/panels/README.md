@@ -17,6 +17,7 @@ Every key here is a default. Each one can be changed in `config.toml` under `[ke
 |---|---|
 | [The first-run guide](first-run.md) | The four steps shown on the first start: the panels and their keys, how far Find looks, looks and icons, privacy; skipping it, opening it again (**F1**, Settings → *Overview*) |
 | [The screen](the-screen.md) | The panels, the active panel, the title bar with the version, the status line, the F-key bar, starting in a folder |
+| [Notices and what's new](notices.md) | Tips of what to turn on, what each version brought (*Settings → Overview → What's new*, `coxswain --whats-new`), and the version in the title |
 | [Moving around and going to a folder](moving.md) | Cursor keys, opening, the parent folder, the other panel, refreshing, typing a path |
 | [Quick search](quick-search.md) | **Alt+letter** jumps to a name in the panel |
 | [Marking files](marking.md) | **Insert**, `+`, `-`, `*`, marking with the mouse, what works on the marks |

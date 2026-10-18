@@ -491,26 +491,36 @@ in a browser: `cd gui && npx vite --port 1421`, then open `http://localhost:1421
 
 ## Questions
 
-**Why does a huge folder still take a moment to open?** Reading 100,000 entries means 100,000
+#### Why does a huge folder still take a moment to open?
+
+Reading 100,000 entries means 100,000
 `stat` calls (about 100 ms on a fast disk, more on a network share) and 33 MB of JSON for the
 desktop app to parse (70 ms). The page itself is drawn in 30 ms. After 150 ms the status line
 says *Working on <folder>…* so you know it is coming.
 
-**Why does holding Down stay smooth in a folder of 100,000 files?** Only the rows on screen
+#### Why does holding Down stay smooth in a folder of 100,000 files?
+
+Only the rows on screen
 exist in the page; a cursor move changes two of them and scrolls. The preview waits 80 ms
 after the last move before it reads anything.
 
-**Can I keep working while the terminal app copies?** Yes: the copy runs on a thread, the
+#### Can I keep working while the terminal app copies?
+
+Yes: the copy runs on a thread, the
 status line says which item it is on, and the keys work meanwhile. A second copy waits until
 the first is done (the status line says so), and quitting waits for it too, so nothing is left
 half-copied.
 
-**Why does F3 show plain text for a big file?** Syntax highlighting of more than 200,000
+#### Why does F3 show plain text for a big file?
+
+Syntax highlighting of more than 200,000
 characters would take longer than reading the file; the text shows at once instead, cut at
 512 KB.
 
-**Does the file watcher cost anything when nothing changes?** No: it sleeps in the kernel's
+#### Does the file watcher cost anything when nothing changes?
+
+No: it sleeps in the kernel's
 notification and wakes at most four times a second while files change.
 
 ---
-[← Previous: Licences and bills of materials](bills-of-materials.md) · [Next: FreeBSD →](freebsd.md)
+[← Previous: Licences and bills of materials](bills-of-materials.md) · [Next: Systems →](../systems/README.md)

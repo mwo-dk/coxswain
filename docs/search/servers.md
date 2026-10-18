@@ -47,7 +47,7 @@ themselves. The *Server* field is the base URL: Coxswain adds `/api/embed` for O
   *Meaning* line and under *Meaning*: *The built-in model reads meaning on the processor here.
   bge-m3:latest on Ollama runs on your graphics card (…) and reads your files far sooner.*, with
   **Use bge-m3:latest** (every file's meaning is read again: said and asked first). A
-  [notice](notices.md) says it once too ([When it is a poor choice here](ask-builtin.md#when-it-is-a-poor-choice-here)).
+  [notice](../panels/notices.md) says it once too ([When it is a poor choice here](ask-builtin.md#when-it-is-a-poor-choice-here)).
 
 ## What to know
 
@@ -60,7 +60,7 @@ themselves. The *Server* field is the base URL: Coxswain adds `/api/embed` for O
   file. The same model written another way (`bge-m3` and `bge-m3:latest`), or the same weights
   under another name on Ollama, is no change: the vectors stay.
 - **A server that does not answer** pauses search by meaning: Settings (*Meaning has stopped: …*), the terminal app's
-  Find and a [notice](notices.md) (*Search by meaning cannot read what files are about: …*) show
+  Find and a [notice](../panels/notices.md) (*Search by meaning cannot read what files are about: …*) show
   the error, the files
   wait, and they are done at the next pass once it answers. A search asks the server for the
   question's vector too, so while it is down, meaning hits are missing; word hits are not.

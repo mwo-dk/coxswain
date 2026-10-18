@@ -49,7 +49,7 @@
         <loctext xml:lang="C">Coxswain search helper</loctext>
       </common_name>
       <documentation>
-        <doc_link name="illumos guide" uri="https://github.com/mwo-dk/coxswain/blob/master/docs/reference/illumos.md"/>
+        <doc_link name="illumos guide" uri="https://github.com/mwo-dk/coxswain/blob/master/docs/systems/illumos.md"/>
       </documentation>
     </template>
   </service>

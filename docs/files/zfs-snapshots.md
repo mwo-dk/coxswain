@@ -8,7 +8,7 @@ On a folder in a ZFS dataset, **Alt+Z** lists the dataset's snapshots, newest fi
 see how it differs from the file now, and copy an old version back with **F5**. Nothing is ever
 written into a snapshot. Both apps do this, on FreeBSD, on Linux with OpenZFS and on macOS
 with OpenZFS; the terminal app does it on illumos (OmniOS, OpenIndiana) and on
-[TrueNAS](../reference/truenas.md#snapshots) too. No root is needed.
+[TrueNAS](../systems/truenas.md#snapshots) too. No root is needed.
 
 ![The desktop app on FreeBSD 14.5: the left pane in /tank/home/demo/projects/rocket/@snapshots with the badge snapshots of tank/home/demo at the end of the path bar, listing before-upgrade, daily-2026-10-05 and daily-2026-10-04 with their own space (13.0 KB, 13.0 KB, 55.0 KB); the right pane is the folder now; both footers say tank/home/demo · 1.24x · 1001 KB of 500 MB](../screenshots/zfs-snapshots-gui.png)
 *Alt+Z in `/tank/home/demo/projects/rocket`: the dataset's snapshots, newest first.*
@@ -123,7 +123,7 @@ snapshot.
 
 The first time you start Coxswain with your home folder on ZFS, you are told that the snapshots
 are there and which key opens them: under *Settings → Overview → What's new* in the desktop app,
-once in the status line in the terminal app ([Notices](../search/notices.md)).
+once in the status line in the terminal app ([Notices](../panels/notices.md)).
 
 ## Limits
 
@@ -211,7 +211,7 @@ folder lists the snapshots of the dataset it is on; the footer names that datase
 
 Yes: a boot environment is a dataset, and its snapshots list like any other. The boot
 environments themselves are in the sidebar and **Alt+F1**
-([FreeBSD](../reference/freebsd.md#boot-environments-and-jails)).
+([FreeBSD](../systems/freebsd.md#boot-environments-and-jails)).
 
 ---
 [← Previous: Finding duplicates](duplicates.md) · [Next: Customising →](../customise/README.md)

@@ -49,7 +49,7 @@ On a Mac the shortcuts are the same, with **Ctrl**, not Cmd.
 | **PageDown**, **Right** | Page down | `page_down` | A page down (columns view: **Right** opens the folder; thumbnails: one tile right) | A page down |
 | **Home** / **End** | First / Last | `home` / `end` | First / last entry | The same |
 | **Alt+Left** / **Alt+Right** | Back / Forward | `back` / `forward` | The tab's history | – |
-| **Alt+F1** / **Alt+F2** | Left: go to / Right: go to | `goto_left` / `goto_right` | Type a path in the left / right pane's path bar | *Left panel* / *Right panel* dialog; on FreeBSD with boot environments or jails, a list of those first ([FreeBSD](../reference/freebsd.md#boot-environments-and-jails)) |
+| **Alt+F1** / **Alt+F2** | Left: go to / Right: go to | `goto_left` / `goto_right` | Type a path in the left / right pane's path bar | *Left panel* / *Right panel* dialog; on FreeBSD with boot environments or jails, a list of those first ([FreeBSD](../systems/freebsd.md#boot-environments-and-jails)) |
 | **Ctrl+L** | Edit path | `edit_path` | Type a path in the active pane | – |
 
 ### Panels and tabs

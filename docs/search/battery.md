@@ -38,7 +38,7 @@ Whether the machine is on battery is asked at most every thirty seconds:
 | OpenBSD | `sysctl hw.power`: `0` is on battery |
 | illumos | `kstat -p acpi_drv:0:power`: `system power` is `battery`; without that kstat (servers), never |
 | Linux | `/sys/class/power_supply`: a supply of type `Battery`, and no mains supply `online`; without a mains entry, a battery that is `Discharging` |
-| Termux on Android | `termux-battery-status` (Termux:API), when it is installed: `UNPLUGGED` is on battery; else as on Linux ([Termux](../reference/termux.md#clipboard-and-battery-termuxapi)) |
+| Termux on Android | `termux-battery-status` (Termux:API), when it is installed: `UNPLUGGED` is on battery; else as on Linux ([Termux](../systems/termux.md#clipboard-and-battery-termuxapi)) |
 | macOS | `pmset` |
 | Windows | The system's power status |
 
@@ -73,4 +73,4 @@ back.
 Asking costs a little each time, and a pause that starts half a minute late costs nothing.
 
 ---
-[← Previous: The search helper](helper.md) · [Next: Notices and what's new →](notices.md)
+[← Previous: The search helper](helper.md) · [Next: Search settings →](settings.md)

@@ -29,7 +29,7 @@ opt-level = 3
 # FreeBSD (and the other BSDs) for the desktop app, until these fixes are released upstream:
 # tao's hit testing on BSD (tauri-apps/tao#1356, merged after 0.37.1) and drag's GTK backend on
 # BSD (our fork, offered upstream). Both only widen `cfg(target_os = "linux")` to the BSDs, so
-# Linux, macOS and Windows build the same code as from crates.io. docs/reference/freebsd.md.
+# Linux, macOS and Windows build the same code as from crates.io. docs/systems/freebsd.md.
 [patch.crates-io]
 tao = { git = "https://github.com/tauri-apps/tao", rev = "d19f4c12a0d881260a436d9ccf3e8f349c58e2a4" }
 # The same source as crates.io's 0.1.4, so wry and tao share one copy: Nix vendors a crate by name and

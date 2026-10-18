@@ -82,7 +82,7 @@ the top of other disks), the same one your file manager shows.
 
 To Coxswain's own trash, `~/.local/share/Trash` in Termux's home. From the phone's storage
 (`~/storage/…`) nothing is moved: **F8** asks to delete for good, even with the question turned
-off ([Termux](../reference/termux.md#deleting-termuxs-trash)).
+off ([Termux](../systems/termux.md#deleting-termuxs-trash)).
 
 #### How do I stop Coxswain asking every time?
 

@@ -36,7 +36,7 @@ To start in given folders instead, name them on the command line
 | What | Where |
 |---|---|
 | Favourites, colour tags, folder notes, recent git repositories | `state.json` (desktop app features: [Tags, notes, favourites and the sidebar](../organise/README.md)) |
-| Notices dismissed or shown, the version last started, the last update check | `state.json`, shared by both apps ([Notices](../search/notices.md)) |
+| Notices dismissed or shown, the version last started, the last update check | `state.json`, shared by both apps ([Notices](notices.md)) |
 | Whether the [first-run guide](first-run.md) was gone through or skipped (`guide_seen`), and which keys 2.0 renamed in `config.toml` (`migrated`, for its notice) | `state.json`, shared by both apps |
 | The theme picked in **F9** or Settings, and every other setting | `config.toml` |
 

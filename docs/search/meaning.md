@@ -31,7 +31,7 @@ model or a server suits it. By hand:
 |---|---|
 | Desktop app | *Settings → Finding files* → the level *Names, text and meaning*, or *Details → Meaning → Download the model (465 MB) and turn on*. A bar shows *Downloading the model: 120 MB of 465 MB*; **Cancel** stops it |
 | Terminal app | `coxswain --meaning on`: prints *Downloading: 42 %*, then turns it on (with a [server](servers.md) as the engine, nothing is downloaded) |
-| A row in Find | *Find files about your words too, in any language, even without the words.* under *About this*, with *Set up* (it opens the guided setup; in the terminal app it runs `coxswain --setup-search`); **Delete** sends it away. Also and the [notice](notices.md) *New: search by meaning finds files about your words, in any language. Turn it on*: in the desktop app under *Settings → Overview → What's new* (**Show me**), in the terminal app once in the status line |
+| A row in Find | *Find files about your words too, in any language, even without the words.* under *About this*, with *Set up* (it opens the guided setup; in the terminal app it runs `coxswain --setup-search`); **Delete** sends it away. Also and the [notice](../panels/notices.md) *New: search by meaning finds files about your words, in any language. Turn it on*: in the desktop app under *Settings → Overview → What's new* (**Show me**), in the terminal app once in the status line |
 
 It needs *Words inside files*: choosing the level or the button turns them on too. Then:
 
@@ -218,7 +218,7 @@ laptop's CPU that takes hours for a large home folder, and it waits while on bat
 
 #### Vectors stopped coming. Why?
 Both apps say why, in red: Settings on the *Meaning* line of *Finding files* (desktop) and the status line of
-Find's *About this* group (both apps), and a [notice](notices.md) in the status line of both (in the desktop app also under *Settings → Overview → What's new*). *No
+Find's *About this* group (both apps), and a [notice](../panels/notices.md) in the status line of both (in the desktop app also under *Settings → Overview → What's new*). *No
 vectors: …* is the server or the model: Ollama not running (`systemctl start ollama`), or the
 model not pulled (`ollama pull bge-m3`, or *Pull* in Settings). *Reading stopped: …* means a scan
 failed before the vectors' turn; vectors come only after the text is read. Before 1.26.4 a store

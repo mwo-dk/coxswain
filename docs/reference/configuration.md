@@ -322,7 +322,7 @@ Some choices are not in `config.toml`, and that is on purpose:
 |---|---|
 | The LaTeX engine (XeLaTeX, LuaLaTeX, pdfLaTeX) | Picked per document: a `% !TEX program = …` line, else by the packages it loads. The engine button you last pressed in the preview (installed or a container) is remembered in the session in `state.json`. `prefer_tool = { latex = … }` sets which kind comes first ([LaTeX projects](../previews/latex.md)) |
 | Archives and their passwords | Nothing to set. Passwords are kept in memory until the app quits and never written anywhere ([Passwords](../files/archive-passwords.md)) |
-| Notices you dismissed | `state.json`, `notices_dismissed` ([Notices](../search/notices.md)) |
+| Notices you dismissed | `state.json`, `notices_dismissed` ([Notices](../panels/notices.md)) |
 | The session, favourites, tags, notes | `state.json` ([What the apps remember](../panels/session.md)) |
 | Starting the helper with your session | The system's own registration: `coxswain --index-service on` ([The search helper](../search/helper.md)) |
 

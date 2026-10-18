@@ -44,7 +44,6 @@ active panel's folder, **Ctrl+F** inside Find) limits every group and Ask; it sh
 | [Built-in models](models.md) | The models Coxswain downloaded: where they are, whether they are loaded, unloading and deleting them, `coxswain --models` |
 | [The search helper](helper.md) | The background process, starting it with your session, and how an app takes the registration over after an upgrade |
 | [Battery](battery.md) | Why reading waits while a laptop runs on its battery |
-| [Notices and what's new](notices.md) | Tips of what to turn on, what each version brought (*Settings → Overview → What's new*, `coxswain --whats-new`), and the version in the title |
 | [Search settings](settings.md) | Every item of *Settings → Finding files*, with its `config.toml` key |
 
 ## Keys at a glance

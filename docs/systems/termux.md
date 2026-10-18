@@ -1,4 +1,4 @@
-[← README](../../README.md) · [Docs index](../README.md) · [Reference](README.md)
+[← README](../../README.md) · [Docs index](../README.md) · [Systems](README.md)
 
 # Termux on Android
 
@@ -170,7 +170,7 @@ files takes long on a phone and warms it. A model server on another computer doe
 | Update hint | By where it is installed | `cargo install --locked coxswain` for a cargo build; `pkg upgrade coxswain` for one installed with `pkg` |
 
 Everything else, keys, config and the search index included, is the same. The config is in
-`~/.config/coxswain` inside Termux's home ([Where things are kept](where-things-are-kept.md)).
+`~/.config/coxswain` inside Termux's home ([Where things are kept](../reference/where-things-are-kept.md)).
 
 ## Updating
 
@@ -181,13 +181,13 @@ pkg upgrade
 ```
 
 Installed with cargo, run `cargo install --locked coxswain` again. The once-a-day update check tells you
-when a new version is out ([Update checks](updates.md)).
+when a new version is out ([Update checks](../reference/updates.md)).
 
 ## Uninstalling
 
 `pkg uninstall coxswain`, or `cargo uninstall coxswain`. The config, state and cache stay in
 `~/.config/coxswain`, `~/.local/share/coxswain` and `~/.cache/coxswain`
-([Where things are kept](where-things-are-kept.md)); delete them by hand to remove everything.
+([Where things are kept](../reference/where-things-are-kept.md)); delete them by hand to remove everything.
 
 ## The package recipe
 
@@ -219,7 +219,9 @@ How the recipe goes to Termux, and how versions are kept current after that:
 
 ## Questions
 
-**Why is the desktop app not on Android?** It draws its window with WebKitGTK on a Linux
+#### Why is the desktop app not on Android?
+
+It draws its window with WebKitGTK on a Linux
 desktop. Android has neither; the terminal app needs only a terminal, and Termux is one.
 
 **`pkg install coxswain` says *Unable to locate package*.** The package is not in Termux's
@@ -230,7 +232,9 @@ over later, and `cargo uninstall coxswain` then removes the cargo copy.
 the request; your folders are then in `~/storage`, and **Alt+F1** lists them ([Your phone's folders](#your-phones-folders)).
 If you refused, allow *Files and media* for Termux in Android's app settings and run it again.
 
-**Which keys do I press without F-keys?** Give Termux's extra keys row the F-keys. In
+#### Which keys do I press without F-keys?
+
+Give Termux's extra keys row the F-keys. In
 `~/.termux/termux.properties`:
 
 ```
@@ -241,43 +245,61 @@ extra-keys = [['ESC','TAB','CTRL','ALT','UP','DOWN','LEFT','RIGHT'], \
 then `termux-reload-settings`. The two rows above the keyboard now carry Esc, Ctrl, Alt, the
 arrows and the F-keys the panels use (**F5** copy, **F6** move, **F8** delete, **F10** quit). A
 hardware keyboard's F-keys work as on a PC. **F9** opens the command list with every action
-and its key ([The terminal app](terminal-app.md)).
+and its key ([The terminal app](../reference/terminal-app.md)).
 
-**Which phones?** Termux runs on Android 7 and later. The CI builds and tests the `aarch64`
+#### Which phones?
+
+Termux runs on Android 7 and later. The CI builds and tests the `aarch64`
 package, which almost every phone of the last years uses; the recipe builds for `arm`, `i686` and
 `x86_64` too.
 
-**Is anything sent from the phone?** No more than on any other system: the daily update check,
-which can be turned off ([Privacy](privacy.md)).
+#### Is anything sent from the phone?
+
+No more than on any other system: the daily update check,
+which can be turned off ([Privacy](../reference/privacy.md)).
 
 
-**Why does copying say nothing ends up on the clipboard?** Without Termux:API, the line is sent to the terminal (OSC 52). Install both the Termux:API app
+#### Why does copying say nothing ends up on the clipboard?
+
+Without Termux:API, the line is sent to the terminal (OSC 52). Install both the Termux:API app
 and `pkg install termux-api`; then `termux-clipboard-set` puts it on Android's clipboard.
 
-**Why can I not turn on *Start with my session*?** Android has no per-user service manager for Termux to register with. The helper starts with
+#### Why can I not turn on *Start with my session*?
+
+Android has no per-user service manager for Termux to register with. The helper starts with
 Coxswain and stays ten minutes after the last one quits. `termux-wake-lock` keeps Android from
 stopping it while the screen is off.
 
-**Why does the update check never say anything?** With the static musl binary it cannot look up `api.github.com` on Android. Built with
+#### Why does the update check never say anything?
+
+With the static musl binary it cannot look up `api.github.com` on Android. Built with
 `cargo install --locked coxswain` it can. With either, `coxswain --version` says which version you have.
 
-**Where does F8 put my files in Termux?** In `~/.local/share/Trash/files`, with a
+#### Where does F8 put my files in Termux?
+
+In `~/.local/share/Trash/files`, with a
 `.trashinfo` for each in `~/.local/share/Trash/info` that says where it came from and when.
 Android has no desktop trash, so the Termux build keeps one of its own ([Deleting](#deleting-termuxs-trash)).
 To get a file back, press **Ctrl+Z** right after F8 ([Undo](../files/undo.md)), or go there and
 move it with **F6**. Android's Files app does not show it.
 
-**Why does F8 ask to delete for good on the phone's storage?** `~/storage/…` leads to Android's
+#### Why does F8 ask to delete for good on the phone's storage?
+
+`~/storage/…` leads to Android's
 shared storage, a filesystem of its own. Moving a file from there into the trash in Termux's
 home would mean copying it, which for a folder of videos takes long and may not fit, so
 Coxswain does not. It asks *No bin on the phone's storage: delete … for good?* instead:
 **Enter** deletes it, **Esc** keeps it. To keep a copy, move it into Termux's home with **F6**
 first, then press **F8** there.
 
-**Why did F8 say Android has no trash?** Version 2.6.0 had no trash in Termux. Since 2.7.2 it has
+#### Why did F8 say Android has no trash?
+
+Version 2.6.0 had no trash in Termux. Since 2.7.2 it has
 one of its own ([Deleting](#deleting-termuxs-trash)).
 
-**Will reading files drain my battery?** Not with Termux:API installed: the helper waits while the phone is unplugged. Without it,
+#### Will reading files drain my battery?
+
+Not with Termux:API installed: the helper waits while the phone is unplugged. Without it,
 Coxswain cannot tell, and reads on battery too.
 
 ---

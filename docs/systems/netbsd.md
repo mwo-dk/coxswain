@@ -1,4 +1,4 @@
-[← README](../../README.md) · [Docs index](../README.md) · [Reference](README.md)
+[← README](../../README.md) · [Docs index](../README.md) · [Systems](README.md)
 
 # NetBSD
 
@@ -85,7 +85,7 @@ install -m 555 coxswain_index /etc/rc.d/
 ```
 
 (as root). The two sums printed must be the same. Every download can also be checked against
-the release's `SHA256SUMS` and its signed provenance ([Security](security.md)).
+the release's `SHA256SUMS` and its signed provenance ([Security](../reference/security.md)).
 
 ## Packages for the extras
 
@@ -197,13 +197,19 @@ rc.d script for the search helper (in `/usr/pkg/share/examples/rc.d`). CI builds
 
 ## Questions
 
-**Why is it not in pkgsrc?** Not yet: the package is prepared ([above](#the-pkgsrc-package)) and
+#### Why is it not in pkgsrc?
+
+Not yet: the package is prepared ([above](#the-pkgsrc-package)) and
 goes to pkgsrc-wip first. Until then, the script, the archives or `cargo install --locked coxswain`.
 
-**Does it run on NetBSD 9?** It is built and tested on 10.1 only. On 9, build from
+#### Does it run on NetBSD 9?
+
+It is built and tested on 10.1 only. On 9, build from
 source if pkgsrc's Rust there is 1.93 or later.
 
-**Why does the helper miss new files deep in my tree for a while?** Their folders are past the
+#### Why does the helper miss new files deep in my tree for a while?
+
+Their folders are past the
 2,500 or so it can watch ([above](#how-netbsd-differs-from-linux-here)). A higher
 `kern.maxfiles` and hard limit help (`ulimit -Hn` is set by the login class in
 `/etc/login.conf`), as does leaving large trees out of the index (`name_exclude` in `[search]`).

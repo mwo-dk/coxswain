@@ -38,7 +38,7 @@ once and is written to the file, your comments kept.
    | **Ctrl+,** or **F12** anywhere in the window (the `settings` action; see [Changing keys](keys.md)) | Overview |
    | **Shift+F10** → *Settings* in the [action menu](../panels/action-menu.md), near the top | Overview |
    | **F9** → *Settings* in the [command list](../panels/command-list.md) | Overview |
-   | The **Settings** button with a gear, at the right end of the command line row. Its tooltip names the key and, when tips or versions wait, how many and where: *Settings · Ctrl+, · What's new: 2, under Overview* | Overview, where *What's new* is ([Notices and what's new](../search/notices.md)) |
+   | The **Settings** button with a gear, at the right end of the command line row. Its tooltip names the key and, when tips or versions wait, how many and where: *Settings · Ctrl+, · What's new: 2, under Overview* | Overview, where *What's new* is ([Notices and what's new](../panels/notices.md)) |
    | **Show me** on a tip under *What's new* | The tip's area: the meaning and Ollama tips open *Finding files* at *Meaning*, the tesseract and cloud tips *Finding files*, a new language *Looks* at *Language*, the 2.0 renaming notice *Keys* |
    | `coxswain-gui --settings` | Overview |
    | `coxswain-gui --settings=search` | Finding files |
@@ -113,7 +113,7 @@ reads the shared keys the next time it starts.
 | **Show the guide again** | *The first-run guide: the two panels, how far Find looks, looks and privacy.* | Opens the [first-run guide](../panels/first-run.md) at its first step |
 | *What's new* | *For you*: the tips, each with **Show me** and **Dismiss**; then the versions you have not read, and *Earlier versions: N* folded | **Show me** opens the tip's area. Once *What's new* is in sight, the versions count as read and the count on the gear goes |
 
-Nothing in Overview is kept in `config.toml`. See [Notices and what's new](../search/notices.md).
+Nothing in Overview is kept in `config.toml`. See [Notices and what's new](../panels/notices.md).
 
 ## Finding files
 

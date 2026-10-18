@@ -62,7 +62,7 @@ them. They are found by name only ([Cloud files](../search/cloud-files.md)).
 **Other apps' data on a Mac** (`~/Library` but iCloud Drive and the cloud folders, the Photos and
 Music libraries) is never opened by Coxswain's walks, and Coxswain needs no Full Disk Access.
 macOS may ask once about Desktop, Documents, Downloads and removable or network volumes
-([macOS](macos.md#the-folder-prompts)).
+([macOS](../systems/macos.md#the-folder-prompts)).
 
 **HTML files** are shown as pages in a sandbox: the page runs no scripts and may load only
 pictures, styles, fonts and media from your own disk (beside the file). A page that links a

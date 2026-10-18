@@ -145,23 +145,23 @@ repository, so the fix can ship before the details are public. Anything else: an
 
 ## Questions
 
-**Why does `cargo audit` or `cargo deny` still name a crate?**
+#### Why does `cargo audit` or `cargo deny` still name a crate?
 Those three warnings are the accepted ones above, each with its reason in `deny.toml`. A new one
 fails CI and is fixed, or added there with a reason, in the next pull request.
 
-**Why not take every new major version at once?**
+#### Why not take every new major version at once?
 Majors come one at a time so their migration can be read. Minors and patches arrive grouped,
 weekly. The aim is no legacy: a major that is safe to take is taken in the same week.
 
-**Why is the `tokenizers` crate not on its latest version?**
+#### Why is the `tokenizers` crate not on its latest version?
 The `candle` crates (search by meaning) ask for it, and one copy is better than two. It moves
 with candle.
 
-**Does the draw.io viewer talk to diagrams.net?**
+#### Does the draw.io viewer talk to diagrams.net?
 No. Its paths are set to a local folder before it loads, so a diagram is drawn from what is in
 the file. Shapes from draw.io's downloadable libraries show as boxes; see [Diagrams](../previews/diagrams.md).
 
-**Can I check the dependency tree myself?**
+#### Can I check the dependency tree myself?
 `cargo deny check` in a checkout, with `cargo install cargo-deny --locked`, and `npm audit` in
 `gui/`. `cargo tree -d` lists duplicate crates; `cargo tree -e normal -f "{p} {f}"` the features
 each one is built with.

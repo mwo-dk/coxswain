@@ -7,7 +7,7 @@
 | `update-port.sh`, `file-bugzilla.py` | The release workflow's port update and its Bugzilla filing ([below](#after-it-is-in-the-tree-automatic)) |
 | `sysutils/coxswain/` | A port of the terminal app for the ports tree, ready to submit: `Makefile`, `Makefile.crates`, `distinfo`, `pkg-descr`, `files/coxswain_index.in` |
 
-The user-facing guide is [docs/reference/freebsd.md](../../docs/reference/freebsd.md).
+The user-facing guide is [docs/systems/freebsd.md](../../docs/systems/freebsd.md).
 
 ## The port
 

@@ -37,7 +37,7 @@ the search helper from boot once you `sysrc coxswain_index_enable=YES`. The term
 nothing beyond the base system and is a first-class build; the desktop app needs WebKitGTK from
 packages and is marked experimental for now. Hints that name a package say `pkg install`.
 
-[FreeBSD](reference/freebsd.md)
+[FreeBSD](systems/freebsd.md)
 
 ## One Find
 
@@ -160,7 +160,9 @@ store that is) is left as it is, and the app says on its error output which keys
 
 ## Questions
 
-**Do I have to do anything to update to 2.0?** No. Start it: your `config.toml` is updated once and
+#### Do I have to do anything to update to 2.0?
+
+No. Start it: your `config.toml` is updated once and
 a notice says what changed. Scripts that start the apps with `--settings=meaning`, `ask`, `news`
 or `cloud` need the new names above.
 
@@ -172,7 +174,9 @@ names: update it too.
 source. Until then the terminal app stops with the name of the first old key, and the desktop app
 starts with the defaults and says why on its error output.
 
-**Where do I see what else is new?** Settings → *Overview* in the desktop app; `coxswain
+#### Where do I see what else is new?
+
+Settings → *Overview* in the desktop app; `coxswain
 --whats-new` (or `--whats-new all`) in the terminal app; the changelog in the
 [README](../README.md#changelog).
 

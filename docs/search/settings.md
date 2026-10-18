@@ -195,4 +195,4 @@ No. The search settings are for the machine: one helper serves every window. Per
 are *Names only* and a `.nosearch` file.
 
 ---
-[← Previous: Notices and what's new](notices.md) · [Next: The preview pane →](../previews/README.md)
+[← Previous: Battery](battery.md) · [Next: The preview pane →](../previews/README.md)

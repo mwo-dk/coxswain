@@ -13,17 +13,17 @@ Node.js is missing, it offers to install them and waits for your yes.
 The first build takes a few minutes. After that, rebuilding is quick.
 
 **On FreeBSD** there is a script of its own that installs both apps from the release, with `pkg`
-for what the desktop app needs: see [FreeBSD](../docs/reference/freebsd.md).
+for what the desktop app needs: see [FreeBSD](../docs/systems/freebsd.md).
 
 **On NetBSD, OpenBSD and illumos** one plain `sh` script, `install-unix.sh`, installs from the
 release: the terminal app on all three, the desktop app on OpenBSD (with `pkg_add` for
 WebKitGTK), the manual page and the system's service for the search helper (rc.d, `rcctl`,
-SMF). See [NetBSD](../docs/reference/netbsd.md), [OpenBSD](../docs/reference/openbsd.md) and
-[illumos](../docs/reference/illumos.md); [TrueNAS](../docs/reference/truenas.md) takes the Linux or
+SMF). See [NetBSD](../docs/systems/netbsd.md), [OpenBSD](../docs/systems/openbsd.md) and
+[illumos](../docs/systems/illumos.md); [TrueNAS](../docs/systems/truenas.md) takes the Linux or
 FreeBSD build. DragonFly BSD: not supported; its Rust (1.85 in DPorts) is too old for Coxswain's dependencies.
 
 **With Nix** the repository is a flake: `nix run github:mwo-dk/coxswain` builds and starts the
-terminal app, `#coxswain-gui` the desktop app on Linux. See [Nix](../docs/reference/nix.md).
+terminal app, `#coxswain-gui` the desktop app on Linux. See [Nix](../docs/systems/nix.md).
 
 **Rather not build?** Ready-made installers for Linux, macOS and Windows are on the
 [releases page](https://github.com/mwo-dk/coxswain/releases/latest), and the package managers

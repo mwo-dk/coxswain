@@ -1,4 +1,4 @@
-[← README](../../README.md) · [Docs index](../README.md) · [Reference](README.md)
+[← README](../../README.md) · [Docs index](../README.md) · [Systems](README.md)
 
 # macOS
 
@@ -149,7 +149,7 @@ in `coxswain-core`). Who macOS names in the prompt differs:
 
 There is no key for the left-out list: it is always on, on a Mac. To leave out more, use
 `name_exclude` (names) and `text_exclude` (text) as everywhere else
-([Configuration](configuration.md)).
+([Configuration](../reference/configuration.md)).
 
 ## Questions
 

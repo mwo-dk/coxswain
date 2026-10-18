@@ -90,7 +90,7 @@ never runs it and downloads nothing. After installing, press **Look again** (des
 
 The same line is a notice once, while search by meaning or Ask uses a built-in model: in the
 terminal app's status line, and in the desktop app under *Settings → What's new*, with **Copy**
-and a link to *Finding files → Details → Meaning* ([notices](notices.md)).
+and a link to *Finding files → Details → Meaning* ([notices](../panels/notices.md)).
 
 On a Mac with no Ollama or LM Studio, the line under the machine reads *Apple silicon with 64 GB
 of shared memory and no model server: the built-in model makes the vectors on its GPU (Metal),
@@ -248,8 +248,8 @@ open. It uses a little processor time when files change and pauses on battery
 
 | System | What is registered | Check that it runs | Turn it off |
 |---|---|---|---|
-| FreeBSD | An XDG autostart entry, `~/.config/autostart/coxswain-index.desktop` ([other ways](../reference/freebsd.md#the-search-helper)) | `pgrep -lf index-helper` | Untick it, or `coxswain --index-service off` |
-| NetBSD, OpenBSD, illumos | The same entry; rc.d, `rcctl` or SMF are the other ways ([NetBSD](../reference/netbsd.md#the-search-helper), [OpenBSD](../reference/openbsd.md#the-search-helper), [illumos](../reference/illumos.md#the-search-helper)) | `pgrep -lf index-helper` | Untick it, or `coxswain --index-service off` |
+| FreeBSD | An XDG autostart entry, `~/.config/autostart/coxswain-index.desktop` ([other ways](../systems/freebsd.md#the-search-helper)) | `pgrep -lf index-helper` | Untick it, or `coxswain --index-service off` |
+| NetBSD, OpenBSD, illumos | The same entry; rc.d, `rcctl` or SMF are the other ways ([NetBSD](../systems/netbsd.md#the-search-helper), [OpenBSD](../systems/openbsd.md#the-search-helper), [illumos](../systems/illumos.md#the-search-helper)) | `pgrep -lf index-helper` | Untick it, or `coxswain --index-service off` |
 | Linux | A systemd user service, `coxswain-index.service` | `systemctl --user status coxswain-index` | Untick it, or `coxswain --index-service off` |
 | macOS | A LaunchAgent, `~/Library/LaunchAgents/dk.mwo.coxswain.index.plist` | `launchctl list \| grep coxswain` | The same |
 | Windows | A *Run* entry for your user in the registry | Task Manager → *Startup apps* lists Coxswain | The same, or disable it in Task Manager |

@@ -103,7 +103,7 @@ folder.
 
 The first time you open a folder of a repository, you are told that the history is there and
 which key opens it: under *Settings → Overview → What's new* in the desktop app, once in the status line in
-the terminal app ([Notices and what's new](../search/notices.md)).
+the terminal app ([Notices and what's new](notices.md)).
 
 ## In the terminal app
 
