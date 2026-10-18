@@ -329,6 +329,10 @@ pub enum Transfer {
 pub enum MenuRun {
     Action(Action),
     User(config::UserCommand),
+    /// A file of the scripts folder, run on the marked files.
+    Script(PathBuf),
+    /// The scripts folder, made when missing, in the active panel.
+    ScriptsFolder,
     /// Open config.toml at `[[user_menu]]`.
     AddUser,
     /// A panel to a folder (a boot environment, a jail); none: the line to type a path in.
@@ -1247,6 +1251,8 @@ impl App {
                     .into_iter()
                     .map(|u| MenuItem { key: u.key.clone(), label: u.label.clone(), run: MenuRun::User(u), group: None })
                     .collect();
+                items.extend(coxswain_core::user_menu::scripts().into_iter().map(|p| MenuItem { key: String::new(), label: coxswain_core::user_menu::script_label(&p), run: MenuRun::Script(p), group: None }));
+                items.push(MenuItem { key: String::new(), label: t!("usermenu.scripts_folder"), run: MenuRun::ScriptsFolder, group: None });
                 let key = if items.iter().any(|i| i.key == "+") { "" } else { "+" };
                 items.push(MenuItem { key: key.into(), label: t!("usermenu.add"), run: MenuRun::AddUser, group: None });
                 self.dialog = Some(Dialog::Menu { title: t!("tui.user_menu"), filter: String::new(), items, cursor: 0, direct: true, feature: "user_menu" });
@@ -2212,6 +2218,11 @@ impl App {
                 match run.map(|i| &items[i].run) {
                     Some(MenuRun::Action(a)) => self.act(*a),
                     Some(MenuRun::User(u)) => self.run_user(u),
+                    Some(MenuRun::Script(path)) => self.run_script(&path.clone()),
+                    Some(MenuRun::ScriptsFolder) => match coxswain_core::user_menu::scripts_folder() {
+                        Ok(dir) => self.cd(self.active, dir),
+                        Err(e) => self.status = Some(e),
+                    },
                     Some(MenuRun::AddUser) => self.add_user(),
                     Some(MenuRun::Goto(side, None)) => self.goto_prompt(*side),
                     Some(MenuRun::Goto(side, Some(dir))) => self.cd(*side, dir.clone()),
@@ -2308,6 +2319,18 @@ impl App {
         let marked: Vec<PathBuf> = p.entries.iter().filter(|e| p.marked.contains(&e.path)).map(|e| e.path.clone()).collect();
         let line = u.expand(&p.dir, file, &marked);
         self.run = Some(Run::Shell { line, typed: false, dir: p.dir.clone(), wait: u.wait });
+    }
+
+    /// A script from F2's scripts folder, on the marked files or else the file under the cursor,
+    /// as full paths; the output stays until a key is pressed.
+    fn run_script(&mut self, script: &Path) {
+        let p = self.panel();
+        let file = p.current().filter(|e| !e.is_parent()).map(|e| e.path.as_path());
+        let marked: Vec<PathBuf> = p.entries.iter().filter(|e| p.marked.contains(&e.path)).map(|e| e.path.clone()).collect();
+        match coxswain_core::user_menu::script_line(script, file, &marked) {
+            Ok(line) => self.run = Some(Run::Shell { line, typed: false, dir: p.dir.clone(), wait: true }),
+            Err(e) => self.status = Some(e),
+        }
     }
 
     fn on_mouse(&mut self, m: MouseEvent) {
