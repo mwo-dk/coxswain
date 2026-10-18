@@ -96,7 +96,7 @@ mindmap
 | [Commands, the user menu and scripts](commands/README.md) | The area, and its keys in both apps |
 | [The command line and its output](commands/command-line.md) | The command line: typing, cd, Ctrl+Enter, the shell, output in the terminal (Ctrl+O, with *Panels hidden · any key brings them back*) and in the preview pane |
 | [The user menu, F2](commands/user-menu.md) | The user menu (F2): the built-in entries per system (terminal, SHA-256, git status), Add your own command, [[user_menu]], %f %d %s %%, wait, when, entries to copy |
-| [Scripts](commands/scripts.md) | The desktop app's scripts folder, run from F2 with the marked files as arguments |
+| [Scripts](commands/scripts.md) | The scripts folder, run from F2 in both apps with the marked files as arguments |
 | [View and edit, F3 and F4](commands/view-and-edit.md) | View and edit (F3, F4): viewer, editor, $PAGER, $VISUAL, $EDITOR, the preview pane in the desktop app |
 | [Opening files](commands/opening-files.md) | Enter and double-click on folders, archives, programs and files, default applications |
 

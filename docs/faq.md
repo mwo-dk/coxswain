@@ -74,7 +74,7 @@ The questions people ask most, with a short answer and a link to the full one. E
 - **My user-menu entries replaced the built-in ones. How do I keep both?** Your [[user_menu]] replaces the whole list; F2, + writes them into config.toml commented out. [Answer](commands/user-menu.md#my-entries-replaced-the-built-in-ones-how-do-i-keep-both)
 - **Why is Open a terminal here not in F2?** No terminal was found, or there is no desktop (console, ssh), or it is Termux; set $TERMINAL. [Answer](commands/user-menu.md#why-is-open-a-terminal-here-not-in-my-menu)
 - **Why does %f give only the name?** The command runs in the panel's folder; use %d/%f or %s for full paths. [Answer](commands/user-menu.md#why-does-f-give-only-the-name)
-- **My script is in the F2 menu but nothing happens.** Make it executable with a #! line; the error is in the status line. [Answer](commands/scripts.md#my-script-is-in-the-menu-but-nothing-happens)
+- **My script is in the F2 menu but nothing happens.** The error is in the output (desktop app: the status line or the preview pane); usually the program on its #! line is not installed. [Answer](commands/scripts.md#my-script-is-in-the-menu-but-nothing-happens)
 - **F4 in the desktop app does nothing, though editor = "hx" works in the terminal.** The desktop app has no terminal for a terminal editor; set a windowed editor or use $EDITOR for the terminal app. [Answer](commands/view-and-edit.md#f4-in-the-desktop-app-does-nothing-though-editor--hx-works-in-the-terminal-app)
 - **Enter on a file does nothing, and there is no error.** The opener started but found no application for the type; set a default in your system settings. [Answer](commands/opening-files.md#enter-on-a-file-does-nothing-and-there-is-no-error)
 

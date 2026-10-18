@@ -47,7 +47,7 @@ Every flag: [Command-line flags](command-line-flags.md#the-terminal-app-coxswain
 |---|---|
 | The [first-run guide](../panels/first-run.md) on the very first start, full screen in the panel colours; **F1** then **G** shows it again | [The first-run guide](../panels/first-run.md) |
 | Two panels, NC's keys, marking, groups, sorting, quick search, hidden files, go to folder, swap, other panel here | [Panels and keys](../panels/README.md) |
-| The command line (with `cd`) and the user menu (**F2**) | [The command line](../commands/command-line.md), [The user menu](../commands/user-menu.md) |
+| The command line (with `cd`) and the user menu (**F2**) with the scripts folder's scripts | [The command line](../commands/command-line.md), [The user menu](../commands/user-menu.md), [Scripts](../commands/scripts.md) |
 | View (**F3**) and edit (**F4**) in your own programs | [View and edit](../commands/view-and-edit.md) |
 | A viewer for CycloneDX cryptography BOMs (**F3** on one): the rated tree, a half-block sunburst, filters and compare | [Cryptography bills of materials](../previews/bom.md) |
 | A viewer for build provenance (**F3** on one): inputs → build → outputs, the outputs checked against the files here, compare | [Build provenance](../previews/provenance.md) |
@@ -82,7 +82,6 @@ Every flag: [Command-line flags](command-line-flags.md#the-terminal-app-coxswain
 | [The clipboard](../files/clipboard.md) (**Ctrl+C**, **Ctrl+X**, **Ctrl+V**) and [drag and drop](../files/drag-and-drop.md) | A terminal has no file clipboard or drag source; **Ctrl+C** belongs to the terminal |
 | [Batch rename](../files/batch-rename.md) (**Ctrl+M**) | It needs a live preview table of old and new names |
 | [Finding duplicates](../files/duplicates.md) (**Ctrl+D**) | A long-running scan with groups to tick; use `coxswain-gui --duplicates FOLDER` |
-| [Scripts](../commands/scripts.md) in **F2** | The terminal app's **F2** is `[[user_menu]]` only |
 | [Restoring the last session](../panels/session.md) | It starts where you start it, as a shell command does |
 
 Their keys are bound in the terminal app too (both apps share one keymap). Pressed there, the

@@ -217,7 +217,7 @@ fn get_config(ctx: tauri::State<Ctx>) -> Res<UiConfig> {
         .collect();
     Ok(UiConfig {
         keymap: cfg.keymap()?.into_iter().map(|(k, a)| (k.to_string(), a.name())).collect(),
-        scripts_dir: scripts_dir(),
+        scripts_dir: coxswain_core::user_menu::scripts_dir(),
         find_key: cfg.handy_key(Action::Search).unwrap_or("").to_string(),
         actions: Action::ALL.iter().map(|&a| (a.name(), (a.label(), cfg.key_for(a).unwrap_or("").to_string()))).collect(),
         groups: coxswain_core::config::Group::ALL.iter().map(|g| (g.label(), g.actions().map(Action::name).collect())).collect(),
@@ -1815,10 +1815,6 @@ struct Script {
     wait: bool,
 }
 
-fn scripts_dir() -> Option<PathBuf> {
-    Config::path().and_then(|p| Some(p.parent()?.join("scripts")))
-}
-
 /// F2 in `dir` with `file` under the cursor: the user menu's entries that fit there, then the
 /// executables in `<config>/coxswain/scripts/`, then "Add your own command".
 #[tauri::command(async)]
@@ -1832,36 +1828,13 @@ fn scripts(dir: PathBuf, file: Option<PathBuf>, ctx: tauri::State<Ctx>) -> Vec<S
         .enumerate()
         .map(|(i, u)| Script { key: u.key, label: u.label, user: Some(i), path: None, wait: u.wait })
         .collect();
-    for p in scripts_dir().map(|d| script_files(&d)).unwrap_or_default() {
-        let label = p.file_stem().unwrap_or_default().to_string_lossy().into_owned();
+    for p in coxswain_core::user_menu::scripts() {
+        let label = coxswain_core::user_menu::script_label(&p);
         out.push(Script { key: String::new(), label, user: None, path: Some(p), wait: true });
     }
     let key = if out.iter().any(|s| s.key == "+") { "" } else { "+" };
     out.push(Script { key: key.into(), label: coxswain_core::t!("usermenu.add"), user: None, path: None, wait: false });
     out
-}
-
-/// The scripts in `dir`, by name: the files that can run (executable on Unix; any file on
-/// Windows, which decides by the extension), and not hidden ones (`.DS_Store`).
-fn script_files(dir: &Path) -> Vec<PathBuf> {
-    let runs = |p: &Path| -> bool {
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::PermissionsExt;
-            std::fs::metadata(p).is_ok_and(|m| m.permissions().mode() & 0o111 != 0)
-        }
-        #[cfg(not(unix))]
-        true
-    };
-    let mut files: Vec<PathBuf> = std::fs::read_dir(dir)
-        .into_iter()
-        .flatten()
-        .flatten()
-        .map(|d| d.path())
-        .filter(|p| p.is_file() && !p.file_name().unwrap_or_default().to_string_lossy().starts_with('.') && runs(p))
-        .collect();
-    files.sort();
-    files
 }
 
 /// Run a user-menu entry (expanded) or a script file with the selection as arguments.
@@ -1873,19 +1846,7 @@ async fn run_script(user: Option<usize>, path: Option<PathBuf>, dir: PathBuf, fi
         return blocking(move || output(line.command(), &dir)).await;
     }
     let script = path.ok_or_else(|| coxswain_core::t!("err.nothing_to_run"))?;
-    blocking(move || {
-        // Only files from the scripts directory may run this way.
-        let allowed = scripts_dir().and_then(|d| std::fs::canonicalize(d).ok());
-        let real = std::fs::canonicalize(&script).map_err(|e| e.to_string())?;
-        if !allowed.is_some_and(|d| real.starts_with(d)) {
-            return Err(coxswain_core::t!("err.not_coxswain_script"));
-        }
-        let args = if selected.is_empty() { file.into_iter().collect() } else { selected };
-        let mut c = coxswain_core::tools::user_command(&real);
-        c.args(args);
-        output(c, &dir)
-    })
-    .await
+    blocking(move || output(coxswain_core::user_menu::script_line(&script, file.as_deref(), &selected)?.command(), &dir)).await
 }
 
 /// Settings → Keys: config.toml at `[keys]` (an example written there first when it has none),
@@ -1907,9 +1868,7 @@ async fn edit_at(path: PathBuf, line: usize, editor: Option<String>) -> Res<()> 
 /// F2's scripts folder, made when it is not there yet, for Settings → Keys to open.
 #[tauri::command(async)]
 fn scripts_folder() -> Res<PathBuf> {
-    let dir = scripts_dir().ok_or_else(|| coxswain_core::t!("err.no_config_folder"))?;
-    std::fs::create_dir_all(&dir).map_err(|e| format!("{}: {e}", dir.display()))?;
-    Ok(dir)
+    coxswain_core::user_menu::scripts_folder()
 }
 
 /// F2's "Add your own command": config.toml in `editor` at `[[user_menu]]` (an example
@@ -2116,23 +2075,6 @@ mod tests {
         assert!(ok("tauri://localhost/index.html") && ok("http://tauri.localhost/index.html") && ok("asset://localhost/%2Fhome%2Fme%2Fa.pdf") && ok("about:srcdoc"));
         assert!(!ok("http://asset.localhost/C%3A/a.pdf") && !ok("asset://evil.example/%2Fa.pdf"));
         assert!(!ok("https://example.com/") && !ok("http://example.com/") && !ok("file:///etc/passwd") && !ok("javascript:alert(1)"));
-    }
-
-    #[test]
-    #[cfg(unix)]
-    fn scripts_are_the_executable_files_only() {
-        use std::os::unix::fs::PermissionsExt;
-        let d = std::env::temp_dir().join(format!("coxswain-scripts-{}", std::process::id()));
-        let _ = std::fs::remove_dir_all(&d);
-        std::fs::create_dir_all(&d).unwrap();
-        std::fs::write(d.join("README.md"), "").unwrap();
-        std::fs::write(d.join(".DS_Store"), "").unwrap();
-        std::fs::write(d.join("resize"), "#!/bin/sh\n").unwrap();
-        std::fs::set_permissions(d.join("resize"), std::fs::Permissions::from_mode(0o755)).unwrap();
-        std::fs::write(d.join(".hidden"), "").unwrap();
-        std::fs::set_permissions(d.join(".hidden"), std::fs::Permissions::from_mode(0o755)).unwrap();
-        assert_eq!(script_files(&d), vec![d.join("resize")]);
-        std::fs::remove_dir_all(d).unwrap();
     }
 
     #[test]

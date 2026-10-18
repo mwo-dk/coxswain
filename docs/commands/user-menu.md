@@ -8,8 +8,8 @@ the marked files. It comes with three entries made for your system; the last row
 command…* (`+`), opens `config.toml` where your own go. Placeholders put the file under the
 cursor or the marked files into a command.
 
-![The desktop app's F2 menu titled Scripts in ~/projects/rocket: Open a terminal here (t), SHA-256 of the file (h) and git status (s), the scripts Make thumbnails and Upload with a script icon and no key, and Add your own command… with the key +](../screenshots/commands-user-menu.png)
-![The terminal app in Classic blue (NC): the User menu box over the panels with Open a terminal here, SHA-256 of the file, git status and Add your own command…, and their keys t, h, s and +](../screenshots/commands-user-menu-tui.png)
+![The desktop app's F2 menu titled Scripts in ~/projects/rocket with the cursor on Cargo.toml: SHA-256 of the file (h) and git status (s), the scripts Make thumbnails and Upload with a script icon and no key, Open the scripts folder with a folder icon, and Add your own command… with the key +; there is no desktop in the sandbox, so Open a terminal here is left out](../screenshots/commands-user-menu.png)
+![The terminal app in Classic blue (NC): the User menu box over the panels with SHA-256 of the file (h), git status (s), the scripts Make thumbnails and Upload with no key, Open the scripts folder, and Add your own command… (+); with no desktop in the sandbox, Open a terminal here is left out](../screenshots/commands-user-menu-tui.png)
 
 - [How to use it](#how-to-use-it)
 - [The entries it comes with](#the-entries-it-comes-with)
@@ -29,7 +29,7 @@ cursor or the marked files into a command.
 
 | Key | Desktop app | Terminal app |
 |---|---|---|
-| **F2** | Opens *Scripts*: the entries, then the [script files](scripts.md), then *Add your own command…* | Opens *User menu*: the entries, then *Add your own command…* |
+| **F2** | Opens *Scripts*: the entries, then the [script files](scripts.md), *Open the scripts folder* and *Add your own command…* | Opens *User menu*: the same rows |
 | An entry's key | Runs it | Runs it |
 | **+** | Opens `config.toml` at `[[user_menu]]` | Opens `config.toml` at `[[user_menu]]` |
 | **Up**, **Down**, **Enter** | Move, run | Move, run |
@@ -144,7 +144,8 @@ too (Windows 10 and later): `command = "tar -czf ..\\folder.tar.gz ."`.
 
 - **The menu:** titled *Scripts* in the desktop app and *User menu* in the terminal app. Each row
   is the label with its key at the right; in the desktop app entries have a terminal icon, script
-  files a script icon and *Add your own command…* a plus.
+  files a script icon, *Open the scripts folder* a folder and *Add your own command…* a plus.
+  [Script files](scripts.md) and *Open the scripts folder* have no key.
 - **Running:** the same as a line typed on the [command line](command-line.md#what-you-see). In the
   terminal app the panels step aside, the terminal shows `folder> command` and its output, and
   with `wait = true` it ends with `-- press Enter --`. In the desktop app the status line says
@@ -179,7 +180,7 @@ and a command of your own in `[git] tool`.
 ## In the terminal app
 
 The same entries, the same keys and placeholders. Differences: the menu is titled *User menu*;
-it lists no script files ([Scripts](scripts.md) are desktop-only); the command has the real
+it lists the [script files](scripts.md) too, without icons; the command has the real
 terminal, so `less`, `vim` and prompts work; and `wait = true` holds the output on screen until
 you press **Enter**. The desktop app shows a command's output in the preview pane, and with
 `wait = false` only when there is some. *Add your own command…* uses the terminal app's editor

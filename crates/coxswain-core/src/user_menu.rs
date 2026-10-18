@@ -228,9 +228,123 @@ fn example() -> String {
     out
 }
 
+/// F2's scripts folder: `scripts` next to config.toml.
+pub fn scripts_dir() -> Option<PathBuf> {
+    Config::path().and_then(|p| Some(p.parent()?.join("scripts")))
+}
+
+/// The scripts folder, made when it is not there yet, for F2 or Settings to open.
+pub fn scripts_folder() -> Result<PathBuf, String> {
+    let dir = scripts_dir().ok_or_else(|| crate::t!("err.no_config_folder"))?;
+    std::fs::create_dir_all(&dir).map_err(|e| format!("{}: {e}", dir.display()))?;
+    Ok(dir)
+}
+
+/// The scripts F2 lists after the user menu's entries, by file name.
+pub fn scripts() -> Vec<PathBuf> {
+    scripts_dir().map(|d| script_files(&d)).unwrap_or_default()
+}
+
+/// A script's label in F2: its file name without the extension.
+pub fn script_label(p: &Path) -> String {
+    p.file_stem().unwrap_or_default().to_string_lossy().into_owned()
+}
+
+/// The scripts in `dir`, by name: the files that can run (executable on Unix; any file on
+/// Windows, which decides by the extension), and not hidden ones (`.DS_Store`).
+fn script_files(dir: &Path) -> Vec<PathBuf> {
+    let runs = |p: &Path| -> bool {
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::metadata(p).is_ok_and(|m| m.permissions().mode() & 0o111 != 0)
+        }
+        #[cfg(not(unix))]
+        true
+    };
+    let mut files: Vec<PathBuf> = std::fs::read_dir(dir)
+        .into_iter()
+        .flatten()
+        .flatten()
+        .map(|d| d.path())
+        .filter(|p| {
+            p.is_file()
+                && !p.file_name().unwrap_or_default().to_string_lossy().starts_with('.')
+                && runs(p)
+        })
+        .collect();
+    files.sort();
+    files
+}
+
+/// The line that runs `script` on the marked files (`selected`), or on `file` when none are
+/// marked, each a full path: or why not. Only a file that really is inside the scripts folder
+/// runs, so a path from elsewhere, a `..` or a link out of the folder is refused.
+pub fn script_line(script: &Path, file: Option<&Path>, selected: &[PathBuf]) -> Result<crate::tools::Line, String> {
+    let dir = scripts_dir().ok_or_else(|| crate::t!("err.not_coxswain_script"))?;
+    script_line_in(&dir, script, file, selected)
+}
+
+fn script_line_in(dir: &Path, script: &Path, file: Option<&Path>, selected: &[PathBuf]) -> Result<crate::tools::Line, String> {
+    let allowed = std::fs::canonicalize(dir).ok();
+    let real = std::fs::canonicalize(script).map_err(|e| e.to_string())?;
+    if !real.is_file() || !allowed.is_some_and(|d| real.starts_with(d)) {
+        return Err(crate::t!("err.not_coxswain_script"));
+    }
+    let args: Vec<&Path> = if selected.is_empty() {
+        file.into_iter().collect()
+    } else {
+        selected.iter().map(PathBuf::as_path).collect()
+    };
+    let mut line = crate::tools::Line::default();
+    let mut words = vec![line.word(&real.to_string_lossy())];
+    words.extend(args.iter().map(|a| line.word(&a.to_string_lossy())));
+    line.cmd = words.join(" ");
+    Ok(line)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(unix)]
+    #[test]
+    fn only_scripts_from_the_folder_run() {
+        use std::os::unix::fs::PermissionsExt;
+        let tmp = std::env::temp_dir().join(format!("coxswain-scripts-{}", std::process::id()));
+        let dir = tmp.join("scripts");
+        std::fs::create_dir_all(&dir).unwrap();
+        let exe = |p: &Path| {
+            std::fs::write(p, "#!/bin/sh\n").unwrap();
+            std::fs::set_permissions(p, std::fs::Permissions::from_mode(0o755)).unwrap();
+        };
+        let outside = tmp.join("evil");
+        exe(&outside);
+        exe(&dir.join("b resize"));
+        exe(&dir.join("a.sh"));
+        std::fs::write(dir.join("README"), "").unwrap();
+        exe(&dir.join(".hidden"));
+        std::os::unix::fs::symlink(&outside, dir.join("link")).unwrap();
+
+        let names: Vec<String> = script_files(&dir).iter().map(|p| script_label(p)).collect();
+        assert_eq!(names, ["a", "b resize", "link"], "executables only, by name; no README or dot-file");
+
+        let marked = [PathBuf::from("/x/it's.txt")];
+        let line = script_line_in(&dir, &dir.join("b resize"), Some(Path::new("/x/cursor")), &marked).unwrap();
+        let real = std::fs::canonicalize(dir.join("b resize")).unwrap();
+        let q = crate::config::quote;
+        assert_eq!(line.cmd, format!("{} {}", q(&real.to_string_lossy()), q("/x/it's.txt")), "the marked files, quoted");
+        let line = script_line_in(&dir, &dir.join("a.sh"), Some(Path::new("/x/cursor")), &[]).unwrap();
+        assert!(line.cmd.ends_with(" /x/cursor"), "nothing marked: the file under the cursor");
+
+        let refused = crate::t!("err.not_coxswain_script");
+        assert_eq!(script_line_in(&dir, &outside, None, &[]), Err(refused.clone()), "a file elsewhere");
+        assert_eq!(script_line_in(&dir, &dir.join("link"), None, &[]), Err(refused.clone()), "a link out of the folder");
+        assert_eq!(script_line_in(&dir, &dir.join("../evil"), None, &[]), Err(refused.clone()), "..");
+        assert_eq!(script_line_in(&dir, &dir, None, &[]), Err(refused), "the folder itself");
+        assert!(script_line_in(&dir, &dir.join("gone"), None, &[]).is_err());
+        std::fs::remove_dir_all(&tmp).unwrap();
+    }
 
     fn menu(os: &str, programs: &[&str], env: &[(&str, &str)]) -> Vec<(String, String)> {
         let has = |p: &str| programs.contains(&p);

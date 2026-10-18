@@ -470,10 +470,14 @@
         direct: true,
         filter: "",
         cursor: 0,
-        items: list.map((s) =>
+        items: list.flatMap((s) =>
           s.user == null && s.path == null
-            ? { key: s.key, label: s.label, icon: "\u{f067}", run: () => invoke("add_user_command").catch((err) => (ui.status = String(err))) }
-            : { key: s.key, label: s.label, icon: s.path ? "\u{f489}" : "\u{f120}", run: () => runScript(s) },
+            ? [
+                // The scripts folder, made when missing, in the active panel: where scripts go.
+                { key: "", label: t("usermenu.scripts_folder"), icon: "\u{f07b}", run: () => invoke("scripts_folder").then((dir) => cd(tab(), dir), (err) => (ui.status = String(err))) },
+                { key: s.key, label: s.label, icon: "\u{f067}", run: () => invoke("add_user_command").catch((err) => (ui.status = String(err))) },
+              ]
+            : [{ key: s.key, label: s.label, icon: s.path ? "\u{f489}" : "\u{f120}", run: () => runScript(s) }],
         ),
       };
     },

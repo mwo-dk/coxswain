@@ -48,7 +48,7 @@ shows the search store and *Built-in models* each model with its folder ([Built-
 | What | Path (Linux) | Holds | Safe to delete? |
 |---|---|---|---|
 | `config.toml` | `~/.config/coxswain/config.toml` | Your settings ([Configuration](configuration.md)) | Yes: everything goes back to its default |
-| `scripts/` | `~/.config/coxswain/scripts/` | Your scripts for the desktop app's **F2** ([Scripts](../commands/scripts.md)) | They are yours |
+| `scripts/` | `~/.config/coxswain/scripts/` | Your scripts for **F2**, in both apps ([Scripts](../commands/scripts.md)) | They are yours |
 | `state.json` | `~/.local/share/coxswain/state.json` | The desktop app's session (panes, tabs, views, the preview engine you picked), favourites, colour tags, folder notes, recent repositories; the last update check; notices dismissed | Only if you want to lose tags and notes. A damaged file is moved aside to `state.json.bad`, never overwritten |
 | `index.bin` | `~/.cache/coxswain/index.bin` | The name index, saved so it loads at once | Yes: it is built again. **Clear** in [Disk use](disk-use.md), or `coxswain --disk clear index` |
 | `search.db` (with `-wal`, `-shm`) | `~/.cache/coxswain/search.db` | The text of your files, every file's size and date, folder totals, duplicate hashes, meaning vectors, the latest errors | Yes: it fills again. While Coxswain runs, use **Clear** in [Disk use](disk-use.md) (or **Delete what was read** in Settings → *Finding files* → *Details* → *Background reading*, or `coxswain --disk clear store`), which goes through the helper; by hand only with no Coxswain running |
