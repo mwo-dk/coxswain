@@ -26,3 +26,13 @@ test("an HTML page may load from its own folder only", () => {
   // Windows: the drive is a segment of its own.
   assert.match(pageHead("http://asset.localhost/C%3A%5Cdocs%5Ca.html", "C:\\docs\\a.html"), /img-src http:\/\/asset\.localhost\/C%3A\/docs\/ /);
 });
+
+// A file's <style> would restyle the whole window: clean() forbids it unless asked to keep it.
+// No DOM here, so DOMPurify is a stand-in that tells what clean() asks of it.
+test("sanitized HTML keeps no style sheet", async () => {
+  const at = src.indexOf("export const clean");
+  const decl = src.slice(at, src.indexOf(";\n", at) + 2).replace(/^export /, "");
+  const { clean } = await import("data:text/javascript," + encodeURIComponent(`const DOMPurify = { sanitize: (_, o) => o };\n${decl}\nexport { clean };`));
+  assert.deepEqual(clean("<style>body{display:none}</style>").FORBID_TAGS, ["style"]);
+  assert.deepEqual(clean("<svg><style></style></svg>", { styles: true }).FORBID_TAGS, []);
+});

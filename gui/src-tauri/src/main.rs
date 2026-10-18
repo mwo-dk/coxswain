@@ -1922,11 +1922,15 @@ async fn check_update(ctx: tauri::State<'_, Ctx>) -> Res<Option<(String, Option<
 
 /// Whether the webview may go to `url`: the app's own pages and files, never the web. A link
 /// in a preview is opened outside instead (`open_path`); a page in the sandboxed frame that
-/// tries to load another stays where it is.
+/// tries to load another stays where it is. WebKit asks this for every frame, so a PDF's frame
+/// needs `asset://localhost`; WebView2 asks it only for the window itself, which never shows a
+/// file, so `asset.localhost` is not let in. A file the window did reach runs no script: the
+/// protocol serves no page and sandboxes all but a real PDF (`asset::respond`).
 fn local(url: &tauri::Url) -> bool {
     match url.scheme() {
-        "tauri" | "asset" | "about" | "blob" | "data" => true,
-        "http" | "https" => matches!(url.host_str(), Some("tauri.localhost" | "asset.localhost" | "ipc.localhost")) || (cfg!(debug_assertions) && url.host_str() == Some("localhost")),
+        "tauri" | "about" | "blob" | "data" => true,
+        "asset" => url.host_str() == Some("localhost"),
+        "http" | "https" => matches!(url.host_str(), Some("tauri.localhost" | "ipc.localhost")) || (cfg!(debug_assertions) && url.host_str() == Some("localhost")),
         _ => false,
     }
 }
@@ -2089,7 +2093,8 @@ mod tests {
     #[test]
     fn the_webview_stays_on_the_app() {
         let ok = |u: &str| local(&tauri::Url::parse(u).unwrap());
-        assert!(ok("tauri://localhost/index.html") && ok("http://tauri.localhost/index.html") && ok("asset://localhost/%2Fhome%2Fme%2Fa.pdf") && ok("http://asset.localhost/C%3A/a.pdf") && ok("about:srcdoc"));
+        assert!(ok("tauri://localhost/index.html") && ok("http://tauri.localhost/index.html") && ok("asset://localhost/%2Fhome%2Fme%2Fa.pdf") && ok("about:srcdoc"));
+        assert!(!ok("http://asset.localhost/C%3A/a.pdf") && !ok("asset://evil.example/%2Fa.pdf"));
         assert!(!ok("https://example.com/") && !ok("http://example.com/") && !ok("file:///etc/passwd") && !ok("javascript:alert(1)"));
     }
 

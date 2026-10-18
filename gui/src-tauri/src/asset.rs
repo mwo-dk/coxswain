@@ -20,6 +20,25 @@ fn allowed_origin(req: &Request<Vec<u8>>) -> String {
 }
 /// The most one range answer holds, as Tauri's own protocol: a video is read piece by piece.
 const MAX_RANGE: u64 = 1000 * 1024;
+/// The most a whole-file answer holds (the largest preview reads 500 MiB); a bigger file is
+/// read in ranges or not at all, so no request fills the memory.
+const MAX_WHOLE: u64 = 512 * 1024 * 1024;
+
+/// The type a file is served as, from its first bytes and its name. A document type that could
+/// run script (HTML, XHTML, XML) is served as plain text, so a `.pdf` that holds a web page shows
+/// as text, never as a page; an unknown type is plain bytes, not HTML as Tauri's default.
+/// `application/pdf` only for bytes that start as a PDF does; any other `.pdf` is plain text, so
+/// its frame shows it rather than download it.
+fn content_type(magic: &[u8], path: &Path) -> String {
+    use tauri::utils::mime_type::MimeType;
+    let mime = MimeType::parse_with_fallback(magic, &path.to_string_lossy(), MimeType::OctetStream);
+    let pdf = mime == "application/pdf" || path.extension().is_some_and(|e| e.eq_ignore_ascii_case("pdf"));
+    match mime.as_str() {
+        _ if pdf && !magic.starts_with(b"%PDF-") => "text/plain".into(),
+        "text/html" | "application/xhtml+xml" | "text/xml" | "application/xml" => "text/plain".into(),
+        _ => mime,
+    }
+}
 
 /// The file a request names: `asset://localhost/%2Fhome%2Fme%2Fa.pdf` (Windows:
 /// `http://asset.localhost/C%3A%2Fa.pdf`). Only an absolute path without `..`.
@@ -57,8 +76,13 @@ pub fn respond(req: &Request<Vec<u8>>, unasked: impl Fn(&Path) -> bool) -> Respo
         let len = file.metadata()?.len();
         let mut magic = Vec::with_capacity(len.min(8192) as usize);
         (&mut file).take(8192).read_to_end(&mut magic)?;
-        let mime = tauri::utils::mime_type::MimeType::parse(&magic, &path.to_string_lossy());
-        let resp = answer().header(header::CONTENT_TYPE, mime).header(header::ACCEPT_RANGES, "bytes");
+        let mime = content_type(&magic, &path);
+        let mut resp = answer().header(header::CONTENT_TYPE, &mime).header(header::X_CONTENT_TYPE_OPTIONS, "nosniff").header(header::ACCEPT_RANGES, "bytes");
+        // Whatever is shown in a frame of its own runs no script and reaches no origin. Not on a
+        // PDF: the browsers' PDF viewers do not open under a sandbox (WebView2 blocks them).
+        if mime != "application/pdf" {
+            resp = resp.header(header::CONTENT_SECURITY_POLICY, "sandbox");
+        }
         let ranged = req.headers().get(header::RANGE).and_then(|r| r.to_str().ok());
         let (resp, body) = match ranged.map(|r| range(r, len)) {
             Some(None) => (resp.status(StatusCode::RANGE_NOT_SATISFIABLE).header(header::CONTENT_RANGE, format!("bytes */{len}")), Vec::new()),
@@ -70,6 +94,7 @@ pub fn respond(req: &Request<Vec<u8>>, unasked: impl Fn(&Path) -> bool) -> Respo
                 (resp.header(header::ACCESS_CONTROL_EXPOSE_HEADERS, "content-range"), buf)
             }
             None if req.method() == tauri::http::Method::HEAD => (resp.header(header::CONTENT_LENGTH, len), Vec::new()),
+            None if len > MAX_WHOLE => (resp.status(StatusCode::PAYLOAD_TOO_LARGE), Vec::new()),
             None => {
                 if len > magic.len() as u64 {
                     magic.reserve((len - magic.len() as u64) as usize);
@@ -149,12 +174,42 @@ mod tests {
         assert_eq!(respond(&get(&f, Some("bytes=-3")), none).body().as_slice(), b"789");
         assert_eq!(respond(&get(&f, Some("bytes=8-99")), none).body().as_slice(), b"89");
         assert_eq!(respond(&get(&f, Some("bytes=10-")), none).status(), StatusCode::RANGE_NOT_SATISFIABLE);
+        assert_eq!(respond(&get(&f, None), none).headers()[header::CONTENT_SECURITY_POLICY], "sandbox");
         assert_eq!(respond(&get(&dir.join("gone"), None), none).status(), StatusCode::NOT_FOUND);
         // `..` and relative paths never reach the disk.
         let up = Request::builder().uri(format!("asset://localhost/{}%2F..%2Fclip.bin", dir.display().to_string().replace('/', "%2F"))).body(Vec::new()).unwrap();
         assert_eq!(respond(&up, none).status(), StatusCode::FORBIDDEN);
         let rel = Request::builder().uri("asset://localhost/clip.bin").body(Vec::new()).unwrap();
         assert_eq!(respond(&rel, none).status(), StatusCode::FORBIDDEN);
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn a_web_page_is_never_served_as_one() {
+        let ty = |bytes: &[u8], name: &str| content_type(bytes, Path::new(name));
+        let page = b"<!DOCTYPE html><html><script>fetch('asset://localhost/%2Fetc%2Fpasswd')</script>";
+        assert_eq!(ty(page, "/home/me/invoice.pdf"), "text/plain");
+        assert_eq!(ty(page, "/home/me/page.html"), "text/plain");
+        assert_eq!(ty(b"<?xml version=\"1.0\"?><html xmlns=\"http://www.w3.org/1999/xhtml\"/>", "/home/me/a.xhtml"), "text/plain");
+        assert_eq!(ty(b"not a pdf at all", "/home/me/a.PDF"), "text/plain");
+        assert_eq!(ty(b"%PDFnot", "/home/me/a.bin"), "text/plain");
+        assert_eq!(ty(b"\0\x01\x02 unknown", "/home/me/a.weird"), "application/octet-stream");
+        assert_eq!(ty(b"%PDF-1.7\n%\xe2\xe3", "/home/me/a.pdf"), "application/pdf");
+        assert_eq!(ty(b"\x89PNG\r\n\x1a\nrest", "/home/me/a.png"), "image/png");
+        assert_eq!(ty(b"<svg xmlns=\"http://www.w3.org/2000/svg\"/>", "/home/me/a.svg"), "image/svg+xml");
+        assert_eq!(ty(b"body { color: red }", "/home/me/a.css"), "text/css");
+        // A real PDF opens in the viewer; anything else may not run script in its frame.
+        let dir = std::env::temp_dir().join(format!("coxswain-test-type-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let (fake, real) = (dir.join("fake.pdf"), dir.join("real.pdf"));
+        std::fs::write(&fake, page).unwrap();
+        std::fs::write(&real, b"%PDF-1.4 body").unwrap();
+        let r = respond(&get(&fake, None), |_: &Path| false);
+        assert_eq!((r.headers()[header::CONTENT_TYPE].to_str().unwrap(), r.headers()[header::CONTENT_SECURITY_POLICY].to_str().unwrap()), ("text/plain", "sandbox"));
+        assert_eq!(r.headers()[header::X_CONTENT_TYPE_OPTIONS], "nosniff");
+        let r = respond(&get(&real, None), |_: &Path| false);
+        assert_eq!(r.headers()[header::CONTENT_TYPE], "application/pdf");
+        assert!(r.headers().get(header::CONTENT_SECURITY_POLICY).is_none());
         std::fs::remove_dir_all(&dir).unwrap();
     }
 }
