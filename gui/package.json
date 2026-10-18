@@ -20,7 +20,7 @@
     "hyparquet": "^1.31.4",
     "hyparquet-compressors": "^1.1.2",
     "jszip": "^3.10.2",
-    "katex": "^0.18.11",
+    "katex": "^0.19.0",
     "mammoth": "^1.13.0",
     "marked": "^18.1.1",
     "marked-katex-extension": "^5.1.13",
@@ -33,10 +33,11 @@
     "@sveltejs/vite-plugin-svelte": "^7",
     "@tauri-apps/cli": "^2.12.3",
     "svelte": "^5.57.2",
-    "svelte-check": "^4",
+    "svelte-check": "^4.7.7",
     "vite": "^8.3.4"
   },
   "overrides": {
-    "lodash-es": "^4.18.1"
+    "lodash-es": "^4.18.1",
+    "katex": "$katex"
   }
 }

@@ -75,6 +75,7 @@ def files(d):
     (d / "dist").mkdir()
     (d / "dist/rocket-1.4.0.tar.gz").write_text("foo")
     shutil.copy(REPO / "crates/coxswain-core/src/provenance/testdata/made/statement-v1.json", d / "k.provenance.json")
+    (d / "l.md").write_text("# Orbit\n\nEnergy: $E = mc^2$\n\n$$\\int_0^1 x\\,dx$$\n")
     return {
         "md": ("a.md", "article h1", "Rocket", 10),
         "parquet": ("b.parquet", "table td", "Aalborg", 10),
@@ -87,6 +88,7 @@ def files(d):
         "png": ("h.png", "img", "", 10),
         "mmd": ("i.mmd", "svg", "Lift-off", 20),
         "html": ("j.html", "iframe.page", "", 10),
+        "math": ("l.md", "article .katex-display", "", 10),
         "provenance": ("k.provenance.json", ".prov .flow", "matches the file here", 10),
     }
 
