@@ -3462,7 +3462,12 @@ mod tests {
         app.panels[0].git = Some(git::Status { root: d.clone(), ..Default::default() });
         app.panels[1].git = Some(git::Status { root: d.clone(), ..Default::default() });
         assert_eq!(git_sides(&app.panels, &[d.join(".git/index")]), [0, 1]);
-        // A read under way is not started twice: it is marked to run once more.
+        // A read under way is not started twice: it is marked to run once more. The reads
+        // the app started itself must be over first, or one ends between the two lines.
+        let end = Instant::now() + Duration::from_secs(10);
+        while !app.git_busy.lock().unwrap().is_empty() && Instant::now() < end {
+            std::thread::sleep(Duration::from_millis(20));
+        }
         app.git_busy.lock().unwrap().insert(d.join("a"), false);
         app.refresh_git(&[0]);
         assert_eq!(app.git_busy.lock().unwrap().get(&d.join("a")), Some(&true));
