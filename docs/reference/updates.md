@@ -5,7 +5,7 @@
 Once a day, each app asks GitHub whether a newer release exists, and tells you when it does,
 with the command that upgrades your copy. Nothing is downloaded or installed by itself.
 
-![The desktop app (Cyber): at the right end of the command line row, next to Settings, the button Coxswain 2.9.0 is available](../screenshots/reference-update.png)
+![The desktop app (Cyber): at the right end of the command line row, next to Settings, the button Coxswain X.Y.Z is available, naming the newer version](../screenshots/reference-update.png)
 
 ## Contents
 

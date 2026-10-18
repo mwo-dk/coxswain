@@ -282,6 +282,7 @@ NEEDS_HARDWARE = {
     "previews-tools-settings.png": "containers, which must not run in the sandbox",
     "previews-container-pull.png": "podman pulling an image, which must not run in the sandbox",
     "files-properties-zfs.png": "a FreeBSD desktop with ZFS",
+    "tui-zfs-snapshots.png": "FreeBSD with ZFS snapshots (the picture there shows the key bar before 12 Settings)",
     "freebsd-sidebar-be.png": "a FreeBSD desktop with a ZFS root, boot environments and jails",
     "macos-setup-builtin.png": "a Mac",
 }

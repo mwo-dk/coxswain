@@ -6,8 +6,8 @@
 to remember a key. **F1** shows the keys as your config has them, under group headings, with
 the search syntax and where the config file is.
 
-![The desktop app's F9 Commands list filtered by theme: Theme: Cyber marked current, then Dark, Light, Nord and the other themes](../screenshots/panels-command-list.png)
-![The terminal app's F1 Help at 120 columns: the groups in two columns, Moving at the top left, Files, Archives, Search and Git on the right](../screenshots/panels-help.png)
+![The desktop app's F9 Commands list filtered by theme: Theme: Cyber marked current, then Dark, Light, Tokyo Night, Nord, Amber and the other themes](../screenshots/panels-command-list.png)
+![The terminal app's F1 Help at 140 columns: the tagline Coxswain X.Y.Z, the one at the helm who gets the work done, then the groups in two columns, Moving and Panels and tabs on the left, Files, Archives, Search and Git on the right; the F-key bar ends with 12 Settings](../screenshots/panels-help.png)
 
 ## Contents
 

@@ -5,7 +5,7 @@
 Sort a panel by name, extension, time or size with **Ctrl+F3** to **Ctrl+F6**, or by
 clicking a column header in the desktop app. **Alt+.** shows or hides hidden files.
 
-![The desktop app's details view: the Name header carries the sort arrow, folders come before files](../screenshots/gui-folder-sizes.png)
+![The desktop app's details view of ~/projects: the Name header carries the sort arrow, folders come before files](../screenshots/gui-folder-sizes.png)
 *Sorted by name: the arrow next to* Name *marks the column and the direction.*
 
 ## Contents

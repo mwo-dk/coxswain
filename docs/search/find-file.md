@@ -220,7 +220,7 @@ It differs in a few things:
 - *Set up* runs `coxswain --setup-search` in the terminal, then comes back to the panels.
 - **Ctrl+Shift+F** often arrives as **Ctrl+F** (the scope key), so use **Shift+F7** for *In files*.
 
-![The terminal app's Find with "rocket fuel cost" typed, [ everywhere | in rocket ] at the right with everywhere inverted, the kinds line, the Ask row (needs search by meaning first), IN FILES with budget.txt, budget.xlsx, engine.rs and launch-pad.drawio, ABOUT THIS offering Set up and HISTORY with the commit; the key line ends Ctrl+F scope](../screenshots/tui-find.png)
+![The terminal app's Find with "rocket fuel cost" typed, [ everywhere | in rocket ] at the right with everywhere inverted, the kinds line, the Ask row (needs search by meaning first), IN FILES with budget.txt, budget.xlsx, engine.rs and launch-pad.drawio, ABOUT THIS offering Set up and HISTORY with the commit; the key line has Ctrl+F scope](../screenshots/tui-find.png)
 
 ## Questions
 

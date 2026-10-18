@@ -6,7 +6,7 @@ Every key both apps have out of the box, with the action's name in the **F9** li
 config name that `[keys]` uses. Use it as a reference, or as the list to start from when you
 [change keys](../customise/keys.md).
 
-![The desktop app's F1 window, Coxswain 2.0.0 · Keyboard shortcuts: Show the guide again, then the groups, Moving first (Open Enter, Parent folder Ctrl+PageUp Backspace …), then Panels and tabs](../screenshots/panels-keys.png)
+![The desktop app's F1 window, coxswain X.Y.Z · Keyboard shortcuts, with the tabs Keys and Features and questions and Show the guide again, then the groups, Moving first (Open Enter, Parent folder Ctrl+PageUp Backspace …), then Panels and tabs](../screenshots/panels-keys.png)
 
 ## Contents
 

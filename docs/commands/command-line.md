@@ -118,6 +118,8 @@ back and takes that line away. Before any command has run the line says *No comm
 · any key brings the panels back*. For commands whose output you always want to read, put them in the
 [user menu](user-menu.md) with `wait = true`, which waits for **Enter** before the panels return.
 
+![The terminal app after ls and Ctrl+O: the panels hidden, the prompt /home/demo/projects/rocket> ls with its output Cargo.toml README.md TODO.txt deploy.sh docs src target, and under it Panels hidden · any key brings them back in reverse video](../screenshots/commands-panels-hidden-tui.png)
+
 #### How do I stop a command that runs too long in the desktop app?
 
 There is no stop button. The command runs until it ends; the app stays usable meanwhile, and

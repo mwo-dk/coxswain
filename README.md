@@ -79,7 +79,7 @@ flowchart LR
   you([Your system]) --> fb[FreeBSD] --> fbs["install-freebsd.sh<br>both apps; port under review"]
   you --> bsd[NetBSD, OpenBSD] --> unix["install-unix.sh<br>(ftp)"]
   you --> ill[illumos] --> unixc["install-unix.sh<br>(curl)"]
-  you --> nas[TrueNAS] --> nasb["Linux or FreeBSD build<br>in your home, over SSH"]
+  you --> nas[TrueNAS] --> nasb["FreeBSD or Linux build<br>in your home, over SSH"]
   you --> lin[Linux] --> linb["brew, or the static binary<br>.deb, .rpm, .AppImage<br>Flatpak, Nix"]
   you --> and[Android] --> ter["Termux: cargo install,<br>pkg once packaged"]
   you --> cros[ChromeOS] --> deb[".deb in Linux"]

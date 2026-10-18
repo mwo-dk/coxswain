@@ -151,6 +151,7 @@ Nothing to turn on: the footer line and **Alt+Z** are there whenever a folder is
 
 ## In the terminal app
 
+<!-- screenshot: tui-zfs-snapshots.png: retake on FreeBSD with ZFS: the same view at coxswain X.Y.Z, the F-key bar ending with 12 Settings and the size of the folder above on .. -->
 ![The terminal app in Classic blue (NC) on FreeBSD: the left panel titled …/projects/rocket/@snapshots [snapshots of tank/home/demo] with before-upgrade, daily-2026-10-05 and daily-2026-10-04, the info line 56320 used, 333824 referenced, and tank/home/demo · 1.24x · 1025024 of 500M in the bottom border; the right panel is the folder now](../screenshots/tui-zfs-snapshots.png)
 
 Everything above works the same, keys included. The differences: the title says

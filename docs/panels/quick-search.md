@@ -5,14 +5,14 @@
 Hold **Alt** and type the start of a name: the cursor jumps to the first entry in the active
 panel that starts with it. It is the fastest way to a file you can see, without the mouse.
 
-![The terminal app in Classic blue (NC): the command line row reads Quick search: bud and the cursor is on budget-da.txt, the first name starting with bud, in the right panel](../screenshots/panels-quick-search.png)
+![The terminal app in Classic blue (NC): the command line row reads Quick search: lau and the cursor is on launch-report.pdf, the first name starting with lau, in the right panel](../screenshots/panels-quick-search.png)
 
 ## How to use it
 
-1. Press **Alt** with the first letter of the name, for example **Alt+B**. The cursor jumps
-   to the first name starting with `b`.
-2. Keep typing, plain letters now (Alt is no longer needed; with Alt works too): `u`, `d`.
-   The cursor moves to the first name starting with `bud`.
+1. Press **Alt** with the first letter of the name, for example **Alt+L**. The cursor jumps
+   to the first name starting with `l`.
+2. Keep typing, plain letters now (Alt is no longer needed; with Alt works too): `a`, `u`.
+   The cursor moves to the first name starting with `lau`.
 3. End it:
 
 | Key | Does |
@@ -27,7 +27,7 @@ the cursor where it was.
 
 ## What you see
 
-The command line row shows `Quick search: bud` while it lasts, in place of the folder and the
+The command line row shows `Quick search: lau` while it lasts, in place of the folder and the
 prompt. The cursor moves in the panel; nothing is marked or filtered.
 
 ## Where it is told
@@ -48,7 +48,7 @@ There is no button for it, so both apps say it where you look:
 None. Quick search starts on any **Alt** key that is not bound to an action; the keys bound by
 default are **Alt+T** (`tag`), **Alt+N** (`notes`), **Alt+V** (`toggle_view`), **Alt+O**
 (`same_dir`), **Alt+B** (`branches`), **Alt+W** (`worktrees`), **Alt+S** (`switch_branch`), **Alt+G** (`git_tool`),
-**Alt+.** (`toggle_hidden`) and the Alt+F-keys. To free one, unbind its action:
+**Alt+Z** (`snapshots`), **Alt+.** (`toggle_hidden`) and the Alt+F-keys. To free one, unbind its action:
 `[keys] tag = []` ([Changing keys](../customise/keys.md)).
 
 ## In the terminal app

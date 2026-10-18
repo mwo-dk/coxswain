@@ -17,7 +17,7 @@ a time in its status line, lists the same under *Settings → Overview* (**F12**
 - [In the terminal app](#in-the-terminal-app)
 - [Questions](#questions)
 
-![The desktop app's window in Cyber with Coxswain 2.0.0 in its title bar, two panes on the home folder, the command line with the Settings button and its count, and the F-key bar](../screenshots/panels-title.png)
+![The desktop app's window in Cyber with coxswain X.Y.Z in its title bar, two panes on the home folder, the command line with the Settings button and its count, and the F-key bar](../screenshots/panels-title.png)
 
 ## How to use it
 

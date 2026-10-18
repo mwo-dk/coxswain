@@ -12,7 +12,7 @@ the commit changed in it, view it with **F3** and copy an old version out with *
 
 ![Inside commit 6ba7e53 (the badge commit 6ba7e53 at the end of the path bar): engine.rs under the cursor and the preview pane on Diff, showing the line that commit changed in it, and its last commit by Ada](../screenshots/git-history-file.png)
 
-![The terminal app in Classic blue (NC): the left panel titled /home/demo/projects/rocket/src/engine.rs/@history [history] with the commits 6ba7e53 Fix the fuel valve and 6ec9366 Add the engine, and the info line 6ba7e53 2026-10-03 01:54 Ada](../screenshots/tui-git-history.png)
+![The terminal app in Classic blue (NC): the left panel titled /home/demo/projects/rocket/src/engine.rs/@history [history] with the commits 30c86cf Fix the fuel valve and 776e5fa Add the engine, the cursor on the first, and the info line 30c86cf 2026-10-17 14:52 Ada](../screenshots/tui-git-history.png)
 
 ## Contents
 
