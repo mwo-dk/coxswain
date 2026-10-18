@@ -331,7 +331,10 @@ fn plan(
         // A command of the user's own: `%d` is the repository. One that starts with a terminal
         // tool runs in a terminal; any other the desktop app starts on its own, and the
         // terminal app runs in its terminal (a window of its own then holds it until closed).
-        let cmd = tool.replace("%d", &quote(&root.to_string_lossy()));
+        // On Windows cmd.exe reads the line, and expands `%` even inside quotes, so the path never
+        // goes into it: `%d` is `.`, the repository the command runs in.
+        let at = if os == "windows" { ".".into() } else { quote(&root.to_string_lossy()) };
+        let cmd = tool.replace("%d", &at);
         let first = cmd
             .split_whitespace()
             .next()
@@ -437,13 +440,12 @@ fn in_emulator(
             } else {
                 inner.to_vec()
             };
+            // The window starts in `root` (the spawn's own folder), so no path is on a line that
+            // cmd.exe or wt parses: either would run what follows a `&`, `;` or `|` in a folder name.
             Some(if has("wt") {
-                ("wt".into(), [owned(&["-d", &dir]), inner].concat())
+                ("wt".into(), [owned(&["-d", "."]), inner].concat())
             } else {
-                (
-                    "cmd".into(),
-                    [owned(&["/C", "start", "", "/D", &dir]), inner].concat(),
-                )
+                ("cmd".into(), [owned(&["/C", "start", ""]), inner].concat())
             })
         }
         _ => {
@@ -607,7 +609,7 @@ mod tests {
         let h = f.plan("windows", "", &f.repo, false, &[]).unwrap();
         assert_eq!(
             h.run,
-            spawn("cmd", &["/C", "start", "", "/D", &repo, "powershell"])
+            spawn("cmd", &["/C", "start", "", "powershell"])
         );
         let h = f.plan("macos", "", &f.repo, false, &[]).unwrap();
         assert_eq!(h.run, spawn("open", &["-a", "Terminal", &repo]));
@@ -636,7 +638,11 @@ mod tests {
             "$TERMINAL first"
         );
         let h = f.plan("windows", "", &f.repo, false, &[]).unwrap();
-        assert_eq!(h.run, spawn("wt", &["-d", &repo, "tig"]));
+        assert_eq!(h.run, spawn("wt", &["-d", ".", "tig"]));
+        // No folder name reaches cmd.exe: `a&calc` would run calc.
+        let evil = Fake::new("x&calc", &["cmd"]);
+        let h = evil.plan("windows", "mytool %d", &evil.repo, false, &[]).unwrap();
+        assert!(!format!("{:?}", h.run).contains("calc"), "{:?}", h.run);
         let Run::Spawn(p, a) = f.plan("macos", "", &f.repo, false, &[]).unwrap().run else {
             panic!()
         };

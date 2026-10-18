@@ -246,7 +246,7 @@ or typing in the field (desktop app) takes a command. In `config.toml`:
 ```toml
 [git]
 tool = "Sublime Merge"      # a tool's name, as Settings lists it
-# tool = "gitui -d %d"      # or a command: %d is the repository's folder, quoted
+# tool = "gitui -d %d"      # or a command: %d is the repository's folder, quoted (on Windows `.`, the folder the command runs in)
 ```
 
 A command runs in the repository's top folder. In the terminal app it runs in the terminal, and
