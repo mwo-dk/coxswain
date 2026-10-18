@@ -790,17 +790,18 @@ struct MeaningStatus {
     error: Option<String>,
 }
 
-#[tauri::command(async)]
-fn meaning_status(ctx: tauri::State<Ctx>) -> Res<MeaningStatus> {
+/// The model's files are looked at on a blocking thread, the download's lock not held meanwhile.
+#[tauri::command]
+async fn meaning_status(ctx: tauri::State<'_, Ctx>) -> Res<MeaningStatus> {
     use std::sync::atomic::Ordering;
-    let m = ctx.meaning.lock().map_err(|e| e.to_string())?;
-    Ok(MeaningStatus {
-        installed: coxswain_core::meaning::installed(),
-        size: coxswain_core::meaning::size(),
-        folder: coxswain_core::meaning::folder(),
-        downloading: m.as_ref().filter(|(_, err)| err.is_none()).map(|(p, _)| (p.done.load(Ordering::Relaxed), p.total.load(Ordering::Relaxed))),
-        error: m.as_ref().and_then(|(_, e)| e.clone()),
+    let (downloading, error) = {
+        let m = ctx.meaning.lock().map_err(|e| e.to_string())?;
+        (m.as_ref().filter(|(_, err)| err.is_none()).map(|(p, _)| (p.done.load(Ordering::Relaxed), p.total.load(Ordering::Relaxed))), m.as_ref().and_then(|(_, e)| e.clone()))
+    };
+    blocking(move || {
+        Ok(MeaningStatus { installed: coxswain_core::meaning::installed(), size: coxswain_core::meaning::size(), folder: coxswain_core::meaning::folder(), downloading, error })
     })
+    .await
 }
 
 /// A chat model's download: its `ask_model`, how far it is, and the error that stopped it.
@@ -841,31 +842,39 @@ struct ChatStatus {
     context: coxswain_core::setup::ContextAdvice,
 }
 
-#[tauri::command(async)]
-fn chat_status(ctx: tauri::State<Ctx>) -> Res<ChatStatus> {
+/// The probes (memory, the model servers, the files) run on a blocking thread.
+#[tauri::command]
+async fn chat_status(ctx: tauri::State<'_, Ctx>) -> Res<ChatStatus> {
     use coxswain_core::chat;
     use std::sync::atomic::Ordering;
     static RAM: std::sync::OnceLock<u64> = std::sync::OnceLock::new();
-    // The first time on a processor: the probe, under a second, then kept.
-    let cpu_only = ctx.cfg().search.meaning_device == "cpu";
-    let ram = *RAM.get_or_init(coxswain_core::setup::ram_gb);
-    let suggested = chat::suggest(ram, cpu_only);
-    let look = coxswain_core::setup::look(false);
-    let models = chat::fitting(ram)
-        .map(|m| ChatModel { key: m.key(), name: m.name, size: m.size(), ram: m.ram, installed: m.installed(), suggested: suggested.is_some_and(|s| std::ptr::eq(m, s)), estimate: chat::estimate(m, cpu_only, true).map(|e| e.text()) })
-        .collect();
-    let d = ctx.chat.lock().map_err(|e| e.to_string())?;
-    Ok(ChatStatus {
-        models,
-        downloading: d.as_ref().filter(|(_, _, err)| err.is_none()).map(|(k, p, _)| (k.clone(), p.done.load(Ordering::Relaxed), p.total.load(Ordering::Relaxed))),
-        error: d.as_ref().and_then(|(_, _, e)| e.clone()),
-        runs: coxswain_core::setup::builtin_runs(&ctx.cfg().search, None),
-        preselected: coxswain_core::setup::recommend_ask(&ctx.cfg().search, look.as_deref()),
-        groups: coxswain_core::setup::ask_choices(&ctx.cfg().search, look.as_deref()),
-        code_groups: coxswain_core::setup::code_choices(&ctx.cfg().search, look.as_deref()),
-        code_why: coxswain_core::setup::code_advice(&ctx.cfg().search, look.as_deref()).why,
-        context: coxswain_core::setup::context_advice(&ctx.cfg().search, look.as_deref()),
+    let (downloading, error) = {
+        let d = ctx.chat.lock().map_err(|e| e.to_string())?;
+        (d.as_ref().filter(|(_, _, err)| err.is_none()).map(|(k, p, _)| (k.clone(), p.done.load(Ordering::Relaxed), p.total.load(Ordering::Relaxed))), d.as_ref().and_then(|(_, _, e)| e.clone()))
+    };
+    let cfg = ctx.cfg().search.clone();
+    blocking(move || {
+        // The first time on a processor: the probe, under a second, then kept.
+        let cpu_only = cfg.meaning_device == "cpu";
+        let ram = *RAM.get_or_init(coxswain_core::setup::ram_gb);
+        let suggested = chat::suggest(ram, cpu_only);
+        let look = coxswain_core::setup::look(false);
+        let models = chat::fitting(ram)
+            .map(|m| ChatModel { key: m.key(), name: m.name, size: m.size(), ram: m.ram, installed: m.installed(), suggested: suggested.is_some_and(|s| std::ptr::eq(m, s)), estimate: chat::estimate(m, cpu_only, true).map(|e| e.text()) })
+            .collect();
+        Ok(ChatStatus {
+            models,
+            downloading,
+            error,
+            runs: coxswain_core::setup::builtin_runs(&cfg, None),
+            preselected: coxswain_core::setup::recommend_ask(&cfg, look.as_deref()),
+            groups: coxswain_core::setup::ask_choices(&cfg, look.as_deref()),
+            code_groups: coxswain_core::setup::code_choices(&cfg, look.as_deref()),
+            code_why: coxswain_core::setup::code_advice(&cfg, look.as_deref()).why,
+            context: coxswain_core::setup::context_advice(&cfg, look.as_deref()),
+        })
     })
+    .await
 }
 
 /// The built-in models on the disk, for Settings → Finding files → Built-in models.

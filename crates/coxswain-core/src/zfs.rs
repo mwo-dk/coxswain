@@ -444,17 +444,15 @@ pub fn diff(path: &Path) -> io::Result<String> {
             Path::new("/dev/null")
         });
     }
-    let o = c.output()?;
+    // A hung disk or a huge difference must not hold the viewer: time and size are capped.
+    let o = crate::tools::capture(c, BUDGET, 512 << 10)?;
     // 0: the same; 1: differences; 2: trouble.
     if o.status.code() == Some(2) {
         return Err(io::Error::other(
             String::from_utf8_lossy(&o.stderr).trim().to_string(),
         ));
     }
-    Ok(String::from_utf8_lossy(&o.stdout)
-        .chars()
-        .take(512 * 1024)
-        .collect())
+    Ok(String::from_utf8_lossy(&o.stdout).into_owned())
 }
 
 /// `diff` of a file in a snapshot against now, written next to the copies the viewer reads:

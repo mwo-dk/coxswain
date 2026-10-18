@@ -3,7 +3,7 @@
 //! On start, both apps rewrite a config from 1.x once, its comments and order kept, and a notice
 //! says what changed.
 
-use toml_edit::{DocumentMut, Item, Key, Table};
+use toml_edit::{DocumentMut, Item, Key, TableLike};
 
 /// (table, old key, new key).
 pub const RENAMED: &[(&str, &str, &str)] = &[
@@ -27,7 +27,8 @@ pub fn rewrite(text: &str) -> Result<Option<(String, Vec<String>)>, String> {
             .filter(|r| r.0 == table)
             .map(|r| (r.1, r.2))
             .collect();
-        let Some(t) = doc.get_mut(table).and_then(Item::as_table_mut) else {
+        // `[keys]` or `keys = { … }` on one line.
+        let Some(t) = doc.get_mut(table).and_then(Item::as_table_like_mut) else {
             continue;
         };
         if !renames.iter().any(|(old, _)| t.contains_key(old)) {
@@ -46,10 +47,10 @@ pub fn rewrite(text: &str) -> Result<Option<(String, Vec<String>)>, String> {
 
 /// Every key of `t` in its place, the old ones under their new names with their comments. Where
 /// the new name is there already, the old key goes (`kept` false).
-fn rename(t: &mut Table, renames: &[(&str, &str)], mut said: impl FnMut(&str, &str, bool)) {
+fn rename(t: &mut dyn TableLike, renames: &[(&str, &str)], mut said: impl FnMut(&str, &str, bool)) {
     let names: Vec<String> = t.iter().map(|(k, _)| k.to_string()).collect();
     for name in &names {
-        let Some((key, item)) = t.remove_entry(name) else {
+        let (Some(key), Some(item)) = (t.key(name).cloned(), t.remove(name)) else {
             continue;
         };
         match renames.iter().find(|(old, _)| old == name) {
@@ -58,11 +59,11 @@ fn rename(t: &mut Table, renames: &[(&str, &str)], mut said: impl FnMut(&str, &s
                 let key = Key::new(*new)
                     .with_leaf_decor(key.leaf_decor().clone())
                     .with_dotted_decor(key.dotted_decor().clone());
-                t.insert_formatted(&key, item);
+                t.entry_format(&key).or_insert(item);
                 said(old, new, true);
             }
             None => {
-                t.insert_formatted(&key, item);
+                t.entry_format(&key).or_insert(item);
             }
         }
     }
@@ -168,5 +169,14 @@ max_results = 500
         );
         assert_eq!(rewrite("").unwrap(), None);
         assert!(rewrite("[keys\n").is_err());
+
+        // On one line (`keys = { … }`): renamed in place too.
+        let (inline, said) = rewrite("keys = { mkdir = [\"F7\"], quit = [\"F10\"] }\nsearch = { roots = [\"/a\"] }\n")
+            .unwrap()
+            .unwrap();
+        assert_eq!(said, ["[keys] mkdir → new_folder", "[search] roots → name_roots"]);
+        let cfg = crate::config::Config::parse(&inline).unwrap();
+        assert_eq!(cfg.keys[&Action::NewFolder], ["F7"], "{inline}");
+        assert_eq!(cfg.search.roots, [std::path::PathBuf::from("/a")]);
     }
 }

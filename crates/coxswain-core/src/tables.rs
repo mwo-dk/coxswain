@@ -39,8 +39,16 @@ fn cell(s: &str) -> String {
 }
 
 /// Tables and views with their row counts, schema and first `rows` rows. Opened read-only;
-/// counting and reading stop after about a second per table on huge databases.
+/// counting and reading stop after [`LIMIT`] for the whole database (the terminal app waits
+/// for it), and the tables after that keep their schema only.
 pub fn sqlite(path: &Path, rows: usize) -> Result<Vec<Table>, String> {
+    within(path, rows, LIMIT)
+}
+
+/// How long a database's preview may count and read, all its tables together.
+pub const LIMIT: std::time::Duration = std::time::Duration::from_millis(2500);
+
+fn within(path: &Path, rows: usize, limit: std::time::Duration) -> Result<Vec<Table>, String> {
     use rusqlite::types::ValueRef;
     use rusqlite::{Connection, OpenFlags};
     let db = Connection::open_with_flags(
@@ -52,11 +60,14 @@ pub fn sqlite(path: &Path, rows: usize) -> Result<Vec<Table>, String> {
         .prepare("SELECT name, type, coalesce(sql, '') FROM sqlite_master WHERE type IN ('table', 'view') AND name NOT LIKE 'sqlite_%' ORDER BY type, name")
         .and_then(|mut q| q.query_map([], |r| Ok(Table { name: r.get(0)?, kind: r.get(1)?, rows: None, sql: r.get(2)?, sample: vec![] }))?.collect())
         .map_err(|e| e.to_string())?;
+    // Without the hook, counting a huge table simply has no time limit.
+    let start = std::time::Instant::now();
+    let _ = db.progress_handler(10_000, Some(move || start.elapsed() > limit));
     for t in &mut tables {
+        if start.elapsed() > limit {
+            break;
+        }
         let name = format!("\"{}\"", t.name.replace('"', "\"\""));
-        let start = std::time::Instant::now();
-        // Without the hook, counting a huge table simply has no time limit.
-        let _ = db.progress_handler(10_000, Some(move || start.elapsed().as_millis() > 1000));
         if t.kind == "table" {
             t.rows = db
                 .query_row(&format!("SELECT count(*) FROM {name}"), [], |r| {
@@ -262,6 +273,12 @@ mod tests {
             "the column names, then as many rows as asked"
         );
         assert_eq!(t[1].sample[1], ["Ada"], "a view shows its rows too");
+        // Out of time: the tables are named, without a count or rows.
+        let late = within(&p, 1, std::time::Duration::ZERO).unwrap();
+        assert!(
+            late.len() == 2 && late.iter().all(|t| t.rows.is_none() && t.sample.is_empty()),
+            "one limit for the whole database"
+        );
         let text = as_text(&p).unwrap();
         assert!(
             text.contains("id │ name │ pic") && text.contains("Ada"),

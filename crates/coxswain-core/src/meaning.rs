@@ -646,13 +646,24 @@ pub fn key_of(cfg: &crate::config::SearchConfig) -> Option<String> {
         .flatten()
 }
 
-/// Why a server gave no vectors: it did not answer, and the file waits for the next round; or
-/// it answered that it cannot (a model that is not there, an input it does not take), and the
-/// file is left until the next scan, so the rest go on.
+/// Why a server gave no vectors: it did not answer or cannot serve anyone now (a key it does
+/// not take, a model that is not there, too many requests, its own fault), and the round stops,
+/// the file waiting for the next; or it refused this input (too long, malformed), and the file
+/// is left until the next scan, so the rest go on.
 #[derive(Debug)]
 pub enum NoVectors {
     Down(String),
     Refused(String),
+}
+
+impl NoVectors {
+    /// An HTTP error status as one or the other: only what is about the input is the file's.
+    pub fn from_status(status: u16, why: String) -> NoVectors {
+        match status {
+            400 | 413 | 422 => NoVectors::Refused(why),
+            _ => NoVectors::Down(why),
+        }
+    }
 }
 
 impl NoVectors {
@@ -985,12 +996,10 @@ impl Server {
                 .map(String::from)
         };
         if status.as_u16() >= 400 {
-            return Err(NoVectors::Refused(format!(
-                "{} {}: {}",
-                shown(&self.url),
-                status,
-                said().unwrap_or(text)
-            )));
+            return Err(NoVectors::from_status(
+                status.as_u16(),
+                format!("{} {}: {}", shown(&self.url), status, said().unwrap_or(text)),
+            ));
         }
         let rows: Vec<&serde_json::Value> = if self.openai {
             v["data"]
@@ -1692,6 +1701,17 @@ pub fn alike(a: &[u64], b: &[u64]) -> u32 {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn a_server_error_stops_the_round_and_a_refused_input_skips_the_file() {
+        use super::NoVectors;
+        for s in [401, 403, 404, 405, 408, 429, 500, 502, 503] {
+            assert!(matches!(NoVectors::from_status(s, String::new()), NoVectors::Down(_)), "{s}");
+        }
+        for s in [400, 413, 422] {
+            assert!(matches!(NoVectors::from_status(s, String::new()), NoVectors::Refused(_)), "{s}");
+        }
+    }
+
     use super::*;
 
     #[test]
@@ -2141,7 +2161,8 @@ mod tests {
         })
         .unwrap();
         match engine.passages(&["a passage".into()]) {
-            Err(NoVectors::Refused(why)) => assert!(why.contains("no such model"), "{why}"),
+            // A model that is not there stops the round: every file would be refused alike.
+            Err(NoVectors::Down(why)) => assert!(why.contains("no such model"), "{why}"),
             other => panic!("{other:?}"),
         }
         assert!(sent_key(server.join().unwrap()));

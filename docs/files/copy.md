@@ -42,7 +42,9 @@ An empty target cancels too. **F5** is also *Copy* in the F9 command list
   are cleared and both panels are read again.
 - In the terminal app one file operation runs at a time: another asked for meanwhile is not
   started (the status line says what is still running), and quitting waits for the copy to
-  finish, so no half-copied file is left behind.
+  finish, so no half-copied file is left behind. The status line then says *A file operation is
+  still running: Coxswain quits when it is done. F10 again quits now and leaves it half done.*:
+  a second **F10** leaves at once, for a copy stuck on a network disk that no longer answers.
 - Folders are copied with everything in them. Symbolic links are copied as links, not as what
   they point at.
 - **Nothing is ever written over.** A file that already exists at the target is an error

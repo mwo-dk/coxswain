@@ -64,7 +64,8 @@ theme's `hidden` colour (dim). Inside an archive the same rule applies to the na
 
 `show_hidden` is where both apps start. The desktop app then keeps your last choice in its
 session, so it starts with the state you left; the terminal app starts from the config each
-time.
+time. Changed in Settings, it applies at once in both apps: the panels are read again with
+hidden files shown or not.
 
 ## In the terminal app
 

@@ -959,7 +959,15 @@ impl App {
 
     fn act(&mut self, a: Action) {
         match a {
-            Action::Quit => self.quit = true,
+            // A second Quit while a job runs leaves anyway: a dead network mount must not
+            // hold the app. The job's thread ends with the process, its file half done.
+            Action::Quit if self.quit && self.job.is_some() => self.job = None,
+            Action::Quit => {
+                self.quit = true;
+                if self.job.is_some() {
+                    self.status = Some(t!("status.quit_job", "key" => self.key_label(Action::Quit)));
+                }
+            }
             Action::Up => self.panel_mut().move_cursor(-1),
             Action::Down => self.panel_mut().move_cursor(1),
             Action::PageUp => {
@@ -1014,6 +1022,7 @@ impl App {
             }
             Action::SwapPanels => {
                 self.panels.swap(0, 1);
+                self.measuring.swap(0, 1);
                 self.active ^= 1;
             }
             Action::TogglePanels => self.run = Some(Run::ShowOutput),
@@ -2625,7 +2634,7 @@ fn main_loop(term: &mut DefaultTerminal, app: &mut App) -> std::io::Result<()> {
     // A command has run: Ctrl+O shows its output, or says there is none yet.
     let mut ran = false;
     // A file operation still running when asked to quit finishes first: cut short, it
-    // would leave half a file behind.
+    // would leave half a file behind. A second Quit lets it go (`Action::Quit`).
     while !app.quit || app.job.is_some() {
         term.draw(|f| ui::draw(f, app))?;
         match app.run.take() {
@@ -2655,7 +2664,8 @@ fn main_loop(term: &mut DefaultTerminal, app: &mut App) -> std::io::Result<()> {
                 }
                 let say = t!(if ran { "tui.panels_hidden" } else { "tui.panels_hidden_none" });
                 let _ = execute!(out, SetAttribute(Attribute::Reverse), Print(say), SetAttribute(Attribute::Reset));
-                while !matches!(event::read(), Ok(Event::Key(k)) if k.kind == KeyEventKind::Press) {}
+                // A read that fails (the terminal gone) ends the wait too, rather than spin.
+                while event::read().is_ok_and(|e| !matches!(e, Event::Key(k) if k.kind == KeyEventKind::Press)) {}
                 let _ = execute!(out, Print("\r"), terminal::Clear(terminal::ClearType::CurrentLine));
                 let _ = terminal::disable_raw_mode();
             })?,
@@ -3406,6 +3416,21 @@ mod tests {
         assert!(app.status.is_some(), "and says why");
         // The app's threads (sizes, git) may still hold the folder open on Windows.
         let _ = std::fs::remove_dir_all(d);
+    }
+
+    /// Quit while a job runs waits for it and says so; a second Quit leaves anyway (a job
+    /// hung on a dead network mount).
+    #[test]
+    fn a_second_quit_leaves_a_hung_job() {
+        let d = std::env::temp_dir();
+        let mut app = app(d.clone(), d.clone());
+        let (_tx, rx) = mpsc::channel();
+        app.job = Some(Job { op: Some(Transfer::Copy), src: vec![d.join("a.txt")], dst: d, password: None, select: None, line: "busy".into(), rx });
+        app.act(Action::Quit);
+        assert!(app.quit && app.job.is_some(), "the first waits");
+        assert!(app.status.as_deref().is_some_and(|s| s.contains("F10")), "{:?}", app.status);
+        app.act(Action::Quit);
+        assert!(app.quit && app.job.is_none(), "the second leaves");
     }
 
     /// A job whose thread ended without a word (a panic in it) is let go and said, so the app

@@ -71,8 +71,13 @@ themselves. The *Server* field is the base URL: Coxswain adds `/api/embed` for O
 - **A server that does not answer** pauses search by meaning: Settings (*Meaning has stopped: …*), the terminal app's
   Find and a [notice](../panels/notices.md) (*Search by meaning cannot read what files are about: …*) show
   the error, the files
-  wait, and they are done at the next pass once it answers. A search asks the server for the
-  question's vector too, so while it is down, meaning hits are missing; word hits are not.
+  wait, and they are done at the next pass once it answers. The same goes for a server that
+  answers with an error about itself rather than the file (HTTP 401 or 403 for a key it does
+  not take, 404 for a model that is gone, 408, 429 for too many requests, any 5xx): the pass
+  stops at the first one instead of asking again for every file. Only 400, 413 and 422 (an
+  input it will not take) skip just that file until the next scan. A search asks the server for
+  the question's vector too, so while it is down, meaning hits are missing; word hits are not,
+  and the error goes away with the first search it answers again.
 - **Prefixes.** Models whose name has `e5` get `query: ` and `passage: ` in front, and
   `nomic-embed` models `search_query: ` and `search_document: `, as those models want.
 - **What counts as close** depends on the model: e5 models need a score of 0.77, other models 0.5,

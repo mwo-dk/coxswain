@@ -131,8 +131,10 @@ The pane is for a look at the data, and a table of 200 rows draws at once. Open 
 
 #### Is it safe to preview a database another program is writing to?
 
-Yes. SQLite files are opened read-only, and counting rows stops after about a second per table
-(the count then shows *–*), so a huge database does not hold up the pane.
+Yes. SQLite files are opened read-only, and counting and reading rows stop after two and a half
+seconds for the whole database: the tables not reached by then show their name and schema with
+the count as *–* and no rows, so a huge database does not hold up the pane (or the terminal app,
+which waits for it on **F3**).
 
 #### Why does search.db not show its tables like other databases?
 
