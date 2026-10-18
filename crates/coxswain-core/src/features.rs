@@ -22,7 +22,7 @@ const fn f(id: &'static str, docs: &'static str, actions: &'static [Action]) -> 
 }
 
 /// The areas, in the order of `docs/README.md`: `features.area.<area>` names each.
-pub const AREAS: [&str; 8] = [
+pub const AREAS: [&str; 9] = [
     "panels",
     "organise",
     "commands",
@@ -31,6 +31,7 @@ pub const AREAS: [&str; 8] = [
     "files",
     "customise",
     "reference",
+    "systems",
 ];
 
 /// Where "Show me" opens a feature's page.
@@ -46,6 +47,7 @@ pub const FEATURES: &[Feature] = &[
         "panels/the-screen.md",
         &[SwitchPanel, TogglePanels],
     ),
+    f("notices", "panels/notices.md", &[Settings]),
     f(
         "moving",
         "panels/moving.md",
@@ -131,7 +133,6 @@ pub const FEATURES: &[Feature] = &[
     f("models", "search/models.md", &[Settings]),
     f("helper", "search/helper.md", &[]),
     f("battery", "search/battery.md", &[]),
-    f("notices", "search/notices.md", &[Settings]),
     f("search_settings", "search/settings.md", &[Settings]),
     // previews
     f(
@@ -259,10 +260,12 @@ pub const FEATURES: &[Feature] = &[
         &[DiskUse, Settings, Menu],
     ),
     f("bills_of_materials", "reference/bills-of-materials.md", &[]),
-    f("linux_arm", "reference/linux-arm.md", &[]),
-    f("chromeos", "reference/chromeos.md", &[]),
-    f("macos", "reference/macos.md", &[]),
-    f("windows_arm", "reference/windows-arm.md", &[]),
+    // systems
+    f("freebsd", "systems/freebsd.md", &[Snapshots, Properties, Package, Flags]),
+    f("linux_arm", "systems/linux-arm.md", &[]),
+    f("chromeos", "systems/chromeos.md", &[]),
+    f("macos", "systems/macos.md", &[]),
+    f("windows_arm", "systems/windows-arm.md", &[]),
 ];
 
 impl Feature {
@@ -301,11 +304,14 @@ pub struct Entry {
 /// has none). None when the language has no such text.
 fn text(cfg: &Config, key: &str) -> Option<String> {
     let s = crate::i18n::tr(key, &[]);
-    if s == key {
-        return None;
-    }
+    (s != key).then(|| with_keys(cfg, &s))
+}
+
+/// `s` with each `{action}` (`{copy}`) filled with that action's handiest key in `cfg`'s keymap,
+/// or its name when it has none; any other `{` is left as it is. F1's texts in both apps.
+pub fn with_keys(cfg: &Config, s: &str) -> String {
     let mut out = String::with_capacity(s.len());
-    let mut rest = s.as_str();
+    let mut rest = s;
     while let Some(i) = rest.find('{') {
         out.push_str(&rest[..i]);
         let tail = &rest[i..];
@@ -322,7 +328,7 @@ fn text(cfg: &Config, key: &str) -> Option<String> {
         }
     }
     out.push_str(rest);
-    Some(out)
+    out
 }
 
 /// `s` lower-cased without its diacritics, for the filter: "Größe" finds "grosse", "é" finds "e".
@@ -415,18 +421,17 @@ pub fn list(cfg: &Config, query: &str, gui: bool) -> Vec<Entry> {
 mod tests {
     use super::*;
 
-    /// Reference pages that are not one feature: a system's install and its differences.
+    /// Pages that are not one feature: a system's install and its differences.
     const NOT_FEATURES: &[&str] = &[
         "reference/security.md",
         "reference/performance.md",
-        "reference/freebsd.md",
-        "reference/netbsd.md",
-        "reference/openbsd.md",
-        "reference/illumos.md",
-        "reference/truenas.md",
-        "reference/flatpak.md",
-        "reference/nix.md",
-        "reference/termux.md",
+        "systems/netbsd.md",
+        "systems/openbsd.md",
+        "systems/illumos.md",
+        "systems/truenas.md",
+        "systems/flatpak.md",
+        "systems/nix.md",
+        "systems/termux.md",
     ];
 
     #[test]

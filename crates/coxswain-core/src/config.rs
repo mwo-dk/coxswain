@@ -1691,6 +1691,13 @@ impl Default for Config {
     }
 }
 
+/// Most terminals never pass on Ctrl with a punctuation mark (Ctrl+,): the terminal app shows
+/// another key of the action when it has one.
+fn delivered(key: &str) -> bool {
+    let rest = key.get(..5).filter(|p| p.eq_ignore_ascii_case("ctrl+")).map(|_| &key[5..]);
+    !rest.is_some_and(|r| r.chars().count() == 1 && r.chars().all(|c| c.is_ascii_punctuation()))
+}
+
 impl Config {
     pub fn path() -> Option<PathBuf> {
         Some(dirs::config_dir()?.join("coxswain").join("config.toml"))
@@ -1837,11 +1844,18 @@ impl Config {
     }
 
     /// The key a short text names for `action`: its Ctrl key when it has one (Find's Ctrl+F
-    /// over Alt+F7), else its first.
+    /// over Alt+F7), else its first; one a terminal delivers when it has one, as both apps'
+    /// texts are read in either (Settings' F12 over Ctrl+,).
     pub fn handy_key(&self, action: Action) -> Option<&str> {
         let keys = self.keys.get(&action)?;
-        let ctrl = |k: &&String| k.get(..5).is_some_and(|p| p.eq_ignore_ascii_case("ctrl+"));
-        keys.iter().find(ctrl).or(keys.first()).map(String::as_str)
+        let ctrl = |k: &&String| k.get(..5).is_some_and(|p| p.eq_ignore_ascii_case("ctrl+")) && delivered(k);
+        keys.iter().find(ctrl).or_else(|| keys.iter().find(|k| delivered(k))).or(keys.first()).map(String::as_str)
+    }
+
+    /// The first key of `action` a terminal delivers, else its first: what the terminal app shows.
+    pub fn tty_key(&self, action: Action) -> Option<&str> {
+        let keys = self.keys.get(&action)?;
+        keys.iter().find(|k| delivered(k)).or(keys.first()).map(String::as_str)
     }
 
     /// The keys of `action` as texts show them, "F8 / Delete", or "—" with none.
@@ -1958,6 +1972,10 @@ mod tests {
         assert!(e.contains("copy") && e.contains("pack"), "{e}");
         let cfg = Config::parse("[keys]\nsearch = [\"Alt+F7\", \"ctrl+f\"]\ndelete = [\"F8\", \"del\"]\n").unwrap();
         assert_eq!(cfg.handy_key(Action::Search), Some("ctrl+f"));
+        // Settings' Ctrl+, never reaches most terminals: texts and the terminal app name F12.
+        let d = Config::default();
+        assert_eq!((d.handy_key(Action::Settings), d.tty_key(Action::Settings)), (Some("F12"), Some("F12")));
+        assert_eq!((d.key_for(Action::Settings), d.tty_key(Action::Search)), (Some("Ctrl+,"), Some("Alt+F7")));
         assert_eq!(written("ctrl+f"), "Ctrl+F");
         assert_eq!(cfg.keys_shown(Action::Delete), "F8 / Delete");
         let none = Config::parse("[keys]\nhelp = []\n").unwrap();
