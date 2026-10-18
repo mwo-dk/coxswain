@@ -177,8 +177,8 @@ impl Line {
     }
 }
 
-/// A command line the user typed: by their `$SHELL` on Unix, in its own syntax, as nothing of
-/// Coxswain's is put into it; by cmd.exe on Windows.
+/// A command line the user typed in the terminal app: by their `$SHELL` on Unix, in its own
+/// syntax (a name pasted in is quoted for it, `config::quote_for`); by cmd.exe on Windows.
 pub fn typed_line(cmd: &str) -> Command {
     match std::env::var_os("SHELL").filter(|s| cfg!(unix) && !s.is_empty()) {
         Some(sh) => {

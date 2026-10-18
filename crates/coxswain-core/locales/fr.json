@@ -850,7 +850,7 @@
  "feature.cloud_files.what": "Les fichiers uniquement en ligne de OneDrive, Dropbox, Google Drive, Proton Drive et iCloud sont trouvés par leur nom, jamais téléchargés.",
  "feature.command_line.a1": "Dans l’app de terminal, oui : les panneaux s’effacent et le programme a le terminal. Dans l’app de bureau, non : une commande ne reçoit aucune saisie et sa sortie est recueillie, sudo ne peut donc pas demander votre mot de passe.",
  "feature.command_line.a2": "Appuyez sur {toggle_panels} : les panneaux se masquent et le terminal montre ce que la commande a affiché. N’importe quelle touche fait revenir les panneaux.",
- "feature.command_line.a3": "Oui, dans les deux applis : la ligne que vous tapez s'exécute dans votre $SHELL. Les entrées de F2 s'exécutent dans sh, car les noms de fichiers qu'elles insèrent sont mis entre guillemets pour sh.",
+ "feature.command_line.a3": "Dans l'appli terminal, oui : la ligne s'exécute dans votre $SHELL, et {copy_path} y met les noms entre guillemets pour fish. L'appli de bureau exécute la ligne dans sh : appelez vous-même votre shell, comme fish -c '…'.",
  "feature.command_line.q1": "Puis-je lancer vim, less, ssh ou sudo depuis la ligne de commande ?",
  "feature.command_line.q2": "La sortie a défilé trop vite dans l’app de terminal. Où est-elle ?",
  "feature.command_line.q3": "Ma syntaxe fish (ou zsh) marche-t-elle dans la ligne de commande ?",

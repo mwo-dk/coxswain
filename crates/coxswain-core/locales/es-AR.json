@@ -850,7 +850,7 @@
  "feature.cloud_files.what": "Los archivos solo en línea de OneDrive, Dropbox, Google Drive, Proton Drive e iCloud se encuentran por el nombre y nunca se descargan.",
  "feature.command_line.a1": "En la app de terminal, sí: los paneles se corren y el programa tiene la terminal. En la app de escritorio, no: un comando no recibe entrada y su salida se recoge, así que sudo no puede pedirte la contraseña.",
  "feature.command_line.a2": "Apretá {toggle_panels}: los paneles se ocultan y la terminal muestra lo que imprimió el comando. Cualquier tecla vuelve a mostrar los paneles.",
- "feature.command_line.a3": "Sí, en las dos apps: la línea que escribís corre en tu $SHELL. Las entradas de F2 corren en sh, porque los nombres de archivo que ponen van entre comillas para sh.",
+ "feature.command_line.a3": "En la app de terminal, sí: la línea corre en tu $SHELL, y {copy_path} pone ahí los nombres entre comillas para fish. La app de escritorio corre la línea en sh: llamá vos a tu shell, como en fish -c '…'.",
  "feature.command_line.q1": "¿Puedo ejecutar vim, less, ssh o sudo desde la línea de comandos?",
  "feature.command_line.q2": "En la app de terminal la salida pasó volando. ¿Dónde está?",
  "feature.command_line.q3": "¿Funciona mi sintaxis de fish (o zsh) en la línea de comandos?",

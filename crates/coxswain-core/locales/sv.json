@@ -819,7 +819,7 @@
  "feature.cloud_files.what": "Filer som bara finns online i OneDrive, Dropbox, Google Drive, Proton Drive och iCloud hittas på namn, och hämtas aldrig.",
  "feature.command_line.a1": "I terminalappen ja: panelerna kliver åt sidan och programmet får terminalen. I skrivbordsappen nej: ett kommando får ingen inmatning och dess utdata samlas in, så sudo kan inte fråga efter ditt lösenord.",
  "feature.command_line.a2": "Tryck {toggle_panels}: panelerna döljs och terminalen visar vad kommandot skrev ut. Valfri tangent tar tillbaka panelerna.",
- "feature.command_line.a3": "Ja, i båda apparna: raden du skriver körs i ditt $SHELL. F2:s poster körs i sh, eftersom filnamnen de sätter in är citerade för sh.",
+ "feature.command_line.a3": "I terminalappen, ja: raden körs i ditt $SHELL, och {copy_path} citerar namn för fish där. Skrivbordsappen kör raden i sh: anropa ditt skal själv, som i fish -c '…'.",
  "feature.command_line.q1": "Kan jag köra vim, less, ssh eller sudo från kommandoraden?",
  "feature.command_line.q2": "Utdata blinkade förbi i terminalappen. Var är den?",
  "feature.command_line.q3": "Fungerar min fish- (eller zsh-)syntax på kommandoraden?",

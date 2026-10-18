@@ -63,7 +63,7 @@ runs on the host instead, through `flatpak-spawn --host`, so it is your program 
 | What | Key | Runs |
 |---|---|---|
 | The editor | **F4** | `editor` from `config.toml`, through `sh -c` on the host; without `editor`, the file opens in its default application |
-| A command typed in the command line | **Enter** | `$SHELL -c` on the host, in the active panel's folder; its output shows as it does outside a Flatpak |
+| A command typed in the command line | **Enter** | `sh -c` on the host, in the active panel's folder; its output shows as it does outside a Flatpak |
 | [The user menu](../commands/user-menu.md) and [scripts](../commands/scripts.md) | **F2** | On the host, in the active panel's folder, with the marked files as arguments |
 | Deleting to the trash | **F8** | `gio trash` on the host, so the files land in your desktop's trash; the Flatpak's own data folder would hold a trash nothing shows |
 | Opening a file | **Enter**, **F3** → *Open in its app* | The desktop's portal, which opens the default application or asks which one |

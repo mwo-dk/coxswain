@@ -819,7 +819,7 @@
  "feature.cloud_files.what": "Online-only files in OneDrive, Dropbox, Google Drive, Proton Drive and iCloud are found by name, never downloaded.",
  "feature.command_line.a1": "In the terminal app, yes: the panels step aside and the program has the terminal. In the desktop app, no: a command gets no input and its output is collected, so sudo cannot ask for your password.",
  "feature.command_line.a2": "Press {toggle_panels}: the panels hide and the terminal shows what the command printed. Any key brings the panels back.",
- "feature.command_line.a3": "Yes, in both apps: the line you type runs in your $SHELL. F2's entries run in sh, as the file names they put in are quoted for sh.",
+ "feature.command_line.a3": "In the terminal app, yes: the line runs in your $SHELL, and {copy_path} quotes names for fish there. The desktop app runs the line in sh: call your shell yourself, as in fish -c '…'.",
  "feature.command_line.q1": "Can I run vim, less, ssh or sudo from the command line?",
  "feature.command_line.q2": "The output flashed by in the terminal app. Where is it?",
  "feature.command_line.q3": "Does my fish (or zsh) syntax work on the command line?",

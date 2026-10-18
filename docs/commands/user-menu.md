@@ -171,7 +171,8 @@ No Settings item: the menu is edited in `config.toml`, reached with **F2**, **+*
 The shell is `sh -c` on Linux, the BSDs, illumos, Termux and macOS, in both apps, whatever your
 `$SHELL` is, and `cmd /S /C` on Windows: the names are quoted for `sh`, and fish, nushell, xonsh
 or elvish read quotes otherwise, so a file name could end the quoting and run what follows it.
-Only the line you type on the [command line](command-line.md#the-shell) runs in your `$SHELL`.
+Only the line you type on the terminal app's [command line](command-line.md#the-shell) runs in
+your `$SHELL`.
 The same holds for **F3** and **F4** with a viewer or editor of your own, **Enter** on a program,
 and a command of your own in `[git] tool`.
 

@@ -850,7 +850,7 @@
  "feature.cloud_files.what": "Soubory jen online ve OneDrive, Dropboxu, Google Drive, Proton Drive a iCloudu se najdou podle názvu a nikdy se nestahují.",
  "feature.command_line.a1": "V terminálové aplikaci ano: panely ustoupí a program dostane terminál. V desktopové aplikaci ne: příkaz nedostane žádný vstup a jeho výstup se sbírá, takže sudo se nemůže zeptat na heslo.",
  "feature.command_line.a2": "Stiskněte {toggle_panels}: panely se skryjí a terminál ukáže, co příkaz vypsal. Libovolná klávesa panely vrátí.",
- "feature.command_line.a3": "Ano, v obou aplikacích: řádek, který napíšete, běží ve vašem $SHELL. Položky F2 běží v sh, protože názvy souborů, které vkládají, jsou uvozené pro sh.",
+ "feature.command_line.a3": "V terminálové aplikaci ano: řádek běží ve vašem $SHELL a {copy_path} tam uvozuje názvy pro fish. Desktopová aplikace spouští řádek v sh: zavolejte svůj shell sami, třeba fish -c '…'.",
  "feature.command_line.q1": "Můžu z příkazového řádku spustit vim, less, ssh nebo sudo?",
  "feature.command_line.q2": "Výstup v terminálové aplikaci jen probleskl. Kde je?",
  "feature.command_line.q3": "Funguje na příkazovém řádku moje syntaxe fish (nebo zsh)?",

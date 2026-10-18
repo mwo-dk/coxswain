@@ -819,7 +819,7 @@
  "feature.cloud_files.what": "Dateien, die nur online in OneDrive, Dropbox, Google Drive, Proton Drive und iCloud liegen, werden nach Namen gefunden, nie heruntergeladen.",
  "feature.command_line.a1": "In der Terminal-App ja: Die Fenster treten zur Seite, und das Programm hat das Terminal. In der Desktop-App nein: Ein Befehl bekommt keine Eingabe, seine Ausgabe wird gesammelt, also kann sudo nicht nach Ihrem Passwort fragen.",
  "feature.command_line.a2": "Drücken Sie {toggle_panels}: Die Fenster verschwinden, und das Terminal zeigt, was der Befehl ausgegeben hat. Jede Taste holt die Fenster zurück.",
- "feature.command_line.a3": "Ja, in beiden Apps: Die Zeile, die du tippst, läuft in deiner $SHELL. Die Einträge von F2 laufen in sh, weil die Dateinamen, die sie einsetzen, für sh in Anführungszeichen stehen.",
+ "feature.command_line.a3": "In der Terminal-App ja: Die Zeile läuft in deiner $SHELL, und {copy_path} setzt Namen dort für fish in Anführungszeichen. Die Desktop-App führt die Zeile in sh aus: Ruf deine Shell selbst auf, etwa fish -c '…'.",
  "feature.command_line.q1": "Kann ich vim, less, ssh oder sudo aus der Befehlszeile starten?",
  "feature.command_line.q2": "Die Ausgabe ist in der Terminal-App nur kurz aufgeblitzt. Wo ist sie?",
  "feature.command_line.q3": "Geht meine fish- (oder zsh-)Syntax in der Befehlszeile?",

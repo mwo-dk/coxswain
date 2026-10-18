@@ -1420,6 +1420,18 @@ pub fn quote(s: &str) -> String {
     }
 }
 
+/// Quote a word for `shell`, a `$SHELL`, for a line the user then runs there: fish reads `\\`
+/// and `\'` inside single quotes, so `quote`'s `'x\'` would end its quoting early and run what
+/// follows. Any other shell takes `quote`'s.
+pub fn quote_for(shell: &str, s: &str) -> String {
+    let fish = std::path::Path::new(shell).file_name().is_some_and(|n| n == "fish");
+    let q = quote(s);
+    if cfg!(windows) || !fish || q == s {
+        return q;
+    }
+    format!("'{}'", s.replace('\\', "\\\\").replace('\'', "\\'"))
+}
+
 /// Previews made by external tools (desktop app): LaTeX, LibreOffice, PlantUML, pandoc and
 /// DuckDB. Each runs from a locally installed tool or from a container image.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
@@ -2148,6 +2160,30 @@ mod tests {
         let got = run("printf '%%s\\n' %s", evil, &[a.clone(), b.clone()]);
         assert_eq!(got, format!("{}\n{}\n", a.display(), b.display()));
         assert!(!got.lines().any(|l| l == "INJECTED"), "{got}");
+    }
+
+    /// A name pasted into the command line reaches fish as it is, and sh still gets `quote`'s.
+    #[cfg(unix)]
+    #[test]
+    fn config_quote_for_fish() {
+        let evil = "x\\';echo INJECTED;#";
+        assert_eq!(quote_for("/usr/bin/fish", evil), "'x\\\\\\';echo INJECTED;#'");
+        assert_eq!(quote_for("/bin/zsh", evil), quote(evil));
+        assert_eq!(quote_for("/usr/bin/fish", "plain.txt"), "plain.txt");
+        let Some(fish) = crate::tools::which("fish") else { return };
+        let home = std::env::temp_dir().join("coxswain-quote-fish");
+        for name in [evil, "a\\", "it's \\\\ here", " ;echo INJECTED;#"] {
+            let out = std::process::Command::new(&fish)
+                .args(["--no-config", "-c", &format!("printf '%s\\n' {}", quote_for("fish", name))])
+                .env("HOME", &home)
+                .env("XDG_CONFIG_HOME", &home)
+                .env("XDG_DATA_HOME", &home)
+                .env("XDG_CACHE_HOME", &home)
+                .output()
+                .unwrap();
+            assert_eq!(String::from_utf8_lossy(&out.stdout), format!("{name}\n"), "{name}");
+        }
+        let _ = std::fs::remove_dir_all(&home);
     }
 
     /// cmd.exe gets the line as it is (Rust would write `"` as `\"`), and a `%PATH%` in a

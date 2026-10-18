@@ -788,7 +788,7 @@
  "feature.cloud_files.what": "OneDrive、Dropbox、Google Drive、Proton Drive、iCloud のオンラインのみのファイルは名前で見つかり、ダウンロードはされません。",
  "feature.command_line.a1": "ターミナルアプリでは、はい: パネルがよけて、プログラムがターミナルを使います。デスクトップアプリでは、いいえ: コマンドは入力を受け取れず出力は集められるので、sudo はパスワードを尋ねられません。",
  "feature.command_line.a2": "{toggle_panels} を押すとパネルが隠れ、コマンドの出力がターミナルに見えます。どれかのキーでパネルが戻ります。",
- "feature.command_line.a3": "はい、両方のアプリで使えます。入力した行はあなたの $SHELL で実行されます。F2 の項目は sh で実行されます。入れるファイル名が sh 向けに引用されているからです。",
+ "feature.command_line.a3": "ターミナルアプリでは使えます。行はあなたの $SHELL で実行され、{copy_path} は名前を fish 向けに引用します。デスクトップアプリは行を sh で実行します。fish -c '…' のようにシェルを自分で呼んでください。",
  "feature.command_line.q1": "コマンドラインから vim、less、ssh、sudo を実行できますか？",
  "feature.command_line.q2": "ターミナルアプリで出力が一瞬で消えました。どこにありますか？",
  "feature.command_line.q3": "コマンドラインで fish（や zsh）の書き方は使えますか？",

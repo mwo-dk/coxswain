@@ -1063,7 +1063,8 @@ impl App {
             }
             Action::CopyPath => {
                 if let Some(e) = self.panel().current().filter(|e| !e.is_parent()) {
-                    let q = config::quote(&e.name);
+                    // For the shell that runs the line: fish quotes otherwise.
+                    let q = config::quote_for(&std::env::var("SHELL").unwrap_or_default(), &e.name);
                     if !self.cmdline.is_empty() && !self.cmdline.ends_with(' ') {
                         self.cmdline.push(' ');
                     }

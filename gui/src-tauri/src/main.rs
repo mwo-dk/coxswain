@@ -1771,11 +1771,11 @@ fn output(mut c: std::process::Command, dir: &Path) -> Res<String> {
     Ok(text)
 }
 
-/// Run the command line the user typed in `dir`, by their `$SHELL`, and return what it printed.
-/// `cd` is handled by the UI.
+/// Run the command line the user typed in `dir`, by `sh` (the names the page puts in are quoted
+/// for it), and return what it printed. `cd` is handled by the UI.
 #[tauri::command]
 async fn run_command(cmd: String, dir: PathBuf) -> Res<String> {
-    blocking(move || output(coxswain_core::tools::typed_line(&cmd), &dir)).await
+    blocking(move || output(coxswain_core::tools::Line::from(cmd).command(), &dir)).await
 }
 
 #[derive(Serialize)]
