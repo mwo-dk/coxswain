@@ -307,22 +307,15 @@ fn action_menu(subject: coxswain_core::menu::Subject) -> Vec<(String, Vec<&'stat
 /// was picked for, and its id.
 #[tauri::command(async)]
 fn hint(subject: coxswain_core::menu::Subject, last: Option<(coxswain_core::menu::Subject, String)>, ctx: tauri::State<Ctx>) -> Option<(&'static str, String)> {
-    let cfg = ctx.cfg();
-    if !cfg.hints {
-        return None;
-    }
-    ctx.edit_if(|st| coxswain_core::menu::hint_in(&subject, &cfg, last.as_ref().map(|(s, id)| (s, id.as_str())), &mut st.hints_shown)).ok().flatten()
+    // The counts in memory, shared with `hint_once`: state.json is read and written only when
+    // one changes (or another app wrote it), not each time the cursor moves.
+    coxswain_core::menu::hint(&subject, &ctx.cfg(), last.as_ref().map(|(s, id)| (s, id.as_str())))
 }
 
 /// Whether the hint `id` that shows in place (Find's scope) is still to be shown; counted.
 #[tauri::command(async)]
 fn hint_once(id: String, ctx: tauri::State<Ctx>) -> bool {
-    let cfg = ctx.cfg();
-    ctx.edit_if(|st| {
-        let due = coxswain_core::menu::once_in(&id, &cfg, &mut st.hints_shown);
-        (due, due)
-    })
-    .unwrap_or(false)
+    coxswain_core::menu::once(&id, &ctx.cfg())
 }
 
 /// F1 → Features: every feature with its keys and questions, filtered by `query`.
@@ -422,6 +415,12 @@ async fn list_dir(dir: PathBuf, show_hidden: bool, sort: SortKey, reverse: bool,
     let (prefix, items) = to_page(&dir, entries, |p| st.tags.get(p).cloned(), plain.as_ref());
     let (archive, locked) = inside.map_or((None, false), |(a, locked)| (Some(a), locked));
     Ok(Listing { has_notes: st.notes.contains_key(&dir), packages: coxswain_core::bsd::packages_here(&dir), dir, prefix, items, archive, locked, history: in_history, snapshot, package })
+}
+
+/// What a folder holds, for its preview: only the counts, not the panel's listing.
+#[tauri::command]
+async fn dir_summary(dir: PathBuf, show_hidden: bool) -> Res<bfs::Summary> {
+    tauri::async_runtime::spawn_blocking(move || bfs::summary(&dir, show_hidden).map_err(|e| format!("{}: {e}", dir.display()))).await.map_err(|e| e.to_string())?
 }
 
 /// The entries as the page gets them: with their icon and tag, and without the path when it
@@ -2075,7 +2074,7 @@ fn main() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            get_config, action_menu, hint, hint_once, hints_reset, notices, dismiss_notice, changes, read_changes, set_title, index_status, index_action, index_service, meaning_status, meaning_action, chat_status, chat_action, meaning_models, meaning_pull, list_dir, zfs_facts, bsd_places, git_status, git_facts, git_last, git_switch, branch_name, git_new_branch, git_tool, git_tools, places, disks, get_state, save_session, save_favorites, set_tags, set_note, get_note,
+            get_config, action_menu, hint, hint_once, hints_reset, notices, dismiss_notice, changes, read_changes, set_title, index_status, index_action, index_service, meaning_status, meaning_action, chat_status, chat_action, meaning_models, meaning_pull, list_dir, dir_summary, zfs_facts, bsd_places, git_status, git_facts, git_last, git_switch, branch_name, git_new_branch, git_tool, git_tools, places, disks, get_state, save_session, save_favorites, set_tags, set_note, get_note,
             find, find_read_too, ask, ask_stop, ask_check, meaning_change, setup_probe, setup_probe_url, setup_try, setup_speed, meaning_bench, resolve_path, copy, rename, delete, mkdir, dir_sizes, dir_size_known, rename_plan, rename_apply, undo, undo_next, open_path, edit_path, open_keys, scripts_folder,
             read_text, run_command, scripts, run_script, add_user_command, check_update, archive_list, extract, pack, archive_password, archive_peek, cloud_fetch, properties, set_flags, set_permissions,
             clip_set, paste, start_drag, watch_dirs, preview::git_diff, preview::sqlite_info, preview::epub_preview,

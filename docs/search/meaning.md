@@ -105,7 +105,10 @@ files are still to go.
   [battery](battery.md) unless you press *Read now*. With the built-in model it rests as long as
   the work took; with a [server](servers.md) it rests a quarter of that, since the work is the
   server's. New and changed files get
-  theirs at the helper's next pass, within ten minutes; their words are searchable at once.
+  theirs at the helper's next pass, within ten minutes; their words are searchable at once. A
+  long backlog (the first vectors on a big home folder, hours on the processor) stops every
+  minute to read what you saved meanwhile, so a saved file is found by its words within a
+  minute even then.
 - **A search:** your question gets a vector too. A first sieve over one bit per number keeps the
   1,000 closest passages; their full vectors are then scored. A file counts with its best
   passage, and a little more (0.005) for each further passage that is close too, up to four, so

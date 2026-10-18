@@ -495,8 +495,10 @@ pub(crate) fn note_once(what: String) {
     }
 }
 
-/// The parts of a Status that scan the store or the PATH: counted once for every client that
-/// asks within `COUNTED_FOR`, as the terminal app asks with its frames and Settings every 2 s.
+/// The parts of a Status that scan the store or the PATH, as the terminal app asks with its
+/// frames and Settings every 2 s: counted once for every client that asks within
+/// `COUNTED_FOR`, and after that only when the store was written since, or `UNCHANGED_FOR`
+/// went by (a disk plugged in, a program installed). A store at rest is not counted through.
 #[derive(Clone, Default)]
 struct Costly {
     texts: usize,
@@ -505,13 +507,22 @@ struct Costly {
     roots: Vec<(PathBuf, Option<PathBuf>, Size)>,
     tools: Vec<(String, bool)>,
 }
-type Counted = Mutex<Option<(Instant, Costly)>>;
+/// When it was counted, the store's writes then, and the counts.
+type Counted = Mutex<Option<(Instant, u64, Costly)>>;
 const COUNTED_FOR: Duration = Duration::from_secs(2);
+const UNCHANGED_FOR: Duration = Duration::from_secs(30);
 
 fn costly(store: Option<&Store>, counted: &Counted) -> Costly {
     let mut c = counted.lock().unwrap();
-    if let Some((at, costly)) = c.as_ref()
+    if let Some((at, _, costly)) = c.as_ref()
         && at.elapsed() < COUNTED_FOR
+    {
+        return costly.clone();
+    }
+    let writes = store.map_or(0, Store::writes);
+    if let Some((at, then, costly)) = c.as_ref()
+        && *then == writes
+        && at.elapsed() < UNCHANGED_FOR
     {
         return costly.clone();
     }
@@ -525,7 +536,7 @@ fn costly(store: Option<&Store>, counted: &Counted) -> Costly {
             .map(|(n, p)| (n.to_string(), p.is_some()))
             .collect(),
     };
-    *c = Some((Instant::now(), costly.clone()));
+    *c = Some((Instant::now(), writes, costly.clone()));
     costly
 }
 
@@ -1226,6 +1237,37 @@ fn detached(exe: &Path) -> std::process::Command {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn counts_are_kept_while_the_store_is_not_written() {
+        let d = tree("costly");
+        let store = Store::open(&d.join("search.db")).unwrap();
+        let counted = Counted::default();
+        assert_eq!(costly(Some(&store), &counted).texts, 0);
+        // Long enough ago that it would be counted again, had the store been written.
+        let past = |counted: &Counted| {
+            let mut c = counted.lock().unwrap();
+            let at = &mut c.as_mut().unwrap().0;
+            *at = at.checked_sub(COUNTED_FOR * 2).unwrap();
+        };
+        past(&counted);
+        // A file with text written past the store's own connection: not one of its writes.
+        rusqlite::Connection::open(d.join("search.db"))
+            .unwrap()
+            .execute(
+                "INSERT INTO files(path, size, modified, has_text) VALUES ('/a', 1, 1, 1)",
+                [],
+            )
+            .unwrap();
+        assert_eq!(costly(Some(&store), &counted).texts, 0, "kept");
+        // A write of its own: counted again.
+        store
+            .put_hashes(&[(d.join("x"), 1, 1, "h".into())])
+            .unwrap();
+        past(&counted);
+        assert_eq!(costly(Some(&store), &counted).texts, 1, "counted again");
+        let _ = std::fs::remove_dir_all(&d);
+    }
 
     fn tree(name: &str) -> PathBuf {
         let d = std::env::temp_dir().join(format!("coxswain-helper-{name}-{}", std::process::id()));

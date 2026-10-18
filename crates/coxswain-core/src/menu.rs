@@ -259,6 +259,48 @@ pub fn hint_in(
     (Some(h), anew)
 }
 
+/// The counts as `counted` last read or wrote them, with state.json's time then and when.
+type Shown = (
+    Option<std::time::SystemTime>,
+    std::time::Instant,
+    BTreeMap<String, u32>,
+);
+static SHOWN: std::sync::Mutex<Option<Shown>> = std::sync::Mutex::new(None);
+
+/// When state.json was last written.
+fn stamp() -> Option<std::time::SystemTime> {
+    std::fs::metadata(crate::state::AppState::path()?)
+        .ok()?
+        .modified()
+        .ok()
+}
+
+/// `f` on the hint counts in state.json, tried on the counts in memory first: the file is read
+/// and written only when `f` says a count changed, not each time the cursor moves. Read again
+/// when another app wrote it (a reset of the hints), or half a minute went by.
+fn counted<T>(f: impl Fn(&mut BTreeMap<String, u32>) -> (T, bool)) -> T {
+    let mut known = SHOWN.lock().unwrap_or_else(|e| e.into_inner());
+    let now = stamp();
+    let fresh = |k: &Shown| k.0 == now && k.1.elapsed() < std::time::Duration::from_secs(30);
+    if !known.as_ref().is_some_and(fresh) {
+        let shown = crate::state::AppState::load().hints_shown;
+        *known = Some((now, std::time::Instant::now(), shown));
+    }
+    let mut probe = known.as_ref().unwrap().2.clone();
+    let (out, changed) = f(&mut probe);
+    if !changed {
+        return out;
+    }
+    // What another app wrote since (a reset, its own counts) is read first.
+    let mut st = crate::state::AppState::load();
+    let (out, changed) = f(&mut st.hints_shown);
+    if changed {
+        let _ = st.save();
+    }
+    *known = Some((stamp(), std::time::Instant::now(), st.hints_shown));
+    out
+}
+
 /// `hint_in`, with the counts kept in state.json, written only when one changed.
 pub fn hint(
     s: &Subject,
@@ -268,12 +310,7 @@ pub fn hint(
     if !cfg.hints {
         return None;
     }
-    let mut st = crate::state::AppState::load();
-    let (h, changed) = hint_in(s, cfg, last, &mut st.hints_shown);
-    if changed {
-        let _ = st.save();
-    }
-    h
+    counted(|shown| hint_in(s, cfg, last, shown))
 }
 
 /// Whether the hint `id`, shown where it applies rather than on the status line (Find's
@@ -296,12 +333,10 @@ pub fn once(id: &str, cfg: &Config) -> bool {
     if !cfg.hints {
         return false;
     }
-    let mut st = crate::state::AppState::load();
-    let due = once_in(id, cfg, &mut st.hints_shown);
-    if due {
-        let _ = st.save();
-    }
-    due
+    counted(|shown| {
+        let due = once_in(id, cfg, shown);
+        (due, due)
+    })
 }
 
 /// Every hint shows again (`coxswain --hints reset`, Settings → Behaviour). An app that keeps
@@ -309,6 +344,7 @@ pub fn once(id: &str, cfg: &Config) -> bool {
 pub fn reset() -> std::io::Result<()> {
     let mut st = crate::state::AppState::load();
     st.hints_shown.clear();
+    *SHOWN.lock().unwrap_or_else(|e| e.into_inner()) = None;
     st.save()
 }
 

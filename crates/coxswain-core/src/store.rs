@@ -81,6 +81,9 @@ pub struct Store {
     /// The signs of every passage's vector, read from `chunks` for the first search by meaning
     /// and kept up to date after.
     signs: Mutex<Option<Signs>>,
+    /// Changes to the signs that came while they were held (being read, or a search going
+    /// through them): a write never waits for them while it holds the store.
+    later: Mutex<Vec<SignsChange>>,
     /// Where the store is: the signs are read on a connection of their own.
     path: PathBuf,
     /// Files whose vectors were dropped for a new way of making passages, while they get new
@@ -102,6 +105,37 @@ type Known = HashMap<String, ((u64, i64, bool), bool)>;
 type Changed = (String, u64, i64, bool);
 /// A file inside an archive: its path as a key, size, modified.
 type Member = (String, u64, u64);
+/// What a write did to the signs: all to be read again, these files' passages gone, or a file's
+/// passages (anew: it had some before) with their packed vectors.
+enum SignsChange {
+    Reset,
+    Drop(HashSet<i64>),
+    Put(i64, Vec<Vec<u8>>, bool),
+}
+
+impl SignsChange {
+    /// On `signs`, if they are read. `queued`: it waited, so the signs may have it already
+    /// (read meanwhile), and a file's passages are put in their place, never twice.
+    fn on(self, signs: &mut Option<Signs>, queued: bool) {
+        match (self, signs.as_mut()) {
+            (SignsChange::Reset, _) => *signs = None,
+            (SignsChange::Drop(files), Some(s)) if !files.is_empty() => {
+                s.retain(|f| !files.contains(&f))
+            }
+            (SignsChange::Put(file, vectors, had), Some(s)) => {
+                // A file that changed lost its passages already: no pass over them all for it.
+                if had || queued {
+                    s.retain(|f| f != file);
+                }
+                for (n, v) in vectors.iter().enumerate() {
+                    s.push(file, n as u8, v);
+                }
+            }
+            _ => {}
+        }
+    }
+}
+
 /// The signs of passages' vectors, one after the other, `width` words each, with the file and
 /// number of each: 9 bytes and the signs (48 bytes for 384 numbers, 128 for 1024) a passage.
 #[derive(Default)]
@@ -254,6 +288,7 @@ impl Store {
             meaning_error: Mutex::default(),
             error: Mutex::default(),
             signs: Mutex::default(),
+            later: Mutex::default(),
             path: path.to_path_buf(),
             renewing: AtomicUsize::new(renewing),
             ms_per_passage: AtomicUsize::new(0),
@@ -332,9 +367,12 @@ impl Store {
         *self.walked.lock().unwrap() = None;
         self.cleared.store(true, Ordering::SeqCst);
         let db = self.db.lock().unwrap();
-        *self.signs.lock().unwrap() = None;
         // The vacuum goes to the write-ahead log first: written back and emptied, the room is free.
-        db.execute_batch("DELETE FROM text; DELETE FROM files; DELETE FROM skipped; DELETE FROM hashes; DELETE FROM chunks; DELETE FROM errors; VACUUM; PRAGMA wal_checkpoint(TRUNCATE);")
+        let done = db.execute_batch("DELETE FROM text; DELETE FROM files; DELETE FROM skipped; DELETE FROM hashes; DELETE FROM chunks; DELETE FROM errors; VACUUM; PRAGMA wal_checkpoint(TRUNCATE);");
+        // Read again whatever came of it: each statement commits on its own, so a vacuum that
+        // fails still leaves the rows gone.
+        self.commit_signs(|| Ok(()), SignsChange::Reset)?;
+        done
     }
 
     /// What went wrong, with the file it was about, kept for the store's preview: the latest 50,
@@ -378,17 +416,19 @@ impl Store {
     /// Rest as long as the work since `start` took, unless in a hurry; on battery, until the
     /// mains is back.
     fn rest(&self, start: Instant, stop: &AtomicBool) {
-        self.rest_after(start.elapsed(), stop);
+        self.rest_after(start.elapsed(), stop, None);
     }
 
-    /// The rest after `work`, never on battery unless *Index now*.
-    fn rest_after(&self, work: Duration, stop: &AtomicBool) {
+    /// The rest after `work`, never on battery unless *Index now*; on battery no longer than
+    /// `until`, when given.
+    fn rest_after(&self, work: Duration, stop: &AtomicBool, until: Option<Instant>) {
         if self.hurry.load(Ordering::Relaxed) {
             return;
         }
         std::thread::sleep(work.min(Duration::from_secs(2)));
         while !self.hurry.load(Ordering::Relaxed)
             && !stop.load(Ordering::Relaxed)
+            && until.is_none_or(|u| Instant::now() < u)
             && crate::machine::on_battery()
         {
             self.paused.store(true, Ordering::Relaxed);
@@ -508,6 +548,12 @@ impl Store {
                 (root, online.then(|| PathBuf::from(at)), size)
             })
             .collect()
+    }
+
+    /// Rows written so far (all writes go through this one connection): what was counted
+    /// from the store holds while this stays the same.
+    pub fn writes(&self) -> u64 {
+        self.db.lock().unwrap().total_changes()
     }
 
     /// How many files have their text in the store.
@@ -676,13 +722,7 @@ impl Store {
                 params![path, *bytes as i64, *files as i64],
             )?;
         }
-        // Committed with the signs held, so signs being read meanwhile have all of it or none.
-        let mut signs = self.signs.lock().unwrap();
-        tx.commit()?;
-        if let Some(signs) = signs.as_mut().filter(|_| !stale.is_empty()) {
-            signs.retain(|file| !stale.contains(&file));
-        }
-        Ok(())
+        self.commit_signs(|| tx.commit(), SignsChange::Drop(stale))
     }
 
     /// The size and date the store has for this file, and whether it was left in the cloud.
@@ -785,9 +825,7 @@ impl Store {
             "INSERT OR REPLACE INTO meta(key, value) VALUES ('archives', ?1)",
             [now],
         )?;
-        tx.commit()?;
-        *self.signs.lock().unwrap() = None;
-        Ok(())
+        self.commit_signs(|| tx.commit(), SignsChange::Reset)
     }
 
     /// `text_exclude` changed: files a new pattern leaves out lose their text and vectors, and
@@ -835,9 +873,7 @@ impl Store {
             "INSERT OR REPLACE INTO meta(key, value) VALUES ('exclude', ?1)",
             [joined],
         )?;
-        tx.commit()?;
-        *self.signs.lock().unwrap() = None;
-        Ok(())
+        self.commit_signs(|| tx.commit(), SignsChange::Reset)
     }
 
     /// Files read, in one transaction. `text` is `None` for a file without text.
@@ -995,8 +1031,10 @@ impl Store {
         };
         let (before, weights) = (meta("meaning_model"), meta("meaning_digest"));
         if !crate::meaning::same_model(&before, id) && digest.is_none_or(|d| d != weights) {
-            db.execute_batch("DELETE FROM chunks; UPDATE files SET embedded = NULL;")?;
-            *self.signs.lock().unwrap() = None;
+            let done = db.execute_batch("DELETE FROM chunks; UPDATE files SET embedded = NULL;");
+            // Read again whatever came of it: each statement commits on its own.
+            self.commit_signs(|| Ok(()), SignsChange::Reset)?;
+            done?;
         }
         db.execute(
             "INSERT OR REPLACE INTO meta(key, value) VALUES ('meaning_model', ?1)",
@@ -1055,26 +1093,52 @@ impl Store {
             )?;
         }
         tx.execute("UPDATE files SET embedded = 1 WHERE id = ?1", [file])?;
-        let mut signs = self.signs.lock().unwrap();
-        tx.commit()?;
-        if let Some(signs) = signs.as_mut() {
-            // A file that changed lost its passages already: no pass over them all for it.
-            if had {
-                signs.retain(|f| f != file);
+        self.commit_signs(
+            || tx.commit(),
+            SignsChange::Put(file, vectors.to_vec(), had),
+        )
+    }
+
+    /// `commit`, made while the store is held, and `change` on the signs. When they are free
+    /// it commits holding them, so signs read meanwhile have all of it or none. When they are
+    /// held (read, or a search going through two million) it does not wait with the store
+    /// held: the change waits in `later` for whoever holds them next.
+    fn commit_signs(
+        &self,
+        commit: impl FnOnce() -> rusqlite::Result<()>,
+        change: SignsChange,
+    ) -> rusqlite::Result<()> {
+        match self.signs.try_lock() {
+            Ok(mut signs) => {
+                commit()?;
+                for c in std::mem::take(&mut *self.later.lock().unwrap()) {
+                    c.on(&mut signs, true);
+                }
+                change.on(&mut signs, false);
             }
-            for (n, v) in vectors.iter().enumerate() {
-                signs.push(file, n as u8, v);
+            Err(std::sync::TryLockError::WouldBlock) => {
+                commit()?;
+                self.later.lock().unwrap().push(change);
             }
+            Err(std::sync::TryLockError::Poisoned(e)) => panic!("{e}"),
         }
         Ok(())
     }
 
     /// `f` on the signs of every passage, read first if they are not yet: on a connection of
     /// their own, so the store goes on answering meanwhile (two million passages take seconds).
-    /// Writes that change them commit while holding them.
+    /// Writes meanwhile leave their changes in `later`, taken in here.
     fn with_signs<T>(&self, f: impl FnOnce(&Signs) -> T) -> T {
         let mut known = self.signs.lock().unwrap();
-        if known.is_none() {
+        // A change that came while they were read may be in them already or not: each is put
+        // in its place again; one that wants them all read again has them read again.
+        loop {
+            for c in std::mem::take(&mut *self.later.lock().unwrap()) {
+                c.on(&mut known, true);
+            }
+            if known.is_some() {
+                break;
+            }
             let read = || -> rusqlite::Result<Signs> {
                 let db = Connection::open_with_flags(
                     &self.path,
@@ -1866,6 +1930,17 @@ fn passages_are(db: &Connection, scheme: &str) -> rusqlite::Result<usize> {
 /// Bring the store up to date with the disk, once. Reads and hashes at half speed, one file
 /// at a time, so the machine stays the user's. Stops early when `stop` is set.
 pub fn scan(store: &Store, cfg: &SearchConfig, stop: &AtomicBool) -> rusqlite::Result<()> {
+    scan_for(store, cfg, stop, None).map(|_| ())
+}
+
+/// `scan`, with hashes and vectors for no longer than `slice` (when given): `true` when there
+/// are more of them to do, for `backlog`.
+fn scan_for(
+    store: &Store,
+    cfg: &SearchConfig,
+    stop: &AtomicBool,
+    slice: Option<Duration>,
+) -> rusqlite::Result<bool> {
     let began = now();
     let (roots, offline) = place(store, cfg)?;
     store.tools_changed(&crate::extract::installed::extensions())?;
@@ -1883,7 +1958,7 @@ pub fn scan(store: &Store, cfg: &SearchConfig, stop: &AtomicBool) -> rusqlite::R
     store.exclude_changed(&cfg.text_exclude)?;
     let mut known = store.known()?;
     let Some(found) = walk(store, roots.clone(), cfg, &mut known, stop) else {
-        return Ok(());
+        return Ok(false);
     };
     // Rows of a disk that is not plugged in stay.
     let kept: Vec<(String, String)> = offline.iter().map(|at| below(at)).collect();
@@ -1907,7 +1982,7 @@ pub fn scan(store: &Store, cfg: &SearchConfig, stop: &AtomicBool) -> rusqlite::R
     )?;
     *store.walked.lock().unwrap() = Some((roots, began));
     if read(store, cfg, stop)? {
-        return Ok(());
+        return Ok(false);
     }
     // Git in a repository left in the cloud would download it.
     let repos = if cfg.history {
@@ -1920,18 +1995,53 @@ pub fn scan(store: &Store, cfg: &SearchConfig, stop: &AtomicBool) -> rusqlite::R
         vec![]
     };
     if history(store, &repos, &kept, stop)? {
-        return Ok(());
+        return Ok(false);
     }
 
     store.prune_hashes()?;
-    if hash(store, stop)? {
-        return Ok(());
+    // Files the server refused last time get one more try per scan; one it refuses for good
+    // costs one quick answer every ten minutes, and never holds up the rest.
+    if store.engine().is_some() {
+        store
+            .db
+            .lock()
+            .unwrap()
+            .execute("UPDATE files SET embedded = NULL WHERE embedded = 0", [])?;
     }
-    embed(store, stop)
+    backlog(store, stop, slice)
 }
 
-/// Hash the files that share a size. `true` when stopped.
-fn hash(store: &Store, stop: &AtomicBool) -> rusqlite::Result<bool> {
+/// Hashes, then vectors, for no longer than `slice` when given, so what the watcher saw is
+/// followed in between (a saved file found by its words within a minute, not after hours of
+/// vectors). `true` when there is more to do.
+fn backlog(store: &Store, stop: &AtomicBool, slice: Option<Duration>) -> rusqlite::Result<bool> {
+    // On battery the work waits for the mains here, a second at a time, the watcher followed;
+    // with none left the backlog is done, not paused.
+    if slice.is_some() && !store.hurry.load(Ordering::Relaxed) && crate::machine::on_battery() {
+        if !has_backlog(store)? {
+            store.paused.store(false, Ordering::Relaxed);
+            return Ok(false);
+        }
+        store.paused.store(true, Ordering::Relaxed);
+        std::thread::sleep(Duration::from_secs(1));
+        return Ok(true);
+    }
+    store.paused.store(false, Ordering::Relaxed);
+    let until = slice.map(|s| Instant::now() + s);
+    if hash(store, stop, until)? {
+        return Ok(!stop.load(Ordering::Relaxed));
+    }
+    embed(store, stop, until)
+}
+
+/// Whether there are files to hash, or (with search by meaning on) to give their vectors.
+fn has_backlog(store: &Store) -> rusqlite::Result<bool> {
+    Ok(store.engine().is_some() && !store.unembedded(1)?.is_empty()
+        || !store.unhashed()?.is_empty())
+}
+
+/// Hash the files that share a size. `true` when stopped, or at `until`.
+fn hash(store: &Store, stop: &AtomicBool, until: Option<Instant>) -> rusqlite::Result<bool> {
     for batch in store.unhashed()?.chunks(50) {
         let start = Instant::now();
         let rows: Vec<_> = batch
@@ -1956,28 +2066,25 @@ fn hash(store: &Store, stop: &AtomicBool) -> rusqlite::Result<bool> {
         if stop.load(Ordering::Relaxed) {
             return Ok(true);
         }
-        store.rest(start, stop);
+        store.rest_after(start.elapsed(), stop, until);
+        if until.is_some_and(|u| Instant::now() >= u) {
+            return Ok(true);
+        }
     }
     Ok(false)
 }
 
 /// Give the passages of files with text their vectors, when search by meaning is on: a few
 /// files at a time, resting as long as the work took, never on battery unless *Index now*.
-// ponytail: files the watcher brings get theirs at the next scan, within ten minutes; the
-// text is searchable by its words at once.
-fn embed(store: &Store, stop: &AtomicBool) -> rusqlite::Result<()> {
+/// `true` when stopped at `until` with files still to go.
+// ponytail: files the watcher brings get theirs in the next slice, or at the next scan within
+// ten minutes; the text is searchable by its words at once.
+fn embed(store: &Store, stop: &AtomicBool, until: Option<Instant>) -> rusqlite::Result<bool> {
     use crate::meaning::NoVectors;
     let Some(engine) = store.engine() else {
-        return Ok(());
+        return Ok(false);
     };
     store.model_is(&engine.id(), engine.digest().as_deref())?;
-    // Files the server refused last time get one more try per scan; one it refuses for good
-    // costs one quick answer every ten minutes, and never holds up the rest.
-    store
-        .db
-        .lock()
-        .unwrap()
-        .execute("UPDATE files SET embedded = NULL WHERE embedded = 0", [])?;
     loop {
         let files = store.unembedded(8)?;
         if files.is_empty() {
@@ -1988,7 +2095,7 @@ fn embed(store: &Store, stop: &AtomicBool) -> rusqlite::Result<()> {
                     .unwrap()
                     .execute("DELETE FROM meta WHERE key = 'renew'", [])?;
             }
-            return Ok(());
+            return Ok(false);
         }
         let (start, mut count) = (Instant::now(), 0);
         for (id, path, body) in files {
@@ -2007,7 +2114,7 @@ fn embed(store: &Store, stop: &AtomicBool) -> rusqlite::Result<()> {
                 Err(NoVectors::Down(e)) => {
                     store.note_error(Some(path.as_str()), &e);
                     *store.meaning_error.lock().unwrap() = Some(e);
-                    return Ok(());
+                    return Ok(false);
                 }
                 Err(NoVectors::Refused(e)) => {
                     store.note_error(Some(path.as_str()), &e);
@@ -2029,7 +2136,7 @@ fn embed(store: &Store, stop: &AtomicBool) -> rusqlite::Result<()> {
                     .collect::<Vec<_>>(),
             )?;
             if stop.load(Ordering::Relaxed) || store.cleared.load(Ordering::Relaxed) {
-                return Ok(());
+                return Ok(false);
             }
         }
         // A passage's time with the rest after it (not a wait for the mains), for the time the
@@ -2045,7 +2152,7 @@ fn embed(store: &Store, stop: &AtomicBool) -> rusqlite::Result<()> {
             work / 4
         };
         let ms = (work + rest.min(Duration::from_secs(2))).as_millis() as usize / count.max(1);
-        store.rest_after(rest, stop);
+        store.rest_after(rest, stop, until);
         let before = store.ms_per_passage.load(Ordering::Relaxed);
         store.ms_per_passage.store(
             if before == 0 {
@@ -2055,6 +2162,9 @@ fn embed(store: &Store, stop: &AtomicBool) -> rusqlite::Result<()> {
             },
             Ordering::Relaxed,
         );
+        if until.is_some_and(|u| Instant::now() >= u) {
+            return Ok(true);
+        }
     }
 }
 
@@ -2433,8 +2543,8 @@ pub fn measure(
 }
 
 /// Keep the store current until `stop`: a scan, then the watcher's `changes` within seconds
-/// (inside folders left out within a minute), and a scan every ten minutes for what the
-/// watcher missed.
+/// (inside folders left out within a minute, and within a `SLICE` while hashes and vectors
+/// are still being made), and a scan every ten minutes for what the watcher missed.
 pub fn keep_current(
     store: &Store,
     cfg: &SearchConfig,
@@ -2450,23 +2560,30 @@ pub fn keep_current(
     };
     while !stop.load(Ordering::Relaxed) {
         store.cleared.store(false, Ordering::SeqCst);
-        let scanned = scan(store, cfg, stop);
-        // Index now is done with, whether the scan worked or not: a failing one is not run
-        // again at once, over and over.
-        store.hurry.store(false, Ordering::Relaxed);
+        let scanned = scan_for(store, cfg, stop, Some(SLICE));
+        let mut more = matches!(scanned, Ok(true));
+        // Index now is done with once the backlog is, whether the scan worked or not: a
+        // failing one is not run again at once, over and over.
+        if !more {
+            store.hurry.store(false, Ordering::Relaxed);
+        }
         if scanned.is_ok() {
             *store.error.lock().unwrap() = None;
         }
         store.warm_signs();
-        report(scanned);
-        let (rest, mut refreshed, mut measured) = (Instant::now(), Instant::now(), Instant::now());
+        report(scanned.map(|_| ()));
+        let (mut rest, mut refreshed, mut measured) =
+            (Instant::now(), Instant::now(), Instant::now());
         let (mut now, mut later) = (HashSet::new(), HashSet::new());
-        let again = || {
-            rest.elapsed() > Duration::from_secs(600)
-                || store.hurry.load(Ordering::Relaxed)
-                || store.cleared.load(Ordering::Relaxed)
+        // Again ten minutes after the hashes and vectors are done, or at Index now; not while
+        // they go on (Index now only takes the rests from them then).
+        let calm = |rest: Instant| {
+            rest.elapsed() < Duration::from_secs(600) && !store.hurry.load(Ordering::Relaxed)
         };
-        while !again() && !stop.load(Ordering::Relaxed) {
+        while (more || calm(rest))
+            && !store.cleared.load(Ordering::Relaxed)
+            && !stop.load(Ordering::Relaxed)
+        {
             match changes
                 .as_ref()
                 .map(|c| c.recv_timeout(Duration::from_millis(200)))
@@ -2474,6 +2591,10 @@ pub fn keep_current(
                 Some(Ok(paths)) => now.extend(paths),
                 Some(Err(std::sync::mpsc::RecvTimeoutError::Timeout)) => {}
                 _ => std::thread::sleep(Duration::from_millis(200)),
+            }
+            // All that came during a slice, at once.
+            if let Some(c) = &changes {
+                now.extend(c.try_iter().flatten());
             }
             if !now.is_empty() && refreshed.elapsed() > Duration::from_secs(2) {
                 report(refresh(store, cfg, &mut now, &mut later, stop));
@@ -2483,13 +2604,102 @@ pub fn keep_current(
                 report(measure(store, cfg, &mut later, stop));
                 measured = Instant::now();
             }
+            if more {
+                let r = backlog(store, stop, Some(SLICE));
+                more = matches!(r, Ok(true));
+                if !more {
+                    store.hurry.store(false, Ordering::Relaxed);
+                }
+                report(r.map(|_| ()));
+                rest = Instant::now();
+            }
         }
     }
 }
 
+/// How long hashes and vectors go on before what the watcher saw is followed.
+const SLICE: Duration = Duration::from_secs(60);
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_backlog_is_files_to_hash() {
+        let d = std::env::temp_dir().join(format!("coxswain-backlog-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        let store = Store::open(&d.join("search.db")).unwrap();
+        assert!(!has_backlog(&store).unwrap(), "nothing to do: not paused");
+        let files = [d.join("a"), d.join("b")];
+        for f in &files {
+            store
+                .db
+                .lock()
+                .unwrap()
+                .execute(
+                    "INSERT INTO files(path, size, modified, has_text) VALUES (?1, 5, 1, 1)",
+                    [key(f).unwrap()],
+                )
+                .unwrap();
+        }
+        // Two of one size, with text: hashes to make; vectors only with search by meaning on.
+        assert!(has_backlog(&store).unwrap());
+        let hashed: Vec<_> = files
+            .iter()
+            .map(|f| (f.clone(), 5, 1, "h".into()))
+            .collect();
+        store.put_hashes(&hashed).unwrap();
+        assert!(!has_backlog(&store).unwrap());
+        let _ = std::fs::remove_dir_all(&d);
+    }
+
+    #[test]
+    fn writes_never_wait_for_signs_a_search_holds() {
+        let d = std::env::temp_dir().join(format!("coxswain-signs-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        let store = Arc::new(Store::open(&d.join("search.db")).unwrap());
+        let file = |path: &str| {
+            let db = store.db.lock().unwrap();
+            db.execute(
+                "INSERT INTO files(path, size, modified, has_text) VALUES (?1, 1, 1, 1)",
+                [path],
+            )
+            .unwrap();
+            db.last_insert_rowid()
+        };
+        let (a, b) = (file("/a"), file("/b"));
+        let v = crate::meaning::pack(&[0.5f32; 64]);
+        store.put_vectors(a, std::slice::from_ref(&v)).unwrap();
+        let count = |s: &Signs| s.files.len();
+        assert_eq!(store.with_signs(count), 1);
+        // A search goes through the signs while the passages of two files are written: one
+        // anew, one for the first time. Neither waits for it.
+        store.with_signs(|_| {
+            let (done, wait) = std::sync::mpsc::channel();
+            let writer = store.clone();
+            let v = v.clone();
+            std::thread::spawn(move || {
+                writer.put_vectors(a, std::slice::from_ref(&v)).unwrap();
+                writer.put_vectors(b, &[v.clone(), v]).unwrap();
+                done.send(()).unwrap();
+            });
+            wait.recv_timeout(Duration::from_secs(10))
+                .expect("a write waited for the signs");
+        });
+        // The next search has both, each file's passages once.
+        assert_eq!(store.with_signs(count), 3);
+        // One that wants them all read again (a model changed) has them read again.
+        store.with_signs(|_| {
+            let writer = store.clone();
+            std::thread::spawn(move || writer.model_is("another", None).unwrap())
+                .join()
+                .unwrap();
+        });
+        assert_eq!(store.with_signs(count), 0);
+        let _ = std::fs::remove_dir_all(&d);
+    }
 
     #[test]
     fn store_finds_text_follows_changes_and_forgets() {
