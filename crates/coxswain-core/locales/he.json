@@ -650,6 +650,7 @@
  "err.cancelled": "בוטל",
  "err.clipboard_no_files": "אין קבצים בלוח",
  "err.copy_into_itself": "אי אפשר להעתיק תיקייה לתוך עצמה",
+ "err.move_into_itself": "אי אפשר להעביר תיקייה לתוך עצמה",
  "err.epub_no_rootfile": "לספר EPUB זה אין קובץ שורש",
  "err.exists": "{path} כבר קיים",
  "err.is_folder": "{name} היא תיקייה",

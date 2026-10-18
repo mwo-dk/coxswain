@@ -43,6 +43,8 @@ counter. Every new name is shown before anything changes, and conflicts are caug
   `nul.txt`). The reasons are in the app's language.
 - A regular expression that does not parse shows its error in red above the list.
 - **Rename** stays greyed out while there is a conflict or nothing changes.
+- A name that appears while the dialog is open (another program saves a file by that name) is
+  never written over: Rename stops with `name already taken`, and nothing is renamed.
 - Afterwards the status line says `Renamed 12 items` and the pane is read again.
 
 Swaps work (`a → b` and `b → a` at once): Coxswain first renames every file to a temporary

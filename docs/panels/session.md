@@ -93,8 +93,10 @@ at the next start too, along with everything else `state.json` keeps. See
 
 #### What if `state.json` is broken?
 
-It is moved aside to `state.json.bad` and the app starts with defaults, so nothing is
-overwritten. Fix or delete the `.bad` file.
+It is moved aside to `state.json.bad` (to `state.json.<time>.bad` when an older `.bad` file is
+there, so that one is kept too) and the app starts with defaults, so nothing is overwritten.
+Fix or delete the `.bad` file. A `state.json` the app is not allowed to read is left alone: the
+app starts with defaults and saves nothing over it until it can read it again.
 
 #### Does the terminal app remember the last folder?
 

@@ -620,6 +620,7 @@
  "err.cancelled": "Abgebrochen",
  "err.clipboard_no_files": "Die Zwischenablage enthält keine Dateien",
  "err.copy_into_itself": "Ein Ordner kann nicht in sich selbst kopiert werden",
+ "err.move_into_itself": "Ein Ordner kann nicht in sich selbst verschoben werden",
  "err.epub_no_rootfile": "Dieses EPUB-Buch hat keine Stammdatei",
  "err.exists": "{path} existiert bereits",
  "err.is_folder": "{name} ist ein Ordner",

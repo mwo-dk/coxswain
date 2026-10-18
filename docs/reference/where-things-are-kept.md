@@ -157,8 +157,9 @@ Settings → *Finding files* reads at full speed.
 
 #### What is `state.json.bad`?
 
-A `state.json` that could not be read when an app started, moved aside so a new one could be
-saved. Your tags and notes are in it; mend it by hand or delete it.
+A `state.json` that could not be read when an app started (not JSON, or not text), moved aside
+so a new one could be saved; when a `state.json.bad` is there already, the newer one is
+`state.json.<time>.bad`. Your tags and notes are in it; mend it by hand or delete it.
 
 ---
 [← Previous: Update checks](updates.md) · [Next: Disk use →](disk-use.md)

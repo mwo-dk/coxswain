@@ -650,6 +650,7 @@
  "err.cancelled": "Cancelado",
  "err.clipboard_no_files": "El portapapeles no contiene archivos",
  "err.copy_into_itself": "Una carpeta no se puede copiar dentro de sí misma",
+ "err.move_into_itself": "Una carpeta no se puede mover dentro de sí misma",
  "err.epub_no_rootfile": "Este libro EPUB no tiene archivo raíz",
  "err.exists": "{path} ya existe",
  "err.is_folder": "{name} es una carpeta",

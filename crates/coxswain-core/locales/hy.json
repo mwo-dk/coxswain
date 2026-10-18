@@ -620,6 +620,7 @@
  "err.cancelled": "Չեղարկվեց",
  "err.clipboard_no_files": "Սեղմատախտակին ֆայլեր չկան",
  "err.copy_into_itself": "Թղթապանակը չի կարելի պատճենել իր մեջ",
+ "err.move_into_itself": "Թղթապանակը չի կարելի տեղափոխել իր մեջ",
  "err.epub_no_rootfile": "Այս EPUB գիրքը արմատային ֆայլ չունի",
  "err.exists": "{path}-ը արդեն կա",
  "err.is_folder": "{name}-ը թղթապանակ է",

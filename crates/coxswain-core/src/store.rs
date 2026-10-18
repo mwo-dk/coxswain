@@ -1933,6 +1933,10 @@ fn hash(store: &Store, stop: &AtomicBool) -> rusqlite::Result<bool> {
         let rows: Vec<_> = batch
             .iter()
             .filter_map(|(path, size, modified)| {
+                // Hashed again next time, once its date can tell a change.
+                if !crate::dupes::settled(*modified) {
+                    return None;
+                }
                 Some((
                     path.clone(),
                     *size,
@@ -2629,6 +2633,8 @@ mod tests {
             "docs/copy.txt",
             "Book the ferry. Renew the domain.\n".as_bytes(),
         );
+        aged(&home.join("docs/notes.txt"));
+        aged(&home.join("docs/copy.txt"));
         scan(&store, &cfg, &go).unwrap();
         assert_eq!(
             hash("docs/notes.txt").unwrap(),
@@ -2703,6 +2709,13 @@ mod tests {
         std::fs::remove_dir_all(d).unwrap();
     }
 
+    /// Dated a minute back, as a file not just written.
+    fn aged(p: &Path) {
+        let f = std::fs::File::options().write(true).open(p).unwrap();
+        f.set_modified(std::time::SystemTime::now() - Duration::from_secs(60))
+            .unwrap();
+    }
+
     #[test]
     fn store_leaves_files_only_in_the_cloud_there() {
         let d = std::env::temp_dir().join(format!("coxswain-store-cloud-{}", std::process::id()));
@@ -2715,6 +2728,9 @@ mod tests {
         );
         std::fs::write(&plan, "Orbit at dawn, land by noon.\n").unwrap();
         std::fs::write(&copy, "Orbit at dawn, land by noon.\n").unwrap();
+        // Hashes are kept only for files whose date is a few seconds old (`dupes::settled`).
+        aged(&plan);
+        aged(&copy);
         let cfg = SearchConfig {
             text_roots: vec![home.clone()],
             ..SearchConfig::default()

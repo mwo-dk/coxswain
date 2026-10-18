@@ -1757,6 +1757,12 @@ pub fn mkdir(archive: &Path, inner: &str, password: Option<&str>) -> io::Result<
 
 /// Rename or move `from` (a file, or a folder and all in it) to `to`, inside the archive.
 pub fn rename_in(archive: &Path, from: &str, to: &str, password: Option<&str>) -> io::Result<()> {
+    if to == from || to.starts_with(&format!("{from}/")) {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            crate::t!("err.move_into_itself"),
+        ));
+    }
     let names: Vec<String> = items(archive)?.iter().map(|it| it.name.clone()).collect();
     if names
         .iter()
@@ -2523,6 +2529,11 @@ mod tests {
             );
             crate::fs::mkdir(&zp.join("docs")).unwrap();
             crate::fs::rename(&zp.join("a.txt"), &zp.join("docs")).unwrap();
+            assert!(
+                rename_in(&zp, "docs", "docs/inner", None).is_err(),
+                "not into itself"
+            );
+            assert!(rename_in(&zp, "docs", "docs", None).is_err());
             assert_eq!(names(&zp.join("docs")), ["a.txt"]);
             // Copied in under a new name: not one folder too deep (docs/b.txt/b.txt).
             assert_eq!(

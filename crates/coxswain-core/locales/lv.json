@@ -650,6 +650,7 @@
  "err.cancelled": "Atcelts",
  "err.clipboard_no_files": "Starpliktuvē nav failu",
  "err.copy_into_itself": "Mapi nevar kopēt pašā sevī",
+ "err.move_into_itself": "Mapi nevar pārvietot pašā sevī",
  "err.epub_no_rootfile": "Šai EPUB grāmatai nav saknes faila",
  "err.exists": "{path} jau ir",
  "err.is_folder": "{name} ir mape",

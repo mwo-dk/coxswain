@@ -46,8 +46,9 @@ An empty target cancels too. **F5** is also *Copy* in the F9 command list
 - Folders are copied with everything in them. Symbolic links are copied as links, not as what
   they point at.
 - **Nothing is ever written over.** A file that already exists at the target is an error
-  (`/home/me/b/a.txt exists`), and a folder cannot be copied into itself (*cannot copy a
-  folder into itself*).
+  (`/home/me/b/a.txt exists`), and a folder cannot be copied into itself (*A folder cannot be
+  copied into itself*), also not through a link to the same place (on FreeBSD `/home` is a
+  link to `/usr/home`).
 
 ### When something goes wrong
 

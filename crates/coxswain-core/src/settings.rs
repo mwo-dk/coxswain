@@ -949,7 +949,13 @@ mod tests {
                 .unwrap()
                 .contains("show_hidden = true")
         );
-        assert!(!dir.join("config.toml.tmp").exists());
+        assert!(
+            std::fs::read_dir(&dir)
+                .unwrap()
+                .flatten()
+                .all(|e| !e.file_name().to_string_lossy().ends_with(".tmp")),
+            "nothing left beside it"
+        );
         std::fs::remove_dir_all(&dir).unwrap();
     }
 

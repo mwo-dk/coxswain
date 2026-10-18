@@ -620,6 +620,7 @@
  "err.cancelled": "Geannuleerd",
  "err.clipboard_no_files": "Het klembord bevat geen bestanden",
  "err.copy_into_itself": "Een map kan niet naar zichzelf worden gekopieerd",
+ "err.move_into_itself": "Een map kan niet naar zichzelf worden verplaatst",
  "err.epub_no_rootfile": "Dit EPUB-boek heeft geen rootbestand",
  "err.exists": "{path} bestaat al",
  "err.is_folder": "{name} is een map",

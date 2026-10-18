@@ -620,6 +620,7 @@
  "err.cancelled": "لغو شد",
  "err.clipboard_no_files": "کلیپ‌بورد هیچ فایلی ندارد",
  "err.copy_into_itself": "یک پوشه را نمی‌توان درون خودش کپی کرد",
+ "err.move_into_itself": "یک پوشه را نمی‌توان درون خودش جابه‌جا کرد",
  "err.epub_no_rootfile": "این کتاب EPUB فایل ریشه ندارد",
  "err.exists": "{path} وجود دارد",
  "err.is_folder": "{name} یک پوشه است",

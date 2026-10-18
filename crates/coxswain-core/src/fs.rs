@@ -101,17 +101,25 @@ pub fn now() -> u64 {
 /// user alone, as `private` makes it.
 pub fn replace(path: &Path, bytes: &[u8], own: bool) -> io::Result<()> {
     let dir = path.parent().unwrap_or(Path::new("."));
-    let tmp = match path.extension() {
-        Some(e) => path.with_extension(format!("{}.tmp", e.to_string_lossy())),
-        None => path.with_extension("tmp"),
-    };
+    // Its own name, so two apps saving at once (the terminal and the desktop app) never write
+    // into one file beside it.
+    static N: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+    let n = N.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    let tmp = path.with_extension(match path.extension() {
+        Some(e) => format!("{}.{}-{n}.tmp", e.to_string_lossy(), std::process::id()),
+        None => format!("{}-{n}.tmp", std::process::id()),
+    });
     let done = (|| {
         if own {
             private(dir, None)?;
         } else {
             fs::create_dir_all(dir)?;
         }
-        fs::write(&tmp, bytes)?;
+        // On the disk before it takes the name: a crash never leaves an empty file there.
+        let mut f = fs::File::create(&tmp)?;
+        io::Write::write_all(&mut f, bytes)?;
+        f.sync_all()?;
+        drop(f);
         if own {
             private(dir, Some(&tmp))?;
         }
@@ -518,7 +526,7 @@ fn copy_out_or_in(
         return crate::archive::copy_out(&archive, &inner, dst, password, whole);
     }
     let to = target(src, dst);
-    if to.starts_with(src) && src.is_dir() {
+    if src.is_dir() && inside(&to, src) {
         return Err(io::Error::new(
             io::ErrorKind::InvalidInput,
             crate::t!("err.copy_into_itself"),
@@ -526,6 +534,16 @@ fn copy_out_or_in(
     }
     copy_tree(src, &to)?;
     Ok(to)
+}
+
+/// Whether `to` lies in `dir`, also when one of them is reached through a link (`/home` is a
+/// link to `/usr/home` on FreeBSD). The last parts are not followed: `to` need not exist yet.
+fn inside(to: &Path, dir: &Path) -> bool {
+    let real = |p: &Path| match (p.parent().map(fs::canonicalize), p.file_name()) {
+        (Some(Ok(parent)), Some(name)) => parent.join(name),
+        _ => p.to_path_buf(),
+    };
+    real(to).starts_with(real(dir))
 }
 
 fn copy_tree(src: &Path, to: &Path) -> io::Result<()> {
@@ -607,6 +625,12 @@ pub fn rename_locked(src: &Path, dst: &Path, password: Option<&str>) -> io::Resu
 
 fn rename_plain(src: &Path, dst: &Path) -> io::Result<PathBuf> {
     let to = target(src, dst);
+    if src.is_dir() && inside(&to, src) && !same_file(src, &to) {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            crate::t!("err.move_into_itself"),
+        ));
+    }
     // `to` may be `src` itself in another case (`Notes` to `notes` where case does not count).
     // A link counts as there, even one to nothing: rename would replace it.
     if fs::symlink_metadata(&to).is_ok() && !same_file(src, &to) {
@@ -1447,6 +1471,17 @@ mod tests {
         );
         assert_eq!(fs::read_to_string(d.join("dst/src/sub/f")).unwrap(), "x");
         assert!(copy(&d.join("src"), &d.join("src/sub")).is_err());
+        // Through a link to the same place (`/home` is `/usr/home` on FreeBSD): refused too, and
+        // so is a move.
+        #[cfg(unix)]
+        {
+            std::os::unix::fs::symlink(&d, d.join("alias")).unwrap();
+            assert!(copy(&d.join("alias/src"), &d.join("src/sub")).is_err());
+            assert!(copy(&d.join("src"), &d.join("alias/src/sub")).is_err());
+            assert!(rename(&d.join("alias/src"), &d.join("src/sub")).is_err());
+            assert!(!d.join("src/sub/src").exists());
+            fs::remove_file(d.join("alias")).unwrap();
+        }
         // Copying a file onto itself or over another file is refused, not truncated.
         assert!(copy(&d.join("src/sub/f"), &d.join("src/sub")).is_err());
         assert_eq!(fs::read_to_string(d.join("src/sub/f")).unwrap(), "x");

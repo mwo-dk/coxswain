@@ -650,6 +650,7 @@
  "err.cancelled": "Annulé",
  "err.clipboard_no_files": "Le presse-papiers ne contient aucun fichier",
  "err.copy_into_itself": "Un dossier ne peut pas être copié dans lui-même",
+ "err.move_into_itself": "Un dossier ne peut pas être déplacé dans lui-même",
  "err.epub_no_rootfile": "Ce livre EPUB n’a pas de fichier racine",
  "err.exists": "{path} existe déjà",
  "err.is_folder": "{name} est un dossier",

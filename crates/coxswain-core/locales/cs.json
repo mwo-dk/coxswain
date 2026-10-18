@@ -650,6 +650,7 @@
  "err.cancelled": "Zrušeno",
  "err.clipboard_no_files": "Ve schránce nejsou žádné soubory",
  "err.copy_into_itself": "Složku nelze zkopírovat do sebe samé",
+ "err.move_into_itself": "Složku nelze přesunout do sebe samé",
  "err.epub_no_rootfile": "Tato kniha EPUB nemá kořenový soubor",
  "err.exists": "{path} existuje",
  "err.is_folder": "{name} je složka",

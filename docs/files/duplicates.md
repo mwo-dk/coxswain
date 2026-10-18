@@ -37,6 +37,8 @@ downloaded twice, a photo in three places with thumbnails, and a document in an 
    - *Ignore files under:* skips small files: *any size*, 1 KB (the default), 100 KB, 1 MB or
      10 MB.
    - *Include hidden files:* also looks inside dot-files and dot-folders (off by default).
+     When off, a folder with a dot-entry in it (a `.git`, a `.env`) is never reported as an
+     identical folder: what it holds there was not compared.
    - *Find duplicate folders:* reports whole identical folders as one entry (on by default).
 4. **Scan.** The bar shows the phase, the progress and how much has been read. **Cancel**
    stops at once.
@@ -119,7 +121,9 @@ Reading every file on a large disk would take hours, so Coxswain only reads what
    AVX-512 on x86, NEON on ARM) and runs on all cores.
 4. **Kept.** Full hashes are kept in the search store, `search.db` in Coxswain's cache folder
    ([Where things are kept](../reference/where-things-are-kept.md)), keyed by path, size and
-   modification time. Scanning the same disk again only reads files that changed. In the
+   modification time. Scanning the same disk again only reads files that changed. A file
+   changed within the last two seconds is hashed but not kept: its time is counted in whole
+   seconds, so a second change of the same size in that second would not show. In the
    background the [search helper](../search/helper.md) hashes the files in the folders it reads
    (your home folder by default) that share a size, so a scan there reads nothing it already
    knows, not even the first 16 KB. Hashes of files that are gone or have changed are dropped at

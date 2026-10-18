@@ -620,6 +620,7 @@
  "err.cancelled": "Avbrutet",
  "err.clipboard_no_files": "Urklipp innehåller inga filer",
  "err.copy_into_itself": "En mapp kan inte kopieras in i sig själv",
+ "err.move_into_itself": "En mapp kan inte flyttas in i sig själv",
  "err.epub_no_rootfile": "Den här EPUB-boken saknar rotfil",
  "err.exists": "{path} finns redan",
  "err.is_folder": "{name} är en mapp",
