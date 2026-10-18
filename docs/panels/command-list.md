@@ -62,7 +62,7 @@ them, and in each group the most used action first:
 | Files | What can I do with this? (the [action menu](action-menu.md)), Copy, Move, Rename, Delete, New folder, the clipboard, Delete permanently, Properties, Batch rename, Colour tag, ZFS snapshots, File flags, Files of this package |
 | Archives | Extract archive, Pack into an archive |
 | Search | Find, Find in files, Ask your files, Find duplicates |
-| Git | Git history, Git branches, Switch to branch, Git worktrees, New branch here |
+| Git | Git history, Git branches, Switch to branch, Git worktrees, New branch here, Open in your git tool |
 | Viewing and editing | View, Edit, Preview, Path to command line, Menu (the user menu), Folder notes |
 | App | Help, Features and questions, Commands (this list), Settings, Disk use, Quit |
 

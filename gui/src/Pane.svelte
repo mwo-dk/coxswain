@@ -1,6 +1,6 @@
 <script>
   import { tick } from "svelte";
-  import { ui, addTab, closeTab, cd, up, goBack, goForward, focusPane, openFind, nextView, openGitView, openSnapshots, gitFacts } from "./app.svelte.js";
+  import { ui, addTab, closeTab, cd, up, goBack, goForward, focusPane, openFind, nextView, openGitView, openSnapshots, gitFacts, gitMenu } from "./app.svelte.js";
   import { invoke, basename, crumbs, size, MARKERS, SNAPSHOTS, PACKAGE, date, composing } from "./lib.js";
   import { t as tr, tn } from "./i18n.svelte.js"; // `t` is the tab here
   import DetailsView from "./DetailsView.svelte";
@@ -150,7 +150,7 @@
     <!-- On ZFS: the dataset and its space; a click lists the snapshots. -->
     {#if zfsLine}<button class="zfs-line" title={`${t.zfs.mountpoint}\n${tr("zfs.footer_tip", { key: ui.cfg.actions.snapshots?.[1] ?? "" })}`} onclick={() => openSnapshots(t)}>{zfsLine}</button>{/if}
     <!-- The git line: a click shows the branches; hovered, the upstream, remote and last fetch. -->
-    {#if t.git}<button class="git-prompt" title={[t.git.root, ...(ui.facts[t.git.root]?.slice(1) ?? []), tr("branches.line_tip")].join("\n")} onmouseenter={() => gitFacts(t.git.root)} onclick={() => openGitView(false, t)}>{t.git.prompt}</button>{/if}
+    {#if t.git}<button class="git-prompt" title={[t.git.root, ...(ui.facts[t.git.root]?.slice(1) ?? []), tr("branches.line_tip"), tr("gittool.line_tip", { key: ui.cfg.actions.git_tool?.[1] || "F9" })].join("\n")} onmouseenter={() => gitFacts(t.git.root)} onclick={() => openGitView(false, t)} oncontextmenu={(ev) => (ev.preventDefault(), gitMenu(t))}>{t.git.prompt}</button>{/if}
   </footer>
 </section>
 

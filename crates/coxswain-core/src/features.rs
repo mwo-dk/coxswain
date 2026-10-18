@@ -73,7 +73,7 @@ pub const FEATURES: &[Feature] = &[
         "panels/folder-sizes.md",
         &[FolderSizes, Columns],
     ),
-    f("git", "panels/git.md", &[History, Branches, Refresh]),
+    f("git", "panels/git.md", &[History, Branches, GitTool, Refresh]),
     f("git_history", "panels/git-history.md", &[History]),
     f(
         "git_branches",

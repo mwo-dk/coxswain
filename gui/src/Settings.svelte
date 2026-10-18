@@ -29,6 +29,8 @@
   let error = $state("");
   /** Settings → Behaviour → Show the hints again was pressed. */
   let hintsReset = $state(false);
+  /** The git tools installed here, looked for when Behaviour opens. */
+  let gitTools = $state([]);
   let saved = $state(false);
   const close = () => (ui.modal = null);
 
@@ -78,6 +80,7 @@
   $effect(() => {
     if (area === "previews") untrack(() => (loadImages(), loadPreviewCache()));
     if (area === "privacy") untrack(loadDisk);
+    if (area === "behaviour") invoke("git_tools").then((v) => (gitTools = v), () => {});
   });
 
   /** "Find a setting": every option whose label, explanation or config key holds the words. */
@@ -915,6 +918,12 @@
         <div class="buttons sub"><button onclick={() => invoke("hints_reset").then(() => (hintsReset = true), (e) => (error = String(e)))}>{t("settings.hints_reset")}</button>{#if hintsReset} <span class="hint">{t("settings.hints_reset_done")}</span>{/if}</div>
         {@render check("folder_sizes")}
         {@render check("git_last_commit")}
+        <!-- A tool's name from the list of those installed, or a command of one's own. -->
+        {#snippet gitTool()}
+          <input id="in-git_tool" list="git-tools" value={s.git_tool} placeholder={t("settings.git_tool_auto", { name: gitTools[0] ?? t("settings.git_tool_terminal") })} spellcheck="false" onchange={(e) => set("git_tool", e.currentTarget.value.trim())} />
+          <datalist id="git-tools">{#each gitTools as n (n)}<option value={n}></option>{/each}</datalist>
+        {/snippet}
+        {@render field("git_tool", gitTool)}
         {@render text("editor", "$EDITOR")}
         {@render text("viewer", "$PAGER")}
         {@render check("bom_viewer")}

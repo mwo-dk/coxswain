@@ -405,6 +405,22 @@ pub fn install_line(program: &str, manager: Manager) -> Option<String> {
             "",
             "",
         ],
+        // A git tool, for the notice when "Open in your git tool" finds none.
+        "lazygit" => [
+            "lazygit",
+            "lazygit",
+            "lazygit",
+            "",
+            "lazygit",
+            "lazygit",
+            "",
+            "lazygit",
+            "lazygit",
+            "JesseDuffield.lazygit",
+        ],
+        "tig" => [
+            "tig", "tig", "tig", "", "tig", "tig", "tig", "tig", "tig", "",
+        ],
         "nerd-font" => [
             "nerd-fonts",
             "nerd-fonts-Symbols",

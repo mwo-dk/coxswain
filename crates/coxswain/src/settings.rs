@@ -448,6 +448,16 @@ fn choices(name: &str, cfg: &Config) -> Option<Vec<(String, String)>> {
             v.push((OTHER.to_string(), t!("settings.ask_other")));
             v
         }
+        // The git tools installed here, the first of them chosen when none is named; then a
+        // command of one's own.
+        "git_tool" => {
+            let found = coxswain_core::handoff::installed();
+            let auto = found.first().map_or_else(|| t!("settings.git_tool_terminal"), |n| n.to_string());
+            let mut v = vec![(String::new(), t!("settings.git_tool_auto", "name" => auto))];
+            v.extend(found.iter().map(|n| (n.to_string(), n.to_string())));
+            v.push((OTHER.to_string(), t!("settings.git_tool_other")));
+            v
+        }
         "language" => std::iter::once(("auto".to_string(), t!("settings.language_auto"))).chain(coxswain_core::i18n::LANGUAGES.iter().map(|l| (l.code.to_string(), l.name.to_string()))).collect(),
         "theme" | "tui_theme" => {
             // Under the headings of their groups, as the desktop app lists them; your own last.
@@ -707,7 +717,7 @@ impl App {
                     KeyCode::Down => s.mode = Mode::Pick(pick_step(&c, at + 1, 1)),
                     KeyCode::PageUp => s.mode = Mode::Pick(pick_step(&c, at.saturating_sub(10), -1)),
                     KeyCode::PageDown => s.mode = Mode::Pick(pick_step(&c, at + 10, 1)),
-                    KeyCode::Enter if matches!(o.name, "ask_model" | "ask_code_model") && c[at.min(c.len() - 1)].0.starts_with('\u{1}') => match c[at.min(c.len() - 1)].0.as_str() {
+                    KeyCode::Enter if matches!(o.name, "ask_model" | "ask_code_model" | "git_tool") && c[at.min(c.len() - 1)].0.starts_with('\u{1}') => match c[at.min(c.len() - 1)].0.as_str() {
                         OTHER => s.mode = Mode::Edit(value.as_str().unwrap_or_default().to_string()),
                         SET_UP => self.setup_guide(),
                         _ => s.mode = Mode::Pick(at),

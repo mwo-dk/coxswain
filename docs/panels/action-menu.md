@@ -9,9 +9,9 @@ the menu also teaches the keys. The status line helps the same way: it shows one
 that fits what is under the cursor, such as *Alt+F5 packs it into an archive · Shift+F6 renames
 it*.
 
-<picture><source media="(prefers-reduced-motion: reduce)" srcset="../screenshots/action-menu.png"><img src="../screenshots/action-menu.gif" alt="The desktop app: the cursor on the folder src, Shift+F10 opens What to do with &quot;src&quot; with Open, Path to command line, Copy, Move, Rename, Delete, New folder, Pack into an archive and the git entries under their headings; Down moves to Rename, Enter asks for the new name"></picture>
+<picture><source media="(prefers-reduced-motion: reduce)" srcset="../screenshots/action-menu.png"><img src="../screenshots/action-menu.gif" alt="The desktop app: the cursor on the folder src, Shift+F10 opens What to do with &quot;src&quot; with Open, Features and questions, Settings, Path to command line, Copy, Move, Rename and the rest under their headings; typing git filters it to Git history, Git branches, Git worktrees and Open in your git tool, each with its key; Esc closes it"></picture>
 
-![The terminal app's action menu on a file: What to do with "README.md", with Open under Moving, Features and questions and Settings (Ctrl+,) under App, View, Edit and Path to command line under Viewing, Copy, Move, Rename, Delete, New folder and Properties under Files, Pack under Archives, Find, Find in files and Ask under Search, Git history, Git branches and Git worktrees under Git; the key bar ends in 12 Settings](../screenshots/action-menu-tui.png)
+![The terminal app's action menu on a file: What to do with "README.md", with Open under Moving, Features and questions and Settings (Ctrl+,) under App, View, Edit and Path to command line under Viewing, Copy, Move, Rename, Delete, New folder and Properties under Files, Pack under Archives, Find, Find in files and Ask under Search, Git history, Git branches, Git worktrees and Open in your git tool (Alt+G) under Git; the key bar ends in 12 Settings](../screenshots/action-menu-tui.png)
 
 - [Opening the menu](#opening-the-menu)
 - [What it lists](#what-it-lists)
@@ -61,7 +61,7 @@ then looking, files, archives, search, git and the panels; in each heading the m
 | An archive (zip, tar, 7z …) | What a file has, and Extract archive (**Ctrl+E**); Open goes into it like a folder |
 | Several marked | Copy, Move, Delete, New folder, Copy to clipboard, Batch rename (**Ctrl+M**, desktop app), Colour tag, Pack into an archive; Extract archive when an archive is among them; Find duplicates when a folder is among them |
 | `..`, nothing marked | New folder, Folder notes, Find duplicates (in this folder), the git and ZFS entries for this folder, and under *Panels*: Other panel here (**Alt+O**), Swap panels (**Ctrl+U**), Panels on/off (**Ctrl+O**) |
-| In a git repository | Also Git history (**Ctrl+G**) for the one entry or the folder, Git branches (**Alt+B**) and Git worktrees (**Alt+W**) |
+| In a git repository | Also Git history (**Ctrl+G**) for the one entry or the folder, Git branches (**Alt+B**), Git worktrees (**Alt+W**) and Open in your git tool (**Alt+G**) |
 | In the list of branches | Open, Switch to branch (**Alt+S**), New branch here |
 | On ZFS | Also ZFS snapshots (**Alt+Z**) for the folder; inside a snapshot, back to the list |
 | On FreeBSD, a file | Also Files of this package |

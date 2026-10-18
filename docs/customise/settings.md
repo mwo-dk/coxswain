@@ -256,6 +256,7 @@ Opening this area asks the container runtime which images it has.
 | *Show hints* | One short hint on the status line that fits what is under the cursor, each three times. *Show the hints again* (desktop app; `coxswain --hints reset` in a terminal) brings them back ([Hints](../panels/action-menu.md#hints-on-the-status-line)) | `hints` |
 | *Measure folder sizes* | Folders show their whole size, measured in the background. The desktop app's columns menu switches it too ([Folder sizes](../panels/folder-sizes.md)) | `folder_sizes` |
 | *Last commit of each file* | The *Last commit* column and the preview's *Last commit* ([Last commit per file](../panels/git.md#last-commit-per-file)) | `[git] last_commit` |
+| *Git tool* | Where **Alt+G** (*Open in your git tool*) goes, for commit, push and pull. *Automatic* (empty) takes the first installed of lazygit, gitui, tig and the desktop clients, else a terminal; the list shows the tools installed here, and a command of your own goes in too, `%d` being the repository ([Open in your git tool](../panels/git.md#open-in-your-git-tool)) | `[git] tool` |
 | *Editor* | The program **F4** opens a file in. Empty: the system's choice in the desktop app, `$VISUAL` or `$EDITOR` in the terminal app ([View and edit](../commands/view-and-edit.md)) | `editor` |
 | *Viewer (terminal app)* | The program **F3** shows a file in, in the terminal app. Empty: `$PAGER`, else `less` | `viewer` |
 | *CBOM viewer on F3 (terminal app)* | **F3** on a CycloneDX bill of materials opens the CBOM viewer ([CBOM viewer](../previews/bom.md)) | `bom_viewer` |
@@ -318,6 +319,7 @@ Every option, the name `--settings=` takes, its key, and who reads it:
 | Show hidden files…, Ask before deleting (Behaviour) | `show_hidden`, `confirm_delete` | `show_hidden`, `confirm_delete` | true/false | Both apps |
 | Right-click, Show hints (Behaviour) | `right_click`, `hints` | `right_click`, `hints` | `"mark"`/`"menu"`, `"mark"`; true/false, `true` | Both apps |
 | Measure folder sizes, Last commit of each file | `folder_sizes`, `git_last_commit` | `folder_sizes`, `[git] last_commit` | true/false | Both apps |
+| Git tool | `git_tool` | `[git] tool` | text, `""` | Both apps |
 | Editor, Viewer, CBOM viewer on F3, Provenance viewer on F3 | `editor`, `viewer`, `bom_viewer`, `provenance_viewer` | `editor`, `viewer`, `bom_viewer`, `provenance_viewer` | text (absent: the environment); true/false, `true` | Editor: both apps; the others: the terminal app |
 | Check for a new version (Privacy and updates) | `check_updates` | `check_updates` | true/false, `true` | Both apps |
 

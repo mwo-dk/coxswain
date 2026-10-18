@@ -101,7 +101,7 @@ impl Action {
             Package => s.packages && disk && s.single() && s.files == 1,
             Tag => n > 0 && disk,
             Notes => disk,
-            Worktrees => s.git && disk,
+            Worktrees | GitTool => s.git && disk,
             // Find, anywhere; duplicates among the folders, or in this one.
             Search | SearchText | Ask => true,
             Duplicates => disk && (s.folders > 0 || n == 0),
@@ -185,6 +185,7 @@ const HINTS: &[(&str, &[(&str, Action)])] = &[
         "git",
         &[("branches", Action::Branches), ("history", Action::History)],
     ),
+    ("git_tool", &[("key", Action::GitTool)]),
     ("zfs", &[("snapshots", Action::Snapshots)]),
 ];
 
@@ -201,7 +202,7 @@ fn fits(id: &str, s: &Subject) -> bool {
         "folder" => disk && s.single() && s.folders == 1,
         "file" => disk && s.single() && s.files == 1 && s.archives == 0,
         "branches" => s.place == Place::Branches && s.single(),
-        "git" => disk && s.git,
+        "git" | "git_tool" => disk && s.git,
         "zfs" => disk && s.zfs,
         _ => false,
     }

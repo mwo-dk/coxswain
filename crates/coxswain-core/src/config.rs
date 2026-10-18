@@ -258,6 +258,8 @@ actions! {
     SwitchBranch = "switch_branch", "Switch to branch", Git, ["Alt+S"];
     Worktrees = "worktrees", "Git worktrees", Git, ["Alt+W"];
     NewBranch = "new_branch", "New branch here", Git, [];
+    // Commit, push, pull and the rest: in the user's own tool (`handoff`).
+    GitTool = "git_tool", "Open in your git tool", Git, ["Alt+G"];
     // Viewing and editing, the most used first.
     View = "view", "View", Viewing, ["F3"];
     Edit = "edit", "Edit", Viewing, ["F4"];
@@ -1647,11 +1649,15 @@ pub struct GitConfig {
     /// Show when each file and folder was last committed, and by whom: a column in the desktop
     /// app's details view and the preview, the info line in the terminal app.
     pub last_commit: bool,
+    /// Where "Open in your git tool" hands off: a tool's name as Settings lists it (`lazygit`,
+    /// `Sublime Merge`) or a command (`%d` is the repository). Empty: the first one installed,
+    /// else a terminal in the repository (`handoff`).
+    pub tool: String,
 }
 
 impl Default for GitConfig {
     fn default() -> Self {
-        GitConfig { last_commit: true }
+        GitConfig { last_commit: true, tool: String::new() }
     }
 }
 

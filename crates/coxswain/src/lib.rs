@@ -995,6 +995,7 @@ impl App {
             Action::Worktrees => self.git_view(history::View::Worktrees),
             Action::SwitchBranch => self.switch_branch(),
             Action::NewBranch => self.new_branch(),
+            Action::GitTool => self.git_tool(),
             Action::Mark => {
                 let p = self.panel_mut();
                 p.toggle_mark(p.cursor);
@@ -1473,6 +1474,30 @@ impl App {
             None => t!("branches.new_here"),
         };
         self.input(&t!("action.new_branch"), label, String::new(), Prompt::NewBranch(p.dir.clone(), from));
+    }
+
+    /// Commit, push, pull and the rest: the repository in the user's own git tool. One that
+    /// runs in a terminal runs in this one, as F4's editor does; a window of its own is started
+    /// beside. The panels are read again after.
+    fn git_tool(&mut self) {
+        use coxswain_core::handoff;
+        let p = self.panel();
+        // From the branches and the history too: their repository.
+        let dir = history::split(&p.dir).map_or_else(|| p.dir.clone(), |at| at.base);
+        let h = match handoff::handoff(&self.cfg.git.tool, &dir, true) {
+            Ok(h) => h,
+            Err(e) => return self.status = Some(e),
+        };
+        self.status = Some(handoff::opened(&h));
+        match &h.run {
+            handoff::Run::Here(cmd) => self.run = Some(Run::Shell { cmd: cmd.clone(), dir: h.root.clone(), wait: false }),
+            handoff::Run::Spawn(..) => {
+                if let Err(e) = handoff::spawn(&h) {
+                    self.status = Some(e.to_string());
+                }
+                self.reload();
+            }
+        }
     }
 
     /// What git said, on the status line; when it refused, in a dialog under `title` (what could
