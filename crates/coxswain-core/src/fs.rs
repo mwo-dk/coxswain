@@ -751,6 +751,40 @@ pub fn trash_takes(paths: &[PathBuf]) -> bool {
     }
 }
 
+/// What deleting does, decided the same in both apps.
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Serialize)]
+pub struct DeletePlan {
+    /// Deleted for good, not moved to the trash.
+    pub forever: bool,
+    /// Asked even when deleting is not confirmed: the trash cannot take these.
+    pub must_confirm: bool,
+    /// The locale key of the question (its `{what}`, and `{archive}` inside one).
+    pub question: &'static str,
+}
+
+/// How `paths` are deleted: for good with `forever`; inside an archive always, as there is no
+/// trash there (they are taken out, the archive written anew). Coxswain's own trash (Termux,
+/// illumos) takes nothing from another filesystem: that is deleted for good, and always asked.
+pub fn delete_plan(paths: &[PathBuf], forever: bool, inside_archive: bool) -> DeletePlan {
+    let takes = forever || inside_archive || trash_takes(paths);
+    plan_delete(forever, inside_archive, takes, crate::termux::active())
+}
+
+fn plan_delete(forever: bool, inside: bool, takes: bool, termux: bool) -> DeletePlan {
+    let no_trash = !takes;
+    DeletePlan {
+        forever: forever || inside || no_trash,
+        must_confirm: no_trash,
+        question: match () {
+            _ if inside => "confirm.archive_remove",
+            _ if no_trash && termux => "termux.no_trash_storage",
+            _ if no_trash => "confirm.no_trash_here",
+            _ if forever => "confirm.delete_forever",
+            _ => "confirm.trash",
+        },
+    }
+}
+
 /// A free name for `name` in `dir`: `name`, else `stem (2).ext`, `stem (3).ext`, ...
 pub fn free_name(dir: &Path, name: &str) -> PathBuf {
     name_candidates(name)
@@ -1237,6 +1271,29 @@ mod tests {
         assert!(s.newest > 0);
         assert_eq!(summary(&d, true).unwrap().bytes, 8);
         let _ = fs::remove_dir_all(&d);
+    }
+
+    #[test]
+    fn delete_plan_asks_and_deletes_for_good_where_there_is_no_trash() {
+        let plan = |forever, inside, takes| plan_delete(forever, inside, takes, false);
+        let trash = plan(false, false, true);
+        assert!(!trash.forever && !trash.must_confirm);
+        assert_eq!(trash.question, "confirm.trash");
+        let gone = plan(true, false, true);
+        assert!(gone.forever && !gone.must_confirm);
+        assert_eq!(gone.question, "confirm.delete_forever");
+        let none = plan(false, false, false);
+        assert!(none.forever && none.must_confirm);
+        assert_eq!(none.question, "confirm.no_trash_here");
+        assert_eq!(
+            plan_delete(false, false, false, true).question,
+            "termux.no_trash_storage"
+        );
+        let inside = plan(false, true, true);
+        assert!(inside.forever && !inside.must_confirm);
+        assert_eq!(inside.question, "confirm.archive_remove");
+        // Asked for good or inside an archive, the trash is not asked about.
+        assert!(!delete_plan(&[PathBuf::from("/nowhere")], true, false).must_confirm);
     }
 
     #[test]

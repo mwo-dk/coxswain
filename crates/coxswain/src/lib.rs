@@ -16,7 +16,7 @@ use coxswain_core::helper::{self, Client};
 use coxswain_core::find::{self, Found, Kind, Off, Row};
 use coxswain_core::index::{self, State};
 use coxswain_core::tools::Line;
-use coxswain_core::undo::{Kind as UndoKind, Record};
+use coxswain_core::undo::Record;
 use ratatui::crossterm::event::{self, Event, KeyCode as CK, KeyEvent, KeyEventKind, KeyModifiers, MouseButton, MouseEvent, MouseEventKind};
 use ratatui::crossterm::{cursor, execute, terminal};
 use ratatui::layout::Rect;
@@ -614,15 +614,19 @@ fn line_key(key: Key, plain: Option<char>) -> Option<LineKey> {
     })
 }
 
-/// What a file operation (`None`: packing into `dst`) adds, removes or writes: the folders
-/// these are in change size. A move, rename, delete or new folder changes `src`; a copy, move,
-/// extract or pack what is in `dst`.
-fn touches(op: Option<Transfer>, src: &[PathBuf], dst: &Path) -> Vec<PathBuf> {
-    let mut out = if matches!(op, Some(Transfer::Move | Transfer::Rename | Transfer::Delete(_) | Transfer::Mkdir)) { src.to_vec() } else { vec![] };
-    if !dst.as_os_str().is_empty() {
-        out.push(if op.is_none() { dst.to_path_buf() } else { dst.join("new") });
+/// The operation a job runs (`None`: packing into `dst`; a 7z's names are hidden too, what
+/// the desktop app does by default).
+fn job_op(op: Option<Transfer>) -> coxswain_core::undo::Op {
+    use coxswain_core::undo::Op;
+    match op {
+        None => Op::Pack { hide_names: true },
+        Some(Transfer::Copy) => Op::Copy,
+        Some(Transfer::Move | Transfer::Rename) => Op::Move,
+        Some(Transfer::Extract) => Op::Extract,
+        Some(Transfer::Delete(false)) => Op::Trash,
+        Some(Transfer::Delete(true)) => Op::Forever,
+        Some(Transfer::Mkdir) => Op::Mkdir,
     }
-    out
 }
 
 /// A folder listed by a program (git, zfs, pkg), which can take a while: read on a thread.
@@ -1215,22 +1219,14 @@ impl App {
                 if paths.is_empty() {
                     return;
                 }
-                // Inside an archive there is no trash: it is taken out of the archive, written anew.
                 let inside = coxswain_core::archive::split(&self.panel().dir);
-                let forever = a == Action::DeleteForever || inside.is_some();
-                // Coxswain's own trash (Termux, illumos) takes nothing from another filesystem:
-                // that is deleted for good, and asked even when deleting is not confirmed.
-                let no_trash = !forever && !bfs::trash_takes(&paths);
-                let forever = forever || no_trash;
-                if self.cfg.confirm_delete || no_trash {
-                    let text = match inside {
-                        Some((archive, _)) => t!("confirm.archive_remove", "what" => Self::describe(&paths), "archive" => archive.file_name().unwrap_or_default().to_string_lossy()),
-                        None if no_trash => t!(if coxswain_core::termux::active() { "termux.no_trash_storage" } else { "confirm.no_trash_here" }, "what" => Self::describe(&paths)),
-                        None => t!(if forever { "confirm.delete_forever" } else { "confirm.trash" }, "what" => Self::describe(&paths)),
-                    };
-                    self.dialog = Some(Dialog::Confirm { title: t!("dialog.delete"), text, paths, forever });
+                let plan = bfs::delete_plan(&paths, a == Action::DeleteForever, inside.is_some());
+                if self.cfg.confirm_delete || plan.must_confirm {
+                    let archive = inside.map(|(a, _)| a.file_name().unwrap_or_default().to_string_lossy().into_owned()).unwrap_or_default();
+                    let text = t!(plan.question, "what" => Self::describe(&paths), "archive" => archive);
+                    self.dialog = Some(Dialog::Confirm { title: t!("dialog.delete"), text, paths, forever: plan.forever });
                 } else {
-                    self.delete(paths, forever);
+                    self.delete(paths, plan.forever);
                 }
             }
             Action::Search | Action::SearchText | Action::Ask => {
@@ -1609,42 +1605,11 @@ impl App {
             return self.status = Some(j.line.clone());
         }
         // Measured in `finish`: while it runs, a folder's size would be halfway.
-        self.forget(&touches(op, &src, &dst));
+        self.forget(&job_op(op).touches(&src, &dst));
         let (tx, rx) = mpsc::channel();
         let (items, to, pw) = (src.clone(), dst.clone(), password.clone());
         std::thread::spawn(move || {
-            let pw = pw.as_deref();
-            let Some(op) = op else {
-                // A 7z's names are hidden too: what the desktop app does by default.
-                let mut rec = Record::new(UndoKind::Pack);
-                let failed = match coxswain_core::archive::create_locked(&to, &items, pw, true) {
-                    Ok(()) => {
-                        rec.done(&to, &to);
-                        vec![]
-                    }
-                    Err(e) => vec![(to.clone(), e)],
-                };
-                return drop(tx.send(JobMsg::Done(failed, rec)));
-            };
-            // Deleting for good is the one that cannot be undone.
-            let mut rec = Record::new(match op {
-                Transfer::Copy => UndoKind::Copy,
-                Transfer::Move | Transfer::Rename => UndoKind::Move,
-                Transfer::Extract => UndoKind::Extract,
-                Transfer::Delete(_) => UndoKind::Trash,
-                Transfer::Mkdir => UndoKind::Mkdir,
-            });
-            let mut failed = vec![];
-            for (i, p) in items.iter().enumerate() {
-                let _ = tx.send(JobMsg::At(i));
-                let r = match op {
-                    Transfer::Delete(true) => bfs::delete_locked(p, pw),
-                    _ => rec.run(p, &to, pw),
-                };
-                if let Err(e) = r {
-                    failed.push((p.clone(), e));
-                }
-            }
+            let (failed, rec) = coxswain_core::undo::run(job_op(op), &items, &to, pw.as_deref(), |i| drop(tx.send(JobMsg::At(i))));
             let _ = tx.send(JobMsg::Done(failed, rec));
         });
         let line = t!("status.busy", "what" => Self::describe(&src));
@@ -1717,7 +1682,7 @@ impl App {
     fn finish(&mut self, job: Job, failed: Vec<(PathBuf, std::io::Error)>, rec: Option<Record>) {
         let Job { op, src, dst, password, select, .. } = job;
         // Again now it has ended: a folder measured while it ran would keep a size halfway.
-        self.changed(&touches(op, &src, &dst));
+        self.changed(&job_op(op).touches(&src, &dst));
         let what = Self::describe(&src);
         // What can be undone is kept, and the status line says how.
         let key = self.key_label(Action::Undo).to_string();
@@ -1829,13 +1794,9 @@ impl App {
             }
             Prompt::Pack(src) => {
                 let to = resolve(&base, &value);
-                // The format is suggested next time, in both apps.
-                if let Some(f) = coxswain_core::archive::pack_format(&value) {
-                    let mut st = coxswain_core::state::AppState::load();
-                    if st.pack_ending != f.endings[0] {
-                        st.pack_ending = f.endings[0].into();
-                        let _ = st.save();
-                    }
+                let mut st = coxswain_core::state::AppState::load();
+                if coxswain_core::archive::remember_format(&mut st, &value) {
+                    let _ = st.save();
                 }
                 if coxswain_core::archive::takes_password(&to) {
                     self.input(&t!("archive.pack_title", "what" => Self::describe(&src)), t!("archive.pack_password"), String::new(), Prompt::PackPassword(src, to));
