@@ -63,6 +63,7 @@ The questions people ask most, with a short answer and a link to the full one. E
 - **How do I rename or delete a favourites group?** Click the ⋯ at the right of its header in the sidebar (or right-click the header): *Rename group*, *Delete group*. [Answer](organise/favourites.md#how-do-i-rename-or-delete-a-group)
 - **Deleting a favourites group asks nothing. Can I undo it?** No; the folders are untouched, add them to a new group. [Answer](organise/favourites.md#deleting-a-group-asks-nothing-can-i-undo-it)
 - **I plugged in a USB stick and it is not in the sidebar.** Drives are read again every 30 seconds and when the window comes back to the front; mounts under /run (except /run/media) are left out, go there with Ctrl+L. [Answer](organise/sidebar.md#i-plugged-in-a-usb-stick-and-it-is-not-in-the-sidebar)
+- **Where are my OneDrive, Google Drive or Nextcloud accounts?** Under *Clouds* in the desktop app's sidebar and under Alt+F1 in the terminal app, one entry each, found from the sync apps and mounts on the machine; Coxswain never logs in. [Answer](organise/clouds.md#why-is-my-cloud-not-listed)
 - **Why is my Desktop not under Places?** Only folders your system names (user-dirs.dirs on Linux) and that exist are listed, each once. [Answer](organise/sidebar.md#why-is-my-desktop-or-music-or-videos-not-under-places)
 
 ## Commands, the user menu and scripts

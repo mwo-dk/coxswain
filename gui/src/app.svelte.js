@@ -48,6 +48,7 @@ export const ui = $state({
   places: [],
   /** FreeBSD's boot environments and jails, for the sidebar. */
   bsdPlaces: [],
+  clouds: [],
   disks: [],
   /** What Ctrl+Z would undo ("" for nothing), and how many operations the history has kept. */
   undo: "",
@@ -568,14 +569,19 @@ export async function init() {
 }
 
 let disksBusy = false;
-/** Read the drives and their free space again. One read at a time, so a slow network mount
- * cannot pile up calls; a failed read keeps the list shown, and an unchanged one is left alone. */
+/** Read the drives and their free space again, and the clouds. One read at a time, so a slow
+ * network mount cannot pile up calls; a failed read keeps the list shown, and an unchanged one is
+ * left alone. */
 export function refreshDisks() {
   if (disksBusy) return;
   disksBusy = true;
   invoke("disks")
     .then((d) => {
       if (JSON.stringify(d) !== JSON.stringify($state.snapshot(ui.disks))) ui.disks = d;
+    }, () => {})
+    .then(() => invoke("clouds"))
+    .then((c) => {
+      if (c && JSON.stringify(c) !== JSON.stringify($state.snapshot(ui.clouds))) ui.clouds = c;
     }, () => {})
     .finally(() => (disksBusy = false));
 }

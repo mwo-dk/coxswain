@@ -26,7 +26,8 @@ cloud. Files that are on your disk, inside a cloud folder or not, are read as be
 
 ## How to use it
 
-Nothing to do: it is on from the start, in both apps, on Linux, macOS and Windows.
+Nothing to do: it is on from the start, in both apps, on Linux, macOS and Windows. Your cloud
+accounts' folders are one click away under [Clouds](../organise/clouds.md).
 
 - **To see one file:** in the desktop app the preview says *Online only: not downloaded. Press
   Enter to download and open it, or:* with the button **Download and preview**, which downloads it

@@ -7,6 +7,7 @@ pub mod branches;
 pub mod bsd;
 pub mod chat;
 pub mod cloud;
+pub mod clouds;
 pub mod code;
 pub mod config;
 pub mod disk;

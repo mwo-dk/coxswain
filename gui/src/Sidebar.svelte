@@ -125,9 +125,10 @@
     </ul>
   {/if}
 
-  <!-- FreeBSD: boot environments and jails. One not mounted (or not readable) is listed, not opened. -->
-  {#each [["boot", "sidebar.boot_envs", "\u{f0a0}"], ["jail", "sidebar.jails", "\u{f023}"]] as [kind, title, icon] (kind)}
-    {@const list = ui.bsdPlaces.filter((p) => p.kind === kind)}
+  <!-- FreeBSD: boot environments and jails. One not mounted (or not readable) is listed, not opened.
+       Clouds: one entry per account its sync app or mount keeps on this machine. -->
+  {#each [["cloud", "sidebar.clouds", "\u{f0c2}"], ["boot", "sidebar.boot_envs", "\u{f0a0}"], ["jail", "sidebar.jails", "\u{f023}"]] as [kind, title, icon] (kind)}
+    {@const list = [...ui.clouds, ...ui.bsdPlaces].filter((p) => p.kind === kind)}
     {#if list.length}
       {@render section(kind, t(title))}
       {#if !collapsed[kind]}
