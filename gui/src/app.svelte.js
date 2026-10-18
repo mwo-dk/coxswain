@@ -321,8 +321,8 @@ export function openGitView(worktrees = false, tb = tab()) {
 
 /** In the list of branches: the tab's folder is it. */
 const inBranches = (tb) => tb.history?.view === "branches" && !tb.history.commit;
-/** The branch an entry of the list is called: its name, up to the first space. */
-const branchOf = (e) => e.name.replace(/^\* /, "").split(" ")[0].replaceAll("∕", "/");
+/** The branch an entry of the list is called (`branches::name_of`). */
+const branchOf = (e) => invoke("branch_name", { entry: e.name });
 
 /** What git said: on the status line, or, when it refused, in a message under `title` (what
  *  could not be done), the cause first and git's words under Details. */
@@ -336,35 +336,37 @@ async function gitSaid(title, call) {
 }
 
 /** Switch to the branch under the cursor in the list of branches, once confirmed. */
-export function switchBranch(tb = tab()) {
+export async function switchBranch(tb = tab()) {
   const e = item(tb);
   const key = ui.cfg.actions.branches?.[1] ?? "";
   if (!inBranches(tb) || !e || e.name === "..") return void (ui.status = tr("branches.switch_where", { key }));
   const title = tr("action.switch_branch");
   const dir = tb.dir;
+  const branch = await branchOf(e);
   ui.modal = {
     kind: "confirm",
     feature: "git_branches",
     title,
-    text: tr("branches.switch_text", { branch: branchOf(e), repo: basename(tb.history.base) }),
+    text: tr("branches.switch_text", { branch, repo: basename(tb.history.base) }),
     ok: tr("verb.switch"),
-    run: () => gitSaid(tr("error.switch", { branch: branchOf(e) }), invoke("git_switch", { dir, entry: e.name })),
+    run: () => gitSaid(tr("error.switch", { branch }), invoke("git_switch", { dir, entry: e.name })),
   };
 }
 
 /** A new branch, named in a prompt: from the branch under the cursor in the list of branches,
  * or from the current commit. */
-export function newBranch(tb = tab()) {
+export async function newBranch(tb = tab()) {
   const e = item(tb);
   const from = inBranches(tb) && e && e.name !== ".." ? e.name : null;
   if (!from && (!tb.git || tb.history)) return void (ui.status = tr("branches.no_repo"));
   const title = tr("action.new_branch");
   const dir = tb.dir;
+  const branch = from && (await branchOf(e));
   ui.modal = {
     kind: "input",
     feature: "git_branches",
     title,
-    label: from ? tr("branches.new_from", { branch: branchOf(e) }) : tr("branches.new_here"),
+    label: from ? tr("branches.new_from", { branch }) : tr("branches.new_here"),
     value: "",
     ok: tr("verb.create"),
     run: (name) => name.trim() && gitSaid(tr("error.new_branch", { name }), invoke("git_new_branch", { dir, name, from })),

@@ -757,10 +757,7 @@ fn cut(text: &str, bytes: usize) -> String {
     if text.len() <= bytes {
         return text.to_string();
     }
-    let mut end = bytes;
-    while !text.is_char_boundary(end) {
-        end -= 1;
-    }
+    let end = text.floor_char_boundary(bytes);
     let end = text[..end]
         .rfind('\n')
         .filter(|&i| i > end / 2)

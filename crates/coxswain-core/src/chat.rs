@@ -425,14 +425,10 @@ fn prompt(
     count: impl Fn(&str) -> usize,
 ) -> String {
     let build = |earlier: &[Turn], sources: &[(PathBuf, String)]| {
-        let context: String = sources
-            .iter()
-            .enumerate()
-            .map(|(i, (path, text))| format!("[{}] {}\n{text}\n\n", i + 1, path.display()))
-            .collect();
         let mut p = format!(
-            "<|im_start|>system\n{}\n\nSources:\n\n{context}<|im_end|>\n",
-            crate::meaning::RULES
+            "<|im_start|>system\n{}\n\nSources:\n\n{}<|im_end|>\n",
+            crate::meaning::RULES,
+            crate::meaning::numbered(sources)
         );
         for (q, a) in earlier {
             p.push_str(&format!(
@@ -731,6 +727,25 @@ mod tests {
             shorter.contains("[1] /a.md")
                 && !shorter.contains("[2] /b.md")
                 && shorter.contains("New?")
+        );
+    }
+
+    #[test]
+    fn the_prompt_byte_for_byte() {
+        let sources = vec![
+            (PathBuf::from("/a.md"), "A".to_string()),
+            (PathBuf::from("/b.md"), "B".to_string()),
+        ];
+        let earlier = vec![("Old?".to_string(), "Old.".to_string())];
+        let p = prompt(false, &earlier, "New?", &sources, 10_000, |s| s.len());
+        assert_eq!(
+            p,
+            format!(
+                "<|im_start|>system\n{}\n\nSources:\n\n[1] /a.md\nA\n\n[2] /b.md\nB\n\n<|im_end|>\n\
+                 <|im_start|>user\nOld?<|im_end|>\n<|im_start|>assistant\nOld.<|im_end|>\n\
+                 <|im_start|>user\nNew?<|im_end|>\n<|im_start|>assistant\n",
+                crate::meaning::RULES
+            )
         );
     }
 

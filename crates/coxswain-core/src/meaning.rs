@@ -991,16 +991,15 @@ impl Server {
             .read_to_string()
             .map_err(|e| NoVectors::Down(e.to_string()))?;
         let v: serde_json::Value = serde_json::from_str(&text).unwrap_or_default();
-        let said = || {
-            v["error"]
-                .as_str()
-                .or_else(|| v["error"]["message"].as_str())
-                .map(String::from)
-        };
         if status.as_u16() >= 400 {
             return Err(NoVectors::from_status(
                 status.as_u16(),
-                format!("{} {}: {}", shown(&self.url), status, said().unwrap_or(text)),
+                format!(
+                    "{} {}: {}",
+                    shown(&self.url),
+                    status,
+                    error_in(&v).unwrap_or(text)
+                ),
             ));
         }
         let rows: Vec<&serde_json::Value> = if self.openai {
@@ -1016,7 +1015,7 @@ impl Server {
         };
         if rows.len() != texts.len() {
             return Err(NoVectors::Refused(
-                said().unwrap_or_else(|| "no vectors in the answer".into()),
+                error_in(&v).unwrap_or_else(|| "no vectors in the answer".into()),
             ));
         }
         rows.into_iter()
@@ -1041,6 +1040,15 @@ impl Server {
 
 /// A question asked before in the same Find file, and its answer.
 pub type Turn = (String, String);
+
+/// The sources as Ask's prompt shows them: `[1] path`, the text, a blank line, for each.
+pub(crate) fn numbered(sources: &[(PathBuf, String)]) -> String {
+    sources
+        .iter()
+        .enumerate()
+        .map(|(i, (path, text))| format!("[{}] {}\n{text}\n\n", i + 1, path.display()))
+        .collect()
+}
 
 /// What the chat model is told to do with the sources.
 pub(crate) const RULES: &str = "You answer questions about the user's own files. Use only the numbered sources below. \
@@ -1105,13 +1113,8 @@ pub fn ask(
     while !earlier.is_empty() && size(earlier) > room {
         earlier = &earlier[1..];
     }
-    let context: String = sources
-        .iter()
-        .enumerate()
-        .map(|(i, (path, text))| format!("[{}] {}\n{text}\n\n", i + 1, path.display()))
-        .collect();
     let mut messages = vec![
-        serde_json::json!({ "role": "system", "content": format!("{RULES}\n\nSources:\n\n{context}") }),
+        serde_json::json!({ "role": "system", "content": format!("{RULES}\n\nSources:\n\n{}", numbered(sources)) }),
     ];
     for (q, a) in earlier {
         messages.push(serde_json::json!({ "role": "user", "content": q }));
@@ -1382,6 +1385,16 @@ pub(crate) fn ollama_can(
     url: &str,
     model: &str,
 ) -> Result<Option<Vec<String>>, String> {
+    ollama_show(agent, url, model).map(|v| ollama_caps(&v))
+}
+
+/// What Ollama's `/api/show` says of a model: its `capabilities`, and in `model_info` its
+/// context size (`qwen3.context_length`).
+pub(crate) fn ollama_show(
+    agent: &ureq::Agent,
+    url: &str,
+    model: &str,
+) -> Result<serde_json::Value, String> {
     let body = serde_json::json!({ "model": model }).to_string();
     let mut res = agent
         .post(&format!("{url}/api/show"))
@@ -1392,22 +1405,30 @@ pub(crate) fn ollama_can(
     if res.status().as_u16() >= 400 {
         return Err(format!("{} {}: {}", shown(url), res.status(), said(&text)));
     }
-    let v: serde_json::Value = serde_json::from_str(&text).map_err(|e| e.to_string())?;
-    Ok(v["capabilities"].as_array().map(|c| {
+    serde_json::from_str(&text).map_err(|e| e.to_string())
+}
+
+/// What an Ollama model can do (`completion`, `embedding`), from a list or `/api/show`.
+pub(crate) fn ollama_caps(v: &serde_json::Value) -> Option<Vec<String>> {
+    v["capabilities"].as_array().map(|c| {
         c.iter()
             .filter_map(|x| x.as_str().map(String::from))
             .collect()
-    }))
+    })
 }
 
 /// The error a server's answer names (`{"error": "…"}` or `{"error": {"message": "…"}}`), or
 /// the answer itself.
 pub(crate) fn said(text: &str) -> String {
-    let v: serde_json::Value = serde_json::from_str(text).unwrap_or_default();
+    error_in(&serde_json::from_str(text).unwrap_or_default()).unwrap_or_else(|| text.to_string())
+}
+
+/// The error a server's answer names: `{"error": "…"}` or `{"error": {"message": "…"}}`.
+fn error_in(v: &serde_json::Value) -> Option<String> {
     v["error"]
         .as_str()
         .or_else(|| v["error"]["message"].as_str())
-        .map_or_else(|| text.to_string(), String::from)
+        .map(String::from)
 }
 
 /// Why Ask's chat model cannot answer, in words for the user; None when it can, or when that
@@ -1514,13 +1535,7 @@ pub fn passages(text: &str, path: &str) -> Vec<Passage> {
     }
     all.retain(|(p, _)| p.text.chars().filter(|c| c.is_alphabetic()).count() >= 20);
     for (p, _) in &mut all {
-        if p.text.len() > CHARS {
-            let at = (0..=CHARS)
-                .rev()
-                .find(|&i| p.text.is_char_boundary(i))
-                .unwrap();
-            p.text.truncate(at);
-        }
+        p.text.truncate(p.text.floor_char_boundary(CHARS));
     }
     cap(all)
 }
@@ -1704,13 +1719,34 @@ pub fn alike(a: &[u64], b: &[u64]) -> u32 {
 #[cfg(test)]
 mod tests {
     #[test]
+    fn sources_numbered_byte_for_byte() {
+        let sources = [
+            (std::path::PathBuf::from("/a.md"), "A".to_string()),
+            (std::path::PathBuf::from("/b.md"), "B".to_string()),
+        ];
+        assert_eq!(
+            super::numbered(&sources),
+            "[1] /a.md\nA\n\n[2] /b.md\nB\n\n"
+        );
+    }
+
+    #[test]
     fn a_server_error_stops_the_round_and_a_refused_input_skips_the_file() {
         use super::NoVectors;
         for s in [401, 403, 404, 405, 408, 429, 502, 503, 504] {
-            assert!(matches!(NoVectors::from_status(s, String::new()), NoVectors::Down(_)), "{s}");
+            assert!(
+                matches!(NoVectors::from_status(s, String::new()), NoVectors::Down(_)),
+                "{s}"
+            );
         }
         for s in [400, 413, 422, 500] {
-            assert!(matches!(NoVectors::from_status(s, String::new()), NoVectors::Refused(_)), "{s}");
+            assert!(
+                matches!(
+                    NoVectors::from_status(s, String::new()),
+                    NoVectors::Refused(_)
+                ),
+                "{s}"
+            );
         }
     }
 
