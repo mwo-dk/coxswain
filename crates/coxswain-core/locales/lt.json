@@ -650,6 +650,7 @@
  "err.cancelled": "Atšaukta",
  "err.clipboard_no_files": "Mainų srityje nėra failų",
  "err.copy_into_itself": "Aplanko negalima nukopijuoti į jį patį",
+ "err.move_into_itself": "Aplanko negalima perkelti į jį patį",
  "err.epub_no_rootfile": "Šioje EPUB knygoje nėra šakninio failo",
  "err.exists": "{path} jau yra",
  "err.is_folder": "{name} yra aplankas",

@@ -190,6 +190,13 @@ pub(crate) fn hash_file(
     Ok(h.finalize())
 }
 
+/// Whether a hash read now may be kept for a file of this date (whole seconds). One written
+/// again within the same second keeps that date: its hash is kept only once that second is
+/// over, so a later change always shows in the date (two seconds, for disks that keep two).
+pub(crate) fn settled(modified: u64) -> bool {
+    modified.saturating_add(1) < crate::fs::now()
+}
+
 /// Split `groups` by `key`, keeping only subgroups with two or more files.
 fn split<K: std::hash::Hash + Eq + Send>(
     groups: Vec<Vec<Found>>,
@@ -272,13 +279,16 @@ pub fn scan(opts: &Options, p: &Progress) -> Report {
         let h = match stored(f) {
             Some(h) => h,
             None => {
+                let keep = settled(f.modified);
                 let h = hash_file(&f.path, None, &p.cancel, Some(&p.bytes))
                     .ok()?
                     .to_hex()
                     .to_string();
-                new.lock()
-                    .ok()?
-                    .push((f.path.clone(), f.size, f.modified, h.clone()));
+                if keep {
+                    new.lock()
+                        .ok()?
+                        .push((f.path.clone(), f.size, f.modified, h.clone()));
+                }
                 h
             }
         };
@@ -366,6 +376,8 @@ fn folder_groups(opts: &Options, hash_of: &HashMap<PathBuf, (String, u64)>) -> V
         let mut complete = true;
         for de in fs::read_dir(dir).ok()?.flatten() {
             if !opts.hidden && de.file_name().to_string_lossy().starts_with('.') {
+                // Not compared, so the folder is not known to be identical (a `.git` or `.env`).
+                complete = false;
                 continue;
             }
             let Ok(ft) = de.file_type() else { return None };
@@ -539,5 +551,36 @@ mod tests {
         );
         crate::cloud::pretend(&d.join("other/copy.txt"), false);
         fs::remove_dir_all(d).unwrap();
+    }
+
+    #[test]
+    fn dupes_folders_differing_in_hidden_files_are_not_identical() {
+        let d =
+            std::env::temp_dir().join(format!("coxswain-test-dupes-hidden-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&d);
+        for sub in ["x", "y/.git"] {
+            fs::create_dir_all(d.join(sub)).unwrap();
+        }
+        fs::write(d.join("x/f.txt"), b"same").unwrap();
+        fs::write(d.join("y/f.txt"), b"same").unwrap();
+        fs::write(d.join("y/.git/HEAD"), b"ref: refs/heads/master").unwrap();
+        let r = scan(
+            &Options {
+                roots: vec![d.clone()],
+                ..Default::default()
+            },
+            &Progress::default(),
+        );
+        assert!(r.folders.is_empty(), "{:?}", r.folders);
+        assert_eq!(r.groups.len(), 1, "the files are still duplicates");
+        fs::remove_dir_all(d).unwrap();
+    }
+
+    #[test]
+    fn dupes_hash_kept_only_once_its_second_is_over() {
+        let now = crate::fs::now();
+        assert!(!settled(now));
+        assert!(!settled(now + 5), "a date in the future");
+        assert!(settled(now - 2));
     }
 }

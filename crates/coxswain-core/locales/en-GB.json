@@ -620,6 +620,7 @@
  "err.cancelled": "Cancelled",
  "err.clipboard_no_files": "The clipboard holds no files",
  "err.copy_into_itself": "A folder cannot be copied into itself",
+ "err.move_into_itself": "A folder cannot be moved into itself",
  "err.epub_no_rootfile": "This EPUB book has no root file",
  "err.exists": "{path} exists",
  "err.is_folder": "{name} is a folder",

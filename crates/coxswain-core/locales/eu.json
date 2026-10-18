@@ -620,6 +620,7 @@
  "err.cancelled": "Bertan behera utzita",
  "err.clipboard_no_files": "Arbelean ez dago fitxategirik",
  "err.copy_into_itself": "Karpeta bat ezin da bere barrura kopiatu",
+ "err.move_into_itself": "Karpeta bat ezin da bere barrura eraman",
  "err.epub_no_rootfile": "EPUB liburu honek ez du erro-fitxategirik",
  "err.exists": "{path} badago jada",
  "err.is_folder": "{name} karpeta bat da",

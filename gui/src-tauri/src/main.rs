@@ -86,9 +86,18 @@ impl Ctx {
 
     /// Change the persisted state and save it right away (the file is small).
     fn edit<T>(&self, f: impl FnOnce(&mut AppState) -> T) -> Res<T> {
+        self.edit_if(|st| (f(st), true))
+    }
+
+    /// `edit`, saved only when `f` says it changed something. What others wrote since (the
+    /// terminal app, a reset of the hints) is read first, so it is not saved over.
+    fn edit_if<T>(&self, f: impl FnOnce(&mut AppState) -> (T, bool)) -> Res<T> {
         let mut st = self.state.lock().map_err(|e| e.to_string())?;
-        let out = f(&mut st);
-        st.save().map_err(|e| format!("saving state: {e}"))?;
+        st.reload();
+        let (out, changed) = f(&mut st);
+        if changed {
+            st.save().map_err(|e| format!("saving state: {e}"))?;
+        }
         Ok(out)
     }
 }
@@ -298,13 +307,22 @@ fn action_menu(subject: coxswain_core::menu::Subject) -> Vec<(String, Vec<&'stat
 /// was picked for, and its id.
 #[tauri::command(async)]
 fn hint(subject: coxswain_core::menu::Subject, last: Option<(coxswain_core::menu::Subject, String)>, ctx: tauri::State<Ctx>) -> Option<(&'static str, String)> {
-    coxswain_core::menu::hint(&subject, &ctx.cfg(), last.as_ref().map(|(s, id)| (s, id.as_str())))
+    let cfg = ctx.cfg();
+    if !cfg.hints {
+        return None;
+    }
+    ctx.edit_if(|st| coxswain_core::menu::hint_in(&subject, &cfg, last.as_ref().map(|(s, id)| (s, id.as_str())), &mut st.hints_shown)).ok().flatten()
 }
 
 /// Whether the hint `id` that shows in place (Find's scope) is still to be shown; counted.
 #[tauri::command(async)]
 fn hint_once(id: String, ctx: tauri::State<Ctx>) -> bool {
-    coxswain_core::menu::once(&id, &ctx.cfg())
+    let cfg = ctx.cfg();
+    ctx.edit_if(|st| {
+        let due = coxswain_core::menu::once_in(&id, &cfg, &mut st.hints_shown);
+        (due, due)
+    })
+    .unwrap_or(false)
 }
 
 /// F1 → Features: every feature with its keys and questions, filtered by `query`.
@@ -324,8 +342,8 @@ async fn open_docs(id: String) -> Res<String> {
 }
 
 #[tauri::command(async)]
-fn hints_reset() -> Res<()> {
-    coxswain_core::menu::reset().map_err(|e| e.to_string())
+fn hints_reset(ctx: tauri::State<Ctx>) -> Res<()> {
+    ctx.edit(|st| st.hints_shown.clear())
 }
 
 // ---------------------------------------------------------------- listing
@@ -463,12 +481,15 @@ async fn git_status(dir: PathBuf, ctx: tauri::State<'_, Ctx>) -> Res<Option<GitI
     let Some(s) = tauri::async_runtime::spawn_blocking(move || git::Status::read(&d)).await.map_err(|e| e.to_string())? else { return Ok(None) };
     let (files, all) = children(&s, &dir);
     // Every listing comes through here: the state file is written only when the repo moves up.
-    let mut st = ctx.state.lock().map_err(|e| e.to_string())?;
-    if st.touch_repo(&s.root) {
-        st.save().map_err(|e| format!("saving state: {e}"))?;
-    }
-    let recent = st.recent_repos.clone();
-    drop(st);
+    let moved = ctx.state.lock().map_err(|e| e.to_string())?.recent_repos.first() != Some(&s.root);
+    let recent = if moved {
+        ctx.edit_if(|st| {
+            let changed = st.touch_repo(&s.root);
+            (st.recent_repos.clone(), changed)
+        })?
+    } else {
+        ctx.state.lock().map_err(|e| e.to_string())?.recent_repos.clone()
+    };
     Ok(Some(GitInfo { prompt: s.prompt(&ctx.cfg().glyphs()), branch: s.summary.branch.clone(), root: s.root, files, all, recent }))
 }
 

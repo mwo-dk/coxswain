@@ -680,6 +680,7 @@
  "err.cancelled": "Скасовано",
  "err.clipboard_no_files": "У буфері обміну немає файлів",
  "err.copy_into_itself": "Папку не можна скопіювати в неї саму",
+ "err.move_into_itself": "Папку не можна перемістити в неї саму",
  "err.epub_no_rootfile": "Ця книга EPUB не має кореневого файлу",
  "err.exists": "{path} уже існує",
  "err.is_folder": "{name} — це тека",

@@ -135,6 +135,21 @@ pub fn apply(dir: &Path, plan: &[Planned]) -> Result<(), String> {
         ));
     }
     let moves: Vec<&Planned> = plan.iter().filter(|p| p.from != p.to).collect();
+    // The plan was made for the preview: a name that has appeared since is not overwritten.
+    for p in &moves {
+        let to = dir.join(&p.to);
+        if std::fs::symlink_metadata(&to).is_ok()
+            && !moves.iter().any(|q| q.from == p.to)
+            && !crate::fs::same_file(&dir.join(&p.from), &to)
+        {
+            return Err(format!(
+                "{} -> {}: {}",
+                p.from,
+                p.to,
+                crate::t!("rename.conflict_taken")
+            ));
+        }
+    }
     let tmp = |i: usize| dir.join(format!(".coxswain-rename-{}-{i}", std::process::id()));
     let back = |from: usize, to: usize| {
         (from..to).for_each(|j| drop(std::fs::rename(tmp(j), dir.join(&moves[j].from))))
@@ -342,6 +357,16 @@ mod tests {
             names.iter().all(|n| !n.starts_with(".coxswain-rename")),
             "{names:?}"
         );
+        // A name that appeared after the preview is not overwritten.
+        std::fs::write(d.join("c"), "C").unwrap();
+        let stale = vec![Planned {
+            from: "a".into(),
+            to: "c".into(),
+            conflict: None,
+        }];
+        assert!(apply(&d, &stale).is_err());
+        assert_eq!(std::fs::read_to_string(d.join("c")).unwrap(), "C");
+        assert!(d.join("a").exists());
         std::fs::remove_dir_all(d).unwrap();
     }
 

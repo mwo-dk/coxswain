@@ -650,6 +650,7 @@
  "err.cancelled": "S'ha cancel·lat",
  "err.clipboard_no_files": "El porta-retalls no conté cap fitxer",
  "err.copy_into_itself": "Una carpeta no es pot copiar dins d’ella mateixa",
+ "err.move_into_itself": "Una carpeta no es pot moure dins d’ella mateixa",
  "err.epub_no_rootfile": "Aquest llibre EPUB no té fitxer arrel",
  "err.exists": "{path} ja existeix",
  "err.is_folder": "{name} és una carpeta",

@@ -698,7 +698,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e8cf2a2c93cd704877c0858356ed03480ff301ee950b43f1cbe4573b088bfa6c"
 dependencies = [
  "crypto-common 0.2.2",
- "inout 0.2.3",
+ "inout 0.2.4",
 ]
 
 [[package]]
@@ -900,7 +900,7 @@ checksum = "7f8f80099a98041a3d1622845c271458a2d73e688351bf3cb999266764b81d48"
 
 [[package]]
 name = "coxswain"
-version = "2.27.3"
+version = "2.27.4"
 dependencies = [
  "base64 0.23.1",
  "chrono",
@@ -914,7 +914,7 @@ dependencies = [
 
 [[package]]
 name = "coxswain-core"
-version = "2.27.3"
+version = "2.27.4"
 dependencies = [
  "base64 0.23.1",
  "blake3",
@@ -960,7 +960,7 @@ dependencies = [
 
 [[package]]
 name = "coxswain-gui"
-version = "2.27.3"
+version = "2.27.4"
 dependencies = [
  "clipboard-rs",
  "coxswain-core",
@@ -2900,9 +2900,9 @@ dependencies = [
 
 [[package]]
 name = "inout"
-version = "0.2.3"
+version = "0.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d8c0d789294fb457b791f7797a04478704788f30b407e5d0b01deaa846572d9f"
+checksum = "3ce983bb6fb399067d101fbfc9e74174e07e9f29a2bc679efefeb8c645819c3f"
 dependencies = [
  "block-padding 0.4.2",
  "hybrid-array",

@@ -620,6 +620,7 @@
  "err.cancelled": "Peruutettu",
  "err.clipboard_no_files": "Leikepöydällä ei ole tiedostoja",
  "err.copy_into_itself": "Kansiota ei voi kopioida itsensä sisään",
+ "err.move_into_itself": "Kansiota ei voi siirtää itsensä sisään",
  "err.epub_no_rootfile": "Tässä EPUB-kirjassa ei ole juuritiedostoa",
  "err.exists": "{path} on jo olemassa",
  "err.is_folder": "{name} on kansio",

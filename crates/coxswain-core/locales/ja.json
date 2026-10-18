@@ -590,6 +590,7 @@
  "err.cancelled": "キャンセルしました",
  "err.clipboard_no_files": "クリップボードにファイルがありません",
  "err.copy_into_itself": "フォルダーをそれ自身の中にコピーすることはできません",
+ "err.move_into_itself": "フォルダーをそれ自身の中に移動することはできません",
  "err.epub_no_rootfile": "この EPUB にはルートファイルがありません",
  "err.exists": "{path} は既にあります",
  "err.is_folder": "{name} はフォルダーです",

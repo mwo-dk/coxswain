@@ -82,7 +82,8 @@ of them first, or move the other one out of the way.
 
 #### Can I move a folder into itself?
 
-No. The copy step of a move across disks refuses it, and on the same disk the system refuses it.
+No. Coxswain refuses it with *A folder cannot be moved into itself*, also when one of the two
+paths goes through a link (on FreeBSD `/home` is a link to `/usr/home`), and inside an archive.
 Nothing is changed.
 
 #### How do I rename inside an archive?

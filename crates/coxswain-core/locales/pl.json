@@ -680,6 +680,7 @@
  "err.cancelled": "Anulowano",
  "err.clipboard_no_files": "Schowek nie zawiera plików",
  "err.copy_into_itself": "Folderu nie można skopiować do niego samego",
+ "err.move_into_itself": "Folderu nie można przenieść do niego samego",
  "err.epub_no_rootfile": "Ta książka EPUB nie ma pliku głównego",
  "err.exists": "{path} już istnieje",
  "err.is_folder": "{name} to folder",

@@ -40,6 +40,9 @@ pub struct AppState {
     pub migrated: Vec<String>,
     /// How often each hint on the status line was shown (`menu::hint`).
     pub hints_shown: BTreeMap<String, u32>,
+    /// The file is there but could not be read (no permission, say): it is never saved over.
+    #[serde(skip)]
+    pub unreadable: bool,
 }
 
 impl Default for AppState {
@@ -62,6 +65,7 @@ impl Default for AppState {
             guide_seen: false,
             migrated: vec![],
             hints_shown: BTreeMap::new(),
+            unreadable: false,
         }
     }
 }
@@ -73,21 +77,65 @@ impl AppState {
         Some(dirs::data_dir()?.join("coxswain").join("state.json"))
     }
 
-    /// Missing file = defaults. A corrupt file is moved aside to `state.json.bad` so saving
-    /// the defaults never destroys it.
+    /// Missing file = defaults. A corrupt file (not JSON, not UTF-8) is moved aside to
+    /// `state.json.bad` (`state.json.<time>.bad` when that is taken) so saving the defaults
+    /// never destroys it, nor an earlier one.
+    /// One that cannot be read gives defaults that are never saved over it.
     pub fn load_from(path: &Path) -> AppState {
-        let Ok(text) = std::fs::read_to_string(path) else {
-            return AppState::default();
+        let bytes = match std::fs::read(path) {
+            Ok(b) => b,
+            Err(e) if e.kind() == io::ErrorKind::NotFound => return AppState::default(),
+            Err(_) => {
+                return AppState {
+                    unreadable: true,
+                    ..AppState::default()
+                };
+            }
         };
-        serde_json::from_str(&text).unwrap_or_else(|_| {
-            let _ = std::fs::rename(path, path.with_extension("json.bad"));
+        serde_json::from_slice(&bytes).unwrap_or_else(|_| {
+            let mut bad = path.with_extension("json.bad");
+            if bad.exists() {
+                bad = path.with_extension(format!("json.{}.bad", crate::fs::now()));
+            }
+            let _ = std::fs::rename(path, bad);
             AppState::default()
         })
     }
 
     pub fn save_to(&self, path: &Path) -> io::Result<()> {
+        if self.unreadable {
+            return Err(io::Error::new(
+                io::ErrorKind::PermissionDenied,
+                format!(
+                    "{}: could not be read, so it is not saved over",
+                    path.display()
+                ),
+            ));
+        }
         // Notes, tags, favourites and recent folders: readable by the user alone.
         crate::fs::replace(path, &serde_json::to_vec_pretty(self)?, true)
+    }
+
+    /// A copy kept in memory (the desktop app's) takes what was written since it was read (hint
+    /// counts, dismissed notices, the terminal app's changes), before it is changed and saved.
+    /// A missing or corrupt file leaves the copy as it is; one that cannot be read is never
+    /// saved over.
+    pub fn reload_from(&mut self, path: &Path) {
+        match std::fs::read(path) {
+            Ok(bytes) => {
+                if let Ok(st) = serde_json::from_slice(&bytes) {
+                    *self = st;
+                }
+            }
+            Err(e) if e.kind() == io::ErrorKind::NotFound => {}
+            Err(_) => self.unreadable = true,
+        }
+    }
+
+    pub fn reload(&mut self) {
+        if let Some(p) = AppState::path() {
+            self.reload_from(&p);
+        }
     }
 
     pub fn load() -> AppState {
@@ -179,7 +227,46 @@ mod tests {
 
         std::fs::write(&f, "{not json").unwrap();
         assert_eq!(AppState::load_from(&f), AppState::default());
-        assert!(d.join("state.json.bad").exists());
+        let bad = |d: &Path| {
+            std::fs::read_dir(d)
+                .unwrap()
+                .flatten()
+                .filter(|e| e.file_name().to_string_lossy().ends_with(".bad"))
+                .count()
+        };
+        assert_eq!(bad(&d), 1);
+        // Not UTF-8 is corrupt too.
+        std::fs::write(&f, b"\xff\xfe{}").unwrap();
+        assert_eq!(AppState::load_from(&f), AppState::default());
+        assert!(!f.exists() && bad(&d) == 2, "the first one is kept");
+        // A file that cannot be read is never saved over.
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            s.save_to(&f).unwrap();
+            std::fs::set_permissions(&f, std::fs::Permissions::from_mode(0o000)).unwrap();
+            let locked = AppState::load_from(&f);
+            // Root reads it anyway.
+            if locked.unreadable {
+                assert!(locked.save_to(&f).is_err());
+            }
+            std::fs::set_permissions(&f, std::fs::Permissions::from_mode(0o600)).unwrap();
+            assert_eq!(AppState::load_from(&f), s);
+        }
+        // A copy kept in memory takes what another app saved since.
+        let mut kept = s.clone();
+        let mut other = AppState::load_from(&f);
+        other.hints_shown.insert("find_scope".into(), 3);
+        other.save_to(&f).unwrap();
+        kept.reload_from(&f);
+        assert_eq!(kept.hints_shown.get("find_scope"), Some(&3));
+        std::fs::write(&f, "{not json").unwrap();
+        kept.reload_from(&f);
+        assert_eq!(
+            kept.hints_shown.get("find_scope"),
+            Some(&3),
+            "corrupt: kept as it was"
+        );
         std::fs::remove_dir_all(d).unwrap();
     }
 }

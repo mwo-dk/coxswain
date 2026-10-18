@@ -650,6 +650,7 @@
  "err.cancelled": "Annullato",
  "err.clipboard_no_files": "Negli appunti non ci sono file",
  "err.copy_into_itself": "Una cartella non può essere copiata dentro sé stessa",
+ "err.move_into_itself": "Una cartella non può essere spostata dentro sé stessa",
  "err.epub_no_rootfile": "Questo libro EPUB non ha un file radice",
  "err.exists": "{path} esiste già",
  "err.is_folder": "{name} è una cartella",

@@ -620,6 +620,7 @@
  "err.cancelled": "გაუქმდა",
  "err.clipboard_no_files": "ბუფერში ფაილები არ არის",
  "err.copy_into_itself": "საქაღალდის საკუთარ თავში კოპირება შეუძლებელია",
+ "err.move_into_itself": "საქაღალდის საკუთარ თავში გადატანა შეუძლებელია",
  "err.epub_no_rootfile": "ამ EPUB წიგნს ძირეული ფაილი არ აქვს",
  "err.exists": "{path} უკვე არსებობს",
  "err.is_folder": "{name} საქაღალდეა",
