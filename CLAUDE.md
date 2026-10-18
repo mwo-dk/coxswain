@@ -25,7 +25,8 @@ These rules hold for every contributor and every Claude session in this reposito
   their workflows' `paths`. Branches need not be up to date with `master`: master's own runs
   catch clashes.
 - **Bump the version in the same commit as a user-visible change:** patch for fixes, minor for
-  features, major for breaking config or key changes. Then run `cargo check` so `Cargo.lock`
+  features, major for breaking config or key changes, in `[workspace.package]` and in the
+  `coxswain-core` line under `[workspace.dependencies]` (`=X.Y.Z`, the same). Then run `cargo check` so `Cargo.lock`
   follows. Do not bump for docs, CI or refactors. Two open PRs that both bump: the one merged
   second takes the next number when it is rebased.
 - **All changes go through pull requests.** `master` is protected: no direct pushes, CI must
