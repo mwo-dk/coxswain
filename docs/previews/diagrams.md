@@ -68,6 +68,12 @@ draw.io's viewer fetches the shapes of its extra libraries (AWS, Azure, Cisco, â
 diagrams.net. The preview works offline and never fetches anything, so those shapes show as
 boxes with their labels. Open the file in draw.io for the real icons.
 
+#### Why does a formula in a draw.io diagram show as TeX?
+
+draw.io draws maths with MathJax, which its viewer would fetch from diagrams.net. The preview
+fetches nothing, so a label such as `$$x^2$$` shows as that text; the rest of the diagram is
+drawn as usual. Open the file in draw.io for the typeset formula.
+
 #### Do I need draw.io, Graphviz or Mermaid installed?
 
 No. All three are drawn by code that ships with Coxswain. Only PlantUML (a Java program) needs

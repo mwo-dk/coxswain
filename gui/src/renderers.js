@@ -381,7 +381,13 @@ export async function renderDrawio(el, xml) {
     Object.assign(window, { STENCIL_PATH: local, SHAPES_PATH: local, STYLE_PATH: local, GRAPH_IMAGE_PATH: local, PROXY_URL: local, DRAW_MATH_URL: local, DRAWIO_LIGHTBOX_URL: local, mxImageBasePath: local, mxBasePath: local, mxLoadResources: false, mxLoadStylesheets: false });
     const s = document.createElement("script");
     s.src = "vendor/drawio/viewer-static.min.js";
-    s.onload = ok;
+    s.onload = () => {
+      // No MathJax here: the viewer would load DRAW_MATH_URL's script, get the app's index.html
+      // back (a SyntaxError) and keep a diagram with maths hidden for good. This is its own
+      // "maths did not load" path: the labels show their TeX as text.
+      window.Editor.MathJaxRender = () => window.Editor.onMathJaxDone();
+      ok();
+    };
     s.onerror = () => fail(new Error("draw.io viewer"));
     document.head.append(s);
   });

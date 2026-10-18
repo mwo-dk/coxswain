@@ -72,7 +72,7 @@ Two renderers are not npm packages but files kept in the repository:
 
 | Viewer | Where | Version | Notes |
 |---|---|---|---|
-| draw.io viewer | `gui/public/vendor/drawio/` | tag `v32.5.5` of [jgraph/drawio](https://github.com/jgraph/drawio), unmodified | Every path it would take from diagrams.net (shape libraries, styles, the image proxy, maths) is pointed at a local folder that does not exist, so it fetches nothing. Diagrams that use draw.io's extra shape libraries show those shapes as plain boxes. |
+| draw.io viewer | `gui/public/vendor/drawio/` | tag `v32.0.2` of [jgraph/drawio](https://github.com/jgraph/drawio), unmodified | Every path it would take from diagrams.net (shape libraries, styles, the image proxy, maths) is pointed at a local folder that does not exist, so it fetches nothing. Diagrams that use draw.io's extra shape libraries show those shapes as plain boxes. |
 | SheetJS Community Edition | `gui/vendor/xlsx-0.20.3.tgz` | 0.20.3 | The last version on npm is 0.18, so the package is kept as a file and installed from it. |
 
 Both are updated by hand; the README next to each says the tag it came from.

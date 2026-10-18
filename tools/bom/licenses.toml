@@ -23,7 +23,7 @@ also_allow = [
 # in this repository; `crate_files` are in the named crate's package.
 [[bundled]]
 name = "draw.io viewer"
-what = "gui/public/vendor/drawio/viewer-static.min.js, from jgraph/drawio v32.5.5, unmodified."
+what = "gui/public/vendor/drawio/viewer-static.min.js, from jgraph/drawio v32.0.2, unmodified."
 license = "Apache-2.0"
 source = "https://github.com/jgraph/drawio"
 file = "gui/public/vendor/drawio/LICENSE"
