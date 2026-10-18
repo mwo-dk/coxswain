@@ -6,22 +6,70 @@ Every feature of both apps, the terminal app (`coxswain`) and the desktop app (`
 
 New here? Start with [The first-run guide](panels/first-run.md), [The screen](panels/the-screen.md) and [Every default key](panels/keys.md). Coming from 1.x? Read [What's new in 2.0](whats-new-2.md). Puzzled? See [Questions, collected](faq.md). Every version: [the changelog](changelog.md).
 
+## The map
+
+```mermaid
+mindmap
+  root((Coxswain))
+    Panels and keys
+      The screen and notices
+      Moving, marking, sorting
+      Tabs, views, folder sizes
+      Git, history, branches
+      F1, F9, Shift+F10
+    Organise
+      Colour tags
+      Folder notes
+      Favourites and sidebar
+    Commands
+      Command line
+      User menu F2 and scripts
+      View F3, edit F4
+    Search
+      Find: names, text, meaning
+      Ask your files
+      The search helper
+      Built-in models
+    Previews
+      Text, code, documents
+      Office, data, media
+      CBOMs and provenance
+      LaTeX, tools, containers
+    Files
+      Copy, move, delete, undo
+      Archives as folders
+      Properties, duplicates
+      ZFS snapshots
+    Customising
+      Settings
+      Themes and looks
+      Languages, keys, glyphs
+    Reference
+      Terminal app, flags
+      config.toml, privacy
+      Where things are kept
+    Systems
+      FreeBSD, other BSDs, illumos
+      Linux, Android, ChromeOS
+      macOS, Windows
+```
+
 ## [Panels and keys](panels/README.md)
 
 | Page | What it covers |
 |---|---|
 | [Panels and keys](panels/README.md) | The area's pages, finding what Coxswain can do (F1, F9, Shift+F10, hints), and the main keys of both apps |
 | [The first-run guide](panels/first-run.md) | The four steps shown on the first start (panels and keys, how far Find looks, looks with the Nerd Font check, privacy), skipping, opening it again (F1, Settings → Overview) |
-| [The screen](panels/the-screen.md) | Panels, active panel, title bar with the version, status line and notices, F-key bar, archives shown in the pane, starting in a folder |
+| [The screen](panels/the-screen.md) | Panels, active panel, title bar with the version, status line and notices, F-key bar (*12 Settings* at its right end in the terminal app), archives shown in the pane, starting in a folder |
 | [Notices and what's new](panels/notices.md) | The version in the title, the tips, the count on Settings, *What's new* and `coxswain --whats-new` |
 | [Moving around and going to a folder](panels/moving.md) | Cursor keys, Enter, parent, other panel, refresh, Alt+F1/Alt+F2, Ctrl+L, cd |
 | [Quick search](panels/quick-search.md) | Alt+letter to jump to a name |
 | [Marking files](panels/marking.md) | Insert, + - *, patterns, marking with the mouse, what uses the marks |
 | [Sorting and hidden files](panels/sorting.md) | Ctrl+F3 to Ctrl+F6, headers, the rules, Alt+. and show_hidden |
-| [Tabs, back and forward, one pane or two](panels/tabs-and-panes.md) | Tabs, back and forward, one pane or two (Ctrl+O), the splitter |
+| [Tabs, back and forward, one pane or two](panels/tabs-and-panes.md) | Tabs, back and forward, one pane or two (Ctrl+O; in the terminal app the last output, with *Panels hidden · any key brings them back*), the splitter |
 | [Views: details, columns, thumbnails](panels/views.md) | Details, Miller columns, thumbnails, the columns menu, the age chip |
-| [Folder sizes](panels/folder-sizes.md) | Where they come from, how fresh, measuring again, switching off |
-| [Git in the panels](panels/git.md) | The git line (worktree, detached HEAD, merge or rebase under way), file glyphs, the last commit per file, the diff, recent repositories, user menu commands |
+| [Folder sizes](panels/folder-sizes.md) | Where they come from, how fresh, the size on `..` once known, measuring again, switching off |
+| [Git in the panels](panels/git.md) | The git line (worktree, detached HEAD, merge or rebase under way), upstream, remote and last fetch (the git line's tooltip, the terminal app's info line on `..`, a repository folder's own on hover), file glyphs, the last commit per file, the diff, recent repositories, Open in your git tool (Alt+G), user menu commands |
 | [Git history as folders](panels/git-history.md) | Ctrl+G, the commits of a file or folder, the files at a commit, preview and diff, F3, F5, read-only, limits |
 | [Git branches and worktrees](panels/git-branches.md) | Alt+B, the branches, a branch's files, switching (Alt+S) and new branches, Alt+W, the worktrees, limits |
 | [The mouse](panels/mouse.md) | Clicks, marks, drags, path bar, tabs, splitters, in both apps |
@@ -46,7 +94,7 @@ New here? Start with [The first-run guide](panels/first-run.md), [The screen](pa
 | Page | What it covers |
 |---|---|
 | [Commands, the user menu and scripts](commands/README.md) | The area, and its keys in both apps |
-| [The command line and its output](commands/command-line.md) | The command line: typing, cd, Ctrl+Enter, the shell, output in the terminal (Ctrl+O) and in the preview pane |
+| [The command line and its output](commands/command-line.md) | The command line: typing, cd, Ctrl+Enter, the shell, output in the terminal (Ctrl+O, with *Panels hidden · any key brings them back*) and in the preview pane |
 | [The user menu, F2](commands/user-menu.md) | The user menu (F2): the built-in entries per system (terminal, SHA-256, git status), Add your own command, [[user_menu]], %f %d %s %%, wait, when, entries to copy |
 | [Scripts](commands/scripts.md) | The desktop app's scripts folder, run from F2 with the marked files as arguments |
 | [View and edit, F3 and F4](commands/view-and-edit.md) | View and edit (F3, F4): viewer, editor, $PAGER, $VISUAL, $EDITOR, the preview pane in the desktop app |
@@ -70,7 +118,7 @@ New here? Start with [The first-run guide](panels/first-run.md), [The screen](pa
 | [Choosing the folders: folders read, names only, .nosearch](search/folders.md) | Folders read, Names only, .nosearch, text_exclude |
 | [Cloud files: OneDrive, Dropbox, Google Drive, Proton Drive, iCloud](search/cloud-files.md) | Online-only files found by name and never downloaded, the cloud glyph, Download and preview, `cloud` and `cloud_read`, per system |
 | [Removable disks](search/removable-disks.md) | Text kept while unplugged, found again at any mount point |
-| [Search by meaning](search/meaning.md) | The built-in multilingual model, turning it on and off, what you see, how it works |
+| [Search by meaning](search/meaning.md) | The built-in multilingual model, turning it on and off, what you see, how it works, how fast it is here (*Measure speed*, `coxswain --meaning bench`) |
 | [Search by meaning on a server: Ollama, Lemonade, LM Studio](search/servers.md) | Ollama, Lemonade, LM Studio, any OpenAI-compatible server, API keys, privacy |
 | [Ask: questions answered from your files](search/ask.md) | The Ask row of Find (Ctrl+Enter): your chat model answers from the closest passages, citing them, in place of the list |
 | [Ask about code](search/ask-code.md) | Code read as code: passages cut at functions and classes with their lines, named after their item; a map of a project (files, public items, dependencies) for questions about it as a whole; any language |
@@ -124,8 +172,8 @@ New here? Start with [The first-run guide](panels/first-run.md), [The screen](pa
 | Page | What it covers |
 |---|---|
 | [Customising](customise/README.md) | The Settings window, themes, looks, languages, keys, glyphs and fonts, with the main keys |
-| [The Settings window](customise/settings.md) | Opening it (Ctrl+, F12, Shift+F10, F9, --settings=search|search_meaning), its areas from Overview to Privacy and updates, Find a setting, every item with its config.toml key, how saving keeps comments, the terminal app's Settings (F9, --settings) and flags |
-| [Themes](customise/themes.md) | The 33 built-in themes, picking one in each app (Settings, F9 "Theme: …", `theme` / `[gui] theme`), what the terminal app takes |
+| [The Settings window](customise/settings.md) | Opening it (Ctrl+, or the gear in the desktop app, F12 in the terminal app, Shift+F10, F9, `--settings=search` or `--settings=search_meaning`), its areas from Overview to Privacy and updates, Find a setting, every item with its config.toml key, how saving keeps comments, the terminal app's full-screen Settings (F12, `--settings`) and flags |
+| [Themes](customise/themes.md) | The 33 built-in themes in six groups, picking one in each app (Settings → Looks, F12 in the terminal app, F9 "Theme: …", `theme` / `[gui] theme`), what the terminal app takes |
 | [Looks](customise/looks.md) | The desktop app's corners, bevels, title bars and era fonts per theme, `look =` in your own theme |
 | [Your own theme and the colour slots](customise/own-theme.md) | Your own theme: `[themes.<name>]`, starting from --dump-config, colour names vs #rrggbb, every colour slot and where each app uses it |
 | [Languages](customise/languages.md) | The 29 languages with flags, by region, how Automatic picks one, right to left in Hebrew and Persian, what is translated, improving a translation |

@@ -293,6 +293,7 @@ them in order on the command line.
 ## Questions
 
 #### I have no Ollama or any server. Does search by meaning work?
+
 Yes. The built-in model needs nothing installed: it runs inside Coxswain's search helper, on the
 GPU through Metal on a Mac with Apple silicon and on the processor elsewhere. In step 2 leave
 *The built-in model* chosen (it is marked **recommended** when no server answers) and press
@@ -300,6 +301,7 @@ GPU through Metal on a Mac with Apple silicon and on the processor elsewhere. In
 [built-in chat model](ask-builtin.md) in step 4.
 
 #### I pressed the download button and nothing seemed to happen. Why?
+
 Before 2.1.1 the guide did not show the download's end, and hid its error, when the built-in
 model was chosen: meaning was turned on, but the page went on showing *off*. Now the percentage
 shows while it downloads, *Search by meaning is on, with the built-in model…* when it is done,
@@ -307,31 +309,37 @@ and the error in red when it fails. The download comes from huggingface.co: a ne
 blocks it fails with that address in the error.
 
 #### Why does the address field show `http://192.168.1.20:11434`?
+
 It is a grey example, not a value: the field is empty until you type. Nothing is filled in from
 your machine or your network.
 
 #### The guide finds no server, but Ollama is running. Why?
+
 The guide asks `localhost` on the usual ports and waits less than a second for each. An Ollama
 started with `OLLAMA_HOST` on another port, or in a container without the port published, is
 not found: type its address under *A server on another machine*, e.g. `http://localhost:11500`.
 
 #### Why does it not offer my model for Ask?
+
 Only models that can answer are listed. On Ollama a model whose capabilities lack `completion`
 (an embedding model such as `bge-m3`) is left out. On llama.cpp, Jan and LocalAI, a model that
 did not answer the one-word test is left out. Load it in the server, then press **Look again**.
 
 #### Which is better, the built-in model or a server?
+
 On a processor alone, the built-in model: it needs nothing installed. With a graphics card or an
 NPU, a server: `bge-m3` finds more and is many times quicker. The [search quality
 numbers](../reference/performance.md#search-quality) compare them.
 
 #### It says the model runs on the processor. What do I do?
+
 Do what the line says for your server: on Arch Linux `sudo pacman -S ollama-cuda` (or
 `ollama-rocm`) and `systemctl restart ollama`; elsewhere [Ollama's GPU
 guide](https://docs.ollama.com/gpu); in Lemonade a Hybrid or NPU model; in LM Studio *GPU
 offload*. Then run the guide again and ask the test question.
 
 #### Why does it say Ollama would be faster?
+
 The machine has a graphics card, and no model server answers, so the built-in models run on the
 processor: they use only a Mac's GPU. Ollama on that card makes the vectors and answers many
 times quicker. The line names the backend (CUDA, ROCm, Vulkan) and the command or page for your
@@ -340,14 +348,17 @@ nothing. To stop it: install Ollama, or dismiss the notice; the guide keeps sayi
 while it holds. The built-in models work all the same.
 
 #### Does changing the model start over?
+
 Only a real change of the vectors' model does. You are told first how many files are read again
 and about how long. `bge-m3` and `bge-m3:latest` are the same model. See
 [Servers](servers.md#why-does-switching-the-model-start-over).
 
 #### Can I run the guide again later?
+
 Yes, as often as you like. It shows what is set now, and a step you skip keeps its setting.
 
 #### My Lemonade is on port 8000. Is that a problem?
+
 No. The guide tries 13305 and 8000. Settings takes whatever address you give it.
 
 ---

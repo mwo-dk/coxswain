@@ -24,7 +24,7 @@ choose the interface font, the monospaced font, the icon font and the text size.
 
 | | Desktop app | Terminal app |
 |---|---|---|
-| Choose | Settings (**Ctrl+,**) → *Looks* → *Icons and git glyphs*: *Nerd Font* or *Plain characters (ASCII)* | **F9** → *Settings* → *Looks* → *Icons and git glyphs*, or `glyphs = "ascii"` in `config.toml` |
+| Choose | Settings (**Ctrl+,**) → *Looks* → *Icons and git glyphs*: *Nerd Font* or *Plain characters (ASCII)* | **F12** → *Looks* → *Icons and git glyphs* (changes at once), or `glyphs = "ascii"` in `config.toml` |
 | On the first start | The [first-run guide](../panels/first-run.md)'s *Looks* step looks for a Nerd Font. Found: *A Nerd Font is installed: files and folders show their icons.* Not found: *No Nerd Font found: the icons would show as boxes.*, then *Install one:* with the line for this system and **Copy**, or *Use plain characters* | The same step shows a folder and a file glyph: *A folder and a file? If you see boxes or question marks, use plain characters.* **Space** switches; the install line, where there is one, is a row of its own that **Space** copies |
 | Needs for Nerd Font | A Nerd Font installed and named in *Icon font* | A Nerd Font as the terminal's own font |
 

@@ -26,7 +26,7 @@ draw diagrams and reStructuredText. A container gets no network and sees your fi
 | Key | Desktop app | Terminal app |
 |---|---|---|
 | **Space** / **F3** | Shows or hides the pane | – |
-| **Ctrl+,** | Settings → *Previews*, with *Container images* | – |
+| **Ctrl+,** | Settings → *Previews*, with *Container images* | **F12** → *Previews*: the runtime and the LaTeX image, for the desktop app (no *Container images* list, no pulling) |
 
 ## What a container may do
 

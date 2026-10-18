@@ -23,7 +23,7 @@ folders, shows git in every panel, and keeps everything on your machine.
 ## Highlights
 
 - **On FreeBSD and illumos: browse ZFS snapshots like folders.** **Alt+Z** lists a folder's snapshots, Enter shows it as it was, Diff compares a file with now and F5 copies it back, with no root; the dataset, its compression and space sit in the footer. Properties names a file's package and lists its files, shows and sets chflags, and the sidebar has your boot environments and jails. OpenZFS on Linux and macOS too, and on TrueNAS over SSH. [ZFS snapshots](docs/files/zfs-snapshots.md) · [FreeBSD](docs/systems/freebsd.md#zfs-packages-flags-boot-environments-and-jails)
-- **FreeBSD, the other BSDs, illumos, Linux, macOS and Windows:** both apps on FreeBSD, OpenBSD, Linux, macOS and Windows, the terminal app on NetBSD and illumos too, each BSD and illumos with an install line, its own package tool for what is missing, its own service for the search helper (rc.d, rcctl, SMF) and a manual page; TrueNAS over SSH. [FreeBSD](docs/systems/freebsd.md) · [NetBSD](docs/systems/netbsd.md) · [OpenBSD](docs/systems/openbsd.md) · [illumos](docs/systems/illumos.md) · [TrueNAS](docs/systems/truenas.md)
+- **FreeBSD, the other BSDs, illumos, Linux, macOS and Windows:** the terminal app on FreeBSD, NetBSD, OpenBSD, illumos, Linux, macOS and Windows, the desktop app on all but NetBSD and illumos, each BSD and illumos with an install line, its own package tool for what is missing, its own service for the search helper (rc.d, rcctl, SMF) and a manual page; TrueNAS over SSH. [FreeBSD](docs/systems/freebsd.md) · [NetBSD](docs/systems/netbsd.md) · [OpenBSD](docs/systems/openbsd.md) · [illumos](docs/systems/illumos.md) · [TrueNAS](docs/systems/truenas.md)
 - **Norton Commander at heart:** two panels, the F-key bar, a command line and NC's keys. [Panels and keys](docs/panels/README.md)
 - **One Find for names, words, meaning and answers:** Ctrl+F and type; the hits come in groups (*Names*, *In files*, *About this*, *History*) ranked by words and meaning together, Ctrl+Enter asks, one key limits it to this folder, inside your zip, 7z and tar archives too; you choose what is read and what is left out (`*.log`, a folder). [Search](docs/search/README.md) · [Inside archives](docs/search/archives.md) · [Choosing the folders](docs/search/folders.md)
 - **Gentle with your cloud:** OneDrive, Dropbox, Google Drive, Proton Drive and iCloud files that are only online are found by name, marked with a cloud, and never downloaded unless you open one. [Cloud files](docs/search/cloud-files.md)
@@ -74,6 +74,20 @@ The whole walk-through: [Smart search in a few minutes](docs/search/setup.md).
 
 Quickest, per system (every option is in the table below):
 
+```mermaid
+flowchart LR
+  you([Your system]) --> fb[FreeBSD] --> fbs["install-freebsd.sh<br>both apps; port under review"]
+  you --> bsd[NetBSD, OpenBSD] --> unix["install-unix.sh<br>(ftp)"]
+  you --> ill[illumos] --> unixc["install-unix.sh<br>(curl)"]
+  you --> nas[TrueNAS] --> nasb["Linux or FreeBSD build<br>in your home, over SSH"]
+  you --> lin[Linux] --> linb["brew, or the static binary<br>.deb, .rpm, .AppImage<br>Flatpak, Nix"]
+  you --> and[Android] --> ter["Termux: cargo install,<br>pkg once packaged"]
+  you --> cros[ChromeOS] --> deb[".deb in Linux"]
+  you --> any[Any, with Rust] --> cargo["cargo install --locked coxswain"]
+  you --> mac[macOS] --> brew["brew, brew --cask, .dmg"]
+  you --> win[Windows] --> wg["winget, .msi, -setup.exe"]
+```
+
 ```sh
 fetch -qo - https://raw.githubusercontent.com/mwo-dk/coxswain/master/install/install-freebsd.sh | sh   # FreeBSD
 ftp -o - https://raw.githubusercontent.com/mwo-dk/coxswain/master/install/install-unix.sh | sh         # NetBSD, OpenBSD
@@ -120,7 +134,8 @@ from source: [install/INSTALL.md](install/INSTALL.md). Git glyphs want a
    **Tab** switches panels.
 3. **Mark** with **Insert**, then **F5** copies or **F6** moves to the other panel. **F8** moves
    to the trash, **F7** makes a folder, and **Ctrl+Z** undoes the last of them.
-4. **Find** anything with **Ctrl+F**; **Tab** looks deeper.
+4. **Find** anything with **Ctrl+F**; **Tab** steps through the kinds: *Names*, *In files*,
+   *About* (meaning) and *Ask*.
    **Turn on smart search** (meaning and Ask): *Settings → Finding files → Set up…*, or
    `coxswain --setup-search` ([the guide](docs/search/setup.md)).
 5. **Type** a command and press **Enter**: it runs in the panel's folder.
@@ -141,14 +156,15 @@ what you see, the settings, and the questions people ask.
 
 | Area | What is in it |
 |---|---|
-| [Panels and keys](docs/panels/README.md) | The screen, moving, quick search, marking, sorting, tabs, views, folder sizes, git, git history, the mouse, every key |
+| [Panels and keys](docs/panels/README.md) | The first-run guide, the screen, notices and what's new, moving, quick search, marking, sorting, tabs, views, folder sizes, git, git history, branches and worktrees, the mouse, the command list (F9), Features (F1), the action menu, what the apps remember, every key |
 | [Tags, notes, favourites and the sidebar](docs/organise/README.md) | Colour tags, folder notes, favourite groups, places and drives |
 | [Commands, the user menu and scripts](docs/commands/README.md) | The command line, F2 menu, scripts, F3 and F4, opening files |
-| [Search](docs/search/README.md) | The guided setup, names, text, scans, diagrams, git history, meaning, servers, the helper, disks, battery, notices |
-| [The preview pane](docs/previews/README.md) | Every format, HTML, Office, diagrams, LaTeX, tools and containers |
-| [Files](docs/files/README.md) | Copy, move, delete, clipboard, drag and drop, batch rename, archives, properties, duplicates |
+| [Search](docs/search/README.md) | The guided setup, Find, names, text, documents, scans, diagrams, git history, archives, cloud files, removable disks, meaning, servers, Ask, Ask about code, Ask without a server, built-in models, the helper, battery, search settings |
+| [The preview pane](docs/previews/README.md) | Text and code, documents, HTML, Office, data, CBOMs, build provenance, media, diagrams, LaTeX, tools and containers, safety |
+| [Files](docs/files/README.md) | Copy, move, new folder, delete, undo, clipboard, drag and drop, batch rename, archives, pack and extract, passwords, properties, duplicates, ZFS snapshots |
 | [Customising](docs/customise/README.md) | Settings, themes, looks, your own theme, languages, keys, glyphs |
-| [Reference](docs/reference/README.md) | The terminal app, flags, every config key, privacy, updates, where files are kept, FreeBSD, NetBSD, OpenBSD, illumos, TrueNAS, Flatpak |
+| [Reference](docs/reference/README.md) | The terminal app, flags, every config key, privacy, updates, where files are kept, disk use, security, licences and bills of materials, performance |
+| [Systems](docs/systems/README.md) | FreeBSD, NetBSD, OpenBSD, illumos, TrueNAS, Linux on ARM, Flatpak, Nix, Termux on Android, ChromeOS, macOS, Windows on ARM |
 | [Questions, collected](docs/faq.md) | The common questions, linked to their full answers |
 | [Changelog](docs/changelog.md) | Every version, newest first; the last ten are below |
 
@@ -176,6 +192,7 @@ Newest first. Downloads for each release are on the [releases page](https://gith
 
 | Version | Date | What's new |
 |---|---|---|
+| **2.27.1** | 2026-10-18 | **The docs are in sync again.** Every page now names **F12** for the terminal app's Settings, the line Ctrl+O leaves, the size on `..`, the git facts and **Alt+G**; the pages for each system have an area of their own, *Systems*, and notices moved to *Panels and keys*; diagrams show what each area holds, how search works, how a preview is made, what git does, how Settings and `config.toml` meet, and which install suits your system. F1 → Features has FreeBSD, and its texts follow your keys. The terminal app's action menu and command list show **F12** for Settings, not Ctrl+, which most terminals never pass on. [Docs index](docs/README.md) |
 | **2.27.0** | 2026-10-18 | **Open in your git tool.** Coxswain shows version control and only switches branches or makes new ones; for commit, push, pull and the rest, **Alt+G** (also in **Shift+F10**, **F9** and, in the desktop app, a right-click on the git line) opens the repository in your own tool: the first installed of lazygit, gitui, tig and the desktop clients (GitHub Desktop, GitKraken, Sublime Merge, Fork, Sourcetree, gitg, git-cola, git gui, gitk, per system), else a terminal there. The terminal app runs a terminal tool in place of the panels and reads them again after; the desktop app opens it in a terminal window. *Settings → Behaviour → Git tool* (`[git] tool`) names one, or a command of your own. [Open in your git tool](docs/panels/git.md#open-in-your-git-tool) |
 | **2.26.1** | 2026-10-17 | **Settings you can find in the terminal app, and a word when the panels hide.** The terminal app's key bar ends in *12 Settings*: **F12** opens Settings in every terminal, where most never pass **Ctrl+,** on (the desktop app takes **F12** too). Settings is also near the top of the **Shift+F10** action menu, and a hint names its keys the first few times. **Ctrl+O** no longer just makes the panels vanish: a line under the output says *Panels hidden · any key brings them back*, or that no command has run yet. And F1's line now calls the coxswain what it is: the one at the helm, in every language. [Opening Settings](docs/customise/settings.md#opening-it) |
 | **2.26.0** | 2026-10-17 | **How far behind, and as of when.** Hover the git line in the desktop app, or put the cursor on `..` in the terminal app, for the branch's upstream with the commits ahead and behind, the time of the last fetch and the remote's URL (with any password or token left out). A repository's folder in a listing, such as a project in `~/projects` or a submodule, shows its git line and the same facts when you hover it or put the cursor on it. They are read only when you point at them, never for a whole folder, and Coxswain still never fetches. [Upstream, remote and last fetch](docs/panels/git.md#upstream-remote-and-last-fetch) |
@@ -185,6 +202,5 @@ Newest first. Downloads for each release are on the [releases page](https://gith
 | **2.24.2** | 2026-10-16 | **Install scripts and release downloads, put right.** `cargo install coxswain` needs `--locked` for now: a library the built-in models use asks for a version of zip that its makers have withdrawn, and only the lock file shipped with Coxswain still names it. The docs and the update notice now say `cargo install --locked coxswain`. The install scripts check for the Rust that Coxswain's dependencies really need, fetch native Rust on Windows on ARM, install the right WebKitGTK on openSUSE, pick the newest archive by number with `--from`, no longer sit silent for two minutes on FreeBSD while they look up the latest release, and the FreeBSD uninstall names `~/.local/share/coxswain`. The terminal archives for FreeBSD, the other BSDs, Linux and macOS are about 13 MB smaller, because `cox` is now a link. The Homebrew formula and cask can no longer go out with a missing checksum. The docs now list the actions, settings, flags and questions they missed. [Install](#install) |
 | **2.24.1** | 2026-10-15 | **Commodore 64 in Colodore colours.** The theme now uses the Colodore palette, the colours of a PAL C64 as measured on its monitor, instead of the C64-Wiki values: a bluer blue, and brighter light blue, yellow and light green. [Themes](docs/customise/themes.md) |
 | **2.24.0** | 2026-10-15 | **The classics: fifteen more themes, and a tube for any of them.** Amiga Workbench 1.3, the home of Directory Opus, with a look of its own; XTree Gold, DOS Shell and Midnight Commander beside Norton Commander blue; the home computers Commodore 64, ZX Spectrum, Amstrad CPC, MSX, BBC Micro and Atari ST (with a GEM look); Amber and Paper white beside Cyber; NeXTSTEP and BeOS with looks of their own, and OS/2 Warp. `crt = true` in a theme of your own puts Cyber's scanlines and glow over any look. [Themes](docs/customise/themes.md) · [Looks](docs/customise/looks.md#the-tube) |
-| **2.23.1** | 2026-10-14 | **TLS library brought up to date.** rustls 0.23.46 closes four advisories published today (RUSTSEC-2026-0346 to 0349: a `Debug` print that could show session secrets, data sent on after a rejected ECH, an oversized certificate allocation, and a key-exchange downgrade), in every connection the apps make: the update check, model downloads and remote model servers. No advisories open. [Security](docs/reference/security.md) |
 
 All versions, back to 1.0.0: [the full changelog](docs/changelog.md).

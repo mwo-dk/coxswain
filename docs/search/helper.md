@@ -27,7 +27,7 @@ Nothing to do: the first app starts it and the others find it. A new window sear
 | Where | How |
 |---|---|
 | Desktop app | Tick *Settings → Finding files → Details → Background reading → Start with my session* |
-| Terminal app | `coxswain --index-service on`; `off` removes it; `coxswain --index-service` alone prints `on` or `off` |
+| Terminal app | **F12** → *Finding files* → *Background reading* → *Start with my session* (**Space** or **Enter**); or `coxswain --index-service on`, `off` removes it, and `coxswain --index-service` alone prints `on` or `off` |
 
 This registers the helper with the system:
 
@@ -122,32 +122,39 @@ The [guided setup](setup.md#keep-reading-in-the-background) offers it as its las
 
 ## In the terminal app
 
-The same helper, shared with the desktop app. `coxswain --index-service on|off` does what the
-checkbox does. `coxswain --paths` prints where the index, the search store and the model are.
+The same helper, shared with the desktop app. Its Settings have the same *Start with my
+session* (**F12** → *Finding files* → *Background reading*), and `coxswain --index-service
+on|off` does what the checkbox does. `coxswain --paths` prints where the index, the search store and the model are.
 
 ## Questions
 
 #### Is Coxswain running in the background after I close it?
+
 Yes, the helper, for ten minutes, so the next window starts searching at once. Then it exits. With
 *Start with my session* it stays for good.
 
 #### How do I stop the helper?
+
 Close every Coxswain window and wait ten minutes. With *Start with my session* on, untick it (or
 `coxswain --index-service off`), which also stops the running one. Do not kill it by name: an app
 still running would start another.
 
 #### Why start it with my session?
+
 So the first pass over your files, and the vectors for search by meaning, are done while no
 window is open. Otherwise reading happens only while an app runs and ten minutes after.
 
 #### Can another user on the machine search my files through it?
+
 No. The port is on loopback only, and a connection must bring the token, which is in a file only
 you can read.
 
 #### Two windows are open. Are my files read twice?
+
 No. Both use the one helper: one scan, one store, one index in memory.
 
 #### After an update, background search stopped while an old window was open. Why?
+
 Before 2.7.3 a helper stepped down for an app of any other version. With a window of the old
 version still open after `brew upgrade` (or a replaced AppImage), the new helper left for the old
 window, the old window's start ran the new version again through the link on your `PATH`, and that
@@ -159,16 +166,19 @@ new* in the desktop app). Close the old window, or restart Coxswain, and everyth
 helper. The decision is the helper's, so windows of versions before 2.7.3 are served too.
 
 #### Why are there two `coxswain-gui --index-helper --stay` processes?
+
 From an AppImage, yes: the AppImage's own runtime stays to serve the packed files (its program is
 the `.AppImage` file), and it starts the app inside (its program is under `/tmp/.mount_…`). They
 are one helper. `<defunct>` `coxswain-gui` processes under an app were helpers that had left;
 from 2.7.3 the app waits for them, so none stays.
 
 #### After an update, the index was built again. Why?
+
 The helper of the old version stepped down for the new one, which loaded the saved index and
 refreshed it. The text in `search.db` stays.
 
 #### Search inside files and meaning stopped after an upgrade. Why?
+
 Before 1.29.0: *Start with my session* was on, and the upgrade removed the program the
 registration started (a Homebrew path with the old version in it, a moved AppImage). The helper
 could not start, so Find found names only: words, meaning and *Ask* found nothing, and
@@ -178,6 +188,7 @@ older version, untick and tick *Start with my session* again, or run `coxswain -
 then `on`.
 
 #### Start with my session is on, but background reading does not start. Why?
+
 The system did not start the helper, or started it and it left. From 2.1.2 the app then starts it
 itself (Find searches words again, and *Settings → Finding files* shows *Files read*), and a
 notice in the status line (terminal app) or under *Settings → What's new* (desktop app) says why
@@ -195,12 +206,14 @@ the efficiency cores with its disk reads throttled: it ran, but the backlog bare
 app of 2.1.2 you open rewrites the LaunchAgent without that.
 
 #### What is in helper.log?
+
 One line per start (`helper starts, process 70973`), why it left (*no app asked for a while*, *an
 app asked it to*, *another helper runs*, *an app of the newer version 2.7.3 came*), an older app it
 serves or cannot serve, an app that found a newer helper it cannot talk to, and errors, such as a search store that could not be
 opened, each with the time. Nothing about your files.
 
 #### I changed `[search]` by hand. How do I make the helper take it?
+
 Make any change in Settings, or close every window and wait ten minutes; with the session helper,
 `coxswain --index-service off` then `on`.
 

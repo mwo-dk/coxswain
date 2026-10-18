@@ -236,7 +236,7 @@ library used elsewhere does not know OpenBSD.
 
 Tested in CI on OpenBSD 7.9 (amd64): it builds, its tests pass, and it starts under X11 and
 draws its window. Browsing, the preview pane, Find and the file operations are the same code as
-on Linux and FreeBSD, tested by the core's tests on OpenBSD; they have not had use on a real
+on FreeBSD and Linux, tested by the core's tests on OpenBSD; they have not had use on a real
 OpenBSD desktop yet. Please say what works and what does not in an
 [issue](https://github.com/mwo-dk/coxswain/issues).
 
@@ -258,7 +258,9 @@ watch budget ([OpenBSD's limits](#openbsds-limits-and-what-coxswain-does-about-t
 class with more open files, or leaving large trees out of the index (`name_exclude` in
 `[search]`), fixes it.
 
-**Search by meaning says it is out of memory.** The built-in model and its work can need more
+#### Search by meaning says it is out of memory
+
+The built-in model and its work can need more
 than the 1.5 GB a process gets by default: `ulimit -d unlimited` in a `staff` login, or
 `datasize-cur` raised in `login.conf`. A model server elsewhere needs no memory here
 ([Servers](../search/servers.md)).

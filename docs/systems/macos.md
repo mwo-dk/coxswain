@@ -154,31 +154,38 @@ There is no key for the left-out list: it is always on, on a Mac. To leave out m
 ## Questions
 
 #### Why does Coxswain want my Desktop, Documents and Downloads?
+
 To find your files there by name and by their text, which is what search is for. Answer
 **Don't Allow** and those folders are simply not searched; everything else works.
 
 #### It kept asking to "access data from other apps". Why, and is it gone?
+
 Versions before 2.1.1 walked `~/Library` with the rest of your home folder, and each touch of
 another app's container could raise that prompt, again after every update. Since 2.1.1 the walks
 leave `~/Library` out, but its cloud folders, and never open another app's data, so the prompt
 does not come from the search helper any more.
 
 #### Does Coxswain need Full Disk Access?
+
 No, and it never asks. See [Full Disk Access](#full-disk-access).
 
 #### After an update macOS asked about my folders again. Why?
+
 The builds are ad-hoc signed, so each version looks like a new app to macOS. See
 [Why a new version may ask again](#why-a-new-version-may-ask-again).
 
 #### I refused a folder and want it searched now. What do I do?
+
 **System Settings → Privacy & Security → Files and Folders → Coxswain**, tick the folder, then
 log out and back in so the search helper starts again. A folder refused once is not tried again until the helper starts again.
 
 #### Do I need Ollama for search by meaning on a Mac?
+
 No. The built-in model runs on the Mac's GPU. See
 [Search by meaning on the Mac's GPU](#search-by-meaning-on-the-macs-gpu).
 
 #### Search inside files is on, but background reading does not start. What do I do?
+
 Open the app once (2.1.2 or later): it starts the helper itself when launchd does not, and says
 so. Then turn on **System Settings → General → Login Items & Extensions → Coxswain → Allow in the
 Background**, and untick and tick *Start with my session*. To see what launchd did, run
@@ -186,6 +193,7 @@ Background**, and untick and tick *Start with my session*. To see what launchd d
 code`) and read `~/Library/Caches/coxswain/helper.log`. See [The search helper at login](#the-search-helper-at-login).
 
 #### Can I search the files in `~/Library`?
+
 Not through the index: it never reads other apps' data. Open the folder in a pane and type
 the start of a name there ([quick search](../panels/quick-search.md)).
 

@@ -74,8 +74,8 @@ files* (`[search] text`) on.
 
 The same: commits are hits in *text:*, with the passage starting `commit a1b2c3d · Ada · …`.
 **Enter** opens the commit in the panel; **F3** and **F4** do nothing on a commit hit. Turn it
-off with `history = false` under `[search]` in `config.toml`; the helper uses it from its next
-start.
+off in its Settings (**F12** → *Finding files* → *What is read* → *Git history*), or with
+`history = false` under `[search]` in `config.toml`, which the helper uses from its next start.
 
 ## Questions
 

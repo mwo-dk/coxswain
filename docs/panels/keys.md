@@ -61,7 +61,7 @@ On a Mac the shortcuts are the same, with **Ctrl**, not Cmd.
 | **Ctrl+R** | Refresh | `refresh` | Read the panes' folders again; the status line says *Refreshed* | The same, for the panels |
 | **Alt+O** | Other panel here | `same_dir` | The active pane's folder in the other pane | The same |
 | **Ctrl+U** | Swap panels | `swap_panels` | Swap the panes | Swap the panels |
-| **Ctrl+O** | Panels on/off | `toggle_panels` | One pane or two ([Tabs and panes](tabs-and-panes.md)) | The output of the last command |
+| **Ctrl+O** | Panels on/off | `toggle_panels` | One pane or two ([Tabs and panes](tabs-and-panes.md)) | Hides the panels and shows the last command's output, *Panels hidden · any key brings them back* under it ([more](../commands/command-line.md#the-output-flashed-by-in-the-terminal-app-where-is-it)) |
 | **Ctrl+T** | New tab | `new_tab` | A new tab in the same folder and view | – |
 | **Ctrl+W** | Close tab | `close_tab` | Close the tab (the last one stays) | – |
 | **Ctrl+Tab** | Next tab | `next_tab` | The next tab of the pane | – |
@@ -185,7 +185,7 @@ These are fixed; `[keys]` does not change them.
 | Help (**F1**) | Desktop app: **Esc**, **Enter** or **F1** closes; *Show the guide again* opens the first-run guide. Terminal app: **Up** / **Down** / **PageUp** / **PageDown** scroll, **G** opens the first-run guide, any other key closes |
 | Error message | Titled with what failed (*Could not copy budget.txt*), the cause in one line, the raw text under *Details*; the line under it says *Enter Close*. Desktop app: **Enter** or **Esc**. Terminal app: any key |
 | After a program or a waiting command (terminal app) | **Enter** at `-- press Enter --` |
-| **Ctrl+O** output (terminal app) | Any key back to the panels |
+| **Ctrl+O** output (terminal app) | Any key back to the panels, as the line under the output says |
 
 ## Settings and config.toml
 
@@ -216,29 +216,22 @@ for themselves.
 
 #### How do I change a key?
 
-In `config.toml`, under `[keys]`: `search = ["Ctrl+P"]`. Listing an action replaces its
-default keys; `[]` unbinds it. See [Changing keys](../customise/keys.md).
+In `config.toml`, under `[keys]`: `search = ["Ctrl+P"]`. See
+[Where do I change a key?](../customise/keys.md#where-do-i-change-a-key)
 
 #### My `[keys]` line `mkdir = ["F7"]` stopped working. Why?
 
-2.0 gave five actions the words the apps use: `mkdir` is `new_folder`, `dir_sizes` is
-`folder_sizes`, `select_group` / `unselect_group` / `invert_selection` are `mark_group` /
-`unmark_group` / `invert_marks`. On its first start 2.0 renames them in `config.toml` for you,
-comments kept, and a notice lists what it changed. An old name typed in afterwards is an
-unknown action: the terminal app does not start and names it, the desktop app starts with the
-defaults. See [Renamed in 2.0](../reference/configuration.md#renamed-in-20).
+2.0 renamed it `new_folder`: see [My `[keys] mkdir` stopped working](../customise/keys.md#my-keys-mkdir-stopped-working-in-20-why).
 
 #### Why does the F-key bar say *Move* in the desktop app and *RenMov* in the terminal app?
 
-The desktop app's bar uses the action names of **F9** and **F1**: *Move*, *New folder*,
-*Commands*. The terminal app keeps Norton Commander's short labels on its bar, *RenMov*,
-*Mkdir* and *PullDn*, but its **F9** list and **F1** use the same names as the desktop app.
+The terminal app keeps Norton Commander's short labels on its bar; the keys are the same. See
+[The screen](the-screen.md#why-does-the-f-key-bar-say-move-in-one-app-and-renmov-in-the-other).
 
 #### I bound a key and now the desktop app ignores my whole config. Why?
 
-A key it cannot read (`"Ctlr+P"`) makes the config invalid. The terminal app refuses to start
-and says `coxswain: unknown key 'Ctlr+P'`; the desktop app starts with every default and
-prints the error on its terminal. Fix the name and restart.
+A key name it cannot read (`"Ctlr+P"`) makes the config invalid: see
+[I bound a key and the app will not start](../customise/keys.md#i-bound-a-key-and-the-app-will-not-start-what-is-wrong).
 
 #### Why does Ctrl+C in the command line copy text, not files?
 
@@ -259,14 +252,12 @@ with **Enter**.
 
 #### Why are the shortcuts Ctrl on a Mac, not Cmd?
 
-Both apps read the same `[keys]`, and Norton Commander's keys are Ctrl keys. `[keys]` knows
-Ctrl, Alt and Shift, not Cmd. Cmd-click still marks, as in other Mac apps.
+`[keys]` knows Ctrl, Alt and Shift, not Cmd: see [Can I use Cmd on a Mac?](../customise/keys.md#can-i-use-cmd-on-a-mac)
 
 #### Two actions have the same key. Which one wins?
 
-One key drives one action. When two actions list the same key, the one that comes later in
-the `[keys]` part of `coxswain --dump-config` takes it, and **F1** in the desktop app shows the
-key only there. Give each key to one action only.
+Neither: a key you give two actions in `[keys]` is refused, as an unknown key name is. A key
+you bind to one action leaves the action it was a default of. See [Rules](../customise/keys.md#rules).
 
 #### Can a key run a shell command?
 

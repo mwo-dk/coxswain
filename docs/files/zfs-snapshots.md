@@ -112,8 +112,8 @@ folders runs it once.
 - Off ZFS, **Alt+Z** says *… is not on ZFS: there are no snapshots here*, and no footer line
   shows. On Windows there is no ZFS.
 
-The dataset of a folder comes from the kernel's mount table (statfs(2) on FreeBSD and macOS,
-`/proc/self/mountinfo` on Linux, `/etc/mnttab` on illumos), not from running `zfs`: cheap
+The dataset of a folder comes from the kernel's mount table (statfs(2) on FreeBSD,
+`/etc/mnttab` on illumos, `/proc/self/mountinfo` on Linux, statfs(2) on macOS), not from running `zfs`: cheap
 enough for every folder. On illumos, **Diff** uses GNU diff (`/usr/gnu/bin/diff`, in the base
 system) for its headers; without it, the system's `diff -u`.
 

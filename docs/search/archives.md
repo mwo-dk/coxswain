@@ -167,28 +167,33 @@ The folders looked into follow `text_roots`, `text_exclude` and `names_only`
 ## In the terminal app
 
 The same: the same index and store, kept by the same [helper](helper.md), the same hits and the
-same **Enter**. There is no Settings window: set `archives` and `archives_everywhere` in
-`config.toml`; the helper takes them at its next start.
+same **Enter**. Its Settings have the same switches (**F12** → *Finding files* → *What is
+read*), and the helper starts again with them; set by hand in `config.toml`, `archives` and
+`archives_everywhere` are taken at the helper's next start.
 
 ## Questions
 
 #### Does Find look inside my zip files?
+
 Yes, when the zip is in a folder that is read (your home folder by default, not inside a hidden
 folder or a cache): by name (*Names*, everywhere or in one folder), and by their words (*In files*). A
 zip elsewhere is found by its own name only; see [Which archives](#which-archives).
 
 #### I added a file to a zip. When can I find it?
+
 Within a second or two by name, and a few seconds later by its text, whether Coxswain or another
 program changed the zip; only the new file is read, the other members keep their text. Without
 the file watcher, at the next hourly rebuild (names) or within ten minutes (text).
 
 #### Why is a file in my .tar.xz not found?
+
 One of these: the archive is larger than 256 MB (a compressed tar is listed by unpacking it,
 so larger ones are found by their own name only); the file is past the archive's first 50,000
 entries; the archive is not in a folder that is read, or is in a hidden one; or, for its text,
 the file is larger than 20 MB or comes after the first 128 MB read out of the archive.
 
 #### Why are the jars in ~/.m2, or the archives in ~/.cache, not looked into?
+
 They are a program's archives, not yours, and would fill the results and the name index: caches,
 package stores, build output and programs' data folders are left out, hidden or not
 ([Which archives](#which-archives)). Tick *Archives everywhere* in
@@ -196,17 +201,20 @@ package stores, build output and programs' data folders are left out, hidden or 
 entries found by name.
 
 #### Why does a 7z say its list of contents is too big?
+
 Its list of contents is packed, and says it unpacks to more than 64 MB. A 7z unpacks that list
 into memory before anything else, and a real one takes a few hundred kilobytes even for tens of
 thousands of files, so Coxswain does not open it: not as a folder, not in a preview, not in
 search. Open it with 7-Zip if you trust where it came from.
 
 #### Can search find files in a locked archive?
+
 Their names, when the archive shows its names without a password: every zip does, a 7z with
 open names does. Their text, never: search uses no password, even one you gave in this run. See
 [Locked archives](#locked-archives).
 
 #### Does looking inside archives make search slower or bigger?
+
 A little, and only for the archives in the folders read. On a test tree of 200,000 files and
 260 archives holding 145,000 entries, the name index took 70 ms to build instead of 25 ms (35 ms
 when its archives had not changed) and its cache 8.1 MB instead of 4.6 MB; a search took the
@@ -224,11 +232,13 @@ Caches are where most of a machine's archives are. On a test home laid out as on
 | Everywhere (and the default before 1.30.0, where caches are not hidden) | 221,000 | 90 ms | 52 MB |
 
 #### How do I turn it off?
+
 Untick *Look inside archives* in *Settings → Finding files → Details → What is read*, or set `archives = false`
 under `[search]` in `config.toml`. The helper starts again with it; what was read inside archives
 is removed from the store at its next walk.
 
 #### Can I open a file that was found inside an archive?
+
 **Enter** goes to it: the panel opens the archive's folder, cursor on the file. From there it is a
 file inside an archive like any other: the desktop app's preview pane shows it and **F3** in the
 terminal app views it, from a copy of just that file, and **F5** copies it out to change it

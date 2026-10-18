@@ -27,7 +27,7 @@ drawn in the era's own colours, as the real thing was.
 
 A look comes with its theme: pick the theme and you get its look.
 
-1. Press **Ctrl+,** (or **F9** → *Settings*).
+1. Press **Ctrl+,** or **F12** (or **F9** → *Settings*).
 2. Choose *Looks*, leave *For* on *Desktop app* and click a theme. The table below shows which look each brings.
 
 To give your own theme a look, name it in the theme's table (see

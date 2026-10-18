@@ -53,6 +53,26 @@ commands), for the diff `git diff`, and for the last commits and the history `gi
 list of branches: a switch to a branch and a new branch (`git switch`). It never commits or
 stages: **Alt+G** hands that to your own git tool. The repository's own hooks, file system monitor and filter drivers never run.
 
+```mermaid
+flowchart LR
+    repo[("Your repository")]
+    subgraph reads["Coxswain reads"]
+        r1["Status and branch"]
+        r2["Upstream: ahead, behind"]
+        r3["Last fetch and remote"]
+        r4["Last commit per file"]
+        r5["History, branches, worktrees"]
+    end
+    subgraph writes["Coxswain writes, when you ask"]
+        w1["Switch branch: Alt+S"]
+        w2["New branch here"]
+    end
+    tool["Your git tool: Alt+G<br/>commit, stage, push, pull, fetch, merge"]
+    repo --> reads
+    writes --> repo
+    tool --> repo
+```
+
 ## The git line
 
 In the terminal app it is at the bottom left of the panel's border; in the desktop app at the

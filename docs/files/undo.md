@@ -144,8 +144,8 @@ There is no setting for the length of the history. See [Changing keys](../custom
 
 #### Can I undo a delete?
 
-A move to the trash (**F8**, **Delete**): yes, with **Ctrl+Z**, on Windows, Linux, the BSDs,
-illumos and in Termux. The file comes back where it was, under its name, unless something else
+A move to the trash (**F8**, **Delete**): yes, with **Ctrl+Z**, on FreeBSD and the other BSDs,
+illumos, Linux, in Termux and on Windows. The file comes back where it was, under its name, unless something else
 is there now. On a Mac and in the Flatpak the trash gives nothing back to apps, so the status
 line says *Ctrl+Z cannot bring it back here* right after **F8**; restore it from the system's
 trash (Finder's *Put Back*). Deleting for good (**Shift+F8**) cannot be undone.

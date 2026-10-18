@@ -152,8 +152,9 @@ its name in your language: bind `F2` to `pack` and the bar says *Pack into an ar
 The desktop app's bar says *Move* (**F6**), *New folder* (**F7**) and *Commands* (**F9**); the
 terminal app's bar keeps Norton Commander's *RenMov*, *Mkdir* and *PullDn* for those three
 actions, wherever you bind them.
-**F1** (help) lists every action with all the keys bound to it; **F9** (the command list) shows
-each action with its first key. An action without a key has an empty key column. In the desktop app the Settings button's tooltip
+**F1** (help) lists every action with all the keys bound to it; **F9** (the command list) and
+the action menu show each action with its first key, in the terminal app the first one a
+terminal passes on (**F12** for Settings, not **Ctrl+,**). An action without a key has an empty key column. In the desktop app the Settings button's tooltip
 shows the `settings` key.
 
 ## Settings and config.toml

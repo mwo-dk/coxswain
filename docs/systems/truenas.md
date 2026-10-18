@@ -5,7 +5,7 @@
 TrueNAS keeps your files on ZFS, and Coxswain's terminal app is a good way to look after them
 over SSH: browse the pools, **Alt+Z** into any dataset's snapshots, compare a file with an older
 version and copy it back, all without root and without writing anything into a snapshot. Nothing
-special is needed: TrueNAS runs the same builds as Linux and FreeBSD.
+special is needed: TrueNAS runs the same builds as FreeBSD and Linux.
 
 | TrueNAS | What it is | Which build |
 |---|---|---|

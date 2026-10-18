@@ -19,7 +19,7 @@ or `start` would. The terminal app runs a program instead of opening it.
 | A folder, or `..` | Goes into it | Goes into it |
 | An archive (`.zip`, `.tar.gz`, `.7z` and the others) | Opens it as a folder ([Archives as folders](../files/archives.md)) | Same |
 | A file inside an archive | Status line: *photos.zip is an archive: F5 copies this file out of it* | Same |
-| A program (a file with the executable bit on Linux and macOS; `.exe`, `.bat`, `.cmd`, `.ps1`, `.com` on Windows) | Opened like any other file, in its default application | Run in the terminal as `./name`, in the panel's folder, then `-- press Enter --` |
+| A program (a file with the executable bit on the BSDs, illumos, Linux and macOS; `.exe`, `.bat`, `.cmd`, `.ps1`, `.com` on Windows) | Opened like any other file, in its default application | Run in the terminal as `./name`, in the panel's folder, then `-- press Enter --` |
 | Any other file | Opened in its default application | Same |
 
 The default application is the one your desktop picks: `xdg-open` on Linux, `open` on macOS,

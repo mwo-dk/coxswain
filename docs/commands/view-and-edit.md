@@ -39,7 +39,7 @@ A variable that is set but empty counts as unset.
 ## Settings and config.toml
 
 Both are top-level keys in `config.toml` ([Configuration](../reference/configuration.md)), and both are
-in the desktop app's Settings → *Behaviour*: *Editor* and *Viewer (terminal app)*
+in Settings → *Behaviour* of both apps (**Ctrl+,**; **F12** in the terminal app): *Editor* and *Viewer (terminal app)*
 ([Behaviour](../customise/settings.md#behaviour)).
 
 | Key | Type | Default | Used by |

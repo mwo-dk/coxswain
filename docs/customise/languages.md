@@ -89,7 +89,7 @@ written 1'234.5. Coxswain writes dates as numbers (2026-01-05), so Austrian Germ
 
 **Desktop app:**
 
-1. Open Settings: **Ctrl+,**, or **F9** → *Settings*, and choose *Looks*; or start it with
+1. Open Settings: **Ctrl+,** or **F12**, or **F9** → *Settings*, and choose *Looks*; or start it with
    `coxswain-gui --settings=language`, which opens *Looks* at *Language*.
 2. Under *Language*, click a language. The one in use is shown at the top, with its flag. Below
    it a field filters the list; the languages are listed under their regions (*Nordic and
@@ -101,19 +101,25 @@ written 1'234.5. Coxswain writes dates as numbers (2026-01-05), so Austrian Germ
 Under the list, *Translations marked new are fresh…* opens [Improving a translation](#improving-a-translation)
 in the browser.
 
-**Terminal app, or by hand:**
+**Terminal app:**
+
+1. Press **F12** (*12 Settings* on the F-key bar), or start it with `coxswain --settings=language`.
+2. In *Looks*, put the cursor on *Language* and press **Enter**: *Automatic* and every language,
+   by its own name. **↑** **↓** and **Enter** take one.
+3. Every text changes at once, and the choice is saved to `config.toml`.
+
+**By hand:**
 
 1. Open `config.toml` (`coxswain --config-path` prints where).
 2. Put `language = "da"` at the top, above the first `[table]`. `"auto"` follows the system.
-3. Start the terminal app again (quit with **F10**). The desktop app reads it at its next start,
-   or at once when set from Settings.
+3. Start the app again (quit with **F10**): a hand edit is read when an app starts.
 
 There are no keys for the language.
 
 ## Which language Automatic picks
 
 With `language = "auto"`, the default, Coxswain reads your system's list of preferred languages
-(on Linux, macOS and Windows alike), and takes the first one it has, in any regional form (any
+(on every system alike, from FreeBSD to Windows), and takes the first one it has, in any regional form (any
 English counts); otherwise the nearest relative of the first one:
 
 | Your system | Coxswain uses |
@@ -251,8 +257,9 @@ One key for both apps.
 
 ## In the terminal app
 
-The same 29 languages and the same translations, chosen by the same `language` key. It is read
-when the app starts; there is no picker, but `coxswain --languages` prints the list by region,
+The same 29 languages and the same translations, chosen by the same `language` key. Its own
+Settings pick it at once (**F12** → *Looks* → *Language*); a change made in the desktop app or
+in the file is read when it starts. `coxswain --languages` prints the list by region,
 the one in use and the new ones marked, and where to suggest a better word. Right to left
 depends on the terminal (see
 [Right to left](#right-to-left)). The help (**F1**), the command list (**F9**), dialogs, the
@@ -267,7 +274,9 @@ American words. Pick *English (United Kingdom)* in Settings for "bin", or keep i
 
 #### I changed the language in Settings and the terminal app still speaks the old one.
 
-The terminal app reads `language` when it starts. Quit it (**F10**) and start it again.
+You changed it in the desktop app's Settings: a terminal app already running reads `language`
+when it starts. Quit it (**F10**) and start it again, or pick the language in its own Settings
+(**F12** → *Looks* → *Language*), which changes it at once.
 
 #### How do I go back to following the system?
 
@@ -290,15 +299,15 @@ picks *Deutsch (Schweiz)*, which writes *ss* and «guillemets». For *ß* and �
 #### Polish, Czech, Ukrainian or Greek reads oddly in places. Why?
 
 These are new, marked *new* in Settings (and so are Japanese and Korean), and have not been read by a native speaker yet.
-Coxswain shows the notice "*Polski is a new translation…*" once (in the desktop app under
-Settings → *Overview* → *What's new*, in the terminal app in the status line) to say so. A better word is
+Coxswain shows the notice "*Polski is a new translation…*" once (under Settings → *Overview* →
+*What's new* in both apps; the terminal app also says it in the status line) to say so. A better word is
 very welcome: see [Improving a translation](#improving-a-translation).
 
 #### Persian, Armenian or Georgian is new. Who checked it?
 
 No native speaker yet: all three are marked *new* in Settings, and Coxswain says once
-"*فارسی is a new translation…*" (under *Settings → Overview → What's new* in the desktop app,
-in the status line of the terminal app). A better word is very welcome; see
+"*فارسی is a new translation…*" (under *Settings → Overview → What's new* in both apps, and in
+the status line of the terminal app). A better word is very welcome; see
 [Improving a translation](#improving-a-translation).
 
 #### Why does Persian have a falcon and not a flag?

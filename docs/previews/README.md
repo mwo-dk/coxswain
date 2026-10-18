@@ -17,6 +17,20 @@ character cells, so the terminal app hands a file to your viewer instead: **F3**
 `$PAGER` (or the `viewer` in the config, else `less`), **Enter** in the program your system
 opens it with. See [View and edit](../commands/view-and-edit.md).
 
+How a preview is made, in the order Coxswain tries ([Previews made by tools](tools.md) has the
+details; *Settings → Previews → Use* can put the container first, or leave it out):
+
+```mermaid
+flowchart TD
+  file[The file under the cursor] --> own{A reader built<br/>into the app?}
+  own -->|yes: code, PDF, pictures,<br/>spreadsheets, …| shown[Shown at once]
+  own -->|no: LaTeX, LibreOffice,<br/>PlantUML, pandoc, DuckDB| tool{The program<br/>installed?}
+  tool -->|yes| run[It runs; the result<br/>is cached]
+  tool -->|no| box{podman or docker,<br/>and an image?}
+  box -->|yes| cont[It runs in a container<br/>with no network;<br/>a first pull waits for a click]
+  box -->|no| none[A greyed button and the<br/>line that installs it, with Copy]
+```
+
 ## Opening and closing it
 
 1. Put the cursor on a file or folder.

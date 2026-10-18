@@ -225,6 +225,7 @@ It differs in a few things:
 ## Questions
 
 #### How do I search only this folder?
+
 Press **Ctrl+F** (or **Alt+F7**) again inside Find, or click *In rocket* at the right of the
 field (desktop app). The lit button (the inverted word in the terminal app's
 `[ everywhere | in rocket ]`) moves to *In rocket*, the empty field reads *Find in rocket…
@@ -233,48 +234,58 @@ Press the key again, or click *Everywhere*, for the whole machine. Find always o
 *Everywhere*.
 
 #### How do I search names only?
+
 Press **Tab** once: the *Names* kind shows names alone, all of them, and never the Ask row. A
 query with name syntax (`*.pdf`, `ext:md`, `src/ foo`) shows names only by itself.
 
 #### Why did my file show under About this?
+
 It is close in meaning to what you typed but does not have your words: another language
 (*brændstof* for *fuel*), other words for the same thing, or a scan. Files that have your words
 are under *In files*. See [Search by meaning](meaning.md).
 
 #### Why does the order of the groups change?
+
 It follows what you typed. One or two words look like a name: *Names* first. Three words or more,
 or a question, look like something said inside a file: *In files* and *About this* first. Name
 syntax shows names only. The order is fixed once per query, so rows never jump while you look.
 
 #### Why is there no Ask row for one word?
+
 One word is almost always a name. Type a second word, end with `?`, or press **Ctrl+Enter**
 (desktop) / **Alt+Enter** (terminal), which asks whatever is in the field.
 
 #### Can I search the text of files in one folder only?
+
 Yes: switch the scope with **Ctrl+F** inside Find, then type, or press **Shift+F7** first for *In
 files* alone. Only folders whose text is read have words to find; for another one, *Read this
 folder too*.
 
 #### Why does it say "showing the first 500", and where are the rest?
+
 In *All* each group shows five; **Enter** on *N more* shows that group alone, up to 500 hits in
 the desktop app (so the list stays quick to draw) or `max_results` in the terminal app. The
 heading still counts them all (*500 of 1,204*). Type more, or use `ext:` or a path term (`src/`)
 to [narrow it](name-syntax.md).
 
 #### Ctrl+Shift+F opens Find at All, not In files, in my terminal. Why?
+
 The terminal sends **Ctrl+Shift+F** the same as **Ctrl+F**. Use **Shift+F7**, or bind
 `search_text` to a key your terminal passes on ([Changing keys](../customise/keys.md)).
 
 #### Why does F3 do nothing in the desktop app's Find?
+
 In the desktop app F3 is the preview pane, and Find covers it. Press **Enter** to go to the file,
 then **Space** for the [preview](../previews/README.md). **F4** edits a hit in both apps.
 
 #### I sent a tip away by mistake. How do I get it back?
+
 Not from the app: like other [notices](../panels/notices.md#i-dismissed-a-tip-by-mistake-can-i-get-it-back),
 dismissed tips are remembered in the state file. What they lead to is still there: **Ctrl+F7**
 says what Ask needs, and **Set up…** in *Settings → Finding files* or `coxswain --setup-search` set it up.
 
 #### Is there a quicker search for the panel I am in?
+
 [Quick search](../panels/quick-search.md): **Alt+letter** jumps to names starting with what you
 type, in the current panel only.
 

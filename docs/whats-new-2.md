@@ -55,7 +55,8 @@ Settings is ordered by what you come for: *Overview*, *Finding files*, *Previews
 *Behaviour*, *Keys*, *Privacy and updates*, with *Find a setting* above them. Every option says
 what it does and what it costs (disk, processor, network, data that leaves the machine), and is
 saved to `config.toml` at once with your comments kept. The terminal app has the same Settings,
-full screen: **F9** → *Settings*, or `coxswain --settings`.
+full screen: **F9** → *Settings*, or `coxswain --settings`; since 2.26.1 also **F12**, *12
+Settings* on its F-key bar.
 
 [The Settings window](customise/settings.md)
 
@@ -132,15 +133,8 @@ A few names in `config.toml` now use the word the apps use. **On the first start
 rewrite your `config.toml` once**, keeping your comments and the order of your keys, and a notice
 lists what changed. Nothing else in the file is touched.
 
-| Where | Before 2.0 | From 2.0 |
-|---|---|---|
-| `[keys]` | `select_group` | `mark_group` |
-| `[keys]` | `unselect_group` | `unmark_group` |
-| `[keys]` | `invert_selection` | `invert_marks` |
-| `[keys]` | `mkdir` | `new_folder` |
-| `[keys]` | `dir_sizes` | `folder_sizes` |
-| `[search]` | `roots` | `name_roots` |
-| `[search]` | `exclude` | `name_exclude` |
+The seven keys, from `select_group` → `mark_group` to `[search] exclude` → `name_exclude`, are
+listed in [Configuration → Renamed in 2.0](reference/configuration.md#renamed-in-20).
 
 The old names are not read any more. A config that cannot be written (read-only, or kept in a
 store that is) is left as it is, and the app says on its error output which keys to rename.

@@ -151,7 +151,7 @@ if it gets ahead of your channel.
 #### Can Settings save when my `config.toml` comes from Home Manager?
 
 No. Home Manager makes `~/.config/coxswain/config.toml` a link into the read-only Nix store, so
-the desktop app's Settings and the first-run guide cannot write it, and their changes are lost.
+Settings (in either app) and the first-run guide cannot write it, and their changes are lost.
 Either let Coxswain own the file, or keep all settings in your Home Manager configuration and
 make changes there. `coxswain --dump-config` prints every key with its default to start from.
 

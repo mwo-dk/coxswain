@@ -66,7 +66,7 @@ then looking, files, archives, search, git and the panels; in each heading the m
 | On ZFS | Also ZFS snapshots (**Alt+Z**) for the folder; inside a snapshot, back to the list |
 | On FreeBSD, a file | Also Files of this package |
 | Inside an archive | Open, View (a file), Copy, Move, Rename, Delete, New folder: the changes write the archive anew |
-| In a git history, a ZFS snapshot or a package's list | Only what reads: Open, View, Copy; nothing that changes |
+| In a git history, a ZFS snapshot or a package's list | Only what reads: Open, View, Copy; nothing that changes. In a git history Open is offered on a commit or a folder, not on a file (**F3** views it) |
 
 Actions that work on one entry (Open, View, Edit, Rename, Properties) are offered when one
 entry is the subject: the one under the cursor with nothing marked, or the one marked entry
@@ -83,7 +83,7 @@ the cursor, in a dim colour. The first ones teach the menu itself; then they tea
 
 | Under the cursor | Hint |
 |---|---|
-| Anything | *Shift+F10 / Menu: what you can do with this* |
+| A file or folder (not `..`) | *Shift+F10 / Menu: what you can do with this* |
 | Anywhere | *Alt+F7 / Ctrl+F finds anything on this machine* |
 | Anywhere | *F1 → Features: everything Coxswain can do, with questions answered* ([Features and questions](features.md)) |
 | Anywhere | *Ctrl+, / F12 opens Settings: theme, keys, language and every other option* ([Settings](../customise/settings.md)) |
@@ -96,6 +96,7 @@ the cursor, in a dim colour. The first ones teach the menu itself; then they tea
 | A file | *F3 views it · F4 edits it · Shift+F6 renames it* |
 | A branch in the list of branches | *Alt+S switches to the branch under the cursor* |
 | In a git repository | *Alt+B shows the branches · Ctrl+G the history* |
+| In a git repository | *Commit, push or pull: Alt+G opens your git tool here* ([Open in your git tool](git.md#open-in-your-git-tool)) |
 | On ZFS | *Alt+Z shows the ZFS snapshots of this folder* |
 
 The rules:
@@ -139,7 +140,9 @@ turn them off: *Settings → Behaviour → Show hints*.
 
 The same menu and the same entries, minus what only the desktop app has (the clipboard, Batch
 rename, Colour tag, Folder notes, Find duplicates). *Panels on/off* (**Ctrl+O**) there hides
-the panels and shows the terminal with the last output. It is drawn as a dialog with the headings in bold; letters filter it. The hint sits
+the panels and shows the terminal with the last output, *Panels hidden · any key brings them
+back* under it ([The command line](../commands/command-line.md#the-output-flashed-by-in-the-terminal-app-where-is-it)).
+*Settings* shows **F12** there, the key every terminal passes on. It is drawn as a dialog with the headings in bold; letters filter it. The hint sits
 on the command line after the prompt, dimmed, and goes as soon as you type. Right-click with
 the mouse follows the *Right-click* setting; there is no **⋯** button and no Ctrl+right-click.
 

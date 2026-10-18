@@ -40,7 +40,7 @@ Both apps also open their Settings from the command line (`--settings`). For the
 | Every default | `coxswain --dump-config` | – |
 | Which languages there are | `coxswain --languages` | `coxswain-gui --settings=language` |
 | The status-line hints again | `coxswain --hints reset` | `coxswain-gui --settings=hints`, then *Show the hints again* |
-| What the new version brought | `coxswain --whats-new` | `coxswain-gui --settings=overview`, or click *⚙ Settings*: *What's new* is in the Overview |
+| What the new version brought | `coxswain --whats-new`, or `coxswain --settings=overview`: *What's new* is in the Overview | `coxswain-gui --settings=overview`, or click *⚙ Settings*: *What's new* is in the Overview |
 | Search by meaning on | `coxswain --meaning on` | `coxswain-gui --settings=search`, then the level *Names, text and meaning* |
 | Find duplicates in a folder | – | `coxswain-gui --duplicates ~/Pictures` |
 
@@ -50,7 +50,7 @@ Both apps also open their Settings from the command line (`--settings`). For the
 
 ```
 coxswain [LEFT] [RIGHT]      a folder, or a file to open its folder with the cursor on it
-  --settings[=AREA|OPTION]  start with Settings open (also F9 → Settings): search, previews,
+  --settings[=AREA|OPTION]  start with Settings open (in the app: F12): search, previews,
                   looks, behaviour, keys, privacy, or an option such as show_hidden
   --dump-config   print the full default config (redirect it to the config file to customise)
   --config-path   print where the config file is read from
@@ -168,7 +168,7 @@ chooses, **Enter** takes the default (marked `*`), **s** skips; downloads ask *[
 | Flag | Does |
 |---|---|
 | `--index-service` | Prints `on` or `off`: whether the search helper starts with your session |
-| `--index-service on` | Registers the helper with the system (a systemd user unit on Linux, a LaunchAgent on macOS, a Run entry on Windows, an XDG autostart entry on FreeBSD, the other BSDs and illumos) and starts it. The same as Settings → *Finding files* → *Details* → *Background reading* → *Start with my session* |
+| `--index-service on` | Registers the helper with the system (an XDG autostart entry on FreeBSD, the other BSDs and illumos, a systemd user unit on Linux, a LaunchAgent on macOS, a Run entry on Windows) and starts it. The same as Settings → *Finding files* → *Details* → *Background reading* → *Start with my session* |
 | `--index-service off` | Removes the registration; the running helper makes way for one that leaves with the apps |
 
 See [The search helper](../search/helper.md).
@@ -183,9 +183,16 @@ See [The search helper](../search/helper.md).
 
 ## The desktop app: `coxswain-gui`
 
+`coxswain-gui --help` prints:
+
 ```
-coxswain-gui [--settings[=AREA|OPTION]] [--duplicates [FOLDER …] | [LEFT] [RIGHT]]
-coxswain-gui --version | --help
+coxswain-gui [LEFT] [RIGHT]   a folder, or a file to open its folder with the cursor on it
+  --settings[=AREA|OPTION]  start with Settings open: overview, search, previews, looks,
+                            behaviour, keys, privacy, or an option such as show_hidden
+  --duplicates [FOLDER …]   start with Find duplicates scanning these folders (default: this one)
+  --version
+  --help
+The terminal app, coxswain, has the rest: coxswain --help
 ```
 
 | Flag | Does |
@@ -207,7 +214,7 @@ coxswain-gui --version | --help
 | `--index-helper` | Runs as the search helper, with no window: see [below](#the-helper---index-helper) |
 
 `--settings` must come first, then `--duplicates`; everything else is taken as folders. Given
-both, *Find duplicates* opens (there is one window at a time); Settings is a **Ctrl+,** away.
+both, *Find duplicates* opens (there is one window at a time); Settings is a **Ctrl+,** or **F12** away.
 Any other word after `--settings=` opens it at *Overview*; so do the section names of 1.x
 (`meaning`, `ask`, `news`, `cloud`), which 2.0 no longer knows.
 
@@ -216,8 +223,8 @@ the same `config.toml`, the same cache and the same helper. A `config.toml` it c
 not stop it: it starts with every default and prints `coxswain: config: …; using defaults` on
 the terminal it was started from.
 
-On Linux and the BSDs it needs a display: started where neither `DISPLAY` nor
-`WAYLAND_DISPLAY` is set (over ssh, on a console), it prints *coxswain-gui: no display to open
+On FreeBSD, the other BSDs and Linux it needs a display: started where none of `DISPLAY`,
+`WAYLAND_DISPLAY` and `GDK_BACKEND` is set (over ssh, on a console), it prints *coxswain-gui: no display to open
 the window on…* in your language and exits with status 1. `--version` and `--help` need none.
 
 ## The helper: `--index-helper`
@@ -297,20 +304,20 @@ a script can use these.
 
 #### Why does `--settings=meaning` open the Overview now?
 
-2.0 dropped the section names of 1.x: `--settings=` takes an area or an option's name only, and
-anything else opens the Overview. Use `search_meaning` for `meaning`, `ask_model` for `ask`,
-`overview` for `news` and `search_cloud` for `cloud`; `language` still works, as an option's name.
-The names are listed in [Settings and config.toml](../customise/settings.md#settings-and-configtoml).
+Since 2.0 `--settings=` takes an area or an option's name: `search_meaning` for `meaning`. The
+full answer and every old name: [The Settings window](../customise/settings.md#why-does---settingsmeaning-open-the-overview-now).
 
 #### Does `--dump-config` change my config?
 
 No. It prints to the terminal only. Redirect it with `>` yourself if you want a file; see
 [Configuration](configuration.md#questions) before you do.
 
-#### Why is a flag after a folder ignored?
+#### Why does a flag after a folder give an error?
 
-A flag is looked at only as the first argument. In `coxswain ~/src --paths`, `--paths` is taken
-as the right panel's folder, not as a flag. Put the flag first, on its own: `coxswain --paths`.
+A flag is read only as the first argument. `coxswain ~/src --paths` does not start: it says
+`coxswain: unknown option --paths` and `did you mean coxswain --paths?`, with exit status 2.
+Put the flag first, on its own: `coxswain --paths`. The desktop app takes such a word as a
+folder instead.
 
 ---
 [← Previous: The terminal app](terminal-app.md) · [Next: Configuration: every key →](configuration.md)

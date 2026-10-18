@@ -162,6 +162,7 @@ Yes, in every language Coxswain speaks: the titles, lines, questions and answers
 your language; diacritics do not matter.
 
 #### What does F1 do inside a dialog?
+
 It opens Features at the feature that dialog belongs to, so its questions are at the top: in Copy
 the copy questions, in Settings those about Settings. **Esc** goes back to the dialog as you left
 it. In Find, **F1** shows the name syntax first and opens Features on a second press

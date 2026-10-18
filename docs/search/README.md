@@ -10,6 +10,26 @@ read and when, and every setting.
 
 ![The desktop app's Find with "rocket fuel cost" typed: the Ask row on top, In files with budget.txt and its passage, About this with budget-da.txt, the Danish budget, in italics](../screenshots/search-find.png)
 
+How it fits together: the helper keeps the name index and reads your files into `search.db` in
+the background; Find asks it, and every group comes from one of the three.
+
+```mermaid
+flowchart LR
+  files[Your files and repositories] -->|names, watched| names[(Name index<br/>index.bin)]
+  files -->|text, read in the background| db[(search.db<br/>passages, commits)]
+  db -->|embedding model| vec[(Vectors<br/>in search.db)]
+  subgraph helper[The search helper: one for every window]
+    names
+    db
+    vec
+  end
+  names --> g1[Names]
+  db --> g2[In files, History]
+  vec --> g3[About this]
+  g1 & g2 & g3 --> find[Find]
+  vec -->|closest passages| ask[Ask: your chat model<br/>answers, citing them]
+```
+
 | Group of Find | Finds | Needs |
 |---|---|---|
 | [Names](names.md) | Files and folders by name, on the whole machine or in the scope | Nothing |
@@ -36,7 +56,7 @@ active panel's folder, **Ctrl+F** inside Find) limits every group and Ask; it sh
 | [Choosing the folders](folders.md) | Folders read, names only, `.nosearch`, `text_exclude` |
 | [Cloud files](cloud-files.md) | OneDrive, Dropbox, Google Drive, Proton Drive, iCloud: files only online are found by name, never downloaded |
 | [Removable disks](removable-disks.md) | USB and external disks: kept while unplugged, found again anywhere |
-| [Search by meaning](meaning.md) | The built-in multilingual model: turning it on, what it finds |
+| [Search by meaning](meaning.md) | The built-in multilingual model: turning it on, what it finds, *Measure speed* and `coxswain --meaning bench` |
 | [Search by meaning on a server](servers.md) | Ollama, Lemonade, LM Studio or any server with the OpenAI API |
 | [Ask](ask.md) | Questions answered from your files by your own chat model, with numbered sources |
 | [Ask about code](ask-code.md) | Code read as code, cut at its functions and classes, and a map of a project for questions about it as a whole |
@@ -62,13 +82,14 @@ active panel's folder, **Ctrl+F** inside Find) limits every group and Ask; it sh
 | **F3** | no (the preview pane is behind) | yes | View the file, then come back to the results |
 | **F4** | yes | yes | Edit the file, without leaving Find |
 | **Esc** | yes | yes | In an answer: back to the list; in the list: close Find |
-| **Ctrl+,** | yes | no Settings window | Settings, at *Finding files* |
+| **Ctrl+,**, **F12** | yes | **F12** (**Ctrl+,** where the terminal passes it on) | Settings; *Finding files* holds every search setting |
 
 New to it? [Smart search in a few minutes](setup.md) walks through it: **Set up…** in Settings (*Overview* or *Finding files*), or
 `coxswain --setup-search`.
 
-The terminal app sets everything with `config.toml` and flags such as `coxswain --meaning on`
-and `coxswain --index-service on`; see [Command-line flags](../reference/command-line-flags.md).
+The terminal app has the same Settings (**F12**, full screen), and flags such as
+`coxswain --meaning on` and `coxswain --index-service on`; see
+[Command-line flags](../reference/command-line-flags.md).
 
 ---
 [← Previous: Opening files](../commands/opening-files.md) · [Next: Smart search in a few minutes →](setup.md)

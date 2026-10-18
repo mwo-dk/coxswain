@@ -67,7 +67,7 @@ space, is taken; `cd src && make` is `cd` to a folder named `src && make`.
 
 ## The shell
 
-| | Linux and macOS | Windows |
+| | The BSDs, illumos, Linux and macOS | Windows |
 |---|---|---|
 | Terminal app | `$SHELL -c "<line>"` (`sh` when `$SHELL` is unset) | `cmd /C "<line>"` |
 | Desktop app | `sh -c "<line>"` | `cmd /C "<line>"` |

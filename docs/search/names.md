@@ -34,10 +34,10 @@ the walk goes.
 |---|---|
 | At start | The index saved in Coxswain's cache folder (`index.bin`) loads, in about 90 ms, so searching works at once |
 | Right after | A fresh index is built in the background; the saved one answers meanwhile |
-| All the time | The file watcher (inotify on Linux, FSEvents on macOS, ReadDirectoryChangesW on Windows, kqueue on the BSDs, event ports on illumos) adds and removes names: a new file can be found within a second. A folder made since is watched as soon as it appears, with what is in it |
+| All the time | The file watcher (kqueue on the BSDs, event ports on illumos, inotify on Linux, FSEvents on macOS, ReadDirectoryChangesW on Windows) adds and removes names: a new file can be found within a second. A folder made since is watched as soon as it appears, with what is in it |
 | Every hour | The whole index is built again, which catches anything the watcher missed |
 
-**What is indexed:** all of `/` on Linux and macOS, every fixed drive on Windows. Hidden files and
+**What is indexed:** all of `/` on the BSDs, illumos, Linux and macOS, every fixed drive on Windows. Hidden files and
 folders are indexed like any other. **Left out:** `/proc`, `/sys`, `/dev`, `/run` and
 `/tmp/.X11-unix` by default (on the BSDs `/proc`, `/dev` and `/tmp/.X11-unix`; on illumos also
 `/devices` and `/system`). In `name_exclude`, a path skips that tree and a bare name (`node_modules`)
@@ -88,22 +88,26 @@ The same index, groups, scope and syntax. **F1** in Find lists the syntax. The t
 ## Questions
 
 #### Why does a file I just made not show up?
+
 The watcher reports it within a second. On Linux the watcher needs one inotify watch per folder;
 with more folders than `fs.inotify.max_user_watches` allows, changes in the rest are caught only by
 the hourly rebuild. Raise the limit (`sysctl fs.inotify.max_user_watches=1048576`) or wait. With
 `watch = false`, only the hourly rebuild updates the index.
 
 #### Why do I see files from `.cache` and `node_modules`?
+
 Every name on the machine is indexed, hidden ones included. Leave them out of one search with
 `!.cache` or `!node_modules/`, or out of the index with
 `name_exclude = ["/proc", "/sys", "/dev", "/run", "node_modules", ".cache"]` (listing `name_exclude` replaces
 the default list, so repeat what you want to keep).
 
 #### Why does the first search after installing say "building index"?
+
 There is no saved index yet. Hits come in as the walk goes: a few seconds to a minute on a large
 disk. From the second start on, the saved index answers at once.
 
 #### Can I index only some folders?
+
 Yes: `name_roots = ["/home/me", "/mnt/data"]` under `[search]`. Empty means the whole machine.
 
 #### My `roots` and `exclude` under `[search]` stopped working.
@@ -113,14 +117,17 @@ renames them in `config.toml` for you and says so in a notice; an old name writt
 is ignored. See [Renamed in 2.0](../reference/configuration.md#renamed-in-20).
 
 #### Does the name index read my files?
+
 No. It holds names and folders only. Reading the text is separate and optional: Find's *In
 files* group ([Text in files](text.md)).
 
 #### Why does Find "In projects" miss a file I can see in the panel?
+
 It searches the index, which leaves out the folders in `name_exclude`. If the file is in one of
 them, open the folder and use [Quick search](../panels/quick-search.md), or narrow `name_exclude`.
 
 #### Does it slow the machine down?
+
 The saved index loads at once; the fresh build after a start and the hourly rebuild walk the disk
 in the background. A search is a single scan of memory, over in milliseconds.
 

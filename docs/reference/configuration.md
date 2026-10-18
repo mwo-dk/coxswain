@@ -7,7 +7,7 @@ keeps its default. This page lists every key, with its type, its default, what i
 app reads it and which Settings item writes it.
 
 ![Settings at Looks: the languages under their regions, the For switch on Desktop app, and the theme swatches under their first group, Coxswain's own, with Cyber chosen](../screenshots/settings-looks.png)
-*The desktop app's Settings (**Ctrl+,**) write single values into `config.toml`. The path is shown at the bottom: "Settings are stored in /home/demo/.config/coxswain/config.toml".*
+*Settings (**Ctrl+,** or **F12**, in either app) write single values into `config.toml`. The path is shown at the bottom: "Settings are stored in /home/demo/.config/coxswain/config.toml".*
 
 ## Contents
 
@@ -32,16 +32,18 @@ app reads it and which Settings item writes it.
 
 | | |
 |---|---|
-| Where | `~/.config/coxswain/config.toml` on Linux, `~/Library/Application Support/coxswain/config.toml` on macOS, `%APPDATA%\coxswain\config.toml` on Windows. `coxswain --config-path` prints it |
+| Where | `~/.config/coxswain/config.toml` on FreeBSD, the other BSDs, illumos and Linux (`$XDG_CONFIG_HOME/coxswain` when that is set), `~/Library/Application Support/coxswain/config.toml` on macOS, `%APPDATA%\coxswain\config.toml` on Windows. `coxswain --config-path` prints it |
 | Every option with its default | `coxswain --dump-config` (redirect it to a file to start from the full list) |
-| Made by | You, the desktop app's [Settings](../customise/settings.md), or the `coxswain --meaning` flags ([Command-line flags](command-line-flags.md#--meaning)). Settings and the flags write single values and keep your comments and layout |
-| Read by | The terminal app when it starts; the desktop app when it starts and after each change in Settings; the [search helper](../search/helper.md) when it starts (`[search]`) |
+| Made by | You, either app's [Settings](../customise/settings.md), or the `coxswain --meaning` flags ([Command-line flags](command-line-flags.md#--meaning)). Settings and the flags write single values and keep your comments and layout |
+| Read by | Each app when it starts, and after each change made in its own Settings, which it applies at once; the [search helper](../search/helper.md) when it starts (`[search]`), which Settings restarts after a change to it. A change made in the other app, or by hand, is read at the next start |
 
 **Mistakes.** A file that is not valid TOML, a value of the wrong type (`show_hidden = "yes"`),
 an unknown action in `[keys]` or a key name that does not exist (`"Ctlr+P"`) is refused:
 
 - The terminal app does not start and says why: `coxswain: config: …` or
   `coxswain: unknown key 'Ctlr+P'` (exit status 2).
+- A key bound to two actions is refused the same way, naming both:
+  `coxswain: F9 is given to both copy and pack in [keys] of config.toml`.
 - The desktop app starts with every default and prints `coxswain: config: …; using defaults`
   on the terminal it was started from.
 - Settings never write a file that would be refused: a change that would break it is not saved.
@@ -137,65 +139,11 @@ search = ["Ctrl+P"]
 tag = []                    # [] unbinds it
 ```
 
-**Key names:** a letter, digit or sign (`a`, `+`, `.`, `,`), `F1` to `F24`, `Enter` (or
-`Return`), `Esc` (`Escape`), `Tab`, `Backspace`, `Delete` (`Del`), `Insert` (`Ins`), `Home`,
-`End`, `PageUp` (`PgUp`), `PageDown` (`PgDn`), `Up`, `Down`, `Left`, `Right`, `Space`, `Menu`
-(the context-menu key); with
-`Ctrl+`, `Alt+` and `Shift+` in front, in any case. `A` alone means Shift+A; `Ctrl+F` means
-Ctrl and the F key.
-
-**Rules:**
-
-- Listing an action replaces all its default keys; list the defaults again to keep them.
-- A plain character bound to an action (`+`, `-`, `*`) only works while the command line is
-  empty.
-- A key bound to two actions runs one of them; bind each key once.
-- An Alt+letter that is bound is no longer a [quick search](../panels/quick-search.md).
-
-**The actions**, with their defaults (what each does: [Every default key](../panels/keys.md);
-changing them: [Changing keys](../customise/keys.md)):
-
-| Action | Default | Action | Default |
-|---|---|---|---|
-| `help` | `F1` | `goto_left` | `Alt+F1` |
-| `user_menu` | `F2` | `goto_right` | `Alt+F2` |
-| `view` | `F3` | `same_dir` | `Alt+O` |
-| `edit` | `F4` | `sort_name` | `Ctrl+F3` |
-| `copy` | `F5` | `sort_ext` | `Ctrl+F4` |
-| `move` | `F6` | `sort_time` | `Ctrl+F5` |
-| `new_folder` | `F7` | `sort_size` | `Ctrl+F6` |
-| `delete` | `F8`, `Delete` | `copy_path` | `Ctrl+Enter`, `Ctrl+J` |
-| `delete_forever` | `Shift+F8`, `Shift+Delete` | `new_tab` | `Ctrl+T` |
-| `menu` | `F9` | `close_tab` | `Ctrl+W` |
-| `quit` | `F10` | `next_tab` | `Ctrl+Tab` |
-| `up` | `Up` | `prev_tab` | `Ctrl+Shift+Tab` |
-| `down` | `Down` | `toggle_preview` | `Space` |
-| `page_up` | `PageUp`, `Left` | `toggle_view` | `Alt+V` |
-| `page_down` | `PageDown`, `Right` | `toggle_sidebar` | `Ctrl+B` |
-| `home` | `Home` | `edit_path` | `Ctrl+L` |
-| `end` | `End` | `folder_sizes` | none |
-| `open` | `Enter` | `batch_rename` | `Ctrl+M` |
-| `parent` | `Ctrl+PageUp`, `Backspace` | `tag` | `Alt+T` |
-| `switch_panel` | `Tab` | `notes` | `Alt+N` |
-| `mark` | `Insert`, `Shift+Down` | `back` | `Alt+Left` |
-| `mark_group` | `+` | `forward` | `Alt+Right` |
-| `unmark_group` | `-` | `clip_copy` | `Ctrl+C` |
-| `invert_marks` | `*` | `clip_cut` | `Ctrl+X` |
-| `search` | `Alt+F7`, `Ctrl+F` | `paste` | `Ctrl+V` |
-| `search_text` | `Shift+F7`, `Ctrl+Shift+F` | `properties` | `Alt+Enter` |
-| `ask` | `Ctrl+F7` | `extract` | `Ctrl+E` |
-| `refresh` | `Ctrl+R` | `pack` | `Alt+F5` |
-| `swap_panels` | `Ctrl+U` | `columns` | none |
-| `toggle_panels` | `Ctrl+O` | `duplicates` | `Ctrl+D` |
-| `toggle_hidden` | `Alt+.` | `settings` | `Ctrl+,`, `F12` |
-| `history` | `Ctrl+G` | `branches` | `Alt+B` |
-| `worktrees` | `Alt+W` | `switch_branch` | `Alt+S` |
-| `new_branch` | none | `snapshots` | `Alt+Z` |
-| `flags` | none | `package` | none |
-| `features` | none | `mark_all` | `Ctrl+A` |
-| `undo` | `Ctrl+Z` | `action_menu` | `Shift+F10`, `Menu` |
-| `rename` | `Shift+F6` | `disk_use` | none |
-| `git_tool` | `Alt+G` | | |
+The key names, the rules (a key bound to two actions is refused, a plain character works only
+while the command line is empty, a bound Alt+letter is no longer a quick search …) and every
+action with its default keys: [Changing keys](../customise/keys.md) ([key names](../customise/keys.md#key-names),
+[rules](../customise/keys.md#rules), [the actions](../customise/keys.md#the-actions)). What
+each action does: [Every default key](../panels/keys.md).
 
 Keys inside dialogs (Enter, Esc, Tab and Shift+Tab in Find, the digits in *Colour tag*) are fixed.
 
@@ -304,7 +252,7 @@ The desktop app's own settings.
 
 ## `[git]`
 
-Read by both apps when they start; the desktop app also after a change in Settings.
+Read by both apps when they start, and by each after a change in its own Settings.
 
 | Key | Type | Default | Does |
 |---|---|---|---|
@@ -328,59 +276,62 @@ Some choices are not in `config.toml`, and that is on purpose:
 
 ## Settings and config.toml
 
-Each Settings item and the key it writes, area by area ([The Settings window](../customise/settings.md)):
+Each Settings item, the name `--settings=` opens it at (in both apps: `coxswain --settings=…`,
+`coxswain-gui --settings=…`) and the key it writes, area by area ([The Settings window](../customise/settings.md)).
+An area's own name opens it too: `overview`, `search`, `previews`, `looks`, `behaviour`, `keys`,
+`privacy`; `models` and `disk` open *Built-in models* and *Disk use*:
 
-| Settings area | Item | Key |
-|---|---|---|
-| *Finding files* | *How far should Find look?*: the four levels | `[search] text`, `meaning`, `ask_model` (a level that needs a model opens the setup guide) |
-| *Finding files → Details → What is read* | *Words inside files* | `[search] text` |
-| | *Look inside archives* | `[search] archives` |
-| | *Archives everywhere* | `[search] archives_everywhere` |
-| | *Git history* | `[search] history` |
-| | *Read files that are only online* | `[search] cloud` |
-| | *Cloud folders read anyway* | `[search] cloud_read` |
-| | *Largest file read (MB)* | `[search] text_max_size` |
-| | *Most hits* | `[search] max_results` |
-| | *Programs that read more* | none: each missing program with the line that installs it and **Copy** ([Scans and pictures](../search/scans.md#installing-what-is-missing)) |
-| *Finding files → Details → Folders* | *Folders read* | `[search] text_roots` |
-| | *Names only* | `[search] names_only` |
-| | *Left out everywhere* | `[search] text_exclude` |
-| | *Where names are found* | `[search] name_roots` |
-| | *Never indexed* | `[search] name_exclude` |
-| | *Follow changes as they happen* | `[search] watch` |
-| *Finding files → Details → Meaning* | *Turn on*, *Turn off*, *Download the model and turn on* | `[search] meaning` |
-| | *Made by* | `[search] meaning_engine` |
-| | *Server*, *Model*, *API key from the environment variable* | `[search] meaning_url`, `meaning_model`, `meaning_key_env` |
-| | *Use the CPU only* (on a Mac) | `[search] meaning_device` |
-| *Finding files → Details → Ask* | *Chat model* | `[search] ask_model` |
-| | *Model for code questions* | `[search] ask_code_model` |
-| | *Let the model think first* | `[search] ask_think` |
-| | *Context for a server's model (tokens)* | `[search] ask_context` |
-| *Finding files → Details → Background reading* | *Start with my session* | none: the session registration |
-| *Previews* | *How previews are made* | `[preview] prefer` |
-| | *Container runtime* | `[preview] container` |
-| | *LaTeX image* | `[preview] images.latex` |
-| | *Build LaTeX by itself* | `[preview] latex_auto` |
-| | *Timeout (seconds)* | `[preview] timeout` |
-| *Looks* | *Language* | `language` |
-| | *Theme of the desktop app* (*For*: *Desktop app*) | `[gui] theme` |
-| | *Theme of the terminal app* (*For*: *Terminal app*) | `theme` |
-| | *Icons and git glyphs* | `glyphs` |
-| | *Font*, *Monospaced font*, *Icon font* | `[gui] font`, `[gui] mono_font`, `[gui] icon_font` |
-| | *Text size* | `[gui] font_size` |
-| | *Row height* | `[gui] line_height` |
-| *Behaviour* | *Show hidden files when Coxswain starts* | `show_hidden` |
-| | *Ask before deleting* | `confirm_delete` |
-| | *Right-click* | `right_click` |
-| | *Show hints*, *Show the hints again* | `hints` |
-| | *Measure folder sizes* | `folder_sizes` |
-| | *Last commit of each file* | `[git] last_commit` |
-| | *Git tool* | `[git] tool` |
-| | *Editor* | `editor` |
-| | *Viewer (terminal app)* | `viewer` |
-| | *CBOM viewer on F3 (terminal app)* | `bom_viewer` |
-| | *Provenance viewer on F3 (terminal app)* | `provenance_viewer` |
-| *Privacy and updates* | *Check for a new version* | `check_updates` |
+| Settings area | Item | `--settings=` | Key |
+|---|---|---|---|
+| *Finding files* | *How far should Find look?*: the four levels | `search` | `[search] text`, `meaning`, `ask_model` (a level that needs a model opens the setup guide) |
+| *Finding files → Details → What is read* | *Words inside files* | `search_text` | `[search] text` |
+| | *Look inside archives* | `search_archives` | `[search] archives` |
+| | *Archives everywhere* | `search_archives_everywhere` | `[search] archives_everywhere` |
+| | *Git history* | `search_history` | `[search] history` |
+| | *Read files that are only online* | `search_cloud` | `[search] cloud` |
+| | *Cloud folders read anyway* | `cloud_read` | `[search] cloud_read` |
+| | *Largest file read (MB)* | `text_max_size` | `[search] text_max_size` |
+| | *Most hits* | `max_results` | `[search] max_results` |
+| | *Programs that read more* |  | none: each missing program with the line that installs it and **Copy** ([Scans and pictures](../search/scans.md#installing-what-is-missing)) |
+| *Finding files → Details → Folders* | *Folders read* | `text_roots` | `[search] text_roots` |
+| | *Names only* | `names_only` | `[search] names_only` |
+| | *Left out everywhere* | `text_exclude` | `[search] text_exclude` |
+| | *Where names are found* | `name_roots` | `[search] name_roots` |
+| | *Never indexed* | `name_exclude` | `[search] name_exclude` |
+| | *Follow changes as they happen* | `watch` | `[search] watch` |
+| *Finding files → Details → Meaning* | *Turn on*, *Turn off*, *Download the model and turn on* | `search_meaning` | `[search] meaning` |
+| | *Made by* | `meaning_engine` | `[search] meaning_engine` |
+| | *Server*, *Model*, *API key from the environment variable* | `meaning_url`, `meaning_model`, `meaning_key_env` | `[search] meaning_url`, `meaning_model`, `meaning_key_env` |
+| | *Use the CPU only* (on a Mac) | `meaning_device` | `[search] meaning_device` |
+| *Finding files → Details → Ask* | *Chat model* | `ask_model` | `[search] ask_model` |
+| | *Model for code questions* | `ask_code_model` | `[search] ask_code_model` |
+| | *Let the model think first* | `ask_think` | `[search] ask_think` |
+| | *Context for a server's model (tokens)* | `ask_context` | `[search] ask_context` |
+| *Finding files → Details → Background reading* | *Start with my session* | | none: the session registration |
+| *Previews* | *How previews are made* | `preview_prefer` | `[preview] prefer` |
+| | *Container runtime* | `preview_container` | `[preview] container` |
+| | *LaTeX image* | `latex_image` | `[preview] images.latex` |
+| | *Build LaTeX by itself* | `latex_auto` | `[preview] latex_auto` |
+| | *Timeout (seconds)* | `preview_timeout` | `[preview] timeout` |
+| *Looks* | *Language* | `language` | `language` |
+| | *Theme of the desktop app* (*For*: *Desktop app*) | `theme` | `[gui] theme` |
+| | *Theme of the terminal app* (*For*: *Terminal app*) | `tui_theme` | `theme` |
+| | *Icons and git glyphs* | `glyphs` | `glyphs` |
+| | *Font*, *Monospaced font*, *Icon font* | `font`, `mono_font`, `icon_font` | `[gui] font`, `[gui] mono_font`, `[gui] icon_font` |
+| | *Text size* | `font_size` | `[gui] font_size` |
+| | *Row height* | `line_height` | `[gui] line_height` |
+| *Behaviour* | *Show hidden files when Coxswain starts* | `show_hidden` | `show_hidden` |
+| | *Ask before deleting* | `confirm_delete` | `confirm_delete` |
+| | *Right-click* | `right_click` | `right_click` |
+| | *Show hints*, *Show the hints again* | `hints` | `hints` |
+| | *Measure folder sizes* | `folder_sizes` | `folder_sizes` |
+| | *Last commit of each file* | `git_last_commit` | `[git] last_commit` |
+| | *Git tool* | `git_tool` | `[git] tool` |
+| | *Editor* | `editor` | `editor` |
+| | *Viewer (terminal app)* | `viewer` | `viewer` |
+| | *CBOM viewer on F3 (terminal app)* | `bom_viewer` | `bom_viewer` |
+| | *Provenance viewer on F3 (terminal app)* | `provenance_viewer` | `provenance_viewer` |
+| *Privacy and updates* | *Check for a new version* | `check_updates` | `check_updates` |
 
 *Keys* lists every action and its keys, read-only, with **Open config.toml**. Every other key
 (`[keys]`, `glyph_set`, `[themes.*]`, `[[user_menu]]`, `prefer_tool`, the other images) has no
@@ -388,11 +339,11 @@ Settings item: edit the file.
 
 ## In the terminal app
 
-The terminal app reads the same file, once, when it starts. It uses the top-level keys,
+The terminal app reads the same file when it starts, and after each change in its own Settings. It uses the top-level keys,
 `glyph_set`, `[keys]`, `[themes.*]` (colours only, not `look`), `[[user_menu]]`, `[git]` and,
-through the helper, `[search]`. It ignores `[preview]` and `[gui]`. Its Settings (**F9** → *Settings*,
+through the helper, `[search]`. It ignores `[preview]` and `[gui]`. Its Settings (**F12**, or *Settings* in **Shift+F10** and **F9**,
 [In the terminal app](../customise/settings.md#in-the-terminal-app)) write the file the way the
-desktop app's do; or edit it, or use `coxswain --meaning …` for search by meaning
+desktop app's do and apply at once; or edit it, or use `coxswain --meaning …` for search by meaning
 ([Command-line flags](command-line-flags.md#--meaning)).
 
 ## An example
@@ -452,8 +403,8 @@ machine to 2.0, or keep the `[keys]` you change on the 1.x machines out of the s
 
 #### I edited `config.toml` and nothing changed.
 
-The terminal app reads it when it starts: quit with **F10** and start it again. The desktop app
-reads it at start and after a change in Settings: restart it. `[search]` is read by the helper
+Both apps read it when they start: quit (**F10**) and start again. A change made in an app's own
+Settings applies at once; one made by hand does not. `[search]` is read by the helper
 when it starts: see [The search helper](../search/helper.md#questions).
 
 #### How do I go back to the defaults?

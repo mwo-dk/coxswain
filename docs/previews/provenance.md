@@ -183,7 +183,7 @@ same repository is one change, not a removal and an addition.
 
 | Where | Key | Default | Does |
 |---|---|---|---|
-| `config.toml`, top level; the desktop app's Settings → *Behaviour* → *Provenance viewer on F3 (terminal app)* | `provenance_viewer` | `true` | The terminal app's **F3** on provenance opens the provenance viewer; `false` opens the pager as for any file |
+| `config.toml`, top level; Settings → *Behaviour* (both apps) → *Provenance viewer on F3 (terminal app)* | `provenance_viewer` | `true` | The terminal app's **F3** on provenance opens the provenance viewer; `false` opens the pager as for any file |
 
 The desktop app itself has no setting for it: the preview pane always shows provenance, and the
 **Flow / Statement / Source** switch remembers your choice. See also
@@ -192,6 +192,7 @@ The desktop app itself has no setting for it: the preview pane always shows prov
 ## Questions
 
 #### Does a ✓ mean the file is safe?
+
 No. It means a file here has exactly the digest the provenance names, so it is the file that
 build made, *if* the provenance is genuine. Coxswain does not verify the signature; the top of
 the view says *Not verified* for that reason. Verify with `slsa-verifier` or
@@ -199,33 +200,39 @@ the view says *Not verified* for that reason. Verify with `slsa-verifier` or
 you trust a build.
 
 #### Why does an output say "not here" when the file is right there?
+
 It is looked for by the name the provenance gives, in the provenance's folder and in the other
 pane's folder. A file renamed after the build (`rocket.tar.gz` for `rocket-1.4.0.tar.gz`) is not
 found. Open the other pane on the folder that holds it: the desktop app checks again at once;
 in the terminal app, close the viewer and press **F3** again.
 
 #### Why is my commit "not in your checkout"?
+
 Coxswain never fetches. A tag or branch built on GitHub but not yet pulled is not in your
 checkout; run `git fetch` there, and move off the provenance and back on. *No checkout of it
 here* means no repository with a matching remote was found in the provenance's folder, above
 it, or in the other pane: open the other pane in your checkout.
 
 #### What does "The certificate and the provenance disagree" mean?
+
 The signing certificate names one thing (say, commit `8f70009`) and the provenance another.
 Builders that work properly do not produce this. Look at the build's details: the fact marked
 *⚠ The provenance says …* shows both.
 
 #### Can it read npm or PyPI provenance?
+
 npm's provenance is a Sigstore bundle with SLSA v1, which Coxswain reads; save it from the
 registry as a `.sigstore.json`. PyPI's PEP 740 attestation files (`.publish.attestation`) are
 a different wrapping that Coxswain does not read yet.
 
 #### Can it verify the signature?
+
 Not in this version, on purpose: verifying needs Sigstore's trusted root, which changes and is
 fetched from the network. Use one of the verifiers in
 [What it checks](#what-it-checks-and-what-it-does-not).
 
 #### How do I get the old F3 back in the terminal app?
+
 In the viewer, **F3** again (or `s`) opens the file in your pager. To make F3 always open the
 pager, set `provenance_viewer = false` in `config.toml`.
 

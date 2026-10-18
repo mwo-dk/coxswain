@@ -100,7 +100,7 @@ In `command`:
 | `%s` | The marked files as full paths, separated by spaces; when nothing is marked, the name under the cursor |
 | `%%` | A single `%` |
 
-Each is quoted for the shell when it needs it: `'it'\''s here.txt'` on Linux and macOS,
+Each is quoted for the shell when it needs it: `'it'\''s here.txt'` on the BSDs, illumos, Linux and macOS,
 `"My File.txt"` on Windows. Names of only letters, digits and `-_./+,:@` stay as they are. So
 names with spaces or quotes are safe; do not put your own quotes around a placeholder.
 
@@ -134,7 +134,7 @@ wait = true
 ```
 
 *tar.gz the folder* writes `<folder>.tar.gz` next to the folder, in its parent; it uses the
-shell's `$PWD` and `$(…)`, so it is for Linux, the BSDs and macOS. On Windows, `tar` is there
+shell's `$PWD` and `$(…)`, so it is for the BSDs, illumos, Linux and macOS. On Windows, `tar` is there
 too (Windows 10 and later): `command = "tar -czf ..\\folder.tar.gz ."`.
 
 ## What you see
@@ -197,7 +197,7 @@ them from `coxswain --dump-config`.
 
 #### Why is *Open a terminal here* not in my menu?
 
-It is left out when there is nothing to open: on Linux, the BSDs and illumos when no terminal
+It is left out when there is nothing to open: on the BSDs, illumos and Linux when no terminal
 from the list above is installed and `$TERMINAL` names none, or when there is no desktop
 (neither `$WAYLAND_DISPLAY` nor `$DISPLAY` is set: a text console, ssh); in Termux, which is the
 terminal already. Set `$TERMINAL` to yours (`export TERMINAL=footclient`), or add your own entry

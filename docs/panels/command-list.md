@@ -68,7 +68,8 @@ them, and in each group the most used action first:
 
 [Every default key](keys.md) has the same tables, with each key.
 
-**The command list.** Each entry has its name and its first key. With the filter empty, the
+**The command list.** Each entry has its name and its first key (in the terminal app the first
+one a terminal passes on: *Settings* shows **F12**, not **Ctrl+,**). With the filter empty, the
 desktop app shows the group headings above their entries, and the themes come last, under
 *App*; once you type, the headings go and the filter searches every entry. The terminal app
 keeps the same order without headings. The terminal app lists the
@@ -83,7 +84,7 @@ and saves it in `config.toml`. *Up*, *Down* and the list itself are left out.
 |---|---|---|
 | Title | *Help*, then `Coxswain X.Y.Z — the one at the helm who gets the work done.` | `Coxswain X.Y.Z · keyboard shortcuts` |
 | Keys | *Keys (from your config):* every action it has, with all its keys, under the group headings; in two columns when the terminal is wide enough (about 100 columns), else in one | Every action with all its keys, written as on the keyboard (`Ctrl+G`), under the group headings |
-| Also | Alt+letter quick search, typing goes to the command line, `cd`, Ctrl+O, the mouse, and *In a prompt Ctrl+U clears the text.* | Three paragraphs: the mouse (*Mouse: double-click opens · Ctrl-click marks · right-click marks or opens the action menu (Settings → Behaviour → Right-click), Ctrl+right-click does the other · Shift-click marks a range · middle-click on a tab closes it · drag …*), [quick search](quick-search.md) (*Quick search: hold Alt and type a letter …*), and what **Left** and **Right** do in each [view](views.md) (*details, a page up or down · columns, out to the parent folder or into the folder under the cursor · thumbnails, one to the left or right*) |
+| Also | Alt+letter quick search, typing goes to the command line, `cd`, **Ctrl+O** shows the output, the mouse, and *In a prompt Ctrl+U clears the text.*; then a line each on cryptography BOMs (**F3** shows a CBOM as a rated tree), build provenance (**F3**), the git history (**Ctrl+G**), the branches and worktrees (**Alt+B**, **Alt+S**, **Alt+W**) and *Open in your git tool* (**Alt+G**) | Three paragraphs: the mouse (*Mouse: double-click opens · Ctrl-click marks · right-click marks or opens the action menu (Settings → Behaviour → Right-click), Ctrl+right-click does the other · Shift-click marks a range · middle-click on a tab closes it · drag …*), [quick search](quick-search.md) (*Quick search: hold Alt and type a letter …*), and what **Left** and **Right** do in each [view](views.md) (*details, a page up or down · columns, out to the parent folder or into the folder under the cursor · thumbnails, one to the left or right*) |
 | Search | *Find (Everything syntax):* with one example per line | *Find uses Everything's syntax:* with the examples |
 | Config | `Config: <path>` and *Run `coxswain --dump-config` for every option with its default.* | `Config: <path> · every option: coxswain --dump-config` |
 | The guide | *G: the first-run guide again.* at the end | The **Show the guide again** button under the title |
@@ -120,9 +121,8 @@ app's says *Commands*.
 
 #### How do I see the first-run guide again?
 
-From Help: **F1**, then **G** in the terminal app, or the **Show the guide again** button in the
-desktop app. Or *Settings → Overview → Show the guide again* in both apps. See
-[First-run guide](first-run.md).
+**F1**, then **G** in the terminal app, or **Show the guide again** in the desktop app's Help:
+see [The first-run guide](first-run.md#questions).
 
 #### Where did *Reread*, *RenMov* and *Mkdir* go in the list?
 
@@ -138,8 +138,8 @@ default. Or give it one in `[keys]` ([Changing keys](../customise/keys.md)).
 
 #### How do I switch themes quickly?
 
-Desktop app: **F9**, type `theme`, pick one. It is saved at once. Terminal app: set `theme`
-in `config.toml` and restart.
+Desktop app: **F9**, type `theme`, pick one. It is saved at once. Terminal app: **F12** →
+*Looks* → *Theme of the terminal app*, **Enter**, pick one: it changes at once and is saved.
 
 #### Why does Help not list Colour tag in the terminal app?
 

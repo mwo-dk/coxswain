@@ -130,7 +130,7 @@ if it ends; it rarely does, and `/etc/rc.d/coxswain_index start` brings it back.
 
 ### With your desktop session, or your login shell
 
-*Start with my session* in the desktop app's Settings, or `coxswain --index-service on`, writes
+*Start with my session* in the terminal app's Settings (**F12** → *Finding files*), or `coxswain --index-service on`, writes
 an XDG autostart entry (`~/.config/autostart/coxswain-index.desktop`) that a desktop session
 reads. Without one, in `~/.profile`:
 
@@ -214,7 +214,9 @@ Their folders are past the
 `kern.maxfiles` and hard limit help (`ulimit -Hn` is set by the login class in
 `/etc/login.conf`), as does leaving large trees out of the index (`name_exclude` in `[search]`).
 
-**The battery is not noticed.** envstat must list an `acpiacad` adapter: `envstat -d acpiacad0`.
+#### The battery is not noticed
+
+envstat must list an `acpiacad` adapter: `envstat -d acpiacad0`.
 Machines without one count as on mains.
 
 ---

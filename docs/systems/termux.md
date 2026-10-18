@@ -224,11 +224,15 @@ How the recipe goes to Termux, and how versions are kept current after that:
 It draws its window with WebKitGTK on a Linux
 desktop. Android has neither; the terminal app needs only a terminal, and Termux is one.
 
-**`pkg install coxswain` says *Unable to locate package*.** The package is not in Termux's
+#### `pkg install coxswain` says *Unable to locate package*
+
+The package is not in Termux's
 repository yet. Use `cargo install --locked coxswain` meanwhile ([Installing](#installing)); `pkg` takes
 over later, and `cargo uninstall coxswain` then removes the cargo copy.
 
-**I see only Termux's own files, not my Downloads.** Run `termux-setup-storage` once and allow
+#### I see only Termux's own files, not my Downloads
+
+Run `termux-setup-storage` once and allow
 the request; your folders are then in `~/storage`, and **Alt+F1** lists them ([Your phone's folders](#your-phones-folders)).
 If you refused, allow *Files and media* for Termux in Android's app settings and run it again.
 

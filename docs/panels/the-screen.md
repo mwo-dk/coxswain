@@ -35,7 +35,8 @@ bar and the status line tell you, and how to start the apps in the folders you w
 4. Click an F-key in the bottom row (desktop app) to run it, or press the key.
 5. **Ctrl+O** switches the desktop app between one pane and two
    ([Tabs, back and forward, one pane or two](tabs-and-panes.md)); in the terminal app it
-   hides the panels and shows the output of the last command.
+   hides the panels and shows the output of the last command, with *Panels hidden · any key
+   brings them back* under it ([The output flashed by](../commands/command-line.md#the-output-flashed-by-in-the-terminal-app-where-is-it)).
 
 On the very first start, before the panels, both apps show the
 [first-run guide](first-run.md): the two panels, how far Find looks, looks and privacy. **Esc**
@@ -163,8 +164,9 @@ See [Configuration](../reference/configuration.md) for every key.
 
 The same two panels, command line and F-key bar, drawn in text. What differs:
 
-- A folder shows `SUB-DIR` in the Size column until its size is measured, and `..` shows
-  `UP--DIR`, as in NC ([Folder sizes](folder-sizes.md)).
+- A folder shows `SUB-DIR` in the Size column until its size is measured, and `..` shows the
+  size of the folder above once it is known, else `UP--DIR`, as in NC
+  ([Folder sizes](folder-sizes.md)).
 - Sizes are plain bytes up to 100,000,000; above that they are shown as `95M`, `12G`.
 - No tabs, sidebar or preview pane: a terminal has no room for them, and the F3 viewer and F4
   editor take their place ([View and edit](../commands/view-and-edit.md)).
@@ -186,8 +188,8 @@ app keeps Norton Commander's *RenMov*, *Mkdir* and *PullDn* on its bar; its **F9
 
 #### A guide opened on the first start. How do I get it back?
 
-That is the [first-run guide](first-run.md). **F1** → *Show the guide again* in the desktop app,
-**F1** then **G** in the terminal app, or *Settings → Overview* → *Show the guide again* in both.
+That is the [first-run guide](first-run.md): **F1** → *Show the guide again* in the desktop app,
+**F1** then **G** in the terminal app ([more](first-run.md#i-skipped-the-guide-can-i-get-it-back)).
 
 #### Why is the Modified column gone in the terminal app?
 

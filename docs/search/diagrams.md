@@ -127,30 +127,37 @@ The same: the helper reads diagrams for both apps.
 ## Questions
 
 #### Why does a search for "browser entra" find my diagram, when no box says both?
+
 The arrow from *Browser* to *Entra ID* became the sentence "Browser to Entra ID: …", which has both
 words.
 
 #### Do I have to do anything for old diagrams?
+
 No. The first time a helper with this reader runs, every diagram and Markdown file is read again
 once, by itself; the rest of the store stays.
 
 #### Does a Mermaid block in my README count?
+
 Yes, a fenced block that starts with ` ```mermaid ` (or `~~~mermaid`). An arrow written in the
 Markdown text outside such a block is not read as one.
 
 #### Why is one arrow missing from the sentences?
+
 Its line has a form the patterns do not know, or in draw.io one of its ends is not a shape with a
 label. Its words are still in the text. Tell us the line, so the pattern can learn it.
 
 #### Why are ids shown instead of names?
+
 A node that is never given a label is named by its id: `api to db.` in the Graphviz example, where
 `api` and `db` have no `label`.
 
 #### Why does search by meaning not find a large diagram by its text?
+
 Only the start of each file gets vectors, and the sentences come first: a graph with hundreds
 of arrows fills that start with them. Search by words still finds the text.
 
 #### Is this the same as the diagram preview?
+
 No. The [preview](../previews/diagrams.md) draws the diagram; this reads it for search. They work
 apart.
 

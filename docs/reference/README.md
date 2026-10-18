@@ -18,7 +18,7 @@ the full list.
 | [Configuration: every key](configuration.md) | The `config.toml` file, every key with its type and default, which Settings item writes it, and which app reads it |
 | [Privacy](privacy.md) | What stays on your machine, every case where something can leave it, and how to stop each one |
 | [Update checks](updates.md) | The once-a-day version check, what you see in each app, the upgrade command, turning it off |
-| [Where things are kept](where-things-are-kept.md) | The config, state and cache folders on Linux, macOS and Windows, every file in them, what is safe to delete, removing everything |
+| [Where things are kept](where-things-are-kept.md) | The config, state and cache folders on each system (FreeBSD, the other BSDs and illumos as Linux; macOS; Windows), every file in them, what is safe to delete, removing everything |
 | [Disk use](disk-use.md) | Every place Coxswain keeps things with its size and what clearing costs, what it caused outside its folder (Tectonic's cache, container images), clearing one or everything that is built again, `coxswain --disk` |
 | [Security](security.md) | How dependencies are chosen and kept current, the advisory checks on every change and every week, licences, the bundled viewers, checking a download, reporting a problem |
 | [Licences and bills of materials](bills-of-materials.md) | What each release carries (SBOMs, a CBOM, the third-party notices), how licences are checked, the cryptography both apps use, making the files yourself |
@@ -30,10 +30,10 @@ These pages are mostly about files and flags, not keys. The keys that reach them
 
 | Key | Desktop app | Terminal app | Does |
 |---|---|---|---|
-| **Ctrl+,** | Opens Settings | Says *Settings is available in the desktop app (coxswain-gui)* | Settings write `config.toml` ([Configuration](configuration.md)) |
+| **Ctrl+,**, **F12** | Opens Settings | Opens Settings full screen (most terminals pass only **F12** on: *12 Settings* on the F-key bar) | Settings write `config.toml` ([Configuration](configuration.md)) |
 | **F1** | Help, with the version in its title | Help | The keys in use, from your `[keys]` |
 | **F9** | The command list | The command list | Every action and its key; the terminal app leaves out what it lacks |
-| **Ctrl+O** | One pane or two | Shows the terminal with the last command's output | See [The terminal app](terminal-app.md#where-the-two-differ) |
+| **Ctrl+O** | One pane or two | Shows the terminal with the last command's output; any key brings the panels back | See [The terminal app](terminal-app.md#where-the-two-differ) |
 | **F10** | Quit | Quit | |
 
 ---

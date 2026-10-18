@@ -400,19 +400,27 @@ that use.
 
 ## Troubleshooting
 
-**The icons are empty boxes.** No Nerd Font is installed. `doas pkg install nerd-fonts`, then
+#### The icons are empty boxes
+
+No Nerd Font is installed. `doas pkg install nerd-fonts`, then
 restart the app; or choose plain characters: the [first-run guide](../panels/first-run.md)'s
-*Looks* step offers both (*Use plain characters*), or Settings (**Ctrl+,**) → *Looks* → *Icons
+*Looks* step offers both (*Use plain characters*), or Settings (**Ctrl+,**; **F12** in the terminal app) → *Looks* → *Icons
 and git glyphs* → *Plain characters (ASCII)*, or `glyphs = "ascii"`
 in `config.toml` ([Glyphs and fonts](../customise/glyphs-and-fonts.md)).
 
-**`coxswain-gui` says it cannot find `libwebkit2gtk-4.1.so.0`.** WebKitGTK is not installed:
+#### `coxswain-gui` says it cannot find `libwebkit2gtk-4.1.so.0`
+
+WebKitGTK is not installed:
 `doas pkg install webkit2-gtk_41`.
 
-**MESA-EGL warns about DRI3 when the app starts.** Harmless: there is no accelerated OpenGL
+#### MESA-EGL warns about DRI3 when the app starts
+
+Harmless: there is no accelerated OpenGL
 (a virtual machine, or `Xvfb`), and WebKitGTK draws in software.
 
-**The window stays white or flickers.** Some graphics drivers disagree with WebKitGTK's
+#### The window stays white or flickers
+
+Some graphics drivers disagree with WebKitGTK's
 compositing. Start it with `WEBKIT_DISABLE_COMPOSITING_MODE=1 coxswain-gui`; if that helps,
 put the variable in the `Exec=` line of `coxswain.desktop`, or in your shell's profile.
 
@@ -421,11 +429,15 @@ put the variable in the `Exec=` line of `coxswain.desktop`, or in your shell's p
 GTK chooses Wayland when `WAYLAND_DISPLAY` is set and X11 otherwise. To try
 X11 under a Wayland compositor: `GDK_BACKEND=x11 coxswain-gui`.
 
-**Enter on a file says no program could open it.** `xdg-open` is missing (`doas pkg install
+#### Enter on a file says no program could open it
+
+`xdg-open` is missing (`doas pkg install
 xdg-utils`), or no program is set for that kind of file: `xdg-mime default <app>.desktop
 <type>`.
 
-**A new file deep in a large tree shows in Find only after an hour.** Its folder is past the
+#### A new file deep in a large tree shows in Find only after an hour
+
+Its folder is past the
 20,000 the helper watches ([above](#how-freebsd-differs-from-linux-here)). Leave large trees you
 never search out of the index (`/usr/ports`, `/usr/src`, build folders): *Settings → Finding
 files → Details → Folders → Never indexed*, or `name_exclude` in `[search]` ([Choosing the folders](../search/folders.md)).

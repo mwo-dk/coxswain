@@ -37,7 +37,7 @@ browser.
 
 | | Desktop app | Terminal app |
 |---|---|---|
-| **Ctrl+O** | Switches between two panes and one; also the button at the right of the path bar (*One pane (Ctrl+O)* / *Two panes (Ctrl+O)*) | Hides the panels and shows the terminal with the output of the last command, as NC did; any key brings the panels back |
+| **Ctrl+O** | Switches between two panes and one; also the button at the right of the path bar (*One pane (Ctrl+O)* / *Two panes (Ctrl+O)*) | Hides the panels and shows the terminal with the output of the last command, as NC did, with *Panels hidden · any key brings them back* under it; any key brings the panels back ([more](../commands/command-line.md#the-output-flashed-by-in-the-terminal-app-where-is-it)) |
 | Sharing the width | Drag the bar between the panes: from 20% to 80% | Always half and half |
 
 ## What you see
@@ -70,7 +70,7 @@ No tabs and no history: a terminal is narrow, one folder per panel keeps it as N
 **Alt+F1**/**Alt+F2** or `cd` get you anywhere. **Ctrl+T**, **Ctrl+W**, **Ctrl+Tab**,
 **Alt+Left** and **Alt+Right** say *… is available in the desktop app (coxswain-gui)*.
 **Ctrl+O** shows the terminal behind the panels, where commands you ran from the command line
-left their output.
+left their output ([The command line](../commands/command-line.md#the-output-flashed-by-in-the-terminal-app-where-is-it)).
 
 ## Questions
 
@@ -95,8 +95,7 @@ No. The tabs and their folders come back, but each tab starts with an empty hist
 
 #### How do I close a tab with the mouse?
 
-Click its `×` (shown when the pane has more than one tab), or click it with the middle button. The tab's tooltip says so: *Middle-click or Ctrl+W closes the tab*. The last tab of a pane
-stays.
+Middle-click it, or click its `×`: see [The mouse](mouse.md#how-do-i-close-a-tab-with-the-mouse).
 
 #### Can I move a tab to the other pane?
 
@@ -106,7 +105,9 @@ to show the active pane's folder in the other pane.
 #### Why does Ctrl+O in the terminal app show an empty screen?
 
 It shows what the terminal had before the panels: the output of commands run from the
-command line, or nothing when none ran yet. Press any key to return.
+command line. Under it a line in reverse video says *Panels hidden · any key brings them back*,
+or *No command has run yet · any key brings the panels back* when none ran yet. Any key
+brings the panels back ([The command line](../commands/command-line.md#the-output-flashed-by-in-the-terminal-app-where-is-it)).
 
 #### Why does Ctrl+Tab switch tabs only in one pane?
 

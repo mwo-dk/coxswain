@@ -27,7 +27,7 @@ system; this page is about the room they take and getting it back.
 | Where | Desktop app | Terminal app |
 |---|---|---|
 | The command list | **F9** → *Disk use* | **F9** → *Disk use* |
-| Settings | **Ctrl+,** → *Privacy and updates* → *Disk use* (click the heading to open it; it shows the total beside it) | **F9** → *Settings* → *Privacy and updates*, rows under *Disk use* |
+| Settings | **Ctrl+,** or **F12** → *Privacy and updates* → *Disk use* (click the heading to open it; it shows the total beside it) | **F12** → *Privacy and updates*, rows under *Disk use* |
 | Starting at it | `coxswain-gui --settings=disk` | `coxswain --settings=disk` |
 | From the file itself | The preview of `index.bin` or `search.db` → **Settings at Disk use** ([Data previews](../previews/data.md#coxswains-own-index-and-store)) | **F3** on either file names the way there |
 | Command line | | `coxswain --disk`, `coxswain --disk clear …` |
@@ -85,7 +85,7 @@ How each is cleared:
 
 Coxswain lists only what it caused, matched exactly:
 
-- **Tectonic's cache** (`~/.cache/tectonic` on Linux and the BSDs, `~/.cache/Tectonic` with older tectonic, `~/Library/Caches/Tectonic`
+- **Tectonic's cache** (`~/.cache/tectonic` on the BSDs and Linux, `~/.cache/Tectonic` with older tectonic, `~/Library/Caches/Tectonic`
   on macOS, `%LOCALAPPDATA%\TectonicProject\Tectonic` on Windows, or `TECTONIC_CACHE_DIR`), and
   only when Coxswain made it: when a LaTeX preview runs tectonic and its cache folder was not
   there before, Coxswain notes the folder in `made-outside.txt` in its cache folder. A Tectonic
@@ -204,9 +204,9 @@ The same rows and the same clearing in both. The desktop app has **Show in panel
 clicks; the terminal app has **Enter** and **Delete**, and `coxswain --disk` on the command line.
 
 #### How do I get there?
-In both apps **F9** → *Disk use*. In the desktop app also **Ctrl+,** → *Privacy and updates* →
-*Disk use*; in the terminal app **F9** → *Settings* → *Privacy and updates*, the rows under
-*Disk use*, or `coxswain --disk` on the command line ([How to reach it](#how-to-reach-it)).
+
+In both apps **F9** → *Disk use*, or Settings (**Ctrl+,** or **F12**) → *Privacy and updates* →
+*Disk use*; in the terminal app also `coxswain --disk` on the command line ([How to reach it](#how-to-reach-it)).
 
 ---
 [← Previous: Where things are kept](where-things-are-kept.md) · [Next: Security →](security.md)
