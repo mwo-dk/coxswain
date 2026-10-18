@@ -529,8 +529,10 @@ mod tests {
         static RUNS: Shared<u32> = Shared::new();
         static COUNT: AtomicU32 = AtomicU32::new(0);
         let key = Path::new("/repo");
+        // Long enough that the three later callers have come before the second run ends,
+        // even on a slow virtual machine.
         let slow = || {
-            std::thread::sleep(Duration::from_millis(300));
+            std::thread::sleep(Duration::from_millis(1500));
             COUNT.fetch_add(1, Ordering::SeqCst) + 1
         };
         std::thread::scope(|s| {
