@@ -170,7 +170,7 @@ pub struct Settings {
     ticks: (bool, bool),
     /// The built-in models on the disk, with what was loaded when they were read: their sizes
     /// take a walk of each folder, so a drawing reads them only when that changed, and a key
-    /// (which may delete one, or change the one in use) forgets them.
+    /// that deletes one, or saves a setting (which may change the one in use), forgets them.
     pub(crate) models: Option<(coxswain_core::models::Loaded, Vec<coxswain_core::models::Entry>)>,
 }
 
@@ -552,13 +552,16 @@ fn shown(o: &Opt, cfg: &Config, value: &Value) -> String {
     }
 }
 
-/// Whether a switch is on.
-fn on(o: &Opt, cfg: &Config, value: &Value) -> Option<bool> {
-    match kind(o, cfg, value) {
-        Kind::Switch => value.as_bool(),
-        Kind::TextSwitch(yes, _) => Some(value.as_str() == Some(yes)),
-        _ => None,
+/// Whether a switch is on. As `kind` tells, without making a choice's list (which asks the
+/// system: the git tools on the PATH).
+fn on(o: &Opt, value: &Value) -> Option<bool> {
+    if let Some((_, yes, _)) = SWITCHES.iter().find(|s| s.0 == o.name) {
+        return Some(value.as_str() == Some(yes));
     }
+    if NUMBERS.iter().any(|n| n.0 == o.name) {
+        return None;
+    }
+    value.as_bool()
 }
 
 // ---------------------------------------------------------------- keys
@@ -572,7 +575,6 @@ impl App {
         };
         let esc = key.code == KeyCode::Esc;
         s.said = None;
-        s.models = None;
         let rows = rows(self, &s);
         let values = cs::values(&self.cfg);
         let opt = match rows.get(s.cursor) {
@@ -879,6 +881,7 @@ impl App {
                         Err(err) => s.said = Some((format!("{}: {err}", e.folder.display()), true)),
                     }
                 }
+                s.models = None;
                 if s.said.is_none() {
                     s.said = Some((t!("models.deleted_all", "n" => gone.len(), "size" => cs::human(freed)), false));
                 }
@@ -919,6 +922,7 @@ impl App {
             }
             Err(err) => (format!("{}: {err}", e.folder.display()), true),
         });
+        s.models = None;
         self.dialog = Some(Dialog::Settings(s));
     }
 
@@ -946,6 +950,7 @@ impl App {
             });
         }
         s.load_disk(self);
+        s.models = None;
         self.dialog = Some(Dialog::Settings(s));
     }
 
@@ -993,6 +998,7 @@ impl App {
             Ok(()) => (t!("settings.saved", "path" => path.display()), false),
             Err(e) => (e, true),
         });
+        s.models = None;
         self.dialog = Some(Dialog::Settings(s));
     }
 
@@ -1004,6 +1010,7 @@ impl App {
         self.glyphs = cfg.glyphs();
         let hidden = cfg.show_hidden != self.cfg.show_hidden;
         self.cfg = cfg;
+        self.slow.0 = None;
         // The panels list by the app's own flag (Hidden files flips it for the run): a new setting
         // replaces it and shows at once.
         if hidden {
@@ -1200,7 +1207,7 @@ pub fn draw(f: &mut Frame, app: &mut App) {
                 Row::ClearAll(n) => lines.push(Line::from(Span::styled(fit(&format!(" [ {} ]", t!("disk.clear_all", "size" => cs::human(*n))), w), st))),
                 Row::Opt(o) => {
                     let value = &values[o.name];
-                    let label = match on(o, cfg, value) {
+                    let label = match on(o, value) {
                         Some(true) => format!(" [x] {}", o.label()),
                         Some(false) => format!(" [ ] {}", o.label()),
                         None => format!("     {}", o.label()),
@@ -1491,6 +1498,20 @@ mod tests {
         }
         let c = [(HEAD.to_string(), String::new()), ("a".to_string(), String::new()), (HEAD.to_string(), String::new()), ("b".to_string(), String::new())];
         assert_eq!((pick_step(&c, 0, -1), pick_step(&c, 2, 1), pick_step(&c, 2, -1), pick_step(&c, 9, 1)), (1, 3, 1, 3));
+    }
+
+    /// The built-in models are walked once for a drawing, not again at each key: only a key
+    /// that saves a setting or deletes one forgets them.
+    #[test]
+    fn a_key_keeps_the_models_read() {
+        let d = std::env::temp_dir();
+        let mut app = app(&d);
+        app.dialog = Some(Dialog::Settings(Box::new(Settings::open(&app, "search"))));
+        screen(&mut app, 100, 40);
+        assert!(settings(&app).models.is_some(), "read for the drawing");
+        key(&mut app, KeyCode::Down);
+        key(&mut app, KeyCode::Up);
+        assert!(settings(&app).models.is_some(), "kept by a key that changes nothing");
     }
 
     #[test]

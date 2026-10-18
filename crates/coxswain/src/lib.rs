@@ -56,6 +56,11 @@ pub struct Panel {
     /// The folder `facts_dir` named at the last tick: its facts are read once the cursor has
     /// rested there a tick, so holding a key over many repositories runs no git for each.
     facts_seen: Option<PathBuf>,
+    /// What the title's badge needs from the disk (`ui::Place`), read once for the folder it
+    /// names, and where the symlink under the cursor points, read once for it: drawing looks
+    /// at no disk, so a share that stops answering does not freeze the screen.
+    pub place: Option<(PathBuf, ui::Place)>,
+    pub link: Option<(PathBuf, Option<PathBuf>)>,
 }
 
 impl Panel {
@@ -81,6 +86,8 @@ impl Panel {
             package: None,
             facts: None,
             facts_seen: None,
+            place: None,
+            link: None,
         };
         p.load(show_hidden);
         if let Some(name) = file {
@@ -98,7 +105,7 @@ impl Panel {
         loop {
             match bfs::list(&self.dir, show_hidden) {
                 Ok(v) => {
-                    self.entries = v;
+                    (self.entries, self.link) = (v, None);
                     self.error = why;
                     break;
                 }
@@ -483,6 +490,9 @@ pub struct App {
     pub areas: [Rect; 2],
     git_tx: mpsc::Sender<(PathBuf, Git)>,
     git_rx: mpsc::Receiver<(PathBuf, Git)>,
+    /// Folders with a git status read on its way; `true` when it must be read once more as
+    /// it ends, because something changed while it ran.
+    git_busy: Arc<std::sync::Mutex<HashMap<PathBuf, bool>>>,
     update_rx: mpsc::Receiver<String>,
     sizer: Arc<coxswain_core::sizes::Sizer>,
     /// Folder sizes arrive here: the panel's folder, the folder measured, its bytes.
@@ -505,6 +515,10 @@ pub struct App {
     pub ask_problem: Option<String>,
     /// The Find tips sent away for good (Delete), read when Find opens.
     pub find_dismissed: Vec<String>,
+    /// Find's *Ask is slow* row (`setup::poor`) and when it was worked out: again a second
+    /// later while Find is open (the machine probe ends in the background), and at once after
+    /// a change to the settings.
+    slow: (Option<Instant>, Option<coxswain_core::setup::Poor>),
     /// When `tell` last looked.
     told: Instant,
     /// The stop flag of each panel's measuring.
@@ -661,6 +675,7 @@ impl App {
             areas: [Rect::default(); 2],
             git_tx,
             git_rx,
+            git_busy: Default::default(),
             update_rx,
             sizer: Arc::new(coxswain_core::sizes::Sizer::new(Some(index.clone()))),
             sizes_tx,
@@ -676,6 +691,7 @@ impl App {
             ask_check_rx: None,
             ask_problem: None,
             find_dismissed: vec![],
+            slow: (None, None),
             told: Instant::now(),
             measuring: Default::default(),
             run: None,
@@ -723,16 +739,30 @@ impl App {
         let dirs: HashSet<PathBuf> = sides.iter().map(|&s| self.panels[s].dir.clone()).collect();
         let last = self.cfg.git.last_commit;
         for dir in dirs {
-            let tx = self.git_tx.clone();
-            let d = dir.clone();
-            std::thread::spawn(move || {
-                let dir = d;
-                let st = git::Status::read(&dir);
-                let repo = st.is_some() || history::is_history(&dir);
-                if tx.send((dir.clone(), Git::Status(st.map(Box::new)))).is_ok() && last && repo {
-                    let _ = tx.send((dir.clone(), Git::Last(history::last_changes(&dir))));
-                }
-            });
+            // One read per folder at a time: a build that keeps writing asks again once,
+            // when the read under way ends, instead of starting a pile of them.
+            if let Some(again) = self.git_busy.lock().unwrap_or_else(|e| e.into_inner()).get_mut(&dir) {
+                *again = true;
+            } else {
+                self.git_busy.lock().unwrap_or_else(|e| e.into_inner()).insert(dir.clone(), false);
+                let (tx, busy, d) = (self.git_tx.clone(), self.git_busy.clone(), dir.clone());
+                std::thread::spawn(move || {
+                    let dir = d;
+                    loop {
+                        let st = git::Status::read(&dir);
+                        let repo = st.is_some() || history::is_history(&dir);
+                        if tx.send((dir.clone(), Git::Status(st.map(Box::new)))).is_ok() && last && repo {
+                            let _ = tx.send((dir.clone(), Git::Last(history::last_changes(&dir))));
+                        }
+                        let mut busy = busy.lock().unwrap_or_else(|e| e.into_inner());
+                        if !busy.get(&dir).copied().unwrap_or(false) {
+                            busy.remove(&dir);
+                            return;
+                        }
+                        busy.insert(dir.clone(), false);
+                    }
+                });
+            }
             // `zfs get` and `pkg which` on a thread of their own, so git does not wait for them.
             let tx = self.git_tx.clone();
             std::thread::spawn(move || {
@@ -856,7 +886,7 @@ impl App {
             }
             match &r {
                 Ok(v) => {
-                    p.entries = v.clone();
+                    (p.entries, p.link) = (v.clone(), None);
                     p.error = None;
                     p.fill(keep.clone());
                 }
@@ -1921,8 +1951,7 @@ impl App {
 
     /// Find's rows for what it shows now.
     pub fn find_rows(&self, query: &str, chip: Kind, found: &Found) -> Vec<Row> {
-        let slow = coxswain_core::setup::poor(&self.cfg.search, false).into_iter().find(|p| p.ask);
-        find::rows(query, chip, found, self.ask_state(), slow.as_ref(), |id| self.find_dismissed.iter().any(|d| d == id))
+        find::rows(query, chip, found, self.ask_state(), self.slow.1.as_ref(), |id| self.find_dismissed.iter().any(|d| d == id))
     }
 
     /// A hit or a source of Find: its folder, with the cursor on it; a commit's folder as it was.
@@ -1953,6 +1982,7 @@ impl App {
             Off::NotRead(dir) => match find::save_read_too(&self.cfg.search, &dir) {
                 Ok(cfg) => {
                     self.cfg.search = cfg.search;
+                    self.slow.0 = None;
                     self.index.restart();
                     self.status = Some(t!("find.reading_too", "folder" => dir.display()));
                     self.search_now();
@@ -2377,6 +2407,7 @@ impl App {
             return;
         }
         let stale = self.forget(&paths);
+        let sides = git_sides(&self.panels, &paths);
         for (side, stale) in stale.into_iter().enumerate() {
             // macOS names what changed by its real path (`/private/var` for `/var`).
             let dir = &self.panels[side].dir;
@@ -2390,7 +2421,7 @@ impl App {
                 self.measure(side);
             }
         }
-        self.refresh_git(&[0, 1]);
+        self.refresh_git(&sides);
     }
 
     /// Git results and index progress, polled between events.
@@ -2443,6 +2474,10 @@ impl App {
     }
 
     fn tick(&mut self, last_state: &mut State) {
+        if matches!(self.dialog, Some(Dialog::Search { .. })) && self.slow.0.is_none_or(|at| at.elapsed() >= Duration::from_secs(1)) {
+            let poor = coxswain_core::setup::poor(&self.cfg.search, false).into_iter().find(|p| p.ask);
+            self.slow = (Some(Instant::now()), poor);
+        }
         self.follow_hint();
         self.follow_facts();
         if let Ok(v) = self.update_rx.try_recv() {
@@ -2645,6 +2680,7 @@ fn main_loop(term: &mut DefaultTerminal, app: &mut App) -> std::io::Result<()> {
                 // An entry added to the user menu shows at once.
                 if let Ok(cfg) = Config::load() {
                     app.cfg.search = cfg.search;
+                    app.slow.0 = None;
                     app.cfg.user_menu = cfg.user_menu;
                 }
                 // A model downloaded from Settings shows there.
@@ -3206,6 +3242,25 @@ pub fn main() {
     }
 }
 
+/// The panels whose git line a change to these paths can alter: one with a change inside
+/// its repository (its folder, the other panel's folder in it, its `.git`), or, outside a
+/// repository, in its own folder (a `.git` made there).
+fn git_sides(panels: &[Panel; 2], paths: &[PathBuf]) -> Vec<usize> {
+    (0..2)
+        .filter(|&s| {
+            let p = &panels[s];
+            let dir = &p.dir;
+            // macOS names what changed by its real path (`/private/var` for `/var`).
+            let real = std::fs::canonicalize(dir).ok();
+            let root = p.git.as_ref().map(|g| g.root.as_path());
+            let real_root = root.and_then(|r| std::fs::canonicalize(r).ok());
+            paths.iter().any(|c| {
+                [Some(dir.as_path()), real.as_deref(), root, real_root.as_deref()].into_iter().flatten().any(|d| c.starts_with(d))
+            })
+        })
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -3395,6 +3450,27 @@ mod tests {
         }
         assert!(app.panels[0].entries.iter().any(|e| e.name == "b.txt"), "read again");
         assert_eq!(app.panel().current().map(|e| e.name.as_str()), Some("a.txt"), "the cursor stays");
+        let _ = std::fs::remove_dir_all(d);
+    }
+
+    #[test]
+    fn git_is_read_again_only_for_the_panels_a_change_concerns() {
+        let d = std::env::temp_dir().join(format!("coxswain-test-gitsides-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(d.join("a")).unwrap();
+        std::fs::create_dir_all(d.join("b")).unwrap();
+        let mut app = app(d.join("a"), d.join("b"));
+        assert_eq!(git_sides(&app.panels, &[d.join("a/x.txt")]), [0]);
+        assert_eq!(git_sides(&app.panels, &[d.join("b")]), [1]);
+        assert_eq!(git_sides(&app.panels, &[d.join("c.txt")]), Vec::<usize>::new());
+        // Both folders in one repository: a change in either, or in its `.git`, is both's.
+        app.panels[0].git = Some(git::Status { root: d.clone(), ..Default::default() });
+        app.panels[1].git = Some(git::Status { root: d.clone(), ..Default::default() });
+        assert_eq!(git_sides(&app.panels, &[d.join(".git/index")]), [0, 1]);
+        // A read under way is not started twice: it is marked to run once more.
+        app.git_busy.lock().unwrap().insert(d.join("a"), false);
+        app.refresh_git(&[0]);
+        assert_eq!(app.git_busy.lock().unwrap().get(&d.join("a")), Some(&true));
         let _ = std::fs::remove_dir_all(d);
     }
 
