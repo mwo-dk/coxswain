@@ -22,6 +22,14 @@ import websockets
 REPO = Path(__file__).resolve().parent.parent
 APP = REPO / "target/release/coxswain-gui"
 PORT, DISPLAY, INSPECTOR = 8095, ":15", 9395
+# Broadway has no screen resolution, which WebKitGTK turns into a negative page size (nothing
+# that needs one, such as a draw.io diagram, is drawn). As in docs/screenshots/cap.py, the app
+# alone is told 96 dpi.
+DPI = r"""
+#include <stdlib.h>
+double gdk_screen_get_resolution(void *screen) { (void)screen; return 96.0; }
+__attribute__((constructor)) static void only_here(void) { unsetenv("LD_PRELOAD"); }
+"""
 
 
 def png(path):
@@ -75,6 +83,10 @@ def files(d):
     (d / "dist").mkdir()
     (d / "dist/rocket-1.4.0.tar.gz").write_text("foo")
     shutil.copy(REPO / "crates/coxswain-core/src/provenance/testdata/made/statement-v1.json", d / "k.provenance.json")
+    (d / "m.drawio").write_text('<mxfile><diagram id="a" name="Page-1"><mxGraphModel math="1"><root><mxCell id="0"/><mxCell id="1" parent="0"/>'
+                                '<mxCell id="2" value="Lift-off $$x^2$$" vertex="1" parent="1"><mxGeometry x="20" y="20" width="120" height="60" as="geometry"/></mxCell>'
+                                '</root></mxGraphModel></diagram></mxfile>')
+    (d / "l.md").write_text("# Orbit\n\nEnergy: $E = mc^2$\n\n$$\\int_0^1 x\\,dx$$\n")
     return {
         "md": ("a.md", "article h1", "Rocket", 10),
         "parquet": ("b.parquet", "table td", "Aalborg", 10),
@@ -87,6 +99,9 @@ def files(d):
         "png": ("h.png", "img", "", 10),
         "mmd": ("i.mmd", "svg", "Lift-off", 20),
         "html": ("j.html", "iframe.page", "", 10),
+        "math": ("l.md", "article .katex-display", "", 10),
+        # With maths, which draw.io's viewer cannot load here: the diagram must still show.
+        "drawio": ("m.drawio", ".drawio svg", "Lift-off", 20),
         "provenance": ("k.provenance.json", ".prov .flow", "matches the file here", 10),
     }
 
@@ -104,7 +119,7 @@ MEASURE = """(async () => {
   key("ArrowUp"); await sleep(300);
   const t0 = performance.now(); key("ArrowDown");
   while (performance.now() - t0 < limit * 1000) {
-    if (title() === name && [...document.querySelectorAll(".preview .body " + ready)].some((e) => e.textContent.includes(text))) return Math.round(performance.now() - t0);
+    if (title() === name && [...document.querySelectorAll(".preview .body " + ready)].some((e) => e.textContent.includes(text) && e.checkVisibility({ visibilityProperty: true }))) return Math.round(performance.now() - t0);
     await sleep(20);
   }
   return "nothing shown: " + (document.querySelector(".preview .body")?.innerText ?? "").slice(0, 200);
@@ -173,10 +188,12 @@ def main():
     # Not a first start: the first-run guide would cover the preview.
     (home / ".local/share/coxswain").mkdir(parents=True)
     (home / ".local/share/coxswain/state.json").write_text('{"guide_seen": true}')
+    dpi = home / "dpi96.so"
+    subprocess.run(["cc", "-shared", "-fPIC", "-O2", "-x", "c", "-", "-o", str(dpi)], input=DPI, text=True, check=True)
     broadway = subprocess.Popen(["broadwayd", "--address", "127.0.0.1", "--port", str(PORT), DISPLAY], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     time.sleep(1)
     # Its own D-Bus too: nothing reaches the session of whoever runs this.
-    app = subprocess.Popen(["dbus-run-session", "--", str(APP), str(d / kinds[wanted[0]][0])], env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+    app = subprocess.Popen(["dbus-run-session", "--", "env", f"LD_PRELOAD={dpi}", str(APP), str(d / kinds[wanted[0]][0])], env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
     failed = False
     try:
         for _ in range(60):
