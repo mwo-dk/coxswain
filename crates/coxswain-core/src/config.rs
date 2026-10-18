@@ -2137,7 +2137,9 @@ mod tests {
         // A name that starts with `-` is no option to the program.
         let out = u.expand(dir, Some(&dir.join("-rf")), &[]);
         let sep = std::path::MAIN_SEPARATOR;
-        assert_eq!(out.shown(), format!("vim .{sep}-rf .{sep}-rf 100%"));
+        // (Windows quotes it, for the `\`.)
+        let shown = out.shown().replace('"', "");
+        assert_eq!(shown, format!("vim .{sep}-rf .{sep}-rf 100%"));
     }
 
     /// The line runs in sh whatever `$SHELL` is: in fish `\'` inside single quotes would end
