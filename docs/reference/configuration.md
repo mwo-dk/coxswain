@@ -195,6 +195,7 @@ changing them: [Changing keys](../customise/keys.md)):
 | `features` | none | `mark_all` | `Ctrl+A` |
 | `undo` | `Ctrl+Z` | `action_menu` | `Shift+F10`, `Menu` |
 | `rename` | `Shift+F6` | `disk_use` | none |
+| `git_tool` | `Alt+G` | | |
 
 Keys inside dialogs (Enter, Esc, Tab and Shift+Tab in Find, the digits in *Colour tag*) are fixed.
 
@@ -308,6 +309,7 @@ Read by both apps when they start; the desktop app also after a change in Settin
 | Key | Type | Default | Does |
 |---|---|---|---|
 | `last_commit` | bool | `true` | Last commit of each file: the *Last commit* column and the preview pane in the desktop app, the info line in the terminal app ([Git in the panels](../panels/git.md#last-commit-per-file)) |
+| `tool` | string | `""` | Where *Open in your git tool* (**Alt+G**) goes: a tool's name as Settings lists it (`"lazygit"`, `"Sublime Merge"`) or a command, `%d` being the repository's folder. Empty: the first installed of lazygit, gitui, tig and the desktop clients, else a terminal ([Open in your git tool](../panels/git.md#open-in-your-git-tool)) |
 
 The [git history](../panels/git-history.md) itself has no switch: it is there when you press
 **Ctrl+G** (`history` in `[keys]`).
@@ -373,6 +375,7 @@ Each Settings item and the key it writes, area by area ([The Settings window](..
 | | *Show hints*, *Show the hints again* | `hints` |
 | | *Measure folder sizes* | `folder_sizes` |
 | | *Last commit of each file* | `[git] last_commit` |
+| | *Git tool* | `[git] tool` |
 | | *Editor* | `editor` |
 | | *Viewer (terminal app)* | `viewer` |
 | | *CBOM viewer on F3 (terminal app)* | `bom_viewer` |

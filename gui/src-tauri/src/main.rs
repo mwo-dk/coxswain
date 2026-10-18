@@ -493,6 +493,25 @@ async fn git_new_branch(dir: PathBuf, name: String, from: Option<String>) -> Res
     blocking(move || coxswain_core::branches::create(&dir, &name, from.as_deref()).map_err(|e| e.to_string())).await
 }
 
+/// Commit, push, pull and the rest: the repository `dir` is in, in the user's own git tool. A
+/// terminal one opens in a terminal window. What the status line says, or why it could not.
+#[tauri::command]
+async fn git_tool(dir: PathBuf, ctx: tauri::State<'_, Ctx>) -> Res<String> {
+    let tool = ctx.cfg().git.tool.clone();
+    blocking(move || {
+        let h = coxswain_core::handoff::handoff(&tool, &dir, false)?;
+        coxswain_core::handoff::spawn(&h).map_err(|e| e.to_string())?;
+        Ok(coxswain_core::handoff::opened(&h))
+    })
+    .await
+}
+
+/// The git tools installed here, in the order they are tried: for Settings.
+#[tauri::command(async)]
+fn git_tools() -> Vec<&'static str> {
+    coxswain_core::handoff::installed()
+}
+
 /// The statuses of `dir`'s entries, from git's alone: the folder is not read again.
 fn children(s: &git::Status, dir: &Path) -> (BTreeMap<String, git::FileStatus>, Option<git::FileStatus>) {
     let files = s.files.iter().filter(|(p, _)| p.parent() == Some(dir)).filter_map(|(p, st)| Some((p.file_name()?.to_string_lossy().into_owned(), *st))).collect();
@@ -2022,7 +2041,7 @@ fn main() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            get_config, action_menu, hint, hint_once, hints_reset, notices, dismiss_notice, changes, read_changes, set_title, index_status, index_action, index_service, meaning_status, meaning_action, chat_status, chat_action, meaning_models, meaning_pull, list_dir, zfs_facts, bsd_places, git_status, git_facts, git_last, git_switch, git_new_branch, places, disks, get_state, save_session, save_favorites, set_tags, set_note, get_note,
+            get_config, action_menu, hint, hint_once, hints_reset, notices, dismiss_notice, changes, read_changes, set_title, index_status, index_action, index_service, meaning_status, meaning_action, chat_status, chat_action, meaning_models, meaning_pull, list_dir, zfs_facts, bsd_places, git_status, git_facts, git_last, git_switch, git_new_branch, git_tool, git_tools, places, disks, get_state, save_session, save_favorites, set_tags, set_note, get_note,
             find, find_read_too, ask, ask_stop, ask_check, meaning_change, setup_probe, setup_probe_url, setup_try, setup_speed, meaning_bench, resolve_path, copy, rename, delete, mkdir, dir_sizes, dir_size_known, rename_plan, rename_apply, undo, undo_next, open_path, edit_path, open_keys, scripts_folder,
             read_text, run_command, scripts, run_script, add_user_command, check_update, archive_list, extract, pack, archive_password, archive_peek, cloud_fetch, properties, set_flags, set_permissions,
             clip_set, paste, start_drag, watch_dirs, preview::git_diff, preview::sqlite_info, preview::epub_preview,

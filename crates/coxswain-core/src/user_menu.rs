@@ -57,7 +57,7 @@ fn builtin() -> Vec<UserCommand> {
 
 /// A program on PATH; on Windows also an app alias (Windows Terminal's `wt`), which is not a
 /// regular file.
-fn installed(program: &str) -> bool {
+pub(crate) fn installed(program: &str) -> bool {
     crate::tools::which(program).is_some()
         || (cfg!(windows)
             && std::env::var_os("LOCALAPPDATA").is_some_and(|d| {
@@ -145,14 +145,19 @@ fn terminal(
             }
             .into(),
         ),
-        _ => {
-            // No desktop (a console, ssh): no window to open.
-            var("WAYLAND_DISPLAY").or_else(|| var("DISPLAY"))?;
-            let own = var("TERMINAL").filter(|t| t.split_whitespace().next().is_some_and(has));
-            let prog = own.or_else(|| TERMINALS.iter().find(|t| has(t)).map(|t| t.to_string()))?;
-            Some(format!("nohup {prog} >/dev/null 2>&1 &"))
-        }
+        _ => Some(format!("nohup {} >/dev/null 2>&1 &", emulator(has, var)?)),
     }
+}
+
+/// The terminal emulator on Linux, the BSDs and illumos: `$TERMINAL` when it is installed,
+/// else the first of `TERMINALS`. None without a desktop (a console, ssh): no window to open.
+pub(crate) fn emulator(
+    has: &dyn Fn(&str) -> bool,
+    var: &dyn Fn(&str) -> Option<String>,
+) -> Option<String> {
+    var("WAYLAND_DISPLAY").or_else(|| var("DISPLAY"))?;
+    let own = var("TERMINAL").filter(|t| t.split_whitespace().next().is_some_and(has));
+    own.or_else(|| TERMINALS.iter().find(|t| has(t)).map(|t| t.to_string()))
 }
 
 /// The file's SHA-256 with the tool the system has.

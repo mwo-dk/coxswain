@@ -361,6 +361,32 @@ export function newBranch(tb = tab()) {
   };
 }
 
+/** Commit, push, pull and the rest: the repository the tab's folder is in, in the user's own
+ *  git tool (`[git] tool`, else the first one installed, else a terminal there). */
+export async function gitTool(tb = tab()) {
+  try {
+    ui.status = await invoke("git_tool", { dir: tb.dir });
+  } catch (err) {
+    ui.status = String(err);
+  }
+  reloadAll();
+}
+
+/** The git line's menu (a right-click on it): the repository's branches and worktrees, and
+ *  the handoff to the user's git tool, each with its key. */
+export function gitMenu(tb = tab()) {
+  const entry = (n, run) => ({ key: ui.cfg.actions[n]?.[1] ?? "", label: actionLabel(n), run });
+  ui.modal = {
+    kind: "menu",
+    feature: "git",
+    title: tb.git?.prompt ?? t("preview.git"),
+    direct: false,
+    filter: "",
+    cursor: 0,
+    items: [entry("branches", () => openGitView(false, tb)), entry("worktrees", () => openGitView(true, tb)), entry("git_tool", () => gitTool(tb))],
+  };
+}
+
 /** Tab `tb` shows `path`: a folder opened, a file in its folder with the cursor on it. */
 export async function showInTab(tb, path, isDir = false) {
   await cd(tb, isDir ? path : parent(path));

@@ -825,6 +825,7 @@ fn help_text(app: &App, width: usize) -> Vec<Line<'static>> {
     }
     let key = |a| app.key_label(a).to_string();
     v.push(Line::from(t!("help.branches", "key" => key(Action::Branches), "switch" => key(Action::SwitchBranch), "worktrees" => key(Action::Worktrees))));
+    v.push(Line::from(t!("help.git_tool", "key" => key(Action::GitTool))));
     v.push(Line::from(""));
     v.extend(syntax_lines());
     v.push(Line::from(""));

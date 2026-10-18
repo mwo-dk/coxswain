@@ -150,6 +150,21 @@ pub fn all(cfg: &Config, status: &Status, state: &AppState, terminal: bool) -> V
             None,
         ));
     }
+    // "Open in your git tool" found none: what to install, or where to name one. Once.
+    if crate::handoff::MISSING.load(std::sync::atomic::Ordering::Relaxed) {
+        let key = cfg.key_for(crate::config::Action::GitTool).unwrap_or("F9");
+        let copy = crate::handoff::install();
+        let text = t!("notice.git_tool", "key" => key);
+        // The terminal app has no Copy button: the line is in the text.
+        let text = match &copy {
+            Some(line) => format!("{text} {line}"),
+            None => text,
+        };
+        all.push(Notice {
+            copy,
+            ..Notice::new("git-tool", text, Some("git_tool"))
+        });
+    }
     // Home is on ZFS: its snapshots are a key away.
     if !seen("zfs") && std::env::home_dir().is_some_and(|h| crate::zfs::dataset_of(&h).is_some()) {
         let key = cfg

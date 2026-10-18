@@ -111,7 +111,7 @@ impl Opt {
 
     /// Optional in config.toml: empty means the key is taken out (the default applies).
     fn optional(&self) -> bool {
-        matches!(self.name, "editor" | "viewer")
+        matches!(self.name, "editor" | "viewer" | "git_tool")
     }
 }
 
@@ -213,6 +213,7 @@ pub const OPTIONS: &[Opt] = &[
         Behaviour,
         &[Cpu],
     ),
+    opt("git_tool", &["git", "tool"], Behaviour, &[]),
     opt("editor", &["editor"], Behaviour, &[]),
     opt("viewer", &["viewer"], Behaviour, &[]),
     opt("bom_viewer", &["bom_viewer"], Behaviour, &[]),

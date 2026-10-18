@@ -8,7 +8,8 @@ gets a glyph for its own state, and the date and author of the last commit that 
 Both apps do this; the desktop app adds a diff in the preview pane and a list of the
 repositories you visited. **Ctrl+G** opens a file's or folder's history:
 [Git history as folders](git-history.md); **Alt+B** the branches and **Alt+W** the worktrees:
-[Git branches and worktrees](git-branches.md).
+[Git branches and worktrees](git-branches.md). Commit, push and pull are for your own git tool:
+**Alt+G** opens it in the repository ([Open in your git tool](#open-in-your-git-tool)).
 
 ![The desktop app in a repository: the git line in the pane's footer, glyphs next to changed files](../screenshots/gui-details.png)
 *`src` carries the pencil of a modified file inside it, `target` the crossed-out eye of an ignored folder, `TODO.txt` the question mark of an untracked file. The footer reads `master ↑1` and the counts.*
@@ -23,6 +24,7 @@ repositories you visited. **Ctrl+G** opens a file's or folder's history:
 - [When it updates](#when-it-updates)
 - [The diff of a file (desktop app)](#the-diff-of-a-file-desktop-app)
 - [Recent repositories (desktop app)](#recent-repositories-desktop-app)
+- [Open in your git tool](#open-in-your-git-tool)
 - [Git commands from the user menu](#git-commands-from-the-user-menu)
 - [Settings and config.toml](#settings-and-configtoml)
 - [In the terminal app](#in-the-terminal-app)
@@ -40,14 +42,16 @@ repositories you visited. **Ctrl+G** opens a file's or folder's history:
 5. Press **Ctrl+G** for the history of the file or folder under the cursor
    ([Git history as folders](git-history.md)), **Alt+B** for the branches and **Alt+W** for the
    worktrees ([Git branches and worktrees](git-branches.md)).
-6. Press **F2** for the user menu's git commands (see below).
+6. Press **Alt+G** to commit, push or pull in your own git tool
+   ([Open in your git tool](#open-in-your-git-tool)).
+7. Press **F2** for the user menu's git commands (see below).
 
 It needs `git` on your `PATH`. Coxswain reads: it runs `git status` (with
 `GIT_OPTIONAL_LOCKS=0`, so it never takes a lock that could get in the way of your own git
 commands), for the diff `git diff`, and for the last commits and the history `git log`,
 `git ls-tree` and `git cat-file`. The only things it changes are the ones you ask for in the
 list of branches: a switch to a branch and a new branch (`git switch`). It never commits or
-stages. The repository's own hooks, file system monitor and filter drivers never run.
+stages: **Alt+G** hands that to your own git tool. The repository's own hooks, file system monitor and filter drivers never run.
 
 ## The git line
 
@@ -196,6 +200,60 @@ Every repository you open a folder of is remembered, most recent first, up to tw
 listed under **Git repositories** in the [sidebar](../organise/sidebar.md); click one to go
 there. A tab whose folder is in a repository shows the git icon instead of the folder icon.
 
+## Open in your git tool
+
+Coxswain shows version control and writes to a repository only to switch branch or make a new
+one. Everything else (commit, stage, push, pull, fetch, merge, setting an upstream, editing the
+config) is a handoff: **Alt+G** (*Open in your git tool*) opens the repository in your own git
+tool, in the repository's top folder, wherever in it the panel is.
+
+| | Terminal app | Desktop app |
+|---|---|---|
+| Key | **Alt+G** | **Alt+G** |
+| Menus | **Shift+F10** (the [action menu](action-menu.md), under *Git*), **F9** | **Shift+F10**, **F9**, a right-click on the git line, and *Open in your git tool* under *Git* in the preview pane |
+| A terminal tool (lazygit, gitui, tig) | Runs in this terminal, as **F4**'s editor does: the panels go, the tool takes the screen, and when you quit it the panels come back with the git line read again | Opens in a new terminal window: `$TERMINAL`, else the first terminal installed (Terminal on a Mac; Windows Terminal, else a console, on Windows) |
+| A desktop client | Starts in a window of its own; the panels stay | The same |
+| No tool installed | Your shell, in this terminal, in the repository; `exit` brings the panels back | A terminal window in the repository |
+
+The status line says *Opened lazygit in the repository*, or *No git tool found: a terminal
+opened in the repository*. After that, a notice says once what to install, with the line to
+copy (lazygit, else tig, for your system's package manager), and where to name a tool. The key
+is also on the git line's tooltip (desktop app) and in **F1**. Outside a repository the action
+is not in the menus, and the key says *Not in a git repository*.
+
+### Which tool
+
+With no tool named (*Settings → Behaviour → Git tool*: *Automatic*), the first one installed,
+in this order:
+
+| System | Tried, in order |
+|---|---|
+| Every system | lazygit, gitui, tig (they run in a terminal) |
+| FreeBSD, the other BSDs, illumos, Linux | then GitHub Desktop (`github-desktop`), GitKraken, Sublime Merge (`smerge`), gitg, git-cola, git gui, gitk |
+| Android (Termux) | only the three terminal tools |
+| macOS | then GitHub Desktop, GitKraken, Sublime Merge, Fork, Sourcetree (in `/Applications` or `~/Applications`), git gui, gitk |
+| Windows | then GitHub Desktop, GitKraken, Sublime Merge, Fork, Sourcetree (where their installers put them), git gui, gitk |
+
+Without a desktop (over ssh, on a console) the desktop clients are passed over. Nothing is
+looked for when Coxswain starts: only when you press **Alt+G**, and when *Settings →
+Behaviour* shows the tools installed to choose from.
+
+### A tool of your own
+
+*Settings → Behaviour → Git tool* lists the tools installed; *Another command…* (terminal app)
+or typing in the field (desktop app) takes a command. In `config.toml`:
+
+```toml
+[git]
+tool = "Sublime Merge"      # a tool's name, as Settings lists it
+# tool = "gitui -d %d"      # or a command: %d is the repository's folder, quoted (on Windows `.`, the folder the command runs in)
+```
+
+A command runs in the repository's top folder. In the terminal app it runs in the terminal, and
+the panels wait until it ends; in the desktop app it starts on its own, unless its first word is
+lazygit, gitui or tig, which open in a terminal window. A tool named that is not installed says
+*… was not found* on the status line.
+
 ## Git commands from the user menu
 
 The default [user menu](../commands/user-menu.md) (**F2**) has *git status* (`s`), offered only
@@ -214,6 +272,8 @@ and **Alt+B** (branches). Other git commands can be added as your own entries (*
 | The *Last commit* column | the columns menu (the session) | on |
 | The history's key | `history` in `[keys]` | `Ctrl+G` |
 | The branches', the worktrees' and the switch's keys | `branches`, `worktrees`, `switch_branch` in `[keys]` | `Alt+B`, `Alt+W`, `Alt+S` |
+| *Settings → Behaviour → Git tool* | `[git] tool` (a tool's name or a command; empty: the first installed) | `""` |
+| *Open in your git tool* | `git_tool` in `[keys]` | `Alt+G` |
 
 See [Glyphs and fonts](../customise/glyphs-and-fonts.md) and [Your own theme](../customise/own-theme.md).
 
@@ -223,7 +283,8 @@ The same git line (bottom left of the border) and the same glyphs (in a column b
 name). The last commit of the entry under the cursor is in the line under the panel, the
 [upstream, remote and last fetch](#upstream-remote-and-last-fetch) too when the cursor is on
 `..` or on a repository's folder, and
-**Ctrl+G** opens the [history](git-history.md). No diff, no list of repositories and no git icon on tabs, since it has no preview pane,
+**Ctrl+G** opens the [history](git-history.md). **Alt+G** runs a terminal git tool right
+there, in place of the panels ([Open in your git tool](#open-in-your-git-tool)). No diff, no list of repositories and no git icon on tabs, since it has no preview pane,
 sidebar or tabs; the user menu's `git diff (file)` shows the diff instead.
 
 ## Questions
@@ -318,8 +379,41 @@ repository's facts: hover the git line, or go to `..`.
 #### Can Coxswain commit or stage?
 
 No. It switches branches and makes new ones when you ask ([Git branches and
-worktrees](git-branches.md)), and otherwise only reads. Put the commands you want in the
+worktrees](git-branches.md)), and otherwise only reads. **Alt+G** opens your own git tool
+(lazygit, gitui, tig or a desktop client) in the repository for the rest
+([Open in your git tool](#open-in-your-git-tool)). Single commands can also go in the
 [user menu](../commands/user-menu.md) (**F2**) or a [script](../commands/scripts.md).
+
+#### Why does Coxswain not commit or push itself?
+
+A file manager that does half a git client's job feels broken next to a real one, and every
+write brings conflicts, credentials, hooks and signing with it. So Coxswain shows where you
+stand (the branch, ahead and behind, what changed) and hands the writing to a tool made for it:
+**Alt+G**.
+
+#### Alt+G opened a terminal, not my git tool.
+
+No tool Coxswain knows was found ([the list](#which-tool)), so it opened a terminal in the
+repository instead; the status line says *No git tool found*. Install one (the notice has the
+line to copy), or name yours in *Settings → Behaviour → Git tool*: a tool's name, or a command.
+
+#### My desktop client opens, but not on this repository.
+
+Coxswain passes the repository's folder to the clients that take one (GitHub Desktop, GitKraken,
+Sublime Merge, Fork, Sourcetree) and starts the others (gitg, git-cola, git gui, gitk) in it. A
+client that ignores both needs its own way of naming a folder: write it as a command in
+*Settings → Behaviour → Git tool*, with `%d` for the repository.
+
+#### Does the git line follow what I did in the tool?
+
+Yes. The terminal app reads the panels again when a terminal tool quits. The desktop app
+watches the repository's `.git`, so the git line and the glyphs change as you commit or pull,
+and **Ctrl+R** reads them again at any time.
+
+#### Alt+G used to start a quick search for "g".
+
+**Alt+G** belongs to *Open in your git tool* now. To have the quick search back, give the action
+another key or none: `git_tool = []` in `[keys]` ([Changing keys](../customise/keys.md)).
 
 #### What does "merging" (or "rebasing") on the git line mean?
 

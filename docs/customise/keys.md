@@ -120,6 +120,7 @@ not modifiers Coxswain reads; use **Ctrl** or **Alt**.
 | `features` | none | `mark_all` | **Ctrl+A** |
 | `undo` | **Ctrl+Z** | `action_menu` | **Shift+F10**, **Menu** |
 | `rename` | **Shift+F6** | `disk_use` | none |
+| `git_tool` | **Alt+G** | | |
 
 ¹ The desktop app only. In the terminal app the key still belongs to the action, and pressing it
 says *… is available in the desktop app (coxswain-gui)* on the command line.
@@ -228,7 +229,7 @@ A plain character bound to an action only runs it while the command line is empt
 there, `+` is part of the command. Press **Esc** to clear the line, or bind the action to a key
 with Ctrl or Alt.
 
-#### I bound Alt+G to something, and now quick search does not jump to "g" files.
+#### I bound Alt+Q to something, and now quick search does not jump to "q" files.
 
 A bound Alt+letter runs its action; only unbound Alt+letters start a
 [quick search](../panels/quick-search.md). Pick a letter you do not quick-search with, or use

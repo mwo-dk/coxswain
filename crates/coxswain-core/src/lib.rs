@@ -18,6 +18,7 @@ pub mod flags;
 pub mod fs;
 pub mod git;
 pub mod guide;
+pub mod handoff;
 pub mod helper;
 pub mod history;
 pub mod i18n;
