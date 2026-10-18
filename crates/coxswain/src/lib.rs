@@ -15,6 +15,7 @@ use coxswain_core::history::{self, Lasts};
 use coxswain_core::helper::{self, Client};
 use coxswain_core::find::{self, Found, Kind, Off, Row};
 use coxswain_core::index::{self, State};
+use coxswain_core::tools::Line;
 use coxswain_core::undo::{Kind as UndoKind, Record};
 use ratatui::crossterm::event::{self, Event, KeyCode as CK, KeyEvent, KeyEventKind, KeyModifiers, MouseButton, MouseEvent, MouseEventKind};
 use ratatui::crossterm::{cursor, execute, terminal};
@@ -451,7 +452,8 @@ enum Git {
 /// Work done by the main loop after a frame: what needs the real terminal, and what takes a
 /// while, so the status line says so first.
 enum Run {
-    Shell { cmd: String, dir: PathBuf, wait: bool },
+    /// A line Coxswain built, by sh; `typed`: the command line's own, by the user's `$SHELL`.
+    Shell { line: Line, typed: bool, dir: PathBuf, wait: bool },
     ShowOutput,
 }
 
@@ -617,14 +619,6 @@ fn touches(op: Option<Transfer>, src: &[PathBuf], dst: &Path) -> Vec<PathBuf> {
 /// A folder listed by a program (git, zfs, pkg), which can take a while: read on a thread.
 fn virtual_list(dir: &Path) -> bool {
     history::is_history(dir) || coxswain_core::zfs::split(dir).is_some() || coxswain_core::bsd::split(dir).is_some()
-}
-
-fn shell() -> (String, &'static str) {
-    if cfg!(windows) {
-        ("cmd".into(), "/C")
-    } else {
-        (std::env::var("SHELL").unwrap_or_else(|_| "sh".into()), "-c")
-    }
 }
 
 impl App {
@@ -1327,8 +1321,9 @@ impl App {
         }
         let dir = self.panel().dir.clone();
         if e.is_exec {
-            let cmd = if cfg!(windows) { config::quote(&e.name) } else { format!("./{}", config::quote(&e.name)) };
-            self.run = Some(Run::Shell { cmd, dir, wait: true });
+            let mut line = Line::default();
+            line.cmd = if cfg!(windows) { line.word(&e.name) } else { format!("./{}", line.word(&e.name)) };
+            self.run = Some(Run::Shell { line, typed: false, dir, wait: true });
             return;
         }
         self.status = Some(match bfs::open_default(&e.path) {
@@ -1491,8 +1486,8 @@ impl App {
         };
         self.status = Some(handoff::opened(&h));
         match &h.run {
-            handoff::Run::Here(cmd) => self.run = Some(Run::Shell { cmd: cmd.clone(), dir: h.root.clone(), wait: false }),
-            handoff::Run::Spawn(..) => {
+            handoff::Run::Here(cmd) => self.run = Some(Run::Shell { line: Line::from(cmd.clone()), typed: false, dir: h.root.clone(), wait: false }),
+            handoff::Run::Spawn(..) | handoff::Run::Line(_) => {
                 if let Err(e) = handoff::spawn(&h) {
                     self.status = Some(e.to_string());
                 }
@@ -1515,7 +1510,7 @@ impl App {
     /// `file` in the editor at `line`: config.toml at `[keys]` (Settings) or `[[user_menu]]` (F2).
     pub fn edit_at(&mut self, file: &Path, line: usize) {
         let dir = file.parent().unwrap_or(Path::new(".")).to_path_buf();
-        self.run = Some(Run::Shell { cmd: config::edit_command(&self.editor(), file, line), dir, wait: false });
+        self.run = Some(Run::Shell { line: config::edit_command(&self.editor(), file, line), typed: false, dir, wait: false });
     }
 
     fn view_or_edit(&mut self, a: Action, file: &Path) {
@@ -1526,8 +1521,9 @@ impl App {
             self.editor()
         };
         let dir = file.parent().unwrap_or(Path::new(".")).to_path_buf();
-        let cmd = format!("{prog} {}", config::quote(&file.to_string_lossy()));
-        self.run = Some(Run::Shell { cmd, dir, wait: false });
+        let mut line = Line::default();
+        line.cmd = format!("{prog} {}", line.word(&file.to_string_lossy()));
+        self.run = Some(Run::Shell { line, typed: false, dir, wait: false });
     }
 
     fn editor(&self) -> String {
@@ -1557,7 +1553,7 @@ impl App {
             }
             return;
         }
-        self.run = Some(Run::Shell { cmd, dir: self.panel().dir.clone(), wait: false });
+        self.run = Some(Run::Shell { line: Line::from(cmd), typed: true, dir: self.panel().dir.clone(), wait: false });
     }
 
     fn delete(&mut self, paths: Vec<PathBuf>, forever: bool) {
@@ -2314,8 +2310,8 @@ impl App {
         let p = self.panel();
         let file = p.current().filter(|e| !e.is_parent()).map(|e| e.path.as_path());
         let marked: Vec<PathBuf> = p.entries.iter().filter(|e| p.marked.contains(&e.path)).map(|e| e.path.clone()).collect();
-        let cmd = u.expand(&p.dir, file, &marked);
-        self.run = Some(Run::Shell { cmd, dir: p.dir.clone(), wait: u.wait });
+        let line = u.expand(&p.dir, file, &marked);
+        self.run = Some(Run::Shell { line, typed: false, dir: p.dir.clone(), wait: u.wait });
     }
 
     fn on_mouse(&mut self, m: MouseEvent) {
@@ -2585,20 +2581,20 @@ fn suspended(term: &mut DefaultTerminal, f: impl FnOnce()) -> std::io::Result<()
     term.clear()
 }
 
-fn run_shell(cmd: &str, dir: &Path, wait: bool) {
-    let (sh, flag) = shell();
-    println!("{}> {cmd}", dir.display());
-    if let Err(e) = run_in(&sh, flag, cmd, dir, wait) {
+fn run_shell(line: &Line, typed: bool, dir: &Path, wait: bool) {
+    println!("{}> {}", dir.display(), line.shown());
+    let c = if typed { coxswain_core::tools::typed_line(&line.cmd) } else { line.command() };
+    let sh = c.get_program().to_string_lossy().into_owned();
+    if let Err(e) = run_in(c, dir, wait) {
         println!("coxswain: {sh}: {e}");
     }
 }
 
-/// `cmd` through the shell `sh`, on the plain terminal. Ctrl+C there interrupts the whole
+/// `c` (a shell and its line), on the plain terminal. Ctrl+C there interrupts the whole
 /// foreground process group, Coxswain included: it is ignored here meanwhile, and the child
 /// gets it as usual.
-fn run_in(sh: &str, flag: &str, cmd: &str, dir: &Path, wait: bool) -> std::io::Result<()> {
-    let mut c = coxswain_core::tools::command(sh);
-    c.arg(flag).arg(cmd).current_dir(dir);
+fn run_in(mut c: std::process::Command, dir: &Path, wait: bool) -> std::io::Result<()> {
+    c.current_dir(dir);
     #[cfg(unix)]
     let before = unsafe {
         use std::os::unix::process::CommandExt;
@@ -2632,8 +2628,8 @@ fn main_loop(term: &mut DefaultTerminal, app: &mut App) -> std::io::Result<()> {
     while !app.quit || app.job.is_some() {
         term.draw(|f| ui::draw(f, app))?;
         match app.run.take() {
-            Some(Run::Shell { cmd, dir, wait }) => {
-                suspended(term, || run_shell(&cmd, &dir, wait))?;
+            Some(Run::Shell { line, typed, dir, wait }) => {
+                suspended(term, || run_shell(&line, typed, &dir, wait))?;
                 ran = true;
                 // The setup guide, run from Find, changes the search settings.
                 // An entry added to the user menu shows at once.
@@ -3544,7 +3540,7 @@ mod tests {
     #[cfg(unix)]
     fn an_interrupt_meant_for_the_command_leaves_the_app_running() {
         // The child interrupts its parent (this process); ignored here, the test goes on.
-        run_in("sh", "-c", "kill -INT $PPID", Path::new("/"), false).unwrap();
+        run_in(Line::from("kill -INT $PPID".to_string()).command(), Path::new("/"), false).unwrap();
     }
 }
 

@@ -69,8 +69,12 @@ space, is taken; `cd src && make` is `cd` to a folder named `src && make`.
 
 | | The BSDs, illumos, Linux and macOS | Windows |
 |---|---|---|
-| Terminal app | `$SHELL -c "<line>"` (`sh` when `$SHELL` is unset) | `cmd /C "<line>"` |
-| Desktop app | `sh -c "<line>"` | `cmd /C "<line>"` |
+| Terminal app | `$SHELL -c "<line>"` (`sh` when `$SHELL` is unset) | `cmd /S /C "<line>"` |
+| Desktop app | `$SHELL -c "<line>"` (`sh` when `$SHELL` is unset) | `cmd /S /C "<line>"` |
+
+Only the line you type runs in your `$SHELL`, as it is. Lines Coxswain builds with file names
+in them ([F2's entries](user-menu.md#settings-and-configtoml), the viewer and editor, **Enter**
+on a program) run in `sh`, which their quoting is written for.
 
 On macOS the desktop app takes its `PATH` from your login shell when it starts, so programs from
 Homebrew are found even when it was started from the Dock. From an AppImage, commands run
@@ -91,7 +95,7 @@ without the AppImage's own libraries in their environment.
 No Settings item. The key *Path to command line* is `copy_path` under `[keys]`, default
 `["Ctrl+Enter", "Ctrl+J"]`; *Panels on/off* is `toggle_panels`, default `["Ctrl+O"]`. The
 theme slots `cmdline` colour the line ([Your own theme](../customise/own-theme.md)). The shell
-cannot be set: it is `$SHELL` in the terminal app and `sh` in the desktop app.
+cannot be set: it is `$SHELL` (`cmd` on Windows) in both apps.
 
 ## In the terminal app
 
@@ -132,10 +136,11 @@ panels back (on Windows it ends the terminal app too, for now).
 `cd` takes a folder, and `-` (the previous folder) is not supported: it looks for a folder
 named `-`. Use **Alt+Left** (*Back*) in the desktop app ([Tabs, back and forward](../panels/tabs-and-panes.md)).
 
-#### My fish (or zsh) syntax works in the terminal app but not in the desktop app.
+#### Does my fish (or zsh) syntax work here?
 
-The terminal app uses your `$SHELL`; the desktop app always uses `sh`. Write the line for `sh`,
-or call your shell yourself: `fish -c 'for f in *.png; echo $f; end'`.
+Yes, in both apps: the line you type runs in your `$SHELL`. **Ctrl+Enter** puts the name under
+the cursor in quoted for `sh`, which fish reads the same unless the name holds a `\`. F2's
+entries run in `sh` ([User menu](user-menu.md#my-entry-uses-fish-or-zsh-syntax-and-fails)).
 
 #### What does Ctrl+O do in the desktop app?
 

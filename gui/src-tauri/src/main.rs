@@ -1450,8 +1450,9 @@ async fn open_path(path: PathBuf) -> Res<()> {
 #[tauri::command]
 async fn edit_path(path: PathBuf, ctx: tauri::State<'_, Ctx>) -> Res<()> {
     let Some(ed) = ctx.cfg().editor.clone() else { return open_path(path).await };
-    let cmd = format!("{ed} {}", coxswain_core::config::quote(&path.to_string_lossy()));
-    tauri::async_runtime::spawn_blocking(move || coxswain_core::tools::spawn_watched(shell(&cmd), std::time::Duration::from_secs(1)).map_err(|e| e.to_string())).await.map_err(|e| e.to_string())?
+    let mut line = coxswain_core::tools::Line::default();
+    line.cmd = format!("{ed} {}", line.word(&path.to_string_lossy()));
+    tauri::async_runtime::spawn_blocking(move || coxswain_core::tools::spawn_watched(line.command(), std::time::Duration::from_secs(1)).map_err(|e| e.to_string())).await.map_err(|e| e.to_string())?
 }
 
 /// Lines of a hex dump, 16 bytes each: 64 KB. The UI says as much.
@@ -1760,14 +1761,6 @@ fn dupes_cancel(ctx: tauri::State<Ctx>) {
 
 // ---------------------------------------------------------------- commands & scripts
 
-fn shell(cmd: &str) -> std::process::Command {
-    let (sh, flag) = if cfg!(windows) { ("cmd", "/C") } else { ("sh", "-c") };
-    // In a Flatpak, on the host: the user's commands and editor are there.
-    let mut c = coxswain_core::tools::user_command(sh);
-    c.arg(flag).arg(cmd);
-    c
-}
-
 fn output(mut c: std::process::Command, dir: &Path) -> Res<String> {
     let out = c.current_dir(dir).stdin(std::process::Stdio::null()).output().map_err(|e| e.to_string())?;
     let mut text = String::from_utf8_lossy(&out.stdout).into_owned();
@@ -1778,10 +1771,11 @@ fn output(mut c: std::process::Command, dir: &Path) -> Res<String> {
     Ok(text)
 }
 
-/// Run a shell command in `dir` and return what it printed. `cd` is handled by the UI.
+/// Run the command line the user typed in `dir`, by their `$SHELL`, and return what it printed.
+/// `cd` is handled by the UI.
 #[tauri::command]
 async fn run_command(cmd: String, dir: PathBuf) -> Res<String> {
-    blocking(move || output(shell(&cmd), &dir)).await
+    blocking(move || output(coxswain_core::tools::typed_line(&cmd), &dir)).await
 }
 
 #[derive(Serialize)]
@@ -1849,8 +1843,8 @@ fn script_files(dir: &Path) -> Vec<PathBuf> {
 async fn run_script(user: Option<usize>, path: Option<PathBuf>, dir: PathBuf, file: Option<PathBuf>, selected: Vec<PathBuf>, ctx: tauri::State<'_, Ctx>) -> Res<String> {
     if let Some(i) = user {
         let list = coxswain_core::user_menu::entries(&ctx.cfg(), &dir, file.as_deref());
-        let cmd = list.get(i).ok_or_else(|| coxswain_core::t!("err.no_such_command"))?.expand(&dir, file.as_deref(), &selected);
-        return blocking(move || output(shell(&cmd), &dir)).await;
+        let line = list.get(i).ok_or_else(|| coxswain_core::t!("err.no_such_command"))?.expand(&dir, file.as_deref(), &selected);
+        return blocking(move || output(line.command(), &dir)).await;
     }
     let script = path.ok_or_else(|| coxswain_core::t!("err.nothing_to_run"))?;
     blocking(move || {
@@ -1880,8 +1874,8 @@ async fn open_keys(ctx: tauri::State<'_, Ctx>) -> Res<()> {
 /// `path` in `editor` at `line`, or with the desktop's default when no editor is set.
 async fn edit_at(path: PathBuf, line: usize, editor: Option<String>) -> Res<()> {
     let Some(ed) = editor else { return open_path(path).await };
-    let cmd = coxswain_core::config::edit_command(&ed, &path, line);
-    tauri::async_runtime::spawn_blocking(move || coxswain_core::tools::spawn_watched(shell(&cmd), std::time::Duration::from_secs(1)).map_err(|e| e.to_string())).await.map_err(|e| e.to_string())?
+    let line = coxswain_core::config::edit_command(&ed, &path, line);
+    tauri::async_runtime::spawn_blocking(move || coxswain_core::tools::spawn_watched(line.command(), std::time::Duration::from_secs(1)).map_err(|e| e.to_string())).await.map_err(|e| e.to_string())?
 }
 
 /// F2's scripts folder, made when it is not there yet, for Settings → Keys to open.

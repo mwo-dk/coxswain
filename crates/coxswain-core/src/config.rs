@@ -1375,17 +1375,26 @@ pub struct UserCommand {
 }
 
 impl UserCommand {
-    /// Substitute `%f`, `%d`, `%s` (shell-quoted) and `%%`.
-    pub fn expand(&self, dir: &std::path::Path, file: Option<&std::path::Path>, selected: &[PathBuf]) -> String {
-        let q = |p: &std::path::Path| quote(&p.to_string_lossy());
-        let file_q = file.map(|f| q(f.file_name().map(std::path::Path::new).unwrap_or(f))).unwrap_or_default();
-        let sel = if selected.is_empty() { file_q.clone() } else { selected.iter().map(|p| q(p)).collect::<Vec<_>>().join(" ") };
+    /// Substitute `%f`, `%d`, `%s` (shell-quoted) and `%%`, for `Line::command`. A name that
+    /// starts with `-` comes as `./-name`, so a program does not take it for an option. On
+    /// Windows `%d` is `.`, the folder the command runs in: cmd.exe would expand a `%` in it.
+    pub fn expand(&self, dir: &std::path::Path, file: Option<&std::path::Path>, selected: &[PathBuf]) -> crate::tools::Line {
+        let mut line = crate::tools::Line::default();
+        let file_q = file
+            .map(|f| {
+                let name = f.file_name().map(|n| n.to_string_lossy()).unwrap_or_else(|| f.to_string_lossy());
+                let name = if name.starts_with('-') { format!(".{}{name}", std::path::MAIN_SEPARATOR) } else { name.into_owned() };
+                line.word(&name)
+            })
+            .unwrap_or_default();
+        let sel = if selected.is_empty() { file_q.clone() } else { selected.iter().map(|p| line.word(&p.to_string_lossy())).collect::<Vec<_>>().join(" ") };
+        let dir_q = if cfg!(windows) { ".".to_string() } else { quote(&dir.to_string_lossy()) };
         let mut out = String::new();
         let mut it = self.command.chars().peekable();
         while let Some(c) = it.next() {
             match (c, it.peek()) {
                 ('%', Some('f')) => out += &file_q,
-                ('%', Some('d')) => out += &q(dir),
+                ('%', Some('d')) => out += &dir_q,
                 ('%', Some('s')) => out += &sel,
                 ('%', Some('%')) => out.push('%'),
                 _ => {
@@ -1395,7 +1404,8 @@ impl UserCommand {
             }
             it.next();
         }
-        out
+        line.cmd = out;
+        line
     }
 }
 
@@ -1950,11 +1960,13 @@ pub(crate) fn at_line(text: &str, found: impl Fn(&str) -> bool, example: &str) -
 }
 
 /// `editor` opening `file` at `line`: `+line` for the editors known to take it, else the file.
-pub fn edit_command(editor: &str, file: &std::path::Path, line: usize) -> String {
+pub fn edit_command(editor: &str, file: &std::path::Path, line: usize) -> crate::tools::Line {
     let name = editor.split_whitespace().next().and_then(|p| std::path::Path::new(p).file_stem()).map(|s| s.to_string_lossy().to_lowercase()).unwrap_or_default();
     let plus = ["vi", "vim", "nvim", "gvim", "view", "nano", "pico", "emacs", "emacsclient", "micro", "mg", "joe", "jed", "ne", "kak", "mcedit"].contains(&name.as_str());
     let at = if plus { format!(" +{line}") } else { String::new() };
-    format!("{editor}{at} {}", quote(&file.to_string_lossy()))
+    let mut l = crate::tools::Line::default();
+    l.cmd = format!("{editor}{at} {}", l.word(&file.to_string_lossy()));
+    l
 }
 
 #[cfg(test)]
@@ -2004,9 +2016,9 @@ mod tests {
         assert!(new.starts_with("a = 1\n\n# Keys"), "{new}");
         assert_eq!(new.lines().nth(line - 1), Some("[keys]"));
         Config::parse(&new).expect("still a config that is read");
-        assert_eq!(edit_command("nvim", std::path::Path::new("/c/config.toml"), 7), "nvim +7 /c/config.toml");
-        assert_eq!(edit_command("/usr/bin/nvim -p", std::path::Path::new("/c/config.toml"), 7), "/usr/bin/nvim -p +7 /c/config.toml");
-        assert_eq!(edit_command("code --wait", std::path::Path::new("/c/config.toml"), 7), "code --wait /c/config.toml");
+        assert_eq!(edit_command("nvim", std::path::Path::new("/c/config.toml"), 7).cmd, "nvim +7 /c/config.toml");
+        assert_eq!(edit_command("/usr/bin/nvim -p", std::path::Path::new("/c/config.toml"), 7).cmd, "/usr/bin/nvim -p +7 /c/config.toml");
+        assert_eq!(edit_command("code --wait", std::path::Path::new("/c/config.toml"), 7).cmd, "code --wait /c/config.toml");
     }
 
     #[test]
@@ -2108,8 +2120,46 @@ mod tests {
         let dir = std::path::Path::new("/a b");
         let out = u.expand(dir, Some(&dir.join("it's.txt")), &[]);
         if cfg!(unix) {
-            assert_eq!(out, "vim 'it'\\''s.txt' 'it'\\''s.txt' 100%");
+            assert_eq!(out.cmd, "vim 'it'\\''s.txt' 'it'\\''s.txt' 100%");
         }
+        // A name that starts with `-` is no option to the program.
+        let out = u.expand(dir, Some(&dir.join("-rf")), &[]);
+        let sep = std::path::MAIN_SEPARATOR;
+        assert_eq!(out.shown(), format!("vim .{sep}-rf .{sep}-rf 100%"));
+    }
+
+    /// The line runs in sh whatever `$SHELL` is: in fish `\'` inside single quotes would end
+    /// them, and these names would run `echo INJECTED`.
+    #[cfg(unix)]
+    #[test]
+    fn config_user_command_names_stay_names() {
+        let dir = std::env::temp_dir();
+        let run = |command: &str, file: &str, sel: &[PathBuf]| {
+            let u = UserCommand { key: "x".into(), label: "x".into(), command: command.into(), wait: false, when: None };
+            let mut c = u.expand(&dir, Some(&dir.join(file)), sel).command();
+            assert_eq!(c.get_program(), "sh");
+            let out = c.env("SHELL", "fish").output().unwrap();
+            String::from_utf8(out.stdout).unwrap()
+        };
+        let evil = "x\\';echo INJECTED;#";
+        assert_eq!(run("printf '%%s\\n' %f", evil, &[]), format!("{evil}\n"));
+        let a = dir.join("a\\");
+        let b = dir.join(" ;echo INJECTED;#");
+        let got = run("printf '%%s\\n' %s", evil, &[a.clone(), b.clone()]);
+        assert_eq!(got, format!("{}\n{}\n", a.display(), b.display()));
+        assert!(!got.lines().any(|l| l == "INJECTED"), "{got}");
+    }
+
+    /// cmd.exe gets the line as it is (Rust would write `"` as `\"`), and a `%PATH%` in a
+    /// name is not expanded.
+    #[cfg(windows)]
+    #[test]
+    fn config_user_command_names_stay_names() {
+        let dir = std::env::temp_dir();
+        let u = UserCommand { key: "x".into(), label: "x".into(), command: "echo \"a b\" %f".into(), wait: false, when: None };
+        let out = u.expand(&dir, Some(&dir.join("%PATH%x & echo INJECTED.txt")), &[]).command().output().unwrap();
+        let got = String::from_utf8_lossy(&out.stdout).trim().to_string();
+        assert_eq!(got, "\"a b\" \"%PATH%x & echo INJECTED.txt\"");
     }
 
     #[test]

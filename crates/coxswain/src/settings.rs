@@ -724,7 +724,7 @@ impl App {
                     },
                     // A built-in model not downloaded yet: downloaded on the plain terminal, then set.
                     KeyCode::Enter if o.name == "ask_model" && coxswain_core::chat::of(&c[at.min(c.len() - 1)].0).is_some_and(|m| !m.installed()) => {
-                        self.run_self(&format!("--meaning ask {}", coxswain_core::config::quote(&c[at.min(c.len() - 1)].0)));
+                        self.run_self(&["--meaning", "ask", &c[at.min(c.len() - 1)].0]);
                     }
                     KeyCode::Enter => {
                         at = at.min(c.len() - 1);
@@ -1011,13 +1011,15 @@ impl App {
 
     /// The search setup guide, on the plain terminal.
     pub fn setup_guide(&mut self) {
-        self.run_self("--setup-search");
+        self.run_self(&["--setup-search"]);
     }
 
     /// This program with `args`, on the plain terminal, waiting for a key when it ends.
-    fn run_self(&mut self, args: &str) {
+    fn run_self(&mut self, args: &[&str]) {
         let exe = coxswain_core::tools::this_app().map(|p| p.display().to_string()).unwrap_or_else(|_| "coxswain".into());
-        self.run = Some(Run::Shell { cmd: format!("{} {args}", coxswain_core::config::quote(&exe)), dir: self.panel().dir.clone(), wait: true });
+        let mut line = coxswain_core::tools::Line::default();
+        line.cmd = std::iter::once(exe.as_str()).chain(args.iter().copied()).map(|w| line.word(w)).collect::<Vec<_>>().join(" ");
+        self.run = Some(Run::Shell { line, typed: false, dir: self.panel().dir.clone(), wait: true });
     }
 }
 
