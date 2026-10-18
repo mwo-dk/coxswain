@@ -514,9 +514,15 @@ const UNCHANGED_FOR: Duration = Duration::from_secs(30);
 
 fn costly(store: Option<&Store>, counted: &Counted) -> Costly {
     let mut c = counted.lock().unwrap();
+    if let Some((at, _, costly)) = c.as_ref()
+        && at.elapsed() < COUNTED_FOR
+    {
+        return costly.clone();
+    }
     let writes = store.map_or(0, Store::writes);
     if let Some((at, then, costly)) = c.as_ref()
-        && (at.elapsed() < COUNTED_FOR || (*then == writes && at.elapsed() < UNCHANGED_FOR))
+        && *then == writes
+        && at.elapsed() < UNCHANGED_FOR
     {
         return costly.clone();
     }

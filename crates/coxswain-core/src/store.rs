@@ -369,7 +369,10 @@ impl Store {
         let db = self.db.lock().unwrap();
         // The vacuum goes to the write-ahead log first: written back and emptied, the room is free.
         let done = db.execute_batch("DELETE FROM text; DELETE FROM files; DELETE FROM skipped; DELETE FROM hashes; DELETE FROM chunks; DELETE FROM errors; VACUUM; PRAGMA wal_checkpoint(TRUNCATE);");
-        self.commit_signs(|| done, SignsChange::Reset)
+        // Read again whatever came of it: each statement commits on its own, so a vacuum that
+        // fails still leaves the rows gone.
+        self.commit_signs(|| Ok(()), SignsChange::Reset)?;
+        done
     }
 
     /// What went wrong, with the file it was about, kept for the store's preview: the latest 50,
@@ -1029,7 +1032,9 @@ impl Store {
         let (before, weights) = (meta("meaning_model"), meta("meaning_digest"));
         if !crate::meaning::same_model(&before, id) && digest.is_none_or(|d| d != weights) {
             let done = db.execute_batch("DELETE FROM chunks; UPDATE files SET embedded = NULL;");
-            self.commit_signs(|| done, SignsChange::Reset)?;
+            // Read again whatever came of it: each statement commits on its own.
+            self.commit_signs(|| Ok(()), SignsChange::Reset)?;
+            done?;
         }
         db.execute(
             "INSERT OR REPLACE INTO meta(key, value) VALUES ('meaning_model', ?1)",
@@ -2010,8 +2015,13 @@ fn scan_for(
 /// followed in between (a saved file found by its words within a minute, not after hours of
 /// vectors). `true` when there is more to do.
 fn backlog(store: &Store, stop: &AtomicBool, slice: Option<Duration>) -> rusqlite::Result<bool> {
-    // On battery the work waits for the mains here, a second at a time, the watcher followed.
+    // On battery the work waits for the mains here, a second at a time, the watcher followed;
+    // with none left the backlog is done, not paused.
     if slice.is_some() && !store.hurry.load(Ordering::Relaxed) && crate::machine::on_battery() {
+        if !has_backlog(store)? {
+            store.paused.store(false, Ordering::Relaxed);
+            return Ok(false);
+        }
         store.paused.store(true, Ordering::Relaxed);
         std::thread::sleep(Duration::from_secs(1));
         return Ok(true);
@@ -2022,6 +2032,12 @@ fn backlog(store: &Store, stop: &AtomicBool, slice: Option<Duration>) -> rusqlit
         return Ok(!stop.load(Ordering::Relaxed));
     }
     embed(store, stop, until)
+}
+
+/// Whether there are files to hash, or (with search by meaning on) to give their vectors.
+fn has_backlog(store: &Store) -> rusqlite::Result<bool> {
+    Ok(store.engine().is_some() && !store.unembedded(1)?.is_empty()
+        || !store.unhashed()?.is_empty())
 }
 
 /// Hash the files that share a size. `true` when stopped, or at `until`.
@@ -2607,6 +2623,36 @@ const SLICE: Duration = Duration::from_secs(60);
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_backlog_is_files_to_hash() {
+        let d = std::env::temp_dir().join(format!("coxswain-backlog-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        let store = Store::open(&d.join("search.db")).unwrap();
+        assert!(!has_backlog(&store).unwrap(), "nothing to do: not paused");
+        let files = [d.join("a"), d.join("b")];
+        for f in &files {
+            store
+                .db
+                .lock()
+                .unwrap()
+                .execute(
+                    "INSERT INTO files(path, size, modified, has_text) VALUES (?1, 5, 1, 1)",
+                    [key(f).unwrap()],
+                )
+                .unwrap();
+        }
+        // Two of one size, with text: hashes to make; vectors only with search by meaning on.
+        assert!(has_backlog(&store).unwrap());
+        let hashed: Vec<_> = files
+            .iter()
+            .map(|f| (f.clone(), 5, 1, "h".into()))
+            .collect();
+        store.put_hashes(&hashed).unwrap();
+        assert!(!has_backlog(&store).unwrap());
+        let _ = std::fs::remove_dir_all(&d);
+    }
 
     #[test]
     fn writes_never_wait_for_signs_a_search_holds() {

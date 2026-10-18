@@ -100,16 +100,6 @@ impl Ctx {
         }
         Ok(out)
     }
-
-    /// `edit_if` for `f` that only counts hints, tried on the counts in memory first: state.json
-    /// is read and written only when a count changes, not each time the cursor moves.
-    fn count_hints<T>(&self, f: impl Fn(&mut BTreeMap<String, u32>) -> (T, bool)) -> Res<T> {
-        let mut probe = self.state.lock().map_err(|e| e.to_string())?.hints_shown.clone();
-        match f(&mut probe) {
-            (out, false) => Ok(out),
-            _ => self.edit_if(|st| f(&mut st.hints_shown)),
-        }
-    }
 }
 
 type Res<T> = Result<T, String>;
@@ -317,22 +307,15 @@ fn action_menu(subject: coxswain_core::menu::Subject) -> Vec<(String, Vec<&'stat
 /// was picked for, and its id.
 #[tauri::command(async)]
 fn hint(subject: coxswain_core::menu::Subject, last: Option<(coxswain_core::menu::Subject, String)>, ctx: tauri::State<Ctx>) -> Option<(&'static str, String)> {
-    let cfg = ctx.cfg();
-    if !cfg.hints {
-        return None;
-    }
-    ctx.count_hints(|shown| coxswain_core::menu::hint_in(&subject, &cfg, last.as_ref().map(|(s, id)| (s, id.as_str())), shown)).ok().flatten()
+    // The counts in memory, shared with `hint_once`: state.json is read and written only when
+    // one changes (or another app wrote it), not each time the cursor moves.
+    coxswain_core::menu::hint(&subject, &ctx.cfg(), last.as_ref().map(|(s, id)| (s, id.as_str())))
 }
 
 /// Whether the hint `id` that shows in place (Find's scope) is still to be shown; counted.
 #[tauri::command(async)]
 fn hint_once(id: String, ctx: tauri::State<Ctx>) -> bool {
-    let cfg = ctx.cfg();
-    ctx.count_hints(|shown| {
-        let due = coxswain_core::menu::once_in(&id, &cfg, shown);
-        (due, due)
-    })
-    .unwrap_or(false)
+    coxswain_core::menu::once(&id, &ctx.cfg())
 }
 
 /// F1 → Features: every feature with its keys and questions, filtered by `query`.
