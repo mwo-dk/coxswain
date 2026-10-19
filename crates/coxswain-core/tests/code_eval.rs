@@ -206,6 +206,8 @@ fn code_eval() {
         };
         let store = Store::open(&work.join(format!("{corpus}.db"))).unwrap();
         store.set_engine(coxswain_core::meaning::Engine::from_config(&cfg));
+        // Files written just now get their vectors at once.
+        store.quiet.store(0, std::sync::atomic::Ordering::Relaxed);
         store.hurry.store(true, Ordering::Relaxed);
         let t = Instant::now();
         store::scan(&store, &cfg, &AtomicBool::new(false)).unwrap();

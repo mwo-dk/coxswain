@@ -556,6 +556,7 @@
  "disk.report.settings_tui": "Paràmetres d'això: F9 → Ús del disc, o coxswain --settings=disk",
  "disk.report.size": "Mida",
  "disk.report.store_title": "El magatzem de cerca del Coxswain",
+ "disk.report.vectors_changing": "Fitxers que canvien (vectors després de 5 minuts sense canvis)",
  "disk.report.vectors_waiting": "Fitxers esperant vectors",
  "disk.report.waiting": "Esperant per llegir-se",
  "disk.store.cost": "es torna a llegir sol, a mitja velocitat; mentrestant Cerca troba menys paraules als fitxers",
@@ -1571,6 +1572,11 @@
  "find.kind_ask": "Pregunta",
  "find.kind_in_files": "Als fitxers",
  "find.kind_names": "Noms",
+ "find.meaning_changing": {
+  "one": "{n} fitxer canvia",
+  "many": "{n} de fitxers canvien",
+  "other": "{n} fitxers canvien"
+ },
  "find.meaning_for": "significat de {n}",
  "find.meaning_of": "significat de {n} de {total} ({percent} %)",
  "find.more": "{n} més: Retorn els mostra tots",
@@ -2463,6 +2469,11 @@
  "settings.status.down": "El servidor de {host} no respon. S'està executant?",
  "settings.status.failed": "S'ha aturat: {why}",
  "settings.status.meaning": "Significat",
+ "settings.status.meaning_changing": {
+  "one": "{n} fitxer canvia: rebrà els vectors quan porti 5 minuts sense canvis.",
+  "many": "{n} de fitxers canvien: cadascun rebrà els vectors quan porti 5 minuts sense canvis.",
+  "other": "{n} fitxers canvien: cadascun rebrà els vectors quan porti 5 minuts sense canvis."
+ },
  "settings.status.meaning_left": "Queda aproximadament {time} fins que tots els fitxers estiguin fets.",
  "settings.status.meaning_off": "No es troben fitxers sobre les vostres paraules.",
  "settings.status.meaning_ready": "{done} de {total} fitxers · {by}",

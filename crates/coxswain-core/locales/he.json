@@ -556,6 +556,7 @@
  "disk.report.settings_tui": "ההגדרות לזה: F9 ← שימוש בדיסק, או coxswain --settings=disk",
  "disk.report.size": "גודל",
  "disk.report.store_title": "מאגר החיפוש של Coxswain",
+ "disk.report.vectors_changing": "קבצים שמשתנים (וקטורים אחרי 5 דקות ללא שינוי)",
  "disk.report.vectors_waiting": "קבצים שממתינים לווקטורים",
  "disk.report.waiting": "ממתינים לקריאה",
  "disk.store.cost": "נקרא מחדש מעצמו, בחצי מהירות; עד אז חיפוש מוצא פחות מילים בקבצים",
@@ -1571,6 +1572,11 @@
  "find.kind_ask": "שאלה",
  "find.kind_in_files": "בקבצים",
  "find.kind_names": "שמות",
+ "find.meaning_changing": {
+  "one": "קובץ אחד משתנה",
+  "two": "שני קבצים משתנים",
+  "other": "{n} קבצים משתנים"
+ },
  "find.meaning_for": "משמעות ל-{n}",
  "find.meaning_of": "משמעות ל-{n} מתוך {total} ({percent} %)",
  "find.more": "עוד {n}: Enter מציג את כולם",
@@ -2463,6 +2469,11 @@
  "settings.status.down": "השרת ב־{host} אינו עונה. האם הוא פועל?",
  "settings.status.failed": "הוא נעצר: {why}",
  "settings.status.meaning": "משמעות",
+ "settings.status.meaning_changing": {
+  "one": "קובץ אחד משתנה: הוא יקבל את הווקטורים שלו כשלא ישתנה 5 דקות.",
+  "two": "שני קבצים משתנים: כל אחד יקבל את הווקטורים שלו כשלא ישתנה 5 דקות.",
+  "other": "{n} קבצים משתנים: כל אחד יקבל את הווקטורים שלו כשלא ישתנה 5 דקות."
+ },
  "settings.status.meaning_left": "עוד כ־{time} עד שכל הקבצים יסתיימו.",
  "settings.status.meaning_off": "קבצים שעוסקים במילים שלכם לא נמצאים.",
  "settings.status.meaning_ready": "{done} מתוך {total} קבצים · {by}",

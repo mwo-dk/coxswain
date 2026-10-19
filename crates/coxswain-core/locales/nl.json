@@ -536,6 +536,7 @@
  "disk.report.settings_tui": "Instellingen hiervoor: F9 → Schijfgebruik, of coxswain --settings=disk",
  "disk.report.size": "Grootte",
  "disk.report.store_title": "De zoekopslag van Coxswain",
+ "disk.report.vectors_changing": "Bestanden die veranderen (vectoren na 5 minuten ongewijzigd)",
  "disk.report.vectors_waiting": "Bestanden die op vectoren wachten",
  "disk.report.waiting": "Wachten om gelezen te worden",
  "disk.store.cost": "vanzelf opnieuw gelezen, op halve snelheid; tot dan vindt Zoeken minder woorden in bestanden",
@@ -1540,6 +1541,10 @@
  "find.kind_ask": "Vragen",
  "find.kind_in_files": "In bestanden",
  "find.kind_names": "Namen",
+ "find.meaning_changing": {
+  "one": "{n} bestand verandert",
+  "other": "{n} bestanden veranderen"
+ },
  "find.meaning_for": "betekenis voor {n}",
  "find.meaning_of": "betekenis voor {n} van {total} ({percent} %)",
  "find.more": "Nog {n}: Enter toont ze allemaal",
@@ -2407,6 +2412,10 @@
  "settings.status.down": "De server op {host} antwoordt niet. Draait hij?",
  "settings.status.failed": "Het is gestopt: {why}",
  "settings.status.meaning": "Betekenis",
+ "settings.status.meaning_changing": {
+  "one": "{n} bestand verandert: het krijgt zijn vectoren zodra het 5 minuten ongewijzigd is.",
+  "other": "{n} bestanden veranderen: elk krijgt zijn vectoren zodra het 5 minuten ongewijzigd is."
+ },
  "settings.status.meaning_left": "Nog ongeveer {time} tot elk bestand klaar is.",
  "settings.status.meaning_off": "Bestanden over je woorden worden niet gevonden.",
  "settings.status.meaning_ready": "{done} van {total} bestanden · {by}",

@@ -536,6 +536,7 @@
  "disk.report.settings_tui": "Settings at this: F9 → Disk use, or coxswain --settings=disk",
  "disk.report.size": "Size",
  "disk.report.store_title": "Coxswain's search store",
+ "disk.report.vectors_changing": "Files changing (vectors after 5 minutes unchanged)",
  "disk.report.vectors_waiting": "Files waiting for vectors",
  "disk.report.waiting": "Waiting to be read",
  "disk.store.cost": "read again on its own, at half speed; until then Find finds fewer words in files",
@@ -1540,6 +1541,10 @@
  "find.kind_ask": "Ask",
  "find.kind_in_files": "In files",
  "find.kind_names": "Names",
+ "find.meaning_changing": {
+  "one": "{n} file changing",
+  "other": "{n} files changing"
+ },
  "find.meaning_for": "meaning for {n}",
  "find.meaning_of": "meaning for {n} of {total} ({percent} %)",
  "find.more": "{n} more: Enter shows them all",
@@ -2407,6 +2412,10 @@
  "settings.status.down": "The server at {host} does not answer. Is it running?",
  "settings.status.failed": "It stopped: {why}",
  "settings.status.meaning": "Meaning",
+ "settings.status.meaning_changing": {
+  "one": "{n} file is changing: it gets its vectors once it has been unchanged for 5 minutes.",
+  "other": "{n} files are changing: each gets its vectors once it has been unchanged for 5 minutes."
+ },
  "settings.status.meaning_left": "About {time} until every file is done.",
  "settings.status.meaning_off": "Files about your words are not found.",
  "settings.status.meaning_ready": "{done} of {total} files · {by}",

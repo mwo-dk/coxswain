@@ -516,6 +516,7 @@
  "disk.report.settings_tui": "設定でここへ: F9 → ディスク使用量、または coxswain --settings=disk",
  "disk.report.size": "サイズ",
  "disk.report.store_title": "Coxswain の検索ストア",
+ "disk.report.vectors_changing": "変更中のファイル（5 分間変更がなければベクトルを作成）",
  "disk.report.vectors_waiting": "ベクトル待ちのファイル",
  "disk.report.waiting": "読み取り待ち",
  "disk.store.cost": "自動で読み直します (半分の速さ)。それまでファイル検索でファイル内の言葉が見つかりにくくなります",
@@ -1509,6 +1510,9 @@
  "find.kind_ask": "質問",
  "find.kind_in_files": "ファイル内",
  "find.kind_names": "名前",
+ "find.meaning_changing": {
+  "other": "{n} 個のファイルが変更中"
+ },
  "find.meaning_for": "意味 {n} 件",
  "find.meaning_of": "意味 {n} / {total} 件 ({percent} %)",
  "find.more": "ほか {n} 件: Enter ですべて表示",
@@ -2351,6 +2355,9 @@
  "settings.status.down": "{host} のサーバーが応答しません。動いていますか?",
  "settings.status.failed": "停止しました: {why}",
  "settings.status.meaning": "意味",
+ "settings.status.meaning_changing": {
+  "other": "{n} 個のファイルが変更中です。5 分間変更がなければベクトルを作ります。"
+ },
  "settings.status.meaning_left": "すべてのファイルが終わるまで約 {time}。",
  "settings.status.meaning_off": "入力した言葉に関するファイルは検索されません。",
  "settings.status.meaning_ready": "{total} 個中 {done} 個のファイル · {by}",

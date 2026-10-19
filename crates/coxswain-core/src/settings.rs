@@ -683,6 +683,13 @@ pub fn status(
                 );
             }
         }
+        if st.meaning_error.is_none() && st.meaning_changing > 0 {
+            let changing = crate::tn!("settings.status.meaning_changing", st.meaning_changing);
+            meaning.note = Some(match meaning.note.take() {
+                Some(left) => format!("{left} {changing}"),
+                None => changing,
+            });
+        }
         // The model's speed here, and what the files to go take at it: measured on request.
         if meaning.step.is_none() {
             meaning.step = Some(Step::Bench);
@@ -1005,6 +1012,7 @@ mod tests {
             meaning: true,
             meaning_pending: 0,
             meaning_done: 0,
+            meaning_changing: 0,
             meaning_passages: 0,
             meaning_renewing: 0,
             meaning_ms_per_passage: 0,
@@ -1075,6 +1083,7 @@ mod tests {
             meaning: false,
             meaning_pending: 0,
             meaning_done: 0,
+            meaning_changing: 0,
             meaning_passages: 0,
             meaning_renewing: 0,
             meaning_ms_per_passage: 0,
@@ -1151,6 +1160,24 @@ mod tests {
                 percent(0, 0)
             ),
             (8, 99, 100, 100)
+        );
+        // A file an app keeps saving: said apart, not in the files to go.
+        let st = Status {
+            meaning_pending: 0,
+            meaning_changing: 1,
+            ..st
+        };
+        let lines = status(&s, &st, true, &[]);
+        assert_eq!(lines[2].bar, None);
+        assert_eq!(
+            lines[2].note.as_deref(),
+            Some(crate::tn!("settings.status.meaning_changing", 1).as_str())
+        );
+        let st = Status { meaning: true, ..st };
+        let footer = crate::find::footer(&st);
+        assert!(
+            footer.contains(&crate::tn!("find.meaning_changing", 1)),
+            "{footer}"
         );
     }
 

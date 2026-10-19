@@ -556,6 +556,7 @@
  "disk.report.settings_tui": "Les réglages : F9 → Espace disque, ou coxswain --settings=disk",
  "disk.report.size": "Taille",
  "disk.report.store_title": "La base de recherche de Coxswain",
+ "disk.report.vectors_changing": "Fichiers qui changent (vecteurs après 5 minutes sans changement)",
  "disk.report.vectors_waiting": "Fichiers en attente de vecteurs",
  "disk.report.waiting": "En attente de lecture",
  "disk.store.cost": "relue toute seule, à mi-vitesse ; d’ici là Rechercher trouve moins de mots dans les fichiers",
@@ -1571,6 +1572,11 @@
  "find.kind_ask": "Demander",
  "find.kind_in_files": "Dans les fichiers",
  "find.kind_names": "Noms",
+ "find.meaning_changing": {
+  "one": "{n} fichier change",
+  "many": "{n} de fichiers changent",
+  "other": "{n} fichiers changent"
+ },
  "find.meaning_for": "sens pour {n}",
  "find.meaning_of": "sens pour {n} sur {total} ({percent} %)",
  "find.more": "{n} de plus : Entrée les montre tous",
@@ -2463,6 +2469,11 @@
  "settings.status.down": "Le serveur sur {host} ne répond pas. Est-il démarré ?",
  "settings.status.failed": "Arrêté : {why}",
  "settings.status.meaning": "Sens",
+ "settings.status.meaning_changing": {
+  "one": "{n} fichier change : il aura ses vecteurs une fois resté inchangé 5 minutes.",
+  "many": "{n} de fichiers changent : chacun aura ses vecteurs une fois resté inchangé 5 minutes.",
+  "other": "{n} fichiers changent : chacun aura ses vecteurs une fois resté inchangé 5 minutes."
+ },
  "settings.status.meaning_left": "Environ {time} avant que chaque fichier soit traité.",
  "settings.status.meaning_off": "Les fichiers qui parlent de vos mots ne sont pas trouvés.",
  "settings.status.meaning_ready": "{done} fichiers sur {total} · {by}",

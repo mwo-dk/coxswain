@@ -556,6 +556,7 @@
  "disk.report.settings_tui": "Šī iestatījumi: F9 → Diska lietojums vai coxswain --settings=disk",
  "disk.report.size": "Izmērs",
  "disk.report.store_title": "Coxswain meklēšanas krātuve",
+ "disk.report.vectors_changing": "Faili, kas mainās (vektori pēc 5 minūtēm bez izmaiņām)",
  "disk.report.vectors_waiting": "Faili, kas gaida vektorus",
  "disk.report.waiting": "Gaida nolasīšanu",
  "disk.store.cost": "tiek nolasīta no jauna pati, ar pusi ātruma; līdz tam Meklēt atrod failos mazāk vārdu",
@@ -1571,6 +1572,11 @@
  "find.kind_ask": "Jautāt",
  "find.kind_in_files": "Failos",
  "find.kind_names": "Nosaukumi",
+ "find.meaning_changing": {
+  "zero": "{n} failu mainās",
+  "one": "{n} fails mainās",
+  "other": "{n} faili mainās"
+ },
  "find.meaning_for": "nozīme {n} failiem",
  "find.meaning_of": "nozīme {n} no {total} failiem ({percent} %)",
  "find.more": "Vēl {n}: Enter parāda visus",
@@ -2463,6 +2469,11 @@
  "settings.status.down": "Serveris {host} neatbild. Vai tas darbojas?",
  "settings.status.failed": "Tas apstājās: {why}",
  "settings.status.meaning": "Nozīme",
+ "settings.status.meaning_changing": {
+  "zero": "{n} failu mainās: katrs saņems vektorus, kad 5 minūtes būs nemainīgs.",
+  "one": "{n} fails mainās: vektorus tas saņems, kad 5 minūtes būs nemainīgs.",
+  "other": "{n} faili mainās: katrs saņems vektorus, kad 5 minūtes būs nemainīgs."
+ },
  "settings.status.meaning_left": "Apmēram {time}, līdz visi faili būs gatavi.",
  "settings.status.meaning_off": "Faili par jūsu vārdiem netiek atrasti.",
  "settings.status.meaning_ready": "{done} no {total} failiem · {by}",

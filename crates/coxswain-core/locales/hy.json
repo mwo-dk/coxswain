@@ -536,6 +536,7 @@
  "disk.report.settings_tui": "Կարգավորումներ այս մասին՝ F9 → Սկավառակի օգտագործում, կամ coxswain --settings=disk",
  "disk.report.size": "Չափ",
  "disk.report.store_title": "Coxswain-ի որոնման պահոցը",
+ "disk.report.vectors_changing": "Փոփոխվող ֆայլեր (վեկտորներ 5 րոպե անփոփոխ մնալուց հետո)",
  "disk.report.vectors_waiting": "Վեկտորների սպասող ֆայլեր",
  "disk.report.waiting": "Սպասում են կարդացվելու",
  "disk.store.cost": "ինքն իրեն նորից է կարդացվում՝ կես արագությամբ․ մինչ այդ Որոնումը ֆայլերում ավելի քիչ բառեր է գտնում",
@@ -1540,6 +1541,10 @@
  "find.kind_ask": "Հարցնել",
  "find.kind_in_files": "Ֆայլերում",
  "find.kind_names": "Անուններ",
+ "find.meaning_changing": {
+  "one": "{n} ֆայլ փոխվում է",
+  "other": "{n} ֆայլ փոխվում են"
+ },
  "find.meaning_for": "իմաստը՝ {n}",
  "find.meaning_of": "իմաստը՝ {n}՝ {total}-ից ({percent} %)",
  "find.more": "ևս {n}․ Enter-ը ցույց է տալիս բոլորը",
@@ -2407,6 +2412,10 @@
  "settings.status.down": "{host}-ի սերվերը չի պատասխանում։ Այն աշխատո՞ւմ է։",
  "settings.status.failed": "Այն դադարեց․ {why}",
  "settings.status.meaning": "Իմաստ",
+ "settings.status.meaning_changing": {
+  "one": "{n} ֆայլ փոխվում է. վեկտորները կստանա, երբ 5 րոպե անփոփոխ մնա։",
+  "other": "{n} ֆայլ փոխվում են. յուրաքանչյուրը վեկտորները կստանա, երբ 5 րոպե անփոփոխ մնա։"
+ },
  "settings.status.meaning_left": "Մոտ {time}, մինչև բոլոր ֆայլերը պատրաստ լինեն։",
  "settings.status.meaning_off": "Ձեր բառերի մասին ֆայլերը չեն գտնվում։",
  "settings.status.meaning_ready": "{done}՝ {total} ֆայլից · {by}",

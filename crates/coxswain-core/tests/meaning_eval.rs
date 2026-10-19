@@ -185,6 +185,8 @@ fn meaning_eval() {
     };
     let store = Store::open(&work.join("search.db")).unwrap();
     store.set_engine(coxswain_core::meaning::Engine::from_config(&cfg));
+    // Files written just now get their vectors at once.
+    store.quiet.store(0, std::sync::atomic::Ordering::Relaxed);
     assert!(store.meaning.load(Ordering::Relaxed), "no engine: {engine}");
     store.hurry.store(true, Ordering::Relaxed);
     let t = Instant::now();

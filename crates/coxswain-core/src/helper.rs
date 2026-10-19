@@ -150,6 +150,9 @@ pub struct Status {
     pub meaning_pending: usize,
     #[serde(default)]
     pub meaning_done: usize,
+    /// Files still to get their vectors that changed within `store::QUIET`: not to go yet.
+    #[serde(default)]
+    pub meaning_changing: usize,
     /// Passages that have their vectors: what a change of model makes again.
     #[serde(default)]
     pub meaning_passages: usize,
@@ -503,6 +506,7 @@ pub(crate) fn note_once(what: String) {
 struct Costly {
     texts: usize,
     meaning: (usize, usize),
+    changing: usize,
     passages: usize,
     roots: Vec<(PathBuf, Option<PathBuf>, Size)>,
     tools: Vec<(String, bool)>,
@@ -529,6 +533,7 @@ fn costly(store: Option<&Store>, counted: &Counted) -> Costly {
     let costly = Costly {
         texts: store.map_or(0, Store::texts),
         meaning: store.map(Store::meaning_counts).unwrap_or_default(),
+        changing: store.map_or(0, Store::meaning_changing),
         passages: store.map_or(0, Store::passage_count),
         roots: store.map(Store::root_sizes).unwrap_or_default(),
         tools: crate::extract::installed::found()
@@ -696,6 +701,7 @@ fn answer(
                 let Costly {
                     texts,
                     meaning: counts,
+                    changing,
                     passages,
                     roots,
                     tools,
@@ -709,6 +715,7 @@ fn answer(
                     meaning: store.is_some_and(|s| s.meaning.load(Ordering::Relaxed)),
                     meaning_pending: counts.0,
                     meaning_done: counts.1,
+                    meaning_changing: changing,
                     meaning_passages: passages,
                     meaning_renewing: store.map_or(0, |s| s.renewing.load(Ordering::Relaxed)),
                     meaning_ms_per_passage: store

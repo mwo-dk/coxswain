@@ -347,6 +347,8 @@ fn perf_meaning_closest() {
     };
     let store = Store::open(&db).unwrap();
     store.set_engine(coxswain_core::meaning::Engine::from_config(&cfg));
+    // Files written just now get their vectors at once.
+    store.quiet.store(0, std::sync::atomic::Ordering::Relaxed);
     store
         .hurry
         .store(true, std::sync::atomic::Ordering::Relaxed);

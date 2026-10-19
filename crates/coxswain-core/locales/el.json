@@ -536,6 +536,7 @@
  "disk.report.settings_tui": "Ρυθμίσεις σε αυτό: F9 → Χρήση δίσκου, ή coxswain --settings=disk",
  "disk.report.size": "Μέγεθος",
  "disk.report.store_title": "Η αποθήκη αναζήτησης του Coxswain",
+ "disk.report.vectors_changing": "Αρχεία που αλλάζουν (διανύσματα μετά από 5 λεπτά χωρίς αλλαγή)",
  "disk.report.vectors_waiting": "Αρχεία που περιμένουν διανύσματα",
  "disk.report.waiting": "Περιμένουν ανάγνωση",
  "disk.store.cost": "διαβάζεται ξανά μόνη της, με μισή ταχύτητα· μέχρι τότε η Εύρεση βρίσκει λιγότερες λέξεις στα αρχεία",
@@ -1540,6 +1541,10 @@
  "find.kind_ask": "Ερώτηση",
  "find.kind_in_files": "Σε αρχεία",
  "find.kind_names": "Ονόματα",
+ "find.meaning_changing": {
+  "one": "{n} αρχείο αλλάζει",
+  "other": "{n} αρχεία αλλάζουν"
+ },
  "find.meaning_for": "νόημα για {n}",
  "find.meaning_of": "νόημα για {n} από {total} ({percent} %)",
  "find.more": "{n} ακόμη: το Enter τα δείχνει όλα",
@@ -2407,6 +2412,10 @@
  "settings.status.down": "Ο διακομιστής στο {host} δεν απαντά. Εκτελείται;",
  "settings.status.failed": "Σταμάτησε: {why}",
  "settings.status.meaning": "Νόημα",
+ "settings.status.meaning_changing": {
+  "one": "{n} αρχείο αλλάζει: θα πάρει τα διανύσματά του μόλις μείνει αμετάβλητο για 5 λεπτά.",
+  "other": "{n} αρχεία αλλάζουν: το καθένα θα πάρει τα διανύσματά του μόλις μείνει αμετάβλητο για 5 λεπτά."
+ },
  "settings.status.meaning_left": "Περίπου {time} μέχρι να ολοκληρωθούν όλα τα αρχεία.",
  "settings.status.meaning_off": "Δεν βρίσκονται αρχεία που αφορούν τις λέξεις σας.",
  "settings.status.meaning_ready": "{done} από {total} αρχεία · {by}",

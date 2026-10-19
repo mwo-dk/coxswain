@@ -635,6 +635,9 @@ pub fn footer(status: &crate::helper::Status) -> String {
     } else if status.meaning {
         s += &format!(" · {}", t!("find.meaning_for", "n" => status.meaning_done));
     }
+    if status.meaning && status.meaning_changing > 0 {
+        s += &format!(" · {}", crate::tn!("find.meaning_changing", status.meaning_changing));
+    }
     if status.pending > 0 {
         s += &t!("search.reading", "n" => status.pending);
     }

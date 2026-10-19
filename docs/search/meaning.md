@@ -54,13 +54,17 @@ best match are shown (within 0.10 of its score with the built-in model, 0.15 wit
 other server models, and above what unrelated text scores: 0.77 and 0.45), so unrelated files
 stay out. A file found by both its words and its meaning is shown once, under *In
 files*, raised by its meaning. The footer counts the files with vectors: *meaning for 8,120*, and
-while files are still to go, *meaning for 8,120 of 31,208 (26 %)*.
+while files are still to go, *meaning for 8,120 of 31,208 (26 %)*. A file that changed in the last
+five minutes is not to go yet but *changing*: the footer adds *1 file changing*
+([why](#why-does-it-say-a-file-is-changing)).
 
 **In Settings → Finding files**, the *Meaning* line of the status: *8,120 of 31,208 files · the
 built-in model on the GPU (Metal)* (or *on the CPU*, or on a Mac that could not use its GPU *on the
 CPU (this Mac has no Metal GPU to use)*; with a server, *bge-m3 at localhost*), and while files are
 still to go, a progress bar with the percent done (in the terminal app `██░░░░░░░░ 26 %` after the
-counts) and *About 3 hours until every file is done.* Any error is in red, with **Set up…**. While
+counts) and *About 3 hours until every file is done.* Files that changed in the last five minutes
+are not in those counts or that time; the note under the line says *1 file is changing: it gets
+its vectors once it has been unchanged for 5 minutes.* Any error is in red, with **Set up…**. While
 off: *Off*, *Files about your words are not found.*, and **Set up…**.
 
 **In Settings → Finding files → Details → Meaning**, from top to bottom:
@@ -75,7 +79,10 @@ off: *Off*, *Files about your words are not found.*, and **Set up…**.
 - On a Mac, the switch *Use the CPU only*.
 
 **In Find's footer**: *meaning for 8,120* once it runs, *meaning for 8,120 of 31,208 (26 %)* while
-files are still to go.
+files are still to go, and *· 2 files changing* while files changed in the last five minutes.
+
+**In Settings → Disk use** (the store's report): *Files waiting for vectors*, and apart from them
+*Files changing (vectors after 5 minutes unchanged)*.
 
 ## How it works
 
@@ -105,7 +112,11 @@ files are still to go.
   [battery](battery.md) unless you press *Read now*. With the built-in model it rests as long as
   the work took; with a [server](servers.md) it rests a quarter of that, since the work is the
   server's. New and changed files get
-  theirs at the helper's next pass, within ten minutes; their words are searchable at once. A
+  theirs once they have been unchanged for five minutes, at the helper's next pass after that,
+  within ten minutes; their words are searchable at once. Until then they count as *changing*,
+  not as to go: a file an app saves every few seconds (`~/.claude.json`, a browser's session)
+  would otherwise get new vectors over and over and never let the count reach 0. A file whose
+  date is in the future counts as changing until that date is five minutes past. A
   long backlog (the first vectors on a big home folder, hours on the processor) stops every
   minute to read what you saved meanwhile, so a saved file is found by its words within a
   minute even then.
@@ -197,7 +208,8 @@ The same search and the same *About this* group, its passages dimmed in italics.
 `coxswain --meaning cpu|auto` keeps the built-in model on the CPU or lets it use the GPU, and
 `coxswain --meaning` says where it runs. `coxswain --meaning bench [URL MODEL]` times the model on 64
 passages ([above](#how-fast-is-it-here-and-would-another-model-be-faster)). Its Settings
-(**F12** → *Finding files*) show the *Meaning* line with the files done and to go, and
+(**F12** → *Finding files*) show the *Meaning* line with the files done and to go (and, under
+it, *1 file is changing: …* for files changed in the last five minutes), and
 *Measure speed*, as the desktop app's do. While the vectors are
 renewed, Find's footer adds *Renewing search by meaning for whole documents: 23,088 files to go,
 about 3 hours*, and the notice says it once. While it is off, *About this* says *Find files about
@@ -221,6 +233,17 @@ go, times the passages a file has had so far, times what one passage takes on yo
 settles after the first few hundred files. On a
 laptop's CPU that takes hours for a large home folder, and it waits while on battery. A
 [server with a GPU](servers.md) is much faster.
+
+#### Why does it say a file is changing?
+
+A file changed in the last five minutes gets no vectors yet: it is found by its words at once,
+and by its meaning once it has been unchanged for five minutes, at the helper's next pass after
+that (within ten minutes). Find's footer says *1 file changing* and Settings → Finding files
+*1 file is changing: it gets its vectors once it has been unchanged for 5 minutes.* (both apps).
+A file that stays changing is one an app keeps saving: `~/.claude.json`, which Claude Code
+rewrites every few seconds, a browser's session file, a log. Such a file is never counted as to
+go, so the count of files to go reaches 0 instead of hanging at *1 file to go*; nothing needs
+doing. It gets its vectors whenever the app leaves it alone for five minutes.
 
 #### Vectors stopped coming. Why?
 

@@ -576,6 +576,7 @@
  "disk.report.settings_tui": "Налаштування до цього: F9 → Використання диска або coxswain --settings=disk",
  "disk.report.size": "Розмір",
  "disk.report.store_title": "Сховище пошуку Coxswain",
+ "disk.report.vectors_changing": "Файли, що змінюються (вектори після 5 хвилин без змін)",
  "disk.report.vectors_waiting": "Файли, що чекають на вектори",
  "disk.report.waiting": "Чекають на читання",
  "disk.store.cost": "читається знову саме, на половині швидкості; до того Знайти знаходить у файлах менше слів",
@@ -1602,6 +1603,12 @@
  "find.kind_ask": "Запитання",
  "find.kind_in_files": "У файлах",
  "find.kind_names": "Назви",
+ "find.meaning_changing": {
+  "one": "{n} файл змінюється",
+  "few": "{n} файли змінюються",
+  "many": "{n} файлів змінюються",
+  "other": "{n} файлу змінюється"
+ },
  "find.meaning_for": "зміст для {n}",
  "find.meaning_of": "зміст для {n} з {total} ({percent} %)",
  "find.more": "Ще {n}: Enter показує всі",
@@ -2519,6 +2526,12 @@
  "settings.status.down": "Сервер на {host} не відповідає. Він запущений?",
  "settings.status.failed": "Зупинилося: {why}",
  "settings.status.meaning": "Зміст",
+ "settings.status.meaning_changing": {
+  "one": "{n} файл змінюється: він отримає вектори, коли 5 хвилин залишатиметься незмінним.",
+  "few": "{n} файли змінюються: кожен отримає вектори, коли 5 хвилин залишатиметься незмінним.",
+  "many": "{n} файлів змінюються: кожен отримає вектори, коли 5 хвилин залишатиметься незмінним.",
+  "other": "{n} файлу змінюється: кожен отримає вектори, коли 5 хвилин залишатиметься незмінним."
+ },
  "settings.status.meaning_left": "Близько {time}, доки всі файли буде оброблено.",
  "settings.status.meaning_off": "Файли про ваші слова не шукаються.",
  "settings.status.meaning_ready": "{done} з {total} файлів · {by}",

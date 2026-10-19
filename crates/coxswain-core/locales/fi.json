@@ -536,6 +536,7 @@
  "disk.report.settings_tui": "Tämän asetukset: F9 → Levyn käyttö, tai coxswain --settings=disk",
  "disk.report.size": "Koko",
  "disk.report.store_title": "Coxswainin hakutietokanta",
+ "disk.report.vectors_changing": "Muuttuvat tiedostot (vektorit, kun 5 minuuttia muuttumatta)",
  "disk.report.vectors_waiting": "Vektoreita odottavat tiedostot",
  "disk.report.waiting": "Odottaa lukemista",
  "disk.store.cost": "luetaan uudelleen itsestään, puolella nopeudella; siihen asti Etsi löytää tiedostoista vähemmän sanoja",
@@ -1540,6 +1541,10 @@
  "find.kind_ask": "Kysy",
  "find.kind_in_files": "Tiedostoissa",
  "find.kind_names": "Nimet",
+ "find.meaning_changing": {
+  "one": "{n} tiedosto muuttuu",
+  "other": "{n} tiedostoa muuttuu"
+ },
  "find.meaning_for": "merkitys {n} tiedostolle",
  "find.meaning_of": "merkitys {n} tiedostolle {total}:sta ({percent} %)",
  "find.more": "{n} lisää: Enter näyttää kaikki",
@@ -2407,6 +2412,10 @@
  "settings.status.down": "Palvelin {host} ei vastaa. Onko se käynnissä?",
  "settings.status.failed": "Se pysähtyi: {why}",
  "settings.status.meaning": "Merkitys",
+ "settings.status.meaning_changing": {
+  "one": "{n} tiedosto muuttuu: se saa vektorinsa, kun se on ollut 5 minuuttia muuttumatta.",
+  "other": "{n} tiedostoa muuttuu: kukin saa vektorinsa, kun se on ollut 5 minuuttia muuttumatta."
+ },
  "settings.status.meaning_left": "Noin {time}, kunnes kaikki tiedostot ovat valmiit.",
  "settings.status.meaning_off": "Sanojasi käsitteleviä tiedostoja ei löydetä.",
  "settings.status.meaning_ready": "{done}/{total} tiedostoa · {by}",

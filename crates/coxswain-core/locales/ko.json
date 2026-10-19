@@ -516,6 +516,7 @@
  "disk.report.settings_tui": "설정에서 보기: F9 → 디스크 사용량, 또는 coxswain --settings=disk",
  "disk.report.size": "크기",
  "disk.report.store_title": "Coxswain의 검색 저장소",
+ "disk.report.vectors_changing": "변경 중인 파일 (5분 동안 바뀌지 않으면 벡터 생성)",
  "disk.report.vectors_waiting": "벡터를 기다리는 파일",
  "disk.report.waiting": "읽기 대기",
  "disk.store.cost": "절반 속도로 저절로 다시 읽습니다. 그때까지 파일 찾기가 파일 속 단어를 덜 찾습니다",
@@ -1509,6 +1510,9 @@
  "find.kind_ask": "질문",
  "find.kind_in_files": "파일 내용",
  "find.kind_names": "이름",
+ "find.meaning_changing": {
+  "other": "파일 {n}개 변경 중"
+ },
  "find.meaning_for": "의미 {n}개",
  "find.meaning_of": "의미 {n}개 / {total}개 ({percent} %)",
  "find.more": "{n}개 더: Enter로 모두 보기",
@@ -2351,6 +2355,9 @@
  "settings.status.down": "{host}의 서버가 응답하지 않습니다. 실행 중인가요?",
  "settings.status.failed": "중지되었습니다: {why}",
  "settings.status.meaning": "의미",
+ "settings.status.meaning_changing": {
+  "other": "파일 {n}개가 변경 중입니다. 5분 동안 바뀌지 않으면 벡터를 만듭니다."
+ },
  "settings.status.meaning_left": "모든 파일을 마치기까지 약 {time}.",
  "settings.status.meaning_off": "입력한 단어에 관한 파일은 찾지 않습니다.",
  "settings.status.meaning_ready": "파일 {total}개 중 {done}개 · {by}",
