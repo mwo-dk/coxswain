@@ -27,17 +27,17 @@ These rules hold for every contributor and every Claude session in this reposito
   in its Release run. A new file with `cfg(target_os = …)` for those systems goes into
   their workflows' `paths`. Branches need not be up to date with `master`: master's own runs
   catch clashes.
-- **Feature and fix PRs do not bump the version.** A user-visible change adds its row to
-  *Unreleased* at the top of `docs/changelog.md` (below), and nothing else about the version, so
-  PRs do not clash on `Cargo.toml` or the changelog and can run and merge in any order.
+- **Feature and fix PRs do not bump the version.** A user-visible change adds its changelog row as a
+  file of its own, `changelog.d/<branch>.md` (below), and nothing else about the version, so PRs
+  do not clash on `Cargo.toml` or the changelog and can run and merge in any order.
 - **A release is a pull request of its own,** small and holding nothing else: it bumps the version
-  (patch when the Unreleased rows are all fixes, minor when any is a feature, major for breaking
+  (patch when the waiting rows are all fixes, minor when any is a feature, major for breaking
   config or key changes) in `[workspace.package]` and in the `coxswain-core` line under
   `[workspace.dependencies]` (`=X.Y.Z`, the same), runs `cargo check` so `Cargo.lock` follows,
-  moves every Unreleased row into one row for the new version in `docs/changelog.md` (version,
+  moves every `changelog.d/` row into one row for the new version in `docs/changelog.md` (version,
   date, a plain-words summary naming each change with its docs links) and adds that row to the
-  table at the bottom of `README.md` (dropping its oldest, so it keeps ten). Its merge starts the
-  release. Title it `Release X.Y.Z`.
+  table at the bottom of `README.md` (dropping its oldest, so it keeps ten), and deletes the
+  `changelog.d/` files. Its merge starts the release. Title it `Release X.Y.Z`.
 - **All changes go through pull requests.** `master` is protected: no direct pushes, CI must
   pass on Linux, macOS and Windows, squash merge only. Work on a branch, open the PR with
   `gh pr create`, then `gh pr merge --auto --squash` so it merges itself once CI is green.
@@ -115,7 +115,7 @@ These rules hold for every contributor and every Claude session in this reposito
   in the test).
 - **Work a user's machine must redo is a decision, not a side effect.** A change that makes
   existing stores redo work (vectors made again, files read again, an index rebuilt) is named in
-  the PR title and in its Unreleased row, and the release carries it into the version's row,
+  the PR title and in its `changelog.d/` row, and the release carries it into the version's row,
   saying what is redone and for which files. A passage
   change that concerns only some readers bumps that reader's version (`readers` in the store),
   not `meaning::SCHEME`, so only those files are redone; and an older version never throws
@@ -132,8 +132,9 @@ you add or change a feature, the docs change in the same PR.
 
 - **The docs are always current, and CI holds them to it.** The *docs* check
   (`tools/docs-check.py` and `crates/coxswain-core/tests/docs.rs`) runs on every pull request and
-  blocks merge: links and anchors resolve, the changelog has its *Unreleased* section and the
-  version's row, the README its last ten version rows, a release leaves *Unreleased* empty, no old version stands as an example (write `coxswain X.Y.Z`; picture alt texts
+  blocks merge: links and anchors resolve, each `changelog.d/` file is one row whose links
+  resolve, the changelog has the version's row, the README its last ten version rows, a release
+  leaves `changelog.d/` empty, no old version stands as an example (write `coxswain X.Y.Z`; picture alt texts
   too), every question under *Questions* is a `####` heading (never a bold paragraph), every page has its
   *Previous* / *Next* links in `docs/README.md`'s order and a long one its contents, every theme,
   action, `config.toml` key, flag, `--settings=` name and feature is in `docs/` (every action in
@@ -158,13 +159,12 @@ you add or change a feature, the docs change in the same PR.
   of contents when it is long, and ends with previous / next links in `docs/README.md`'s order.
   Screenshots are linked as `../screenshots/<name>.png`. Check every relative link and anchor
   before pushing.
-- **Changelog:** every PR with a user-visible change adds its row, newest first, to the
-  *Unreleased* table at the top of `docs/changelog.md`: `| **What a user gets.** In plain words. |
-  [Docs page](page.md#anchor) |` (columns *What's new* and *Docs*; when the table is empty it is
-  replaced by the line `Nothing yet.`, and the first row brings the table back). `README.md` is
-  not touched: its table shows released versions only, the newest ten rows of
-  `docs/changelog.md`'s *Versions*. The release PR (above) turns the Unreleased rows into the
-  version's row (version, date, what's new) in both tables and leaves `Nothing yet.`
+- **Changelog:** every PR with a user-visible change adds one file, `changelog.d/<branch>.md`,
+  holding one line: `| **What a user gets.** In plain words. | [Docs page](page.md#anchor) |`,
+  links written as from `docs/`. One file per PR, because rows in one shared table clash whenever
+  two PRs merge. `docs/changelog.md` and `README.md` are not touched: they show released versions
+  only (the README the newest ten). The release PR (above) turns the `changelog.d/` rows into the
+  version's row (version, date, what's new) in both tables and deletes the files.
 - **Each feature section** says what it does, how to reach it (keys, menu, Settings, command
   line), what it needs, how the terminal app and the desktop app differ, and its `config.toml`
   keys.

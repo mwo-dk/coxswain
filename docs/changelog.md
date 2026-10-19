@@ -6,7 +6,7 @@ Every version, newest first. Downloads are on the [releases page](https://github
 
 ## Unreleased
 
-What has been merged since the last release, newest first. Each pull request with a change you would notice adds its row here; the next release gathers them into its own row under *Versions*.
+What has been merged since the last release waits in [`changelog.d/`](https://github.com/mwo-dk/coxswain/tree/master/changelog.d), one file per change; the next release gathers them into its own row under *Versions*.
 
 Nothing yet.
 

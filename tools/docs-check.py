@@ -249,10 +249,28 @@ def check_unreleased(v: str, base: str | None) -> int:
         cells = re.split(r"(?<!\\)\|", row)[1:-1]
         if len(cells) != 2 or not LINK.search(cells[1]):
             error(where, f"an Unreleased row has two cells, what's new and a docs link: {row[:60]}")
+    # One file per pull request in changelog.d/ (one row each, its links as from docs/): rows in
+    # one table would clash whenever two pull requests merge.
+    frags = sorted((ROOT / "changelog.d").glob("*.md"))
+    for f in frags:
+        body = [l.strip() for l in read(f).splitlines() if l.strip()]
+        cells = re.split(r"(?<!\\)\|", body[0])[1:-1] if len(body) == 1 else []
+        if len(cells) != 2 or not LINK.search(cells[1]):
+            error(rel(f), "one line: `| **What a user gets.** In plain words. | [Page](path.md#anchor) |`")
+            continue
+        for target in (m.group(1) for m in LINK.finditer(body[0])):
+            if re.match(r"^[a-zA-Z][a-zA-Z0-9+.-]*:|^//", target):
+                continue
+            path, _, anchor = target.partition("#")
+            dest = (ROOT / "docs" / urllib.parse.unquote(path)).resolve()
+            if not dest.exists():
+                error(rel(f), f"{target}: no such file (links are written as from docs/)")
+            elif anchor and dest.suffix == ".md" and urllib.parse.unquote(anchor) not in anchors(dest):
+                error(rel(f), f"{target}: no heading or id #{anchor} in {rel(dest)}")
     was = base_version(base)
-    if rows and was is not None and tuple(map(int, v.split("."))) > tuple(map(int, was.split("."))):
-        error(where, f"{was} → {v} is a release: move the Unreleased rows into {v}'s row")
-    return len(rows)
+    if (rows or frags) and was is not None and tuple(map(int, v.split("."))) > tuple(map(int, was.split("."))):
+        error(where, f"{was} → {v} is a release: move the Unreleased rows and changelog.d/ into {v}'s row")
+    return len(rows) + len(frags)
 
 
 OWN_VERSION = re.compile(r"\b[Cc]oxswain[\w-]*[ /-]v?(\d+)\.(\d+)\.\d+\b")
