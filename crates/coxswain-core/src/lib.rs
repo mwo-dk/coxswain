@@ -40,6 +40,7 @@ pub mod notices;
 mod ports;
 pub mod provenance;
 pub mod rename;
+pub mod searchable;
 pub mod service;
 pub mod settings;
 pub mod setup;

@@ -249,6 +249,8 @@ actions! {
     Pack = "pack", "Pack into an archive", Archives, ["Alt+F5"];
     // Turns on `[archive] disk_images`: from F9 and the action menu on a disk image.
     DiskImages = "disk_images", "Open disk images like folders", Archives, [];
+    // OCRmyPDF: a copy of a scanned PDF with its words in it (`searchable`).
+    SearchablePdf = "searchable_pdf", "Make PDF searchable", Files, ["Alt+P"];
     // Search, the most used first.
     Search = "search", "Find", Search, ["Alt+F7", "Ctrl+F"];
     SearchText = "search_text", "Search inside files", Search, ["Shift+F7", "Ctrl+Shift+F"];
@@ -1436,8 +1438,9 @@ pub fn quote_for(shell: &str, s: &str) -> String {
     format!("'{}'", s.replace('\\', "\\\\").replace('\'', "\\'"))
 }
 
-/// Previews made by external tools (desktop app): LaTeX, LibreOffice, PlantUML, pandoc and
-/// DuckDB. Each runs from a locally installed tool or from a container image.
+/// Previews made by external tools (desktop app): LaTeX, Typst, LibreOffice, Ghostscript,
+/// PlantUML, Kroki's diagram programs, pandoc and DuckDB; and OCRmyPDF for *Make PDF
+/// searchable* (both apps). Each runs from a locally installed tool or from a container image.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 #[serde(default)]
 pub struct PreviewConfig {
@@ -1469,9 +1472,18 @@ impl Default for PreviewConfig {
             ("latex", "docker.io/texlive/texlive:latest"),
             ("plantuml", "docker.io/plantuml/plantuml:latest"),
             ("pandoc", "docker.io/pandoc/core:latest"),
-            // No official images for these; set one you trust (see docs/previews/containers.md).
-            ("libreoffice", ""),
+            // Gotenberg's image, LibreOffice only: LibreOffice publishes none of its own.
+            ("libreoffice", "docker.io/gotenberg/gotenberg:8-libreoffice"),
+            // Kroki's image has the programs of a dozen diagram kinds (`images::KROKI`).
+            ("kroki", "docker.io/yuzutech/kroki:latest"),
+            ("typst", "ghcr.io/typst/typst:latest"),
+            // OCRmyPDF's own image, which has Ghostscript too: one pull for both.
+            ("ocrmypdf", "docker.io/jbarlow83/ocrmypdf-alpine:latest"),
+            ("ghostscript", "docker.io/jbarlow83/ocrmypdf-alpine:latest"),
+            // No official image; set one you trust (see docs/previews/containers.md).
             ("duckdb", ""),
+            // GhostXPS: in none of the images above, and no project publishes one.
+            ("gxps", ""),
         ];
         PreviewConfig {
             prefer: "auto".into(),

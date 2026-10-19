@@ -2,7 +2,8 @@
 
 # Previews made by tools
 
-Some formats need a real program: a TeX distribution, LibreOffice, PlantUML, pandoc, DuckDB.
+Some formats need a real program: a TeX distribution, Typst, LibreOffice, Ghostscript, PlantUML,
+D2 and the other diagram programs, pandoc, DuckDB.
 Coxswain uses one that is installed, or runs it in a [container](containers.md) (podman or
 docker), so nothing has to be installed for a preview you only need now and then. Results are
 kept in a cache, so each file is made once.
@@ -30,8 +31,12 @@ kept in a cache, so each file is made once.
 | Files | Tool | Installed programs it looks for | Container image (default) | Result | Runs by itself |
 |---|---|---|---|---|---|
 | `.tex`, `.ltx` | LaTeX ([LaTeX projects](latex.md)) | `latexmk`, `tectonic`, `pdflatex` | `docker.io/texlive/texlive:latest` (about 2.8 GB to download, 5.9 GB on disk) | PDF | After 0.8 s, when `latex_auto` is on |
-| `.doc` `.docm` `.dotx` `.odt` `.ott` `.rtf` `.ppt` `.pptx` `.pps` `.ppsx` `.pot` `.potx` `.odp` `.otp` `.odg` `.vsd` `.vsdx` `.pub` `.wpd` `.wps` | LibreOffice ([Office](office.md)) | `soffice`, `libreoffice` (also its usual macOS and Windows install folders) | none; set one you trust | PDF | After 0.6 s |
+| `.typ` | Typst ([Documents](documents.md#typst)) | `typst` | `ghcr.io/typst/typst:latest` (about 29 MB to download, 65 MB on disk) | PDF | At once |
+| `.doc` `.docm` `.dot` `.dotx` `.odt` `.ott` `.rtf` `.wri` `.ppt` `.pptx` `.pps` `.ppsx` `.pot` `.potx` `.odp` `.otp` `.odg` `.vsd` `.vsdx` `.pub` `.wpd` `.wps` `.wk1` `.wks` `.123` `.lwp` `.sxw` `.sxc` `.sxi` `.sxd` `.abw` `.cwk` `.pages` `.key` `.numbers` `.fodt` `.fods` `.fodp` `.fodg` `.cdr` `.pmd` `.wmf` `.emf` | LibreOffice ([Office](office.md)) | `soffice`, `libreoffice` (also its usual macOS and Windows install folders) | `docker.io/gotenberg/gotenberg:8-libreoffice` (about 440 MB to download, 1 GB on disk) | PDF | After 0.6 s |
+| `.ps`, `.eps` | Ghostscript ([Documents](documents.md#postscript-and-xps)) | `gs`, `gswin64c` | `docker.io/jbarlow83/ocrmypdf-alpine:latest` (about 310 MB, 850 MB on disk; shared with [Make PDF searchable](../files/searchable-pdf.md)) | PDF | At once |
+| `.xps`, `.oxps` | GhostXPS ([Documents](documents.md#postscript-and-xps)) | `gxps` | none; set one you trust | PDF | At once |
 | `.puml`, `.plantuml`, `.pu`, `.iuml`, `.wsd` | PlantUML ([Diagrams](diagrams.md)) | `plantuml` | `docker.io/plantuml/plantuml:latest` | SVG | At once |
+| `.d2` `.ditaa` `.bob` `.svgbob` `.pikchr` `.nomnoml` `.noml` `.wavedrom` `.vg` `.vega` `.vl` `.vegalite` `.dbml` `.er` `.erd` `.bytefield` | Kroki's programs ([Diagrams](diagrams.md#d2-ditaa-svgbob-and-the-others)) | `d2`, `svgbob`, `pikchr`, `erd` for theirs; none for the others | `docker.io/yuzutech/kroki:latest` (about 1.2 GB to download, 2.8 GB on disk) | SVG | At once |
 | `.rst`, `.rest` | pandoc ([Documents](documents.md)) | `pandoc` | `docker.io/pandoc/core:latest` | HTML | At once |
 | `.duckdb`, `.ddb` | DuckDB ([Data](data.md)) | `duckdb` | none; set one you trust | Tables, row estimates, column counts | At once |
 
@@ -99,7 +104,8 @@ things are kept](../reference/where-things-are-kept.md).
 | *First run pulls docker.io/texlive/texlive:latest (about 2.8 GB)* | The first click downloads the image |
 | *Rendering with soffice…* | Running |
 | *Pulling docker.io/texlive/texlive:latest…* and a progress line | Downloading the image |
-| *soffice is not installed. No image for libreoffice: set [preview.images] libreoffice in the config. Install the program, or let a container make this preview.*, then *Install it:* with the line for this system and **Copy**, and a **Settings → Previews** button | No engine can run: neither an installed program nor a container ([below](#installing-what-is-missing)) |
+| *soffice is not installed. Neither podman nor docker is installed. Install the program, or let a container make this preview.*, then *Install it:* with the line for this system and **Copy**, and a **Settings → Previews** button | No engine can run: neither an installed program nor a container ([below](#installing-what-is-missing)) |
+| *container: Neither podman nor docker is installed. …*, then *ditaa has no program of its own here: install podman or docker, and Kroki's image draws it.* and **Settings → Previews** | A diagram kind only Kroki's image draws, and no container can run |
 | *Stopped after 120 s (the timeout in [preview])* | Too slow |
 | **Try again** | After an error |
 
@@ -108,7 +114,8 @@ things are kept](../reference/where-things-are-kept.md).
 When neither an installed program nor a container can make a preview, the pane says what is
 missing, then *Install the program, or let a container make this preview.* Under it is the
 command that installs the program on this system, with **Copy**, and a **Settings → Previews**
-button that opens *Settings → Previews* to choose a container runtime or an image. Coxswain never
+button that opens *Settings → Previews* to choose a container runtime or an image; with
+*Container runtime → No containers* it opens Settings at that option. Coxswain never
 runs the command: paste it into a shell, then show the file again.
 
 ![The preview pane on sequence.puml with no plantuml and no container runtime: plantuml is not installed. Neither podman nor docker is installed., the line Install it: sudo pacman -S plantuml with Copy, and Settings → Previews](../screenshots/previews-install-line.png)
@@ -117,20 +124,22 @@ The package manager is the system's own: `pkg` on FreeBSD, `pkgin` on NetBSD, `p
 OpenBSD, `pkg` on illumos, on Linux the first of `pacman`, `apt`, `dnf` and `zypper` that is
 installed, Homebrew on a Mac and `winget` on Windows.
 
-| System | LibreOffice | LaTeX | PlantUML | pandoc |
-|---|---|---|---|---|
-| FreeBSD | `pkg install libreoffice` | `pkg install texlive-full` | `pkg install plantuml` | `pkg install hs-pandoc` |
-| NetBSD (`pkgin`) | `pkgin install libreoffice` | none | none | `pkgin install pandoc-cli` |
-| OpenBSD (`pkg_add`) | `pkg_add libreoffice` | `pkg_add texlive_texmf-full` | none | `pkg_add pandoc` |
-| illumos (`pkg`) | none | `pkg install ooce/application/texlive` | none | none |
-| Arch (`pacman`) | `sudo pacman -S libreoffice-fresh` | `sudo pacman -S texlive-basic texlive-latexextra texlive-binextra` | `sudo pacman -S plantuml` | `sudo pacman -S pandoc-cli` |
-| Debian, Ubuntu (`apt`) | `sudo apt install libreoffice` | `sudo apt install texlive-latex-extra latexmk` | `sudo apt install plantuml` | `sudo apt install pandoc` |
-| Fedora (`dnf`) | `sudo dnf install libreoffice` | `sudo dnf install texlive-scheme-medium latexmk` | `sudo dnf install plantuml` | `sudo dnf install pandoc` |
-| openSUSE (`zypper`) | `sudo zypper install libreoffice` | `sudo zypper install texlive-latexmk texlive-collection-latexextra` | `sudo zypper install plantuml` | `sudo zypper install pandoc` |
-| macOS (Homebrew) | `brew install --cask libreoffice` | `brew install --cask mactex-no-gui` | `brew install plantuml` | `brew install pandoc` |
-| Windows (`winget`) | `winget install --id TheDocumentFoundation.LibreOffice -e` | `winget install --id MiKTeX.MiKTeX -e` | none | `winget install --id JohnMacFarlane.Pandoc -e` |
+| System | LibreOffice | LaTeX | Typst | Ghostscript | PlantUML | pandoc |
+|---|---|---|---|---|---|---|
+| FreeBSD | `pkg install libreoffice` | `pkg install texlive-full` | `pkg install typst` | `pkg install ghostscript10` | `pkg install plantuml` | `pkg install hs-pandoc` |
+| NetBSD (`pkgin`) | `pkgin install libreoffice` | none | none | `pkgin install ghostscript-agpl` | none | `pkgin install pandoc-cli` |
+| OpenBSD (`pkg_add`) | `pkg_add libreoffice` | `pkg_add texlive_texmf-full` | none | `pkg_add ghostscript` | none | `pkg_add pandoc` |
+| illumos (`pkg`) | none | `pkg install ooce/application/texlive` | none | none | none | none |
+| Arch (`pacman`) | `sudo pacman -S libreoffice-fresh` | `sudo pacman -S texlive-basic texlive-latexextra texlive-binextra` | `sudo pacman -S typst` | `sudo pacman -S ghostscript` | `sudo pacman -S plantuml` | `sudo pacman -S pandoc-cli` |
+| Debian, Ubuntu (`apt`) | `sudo apt install libreoffice` | `sudo apt install texlive-latex-extra latexmk` | none | `sudo apt install ghostscript` | `sudo apt install plantuml` | `sudo apt install pandoc` |
+| Fedora (`dnf`) | `sudo dnf install libreoffice` | `sudo dnf install texlive-scheme-medium latexmk` | `sudo dnf install typst` | `sudo dnf install ghostscript` | `sudo dnf install plantuml` | `sudo dnf install pandoc` |
+| openSUSE (`zypper`) | `sudo zypper install libreoffice` | `sudo zypper install texlive-latexmk texlive-collection-latexextra` | `sudo zypper install typst` | `sudo zypper install ghostscript` | `sudo zypper install plantuml` | `sudo zypper install pandoc` |
+| macOS (Homebrew) | `brew install --cask libreoffice` | `brew install --cask mactex-no-gui` | `brew install typst` | `brew install ghostscript` | `brew install plantuml` | `brew install pandoc` |
+| Windows (`winget`) | `winget install --id TheDocumentFoundation.LibreOffice -e` | `winget install --id MiKTeX.MiKTeX -e` | `winget install --id Typst.Typst -e` | `winget install --id ArtifexSoftware.GhostScript -e` | none | `winget install --id JohnMacFarlane.Pandoc -e` |
 
-Where the table says *none*, and for DuckDB everywhere, the pane says instead: *plantuml has no
+D2, svgbob, Pikchr and erd come from their own projects' releases (`brew install d2`, `cargo
+install svgbob_cli`, …): Coxswain has no line for them. Where the table says *none*, and for
+DuckDB and GhostXPS everywhere, the pane says instead: *plantuml has no
 package here: get it from its website and put it on PATH.* The programs Coxswain reads with (for
 search: tesseract, pdftoppm, LibreOffice) have their own table in
 [Scans, pictures and older Office files](../search/scans.md#installing-what-is-missing).
@@ -153,8 +162,13 @@ libreoffice = "local"
 latex = "docker.io/texlive/texlive:latest"   # or :latest-medium, about 960 MB to download
 plantuml = "docker.io/plantuml/plantuml:latest"
 pandoc = "docker.io/pandoc/core:latest"
-libreoffice = ""
+libreoffice = "docker.io/gotenberg/gotenberg:8-libreoffice"
+kroki = "docker.io/yuzutech/kroki:latest"   # D2, ditaa, svgbob and the other diagram kinds
+typst = "ghcr.io/typst/typst:latest"
+ghostscript = "docker.io/jbarlow83/ocrmypdf-alpine:latest"
+ocrmypdf = "docker.io/jbarlow83/ocrmypdf-alpine:latest"   # Make PDF searchable
 duckdb = ""
+gxps = ""
 ```
 
 | Settings → Previews | config.toml | Choices, default |
@@ -177,8 +191,11 @@ Setting one image keeps the others' defaults. `prefer_tool` and the other images
 The terminal app has no preview pane, so it runs none of these tools; the `[preview]` section is
 the desktop app's. The terminal app's Settings (**F12** → *Previews*) change it all the same, for
 the desktop app. Run the
-tool yourself on the command line (`latexmk -pdf`, `soffice --headless --convert-to pdf`,
-`plantuml`, `pandoc`, `duckdb`) and open the result with **Enter**.
+tool yourself on the command line (`latexmk -pdf`, `typst compile`, `soffice --headless
+--convert-to pdf`, `gs -dSAFER -sDEVICE=pdfwrite`, `plantuml`, `d2`, `pandoc`, `duckdb`) and
+open the result with **Enter**. The one tool it does run is OCRmyPDF, for
+[Make PDF searchable](../files/searchable-pdf.md) (**Alt+P**), with the same images and
+preferences.
 
 ## Questions
 

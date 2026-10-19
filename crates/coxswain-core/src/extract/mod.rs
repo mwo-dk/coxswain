@@ -58,6 +58,7 @@ fn reader(path: &Path) -> Option<Reader> {
         "md" | "markdown" | "mdx" => |path, max| plain::text(path, max).map(diagram::markdown),
         e if installed::PICTURES.contains(&e) => installed::picture,
         e if installed::OFFICE.contains(&e) => installed::office,
+        e if installed::POSTSCRIPT.contains(&e) => installed::postscript,
         _ => return None,
     })
 }

@@ -20,6 +20,8 @@ export const ui = $state({
   split: 50,
   theme: "cyber",
   status: "",
+  /** A *Make PDF searchable* run under way: which PDF of how many, and what it said last. */
+  searchable: null,
   quick: null,
   cmd: "",
   lastOutput: "",
@@ -397,6 +399,52 @@ export async function openGitConfig(tb = tab()) {
   }
 }
 
+/** *Make PDF searchable* (`coxswain_core::searchable`): the PDFs among `paths`, asked first
+ *  (what it writes, which program runs, the first pull and its size), then run, the status line
+ *  saying how far it is with a Stop button (or the key again). One run at a time. */
+export async function makeSearchable(paths = targets()) {
+  // Its key again while it runs stops it, as the status line says.
+  if (ui.searchable) return stopSearchable();
+  let plan;
+  try {
+    plan = await invoke("searchable_plan", { paths });
+  } catch (err) {
+    return void (ui.status = String(err));
+  }
+  if (!plan.pdfs.length) return void (ui.status = t("searchable.none"));
+  const title = t("action.searchable_pdf");
+  // Nothing to run it with: what to install or turn on, and Settings at the place for it.
+  if (plan.missing) return void (ui.modal = { kind: "message", title, text: plan.missing, settings: ui.cfg.settings.preview_container === "off" ? "preview_container" : "previews", feature: "searchable_pdf" });
+  const what = plan.pdfs.length === 1 ? t("searchable.confirm_one", { name: basename(plan.pdfs[0]), target: plan.targets[0] }) : t("searchable.confirm_many", { n: plan.pdfs.length });
+  ui.modal = { kind: "confirm", title, text: `${what} ${plan.about}`, ok: t("searchable.go"), safe: true, run: () => runSearchable(plan.pdfs), feature: "searchable_pdf" };
+}
+
+async function runSearchable(pdfs) {
+  ui.searchable = { at: 0, all: pdfs.length, name: basename(pdfs[0]), line: "", started: Date.now(), now: Date.now(), stopping: false };
+  const poll = setInterval(async () => {
+    const p = await invoke("searchable_progress").catch(() => null);
+    if (p && ui.searchable) Object.assign(ui.searchable, p, { now: Date.now() });
+  }, 500);
+  try {
+    const made = await invoke("searchable_run", { paths: pdfs });
+    ui.status = made.length === 1 ? t("searchable.done_one", { name: basename(made[0]) }) : t("searchable.done_many", { n: made.length });
+  } catch (err) {
+    if (ui.searchable?.stopping) ui.status = t("searchable.stopped");
+    else ui.modal = failure(t("searchable.failed"), err);
+  } finally {
+    clearInterval(poll);
+    ui.searchable = null;
+    await reloadAll();
+  }
+}
+
+/** Stop the *Make PDF searchable* run under way. */
+export function stopSearchable() {
+  if (!ui.searchable) return;
+  ui.searchable.stopping = true;
+  invoke("searchable_stop");
+}
+
 /** The git line's menu (a right-click on it): the repository's branches and worktrees, and
  *  config, and the handoff to the user's git tool, each with its key. */
 export function gitMenu(tb = tab()) {
@@ -640,6 +688,7 @@ export function subject(tb = tab()) {
     folders: list.length - files.length,
     archives: files.filter((x) => isArchive(x.name) || (ui.cfg.settings.disk_images && (diskSure(x.name) || diskSeen.has(x.path)))).length,
     disk_images: ui.cfg.settings.disk_images ? 0 : files.filter((x) => diskSure(x.name) || diskSeen.has(x.path)).length,
+    pdfs: files.filter((x) => /\.pdf$/i.test(x.name)).length,
     one: list.length === 1 && list[0] === cur,
     marked: tb.marked.size,
     place,

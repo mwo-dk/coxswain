@@ -249,6 +249,7 @@ impl Panel {
             folders: list.iter().filter(|e| e.is_dir).count(),
             archives: list.iter().filter(|e| !e.is_dir && coxswain_core::archive::opens(&e.path)).count(),
             disk_images: if coxswain_core::disk_image::open_on() { 0 } else { list.iter().filter(|e| !e.is_dir && coxswain_core::disk_image::is_disk_image(&e.path)).count() },
+            pdfs: list.iter().filter(|e| !e.is_dir && coxswain_core::searchable::is_pdf(&e.path)).count(),
             one: list.len() == 1 && cur.is_some_and(|c| c.path == list[0].path),
             marked: self.marked.len(),
             place,
@@ -378,6 +379,9 @@ pub enum Dialog {
     /// under the cursor, what Enter (Show me) said, and the dialog Esc goes back to.
     Features { filter: String, list: Vec<coxswain_core::features::Entry>, cursor: usize, said: Option<String>, back: Option<Box<Dialog>> },
     Message { title: String, text: String },
+    /// Make `pdfs` searchable? `text` says what it writes, which program runs and what a first
+    /// run pulls.
+    Searchable { title: String, text: String, pdfs: Vec<PathBuf> },
     /// A CycloneDX BOM, full screen (F3 on one).
     Bom(Box<bom::Viewer>),
     Provenance(Box<provenance::Viewer>),
@@ -404,6 +408,7 @@ fn feature_of(d: &Dialog) -> Option<&'static str> {
             Prompt::Flags(_) => "properties",
         },
         Dialog::Confirm { .. } => "delete",
+        Dialog::Searchable { .. } => "searchable_pdf",
         Dialog::Switch { .. } => "git_branches",
         Dialog::Menu { feature, .. } => feature,
         Dialog::Search { .. } => "find_file",
@@ -533,6 +538,11 @@ pub struct App {
     run: Option<Run>,
     /// The copy, move, delete, extract or pack running on its thread; one at a time.
     job: Option<Job>,
+    /// *Make PDF searchable* running on its thread; one at a time.
+    searchable: Option<Searchable>,
+    /// Its question being worked out on a thread (podman is asked whether it has the image):
+    /// the PDFs, and the dialog's text or why it cannot run.
+    searchable_plan: Option<mpsc::Receiver<SearchablePlan>>,
     /// What Ctrl+Z undoes, the newest last.
     undo: coxswain_core::undo::History,
     /// A history's commits, listed on a thread (git can take seconds): the folder, the name
@@ -567,6 +577,28 @@ enum JobMsg {
     Done(Vec<(PathBuf, std::io::Error)>, Record),
     /// An undo has ended: what came of it.
     Undone(coxswain_core::undo::Undone),
+}
+
+/// *Make PDF searchable* on its thread (`coxswain_core::searchable`): how far it is, what
+/// OCRmyPDF said last, and the flag that stops it.
+struct Searchable {
+    names: Vec<String>,
+    at: usize,
+    line: String,
+    /// The status line it showed last: another message is not written over.
+    shown: String,
+    started: Instant,
+    stop: Arc<std::sync::atomic::AtomicBool>,
+    rx: mpsc::Receiver<SearchableMsg>,
+}
+
+/// The PDFs, and the question's text or why it cannot run.
+type SearchablePlan = (Vec<PathBuf>, Result<String, String>);
+
+enum SearchableMsg {
+    At(usize),
+    Said(String),
+    Done(Vec<Result<PathBuf, String>>),
 }
 
 /// A search for Find: its generation, the query, the kind chip, the folder it is limited to,
@@ -715,6 +747,8 @@ impl App {
             measuring: Default::default(),
             run: None,
             job: None,
+            searchable: None,
+            searchable_plan: None,
             undo: Default::default(),
             list_tx,
             list_rx,
@@ -1016,10 +1050,15 @@ impl App {
         match a {
             // A second Quit while a job runs leaves anyway: a dead network mount must not
             // hold the app. The job's thread ends with the process, its file half done.
-            Action::Quit if self.quit && self.job.is_some() => self.job = None,
+            Action::Quit if self.quit && (self.job.is_some() || self.searchable.is_some()) => (self.job, self.searchable) = (None, None),
             Action::Quit => {
                 self.quit = true;
-                if self.job.is_some() {
+                // Make PDF searchable is stopped, and waited for: its container is killed,
+                // its scratch folder removed, and no copy is left half made.
+                if let Some(s) = &self.searchable {
+                    s.stop.store(true, std::sync::atomic::Ordering::Relaxed);
+                }
+                if self.job.is_some() || self.searchable.is_some() {
                     self.status = Some(t!("status.quit_job", "key" => self.key_label(Action::Quit)));
                 }
             }
@@ -1055,6 +1094,7 @@ impl App {
             Action::NewBranch => self.new_branch(),
             Action::GitTool => self.git_tool(),
             Action::GitConfig => self.git_config(),
+            Action::SearchablePdf => self.searchable_pdf(),
             Action::Mark => {
                 let p = self.panel_mut();
                 p.toggle_mark(p.cursor);
@@ -1589,6 +1629,121 @@ impl App {
         self.dialog = Some(Dialog::GitConfig(Box::new(v)));
     }
 
+    /// *Make PDF searchable* on the PDFs among the marked entries (or the one under the cursor):
+    /// asked first, with what it writes, which program runs and what a first run pulls. While
+    /// one runs, its key stops it.
+    fn searchable_pdf(&mut self) {
+        use coxswain_core::searchable;
+        if let Some(s) = &self.searchable {
+            s.stop.store(true, std::sync::atomic::Ordering::Relaxed);
+            return self.status = Some(t!("searchable.stopping"));
+        }
+        // A PDF only in the cloud is left out: it is not downloaded to be read.
+        let pdfs: Vec<PathBuf> = self.panel().targets().into_iter().filter(|p| searchable::is_pdf(p) && !coxswain_core::cloud::unasked(p) && p.is_file()).collect();
+        if pdfs.is_empty() {
+            return self.status = Some(t!("searchable.none"));
+        }
+        // Asking podman for the image can take a moment: on a thread, so keys keep working.
+        let (tx, rx) = mpsc::channel();
+        let cfg = self.cfg.preview.clone();
+        std::thread::spawn(move || {
+            let plan = searchable::how(&cfg).map(|how| {
+                let what = match pdfs.as_slice() {
+                    [one] => {
+                        let name = one.file_name().unwrap_or_default().to_string_lossy().into_owned();
+                        let target = searchable::target(one).file_name().unwrap_or_default().to_string_lossy().into_owned();
+                        t!("searchable.confirm_one", "name" => name, "target" => target)
+                    }
+                    many => t!("searchable.confirm_many", "n" => many.len()),
+                };
+                format!("{what} {}", searchable::about(&how).0)
+            });
+            let _ = tx.send((pdfs, plan));
+        });
+        self.searchable_plan = Some(rx);
+    }
+
+    /// The question worked out: the dialog, or what is missing with the key of Settings.
+    fn poll_searchable_plan(&mut self) {
+        let Some(rx) = &self.searchable_plan else { return };
+        let Ok((pdfs, plan)) = rx.try_recv() else { return };
+        self.searchable_plan = None;
+        let title = t!("action.searchable_pdf");
+        self.dialog = Some(match plan {
+            Ok(text) => Dialog::Searchable { title, text, pdfs },
+            Err(e) => Dialog::Message { title, text: format!("{e}\n\n{}", t!("searchable.settings_key", "key" => self.key_label(Action::Settings))) },
+        });
+    }
+
+    fn searchable_start(&mut self, pdfs: Vec<PathBuf>) {
+        let (tx, rx) = mpsc::channel();
+        let stop = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let (cfg, flag, list) = (self.cfg.preview.clone(), stop.clone(), pdfs.clone());
+        std::thread::spawn(move || {
+            let said = tx.clone();
+            let at = tx.clone();
+            let done = coxswain_core::searchable::run_all(&cfg, &list, &flag, |i| drop(at.send(SearchableMsg::At(i))), |s| {
+                let line = match s {
+                    coxswain_core::searchable::Said::Pulling(l) => format!("{} {l}", t!("convert.pulling", "image" => cfg.images.get(coxswain_core::searchable::TOOL).cloned().unwrap_or_default())),
+                    coxswain_core::searchable::Said::Line(l) => l.to_string(),
+                };
+                let _ = said.send(SearchableMsg::Said(line));
+            });
+            let _ = tx.send(SearchableMsg::Done(done));
+        });
+        let names = pdfs.iter().map(|p| p.file_name().unwrap_or_default().to_string_lossy().into_owned()).collect();
+        self.searchable = Some(Searchable { names, at: 0, line: String::new(), shown: String::new(), started: Instant::now(), stop, rx });
+        self.poll_searchable();
+    }
+
+    /// How far *Make PDF searchable* is, on the status line; when done, what came of it.
+    fn poll_searchable(&mut self) {
+        let key = self.key_label(Action::SearchablePdf).to_string();
+        let Some(s) = &mut self.searchable else { return };
+        let mut done = None;
+        while let Ok(msg) = s.rx.try_recv() {
+            match msg {
+                SearchableMsg::At(i) => (s.at, s.line) = (i, String::new()),
+                SearchableMsg::Said(l) => s.line = l,
+                SearchableMsg::Done(d) => done = Some(d),
+            }
+        }
+        let Some(done) = done else {
+            let (name, n, all, seconds) = (s.names.get(s.at).cloned().unwrap_or_default(), s.at + 1, s.names.len(), s.started.elapsed().as_secs());
+            let busy = if all > 1 {
+                t!("searchable.busy_of", "name" => name, "n" => n, "all" => all, "seconds" => seconds)
+            } else {
+                t!("searchable.busy", "name" => name, "seconds" => seconds)
+            };
+            let stopping = s.stop.load(std::sync::atomic::Ordering::Relaxed);
+            let tail = if stopping { t!("searchable.stopping") } else { t!("searchable.stop_key", "key" => key) };
+            let line = if s.line.is_empty() { String::new() } else { format!(" · {}", s.line) };
+            let new = format!("{busy}{line} · {tail}");
+            if self.status.is_none() || self.status.as_ref() == Some(&s.shown) {
+                self.status = Some(new.clone());
+            }
+            s.shown = new;
+            return;
+        };
+        let s = self.searchable.take().expect("a run");
+        let stopped = s.stop.load(std::sync::atomic::Ordering::Relaxed);
+        let (made, failed): (Vec<_>, Vec<_>) = done.into_iter().zip(s.names.iter()).partition(|(r, _)| r.is_ok());
+        let made: Vec<PathBuf> = made.into_iter().filter_map(|(r, _)| r.ok()).collect();
+        self.reload();
+        if stopped {
+            return self.status = Some(t!("searchable.stopped"));
+        }
+        if !failed.is_empty() {
+            let why = failed.into_iter().map(|(r, n)| format!("{n}: {}", r.err().unwrap_or_default())).collect::<Vec<_>>().join("\n");
+            self.status = None;
+            return self.dialog = Some(failure(t!("searchable.failed"), &why));
+        }
+        self.status = Some(match made.as_slice() {
+            [one] => t!("searchable.done_one", "name" => one.file_name().unwrap_or_default().to_string_lossy()),
+            many => t!("searchable.done_many", "n" => many.len()),
+        });
+    }
+
     /// What git said, on the status line; when it refused, in a dialog under `title` (what could
     /// not be done), as it can be long.
     fn git_said(&mut self, title: String, r: std::io::Result<String>) {
@@ -2107,6 +2262,11 @@ impl App {
                 _ if esc || matches!(ch, Some('n' | 'N')) => {}
                 _ => self.dialog = Some(Dialog::Confirm { title, text, paths, forever }),
             },
+            Dialog::Searchable { title, text, pdfs } => match (key.code, ch) {
+                (KeyCode::Enter, _) | (_, Some('y' | 'Y')) => self.searchable_start(pdfs),
+                _ if esc || matches!(ch, Some('n' | 'N')) => {}
+                _ => self.dialog = Some(Dialog::Searchable { title, text, pdfs }),
+            },
             Dialog::Switch { title, text, dir, entry } => match (key.code, ch) {
                 (KeyCode::Enter, _) | (_, Some('y' | 'Y')) => {
                     let r = coxswain_core::branches::switch(&dir, &entry);
@@ -2602,6 +2762,8 @@ impl App {
             self.listed(dir, keep, r);
         }
         self.poll_job();
+        self.poll_searchable();
+        self.poll_searchable_plan();
         self.follow_disk();
         while let Ok((dir, news)) = self.git_rx.try_recv() {
             for p in self.panels.iter_mut().filter(|p| p.dir == dir) {
@@ -2724,7 +2886,7 @@ fn main_loop(term: &mut DefaultTerminal, app: &mut App) -> std::io::Result<()> {
     let mut ran = false;
     // A file operation still running when asked to quit finishes first: cut short, it
     // would leave half a file behind. A second Quit lets it go (`Action::Quit`).
-    while !app.quit || app.job.is_some() {
+    while !app.quit || app.job.is_some() || app.searchable.is_some() {
         term.draw(|f| ui::draw(f, app))?;
         match app.run.take() {
             Some(Run::Shell { line, typed, dir, wait }) => {
@@ -3567,6 +3729,22 @@ mod tests {
         assert!(app.status.as_deref().is_some_and(|s| s.contains("F10")), "{:?}", app.status);
         app.act(Action::Quit);
         assert!(app.quit && app.job.is_none(), "the second leaves");
+    }
+
+    /// Quit while Make PDF searchable runs stops it and waits for it to end.
+    #[test]
+    fn quit_stops_make_pdf_searchable_and_waits() {
+        let d = std::env::temp_dir();
+        let mut app = app(d.clone(), d);
+        let (tx, rx) = mpsc::channel();
+        let stop = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        app.searchable = Some(Searchable { names: vec!["scan.pdf".into()], at: 0, line: String::new(), shown: String::new(), started: Instant::now(), stop: stop.clone(), rx });
+        app.act(Action::Quit);
+        assert!(stop.load(std::sync::atomic::Ordering::Relaxed), "stopped");
+        assert!(app.quit && app.searchable.is_some(), "and waited for");
+        tx.send(SearchableMsg::Done(vec![Err("stopped".into())])).unwrap();
+        app.poll_searchable();
+        assert!(app.searchable.is_none(), "then the app can leave");
     }
 
     /// A job whose thread ended without a word (a panic in it) is let go and said, so the app

@@ -492,7 +492,7 @@
         <h2>{m.title}</h2>
         <p>{m.text}</p>
         <div class="buttons">
-          <button class="primary danger" bind:this={input} onclick={() => confirm(m)}>{m.ok}</button>
+          <button class="primary" class:danger={!m.safe} bind:this={input} onclick={() => confirm(m)}>{m.ok}</button>
           <button onclick={close}>{t("common.cancel")}</button>
         </div>
         {@render keys(m.ok)}
@@ -500,7 +500,11 @@
         <h2>{m.title}</h2>
         <p>{m.text}</p>
         {#if m.details}<details><summary>{t("dialog.details")}</summary><pre>{m.details}</pre></details>{/if}
-        <div class="buttons"><button class="primary" bind:this={input} onclick={close}>{t("common.close")}</button></div>
+        <div class="buttons">
+          <!-- What is missing or off: Settings at the place to change it. -->
+          {#if m.settings}<button onclick={() => (ui.modal = { kind: "settings", section: m.settings })}>{t("preview.settings")}</button>{/if}
+          <button class="primary" bind:this={input} onclick={close}>{t("common.close")}</button>
+        </div>
         <p class="keys">{t("dialog.keys_one", { verb: t("common.close") })}</p>
       {:else if m.kind === "help"}
         <h2>{t("dialogs.help_title", { version: ui.cfg.version })}</h2>

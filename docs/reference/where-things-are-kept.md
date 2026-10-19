@@ -63,6 +63,7 @@ shows the search store and *Built-in models* each model with its folder ([Built-
 | `libreoffice-profile/`, `libreoffice-index-profile/` | `~/.cache/coxswain/` | LibreOffice's own profiles for previews and for reading old Office files, so your open LibreOffice is left alone | Yes |
 | Session registration | `~/.config/autostart/coxswain-index.desktop` (FreeBSD, the other BSDs, illumos, and the Flatpak, in the host's `~/.config`), `~/.config/systemd/user/coxswain-index.service` (Linux), `~/Library/LaunchAgents/dk.mwo.coxswain.index.plist` (macOS), the `coxswain-index` value under `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` (Windows) | Only with *Start with my session* | Use `coxswain --index-service off` instead |
 | `coxswain-extract-…` | The system's temporary folder | A few seconds' work of tesseract or LibreOffice while a file is read | Removed by itself |
+| `ocr/` | `~/.cache/coxswain/ocr/` | OCRmyPDF's work while [Make PDF searchable](../files/searchable-pdf.md) runs; the copy itself goes next to the PDF | Removed by itself when each run ends |
 | `coxswain-archive-…` | The system's temporary folder | Files on their way from one archive to another | Removed by itself |
 | Tectonic's cache | `~/.cache/tectonic` (`~/.cache/Tectonic` with older tectonic, `~/Library/Caches/Tectonic` on macOS, `%LOCALAPPDATA%\TectonicProject\Tectonic` on Windows) | TeX packages tectonic downloads when a LaTeX preview uses it; tectonic's own, shared with your own use of it | Yes: downloaded again. Disk use lists it when Coxswain made it |
 

@@ -464,6 +464,12 @@ fn dialog(f: &mut Frame, app: &mut App) {
             f.render_widget(Paragraph::new(text.as_str()).centered().wrap(Wrap { trim: true }), a);
             f.render_widget(Paragraph::new(keys(&verb)).centered(), b);
         }
+        Dialog::Searchable { title, text, .. } => {
+            let inner = frame(f, app, centered(full, 64, 9), title);
+            let [a, _, b] = Layout::vertical([Constraint::Length(5), Constraint::Length(1), Constraint::Length(1)]).areas(inner);
+            f.render_widget(Paragraph::new(text.as_str()).wrap(Wrap { trim: true }), a);
+            f.render_widget(Paragraph::new(keys(&t!("searchable.go"))).centered(), b);
+        }
         Dialog::Message { title, text } => {
             let h = (text.lines().count() as u16 + 5).min(full.height);
             let inner = frame(f, app, centered(full, 76, h), title);
@@ -894,6 +900,7 @@ fn help_text(app: &App, width: usize) -> Vec<Line<'static>> {
     v.push(Line::from(keys(t!("help.branches", "key" => key(Action::Branches), "switch" => key(Action::SwitchBranch), "worktrees" => key(Action::Worktrees)))));
     v.push(Line::from(keys(t!("help.git_tool", "key" => key(Action::GitTool)))));
     v.push(Line::from(keys(t!("help.git_config", "key" => key(Action::GitConfig)))));
+    v.push(Line::from(keys(t!("help.searchable_pdf", "key" => key(Action::SearchablePdf)))));
     v.push(Line::from(""));
     v.extend(syntax_lines());
     v.push(Line::from(""));

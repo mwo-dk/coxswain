@@ -1,13 +1,17 @@
 //! The container images of `[preview.images]`: what each one brings and costs, keeping the
 //! pulled ones up to date (`[preview] image_updates`), and removing those no preview used for
 //! 90 days (`[preview] image_prune`). The desktop app does both in the background; the terminal
-//! app makes no container previews, so it only shows the settings.
+//! app makes no container previews (only Make PDF searchable runs a container there), so it
+//! only shows the settings.
 //!
 //! Only Coxswain's own images are ever touched: an update removes the copy it replaced by that
 //! copy's id, never with `image prune`, which would take the user's other untagged images too.
 
+use std::collections::BTreeMap;
+use std::io::Read;
 use std::path::Path;
-use std::process::Stdio;
+use std::process::{Command, Stdio};
+use std::sync::Mutex;
 
 use crate::config::PreviewConfig;
 use crate::state::AppState;
@@ -23,9 +27,158 @@ const SIZES: &[(&str, u32, u32)] = &[
     ("docker.io/texlive/texlive:latest-medium", 960, 2200),
     ("docker.io/plantuml/plantuml:latest", 141, 353),
     ("docker.io/pandoc/core:latest", 57, 246),
+    ("docker.io/gotenberg/gotenberg:8-libreoffice", 440, 1030),
+    ("docker.io/yuzutech/kroki:latest", 1200, 2830),
+    ("docker.io/jbarlow83/ocrmypdf-alpine:latest", 310, 850),
+    ("ghcr.io/typst/typst:latest", 29, 65),
 ];
 
-const TOOLS: [&str; 5] = ["latex", "libreoffice", "plantuml", "pandoc", "duckdb"];
+const TOOLS: [&str; 10] = [
+    "latex",
+    "libreoffice",
+    "plantuml",
+    "pandoc",
+    "duckdb",
+    "kroki",
+    "typst",
+    "ghostscript",
+    "ocrmypdf",
+    "gxps",
+];
+
+/// The image of `tool`: the diagram kinds Kroki's image draws share its `kroki` image.
+pub fn key(tool: &str) -> &str {
+    if KROKI.contains(&tool) { "kroki" } else { tool }
+}
+
+/// The diagram kinds whose programs Kroki's image has, each drawn from standard input to SVG.
+pub const KROKI: &[&str] = &[
+    "d2", "ditaa", "svgbob", "pikchr", "nomnoml", "wavedrom", "vega", "vegalite", "dbml", "erd",
+    "bytefield",
+];
+
+/// `<rt> run` as every container of Coxswain's starts: removed when it ends, no network, no
+/// SELinux relabelling of your folders, named `name` so a run that is stopped can be killed,
+/// `src` read-only at /src and `out` (when there is one) at /out. It runs as you: in rootless
+/// podman the container's root is you, so `--user 0:0`, where an image's own user (Gotenberg's,
+/// OCRmyPDF's) could not write to /out; rootful docker or podman get your own uid and gid, so
+/// no root-owned file is left, with `HOME=/tmp`, as that user has no home in the image.
+pub fn sealed(rt: &str, rt_path: &Path, name: &str, src: &Path, out: Option<&Path>) -> Command {
+    let mut c = crate::tools::command(rt_path);
+    c.args(["run", "--rm", "-i", "--network=none", "--security-opt", "label=disable", "--name", name]);
+    c.arg("-v").arg(format!("{}:/src:ro", src.display()));
+    if let Some(out) = out {
+        c.arg("-v").arg(format!("{}:/out", out.display()));
+    }
+    c.args(user(rt == "podman" && rootless(rt_path), out.unwrap_or(src)));
+    c
+}
+
+/// The `--user` (and `HOME`) options of `sealed`.
+fn user(rootless_podman: bool, owner: &Path) -> Vec<String> {
+    if rootless_podman {
+        return vec!["--user".into(), "0:0".into()];
+    }
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::MetadataExt;
+        if let Ok(m) = std::fs::metadata(owner) {
+            return vec!["--user".into(), format!("{}:{}", m.uid(), m.gid()), "-e".into(), "HOME=/tmp".into()];
+        }
+    }
+    let _ = owner;
+    vec![]
+}
+
+/// Does podman run rootless here? Asked once (`podman info`); when it cannot say, rootless,
+/// which is how podman runs for a user.
+fn rootless(rt: &Path) -> bool {
+    static ROOTLESS: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+    *ROOTLESS.get_or_init(|| {
+        crate::tools::command(rt)
+            .args(["info", "--format", "{{.Host.Security.Rootless}}"])
+            .stdin(Stdio::null())
+            .stderr(Stdio::null())
+            .output()
+            .map(|o| String::from_utf8_lossy(&o.stdout).trim() != "false")
+            .unwrap_or(true)
+    })
+}
+
+/// The last progress line of every pull under way, by image, for the apps to show.
+static PULLING: Mutex<BTreeMap<String, String>> = Mutex::new(BTreeMap::new());
+
+/// The latest progress line of every pull under way, by image.
+pub fn pulling() -> BTreeMap<String, String> {
+    PULLING.lock().unwrap().clone()
+}
+
+/// Pull (or update) `image`, streaming its progress into `pulling()`. Not covered by any
+/// timeout: images can be gigabytes. Two pulls of the same image at once are fine, the
+/// runtime shares one download.
+pub fn pull(rt: &Path, image: &str) -> Result<(), String> {
+    pull_until(rt, image, &std::sync::atomic::AtomicBool::new(false))
+}
+
+/// `pull`, which `stop` ends: the pull is killed, and what it fetched so far the runtime
+/// keeps for the next one.
+pub fn pull_until(rt: &Path, image: &str, stop: &std::sync::atomic::AtomicBool) -> Result<(), String> {
+    PULLING.lock().unwrap().insert(image.to_string(), String::new());
+    let result = (|| {
+        let mut child = crate::tools::command(rt)
+            .args(["pull", image])
+            .stdin(Stdio::null())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .map_err(|e| e.to_string())?;
+        // docker reports on stdout, podman on stderr; errors come on stderr.
+        let (out, err) = (child.stdout.take().unwrap(), child.stderr.take().unwrap());
+        let (a, b) = (image.to_string(), image.to_string());
+        let t = std::thread::spawn(move || follow(out, &a));
+        let e = std::thread::spawn(move || follow(err, &b));
+        let status = loop {
+            if stop.load(std::sync::atomic::Ordering::Relaxed) {
+                let _ = child.kill();
+                let _ = child.wait();
+                return Err(t!("searchable.stopped"));
+            }
+            if let Some(s) = child.try_wait().map_err(|e| e.to_string())? {
+                break s;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(100));
+        };
+        let _ = t.join();
+        let last_err = e.join().unwrap_or_default();
+        if status.success() {
+            Ok(())
+        } else {
+            Err(t!("convert.pull_failed", "image" => image, "error" => last_err))
+        }
+    })();
+    PULLING.lock().unwrap().remove(image);
+    result
+}
+
+/// Keep the latest line (progress bars redraw with `\r`) of `r` in `PULLING` for `image`;
+/// returns the last one.
+fn follow(mut r: impl Read, image: &str) -> String {
+    let (mut buf, mut acc, mut last) = ([0u8; 4096], String::new(), String::new());
+    loop {
+        let n = match r.read(&mut buf) {
+            Ok(0) | Err(_) => break,
+            Ok(n) => n,
+        };
+        acc.push_str(&String::from_utf8_lossy(&buf[..n]));
+        let Some(i) = acc.rfind(['\n', '\r']) else { continue };
+        if let Some(line) = acc[..i].rsplit(['\n', '\r']).map(str::trim).find(|l| !l.is_empty()) {
+            last = line.to_string();
+            PULLING.lock().unwrap().insert(image.to_string(), last.clone());
+        }
+        acc.drain(..=i);
+    }
+    last
+}
 
 /// Megabytes as "2.8 GB" or "141 MB".
 fn shown(mb: u32) -> String {
@@ -262,6 +415,51 @@ mod tests {
             "all failing: still due"
         );
         assert!(update_round(rt, &[], |_| Err("never".into())));
+    }
+
+    /// Needs podman and the network: `cargo test -p coxswain-core -- --ignored real_pull_stops`.
+    /// A large image not pulled yet; stopped after a second, the pull ends at once.
+    #[test]
+    #[ignore]
+    fn real_pull_stops() {
+        let rt = crate::tools::which("podman").unwrap();
+        let image = "docker.io/library/python:3.13";
+        let stop = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let flag = stop.clone();
+        std::thread::spawn(move || {
+            std::thread::sleep(std::time::Duration::from_secs(1));
+            flag.store(true, std::sync::atomic::Ordering::Relaxed);
+        });
+        let start = std::time::Instant::now();
+        assert!(pull_until(&rt, image, &stop).is_err());
+        assert!(start.elapsed() < std::time::Duration::from_secs(5), "{:?}", start.elapsed());
+        assert!(crate::tools::image_size(&rt, image).is_none(), "not pulled");
+        assert!(!pulling().contains_key(image));
+    }
+
+    #[test]
+    fn follow_keeps_last_complete_line() {
+        assert_eq!(follow("one\ntwo\rthree".as_bytes(), "t"), "two");
+        assert_eq!(pulling().get("t").map(String::as_str), Some("two"));
+    }
+
+    #[test]
+    fn images_diagram_kinds_share_krokis() {
+        assert_eq!(key("d2"), "kroki");
+        assert_eq!(key("latex"), "latex");
+        let c = sealed("docker", Path::new("/nonexistent/docker"), "n", Path::new("/a"), Some(Path::new("/b")));
+        let args: Vec<String> = c.get_args().map(|a| a.to_string_lossy().into_owned()).collect();
+        for want in ["--network=none", "/a:/src:ro", "/b:/out"] {
+            assert!(args.iter().any(|a| a == want), "{want}: {args:?}");
+        }
+        assert_eq!(user(true, Path::new("/")), ["--user", "0:0"], "rootless podman: you are its root");
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::MetadataExt;
+            let tmp = std::env::temp_dir();
+            let m = std::fs::metadata(&tmp).unwrap();
+            assert_eq!(user(false, &tmp), ["--user".to_string(), format!("{}:{}", m.uid(), m.gid()), "-e".into(), "HOME=/tmp".into()], "rootful: the folder's owner");
+        }
     }
 
     #[test]

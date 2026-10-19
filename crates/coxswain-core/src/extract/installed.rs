@@ -2,7 +2,9 @@
 //! - words in pictures, screenshots and scans: `tesseract` (OCR);
 //! - scanned PDFs, which have pictures of pages instead of text: `pdftoppm` makes the pictures;
 //! - older Office formats and drawings (.doc, .ppt, .pub, Visio …): LibreOffice makes a PDF,
-//!   read as any PDF.
+//!   read as any PDF;
+//! - PostScript (.ps, .eps): Ghostscript writes out its text, with `-dSAFER`, as PostScript is
+//!   a programming language. Without Ghostscript it is read as the plain text it is.
 //!
 //! The programs run at the lowest priority, with a time limit, into a folder of their own that
 //! is removed afterwards. Photos from a camera are not read: they seldom have words, and there
@@ -16,14 +18,16 @@ use std::time::Duration;
 use crate::tools;
 
 /// The programs, each with what it reads, for Settings.
-pub const PROGRAMS: &[&str] = &["tesseract", "pdftoppm", "soffice"];
+pub const PROGRAMS: &[&str] = &["tesseract", "pdftoppm", "soffice", "gs"];
+/// What Ghostscript reads.
+pub const POSTSCRIPT: &[&str] = &["ps", "eps"];
 
 /// Pictures tesseract reads.
 pub const PICTURES: &[&str] = &["png", "jpg", "jpeg", "jpe", "tif", "tiff", "webp", "bmp"];
 /// Formats LibreOffice turns into a PDF and the built-in readers do not know.
 pub const OFFICE: &[&str] = &[
     "doc", "dot", "wps", "wpd", "pub", "ppt", "pps", "pot", "vsd", "vsdx", "odg", "sxw", "sxi",
-    "sxd", "lwp", "pages", "key",
+    "sxd", "lwp", "pages", "key", "wri", "wk1", "wks", "123", "sxc", "abw", "cwk", "numbers",
 ];
 /// Pages of a scanned PDF read, at most.
 const MAX_PAGES: u32 = 30;
@@ -32,11 +36,12 @@ const TIMEOUT: Duration = Duration::from_secs(120);
 /// Which of `PROGRAMS` are installed, looked for now: one installed while the helper runs is
 /// used from the next scan, a few stats per file read.
 pub fn found() -> Vec<(&'static str, Option<PathBuf>)> {
-    PROGRAMS.iter().map(|p| (*p, tools::which(p))).collect()
+    PROGRAMS.iter().map(|p| (*p, program(p))).collect()
 }
 
+/// `name` installed; Ghostscript is `gswin64c` on Windows.
 fn program(name: &str) -> Option<PathBuf> {
-    tools::which(name)
+    tools::which(name).or_else(|| (name == "gs").then(|| tools::which("gswin64c")).flatten())
 }
 
 /// The extensions installed programs read now: they are read again when that changes.
@@ -51,7 +56,33 @@ pub fn extensions() -> Vec<&'static str> {
     if program("soffice").is_some() {
         v.extend(OFFICE);
     }
+    if program("gs").is_some() {
+        v.extend(POSTSCRIPT);
+    }
     v
+}
+
+/// The text of a PostScript file, as Ghostscript draws it, without the PostScript itself; as
+/// plain text when Ghostscript is not installed.
+pub fn postscript(path: &Path, max: u64) -> Option<String> {
+    let Some(gs) = program("gs") else {
+        return super::plain::text(path, max);
+    };
+    let eps = path.extension().is_some_and(|e| e.eq_ignore_ascii_case("eps"));
+    let mut args = vec![
+        OsStr::new("-dSAFER"),
+        OsStr::new("-dBATCH"),
+        OsStr::new("-dNOPAUSE"),
+        OsStr::new("-dQUIET"),
+        OsStr::new("-sDEVICE=txtwrite"),
+        OsStr::new("-sOutputFile=-"),
+    ];
+    if eps {
+        args.push(OsStr::new("-dEPSCrop"));
+    }
+    args.push(path.as_os_str());
+    let out = tools::output(&gs, &args, TIMEOUT, super::MAX_TEXT as u64)?;
+    Some(String::from_utf8_lossy(&out).into_owned())
 }
 
 /// A folder of its own for one run, removed when dropped.
@@ -76,7 +107,7 @@ impl Drop for Scratch {
 /// tesseract's languages: English and the language Coxswain is set to (the system's, when it
 /// is set to "auto") when installed, else what is. Read once: the search helper reads no
 /// catalogue, so the setting is read from config.toml here.
-fn languages(tesseract: &Path) -> &'static str {
+pub(crate) fn languages(tesseract: &Path) -> &'static str {
     static LANGS: OnceLock<String> = OnceLock::new();
     LANGS.get_or_init(|| {
         let out = tools::output(
@@ -93,36 +124,7 @@ fn languages(tesseract: &Path) -> &'static str {
             .filter(|l| !l.is_empty() && *l != "osd")
             .map(str::to_string)
             .collect();
-        // BCP 47 to tesseract's ISO 639-2 names, for the languages Coxswain speaks and a few more.
-        let set = crate::config::Config::load()
-            .map(|c| c.language)
-            .unwrap_or_default();
-        let own = if set.is_empty() || set == "auto" {
-            sys_locale::get_locale().unwrap_or_default()
-        } else {
-            set
-        }
-        .to_ascii_lowercase();
-        let code = match own.split(['-', '_']).next().unwrap_or("") {
-            "da" => "dan",
-            "sv" => "swe",
-            "nb" | "no" => "nor",
-            "fi" => "fin",
-            "et" => "est",
-            "lv" => "lav",
-            "lt" => "lit",
-            "de" => "deu",
-            "fr" => "fra",
-            "it" => "ita",
-            "nl" => "nld",
-            "es" => "spa",
-            "ca" => "cat",
-            "eu" => "eus",
-            "he" | "iw" => "heb",
-            "pl" => "pol",
-            "pt" => "por",
-            _ => "",
-        };
+        let code = own_language();
         let chosen: Vec<&str> = ["eng", code]
             .into_iter()
             .filter(|c| installed.iter().any(|i| i == c))
@@ -133,6 +135,41 @@ fn languages(tesseract: &Path) -> &'static str {
             chosen.join("+")
         }
     })
+}
+
+/// Tesseract's ISO 639-2 name of the language Coxswain is set to (the system's, when it is set
+/// to "auto"), for the languages Coxswain speaks and a few more; "" for another.
+pub(crate) fn own_language() -> &'static str {
+    // BCP 47 to tesseract's ISO 639-2 names, for the languages Coxswain speaks and a few more.
+    let set = crate::config::Config::load()
+        .map(|c| c.language)
+        .unwrap_or_default();
+    let own = if set.is_empty() || set == "auto" {
+        sys_locale::get_locale().unwrap_or_default()
+    } else {
+        set
+    }
+    .to_ascii_lowercase();
+    match own.split(['-', '_']).next().unwrap_or("") {
+        "da" => "dan",
+        "sv" => "swe",
+        "nb" | "no" => "nor",
+        "fi" => "fin",
+        "et" => "est",
+        "lv" => "lav",
+        "lt" => "lit",
+        "de" => "deu",
+        "fr" => "fra",
+        "it" => "ita",
+        "nl" => "nld",
+        "es" => "spa",
+        "ca" => "cat",
+        "eu" => "eus",
+        "he" | "iw" => "heb",
+        "pl" => "pol",
+        "pt" => "por",
+        _ => "",
+    }
 }
 
 /// The words tesseract finds in a picture.

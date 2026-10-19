@@ -1214,7 +1214,8 @@ mod tests {
             outbound(&cfg),
             [Out {
                 what: t!("settings.out.images_weekly"),
-                to: "docker.io".into(),
+                // Typst's image is on ghcr.io.
+                to: "docker.io, ghcr.io".into(),
                 local: false
             }],
             "keeping images up to date names the registry"

@@ -3,9 +3,11 @@
 # PowerPoint and Office: quick view and LibreOffice's exact view
 
 PowerPoint decks show at once, drawn in the app with nothing installed. Where LibreOffice is
-installed (or a LibreOffice container image is set), its exact rendering follows and takes the
-quick view's place. Older and other Office formats (`.doc`, `.odt`, `.rtf`, `.ppt`, `.vsdx`, …)
-are shown as the PDF LibreOffice makes of them.
+installed, or podman or docker can run its container (Gotenberg's image), its exact rendering
+follows and takes the quick view's place. Older and other Office formats (`.doc`, `.odt`, `.rtf`,
+`.ppt`, `.vsdx`, …), the old ones of the 1990s (Works, Windows Write, WordPerfect, Lotus 1-2-3,
+StarOffice, AbiWord, ClarisWorks) and Windows clip art (`.wmf`, `.emf`) are shown as the PDF
+LibreOffice makes of them.
 
 ![The desktop app with flight7-review.pptx under the cursor: the engine buttons soffice and container, and the slides as soffice drew them, Flight 7 review, Findings and Next steps, in a PDF viewer](../screenshots/previews-office.png)
 
@@ -33,7 +35,14 @@ are shown as the PDF LibreOffice makes of them.
 | `.xlsx` `.xlsm` `.xls` `.ods` | The sheets as tables, by SheetJS ([Data](data.md)) | – |
 | `.doc` `.docm` `.dotx` `.odt` `.ott` `.rtf` | – | LibreOffice's PDF |
 | `.ppt` `.pps` `.pot` `.odp` `.otp` | – | LibreOffice's PDF |
-| `.odg` `.vsd` `.vsdx` `.pub` `.wpd` `.wps` | – | LibreOffice's PDF |
+| `.odg` `.vsd` `.vsdx` `.pub` | – | LibreOffice's PDF |
+| `.wps` (Works), `.wri` (Windows Write), `.wpd` (WordPerfect), `.lwp` (Lotus WordPro), `.wk1` `.wks` `.123` (Lotus 1-2-3) | – | LibreOffice's PDF |
+| `.sxw` `.sxc` `.sxi` `.sxd` (StarOffice, OpenOffice.org 1), `.abw` (AbiWord), `.cwk` (ClarisWorks, AppleWorks), `.pages` `.key` `.numbers` (Apple iWork, a single file), `.fodt` `.fods` `.fodp` `.fodg` (flat OpenDocument), `.cdr` (CorelDRAW), `.pmd` (PageMaker) | – | LibreOffice's PDF |
+| `.wmf` `.emf` (Windows clip art and metafiles) | – | LibreOffice's PDF of the picture |
+
+What LibreOffice opens depends on its import filters: a file of a version too old or too new for
+them stops with LibreOffice's *source file could not be loaded*, shown with **Try again**. dBase
+(`.dbf`) is not on the list: Gotenberg's LibreOffice has no dBase filter.
 
 Decks saved by PowerPoint for the web (whose parts start with a byte order mark and name each
 other by absolute paths) are mended before they are drawn, so they show too.
@@ -45,9 +54,12 @@ other by absolute paths) are mended before they are drawn, so they show too.
   above the slides.
 - **Exact view:** the PDF in the webview's viewer, fitted to the width.
 - **If LibreOffice fails:** its first error line above the quick view, which stays.
-- **Formats with no quick view, without LibreOffice:** *soffice is not installed. No image for
-  libreoffice: set [preview.images] libreoffice in the config. Install the program, or let a
-  container make this preview.* Under it, *Install it:* with the line for this system
+- **Formats with no quick view, LibreOffice's container not pulled yet:** **Render**, with
+  *First run pulls docker.io/gotenberg/gotenberg:8-libreoffice (about 440 MB)* under it; a click
+  pulls it once and renders.
+- **Formats with no quick view, without LibreOffice or a container runtime:** *soffice is not
+  installed. Neither podman nor docker is installed. Install the program, or let a container
+  make this preview.* Under it, *Install it:* with the line for this system
   (`sudo apt install libreoffice`, `brew install --cask libreoffice`, `winget install --id
   TheDocumentFoundation.LibreOffice -e` …) and **Copy**, and a **Settings → Previews** button
   ([Installing what is missing](tools.md#installing-what-is-missing)).
@@ -60,7 +72,7 @@ other by absolute paths) are mended before they are drawn, so they show too.
 |---|---|---|
 | *How previews are made* | `[preview] prefer` | `"auto"`: an installed program, else a container |
 | – | `[preview.prefer_tool] libreoffice` | Overrides `prefer` for LibreOffice |
-| – | `[preview.images] libreoffice` | String, `""`: no container (there is no official image) |
+| – | `[preview.images] libreoffice` | String, `"docker.io/gotenberg/gotenberg:8-libreoffice"`; `""` never uses a container |
 | *Timeout (seconds)* | `[preview] timeout` | 120 |
 
 Coxswain looks for `soffice` and `libreoffice` on the `PATH`, and in LibreOffice's usual
@@ -88,8 +100,8 @@ needed for `.ppt`, `.odp` and the other formats without a quick view.
 #### Why is a Word `.doc` file not shown?
 
 `.doc` needs LibreOffice: install it (so `soffice` is found; the pane shows the line for your
-system with **Copy**), or set an image for it under `[preview.images] libreoffice`. `.docx` needs
-nothing.
+system with **Copy**), or let its container make it: with podman or docker installed, click
+**Render** once and Gotenberg's image (about 440 MB) is pulled. `.docx` needs nothing.
 
 #### Does it disturb a LibreOffice I have open?
 
@@ -97,10 +109,24 @@ No. Coxswain runs LibreOffice with a profile of its own in the cache folder
 (`libreoffice-profile`), so a running LibreOffice neither takes over the conversion nor sees
 it. Conversions run one at a time.
 
-#### Why is there no official LibreOffice container image?
+#### Why Gotenberg's image, when LibreOffice has none of its own?
 
-The LibreOffice project publishes none, so Coxswain sets none by default. Set one you trust in
-`[preview.images] libreoffice`; it must provide the `soffice` command.
+The LibreOffice project publishes no image. Gotenberg's `8-libreoffice` holds a current
+LibreOffice, rebuilt every few weeks; Coxswain runs only its `soffice`, once per file, with no
+network, and never Gotenberg's server. Set another one you trust in `[preview.images]
+libreoffice`; it must provide the `soffice` command.
+
+#### Can I see old Works, Write or Lotus 1-2-3 files?
+
+Yes, as far as LibreOffice's import filters reach: `.wps`, `.wri`, `.wpd`, `.wk1`, `.wks`,
+`.123` and the others in [Formats](#formats) are shown as the PDF LibreOffice makes. With
+LibreOffice installed, Find reads their words too ([Scans, pictures and older Office
+files](../search/scans.md)).
+
+#### Why does a WMF or EMF picture go through LibreOffice?
+
+Browsers cannot draw Windows metafiles. LibreOffice opens them as drawings and makes a PDF of
+the picture, which the pane shows, sharp at any zoom.
 
 #### The deck shows but the exact view never comes.
 

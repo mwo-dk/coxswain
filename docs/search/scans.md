@@ -29,7 +29,8 @@ and a search finds those words too.
 |---|---|---|
 | `tesseract` (OCR) | The words in screenshots, scans and pictures: `.png` `.jpg` `.jpeg` `.jpe` `.tif` `.tiff` `.webp` `.bmp` | Photos from a camera (a JPEG whose EXIF names the camera maker) are skipped: they seldom have words and there are thousands. It reads English and your system's language, when tesseract has them |
 | `pdftoppm` (with tesseract) | Scanned PDFs, which hold pictures of pages instead of text | Up to 30 pages, at 200 dpi, in grey. Only a PDF with no text of its own |
-| LibreOffice (`soffice`) | Older Office files and others no reader here knows: `.doc` `.dot` `.wps` `.wpd` `.pub` `.ppt` `.pps` `.pot` `.vsd` `.vsdx` `.odg` `.sxw` `.sxi` `.sxd` `.lwp` `.pages` `.key` | Made into a PDF in a temporary folder, read, and removed. It has its own profile, so a LibreOffice you have open is not disturbed |
+| LibreOffice (`soffice`) | Older Office files and others no reader here knows: `.doc` `.dot` `.wps` (Works) `.wpd` (WordPerfect) `.wri` (Windows Write) `.wk1` `.wks` `.123` (Lotus 1-2-3) `.lwp` (Lotus WordPro) `.pub` `.ppt` `.pps` `.pot` `.vsd` `.vsdx` `.odg` `.sxw` `.sxc` `.sxi` `.sxd` (StarOffice) `.abw` (AbiWord) `.cwk` (ClarisWorks) `.pages` `.key` `.numbers` | Made into a PDF in a temporary folder, read, and removed. It has its own profile, so a LibreOffice you have open is not disturbed |
+| Ghostscript (`gs`, on Windows `gswin64c`) | The text of PostScript files: `.ps` `.eps` | Run with `-dSAFER`, as PostScript is a programming language. Without Ghostscript a PostScript file is read as the plain text it is, program and all |
 
 How to install each one on your system: [Installing what is missing](#installing-what-is-missing).
 Coxswain shows the same line where a program is missing.
@@ -45,18 +46,18 @@ the system's own: `pkg` on FreeBSD, `pkgin` on NetBSD, `pkg_add` on OpenBSD, `pk
 on Linux the first of `pacman`, `apt`, `dnf` and `zypper` that is installed, Homebrew on a Mac
 and `winget` on Windows.
 
-| System | tesseract | pdftoppm | LibreOffice |
-|---|---|---|---|
-| FreeBSD | `pkg install tesseract` | `pkg install poppler-utils` | `pkg install libreoffice` |
-| NetBSD (`pkgin`) | `pkgin install tesseract` | `pkgin install poppler-utils` | `pkgin install libreoffice` |
-| OpenBSD (`pkg_add`) | `pkg_add tesseract` | `pkg_add poppler-utils` | `pkg_add libreoffice` |
-| illumos (`pkg`) | none in OmniOS | none | none |
-| Arch (`pacman`) | `sudo pacman -S tesseract tesseract-data-eng` | `sudo pacman -S poppler` | `sudo pacman -S libreoffice-fresh` |
-| Debian, Ubuntu (`apt`) | `sudo apt install tesseract-ocr` | `sudo apt install poppler-utils` | `sudo apt install libreoffice` |
-| Fedora (`dnf`) | `sudo dnf install tesseract` | `sudo dnf install poppler-utils` | `sudo dnf install libreoffice` |
-| openSUSE (`zypper`) | `sudo zypper install tesseract-ocr` | `sudo zypper install poppler-tools` | `sudo zypper install libreoffice` |
-| macOS (Homebrew) | `brew install tesseract` | `brew install poppler` | `brew install --cask libreoffice` (`/Applications/LibreOffice.app` is looked in) |
-| Windows (`winget`) | `winget install --id UB-Mannheim.TesseractOCR -e` (`C:\Program Files\Tesseract-OCR` is looked in) | none: *pdftoppm has no package here: get it from its website and put it on PATH.* (poppler for Windows) | `winget install --id TheDocumentFoundation.LibreOffice -e` (`C:\Program Files\LibreOffice\program` is looked in) |
+| System | tesseract | pdftoppm | LibreOffice | Ghostscript |
+|---|---|---|---|---|
+| FreeBSD | `pkg install tesseract` | `pkg install poppler-utils` | `pkg install libreoffice` | `pkg install ghostscript10` |
+| NetBSD (`pkgin`) | `pkgin install tesseract` | `pkgin install poppler-utils` | `pkgin install libreoffice` | `pkgin install ghostscript-agpl` |
+| OpenBSD (`pkg_add`) | `pkg_add tesseract` | `pkg_add poppler-utils` | `pkg_add libreoffice` | `pkg_add ghostscript` |
+| illumos (`pkg`) | none in OmniOS | none | none | none |
+| Arch (`pacman`) | `sudo pacman -S tesseract tesseract-data-eng` | `sudo pacman -S poppler` | `sudo pacman -S libreoffice-fresh` | `sudo pacman -S ghostscript` |
+| Debian, Ubuntu (`apt`) | `sudo apt install tesseract-ocr` | `sudo apt install poppler-utils` | `sudo apt install libreoffice` | `sudo apt install ghostscript` |
+| Fedora (`dnf`) | `sudo dnf install tesseract` | `sudo dnf install poppler-utils` | `sudo dnf install libreoffice` | `sudo dnf install ghostscript` |
+| openSUSE (`zypper`) | `sudo zypper install tesseract-ocr` | `sudo zypper install poppler-tools` | `sudo zypper install libreoffice` | `sudo zypper install ghostscript` |
+| macOS (Homebrew) | `brew install tesseract` | `brew install poppler` | `brew install --cask libreoffice` (`/Applications/LibreOffice.app` is looked in) | `brew install ghostscript` |
+| Windows (`winget`) | `winget install --id UB-Mannheim.TesseractOCR -e` (`C:\Program Files\Tesseract-OCR` is looked in) | none: *pdftoppm has no package here: get it from its website and put it on PATH.* (poppler for Windows) | `winget install --id TheDocumentFoundation.LibreOffice -e` (`C:\Program Files\LibreOffice\program` is looked in) | `winget install --id ArtifexSoftware.GhostScript -e` |
 
 Where it shows:
 
@@ -71,11 +72,12 @@ row says *not installed*.
 
 ## What you see
 
-*Settings → Finding files → Details → What is read → Programs that read more* lists the three, each with ✓ or ✗:
+*Settings → Finding files → Details → What is read → Programs that read more* lists the four, each with ✓ or ✗:
 
 - *tesseract: words in screenshots, scans and pictures (not camera photos)*
 - *pdftoppm: scanned PDFs, with tesseract*
-- *LibreOffice: older Office files (.doc, .ppt), Publisher, Visio*
+- *LibreOffice: older Office files (.doc, .ppt, Works, Write, Lotus 1-2-3), Publisher, Visio*
+- *Ghostscript: the text of PostScript files (.ps, .eps)*
 
 A missing one adds *· not installed* and the line that installs it, with **Copy**
 ([above](#installing-what-is-missing)). While tesseract is missing and text search is on, both
@@ -141,6 +143,13 @@ have words and there are thousands.
 
 The first 30 pages, turned into pictures at 200 dpi by `pdftoppm` and read by tesseract. Only a PDF
 with no text of its own is handled so.
+
+#### Can I get the words of a scan into the PDF itself?
+
+Yes: **Alt+P** ([Make PDF searchable](../files/searchable-pdf.md)) writes a copy next to it with
+the words in it, by OCRmyPDF, which any PDF reader can then search and select. Find reads that
+copy as any PDF, all its pages, without tesseract. Nothing is read so in the background: only
+when you ask.
 
 #### Will reading pictures slow my machine?
 

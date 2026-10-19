@@ -267,7 +267,7 @@ fn get_config(ctx: tauri::State<Ctx>) -> Res<UiConfig> {
         guide_themes: coxswain_core::guide::THEMES,
         ask_name: coxswain_core::chat::shown(&cfg.search.ask_model),
         trash_restores: coxswain_core::undo::trash_restores(),
-        installs: ["tesseract", "pdftoppm", "soffice", "latex", "plantuml", "pandoc", "nerd-font"].into_iter().map(|p| (p, coxswain_core::tools::install(p))).collect(),
+        installs: ["tesseract", "pdftoppm", "soffice", "gs", "latex", "typst", "plantuml", "pandoc", "ocrmypdf", "nerd-font"].into_iter().map(|p| (p, coxswain_core::tools::install(p))).collect(),
     })
 }
 
@@ -2108,11 +2108,18 @@ fn main() {
             read_text, run_command, scripts, run_script, add_user_command, check_update, archive_list, extract, pack, archive_password, archive_peek, disk_image_facts, opens_as_folder, cloud_fetch, properties, set_flags, set_permissions,
             clip_set, paste, start_drag, watch_dirs, preview::git_diff, preview::sqlite_info, preview::epub_preview,
             preview::file_facts, preview::cert_info, bom::bom_info, bom::bom_node, bom::bom_diff, provenance::provenance_info, provenance::provenance_statements, provenance::provenance_subject, provenance::provenance_cancel, provenance::provenance_sources, provenance::provenance_diff, provenance::provenance_bom, preview::mail_preview, preview::plist_xml, convert::preview_engines, convert::preview_cache, convert::clear_preview_cache,
-            convert::convert, convert::images, convert::pull_image, convert::remove_image, convert::pull_progress, dupes_scan,
+            convert::convert, convert::images, convert::pull_image, convert::remove_image, convert::pull_progress, convert::searchable_plan, convert::searchable_run, convert::searchable_progress, convert::searchable_stop, convert::pdf_scanned, dupes_scan,
             dupes_progress, dupes_cancel, save_settings, search_status, search_level, guide_seen, nerd_font, copy_text, features, open_docs, models_list, models_action, disk_list, disk_clear, own_store
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running Coxswain");
+        .build(tauri::generate_context!())
+        .expect("error while running Coxswain")
+        // The last window closed: a Make PDF searchable run is stopped and waited for, so its
+        // container is killed and its scratch folder removed.
+        .run(|_, event| {
+            if let tauri::RunEvent::Exit = event {
+                convert::searchable_end();
+            }
+        });
 }
 
 #[cfg(test)]
