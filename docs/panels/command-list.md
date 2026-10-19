@@ -57,7 +57,7 @@ them, and in each group the most used action first:
 | Group | Holds |
 |---|---|
 | Moving | Open, Up, Down, Parent folder, Page up, Page down, First, Last, Back, Forward, Left: go to, Right: go to, Edit path |
-| Panels and tabs | Other panel, Hidden files, Refresh, Other panel here, Swap panels, Panels on/off, the tabs, the views, the sidebar, sorting, folder sizes, columns |
+| Panels and tabs | Other panel, Hidden files, Refresh, Other panel here, Swap panels, Panels on/off, the tabs, the views, the sidebar, sorting, folder sizes, columns, Space view |
 | Marking | Mark, Mark all, Mark group, Unmark group, Invert marks |
 | Files | What can I do with this? (the [action menu](action-menu.md)), Copy, Move, Rename, Delete, New folder, the clipboard, Delete permanently, Properties, Batch rename, Colour tag, ZFS snapshots, File flags, Files of this package, Make PDF searchable |
 | Archives | Extract archive, Pack into an archive |

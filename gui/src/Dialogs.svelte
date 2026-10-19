@@ -384,6 +384,7 @@
     // F1 in a dialog or window: Features, at what it is about.
     if (act === "help" && m.kind !== "help") return features(m), true;
     if (m.kind === "guide") return m.key?.(k) ?? false;
+    if (m.kind === "space") return m.key?.(k, act) ?? false;
     if (k === "Esc") return close(), true;
     switch (m.kind) {
       case "input":
@@ -458,7 +459,7 @@
 <!-- The keys of a dialog, in one line the terminal app shares: "Enter Copy · Esc Cancel". -->
 {#snippet keys(verb)}<p class="keys">{t("dialog.keys", { verb, cancel: t("common.cancel") })}</p>{/snippet}
 
-{#if ui.modal && !["dupes", "settings", "bom", "chess"].includes(ui.modal.kind)}
+{#if ui.modal && !["dupes", "settings", "bom", "chess", "space"].includes(ui.modal.kind)}
   {@const m = ui.modal}
   <div class="backdrop" role="presentation" onclick={(e) => e.target === e.currentTarget && close()}>
     <div class="dialog {m.kind}" role="dialog" aria-modal="true" aria-label={m.title ?? (KIND_LABEL[m.kind] ? t(KIND_LABEL[m.kind]) : m.kind)}>

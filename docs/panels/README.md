@@ -25,6 +25,7 @@ Every key here is a default. Each one can be changed in `config.toml` under `[ke
 | [Tabs, back and forward, one pane or two](tabs-and-panes.md) | Tabs, history, **Ctrl+O**, the splitter |
 | [Views: details, columns, thumbnails](views.md) | **Alt+V**, Miller columns, thumbnails, the columns menu, the age chip |
 | [Folder sizes](folder-sizes.md) | Sizes that fill in by themselves, the size of the folder above on `..`, where they come from, measuring again |
+| [Space: where the space goes](space.md) | **Alt+U**: a folder or a drive as a treemap, every file a rectangle by its size and coloured by its kind; the bytes by type, the largest files, zooming, clean-up with Delete |
 | [Git in the panels](git.md) | The git line with the upstream, last fetch and remote, glyphs per file, the last commit per file, the diff, recent repositories, **Alt+G** to open your git tool |
 | [Git history as folders](git-history.md) | **Ctrl+G**: a file's or folder's commits, the files as they were, their diff, copying an old version out |
 | [Git branches and worktrees](git-branches.md) | **Alt+B**: the branches, a branch's files, switching (**Alt+S**) and new branches; **Alt+W**: the worktrees |
@@ -75,6 +76,7 @@ Show the hints again* (desktop app) or `coxswain --hints reset`.
 | **Alt+B** / **Alt+W** | Yes | Yes | The repository's branches / worktrees |
 | **Alt+K** | Yes | Yes | [Chess games](../previews/chess.md): a PGN file's games, an EPD or FEN file's positions |
 | **Alt+C** | Yes | Yes | [Git config](git-config.md): the config as git uses it here, read-only |
+| **Alt+U** | Yes | Yes | [Space](space.md): where the space goes, as a treemap |
 | **Alt+G** | Yes | Yes | [Open in your git tool](git.md#open-in-your-git-tool): commit, push or pull in lazygit, gitui, tig or your desktop client |
 | **Ctrl+,**, **F12** | Settings | Settings, full screen (most terminals pass only **F12** on: *12 Settings* on the F-key bar) | [Settings](../customise/settings.md) |
 | **Shift+F10**, **Menu** | Yes, also the **⋯** on a row and Ctrl+right-click | Yes | [What can I do with this?](action-menu.md): the actions that fit |

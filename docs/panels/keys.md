@@ -74,6 +74,7 @@ On a Mac the shortcuts are the same, with **Ctrl**, not Cmd.
 | **Ctrl+F6** | Sort by size | `sort_size` | By size, largest first | The same |
 | – | Folder sizes | `folder_sizes` | Measure the marked folders, or all, again ([Folder sizes](folder-sizes.md)) | Measure the panel's folders again |
 | – | Columns and folder sizes | `columns` | The columns menu ([Views](views.md#the-columns-menu)); also a right-click on a column header | – |
+| **Alt+U** | Space view | `space_view` | Where the space goes in the folder under the cursor (else the panel's) as a treemap, with the bytes by type and the largest files ([Space](space.md)) | The same, full screen, in coloured blocks |
 
 ### Marking
 

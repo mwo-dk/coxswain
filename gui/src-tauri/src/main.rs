@@ -47,6 +47,9 @@ pub struct Ctx {
     clip: Mutex<(Vec<PathBuf>, bool)>,
     /// The running duplicate scan's progress, if any.
     dupes: Mutex<Option<Arc<coxswain_core::dupes::Progress>>>,
+    /// Space: the walk running, if any, and the tree it made last.
+    space_walk: Mutex<Option<Arc<coxswain_core::space::Progress>>>,
+    space: Arc<Mutex<SpaceTree>>,
     sizer: Arc<coxswain_core::sizes::Sizer>,
     /// The model download for search by meaning, while one runs or has failed.
     meaning: Mutex<Option<(Arc<coxswain_core::meaning::Progress>, Option<String>)>>,
@@ -1863,6 +1866,209 @@ fn dupes_cancel(ctx: tauri::State<Ctx>) {
     }
 }
 
+// ---------------------------------------------------------------- space
+
+/// Space's tree, and the lists of the folder last shown (its id, bytes by type, largest files):
+/// worked out once per folder, not again for each resize.
+#[derive(Default)]
+pub struct SpaceTree {
+    tree: Option<coxswain_core::space::Tree>,
+    lists: Option<(u32, Arc<Vec<coxswain_core::space::TypeRow>>, Arc<Largest>)>,
+}
+
+/// The largest files: id, size, path.
+type Largest = Vec<(u32, u64, PathBuf)>;
+
+/// Walk `dir` for Space, keeping every file's size; one walk at a time, `space_progress`
+/// meanwhile. The tree stays here for `space_view` until `space_close`. What it holds in all,
+/// the files only in the cloud, and how long it took.
+#[tauri::command]
+async fn space_scan(dir: PathBuf, ctx: tauri::State<'_, Ctx>) -> Res<(u64, u64, u64, f64)> {
+    use coxswain_core::space::{Progress, Tree, ROOT};
+    let p = Arc::new(Progress::default());
+    if let Some(old) = ctx.space_walk.lock().map_err(|e| e.to_string())?.replace(p.clone()) {
+        old.stop.store(true, std::sync::atomic::Ordering::Relaxed);
+    }
+    let started = std::time::Instant::now();
+    let walk = p.clone();
+    let tree = tauri::async_runtime::spawn_blocking(move || Tree::scan(&dir, &walk)).await.map_err(|e| e.to_string())?;
+    // Only the newest walk keeps its tree: an older one stopped late must not replace it.
+    {
+        let mut running = ctx.space_walk.lock().map_err(|e| e.to_string())?;
+        if !running.as_ref().is_some_and(|r| Arc::ptr_eq(r, &p)) {
+            return Err(coxswain_core::t!("err.cancelled"));
+        }
+        *running = None;
+    }
+    let tree = tree.ok_or_else(|| coxswain_core::t!("err.cancelled"))?;
+    let (n, online) = (tree.node(ROOT), tree.online);
+    let out = (n.size, n.files as u64, online, started.elapsed().as_secs_f64());
+    *ctx.space.lock().map_err(|e| e.to_string())? = SpaceTree { tree: Some(tree), lists: None };
+    Ok(out)
+}
+
+/// Files and bytes the walk has measured so far.
+#[tauri::command]
+fn space_progress(ctx: tauri::State<Ctx>) -> Option<(u64, u64)> {
+    Some(ctx.space_walk.lock().ok()?.as_ref()?.now())
+}
+
+#[tauri::command]
+fn space_cancel(ctx: tauri::State<Ctx>) {
+    if let Some(p) = ctx.space_walk.lock().ok().and_then(|g| g.clone()) {
+        p.stop.store(true, std::sync::atomic::Ordering::Relaxed);
+    }
+}
+
+/// Space closed: its tree is let go (a whole disk's can be large).
+#[tauri::command]
+async fn space_close(ctx: tauri::State<'_, Ctx>) -> Res<()> {
+    space_cancel(ctx.clone());
+    let space = ctx.space.clone();
+    blocking(move || {
+        let old = std::mem::take(&mut *space.lock().map_err(|e| e.to_string())?);
+        drop(old);
+        Ok(())
+    })
+    .await
+}
+
+/// A rectangle of the map as the window draws it: its type's row in `types` (-1 for folders
+/// and small blocks), and the name and size of one big enough to carry a label.
+#[derive(Serialize)]
+struct SpaceTile {
+    #[serde(flatten)]
+    tile: coxswain_core::space::Tile,
+    ty: i32,
+    name: Option<String>,
+    size: u64,
+}
+
+#[derive(Serialize)]
+struct SpaceView {
+    path: PathBuf,
+    size: u64,
+    files: u32,
+    /// From the top down to the folder shown: (id, name).
+    crumbs: Vec<(u32, String)>,
+    tiles: Vec<SpaceTile>,
+    types: Arc<Vec<coxswain_core::space::TypeRow>>,
+    /// The largest files: id, size, path.
+    largest: Arc<Largest>,
+    /// Each family's colour, by its id.
+    colours: BTreeMap<&'static str, &'static str>,
+}
+
+/// The treemap of the folder `zoom` (an id of the tree; 0 the top) in `w` × `h` pixels, with
+/// its bytes by type and its largest files.
+#[tauri::command]
+async fn space_view(zoom: u32, w: f32, h: f32, ctx: tauri::State<'_, Ctx>) -> Res<SpaceView> {
+    use coxswain_core::space::{Kind, Opts, Rect, ROOT};
+    let space = ctx.space.clone();
+    blocking(move || {
+        let mut guard = space.lock().map_err(|e| e.to_string())?;
+        let SpaceTree { tree, lists } = &mut *guard;
+        let t = tree.as_ref().ok_or("no space tree")?;
+        let zoom = if t.alive(zoom) { zoom } else { ROOT };
+        let (types, largest) = match lists {
+            Some((z, ty, l)) if *z == zoom => (ty.clone(), l.clone()),
+            _ => {
+                let ty = Arc::new(t.types(zoom));
+                let l: Arc<Largest> = Arc::new(t.largest(zoom, 100).into_iter().map(|i| (i, t.node(i).size, t.path(i))).collect());
+                *lists = Some((zoom, ty.clone(), l.clone()));
+                (ty, l)
+            }
+        };
+        let row: std::collections::HashMap<&str, i32> = types.iter().enumerate().map(|(i, r)| (r.ext.as_str(), i as i32)).collect();
+        // Rectangles under about 20 square pixels go into their folder's block of small files,
+        // which also bounds what a flat folder of a million files sends.
+        let opts = Opts { pad: 2.0, head: 16.0, min_area: 20.0 };
+        let tiles = t
+            .layout(zoom, Rect { x: 0.0, y: 0.0, w, h }, &opts)
+            .into_iter()
+            .map(|tile| {
+                let n = t.node(tile.id);
+                let r = tile.rect;
+                let labelled = match tile.kind {
+                    Kind::File => r.w >= 48.0 && r.h >= 18.0,
+                    Kind::Folder => r.w >= opts.head * 4.0 && r.h >= opts.head * 3.0,
+                    Kind::Mount => r.w >= 48.0 && r.h >= 16.0,
+                    Kind::Small => false,
+                };
+                SpaceTile {
+                    ty: if tile.kind == Kind::File { row.get(t.ext(tile.id).as_str()).copied().unwrap_or(-1) } else { -1 },
+                    name: labelled.then(|| n.label().into_owned()),
+                    size: n.size,
+                    tile,
+                }
+            })
+            .collect();
+        let mut crumbs: Vec<(u32, String)> = vec![];
+        let mut at = zoom;
+        loop {
+            let name = if at == ROOT { t.root.display().to_string() } else { t.node(at).label().into_owned() };
+            crumbs.push((at, name));
+            if at == ROOT {
+                break;
+            }
+            at = t.node(at).parent;
+        }
+        crumbs.reverse();
+        let n = t.node(zoom);
+        Ok(SpaceView {
+            path: t.path(zoom),
+            size: n.size,
+            files: n.files,
+            crumbs,
+            tiles,
+            largest,
+            types,
+            colours: coxswain_core::space::Family::ALL.iter().map(|f| (f.id(), f.colour())).collect(),
+        })
+    })
+    .await
+}
+
+/// What the window shows of one rectangle: its path, and whether it is a folder.
+#[tauri::command]
+async fn space_info(id: u32, ctx: tauri::State<'_, Ctx>) -> Res<Option<(PathBuf, bool)>> {
+    let space = ctx.space.clone();
+    blocking(move || {
+        let g = space.lock().map_err(|e| e.to_string())?;
+        Ok(g.tree.as_ref().filter(|t| t.alive(id)).map(|t| (t.path(id), t.node(id).dir)))
+    })
+    .await
+}
+
+/// The folder one level below `zoom` on the way to `id`: what a zoom in shows.
+#[tauri::command]
+async fn space_toward(zoom: u32, id: u32, ctx: tauri::State<'_, Ctx>) -> Res<Option<u32>> {
+    let space = ctx.space.clone();
+    blocking(move || {
+        let g = space.lock().map_err(|e| e.to_string())?;
+        Ok(g.tree.as_ref().filter(|t| t.alive(id) && t.alive(zoom)).and_then(|t| t.toward(zoom, id).filter(|&n| t.node(n).dir).or((id != zoom && t.node(id).dir).then_some(id))))
+    })
+    .await
+}
+
+/// These went (a delete from Space): out of the tree, which shows the rest. The bytes and
+/// files left in all.
+#[tauri::command]
+async fn space_gone(paths: Vec<PathBuf>, ctx: tauri::State<'_, Ctx>) -> Res<Option<(u64, u32)>> {
+    let space = ctx.space.clone();
+    blocking(move || {
+        let mut g = space.lock().map_err(|e| e.to_string())?;
+        g.lists = None;
+        let Some(t) = g.tree.as_mut() else { return Ok(None) };
+        for p in paths.iter().filter(|p| std::fs::symlink_metadata(p).is_err()) {
+            t.remove(p);
+        }
+        let n = t.node(coxswain_core::space::ROOT);
+        Ok(Some((n.size, n.files)))
+    })
+    .await
+}
+
 // ---------------------------------------------------------------- commands & scripts
 
 fn output(mut c: std::process::Command, dir: &Path) -> Res<String> {
@@ -2081,6 +2287,8 @@ fn main() {
         watcher: Mutex::default(),
         clip: Mutex::default(),
         dupes: Mutex::default(),
+        space_walk: Mutex::default(),
+        space: Arc::default(),
         meaning: Mutex::default(),
         chat: Mutex::default(),
         measuring: Mutex::default(),
@@ -2110,7 +2318,7 @@ fn main() {
             clip_set, paste, start_drag, watch_dirs, chess::chess_looks, chess::chess_rows, chess::chess_game, chess::chess_positions, chess::chess_hit, chess::chess_close, preview::git_diff, preview::sqlite_info, preview::epub_preview,
             preview::file_facts, preview::old_picture, preview::comic_pages, preview::module_names, preview::cert_info, bom::bom_info, bom::bom_node, bom::bom_diff, provenance::provenance_info, provenance::provenance_statements, provenance::provenance_subject, provenance::provenance_cancel, provenance::provenance_sources, provenance::provenance_diff, provenance::provenance_bom, preview::mail_preview, preview::plist_xml, convert::preview_engines, convert::preview_cache, convert::clear_preview_cache,
             convert::convert, convert::images, convert::pull_image, convert::remove_image, convert::pull_progress, convert::searchable_plan, convert::searchable_run, convert::searchable_progress, convert::searchable_stop, convert::pdf_scanned, dupes_scan,
-            dupes_progress, dupes_cancel, save_settings, search_status, search_level, guide_seen, nerd_font, copy_text, features, open_docs, models_list, models_action, disk_list, disk_clear, own_store
+            dupes_progress, dupes_cancel, space_scan, space_progress, space_cancel, space_view, space_info, space_toward, space_gone, space_close, save_settings, search_status, search_level, guide_seen, nerd_font, copy_text, features, open_docs, models_list, models_action, disk_list, disk_clear, own_store
         ])
         .build(tauri::generate_context!())
         .expect("error while running Coxswain")

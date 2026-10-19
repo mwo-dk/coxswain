@@ -456,4 +456,4 @@ HEAD is on a commit, not on a branch: after `git checkout <commit>`, during a re
 bisect. **Alt+B** and **Alt+S** switch back to a branch.
 
 ---
-[← Previous: Folder sizes](folder-sizes.md) · [Next: Git history as folders →](git-history.md)
+[← Previous: Space: where the space goes](space.md) · [Next: Git history as folders →](git-history.md)

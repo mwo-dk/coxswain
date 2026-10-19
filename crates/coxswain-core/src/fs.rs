@@ -849,6 +849,52 @@ pub fn protected(path: &Path) -> bool {
     false
 }
 
+/// `protected` for Space, which the user asked to see whole: `~/Library` is walked (its caches,
+/// Developer and Application Support count), but not the folders whose every touch asks for
+/// another app's permission: Containers, Group Containers and the data vaults of Mail, Messages,
+/// Safari and the like. The rest of `protected` holds (the Photos libraries, the Trash, `.zfs`).
+pub fn protected_for_space(path: &Path) -> bool {
+    if path.file_name().is_some_and(|n| n == ".zfs") && path.join("snapshot").is_dir() {
+        return true;
+    }
+    #[cfg(target_os = "macos")]
+    {
+        static HOME: std::sync::OnceLock<Option<PathBuf>> = std::sync::OnceLock::new();
+        if let Some(home) = HOME.get_or_init(std::env::home_dir) {
+            return protected_for_space_in(home, path);
+        }
+    }
+    let _ = path;
+    false
+}
+
+/// `protected_for_space`, for the home folder `home`.
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+pub(crate) fn protected_for_space_in(home: &Path, path: &Path) -> bool {
+    const VAULTS: [&str; 16] = [
+        "Containers",
+        "Group Containers",
+        "Mail",
+        "Messages",
+        "Safari",
+        "Calendars",
+        "Reminders",
+        "HomeKit",
+        "Suggestions",
+        "Cookies",
+        "IdentityServices",
+        "Biome",
+        "Metadata/CoreSpotlight",
+        "Application Support/AddressBook",
+        "Application Support/CallHistoryDB",
+        "Application Support/com.apple.TCC",
+    ];
+    match path.strip_prefix(home.join("Library")) {
+        Ok(rest) => VAULTS.iter().any(|v| rest.starts_with(v)),
+        Err(_) => protected_in(home, path),
+    }
+}
+
 /// `protected`, for the home folder `home`.
 #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 pub(crate) fn protected_in(home: &Path, path: &Path) -> bool {

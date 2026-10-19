@@ -447,6 +447,15 @@ export function stopSearchable() {
   invoke("searchable_stop");
 }
 
+/** Space on `dir` (default: the folder under the cursor, else the tab's): where the space goes,
+ *  full window. Only folders on a disk. */
+export function openSpace(tb = tab(), dir) {
+  if (tb.archive || tb.history || tb.snapshot || tb.package) return void (ui.status = t("space.not_here"));
+  const e = item(tb);
+  const folder = dir ?? (e?.is_dir && e.name !== ".." && !tb.marked.size ? e.path : tb.dir);
+  ui.modal = { kind: "space", feature: "space", root: folder };
+}
+
 /** The git line's menu (a right-click on it): the repository's branches and worktrees, and
  *  config, and the handoff to the user's git tool, each with its key. */
 export function gitMenu(tb = tab()) {
@@ -699,6 +708,8 @@ export function subject(tb = tab()) {
     git: !!tb.git,
     zfs: !!tb.zfs,
     packages: !!tb.packages,
+    // A drive's top, or a folder measured at 1 GB or more: where Space is worth a hint.
+    big: place === "disk" && (cur?.is_dir && list.length === 1 ? (tb.sizes[cur.path] ?? 0) >= 2 ** 30 || ui.disks.some((d) => d.mount === cur.path) : ui.disks.some((d) => d.mount === tb.dir)),
   };
 }
 

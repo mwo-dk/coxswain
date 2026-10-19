@@ -1,5 +1,5 @@
 <script>
-  import { ui, tab, cd } from "./app.svelte.js";
+  import { ui, tab, cd, openSpace } from "./app.svelte.js";
   import { invoke, basename, size } from "./lib.js";
   import { t } from "./i18n.svelte.js";
 
@@ -37,6 +37,23 @@
         ui.favorites.push({ name: name.trim(), paths: [] });
         saveFavorites();
       },
+    };
+  }
+
+  /** A drive's menu (a right-click on it, or its ⋯): open it, or see where its space goes. */
+  function driveMenu(e, d) {
+    e.preventDefault();
+    e.stopPropagation();
+    ui.modal = {
+      kind: "menu",
+      title: d.label,
+      direct: false,
+      filter: "",
+      cursor: 0,
+      items: [
+        { key: "", label: t("sidebar.open_drive"), run: () => go(d.mount) },
+        { key: ui.cfg.actions.space_view?.[1] ?? "", label: t("space.open"), run: () => openSpace(tab(), d.mount) },
+      ],
     };
   }
 
@@ -113,12 +130,13 @@
       {#each ui.disks as d (d.mount)}
         {@const used = 1 - d.free / d.total}
         <li>
-          <button class="row drive" class:here={d.mount === here} title="{d.device} · {d.mount}" onclick={() => go(d.mount)}>
+          <button class="row drive" class:here={d.mount === here} title="{d.device} · {d.mount}" onclick={() => go(d.mount)} oncontextmenu={(e) => driveMenu(e, d)}>
             <span class="icon">{d.removable ? "\u{f0287}" : "\u{f02ca}"}</span>
             <span class="label">
               <span class="drive-name"><span>{d.label}</span><small>{t("sidebar.free", { size: size(d.free) })}</small></span>
               <span class="bar"><span style:width="{used * 100}%" class:full={used > 0.9}></span></span>
             </span>
+            <span class="more space-btn" role="button" tabindex="-1" title={`${t("space.open")} (${ui.cfg.actions.space_view?.[1] ?? ""})`} aria-label={t("space.open")} onclick={(e) => { e.stopPropagation(); openSpace(tab(), d.mount); }} onkeydown={() => {}}>{"\u{f200}"}</span>
           </button>
         </li>
       {/each}
@@ -249,6 +267,11 @@
   .more {
     visibility: visible;
     opacity: 0.6;
+  }
+  .space-btn {
+    font-family: var(--icon-font);
+    font-size: 1em;
+    align-self: center;
   }
   .add:hover,
   .more:hover,

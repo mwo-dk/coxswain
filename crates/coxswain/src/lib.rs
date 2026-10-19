@@ -7,6 +7,7 @@ mod provenance;
 mod guide;
 mod settings;
 mod setup;
+mod space;
 mod ui;
 mod viewer;
 
@@ -259,6 +260,10 @@ impl Panel {
             git: self.git.is_some(),
             zfs: self.zfs.is_some(),
             packages: coxswain_core::bsd::packages_here(&self.dir),
+            big: place == Place::Disk && match cur.filter(|c| c.is_dir && list.len() == 1) {
+                Some(c) => coxswain_core::space::worth_it(&c.path, self.sizes.get(&c.path).copied()),
+                None => coxswain_core::space::worth_it(&self.dir, None),
+            },
         }
     }
 
@@ -395,6 +400,8 @@ pub enum Dialog {
     View { v: Box<viewer::Viewer>, back: Option<Box<Dialog>> },
     /// A PGN file's games, an EPD or FEN file's positions, full screen (F3, Alt+K).
     Chess(Box<chess::Viewer>),
+    /// Where the space goes, full screen (Alt+U).
+    Space(Box<space::Viewer>),
     /// Settings, full screen (F12, F9 → Settings, `--settings`).
     Settings(Box<settings::Settings>),
     /// The first-run guide, full screen (the first start, F1 → G, Settings → Overview).
@@ -425,6 +432,7 @@ fn feature_of(d: &Dialog) -> Option<&'static str> {
         Dialog::GitConfig(_) => "git_config",
         Dialog::View { .. } => "view_and_edit",
         Dialog::Chess(_) => "chess",
+        Dialog::Space(_) => "space",
         Dialog::Settings(_) => "settings_window",
         Dialog::Guide(_) => "first_run",
         Dialog::Help { .. } | Dialog::Features { .. } | Dialog::Message { .. } => return None,
@@ -570,6 +578,9 @@ pub struct App {
     /// The panels' folders and their repositories' `.git`, watched: what changes on disk is
     /// read again.
     watch: coxswain_core::fs::Watch,
+    /// Space, put aside while View, Edit or Delete has a file of it: back when that is done,
+    /// without the file if it went.
+    space_back: Option<(Box<space::Viewer>, PathBuf)>,
     quit: bool,
 }
 
@@ -770,6 +781,7 @@ impl App {
             last_click: None,
             props_rx: None,
             watch: Default::default(),
+            space_back: None,
             quit: false,
             cfg,
         };
@@ -1117,6 +1129,7 @@ impl App {
                     self.status = Some(t!("chess.not_chess"));
                 }
             }
+            Action::SpaceView => self.space_view(),
             Action::Mark => {
                 let p = self.panel_mut();
                 p.toggle_mark(p.cursor);
@@ -1324,18 +1337,7 @@ impl App {
             Action::Undo => self.undo_last(),
             Action::Delete | Action::DeleteForever => {
                 let paths = self.panel().targets();
-                if paths.is_empty() {
-                    return;
-                }
-                let inside = coxswain_core::archive::split(&self.panel().dir);
-                let plan = bfs::delete_plan(&paths, a == Action::DeleteForever, inside.is_some());
-                if self.cfg.confirm_delete || plan.must_confirm {
-                    let archive = inside.map(|(a, _)| a.file_name().unwrap_or_default().to_string_lossy().into_owned()).unwrap_or_default();
-                    let text = t!(plan.question, "what" => Self::describe(&paths), "archive" => archive);
-                    self.dialog = Some(Dialog::Confirm { title: t!("dialog.delete"), text, paths, forever: plan.forever });
-                } else {
-                    self.delete(paths, plan.forever);
-                }
+                self.ask_delete(paths, a == Action::DeleteForever);
             }
             Action::Search | Action::SearchText | Action::Ask => {
                 let chip = match a {
@@ -1792,6 +1794,17 @@ impl App {
         });
     }
 
+    /// Space on the folder under the cursor, else the panel's: walked now, full screen.
+    fn space_view(&mut self) {
+        let p = self.panel();
+        if coxswain_core::archive::split(&p.dir).is_some() || history::split(&p.dir).is_some() || history::is_history(&p.dir) {
+            return self.status = Some(t!("space.not_here"));
+        }
+        let dir = p.current().filter(|e| e.is_dir && !e.is_parent() && p.marked.is_empty()).map_or_else(|| p.dir.clone(), |e| e.path.clone());
+        let labels = [Action::View, Action::Edit, Action::Delete, Action::Refresh].map(|a| self.key_label(a).to_string());
+        self.dialog = Some(Dialog::Space(Box::new(space::Viewer::new(dir, labels))));
+    }
+
     /// What git said, on the status line; when it refused, in a dialog under `title` (what could
     /// not be done), as it can be long.
     fn git_said(&mut self, title: String, r: std::io::Result<String>) {
@@ -1877,6 +1890,22 @@ impl App {
             return;
         }
         self.run = Some(Run::Shell { line: Line::from(cmd), typed: true, dir: self.panel().dir.clone(), wait: false });
+    }
+
+    /// Delete `paths` (in the panel's folder, or Space's file), asking first as the settings say.
+    fn ask_delete(&mut self, paths: Vec<PathBuf>, forever: bool) {
+        if paths.is_empty() {
+            return;
+        }
+        let inside = coxswain_core::archive::split(&self.panel().dir);
+        let plan = bfs::delete_plan(&paths, forever, inside.is_some());
+        if self.cfg.confirm_delete || plan.must_confirm {
+            let archive = inside.map(|(a, _)| a.file_name().unwrap_or_default().to_string_lossy().into_owned()).unwrap_or_default();
+            let text = t!(plan.question, "what" => Self::describe(&paths), "archive" => archive);
+            self.dialog = Some(Dialog::Confirm { title: t!("dialog.delete"), text, paths, forever: plan.forever });
+        } else {
+            self.delete(paths, plan.forever);
+        }
     }
 
     fn delete(&mut self, paths: Vec<PathBuf>, forever: bool) {
@@ -2614,6 +2643,25 @@ impl App {
                     self.dialog = Some(Dialog::GitConfig(v));
                 }
             },
+            Dialog::Space(mut v) => match v.key(key, action) {
+                space::Outcome::Stay => self.dialog = Some(Dialog::Space(v)),
+                space::Outcome::Close => {}
+                space::Outcome::Go(path) => self.reveal(&path),
+                space::Outcome::Hand(a, path) => {
+                    if a == Action::Delete {
+                        // That file, by its path: not whatever the panel's cursor is on (a hidden
+                        // file is not in the list).
+                        self.space_back = Some((v, path.clone()));
+                        self.ask_delete(vec![path], false);
+                    } else if a == Action::View {
+                        // In the built-in viewer (or the user's own), Space shown again after it.
+                        self.source(&path, Dialog::Space(v));
+                    } else {
+                        self.space_back = Some((v, path.clone()));
+                        self.view_or_edit(a, &path);
+                    }
+                }
+            },
             Dialog::Provenance(mut v) => match v.key(key, action == Some(Action::Quit)) {
                 provenance::Outcome::Stay => self.dialog = Some(Dialog::Provenance(v)),
                 provenance::Outcome::Close => {}
@@ -2904,6 +2952,15 @@ impl App {
                 *last_state = state;
                 self.search_now();
             }
+        }
+        // Space comes back once View, Edit or Delete is done with its file.
+        if self.dialog.is_none() && self.job.is_none() && self.run.is_none()
+            && let Some((mut v, path)) = self.space_back.take()
+        {
+            if std::fs::symlink_metadata(&path).is_err() {
+                v.gone(&path);
+            }
+            self.dialog = Some(Dialog::Space(v));
         }
         // Last, so a notice it shows is not written over in the same round.
         self.tell();

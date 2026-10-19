@@ -3,7 +3,7 @@
   import { getCurrentWindow } from "@tauri-apps/api/window";
   import { getCurrentWebview } from "@tauri-apps/api/webview";
   import { listen } from "@tauri-apps/api/event";
-  import { ui, openFind, init, tab, pane, otherTab, item, load, cd, up, openHistory, openSnapshots, openPackage, openGitView, switchBranch, newBranch, gitTool, openGitConfig, makeSearchable, stopSearchable, addTab, closeTab, goBack, goForward, openItem, toggleMark, targets, reloadAll, refreshDisks, snapshot, setTheme, themeIds, themeName, nextView, measureFolders, columnMenu, subject, hooks, refreshUndo, actionLabel, visibleTabs } from "./app.svelte.js";
+  import { ui, openFind, init, tab, pane, otherTab, item, load, cd, up, openHistory, openSnapshots, openPackage, openGitView, switchBranch, newBranch, gitTool, openGitConfig, makeSearchable, stopSearchable, openSpace, addTab, closeTab, goBack, goForward, openItem, toggleMark, targets, reloadAll, refreshDisks, snapshot, setTheme, themeIds, themeName, nextView, measureFolders, columnMenu, subject, hooks, refreshUndo, actionLabel, visibleTabs } from "./app.svelte.js";
   import { failure } from "./errors.js";
   import { invoke, keyString, basename, parent, globRe, quote, isArchive, chessFormat, diskName, packFormat, LOCKED, inside } from "./lib.js";
   import { t, tn } from "./i18n.svelte.js";
@@ -13,6 +13,7 @@
   import Splitter from "./Splitter.svelte";
   import Dialogs from "./Dialogs.svelte";
   import Duplicates from "./Duplicates.svelte";
+  import Space from "./Space.svelte";
   import BomView from "./BomView.svelte";
   import ProvenanceView from "./ProvenanceView.svelte";
   import ChessView from "./ChessView.svelte";
@@ -314,6 +315,7 @@
       if (e && !e.is_dir && chessFormat(e.name)) ui.modal = { kind: "chess", path: e.path };
       else ui.status = t("chess.not_chess");
     },
+    space_view: () => openSpace(),
     switch_panel: () => ui.dual && (ui.activePane ^= 1),
     mark: () => {
       toggleMark(tab(), tab().cursor);
@@ -762,6 +764,7 @@
 
 <Dialogs bind:this={dialogs} />
 {#if ui.modal?.kind === "dupes"}<Duplicates />{/if}
+{#if ui.modal?.kind === "space"}<Space />{/if}
 {#if ui.modal?.kind === "bom"}<BomView path={ui.modal.path} full />{/if}
 {#if ui.modal?.kind === "chess"}<ChessView path={ui.modal.path} full />{/if}
 {#if ui.modal?.kind === "provenance"}<ProvenanceView path={ui.modal.path} full />{/if}
