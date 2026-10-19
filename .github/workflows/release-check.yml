@@ -130,6 +130,9 @@ jobs:
       # files the newest release, so it (or a newer one) should have a pull request by then.
       - name: WinGet
         if: ${{ !cancelled() }}
+        env:
+          # The account that files our pull requests: anyone can open one with the same title.
+          WINGET_AUTHOR: ${{ github.repository_owner }}
         run: |
           set -o pipefail
           bad=0
@@ -141,7 +144,7 @@ jobs:
               1) echo "::notice title=WinGet::$id is not listed on WinGet yet: no pull request expected."; continue ;;
               2) echo "::error title=WinGet::could not tell whether $id is listed"; bad=1; continue ;;
             esac
-            if ! filed=$(gh pr list -R microsoft/winget-pkgs --state all --search "$id version in:title" --limit 100 --json title,state \
+            if ! filed=$(gh pr list -R microsoft/winget-pkgs --state all --author "$WINGET_AUTHOR" --search "$id version in:title" --limit 100 --json title,state \
                 -q '.[] | select(.state != "CLOSED") | .title' |
                 sed -nE "s/^(New|Add|Update) version: ${id//./\\.} version ([0-9][^ ]*)$/\2/p" | sort -V | tail -1); then
               echo "::error title=WinGet::could not read winget-pkgs' pull requests for $id"; bad=1; continue

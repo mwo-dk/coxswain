@@ -53,9 +53,10 @@ jobs:
           base="https://github.com/$REPO/releases/download/$TAG"
           notes="https://github.com/$REPO/releases/tag/$TAG"
           me=$(GH_TOKEN="$WINGET_TOKEN" gh api user -q .login)
-          # The number of the open or merged pull request for $id $v, from winget-pkgs' search.
+          # The number of our open or merged pull request for $id $v, from winget-pkgs' search. Only
+          # ours: anyone can open one with the same title.
           pr_of() {
-            gh pr list -R microsoft/winget-pkgs --state all --search "$1 version $2 in:title" --json number,title,state \
+            gh pr list -R microsoft/winget-pkgs --state all --author "$me" --search "$1 version $2 in:title" --json number,title,state \
               -q '.[] | select(.state != "CLOSED") | "\(.number)\t\(.title)"' |
               awk -F '\t' -v t="$1 version $2" '$2 ~ /^(New|Add|Update) version: / && substr($2, index($2, ": ") + 2) == t { print $1; exit }'
           }
@@ -68,7 +69,7 @@ jobs:
               1) echo "::notice::$id is not on WinGet yet; its first version waits for Microsoft's review."; return 0 ;;
               2) return 1 ;;
             esac
-            has=0; packaging/winget-listed.sh "$id" "$v" || has=$?
+            has=0; packaging/winget-listed.sh "$id" "$v" "$me" || has=$?
             case $has in
               0) echo "$id $v has its pull request already" ;;
               1) packaging/retry.sh ./komac update "$id" --version "$v" --urls "$@" --release-notes-url "$notes" --submit --token "$WINGET_TOKEN" | tee komac.log || return 1 ;;

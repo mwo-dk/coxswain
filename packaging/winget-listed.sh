@@ -4,10 +4,14 @@
 #
 #   packaging/winget-listed.sh mwo-dk.Coxswain.Terminal          listed at all?
 #   packaging/winget-listed.sh mwo-dk.Coxswain.Terminal 2.11.0   a pull request for 2.11.0?
+#   packaging/winget-listed.sh mwo-dk.Coxswain.Terminal 2.11.0 mwo-dk   one by that account?
+#
+# Anyone can open a pull request with our title, so the callers that act on the answer name the
+# account that files ours.
 #
 # Exits 0 for yes, 1 for no, 2 when GitHub did not answer (never taken for a no).
 set -uo pipefail
-id="$1" v="${2:-}"
+id="$1" v="${2:-}" author="${3:-}"
 if [ -z "$v" ]; then
   # A version folder (a name starting with a digit) in the package's manifest folder.
   first=$(printf %s "${id:0:1}" | tr '[:upper:]' '[:lower:]')
@@ -20,5 +24,5 @@ if [ -z "$v" ]; then
   echo "$out" >&2; exit 2
 fi
 titles=$(gh pr list -R microsoft/winget-pkgs --state all --search "$id version $v in:title" \
-  --json title,state -q '.[] | select(.state != "CLOSED") | .title') || exit 2
+  ${author:+--author "$author"} --json title,state -q '.[] | select(.state != "CLOSED") | .title') || exit 2
 grep -qxE "(New|Add|Update) version: ${id//./\\.} version ${v//./\\.}" <<<"$titles"
