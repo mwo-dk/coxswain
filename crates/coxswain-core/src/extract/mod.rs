@@ -21,6 +21,7 @@ pub mod book;
 pub mod diagram;
 pub mod installed;
 pub mod mail;
+pub mod msg;
 pub mod notebook;
 pub mod pdf;
 pub mod plain;
@@ -52,6 +53,8 @@ fn reader(path: &Path) -> Option<Reader> {
         "epub" | "html" | "htm" | "xhtml" => book::text,
         "ipynb" | "drawio" | "dio" => notebook::text,
         "eml" | "mbox" => mail::text,
+        "msg" => msg::text,
+        "dbf" => crate::dbf::search_text,
         "rtf" => rtf::text,
         // Diagrams as text: their words, and a sentence per arrow.
         "mmd" | "mermaid" => |path, max| plain::text(path, max).map(diagram::mermaid),

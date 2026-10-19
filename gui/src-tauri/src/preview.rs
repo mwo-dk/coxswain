@@ -1,5 +1,6 @@
-//! Previews that need Rust: a file's git diff, SQLite databases, EPUB books, and facts for
-//! the preview pane (photo EXIF, audio tags, what an executable was built for).
+//! Previews that need Rust: a file's git diff, SQLite databases and dBase tables, EPUB books,
+//! old pictures as PNG, a comic's pages, a tracker module's samples, and facts for the preview
+//! pane (photo EXIF, audio tags, what an executable was built for, what an old file holds).
 
 use coxswain_core::{t, tn};
 use serde::Serialize;
@@ -41,12 +42,85 @@ pub async fn git_diff(path: PathBuf) -> Res<Option<String>> {
 
 // ---------------------------------------------------------------- SQLite
 
-/// Tables and views with their row counts, schema and first rows (`tables::sqlite`), off the
-/// window's thread.
+/// Tables and views with their row counts, schema and first rows (`tables::sqlite`), or a dBase
+/// table's fields and first 200 records (`tables::dbf`), off the window's thread.
 #[tauri::command]
 pub async fn sqlite_info(path: PathBuf) -> Res<Vec<coxswain_core::tables::Table>> {
     crate::here(&path)?;
-    tauri::async_runtime::spawn_blocking(move || coxswain_core::tables::sqlite(&path, 5)).await.map_err(|e| e.to_string())?
+    let rows = if path.extension().is_some_and(|e| e.eq_ignore_ascii_case("dbf")) { 200 } else { 5 };
+    tauri::async_runtime::spawn_blocking(move || coxswain_core::tables::of(&path, rows)).await.map_err(|e| e.to_string())?
+}
+
+// ---------------------------------------------------------------- old pictures, comics, modules
+
+#[derive(Serialize)]
+pub struct OldPicture {
+    /// The PNG in the preview cache.
+    file: PathBuf,
+    pages: usize,
+}
+
+/// Page `page` of an old picture (TIFF, TGA, IFF, PCX, PSD, JPEG XL, …) as a PNG no wider or
+/// taller than `side`, made once and kept in the preview cache (`pictures::png`). `None`: the
+/// file is no such picture after all (a `.hdr` of another program), shown as text instead. A
+/// thumbnail takes the preview's PNG when that was made; one picture is decoded at a time for
+/// thumbnails and one for the preview, so a folder of big TIFFs does not decode them all at once.
+#[tauri::command]
+pub async fn old_picture(path: PathBuf, page: usize, side: u32) -> Res<Option<OldPicture>> {
+    crate::here(&path)?;
+    crate::blocking(move || picture_in(&crate::convert::previews_dir()?, &path, page, side)).await
+}
+
+/// `old_picture`, with the preview cache at `previews`.
+fn picture_in(previews: &Path, path: &Path, page: usize, side: u32) -> Res<Option<OldPicture>> {
+    static THUMBS: std::sync::Mutex<()> = std::sync::Mutex::new(());
+    static PREVIEW: std::sync::Mutex<()> = std::sync::Mutex::new(());
+    {
+        let side = side.clamp(64, 4096);
+        let cached = |side: u32| -> Res<(PathBuf, PathBuf, Option<OldPicture>)> {
+            let out = previews.join(crate::convert::cache_name(path, path, "picture", &format!("{page}-{side}"))?);
+            let (file, count) = (out.join("picture.png"), out.join("pages.txt"));
+            let pages = std::fs::read_to_string(&count).ok().and_then(|s| s.trim().parse().ok());
+            let hit = pages.filter(|_| file.is_file()).map(|pages| OldPicture { file: file.clone(), pages });
+            Ok((out, file, hit))
+        };
+        if side <= 256
+            && let (_, _, Some(hit)) = cached(2048)?
+        {
+            return Ok(Some(hit));
+        }
+        let (out, file, hit) = cached(side)?;
+        if hit.is_some() {
+            return Ok(hit);
+        }
+        if !coxswain_core::pictures::readable(path) {
+            return Ok(None);
+        }
+        let _one = if side <= 256 { &THUMBS } else { &PREVIEW }.lock().unwrap_or_else(|e| e.into_inner());
+        // Made meanwhile by the one before in line.
+        if let (_, _, Some(hit)) = cached(side)? {
+            return Ok(Some(hit));
+        }
+        std::fs::create_dir_all(&out).map_err(|e| e.to_string())?;
+        let pages = coxswain_core::pictures::png(path, page, side, &file)?;
+        let _ = std::fs::write(out.join("pages.txt"), pages.to_string());
+        Ok(Some(OldPicture { file, pages }))
+    }
+}
+
+/// A comic's pages (`archive::pages`): the pictures in it, in the order of their names.
+#[tauri::command]
+pub async fn comic_pages(path: PathBuf) -> Res<Vec<String>> {
+    crate::here(&path)?;
+    crate::blocking(move || coxswain_core::archive::pages(&path).map_err(|e| e.to_string())).await
+}
+
+/// A tracker module's instrument and sample names; `None` for a file that is no module (a
+/// `.mod` of Modula-2 source), shown as text instead.
+#[tauri::command]
+pub async fn module_names(path: PathBuf) -> Res<Option<Vec<String>>> {
+    crate::here(&path)?;
+    crate::blocking(move || Ok(coxswain_core::music::read(&path).map(|m| m.names))).await
 }
 
 // ---------------------------------------------------------------- EPUB
@@ -196,10 +270,16 @@ pub async fn file_facts(path: PathBuf) -> Vec<(String, String)> {
         return vec![];
     }
     let ext = path.extension().map(|e| e.to_string_lossy().to_lowercase()).unwrap_or_default();
-    tauri::async_runtime::spawn_blocking(move || match ext.as_str() {
-        "jpg" | "jpeg" | "tif" | "tiff" | "heic" | "heif" | "png" | "webp" | "avif" | "dng" => exif_facts(&path),
-        "mp3" | "flac" | "ogg" | "opus" | "m4a" | "aac" | "wav" | "aiff" | "wv" | "ape" => audio_facts(&path),
-        _ => binary_facts(&path),
+    tauri::async_runtime::spawn_blocking(move || {
+        // An old picture, a module, a mailbox, a comic, a dBase table (`facts::of`), then the rest.
+        let mut out = coxswain_core::facts::of(&path).unwrap_or_default();
+        out.extend(match ext.as_str() {
+            "jpg" | "jpeg" | "tif" | "tiff" | "heic" | "heif" | "png" | "webp" | "avif" | "dng" => exif_facts(&path),
+            "mp3" | "flac" | "ogg" | "opus" | "m4a" | "aac" | "wav" | "aiff" | "wv" | "ape" => audio_facts(&path),
+            _ if out.is_empty() => binary_facts(&path),
+            _ => vec![],
+        });
+        out
     })
     .await
     .unwrap_or_default()
@@ -404,6 +484,22 @@ mod tests {
         // This test binary itself is a real executable for the host.
         let me = std::env::current_exe().unwrap();
         assert!(!binary_facts(&me).is_empty());
+    }
+
+    #[test]
+    fn old_pictures_are_made_once_and_thumbnails_take_the_preview() {
+        let d = std::env::temp_dir().join(format!("coxswain-test-old-picture-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        let (cache, pic, text) = (d.join("cache"), d.join("a.ppm"), d.join("scan.hdr"));
+        std::fs::write(&pic, b"P6\n2 1\n255\n\xff\0\0\0\xff\0").unwrap();
+        std::fs::write(&text, "ENVI\nsamples = 2\n").unwrap();
+        assert!(picture_in(&cache, &text, 0, 2048).unwrap().is_none(), "another program's .hdr: text");
+        let big = picture_in(&cache, &pic, 0, 2048).unwrap().unwrap();
+        assert!(big.file.is_file() && big.pages == 1);
+        let thumb = picture_in(&cache, &pic, 0, 256).unwrap().unwrap();
+        assert_eq!(thumb.file, big.file, "the preview's PNG, not a second decode");
+        std::fs::remove_dir_all(d).unwrap();
     }
 
     #[test]

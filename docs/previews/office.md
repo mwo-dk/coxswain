@@ -42,7 +42,8 @@ LibreOffice makes of them.
 
 What LibreOffice opens depends on its import filters: a file of a version too old or too new for
 them stops with LibreOffice's *source file could not be loaded*, shown with **Try again**. dBase
-(`.dbf`) is not on the list: Gotenberg's LibreOffice has no dBase filter.
+(`.dbf`) is not on the list: Gotenberg's LibreOffice has no dBase filter, and Coxswain reads it
+itself ([Old pictures and files](old-formats.md#dbase-tables)).
 
 Decks saved by PowerPoint for the web (whose parts start with a byte order mark and name each
 other by absolute paths) are mended before they are drawn, so they show too.

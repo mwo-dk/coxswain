@@ -75,6 +75,7 @@ sticks: it applies to the next file of that kind too, and survives a restart.
 | **Tree / Source** | JSON, YAML, TOML | A collapsible tree, or the source |
 | **Table / Source** | JSON Lines | A table, or the source |
 | Sheet names | Workbooks with more than one sheet | One button per sheet |
+| **‹** *Page 1 of 4* **›** | TIFF pages, comics | The page before or after ([Old pictures and files](old-formats.md)) |
 | Engine buttons | Files made by a tool (LaTeX, Office, PlantUML, …) | The installed programs and the container, e.g. **latexmk · tectonic · podman texlive:latest** |
 
 | Page | What it covers |
@@ -88,6 +89,7 @@ sticks: it applies to the next file of that kind too, and survives a restart.
 | [Build provenance](provenance.md) | SLSA and in-toto provenance as inputs → build → outputs, the signer, outputs checked against the files here, the source commit in your checkout, two builds compared; the terminal app's own viewer |
 | [Chess games](chess.md) | PGN files as a table of games with a filter, each game on a board with its moves and variations; EPD and FEN positions; both apps, the terminal app full screen |
 | [Media and files](media.md) | Pictures, video, audio, fonts, archives listed, folders, and the facts under a file |
+| [Old pictures and files](old-formats.md) | TIFF with its pages, TGA, DDS, HDR, OpenEXR, JPEG XL, Amiga IFF, PCX, XPM, Photoshop; comics page by page, mailboxes as folders, Outlook `.msg`, dBase tables, tracker music; in both apps |
 | [Diagrams](diagrams.md) | draw.io, Mermaid, Graphviz, PlantUML, and D2, ditaa, svgbob, Pikchr, nomnoml, WaveDrom, Vega, DBML, erd and bytefield by their programs or Kroki's image |
 | [LaTeX projects](latex.md) | Which file is the document, which engine, building by itself, another engine when one fails |
 | [Previews made by tools](tools.md) | The engine buttons, rendering, the preview cache and clearing it, `[preview]` |
@@ -117,6 +119,9 @@ sticks: it applies to the next file of that kind too, and survives a restart.
 | `.intoto.jsonl` `.sigstore.json` `.build.slsa` `provenance.json`, in-toto JSON | Inputs → build → outputs, checks, compare | [Build provenance](provenance.md) |
 | `.pgn` `.pgn.gz` `.pgn.zst` `.epd` `.fen` | A table of games, a game on a board with its moves, positions | [Chess games](chess.md) |
 | Pictures, video, audio, fonts | Image, player, sample text | [Media](media.md#formats) |
+| `.tif` `.tga` `.dds` `.hdr` `.exr` `.qoi` `.jxl` `.iff` `.lbm` `.pcx` `.xpm` `.xbm` `.psd` and Netpbm | The picture, a TIFF page by page | [Old pictures and files](old-formats.md#pictures) |
+| `.cbz`, `.mbox`, `.msg`, `.dbf` | Comic pages, messages, a mail, a table | [Old pictures and files](old-formats.md#formats) |
+| `.mod` `.xm` `.s3m` `.it` | Tracker music: its samples and facts | [Old pictures and files](old-formats.md#tracker-music) |
 | `.zip` `.7z` `.tar.*` and other archives | The files inside | [Media](media.md#archives) |
 | `.drawio` `.dio`, `.mmd`, `.dot` `.gv`, `.puml`, `.d2` `.ditaa` `.bob` `.pikchr` `.nomnoml` `.wavedrom` `.vg` `.vl` `.dbml` `.er` `.bytefield` | Diagrams | [Diagrams](diagrams.md) |
 | `.tex` `.ltx` | PDF built by LaTeX | [LaTeX](latex.md) |

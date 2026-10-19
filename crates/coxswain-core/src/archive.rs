@@ -2,7 +2,9 @@
 //! compressed with gzip, bzip2, xz or zstd, and 7z. List, extract, and inside them read and
 //! write as in a folder. All in pure Rust. Entries that would land outside the destination
 //! (`..`, absolute paths) are refused. Disk images open here too, read-only, when that option
-//! is on: `disk_image` lists them and copies out of them with an installed 7-Zip.
+//! is on: `disk_image` lists them and copies out of them with an installed 7-Zip. So do a
+//! comic (`.cbz`, a zip of pictures) and a mailbox (`.mbox`, read-only: one `.eml` a message),
+//! which search does not look into as archives.
 
 use serde::Serialize;
 use std::fs::File;
@@ -27,6 +29,8 @@ enum Kind {
     SevenZ,
     /// A disk image, read with 7-Zip (`disk_image`): never written.
     Disk,
+    /// A mailbox, its messages as files (`extract::mail::mailbox`): never written.
+    Mbox,
 }
 
 /// How a tar is compressed.
@@ -60,17 +64,26 @@ const ENDINGS: &[(&str, Kind)] = &[
     (".vsix", Kind::Zip),
 ];
 
-/// What `path` opens as: an archive by its ending, else a disk image when those open.
+/// What opens like a folder but is no archive search looks into: a comic, a mailbox.
+const OPEN_ONLY: &[(&str, Kind)] = &[(".cbz", Kind::Zip), (".mbox", Kind::Mbox)];
+
+/// What `path` opens as: an archive by its ending, a comic or a mailbox, else a disk image
+/// when those open.
 fn kind(path: &Path) -> Option<Kind> {
-    ending_kind(path).or_else(|| crate::disk_image::opens(path).then_some(Kind::Disk))
+    ending_kind(path)
+        .or_else(|| ends_in(path, OPEN_ONLY))
+        .or_else(|| crate::disk_image::opens(path).then_some(Kind::Disk))
 }
 
 /// The archive `path` is by its ending (never a disk image).
 fn ending_kind(path: &Path) -> Option<Kind> {
+    ends_in(path, ENDINGS)
+}
+
+fn ends_in(path: &Path, list: &[(&str, Kind)]) -> Option<Kind> {
     // Asked of every file the name index walks: no allocation.
     let n = path.file_name()?.as_encoded_bytes();
-    ENDINGS
-        .iter()
+    list.iter()
         .find(|(e, _)| {
             n.len() >= e.len() && n[n.len() - e.len()..].eq_ignore_ascii_case(e.as_bytes())
         })
@@ -87,9 +100,66 @@ pub fn opens(path: &Path) -> bool {
     kind(path).is_some()
 }
 
-/// `archive` is a disk image opened like a folder: read-only.
-pub fn is_disk_image(archive: &Path) -> bool {
-    kind(archive) == Some(Kind::Disk)
+/// `archive` is opened like a folder read-only: a disk image or a mailbox.
+pub fn read_only(archive: &Path) -> bool {
+    matches!(kind(archive), Some(Kind::Disk | Kind::Mbox))
+}
+
+/// `archive` is a comic: a zip of pictures, its pages shown one by one in the desktop app.
+pub fn is_comic(path: &Path) -> bool {
+    ends_in(path, &OPEN_ONLY[..1]).is_some()
+}
+
+/// The pages of a comic: its pictures, in the order of their names (natural: 2 before 10).
+pub fn pages(comic: &Path) -> io::Result<Vec<String>> {
+    let mut v: Vec<String> = items(comic)?
+        .iter()
+        .filter(|it| !it.dir && crate::pictures::is_page(Path::new(&it.name)))
+        .map(|it| it.name.clone())
+        .collect();
+    v.sort_by(|a, b| crate::fs::natord(a, b));
+    Ok(v)
+}
+
+/// The messages of a mailbox, from the last look when it has not changed since.
+fn messages(mbox: &Path) -> io::Result<Arc<[crate::extract::mail::Listed]>> {
+    type Kept = Option<(PathBuf, Stamp, Arc<[crate::extract::mail::Listed]>)>;
+    static KEPT: std::sync::Mutex<Kept> = std::sync::Mutex::new(None);
+    let st = stamp(mbox)?;
+    if let Some((p, s, m)) = KEPT.lock().unwrap().as_ref()
+        && p == mbox
+        && *s == st
+    {
+        return Ok(m.clone());
+    }
+    let m: Arc<[_]> = crate::extract::mail::mailbox(mbox)?.into();
+    *KEPT.lock().unwrap() = Some((mbox.to_path_buf(), st, m.clone()));
+    Ok(m)
+}
+
+/// The file name a message of a mailbox has inside it: its number, date, sender and subject.
+fn message_name(i: usize, digits: usize, m: &crate::extract::mail::Listed) -> String {
+    let date = chrono::DateTime::from_timestamp(m.secs, 0)
+        .filter(|_| m.secs > 0)
+        .map(|d| d.format("%Y-%m-%d").to_string());
+    let words: Vec<&str> = [date.as_deref().unwrap_or(""), &m.from, &m.subject]
+        .into_iter()
+        .filter(|w| !w.trim().is_empty())
+        .collect();
+    // Controls, the characters no file system takes, and those that turn text around or hide
+    // (U+200B–U+200F, U+202A–U+202E, U+2066–U+2069) become `_`; at most 100 bytes, a whole
+    // character at the end, so the name stays far below the 255 bytes a file name may have.
+    let hidden = |c: char| matches!(c, '\u{200b}'..='\u{200f}' | '\u{202a}'..='\u{202e}' | '\u{2066}'..='\u{2069}');
+    let mut name = String::new();
+    for c in words.join(" - ").chars() {
+        let c = if c.is_control() || hidden(c) || "/\\:*?\"<>|".contains(c) { '_' } else { c };
+        if name.len() + c.len_utf8() > 100 {
+            break;
+        }
+        name.push(c);
+    }
+    name = name.trim().trim_end_matches('.').to_string();
+    format!("{:0digits$} {name}.eml", i + 1)
 }
 
 fn not_archive(path: &Path) -> io::Error {
@@ -591,7 +661,7 @@ pub fn extract_locked(path: &Path, dest_dir: &Path, password: Option<&str>) -> i
     // sized by what the archive claims. A tar as the crate unpacks it, which keeps it inside;
     // its names are read first (from the last look, when it was browsed), since the crate
     // would read a crafted long-name record whole, however large: `TAR_META` at most.
-    let r = if matches!(k, Kind::SevenZ | Kind::Zip | Kind::Disk) {
+    let r = if matches!(k, Kind::SevenZ | Kind::Zip | Kind::Disk | Kind::Mbox) {
         copy_out_with(
             path,
             "",
@@ -603,7 +673,8 @@ pub fn extract_locked(path: &Path, dest_dir: &Path, password: Option<&str>) -> i
     } else {
         items(path).and_then(|_| tar_reader(path, k)?.unpack(&to))
     };
-    if r.is_err() {
+    // A mailbox some messages of which could not come out keeps the others.
+    if r.is_err() && !(k == Kind::Mbox && std::fs::read_dir(&to).is_ok_and(|mut d| d.next().is_some())) {
         let _ = std::fs::remove_dir_all(&to);
     }
     r.map(|_| to)
@@ -718,6 +789,22 @@ fn read_raw_items(archive: &Path, password: Option<&str>, max: usize) -> io::Res
                 size: e.size,
                 dir: e.dir,
                 modified: if e.modified == 0 { own } else { e.modified },
+                locked: false,
+            })
+            .collect());
+    }
+    if k == Kind::Mbox {
+        let all = messages(archive)?;
+        let digits = all.len().to_string().len().max(3);
+        return Ok(all
+            .iter()
+            .take(max)
+            .enumerate()
+            .map(|(i, m)| Item {
+                name: message_name(i, digits, m),
+                size: m.len,
+                dir: false,
+                modified: m.secs.max(0) as u64,
                 locked: false,
             })
             .collect());
@@ -896,7 +983,7 @@ pub(crate) fn search_read(
             })
             .map_err(seven_error)?;
         }
-        Kind::Disk => {}
+        Kind::Disk | Kind::Mbox => {}
         Kind::Tar(_) => {
             let mut seen = 0;
             tar_named(tar_reader(archive, k)?.entries()?, |name, _, e| {
@@ -1250,6 +1337,34 @@ fn copy_entries(
         Ok(())
     };
     let k = kind(archive).ok_or_else(|| not_archive(archive))?;
+    if k == Kind::Mbox {
+        // Each message is its bytes in the mailbox, under the name it is listed by.
+        let all = messages(archive)?;
+        let digits = all.len().to_string().len().max(3);
+        let mut f = File::open(archive)?;
+        // All of it: a message that cannot be written is left out and counted, the rest come.
+        let mut skipped = 0u64;
+        for (i, m) in all.iter().enumerate() {
+            let name = message_name(i, digits, m);
+            if !below(&name) {
+                continue;
+            }
+            let Some(path) = place(&name) else { continue };
+            *any = true;
+            f.seek(io::SeekFrom::Start(m.start))?;
+            match write(&path, &mut (&mut f).take(m.len)) {
+                Err(e) if inner.is_empty() => {
+                    let _ = (e, std::fs::remove_file(&path));
+                    skipped += 1;
+                }
+                r => r?,
+            }
+        }
+        if skipped > 0 {
+            return Err(io::Error::other(crate::tn!("archive.messages_skipped", skipped)));
+        }
+        return Ok(());
+    }
     if k == Kind::Disk {
         // What is listed decides (the names 7-Zip would take as they are): a file is streamed
         // out, a folder (or all of it) unpacked through a folder of its own.
@@ -1481,7 +1596,7 @@ fn rewrite(
     hide_names: bool,
 ) -> io::Result<()> {
     let k = kind(archive).ok_or_else(|| not_archive(archive))?;
-    if k == Kind::Disk {
+    if matches!(k, Kind::Disk | Kind::Mbox) {
         return Err(crate::disk_image::read_only());
     }
     let _one = WRITING.lock().unwrap_or_else(|e| e.into_inner());
@@ -1886,9 +2001,10 @@ pub fn takes_password(path: &Path) -> bool {
 /// Every ending an archive is known by, longest first where one ends another, and those of
 /// the archives that can have a password (`takes_password`): for the desktop app's page.
 pub fn endings() -> (Vec<&'static str>, Vec<&'static str>) {
-    let all = ENDINGS.iter().map(|(e, _)| *e).collect();
+    let all = ENDINGS.iter().chain(OPEN_ONLY).map(|(e, _)| *e).collect();
     let locked = ENDINGS
         .iter()
+        .chain(OPEN_ONLY)
         .filter(|(_, k)| matches!(k, Kind::Zip | Kind::SevenZ))
         .map(|(e, _)| *e)
         .collect();
@@ -2032,6 +2148,51 @@ mod tests {
     use super::*;
 
     #[test]
+    fn a_mailbox_opens_like_a_folder_of_messages_read_only() {
+        let d = crate::pictures::tests::folder("mbox");
+        let mbox = d.join("Launch.mbox");
+        let msg = |from: &str, date: &str, subject: &str, body: &str| {
+            format!("From {from} Mon Sep 28 10:00:00 2026\nFrom: {from}\nDate: {date}\nSubject: {subject}\n\n{body}\n\n")
+        };
+        let text = [
+            msg("ada@example.com", "Mon, 28 Sep 2026 10:00:00 +0000", "Go/no-go", "Go for launch."),
+            msg("bob@example.com", "Tue, 29 Sep 2026 11:00:00 +0000", "Weather: fine", "Clear skies.\nFrom here it looks good."),
+        ]
+        .concat();
+        std::fs::write(&mbox, &text).unwrap();
+        assert!(opens(&mbox) && read_only(&mbox) && !is_archive(&mbox), "opens, but search reads it as mail");
+        let (list, more) = list(&mbox, 100).unwrap();
+        assert!(!more);
+        let names: Vec<&str> = list.iter().map(|e| e.name.as_str()).collect();
+        assert_eq!(names, ["001 2026-09-28 - ada@example.com - Go_no-go.eml", "002 2026-09-29 - bob@example.com - Weather_ fine.eml"]);
+        let copy = peek(&mbox.join(names[1])).unwrap();
+        let got = std::fs::read_to_string(&copy).unwrap();
+        assert!(got.starts_with("From: bob@example.com") && got.contains("From here it looks good."), "{got}");
+        let m = crate::extract::mail::summary(&copy, u64::MAX).unwrap();
+        assert_eq!(m.subject, "Weather: fine");
+        // Out, all of it: one file a message.
+        let out = extract(&mbox, &d).unwrap();
+        assert_eq!(std::fs::read_dir(&out).unwrap().count(), 2);
+        assert!(add(&mbox, &[("x.txt".into(), copy.clone())], None).is_err(), "never written");
+        assert!(split(&mbox.join(names[0])).is_some());
+        let (all, _) = endings();
+        assert!(all.contains(&".mbox") && all.contains(&".cbz"));
+        // A long subject in a script of three bytes a letter, with a character that turns text
+        // around: a name of at most 100 bytes in all but its number, and no such character.
+        let long = crate::extract::mail::Listed { start: 0, len: 1, secs: 0, from: "\u{202e}gpj.exe".into(), subject: "発射".repeat(80) };
+        // A message that cannot be written is left out, counted, and the others come.
+        let to = d.join("some");
+        std::fs::create_dir_all(to.join(names[0])).unwrap();
+        let err = copy_out_with(&mbox, "", &to, None, Copy::default()).unwrap_err();
+        assert!(err.to_string().contains('1'), "{err}");
+        assert!(to.join(names[1]).is_file());
+        let name = message_name(0, 3, &long);
+        assert!(name.len() <= 3 + 1 + 100 + 4 && !name.contains('\u{202e}'), "{name}");
+        assert!(is_comic(Path::new("a.CBZ")) && !is_comic(&mbox));
+        std::fs::remove_dir_all(d).unwrap();
+    }
+
+    #[test]
     fn the_pack_format_is_remembered_once() {
         let mut st = crate::state::AppState::default();
         assert!(remember_format(&mut st, "/x/a.TAR.GZ"));
@@ -2085,11 +2246,11 @@ mod tests {
                 assert_eq!(takes_password(&p), f.password, "{e}");
             }
         }
-        // The page's lists say what is_archive and takes_password say.
+        // The page's lists say what opens and takes_password say.
         let (all, locked) = endings();
         for e in &all {
             let p = Path::new("x").with_extension(&e[1..]);
-            assert!(is_archive(&p), "{e}");
+            assert!(opens(&p), "{e}");
             assert_eq!(takes_password(&p), locked.contains(e), "{e}");
         }
         assert!(locked.iter().all(|e| all.contains(e)));

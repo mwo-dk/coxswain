@@ -231,7 +231,7 @@ impl Panel {
         let list: Vec<&Entry> = if self.marked.is_empty() { cur.into_iter().collect() } else { self.entries.iter().filter(|e| self.marked.contains(&e.path)).collect() };
         let at = history::split(&self.dir);
         let inside = coxswain_core::archive::split(&self.dir);
-        let place = if inside.as_ref().is_some_and(|(a, _)| coxswain_core::archive::is_disk_image(a)) {
+        let place = if inside.as_ref().is_some_and(|(a, _)| coxswain_core::archive::read_only(a)) {
             Place::DiskImage
         } else if inside.is_some() {
             Place::Archive
@@ -1058,7 +1058,7 @@ impl App {
     fn act(&mut self, a: Action) {
         // Inside a disk image (a CHM, a CBR) nothing changes: said before any question is asked.
         if matches!(a, Action::Move | Action::Rename | Action::Delete | Action::DeleteForever | Action::NewFolder)
-            && coxswain_core::archive::split(&self.panel().dir).is_some_and(|(i, _)| coxswain_core::archive::is_disk_image(&i))
+            && coxswain_core::archive::split(&self.panel().dir).is_some_and(|(i, _)| coxswain_core::archive::read_only(&i))
         {
             return self.status = Some(t!("disk_image.read_only"));
         }
@@ -1239,7 +1239,16 @@ impl App {
                             Err(err) => self.status = Some(err),
                         }
                     }
-                    // A database or a Parquet file: its tables and first rows, as text.
+                    // An old picture, a tracker module, an Outlook message: what it holds, as text.
+                    if a == Action::View
+                        && let Some(r) = coxswain_core::facts::text_copy(&e)
+                    {
+                        match r {
+                            Ok(text) => return self.view_or_edit(a, &text),
+                            Err(err) => self.status = Some(err),
+                        }
+                    }
+                    // A database, a dBase table or a Parquet file: its tables and first rows, as text.
                     if a == Action::View && coxswain_core::tables::is_tables(&e) {
                         match coxswain_core::tables::text_copy(&e) {
                             Ok(text) => return self.view_or_edit(a, &text),
@@ -1442,7 +1451,7 @@ impl App {
             return self.cd(self.active, e.path);
         }
         if let Some((archive, _)) = inside {
-            let key = if coxswain_core::archive::is_disk_image(&archive) { "disk_image.copy_out_hint" } else { "archive.copy_out_hint" };
+            let key = if coxswain_core::archive::read_only(&archive) { "disk_image.copy_out_hint" } else { "archive.copy_out_hint" };
             return self.status = Some(t!(key, "archive" => archive.file_name().unwrap_or_default().to_string_lossy()));
         }
         if history::is_history(&self.panel().dir) {

@@ -24,7 +24,8 @@ Nothing to do: every file of these kinds inside a [folder read](folders.md) is r
 | Rich text | `.rtf` | The text |
 | Spreadsheets | `.xlsx` `.xlsm` `.xlsb` `.xls` `.ods` | Every sheet: the values, not the formulas, and the notes on the cells (not in `.xls`) |
 | Presentations | `.pptx` `.ppsx` `.potx` `.odp` | The slides, with the speaker notes |
-| Mail | `.eml` `.mbox` | Subject, sender, receivers, the message and the names of its attachments |
+| Mail | `.eml` `.mbox`, Outlook `.msg` | Subject, sender, receivers, the message and the names of its attachments |
+| dBase tables | `.dbf` | The field names and the records ([Old pictures and files](../previews/old-formats.md#dbase-tables)) |
 | Books and web pages | `.epub` `.html` `.htm` `.xhtml` | The text, without the markup |
 | Notebooks | Jupyter `.ipynb` | The cells, with what they printed |
 | Diagrams | draw.io `.drawio` `.dio`, Mermaid `.mmd` `.mermaid`, Graphviz `.dot` `.gv`, PlantUML `.puml` `.plantuml` `.pu` `.iuml` `.wsd` | The words in the boxes, and [a sentence per arrow](diagrams.md) |

@@ -60,6 +60,14 @@ sevenz-rust2 = { version = "0.24.1", features = ["aes256"] }
 parquet = { version = "60", default-features = false, features = ["snap", "flate2-zlib-rs", "lz4", "brotli"] }
 cozy-chess = "0.3.4"
 
+# Old pictures (`pictures`), all pure Rust: TIFF with its pages, TGA, Netpbm, DDS, Radiance HDR,
+# OpenEXR, QOI and farbfeld through `image`, written out as PNG for the desktop app's preview.
+image = { version = "0.25.10", default-features = false, features = ["tiff", "tga", "pnm", "dds", "hdr", "exr", "qoi", "ff", "png"] }
+# JPEG XL, in pure Rust; no colour management library (lcms2 is C).
+jxl-oxide = { version = "0.12.6", default-features = false, features = ["image", "rayon"] }
+# Outlook's `.msg` is a compound file (OLE); the version tauri's `infer` already brings.
+cfb = "0.14.0"
+
 # statfs(2) for the ZFS dataset a folder is on, and chflags(2) for file flags.
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"

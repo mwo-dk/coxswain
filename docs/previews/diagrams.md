@@ -166,4 +166,4 @@ run. draw.io's viewer is draw.io's
 own code and loads nothing from the web. See [Safety](safety.md).
 
 ---
-[← Previous: Media and files](media.md) · [Next: LaTeX projects →](latex.md)
+[← Previous: Old pictures and files](old-formats.md) · [Next: LaTeX projects →](latex.md)

@@ -272,6 +272,14 @@ export const TAG_COLORS = {
 };
 
 const IMAGE = ["png", "jpg", "jpeg", "gif", "webp", "bmp", "ico", "svg", "avif"];
+/** The old pictures the core reads and shows as a PNG it makes (`pictures::endings`): TIFF,
+ *  TGA, Netpbm, DDS, HDR, OpenEXR, QOI, farbfeld, JPEG XL, IFF, PCX, XPM, XBM, Photoshop. Set
+ *  once the config has come. */
+const OLD = new Set();
+export const setPictureEndings = (all) => (OLD.clear(), all.forEach((x) => OLD.add(x)));
+export const isOldPicture = (name) => OLD.has(name.split(".").pop().toLowerCase());
+/** Tracker music: facts and sample names, no playback. */
+const TRACKER = ["mod", "xm", "s3m", "it"];
 const VIDEO = ["mp4", "webm", "mkv", "mov", "m4v", "ogv"];
 const AUDIO = ["mp3", "flac", "wav", "ogg", "m4a", "opus", "aac"];
 const FONT = ["ttf", "otf", "woff", "woff2"];
@@ -385,6 +393,8 @@ export function previewKind(item) {
   if (chessFormat(item.name)) return "chess";
   if (isProvenanceName(item.name)) return "provenance";
   if (isBomName(item.name)) return "bom";
+  // A comic is a zip of pictures: shown page by page (Enter still opens it like a folder).
+  if (/\.cbz$/i.test(item.name)) return "comic";
   if (isArchive(item.name)) return "archive";
   // A .vhd or .img that turns out to be none is shown as text instead (Preview).
   if (diskName(item.name)) return "disk_image";
@@ -396,10 +406,13 @@ export function previewKind(item) {
   if (ext === "ipynb") return "notebook";
   if (ext === "mmd" || ext === "mermaid") return "mermaid";
   if (ext === "html" || ext === "htm" || ext === "xhtml") return "html";
-  const special = { db: "sqlite", sqlite: "sqlite", sqlite3: "sqlite", db3: "sqlite", epub: "epub", pem: "cert", crt: "cert", cer: "cert", der: "cert", eml: "mail", plist: "plist", ics: "calendar", vcf: "contacts", jsonl: "jsonl", ndjson: "jsonl", json: "data", geojson: "data", yaml: "data", yml: "data", toml: "data", log: "log" };
+  const special = { db: "sqlite", sqlite: "sqlite", sqlite3: "sqlite", db3: "sqlite", epub: "epub", pem: "cert", crt: "cert", cer: "cert", der: "cert", eml: "mail", msg: "mail", dbf: "sqlite", plist: "plist", ics: "calendar", vcf: "contacts", jsonl: "jsonl", ndjson: "jsonl", json: "data", geojson: "data", yaml: "data", yml: "data", toml: "data", log: "log" };
   if (special[ext]) return special[ext];
   if (CONVERTED[ext]) return CONVERTED[ext];
   if (IMAGE.includes(ext)) return "image";
+  // A .hdr or .mod that is none (another program's header, Modula-2) is shown as text (Preview).
+  if (OLD.has(ext)) return "picture";
+  if (TRACKER.includes(ext)) return "tracker";
   if (VIDEO.includes(ext)) return "video";
   if (AUDIO.includes(ext)) return "audio";
   if (ext === "md" || ext === "markdown") return "markdown";

@@ -129,7 +129,7 @@ ones make the links an image holds even when told not to.
 Coxswain asks 7-Zip to list the image and to write single files out of it; it never mounts
 anything, needs no administrator rights, and never writes into an image. Inside one, **F6**,
 **Shift+F6**, **F7** and **F8** are left out of the action menu, and pressed anyway they say
-*Read-only: Coxswain never writes into a disk image, a CHM help file or a CBR comic. Copy its
+*Read-only: Coxswain never writes into a disk image, a CHM help file, a CBR comic or a mailbox. Copy its
 files out instead.* **F5** into an open image says the same.
 
 Names are given to 7-Zip as they are, after `--`, with its wildcards off: a file called `*` or

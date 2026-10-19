@@ -53,6 +53,14 @@ test("disk images: by name, .vhd and .img only once their content says so", asyn
   assert.ok(!diskName("notes.txt"));
 });
 
+test("old pictures: the core's endings, any case", async () => {
+  const { setPictureEndings, isOldPicture } = await pick("OLD", "setPictureEndings", "isOldPicture");
+  setPictureEndings(["tif", "iff", "psd"]);
+  assert.ok(isOldPicture("Scan.TIF") && isOldPicture("boing.iff") && !isOldPicture("photo.jpg"));
+  setPictureEndings(["pcx"]);
+  assert.ok(!isOldPicture("a.tif"), "the list replaced");
+});
+
 test("natord and sortItems: as coxswain-core's fs::natord and fs::sort", async () => {
   const { natord, sortItems } = await pick("isDigit", "byPoint", "natord", "sortItems");
   assert.ok(natord("file2", "file10") < 0);

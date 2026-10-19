@@ -167,6 +167,11 @@ pub const FEATURES: &[Feature] = &[
         &[TogglePreview, View, Open, Extract],
     ),
     f(
+        "old_formats",
+        "previews/old-formats.md",
+        &[TogglePreview, View, Properties, Open, Copy],
+    ),
+    f(
         "preview_diagrams",
         "previews/diagrams.md",
         &[TogglePreview, View, Open, Settings],

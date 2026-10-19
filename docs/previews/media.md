@@ -40,6 +40,7 @@ program is built for.
 | Files | Preview |
 |---|---|
 | Pictures: `png jpg jpeg gif webp bmp ico svg avif` | The picture on a checkerboard (so transparency shows), plus its EXIF facts |
+| Old pictures: TIFF, TGA, Netpbm, DDS, HDR, OpenEXR, QOI, farbfeld, JPEG XL, Amiga IFF, PCX, XPM, XBM, Photoshop | The same, drawn by Coxswain; see [Old pictures and files](old-formats.md) |
 | Video: `mp4 webm mkv mov m4v ogv` | A player |
 | Audio: `mp3 flac wav ogg m4a opus aac` | A player, plus its tags |
 | Fonts: `.ttf`, `.otf`, `.woff`, `.woff2` | *The quick brown fox jumps over the lazy dog* and *Sphinx of black quartz, judge my vow* in large sizes, the alphabet, digits and signs, and *Æble, øl og å — Grüße — ﬁ ﬂ — “quotes” — €£¥* |
@@ -80,6 +81,9 @@ Under the preview, some files get a short list:
   *Location* as decimal degrees (paste them into any map).
 - **Audio:** *Title*, *Artist*, *Album*, *Year*, *Track*, *Genre*, *Length*, *Bitrate*, and
   the sample rate and channels (*44.1 kHz, stereo*).
+- **Old pictures, comics, mailboxes, dBase tables and tracker music:** their format, size in
+  pixels, colours, pages and layers, messages, records and fields, channels and samples; see
+  [Old pictures and files](old-formats.md#formats).
 - **Programs and libraries:** the platform and CPU they are built for (*Linux/Unix ELF 64-bit*,
   *Windows PE*, *macOS Mach-O*, *macOS universal*; x86, x86-64, ARM, ARM64, RISC-V and more)
   and what they are (program, windowed or console program, shared library, object file).
@@ -157,4 +161,4 @@ Measuring a big folder reads every file under it. With folder sizes on in the co
 appears by itself; otherwise **Calculate** measures this one.
 
 ---
-[← Previous: Chess games](chess.md) · [Next: Diagrams →](diagrams.md)
+[← Previous: Chess games](chess.md) · [Next: Old pictures and files →](old-formats.md)
