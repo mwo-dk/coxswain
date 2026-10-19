@@ -1156,7 +1156,7 @@
  "feature.languages.q2": "Järjestelmäni on Yhdysvaltain englanniksi. Miksi Coxswain sanoo colour mutta trash?",
  "feature.languages.q3": "Miten palaan seuraamaan järjestelmää?",
  "feature.languages.title": "Kielet",
- "feature.languages.what": "Molemmat sovellukset puhuvat 29 kieltä yhdellä asetuksella; oletuksena Coxswain seuraa järjestelmäsi kieltä.",
+ "feature.languages.what": "Molemmat sovellukset puhuvat 31 kieltä yhdellä asetuksella; oletuksena Coxswain seuraa järjestelmäsi kieltä.",
  "feature.latex.a1": "Tiedosto, jossa ei ole \\documentclass-riviä, kokoaa asiakirjan, joka sisällyttää sen, kuten LaTeX-editori tekisi: sen, jonka sen % !TEX root -rivi nimeää, tai lähellä olevan, joka nimeää sen.",
  "feature.latex.a2": "latexmk ei saanut tehtyä PDF:ää (tässä puuttui paketti), joten seuraavaa valmista ohjelmaa kokeiltiin ja se onnistui. Asenna paketti tai valitse tectonicin painike.",
  "feature.latex.a3": "Se tarvitsee -shell-escape-valitsimen, jolla asiakirja voi ajaa ohjelmia koneellasi. Coxswain ei koskaan anna sitä, joten mikään asiakirja ei voi ajaa komentoa.",

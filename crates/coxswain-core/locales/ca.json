@@ -1190,7 +1190,7 @@
  "feature.languages.q2": "El meu sistema és en anglès dels EUA. Per què el Coxswain diu colour però trash?",
  "feature.languages.q3": "Com torno a seguir el sistema?",
  "feature.languages.title": "Llengües",
- "feature.languages.what": "Les dues aplicacions parlen 29 llengües des d'un sol paràmetre; per defecte el Coxswain segueix la llengua del sistema.",
+ "feature.languages.what": "Les dues aplicacions parlen 31 llengües des d'un sol paràmetre; per defecte el Coxswain segueix la llengua del sistema.",
  "feature.latex.a1": "Un fitxer sense \\documentclass compila el document que l'inclou, com faria un editor de LaTeX: el que indica la seva línia % !TEX root, o un de proper que l'esmenti.",
  "feature.latex.a2": "latexmk no ha pogut fer el PDF (aquí, per un paquet que falta), així que s'ha provat el següent motor disponible i ha funcionat. Instal·leu el paquet, o trieu el botó de tectonic.",
  "feature.latex.a3": "Necessita -shell-escape, que permet a un document executar programes a la vostra màquina. El Coxswain no el passa mai, així que cap document no pot executar una ordre.",

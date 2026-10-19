@@ -2,7 +2,7 @@
 
 # Languages
 
-Both apps, the terminal app and the desktop app, speak 29 languages. They share one set of
+Both apps, the terminal app and the desktop app, speak 31 languages. They share one set of
 translations and one setting, so they always agree. By default Coxswain follows your system's
 language.
 
@@ -35,6 +35,8 @@ Both apps list them by region, and by their own name within a region:
 | <img src="../flags/ee.svg" width="24" alt=""> | Eesti | `et` |
 | <img src="../flags/lv.svg" width="24" alt=""> | Latviešu | `lv` |
 | <img src="../flags/lt.svg" width="24" alt=""> | Lietuvių | `lt` |
+| <img src="../flags/no.svg" width="24" alt=""> | Norsk (bokmål), Norwegian Bokmål *(new)* | `nb` |
+| <img src="../flags/no.svg" width="24" alt=""> | Norsk (nynorsk), Norwegian Nynorsk *(new)* | `nn` |
 | <img src="../flags/fi.svg" width="24" alt=""> | Suomi | `fi` |
 | <img src="../flags/se.svg" width="24" alt=""> | Svenska | `sv` |
 | | **Western Europe** | |
@@ -132,7 +134,8 @@ English counts); otherwise the nearest relative of the first one:
 | Australian, Canadian, New Zealand English | That English |
 | Any other English (Britain, Ireland, South Africa, India, …) | British English |
 | Any Spanish (Spain, Mexico, …), Galician and Aragonese | Argentinian Spanish |
-| Norwegian (Bokmål, Nynorsk) | Danish, the closest written language |
+| Norwegian Bokmål (`nb_NO`, `nb`), and Norwegian with no written standard named (`no`, `no_NO`) | Norsk (bokmål) |
+| Norwegian Nynorsk (`nn_NO`, `nn`) | Norsk (nynorsk) |
 | Frisian, Afrikaans | Dutch |
 | Luxembourgish | German |
 | Occitan | Catalan |
@@ -144,8 +147,8 @@ English counts); otherwise the nearest relative of the first one:
 | Hebrew (also the old code `iw`) | Hebrew |
 | Anything else | British English |
 
-A language code in `config.toml` goes through the same table, so `language = "nb"` gives Danish
-and `language = "es"` Argentinian Spanish.
+A language code in `config.toml` goes through the same table, so `language = "no"` gives
+Bokmål and `language = "es"` Argentinian Spanish.
 
 ## What you see
 
@@ -257,7 +260,7 @@ One key for both apps.
 
 ## In the terminal app
 
-The same 29 languages and the same translations, chosen by the same `language` key. Its own
+The same 31 languages and the same translations, chosen by the same `language` key. Its own
 Settings pick it at once (**F12** → *Looks* → *Language*); a change made in the desktop app or
 in the file is read when it starts. `coxswain --languages` prints the list by region,
 the one in use and the new ones marked, and where to suggest a better word. Right to left
@@ -302,6 +305,15 @@ These are new, marked *new* in Settings (and so are Japanese and Korean), and ha
 Coxswain shows the notice "*Polski is a new translation…*" once (under Settings → *Overview* →
 *What's new* in both apps; the terminal app also says it in the status line) to say so. A better word is
 very welcome: see [Improving a translation](#improving-a-translation).
+
+#### My system is Norwegian. Do I get Bokmål or Nynorsk?
+
+The one your system names: `nb_NO` (or `nb`) gives *Norsk (bokmål)*, `nn_NO` (or `nn`) gives
+*Norsk (nynorsk)*. A system that says only `no` or `no_NO` gets Bokmål, the one most Norwegians
+write. To pick the other, choose it in Settings → *Looks* → *Language*, or set
+`language = "nn"` (or `"nb"`) in `config.toml`. Both are new and marked *new* in Settings; a
+native reader's corrections are very welcome (see
+[Improving a translation](#improving-a-translation)).
 
 #### Persian, Armenian or Georgian is new. Who checked it?
 
@@ -376,7 +388,7 @@ app says "Move", "New folder" and "Commands". A better short word is welcome; se
 
 The translations were written with care but have not all been checked by native speakers yet.
 The ones marked *new* (Polish, Czech, Ukrainian, Greek, Japanese, Korean, Persian, Armenian,
-Georgian) need a native reader most, then Basque,
+Georgian, Norwegian Bokmål and Nynorsk) need a native reader most, then Basque,
 Latvian and Lithuanian. Corrections are very welcome, in either of two ways:
 
 - **Tell us:** open an [issue on GitHub](https://github.com/mwo-dk/coxswain/issues/new) with the

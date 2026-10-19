@@ -46,6 +46,8 @@ pub const LANGUAGES: &[Language] = &[
     lang("et", "Eesti", "ee", "language.group.nordic", false),
     lang("lv", "Latviešu", "lv", "language.group.nordic", false),
     lang("lt", "Lietuvių", "lt", "language.group.nordic", false),
+    lang("nb", "Norsk (bokmål)", "no", "language.group.nordic", true),
+    lang("nn", "Norsk (nynorsk)", "no", "language.group.nordic", true),
     lang("fi", "Suomi", "fi", "language.group.nordic", false),
     lang("sv", "Svenska", "se", "language.group.nordic", false),
     lang("ca", "Català", "es-ct", "language.group.western", false),
@@ -192,6 +194,8 @@ fn source(code: &str) -> &'static str {
         "en-NZ" => include_str!("../locales/en-NZ.json"),
         "da" => include_str!("../locales/da.json"),
         "sv" => include_str!("../locales/sv.json"),
+        "nb" => include_str!("../locales/nb.json"),
+        "nn" => include_str!("../locales/nn.json"),
         "fi" => include_str!("../locales/fi.json"),
         "et" => include_str!("../locales/et.json"),
         "lv" => include_str!("../locales/lv.json"),
@@ -244,7 +248,10 @@ pub fn nearest(tag: &str) -> &'static str {
         };
     }
     match lang {
-        "da" | "nb" | "nn" | "no" => "da", // Norwegian reads closest to Danish
+        "da" => "da",
+        // Norwegian without a written standard named (`no`, `no_NO`) is Bokmål, as most write it.
+        "nb" | "no" => "nb",
+        "nn" => "nn",
         "sv" => "sv",
         "fi" => "fi",
         "et" => "et",
@@ -510,7 +517,14 @@ mod tests {
             ("iw", "he"),
             ("en_AU", "en-AU"),
             ("en-IE", "en-GB"),
-            ("nb-NO", "da"),
+            ("nb-NO", "nb"),
+            ("nb", "nb"),
+            ("no", "nb"),
+            ("no-NO", "nb"),
+            ("nb_NO.UTF-8", "nb"),
+            ("nn", "nn"),
+            ("nn-NO", "nn"),
+            ("nn_NO.UTF-8", "nn"),
             ("de-CH", "de-CH"),
             ("de_CH.UTF-8", "de-CH"),
             ("de-LI", "de-CH"),

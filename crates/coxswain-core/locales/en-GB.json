@@ -1156,7 +1156,7 @@
  "feature.languages.q2": "My system is in US English. Why does Coxswain say colour but trash?",
  "feature.languages.q3": "How do I go back to following the system?",
  "feature.languages.title": "Languages",
- "feature.languages.what": "Both apps speak 29 languages from one setting; by default Coxswain follows your system's language.",
+ "feature.languages.what": "Both apps speak 31 languages from one setting; by default Coxswain follows your system's language.",
  "feature.latex.a1": "A file without \\documentclass builds the document that includes it, as a LaTeX editor would: the one its % !TEX root line names, or one nearby that names it.",
  "feature.latex.a2": "latexmk could not make the PDF (here a missing package), so the next ready engine was tried and succeeded. Install the package, or pick tectonic's button.",
  "feature.latex.a3": "It needs -shell-escape, which lets a document run programs on your machine. Coxswain never passes it, so no document can run a command.",

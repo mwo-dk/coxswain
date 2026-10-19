@@ -1190,7 +1190,7 @@
  "feature.languages.q2": "Mano sistema JAV anglų kalba. Kodėl Coxswain rašo colour, bet trash?",
  "feature.languages.q3": "Kaip vėl sekti sistemos kalbą?",
  "feature.languages.title": "Kalbos",
- "feature.languages.what": "Abi programos kalba 29 kalbomis pagal vieną parametrą; pagal nutylėjimą Coxswain seka jūsų sistemos kalbą.",
+ "feature.languages.what": "Abi programos kalba 31 kalbomis pagal vieną parametrą; pagal nutylėjimą Coxswain seka jūsų sistemos kalbą.",
  "feature.latex.a1": "Failas be \\documentclass sukuria jį įtraukiantį dokumentą, kaip tai darytų LaTeX redaktorius: tą, kurį nurodo jo % !TEX root eilutė, arba netoliese esantį, kuris jį nurodo.",
  "feature.latex.a2": "latexmk nepavyko sukurti PDF (čia trūko paketo), todėl buvo išbandytas kitas paruoštas variklis ir jam pavyko. Įdiekite paketą arba pasirinkite tectonic mygtuką.",
  "feature.latex.a3": "Jam reikia -shell-escape, kuris leidžia dokumentui vykdyti programas jūsų kompiuteryje. Coxswain jo niekada neperduoda, todėl joks dokumentas negali vykdyti komandos.",

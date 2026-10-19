@@ -1156,7 +1156,7 @@
  "feature.languages.q2": "Mu süsteem on USA inglise keeles. Miks ütleb Coxswain colour, aga trash?",
  "feature.languages.q3": "Kuidas minna tagasi süsteemi järgimisele?",
  "feature.languages.title": "Keeled",
- "feature.languages.what": "Mõlemad rakendused räägivad ühe sätte järgi 29 keelt; vaikimisi järgib Coxswain sinu süsteemi keelt.",
+ "feature.languages.what": "Mõlemad rakendused räägivad ühe sätte järgi 31 keelt; vaikimisi järgib Coxswain sinu süsteemi keelt.",
  "feature.latex.a1": "Fail ilma \\documentclass'ita koostab dokumendi, mis selle sisaldab, nagu LaTeX-i redaktor: selle, mille nimetab rida % !TEX root, või läheduses oleva, mis seda nimetab.",
  "feature.latex.a2": "latexmk ei suutnud PDF-i teha (siin puuduva paketi tõttu), seega prooviti järgmist valmis mootorit ja see õnnestus. Paigalda pakett või vali tectonicu nupp.",
  "feature.latex.a3": "See vajab -shell-escape'i, mis laseb dokumendil sinu masinas programme käivitada. Coxswain ei anna seda kunagi, seega ei saa ükski dokument käsku käivitada.",
