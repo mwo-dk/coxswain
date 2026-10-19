@@ -228,7 +228,10 @@ impl Panel {
         let cur = self.current().filter(|e| !e.is_parent());
         let list: Vec<&Entry> = if self.marked.is_empty() { cur.into_iter().collect() } else { self.entries.iter().filter(|e| self.marked.contains(&e.path)).collect() };
         let at = history::split(&self.dir);
-        let place = if coxswain_core::archive::split(&self.dir).is_some() {
+        let inside = coxswain_core::archive::split(&self.dir);
+        let place = if inside.as_ref().is_some_and(|(a, _)| coxswain_core::archive::is_disk_image(a)) {
+            Place::DiskImage
+        } else if inside.is_some() {
             Place::Archive
         } else if at.as_ref().is_some_and(|at| at.view == history::View::Branches && at.commit.is_none()) {
             Place::Branches
@@ -244,7 +247,8 @@ impl Panel {
         Subject {
             files: list.iter().filter(|e| !e.is_dir).count(),
             folders: list.iter().filter(|e| e.is_dir).count(),
-            archives: list.iter().filter(|e| !e.is_dir && coxswain_core::archive::is_archive(&e.path)).count(),
+            archives: list.iter().filter(|e| !e.is_dir && coxswain_core::archive::opens(&e.path)).count(),
+            disk_images: if coxswain_core::disk_image::open_on() { 0 } else { list.iter().filter(|e| !e.is_dir && coxswain_core::disk_image::is_disk_image(&e.path)).count() },
             one: list.len() == 1 && cur.is_some_and(|c| c.path == list[0].path),
             marked: self.marked.len(),
             place,
@@ -1003,6 +1007,12 @@ impl App {
     }
 
     fn act(&mut self, a: Action) {
+        // Inside a disk image (a CHM, a CBR) nothing changes: said before any question is asked.
+        if matches!(a, Action::Move | Action::Rename | Action::Delete | Action::DeleteForever | Action::NewFolder)
+            && coxswain_core::archive::split(&self.panel().dir).is_some_and(|(i, _)| coxswain_core::archive::is_disk_image(&i))
+        {
+            return self.status = Some(t!("disk_image.read_only"));
+        }
         match a {
             // A second Quit while a job runs leaves anyway: a dead network mount must not
             // hold the app. The job's thread ends with the process, its file half done.
@@ -1213,7 +1223,7 @@ impl App {
                 self.input(&title, t!("dialog.to"), dst, prompt);
             }
             Action::Extract => {
-                let src: Vec<PathBuf> = self.panel().targets().into_iter().filter(|p| coxswain_core::archive::is_archive(p)).collect();
+                let src: Vec<PathBuf> = self.panel().targets().into_iter().filter(|p| coxswain_core::archive::opens(p)).collect();
                 if src.is_empty() {
                     return self.status = Some(t!("app.not_archive"));
                 }
@@ -1289,6 +1299,14 @@ impl App {
             Action::Features => self.features(String::new(), None),
             Action::Settings => self.dialog = Some(Dialog::Settings(Box::new(settings::Settings::open(self, "")))),
             Action::DiskUse => self.dialog = Some(Dialog::Settings(Box::new(settings::Settings::open(self, "disk")))),
+            Action::DiskImages => {
+                let Some(path) = Config::path() else { return self.status = Some(t!("err.no_config_folder")) };
+                let on = serde_json::json!({ "disk_images": true });
+                self.status = Some(match self.save_options(&path, on.as_object().expect("an object")) {
+                    Ok(()) => coxswain_core::disk_image::next_line(self.key_label(Action::Open), self.key_label(Action::Settings), self.key_label(Action::ActionMenu)),
+                    Err(e) => e,
+                });
+            }
             // Asked for: measure afresh, whatever is remembered and whether or not sizes are on.
             Action::FolderSizes => {
                 if coxswain_core::archive::split(&self.panel().dir).is_some() {
@@ -1355,11 +1373,12 @@ impl App {
         // An archive opens like a folder; its files are copied out with F5. An archive inside
         // one is a file like the others.
         let inside = coxswain_core::archive::split(&self.panel().dir);
-        if e.is_dir || (inside.is_none() && coxswain_core::archive::is_archive(&e.path)) {
+        if e.is_dir || (inside.is_none() && coxswain_core::archive::opens(&e.path)) {
             return self.cd(self.active, e.path);
         }
         if let Some((archive, _)) = inside {
-            return self.status = Some(t!("archive.copy_out_hint", "archive" => archive.file_name().unwrap_or_default().to_string_lossy()));
+            let key = if coxswain_core::archive::is_disk_image(&archive) { "disk_image.copy_out_hint" } else { "archive.copy_out_hint" };
+            return self.status = Some(t!(key, "archive" => archive.file_name().unwrap_or_default().to_string_lossy()));
         }
         if history::is_history(&self.panel().dir) {
             return self.status = Some(t!("history.file_hint"));
@@ -2573,7 +2592,8 @@ impl App {
             match r {
                 Ok(p) => {
                     let title = p.path.file_name().map_or_else(|| p.path.display().to_string(), |n| n.to_string_lossy().into_owned());
-                    self.dialog = Some(Dialog::Message { title, text: ui::properties(&p, self.key_label(Action::Snapshots)) });
+                    let next = coxswain_core::disk_image::next_line(self.key_label(Action::Open), self.key_label(Action::Settings), self.key_label(Action::ActionMenu));
+                    self.dialog = Some(Dialog::Message { title, text: ui::properties(&p, self.key_label(Action::Snapshots), &next) });
                 }
                 Err(e) => self.dialog = Some(failure(t!("action.properties"), &e)),
             }
@@ -3245,6 +3265,7 @@ pub fn main() {
         std::process::exit(2)
     });
     coxswain_core::i18n::set_language(coxswain_core::i18n::resolve(&cfg.language));
+    coxswain_core::disk_image::set_open(cfg.archive.disk_images);
     let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("/"));
     let dir = |i: usize| {
         let d = args.get(i).map(|a| resolve(&cwd, a)).unwrap_or_else(|| cwd.clone());

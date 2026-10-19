@@ -2,10 +2,11 @@
   import { untrack } from "svelte";
   import { ui, tab, item, openHistory, openGitView, switchBranch, newBranch, gitTool, openGitConfig } from "./app.svelte.js";
   import { renderHtml, renderPptx, renderDrawio, renderMarkdown, renderMermaid, highlight, highlightOff, renderDocx, readSheet, renderNotebook, loadFont, clean, parseData, jsonLines, calendar, contacts, logLines, renderGraphviz, renderAsciidoc, readParquet } from "./renderers.js";
-  import { invoke, convertFileSrc, basename, size, date, age, ageColor, previewKind, looksLikeBom, looksLikeProvenance, CONVERTER, LOCKED } from "./lib.js";
+  import { invoke, convertFileSrc, basename, size, date, age, ageColor, previewKind, looksLikeBom, looksLikeProvenance, CONVERTER, LOCKED, diskSeen } from "./lib.js";
   import BomView from "./BomView.svelte";
   import ProvenanceView from "./ProvenanceView.svelte";
   import CopyLine from "./CopyLine.svelte";
+  import DiskNext from "./DiskNext.svelte";
     import { t, tn, num } from "./i18n.svelte.js";
 
   /** Set by App when the command output should show here instead of the file. */
@@ -339,6 +340,24 @@
     return () => clearTimeout(timer);
   });
 
+  // Disk image (or CHM, CBR): its facts, what can be done next, and while it opens like a
+  // folder what is inside. A .vhd or .img that is none (VHDL source) is shown as text.
+  let disk = $state(null);
+  $effect(() => {
+    const cur = e;
+    disk = null;
+    if (kind !== "disk_image") return;
+    const timer = setTimeout(async () => {
+      const r = await invoke("disk_image_facts", { path: cur.path }).catch((err) => ({ error: String(err) }));
+      if (e?.path !== cur.path) return;
+      if (r === null) return void (sniffed = { path: cur.path, kind: "text" });
+      if (!r.error) diskSeen.add(cur.path);
+      disk = r;
+      if (r.opens) listArchive(cur);
+    }, 80);
+    return () => clearTimeout(timer);
+  });
+
   // Folder: summary and notes.
   $effect(() => {
     const cur = e;
@@ -659,6 +678,29 @@
         <div class="media"><audio src={convertFileSrc(e.path)} controls preload="metadata"></audio></div>
       {:else if kind === "pdf"}
         <iframe class="pdf" src={convertFileSrc(e.path) + "#zoom=page-width"} title={e.name}></iframe>
+      {:else if kind === "disk_image"}
+        {#if disk?.error}
+          <p class="more">{disk.error}</p>
+        {:else if disk}
+          {#if disk.known}
+            <dl class="facts">
+              {#each disk.lines as [k, v] (k)}<dt>{k}</dt><dd>{v}</dd>{/each}
+            </dl>
+          {:else}
+            <p class="more">{t("disk_image.unknown")}</p>
+          {/if}
+          <DiskNext next={disk.next} />
+          {#if disk.opens && archive?.error}
+            <p class="more">{archive.error}</p>
+          {:else if disk.opens && archive}
+            <p class="more">{tn(archive.more ? "preview.archive_more" : "preview.archive", archive.entries.length)}</p>
+            <ul class="archive mono">
+              {#each archive.entries as a (a.name)}
+                <li class:dir={a.is_dir}><span>{a.name}</span>{#if !a.is_dir}<span class="sz">{size(a.size)}</span>{/if}</li>
+              {/each}
+            </ul>
+          {/if}
+        {/if}
       {:else if kind === "archive"}
         {#if archive?.error?.includes(LOCKED)}
           <!-- A 7z with its names locked too: nothing to list without the password. -->

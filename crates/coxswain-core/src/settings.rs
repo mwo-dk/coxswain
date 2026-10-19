@@ -214,6 +214,7 @@ pub const OPTIONS: &[Opt] = &[
     opt("right_click", &["right_click"], Behaviour, &[]),
     opt("hints", &["hints"], Behaviour, &[]),
     opt("folder_sizes", &["folder_sizes"], Behaviour, &[Cpu]),
+    opt("disk_images", &["archive", "disk_images"], Behaviour, &[]),
     opt(
         "git_last_commit",
         &["git", "last_commit"],
@@ -314,6 +315,7 @@ pub fn save_to(
         Ok((Some(new_text), cfg))
     })?;
     crate::i18n::set_language(crate::i18n::resolve(&cfg.language));
+    crate::disk_image::set_open(cfg.archive.disk_images);
     Ok(cfg)
 }
 

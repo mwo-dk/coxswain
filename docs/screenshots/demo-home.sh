@@ -23,7 +23,18 @@ g() {
 truncate -s 12K Documents/letter.odt
 python3 "$here/demo-docs.py" "$d"
 printf '# Notes\n\n- Book the ferry\n- Renew the domain\n- Try `coxswain` on the laptop\n' > Documents/notes.md
-truncate -s 5M Downloads/setup.iso
+# A real ISO with a few files, for the disk image preview; an empty one without bsdtar.
+if command -v bsdtar >/dev/null; then
+  iso="$(mktemp -d)"
+  mkdir -p "$iso/docs"
+  printf 'Setup 1.0\n\nRun install.sh, or read docs/install.md.\n' > "$iso/README.txt"
+  printf '#!/bin/sh\necho Installing...\n' > "$iso/install.sh"
+  printf '# Installing\n\n1. Mount nothing: Coxswain reads it as it is.\n' > "$iso/docs/install.md"
+  bsdtar --format=iso9660 --options 'iso9660:volume-id=SETUP_1_0,iso9660:rockridge' -cf Downloads/setup.iso -C "$iso" .
+  rm -rf "$iso"
+else
+  truncate -s 5M Downloads/setup.iso
+fi
 # Real pictures for the thumbnail view and the preview (ImageMagick draws them).
 img() { magick -size 1200x800 "$@"; }
 img gradient:'#0b3d91'-'#f4a261' -swirl 60 Pictures/sunset.jpg

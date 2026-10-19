@@ -1,7 +1,8 @@
 //! Archives: zip (and the formats that are zips: jar, apk, whl, nupkg, vsix), tar, tar
 //! compressed with gzip, bzip2, xz or zstd, and 7z. List, extract, and inside them read and
 //! write as in a folder. All in pure Rust. Entries that would land outside the destination
-//! (`..`, absolute paths) are refused.
+//! (`..`, absolute paths) are refused. Disk images open here too, read-only, when that option
+//! is on: `disk_image` lists them and copies out of them with an installed 7-Zip.
 
 use serde::Serialize;
 use std::fs::File;
@@ -24,6 +25,8 @@ enum Kind {
     Zip,
     Tar(Pack),
     SevenZ,
+    /// A disk image, read with 7-Zip (`disk_image`): never written.
+    Disk,
 }
 
 /// How a tar is compressed.
@@ -57,7 +60,13 @@ const ENDINGS: &[(&str, Kind)] = &[
     (".vsix", Kind::Zip),
 ];
 
+/// What `path` opens as: an archive by its ending, else a disk image when those open.
 fn kind(path: &Path) -> Option<Kind> {
+    ending_kind(path).or_else(|| crate::disk_image::opens(path).then_some(Kind::Disk))
+}
+
+/// The archive `path` is by its ending (never a disk image).
+fn ending_kind(path: &Path) -> Option<Kind> {
     // Asked of every file the name index walks: no allocation.
     let n = path.file_name()?.as_encoded_bytes();
     ENDINGS
@@ -68,8 +77,19 @@ fn kind(path: &Path) -> Option<Kind> {
         .map(|(_, k)| *k)
 }
 
+/// An archive by its ending: one search looks into. Never a disk image (`opens`).
 pub fn is_archive(path: &Path) -> bool {
+    ending_kind(path).is_some()
+}
+
+/// `path` opens like a folder: an archive, or a disk image when those open.
+pub fn opens(path: &Path) -> bool {
     kind(path).is_some()
+}
+
+/// `archive` is a disk image opened like a folder: read-only.
+pub fn is_disk_image(archive: &Path) -> bool {
+    kind(archive) == Some(Kind::Disk)
 }
 
 fn not_archive(path: &Path) -> io::Error {
@@ -500,7 +520,14 @@ pub fn list(path: &Path, max: usize) -> io::Result<(Vec<ArchiveEntry>, bool)> {
     // its end for a preview's first rows).
     // Read to its end within that, it is kept as `items` keeps it.
     let st = stamp(path)?;
+    // A disk image is listed once, whole, by 7-Zip, and kept: the preview, Enter and F5 use it.
+    let disk = kind(path) == Some(Kind::Disk);
     let (all, more) = match cached(path, st) {
+        _ if disk => {
+            let all = items(path)?;
+            let more = all.len() > max || crate::disk_image::was_cut(path);
+            (all, more)
+        }
         Some(all) => {
             let more = all.len() > max;
             (all, more)
@@ -564,7 +591,7 @@ pub fn extract_locked(path: &Path, dest_dir: &Path, password: Option<&str>) -> i
     // sized by what the archive claims. A tar as the crate unpacks it, which keeps it inside;
     // its names are read first (from the last look, when it was browsed), since the crate
     // would read a crafted long-name record whole, however large: `TAR_META` at most.
-    let r = if k == Kind::SevenZ || k == Kind::Zip {
+    let r = if matches!(k, Kind::SevenZ | Kind::Zip | Kind::Disk) {
         copy_out_with(
             path,
             "",
@@ -598,7 +625,7 @@ pub fn split(path: &Path) -> Option<(PathBuf, String)> {
     let mut inner: Vec<String> = vec![];
     for a in path.ancestors() {
         if a.is_file() {
-            return is_archive(a).then(|| {
+            return opens(a).then(|| {
                 inner.reverse();
                 (a.to_path_buf(), inner.join("/"))
             });
@@ -678,6 +705,23 @@ fn read_items_with(archive: &Path, password: Option<&str>, max: usize) -> io::Re
 fn read_raw_items(archive: &Path, password: Option<&str>, max: usize) -> io::Result<Vec<Item>> {
     let k = kind(archive).ok_or_else(|| not_archive(archive))?;
     let mut out = vec![];
+    if k == Kind::Disk {
+        // An entry without a time (a partition) has the image's.
+        let own = modified(archive);
+        // All of it, whatever `max`: it is kept (`list`), and Enter and F5 need it all.
+        let _ = max;
+        return Ok(crate::disk_image::list(archive)?
+            .into_iter()
+            .filter(|e| !e.link)
+            .map(|e| Item {
+                name: e.name,
+                size: e.size,
+                dir: e.dir,
+                modified: if e.modified == 0 { own } else { e.modified },
+                locked: false,
+            })
+            .collect());
+    }
     if k == Kind::Zip {
         let mut z =
             zip::ZipArchive::new(BufReader::new(File::open(archive)?)).map_err(io::Error::other)?;
@@ -768,7 +812,8 @@ fn sound(name: &str) -> bool {
 /// through it left out. `None` for one it does not look into: not an archive, too large to be
 /// unpacked for a listing, unreadable, or only in the cloud (reading it would download it).
 pub(crate) fn search_entries(archive: &Path, size: u64) -> Option<Vec<ArchiveEntry>> {
-    let k = kind(archive)?;
+    // Never a disk image: they can be huge, and need 7-Zip.
+    let k = ending_kind(archive)?;
     if crate::cloud::keep_out(archive) {
         return None;
     }
@@ -800,7 +845,7 @@ pub(crate) fn search_read(
     wanted: &dyn Fn(&str, u64) -> bool,
     read: &mut dyn FnMut(&str, &mut dyn Read) -> bool,
 ) -> io::Result<()> {
-    let k = kind(archive).ok_or_else(|| not_archive(archive))?;
+    let k = ending_kind(archive).ok_or_else(|| not_archive(archive))?;
     if crate::cloud::keep_out(archive) {
         return Err(crate::cloud::not_here(archive));
     }
@@ -851,6 +896,7 @@ pub(crate) fn search_read(
             })
             .map_err(seven_error)?;
         }
+        Kind::Disk => {}
         Kind::Tar(_) => {
             let mut seen = 0;
             tar_named(tar_reader(archive, k)?.entries()?, |name, _, e| {
@@ -1204,6 +1250,38 @@ fn copy_entries(
         Ok(())
     };
     let k = kind(archive).ok_or_else(|| not_archive(archive))?;
+    if k == Kind::Disk {
+        // What is listed decides (the names 7-Zip would take as they are): a file is streamed
+        // out, a folder (or all of it) unpacked through a folder of its own.
+        let all = items(archive)?;
+        let file = all.iter().find(|it| it.name == inner && !it.dir);
+        if let Some(it) = file {
+            *any = true;
+            let path = place(&it.name).ok_or_else(|| io::Error::other(crate::t!("disk_image.read_only")))?;
+            return crate::disk_image::read_file(archive, inner, it.size, &mut |r| write(&path, r));
+        }
+        if !inner.is_empty() && !all.iter().any(|it| it.name.starts_with(&prefix)) {
+            return Ok(());
+        }
+        *any = true;
+        if inner.is_empty() {
+            // `to` is the folder made for it (`extract`): unpacked next to it, then in its place.
+            std::fs::remove_dir(to)?;
+        }
+        // p7zip takes them one by one, from what is listed (no links: they are left out).
+        let entries: Vec<crate::disk_image::Entry> = all
+            .iter()
+            .filter(|it| below(&it.name))
+            .map(|it| crate::disk_image::Entry {
+                name: it.name.clone(),
+                size: it.size,
+                dir: it.dir,
+                modified: it.modified,
+                link: false,
+            })
+            .collect();
+        return crate::disk_image::copy_tree(archive, inner, &entries, to);
+    }
     if k == Kind::Zip {
         let mut z =
             zip::ZipArchive::new(BufReader::new(File::open(archive)?)).map_err(io::Error::other)?;
@@ -1403,6 +1481,9 @@ fn rewrite(
     hide_names: bool,
 ) -> io::Result<()> {
     let k = kind(archive).ok_or_else(|| not_archive(archive))?;
+    if k == Kind::Disk {
+        return Err(crate::disk_image::read_only());
+    }
     let _one = WRITING.lock().unwrap_or_else(|e| e.into_inner());
     let _all = writing_lock()?;
     let name = archive.file_name().unwrap_or_default().to_string_lossy();
@@ -1929,7 +2010,7 @@ pub fn create_locked(
             format!("{} exists", path.display()),
         ));
     }
-    kind(path).ok_or_else(|| not_archive(path))?;
+    ending_kind(path).ok_or_else(|| not_archive(path))?;
     let password = password.filter(|p| !p.is_empty());
     if password.is_some() && !takes_password(path) {
         return Err(io::Error::new(
@@ -3190,5 +3271,23 @@ mod tests {
         crate::fs::delete(&zp.join("docs/crew.txt")).unwrap();
         assert_eq!(names(&zp.join("docs")), ["plan.txt"]);
         std::fs::remove_dir_all(d).unwrap();
+    }
+
+    /// A disk image is listed by 7-Zip once, whole, even for a preview of its first entries:
+    /// Enter and F5 then use what was kept.
+    #[test]
+    fn a_disk_image_is_listed_once_and_kept() {
+        if crate::disk_image::seven_zip().is_none() {
+            return;
+        }
+        let d = crate::disk_image::tests::folder("kept");
+        let image = d.join("demo.iso");
+        std::fs::write(&image, crate::disk_image::tests::iso("DEMO", b"hi\n")).unwrap();
+        crate::disk_image::FORCE.with(|f| f.set(true));
+        let (first, more) = list(&image, 0).unwrap();
+        assert!(first.is_empty() && more);
+        assert!(cached(&image, stamp(&image).unwrap()).is_some(), "kept after a preview of none");
+        crate::disk_image::FORCE.with(|f| f.set(false));
+        let _ = std::fs::remove_dir_all(&d);
     }
 }

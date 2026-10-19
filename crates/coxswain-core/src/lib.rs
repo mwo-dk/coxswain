@@ -11,6 +11,7 @@ pub mod clouds;
 pub mod code;
 pub mod config;
 pub mod disk;
+pub mod disk_image;
 pub mod dupes;
 pub mod extract;
 pub mod features;

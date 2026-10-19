@@ -476,7 +476,7 @@ impl Drop for Scratch {
 }
 
 /// A history is read-only: nothing goes into it, nothing is made or taken out there. So are a
-/// ZFS snapshot and the lists of snapshots and of a package's files.
+/// ZFS snapshot, the lists of snapshots and of a package's files, and a disk image.
 fn writable(path: &Path) -> io::Result<()> {
     let denied = |key: &str| {
         Err(io::Error::new(
@@ -489,6 +489,13 @@ fn writable(path: &Path) -> io::Result<()> {
     }
     if path.ancestors().any(|a| crate::bsd::split(a).is_some()) {
         return denied("pkg.read_only");
+    }
+    // Inside a disk image nothing is made, changed or taken out (the image itself is a file).
+    if !path.exists()
+        && crate::archive::split(path)
+            .is_some_and(|(image, inner)| !inner.is_empty() && crate::archive::is_disk_image(&image))
+    {
+        return denied("disk_image.read_only");
     }
     match crate::history::split(path) {
         Some(_) if !path.exists() => denied("history.read_only"),
@@ -517,6 +524,9 @@ fn copy_out_or_in(
         return crate::history::copy_out(&at, dst);
     }
     if let Some((archive, inner)) = into_archive(dst) {
+        if crate::archive::is_disk_image(&archive) {
+            return Err(crate::disk_image::read_only());
+        }
         let name = src
             .file_name()
             .ok_or_else(|| {
@@ -937,6 +947,10 @@ pub struct Props {
     /// The FreeBSD package it belongs to.
     pub package: Option<String>,
     pub flags: Option<crate::flags::Flags>,
+    /// A disk image's facts (`disk_image::facts`), as (label, value) lines, and what can be done
+    /// with it next.
+    pub disk_image: Option<Vec<(String, String)>>,
+    pub disk_next: Option<crate::disk_image::Next>,
 }
 
 /// Properties of `path`: a folder's size is a walk of it, and the facts run `zfs` and `pkg`,
@@ -960,6 +974,9 @@ pub fn properties(path: &Path) -> io::Result<Props> {
     let owner = uid.zip(gid).map(|(u, g)| owner_names(u, g));
     #[cfg(not(unix))]
     let owner = None;
+    let disk = (meta.is_file() && crate::disk_image::named(path))
+        .then(|| crate::disk_image::facts(path))
+        .flatten();
     let zfs = crate::zfs::facts(path);
     let snapshots = zfs
         .as_ref()
@@ -992,6 +1009,8 @@ pub fn properties(path: &Path) -> io::Result<Props> {
             crate::bsd::package_of(path)
         },
         flags: crate::flags::read(path),
+        disk_image: disk.as_ref().map(crate::disk_image::lines),
+        disk_next: disk.map(|_| crate::disk_image::next()),
         path: path.to_path_buf(),
     })
 }

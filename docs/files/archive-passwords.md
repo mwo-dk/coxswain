@@ -180,4 +180,4 @@ The old ZipCrypto method cannot always tell a wrong password at once; Coxswain n
 file's checksum does not match. The half-written file is removed and you are asked again.
 
 ---
-[← Previous: Pack and extract](pack-and-extract.md) · [Next: Properties and permissions →](properties.md)
+[← Previous: Pack and extract](pack-and-extract.md) · [Next: Disk images, CHM help files and CBR comics →](disk-images.md)

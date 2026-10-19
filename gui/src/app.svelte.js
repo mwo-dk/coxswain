@@ -1,7 +1,7 @@
 // Shared app state and navigation. Components read `ui` and call these functions.
 
 import { SvelteSet } from "svelte/reactivity";
-import { invoke, listDir, basename, parent, applyTheme, isArchive, setArchiveEndings, HISTORY, BRANCHES, WORKTREES, SNAPSHOTS, PACKAGE, LOCKED } from "./lib.js";
+import { invoke, listDir, basename, parent, applyTheme, isArchive, setArchiveEndings, setDiskEndings, diskName, diskSure, diskSeen, HISTORY, BRANCHES, WORKTREES, SNAPSHOTS, PACKAGE, LOCKED } from "./lib.js";
 import { setLanguage, t } from "./i18n.svelte.js";
 import { failure } from "./errors.js";
 /** The texts, for functions whose tab is called `t`. */
@@ -215,6 +215,7 @@ export async function load(t, dir = t.dir, focus) {
     t.items = r.items;
     t.archive = r.archive;
     t.locked = r.locked;
+    t.diskImage = r.disk_image;
     t.history = r.history;
     t.snapshot = r.snapshot;
     t.package = r.package;
@@ -535,6 +536,7 @@ export async function init() {
   ui.cfg = await invoke("get_config");
   setLanguage(ui.cfg);
   setArchiveEndings(ui.cfg.archive_endings);
+  setDiskEndings(ui.cfg.disk_endings);
   const st = await invoke("get_state");
   const s = st.session ?? {};
   ui.favorites = st.favorites;
@@ -604,7 +606,16 @@ export function openItem(tb, i = tb.cursor) {
   // An archive opens like a folder; its files are copied out with F5. An archive inside one is
   // a file like the others.
   if (e.is_dir || (isArchive(e.name) && !tb.archive)) return cd(tb, e.path);
-  if (tb.archive) return void (ui.status = t("archive.copy_out_hint", { archive: basename(tb.archive) }));
+  if (tb.archive) return void (ui.status = t(tb.diskImage ? "disk_image.copy_out_hint" : "archive.copy_out_hint", { archive: basename(tb.archive) }));
+  // A disk image opens like a folder while that option is on (and a .vhd only when it is one).
+  if (ui.cfg.settings.disk_images && diskName(e.name)) {
+    return invoke("opens_as_folder", { path: e.path }).then((yes) => (yes ? cd(tb, e.path) : openFile(tb, e)), (err) => (ui.status = String(err)));
+  }
+  openFile(tb, e);
+}
+
+/** A file opened as it is: in its default application, or its place said. */
+function openFile(tb, e) {
   if (tb.history) return void (ui.status = t("history.file_hint"));
   // A file of a package: to its folder, the cursor on it.
   if (tb.package) return cd(tb, parent(e.path)).then(() => (tb.cursor = Math.max(0, tb.items.findIndex((x) => x.path === e.path || x.name === basename(e.path)))));
@@ -622,12 +633,13 @@ export function subject(tb = tab()) {
   const cur = e && e.name !== ".." ? e : null;
   const list = tb.marked.size ? tb.items.filter((x) => tb.marked.has(x.path)) : cur ? [cur] : [];
   const h = tb.history;
-  const place = tb.archive ? "archive" : h ? (h.view === "branches" && !h.commit ? "branches" : "history") : tb.snapshot ? "snapshot" : tb.package ? "package" : "disk";
+  const place = tb.archive ? (tb.diskImage ? "disk_image" : "archive") : h ? (h.view === "branches" && !h.commit ? "branches" : "history") : tb.snapshot ? "snapshot" : tb.package ? "package" : "disk";
   const files = list.filter((x) => !x.is_dir);
   return {
     files: files.length,
     folders: list.length - files.length,
-    archives: files.filter((x) => isArchive(x.name)).length,
+    archives: files.filter((x) => isArchive(x.name) || (ui.cfg.settings.disk_images && (diskSure(x.name) || diskSeen.has(x.path)))).length,
+    disk_images: ui.cfg.settings.disk_images ? 0 : files.filter((x) => diskSure(x.name) || diskSeen.has(x.path)).length,
     one: list.length === 1 && list[0] === cur,
     marked: tb.marked.size,
     place,

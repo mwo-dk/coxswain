@@ -920,6 +920,7 @@
         {@render check("hints")}
         <div class="buttons sub"><button onclick={() => invoke("hints_reset").then(() => (hintsReset = true), (e) => (error = String(e)))}>{t("settings.hints_reset")}</button>{#if hintsReset} <span class="hint">{t("settings.hints_reset_done")}</span>{/if}</div>
         {@render check("folder_sizes")}
+        {@render check("disk_images")}
         {@render check("git_last_commit")}
         <!-- A tool's name from the list of those installed, or a command of one's own. -->
         {#snippet gitTool()}

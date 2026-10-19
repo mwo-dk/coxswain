@@ -28,6 +28,7 @@ folder; **Ctrl+E** extracts it.*
 | [Archives as folders](archives.md) | Opening zip, tar and 7z like folders; copying in, out and between; formats; why not RAR |
 | [Pack (Alt+F5) and extract (Ctrl+E)](pack-and-extract.md) | Making a new archive, and unpacking one into a folder of its own |
 | [Passwords for encrypted zip and 7z](archive-passwords.md) | The password question, and how long Coxswain keeps a password |
+| [Disk images, CHM help files and CBR comics](disk-images.md) | An image's facts in the preview; with the option on, **Enter** opens .iso, .dmg, .vhd, .vmdk, .qcow2, .chm and .cbr like folders, read-only, through 7-Zip |
 | [Properties and permissions](properties.md) | Sizes, dates, owner, and changing the permission bits |
 | [Finding duplicates](duplicates.md) | Duplicate files and whole duplicate folders, across disks, removed safely |
 | [ZFS snapshots as folders](zfs-snapshots.md) | **Alt+Z**: a dataset's snapshots browsed read-only, a file compared with now, copied back with **F5** |

@@ -15,6 +15,7 @@ fn extra_paths(program: &str) -> Vec<PathBuf> {
         }
         "soffice" if cfg!(windows) => &[r"C:\Program Files\LibreOffice\program\soffice.exe"],
         "tesseract" if cfg!(windows) => &[r"C:\Program Files\Tesseract-OCR\tesseract.exe"],
+        "7z" if cfg!(windows) => &[r"C:\Program Files\7-Zip\7z.exe"],
         _ => &[],
     };
     v.iter().map(PathBuf::from).collect()
@@ -446,6 +447,10 @@ pub fn install_line(program: &str, manager: Manager) -> Option<String> {
         "plantuml" => [
             "plantuml", "", "", "", "plantuml", "plantuml", "plantuml", "plantuml", "plantuml", "",
         ],
+        // 7-Zip, which reads disk images (`disk_image`); p7zip where the system has no other.
+        "7z" => [
+            "7-zip", "7-zip", "p7zip", "", "7zip", "7zip", "7zip", "7zip", "sevenzip", "7zip.7zip",
+        ],
         "pandoc" => [
             "hs-pandoc",
             "pandoc-cli",
@@ -827,6 +832,14 @@ mod tests {
         assert_eq!(
             install_line("tesseract", Manager::Pkg).as_deref(),
             Some("pkg install tesseract")
+        );
+        assert_eq!(
+            install_line("7z", Manager::Pkg).as_deref(),
+            Some("pkg install 7-zip")
+        );
+        assert_eq!(
+            install_line("7z", Manager::Winget).as_deref(),
+            Some("winget install --id 7zip.7zip -e")
         );
         assert_eq!(
             install_line("pdftoppm", Manager::Apt).as_deref(),

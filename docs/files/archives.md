@@ -138,7 +138,9 @@ executable bit).
 RAR archives are not opened. Their format may only be read with RAR's own code, under its own
 licence, and there is no free code to write them. Coxswain reads and writes every format it
 supports with its own pure-Rust code, the same on every system, so RAR is left out. **Enter** on a
-`.rar` opens it in the program your system uses for it.
+`.rar` opens it in the program your system uses for it. A `.cbr` comic (a RAR) can be opened
+through an installed 7-Zip instead, read-only, like a disk image
+([Disk images, CHM help files and CBR comics](disk-images.md)).
 
 ## Limits
 

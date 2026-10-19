@@ -17,6 +17,8 @@ pub enum Place {
     Disk,
     /// Inside an archive: changed by writing the archive anew.
     Archive,
+    /// Inside a disk image: read-only, files are copied out.
+    DiskImage,
     /// A git history or one of its commits: read-only.
     History,
     /// The list of a repository's branches.
@@ -36,6 +38,9 @@ pub struct Subject {
     pub folders: usize,
     /// Of the files, those that are archives Coxswain opens.
     pub archives: usize,
+    /// Of the files, the disk images that would open like folders if that option were on (0
+    /// while it is on).
+    pub disk_images: usize,
     /// The one entry is the one under the cursor (actions on a single entry take that one).
     pub one: bool,
     /// How many are marked.
@@ -91,6 +96,7 @@ impl Action {
             Properties => s.single() && disk,
             Pack => n > 0 && disk,
             Extract => s.archives > 0 && disk,
+            DiskImages => s.disk_images > 0 && disk,
             History => s.git && disk && (n == 0 || s.single()),
             Branches => s.git && disk,
             SwitchBranch => s.place == Place::Branches && s.single(),
@@ -167,6 +173,8 @@ const HINTS: &[(&str, &[(&str, Action)])] = &[
     ),
     ("marked", &[("copy", Action::Copy), ("move", Action::Move)]),
     ("in_archive", &[("copy", Action::Copy)]),
+    ("in_disk_image", &[("copy", Action::Copy)]),
+    ("disk_image", &[("menu", Action::ActionMenu)]),
     ("archive", &[("extract", Action::Extract)]),
     (
         "folder",
@@ -198,6 +206,8 @@ fn fits(id: &str, s: &Subject) -> bool {
         "panels" => disk && s.count() == 0,
         "marked" => s.marked > 1 && s.writable(),
         "in_archive" => s.place == Place::Archive && s.files > 0,
+        "in_disk_image" => s.place == Place::DiskImage && s.files > 0,
+        "disk_image" => disk && s.single() && s.disk_images == 1,
         "archive" => disk && s.single() && s.archives == 1,
         "folder" => disk && s.single() && s.folders == 1,
         "file" => disk && s.single() && s.files == 1 && s.archives == 0,

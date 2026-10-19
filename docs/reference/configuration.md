@@ -22,6 +22,7 @@ app reads it and which Settings item writes it.
 - [`[preview]`](#preview)
 - [`[gui]`](#gui)
 - [`[git]`](#git)
+- [`[archive]`](#archive)
 - [What has no key](#what-has-no-key)
 - [Settings and config.toml](#settings-and-configtoml)
 - [In the terminal app](#in-the-terminal-app)
@@ -264,6 +265,14 @@ Read by both apps when they start, and by each after a change in its own Setting
 The [git history](../panels/git-history.md) itself has no switch: it is there when you press
 **Ctrl+G** (`history` in `[keys]`).
 
+## `[archive]`
+
+Read by both apps when they start, and by each after a change in its own Settings.
+
+| Key | Type | Default | Does |
+|---|---|---|---|
+| `disk_images` | bool | `false` | Open disk images (.iso, .dmg, .vhd, .vhdx, .vmdk, .qcow2, .vdi, .wim, raw .img), .chm help files and .cbr comics like folders, read-only, with an installed 7-Zip. Off: **Enter** opens them like any file; the preview shows a disk image's facts either way ([Disk images](../files/disk-images.md)) |
+
 ## What has no key
 
 Some choices are not in `config.toml`, and that is on purpose:
@@ -329,6 +338,7 @@ An area's own name opens it too: `overview`, `search`, `previews`, `looks`, `beh
 | | *Right-click* | `right_click` | `right_click` |
 | | *Show hints*, *Show the hints again* | `hints` | `hints` |
 | | *Measure folder sizes* | `folder_sizes` | `folder_sizes` |
+| | *Open disk images, CHM and CBR like folders* | `disk_images` | `[archive] disk_images` |
 | | *Last commit of each file* | `git_last_commit` | `[git] last_commit` |
 | | *Git tool* | `git_tool` | `[git] tool` |
 | | *Editor* | `editor` | `editor` |
@@ -344,7 +354,7 @@ Settings item: edit the file.
 ## In the terminal app
 
 The terminal app reads the same file when it starts, and after each change in its own Settings. It uses the top-level keys,
-`glyph_set`, `[keys]`, `[themes.*]` (colours only, not `look`), `[[user_menu]]`, `[git]` and,
+`glyph_set`, `[keys]`, `[themes.*]` (colours only, not `look`), `[[user_menu]]`, `[git]`, `[archive]` and,
 through the helper, `[search]`. It ignores `[preview]` and `[gui]`. Its Settings (**F12**, or *Settings* in **Shift+F10** and **F9**,
 [In the terminal app](../customise/settings.md#in-the-terminal-app)) write the file the way the
 desktop app's do and apply at once; or edit it, or use `coxswain --meaning …` for search by meaning
