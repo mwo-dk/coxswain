@@ -38,6 +38,10 @@ These rules hold for every contributor and every Claude session in this reposito
   date, a plain-words summary naming each change with its docs links) and adds that row to the
   table at the bottom of `README.md` (dropping its oldest, so it keeps ten), and deletes the
   `changelog.d/` files. Its merge starts the release. Title it `Release X.Y.Z`.
+- **Releases are weekly, on Sunday:** one release PR with everything merged that week, so the
+  Monday `winget.yml` run takes it at once and users are not asked to update every day. Between
+  Sundays only a fix for a security hole, lost data or a crash gets a release of its own (a patch
+  release PR with just that fix's rows).
 - **All changes go through pull requests.** `master` is protected: no direct pushes, CI must
   pass on Linux, macOS and Windows, squash merge only. Work on a branch, open the PR with
   `gh pr create`, then `gh pr merge --auto --squash` so it merges itself once CI is green.
