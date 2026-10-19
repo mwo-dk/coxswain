@@ -119,9 +119,10 @@ An installed 7-Zip (`7zz`, or `7z`). Coxswain looks for it on `PATH`, and on Win
 | Windows | `winget install 7zip.7zip` |
 
 `7za` alone is not enough: it reads none of these formats. Coxswain shows the line for your
-system and never runs it. 7-Zip itself (`7zz`) is best; with the older p7zip (OpenBSD's
-package), a folder is copied out file by file, which is slower for big folders, because p7zip
-makes the links an image holds even when told not to.
+system and never runs it. 7-Zip itself (`7zz`, version 21 or later) is best: a folder comes out at once.
+Any other 7-Zip, the older p7zip (OpenBSD's package) included, or one whose version Coxswain
+cannot read, copies a folder out file by file, which is slower for big folders, because older
+ones make the links an image holds even when told not to.
 
 ## Read-only, and never mounted
 

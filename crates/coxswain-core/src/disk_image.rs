@@ -827,8 +827,8 @@ pub(crate) fn read_file(
 /// The 7-Zip found is p7zip, which makes the links an image holds even when told not to:
 /// folders then come out file by file.
 fn p7zip() -> bool {
-    static P7ZIP: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
-    *P7ZIP.get_or_init(|| {
+    static BULK: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+    !*BULK.get_or_init(|| {
         seven_zip().is_some_and(|p| {
             crate::tools::output(&p, &[], std::time::Duration::from_secs(10), 4096)
                 .or_else(|| {
@@ -837,9 +837,24 @@ fn p7zip() -> bool {
                         .ok()
                         .map(|o| o.stdout)
                 })
-                .is_some_and(|o| String::from_utf8_lossy(&o).contains("p7zip"))
+                .is_some_and(|o| bulk_safe(&String::from_utf8_lossy(&o)))
         })
     })
+}
+
+/// Whether 7-Zip's banner names a 7-Zip that honours `-snl-` (21 and later, not p7zip). Only a
+/// positive answer allows the folder-at-once extraction; anything unclear takes the file-by-file
+/// way, which makes no links whatever the program does.
+fn bulk_safe(banner: &str) -> bool {
+    let Some(line) = banner.lines().find(|l| l.trim_start().starts_with("7-Zip")) else {
+        return false;
+    };
+    if banner.contains("p7zip") {
+        return false;
+    }
+    line.split_whitespace()
+        .find_map(|w| w.split('.').next()?.parse::<u32>().ok().filter(|_| w.contains('.')))
+        .is_some_and(|major| major >= 21)
 }
 
 /// `inner` of `image` ("" for all of it) copied out to `to`, which must not exist yet: a
@@ -939,6 +954,17 @@ pub fn read_only() -> io::Error {
 #[cfg(test)]
 pub(crate) mod tests {
     use super::*;
+
+    #[test]
+    fn folders_come_out_at_once_only_with_a_7zip_known_to_make_no_links() {
+        assert!(bulk_safe("\n7-Zip (z) 26.04 (x64) : Copyright (c) 1999-2026 Igor Pavlov : 2026-04-04\n"));
+        assert!(bulk_safe("7-Zip 21.07 (x64) : Copyright"));
+        assert!(!bulk_safe("7-Zip [64] 16.02 : Copyright (c) 1999-2016 Igor Pavlov : 2016-05-21\np7zip Version 16.02"));
+        assert!(!bulk_safe("p7zip Version 16.02 (locale=C,Utf16=off)\n7-Zip [64] 16.02"));
+        assert!(!bulk_safe("7-Zip 19.00 (x64)"));
+        assert!(!bulk_safe(""));
+        assert!(!bulk_safe("something else 30.1"));
+    }
 
     pub(crate) fn folder(name: &str) -> PathBuf {
         let d = std::env::temp_dir().join(format!("coxswain-disk-{name}-{}", std::process::id()));
