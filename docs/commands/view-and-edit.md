@@ -132,7 +132,8 @@ Two exceptions: **F3** on a CycloneDX BOM opens the terminal app's own
 [provenance viewer](../previews/provenance.md). **F3** (or `s`) in either shows the source in
 the built-in viewer (or in `viewer`'s program), and **Esc** there goes back to the BOM or the
 provenance; `bom_viewer = false` or `provenance_viewer = false` makes F3 show the source straight
-away.
+away. **F3** on a chess file (`.pgn`, `.pgn.gz`, `.pgn.zst`, `.epd`, `.fen`) opens its
+games or positions full screen ([Chess games](../previews/chess.md)).
 
 ## Questions
 

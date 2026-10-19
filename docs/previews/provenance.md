@@ -237,4 +237,4 @@ In the viewer, **F3** again (or `s`) shows the file in the built-in viewer; **Es
 back. To make F3 always show the source, set `provenance_viewer = false` in `config.toml`.
 
 ---
-[← Previous: Cryptography bills of materials](bom.md) · [Next: Media and files →](media.md)
+[← Previous: Cryptography bills of materials](bom.md) · [Next: Chess games →](chess.md)

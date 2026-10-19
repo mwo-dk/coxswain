@@ -29,6 +29,20 @@ source = "https://github.com/jgraph/drawio"
 file = "gui/public/vendor/drawio/LICENSE"
 
 [[bundled]]
+name = "chess-art, Celtic pieces"
+what = "gui/public/vendor/chess-pieces/*.svg, the Celtic set of maurimo/chess-art in its white and black colours, the Inkscape metadata taken out."
+license = "MIT"
+source = "https://github.com/maurimo/chess-art"
+file = "gui/public/vendor/chess-pieces/LICENSE"
+
+[[bundled]]
+name = "lichess chess-openings"
+what = "crates/coxswain-core/src/chess/openings.tsv: the ECO codes, names and moves of lichess-org/chess-openings, the move numbers taken out."
+license = "CC0-1.0"
+source = "https://github.com/lichess-org/chess-openings"
+file = "tools/bom/licenses/CC0-1.0.txt"
+
+[[bundled]]
 name = "Graphviz"
 what = "Compiled to WebAssembly inside the npm package @viz-js/viz (itself MIT), unmodified."
 license = "EPL-1.0"

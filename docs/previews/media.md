@@ -157,4 +157,4 @@ Measuring a big folder reads every file under it. With folder sizes on in the co
 appears by itself; otherwise **Calculate** measures this one.
 
 ---
-[← Previous: Build provenance](provenance.md) · [Next: Diagrams →](diagrams.md)
+[← Previous: Chess games](chess.md) · [Next: Diagrams →](diagrams.md)

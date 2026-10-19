@@ -4,6 +4,7 @@ pub mod archive;
 pub mod ask;
 pub mod bom;
 pub mod branches;
+pub mod chess;
 pub mod bsd;
 pub mod chat;
 pub mod cloud;

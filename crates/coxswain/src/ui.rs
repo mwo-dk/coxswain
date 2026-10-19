@@ -114,6 +114,7 @@ pub fn draw(f: &mut Frame, app: &mut App) {
         Some(Dialog::Provenance(v)) => v.draw(f, &theme),
         Some(Dialog::GitConfig(v)) => v.draw(f, &theme),
         Some(Dialog::View { v, .. }) => v.draw(f, &theme),
+        Some(Dialog::Chess(v)) => v.draw(f, &theme),
         Some(Dialog::Settings(_)) => crate::settings::draw(f, app),
         Some(Dialog::Guide(_)) => crate::guide::draw(f, app),
         Some(_) => dialog(f, app),
@@ -532,7 +533,7 @@ fn dialog(f: &mut Frame, app: &mut App) {
             }
         }
         Dialog::Search { .. } => search(f, app, full),
-        Dialog::Bom(_) | Dialog::Provenance(_) | Dialog::GitConfig(_) | Dialog::View { .. } | Dialog::Settings(_) | Dialog::Guide(_) => {}
+        Dialog::Bom(_) | Dialog::Provenance(_) | Dialog::GitConfig(_) | Dialog::View { .. } | Dialog::Chess(_) | Dialog::Settings(_) | Dialog::Guide(_) => {}
     }
 }
 
@@ -902,6 +903,7 @@ fn help_text(app: &App, width: usize) -> Vec<Line<'static>> {
     v.push(Line::from(keys(t!("help.git_tool", "key" => key(Action::GitTool)))));
     v.push(Line::from(keys(t!("help.git_config", "key" => key(Action::GitConfig)))));
     v.push(Line::from(keys(t!("help.searchable_pdf", "key" => key(Action::SearchablePdf)))));
+    v.push(Line::from(keys(t!("help.chess", "key" => key(Action::Chess), "view" => key(Action::View)))));
     v.push(Line::from(""));
     v.extend(syntax_lines());
     v.push(Line::from(""));

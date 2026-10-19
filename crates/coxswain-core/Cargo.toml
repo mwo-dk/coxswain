@@ -58,6 +58,7 @@ sevenz-rust2 = { version = "0.24.1", features = ["aes256"] }
 # F3 on a Parquet file in the terminal app: its columns and first rows. Pure Rust codecs only
 # (snappy, gzip, lz4, brotli); a zstd file shows its columns and row count.
 parquet = { version = "60", default-features = false, features = ["snap", "flate2-zlib-rs", "lz4", "brotli"] }
+cozy-chess = "0.3.4"
 
 # statfs(2) for the ZFS dataset a folder is on, and chflags(2) for file flags.
 [target.'cfg(unix)'.dependencies]

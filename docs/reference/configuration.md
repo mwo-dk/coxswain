@@ -23,6 +23,7 @@ app reads it and which Settings item writes it.
 - [`[gui]`](#gui)
 - [`[git]`](#git)
 - [`[archive]`](#archive)
+- [`[chess]`](#chess)
 - [What has no key](#what-has-no-key)
 - [Settings and config.toml](#settings-and-configtoml)
 - [In the terminal app](#in-the-terminal-app)
@@ -199,7 +200,7 @@ flags start a new one.
 | `names_only` | list of paths | `[]` | Folders found by name and counted in sizes, never read |
 | `cloud` | string | `"local-only"` | Files only in OneDrive, Dropbox, Google Drive, Proton Drive, iCloud or a cloud mount: `"local-only"` finds them by name and never reads (downloads) them; `"all"` reads them ([Cloud files](../search/cloud-files.md)) |
 | `cloud_read` | list of paths | `[]` | Cloud folders whose online-only files are read anyway |
-| `text_max_size` | number (bytes) | `20971520` (20 MB) | Larger files are not read |
+| `text_max_size` | number (bytes) | `20971520` (20 MB) | Larger files are not read; a PGN file is, up to 4 MB of lines of its games ([Chess games](../previews/chess.md#finding-games)) |
 | `archives` | bool | `true` | Look inside the zip, 7z and tar archives in the folders read, less caches and build output: their files are found by name and by their text ([Inside archives](../search/archives.md)) |
 | `archives_everywhere` | bool | `false` | Look inside every archive the name index sees, caches and programs' folders too, for their names ([Which archives](../search/archives.md#which-archives)) |
 | `meaning` | bool | `false` | Search by meaning ([Search by meaning](../search/meaning.md)) |
@@ -282,6 +283,15 @@ Read by both apps when they start, and by each after a change in its own Setting
 |---|---|---|---|
 | `disk_images` | bool | `false` | Open disk images (.iso, .dmg, .vhd, .vhdx, .vmdk, .qcow2, .vdi, .wim, raw .img), .chm help files and .cbr comics like folders, read-only, with an installed 7-Zip. Off: **Enter** opens them like any file; the preview shows a disk image's facts either way ([Disk images](../files/disk-images.md)) |
 
+## `[chess]`
+
+How [chess games](../previews/chess.md) are shown, in both apps.
+
+| Key | Type | Default | Does |
+|---|---|---|---|
+| `notation` | string | `"figurines"` | `"figurines"` writes moves as ♘f3; `"letters"` in the piece letters of the app's language (Nf3 in English, Sf3 in German). The files keep English SAN |
+| `board` | string | `"theme"` | The squares' colours: `"theme"` from the theme, `"green"` or `"brown"` for a tournament board |
+
 ## What has no key
 
 Some choices are not in `config.toml`, and that is on purpose:
@@ -335,6 +345,8 @@ An area's own name opens it too: `overview`, `search`, `previews`, `looks`, `beh
 | | *Keep images up to date* | `image_updates` | `[preview] image_updates` |
 | | *Remove images not used for 90 days* | `image_prune` | `[preview] image_prune` |
 | | *Timeout (seconds)* | `preview_timeout` | `[preview] timeout` |
+| | *Move notation* | `chess_notation` | `[chess] notation` |
+| | *Chess board* | `chess_board` | `[chess] board` |
 | *Looks* | *Language* | `language` | `language` |
 | | *Theme of the desktop app* (*For*: *Desktop app*) | `theme` | `[gui] theme` |
 | | *Theme of the terminal app* (*For*: *Terminal app*) | `tui_theme` | `theme` |

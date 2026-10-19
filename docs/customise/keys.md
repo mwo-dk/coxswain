@@ -122,6 +122,7 @@ not modifiers Coxswain reads; use **Ctrl** or **Alt**.
 | `rename` | **Shift+F6** | `disk_use` | none |
 | `git_tool` | **Alt+G** | `git_config` | **Alt+C** |
 | `searchable_pdf` | **Alt+P** | | |
+| `chess` | **Alt+K** | | |
 
 ¹ The desktop app only. In the terminal app the key still belongs to the action, and pressing it
 says *… is available in the desktop app (coxswain-gui)* on the command line.

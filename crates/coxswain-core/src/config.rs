@@ -273,6 +273,8 @@ actions! {
     CopyPath = "copy_path", "Path to command line", Viewing, ["Ctrl+Enter", "Ctrl+J"];
     UserMenu = "user_menu", "Menu", Viewing, ["F2"];
     Notes = "notes", "Folder notes", Viewing, ["Alt+N"];
+    // A PGN file's games, an EPD or FEN file's positions (`chess`): K for the king.
+    Chess = "chess", "Open games", Viewing, ["Alt+K"];
     // App, the most used first.
     Help = "help", "Help", App, ["F1"];
     // F1's second tab, and F1 inside a dialog: no key of its own.
@@ -1687,6 +1689,24 @@ pub struct Config {
     pub gui: GuiConfig,
     pub git: GitConfig,
     pub archive: ArchiveConfig,
+    pub chess: ChessConfig,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(default)]
+pub struct ChessConfig {
+    /// How moves are written: `figurines` (♘f3) or `letters`, in the app language's letters
+    /// (Nf3 in English, Sf3 in German). The files keep English SAN.
+    pub notation: String,
+    /// The board's colours: `theme` (from the theme's own), or a tournament board, `green` or
+    /// `brown`.
+    pub board: String,
+}
+
+impl Default for ChessConfig {
+    fn default() -> Self {
+        ChessConfig { notation: "figurines".into(), board: "theme".into() }
+    }
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
@@ -1741,6 +1761,7 @@ impl Default for Config {
             gui: GuiConfig::default(),
             git: GitConfig::default(),
             archive: ArchiveConfig::default(),
+            chess: ChessConfig::default(),
         };
         c.fill_defaults();
         c

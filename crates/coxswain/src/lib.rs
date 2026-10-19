@@ -1,6 +1,7 @@
 //! Coxswain TUI: two panels, a command line and a function-key bar, Norton Commander style.
 
 mod bom;
+mod chess;
 mod git_config;
 mod provenance;
 mod guide;
@@ -251,6 +252,7 @@ impl Panel {
             archives: list.iter().filter(|e| !e.is_dir && coxswain_core::archive::opens(&e.path)).count(),
             disk_images: if coxswain_core::disk_image::open_on() { 0 } else { list.iter().filter(|e| !e.is_dir && coxswain_core::disk_image::is_disk_image(&e.path)).count() },
             pdfs: list.iter().filter(|e| !e.is_dir && coxswain_core::searchable::is_pdf(&e.path)).count(),
+            chess: list.iter().filter(|e| !e.is_dir && coxswain_core::chess::format(&e.path).is_some()).count(),
             one: list.len() == 1 && cur.is_some_and(|c| c.path == list[0].path),
             marked: self.marked.len(),
             place,
@@ -391,6 +393,8 @@ pub enum Dialog {
     /// A file in the built-in viewer, full screen (F3); `back`: the dialog it was opened from
     /// (a BOM's source), shown again when it closes.
     View { v: Box<viewer::Viewer>, back: Option<Box<Dialog>> },
+    /// A PGN file's games, an EPD or FEN file's positions, full screen (F3, Alt+K).
+    Chess(Box<chess::Viewer>),
     /// Settings, full screen (F12, F9 → Settings, `--settings`).
     Settings(Box<settings::Settings>),
     /// The first-run guide, full screen (the first start, F1 → G, Settings → Overview).
@@ -420,6 +424,7 @@ fn feature_of(d: &Dialog) -> Option<&'static str> {
         Dialog::Provenance(_) => "provenance",
         Dialog::GitConfig(_) => "git_config",
         Dialog::View { .. } => "view_and_edit",
+        Dialog::Chess(_) => "chess",
         Dialog::Settings(_) => "settings_window",
         Dialog::Guide(_) => "first_run",
         Dialog::Help { .. } | Dialog::Features { .. } | Dialog::Message { .. } => return None,
@@ -1105,6 +1110,13 @@ impl App {
             Action::GitTool => self.git_tool(),
             Action::GitConfig => self.git_config(),
             Action::SearchablePdf => self.searchable_pdf(),
+            Action::Chess => {
+                if let Some(e) = self.panel().current().filter(|e| !e.is_dir && coxswain_core::chess::format(&e.path).is_some()).map(|e| e.path.clone()) {
+                    self.chess(&e, None);
+                } else {
+                    self.status = Some(t!("chess.not_chess"));
+                }
+            }
             Action::Mark => {
                 let p = self.panel_mut();
                 p.toggle_mark(p.cursor);
@@ -1243,6 +1255,9 @@ impl App {
                             // Not readable as provenance after all: the pager shows it as it is.
                             Err(err) => self.status = Some(err.to_string()),
                         }
+                    }
+                    if a == Action::View && coxswain_core::chess::format(&e).is_some() {
+                        return self.chess(&e, None);
                     }
                     if a == Action::View && self.cfg.bom_viewer && coxswain_core::bom::sniff(&e) {
                         match bom::Viewer::open(&e) {
@@ -1619,6 +1634,20 @@ impl App {
                 }
                 self.reload();
             }
+        }
+    }
+
+    /// A chess file full screen: a PGN file's games (at the game of a Find hit's snippet), an EPD or
+    /// FEN file's positions.
+    fn chess(&mut self, path: &Path, hit: Option<String>) {
+        match chess::Viewer::open(path, &self.cfg, &self.theme) {
+            Ok(mut v) => {
+                if let Some(snippet) = hit {
+                    v.at_hit(snippet);
+                }
+                self.dialog = Some(Dialog::Chess(Box::new(v)));
+            }
+            Err(e) => self.status = Some(e.to_string()),
         }
     }
 
@@ -2376,7 +2405,17 @@ impl App {
                             self.dialog = Some(Dialog::Search { query, chip, here, found, cursor, offset, show });
                             return self.find_step(off);
                         }
-                        Some(Row::Hit { hit, .. }) => return self.go_to_hit(&hit.path.clone()),
+                        Some(Row::Hit { hit, .. }) => {
+                            // A game in a PGN file: that game, on the board.
+                            if coxswain_core::chess::format(&hit.path) == Some(coxswain_core::chess::Format::Pgn)
+                                && let Some(snippet) = hit.snippet.clone()
+                            {
+                                let path = hit.path.clone();
+                                self.go_to_hit(&path);
+                                return self.chess(&path, Some(snippet));
+                            }
+                            return self.go_to_hit(&hit.path.clone());
+                        }
                         // The better chat model, taken; or Settings at Ask, where the line says what to do.
                         Some(Row::Slow { poor }) => {
                             let poor = poor.clone();
@@ -2546,6 +2585,10 @@ impl App {
                     self.dialog = back.map(|b| *b);
                 }
                 viewer::Outcome::Pager(file) => self.run_on(&pager(), &file),
+            },
+            Dialog::Chess(mut v) => match v.key(key, action) {
+                chess::Outcome::Stay => self.dialog = Some(Dialog::Chess(v)),
+                chess::Outcome::Close => {}
             },
             Dialog::GitConfig(mut v) => match v.key(key, action) {
                 git_config::Outcome::Stay => self.dialog = Some(Dialog::GitConfig(v)),
@@ -2797,6 +2840,9 @@ impl App {
             s.poll();
         }
         if let Some(Dialog::Provenance(v)) = &mut self.dialog {
+            v.poll();
+        }
+        if let Some(Dialog::Chess(v)) = &mut self.dialog {
             v.poll();
         }
         if let Some(r) = self.props_rx.as_ref().and_then(|rx| rx.try_recv().ok()) {

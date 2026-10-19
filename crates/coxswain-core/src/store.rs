@@ -2020,6 +2020,8 @@ fn scan_for(
     // Code in more languages (2.36): only the files with the endings new then are read again.
     let added: Vec<String> = crate::code::SINCE_CODE_1.iter().map(|e| format!(".{e}")).collect();
     store.reader_changed("readers.code", "2", &added)?;
+    // PGN files: a line per game (players, event, site, date, opening, result), read once again.
+    store.reader_changed("readers.pgn", "1", &crate::chess::PGN_ENDINGS)?;
     store.archives_changed(cfg.archives)?;
     store.exclude_changed(&cfg.text_exclude)?;
     let mut known = store.known()?;
@@ -3478,6 +3480,42 @@ mod tests {
             store.root_sizes()[0].1.as_deref(),
             Some(d.join("disk").as_path())
         );
+        drop(store);
+        std::fs::remove_dir_all(d).unwrap();
+    }
+
+    /// A Find hit in a PGN file of many games opens the game it is about: through the store's own
+    /// text and FTS5 snippet, whose window takes in the games around it.
+    #[test]
+    fn a_hit_in_a_pgn_file_names_its_game() {
+        let d = std::env::temp_dir().join(format!("coxswain-store-pgn-{}", std::process::id()));
+        std::fs::create_dir_all(&d).unwrap();
+        let players = [
+            ("Morphy, Paul", "Duke Karl", "Paris", "1. e4 e5 2. Nf3 d6"),
+            ("Anderssen, Adolf", "Kieseritzky, Lionel", "London", "1. e4 e5 2. f4 exf4"),
+            ("Anderssen, Adolf", "Dufresne, Jean", "Berlin", "1. e4 e5 2. Nf3 Nc6 3. Bc4 Bc5 4. b4"),
+            ("Steinitz, Wilhelm", "Zukertort, Johannes", "New York", "1. d4 d5 2. c4"),
+            ("Lasker, Emanuel", "Steinitz, Wilhelm", "Moscow", "1. e4 c5"),
+            ("Capablanca, Jose", "Lasker, Emanuel", "Havana", "1. d4 Nf6 2. c4 e6"),
+            ("Morphy, Paul", "Anderssen, Adolf", "Paris", "1. a3 e5"),
+        ];
+        let mut pgn = String::new();
+        for (w, b, e, m) in players {
+            pgn.push_str(&format!("[Event \"{e}\"]\n[White \"{w}\"]\n[Black \"{b}\"]\n[Result \"1-0\"]\n\n{m} 1-0\n\n"));
+        }
+        let file = d.join("games.pgn");
+        std::fs::write(&file, &pgn).unwrap();
+        let store = Store::open(&d.join("search.db")).unwrap();
+        let path = file.to_string_lossy().into_owned();
+        store.apply(&[], &[(path.clone(), pgn.len() as u64, 1, false)], &[], false, None).unwrap();
+        let id = store.unread_disk(0, 1000).unwrap()[0].0;
+        let text = crate::extract::text_of(&file, pgn.len() as u64, 1 << 20).unwrap();
+        store.read(&[(id, Some(text))]).unwrap();
+        for (query, game) in [("Kieseritzky", 1), ("Dufresne", 2), ("Zukertort", 3), ("Havana", 5), ("Philidor", 0), ("Evans", 2), ("Sicilian", 4)] {
+            let hits = store.search(query, None, 10).hits;
+            let snippet = hits[0].snippet.as_deref().unwrap_or_default();
+            assert_eq!(crate::chess::games::game_of_hit(&file, snippet), Some(game), "{query}: {snippet}");
+        }
         drop(store);
         std::fs::remove_dir_all(d).unwrap();
     }
