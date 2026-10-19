@@ -82,6 +82,8 @@ pub fn check() -> Option<String> {
     let mut st = AppState::load();
     if due(&st) {
         if let Some(latest) = fetch_latest() {
+            // Read again: the app may have saved its state during the fetch.
+            st = AppState::load();
             record(&mut st, latest);
             let _ = st.save();
         }

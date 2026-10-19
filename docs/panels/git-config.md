@@ -67,15 +67,15 @@ A value that looks like a secret shows as `••••`:
 
 | What | Shown as |
 |---|---|
-| The password in a URL | `https://ada:••••@example.org/r.git` |
-| A user alone in an http(s) URL, which is a token there | `https://••••@github.com/a/b` |
-| A token in a URL's query | `https://h/r.git?access_token=••••` |
+| The user and password in an http(s) URL, since a token can stand as either (`https://ghp_…:x-oauth-basic@github.com`) | `https://••••@example.org/r.git` |
+| The password in any other URL | `ftp://ada:••••@example.org/f` |
+| A token in a URL's query (a key with *token*, *secret*, *pass*, *key*, *sig*, *auth*, *jwt* or *ticket* in it, or ending in *pat*) | `https://h/r.git?access_token=••••` |
 | An `http.extraHeader` value (also `http.<url>.extraHeader`) | `Authorization: ••••`: the header's name stays |
-| A key whose last part ends in *pass*, *password*, *token*, *secret*, *apikey* or *credential* | `••••` |
-| A `credential.helper` written out as a shell line holding a password or token | `••••` |
+| A key whose last part ends in *pass*, *password*, *token*, *secret*, *apikey*, *credential*, *pat* or *bearer* | `••••` |
+| A `credential.helper` written out as a shell line holding a password, a token, `--pat`, a bearer or a long word of letters and digits that looks like one | `••••` |
 
-A URL with a password in a section's name (`url.https://ada:pw@host/.insteadOf`) has it hidden
-in the heading too. **Enter** on the line (or its *Show* button in the desktop app) shows the
+A URL with a user or password in a section's name (`url.https://ada:pw@host/.insteadOf`) has it
+hidden in the heading too. **Enter** on the line (or its *Show* button in the desktop app) shows the
 value; **Enter** again (*Hide*) hides it. The first few times a hidden value is there, a line
 under the title says so.
 

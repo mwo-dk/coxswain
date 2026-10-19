@@ -237,8 +237,8 @@ pub fn keep(app: tauri::AppHandle) {
             }
             let now = coxswain_core::fs::now();
             if ctx.state.lock().is_ok_and(|st| images::update_due(&cfg, &st, now)) {
-                // A pull that fails (offline) leaves the round due, so the next hour tries again.
-                if images::pulled(&cfg, &rt).iter().all(|i| images::update(&rt, i, || pull(&rt, i)).is_ok()) {
+                // Every image is tried; when all fail (offline) the round stays due for the next hour.
+                if images::update_round(&rt, &images::pulled(&cfg, &rt), |i| pull(&rt, i)) {
                     let _ = ctx.edit(|st| st.images_checked = now);
                 }
             }
