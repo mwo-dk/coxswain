@@ -1,6 +1,6 @@
 <script>
   import { untrack } from "svelte";
-  import { ui, tab, item, openHistory, openGitView, switchBranch, newBranch, gitTool, openGitConfig, makeSearchable } from "./app.svelte.js";
+  import { ui, tab, item, openHistory, openGitView, switchBranch, newBranch, gitTool, openGitConfig, makeSearchable, openSpace } from "./app.svelte.js";
   import { renderHtml, renderPptx, renderDrawio, renderMarkdown, renderMermaid, highlight, highlightOff, renderDocx, readSheet, renderNotebook, loadFont, clean, parseData, jsonLines, calendar, contacts, logLines, renderGraphviz, renderAsciidoc, readParquet } from "./renderers.js";
   import { invoke, convertFileSrc, basename, size, date, age, ageColor, previewKind, looksLikeBom, looksLikeProvenance, CONVERTER, LOCKED, diskSeen, isOldPicture } from "./lib.js";
   import BomView from "./BomView.svelte";
@@ -900,6 +900,8 @@
           <dt>{t("preview.total_size")}</dt>
           <dd>
             {#if pane.sizes[e.path] !== undefined}{size(pane.sizes[e.path])}{:else}<button class="link" onclick={calcSize}>{t("preview.calculate")}</button>{/if}
+            <!-- Where those bytes go: Space, the treemap. -->
+            {#if !pane.archive && !pane.history && !pane.snapshot && !pane.package}· <button class="link" title={t("space.preview_tip")} onclick={() => openSpace(tab(), e.path)}>{"\u{f200}"} {t("space.open")}</button> <kbd>{ui.cfg.actions.space_view?.[1] ?? ""}</kbd>{/if}
           </dd>
           {#if pane.git}<dt>{t("preview.git")}</dt><dd class="git">{pane.git.prompt}</dd>{/if}
         </dl>

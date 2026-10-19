@@ -219,6 +219,9 @@ actions! {
     // to the system on a Mac.
     FolderSizes = "folder_sizes", "Folder sizes", Panels, [];
     Columns = "columns", "Columns and folder sizes", Panels, [];
+    // Where the space goes, as a treemap (`space`). Alt+U, for usage: free, and few names
+    // start with u, so quick search hardly misses it.
+    SpaceView = "space_view", "Space view", Panels, ["Alt+U"];
     // Marking, the most used first.
     Mark = "mark", "Mark", Marking, ["Insert", "Shift+Down"];
     MarkAll = "mark_all", "Mark all", Marking, ["Ctrl+A"];

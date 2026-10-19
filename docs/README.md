@@ -69,6 +69,7 @@ mindmap
 | [Tabs, back and forward, one pane or two](panels/tabs-and-panes.md) | Tabs, back and forward, one pane or two (Ctrl+O; in the terminal app the last output, with *Panels hidden · any key brings them back*), the splitter |
 | [Views: details, columns, thumbnails](panels/views.md) | Details, Miller columns, thumbnails, the columns menu, the age chip |
 | [Folder sizes](panels/folder-sizes.md) | Where they come from, how fresh, the size on `..` once known, measuring again, switching off |
+| [Space: where the space goes](panels/space.md) | Alt+U, a treemap of a folder or a drive: every file a rectangle by its size, coloured by kind, the bytes by type, the largest files, zoom, Delete from there; both apps |
 | [Git in the panels](panels/git.md) | The git line (worktree, detached HEAD, merge or rebase under way), upstream, remote and last fetch (the git line's tooltip, the terminal app's info line on `..`, a repository folder's own on hover), file glyphs, the last commit per file, the diff, recent repositories, Open in your git tool (Alt+G), the git config (Alt+C), user menu commands |
 | [Git history as folders](panels/git-history.md) | Ctrl+G, the commits of a file or folder, the files at a commit, preview and diff, F3, F5, read-only, limits |
 | [Git branches and worktrees](panels/git-branches.md) | Alt+B, the branches, a branch's files, switching (Alt+S) and new branches, Alt+W, the worktrees, limits |

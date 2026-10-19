@@ -104,6 +104,11 @@ that, or with **Folder sizes** in the **F9** list.
 
 ## Questions
 
+#### How do I see which files take the space, not only which folders?
+
+Open [Space](space.md) on the folder: **Alt+U**, *Where the space goes* in the preview pane next
+to *Total size*, or **Shift+F10** on the folder. Every file shows as a rectangle by its size.
+
 #### Why is a folder's size not shown?
 
 - It is still being measured: large folders take a while, and they are done one at a time.
@@ -167,4 +172,4 @@ file itself shows its real size in the folder that holds it; open it to see its 
 ([Archives as folders](../files/archives.md)).
 
 ---
-[← Previous: Views: details, columns, thumbnails](views.md) · [Next: Git in the panels →](git.md)
+[← Previous: Views: details, columns, thumbnails](views.md) · [Next: Space: where the space goes →](space.md)

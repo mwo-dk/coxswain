@@ -57,6 +57,7 @@ Every flag: [Command-line flags](command-line-flags.md#the-terminal-app-coxswain
 | Find (**Alt+F7**, **Ctrl+F**; **Shift+F7** for *In files*, **Ctrl+F7** for Ask): names, words in files, meaning and history in groups, the scope chip, the Ask row (**Alt+Enter**) and the answer in place | [Find](../search/find-file.md) |
 | Search by meaning, turned on in Settings → Finding files or with `coxswain --meaning on` | [Search by meaning in the terminal app](#search-by-meaning-in-the-terminal-app) |
 | Folder sizes in the Size column, and on `..` the size of the folder above once known | [Folder sizes](../panels/folder-sizes.md) |
+| Space (**Alt+U**), full screen: a treemap in coloured half-blocks, the bytes by type and the largest files beside it | [Space](../panels/space.md#in-the-terminal-app) |
 | The git line, a glyph per file, and the last commit of the entry under the cursor in the info line; on `..` the upstream (ahead, behind), the last fetch and the remote, and on a repository's folder its own | [Git in the panels](../panels/git.md), [Upstream, remote and last fetch](../panels/git.md#upstream-remote-and-last-fetch) |
 | Open in your git tool (**Alt+G**): lazygit, gitui or tig in place of the panels, or your desktop client, to commit, push or pull | [Open in your git tool](../panels/git.md#open-in-your-git-tool) |
 | The git config as git uses it (**Alt+C**), full screen: each value with its scope and file, secrets hidden until **Enter** | [Git config](../panels/git-config.md#in-the-terminal-app) |

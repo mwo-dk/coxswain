@@ -20,6 +20,7 @@ pub fn keys(cfg: &Config) -> Vec<(String, String)> {
         Action::Copy,
         Action::Move,
         Action::Search,
+        Action::SpaceView,
         Action::Menu,
         Action::Help,
     ]

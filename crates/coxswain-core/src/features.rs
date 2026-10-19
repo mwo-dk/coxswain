@@ -75,6 +75,7 @@ pub const FEATURES: &[Feature] = &[
         "panels/folder-sizes.md",
         &[FolderSizes, Columns],
     ),
+    f("space", "panels/space.md", &[SpaceView, Delete, View, Edit]),
     f("git", "panels/git.md", &[History, Branches, GitTool, Refresh]),
     f("git_history", "panels/git-history.md", &[History]),
     f(

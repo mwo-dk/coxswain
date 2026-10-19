@@ -363,3 +363,26 @@ Bxf3 5.Qxf3 dxe5 6.Bc4 Nf6 7.Qb3 Qe7 8.Nc3 c6 9.Bg5 b5 $2 10.Nxb5! cxb5 11.Bxb5+
 EOF
 printf '%s\n' 'r1bqkb1r/pppp1ppp/2n2n2/4p2Q/2B1P3/8/PPPP1PPP/RNB1K1NR w KQkq - bm Qxf7#; id "Scholar'"'"'s mate";' \
   '6k1/5ppp/8/8/8/8/5PPP/3R2K1 w - - bm Rd8#; id "Back rank";' > "$d/Documents/Chess/mates.epd"
+# For Space (Alt+U): sizes of every kind, so the treemap has something to show. Sparse files:
+# they take no room on the disk, but their length is what Space and the folder sizes count.
+mkdir -p "$d/Videos/Flight 7" "$d/Music/Night Drive" "$d/Music/Podcasts" "$d/Pictures/Raw" "$d/VMs" "$d/Documents/Scans" "$d/projects/rocket/target/debug/deps"
+truncate -s 1800M "$d/Videos/Flight 7/launch.mp4"
+truncate -s 640M "$d/Videos/Flight 7/onboard-camera.mov"
+truncate -s 410M "$d/Videos/countdown.mkv"
+truncate -s 120M "$d/Videos/pad-tour.webm"
+for i in 1 2 3 4 5 6 7 8; do truncate -s "$((28 + i * 3))M" "$d/Music/Night Drive/0$i Track $i.flac"; done
+for i in 1 2 3 4 5; do truncate -s "$((50 + i * 7))M" "$d/Music/Podcasts/episode-$i.mp3"; done
+for i in $(seq -w 1 24); do truncate -s "$((22 + 10#$i % 7))M" "$d/Pictures/Raw/DSC_00$i.nef"; done
+truncate -s 3100M "$d/VMs/freebsd-15.qcow2"
+truncate -s 1300M "$d/Downloads/installer.iso"
+truncate -s 760M "$d/Backups/old-laptop-2019/photos.zip"
+truncate -s 290M "$d/Backups/site-2026.tar.zst"
+for n in tax-2025 lease insurance passport; do truncate -s "$(( ${#n} * 2 ))M" "$d/Documents/Scans/$n.pdf"; done
+for n in libserde libtokio libregex librocket; do truncate -s "$(( ${#n} * 9 ))M" "$d/projects/rocket/target/debug/deps/$n.rlib"; done
+truncate -s 85M "$d/Documents/fuel-log.sqlite"
+# Each starts with its own name, so none is taken for a duplicate of another (still sparse).
+for f in "$d/Videos/Flight 7"/* "$d/Videos/countdown.mkv" "$d/Videos/pad-tour.webm" "$d/Music/Night Drive"/* "$d/Music/Podcasts"/* \
+  "$d/Pictures/Raw"/* "$d/VMs/freebsd-15.qcow2" "$d/Downloads/installer.iso" "$d/Backups/old-laptop-2019/photos.zip" \
+  "$d/Backups/site-2026.tar.zst" "$d/Documents/Scans"/* "$d/projects/rocket/target/debug/deps"/* "$d/Documents/fuel-log.sqlite"; do
+  printf '%s' "${f#"$d"/}" | dd of="$f" conv=notrunc status=none
+done

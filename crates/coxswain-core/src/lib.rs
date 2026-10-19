@@ -50,6 +50,7 @@ pub mod service;
 pub mod settings;
 pub mod setup;
 pub mod sizes;
+pub mod space;
 pub mod state;
 pub mod store;
 pub mod tables;

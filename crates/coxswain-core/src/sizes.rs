@@ -121,7 +121,7 @@ impl Sizer {
 /// Kernel and device trees: endless, or sizes that mean nothing.
 // ponytail: network mounts are measured like any folder, slowly; skip by file system type
 // if that bites.
-fn not_on_disk(path: &Path) -> bool {
+pub(crate) fn not_on_disk(path: &Path) -> bool {
     cfg!(unix)
         && ["/proc", "/sys", "/dev", "/run"]
             .iter()

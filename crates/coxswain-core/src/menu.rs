@@ -55,6 +55,9 @@ pub struct Subject {
     pub zfs: bool,
     /// The folder may hold files of installed packages (`bsd::packages_here`).
     pub packages: bool,
+    /// The panel shows a drive's top folder, or the cursor is on a folder measured at 1 GB or
+    /// more: where Space is worth a hint.
+    pub big: bool,
 }
 
 impl Subject {
@@ -117,6 +120,8 @@ impl Action {
             // Find, anywhere; duplicates among the folders, or in this one.
             Search | SearchText | Ask => true,
             Duplicates => disk && (s.folders > 0 || n == 0),
+            // The folder under the cursor, else the panel's.
+            SpaceView => disk,
             // On `..` with nothing marked: the panels themselves.
             SwapPanels | SameDir | TogglePanels => n == 0,
             // What Coxswain can do, and Settings, from any menu.
@@ -167,6 +172,7 @@ const HINTS: &[(&str, &[(&str, Action)])] = &[
     // Before the general ones: a chess file is rare, and what to press on it is not guessed.
     ("chess", &[("key", Action::Chess)]),
     ("menu", &[("key", Action::ActionMenu)]),
+    ("space", &[("key", Action::SpaceView)]),
     ("find", &[("key", Action::Search)]),
     ("features", &[("key", Action::Help)]),
     ("settings", &[("key", Action::Settings)]),
@@ -225,6 +231,7 @@ fn fits(id: &str, s: &Subject) -> bool {
         "branches" => s.place == Place::Branches && s.single(),
         "git" | "git_tool" => disk && s.git,
         "zfs" => disk && s.zfs,
+        "space" => disk && s.big,
         _ => false,
     }
 }
@@ -559,6 +566,12 @@ mod tests {
         );
         shown.insert("folder".to_string(), TIMES);
         assert_eq!(pick(&folder, &cfg, &shown), None);
+        // A big folder, or a drive: where the space goes.
+        let big = Subject { big: true, ..folder.clone() };
+        let (id, text) = pick(&big, &cfg, &shown).unwrap();
+        assert_eq!(id, "space");
+        assert!(text.contains("Alt+U"), "{text}");
+        assert!(names(&big, false).contains(&"space_view"));
         let marked = Subject {
             files: 3,
             marked: 3,
