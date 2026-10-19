@@ -93,8 +93,8 @@ Both are updated by hand; the README next to each says the tag it came from.
   what is missing, and the draft is deleted, so no half-made release is ever published or left
   behind. Two commits with the same version never release it twice: the draft says which run
   makes it, and a second run leaves it to that one.
-- **Every channel.** After publishing, crates.io, the Homebrew tap, WinGet and the FreeBSD port
-  are updated, each step tried again on a passing fault (an HTTP 5xx or 429, a lost blob), up to
+- **Every channel.** After publishing, crates.io, the Homebrew tap and the FreeBSD port
+  are updated (WinGet once a week, with the newest release, by `winget.yml`), each step tried again on a passing fault (an HTTP 5xx or 429, a lost blob), up to
   five times with a longer wait each time. A channel that still fails turns the run red with an
   error naming it.
 - Every workflow's token reads only; the release jobs that make the draft, upload to it, publish
@@ -105,8 +105,8 @@ Both are updated by hand; the README next to each says the tag it came from.
 - When the Release run ends, `release-check.yml` installs the release from its own downloads on
   every system it has an install script or package for, checks its files against the same list
   and its checksums against `SHA256SUMS`, and checks each channel for the version: crates.io,
-  the Homebrew formula and cask, a WinGet pull request for each listed package, the FreeBSD port
-  artifact ([packaging/README.md](../../packaging/README.md)).
+  the Homebrew formula and cask, a WinGet pull request for each listed package within its week,
+  the FreeBSD port artifact ([packaging/README.md](../../packaging/README.md)).
 - The release build of the desktop app has no web inspector (Tauri's `devtools` is off), so no
   page a file rendered can be opened in one.
 

@@ -6,7 +6,7 @@ These rules hold for every contributor and every Claude session in this reposito
 
 - **Never a partial release: complete on every system and every channel, or not at all.** Every
   installer and archive, each with its `.sha256`, one `SHA256SUMS` over all of them, and every
-  channel (crates.io, Homebrew, WinGet, the FreeBSD port), or the release does not go out. No
+  channel (crates.io, Homebrew, the FreeBSD port; WinGet within its week), or the release does not go out. No
   `continue-on-error` on anything that makes a release file.
 - **Releases are automatic, in one run.** The version lives only in `Cargo.toml`
   (`[workspace.package]`). Every push to `master` starts one *Release* run (`release.yml`): it
@@ -15,8 +15,11 @@ These rules hold for every contributor and every Claude session in this reposito
   builds every platform, checks the draft against the full list of files
   (`packaging/release-assets.sh`; a gap deletes the draft), publishes (creating the `vX.Y.Z`
   tag) and then updates each channel, retrying passing faults; a channel that still fails turns
-  the run red, named. A push to `master` without a new version only runs the tests. When the run
-  ends, `release-check.yml` installs the release and checks every channel. A new build target
+  the run red, named. WinGet is not in that run: `winget.yml` files the newest release there once
+  a week (one pull request per package, our older open ones closed as superseded), because its
+  moderators review each pull request by hand. A push to `master` without a new version only runs
+  the tests. When the run ends, `release-check.yml` installs the release and checks every channel,
+  WinGet within that week (no release left more than 8 days without a pull request). A new build target
   goes into the matrix and into `packaging/release-assets.sh` together.
 - **Pull requests run the virtual machines only for platform code** (files with BSD or illumos
   branches, `Cargo.toml`, `Cargo.lock`, `install/`, that system's `packaging/`), and Termux,
@@ -44,8 +47,8 @@ These rules hold for every contributor and every Claude session in this reposito
   passed on it, not on auto-merge alone.
 - **A green job is not proof that a channel published.** After a release, check each channel
   itself: the GitHub release and its files with their `.sha256`, the version on crates.io, the
-  Homebrew formula and cask, the WinGet pull request, the FreeBSD port's artifact. Say a release
-  is out only after that.
+  Homebrew formula and cask, the FreeBSD port's artifact, and after the next weekly `winget.yml`
+  run the WinGet pull request. Say a release is out only after that (WinGet may follow later).
 - **Commits:** plain messages. No `Co-Authored-By` or other Claude attribution.
 - **Work in a git worktree** (`git worktree add -b <branch> .worktrees/<topic> origin/master`, inside the repository and
   ignored by git, so the folder above stays clean)

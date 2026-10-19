@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Whether a package is on WinGet (microsoft/winget-pkgs), and whether a version of it has its
-# pull request there, open or merged. Used by release.yml and release-check.yml.
+# pull request there, open or merged. Used by winget.yml and release-check.yml.
 #
 #   packaging/winget-listed.sh mwo-dk.Coxswain.Terminal          listed at all?
 #   packaging/winget-listed.sh mwo-dk.Coxswain.Terminal 2.11.0   a pull request for 2.11.0?

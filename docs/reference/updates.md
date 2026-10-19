@@ -77,7 +77,9 @@ It is worked out from where the program is installed:
 
 The Windows desktop installer lands where a download would, so it gets the releases page too.
 Its WinGet package, `mwo-dk.Coxswain`, is waiting for WinGet's review; until it is listed, only
-`mwo-dk.Coxswain.Terminal` is on WinGet. There is no Arch (AUR) package yet.
+`mwo-dk.Coxswain.Terminal` is on WinGet. WinGet gets the newest release once a week, after
+Microsoft's review, so `winget upgrade` can be up to a week behind the releases page. There is no
+Arch (AUR) package yet.
 
 How to install each is in the [README](../../README.md#install) and
 [install/INSTALL.md](../../install/INSTALL.md); update the same way.
