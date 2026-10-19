@@ -7,7 +7,11 @@
    (GitHub's anchors: lowercase, spaces to '-', punctuation dropped, duplicates -1, -2 …; also
    <a id>/<a name>/id= anchors). Pictures and GIFs too.
 2. The version in Cargo.toml has its row in docs/changelog.md, and the README's changelog table is
-   the newest ten rows of docs/changelog.md, word for word (links compared by where they lead).
+   the newest ten version rows of docs/changelog.md, word for word (links compared by where they
+   lead). docs/changelog.md starts with `## Unreleased`, before `## Versions`: either the line
+   `Nothing yet.` or a `| What's new | Docs |` table whose rows have those two cells, a link in
+   the second. A release (the version raised over the base branch's, see 5) leaves it at
+   `Nothing yet.`: its rows moved into the version's row.
 3. No version older than the current major.minor is shown as Coxswain's own (`coxswain 1.20.0`,
    `User-Agent: coxswain/1.20.0`, `coxswain-terminal-v1.23.1-…`) outside the changelogs, picture
    descriptions and alt texts included: such examples go stale, so they say `X.Y.Z`.
@@ -224,6 +228,33 @@ def check_changelog(v: str) -> None:
         )
 
 
+UNRELEASED = re.compile(r"^## Unreleased\n(.*?)^## Versions\n", re.M | re.S)
+
+
+def check_unreleased(v: str, base: str | None) -> int:
+    """The rows waiting for the next release; their count."""
+    where = "docs/changelog.md"
+    m = UNRELEASED.search(read(ROOT / where))
+    if not m:
+        error(where, "no `## Unreleased` section before `## Versions`")
+        return 0
+    lines = [l.strip() for l in m.group(1).splitlines() if l.strip().startswith("|")]
+    empty = re.search(r"^Nothing yet\.$", m.group(1), re.M)
+    if bool(lines) == bool(empty):
+        error(where, "Unreleased holds either `Nothing yet.` or its table, not both or neither")
+    if lines and lines[:2] != ["| What's new | Docs |", "|---|---|"]:
+        error(where, "Unreleased's table starts `| What's new | Docs |` then `|---|---|`")
+    rows = lines[2:]
+    for row in rows:
+        cells = re.split(r"(?<!\\)\|", row)[1:-1]
+        if len(cells) != 2 or not LINK.search(cells[1]):
+            error(where, f"an Unreleased row has two cells, what's new and a docs link: {row[:60]}")
+    was = base_version(base)
+    if rows and was is not None and tuple(map(int, v.split("."))) > tuple(map(int, was.split("."))):
+        error(where, f"{was} → {v} is a release: move the Unreleased rows into {v}'s row")
+    return len(rows)
+
+
 OWN_VERSION = re.compile(r"\b[Cc]oxswain[\w-]*[ /-]v?(\d+)\.(\d+)\.\d+\b")
 HISTORY = {"docs/changelog.md", "docs/whats-new-2.md"}
 
@@ -323,13 +354,14 @@ def main() -> int:
     v = version(read(ROOT / "Cargo.toml"))
     n = check_links()
     check_changelog(v)
+    u = check_unreleased(v, args.base)
     check_stale_versions(v)
     check_order()
     check_questions()
     p = check_placeholders(v, args.base)
     for e in errors:
         print(e, file=sys.stderr)
-    print(f"docs check: {len(pages())} pages, {n} links, {p} placeholders, version {v}: "
+    print(f"docs check: {len(pages())} pages, {n} links, {p} placeholders, version {v}, {u} unreleased: "
           + (f"{len(errors)} problems" if errors else "all good"))
     return 1 if errors else 0
 

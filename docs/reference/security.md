@@ -62,7 +62,8 @@ parent (candle, tauri, pdf-extract) moves.
 - Every pull request runs the full CI, so an update that breaks a build or a test does not
   merge.
 - A release follows the version in `Cargo.toml`: dependency updates that matter to users get a
-  patch version and a changelog row, so the release notes say what moved.
+  row under *Unreleased* in the [changelog](../changelog.md), which the next release carries into
+  its own row, so the release notes say what moved.
 - The GitHub Actions the builds run are pinned to a commit, with the version in a comment, so
   a tag moved under a published action cannot change what the release pipeline runs.
 

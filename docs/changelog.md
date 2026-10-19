@@ -4,6 +4,14 @@
 
 Every version, newest first. Downloads are on the [releases page](https://github.com/mwo-dk/coxswain/releases). The README shows the last ten.
 
+## Unreleased
+
+What has been merged since the last release, newest first. Each pull request with a change you would notice adds its row here; the next release gathers them into its own row under *Versions*.
+
+Nothing yet.
+
+## Versions
+
 | Version | Date | What's new |
 |---|---|---|
 | **2.31.5** | 2026-10-19 | **Quicker with many hits, calmer while files change.** Find in the terminal app stays quick with thousands of hits: only the lines on screen are drawn. The desktop app reads a folder again at most every two seconds while something keeps writing into it, as the terminal app does, instead of four times a second. A meaning server's address in a message never shows part of a password or a token in its query. The terminal app's hint on showing hidden git secrets is only spent when there is one to show. [Find file](search/find-file.md) **A hung cloud mount no longer freezes the terminal app.** **Alt+F1** and **Alt+F2** wait at most a moment for the cloud folders: when a mount whose server has gone (rclone, sshfs, gvfs) does not answer, the list opens without the clouds and the status line says so. The desktop app's sidebar leaves them out until the mount answers again, instead of waiting on it every 30 seconds. On FreeBSD, the other BSDs and illumos, a folder made inside a new folder while Coxswain was reading it is now followed for changes too, and a folder that cannot be followed is named once in `helper.log` and no longer counts against the number that can. Nothing is read or made again. [Clouds](organise/clouds.md#why-does-altf1-say-the-clouds-did-not-answer) |
