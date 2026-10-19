@@ -17,6 +17,7 @@ login, and search by meaning on the Mac's GPU without any server.
 - [Search by meaning on the Mac's GPU](#search-by-meaning-on-the-macs-gpu)
 - [Desktop app and terminal app](#desktop-app-and-terminal-app)
 - [Settings and config.toml](#settings-and-configtoml)
+- [Testing a release on your Mac](#testing-a-release-on-your-mac)
 - [Questions](#questions)
 
 ## The folder prompts
@@ -150,6 +151,37 @@ in `coxswain-core`). Who macOS names in the prompt differs:
 There is no key for the left-out list: it is always on, on a Mac. To leave out more, use
 `name_exclude` (names) and `text_exclude` (text) as everywhere else
 ([Configuration](../reference/configuration.md)).
+
+## Testing a release on your Mac
+
+A script checks a release on your own Mac and writes a report you can send or bring along. It
+needs nothing installed, and at the end removes its folder and changes nothing else:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/mwo-dk/coxswain/master/tools/selftest/macos.sh | bash
+```
+
+It downloads the terminal app and the desktop `.dmg` of the latest release (`--version X.Y.Z` for
+another) into a folder under `/tmp`, checks them against their checksums, and shows how macOS
+sees the app: its signature, Gatekeeper and quarantine. Then it runs both apps there with a fake
+home folder, so your own settings, state and cache are never read or changed. The terminal app is
+driven by keys in a pseudo-terminal through its main features (viewer, copy, move and undo, new
+folder, delete, archives, git, chess games, Find, Settings, F1), each step timed. The desktop app
+starts, opens Settings, and then waits for you to try 15 points by hand; your answers go into the
+report. Each item is marked PASS, FAIL, SKIP or NOTE.
+
+| Question | Answer |
+|---|---|
+| Where does the report go? | *~/Desktop/coxswain-selftest-<date>.md*, if you say yes; else it stays in the temporary folder, which is then kept |
+| Does it send anything? | No. Only the downloads come from GitHub |
+| Screenshots? | Only if you say yes. macOS then asks for Screen Recording for your terminal; they show the whole screen |
+| Does it use my cloud folders? | Only if you say yes to the Clouds check: it links them into the fake home, read-only, and removes the links |
+| Does it remove anything in my home? | No. It removes only its own folder under `/tmp`; anything that appeared in your home is named in the report, with the line that removes it |
+| Can I turn on *Start with my session* in it? | No: that would hand the test's search helper to your session. If it happens, the report says so and gives the `launchctl bootout` line that undoes it |
+| Homebrew instead? | `--brew` tests what Homebrew has installed already; what is missing it installs after you say yes, and offers to remove again |
+
+The same script runs after every release on GitHub's Mac runners, Apple silicon and Intel.
+`--help` lists the options; [tools/selftest](../../tools/selftest/README.md) has the details.
 
 ## Questions
 

@@ -40,7 +40,9 @@ When a Release run ends, `release-check.yml` installs the release it published t
 does, from its published downloads and with the install scripts of its tag: `install-freebsd.sh`
 on FreeBSD 14.5 and 15.1, `install-unix.sh` on NetBSD 10.1, OpenBSD 7.9 and OmniOS r151058, the
 static musl archive and the `.deb` (with apt, started on a virtual display) on Linux x86-64 and
-ARM64, and `cargo install coxswain` in Termux. It checks the version each prints, the manual page
+ARM64, `cargo install coxswain` in Termux, and the Mac self-test
+([tools/selftest/macos.sh](../tools/selftest/README.md): both apps from the downloads, the
+terminal app driven by keys) on Apple silicon and Intel. It checks the version each prints, the manual page
 and the service file, the release's files against `release-assets.sh` and every checksum against
 `SHA256SUMS`, and every channel: both crates on crates.io, the version in the Homebrew formula and
 cask, for each package WinGet lists (`winget-listed.sh`) an open or merged winget-pkgs pull

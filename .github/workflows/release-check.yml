@@ -352,6 +352,38 @@ jobs:
           tail -20 gui.log
           [ "$alive" = 1 ] || { echo "::error::The desktop app did not stay up"; exit 1; }
 
+  # The Mac self-test (tools/selftest/macos.sh) on GitHub's Mac runners, Apple silicon and Intel:
+  # the release's downloads checked, both apps started with a fake home, the terminal app driven
+  # by keys. The report, screenshots and logs are the macos-selftest-<arch> artifact.
+  macos:
+    name: macOS self-test ${{ matrix.arch }}
+    needs: resolve
+    if: needs.resolve.outputs.tag != ''
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { arch: arm64, runs-on: macos-latest }
+          - { arch: x86_64, runs-on: macos-15-intel }
+    runs-on: ${{ matrix.runs-on }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: tools/selftest
+      - name: Self-test
+        env:
+          VER: ${{ needs.resolve.outputs.version }}
+          COXSWAIN_SELFTEST_REPO: ${{ github.repository }}
+        run: bash tools/selftest/macos.sh --ci --version "$VER" --out "$RUNNER_TEMP/selftest"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: ${{ !cancelled() }}
+        with:
+          name: macos-selftest-${{ matrix.arch }}
+          path: ${{ runner.temp }}/selftest
+          if-no-files-found: warn
+
   # `cargo install` in Termux (termux-docker on ARM64, as on a phone), as the Termux guide says.
   termux:
     name: Termux, cargo install
