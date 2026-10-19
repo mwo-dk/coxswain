@@ -16,7 +16,7 @@ A page you downloaded cannot run code or tell anyone that you opened it.
 
 | Key | Desktop app | Terminal app |
 |---|---|---|
-| **Space** / **F3** | Shows or hides the pane | **F3** opens the HTML source in your pager |
+| **Space** / **F3** | Shows or hides the pane | **F3** opens the HTML source in the built-in viewer |
 | **Enter** | Opens the page in your browser | The same |
 
 ## What is allowed, and what is blocked
@@ -52,7 +52,7 @@ None. The sandbox cannot be switched off: use **Enter** to see a page with its s
 
 ## In the terminal app
 
-No preview pane; a terminal cannot draw a page. **F3** shows the HTML source in your pager,
+No preview pane; a terminal cannot draw a page. **F3** shows the HTML source in the built-in viewer,
 **Enter** opens the page in your browser.
 
 ## Questions

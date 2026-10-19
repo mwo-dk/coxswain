@@ -36,7 +36,7 @@ sentences](../search/diagrams.md).)
 
 | Key | Desktop app | Terminal app |
 |---|---|---|
-| **Space** / **F3** | Shows or hides the pane | **F3** opens the source in your pager |
+| **Space** / **F3** | Shows or hides the pane | **F3** opens the source in the built-in viewer |
 | **Enter** | Opens the file in its program | The same |
 
 ## Formats
@@ -110,7 +110,7 @@ PlantUML and Kroki's kinds have them, as tools of [Previews made by tools](tools
 ## In the terminal app
 
 No preview pane; diagrams need the desktop app's webview to be drawn. **F3** shows the source
-in your pager. To draw one from the command line: `dot -Tpng graph.dot -o graph.png`,
+in the built-in viewer. To draw one from the command line: `dot -Tpng graph.dot -o graph.png`,
 `plantuml seq.puml`, `mmdc -i chart.mmd` (Mermaid's CLI), `d2 launch.d2 launch.svg`.
 
 ## Questions

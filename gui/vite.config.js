@@ -10,4 +10,6 @@ export default defineConfig({
   // The big chunks (Mermaid and its optional ELK layout, SheetJS, KaTeX) load only when a
   // preview needs them.
   build: { target: "es2022", chunkSizeWarningLimit: 1500 },
+  // The highlighting worker loads a grammar when a file needs it: a module, so it can.
+  worker: { format: "es" },
 });

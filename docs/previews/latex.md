@@ -36,7 +36,7 @@ errors, and tries another engine when one cannot build the document.
 
 | Key | Desktop app | Terminal app |
 |---|---|---|
-| **Space** / **F3** | Shows or hides the pane (and so the PDF) | **F3** opens the source in your pager |
+| **Space** / **F3** | Shows or hides the pane (and so the PDF) | **F3** opens the source in the built-in viewer |
 | **F4** | Opens the source in your editor | The same |
 | **Enter** | Opens the file in its program | The same |
 

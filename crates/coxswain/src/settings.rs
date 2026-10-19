@@ -545,7 +545,7 @@ fn shown(o: &Opt, cfg: &Config, value: &Value) -> String {
         (Kind::List, Value::Array(a)) => a.iter().filter_map(Value::as_str).collect::<Vec<_>>().join(", "),
         (_, Value::String(v)) if v.is_empty() => match o.name {
             "editor" => "$EDITOR".into(),
-            "viewer" => "$PAGER".into(),
+            "viewer" => t!("setting.viewer.empty"),
             _ => String::new(),
         },
         (_, Value::String(v)) => v.clone(),

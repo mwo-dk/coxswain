@@ -13,9 +13,10 @@ your install or from a network-less container.
 
 The preview pane is **desktop-only**. It is drawn by the app's webview: a PDF viewer, SVG
 diagrams, pictures, video, sandboxed web pages, fonts at several sizes. A terminal has only
-character cells, so the terminal app hands a file to your viewer instead: **F3** opens it in
-`$PAGER` (or the `viewer` in the config, else `less`), **Enter** in the program your system
-opens it with. See [View and edit](../commands/view-and-edit.md).
+character cells, so the terminal app shows a file in its
+[built-in viewer](../commands/view-and-edit.md#the-built-in-viewer) instead: **F3** opens it
+full screen, highlighted in the theme's colours (or in the program `viewer` in the config
+names), **Enter** in the program your system opens it with. See [View and edit](../commands/view-and-edit.md).
 
 How a preview is made, in the order Coxswain tries ([Previews made by tools](tools.md) has the
 details; *Settings → Previews → Use* can put the container first, or leave it out):
@@ -123,7 +124,7 @@ sticks: it applies to the next file of that kind too, and survives a restart.
 | Key | Desktop app | Terminal app | Does |
 |---|---|---|---|
 | **Space** | Preview | (types a space) | Shows or hides the preview pane |
-| **F3** | View | View | Desktop: shows or hides the pane. Terminal: opens the file in your pager |
+| **F3** | View | View | Desktop: shows or hides the pane. Terminal: opens the file in the built-in viewer |
 | **Esc** | Closes the pane | – | When the command line is empty |
 | **Enter** | Opens the file | Opens the file | In the program your system uses for it |
 | **Alt+N** | Folder notes | – | Opens the pane and puts the cursor in the notes |

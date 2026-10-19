@@ -77,7 +77,7 @@ Every flag: [Command-line flags](command-line-flags.md#the-terminal-app-coxswain
 
 | Feature | Why the terminal app lacks it |
 |---|---|
-| [The preview pane](../previews/README.md) | A terminal cannot draw PDFs, pictures, pages or diagrams. **F3** hands the file to your pager instead |
+| [The preview pane](../previews/README.md) | A terminal cannot draw PDFs, pictures, pages or diagrams. **F3** shows the file in the built-in viewer instead |
 | [Tabs, back and forward](../panels/tabs-and-panes.md), one pane or two | NC's two fixed panels are the terminal app's layout; **Ctrl+O** is taken by the command output |
 | [Columns and thumbnails views](../panels/views.md), the columns menu | Miller columns and thumbnails need more room and pictures than a terminal has |
 | [The sidebar](../organise/sidebar.md), [favourites](../organise/favourites.md), [colour tags](../organise/tags.md), [folder notes](../organise/notes.md) | They need a side pane and editing widgets the panels do not have room for. They are kept in `state.json`, which both apps share, so they are there when you open the desktop app |
@@ -94,7 +94,7 @@ action's name. The **F9** list and **F1** help leave them out.
 
 | | Terminal app | Desktop app |
 |---|---|---|
-| **F3** | Opens the file in `viewer`, `$PAGER` or `less` (`more` on Windows) | The preview pane on or off |
+| **F3** | Opens the file in the [built-in viewer](../commands/view-and-edit.md#the-built-in-viewer), highlighted, with search and go to line (`viewer` in the config runs another program) | The preview pane on or off |
 | **F4** | `editor`, `$VISUAL`, `$EDITOR` or `vi` (`notepad` on Windows), in the terminal | `editor` without a terminal, or the default application |
 | **Ctrl+O** | Shows the terminal with the last command's output, *Panels hidden · any key brings them back* under it; any key comes back ([The command line](../commands/command-line.md#the-output-flashed-by-in-the-terminal-app-where-is-it)) | One pane or two |
 | **Enter** on a program | Runs it in the panel's folder and waits for Enter | Hands it to the desktop |
@@ -107,7 +107,7 @@ action's name. The **F9** list and **F1** help leave them out.
 | Properties (**Alt+Enter**) | The facts as text; your file flags with *F9 → File flags*, permissions with `chmod` | A dialog that also changes the permissions and your file flags |
 | Clouds, boot environments and jails | Under **Alt+F1** / **Alt+F2** | In the sidebar |
 | Marked size | Files only: `4.2 MB in 3 marked` | Measured folders count too |
-| Find, **F3** | Views the hit in your pager | Does nothing (**F4** edits in both) |
+| Find, **F3** | Views the hit in the built-in viewer | Does nothing (**F4** edits in both) |
 | Inside an archive | The panel title ends in `[archive]` | A badge and a tint on the pane |
 | In a git history | The panel title ends in `[history]` or `[commit a1b2c3d]` | A badge (*history of main.rs*, *commit a1b2c3d*) and a tint |
 | The last commit | In the info line under the panel: `a1b2c3d 2026-09-30 14:02 Ada` | A *Last commit* column, and in the preview pane |
@@ -157,7 +157,7 @@ The same as in the desktop app ([Git history as folders](../panels/git-history.m
 | See a file's or folder's commits | **Ctrl+G** on it (on `..` for the folder you are in). The title becomes `…/main.rs/@history [history]`; each row is `a1b2c3d subject`, its date in *Modified* |
 | See who made a commit | Put the cursor on it: the info line shows its id, date and author |
 | Browse the files as they were | **Enter** on a commit. The title ends in `[commit a1b2c3d]` |
-| Read an old file | **F3**: your pager gets a copy of it as it was |
+| Read an old file | **F3**: the built-in viewer shows a copy of it as it was |
 | Get an old file or folder back | **F5** to the other panel |
 | Go back | **Backspace**: to the commits, then to the folder on disk |
 
@@ -285,8 +285,9 @@ terminals), or quit with **F10** first.
 
 #### How do I see a file's contents without leaving the panels?
 
-There is no preview pane in the terminal. **F3** opens it in your viewer (`viewer`, else
-`$PAGER`, else `less`); quit the viewer (`q` in `less`) to come back to the panels.
+There is no preview pane in the terminal. **F3** shows it full screen in the
+[built-in viewer](../commands/view-and-edit.md#the-built-in-viewer), highlighted in the theme's
+colours; **Esc** comes back to the panels.
 
 #### I pressed Alt+T and it said "is available in the desktop app". Why is the key there at all?
 

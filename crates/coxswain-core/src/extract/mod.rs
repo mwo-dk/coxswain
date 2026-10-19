@@ -156,7 +156,7 @@ pub fn utf8(bytes: &[u8]) -> &str {
 /// off or a letter was pasted in from elsewhere. In any other encoding nearly every letter
 /// beyond ASCII is broken UTF-8. A sample says which, for the whole may be 64 MB and broken
 /// bytes are slow to look at.
-fn nearly_utf8(bytes: &[u8]) -> bool {
+pub(crate) fn nearly_utf8(bytes: &[u8]) -> bool {
     let sample = String::from_utf8_lossy(&bytes[..bytes.len().min(1 << 16)]);
     let broken = sample.matches(char::REPLACEMENT_CHARACTER).count();
     let whole = sample.chars().filter(|c| !c.is_ascii()).count() - broken;

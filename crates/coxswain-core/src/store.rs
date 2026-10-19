@@ -497,7 +497,8 @@ impl Store {
     }
 
     /// `readers_changed` for one reader, under its own `key` in the store, so a change to it
-    /// reads only its own files again.
+    /// reads only its own files again. Apps that know no such key leave it alone, and their
+    /// own `readers` tag stays as they wrote it.
     fn reader_changed<S: AsRef<str>>(&self, key: &str, tag: &str, ends: &[S]) -> rusqlite::Result<()> {
         let db = self.db.lock().unwrap();
         let before: String = db
@@ -2016,6 +2017,9 @@ fn scan_for(
     store.readers_changed("code-1", &ends)?;
     // PostScript has a reader of its own (Ghostscript, else plain text): read once again.
     store.reader_changed("readers.postscript", "1", &[".ps", ".eps"])?;
+    // Code in more languages (2.36): only the files with the endings new then are read again.
+    let added: Vec<String> = crate::code::SINCE_CODE_1.iter().map(|e| format!(".{e}")).collect();
+    store.reader_changed("readers.code", "2", &added)?;
     store.archives_changed(cfg.archives)?;
     store.exclude_changed(&cfg.text_exclude)?;
     let mut known = store.known()?;
@@ -3555,6 +3559,15 @@ mod tests {
         store.reader_changed("readers.postscript", "1", &[".ps", ".eps"]).unwrap();
         assert!(store.unread_disk(0, 1000).unwrap().is_empty(), "once");
 
+        // A reader under its own key: its files once, then nothing; the `readers` tag an
+        // older app reads stays as it was, so it reads nothing again either.
+        store.reader_changed("readers.code", "2", &[".png"]).unwrap();
+        assert_eq!(store.unread_disk(0, 1000).unwrap().len(), 1);
+        store.read(&[(id, Some("new words".into()))]).unwrap();
+        store.reader_changed("readers.code", "2", &[".png"]).unwrap();
+        assert!(store.unread_disk(0, 1000).unwrap().is_empty(), "once");
+        store.readers_changed("test-2", &[".png"]).unwrap();
+        assert!(store.unread_disk(0, 1000).unwrap().is_empty(), "the old tag untouched");
         drop(store);
         std::fs::remove_dir_all(d).unwrap();
     }

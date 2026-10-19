@@ -163,7 +163,8 @@
           html = rendered;
         } else if (!bin && s.length < 200_000) {
           const lang = { markdown: "markdown", mermaid: "plaintext", jsonl: "json", calendar: "plaintext", contacts: "plaintext", graphviz: "plaintext", asciidoc: "asciidoc" }[k];
-          const h = await highlightOff(s, lang ?? ext(cur));
+          // The grammar the core picks by name and text (code::language), else the extension.
+          const h = await highlightOff(s, lang ?? (await invoke("code_language", { path: cur.path, head: s.slice(0, 4096) })) ?? ext(cur));
           if (e?.path !== cur.path) return;
           h == null ? (text = s) : (html = h);
         } else {

@@ -28,7 +28,7 @@ open it outside the pane:
 |---|---|---|
 | **Enter** | Opens the file in its program (a browser runs a page's scripts) | The same |
 | **F4** | Opens the file in your editor | The same |
-| **Space** / **F3** | Shows or hides the pane | **F3** opens the file in your pager |
+| **Space** / **F3** | Shows or hides the pane | **F3** opens the file in the built-in viewer |
 
 ## What a preview never does
 
@@ -116,7 +116,7 @@ Previews → Timeout (seconds)*. The limits above are fixed.
 
 ## In the terminal app
 
-No preview pane, so none of this applies there: **F3** hands the file to your pager, which
+No preview pane, so none of this applies there: **F3** shows the file in the built-in viewer, which
 shows its text as it is.
 
 ## Questions

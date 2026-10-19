@@ -113,6 +113,7 @@ pub fn draw(f: &mut Frame, app: &mut App) {
         Some(Dialog::Bom(v)) => v.draw(f, &theme),
         Some(Dialog::Provenance(v)) => v.draw(f, &theme),
         Some(Dialog::GitConfig(v)) => v.draw(f, &theme),
+        Some(Dialog::View { v, .. }) => v.draw(f, &theme),
         Some(Dialog::Settings(_)) => crate::settings::draw(f, app),
         Some(Dialog::Guide(_)) => crate::guide::draw(f, app),
         Some(_) => dialog(f, app),
@@ -531,7 +532,7 @@ fn dialog(f: &mut Frame, app: &mut App) {
             }
         }
         Dialog::Search { .. } => search(f, app, full),
-        Dialog::Bom(_) | Dialog::Provenance(_) | Dialog::GitConfig(_) | Dialog::Settings(_) | Dialog::Guide(_) => {}
+        Dialog::Bom(_) | Dialog::Provenance(_) | Dialog::GitConfig(_) | Dialog::View { .. } | Dialog::Settings(_) | Dialog::Guide(_) => {}
     }
 }
 
@@ -893,7 +894,7 @@ fn help_text(app: &App, width: usize) -> Vec<Line<'static>> {
         .collect();
     v.extend(key_columns(&groups, width));
     v.push(Line::from(""));
-    for k in ["help.also1", "help.also2", "help.also3", "help.also4", "help.bom", "help.provenance", "help.history"] {
+    for k in ["help.also1", "help.also2", "help.also3", "help.also4", "help.viewer", "help.bom", "help.provenance", "help.history"] {
         v.push(Line::from(keys(t!(k, "key" => app.key_label(Action::History)))));
     }
     let key = |a| app.key_label(a).to_string();

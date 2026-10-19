@@ -40,7 +40,7 @@ with OpenZFS; the terminal app does it on illumos (OmniOS, OpenIndiana) and on
    Go into folders as usual.
 4. On a file: the desktop app's preview pane (**Space**, or **F3**) shows it as the snapshot has
    it, and **Diff** at its top how the file now differs from it. In the terminal app **F3**
-   opens it in your pager, and **Enter** shows the diff in the pager.
+   opens it in the built-in viewer, and **Enter** shows the diff there.
 5. **F5** copies the file or folder under the cursor out of the snapshot, to the other panel:
    that is how a lost or overwritten file comes back. **F5** on a snapshot in the list copies
    the whole folder as it was.
@@ -62,9 +62,9 @@ with OpenZFS; the terminal app does it on illumos (OmniOS, OpenIndiana) and on
 
 | Key | In a snapshot, or the list of snapshots |
 |---|---|
-| **Enter** | On a snapshot or a folder: in. On a file: the desktop app says *This is the file as the snapshot has it: Diff in the preview compares it with now, F5 copies it out*; the terminal app shows the diff in your pager, or *The file is the same now as in the snapshot* |
+| **Enter** | On a snapshot or a folder: in. On a file: the desktop app says *This is the file as the snapshot has it: Diff in the preview compares it with now, F5 copies it out*; the terminal app shows the diff in the built-in viewer, or *The file is the same now as in the snapshot* |
 | **Backspace**, `..` | Up; from the top of a snapshot to the list, from the list to the folder on disk |
-| **F3**, **Space** | Desktop app: the preview pane, with *File / Diff*. Terminal app: **F3** opens the file in your pager |
+| **F3**, **Space** | Desktop app: the preview pane, with *File / Diff*. Terminal app: **F3** opens the file in the built-in viewer |
 | **F5** | Copies out, as it was then. Never over an existing file |
 | **F4**, **F6**, **F7**, **F8**, **Shift+F8** | Refused at once: *A ZFS snapshot is read-only: F5 copies a file or folder out of it* |
 | **Alt+Enter** | Properties of the file as the snapshot has it, with the dataset's facts |
@@ -156,7 +156,7 @@ Nothing to turn on: the footer line and **Alt+Z** are there whenever a folder is
 
 Everything above works the same, keys included. The differences: the title says
 `[snapshots of tank/home]` or `[snapshot daily of tank/home]`; **Enter** on a file in a snapshot
-shows its diff against now in your pager (the desktop app shows it in the preview pane); the ZFS
+shows its diff against now in the built-in viewer (the desktop app shows it in the preview pane); the ZFS
 line is in the panel's bottom border, between the git line and the sort letter. The list of
 snapshots is read on a thread, so the keys keep working while `zfs` answers.
 

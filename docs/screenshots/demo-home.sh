@@ -171,7 +171,7 @@ touch -d "2019-06-01 12:00" "$d/Backups/old-laptop-2019/debrief.docx"
 mkdir -p "$d/Backups/read-only" && chmod 555 "$d/Backups/read-only"
 
 # No "new version" notice in the pictures.
-mkdir -p "$d/.config/coxswain" && printf 'check_updates = false\n' > "$d/.config/coxswain/config.toml"
+mkdir -p "$d/.config/coxswain" && printf 'check_updates = false\n\n# The name index of the demo home only: / in the sandbox is the host'"'"'s root.\n[search]\nname_roots = ["/home/demo"]\n' > "$d/.config/coxswain/config.toml"
 # A git config of the demo user's own, for the Git config view (Alt+C): an include, a password
 # it hides, and an email the repository sets again.
 printf '[user]\n\tname = Demo User\n\temail = demo@example.com\n[init]\n\tdefaultBranch = master\n[sendemail]\n\tsmtpServer = smtp.example.com\n\tsmtpPass = launch-day-42\n[include]\n\tpath = .gitconfig-aliases\n' > "$d/.gitconfig"
@@ -276,4 +276,40 @@ cat > "$d/Downloads/launch-news.html" <<'EOF'
 <p>The rocket left the pad at 08:00 and flew for 92 seconds.</p>
 <img src="https://example.com/images/liftoff.jpg" alt="Lift-off"> <img src="https://example.com/images/crowd.jpg" alt="The crowd">
 <p>Pictures: the launch team.</p>
+EOF
+# Old languages, for the highlighted previews and the terminal app's viewer.
+mkdir -p "$d/projects/legacy"
+cat > "$d/projects/legacy/PAYROLL.cbl" <<'EOF'
+      *> Payroll for the launch crew, as it ran in 1979.
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. PAYROLL.
+       DATA DIVISION.
+       WORKING-STORAGE SECTION.
+       01  CREW-COUNT        PIC 9(3)    VALUE 12.
+       01  HOURLY-RATE       PIC 9(3)V99 VALUE 18.50.
+       01  HOURS             PIC 9(3)    VALUE 40.
+       01  WEEKLY-PAY        PIC 9(6)V99.
+       PROCEDURE DIVISION.
+       MAIN-PARA.
+           MULTIPLY HOURLY-RATE BY HOURS GIVING WEEKLY-PAY.
+           DISPLAY "CREW: " CREW-COUNT.
+           DISPLAY "WEEKLY PAY EACH: " WEEKLY-PAY.
+           IF WEEKLY-PAY > 500
+               DISPLAY "OVERTIME REVIEW"
+           END-IF.
+           STOP RUN.
+EOF
+cat > "$d/projects/legacy/orbit.f90" <<'EOF'
+! Orbital period of a circular orbit, in minutes.
+program orbit
+  implicit none
+  real, parameter :: mu = 398600.4418   ! km^3/s^2, the Earth
+  real :: radius, period
+  integer :: i
+  do i = 1, 5
+    radius = 6371.0 + 200.0 * i
+    period = 2.0 * 3.14159265 * sqrt(radius**3 / mu) / 60.0
+    print '(A, F8.1, A, F6.1, A)', 'r = ', radius, ' km: ', period, ' min'
+  end do
+end program orbit
 EOF

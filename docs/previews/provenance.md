@@ -51,8 +51,8 @@ same view in a window.
   the base64. **Source** shows the file as it is.
 
 **Terminal app.** **F3** on a provenance file opens the viewer full screen; **F3** there (or
-`s`) shows the source in your pager, as F3 did before. `provenance_viewer = false` keeps the
-pager. At 100 columns or more the three columns sit side by side; narrower, they are stacked.
+`s`) shows the source in the built-in viewer, as F3 does on any file. `provenance_viewer = false`
+shows the source straight away. At 100 columns or more the three columns sit side by side; narrower, they are stacked.
 
 | Key | Does |
 |---|---|
@@ -65,7 +65,7 @@ pager. At 100 columns or more the three columns sit side by side; narrower, they
 | n | While comparing: the list of changes, or the details |
 | o | Open a CycloneDX predicate in the [BOM viewer](bom.md) |
 | d / u | Scroll the details |
-| F3 / s | The source in your pager |
+| F3 / s | The source in the built-in viewer |
 | Esc | Close |
 
 ## What the marks mean
@@ -183,7 +183,7 @@ same repository is one change, not a removal and an addition.
 
 | Where | Key | Default | Does |
 |---|---|---|---|
-| `config.toml`, top level; Settings → *Behaviour* (both apps) → *Provenance viewer on F3 (terminal app)* | `provenance_viewer` | `true` | The terminal app's **F3** on provenance opens the provenance viewer; `false` opens the pager as for any file |
+| `config.toml`, top level; Settings → *Behaviour* (both apps) → *Provenance viewer on F3 (terminal app)* | `provenance_viewer` | `true` | The terminal app's **F3** on provenance opens the provenance viewer; `false` opens the built-in viewer as for any file |
 
 The desktop app itself has no setting for it: the preview pane always shows provenance, and the
 **Flow / Statement / Source** switch remembers your choice. See also
@@ -233,8 +233,8 @@ fetched from the network. Use one of the verifiers in
 
 #### How do I get the old F3 back in the terminal app?
 
-In the viewer, **F3** again (or `s`) opens the file in your pager. To make F3 always open the
-pager, set `provenance_viewer = false` in `config.toml`.
+In the viewer, **F3** again (or `s`) shows the file in the built-in viewer; **Esc** there comes
+back. To make F3 always show the source, set `provenance_viewer = false` in `config.toml`.
 
 ---
 [← Previous: Cryptography bills of materials](bom.md) · [Next: Media and files →](media.md)

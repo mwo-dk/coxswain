@@ -29,7 +29,7 @@ one without starting the program it belongs to.
 
 | Key | Desktop app | Terminal app |
 |---|---|---|
-| **Space** / **F3** | Shows or hides the pane | **F3** opens the file in your pager |
+| **Space** / **F3** | Shows or hides the pane | **F3** opens the file in the built-in viewer |
 | **Enter** | Opens the file in its program | The same |
 
 ## Formats
@@ -137,7 +137,7 @@ The PDFs for scans have `[preview.images] ocrmypdf` ([Make PDF searchable](../fi
 ## In the terminal app
 
 No preview pane (a terminal cannot draw pages or pictures). **Enter** opens the document in its
-program; **F3** opens it in your pager, which is useful for `.eml`, `.ics`, `.vcf`, `.adoc` and
+program; **F3** opens it in the built-in viewer, which is useful for `.eml`, `.ics`, `.vcf`, `.adoc` and
 `.rst`, which are text. Their contents are searchable in both apps:
 [Documents search reads](../search/documents.md).
 

@@ -92,9 +92,9 @@ the defaults; an old `roots` or `exclude` in `[search]` is ignored, like any unk
 | `show_hidden` | bool | `true` | Show hidden files at start; **Alt+.** switches | Both |
 | `folder_sizes` | bool | `true` | Measure folders in the background. The desktop app starts from it, then keeps its own switch ([Folder sizes](../panels/folder-sizes.md)) | Both |
 | `editor` | string | none | The program for **F4**. Terminal app: else `$VISUAL`, `$EDITOR`, `vi` (`notepad` on Windows). Desktop app: else the default application ([View and edit](../commands/view-and-edit.md)) | Both |
-| `viewer` | string | none | The terminal app's **F3**; else `$PAGER`, `less` (`more` on Windows) | Terminal |
-| `bom_viewer` | bool | `true` | **F3** on a CycloneDX BOM opens the BOM viewer; `false` opens the pager ([Cryptography bills of materials](../previews/bom.md)) | Terminal |
-| `provenance_viewer` | bool | `true` | **F3** on build provenance opens the provenance viewer; `false` opens the pager ([Build provenance](../previews/provenance.md)) | Terminal |
+| `viewer` | string | none | A program for the terminal app's **F3**; unset, the [built-in viewer](../commands/view-and-edit.md#the-built-in-viewer) | Terminal |
+| `bom_viewer` | bool | `true` | **F3** on a CycloneDX BOM opens the BOM viewer; `false` opens the built-in viewer ([Cryptography bills of materials](../previews/bom.md)) | Terminal |
+| `provenance_viewer` | bool | `true` | **F3** on build provenance opens the provenance viewer; `false` opens the built-in viewer ([Build provenance](../previews/provenance.md)) | Terminal |
 | `confirm_delete` | bool | `true` | Ask before moving to the trash, deleting, or taking something out of an archive | Both |
 | `right_click` | string | `"mark"` | A right-click on a row: `"mark"` marks it (Norton Commander), `"menu"` opens the [action menu](../panels/action-menu.md); Ctrl+right-click does the other in the desktop app | Both |
 | `hints` | bool | `true` | One short hint on the status line that fits what is under the cursor, each shown three times ([Hints](../panels/action-menu.md#hints-on-the-status-line)) | Both |
