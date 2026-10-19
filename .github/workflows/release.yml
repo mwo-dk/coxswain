@@ -4,7 +4,9 @@ name: Release
 # no release yet, builds every platform, checks that every file is there, publishes the GitHub
 # Release (which creates the tag) and updates crates.io, Homebrew and the FreeBSD port. WinGet is
 # not updated here: winget.yml files the newest release there once a week.
-# To release, bump `version` in Cargo.toml. Nothing else. A push without a new version only tests.
+# To release, merge a release pull request: it bumps `version` in Cargo.toml and moves the
+# changelog's Unreleased rows into the version's row (CLAUDE.md). A push without a new version
+# only tests.
 #
 #   version ─┬─ test-ci, test-freebsd, test-netbsd, test-openbsd, test-illumos,
 #            │  test-termux, test-flatpak, test-nix          (the systems' own workflows, in parallel)
